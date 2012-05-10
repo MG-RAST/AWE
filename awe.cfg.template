@@ -1,0 +1,16 @@
+[AWE]
+site-port=80
+api-port=8000
+
+[Admin]
+email=admin@host.com
+secretkey=supersecretkey
+
+[Directories]
+site=/local/shock/site
+logs=/var/log/awe
+
+[Mongodb]
+# Pattern:
+#    hosts=host1[,host2,...,hostN]
+hosts=localhost

@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
+	"github.com/MG-RAST/AWE/core"
 	"github.com/jaredwilkening/goweb"
+	"math/rand"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -88,4 +91,52 @@ func ResourceDescription(cx *goweb.Context) {
 		T: "AWE",
 	}
 	cx.WriteResponse(r, 200)
+}
+
+// helper function for create & update
+func ParseMultipartForm(r *http.Request) (params map[string]string, files core.FormFiles, err error) {
+	params = make(map[string]string)
+	files = make(core.FormFiles)
+
+	reader, err := r.MultipartReader()
+	if err != nil {
+		return
+	}
+	for {
+		if part, err := reader.NextPart(); err == nil {
+
+			if part.FileName() == "" {
+				buffer := make([]byte, 32*1024)
+				n, err := part.Read(buffer)
+				if n == 0 || err != nil {
+					break
+				}
+				params[part.FormName()] = fmt.Sprintf("%s", buffer[0:n])
+			} else {
+
+				tmpPath := fmt.Sprintf("%s/temp/%d%d", conf.DATA_PATH, rand.Int(), rand.Int())
+				files[part.FormName()] = core.FormFile{Name: part.FileName(), Path: tmpPath, Checksum: make(map[string]string)}
+				if tmpFile, err := os.Create(tmpPath); err == nil {
+					buffer := make([]byte, 32*1024)
+					for {
+						n, err := part.Read(buffer)
+						if n == 0 || err != nil {
+							break
+						}
+						tmpFile.Write(buffer[0:n])
+					}
+					tmpFile.Close()
+				} else {
+					return nil, nil, err
+				}
+			}
+		} else if err.Error() != "EOF" {
+			fmt.Println("err here")
+			return nil, nil, err
+		} else {
+			break
+		}
+	}
+
+	return
 }

@@ -37,7 +37,7 @@ func launchSite(control chan int, port int) {
 func launchAPI(control chan int, port int) {
 	goweb.ConfigureDefaultFormatters()
 	r := &goweb.RouteManager{}
-	//r.MapRest("/job", new(NodeController))
+	r.MapRest("/job", new(JobController))
 	//r.MapRest("/user", new(UserController))
 	r.MapFunc("*", ResourceDescription, goweb.GetMethod)
 	if conf.SSL_ENABLED {

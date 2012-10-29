@@ -2,7 +2,7 @@ package core
 
 import (
 	"encoding/json"
-	"launchpad.net/mgo/bson"
+	"labix.org/v2/mgo/bson"
 	"testing"
 )
 

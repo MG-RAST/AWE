@@ -6,11 +6,11 @@ type TaskList []Task
 
 type Task struct {
 	Info      *Info      `bson:"info" json:"info"`
-	Inputs    IOmap     `bson:"inputs" json:"inputs"`
-	Outputs   IOmap     `bson:"outputs" json:"outputs"`
+	Inputs    IOmap      `bson:"inputs" json:"inputs"`
+	Outputs   IOmap      `bson:"outputs" json:"outputs"`
 	Cmd       *Command   `bson:"cmd" json:"cmd"`
 	Partition *Partition `bson:"partion" json:"partion"`
-	DependsOn []string  `bson:"dependsOn" json:"dependsOn"`
+	DependsOn []string   `bson:"dependsOn" json:"dependsOn"`
 }
 
 type IOmap map[string]*IO
@@ -28,16 +28,16 @@ type Partition struct {
 	Options string `bson:"options" json:"options"`
 }
 
-func NewTaskList() *TaskList {
-	return &TaskList{}
-}
+//func NewTaskList() []TaskList {
+//	return []Task{}
+//}
 
 func NewTask() *Task {
 	return &Task{
-		Info: NewInfo(),
-		Inputs: NewIOmap(),
-		Outputs: NewIOmap(),
-		Cmd: &Command{},
+		Info:      NewInfo(),
+		Inputs:    NewIOmap(),
+		Outputs:   NewIOmap(),
+		Cmd:       &Command{},
 		Partition: nil,
 		DependsOn: []string{},
 	}
@@ -55,17 +55,16 @@ func (i IOmap) Add(name string, url string, md5 string, cache bool) {
 func (i IOmap) Has(name string) bool {
 	if _, has := i[name]; has {
 		return true
-	} 
+	}
 	return false
 }
 
 func (i IOmap) Find(name string) *IO {
 	if val, has := i[name]; has {
 		return val
-	} 
+	}
 	return nil
 }
-
 
 func NewIO() *IO {
 	return &IO{}

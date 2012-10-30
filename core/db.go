@@ -66,6 +66,21 @@ func (d *db) FindById(id string, result *Job) (err error) {
 	return
 }
 
+func (d *db) FindJobs(ids []string, results *[]*Job) (err error) {
+	err = d.Jobs.Find(bson.M{"id": bson.M{"$in": ids}}).All(results)
+	return
+}
+
+func (d *db) GetAll(q bson.M, results *Jobs) (err error) {
+	err = d.Jobs.Find(q).All(results)
+	return
+}
+
+func (d *db) GetAllLimitOffset(q bson.M, results *Jobs, limit int, offset int) (err error) {
+	err = d.Jobs.Find(q).Limit(limit).Skip(offset).All(results)
+	return
+}
+
 func (d *db) Close() {
 	d.Session.Close()
 	return

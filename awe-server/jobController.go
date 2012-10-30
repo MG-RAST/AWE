@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"github.com/MG-RAST/AWE/core"
 	e "github.com/MG-RAST/Shock/errors"
 	"github.com/jaredwilkening/goweb"
+	"labix.org/v2/mgo/bson"
 	"net/http"
+	"strconv"
 )
 
 type JobController struct{}
@@ -53,5 +56,86 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		return
 	}
 	cx.RespondWithData(job)
+	return
+}
+
+// GET: /job/{id}
+func (cr *JobController) Read(id string, cx *goweb.Context) {
+	// Gather query params
+	//query := &Query{list: cx.Request.URL.Query()}
+
+	// Load job by id
+	job, err := core.LoadJob(id)
+	if err != nil {
+		if err.Error() == e.MongoDocNotFound {
+			cx.RespondWithNotFound()
+			return
+		} else {
+			// In theory the db connection could be lost between
+			// checking user and load but seems unlikely.
+			log.Error("Err@node_Read:LoadNode: " + err.Error())
+			cx.RespondWithError(http.StatusInternalServerError)
+			return
+		}
+	}
+	// Base case respond with node in json	
+	cx.RespondWithData(job)
+}
+
+// GET: /job
+// To do:
+// - Iterate job queries
+func (cr *JobController) ReadMany(cx *goweb.Context) {
+
+	// Gather query params
+	query := &Query{list: cx.Request.URL.Query()}
+
+	// Setup query and jobss objects
+	q := bson.M{}
+	jobs := new(core.Jobs)
+
+	// Gather params to make db query. Do not include the
+	// following list.	
+	skip := map[string]int{"limit": 1, "skip": 1, "query": 1}
+	if query.Has("query") {
+		for key, val := range query.All() {
+			_, s := skip[key]
+			if !s {
+				q[fmt.Sprintf("attributes.%s", key)] = val[0]
+			}
+		}
+	}
+
+	// Limit and skip. Set default if both are not specified
+	if query.Has("limit") || query.Has("skip") {
+		var lim, off int
+		if query.Has("limit") {
+			lim, _ = strconv.Atoi(query.Value("limit"))
+		} else {
+			lim = 100
+		}
+		if query.Has("skip") {
+			off, _ = strconv.Atoi(query.Value("skip"))
+		} else {
+			off = 0
+		}
+		// Get nodes from db
+		err := jobs.GetAllLimitOffset(q, lim, off)
+		if err != nil {
+			log.Error("err " + err.Error())
+			cx.RespondWithError(http.StatusBadRequest)
+			return
+		}
+	} else {
+		// Get nodes from db
+		err := jobs.GetAll(q)
+		if err != nil {
+			log.Error("err " + err.Error())
+			cx.RespondWithError(http.StatusBadRequest)
+			return
+		}
+	}
+
+	cx.RespondWithData(jobs)
 	return
 }

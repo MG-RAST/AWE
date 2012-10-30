@@ -10,16 +10,16 @@ import (
 )
 
 type Job struct {
-	Id     string    `bson:"id" json:"id"`
-	Info   *Info     `bson:"info" json:"info"`
-	Tasks  *TaskList `bson:"tasks" json:"tasks"`
-	Script script    `bson:"script" json:"script"`
+	Id     string   `bson:"id" json:"id"`
+	Info   *Info    `bson:"info" json:"info"`
+	Tasks  TaskList `bson:"tasks" json:"tasks"`
+	Script script   `bson:"script" json:"script"`
 }
 
 func NewJob() (job *Job) {
 	job = new(Job)
 	job.Info = NewInfo()
-	job.Tasks = NewTaskList()
+	job.Tasks = []Task{}
 	job.setId()
 	return
 }

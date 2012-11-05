@@ -9,10 +9,15 @@ func CreateJobUpload(params map[string]string, files FormFiles) (job *Job, err e
 	if err != nil {
 		return
 	}
-	err = job.Update(params, files)
+	err = job.UpdateFile(params, files)
 	if err != nil {
 		return
 	}
+	err = job.ParseTasks()
+	if err != nil {
+		return
+	}
+
 	err = job.Save()
 	return
 }

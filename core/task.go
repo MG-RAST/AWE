@@ -1,16 +1,20 @@
 package core
 
-import ()
-
-type TaskList []Task
+import (
+	"fmt"
+)
 
 type Task struct {
-	Info      *Info      `bson:"info" json:"info"`
-	Inputs    IOmap      `bson:"inputs" json:"inputs"`
-	Outputs   IOmap      `bson:"outputs" json:"outputs"`
-	Cmd       *Command   `bson:"cmd" json:"cmd"`
-	Partition *Partition `bson:"partion" json:"partion"`
-	DependsOn []string   `bson:"dependsOn" json:"dependsOn"`
+	Id         string     `bson:"taskid" json:"taskid"`
+	Info       *Info      `bson:"info" json:"info"`
+	Inputs     IOmap      `bson:"inputs" json:"inputs"`
+	Outputs    IOmap      `bson:"outputs" json:"outputs"`
+	Cmd        *Command   `bson:"cmd" json:"cmd"`
+	Partition  *Partition `bson:"partition" json:"partition"`
+	DependsOn  []string   `bson:"dependsOn" json:"dependsOn"`
+	TotalWork  int        `bson:"totalwork" json:"totalwork"`
+	RemainWork int        `bson:"remainWork" json:"remainWork"`
+	State      string     `bson:"state" json:"state"`
 }
 
 type IOmap map[string]*IO
@@ -28,18 +32,18 @@ type Partition struct {
 	Options string `bson:"options" json:"options"`
 }
 
-//func NewTaskList() []TaskList {
-//	return []Task{}
-//}
-
-func NewTask() *Task {
+func NewTask(job *Job, rank int) *Task {
 	return &Task{
-		Info:      NewInfo(),
-		Inputs:    NewIOmap(),
-		Outputs:   NewIOmap(),
-		Cmd:       &Command{},
-		Partition: nil,
-		DependsOn: []string{},
+		Id:         fmt.Sprintf("%s_%d", job.Id, rank),
+		Info:       job.Info,
+		Inputs:     NewIOmap(),
+		Outputs:    NewIOmap(),
+		Cmd:        &Command{},
+		Partition:  nil,
+		DependsOn:  []string{},
+		TotalWork:  1,
+		RemainWork: 1,
+		State:      "init",
 	}
 }
 
@@ -70,4 +74,16 @@ func NewIO() *IO {
 	return &IO{}
 }
 
-//func (t *Task) 
+//---Field update functions
+func (task *Task) UpdateState(newState string) string {
+	task.State = newState
+	return task.State
+}
+
+func (task *Task) ParseWorkunit() (wus []*Workunit, err error) {
+	for i := 0; i < task.TotalWork; i++ {
+		workunit := NewWorkunit(task, i)
+		wus = append(wus, workunit)
+	}
+	return
+}

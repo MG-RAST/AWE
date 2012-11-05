@@ -3,13 +3,15 @@ package main
 import (
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
+	"github.com/MG-RAST/AWE/core"
 	"github.com/MG-RAST/AWE/logger"
 	"github.com/jaredwilkening/goweb"
 	"os"
 )
 
 var (
-	log = logger.New()
+	log      = logger.New()
+	queueMgr = core.NewQueueMgr()
 )
 
 func launchSite(control chan int, port int) {
@@ -63,6 +65,8 @@ func main() {
 	//launch server
 	control := make(chan int)
 	go log.Handle()
+	go queueMgr.Handle()
+	go queueMgr.Timer()
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)
 	<-control //block till something dies

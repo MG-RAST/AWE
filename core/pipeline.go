@@ -3,8 +3,8 @@ package core
 import ()
 
 type Pipeline struct {
-	Info  *Info    `bson:"info" json:"info"`
-	Tasks TaskList `bson:"tasks" json:"tasks"`
+	Info  *Info  `bson:"info" json:"info"`
+	Tasks []Task `bson:"tasks" json:"tasks"`
 }
 
 func NewPipeline() *Pipeline {

@@ -55,13 +55,18 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	queueMgr.AddTasks(job.TaskList())
+
+	//Parse job into tasks and push into task map 
+
 	cx.RespondWithData(job)
 	return
 }
 
 // GET: /job/{id}
 func (cr *JobController) Read(id string, cx *goweb.Context) {
-	// Gather query params
+	//Gather query params
 	//query := &Query{list: cx.Request.URL.Query()}
 
 	// Load job by id

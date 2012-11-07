@@ -3,30 +3,71 @@ package main
 import (
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
+	"github.com/MG-RAST/AWE/core"
+	"github.com/MG-RAST/AWE/logger"
 	"github.com/jaredwilkening/goweb"
+	"os"
 )
 
-func main() {
-	fmt.Printf("%s\n######### Conf #########\nmongodb:\t%s\nsecretkey:\t%s\nsite-port:\t%d\napi-port:\t%d\n\n####### Starting #######\n",
-		logo,
-		conf.MONGODB,
-		conf.SECRETKEY,
-		conf.SITEPORT,
-		conf.APIPORT,
-	)
+var (
+	log      = logger.New()
+	queueMgr = core.NewQueueMgr()
+)
 
-	c := make(chan int)
+func launchSite(control chan int, port int) {
 	goweb.ConfigureDefaultFormatters()
-	// start site
-	go func() {
-		r := &goweb.RouteManager{}
-		r.MapFunc("*", Site)
-		c <- 1
-		goweb.ListenAndServeRoutes(fmt.Sprintf(":%d", conf.SITEPORT), r)
-		c <- 1
-	}()
-	<-c
-	fmt.Printf("site :%d... running\n", conf.SITEPORT)
-	fmt.Printf("\n######### Log  #########\n")
-	<-c
+	r := &goweb.RouteManager{}
+	r.MapFunc("/raw", RawDir)
+	r.MapFunc("/assets", AssetsDir)
+	r.MapFunc("*", Site)
+	if conf.SSL_ENABLED {
+		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.SITE_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: site: %v\n", err)
+			log.Error("ERROR: site: " + err.Error())
+		}
+	} else {
+		err := goweb.ListenAndServeRoutes(fmt.Sprintf(":%d", conf.SITE_PORT), r)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: site: %v\n", err)
+			log.Error("ERROR: site: " + err.Error())
+		}
+	}
+	control <- 1 //we are ending
+}
+
+func launchAPI(control chan int, port int) {
+	goweb.ConfigureDefaultFormatters()
+	r := &goweb.RouteManager{}
+	r.MapRest("/job", new(JobController))
+	//r.MapRest("/user", new(UserController))
+	r.MapFunc("*", ResourceDescription, goweb.GetMethod)
+	if conf.SSL_ENABLED {
+		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.API_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: api: %v\n", err)
+			log.Error("ERROR: api: " + err.Error())
+		}
+	} else {
+		err := goweb.ListenAndServeRoutes(fmt.Sprintf(":%d", conf.API_PORT), r)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: api: %v\n", err)
+			log.Error("ERROR: api: " + err.Error())
+		}
+	}
+	control <- 1 //we are ending
+}
+
+func main() {
+	printLogo()
+	conf.Print()
+
+	//launch server
+	control := make(chan int)
+	go log.Handle()
+	go queueMgr.Handle()
+	go queueMgr.Timer()
+	go launchSite(control, conf.SITE_PORT)
+	go launchAPI(control, conf.API_PORT)
+	<-control //block till something dies
 }

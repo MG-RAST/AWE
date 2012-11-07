@@ -13,22 +13,22 @@ func TestIOmap(t *testing.T) {
 	i.Add("qc.failed.fna", "http://shock.mcs.anl.gov:8000/node/f361be3e7a0914f82147bc1ba68df41e", "dff5aa75f124db423cda694c16254f69", false)
 	m, _ := json.Marshal(i)
 	print(string(m) + "\n")
-	
-	if !i.Has("qc.passed.fna") || !i.Has("qc.failed.fna") { 
+
+	if !i.Has("qc.passed.fna") || !i.Has("qc.failed.fna") {
 		t.Fail()
 	}
-	
-	if v := i.Find("qc.passed.fna"); v == nil { 
+
+	if v := i.Find("qc.passed.fna"); v == nil {
 		t.Fail()
 	}
-	
+
 	if v := i.Find("qc.failed.fna"); v == nil {
-		t.Fail()		
+		t.Fail()
 	}
 
 	if v := i.Find("doesnotexist"); v != nil {
-		t.Fail()		
-	}	
+		t.Fail()
+	}
 }
 
 func TestCommand(t *testing.T) {

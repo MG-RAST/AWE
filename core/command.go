@@ -15,16 +15,21 @@ type Command struct {
 	Args         string `bson:"args" json:"args"`
 	Template     string `bson:"template" json:"template"`
 	Description  string `bson:"description" json:"description"`
-	RequiredArgs int    `bson:"description" json:"description"`
+	RequiredArgs int    `bson:"requiredargs" json:"requiredargs"`
 }
 
-func (c *Command) Substitute(inputs *IOmap, outputs *IOmap) (err error){
+func (c *Command) Substitute(inputs *IOmap, outputs *IOmap) (err error) {
 	if len(c.Template) == 0 {
 		return
 	}
 	for _, s := range TemplateRe.FindAllString(c.Template, -1) {
-		print(s+"\n")
+		print(s + "\n")
 	}
 	return
 }
 
+func NewCommand(name string) *Command {
+	return &Command{
+		Name: name,
+	}
+}

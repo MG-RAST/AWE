@@ -1,0 +1,120 @@
+    {
+        "info": {
+            "name": "darkmatter_test", 
+            "owner": "wtang", 
+            "priority": 1, 
+            "submittime": "2012-11-10T18:44:11.442526-06:00"
+        }, 
+        "script": {
+            "name": "sample.script", 
+            "type": ""
+        }, 
+        "state": "submitted", 
+        "tasks": [
+            {
+                "cmd": {
+                    "args": "-gnome=$input_1 -out=$output_1 -complete=0 -train=complete", 
+                    "description": "gene calling", 
+                    "name": "run_FragGeneScan.pl", 
+                    "options": "", 
+                    "requiredargs": 0, 
+                    "template": ""
+                }, 
+                "dependsOn": [], 
+                "inputs": {
+                    "sample.fna": {
+                        "cache": false, 
+                        "md5": "", 
+                        "name": "sample.fna", 
+                        "url": "http://localhost:8000/node/1b4d347-85b7-4355-ab5b-642db994f87a"
+                    }
+                }, 
+                "outputs": {}, 
+                "partition": null,
+                "taskid": "0", 
+                "state": "init", 
+                "totalwork": 1
+            }, 
+            {
+                "cmd": {
+                    "args": "-a", 
+                    "description": "clustering and amino acid assembly", 
+                    "name": "Clustgun", 
+                    "options": "", 
+                    "requiredargs": 0, 
+                    "template": ""
+                }, 
+                "dependsOn": [
+                    "0"
+                ],  
+                "inputs": {
+                    "fgs_output": {
+                        "cache": false, 
+                        "md5": "", 
+                        "name": "fgs_output", 
+                        "url": ""
+                    }
+                }, 
+                "outputs": {}, 
+                "partition": null, 
+                "remainWork": 1, 
+                "state": "init", 
+                "taskid": "1", 
+                "totalwork": 1
+            }, 
+            {
+                "cmd": {
+                    "args": "-c 4", 
+                    "description": "similarity search using parallel Blat", 
+                    "name": "SuperBlat", 
+                    "options": "", 
+                    "requiredargs": 0, 
+                    "template": ""
+                }, 
+                "dependsOn": [
+                    "1"
+                ], 
+                "inputs": {
+                    "clustgun_output": {
+                        "cache": false, 
+                        "md5": "", 
+                        "name": "clustgun_output", 
+                        "url": ""
+                    }
+                }, 
+                "outputs": {}, 
+                "partition": null, 
+                "remainWork": 1, 
+                "state": "init", 
+                "taskid": "2", 
+                "totalwork": 1
+            }, 
+            {
+                "cmd": {
+                    "args": "-c 4", 
+                    "description": "HHM-based homology detect using HHpred", 
+                    "name": "hhsearch", 
+                    "options": "", 
+                    "requiredargs": 0, 
+                    "template": ""
+                }, 
+                "dependsOn": [
+                    "2"
+                ], 
+                "inputs": {
+                    "blat_output": {
+                        "cache": false, 
+                        "md5": "", 
+                        "name": "blat_output", 
+                        "url": ""
+                    }
+                }, 
+                "outputs": {}, 
+                "partition": null, 
+                "remainWork": 1, 
+                "state": "init", 
+                "taskid": "3", 
+                "totalwork": 1
+            }
+        ]
+    }

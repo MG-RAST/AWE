@@ -7,6 +7,7 @@ import (
 	"github.com/jaredwilkening/goweb"
 	"labix.org/v2/mgo/bson"
 	"net/http"
+	"path/filepath"
 	"strconv"
 )
 
@@ -37,18 +38,33 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	if err != nil {
 		// If not multipart/form-data it will create an empty node. 
 		if err.Error() == "request Content-Type isn't multipart/form-data" {
-			cx.RespondWithErrorMessage("No job script is found in submission", http.StatusBadRequest)
+			cx.RespondWithErrorMessage("No job file is submitted", http.StatusBadRequest)
 		} else {
 			// Some error other than request encoding. Theoretically 
 			// could be a lost db connection between user lookup and parsing.
 			// Blame the user, Its probaby their fault anyway.
 			log.Error("Error parsing form: " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
-			return
 		}
+		return
 	}
-	// Create job	
-	job, err := core.CreateJobUpload(params, files)
+	// Create job
+
+	_, hasupload := files["upload"]
+
+	if !hasupload {
+		cx.RespondWithErrorMessage("No job script is submitted", http.StatusBadRequest)
+		return
+	}
+
+	var job *core.Job
+
+	fileExt := filepath.Ext(files["upload"].Name)
+	if fileExt == ".json" {
+		job, err = core.CreateJobUploadJson(params, files)
+	} else {
+		job, err = core.CreateJobUpload(params, files)
+	}
 
 	if err != nil {
 		log.Error("err " + err.Error())

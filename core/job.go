@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
@@ -10,6 +11,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"os"
 	"strings"
+	"time"
 )
 
 type Job struct {
@@ -173,6 +175,17 @@ func (job *Job) ParseTasks() (err error) {
 
 		task.Cmd = cmd
 
+		inputName, _ := c.String(section, "input_name")
+		inputUrl, _ := c.String(section, "input_url")
+
+		io := &IO{Name: inputName,
+			Url:   inputUrl,
+			MD5:   "",
+			Cache: false,
+		}
+
+		task.Inputs[inputName] = io
+
 		dependon, _ := c.String(section, "dependOn")
 		if dependon != "" {
 			for _, depend := range strings.Split(dependon, ",") {
@@ -182,6 +195,42 @@ func (job *Job) ParseTasks() (err error) {
 		}
 
 		job.Tasks = append(job.Tasks, *task)
+	}
+	return
+}
+
+func ParseJobTasksByJson(filename string) (job *Job, err error) {
+	job = new(Job)
+
+	jsonstream, err := ioutil.ReadFile(filename)
+
+	if err != nil {
+		return nil, errors.New("error in reading job json file")
+	}
+
+	json.Unmarshal(jsonstream, job)
+
+	if job.Info == nil {
+		job.Info = NewInfo()
+	}
+
+	job.Info.SubmitTime = time.Now()
+	job.Info.Priority = conf.BasePriority
+
+	job.setId()
+	job.State = "submitted"
+
+	for i := 0; i < len(job.Tasks); i++ {
+		taskid := fmt.Sprintf("%s_%d", job.Id, i)
+		job.Tasks[i].Id = taskid
+		job.Tasks[i].Info = job.Info
+		job.Tasks[i].State = "init"
+		job.Tasks[i].RemainWork = job.Tasks[i].TotalWork
+
+		for j := 0; j < len(job.Tasks[i].DependsOn); j++ {
+			depend := job.Tasks[i].DependsOn[j]
+			job.Tasks[i].DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)
+		}
 	}
 	return
 }

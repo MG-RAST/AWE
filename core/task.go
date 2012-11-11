@@ -13,7 +13,7 @@ type Task struct {
 	Partition  *Partition `bson:"partition" json:"partition"`
 	DependsOn  []string   `bson:"dependsOn" json:"dependsOn"`
 	TotalWork  int        `bson:"totalwork" json:"totalwork"`
-	RemainWork int        `bson:"remainWork" json:"remainWork"`
+	RemainWork int        `bson:"remainwork" json:"remainwork"`
 	State      string     `bson:"state" json:"state"`
 }
 

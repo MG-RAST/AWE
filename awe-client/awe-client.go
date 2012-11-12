@@ -8,18 +8,27 @@ import (
 )
 
 var (
-	TotalWorker = runtime.NumCPU()
-	workChan    = make(chan *Workunit, TotalWorker)
+	TotalWorker  = runtime.NumCPU()
+	workChan     = make(chan *Workunit, TotalWorker)
+	aweServerUrl = "http://localhost:8001/work"
 )
 
 func workStealer(control chan int) {
 	fmt.Printf("workStealer lanched\n")
 	defer fmt.Printf("workStealer exiting...\n")
 	for {
-		if wu, err := CheckoutWorkunit(); err == nil {
-			fmt.Printf("checked out a workunit: id=%s\n", wu.Id)
-			workChan <- wu
+		wu, err := CheckoutWorkunitRemote(aweServerUrl)
+		if err != nil {
+			if err.Error() == "empty workunit queue" {
+				fmt.Printf("queue empty, try again 5 seconds later\n")
+				time.Sleep(5 * time.Second)
+			} else {
+				fmt.Printf("error in checkoutWorkunitRemote %v\n", err)
+			}
+			continue
 		}
+		fmt.Printf("checked out a workunit: id=%s\n", wu.Id)
+		workChan <- wu
 	}
 	control <- 1 //we are ending
 }
@@ -29,6 +38,7 @@ func workProcessor(control chan int, num int) {
 	defer fmt.Printf("workProcessor exiting...\n")
 	for {
 		work := <-workChan
+		fmt.Printf("work=%v\n", *work)
 		run_work(work, num)
 	}
 
@@ -36,10 +46,11 @@ func workProcessor(control chan int, num int) {
 }
 
 func run_work(work *Workunit, num int) {
+
 	fmt.Printf("processor %d started run workunit id=%s\n", num, work.Id)
 	defer fmt.Printf("processor %d finished run workunit id=%s\n", num, work.Id)
 
-	time.Sleep(time.Duration(num+5) * time.Second)
+	time.Sleep(time.Duration(num+10) * time.Second)
 }
 
 func main() {

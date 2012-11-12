@@ -59,7 +59,6 @@ var (
 )
 
 func init() {
-	fmt.Println("In AWE/conf/conf.go")
 	flag.StringVar(&CONFIG_FILE, "conf", "/user/local/awe/conf/awe.cfg", "path to config file")
 	//	flag.StringVar(&RELOAD, "reload", "", "path or url to shock data. WARNING this will drop all current data.")
 	flag.Parse()

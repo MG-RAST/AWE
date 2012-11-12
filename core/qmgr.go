@@ -173,9 +173,9 @@ func (wq *WQueue) PopWorkFCFS() (workunit *Workunit, err error) {
 	if wq.Len() == 0 {
 		return nil, errors.New("workunit queue is empty")
 	}
-    
-    //some workunit might be checked out by id, thus keep popping
-    //pQue until find an Id with queued workunit
+
+	//some workunit might be checked out by id, thus keep popping
+	//pQue until find an Id with queued workunit
 	for {
 		item := heap.Pop(&wq.pQue).(*pqueue.Item)
 		id := item.Value()

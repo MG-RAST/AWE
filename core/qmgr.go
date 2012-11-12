@@ -1,8 +1,10 @@
 package core
 
 import (
+	"container/heap"
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/core/pqueue"
 	"time"
 )
 
@@ -26,7 +28,17 @@ func NewQueueMgr() *QueueMgr {
 	}
 }
 
-type WQueue map[string]*Workunit
+type WQueue struct {
+	workMap map[string]*Workunit
+	pQue    pqueue.PriorityQueue
+}
+
+func NewWQueue() WQueue {
+	return WQueue{
+		workMap: map[string]*Workunit{},
+		pQue:    make(pqueue.PriorityQueue, 0, 10000),
+	}
+}
 
 //handle request from JobController to add taskMap
 //to-do: remove debug statements
@@ -108,28 +120,75 @@ func (qm *QueueMgr) parseTask(task *Task) (workunits []*Workunit, err error) {
 	return
 }
 
-//WQueue functions
-
-func NewWQueue() WQueue {
-	return map[string]*Workunit{}
+func (qm *QueueMgr) GetWorkById(id string) (workunit *Workunit, err error) {
+	return qm.workQueue.PopWorkByID(id)
 }
 
+func (qm *QueueMgr) GetWorkByFCFS() (workunit *Workunit, err error) {
+	return qm.workQueue.PopWorkFCFS()
+}
+
+//WQueue functions
+
 func (wq WQueue) Len() int {
-	return len(wq)
+	return len(wq.workMap)
 }
 
 func (wq *WQueue) Push(workunit *Workunit) (err error) {
 	if workunit.Id == "" {
 		return errors.New("try to push a workunit with an empty id")
 	}
-	(*wq)[workunit.Id] = workunit
+	wq.workMap[workunit.Id] = workunit
+
+	score := priorityFunction(workunit)
+
+	queueItem := pqueue.NewItem(workunit.Id, score)
+
+	heap.Push(&wq.pQue, queueItem)
+
 	return nil
 }
 
 func (wq WQueue) Show() (err error) {
 	fmt.Printf("current queuing workunits (%d):\n", wq.Len())
-	for key, _ := range wq {
+	for key, _ := range wq.workMap {
 		fmt.Printf("workunit id: %s\n", key)
 	}
 	return
+}
+
+//pop a workunit by specified workunit id
+//to-do: support returning workunit based on a given job id
+func (wq WQueue) PopWorkByID(id string) (workunit *Workunit, err error) {
+	if workunit, hasid := wq.workMap[id]; hasid {
+		delete(wq.workMap, id)
+		return workunit, nil
+	}
+	return nil, errors.New(fmt.Sprintf("no workunit found with id %s", id))
+}
+
+//pop a workunit in FCFS order
+//to-do: update workunit state to "checked-out"
+func (wq *WQueue) PopWorkFCFS() (workunit *Workunit, err error) {
+	if wq.Len() == 0 {
+		return nil, errors.New("workunit queue is empty")
+	}
+    
+    //some workunit might be checked out by id, thus keep popping
+    //pQue until find an Id with queued workunit
+	for {
+		item := heap.Pop(&wq.pQue).(*pqueue.Item)
+		id := item.Value()
+		if workunit, hasid := wq.workMap[id]; hasid {
+			delete(wq.workMap, id)
+			return workunit, nil
+		}
+	}
+	return
+}
+
+//curently support calculate priority score by FCFS
+//to-do: make prioritizing policy configurable
+func priorityFunction(workunit *Workunit) int64 {
+	return 1 - workunit.Info.SubmitTime.Unix()
 }

@@ -94,13 +94,14 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
-			log.Error("Err@node_Read:LoadNode: " + err.Error())
+			log.Error("Err@job_Read:LoadJob: " + err.Error())
 			cx.RespondWithError(http.StatusInternalServerError)
 			return
 		}
 	}
 	// Base case respond with node in json	
 	cx.RespondWithData(job)
+	return
 }
 
 // GET: /job

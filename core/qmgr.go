@@ -5,16 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/core/pqueue"
+	"strings"
 	"time"
 )
 
 type QueueMgr struct {
 	taskMap   map[string]*Task
 	workQueue WQueue
-	taskIn    chan Task
-	reminder  chan bool
-	//	wuReq   chan int
-	//	wuAck   chan int
+	reminder  chan bool    //timer
+	taskIn    chan Task    //channel for receiving Task (JobController -> qmgr.Handler)
+	coReq     chan string  //workunit checkout request (WorkController -> qmgr.Handler)
+	coAck     chan AckItem //workunit checkout item including data and err (qmgr.Handler -> WorkController)
+	coSem     chan int     //semaphore for checkout (mutual exclusion between different clients)
 }
 
 func NewQueueMgr() *QueueMgr {
@@ -23,9 +25,15 @@ func NewQueueMgr() *QueueMgr {
 		workQueue: NewWQueue(),
 		taskIn:    make(chan Task, 1024),
 		reminder:  make(chan bool),
-		//		wuReq:     make(chan int, 1024),
-		//		wuAck:     make(chan int, 1024),
+		coReq:     make(chan string),
+		coAck:     make(chan AckItem),
+		coSem:     make(chan int, 1), //non-blocking buffered channel
 	}
+}
+
+type AckItem struct {
+	workunit *Workunit
+	err      error
 }
 
 type WQueue struct {
@@ -48,6 +56,26 @@ func (qm *QueueMgr) Handle() {
 		case task := <-qm.taskIn:
 			fmt.Printf("task recived from chan taskIn, id=%s\n", task.Id)
 			qm.addTask(task)
+		case coReq := <-qm.coReq:
+			fmt.Printf("workunit checkout request received, policy=%s\n", coReq)
+
+			var wu *Workunit
+			var err error
+
+			segs := strings.Split(coReq, ":")
+			policy := segs[0]
+
+			if policy == "FCFS" {
+				wu, err = qm.workQueue.PopWorkFCFS()
+			} else if policy == "ById" {
+				wu, err = qm.workQueue.PopWorkByID(segs[1])
+			} else {
+				continue
+			}
+
+			ack := AckItem{workunit: wu, err: err}
+			qm.coAck <- ack
+
 		case <-qm.reminder:
 			fmt.Print("time to move tasks....\n")
 			qm.moveTasks()
@@ -120,12 +148,28 @@ func (qm *QueueMgr) parseTask(task *Task) (workunits []*Workunit, err error) {
 	return
 }
 
-func (qm *QueueMgr) GetWorkById(id string) (workunit *Workunit, err error) {
-	return qm.workQueue.PopWorkByID(id)
+func (qm *QueueMgr) GetWorkByFCFS() (workunit *Workunit, err error) {
+	//lock semephore, at one time only one client's checkout request can be served 
+	qm.coSem <- 1
+
+	qm.coReq <- "FCFS"
+	ack := <-qm.coAck
+
+	//unlock
+	<-qm.coSem
+
+	return ack.workunit, ack.err
 }
 
-func (qm *QueueMgr) GetWorkByFCFS() (workunit *Workunit, err error) {
-	return qm.workQueue.PopWorkFCFS()
+func (qm *QueueMgr) GetWorkById(id string) (workunit *Workunit, err error) {
+	qm.coSem <- 1
+
+	qm.coReq <- fmt.Sprintf("ById:%s", id)
+	ack := <-qm.coAck
+
+	<-qm.coSem
+
+	return ack.workunit, ack.err
 }
 
 //WQueue functions

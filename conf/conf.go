@@ -56,6 +56,10 @@ var (
 
 	// Mongodb 
 	MONGODB = ""
+
+	//client
+	TOTAL_WORKER = 1
+	WORK_PATH    = ""
 )
 
 func init() {
@@ -113,6 +117,10 @@ func init() {
 	// Mongodb
 	MONGODB, _ = c.String("Mongodb", "hosts")
 
+	// Client
+	TOTAL_WORKER, _ = c.Int("Client", "totalworker")
+	WORK_PATH, _ = c.String("Client", "workpath")
+
 }
 
 func Print() {
@@ -131,4 +139,10 @@ func Print() {
 	}
 	fmt.Printf("##### Mongodb #####\nhost(s):\t%s\n\n", MONGODB)
 	fmt.Printf("##### Ports #####\nsite:\t%d\napi:\t%d\n\n", SITE_PORT, API_PORT)
+}
+
+func PrintClientCfg() {
+	fmt.Printf("###AWE client running###\n")
+	fmt.Printf("total_work=%d\n", TOTAL_WORKER)
+	fmt.Printf("work_path=%s\n", WORK_PATH)
 }

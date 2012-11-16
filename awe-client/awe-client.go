@@ -2,14 +2,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/MG-RAST/AWE/conf"
 	. "github.com/MG-RAST/AWE/core"
-	"runtime"
 	"time"
 )
 
 var (
-	TotalWorker  = runtime.NumCPU()
-	workChan     = make(chan *Workunit, TotalWorker)
+	workChan     = make(chan *Workunit, conf.TOTAL_WORKER)
 	aweServerUrl = "http://localhost:8001/work"
 )
 
@@ -39,27 +38,24 @@ func workProcessor(control chan int, num int) {
 	for {
 		work := <-workChan
 		fmt.Printf("work=%v\n", *work)
-		run_work(work, num)
+		if err := RunWorkunit(work, num); err != nil {
+			fmt.Printf("RunWorkunit returned error: %v\n", err)
+		}
 	}
-
-	control <- 1 //we are ending
-}
-
-func run_work(work *Workunit, num int) {
-
-	fmt.Printf("processor %d started run workunit id=%s\n", num, work.Id)
-	defer fmt.Printf("processor %d finished run workunit id=%s\n", num, work.Id)
-
-	time.Sleep(time.Duration(num+10) * time.Second)
+	control <- num //we are ending
 }
 
 func main() {
 	//launch client
-	fmt.Printf("total worker=%d\n", TotalWorker)
+	conf.PrintClientCfg()
+	fmt.Printf("total worker=%d\n", conf.TOTAL_WORKER)
 	control := make(chan int)
 	go workStealer(control)
-	for i := 0; i < TotalWorker; i++ {
+	for i := 0; i < conf.TOTAL_WORKER; i++ {
 		go workProcessor(control, i)
 	}
-	<-control //block till something dies
+	for {
+		who := <-control //block till something dies and then restart it
+		go workProcessor(control, who)
+	}
 }

@@ -24,6 +24,7 @@ type IO struct {
 	Url   string `bson:"url" json:"url"`
 	MD5   string `bson:"md5" json:"md5"`
 	Cache bool   `bson:"cache" json:"cache"`
+	Path  string `bson:"path" json:"-"`
 }
 
 type Partition struct {

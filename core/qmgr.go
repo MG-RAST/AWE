@@ -12,7 +12,6 @@ import (
 type QueueMgr struct {
 	taskMap   map[string]*Task
 	workQueue WQueue
-	reminder  chan bool    //timer
 	taskIn    chan Task    //channel for receiving Task (JobController -> qmgr.Handler)
 	coReq     chan string  //workunit checkout request (WorkController -> qmgr.Handler)
 	coAck     chan AckItem //workunit checkout item including data and err (qmgr.Handler -> WorkController)
@@ -24,7 +23,6 @@ func NewQueueMgr() *QueueMgr {
 		taskMap:   map[string]*Task{},
 		workQueue: NewWQueue(),
 		taskIn:    make(chan Task, 1024),
-		reminder:  make(chan bool),
 		coReq:     make(chan string),
 		coAck:     make(chan AckItem),
 		coSem:     make(chan int, 1), //non-blocking buffered channel
@@ -56,6 +54,8 @@ func (qm *QueueMgr) Handle() {
 		case task := <-qm.taskIn:
 			fmt.Printf("task recived from chan taskIn, id=%s\n", task.Id)
 			qm.addTask(task)
+			qm.moveTasks()
+
 		case coReq := <-qm.coReq:
 			fmt.Printf("workunit checkout request received, policy=%s\n", coReq)
 
@@ -76,17 +76,10 @@ func (qm *QueueMgr) Handle() {
 			ack := AckItem{workunit: wu, err: err}
 			qm.coAck <- ack
 
-		case <-qm.reminder:
+		case <-time.After(10 * time.Second):
 			fmt.Print("time to move tasks....\n")
 			qm.moveTasks()
 		}
-	}
-}
-
-func (qm *QueueMgr) Timer() {
-	for {
-		time.Sleep(10 * time.Second)
-		qm.reminder <- true
 	}
 }
 

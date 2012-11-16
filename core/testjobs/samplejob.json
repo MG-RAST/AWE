@@ -13,9 +13,9 @@
         "tasks": [
             {
                 "cmd": {
-                    "args": "-gnome=$input_1 -out=$output_1 -complete=0 -train=complete", 
+                    "args": "-genome=@sample.fna -out=sample -complete=0 -train=complete", 
                     "description": "gene calling", 
-                    "name": "run_FragGeneScan.pl", 
+                    "name": "run_FragGeneScan.pl",
                     "options": "", 
                     "requiredargs": 0, 
                     "template": ""
@@ -26,7 +26,7 @@
                         "cache": false, 
                         "md5": "", 
                         "name": "sample.fna", 
-                        "url": "http://localhost:8000/node/1b4d347-85b7-4355-ab5b-642db994f87a"
+                        "url": "http://localhost:8000/node/a7d4f2ee-b0d9-46e1-a667-189c7bc6a854"
                     }
                 }, 
                 "outputs": {}, 

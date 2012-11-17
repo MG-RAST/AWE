@@ -7,7 +7,6 @@ import (
 	"github.com/jaredwilkening/goweb"
 	"labix.org/v2/mgo/bson"
 	"net/http"
-	"path/filepath"
 	"strconv"
 )
 
@@ -59,12 +58,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	var job *core.Job
 
-	fileExt := filepath.Ext(files["upload"].Name)
-	if fileExt == ".json" {
-		job, err = core.CreateJobUploadJson(params, files)
-	} else {
-		job, err = core.CreateJobUpload(params, files)
-	}
+	job, err = core.CreateJobUpload(params, files)
 
 	if err != nil {
 		log.Error("err " + err.Error())

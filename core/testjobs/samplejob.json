@@ -2,12 +2,10 @@
         "info": {
             "name": "darkmatter_test", 
             "owner": "wtang", 
-            "priority": 1, 
-            "submittime": "2012-11-10T18:44:11.442526-06:00"
+            "priority": 1
         }, 
         "script": {
-            "name": "sample.script", 
-            "type": ""
+            "name": "sample.script"
         }, 
         "state": "submitted", 
         "tasks": [
@@ -25,21 +23,29 @@
                     "sample.fna": {
                         "cache": false, 
                         "md5": "", 
-                        "name": "sample.fna", 
-                        "url": "http://localhost:8000/node/a7d4f2ee-b0d9-46e1-a667-189c7bc6a854"
+                        "name": "sample.fna",
+                        "host": "http://localhost:8000",
+                        "node": "a7d4f2ee-b0d9-46e1-a667-189c7bc6a854"
                     }
                 }, 
-                "outputs": {}, 
+                "outputs": {
+                    "sample.faa": {
+                        "cache": false, 
+                        "md5": "", 
+                        "name": "sample.faa",
+                        "host": "http://localhost:8000",
+                        "node": ""
+                    }
+                },
                 "partition": null,
                 "taskid": "0", 
-                "state": "init", 
                 "totalwork": 1
             }, 
             {
                 "cmd": {
-                    "args": "-a", 
+                    "args": "--list @sample.faa", 
                     "description": "clustering and amino acid assembly", 
-                    "name": "Clustgun", 
+                    "name": "clustgun", 
                     "options": "", 
                     "requiredargs": 0, 
                     "template": ""
@@ -48,72 +54,25 @@
                     "0"
                 ],  
                 "inputs": {
-                    "fgs_output": {
+                    "sample.faa": {
                         "cache": false, 
-                        "md5": "", 
-                        "name": "fgs_output", 
-                        "url": ""
+                        "name": "sample.faa",
+                        "host": "http://localhost:8000",
+                        "origin": "0"
                     }
                 }, 
-                "outputs": {}, 
-                "partition": null, 
-                "remainWork": 1, 
-                "state": "init", 
+                "outputs": {
+                    "sample.faa.consensus": {
+                        "cache": false,
+                        "md5": "",
+                        "name": "sample.fna",
+                        "host": "http://localhost:8000",
+                        "node": "",
+                        "origin": ""
+                    }
+                },
+                "partition": null,
                 "taskid": "1", 
-                "totalwork": 1
-            }, 
-            {
-                "cmd": {
-                    "args": "-c 4", 
-                    "description": "similarity search using parallel Blat", 
-                    "name": "SuperBlat", 
-                    "options": "", 
-                    "requiredargs": 0, 
-                    "template": ""
-                }, 
-                "dependsOn": [
-                    "1"
-                ], 
-                "inputs": {
-                    "clustgun_output": {
-                        "cache": false, 
-                        "md5": "", 
-                        "name": "clustgun_output", 
-                        "url": ""
-                    }
-                }, 
-                "outputs": {}, 
-                "partition": null, 
-                "remainWork": 1, 
-                "state": "init", 
-                "taskid": "2", 
-                "totalwork": 1
-            }, 
-            {
-                "cmd": {
-                    "args": "-c 4", 
-                    "description": "HHM-based homology detect using HHpred", 
-                    "name": "hhsearch", 
-                    "options": "", 
-                    "requiredargs": 0, 
-                    "template": ""
-                }, 
-                "dependsOn": [
-                    "2"
-                ], 
-                "inputs": {
-                    "blat_output": {
-                        "cache": false, 
-                        "md5": "", 
-                        "name": "blat_output", 
-                        "url": ""
-                    }
-                }, 
-                "outputs": {}, 
-                "partition": null, 
-                "remainWork": 1, 
-                "state": "init", 
-                "taskid": "3", 
                 "totalwork": 1
             }
         ]

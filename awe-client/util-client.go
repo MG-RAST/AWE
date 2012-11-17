@@ -40,8 +40,6 @@ func CheckoutWorkunitRemote(url string) (workunit *Workunit, err error) {
 
 	jsonstream, err := ioutil.ReadAll(res.Body)
 
-	fmt.Printf("jsonstream=%s\n", jsonstream)
-
 	if err != nil {
 		return
 	}
@@ -116,8 +114,8 @@ func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 
 			if inputsMap.Has(inputname) {
 				io := inputsMap[inputname]
-				url := io.Url
-				if err := fetchFile(inputname, url); err != nil {
+				url := io.Url()
+				if err := fetchFile(inputname, url); err != nil { //get file from Shock
 					return []string{}, err
 				}
 				filePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
@@ -133,6 +131,7 @@ func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 	return args, nil
 }
 
+//fetch file by shock url
 func fetchFile(filename string, url string) (err error) {
 	fmt.Printf("in fetchFile, filename=%s, url=%s\n", filename, url)
 	localfile, err := os.Create(filename)
@@ -142,8 +141,7 @@ func fetchFile(filename string, url string) (err error) {
 	defer localfile.Close()
 
 	//download file from Shock
-	shockurl := fmt.Sprintf("%s?download", url)
-	res, err := http.Get(shockurl)
+	res, err := http.Get(url)
 	defer res.Body.Close()
 
 	_, err = io.Copy(localfile, res.Body)

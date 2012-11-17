@@ -2,37 +2,17 @@ package core
 
 import ()
 
-func CreateJobUploadJson(params map[string]string, files FormFiles) (job *Job, err error) {
-
-	job, err = ParseJobTasksByJson(files["upload"].Path)
-	if err != nil {
-		return
-	}
-	err = job.Mkdir()
-	if err != nil {
-		return
-	}
-	err = job.UpdateFile(params, files)
-	if err != nil {
-		return
-	}
-
-	err = job.Save()
-	return
-}
-
 func CreateJobUpload(params map[string]string, files FormFiles) (job *Job, err error) {
-	job = NewJob()
 
+	job, err = ParseJobTasks(files["upload"].Path)
+	if err != nil {
+		return
+	}
 	err = job.Mkdir()
 	if err != nil {
 		return
 	}
 	err = job.UpdateFile(params, files)
-	if err != nil {
-		return
-	}
-	err = job.ParseTasks()
 	if err != nil {
 		return
 	}

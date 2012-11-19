@@ -13,17 +13,20 @@ type Task struct {
 	Partition  *Partition `bson:"partition" json:"partition"`
 	DependsOn  []string   `bson:"dependsOn" json:"dependsOn"`
 	TotalWork  int        `bson:"totalwork" json:"totalwork"`
-	RemainWork int        `bson:"remainWork" json:"remainWork"`
+	RemainWork int        `bson:"remainwork" json:"remainwork"`
 	State      string     `bson:"state" json:"state"`
 }
 
 type IOmap map[string]*IO
 
 type IO struct {
-	Name  string `bson:"name" json:"name"`
-	Url   string `bson:"url" json:"url"`
-	MD5   string `bson:"md5" json:"md5"`
-	Cache bool   `bson:"cache" json:"cache"`
+	Name   string `bson:"name" json:"name"`
+	Host   string `bson:"host" json:"host"`
+	Node   string `bson:"node" json:"node"`
+	MD5    string `bson:"md5" json:"md5"`
+	Cache  bool   `bson:"cache" json:"cache"`
+	Origin string `bson:"origin" json:"origin"`
+	Path   string `bson:"path" json:"-"`
 }
 
 type Partition struct {
@@ -51,8 +54,8 @@ func NewIOmap() IOmap {
 	return IOmap{}
 }
 
-func (i IOmap) Add(name string, url string, md5 string, cache bool) {
-	i[name] = &IO{Name: name, Url: url, MD5: md5, Cache: cache}
+func (i IOmap) Add(name string, host string, node string, params string, md5 string, cache bool) {
+	i[name] = &IO{Name: name, Host: host, Node: node, MD5: md5, Cache: cache}
 	return
 }
 
@@ -73,6 +76,14 @@ func (i IOmap) Find(name string) *IO {
 func NewIO() *IO {
 	return &IO{}
 }
+
+func (io IO) Url() string {
+	if io.Host != "" && io.Node != "" {
+		return fmt.Sprintf("%s/node/%s?download", io.Host, io.Node)
+	}
+	return ""
+}
+
 
 //---Field update functions
 func (task *Task) UpdateState(newState string) string {

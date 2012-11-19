@@ -106,7 +106,7 @@ func ResourceDescription(cx *goweb.Context) {
 		host = cx.Request.Host
 	}
 	r := resource{
-		R: []string{"job", "task", "user"},
+		R: []string{"job", "work", "user"},
 		U: "http://" + host + ":" + fmt.Sprint(conf.API_PORT) + "/",
 		D: "http://" + host + ":" + fmt.Sprint(conf.SITE_PORT) + "/",
 		C: conf.ADMIN_EMAIL,

@@ -1,0 +1,41 @@
+package main
+
+import (
+	"github.com/jaredwilkening/goweb"
+	"net/http"
+)
+
+type WorkController struct{}
+
+// GET: /work/{id}
+// get a workunit by id
+func (cr *WorkController) Read(id string, cx *goweb.Context) {
+	// Load workunit by id
+	workunit, err := queueMgr.GetWorkById(id)
+
+	if err != nil {
+		log.Error("Err@work_Read:QueueMgr.GetWorkById(): " + err.Error())
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+	// Base case respond with node in json	
+	cx.RespondWithData(workunit)
+	return
+}
+
+// GET: /work
+// checkout a workunit with earliest submission time
+// to-do: to support more options for workunit checkout 
+func (cr *WorkController) ReadMany(cx *goweb.Context) {
+	//checkout a workunit in FCFS order
+	workunit, err := queueMgr.GetWorkByFCFS()
+
+	if err != nil {
+		log.Error("Err@work_ReadMany:QueueMgr.GetWorkByFCFS(): " + err.Error())
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+	// Base case respond with node in json	
+	cx.RespondWithData(workunit)
+	return
+}

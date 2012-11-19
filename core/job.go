@@ -204,8 +204,6 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 		return nil, errors.New("error in reading job json file")
 	}
 
-	fmt.Printf("jsonstream=%s\n", jsonstream)
-
 	json.Unmarshal(jsonstream, job)
 
 	if job.Info == nil {
@@ -230,8 +228,6 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 			job.Tasks[i].DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)
 		}
 	}
-
-	fmt.Printf("job=%v", *job)
 
 	return
 }

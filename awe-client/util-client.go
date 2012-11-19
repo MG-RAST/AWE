@@ -90,6 +90,15 @@ func RunWorkunit(work *Workunit, num int) (err error) {
 		return
 	}
 
+	fmt.Printf("work output=%v", work.Outputs)
+
+	for name, io := range work.Outputs {
+		fmt.Printf("name=%s, io=%v\n", name, io)
+		if err := pushFileByCurl(name, io.Host, io.Node); err != nil {
+			return err
+		}
+	}
+
 	time.Sleep(5 * time.Second)
 
 	return
@@ -151,3 +160,76 @@ func fetchFile(filename string, url string) (err error) {
 
 	return
 }
+
+//push file to shock
+func pushFileByCurl(filename string, host string, node string) (err error) {
+	shockurl := fmt.Sprintf("%s/node/%s", host, node)
+	fmt.Printf("in pushFile, filename=%s, url=%s\n", filename, shockurl)
+
+	err = postFileByCurl(filename, shockurl)
+	if err != nil {
+		return err
+	}
+	return
+}
+
+func postFileByCurl(filename string, target_url string) (err error) {
+
+	argv := []string{}
+	argv = append(argv, "-X")
+	argv = append(argv, "PUT")
+	argv = append(argv, "-F")
+	argv = append(argv, fmt.Sprintf("upload=@%s", filename))
+	argv = append(argv, target_url)
+
+	cmd := exec.Command("curl", argv...)
+
+	err = cmd.Run()
+
+	if err != nil {
+		return
+	}
+	return
+}
+
+/*
+func pushFile(filename string, host string, node string) (err error) {
+	shockurl := fmt.Sprintf("%s/node/%s", host, node)
+	fmt.Printf("in pushFile, filename=%s, url=%s\n", filename, shockurl)
+
+	res, err := postFile(filename, shockurl)
+	defer res.Body.Close()
+	if err != nil {
+		return err
+	}
+
+	jsonstream, err := ioutil.ReadAll(res.Body)
+
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("pushFile, json:=%s\n", jsonstream)
+
+	return
+}
+
+func postFile(filename string, targetUrl string) (res *http.Response, err error) {
+	bodyBuf := &bytes.Buffer{}
+	bodyWriter := multipart.NewWriter(bodyBuf)
+	fileWriter, err := bodyWriter.CreateFormFile("upload", filename)
+	if err != nil {
+		fmt.Println("error writing to buffer")
+		return
+	}
+	fh, err := os.Open(filename)
+	if err != nil {
+		fmt.Println("error opening file")
+		return
+	}
+	io.Copy(fileWriter, fh)
+	contentType := bodyWriter.FormDataContentType()
+	bodyWriter.Close()
+	return http.Post(targetUrl, contentType, bodyBuf)
+}
+*/

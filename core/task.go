@@ -84,7 +84,6 @@ func (io IO) Url() string {
 	return ""
 }
 
-
 //---Field update functions
 func (task *Task) UpdateState(newState string) string {
 	task.State = newState

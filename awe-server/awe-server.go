@@ -40,6 +40,7 @@ func launchAPI(control chan int, port int) {
 	goweb.ConfigureDefaultFormatters()
 	r := &goweb.RouteManager{}
 	r.MapRest("/job", new(JobController))
+	r.MapRest("/work", new(WorkController))
 	//r.MapRest("/user", new(UserController))
 	r.MapFunc("*", ResourceDescription, goweb.GetMethod)
 	if conf.SSL_ENABLED {
@@ -66,7 +67,6 @@ func main() {
 	control := make(chan int)
 	go log.Handle()
 	go queueMgr.Handle()
-	go queueMgr.Timer()
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)
 	<-control //block till something dies

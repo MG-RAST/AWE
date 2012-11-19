@@ -2,9 +2,12 @@ package core
 
 import (
 	"container/heap"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/core/pqueue"
+	"io/ioutil"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -27,6 +30,29 @@ func NewQueueMgr() *QueueMgr {
 		coAck:     make(chan AckItem),
 		coSem:     make(chan int, 1), //non-blocking buffered channel
 	}
+}
+
+type ShockResponse struct {
+	Code int       `bson:"S" json:"S"`
+	Data ShockNode `bson:"D" json:"D"`
+	Errs []string  `bson:"E" json:"E"`
+}
+
+type ShockNode struct {
+	Id         string            `bson:"id" json:"id"`
+	Version    string            `bson:"version" json:"version"`
+	File       shockfile         `bson:"file" json:"file"`
+	Attributes interface{}       `bson:"attributes" json:"attributes"`
+	Indexes    map[string]string `bson:"indexes" json:"indexes"`
+}
+
+type shockfile struct {
+	Name         string            `bson:"name" json:"name"`
+	Size         int64             `bson:"size" json:"size"`
+	Checksum     map[string]string `bson:"checksum" json:"checksum"`
+	Format       string            `bson:"format" json:"format"`
+	Virtual      bool              `bson:"virtual" json:"virtual"`
+	VirtualParts []string          `bson:"virtual_parts" json:"virtual_parts"`
 }
 
 type AckItem struct {
@@ -120,7 +146,15 @@ func (qm *QueueMgr) moveTasks() (err error) {
 		}
 		if ready {
 			fmt.Printf("move workunits of task %s to workunit queue\n", id)
-			qm.parseTask(task)
+			if err := qm.createOutputNode(task); err != nil {
+				fmt.Printf("error in createOutputNode(): %v\n", err)
+				continue
+			}
+			if err := qm.parseTask(task); err != nil {
+				fmt.Printf("error in parseTask(): %v\n", err)
+				continue
+			}
+
 			task.State = "queued"
 		}
 	}
@@ -128,14 +162,14 @@ func (qm *QueueMgr) moveTasks() (err error) {
 	return
 }
 
-func (qm *QueueMgr) parseTask(task *Task) (workunits []*Workunit, err error) {
-	workunits, err = task.ParseWorkunit()
+func (qm *QueueMgr) parseTask(task *Task) (err error) {
+	workunits, err := task.ParseWorkunit()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for _, wu := range workunits {
 		if err := qm.workQueue.Push(wu); err != nil {
-			return nil, err
+			return err
 		}
 	}
 	return
@@ -163,6 +197,41 @@ func (qm *QueueMgr) GetWorkById(id string) (workunit *Workunit, err error) {
 	<-qm.coSem
 
 	return ack.workunit, ack.err
+}
+
+func (qm *QueueMgr) createOutputNode(task *Task) (err error) {
+	outputs := task.Outputs
+	for name, io := range outputs {
+
+		url := fmt.Sprintf("%s/node", io.Host)
+		bodyType := ""
+		body := strings.NewReader("")
+		res, err := http.Post(url, bodyType, body)
+
+		if err != nil {
+			return err
+		}
+
+		jsonstream, err := ioutil.ReadAll(res.Body)
+		res.Body.Close()
+
+		response := new(ShockResponse)
+
+		if err := json.Unmarshal(jsonstream, response); err != nil {
+			return err
+		}
+
+		if len(response.Errs) > 0 {
+			return errors.New(strings.Join(response.Errs, ","))
+		}
+
+		shocknode := &response.Data
+
+		io.Node = shocknode.Id
+
+		fmt.Printf("%s, output Shock node created, id=%s\n", name, shocknode.Id)
+	}
+	return
 }
 
 //WQueue functions

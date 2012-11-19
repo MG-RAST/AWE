@@ -34,7 +34,7 @@
                         "md5": "", 
                         "name": "sample.faa",
                         "host": "http://localhost:8000",
-                        "node": ""
+                        "node": "-"
                     }
                 },
                 "partition": null,
@@ -67,7 +67,7 @@
                         "md5": "",
                         "name": "sample.fna",
                         "host": "http://localhost:8000",
-                        "node": "",
+                        "node": "-",
                         "origin": ""
                     }
                 },

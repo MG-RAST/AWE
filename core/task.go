@@ -13,7 +13,7 @@ type Task struct {
 	Partition  *Partition `bson:"partition" json:"partition"`
 	DependsOn  []string   `bson:"dependsOn" json:"dependsOn"`
 	TotalWork  int        `bson:"totalwork" json:"totalwork"`
-	RemainWork int        `bson:"remainwork" json:"remainwork"`
+	WorkStatus []string   `bson:"workstatus" json:"workstatus"`
 	State      string     `bson:"state" json:"state"`
 }
 
@@ -45,7 +45,7 @@ func NewTask(job *Job, rank int) *Task {
 		Partition:  nil,
 		DependsOn:  []string{},
 		TotalWork:  1,
-		RemainWork: 1,
+		WorkStatus: []string{},
 		State:      "init",
 	}
 }

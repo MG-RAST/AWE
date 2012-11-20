@@ -39,7 +39,8 @@
                 },
                 "partition": null,
                 "taskid": "0", 
-                "totalwork": 1
+                "totalwork": 1,
+                "workstatus": []
             }, 
             {
                 "cmd": {
@@ -58,7 +59,8 @@
                         "cache": false, 
                         "name": "sample.faa",
                         "host": "http://localhost:8000",
-                        "origin": "0"
+                        "origin": "0",
+                        "node": "-"
                     }
                 }, 
                 "outputs": {
@@ -72,8 +74,9 @@
                     }
                 },
                 "partition": null,
-                "taskid": "1", 
-                "totalwork": 1
+                "taskid": "1",
+                "totalwork": 1,
+                "workstatus": []
             }
         ]
     }

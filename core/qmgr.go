@@ -8,6 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/core/pqueue"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -140,7 +141,9 @@ func (qm *QueueMgr) moveTasks() (err error) {
 			ready = true
 			for _, predecessor := range task.DependsOn {
 				if _, haskey := qm.taskMap[predecessor]; haskey {
-					ready = false
+					if qm.taskMap[predecessor].State != "completed" {
+						ready = false
+					}
 				}
 			}
 		}
@@ -154,7 +157,6 @@ func (qm *QueueMgr) moveTasks() (err error) {
 				fmt.Printf("error in parseTask(): %v\n", err)
 				continue
 			}
-
 			task.State = "queued"
 		}
 	}
@@ -230,6 +232,37 @@ func (qm *QueueMgr) createOutputNode(task *Task) (err error) {
 		io.Node = shocknode.Id
 
 		fmt.Printf("%s, output Shock node created, id=%s\n", name, shocknode.Id)
+	}
+	return
+}
+
+func (qm *QueueMgr) UpdateWorkStatus(workid string, status string) (err error) {
+	parts := strings.Split(workid, "_")
+	taskid := fmt.Sprintf("%s_%s", parts[0], parts[1])
+	rank, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return errors.New(fmt.Sprintf("invalid workid %s", workid))
+	}
+	if _, ok := qm.taskMap[taskid]; ok {
+		qm.taskMap[taskid].WorkStatus[rank] = status
+		qm.updateTaskStatus(qm.taskMap[taskid])
+		qm.moveTasks()
+	} else {
+		return errors.New(fmt.Sprintf("task not existed: %s", taskid))
+	}
+	return
+}
+
+func (qm *QueueMgr) updateTaskStatus(task *Task) (err error) {
+	completed := true
+	for _, status := range task.WorkStatus {
+		if status != "done" {
+			completed = false
+			break
+		}
+	}
+	if completed == true {
+		task.State = "completed"
 	}
 	return
 }

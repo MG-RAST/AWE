@@ -40,6 +40,10 @@ func workProcessor(control chan int, num int) {
 		fmt.Printf("work=%v\n", *work)
 		if err := RunWorkunit(work, num); err != nil {
 			fmt.Printf("RunWorkunit returned error: %v\n", err)
+			continue
+		}
+		if err := NotifyWorkunitDone(aweServerUrl, work.Id); err != nil {
+			fmt.Printf("NotifyWorkunitDone returned erro: %v\n", err)
 		}
 	}
 	control <- num //we are ending

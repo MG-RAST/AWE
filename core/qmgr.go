@@ -149,6 +149,10 @@ func (qm *QueueMgr) moveTasks() (err error) {
 		}
 		if ready {
 			fmt.Printf("move workunits of task %s to workunit queue\n", id)
+			if err := qm.locateInputs(task); err != nil {
+				fmt.Printf("error in locateInputs(): %v\n", err)
+				continue
+			}
 			if err := qm.createOutputNode(task); err != nil {
 				fmt.Printf("error in createOutputNode(): %v\n", err)
 				continue
@@ -161,6 +165,25 @@ func (qm *QueueMgr) moveTasks() (err error) {
 		}
 	}
 	qm.workQueue.Show()
+	return
+}
+
+func (qm *QueueMgr) locateInputs(task *Task) (err error) {
+	jobid := strings.Split(task.Id, "_")[0]
+	for name, io := range task.Inputs {
+		if io.Node == "-" {
+			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
+			if preTask, ok := qm.taskMap[preId]; ok {
+				outputs := preTask.Outputs
+				if outio, ok := outputs[name]; ok {
+					io.Node = outio.Node
+				}
+			}
+		}
+		if io.Node == "-" {
+			return errors.New(fmt.Sprintf("error in locate input for task %s, %s", task.Id, name))
+		}
+	}
 	return
 }
 

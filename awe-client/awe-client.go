@@ -9,7 +9,7 @@ import (
 
 var (
 	workChan     = make(chan *Workunit, conf.TOTAL_WORKER)
-	aweServerUrl = "http://localhost:8001/work"
+	aweServerUrl = "http://localhost:8001"
 )
 
 func workStealer(control chan int) {

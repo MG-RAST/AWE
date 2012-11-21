@@ -16,6 +16,7 @@ import (
 type QueueMgr struct {
 	taskMap   map[string]*Task
 	workQueue WQueue
+	reminder  chan bool
 	taskIn    chan Task    //channel for receiving Task (JobController -> qmgr.Handler)
 	coReq     chan string  //workunit checkout request (WorkController -> qmgr.Handler)
 	coAck     chan AckItem //workunit checkout item including data and err (qmgr.Handler -> WorkController)
@@ -26,6 +27,7 @@ func NewQueueMgr() *QueueMgr {
 	return &QueueMgr{
 		taskMap:   map[string]*Task{},
 		workQueue: NewWQueue(),
+		reminder:  make(chan bool),
 		taskIn:    make(chan Task, 1024),
 		coReq:     make(chan string),
 		coAck:     make(chan AckItem),
@@ -81,7 +83,7 @@ func (qm *QueueMgr) Handle() {
 		case task := <-qm.taskIn:
 			fmt.Printf("task recived from chan taskIn, id=%s\n", task.Id)
 			qm.addTask(task)
-			qm.moveTasks()
+			qm.updateQueue()
 
 		case coReq := <-qm.coReq:
 			fmt.Printf("workunit checkout request received, policy=%s\n", coReq)
@@ -103,10 +105,17 @@ func (qm *QueueMgr) Handle() {
 			ack := AckItem{workunit: wu, err: err}
 			qm.coAck <- ack
 
-		case <-time.After(10 * time.Second):
-			fmt.Print("time to move tasks....\n")
-			qm.moveTasks()
+		case <-qm.reminder:
+			fmt.Print("time to update workunit queue....\n")
+			qm.updateQueue()
 		}
+	}
+}
+
+func (qm *QueueMgr) Timer() {
+	for {
+		time.Sleep(10 * time.Second)
+		qm.reminder <- true
 	}
 }
 
@@ -132,7 +141,7 @@ func (qm *QueueMgr) deleteTasks(tasks []Task) (err error) {
 }
 
 //poll ready tasks and push into workQueue
-func (qm *QueueMgr) moveTasks() (err error) {
+func (qm *QueueMgr) updateQueue() (err error) {
 	fmt.Printf("%s: try to move tasks to workunit queue...\n", time.Now())
 	for id, task := range qm.taskMap {
 		fmt.Printf("taskid=%s state=%s\n", id, task.State)
@@ -269,7 +278,7 @@ func (qm *QueueMgr) UpdateWorkStatus(workid string, status string) (err error) {
 	if _, ok := qm.taskMap[taskid]; ok {
 		qm.taskMap[taskid].WorkStatus[rank] = status
 		qm.updateTaskStatus(qm.taskMap[taskid])
-		qm.moveTasks()
+		qm.updateQueue()
 	} else {
 		return errors.New(fmt.Sprintf("task not existed: %s", taskid))
 	}

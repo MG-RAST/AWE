@@ -20,11 +20,11 @@ type Response struct {
 	Errs []string `bson:"E" json:"E"`
 }
 
-func CheckoutWorkunitRemote(url string) (workunit *Workunit, err error) {
+func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 
 	response := new(Response)
 
-	res, err := http.Get(url)
+	res, err := http.Get(fmt.Sprintf("%s/work", serverhost))
 	defer res.Body.Close()
 
 	if err != nil {
@@ -46,11 +46,11 @@ func CheckoutWorkunitRemote(url string) (workunit *Workunit, err error) {
 	return workunit, errors.New("empty workunit queue")
 }
 
-func NotifyWorkunitDone(url string, workid string) (err error) {
+func NotifyWorkunitDone(serverhost string, workid string) (err error) {
 	argv := []string{}
 	argv = append(argv, "-X")
 	argv = append(argv, "PUT")
-	target_url := fmt.Sprintf("%s/%s?status=done", url, workid)
+	target_url := fmt.Sprintf("%s/work/%s?status=done", serverhost, workid)
 	argv = append(argv, target_url)
 
 	cmd := exec.Command("curl", argv...)

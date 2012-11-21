@@ -67,6 +67,7 @@ func main() {
 	control := make(chan int)
 	go log.Handle()
 	go queueMgr.Handle()
+	go queueMgr.Timer()
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)
 	<-control //block till something dies

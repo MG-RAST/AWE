@@ -24,8 +24,8 @@ var (
 	CONFIG_FILE = ""
 
 	// AWE 
-	SITE_PORT = 8080
-	API_PORT  = 8000
+	SITE_PORT = 8081
+	API_PORT  = 8001
 
 	// SSL
 	SSL_ENABLED   = false
@@ -60,6 +60,7 @@ var (
 	//client
 	TOTAL_WORKER = 1
 	WORK_PATH    = ""
+	SERVER_URL   = "http://localhost:8001"
 )
 
 func init() {
@@ -120,6 +121,7 @@ func init() {
 	// Client
 	TOTAL_WORKER, _ = c.Int("Client", "totalworker")
 	WORK_PATH, _ = c.String("Client", "workpath")
+	SERVER_URL, _ = c.String("Client", "serverurl")
 
 }
 
@@ -145,4 +147,5 @@ func PrintClientCfg() {
 	fmt.Printf("###AWE client running###\n")
 	fmt.Printf("total_work=%d\n", TOTAL_WORKER)
 	fmt.Printf("work_path=%s\n", WORK_PATH)
+	fmt.Printf("server_url=%s\n", SERVER_URL)
 }

@@ -20,6 +20,7 @@ type QueueMgr struct {
 	taskIn    chan Task    //channel for receiving Task (JobController -> qmgr.Handler)
 	coReq     chan string  //workunit checkout request (WorkController -> qmgr.Handler)
 	coAck     chan AckItem //workunit checkout item including data and err (qmgr.Handler -> WorkController)
+	feedback  chan Notice  //workunit execution feedback (WorkController -> qmgr.Handler)
 	coSem     chan int     //semaphore for checkout (mutual exclusion between different clients)
 }
 
@@ -31,6 +32,7 @@ func NewQueueMgr() *QueueMgr {
 		taskIn:    make(chan Task, 1024),
 		coReq:     make(chan string),
 		coAck:     make(chan AckItem),
+		feedback:  make(chan Notice),
 		coSem:     make(chan int, 1), //non-blocking buffered channel
 	}
 }
@@ -63,6 +65,11 @@ type AckItem struct {
 	err      error
 }
 
+type Notice struct {
+	Workid string
+	Status string
+}
+
 type WQueue struct {
 	workMap map[string]*Workunit
 	pQue    pqueue.PriorityQueue
@@ -83,7 +90,6 @@ func (qm *QueueMgr) Handle() {
 		case task := <-qm.taskIn:
 			fmt.Printf("task recived from chan taskIn, id=%s\n", task.Id)
 			qm.addTask(task)
-			qm.updateQueue()
 
 		case coReq := <-qm.coReq:
 			fmt.Printf("workunit checkout request received, policy=%s\n", coReq)
@@ -105,6 +111,10 @@ func (qm *QueueMgr) Handle() {
 			ack := AckItem{workunit: wu, err: err}
 			qm.coAck <- ack
 
+		case notice := <-qm.feedback:
+			fmt.Printf("workunit status feedback received, workid=%s, status=%s\n", notice.Workid, notice.Status)
+			qm.handleWorkStatusChange(notice)
+
 		case <-qm.reminder:
 			fmt.Print("time to update workunit queue....\n")
 			qm.updateQueue()
@@ -119,11 +129,40 @@ func (qm *QueueMgr) Timer() {
 	}
 }
 
-//send task to QueueMgr (called by other goroutins)
 func (qm *QueueMgr) AddTasks(tasks []Task) (err error) {
 	for _, task := range tasks {
 		qm.taskIn <- task
 	}
+	qm.updateQueue()
+	return
+}
+
+func (qm *QueueMgr) GetWorkByFCFS() (workunit *Workunit, err error) {
+	//lock semephore, at one time only one client's checkout request can be served 
+	qm.coSem <- 1
+
+	qm.coReq <- "FCFS"
+	ack := <-qm.coAck
+
+	//unlock
+	<-qm.coSem
+
+	return ack.workunit, ack.err
+}
+
+func (qm *QueueMgr) GetWorkById(id string) (workunit *Workunit, err error) {
+	qm.coSem <- 1
+
+	qm.coReq <- fmt.Sprintf("ById:%s", id)
+	ack := <-qm.coAck
+
+	<-qm.coSem
+
+	return ack.workunit, ack.err
+}
+
+func (qm *QueueMgr) NotifyWorkStatus(notice Notice) {
+	qm.feedback <- notice
 	return
 }
 
@@ -209,30 +248,6 @@ func (qm *QueueMgr) parseTask(task *Task) (err error) {
 	return
 }
 
-func (qm *QueueMgr) GetWorkByFCFS() (workunit *Workunit, err error) {
-	//lock semephore, at one time only one client's checkout request can be served 
-	qm.coSem <- 1
-
-	qm.coReq <- "FCFS"
-	ack := <-qm.coAck
-
-	//unlock
-	<-qm.coSem
-
-	return ack.workunit, ack.err
-}
-
-func (qm *QueueMgr) GetWorkById(id string) (workunit *Workunit, err error) {
-	qm.coSem <- 1
-
-	qm.coReq <- fmt.Sprintf("ById:%s", id)
-	ack := <-qm.coAck
-
-	<-qm.coSem
-
-	return ack.workunit, ack.err
-}
-
 func (qm *QueueMgr) createOutputNode(task *Task) (err error) {
 	outputs := task.Outputs
 	for name, io := range outputs {
@@ -268,7 +283,9 @@ func (qm *QueueMgr) createOutputNode(task *Task) (err error) {
 	return
 }
 
-func (qm *QueueMgr) UpdateWorkStatus(workid string, status string) (err error) {
+func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
+	workid := notice.Workid
+	status := notice.Status
 	parts := strings.Split(workid, "_")
 	taskid := fmt.Sprintf("%s_%s", parts[0], parts[1])
 	rank, err := strconv.Atoi(parts[2])

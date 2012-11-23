@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/MG-RAST/AWE/core"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
 )
@@ -50,7 +51,8 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	query := &Query{list: cx.Request.URL.Query()}
 
 	if query.Has("status") {
-		queueMgr.UpdateWorkStatus(id, query.Value("status"))
+		notice := core.Notice{Workid: id, Status: query.Value("status")}
+		queueMgr.NotifyWorkStatus(notice)
 		fmt.Printf("id %s, status=%s\n", id, query.Value("status"))
 	}
 	return

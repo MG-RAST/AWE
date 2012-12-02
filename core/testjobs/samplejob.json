@@ -20,12 +20,14 @@
                 }, 
                 "dependsOn": [], 
                 "inputs": {
-                    "sample.fna": {
+                   "sample.fna": {
                         "cache": false, 
                         "md5": "", 
                         "name": "sample.fna",
                         "host": "http://localhost:8000",
-                        "node": "a7d4f2ee-b0d9-46e1-a667-189c7bc6a854"
+                        "node": "a7d4f2ee-b0d9-46e1-a667-189c7bc6a854",
+                        "units": 23373,
+                        "size": 6266585
                     }
                 }, 
                 "outputs": {
@@ -37,14 +39,19 @@
                         "node": "-"
                     }
                 },
-                "partition": null,
+                "partinfo": {
+                     "input": "sample.fna",
+                     "output": "sample.faa",
+                     "index": "record",
+                     "totalindex": 0
+                },
                 "taskid": "0", 
-                "totalwork": 1,
+                "totalwork": 2,
                 "workstatus": []
             }, 
             {
                 "cmd": {
-                    "args": "--list @sample.faa", 
+                    "args": "@sample.faa", 
                     "description": "clustering and amino acid assembly", 
                     "name": "clustgun", 
                     "options": "", 

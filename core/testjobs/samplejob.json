@@ -64,7 +64,7 @@
                     }
                 }, 
                 "outputs": {
-                    "sample.faa.consensus": {
+                    "sample.clustgun.faa": {
                         "cache": false,
                         "md5": "",
                         "name": "sample.fna",

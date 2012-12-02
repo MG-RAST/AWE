@@ -163,15 +163,8 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 	job.State = "submitted"
 
 	for i := 0; i < len(job.Tasks); i++ {
-		taskid := fmt.Sprintf("%s_%d", job.Id, i)
-		job.Tasks[i].Id = taskid
-		job.Tasks[i].Info = job.Info
-		job.Tasks[i].State = "init"
-		job.Tasks[i].WorkStatus = make([]string, job.Tasks[i].TotalWork)
-
-		for j := 0; j < len(job.Tasks[i].DependsOn); j++ {
-			depend := job.Tasks[i].DependsOn[j]
-			job.Tasks[i].DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)
+		if err := job.Tasks[i].InitTask(job); err != nil {
+			return nil, err
 		}
 	}
 

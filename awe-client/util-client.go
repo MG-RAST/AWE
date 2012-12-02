@@ -104,7 +104,8 @@ func RunWorkunit(work *Workunit, num int) (err error) {
 
 	for name, io := range work.Outputs {
 		fmt.Printf("name=%s, io=%v\n", name, io)
-		if err := pushFileByCurl(name, io.Host, io.Node); err != nil {
+		if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {
+			fmt.Printf("push file error")
 			return err
 		}
 	}
@@ -114,6 +115,7 @@ func RunWorkunit(work *Workunit, num int) (err error) {
 	return
 }
 
+//parse workunit, fetch input data, compose command arguments
 func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 	argstr := work.Cmd.Args
 	if argstr == "" {
@@ -133,8 +135,15 @@ func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 
 			if inputsMap.Has(inputname) {
 				io := inputsMap[inputname]
-				url := io.Url()
-				if err := fetchFile(inputname, url); err != nil { //get file from Shock
+
+				var dataUrl string
+				if work.Rank == 0 {
+					dataUrl = io.Url()
+				} else {
+					dataUrl = fmt.Sprintf("%s&index=record&part=%s", io.Url(), work.Part())
+				}
+
+				if err := fetchFile(inputname, dataUrl); err != nil { //get file from Shock
 					return []string{}, err
 				}
 				filePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
@@ -172,25 +181,56 @@ func fetchFile(filename string, url string) (err error) {
 }
 
 //push file to shock
-func pushFileByCurl(filename string, host string, node string) (err error) {
+func pushFileByCurl(filename string, host string, node string, rank int) (err error) {
+
 	shockurl := fmt.Sprintf("%s/node/%s", host, node)
+
 	fmt.Printf("in pushFile, filename=%s, url=%s\n", filename, shockurl)
 
-	err = postFileByCurl(filename, shockurl)
-	if err != nil {
+	if err := putFileByCurl(filename, shockurl, rank); err != nil {
 		return err
 	}
+	//if err := makeIndexByCurl(shockurl, "record"); err != nil {
+	//	return err
+	//}
 	return
 }
 
-func postFileByCurl(filename string, target_url string) (err error) {
+func putFileByCurl(filename string, target_url string, rank int) (err error) {
 
 	argv := []string{}
 	argv = append(argv, "-X")
 	argv = append(argv, "PUT")
 	argv = append(argv, "-F")
-	argv = append(argv, fmt.Sprintf("upload=@%s", filename))
+
+	if rank == 0 {
+		argv = append(argv, fmt.Sprintf("upload=@%s", filename))
+	} else {
+		argv = append(argv, fmt.Sprintf("%d=@%s", rank, filename))
+	}
+
 	argv = append(argv, target_url)
+
+	fmt.Printf("curl argv=%v\n", argv)
+
+	cmd := exec.Command("curl", argv...)
+
+	err = cmd.Run()
+
+	if err != nil {
+		return
+	}
+	return
+}
+
+func makeIndexByCurl(targetUrl string, indexType string) (err error) {
+
+	argv := []string{}
+	argv = append(argv, "-X")
+	argv = append(argv, "PUT")
+
+	indexUrl := fmt.Sprintf("%s?index=%s", targetUrl, indexType)
+	argv = append(argv, indexUrl)
 
 	cmd := exec.Command("curl", argv...)
 

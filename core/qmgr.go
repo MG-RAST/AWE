@@ -8,6 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/core/pqueue"
 	"io/ioutil"
 	"net/http"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -251,34 +252,12 @@ func (qm *QueueMgr) parseTask(task *Task) (err error) {
 func (qm *QueueMgr) createOutputNode(task *Task) (err error) {
 	outputs := task.Outputs
 	for name, io := range outputs {
-
-		url := fmt.Sprintf("%s/node", io.Host)
-		bodyType := ""
-		body := strings.NewReader("")
-		res, err := http.Post(url, bodyType, body)
-
+		nodeid, err := postNode(io, task.TotalWork)
 		if err != nil {
 			return err
 		}
-
-		jsonstream, err := ioutil.ReadAll(res.Body)
-		res.Body.Close()
-
-		response := new(ShockResponse)
-
-		if err := json.Unmarshal(jsonstream, response); err != nil {
-			return err
-		}
-
-		if len(response.Errs) > 0 {
-			return errors.New(strings.Join(response.Errs, ","))
-		}
-
-		shocknode := &response.Data
-
-		io.Node = shocknode.Id
-
-		fmt.Printf("%s, output Shock node created, id=%s\n", name, shocknode.Id)
+		io.Node = nodeid
+		fmt.Printf("%s, output Shock node created, id=%s\n", name, io.Node)
 	}
 	return
 }
@@ -293,7 +272,11 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return errors.New(fmt.Sprintf("invalid workid %s", workid))
 	}
 	if _, ok := qm.taskMap[taskid]; ok {
-		qm.taskMap[taskid].WorkStatus[rank] = status
+		if rank == 0 {
+			qm.taskMap[taskid].WorkStatus[rank] = status
+		} else {
+			qm.taskMap[taskid].WorkStatus[rank-1] = status
+		}
 		qm.updateTaskStatus(qm.taskMap[taskid])
 		qm.updateQueue()
 	} else {
@@ -379,4 +362,53 @@ func (wq *WQueue) PopWorkFCFS() (workunit *Workunit, err error) {
 //to-do: make prioritizing policy configurable
 func priorityFunction(workunit *Workunit) int64 {
 	return 1 - workunit.Info.SubmitTime.Unix()
+}
+
+//create a shock node for output
+func postNode(io *IO, numParts int) (nodeid string, err error) {
+	var res *http.Response
+	shockurl := fmt.Sprintf("%s/node", io.Host)
+	res, err = http.Post(shockurl, "", strings.NewReader(""))
+	if err != nil {
+		return "", err
+	}
+
+	jsonstream, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+
+	response := new(ShockResponse)
+	if err := json.Unmarshal(jsonstream, response); err != nil {
+		return "", err
+	}
+	if len(response.Errs) > 0 {
+		return "", errors.New(strings.Join(response.Errs, ","))
+	}
+
+	shocknode := &response.Data
+	nodeid = shocknode.Id
+
+	if numParts > 1 {
+		putParts(io.Host, nodeid, numParts)
+	}
+
+	fmt.Printf("posted a node: %s\n", nodeid)
+	return
+}
+
+//create parts
+func putParts(host string, nodeid string, numParts int) (err error) {
+	argv := []string{}
+	argv = append(argv, "-X")
+	argv = append(argv, "PUT")
+	argv = append(argv, "-F")
+	argv = append(argv, fmt.Sprintf("parts=%d", numParts))
+	target_url := fmt.Sprintf("%s/node/%s", host, nodeid)
+	argv = append(argv, target_url)
+
+	cmd := exec.Command("curl", argv...)
+	err = cmd.Run()
+	if err != nil {
+		return
+	}
+	return
 }

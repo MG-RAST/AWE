@@ -141,60 +141,6 @@ func (job *Job) TestSetTasks() (err error) {
 	return
 }
 
-/*
-func (job *Job) ParseTasks() (err error) {
-	c, err := config.ReadDefault(job.FilePath())
-	if err != nil {
-		return errors.New("could not parse job script file")
-	}
-
-	jobname, _ := c.String("job", "name")
-	job.Info.Name = jobname
-
-	owner, _ := c.String("job", "owner")
-	job.Info.Owner = owner
-
-	totaltask, _ := c.Int("job", "totaltask")
-	for i := 0; i < totaltask; i++ {
-		task := NewTask(job, i)
-
-		section := fmt.Sprintf("task-%d", i)
-
-		cmdName, _ := c.String(section, "cmd_name")
-		cmdDescription, _ := c.String(section, "cmd_description")
-		cmdArgs, _ := c.String(section, "cmd_args")
-
-		cmd := NewCommand(cmdName)
-		cmd.Description = cmdDescription
-		cmd.Args = cmdArgs
-
-		task.Cmd = cmd
-
-		inputName, _ := c.String(section, "input_name")
-		inputUrl, _ := c.String(section, "input_url")
-
-		io := &IO{Name: inputName,
-			Url:   inputUrl,
-			MD5:   "",
-			Cache: false,
-		}
-
-		task.Inputs[inputName] = io
-
-		dependon, _ := c.String(section, "dependOn")
-		if dependon != "" {
-			for _, depend := range strings.Split(dependon, ",") {
-				depend_id := fmt.Sprintf("%s_%s", job.Id, depend)
-				task.DependsOn = append(task.DependsOn, depend_id)
-			}
-		}
-
-		job.Tasks = append(job.Tasks, *task)
-	}
-	return
-}
-*/
-
 func ParseJobTasks(filename string) (job *Job, err error) {
 	job = new(Job)
 
@@ -203,8 +149,6 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 	if err != nil {
 		return nil, errors.New("error in reading job json file")
 	}
-
-	fmt.Printf("jsonstream=%s\n", jsonstream)
 
 	json.Unmarshal(jsonstream, job)
 
@@ -219,19 +163,10 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 	job.State = "submitted"
 
 	for i := 0; i < len(job.Tasks); i++ {
-		taskid := fmt.Sprintf("%s_%d", job.Id, i)
-		job.Tasks[i].Id = taskid
-		job.Tasks[i].Info = job.Info
-		job.Tasks[i].State = "init"
-		job.Tasks[i].RemainWork = job.Tasks[i].TotalWork
-
-		for j := 0; j < len(job.Tasks[i].DependsOn); j++ {
-			depend := job.Tasks[i].DependsOn[j]
-			job.Tasks[i].DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)
+		if err := job.Tasks[i].InitTask(job); err != nil {
+			return nil, err
 		}
 	}
-
-	fmt.Printf("job=%v", *job)
 
 	return
 }

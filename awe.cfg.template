@@ -1,16 +1,37 @@
-[AWE]
-site-port=80
-api-port=8000
+[Anonymous]
+# Controls weither an anonymous user can read/write
+# values: true/false
+read=true
+write=true
+create-user=true
+
+[Ports]
+# Ports for site/api
+# Note: use of port 80 may require root access
+site-port=8081
+api-port=8001
 
 [Admin]
 email=admin@host.com
 secretkey=supersecretkey
 
 [Directories]
-site=/local/shock/site
-logs=/var/log/awe
+# See documentation for details of deploying Shock
+site=/Users/wtang/local/awe/site
+data=/Users/wtang/local/awe/data
+logs=/Users/wtang/var/log/awe
 
 [Mongodb]
-# Pattern:
-#    hosts=host1[,host2,...,hostN]
+# Mongodb configuration:
+# Hostnames and ports hosts=host1[,host2:port,...,hostN]
 hosts=localhost
+
+[Mongodb-Node-Indices]
+# See http://www.mongodb.org/display/DOCS/Indexes#Indexes-CreationOptions for more info on mongodb index options.
+# key=unique:true/false[,dropDups:true/false][,sparse:true/false]
+id=unique:true
+
+[Client]
+totalworker=2
+workpath=/Users/wtang/local/awe/work
+serverurl=http://localhost:8001

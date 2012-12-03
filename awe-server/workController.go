@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/MG-RAST/AWE/core"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
 )
@@ -37,5 +38,20 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	}
 	// Base case respond with node in json	
 	cx.RespondWithData(workunit)
+	return
+}
+
+// PUT: /work/{id} -> status update
+func (cr *WorkController) Update(id string, cx *goweb.Context) {
+	// Log Request and check for Auth
+	LogRequest(cx.Request)
+
+	// Gather query params
+	query := &Query{list: cx.Request.URL.Query()}
+
+	if query.Has("status") {
+		notice := core.Notice{Workid: id, Status: query.Value("status")}
+		queueMgr.NotifyWorkStatus(notice)
+	}
 	return
 }

@@ -8,6 +8,8 @@ import (
 	"github.com/MG-RAST/AWE/core/pqueue"
 	"io/ioutil"
 	"net/http"
+	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -15,9 +17,11 @@ import (
 type QueueMgr struct {
 	taskMap   map[string]*Task
 	workQueue WQueue
+	reminder  chan bool
 	taskIn    chan Task    //channel for receiving Task (JobController -> qmgr.Handler)
 	coReq     chan string  //workunit checkout request (WorkController -> qmgr.Handler)
 	coAck     chan AckItem //workunit checkout item including data and err (qmgr.Handler -> WorkController)
+	feedback  chan Notice  //workunit execution feedback (WorkController -> qmgr.Handler)
 	coSem     chan int     //semaphore for checkout (mutual exclusion between different clients)
 }
 
@@ -25,9 +29,11 @@ func NewQueueMgr() *QueueMgr {
 	return &QueueMgr{
 		taskMap:   map[string]*Task{},
 		workQueue: NewWQueue(),
+		reminder:  make(chan bool),
 		taskIn:    make(chan Task, 1024),
 		coReq:     make(chan string),
 		coAck:     make(chan AckItem),
+		feedback:  make(chan Notice),
 		coSem:     make(chan int, 1), //non-blocking buffered channel
 	}
 }
@@ -60,6 +66,11 @@ type AckItem struct {
 	err      error
 }
 
+type Notice struct {
+	Workid string
+	Status string
+}
+
 type WQueue struct {
 	workMap map[string]*Workunit
 	pQue    pqueue.PriorityQueue
@@ -80,7 +91,6 @@ func (qm *QueueMgr) Handle() {
 		case task := <-qm.taskIn:
 			fmt.Printf("task recived from chan taskIn, id=%s\n", task.Id)
 			qm.addTask(task)
-			qm.moveTasks()
 
 		case coReq := <-qm.coReq:
 			fmt.Printf("workunit checkout request received, policy=%s\n", coReq)
@@ -102,76 +112,29 @@ func (qm *QueueMgr) Handle() {
 			ack := AckItem{workunit: wu, err: err}
 			qm.coAck <- ack
 
-		case <-time.After(10 * time.Second):
-			fmt.Print("time to move tasks....\n")
-			qm.moveTasks()
+		case notice := <-qm.feedback:
+			//	fmt.Printf("workunit status feedback received, workid=%s, status=%s\n", notice.Workid, notice.Status)
+			qm.handleWorkStatusChange(notice)
+
+		case <-qm.reminder:
+			fmt.Print("time to update workunit queue....\n")
+			qm.updateQueue()
 		}
 	}
 }
 
-//send task to QueueMgr (called by other goroutins)
+func (qm *QueueMgr) Timer() {
+	for {
+		time.Sleep(10 * time.Second)
+		qm.reminder <- true
+	}
+}
+
 func (qm *QueueMgr) AddTasks(tasks []Task) (err error) {
 	for _, task := range tasks {
 		qm.taskIn <- task
 	}
-	return
-}
-
-//add task to taskMap
-func (qm *QueueMgr) addTask(task Task) (err error) {
-	id := task.Id
-	task.State = "pending"
-	qm.taskMap[id] = &task
-	return
-}
-
-//delete task from taskMap
-func (qm *QueueMgr) deleteTasks(tasks []Task) (err error) {
-	return
-}
-
-//poll ready tasks and push into workQueue
-func (qm *QueueMgr) moveTasks() (err error) {
-	fmt.Printf("%s: try to move tasks to workunit queue...\n", time.Now())
-	for id, task := range qm.taskMap {
-		fmt.Printf("taskid=%s state=%s\n", id, task.State)
-		ready := false
-		if task.State == "pending" {
-			ready = true
-			for _, predecessor := range task.DependsOn {
-				if _, haskey := qm.taskMap[predecessor]; haskey {
-					ready = false
-				}
-			}
-		}
-		if ready {
-			fmt.Printf("move workunits of task %s to workunit queue\n", id)
-			if err := qm.createOutputNode(task); err != nil {
-				fmt.Printf("error in createOutputNode(): %v\n", err)
-				continue
-			}
-			if err := qm.parseTask(task); err != nil {
-				fmt.Printf("error in parseTask(): %v\n", err)
-				continue
-			}
-
-			task.State = "queued"
-		}
-	}
-	qm.workQueue.Show()
-	return
-}
-
-func (qm *QueueMgr) parseTask(task *Task) (err error) {
-	workunits, err := task.ParseWorkunit()
-	if err != nil {
-		return err
-	}
-	for _, wu := range workunits {
-		if err := qm.workQueue.Push(wu); err != nil {
-			return err
-		}
-	}
+	qm.updateQueue()
 	return
 }
 
@@ -199,37 +162,139 @@ func (qm *QueueMgr) GetWorkById(id string) (workunit *Workunit, err error) {
 	return ack.workunit, ack.err
 }
 
+func (qm *QueueMgr) NotifyWorkStatus(notice Notice) {
+	qm.feedback <- notice
+	return
+}
+
+//add task to taskMap
+func (qm *QueueMgr) addTask(task Task) (err error) {
+	id := task.Id
+	task.State = "pending"
+	qm.taskMap[id] = &task
+	return
+}
+
+//delete task from taskMap
+func (qm *QueueMgr) deleteTasks(tasks []Task) (err error) {
+	return
+}
+
+//poll ready tasks and push into workQueue
+func (qm *QueueMgr) updateQueue() (err error) {
+	fmt.Printf("%s: try to move tasks to workunit queue...\n", time.Now())
+	for id, task := range qm.taskMap {
+		fmt.Printf("taskid=%s state=%s\n", id, task.State)
+		ready := false
+		if task.State == "pending" {
+			ready = true
+			for _, predecessor := range task.DependsOn {
+				if _, haskey := qm.taskMap[predecessor]; haskey {
+					if qm.taskMap[predecessor].State != "completed" {
+						ready = false
+					}
+				}
+			}
+		}
+		if ready {
+			fmt.Printf("move workunits of task %s to workunit queue\n", id)
+			if err := qm.locateInputs(task); err != nil {
+				fmt.Printf("error in locateInputs(): %v\n", err)
+				continue
+			}
+			if err := qm.createOutputNode(task); err != nil {
+				fmt.Printf("error in createOutputNode(): %v\n", err)
+				continue
+			}
+			if err := qm.parseTask(task); err != nil {
+				fmt.Printf("error in parseTask(): %v\n", err)
+				continue
+			}
+			task.State = "queued"
+		}
+	}
+	qm.workQueue.Show()
+	return
+}
+
+func (qm *QueueMgr) locateInputs(task *Task) (err error) {
+	jobid := strings.Split(task.Id, "_")[0]
+	for name, io := range task.Inputs {
+		if io.Node == "-" {
+			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
+			if preTask, ok := qm.taskMap[preId]; ok {
+				outputs := preTask.Outputs
+				if outio, ok := outputs[name]; ok {
+					io.Node = outio.Node
+				}
+			}
+		}
+		if io.Node == "-" {
+			return errors.New(fmt.Sprintf("error in locate input for task %s, %s", task.Id, name))
+		}
+	}
+	return
+}
+
+func (qm *QueueMgr) parseTask(task *Task) (err error) {
+	workunits, err := task.ParseWorkunit()
+	if err != nil {
+		return err
+	}
+	for _, wu := range workunits {
+		if err := qm.workQueue.Push(wu); err != nil {
+			return err
+		}
+	}
+	return
+}
+
 func (qm *QueueMgr) createOutputNode(task *Task) (err error) {
 	outputs := task.Outputs
 	for name, io := range outputs {
-
-		url := fmt.Sprintf("%s/node", io.Host)
-		bodyType := ""
-		body := strings.NewReader("")
-		res, err := http.Post(url, bodyType, body)
-
+		nodeid, err := postNode(io, task.TotalWork)
 		if err != nil {
 			return err
 		}
+		io.Node = nodeid
+		fmt.Printf("%s, output Shock node created, id=%s\n", name, io.Node)
+	}
+	return
+}
 
-		jsonstream, err := ioutil.ReadAll(res.Body)
-		res.Body.Close()
-
-		response := new(ShockResponse)
-
-		if err := json.Unmarshal(jsonstream, response); err != nil {
-			return err
+func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
+	workid := notice.Workid
+	status := notice.Status
+	parts := strings.Split(workid, "_")
+	taskid := fmt.Sprintf("%s_%s", parts[0], parts[1])
+	rank, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return errors.New(fmt.Sprintf("invalid workid %s", workid))
+	}
+	if _, ok := qm.taskMap[taskid]; ok {
+		if rank == 0 {
+			qm.taskMap[taskid].WorkStatus[rank] = status
+		} else {
+			qm.taskMap[taskid].WorkStatus[rank-1] = status
 		}
+		qm.updateTaskStatus(qm.taskMap[taskid])
+		qm.updateQueue()
+	} else {
+		return errors.New(fmt.Sprintf("task not existed: %s", taskid))
+	}
+	return
+}
 
-		if len(response.Errs) > 0 {
-			return errors.New(strings.Join(response.Errs, ","))
+func (qm *QueueMgr) updateTaskStatus(task *Task) (err error) {
+	completed := true
+	for _, status := range task.WorkStatus {
+		if status != "done" {
+			completed = false
+			break
 		}
-
-		shocknode := &response.Data
-
-		io.Node = shocknode.Id
-
-		fmt.Printf("%s, output Shock node created, id=%s\n", name, shocknode.Id)
+	}
+	if completed == true {
+		task.State = "completed"
 	}
 	return
 }
@@ -297,4 +362,53 @@ func (wq *WQueue) PopWorkFCFS() (workunit *Workunit, err error) {
 //to-do: make prioritizing policy configurable
 func priorityFunction(workunit *Workunit) int64 {
 	return 1 - workunit.Info.SubmitTime.Unix()
+}
+
+//create a shock node for output
+func postNode(io *IO, numParts int) (nodeid string, err error) {
+	var res *http.Response
+	shockurl := fmt.Sprintf("%s/node", io.Host)
+	res, err = http.Post(shockurl, "", strings.NewReader(""))
+	if err != nil {
+		return "", err
+	}
+
+	jsonstream, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+
+	response := new(ShockResponse)
+	if err := json.Unmarshal(jsonstream, response); err != nil {
+		return "", err
+	}
+	if len(response.Errs) > 0 {
+		return "", errors.New(strings.Join(response.Errs, ","))
+	}
+
+	shocknode := &response.Data
+	nodeid = shocknode.Id
+
+	if numParts > 1 {
+		putParts(io.Host, nodeid, numParts)
+	}
+
+	fmt.Printf("posted a node: %s\n", nodeid)
+	return
+}
+
+//create parts
+func putParts(host string, nodeid string, numParts int) (err error) {
+	argv := []string{}
+	argv = append(argv, "-X")
+	argv = append(argv, "PUT")
+	argv = append(argv, "-F")
+	argv = append(argv, fmt.Sprintf("parts=%d", numParts))
+	target_url := fmt.Sprintf("%s/node/%s", host, nodeid)
+	argv = append(argv, target_url)
+
+	cmd := exec.Command("curl", argv...)
+	err = cmd.Run()
+	if err != nil {
+		return
+	}
+	return
 }

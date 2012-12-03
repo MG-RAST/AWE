@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 )
 
 type Response struct {
@@ -65,8 +64,8 @@ func NotifyWorkunitDone(serverhost string, workid string) (err error) {
 
 func RunWorkunit(work *Workunit, num int) (err error) {
 
-	fmt.Printf("processor %d started run workunit id=%s\n", num, work.Id)
-	defer fmt.Printf("processor %d finished run workunit id=%s\n", num, work.Id)
+	fmt.Printf("worker %d started run workunit id=%s\n", num, work.Id)
+	defer fmt.Printf("worker %d finished run workunit id=%s\n", num, work.Id)
 
 	//make a working directory for the workunit
 	if err := work.Mkdir(); err != nil {
@@ -79,14 +78,12 @@ func RunWorkunit(work *Workunit, num int) (err error) {
 
 	commandName := work.Cmd.Name
 
-	fmt.Printf("commandName=%s\n", commandName)
-
 	args, err := ParseWorkunitArgs(work)
 	if err != nil {
 		return
 	}
 
-	fmt.Printf("args=%v\n", args)
+	fmt.Printf("cmd=%s, args=%v\n", commandName, args)
 
 	cmd := exec.Command(commandName, args...)
 
@@ -100,17 +97,20 @@ func RunWorkunit(work *Workunit, num int) (err error) {
 		return
 	}
 
-	fmt.Printf("work output=%v", work.Outputs)
-
 	for name, io := range work.Outputs {
-		fmt.Printf("name=%s, io=%v\n", name, io)
+
+		if iostat, err := os.Stat(name); err != nil {
+			fmt.Printf("error:output %s not generated for work %s\n", name, work.Id)
+			return errors.New(fmt.Sprintf("error:output %s not generated for work %s", name, work.Id))
+		} else {
+			fmt.Printf("name=%s, stat=%v\n", name, iostat)
+		}
+
 		if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {
 			fmt.Printf("push file error")
 			return err
 		}
 	}
-
-	time.Sleep(5 * time.Second)
 
 	return
 }

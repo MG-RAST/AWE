@@ -12,41 +12,32 @@ var (
 	aweServerUrl = "http://localhost:8001"
 )
 
-func workStealer(control chan int) {
-	fmt.Printf("workStealer lanched\n")
-	defer fmt.Printf("workStealer exiting...\n")
+func worker(control chan int, num int) {
+	fmt.Printf("worker %d launched\n", num)
+	defer fmt.Printf("worker exiting...\n")
+
 	for {
-		wu, err := CheckoutWorkunitRemote(aweServerUrl)
+		work, err := CheckoutWorkunitRemote(aweServerUrl)
 		if err != nil {
 			if err.Error() == "empty workunit queue" {
-				fmt.Printf("queue empty, try again 5 seconds later\n")
+				//fmt.Printf("queue empty, try again 5 seconds later\n")
 				time.Sleep(5 * time.Second)
 			} else {
 				fmt.Printf("error in checkoutWorkunitRemote %v\n", err)
 			}
 			continue
 		}
-		fmt.Printf("checked out a workunit: id=%s\n", wu.Id)
-		workChan <- wu
-	}
-	control <- 1 //we are ending
-}
 
-func workProcessor(control chan int, num int) {
-	fmt.Printf("workProcessor %d lanched\n", num)
-	defer fmt.Printf("workProcessor exiting...\n")
-	for {
-		work := <-workChan
-		fmt.Printf("work=%v\n", *work)
+		fmt.Printf("worker %d checked out a workunit: id=%s\n", num, work.Id)
+
 		if err := RunWorkunit(work, num); err != nil {
 			fmt.Printf("RunWorkunit returned error: %v\n", err)
 			continue
 		}
 		if err := NotifyWorkunitDone(aweServerUrl, work.Id); err != nil {
-			fmt.Printf("NotifyWorkunitDone returned erro: %v\n", err)
+			fmt.Printf("NotifyWorkunitDone returned error: %v\n", err)
 		}
 	}
-	control <- num //we are ending
 }
 
 func main() {
@@ -54,12 +45,11 @@ func main() {
 	conf.PrintClientCfg()
 	fmt.Printf("total worker=%d\n", conf.TOTAL_WORKER)
 	control := make(chan int)
-	go workStealer(control)
 	for i := 0; i < conf.TOTAL_WORKER; i++ {
-		go workProcessor(control, i)
+		go worker(control, i)
 	}
 	for {
-		who := <-control //block till something dies and then restart it
-		go workProcessor(control, who)
+		who := <-control //block till some work dies and then restart it
+		go worker(control, who)
 	}
 }

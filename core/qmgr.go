@@ -113,7 +113,7 @@ func (qm *QueueMgr) Handle() {
 			qm.coAck <- ack
 
 		case notice := <-qm.feedback:
-			fmt.Printf("workunit status feedback received, workid=%s, status=%s\n", notice.Workid, notice.Status)
+			//	fmt.Printf("workunit status feedback received, workid=%s, status=%s\n", notice.Workid, notice.Status)
 			qm.handleWorkStatusChange(notice)
 
 		case <-qm.reminder:

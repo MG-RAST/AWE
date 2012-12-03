@@ -24,11 +24,12 @@ func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 	response := new(Response)
 
 	res, err := http.Get(fmt.Sprintf("%s/work", serverhost))
-	defer res.Body.Close()
 
 	if err != nil {
 		return
 	}
+
+	defer res.Body.Close()
 
 	jsonstream, err := ioutil.ReadAll(res.Body)
 
@@ -62,50 +63,44 @@ func NotifyWorkunitDone(serverhost string, workid string) (err error) {
 	return
 }
 
-func RunWorkunit(work *Workunit, num int) (err error) {
+func RunWorkunit(work *Workunit) (err error) {
 
-	fmt.Printf("worker %d started run workunit id=%s\n", num, work.Id)
-	defer fmt.Printf("worker %d finished run workunit id=%s\n", num, work.Id)
+	fmt.Printf("++++++worker: started processing workunit id=%s++++++\n", work.Id)
+	defer fmt.Printf("-------worker: finished processing workunit id=%s------\n\n", work.Id)
 
 	//make a working directory for the workunit
 	if err := work.Mkdir(); err != nil {
 		return err
 	}
+
 	//change cwd to the workunit's working directory
 	if err := work.CDworkpath(); err != nil {
 		return err
 	}
-
-	commandName := work.Cmd.Name
 
 	args, err := ParseWorkunitArgs(work)
 	if err != nil {
 		return
 	}
 
-	fmt.Printf("cmd=%s, args=%v\n", commandName, args)
-
+	commandName := work.Cmd.Name
 	cmd := exec.Command(commandName, args...)
 
-	err = cmd.Start()
-	if err != nil {
-		return
-	}
+	fmt.Printf("worker: start running cmd=%s, args=%v\n", commandName, args)
 
-	err = cmd.Wait()
+	err = cmd.Run()
 	if err != nil {
 		return
 	}
 
 	for name, io := range work.Outputs {
 
-		if iostat, err := os.Stat(name); err != nil {
-			fmt.Printf("error:output %s not generated for work %s\n", name, work.Id)
-			return errors.New(fmt.Sprintf("error:output %s not generated for work %s", name, work.Id))
-		} else {
-			fmt.Printf("name=%s, stat=%v\n", name, iostat)
+		if _, err := os.Stat(name); err != nil {
+			fmt.Printf("worker: error:output %s not generated for workunit %s\n", name, work.Id)
+			return errors.New(fmt.Sprintf("error:output %s not generated for workunit %s", name, work.Id))
 		}
 
+		fmt.Printf("worker: push output to shock, filename=%s\n", name)
 		if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {
 			fmt.Printf("push file error")
 			return err
@@ -143,9 +138,12 @@ func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 					dataUrl = fmt.Sprintf("%s&index=record&part=%s", io.Url(), work.Part())
 				}
 
+				fmt.Printf("worker: fetching input from url %s\n", dataUrl)
+
 				if err := fetchFile(inputname, dataUrl); err != nil { //get file from Shock
 					return []string{}, err
 				}
+
 				filePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
 
 				parsedArg := fmt.Sprintf("%s%s", segs[0], filePath)
@@ -161,7 +159,7 @@ func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 
 //fetch file by shock url
 func fetchFile(filename string, url string) (err error) {
-	fmt.Printf("in fetchFile, filename=%s, url=%s\n", filename, url)
+
 	localfile, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -184,8 +182,6 @@ func fetchFile(filename string, url string) (err error) {
 func pushFileByCurl(filename string, host string, node string, rank int) (err error) {
 
 	shockurl := fmt.Sprintf("%s/node/%s", host, node)
-
-	fmt.Printf("in pushFile, filename=%s, url=%s\n", filename, shockurl)
 
 	if err := putFileByCurl(filename, shockurl, rank); err != nil {
 		return err

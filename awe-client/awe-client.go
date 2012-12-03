@@ -4,52 +4,69 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
 	. "github.com/MG-RAST/AWE/core"
+	"os"
 	"time"
 )
 
 var (
-	workChan     = make(chan *Workunit, conf.TOTAL_WORKER)
+	workChan     = make(chan *Workunit, 2)
 	aweServerUrl = "http://localhost:8001"
 )
 
-func worker(control chan int, num int) {
-	fmt.Printf("worker %d launched\n", num)
-	defer fmt.Printf("worker exiting...\n")
-
+func workStealer(control chan int) {
+	fmt.Printf("workStealer lanched\n")
+	defer fmt.Printf("workStealer exiting...\n")
+	retry := 0
 	for {
-		work, err := CheckoutWorkunitRemote(aweServerUrl)
+		wu, err := CheckoutWorkunitRemote(conf.SERVER_URL)
 		if err != nil {
 			if err.Error() == "empty workunit queue" {
-				//fmt.Printf("queue empty, try again 5 seconds later\n")
 				time.Sleep(5 * time.Second)
 			} else {
-				fmt.Printf("error in checkoutWorkunitRemote %v\n", err)
+				fmt.Printf("error in checking out workunits: %v\n", err)
+				retry += 1
+				if retry == 3 {
+					os.Exit(1)
+				}
+				time.Sleep(3 * time.Second)
 			}
 			continue
 		}
+		fmt.Printf("workStealer: checked out a workunit: id=%s\n", wu.Id)
+		workChan <- wu
+	}
+	control <- 0 //we are ending
+}
 
-		fmt.Printf("worker %d checked out a workunit: id=%s\n", num, work.Id)
-
-		if err := RunWorkunit(work, num); err != nil {
-			fmt.Printf("RunWorkunit returned error: %v\n", err)
+func worker(control chan int) {
+	fmt.Printf("worker lanched\n")
+	defer fmt.Printf("worker exiting...\n")
+	for {
+		work := <-workChan
+		if err := RunWorkunit(work); err != nil {
+			fmt.Printf("worker: RunWorkunit() %s returned error: %v\n", work.Id, err)
 			continue
 		}
-		if err := NotifyWorkunitDone(aweServerUrl, work.Id); err != nil {
-			fmt.Printf("NotifyWorkunitDone returned error: %v\n", err)
+		if err := NotifyWorkunitDone(conf.SERVER_URL, work.Id); err != nil {
+			fmt.Printf("worker: NotifyWorkunitDone returned error: %v\n", err)
 		}
+		time.Sleep(2 * time.Second) //have a rest, just for demo or testing
 	}
+	control <- 1 //we are ending
 }
 
 func main() {
 	//launch client
 	conf.PrintClientCfg()
-	fmt.Printf("total worker=%d\n", conf.TOTAL_WORKER)
 	control := make(chan int)
-	for i := 0; i < conf.TOTAL_WORKER; i++ {
-		go worker(control, i)
-	}
+	go workStealer(control)
+	go worker(control)
 	for {
-		who := <-control //block till some work dies and then restart it
-		go worker(control, who)
+		who := <-control //block till someone dies and then restart it
+		if who == 0 {
+			go workStealer(control)
+		} else {
+			go worker(control)
+		}
 	}
 }

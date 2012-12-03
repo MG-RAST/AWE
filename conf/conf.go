@@ -119,7 +119,6 @@ func init() {
 	MONGODB, _ = c.String("Mongodb", "hosts")
 
 	// Client
-	TOTAL_WORKER, _ = c.Int("Client", "totalworker")
 	WORK_PATH, _ = c.String("Client", "workpath")
 	SERVER_URL, _ = c.String("Client", "serverurl")
 
@@ -145,7 +144,6 @@ func Print() {
 
 func PrintClientCfg() {
 	fmt.Printf("###AWE client running###\n")
-	fmt.Printf("total_work=%d\n", TOTAL_WORKER)
 	fmt.Printf("work_path=%s\n", WORK_PATH)
 	fmt.Printf("server_url=%s\n", SERVER_URL)
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/core/pqueue"
+	e "github.com/MG-RAST/AWE/errors"
 	"io/ioutil"
 	"net/http"
 	"os/exec"
@@ -342,7 +343,7 @@ func (wq WQueue) PopWorkByID(id string) (workunit *Workunit, err error) {
 //to-do: update workunit state to "checked-out"
 func (wq *WQueue) PopWorkFCFS() (workunit *Workunit, err error) {
 	if wq.Len() == 0 {
-		return nil, errors.New("workunit queue is empty")
+		return nil, errors.New(e.WorkUnitQueueEmpty)
 	}
 
 	//some workunit might be checked out by id, thus keep popping

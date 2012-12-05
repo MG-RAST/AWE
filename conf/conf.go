@@ -7,12 +7,6 @@ import (
 	"os"
 )
 
-type idxOpts struct {
-	unique   bool
-	dropDups bool
-	sparse   bool
-}
-
 // Setup conf variables
 var (
 	//Reload

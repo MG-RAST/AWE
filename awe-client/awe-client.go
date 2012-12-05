@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
 	. "github.com/MG-RAST/AWE/core"
+	e "github.com/MG-RAST/AWE/errors"
 	"os"
 	"time"
 )
@@ -20,7 +21,7 @@ func workStealer(control chan int) {
 	for {
 		wu, err := CheckoutWorkunitRemote(conf.SERVER_URL)
 		if err != nil {
-			if err.Error() == "empty workunit queue" {
+			if err.Error() == e.WorkUnitQueueEmpty {
 				time.Sleep(5 * time.Second)
 			} else {
 				fmt.Printf("error in checking out workunits: %v\n", err)

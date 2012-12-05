@@ -2,6 +2,8 @@ package main
 
 import (
 	"github.com/MG-RAST/AWE/core"
+	e "github.com/MG-RAST/AWE/errors"
+	. "github.com/MG-RAST/AWE/logger"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
 )
@@ -15,7 +17,9 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	workunit, err := queueMgr.GetWorkById(id)
 
 	if err != nil {
-		log.Error("Err@work_Read:QueueMgr.GetWorkById(): " + err.Error())
+		if err.Error() != e.WorkUnitQueueEmpty {
+			Log.Error("Err@work_Read:QueueMgr.GetWorkById(): " + err.Error())
+		}
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -32,7 +36,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	workunit, err := queueMgr.GetWorkByFCFS()
 
 	if err != nil {
-		log.Error("Err@work_ReadMany:QueueMgr.GetWorkByFCFS(): " + err.Error())
+		Log.Error("Err@work_ReadMany:QueueMgr.GetWorkByFCFS(): " + err.Error())
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}

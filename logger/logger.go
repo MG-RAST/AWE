@@ -20,8 +20,17 @@ type Logger struct {
 	logs  map[string]l4g.Logger
 }
 
+var (
+	Log *Logger
+)
+
+func init() {
+	Log = New()
+}
+
 func New() *Logger {
 	l := &Logger{queue: make(chan m, 1024), logs: map[string]l4g.Logger{}}
+
 	l.logs["access"] = make(l4g.Logger)
 	accessf := l4g.NewFileLogWriter(conf.LOGS_PATH+"/access.log", false)
 	if accessf == nil {

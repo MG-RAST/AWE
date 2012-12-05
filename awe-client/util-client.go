@@ -39,11 +39,15 @@ func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 
 	json.Unmarshal(jsonstream, response)
 
+	if response.Errs != nil {
+		return nil, errors.New(strings.Join(response.Errs, ","))
+	}
+
 	if response.Code == 200 {
 		workunit = &response.Data
 		return workunit, nil
 	}
-	return workunit, errors.New("empty workunit queue")
+	return
 }
 
 func NotifyWorkunitDone(serverhost string, workid string) (err error) {

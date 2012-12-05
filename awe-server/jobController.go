@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/MG-RAST/AWE/core"
+	. "github.com/MG-RAST/AWE/logger"
 	e "github.com/MG-RAST/Shock/errors"
 	"github.com/jaredwilkening/goweb"
 	"labix.org/v2/mgo/bson"
@@ -21,7 +22,7 @@ func handleAuthError(err error, cx *goweb.Context) {
 		cx.RespondWithErrorMessage("Invalid Authorization header", http.StatusBadRequest)
 		return
 	}
-	log.Error("Error at Auth: " + err.Error())
+	Log.Error("Error at Auth: " + err.Error())
 	cx.RespondWithError(http.StatusInternalServerError)
 	return
 }
@@ -42,7 +43,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			// Some error other than request encoding. Theoretically 
 			// could be a lost db connection between user lookup and parsing.
 			// Blame the user, Its probaby their fault anyway.
-			log.Error("Error parsing form: " + err.Error())
+			Log.Error("Error parsing form: " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
 		}
 		return
@@ -61,7 +62,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	job, err = core.CreateJobUpload(params, files)
 
 	if err != nil {
-		log.Error("err " + err.Error())
+		Log.Error("err " + err.Error())
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -88,7 +89,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
-			log.Error("Err@job_Read:LoadJob: " + err.Error())
+			Log.Error("Err@job_Read:LoadJob: " + err.Error())
 			cx.RespondWithError(http.StatusInternalServerError)
 			return
 		}
@@ -138,7 +139,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		// Get nodes from db
 		err := jobs.GetAllLimitOffset(q, lim, off)
 		if err != nil {
-			log.Error("err " + err.Error())
+			Log.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
 			return
 		}
@@ -146,7 +147,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		// Get nodes from db
 		err := jobs.GetAll(q)
 		if err != nil {
-			log.Error("err " + err.Error())
+			Log.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
 			return
 		}

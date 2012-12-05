@@ -14,4 +14,5 @@ const (
 	NoAuth                   = "No Authorization"
 	InvalidIndex             = "Invalid Index"
 	InvalidFileTypeForFilter = "Invalid file type for filter"
+	WorkUnitQueueEmpty       = "Workunit queue is empty"
 )

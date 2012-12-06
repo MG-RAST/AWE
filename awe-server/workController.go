@@ -23,7 +23,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
-	// Base case respond with node in json	
+	// Base case respond with workunit in json	
 	cx.RespondWithData(workunit)
 	return
 }
@@ -36,7 +36,9 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	workunit, err := queueMgr.GetWorkByFCFS()
 
 	if err != nil {
-		Log.Error("Err@work_ReadMany:QueueMgr.GetWorkByFCFS(): " + err.Error())
+		if err.Error() != e.WorkUnitQueueEmpty {
+			Log.Error("Err@work_ReadMany:QueueMgr.GetWorkByFCFS(): " + err.Error())
+		}
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}

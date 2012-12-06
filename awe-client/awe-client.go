@@ -12,6 +12,7 @@ import (
 var (
 	workChan     = make(chan *Workunit, 2)
 	aweServerUrl = "http://localhost:8001"
+	self         *Client
 )
 
 func workStealer(control chan int) {
@@ -60,6 +61,15 @@ func main() {
 	//launch client
 	conf.PrintClientCfg()
 	control := make(chan int)
+
+	self, err := Register(conf.SERVER_URL)
+	if err != nil {
+		fmt.Printf("fail to register: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Client registration done, client id=%s\n", self.Id)
+
 	go workStealer(control)
 	go worker(control)
 	for {

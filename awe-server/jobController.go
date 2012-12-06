@@ -94,7 +94,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 			return
 		}
 	}
-	// Base case respond with node in json	
+	// Base case respond with job in json	
 	cx.RespondWithData(job)
 	return
 }

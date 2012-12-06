@@ -16,6 +16,7 @@ import (
 )
 
 type QueueMgr struct {
+	clientMap map[string]*Client
 	taskMap   map[string]*Task
 	workQueue WQueue
 	reminder  chan bool
@@ -28,6 +29,7 @@ type QueueMgr struct {
 
 func NewQueueMgr() *QueueMgr {
 	return &QueueMgr{
+		clientMap: map[string]*Client{},
 		taskMap:   map[string]*Task{},
 		workQueue: NewWQueue(),
 		reminder:  make(chan bool),
@@ -412,4 +414,19 @@ func putParts(host string, nodeid string, numParts int) (err error) {
 		return
 	}
 	return
+}
+
+//Client functions
+func (qm *QueueMgr) RegisterNewClient() (client *Client, err error) {
+	//if queue is empty, reject client registration
+	if qm.workQueue.Len() == 0 {
+		return nil, errors.New(e.WorkUnitQueueEmpty)
+	}
+	client = NewClient()
+	qm.clientMap[client.Id] = client
+	fmt.Printf("registered a new client:%s, current total clients: %d\n", client.Id, len(qm.clientMap))
+	return
+}
+func (qm *QueueMgr) deleteClient(id string) {
+	delete(qm.clientMap, id)
 }

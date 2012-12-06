@@ -40,6 +40,7 @@ func launchAPI(control chan int, port int) {
 	r := &goweb.RouteManager{}
 	r.MapRest("/job", new(JobController))
 	r.MapRest("/work", new(WorkController))
+	r.MapRest("/client", new(ClientController))
 	r.MapFunc("*", ResourceDescription, goweb.GetMethod)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.API_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)

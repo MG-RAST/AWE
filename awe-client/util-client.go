@@ -13,15 +13,21 @@ import (
 	"strings"
 )
 
-type Response struct {
+type WorkResponse struct {
 	Code int      `bson:"S" json:"S"`
 	Data Workunit `bson:"D" json:"D"`
 	Errs []string `bson:"E" json:"E"`
 }
 
+type ClientResponse struct {
+	Code int      `bson:"S" json:"S"`
+	Data Client   `bson:"D" json:"D"`
+	Errs []string `bson:"E" json:"E"`
+}
+
 func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 
-	response := new(Response)
+	response := new(WorkResponse)
 
 	res, err := http.Get(fmt.Sprintf("%s/work", serverhost))
 
@@ -32,15 +38,15 @@ func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 	defer res.Body.Close()
 
 	jsonstream, err := ioutil.ReadAll(res.Body)
-
 	if err != nil {
 		return
 	}
 
-	json.Unmarshal(jsonstream, response)
-
-	if response.Errs != nil {
-		return nil, errors.New(strings.Join(response.Errs, ","))
+	if err = json.Unmarshal(jsonstream, response); err != nil {
+		if len(response.Errs) > 0 {
+			return nil, errors.New(strings.Join(response.Errs, ","))
+		}
+		return
 	}
 
 	if response.Code == 200 {
@@ -239,5 +245,33 @@ func makeIndexByCurl(targetUrl string, indexType string) (err error) {
 	if err != nil {
 		return
 	}
+	return
+}
+
+func Register(host string) (client *Client, err error) {
+	//create a shock node for output
+	var res *http.Response
+	serverUrl := fmt.Sprintf("%s/client", host)
+	res, err = http.Post(serverUrl, "", strings.NewReader(""))
+	if err != nil {
+		return
+	}
+
+	jsonstream, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+
+	//fmt.Printf("json=%s\n", jsonstream)
+
+	response := new(ClientResponse)
+
+	if err = json.Unmarshal(jsonstream, response); err != nil {
+		if len(response.Errs) > 0 {
+			//or if err.Error() == "json: cannot unmarshal null into Go value of type core.Client" 
+			return nil, errors.New(strings.Join(response.Errs, ","))
+		}
+		return
+	}
+
+	client = &response.Data
 	return
 }

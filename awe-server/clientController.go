@@ -14,10 +14,8 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 
-	// Parse uploaded form
 	client, err := queueMgr.RegisterNewClient()
 	if err != nil {
-		// If not multipart/form-data it will create an empty node. 
 		if err.Error() == e.WorkUnitQueueEmpty {
 			cx.RespondWithErrorMessage(e.WorkUnitQueueEmpty, http.StatusBadRequest)
 		} else {
@@ -34,13 +32,28 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 // GET: /client/{id}
 func (cr *ClientController) Read(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
-	cx.RespondWithError(http.StatusNotImplemented)
+	client, err := queueMgr.GetClient(id)
+	if err != nil {
+		if err.Error() == e.ClientNotFound {
+			cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
+		} else {
+			Log.Error("Error in GET client:" + err.Error())
+			cx.RespondWithError(http.StatusBadRequest)
+		}
+		return
+	}
+	cx.RespondWithData(client)
 }
 
 // GET: /client
 func (cr *ClientController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
-	cx.RespondWithError(http.StatusNotImplemented)
+	clients := queueMgr.GetAllClients()
+	if len(clients) == 0 {
+		cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
+		return
+	}
+	cx.RespondWithData(clients)
 }
 
 // PUT: /client/{id} -> status update

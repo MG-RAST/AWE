@@ -427,6 +427,22 @@ func (qm *QueueMgr) RegisterNewClient() (client *Client, err error) {
 	fmt.Printf("registered a new client:%s, current total clients: %d\n", client.Id, len(qm.clientMap))
 	return
 }
+
+func (qm *QueueMgr) GetClient(id string) (client *Client, err error) {
+	if client, ok := qm.clientMap[id]; ok {
+		return client, nil
+	}
+	return nil, errors.New(e.ClientNotFound)
+}
+
+func (qm *QueueMgr) GetAllClients() []*Client {
+	var clients []*Client
+	for _, client := range qm.clientMap {
+		clients = append(clients, client)
+	}
+	return clients
+}
+
 func (qm *QueueMgr) deleteClient(id string) {
 	delete(qm.clientMap, id)
 }

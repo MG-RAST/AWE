@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
 	"github.com/MG-RAST/AWE/core"
+	. "github.com/MG-RAST/AWE/logger"
 	"github.com/jaredwilkening/goweb"
 	"math/rand"
 	"net"
 	"net/http"
 	"os"
 	"strings"
-	"time"
 )
 
 var (
@@ -63,7 +63,7 @@ func Site(cx *goweb.Context) {
 
 func LogRequest(req *http.Request) {
 	host, _, _ := net.SplitHostPort(req.RemoteAddr)
-	prefix := fmt.Sprintf("%s [%s]", host, time.Now().Format(time.RFC1123))
+	//	prefix := fmt.Sprintf("%s [%s]", host, time.Now().Format(time.RFC1123))
 	suffix := ""
 	if _, auth := req.Header["Authorization"]; auth {
 		suffix = "AUTH"
@@ -74,7 +74,7 @@ func LogRequest(req *http.Request) {
 	} else {
 		url = fmt.Sprintf("%s %s", req.Method, req.URL.Path)
 	}
-	fmt.Printf("%s %q %s\n", prefix, url, suffix)
+	Log.Info("access", host+" \""+url+suffix+"\"")
 }
 
 func RawDir(cx *goweb.Context) {

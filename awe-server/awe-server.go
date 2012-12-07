@@ -61,6 +61,7 @@ func launchAPI(control chan int, port int) {
 func main() {
 	printLogo()
 	conf.Print()
+	Log = NewLogger("server")
 
 	//launch server
 	control := make(chan int)

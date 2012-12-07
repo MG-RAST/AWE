@@ -77,8 +77,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 // GET: /job/{id}
 func (cr *JobController) Read(id string, cx *goweb.Context) {
-	//Gather query params
-	//query := &Query{list: cx.Request.URL.Query()}
+	LogRequest(cx.Request)
 
 	// Load job by id
 	job, err := core.LoadJob(id)
@@ -103,6 +102,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 // To do:
 // - Iterate job queries
 func (cr *JobController) ReadMany(cx *goweb.Context) {
+	LogRequest(cx.Request)
 
 	// Gather query params
 	query := &Query{list: cx.Request.URL.Query()}

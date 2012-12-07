@@ -5,6 +5,7 @@ import (
 	"github.com/MG-RAST/AWE/conf"
 	. "github.com/MG-RAST/AWE/core"
 	e "github.com/MG-RAST/AWE/errors"
+	. "github.com/MG-RAST/AWE/logger"
 	"os"
 	"time"
 )
@@ -69,6 +70,8 @@ func main() {
 	}
 
 	fmt.Printf("Client registration done, client id=%s\n", self.Id)
+
+	Log = NewLogger("client-" + self.Id)
 
 	go workStealer(control)
 	go worker(control)

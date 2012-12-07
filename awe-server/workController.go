@@ -13,6 +13,7 @@ type WorkController struct{}
 // GET: /work/{id}
 // get a workunit by id
 func (cr *WorkController) Read(id string, cx *goweb.Context) {
+	LogRequest(cx.Request)
 	// Load workunit by id
 	workunit, err := queueMgr.GetWorkById(id)
 
@@ -42,6 +43,10 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	//log access info only when the queue is not empty, save some log
+	LogRequest(cx.Request)
+
 	// Base case respond with node in json	
 	cx.RespondWithData(workunit)
 	return

@@ -13,18 +13,20 @@ import (
 )
 
 type Job struct {
-	Id     string `bson:"id" json:"id"`
-	Info   *Info  `bson:"info" json:"info"`
-	Tasks  []Task `bson:"tasks" json:"tasks"`
-	Script script `bson:"script" json:"script"`
-	State  string `bson:"state" json:"state"`
+	Id          string  `bson:"id" json:"id"`
+	Info        *Info   `bson:"info" json:"info"`
+	Tasks       []*Task `bson:"tasks" json:"tasks"`
+	Script      script  `bson:"script" json:"script"`
+	State       string  `bson:"state" json:"state"`
+	RemainTasks int     `bson:"remaintasks" json:"remaintasks"`
 }
 
 func NewJob() (job *Job) {
 	job = new(Job)
 	job.Info = NewInfo()
-	job.Tasks = []Task{}
+	//job.Tasks = []*Task
 	job.setId()
+	job.RemainTasks = 1
 	job.State = "submitted"
 	return
 }
@@ -120,25 +122,12 @@ func getPath(id string) string {
 }
 
 //---Task functions
-func (job *Job) TaskList() []Task {
+func (job *Job) TaskList() []*Task {
 	return job.Tasks
 }
 
 func (job *Job) NumTask() int {
 	return len(job.Tasks)
-}
-
-func (job *Job) TestSetTasks() (err error) {
-	var lastId string
-	for i := 0; i < 5; i++ {
-		task := NewTask(job, i)
-		if lastId != "" {
-			task.DependsOn = []string{lastId}
-		}
-		lastId = task.Id
-		job.Tasks = append(job.Tasks, *task)
-	}
-	return
 }
 
 func ParseJobTasks(filename string) (job *Job, err error) {
@@ -168,6 +157,8 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 		}
 	}
 
+	job.RemainTasks = len(job.Tasks)
+
 	return
 }
 
@@ -176,3 +167,5 @@ func (job *Job) UpdateState(newState string) string {
 	job.State = newState
 	return newState
 }
+
+//invoked when a task is completed

@@ -21,7 +21,7 @@ type QueueMgr struct {
 	taskMap   map[string]*Task
 	workQueue WQueue
 	reminder  chan bool
-	taskIn    chan Task    //channel for receiving Task (JobController -> qmgr.Handler)
+	taskIn    chan *Task   //channel for receiving Task (JobController -> qmgr.Handler)
 	coReq     chan string  //workunit checkout request (WorkController -> qmgr.Handler)
 	coAck     chan AckItem //workunit checkout item including data and err (qmgr.Handler -> WorkController)
 	feedback  chan Notice  //workunit execution feedback (WorkController -> qmgr.Handler)
@@ -34,7 +34,7 @@ func NewQueueMgr() *QueueMgr {
 		taskMap:   map[string]*Task{},
 		workQueue: NewWQueue(),
 		reminder:  make(chan bool),
-		taskIn:    make(chan Task, 1024),
+		taskIn:    make(chan *Task, 1024),
 		coReq:     make(chan string),
 		coAck:     make(chan AckItem),
 		feedback:  make(chan Notice),
@@ -137,7 +137,7 @@ func (qm *QueueMgr) Timer() {
 	}
 }
 
-func (qm *QueueMgr) AddTasks(tasks []Task) (err error) {
+func (qm *QueueMgr) AddTasks(tasks []*Task) (err error) {
 	for _, task := range tasks {
 		qm.taskIn <- task
 	}
@@ -174,18 +174,18 @@ func (qm *QueueMgr) NotifyWorkStatus(notice Notice) {
 }
 
 //add task to taskMap
-func (qm *QueueMgr) addTask(task Task) (err error) {
+func (qm *QueueMgr) addTask(task *Task) (err error) {
 	id := task.Id
 	task.State = "pending"
-	qm.taskMap[id] = &task
+	qm.taskMap[id] = task
 	if len(task.DependsOn) == 0 {
-		qm.taskEnQueue(&task)
+		qm.taskEnQueue(task)
 	}
 	return
 }
 
 //delete task from taskMap
-func (qm *QueueMgr) deleteTasks(tasks []Task) (err error) {
+func (qm *QueueMgr) deleteTasks(tasks []*Task) (err error) {
 	return
 }
 
@@ -297,25 +297,12 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 			qm.taskMap[taskid].RemainWork -= 1
 			if qm.taskMap[taskid].RemainWork == 0 {
 				qm.taskMap[taskid].State = "completed"
+				//qm.updateJob()
 				qm.updateQueue()
 			}
 		}
 	} else {
 		return errors.New(fmt.Sprintf("task not existed: %s", taskid))
-	}
-	return
-}
-
-func updateTaskStatus(task *Task) {
-	completed := true
-	for _, status := range task.WorkStatus {
-		if status != "done" {
-			completed = false
-			break
-		}
-	}
-	if completed == true {
-		task.State = "completed"
 	}
 	return
 }

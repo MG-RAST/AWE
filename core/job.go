@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
+	. "github.com/MG-RAST/AWE/logger"
 	"github.com/MG-RAST/Shock/store/uuid"
 	"io/ioutil"
 	"labix.org/v2/mgo/bson"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -169,3 +172,17 @@ func (job *Job) UpdateState(newState string) string {
 }
 
 //invoked when a task is completed
+func (job *Job) UpdateTask(task *Task) (err error) {
+	parts := strings.Split(task.Id, "_")
+	rank, err := strconv.Atoi(parts[1])
+	if err != nil {
+		Log.Error("invalid task " + task.Id)
+		return
+	}
+	job.Tasks[rank] = task
+	job.RemainTasks -= 1
+	if job.RemainTasks == 0 {
+		job.State = "completed"
+	}
+	return job.Save()
+}

@@ -120,7 +120,7 @@ func (qm *QueueMgr) Handle() {
 		case notice := <-qm.feedback:
 			//	fmt.Printf("workunit status feedback received, workid=%s, status=%s\n", notice.Workid, notice.Status)
 			if err := qm.handleWorkStatusChange(notice); err != nil {
-				Log.Error("ERROR: qmgr: " + err.Error())
+				Log.Error("ERROR: qmgr handleWorkStatusChange(): " + err.Error())
 			}
 
 		case <-qm.reminder:
@@ -297,7 +297,9 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 			qm.taskMap[taskid].RemainWork -= 1
 			if qm.taskMap[taskid].RemainWork == 0 {
 				qm.taskMap[taskid].State = "completed"
-				//qm.updateJob()
+				if err = updateJob(qm.taskMap[taskid]); err != nil {
+					return
+				}
 				qm.updateQueue()
 			}
 		}
@@ -450,4 +452,15 @@ func (qm *QueueMgr) GetAllClients() []*Client {
 
 func (qm *QueueMgr) deleteClient(id string) {
 	delete(qm.clientMap, id)
+}
+
+//job functions
+func updateJob(task *Task) (err error) {
+	parts := strings.Split(task.Id, "_")
+	jobid := parts[0]
+	job, err := LoadJob(jobid)
+	if err != nil {
+		return
+	}
+	return job.UpdateTask(task)
 }

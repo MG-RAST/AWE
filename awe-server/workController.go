@@ -2,6 +2,8 @@ package main
 
 import (
 	"github.com/MG-RAST/AWE/core"
+	e "github.com/MG-RAST/AWE/errors"
+	. "github.com/MG-RAST/AWE/logger"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
 )
@@ -11,15 +13,18 @@ type WorkController struct{}
 // GET: /work/{id}
 // get a workunit by id
 func (cr *WorkController) Read(id string, cx *goweb.Context) {
+	LogRequest(cx.Request)
 	// Load workunit by id
 	workunit, err := queueMgr.GetWorkById(id)
 
 	if err != nil {
-		log.Error("Err@work_Read:QueueMgr.GetWorkById(): " + err.Error())
+		if err.Error() != e.WorkUnitQueueEmpty {
+			Log.Error("Err@work_Read:QueueMgr.GetWorkById(): " + err.Error())
+		}
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
-	// Base case respond with node in json	
+	// Base case respond with workunit in json	
 	cx.RespondWithData(workunit)
 	return
 }
@@ -28,14 +33,33 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 // checkout a workunit with earliest submission time
 // to-do: to support more options for workunit checkout 
 func (cr *WorkController) ReadMany(cx *goweb.Context) {
+
+	// Gather query params
+	query := &Query{list: cx.Request.URL.Query()}
+	if !query.Has("client") {
+		cx.RespondWithErrorMessage("mush provide client id for workunit checkout", http.StatusBadRequest)
+		return
+	}
+
 	//checkout a workunit in FCFS order
 	workunit, err := queueMgr.GetWorkByFCFS()
 
 	if err != nil {
-		log.Error("Err@work_ReadMany:QueueMgr.GetWorkByFCFS(): " + err.Error())
+		if err.Error() != e.WorkUnitQueueEmpty {
+			Log.Error("Err@work_ReadMany:QueueMgr.GetWorkByFCFS(): " + err.Error())
+		}
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	//log access info only when the queue is not empty, save some log
+	LogRequest(cx.Request)
+
+	//log event about workunit checkout (WO)
+	Log.Event(EVENT_WORK_CHECKOUT,
+		"workid="+workunit.Id,
+		"clientid="+query.Value("client"))
+
 	// Base case respond with node in json	
 	cx.RespondWithData(workunit)
 	return
@@ -53,5 +77,6 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 		notice := core.Notice{Workid: id, Status: query.Value("status")}
 		queueMgr.NotifyWorkStatus(notice)
 	}
+
 	return
 }

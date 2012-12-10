@@ -14,6 +14,7 @@ type Task struct {
 	Partition  *PartInfo `bson:"partinfo" json:"partinfo"`
 	DependsOn  []string  `bson:"dependsOn" json:"dependsOn"`
 	TotalWork  int       `bson:"totalwork" json:"totalwork"`
+	RemainWork int       `bson:"remainwork" json:"remainwork"`
 	WorkStatus []string  `bson:"workstatus" json:"workstatus"`
 	State      string    `bson:"state" json:"state"`
 }
@@ -50,6 +51,7 @@ func NewTask(job *Job, rank int) *Task {
 		Partition:  nil,
 		DependsOn:  []string{},
 		TotalWork:  1,
+		RemainWork: 1,
 		WorkStatus: []string{},
 		State:      "init",
 	}
@@ -104,6 +106,7 @@ func (task *Task) InitTask(job *Job) (err error) {
 	task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
 	task.Info = job.Info
 	task.State = "init"
+	task.RemainWork = task.TotalWork
 	task.WorkStatus = make([]string, task.TotalWork)
 
 	for j := 0; j < len(task.DependsOn); j++ {

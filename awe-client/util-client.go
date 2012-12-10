@@ -13,17 +13,23 @@ import (
 	"strings"
 )
 
-type Response struct {
+type WorkResponse struct {
 	Code int      `bson:"S" json:"S"`
 	Data Workunit `bson:"D" json:"D"`
 	Errs []string `bson:"E" json:"E"`
 }
 
-func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
+type ClientResponse struct {
+	Code int      `bson:"S" json:"S"`
+	Data Client   `bson:"D" json:"D"`
+	Errs []string `bson:"E" json:"E"`
+}
 
-	response := new(Response)
+func CheckoutWorkunitRemote(serverhost string, selfid string) (workunit *Workunit, err error) {
 
-	res, err := http.Get(fmt.Sprintf("%s/work", serverhost))
+	response := new(WorkResponse)
+
+	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", serverhost, selfid))
 
 	if err != nil {
 		return
@@ -32,18 +38,22 @@ func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 	defer res.Body.Close()
 
 	jsonstream, err := ioutil.ReadAll(res.Body)
-
 	if err != nil {
 		return
 	}
 
-	json.Unmarshal(jsonstream, response)
+	if err = json.Unmarshal(jsonstream, response); err != nil {
+		if len(response.Errs) > 0 {
+			return nil, errors.New(strings.Join(response.Errs, ","))
+		}
+		return
+	}
 
 	if response.Code == 200 {
 		workunit = &response.Data
 		return workunit, nil
 	}
-	return workunit, errors.New("empty workunit queue")
+	return
 }
 
 func NotifyWorkunitDone(serverhost string, workid string) (err error) {
@@ -235,5 +245,33 @@ func makeIndexByCurl(targetUrl string, indexType string) (err error) {
 	if err != nil {
 		return
 	}
+	return
+}
+
+func Register(host string) (client *Client, err error) {
+	//create a shock node for output
+	var res *http.Response
+	serverUrl := fmt.Sprintf("%s/client", host)
+	res, err = http.Post(serverUrl, "", strings.NewReader(""))
+	if err != nil {
+		return
+	}
+
+	jsonstream, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
+
+	//fmt.Printf("json=%s\n", jsonstream)
+
+	response := new(ClientResponse)
+
+	if err = json.Unmarshal(jsonstream, response); err != nil {
+		if len(response.Errs) > 0 {
+			//or if err.Error() == "json: cannot unmarshal null into Go value of type core.Client" 
+			return nil, errors.New(strings.Join(response.Errs, ","))
+		}
+		return
+	}
+
+	client = &response.Data
 	return
 }

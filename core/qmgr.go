@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/core/pqueue"
+	e "github.com/MG-RAST/AWE/errors"
+	. "github.com/MG-RAST/AWE/logger"
 	"io/ioutil"
 	"net/http"
 	"os/exec"
@@ -15,10 +17,11 @@ import (
 )
 
 type QueueMgr struct {
+	clientMap map[string]*Client
 	taskMap   map[string]*Task
 	workQueue WQueue
 	reminder  chan bool
-	taskIn    chan Task    //channel for receiving Task (JobController -> qmgr.Handler)
+	taskIn    chan *Task   //channel for receiving Task (JobController -> qmgr.Handler)
 	coReq     chan string  //workunit checkout request (WorkController -> qmgr.Handler)
 	coAck     chan AckItem //workunit checkout item including data and err (qmgr.Handler -> WorkController)
 	feedback  chan Notice  //workunit execution feedback (WorkController -> qmgr.Handler)
@@ -27,10 +30,11 @@ type QueueMgr struct {
 
 func NewQueueMgr() *QueueMgr {
 	return &QueueMgr{
+		clientMap: map[string]*Client{},
 		taskMap:   map[string]*Task{},
 		workQueue: NewWQueue(),
 		reminder:  make(chan bool),
-		taskIn:    make(chan Task, 1024),
+		taskIn:    make(chan *Task, 1024),
 		coReq:     make(chan string),
 		coAck:     make(chan AckItem),
 		feedback:  make(chan Notice),
@@ -106,6 +110,7 @@ func (qm *QueueMgr) Handle() {
 			} else if policy == "ById" {
 				wu, err = qm.workQueue.PopWorkByID(segs[1])
 			} else {
+				err = errors.New("bad checkout policy")
 				continue
 			}
 
@@ -114,10 +119,12 @@ func (qm *QueueMgr) Handle() {
 
 		case notice := <-qm.feedback:
 			//	fmt.Printf("workunit status feedback received, workid=%s, status=%s\n", notice.Workid, notice.Status)
-			qm.handleWorkStatusChange(notice)
+			if err := qm.handleWorkStatusChange(notice); err != nil {
+				Log.Error("ERROR: qmgr handleWorkStatusChange(): " + err.Error())
+			}
 
 		case <-qm.reminder:
-			fmt.Print("time to update workunit queue....\n")
+			//fmt.Print("time to update workunit queue....\n")
 			qm.updateQueue()
 		}
 	}
@@ -130,11 +137,10 @@ func (qm *QueueMgr) Timer() {
 	}
 }
 
-func (qm *QueueMgr) AddTasks(tasks []Task) (err error) {
+func (qm *QueueMgr) AddTasks(tasks []*Task) (err error) {
 	for _, task := range tasks {
 		qm.taskIn <- task
 	}
-	qm.updateQueue()
 	return
 }
 
@@ -168,15 +174,18 @@ func (qm *QueueMgr) NotifyWorkStatus(notice Notice) {
 }
 
 //add task to taskMap
-func (qm *QueueMgr) addTask(task Task) (err error) {
+func (qm *QueueMgr) addTask(task *Task) (err error) {
 	id := task.Id
 	task.State = "pending"
-	qm.taskMap[id] = &task
+	qm.taskMap[id] = task
+	if len(task.DependsOn) == 0 {
+		qm.taskEnQueue(task)
+	}
 	return
 }
 
 //delete task from taskMap
-func (qm *QueueMgr) deleteTasks(tasks []Task) (err error) {
+func (qm *QueueMgr) deleteTasks(tasks []*Task) (err error) {
 	return
 }
 
@@ -197,23 +206,34 @@ func (qm *QueueMgr) updateQueue() (err error) {
 			}
 		}
 		if ready {
-			fmt.Printf("move workunits of task %s to workunit queue\n", id)
-			if err := qm.locateInputs(task); err != nil {
-				fmt.Printf("error in locateInputs(): %v\n", err)
+			if err := qm.taskEnQueue(task); err != nil {
 				continue
 			}
-			if err := qm.createOutputNode(task); err != nil {
-				fmt.Printf("error in createOutputNode(): %v\n", err)
-				continue
-			}
-			if err := qm.parseTask(task); err != nil {
-				fmt.Printf("error in parseTask(): %v\n", err)
-				continue
-			}
-			task.State = "queued"
 		}
 	}
 	qm.workQueue.Show()
+	return
+}
+
+func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
+	fmt.Printf("move workunits of task %s to workunit queue\n", task.Id)
+	if err := qm.locateInputs(task); err != nil {
+		Log.Error("ERROR: qmgr.taskEnQueue: " + err.Error())
+		return err
+	}
+	if err := qm.createOutputNode(task); err != nil {
+		Log.Error("ERROR: qmgr.taskEnQueue: " + err.Error())
+		return err
+	}
+	if err := qm.parseTask(task); err != nil {
+		Log.Error("ERROR: qmgr.taskEnQueue: " + err.Error())
+		return err
+	}
+	task.State = "queued"
+
+	//log event about task enqueue (TQ)
+	Log.Event(EVENT_TASK_ENQUEUE, "taskid="+task.Id)
+
 	return
 }
 
@@ -277,24 +297,25 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 		} else {
 			qm.taskMap[taskid].WorkStatus[rank-1] = status
 		}
-		qm.updateTaskStatus(qm.taskMap[taskid])
-		qm.updateQueue()
+		if status == "done" {
+			//log event about work done (WD)
+			Log.Event(EVENT_WORK_DONE, "workid="+workid)
+
+			qm.taskMap[taskid].RemainWork -= 1
+			if qm.taskMap[taskid].RemainWork == 0 {
+				qm.taskMap[taskid].State = "completed"
+
+				//log event about task done (TD) 
+				Log.Event(EVENT_TASK_DONE, "taskid="+workid)
+
+				if err = updateJob(qm.taskMap[taskid]); err != nil {
+					return
+				}
+				qm.updateQueue()
+			}
+		}
 	} else {
 		return errors.New(fmt.Sprintf("task not existed: %s", taskid))
-	}
-	return
-}
-
-func (qm *QueueMgr) updateTaskStatus(task *Task) (err error) {
-	completed := true
-	for _, status := range task.WorkStatus {
-		if status != "done" {
-			completed = false
-			break
-		}
-	}
-	if completed == true {
-		task.State = "completed"
 	}
 	return
 }
@@ -342,7 +363,7 @@ func (wq WQueue) PopWorkByID(id string) (workunit *Workunit, err error) {
 //to-do: update workunit state to "checked-out"
 func (wq *WQueue) PopWorkFCFS() (workunit *Workunit, err error) {
 	if wq.Len() == 0 {
-		return nil, errors.New("workunit queue is empty")
+		return nil, errors.New(e.WorkUnitQueueEmpty)
 	}
 
 	//some workunit might be checked out by id, thus keep popping
@@ -411,4 +432,46 @@ func putParts(host string, nodeid string, numParts int) (err error) {
 		return
 	}
 	return
+}
+
+//Client functions
+func (qm *QueueMgr) RegisterNewClient() (client *Client, err error) {
+	//if queue is empty, reject client registration
+	if qm.workQueue.Len() == 0 {
+		return nil, errors.New(e.WorkUnitQueueEmpty)
+	}
+	client = NewClient()
+	qm.clientMap[client.Id] = client
+	fmt.Printf("registered a new client:%s, current total clients: %d\n", client.Id, len(qm.clientMap))
+	return
+}
+
+func (qm *QueueMgr) GetClient(id string) (client *Client, err error) {
+	if client, ok := qm.clientMap[id]; ok {
+		return client, nil
+	}
+	return nil, errors.New(e.ClientNotFound)
+}
+
+func (qm *QueueMgr) GetAllClients() []*Client {
+	var clients []*Client
+	for _, client := range qm.clientMap {
+		clients = append(clients, client)
+	}
+	return clients
+}
+
+func (qm *QueueMgr) deleteClient(id string) {
+	delete(qm.clientMap, id)
+}
+
+//job functions
+func updateJob(task *Task) (err error) {
+	parts := strings.Split(task.Id, "_")
+	jobid := parts[0]
+	job, err := LoadJob(jobid)
+	if err != nil {
+		return
+	}
+	return job.UpdateTask(task)
 }

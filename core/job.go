@@ -5,26 +5,31 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
+	. "github.com/MG-RAST/AWE/logger"
 	"github.com/MG-RAST/Shock/store/uuid"
 	"io/ioutil"
 	"labix.org/v2/mgo/bson"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
 type Job struct {
-	Id     string `bson:"id" json:"id"`
-	Info   *Info  `bson:"info" json:"info"`
-	Tasks  []Task `bson:"tasks" json:"tasks"`
-	Script script `bson:"script" json:"script"`
-	State  string `bson:"state" json:"state"`
+	Id          string  `bson:"id" json:"id"`
+	Info        *Info   `bson:"info" json:"info"`
+	Tasks       []*Task `bson:"tasks" json:"tasks"`
+	Script      script  `bson:"script" json:"script"`
+	State       string  `bson:"state" json:"state"`
+	RemainTasks int     `bson:"remaintasks" json:"remaintasks"`
 }
 
 func NewJob() (job *Job) {
 	job = new(Job)
 	job.Info = NewInfo()
-	job.Tasks = []Task{}
+	//job.Tasks = []*Task
 	job.setId()
+	job.RemainTasks = 1
 	job.State = "submitted"
 	return
 }
@@ -120,25 +125,12 @@ func getPath(id string) string {
 }
 
 //---Task functions
-func (job *Job) TaskList() []Task {
+func (job *Job) TaskList() []*Task {
 	return job.Tasks
 }
 
 func (job *Job) NumTask() int {
 	return len(job.Tasks)
-}
-
-func (job *Job) TestSetTasks() (err error) {
-	var lastId string
-	for i := 0; i < 5; i++ {
-		task := NewTask(job, i)
-		if lastId != "" {
-			task.DependsOn = []string{lastId}
-		}
-		lastId = task.Id
-		job.Tasks = append(job.Tasks, *task)
-	}
-	return
 }
 
 func ParseJobTasks(filename string) (job *Job, err error) {
@@ -168,6 +160,8 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 		}
 	}
 
+	job.RemainTasks = len(job.Tasks)
+
 	return
 }
 
@@ -175,4 +169,22 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 func (job *Job) UpdateState(newState string) string {
 	job.State = newState
 	return newState
+}
+
+//invoked when a task is completed
+func (job *Job) UpdateTask(task *Task) (err error) {
+	parts := strings.Split(task.Id, "_")
+	rank, err := strconv.Atoi(parts[1])
+	if err != nil {
+		Log.Error("invalid task " + task.Id)
+		return
+	}
+	job.Tasks[rank] = task
+	job.RemainTasks -= 1
+	if job.RemainTasks == 0 {
+		job.State = "completed"
+		//log event about job done (JD) 
+		Log.Event(EVENT_JOB_DONE, "jobid="+job.Id)
+	}
+	return job.Save()
 }

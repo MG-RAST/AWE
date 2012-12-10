@@ -47,11 +47,13 @@ func worker(control chan int) {
 	for {
 		work := <-workChan
 		if err := RunWorkunit(work); err != nil {
-			fmt.Printf("worker: RunWorkunit() %s returned error: %v\n", work.Id, err)
+			fmt.Errorf("RunWorkunit() returned error: %s\n", err.Error())
+			Log.Error("RunWorkunit() returned error: " + err.Error())
 			continue
 		}
 		if err := NotifyWorkunitDone(conf.SERVER_URL, work.Id); err != nil {
-			fmt.Printf("worker: NotifyWorkunitDone returned error: %v\n", err)
+			fmt.Errorf("worker: NotifyWorkunitDone returned error: %s\n", err.Error())
+			Log.Error("NotifyWorkunitDone() returned error: " + err.Error())
 		}
 		time.Sleep(2 * time.Second) //have a rest, just for demo or testing
 	}
@@ -69,9 +71,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Client registration done, client id=%s\n", self.Id)
-
 	Log = NewLogger("client-" + self.Id)
+
+	fmt.Printf("Client registration done, client id=%s\n", self.Id)
 
 	go workStealer(control)
 	go worker(control)

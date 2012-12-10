@@ -70,8 +70,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	queueMgr.AddTasks(job.TaskList())
 
 	//log event about job submission (JB)
-	event := NewEventMsg(EVENT_JOB_SUBMISSION, "jobid="+job.Id)
-	Log.Event(event)
+	Log.Event(EVENT_JOB_SUBMISSION, "jobid="+job.Id)
 
 	cx.RespondWithData(job)
 	return

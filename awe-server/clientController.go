@@ -26,8 +26,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	}
 
 	//log event about client registration (CR)
-	event := NewEventMsg(EVENT_CLIENT_REGISTRATION, "clientid="+client.Id)
-	Log.Event(event)
+	Log.Event(EVENT_CLIENT_REGISTRATION, "clientid="+client.Id)
 
 	cx.RespondWithData(client)
 	return

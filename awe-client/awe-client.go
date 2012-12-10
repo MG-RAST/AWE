@@ -16,12 +16,12 @@ var (
 	self         *Client
 )
 
-func workStealer(control chan int) {
+func workStealer(control chan int, self *Client) {
 	fmt.Printf("workStealer lanched\n")
 	defer fmt.Printf("workStealer exiting...\n")
 	retry := 0
 	for {
-		wu, err := CheckoutWorkunitRemote(conf.SERVER_URL)
+		wu, err := CheckoutWorkunitRemote(conf.SERVER_URL, self.Id)
 		if err != nil {
 			if err.Error() == e.WorkUnitQueueEmpty {
 				time.Sleep(5 * time.Second)
@@ -75,12 +75,12 @@ func main() {
 
 	fmt.Printf("Client registration done, client id=%s\n", self.Id)
 
-	go workStealer(control)
+	go workStealer(control, self)
 	go worker(control)
 	for {
 		who := <-control //block till someone dies and then restart it
 		if who == 0 {
-			go workStealer(control)
+			go workStealer(control, self)
 		} else {
 			go worker(control)
 		}

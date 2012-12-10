@@ -25,11 +25,11 @@ type ClientResponse struct {
 	Errs []string `bson:"E" json:"E"`
 }
 
-func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
+func CheckoutWorkunitRemote(serverhost string, selfid string) (workunit *Workunit, err error) {
 
 	response := new(WorkResponse)
 
-	res, err := http.Get(fmt.Sprintf("%s/work", serverhost))
+	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", serverhost, selfid))
 
 	if err != nil {
 		return

@@ -5,7 +5,6 @@ import (
 	"github.com/MG-RAST/AWE/conf"
 	l4g "github.com/jaredwilkening/log4go"
 	"os"
-	"strings"
 )
 
 //type level int
@@ -21,11 +20,6 @@ type Logger struct {
 	logs  map[string]l4g.Logger
 }
 
-type EventMsg struct {
-	EventType string
-	Attr      map[string]string
-}
-
 var (
 	Log *Logger
 )
@@ -35,9 +29,9 @@ const (
 	EVENT_TASK_ENQUEUE        = "TQ"
 	EVENT_CLIENT_REGISTRATION = "CR"
 	EVENT_WORK_CHECKOUT       = "WC"
-	EVENT_WORK_DONE           = "WE"
-	EVENT_TASK_DONE           = "TE"
-	EVENT_JOB_DONE            = "JE"
+	EVENT_WORK_DONE           = "WD"
+	EVENT_TASK_DONE           = "TD"
+	EVENT_JOB_DONE            = "JD"
 )
 
 func NewLogger(name string) *Logger {
@@ -121,21 +115,10 @@ func (l *Logger) Critical(log string, message string) {
 	return
 }
 
-func (l *Logger) Event(evt *EventMsg) {
-	msg := evt.EventType
-	for key, val := range evt.Attr {
-		msg = msg + fmt.Sprintf(";%s=%s", key, val)
+func (l *Logger) Event(evttype string, attributes ...string) {
+	msg := evttype
+	for _, attr := range attributes {
+		msg = msg + fmt.Sprintf(";%s", attr)
 	}
 	l.Log("event", l4g.INFO, msg)
-}
-
-func NewEventMsg(evttype string, attributes ...string) (event *EventMsg) {
-	event = new(EventMsg)
-	event.EventType = evttype
-	event.Attr = map[string]string{}
-	for _, attr := range attributes {
-		parts := strings.Split(attr, "=")
-		event.Attr[parts[0]] = parts[1]
-	}
-	return event
 }

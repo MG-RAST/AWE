@@ -33,6 +33,14 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 // checkout a workunit with earliest submission time
 // to-do: to support more options for workunit checkout 
 func (cr *WorkController) ReadMany(cx *goweb.Context) {
+
+	// Gather query params
+	query := &Query{list: cx.Request.URL.Query()}
+	if !query.Has("client") {
+		cx.RespondWithErrorMessage("mush provide client id for workunit checkout", http.StatusBadRequest)
+		return
+	}
+
 	//checkout a workunit in FCFS order
 	workunit, err := queueMgr.GetWorkByFCFS()
 
@@ -48,8 +56,9 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
 	//log event about workunit checkout (WO)
-	event := NewEventMsg(EVENT_WORK_CHECKOUT, "workid="+workunit.Id)
-	Log.Event(event)
+	Log.Event(EVENT_WORK_CHECKOUT,
+		"workid="+workunit.Id,
+		"clientid="+query.Value("client"))
 
 	// Base case respond with node in json	
 	cx.RespondWithData(workunit)
@@ -68,5 +77,6 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 		notice := core.Notice{Workid: id, Status: query.Value("status")}
 		queueMgr.NotifyWorkStatus(notice)
 	}
+
 	return
 }

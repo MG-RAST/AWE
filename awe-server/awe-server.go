@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
 	"github.com/MG-RAST/AWE/core"
-	"github.com/MG-RAST/AWE/logger"
+	. "github.com/MG-RAST/AWE/logger"
 	"github.com/jaredwilkening/goweb"
 	"os"
 )
 
 var (
-	log      = logger.New()
 	queueMgr = core.NewQueueMgr()
 )
 
@@ -24,13 +23,13 @@ func launchSite(control chan int, port int) {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.SITE_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: site: %v\n", err)
-			log.Error("ERROR: site: " + err.Error())
+			Log.Error("ERROR: site: " + err.Error())
 		}
 	} else {
 		err := goweb.ListenAndServeRoutes(fmt.Sprintf(":%d", conf.SITE_PORT), r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: site: %v\n", err)
-			log.Error("ERROR: site: " + err.Error())
+			Log.Error("ERROR: site: " + err.Error())
 		}
 	}
 	control <- 1 //we are ending
@@ -41,18 +40,19 @@ func launchAPI(control chan int, port int) {
 	r := &goweb.RouteManager{}
 	r.MapRest("/job", new(JobController))
 	r.MapRest("/work", new(WorkController))
+	r.MapRest("/client", new(ClientController))
 	r.MapFunc("*", ResourceDescription, goweb.GetMethod)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.API_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: api: %v\n", err)
-			log.Error("ERROR: api: " + err.Error())
+			Log.Error("ERROR: api: " + err.Error())
 		}
 	} else {
 		err := goweb.ListenAndServeRoutes(fmt.Sprintf(":%d", conf.API_PORT), r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: api: %v\n", err)
-			log.Error("ERROR: api: " + err.Error())
+			Log.Error("ERROR: api: " + err.Error())
 		}
 	}
 	control <- 1 //we are ending
@@ -61,10 +61,11 @@ func launchAPI(control chan int, port int) {
 func main() {
 	printLogo()
 	conf.Print()
+	Log = NewLogger("server")
 
 	//launch server
 	control := make(chan int)
-	go log.Handle()
+	go Log.Handle()
 	go queueMgr.Handle()
 	go queueMgr.Timer()
 	go launchSite(control, conf.SITE_PORT)

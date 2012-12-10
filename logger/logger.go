@@ -20,10 +20,31 @@ type Logger struct {
 	logs  map[string]l4g.Logger
 }
 
-func New() *Logger {
+var (
+	Log *Logger
+)
+
+const (
+	EVENT_JOB_SUBMISSION      = "JQ"
+	EVENT_TASK_ENQUEUE        = "TQ"
+	EVENT_CLIENT_REGISTRATION = "CR"
+	EVENT_WORK_CHECKOUT       = "WC"
+	EVENT_WORK_DONE           = "WD"
+	EVENT_TASK_DONE           = "TD"
+	EVENT_JOB_DONE            = "JD"
+)
+
+func NewLogger(name string) *Logger {
 	l := &Logger{queue: make(chan m, 1024), logs: map[string]l4g.Logger{}}
+
+	logdir := fmt.Sprintf("%s/%s", conf.LOGS_PATH, name)
+	if err := os.MkdirAll(logdir, 0777); err != nil {
+		fmt.Errorf("ERROR: error creating directory for logs: %s", logdir)
+		os.Exit(1)
+	}
+
 	l.logs["access"] = make(l4g.Logger)
-	accessf := l4g.NewFileLogWriter(conf.LOGS_PATH+"/access.log", false)
+	accessf := l4g.NewFileLogWriter(logdir+"/access.log", false)
 	if accessf == nil {
 		fmt.Fprintln(os.Stderr, "ERROR: error creating access log file")
 		os.Exit(1)
@@ -31,12 +52,29 @@ func New() *Logger {
 	l.logs["access"].AddFilter("access", l4g.FINEST, accessf.SetFormat("[%D %T] %M").SetRotate(true).SetRotateDaily(true))
 
 	l.logs["error"] = make(l4g.Logger)
-	errorf := l4g.NewFileLogWriter(conf.LOGS_PATH+"/error.log", false)
+	errorf := l4g.NewFileLogWriter(logdir+"/error.log", false)
 	if errorf == nil {
 		fmt.Fprintln(os.Stderr, "ERROR: error creating error log file")
 		os.Exit(1)
 	}
 	l.logs["error"].AddFilter("error", l4g.FINEST, errorf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
+
+	l.logs["event"] = make(l4g.Logger)
+	eventf := l4g.NewFileLogWriter(logdir+"/event.log", false)
+	if eventf == nil {
+		fmt.Fprintln(os.Stderr, "ERROR: error creating event log file")
+		os.Exit(1)
+	}
+	l.logs["event"].AddFilter("event", l4g.FINEST, eventf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
+
+	l.logs["debug"] = make(l4g.Logger)
+	debugf := l4g.NewFileLogWriter(logdir+"/debug.log", false)
+	if debugf == nil {
+		fmt.Fprintln(os.Stderr, "ERROR: error creating debug log file")
+		os.Exit(1)
+	}
+	l.logs["debug"].AddFilter("debug", l4g.FINEST, debugf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
+
 	return l
 }
 
@@ -75,4 +113,12 @@ func (l *Logger) Error(message string) {
 func (l *Logger) Critical(log string, message string) {
 	l.Log(log, l4g.CRITICAL, message)
 	return
+}
+
+func (l *Logger) Event(evttype string, attributes ...string) {
+	msg := evttype
+	for _, attr := range attributes {
+		msg = msg + fmt.Sprintf(";%s", attr)
+	}
+	l.Log("event", l4g.INFO, msg)
 }

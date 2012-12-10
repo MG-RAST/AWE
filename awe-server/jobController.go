@@ -69,7 +69,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	queueMgr.AddTasks(job.TaskList())
 
-	//Parse job into tasks and push into task map 
+	//log event about job submission (JB)
+	event := NewEventMsg(EVENT_JOB_SUBMISSION, "jobid="+job.Id)
+	Log.Event(event)
 
 	cx.RespondWithData(job)
 	return

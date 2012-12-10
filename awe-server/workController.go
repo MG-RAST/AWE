@@ -47,6 +47,10 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	//log access info only when the queue is not empty, save some log
 	LogRequest(cx.Request)
 
+	//log event about workunit checkout (WO)
+	event := NewEventMsg(EVENT_WORK_CHECKOUT, "workid="+workunit.Id)
+	Log.Event(event)
+
 	// Base case respond with node in json	
 	cx.RespondWithData(workunit)
 	return

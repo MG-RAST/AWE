@@ -5,6 +5,7 @@ import (
 	"github.com/MG-RAST/AWE/conf"
 	l4g "github.com/jaredwilkening/log4go"
 	"os"
+	"strings"
 )
 
 //type level int
@@ -20,8 +21,23 @@ type Logger struct {
 	logs  map[string]l4g.Logger
 }
 
+type EventMsg struct {
+	EventType string
+	Attr      map[string]string
+}
+
 var (
 	Log *Logger
+)
+
+const (
+	EVENT_JOB_SUBMISSION      = "JQ"
+	EVENT_TASK_ENQUEUE        = "TQ"
+	EVENT_CLIENT_REGISTRATION = "CR"
+	EVENT_WORK_CHECKOUT       = "WC"
+	EVENT_WORK_DONE           = "WE"
+	EVENT_TASK_DONE           = "TE"
+	EVENT_JOB_DONE            = "JE"
 )
 
 func NewLogger(name string) *Logger {
@@ -55,7 +71,7 @@ func NewLogger(name string) *Logger {
 		fmt.Fprintln(os.Stderr, "ERROR: error creating event log file")
 		os.Exit(1)
 	}
-	l.logs["event"].AddFilter("event", l4g.FINEST, errorf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
+	l.logs["event"].AddFilter("event", l4g.FINEST, eventf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
 
 	l.logs["debug"] = make(l4g.Logger)
 	debugf := l4g.NewFileLogWriter(logdir+"/debug.log", false)
@@ -63,7 +79,7 @@ func NewLogger(name string) *Logger {
 		fmt.Fprintln(os.Stderr, "ERROR: error creating debug log file")
 		os.Exit(1)
 	}
-	l.logs["debug"].AddFilter("debug", l4g.FINEST, errorf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
+	l.logs["debug"].AddFilter("debug", l4g.FINEST, debugf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
 
 	return l
 }
@@ -103,4 +119,23 @@ func (l *Logger) Error(message string) {
 func (l *Logger) Critical(log string, message string) {
 	l.Log(log, l4g.CRITICAL, message)
 	return
+}
+
+func (l *Logger) Event(evt *EventMsg) {
+	msg := evt.EventType
+	for key, val := range evt.Attr {
+		msg = msg + fmt.Sprintf(";%s=%s", key, val)
+	}
+	l.Log("event", l4g.INFO, msg)
+}
+
+func NewEventMsg(evttype string, attributes ...string) (event *EventMsg) {
+	event = new(EventMsg)
+	event.EventType = evttype
+	event.Attr = map[string]string{}
+	for _, attr := range attributes {
+		parts := strings.Split(attr, "=")
+		event.Attr[parts[0]] = parts[1]
+	}
+	return event
 }

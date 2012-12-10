@@ -230,6 +230,11 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 		return err
 	}
 	task.State = "queued"
+
+	//log event about task enqueue (TQ)
+	event := NewEventMsg(EVENT_TASK_ENQUEUE, "taskid="+task.Id)
+	Log.Event(event)
+
 	return
 }
 
@@ -294,9 +299,18 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 			qm.taskMap[taskid].WorkStatus[rank-1] = status
 		}
 		if status == "done" {
+			//log event about work done (WD)
+			event := NewEventMsg(EVENT_WORK_DONE, "workid="+workid)
+			Log.Event(event)
+
 			qm.taskMap[taskid].RemainWork -= 1
 			if qm.taskMap[taskid].RemainWork == 0 {
 				qm.taskMap[taskid].State = "completed"
+
+				//log event about task done (TD) 
+				event := NewEventMsg(EVENT_TASK_DONE, "taskid="+workid)
+				Log.Event(event)
+
 				if err = updateJob(qm.taskMap[taskid]); err != nil {
 					return
 				}

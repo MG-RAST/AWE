@@ -183,6 +183,10 @@ func (job *Job) UpdateTask(task *Task) (err error) {
 	job.RemainTasks -= 1
 	if job.RemainTasks == 0 {
 		job.State = "completed"
+
+		//log event about job done (JD) 
+		event := NewEventMsg(EVENT_JOB_DONE, "jobid="+job.Id)
+		Log.Event(event)
 	}
 	return job.Save()
 }

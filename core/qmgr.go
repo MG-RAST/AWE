@@ -93,11 +93,11 @@ func (qm *QueueMgr) Handle() {
 	for {
 		select {
 		case task := <-qm.taskIn:
-			fmt.Printf("task recived from chan taskIn, id=%s\n", task.Id)
+			//fmt.Printf("task recived from chan taskIn, id=%s\n", task.Id)
 			qm.addTask(task)
 
 		case coReq := <-qm.coReq:
-			fmt.Printf("workunit checkout request received, policy=%s\n", coReq)
+			//fmt.Printf("workunit checkout request received, policy=%s\n", coReq)
 
 			var wu *Workunit
 			var err error
@@ -191,9 +191,8 @@ func (qm *QueueMgr) deleteTasks(tasks []*Task) (err error) {
 
 //poll ready tasks and push into workQueue
 func (qm *QueueMgr) updateQueue() (err error) {
-	fmt.Printf("%s: try to move tasks to workunit queue...\n", time.Now())
-	for id, task := range qm.taskMap {
-		fmt.Printf("taskid=%s state=%s\n", id, task.State)
+	for _, task := range qm.taskMap {
+		//fmt.Printf("taskid=%s state=%s\n", id, task.State)
 		ready := false
 		if task.State == "pending" {
 			ready = true
@@ -211,22 +210,22 @@ func (qm *QueueMgr) updateQueue() (err error) {
 			}
 		}
 	}
-	qm.workQueue.Show()
+	//qm.workQueue.Show()
 	return
 }
 
 func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
-	fmt.Printf("move workunits of task %s to workunit queue\n", task.Id)
+	//fmt.Printf("move workunits of task %s to workunit queue\n", task.Id)
 	if err := qm.locateInputs(task); err != nil {
-		Log.Error("ERROR: qmgr.taskEnQueue: " + err.Error())
+		Log.Error("qmgr.taskEnQueue locateInputs:" + err.Error())
 		return err
 	}
 	if err := qm.createOutputNode(task); err != nil {
-		Log.Error("ERROR: qmgr.taskEnQueue: " + err.Error())
+		Log.Error("qmgr.taskEnQueue createOutputNode:" + err.Error())
 		return err
 	}
 	if err := qm.parseTask(task); err != nil {
-		Log.Error("ERROR: qmgr.taskEnQueue: " + err.Error())
+		Log.Error("qmgr.taskEnQueue parseTask:" + err.Error())
 		return err
 	}
 	task.State = "queued"
@@ -271,13 +270,13 @@ func (qm *QueueMgr) parseTask(task *Task) (err error) {
 
 func (qm *QueueMgr) createOutputNode(task *Task) (err error) {
 	outputs := task.Outputs
-	for name, io := range outputs {
+	for _, io := range outputs {
 		nodeid, err := postNode(io, task.TotalWork)
 		if err != nil {
 			return err
 		}
 		io.Node = nodeid
-		fmt.Printf("%s, output Shock node created, id=%s\n", name, io.Node)
+		//fmt.Printf("%s, output Shock node created, id=%s\n", name, io.Node)
 	}
 	return
 }
@@ -341,6 +340,7 @@ func (wq *WQueue) Push(workunit *Workunit) (err error) {
 	return nil
 }
 
+/*
 func (wq WQueue) Show() (err error) {
 	fmt.Printf("current queuing workunits (%d):\n", wq.Len())
 	for key, _ := range wq.workMap {
@@ -348,6 +348,7 @@ func (wq WQueue) Show() (err error) {
 	}
 	return
 }
+*/
 
 //pop a workunit by specified workunit id
 //to-do: support returning workunit based on a given job id
@@ -412,7 +413,7 @@ func postNode(io *IO, numParts int) (nodeid string, err error) {
 		putParts(io.Host, nodeid, numParts)
 	}
 
-	fmt.Printf("posted a node: %s\n", nodeid)
+	//fmt.Printf("posted a node: %s\n", nodeid)
 	return
 }
 
@@ -442,7 +443,7 @@ func (qm *QueueMgr) RegisterNewClient() (client *Client, err error) {
 	}
 	client = NewClient()
 	qm.clientMap[client.Id] = client
-	fmt.Printf("registered a new client:%s, current total clients: %d\n", client.Id, len(qm.clientMap))
+	//fmt.Printf("registered a new client:%s, current total clients: %d\n", client.Id, len(qm.clientMap))
 	return
 }
 

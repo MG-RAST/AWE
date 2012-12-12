@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	. "github.com/MG-RAST/AWE/core"
+	. "github.com/MG-RAST/AWE/logger"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -25,11 +26,11 @@ type ClientResponse struct {
 	Errs []string `bson:"E" json:"E"`
 }
 
-func CheckoutWorkunitRemote(serverhost string, selfid string) (workunit *Workunit, err error) {
+func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 
 	response := new(WorkResponse)
 
-	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", serverhost, selfid))
+	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", serverhost, self.Id))
 
 	if err != nil {
 		return
@@ -97,26 +98,34 @@ func RunWorkunit(work *Workunit) (err error) {
 	cmd := exec.Command(commandName, args...)
 
 	fmt.Printf("worker: start running cmd=%s, args=%v\n", commandName, args)
+	Log.Event(EVENT_WORK_START, "workid="+work.Id,
+		"cmd="+commandName,
+		fmt.Sprintf("args=%v", args))
 
 	err = cmd.Run()
 	if err != nil {
 		return
 	}
 
+	Log.Event(EVENT_WORK_END, "workid="+work.Id)
+
 	for name, io := range work.Outputs {
 
 		if _, err := os.Stat(name); err != nil {
-			fmt.Printf("worker: error:output %s not generated for workunit %s\n", name, work.Id)
 			return errors.New(fmt.Sprintf("error:output %s not generated for workunit %s", name, work.Id))
 		}
 
 		fmt.Printf("worker: push output to shock, filename=%s\n", name)
 		if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {
-			fmt.Printf("push file error")
+			fmt.Errorf("push file error\n")
+			Log.Error("push file error: " + err.Error())
 			return err
 		}
+		Log.Event(EVENT_FILE_OUT,
+			"workid="+work.Id,
+			"filename="+name,
+			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
 	}
-
 	return
 }
 
@@ -153,6 +162,7 @@ func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 				if err := fetchFile(inputname, dataUrl); err != nil { //get file from Shock
 					return []string{}, err
 				}
+				Log.Event(EVENT_FILE_IN, "url="+dataUrl)
 
 				filePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
 

@@ -55,6 +55,7 @@ var (
 	TOTAL_WORKER = 1
 	WORK_PATH    = ""
 	SERVER_URL   = "http://localhost:8001"
+	CLIENT_NAME  = "default"
 )
 
 func init() {
@@ -115,7 +116,9 @@ func init() {
 	// Client
 	WORK_PATH, _ = c.String("Client", "workpath")
 	SERVER_URL, _ = c.String("Client", "serverurl")
-
+	if clientname, err := c.String("Client", "clientname"); err == nil {
+		CLIENT_NAME = clientname
+	}
 }
 
 func Print() {

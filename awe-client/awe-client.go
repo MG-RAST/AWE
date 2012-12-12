@@ -82,7 +82,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	Log = NewLogger("client-" + self.Id)
+	Log = NewLogger("client-" + conf.CLIENT_NAME)
 	go Log.Handle()
 
 	fmt.Printf("Client registered, client id=%s\n", self.Id)

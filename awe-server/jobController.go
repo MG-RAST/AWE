@@ -62,7 +62,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	job, err = core.CreateJobUpload(params, files)
 
 	if err != nil {
-		Log.Error("err " + err.Error())
+		Log.Error("Err@job_Create:CreateJobUpload: " + err.Error())
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}

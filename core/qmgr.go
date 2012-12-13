@@ -2,14 +2,14 @@ package core
 
 import (
 	"container/heap"
-	"encoding/json"
+	//"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/core/pqueue"
 	e "github.com/MG-RAST/AWE/errors"
 	. "github.com/MG-RAST/AWE/logger"
-	"io/ioutil"
-	"net/http"
+	//"io/ioutil"
+	//"net/http"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -40,29 +40,6 @@ func NewQueueMgr() *QueueMgr {
 		feedback:  make(chan Notice),
 		coSem:     make(chan int, 1), //non-blocking buffered channel
 	}
-}
-
-type ShockResponse struct {
-	Code int       `bson:"S" json:"S"`
-	Data ShockNode `bson:"D" json:"D"`
-	Errs []string  `bson:"E" json:"E"`
-}
-
-type ShockNode struct {
-	Id         string            `bson:"id" json:"id"`
-	Version    string            `bson:"version" json:"version"`
-	File       shockfile         `bson:"file" json:"file"`
-	Attributes interface{}       `bson:"attributes" json:"attributes"`
-	Indexes    map[string]string `bson:"indexes" json:"indexes"`
-}
-
-type shockfile struct {
-	Name         string            `bson:"name" json:"name"`
-	Size         int64             `bson:"size" json:"size"`
-	Checksum     map[string]string `bson:"checksum" json:"checksum"`
-	Format       string            `bson:"format" json:"format"`
-	Virtual      bool              `bson:"virtual" json:"virtual"`
-	VirtualParts []string          `bson:"virtual_parts" json:"virtual_parts"`
 }
 
 type AckItem struct {
@@ -271,7 +248,7 @@ func (qm *QueueMgr) parseTask(task *Task) (err error) {
 func (qm *QueueMgr) createOutputNode(task *Task) (err error) {
 	outputs := task.Outputs
 	for _, io := range outputs {
-		nodeid, err := postNode(io, task.TotalWork)
+		nodeid, err := PostNode(io, task.TotalWork)
 		if err != nil {
 			return err
 		}
@@ -384,37 +361,6 @@ func (wq *WQueue) PopWorkFCFS() (workunit *Workunit, err error) {
 //to-do: make prioritizing policy configurable
 func priorityFunction(workunit *Workunit) int64 {
 	return 1 - workunit.Info.SubmitTime.Unix()
-}
-
-//create a shock node for output
-func postNode(io *IO, numParts int) (nodeid string, err error) {
-	var res *http.Response
-	shockurl := fmt.Sprintf("%s/node", io.Host)
-	res, err = http.Post(shockurl, "", strings.NewReader(""))
-	if err != nil {
-		return "", err
-	}
-
-	jsonstream, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-
-	response := new(ShockResponse)
-	if err := json.Unmarshal(jsonstream, response); err != nil {
-		return "", err
-	}
-	if len(response.Errs) > 0 {
-		return "", errors.New(strings.Join(response.Errs, ","))
-	}
-
-	shocknode := &response.Data
-	nodeid = shocknode.Id
-
-	if numParts > 1 {
-		putParts(io.Host, nodeid, numParts)
-	}
-
-	//fmt.Printf("posted a node: %s\n", nodeid)
-	return
 }
 
 //create parts

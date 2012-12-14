@@ -39,6 +39,14 @@ type IdxInfo struct {
 	AvgUnitSize int    `bson: "avg_unitsize" json:"avg_unitsize"`
 }
 
+type FormFiles map[string]FormFile
+
+type FormFile struct {
+	Name     string
+	Path     string
+	Checksum map[string]string
+}
+
 func CreateJobUpload(params map[string]string, files FormFiles) (job *Job, err error) {
 
 	job, err = ParseJobTasks(files["upload"].Path)

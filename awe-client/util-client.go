@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/conf"
 	. "github.com/MG-RAST/AWE/core"
 	. "github.com/MG-RAST/AWE/logger"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
@@ -282,6 +285,57 @@ func Register(host string) (client *Client, err error) {
 		return
 	}
 
+	client = &response.Data
+	return
+}
+
+func RegisterWithProfile(host string) (client *Client, err error) {
+
+	if _, err := os.Stat(conf.CLIENT_PROFILE); err != nil {
+		return nil, errors.New("profile file not found: " + conf.CLIENT_PROFILE)
+	}
+
+	filename := conf.CLIENT_PROFILE
+
+	bodyBuf := &bytes.Buffer{}
+	bodyWriter := multipart.NewWriter(bodyBuf)
+
+	fileWriter, err := bodyWriter.CreateFormFile("profile", filename)
+	if err != nil {
+		return nil, err
+	}
+
+	fh, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = io.Copy(fileWriter, fh)
+	if err != nil {
+		return nil, err
+	}
+
+	contentType := bodyWriter.FormDataContentType()
+	bodyWriter.Close()
+
+	targetUrl := host + "/client"
+
+	resp, err := http.Post(targetUrl, contentType, bodyBuf)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	jsonstream, err := ioutil.ReadAll(resp.Body)
+
+	response := new(ClientResponse)
+
+	if err = json.Unmarshal(jsonstream, response); err != nil {
+		if len(response.Errs) > 0 {
+			//or if err.Error() == "json: cannot unmarshal null into Go value of type core.Client" 
+			return nil, errors.New(strings.Join(response.Errs, ","))
+		}
+		return
+	}
 	client = &response.Data
 	return
 }

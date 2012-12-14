@@ -76,13 +76,20 @@ func main() {
 	}
 
 	var err error
-	self, err = Register(conf.SERVER_URL)
+	self, err = RegisterWithProfile(conf.SERVER_URL)
 	if err != nil {
 		fmt.Printf("fail to register: %v\n", err)
 		os.Exit(1)
 	}
 
-	Log = NewLogger("client-" + conf.CLIENT_NAME)
+	var logdir string
+	if self.Name != "" {
+		logdir = self.Name
+	} else {
+		logdir = conf.CLIENT_NAME
+	}
+
+	Log = NewLogger("client-" + logdir)
 	go Log.Handle()
 
 	fmt.Printf("Client registered, client id=%s\n", self.Id)

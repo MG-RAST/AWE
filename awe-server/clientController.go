@@ -14,13 +14,25 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 
-	client, err := queueMgr.RegisterNewClient()
+	// Parse uploaded form 
+	params, files, err := ParseMultipartForm(cx.Request)
+	if err != nil {
+		// If not multipart/form-data it will create an noprofile client. 
+		if err.Error() != "request Content-Type isn't multipart/form-data" {
+			Log.Error("Error parsing form: " + err.Error())
+			cx.RespondWithError(http.StatusBadRequest)
+			return
+		}
+	}
+
+	client, err := queueMgr.RegisterNewClient(params, files)
 	if err != nil {
 		if err.Error() == e.WorkUnitQueueEmpty {
 			cx.RespondWithErrorMessage(e.WorkUnitQueueEmpty, http.StatusBadRequest)
 		} else {
-			Log.Error("Error in registering new client:" + err.Error())
-			cx.RespondWithError(http.StatusBadRequest)
+			msg := "Error in registering new client:" + err.Error()
+			Log.Error(msg)
+			cx.RespondWithErrorMessage(msg, http.StatusBadRequest)
 		}
 		return
 	}

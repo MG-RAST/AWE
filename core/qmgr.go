@@ -2,14 +2,12 @@ package core
 
 import (
 	"container/heap"
-	//"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/core/pqueue"
 	e "github.com/MG-RAST/AWE/errors"
 	. "github.com/MG-RAST/AWE/logger"
-	//"io/ioutil"
-	//"net/http"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -382,14 +380,22 @@ func putParts(host string, nodeid string, numParts int) (err error) {
 }
 
 //Client functions
-func (qm *QueueMgr) RegisterNewClient() (client *Client, err error) {
+func (qm *QueueMgr) RegisterNewClient(params map[string]string, files FormFiles) (client *Client, err error) {
 	//if queue is empty, reject client registration
 	if qm.workQueue.Len() == 0 {
 		return nil, errors.New(e.WorkUnitQueueEmpty)
 	}
-	client = NewClient()
+
+	if _, ok := files["profile"]; ok {
+		client, err = NewProfileClient(files["profile"].Path)
+		os.Remove(files["profile"].Path)
+	} else {
+		client = NewClient()
+	}
+	if err != nil {
+		return nil, err
+	}
 	qm.clientMap[client.Id] = client
-	//fmt.Printf("registered a new client:%s, current total clients: %d\n", client.Id, len(qm.clientMap))
 	return
 }
 

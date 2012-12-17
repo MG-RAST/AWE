@@ -9,6 +9,7 @@ import (
 	. "github.com/MG-RAST/AWE/logger"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -17,13 +18,13 @@ import (
 type QueueMgr struct {
 	clientMap map[string]*Client
 	taskMap   map[string]*Task
-	workQueue WQueue
+	workQueue *WQueue
 	reminder  chan bool
-	taskIn    chan *Task   //channel for receiving Task (JobController -> qmgr.Handler)
-	coReq     chan string  //workunit checkout request (WorkController -> qmgr.Handler)
-	coAck     chan AckItem //workunit checkout item including data and err (qmgr.Handler -> WorkController)
-	feedback  chan Notice  //workunit execution feedback (WorkController -> qmgr.Handler)
-	coSem     chan int     //semaphore for checkout (mutual exclusion between different clients)
+	taskIn    chan *Task  //channel for receiving Task (JobController -> qmgr.Handler)
+	coReq     chan CoReq  //workunit checkout request (WorkController -> qmgr.Handler)
+	coAck     chan CoAck  //workunit checkout item including data and err (qmgr.Handler -> WorkController)
+	feedback  chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
+	coSem     chan int    //semaphore for checkout (mutual exclusion between different clients)
 }
 
 func NewQueueMgr() *QueueMgr {
@@ -33,16 +34,22 @@ func NewQueueMgr() *QueueMgr {
 		workQueue: NewWQueue(),
 		reminder:  make(chan bool),
 		taskIn:    make(chan *Task, 1024),
-		coReq:     make(chan string),
-		coAck:     make(chan AckItem),
+		coReq:     make(chan CoReq),
+		coAck:     make(chan CoAck),
 		feedback:  make(chan Notice),
 		coSem:     make(chan int, 1), //non-blocking buffered channel
 	}
 }
 
-type AckItem struct {
-	workunit *Workunit
-	err      error
+type CoReq struct {
+	policy     string
+	fromclient string
+	count      int
+}
+
+type CoAck struct {
+	workunits []*Workunit
+	err       error
 }
 
 type Notice struct {
@@ -55,8 +62,8 @@ type WQueue struct {
 	pQue    pqueue.PriorityQueue
 }
 
-func NewWQueue() WQueue {
-	return WQueue{
+func NewWQueue() *WQueue {
+	return &WQueue{
 		workMap: map[string]*Workunit{},
 		pQue:    make(pqueue.PriorityQueue, 0, 10000),
 	}
@@ -72,24 +79,9 @@ func (qm *QueueMgr) Handle() {
 			qm.addTask(task)
 
 		case coReq := <-qm.coReq:
-			//fmt.Printf("workunit checkout request received, policy=%s\n", coReq)
-
-			var wu *Workunit
-			var err error
-
-			segs := strings.Split(coReq, ":")
-			policy := segs[0]
-
-			if policy == "FCFS" {
-				wu, err = qm.workQueue.PopWorkFCFS()
-			} else if policy == "ById" {
-				wu, err = qm.workQueue.PopWorkByID(segs[1])
-			} else {
-				err = errors.New("bad checkout policy")
-				continue
-			}
-
-			ack := AckItem{workunit: wu, err: err}
+			//fmt.Printf("workunit checkout request received, Req=%v\n", coReq)
+			works, err := qm.popWorks(coReq)
+			ack := CoAck{workunits: works, err: err}
 			qm.coAck <- ack
 
 		case notice := <-qm.feedback:
@@ -119,28 +111,30 @@ func (qm *QueueMgr) AddTasks(tasks []*Task) (err error) {
 	return
 }
 
-func (qm *QueueMgr) GetWorkByFCFS() (workunit *Workunit, err error) {
+func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num int) (workunits []*Workunit, err error) {
+	//precheck if teh client is registered
+	if _, hasClient := qm.clientMap[client_id]; !hasClient {
+		return nil, errors.New("invalid client id: " + client_id)
+	}
+
 	//lock semephore, at one time only one client's checkout request can be served 
 	qm.coSem <- 1
 
-	qm.coReq <- "FCFS"
+	req := CoReq{policy: req_policy, fromclient: client_id, count: num}
+	qm.coReq <- req
 	ack := <-qm.coAck
 
 	//unlock
 	<-qm.coSem
 
-	return ack.workunit, ack.err
+	return ack.workunits, ack.err
 }
 
 func (qm *QueueMgr) GetWorkById(id string) (workunit *Workunit, err error) {
-	qm.coSem <- 1
-
-	qm.coReq <- fmt.Sprintf("ById:%s", id)
-	ack := <-qm.coAck
-
-	<-qm.coSem
-
-	return ack.workunit, ack.err
+	if workunit, hasid := qm.workQueue.workMap[id]; hasid {
+		return workunit, nil
+	}
+	return nil, errors.New(fmt.Sprintf("no workunit found with id %s", id))
 }
 
 func (qm *QueueMgr) NotifyWorkStatus(notice Notice) {
@@ -256,6 +250,16 @@ func (qm *QueueMgr) createOutputNode(task *Task) (err error) {
 	return
 }
 
+func (qm *QueueMgr) popWorks(req CoReq) (works []*Workunit, err error) {
+	supportedApps := qm.clientMap[req.fromclient].Apps
+	filtered := qm.workQueue.filterWorkByApps(supportedApps)
+	if len(filtered) == 0 {
+		return nil, errors.New(e.NoEligibleWorkunitFound)
+	}
+	works, err = qm.workQueue.getWorks(filtered, req.policy, req.count)
+	return
+}
+
 func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 	workid := notice.Workid
 	status := notice.Status
@@ -324,36 +328,6 @@ func (wq WQueue) Show() (err error) {
 	return
 }
 */
-
-//pop a workunit by specified workunit id
-//to-do: support returning workunit based on a given job id
-func (wq WQueue) PopWorkByID(id string) (workunit *Workunit, err error) {
-	if workunit, hasid := wq.workMap[id]; hasid {
-		delete(wq.workMap, id)
-		return workunit, nil
-	}
-	return nil, errors.New(fmt.Sprintf("no workunit found with id %s", id))
-}
-
-//pop a workunit in FCFS order
-//to-do: update workunit state to "checked-out"
-func (wq *WQueue) PopWorkFCFS() (workunit *Workunit, err error) {
-	if wq.Len() == 0 {
-		return nil, errors.New(e.WorkUnitQueueEmpty)
-	}
-
-	//some workunit might be checked out by id, thus keep popping
-	//pQue until find an Id with queued workunit
-	for {
-		item := heap.Pop(&wq.pQue).(*pqueue.Item)
-		id := item.Value()
-		if workunit, hasid := wq.workMap[id]; hasid {
-			delete(wq.workMap, id)
-			return workunit, nil
-		}
-	}
-	return
-}
 
 //curently support calculate priority score by FCFS
 //to-do: make prioritizing policy configurable
@@ -427,4 +401,54 @@ func updateJob(task *Task) (err error) {
 		return
 	}
 	return job.UpdateTask(task)
+}
+
+//misc local functions
+func contains(list []string, elem string) bool {
+	for _, t := range list {
+		if t == elem {
+			return true
+		}
+	}
+	return false
+}
+
+func (wq *WQueue) filterWorkByApps(apps []string) (ids []string) {
+	ids = []string{}
+	for id, work := range wq.workMap {
+		if contains(apps, work.Cmd.Name) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+type WorkList []*Workunit
+
+func (wl WorkList) Len() int      { return len(wl) }
+func (wl WorkList) Swap(i, j int) { wl[i], wl[j] = wl[j], wl[i] }
+
+type byFCFS struct{ WorkList }
+
+func (s byFCFS) Less(i, j int) bool {
+	return s.WorkList[i].Info.SubmitTime.Before(s.WorkList[j].Info.SubmitTime)
+}
+
+func (wq *WQueue) getWorks(workid []string, policy string, count int) (works []*Workunit, err error) {
+	worklist := []*Workunit{}
+	for _, id := range workid {
+		worklist = append(worklist, wq.workMap[id])
+	}
+
+	works = []*Workunit{}
+
+	if policy == "FCFS" {
+		sort.Sort(byFCFS{worklist})
+	}
+	for i := 0; i < count; i++ {
+		works = append(works, worklist[i])
+		delete(wq.workMap, worklist[i].Id)
+	}
+
+	return
 }

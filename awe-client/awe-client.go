@@ -50,13 +50,13 @@ func worker(control chan int) {
 	for {
 		work := <-workChan
 		if err := RunWorkunit(work); err != nil {
-			fmt.Errorf("RunWorkunit() returned error: %s\n", err.Error())
-			Log.Error("RunWorkunit() returned error: " + err.Error())
+			fmt.Errorf("RunWorkunit() error: %s\n", err.Error())
+			Log.Error("RunWorkunit(): workid=" + work.Id + ", " + err.Error())
 			continue
 		}
 		if err := NotifyWorkunitDone(conf.SERVER_URL, work.Id); err != nil {
 			fmt.Errorf("worker: NotifyWorkunitDone returned error: %s\n", err.Error())
-			Log.Error("NotifyWorkunitDone() returned error: " + err.Error())
+			Log.Error("NotifyWorkunitDone(): workid=" + work.Id + "," + err.Error())
 		}
 		Log.Event(EVENT_WORK_DONE, "workid="+work.Id)
 	}

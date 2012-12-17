@@ -121,7 +121,7 @@ func RunWorkunit(work *Workunit) (err error) {
 		fmt.Printf("worker: push output to shock, filename=%s\n", name)
 		if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {
 			fmt.Errorf("push file error\n")
-			Log.Error("push file error: " + err.Error())
+			Log.Error("op=pushfile,err=" + err.Error())
 			return err
 		}
 		Log.Event(EVENT_FILE_OUT,
@@ -191,7 +191,17 @@ func fetchFile(filename string, url string) (err error) {
 
 	//download file from Shock
 	res, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+
 	defer res.Body.Close()
+
+	if res.StatusCode != 200 { //err in fetching data
+		resbody, _ := ioutil.ReadAll(res.Body)
+		msg := fmt.Sprintf("op=fetchFile, url=%s, res=%s", url, resbody)
+		return errors.New(msg)
+	}
 
 	_, err = io.Copy(localfile, res.Body)
 	if err != nil {
@@ -230,7 +240,7 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 
 	argv = append(argv, target_url)
 
-	fmt.Printf("curl argv=%v\n", argv)
+	fmt.Printf("curl argv=%#v\n", argv)
 
 	cmd := exec.Command("curl", argv...)
 

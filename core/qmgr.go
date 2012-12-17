@@ -1,10 +1,8 @@
 package core
 
 import (
-	"container/heap"
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/core/pqueue"
 	e "github.com/MG-RAST/AWE/errors"
 	. "github.com/MG-RAST/AWE/logger"
 	"os"
@@ -59,13 +57,11 @@ type Notice struct {
 
 type WQueue struct {
 	workMap map[string]*Workunit
-	pQue    pqueue.PriorityQueue
 }
 
 func NewWQueue() *WQueue {
 	return &WQueue{
 		workMap: map[string]*Workunit{},
-		pQue:    make(pqueue.PriorityQueue, 0, 10000),
 	}
 }
 
@@ -284,11 +280,12 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				qm.taskMap[taskid].State = "completed"
 
 				//log event about task done (TD) 
-				Log.Event(EVENT_TASK_DONE, "taskid="+workid)
-
+				Log.Event(EVENT_TASK_DONE, "taskid="+taskid)
 				if err = updateJob(qm.taskMap[taskid]); err != nil {
 					return
 				}
+				//delete(qm.taskMap, taskid)
+
 				qm.updateQueue()
 			}
 		}
@@ -309,30 +306,15 @@ func (wq *WQueue) Push(workunit *Workunit) (err error) {
 		return errors.New("try to push a workunit with an empty id")
 	}
 	wq.workMap[workunit.Id] = workunit
-
-	score := priorityFunction(workunit)
-
-	queueItem := pqueue.NewItem(workunit.Id, score)
-
-	heap.Push(&wq.pQue, queueItem)
-
 	return nil
 }
 
-/*
 func (wq WQueue) Show() (err error) {
 	fmt.Printf("current queuing workunits (%d):\n", wq.Len())
 	for key, _ := range wq.workMap {
 		fmt.Printf("workunit id: %s\n", key)
 	}
 	return
-}
-*/
-
-//curently support calculate priority score by FCFS
-//to-do: make prioritizing policy configurable
-func priorityFunction(workunit *Workunit) int64 {
-	return 1 - workunit.Info.SubmitTime.Unix()
 }
 
 //create parts

@@ -83,12 +83,14 @@ func (qm *QueueMgr) Handle() {
 		case notice := <-qm.feedback:
 			//	fmt.Printf("workunit status feedback received, workid=%s, status=%s\n", notice.Workid, notice.Status)
 			if err := qm.handleWorkStatusChange(notice); err != nil {
-				Log.Error("ERROR: qmgr handleWorkStatusChange(): " + err.Error())
+				Log.Error("handleWorkStatusChange(): " + err.Error())
 			}
 
 		case <-qm.reminder:
 			//fmt.Print("time to update workunit queue....\n")
 			qm.updateQueue()
+			//qm.ShowTasks()
+			//qm.ShowWorkQueue()
 		}
 	}
 }
@@ -175,7 +177,6 @@ func (qm *QueueMgr) updateQueue() (err error) {
 			}
 		}
 	}
-	//qm.workQueue.Show()
 	return
 }
 
@@ -284,15 +285,30 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				if err = updateJob(qm.taskMap[taskid]); err != nil {
 					return
 				}
-				//delete(qm.taskMap, taskid)
-
 				qm.updateQueue()
+				delete(qm.taskMap, taskid)
 			}
 		}
 	} else {
 		return errors.New(fmt.Sprintf("task not existed: %s", taskid))
 	}
 	return
+}
+
+// show functions used in debug
+func (qm *QueueMgr) ShowWorkQueue() {
+	fmt.Printf("current queuing workunits (%d):\n", qm.workQueue.Len())
+	for key, _ := range qm.workQueue.workMap {
+		fmt.Printf("workunit id: %s\n", key)
+	}
+	return
+}
+
+func (qm *QueueMgr) ShowTasks() {
+	fmt.Printf("current active tasks  (%d):\n", len(qm.taskMap))
+	for key, task := range qm.taskMap {
+		fmt.Printf("workunit id: %s, status:%s\n", key, task.State)
+	}
 }
 
 //WQueue functions
@@ -307,14 +323,6 @@ func (wq *WQueue) Push(workunit *Workunit) (err error) {
 	}
 	wq.workMap[workunit.Id] = workunit
 	return nil
-}
-
-func (wq WQueue) Show() (err error) {
-	fmt.Printf("current queuing workunits (%d):\n", wq.Len())
-	for key, _ := range wq.workMap {
-		fmt.Printf("workunit id: %s\n", key)
-	}
-	return
 }
 
 //create parts
@@ -370,7 +378,7 @@ func (qm *QueueMgr) GetAllClients() []*Client {
 	return clients
 }
 
-func (qm *QueueMgr) deleteClient(id string) {
+func (qm *QueueMgr) DeleteClient(id string) {
 	delete(qm.clientMap, id)
 }
 

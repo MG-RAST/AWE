@@ -86,7 +86,8 @@ func (cr *ClientController) UpdateMany(cx *goweb.Context) {
 // DELETE: /client/{id}
 func (cr *ClientController) Delete(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
-	cx.RespondWithError(http.StatusNotImplemented)
+	queueMgr.DeleteClient(id)
+	cx.RespondWithData("ok")
 }
 
 // DELETE: /client

@@ -1,16 +1,13 @@
 package core
 
 import (
-	"container/heap"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/core/pqueue"
 	e "github.com/MG-RAST/AWE/errors"
 	. "github.com/MG-RAST/AWE/logger"
-	"io/ioutil"
-	"net/http"
+	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -19,13 +16,13 @@ import (
 type QueueMgr struct {
 	clientMap map[string]*Client
 	taskMap   map[string]*Task
-	workQueue WQueue
+	workQueue *WQueue
 	reminder  chan bool
-	taskIn    chan *Task   //channel for receiving Task (JobController -> qmgr.Handler)
-	coReq     chan string  //workunit checkout request (WorkController -> qmgr.Handler)
-	coAck     chan AckItem //workunit checkout item including data and err (qmgr.Handler -> WorkController)
-	feedback  chan Notice  //workunit execution feedback (WorkController -> qmgr.Handler)
-	coSem     chan int     //semaphore for checkout (mutual exclusion between different clients)
+	taskIn    chan *Task  //channel for receiving Task (JobController -> qmgr.Handler)
+	coReq     chan CoReq  //workunit checkout request (WorkController -> qmgr.Handler)
+	coAck     chan CoAck  //workunit checkout item including data and err (qmgr.Handler -> WorkController)
+	feedback  chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
+	coSem     chan int    //semaphore for checkout (mutual exclusion between different clients)
 }
 
 func NewQueueMgr() *QueueMgr {
@@ -35,39 +32,22 @@ func NewQueueMgr() *QueueMgr {
 		workQueue: NewWQueue(),
 		reminder:  make(chan bool),
 		taskIn:    make(chan *Task, 1024),
-		coReq:     make(chan string),
-		coAck:     make(chan AckItem),
+		coReq:     make(chan CoReq),
+		coAck:     make(chan CoAck),
 		feedback:  make(chan Notice),
 		coSem:     make(chan int, 1), //non-blocking buffered channel
 	}
 }
 
-type ShockResponse struct {
-	Code int       `bson:"S" json:"S"`
-	Data ShockNode `bson:"D" json:"D"`
-	Errs []string  `bson:"E" json:"E"`
+type CoReq struct {
+	policy     string
+	fromclient string
+	count      int
 }
 
-type ShockNode struct {
-	Id         string            `bson:"id" json:"id"`
-	Version    string            `bson:"version" json:"version"`
-	File       shockfile         `bson:"file" json:"file"`
-	Attributes interface{}       `bson:"attributes" json:"attributes"`
-	Indexes    map[string]string `bson:"indexes" json:"indexes"`
-}
-
-type shockfile struct {
-	Name         string            `bson:"name" json:"name"`
-	Size         int64             `bson:"size" json:"size"`
-	Checksum     map[string]string `bson:"checksum" json:"checksum"`
-	Format       string            `bson:"format" json:"format"`
-	Virtual      bool              `bson:"virtual" json:"virtual"`
-	VirtualParts []string          `bson:"virtual_parts" json:"virtual_parts"`
-}
-
-type AckItem struct {
-	workunit *Workunit
-	err      error
+type CoAck struct {
+	workunits []*Workunit
+	err       error
 }
 
 type Notice struct {
@@ -77,13 +57,11 @@ type Notice struct {
 
 type WQueue struct {
 	workMap map[string]*Workunit
-	pQue    pqueue.PriorityQueue
 }
 
-func NewWQueue() WQueue {
-	return WQueue{
+func NewWQueue() *WQueue {
+	return &WQueue{
 		workMap: map[string]*Workunit{},
-		pQue:    make(pqueue.PriorityQueue, 0, 10000),
 	}
 }
 
@@ -93,39 +71,26 @@ func (qm *QueueMgr) Handle() {
 	for {
 		select {
 		case task := <-qm.taskIn:
-			fmt.Printf("task recived from chan taskIn, id=%s\n", task.Id)
+			//fmt.Printf("task recived from chan taskIn, id=%s\n", task.Id)
 			qm.addTask(task)
 
 		case coReq := <-qm.coReq:
-			fmt.Printf("workunit checkout request received, policy=%s\n", coReq)
-
-			var wu *Workunit
-			var err error
-
-			segs := strings.Split(coReq, ":")
-			policy := segs[0]
-
-			if policy == "FCFS" {
-				wu, err = qm.workQueue.PopWorkFCFS()
-			} else if policy == "ById" {
-				wu, err = qm.workQueue.PopWorkByID(segs[1])
-			} else {
-				err = errors.New("bad checkout policy")
-				continue
-			}
-
-			ack := AckItem{workunit: wu, err: err}
+			//fmt.Printf("workunit checkout request received, Req=%v\n", coReq)
+			works, err := qm.popWorks(coReq)
+			ack := CoAck{workunits: works, err: err}
 			qm.coAck <- ack
 
 		case notice := <-qm.feedback:
 			//	fmt.Printf("workunit status feedback received, workid=%s, status=%s\n", notice.Workid, notice.Status)
 			if err := qm.handleWorkStatusChange(notice); err != nil {
-				Log.Error("ERROR: qmgr handleWorkStatusChange(): " + err.Error())
+				Log.Error("handleWorkStatusChange(): " + err.Error())
 			}
 
 		case <-qm.reminder:
 			//fmt.Print("time to update workunit queue....\n")
 			qm.updateQueue()
+			//qm.ShowTasks()
+			//qm.ShowWorkQueue()
 		}
 	}
 }
@@ -144,28 +109,30 @@ func (qm *QueueMgr) AddTasks(tasks []*Task) (err error) {
 	return
 }
 
-func (qm *QueueMgr) GetWorkByFCFS() (workunit *Workunit, err error) {
+func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num int) (workunits []*Workunit, err error) {
+	//precheck if teh client is registered
+	if _, hasClient := qm.clientMap[client_id]; !hasClient {
+		return nil, errors.New("invalid client id: " + client_id)
+	}
+
 	//lock semephore, at one time only one client's checkout request can be served 
 	qm.coSem <- 1
 
-	qm.coReq <- "FCFS"
+	req := CoReq{policy: req_policy, fromclient: client_id, count: num}
+	qm.coReq <- req
 	ack := <-qm.coAck
 
 	//unlock
 	<-qm.coSem
 
-	return ack.workunit, ack.err
+	return ack.workunits, ack.err
 }
 
 func (qm *QueueMgr) GetWorkById(id string) (workunit *Workunit, err error) {
-	qm.coSem <- 1
-
-	qm.coReq <- fmt.Sprintf("ById:%s", id)
-	ack := <-qm.coAck
-
-	<-qm.coSem
-
-	return ack.workunit, ack.err
+	if workunit, hasid := qm.workQueue.workMap[id]; hasid {
+		return workunit, nil
+	}
+	return nil, errors.New(fmt.Sprintf("no workunit found with id %s", id))
 }
 
 func (qm *QueueMgr) NotifyWorkStatus(notice Notice) {
@@ -191,9 +158,8 @@ func (qm *QueueMgr) deleteTasks(tasks []*Task) (err error) {
 
 //poll ready tasks and push into workQueue
 func (qm *QueueMgr) updateQueue() (err error) {
-	fmt.Printf("%s: try to move tasks to workunit queue...\n", time.Now())
-	for id, task := range qm.taskMap {
-		fmt.Printf("taskid=%s state=%s\n", id, task.State)
+	for _, task := range qm.taskMap {
+		//fmt.Printf("taskid=%s state=%s\n", id, task.State)
 		ready := false
 		if task.State == "pending" {
 			ready = true
@@ -211,22 +177,21 @@ func (qm *QueueMgr) updateQueue() (err error) {
 			}
 		}
 	}
-	qm.workQueue.Show()
 	return
 }
 
 func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
-	fmt.Printf("move workunits of task %s to workunit queue\n", task.Id)
+	//fmt.Printf("move workunits of task %s to workunit queue\n", task.Id)
 	if err := qm.locateInputs(task); err != nil {
-		Log.Error("ERROR: qmgr.taskEnQueue: " + err.Error())
+		Log.Error("qmgr.taskEnQueue locateInputs:" + err.Error())
 		return err
 	}
 	if err := qm.createOutputNode(task); err != nil {
-		Log.Error("ERROR: qmgr.taskEnQueue: " + err.Error())
+		Log.Error("qmgr.taskEnQueue createOutputNode:" + err.Error())
 		return err
 	}
 	if err := qm.parseTask(task); err != nil {
-		Log.Error("ERROR: qmgr.taskEnQueue: " + err.Error())
+		Log.Error("qmgr.taskEnQueue parseTask:" + err.Error())
 		return err
 	}
 	task.State = "queued"
@@ -271,14 +236,24 @@ func (qm *QueueMgr) parseTask(task *Task) (err error) {
 
 func (qm *QueueMgr) createOutputNode(task *Task) (err error) {
 	outputs := task.Outputs
-	for name, io := range outputs {
-		nodeid, err := postNode(io, task.TotalWork)
+	for _, io := range outputs {
+		nodeid, err := PostNode(io, task.TotalWork)
 		if err != nil {
 			return err
 		}
 		io.Node = nodeid
-		fmt.Printf("%s, output Shock node created, id=%s\n", name, io.Node)
+		//fmt.Printf("%s, output Shock node created, id=%s\n", name, io.Node)
 	}
+	return
+}
+
+func (qm *QueueMgr) popWorks(req CoReq) (works []*Workunit, err error) {
+	supportedApps := qm.clientMap[req.fromclient].Apps
+	filtered := qm.workQueue.filterWorkByApps(supportedApps)
+	if len(filtered) == 0 {
+		return nil, errors.New(e.NoEligibleWorkunitFound)
+	}
+	works, err = qm.workQueue.getWorks(filtered, req.policy, req.count)
 	return
 }
 
@@ -306,18 +281,34 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				qm.taskMap[taskid].State = "completed"
 
 				//log event about task done (TD) 
-				Log.Event(EVENT_TASK_DONE, "taskid="+workid)
-
+				Log.Event(EVENT_TASK_DONE, "taskid="+taskid)
 				if err = updateJob(qm.taskMap[taskid]); err != nil {
 					return
 				}
 				qm.updateQueue()
+				delete(qm.taskMap, taskid)
 			}
 		}
 	} else {
 		return errors.New(fmt.Sprintf("task not existed: %s", taskid))
 	}
 	return
+}
+
+// show functions used in debug
+func (qm *QueueMgr) ShowWorkQueue() {
+	fmt.Printf("current queuing workunits (%d):\n", qm.workQueue.Len())
+	for key, _ := range qm.workQueue.workMap {
+		fmt.Printf("workunit id: %s\n", key)
+	}
+	return
+}
+
+func (qm *QueueMgr) ShowTasks() {
+	fmt.Printf("current active tasks  (%d):\n", len(qm.taskMap))
+	for key, task := range qm.taskMap {
+		fmt.Printf("workunit id: %s, status:%s\n", key, task.State)
+	}
 }
 
 //WQueue functions
@@ -331,89 +322,7 @@ func (wq *WQueue) Push(workunit *Workunit) (err error) {
 		return errors.New("try to push a workunit with an empty id")
 	}
 	wq.workMap[workunit.Id] = workunit
-
-	score := priorityFunction(workunit)
-
-	queueItem := pqueue.NewItem(workunit.Id, score)
-
-	heap.Push(&wq.pQue, queueItem)
-
 	return nil
-}
-
-func (wq WQueue) Show() (err error) {
-	fmt.Printf("current queuing workunits (%d):\n", wq.Len())
-	for key, _ := range wq.workMap {
-		fmt.Printf("workunit id: %s\n", key)
-	}
-	return
-}
-
-//pop a workunit by specified workunit id
-//to-do: support returning workunit based on a given job id
-func (wq WQueue) PopWorkByID(id string) (workunit *Workunit, err error) {
-	if workunit, hasid := wq.workMap[id]; hasid {
-		delete(wq.workMap, id)
-		return workunit, nil
-	}
-	return nil, errors.New(fmt.Sprintf("no workunit found with id %s", id))
-}
-
-//pop a workunit in FCFS order
-//to-do: update workunit state to "checked-out"
-func (wq *WQueue) PopWorkFCFS() (workunit *Workunit, err error) {
-	if wq.Len() == 0 {
-		return nil, errors.New(e.WorkUnitQueueEmpty)
-	}
-
-	//some workunit might be checked out by id, thus keep popping
-	//pQue until find an Id with queued workunit
-	for {
-		item := heap.Pop(&wq.pQue).(*pqueue.Item)
-		id := item.Value()
-		if workunit, hasid := wq.workMap[id]; hasid {
-			delete(wq.workMap, id)
-			return workunit, nil
-		}
-	}
-	return
-}
-
-//curently support calculate priority score by FCFS
-//to-do: make prioritizing policy configurable
-func priorityFunction(workunit *Workunit) int64 {
-	return 1 - workunit.Info.SubmitTime.Unix()
-}
-
-//create a shock node for output
-func postNode(io *IO, numParts int) (nodeid string, err error) {
-	var res *http.Response
-	shockurl := fmt.Sprintf("%s/node", io.Host)
-	res, err = http.Post(shockurl, "", strings.NewReader(""))
-	if err != nil {
-		return "", err
-	}
-
-	jsonstream, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-
-	response := new(ShockResponse)
-	if err := json.Unmarshal(jsonstream, response); err != nil {
-		return "", err
-	}
-	if len(response.Errs) > 0 {
-		return "", errors.New(strings.Join(response.Errs, ","))
-	}
-
-	shocknode := &response.Data
-	nodeid = shocknode.Id
-
-	if numParts > 1 {
-		putParts(io.Host, nodeid, numParts)
-	}
-
-	fmt.Printf("posted a node: %s\n", nodeid)
-	return
 }
 
 //create parts
@@ -435,14 +344,22 @@ func putParts(host string, nodeid string, numParts int) (err error) {
 }
 
 //Client functions
-func (qm *QueueMgr) RegisterNewClient() (client *Client, err error) {
+func (qm *QueueMgr) RegisterNewClient(params map[string]string, files FormFiles) (client *Client, err error) {
 	//if queue is empty, reject client registration
 	if qm.workQueue.Len() == 0 {
 		return nil, errors.New(e.WorkUnitQueueEmpty)
 	}
-	client = NewClient()
+
+	if _, ok := files["profile"]; ok {
+		client, err = NewProfileClient(files["profile"].Path)
+		os.Remove(files["profile"].Path)
+	} else {
+		client = NewClient()
+	}
+	if err != nil {
+		return nil, err
+	}
 	qm.clientMap[client.Id] = client
-	fmt.Printf("registered a new client:%s, current total clients: %d\n", client.Id, len(qm.clientMap))
 	return
 }
 
@@ -461,7 +378,7 @@ func (qm *QueueMgr) GetAllClients() []*Client {
 	return clients
 }
 
-func (qm *QueueMgr) deleteClient(id string) {
+func (qm *QueueMgr) DeleteClient(id string) {
 	delete(qm.clientMap, id)
 }
 
@@ -474,4 +391,54 @@ func updateJob(task *Task) (err error) {
 		return
 	}
 	return job.UpdateTask(task)
+}
+
+//misc local functions
+func contains(list []string, elem string) bool {
+	for _, t := range list {
+		if t == elem {
+			return true
+		}
+	}
+	return false
+}
+
+func (wq *WQueue) filterWorkByApps(apps []string) (ids []string) {
+	ids = []string{}
+	for id, work := range wq.workMap {
+		if contains(apps, work.Cmd.Name) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+type WorkList []*Workunit
+
+func (wl WorkList) Len() int      { return len(wl) }
+func (wl WorkList) Swap(i, j int) { wl[i], wl[j] = wl[j], wl[i] }
+
+type byFCFS struct{ WorkList }
+
+func (s byFCFS) Less(i, j int) bool {
+	return s.WorkList[i].Info.SubmitTime.Before(s.WorkList[j].Info.SubmitTime)
+}
+
+func (wq *WQueue) getWorks(workid []string, policy string, count int) (works []*Workunit, err error) {
+	worklist := []*Workunit{}
+	for _, id := range workid {
+		worklist = append(worklist, wq.workMap[id])
+	}
+
+	works = []*Workunit{}
+
+	if policy == "FCFS" {
+		sort.Sort(byFCFS{worklist})
+	}
+	for i := 0; i < count; i++ {
+		works = append(works, worklist[i])
+		delete(wq.workMap, worklist[i].Id)
+	}
+
+	return
 }

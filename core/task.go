@@ -1,8 +1,8 @@
 package core
 
 import (
-	"errors"
 	"fmt"
+	. "github.com/MG-RAST/AWE/logger"
 )
 
 type Task struct {
@@ -84,7 +84,7 @@ func NewIO() *IO {
 	return &IO{}
 }
 
-func (io IO) Url() string {
+func (io *IO) Url() string {
 	if io.Host != "" && io.Node != "" {
 		return fmt.Sprintf("%s/node/%s?download", io.Host, io.Node)
 	}
@@ -92,8 +92,9 @@ func (io IO) Url() string {
 }
 
 //to-do: get io units from Shock instead of depending on job script
-func (io IO) TotalUnits() (num int) {
-	return io.Units
+func (io *IO) TotalUnits(indextype string) (count int, err error) {
+	count, err = GetIndexUnits(indextype, io)
+	return
 }
 
 func (task *Task) UpdateState(newState string) string {
@@ -106,7 +107,6 @@ func (task *Task) InitTask(job *Job) (err error) {
 	task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
 	task.Info = job.Info
 	task.State = "init"
-	task.RemainWork = task.TotalWork
 	task.WorkStatus = make([]string, task.TotalWork)
 
 	for j := 0; j < len(task.DependsOn); j++ {
@@ -114,32 +114,40 @@ func (task *Task) InitTask(job *Job) (err error) {
 		task.DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)
 	}
 
-	if err = task.InitPartition(); err != nil {
-		return err
-	}
+	task.InitPartition()
+	task.RemainWork = task.TotalWork
 	return
 }
 
 // calculate part size based on partition info
-func (task *Task) InitPartition() (err error) {
+// may result in change of task.TotalWork 
+func (task *Task) InitPartition() {
 	if task.TotalWork == 1 {
 		return
 	}
 	if task.TotalWork > 1 {
 		if task.Partition == nil {
-			return errors.New(fmt.Sprintf("missing Partition Info, taskid=%s", task.Id))
+			task.TotalWork = 1
+			Log.Error("warning: lacking partition info while totalwork > 1, taskid=" + task.Id)
+			return
 		}
 		if io, ok := task.Inputs[task.Partition.Input]; ok {
 			if task.Partition.Index == "record" {
-				totalunits := io.TotalUnits()
+				totalunits, err := io.TotalUnits("record")
+				if err != nil {
+					Log.Error("warning: fail to get index units, taskid=" + task.Id + ":" + err.Error())
+					task.TotalWork = 1
+					return
+				}
 				if totalunits < task.TotalWork {
 					task.TotalWork = totalunits
 				}
 				task.Partition.TotalIndex = totalunits
-				return
 			}
+		} else {
+			Log.Error("warning: invaid partition info, taskid=" + task.Id)
+			task.TotalWork = 1
 		}
-		return errors.New(fmt.Sprintf("error in parsing task Partition Info, taskid=%s", task.Id))
 	}
 	return
 }

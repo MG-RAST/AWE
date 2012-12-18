@@ -36,7 +36,6 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	params, files, err := ParseMultipartForm(cx.Request)
 
 	if err != nil {
-		// If not multipart/form-data it will create an empty node. 
 		if err.Error() == "request Content-Type isn't multipart/form-data" {
 			cx.RespondWithErrorMessage("No job file is submitted", http.StatusBadRequest)
 		} else {
@@ -62,7 +61,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	job, err = core.CreateJobUpload(params, files)
 
 	if err != nil {
-		Log.Error("err " + err.Error())
+		Log.Error("Err@job_Create:CreateJobUpload: " + err.Error())
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}

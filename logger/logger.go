@@ -25,13 +25,19 @@ var (
 )
 
 const (
-	EVENT_JOB_SUBMISSION      = "JQ"
-	EVENT_TASK_ENQUEUE        = "TQ"
 	EVENT_CLIENT_REGISTRATION = "CR"
 	EVENT_WORK_CHECKOUT       = "WC"
-	EVENT_WORK_DONE           = "WD"
-	EVENT_TASK_DONE           = "TD"
-	EVENT_JOB_DONE            = "JD"
+	//server only events
+	EVENT_JOB_SUBMISSION = "JQ"
+	EVENT_TASK_ENQUEUE   = "TQ"
+	EVENT_WORK_DONE      = "WD"
+	EVENT_TASK_DONE      = "TD"
+	EVENT_JOB_DONE       = "JD"
+	//client only events
+	EVENT_FILE_IN    = "FI"
+	EVENT_WORK_START = "WS"
+	EVENT_WORK_END   = "WE"
+	EVENT_FILE_OUT   = "FO"
 )
 
 func NewLogger(name string) *Logger {

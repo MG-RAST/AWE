@@ -52,9 +52,11 @@ var (
 	MONGODB = ""
 
 	//client
-	TOTAL_WORKER = 1
-	WORK_PATH    = ""
-	SERVER_URL   = "http://localhost:8001"
+	TOTAL_WORKER   = 1
+	WORK_PATH      = ""
+	SERVER_URL     = "http://localhost:8001"
+	CLIENT_NAME    = "default"
+	CLIENT_PROFILE = "clientprofile.json"
 )
 
 func init() {
@@ -115,7 +117,12 @@ func init() {
 	// Client
 	WORK_PATH, _ = c.String("Client", "workpath")
 	SERVER_URL, _ = c.String("Client", "serverurl")
-
+	if clientname, err := c.String("Client", "clientname"); err == nil {
+		CLIENT_NAME = clientname
+	}
+	if clientprofile, err := c.String("Client", "clientprofile"); err == nil {
+		CLIENT_PROFILE = clientprofile
+	}
 }
 
 func Print() {

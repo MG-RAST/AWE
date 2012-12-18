@@ -61,6 +61,14 @@ func launchAPI(control chan int, port int) {
 func main() {
 	printLogo()
 	conf.Print()
+
+	if _, err := os.Stat(conf.DATA_PATH + "/temp"); err != nil && os.IsNotExist(err) {
+		if err := os.Mkdir(conf.DATA_PATH+"/temp", 0777); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		}
+		os.Exit(1)
+	}
+
 	Log = NewLogger("server")
 
 	//launch server

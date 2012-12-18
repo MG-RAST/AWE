@@ -35,3 +35,5 @@ id=unique:true
 totalworker=2
 workpath=/Users/wtang/local/awe/work
 serverurl=http://localhost:8001
+clientname=myclient
+clientprofile=/Users/wtang/etc/clientprofile.json

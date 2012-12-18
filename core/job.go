@@ -45,14 +45,6 @@ type script struct {
 	Path string `bson:"path" json:"-"`
 }
 
-type FormFiles map[string]FormFile
-
-type FormFile struct {
-	Name     string
-	Path     string
-	Checksum map[string]string
-}
-
 //---Script upload
 func (job *Job) UpdateFile(params map[string]string, files FormFiles) (err error) {
 	_, isRegularUpload := files["upload"]

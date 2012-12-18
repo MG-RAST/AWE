@@ -15,5 +15,6 @@ const (
 	MongoDocNotFound         = "Document not found"
 	NoAuth                   = "No Authorization"
 	WorkUnitQueueEmpty       = "Workunit queue is empty"
+	NoEligibleWorkunitFound  = "No eligible workunit found"
 	UnAuth                   = "User Unauthorized"
 )

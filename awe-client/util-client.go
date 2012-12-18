@@ -1,12 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/conf"
 	. "github.com/MG-RAST/AWE/core"
+	. "github.com/MG-RAST/AWE/logger"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"os/exec"
@@ -25,11 +29,11 @@ type ClientResponse struct {
 	Errs []string `bson:"E" json:"E"`
 }
 
-func CheckoutWorkunitRemote(serverhost string, selfid string) (workunit *Workunit, err error) {
+func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 
 	response := new(WorkResponse)
 
-	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", serverhost, selfid))
+	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", serverhost, self.Id))
 
 	if err != nil {
 		return
@@ -97,26 +101,34 @@ func RunWorkunit(work *Workunit) (err error) {
 	cmd := exec.Command(commandName, args...)
 
 	fmt.Printf("worker: start running cmd=%s, args=%v\n", commandName, args)
+	Log.Event(EVENT_WORK_START, "workid="+work.Id,
+		"cmd="+commandName,
+		fmt.Sprintf("args=%v", args))
 
 	err = cmd.Run()
 	if err != nil {
 		return
 	}
 
+	Log.Event(EVENT_WORK_END, "workid="+work.Id)
+
 	for name, io := range work.Outputs {
 
 		if _, err := os.Stat(name); err != nil {
-			fmt.Printf("worker: error:output %s not generated for workunit %s\n", name, work.Id)
 			return errors.New(fmt.Sprintf("error:output %s not generated for workunit %s", name, work.Id))
 		}
 
 		fmt.Printf("worker: push output to shock, filename=%s\n", name)
 		if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {
-			fmt.Printf("push file error")
+			fmt.Errorf("push file error\n")
+			Log.Error("op=pushfile,err=" + err.Error())
 			return err
 		}
+		Log.Event(EVENT_FILE_OUT,
+			"workid="+work.Id,
+			"filename="+name,
+			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
 	}
-
 	return
 }
 
@@ -153,6 +165,7 @@ func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 				if err := fetchFile(inputname, dataUrl); err != nil { //get file from Shock
 					return []string{}, err
 				}
+				Log.Event(EVENT_FILE_IN, "url="+dataUrl)
 
 				filePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
 
@@ -178,7 +191,17 @@ func fetchFile(filename string, url string) (err error) {
 
 	//download file from Shock
 	res, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+
 	defer res.Body.Close()
+
+	if res.StatusCode != 200 { //err in fetching data
+		resbody, _ := ioutil.ReadAll(res.Body)
+		msg := fmt.Sprintf("op=fetchFile, url=%s, res=%s", url, resbody)
+		return errors.New(msg)
+	}
 
 	_, err = io.Copy(localfile, res.Body)
 	if err != nil {
@@ -217,7 +240,7 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 
 	argv = append(argv, target_url)
 
-	fmt.Printf("curl argv=%v\n", argv)
+	fmt.Printf("curl argv=%#v\n", argv)
 
 	cmd := exec.Command("curl", argv...)
 
@@ -272,6 +295,57 @@ func Register(host string) (client *Client, err error) {
 		return
 	}
 
+	client = &response.Data
+	return
+}
+
+func RegisterWithProfile(host string) (client *Client, err error) {
+
+	if _, err := os.Stat(conf.CLIENT_PROFILE); err != nil {
+		return nil, errors.New("profile file not found: " + conf.CLIENT_PROFILE)
+	}
+
+	filename := conf.CLIENT_PROFILE
+
+	bodyBuf := &bytes.Buffer{}
+	bodyWriter := multipart.NewWriter(bodyBuf)
+
+	fileWriter, err := bodyWriter.CreateFormFile("profile", filename)
+	if err != nil {
+		return nil, err
+	}
+
+	fh, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = io.Copy(fileWriter, fh)
+	if err != nil {
+		return nil, err
+	}
+
+	contentType := bodyWriter.FormDataContentType()
+	bodyWriter.Close()
+
+	targetUrl := host + "/client"
+
+	resp, err := http.Post(targetUrl, contentType, bodyBuf)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	jsonstream, err := ioutil.ReadAll(resp.Body)
+
+	response := new(ClientResponse)
+
+	if err = json.Unmarshal(jsonstream, response); err != nil {
+		if len(response.Errs) > 0 {
+			//or if err.Error() == "json: cannot unmarshal null into Go value of type core.Client" 
+			return nil, errors.New(strings.Join(response.Errs, ","))
+		}
+		return
+	}
 	client = &response.Data
 	return
 }

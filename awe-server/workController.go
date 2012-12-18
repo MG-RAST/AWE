@@ -6,14 +6,16 @@ import (
 	. "github.com/MG-RAST/AWE/logger"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
+	"strings"
 )
 
 type WorkController struct{}
 
 // GET: /work/{id}
-// get a workunit by id
+// get a workunit by id, read-only
 func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
+
 	// Load workunit by id
 	workunit, err := queueMgr.GetWorkById(id)
 
@@ -42,7 +44,8 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	}
 
 	//checkout a workunit in FCFS order
-	workunit, err := queueMgr.GetWorkByFCFS()
+	clientid := query.Value("client")
+	workunits, err := queueMgr.CheckoutWorkunits("FCFS", clientid, 1)
 
 	if err != nil {
 		if err.Error() != e.WorkUnitQueueEmpty {
@@ -56,12 +59,17 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
 	//log event about workunit checkout (WO)
+	workids := []string{}
+	for _, work := range workunits {
+		workids = append(workids, work.Id)
+	}
+
 	Log.Event(EVENT_WORK_CHECKOUT,
-		"workid="+workunit.Id,
-		"clientid="+query.Value("client"))
+		"workids="+strings.Join(workids, ","),
+		"clientid="+clientid)
 
 	// Base case respond with node in json	
-	cx.RespondWithData(workunit)
+	cx.RespondWithData(workunits[0])
 	return
 }
 

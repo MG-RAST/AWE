@@ -90,7 +90,7 @@ func (qm *QueueMgr) Handle() {
 			//fmt.Print("time to update workunit queue....\n")
 			qm.updateQueue()
 			//qm.ShowTasks()
-			//qm.ShowWorkQueue()
+			qm.ShowWorkQueue()
 		}
 	}
 }

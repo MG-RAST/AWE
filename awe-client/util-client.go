@@ -105,9 +105,29 @@ func RunWorkunit(work *Workunit) (err error) {
 		"cmd="+commandName,
 		fmt.Sprintf("args=%v", args))
 
-	err = cmd.Run()
-	if err != nil {
-		return
+	var stdout, stderr io.ReadCloser
+	if conf.PRINT_APP_MSG {
+		stdout, err = cmd.StdoutPipe()
+		if err != nil {
+			return err
+		}
+		stderr, err = cmd.StderrPipe()
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := cmd.Start(); err != nil {
+		return errors.New(fmt.Sprintf("start_cmd=%s, err=%s", commandName, err.Error()))
+	}
+
+	if conf.PRINT_APP_MSG {
+		go io.Copy(os.Stdout, stdout)
+		go io.Copy(os.Stderr, stderr)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return errors.New(fmt.Sprintf("wait_cmd=%s, err=%s", commandName, err.Error()))
 	}
 
 	Log.Event(EVENT_WORK_END, "workid="+work.Id)
@@ -115,7 +135,7 @@ func RunWorkunit(work *Workunit) (err error) {
 	for name, io := range work.Outputs {
 
 		if _, err := os.Stat(name); err != nil {
-			return errors.New(fmt.Sprintf("error:output %s not generated for workunit %s", name, work.Id))
+			return errors.New(fmt.Sprintf("output %s not generated for workunit %s", name, work.Id))
 		}
 
 		fmt.Printf("worker: push output to shock, filename=%s\n", name)

@@ -57,6 +57,7 @@ var (
 	SERVER_URL     = "http://localhost:8001"
 	CLIENT_NAME    = "default"
 	CLIENT_PROFILE = "clientprofile.json"
+	PRINT_APP_MSG  = false
 )
 
 func init() {
@@ -123,6 +124,9 @@ func init() {
 	if clientprofile, err := c.String("Client", "clientprofile"); err == nil {
 		CLIENT_PROFILE = clientprofile
 	}
+	if print_app_msg, err := c.Bool("Client", "print_app_msg"); err == nil {
+		PRINT_APP_MSG = print_app_msg
+	}
 }
 
 func Print() {
@@ -147,4 +151,5 @@ func PrintClientCfg() {
 	fmt.Printf("###AWE client running###\n")
 	fmt.Printf("work_path=%s\n", WORK_PATH)
 	fmt.Printf("server_url=%s\n", SERVER_URL)
+	fmt.Printf("print_app_msg=%t\n", PRINT_APP_MSG)
 }

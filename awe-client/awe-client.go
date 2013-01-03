@@ -56,7 +56,7 @@ func worker(control chan int) {
 		}
 		if err := NotifyWorkunitDone(conf.SERVER_URL, work.Id); err != nil {
 			fmt.Errorf("worker: NotifyWorkunitDone returned error: %s\n", err.Error())
-			Log.Error("NotifyWorkunitDone(): workid=" + work.Id + "," + err.Error())
+			Log.Error("NotifyWorkunitDone(): workid=" + work.Id + ", err=" + err.Error())
 		}
 		Log.Event(EVENT_WORK_DONE, "workid="+work.Id)
 	}

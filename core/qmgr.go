@@ -55,13 +55,20 @@ type Notice struct {
 	Status string
 }
 
+type coInfo struct {
+	workunit *Workunit
+	clientid string
+}
+
 type WQueue struct {
-	workMap map[string]*Workunit
+	workMap   map[string]*Workunit //workunits waiting in the queue
+	coWorkMap map[string]coInfo    //workunits being checked out yet not done
 }
 
 func NewWQueue() *WQueue {
 	return &WQueue{
-		workMap: map[string]*Workunit{},
+		workMap:   map[string]*Workunit{},
+		coWorkMap: map[string]coInfo{},
 	}
 }
 
@@ -90,7 +97,7 @@ func (qm *QueueMgr) Handle() {
 			//fmt.Print("time to update workunit queue....\n")
 			qm.updateQueue()
 			//qm.ShowTasks()
-			//qm.ShowWorkQueue()
+			qm.ShowWorkQueue()
 		}
 	}
 }
@@ -248,12 +255,18 @@ func (qm *QueueMgr) createOutputNode(task *Task) (err error) {
 }
 
 func (qm *QueueMgr) popWorks(req CoReq) (works []*Workunit, err error) {
-	supportedApps := qm.clientMap[req.fromclient].Apps
-	filtered := qm.workQueue.filterWorkByApps(supportedApps)
+	filtered := qm.filterWorkByClient(req.fromclient)
 	if len(filtered) == 0 {
 		return nil, errors.New(e.NoEligibleWorkunitFound)
 	}
 	works, err = qm.workQueue.getWorks(filtered, req.policy, req.count)
+
+	if err == nil { //get workunits successfully, put them into coWorkMap
+		for _, work := range works {
+			coinfo := coInfo{workunit: work, clientid: req.fromclient}
+			qm.workQueue.coWorkMap[work.Id] = coinfo
+		}
+	}
 	return
 }
 
@@ -287,6 +300,16 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				}
 				qm.updateQueue()
 				delete(qm.taskMap, taskid)
+			}
+			delete(qm.workQueue.coWorkMap, workid)
+		} else if status == "fail" { //requeue failed workunit
+			Log.Event(EVENT_WORK_FAIL, "workid="+workid)
+			if coinfo, ok := qm.workQueue.coWorkMap[workid]; ok {
+				qm.workQueue.workMap[workid] = coinfo.workunit
+				delete(qm.workQueue.coWorkMap, workid)
+				client := qm.clientMap[coinfo.clientid]
+				client.SkipWorks = append(client.SkipWorks, workid)
+				Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
 			}
 		}
 	} else {
@@ -382,6 +405,19 @@ func (qm *QueueMgr) DeleteClient(id string) {
 	delete(qm.clientMap, id)
 }
 
+func (qm *QueueMgr) filterWorkByClient(clientid string) (ids []string) {
+	client := qm.clientMap[clientid]
+	for id, work := range qm.workQueue.workMap {
+		if contains(client.SkipWorks, work.Id) {
+			continue
+		}
+		if contains(client.Apps, work.Cmd.Name) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
 //job functions
 func updateJob(task *Task) (err error) {
 	parts := strings.Split(task.Id, "_")
@@ -401,16 +437,6 @@ func contains(list []string, elem string) bool {
 		}
 	}
 	return false
-}
-
-func (wq *WQueue) filterWorkByApps(apps []string) (ids []string) {
-	ids = []string{}
-	for id, work := range wq.workMap {
-		if contains(apps, work.Cmd.Name) {
-			ids = append(ids, id)
-		}
-	}
-	return ids
 }
 
 type WorkList []*Workunit

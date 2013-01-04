@@ -16,12 +16,15 @@ type Client struct {
 	LocalShock string    `bson:"localshock" json:localshock"`
 	Cores      int       `bson:"cores" json:"cores"`
 	Apps       []string  `bson:"apps" json:"apps"`
+	SkipWorks  []string  `bson:"SkipWorkunits" json:"SkipWorkunits"`
 	RegTime    time.Time `bson:"regtime" json:"regtime"`
 }
 
 func NewClient() (client *Client) {
 	client = new(Client)
 	client.Id = uuid.New()
+	client.Apps = []string{}
+	client.SkipWorks = []string{}
 	return
 }
 
@@ -36,5 +39,9 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 	}
 	client.Id = uuid.New()
 	client.RegTime = time.Now()
+	if client.Apps == nil {
+		client.Apps = []string{}
+	}
+	client.SkipWorks = []string{}
 	return
 }

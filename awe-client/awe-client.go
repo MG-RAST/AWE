@@ -50,13 +50,26 @@ func worker(control chan int) {
 	for {
 		work := <-workChan
 		if err := RunWorkunit(work); err != nil {
-			fmt.Errorf("RunWorkunit() error: %s\n", err.Error())
+			fmt.Printf("!!!RunWorkunit() returned error: %s\n", err.Error())
 			Log.Error("RunWorkunit(): workid=" + work.Id + ", " + err.Error())
-			continue
+
+			//restart once
+			if err := RunWorkunit(work); err != nil {
+				fmt.Printf("!!!ReRunWorkunit() returned error: %s\n", err.Error())
+				Log.Error("ReRunWorkunit(): workid=" + work.Id + ", " + err.Error())
+
+				//send back the workunit to server
+				if err := NotifyWorkunitProcessed(conf.SERVER_URL, work.Id, "fail"); err != nil {
+					fmt.Printf("!!!NotifyWorkunitFail returned error: %s\n", err.Error())
+					Log.Error("NotifyWorkunitFail: workid=" + work.Id + ", err=" + err.Error())
+				}
+				Log.Event(EVENT_WORK_RETURN, "workid="+work.Id)
+				continue
+			}
 		}
-		if err := NotifyWorkunitDone(conf.SERVER_URL, work.Id); err != nil {
-			fmt.Errorf("worker: NotifyWorkunitDone returned error: %s\n", err.Error())
-			Log.Error("NotifyWorkunitDone(): workid=" + work.Id + "," + err.Error())
+		if err := NotifyWorkunitProcessed(conf.SERVER_URL, work.Id, "done"); err != nil {
+			fmt.Printf("!!!NotifyWorkunitDone returned error: %s\n", err.Error())
+			Log.Error("NotifyWorkunitDone: workid=" + work.Id + ", err=" + err.Error())
 		}
 		Log.Event(EVENT_WORK_DONE, "workid="+work.Id)
 	}

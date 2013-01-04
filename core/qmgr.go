@@ -55,13 +55,20 @@ type Notice struct {
 	Status string
 }
 
+type coInfo struct {
+	workunit *Workunit
+	clientid string
+}
+
 type WQueue struct {
-	workMap map[string]*Workunit
+	workMap   map[string]*Workunit //workunits waiting in the queue
+	coWorkMap map[string]coInfo    //workunits being checked out yet not done
 }
 
 func NewWQueue() *WQueue {
 	return &WQueue{
-		workMap: map[string]*Workunit{},
+		workMap:   map[string]*Workunit{},
+		coWorkMap: map[string]coInfo{},
 	}
 }
 
@@ -254,6 +261,13 @@ func (qm *QueueMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 		return nil, errors.New(e.NoEligibleWorkunitFound)
 	}
 	works, err = qm.workQueue.getWorks(filtered, req.policy, req.count)
+
+	if err == nil { //get workunits successfully, put them into coWorkMap
+		for _, work := range works {
+			coinfo := coInfo{workunit: work, clientid: req.fromclient}
+			qm.workQueue.coWorkMap[work.Id] = coinfo
+		}
+	}
 	return
 }
 
@@ -287,6 +301,14 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				}
 				qm.updateQueue()
 				delete(qm.taskMap, taskid)
+			}
+			delete(qm.workQueue.coWorkMap, workid)
+		} else if status == "fail" { //requeue failed workunit
+			Log.Event(EVENT_WORK_FAIL, "workid="+workid)
+			if coinfo, ok := qm.workQueue.coWorkMap[workid]; ok {
+				qm.workQueue.workMap[workid] = coinfo.workunit
+				delete(qm.workQueue.coWorkMap, workid)
+				Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
 			}
 		}
 	} else {

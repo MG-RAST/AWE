@@ -60,11 +60,11 @@ func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 	return
 }
 
-func NotifyWorkunitDone(serverhost string, workid string) (err error) {
+func NotifyWorkunitProcessed(serverhost string, workid string, status string) (err error) {
 	argv := []string{}
 	argv = append(argv, "-X")
 	argv = append(argv, "PUT")
-	target_url := fmt.Sprintf("%s/work/%s?status=done", serverhost, workid)
+	target_url := fmt.Sprintf("%s/work/%s?status=%s", serverhost, workid, status)
 	argv = append(argv, target_url)
 
 	cmd := exec.Command("curl", argv...)

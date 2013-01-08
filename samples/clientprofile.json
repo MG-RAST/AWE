@@ -1,0 +1,8 @@
+{
+    "id":"",
+    "name":"myclient",
+    "tasks":"",
+    "workers":1,
+    "cores":8,
+    "apps":["bowtie_screen.sh", "run_FragGeneScan.pl", "clustgun"]
+}

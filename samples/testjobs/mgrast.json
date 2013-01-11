@@ -1,0 +1,226 @@
+    {
+        "info": {
+            "name": "mgrast", 
+            "owner": "wtang", 
+            "priority": 1
+        }, 
+        "script": {
+            "name": "sample.script"
+        }, 
+        "state": "submitted", 
+        "tasks": [
+            {
+                "cmd": {
+                    "args": "-input=@raw.100k.fastq -output=raw.100k.prep.fna", 
+                    "description": "preprocess", 
+                    "name": "awe_preprocess.pl",
+                    "options": "", 
+                    "requiredargs": 1, 
+                    "template": ""
+                }, 
+                "dependsOn": [], 
+                "inputs": {
+                   "raw.100k.fastq": {
+                        "cache": false, 
+                        "md5": "", 
+                        "name": "raw.100k.fastq",
+                        "host": "http://localhost:8000",
+                        "node": "7218c850-0db0-4038-820b-e39881780724"
+                    }
+                }, 
+                "outputs": {
+                    "raw.100k.prep.fna": {
+                        "cache": false, 
+                        "md5": "", 
+                        "name": "raw.100k.prep.fna",
+                        "host": "http://localhost:8000",
+                        "node": "-"
+                    }
+                },
+                "partinfo": {
+                     "input": "raw.100k.fastq",
+                     "output": "raw.100k.prep.fna",
+                     "index": "record",
+                     "totalindex": 0
+                },
+                "taskid": "0", 
+                "totalwork": 1,
+                "workstatus": []
+            },
+            {
+                "cmd": {
+                    "args": "-input=@raw.100k.prep.fna -output=raw.100k.derep.fna", 
+                    "description": "dereplication", 
+                    "name": "awe_dereplicate.pl",
+                    "options": "", 
+                    "requiredargs": 1, 
+                    "template": ""
+                }, 
+                "dependsOn": ["0"], 
+                "inputs": {
+                   "raw.100k.prep.fna": {
+                        "cache": false, 
+                        "md5": "", 
+                        "name": "draw.100k.prep.fna",
+                        "host": "http://localhost:8000",
+                        "node": "-",
+                        "origin": "0"
+                    }
+                }, 
+                "outputs": {
+                    "raw.100k.derep.fna": {
+                        "cache": false, 
+                        "md5": "", 
+                        "name": "raw.100k.derep.fna",
+                        "host": "http://localhost:8000",
+                        "node": "-"
+                    }
+                },
+                "taskid": "1", 
+                "totalwork": 1,
+                "workstatus": []
+            },
+            {
+                "cmd": {
+                    "args": "hg18 @raw.100k.derep.fna raw.100k.screened.fna 4", 
+                    "description": "bowtie screen", 
+                    "name": "awe_bowtie_screen.sh",
+                    "options": "", 
+                    "requiredargs": 2, 
+                    "template": ""
+                }, 
+                "dependsOn": ["1"], 
+                "inputs": {
+                   "raw.100k.derep.fna": {
+                        "cache": false, 
+                        "md5": "", 
+                        "name": "raw.100k.derep.fna",
+                        "host": "http://localhost:8000",
+                        "node": "-",
+                        "origin": "1"
+                    }
+                }, 
+                "outputs": {
+                    "raw.100k.screened.fna": {
+                        "cache": false, 
+                        "md5": "", 
+                        "name": "raw.100k.screened.fna",
+                        "host": "http://localhost:8000",
+                        "node": "-"
+                    }
+                },
+                "partinfo": {
+                     "input": "raw.100k.derep.fna",
+                     "output": "raw.100k.screened.fna",
+                     "index": "record",
+                     "totalindex": 0
+                },
+                "taskid": "2", 
+                "totalwork": 1,
+                "workstatus": []
+            },
+            {
+                "cmd": {
+                    "args": "-genome=@raw.100k.screened.fna -out=raw.100k.genecalled -complete=0 -train=complete", 
+                    "description": "gene calling", 
+                    "name": "run_FragGeneScan.pl",
+                    "options": "", 
+                    "requiredargs": 0, 
+                    "template": ""
+                }, 
+                "dependsOn": ["2"], 
+                "inputs": {
+                   "raw.100k.screened.fna": {
+                        "cache": false, 
+                        "md5": "", 
+                        "name": "raw.100k.screened.fna",
+                        "host": "http://localhost:8000",
+                        "node": "-",
+                        "origin": "2"
+                    }
+                }, 
+                "outputs": {
+                    "raw.100k.genecalled.faa": {
+                        "cache": false, 
+                        "md5": "", 
+                        "name": "raw.100k.genecalled.faa",
+                        "host": "http://localhost:8000",
+                        "node": "-"
+                    }
+                },
+                "partinfo": {
+                     "input": "raw.100k.screened.fna",
+                     "output": "raw.100k.genecalled.faa",
+                     "index": "record",
+                     "totalindex": 0
+                },
+                "taskid": "3", 
+                "totalwork": 1,
+                "workstatus": []
+            },
+            {
+                "cmd": {
+                    "args": "@raw.100k.genecalled.faa --output raw.100k.clustgun.faa", 
+                    "description": "clustering and amino acid assembly", 
+                    "name": "clustgun", 
+                    "options": "", 
+                    "requiredargs": 0, 
+                    "template": ""
+                }, 
+                "dependsOn": ["3"],  
+                "inputs": {
+                    "raw.100k.genecalled.faa": {
+                        "cache": false, 
+                        "name": "raw.100k.genecalled.faa",
+                        "host": "http://localhost:8000",
+                        "origin": "3",
+                        "node": "-"
+                    }
+                }, 
+                "outputs": {
+                    "raw.100k.clustgun.faa": {
+                        "cache": false,
+                        "md5": "",
+                        "name": "raw.100k.clustgun.faa",
+                        "host": "http://localhost:8000",
+                        "node": "-"
+                    }
+                },
+                "taskid": "4",
+                "totalwork": 1,
+                "workstatus": []
+            },
+            {
+                "cmd": {
+                    "args": "@raw.100k.clustgun.faa raw.100k.besthit.blat", 
+                    "description": "clustering and amino acid assembly", 
+                    "name": "awe_superblat.sh", 
+                    "options": "", 
+                    "requiredargs": 0, 
+                    "template": ""
+                }, 
+                "dependsOn": ["4"],  
+                "inputs": {
+                    "raw.100k.clustgun.faa": {
+                        "cache": false, 
+                        "name": "raw.100k.clustgun.faa",
+                        "host": "http://localhost:8000",
+                        "origin": "4",
+                        "node": "-"
+                    }
+                }, 
+                "outputs": {
+                    "raw.100k.besthit.blat": {
+                        "cache": false,
+                        "md5": "",
+                        "name": "raw.100k.besthit.blat",
+                        "host": "http://localhost:8000",
+                        "node": "-"
+                    }
+                },
+                "taskid": "5",
+                "totalwork": 1,
+                "workstatus": []
+            }
+        ]
+    }

@@ -94,7 +94,7 @@
                    "raw.100k.derep.fna": {
                         "cache": false, 
                         "md5": "", 
-                        "name": "raw.100k.prep.derep.fna",
+                        "name": "raw.100k.derep.fna",
                         "host": "http://localhost:8000",
                         "node": "-",
                         "origin": "1"
@@ -187,6 +187,38 @@
                     }
                 },
                 "taskid": "4",
+                "totalwork": 1,
+                "workstatus": []
+            },
+            {
+                "cmd": {
+                    "args": "@raw.100k.clustgun.faa raw.100k.besthit.blat", 
+                    "description": "clustering and amino acid assembly", 
+                    "name": "awe_superblat.sh", 
+                    "options": "", 
+                    "requiredargs": 0, 
+                    "template": ""
+                }, 
+                "dependsOn": ["4"],  
+                "inputs": {
+                    "raw.100k.clustgun.faa": {
+                        "cache": false, 
+                        "name": "raw.100k.clustgun.faa",
+                        "host": "http://localhost:8000",
+                        "origin": "4",
+                        "node": "-"
+                    }
+                }, 
+                "outputs": {
+                    "raw.100k.besthit.blat": {
+                        "cache": false,
+                        "md5": "",
+                        "name": "raw.100k.besthit.blat",
+                        "host": "http://localhost:8000",
+                        "node": "-"
+                    }
+                },
+                "taskid": "5",
                 "totalwork": 1,
                 "workstatus": []
             }

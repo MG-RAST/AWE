@@ -96,6 +96,8 @@ func PostNode(io *IO, numParts int) (nodeid string, err error) {
 	var res *http.Response
 	shockurl := fmt.Sprintf("%s/node", io.Host)
 	res, err = http.Post(shockurl, "", strings.NewReader(""))
+
+	//fmt.Printf("shockurl=%s\n", shockurl)
 	if err != nil {
 		return "", err
 	}
@@ -105,7 +107,7 @@ func PostNode(io *IO, numParts int) (nodeid string, err error) {
 
 	response := new(ShockResponse)
 	if err := json.Unmarshal(jsonstream, response); err != nil {
-		return "", err
+		return "", errors.New(fmt.Sprintf("failed to marshal post response:\"%s\"", jsonstream))
 	}
 	if len(response.Errs) > 0 {
 		return "", errors.New(strings.Join(response.Errs, ","))
@@ -117,8 +119,6 @@ func PostNode(io *IO, numParts int) (nodeid string, err error) {
 	if numParts > 1 {
 		putParts(io.Host, nodeid, numParts)
 	}
-
-	//fmt.Printf("posted a node: %s\n", nodeid)
 	return
 }
 

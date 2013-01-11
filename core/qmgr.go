@@ -23,6 +23,8 @@ type QueueMgr struct {
 	coAck     chan CoAck  //workunit checkout item including data and err (qmgr.Handler -> WorkController)
 	feedback  chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
 	coSem     chan int    //semaphore for checkout (mutual exclusion between different clients)
+	actJob    int         //number of active job
+	actTask   int         //number of active task (not pending) 
 }
 
 func NewQueueMgr() *QueueMgr {
@@ -36,6 +38,8 @@ func NewQueueMgr() *QueueMgr {
 		coAck:     make(chan CoAck),
 		feedback:  make(chan Notice),
 		coSem:     make(chan int, 1), //non-blocking buffered channel
+		actJob:    0,
+		actTask:   0,
 	}
 }
 
@@ -72,7 +76,6 @@ func NewWQueue() *WQueue {
 	}
 }
 
-//handle request from JobController to add taskMap
 //to-do: remove debug statements
 func (qm *QueueMgr) Handle() {
 	for {
@@ -96,8 +99,7 @@ func (qm *QueueMgr) Handle() {
 		case <-qm.reminder:
 			//fmt.Print("time to update workunit queue....\n")
 			qm.updateQueue()
-			//qm.ShowTasks()
-			qm.ShowWorkQueue()
+			qm.ShowStatus()
 		}
 	}
 }
@@ -113,6 +115,7 @@ func (qm *QueueMgr) AddTasks(tasks []*Task) (err error) {
 	for _, task := range tasks {
 		qm.taskIn <- task
 	}
+	qm.actJob += 1
 	return
 }
 
@@ -202,6 +205,8 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 		return err
 	}
 	task.State = "queued"
+
+	qm.actTask += 1
 
 	//log event about task enqueue (TQ)
 	Log.Event(EVENT_TASK_ENQUEUE, "taskid="+task.Id)
@@ -295,11 +300,12 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 				//log event about task done (TD) 
 				Log.Event(EVENT_TASK_DONE, "taskid="+taskid)
-				if err = updateJob(qm.taskMap[taskid]); err != nil {
+				if err = qm.updateJob(qm.taskMap[taskid]); err != nil {
 					return
 				}
 				qm.updateQueue()
 				delete(qm.taskMap, taskid)
+				qm.actTask -= 1
 			}
 			delete(qm.workQueue.coWorkMap, workid)
 		} else if status == "fail" { //requeue failed workunit
@@ -332,6 +338,22 @@ func (qm *QueueMgr) ShowTasks() {
 	for key, task := range qm.taskMap {
 		fmt.Printf("workunit id: %s, status:%s\n", key, task.State)
 	}
+}
+
+func (qm *QueueMgr) ShowStatus() {
+	total_task := len(qm.taskMap)
+	queuing_work := len(qm.workQueue.workMap)
+	out_work := len(qm.workQueue.coWorkMap)
+	fmt.Printf("+++++AWE server queue status+++++\n")
+	fmt.Printf("total jobs ......... %d\n", qm.actJob)
+	fmt.Printf("total tasks ........ %d\n", total_task)
+	fmt.Printf("    queuing:  (%d)\n", qm.actTask)
+	fmt.Printf("    pending:  (%d)\n", total_task-qm.actTask)
+	fmt.Printf("total workunits .... %d\n", queuing_work+out_work)
+	fmt.Printf("    queuing:  (%d)\n", queuing_work)
+	fmt.Printf("    checkout: (%d)\n", out_work)
+	fmt.Printf("total clients ...... %d\n", len(qm.clientMap))
+	fmt.Printf("---last update: %s\n\n", time.Now())
 }
 
 //WQueue functions
@@ -419,14 +441,21 @@ func (qm *QueueMgr) filterWorkByClient(clientid string) (ids []string) {
 }
 
 //job functions
-func updateJob(task *Task) (err error) {
+func (qm *QueueMgr) updateJob(task *Task) (err error) {
 	parts := strings.Split(task.Id, "_")
 	jobid := parts[0]
 	job, err := LoadJob(jobid)
 	if err != nil {
 		return
 	}
-	return job.UpdateTask(task)
+	remainTasks, err := job.UpdateTask(task)
+	if err != nil {
+		return err
+	}
+	if remainTasks == 0 {
+		qm.actJob -= 1
+	}
+	return
 }
 
 //misc local functions

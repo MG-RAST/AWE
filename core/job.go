@@ -164,12 +164,12 @@ func (job *Job) UpdateState(newState string) string {
 }
 
 //invoked when a task is completed
-func (job *Job) UpdateTask(task *Task) (err error) {
+func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	parts := strings.Split(task.Id, "_")
 	rank, err := strconv.Atoi(parts[1])
 	if err != nil {
 		Log.Error("invalid task " + task.Id)
-		return
+		return job.RemainTasks, err
 	}
 	job.Tasks[rank] = task
 	job.RemainTasks -= 1
@@ -178,5 +178,5 @@ func (job *Job) UpdateTask(task *Task) (err error) {
 		//log event about job done (JD) 
 		Log.Event(EVENT_JOB_DONE, "jobid="+job.Id)
 	}
-	return job.Save()
+	return job.RemainTasks, job.Save()
 }

@@ -139,12 +139,16 @@ func RunWorkunit(work *Workunit) (err error) {
 		}
 
 		fmt.Printf("worker: push output to shock, filename=%s\n", name)
+		Log.Event(EVENT_FILE_OUT,
+			"workid="+work.Id,
+			"filename="+name,
+			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
 		if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {
 			fmt.Errorf("push file error\n")
 			Log.Error("op=pushfile,err=" + err.Error())
 			return err
 		}
-		Log.Event(EVENT_FILE_OUT,
+		Log.Event(EVENT_FILE_DONE,
 			"workid="+work.Id,
 			"filename="+name,
 			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
@@ -181,11 +185,13 @@ func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 				}
 
 				fmt.Printf("worker: fetching input from url %s\n", dataUrl)
+				Log.Event(EVENT_FILE_IN, "url="+dataUrl)
 
 				if err := fetchFile(inputname, dataUrl); err != nil { //get file from Shock
 					return []string{}, err
 				}
-				Log.Event(EVENT_FILE_IN, "url="+dataUrl)
+
+				Log.Event(EVENT_FILE_READY, "url="+dataUrl)
 
 				filePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
 

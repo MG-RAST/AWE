@@ -25,23 +25,25 @@ var (
 )
 
 const (
-	EVENT_CLIENT_REGISTRATION = "CR"
-	EVENT_CLIENT_UNREGISTER   = "CU"
-	EVENT_WORK_CHECKOUT       = "WC"
-	EVENT_WORK_FAIL           = "WF"
+	EVENT_CLIENT_REGISTRATION = "CR" //client registered
+	EVENT_CLIENT_UNREGISTER   = "CU" //client unregistered
+	EVENT_WORK_CHECKOUT       = "WC" //workunit checkout 
+	EVENT_WORK_FAIL           = "WF" //workunit fails running
 	//server only events
-	EVENT_JOB_SUBMISSION = "JQ"
-	EVENT_TASK_ENQUEUE   = "TQ"
-	EVENT_WORK_DONE      = "WD"
-	EVENT_WORK_REQUEUE   = "WR"
-	EVENT_TASK_DONE      = "TD"
-	EVENT_JOB_DONE       = "JD"
+	EVENT_JOB_SUBMISSION = "JQ" //job submitted
+	EVENT_TASK_ENQUEUE   = "TQ" //task parsed and enqueue
+	EVENT_WORK_DONE      = "WD" //workunit received successful feedback from client
+	EVENT_WORK_REQUEUE   = "WR" //workunit requeue after receive failed feedback from client
+	EVENT_TASK_DONE      = "TD" //task done (all the workunits in the task have finished)
+	EVENT_JOB_DONE       = "JD" //job done (all the tasks in the job have finished)
 	//client only events
-	EVENT_FILE_IN     = "FI"
-	EVENT_WORK_START  = "WS"
-	EVENT_WORK_END    = "WE"
-	EVENT_WORK_RETURN = "WR"
-	EVENT_FILE_OUT    = "FO"
+	EVENT_WORK_START  = "WS" //workunit command start running  
+	EVENT_WORK_END    = "WE" //workunit command finish running
+	EVENT_WORK_RETURN = "WR" //send back failed workunit to server
+	EVENT_FILE_IN     = "FI" //start fetching input file from shock
+	EVENT_FILE_READY  = "FR" //finish fetching input file from shock
+	EVENT_FILE_OUT    = "FO" //start pushing output file to shock
+	EVENT_FILE_DONE   = "FD" //finish pushing output file to shock
 )
 
 func NewLogger(name string) *Logger {

@@ -111,6 +111,21 @@ func (qm *QueueMgr) Timer() {
 	}
 }
 
+func (qm *QueueMgr) ClientChecker() {
+	for {
+		time.Sleep(30 * time.Second)
+		for clientid, client := range qm.clientMap {
+			if client.Tag == true {
+				client.Tag = false
+			} else { //if set false 30 seconds ago and no heartbeat received thereafter
+				delete(qm.clientMap, clientid)
+				//log event about unregister client (CU)
+				Log.Event(EVENT_CLIENT_UNREGISTER, "clientid="+clientid)
+			}
+		}
+	}
+}
+
 func (qm *QueueMgr) AddTasks(tasks []*Task) (err error) {
 	for _, task := range tasks {
 		qm.taskIn <- task
@@ -421,6 +436,14 @@ func (qm *QueueMgr) GetAllClients() []*Client {
 		clients = append(clients, client)
 	}
 	return clients
+}
+
+func (qm *QueueMgr) ClientHeartBeat(id string) (client *Client, err error) {
+	if _, ok := qm.clientMap[id]; ok {
+		qm.clientMap[id].Tag = true
+		return client, nil
+	}
+	return nil, errors.New(e.ClientNotFound)
 }
 
 func (qm *QueueMgr) DeleteClient(id string) {

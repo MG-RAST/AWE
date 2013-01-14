@@ -369,3 +369,18 @@ func RegisterWithProfile(host string) (client *Client, err error) {
 	client = &response.Data
 	return
 }
+
+//client sends heartbeat to server to maintain active status
+func SendHeartBeat(host string, clientid string) (err error) {
+	argv := []string{}
+	argv = append(argv, "-X")
+	argv = append(argv, "PUT")
+	target_url := fmt.Sprintf("%s/client/%s", host, clientid)
+	argv = append(argv, target_url)
+	cmd := exec.Command("curl", argv...)
+	err = cmd.Run()
+	if err != nil {
+		return
+	}
+	return
+}

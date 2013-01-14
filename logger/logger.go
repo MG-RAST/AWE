@@ -26,6 +26,7 @@ var (
 
 const (
 	EVENT_CLIENT_REGISTRATION = "CR"
+	EVENT_CLIENT_UNREGISTER   = "CU"
 	EVENT_WORK_CHECKOUT       = "WC"
 	EVENT_WORK_FAIL           = "WF"
 	//server only events

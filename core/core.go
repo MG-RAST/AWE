@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os/exec"
 	"strings"
 )
 
@@ -151,4 +152,22 @@ func GetIndexUnits(indextype string, io *IO) (totalunits int, err error) {
 		}
 	}
 	return 0, errors.New("invlid totalunits for shock node:" + io.Node)
+}
+
+//create parts
+func putParts(host string, nodeid string, numParts int) (err error) {
+	argv := []string{}
+	argv = append(argv, "-X")
+	argv = append(argv, "PUT")
+	argv = append(argv, "-F")
+	argv = append(argv, fmt.Sprintf("parts=%d", numParts))
+	target_url := fmt.Sprintf("%s/node/%s", host, nodeid)
+	argv = append(argv, target_url)
+
+	cmd := exec.Command("curl", argv...)
+	err = cmd.Run()
+	if err != nil {
+		return
+	}
+	return
 }

@@ -6,7 +6,6 @@ import (
 	e "github.com/MG-RAST/AWE/errors"
 	. "github.com/MG-RAST/AWE/logger"
 	"os"
-	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -211,6 +210,14 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 		Log.Error("qmgr.taskEnQueue locateInputs:" + err.Error())
 		return err
 	}
+
+	if task.TotalWork > 0 {
+		if err := task.InitPartIndex(); err != nil {
+			Log.Error("qmgr.taskEnQueue InitPartitionIndex:" + err.Error())
+			return err
+		}
+	}
+
 	if err := qm.createOutputNode(task); err != nil {
 		Log.Error("qmgr.taskEnQueue createOutputNode:" + err.Error())
 		return err
@@ -318,6 +325,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				if err = qm.updateJob(qm.taskMap[taskid]); err != nil {
 					return
 				}
+
 				qm.updateQueue()
 				delete(qm.taskMap, taskid)
 				qm.actTask -= 1
@@ -383,24 +391,6 @@ func (wq *WQueue) Push(workunit *Workunit) (err error) {
 	}
 	wq.workMap[workunit.Id] = workunit
 	return nil
-}
-
-//create parts
-func putParts(host string, nodeid string, numParts int) (err error) {
-	argv := []string{}
-	argv = append(argv, "-X")
-	argv = append(argv, "PUT")
-	argv = append(argv, "-F")
-	argv = append(argv, fmt.Sprintf("parts=%d", numParts))
-	target_url := fmt.Sprintf("%s/node/%s", host, nodeid)
-	argv = append(argv, target_url)
-
-	cmd := exec.Command("curl", argv...)
-	err = cmd.Run()
-	if err != nil {
-		return
-	}
-	return
 }
 
 //Client functions
@@ -481,16 +471,7 @@ func (qm *QueueMgr) updateJob(task *Task) (err error) {
 	return
 }
 
-//misc local functions
-func contains(list []string, elem string) bool {
-	for _, t := range list {
-		if t == elem {
-			return true
-		}
-	}
-	return false
-}
-
+//queue related functions
 type WorkList []*Workunit
 
 func (wl WorkList) Len() int      { return len(wl) }
@@ -519,4 +500,15 @@ func (wq *WQueue) getWorks(workid []string, policy string, count int) (works []*
 	}
 
 	return
+}
+
+//misc local functions
+
+func contains(list []string, elem string) bool {
+	for _, t := range list {
+		if t == elem {
+			return true
+		}
+	}
+	return false
 }

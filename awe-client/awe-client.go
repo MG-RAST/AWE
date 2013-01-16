@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	workChan     = make(chan *Workunit, 2)
+	workChan     = make(chan *Workunit, 1)
 	aweServerUrl = "http://localhost:8001"
 	self         = &Client{Id: "default-client"}
 )
@@ -76,6 +76,13 @@ func worker(control chan int) {
 	control <- 1 //we are ending
 }
 
+func heartBeater(control chan int) {
+	for {
+		time.Sleep(10 * time.Second)
+		SendHeartBeat(conf.SERVER_URL, self.Id)
+	}
+}
+
 func main() {
 
 	conf.PrintClientCfg()
@@ -109,6 +116,7 @@ func main() {
 	Log.Event(EVENT_CLIENT_REGISTRATION, "clientid="+self.Id)
 
 	control := make(chan int)
+	go heartBeater(control)
 	go workStealer(control)
 	go worker(control)
 	for {

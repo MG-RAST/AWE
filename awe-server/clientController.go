@@ -74,7 +74,17 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 // PUT: /client/{id} -> status update
 func (cr *ClientController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
-	cx.RespondWithError(http.StatusNotImplemented)
+	client, err := queueMgr.ClientHeartBeat(id)
+	if err != nil {
+		if err.Error() == e.ClientNotFound {
+			cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
+		} else {
+			Log.Error("Error in handle client heartbeat:" + err.Error())
+			cx.RespondWithError(http.StatusBadRequest)
+		}
+		return
+	}
+	cx.RespondWithData(client)
 }
 
 // PUT: /client

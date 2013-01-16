@@ -18,6 +18,8 @@ type Client struct {
 	Apps       []string  `bson:"apps" json:"apps"`
 	SkipWorks  []string  `bson:"SkipWorkunits" json:"SkipWorkunits"`
 	RegTime    time.Time `bson:"regtime" json:"regtime"`
+	Status     string    `bson:"Status" json:"Status"`
+	Tag        bool      `bson:"Tag" json:"Tag"`
 }
 
 func NewClient() (client *Client) {
@@ -25,6 +27,8 @@ func NewClient() (client *Client) {
 	client.Id = uuid.New()
 	client.Apps = []string{}
 	client.SkipWorks = []string{}
+	client.Status = "active"
+	client.Tag = true
 	return
 }
 
@@ -43,5 +47,7 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 		client.Apps = []string{}
 	}
 	client.SkipWorks = []string{}
+	client.Status = "active"
+	client.Tag = true
 	return
 }

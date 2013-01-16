@@ -76,6 +76,7 @@ func main() {
 	go Log.Handle()
 	go queueMgr.Handle()
 	go queueMgr.Timer()
+	go queueMgr.ClientChecker()
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)
 	<-control //block till something dies

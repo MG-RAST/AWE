@@ -6,7 +6,6 @@ import (
 	e "github.com/MG-RAST/AWE/errors"
 	. "github.com/MG-RAST/AWE/logger"
 	"os"
-	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -111,6 +110,21 @@ func (qm *QueueMgr) Timer() {
 	}
 }
 
+func (qm *QueueMgr) ClientChecker() {
+	for {
+		time.Sleep(30 * time.Second)
+		for clientid, client := range qm.clientMap {
+			if client.Tag == true {
+				client.Tag = false
+			} else { //if set false 30 seconds ago and no heartbeat received thereafter
+				delete(qm.clientMap, clientid)
+				//log event about unregister client (CU)
+				Log.Event(EVENT_CLIENT_UNREGISTER, "clientid="+clientid)
+			}
+		}
+	}
+}
+
 func (qm *QueueMgr) AddTasks(tasks []*Task) (err error) {
 	for _, task := range tasks {
 		qm.taskIn <- task
@@ -196,6 +210,14 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 		Log.Error("qmgr.taskEnQueue locateInputs:" + err.Error())
 		return err
 	}
+
+	if task.TotalWork > 0 {
+		if err := task.InitPartIndex(); err != nil {
+			Log.Error("qmgr.taskEnQueue InitPartitionIndex:" + err.Error())
+			return err
+		}
+	}
+
 	if err := qm.createOutputNode(task); err != nil {
 		Log.Error("qmgr.taskEnQueue createOutputNode:" + err.Error())
 		return err
@@ -303,6 +325,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				if err = qm.updateJob(qm.taskMap[taskid]); err != nil {
 					return
 				}
+
 				qm.updateQueue()
 				delete(qm.taskMap, taskid)
 				qm.actTask -= 1
@@ -370,24 +393,6 @@ func (wq *WQueue) Push(workunit *Workunit) (err error) {
 	return nil
 }
 
-//create parts
-func putParts(host string, nodeid string, numParts int) (err error) {
-	argv := []string{}
-	argv = append(argv, "-X")
-	argv = append(argv, "PUT")
-	argv = append(argv, "-F")
-	argv = append(argv, fmt.Sprintf("parts=%d", numParts))
-	target_url := fmt.Sprintf("%s/node/%s", host, nodeid)
-	argv = append(argv, target_url)
-
-	cmd := exec.Command("curl", argv...)
-	err = cmd.Run()
-	if err != nil {
-		return
-	}
-	return
-}
-
 //Client functions
 func (qm *QueueMgr) RegisterNewClient(params map[string]string, files FormFiles) (client *Client, err error) {
 	//if queue is empty, reject client registration
@@ -421,6 +426,14 @@ func (qm *QueueMgr) GetAllClients() []*Client {
 		clients = append(clients, client)
 	}
 	return clients
+}
+
+func (qm *QueueMgr) ClientHeartBeat(id string) (client *Client, err error) {
+	if _, ok := qm.clientMap[id]; ok {
+		qm.clientMap[id].Tag = true
+		return client, nil
+	}
+	return nil, errors.New(e.ClientNotFound)
 }
 
 func (qm *QueueMgr) DeleteClient(id string) {
@@ -458,16 +471,7 @@ func (qm *QueueMgr) updateJob(task *Task) (err error) {
 	return
 }
 
-//misc local functions
-func contains(list []string, elem string) bool {
-	for _, t := range list {
-		if t == elem {
-			return true
-		}
-	}
-	return false
-}
-
+//queue related functions
 type WorkList []*Workunit
 
 func (wl WorkList) Len() int      { return len(wl) }
@@ -496,4 +500,15 @@ func (wq *WQueue) getWorks(workid []string, policy string, count int) (works []*
 	}
 
 	return
+}
+
+//misc local functions
+
+func contains(list []string, elem string) bool {
+	for _, t := range list {
+		if t == elem {
+			return true
+		}
+	}
+	return false
 }

@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	. "github.com/MG-RAST/AWE/logger"
+	"os/exec"
 )
 
 type Task struct {
@@ -29,8 +30,6 @@ type IO struct {
 	Cache  bool   `bson:"cache" json:"cache"`
 	Origin string `bson:"origin" json:"origin"`
 	Path   string `bson:"path" json:"-"`
-	Units  int    `bson:"units" json:"units"`
-	Size   int64  `bson:"size"  json:"size"`
 }
 
 type PartInfo struct {
@@ -91,7 +90,6 @@ func (io *IO) Url() string {
 	return ""
 }
 
-//to-do: get io units from Shock instead of depending on job script
 func (io *IO) TotalUnits(indextype string) (count int, err error) {
 	count, err = GetIndexUnits(indextype, io)
 	return
@@ -108,35 +106,38 @@ func (task *Task) InitTask(job *Job) (err error) {
 	task.Info = job.Info
 	task.State = "init"
 	task.WorkStatus = make([]string, task.TotalWork)
+	task.RemainWork = task.TotalWork
 
 	for j := 0; j < len(task.DependsOn); j++ {
 		depend := task.DependsOn[j]
 		task.DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)
 	}
-
-	task.InitPartition()
-	task.RemainWork = task.TotalWork
 	return
 }
 
-// calculate part size based on partition info
-// may result in change of task.TotalWork 
-func (task *Task) InitPartition() {
+//get part size based on partition/index info
+//if fail to get index info, task.TotalWork fall back to 1
+func (task *Task) InitPartIndex() (err error) {
 	if task.TotalWork == 1 {
 		return
 	}
 	if task.TotalWork > 1 {
 		if task.Partition == nil {
-			task.TotalWork = 1
+			task.setTotalWork(1)
 			Log.Error("warning: lacking partition info while totalwork > 1, taskid=" + task.Id)
 			return
 		}
+		var totalunits int
 		if io, ok := task.Inputs[task.Partition.Input]; ok {
 			if task.Partition.Index == "record" {
-				totalunits, err := io.TotalUnits("record")
+				totalunits, err = io.TotalUnits("record")
+				if err != nil || totalunits == 0 { //if index not available, create index
+					createIndex(io.Host, io.Node, "record")
+				}
+				totalunits, err = io.TotalUnits("record") //get index info again
 				if err != nil {
+					task.setTotalWork(1)
 					Log.Error("warning: fail to get index units, taskid=" + task.Id + ":" + err.Error())
-					task.TotalWork = 1
 					return
 				}
 				if totalunits < task.TotalWork {
@@ -146,10 +147,16 @@ func (task *Task) InitPartition() {
 			}
 		} else {
 			Log.Error("warning: invaid partition info, taskid=" + task.Id)
-			task.TotalWork = 1
+			task.setTotalWork(1)
 		}
 	}
 	return
+}
+
+func (task *Task) setTotalWork(num int) {
+	task.TotalWork = num
+	task.RemainWork = num
+	task.WorkStatus = make([]string, num)
 }
 
 func (task *Task) ParseWorkunit() (wus []*Workunit, err error) {
@@ -163,6 +170,22 @@ func (task *Task) ParseWorkunit() (wus []*Workunit, err error) {
 	for i := 1; i <= task.TotalWork; i++ {
 		workunit := NewWorkunit(task, i)
 		wus = append(wus, workunit)
+	}
+	return
+}
+
+//creat index
+func createIndex(host string, nodeid string, indexname string) (err error) {
+	argv := []string{}
+	argv = append(argv, "-X")
+	argv = append(argv, "PUT")
+	target_url := fmt.Sprintf("%s/node/%s?index=%s", host, nodeid, indexname)
+	argv = append(argv, target_url)
+
+	cmd := exec.Command("curl", argv...)
+	err = cmd.Run()
+	if err != nil {
+		return
 	}
 	return
 }

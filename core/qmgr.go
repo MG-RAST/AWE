@@ -116,10 +116,21 @@ func (qm *QueueMgr) ClientChecker() {
 		for clientid, client := range qm.clientMap {
 			if client.Tag == true {
 				client.Tag = false
-			} else { //if set false 30 seconds ago and no heartbeat received thereafter
+			} else {
+				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
+				//delete the client from client map
 				delete(qm.clientMap, clientid)
-				//log event about unregister client (CU)
 				Log.Event(EVENT_CLIENT_UNREGISTER, "clientid="+clientid)
+
+				//requeue unfinished workunits associated with the failed client
+				workids := qm.getWorkByClient(clientid)
+				for _, workid := range workids {
+					if coinfo, ok := qm.workQueue.coWorkMap[workid]; ok {
+						qm.workQueue.workMap[workid] = coinfo.workunit
+						delete(qm.workQueue.coWorkMap, workid)
+						Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
+					}
+				}
 			}
 		}
 	}
@@ -447,6 +458,15 @@ func (qm *QueueMgr) filterWorkByClient(clientid string) (ids []string) {
 			continue
 		}
 		if contains(client.Apps, work.Cmd.Name) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+func (qm *QueueMgr) getWorkByClient(clientid string) (ids []string) {
+	for id, coinfo := range qm.workQueue.coWorkMap {
+		if coinfo.clientid == clientid {
 			ids = append(ids, id)
 		}
 	}

@@ -65,11 +65,30 @@ func main() {
 	if _, err := os.Stat(conf.DATA_PATH + "/temp"); err != nil && os.IsNotExist(err) {
 		if err := os.Mkdir(conf.DATA_PATH+"/temp", 0777); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+			os.Exit(1)
 		}
-		os.Exit(1)
 	}
 
+	//init logger
 	Log = NewLogger("server")
+
+	// reload job directory
+	if conf.RELOAD != "" {
+		fmt.Println("####### Reloading #######")
+		if err := reload(conf.RELOAD); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		}
+		fmt.Println("Done")
+	}
+
+	//recover unfinished jobs before server went down last time
+	if conf.RECOVER {
+		fmt.Println("####### Recovering unfinished jobs #######")
+		if err := queueMgr.RecoverJobs(); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		}
+		fmt.Println("Done")
+	}
 
 	//launch server
 	control := make(chan int)

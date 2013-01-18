@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"labix.org/v2/mgo/bson"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"strings"
 )
 
@@ -90,6 +92,28 @@ func LoadJobs(ids []string) (jobs []*Job, err error) {
 		}
 	}
 	return nil, err
+}
+
+func ReloadFromDisk(path string) (err error) {
+	id := filepath.Base(path)
+	jobbson, err := ioutil.ReadFile(path + "/" + id + ".bson")
+	if err != nil {
+		return
+	}
+	job := new(Job)
+	err = bson.Unmarshal(jobbson, &job)
+	if err == nil {
+		db, er := DBConnect()
+		if er != nil {
+			err = er
+		}
+		defer db.Close()
+		err = db.Upsert(job)
+		if err != nil {
+			err = er
+		}
+	}
+	return
 }
 
 //create a shock node for output

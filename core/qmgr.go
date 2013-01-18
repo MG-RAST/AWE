@@ -5,6 +5,7 @@ import (
 	"fmt"
 	e "github.com/MG-RAST/AWE/errors"
 	. "github.com/MG-RAST/AWE/logger"
+	"labix.org/v2/mgo/bson"
 	"os"
 	"sort"
 	"strconv"
@@ -178,6 +179,10 @@ func (qm *QueueMgr) NotifyWorkStatus(notice Notice) {
 //add task to taskMap
 func (qm *QueueMgr) addTask(task *Task) (err error) {
 	id := task.Id
+	if task.State == "completed" { //for job recovery from db
+		qm.taskMap[id] = task
+		return
+	}
 	task.State = "pending"
 	qm.taskMap[id] = task
 	if len(task.DependsOn) == 0 {
@@ -194,7 +199,6 @@ func (qm *QueueMgr) deleteTasks(tasks []*Task) (err error) {
 //poll ready tasks and push into workQueue
 func (qm *QueueMgr) updateQueue() (err error) {
 	for _, task := range qm.taskMap {
-		//fmt.Printf("taskid=%s state=%s\n", id, task.State)
 		ready := false
 		if task.State == "pending" {
 			ready = true
@@ -378,11 +382,21 @@ func (qm *QueueMgr) ShowStatus() {
 	total_task := len(qm.taskMap)
 	queuing_work := len(qm.workQueue.workMap)
 	out_work := len(qm.workQueue.coWorkMap)
+	pending := 0
+	completed := 0
+	for _, task := range qm.taskMap {
+		if task.State == "completed" {
+			completed += 1
+		} else if task.State == "pending" {
+			pending += 1
+		}
+	}
 	fmt.Printf("+++++AWE server queue status+++++\n")
 	fmt.Printf("total jobs ......... %d\n", qm.actJob)
 	fmt.Printf("total tasks ........ %d\n", total_task)
-	fmt.Printf("    queuing:  (%d)\n", qm.actTask)
-	fmt.Printf("    pending:  (%d)\n", total_task-qm.actTask)
+	fmt.Printf("    queuing:    (%d)\n", qm.actTask)
+	fmt.Printf("    pending:    (%d)\n", pending)
+	fmt.Printf("    completed:  (%d)\n", completed)
 	fmt.Printf("total workunits .... %d\n", queuing_work+out_work)
 	fmt.Printf("    queuing:  (%d)\n", queuing_work)
 	fmt.Printf("    checkout: (%d)\n", out_work)
@@ -519,6 +533,29 @@ func (wq *WQueue) getWorks(workid []string, policy string, count int) (works []*
 		delete(wq.workMap, worklist[i].Id)
 	}
 
+	return
+}
+
+//recover jobs not completed before awe-server restarts
+func (qm *QueueMgr) RecoverJobs() (err error) {
+	//Get jobs to be recovered from db whose states are "submitted"
+	dbjobs := new(Jobs)
+	q := bson.M{}
+	q["state"] = "submitted"
+	lim := 1000
+	off := 0
+	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {
+		Log.Error("RecoverJobs()->GetAllLimitOffset():" + err.Error())
+		return err
+	}
+	//Locate the job script and parse tasks for each job
+	jobct := 0
+	for _, dbjob := range *dbjobs {
+		qm.AddTasks(dbjob.TaskList())
+		jobct += 1
+	}
+	qm.updateQueue()
+	fmt.Printf("%d unfinished jobs recovered\n", jobct)
 	return
 }
 

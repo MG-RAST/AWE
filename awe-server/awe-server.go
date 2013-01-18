@@ -69,17 +69,26 @@ func main() {
 		}
 	}
 
+	//init logger
+	Log = NewLogger("server")
+
 	// reload job directory
 	if conf.RELOAD != "" {
 		fmt.Println("####### Reloading #######")
-		err := reload(conf.RELOAD)
-		if err != nil {
+		if err := reload(conf.RELOAD); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		}
 		fmt.Println("Done")
 	}
 
-	Log = NewLogger("server")
+	//recover unfinished jobs before server went down last time
+	if conf.RECOVER {
+		fmt.Println("####### Recovering unfinished jobs #######")
+		if err := queueMgr.RecoverJobs(); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		}
+		fmt.Println("Done")
+	}
 
 	//launch server
 	control := make(chan int)

@@ -10,7 +10,8 @@ import (
 // Setup conf variables
 var (
 	//Reload
-	RELOAD = ""
+	RELOAD  = ""
+	RECOVER = false
 
 	BasePriority = 1
 
@@ -63,6 +64,7 @@ var (
 func init() {
 	flag.StringVar(&CONFIG_FILE, "conf", "/user/local/awe/conf/awe.cfg", "path to config file")
 	flag.StringVar(&RELOAD, "reload", "", "path or url to awe job data. WARNING this will drop all current jobs.")
+	flag.BoolVar(&RECOVER, "recover", false, "path or url to awe job data. WARNING this will drop all current jobs.")
 	flag.Parse()
 
 	//	fmt.Printf("in conf.init(), flag=%v", flag)

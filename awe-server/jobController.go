@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/MG-RAST/AWE/core"
 	. "github.com/MG-RAST/AWE/logger"
 	e "github.com/MG-RAST/Shock/errors"
@@ -107,7 +106,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	// Gather query params
 	query := &Query{list: cx.Request.URL.Query()}
 
-	// Setup query and jobss objects
+	// Setup query and jobs objects
 	q := bson.M{}
 	jobs := new(core.Jobs)
 
@@ -118,7 +117,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		for key, val := range query.All() {
 			_, s := skip[key]
 			if !s {
-				q[fmt.Sprintf("attributes.%s", key)] = val[0]
+				q[key] = val[0]
 			}
 		}
 	}
@@ -136,7 +135,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		} else {
 			off = 0
 		}
-		// Get nodes from db
+		// Get jobs from db
 		err := jobs.GetAllLimitOffset(q, lim, off)
 		if err != nil {
 			Log.Error("err " + err.Error())

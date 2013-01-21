@@ -342,7 +342,6 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				}
 
 				qm.updateQueue()
-				delete(qm.taskMap, taskid)
 				qm.actTask -= 1
 			}
 			delete(qm.workQueue.coWorkMap, workid)
@@ -501,6 +500,10 @@ func (qm *QueueMgr) updateJob(task *Task) (err error) {
 	}
 	if remainTasks == 0 {
 		qm.actJob -= 1
+		//delete tasks in task map
+		for _, task := range job.TaskList() {
+			delete(qm.taskMap, task.Id)
+		}
 	}
 	return
 }

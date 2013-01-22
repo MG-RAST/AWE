@@ -73,6 +73,9 @@ func main() {
 	//init logger
 	Log = NewLogger("server")
 
+	//init db
+	core.InitDB()
+
 	// reload job directory
 	if conf.RELOAD != "" {
 		fmt.Println("####### Reloading #######")

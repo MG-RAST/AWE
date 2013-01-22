@@ -23,7 +23,7 @@ func workStealer(control chan int) {
 	for {
 		wu, err := CheckoutWorkunitRemote(conf.SERVER_URL)
 		if err != nil {
-			if err.Error() == e.WorkUnitQueueEmpty || err.Error() == e.NoEligibleWorkunitFound {
+			if err.Error() == e.QueueEmpty || err.Error() == e.NoEligibleWorkunitFound {
 				time.Sleep(5 * time.Second)
 			} else {
 				fmt.Printf("error in checking out workunits: %v\n", err)

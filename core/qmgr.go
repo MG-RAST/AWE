@@ -421,9 +421,9 @@ func (wq *WQueue) Push(workunit *Workunit) (err error) {
 
 //Client functions
 func (qm *QueueMgr) RegisterNewClient(params map[string]string, files FormFiles) (client *Client, err error) {
-	//if queue is empty, reject client registration
-	if qm.workQueue.Len() == 0 {
-		return nil, errors.New(e.WorkUnitQueueEmpty)
+	//if queue is empty (no task is queuing or pending), reject client registration
+	if len(qm.taskMap) == 0 {
+		return nil, errors.New(e.QueueEmpty)
 	}
 
 	if _, ok := files["profile"]; ok {

@@ -99,7 +99,7 @@ func (qm *QueueMgr) Handle() {
 		case <-qm.reminder:
 			//fmt.Print("time to update workunit queue....\n")
 			qm.updateQueue()
-			qm.ShowStatus()
+			fmt.Println(qm.ShowStatus())
 		}
 	}
 }
@@ -342,7 +342,6 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				}
 
 				qm.updateQueue()
-				delete(qm.taskMap, taskid)
 				qm.actTask -= 1
 			}
 			delete(qm.workQueue.coWorkMap, workid)
@@ -378,7 +377,7 @@ func (qm *QueueMgr) ShowTasks() {
 	}
 }
 
-func (qm *QueueMgr) ShowStatus() {
+func (qm *QueueMgr) ShowStatus() string {
 	total_task := len(qm.taskMap)
 	queuing_work := len(qm.workQueue.workMap)
 	out_work := len(qm.workQueue.coWorkMap)
@@ -391,17 +390,19 @@ func (qm *QueueMgr) ShowStatus() {
 			pending += 1
 		}
 	}
-	fmt.Printf("+++++AWE server queue status+++++\n")
-	fmt.Printf("total jobs ......... %d\n", qm.actJob)
-	fmt.Printf("total tasks ........ %d\n", total_task)
-	fmt.Printf("    queuing:    (%d)\n", qm.actTask)
-	fmt.Printf("    pending:    (%d)\n", pending)
-	fmt.Printf("    completed:  (%d)\n", completed)
-	fmt.Printf("total workunits .... %d\n", queuing_work+out_work)
-	fmt.Printf("    queuing:  (%d)\n", queuing_work)
-	fmt.Printf("    checkout: (%d)\n", out_work)
-	fmt.Printf("total clients ...... %d\n", len(qm.clientMap))
-	fmt.Printf("---last update: %s\n\n", time.Now())
+
+	statMsg := "+++++AWE server queue status+++++\n" +
+		fmt.Sprintf("total jobs ......... %d\n", qm.actJob) +
+		fmt.Sprintf("total tasks ........ %d\n", total_task) +
+		fmt.Sprintf("    queuing:    (%d)\n", qm.actTask) +
+		fmt.Sprintf("    pending:    (%d)\n", pending) +
+		fmt.Sprintf("    completed:  (%d)\n", completed) +
+		fmt.Sprintf("total workunits .... %d\n", queuing_work+out_work) +
+		fmt.Sprintf("    queuing:  (%d)\n", queuing_work) +
+		fmt.Sprintf("    checkout: (%d)\n", out_work) +
+		fmt.Sprintf("total clients ...... %d\n", len(qm.clientMap)) +
+		fmt.Sprintf("---last update: %s\n\n", time.Now())
+	return statMsg
 }
 
 //WQueue functions
@@ -501,6 +502,10 @@ func (qm *QueueMgr) updateJob(task *Task) (err error) {
 	}
 	if remainTasks == 0 {
 		qm.actJob -= 1
+		//delete tasks in task map
+		for _, task := range job.TaskList() {
+			delete(qm.taskMap, task.Id)
+		}
 	}
 	return
 }

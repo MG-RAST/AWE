@@ -112,7 +112,7 @@ func main() {
 	Log = NewLogger("client-" + logdir)
 	go Log.Handle()
 
-	fmt.Printf("Client registered, client id=%s\n", self.Id)
+	fmt.Printf("Client registered, name=%s, id=%s\n", self.Name, self.Id)
 	Log.Event(EVENT_CLIENT_REGISTRATION, "clientid="+self.Id)
 
 	control := make(chan int)

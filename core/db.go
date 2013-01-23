@@ -14,10 +14,6 @@ const (
 	DbTimeout = time.Duration(time.Second * 1)
 )
 
-func init() {
-	InitDB()
-}
-
 type db struct {
 	Jobs    *mgo.Collection
 	Session *mgo.Session

@@ -23,7 +23,7 @@ func workStealer(control chan int) {
 	for {
 		wu, err := CheckoutWorkunitRemote(conf.SERVER_URL)
 		if err != nil {
-			if err.Error() == e.WorkUnitQueueEmpty || err.Error() == e.NoEligibleWorkunitFound {
+			if err.Error() == e.QueueEmpty || err.Error() == e.NoEligibleWorkunitFound {
 				time.Sleep(5 * time.Second)
 			} else {
 				fmt.Printf("error in checking out workunits: %v\n", err)
@@ -112,7 +112,7 @@ func main() {
 	Log = NewLogger("client-" + logdir)
 	go Log.Handle()
 
-	fmt.Printf("Client registered, client id=%s\n", self.Id)
+	fmt.Printf("Client registered, name=%s, id=%s\n", self.Name, self.Id)
 	Log.Event(EVENT_CLIENT_REGISTRATION, "clientid="+self.Id)
 
 	control := make(chan int)

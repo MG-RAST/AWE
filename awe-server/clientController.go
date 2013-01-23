@@ -27,8 +27,8 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 
 	client, err := queueMgr.RegisterNewClient(params, files)
 	if err != nil {
-		if err.Error() == e.WorkUnitQueueEmpty {
-			cx.RespondWithErrorMessage(e.WorkUnitQueueEmpty, http.StatusBadRequest)
+		if err.Error() == e.QueueEmpty {
+			cx.RespondWithErrorMessage(e.QueueEmpty, http.StatusBadRequest)
 		} else {
 			msg := "Error in registering new client:" + err.Error()
 			Log.Error(msg)

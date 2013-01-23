@@ -20,7 +20,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	workunit, err := queueMgr.GetWorkById(id)
 
 	if err != nil {
-		if err.Error() != e.WorkUnitQueueEmpty {
+		if err.Error() != e.QueueEmpty {
 			Log.Error("Err@work_Read:QueueMgr.GetWorkById(): " + err.Error())
 		}
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
@@ -48,7 +48,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	workunits, err := queueMgr.CheckoutWorkunits("FCFS", clientid, 1)
 
 	if err != nil {
-		if err.Error() != e.WorkUnitQueueEmpty && err.Error() != e.NoEligibleWorkunitFound {
+		if err.Error() != e.QueueEmpty && err.Error() != e.NoEligibleWorkunitFound {
 			Log.Error("Err@work_ReadMany:QueueMgr.GetWorkByFCFS(): " + err.Error())
 		}
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)

@@ -155,3 +155,14 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	cx.RespondWithData(jobs)
 	return
 }
+
+// DELETE: /job/{id}
+func (cr *JobController) Delete(id string, cx *goweb.Context) {
+	LogRequest(cx.Request)
+	if err := queueMgr.DeleteJob(id); err != nil {
+		cx.RespondWithErrorMessage("fail to delete job: "+id, http.StatusBadRequest)
+		return
+	}
+	cx.RespondWithData("job deleted: " + id)
+	return
+}

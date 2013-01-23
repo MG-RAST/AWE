@@ -24,7 +24,6 @@ type QueueMgr struct {
 	feedback  chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
 	coSem     chan int    //semaphore for checkout (mutual exclusion between different clients)
 	actJob    int         //number of active job
-	actTask   int         //number of active task (not pending) 
 }
 
 func NewQueueMgr() *QueueMgr {
@@ -39,7 +38,6 @@ func NewQueueMgr() *QueueMgr {
 		feedback:  make(chan Notice),
 		coSem:     make(chan int, 1), //non-blocking buffered channel
 		actJob:    0,
-		actTask:   0,
 	}
 }
 
@@ -176,6 +174,29 @@ func (qm *QueueMgr) NotifyWorkStatus(notice Notice) {
 	return
 }
 
+func (qm *QueueMgr) DeleteJob(jobid string) (err error) {
+	job, err := LoadJob(jobid)
+	if err != nil {
+		return
+	}
+	if err := job.UpdateState(JOB_STAT_DELETED); err != nil {
+		return err
+	}
+	//delete queueing workunits
+	for workid, _ := range qm.workQueue.workMap {
+		if jobid == strings.Split(workid, "_")[0] {
+			delete(qm.workQueue.workMap, workid)
+		}
+	}
+	//delete parsed tasks
+	for i := 0; i < len(job.TaskList()); i++ {
+		task_id := fmt.Sprintf("%s_%d", jobid, i)
+		delete(qm.taskMap, task_id)
+	}
+	qm.actJob -= 1
+	return
+}
+
 //add task to taskMap
 func (qm *QueueMgr) addTask(task *Task) (err error) {
 	id := task.Id
@@ -242,8 +263,6 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 		return err
 	}
 	task.State = "queued"
-
-	qm.actTask += 1
 
 	//log event about task enqueue (TQ)
 	Log.Event(EVENT_TASK_ENQUEUE, "taskid="+task.Id)
@@ -340,9 +359,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				if err = qm.updateJob(qm.taskMap[taskid]); err != nil {
 					return
 				}
-
 				qm.updateQueue()
-				qm.actTask -= 1
 			}
 			delete(qm.workQueue.coWorkMap, workid)
 		} else if status == "fail" { //requeue failed workunit
@@ -355,7 +372,8 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
 			}
 		}
-	} else {
+	} else { //task not existed, possible when job is deleted before the workunit done
+		delete(qm.workQueue.coWorkMap, workid)
 		return errors.New(fmt.Sprintf("task not existed: %s", taskid))
 	}
 	return
@@ -383,18 +401,21 @@ func (qm *QueueMgr) ShowStatus() string {
 	out_work := len(qm.workQueue.coWorkMap)
 	pending := 0
 	completed := 0
+	queuing := 0
 	for _, task := range qm.taskMap {
 		if task.State == "completed" {
 			completed += 1
 		} else if task.State == "pending" {
 			pending += 1
+		} else if task.State == "queued" {
+			queuing += 1
 		}
 	}
 
 	statMsg := "+++++AWE server queue status+++++\n" +
 		fmt.Sprintf("total jobs ......... %d\n", qm.actJob) +
 		fmt.Sprintf("total tasks ........ %d\n", total_task) +
-		fmt.Sprintf("    queuing:    (%d)\n", qm.actTask) +
+		fmt.Sprintf("    queuing:    (%d)\n", queuing) +
 		fmt.Sprintf("    pending:    (%d)\n", pending) +
 		fmt.Sprintf("    completed:  (%d)\n", completed) +
 		fmt.Sprintf("total workunits .... %d\n", queuing_work+out_work) +
@@ -421,9 +442,9 @@ func (wq *WQueue) Push(workunit *Workunit) (err error) {
 
 //Client functions
 func (qm *QueueMgr) RegisterNewClient(params map[string]string, files FormFiles) (client *Client, err error) {
-	//if queue is empty, reject client registration
-	if qm.workQueue.Len() == 0 {
-		return nil, errors.New(e.WorkUnitQueueEmpty)
+	//if queue is empty (no task is queuing or pending), reject client registration
+	if len(qm.taskMap) == 0 {
+		return nil, errors.New(e.QueueEmpty)
 	}
 
 	if _, ok := files["profile"]; ok {
@@ -469,9 +490,18 @@ func (qm *QueueMgr) DeleteClient(id string) {
 func (qm *QueueMgr) filterWorkByClient(clientid string) (ids []string) {
 	client := qm.clientMap[clientid]
 	for id, work := range qm.workQueue.workMap {
+		//skip works that are in the client's skip-list
 		if contains(client.SkipWorks, work.Id) {
 			continue
 		}
+		//skip works that have dedicate clients excluding this client (filter by client name)
+		if len(work.Info.Clients) > 0 {
+			wanted_clients := strings.Split(work.Info.Clients, ",")
+			if !contains(wanted_clients, client.Name) {
+				continue
+			}
+		}
+		//append works whos apps are supported by the client
 		if contains(client.Apps, work.Cmd.Name) {
 			ids = append(ids, id)
 		}
@@ -546,7 +576,7 @@ func (qm *QueueMgr) RecoverJobs() (err error) {
 	//Get jobs to be recovered from db whose states are "submitted"
 	dbjobs := new(Jobs)
 	q := bson.M{}
-	q["state"] = "submitted"
+	q["state"] = JOB_STAT_SUBMITTED
 	lim := 1000
 	off := 0
 	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {

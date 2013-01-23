@@ -57,14 +57,15 @@ var (
 	WORK_PATH      = ""
 	SERVER_URL     = "http://localhost:8001"
 	CLIENT_NAME    = "default"
-	CLIENT_PROFILE = "clientprofile.json"
+	CLIENT_PROFILE = ""
 	PRINT_APP_MSG  = false
 )
 
 func init() {
 	flag.StringVar(&CONFIG_FILE, "conf", "/user/local/awe/conf/awe.cfg", "path to config file")
 	flag.StringVar(&RELOAD, "reload", "", "path or url to awe job data. WARNING this will drop all current jobs.")
-	flag.BoolVar(&RECOVER, "recover", false, "path or url to awe job data. WARNING this will drop all current jobs.")
+	flag.BoolVar(&RECOVER, "recover", false, "path to awe job data.")
+	flag.StringVar(&CLIENT_PROFILE, "profile", "", "path to awe client profile.")
 	flag.Parse()
 
 	//	fmt.Printf("in conf.init(), flag=%v", flag)
@@ -124,7 +125,9 @@ func init() {
 		CLIENT_NAME = clientname
 	}
 	if clientprofile, err := c.String("Client", "clientprofile"); err == nil {
-		CLIENT_PROFILE = clientprofile
+		if CLIENT_PROFILE == "" {
+			CLIENT_PROFILE = clientprofile
+		}
 	}
 	if print_app_msg, err := c.Bool("Client", "print_app_msg"); err == nil {
 		PRINT_APP_MSG = print_app_msg

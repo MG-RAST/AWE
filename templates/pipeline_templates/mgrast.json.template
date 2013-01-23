@@ -1,7 +1,8 @@
     {
         "info": {
             "name": "#project", 
-            "owner": "#user"
+            "owner": "#user",
+            "clients":"#clients"
         }, 
         "state": "submitted", 
         "tasks": [

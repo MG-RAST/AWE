@@ -15,6 +15,12 @@ import (
 	"time"
 )
 
+const (
+	JOB_STAT_SUBMITTED = "submitted"
+	JOB_STAT_COMPLETED = "completed"
+	JOB_STAT_DELETED   = "deleted"
+)
+
 type Job struct {
 	Id          string  `bson:"id" json:"id"`
 	Info        *Info   `bson:"info" json:"info"`
@@ -30,7 +36,7 @@ func NewJob() (job *Job) {
 	//job.Tasks = []*Task
 	job.setId()
 	job.RemainTasks = 1
-	job.State = "submitted"
+	job.State = JOB_STAT_SUBMITTED
 	return
 }
 
@@ -144,7 +150,7 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 	job.Info.Priority = conf.BasePriority
 
 	job.setId()
-	job.State = "submitted"
+	job.State = JOB_STAT_SUBMITTED
 
 	for i := 0; i < len(job.Tasks); i++ {
 		if err := job.Tasks[i].InitTask(job); err != nil {
@@ -158,9 +164,9 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 }
 
 //---Field update functions
-func (job *Job) UpdateState(newState string) string {
+func (job *Job) UpdateState(newState string) (err error) {
 	job.State = newState
-	return newState
+	return job.Save()
 }
 
 //invoked when a task is completed
@@ -174,7 +180,7 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	job.Tasks[rank] = task
 	job.RemainTasks -= 1
 	if job.RemainTasks == 0 {
-		job.State = "completed"
+		job.State = JOB_STAT_COMPLETED
 		//log event about job done (JD) 
 		Log.Event(EVENT_JOB_DONE, "jobid="+job.Id)
 	}

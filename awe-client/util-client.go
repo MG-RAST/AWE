@@ -388,5 +388,6 @@ func SendHeartBeat(host string, clientid string) (err error) {
 	if err != nil {
 		return
 	}
+	Log.Debug(1, fmt.Sprintf("client %s sent a heartbeat to %s", clientid, host))
 	return
 }

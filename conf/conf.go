@@ -52,6 +52,9 @@ var (
 	// Mongodb 
 	MONGODB = ""
 
+	//debug log level
+	DEBUG_LEVEL = 0
+
 	//client
 	TOTAL_WORKER   = 1
 	WORK_PATH      = ""
@@ -66,6 +69,7 @@ func init() {
 	flag.StringVar(&RELOAD, "reload", "", "path or url to awe job data. WARNING this will drop all current jobs.")
 	flag.BoolVar(&RECOVER, "recover", false, "path to awe job data.")
 	flag.StringVar(&CLIENT_PROFILE, "profile", "", "path to awe client profile.")
+	flag.IntVar(&DEBUG_LEVEL, "debug", 0, "debug level: 0-3")
 	flag.Parse()
 
 	//	fmt.Printf("in conf.init(), flag=%v", flag)

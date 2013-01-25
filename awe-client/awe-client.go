@@ -81,6 +81,7 @@ func heartBeater(control chan int) {
 		time.Sleep(10 * time.Second)
 		SendHeartBeat(conf.SERVER_URL, self.Id)
 	}
+	control <- 2 //we are ending
 }
 
 func main() {
@@ -123,8 +124,13 @@ func main() {
 		who := <-control //block till someone dies and then restart it
 		if who == 0 {
 			go workStealer(control)
-		} else {
+			Log.Error("workStealer died and restarted")
+		} else if who == 1 {
 			go worker(control)
+			Log.Error("workStealer died and restarted")
+		} else if who == 2 {
+			go heartBeater(control)
+			Log.Error("workStealer died and restarted")
 		}
 	}
 }

@@ -118,8 +118,8 @@ func (qm *QueueMgr) ClientChecker() {
 			} else {
 				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
 				//delete the client from client map
+				Log.Event(EVENT_CLIENT_UNREGISTER, "clientid="+clientid+",name="+qm.clientMap[clientid].Name)
 				delete(qm.clientMap, clientid)
-				Log.Event(EVENT_CLIENT_UNREGISTER, "clientid="+clientid)
 
 				//requeue unfinished workunits associated with the failed client
 				workids := qm.getWorkByClient(clientid)
@@ -478,6 +478,7 @@ func (qm *QueueMgr) GetAllClients() []*Client {
 func (qm *QueueMgr) ClientHeartBeat(id string) (client *Client, err error) {
 	if _, ok := qm.clientMap[id]; ok {
 		qm.clientMap[id].Tag = true
+		Log.Debug(1, "HeartBeatFrom:"+"clientid="+id+",name="+qm.clientMap[id].Name)
 		return client, nil
 	}
 	return nil, errors.New(e.ClientNotFound)

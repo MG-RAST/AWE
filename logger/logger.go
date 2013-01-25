@@ -102,8 +102,10 @@ func (l *Logger) Log(log string, lvl l4g.Level, message string) {
 	return
 }
 
-func (l *Logger) Debug(log string, message string) {
-	l.Log(log, l4g.DEBUG, message)
+func (l *Logger) Debug(level int, message string) {
+	if level <= conf.DEBUG_LEVEL {
+		l.Log("debug", l4g.DEBUG, message)
+	}
 	return
 }
 

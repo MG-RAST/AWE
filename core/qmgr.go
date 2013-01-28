@@ -79,23 +79,23 @@ func (qm *QueueMgr) Handle() {
 	for {
 		select {
 		case task := <-qm.taskIn:
-			//fmt.Printf("task recived from chan taskIn, id=%s\n", task.Id)
+			Log.Debug(2, fmt.Sprintf("qmgr:task recived from chan taskIn, id=%s\n", task.Id))
 			qm.addTask(task)
 
 		case coReq := <-qm.coReq:
-			//fmt.Printf("workunit checkout request received, Req=%v\n", coReq)
+			Log.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v\n", coReq))
 			works, err := qm.popWorks(coReq)
 			ack := CoAck{workunits: works, err: err}
 			qm.coAck <- ack
 
 		case notice := <-qm.feedback:
-			//	fmt.Printf("workunit status feedback received, workid=%s, status=%s\n", notice.Workid, notice.Status)
+			Log.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s\n", notice.Workid, notice.Status))
 			if err := qm.handleWorkStatusChange(notice); err != nil {
 				Log.Error("handleWorkStatusChange(): " + err.Error())
 			}
 
 		case <-qm.reminder:
-			//fmt.Print("time to update workunit queue....\n")
+			Log.Debug(2, "time to update workunit queue....\n")
 			qm.updateQueue()
 			fmt.Println(qm.ShowStatus())
 		}

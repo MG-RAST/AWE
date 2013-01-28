@@ -1,4 +1,4 @@
-![AWE](http://github.com/MG-RAST/AWE/site/assets/img/awe_logo.png)
+![AWE](https://raw.github.com/MG-RAST/AWE/master/site/assets/img/awe_logo.png)
 =====
 
 About:

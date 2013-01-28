@@ -35,6 +35,8 @@ func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 
 	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", serverhost, self.Id))
 
+	Log.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s", self.Id, serverhost))
+
 	if err != nil {
 		return
 	}
@@ -388,6 +390,6 @@ func SendHeartBeat(host string, clientid string) (err error) {
 	if err != nil {
 		return
 	}
-	Log.Debug(1, fmt.Sprintf("client %s sent a heartbeat to %s", clientid, host))
+	Log.Debug(3, fmt.Sprintf("client %s sent a heartbeat to %s", clientid, host))
 	return
 }

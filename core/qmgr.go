@@ -478,7 +478,7 @@ func (qm *QueueMgr) GetAllClients() []*Client {
 func (qm *QueueMgr) ClientHeartBeat(id string) (client *Client, err error) {
 	if _, ok := qm.clientMap[id]; ok {
 		qm.clientMap[id].Tag = true
-		Log.Debug(1, "HeartBeatFrom:"+"clientid="+id+",name="+qm.clientMap[id].Name)
+		Log.Debug(3, "HeartBeatFrom:"+"clientid="+id+",name="+qm.clientMap[id].Name)
 		return client, nil
 	}
 	return nil, errors.New(e.ClientNotFound)

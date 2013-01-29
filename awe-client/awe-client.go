@@ -86,7 +86,10 @@ func heartBeater(control chan int) {
 
 func main() {
 
-	conf.PrintClientCfg()
+	if !conf.INIT_SUCCESS {
+		conf.PrintClientUsage()
+		os.Exit(1)
+	}
 
 	//launch client
 	if _, err := os.Stat(conf.WORK_PATH); err != nil && os.IsNotExist(err) {
@@ -127,10 +130,10 @@ func main() {
 			Log.Error("workStealer died and restarted")
 		} else if who == 1 {
 			go worker(control)
-			Log.Error("workStealer died and restarted")
+			Log.Error("worker died and restarted")
 		} else if who == 2 {
 			go heartBeater(control)
-			Log.Error("workStealer died and restarted")
+			Log.Error("heartbeater died and restarted")
 		}
 	}
 }

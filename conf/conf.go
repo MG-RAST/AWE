@@ -62,10 +62,13 @@ var (
 	CLIENT_NAME    = "default"
 	CLIENT_PROFILE = ""
 	PRINT_APP_MSG  = false
+
+	//tag
+	INIT_SUCCESS = true
 )
 
 func init() {
-	flag.StringVar(&CONFIG_FILE, "conf", "/user/local/awe/conf/awe.cfg", "path to config file")
+	flag.StringVar(&CONFIG_FILE, "conf", "", "path to config file")
 	flag.StringVar(&RELOAD, "reload", "", "path or url to awe job data. WARNING this will drop all current jobs.")
 	flag.BoolVar(&RECOVER, "recover", false, "path to awe job data.")
 	flag.StringVar(&CLIENT_PROFILE, "profile", "", "path to awe client profile.")
@@ -74,10 +77,17 @@ func init() {
 
 	//	fmt.Printf("in conf.init(), flag=%v", flag)
 
+	if len(CONFIG_FILE) == 0 {
+		fmt.Fprintf(os.Stderr, "ERROR: conf file not specified\n")
+		INIT_SUCCESS = false
+		return
+	}
+
 	c, err := config.ReadDefault(CONFIG_FILE)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: error reading conf file: %v\n", err)
-		os.Exit(1)
+		INIT_SUCCESS = false
+		return
 	}
 
 	// Ports
@@ -161,4 +171,14 @@ func PrintClientCfg() {
 	fmt.Printf("work_path=%s\n", WORK_PATH)
 	fmt.Printf("server_url=%s\n", SERVER_URL)
 	fmt.Printf("print_app_msg=%t\n", PRINT_APP_MSG)
+}
+
+func PrintClientUsage() {
+	fmt.Printf("Usage: awe-client -conf </path/to/cfg> [-profile <path/to/profile>] [-debug 0-3]\n")
+	fmt.Printf("(a client profile file should be either configured in conf file or specified via command line)\n")
+
+}
+
+func PrintServerUsage() {
+	fmt.Printf("Usage: awe-server -conf </path/to/cfg> [-recover] [debug 0-3]\n")
 }

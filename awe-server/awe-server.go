@@ -60,6 +60,12 @@ func launchAPI(control chan int, port int) {
 }
 
 func main() {
+
+	if !conf.INIT_SUCCESS {
+		conf.PrintServerUsage()
+		os.Exit(1)
+	}
+
 	printLogo()
 	conf.Print()
 

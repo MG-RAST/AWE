@@ -495,10 +495,10 @@ func (qm *QueueMgr) filterWorkByClient(clientid string) (ids []string) {
 		if contains(client.SkipWorks, work.Id) {
 			continue
 		}
-		//skip works that have dedicate clients excluding this client (filter by client name)
-		if len(work.Info.Clients) > 0 {
-			wanted_clients := strings.Split(work.Info.Clients, ",")
-			if !contains(wanted_clients, client.Name) {
+		//skip works that have dedicate client groups which this client doesn't belong to
+		if len(work.Info.ClientGroups) > 0 {
+			eligible_groups := strings.Split(work.Info.ClientGroups, ",")
+			if !contains(eligible_groups, client.Group) {
 				continue
 			}
 		}

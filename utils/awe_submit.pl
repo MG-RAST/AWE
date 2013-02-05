@@ -52,7 +52,7 @@ my $options = GetOptions ("input=s"   => \$input_file,
                           "script=s"   => \$input_script,
                           "user=s"   => \$user_name,
                           "project=s" => \$project_name,
-                          "clients=s" => \$clients,
+                          "cgroups=s" => \$clients,
                           "h"  => \$help,
 			 );
 
@@ -125,7 +125,7 @@ if (length($input_file)>0) { #Use case 1
     system("perl -p -i -e 's/#shocknode/$shock_id/g;' $jobscript");
     system("perl -p -i -e 's/#project/$project_name/g;' $jobscript");
     system("perl -p -i -e 's/#user/$user_name/g;' $jobscript");
-    system("perl -p -i -e 's/#clients/$clients/g;' $jobscript");
+    system("perl -p -i -e 's/#clientgroups/$clients/g;' $jobscript");
 } else { #Use case 2
     $jobscript = $input_script;
 }
@@ -167,7 +167,7 @@ sub print_usage{
     print "     -script=<path for complete job json file>\n";
     print "     -user=<user name>\n";
     print "     -project=<project_name>\n";
-    print "     -clients=<exclusive_client_name_list (separate by ',')\n";
+    print "     -cgroups=<exclusive_client_group_list (separate by ',')\n";
     print "\n";
     print "Use case 1: submit a job with a input file and a pipeline template (input file is local, suitable for first-time submission)\n";
     print "      Required options: -input, -awe, -shock, -pipeline\n";

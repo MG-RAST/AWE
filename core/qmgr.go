@@ -3,8 +3,10 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/conf"
 	e "github.com/MG-RAST/AWE/errors"
 	. "github.com/MG-RAST/AWE/logger"
+	"io/ioutil"
 	"labix.org/v2/mgo/bson"
 	"os"
 	"sort"
@@ -18,12 +20,15 @@ type QueueMgr struct {
 	taskMap   map[string]*Task
 	workQueue *WQueue
 	reminder  chan bool
+	jsReq     chan bool   //channel for job submission request (JobController -> qmgr.Handler)
+	jsAck     chan int    //channel for return an assigned job number in response to jsReq  (qmgr.Handler -> JobController)
 	taskIn    chan *Task  //channel for receiving Task (JobController -> qmgr.Handler)
 	coReq     chan CoReq  //workunit checkout request (WorkController -> qmgr.Handler)
 	coAck     chan CoAck  //workunit checkout item including data and err (qmgr.Handler -> WorkController)
 	feedback  chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
 	coSem     chan int    //semaphore for checkout (mutual exclusion between different clients)
 	actJob    int         //number of active job
+	nextJid   int         //max job number
 }
 
 func NewQueueMgr() *QueueMgr {
@@ -32,12 +37,15 @@ func NewQueueMgr() *QueueMgr {
 		taskMap:   map[string]*Task{},
 		workQueue: NewWQueue(),
 		reminder:  make(chan bool),
+		jsReq:     make(chan bool),
+		jsAck:     make(chan int),
 		taskIn:    make(chan *Task, 1024),
 		coReq:     make(chan CoReq),
 		coAck:     make(chan CoAck),
 		feedback:  make(chan Notice),
 		coSem:     make(chan int, 1), //non-blocking buffered channel
 		actJob:    0,
+		nextJid:   0,
 	}
 }
 
@@ -74,10 +82,15 @@ func NewWQueue() *WQueue {
 	}
 }
 
-//to-do: remove debug statements
+//to-do: consider separate some independent tasks into another goroutine to handle
 func (qm *QueueMgr) Handle() {
 	for {
 		select {
+		case <-qm.jsReq:
+			jid := qm.getNextJid()
+			qm.jsAck <- jid
+			Log.Debug(2, fmt.Sprintf("qmgr:receive a job submission request, assigned jid=%s\n", jid))
+
 		case task := <-qm.taskIn:
 			Log.Debug(2, fmt.Sprintf("qmgr:task recived from chan taskIn, id=%s\n", task.Id))
 			qm.addTask(task)
@@ -135,6 +148,32 @@ func (qm *QueueMgr) ClientChecker() {
 	}
 }
 
+func (qm *QueueMgr) InitMaxJid() (err error) {
+	jidfile := conf.DATA_PATH + "/maxjid"
+	if _, err := os.Stat(jidfile); err != nil {
+		f, err := os.Create(jidfile)
+		if err != nil {
+			return err
+		}
+		f.WriteString("10000")
+		qm.nextJid = 10001
+		f.Close()
+	} else {
+		buf, err := ioutil.ReadFile(jidfile)
+		if err != nil {
+			return err
+		}
+		bufstr := strings.TrimSpace(string(buf))
+		number, err := strconv.Atoi(bufstr)
+		if err != nil {
+			return err
+		}
+		qm.nextJid = number + 1
+	}
+	Log.Debug(2, fmt.Sprintf("qmgr:jid initialized, next jid=%s\n", qm.nextJid))
+	return
+}
+
 func (qm *QueueMgr) AddTasks(tasks []*Task) (err error) {
 	for _, task := range tasks {
 		qm.taskIn <- task
@@ -150,6 +189,7 @@ func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num i
 	}
 
 	//lock semephore, at one time only one client's checkout request can be served 
+	// is it necessary?
 	qm.coSem <- 1
 
 	req := CoReq{policy: req_policy, fromclient: client_id, count: num}
@@ -160,6 +200,16 @@ func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num i
 	<-qm.coSem
 
 	return ack.workunits, ack.err
+}
+
+func (qm *QueueMgr) JobRegister() (jid int, err error) {
+	qm.jsReq <- true
+	jid = <-qm.jsAck
+
+	if jid == 0 {
+		return 0, errors.New("failed to assign a job number for the newly submitted job")
+	}
+	return jid, nil
 }
 
 func (qm *QueueMgr) GetWorkById(id string) (workunit *Workunit, err error) {
@@ -377,6 +427,15 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return errors.New(fmt.Sprintf("task not existed: %s", taskid))
 	}
 	return
+}
+
+func (qm *QueueMgr) getNextJid() (jid int) {
+	jid = qm.nextJid
+	jidfile := conf.DATA_PATH + "/maxjid"
+	numstr := strconv.Itoa(jid)
+	ioutil.WriteFile(jidfile, []byte(numstr), 0644)
+	qm.nextJid += 1
+	return jid
 }
 
 // show functions used in debug

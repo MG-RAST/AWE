@@ -47,7 +47,6 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		return
 	}
 	// Create job
-
 	_, hasupload := files["upload"]
 
 	if !hasupload {
@@ -55,10 +54,17 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		return
 	}
 
+	//send job submissin request and get back an assigned job number (jid)
+	var jid int
+	jid, err = queueMgr.JobRegister()
+	if err != nil {
+		Log.Error("Err@job_Create:GetNextJobNum: " + err.Error())
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	var job *core.Job
-
-	job, err = core.CreateJobUpload(params, files)
-
+	job, err = core.CreateJobUpload(params, files, jid)
 	if err != nil {
 		Log.Error("Err@job_Create:CreateJobUpload: " + err.Error())
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)

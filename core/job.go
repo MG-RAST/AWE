@@ -23,6 +23,7 @@ const (
 
 type Job struct {
 	Id          string  `bson:"id" json:"id"`
+	Jid         int     `bson:"jid" json:"jid"`
 	Info        *Info   `bson:"info" json:"info"`
 	Tasks       []*Task `bson:"tasks" json:"tasks"`
 	Script      script  `bson:"script" json:"script"`
@@ -30,19 +31,15 @@ type Job struct {
 	RemainTasks int     `bson:"remaintasks" json:"remaintasks"`
 }
 
-func NewJob() (job *Job) {
-	job = new(Job)
-	job.Info = NewInfo()
-	//job.Tasks = []*Task
-	job.setId()
-	job.RemainTasks = 1
-	job.State = JOB_STAT_SUBMITTED
-	return
-}
-
+//set job's uuid
 func (job *Job) setId() {
 	job.Id = uuid.New()
 	return
+}
+
+//set job's jid
+func (job *Job) setJid(jid int) {
+	job.Jid = jid
 }
 
 type script struct {
@@ -131,7 +128,7 @@ func (job *Job) NumTask() int {
 	return len(job.Tasks)
 }
 
-func ParseJobTasks(filename string) (job *Job, err error) {
+func ParseJobTasks(filename string, jid int) (job *Job, err error) {
 	job = new(Job)
 
 	jsonstream, err := ioutil.ReadFile(filename)
@@ -149,7 +146,8 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 	job.Info.SubmitTime = time.Now()
 	job.Info.Priority = conf.BasePriority
 
-	job.setId()
+	job.setId()     //uuid for the job
+	job.setJid(jid) //an incremental id for the jobs within a AWE server domain
 	job.State = JOB_STAT_SUBMITTED
 
 	for i := 0; i < len(job.Tasks); i++ {

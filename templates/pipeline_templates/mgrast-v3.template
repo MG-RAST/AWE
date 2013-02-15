@@ -1,0 +1,182 @@
+    {
+        "info": {
+            "pipeline": "mg-rast-v3",
+            "name": "#jobname",
+            "project": "#project",
+            "user": "#user",
+            "clientgroups":"#clientgroups"
+        }, 
+        "state": "submitted", 
+        "tasks": [
+            {
+                "cmd": {
+                    "args": "-input=@#jobname.fastq -output=#jobname.prep.fna", 
+                    "description": "preprocess", 
+                    "name": "awe_preprocess.pl"
+                }, 
+                "dependsOn": [], 
+                "inputs": {
+                   "#jobname.fastq": {
+                        "name": "#jobname.fastq",
+                        "host": "http://#shockurl",
+                        "node": "#shocknode"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.prep.fna": {
+                        "name": "#jobname.prep.fna",
+                        "host": "http://#shockurl",
+                        "node": "-"
+                    }
+                },
+                "partinfo": {
+                     "input": "#jobname.fastq",
+                     "output": "#jobname.prep.fna",
+                     "index": "record"
+                },
+                "taskid": "0", 
+                "totalwork": 4
+            },
+            {
+                "cmd": {
+                    "args": "-input=@#jobname.prep.fna -output=#jobname.derep.fna", 
+                    "description": "dereplication", 
+                    "name": "awe_dereplicate.pl"
+                }, 
+                "dependsOn": ["0"], 
+                "inputs": {
+                   "#jobname.prep.fna": {
+                        "name": "#jobname.prep.fna",
+                        "host": "http://#shockurl",
+                        "node": "-",
+                        "origin": "0"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.derep.fna": {
+                        "name": "#jobname.derep.fna",
+                        "host": "http://#shockurl",
+                        "node": "-"
+                    }
+                },
+                "taskid": "1", 
+                "totalwork": 1
+            },
+            {
+                "cmd": {
+                    "args": "hg18 @#jobname.derep.fna #jobname.screened.fna 4", 
+                    "description": "bowtie screen", 
+                    "name": "awe_bowtie_screen.pl"
+                }, 
+                "dependsOn": ["1"], 
+                "inputs": {
+                   "#jobname.derep.fna": {
+                        "name": "#jobname.derep.fna",
+                        "host": "http://#shockurl",
+                        "node": "-",
+                        "origin": "1"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.screened.fna": {
+                        "name": "#jobname.screened.fna",
+                        "host": "http://#shockurl",
+                        "node": "-"
+                    }
+                },
+                "partinfo": {
+                     "input": "#jobname.derep.fna",
+                     "output": "#jobname.screened.fna",
+                     "index": "record"
+                },
+                "taskid": "2", 
+                "totalwork": 4
+            },
+            {
+                "cmd": {
+                    "args": "-input=@#jobname.screened.fna -output=#jobname.genecalled.faa", 
+                    "description": "gene calling", 
+                    "name": "run_FragGeneScan.pl"
+                }, 
+                "dependsOn": ["2"], 
+                "inputs": {
+                   "#jobname.screened.fna": {
+                        "name": "#jobname.screened.fna",
+                        "host": "http://#shockurl",
+                        "node": "-",
+                        "origin": "2"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.genecalled.faa": {
+                        "name": "#jobname.genecalled.faa",
+                        "host": "http://#shockurl",
+                        "node": "-"
+                    }
+                },
+                "partinfo": {
+                     "input": "#jobname.screened.fna",
+                     "output": "#jobname.genecalled.faa",
+                     "index": "record"
+                },
+                "taskid": "3", 
+                "totalwork": 4
+            },
+            {
+                "cmd": {
+                    "args": "-input=@#jobname.genecalled.faa --output=#jobname.clust.faa -aa -pid=90",
+                    "description": "clustering",
+                    "name": "awe_qiime_uclust.pl"
+                },
+                "dependsOn": ["3"],
+                "inputs": {
+                    "#jobname.genecalled.faa": {
+                        "name": "#jobname.genecalled.faa",
+                        "host": "http://#shockurl",
+                        "node": "-",
+                        "origin": "3"
+                    }
+                },
+                "outputs": {
+                    "#jobname.clust.faa": {
+                        "name": "#jobname.clust.faa",
+                        "host": "http://#shockurl",
+                        "node": "-"
+                    }
+                },
+                "partinfo": {
+                     "input": "#jobname.genecalled.faa",
+                     "output": "#jobname.clust.faa",
+                     "index": "record"
+                },
+                "taskid": "4",
+                "totalwork": 1
+            },
+            {
+                "cmd": {
+                    "name": "awe_blat.py",
+                    "args": "--input=@#jobname.clustgun.faa --output=#jobname.hits.blat", 
+                    "description": "simularity search using blat"
+                }, 
+                "dependsOn": ["4"],  
+                "inputs": {
+                    "#jobname.clustgun.faa": {
+                        "name": "#jobname.clustgun.faa",
+                        "host": "http://#shockurl",
+                        "origin": "4",
+                        "node": "-"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.besthit.blat": {
+                        "name": "#jobname.hits.blat",
+                        "host": "http://#shockurl",
+                        "node": "-"
+                    }
+                },
+                "taskid": "5",
+                "totalwork": 1
+
+            }
+        ]
+    }

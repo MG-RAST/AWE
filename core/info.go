@@ -7,7 +7,9 @@ import (
 
 type Info struct {
 	Name         string    `bson:"name" json:"name"`
-	Owner        string    `bson:"owner" json:"owner"`
+	Project      string    `bson:"project" json:"project"`
+	User         string    `bson:"user" json:"user"`
+	Pipeline     string    `bson:"pipeline" json:"pipeline"`
 	ClientGroups string    `bson:"clientgroups" json:"clientgroups"`
 	SubmitTime   time.Time `bson:"submittime" json:"submittime"`
 	Priority     int       `bson:"priority" json:"priority"`

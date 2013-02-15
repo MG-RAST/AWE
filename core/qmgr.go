@@ -21,14 +21,14 @@ type QueueMgr struct {
 	workQueue *WQueue
 	reminder  chan bool
 	jsReq     chan bool   //channel for job submission request (JobController -> qmgr.Handler)
-	jsAck     chan int    //channel for return an assigned job number in response to jsReq  (qmgr.Handler -> JobController)
+	jsAck     chan string //channel for return an assigned job number in response to jsReq  (qmgr.Handler -> JobController)
 	taskIn    chan *Task  //channel for receiving Task (JobController -> qmgr.Handler)
 	coReq     chan CoReq  //workunit checkout request (WorkController -> qmgr.Handler)
 	coAck     chan CoAck  //workunit checkout item including data and err (qmgr.Handler -> WorkController)
 	feedback  chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
 	coSem     chan int    //semaphore for checkout (mutual exclusion between different clients)
 	actJob    int         //number of active job
-	nextJid   int         //max job number
+	nextJid   string      //next jid that will be assigned to newly submitted job
 }
 
 func NewQueueMgr() *QueueMgr {
@@ -38,14 +38,14 @@ func NewQueueMgr() *QueueMgr {
 		workQueue: NewWQueue(),
 		reminder:  make(chan bool),
 		jsReq:     make(chan bool),
-		jsAck:     make(chan int),
+		jsAck:     make(chan string),
 		taskIn:    make(chan *Task, 1024),
 		coReq:     make(chan CoReq),
 		coAck:     make(chan CoAck),
 		feedback:  make(chan Notice),
 		coSem:     make(chan int, 1), //non-blocking buffered channel
 		actJob:    0,
-		nextJid:   0,
+		nextJid:   "",
 	}
 }
 
@@ -156,7 +156,7 @@ func (qm *QueueMgr) InitMaxJid() (err error) {
 			return err
 		}
 		f.WriteString("10000")
-		qm.nextJid = 10001
+		qm.nextJid = "10001"
 		f.Close()
 	} else {
 		buf, err := ioutil.ReadFile(jidfile)
@@ -164,11 +164,13 @@ func (qm *QueueMgr) InitMaxJid() (err error) {
 			return err
 		}
 		bufstr := strings.TrimSpace(string(buf))
-		number, err := strconv.Atoi(bufstr)
+
+		maxjid, err := strconv.Atoi(bufstr)
 		if err != nil {
 			return err
 		}
-		qm.nextJid = number + 1
+
+		qm.nextJid = strconv.Itoa(maxjid + 1)
 	}
 	Log.Debug(2, fmt.Sprintf("qmgr:jid initialized, next jid=%s\n", qm.nextJid))
 	return
@@ -202,12 +204,12 @@ func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num i
 	return ack.workunits, ack.err
 }
 
-func (qm *QueueMgr) JobRegister() (jid int, err error) {
+func (qm *QueueMgr) JobRegister() (jid string, err error) {
 	qm.jsReq <- true
 	jid = <-qm.jsAck
 
-	if jid == 0 {
-		return 0, errors.New("failed to assign a job number for the newly submitted job")
+	if jid == "" {
+		return "", errors.New("failed to assign a job number for the newly submitted job")
 	}
 	return jid, nil
 }
@@ -429,12 +431,11 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 	return
 }
 
-func (qm *QueueMgr) getNextJid() (jid int) {
+func (qm *QueueMgr) getNextJid() (jid string) {
 	jid = qm.nextJid
 	jidfile := conf.DATA_PATH + "/maxjid"
-	numstr := strconv.Itoa(jid)
-	ioutil.WriteFile(jidfile, []byte(numstr), 0644)
-	qm.nextJid += 1
+	ioutil.WriteFile(jidfile, []byte(jid), 0644)
+	qm.nextJid = jidIncr(qm.nextJid)
 	return jid
 }
 
@@ -659,4 +660,12 @@ func contains(list []string, elem string) bool {
 		}
 	}
 	return false
+}
+
+func jidIncr(jid string) (newjid string) {
+	if jidint, err := strconv.Atoi(jid); err == nil {
+		jidint += 1
+		return strconv.Itoa(jidint)
+	}
+	return jid
 }

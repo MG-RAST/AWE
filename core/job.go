@@ -23,7 +23,7 @@ const (
 
 type Job struct {
 	Id          string  `bson:"id" json:"id"`
-	Jid         int     `bson:"jid" json:"jid"`
+	Jid         string  `bson:"jid" json:"jid"`
 	Info        *Info   `bson:"info" json:"info"`
 	Tasks       []*Task `bson:"tasks" json:"tasks"`
 	Script      script  `bson:"script" json:"script"`
@@ -38,7 +38,7 @@ func (job *Job) setId() {
 }
 
 //set job's jid
-func (job *Job) setJid(jid int) {
+func (job *Job) setJid(jid string) {
 	job.Jid = jid
 }
 
@@ -128,7 +128,7 @@ func (job *Job) NumTask() int {
 	return len(job.Tasks)
 }
 
-func ParseJobTasks(filename string, jid int) (job *Job, err error) {
+func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 	job = new(Job)
 
 	jsonstream, err := ioutil.ReadFile(filename)

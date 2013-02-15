@@ -55,7 +55,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	}
 
 	//send job submissin request and get back an assigned job number (jid)
-	var jid int
+	var jid string
 	jid, err = queueMgr.JobRegister()
 	if err != nil {
 		Log.Error("Err@job_Create:GetNextJobNum: " + err.Error())

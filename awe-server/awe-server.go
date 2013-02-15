@@ -100,6 +100,12 @@ func main() {
 		fmt.Println("Done")
 	}
 
+	//init max job number (jid)
+	if err := queueMgr.InitMaxJid(); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		os.Exit(1)
+	}
+
 	//launch server
 	control := make(chan int)
 	go Log.Handle()

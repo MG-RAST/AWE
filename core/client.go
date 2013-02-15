@@ -10,6 +10,7 @@ import (
 type Client struct {
 	Id         string    `bson:"id" json:"id"`
 	Name       string    `bson:"name" json:"name"`
+	Group      string    `bson:"group" json:"group"`
 	User       string    `bson:"user" json:"user"`
 	Host       string    `bson:"tasks" json:"tasks"`
 	Workers    int       `bson:"workers" json:"workers"`

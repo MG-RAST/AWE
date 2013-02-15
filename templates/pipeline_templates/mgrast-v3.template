@@ -1,6 +1,6 @@
     {
         "info": {
-            "pipeline": "mg-rast-v3",
+            "pipeline": "mgrast-v3",
             "name": "#jobname",
             "project": "#project",
             "user": "#user",
@@ -96,7 +96,7 @@
                 "cmd": {
                     "args": "-input=@#jobname.screened.fna -output=#jobname.genecalled.faa", 
                     "description": "gene calling", 
-                    "name": "run_FragGeneScan.pl"
+                    "name": "awe_genecalling.pl"
                 }, 
                 "dependsOn": ["2"], 
                 "inputs": {

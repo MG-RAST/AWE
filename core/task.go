@@ -8,7 +8,7 @@ import (
 
 type Task struct {
 	Id         string    `bson:"taskid" json:"taskid"`
-	Info       *Info     `bson:"info" json:"info"`
+	Info       *Info     `bson:"info" json:"-"`
 	Inputs     IOmap     `bson:"inputs" json:"inputs"`
 	Outputs    IOmap     `bson:"outputs" json:"outputs"`
 	Cmd        *Command  `bson:"cmd" json:"cmd"`

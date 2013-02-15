@@ -50,9 +50,9 @@ type FormFile struct {
 	Checksum map[string]string
 }
 
-func CreateJobUpload(params map[string]string, files FormFiles) (job *Job, err error) {
+func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job *Job, err error) {
 
-	job, err = ParseJobTasks(files["upload"].Path)
+	job, err = ParseJobTasks(files["upload"].Path, jid)
 	if err != nil {
 		return
 	}

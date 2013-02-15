@@ -6,11 +6,13 @@ import (
 )
 
 type Info struct {
-	Name       string    `bson:"name" json:"name"`
-	Owner      string    `bson:"owner" json:"owner"`
-	Clients    string    `bson:"clients" json:"clients"`
-	SubmitTime time.Time `bson:"submittime" json:"submittime"`
-	Priority   int       `bson:"priority" json:"priority"`
+	Name         string    `bson:"name" json:"name"`
+	Project      string    `bson:"project" json:"project"`
+	User         string    `bson:"user" json:"user"`
+	Pipeline     string    `bson:"pipeline" json:"pipeline"`
+	ClientGroups string    `bson:"clientgroups" json:"clientgroups"`
+	SubmitTime   time.Time `bson:"submittime" json:"submittime"`
+	Priority     int       `bson:"priority" json:"priority"`
 }
 
 func NewInfo() *Info {

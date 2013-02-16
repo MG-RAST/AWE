@@ -64,7 +64,7 @@
             },
             {
                 "cmd": {
-                    "args": "hg18 @#jobname.derep.fna #jobname.screened.fna 4", 
+                    "args": "-input=@#jobname.derep.fna -output=#jobname.screened.fna -index=h_sapiens_asm",
                     "description": "bowtie screen", 
                     "name": "awe_bowtie_screen.pl"
                 }, 

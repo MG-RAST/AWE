@@ -108,7 +108,7 @@ if (length($infile)>0) { #Use case 1
     my $pipeline_name = `basename $pipeline_template .template`;
     chomp($pipeline_name);
     print "pipeline_name=".$pipeline_name."\n";
-    if ($job_name == "") {
+    if (length($job_name)==0) {
         $job_name = $pipeline_name."-job";
     }
     print "job_name=".$job_name."\n";
@@ -116,7 +116,7 @@ if (length($infile)>0) { #Use case 1
     #upload input to shock
     print "uploading input file to Shock...\n";
 
-    my $out_shock_upload = `curl -X POST -F upload=\$infile $shock_url/node  | python -mjson.tool | grep \\\"id\\\"`;
+    my $out_shock_upload = `curl -X POST -F upload=\@$infile $shock_url/node  | python -mjson.tool | grep \\\"id\\\"`;
     chomp($out_shock_upload);
     my @values = split('"', $out_shock_upload);
     $shock_id = $values[3];

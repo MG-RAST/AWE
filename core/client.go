@@ -20,7 +20,7 @@ type Client struct {
 	SkipWorks  []string  `bson:"SkipWorkunits" json:"SkipWorkunits"`
 	RegTime    time.Time `bson:"regtime" json:"regtime"`
 	Status     string    `bson:"Status" json:"Status"`
-	Tag        bool      `bson:"Tag" json:"Tag"`
+	Tag        bool      `bson:"-" json:"-"`
 }
 
 func NewClient() (client *Client) {

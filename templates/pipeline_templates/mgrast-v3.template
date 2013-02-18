@@ -155,20 +155,20 @@
             {
                 "cmd": {
                     "name": "awe_blat.py",
-                    "args": "--input=@#jobname.clustgun.faa --output=#jobname.hits.blat", 
+                    "args": "--input=@#jobname.clust.faa --output=#jobname.hits.blat", 
                     "description": "simularity search using blat"
                 }, 
                 "dependsOn": ["4"],  
                 "inputs": {
-                    "#jobname.clustgun.faa": {
-                        "name": "#jobname.clustgun.faa",
+                    "#jobname.clust.faa": {
+                        "name": "#jobname.clust.faa",
                         "host": "http://#shockurl",
                         "origin": "4",
                         "node": "-"
                     }
                 }, 
                 "outputs": {
-                    "#jobname.besthit.blat": {
+                    "#jobname.hits.blat": {
                         "name": "#jobname.hits.blat",
                         "host": "http://#shockurl",
                         "node": "-"

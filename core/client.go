@@ -12,7 +12,7 @@ type Client struct {
 	Name       string    `bson:"name" json:"name"`
 	Group      string    `bson:"group" json:"group"`
 	User       string    `bson:"user" json:"user"`
-	Host       string    `bson:"tasks" json:"tasks"`
+	Host       string    `bson:"host" json:"host"`
 	Workers    int       `bson:"workers" json:"workers"`
 	LocalShock string    `bson:"localshock" json:localshock"`
 	Cores      int       `bson:"cores" json:"cores"`
@@ -20,7 +20,7 @@ type Client struct {
 	SkipWorks  []string  `bson:"SkipWorkunits" json:"SkipWorkunits"`
 	RegTime    time.Time `bson:"regtime" json:"regtime"`
 	Status     string    `bson:"Status" json:"Status"`
-	Tag        bool      `bson:"Tag" json:"Tag"`
+	Tag        bool      `bson:"-" json:"-"`
 }
 
 func NewClient() (client *Client) {

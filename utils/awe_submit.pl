@@ -35,7 +35,10 @@
 #      Optional options: none  (all needed info is in the job script)
 #      Operations: submit the job json script to awe directly.
 #      
-#note: these three cases are mutual exclusive: only one of -node, -upload, and -upload can be specified at one time.
+#note:
+#1. the three use cases are mutual exclusive: only one of -node, -upload, and -upload can be specified at one time.
+#2. if AWE_HOST (ip:port) and SHOCK_HOST (ip:port) are configured as environment variables, -awe and -shock are not needed respectively. But
+#the specified -awe and -shock will over write the preconfigured environment variables.
 
 use strict;
 use warnings;
@@ -81,10 +84,13 @@ if ($help) {
     exit 0;
 }
 
-if (length($awe_url)==0 ) {
-    print "ERROR: AWE server URL was not specified.\n";
-    print_usage();
-    exit 1;
+if (length($awe_url)==0) {
+    $awe_url = $ENV{'AWE_HOST'};
+    if (length($awe_url)==0) {
+        print "ERROR: AWE server URL was not specified.\n";
+        print_usage();
+        exit 1;
+    }
 }
 
 if (length($infile)>0 && length($input_script)>0) {
@@ -119,9 +125,12 @@ if (length($infile)==0 && length($input_script)==0 && length($node_id)==0) {
 
 if (length($node_id)>0 || (length($infile)>0)) { #use case 1 or 2
     if (length($shock_url)==0 ) {
-        print "ERROR: Shock server URL was not specified.\n";
-        print_usage();
-        exit 1;
+        $shock_url = $ENV{'SHOCK_HOST'};
+        if (length($shock_url)==0) {
+            print "ERROR: SHOCK server URL was not specified.\n";
+            print_usage();
+            exit 1;
+        }
     }
     if (length($pipeline_template)==0){
         print "ERROR: a pipeline template was not specified.\n";
@@ -230,7 +239,7 @@ Options:
      
      
 Use case 1: submit a job with a shock url for the input file location and a pipeline template (input file is on shock)
-      Required options: -awe, -shock, -node, -pipeline
+      Required options: -node, -pipeline, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
       Optional options: -name, -user, -project, -cgroups
       Operations:
                1. upload input file to shock
@@ -238,7 +247,7 @@ Use case 1: submit a job with a shock url for the input file location and a pipe
                3. submit the job json script to awe
 
 Use case 2: submit a job with a local input file and a pipeline template (input file is local and will be uploaded to shock automatially;
-      Required options: -awe, -shock, -upload, -pipeline
+      Required options: -upload, -pipeline, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
       Optional options: -name, -user, -project, -cgroups
       Operations:
                1. upload input file to shock
@@ -250,6 +259,9 @@ Use case 3: submit a job with a complete job json script (job script is already 
       Optional options: none  (all needed info is in the job script)
       Operations: submit the job json script to awe directly.
       
-note: these three cases are mutual exclusive: only one of -node, -upload, and -upload can be specified at one time.
+note:
+1. the three use cases are mutual exclusive: only one of -node, -upload, and -upload can be specified at one time.
+2. if AWE_HOST (ip:port) and SHOCK_HOST (ip:port) are configured as environment variables, -awe and -shock are not needed respectively. But
+the specified -awe and -shock will over write the preconfigured environment variables.
 \n";
 }

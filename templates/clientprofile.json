@@ -1,9 +1,13 @@
 {
-    "id":"",
-    "name":"myclient",
-    "group":"mygroup",
-    "tasks":"",
+    "name":"#clientname",
+    "group":"#groupname",
+    "host":"#hostname",
     "workers":1,
     "cores":8,
-    "apps":["bowtie_screen.sh", "run_FragGeneScan.pl", "clustgun"]
+    "apps":["awe_preprocess.pl",
+            "awe_dereplicate.pl",
+            "awe_bowtie_screen.pl",
+            "awe_genecalling.pl",
+            "awe_qiime_uclust.pl",
+            "awe_blat.py"]
 }

@@ -1,6 +1,6 @@
     {
         "info": {
-            "pipeline": "mg-rast-v3",
+            "pipeline": "mgrast-v3",
             "name": "#jobname",
             "project": "#project",
             "user": "#user",
@@ -64,7 +64,7 @@
             },
             {
                 "cmd": {
-                    "args": "hg18 @#jobname.derep.fna #jobname.screened.fna 4", 
+                    "args": "-input=@#jobname.derep.fna -output=#jobname.screened.fna -index=h_sapiens_asm",
                     "description": "bowtie screen", 
                     "name": "awe_bowtie_screen.pl"
                 }, 
@@ -96,7 +96,7 @@
                 "cmd": {
                     "args": "-input=@#jobname.screened.fna -output=#jobname.genecalled.faa", 
                     "description": "gene calling", 
-                    "name": "run_FragGeneScan.pl"
+                    "name": "awe_genecalling.pl"
                 }, 
                 "dependsOn": ["2"], 
                 "inputs": {
@@ -155,20 +155,20 @@
             {
                 "cmd": {
                     "name": "awe_blat.py",
-                    "args": "--input=@#jobname.clustgun.faa --output=#jobname.hits.blat", 
+                    "args": "--input=@#jobname.clust.faa --output=#jobname.hits.blat", 
                     "description": "simularity search using blat"
                 }, 
                 "dependsOn": ["4"],  
                 "inputs": {
-                    "#jobname.clustgun.faa": {
-                        "name": "#jobname.clustgun.faa",
+                    "#jobname.clust.faa": {
+                        "name": "#jobname.clust.faa",
                         "host": "http://#shockurl",
                         "origin": "4",
                         "node": "-"
                     }
                 }, 
                 "outputs": {
-                    "#jobname.besthit.blat": {
+                    "#jobname.hits.blat": {
                         "name": "#jobname.hits.blat",
                         "host": "http://#shockurl",
                         "node": "-"

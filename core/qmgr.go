@@ -18,6 +18,7 @@ import (
 type QueueMgr struct {
 	clientMap map[string]*Client
 	taskMap   map[string]*Task
+	actJobs   map[string]bool //false:job submitted, true: job in progress (at least one task in queue)
 	workQueue *WQueue
 	reminder  chan bool
 	jsReq     chan bool   //channel for job submission request (JobController -> qmgr.Handler)
@@ -27,7 +28,6 @@ type QueueMgr struct {
 	coAck     chan CoAck  //workunit checkout item including data and err (qmgr.Handler -> WorkController)
 	feedback  chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
 	coSem     chan int    //semaphore for checkout (mutual exclusion between different clients)
-	actJob    int         //number of active job
 	nextJid   string      //next jid that will be assigned to newly submitted job
 }
 
@@ -44,7 +44,7 @@ func NewQueueMgr() *QueueMgr {
 		coAck:     make(chan CoAck),
 		feedback:  make(chan Notice),
 		coSem:     make(chan int, 1), //non-blocking buffered channel
-		actJob:    0,
+		actJobs:   map[string]bool{},
 		nextJid:   "",
 	}
 }
@@ -176,11 +176,11 @@ func (qm *QueueMgr) InitMaxJid() (err error) {
 	return
 }
 
-func (qm *QueueMgr) AddTasks(tasks []*Task) (err error) {
+func (qm *QueueMgr) AddTasks(jobid string, tasks []*Task) (err error) {
 	for _, task := range tasks {
 		qm.taskIn <- task
 	}
-	qm.actJob += 1
+	qm.actJobs[jobid] = true
 	return
 }
 
@@ -245,7 +245,7 @@ func (qm *QueueMgr) DeleteJob(jobid string) (err error) {
 		task_id := fmt.Sprintf("%s_%d", jobid, i)
 		delete(qm.taskMap, task_id)
 	}
-	qm.actJob -= 1
+	delete(qm.actJobs, jobid)
 	return
 }
 
@@ -473,7 +473,7 @@ func (qm *QueueMgr) ShowStatus() string {
 	}
 
 	statMsg := "+++++AWE server queue status+++++\n" +
-		fmt.Sprintf("total jobs ......... %d\n", qm.actJob) +
+		fmt.Sprintf("total jobs ......... %d\n", len(qm.actJobs)) +
 		fmt.Sprintf("total tasks ........ %d\n", total_task) +
 		fmt.Sprintf("    queuing:    (%d)\n", queuing) +
 		fmt.Sprintf("    pending:    (%d)\n", pending) +
@@ -588,13 +588,17 @@ func (qm *QueueMgr) updateJob(task *Task) (err error) {
 		return err
 	}
 	if remainTasks == 0 {
-		qm.actJob -= 1
+		delete(qm.actJobs, jobid)
 		//delete tasks in task map
 		for _, task := range job.TaskList() {
 			delete(qm.taskMap, task.Id)
 		}
 	}
 	return
+}
+
+func (qm *QueueMgr) GetActiveJobs() map[string]bool {
+	return qm.actJobs
 }
 
 //queue related functions
@@ -643,7 +647,7 @@ func (qm *QueueMgr) RecoverJobs() (err error) {
 	//Locate the job script and parse tasks for each job
 	jobct := 0
 	for _, dbjob := range *dbjobs {
-		qm.AddTasks(dbjob.TaskList())
+		qm.AddTasks(dbjob.Id, dbjob.TaskList())
 		jobct += 1
 	}
 	qm.updateQueue()

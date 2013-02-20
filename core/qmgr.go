@@ -18,7 +18,7 @@ import (
 type QueueMgr struct {
 	clientMap map[string]*Client
 	taskMap   map[string]*Task
-	actJobs   map[string]bool //false:job submitted, true: job in progress (at least one task in queue)
+	actJobs   map[string]bool
 	workQueue *WQueue
 	reminder  chan bool
 	jsReq     chan bool   //channel for job submission request (JobController -> qmgr.Handler)
@@ -131,9 +131,7 @@ func (qm *QueueMgr) ClientChecker() {
 				client.Tag = false
 			} else {
 				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
-				//delete the client from client map
 				Log.Event(EVENT_CLIENT_UNREGISTER, "clientid="+clientid+",name="+qm.clientMap[clientid].Name)
-				delete(qm.clientMap, clientid)
 
 				//requeue unfinished workunits associated with the failed client
 				workids := qm.getWorkByClient(clientid)
@@ -144,6 +142,8 @@ func (qm *QueueMgr) ClientChecker() {
 						Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
 					}
 				}
+				//delete the client from client map
+				delete(qm.clientMap, clientid)
 			}
 		}
 	}
@@ -432,7 +432,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 			}
 			delete(qm.workQueue.coWorkMap, workid)
 		} else if status == "fail" { //requeue failed workunit
-			Log.Event(EVENT_WORK_FAIL, "workid="+workid)
+			Log.Event(EVENT_WORK_FAIL, "workid="+workid+";clientid="+clientid)
 			if coinfo, ok := qm.workQueue.coWorkMap[workid]; ok {
 				qm.workQueue.workMap[workid] = coinfo.workunit
 				delete(qm.workQueue.coWorkMap, workid)
@@ -584,12 +584,12 @@ func (qm *QueueMgr) filterWorkByClient(clientid string) (ids []string) {
 }
 
 func (qm *QueueMgr) getWorkByClient(clientid string) (ids []string) {
-	for id, coinfo := range qm.workQueue.coWorkMap {
-		if coinfo.clientid == clientid {
+	if client, ok := qm.clientMap[clientid]; ok {
+		for id, _ := range client.Current_work {
 			ids = append(ids, id)
 		}
 	}
-	return ids
+	return
 }
 
 //job functions

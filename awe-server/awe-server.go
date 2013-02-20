@@ -91,6 +91,12 @@ func main() {
 		fmt.Println("Done")
 	}
 
+	//init max job number (jid)
+	if err := queueMgr.InitMaxJid(); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		os.Exit(1)
+	}
+
 	//recover unfinished jobs before server went down last time
 	if conf.RECOVER {
 		fmt.Println("####### Recovering unfinished jobs #######")
@@ -98,12 +104,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		}
 		fmt.Println("Done")
-	}
-
-	//init max job number (jid)
-	if err := queueMgr.InitMaxJid(); err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
-		os.Exit(1)
 	}
 
 	//launch server
@@ -114,5 +114,17 @@ func main() {
 	go queueMgr.ClientChecker()
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)
+
+	var host string
+	if hostname, err := os.Hostname(); err == nil {
+		fmt.Println("hostname=" + hostname)
+		host = fmt.Sprintf("%s:%d", hostname, conf.API_PORT)
+	}
+	if conf.RECOVER {
+		Log.Event(EVENT_SERVER_RECOVER, "host="+host)
+	} else {
+		Log.Event(EVENT_SERVER_START, "host="+host)
+	}
+
 	<-control //block till something dies
 }

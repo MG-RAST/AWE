@@ -30,6 +30,8 @@ const (
 	EVENT_WORK_CHECKOUT       = "WC" //workunit checkout 
 	EVENT_WORK_FAIL           = "WF" //workunit fails running
 	//server only events
+	EVENT_SERVER_START   = "SS" //awe-server start
+	EVENT_SERVER_RECOVER = "SR" //awe-server start with recover option  (-recover)
 	EVENT_JOB_SUBMISSION = "JQ" //job submitted
 	EVENT_TASK_ENQUEUE   = "TQ" //task parsed and enqueue
 	EVENT_WORK_DONE      = "WD" //workunit received successful feedback from client

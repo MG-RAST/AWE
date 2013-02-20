@@ -129,6 +129,10 @@ func (qm *QueueMgr) ClientChecker() {
 		for clientid, client := range qm.clientMap {
 			if client.Tag == true {
 				client.Tag = false
+				total_minutes := int(time.Now().Sub(client.RegTime).Minutes())
+				hours := total_minutes / 60
+				minutes := total_minutes % 60
+				client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
 			} else {
 				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
 				Log.Event(EVENT_CLIENT_UNREGISTER, "clientid="+clientid+",name="+qm.clientMap[clientid].Name)
@@ -437,7 +441,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				qm.workQueue.workMap[workid] = coinfo.workunit
 				delete(qm.workQueue.coWorkMap, workid)
 				client := qm.clientMap[coinfo.clientid]
-				client.SkipWorks = append(client.SkipWorks, workid)
+				client.Skip_work = append(client.Skip_work, workid)
 				client.Total_failed += 1
 				Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
 			}
@@ -565,7 +569,7 @@ func (qm *QueueMgr) filterWorkByClient(clientid string) (ids []string) {
 	client := qm.clientMap[clientid]
 	for id, work := range qm.workQueue.workMap {
 		//skip works that are in the client's skip-list
-		if contains(client.SkipWorks, work.Id) {
+		if contains(client.Skip_work, work.Id) {
 			continue
 		}
 		//skip works that have dedicate client groups which this client doesn't belong to

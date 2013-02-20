@@ -66,7 +66,7 @@ func NotifyWorkunitProcessed(serverhost string, workid string, status string) (e
 	argv := []string{}
 	argv = append(argv, "-X")
 	argv = append(argv, "PUT")
-	target_url := fmt.Sprintf("%s/work/%s?status=%s", serverhost, workid, status)
+	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s", serverhost, workid, status, self.Id)
 	argv = append(argv, target_url)
 
 	cmd := exec.Command("curl", argv...)

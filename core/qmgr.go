@@ -61,8 +61,9 @@ type CoAck struct {
 }
 
 type Notice struct {
-	Workid string
-	Status string
+	WorkId   string
+	Status   string
+	ClientId string
 }
 
 type coInfo struct {
@@ -102,7 +103,7 @@ func (qm *QueueMgr) Handle() {
 			qm.coAck <- ack
 
 		case notice := <-qm.feedback:
-			Log.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s\n", notice.Workid, notice.Status))
+			Log.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
 			if err := qm.handleWorkStatusChange(notice); err != nil {
 				Log.Error("handleWorkStatusChange(): " + err.Error())
 			}
@@ -191,12 +192,18 @@ func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num i
 	}
 
 	//lock semephore, at one time only one client's checkout request can be served 
-	// is it necessary?
 	qm.coSem <- 1
 
 	req := CoReq{policy: req_policy, fromclient: client_id, count: num}
 	qm.coReq <- req
 	ack := <-qm.coAck
+
+	if ack.err == nil {
+		for _, work := range ack.workunits {
+			qm.clientMap[client_id].Total_checkout += 1
+			qm.clientMap[client_id].Current_work[work.Id] = true
+		}
+	}
 
 	//unlock
 	<-qm.coSem
@@ -384,14 +391,19 @@ func (qm *QueueMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 }
 
 func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
-	workid := notice.Workid
+	workid := notice.WorkId
 	status := notice.Status
+	clientid := notice.ClientId
 	parts := strings.Split(workid, "_")
 	taskid := fmt.Sprintf("%s_%s", parts[0], parts[1])
 	rank, err := strconv.Atoi(parts[2])
 	if err != nil {
 		return errors.New(fmt.Sprintf("invalid workid %s", workid))
 	}
+	if _, ok := qm.clientMap[clientid]; ok {
+		delete(qm.clientMap[clientid].Current_work, workid)
+	}
+
 	if _, ok := qm.taskMap[taskid]; ok {
 		if rank == 0 {
 			qm.taskMap[taskid].WorkStatus[rank] = status
@@ -400,7 +412,12 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 		}
 		if status == "done" {
 			//log event about work done (WD)
-			Log.Event(EVENT_WORK_DONE, "workid="+workid)
+			Log.Event(EVENT_WORK_DONE, "workid="+workid+";clientid="+clientid)
+
+			//update client status
+			if _, ok := qm.clientMap[clientid]; ok {
+				qm.clientMap[clientid].Total_completed += 1
+			}
 
 			qm.taskMap[taskid].RemainWork -= 1
 			if qm.taskMap[taskid].RemainWork == 0 {
@@ -421,12 +438,12 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				delete(qm.workQueue.coWorkMap, workid)
 				client := qm.clientMap[coinfo.clientid]
 				client.SkipWorks = append(client.SkipWorks, workid)
+				client.Total_failed += 1
 				Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
 			}
 		}
 	} else { //task not existed, possible when job is deleted before the workunit done
 		delete(qm.workQueue.coWorkMap, workid)
-		return errors.New(fmt.Sprintf("task not existed: %s", taskid))
 	}
 	return
 }

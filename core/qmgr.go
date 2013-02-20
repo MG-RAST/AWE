@@ -421,6 +421,8 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 			//update client status
 			if _, ok := qm.clientMap[clientid]; ok {
 				qm.clientMap[clientid].Total_completed += 1
+			} else {
+				//it happens when feedback is sent after server restarted and before client re-registered
 			}
 
 			qm.taskMap[taskid].RemainWork -= 1
@@ -553,7 +555,7 @@ func (qm *QueueMgr) GetAllClients() []*Client {
 }
 
 func (qm *QueueMgr) ClientHeartBeat(id string) (client *Client, err error) {
-	if _, ok := qm.clientMap[id]; ok {
+	if client, ok := qm.clientMap[id]; ok {
 		qm.clientMap[id].Tag = true
 		Log.Debug(3, "HeartBeatFrom:"+"clientid="+id+",name="+qm.clientMap[id].Name)
 		return client, nil

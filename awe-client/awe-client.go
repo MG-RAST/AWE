@@ -25,19 +25,17 @@ func workStealer(control chan int) {
 		if err != nil {
 			if err.Error() == e.QueueEmpty || err.Error() == e.NoEligibleWorkunitFound {
 				//normal, do nothing
-			} else if err.Error() == e.ClientNotFound { //server may be restarted, re-register
-				fmt.Printf("lost contact with server, try to re-register\n")
-				if _, err := ReRegisterWithSelf(conf.SERVER_URL); err != nil {
-					retry += 1
-				}
-			} else { //something is wrong, server may be down
+			} else if err.Error() == e.ClientNotFound {
+				//server may be restarted, waiting for the hearbeater goroutine to try re-register	
+			} else {
+				//something is wrong, server may be down
 				fmt.Printf("error in checking out workunits: %v\n", err)
 				retry += 1
 			}
-			if retry == 5 {
+			if retry == 3 {
 				os.Exit(1)
 			}
-			time.Sleep(5 * time.Second)
+			time.Sleep(10 * time.Second)
 			continue
 		} else {
 			retry = 0
@@ -91,7 +89,7 @@ func worker(control chan int) {
 func heartBeater(control chan int) {
 	for {
 		time.Sleep(10 * time.Second)
-		SendHeartBeat(conf.SERVER_URL, self.Id)
+		SendHeartBeat()
 	}
 	control <- 2 //we are ending
 }

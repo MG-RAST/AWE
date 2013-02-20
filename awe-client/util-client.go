@@ -300,7 +300,6 @@ func makeIndexByCurl(targetUrl string, indexType string) (err error) {
 }
 
 func Register(host string) (client *Client, err error) {
-	//create a shock node for output
 	var res *http.Response
 	serverUrl := fmt.Sprintf("%s/client", host)
 	res, err = http.Post(serverUrl, "", strings.NewReader(""))
@@ -327,23 +326,21 @@ func Register(host string) (client *Client, err error) {
 	return
 }
 
-func RegisterWithProfile(host string) (client *Client, err error) {
+func RegisterWithProfile(host string, profile_path string) (client *Client, err error) {
 
-	if _, err := os.Stat(conf.CLIENT_PROFILE); err != nil {
-		return nil, errors.New("profile file not found: " + conf.CLIENT_PROFILE)
+	if _, err := os.Stat(profile_path); err != nil {
+		return nil, errors.New("profile file not found: " + profile_path)
 	}
-
-	filename := conf.CLIENT_PROFILE
 
 	bodyBuf := &bytes.Buffer{}
 	bodyWriter := multipart.NewWriter(bodyBuf)
 
-	fileWriter, err := bodyWriter.CreateFormFile("profile", filename)
+	fileWriter, err := bodyWriter.CreateFormFile("profile", profile_path)
 	if err != nil {
 		return nil, err
 	}
 
-	fh, err := os.Open(filename)
+	fh, err := os.Open(profile_path)
 	if err != nil {
 		return nil, err
 	}
@@ -375,6 +372,21 @@ func RegisterWithProfile(host string) (client *Client, err error) {
 		return
 	}
 	client = &response.Data
+	return
+}
+
+func ReRegisterWithSelf(host string) (client *Client, err error) {
+	self_jsonstream, err := json.Marshal(self)
+	tmpProfile := conf.DATA_PATH + "/temp.profile"
+	ioutil.WriteFile(tmpProfile, []byte(self_jsonstream), 0644)
+	client, err = RegisterWithProfile(host, tmpProfile)
+	if err != nil {
+		Log.Error("Error: fail to re-register, clientid=" + self.Id)
+		fmt.Printf("failed to re-register\n")
+	} else {
+		Log.Event(EVENT_CLIENT_AUTO_REREGI, "clientid="+self.Id)
+		fmt.Printf("re-register successfully\n")
+	}
 	return
 }
 

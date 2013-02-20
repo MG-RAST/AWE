@@ -192,7 +192,7 @@ func (qm *QueueMgr) AddTasks(jobid string, tasks []*Task) (err error) {
 func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num int) (workunits []*Workunit, err error) {
 	//precheck if teh client is registered
 	if _, hasClient := qm.clientMap[client_id]; !hasClient {
-		return nil, errors.New("invalid client id: " + client_id)
+		return nil, errors.New(e.ClientNotFound)
 	}
 
 	//lock semephore, at one time only one client's checkout request can be served 

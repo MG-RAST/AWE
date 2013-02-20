@@ -24,21 +24,29 @@ func workStealer(control chan int) {
 		wu, err := CheckoutWorkunitRemote(conf.SERVER_URL)
 		if err != nil {
 			if err.Error() == e.QueueEmpty || err.Error() == e.NoEligibleWorkunitFound {
-				time.Sleep(5 * time.Second)
-			} else {
+				//normal, do nothing
+			} else if err.Error() == e.ClientNotFound { //server may be restarted, re-register
+				fmt.Printf("lost contact with server, try to re-register\n")
+				if _, err := ReRegisterWithSelf(conf.SERVER_URL); err != nil {
+					retry += 1
+				}
+			} else { //something is wrong, server may be down
 				fmt.Printf("error in checking out workunits: %v\n", err)
 				retry += 1
-				if retry == 3 {
-					os.Exit(1)
-				}
-				time.Sleep(3 * time.Second)
 			}
+			if retry == 5 {
+				os.Exit(1)
+			}
+			time.Sleep(5 * time.Second)
 			continue
+		} else {
+			retry = 0
 		}
 		fmt.Printf("workStealer: checked out a workunit: id=%s\n", wu.Id)
 		//log event about work checktout (WC)
 		Log.Event(EVENT_WORK_CHECKOUT, "workid="+wu.Id)
-
+		self.Total_checkout += 1
+		self.Current_work[wu.Id] = true
 		workChan <- wu
 	}
 	control <- 0 //we are ending
@@ -53,7 +61,7 @@ func worker(control chan int) {
 			fmt.Printf("!!!RunWorkunit() returned error: %s\n", err.Error())
 			Log.Error("RunWorkunit(): workid=" + work.Id + ", " + err.Error())
 
-			//restart once
+			//restart once and if it still fails
 			if err := RunWorkunit(work); err != nil {
 				fmt.Printf("!!!ReRunWorkunit() returned error: %s\n", err.Error())
 				Log.Error("ReRunWorkunit(): workid=" + work.Id + ", " + err.Error())
@@ -64,6 +72,8 @@ func worker(control chan int) {
 					Log.Error("NotifyWorkunitFail: workid=" + work.Id + ", err=" + err.Error())
 				}
 				Log.Event(EVENT_WORK_RETURN, "workid="+work.Id)
+				self.Total_failed += 1
+				delete(self.Current_work, work.Id)
 				continue
 			}
 		}
@@ -72,6 +82,8 @@ func worker(control chan int) {
 			Log.Error("NotifyWorkunitDone: workid=" + work.Id + ", err=" + err.Error())
 		}
 		Log.Event(EVENT_WORK_DONE, "workid="+work.Id)
+		self.Total_completed += 1
+		delete(self.Current_work, work.Id)
 	}
 	control <- 1 //we are ending
 }
@@ -100,7 +112,7 @@ func main() {
 	}
 
 	var err error
-	self, err = RegisterWithProfile(conf.SERVER_URL)
+	self, err = RegisterWithProfile(conf.SERVER_URL, conf.CLIENT_PROFILE)
 	if err != nil {
 		fmt.Printf("fail to register: %v\n", err)
 		os.Exit(1)

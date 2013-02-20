@@ -25,7 +25,8 @@ var (
 )
 
 const (
-	EVENT_CLIENT_REGISTRATION = "CR" //client registered
+	EVENT_CLIENT_REGISTRATION = "CR" //client registered (for the first time)
+	EVENT_CLIENT_AUTO_REREGI  = "CA" //client automatically re-registered
 	EVENT_CLIENT_UNREGISTER   = "CU" //client unregistered
 	EVENT_WORK_CHECKOUT       = "WC" //workunit checkout 
 	EVENT_WORK_FAIL           = "WF" //workunit fails running

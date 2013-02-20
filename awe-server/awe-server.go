@@ -117,7 +117,6 @@ func main() {
 
 	var host string
 	if hostname, err := os.Hostname(); err == nil {
-		fmt.Println("hostname=" + hostname)
 		host = fmt.Sprintf("%s:%d", hostname, conf.API_PORT)
 	}
 	if conf.RECOVER {

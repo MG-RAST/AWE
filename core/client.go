@@ -52,18 +52,24 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 	if err := json.Unmarshal(jsonstream, client); err != nil {
 		return nil, err
 	}
-	client.Id = uuid.New()
-	client.RegTime = time.Now()
+	if client.Id == "" {
+		client.Id = uuid.New()
+	}
+	if client.RegTime.IsZero() {
+		client.RegTime = time.Now()
+	}
 	if client.Apps == nil {
 		client.Apps = []string{}
 	}
 	client.Skip_work = []string{}
 	client.Status = "active"
-	client.Total_checkout = 0
-	client.Total_completed = 0
-	client.Total_failed = 0
-	client.Current_work = map[string]bool{}
+	if client.Current_work == nil {
+		client.Current_work = map[string]bool{}
+	}
 	client.Tag = true
-	client.Serve_time = "0"
+	//client.Total_checkout = 0
+	//client.Total_completed = 0
+	//client.Total_failed = 0
+	//client.Serve_time = "0"
 	return
 }

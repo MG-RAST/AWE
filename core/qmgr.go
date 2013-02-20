@@ -190,7 +190,7 @@ func (qm *QueueMgr) AddTasks(jobid string, tasks []*Task) (err error) {
 }
 
 func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num int) (workunits []*Workunit, err error) {
-	//precheck if teh client is registered
+	//precheck if the client is registered
 	if _, hasClient := qm.clientMap[client_id]; !hasClient {
 		return nil, errors.New(e.ClientNotFound)
 	}
@@ -389,6 +389,7 @@ func (qm *QueueMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 		for _, work := range works {
 			coinfo := coInfo{workunit: work, clientid: req.fromclient}
 			qm.workQueue.coWorkMap[work.Id] = coinfo
+			delete(qm.workQueue.workMap, work.Id)
 		}
 	}
 	return
@@ -536,6 +537,18 @@ func (qm *QueueMgr) RegisterNewClient(params map[string]string, files FormFiles)
 		return nil, err
 	}
 	qm.clientMap[client.Id] = client
+
+	if len(client.Current_work) > 0 { //re-registered client 
+		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
+		for workid, _ := range client.Current_work {
+			if work, ok := qm.workQueue.workMap[workid]; ok {
+				coinfo := coInfo{workunit: work, clientid: client.Id}
+				qm.workQueue.coWorkMap[workid] = coinfo
+				delete(qm.workQueue.workMap, workid)
+			}
+		}
+	}
+
 	return
 }
 
@@ -649,7 +662,6 @@ func (wq *WQueue) getWorks(workid []string, policy string, count int) (works []*
 	}
 	for i := 0; i < count; i++ {
 		works = append(works, worklist[i])
-		delete(wq.workMap, worklist[i].Id)
 	}
 
 	return

@@ -72,17 +72,107 @@ type coInfo struct {
 }
 
 type WQueue struct {
-	workMap   map[string]*Workunit //workunits waiting in the queue
-	coWorkMap map[string]coInfo    //workunits being checked out yet not done
+	workMap  map[string]*Workunit //all parsed workunits
+	wait     map[string]bool      //ids of waiting workunits
+	checkout map[string]bool      //ids of workunits being checked out
+	suspend  map[string]bool      //ids of suspended workunits
 }
 
 func NewWQueue() *WQueue {
 	return &WQueue{
-		workMap:   map[string]*Workunit{},
-		coWorkMap: map[string]coInfo{},
+		workMap:  map[string]*Workunit{},
+		wait:     map[string]bool{},
+		checkout: map[string]bool{},
+		suspend:  map[string]bool{},
 	}
 }
 
+//WQueue functions
+func (wq WQueue) Len() int {
+	return len(wq.workMap)
+}
+
+func (wq *WQueue) Add(workunit *Workunit) (err error) {
+	if workunit.Id == "" {
+		return errors.New("try to push a workunit with an empty id")
+	}
+	wq.workMap[workunit.Id] = workunit
+	wq.wait[workunit.Id] = true
+	return nil
+}
+
+func (wq *WQueue) Delete(id string) {
+	delete(wq.wait, id)
+	delete(wq.checkout, id)
+	delete(wq.suspend, id)
+	delete(wq.workMap, id)
+}
+
+func (wq *WQueue) Has(id string) (has bool) {
+	if _, ok := wq.workMap[id]; ok {
+		has = true
+	} else {
+		has = false
+	}
+	return
+}
+
+func (wq *WQueue) StatusChange(id string, new_status string) (err error) {
+	if _, ok := wq.workMap[id]; !ok {
+		return errors.New("WQueue.statusChange: invalid workunit id:" + id)
+	}
+	//move workunit id between maps. no need to care about the old status because
+	//delete function will do nothing if the operated map has no such key. 
+	if new_status == WORK_STAT_CHECKOUT {
+		wq.checkout[id] = true
+		delete(wq.wait, id)
+		delete(wq.suspend, id)
+	} else if new_status == WORK_STAT_QUEUED {
+		wq.wait[id] = true
+		delete(wq.checkout, id)
+		delete(wq.suspend, id)
+	} else if new_status == WORK_STAT_SUSPEND {
+		wq.suspend[id] = true
+		delete(wq.checkout, id)
+		delete(wq.wait, id)
+	} else {
+		return errors.New("WQueue.statusChange: invalid new status:" + new_status)
+	}
+	wq.workMap[id].State = new_status
+	return
+}
+
+//select workunits, return a slice of ids based on given queuing policy and requested count
+func (wq *WQueue) selectWorkunits(workid []string, policy string, count int) (selected []*Workunit, err error) {
+	worklist := []*Workunit{}
+	for _, id := range workid {
+		worklist = append(worklist, wq.workMap[id])
+	}
+	//selected = []*Workunit{}
+	if policy == "FCFS" {
+		sort.Sort(byFCFS{worklist})
+	}
+	for i := 0; i < count; i++ {
+		selected = append(selected, worklist[i])
+	}
+	return
+}
+
+//queuing/prioritizing related functions
+type WorkList []*Workunit
+
+func (wl WorkList) Len() int      { return len(wl) }
+func (wl WorkList) Swap(i, j int) { wl[i], wl[j] = wl[j], wl[i] }
+
+type byFCFS struct{ WorkList }
+
+func (s byFCFS) Less(i, j int) bool {
+	return s.WorkList[i].Info.SubmitTime.Before(s.WorkList[j].Info.SubmitTime)
+}
+
+//end of WQueue functions
+
+//start of QueueMgr functions
 //to-do: consider separate some independent tasks into another goroutine to handle
 func (qm *QueueMgr) Handle() {
 	for {
@@ -140,9 +230,8 @@ func (qm *QueueMgr) ClientChecker() {
 				//requeue unfinished workunits associated with the failed client
 				workids := qm.getWorkByClient(clientid)
 				for _, workid := range workids {
-					if coinfo, ok := qm.workQueue.coWorkMap[workid]; ok {
-						qm.workQueue.workMap[workid] = coinfo.workunit
-						delete(qm.workQueue.coWorkMap, workid)
+					if qm.workQueue.Has(workid) {
+						qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
 						Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
 					}
 				}
@@ -358,7 +447,7 @@ func (qm *QueueMgr) parseTask(task *Task) (err error) {
 		return err
 	}
 	for _, wu := range workunits {
-		if err := qm.workQueue.Push(wu); err != nil {
+		if err := qm.workQueue.Add(wu); err != nil {
 			return err
 		}
 	}
@@ -383,13 +472,10 @@ func (qm *QueueMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 	if len(filtered) == 0 {
 		return nil, errors.New(e.NoEligibleWorkunitFound)
 	}
-	works, err = qm.workQueue.getWorks(filtered, req.policy, req.count)
-
+	works, err = qm.workQueue.selectWorkunits(filtered, req.policy, req.count)
 	if err == nil { //get workunits successfully, put them into coWorkMap
 		for _, work := range works {
-			coinfo := coInfo{workunit: work, clientid: req.fromclient}
-			qm.workQueue.coWorkMap[work.Id] = coinfo
-			delete(qm.workQueue.workMap, work.Id)
+			qm.workQueue.StatusChange(work.Id, WORK_STAT_CHECKOUT)
 		}
 	}
 	return
@@ -425,11 +511,9 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 			} else {
 				//it happens when feedback is sent after server restarted and before client re-registered
 			}
-
 			qm.taskMap[taskid].RemainWork -= 1
 			if qm.taskMap[taskid].RemainWork == 0 {
 				qm.taskMap[taskid].State = "completed"
-
 				//log event about task done (TD) 
 				Log.Event(EVENT_TASK_DONE, "taskid="+taskid)
 				if err = qm.updateJob(qm.taskMap[taskid]); err != nil {
@@ -437,20 +521,21 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				}
 				qm.updateQueue()
 			}
-			delete(qm.workQueue.coWorkMap, workid)
+			//done, remove from the workQueue
+			qm.workQueue.Delete(workid)
 		} else if status == "fail" { //requeue failed workunit
 			Log.Event(EVENT_WORK_FAIL, "workid="+workid+";clientid="+clientid)
-			if coinfo, ok := qm.workQueue.coWorkMap[workid]; ok {
-				qm.workQueue.workMap[workid] = coinfo.workunit
-				delete(qm.workQueue.coWorkMap, workid)
-				client := qm.clientMap[coinfo.clientid]
+			if qm.workQueue.Has(workid) {
+				qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
+				Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
+			}
+			if client, ok := qm.clientMap[clientid]; ok {
 				client.Skip_work = append(client.Skip_work, workid)
 				client.Total_failed += 1
-				Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
 			}
 		}
 	} else { //task not existed, possible when job is deleted before the workunit done
-		delete(qm.workQueue.coWorkMap, workid)
+		qm.workQueue.Delete(workid)
 	}
 	return
 }
@@ -481,8 +566,10 @@ func (qm *QueueMgr) ShowTasks() {
 
 func (qm *QueueMgr) ShowStatus() string {
 	total_task := len(qm.taskMap)
-	queuing_work := len(qm.workQueue.workMap)
-	out_work := len(qm.workQueue.coWorkMap)
+	queuing_work := len(qm.workQueue.wait)
+	out_work := len(qm.workQueue.checkout)
+	suspend_work := len(qm.workQueue.suspend)
+	total_active_work := len(qm.workQueue.workMap)
 	pending := 0
 	completed := 0
 	queuing := 0
@@ -502,26 +589,13 @@ func (qm *QueueMgr) ShowStatus() string {
 		fmt.Sprintf("    queuing:    (%d)\n", queuing) +
 		fmt.Sprintf("    pending:    (%d)\n", pending) +
 		fmt.Sprintf("    completed:  (%d)\n", completed) +
-		fmt.Sprintf("total workunits .... %d\n", queuing_work+out_work) +
+		fmt.Sprintf("total workunits .... %d\n", total_active_work) +
 		fmt.Sprintf("    queuing:  (%d)\n", queuing_work) +
 		fmt.Sprintf("    checkout: (%d)\n", out_work) +
+		fmt.Sprintf("    suspended: (%d)\n", suspend_work) +
 		fmt.Sprintf("total clients ...... %d\n", len(qm.clientMap)) +
 		fmt.Sprintf("---last update: %s\n\n", time.Now())
 	return statMsg
-}
-
-//WQueue functions
-
-func (wq WQueue) Len() int {
-	return len(wq.workMap)
-}
-
-func (wq *WQueue) Push(workunit *Workunit) (err error) {
-	if workunit.Id == "" {
-		return errors.New("try to push a workunit with an empty id")
-	}
-	wq.workMap[workunit.Id] = workunit
-	return nil
 }
 
 //Client functions
@@ -541,14 +615,11 @@ func (qm *QueueMgr) RegisterNewClient(params map[string]string, files FormFiles)
 	if len(client.Current_work) > 0 { //re-registered client 
 		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
 		for workid, _ := range client.Current_work {
-			if work, ok := qm.workQueue.workMap[workid]; ok {
-				coinfo := coInfo{workunit: work, clientid: client.Id}
-				qm.workQueue.coWorkMap[workid] = coinfo
-				delete(qm.workQueue.workMap, workid)
+			if qm.workQueue.Has(workid) {
+				qm.workQueue.StatusChange(workid, WORK_STAT_CHECKOUT)
 			}
 		}
 	}
-
 	return
 }
 
@@ -635,36 +706,6 @@ func (qm *QueueMgr) updateJob(task *Task) (err error) {
 
 func (qm *QueueMgr) GetActiveJobs() map[string]bool {
 	return qm.actJobs
-}
-
-//queue related functions
-type WorkList []*Workunit
-
-func (wl WorkList) Len() int      { return len(wl) }
-func (wl WorkList) Swap(i, j int) { wl[i], wl[j] = wl[j], wl[i] }
-
-type byFCFS struct{ WorkList }
-
-func (s byFCFS) Less(i, j int) bool {
-	return s.WorkList[i].Info.SubmitTime.Before(s.WorkList[j].Info.SubmitTime)
-}
-
-func (wq *WQueue) getWorks(workid []string, policy string, count int) (works []*Workunit, err error) {
-	worklist := []*Workunit{}
-	for _, id := range workid {
-		worklist = append(worklist, wq.workMap[id])
-	}
-
-	works = []*Workunit{}
-
-	if policy == "FCFS" {
-		sort.Sort(byFCFS{worklist})
-	}
-	for i := 0; i < count; i++ {
-		works = append(works, worklist[i])
-	}
-
-	return
 }
 
 //recover jobs not completed before awe-server restarts

@@ -6,6 +6,12 @@ import (
 	"os"
 )
 
+const (
+	WORK_STAT_QUEUED   = "queued"
+	WORK_STAT_CHECKOUT = "checkout"
+	WORK_STAT_SUSPEND  = "suspend"
+)
+
 type Workunit struct {
 	Id        string    `bson:"wuid" json:"wuid"`
 	Info      *Info     `bson:"info" json:"info"`
@@ -15,6 +21,7 @@ type Workunit struct {
 	Rank      int       `bson:"rank" json:"rank"`
 	TotalWork int       `bson:"totalwork" json:"totalwork"`
 	Partition *PartInfo `bson:"part" json:"part"`
+	State     string    `bson:"state" json:"state"`
 }
 
 type datapart struct {
@@ -32,6 +39,7 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 		Rank:      rank,
 		TotalWork: task.TotalWork, //keep this info in workunit for load balancing
 		Partition: task.Partition,
+		State:     WORK_STAT_QUEUED,
 	}
 }
 

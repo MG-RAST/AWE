@@ -22,6 +22,7 @@ type Workunit struct {
 	TotalWork int       `bson:"totalwork" json:"totalwork"`
 	Partition *PartInfo `bson:"part" json:"part"`
 	State     string    `bson:"state" json:"state"`
+	Failed    int       `bson:"failed" json:"failed"`
 }
 
 type datapart struct {
@@ -40,6 +41,7 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 		TotalWork: task.TotalWork, //keep this info in workunit for load balancing
 		Partition: task.Partition,
 		State:     WORK_STAT_QUEUED,
+		Failed:    0,
 	}
 }
 

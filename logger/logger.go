@@ -37,6 +37,7 @@ const (
 	EVENT_TASK_ENQUEUE   = "TQ" //task parsed and enqueue
 	EVENT_WORK_DONE      = "WD" //workunit received successful feedback from client
 	EVENT_WORK_REQUEUE   = "WR" //workunit requeue after receive failed feedback from client
+	EVENT_WORK_SUSPEND   = "WP" //workunit suspend after failing for conf.Max_Failure times
 	EVENT_TASK_DONE      = "TD" //task done (all the workunits in the task have finished)
 	EVENT_JOB_DONE       = "JD" //job done (all the tasks in the job have finished)
 	//client only events

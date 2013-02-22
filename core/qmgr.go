@@ -523,11 +523,17 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 			}
 			//done, remove from the workQueue
 			qm.workQueue.Delete(workid)
-		} else if status == "fail" { //requeue failed workunit
+		} else if status == "fail" { //workunit failed, requeue or put it to suspend list
 			Log.Event(EVENT_WORK_FAIL, "workid="+workid+";clientid="+clientid)
 			if qm.workQueue.Has(workid) {
-				qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
-				Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
+				qm.workQueue.workMap[workid].Failed += 1
+				if qm.workQueue.workMap[workid].Failed < conf.MAX_FAILURE {
+					qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
+					Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
+				} else {
+					qm.workQueue.StatusChange(workid, WORK_STAT_SUSPEND)
+					Log.Event(EVENT_WORK_SUSPEND, "workid="+workid)
+				}
 			}
 			if client, ok := qm.clientMap[clientid]; ok {
 				client.Skip_work = append(client.Skip_work, workid)

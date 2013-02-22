@@ -55,6 +55,9 @@ var (
 	//debug log level
 	DEBUG_LEVEL = 0
 
+	//number of times that one workunit fails before considered suspend
+	MAX_FAILURE = 2
+
 	//client
 	TOTAL_WORKER   = 1
 	WORK_PATH      = ""

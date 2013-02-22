@@ -71,7 +71,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		return
 	}
 
-	queueMgr.AddTasks(job.TaskList())
+	queueMgr.AddTasks(job.Id, job.TaskList())
 
 	//log event about job submission (JB)
 	Log.Event(EVENT_JOB_SUBMISSION, "jobid="+job.Id+";jid="+job.Jid)
@@ -126,6 +126,8 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				q[key] = val[0]
 			}
 		}
+	} else if query.Has("active") {
+		q["state"] = core.JOB_STAT_SUBMITTED
 	}
 
 	// Limit and skip. Set default if both are not specified
@@ -149,7 +151,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			return
 		}
 	} else {
-		// Get nodes from db
+		// Get jobs from db
 		err := jobs.GetAll(q)
 		if err != nil {
 			Log.Error("err " + err.Error())
@@ -158,6 +160,21 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		}
 	}
 
+	//filtering real active job (some jobs are in "submitted" states but not in the queue,
+	//because they may have failed and not recovered from the mongodb).
+	if query.Has("active") {
+		filtered_jobs := []core.Job{}
+		act_jobs := queueMgr.GetActiveJobs()
+		length := jobs.Length()
+		for i := 0; i < length; i++ {
+			job := jobs.GetJobAt(i)
+			if _, ok := act_jobs[job.Id]; ok {
+				filtered_jobs = append(filtered_jobs, job)
+			}
+		}
+		cx.RespondWithData(filtered_jobs)
+		return
+	}
 	cx.RespondWithData(jobs)
 	return
 }

@@ -6,6 +6,14 @@ import (
 	"os/exec"
 )
 
+const (
+	TASK_STAT_INIT      = "init"
+	TASK_STAT_QUEUED    = "queued"
+	TASK_STAT_PENDING   = "pending"
+	TASK_STAT_SUSPEND   = "suspend"
+	TASK_STAT_COMPLETED = "completed"
+)
+
 type Task struct {
 	Id         string    `bson:"taskid" json:"taskid"`
 	Info       *Info     `bson:"info" json:"-"`
@@ -52,7 +60,7 @@ func NewTask(job *Job, rank int) *Task {
 		TotalWork:  1,
 		RemainWork: 1,
 		WorkStatus: []string{},
-		State:      "init",
+		State:      TASK_STAT_INIT,
 	}
 }
 
@@ -104,7 +112,7 @@ func (task *Task) UpdateState(newState string) string {
 func (task *Task) InitTask(job *Job) (err error) {
 	task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
 	task.Info = job.Info
-	task.State = "init"
+	task.State = TASK_STAT_INIT
 	task.WorkStatus = make([]string, task.TotalWork)
 	task.RemainWork = task.TotalWork
 

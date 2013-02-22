@@ -25,15 +25,19 @@ var (
 )
 
 const (
-	EVENT_CLIENT_REGISTRATION = "CR" //client registered
+	EVENT_CLIENT_REGISTRATION = "CR" //client registered (for the first time)
+	EVENT_CLIENT_AUTO_REREGI  = "CA" //client automatically re-registered
 	EVENT_CLIENT_UNREGISTER   = "CU" //client unregistered
 	EVENT_WORK_CHECKOUT       = "WC" //workunit checkout 
 	EVENT_WORK_FAIL           = "WF" //workunit fails running
 	//server only events
+	EVENT_SERVER_START   = "SS" //awe-server start
+	EVENT_SERVER_RECOVER = "SR" //awe-server start with recover option  (-recover)
 	EVENT_JOB_SUBMISSION = "JQ" //job submitted
 	EVENT_TASK_ENQUEUE   = "TQ" //task parsed and enqueue
 	EVENT_WORK_DONE      = "WD" //workunit received successful feedback from client
 	EVENT_WORK_REQUEUE   = "WR" //workunit requeue after receive failed feedback from client
+	EVENT_WORK_SUSPEND   = "WP" //workunit suspend after failing for conf.Max_Failure times
 	EVENT_TASK_DONE      = "TD" //task done (all the workunits in the task have finished)
 	EVENT_JOB_DONE       = "JD" //job done (all the tasks in the job have finished)
 	//client only events

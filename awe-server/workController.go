@@ -81,8 +81,8 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	// Gather query params
 	query := &Query{list: cx.Request.URL.Query()}
 
-	if query.Has("status") {
-		notice := core.Notice{Workid: id, Status: query.Value("status")}
+	if query.Has("status") && query.Has("client") {
+		notice := core.Notice{WorkId: id, Status: query.Value("status"), ClientId: query.Value("client")}
 		queueMgr.NotifyWorkStatus(notice)
 	}
 

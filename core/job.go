@@ -18,6 +18,7 @@ import (
 const (
 	JOB_STAT_SUBMITTED = "submitted"
 	JOB_STAT_COMPLETED = "completed"
+	JOB_STAT_SUSPEND   = "suspend"
 	JOB_STAT_DELETED   = "deleted"
 )
 

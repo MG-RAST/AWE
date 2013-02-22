@@ -10,14 +10,14 @@
         "tasks": [
             {
                 "cmd": {
-                    "args": "-input=@#jobname.fastq -output=#jobname.prep.fna", 
+                    "args": "-input=@#inputfile -output=#jobname.prep.fna", 
                     "description": "preprocess", 
                     "name": "awe_preprocess.pl"
                 }, 
                 "dependsOn": [], 
                 "inputs": {
-                   "#jobname.fastq": {
-                        "name": "#jobname.fastq",
+                   "#inputfile": {
+                        "name": "#inputfile",
                         "host": "http://#shockurl",
                         "node": "#shocknode"
                     }
@@ -30,7 +30,7 @@
                     }
                 },
                 "partinfo": {
-                     "input": "#jobname.fastq",
+                     "input": "#inputfile",
                      "output": "#jobname.prep.fna",
                      "index": "record"
                 },

@@ -43,6 +43,19 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 // GET: /client/{id}
 func (cr *ClientController) Read(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	// Gather query params
+	query := &Query{list: cx.Request.URL.Query()}
+	if query.Has("heartbeat") {
+		client, err := queueMgr.ClientHeartBeat(id)
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		} else {
+			cx.RespondWithData(client.Id)
+		}
+		return
+	}
+
 	client, err := queueMgr.GetClient(id)
 	if err != nil {
 		if err.Error() == e.ClientNotFound {

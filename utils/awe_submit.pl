@@ -2,11 +2,12 @@
 #Pipeline job submitter for AWE
 #Command name: awe_submit.pl
 #Options:
-#     -awe=<AWE server URL (ip:port)>
-#     -shock=<Shock URL (ip:port)>
+#     -awe=<AWE server URL (ip:port), required>
+#     -shock=<Shock URL (ip:port), required>
 #     -node=<shock node of the input file>
+#     -type=<input file type, fna|fasta|fastq|fa, required when -node is set>
 #     -upload=<input file that is local and to be uploaded>
-#     -pipeline=<path for pipeline job template>
+#     -pipeline=<path for pipeline job template, required when -node or -upload is set>
 #     -script=<path for complete job json file>
 #     -name=<job name>
 #     -user=<user name>
@@ -15,19 +16,18 @@
 #     
 #     
 #Use case 1: submit a job with a shock url for the input file location and a pipeline template (input file is on shock)
-#      Required options: -awe, -shock, -node, -pipeline
+#      Required options: -node, -pipeline, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
 #      Optional options: -name, -user, -project, -cgroups
 #      Operations:
-#               1. upload input file to shock
-#               2. fill shock url into the pipeline template and make a job json script
-#               3. submit the job json script to awe
+#               1. create job script based on job template and available info
+#               2. submit the job json script to awe
 #
 #Use case 2: submit a job with a local input file and a pipeline template (input file is local and will be uploaded to shock automatially;
-#      Required options: -awe, -shock, -upload, -pipeline
+#      Required options: -upload, -pipeline, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
 #      Optional options: -name, -user, -project, -cgroups
 #      Operations:
 #               1. upload input file to shock
-#               2. fill shock url into the pipeline template and make a job json script
+#               2. create job script based on job template and available info
 #               3. submit the job json script to awe
 #               
 #Use case 3: submit a job with a complete job json script (job script is already instantiated, suitable for recomputation)
@@ -36,7 +36,7 @@
 #      Operations: submit the job json script to awe directly.
 #      
 #note:
-#1. the three use cases are mutual exclusive: only one of -node, -upload, and -upload can be specified at one time.
+#1. the three use cases are mutual exclusive: at least one and only one of -node, -upload, and -upload can be specified at one time.
 #2. if AWE_HOST (ip:port) and SHOCK_HOST (ip:port) are configured as environment variables, -awe and -shock are not needed respectively. But
 #the specified -awe and -shock will over write the preconfigured environment variables.
 
@@ -61,6 +61,7 @@ my $user_name = "default";
 my $project_name = "default";
 my $job_name="";
 my $clients="";
+my $file_type="";
 my $help = 0;
 
 my $options = GetOptions ("upload=s"   => \$infile,
@@ -72,6 +73,7 @@ my $options = GetOptions ("upload=s"   => \$infile,
                           "user=s"   => \$user_name,
                           "project=s" => \$project_name,
                           "name=s" => \$job_name,
+                          "type=s" => \$file_type,
                           "cgroups=s" => \$clients,
                           "h"  => \$help,
 			 );
@@ -119,6 +121,12 @@ if (length($input_script)>0 && length($node_id)>0) {
 
 if (length($infile)==0 && length($input_script)==0 && length($node_id)==0) {
     print "ERROR: please specify either of the following: shock node id or local path of the input file, or the exiting job json script\n";
+    print_usage();
+    exit 1;
+}
+
+if (length($node_id)>0 && length($file_type)==0) {
+    print "ERROR: please specify file type (fasta fastq fna) when using shock node as input\n";
     print_usage();
     exit 1;
 }
@@ -184,6 +192,13 @@ if (length($node_id)>0 || (length($infile)>0)) { #use case 1 or 2
     system("perl -p -i -e 's/#user/$user_name/g;' $jobscript");
     system("perl -p -i -e 's/#jobname/$job_name/g;' $jobscript");
     system("perl -p -i -e 's/#clientgroups/$clients/g;' $jobscript");
+    
+    if (length($infile)>0) {
+        system("perl -p -i -e 's/#inputfile/$infile/g;' $jobscript");
+    } else {
+        system("perl -p -i -e 's/#inputfile/$job_name.$file_type/g;' $jobscript");
+    }
+    
 } else { #Use case 3, use the already instantiated job script
     $jobscript = $input_script;
 }
@@ -226,11 +241,12 @@ sub print_usage{
 Pipeline job submitter for AWE
 Command name: awe_submit.pl
 Options:
-     -awe=<AWE server URL (ip:port)>
-     -shock=<Shock URL (ip:port)>
+     -awe=<AWE server URL (ip:port), required>
+     -shock=<Shock URL (ip:port), required>
      -node=<shock node of the input file>
+     -type=<input file type, fna|fasta|fastq|fa, required when -node is set>
      -upload=<input file that is local and to be uploaded>
-     -pipeline=<path for pipeline job template>
+     -pipeline=<path for pipeline job template, required when -node or -upload is set>
      -script=<path for complete job json file>
      -name=<job name>
      -user=<user name>
@@ -242,16 +258,15 @@ Use case 1: submit a job with a shock url for the input file location and a pipe
       Required options: -node, -pipeline, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
       Optional options: -name, -user, -project, -cgroups
       Operations:
-               1. upload input file to shock
-               2. fill shock url into the pipeline template and make a job json script
-               3. submit the job json script to awe
+               1. create job script based on job template and available info
+               2. submit the job json script to awe
 
 Use case 2: submit a job with a local input file and a pipeline template (input file is local and will be uploaded to shock automatially;
       Required options: -upload, -pipeline, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
       Optional options: -name, -user, -project, -cgroups
       Operations:
                1. upload input file to shock
-               2. fill shock url into the pipeline template and make a job json script
+               2. create job script based on job template and available info
                3. submit the job json script to awe
                
 Use case 3: submit a job with a complete job json script (job script is already instantiated, suitable for recomputation)
@@ -260,7 +275,7 @@ Use case 3: submit a job with a complete job json script (job script is already 
       Operations: submit the job json script to awe directly.
       
 note:
-1. the three use cases are mutual exclusive: only one of -node, -upload, and -upload can be specified at one time.
+1. the three use cases are mutual exclusive: at least one and only one of -node, -upload, and -upload can be specified at one time.
 2. if AWE_HOST (ip:port) and SHOCK_HOST (ip:port) are configured as environment variables, -awe and -shock are not needed respectively. But
 the specified -awe and -shock will over write the preconfigured environment variables.
 \n";

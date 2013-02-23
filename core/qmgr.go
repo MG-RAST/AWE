@@ -525,9 +525,8 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 	if _, ok := qm.clientMap[clientid]; ok {
 		delete(qm.clientMap[clientid].Current_work, workid)
 	}
-
 	if _, ok := qm.taskMap[taskid]; ok {
-		task_work_status := status
+		qm.updateTaskWorkStatus(taskid, rank, status)
 		if status == WORK_STAT_DONE {
 			//log event about work done (WD)
 			Log.Event(EVENT_WORK_DONE, "workid="+workid+";clientid="+clientid)
@@ -543,6 +542,8 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				qm.taskMap[taskid].State = TASK_STAT_COMPLETED
 				//log event about task done (TD) 
 				Log.Event(EVENT_TASK_DONE, "taskid="+taskid)
+				//update the info of the job which the task is belong to, could result in deletion of the
+				//task in the task map when the task is the final task of the job to be done.
 				if err = qm.updateJob(qm.taskMap[taskid]); err != nil {
 					return
 				}
@@ -560,7 +561,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				} else { //failure time exceeds limit, suspend workunit, task, job
 					qm.workQueue.StatusChange(workid, WORK_STAT_SUSPEND)
 					Log.Event(EVENT_WORK_SUSPEND, "workid="+workid)
-					task_work_status = WORK_STAT_SUSPEND
+					qm.updateTaskWorkStatus(taskid, rank, WORK_STAT_SUSPEND)
 					qm.taskMap[taskid].State = TASK_STAT_SUSPEND
 					if err := qm.SuspendJob(jobid); err != nil {
 						Log.Error("error returned by SuspendJOb()" + err.Error())
@@ -572,14 +573,20 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				client.Total_failed += 1
 			}
 		}
-		if rank == 0 {
-			qm.taskMap[taskid].WorkStatus[rank] = task_work_status
-		} else {
-			qm.taskMap[taskid].WorkStatus[rank-1] = task_work_status
-		}
-
 	} else { //task not existed, possible when job is deleted before the workunit done
 		qm.workQueue.Delete(workid)
+	}
+	return
+}
+
+func (qm *QueueMgr) updateTaskWorkStatus(taskid string, rank int, newstatus string) {
+	if _, ok := qm.taskMap[taskid]; !ok {
+		return
+	}
+	if rank == 0 {
+		qm.taskMap[taskid].WorkStatus[rank] = newstatus
+	} else {
+		qm.taskMap[taskid].WorkStatus[rank-1] = newstatus
 	}
 	return
 }

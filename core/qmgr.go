@@ -706,7 +706,11 @@ func (qm *QueueMgr) DeleteClient(id string) {
 
 func (qm *QueueMgr) filterWorkByClient(clientid string) (ids []string) {
 	client := qm.clientMap[clientid]
-	for id, work := range qm.workQueue.workMap {
+	for id, _ := range qm.workQueue.wait {
+		if _, ok := qm.workQueue.workMap[id]; !ok {
+			continue
+		}
+		work := qm.workQueue.workMap[id]
 		//skip works that are in the client's skip-list
 		if contains(client.Skip_work, work.Id) {
 			continue

@@ -73,3 +73,10 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 	//client.Serve_time = "0"
 	return
 }
+
+func (cl *Client) IsBusy() bool {
+	if len(cl.Current_work) > 0 {
+		return true
+	}
+	return false
+}

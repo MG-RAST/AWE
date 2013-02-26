@@ -306,6 +306,13 @@ func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num i
 	return ack.workunits, ack.err
 }
 
+func (qm *QueueMgr) ShowWorkunits() (workunits []*Workunit) {
+	for _, work := range qm.workQueue.workMap {
+		workunits = append(workunits, work)
+	}
+	return workunits
+}
+
 func (qm *QueueMgr) JobRegister() (jid string, err error) {
 	qm.jsReq <- true
 	jid = <-qm.jsAck
@@ -639,6 +646,15 @@ func (qm *QueueMgr) ShowStatus() string {
 	in_progress_job := len(qm.actJobs)
 	suspend_job := len(qm.susJobs)
 	total_job := in_progress_job + suspend_job
+	busy_client := 0
+	idle_client := 0
+	for _, client := range qm.clientMap {
+		if client.IsBusy() {
+			busy_client += 1
+		} else {
+			idle_client += 1
+		}
+	}
 
 	statMsg := "+++++AWE server queue status+++++\n" +
 		fmt.Sprintf("total jobs .......... %d\n", total_job) +
@@ -654,6 +670,8 @@ func (qm *QueueMgr) ShowStatus() string {
 		fmt.Sprintf("    checkout:    (%d)\n", out_work) +
 		fmt.Sprintf("    suspended:   (%d)\n", suspend_work) +
 		fmt.Sprintf("total clients ....... %d\n", len(qm.clientMap)) +
+		fmt.Sprintf("    busy:        (%d)\n", busy_client) +
+		fmt.Sprintf("    idle:        (%d)\n", idle_client) +
 		fmt.Sprintf("---last update: %s\n\n", time.Now())
 	return statMsg
 }

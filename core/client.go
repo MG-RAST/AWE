@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+const (
+	CLIENT_STAT_ACTIVE  = "active"
+	CLIENT_STAT_SUSPEND = "suspend"
+)
+
 type Client struct {
 	Id              string          `bson:"id" json:"id"`
 	Name            string          `bson:"name" json:"name"`
@@ -25,6 +30,7 @@ type Client struct {
 	Total_failed    int             `bson:"total_failed" json:"total_failed"`
 	Current_work    map[string]bool `bson:"current_work" json:"current_work"`
 	Skip_work       []string        `bson:"skip_work" json:"skip_work"`
+	Last_failed     int             `bson:"-" json:"-"`
 	Tag             bool            `bson:"-" json:"-"`
 }
 
@@ -33,13 +39,14 @@ func NewClient() (client *Client) {
 	client.Id = uuid.New()
 	client.Apps = []string{}
 	client.Skip_work = []string{}
-	client.Status = "active"
+	client.Status = CLIENT_STAT_ACTIVE
 	client.Total_checkout = 0
 	client.Total_completed = 0
 	client.Total_failed = 0
 	client.Current_work = map[string]bool{}
 	client.Tag = true
 	client.Serve_time = "0"
+	client.Last_failed = 0
 	return
 }
 
@@ -67,10 +74,6 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 		client.Current_work = map[string]bool{}
 	}
 	client.Tag = true
-	//client.Total_checkout = 0
-	//client.Total_completed = 0
-	//client.Total_failed = 0
-	//client.Serve_time = "0"
 	return
 }
 

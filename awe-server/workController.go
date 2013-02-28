@@ -38,8 +38,10 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 	// Gather query params
 	query := &Query{list: cx.Request.URL.Query()}
-	if !query.Has("client") {
-		cx.RespondWithErrorMessage("mush provide client id for workunit checkout", http.StatusBadRequest)
+
+	if !query.Has("client") { //view workunits 
+		workunits := queueMgr.ShowWorkunits()
+		cx.RespondWithData(workunits)
 		return
 	}
 

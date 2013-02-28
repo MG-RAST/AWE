@@ -10,6 +10,7 @@ var (
 
 const (
 	ClientNotFound           = "Client not found"
+	ClientSuspended          = "Client suspended"
 	InvalidIndex             = "Invalid Index"
 	InvalidFileTypeForFilter = "Invalid file type for filter"
 	MongoDocNotFound         = "Document not found"

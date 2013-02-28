@@ -26,7 +26,12 @@ func workStealer(control chan int) {
 			if err.Error() == e.QueueEmpty || err.Error() == e.NoEligibleWorkunitFound {
 				//normal, do nothing
 			} else if err.Error() == e.ClientNotFound {
-				//server may be restarted, waiting for the hearbeater goroutine to try re-register	
+				//server may be restarted, waiting for the hearbeater goroutine to try re-register
+			} else if err.Error() == e.ClientSuspended {
+				fmt.Printf("client suspended, waiting for repair...\n")
+				//to-do: send out email notice that this client has problem and been suspended
+				time.Sleep(1 * time.Hour)
+				retry += 1
 			} else {
 				//something is wrong, server may be down
 				fmt.Printf("error in checking out workunits: %v\n", err)

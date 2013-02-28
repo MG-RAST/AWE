@@ -55,8 +55,10 @@ var (
 	//debug log level
 	DEBUG_LEVEL = 0
 
-	//number of times that one workunit fails before considered suspend
-	MAX_FAILURE = 2
+	//number of times that one workunit fails before the workunit considered suspend
+	MAX_WORK_FAILURE = 3
+	//number of times that one clinet consecutively fails running workunits before the clinet considered suspend
+	MAX_CLIENT_FAILURE = 5
 
 	//client
 	TOTAL_WORKER   = 1

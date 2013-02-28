@@ -285,6 +285,9 @@ func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num i
 	if _, hasClient := qm.clientMap[client_id]; !hasClient {
 		return nil, errors.New(e.ClientNotFound)
 	}
+	if qm.clientMap[client_id].Status == CLIENT_STAT_SUSPEND {
+		return nil, errors.New(e.ClientSuspended)
+	}
 
 	//lock semephore, at one time only one client's checkout request can be served 
 	qm.coSem <- 1
@@ -304,6 +307,13 @@ func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num i
 	<-qm.coSem
 
 	return ack.workunits, ack.err
+}
+
+func (qm *QueueMgr) ShowWorkunits() (workunits []*Workunit) {
+	for _, work := range qm.workQueue.workMap {
+		workunits = append(workunits, work)
+	}
+	return workunits
 }
 
 func (qm *QueueMgr) JobRegister() (jid string, err error) {
@@ -511,6 +521,7 @@ func (qm *QueueMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 	return
 }
 
+//handle feedback from a client about the execution of a workunit
 func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 	workid := notice.WorkId
 	status := notice.Status
@@ -525,16 +536,16 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 	if _, ok := qm.clientMap[clientid]; ok {
 		delete(qm.clientMap[clientid].Current_work, workid)
 	}
-
 	if _, ok := qm.taskMap[taskid]; ok {
-		task_work_status := status
+		qm.updateTaskWorkStatus(taskid, rank, status)
 		if status == WORK_STAT_DONE {
 			//log event about work done (WD)
 			Log.Event(EVENT_WORK_DONE, "workid="+workid+";clientid="+clientid)
 
 			//update client status
-			if _, ok := qm.clientMap[clientid]; ok {
-				qm.clientMap[clientid].Total_completed += 1
+			if client, ok := qm.clientMap[clientid]; ok {
+				client.Total_completed += 1
+				client.Last_failed = 0 //reset last consecutive failures
 			} else {
 				//it happens when feedback is sent after server restarted and before client re-registered
 			}
@@ -543,6 +554,8 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				qm.taskMap[taskid].State = TASK_STAT_COMPLETED
 				//log event about task done (TD) 
 				Log.Event(EVENT_TASK_DONE, "taskid="+taskid)
+				//update the info of the job which the task is belong to, could result in deletion of the
+				//task in the task map when the task is the final task of the job to be done.
 				if err = qm.updateJob(qm.taskMap[taskid]); err != nil {
 					return
 				}
@@ -554,13 +567,13 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 			Log.Event(EVENT_WORK_FAIL, "workid="+workid+";clientid="+clientid)
 			if qm.workQueue.Has(workid) {
 				qm.workQueue.workMap[workid].Failed += 1
-				if qm.workQueue.workMap[workid].Failed < conf.MAX_FAILURE {
+				if qm.workQueue.workMap[workid].Failed < conf.MAX_WORK_FAILURE {
 					qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
 					Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
 				} else { //failure time exceeds limit, suspend workunit, task, job
 					qm.workQueue.StatusChange(workid, WORK_STAT_SUSPEND)
 					Log.Event(EVENT_WORK_SUSPEND, "workid="+workid)
-					task_work_status = WORK_STAT_SUSPEND
+					qm.updateTaskWorkStatus(taskid, rank, WORK_STAT_SUSPEND)
 					qm.taskMap[taskid].State = TASK_STAT_SUSPEND
 					if err := qm.SuspendJob(jobid); err != nil {
 						Log.Error("error returned by SuspendJOb()" + err.Error())
@@ -570,16 +583,26 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 			if client, ok := qm.clientMap[clientid]; ok {
 				client.Skip_work = append(client.Skip_work, workid)
 				client.Total_failed += 1
+				client.Last_failed += 1 //last consecutive failures
+				if client.Last_failed == conf.MAX_CLIENT_FAILURE {
+					client.Status = CLIENT_STAT_SUSPEND
+				}
 			}
 		}
-		if rank == 0 {
-			qm.taskMap[taskid].WorkStatus[rank] = task_work_status
-		} else {
-			qm.taskMap[taskid].WorkStatus[rank-1] = task_work_status
-		}
-
 	} else { //task not existed, possible when job is deleted before the workunit done
 		qm.workQueue.Delete(workid)
+	}
+	return
+}
+
+func (qm *QueueMgr) updateTaskWorkStatus(taskid string, rank int, newstatus string) {
+	if _, ok := qm.taskMap[taskid]; !ok {
+		return
+	}
+	if rank == 0 {
+		qm.taskMap[taskid].WorkStatus[rank] = newstatus
+	} else {
+		qm.taskMap[taskid].WorkStatus[rank-1] = newstatus
 	}
 	return
 }
@@ -632,6 +655,18 @@ func (qm *QueueMgr) ShowStatus() string {
 	in_progress_job := len(qm.actJobs)
 	suspend_job := len(qm.susJobs)
 	total_job := in_progress_job + suspend_job
+	busy_client := 0
+	idle_client := 0
+	suspend_client := 0
+	for _, client := range qm.clientMap {
+		if client.Status == CLIENT_STAT_SUSPEND {
+			suspend_client += 1
+		} else if client.IsBusy() {
+			busy_client += 1
+		} else {
+			idle_client += 1
+		}
+	}
 
 	statMsg := "+++++AWE server queue status+++++\n" +
 		fmt.Sprintf("total jobs .......... %d\n", total_job) +
@@ -647,6 +682,9 @@ func (qm *QueueMgr) ShowStatus() string {
 		fmt.Sprintf("    checkout:    (%d)\n", out_work) +
 		fmt.Sprintf("    suspended:   (%d)\n", suspend_work) +
 		fmt.Sprintf("total clients ....... %d\n", len(qm.clientMap)) +
+		fmt.Sprintf("    busy:        (%d)\n", busy_client) +
+		fmt.Sprintf("    idle:        (%d)\n", idle_client) +
+		fmt.Sprintf("    suspend:     (%d)\n", suspend_client) +
 		fmt.Sprintf("---last update: %s\n\n", time.Now())
 	return statMsg
 }
@@ -706,7 +744,11 @@ func (qm *QueueMgr) DeleteClient(id string) {
 
 func (qm *QueueMgr) filterWorkByClient(clientid string) (ids []string) {
 	client := qm.clientMap[clientid]
-	for id, work := range qm.workQueue.workMap {
+	for id, _ := range qm.workQueue.wait {
+		if _, ok := qm.workQueue.workMap[id]; !ok {
+			continue
+		}
+		work := qm.workQueue.workMap[id]
 		//skip works that are in the client's skip-list
 		if contains(client.Skip_work, work.Id) {
 			continue

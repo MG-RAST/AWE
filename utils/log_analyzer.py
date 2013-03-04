@@ -5,6 +5,7 @@
 import time
 import datetime
 import sys
+import numpy as np
 import matplotlib.pyplot as plt
 from optparse import OptionParser
 
@@ -93,9 +94,40 @@ def parseLogFile(filename):
     return job_dict                       
     #return job_dict, min_qtime, min_start, max_qtime, max_end
 
-def get_task_runtime(job_dict):
-    '''input job_dict, return the task runtime for each job'''
-    pass
+def show_task_runtime_bar_charts(job_dict):
+    '''input job_dict, depict task runtime bar chart for each job'''
+    stage_list = ["prep", "derep", "screen", "fgs", "uclust", "blat"]
+    for id, job in job_dict.items():
+        runtime_list = []
+        for item in job['task_list']:
+            runtime_list.append(item[1]-item[0])
+        draw_bar_chart(job['jid'], runtime_list, stage_list)
+    
+def draw_bar_chart(name, runtime_list, stage_list):
+    N = len(runtime_list)
+    ind = np.arange(N)
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    rects = ax.bar(ind, runtime_list)
+    width = 0.35       # the width of the bars
+    
+    ax.set_ylabel('Scores')
+    ax.set_title('Scores by group and gender')
+    ax.set_xticks(ind+width)
+    ax.set_xticklabels( stage_list )
+    
+    def autolabel(rects):
+        # attach some text labels
+        for rect in rects:
+            height = rect.get_height()
+            ax.text(rect.get_x()+rect.get_width()/2., 1.05*height, '%d'%int(height),
+                    ha='center', va='bottom')
+    
+    autolabel(rects)
+    fig.savefig("%s.png" % name)
+    
+    
 
 if __name__ == "__main__":
     p = OptionParser()
@@ -114,5 +146,5 @@ if __name__ == "__main__":
         exit()
 
     job_dict = parseLogFile(opts.logfile)
-      
+    show_task_runtime_bar_charts(job_dict)
     

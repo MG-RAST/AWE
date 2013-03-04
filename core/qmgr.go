@@ -203,7 +203,7 @@ func (qm *QueueMgr) Handle() {
 		case <-qm.reminder:
 			Log.Debug(2, "time to update workunit queue....\n")
 			qm.updateQueue()
-			fmt.Println(qm.ShowStatus())
+			//fmt.Println(qm.ShowStatus())
 		}
 	}
 }

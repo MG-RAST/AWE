@@ -24,7 +24,7 @@ type Task struct {
 	DependsOn  []string  `bson:"dependsOn" json:"dependsOn"`
 	TotalWork  int       `bson:"totalwork" json:"totalwork"`
 	RemainWork int       `bson:"remainwork" json:"remainwork"`
-	WorkStatus []string  `bson:"workstatus" json:"workstatus"`
+	WorkStatus []string  `bson:"workstatus" json:"-"`
 	State      string    `bson:"state" json:"state"`
 }
 
@@ -154,7 +154,7 @@ func (task *Task) InitPartIndex() (err error) {
 				task.Partition.TotalIndex = totalunits
 			}
 		} else {
-			Log.Error("warning: invaid partition info, taskid=" + task.Id)
+			Log.Error("warning: invalid partition info, taskid=" + task.Id)
 			task.setTotalWork(1)
 		}
 	}

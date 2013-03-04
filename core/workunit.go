@@ -27,10 +27,11 @@ type Workunit struct {
 	Failed    int       `bson:"failed" json:"failed"`
 }
 
+/*
 type datapart struct {
 	Index string `bson:"index" json:"index"`
 	Range string `bson:"range" json:"range"`
-}
+}*/
 
 func NewWorkunit(task *Task, rank int) *Workunit {
 	return &Workunit{

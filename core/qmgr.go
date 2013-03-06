@@ -386,6 +386,9 @@ func (qm *QueueMgr) SuspendJob(jobid string) (err error) {
 		}
 	}
 	delete(qm.actJobs, jobid)
+
+	Log.Event(EVENT_JOB_SUSPEND, "jobid="+jobid)
+
 	return
 }
 
@@ -801,6 +804,10 @@ func (qm *QueueMgr) updateJob(task *Task) (err error) {
 
 func (qm *QueueMgr) GetActiveJobs() map[string]bool {
 	return qm.actJobs
+}
+
+func (qm *QueueMgr) GetSuspendJobs() map[string]bool {
+	return qm.susJobs
 }
 
 //recover jobs not completed before awe-server restarts

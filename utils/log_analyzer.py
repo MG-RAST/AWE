@@ -27,6 +27,8 @@ def parseLogFile(filename):
         line = line.strip('\r')
         if len(line) == 0:
             continue
+        if line[0] != "[":
+            continue 
         
         timestr = line[1:20]
         
@@ -99,7 +101,7 @@ def parseLogFile(filename):
     return job_dict                       
     #return job_dict, min_qtime, min_start, max_qtime, max_end
 
-def show_task_runtime_bar_charts(job_dict):
+def draw_task_runtime_bar_charts(job_dict):
     '''input job_dict, depict task runtime bar chart for each job'''
     stage_list = ["prep", "derep", "screen", "fgs", "uclust", "blat"]
     for id, job in job_dict.items():
@@ -184,10 +186,15 @@ if __name__ == "__main__":
             default = False, \
             help = "show raw job dict parsed from the event log")
         
-    p.add_option("-b", "--taskbars", dest = "taskbars", \
+    p.add_option("-b", "--bars", dest = "taskbars", \
             action = "store_true", \
             default = False, \
-            help = "draw bar chart for task runtime")
+            help = "draw bar chart of task runtime for a list of jobs")
+    
+    p.add_option("--each", dest = "each", \
+            action = "store_true", \
+            default = False, \
+            help = "draw bar charts of task runtimes for each job")
     
     p.add_option("-t", "--taskcsv", dest = "taskcsv", \
             action = "store_true", \
@@ -202,15 +209,21 @@ if __name__ == "__main__":
         exit()
 
     job_dict = parseLogFile(opts.logfile)
-    show_task_runtime_bar_charts(job_dict)
-    bins = {}
-    for id, job in job_dict.items():
-        jid = job['jid']
-        bin = []
-        for item in job['task_list']:
-            runtime = item[1] - item[0]
-            bin.append(runtime)
-        bins[jid] = bin
+    
+    
+    if opts.taskbars:
+        bins = {}
+        for id, job in job_dict.items():
+            jid = job['jid']
+            bin = []
+            for item in job['task_list']:
+                runtime = item[1] - item[0]
+                bin.append(runtime)
+            bins[jid] = bin
+        draw_task_bars(bins, stage_list, 'task_runtime')
+        
+    if opts.each:
+        draw_task_runtime_bar_charts(job_dict)
     
     if opts.rawjobs:
         for key, value in job_dict.items():
@@ -219,7 +232,5 @@ if __name__ == "__main__":
     if opts.taskcsv:
         print_task_runtime_table(job_dict)
         
-    if opts.taskbars:
-        draw_task_bars(bins, stage_list, 'task_runtime')
     
     

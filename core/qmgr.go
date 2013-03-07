@@ -203,7 +203,7 @@ func (qm *QueueMgr) Handle() {
 		case <-qm.reminder:
 			Log.Debug(2, "time to update workunit queue....\n")
 			qm.updateQueue()
-			fmt.Println(qm.ShowStatus())
+			//fmt.Println(qm.ShowStatus())
 		}
 	}
 }
@@ -386,6 +386,9 @@ func (qm *QueueMgr) SuspendJob(jobid string) (err error) {
 		}
 	}
 	delete(qm.actJobs, jobid)
+
+	Log.Event(EVENT_JOB_SUSPEND, "jobid="+jobid)
+
 	return
 }
 
@@ -801,6 +804,10 @@ func (qm *QueueMgr) updateJob(task *Task) (err error) {
 
 func (qm *QueueMgr) GetActiveJobs() map[string]bool {
 	return qm.actJobs
+}
+
+func (qm *QueueMgr) GetSuspendJobs() map[string]bool {
+	return qm.susJobs
 }
 
 //recover jobs not completed before awe-server restarts

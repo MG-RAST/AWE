@@ -40,6 +40,7 @@ const (
 	EVENT_WORK_SUSPEND   = "WP" //workunit suspend after failing for conf.Max_Failure times
 	EVENT_TASK_DONE      = "TD" //task done (all the workunits in the task have finished)
 	EVENT_JOB_DONE       = "JD" //job done (all the tasks in the job have finished)
+	EVENT_JOB_SUSPEND    = "JP" //job suspended
 	//client only events
 	EVENT_WORK_START  = "WS" //workunit command start running  
 	EVENT_WORK_END    = "WE" //workunit command finish running

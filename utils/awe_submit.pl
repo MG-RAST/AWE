@@ -221,9 +221,9 @@ print "\nsubmitting job script to AWE...Done! id=".$job_id."\n";
 
 print "job submission summary:\n";
 print "pipeline job awe url: http://".$awe_url."/job/".$job_id."\n";
-print "input file shock url: http://".$shock_url."/node/".$shock_id."\n";
 
 if (length($infile)>0 || length($node_id)>0) {
+    print "input file shock url: http://".$shock_url."/node/".$shock_id."\n";
     my $refjson = "";
     if (length($infile)>0) {
        $refjson = "awe_".$infile."_".$job_id.".json"; 

@@ -9,6 +9,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from optparse import OptionParser
 
+color_list = ['b', 'r', 'k', 'm', 'g', 'y']
+stage_list = ["prep", "derep", "screen", "fgs", "uclust", "blat"]
+
 def parseLogFile(filename):
     '''parse the whole work load file'''
     raw_job_dict = {}
@@ -101,9 +104,10 @@ def show_task_runtime_bar_charts(job_dict):
         runtime_list = []
         for item in job['task_list']:
             runtime_list.append(item[1]-item[0])
-        draw_bar_chart(job['jid'], runtime_list, stage_list)
+        draw_taskrun_bar_chart_single(job['jid'], runtime_list, stage_list)
     
-def draw_bar_chart(name, runtime_list, stage_list):
+def draw_taskrun_bar_chart_single(name, runtime_list, stage_list):
+    '''draw task running time bar chart for a single job'''
     N = len(runtime_list)
     ind = np.arange(N)
     
@@ -111,23 +115,50 @@ def draw_bar_chart(name, runtime_list, stage_list):
     ax = fig.add_subplot(111)
     rects = ax.bar(ind, runtime_list)
     width = 0.35       # the width of the bars
+
     
-    ax.set_ylabel('Scores')
-    ax.set_title('Scores by group and gender')
-    ax.set_xticks(ind+width)
+    ax.set_ylabel('running time (sec)')
+    ax.set_title('running time by each stages')
+    ax.set_xticks(ind + width)
     ax.set_xticklabels( stage_list )
     
     def autolabel(rects):
         # attach some text labels
         for rect in rects:
             height = rect.get_height()
-            ax.text(rect.get_x()+rect.get_width()/2., 1.05*height, '%d'%int(height),
+            ax.text(rect.get_x()+rect.get_width()/2., 1.0*height, '%d'%int(height),
                     ha='center', va='bottom')
     
     autolabel(rects)
     fig.savefig("%s.png" % name)
     
+def draw_task_bars(bins, stages, name):
+
+    N = stages
     
+    ind = np.arange(N)  # the x locations for the groups
+    width = 0.15       # the width of the bars
+    pad = 0.15
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    rects = []
+    i = 0
+    for key in bins.keys():
+        bin = bins[key]
+        rects.append(ax.bar(pad + ind+width*i, bin, width, color=color_list[i]))
+        i += 1
+    
+    # add some
+    ax.set_ylabel('running time (sec)')
+    ax.set_title('running time by each stages')
+    ax.set_xticks(pad + ind + width)
+    ax.set_xticklabels(stage_list)
+    #ax.set_yscale('log')
+
+    #ax.legend( (rects[0][0], rects[1][0]), ('Men', 'Women') )
+
+    fig.savefig("%s.png" % name)
 
 if __name__ == "__main__":
     p = OptionParser()
@@ -147,4 +178,16 @@ if __name__ == "__main__":
 
     job_dict = parseLogFile(opts.logfile)
     show_task_runtime_bar_charts(job_dict)
+    bins = {}
+    for id, job in job_dict.items():
+        jid = job['jid']
+        bin = []
+        for item in job['task_list']:
+            runtime = item[1] - item[0]
+            bin.append(runtime)
+        bins[jid] = bin
+    
+    draw_task_bars(bins, 6, 'task_runtime')
+        
+    
     

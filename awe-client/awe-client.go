@@ -4,99 +4,14 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
 	. "github.com/MG-RAST/AWE/core"
-	e "github.com/MG-RAST/AWE/errors"
 	. "github.com/MG-RAST/AWE/logger"
 	"os"
-	"time"
 )
 
 var (
-	workChan     = make(chan *Workunit)
-	self         = &Client{Id: "default-client"}
+	workChan = make(chan *Workunit)
+	self     = &Client{Id: "default-client"}
 )
-
-func workStealer(control chan int) {
-	fmt.Printf("workStealer lanched, client=%s\n", self.Id)
-	defer fmt.Printf("workStealer exiting...\n")
-	retry := 0
-	for {
-		wu, err := CheckoutWorkunitRemote(conf.SERVER_URL)
-		if err != nil {
-			if err.Error() == e.QueueEmpty || err.Error() == e.NoEligibleWorkunitFound {
-				//normal, do nothing
-			} else if err.Error() == e.ClientNotFound {
-				//server may be restarted, waiting for the hearbeater goroutine to try re-register
-			} else if err.Error() == e.ClientSuspended {
-				fmt.Printf("client suspended, waiting for repair...\n")
-				//to-do: send out email notice that this client has problem and been suspended
-				time.Sleep(1 * time.Hour)
-				retry += 1
-			} else {
-				//something is wrong, server may be down
-				fmt.Printf("error in checking out workunits: %v\n", err)
-				retry += 1
-			}
-			if retry == 3 {
-				os.Exit(1)
-			}
-			time.Sleep(10 * time.Second)
-			continue
-		} else {
-			retry = 0
-		}
-		fmt.Printf("workStealer: checked out a workunit: id=%s\n", wu.Id)
-		//log event about work checktout (WC)
-		Log.Event(EVENT_WORK_CHECKOUT, "workid="+wu.Id)
-		self.Total_checkout += 1
-		self.Current_work[wu.Id] = true
-		workChan <- wu
-	}
-	control <- 0 //we are ending
-}
-
-func worker(control chan int) {
-	fmt.Printf("worker lanched, client=%s\n", self.Id)
-	defer fmt.Printf("worker exiting...\n")
-	for {
-		work := <-workChan
-		if err := RunWorkunit(work); err != nil {
-			fmt.Printf("!!!RunWorkunit() returned error: %s\n", err.Error())
-			Log.Error("RunWorkunit(): workid=" + work.Id + ", " + err.Error())
-
-			//restart once and if it still fails
-			if err := RunWorkunit(work); err != nil {
-				fmt.Printf("!!!ReRunWorkunit() returned error: %s\n", err.Error())
-				Log.Error("ReRunWorkunit(): workid=" + work.Id + ", " + err.Error())
-
-				//send back the workunit to server
-				if err := NotifyWorkunitProcessed(conf.SERVER_URL, work.Id, "fail"); err != nil {
-					fmt.Printf("!!!NotifyWorkunitFail returned error: %s\n", err.Error())
-					Log.Error("NotifyWorkunitFail: workid=" + work.Id + ", err=" + err.Error())
-				}
-				Log.Event(EVENT_WORK_RETURN, "workid="+work.Id)
-				self.Total_failed += 1
-				delete(self.Current_work, work.Id)
-				continue
-			}
-		}
-		if err := NotifyWorkunitProcessed(conf.SERVER_URL, work.Id, "done"); err != nil {
-			fmt.Printf("!!!NotifyWorkunitDone returned error: %s\n", err.Error())
-			Log.Error("NotifyWorkunitDone: workid=" + work.Id + ", err=" + err.Error())
-		}
-		Log.Event(EVENT_WORK_DONE, "workid="+work.Id)
-		self.Total_completed += 1
-		delete(self.Current_work, work.Id)
-	}
-	control <- 1 //we are ending
-}
-
-func heartBeater(control chan int) {
-	for {
-		time.Sleep(10 * time.Second)
-		SendHeartBeat()
-	}
-	control <- 2 //we are ending
-}
 
 func main() {
 

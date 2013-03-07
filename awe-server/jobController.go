@@ -128,6 +128,8 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		}
 	} else if query.Has("active") {
 		q["state"] = core.JOB_STAT_SUBMITTED
+	} else if query.Has("suspend") {
+		q["state"] = core.JOB_STAT_SUSPEND
 	}
 
 	// Limit and skip. Set default if both are not specified
@@ -160,7 +162,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		}
 	}
 
-	//filtering real active job (some jobs are in "submitted" states but not in the queue,
+	//getting real active (in-progress) job (some jobs are in "submitted" states but not in the queue,
 	//because they may have failed and not recovered from the mongodb).
 	if query.Has("active") {
 		filtered_jobs := []core.Job{}
@@ -175,6 +177,22 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		cx.RespondWithData(filtered_jobs)
 		return
 	}
+
+	//geting suspended job in the current queue (excluding jobs in db but not in qmgr)
+	if query.Has("suspend") {
+		filtered_jobs := []core.Job{}
+		suspend_jobs := queueMgr.GetSuspendJobs()
+		length := jobs.Length()
+		for i := 0; i < length; i++ {
+			job := jobs.GetJobAt(i)
+			if _, ok := suspend_jobs[job.Id]; ok {
+				filtered_jobs = append(filtered_jobs, job)
+			}
+		}
+		cx.RespondWithData(filtered_jobs)
+		return
+	}
+
 	cx.RespondWithData(jobs)
 	return
 }

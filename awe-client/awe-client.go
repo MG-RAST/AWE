@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	workChan     = make(chan *Workunit, 1)
+	workChan     = make(chan *Workunit)
 	aweServerUrl = "http://localhost:8001"
 	self         = &Client{Id: "default-client"}
 )

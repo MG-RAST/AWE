@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,9 +8,7 @@ import (
 	. "github.com/MG-RAST/AWE/core"
 	e "github.com/MG-RAST/AWE/errors"
 	. "github.com/MG-RAST/AWE/logger"
-	"io"
 	"io/ioutil"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"strings"
@@ -21,12 +18,6 @@ import (
 type WorkResponse struct {
 	Code int      `bson:"S" json:"S"`
 	Data Workunit `bson:"D" json:"D"`
-	Errs []string `bson:"E" json:"E"`
-}
-
-type ClientResponse struct {
-	Code int      `bson:"S" json:"S"`
-	Data Client   `bson:"D" json:"D"`
 	Errs []string `bson:"E" json:"E"`
 }
 
@@ -64,9 +55,9 @@ func workStealer(control chan int) {
 		Log.Event(EVENT_WORK_CHECKOUT, "workid="+wu.Id)
 		self.Total_checkout += 1
 		self.Current_work[wu.Id] = true
-		workChan <- wu
+		chanRaw <- wu
 	}
-	control <- 0 //we are ending
+	control <- ID_WORKSTEALER //we are ending
 }
 
 func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
@@ -98,98 +89,6 @@ func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 	if response.Code == 200 {
 		workunit = &response.Data
 		return workunit, nil
-	}
-	return
-}
-
-func Register(host string) (client *Client, err error) {
-	var res *http.Response
-	serverUrl := fmt.Sprintf("%s/client", host)
-	res, err = http.Post(serverUrl, "", strings.NewReader(""))
-	if err != nil {
-		return
-	}
-
-	jsonstream, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-
-	//fmt.Printf("json=%s\n", jsonstream)
-
-	response := new(ClientResponse)
-
-	if err = json.Unmarshal(jsonstream, response); err != nil {
-		if len(response.Errs) > 0 {
-			//or if err.Error() == "json: cannot unmarshal null into Go value of type core.Client" 
-			return nil, errors.New(strings.Join(response.Errs, ","))
-		}
-		return
-	}
-
-	client = &response.Data
-	return
-}
-
-func RegisterWithProfile(host string, profile_path string) (client *Client, err error) {
-
-	if _, err := os.Stat(profile_path); err != nil {
-		return nil, errors.New("profile file not found: " + profile_path)
-	}
-
-	bodyBuf := &bytes.Buffer{}
-	bodyWriter := multipart.NewWriter(bodyBuf)
-
-	fileWriter, err := bodyWriter.CreateFormFile("profile", profile_path)
-	if err != nil {
-		return nil, err
-	}
-
-	fh, err := os.Open(profile_path)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = io.Copy(fileWriter, fh)
-	if err != nil {
-		return nil, err
-	}
-
-	contentType := bodyWriter.FormDataContentType()
-	bodyWriter.Close()
-
-	targetUrl := host + "/client"
-
-	resp, err := http.Post(targetUrl, contentType, bodyBuf)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	jsonstream, err := ioutil.ReadAll(resp.Body)
-
-	response := new(ClientResponse)
-
-	if err = json.Unmarshal(jsonstream, response); err != nil {
-		if len(response.Errs) > 0 {
-			//or if err.Error() == "json: cannot unmarshal null into Go value of type core.Client" 
-			return nil, errors.New(strings.Join(response.Errs, ","))
-		}
-		return
-	}
-	client = &response.Data
-	return
-}
-
-func ReRegisterWithSelf(host string) (client *Client, err error) {
-	fmt.Printf("lost contact with server, try to re-register\n")
-	self_jsonstream, err := json.Marshal(self)
-	tmpProfile := conf.DATA_PATH + "/temp.profile"
-	ioutil.WriteFile(tmpProfile, []byte(self_jsonstream), 0644)
-	client, err = RegisterWithProfile(host, tmpProfile)
-	if err != nil {
-		Log.Error("Error: fail to re-register, clientid=" + self.Id)
-		fmt.Printf("failed to re-register\n")
-	} else {
-		Log.Event(EVENT_CLIENT_AUTO_REREGI, "clientid="+self.Id)
-		fmt.Printf("re-register successfully\n")
 	}
 	return
 }

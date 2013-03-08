@@ -13,6 +13,38 @@ import (
 	"strings"
 )
 
+func dataMover(control chan int) {
+	fmt.Printf("dataMover lanched, client=%s\n", self.Id)
+	defer fmt.Printf("dataMover exiting...\n")
+	for {
+		work := <-chanRaw
+
+		parsed := &parsedWork{
+			workunit: work,
+			args:     []string{},
+			status:   "unknown",
+		}
+
+		//make a working directory for the workunit
+		if err := work.Mkdir(); err != nil {
+			Log.Error("err@dataMover_work.Mkdir, workid=" + work.Id + " error=" + err.Error())
+			parsed.status = WORK_STAT_FAIL
+		}
+
+		//parse the args, including fetching input data from Shock and composing the local file path
+		if arglist, err := ParseWorkunitArgs(work); err == nil {
+			parsed.status = WORK_STAT_PREPARED
+			parsed.args = arglist
+		} else {
+			Log.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + work.Id + " error=" + err.Error())
+			parsed.status = WORK_STAT_FAIL
+		}
+
+		chanParsed <- parsed
+	}
+	control <- ID_DATAMOVER //we are ending
+}
+
 //parse workunit, fetch input data, compose command arguments
 func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 	argstr := work.Cmd.Args
@@ -41,18 +73,16 @@ func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 					dataUrl = fmt.Sprintf("%s&index=record&part=%s", io.Url(), work.Part())
 				}
 
+				inputFilePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
+
 				fmt.Printf("worker: fetching input from url %s\n", dataUrl)
 				Log.Event(EVENT_FILE_IN, "workid="+work.Id+" url="+dataUrl)
-
-				if err := fetchFile(inputname, dataUrl); err != nil { //get file from Shock
+				if err := fetchFile(inputFilePath, dataUrl); err != nil { //get file from Shock
 					return []string{}, err
 				}
-
 				Log.Event(EVENT_FILE_READY, "workid="+work.Id+" url="+dataUrl)
 
-				filePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
-
-				parsedArg := fmt.Sprintf("%s%s", segs[0], filePath)
+				parsedArg := fmt.Sprintf("%s%s", segs[0], inputFilePath)
 				args = append(args, parsedArg)
 			}
 		} else { //no @, has nothing to do with input/output, append directly
@@ -102,9 +132,6 @@ func pushFileByCurl(filename string, host string, node string, rank int) (err er
 	if err := putFileByCurl(filename, shockurl, rank); err != nil {
 		return err
 	}
-	//if err := makeIndexByCurl(shockurl, "record"); err != nil {
-	//	return err
-	//}
 	return
 }
 
@@ -124,25 +151,6 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 	argv = append(argv, target_url)
 
 	fmt.Printf("curl argv=%#v\n", argv)
-
-	cmd := exec.Command("curl", argv...)
-
-	err = cmd.Run()
-
-	if err != nil {
-		return
-	}
-	return
-}
-
-func makeIndexByCurl(targetUrl string, indexType string) (err error) {
-
-	argv := []string{}
-	argv = append(argv, "-X")
-	argv = append(argv, "PUT")
-
-	indexUrl := fmt.Sprintf("%s?index=%s", targetUrl, indexType)
-	argv = append(argv, indexUrl)
 
 	cmd := exec.Command("curl", argv...)
 

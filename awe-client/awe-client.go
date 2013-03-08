@@ -9,8 +9,29 @@ import (
 )
 
 var (
-	workChan = make(chan *Workunit)
-	self     = &Client{Id: "default-client"}
+	chanRaw       = make(chan *Workunit)      // workStealer -> dataMover 
+	chanParsed    = make(chan *parsedWork)    // dataMover -> worker
+	chanProcessed = make(chan *processedWork) //worker -> deliverer
+	self          = &Client{Id: "default-client"}
+)
+
+type parsedWork struct {
+	workunit *Workunit
+	args     []string
+	status   string
+}
+
+type processedWork struct {
+	workunit *Workunit
+	status   string
+}
+
+const (
+	ID_HEARTBEATER = 0
+	ID_WORKSTEALER = 1
+	ID_DATAMOVER   = 2
+	ID_WORKER      = 3
+	ID_DELIVERER   = 4
 )
 
 func main() {
@@ -20,7 +41,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	//launch client
 	if _, err := os.Stat(conf.WORK_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.Mkdir(conf.WORK_PATH, 0777); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR in creating work_path %v\n", err)
@@ -51,18 +71,27 @@ func main() {
 	control := make(chan int)
 	go heartBeater(control)
 	go workStealer(control)
+	go dataMover(control)
 	go worker(control)
+	go deliverer(control)
 	for {
 		who := <-control //block till someone dies and then restart it
-		if who == 0 {
+		switch who {
+		case ID_HEARTBEATER:
+			go heartBeater(control)
+			Log.Error("heartBeater died and restarted")
+		case ID_WORKSTEALER:
 			go workStealer(control)
 			Log.Error("workStealer died and restarted")
-		} else if who == 1 {
+		case ID_DATAMOVER:
+			go dataMover(control)
+			Log.Error("dataMover died and restarted")
+		case ID_WORKER:
 			go worker(control)
 			Log.Error("worker died and restarted")
-		} else if who == 2 {
-			go heartBeater(control)
-			Log.Error("heartbeater died and restarted")
+		case ID_DELIVERER:
+			go deliverer(control)
+			Log.Error("deliverer died and restarted")
 		}
 	}
 }

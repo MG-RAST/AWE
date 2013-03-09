@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"os/exec"
 	"strings"
 )
 
@@ -121,43 +120,5 @@ func fetchFile(filename string, url string) (err error) {
 		return err
 	}
 
-	return
-}
-
-//push file to shock
-func pushFileByCurl(filename string, host string, node string, rank int) (err error) {
-
-	shockurl := fmt.Sprintf("%s/node/%s", host, node)
-
-	if err := putFileByCurl(filename, shockurl, rank); err != nil {
-		return err
-	}
-	return
-}
-
-func putFileByCurl(filename string, target_url string, rank int) (err error) {
-
-	argv := []string{}
-	argv = append(argv, "-X")
-	argv = append(argv, "PUT")
-	argv = append(argv, "-F")
-
-	if rank == 0 {
-		argv = append(argv, fmt.Sprintf("upload=@%s", filename))
-	} else {
-		argv = append(argv, fmt.Sprintf("%d=@%s", rank, filename))
-	}
-
-	argv = append(argv, target_url)
-
-	fmt.Printf("curl argv=%#v\n", argv)
-
-	cmd := exec.Command("curl", argv...)
-
-	err = cmd.Run()
-
-	if err != nil {
-		return
-	}
 	return
 }

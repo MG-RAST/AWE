@@ -62,7 +62,9 @@ func PushOutputData(work *Workunit) (err error) {
 			"workid="+work.Id,
 			"filename="+name,
 			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
-		if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {
+
+		file_path := fmt.Sprintf("%s/%s", work.Path(), name)
+		if err := pushFileByCurl(file_path, io.Host, io.Node, work.Rank); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
 			if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {
 				fmt.Errorf("push file error\n")
@@ -84,6 +86,44 @@ func NotifyWorkunitProcessed(serverhost string, workid string, status string) (e
 	argv = append(argv, "PUT")
 	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s", serverhost, workid, status, self.Id)
 	argv = append(argv, target_url)
+
+	cmd := exec.Command("curl", argv...)
+
+	err = cmd.Run()
+
+	if err != nil {
+		return
+	}
+	return
+}
+
+//push file to shock
+func pushFileByCurl(filename string, host string, node string, rank int) (err error) {
+
+	shockurl := fmt.Sprintf("%s/node/%s", host, node)
+
+	if err := putFileByCurl(filename, shockurl, rank); err != nil {
+		return err
+	}
+	return
+}
+
+func putFileByCurl(filename string, target_url string, rank int) (err error) {
+
+	argv := []string{}
+	argv = append(argv, "-X")
+	argv = append(argv, "PUT")
+	argv = append(argv, "-F")
+
+	if rank == 0 {
+		argv = append(argv, fmt.Sprintf("upload=@%s", filename))
+	} else {
+		argv = append(argv, fmt.Sprintf("%d=@%s", rank, filename))
+	}
+
+	argv = append(argv, target_url)
+
+	fmt.Printf("curl argv=%#v\n", argv)
 
 	cmd := exec.Command("curl", argv...)
 

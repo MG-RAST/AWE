@@ -40,7 +40,6 @@ const (
 	ID_DATAMOVER   = 2
 	ID_WORKER      = 3
 	ID_DELIVERER   = 4
-	ID_PERFMONITOR = 5
 )
 
 func main() {

@@ -911,7 +911,7 @@ func (qm *QueueMgr) FinalizeWorkPerf(workid string, reportfile string) (err erro
 func (qm *QueueMgr) LogJobPerf(jobid string) {
 	if perf, ok := qm.actJobs[jobid]; ok {
 		perfstr, _ := json.Marshal(perf)
-		fmt.Printf("%s\n", perfstr)
+		Log.Perf(string(perfstr))
 	}
 }
 

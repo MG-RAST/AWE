@@ -877,6 +877,9 @@ func (qm *QueueMgr) FinalizeTaskPerf(taskid string) {
 }
 
 func (qm *QueueMgr) CreateWorkPerf(workid string) {
+	if !conf.PERF_LOG_WORKUNIT {
+		return
+	}
 	jobid := getParentJobId(workid)
 	if _, ok := qm.actJobs[jobid]; !ok {
 		return
@@ -885,6 +888,9 @@ func (qm *QueueMgr) CreateWorkPerf(workid string) {
 }
 
 func (qm *QueueMgr) FinalizeWorkPerf(workid string, reportfile string) (err error) {
+	if !conf.PERF_LOG_WORKUNIT {
+		return
+	}
 	workperf := new(WorkPerf)
 	jsonstream, err := ioutil.ReadFile(reportfile)
 	if err != nil {

@@ -52,9 +52,11 @@ var (
 	// Mongodb 
 	MONGODB = ""
 
+	//options
 	//debug log level
 	DEBUG_LEVEL = 0
-
+	//whether perf log including workunit info.
+	PERF_LOG_WORKUNIT = false
 	//number of times that one workunit fails before the workunit considered suspend
 	MAX_WORK_FAILURE = 3
 	//number of times that one clinet consecutively fails running workunits before the clinet considered suspend
@@ -137,6 +139,11 @@ func init() {
 
 	// Mongodb
 	MONGODB, _ = c.String("Mongodb", "hosts")
+
+	// Server options
+	if perf_log_workunit, err := c.Bool("Server", "perf_log_workunit"); err == nil {
+		PERF_LOG_WORKUNIT = perf_log_workunit
+	}
 
 	// Client
 	WORK_PATH, _ = c.String("Client", "workpath")

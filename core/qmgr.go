@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
@@ -18,7 +19,7 @@ import (
 type QueueMgr struct {
 	clientMap map[string]*Client
 	taskMap   map[string]*Task
-	actJobs   map[string]bool
+	actJobs   map[string]*JobPerf
 	susJobs   map[string]bool
 	workQueue *WQueue
 	reminder  chan bool
@@ -45,7 +46,7 @@ func NewQueueMgr() *QueueMgr {
 		coAck:     make(chan CoAck),
 		feedback:  make(chan Notice),
 		coSem:     make(chan int, 1), //non-blocking buffered channel
-		actJobs:   map[string]bool{},
+		actJobs:   map[string]*JobPerf{},
 		susJobs:   map[string]bool{},
 		nextJid:   "",
 	}
@@ -276,7 +277,7 @@ func (qm *QueueMgr) AddTasks(jobid string, tasks []*Task) (err error) {
 	for _, task := range tasks {
 		qm.taskIn <- task
 	}
-	qm.actJobs[jobid] = true
+	qm.CreateJobPerf(jobid)
 	return
 }
 
@@ -357,7 +358,8 @@ func (qm *QueueMgr) DeleteJob(jobid string) (err error) {
 		task_id := fmt.Sprintf("%s_%d", jobid, i)
 		delete(qm.taskMap, task_id)
 	}
-	delete(qm.actJobs, jobid)
+	qm.DeleteJobPerf(jobid)
+
 	return
 }
 
@@ -369,7 +371,7 @@ func (qm *QueueMgr) SuspendJob(jobid string) (err error) {
 	if err := job.UpdateState(JOB_STAT_SUSPEND); err != nil {
 		return err
 	}
-	delete(qm.actJobs, jobid)
+	qm.DeleteJobPerf(jobid)
 	qm.susJobs[jobid] = true
 
 	//suspend queueing workunits
@@ -385,7 +387,7 @@ func (qm *QueueMgr) SuspendJob(jobid string) (err error) {
 			qm.taskMap[task_id].State = TASK_STAT_SUSPEND
 		}
 	}
-	delete(qm.actJobs, jobid)
+	qm.DeleteJobPerf(jobid)
 
 	Log.Event(EVENT_JOB_SUSPEND, "jobid="+jobid)
 
@@ -461,7 +463,7 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 
 	//log event about task enqueue (TQ)
 	Log.Event(EVENT_TASK_ENQUEUE, "taskid="+task.Id)
-
+	qm.CreateTaskPerf(task.Id)
 	return
 }
 
@@ -493,6 +495,7 @@ func (qm *QueueMgr) parseTask(task *Task) (err error) {
 		if err := qm.workQueue.Add(wu); err != nil {
 			return err
 		}
+		qm.CreateWorkPerf(wu.Id)
 	}
 	return
 }
@@ -555,7 +558,8 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 			qm.taskMap[taskid].RemainWork -= 1
 			if qm.taskMap[taskid].RemainWork == 0 {
 				qm.taskMap[taskid].State = TASK_STAT_COMPLETED
-				//log event about task done (TD) 
+				//log event about task done (TD)
+				qm.FinalizeTaskPerf(taskid)
 				Log.Event(EVENT_TASK_DONE, "taskid="+taskid)
 				//update the info of the job which the task is belong to, could result in deletion of the
 				//task in the task map when the task is the final task of the job to be done.
@@ -693,7 +697,7 @@ func (qm *QueueMgr) ShowStatus() string {
 }
 
 //Client functions
-func (qm *QueueMgr) RegisterNewClient(params map[string]string, files FormFiles) (client *Client, err error) {
+func (qm *QueueMgr) RegisterNewClient(files FormFiles) (client *Client, err error) {
 	//if queue is empty (no task is queuing or pending), reject client registration
 	if _, ok := files["profile"]; ok {
 		client, err = NewProfileClient(files["profile"].Path)
@@ -792,17 +796,21 @@ func (qm *QueueMgr) updateJob(task *Task) (err error) {
 	if err != nil {
 		return err
 	}
-	if remainTasks == 0 {
-		delete(qm.actJobs, jobid)
+	if remainTasks == 0 { //job done
+		qm.FinalizeJobPerf(jobid)
+		qm.LogJobPerf(jobid)
+		qm.DeleteJobPerf(jobid)
 		//delete tasks in task map
 		for _, task := range job.TaskList() {
 			delete(qm.taskMap, task.Id)
 		}
+		//log event about job done (JD) 
+		Log.Event(EVENT_JOB_DONE, "jobid="+job.Id)
 	}
 	return
 }
 
-func (qm *QueueMgr) GetActiveJobs() map[string]bool {
+func (qm *QueueMgr) GetActiveJobs() map[string]*JobPerf {
 	return qm.actJobs
 }
 
@@ -831,6 +839,84 @@ func (qm *QueueMgr) RecoverJobs() (err error) {
 	qm.updateQueue()
 	fmt.Printf("%d unfinished jobs recovered\n", jobct)
 	return
+}
+
+//perf related
+func (qm *QueueMgr) CreateJobPerf(jobid string) {
+	qm.actJobs[jobid] = NewJobPerf(jobid)
+}
+
+func (qm *QueueMgr) FinalizeJobPerf(jobid string) {
+
+	if perf, ok := qm.actJobs[jobid]; ok {
+		now := time.Now().Unix()
+		perf.End = now
+		perf.Resp = now - perf.Queued
+	}
+	return
+}
+
+func (qm *QueueMgr) CreateTaskPerf(taskid string) {
+	jobid := getParentJobId(taskid)
+	if perf, ok := qm.actJobs[jobid]; ok {
+		perf.Ptasks[taskid] = NewTaskPerf(taskid)
+	}
+}
+
+func (qm *QueueMgr) FinalizeTaskPerf(taskid string) {
+	jobid := getParentJobId(taskid)
+	if jobperf, ok := qm.actJobs[jobid]; ok {
+		if taskperf, ok := jobperf.Ptasks[taskid]; ok {
+			now := time.Now().Unix()
+			taskperf.End = now
+			taskperf.Resp = now - taskperf.Queued
+			//qm.actJobs[jobid].Ptasks[taskid] = taskperf
+			return
+		}
+	}
+}
+
+func (qm *QueueMgr) CreateWorkPerf(workid string) {
+	jobid := getParentJobId(workid)
+	if _, ok := qm.actJobs[jobid]; !ok {
+		return
+	}
+	qm.actJobs[jobid].Pworks[workid] = NewWorkPerf(workid)
+}
+
+func (qm *QueueMgr) FinalizeWorkPerf(workid string, reportfile string) (err error) {
+	workperf := new(WorkPerf)
+	jsonstream, err := ioutil.ReadFile(reportfile)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(jsonstream, workperf); err != nil {
+		return err
+	}
+	jobid := getParentJobId(workid)
+	if _, ok := qm.actJobs[jobid]; !ok {
+		return errors.New("job perf not found:" + jobid)
+	}
+	if _, ok := qm.actJobs[jobid].Pworks[workid]; !ok {
+		return errors.New("work perf not found:" + workid)
+	}
+	workperf.Queued = qm.actJobs[jobid].Pworks[workid].Queued
+	workperf.Done = time.Now().Unix()
+	workperf.Resp = workperf.Done - workperf.Queued
+	qm.actJobs[jobid].Pworks[workid] = workperf
+	os.Remove(reportfile)
+	return
+}
+
+func (qm *QueueMgr) LogJobPerf(jobid string) {
+	if perf, ok := qm.actJobs[jobid]; ok {
+		perfstr, _ := json.Marshal(perf)
+		fmt.Printf("%s\n", perfstr)
+	}
+}
+
+func (qm *QueueMgr) DeleteJobPerf(jobid string) {
+	delete(qm.actJobs, jobid)
 }
 
 //misc local functions

@@ -10,34 +10,39 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 func dataMover(control chan int) {
 	fmt.Printf("dataMover lanched, client=%s\n", self.Id)
 	defer fmt.Printf("dataMover exiting...\n")
 	for {
-		work := <-chanRaw
-
+		raw := <-chanRaw
 		parsed := &parsedWork{
-			workunit: work,
+			workunit: raw.workunit,
+			perfstat: raw.perfstat,
 			args:     []string{},
 			status:   "unknown",
 		}
 
 		//make a working directory for the workunit
+		work := raw.workunit
 		if err := work.Mkdir(); err != nil {
 			Log.Error("err@dataMover_work.Mkdir, workid=" + work.Id + " error=" + err.Error())
 			parsed.status = WORK_STAT_FAIL
 		}
 
 		//parse the args, including fetching input data from Shock and composing the local file path
-		if arglist, err := ParseWorkunitArgs(work); err == nil {
+		datamove_start := time.Now().Unix()
+		if arglist, err := ParseWorkunitArgs(parsed.workunit); err == nil {
 			parsed.status = WORK_STAT_PREPARED
 			parsed.args = arglist
 		} else {
 			Log.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + work.Id + " error=" + err.Error())
 			parsed.status = WORK_STAT_FAIL
 		}
+		datamove_end := time.Now().Unix()
+		parsed.perfstat.DataIn = datamove_end - datamove_start
 
 		chanParsed <- parsed
 	}

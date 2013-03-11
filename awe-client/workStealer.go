@@ -55,7 +55,15 @@ func workStealer(control chan int) {
 		Log.Event(EVENT_WORK_CHECKOUT, "workid="+wu.Id)
 		self.Total_checkout += 1
 		self.Current_work[wu.Id] = true
-		chanRaw <- wu
+
+		//hand the work to the next step handler: dataMover
+		workstat := NewWorkPerf(wu.Id)
+		workstat.Checkout = time.Now().Unix()
+		rawWork := &rawWork{
+			workunit: wu,
+			perfstat: workstat,
+		}
+		chanRaw <- rawWork
 	}
 	control <- ID_WORKSTEALER //we are ending
 }

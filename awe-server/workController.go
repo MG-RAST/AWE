@@ -79,14 +79,31 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
-
 	// Gather query params
 	query := &Query{list: cx.Request.URL.Query()}
-
-	if query.Has("status") && query.Has("client") {
+	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
 		notice := core.Notice{WorkId: id, Status: query.Value("status"), ClientId: query.Value("client")}
-		queueMgr.NotifyWorkStatus(notice)
-	}
+		defer queueMgr.NotifyWorkStatus(notice)
 
+		if query.Has("report") { // if "report" is specified in query, parse performance statistics
+			_, files, err := ParseMultipartForm(cx.Request)
+			if err != nil {
+				Log.Error("err@workContoller_Update_ParseMultipartForm: " + err.Error())
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
+			if _, ok := files["perf"]; !ok {
+				Log.Error("err@workContoller_Update: no perf file uploaded")
+				cx.RespondWithErrorMessage("no perf file uploaded", http.StatusBadRequest)
+				return
+			}
+			if err := queueMgr.FinalizeWorkPerf(id, files["perf"].Path); err != nil {
+				Log.Error("err@workContoller_Update_FinalizeWorkPerf: " + err.Error())
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+	}
+	cx.RespondWithData("ok")
 	return
 }

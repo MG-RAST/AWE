@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"time"
 )
 
 func worker(control chan int) {
@@ -17,8 +18,10 @@ func worker(control chan int) {
 	for {
 		parsedwork := <-chanParsed
 		work := parsedwork.workunit
+
 		processed := &processedWork{
 			workunit: work,
+			perfstat: parsedwork.perfstat,
 			status:   "unknown",
 		}
 
@@ -29,6 +32,7 @@ func worker(control chan int) {
 			continue
 		}
 
+		run_start := time.Now().Unix()
 		if err := RunWorkunit(parsedwork); err != nil {
 			fmt.Printf("!!!RunWorkunit() returned error: %s\n", err.Error())
 			Log.Error("RunWorkunit(): workid=" + work.Id + ", " + err.Error())
@@ -42,6 +46,9 @@ func worker(control chan int) {
 		} else {
 			processed.status = WORK_STAT_COMPUTED
 		}
+		run_end := time.Now().Unix()
+		processed.perfstat.Runtime = run_end - run_start
+
 		chanProcessed <- processed
 	}
 	control <- ID_WORKER //we are ending

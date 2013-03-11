@@ -9,20 +9,28 @@ import (
 )
 
 var (
-	chanRaw       = make(chan *Workunit)      // workStealer -> dataMover 
+	chanRaw       = make(chan *rawWork)       // workStealer -> dataMover 
 	chanParsed    = make(chan *parsedWork)    // dataMover -> worker
 	chanProcessed = make(chan *processedWork) //worker -> deliverer
+	chanPerf      = make(chan *WorkPerf)      // -> perfmon
 	self          = &Client{Id: "default-client"}
 )
 
+type rawWork struct {
+	workunit *Workunit
+	perfstat *WorkPerf
+}
+
 type parsedWork struct {
 	workunit *Workunit
+	perfstat *WorkPerf
 	args     []string
 	status   string
 }
 
 type processedWork struct {
 	workunit *Workunit
+	perfstat *WorkPerf
 	status   string
 }
 
@@ -32,6 +40,7 @@ const (
 	ID_DATAMOVER   = 2
 	ID_WORKER      = 3
 	ID_DELIVERER   = 4
+	ID_PERFMONITOR = 5
 )
 
 func main() {

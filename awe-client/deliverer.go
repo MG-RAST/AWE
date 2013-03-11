@@ -57,6 +57,11 @@ func deliverer(control chan int) {
 			self.Total_failed += 1
 		}
 		delete(self.Current_work, work.Id)
+
+		//release the permit lock, for work overlap inhibitted mode only
+		if !conf.WORKER_OVERLAP {
+			<-chanPermit
+		}
 	}
 	control <- ID_DELIVERER //we are ending
 }

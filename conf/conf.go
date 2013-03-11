@@ -66,6 +66,7 @@ var (
 	SERVER_URL     = "http://localhost:8001"
 	CLIENT_NAME    = "default"
 	CLIENT_PROFILE = ""
+	WORKER_OVERLAP = true
 	PRINT_APP_MSG  = false
 
 	//tag
@@ -150,6 +151,9 @@ func init() {
 	}
 	if print_app_msg, err := c.Bool("Client", "print_app_msg"); err == nil {
 		PRINT_APP_MSG = print_app_msg
+	}
+	if worker_overlap, err := c.Bool("Client", "worker_overlap"); err == nil {
+		WORKER_OVERLAP = worker_overlap
 	}
 }
 

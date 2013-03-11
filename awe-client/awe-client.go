@@ -13,6 +13,7 @@ var (
 	chanParsed    = make(chan *parsedWork)    // dataMover -> worker
 	chanProcessed = make(chan *processedWork) //worker -> deliverer
 	chanPerf      = make(chan *WorkPerf)      // -> perfmon
+	chanPermit    = make(chan bool)
 	self          = &Client{Id: "default-client"}
 )
 

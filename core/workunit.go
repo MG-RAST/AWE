@@ -12,6 +12,8 @@ const (
 	WORK_STAT_SUSPEND  = "suspend"
 	WORK_STAT_DONE     = "done"
 	WORK_STAT_FAIL     = "fail"
+	WORK_STAT_PREPARED = "prepared"
+	WORK_STAT_COMPUTED = "computed"
 )
 
 type Workunit struct {
@@ -26,12 +28,6 @@ type Workunit struct {
 	State     string    `bson:"state" json:"state"`
 	Failed    int       `bson:"failed" json:"failed"`
 }
-
-/*
-type datapart struct {
-	Index string `bson:"index" json:"index"`
-	Range string `bson:"range" json:"range"`
-}*/
 
 func NewWorkunit(task *Task, rank int) *Workunit {
 	return &Workunit{
@@ -57,10 +53,7 @@ func (work *Workunit) Mkdir() (err error) {
 }
 
 func (work *Workunit) Path() string {
-	return getWorkPath(work.Id)
-}
-
-func getWorkPath(id string) string {
+	id := work.Id
 	return fmt.Sprintf("%s/%s/%s/%s/%s", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id)
 }
 

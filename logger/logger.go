@@ -92,6 +92,14 @@ func NewLogger(name string) *Logger {
 	}
 	l.logs["debug"].AddFilter("debug", l4g.FINEST, debugf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
 
+	l.logs["perf"] = make(l4g.Logger)
+	perfbugf := l4g.NewFileLogWriter(logdir+"/perf.log", false)
+	if debugf == nil {
+		fmt.Fprintln(os.Stderr, "ERROR: error creating perf log file")
+		os.Exit(1)
+	}
+	l.logs["perf"].AddFilter("perf", l4g.FINEST, perfbugf.SetFormat("[%D %T] %M").SetRotate(true).SetRotateDaily(true))
+
 	return l
 }
 
@@ -126,6 +134,11 @@ func (l *Logger) Info(log string, message string) {
 
 func (l *Logger) Error(message string) {
 	l.Log("error", l4g.ERROR, message)
+	return
+}
+
+func (l *Logger) Perf(message string) {
+	l.Log("perf", l4g.INFO, message)
 	return
 }
 

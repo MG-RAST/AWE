@@ -52,9 +52,11 @@ var (
 	// Mongodb 
 	MONGODB = ""
 
+	//options
 	//debug log level
 	DEBUG_LEVEL = 0
-
+	//whether perf log including workunit info.
+	PERF_LOG_WORKUNIT = false
 	//number of times that one workunit fails before the workunit considered suspend
 	MAX_WORK_FAILURE = 3
 	//number of times that one clinet consecutively fails running workunits before the clinet considered suspend
@@ -66,6 +68,7 @@ var (
 	SERVER_URL     = "http://localhost:8001"
 	CLIENT_NAME    = "default"
 	CLIENT_PROFILE = ""
+	WORKER_OVERLAP = true
 	PRINT_APP_MSG  = false
 
 	//tag
@@ -137,6 +140,11 @@ func init() {
 	// Mongodb
 	MONGODB, _ = c.String("Mongodb", "hosts")
 
+	// Server options
+	if perf_log_workunit, err := c.Bool("Server", "perf_log_workunit"); err == nil {
+		PERF_LOG_WORKUNIT = perf_log_workunit
+	}
+
 	// Client
 	WORK_PATH, _ = c.String("Client", "workpath")
 	SERVER_URL, _ = c.String("Client", "serverurl")
@@ -150,6 +158,9 @@ func init() {
 	}
 	if print_app_msg, err := c.Bool("Client", "print_app_msg"); err == nil {
 		PRINT_APP_MSG = print_app_msg
+	}
+	if worker_overlap, err := c.Bool("Client", "worker_overlap"); err == nil {
+		WORKER_OVERLAP = worker_overlap
 	}
 }
 

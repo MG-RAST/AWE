@@ -195,3 +195,9 @@ func putParts(host string, nodeid string, numParts int) (err error) {
 	}
 	return
 }
+
+//get jobid from task id or workunit id
+func getParentJobId(id string) (jobid string) {
+	parts := strings.Split(id, "_")
+	return parts[0]
+}

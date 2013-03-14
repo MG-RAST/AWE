@@ -56,7 +56,7 @@ var (
 	//debug log level
 	DEBUG_LEVEL = 0
 	//whether perf log including workunit info.
-	PERF_LOG_WORKUNIT = false
+	PERF_LOG_WORKUNIT = true
 	//number of times that one workunit fails before the workunit considered suspend
 	MAX_WORK_FAILURE = 3
 	//number of times that one clinet consecutively fails running workunits before the clinet considered suspend
@@ -65,10 +65,12 @@ var (
 	//client
 	TOTAL_WORKER   = 1
 	WORK_PATH      = ""
+	APP_PATH       = ""
 	SERVER_URL     = "http://localhost:8001"
 	CLIENT_NAME    = "default"
+	CLIENT_GROUP   = "default"
 	CLIENT_PROFILE = ""
-	WORKER_OVERLAP = true
+	WORKER_OVERLAP = false
 	PRINT_APP_MSG  = false
 
 	//tag
@@ -147,14 +149,16 @@ func init() {
 
 	// Client
 	WORK_PATH, _ = c.String("Client", "workpath")
+	APP_PATH, _ = c.String("Client", "app_path")
 	SERVER_URL, _ = c.String("Client", "serverurl")
-	if clientname, err := c.String("Client", "clientname"); err == nil {
+	if clientname, err := c.String("Client", "name"); err == nil {
 		CLIENT_NAME = clientname
 	}
+	if clientgroup, err := c.String("Client", "group"); err == nil {
+		CLIENT_GROUP = clientgroup
+	}
 	if clientprofile, err := c.String("Client", "clientprofile"); err == nil {
-		if CLIENT_PROFILE == "" {
-			CLIENT_PROFILE = clientprofile
-		}
+		CLIENT_PROFILE = clientprofile
 	}
 	if print_app_msg, err := c.Bool("Client", "print_app_msg"); err == nil {
 		PRINT_APP_MSG = print_app_msg
@@ -190,9 +194,7 @@ func PrintClientCfg() {
 }
 
 func PrintClientUsage() {
-	fmt.Printf("Usage: awe-client -conf </path/to/cfg> [-profile <path/to/profile>] [-debug 0-3]\n")
-	fmt.Printf("(a client profile file should be either configured in conf file or specified via command line)\n")
-
+	fmt.Printf("Usage: awe-client -conf </path/to/cfg> [-debug 0-3]\n")
 }
 
 func PrintServerUsage() {

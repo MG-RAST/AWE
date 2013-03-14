@@ -18,9 +18,7 @@ type Client struct {
 	Group           string          `bson:"group" json:"group"`
 	User            string          `bson:"user" json:"user"`
 	Host            string          `bson:"host" json:"host"`
-	Workers         int             `bson:"workers" json:"workers"`
-	LocalShock      string          `bson:"localshock" json:"-"`
-	Cores           int             `bson:"cores" json:"cores"`
+	CPUs            int             `bson:"cores" json:"cores"`
 	Apps            []string        `bson:"apps" json:"apps"`
 	RegTime         time.Time       `bson:"regtime" json:"regtime"`
 	Serve_time      string          `bson:"serve_time" json:"serve_time"`

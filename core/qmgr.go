@@ -359,6 +359,7 @@ func (qm *QueueMgr) DeleteJob(jobid string) (err error) {
 		delete(qm.taskMap, task_id)
 	}
 	qm.DeleteJobPerf(jobid)
+	delete(qm.susJobs, jobid)
 
 	return
 }

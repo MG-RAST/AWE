@@ -91,7 +91,6 @@ func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 	if err != nil {
 		return
 	}
-
 	if err = json.Unmarshal(jsonstream, response); err != nil {
 		if len(response.Errs) > 0 {
 			return nil, errors.New(strings.Join(response.Errs, ","))

@@ -12,8 +12,10 @@ import (
 	"io"
 	"io/ioutil"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -68,71 +70,36 @@ func heartbeating(host string, clientid string) (err error) {
 	return
 }
 
-func Register(host string) (client *Client, err error) {
-	var res *http.Response
-	serverUrl := fmt.Sprintf("%s/client", host)
-	res, err = http.Post(serverUrl, "", strings.NewReader(""))
-	if err != nil {
-		return
-	}
-
-	jsonstream, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-
-	//fmt.Printf("json=%s\n", jsonstream)
-
-	response := new(ClientResponse)
-
-	if err = json.Unmarshal(jsonstream, response); err != nil {
-		if len(response.Errs) > 0 {
-			//or if err.Error() == "json: cannot unmarshal null into Go value of type core.Client" 
-			return nil, errors.New(strings.Join(response.Errs, ","))
-		}
-		return
-	}
-
-	client = &response.Data
-	return
-}
-
-func RegisterWithProfile(host string, profile_path string) (client *Client, err error) {
-
-	if _, err := os.Stat(profile_path); err != nil {
-		return nil, errors.New("profile file not found: " + profile_path)
-	}
+func RegisterWithProfile(host string, profile *Client) (client *Client, err error) {
+	profile_jsonstream, err := json.Marshal(profile)
+	profile_path := conf.DATA_PATH + "/clientprofile.json"
+	ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
 
 	bodyBuf := &bytes.Buffer{}
 	bodyWriter := multipart.NewWriter(bodyBuf)
-
 	fileWriter, err := bodyWriter.CreateFormFile("profile", profile_path)
 	if err != nil {
 		return nil, err
 	}
-
 	fh, err := os.Open(profile_path)
 	if err != nil {
 		return nil, err
 	}
-
 	_, err = io.Copy(fileWriter, fh)
 	if err != nil {
 		return nil, err
 	}
-
 	contentType := bodyWriter.FormDataContentType()
 	bodyWriter.Close()
-
 	targetUrl := host + "/client"
-
 	resp, err := http.Post(targetUrl, contentType, bodyBuf)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	jsonstream, err := ioutil.ReadAll(resp.Body)
-
 	response := new(ClientResponse)
-
 	if err = json.Unmarshal(jsonstream, response); err != nil {
 		if len(response.Errs) > 0 {
 			//or if err.Error() == "json: cannot unmarshal null into Go value of type core.Client" 
@@ -146,16 +113,35 @@ func RegisterWithProfile(host string, profile_path string) (client *Client, err 
 
 func ReRegisterWithSelf(host string) (client *Client, err error) {
 	fmt.Printf("lost contact with server, try to re-register\n")
-	self_jsonstream, err := json.Marshal(self)
-	tmpProfile := conf.DATA_PATH + "/temp.profile"
-	ioutil.WriteFile(tmpProfile, []byte(self_jsonstream), 0644)
-	client, err = RegisterWithProfile(host, tmpProfile)
+	client, err = RegisterWithProfile(host, self)
 	if err != nil {
 		Log.Error("Error: fail to re-register, clientid=" + self.Id)
 		fmt.Printf("failed to re-register\n")
 	} else {
 		Log.Event(EVENT_CLIENT_AUTO_REREGI, "clientid="+self.Id)
 		fmt.Printf("re-register successfully\n")
+	}
+	return
+}
+
+func ComposeProfile() (profile *Client, err error) {
+	profile = new(Client)
+	profile.Name = conf.CLIENT_NAME
+	profile.Group = conf.CLIENT_GROUP
+	profile.CPUs = runtime.NumCPU()
+	profile.Apps = []string{}
+	if files, err := ioutil.ReadDir(conf.APP_PATH); err == nil {
+		for _, item := range files {
+			profile.Apps = append(profile.Apps, item.Name())
+		}
+	}
+	if addrs, err := net.InterfaceAddrs(); err == nil {
+		for _, a := range addrs {
+			if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && len(strings.Split(ipnet.IP.String(), ".")) == 4 {
+				profile.Host = ipnet.IP.String()
+				break
+			}
+		}
 	}
 	return
 }

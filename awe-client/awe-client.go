@@ -58,9 +58,15 @@ func main() {
 	}
 
 	var err error
-	self, err = RegisterWithProfile(conf.SERVER_URL, conf.CLIENT_PROFILE)
+	var profile *Client
+	profile, err = ComposeProfile()
 	if err != nil {
-		fmt.Printf("fail to register: %v\n", err)
+		fmt.Print("fail to compose profile: %s\n", err.Error())
+		os.Exit(1)
+	}
+	self, err = RegisterWithProfile(conf.SERVER_URL, profile)
+	if err != nil {
+		fmt.Printf("fail to register: %s\n", err.Error())
 		os.Exit(1)
 	}
 

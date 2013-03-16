@@ -79,7 +79,7 @@ func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 
 				inputFilePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
 
-				fmt.Printf("worker: fetching input from url %s\n", dataUrl)
+				Log.Debug(2, "mover: fetching input from url:"+dataUrl)
 				Log.Event(EVENT_FILE_IN, "workid="+work.Id+" url="+dataUrl)
 				if err := fetchFile(inputFilePath, dataUrl); err != nil { //get file from Shock
 					return []string{}, err

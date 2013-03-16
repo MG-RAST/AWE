@@ -71,7 +71,7 @@ func pushOutputData(work *Workunit) (err error) {
 		if _, err := os.Stat(name); err != nil {
 			return errors.New(fmt.Sprintf("output %s not generated for workunit %s", name, work.Id))
 		}
-		fmt.Printf("worker: push output to shock, filename=%s\n", name)
+		Log.Debug(2, "deliverer: push output to shock, filename="+name)
 		Log.Event(EVENT_FILE_OUT,
 			"workid="+work.Id,
 			"filename="+name,
@@ -140,7 +140,7 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 		argv = append(argv, fmt.Sprintf("%d=@%s", rank, filename))
 	}
 	argv = append(argv, target_url)
-	fmt.Printf("curl argv=%#v\n", argv)
+	Log.Debug(2, fmt.Sprintf("deliverer: curl argv=%#v", argv))
 	cmd := exec.Command("curl", argv...)
 	err = cmd.Run()
 	if err != nil {

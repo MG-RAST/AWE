@@ -74,7 +74,7 @@ func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 				if work.Rank == 0 {
 					dataUrl = io.Url()
 				} else {
-					dataUrl = fmt.Sprintf("%s&index=record&part=%s", io.Url(), work.Part())
+					dataUrl = fmt.Sprintf("%s&index=%s&part=%s", io.Url(), work.IndexType(), work.Part())
 				}
 
 				inputFilePath := fmt.Sprintf("%s/%s", work.Path(), inputname)

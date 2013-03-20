@@ -63,7 +63,7 @@ var (
 	//number of times that one clinet consecutively fails running workunits before the clinet considered suspend
 	MAX_CLIENT_FAILURE = 5
 	//big data size, exceeding this size will result in using size index, otherwise record index
-	BIG_DATA_SIZE int64 = 1073741824 * 10
+	BIG_DATA_SIZE int64 = 1073741824 * 20
 
 	//[client]
 	TOTAL_WORKER   = 1

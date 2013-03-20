@@ -59,9 +59,6 @@ func RunWorkunit(parsed *parsedWork) (err error) {
 	work := parsed.workunit
 	args := parsed.args
 
-	fmt.Printf("++++++worker: started processing workunit id=%s++++++\n", work.Id)
-	defer fmt.Printf("-------worker: finished processing workunit id=%s------\n\n", work.Id)
-
 	//change cwd to the workunit's working directory
 	if err := work.CDworkpath(); err != nil {
 		return err
@@ -70,7 +67,9 @@ func RunWorkunit(parsed *parsedWork) (err error) {
 	commandName := work.Cmd.Name
 	cmd := exec.Command(commandName, args...)
 
-	fmt.Printf("worker: start running cmd=%s, args=%v\n", commandName, args)
+	msg := fmt.Sprintf("worker: start cmd=%s, args=%v", commandName, args)
+	fmt.Println(msg)
+	Log.Debug(1, msg)
 	Log.Event(EVENT_WORK_START, "workid="+work.Id,
 		"cmd="+commandName,
 		fmt.Sprintf("args=%v", args))

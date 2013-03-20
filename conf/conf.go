@@ -52,17 +52,20 @@ var (
 	// Mongodb 
 	MONGODB = ""
 
-	//options
 	//debug log level
 	DEBUG_LEVEL = 0
+
+	//[server] options
 	//whether perf log including workunit info.
 	PERF_LOG_WORKUNIT = true
 	//number of times that one workunit fails before the workunit considered suspend
 	MAX_WORK_FAILURE = 3
 	//number of times that one clinet consecutively fails running workunits before the clinet considered suspend
 	MAX_CLIENT_FAILURE = 5
+	//big data size, exceeding this size will result in using size index, otherwise record index
+	BIG_DATA_SIZE int64 = 1073741824 * 20
 
-	//client
+	//[client]
 	TOTAL_WORKER   = 1
 	WORK_PATH      = ""
 	APP_PATH       = ""

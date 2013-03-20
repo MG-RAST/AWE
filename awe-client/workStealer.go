@@ -50,7 +50,7 @@ func workStealer(control chan int) {
 		} else {
 			retry = 0
 		}
-		fmt.Printf("workStealer: checked out a workunit: id=%s\n", wu.Id)
+		Log.Debug(2, "workStealer: checked out a workunit: id="+wu.Id)
 		//log event about work checktout (WC)
 		Log.Event(EVENT_WORK_CHECKOUT, "workid="+wu.Id)
 		self.Total_checkout += 1

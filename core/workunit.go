@@ -61,6 +61,10 @@ func (work *Workunit) CDworkpath() (err error) {
 	return os.Chdir(work.Path())
 }
 
+func (work *Workunit) IndexType() (indextype string) {
+	return work.Partition.Index
+}
+
 //calculate the range of data part
 //algorithm: try to evenly distribute indexed parts to workunits
 //e.g. totalWork=4, totalParts=10, then each workunits have parts 3,3,2,2 
@@ -68,22 +72,20 @@ func (work *Workunit) Part() (part string) {
 	if work.Rank == 0 {
 		return ""
 	}
-	if work.Partition.Index == "record" {
-		partsize := work.Partition.TotalIndex / work.TotalWork //floor
-		remainder := work.Partition.TotalIndex % work.TotalWork
-		var start, end int
-		if work.Rank <= remainder {
-			start = (partsize+1)*(work.Rank-1) + 1
-			end = start + partsize
-		} else {
-			start = (partsize+1)*remainder + partsize*(work.Rank-remainder-1) + 1
-			end = start + partsize - 1
-		}
-		if start == end {
-			part = fmt.Sprint("%d", start)
-		} else {
-			part = fmt.Sprintf("%d-%d", start, end)
-		}
+	partsize := work.Partition.TotalIndex / work.TotalWork //floor
+	remainder := work.Partition.TotalIndex % work.TotalWork
+	var start, end int
+	if work.Rank <= remainder {
+		start = (partsize+1)*(work.Rank-1) + 1
+		end = start + partsize
+	} else {
+		start = (partsize+1)*remainder + partsize*(work.Rank-remainder-1) + 1
+		end = start + partsize - 1
+	}
+	if start == end {
+		part = fmt.Sprintf("%d", start)
+	} else {
+		part = fmt.Sprintf("%d-%d", start, end)
 	}
 	return
 }

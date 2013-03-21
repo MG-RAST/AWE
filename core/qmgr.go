@@ -228,7 +228,7 @@ func (qm *QueueMgr) ClientChecker() {
 				client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
 			} else {
 				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
-				Log.Event(EVENT_CLIENT_UNREGISTER, "clientid="+clientid+",name="+qm.clientMap[clientid].Name)
+				Log.Event(EVENT_CLIENT_UNREGISTER, "clientid="+clientid+";name="+qm.clientMap[clientid].Name)
 
 				//requeue unfinished workunits associated with the failed client
 				workids := qm.getWorkByClient(clientid)
@@ -483,6 +483,7 @@ func (qm *QueueMgr) locateInputs(task *Task) (err error) {
 		if io.Node == "-" {
 			return errors.New(fmt.Sprintf("error in locate input for task %s, %s", task.Id, name))
 		}
+		io.GetFileSize()
 	}
 	return
 }
@@ -543,7 +544,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 	if _, ok := qm.clientMap[clientid]; ok {
 		delete(qm.clientMap[clientid].Current_work, workid)
 	}
-	if _, ok := qm.taskMap[taskid]; ok {
+	if task, ok := qm.taskMap[taskid]; ok {
 		qm.updateTaskWorkStatus(taskid, rank, status)
 		if status == WORK_STAT_DONE {
 			//log event about work done (WD)
@@ -556,15 +557,18 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 			} else {
 				//it happens when feedback is sent after server restarted and before client re-registered
 			}
-			qm.taskMap[taskid].RemainWork -= 1
-			if qm.taskMap[taskid].RemainWork == 0 {
-				qm.taskMap[taskid].State = TASK_STAT_COMPLETED
+			task.RemainWork -= 1
+			if task.RemainWork == 0 {
+				task.State = TASK_STAT_COMPLETED
+				for _, output := range task.Outputs {
+					output.GetFileSize()
+				}
 				//log event about task done (TD)
 				qm.FinalizeTaskPerf(taskid)
 				Log.Event(EVENT_TASK_DONE, "taskid="+taskid)
 				//update the info of the job which the task is belong to, could result in deletion of the
 				//task in the task map when the task is the final task of the job to be done.
-				if err = qm.updateJob(qm.taskMap[taskid]); err != nil {
+				if err = qm.updateJob(task); err != nil {
 					return
 				}
 				qm.updateQueue()

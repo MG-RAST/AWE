@@ -11,11 +11,11 @@ var (
 
 type Command struct {
 	Name         string `bson:"name" json:"name"`
-	Options      string `bson:"options" json:"options"`
+	Options      string `bson:"options" json:"-"`
 	Args         string `bson:"args" json:"args"`
 	Template     string `bson:"template" json:"template"`
 	Description  string `bson:"description" json:"description"`
-	RequiredArgs int    `bson:"requiredargs" json:"requiredargs"`
+	RequiredArgs int    `bson:"requiredargs" json:"-"`
 }
 
 func (c *Command) Substitute(inputs *IOmap, outputs *IOmap) (err error) {

@@ -84,14 +84,14 @@ func (task *Task) InitPartIndex() (err error) {
 	}
 	io := task.Inputs[task.Partition.Input]
 
-	filesize, idxinfo, err := io.GetFileInfo()
+	idxinfo, err := io.GetIndexInfo()
 	if err != nil {
 		task.setTotalWork(1)
 		Log.Error("warning: invalid file info, taskid=" + task.Id)
 		return nil
 	}
 
-	if filesize > conf.BIG_DATA_SIZE { //big data, use size index
+	if io.GetFileSize() > conf.BIG_DATA_SIZE { //big data, use size index
 		task.Partition.Index = "size"
 		if info, ok := idxinfo["size"]; ok {
 			totalunits = info.TotalUnits

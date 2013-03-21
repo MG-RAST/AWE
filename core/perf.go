@@ -15,9 +15,12 @@ type JobPerf struct {
 }
 
 type TaskPerf struct {
-	Queued int64
-	End    int64
-	Resp   int64 //End -Queued
+	Size         int64
+	Queued       int64
+	End          int64
+	Resp         int64 //End -Queued
+	InFileSizes  []int64
+	OutFileSizes []int64
 }
 
 type WorkPerf struct {
@@ -44,7 +47,9 @@ func NewJobPerf(id string) *JobPerf {
 
 func NewTaskPerf(id string) *TaskPerf {
 	return &TaskPerf{
-		Queued: time.Now().Unix(),
+		Queued:       time.Now().Unix(),
+		InFileSizes:  []int64{},
+		OutFileSizes: []int64{},
 	}
 }
 

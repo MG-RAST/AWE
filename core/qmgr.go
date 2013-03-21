@@ -876,6 +876,16 @@ func (qm *QueueMgr) FinalizeTaskPerf(taskid string) {
 			taskperf.End = now
 			taskperf.Resp = now - taskperf.Queued
 			//qm.actJobs[jobid].Ptasks[taskid] = taskperf
+
+			if task, ok := qm.taskMap[taskid]; ok {
+				for _, io := range task.Inputs {
+					taskperf.InFileSizes = append(taskperf.InFileSizes, io.Size)
+				}
+				for _, io := range task.Outputs {
+					taskperf.OutFileSizes = append(taskperf.OutFileSizes, io.Size)
+				}
+			}
+
 			return
 		}
 	}

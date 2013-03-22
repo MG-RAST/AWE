@@ -91,33 +91,34 @@ func (task *Task) InitPartIndex() (err error) {
 		return nil
 	}
 
-	if io.GetFileSize() > conf.BIG_DATA_SIZE { //big data, use size index
-		task.Partition.Index = "size"
-		if info, ok := idxinfo["size"]; ok {
-			totalunits = info.TotalUnits
-		} else {
+	var idxtype string
+	if io.GetFileSize() > conf.BIG_DATA_SIZE { //big data, use chunkrecord index
+		idxtype = "chunkrecord"
+	} else {
+		idxtype = "record"
+	}
+
+	if _, ok := idxinfo[idxtype]; !ok { //if index not available, create index
+		if err := createIndex(io.Host, io.Node, idxtype); err != nil {
 			task.setTotalWork(1)
-			Log.Error("warning: invalid size index units taskid=" + task.Id)
+			Log.Error("warning: fail to create index on shock for taskid=" + task.Id)
 			return nil
 		}
-		if totalunits < task.TotalWork {
-			task.setTotalWork(totalunits)
-		}
-	} else { //small to medium size data, use record index
-		task.Partition.Index = "record"
-		if _, ok := idxinfo["record"]; !ok { //if index not available, create index
-			createIndex(io.Host, io.Node, "record")
-		}
-		totalunits, err = io.TotalUnits("record") //get index info again
+		totalunits, err = io.TotalUnits(idxtype) //get index info again
 		if err != nil {
 			task.setTotalWork(1)
 			Log.Error("warning: fail to get index units, taskid=" + task.Id + ":" + err.Error())
 			return nil
 		}
-		if totalunits < task.TotalWork {
-			task.setTotalWork(totalunits)
-		}
+	} else { //index existing, use it directly
+		totalunits = idxinfo[idxtype].TotalUnits
 	}
+
+	if totalunits < task.TotalWork {
+		task.setTotalWork(totalunits)
+	}
+
+	task.Partition.Index = idxtype
 	task.Partition.TotalIndex = totalunits
 	return
 }

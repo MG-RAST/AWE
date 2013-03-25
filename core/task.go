@@ -1,10 +1,12 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
 	. "github.com/MG-RAST/AWE/logger"
 	"os/exec"
+	"strconv"
 )
 
 const (
@@ -46,13 +48,19 @@ func NewTask(job *Job, rank int) *Task {
 }
 
 // fill some info (lacked in input json) for a task 
-func (task *Task) InitTask(job *Job) (err error) {
+func (task *Task) InitTask(job *Job, rank int) (err error) {
+	if idInt, err := strconv.Atoi(task.Id); err == nil {
+		if rank != idInt {
+			return errors.New(fmt.Sprintf("invalid job script: task id doen't match stage %d vs %d", rank, idInt))
+		}
+	} else {
+		return errors.New("invalid job script: task id (stage) can't be converted to an integer: " + task.Id)
+	}
 	task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
 	task.Info = job.Info
 	task.State = TASK_STAT_INIT
 	task.WorkStatus = make([]string, task.TotalWork)
 	task.RemainWork = task.TotalWork
-
 	for j := 0; j < len(task.DependsOn); j++ {
 		depend := task.DependsOn[j]
 		task.DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)

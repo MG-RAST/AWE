@@ -171,8 +171,8 @@
                     }
                 },
                 "partinfo": {
-                     "input": "#jobname.genecalled.faa",
-                     "output": "#jobname.clust.faa"
+                     "input": "#jobname.clust.faa",
+                     "output": "#jobname.hits.blat"
                 },
                 "taskid": "5",
                 "totalwork": #totalwork

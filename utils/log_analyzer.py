@@ -5,18 +5,48 @@ This script is a rather dynamic. And some of the existing functions may be
 used for some specific analysis only. Users may use this as a template to write
 new analysis functions for their own needs.'''
 
-import time
 import datetime
-import sys
-import numpy as np
+import json
 import matplotlib.pyplot as plt
+import numpy as np
+import sys
+import time
 from optparse import OptionParser
 
 color_list = ['b', 'r', 'k', 'g', 'm', 'y']
 stage_list = ["prep", "derep", "screen", "fgs", "uclust", "blat"]
 
-def parseLogFile(filename):
-    '''parse the whole work load file'''
+def parsePerfLog(filename):
+    '''parse perf log'''
+    raw_job_dict = {}
+    wlf = open(filename, "r")
+    
+    job_dict = {}
+    
+    for line in wlf:
+        line = line.strip('\n')
+        line = line.strip('\r')
+        if len(line)==0:
+            continue
+        jsonstream = line[26:]
+        data =  json.loads(jsonstream)
+        #pprint(data)
+        print "======="
+        for key, val in data.iteritems():
+            if key == 'Ptasks':
+                for k in sorted(val.keys()):
+                    print k, val[k]
+            elif key == 'Pworks':
+                for k in sorted(val.keys()):
+                    print k, val[k]
+            else:
+                print key, val
+        job_dict[data['Id']] = data
+    print "%d completed jobs have been parsed from the perf log" % len(job_dict.keys())    
+    return job_dict                       
+
+def parseEventLog(filename):
+    '''parse event log'''
     raw_job_dict = {}
     wlf = open(filename, "r")
     
@@ -178,8 +208,11 @@ def print_task_runtime_table(job_dict):
 
 if __name__ == "__main__":
     p = OptionParser()
-    p.add_option("-l", dest = "logfile", type = "string", 
-                    help = "path of log file (required)")
+    p.add_option("-e", dest = "eventlog", type = "string", 
+                    help = "path of event log file")
+    
+    p.add_option("-p", dest = "perflog", type = "string", 
+                    help = "path of perf log file")
     
     p.add_option("-r", "--rawjobs", dest = "rawjobs", \
             action = "store_true", \
@@ -203,14 +236,19 @@ if __name__ == "__main__":
     
     (opts, args) = p.parse_args()
     
-    if not opts.logfile:
-        print "please specify path of log file"
+    if not opts.eventlog and not opts.perflog:
+        print "please specify path of either event log file (-e) or perf log file (-p)"
         p.print_help()
         exit()
 
-    job_dict = parseLogFile(opts.logfile)
     
+    job_dict = {}
     
+    if opts.eventlog:
+        job_dict = parseEventLog(opts.eventlog)
+    elif opts.perflog:
+        job_dict = parsePerfLog(opts.perflog)
+        
     if opts.taskbars:
         bins = {}
         for id, job in job_dict.items():

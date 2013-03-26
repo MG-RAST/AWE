@@ -63,7 +63,7 @@ var (
 	//number of times that one clinet consecutively fails running workunits before the clinet considered suspend
 	MAX_CLIENT_FAILURE = 5
 	//big data size, exceeding this size will result in using size index, otherwise record index
-	BIG_DATA_SIZE int64 = 1073741824 * 20
+	BIG_DATA_SIZE int64 = 1048576 * 500
 
 	//[client]
 	TOTAL_WORKER   = 1
@@ -148,6 +148,9 @@ func init() {
 	// Server options
 	if perf_log_workunit, err := c.Bool("Server", "perf_log_workunit"); err == nil {
 		PERF_LOG_WORKUNIT = perf_log_workunit
+	}
+	if big_data_size, err := c.Int("Server", "big_data_size"); err == nil {
+		BIG_DATA_SIZE = int64(big_data_size)
 	}
 
 	// Client

@@ -31,11 +31,10 @@
                 },
                 "partinfo": {
                      "input": "#inputfile",
-                     "output": "#jobname.prep.fna",
-                     "index": "record"
+                     "output": "#jobname.prep.fna"
                 },
                 "taskid": "0", 
-                "totalwork": 4
+                "totalwork": 1
             },
             {
                 "cmd": {
@@ -86,11 +85,10 @@
                 },
                 "partinfo": {
                      "input": "#jobname.derep.fna",
-                     "output": "#jobname.screened.fna",
-                     "index": "record"
+                     "output": "#jobname.screened.fna"
                 },
                 "taskid": "2", 
-                "totalwork": 4
+                "totalwork": #totalwork
             },
             {
                 "cmd": {
@@ -116,11 +114,10 @@
                 },
                 "partinfo": {
                      "input": "#jobname.screened.fna",
-                     "output": "#jobname.genecalled.faa",
-                     "index": "record"
+                     "output": "#jobname.genecalled.faa"
                 },
                 "taskid": "3", 
-                "totalwork": 4
+                "totalwork": #totalwork
             },
             {
                 "cmd": {
@@ -146,8 +143,7 @@
                 },
                 "partinfo": {
                      "input": "#jobname.genecalled.faa",
-                     "output": "#jobname.clust.faa",
-                     "index": "record"
+                     "output": "#jobname.clust.faa"
                 },
                 "taskid": "4",
                 "totalwork": 1
@@ -174,8 +170,12 @@
                         "node": "-"
                     }
                 },
+                "partinfo": {
+                     "input": "#jobname.clust.faa",
+                     "output": "#jobname.hits.blat"
+                },
                 "taskid": "5",
-                "totalwork": 1
+                "totalwork": #totalwork
 
             }
         ]

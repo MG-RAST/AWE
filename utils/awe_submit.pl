@@ -13,6 +13,7 @@
 #     -user=<user name>
 #     -project=<project name>
 #     -cgroups=<exclusive_client_group_list (separate by ',')>
+#     -totalwork=<number of workunits to split for splitable tasks (default 1)>
 #     
 #     
 #Use case 1: submit a job with a shock url for the input file location and a pipeline template (input file is on shock)
@@ -61,6 +62,7 @@ my $user_name = "default";
 my $project_name = "default";
 my $job_name="";
 my $clients="";
+my $total_work=1;
 my $file_type="";
 my $help = 0;
 
@@ -75,6 +77,7 @@ my $options = GetOptions ("upload=s"   => \$infile,
                           "name=s" => \$job_name,
                           "type=s" => \$file_type,
                           "cgroups=s" => \$clients,
+                          "totalwork=i" => \$total_work,
                           "h"  => \$help,
 			 );
 
@@ -85,6 +88,8 @@ if ($help) {
     print_usage();
     exit 0;
 }
+
+print "total_work=".$total_work;
 
 if (length($awe_url)==0) {
     $awe_url = $ENV{'AWE_HOST'};
@@ -184,7 +189,7 @@ if (length($node_id)>0 || (length($infile)>0)) { #use case 1 or 2
     print "job_name=".$job_name."\n";
 
     $jobscript = "tempjob.json";
-    
+        
     system("cp $pipeline_template $jobscript");
     system("perl -p -i -e 's/#shockurl/$shock_url/g;' $jobscript");
     system("perl -p -i -e 's/#shocknode/$shock_id/g;' $jobscript");
@@ -192,6 +197,7 @@ if (length($node_id)>0 || (length($infile)>0)) { #use case 1 or 2
     system("perl -p -i -e 's/#user/$user_name/g;' $jobscript");
     system("perl -p -i -e 's/#jobname/$job_name/g;' $jobscript");
     system("perl -p -i -e 's/#clientgroups/$clients/g;' $jobscript");
+    system("perl -p -i -e 's/#totalwork/$total_work/g;' $jobscript");
     
     if (length($infile)>0) {
         system("perl -p -i -e 's/#inputfile/$infile/g;' $jobscript");
@@ -204,16 +210,17 @@ if (length($node_id)>0 || (length($infile)>0)) { #use case 1 or 2
 }
 
 #upload job script to awe server
-
-print "submitting job script to AWE...\n";
+system("stat $jobscript");
+print "submitting job script to AWE...jobscript=$jobscript \n";
 my $out_awe_sub = `curl -X POST -F upload=\@$jobscript http://$awe_url/job | python -mjson.tool |  grep \\\"id\\\"`;
-chomp($out_awe_sub);
-my @values = split('"', $out_awe_sub);
-my $job_id = $values[3];
 if($? != 0) {
     print "Error: Failed to submit job script to AWE server, return value $?\n";
     exit $?;
 }
+chomp($out_awe_sub);
+my @values = split('"', $out_awe_sub);
+my $job_id = $values[3];
+
 
 print "\nsubmitting job script to AWE...Done! id=".$job_id."\n";
 
@@ -252,18 +259,19 @@ Options:
      -user=<user name>
      -project=<project name>
      -cgroups=<exclusive_client_group_list (separate by ',')>
+     -totalwork=<number of workunits to split for splitable tasks (default 1)>
      
      
 Use case 1: submit a job with a shock url for the input file location and a pipeline template (input file is on shock)
       Required options: -node, -pipeline, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
-      Optional options: -name, -user, -project, -cgroups
+      Optional options: -name, -user, -project, -cgroups, -totalwork
       Operations:
                1. create job script based on job template and available info
                2. submit the job json script to awe
 
 Use case 2: submit a job with a local input file and a pipeline template (input file is local and will be uploaded to shock automatially;
       Required options: -upload, -pipeline, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
-      Optional options: -name, -user, -project, -cgroups
+      Optional options: -name, -user, -project, -cgroups, -totalwork
       Operations:
                1. upload input file to shock
                2. create job script based on job template and available info

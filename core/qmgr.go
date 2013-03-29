@@ -350,7 +350,7 @@ func (qm *QueueMgr) DeleteJob(jobid string) (err error) {
 	//delete queueing workunits
 	for workid, _ := range qm.workQueue.workMap {
 		if jobid == strings.Split(workid, "_")[0] {
-		    qm.workQueue.Delete(workid)
+			qm.workQueue.Delete(workid)
 		}
 	}
 	//delete parsed tasks

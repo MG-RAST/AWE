@@ -62,8 +62,10 @@ var (
 	MAX_WORK_FAILURE = 3
 	//number of times that one clinet consecutively fails running workunits before the clinet considered suspend
 	MAX_CLIENT_FAILURE = 5
-	//big data size, exceeding this size will result in using size index, otherwise record index
-	BIG_DATA_SIZE int64 = 1048576 * 500
+	//big data threshold
+	BIG_DATA_SIZE int64 = 1048576 * 1024
+	//default index type used for intermediate data
+	DEFAULT_INDEX = "chunkrecord"
 
 	//[client]
 	TOTAL_WORKER   = 1
@@ -152,6 +154,11 @@ func init() {
 	if big_data_size, err := c.Int("Server", "big_data_size"); err == nil {
 		BIG_DATA_SIZE = int64(big_data_size)
 	}
+	/*
+		if default_index, err := c.String("Server", "default_index"); err == nil {
+			DEFAULT_INDEX = default_index
+		}
+	*/
 
 	// Client
 	WORK_PATH, _ = c.String("Client", "workpath")

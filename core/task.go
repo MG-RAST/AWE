@@ -99,13 +99,7 @@ func (task *Task) InitPartIndex() (err error) {
 		return nil
 	}
 
-	var idxtype string
-	if io.GetFileSize() > conf.BIG_DATA_SIZE { //big data, use chunkrecord index
-		idxtype = "chunkrecord"
-	} else {
-		idxtype = "record"
-	}
-
+	idxtype := conf.DEFAULT_INDEX
 	if _, ok := idxinfo[idxtype]; !ok { //if index not available, create index
 		if err := createIndex(io.Host, io.Node, idxtype); err != nil {
 			task.setTotalWork(1)

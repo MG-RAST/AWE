@@ -445,11 +445,10 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 		return err
 	}
 
-	if task.TotalWork > 0 {
-		if err := task.InitPartIndex(); err != nil {
-			Log.Error("qmgr.taskEnQueue InitPartitionIndex:" + err.Error())
-			return err
-		}
+	//init partition
+	if err := task.InitPartIndex(); err != nil {
+		Log.Error("qmgr.taskEnQueue InitPartitionIndex:" + err.Error())
+		return err
 	}
 
 	if err := qm.createOutputNode(task); err != nil {

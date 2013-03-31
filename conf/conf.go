@@ -66,6 +66,8 @@ var (
 	BIG_DATA_SIZE int64 = 1048576 * 1024
 	//default index type used for intermediate data
 	DEFAULT_INDEX = "chunkrecord"
+	//default chunk size, consistent with shock
+	DEFAULT_CHUNK_SIZE int64 = 1048576 * 1
 
 	//[client]
 	TOTAL_WORKER   = 1

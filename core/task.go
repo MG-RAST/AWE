@@ -59,7 +59,9 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 	task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
 	task.Info = job.Info
 	task.State = TASK_STAT_INIT
-	task.WorkStatus = make([]string, task.TotalWork)
+	if task.TotalWork > 0 {
+		task.WorkStatus = make([]string, task.TotalWork)
+	}
 	task.RemainWork = task.TotalWork
 	for j := 0; j < len(task.DependsOn); j++ {
 		depend := task.DependsOn[j]
@@ -76,12 +78,15 @@ func (task *Task) UpdateState(newState string) string {
 //get part size based on partition/index info
 //if fail to get index info, task.TotalWork fall back to 1 and return nil
 func (task *Task) InitPartIndex() (err error) {
-	if task.TotalWork <= 1 {
+	if task.Partition == nil {
+		if task.TotalWork > 1 {
+			Log.Error("warning: lacking partition info while totalwork > 1, taskid=" + task.Id)
+		}
+		task.setTotalWork(1)
 		return
 	}
-	if task.Partition == nil {
+	if task.Partition.MaxPartSizeMB == 0 && task.TotalWork <= 1 {
 		task.setTotalWork(1)
-		Log.Error("warning: lacking partition info while totalwork > 1, taskid=" + task.Id)
 		return
 	}
 	var totalunits int
@@ -99,13 +104,7 @@ func (task *Task) InitPartIndex() (err error) {
 		return nil
 	}
 
-	var idxtype string
-	if io.GetFileSize() > conf.BIG_DATA_SIZE { //big data, use chunkrecord index
-		idxtype = "chunkrecord"
-	} else {
-		idxtype = "record"
-	}
-
+	idxtype := conf.DEFAULT_INDEX
 	if _, ok := idxinfo[idxtype]; !ok { //if index not available, create index
 		if err := createIndex(io.Host, io.Node, idxtype); err != nil {
 			task.setTotalWork(1)
@@ -122,8 +121,20 @@ func (task *Task) InitPartIndex() (err error) {
 		totalunits = idxinfo[idxtype].TotalUnits
 	}
 
-	if totalunits < task.TotalWork {
-		task.setTotalWork(totalunits)
+	//adjust total work based on needs	
+	if task.Partition.MaxPartSizeMB > 0 { // fixed max part size
+		//this implementation for chunkrecord indexer only
+		chunkmb := int(conf.DEFAULT_CHUNK_SIZE / 1048576)
+		if totalunits*chunkmb%task.Partition.MaxPartSizeMB == 0 {
+			task.setTotalWork(totalunits * chunkmb / task.Partition.MaxPartSizeMB)
+		} else {
+			totalwork := totalunits*chunkmb/task.Partition.MaxPartSizeMB + 1
+			task.setTotalWork(totalwork)
+		}
+	} else {
+		if totalunits < task.TotalWork {
+			task.setTotalWork(totalunits)
+		}
 	}
 
 	task.Partition.Index = idxtype

@@ -72,15 +72,15 @@ func main() {
 	if _, err := os.Stat(conf.DATA_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.DATA_PATH, 0777); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR in creating data_path %s\n", err.Error())
+			os.Exit(1)
 		}
-		os.Exit(1)
 	}
 
 	if _, err := os.Stat(conf.LOGS_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.LOGS_PATH, 0777); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR in creating log_path %s\n", err.Error())
+			os.Exit(1)
 		}
-		os.Exit(1)
 	}
 
 	if _, err := os.Stat(conf.DATA_PATH + "/temp"); err != nil && os.IsNotExist(err) {

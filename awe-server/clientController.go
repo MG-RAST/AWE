@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/MG-RAST/AWE/core"
 	e "github.com/MG-RAST/AWE/errors"
 	. "github.com/MG-RAST/AWE/logger"
 	"github.com/jaredwilkening/goweb"
@@ -76,7 +77,19 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 		cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
 		return
 	}
-	cx.RespondWithData(clients)
+
+	query := &Query{list: cx.Request.URL.Query()}
+	filtered := []*core.Client{}
+	if query.Has("busy") {
+		for _, client := range clients {
+			if len(client.Current_work) > 0 {
+				filtered = append(filtered, client)
+			}
+		}
+	} else {
+		filtered = clients
+	}
+	cx.RespondWithData(filtered)
 }
 
 // PUT: /client/{id} -> status update

@@ -123,7 +123,7 @@
                 "cmd": {
                     "args": "-input=@#jobname.genecalled.faa --output=#jobname.clust.faa -aa -pid=90",
                     "description": "clustering",
-                    "name": "awe_qiime_uclust.pl"
+                    "name": "awe_cluster_parallel.pl"
                 },
                 "dependsOn": ["3"],
                 "inputs": {

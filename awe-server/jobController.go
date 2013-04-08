@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/MG-RAST/AWE/core"
 	. "github.com/MG-RAST/AWE/logger"
 	e "github.com/MG-RAST/Shock/errors"
@@ -204,5 +205,20 @@ func (cr *JobController) Delete(id string, cx *goweb.Context) {
 		return
 	}
 	cx.RespondWithData("job deleted: " + id)
+	return
+}
+
+// DELETE: /job?suspend
+func (cr *JobController) DeleteMany(cx *goweb.Context) {
+	LogRequest(cx.Request)
+	// Gather query params
+	query := &Query{list: cx.Request.URL.Query()}
+
+	if query.Has("suspend") {
+		num := queueMgr.DeleteSuspendedJobs()
+		cx.RespondWithData(fmt.Sprintf("deleted %d suspended jobs", num))
+	} else {
+		cx.RespondWithError(http.StatusNotImplemented)
+	}
 	return
 }

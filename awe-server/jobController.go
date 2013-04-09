@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/MG-RAST/AWE/core"
+	e "github.com/MG-RAST/AWE/errors"
 	. "github.com/MG-RAST/AWE/logger"
-	e "github.com/MG-RAST/Shock/errors"
 	"github.com/jaredwilkening/goweb"
 	"labix.org/v2/mgo/bson"
 	"net/http"
@@ -18,9 +18,9 @@ func handleAuthError(err error, cx *goweb.Context) {
 	case e.MongoDocNotFound:
 		cx.RespondWithErrorMessage("Invalid username or password", http.StatusBadRequest)
 		return
-	case e.InvalidAuth:
-		cx.RespondWithErrorMessage("Invalid Authorization header", http.StatusBadRequest)
-		return
+		//	case e.InvalidAuth:
+		//		cx.RespondWithErrorMessage("Invalid Authorization header", http.StatusBadRequest)
+		//		return
 	}
 	Log.Error("Error at Auth: " + err.Error())
 	cx.RespondWithError(http.StatusInternalServerError)

@@ -227,7 +227,7 @@
                 },
                 "partinfo": {
                      "input": "#jobname.search.rna.fna",
-                     "output": "#jobname.clust.rna.fna",
+                     "output": "#jobname.clust.rna.fna"
                 },
                 "taskid": "7",
                 "totalwork": 1
@@ -265,7 +265,7 @@
                 "cmd": {
                     "name": "awe_memcache.pl",
                     "args": "-aa_sims=@#jobname.aa.blat -rna_sim=@#jobname.rna.blat -out_prefix=#jobname", 
-                    "description": "simularity search using blat"
+                    "description": "annotation"
                 }, 
                 "dependsOn": ["5", "8"],  
                 "inputs": {
@@ -298,7 +298,7 @@
                         "host": "http://#shockurl",
                         "node": "-"
                     },
-                    "#jobname.aa.sims.filter": {
+                    "#jobname.aa.expand.ontology": {
                         "name": "#jobname.aa.expand.ontology",
                         "host": "http://#shockurl",
                         "node": "-"

@@ -364,6 +364,16 @@ func (qm *QueueMgr) DeleteJob(jobid string) (err error) {
 	return
 }
 
+func (qm *QueueMgr) DeleteSuspendedJobs() (num int) {
+	suspendjobs := qm.GetSuspendJobs()
+	for id, _ := range suspendjobs {
+		if err := qm.DeleteJob(id); err == nil {
+			num += 1
+		}
+	}
+	return
+}
+
 func (qm *QueueMgr) SuspendJob(jobid string) (err error) {
 	job, err := LoadJob(jobid)
 	if err != nil {

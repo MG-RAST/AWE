@@ -52,6 +52,14 @@ func (work *Workunit) Mkdir() (err error) {
 	return
 }
 
+func (work *Workunit) RemoveDir() (err error) {
+	err = os.RemoveAll(work.Path())
+	if err != nil {
+		return
+	}
+	return
+}
+
 func (work *Workunit) Path() string {
 	id := work.Id
 	return fmt.Sprintf("%s/%s/%s/%s/%s", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id)

@@ -52,6 +52,12 @@ func deliverer(control chan int) {
 		if processed.status == WORK_STAT_DONE {
 			Log.Event(EVENT_WORK_DONE, "workid="+work.Id)
 			self.Total_completed += 1
+
+			if conf.AUTO_CLEAN_DIR {
+				if err := work.RemoveDir(); err != nil {
+					Log.Error("err@work.RemoveDir(): workid=" + work.Id + ", err=" + err.Error())
+				}
+			}
 		} else {
 			Log.Event(EVENT_WORK_RETURN, "workid="+work.Id)
 			self.Total_failed += 1

@@ -79,6 +79,7 @@ var (
 	CLIENT_PROFILE = ""
 	WORKER_OVERLAP = false
 	PRINT_APP_MSG  = false
+	AUTO_CLEAN_DIR = false
 
 	//tag
 	INIT_SUCCESS = true
@@ -180,6 +181,9 @@ func init() {
 	}
 	if worker_overlap, err := c.Bool("Client", "worker_overlap"); err == nil {
 		WORKER_OVERLAP = worker_overlap
+	}
+	if auto_clean_dir, err := c.Bool("Client", "auto_clean_dir"); err == nil {
+		AUTO_CLEAN_DIR = auto_clean_dir
 	}
 }
 

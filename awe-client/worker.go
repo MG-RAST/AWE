@@ -36,13 +36,7 @@ func worker(control chan int) {
 		if err := RunWorkunit(parsedwork); err != nil {
 			fmt.Printf("!!!RunWorkunit() returned error: %s\n", err.Error())
 			Log.Error("RunWorkunit(): workid=" + work.Id + ", " + err.Error())
-
-			//restart once and if it still fails
-			if err := RunWorkunit(parsedwork); err != nil {
-				fmt.Printf("!!!RunWorkunit() returned error again: %s\n", err.Error())
-				Log.Error("ReRunWorkunit(): workid=" + work.Id + ", " + err.Error())
-				processed.status = WORK_STAT_FAIL
-			}
+			processed.status = WORK_STAT_FAIL
 		} else {
 			processed.status = WORK_STAT_COMPUTED
 		}

@@ -472,7 +472,7 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 	task.State = TASK_STAT_QUEUED
 
 	//log event about task enqueue (TQ)
-	Log.Event(EVENT_TASK_ENQUEUE, "taskid="+task.Id)
+	Log.Event(EVENT_TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task.Id, task.TotalWork))
 	qm.CreateTaskPerf(task.Id)
 	return
 }

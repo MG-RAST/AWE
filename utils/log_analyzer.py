@@ -16,6 +16,8 @@ from optparse import OptionParser
 color_list = ['b', 'r', 'k', 'g', 'm', 'y']
 stage_list = ["prep", "derep", "screen", "fgs", "uclust", "blat"]
 
+DEFAULT_TOTALWORK = 1
+
 def parsePerfLog(filename):
     '''parse perf log'''
     raw_job_dict = {}
@@ -129,7 +131,7 @@ def parseEventLog(filename):
     print "%d completed jobs have been parsed from the event log" % len(job_dict.keys())    
          
     return job_dict                       
-    #return job_dict, min_qtime, min_start, max_qtime, max_end
+
 
 def draw_task_runtime_bar_charts(job_dict):
     '''input job_dict, depict task runtime bar chart for each job'''
@@ -204,7 +206,118 @@ def print_task_runtime_table(job_dict):
             line += "%d," % runtime
         line = line[:-1]
         print line
-     
+        
+def parse_workload(filename):
+    raw_job_dict = {}
+    wlf = open(filename, "r")
+    
+    job_dict = {}
+    
+    i = 1
+    starttime = 0
+    
+    jobload = []
+    taskload = []
+    workload = []
+    
+    jobct = 0
+    taskct = 0
+    workct = 0    
+    
+    for line in wlf:
+        line = line.strip('\n')
+        line = line.strip('\r')
+        if len(line) == 0:
+            continue
+        if line[0] != "[":
+            continue 
+        
+        timestr = line[1:20]
+        
+        timeobj = datetime.datetime.strptime(timestr, "%Y/%m/%d %H:%M:%S")
+        unixtime = int(time.mktime(timeobj.timetuple()))
+        
+        if i==1:
+            starttime = unixtime
+        
+        timestamp = unixtime - starttime
+        
+        infostr = line.split()[4]
+        parts = infostr.split(';')
+        
+        event = parts[0]
+                        
+        attr = {}
+        for item in parts[1:]:
+            segs = item.split('=')
+            key = segs[0]
+            val = segs[1]
+            attr[key] = val
+            
+        if event == "JQ":  #job submitted
+            jobct += 1
+            taskct += 6
+        elif event == "JD":
+            jobct -= 1
+        elif event == "TQ":
+            workct += int(attr.get("totalwork", DEFAULT_TOTALWORK))
+        elif event == "TD":
+            taskct -= 1
+        elif event == "WD":
+            workct -= 1
+            
+        if event in ["JQ", "JD"]:
+            jobload.append((timestamp, jobct))
+        if event in ["JQ", "TD"]:
+            taskload.append((timestamp, taskct))
+        if event in ["TQ", "WD"]:
+            workload.append((timestamp, workct))
+            
+        i += 1
+        
+    return jobload, taskload, workload
+
+def plot_workload(workload, name):
+    print "plotting: workload"
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    plt.title("number of active workunit (queuing + running)")
+    interval = 10
+    max_point = workload[-1][0] / interval
+    timepoint = 0
+    timepoints = []
+    workct = []
+    maxjob = 0
+    lastpoint = 0
+    for i in range(0, max_point+1):
+        timepoint = i * interval
+        j = lastpoint
+        while timepoint >= workload[j][0]:
+            j += 1
+        lastpoint = j - 1
+        if lastpoint < 0:
+            lastpoint = 0
+        workct.append(workload[lastpoint][1])
+        timepoints.append(i * interval)
+        #print timepoint, workct[i]
+        
+    ax.plot(timepoints, workct, color = "b", lw=1.5)
+    
+    busyclient = []
+    for ct in workct:
+        if ct >= 40:
+            busyclient.append(40)
+        else:
+            busyclient.append(ct)
+    
+    ax.fill_between(timepoints, 0, busyclient)
+    
+    ax.plot(timepoints, [40 for i in range(0, len(timepoints))], color = "r")
+    ax.set_ylim(0, 160)
+    ax.set_xlabel('time elapsed (sec)')
+    ax.grid(True)
+    print "max_timepoint=", timepoints[-1]
+    plt.savefig(name+".png")
 
 if __name__ == "__main__":
     p = OptionParser()
@@ -213,6 +326,9 @@ if __name__ == "__main__":
     
     p.add_option("-p", dest = "perflog", type = "string", 
                     help = "path of perf log file")
+    
+    p.add_option("-w", dest = "workload", action = "store_true", default = False,
+                    help = "draw workload running graph, used with -e")
     
     p.add_option("-r", "--rawjobs", dest = "rawjobs", \
             action = "store_true", \
@@ -269,6 +385,27 @@ if __name__ == "__main__":
     
     if opts.taskcsv:
         print_task_runtime_table(job_dict)
+        
+    if opts.workload:
+        if not opts.eventlog:
+            print "workload parsing (-w) needs to specify event log (-e)"
+            exit()
+        jobload, taskload, workload = parse_workload(opts.eventlog)
+        
+        #for load in workload:
+        #    print load[0], load[1]
+        #print "========="        
+        #for load in taskload:
+        #    print load[0], load[1]
+        #print "========="
+        #for load in jobload:
+        #    print load[0], load[1]
+            
+        plot_workload(workload, opts.eventlog.split(".")[0])
+        
+        
+        
+        
         
     
     

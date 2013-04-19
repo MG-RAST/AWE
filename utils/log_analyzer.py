@@ -17,6 +17,7 @@ color_list = ['b', 'r', 'k', 'g', 'm', 'y']
 stage_list = ["prep", "derep", "screen", "fgs", "uclust", "blat"]
 
 DEFAULT_TOTALWORK = 1
+CLIENT_QUOTA = 80
 
 def parsePerfLog(filename):
     '''parse perf log'''
@@ -279,10 +280,11 @@ def parse_workload(filename):
 
 def plot_workload(workload, name):
     print "plotting: workload"
+    print len(workload), workload[-1]
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    plt.title("number of active workunit (queuing + running)")
-    interval = 10
+    plt.title("number of active workunits (queuing + running)")
+    interval = 5
     max_point = workload[-1][0] / interval
     timepoint = 0
     timepoints = []
@@ -292,32 +294,39 @@ def plot_workload(workload, name):
     for i in range(0, max_point+1):
         timepoint = i * interval
         j = lastpoint
+        
         while timepoint >= workload[j][0]:
             j += 1
+            if j == len(workload):
+                break
         lastpoint = j - 1
         if lastpoint < 0:
             lastpoint = 0
+        print timepoint, workload[lastpoint][1], workload[lastpoint]
         workct.append(workload[lastpoint][1])
         timepoints.append(i * interval)
         #print timepoint, workct[i]
-        
-    ax.plot(timepoints, workct, color = "b", lw=1.5)
-    
+
     busyclient = []
     for ct in workct:
-        if ct >= 40:
-            busyclient.append(40)
+        if ct >= CLIENT_QUOTA:
+            busyclient.append(CLIENT_QUOTA)
         else:
             busyclient.append(ct)
     
-    ax.fill_between(timepoints, 0, busyclient)
+    timepoints.append(timepoints[-1] + interval)
+    busyclient.append(0)
+    workct.append(0)
     
-    ax.plot(timepoints, [40 for i in range(0, len(timepoints))], color = "r")
-    ax.set_ylim(0, 160)
+    ax.plot(timepoints, workct, color = "b", lw=1.5)
+    ax.plot(timepoints, [CLIENT_QUOTA for i in range(0, len(timepoints))], color = "r")
+    ax.fill_between(timepoints, 0, busyclient)
+    #ax.set_ylim(0, 160)
+    #ax.set_xlim(0, 30000)
     ax.set_xlabel('time elapsed (sec)')
     ax.grid(True)
     print "max_timepoint=", timepoints[-1]
-    plt.savefig(name+".png")
+    plt.savefig(name+".eps")
 
 if __name__ == "__main__":
     p = OptionParser()

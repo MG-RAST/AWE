@@ -27,6 +27,8 @@ def parsePerfLog(filename):
     job_dict = {}
     
     for line in wlf:
+        total_data_move = 0
+        total_compute = 0
         line = line.strip('\n')
         line = line.strip('\r')
         if len(line)==0:
@@ -42,9 +44,12 @@ def parsePerfLog(filename):
             elif key == 'Pworks':
                 for k in sorted(val.keys()):
                     print k, val[k]
+                    total_data_move += val[k]['DataIn'] + val[k]['DataOut']
+                    total_compute += val[k]['Runtime']
             else:
                 print key, val
         job_dict[data['Id']] = data
+        print "data movement overhead of job %s: %f" % (data['Id'], float(total_data_move) / (total_data_move + total_compute))
     print "%d completed jobs have been parsed from the perf log" % len(job_dict.keys())    
     return job_dict                       
 

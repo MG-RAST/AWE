@@ -21,15 +21,15 @@ import (
 )
 
 type HeartbeatResponse struct {
-	Code int      `bson:"S" json:"S"`
-	Data string   `bson:"D" json:"D"`
-	Errs []string `bson:"E" json:"E"`
+	Code int      `bson:"status" json:"status"`
+	Data string   `bson:"data" json:"data"`
+	Errs []string `bson:"error" json:"error"`
 }
 
 type ClientResponse struct {
-	Code int      `bson:"S" json:"S"`
-	Data Client   `bson:"D" json:"D"`
-	Errs []string `bson:"E" json:"E"`
+	Code int      `bson:"status" json:"status"`
+	Data Client   `bson:"data" json:"data"`
+	Errs []string `bson:"error" json:"error"`
 }
 
 func heartBeater(control chan int) {

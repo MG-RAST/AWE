@@ -13,9 +13,9 @@ import (
 )
 
 type ShockResponse struct {
-	Code int       `bson:"S" json:"S"`
-	Data ShockNode `bson:"D" json:"D"`
-	Errs []string  `bson:"E" json:"E"`
+	Code int       `bson:"status" json:"status"`
+	Data ShockNode `bson:"data" json:"data"`
+	Errs []string  `bson:"error" json:"error"`
 }
 
 type ShockNode struct {

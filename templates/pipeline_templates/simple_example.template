@@ -1,0 +1,94 @@
+    {
+        "info": {
+            "pipeline": "awe-example",
+            "name": "#jobname",
+            "project": "#project",
+            "user": "#user",
+            "clientgroups":"#clientgroups"
+        }, 
+        "state": "submitted", 
+        "tasks": [
+            {
+                "cmd": {
+                    "args": "-input=@#inputfile -output=#jobname.prep.fna", 
+                    "description": "preprocess", 
+                    "name": "awe_preprocess.pl"
+                }, 
+                "dependsOn": [], 
+                "inputs": {
+                   "#inputfile": {
+                        "name": "#inputfile",
+                        "host": "http://#shockurl",
+                        "node": "#shocknode"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.prep.fna": {
+                        "name": "#jobname.prep.fna",
+                        "host": "http://#shockurl",
+                        "node": "-"
+                    }
+                },
+                "partinfo": {
+                     "input": "#inputfile",
+                     "output": "#jobname.prep.fna"
+                },
+                "taskid": "0", 
+                "totalwork": 1
+            },
+            {
+                "cmd": {
+                    "args": "-input=@#jobname.prep.fna -output=#jobname.derep.fna", 
+                    "description": "dereplication", 
+                    "name": "awe_dereplicate.pl"
+                }, 
+                "dependsOn": ["0"], 
+                "inputs": {
+                   "#jobname.prep.fna": {
+                        "name": "#jobname.prep.fna",
+                        "host": "http://#shockurl",
+                        "node": "-",
+                        "origin": "0"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.derep.fna": {
+                        "name": "#jobname.derep.fna",
+                        "host": "http://#shockurl",
+                        "node": "-"
+                    }
+                },
+                "taskid": "1", 
+                "totalwork": 1
+            },
+            {
+                "cmd": {
+                    "args": "-input=@#jobname.screened.fna -output=#jobname.genecalled.faa", 
+                    "description": "gene calling", 
+                    "name": "awe_genecalling.pl"
+                }, 
+                "dependsOn": ["1"], 
+                "inputs": {
+                   "#jobname.screened.fna": {
+                        "name": "#jobname.screened.fna",
+                        "host": "http://#shockurl",
+                        "node": "-",
+                        "origin": "1"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.genecalled.faa": {
+                        "name": "#jobname.genecalled.faa",
+                        "host": "http://#shockurl",
+                        "node": "-"
+                    }
+                },
+                "partinfo": {
+                     "input": "#jobname.screened.fna",
+                     "output": "#jobname.genecalled.faa"
+                },
+                "taskid": "2", 
+                "totalwork": #totalwork
+            }
+        ]
+    }

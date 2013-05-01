@@ -10,8 +10,9 @@ import (
 // Setup conf variables
 var (
 	//Reload
-	RELOAD  = ""
-	RECOVER = false
+	RELOAD   = ""
+	RECOVER  = false
+	DEV_MODE = false
 
 	BasePriority = 1
 
@@ -91,6 +92,7 @@ func init() {
 	flag.BoolVar(&RECOVER, "recover", false, "path to awe job data.")
 	flag.StringVar(&CLIENT_PROFILE, "profile", "", "path to awe client profile.")
 	flag.IntVar(&DEBUG_LEVEL, "debug", 0, "debug level: 0-3")
+	flag.BoolVar(&DEV_MODE, "dev", false, "dev or demo mode, print some msgs on screen")
 	flag.Parse()
 
 	//	fmt.Printf("in conf.init(), flag=%v", flag)

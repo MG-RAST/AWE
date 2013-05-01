@@ -16,9 +16,9 @@ import (
 )
 
 type WorkResponse struct {
-	Code int      `bson:"S" json:"S"`
-	Data Workunit `bson:"D" json:"D"`
-	Errs []string `bson:"E" json:"E"`
+	Code int       `bson:"status" json:"status"`
+	Data *Workunit `bson:"data" json:"data"`
+	Errs []string  `bson:"error" json:"error"`
 }
 
 func workStealer(control chan int) {
@@ -89,17 +89,20 @@ func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 
 	jsonstream, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return
+		return nil, err
 	}
+
 	if err = json.Unmarshal(jsonstream, response); err != nil {
-		if len(response.Errs) > 0 {
-			return nil, errors.New(strings.Join(response.Errs, ","))
-		}
 		return
 	}
 
+	if len(response.Errs) > 0 {
+		return nil, errors.New(strings.Join(response.Errs, ","))
+	}
+	return
+
 	if response.Code == 200 {
-		workunit = &response.Data
+		workunit = response.Data
 		return workunit, nil
 	}
 	return

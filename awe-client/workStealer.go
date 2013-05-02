@@ -99,7 +99,6 @@ func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
 	if len(response.Errs) > 0 {
 		return nil, errors.New(strings.Join(response.Errs, ","))
 	}
-	return
 
 	if response.Code == 200 {
 		workunit = response.Data

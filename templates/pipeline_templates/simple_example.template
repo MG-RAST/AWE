@@ -63,14 +63,14 @@
             },
             {
                 "cmd": {
-                    "args": "-input=@#jobname.screened.fna -output=#jobname.genecalled.faa", 
+                    "args": "-input=@#jobname.derep.fna -output=#jobname.genecalled.faa", 
                     "description": "gene calling", 
                     "name": "awe_genecalling.pl"
                 }, 
                 "dependsOn": ["1"], 
                 "inputs": {
-                   "#jobname.screened.fna": {
-                        "name": "#jobname.screened.fna",
+                   "#jobname.derep.fna": {
+                        "name": "#jobname.derep.fna",
                         "host": "http://#shockurl",
                         "node": "-",
                         "origin": "1"
@@ -84,7 +84,7 @@
                     }
                 },
                 "partinfo": {
-                     "input": "#jobname.screened.fna",
+                     "input": "#jobname.derep.fna",
                      "output": "#jobname.genecalled.faa"
                 },
                 "taskid": "2", 

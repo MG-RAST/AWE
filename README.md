@@ -27,3 +27,7 @@ A detailed manual and API doc of AWE is available at:
 
 http://www.mcs.anl.gov/~wtang/files/awe-manual.pdf
 
+A manual for running a workflow example:
+
+http://www.mcs.anl.gov/~wtang/files/awe-example.pdf
+

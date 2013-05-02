@@ -17,9 +17,9 @@ secretkey=supersecretkey
 
 [Directories]
 # See documentation for details of deploying Shock
-site=/Users/wtang/local/awe/site
-data=/Users/wtang/local/awe/data
-logs=/Users/wtang/var/log/awe
+site=/mnt/data/awe/site
+data=/mnt/data/awe/data
+logs=/mnt/data/awe/logs
 
 [Mongodb]
 # Mongodb configuration:
@@ -31,10 +31,16 @@ hosts=localhost
 # key=unique:true/false[,dropDups:true/false][,sparse:true/false]
 id=unique:true
 
+[Server]
+perf_log_workunit=true
+
 [Client]
 totalworker=2
-workpath=/Users/wtang/local/awe/work
+workpath=/mnt/data/awe/work
+app_pah=/home/ubuntu/apps/bin
 serverurl=http://localhost:8001
-clientname=myclient
-clientprofile=/Users/wtang/etc/clientprofile.json
+name=default_client
+group=default_group
+auto_clean_dir=false
+worker_overlap=false
 print_app_msg=false

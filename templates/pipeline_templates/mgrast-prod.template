@@ -119,7 +119,7 @@
                 "taskid": "3", 
                 "totalwork": #totalwork
             },
-            {
+            {   
                 "cmd": {
                     "args": "-input=@#jobname.genecalled.faa --output=#jobname.clust.faa -aa -pid=90",
                     "description": "aa clustering",
@@ -140,8 +140,8 @@
                         "host": "http://#shockurl",
                         "node": "-"
                     },
-                    "#jobname.clust.mapping": {
-                        "name": "#jobname.clust.mapping",
+                    "#jobname.clust.faa.mapping": {
+                        "name": "#jobname.clust.faa.mapping",
                         "host": "http://#shockurl",
                         "node": "-"
                     }
@@ -228,6 +228,11 @@
                         "name": "#jobname.clust.rna.fna",
                         "host": "http://#shockurl",
                         "node": "-"
+                    },
+                    "#jobname.clust.rna.fna.mapping": {
+                        "name": "#jobname.clust.rna.fna.mapping",
+                        "host": "http://#shockurl",
+                        "node": "-"
                     }
                 },
                 "partinfo": {
@@ -269,19 +274,18 @@
             {
                 "cmd": {
                     "name": "awe_annotate.pl",
-                    "args": "-raw=@#inputfile -aa_sims=@#jobname.aa.blat -rna_sim=@#jobname.rna.blat -clust_aa=@#jobname.clust.faa -map_rna=@#jobname.rna.mapping -out_prefix=#jobname", 
+                    "args": "-raw=@#inputfile -aa_sims=@#jobname.aa.blat -rna_sim=@#jobname.rna.blat -clust_aa=@#jobname.clust.faa.mapping -map_rna=@#jobname.clust.rna.fna.mapping -out_prefix=#jobname -mem_host=10.0.4.172:11211", 
                     "description": "annotation"
                 }, 
-                "dependsOn": ["0", "4", "5", "7", "8"],  
+                "dependsOn": ["4", "5", "7", "8"],  
                 "inputs": {
                     "#inputfile": {
                         "name": "#inputfile",
                         "host": "http://#shockurl",
-                        "origin": "0",
-                        "node": "-"
+                        "node": "#shocknode"
                     },
-                    "#jobname.clust.faa": {
-                        "name": "#jobname.clust.mapping",
+                    "#jobname.clust.faa.mapping": {
+                        "name": "#jobname.clust.faa.mapping",
                         "host": "http://#shockurl",
                         "origin": "4",
                         "node": "-"
@@ -292,8 +296,8 @@
                         "origin": "5",
                         "node": "-"
                     },
-                    "#jobname.rna.mapping": {
-                        "name": "#jobname.rna.mapping",
+                    "#jobname.clust.rna.fna.mapping": {
+                        "name": "#jobname.clust.rna.fna.mapping",
                         "host": "http://#shockurl",
                         "origin": "7",
                         "node": "-"
@@ -306,28 +310,28 @@
                     }
                 }, 
                 "outputs": {
-                    "#jobname.expand.function.summary": {
-                        "name": "#jobname.expand.function.summary",
+                    "#jobname.function.summary": {
+                        "name": "#jobname.function.summary",
                         "host": "http://#shockurl",
                         "node": "-"
                     },
-                    "#jobname.expand.md5.summary": {
-                        "name": "#jobname.expand.md5.summary",
+                    "#jobname.md5.summary": {
+                        "name": "#jobname.md5.summary",
                         "host": "http://#shockurl",
                         "node": "-"
                     },
-                    "#jobname.expand.organism.summary": {
-                        "name": "#jobname.expand.organism.summary",
+                    "#jobname.organism.summary": {
+                        "name": "#jobname.organism.summary",
                         "host": "http://#shockurl",
                         "node": "-"
                     },
-                    "#jobname.lca.lca.summary": {
-                        "name": "#jobname.lca.lca.summary",
+                    "#jobname.lca.summary": {
+                        "name": "#jobname.lca.summary",
                         "host": "http://#shockurl",
                         "node": "-"
                     },
-                    "#jobname.ontology.ontology.summary": {
-                        "name": "#jobname.ontology.ontology.summary",
+                    "#jobname.ontology.summary": {
+                        "name": "#jobname.ontology.summary",
                         "host": "http://#shockurl",
                         "node": "-"
                     },

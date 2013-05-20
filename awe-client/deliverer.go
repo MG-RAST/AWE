@@ -26,6 +26,7 @@ func deliverer(control chan int) {
 		if processed.status == WORK_STAT_COMPUTED {
 			if err := pushOutputData(work); err != nil {
 				processed.status = WORK_STAT_FAIL
+				Log.Error("err@pushOutputData: workid=" + work.Id + ", err=" + err.Error())
 			} else {
 				processed.status = WORK_STAT_DONE
 			}

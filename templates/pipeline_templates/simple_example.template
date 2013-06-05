@@ -33,8 +33,9 @@
                      "input": "#inputfile",
                      "output": "#jobname.prep.fna"
                 },
-                "taskid": "0", 
-                "totalwork": 1
+                "taskid": "0",
+                "skip": 0,
+                "totalwork": 1                
             },
             {
                 "cmd": {
@@ -58,22 +59,23 @@
                         "node": "-"
                     }
                 },
-                "taskid": "1", 
+                "taskid": "1",
+                "skip": 0, 
                 "totalwork": 1
             },
             {
                 "cmd": {
-                    "args": "-input=@#jobname.derep.fna -output=#jobname.genecalled.faa", 
+                    "args": "-input=@#jobname.prep.fna -output=#jobname.genecalled.faa", 
                     "description": "gene calling", 
                     "name": "awe_genecalling.pl"
                 }, 
                 "dependsOn": ["1"], 
                 "inputs": {
-                   "#jobname.derep.fna": {
-                        "name": "#jobname.derep.fna",
+                   "#jobname.prep.fna": {
+                        "name": "#jobname.prep.fna",
                         "host": "http://#shockurl",
                         "node": "-",
-                        "origin": "1"
+                        "origin": "0"
                     }
                 }, 
                 "outputs": {
@@ -84,10 +86,11 @@
                     }
                 },
                 "partinfo": {
-                     "input": "#jobname.derep.fna",
+                     "input": "#jobname.prep.fna",
                      "output": "#jobname.genecalled.faa"
                 },
-                "taskid": "2", 
+                "taskid": "2",
+                "skip": 0,
                 "totalwork": #totalwork
             }
         ]

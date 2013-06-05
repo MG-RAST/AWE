@@ -15,6 +15,8 @@ const (
 	TASK_STAT_PENDING   = "pending"
 	TASK_STAT_SUSPEND   = "suspend"
 	TASK_STAT_COMPLETED = "completed"
+	TASK_STAT_SKIPPED   = "skipped"
+	TASK_STAT_FAIL_SKIP = "fail/skipped"
 )
 
 type Task struct {
@@ -29,6 +31,7 @@ type Task struct {
 	RemainWork int       `bson:"remainwork" json:"remainwork"`
 	WorkStatus []string  `bson:"workstatus" json:"-"`
 	State      string    `bson:"state" json:"state"`
+	Skip       int       `bson:"skip" json:"skip"`
 }
 
 func NewTask(job *Job, rank int) *Task {
@@ -44,10 +47,11 @@ func NewTask(job *Job, rank int) *Task {
 		RemainWork: 1,
 		WorkStatus: []string{},
 		State:      TASK_STAT_INIT,
+		Skip:       0,
 	}
 }
 
-// fill some info (lacked in input json) for a task 
+// fill some info (lacked in input json) for a task
 func (task *Task) InitTask(job *Job, rank int) (err error) {
 	if idInt, err := strconv.Atoi(task.Id); err == nil {
 		if rank != idInt {
@@ -121,7 +125,7 @@ func (task *Task) InitPartIndex() (err error) {
 		totalunits = idxinfo[idxtype].TotalUnits
 	}
 
-	//adjust total work based on needs	
+	//adjust total work based on needs
 	if task.Partition.MaxPartSizeMB > 0 { // fixed max part size
 		//this implementation for chunkrecord indexer only
 		chunkmb := int(conf.DEFAULT_CHUNK_SIZE / 1048576)

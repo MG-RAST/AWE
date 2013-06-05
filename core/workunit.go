@@ -75,7 +75,7 @@ func (work *Workunit) IndexType() (indextype string) {
 
 //calculate the range of data part
 //algorithm: try to evenly distribute indexed parts to workunits
-//e.g. totalWork=4, totalParts=10, then each workunits have parts 3,3,2,2 
+//e.g. totalWork=4, totalParts=10, then each workunits have parts 3,3,2,2
 func (work *Workunit) Part() (part string) {
 	if work.Rank == 0 {
 		return ""

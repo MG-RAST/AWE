@@ -458,8 +458,8 @@ func (qm *QueueMgr) updateQueue() (err error) {
 }
 
 func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
-	//Checking if task is skippable
-	if task.Skip == 1 {
+
+	if task.Skip == 1 && task.Skippable() { // user wants to skip this task, checking if task is skippable
 		// Not sure if this is needed
 		qm.CreateTaskPerf(task.Id)
 		qm.FinalizeTaskPerf(task.Id)
@@ -471,7 +471,7 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 		}
 		qm.updateQueue()
 		return
-	}
+	} // if not, we proceed normally
 
 	//fmt.Printf("move workunits of task %s to workunit queue\n", task.Id)
 	if err := qm.locateInputs(task); err != nil {
@@ -507,9 +507,18 @@ func (qm *QueueMgr) locateInputs(task *Task) (err error) {
 		if io.Node == "-" {
 			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
 			if preTask, ok := qm.taskMap[preId]; ok {
-				outputs := preTask.Outputs
-				if outio, ok := outputs[name]; ok {
-					io.Node = outio.Node
+				if preTask.State == TASK_STAT_SKIPPED ||
+					preTask.State == TASK_STAT_FAIL_SKIP {
+					// For now we know that skipped tasks have
+					// just one input and one output. So we know
+					// that we just need to change one file (this
+					// may change in the future)
+					locateSkippedInput(qm, preTask, io)
+				} else {
+					outputs := preTask.Outputs
+					if outio, ok := outputs[name]; ok {
+						io.Node = outio.Node
+					}
 				}
 			}
 		}
@@ -620,7 +629,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				Log.Event(EVENT_WORK_FAIL, "workid="+workid+";clientid="+clientid)
 				if qm.workQueue.Has(workid) {
 					qm.workQueue.workMap[workid].Failed += 1
-					if task.Skip == 2 { // user wants to skip task
+					if task.Skip == 2 && task.Skippable() { // user wants to skip task
 						task.RemainWork = 0 // not doing anything else...
 						task.State = TASK_STAT_FAIL_SKIP
 						for _, output := range task.Outputs {
@@ -1023,4 +1032,27 @@ func jidIncr(jid string) (newjid string) {
 		return strconv.Itoa(jidint)
 	}
 	return jid
+}
+
+func locateSkippedInput(qm *QueueMgr, task *Task, ret_io *IO) {
+	jobid := strings.Split(task.Id, "_")[0]
+	for name, io := range task.Inputs { // Really just one entry
+		if io.Node == "-" {
+			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
+			if preTask, ok := qm.taskMap[preId]; ok {
+				if preTask.State == TASK_STAT_SKIPPED ||
+					preTask.State == TASK_STAT_FAIL_SKIP {
+					// recursive call
+					locateSkippedInput(qm, preTask, ret_io)
+				} else {
+					outputs := preTask.Outputs
+					if outio, ok := outputs[name]; ok {
+						ret_io.Node = outio.Node
+					}
+				}
+			}
+		} else {
+			ret_io.Node = io.Node
+		}
+	}
 }

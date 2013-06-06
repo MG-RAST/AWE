@@ -167,6 +167,20 @@ func (task *Task) ParseWorkunit() (wus []*Workunit, err error) {
 	return
 }
 
+func (task *Task) Skippable() bool {
+	// For a task to be skippable, it should meet
+	// the following requirements (this may change
+	// in the future):
+	// 1.- It should have exactly one input file
+	// and one output file (This way, we can connect tasks
+	// Ti-1 and Ti+1 transparently)
+	// 2.- It should be a simple pipeline task. That is,
+	// it should just have at most one "parent" Ti-1 ---> Ti
+	return (len(task.Inputs) == 1) &&
+		(len(task.Outputs) == 1) &&
+		(len(task.DependsOn) <= 1)
+}
+
 //creat index
 func createIndex(host string, nodeid string, indexname string) (err error) {
 	argv := []string{}

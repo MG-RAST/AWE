@@ -102,7 +102,7 @@ func RegisterWithProfile(host string, profile *Client) (client *Client, err erro
 	response := new(ClientResponse)
 	if err = json.Unmarshal(jsonstream, response); err != nil {
 		if len(response.Errs) > 0 {
-			//or if err.Error() == "json: cannot unmarshal null into Go value of type core.Client" 
+			//or if err.Error() == "json: cannot unmarshal null into Go value of type core.Client"
 			return nil, errors.New(strings.Join(response.Errs, ","))
 		}
 		return

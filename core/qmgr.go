@@ -414,6 +414,13 @@ func (qm *QueueMgr) addTask(task *Task) (err error) {
 		qm.taskMap[id] = task
 		return
 	}
+	if task.Skip == 1 && task.Skippable() {
+		task.State = TASK_STAT_SKIPPED
+		qm.taskMap[id] = task
+		qm.taskEnQueue(task)
+		return
+	}
+
 	task.State = TASK_STAT_PENDING
 	qm.taskMap[id] = task
 	if len(task.DependsOn) == 0 {
@@ -429,13 +436,16 @@ func (qm *QueueMgr) deleteTasks(tasks []*Task) (err error) {
 
 //poll ready tasks and push into workQueue
 func (qm *QueueMgr) updateQueue() (err error) {
+
 	for _, task := range qm.taskMap {
 		ready := false
 		if task.State == TASK_STAT_PENDING {
 			ready = true
 			for _, predecessor := range task.DependsOn {
 				if _, haskey := qm.taskMap[predecessor]; haskey {
-					if qm.taskMap[predecessor].State != TASK_STAT_COMPLETED {
+					if qm.taskMap[predecessor].State != TASK_STAT_COMPLETED &&
+						qm.taskMap[predecessor].State != TASK_STAT_SKIPPED &&
+						qm.taskMap[predecessor].State != TASK_STAT_FAIL_SKIP {
 						ready = false
 					}
 				}
@@ -451,6 +461,23 @@ func (qm *QueueMgr) updateQueue() (err error) {
 }
 
 func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
+
+	if task.Skip == 1 && task.Skippable() { // user wants to skip this task, checking if task is skippable
+		task.RemainWork = 0
+		// Not sure if this is needed
+		qm.CreateTaskPerf(task.Id)
+		qm.FinalizeTaskPerf(task.Id)
+		//
+		Log.Event(EVENT_TASK_SKIPPED, "taskid="+task.Id)
+		//update job and queue info. Skipped task behaves as finished tasks
+		if err = qm.updateJob(task); err != nil {
+			Log.Error("qmgr.taskEnQueue updateJob: " + err.Error())
+			return
+		}
+		qm.updateQueue()
+		return
+	} // if not, we proceed normally
+
 	//fmt.Printf("move workunits of task %s to workunit queue\n", task.Id)
 	if err := qm.locateInputs(task); err != nil {
 		Log.Error("qmgr.taskEnQueue locateInputs:" + err.Error())
@@ -485,9 +512,18 @@ func (qm *QueueMgr) locateInputs(task *Task) (err error) {
 		if io.Node == "-" {
 			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
 			if preTask, ok := qm.taskMap[preId]; ok {
-				outputs := preTask.Outputs
-				if outio, ok := outputs[name]; ok {
-					io.Node = outio.Node
+				if preTask.State == TASK_STAT_SKIPPED ||
+					preTask.State == TASK_STAT_FAIL_SKIP {
+					// For now we know that skipped tasks have
+					// just one input and one output. So we know
+					// that we just need to change one file (this
+					// may change in the future)
+					locateSkippedInput(qm, preTask, io)
+				} else {
+					outputs := preTask.Outputs
+					if outio, ok := outputs[name]; ok {
+						io.Node = outio.Node
+					}
 				}
 			}
 		}
@@ -556,59 +592,85 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 		delete(qm.clientMap[clientid].Current_work, workid)
 	}
 	if task, ok := qm.taskMap[taskid]; ok {
-		qm.updateTaskWorkStatus(taskid, rank, status)
-		if status == WORK_STAT_DONE {
-			//log event about work done (WD)
-			Log.Event(EVENT_WORK_DONE, "workid="+workid+";clientid="+clientid)
-
-			//update client status
-			if client, ok := qm.clientMap[clientid]; ok {
-				client.Total_completed += 1
-				client.Last_failed = 0 //reset last consecutive failures
-			} else {
-				//it happens when feedback is sent after server restarted and before client re-registered
-			}
-			task.RemainWork -= 1
-			if task.RemainWork == 0 {
-				task.State = TASK_STAT_COMPLETED
-				for _, output := range task.Outputs {
-					output.GetFileSize()
-				}
-				//log event about task done (TD)
-				qm.FinalizeTaskPerf(taskid)
-				Log.Event(EVENT_TASK_DONE, "taskid="+taskid)
-				//update the info of the job which the task is belong to, could result in deletion of the
-				//task in the task map when the task is the final task of the job to be done.
-				if err = qm.updateJob(task); err != nil {
-					return
-				}
-				qm.updateQueue()
-			}
-			//done, remove from the workQueue
+		if task.State == TASK_STAT_FAIL_SKIP {
+			// A work unit for this task failed before this one arrived.
+			// User set Skip=2 so the task was just skipped. Any subsiquent
+			// workunits are just deleted...
 			qm.workQueue.Delete(workid)
-		} else if status == WORK_STAT_FAIL { //workunit failed, requeue or put it to suspend list
-			Log.Event(EVENT_WORK_FAIL, "workid="+workid+";clientid="+clientid)
-			if qm.workQueue.Has(workid) {
-				qm.workQueue.workMap[workid].Failed += 1
-				if qm.workQueue.workMap[workid].Failed < conf.MAX_WORK_FAILURE {
-					qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
-					Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
-				} else { //failure time exceeds limit, suspend workunit, task, job
-					qm.workQueue.StatusChange(workid, WORK_STAT_SUSPEND)
-					Log.Event(EVENT_WORK_SUSPEND, "workid="+workid)
-					qm.updateTaskWorkStatus(taskid, rank, WORK_STAT_SUSPEND)
-					qm.taskMap[taskid].State = TASK_STAT_SUSPEND
-					if err := qm.SuspendJob(jobid); err != nil {
-						Log.Error("error returned by SuspendJOb()" + err.Error())
+		} else {
+
+			qm.updateTaskWorkStatus(taskid, rank, status)
+			if status == WORK_STAT_DONE {
+				//log event about work done (WD)
+				Log.Event(EVENT_WORK_DONE, "workid="+workid+";clientid="+clientid)
+
+				//update client status
+				if client, ok := qm.clientMap[clientid]; ok {
+					client.Total_completed += 1
+					client.Last_failed = 0 //reset last consecutive failures
+				} else {
+					//it happens when feedback is sent after server restarted and before client re-registered
+				}
+				task.RemainWork -= 1
+				if task.RemainWork == 0 {
+					task.State = TASK_STAT_COMPLETED
+					for _, output := range task.Outputs {
+						output.GetFileSize()
+					}
+					//log event about task done (TD)
+					qm.FinalizeTaskPerf(taskid)
+					Log.Event(EVENT_TASK_DONE, "taskid="+taskid)
+					//update the info of the job which the task is belong to, could result in deletion of the
+					//task in the task map when the task is the final task of the job to be done.
+					if err = qm.updateJob(task); err != nil {
+						return
+					}
+					qm.updateQueue()
+				}
+				//done, remove from the workQueue
+				qm.workQueue.Delete(workid)
+			} else if status == WORK_STAT_FAIL { //workunit failed, requeue or put it to suspend list
+				Log.Event(EVENT_WORK_FAIL, "workid="+workid+";clientid="+clientid)
+				if qm.workQueue.Has(workid) {
+					qm.workQueue.workMap[workid].Failed += 1
+					if task.Skip == 2 && task.Skippable() { // user wants to skip task
+
+						task.RemainWork = 0 // not doing anything else...
+						task.State = TASK_STAT_FAIL_SKIP
+						for _, output := range task.Outputs {
+							output.GetFileSize()
+						}
+						qm.FinalizeTaskPerf(taskid)
+						// log event about task skipped
+						Log.Event(EVENT_TASK_SKIPPED, "taskid="+taskid)
+						//update the info of the job which the task is belong to, could result in deletion of the
+						//task in the task map when the task is the final task of the job to be done.
+						if err = qm.updateJob(task); err != nil {
+							return
+						}
+						qm.updateQueue()
+						// remove from the workQueue
+						qm.workQueue.Delete(workid)
+					} else if qm.workQueue.workMap[workid].Failed < conf.MAX_WORK_FAILURE {
+						qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
+						Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
+					} else { //failure time exceeds limit, suspend workunit, task, job
+						qm.workQueue.StatusChange(workid, WORK_STAT_SUSPEND)
+						Log.Event(EVENT_WORK_SUSPEND, "workid="+workid)
+						qm.updateTaskWorkStatus(taskid, rank, WORK_STAT_SUSPEND)
+						qm.taskMap[taskid].State = TASK_STAT_SUSPEND
+						if err := qm.SuspendJob(jobid); err != nil {
+							Log.Error("error returned by SuspendJOb()" + err.Error())
+						}
 					}
 				}
-			}
-			if client, ok := qm.clientMap[clientid]; ok {
-				client.Skip_work = append(client.Skip_work, workid)
-				client.Total_failed += 1
-				client.Last_failed += 1 //last consecutive failures
-				if client.Last_failed == conf.MAX_CLIENT_FAILURE {
-					client.Status = CLIENT_STAT_SUSPEND
+				if client, ok := qm.clientMap[clientid]; ok {
+					client.Skip_work = append(client.Skip_work, workid)
+					client.Total_failed += 1
+					client.Last_failed += 1 //last consecutive failures
+					if client.Last_failed == conf.MAX_CLIENT_FAILURE {
+						client.Status = CLIENT_STAT_SUSPEND
+					}
 				}
 			}
 		}
@@ -664,6 +726,8 @@ func (qm *QueueMgr) ShowStatus() string {
 	pending_task := 0
 	completed_task := 0
 	suspended_task := 0
+	skipped_task := 0
+	fail_skip_task := 0
 	for _, task := range qm.taskMap {
 		if task.State == TASK_STAT_COMPLETED {
 			completed_task += 1
@@ -673,8 +737,13 @@ func (qm *QueueMgr) ShowStatus() string {
 			queuing_task += 1
 		} else if task.State == TASK_STAT_SUSPEND {
 			suspended_task += 1
+		} else if task.State == TASK_STAT_SKIPPED {
+			skipped_task += 1
+		} else if task.State == TASK_STAT_FAIL_SKIP {
+			fail_skip_task += 1
 		}
 	}
+	total_task -= skipped_task // user doesn't see skipped tasks
 	in_progress_job := len(qm.actJobs)
 	suspend_job := len(qm.susJobs)
 	total_job := in_progress_job + suspend_job
@@ -691,23 +760,24 @@ func (qm *QueueMgr) ShowStatus() string {
 		}
 	}
 
-	statMsg := "+++++AWE server queue status+++++\n" +
-		fmt.Sprintf("total jobs .......... %d\n", total_job) +
-		fmt.Sprintf("    in-progress: (%d)\n", in_progress_job) +
-		fmt.Sprintf("    suspended:   (%d)\n", suspend_job) +
-		fmt.Sprintf("total tasks ......... %d\n", total_task) +
-		fmt.Sprintf("    queuing:     (%d)\n", queuing_task) +
-		fmt.Sprintf("    pending:     (%d)\n", pending_task) +
-		fmt.Sprintf("    completed:   (%d)\n", completed_task) +
-		fmt.Sprintf("    suspended:   (%d)\n", suspended_task) +
-		fmt.Sprintf("total workunits ..... %d\n", total_active_work) +
-		fmt.Sprintf("    queuing:     (%d)\n", queuing_work) +
-		fmt.Sprintf("    checkout:    (%d)\n", out_work) +
-		fmt.Sprintf("    suspended:   (%d)\n", suspend_work) +
-		fmt.Sprintf("total clients ....... %d\n", len(qm.clientMap)) +
-		fmt.Sprintf("    busy:        (%d)\n", busy_client) +
-		fmt.Sprintf("    idle:        (%d)\n", idle_client) +
-		fmt.Sprintf("    suspend:     (%d)\n", suspend_client) +
+	statMsg := "++++++++AWE server queue status++++++++\n" +
+		fmt.Sprintf("total jobs ............... %d\n", total_job) +
+		fmt.Sprintf("    in-progress:      (%d)\n", in_progress_job) +
+		fmt.Sprintf("    suspended:        (%d)\n", suspend_job) +
+		fmt.Sprintf("total tasks .............. %d\n", total_task) +
+		fmt.Sprintf("    queuing:          (%d)\n", queuing_task) +
+		fmt.Sprintf("    pending:          (%d)\n", pending_task) +
+		fmt.Sprintf("    completed:        (%d)\n", completed_task) +
+		fmt.Sprintf("    suspended:        (%d)\n", suspended_task) +
+		fmt.Sprintf("    failed & skipped: (%d)\n", fail_skip_task) +
+		fmt.Sprintf("total workunits .......... %d\n", total_active_work) +
+		fmt.Sprintf("    queuing:          (%d)\n", queuing_work) +
+		fmt.Sprintf("    checkout:         (%d)\n", out_work) +
+		fmt.Sprintf("    suspended:        (%d)\n", suspend_work) +
+		fmt.Sprintf("total clients ............ %d\n", len(qm.clientMap)) +
+		fmt.Sprintf("    busy:             (%d)\n", busy_client) +
+		fmt.Sprintf("    idle:             (%d)\n", idle_client) +
+		fmt.Sprintf("    suspend:          (%d)\n", suspend_client) +
 		fmt.Sprintf("---last update: %s\n\n", time.Now())
 	return statMsg
 }
@@ -812,6 +882,7 @@ func (qm *QueueMgr) updateJob(task *Task) (err error) {
 	if err != nil {
 		return err
 	}
+
 	if remainTasks == 0 { //job done
 		qm.FinalizeJobPerf(jobid)
 		qm.LogJobPerf(jobid)
@@ -968,4 +1039,27 @@ func jidIncr(jid string) (newjid string) {
 		return strconv.Itoa(jidint)
 	}
 	return jid
+}
+
+func locateSkippedInput(qm *QueueMgr, task *Task, ret_io *IO) {
+	jobid := strings.Split(task.Id, "_")[0]
+	for name, io := range task.Inputs { // Really just one entry
+		if io.Node == "-" {
+			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
+			if preTask, ok := qm.taskMap[preId]; ok {
+				if preTask.State == TASK_STAT_SKIPPED ||
+					preTask.State == TASK_STAT_FAIL_SKIP {
+					// recursive call
+					locateSkippedInput(qm, preTask, ret_io)
+				} else {
+					outputs := preTask.Outputs
+					if outio, ok := outputs[name]; ok {
+						ret_io.Node = outio.Node
+					}
+				}
+			}
+		} else {
+			ret_io.Node = io.Node
+		}
+	}
 }

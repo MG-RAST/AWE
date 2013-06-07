@@ -15,6 +15,8 @@ const (
 	TASK_STAT_PENDING   = "pending"
 	TASK_STAT_SUSPEND   = "suspend"
 	TASK_STAT_COMPLETED = "completed"
+	TASK_STAT_SKIPPED   = "user_skipped"
+	TASK_STAT_FAIL_SKIP = "skipped"
 )
 
 type Task struct {
@@ -29,6 +31,7 @@ type Task struct {
 	RemainWork int       `bson:"remainwork" json:"remainwork"`
 	WorkStatus []string  `bson:"workstatus" json:"-"`
 	State      string    `bson:"state" json:"state"`
+	Skip       int       `bson:"skip" json:"skip"`
 }
 
 func NewTask(job *Job, rank int) *Task {
@@ -44,6 +47,7 @@ func NewTask(job *Job, rank int) *Task {
 		RemainWork: 1,
 		WorkStatus: []string{},
 		State:      TASK_STAT_INIT,
+		Skip:       0,
 	}
 }
 
@@ -161,6 +165,20 @@ func (task *Task) ParseWorkunit() (wus []*Workunit, err error) {
 		wus = append(wus, workunit)
 	}
 	return
+}
+
+func (task *Task) Skippable() bool {
+	// For a task to be skippable, it should meet
+	// the following requirements (this may change
+	// in the future):
+	// 1.- It should have exactly one input file
+	// and one output file (This way, we can connect tasks
+	// Ti-1 and Ti+1 transparently)
+	// 2.- It should be a simple pipeline task. That is,
+	// it should just have at most one "parent" Ti-1 ---> Ti
+	return (len(task.Inputs) == 1) &&
+		(len(task.Outputs) == 1) &&
+		(len(task.DependsOn) <= 1)
 }
 
 //creat index

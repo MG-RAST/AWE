@@ -15,7 +15,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 
-	// Parse uploaded form 
+	// Parse uploaded form
 	_, files, err := ParseMultipartForm(cx.Request)
 	if err != nil {
 		if err.Error() != "request Content-Type isn't multipart/form-data" {

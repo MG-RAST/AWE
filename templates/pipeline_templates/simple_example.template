@@ -33,8 +33,9 @@
                      "input": "#inputfile",
                      "output": "#jobname.prep.fna"
                 },
-                "taskid": "0", 
-                "totalwork": 1
+                "taskid": "0",
+                "skip": 0,
+                "totalwork": 1                
             },
             {
                 "cmd": {
@@ -58,7 +59,8 @@
                         "node": "-"
                     }
                 },
-                "taskid": "1", 
+                "taskid": "1",
+                "skip": 0, 
                 "totalwork": 1
             },
             {
@@ -87,7 +89,8 @@
                      "input": "#jobname.derep.fna",
                      "output": "#jobname.genecalled.faa"
                 },
-                "taskid": "2", 
+                "taskid": "2",
+                "skip": 0,
                 "totalwork": #totalwork
             }
         ]

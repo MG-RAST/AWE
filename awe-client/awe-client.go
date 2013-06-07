@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	chanRaw       = make(chan *rawWork)       // workStealer -> dataMover 
+	chanRaw       = make(chan *rawWork)       // workStealer -> dataMover
 	chanParsed    = make(chan *parsedWork)    // dataMover -> worker
 	chanProcessed = make(chan *processedWork) //worker -> deliverer
 	chanPerf      = make(chan *WorkPerf)      // -> perfmon

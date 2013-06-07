@@ -26,20 +26,20 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
-	// Base case respond with workunit in json	
+	// Base case respond with workunit in json
 	cx.RespondWithData(workunit)
 	return
 }
 
 // GET: /work
 // checkout a workunit with earliest submission time
-// to-do: to support more options for workunit checkout 
+// to-do: to support more options for workunit checkout
 func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 	// Gather query params
 	query := &Query{list: cx.Request.URL.Query()}
 
-	if !query.Has("client") { //view workunits 
+	if !query.Has("client") { //view workunits
 		workunits := queueMgr.ShowWorkunits()
 		cx.RespondWithData(workunits)
 		return
@@ -70,7 +70,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		"workids="+strings.Join(workids, ","),
 		"clientid="+clientid)
 
-	// Base case respond with node in json	
+	// Base case respond with node in json
 	cx.RespondWithData(workunits[0])
 	return
 }

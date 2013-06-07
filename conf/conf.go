@@ -19,7 +19,7 @@ var (
 	// Config File
 	CONFIG_FILE = ""
 
-	// AWE 
+	// AWE
 	SITE_PORT = 8081
 	API_PORT  = 8001
 
@@ -28,7 +28,7 @@ var (
 	SSL_KEY_FILE  = ""
 	SSL_CERT_FILE = ""
 
-	// Anonymous-Access-Control 
+	// Anonymous-Access-Control
 	ANON_WRITE      = false
 	ANON_READ       = true
 	ANON_CREATEUSER = false
@@ -50,7 +50,7 @@ var (
 	SITE_PATH = ""
 	LOGS_PATH = ""
 
-	// Mongodb 
+	// Mongodb
 	MONGODB = ""
 
 	//debug log level
@@ -121,7 +121,7 @@ func init() {
 		SSL_CERT_FILE, _ = c.String("SSL", "cert")
 	}
 
-	// Access-Control 
+	// Access-Control
 	ANON_WRITE, _ = c.Bool("Anonymous", "write")
 	ANON_READ, _ = c.Bool("Anonymous", "read")
 	ANON_CREATEUSER, _ = c.Bool("Anonymous", "create-user")

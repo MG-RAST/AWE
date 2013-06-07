@@ -630,11 +630,11 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				//done, remove from the workQueue
 				qm.workQueue.Delete(workid)
 			} else if status == WORK_STAT_FAIL { //workunit failed, requeue or put it to suspend list
-
 				Log.Event(EVENT_WORK_FAIL, "workid="+workid+";clientid="+clientid)
 				if qm.workQueue.Has(workid) {
 					qm.workQueue.workMap[workid].Failed += 1
 					if task.Skip == 2 && task.Skippable() { // user wants to skip task
+
 						task.RemainWork = 0 // not doing anything else...
 						task.State = TASK_STAT_FAIL_SKIP
 						for _, output := range task.Outputs {
@@ -649,6 +649,8 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 							return
 						}
 						qm.updateQueue()
+						// remove from the workQueue
+						qm.workQueue.Delete(workid)
 					} else if qm.workQueue.workMap[workid].Failed < conf.MAX_WORK_FAILURE {
 						qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
 						Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)

@@ -414,11 +414,14 @@ func (qm *QueueMgr) addTask(task *Task) (err error) {
 		qm.taskMap[id] = task
 		return
 	}
-	if task.Skip == 1 {
+	if task.Skip == 1 && task.Skippable() {
 		task.State = TASK_STAT_SKIPPED
-	} else {
-		task.State = TASK_STAT_PENDING
+		qm.taskMap[id] = task
+		qm.taskEnQueue(task)
+		return
 	}
+
+	task.State = TASK_STAT_PENDING
 	qm.taskMap[id] = task
 	if len(task.DependsOn) == 0 {
 		qm.taskEnQueue(task)
@@ -460,6 +463,7 @@ func (qm *QueueMgr) updateQueue() (err error) {
 func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 
 	if task.Skip == 1 && task.Skippable() { // user wants to skip this task, checking if task is skippable
+		task.RemainWork = 0
 		// Not sure if this is needed
 		qm.CreateTaskPerf(task.Id)
 		qm.FinalizeTaskPerf(task.Id)
@@ -467,6 +471,7 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 		Log.Event(EVENT_TASK_SKIPPED, "taskid="+task.Id)
 		//update job and queue info. Skipped task behaves as finished tasks
 		if err = qm.updateJob(task); err != nil {
+			Log.Error("qmgr.taskEnQueue updateJob: " + err.Error())
 			return
 		}
 		qm.updateQueue()
@@ -644,8 +649,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 							return
 						}
 						qm.updateQueue()
-					}
-					if qm.workQueue.workMap[workid].Failed < conf.MAX_WORK_FAILURE {
+					} else if qm.workQueue.workMap[workid].Failed < conf.MAX_WORK_FAILURE {
 						qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
 						Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
 					} else { //failure time exceeds limit, suspend workunit, task, job
@@ -876,6 +880,7 @@ func (qm *QueueMgr) updateJob(task *Task) (err error) {
 	if err != nil {
 		return err
 	}
+
 	if remainTasks == 0 { //job done
 		qm.FinalizeJobPerf(jobid)
 		qm.LogJobPerf(jobid)

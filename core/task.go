@@ -15,8 +15,8 @@ const (
 	TASK_STAT_PENDING   = "pending"
 	TASK_STAT_SUSPEND   = "suspend"
 	TASK_STAT_COMPLETED = "completed"
-	TASK_STAT_SKIPPED   = "skipped"
-	TASK_STAT_FAIL_SKIP = "fail/skipped"
+	TASK_STAT_SKIPPED   = "user_skipped"
+	TASK_STAT_FAIL_SKIP = "skipped"
 )
 
 type Task struct {

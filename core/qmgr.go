@@ -125,7 +125,7 @@ func (wq *WQueue) StatusChange(id string, new_status string) (err error) {
 		return errors.New("WQueue.statusChange: invalid workunit id:" + id)
 	}
 	//move workunit id between maps. no need to care about the old status because
-	//delete function will do nothing if the operated map has no such key. 
+	//delete function will do nothing if the operated map has no such key.
 	if new_status == WORK_STAT_CHECKOUT {
 		wq.checkout[id] = true
 		delete(wq.wait, id)
@@ -292,7 +292,7 @@ func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num i
 		return nil, errors.New(e.ClientSuspended)
 	}
 
-	//lock semephore, at one time only one client's checkout request can be served 
+	//lock semephore, at one time only one client's checkout request can be served
 	qm.coSem <- 1
 
 	req := CoReq{policy: req_policy, fromclient: client_id, count: num}
@@ -726,7 +726,7 @@ func (qm *QueueMgr) RegisterNewClient(files FormFiles) (client *Client, err erro
 	}
 	qm.clientMap[client.Id] = client
 
-	if len(client.Current_work) > 0 { //re-registered client 
+	if len(client.Current_work) > 0 { //re-registered client
 		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
 		for workid, _ := range client.Current_work {
 			if qm.workQueue.Has(workid) {
@@ -820,7 +820,7 @@ func (qm *QueueMgr) updateJob(task *Task) (err error) {
 		for _, task := range job.TaskList() {
 			delete(qm.taskMap, task.Id)
 		}
-		//log event about job done (JD) 
+		//log event about job done (JD)
 		Log.Event(EVENT_JOB_DONE, "jobid="+job.Id)
 	}
 	return

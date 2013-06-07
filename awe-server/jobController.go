@@ -32,14 +32,14 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 
-	// Parse uploaded form 
+	// Parse uploaded form
 	params, files, err := ParseMultipartForm(cx.Request)
 
 	if err != nil {
 		if err.Error() == "request Content-Type isn't multipart/form-data" {
 			cx.RespondWithErrorMessage("No job file is submitted", http.StatusBadRequest)
 		} else {
-			// Some error other than request encoding. Theoretically 
+			// Some error other than request encoding. Theoretically
 			// could be a lost db connection between user lookup and parsing.
 			// Blame the user, Its probaby their fault anyway.
 			Log.Error("Error parsing form: " + err.Error())
@@ -98,7 +98,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 			return
 		}
 	}
-	// Base case respond with job in json	
+	// Base case respond with job in json
 	cx.RespondWithData(job)
 	return
 }
@@ -117,7 +117,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	jobs := new(core.Jobs)
 
 	// Gather params to make db query. Do not include the
-	// following list.	
+	// following list.
 	skip := map[string]int{"limit": 1, "skip": 1, "query": 1}
 	if query.Has("query") {
 		for key, val := range query.All() {

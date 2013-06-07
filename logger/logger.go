@@ -28,7 +28,7 @@ const (
 	EVENT_CLIENT_REGISTRATION = "CR" //client registered (for the first time)
 	EVENT_CLIENT_AUTO_REREGI  = "CA" //client automatically re-registered
 	EVENT_CLIENT_UNREGISTER   = "CU" //client unregistered
-	EVENT_WORK_CHECKOUT       = "WC" //workunit checkout 
+	EVENT_WORK_CHECKOUT       = "WC" //workunit checkout
 	EVENT_WORK_FAIL           = "WF" //workunit fails running
 	//server only events
 	EVENT_SERVER_START   = "SS" //awe-server start
@@ -42,7 +42,7 @@ const (
 	EVENT_JOB_DONE       = "JD" //job done (all the tasks in the job have finished)
 	EVENT_JOB_SUSPEND    = "JP" //job suspended
 	//client only events
-	EVENT_WORK_START  = "WS" //workunit command start running  
+	EVENT_WORK_START  = "WS" //workunit command start running
 	EVENT_WORK_END    = "WE" //workunit command finish running
 	EVENT_WORK_RETURN = "WR" //send back failed workunit to server
 	EVENT_FILE_IN     = "FI" //start fetching input file from shock

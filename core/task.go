@@ -47,7 +47,7 @@ func NewTask(job *Job, rank int) *Task {
 	}
 }
 
-// fill some info (lacked in input json) for a task 
+// fill some info (lacked in input json) for a task
 func (task *Task) InitTask(job *Job, rank int) (err error) {
 	if idInt, err := strconv.Atoi(task.Id); err == nil {
 		if rank != idInt {
@@ -121,7 +121,7 @@ func (task *Task) InitPartIndex() (err error) {
 		totalunits = idxinfo[idxtype].TotalUnits
 	}
 
-	//adjust total work based on needs	
+	//adjust total work based on needs
 	if task.Partition.MaxPartSizeMB > 0 { // fixed max part size
 		//this implementation for chunkrecord indexer only
 		chunkmb := int(conf.DEFAULT_CHUNK_SIZE / 1048576)

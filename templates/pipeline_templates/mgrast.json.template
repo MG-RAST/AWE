@@ -88,7 +88,7 @@
                      "output": "#jobname.screened.fna"
                 },
                 "taskid": "2", 
-                "totalwork": #totalwork
+                "totalwork": 1
             },
             {
                 "cmd": {
@@ -117,7 +117,7 @@
                      "output": "#jobname.genecalled.faa"
                 },
                 "taskid": "3", 
-                "totalwork": #totalwork
+                "totalwork": 1
             },
             {   
                 "cmd": {
@@ -180,7 +180,7 @@
                      "output": "#jobname.aa.blat"
                 },
                 "taskid": "5",
-                "totalwork": #totalwork
+                "totalwork": 1
 
             },
             {

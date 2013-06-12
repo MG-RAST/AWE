@@ -11,6 +11,10 @@ create-user=true
 site-port=8081
 api-port=8001
 
+[External]
+site-url=
+api-url=
+
 [Admin]
 email=admin@host.com
 secretkey=supersecretkey

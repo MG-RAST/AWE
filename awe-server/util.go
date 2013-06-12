@@ -98,22 +98,31 @@ type resource struct {
 
 func ResourceDescription(cx *goweb.Context) {
 	LogRequest(cx.Request)
-	host := ""
-	if strings.Contains(cx.Request.Host, ":") {
-		split := strings.Split(cx.Request.Host, ":")
-		host = split[0]
-	} else {
-		host = cx.Request.Host
-	}
 	r := resource{
-		R: []string{"job", "work", "client"},
-		U: "http://" + host + ":" + fmt.Sprint(conf.API_PORT) + "/",
-		D: "http://" + host + ":" + fmt.Sprint(conf.SITE_PORT) + "/",
+		R: []string{"job", "work", "client", "queue"},
+		U: apiUrl(cx) + "/",
+		D: siteUrl(cx) + "/",
 		C: conf.ADMIN_EMAIL,
 		I: "AWE",
 		T: "AWE",
 	}
 	cx.WriteResponse(r, 200)
+}
+
+func apiUrl(cx *goweb.Context) string {
+	if conf.API_URL != "" {
+		return conf.API_URL
+	}
+	return "http://" + cx.Request.Host
+}
+
+func siteUrl(cx *goweb.Context) string {
+	if conf.SITE_URL != "" {
+		return conf.SITE_URL
+	} else if strings.Contains(cx.Request.Host, ":") {
+		return fmt.Sprintf("http://%s:%d", strings.Split(cx.Request.Host, ":")[0], conf.SITE_PORT)
+	}
+	return "http://" + cx.Request.Host
 }
 
 // helper function for create & update

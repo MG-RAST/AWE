@@ -46,7 +46,6 @@ func deliverer(control chan int) {
 				//mark this work in Current_work map as false, something needs to be done in the future
 				//to clean this kind of work that has been proccessed but its result can't be sent to server!
 				self.Current_work[work.Id] = false //server doesn't know this yet
-				continue
 			}
 		}
 		//now final status report sent to server, update some local info

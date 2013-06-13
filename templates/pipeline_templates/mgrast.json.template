@@ -6,7 +6,6 @@
             "user": "#user",
             "clientgroups":"#clientgroups"
         }, 
-        "state": "submitted", 
         "tasks": [
             {
                 "cmd": {

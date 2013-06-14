@@ -58,7 +58,7 @@ func (q *Query) All() map[string][]string {
 
 func Site(cx *goweb.Context) {
 	LogRequest(cx.Request)
-	http.ServeFile(cx.ResponseWriter, cx.Request, conf.SITE_PATH+"/pages/main.html")
+	http.ServeFile(cx.ResponseWriter, cx.Request, conf.SITE_PATH+"/main.html")
 }
 
 func LogRequest(req *http.Request) {

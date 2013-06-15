@@ -312,9 +312,11 @@ func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num i
 	return ack.workunits, ack.err
 }
 
-func (qm *QueueMgr) ShowWorkunits() (workunits []*Workunit) {
+func (qm *QueueMgr) ShowWorkunits(status string) (workunits []*Workunit) {
 	for _, work := range qm.workQueue.workMap {
-		workunits = append(workunits, work)
+		if work.State == status || status == "" {
+			workunits = append(workunits, work)
+		}
 	}
 	return workunits
 }

@@ -10,7 +10,7 @@ import (
 )
 
 type IO struct {
-	Name     string `bson:"name" json:"name"`
+	Name     string `bson:"name" json:"-"`
 	Host     string `bson:"host" json:"host"`
 	Node     string `bson:"node" json:"node"`
 	Url      string `bson:"url"  json:"url"`
@@ -19,7 +19,7 @@ type IO struct {
 	Cache    bool   `bson:"cache" json:"-"`
 	Origin   string `bson:"origin" json:"origin"`
 	Path     string `bson:"path" json:"-"`
-	Optional bool   `bson:"optional" json:"optional"`
+	Optional bool   `bson:"optional" json:"-"`
 }
 
 type PartInfo struct {
@@ -37,13 +37,13 @@ type IdxInfo struct {
 	AvgUnitSize int    `bson: "avg_unitsize" json:"avg_unitsize"`
 }
 
-type IOmap map[string]*IO
+type IOmap map[string]*IO // [filename]attributes
 
 func NewIOmap() IOmap {
 	return IOmap{}
 }
 
-func (i IOmap) Add(name string, host string, node string, params string, md5 string, cache bool) {
+func (i IOmap) Add(name string, host string, node string, md5 string, cache bool) {
 	i[name] = &IO{Name: name, Host: host, Node: node, MD5: md5, Cache: cache}
 	return
 }

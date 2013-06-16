@@ -16,14 +16,12 @@
                 "dependsOn": [], 
                 "inputs": {
                    "#inputfile": {
-                        "name": "#inputfile",
                         "host": "http://#shockurl",
                         "node": "#shocknode"
                     }
                 }, 
                 "outputs": {
                     "#jobname.prep.fna": {
-                        "name": "#jobname.prep.fna",
                         "host": "http://#shockurl",
                         "node": "-"
                     }
@@ -45,7 +43,6 @@
                 "dependsOn": ["0"], 
                 "inputs": {
                    "#jobname.prep.fna": {
-                        "name": "#jobname.prep.fna",
                         "host": "http://#shockurl",
                         "node": "-",
                         "origin": "0"
@@ -53,7 +50,6 @@
                 }, 
                 "outputs": {
                     "#jobname.derep.fna": {
-                        "name": "#jobname.derep.fna",
                         "host": "http://#shockurl",
                         "node": "-"
                     }
@@ -71,7 +67,6 @@
                 "dependsOn": ["1"], 
                 "inputs": {
                    "#jobname.derep.fna": {
-                        "name": "#jobname.derep.fna",
                         "host": "http://#shockurl",
                         "node": "-",
                         "origin": "1"
@@ -79,7 +74,6 @@
                 }, 
                 "outputs": {
                     "#jobname.genecalled.faa": {
-                        "name": "#jobname.genecalled.faa",
                         "host": "http://#shockurl",
                         "node": "-"
                     }

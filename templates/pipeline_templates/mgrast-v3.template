@@ -22,8 +22,7 @@
                 }, 
                 "outputs": {
                     "#jobname.prep.fna": {
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {
@@ -43,14 +42,12 @@
                 "inputs": {
                    "#jobname.prep.fna": {
                         "host": "http://#shockurl",
-                        "node": "-",
                         "origin": "0"
                     }
                 }, 
                 "outputs": {
                     "#jobname.derep.fna": {
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "taskid": "1", 
@@ -66,14 +63,12 @@
                 "inputs": {
                    "#jobname.derep.fna": {
                         "host": "http://#shockurl",
-                        "node": "-",
                         "origin": "1"
                     }
                 }, 
                 "outputs": {
                     "#jobname.screened.fna": {
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {
@@ -93,14 +88,12 @@
                 "inputs": {
                    "#jobname.screened.fna": {
                         "host": "http://#shockurl",
-                        "node": "-",
                         "origin": "2"
                     }
                 }, 
                 "outputs": {
                     "#jobname.genecalled.faa": {
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {
@@ -120,7 +113,6 @@
                 "inputs": {
                     "#jobname.genecalled.faa": {
                         "host": "http://#shockurl",
-                        "node": "-",
                         "origin": "3"
                     }
                 },
@@ -147,14 +139,12 @@
                 "inputs": {
                     "#jobname.clust.faa": {
                         "host": "http://#shockurl",
-                        "origin": "4",
-                        "node": "-"
+                        "origin": "4"
                     }
                 }, 
                 "outputs": {
                     "#jobname.hits.blat": {
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {

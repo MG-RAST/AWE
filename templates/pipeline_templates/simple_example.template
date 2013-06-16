@@ -22,8 +22,7 @@
                 }, 
                 "outputs": {
                     "#jobname.prep.fna": {
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {
@@ -44,14 +43,12 @@
                 "inputs": {
                    "#jobname.prep.fna": {
                         "host": "http://#shockurl",
-                        "node": "-",
                         "origin": "0"
                     }
                 }, 
                 "outputs": {
                     "#jobname.derep.fna": {
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "taskid": "1",
@@ -68,14 +65,12 @@
                 "inputs": {
                    "#jobname.derep.fna": {
                         "host": "http://#shockurl",
-                        "node": "-",
                         "origin": "1"
                     }
                 }, 
                 "outputs": {
                     "#jobname.genecalled.faa": {
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {

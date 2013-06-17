@@ -181,7 +181,6 @@
 		      }
 		  }
 	      }
-	      console.log(renderer.settings);
 	      
 	      // create filter elements
 	      var filter = renderer.settings.filter;

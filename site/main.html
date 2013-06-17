@@ -3,7 +3,7 @@
   <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <title>AWE Tast Status Monitor</title>
-    <link rel="icon" href="images/MGRAST_favicon.ico" type="image/x-icon">
+    <link rel="icon" href="images/awe-lg.png" type="image/x-icon">
 	<script src="js/jquery.min.js"></script>
 	<script src="js/config.js"></script>
 	<script src="js/stm.js"></script>
@@ -42,7 +42,7 @@
 	  position: absolute;
 	  left: 20px;
 	  width: 280px;
-	  top: 120px;
+	  top: 145px;
 	  }
 	</style>
   </head>
@@ -51,10 +51,20 @@
     <div class="navbar navbar-inverse navbar-fixed-top">
       <div class="navbar-inner">
 	    <div class="container" style="width: 100%; padding-left: 10px;">
-          <img src="images/MGRAST_logo.png	" style="float: left; margin-left: -10px; height: 55px;">
+          <img src="images/awe-lg.png" style="float: left; margin-left: -10px; height: 55px;">
     	  <a class="brand" href="#" style="color: white; cursor: default; margin-top: 8px; margin-left: 30px;">AWE Task Status Monitor</a>
 	  <span id='login_space'></span>
 	    </div>
+      </div>
+    </div>
+
+    <div id="refresh" style="position: absolute; top: 64px; left: 17px; z-index: 100;">
+      <div class="alert alert-block alert-info" style="width: 235px;">
+	<button type="button" class="close" data-dismiss="alert">×</button>
+	<h4>updating...</h4>
+	<div class="progress progress-striped active" style="margin-bottom: 0px; margin-top: 10px;">
+	  <div class="bar" style="width: 0%;" id="pbar"></div>
+	</div>
       </div>
     </div>
     

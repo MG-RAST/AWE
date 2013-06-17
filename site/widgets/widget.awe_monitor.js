@@ -14,6 +14,7 @@
     };
 
     widget.tables = [];
+    widget.updating = 0;
         
     widget.display = function (wparams) {
 	// initialize
@@ -26,6 +27,7 @@
 		      "queuing_workunit",
 		      "checkout_workunit",
 		      "clients" ];
+	widget.views = views;
 
 	for (i=0;i<views.length;i++) {
 	    var view = document.getElementById(views[i]);
@@ -42,12 +44,42 @@
 	}
     };
 
+    widget.refresh = function (done) {
+	var target = document.getElementById('refresh');
+	if (done) {
+	    Retina.WidgetInstances.awe_monitor[1].updating++;
+	    var per = parseInt(Retina.WidgetInstances.awe_monitor[1].updating / Retina.WidgetInstances.awe_monitor[1].views.length * 100);
+	    document.getElementById('pbar').style.width = per +"%";
+	    if (Retina.WidgetInstances.awe_monitor[1].updating == Retina.WidgetInstances.awe_monitor[1].views.length) {
+		target.innerHTML = '<button class="btn" onclick="Retina.WidgetInstances.awe_monitor[1].refresh();">refresh</button>';
+	    }
+	} else {
+	    target.innerHTML = "";
+	    var progress = document.createElement('div');
+	    progress.innerHTML = '\
+<div class="alert alert-block alert-info" style="width: 235px;">\
+	<button type="button" class="close" data-dismiss="alert">×</button>\
+	<h4>updating...</h4>\
+	<div class="progress progress-striped active" style="margin-bottom: 0px; margin-top: 10px;">\
+	  <div class="bar" style="width: 0%;" id="pbar"></div>\
+	</div>\
+      </div>';
+	    target.appendChild(progress);
+	    
+	    Retina.WidgetInstances.awe_monitor[1].updating = 0;
+	    for (i=0;i<Retina.WidgetInstances.awe_monitor[1].views.length;i++) {
+		Retina.WidgetInstances.awe_monitor[1].update_data(Retina.WidgetInstances.awe_monitor[1].views[i]);
+	    }
+	}
+	return;
+    };
+
     widget.update_data = function (which) {
 	var return_data = {};
 
 	switch (which) {
 	case "overview":	    
-	    jQuery.getJSON("http://140.221.84.148:8000/queue", function(data) {
+	    jQuery.getJSON("http://"+stm.Config.awe_ip+"/queue", function(data) {
 		var result = data.data;
 		var rows = result.split("\n");
 		
@@ -86,24 +118,22 @@
 		html += '</table>';
 		
 		document.getElementById('overview').innerHTML = html;
+		Retina.WidgetInstances.awe_monitor[1].refresh(true);
 	    });
-	    /*if (! Retina.WidgetInstances.awe_monitor[1].overviewdata) {
-		Retina.WidgetInstances.awe_monitor[1].overviewdata = window.setInterval(function() {
-		    Retina.WidgetInstances.awe_monitor[1].update_data('overview');
-		}, 10000);
-	    }*/
+
 	    return;
 
 	    break;
 	case "active":
-	    jQuery.getJSON("http://140.221.84.148:8000/job?active", function (data) {
+	    jQuery.getJSON("http://"+stm.Config.awe_ip+"/job?active", function (data) {
 		var result_data = [];
 		for (h=0;h<data.data.length;h++) {
 		    var obj = data.data[h];
 		    result_data.push( [ obj.info.submittime,
-					obj.id,
+					"<a href='http://"+stm.Config.awe_ip+"/job/"+obj.id+"' target=_blank>"+obj.id+"</a>",
 					obj.jid,
 					obj.info.name,
+					obj.info.size || "0",
 					obj.info.user,
 					obj.info.project,
 					obj.info.pipeline,
@@ -117,6 +147,7 @@
 					  "uid",
 					  "jid",
 					  "name",
+					  "size",
 					  "user",
 					  "project",
 					  "pipeline",
@@ -126,19 +157,20 @@
 					  "state" ],
 				data: result_data };
 
-		Retina.WidgetInstances.awe_monitor[1].tables["active"].settings.minwidths = [1,1,65,100,75,85,90,75,110,75,75];
+		Retina.WidgetInstances.awe_monitor[1].tables["active"].settings.minwidths = [1,1,65,100,75,75,85,90,75,110,75,75];
 		Retina.WidgetInstances.awe_monitor[1].tables["active"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["active"].render();
+		Retina.WidgetInstances.awe_monitor[1].refresh(true);
 	    });
 
 	    break;
 	case "suspended":
-	    jQuery.getJSON("http://140.221.84.148:8000/job?suspended", function (data) {
+	    jQuery.getJSON("http://"+stm.Config.awe_ip+"/job?suspended", function (data) {
 		var result_data = [];
 		for (h=0;h<data.data.length;h++) {
 		    var obj = data.data[h];
 		    result_data.push( [ obj.info.submittime,
-					obj.id,
+					"<a href='http://"+stm.Config.awe_ip+"/job/"+obj.id+"' target=_blank>"+obj.id+"</a>",
 					obj.jid,
 					obj.info.name,
 					obj.info.user,
@@ -166,11 +198,12 @@
 		Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.minwidths = [1,1,65,100,75,85,90,75,110,75,75];
 		Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["suspended"].render();
+		Retina.WidgetInstances.awe_monitor[1].refresh(true);
 	    });
 
 	    break;
 	case "queuing_workunit":
-	    jQuery.getJSON("http://140.221.84.148:8000/work?query&state=queued", function (data) {
+	    jQuery.getJSON("http://"+stm.Config.awe_ip+"/work?query&state=queued", function (data) {
 		var result_data = [];
 		for (h=0;h<data.data.length;h++) {
 		    var obj = data.data[h];
@@ -197,11 +230,12 @@
 		Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].settings.minwidths = [1,1,1,1,65,75,75,75];
 		Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].render();
+		Retina.WidgetInstances.awe_monitor[1].refresh(true);
 	    });
 
 	    break;
 	case "checkout_workunit":
-	    jQuery.getJSON("http://140.221.84.148:8000/work?query&state=checkout", function (data) {
+	    jQuery.getJSON("http://"+stm.Config.awe_ip+"/work?query&state=checkout", function (data) {
 		var result_data = [];
 		for (h=0;h<data.data.length;h++) {
 		    var obj = data.data[h];
@@ -228,14 +262,21 @@
 		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.minwidths = [1,1,1,1,65,75,75,75];
 		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].render();
+		Retina.WidgetInstances.awe_monitor[1].refresh(true);
 	    });
 
 	    break;
 	case "clients":
-	    jQuery.getJSON("http://140.221.84.148:8000/client", function (data) {
+	    jQuery.getJSON("http://"+stm.Config.awe_ip+"/client", function (data) {
 		var result_data = [];
 		for (h=0;h<data.data.length;h++) {
 		    var obj = data.data[h];
+		    var curr = [];
+		    for (j in obj.current_work) {
+			if (obj.current_work.hasOwnProperty(j)) {
+			    curr.push(j);
+			}
+		    }
 		    result_data.push( [ obj.id,
 					obj.name,
 					obj.group,
@@ -248,7 +289,9 @@
 					obj.Status,
 					obj.total_checkout || "0",
 					obj.total_completed || "0",
-					obj.total_failed || "0" ] );
+					obj.total_failed || "0",
+					curr.join(", "),
+					obj.skip_work.join(", ") ] );
 		}
 		return_data = { header: [ "id",
 					  "name",
@@ -262,12 +305,15 @@
 					  "status",
 					  "c/o",
 					  "done",
+					  "failed",
+					  "current",
 					  "failed" ],
 				data: result_data };
 
-		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [1,1,73,73,70,73,1,115,83,75,57,67,68];
+		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [1,1,73,73,70,73,1,115,83,75,57,67,68, 75,75];
 		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["clients"].render();
+		Retina.WidgetInstances.awe_monitor[1].refresh(true);
 	    });
 
 	    break;

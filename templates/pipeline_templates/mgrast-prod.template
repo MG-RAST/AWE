@@ -120,7 +120,7 @@
                     "#jobname.clust.faa": {
                         "host": "http://#shockurl"
                     },
-                    "#jobname.clust.faa.mapping": {
+                    "#jobname.clust.mapping": {
                         "host": "http://#shockurl"
                     }
                 },
@@ -195,7 +195,7 @@
                     "#jobname.clust.rna.fna": {
                         "host": "http://#shockurl"
                     },
-                    "#jobname.clust.rna.fna.mapping": {
+                    "#jobname.clust.rna.mapping": {
                         "host": "http://#shockurl"
                     }
                 },
@@ -243,7 +243,7 @@
                         "host": "http://#shockurl",
                         "node": "#shocknode"
                     },
-                    "#jobname.clust.faa.mapping": {
+                    "#jobname.clust.mapping": {
                         "host": "http://#shockurl",
                         "origin": "4"
                     },
@@ -251,7 +251,7 @@
                         "host": "http://#shockurl",
                         "origin": "5"
                     },
-                    "#jobname.clust.rna.fna.mapping": {
+                    "#jobname.clust.rna.mapping": {
                         "host": "http://#shockurl",
                         "origin": "7"
                     },

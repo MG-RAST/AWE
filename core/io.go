@@ -1,18 +1,25 @@
 package core
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
 )
 
 type IO struct {
-	Name   string `bson:"name" json:"name"`
-	Host   string `bson:"host" json:"host"`
-	Node   string `bson:"node" json:"node"`
-	Size   int64  `bson:"size" json:"size"`
-	MD5    string `bson:"md5" json:"-"`
-	Cache  bool   `bson:"cache" json:"-"`
-	Origin string `bson:"origin" json:"origin"`
-	Path   string `bson:"path" json:"-"`
+	Name     string `bson:"name" json:"-"`
+	Host     string `bson:"host" json:"host"`
+	Node     string `bson:"node" json:"node"`
+	Url      string `bson:"url"  json:"url"`
+	Size     int64  `bson:"size" json:"size"`
+	MD5      string `bson:"md5" json:"-"`
+	Cache    bool   `bson:"cache" json:"-"`
+	Origin   string `bson:"origin" json:"origin"`
+	Path     string `bson:"path" json:"-"`
+	Optional bool   `bson:"optional" json:"-"`
 }
 
 type PartInfo struct {
@@ -30,13 +37,13 @@ type IdxInfo struct {
 	AvgUnitSize int    `bson: "avg_unitsize" json:"avg_unitsize"`
 }
 
-type IOmap map[string]*IO
+type IOmap map[string]*IO // [filename]attributes
 
 func NewIOmap() IOmap {
 	return IOmap{}
 }
 
-func (i IOmap) Add(name string, host string, node string, params string, md5 string, cache bool) {
+func (i IOmap) Add(name string, host string, node string, md5 string, cache bool) {
 	i[name] = &IO{Name: name, Host: host, Node: node, MD5: md5, Cache: cache}
 	return
 }
@@ -59,15 +66,21 @@ func NewIO() *IO {
 	return &IO{}
 }
 
-func (io *IO) Url() string {
-	if io.Host != "" && io.Node != "" {
-		return fmt.Sprintf("%s/node/%s?download", io.Host, io.Node)
+func (io *IO) DataUrl() string {
+	if io.Url != "" {
+		return io.Url
+	} else {
+		if io.Host != "" && io.Node != "" {
+			downloadUrl := fmt.Sprintf("%s/node/%s?download", io.Host, io.Node)
+			io.Url = downloadUrl
+			return downloadUrl
+		}
 	}
 	return ""
 }
 
 func (io *IO) TotalUnits(indextype string) (count int, err error) {
-	count, err = GetIndexUnits(indextype, io)
+	count, err = io.GetIndexUnits(indextype)
 	return
 }
 
@@ -75,7 +88,7 @@ func (io *IO) GetFileSize() int64 {
 	if io.Size > 0 {
 		return io.Size
 	}
-	shocknode, err := GetShockNode(io.Host, io.Node)
+	shocknode, err := io.GetShockNode()
 	if err != nil {
 		return 0
 	}
@@ -85,10 +98,54 @@ func (io *IO) GetFileSize() int64 {
 
 func (io *IO) GetIndexInfo() (idxinfo map[string]IdxInfo, err error) {
 	var shocknode *ShockNode
-	shocknode, err = GetShockNode(io.Host, io.Node)
+	shocknode, err = io.GetShockNode()
 	if err != nil {
 		return
 	}
 	idxinfo = shocknode.Indexes
 	return
+}
+
+func (io *IO) GetShockNode() (node *ShockNode, err error) {
+	if io.Host == "" || io.Node == "" {
+		return nil, errors.New("empty shock host or node id")
+	}
+	var res *http.Response
+	shockurl := fmt.Sprintf("%s/node/%s", io.Host, io.Node)
+	res, err = http.Get(shockurl)
+	if err != nil {
+		return
+	}
+
+	jsonstream, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	res.Body.Close()
+	response := new(ShockResponse)
+	if err := json.Unmarshal(jsonstream, response); err != nil {
+		return nil, err
+	}
+	if len(response.Errs) > 0 {
+		return nil, errors.New(strings.Join(response.Errs, ","))
+	}
+	node = &response.Data
+	if node == nil {
+		err = errors.New("empty node got from Shock")
+	}
+	return
+}
+
+func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
+	var shocknode *ShockNode
+	shocknode, err = io.GetShockNode()
+	if err != nil {
+		return
+	}
+	if _, ok := shocknode.Indexes[indextype]; ok {
+		if shocknode.Indexes[indextype].TotalUnits > 0 {
+			return shocknode.Indexes[indextype].TotalUnits, nil
+		}
+	}
+	return 0, errors.New("invlid totalunits for shock node:" + io.Node)
 }

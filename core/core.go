@@ -141,47 +141,6 @@ func PostNode(io *IO, numParts int) (nodeid string, err error) {
 	return
 }
 
-func GetIndexUnits(indextype string, io *IO) (totalunits int, err error) {
-	var shocknode *ShockNode
-	shocknode, err = GetShockNode(io.Host, io.Node)
-	if err != nil {
-		return
-	}
-	if _, ok := shocknode.Indexes[indextype]; ok {
-		if shocknode.Indexes[indextype].TotalUnits > 0 {
-			return shocknode.Indexes[indextype].TotalUnits, nil
-		}
-	}
-	return 0, errors.New("invlid totalunits for shock node:" + io.Node)
-}
-
-func GetShockNode(host string, id string) (node *ShockNode, err error) {
-	var res *http.Response
-	shockurl := fmt.Sprintf("%s/node/%s", host, id)
-	res, err = http.Get(shockurl)
-	if err != nil {
-		return
-	}
-
-	jsonstream, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-	res.Body.Close()
-	response := new(ShockResponse)
-	if err := json.Unmarshal(jsonstream, response); err != nil {
-		return nil, err
-	}
-	if len(response.Errs) > 0 {
-		return nil, errors.New(strings.Join(response.Errs, ","))
-	}
-	node = &response.Data
-	if node == nil {
-		err = errors.New("empty node got from Shock")
-	}
-	return
-}
-
 //create parts
 func putParts(host string, nodeid string, numParts int) (err error) {
 	argv := []string{}

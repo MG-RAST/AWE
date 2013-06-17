@@ -40,7 +40,12 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	query := &Query{list: cx.Request.URL.Query()}
 
 	if !query.Has("client") { //view workunits
-		workunits := queueMgr.ShowWorkunits()
+		var workunits []*core.Workunit
+		if query.Has("state") {
+			workunits = queueMgr.ShowWorkunits(query.Value("state"))
+		} else {
+			workunits = queueMgr.ShowWorkunits("")
+		}
 		cx.RespondWithData(workunits)
 		return
 	}

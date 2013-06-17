@@ -16,16 +16,13 @@
                 "dependsOn": [], 
                 "inputs": {
                    "#inputfile": {
-                        "name": "#inputfile",
                         "host": "http://#shockurl",
                         "node": "#shocknode"
                     }
                 }, 
                 "outputs": {
                     "#jobname.prep.fna": {
-                        "name": "#jobname.prep.fna",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {
@@ -44,17 +41,13 @@
                 "dependsOn": ["0"], 
                 "inputs": {
                    "#jobname.prep.fna": {
-                        "name": "#jobname.prep.fna",
                         "host": "http://#shockurl",
-                        "node": "-",
                         "origin": "0"
                     }
                 }, 
                 "outputs": {
                     "#jobname.derep.fna": {
-                        "name": "#jobname.derep.fna",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "taskid": "1", 
@@ -69,17 +62,13 @@
                 "dependsOn": ["1"], 
                 "inputs": {
                    "#jobname.derep.fna": {
-                        "name": "#jobname.derep.fna",
                         "host": "http://#shockurl",
-                        "node": "-",
                         "origin": "1"
                     }
                 }, 
                 "outputs": {
                     "#jobname.screened.fna": {
-                        "name": "#jobname.screened.fna",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {
@@ -98,17 +87,13 @@
                 "dependsOn": ["2"], 
                 "inputs": {
                    "#jobname.screened.fna": {
-                        "name": "#jobname.screened.fna",
                         "host": "http://#shockurl",
-                        "node": "-",
                         "origin": "2"
                     }
                 }, 
                 "outputs": {
                     "#jobname.genecalled.faa": {
-                        "name": "#jobname.genecalled.faa",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {
@@ -127,22 +112,16 @@
                 "dependsOn": ["3"],
                 "inputs": {
                     "#jobname.genecalled.faa": {
-                        "name": "#jobname.genecalled.faa",
                         "host": "http://#shockurl",
-                        "node": "-",
                         "origin": "3"
                     }
                 },
                 "outputs": {
                     "#jobname.clust.faa": {
-                        "name": "#jobname.clust.faa",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     },
                     "#jobname.clust.faa.mapping": {
-                        "name": "#jobname.clust.faa.mapping",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {
@@ -161,17 +140,13 @@
                 "dependsOn": ["4"],  
                 "inputs": {
                     "#jobname.clust.faa": {
-                        "name": "#jobname.clust.faa",
                         "host": "http://#shockurl",
-                        "origin": "4",
-                        "node": "-"
+                        "origin": "4"
                     }
                 }, 
                 "outputs": {
                     "#jobname.aa.blat": {
-                        "name": "#jobname.aa.blat",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {
@@ -191,17 +166,13 @@
                 "dependsOn": ["0"],  
                 "inputs": {
                    "#jobname.prep.fna": {
-                        "name": "#jobname.prep.fna",
                         "host": "http://#shockurl",
-                        "node": "-",
                         "origin": "0"
                     }
                 }, 
                 "outputs": {
                     "#jobname.search.rna.fna": {
-                        "name": "#jobname.search.rna.fna",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "taskid": "6",
@@ -216,22 +187,16 @@
                 "dependsOn": ["6"],
                 "inputs": {
                     "#jobname.search.rna.fna": {
-                        "name": "#jobname.search.rna.fna",
                         "host": "http://#shockurl",
-                        "origin": "6",
-                        "node": "-"
+                        "origin": "6"
                     }
                 }, 
                 "outputs": {
                     "#jobname.clust.rna.fna": {
-                        "name": "#jobname.clust.rna.fna",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     },
                     "#jobname.clust.rna.fna.mapping": {
-                        "name": "#jobname.clust.rna.fna.mapping",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {
@@ -250,17 +215,13 @@
                 "dependsOn": ["7"],  
                 "inputs": {
                     "#jobname.clust.rna.fna": {
-                        "name": "#jobname.clust.rna.fna",
                         "host": "http://#shockurl",
-                        "origin": "7",
-                        "node": "-"
+                        "origin": "7"
                     }
                 }, 
                 "outputs": {
                     "#jobname.rna.blat": {
-                        "name": "#jobname.rna.blat",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {
@@ -273,76 +234,53 @@
             {
                 "cmd": {
                     "name": "awe_annotate.pl",
-                    "args": "-raw=@#inputfile -aa_sims=@#jobname.aa.blat -rna_sim=@#jobname.rna.blat -clust_aa=@#jobname.clust.faa.mapping -map_rna=@#jobname.clust.rna.fna.mapping -out_prefix=#jobname -mem_host=10.0.4.172:11211", 
+                    "args": "-raw=@#inputfile -aa_sims=@#jobname.aa.blat -rna_sims=@#jobname.rna.blat -clust_aa=@#jobname.clust.faa.mapping -map_rna=@#jobname.clust.rna.fna.mapping -out_prefix=#jobname -mem_host=10.0.4.172:11211", 
                     "description": "annotation"
                 }, 
                 "dependsOn": ["4", "5", "7", "8"],  
                 "inputs": {
                     "#inputfile": {
-                        "name": "#inputfile",
                         "host": "http://#shockurl",
                         "node": "#shocknode"
                     },
                     "#jobname.clust.faa.mapping": {
-                        "name": "#jobname.clust.faa.mapping",
                         "host": "http://#shockurl",
-                        "origin": "4",
-                        "node": "-"
+                        "origin": "4"
                     },
                     "#jobname.aa.blat": {
-                        "name": "#jobname.aa.blat",
                         "host": "http://#shockurl",
-                        "origin": "5",
-                        "node": "-"
+                        "origin": "5"
                     },
                     "#jobname.clust.rna.fna.mapping": {
-                        "name": "#jobname.clust.rna.fna.mapping",
                         "host": "http://#shockurl",
-                        "origin": "7",
-                        "node": "-"
+                        "origin": "7"
                     },
                     "#jobname.rna.blat": {
-                        "name": "#jobname.rna.blat",
                         "host": "http://#shockurl",
-                        "origin": "8",
-                        "node": "-"
+                        "origin": "8"
                     }
                 }, 
                 "outputs": {
                     "#jobname.function.summary": {
-                        "name": "#jobname.function.summary",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     },
                     "#jobname.md5.summary": {
-                        "name": "#jobname.md5.summary",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     },
                     "#jobname.organism.summary": {
-                        "name": "#jobname.organism.summary",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     },
                     "#jobname.lca.summary": {
-                        "name": "#jobname.lca.summary",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     },
                     "#jobname.ontology.summary": {
-                        "name": "#jobname.ontology.summary",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     },
                     "#jobname.sims.filter.seq": {
-                        "name": "#jobname.sims.filter.seq",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     },
                     "#jobname.source.stats": {
-                        "name": "#jobname.source.stats",
-                        "host": "http://#shockurl",
-                        "node": "-"
+                        "host": "http://#shockurl"
                     }
                 },
                 "taskid": "9",

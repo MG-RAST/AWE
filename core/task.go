@@ -71,6 +71,16 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 		depend := task.DependsOn[j]
 		task.DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)
 	}
+	for _, io := range task.Inputs {
+		if io.Node == "" {
+			io.Node = "-"
+		}
+	}
+	for _, io := range task.Outputs {
+		if io.Node == "" {
+			io.Node = "-"
+		}
+	}
 	return
 }
 

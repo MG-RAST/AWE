@@ -312,9 +312,11 @@ func (qm *QueueMgr) CheckoutWorkunits(req_policy string, client_id string, num i
 	return ack.workunits, ack.err
 }
 
-func (qm *QueueMgr) ShowWorkunits() (workunits []*Workunit) {
+func (qm *QueueMgr) ShowWorkunits(status string) (workunits []*Workunit) {
 	for _, work := range qm.workQueue.workMap {
-		workunits = append(workunits, work)
+		if work.State == status || status == "" {
+			workunits = append(workunits, work)
+		}
 	}
 	return workunits
 }
@@ -531,6 +533,7 @@ func (qm *QueueMgr) locateInputs(task *Task) (err error) {
 			return errors.New(fmt.Sprintf("error in locate input for task %s, %s", task.Id, name))
 		}
 		io.GetFileSize()
+		io.DataUrl()
 	}
 	return
 }
@@ -616,6 +619,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 					task.State = TASK_STAT_COMPLETED
 					for _, output := range task.Outputs {
 						output.GetFileSize()
+						output.DataUrl()
 					}
 					//log event about task done (TD)
 					qm.FinalizeTaskPerf(taskid)
@@ -639,6 +643,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 						task.State = TASK_STAT_FAIL_SKIP
 						for _, output := range task.Outputs {
 							output.GetFileSize()
+							output.DataUrl()
 						}
 						qm.FinalizeTaskPerf(taskid)
 						// log event about task skipped

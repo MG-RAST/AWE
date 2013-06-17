@@ -75,7 +75,11 @@ func deliverer(control chan int) {
 func pushOutputData(work *Workunit) (err error) {
 	for name, io := range work.Outputs {
 		if _, err := os.Stat(name); err != nil {
-			return errors.New(fmt.Sprintf("output %s not generated for workunit %s", name, work.Id))
+			if io.Optional {
+				continue
+			} else {
+				return errors.New(fmt.Sprintf("output %s not generated for workunit %s", name, work.Id))
+			}
 		}
 		Log.Debug(2, "deliverer: push output to shock, filename="+name)
 		Log.Event(EVENT_FILE_OUT,

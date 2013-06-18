@@ -234,7 +234,7 @@
             {
                 "cmd": {
                     "name": "awe_annotate.pl",
-                    "args": "-raw=@#inputfile -aa_sims=@#jobname.aa.blat -rna_sims=@#jobname.rna.blat -clust_aa=@#jobname.clust.faa.mapping -map_rna=@#jobname.clust.rna.fna.mapping -out_prefix=#jobname -mem_host=10.0.4.172:11211", 
+                    "args": "-raw=@#inputfile -aa_sims=@#jobname.aa.blat -rna_sims=@#jobname.rna.blat -clust_aa=@#jobname.clust.mapping -map_rna=@#jobname.clust.rna.mapping -out_prefix=#jobname -mem_host=10.0.4.172:11211", 
                     "description": "annotation"
                 }, 
                 "dependsOn": ["4", "5", "7", "8"],  

@@ -127,21 +127,25 @@
 	case "active":
 	    jQuery.getJSON("http://"+stm.Config.awe_ip+"/job?active", function (data) {
 		var result_data = [];
-		for (h=0;h<data.data.length;h++) {
-		    var obj = data.data[h];
-		    result_data.push( [ obj.info.submittime,
-					"<a href='http://"+stm.Config.awe_ip+"/job/"+obj.id+"' target=_blank>"+obj.id+"</a>",
-					obj.jid,
-					obj.info.name,
-					obj.info.size || "0",
-					obj.info.user,
-					obj.info.project,
-					obj.info.pipeline,
-					obj.info.clientgroups,
-					obj.tasks.length - obj.remaintasks || "0",
-					obj.tasks.length,
-					obj.state
-				      ] );
+		if (data.data === null) {
+		    result_data = [ [ '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-' ] ];
+		} else {
+		    for (h=0;h<data.data.length;h++) {
+			var obj = data.data[h];
+			result_data.push( [ obj.info.submittime,
+					    "<a href='http://"+stm.Config.awe_ip+"/job/"+obj.id+"' target=_blank>"+obj.id+"</a>",
+					    obj.jid,
+					    obj.info.name,
+					    obj.info.size || "0",
+					    obj.info.user,
+					    obj.info.project,
+					    obj.info.pipeline,
+					    obj.info.clientgroups,
+					    obj.tasks.length - obj.remaintasks || "0",
+					    obj.tasks.length,
+					    obj.state
+					  ] );
+		    }
 		}
 		return_data = { header: [ "submitted",
 					  "uid",
@@ -167,20 +171,24 @@
 	case "suspended":
 	    jQuery.getJSON("http://"+stm.Config.awe_ip+"/job?suspended", function (data) {
 		var result_data = [];
-		for (h=0;h<data.data.length;h++) {
-		    var obj = data.data[h];
-		    result_data.push( [ obj.info.submittime,
-					"<a href='http://"+stm.Config.awe_ip+"/job/"+obj.id+"' target=_blank>"+obj.id+"</a>",
-					obj.jid,
-					obj.info.name,
-					obj.info.user,
-					obj.info.project,
-					obj.info.pipeline,
-					obj.info.clientgroups,
-					obj.tasks.length - obj.remaintasks || "0",
-					obj.tasks.length,
-					obj.state
-				      ] );
+		if (data.data === null) {
+		    result_data = [ [ '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-' ] ];
+		} else {
+		    for (h=0;h<data.data.length;h++) {
+			var obj = data.data[h];
+			result_data.push( [ obj.info.submittime,
+					    "<a href='http://"+stm.Config.awe_ip+"/job/"+obj.id+"' target=_blank>"+obj.id+"</a>",
+					    obj.jid,
+					    obj.info.name,
+					    obj.info.user,
+					    obj.info.project,
+					    obj.info.pipeline,
+					    obj.info.clientgroups,
+					    obj.tasks.length - obj.remaintasks || "0",
+					    obj.tasks.length,
+					    obj.state
+					  ] );
+		    }
 		}
 		return_data = { header: [ "submitted",
 					  "uid",
@@ -205,18 +213,23 @@
 	case "queuing_workunit":
 	    jQuery.getJSON("http://"+stm.Config.awe_ip+"/work?query&state=queued", function (data) {
 		var result_data = [];
-		for (h=0;h<data.data.length;h++) {
-		    var obj = data.data[h];
-		    result_data.push( [ obj.wuid,
-					obj.info.submittime,
-					obj.cmd.name,
-					obj.cmd.args,
-					obj.rank || "0",
-					obj.totalwork || "0",
-					obj.state,
-					obj.failed || "0"
-				      ] );
+		if (data.data === null) {
+		    result_data = [ [ '-', '-', '-', '-', '-', '-', '-', '-' ] ];
+		} else {
+		    for (h=0;h<data.data.length;h++) {
+			var obj = data.data[h];
+			result_data.push( [ obj.wuid,
+					    obj.info.submittime,
+					    obj.cmd.name,
+					    obj.cmd.args,
+					    obj.rank || "0",
+					    obj.totalwork || "0",
+					    obj.state,
+					    obj.failed || "0"
+					  ] );
+		    }
 		}
+		
 		return_data = { header: [ "wuid",
 					  "submission time",
 					  "cmd name",
@@ -237,17 +250,21 @@
 	case "checkout_workunit":
 	    jQuery.getJSON("http://"+stm.Config.awe_ip+"/work?query&state=checkout", function (data) {
 		var result_data = [];
-		for (h=0;h<data.data.length;h++) {
-		    var obj = data.data[h];
-		    result_data.push( [ obj.wuid,
-					obj.info.submittime,
-					obj.cmd.name,
-					obj.cmd.args,
-					obj.rank || "0",
-					obj.totalwork || "0",
-					obj.state,
-					obj.failed || "0"
-				      ] );
+		if (data.data === null) {
+		    result_data = [ [ '-', '-', '-', '-', '-', '-', '-', '-' ] ];
+		} else {
+		    for (h=0;h<data.data.length;h++) {
+			var obj = data.data[h];
+			result_data.push( [ obj.wuid,
+					    obj.info.submittime,
+					    obj.cmd.name,
+					    obj.cmd.args,
+					    obj.rank || "0",
+					    obj.totalwork || "0",
+					    obj.state,
+					    obj.failed || "0"
+					  ] );
+		    }
 		}
 		return_data = { header: [ "wuid",
 					  "submission time",
@@ -269,29 +286,33 @@
 	case "clients":
 	    jQuery.getJSON("http://"+stm.Config.awe_ip+"/client", function (data) {
 		var result_data = [];
-		for (h=0;h<data.data.length;h++) {
-		    var obj = data.data[h];
-		    var curr = [];
-		    for (j in obj.current_work) {
-			if (obj.current_work.hasOwnProperty(j)) {
-			    curr.push(j);
+		if (data.data === null) {
+		    result_data = [ [ '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-' ] ];
+		} else {
+		    for (h=0;h<data.data.length;h++) {
+			var obj = data.data[h];
+			var curr = [];
+			for (j in obj.current_work) {
+			    if (obj.current_work.hasOwnProperty(j)) {
+				curr.push(j);
+			    }
 			}
+			result_data.push( [ obj.id,
+					    obj.name,
+					    obj.group,
+					    obj.user || "-",
+					    obj.host,
+					    obj.cores || "0",
+					    obj.apps.join(", "),
+					    obj.regtime,
+					    obj.serve_time,
+					    obj.Status,
+					    obj.total_checkout || "0",
+					    obj.total_completed || "0",
+					    obj.total_failed || "0",
+					    curr.join(", "),
+					    obj.skip_work.join(", ") ] );
 		    }
-		    result_data.push( [ obj.id,
-					obj.name,
-					obj.group,
-					obj.user || "-",
-					obj.host,
-					obj.cores || "0",
-					obj.apps.join(", "),
-					obj.regtime,
-					obj.serve_time,
-					obj.Status,
-					obj.total_checkout || "0",
-					obj.total_completed || "0",
-					obj.total_failed || "0",
-					curr.join(", "),
-					obj.skip_work.join(", ") ] );
 		}
 		return_data = { header: [ "id",
 					  "name",

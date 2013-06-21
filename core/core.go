@@ -24,7 +24,11 @@ type ShockNode struct {
 	File       shockfile          `bson:"file" json:"file"`
 	Attributes interface{}        `bson:"attributes" json:"attributes"`
 	Indexes    map[string]IdxInfo `bson:"indexes" json:"indexes"`
-	Type       []string           `bson:"type" json:"type"`
+	//Acl          Acl                `bson:"acl" json:"-"`
+	VersionParts map[string]string `bson:"version_parts" json:"-"`
+	Tags         []string          `bson:"tags" json:"tags"`
+	//	Revisions    []ShockNode       `bson:"revisions" json:"-"`
+	Linkages []linkage `bson:"linkage" json:"linkages"`
 }
 
 type shockfile struct {
@@ -32,8 +36,15 @@ type shockfile struct {
 	Size         int64             `bson:"size" json:"size"`
 	Checksum     map[string]string `bson:"checksum" json:"checksum"`
 	Format       string            `bson:"format" json:"format"`
+	Path         string            `bson:"path" json:"-"`
 	Virtual      bool              `bson:"virtual" json:"virtual"`
 	VirtualParts []string          `bson:"virtual_parts" json:"virtual_parts"`
+}
+
+type IdxInfo struct {
+	Type        string `bson:"index_type" json:"-"`
+	TotalUnits  int64  `bson:"total_units" json:"total_units"`
+	AvgUnitSize int64  `bson:"average_unit_size" json:"average_unit_size"`
 }
 
 type FormFiles map[string]FormFile
@@ -42,6 +53,12 @@ type FormFile struct {
 	Name     string
 	Path     string
 	Checksum map[string]string
+}
+
+type linkage struct {
+	Type      string   `bson: "relation" json:"relation"`
+	Ids       []string `bson:"ids" json:"ids"`
+	Operation string   `bson:"operation" json:"operation"`
 }
 
 func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job *Job, err error) {

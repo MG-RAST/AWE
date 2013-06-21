@@ -31,12 +31,6 @@ type PartInfo struct {
 	Options       string `bson:"options" json:"-"`
 }
 
-type IdxInfo struct {
-	Type        string `bson: "index_type" json:"index_type"`
-	TotalUnits  int    `bson: "total_units" json:"total_units"`
-	AvgUnitSize int    `bson: "avg_unitsize" json:"avg_unitsize"`
-}
-
 type IOmap map[string]*IO // [filename]attributes
 
 func NewIOmap() IOmap {
@@ -144,8 +138,8 @@ func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
 	}
 	if _, ok := shocknode.Indexes[indextype]; ok {
 		if shocknode.Indexes[indextype].TotalUnits > 0 {
-			return shocknode.Indexes[indextype].TotalUnits, nil
+			return int(shocknode.Indexes[indextype].TotalUnits), nil
 		}
 	}
-	return 0, errors.New("invlid totalunits for shock node:" + io.Node)
+	return 0, errors.New("invalid totalunits for shock node:" + io.Node)
 }

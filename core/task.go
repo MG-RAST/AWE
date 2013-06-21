@@ -132,7 +132,7 @@ func (task *Task) InitPartIndex() (err error) {
 			return nil
 		}
 	} else { //index existing, use it directly
-		totalunits = idxinfo[idxtype].TotalUnits
+		totalunits = int(idxinfo[idxtype].TotalUnits)
 	}
 
 	//adjust total work based on needs

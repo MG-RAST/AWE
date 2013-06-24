@@ -53,6 +53,7 @@ umask 000;
 
 # options
 my $infile = "";
+my $infile_base = "";
 my $awe_url = "";
 my $shock_url = "";
 my $node_id = "";
@@ -136,6 +137,11 @@ if (length($node_id)>0 && length($file_type)==0) {
     exit 1;
 }
 
+if (length($infile)>0) {
+    $infile_base = basename($infile)
+}
+
+
 if (length($node_id)>0 || (length($infile)>0)) { #use case 1 or 2
     if (length($shock_url)==0 ) {
         $shock_url = $ENV{'SHOCK_HOST'};
@@ -199,8 +205,10 @@ if (length($node_id)>0 || (length($infile)>0)) { #use case 1 or 2
     system("perl -p -i -e 's/#clientgroups/$clients/g;' $jobscript");
     system("perl -p -i -e 's/#totalwork/$total_work/g;' $jobscript");
     
-    if (length($infile)>0) {
-        system("perl -p -i -e 's/#inputfile/$infile/g;' $jobscript");
+    
+    
+    if (length($infile_base)>0) {
+        system("perl -p -i -e 's/#inputfile/$infile_base/g;' $jobscript");
     } else {
         system("perl -p -i -e 's/#inputfile/$job_name.$file_type/g;' $jobscript");
     }
@@ -233,7 +241,7 @@ if (length($infile)>0 || length($node_id)>0) {
     print "input file shock url: http://".$shock_url."/node/".$shock_id."\n";
     my $refjson = "";
     if (length($infile)>0) {
-       $refjson = "awe_".$infile."_".$job_id.".json"; 
+       $refjson = "awe_".$infile_base."_".$job_id.".json"; 
     } else {
        $refjson = "awe_".$job_id.".json"; 
     }

@@ -1,0 +1,114 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title>AWE Task Status Monitor</title>
+    <link rel="icon" href="images/MGRAST_favicon.ico" type="image/x-icon">
+	<script src="js/jquery.min.js"></script>
+	<script src="js/config.js"></script>
+	<script src="js/stm.js"></script>
+	<script src="js/retina.js"></script>
+	<script src="js/bootstrap.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+	<script>
+    stm.init(stm.Config.mgrast_api).then( function() {
+	    Retina.init( { library_resource: "js/" } ).then( function() {
+		    Retina.add_widget({"name": "login", "resource": "widgets/",  "filename": "widget.login.js"});
+	        Retina.load_widget("login").then( function() {
+		        Retina.Widget.create('login', {"target": document.getElementById("login_space")});
+		    });
+	        Retina.add_widget({"name": "awe_monitor", "resource": "widgets/",  "filename": "widget.awe_monitor.js"});
+	        Retina.load_widget("awe_monitor").then( function() {
+		    Retina.Widget.create("awe_monitor", {});
+	        });
+	    });
+    });
+	</script>
+	<style>
+	  .tab-pane {
+	  padding:10px;
+	  }
+
+	  .mainview {
+	  margin-top: 20px;
+	  margin-bottom: 100px;
+	  margin-left: 50px;
+	  margin-right: 50px;
+	  position: absolute;
+	  left: 300px;
+	  }
+
+	  .sidebar {
+	  position: absolute;
+	  left: 20px;
+	  width: 280px;
+	  top: 120px;
+	  }
+	</style>
+  </head>
+
+  <body style="margin-top: 60px; margin-bottom: 100px;">
+    <div class="navbar navbar-inverse navbar-fixed-top">
+      <div class="navbar-inner">
+	    <div class="container" style="width: 100%; padding-left: 10px;">
+          <img src="images/MGRAST_logo.png	" style="float: left; margin-left: -10px; height: 55px;">
+    	  <a class="brand" href="#" style="color: white; cursor: default; margin-top: 8px; margin-left: 30px;">AWE Task Status Monitor</a>
+	  <span id='login_space'></span>
+	    </div>
+      </div>
+    </div>
+
+    <div id="refresh" style="position: absolute; top: 64px; left: 17px; z-index: 100;">
+    </div>
+    
+    <div id="overview" class="sidebar"></div>
+
+    <div class="mainview">
+
+      <ul class="nav nav-tabs">
+
+	<li class="active">
+	  <a data-toggle="tab" href="#active">active jobs</a>
+	</li>
+
+	<li class="">
+	  <a data-toggle="tab" href="#suspended">suspended jobs</a>
+	</li>
+
+	<li class="">
+	  <a data-toggle="tab" href="#queuing_workunit">queued workunits</a>
+	</li>
+
+	<li class="">
+	  <a data-toggle="tab" href="#checkout_workunit">checked-out workunits</a>
+	</li>
+
+	<li class="">
+	  <a data-toggle="tab" href="#clients">clients</a>
+	</li>
+
+      </ul>
+
+      <div class="tab-content">
+
+	<div id="active" class="tab-pane active">
+	</div>
+
+	<div id="suspended" class="tab-pane">
+	</div>
+	
+	<div id="queuing_workunit" class="tab-pane">
+	</div>
+
+	<div id="checkout_workunit" class="tab-pane">
+	</div>
+
+	<div id="clients" class="tab-pane">
+	</div>
+
+      </div>
+
+    </div>
+    
+  </body>
+</html>

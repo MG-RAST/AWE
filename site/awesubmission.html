@@ -1,0 +1,66 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title>AWE Job Submission</title>
+    <link rel="icon" href="images/MGRAST_favicon.ico" type="image/x-icon">
+	<script src="js/jquery.min.js"></script>
+	<script src="js/config.js"></script>
+	<script src="js/stm.js"></script>
+	<script src="js/retina.js"></script>
+	<script src="js/bootstrap.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+	<script>
+    stm.init(stm.Config.mgrast_api).then( function() {
+	    Retina.init( { library_resource: "js/" } ).then( function() {
+		    Retina.add_widget({"name": "login", "resource": "widgets/",  "filename": "widget.login.js"});
+	        Retina.load_widget("login").then( function() {
+		        Retina.Widget.create('login', {"target": document.getElementById("login_space")});
+		    });
+	        Retina.add_widget({"name": "awe_submission", "resource": "widgets/",  "filename": "widget.awe_submission.js"});
+	        Retina.load_widget("awe_submission").then( function() {
+		    Retina.Widget.create("awe_submission", {});
+	        });
+	    });
+    });
+	</script>
+	<style>
+	  .tab-pane {
+	  padding:10px;
+	  }
+
+	  .mainview {
+	  margin-top: 20px;
+	  margin-bottom: 100px;
+	  margin-left: 50px;
+	  margin-right: 50px;
+	  position: absolute;
+	  left: 300px;
+	  }
+
+	  .sidebar {
+	  position: absolute;
+	  left: 20px;
+	  width: 280px;
+	  top: 120px;
+	  }
+	</style>
+  </head>
+
+  <body style="margin-top: 60px; margin-bottom: 100px;">
+    <div class="navbar navbar-inverse navbar-fixed-top">
+      <div class="navbar-inner">
+	    <div class="container" style="width: 100%; padding-left: 10px;">
+          <img src="images/MGRAST_logo.png	" style="float: left; margin-left: -10px; height: 55px;">
+    	  <a class="brand" href="#" style="color: white; cursor: default; margin-top: 8px; margin-left: 30px;">AWE Job Submission</a>
+	  <span id='login_space'></span>
+	    </div>
+      </div>
+    </div>
+    
+    <div class="mainview" id="content">
+
+    </div>
+    
+  </body>
+</html>

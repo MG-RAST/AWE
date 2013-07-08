@@ -129,12 +129,22 @@ func ComposeProfile() (profile *Client, err error) {
 	profile.Name = conf.CLIENT_NAME
 	profile.Group = conf.CLIENT_GROUP
 	profile.CPUs = runtime.NumCPU()
+
+	//app list
 	profile.Apps = []string{}
-	if files, err := ioutil.ReadDir(conf.APP_PATH); err == nil {
-		for _, item := range files {
-			profile.Apps = append(profile.Apps, item.Name())
+	if conf.SUPPORTED_APPS != "" { //apps configured in .cfg
+		apps := strings.Split(conf.SUPPORTED_APPS, ",")
+		for _, item := range apps {
+			profile.Apps = append(profile.Apps, item)
+		}
+	} else { //apps not configured in .cfg, check the executables in APP_PATH)
+		if files, err := ioutil.ReadDir(conf.APP_PATH); err == nil {
+			for _, item := range files {
+				profile.Apps = append(profile.Apps, item.Name())
+			}
 		}
 	}
+
 	if addrs, err := net.InterfaceAddrs(); err == nil {
 		for _, a := range addrs {
 			if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && len(strings.Split(ipnet.IP.String(), ".")) == 4 {

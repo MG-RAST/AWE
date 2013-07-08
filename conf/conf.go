@@ -78,6 +78,7 @@ var (
 	TOTAL_WORKER   = 1
 	WORK_PATH      = ""
 	APP_PATH       = ""
+	SUPPORTED_APPS = ""
 	SERVER_URL     = "http://localhost:8001"
 	CLIENT_NAME    = "default"
 	CLIENT_GROUP   = "default"
@@ -177,6 +178,7 @@ func init() {
 	WORK_PATH, _ = c.String("Client", "workpath")
 	APP_PATH, _ = c.String("Client", "app_path")
 	SERVER_URL, _ = c.String("Client", "serverurl")
+	SUPPORTED_APPS, _ = c.String("Client", "supported_apps")
 	if clientname, err := c.String("Client", "name"); err == nil {
 		CLIENT_NAME = clientname
 	}

@@ -22,6 +22,7 @@ type Client struct {
 	Apps            []string        `bson:"apps" json:"apps"`
 	RegTime         time.Time       `bson:"regtime" json:"regtime"`
 	Serve_time      string          `bson:"serve_time" json:"serve_time"`
+	Idle_time       int             `bson:"idle_time" json:"idle_time"`
 	Status          string          `bson:"Status" json:"Status"`
 	Total_checkout  int             `bson:"total_checkout" json:"total_checkout"`
 	Total_completed int             `bson:"total_completed" json:"total_completed"`

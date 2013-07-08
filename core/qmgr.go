@@ -228,6 +228,11 @@ func (qm *QueueMgr) ClientChecker() {
 				hours := total_minutes / 60
 				minutes := total_minutes % 60
 				client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
+				if len(client.Current_work) > 0 {
+					client.Idle_time = 0
+				} else {
+					client.Idle_time += 30
+				}
 			} else {
 				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
 				Log.Event(EVENT_CLIENT_UNREGISTER, "clientid="+clientid+";name="+qm.clientMap[clientid].Name)

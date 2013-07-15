@@ -1,8 +1,6 @@
 package core
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
 	"github.com/MG-RAST/AWE/core/uuid"
@@ -12,7 +10,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 const (
@@ -127,43 +124,6 @@ func (job *Job) TaskList() []*Task {
 
 func (job *Job) NumTask() int {
 	return len(job.Tasks)
-}
-
-func ParseJobTasks(filename string, jid string) (job *Job, err error) {
-	job = new(Job)
-
-	jsonstream, err := ioutil.ReadFile(filename)
-
-	if err != nil {
-		return nil, errors.New("error in reading job json file")
-	}
-
-	json.Unmarshal(jsonstream, job)
-
-	if len(job.Tasks) == 0 {
-		return nil, errors.New("invalid job script: task list empty")
-	}
-
-	if job.Info == nil {
-		job.Info = NewInfo()
-	}
-
-	job.Info.SubmitTime = time.Now()
-	job.Info.Priority = conf.BasePriority
-
-	job.setId()     //uuid for the job
-	job.setJid(jid) //an incremental id for the jobs within a AWE server domain
-	job.State = JOB_STAT_SUBMITTED
-
-	for i := 0; i < len(job.Tasks); i++ {
-		if err := job.Tasks[i].InitTask(job, i); err != nil {
-			return nil, err
-		}
-	}
-
-	job.RemainTasks = len(job.Tasks)
-
-	return
 }
 
 //---Field update functions

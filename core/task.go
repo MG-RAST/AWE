@@ -92,26 +92,41 @@ func (task *Task) UpdateState(newState string) string {
 //get part size based on partition/index info
 //if fail to get index info, task.TotalWork fall back to 1 and return nil
 func (task *Task) InitPartIndex() (err error) {
-	if task.Partition == nil {
-		if task.TotalWork > 1 {
-			Log.Error("warning: lacking partition info while totalwork > 1, taskid=" + task.Id)
-		}
-		task.setTotalWork(1)
+	if task.TotalWork == 1 {
 		return
 	}
-	if task.Partition.MaxPartSizeMB == 0 && task.TotalWork <= 1 {
-		task.setTotalWork(1)
-		return
-	}
-	var totalunits int
-	if _, ok := task.Inputs[task.Partition.Input]; !ok {
-		task.setTotalWork(1)
-		Log.Error("warning: invalid partition info, taskid=" + task.Id)
-		return
-	}
-	io := task.Inputs[task.Partition.Input]
 
-	idxinfo, err := io.GetIndexInfo()
+	var input_io *IO
+
+	if task.Partition == nil {
+		if len(task.Inputs) == 1 {
+			for filename, io := range task.Inputs {
+				input_io = io
+				task.Partition = new(PartInfo)
+				task.Partition.Input = filename
+				break
+			}
+		} else {
+			task.setTotalWork(1)
+			Log.Error("warning: lacking parition info while multiple inputs are specified, taskid=" + task.Id)
+			return
+		}
+	} else {
+		if task.Partition.MaxPartSizeMB == 0 && task.TotalWork <= 1 {
+			task.setTotalWork(1)
+			return
+		}
+		if _, ok := task.Inputs[task.Partition.Input]; !ok {
+			task.setTotalWork(1)
+			Log.Error("warning: invalid partition info, taskid=" + task.Id)
+			return
+		}
+		input_io = task.Inputs[task.Partition.Input]
+	}
+
+	var totalunits int
+
+	idxinfo, err := input_io.GetIndexInfo()
 	if err != nil {
 		task.setTotalWork(1)
 		Log.Error("warning: invalid file info, taskid=" + task.Id)
@@ -120,12 +135,12 @@ func (task *Task) InitPartIndex() (err error) {
 
 	idxtype := conf.DEFAULT_INDEX
 	if _, ok := idxinfo[idxtype]; !ok { //if index not available, create index
-		if err := createIndex(io.Host, io.Node, idxtype); err != nil {
+		if err := createIndex(input_io.Host, input_io.Node, idxtype); err != nil {
 			task.setTotalWork(1)
 			Log.Error("warning: fail to create index on shock for taskid=" + task.Id)
 			return nil
 		}
-		totalunits, err = io.TotalUnits(idxtype) //get index info again
+		totalunits, err = input_io.TotalUnits(idxtype) //get index info again
 		if err != nil {
 			task.setTotalWork(1)
 			Log.Error("warning: fail to get index units, taskid=" + task.Id + ":" + err.Error())

@@ -24,7 +24,6 @@ type IO struct {
 
 type PartInfo struct {
 	Input         string `bson:"input" json:"input"`
-	Ouput         string `bson:"output" json:"output"`
 	Index         string `bson:"index" json:"index"`
 	TotalIndex    int    `bson:"totalindex" json:"totalindex"`
 	MaxPartSizeMB int    `bson:"maxpartsize_mb" json:"maxpartsize_mb"`

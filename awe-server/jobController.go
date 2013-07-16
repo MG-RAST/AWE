@@ -47,11 +47,12 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 		return
 	}
-	// Create job
-	_, hasupload := files["upload"]
 
-	if !hasupload {
-		cx.RespondWithErrorMessage("No job script is submitted", http.StatusBadRequest)
+	_, has_upload := files["upload"]
+	_, has_awf := files["awf"]
+
+	if !has_upload && !has_awf {
+		cx.RespondWithErrorMessage("No job script or awf is submitted", http.StatusBadRequest)
 		return
 	}
 

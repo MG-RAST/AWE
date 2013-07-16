@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/conf"
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type IO struct {
@@ -105,7 +107,19 @@ func (io *IO) GetShockNode() (node *ShockNode, err error) {
 	}
 	var res *http.Response
 	shockurl := fmt.Sprintf("%s/node/%s", io.Host, io.Node)
-	res, err = http.Get(shockurl)
+
+	c := make(chan int, 1)
+	go func() {
+		res, err = http.Get(shockurl)
+		c <- 1 //we are ending
+	}()
+	select {
+	case <-c:
+	//go ahead
+	case <-time.After(conf.SHOCK_TIMEOUT):
+		return nil, errors.New("timeout when getting node from shock, url=" + shockurl)
+	}
+
 	if err != nil {
 		return
 	}

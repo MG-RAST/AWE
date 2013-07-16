@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jaredwilkening/goconfig/config"
 	"os"
+	"time"
 )
 
 // Setup conf variables
@@ -73,6 +74,8 @@ var (
 	DEFAULT_INDEX = "chunkrecord"
 	//default chunk size, consistent with shock
 	DEFAULT_CHUNK_SIZE int64 = 1048576 * 1
+	//Shock_TimeOut
+	SHOCK_TIMEOUT = 5 * time.Second
 
 	//[client]
 	TOTAL_WORKER   = 1

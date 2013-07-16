@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -20,13 +21,14 @@ const (
 )
 
 type Job struct {
-	Id          string  `bson:"id" json:"id"`
-	Jid         string  `bson:"jid" json:"jid"`
-	Info        *Info   `bson:"info" json:"info"`
-	Tasks       []*Task `bson:"tasks" json:"tasks"`
-	Script      script  `bson:"script" json:"script"`
-	State       string  `bson:"state" json:"state"`
-	RemainTasks int     `bson:"remaintasks" json:"remaintasks"`
+	Id          string    `bson:"id" json:"id"`
+	Jid         string    `bson:"jid" json:"jid"`
+	Info        *Info     `bson:"info" json:"info"`
+	Tasks       []*Task   `bson:"tasks" json:"tasks"`
+	Script      script    `bson:"script" json:"script"`
+	State       string    `bson:"state" json:"state"`
+	RemainTasks int       `bson:"remaintasks" json:"remaintasks"`
+	UpdateTime  time.Time `bson:"update" json:"updatetime"`
 }
 
 //set job's uuid
@@ -61,6 +63,7 @@ func (job *Job) UpdateFile(params map[string]string, files FormFiles) (err error
 }
 
 func (job *Job) Save() (err error) {
+	job.UpdateTime = time.Now()
 	db, err := DBConnect()
 	if err != nil {
 		return

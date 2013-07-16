@@ -41,7 +41,7 @@ func NewQueueMgr() *QueueMgr {
 		reminder:  make(chan bool),
 		jsReq:     make(chan bool),
 		jsAck:     make(chan string),
-		taskIn:    make(chan *Task, 8),
+		taskIn:    make(chan *Task, 1024),
 		coReq:     make(chan CoReq),
 		coAck:     make(chan CoAck),
 		feedback:  make(chan Notice),

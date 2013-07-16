@@ -259,4 +259,5 @@ func GetJobIdByTaskId(taskid string) (jobid string, err error) {
 	} else {
 		return "", errors.New("invalid task id: " + taskid)
 	}
+	return
 }

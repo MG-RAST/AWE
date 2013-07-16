@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/conf"
 	"io/ioutil"
 	"labix.org/v2/mgo/bson"
 	"net/http"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type ShockResponse struct {
@@ -63,7 +65,12 @@ type linkage struct {
 
 func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job *Job, err error) {
 
-	job, err = ParseJobTasks(files["upload"].Path, jid)
+	if _, has_upload := files["upload"]; has_upload {
+		job, err = ParseJobTasks(files["upload"].Path, jid)
+	} else {
+		job, err = ParseAwf(files["awf"].Path, jid)
+	}
+
 	if err != nil {
 		return
 	}
@@ -131,7 +138,21 @@ func ReloadFromDisk(path string) (err error) {
 func PostNode(io *IO, numParts int) (nodeid string, err error) {
 	var res *http.Response
 	shockurl := fmt.Sprintf("%s/node", io.Host)
-	res, err = http.Post(shockurl, "", strings.NewReader(""))
+
+	c := make(chan int, 1)
+
+	go func() {
+		res, err = http.Post(shockurl, "", strings.NewReader(""))
+		c <- 1 //we are ending
+	}()
+
+	select {
+	case <-c:
+		//go ahead
+	case <-time.After(conf.SHOCK_TIMEOUT):
+		fmt.Printf("timeout when creating node in shock, url=" + shockurl)
+		return "", errors.New("timeout when creating node in shock, url=" + shockurl)
+	}
 
 	//fmt.Printf("shockurl=%s\n", shockurl)
 	if err != nil {
@@ -180,4 +201,62 @@ func putParts(host string, nodeid string, numParts int) (err error) {
 func getParentJobId(id string) (jobid string) {
 	parts := strings.Split(id, "_")
 	return parts[0]
+}
+
+//parse job by job script
+func ParseJobTasks(filename string, jid string) (job *Job, err error) {
+	job = new(Job)
+
+	jsonstream, err := ioutil.ReadFile(filename)
+
+	if err != nil {
+		return nil, errors.New("error in reading job json file")
+	}
+
+	json.Unmarshal(jsonstream, job)
+
+	if len(job.Tasks) == 0 {
+		return nil, errors.New("invalid job script: task list empty")
+	}
+
+	if job.Info == nil {
+		job.Info = NewInfo()
+	}
+
+	job.Info.SubmitTime = time.Now()
+	job.Info.Priority = conf.BasePriority
+
+	job.setId()     //uuid for the job
+	job.setJid(jid) //an incremental id for the jobs within a AWE server domain
+	job.State = JOB_STAT_SUBMITTED
+
+	for i := 0; i < len(job.Tasks); i++ {
+		if err := job.Tasks[i].InitTask(job, i); err != nil {
+			return nil, err
+		}
+	}
+
+	job.RemainTasks = len(job.Tasks)
+
+	return
+}
+
+//parse .awf.json - sudo-function only, to be finished
+func ParseAwf(filename string, jid string) (job *Job, err error) {
+	job = new(Job)
+	jsonstream, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, errors.New("error in reading job json file")
+	}
+	fmt.Printf("jsonstream=%s\n", jsonstream)
+	return
+}
+
+func GetJobIdByTaskId(taskid string) (jobid string, err error) {
+	parts := strings.Split(taskid, "_")
+	if len(parts) == 2 {
+		return parts[0], nil
+	} else {
+		return "", errors.New("invalid task id: " + taskid)
+	}
 }

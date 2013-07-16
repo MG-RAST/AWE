@@ -41,7 +41,7 @@ func NewQueueMgr() *QueueMgr {
 		reminder:  make(chan bool),
 		jsReq:     make(chan bool),
 		jsAck:     make(chan string),
-		taskIn:    make(chan *Task, 1024),
+		taskIn:    make(chan *Task, 8),
 		coReq:     make(chan CoReq),
 		coAck:     make(chan CoAck),
 		feedback:  make(chan Notice),
@@ -202,7 +202,7 @@ func (qm *QueueMgr) Handle() {
 			}
 
 		case <-qm.reminder:
-			Log.Debug(2, "time to update workunit queue....\n")
+			Log.Debug(3, "time to update workunit queue....\n")
 			qm.updateQueue()
 			if conf.DEV_MODE {
 				fmt.Println(qm.ShowStatus())
@@ -431,7 +431,11 @@ func (qm *QueueMgr) addTask(task *Task) (err error) {
 	task.State = TASK_STAT_PENDING
 	qm.taskMap[id] = task
 	if len(task.DependsOn) == 0 {
-		qm.taskEnQueue(task)
+		if err := qm.taskEnQueue(task); err != nil {
+			jobid, _ := GetJobIdByTaskId(task.Id)
+			qm.SuspendJob(jobid)
+			return err
+		}
 	}
 	return
 }
@@ -460,7 +464,8 @@ func (qm *QueueMgr) updateQueue() (err error) {
 		}
 		if ready {
 			if err := qm.taskEnQueue(task); err != nil {
-				continue
+				jobid, _ := GetJobIdByTaskId(task.Id)
+				qm.SuspendJob(jobid)
 			}
 		}
 	}
@@ -468,6 +473,8 @@ func (qm *QueueMgr) updateQueue() (err error) {
 }
 
 func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
+
+	Log.Debug(2, "trying to enqueue task "+task.Id)
 
 	if task.Skip == 1 && task.Skippable() { // user wants to skip this task, checking if task is skippable
 		task.RemainWork = 0
@@ -485,7 +492,6 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 		return
 	} // if not, we proceed normally
 
-	//fmt.Printf("move workunits of task %s to workunit queue\n", task.Id)
 	if err := qm.locateInputs(task); err != nil {
 		Log.Error("qmgr.taskEnQueue locateInputs:" + err.Error())
 		return err
@@ -514,6 +520,7 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 }
 
 func (qm *QueueMgr) locateInputs(task *Task) (err error) {
+	Log.Debug(2, "trying to locate Inputs of task "+task.Id)
 	jobid := strings.Split(task.Id, "_")[0]
 	for name, io := range task.Inputs {
 		if io.Node == "-" {
@@ -537,8 +544,13 @@ func (qm *QueueMgr) locateInputs(task *Task) (err error) {
 		if io.Node == "-" {
 			return errors.New(fmt.Sprintf("error in locate input for task %s, %s", task.Id, name))
 		}
-		io.GetFileSize()
+		//need time out!
+		if io.GetFileSize() == 0 {
+			qm.SuspendJob(jobid)
+			return errors.New(fmt.Sprintf("%s suspended as input file %s not available or size is 0", jobid, name))
+		}
 		io.DataUrl()
+		Log.Debug(2, fmt.Sprintf("inputs located %s, %s\n", name, io.Node))
 	}
 	return
 }
@@ -559,13 +571,14 @@ func (qm *QueueMgr) parseTask(task *Task) (err error) {
 
 func (qm *QueueMgr) createOutputNode(task *Task) (err error) {
 	outputs := task.Outputs
-	for _, io := range outputs {
+	for name, io := range outputs {
+		Log.Debug(2, fmt.Sprintf("posting output Shock node for file %s in task %s\n", name, task.Id))
 		nodeid, err := PostNode(io, task.TotalWork)
 		if err != nil {
 			return err
 		}
 		io.Node = nodeid
-		//fmt.Printf("%s, output Shock node created, id=%s\n", name, io.Node)
+		Log.Debug(2, fmt.Sprintf("task %s: output Shock node created, node=%s\n", task.Id, nodeid))
 	}
 	return
 }

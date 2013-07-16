@@ -15,7 +15,8 @@ const (
 	InvalidFileTypeForFilter = "Invalid file type for filter"
 	MongoDocNotFound         = "Document not found"
 	NoAuth                   = "No Authorization"
-	QueueEmpty               = "Server queue is empty"
 	NoEligibleWorkunitFound  = "No eligible workunit found"
-	UnAuth                   = "User Unauthorized"
+	QueueEmpty               = "Server queue is empty"
+	//ShockNotReachable        = "Shock not reachable"
+	UnAuth = "User Unauthorized"
 )

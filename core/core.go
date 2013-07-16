@@ -138,7 +138,21 @@ func ReloadFromDisk(path string) (err error) {
 func PostNode(io *IO, numParts int) (nodeid string, err error) {
 	var res *http.Response
 	shockurl := fmt.Sprintf("%s/node", io.Host)
-	res, err = http.Post(shockurl, "", strings.NewReader(""))
+
+	c := make(chan int, 1)
+
+	go func() {
+		res, err = http.Post(shockurl, "", strings.NewReader(""))
+		c <- 1 //we are ending
+	}()
+
+	select {
+	case <-c:
+		//go ahead
+	case <-time.After(conf.SHOCK_TIMEOUT):
+		fmt.Printf("timeout when creating node in shock, url=" + shockurl)
+		return "", errors.New("timeout when creating node in shock, url=" + shockurl)
+	}
 
 	//fmt.Printf("shockurl=%s\n", shockurl)
 	if err != nil {
@@ -236,4 +250,13 @@ func ParseAwf(filename string, jid string) (job *Job, err error) {
 	}
 	fmt.Printf("jsonstream=%s\n", jsonstream)
 	return
+}
+
+func GetJobIdByTaskId(taskid string) (jobid string, err error) {
+	parts := strings.Split(taskid, "_")
+	if len(parts) == 2 {
+		return parts[0], nil
+	} else {
+		return "", errors.New("invalid task id: " + taskid)
+	}
 }

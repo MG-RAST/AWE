@@ -1,0 +1,299 @@
+    {
+        "info": {
+            "pipeline": "mgrast-prod",
+            "name": "#jobname",
+            "project": "#project",
+            "user": "#user",
+            "clientgroups":"#clientgroups"
+        }, 
+        "tasks": [
+            {
+                "cmd": {
+                    "args": "-input=@#inputfile -out_prefix=#jobname.prep", 
+                    "description": "preprocess", 
+                    "name": "awe_preprocess.pl"
+                }, 
+                "dependsOn": [], 
+                "inputs": {
+                   "#inputfile": {
+                        "host": "http://#shockurl",
+                        "node": "#shocknode"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.prep.passed.fna": {
+                        "host": "http://#shockurl"
+                    },
+                    "#jobname.prep.removed.fna": {
+                        "host": "http://#shockurl"
+                    }
+                },
+                "partinfo": {
+                     "input": "#inputfile",
+                     "output": "#jobname.prep.fna"
+                },
+                "taskid": "0", 
+                "totalwork": 1
+            },
+            {
+                "cmd": {
+                    "args": "-input=@#jobname.prep.passed.fna -out_prefix=#jobname.derep", 
+                    "description": "dereplication", 
+                    "name": "awe_dereplicate.pl"
+                }, 
+                "dependsOn": ["0"], 
+                "inputs": {
+                   "#jobname.prep.passed.fna": {
+                        "host": "http://#shockurl",
+                        "origin": "0"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.derep.passed.fna": {
+                        "host": "http://#shockurl"
+                    },
+                    "#jobname.derep.removed.fna": {
+                        "host": "http://#shockurl"
+                    }
+                },
+                "taskid": "1", 
+                "totalwork": 1
+            },
+            {
+                "cmd": {
+                    "args": "-input=@#jobname.derep.passed.fna -output=#jobname.screened.fna -index=h_sapiens_asm",
+                    "description": "bowtie screen", 
+                    "name": "awe_bowtie_screen.pl"
+                }, 
+                "dependsOn": ["1"], 
+                "inputs": {
+                   "#jobname.derep.passed.fna": {
+                        "host": "http://#shockurl",
+                        "origin": "1"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.screened.fna": {
+                        "host": "http://#shockurl"
+                    }
+                },
+                "partinfo": {
+                     "input": "#jobname.derep.fna",
+                     "output": "#jobname.screened.fna"
+                },
+                "taskid": "2", 
+                "totalwork": #totalwork
+            },
+            {
+                "cmd": {
+                    "args": "-input=@#jobname.screened.fna -out_prefix=#jobname.genecalled.coding", 
+                    "description": "gene calling", 
+                    "name": "awe_genecalling.pl"
+                }, 
+                "dependsOn": ["2"], 
+                "inputs": {
+                   "#jobname.screened.fna": {
+                        "host": "http://#shockurl",
+                        "origin": "2"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.genecalled.coding.faa": {
+                        "host": "http://#shockurl"
+                    },
+                    "#jobname.genecalled.coding.fna": {
+                        "host": "http://#shockurl"
+                    }
+                },
+                "partinfo": {
+                     "input": "#jobname.screened.fna",
+                     "output": "#jobname.genecalled.faa"
+                },
+                "taskid": "3", 
+                "totalwork": #totalwork
+            },
+            {   
+                "cmd": {
+                    "args": "-input=@#jobname.genecalled.coding.faa --output=#jobname.clust.faa -aa -pid=90",
+                    "description": "aa clustering",
+                    "name": "awe_cluster_parallel.pl"
+                },
+                "dependsOn": ["3"],
+                "inputs": {
+                    "#jobname.genecalled.coding.faa": {
+                        "host": "http://#shockurl",
+                        "origin": "3"
+                    }
+                },
+                "outputs": {
+                    "#jobname.clust.faa": {
+                        "host": "http://#shockurl"
+                    },
+                    "#jobname.clust.mapping": {
+                        "host": "http://#shockurl"
+                    }
+                },
+                "partinfo": {
+                     "input": "#jobname.genecalled.faa",
+                     "output": "#jobname.clust.faa"
+                },
+                "taskid": "4",
+                "totalwork": 1
+            },
+            {
+                "cmd": {
+                    "name": "awe_blat.py",
+                    "args": "--input=@#jobname.clust.faa --output=#jobname.aa.blat", 
+                    "description": "simularity search using blat"
+                }, 
+                "dependsOn": ["4"],  
+                "inputs": {
+                    "#jobname.clust.faa": {
+                        "host": "http://#shockurl",
+                        "origin": "4"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.aa.blat": {
+                        "host": "http://#shockurl"
+                    }
+                },
+                "partinfo": {
+                     "input": "#jobname.clust.faa",
+                     "output": "#jobname.aa.blat"
+                },
+                "taskid": "5",
+                "totalwork": #totalwork
+
+            },
+            {
+                "cmd": {
+                    "name": "awe_rna_search.pl",
+                    "args": "-input=@#jobname.prep.passed.fna -output=#jobname.search.rna.fna -rna_nr=md5nr.clust", 
+                    "description": "rna detection"
+                }, 
+                "dependsOn": ["0"],  
+                "inputs": {
+                   "#jobname.prep.passed.fna": {
+                        "host": "http://#shockurl",
+                        "origin": "0"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.search.rna.fna": {
+                        "host": "http://#shockurl"
+                    }
+                },
+                "taskid": "6",
+                "totalwork": 1
+            },          
+            {
+                "cmd": {
+                    "name": "awe_cluster_parallel.pl",
+                    "args": "-input=@#jobname.search.rna.fna --output=#jobname.clust.rna.fna -rna -pid=97", 
+                    "description": "rna clustering"
+                }, 
+                "dependsOn": ["6"],
+                "inputs": {
+                    "#jobname.search.rna.fna": {
+                        "host": "http://#shockurl",
+                        "origin": "6"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.clust.rna.fna": {
+                        "host": "http://#shockurl"
+                    },
+                    "#jobname.clust.rna.mapping": {
+                        "host": "http://#shockurl"
+                    }
+                },
+                "partinfo": {
+                     "input": "#jobname.search.rna.fna",
+                     "output": "#jobname.clust.rna.fna"
+                },
+                "taskid": "7",
+                "totalwork": 1
+            },
+            {
+                "cmd": {
+                    "name": "awe_rna_blat.sh",
+                    "args": "-i @#jobname.clust.rna.fna -o #jobname.rna.blat",
+                    "description": "simularity search using blat"
+                }, 
+                "dependsOn": ["7"],  
+                "inputs": {
+                    "#jobname.clust.rna.fna": {
+                        "host": "http://#shockurl",
+                        "origin": "7"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.rna.blat": {
+                        "host": "http://#shockurl"
+                    }
+                },
+                "partinfo": {
+                     "input": "#jobname.clust.rna.fna",
+                     "output": "#jobname.rna.blat"
+                },
+                "taskid": "8",
+                "totalwork": 1
+            },
+            {
+                "cmd": {
+                    "name": "awe_annotate.pl",
+                    "args": "-job=#jobname -raw=@#inputfile -aa_sims=@#jobname.aa.blat -rna_sims=@#jobname.rna.blat -clust_aa=@#jobname.clust.mapping -map_rna=@#jobname.clust.rna.mapping -out_prefix=#jobname -mem_host=10.0.4.96:11211", 
+                    "description": "annotation"
+                }, 
+                "dependsOn": ["4", "5", "7", "8"],  
+                "inputs": {
+                    "#inputfile": {
+                        "host": "http://#shockurl",
+                        "node": "#shocknode"
+                    },
+                    "#jobname.clust.mapping": {
+                        "host": "http://#shockurl",
+                        "origin": "4"
+                    },
+                    "#jobname.aa.blat": {
+                        "host": "http://#shockurl",
+                        "origin": "5"
+                    },
+                    "#jobname.clust.rna.mapping": {
+                        "host": "http://#shockurl",
+                        "origin": "7"
+                    },
+                    "#jobname.rna.blat": {
+                        "host": "http://#shockurl",
+                        "origin": "8"
+                    }
+                }, 
+                "outputs": {
+                    "#jobname.function.summary": {
+                        "host": "http://#shockurl"
+                    },
+                    "#jobname.md5.summary": {
+                        "host": "http://#shockurl"
+                    },
+                    "#jobname.organism.summary": {
+                        "host": "http://#shockurl"
+                    },
+                    "#jobname.lca.summary": {
+                        "host": "http://#shockurl"
+                    },
+                    "#jobname.ontology.summary": {
+                        "host": "http://#shockurl"
+                    },
+                    "#jobname.sims.filter.seq": {
+                        "host": "http://#shockurl"
+                    },
+                    "#jobname.source.stats": {
+                        "host": "http://#shockurl"
+                    }
+                },
+                "taskid": "9",
+                "totalwork": 1
+            }
+        ]
+    }

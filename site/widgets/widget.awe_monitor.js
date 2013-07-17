@@ -111,7 +111,7 @@
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
 			result_data.push( [ obj.info.submittime,
-					    obj.id,
+					    "<a href='http://"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.id+"</a>",
 					    obj.jid,
 					    obj.info.name,
 					    obj.info.user,
@@ -154,7 +154,7 @@
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
 			result_data.push( [ obj.info.submittime,
-					    obj.id,
+					    "<a href='http://"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.id+"</a>",
 					    obj.jid,
 					    obj.info.name,
 					    obj.info.user,

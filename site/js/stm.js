@@ -98,17 +98,21 @@
     
     // set up / reset the DataHandler, adding initial repositories
     stm.init = function (repo, nocheck, name) {
-	    stm.DataStore = [];
-	    stm.TypeData = [];
-	    stm.TypeData['object_count'] = [];
-	    stm.TypeData['type_count'] = 0;
-	    CallbackList = [];
-	    stm.DataRepositories = [];
-	    stm.DataRepositoriesCount = 0;
-	    stm.DataRepositoryDefault = null;
-	    if (repo) {
-	        return stm.add_repository(repo, null, nocheck, name);
-	    }
+	stm.DataStore = [];
+	stm.TypeData = [];
+	stm.TypeData['object_count'] = [];
+	stm.TypeData['type_count'] = 0;
+	CallbackList = [];
+	stm.DataRepositories = [];
+	stm.DataRepositoriesCount = 0;
+	stm.DataRepositoryDefault = null;
+	if (repo) {
+	    return stm.add_repository(repo, null, nocheck, name);
+	} else {
+	    var p = jQuery.Deferred();
+	    p.resolve();
+	    return p;
+	}
     };
     
     // generic data loader

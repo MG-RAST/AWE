@@ -261,3 +261,24 @@ func GetJobIdByTaskId(taskid string) (jobid string, err error) {
 	}
 	return
 }
+
+func IsFirstTask(taskid string) bool {
+	parts := strings.Split(taskid, "_")
+	if len(parts) == 2 {
+		if parts[1] == "0" {
+			return true
+		}
+	}
+	return false
+}
+
+func UpdateJobState(jobid string, newstate string) (err error) {
+	job, err := LoadJob(jobid)
+	if err != nil {
+		return
+	}
+	if err := job.UpdateState(newstate); err != nil {
+		return err
+	}
+	return
+}

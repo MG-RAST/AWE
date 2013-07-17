@@ -280,7 +280,7 @@ func (qm *QueueMgr) InitMaxJid() (err error) {
 	return
 }
 
-func (qm *QueueMgr) AddTasks(jobid string, tasks []*Task) (err error) {
+func (qm *QueueMgr) EnqueueTasksByJobId(jobid string, tasks []*Task) (err error) {
 	for _, task := range tasks {
 		qm.taskIn <- task
 	}
@@ -516,6 +516,11 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 	//log event about task enqueue (TQ)
 	Log.Event(EVENT_TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task.Id, task.TotalWork))
 	qm.CreateTaskPerf(task.Id)
+
+	if IsFirstTask(task.Id) {
+		jobid, _ := GetJobIdByTaskId(task.Id)
+		UpdateJobState(jobid, JOB_STAT_INPROGRESS)
+	}
 	return
 }
 
@@ -933,7 +938,7 @@ func (qm *QueueMgr) RecoverJobs() (err error) {
 	//Get jobs to be recovered from db whose states are "submitted"
 	dbjobs := new(Jobs)
 	q := bson.M{}
-	q["state"] = JOB_STAT_SUBMITTED
+	q["state"] = JOB_STAT_INPROGRESS
 	lim := 1000
 	off := 0
 	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {
@@ -943,7 +948,7 @@ func (qm *QueueMgr) RecoverJobs() (err error) {
 	//Locate the job script and parse tasks for each job
 	jobct := 0
 	for _, dbjob := range *dbjobs {
-		qm.AddTasks(dbjob.Id, dbjob.TaskList())
+		qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 		jobct += 1
 	}
 	qm.updateQueue()

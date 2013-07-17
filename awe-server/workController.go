@@ -103,7 +103,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 				return
 			}
 			if err := queueMgr.FinalizeWorkPerf(id, files["perf"].Path); err != nil {
-				Log.Error("err@workContoller_Update_FinalizeWorkPerf: " + err.Error())
+				Log.Error("err@workContoller_Update_FinalizeWorkPerf for workunit " + id + ": " + err.Error())
 				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 				return
 			}

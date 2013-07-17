@@ -148,7 +148,7 @@
 
 	    break;
 	case "suspended":
-	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/job?suspended", function (data) {
+	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/job?suspend", function (data) {
 		var result_data = [];
 		if (data.data != null) {
 		    for (h=0;h<data.data.length;h++) {

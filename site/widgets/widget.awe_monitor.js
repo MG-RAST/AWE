@@ -111,8 +111,7 @@
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
 			result_data.push( [ obj.info.submittime,
-					    "<a href='http://"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.id+"</a>",
-					    obj.jid,
+					    "<a href='http://"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
 					    obj.info.name,
 					    obj.info.user,
 					    obj.info.project,
@@ -120,15 +119,15 @@
 					    obj.info.clientgroups,
 					    obj.tasks.length - obj.remaintasks || "0",
 					    obj.tasks.length,
-					    obj.state
+					    obj.state,
+                                            obj.updatetime
 					  ] );
 		    }
 		}
 		if (! result_data.length) {
 		    result_data.push(['-','-','-','-','-','-','-','-','-','-','-']);
 		}
-		return_data = { header: [ "submitted",
-					  "uid",
+		return_data = { header: [ "created",
 					  "jid",
 					  "name",
 					  "user",
@@ -137,7 +136,8 @@
 					  "group",
 					  "t-complete",
 					  "t-total",
-					  "state" ],
+					  "state", 
+                                          "updated"],
 				data: result_data };
 
 		Retina.WidgetInstances.awe_monitor[1].tables["active"].settings.minwidths = [1,1,65,100,75,85,90,75,110,75,75];
@@ -154,8 +154,7 @@
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
 			result_data.push( [ obj.info.submittime,
-					    "<a href='http://"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.id+"</a>",
-					    obj.jid,
+                                            "<a href='http://"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
 					    obj.info.name,
 					    obj.info.user,
 					    obj.info.project,
@@ -163,7 +162,8 @@
 					    obj.info.clientgroups,
 					    obj.tasks.length - obj.remaintasks || "0",
 					    obj.tasks.length,
-					    obj.state
+					    obj.state,
+                                            obj.updatetime
 					  ] );
 		    }
 		}
@@ -171,7 +171,6 @@
 		    result_data.push(['-','-','-','-','-','-','-','-','-','-','-']);
 		}
 		return_data = { header: [ "submitted",
-					  "uid",
 					  "jid",
 					  "name",
 					  "user",
@@ -180,7 +179,8 @@
 					  "group",
 					  "t-complete",
 					  "t-total",
-					  "state" ],
+					  "state",
+                                          "updated"],
 				data: result_data };
 
 		Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.minwidths = [1,1,65,100,75,85,90,75,110,75,75];

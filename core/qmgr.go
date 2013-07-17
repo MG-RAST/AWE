@@ -545,9 +545,9 @@ func (qm *QueueMgr) locateInputs(task *Task) (err error) {
 			return errors.New(fmt.Sprintf("error in locate input for task %s, %s", task.Id, name))
 		}
 		//need time out!
-		if io.GetFileSize() == 0 {
+		if io.GetFileSize() < 0 {
 			qm.SuspendJob(jobid)
-			return errors.New(fmt.Sprintf("%s suspended as input file %s not available or size is 0", jobid, name))
+			return errors.New(fmt.Sprintf("%s suspended as input file %s not available", jobid, name))
 		}
 		io.DataUrl()
 		Log.Debug(2, fmt.Sprintf("inputs located %s, %s\n", name, io.Node))

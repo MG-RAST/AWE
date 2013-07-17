@@ -73,7 +73,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		return
 	}
 
-	queueMgr.AddTasks(job.Id, job.TaskList())
+	queueMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
 
 	//log event about job submission (JB)
 	Log.Event(EVENT_JOB_SUBMISSION, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project)
@@ -128,7 +128,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			}
 		}
 	} else if query.Has("active") {
-		q["state"] = core.JOB_STAT_SUBMITTED
+		q["state"] = core.JOB_STAT_INPROGRESS
 	} else if query.Has("suspend") {
 		q["state"] = core.JOB_STAT_SUSPEND
 	}

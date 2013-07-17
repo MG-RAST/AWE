@@ -85,7 +85,7 @@ func (io *IO) GetFileSize() int64 {
 	}
 	shocknode, err := io.GetShockNode()
 	if err != nil {
-		return 0
+		return -1
 	}
 	io.Size = shocknode.File.Size
 	return io.Size

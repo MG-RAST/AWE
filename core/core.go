@@ -69,7 +69,6 @@ func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job
 		job, err = ParseJobTasks(files["upload"].Path, jid)
 	} else {
 		job, err = ParseAwf(files["awf"].Path, jid)
-		return
 	}
 
 	if err != nil {
@@ -255,7 +254,78 @@ func ParseAwf(filename string, jid string) (job *Job, err error) {
 	for _, task := range workflow.Tasks {
 		fmt.Printf("task=%#v\n", task)
 	}
-	return nil, errors.New("error in parsing awf")
+	job, err = AwfToJob(workflow, jid)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
+	job = new(Job)
+	job.initJob(jid)
+
+	//mapping info
+	job.Info.Pipeline = awf.WfInfo.Name
+	job.Info.Name = awf.JobInfo.Name
+	job.Info.Project = awf.JobInfo.Project
+	job.Info.User = awf.JobInfo.User
+	job.Info.ClientGroups = awf.JobInfo.Queue
+
+	//mapping tasks
+	for i, awf_task := range awf.Tasks {
+		task := NewTask(job, i+1)
+
+		for name, origin := range awf_task.Inputs {
+			io := new(IO)
+			io.Name = name
+			io.Host = awf.DataServer
+			io.Node = "-"
+			io.Origin = getOriginTask(task.Id, origin)
+			task.Inputs[name] = io
+		}
+
+		for _, name := range awf_task.Outputs {
+			io := new(IO)
+			io.Name = name
+			io.Host = awf.DataServer
+			io.Node = "-"
+			task.Outputs[name] = io
+		}
+
+		if awf_task.Splits == 0 {
+			task.TotalWork = 1
+		} else {
+			task.TotalWork = awf_task.Splits
+		}
+
+		task.Cmd.Name = awf_task.Cmd.Name
+		arg_str := awf_task.Cmd.Args
+		if strings.Contains(arg_str, "$") { //contains variables, parse them
+			for name, value := range awf.Variables {
+				var_name := "$" + name
+				arg_str = strings.Replace(arg_str, var_name, value, -1)
+			}
+		}
+		task.Cmd.Args = arg_str
+
+		for _, parent := range awf_task.DependsOn {
+			if parent != 0 {
+				parent_id := getOriginTask(task.Id, parent)
+				task.DependsOn = append(task.DependsOn, parent_id)
+			}
+		}
+		job.Tasks = append(job.Tasks, task)
+	}
+
+	for i := 0; i < len(job.Tasks); i++ {
+		if err := job.Tasks[i].InitTask(job, i); err != nil {
+			return nil, err
+		}
+	}
+
+	job.RemainTasks = len(job.Tasks)
+	return
 }
 
 //misc
@@ -288,4 +358,12 @@ func UpdateJobState(jobid string, newstate string) (err error) {
 		return err
 	}
 	return
+}
+
+func getOriginTask(taskid string, origin int) string {
+	parts := strings.Split(taskid, "_")
+	if len(parts) == 2 {
+		return fmt.Sprintf("%s_%d", parts[0], origin)
+	}
+	return taskid
 }

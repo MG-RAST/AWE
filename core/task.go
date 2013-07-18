@@ -7,6 +7,7 @@ import (
 	. "github.com/MG-RAST/AWE/logger"
 	"os/exec"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -25,13 +26,13 @@ type Task struct {
 	Inputs     IOmap     `bson:"inputs" json:"inputs"`
 	Outputs    IOmap     `bson:"outputs" json:"outputs"`
 	Cmd        *Command  `bson:"cmd" json:"cmd"`
-	Partition  *PartInfo `bson:"partinfo" json:"partinfo"`
+	Partition  *PartInfo `bson:"partinfo" json:"-"`
 	DependsOn  []string  `bson:"dependsOn" json:"dependsOn"`
 	TotalWork  int       `bson:"totalwork" json:"totalwork"`
 	RemainWork int       `bson:"remainwork" json:"remainwork"`
 	WorkStatus []string  `bson:"workstatus" json:"-"`
 	State      string    `bson:"state" json:"state"`
-	Skip       int       `bson:"skip" json:"skip"`
+	Skip       int       `bson:"skip" json:"-"`
 }
 
 func NewTask(job *Job, rank int) *Task {
@@ -53,24 +54,35 @@ func NewTask(job *Job, rank int) *Task {
 
 // fill some info (lacked in input json) for a task
 func (task *Task) InitTask(job *Job, rank int) (err error) {
-	if idInt, err := strconv.Atoi(task.Id); err == nil {
+	//validate taskid
+	if len(task.Id) == 0 {
+		return errors.New("invalid taskid:" + task.Id)
+	}
+	parts := strings.Split(task.Id, "_")
+	if len(parts) == 2 {
+		//is standard taskid (%s_%d), do nothing
+	} else if idInt, err := strconv.Atoi(task.Id); err == nil {
+		//if task.Id is an "integer", it is unmashalled from job.json (submitted by template)
+		//convert to standard taskid
 		if rank != idInt {
 			return errors.New(fmt.Sprintf("invalid job script: task id doen't match stage %d vs %d", rank, idInt))
 		}
+		task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
+		for j := 0; j < len(task.DependsOn); j++ {
+			depend := task.DependsOn[j]
+			task.DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)
+		}
 	} else {
-		return errors.New("invalid job script: task id (stage) can't be converted to an integer: " + task.Id)
+		return errors.New("invalid taskid:" + task.Id)
 	}
-	task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
+
 	task.Info = job.Info
 	task.State = TASK_STAT_INIT
 	if task.TotalWork > 0 {
 		task.WorkStatus = make([]string, task.TotalWork)
 	}
 	task.RemainWork = task.TotalWork
-	for j := 0; j < len(task.DependsOn); j++ {
-		depend := task.DependsOn[j]
-		task.DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)
-	}
+
 	for _, io := range task.Inputs {
 		if io.Node == "" {
 			io.Node = "-"

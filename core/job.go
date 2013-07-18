@@ -26,7 +26,7 @@ type Job struct {
 	Jid         string    `bson:"jid" json:"jid"`
 	Info        *Info     `bson:"info" json:"info"`
 	Tasks       []*Task   `bson:"tasks" json:"tasks"`
-	Script      script    `bson:"script" json:"script"`
+	Script      script    `bson:"script" json:"-"`
 	State       string    `bson:"state" json:"state"`
 	RemainTasks int       `bson:"remaintasks" json:"remaintasks"`
 	UpdateTime  time.Time `bson:"update" json:"updatetime"`
@@ -41,6 +41,17 @@ func (job *Job) setId() {
 //set job's jid
 func (job *Job) setJid(jid string) {
 	job.Jid = jid
+}
+
+func (job *Job) initJob(jid string) {
+	if job.Info == nil {
+		job.Info = new(Info)
+	}
+	job.Info.SubmitTime = time.Now()
+	job.Info.Priority = conf.BasePriority
+	job.setId()     //uuid for the job
+	job.setJid(jid) //an incremental id for the jobs within a AWE server domain
+	job.State = JOB_STAT_SUBMITTED
 }
 
 type script struct {

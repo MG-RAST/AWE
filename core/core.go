@@ -69,6 +69,7 @@ func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job
 		job, err = ParseJobTasks(files["upload"].Path, jid)
 	} else {
 		job, err = ParseAwf(files["awf"].Path, jid)
+		return
 	}
 
 	if err != nil {
@@ -243,15 +244,21 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 
 //parse .awf.json - sudo-function only, to be finished
 func ParseAwf(filename string, jid string) (job *Job, err error) {
-	job = new(Job)
+	workflow := new(Workflow)
 	jsonstream, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.New("error in reading job json file")
 	}
 	fmt.Printf("jsonstream=%s\n", jsonstream)
-	return
+	json.Unmarshal(jsonstream, workflow)
+	fmt.Printf("unmashalled workflow=%#v\n", workflow)
+	for _, task := range workflow.Tasks {
+		fmt.Printf("task=%#v\n", task)
+	}
+	return nil, errors.New("error in parsing awf")
 }
 
+//misc
 func GetJobIdByTaskId(taskid string) (jobid string, err error) {
 	parts := strings.Split(taskid, "_")
 	if len(parts) == 2 {

@@ -13,7 +13,7 @@ type Command struct {
 	Name         string `bson:"name" json:"name"`
 	Options      string `bson:"options" json:"-"`
 	Args         string `bson:"args" json:"args"`
-	Template     string `bson:"template" json:"template"`
+	Template     string `bson:"template" json:"-"`
 	Description  string `bson:"description" json:"description"`
 	RequiredArgs int    `bson:"requiredargs" json:"-"`
 }

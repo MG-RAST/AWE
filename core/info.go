@@ -12,7 +12,7 @@ type Info struct {
 	Pipeline     string    `bson:"pipeline" json:"pipeline"`
 	ClientGroups string    `bson:"clientgroups" json:"clientgroups"`
 	SubmitTime   time.Time `bson:"submittime" json:"submittime"`
-	Priority     int       `bson:"priority" json:"priority"`
+	Priority     int       `bson:"priority" json:"-"`
 }
 
 func NewInfo() *Info {

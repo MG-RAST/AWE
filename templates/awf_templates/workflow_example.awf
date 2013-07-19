@@ -19,7 +19,9 @@
         "variables":{
             "fgs_type":"454_30",
             "fgs_compelte": "0",
-            "memcache_host":"10.0.4.96:11211"
+            "memcache_host":"10.0.4.96:11211",
+            "aa":"",
+            "rna":"-rna"
         },
         "tasks": [
             {
@@ -51,7 +53,7 @@
                 "taskid": 3,
                 "cmd": {
                     "name": "rna_search",
-                    "args": "-input=@prep.fna -output=rna.fna"
+                    "args": "-input=@prep.fna -output=rna.fna $aa $rna"
                 }, 
                 "dependsOn": [1], 
                 "inputs": {

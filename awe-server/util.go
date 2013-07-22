@@ -56,11 +56,6 @@ func (q *Query) All() map[string][]string {
 	return q.list
 }
 
-func Site(cx *goweb.Context) {
-	LogRequest(cx.Request)
-	http.ServeFile(cx.ResponseWriter, cx.Request, conf.SITE_PATH+"/main.html")
-}
-
 func LogRequest(req *http.Request) {
 	host, _, _ := net.SplitHostPort(req.RemoteAddr)
 	//	prefix := fmt.Sprintf("%s [%s]", host, time.Now().Format(time.RFC1123))
@@ -79,12 +74,16 @@ func LogRequest(req *http.Request) {
 
 func RawDir(cx *goweb.Context) {
 	LogRequest(cx.Request)
-	http.ServeFile(cx.ResponseWriter, cx.Request, fmt.Sprintf("%s%s", conf.DATA_PATH, cx.Request.URL.Path))
+	http.ServeFile(cx.ResponseWriter, cx.Request, fmt.Sprintf("%s/%s", conf.DATA_PATH, cx.Request.URL.Path))
 }
 
-func AssetsDir(cx *goweb.Context) {
+func SiteDir(cx *goweb.Context) {
 	LogRequest(cx.Request)
-	http.ServeFile(cx.ResponseWriter, cx.Request, conf.SITE_PATH+cx.Request.URL.Path)
+	if cx.Request.URL.Path == "/" {
+		http.ServeFile(cx.ResponseWriter, cx.Request, conf.SITE_PATH+"/main.html")
+	} else {
+		http.ServeFile(cx.ResponseWriter, cx.Request, conf.SITE_PATH+cx.Request.URL.Path)
+	}
 }
 
 type resource struct {

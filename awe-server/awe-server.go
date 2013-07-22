@@ -16,12 +16,7 @@ var (
 func launchSite(control chan int, port int) {
 	goweb.ConfigureDefaultFormatters()
 	r := &goweb.RouteManager{}
-	r.MapFunc("/js", AssetsDir)
-	r.MapFunc("/css", AssetsDir)
-	r.MapFunc("/images", AssetsDir)
-	r.MapFunc("/renderers", AssetsDir)
-	r.MapFunc("/widgets", AssetsDir)
-	r.MapFunc("*", Site)
+	r.MapFunc("*", SiteDir)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.SITE_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
 		if err != nil {

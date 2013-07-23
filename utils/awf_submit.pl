@@ -1,45 +1,7 @@
 #!/usr/bin/env perl 
 #Pipeline job submitter for AWE
 #Command name: awe_submit.pl
-#Options:
-#     -awe=<AWE server URL (ip:port), required>
-#     -shock=<Shock URL (ip:port), required>
-#     -node=<shock node of the input file>
-#     -type=<input file type, fna|fasta|fastq|fa, required when -node is set>
-#     -upload=<input file that is local and to be uploaded>
-#     -pipeline=<path for pipeline job template, required when -node or -upload is set>
-#     -script=<path for complete job json file>
-#     -name=<job name>
-#     -user=<user name>
-#     -project=<project name>
-#     -cgroups=<exclusive_client_group_list (separate by ',')>
-#     -totalwork=<number of workunits to split for splitable tasks (default 1)>
-#     
-#     
-#Use case 1: submit a job with a shock url for the input file location and a pipeline template (input file is on shock)
-#      Required options: -node, -pipeline, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
-#      Optional options: -name, -user, -project, -cgroups
-#      Operations:
-#               1. create job script based on job template and available info
-#               2. submit the job json script to awe
-#
-#Use case 2: submit a job with a local input file and a pipeline template (input file is local and will be uploaded to shock automatially;
-#      Required options: -upload, -pipeline, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
-#      Optional options: -name, -user, -project, -cgroups
-#      Operations:
-#               1. upload input file to shock
-#               2. create job script based on job template and available info
-#               3. submit the job json script to awe
-#               
-#Use case 3: submit a job with a complete job json script (job script is already instantiated, suitable for recomputation)
-#      Required options: -script, -awe
-#      Optional options: none  (all needed info is in the job script)
-#      Operations: submit the job json script to awe directly.
-#      
-#note:
-#1. the three use cases are mutual exclusive: at least one and only one of -node, -upload, and -upload can be specified at one time.
-#2. if AWE_HOST (ip:port) and SHOCK_HOST (ip:port) are configured as environment variables, -awe and -shock are not needed respectively. But
-#the specified -awe and -shock will over write the preconfigured environment variables.
+#Usage: see the bottom of the file
 
 use strict;
 use warnings;
@@ -203,7 +165,7 @@ if (length($node_id)>0 || (length($infiles_str)>0)) { #use case 1 or 2
                 exit 1;  
             }
             #upload input to shock
-            print "uploading input file to Shock...\n";
+            print "uploading input file ".$inf." to Shock...\n";
             my $ua = LWP::UserAgent->new();
             my $post = $ua->post("http://".$shock_url."/node",
                      Content_Type => 'form-data',
@@ -240,7 +202,7 @@ if (length($node_id)>0 || (length($infiles_str)>0)) { #use case 1 or 2
 	my $keyname = "#i_".$i;
 	my $infname = $inf_names[$i-1];
 	$infmap{$keyname} = $infname;
-	my $input_location = 'http://'.$shock_url.'/node/'.$shock_ids[$i-1];
+	my $input_location = 'http://'.$shock_url.'/node/'.$shock_ids[$i-1]."?download";
         $awfjson->{raw_inputs}->{$infname} = $input_location;
     }
 
@@ -263,9 +225,7 @@ if (length($node_id)>0 || (length($infiles_str)>0)) { #use case 1 or 2
         $awfjson->{variables}->{$key} = $vars{$key};
     }
     
-    $awfjson->{data_server} = $shock_url;
-    
-    print Dumper $awfjson;
+    $awfjson->{data_server} = 'http://'.$shock_url;
     
     open my $fh, ">", $jobscript;
     print $fh encode_json($awfjson);
@@ -300,41 +260,52 @@ print "job submission summary:\n";
 print "pipeline job awe url: http://".$awe_url."/job/".$job_id."\n";
 
 if (length($infiles_str)>0 || length($node_id)>0) {
-    my $refjson = "awe_".$job_id.".json"; 
+    my $refjson = "awf_".$job_id.".json"; 
     system("mv $jobscript $refjson");
     print "job script for reference: $refjson\n";
 } 
 
 exit(0);
 
+sub read_from_file {
+    my $json;
+    {
+         local $/; #Enable 'slurp' mode
+         open my $fh, "<", $_[0];
+         $json = <$fh>;
+         close $fh;
+    }
+    return decode_json($json);
+}
+
+
 sub print_usage{
     print "
-Pipeline job submitter for AWE
-Command name: awe_submit.pl
+Job submitter for AWE (using .awf)
+Command name: awf_submit.pl
 Options:
      -awe=<AWE server URL (ip:port), required>
      -shock=<Shock URL (ip:port), required>
-     -node=<shock node of the input file>
+     -node=<shock node id of the input file, supporting multiple node ids separated by ','>
      -type=<input file type, fna|fasta|fastq|fa, required when -node is set>
-     -upload=<input file that is local and to be uploaded>
-     -pipeline=<path for pipeline job template, required when -node or -upload is set>
+     -upload=<input files that is local and to be uploaded, supporting multiple file separated by ','>
+     -awf=<path for awf workflow definition, required when -node or -upload is set>
      -script=<path for complete job json file>
      -name=<job name>
      -user=<user name>
      -project=<project name>
-     -cgroups=<exclusive_client_group_list (separate by ',')>
+     -queue=<queue names (separate by ',')>
      -totalwork=<number of workunits to split for splitable tasks (default 1)>
      
-     
 Use case 1: submit a job with a shock url for the input file location and a pipeline template (input file is on shock)
-      Required options: -node, -pipeline, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
+      Required options: -node, -awf, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
       Optional options: -name, -user, -project, -cgroups, -totalwork
       Operations:
                1. create job script based on job template and available info
                2. submit the job json script to awe
 
 Use case 2: submit a job with a local input file and a pipeline template (input file is local and will be uploaded to shock automatially;
-      Required options: -upload, -pipeline, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
+      Required options: -upload, -awf, -awe (if AWE_HOST not in ENV), -shock (if SHOCK_HOST not in ENV)
       Optional options: -name, -user, -project, -cgroups, -totalwork
       Operations:
                1. upload input file to shock
@@ -351,17 +322,6 @@ note:
 2. if AWE_HOST (ip:port) and SHOCK_HOST (ip:port) are configured as environment variables, -awe and -shock are not needed respectively. But
 the specified -awe and -shock will over write the preconfigured environment variables.
 \n";
-}
-
-sub read_from_file {
-    my $json;
-    {
-         local $/; #Enable 'slurp' mode
-         open my $fh, "<", $_[0];
-         $json = <$fh>;
-         close $fh;
-    }
-    return decode_json($json);
 }
 
 

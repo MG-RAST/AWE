@@ -263,6 +263,8 @@ if (length($node_id)>0 || (length($infiles_str)>0)) { #use case 1 or 2
         $awfjson->{variables}->{$key} = $vars{$key};
     }
     
+    $awfjson->{data_server} = $shock_url;
+    
     print Dumper $awfjson;
     
     open my $fh, ">", $jobscript;

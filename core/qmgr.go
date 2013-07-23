@@ -528,7 +528,7 @@ func (qm *QueueMgr) locateInputs(task *Task) (err error) {
 	Log.Debug(2, "trying to locate Inputs of task "+task.Id)
 	jobid := strings.Split(task.Id, "_")[0]
 	for name, io := range task.Inputs {
-		if io.Node == "-" {
+		if io.Url == "" {
 			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
 			if preTask, ok := qm.taskMap[preId]; ok {
 				if preTask.State == TASK_STAT_SKIPPED ||
@@ -546,6 +546,7 @@ func (qm *QueueMgr) locateInputs(task *Task) (err error) {
 				}
 			}
 		}
+		io.DataUrl()
 		if io.Node == "-" {
 			return errors.New(fmt.Sprintf("error in locate input for task %s, %s", task.Id, name))
 		}
@@ -554,7 +555,6 @@ func (qm *QueueMgr) locateInputs(task *Task) (err error) {
 			qm.SuspendJob(jobid)
 			return errors.New(fmt.Sprintf("%s suspended as input file %s not available", jobid, name))
 		}
-		io.DataUrl()
 		Log.Debug(2, fmt.Sprintf("inputs located %s, %s\n", name, io.Node))
 	}
 	return

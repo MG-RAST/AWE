@@ -53,21 +53,32 @@
 	  position: absolute;
 	  top: 0px;
 	  left: 0px;
+	  background-color: white;
+	  padding: 5px;
+	  cursor: pointer;
 	  }
 
 	  .playground {
-	  width: 1000px;
+	  width: 700px;
 	  height: 750px;
 	  border: 1px solid #d3d3d3;
 	  box-shadow: 4px 4px 4px #666666;
-	  position: relative;
-	  top: 800px;
-	  left: 50px;
-	  display: none;
+	  position: absolute;
+	  top: 100px;
+	  right: 20px;
+	  overflow: auto;
 	  }
 
 	  body {
-	  padding-bottom: 800px;
+	  //padding-bottom: 800px;
+	  }
+
+	  .dependant {
+	  background-color: lightyellow;
+	  }
+
+	  .dependor {
+	  background-color: lightblue;
 	  }
 	</style>
   </head>
@@ -103,9 +114,9 @@
 
     </div>
 
-    <div class="playground" id="playground">
+    <div class="playground" id="playground" style="display: none;">
 
     </div>
-    
+
   </body>
 </html>

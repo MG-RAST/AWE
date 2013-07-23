@@ -141,8 +141,14 @@
 </form>\
 </div>';
 
+	// visual / textual toggle
+	content.innerHTML += '<div style="position: absolute; top: -15px; right: -700px;" class="btn-group" data-toggle="buttons-radio">\
+    <button type="button" class="btn active" onclick="document.getElementById(\'playground\').style.display=\'none\';document.getElementById(\'json_holder\').style.display=\'\';">JSON</button>\
+    <button type="button" class="btn" onclick="document.getElementById(\'json_holder\').style.display=\'none\';document.getElementById(\'playground\').style.display=\'\';">visual</button>\
+    </div>';
+
 	// output JSON
-	content.innerHTML += '<div style="width: 600px; height: 750px; position: absolute; right: -700px;padding: 10px;"><textarea style="width: 590px; height: 690px;" id="json_out">{ }</textarea><button class="btn" style="float: left;" id="result_validate">validate</button><button class="btn" style="float: right;" id="result_save">save</button></div>';
+	content.innerHTML += '<div style="width: 600px; height: 750px; position: absolute; right: -700px;padding: 10px;top: 13px;" id="json_holder"><textarea style="width: 590px; height: 690px;" id="json_out">{ }</textarea><button class="btn" style="float: left;" id="result_validate">validate</button><button class="btn" style="float: right;" id="result_save">save</button></div>';
 
 	// event listeners
 	document.getElementById('wf_name').addEventListener('change', function() {
@@ -357,10 +363,86 @@
         ]
     };
     
-    // fun stuff :)
+    // visual editor
+    widget.curr_box_pos = { x: 10, y: 10 };
+    widget.box_size = 100;
+    widget.playground_width = 699;
+    widget.playground_height = 749;
+    widget.box_padding = 20;
+
     widget.add_box = function (task) {
 	var box = document.createElement('div');
 	box.setAttribute('class', 'taskbox');
+	box.setAttribute('id', 'taskbox'+task.taskid);
+	box.boxid = task.taskid;
+	box.widget = this.index;
+	box.addEventListener('mouseover', function () {
+	    var tasks = Retina.WidgetInstances.awe_workflow[this.widget].data.tasks;
+	    var thistask;
+	    for (i=0;i<tasks.length;i++) {
+		if (tasks[i].taskid == this.boxid) {
+		    thistask = i;
+		}
+		for (h=0;h<tasks[i].dependsOn.length;h++) {
+		    if (tasks[i].dependsOn[h] == this.boxid) {
+			document.getElementById('taskbox'+(i+1)).className = "taskbox dependor";
+		    }
+		}
+	    }
+	    for (i=0;i<tasks[thistask].dependsOn.length;i++) {
+		if (tasks[thistask].dependsOn[i] == 0) {
+		    continue;
+		}
+		document.getElementById('taskbox'+tasks[thistask].dependsOn[i]).className = "taskbox dependant";
+	    }
+	});
+	box.addEventListener('mouseout', function () {
+	    var tasks = Retina.WidgetInstances.awe_workflow[this.widget].data.tasks;
+	    for (i=0;i<tasks.length;i++) {
+		document.getElementById('taskbox'+(i+1)).className = "taskbox";
+	    }
+	});
+	box.setAttribute('style', 'top: '+widget.curr_box_pos.y+'px; left: '+widget.curr_box_pos.x+'px;');
+	if ((widget.curr_box_pos.x + (widget.box_size * 2) + (widget.box_padding * 2)) > widget.playground_width) {
+	    widget.curr_box_pos.x = (widget.box_padding / 2);
+	    widget.curr_box_pos.y += (widget.box_padding * 2) + widget.box_size;
+	} else {
+	    widget.curr_box_pos.x += widget.box_size + (widget.box_padding * 2);
+	}
+	box.innerHTML = "<h3 style='width: 100%; text-align: center;'>"+task.taskid+"</h3><p style='width: 100%; text-align: center;'>"+task.cmd.name+"</p>";
+
+	// inputs
+	var inp_top = 20;
+	for (i in task.inputs) {
+	    if (task.inputs.hasOwnProperty(i)) {
+		var inp = document.createElement('div');
+		inp.setAttribute('style', "width: 10px; height: 10px; border: 1px solid black; background-color: yellow; position: absolute; bottom: "+inp_top+"px; left: 0px;");
+		inp.setAttribute('title', i+" ["+task.inputs[i]+"]");
+		box.appendChild(inp);
+		inp_top += 15;
+	    }
+	}
+
+	// outputs
+	var out_top = 20;
+	for (i=0;i<task.outputs.length;i++) {
+	    var out = document.createElement('div');
+	    out.setAttribute('style', "width: 10px; height: 10px; border: 1px solid black; background-color: blue; position: absolute; bottom: "+out_top+"px; right: 0px;");
+	    out.setAttribute('title', task.outputs[i]);
+	    box.appendChild(out);
+	    out_top += 15;
+	}
+
+	// dependencies
+	var dep_left = 20;
+	for (i=0;i<task.dependsOn.length;i++) {
+	    var dep = document.createElement('div');
+	    dep.setAttribute('style', "width: 10px; height: 10px; border: 1px solid black; background-color: red; position: absolute; left: "+dep_left+"px; bottom: 5px;");
+	    dep.setAttribute('title', task.dependsOn[i]);
+	    box.appendChild(dep);
+	    dep_left += 15;
+	}
+
 	box.addEventListener('mousedown', function (ev) {
 	    ev = ev || window.event;
 	    widget.box = { x: ev.clientX,
@@ -374,7 +456,20 @@
     };
 
     widget.end_move = function () {
-
+	if (widget.box) {
+	    if (parseInt(widget.box.elem.style.top)<0) {
+		widget.box.elem.style.top = "0px";
+	    }
+	    if (parseInt(widget.box.elem.style.top)>649) {
+		widget.box.elem.style.top = "649px";
+	    }
+	    if (parseInt(widget.box.elem.style.left)<0) {
+		widget.box.elem.style.left = "0px";
+	    }
+	    if (parseInt(widget.box.elem.style.left)>599) {
+		widget.box.elem.style.left = "599px";
+	    }
+	}
     };
 
     window.addEventListener('mouseup', function (){

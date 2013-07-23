@@ -2,28 +2,12 @@
 <html>
   <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
-    <title>AWE Task Status Monitor</title>
+    <title>AWE - Home</title>
     <link rel="icon" href="images/awe-lg.png" type="image/x-icon">
-	<script src="js/jquery.min.js"></script>
-	<script src="js/config.js"></script>
-	<script src="js/stm.js"></script>
-	<script src="js/retina.js"></script>
-	<script src="js/bootstrap.min.js"></script>
-	<link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
-        <script>
-        stm.init();
-        Retina.init( { library_resource: "js/" } ).then( function() {
-	    Retina.add_widget({"name": "login", "resource": "widgets/",  "filename": "widget.login.js"});
-	    Retina.load_widget("login").then( function() {
-		Retina.Widget.create('login', {"target": document.getElementById("login_space")});
-	    });
-	    Retina.add_widget({"name": "awe_monitor", "resource": "widgets/",  "filename": "widget.awe_monitor.js"});
-	    Retina.load_widget("awe_monitor").then( function() {
-		Retina.Widget.create("awe_monitor", {});
-	    });
-	});
-        </script>
-	<style>
+    <script src="js/jquery.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
+    <style>
 	  .tab-pane {
 	  padding:10px;
 	  }
@@ -34,6 +18,7 @@
 	  margin-left: 50px;
 	  margin-right: 50px;
 	  position: absolute;
+	  width: 800px;
 	  left: 300px;
 	  }
 
@@ -43,7 +28,7 @@
 	  width: 280px;
 	  top: 120px;
 	  }
-	</style>
+    </style>
   </head>
 
   <body style="margin-top: 60px; margin-bottom: 100px;">
@@ -51,61 +36,39 @@
       <div class="navbar-inner">
 	    <div class="container" style="width: 100%; padding-left: 10px;">
           <img src="images/awe-lg.png" style="float: left; margin-left: -10px; height: 55px;">
-    	  <a class="brand" href="#" style="color: white; cursor: default; margin-top: 8px; margin-left: 30px;">AWE Task Status Monitor</a>
+    	  <a class="brand" href="#" style="color: white; cursor: default; margin-top: 8px; margin-left: 30px;">AWE - Home</a>
+	  <div class="nav-collapse collapse" style="float: left; margin-top: 8px;">
+	    <ul class="nav">
+	      <li class="">
+		<a href="main.html">Home</a>
+	      </li>
+	      <li class="">
+		<a href="awemonitor.html">Status Monitor</a>
+	      </li>
+	      <li class="">
+		<a href="awesubmission.html">Job Submission</a>
+	      </li>
+	      <li class="">
+		<a href="aweworkflow.html">Workflow Editor</a>
+	      </li>
+	    </ul>
+	  </div>
 	  <span id='login_space'></span>
 	    </div>
       </div>
     </div>
 
-    <div id="refresh" style="position: absolute; top: 64px; left: 17px; z-index: 100;">
-    </div>
-    
-    <div id="overview" class="sidebar"></div>
-
     <div class="mainview">
 
-      <ul class="nav nav-tabs">
+      <h2>Welcome to AWE!</h2>
 
-	<li class="active">
-	  <a data-toggle="tab" href="#active">active jobs</a>
-	</li>
+      <hr>
 
-	<li class="">
-	  <a data-toggle="tab" href="#suspended">suspended jobs</a>
-	</li>
+      <p>AWE is a workflow engine that manages and executes scientific computing workflows or pipelines.</p>
 
-	<li class="">
-	  <a data-toggle="tab" href="#queuing_workunit">queued workunits</a>
-	</li>
+      <p>AWE is designed as a distributed system that contains a centralized server and multiple distributed clients. The server receives job submissions and parses jobs into tasks, splits tasks into workunits, and manages workunits in a queue. The AWE clients, running on distributed, heterogeneous computing resources, keep checking out workunits from the server queue and dispatching the workunits on the local computing resources.</p>
 
-	<li class="">
-	  <a data-toggle="tab" href="#checkout_workunit">checked-out workunits</a>
-	</li>
-
-	<li class="">
-	  <a data-toggle="tab" href="#clients">clients</a>
-	</li>
-
-      </ul>
-
-      <div class="tab-content">
-
-	<div id="active" class="tab-pane active">
-	</div>
-
-	<div id="suspended" class="tab-pane">
-	</div>
-	
-	<div id="queuing_workunit" class="tab-pane">
-	</div>
-
-	<div id="checkout_workunit" class="tab-pane">
-	</div>
-
-	<div id="clients" class="tab-pane">
-	</div>
-
-      </div>
+      <p>AWE uses the Shock data management system to handle input and output data (retrieval, storage, splitting, and merge). AWE uses a RESTful API for communication between AWE components and with outside components such as Shock, the job submitter, and the status monitor.</p>
 
     </div>
     

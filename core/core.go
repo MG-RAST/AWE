@@ -248,12 +248,7 @@ func ParseAwf(filename string, jid string) (job *Job, err error) {
 	if err != nil {
 		return nil, errors.New("error in reading job json file")
 	}
-	fmt.Printf("jsonstream=%s\n", jsonstream)
 	json.Unmarshal(jsonstream, workflow)
-	fmt.Printf("unmashalled workflow=%#v\n", workflow)
-	for _, task := range workflow.Tasks {
-		fmt.Printf("task=%#v\n", task)
-	}
 	job, err = AwfToJob(workflow, jid)
 	if err != nil {
 		return
@@ -283,6 +278,11 @@ func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
 			io.Node = "-"
 			io.Origin = getOriginTask(task.Id, origin)
 			task.Inputs[name] = io
+			if origin == 0 {
+				if dataurl, ok := awf.RawInputs[io.Name]; ok {
+					io.Url = dataurl
+				}
+			}
 		}
 
 		for _, name := range awf_task.Outputs {

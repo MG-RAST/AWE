@@ -63,9 +63,14 @@ func NewIO() *IO {
 
 func (io *IO) DataUrl() string {
 	if io.Url != "" {
+		if io.Host == "" || io.Node == "-" {
+			parts := strings.Split(io.Url, "/")
+			io.Host = "http://" + parts[2]
+			io.Node = strings.Split(parts[4], "?")[0]
+		}
 		return io.Url
 	} else {
-		if io.Host != "" && io.Node != "" {
+		if io.Host != "" && io.Node != "-" {
 			downloadUrl := fmt.Sprintf("%s/node/%s?download", io.Host, io.Node)
 			io.Url = downloadUrl
 			return downloadUrl

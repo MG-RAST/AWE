@@ -18,9 +18,9 @@
 	      Retina.load_widget("login").then( function() {
 		  Retina.Widget.create('login', {"target": document.getElementById("login_space")});
 	      });
-	      Retina.add_widget({"name": "awe_submission", "resource": "widgets/",  "filename": "widget.awe_submission.js"});
-	      Retina.load_widget("awe_submission").then( function() {
-		  Retina.Widget.create("awe_submission", {});
+	      Retina.add_widget({"name": "awe_workflow", "resource": "widgets/",  "filename": "widget.awe_workflow.js"});
+	      Retina.load_widget("awe_workflow").then( function() {
+		  Retina.Widget.create("awe_workflow", { "target": document.getElementById("content"), "playground": document.getElementById("playground") });
 	      });
 	  });
 	</script>
@@ -35,7 +35,7 @@
 	  margin-left: 50px;
 	  margin-right: 50px;
 	  position: absolute;
-	  left: 300px;
+	  //left: 300px;
 	  }
 
 	  .sidebar {
@@ -43,6 +43,31 @@
 	  left: 20px;
 	  width: 280px;
 	  top: 120px;
+	  }
+
+	  .taskbox {
+	  width: 100px;
+	  height: 100px;
+	  border: 1px solid #d3d3d3;
+	  box-shadow: 4px 4px 4px #666666;
+	  position: absolute;
+	  top: 0px;
+	  left: 0px;
+	  }
+
+	  .playground {
+	  width: 1000px;
+	  height: 750px;
+	  border: 1px solid #d3d3d3;
+	  box-shadow: 4px 4px 4px #666666;
+	  position: relative;
+	  top: 800px;
+	  left: 50px;
+	  display: none;
+	  }
+
+	  body {
+	  padding-bottom: 800px;
 	  }
 	</style>
   </head>
@@ -52,13 +77,17 @@
       <div class="navbar-inner">
 	    <div class="container" style="width: 100%; padding-left: 10px;">
           <img src="images/awe-lg.png" style="float: left; margin-left: -10px; height: 55px;">
-    	  <a class="brand" href="#" style="color: white; cursor: default; margin-top: 8px; margin-left: 30px;">AWE Job Submission</a>
+    	  <a class="brand" href="#" style="color: white; cursor: default; margin-top: 8px; margin-left: 30px;">AWE Workflow Editor</a>
 	  <span id='login_space'></span>
 	    </div>
       </div>
     </div>
     
     <div class="mainview" id="content">
+
+    </div>
+
+    <div class="playground" id="playground">
 
     </div>
     

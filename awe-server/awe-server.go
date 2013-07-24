@@ -11,6 +11,7 @@ import (
 
 var (
 	queueMgr = core.NewQueueMgr()
+	awfMgr   = core.NewWorkflowMgr()
 )
 
 func launchSite(control chan int, port int) {
@@ -40,6 +41,7 @@ func launchAPI(control chan int, port int) {
 	r.MapRest("/work", new(WorkController))
 	r.MapRest("/client", new(ClientController))
 	r.MapRest("/queue", new(QueueController))
+	r.MapRest("/awf", new(AwfController))
 	r.MapFunc("*", ResourceDescription, goweb.GetMethod)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.API_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
@@ -126,6 +128,11 @@ func main() {
 	go queueMgr.ClientChecker()
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)
+
+	if err := awfMgr.LoadWorkflows(); err != nil {
+		fmt.Printf("%s\n", err.Error())
+		Log.Error("LoadWorkflows: " + err.Error())
+	}
 
 	var host string
 	if hostname, err := os.Hostname(); err == nil {

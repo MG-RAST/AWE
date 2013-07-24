@@ -1,6 +1,6 @@
     {
         "workflow_info":{
-            "name":"awe_workflow_example.awf",
+            "name":"workflow_example",
             "author":"wtang",
             "contact":"wtang222@gmail.com",
             "update_date":"2013-07-11",

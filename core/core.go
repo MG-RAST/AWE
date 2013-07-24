@@ -342,7 +342,7 @@ func GetJobIdByTaskId(taskid string) (jobid string, err error) {
 func IsFirstTask(taskid string) bool {
 	parts := strings.Split(taskid, "_")
 	if len(parts) == 2 {
-		if parts[1] == "0" {
+		if parts[1] == "0" || parts[1] == "1" {
 			return true
 		}
 	}

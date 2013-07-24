@@ -63,6 +63,13 @@
         <input type="text" id="wf_splits" placeholder="number of splits">\
       </div>\
     </div>\
+\
+    <div class="control-group">\
+      <label class="control-label" for="wf_infiles">#-input files</label>\
+      <div class="controls">\
+        <input type="text" id="wf_infiles" placeholder="number of input files">\
+      </div>\
+    </div>\
 </form>';
 
 	// variables
@@ -179,6 +186,29 @@
 	    } else {
 		widget.data.job_info.splits = parseInt(document.getElementById('wf_splits').value);
 		widget.update();
+	    }
+	});
+
+	document.getElementById('wf_infiles').addEventListener('change', function() {
+	    var infiles = parseInt(document.getElementById('wf_infiles').value);
+	    if (! infiles) {
+		alert("number of input files must be an integer value");
+		document.getElementById('wf_infiles').value = "";
+	    } else {
+		widget.data.raw_inputs = {};
+		var newinputs = [];
+		for (i=0;i<widget.inputs.length;i++) {
+		    if (! widget.inputs[i].match(/^#i_\d+ \[0\]$/)) {
+			newinputs.push(widget.inputs[i]);
+		    }
+		}
+		widget.inputs = newinputs;
+		for (i=0;i<infiles;i++) {
+		    widget.data.raw_inputs["#i_"+(i+1)] = "#data_url";
+		    widget.inputs.push("#i_"+(i+1)+" [0]");
+		}
+		widget.update();
+		widget.new_task();
 	    }
 	});
 
@@ -334,7 +364,7 @@
 	}
     };
 
-    widget.inputs = [ "raw.fq [0]" ];
+    widget.inputs = [ "#i_1 [0]" ];
 
     widget.tasks = { 0: {} };
 
@@ -354,7 +384,7 @@
             "splits":8
         },
         "raw_inputs":{
-            "raw.fq": "#data_location_shock_url"
+            "#i_1":"#data_url",
         },
         "data_server":"#shock_host",
         "variables":{

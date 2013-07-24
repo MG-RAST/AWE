@@ -1,6 +1,6 @@
     {
         "workflow_info":{
-            "name":"pipeline_example.awf",
+            "name":"pipeline_example",
             "author":"wtang",
             "contact":"wtang222@gmail.com",
             "update_date":"2013-07-23",

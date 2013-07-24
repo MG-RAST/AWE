@@ -1,15 +1,13 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
 	"github.com/MG-RAST/AWE/core/uuid"
-	. "github.com/MG-RAST/AWE/logger"
 	"io/ioutil"
 	"labix.org/v2/mgo/bson"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -149,13 +147,17 @@ func (job *Job) UpdateState(newState string) (err error) {
 
 //invoked when a task is completed
 func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
-	parts := strings.Split(task.Id, "_")
-	rank, err := strconv.Atoi(parts[1])
-	if err != nil {
-		Log.Error("invalid task " + task.Id)
-		return job.RemainTasks, err
+	idx := -1
+	for i, t := range job.Tasks {
+		if t.Id == task.Id {
+			idx = i
+			break
+		}
 	}
-	job.Tasks[rank] = task
+	if idx == -1 {
+		return job.RemainTasks, errors.New("job.UpdateTask: no task found with id=" + task.Id)
+	}
+	job.Tasks[idx] = task
 	job.RemainTasks -= 1
 	if job.RemainTasks == 0 {
 		job.State = JOB_STAT_COMPLETED

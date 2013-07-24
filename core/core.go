@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -267,16 +268,24 @@ func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
 	job.Info.User = awf.JobInfo.User
 	job.Info.ClientGroups = awf.JobInfo.Queue
 
-	//mapping tasks
-	for i, awf_task := range awf.Tasks {
-		task := NewTask(job, i+1)
+	//create task 0: pseudo-task representing the success of job submission
+	//to-do: in the future this task can serve as raw input data validation
+	task := NewTask(job, 0)
+	task.Cmd.Description = "job submission"
+	task.State = TASK_STAT_PASSED
+	task.RemainWork = 0
+	task.TotalWork = 0
+	job.Tasks = append(job.Tasks, task)
 
+	//mapping tasks
+	for _, awf_task := range awf.Tasks {
+		task := NewTask(job, awf_task.TaskId)
 		for name, origin := range awf_task.Inputs {
 			io := new(IO)
 			io.Name = name
 			io.Host = awf.DataServer
 			io.Node = "-"
-			io.Origin = getOriginTask(task.Id, origin)
+			io.Origin = strconv.Itoa(origin)
 			task.Inputs[name] = io
 			if origin == 0 {
 				if dataurl, ok := awf.RawInputs[io.Name]; ok {
@@ -292,7 +301,6 @@ func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
 			io.Node = "-"
 			task.Outputs[name] = io
 		}
-
 		if awf_task.Splits == 0 {
 			task.TotalWork = 1
 		} else {
@@ -310,21 +318,13 @@ func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
 		task.Cmd.Args = arg_str
 
 		for _, parent := range awf_task.DependsOn {
-			if parent != 0 {
-				parent_id := getOriginTask(task.Id, parent)
-				task.DependsOn = append(task.DependsOn, parent_id)
-			}
+			parent_id := getParentTask(task.Id, parent)
+			task.DependsOn = append(task.DependsOn, parent_id)
 		}
+		task.InitTask(job, awf_task.TaskId)
 		job.Tasks = append(job.Tasks, task)
 	}
-
-	for i := 0; i < len(job.Tasks); i++ {
-		if err := job.Tasks[i].InitTask(job, i); err != nil {
-			return nil, err
-		}
-	}
-
-	job.RemainTasks = len(job.Tasks)
+	job.RemainTasks = len(job.Tasks) - 1
 	return
 }
 
@@ -342,7 +342,7 @@ func GetJobIdByTaskId(taskid string) (jobid string, err error) {
 func IsFirstTask(taskid string) bool {
 	parts := strings.Split(taskid, "_")
 	if len(parts) == 2 {
-		if parts[1] == "0" {
+		if parts[1] == "0" || parts[1] == "1" {
 			return true
 		}
 	}
@@ -360,7 +360,7 @@ func UpdateJobState(jobid string, newstate string) (err error) {
 	return
 }
 
-func getOriginTask(taskid string, origin int) string {
+func getParentTask(taskid string, origin int) string {
 	parts := strings.Split(taskid, "_")
 	if len(parts) == 2 {
 		return fmt.Sprintf("%s_%d", parts[0], origin)

@@ -18,6 +18,7 @@ const (
 	TASK_STAT_COMPLETED = "completed"
 	TASK_STAT_SKIPPED   = "user_skipped"
 	TASK_STAT_FAIL_SKIP = "skipped"
+	TASK_STAT_PASSED    = "passed"
 )
 
 type Task struct {
@@ -107,9 +108,7 @@ func (task *Task) InitPartIndex() (err error) {
 	if task.TotalWork == 1 {
 		return
 	}
-
 	var input_io *IO
-
 	if task.Partition == nil {
 		if len(task.Inputs) == 1 {
 			for filename, io := range task.Inputs {

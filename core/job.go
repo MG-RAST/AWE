@@ -155,7 +155,7 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 		Log.Error("invalid task " + task.Id)
 		return job.RemainTasks, err
 	}
-	job.Tasks[rank] = task
+	job.Tasks[rank] = task //!!!!
 	job.RemainTasks -= 1
 	if job.RemainTasks == 0 {
 		job.State = JOB_STAT_COMPLETED

@@ -428,6 +428,11 @@ func (qm *QueueMgr) addTask(task *Task) (err error) {
 		return
 	}
 
+	if task.State == TASK_STAT_PASSED { //for pseudo-task
+		qm.taskMap[id] = task
+		return
+	}
+
 	task.State = TASK_STAT_PENDING
 	qm.taskMap[id] = task
 	if len(task.DependsOn) == 0 {
@@ -455,6 +460,7 @@ func (qm *QueueMgr) updateQueue() (err error) {
 			for _, predecessor := range task.DependsOn {
 				if _, haskey := qm.taskMap[predecessor]; haskey {
 					if qm.taskMap[predecessor].State != TASK_STAT_COMPLETED &&
+						qm.taskMap[predecessor].State != TASK_STAT_PASSED &&
 						qm.taskMap[predecessor].State != TASK_STAT_SKIPPED &&
 						qm.taskMap[predecessor].State != TASK_STAT_FAIL_SKIP {
 						ready = false

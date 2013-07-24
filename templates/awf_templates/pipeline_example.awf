@@ -19,7 +19,7 @@
         "variables":{
             "mem_size": "4G",
             "prefix_length": "50",
-            "dereplicate": "1",
+            "dereplicate": "-dereplicate",
             "fgs_type": "454"
         },
         "tasks": [
@@ -39,7 +39,7 @@
                 "taskid": 2, 
                 "cmd": {
                     "name": "awe_dereplicate.pl",
-                    "args": "-input=@prep.passed.fna -out_prefix=derep -mem_size=$mem_size -prefix_length=$prefix_length -dereplicate=$dereplicate"
+                    "args": "-input=@prep.passed.fna -out_prefix=derep -mem_size=$mem_size -prefix_length=$prefix_length $dereplicate"
                 }, 
                 "dependsOn": [1],
                 "inputs": {

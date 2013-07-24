@@ -98,7 +98,7 @@ type resource struct {
 func ResourceDescription(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	r := resource{
-		R: []string{"job", "work", "client", "queue"},
+		R: []string{"job", "work", "client", "queue", "awf"},
 		U: apiUrl(cx) + "/",
 		D: siteUrl(cx) + "/",
 		C: conf.ADMIN_EMAIL,

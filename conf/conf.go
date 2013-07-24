@@ -54,6 +54,7 @@ var (
 	DATA_PATH = ""
 	SITE_PATH = ""
 	LOGS_PATH = ""
+	AWF_PATH  = ""
 
 	// Mongodb
 	MONGODB = ""
@@ -160,6 +161,7 @@ func init() {
 	SITE_PATH, _ = c.String("Directories", "site")
 	DATA_PATH, _ = c.String("Directories", "data")
 	LOGS_PATH, _ = c.String("Directories", "logs")
+	AWF_PATH, _ = c.String("Directories", "awf")
 
 	// Mongodb
 	MONGODB, _ = c.String("Mongodb", "hosts")

@@ -21,9 +21,10 @@ secretkey=supersecretkey
 
 [Directories]
 # See documentation for details of deploying Shock
-site=/mnt/data/awe/site
+site=$GOPATH/src/github.com/MG-RAST/AWE/site
 data=/mnt/data/awe/data
 logs=/mnt/data/awe/logs
+awf=$GOPATH/src/github.com/MG-RAST/AWE/template/awf_template
 
 [Mongodb]
 # Mongodb configuration:

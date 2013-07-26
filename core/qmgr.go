@@ -67,6 +67,7 @@ type Notice struct {
 	WorkId   string
 	Status   string
 	ClientId string
+	Notes    string
 }
 
 type coInfo struct {
@@ -404,7 +405,9 @@ func (qm *QueueMgr) SuspendJob(jobid string) (err error) {
 	for i := 0; i < len(job.TaskList()); i++ {
 		task_id := fmt.Sprintf("%s_%d", jobid, i)
 		if _, ok := qm.taskMap[task_id]; ok {
-			qm.taskMap[task_id].State = TASK_STAT_SUSPEND
+			if qm.taskMap[task_id].State == TASK_STAT_INIT {
+				qm.taskMap[task_id].State = TASK_STAT_SUSPEND
+			}
 		}
 	}
 	qm.DeleteJobPerf(jobid)
@@ -422,9 +425,7 @@ func (qm *QueueMgr) addTask(task *Task) (err error) {
 		return
 	}
 	if task.Skip == 1 && task.Skippable() {
-		task.State = TASK_STAT_SKIPPED
-		qm.taskMap[id] = task
-		qm.taskEnQueue(task)
+		qm.skipTask(task)
 		return
 	}
 
@@ -442,6 +443,21 @@ func (qm *QueueMgr) addTask(task *Task) (err error) {
 			return err
 		}
 	}
+	if err = qm.updateJobTask(task); err != nil { //task state INIT->PENDING
+		return
+	}
+	return
+}
+
+func (qm *QueueMgr) skipTask(task *Task) (err error) {
+	task.State = TASK_STAT_SKIPPED
+	task.RemainWork = 0
+	//update job and queue info. Skipped task behaves as finished tasks
+	if err = qm.updateJobTask(task); err != nil {    //TASK state  -> SKIPPED
+		return
+	}
+	qm.taskMap[task.Id] = task
+	Log.Event(EVENT_TASK_SKIPPED, "taskid="+task.Id)
 	return
 }
 
@@ -468,6 +484,10 @@ func (qm *QueueMgr) updateQueue() (err error) {
 				}
 			}
 		}
+		if task.Skip == 1 && task.Skippable() {
+			qm.skipTask(task)
+			ready = false
+		}
 		if ready {
 			if err := qm.taskEnQueue(task); err != nil {
 				jobid, _ := GetJobIdByTaskId(task.Id)
@@ -481,22 +501,6 @@ func (qm *QueueMgr) updateQueue() (err error) {
 func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 
 	Log.Debug(2, "trying to enqueue task "+task.Id)
-
-	if task.Skip == 1 && task.Skippable() { // user wants to skip this task, checking if task is skippable
-		task.RemainWork = 0
-		// Not sure if this is needed
-		qm.CreateTaskPerf(task.Id)
-		qm.FinalizeTaskPerf(task.Id)
-		//
-		Log.Event(EVENT_TASK_SKIPPED, "taskid="+task.Id)
-		//update job and queue info. Skipped task behaves as finished tasks
-		if err = qm.updateJob(task); err != nil {
-			Log.Error("qmgr.taskEnQueue updateJob: " + err.Error())
-			return
-		}
-		qm.updateQueue()
-		return
-	} // if not, we proceed normally
 
 	if err := qm.locateInputs(task); err != nil {
 		Log.Error("qmgr.taskEnQueue locateInputs:" + err.Error())
@@ -518,6 +522,7 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 		return err
 	}
 	task.State = TASK_STAT_QUEUED
+	qm.updateJobTask(task) //task status PENDING->QUEUED
 
 	//log event about task enqueue (TQ)
 	Log.Event(EVENT_TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task.Id, task.TotalWork))
@@ -655,7 +660,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 					Log.Event(EVENT_TASK_DONE, "taskid="+taskid)
 					//update the info of the job which the task is belong to, could result in deletion of the
 					//task in the task map when the task is the final task of the job to be done.
-					if err = qm.updateJob(task); err != nil {
+					if err = qm.updateJobTask(task); err != nil { //task state QUEUED -> COMPELTED
 						return
 					}
 					qm.updateQueue()
@@ -679,7 +684,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 						Log.Event(EVENT_TASK_SKIPPED, "taskid="+taskid)
 						//update the info of the job which the task is belong to, could result in deletion of the
 						//task in the task map when the task is the final task of the job to be done.
-						if err = qm.updateJob(task); err != nil {
+						if err = qm.updateJobTask(task); err != nil { //task state QUEUED -> FAIL_SKIP
 							return
 						}
 						qm.updateQueue()
@@ -905,7 +910,9 @@ func (qm *QueueMgr) getWorkByClient(clientid string) (ids []string) {
 }
 
 //job functions
-func (qm *QueueMgr) updateJob(task *Task) (err error) {
+
+//update job info when a task in that job changed to a new state
+func (qm *QueueMgr) updateJobTask(task *Task) (err error) {
 	parts := strings.Split(task.Id, "_")
 	jobid := parts[0]
 	job, err := LoadJob(jobid)

@@ -28,6 +28,7 @@ type Job struct {
 	State       string    `bson:"state" json:"state"`
 	RemainTasks int       `bson:"remaintasks" json:"remaintasks"`
 	UpdateTime  time.Time `bson:"update" json:"updatetime"`
+	Notes       string    `bson:"notes" json:"notes"`
 }
 
 //set job's uuid
@@ -145,7 +146,7 @@ func (job *Job) UpdateState(newState string) (err error) {
 	return job.Save()
 }
 
-//invoked when a task is completed
+//invoked to modify job info in mongodb when a task in that job changed to the new status
 func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	idx := -1
 	for i, t := range job.Tasks {
@@ -157,10 +158,18 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	if idx == -1 {
 		return job.RemainTasks, errors.New("job.UpdateTask: no task found with id=" + task.Id)
 	}
-	job.Tasks[idx] = task
-	job.RemainTasks -= 1
-	if job.RemainTasks == 0 {
-		job.State = JOB_STAT_COMPLETED
+
+	//if task state changed to "completed", update remaining task in job
+	if task.State != job.Tasks[idx].State {
+		if task.State == TASK_STAT_COMPLETED ||
+			task.State == TASK_STAT_SKIPPED ||
+			task.State == TASK_STAT_FAIL_SKIP {
+			job.RemainTasks -= 1
+			if job.RemainTasks == 0 {
+				job.State = JOB_STAT_COMPLETED
+			}
+		}
 	}
+	job.Tasks[idx] = task
 	return job.RemainTasks, job.Save()
 }

@@ -354,7 +354,7 @@ func UpdateJobState(jobid string, newstate string) (err error) {
 	if err != nil {
 		return
 	}
-	if err := job.UpdateState(newstate); err != nil {
+	if err := job.UpdateState(newstate, ""); err != nil {
 		return err
 	}
 	return

@@ -5,6 +5,7 @@ import (
 	e "github.com/MG-RAST/AWE/errors"
 	. "github.com/MG-RAST/AWE/logger"
 	"github.com/jaredwilkening/goweb"
+	"io/ioutil"
 	"net/http"
 	"strings"
 )
@@ -86,28 +87,22 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 	// Gather query params
 	query := &Query{list: cx.Request.URL.Query()}
-	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
-		notice := core.Notice{WorkId: id, Status: query.Value("status"), ClientId: query.Value("client")}
-		defer queueMgr.NotifyWorkStatus(notice)
 
-		if query.Has("report") { // if "report" is specified in query, parse performance statistics
-			_, files, err := ParseMultipartForm(cx.Request)
-			if err != nil {
-				Log.Error("err@workContoller_Update_ParseMultipartForm: " + err.Error())
-				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-				return
-			}
-			if _, ok := files["perf"]; !ok {
-				Log.Error("err@workContoller_Update: no perf file uploaded")
-				cx.RespondWithErrorMessage("no perf file uploaded", http.StatusBadRequest)
-				return
-			}
-			if err := queueMgr.FinalizeWorkPerf(id, files["perf"].Path); err != nil {
-				Log.Error("err@workContoller_Update_FinalizeWorkPerf for workunit " + id + ": " + err.Error())
-				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-				return
+	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
+		notice := core.Notice{WorkId: id, Status: query.Value("status"), ClientId: query.Value("client"), Notes: ""}
+		if query.Has("report") { // if "report" is specified in query, parse performance statistics or errlog
+			if _, files, err := ParseMultipartForm(cx.Request); err == nil {
+				if _, ok := files["perf"]; ok {
+					queueMgr.FinalizeWorkPerf(id, files["perf"].Path)
+				}
+				if _, ok := files["notes"]; ok {
+					if notes, err := ioutil.ReadFile(files["notes"].Path); err == nil {
+						notice.Notes = string(notes)
+					}
+				}
 			}
 		}
+		queueMgr.NotifyWorkStatus(notice)
 	}
 	cx.RespondWithData("ok")
 	return

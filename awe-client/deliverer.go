@@ -74,11 +74,15 @@ func deliverer(control chan int) {
 
 func pushOutputData(work *Workunit) (err error) {
 	for name, io := range work.Outputs {
-		if _, err := os.Stat(name); err != nil {
+		if fi, err := os.Stat(name); err != nil {
 			if io.Optional {
 				continue
 			} else {
 				return errors.New(fmt.Sprintf("output %s not generated for workunit %s", name, work.Id))
+			}
+		} else {
+			if io.Nonzero && fi.Size() == 0 {
+				return errors.New(fmt.Sprintf("workunit %s generated zero-sized output %s while non-zero-sized file required", work.Id, name))
 			}
 		}
 		Log.Debug(2, "deliverer: push output to shock, filename="+name)

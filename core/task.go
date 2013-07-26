@@ -78,7 +78,6 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 	}
 
 	task.Info = job.Info
-	task.State = TASK_STAT_INIT
 	if task.TotalWork > 0 {
 		task.WorkStatus = make([]string, task.TotalWork)
 	}
@@ -94,6 +93,7 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 			io.Node = "-"
 		}
 	}
+	task.State = TASK_STAT_INIT
 	return
 }
 

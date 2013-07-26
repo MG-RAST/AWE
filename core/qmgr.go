@@ -354,7 +354,7 @@ func (qm *QueueMgr) DeleteJob(jobid string) (err error) {
 	if err != nil {
 		return
 	}
-	if err := job.UpdateState(JOB_STAT_DELETED); err != nil {
+	if err := job.UpdateState(JOB_STAT_DELETED, "deleted"); err != nil {
 		return err
 	}
 	//delete queueing workunits
@@ -384,12 +384,12 @@ func (qm *QueueMgr) DeleteSuspendedJobs() (num int) {
 	return
 }
 
-func (qm *QueueMgr) SuspendJob(jobid string) (err error) {
+func (qm *QueueMgr) SuspendJob(jobid string, reason string) (err error) {
 	job, err := LoadJob(jobid)
 	if err != nil {
 		return
 	}
-	if err := job.UpdateState(JOB_STAT_SUSPEND); err != nil {
+	if err := job.UpdateState(JOB_STAT_SUSPEND, reason); err != nil {
 		return err
 	}
 	qm.DeleteJobPerf(jobid)
@@ -401,19 +401,9 @@ func (qm *QueueMgr) SuspendJob(jobid string) (err error) {
 			qm.workQueue.StatusChange(workid, WORK_STAT_SUSPEND)
 		}
 	}
-	//suspend parsed tasks
-	for i := 0; i < len(job.TaskList()); i++ {
-		task_id := fmt.Sprintf("%s_%d", jobid, i)
-		if _, ok := qm.taskMap[task_id]; ok {
-			if qm.taskMap[task_id].State == TASK_STAT_INIT {
-				qm.taskMap[task_id].State = TASK_STAT_SUSPEND
-			}
-		}
-	}
+
 	qm.DeleteJobPerf(jobid)
-
 	Log.Event(EVENT_JOB_SUSPEND, "jobid="+jobid)
-
 	return
 }
 
@@ -439,7 +429,7 @@ func (qm *QueueMgr) addTask(task *Task) (err error) {
 	if len(task.DependsOn) == 0 {
 		if err := qm.taskEnQueue(task); err != nil {
 			jobid, _ := GetJobIdByTaskId(task.Id)
-			qm.SuspendJob(jobid)
+			qm.SuspendJob(jobid, fmt.Sprintf("failed in enqueuing task %s, err=%s", task.Id, err.Error()))
 			return err
 		}
 	}
@@ -453,7 +443,7 @@ func (qm *QueueMgr) skipTask(task *Task) (err error) {
 	task.State = TASK_STAT_SKIPPED
 	task.RemainWork = 0
 	//update job and queue info. Skipped task behaves as finished tasks
-	if err = qm.updateJobTask(task); err != nil {    //TASK state  -> SKIPPED
+	if err = qm.updateJobTask(task); err != nil { //TASK state  -> SKIPPED
 		return
 	}
 	qm.taskMap[task.Id] = task
@@ -491,7 +481,7 @@ func (qm *QueueMgr) updateQueue() (err error) {
 		if ready {
 			if err := qm.taskEnQueue(task); err != nil {
 				jobid, _ := GetJobIdByTaskId(task.Id)
-				qm.SuspendJob(jobid)
+				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()))
 			}
 		}
 	}
@@ -563,8 +553,7 @@ func (qm *QueueMgr) locateInputs(task *Task) (err error) {
 		}
 		//need time out!
 		if io.GetFileSize() < 0 {
-			qm.SuspendJob(jobid)
-			return errors.New(fmt.Sprintf("%s suspended as input file %s not available", jobid, name))
+			return errors.New(fmt.Sprintf("task %s: input file %s not available", task.Id, name))
 		}
 		Log.Debug(2, fmt.Sprintf("inputs located %s, %s\n", name, io.Node))
 	}
@@ -698,7 +687,12 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 						Log.Event(EVENT_WORK_SUSPEND, "workid="+workid)
 						qm.updateTaskWorkStatus(taskid, rank, WORK_STAT_SUSPEND)
 						qm.taskMap[taskid].State = TASK_STAT_SUSPEND
-						if err := qm.SuspendJob(jobid); err != nil {
+
+						reason := fmt.Sprintf("workunit %s failed %d time(s).", workid, conf.MAX_WORK_FAILURE)
+						if len(notice.Notes) > 0 {
+							reason = reason + " msg from client:" + notice.Notes
+						}
+						if err := qm.SuspendJob(jobid, reason); err != nil {
 							Log.Error("error returned by SuspendJOb()" + err.Error())
 						}
 					}

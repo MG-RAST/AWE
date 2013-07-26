@@ -141,8 +141,11 @@ func (job *Job) NumTask() int {
 }
 
 //---Field update functions
-func (job *Job) UpdateState(newState string) (err error) {
+func (job *Job) UpdateState(newState string, notes string) (err error) {
 	job.State = newState
+	if len(notes) > 0 {
+		job.Notes = notes
+	}
 	return job.Save()
 }
 

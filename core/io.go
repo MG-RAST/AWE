@@ -22,6 +22,7 @@ type IO struct {
 	Origin   string `bson:"origin" json:"origin"`
 	Path     string `bson:"path" json:"-"`
 	Optional bool   `bson:"optional" json:"-"`
+	Nonzero  bool   `bson:"nonzero"  json:"nonzero"`
 }
 
 type PartInfo struct {

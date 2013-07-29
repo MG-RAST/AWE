@@ -139,8 +139,7 @@
 					  "state", 
                                           "updated"],
 				data: result_data };
-
-		Retina.WidgetInstances.awe_monitor[1].tables["active"].settings.minwidths = [1,1,65,100,75,85,90,75,110,75,75];
+		Retina.WidgetInstances.awe_monitor[1].tables["active"].settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75];
 		Retina.WidgetInstances.awe_monitor[1].tables["active"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["active"].render();
 		Retina.WidgetInstances.awe_monitor[1].check_update();
@@ -183,7 +182,7 @@
                                           "updated"],
 				data: result_data };
 
-		Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.minwidths = [1,1,65,100,75,85,90,75,110,75,75];
+		Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75];
 		Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["suspended"].render();
 		Retina.WidgetInstances.awe_monitor[1].check_update();
@@ -272,8 +271,7 @@
 		} else {
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
-			result_data.push( [ obj.id,
-					    obj.name,
+			result_data.push( ["<a href='http://"+RetinaConfig["awe_ip"]+"/client/"+obj.id+"' target=_blank>"+obj.name+"</a>",
 					    obj.group,
 					    obj.user || "-",
 					    obj.host,
@@ -284,11 +282,11 @@
 					    obj.Status,
 					    obj.total_checkout || "0",
 					    obj.total_completed || "0",
-					    obj.total_failed || "0" ] );
+					    obj.total_failed || "0",
+					    obj.skip_work.join(", ")]);
 		    }
 		}
-		return_data = { header: [ "id",
-					  "name",
+		return_data = { header: [ "name",
 					  "group",
 					  "user",
 					  "host",
@@ -299,10 +297,11 @@
 					  "status",
 					  "c/o",
 					  "done",
-					  "failed" ],
+					  "failed",
+					  "failed wuid"],
 				data: result_data };
 
-		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [1,1,73,73,70,73,1,115,83,75,57,67,68];
+		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [1,73,73,70,73,1,115,83,75,57,67,68,90];
 		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["clients"].render();
 		Retina.WidgetInstances.awe_monitor[1].check_update();

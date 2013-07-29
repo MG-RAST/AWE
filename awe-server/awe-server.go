@@ -130,7 +130,6 @@ func main() {
 	go launchAPI(control, conf.API_PORT)
 
 	if err := awfMgr.LoadWorkflows(); err != nil {
-		fmt.Printf("%s\n", err.Error())
 		Log.Error("LoadWorkflows: " + err.Error())
 	}
 

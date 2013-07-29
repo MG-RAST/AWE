@@ -61,7 +61,7 @@ func heartbeating(host string, clientid string) (err error) {
 	if err != nil {
 		return
 	}
-	if err = json.Unmarshal(jsonstream, response); err != nil {
+	if err = json.Unmarshal(jsonstream, response); err == nil {
 		if len(response.Errs) > 0 {
 			return errors.New(strings.Join(response.Errs, ","))
 		}

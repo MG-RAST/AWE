@@ -149,13 +149,13 @@
 </div>';
 
 	// visual / textual toggle
-	content.innerHTML += '<div style="position: absolute; top: -15px; right: -700px;" class="btn-group" data-toggle="buttons-radio">\
+	content.innerHTML += '<div style="position: absolute; top: -15px; right: -90px;"><button type="button" class="btn" data-toggle="button" id="edit_active" onclick="document.getElementById(\'visual_button\').click();">edit task</button></div><div style="position: absolute; top: -15px; right: -720px;" class="btn-group" data-toggle="buttons-radio">\
     <button type="button" class="btn active" onclick="document.getElementById(\'playground\').style.display=\'none\';document.getElementById(\'json_holder\').style.display=\'\';">JSON</button>\
-    <button type="button" class="btn" onclick="document.getElementById(\'json_holder\').style.display=\'none\';document.getElementById(\'playground\').style.display=\'\';">visual</button>\
+    <button type="button" class="btn" onclick="document.getElementById(\'json_holder\').style.display=\'none\';document.getElementById(\'playground\').style.display=\'\';" id="visual_button">visual</button>\
     </div>';
 
 	// output JSON
-	content.innerHTML += '<div style="width: 600px; height: 750px; position: absolute; right: -700px;padding: 10px;top: 13px;" id="json_holder"><textarea style="width: 590px; height: 690px;" id="json_out">{ }</textarea><button class="btn" style="float: left;" id="result_validate">validate</button><input type="file" style="float: left;" id="workflow_load"><button class="btn" style="float: right;" id="result_save">save</button></div>';
+	content.innerHTML += '<div style="width: 700px; height: 750px; position: absolute; right: -730px;padding: 10px;top: 13px;" id="json_holder"><textarea style="width: 690px; height: 690px;" id="json_out">{ }</textarea><button class="btn" style="float: left;" id="result_validate">validate</button><input type="file" style="float: left;" id="workflow_load"><button class="btn" style="float: right;" id="result_save" onclick="stm.saveAs(document.getElementById(\'json_out\').innerHTML, \'workflow.awf\');">save</button></div>';
 
 	// event listeners
 	document.getElementById('wf_name').addEventListener('change', function() {
@@ -308,6 +308,13 @@
 	    document.getElementById('wf_contact').value = widget.data.workflow_info.contact;
 	    document.getElementById('wf_description').value = widget.data.workflow_info.description;
 	    document.getElementById('wf_splits').value = widget.data.workflow_info.splits;
+	    var vl = document.getElementById('variable_list');
+	    vl.options.length = 0;
+	    for (i in widget.data.variables) {
+		if (widget.data.variables.hasOwnProperty(i)) {
+		    vl.options[vl.options.length] = new Option(i,i);
+		}
+	    }
 	    var numfiles = 0;
 	    widget.inputs = [];
 	    for (i in widget.data.raw_inputs) {
@@ -458,7 +465,9 @@
 	box.boxid = task.taskid;
 	box.widget = this.index;
 	box.addEventListener('click', function () {
-
+	    if (document.getElementById('edit_active').className == "btn active") {
+		console.log('active');
+	    }
 	});
 	box.addEventListener('mouseover', function () {
 	    var tasks = Retina.WidgetInstances.awe_workflow[this.widget].data.tasks;
@@ -493,7 +502,7 @@
 	} else {
 	    widget.curr_box_pos.x += widget.box_size + (widget.box_padding * 2);
 	}
-	box.innerHTML = "<h3 style='width: 100%; text-align: center;'>"+task.taskid+"</h3><p style='width: 100%; text-align: center;'>"+task.cmd.name+"</p>";
+	box.innerHTML = "<h3 style='width: 100%; text-align: center;'>"+task.taskid+"</h3><p style='width: 100%; text-align: center; word-wrap: break-word;'>"+task.cmd.name+"</p>";
 
 	// inputs
 	var inp_top = 20;

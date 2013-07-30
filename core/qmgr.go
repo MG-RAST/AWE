@@ -402,6 +402,17 @@ func (qm *QueueMgr) SuspendJob(jobid string, reason string) (err error) {
 		}
 	}
 
+	//suspend parsed tasks
+	for _, task := range job.Tasks {
+		if task.State == TASK_STAT_QUEUED || task.State == TASK_STAT_INIT {
+			if _, ok := qm.taskMap[task.Id]; ok {
+				qm.taskMap[task.Id].State = TASK_STAT_SUSPEND
+				task.State = TASK_STAT_SUSPEND
+				job.UpdateTask(task)
+			}
+		}
+	}
+
 	qm.DeleteJobPerf(jobid)
 	Log.Event(EVENT_JOB_SUSPEND, "jobid="+jobid)
 	return

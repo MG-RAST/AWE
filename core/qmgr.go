@@ -392,7 +392,7 @@ func (qm *QueueMgr) SuspendJob(jobid string, reason string) (err error) {
 	if err := job.UpdateState(JOB_STAT_SUSPEND, reason); err != nil {
 		return err
 	}
-	qm.DeleteJobPerf(jobid)
+	//qm.DeleteJobPerf(jobid)
 	qm.susJobs[jobid] = true
 
 	//suspend queueing workunits
@@ -437,7 +437,7 @@ func (qm *QueueMgr) addTask(task *Task) (err error) {
 
 	task.State = TASK_STAT_PENDING
 	qm.taskMap[id] = task
-	if len(task.DependsOn) == 0 {
+	if qm.isTaskReady(task) {
 		if err := qm.taskEnQueue(task); err != nil {
 			jobid, _ := GetJobIdByTaskId(task.Id)
 			qm.SuspendJob(jobid, fmt.Sprintf("failed in enqueuing task %s, err=%s", task.Id, err.Error()))
@@ -469,32 +469,36 @@ func (qm *QueueMgr) deleteTasks(tasks []*Task) (err error) {
 
 //poll ready tasks and push into workQueue
 func (qm *QueueMgr) updateQueue() (err error) {
-
 	for _, task := range qm.taskMap {
-		ready := false
-		if task.State == TASK_STAT_PENDING {
-			ready = true
-			for _, predecessor := range task.DependsOn {
-				if _, haskey := qm.taskMap[predecessor]; haskey {
-					if qm.taskMap[predecessor].State != TASK_STAT_COMPLETED &&
-						qm.taskMap[predecessor].State != TASK_STAT_PASSED &&
-						qm.taskMap[predecessor].State != TASK_STAT_SKIPPED &&
-						qm.taskMap[predecessor].State != TASK_STAT_FAIL_SKIP {
-						ready = false
-					}
-				}
-			}
-		}
-		if task.Skip == 1 && task.Skippable() {
-			qm.skipTask(task)
-			ready = false
-		}
-		if ready {
+		if qm.isTaskReady(task) {
 			if err := qm.taskEnQueue(task); err != nil {
 				jobid, _ := GetJobIdByTaskId(task.Id)
 				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()))
 			}
 		}
+	}
+	return
+}
+
+//check whether a pending task is ready to enqueue (dependent tasks are all done)
+func (qm *QueueMgr) isTaskReady(task *Task) (ready bool) {
+	ready = false
+	if task.State == TASK_STAT_PENDING {
+		ready = true
+		for _, predecessor := range task.DependsOn {
+			if _, haskey := qm.taskMap[predecessor]; haskey {
+				if qm.taskMap[predecessor].State != TASK_STAT_COMPLETED &&
+					qm.taskMap[predecessor].State != TASK_STAT_PASSED &&
+					qm.taskMap[predecessor].State != TASK_STAT_SKIPPED &&
+					qm.taskMap[predecessor].State != TASK_STAT_FAIL_SKIP {
+					ready = false
+				}
+			}
+		}
+	}
+	if task.Skip == 1 && task.Skippable() {
+		qm.skipTask(task)
+		ready = false
 	}
 	return
 }
@@ -951,6 +955,21 @@ func (qm *QueueMgr) GetSuspendJobs() map[string]bool {
 	return qm.susJobs
 }
 
+//resubmit a suspended job
+func (qm *QueueMgr) ResumeSuspendedJob(id string) (err error) {
+	//Load job by id
+	dbjob, err := LoadJob(id)
+	if err != nil {
+		return errors.New("failed to load job " + err.Error())
+	}
+	if dbjob.State != JOB_STAT_SUSPEND {
+		return errors.New("job " + id + " is not in 'suspend' status")
+	}
+	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+	delete(qm.susJobs, id)
+	return
+}
+
 //recover jobs not completed before awe-server restarts
 func (qm *QueueMgr) RecoverJobs() (err error) {
 	//Get jobs to be recovered from db whose states are "submitted"
@@ -969,14 +988,15 @@ func (qm *QueueMgr) RecoverJobs() (err error) {
 		qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 		jobct += 1
 	}
-	qm.updateQueue()
 	fmt.Printf("%d unfinished jobs recovered\n", jobct)
 	return
 }
 
 //perf related
 func (qm *QueueMgr) CreateJobPerf(jobid string) {
-	qm.actJobs[jobid] = NewJobPerf(jobid)
+	if _, ok := qm.actJobs[jobid]; !ok {
+		qm.actJobs[jobid] = NewJobPerf(jobid)
+	}
 }
 
 func (qm *QueueMgr) FinalizeJobPerf(jobid string) {

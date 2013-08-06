@@ -22,18 +22,19 @@ const (
 )
 
 type Task struct {
-	Id         string    `bson:"taskid" json:"taskid"`
-	Info       *Info     `bson:"info" json:"-"`
-	Inputs     IOmap     `bson:"inputs" json:"inputs"`
-	Outputs    IOmap     `bson:"outputs" json:"outputs"`
-	Cmd        *Command  `bson:"cmd" json:"cmd"`
-	Partition  *PartInfo `bson:"partinfo" json:"-"`
-	DependsOn  []string  `bson:"dependsOn" json:"dependsOn"`
-	TotalWork  int       `bson:"totalwork" json:"totalwork"`
-	RemainWork int       `bson:"remainwork" json:"remainwork"`
-	WorkStatus []string  `bson:"workstatus" json:"-"`
-	State      string    `bson:"state" json:"state"`
-	Skip       int       `bson:"skip" json:"-"`
+	Id          string    `bson:"taskid" json:"taskid"`
+	Info        *Info     `bson:"info" json:"-"`
+	Inputs      IOmap     `bson:"inputs" json:"inputs"`
+	Outputs     IOmap     `bson:"outputs" json:"outputs"`
+	Cmd         *Command  `bson:"cmd" json:"cmd"`
+	Partition   *PartInfo `bson:"partinfo" json:"-"`
+	DependsOn   []string  `bson:"dependsOn" json:"dependsOn"`
+	TotalWork   int       `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize int       `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork  int       `bson:"remainwork" json:"remainwork"`
+	WorkStatus  []string  `bson:"workstatus" json:"-"`
+	State       string    `bson:"state" json:"state"`
+	Skip        int       `bson:"skip" json:"-"`
 }
 
 func NewTask(job *Job, rank int) *Task {
@@ -115,6 +116,7 @@ func (task *Task) InitPartIndex() (err error) {
 				input_io = io
 				task.Partition = new(PartInfo)
 				task.Partition.Input = filename
+				task.Partition.MaxPartSizeMB = task.MaxWorkSize
 				break
 			}
 		} else {
@@ -123,6 +125,9 @@ func (task *Task) InitPartIndex() (err error) {
 			return
 		}
 	} else {
+		if task.MaxWorkSize > 0 {
+			task.Partition.MaxPartSizeMB = task.MaxWorkSize
+		}
 		if task.Partition.MaxPartSizeMB == 0 && task.TotalWork <= 1 {
 			task.setTotalWork(1)
 			return

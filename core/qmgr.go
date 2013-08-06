@@ -414,7 +414,7 @@ func (qm *QueueMgr) SuspendJob(jobid string, reason string) (err error) {
 	}
 
 	qm.DeleteJobPerf(jobid)
-	Log.Event(EVENT_JOB_SUSPEND, "jobid="+jobid)
+	Log.Event(EVENT_JOB_SUSPEND, "jobid="+jobid+";reason="+reason)
 	return
 }
 

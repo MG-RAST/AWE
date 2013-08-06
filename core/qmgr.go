@@ -101,7 +101,7 @@ func (wq *WQueue) Add(workunit *Workunit) (err error) {
 		return errors.New("try to push a workunit with an empty id")
 	}
 	wq.workMap[workunit.Id] = workunit
-	wq.wait[workunit.Id] = true
+	wq.StatusChange(workunit.Id, WORK_STAT_QUEUED)
 	return nil
 }
 

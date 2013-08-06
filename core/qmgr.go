@@ -970,6 +970,23 @@ func (qm *QueueMgr) ResumeSuspendedJob(id string) (err error) {
 	return
 }
 
+//re-activate a job in db but not in the queue (caused by server restarting)
+func (qm *QueueMgr) ReactivateJob(id string) (err error) {
+	//Load job by id
+	if _, ok := qm.actJobs[id]; ok {
+		return errors.New("job " + id + " is already active")
+	}
+	dbjob, err := LoadJob(id)
+	if err != nil {
+		return errors.New("failed to load job " + err.Error())
+	}
+	if dbjob.State != JOB_STAT_INPROGRESS {
+		return errors.New("job " + id + " is not in 'in-progress' state before dequeued")
+	}
+	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+	return
+}
+
 //recover jobs not completed before awe-server restarts
 func (qm *QueueMgr) RecoverJobs() (err error) {
 	//Get jobs to be recovered from db whose states are "submitted"

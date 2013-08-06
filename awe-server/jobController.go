@@ -203,7 +203,6 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 	// Gather query params
 	query := &Query{list: cx.Request.URL.Query()}
-
 	if query.Has("resume") { // to resume a suspended job
 		if err := queueMgr.ResumeSuspendedJob(id); err != nil {
 			cx.RespondWithErrorMessage("fail to resume job: "+id+" "+err.Error(), http.StatusBadRequest)
@@ -218,6 +217,14 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		cx.RespondWithData("job suspended: " + id)
 		return
 	}
+	if query.Has("reactivate") { // to re-activate a job from mongodb
+		if err := queueMgr.ReactivateJob(id); err != nil {
+			cx.RespondWithErrorMessage("fail to re-activate job: "+id+" "+err.Error(), http.StatusBadRequest)
+		}
+		cx.RespondWithData("job reactivated: " + id)
+		return
+	}
+	cx.RespondWithData("no job operation requested")
 	return
 }
 

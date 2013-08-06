@@ -197,19 +197,34 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	return
 }
 
-// PUT: /job/{id} -> used for re-activate suspsended jobs
+// PUT: /job/{id} -> used for job manipulation
 func (cr *JobController) Update(id string, cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 	// Gather query params
 	query := &Query{list: cx.Request.URL.Query()}
-
-	if query.Has("resume") {
+	if query.Has("resume") { // to resume a suspended job
 		if err := queueMgr.ResumeSuspendedJob(id); err != nil {
-			cx.RespondWithErrorMessage("fail to resubmit job: "+id+" "+err.Error(), http.StatusBadRequest)
+			cx.RespondWithErrorMessage("fail to resume job: "+id+" "+err.Error(), http.StatusBadRequest)
 		}
+		cx.RespondWithData("job resumed: " + id)
+		return
 	}
-	cx.RespondWithData("job resumed: " + id)
+	if query.Has("suspend") { // to suspend an in-progress job
+		if err := queueMgr.SuspendJob(id, "manually suspended"); err != nil {
+			cx.RespondWithErrorMessage("fail to suspend job: "+id+" "+err.Error(), http.StatusBadRequest)
+		}
+		cx.RespondWithData("job suspended: " + id)
+		return
+	}
+	if query.Has("reactivate") { // to re-activate a job from mongodb
+		if err := queueMgr.ReactivateJob(id); err != nil {
+			cx.RespondWithErrorMessage("fail to re-activate job: "+id+" "+err.Error(), http.StatusBadRequest)
+		}
+		cx.RespondWithData("job reactivated: " + id)
+		return
+	}
+	cx.RespondWithData("no job operation requested")
 	return
 }
 

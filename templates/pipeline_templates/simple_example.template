@@ -81,7 +81,8 @@
                 },
                 "taskid": "2",
                 "skip": 0,
-                "totalwork": 4
+                "totalwork": #totalwork,
+                "maxworksize": 5 
             }
         ]
     }

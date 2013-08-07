@@ -170,16 +170,19 @@ func (task *Task) InitPartIndex() (err error) {
 	if task.Partition.MaxPartSizeMB > 0 { // fixed max part size
 		//this implementation for chunkrecord indexer only
 		chunkmb := int(conf.DEFAULT_CHUNK_SIZE / 1048576)
+		var totalwork int
 		if totalunits*chunkmb%task.Partition.MaxPartSizeMB == 0 {
-			task.setTotalWork(totalunits * chunkmb / task.Partition.MaxPartSizeMB)
+			totalwork = totalunits * chunkmb / task.Partition.MaxPartSizeMB
 		} else {
-			totalwork := totalunits*chunkmb/task.Partition.MaxPartSizeMB + 1
-			task.setTotalWork(totalwork)
+			totalwork = totalunits*chunkmb/task.Partition.MaxPartSizeMB + 1
 		}
-	} else {
-		if totalunits < task.TotalWork {
-			task.setTotalWork(totalunits)
+		if totalwork < task.TotalWork { //use bigger splits (specified by size or totalwork)
+			totalwork = task.TotalWork
 		}
+		task.setTotalWork(totalwork)
+	}
+	if totalunits < task.TotalWork {
+		task.setTotalWork(totalunits)
 	}
 
 	task.Partition.Index = idxtype

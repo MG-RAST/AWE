@@ -966,6 +966,7 @@ func (qm *QueueMgr) ResumeSuspendedJob(id string) (err error) {
 		return errors.New("job " + id + " is not in 'suspend' status")
 	}
 	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+	dbjob.UpdateState(JOB_STAT_INPROGRESS, "")
 	delete(qm.susJobs, id)
 	return
 }

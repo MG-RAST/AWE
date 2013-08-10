@@ -35,8 +35,7 @@ func workStealer(control chan int) {
 			} else if err.Error() == e.ClientSuspended {
 				fmt.Printf("client suspended, waiting for repair...\n")
 				//to-do: send out email notice that this client has problem and been suspended
-				time.Sleep(1 * time.Hour)
-				retry += 1
+				time.Sleep(2 * time.Hour)
 			} else {
 				//something is wrong, server may be down
 				fmt.Printf("error in checking out workunits: %v\n", err)

@@ -217,14 +217,14 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		cx.RespondWithData("job suspended: " + id)
 		return
 	}
-	if query.Has("reactivate") { // to re-activate a job from mongodb
-		if err := queueMgr.ReactivateJob(id); err != nil {
-			cx.RespondWithErrorMessage("fail to re-activate job: "+id+" "+err.Error(), http.StatusBadRequest)
+	if query.Has("resubmit") { // to re-submit a job from mongodb
+		if err := queueMgr.ResubmitJob(id); err != nil {
+			cx.RespondWithErrorMessage("fail to resubmit job: "+id+" "+err.Error(), http.StatusBadRequest)
 		}
-		cx.RespondWithData("job reactivated: " + id)
+		cx.RespondWithData("job resubmitted: " + id)
 		return
 	}
-	cx.RespondWithData("no job operation requested")
+	cx.RespondWithData("no supported job operation requested")
 	return
 }
 

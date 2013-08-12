@@ -1,6 +1,6 @@
     {
         "info": {
-            "pipeline": "mgrast-v3",
+            "pipeline": "awe-example",
             "name": "#jobname",
             "project": "#project",
             "user": "#user",
@@ -29,8 +29,9 @@
                      "input": "#inputfile",
                      "output": "#jobname.prep.fna"
                 },
-                "taskid": "0", 
-                "totalwork": 1
+                "taskid": "0",
+                "skip": 0,
+                "totalwork": 1                
             },
             {
                 "cmd": {
@@ -50,7 +51,8 @@
                         "host": "http://#shockurl"
                     }
                 },
-                "taskid": "1", 
+                "taskid": "1",
+                "skip": 0, 
                 "totalwork": 1
             },
             {
@@ -71,16 +73,32 @@
                         "host": "http://#shockurl"
                     }
                 },
-                "partinfo": {
-                     "input": "#jobname.derep.fna",
-                     "output": "#jobname.screened.fna"
+                "predata": {
+                    "h_sapiens_asm.1.ebwt":{
+                        "url":"http://140.221.84.150:8000/node/0d3e3406-36ea-4ae7-b943-279afb51c7d7?download"
+                    },
+                    "h_sapiens_asm.2.ebwt":{
+                        "url":"http://140.221.84.150:8000/node/8595fbb8-f0f7-4e4d-b8a5-e1064493a4d3?download"
+                    },
+                    "h_sapiens_asm.3.ebwt":{
+                        "url":"http://140.221.84.150:8000/node/21a545e6-d802-4153-a5b7-943df62e92f0?download"
+                    },
+                    "h_sapiens_asm.4.ebwt":{
+                        "url":"http://140.221.84.150:8000/node/2070b750-2159-46d4-b42b-fa717ba4a635?download"
+                    },
+                    "h_sapiens_asm.rev.1.ebwt":{
+                        "url":"http://140.221.84.150:8000/node/0a79b7b3-a362-4f85-8b91-44bb3f4a25c5?download"
+                    },
+                    "h_sapiens_asm.rev.2.ebwt":{
+                        "url":"http://140.221.84.150:8000/node/920d71f9-7f15-4ceb-9a70-83151059026b?download"
+                    }
                 },
                 "taskid": "2", 
                 "totalwork": #totalwork
             },
             {
                 "cmd": {
-                    "args": "-input=@#jobname.screened.fna -output=#jobname.genecalled.faa", 
+                    "args": "-input=@#jobname.screened.fna -out_prefix=#jobname.genecalled", 
                     "description": "gene calling", 
                     "name": "awe_genecalling.pl"
                 }, 
@@ -94,66 +112,18 @@
                 "outputs": {
                     "#jobname.genecalled.faa": {
                         "host": "http://#shockurl"
-                    }
-                },
-                "partinfo": {
-                     "input": "#jobname.screened.fna",
-                     "output": "#jobname.genecalled.faa"
-                },
-                "taskid": "3", 
-                "totalwork": #totalwork
-            },
-            {
-                "cmd": {
-                    "args": "-input=@#jobname.genecalled.faa --output=#jobname.clust.faa -aa -pid=90",
-                    "description": "clustering",
-                    "name": "awe_cluster_parallel.pl"
-                },
-                "dependsOn": ["3"],
-                "inputs": {
-                    "#jobname.genecalled.faa": {
-                        "host": "http://#shockurl",
-                        "origin": "3"
-                    }
-                },
-                "outputs": {
-                    "#jobname.clust.faa": {
-                        "host": "http://#shockurl",
-                        "node": "-"
-                    }
-                },
-                "partinfo": {
-                     "input": "#jobname.genecalled.faa",
-                     "output": "#jobname.clust.faa"
-                },
-                "taskid": "4",
-                "totalwork": 1
-            },
-            {
-                "cmd": {
-                    "name": "awe_blat.py",
-                    "args": "--input=@#jobname.clust.faa --output=#jobname.hits.blat", 
-                    "description": "simularity search using blat"
-                }, 
-                "dependsOn": ["4"],  
-                "inputs": {
-                    "#jobname.clust.faa": {
-                        "host": "http://#shockurl",
-                        "origin": "4"
-                    }
-                }, 
-                "outputs": {
-                    "#jobname.hits.blat": {
+                    },
+                    "#jobname.genecalled.fna": {
                         "host": "http://#shockurl"
                     }
                 },
                 "partinfo": {
-                     "input": "#jobname.clust.faa",
-                     "output": "#jobname.hits.blat"
+                     "input": "#jobname.derep.fna"
                 },
-                "taskid": "5",
+                "taskid": "3",
+                "skip": 0,
                 "totalwork": #totalwork,
-                "maxworksize": 50
+                "maxworksize": 5 
             }
         ]
     }

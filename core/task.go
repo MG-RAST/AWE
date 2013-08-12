@@ -26,6 +26,7 @@ type Task struct {
 	Info        *Info     `bson:"info" json:"-"`
 	Inputs      IOmap     `bson:"inputs" json:"inputs"`
 	Outputs     IOmap     `bson:"outputs" json:"outputs"`
+	Predata     IOmap     `bson:"predata" json:"predata"`
 	Cmd         *Command  `bson:"cmd" json:"cmd"`
 	Partition   *PartInfo `bson:"partinfo" json:"-"`
 	DependsOn   []string  `bson:"dependsOn" json:"dependsOn"`

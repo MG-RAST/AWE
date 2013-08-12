@@ -163,8 +163,8 @@
                      "output": "#jobname.aa.blat"
                 },
                 "taskid": "5",
-                "totalwork": #totalwork
-
+                "totalwork": #totalwork,
+                "maxworksize": 50
             },
             {
                 "cmd": {

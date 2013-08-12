@@ -21,6 +21,7 @@ type Workunit struct {
 	Info      *Info     `bson:"info" json:"info"`
 	Inputs    IOmap     `bson:"inputs" json:"inputs"`
 	Outputs   IOmap     `bson:"outputs" json:"outputs"`
+	Predata   IOmap     `bson:"predata" json:"predata"`
 	Cmd       *Command  `bson:"cmd" json:"cmd"`
 	Rank      int       `bson:"rank" json:"rank"`
 	TotalWork int       `bson:"totalwork" json:"totalwork"`
@@ -35,6 +36,7 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 		Info:      task.Info,
 		Inputs:    task.Inputs,
 		Outputs:   task.Outputs,
+		Predata:   task.Predata,
 		Cmd:       task.Cmd,
 		Rank:      rank,
 		TotalWork: task.TotalWork, //keep this info in workunit for load balancing

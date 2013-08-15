@@ -985,9 +985,9 @@ func (qm *QueueMgr) ResubmitJob(id string) (err error) {
 	if err != nil {
 		return errors.New("failed to load job " + err.Error())
 	}
-	if dbjob.State != JOB_STAT_INPROGRESS ||
+	if dbjob.State != JOB_STAT_INPROGRESS &&
 		dbjob.State != JOB_STAT_SUSPEND {
-		return errors.New("job " + id + " is not in 'in-progress' or 'suspend' state before dequeued")
+		return errors.New("job state 'in-progress' or 'suspend' needed while state=" + dbjob.State)
 	}
 	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 	return

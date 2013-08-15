@@ -233,7 +233,8 @@
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
 			result_data.push( [ obj.wuid,
-					    obj.info.submittime,
+					    obj.checkout_time,
+					    obj.client,
 					    obj.cmd.name,
 					    obj.cmd.args,
 					    obj.rank || "0",
@@ -247,7 +248,8 @@
 		    result_data.push(['-','-','-','-','-','-','-','-']);
 		}
 		return_data = { header: [ "wuid",
-					  "submission time",
+					  "checkout time",
+					  "client",
 					  "cmd name",
 					  "cmd args",
 					  "rank",
@@ -256,7 +258,7 @@
 					  "failed" ],
 				data: result_data };
 
-		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.minwidths = [1,1,1,1,65,75,75,75];
+		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.minwidths = [1,1,1,1,1,5,5,5,5];
 		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].render();
 		Retina.WidgetInstances.awe_monitor[1].check_update();

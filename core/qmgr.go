@@ -611,6 +611,10 @@ func (qm *QueueMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 	works, err = qm.workQueue.selectWorkunits(filtered, req.policy, req.count)
 	if err == nil { //get workunits successfully, put them into coWorkMap
 		for _, work := range works {
+			if _, ok := qm.workQueue.workMap[work.Id]; ok {
+				qm.workQueue.workMap[work.Id].Client = req.fromclient
+				qm.workQueue.workMap[work.Id].CheckoutTime = time.Now()
+			}
 			qm.workQueue.StatusChange(work.Id, WORK_STAT_CHECKOUT)
 		}
 	}

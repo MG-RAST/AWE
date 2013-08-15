@@ -232,10 +232,10 @@
 		if (data.data != null) {
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
-			result_data.push( [ obj.wuid,
+			result_data.push( [ "<a href='http://"+RetinaConfig["awe_ip"]+"/work/"+obj.wuid+"' target=_blank>"+obj.wuid+"</a>",
+                                            "<a href='http://"+RetinaConfig["awe_ip"]+"/client/"+obj.client+"' target=_blank>"+obj.client+"</a>",
 					    obj.checkout_time,
-					    obj.client,
-					    obj.cmd.name,
+                                            obj.cmd.name,
 					    obj.cmd.args,
 					    obj.rank || "0",
 					    obj.totalwork || "0",
@@ -245,11 +245,11 @@
 		    }
 		}
 		if (! result_data.length) {
-		    result_data.push(['-','-','-','-','-','-','-','-']);
+		    result_data.push(['-','-','-','-','-','-','-','-','-']);
 		}
 		return_data = { header: [ "wuid",
-					  "checkout time",
 					  "client",
+                                          "checkout time",
 					  "cmd name",
 					  "cmd args",
 					  "rank",
@@ -258,7 +258,7 @@
 					  "failed" ],
 				data: result_data };
 
-		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.minwidths = [1,1,1,1,1,5,5,5,5];
+		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.minwidths = [1,1,1,1,1,50,50,50,50];
 		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].render();
 		Retina.WidgetInstances.awe_monitor[1].check_update();

@@ -42,19 +42,20 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 
 // GET: /client/{id}
 func (cr *ClientController) Read(id string, cx *goweb.Context) {
-	LogRequest(cx.Request)
-
 	// Gather query params
 	query := &Query{list: cx.Request.URL.Query()}
-	if query.Has("heartbeat") {
-		client, err := queueMgr.ClientHeartBeat(id)
+
+	if query.Has("heartbeat") { //handle heartbeat
+		msg, err := queueMgr.ClientHeartBeat(id)
 		if err != nil {
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		} else {
-			cx.RespondWithData(client.Id)
+			cx.RespondWithData(msg)
 		}
 		return
 	}
+
+	LogRequest(cx.Request) //skip heartbeat in access log
 
 	client, err := queueMgr.GetClient(id)
 	if err != nil {

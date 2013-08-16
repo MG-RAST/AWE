@@ -874,13 +874,28 @@ func (qm *QueueMgr) GetAllClients() []*Client {
 	return clients
 }
 
-func (qm *QueueMgr) ClientHeartBeat(id string) (client *Client, err error) {
-	if client, ok := qm.clientMap[id]; ok {
+func (qm *QueueMgr) ClientHeartBeat(id string) (msg string, err error) {
+	if _, ok := qm.clientMap[id]; ok {
 		qm.clientMap[id].Tag = true
 		Log.Debug(3, "HeartBeatFrom:"+"clientid="+id+",name="+qm.clientMap[id].Name)
-		return client, nil
+
+		//get suspended workunit that need the client to discard
+		workids := qm.getWorkByClient(id)
+		suspended := []string{}
+		for _, workid := range workids {
+			if work, ok := qm.workQueue.workMap[workid]; ok {
+				if work.State == WORK_STAT_SUSPEND {
+					suspended = append(suspended, workid)
+				}
+			}
+		}
+		if len(suspended) > 0 {
+			workstr := strings.Join(suspended, ",")
+			msg = "discard:" + workstr
+		}
+		return msg, nil
 	}
-	return nil, errors.New(e.ClientNotFound)
+	return "", errors.New(e.ClientNotFound)
 }
 
 func (qm *QueueMgr) DeleteClient(id string) {

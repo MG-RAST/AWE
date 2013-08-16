@@ -874,7 +874,8 @@ func (qm *QueueMgr) GetAllClients() []*Client {
 	return clients
 }
 
-func (qm *QueueMgr) ClientHeartBeat(id string) (msg string, err error) {
+func (qm *QueueMgr) ClientHeartBeat(id string) (hbmsg HBmsg, err error) {
+	hbmsg = make(map[string]string, 1)
 	if _, ok := qm.clientMap[id]; ok {
 		qm.clientMap[id].Tag = true
 		Log.Debug(3, "HeartBeatFrom:"+"clientid="+id+",name="+qm.clientMap[id].Name)
@@ -890,12 +891,11 @@ func (qm *QueueMgr) ClientHeartBeat(id string) (msg string, err error) {
 			}
 		}
 		if len(suspended) > 0 {
-			workstr := strings.Join(suspended, ",")
-			msg = "discard:" + workstr
+			hbmsg["discard"] = strings.Join(suspended, ",")
 		}
-		return msg, nil
+		return hbmsg, nil
 	}
-	return "", errors.New(e.ClientNotFound)
+	return hbmsg, errors.New(e.ClientNotFound)
 }
 
 func (qm *QueueMgr) DeleteClient(id string) {

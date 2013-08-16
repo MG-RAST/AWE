@@ -46,11 +46,11 @@ func (cr *ClientController) Read(id string, cx *goweb.Context) {
 	query := &Query{list: cx.Request.URL.Query()}
 
 	if query.Has("heartbeat") { //handle heartbeat
-		msg, err := queueMgr.ClientHeartBeat(id)
+		hbmsg, err := queueMgr.ClientHeartBeat(id)
 		if err != nil {
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		} else {
-			cx.RespondWithData(msg)
+			cx.RespondWithData(hbmsg)
 		}
 		return
 	}

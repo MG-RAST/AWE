@@ -174,7 +174,8 @@ func ComposeProfile() (profile *Client, err error) {
 
 func DiscardWorkunit(id string) (err error) {
 	fmt.Printf("try to discard workunit %s\n", id)
-	//to-do: implementation here
+	chankill <- true
+	//to-do: kill specific workunit with given id
 	return
 }
 

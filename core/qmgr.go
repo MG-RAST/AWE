@@ -637,13 +637,18 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 		delete(qm.clientMap[clientid].Current_work, workid)
 	}
 	if task, ok := qm.taskMap[taskid]; ok {
+		if _, ok := qm.workQueue.workMap[workid]; !ok {
+			return
+		}
+		if qm.workQueue.workMap[workid].State != WORK_STAT_CHECKOUT { //could be suspended
+			return
+		}
 		if task.State == TASK_STAT_FAIL_SKIP {
 			// A work unit for this task failed before this one arrived.
 			// User set Skip=2 so the task was just skipped. Any subsiquent
 			// workunits are just deleted...
 			qm.workQueue.Delete(workid)
 		} else {
-
 			qm.updateTaskWorkStatus(taskid, rank, status)
 			if status == WORK_STAT_DONE {
 				//log event about work done (WD)
@@ -893,6 +898,7 @@ func (qm *QueueMgr) ClientHeartBeat(id string) (hbmsg HBmsg, err error) {
 		if len(suspended) > 0 {
 			hbmsg["discard"] = strings.Join(suspended, ",")
 		}
+		//hbmsg["discard"] = strings.Join(workids, ",")
 		return hbmsg, nil
 	}
 	return hbmsg, errors.New(e.ClientNotFound)

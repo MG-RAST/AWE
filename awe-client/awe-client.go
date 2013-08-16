@@ -15,6 +15,7 @@ var (
 	chanPerf      = make(chan *WorkPerf)      // -> perfmon
 	chanPermit    = make(chan bool)
 	self          = &Client{Id: "default-client"}
+	chankill      = make(chan bool)            //heartbeater -> worker
 )
 
 type rawWork struct {

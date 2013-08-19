@@ -76,7 +76,9 @@ func deliverer(control chan int) {
 
 func pushOutputData(work *Workunit) (err error) {
 	for name, io := range work.Outputs {
-		if fi, err := os.Stat(name); err != nil {
+		file_path := fmt.Sprintf("%s/%s", work.Path(), name)
+		//use full path here, cwd could be changed by Worker (likely in worker-overlapping mode)
+		if fi, err := os.Stat(file_path); err != nil {
 			if io.Optional {
 				continue
 			} else {
@@ -92,8 +94,6 @@ func pushOutputData(work *Workunit) (err error) {
 			"workid="+work.Id,
 			"filename="+name,
 			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
-
-		file_path := fmt.Sprintf("%s/%s", work.Path(), name)
 		if err := pushFileByCurl(file_path, io.Host, io.Node, work.Rank); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
 			if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {

@@ -64,6 +64,10 @@ type linkage struct {
 	Operation string   `bson:"operation" json:"operation"`
 }
 
+//heartbeat response from awe-server to awe-client
+//used for issue operation request to client, e.g. discard suspended workunits
+type HBmsg map[string]string //map[op]obj1,obj2 e.g. map[discard]=work1,work2
+
 func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job *Job, err error) {
 
 	if _, has_upload := files["upload"]; has_upload {

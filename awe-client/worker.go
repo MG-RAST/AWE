@@ -18,6 +18,7 @@ func worker(control chan int) {
 	for {
 		parsedwork := <-chanParsed
 		work := parsedwork.workunit
+		workmap[work.Id] = ID_WORKER
 
 		processed := &processedWork{
 			workunit: work,
@@ -89,11 +90,23 @@ func RunWorkunit(parsed *parsedWork) (err error) {
 		go io.Copy(os.Stderr, stderr)
 	}
 
-	if err := cmd.Wait(); err != nil {
-		return errors.New(fmt.Sprintf("wait_cmd=%s, err=%s", commandName, err.Error()))
+	done := make(chan error)
+	go func() {
+		done <- cmd.Wait()
+	}()
+	select {
+	case <-chankill:
+		if err := cmd.Process.Kill(); err != nil {
+			fmt.Println("failed to kill" + err.Error())
+		}
+		<-done // allow goroutine to exit
+		fmt.Println("process killed")
+		return errors.New("process killed")
+	case err := <-done:
+		if err != nil {
+			return errors.New(fmt.Sprintf("wait_cmd=%s, err=%s", commandName, err.Error()))
+		}
 	}
-
 	Log.Event(EVENT_WORK_END, "workid="+work.Id)
-
 	return
 }

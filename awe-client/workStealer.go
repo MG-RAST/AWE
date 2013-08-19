@@ -54,6 +54,7 @@ func workStealer(control chan int) {
 		Log.Event(EVENT_WORK_CHECKOUT, "workid="+wu.Id)
 		self.Total_checkout += 1
 		self.Current_work[wu.Id] = true
+		workmap[wu.Id] = ID_WORKSTEALER
 
 		//hand the work to the next step handler: dataMover
 		workstat := NewWorkPerf(wu.Id)

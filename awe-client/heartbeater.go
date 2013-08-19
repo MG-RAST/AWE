@@ -22,7 +22,7 @@ import (
 
 type HeartbeatResponse struct {
 	Code int      `bson:"status" json:"status"`
-	Data string   `bson:"data" json:"data"`
+	Data HBmsg    `bson:"data" json:"data"`
 	Errs []string `bson:"error" json:"error"`
 }
 
@@ -42,14 +42,30 @@ func heartBeater(control chan int) {
 
 //client sends heartbeat to server to maintain active status and re-register when needed
 func SendHeartBeat() {
-	if err := heartbeating(conf.SERVER_URL, self.Id); err != nil {
+	hbmsg, err := heartbeating(conf.SERVER_URL, self.Id)
+	if err != nil {
 		if err.Error() == e.ClientNotFound {
 			ReRegisterWithSelf(conf.SERVER_URL)
 		}
 	}
+	//handle requested ops from the server
+	for op, objs := range hbmsg {
+		if op == "discard" { //discard suspended workunits
+			suspendedworks := strings.Split(objs, ",")
+			for _, work := range suspendedworks {
+				DiscardWorkunit(work)
+			}
+		} else if op == "restart" {
+			RestartClient()
+		} else if op == "stop" {
+			StopClient()
+		} else if op == "clean" {
+			CleanDisk()
+		}
+	}
 }
 
-func heartbeating(host string, clientid string) (err error) {
+func heartbeating(host string, clientid string) (msg HBmsg, err error) {
 	response := new(HeartbeatResponse)
 	res, err := http.Get(fmt.Sprintf("%s/client/%s?heartbeat", host, clientid))
 	Log.Debug(3, fmt.Sprintf("client %s sent a heartbeat to %s", host, clientid))
@@ -63,9 +79,9 @@ func heartbeating(host string, clientid string) (err error) {
 	}
 	if err = json.Unmarshal(jsonstream, response); err == nil {
 		if len(response.Errs) > 0 {
-			return errors.New(strings.Join(response.Errs, ","))
+			return msg, errors.New(strings.Join(response.Errs, ","))
 		}
-		return
+		return response.Data, nil
 	}
 	return
 }
@@ -153,5 +169,33 @@ func ComposeProfile() (profile *Client, err error) {
 			}
 		}
 	}
+	return
+}
+
+func DiscardWorkunit(id string) (err error) {
+	fmt.Printf("try to discard workunit %s\n", id)
+	if stage, ok := workmap[id]; ok {
+		if stage == ID_WORKER {
+			chankill <- true
+		}
+	}
+	return
+}
+
+func RestartClient() (err error) {
+	fmt.Printf("try to restart client\n")
+	//to-do: implementation here
+	return
+}
+
+func StopClient() (err error) {
+	fmt.Printf("try to stop client\n")
+	//to-do: implementation here
+	return
+}
+
+func CleanDisk() (err error) {
+	fmt.Printf("try to clean disk space\n")
+	//to-do: implementation here
 	return
 }

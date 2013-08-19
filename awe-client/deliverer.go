@@ -19,6 +19,7 @@ func deliverer(control chan int) {
 	for {
 		processed := <-chanProcessed
 		work := processed.workunit
+		workmap[work.Id] = ID_DELIVERER
 		perfstat := processed.perfstat
 
 		//post-process for works computed successfully: push output data to Shock
@@ -63,6 +64,7 @@ func deliverer(control chan int) {
 			self.Total_failed += 1
 		}
 		delete(self.Current_work, work.Id)
+		delete(workmap, work.Id)
 
 		//release the permit lock, for work overlap inhibitted mode only
 		if !conf.WORKER_OVERLAP {

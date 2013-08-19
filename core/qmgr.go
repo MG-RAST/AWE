@@ -637,13 +637,18 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 		delete(qm.clientMap[clientid].Current_work, workid)
 	}
 	if task, ok := qm.taskMap[taskid]; ok {
+		if _, ok := qm.workQueue.workMap[workid]; !ok {
+			return
+		}
+		if qm.workQueue.workMap[workid].State != WORK_STAT_CHECKOUT { //could be suspended
+			return
+		}
 		if task.State == TASK_STAT_FAIL_SKIP {
 			// A work unit for this task failed before this one arrived.
 			// User set Skip=2 so the task was just skipped. Any subsiquent
 			// workunits are just deleted...
 			qm.workQueue.Delete(workid)
 		} else {
-
 			qm.updateTaskWorkStatus(taskid, rank, status)
 			if status == WORK_STAT_DONE {
 				//log event about work done (WD)
@@ -874,13 +879,29 @@ func (qm *QueueMgr) GetAllClients() []*Client {
 	return clients
 }
 
-func (qm *QueueMgr) ClientHeartBeat(id string) (client *Client, err error) {
-	if client, ok := qm.clientMap[id]; ok {
+func (qm *QueueMgr) ClientHeartBeat(id string) (hbmsg HBmsg, err error) {
+	hbmsg = make(map[string]string, 1)
+	if _, ok := qm.clientMap[id]; ok {
 		qm.clientMap[id].Tag = true
 		Log.Debug(3, "HeartBeatFrom:"+"clientid="+id+",name="+qm.clientMap[id].Name)
-		return client, nil
+
+		//get suspended workunit that need the client to discard
+		workids := qm.getWorkByClient(id)
+		suspended := []string{}
+		for _, workid := range workids {
+			if work, ok := qm.workQueue.workMap[workid]; ok {
+				if work.State == WORK_STAT_SUSPEND {
+					suspended = append(suspended, workid)
+				}
+			}
+		}
+		if len(suspended) > 0 {
+			hbmsg["discard"] = strings.Join(suspended, ",")
+		}
+		//hbmsg["discard"] = strings.Join(workids, ",")
+		return hbmsg, nil
 	}
-	return nil, errors.New(e.ClientNotFound)
+	return hbmsg, errors.New(e.ClientNotFound)
 }
 
 func (qm *QueueMgr) DeleteClient(id string) {

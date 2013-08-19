@@ -18,6 +18,7 @@ func worker(control chan int) {
 	for {
 		parsedwork := <-chanParsed
 		work := parsedwork.workunit
+		workmap[work.Id] = ID_WORKER
 
 		processed := &processedWork{
 			workunit: work,

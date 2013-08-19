@@ -174,8 +174,11 @@ func ComposeProfile() (profile *Client, err error) {
 
 func DiscardWorkunit(id string) (err error) {
 	fmt.Printf("try to discard workunit %s\n", id)
-	chankill <- true
-	//to-do: kill specific workunit with given id
+	if stage, ok := workmap[id]; ok {
+		if stage == ID_WORKER {
+			chankill <- true
+		}
+	}
 	return
 }
 

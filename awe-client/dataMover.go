@@ -26,8 +26,9 @@ func dataMover(control chan int) {
 			status:   "unknown",
 		}
 
-		//make a working directory for the workunit
 		work := raw.workunit
+		workmap[work.Id] = ID_DATAMOVER
+		//make a working directory for the workunit
 		if err := work.Mkdir(); err != nil {
 			Log.Error("err@dataMover_work.Mkdir, workid=" + work.Id + " error=" + err.Error())
 			parsed.status = WORK_STAT_FAIL

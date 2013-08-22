@@ -13,6 +13,7 @@
     };
 
     widget.tables = [];
+    widget.api_workflows = {};
         
     widget.display = function (wparams) {
 	// initialize
@@ -21,6 +22,16 @@
 
 	widget.playground = wparams.playground;
 	var content = wparams.target;
+
+	// get workflows from the workflow api
+	jQuery.getJSON(RetinaConfig.workflow_ip, function(data) {
+	    var option_string = "";
+	    for (i=0;i<data.data.length;i++) {
+		widget.api_workflows[data.data[i].workflow_info.name] = data.data[i];
+		option_string += '<option title="'+data.data[i].workflow_info.description+'">'+data.data[i].workflow_info.name+'</option>';
+	    }
+	    document.getElementById('api_workflows').innerHTML = option_string;
+	});
 
 	// workflow info
 	content.innerHTML = '\
@@ -100,7 +111,7 @@
 	content.innerHTML += '\
 <form class="form-horizontal" style="float: left; clear: left; margin-right: 50px;" action="#">\
 \
-    <legend>New Task</legend>\
+    <legend id="task_legend">New Task</legend>\
 \
     <div class="control-group">\
       <label class="control-label" for="task_command">command</label>\
@@ -144,7 +155,7 @@
         <select size=5 multiple id="task_output"></select>\
       </div>\
     </div>\
-    <button class="btn" id="add_task_button">add task</button>\
+    <button class="btn" id="add_task_button">add task</button><button class="btn" id="edit_cancel_button" style="display: none;">cancel</button>\
 </form>\
 </div>';
 
@@ -155,7 +166,7 @@
     </div>';
 
 	// output JSON
-	content.innerHTML += '<div style="width: 700px; height: 750px; position: absolute; right: -730px;padding: 10px;top: 13px;" id="json_holder"><textarea style="width: 690px; height: 690px;" id="json_out">{ }</textarea><button class="btn" style="float: left;" id="result_validate">validate</button><input type="file" style="float: left;" id="workflow_load"><button class="btn" style="float: right;" id="result_save" onclick="stm.saveAs(document.getElementById(\'json_out\').innerHTML, \'workflow.awf\');">save</button></div>';
+	content.innerHTML += '<div style="width: 700px; height: 750px; position: absolute; right: -730px;padding: 10px;top: 13px;" id="json_holder"><textarea style="width: 690px; height: 690px;" id="json_out">{ }</textarea><button class="btn" style="float: left;" id="result_validate">validate</button><input type="file" style="float: left;" id="workflow_load"><select id="api_workflows"></select><button class="btn" style="float: left;" id="load_workflow_api">load</button><button class="btn" style="float: right;" id="result_save" onclick="stm.saveAs(document.getElementById(\'json_out\').innerHTML, \'workflow.awf\');">save</button></div>';
 
 	// event listeners
 	document.getElementById('wf_name').addEventListener('change', function() {
@@ -264,7 +275,11 @@
 	});
 
 	document.getElementById('add_task_button').addEventListener('click', function() {
-	    widget.new_task();
+	    if (document.getElementById('task_legend').innerHTML == "New Task") {
+		widget.new_task();
+	    } else {
+		widget.edit_task();
+	    }
 	});
 
 	document.getElementById('result_save').addEventListener('click', function() {
@@ -284,6 +299,16 @@
 	    console.log(ev);
 	});
 
+	document.getElementById('load_workflow_api').addEventListener('click', function() {
+	    if (document.getElementById('api_workflows').options.length > 0) {
+		var selected = document.getElementById('api_workflows').options[document.getElementById('api_workflows').selectedIndex].value;
+		if (widget.api_workflows.hasOwnProperty(selected)) {
+		    widget.data = widget.api_workflows[selected];
+		    widget.parse_workflow();
+		}
+	    }
+	});
+
 	widget.update();
 	widget.new_task();
     };
@@ -292,62 +317,66 @@
 
     };
 
-    widget.save = function () {
+    widget.edit_task = function () {
+	alert('editing');
+    }
 
-    };
-
+    widget.parse_workflow = function () {
+	widget.loading = 1;
+	widget.data.workflow_info.splits = 8;
+	document.getElementById('wf_name').value = widget.data.workflow_info.name;
+	document.getElementById('wf_author').value = widget.data.workflow_info.author;
+	document.getElementById('wf_contact').value = widget.data.workflow_info.contact;
+	document.getElementById('wf_description').value = widget.data.workflow_info.description;
+	document.getElementById('wf_splits').value = widget.data.workflow_info.splits;
+	var vl = document.getElementById('variable_list');
+	vl.options.length = 0;
+	for (i in widget.data.variables) {
+	    if (widget.data.variables.hasOwnProperty(i)) {
+		vl.options[vl.options.length] = new Option(i,i);
+	    }
+	}
+	var numfiles = 0;
+	widget.inputs = [];
+	for (i in widget.data.raw_inputs) {
+	    if (widget.data.raw_inputs.hasOwnProperty(i)) {
+		numfiles++;
+		widget.inputs.push("#i_"+numfiles);
+	    }
+	}
+	document.getElementById('wf_infiles').value = numfiles;
+	widget.tasks = { 0: 1 };
+	for (x=0;x<widget.data.tasks.length;x++) {
+	    widget.tasks[widget.data.tasks[x].taskid] = 1;
+	    for (h=0;h<widget.data.tasks[x].outputs.length;h++) {
+		widget.inputs.push(widget.data.tasks[x].outputs[h] +" ["+widget.data.tasks[x].taskid+"]");
+	    }
+	    widget.add_box(widget.data.tasks[x]);
+	}
+	widget.loading = 0;
+	
+	var dep = document.getElementById('task_depends');
+	var tin = document.getElementById('task_input');
+	tin.options.length = 0;
+	for (i=0; i<widget.inputs.length; i++) {
+	    tin.options[tin.options.length] = new Option(widget.inputs[i],widget.inputs[i]);
+	}
+	
+	dep.options.length = 0;
+	for (i in widget.tasks) {
+	    if (widget.tasks.hasOwnProperty(i)) {
+		dep.options[dep.options.length] = new Option(i,i);
+	    }
+	}
+	widget.update();
+    }
+    
     widget.load_workflow = function () {
 	var file = document.getElementById('workflow_load').files[0];
 	var fileReader = new FileReader();
 	fileReader.onload = (function(ev){
 	    widget.data = JSON.parse(ev.target.result);
-	    widget.loading = 1;
-	    widget.data.workflow_info.splits = 8;
-	    document.getElementById('wf_name').value = widget.data.workflow_info.name;
-	    document.getElementById('wf_author').value = widget.data.workflow_info.author;
-	    document.getElementById('wf_contact').value = widget.data.workflow_info.contact;
-	    document.getElementById('wf_description').value = widget.data.workflow_info.description;
-	    document.getElementById('wf_splits').value = widget.data.workflow_info.splits;
-	    var vl = document.getElementById('variable_list');
-	    vl.options.length = 0;
-	    for (i in widget.data.variables) {
-		if (widget.data.variables.hasOwnProperty(i)) {
-		    vl.options[vl.options.length] = new Option(i,i);
-		}
-	    }
-	    var numfiles = 0;
-	    widget.inputs = [];
-	    for (i in widget.data.raw_inputs) {
-		if (widget.data.raw_inputs.hasOwnProperty(i)) {
-		    numfiles++;
-		    widget.inputs.push("#i_"+numfiles);
-		}
-	    }
-	    document.getElementById('wf_infiles').value = numfiles;
-	    widget.tasks = { 0: 1 };
-	    for (x=0;x<widget.data.tasks.length;x++) {
-		widget.tasks[widget.data.tasks[x].taskid] = 1;
-		for (h=0;h<widget.data.tasks[x].outputs.length;h++) {
-		    widget.inputs.push(widget.data.tasks[x].outputs[h] +" ["+widget.data.tasks[x].taskid+"]");
-		}
-		widget.add_box(widget.data.tasks[x]);
-	    }
-	    widget.loading = 0;
-	    
-	    var dep = document.getElementById('task_depends');
-	    var tin = document.getElementById('task_input');
-	    tin.options.length = 0;
-	    for (i=0; i<widget.inputs.length; i++) {
-		tin.options[tin.options.length] = new Option(widget.inputs[i],widget.inputs[i]);
-	    }
-	    
-	    dep.options.length = 0;
-	    for (i in widget.tasks) {
-		if (widget.tasks.hasOwnProperty(i)) {
-		    dep.options[dep.options.length] = new Option(i,i);
-		}
-	    }
-	    widget.update();
+	    widget.parse_workflow();
 	});
 	fileReader.readAsText(file);
     };
@@ -466,7 +495,51 @@
 	box.widget = this.index;
 	box.addEventListener('click', function () {
 	    if (document.getElementById('edit_active').className == "btn active") {
-		console.log('active');
+		var tasks = Retina.WidgetInstances.awe_workflow[this.widget].data.tasks;
+		var thistask;
+		for (i=0;i<tasks.length;i++) {
+		    if (tasks[i].taskid == this.boxid) {
+			thistask = tasks[i];
+			break;
+		    }
+		}
+		var tdeps = {};
+		for (i=0;i<thistask.dependsOn.length;i++) {
+		    tdeps[thistask.dependsOn[i]] = true;
+		}
+		var touts = {};
+		for (i=0;i<thistask.outputs.length;i++) {
+		    touts[thistask.outputs[i]] = true;
+		}
+		document.getElementById('task_legend').innerHTML = "Edit Task "+this.boxid;
+		document.getElementById('add_task_button').innerHTML = "save changes";
+		document.getElementById('edit_cancel_button').style.display = "";
+		document.getElementById('task_command').value = thistask.cmd.name;
+		document.getElementById('task_args').value = thistask.cmd.args;
+		var tdep = document.getElementById('task_depends');
+		for (i=0;i<tdep.options.length;i++) {
+		    if (tdeps[tdep.options[i].value]) {
+			tdep.options[i].selected = true;
+		    } else {
+			tdep.options[i].selected = false;
+		    }
+		}
+		var tinp = document.getElementById('task_input');
+		for (i=0;i<tinp.options.length;i++) {
+		    if (thistask.inputs.hasOwnProperty(tdep.options[i].value)) {
+			tinp.options[i].selected = true;
+		    } else {
+			tinp.options[i].selected = false;
+		    }
+		}
+		var tout = document.getElementById('task_output');
+		for (i=0;i<tout.options.length;i++) {
+		    if (touts[tout.options[i].value]) {
+			tout.options[i].selected = true;
+		    } else {
+			tout.options[i].selected = false;
+		    }
+		}
 	    }
 	});
 	box.addEventListener('mouseover', function () {

@@ -101,7 +101,7 @@ func (wq *WQueue) Add(workunit *Workunit) (err error) {
 		return errors.New("try to push a workunit with an empty id")
 	}
 	wq.workMap[workunit.Id] = workunit
-	wq.wait[workunit.Id] = true
+	wq.StatusChange(workunit.Id, WORK_STAT_QUEUED)
 	return nil
 }
 
@@ -392,7 +392,7 @@ func (qm *QueueMgr) SuspendJob(jobid string, reason string) (err error) {
 	if err := job.UpdateState(JOB_STAT_SUSPEND, reason); err != nil {
 		return err
 	}
-	qm.DeleteJobPerf(jobid)
+	//qm.DeleteJobPerf(jobid)
 	qm.susJobs[jobid] = true
 
 	//suspend queueing workunits
@@ -402,8 +402,19 @@ func (qm *QueueMgr) SuspendJob(jobid string, reason string) (err error) {
 		}
 	}
 
+	//suspend parsed tasks
+	for _, task := range job.Tasks {
+		if task.State == TASK_STAT_QUEUED || task.State == TASK_STAT_INIT {
+			if _, ok := qm.taskMap[task.Id]; ok {
+				qm.taskMap[task.Id].State = TASK_STAT_SUSPEND
+				task.State = TASK_STAT_SUSPEND
+				job.UpdateTask(task)
+			}
+		}
+	}
+
 	qm.DeleteJobPerf(jobid)
-	Log.Event(EVENT_JOB_SUSPEND, "jobid="+jobid)
+	Log.Event(EVENT_JOB_SUSPEND, "jobid="+jobid+";reason="+reason)
 	return
 }
 
@@ -426,7 +437,7 @@ func (qm *QueueMgr) addTask(task *Task) (err error) {
 
 	task.State = TASK_STAT_PENDING
 	qm.taskMap[id] = task
-	if len(task.DependsOn) == 0 {
+	if qm.isTaskReady(task) {
 		if err := qm.taskEnQueue(task); err != nil {
 			jobid, _ := GetJobIdByTaskId(task.Id)
 			qm.SuspendJob(jobid, fmt.Sprintf("failed in enqueuing task %s, err=%s", task.Id, err.Error()))
@@ -458,32 +469,36 @@ func (qm *QueueMgr) deleteTasks(tasks []*Task) (err error) {
 
 //poll ready tasks and push into workQueue
 func (qm *QueueMgr) updateQueue() (err error) {
-
 	for _, task := range qm.taskMap {
-		ready := false
-		if task.State == TASK_STAT_PENDING {
-			ready = true
-			for _, predecessor := range task.DependsOn {
-				if _, haskey := qm.taskMap[predecessor]; haskey {
-					if qm.taskMap[predecessor].State != TASK_STAT_COMPLETED &&
-						qm.taskMap[predecessor].State != TASK_STAT_PASSED &&
-						qm.taskMap[predecessor].State != TASK_STAT_SKIPPED &&
-						qm.taskMap[predecessor].State != TASK_STAT_FAIL_SKIP {
-						ready = false
-					}
-				}
-			}
-		}
-		if task.Skip == 1 && task.Skippable() {
-			qm.skipTask(task)
-			ready = false
-		}
-		if ready {
+		if qm.isTaskReady(task) {
 			if err := qm.taskEnQueue(task); err != nil {
 				jobid, _ := GetJobIdByTaskId(task.Id)
 				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()))
 			}
 		}
+	}
+	return
+}
+
+//check whether a pending task is ready to enqueue (dependent tasks are all done)
+func (qm *QueueMgr) isTaskReady(task *Task) (ready bool) {
+	ready = false
+	if task.State == TASK_STAT_PENDING {
+		ready = true
+		for _, predecessor := range task.DependsOn {
+			if _, haskey := qm.taskMap[predecessor]; haskey {
+				if qm.taskMap[predecessor].State != TASK_STAT_COMPLETED &&
+					qm.taskMap[predecessor].State != TASK_STAT_PASSED &&
+					qm.taskMap[predecessor].State != TASK_STAT_SKIPPED &&
+					qm.taskMap[predecessor].State != TASK_STAT_FAIL_SKIP {
+					ready = false
+				}
+			}
+		}
+	}
+	if task.Skip == 1 && task.Skippable() {
+		qm.skipTask(task)
+		ready = false
 	}
 	return
 }
@@ -596,6 +611,10 @@ func (qm *QueueMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 	works, err = qm.workQueue.selectWorkunits(filtered, req.policy, req.count)
 	if err == nil { //get workunits successfully, put them into coWorkMap
 		for _, work := range works {
+			if _, ok := qm.workQueue.workMap[work.Id]; ok {
+				qm.workQueue.workMap[work.Id].Client = req.fromclient
+				qm.workQueue.workMap[work.Id].CheckoutTime = time.Now()
+			}
 			qm.workQueue.StatusChange(work.Id, WORK_STAT_CHECKOUT)
 		}
 	}
@@ -618,13 +637,18 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 		delete(qm.clientMap[clientid].Current_work, workid)
 	}
 	if task, ok := qm.taskMap[taskid]; ok {
+		if _, ok := qm.workQueue.workMap[workid]; !ok {
+			return
+		}
+		if qm.workQueue.workMap[workid].State != WORK_STAT_CHECKOUT { //could be suspended
+			return
+		}
 		if task.State == TASK_STAT_FAIL_SKIP {
 			// A work unit for this task failed before this one arrived.
 			// User set Skip=2 so the task was just skipped. Any subsiquent
 			// workunits are just deleted...
 			qm.workQueue.Delete(workid)
 		} else {
-
 			qm.updateTaskWorkStatus(taskid, rank, status)
 			if status == WORK_STAT_DONE {
 				//log event about work done (WD)
@@ -855,13 +879,29 @@ func (qm *QueueMgr) GetAllClients() []*Client {
 	return clients
 }
 
-func (qm *QueueMgr) ClientHeartBeat(id string) (client *Client, err error) {
-	if client, ok := qm.clientMap[id]; ok {
+func (qm *QueueMgr) ClientHeartBeat(id string) (hbmsg HBmsg, err error) {
+	hbmsg = make(map[string]string, 1)
+	if _, ok := qm.clientMap[id]; ok {
 		qm.clientMap[id].Tag = true
 		Log.Debug(3, "HeartBeatFrom:"+"clientid="+id+",name="+qm.clientMap[id].Name)
-		return client, nil
+
+		//get suspended workunit that need the client to discard
+		workids := qm.getWorkByClient(id)
+		suspended := []string{}
+		for _, workid := range workids {
+			if work, ok := qm.workQueue.workMap[workid]; ok {
+				if work.State == WORK_STAT_SUSPEND {
+					suspended = append(suspended, workid)
+				}
+			}
+		}
+		if len(suspended) > 0 {
+			hbmsg["discard"] = strings.Join(suspended, ",")
+		}
+		//hbmsg["discard"] = strings.Join(workids, ",")
+		return hbmsg, nil
 	}
-	return nil, errors.New(e.ClientNotFound)
+	return hbmsg, errors.New(e.ClientNotFound)
 }
 
 func (qm *QueueMgr) DeleteClient(id string) {
@@ -940,6 +980,40 @@ func (qm *QueueMgr) GetSuspendJobs() map[string]bool {
 	return qm.susJobs
 }
 
+//resubmit a suspended job
+func (qm *QueueMgr) ResumeSuspendedJob(id string) (err error) {
+	//Load job by id
+	dbjob, err := LoadJob(id)
+	if err != nil {
+		return errors.New("failed to load job " + err.Error())
+	}
+	if dbjob.State != JOB_STAT_SUSPEND {
+		return errors.New("job " + id + " is not in 'suspend' status")
+	}
+	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+	dbjob.UpdateState(JOB_STAT_INPROGRESS, "")
+	delete(qm.susJobs, id)
+	return
+}
+
+//re-submit a job in db but not in the queue (caused by server restarting)
+func (qm *QueueMgr) ResubmitJob(id string) (err error) {
+	//Load job by id
+	if _, ok := qm.actJobs[id]; ok {
+		return errors.New("job " + id + " is already active")
+	}
+	dbjob, err := LoadJob(id)
+	if err != nil {
+		return errors.New("failed to load job " + err.Error())
+	}
+	if dbjob.State != JOB_STAT_INPROGRESS &&
+		dbjob.State != JOB_STAT_SUSPEND {
+		return errors.New("job state 'in-progress' or 'suspend' needed while state=" + dbjob.State)
+	}
+	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+	return
+}
+
 //recover jobs not completed before awe-server restarts
 func (qm *QueueMgr) RecoverJobs() (err error) {
 	//Get jobs to be recovered from db whose states are "submitted"
@@ -958,14 +1032,15 @@ func (qm *QueueMgr) RecoverJobs() (err error) {
 		qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 		jobct += 1
 	}
-	qm.updateQueue()
 	fmt.Printf("%d unfinished jobs recovered\n", jobct)
 	return
 }
 
 //perf related
 func (qm *QueueMgr) CreateJobPerf(jobid string) {
-	qm.actJobs[jobid] = NewJobPerf(jobid)
+	if _, ok := qm.actJobs[jobid]; !ok {
+		qm.actJobs[jobid] = NewJobPerf(jobid)
+	}
 }
 
 func (qm *QueueMgr) FinalizeJobPerf(jobid string) {

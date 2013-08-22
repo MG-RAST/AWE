@@ -193,8 +193,38 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		cx.RespondWithData(filtered_jobs)
 		return
 	}
-
 	cx.RespondWithData(jobs)
+	return
+}
+
+// PUT: /job/{id} -> used for job manipulation
+func (cr *JobController) Update(id string, cx *goweb.Context) {
+	// Log Request and check for Auth
+	LogRequest(cx.Request)
+	// Gather query params
+	query := &Query{list: cx.Request.URL.Query()}
+	if query.Has("resume") { // to resume a suspended job
+		if err := queueMgr.ResumeSuspendedJob(id); err != nil {
+			cx.RespondWithErrorMessage("fail to resume job: "+id+" "+err.Error(), http.StatusBadRequest)
+		}
+		cx.RespondWithData("job resumed: " + id)
+		return
+	}
+	if query.Has("suspend") { // to suspend an in-progress job
+		if err := queueMgr.SuspendJob(id, "manually suspended"); err != nil {
+			cx.RespondWithErrorMessage("fail to suspend job: "+id+" "+err.Error(), http.StatusBadRequest)
+		}
+		cx.RespondWithData("job suspended: " + id)
+		return
+	}
+	if query.Has("resubmit") { // to re-submit a job from mongodb
+		if err := queueMgr.ResubmitJob(id); err != nil {
+			cx.RespondWithErrorMessage("fail to resubmit job: "+id+" "+err.Error(), http.StatusBadRequest)
+		}
+		cx.RespondWithData("job resubmitted: " + id)
+		return
+	}
+	cx.RespondWithData("no supported job operation requested")
 	return
 }
 

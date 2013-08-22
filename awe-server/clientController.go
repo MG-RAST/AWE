@@ -34,7 +34,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	}
 
 	//log event about client registration (CR)
-	Log.Event(EVENT_CLIENT_REGISTRATION, "clientid="+client.Id+";name="+client.Name)
+	Log.Event(EVENT_CLIENT_REGISTRATION, "clientid="+client.Id+";name="+client.Name+";host="+client.Host)
 
 	cx.RespondWithData(client)
 	return
@@ -42,19 +42,20 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 
 // GET: /client/{id}
 func (cr *ClientController) Read(id string, cx *goweb.Context) {
-	LogRequest(cx.Request)
-
 	// Gather query params
 	query := &Query{list: cx.Request.URL.Query()}
-	if query.Has("heartbeat") {
-		client, err := queueMgr.ClientHeartBeat(id)
+
+	if query.Has("heartbeat") { //handle heartbeat
+		hbmsg, err := queueMgr.ClientHeartBeat(id)
 		if err != nil {
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		} else {
-			cx.RespondWithData(client.Id)
+			cx.RespondWithData(hbmsg)
 		}
 		return
 	}
+
+	LogRequest(cx.Request) //skip heartbeat in access log
 
 	client, err := queueMgr.GetClient(id)
 	if err != nil {
@@ -95,17 +96,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 // PUT: /client/{id} -> status update
 func (cr *ClientController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
-	client, err := queueMgr.ClientHeartBeat(id)
-	if err != nil {
-		if err.Error() == e.ClientNotFound {
-			cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
-		} else {
-			Log.Error("Error in handle client heartbeat:" + err.Error())
-			cx.RespondWithError(http.StatusBadRequest)
-		}
-		return
-	}
-	cx.RespondWithData(client)
+	cx.RespondWithError(http.StatusNotImplemented)
 }
 
 // PUT: /client

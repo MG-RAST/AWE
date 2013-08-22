@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
 	"os"
+	"time"
 )
 
 const (
@@ -17,16 +18,19 @@ const (
 )
 
 type Workunit struct {
-	Id        string    `bson:"wuid" json:"wuid"`
-	Info      *Info     `bson:"info" json:"info"`
-	Inputs    IOmap     `bson:"inputs" json:"inputs"`
-	Outputs   IOmap     `bson:"outputs" json:"outputs"`
-	Cmd       *Command  `bson:"cmd" json:"cmd"`
-	Rank      int       `bson:"rank" json:"rank"`
-	TotalWork int       `bson:"totalwork" json:"totalwork"`
-	Partition *PartInfo `bson:"part" json:"part"`
-	State     string    `bson:"state" json:"state"`
-	Failed    int       `bson:"failed" json:"failed"`
+	Id           string    `bson:"wuid" json:"wuid"`
+	Info         *Info     `bson:"info" json:"info"`
+	Inputs       IOmap     `bson:"inputs" json:"inputs"`
+	Outputs      IOmap     `bson:"outputs" json:"outputs"`
+	Predata      IOmap     `bson:"predata" json:"predata"`
+	Cmd          *Command  `bson:"cmd" json:"cmd"`
+	Rank         int       `bson:"rank" json:"rank"`
+	TotalWork    int       `bson:"totalwork" json:"totalwork"`
+	Partition    *PartInfo `bson:"part" json:"part"`
+	State        string    `bson:"state" json:"state"`
+	Failed       int       `bson:"failed" json:"failed"`
+	CheckoutTime time.Time `bson:"checkout_time" json:"checkout_time"`
+	Client       string    `bson:"client" json:"client"`
 }
 
 func NewWorkunit(task *Task, rank int) *Workunit {
@@ -35,6 +39,7 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 		Info:      task.Info,
 		Inputs:    task.Inputs,
 		Outputs:   task.Outputs,
+		Predata:   task.Predata,
 		Cmd:       task.Cmd,
 		Rank:      rank,
 		TotalWork: task.TotalWork, //keep this info in workunit for load balancing

@@ -152,8 +152,8 @@
                      "output": "#jobname.hits.blat"
                 },
                 "taskid": "5",
-                "totalwork": #totalwork
-
+                "totalwork": #totalwork,
+                "maxworksize": 50
             }
         ]
     }

@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/conf"
 	. "github.com/MG-RAST/AWE/core"
 	. "github.com/MG-RAST/AWE/logger"
 	"io"
@@ -25,10 +26,17 @@ func dataMover(control chan int) {
 			status:   "unknown",
 		}
 
-		//make a working directory for the workunit
 		work := raw.workunit
+		workmap[work.Id] = ID_DATAMOVER
+		//make a working directory for the workunit
 		if err := work.Mkdir(); err != nil {
 			Log.Error("err@dataMover_work.Mkdir, workid=" + work.Id + " error=" + err.Error())
+			parsed.status = WORK_STAT_FAIL
+		}
+
+		//check the availability prerequisite data and download if needed
+		if err := movePreData(parsed.workunit); err != nil {
+			Log.Error("err@dataMover_work.movePreData, workid=" + work.Id + " error=" + err.Error())
 			parsed.status = WORK_STAT_FAIL
 		}
 
@@ -99,6 +107,7 @@ func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
 
 //fetch file by shock url
 func fetchFile(filename string, url string) (err error) {
+	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
 
 	localfile, err := os.Create(filename)
 	if err != nil {
@@ -126,4 +135,28 @@ func fetchFile(filename string, url string) (err error) {
 	}
 
 	return
+}
+
+//fetch prerequisite data (e.g. reference dbs)
+func movePreData(workunit *Workunit) (err error) {
+	for name, io := range workunit.Predata {
+		file_path := fmt.Sprintf("%s/%s", conf.DATA_PATH, name)
+		if !isFileExisting(file_path) {
+			if err = fetchFile(file_path, io.Url); err != nil {
+				return
+			}
+		}
+		//make a link in work dir to predata in conf.DATA_PATH
+		linkname := fmt.Sprintf("%s/%s", workunit.Path(), name)
+		fmt.Printf(linkname + " -> " + file_path + "\n")
+		os.Symlink(file_path, linkname)
+	}
+	return
+}
+
+func isFileExisting(path string) bool {
+	if _, err := os.Stat(path); err == nil {
+		return true
+	}
+	return false
 }

@@ -1,0 +1,101 @@
+    {
+        "workflow_info":{
+            "name":"mgrast-short",
+            "author":"wtang",
+            "contact":"wtang222@gmail.com",
+            "update_date":"2013-08-01",
+            "description":"6-stage MG-RAST pipeline (protein search part)"
+        },
+        "job_info":{
+            "jobname": "#default",
+            "project": "#default",
+            "user": "#default",
+            "queue": "#default"
+        },
+        "raw_inputs": {
+            "#i_1":"#data_url"
+        },
+        "data_server": "#shock_host",
+        "variables":{
+            "mem_size": "4G",
+            "prefix_length": "50",
+            "dereplicate": "-dereplicate",
+            "fgs_type": "454",
+            "aa_pid": "90"
+        },
+        "tasks": [
+            {
+                "taskid": 1,
+                "cmd": {
+                    "name": "awe_preprocess.pl",
+                    "args": "-input=@#i_1 -out_prefix=prep"
+                }, 
+                "dependsOn": [0],
+                "inputs": {
+                   "#i_1": 0
+                }, 
+                "outputs": ["prep.passed.fna", "prep.removed.fna"]
+            },
+            {
+                "taskid": 2, 
+                "cmd": {
+                    "name": "awe_dereplicate.pl",
+                    "args": "-input=@prep.passed.fna -out_prefix=derep -mem_size=$mem_size -prefix_length=$prefix_length $dereplicate"
+                }, 
+                "dependsOn": [1],
+                "inputs": {
+                   "prep.passed.fna": 1
+                }, 
+                "outputs": ["derep.passed.fna", "derep.removed.fna"],
+                "splits": 8
+            },
+            {
+                "taskid": 3,
+                "cmd": {
+                    "name": "awe_bowtie_screen.pl",
+                    "args": "-input=@derep.passed.fna -output=screened.fna -index=h_sapiens_asm"
+                }, 
+                "dependsOn": [2], 
+                "inputs": {
+                   "derep.passed.fna": 2
+                },
+                "outputs": ["screened.fna"]
+            },
+            {
+                "taskid": 4,
+                "cmd": {
+                    "name": "awe_genecalling.pl",
+                    "args": "-input=@screened.fna -out_prefix=genecalling.coding -fgs_type=$fgs_type"
+                }, 
+                "dependsOn": [3],
+                "inputs": {
+                   "screened.fna": 3
+                },
+                "outputs": ["genecalling.coding.faa", "genecalling.coding.fna"]
+            },
+            {
+                "taskid": 5,
+                "cmd": {
+                    "name": "awe_cluster_parallel.pl",
+                    "args": "-input=@genecalling.coding.faa --output=cluster.faa -aa -pid=$aa_pid"
+                }, 
+                "dependsOn": [4],
+                "inputs": {
+                   "genecalling.coding.faa": 4
+                },
+                "outputs": ["cluster.faa"]
+            },
+            {
+                "taskid": 6,
+                "cmd": {
+                    "name": "awe_blat.py",
+                    "args": "--input=@cluster.faa --output=hits.blat"
+                }, 
+                "dependsOn": [5], 
+                "inputs": {
+                   "cluster.faa": 5
+                },
+                "outputs": ["hits.blat"]
+            }
+        ]
+    }

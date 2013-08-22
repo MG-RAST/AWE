@@ -22,18 +22,20 @@ const (
 )
 
 type Task struct {
-	Id         string    `bson:"taskid" json:"taskid"`
-	Info       *Info     `bson:"info" json:"-"`
-	Inputs     IOmap     `bson:"inputs" json:"inputs"`
-	Outputs    IOmap     `bson:"outputs" json:"outputs"`
-	Cmd        *Command  `bson:"cmd" json:"cmd"`
-	Partition  *PartInfo `bson:"partinfo" json:"-"`
-	DependsOn  []string  `bson:"dependsOn" json:"dependsOn"`
-	TotalWork  int       `bson:"totalwork" json:"totalwork"`
-	RemainWork int       `bson:"remainwork" json:"remainwork"`
-	WorkStatus []string  `bson:"workstatus" json:"-"`
-	State      string    `bson:"state" json:"state"`
-	Skip       int       `bson:"skip" json:"-"`
+	Id          string    `bson:"taskid" json:"taskid"`
+	Info        *Info     `bson:"info" json:"-"`
+	Inputs      IOmap     `bson:"inputs" json:"inputs"`
+	Outputs     IOmap     `bson:"outputs" json:"outputs"`
+	Predata     IOmap     `bson:"predata" json:"predata"`
+	Cmd         *Command  `bson:"cmd" json:"cmd"`
+	Partition   *PartInfo `bson:"partinfo" json:"-"`
+	DependsOn   []string  `bson:"dependsOn" json:"dependsOn"`
+	TotalWork   int       `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize int       `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork  int       `bson:"remainwork" json:"remainwork"`
+	WorkStatus  []string  `bson:"workstatus" json:"-"`
+	State       string    `bson:"state" json:"state"`
+	Skip        int       `bson:"skip" json:"-"`
 }
 
 func NewTask(job *Job, rank int) *Task {
@@ -115,6 +117,7 @@ func (task *Task) InitPartIndex() (err error) {
 				input_io = io
 				task.Partition = new(PartInfo)
 				task.Partition.Input = filename
+				task.Partition.MaxPartSizeMB = task.MaxWorkSize
 				break
 			}
 		} else {
@@ -123,6 +126,9 @@ func (task *Task) InitPartIndex() (err error) {
 			return
 		}
 	} else {
+		if task.MaxWorkSize > 0 {
+			task.Partition.MaxPartSizeMB = task.MaxWorkSize
+		}
 		if task.Partition.MaxPartSizeMB == 0 && task.TotalWork <= 1 {
 			task.setTotalWork(1)
 			return
@@ -165,16 +171,19 @@ func (task *Task) InitPartIndex() (err error) {
 	if task.Partition.MaxPartSizeMB > 0 { // fixed max part size
 		//this implementation for chunkrecord indexer only
 		chunkmb := int(conf.DEFAULT_CHUNK_SIZE / 1048576)
+		var totalwork int
 		if totalunits*chunkmb%task.Partition.MaxPartSizeMB == 0 {
-			task.setTotalWork(totalunits * chunkmb / task.Partition.MaxPartSizeMB)
+			totalwork = totalunits * chunkmb / task.Partition.MaxPartSizeMB
 		} else {
-			totalwork := totalunits*chunkmb/task.Partition.MaxPartSizeMB + 1
-			task.setTotalWork(totalwork)
+			totalwork = totalunits*chunkmb/task.Partition.MaxPartSizeMB + 1
 		}
-	} else {
-		if totalunits < task.TotalWork {
-			task.setTotalWork(totalunits)
+		if totalwork < task.TotalWork { //use bigger splits (specified by size or totalwork)
+			totalwork = task.TotalWork
 		}
+		task.setTotalWork(totalwork)
+	}
+	if totalunits < task.TotalWork {
+		task.setTotalWork(totalunits)
 	}
 
 	task.Partition.Index = idxtype

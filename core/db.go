@@ -77,6 +77,11 @@ func (d *db) GetAllLimitOffset(q bson.M, results *Jobs, limit int, offset int) (
 	return
 }
 
+func (d *db) GetAllRecent(q bson.M, results *Jobs, recent int) (err error) {
+	err = d.Jobs.Find(q).Sort("-jid").Limit(recent).All(results)
+	return
+}
+
 func (d *db) Close() {
 	d.Session.Close()
 	return

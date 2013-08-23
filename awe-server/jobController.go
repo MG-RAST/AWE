@@ -119,7 +119,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 
 	// Gather params to make db query. Do not include the
 	// following list.
-	skip := map[string]int{"limit": 1, "skip": 1, "query": 1}
+	skip := map[string]int{"limit": 1, "skip": 1, "query": 1, "recent": 1}
 	if query.Has("query") {
 		for key, val := range query.All() {
 			_, s := skip[key]
@@ -134,8 +134,8 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	}
 
 	// Limit and skip. Set default if both are not specified
-	if query.Has("limit") || query.Has("skip") {
-		var lim, off int
+	if query.Has("limit") || query.Has("skip") || query.Has("recent") {
+		var lim, off, recent int
 		if query.Has("limit") {
 			lim, _ = strconv.Atoi(query.Value("limit"))
 		} else {
@@ -146,8 +146,17 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		} else {
 			off = 0
 		}
-		// Get jobs from db
-		err := jobs.GetAllLimitOffset(q, lim, off)
+		if query.Has("recent") {
+			recent, _ = strconv.Atoi(query.Value("recent"))
+		} else {
+			recent = 0
+		}
+		var err error
+		if recent > 0 {
+			err = jobs.GetAllRecent(q, recent)
+		} else {
+			err = jobs.GetAllLimitOffset(q, lim, off)
+		}
 		if err != nil {
 			Log.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)

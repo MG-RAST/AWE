@@ -27,6 +27,16 @@ func (n *Jobs) GetAllLimitOffset(q bson.M, limit int, offset int) (err error) {
 	return
 }
 
+func (n *Jobs) GetAllRecent(q bson.M, recent int) (err error) {
+	db, err := DBConnect()
+	if err != nil {
+		return
+	}
+	defer db.Close()
+	err = db.GetAllRecent(q, n, recent)
+	return
+}
+
 func (n *Jobs) GetJobAt(index int) Job {
 	return (*n)[index]
 }

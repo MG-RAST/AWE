@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+var QMgr *QueueMgr
+
 type QueueMgr struct {
 	clientMap map[string]*Client
 	taskMap   map[string]*Task
@@ -49,6 +51,10 @@ func NewQueueMgr() *QueueMgr {
 		susJobs:   map[string]bool{},
 		nextJid:   "",
 	}
+}
+
+func InitQueueMgr() {
+	QMgr = NewQueueMgr()
 }
 
 //----mgr methods---

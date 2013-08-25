@@ -1,8 +1,9 @@
-package main
+package controller
 
 import (
 	"github.com/MG-RAST/AWE/core"
 	e "github.com/MG-RAST/AWE/errors"
+	. "github.com/MG-RAST/AWE/lib/util"
 	. "github.com/MG-RAST/AWE/logger"
 	"github.com/jaredwilkening/goweb"
 	"io/ioutil"
@@ -18,11 +19,11 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 
 	// Load workunit by id
-	workunit, err := queueMgr.GetWorkById(id)
+	workunit, err := core.QMgr.GetWorkById(id)
 
 	if err != nil {
 		if err.Error() != e.QueueEmpty {
-			Log.Error("Err@work_Read:QueueMgr.GetWorkById(): " + err.Error())
+			Log.Error("Err@work_Read:core.QMgr.GetWorkById(): " + err.Error())
 		}
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
@@ -38,14 +39,14 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 	// Gather query params
-	query := &Query{list: cx.Request.URL.Query()}
+	query := &Query{Li: cx.Request.URL.Query()}
 
 	if !query.Has("client") { //view workunits
 		var workunits []*core.Workunit
 		if query.Has("state") {
-			workunits = queueMgr.ShowWorkunits(query.Value("state"))
+			workunits = core.QMgr.ShowWorkunits(query.Value("state"))
 		} else {
-			workunits = queueMgr.ShowWorkunits("")
+			workunits = core.QMgr.ShowWorkunits("")
 		}
 		cx.RespondWithData(workunits)
 		return
@@ -53,11 +54,11 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 	//checkout a workunit in FCFS order
 	clientid := query.Value("client")
-	workunits, err := queueMgr.CheckoutWorkunits("FCFS", clientid, 1)
+	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, 1)
 
 	if err != nil {
 		if err.Error() != e.QueueEmpty && err.Error() != e.NoEligibleWorkunitFound {
-			Log.Error("Err@work_ReadMany:QueueMgr.GetWorkByFCFS(): " + err.Error() + ";client=" + clientid)
+			Log.Error("Err@work_ReadMany:core.QMgr.GetWorkByFCFS(): " + err.Error() + ";client=" + clientid)
 		}
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
@@ -86,14 +87,14 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 	// Gather query params
-	query := &Query{list: cx.Request.URL.Query()}
+	query := &Query{Li: cx.Request.URL.Query()}
 
 	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
 		notice := core.Notice{WorkId: id, Status: query.Value("status"), ClientId: query.Value("client"), Notes: ""}
 		if query.Has("report") { // if "report" is specified in query, parse performance statistics or errlog
 			if _, files, err := ParseMultipartForm(cx.Request); err == nil {
 				if _, ok := files["perf"]; ok {
-					queueMgr.FinalizeWorkPerf(id, files["perf"].Path)
+					core.QMgr.FinalizeWorkPerf(id, files["perf"].Path)
 				}
 				if _, ok := files["notes"]; ok {
 					if notes, err := ioutil.ReadFile(files["notes"].Path); err == nil {
@@ -102,7 +103,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 				}
 			}
 		}
-		queueMgr.NotifyWorkStatus(notice)
+		core.QMgr.NotifyWorkStatus(notice)
 	}
 	cx.RespondWithData("ok")
 	return

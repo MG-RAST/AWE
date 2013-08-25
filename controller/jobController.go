@@ -1,9 +1,10 @@
-package main
+package controller
 
 import (
 	"fmt"
 	"github.com/MG-RAST/AWE/core"
 	e "github.com/MG-RAST/AWE/errors"
+	. "github.com/MG-RAST/AWE/lib/util"
 	. "github.com/MG-RAST/AWE/logger"
 	"github.com/jaredwilkening/goweb"
 	"labix.org/v2/mgo/bson"
@@ -58,7 +59,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	//send job submission request and get back an assigned job number (jid)
 	var jid string
-	jid, err = queueMgr.JobRegister()
+	jid, err = core.QMgr.JobRegister()
 	if err != nil {
 		Log.Error("Err@job_Create:GetNextJobNum: " + err.Error())
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
@@ -73,7 +74,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		return
 	}
 
-	queueMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
+	core.QMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
 
 	//log event about job submission (JB)
 	Log.Event(EVENT_JOB_SUBMISSION, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project)
@@ -111,7 +112,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
 	// Gather query params
-	query := &Query{list: cx.Request.URL.Query()}
+	query := &Query{Li: cx.Request.URL.Query()}
 
 	// Setup query and jobs objects
 	q := bson.M{}
@@ -176,7 +177,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	//because they may have failed and not recovered from the mongodb).
 	if query.Has("active") {
 		filtered_jobs := []core.Job{}
-		act_jobs := queueMgr.GetActiveJobs()
+		act_jobs := core.QMgr.GetActiveJobs()
 		length := jobs.Length()
 		for i := 0; i < length; i++ {
 			job := jobs.GetJobAt(i)
@@ -191,7 +192,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	//geting suspended job in the current queue (excluding jobs in db but not in qmgr)
 	if query.Has("suspend") {
 		filtered_jobs := []core.Job{}
-		suspend_jobs := queueMgr.GetSuspendJobs()
+		suspend_jobs := core.QMgr.GetSuspendJobs()
 		length := jobs.Length()
 		for i := 0; i < length; i++ {
 			job := jobs.GetJobAt(i)
@@ -211,23 +212,23 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 	// Gather query params
-	query := &Query{list: cx.Request.URL.Query()}
+	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("resume") { // to resume a suspended job
-		if err := queueMgr.ResumeSuspendedJob(id); err != nil {
+		if err := core.QMgr.ResumeSuspendedJob(id); err != nil {
 			cx.RespondWithErrorMessage("fail to resume job: "+id+" "+err.Error(), http.StatusBadRequest)
 		}
 		cx.RespondWithData("job resumed: " + id)
 		return
 	}
 	if query.Has("suspend") { // to suspend an in-progress job
-		if err := queueMgr.SuspendJob(id, "manually suspended"); err != nil {
+		if err := core.QMgr.SuspendJob(id, "manually suspended"); err != nil {
 			cx.RespondWithErrorMessage("fail to suspend job: "+id+" "+err.Error(), http.StatusBadRequest)
 		}
 		cx.RespondWithData("job suspended: " + id)
 		return
 	}
 	if query.Has("resubmit") { // to re-submit a job from mongodb
-		if err := queueMgr.ResubmitJob(id); err != nil {
+		if err := core.QMgr.ResubmitJob(id); err != nil {
 			cx.RespondWithErrorMessage("fail to resubmit job: "+id+" "+err.Error(), http.StatusBadRequest)
 		}
 		cx.RespondWithData("job resubmitted: " + id)
@@ -240,7 +241,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 // DELETE: /job/{id}
 func (cr *JobController) Delete(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
-	if err := queueMgr.DeleteJob(id); err != nil {
+	if err := core.QMgr.DeleteJob(id); err != nil {
 		cx.RespondWithErrorMessage("fail to delete job: "+id, http.StatusBadRequest)
 		return
 	}
@@ -252,10 +253,10 @@ func (cr *JobController) Delete(id string, cx *goweb.Context) {
 func (cr *JobController) DeleteMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	// Gather query params
-	query := &Query{list: cx.Request.URL.Query()}
+	query := &Query{Li: cx.Request.URL.Query()}
 
 	if query.Has("suspend") {
-		num := queueMgr.DeleteSuspendedJobs()
+		num := core.QMgr.DeleteSuspendedJobs()
 		cx.RespondWithData(fmt.Sprintf("deleted %d suspended jobs", num))
 	} else {
 		cx.RespondWithError(http.StatusNotImplemented)

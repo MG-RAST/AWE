@@ -8,6 +8,10 @@ import (
 	"strings"
 )
 
+var (
+	AwfMgr *WorkflowMgr
+)
+
 type WorkflowMgr struct {
 	awfMap     map[string]*Workflow
 	awfDirPath string
@@ -18,6 +22,10 @@ func NewWorkflowMgr() *WorkflowMgr {
 	wfm.awfMap = map[string]*Workflow{}
 	wfm.awfDirPath = conf.AWF_PATH
 	return wfm
+}
+
+func InitAwfMgr() {
+	AwfMgr = NewWorkflowMgr()
 }
 
 func (wfm *WorkflowMgr) GetWorkflow(name string) (awf *Workflow, err error) {

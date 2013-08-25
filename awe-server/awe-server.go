@@ -3,15 +3,12 @@ package main
 import (
 	"fmt"
 	"github.com/MG-RAST/AWE/conf"
+	"github.com/MG-RAST/AWE/controller"
 	"github.com/MG-RAST/AWE/core"
+	. "github.com/MG-RAST/AWE/lib/util"
 	. "github.com/MG-RAST/AWE/logger"
 	"github.com/jaredwilkening/goweb"
 	"os"
-)
-
-var (
-	queueMgr = core.NewQueueMgr()
-	awfMgr   = core.NewWorkflowMgr()
 )
 
 func launchSite(control chan int, port int) {
@@ -35,13 +32,14 @@ func launchSite(control chan int, port int) {
 }
 
 func launchAPI(control chan int, port int) {
+	c := controller.NewServerController()
 	goweb.ConfigureDefaultFormatters()
 	r := &goweb.RouteManager{}
-	r.MapRest("/job", new(JobController))
-	r.MapRest("/work", new(WorkController))
-	r.MapRest("/client", new(ClientController))
-	r.MapRest("/queue", new(QueueController))
-	r.MapRest("/awf", new(AwfController))
+	r.MapRest("/job", c.Job)
+	r.MapRest("/work", c.Work)
+	r.MapRest("/client", c.Client)
+	r.MapRest("/queue", c.Queue)
+	r.MapRest("/awf", c.Awf)
 	r.MapFunc("*", ResourceDescription, goweb.GetMethod)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.API_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
@@ -66,7 +64,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	printLogo()
+	core.InitQueueMgr()
+	core.InitAwfMgr()
+
+	PrintLogo()
 	conf.Print()
 
 	if _, err := os.Stat(conf.DATA_PATH); err != nil && os.IsNotExist(err) {
@@ -106,7 +107,7 @@ func main() {
 	}
 
 	//init max job number (jid)
-	if err := queueMgr.InitMaxJid(); err != nil {
+	if err := core.QMgr.InitMaxJid(); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		os.Exit(1)
 	}
@@ -114,7 +115,7 @@ func main() {
 	//recover unfinished jobs before server went down last time
 	if conf.RECOVER {
 		fmt.Println("####### Recovering unfinished jobs #######")
-		if err := queueMgr.RecoverJobs(); err != nil {
+		if err := core.QMgr.RecoverJobs(); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		}
 		fmt.Println("Done")
@@ -123,13 +124,13 @@ func main() {
 	//launch server
 	control := make(chan int)
 	go Log.Handle()
-	go queueMgr.Handle()
-	go queueMgr.Timer()
-	go queueMgr.ClientChecker()
+	go core.QMgr.Handle()
+	go core.QMgr.Timer()
+	go core.QMgr.ClientChecker()
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)
 
-	if err := awfMgr.LoadWorkflows(); err != nil {
+	if err := core.AwfMgr.LoadWorkflows(); err != nil {
 		Log.Error("LoadWorkflows: " + err.Error())
 	}
 

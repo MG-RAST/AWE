@@ -1,6 +1,8 @@
-package main
+package controller
 
 import (
+	"github.com/MG-RAST/AWE/core"
+	. "github.com/MG-RAST/AWE/lib/util"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
 )
@@ -27,7 +29,7 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 	// Gather query params
 	//	query := &Query{list: cx.Request.URL.Query()}
 
-	msg := queueMgr.ShowStatus()
+	msg := core.QMgr.ShowStatus()
 	cx.RespondWithData(msg)
 }
 

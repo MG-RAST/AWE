@@ -27,7 +27,7 @@ type Job struct {
 	Script      script    `bson:"script" json:"-"`
 	State       string    `bson:"state" json:"state"`
 	RemainTasks int       `bson:"remaintasks" json:"remaintasks"`
-	UpdateTime  time.Time `bson:"update" json:"updatetime"`
+	UpdateTime  time.Time `bson:"updatetime" json:"updatetime"`
 	Notes       string    `bson:"notes" json:"notes"`
 }
 

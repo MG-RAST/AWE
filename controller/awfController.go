@@ -1,6 +1,8 @@
-package main
+package controller
 
 import (
+	"github.com/MG-RAST/AWE/core"
+	. "github.com/MG-RAST/AWE/lib/util"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
 )
@@ -12,7 +14,7 @@ type AwfController struct{}
 func (cr *AwfController) Read(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 	// Load workunit by id
-	workflow, err := awfMgr.GetWorkflow(id)
+	workflow, err := core.AwfMgr.GetWorkflow(id)
 	if err != nil {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
@@ -26,7 +28,7 @@ func (cr *AwfController) Read(id string, cx *goweb.Context) {
 // get all loaded workflows
 func (cr *AwfController) ReadMany(cx *goweb.Context) {
 	// Gather query params
-	workflows := awfMgr.GetAllWorkflows()
+	workflows := core.AwfMgr.GetAllWorkflows()
 	cx.RespondWithData(workflows)
 	return
 }

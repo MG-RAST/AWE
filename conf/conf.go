@@ -20,13 +20,16 @@ var (
 	// Config File
 	CONFIG_FILE = ""
 
-	// AWE
+	// AWE server port
 	SITE_PORT = 8081
 	API_PORT  = 8001
-
-	//external address
+	// AWE server external address
 	SITE_URL = ""
 	API_URL  = ""
+
+	// AWE proxy port
+	P_SITE_PORT = 8082
+	P_API_PORT  = 8002
 
 	// SSL
 	SSL_ENABLED   = false
@@ -202,6 +205,10 @@ func init() {
 	if auto_clean_dir, err := c.Bool("Client", "auto_clean_dir"); err == nil {
 		AUTO_CLEAN_DIR = auto_clean_dir
 	}
+
+	//Proxy
+	P_SITE_PORT, _ = c.Int("Proxy", "p-site-port")
+	P_API_PORT, _ = c.Int("Proxy", "p-api-port")
 }
 
 func Print() {

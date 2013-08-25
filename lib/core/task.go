@@ -3,8 +3,8 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/conf"
-	. "github.com/MG-RAST/AWE/logger"
+	"github.com/MG-RAST/AWE/lib/conf"
+	. "github.com/MG-RAST/AWE/lib/logger"
 	"os/exec"
 	"strconv"
 	"strings"

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/conf"
+	"github.com/MG-RAST/AWE/lib/conf"
 	"io/ioutil"
 	"labix.org/v2/mgo/bson"
 	"net/http"

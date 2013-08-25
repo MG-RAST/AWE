@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"github.com/MG-RAST/AWE/core"
-	e "github.com/MG-RAST/AWE/errors"
+	"github.com/MG-RAST/AWE/lib/core"
+	e "github.com/MG-RAST/AWE/lib/errors"
+	. "github.com/MG-RAST/AWE/lib/logger"
 	. "github.com/MG-RAST/AWE/lib/util"
-	. "github.com/MG-RAST/AWE/logger"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
 )

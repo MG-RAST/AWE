@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/MG-RAST/AWE/conf"
+	"github.com/MG-RAST/AWE/lib/conf"
 	"time"
 )
 

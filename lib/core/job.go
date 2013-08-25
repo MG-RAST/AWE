@@ -3,8 +3,8 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/conf"
-	"github.com/MG-RAST/AWE/core/uuid"
+	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"io/ioutil"
 	"labix.org/v2/mgo/bson"
 	"os"

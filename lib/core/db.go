@@ -3,7 +3,7 @@ package core
 import (
 	//	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/conf"
+	"github.com/MG-RAST/AWE/lib/conf"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"os"

@@ -9,32 +9,18 @@ import (
 )
 
 var (
-	chanRaw       = make(chan *rawWork)       // workStealer -> dataMover
-	chanParsed    = make(chan *parsedWork)    // dataMover -> worker
-	chanProcessed = make(chan *processedWork) //worker -> deliverer
-	chanPerf      = make(chan *WorkPerf)      // -> perfmon
+	chanRaw       = make(chan *mediumwork) // workStealer -> dataMover
+	chanParsed    = make(chan *mediumwork) // dataMover -> worker
+	chanProcessed = make(chan *mediumwork) //worker -> deliverer
 	chanPermit    = make(chan bool)
 	self          = &Client{Id: "default-client"}
 	chankill      = make(chan bool)  //heartbeater -> worker
 	workmap       = map[string]int{} //workunit map [work_id]stage_id
 )
 
-type rawWork struct {
+type mediumwork struct {
 	workunit *Workunit
 	perfstat *WorkPerf
-}
-
-type parsedWork struct {
-	workunit *Workunit
-	perfstat *WorkPerf
-	args     []string
-	status   string
-}
-
-type processedWork struct {
-	workunit *Workunit
-	perfstat *WorkPerf
-	status   string
 }
 
 const (

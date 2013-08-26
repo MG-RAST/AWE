@@ -19,11 +19,9 @@ func dataMover(control chan int) {
 	defer fmt.Printf("dataMover exiting...\n")
 	for {
 		raw := <-chanRaw
-		parsed := &parsedWork{
+		parsed := &mediumwork{
 			workunit: raw.workunit,
 			perfstat: raw.perfstat,
-			args:     []string{},
-			status:   "unknown",
 		}
 
 		work := raw.workunit
@@ -31,23 +29,23 @@ func dataMover(control chan int) {
 		//make a working directory for the workunit
 		if err := work.Mkdir(); err != nil {
 			Log.Error("err@dataMover_work.Mkdir, workid=" + work.Id + " error=" + err.Error())
-			parsed.status = WORK_STAT_FAIL
+			parsed.workunit.State = WORK_STAT_FAIL
 		}
 
 		//check the availability prerequisite data and download if needed
 		if err := movePreData(parsed.workunit); err != nil {
 			Log.Error("err@dataMover_work.movePreData, workid=" + work.Id + " error=" + err.Error())
-			parsed.status = WORK_STAT_FAIL
+			parsed.workunit.State = WORK_STAT_FAIL
 		}
 
 		//parse the args, including fetching input data from Shock and composing the local file path
 		datamove_start := time.Now().Unix()
 		if arglist, err := ParseWorkunitArgs(parsed.workunit); err == nil {
-			parsed.status = WORK_STAT_PREPARED
-			parsed.args = arglist
+			parsed.workunit.State = WORK_STAT_PREPARED
+			parsed.workunit.Cmd.ParsedArgs = arglist
 		} else {
 			Log.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + work.Id + " error=" + err.Error())
-			parsed.status = WORK_STAT_FAIL
+			parsed.workunit.State = WORK_STAT_FAIL
 		}
 		datamove_end := time.Now().Unix()
 		parsed.perfstat.DataIn = datamove_end - datamove_start

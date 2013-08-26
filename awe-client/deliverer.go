@@ -24,12 +24,12 @@ func deliverer(control chan int) {
 
 		//post-process for works computed successfully: push output data to Shock
 		move_start := time.Now().Unix()
-		if processed.status == WORK_STAT_COMPUTED {
+		if work.State == WORK_STAT_COMPUTED {
 			if err := pushOutputData(work); err != nil {
-				processed.status = WORK_STAT_FAIL
+				work.State = WORK_STAT_FAIL
 				Log.Error("err@pushOutputData: workid=" + work.Id + ", err=" + err.Error())
 			} else {
-				processed.status = WORK_STAT_DONE
+				work.State = WORK_STAT_DONE
 			}
 		}
 		move_end := time.Now().Unix()
@@ -39,9 +39,9 @@ func deliverer(control chan int) {
 		perfstat.ClientId = self.Id
 
 		//notify server the final process results
-		if err := notifyWorkunitProcessed(work, processed.status, perfstat); err != nil {
+		if err := notifyWorkunitProcessed(work, perfstat); err != nil {
 			time.Sleep(3 * time.Second) //wait 3 seconds and try another time
-			if err := notifyWorkunitProcessed(work, processed.status, perfstat); err != nil {
+			if err := notifyWorkunitProcessed(work, perfstat); err != nil {
 				fmt.Printf("!!!NotifyWorkunitDone returned error: %s\n", err.Error())
 				Log.Error("err@NotifyWorkunitProcessed: workid=" + work.Id + ", err=" + err.Error())
 				//mark this work in Current_work map as false, something needs to be done in the future
@@ -50,7 +50,7 @@ func deliverer(control chan int) {
 			}
 		}
 		//now final status report sent to server, update some local info
-		if processed.status == WORK_STAT_DONE {
+		if work.State == WORK_STAT_DONE {
 			Log.Event(EVENT_WORK_DONE, "workid="+work.Id)
 			self.Total_completed += 1
 
@@ -111,13 +111,13 @@ func pushOutputData(work *Workunit) (err error) {
 }
 
 //notify AWE server a workunit is finished with status either "failed" or "done", and with perf statistics if "done"
-func notifyWorkunitProcessed(work *Workunit, status string, perf *WorkPerf) (err error) {
-	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s", conf.SERVER_URL, work.Id, status, self.Id)
+func notifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
+	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s", conf.SERVER_URL, work.Id, work.State, self.Id)
 
 	argv := []string{}
 	argv = append(argv, "-X")
 	argv = append(argv, "PUT")
-	if status == WORK_STAT_DONE {
+	if work.State == WORK_STAT_DONE {
 		reportFile, err := getPerfFilePath(work, perf)
 		if err == nil {
 			argv = append(argv, "-F")

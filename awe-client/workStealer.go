@@ -59,7 +59,7 @@ func workStealer(control chan int) {
 		//hand the work to the next step handler: dataMover
 		workstat := NewWorkPerf(wu.Id)
 		workstat.Checkout = time.Now().Unix()
-		rawWork := &rawWork{
+		rawWork := &mediumwork{
 			workunit: wu,
 			perfstat: workstat,
 		}

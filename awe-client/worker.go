@@ -20,26 +20,25 @@ func worker(control chan int) {
 		work := parsedwork.workunit
 		workmap[work.Id] = ID_WORKER
 
-		processed := &processedWork{
+		processed := &mediumwork{
 			workunit: work,
 			perfstat: parsedwork.perfstat,
-			status:   "unknown",
 		}
 
 		//if the work is not succesfully parsed in last stage, pass it into the next one immediately
-		if parsedwork.status == WORK_STAT_FAIL {
-			processed.status = WORK_STAT_FAIL
+		if work.State == WORK_STAT_FAIL {
+			processed.workunit.State = WORK_STAT_FAIL
 			chanProcessed <- processed
 			continue
 		}
 
 		run_start := time.Now().Unix()
-		if err := RunWorkunit(parsedwork); err != nil {
+		if err := RunWorkunit(work); err != nil {
 			fmt.Printf("!!!RunWorkunit() returned error: %s\n", err.Error())
 			Log.Error("RunWorkunit(): workid=" + work.Id + ", " + err.Error())
-			processed.status = WORK_STAT_FAIL
+			processed.workunit.State = WORK_STAT_FAIL
 		} else {
-			processed.status = WORK_STAT_COMPUTED
+			processed.workunit.State = WORK_STAT_COMPUTED
 		}
 		run_end := time.Now().Unix()
 		processed.perfstat.Runtime = run_end - run_start
@@ -49,10 +48,9 @@ func worker(control chan int) {
 	control <- ID_WORKER //we are ending
 }
 
-func RunWorkunit(parsed *parsedWork) (err error) {
+func RunWorkunit(work *Workunit) (err error) {
 
-	work := parsed.workunit
-	args := parsed.args
+	args := work.Cmd.ParsedArgs
 
 	//change cwd to the workunit's working directory
 	if err := work.CDworkpath(); err != nil {

@@ -89,7 +89,7 @@ func main() {
 	go heartBeater(control)
 	go workStealer(control)
 	go dataMover(control)
-	go worker(control)
+	go processor(control)
 	go deliverer(control)
 	for {
 		who := <-control //block till someone dies and then restart it
@@ -104,7 +104,7 @@ func main() {
 			go dataMover(control)
 			Log.Error("dataMover died and restarted")
 		case ID_WORKER:
-			go worker(control)
+			go processor(control)
 			Log.Error("worker died and restarted")
 		case ID_DELIVERER:
 			go deliverer(control)

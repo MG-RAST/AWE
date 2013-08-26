@@ -12,9 +12,9 @@ import (
 	"time"
 )
 
-func worker(control chan int) {
-	fmt.Printf("worker lanched, client=%s\n", self.Id)
-	defer fmt.Printf("worker exiting...\n")
+func processor(control chan int) {
+	fmt.Printf("processor lanched, client=%s\n", self.Id)
+	defer fmt.Printf("processor exiting...\n")
 	for {
 		parsedwork := <-chanParsed
 		work := parsedwork.workunit

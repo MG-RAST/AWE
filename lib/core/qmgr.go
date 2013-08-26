@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	e "github.com/MG-RAST/AWE/lib/errors"
-	. "github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io/ioutil"
 	"labix.org/v2/mgo/bson"
 	"os"
@@ -90,26 +91,26 @@ func (qm *QueueMgr) Handle() {
 		case <-qm.jsReq:
 			jid := qm.getNextJid()
 			qm.jsAck <- jid
-			Log.Debug(2, fmt.Sprintf("qmgr:receive a job submission request, assigned jid=%s\n", jid))
+			logger.Debug(2, fmt.Sprintf("qmgr:receive a job submission request, assigned jid=%s\n", jid))
 
 		case task := <-qm.taskIn:
-			Log.Debug(2, fmt.Sprintf("qmgr:task recived from chan taskIn, id=%s\n", task.Id))
+			logger.Debug(2, fmt.Sprintf("qmgr:task recived from chan taskIn, id=%s\n", task.Id))
 			qm.addTask(task)
 
 		case coReq := <-qm.coReq:
-			Log.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v\n", coReq))
+			logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v\n", coReq))
 			works, err := qm.popWorks(coReq)
 			ack := CoAck{workunits: works, err: err}
 			qm.coAck <- ack
 
 		case notice := <-qm.feedback:
-			Log.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
+			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
 			if err := qm.handleWorkStatusChange(notice); err != nil {
-				Log.Error("handleWorkStatusChange(): " + err.Error())
+				logger.Error("handleWorkStatusChange(): " + err.Error())
 			}
 
 		case <-qm.reminder:
-			Log.Debug(3, "time to update workunit queue....\n")
+			logger.Debug(3, "time to update workunit queue....\n")
 			qm.updateQueue()
 			if conf.DEV_MODE {
 				fmt.Println(qm.ShowStatus())
@@ -149,7 +150,7 @@ func (qm *QueueMgr) InitMaxJid() (err error) {
 
 		qm.nextJid = strconv.Itoa(maxjid + 1)
 	}
-	Log.Debug(2, fmt.Sprintf("qmgr:jid initialized, next jid=%s\n", qm.nextJid))
+	logger.Debug(2, fmt.Sprintf("qmgr:jid initialized, next jid=%s\n", qm.nextJid))
 	return
 }
 
@@ -262,14 +263,14 @@ func (qm *QueueMgr) ClientChecker() {
 				}
 			} else {
 				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
-				Log.Event(EVENT_CLIENT_UNREGISTER, "clientid="+clientid+";name="+qm.clientMap[clientid].Name)
+				logger.Event(event.CLIENT_UNREGISTER, "clientid="+clientid+";name="+qm.clientMap[clientid].Name)
 
 				//requeue unfinished workunits associated with the failed client
 				workids := qm.getWorkByClient(clientid)
 				for _, workid := range workids {
 					if qm.workQueue.Has(workid) {
 						qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
-						Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
+						logger.Event(event.WORK_REQUEUE, "workid="+workid)
 					}
 				}
 				//delete the client from client map
@@ -283,7 +284,7 @@ func (qm *QueueMgr) ClientHeartBeat(id string) (hbmsg HBmsg, err error) {
 	hbmsg = make(map[string]string, 1)
 	if _, ok := qm.clientMap[id]; ok {
 		qm.clientMap[id].Tag = true
-		Log.Debug(3, "HeartBeatFrom:"+"clientid="+id+",name="+qm.clientMap[id].Name)
+		logger.Debug(3, "HeartBeatFrom:"+"clientid="+id+",name="+qm.clientMap[id].Name)
 
 		//get suspended workunit that need the client to discard
 		workids := qm.getWorkByClient(id)
@@ -476,7 +477,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 			qm.updateTaskWorkStatus(taskid, rank, status)
 			if status == WORK_STAT_DONE {
 				//log event about work done (WD)
-				Log.Event(EVENT_WORK_DONE, "workid="+workid+";clientid="+clientid)
+				logger.Event(event.WORK_DONE, "workid="+workid+";clientid="+clientid)
 
 				//update client status
 				if client, ok := qm.clientMap[clientid]; ok {
@@ -494,7 +495,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 					}
 					//log event about task done (TD)
 					qm.FinalizeTaskPerf(taskid)
-					Log.Event(EVENT_TASK_DONE, "taskid="+taskid)
+					logger.Event(event.TASK_DONE, "taskid="+taskid)
 					//update the info of the job which the task is belong to, could result in deletion of the
 					//task in the task map when the task is the final task of the job to be done.
 					if err = qm.updateJobTask(task); err != nil { //task state QUEUED -> COMPELTED
@@ -505,7 +506,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 				//done, remove from the workQueue
 				qm.workQueue.Delete(workid)
 			} else if status == WORK_STAT_FAIL { //workunit failed, requeue or put it to suspend list
-				Log.Event(EVENT_WORK_FAIL, "workid="+workid+";clientid="+clientid)
+				logger.Event(event.WORK_FAIL, "workid="+workid+";clientid="+clientid)
 				if qm.workQueue.Has(workid) {
 					qm.workQueue.workMap[workid].Failed += 1
 					if task.Skip == 2 && task.Skippable() { // user wants to skip task
@@ -518,7 +519,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 						}
 						qm.FinalizeTaskPerf(taskid)
 						// log event about task skipped
-						Log.Event(EVENT_TASK_SKIPPED, "taskid="+taskid)
+						logger.Event(event.TASK_SKIPPED, "taskid="+taskid)
 						//update the info of the job which the task is belong to, could result in deletion of the
 						//task in the task map when the task is the final task of the job to be done.
 						if err = qm.updateJobTask(task); err != nil { //task state QUEUED -> FAIL_SKIP
@@ -529,10 +530,10 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 						qm.workQueue.Delete(workid)
 					} else if qm.workQueue.workMap[workid].Failed < conf.MAX_WORK_FAILURE {
 						qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
-						Log.Event(EVENT_WORK_REQUEUE, "workid="+workid)
+						logger.Event(event.WORK_REQUEUE, "workid="+workid)
 					} else { //failure time exceeds limit, suspend workunit, task, job
 						qm.workQueue.StatusChange(workid, WORK_STAT_SUSPEND)
-						Log.Event(EVENT_WORK_SUSPEND, "workid="+workid)
+						logger.Event(event.WORK_SUSPEND, "workid="+workid)
 						qm.updateTaskWorkStatus(taskid, rank, WORK_STAT_SUSPEND)
 						qm.taskMap[taskid].State = TASK_STAT_SUSPEND
 
@@ -541,7 +542,7 @@ func (qm *QueueMgr) handleWorkStatusChange(notice Notice) (err error) {
 							reason = reason + " msg from client:" + notice.Notes
 						}
 						if err := qm.SuspendJob(jobid, reason); err != nil {
-							Log.Error("error returned by SuspendJOb()" + err.Error())
+							logger.Error("error returned by SuspendJOb()" + err.Error())
 						}
 					}
 				}
@@ -623,7 +624,7 @@ func (qm *QueueMgr) skipTask(task *Task) (err error) {
 		return
 	}
 	qm.taskMap[task.Id] = task
-	Log.Event(EVENT_TASK_SKIPPED, "taskid="+task.Id)
+	logger.Event(event.TASK_SKIPPED, "taskid="+task.Id)
 	return
 }
 
@@ -657,32 +658,32 @@ func (qm *QueueMgr) isTaskReady(task *Task) (ready bool) {
 
 func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 
-	Log.Debug(2, "trying to enqueue task "+task.Id)
+	logger.Debug(2, "trying to enqueue task "+task.Id)
 
 	if err := qm.locateInputs(task); err != nil {
-		Log.Error("qmgr.taskEnQueue locateInputs:" + err.Error())
+		logger.Error("qmgr.taskEnQueue locateInputs:" + err.Error())
 		return err
 	}
 
 	//init partition
 	if err := task.InitPartIndex(); err != nil {
-		Log.Error("qmgr.taskEnQueue InitPartitionIndex:" + err.Error())
+		logger.Error("qmgr.taskEnQueue InitPartitionIndex:" + err.Error())
 		return err
 	}
 
 	if err := qm.createOutputNode(task); err != nil {
-		Log.Error("qmgr.taskEnQueue createOutputNode:" + err.Error())
+		logger.Error("qmgr.taskEnQueue createOutputNode:" + err.Error())
 		return err
 	}
 	if err := qm.parseTask(task); err != nil {
-		Log.Error("qmgr.taskEnQueue parseTask:" + err.Error())
+		logger.Error("qmgr.taskEnQueue parseTask:" + err.Error())
 		return err
 	}
 	task.State = TASK_STAT_QUEUED
 	qm.updateJobTask(task) //task status PENDING->QUEUED
 
 	//log event about task enqueue (TQ)
-	Log.Event(EVENT_TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task.Id, task.TotalWork))
+	logger.Event(event.TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task.Id, task.TotalWork))
 	qm.CreateTaskPerf(task.Id)
 
 	if IsFirstTask(task.Id) {
@@ -693,7 +694,7 @@ func (qm *QueueMgr) taskEnQueue(task *Task) (err error) {
 }
 
 func (qm *QueueMgr) locateInputs(task *Task) (err error) {
-	Log.Debug(2, "trying to locate Inputs of task "+task.Id)
+	logger.Debug(2, "trying to locate Inputs of task "+task.Id)
 	jobid := strings.Split(task.Id, "_")[0]
 	for name, io := range task.Inputs {
 		if io.Url == "" {
@@ -722,7 +723,7 @@ func (qm *QueueMgr) locateInputs(task *Task) (err error) {
 		if io.GetFileSize() < 0 {
 			return errors.New(fmt.Sprintf("task %s: input file %s not available", task.Id, name))
 		}
-		Log.Debug(2, fmt.Sprintf("inputs located %s, %s\n", name, io.Node))
+		logger.Debug(2, fmt.Sprintf("inputs located %s, %s\n", name, io.Node))
 	}
 	return
 }
@@ -744,13 +745,13 @@ func (qm *QueueMgr) parseTask(task *Task) (err error) {
 func (qm *QueueMgr) createOutputNode(task *Task) (err error) {
 	outputs := task.Outputs
 	for name, io := range outputs {
-		Log.Debug(2, fmt.Sprintf("posting output Shock node for file %s in task %s\n", name, task.Id))
+		logger.Debug(2, fmt.Sprintf("posting output Shock node for file %s in task %s\n", name, task.Id))
 		nodeid, err := PostNode(io, task.TotalWork)
 		if err != nil {
 			return err
 		}
 		io.Node = nodeid
-		Log.Debug(2, fmt.Sprintf("task %s: output Shock node created, node=%s\n", task.Id, nodeid))
+		logger.Debug(2, fmt.Sprintf("task %s: output Shock node created, node=%s\n", task.Id, nodeid))
 	}
 	return
 }
@@ -817,7 +818,7 @@ func (qm *QueueMgr) updateJobTask(task *Task) (err error) {
 			delete(qm.taskMap, task.Id)
 		}
 		//log event about job done (JD)
-		Log.Event(EVENT_JOB_DONE, "jobid="+job.Id)
+		logger.Event(event.JOB_DONE, "jobid="+job.Id)
 	}
 	return
 }
@@ -860,7 +861,7 @@ func (qm *QueueMgr) SuspendJob(jobid string, reason string) (err error) {
 	}
 
 	qm.DeleteJobPerf(jobid)
-	Log.Event(EVENT_JOB_SUSPEND, "jobid="+jobid+";reason="+reason)
+	logger.Event(event.JOB_SUSPEND, "jobid="+jobid+";reason="+reason)
 	return
 }
 
@@ -942,7 +943,7 @@ func (qm *QueueMgr) RecoverJobs() (err error) {
 	lim := 1000
 	off := 0
 	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {
-		Log.Error("RecoverJobs()->GetAllLimitOffset():" + err.Error())
+		logger.Error("RecoverJobs()->GetAllLimitOffset():" + err.Error())
 		return err
 	}
 	//Locate the job script and parse tasks for each job
@@ -1045,7 +1046,7 @@ func (qm *QueueMgr) FinalizeWorkPerf(workid string, reportfile string) (err erro
 func (qm *QueueMgr) LogJobPerf(jobid string) {
 	if perf, ok := qm.actJobs[jobid]; ok {
 		perfstr, _ := json.Marshal(perf)
-		Log.Perf(string(perfstr))
+		logger.Perf(string(perfstr))
 	}
 }
 

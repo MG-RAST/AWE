@@ -3,7 +3,8 @@ package main
 import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
-	. "github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/worker"
 	"os"
 )
@@ -55,11 +56,10 @@ func main() {
 		logdir = conf.CLIENT_NAME
 	}
 
-	Log = NewLogger("client-" + logdir)
-	go Log.Handle()
+	logger.Initialize("client-" + logdir)
 
 	fmt.Printf("Client registered, name=%s, id=%s\n", self.Name, self.Id)
-	Log.Event(EVENT_CLIENT_REGISTRATION, "clientid="+self.Id)
+	logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)
 
 	if err := worker.InitWorkers(self); err == nil {
 		worker.StartWorkers()

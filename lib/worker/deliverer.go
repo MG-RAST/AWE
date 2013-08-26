@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
-	. "github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -27,7 +28,7 @@ func deliverer(control chan int) {
 		if work.State == core.WORK_STAT_COMPUTED {
 			if err := pushOutputData(work); err != nil {
 				work.State = core.WORK_STAT_FAIL
-				Log.Error("err@pushOutputData: workid=" + work.Id + ", err=" + err.Error())
+				logger.Error("err@pushOutputData: workid=" + work.Id + ", err=" + err.Error())
 			} else {
 				work.State = core.WORK_STAT_DONE
 			}
@@ -43,7 +44,7 @@ func deliverer(control chan int) {
 			time.Sleep(3 * time.Second) //wait 3 seconds and try another time
 			if err := notifyWorkunitProcessed(work, perfstat); err != nil {
 				fmt.Printf("!!!NotifyWorkunitDone returned error: %s\n", err.Error())
-				Log.Error("err@NotifyWorkunitProcessed: workid=" + work.Id + ", err=" + err.Error())
+				logger.Error("err@NotifyWorkunitProcessed: workid=" + work.Id + ", err=" + err.Error())
 				//mark this work in Current_work map as false, something needs to be done in the future
 				//to clean this kind of work that has been proccessed but its result can't be sent to server!
 				self.Current_work[work.Id] = false //server doesn't know this yet
@@ -51,16 +52,16 @@ func deliverer(control chan int) {
 		}
 		//now final status report sent to server, update some local info
 		if work.State == core.WORK_STAT_DONE {
-			Log.Event(EVENT_WORK_DONE, "workid="+work.Id)
+			logger.Event(event.WORK_DONE, "workid="+work.Id)
 			self.Total_completed += 1
 
 			if conf.AUTO_CLEAN_DIR {
 				if err := work.RemoveDir(); err != nil {
-					Log.Error("err@work.RemoveDir(): workid=" + work.Id + ", err=" + err.Error())
+					logger.Error("err@work.RemoveDir(): workid=" + work.Id + ", err=" + err.Error())
 				}
 			}
 		} else {
-			Log.Event(EVENT_WORK_RETURN, "workid="+work.Id)
+			logger.Event(event.WORK_RETURN, "workid="+work.Id)
 			self.Total_failed += 1
 		}
 		delete(self.Current_work, work.Id)
@@ -89,8 +90,8 @@ func pushOutputData(work *core.Workunit) (err error) {
 				return errors.New(fmt.Sprintf("workunit %s generated zero-sized output %s while non-zero-sized file required", work.Id, name))
 			}
 		}
-		Log.Debug(2, "deliverer: push output to shock, filename="+name)
-		Log.Event(EVENT_FILE_OUT,
+		logger.Debug(2, "deliverer: push output to shock, filename="+name)
+		logger.Event(event.FILE_OUT,
 			"workid="+work.Id,
 			"filename="+name,
 			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
@@ -98,11 +99,11 @@ func pushOutputData(work *core.Workunit) (err error) {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
 			if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {
 				fmt.Errorf("push file error\n")
-				Log.Error("op=pushfile,err=" + err.Error())
+				logger.Error("op=pushfile,err=" + err.Error())
 				return err
 			}
 		}
-		Log.Event(EVENT_FILE_DONE,
+		logger.Event(event.FILE_DONE,
 			"workid="+work.Id,
 			"filename="+name,
 			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
@@ -156,7 +157,7 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 		argv = append(argv, fmt.Sprintf("%d=@%s", rank, filename))
 	}
 	argv = append(argv, target_url)
-	Log.Debug(2, fmt.Sprintf("deliverer: curl argv=%#v", argv))
+	logger.Debug(2, fmt.Sprintf("deliverer: curl argv=%#v", argv))
 	cmd := exec.Command("curl", argv...)
 	err = cmd.Run()
 	if err != nil {

@@ -2,7 +2,7 @@ package controller
 
 import (
 	"github.com/MG-RAST/AWE/lib/core"
-	. "github.com/MG-RAST/AWE/lib/util"
+	"github.com/MG-RAST/AWE/lib/util"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
 )
@@ -12,7 +12,7 @@ type AwfController struct{}
 // GET: /awf/{name}
 // get a workflow by name, read-only
 func (cr *AwfController) Read(id string, cx *goweb.Context) {
-	LogRequest(cx.Request)
+	util.LogRequest(cx.Request)
 	// Load workunit by id
 	workflow, err := core.AwfMgr.GetWorkflow(id)
 	if err != nil {

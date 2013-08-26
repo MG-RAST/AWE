@@ -7,7 +7,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
-	. "github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -49,9 +50,9 @@ func workStealer(control chan int) {
 		} else {
 			retry = 0
 		}
-		Log.Debug(2, "workStealer: checked out a workunit: id="+wu.Id)
+		logger.Debug(2, "workStealer: checked out a workunit: id="+wu.Id)
 		//log event about work checktout (WC)
-		Log.Event(EVENT_WORK_CHECKOUT, "workid="+wu.Id)
+		logger.Event(event.WORK_CHECKOUT, "workid="+wu.Id)
 		self.Total_checkout += 1
 		self.Current_work[wu.Id] = true
 		workmap[wu.Id] = ID_WORKSTEALER
@@ -79,7 +80,7 @@ func CheckoutWorkunitRemote(serverhost string) (workunit *core.Workunit, err err
 
 	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", serverhost, self.Id))
 
-	Log.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s", self.Id, serverhost))
+	logger.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s", self.Id, serverhost))
 
 	if err != nil {
 		return

@@ -5,8 +5,9 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/controller"
 	"github.com/MG-RAST/AWE/lib/core"
-	. "github.com/MG-RAST/AWE/lib/logger"
-	. "github.com/MG-RAST/AWE/lib/util"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/util"
 	"github.com/jaredwilkening/goweb"
 	"os"
 )
@@ -14,18 +15,18 @@ import (
 func launchSite(control chan int, port int) {
 	goweb.ConfigureDefaultFormatters()
 	r := &goweb.RouteManager{}
-	r.MapFunc("*", SiteDir)
+	r.MapFunc("*", util.SiteDir)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.SITE_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: site: %v\n", err)
-			Log.Error("ERROR: site: " + err.Error())
+			logger.Error("ERROR: site: " + err.Error())
 		}
 	} else {
 		err := goweb.ListenAndServeRoutes(fmt.Sprintf(":%d", conf.SITE_PORT), r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: site: %v\n", err)
-			Log.Error("ERROR: site: " + err.Error())
+			logger.Error("ERROR: site: " + err.Error())
 		}
 	}
 	control <- 1 //we are ending
@@ -40,18 +41,18 @@ func launchAPI(control chan int, port int) {
 	r.MapRest("/client", c.Client)
 	r.MapRest("/queue", c.Queue)
 	r.MapRest("/awf", c.Awf)
-	r.MapFunc("*", ResourceDescription, goweb.GetMethod)
+	r.MapFunc("*", util.ResourceDescription, goweb.GetMethod)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.API_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: api: %v\n", err)
-			Log.Error("ERROR: api: " + err.Error())
+			logger.Error("ERROR: api: " + err.Error())
 		}
 	} else {
 		err := goweb.ListenAndServeRoutes(fmt.Sprintf(":%d", conf.API_PORT), r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: api: %v\n", err)
-			Log.Error("ERROR: api: " + err.Error())
+			logger.Error("ERROR: api: " + err.Error())
 		}
 	}
 	control <- 1 //we are ending
@@ -67,7 +68,7 @@ func main() {
 	core.InitQueueMgr()
 	core.InitAwfMgr()
 
-	PrintLogo()
+	util.PrintLogo()
 	conf.Print()
 
 	if _, err := os.Stat(conf.DATA_PATH); err != nil && os.IsNotExist(err) {
@@ -92,7 +93,7 @@ func main() {
 	}
 
 	//init logger
-	Log = NewLogger("server")
+	logger.Initialize("server")
 
 	//init db
 	core.InitDB()
@@ -123,7 +124,6 @@ func main() {
 
 	//launch server
 	control := make(chan int)
-	go Log.Handle()
 	go core.QMgr.Handle()
 	go core.QMgr.Timer()
 	go core.QMgr.ClientChecker()
@@ -131,7 +131,7 @@ func main() {
 	go launchAPI(control, conf.API_PORT)
 
 	if err := core.AwfMgr.LoadWorkflows(); err != nil {
-		Log.Error("LoadWorkflows: " + err.Error())
+		logger.Error("LoadWorkflows: " + err.Error())
 	}
 
 	var host string
@@ -139,9 +139,9 @@ func main() {
 		host = fmt.Sprintf("%s:%d", hostname, conf.API_PORT)
 	}
 	if conf.RECOVER {
-		Log.Event(EVENT_SERVER_RECOVER, "host="+host)
+		logger.Event(event.SERVER_RECOVER, "host="+host)
 	} else {
-		Log.Event(EVENT_SERVER_START, "host="+host)
+		logger.Event(event.SERVER_START, "host="+host)
 	}
 
 	<-control //block till something dies

@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
-	. "github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io"
 	"os"
 	"os/exec"
@@ -35,7 +36,7 @@ func processor(control chan int) {
 		run_start := time.Now().Unix()
 		if err := RunWorkunit(work); err != nil {
 			fmt.Printf("!!!RunWorkunit() returned error: %s\n", err.Error())
-			Log.Error("RunWorkunit(): workid=" + work.Id + ", " + err.Error())
+			logger.Error("RunWorkunit(): workid=" + work.Id + ", " + err.Error())
 			processed.workunit.State = core.WORK_STAT_FAIL
 		} else {
 			processed.workunit.State = core.WORK_STAT_COMPUTED
@@ -62,8 +63,8 @@ func RunWorkunit(work *core.Workunit) (err error) {
 
 	msg := fmt.Sprintf("worker: start cmd=%s, args=%v", commandName, args)
 	fmt.Println(msg)
-	Log.Debug(1, msg)
-	Log.Event(EVENT_WORK_START, "workid="+work.Id,
+	logger.Debug(1, msg)
+	logger.Event(event.WORK_START, "workid="+work.Id,
 		"cmd="+commandName,
 		fmt.Sprintf("args=%v", args))
 
@@ -105,6 +106,6 @@ func RunWorkunit(work *core.Workunit) (err error) {
 			return errors.New(fmt.Sprintf("wait_cmd=%s, err=%s", commandName, err.Error()))
 		}
 	}
-	Log.Event(EVENT_WORK_END, "workid="+work.Id)
+	logger.Event(event.WORK_END, "workid="+work.Id)
 	return
 }

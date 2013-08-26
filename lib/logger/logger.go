@@ -24,33 +24,41 @@ var (
 	Log *Logger
 )
 
-const (
-	EVENT_CLIENT_REGISTRATION = "CR" //client registered (for the first time)
-	EVENT_CLIENT_AUTO_REREGI  = "CA" //client automatically re-registered
-	EVENT_CLIENT_UNREGISTER   = "CU" //client unregistered
-	EVENT_WORK_CHECKOUT       = "WC" //workunit checkout
-	EVENT_WORK_FAIL           = "WF" //workunit fails running
-	//server only events
-	EVENT_SERVER_START   = "SS" //awe-server start
-	EVENT_SERVER_RECOVER = "SR" //awe-server start with recover option  (-recover)
-	EVENT_JOB_SUBMISSION = "JQ" //job submitted
-	EVENT_TASK_ENQUEUE   = "TQ" //task parsed and enqueue
-	EVENT_WORK_DONE      = "WD" //workunit received successful feedback from client
-	EVENT_WORK_REQUEUE   = "WR" //workunit requeue after receive failed feedback from client
-	EVENT_WORK_SUSPEND   = "WP" //workunit suspend after failing for conf.Max_Failure times
-	EVENT_TASK_DONE      = "TD" //task done (all the workunits in the task have finished)
-	EVENT_TASK_SKIPPED   = "TS" //task skipped (skip option > 0)
-	EVENT_JOB_DONE       = "JD" //job done (all the tasks in the job have finished)
-	EVENT_JOB_SUSPEND    = "JP" //job suspended
-	//client only events
-	EVENT_WORK_START  = "WS" //workunit command start running
-	EVENT_WORK_END    = "WE" //workunit command finish running
-	EVENT_WORK_RETURN = "WR" //send back failed workunit to server
-	EVENT_FILE_IN     = "FI" //start fetching input file from shock
-	EVENT_FILE_READY  = "FR" //finish fetching input file from shock
-	EVENT_FILE_OUT    = "FO" //start pushing output file to shock
-	EVENT_FILE_DONE   = "FD" //finish pushing output file to shock
-)
+// Initialialize sets up package var Log for use in Info(), Error(), and Perf()
+func Initialize(name string) {
+	Log = NewLogger(name)
+	go Log.Handle()
+}
+
+// Debug is a short cut function that uses package initialized logger and performance log
+func Debug(level int, message string) {
+	Log.Debug(level, message)
+	return
+}
+
+// Event is a short cut function that uses package initialized logger and error log
+func Event(evttype string, attributes ...string) {
+	Log.Event(evttype, attributes)
+	return
+}
+
+// Error is a short cut function that uses package initialized logger and error log
+func Error(message string) {
+	Log.Error(message)
+	return
+}
+
+// Info is a short cut function that uses package initialized logger
+func Info(log string, message string) {
+	Log.Info(log, message)
+	return
+}
+
+// Perf is a short cut function that uses package initialized logger and performance log
+func Perf(message string) {
+	Log.Perf(message)
+	return
+}
 
 func NewLogger(name string) *Logger {
 	l := &Logger{queue: make(chan m, 1024), logs: map[string]l4g.Logger{}}
@@ -148,7 +156,7 @@ func (l *Logger) Critical(log string, message string) {
 	return
 }
 
-func (l *Logger) Event(evttype string, attributes ...string) {
+func (l *Logger) Event(evttype string, attributes []string) {
 	msg := evttype
 	for _, attr := range attributes {
 		msg = msg + fmt.Sprintf(";%s", attr)

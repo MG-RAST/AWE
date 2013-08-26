@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
-	. "github.com/MG-RAST/AWE/lib/logger"
-	. "github.com/MG-RAST/AWE/lib/util"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/util"
 	"github.com/jaredwilkening/goweb"
 	"labix.org/v2/mgo/bson"
 	"net/http"
@@ -23,7 +24,7 @@ func handleAuthError(err error, cx *goweb.Context) {
 		//		cx.RespondWithErrorMessage("Invalid Authorization header", http.StatusBadRequest)
 		//		return
 	}
-	Log.Error("Error at Auth: " + err.Error())
+	logger.Error("Error at Auth: " + err.Error())
 	cx.RespondWithError(http.StatusInternalServerError)
 	return
 }
@@ -31,10 +32,10 @@ func handleAuthError(err error, cx *goweb.Context) {
 // POST: /job
 func (cr *JobController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
-	LogRequest(cx.Request)
+	util.LogRequest(cx.Request)
 
 	// Parse uploaded form
-	params, files, err := ParseMultipartForm(cx.Request)
+	params, files, err := util.ParseMultipartForm(cx.Request)
 
 	if err != nil {
 		if err.Error() == "request Content-Type isn't multipart/form-data" {
@@ -43,7 +44,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			// Some error other than request encoding. Theoretically
 			// could be a lost db connection between user lookup and parsing.
 			// Blame the user, Its probaby their fault anyway.
-			Log.Error("Error parsing form: " + err.Error())
+			logger.Error("Error parsing form: " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
 		}
 		return
@@ -61,7 +62,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	var jid string
 	jid, err = core.QMgr.JobRegister()
 	if err != nil {
-		Log.Error("Err@job_Create:GetNextJobNum: " + err.Error())
+		logger.Error("Err@job_Create:GetNextJobNum: " + err.Error())
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -69,7 +70,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	var job *core.Job
 	job, err = core.CreateJobUpload(params, files, jid)
 	if err != nil {
-		Log.Error("Err@job_Create:CreateJobUpload: " + err.Error())
+		logger.Error("Err@job_Create:CreateJobUpload: " + err.Error())
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -77,14 +78,14 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	core.QMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
 
 	//log event about job submission (JB)
-	Log.Event(EVENT_JOB_SUBMISSION, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project)
+	logger.Event(event.JOB_SUBMISSION, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project)
 	cx.RespondWithData(job)
 	return
 }
 
 // GET: /job/{id}
 func (cr *JobController) Read(id string, cx *goweb.Context) {
-	LogRequest(cx.Request)
+	util.LogRequest(cx.Request)
 
 	// Load job by id
 	job, err := core.LoadJob(id)
@@ -95,7 +96,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
-			Log.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
+			logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
 			cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
 			return
 		}
@@ -109,10 +110,10 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 // To do:
 // - Iterate job queries
 func (cr *JobController) ReadMany(cx *goweb.Context) {
-	LogRequest(cx.Request)
+	util.LogRequest(cx.Request)
 
 	// Gather query params
-	query := &Query{Li: cx.Request.URL.Query()}
+	query := &util.Query{Li: cx.Request.URL.Query()}
 
 	// Setup query and jobs objects
 	q := bson.M{}
@@ -159,7 +160,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			err = jobs.GetAllLimitOffset(q, lim, off)
 		}
 		if err != nil {
-			Log.Error("err " + err.Error())
+			logger.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
 			return
 		}
@@ -167,7 +168,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		// Get jobs from db
 		err := jobs.GetAll(q)
 		if err != nil {
-			Log.Error("err " + err.Error())
+			logger.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
 			return
 		}
@@ -210,9 +211,9 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 // PUT: /job/{id} -> used for job manipulation
 func (cr *JobController) Update(id string, cx *goweb.Context) {
 	// Log Request and check for Auth
-	LogRequest(cx.Request)
+	util.LogRequest(cx.Request)
 	// Gather query params
-	query := &Query{Li: cx.Request.URL.Query()}
+	query := &util.Query{Li: cx.Request.URL.Query()}
 	if query.Has("resume") { // to resume a suspended job
 		if err := core.QMgr.ResumeSuspendedJob(id); err != nil {
 			cx.RespondWithErrorMessage("fail to resume job: "+id+" "+err.Error(), http.StatusBadRequest)
@@ -240,7 +241,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 
 // DELETE: /job/{id}
 func (cr *JobController) Delete(id string, cx *goweb.Context) {
-	LogRequest(cx.Request)
+	util.LogRequest(cx.Request)
 	if err := core.QMgr.DeleteJob(id); err != nil {
 		cx.RespondWithErrorMessage("fail to delete job: "+id, http.StatusBadRequest)
 		return
@@ -251,9 +252,9 @@ func (cr *JobController) Delete(id string, cx *goweb.Context) {
 
 // DELETE: /job?suspend
 func (cr *JobController) DeleteMany(cx *goweb.Context) {
-	LogRequest(cx.Request)
+	util.LogRequest(cx.Request)
 	// Gather query params
-	query := &Query{Li: cx.Request.URL.Query()}
+	query := &util.Query{Li: cx.Request.URL.Query()}
 
 	if query.Has("suspend") {
 		num := core.QMgr.DeleteSuspendedJobs()

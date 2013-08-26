@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
-	. "github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -28,13 +29,13 @@ func dataMover(control chan int) {
 		workmap[work.Id] = ID_DATAMOVER
 		//make a working directory for the workunit
 		if err := work.Mkdir(); err != nil {
-			Log.Error("err@dataMover_work.Mkdir, workid=" + work.Id + " error=" + err.Error())
+			logger.Error("err@dataMover_work.Mkdir, workid=" + work.Id + " error=" + err.Error())
 			parsed.workunit.State = core.WORK_STAT_FAIL
 		}
 
 		//check the availability prerequisite data and download if needed
 		if err := movePreData(parsed.workunit); err != nil {
-			Log.Error("err@dataMover_work.movePreData, workid=" + work.Id + " error=" + err.Error())
+			logger.Error("err@dataMover_work.movePreData, workid=" + work.Id + " error=" + err.Error())
 			parsed.workunit.State = core.WORK_STAT_FAIL
 		}
 
@@ -44,7 +45,7 @@ func dataMover(control chan int) {
 			parsed.workunit.State = core.WORK_STAT_PREPARED
 			parsed.workunit.Cmd.ParsedArgs = arglist
 		} else {
-			Log.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + work.Id + " error=" + err.Error())
+			logger.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + work.Id + " error=" + err.Error())
 			parsed.workunit.State = core.WORK_STAT_FAIL
 		}
 		datamove_end := time.Now().Unix()
@@ -85,12 +86,12 @@ func ParseWorkunitArgs(work *core.Workunit) (args []string, err error) {
 
 				inputFilePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
 
-				Log.Debug(2, "mover: fetching input from url:"+dataUrl)
-				Log.Event(EVENT_FILE_IN, "workid="+work.Id+" url="+dataUrl)
+				logger.Debug(2, "mover: fetching input from url:"+dataUrl)
+				logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
 				if err := fetchFile(inputFilePath, dataUrl); err != nil { //get file from Shock
 					return []string{}, err
 				}
-				Log.Event(EVENT_FILE_READY, "workid="+work.Id+" url="+dataUrl)
+				logger.Event(event.FILE_READY, "workid="+work.Id+" url="+dataUrl)
 
 				parsedArg := fmt.Sprintf("%s%s", segs[0], inputFilePath)
 				args = append(args, parsedArg)

@@ -8,7 +8,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
-	. "github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -68,7 +69,7 @@ func SendHeartBeat() {
 func heartbeating(host string, clientid string) (msg core.HBmsg, err error) {
 	response := new(HeartbeatResponse)
 	res, err := http.Get(fmt.Sprintf("%s/client/%s?heartbeat", host, clientid))
-	Log.Debug(3, fmt.Sprintf("client %s sent a heartbeat to %s", host, clientid))
+	logger.Debug(3, fmt.Sprintf("client %s sent a heartbeat to %s", host, clientid))
 	if err != nil {
 		return
 	}
@@ -131,10 +132,10 @@ func ReRegisterWithSelf(host string) (client *core.Client, err error) {
 	fmt.Printf("lost contact with server, try to re-register\n")
 	client, err = RegisterWithProfile(host, self)
 	if err != nil {
-		Log.Error("Error: fail to re-register, clientid=" + self.Id)
+		logger.Error("Error: fail to re-register, clientid=" + self.Id)
 		fmt.Printf("failed to re-register\n")
 	} else {
-		Log.Event(EVENT_CLIENT_AUTO_REREGI, "clientid="+self.Id)
+		logger.Event(event.CLIENT_AUTO_REREGI, "clientid="+self.Id)
 		fmt.Printf("re-register successfully\n")
 	}
 	return

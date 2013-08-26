@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
-	. "github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -122,7 +122,7 @@ func (task *Task) InitPartIndex() (err error) {
 			}
 		} else {
 			task.setTotalWork(1)
-			Log.Error("warning: lacking parition info while multiple inputs are specified, taskid=" + task.Id)
+			logger.Error("warning: lacking parition info while multiple inputs are specified, taskid=" + task.Id)
 			return
 		}
 	} else {
@@ -135,7 +135,7 @@ func (task *Task) InitPartIndex() (err error) {
 		}
 		if _, ok := task.Inputs[task.Partition.Input]; !ok {
 			task.setTotalWork(1)
-			Log.Error("warning: invalid partition info, taskid=" + task.Id)
+			logger.Error("warning: invalid partition info, taskid=" + task.Id)
 			return
 		}
 		input_io = task.Inputs[task.Partition.Input]
@@ -146,7 +146,7 @@ func (task *Task) InitPartIndex() (err error) {
 	idxinfo, err := input_io.GetIndexInfo()
 	if err != nil {
 		task.setTotalWork(1)
-		Log.Error("warning: invalid file info, taskid=" + task.Id)
+		logger.Error("warning: invalid file info, taskid=" + task.Id)
 		return nil
 	}
 
@@ -154,13 +154,13 @@ func (task *Task) InitPartIndex() (err error) {
 	if _, ok := idxinfo[idxtype]; !ok { //if index not available, create index
 		if err := createIndex(input_io.Host, input_io.Node, idxtype); err != nil {
 			task.setTotalWork(1)
-			Log.Error("warning: fail to create index on shock for taskid=" + task.Id)
+			logger.Error("warning: fail to create index on shock for taskid=" + task.Id)
 			return nil
 		}
 		totalunits, err = input_io.TotalUnits(idxtype) //get index info again
 		if err != nil {
 			task.setTotalWork(1)
-			Log.Error("warning: fail to get index units, taskid=" + task.Id + ":" + err.Error())
+			logger.Error("warning: fail to get index units, taskid=" + task.Id + ":" + err.Error())
 			return nil
 		}
 	} else { //index existing, use it directly

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
-	. "github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	. "github.com/MG-RAST/AWE/lib/logger"
 	"io"
@@ -21,15 +21,15 @@ import (
 )
 
 type HeartbeatResponse struct {
-	Code int      `bson:"status" json:"status"`
-	Data HBmsg    `bson:"data" json:"data"`
-	Errs []string `bson:"error" json:"error"`
+	Code int        `bson:"status" json:"status"`
+	Data core.HBmsg `bson:"data" json:"data"`
+	Errs []string   `bson:"error" json:"error"`
 }
 
 type ClientResponse struct {
-	Code int      `bson:"status" json:"status"`
-	Data Client   `bson:"data" json:"data"`
-	Errs []string `bson:"error" json:"error"`
+	Code int         `bson:"status" json:"status"`
+	Data core.Client `bson:"data" json:"data"`
+	Errs []string    `bson:"error" json:"error"`
 }
 
 func heartBeater(control chan int) {
@@ -65,7 +65,7 @@ func SendHeartBeat() {
 	}
 }
 
-func heartbeating(host string, clientid string) (msg HBmsg, err error) {
+func heartbeating(host string, clientid string) (msg core.HBmsg, err error) {
 	response := new(HeartbeatResponse)
 	res, err := http.Get(fmt.Sprintf("%s/client/%s?heartbeat", host, clientid))
 	Log.Debug(3, fmt.Sprintf("client %s sent a heartbeat to %s", host, clientid))
@@ -86,7 +86,7 @@ func heartbeating(host string, clientid string) (msg HBmsg, err error) {
 	return
 }
 
-func RegisterWithProfile(host string, profile *Client) (client *Client, err error) {
+func RegisterWithProfile(host string, profile *core.Client) (client *core.Client, err error) {
 	profile_jsonstream, err := json.Marshal(profile)
 	profile_path := conf.DATA_PATH + "/clientprofile.json"
 	ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
@@ -127,7 +127,7 @@ func RegisterWithProfile(host string, profile *Client) (client *Client, err erro
 	return
 }
 
-func ReRegisterWithSelf(host string) (client *Client, err error) {
+func ReRegisterWithSelf(host string) (client *core.Client, err error) {
 	fmt.Printf("lost contact with server, try to re-register\n")
 	client, err = RegisterWithProfile(host, self)
 	if err != nil {
@@ -140,8 +140,8 @@ func ReRegisterWithSelf(host string) (client *Client, err error) {
 	return
 }
 
-func ComposeProfile() (profile *Client, err error) {
-	profile = new(Client)
+func ComposeProfile() (profile *core.Client, err error) {
+	profile = new(core.Client)
 	profile.Name = conf.CLIENT_NAME
 	profile.Group = conf.CLIENT_GROUP
 	profile.CPUs = runtime.NumCPU()

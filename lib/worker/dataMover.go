@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
-	. "github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/core"
 	. "github.com/MG-RAST/AWE/lib/logger"
 	"io"
 	"io/ioutil"
@@ -29,23 +29,23 @@ func dataMover(control chan int) {
 		//make a working directory for the workunit
 		if err := work.Mkdir(); err != nil {
 			Log.Error("err@dataMover_work.Mkdir, workid=" + work.Id + " error=" + err.Error())
-			parsed.workunit.State = WORK_STAT_FAIL
+			parsed.workunit.State = core.WORK_STAT_FAIL
 		}
 
 		//check the availability prerequisite data and download if needed
 		if err := movePreData(parsed.workunit); err != nil {
 			Log.Error("err@dataMover_work.movePreData, workid=" + work.Id + " error=" + err.Error())
-			parsed.workunit.State = WORK_STAT_FAIL
+			parsed.workunit.State = core.WORK_STAT_FAIL
 		}
 
 		//parse the args, including fetching input data from Shock and composing the local file path
 		datamove_start := time.Now().Unix()
 		if arglist, err := ParseWorkunitArgs(parsed.workunit); err == nil {
-			parsed.workunit.State = WORK_STAT_PREPARED
+			parsed.workunit.State = core.WORK_STAT_PREPARED
 			parsed.workunit.Cmd.ParsedArgs = arglist
 		} else {
 			Log.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + work.Id + " error=" + err.Error())
-			parsed.workunit.State = WORK_STAT_FAIL
+			parsed.workunit.State = core.WORK_STAT_FAIL
 		}
 		datamove_end := time.Now().Unix()
 		parsed.perfstat.DataIn = datamove_end - datamove_start
@@ -56,7 +56,7 @@ func dataMover(control chan int) {
 }
 
 //parse workunit, fetch input data, compose command arguments
-func ParseWorkunitArgs(work *Workunit) (args []string, err error) {
+func ParseWorkunitArgs(work *core.Workunit) (args []string, err error) {
 	argstr := work.Cmd.Args
 	if argstr == "" {
 		return
@@ -136,7 +136,7 @@ func fetchFile(filename string, url string) (err error) {
 }
 
 //fetch prerequisite data (e.g. reference dbs)
-func movePreData(workunit *Workunit) (err error) {
+func movePreData(workunit *core.Workunit) (err error) {
 	for name, io := range workunit.Predata {
 		file_path := fmt.Sprintf("%s/%s", conf.DATA_PATH, name)
 		if !isFileExisting(file_path) {

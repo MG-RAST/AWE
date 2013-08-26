@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
-	. "github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	. "github.com/MG-RAST/AWE/lib/logger"
 	"io/ioutil"
@@ -16,9 +16,9 @@ import (
 )
 
 type WorkResponse struct {
-	Code int       `bson:"status" json:"status"`
-	Data *Workunit `bson:"data" json:"data"`
-	Errs []string  `bson:"error" json:"error"`
+	Code int            `bson:"status" json:"status"`
+	Data *core.Workunit `bson:"data" json:"data"`
+	Errs []string       `bson:"error" json:"error"`
 }
 
 func workStealer(control chan int) {
@@ -57,7 +57,7 @@ func workStealer(control chan int) {
 		workmap[wu.Id] = ID_WORKSTEALER
 
 		//hand the work to the next step handler: dataMover
-		workstat := NewWorkPerf(wu.Id)
+		workstat := core.NewWorkPerf(wu.Id)
 		workstat.Checkout = time.Now().Unix()
 		rawWork := &mediumwork{
 			workunit: wu,
@@ -73,7 +73,7 @@ func workStealer(control chan int) {
 	control <- ID_WORKSTEALER //we are ending
 }
 
-func CheckoutWorkunitRemote(serverhost string) (workunit *Workunit, err error) {
+func CheckoutWorkunitRemote(serverhost string) (workunit *core.Workunit, err error) {
 
 	response := new(WorkResponse)
 

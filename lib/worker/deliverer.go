@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
-	. "github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/core"
 	. "github.com/MG-RAST/AWE/lib/logger"
 	"io/ioutil"
 	"os"
@@ -24,12 +24,12 @@ func deliverer(control chan int) {
 
 		//post-process for works computed successfully: push output data to Shock
 		move_start := time.Now().Unix()
-		if work.State == WORK_STAT_COMPUTED {
+		if work.State == core.WORK_STAT_COMPUTED {
 			if err := pushOutputData(work); err != nil {
-				work.State = WORK_STAT_FAIL
+				work.State = core.WORK_STAT_FAIL
 				Log.Error("err@pushOutputData: workid=" + work.Id + ", err=" + err.Error())
 			} else {
-				work.State = WORK_STAT_DONE
+				work.State = core.WORK_STAT_DONE
 			}
 		}
 		move_end := time.Now().Unix()
@@ -50,7 +50,7 @@ func deliverer(control chan int) {
 			}
 		}
 		//now final status report sent to server, update some local info
-		if work.State == WORK_STAT_DONE {
+		if work.State == core.WORK_STAT_DONE {
 			Log.Event(EVENT_WORK_DONE, "workid="+work.Id)
 			self.Total_completed += 1
 
@@ -74,7 +74,7 @@ func deliverer(control chan int) {
 	control <- ID_DELIVERER //we are ending
 }
 
-func pushOutputData(work *Workunit) (err error) {
+func pushOutputData(work *core.Workunit) (err error) {
 	for name, io := range work.Outputs {
 		file_path := fmt.Sprintf("%s/%s", work.Path(), name)
 		//use full path here, cwd could be changed by Worker (likely in worker-overlapping mode)
@@ -111,13 +111,13 @@ func pushOutputData(work *Workunit) (err error) {
 }
 
 //notify AWE server a workunit is finished with status either "failed" or "done", and with perf statistics if "done"
-func notifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
+func notifyWorkunitProcessed(work *core.Workunit, perf *core.WorkPerf) (err error) {
 	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s", conf.SERVER_URL, work.Id, work.State, self.Id)
 
 	argv := []string{}
 	argv = append(argv, "-X")
 	argv = append(argv, "PUT")
-	if work.State == WORK_STAT_DONE {
+	if work.State == core.WORK_STAT_DONE {
 		reportFile, err := getPerfFilePath(work, perf)
 		if err == nil {
 			argv = append(argv, "-F")
@@ -165,7 +165,7 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 	return
 }
 
-func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err error) {
+func getPerfFilePath(work *core.Workunit, perfstat *core.WorkPerf) (reportPath string, err error) {
 	perfJsonstream, err := json.Marshal(perfstat)
 	if err != nil {
 		return reportPath, err

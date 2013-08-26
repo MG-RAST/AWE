@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
-	. "github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/core"
 	. "github.com/MG-RAST/AWE/lib/logger"
 	"io"
 	"os"
@@ -26,8 +26,8 @@ func processor(control chan int) {
 		}
 
 		//if the work is not succesfully parsed in last stage, pass it into the next one immediately
-		if work.State == WORK_STAT_FAIL {
-			processed.workunit.State = WORK_STAT_FAIL
+		if work.State == core.WORK_STAT_FAIL {
+			processed.workunit.State = core.WORK_STAT_FAIL
 			chanProcessed <- processed
 			continue
 		}
@@ -36,9 +36,9 @@ func processor(control chan int) {
 		if err := RunWorkunit(work); err != nil {
 			fmt.Printf("!!!RunWorkunit() returned error: %s\n", err.Error())
 			Log.Error("RunWorkunit(): workid=" + work.Id + ", " + err.Error())
-			processed.workunit.State = WORK_STAT_FAIL
+			processed.workunit.State = core.WORK_STAT_FAIL
 		} else {
-			processed.workunit.State = WORK_STAT_COMPUTED
+			processed.workunit.State = core.WORK_STAT_COMPUTED
 		}
 		run_end := time.Now().Unix()
 		processed.perfstat.Runtime = run_end - run_start
@@ -48,7 +48,7 @@ func processor(control chan int) {
 	control <- ID_WORKER //we are ending
 }
 
-func RunWorkunit(work *Workunit) (err error) {
+func RunWorkunit(work *core.Workunit) (err error) {
 
 	args := work.Cmd.ParsedArgs
 

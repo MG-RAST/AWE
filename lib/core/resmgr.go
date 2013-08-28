@@ -2,7 +2,10 @@ package core
 
 import ()
 
-var QMgr ResourceMgr
+var (
+	QMgr    ResourceMgr
+	Service string
+)
 
 type ClientMgr interface {
 	RegisterNewClient(FormFiles) (*Client, error)
@@ -54,4 +57,5 @@ func InitResMgr(service string) {
 	} else if service == "proxy" {
 		QMgr = NewProxyMgr()
 	}
+	Service = service
 }

@@ -98,13 +98,19 @@ type resource struct {
 func ResourceDescription(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	r := resource{
-		R: []string{"job", "work", "client", "queue", "awf"},
+		R: []string{},
 		U: apiUrl(cx) + "/",
 		D: siteUrl(cx) + "/",
 		C: conf.ADMIN_EMAIL,
 		I: "AWE",
-		T: "AWE",
+		T: core.Service,
 	}
+	if core.Service == "server" {
+		r.R = []string{"job", "work", "client", "queue", "awf"}
+	} else if core.Service == "proxy" {
+		r.R = []string{"client", "work"}
+	}
+
 	cx.WriteResponse(r, 200)
 }
 

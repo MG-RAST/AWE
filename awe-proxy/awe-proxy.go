@@ -65,8 +65,8 @@ func main() {
 		}
 	}
 
-	//init queue mgr
-	core.InitQueueMgr()
+	//init proxy mgr
+	core.InitResMgr("proxy")
 
 	//init logger
 	logger.Initialize("proxy")

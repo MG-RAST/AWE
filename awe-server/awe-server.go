@@ -65,7 +65,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	core.InitQueueMgr()
+	core.InitResMgr("server")
 	core.InitAwfMgr()
 
 	util.PrintLogo()

@@ -15,6 +15,29 @@ import (
 	"time"
 )
 
+type CoReq struct {
+	policy     string
+	fromclient string
+	count      int
+}
+
+type CoAck struct {
+	workunits []*Workunit
+	err       error
+}
+
+type Notice struct {
+	WorkId   string
+	Status   string
+	ClientId string
+	Notes    string
+}
+
+type coInfo struct {
+	workunit *Workunit
+	clientid string
+}
+
 type ShockResponse struct {
 	Code int       `bson:"status" json:"status"`
 	Data ShockNode `bson:"data" json:"data"`
@@ -370,4 +393,22 @@ func getParentTask(taskid string, origin int) string {
 		return fmt.Sprintf("%s_%d", parts[0], origin)
 	}
 	return taskid
+}
+
+//
+func contains(list []string, elem string) bool {
+	for _, t := range list {
+		if t == elem {
+			return true
+		}
+	}
+	return false
+}
+
+func jidIncr(jid string) (newjid string) {
+	if jidint, err := strconv.Atoi(jid); err == nil {
+		jidint += 1
+		return strconv.Itoa(jidint)
+	}
+	return jid
 }

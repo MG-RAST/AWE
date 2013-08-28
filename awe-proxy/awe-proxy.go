@@ -8,6 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/util"
+	"github.com/MG-RAST/AWE/lib/worker"
 	"github.com/jaredwilkening/goweb"
 	"os"
 )
@@ -83,5 +84,29 @@ func main() {
 		host = fmt.Sprintf("%s:%d", hostname, conf.API_PORT)
 	}
 	logger.Event(event.SERVER_START, "host="+host)
+
+	profile, err := worker.ComposeProfile()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "fail to compose profile: %s\n", err.Error())
+		os.Exit(1)
+	}
+
+	self, err := worker.RegisterWithProfile(conf.SERVER_URL, profile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "fail to register: %s\n", err.Error())
+		os.Exit(1)
+	}
+
+	logger.Initialize("proxy")
+
+	fmt.Printf("Proxy registered, name=%s, id=%s\n", self.Name, self.Id)
+	logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)
+
+	if err := worker.InitWorkers(self); err == nil {
+		worker.StartWorkers()
+	} else {
+		fmt.Printf("failed to initialize and start workers:" + err.Error())
+	}
+
 	<-control //block till something dies
 }

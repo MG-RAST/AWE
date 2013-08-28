@@ -17,7 +17,6 @@ type WorkMgr interface {
 	GetWorkById(string) (*Workunit, error)
 	ShowWorkunits(string) []*Workunit
 	CheckoutWorkunits(string, string, int) ([]*Workunit, error)
-	FinalizeWorkPerf(string, string) error
 	NotifyWorkStatus(Notice)
 }
 
@@ -33,6 +32,7 @@ type JobMgr interface {
 	DeleteSuspendedJobs() int
 	InitMaxJid() error
 	RecoverJobs() error
+	FinalizeWorkPerf(string, string) error
 }
 
 type ClientWorkMgr interface {
@@ -52,6 +52,6 @@ func InitResMgr(service string) {
 	if service == "server" {
 		QMgr = NewServerMgr()
 	} else if service == "proxy" {
-		QMgr = NewServerMgr()
+		QMgr = NewProxyMgr()
 	}
 }

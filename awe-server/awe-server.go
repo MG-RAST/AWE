@@ -69,7 +69,7 @@ func main() {
 	core.InitAwfMgr()
 
 	util.PrintLogo()
-	conf.Print()
+	conf.Print("server")
 
 	if _, err := os.Stat(conf.DATA_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.DATA_PATH, 0777); err != nil {

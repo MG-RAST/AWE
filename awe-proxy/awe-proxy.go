@@ -7,7 +7,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	. "github.com/MG-RAST/AWE/lib/util"
 	"github.com/jaredwilkening/goweb"
 	"os"
 )
@@ -40,9 +39,8 @@ func main() {
 		conf.PrintServerUsage()
 		os.Exit(1)
 	}
-
-	PrintLogo()
-	conf.Print()
+	fmt.Printf("--------AWE Proxy running--------\n\n")
+	conf.Print("proxy")
 
 	if _, err := os.Stat(conf.DATA_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.DATA_PATH, 0777); err != nil {

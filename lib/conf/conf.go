@@ -211,7 +211,7 @@ func init() {
 	P_API_PORT, _ = c.Int("Proxy", "p-api-port")
 }
 
-func Print() {
+func Print(service string) {
 	fmt.Printf("##### Admin #####\nemail:\t%s\nsecretkey:\t%s\n\n", ADMIN_EMAIL, SECRET_KEY)
 	fmt.Printf("####### Anonymous ######\nread:\t%t\nwrite:\t%t\ncreate-user:\t%t\n\n", ANON_READ, ANON_WRITE, ANON_CREATEUSER)
 	if AUTH_TYPE == "basic" {
@@ -219,14 +219,27 @@ func Print() {
 	} else if AUTH_TYPE == "globus" {
 		fmt.Printf("##### Auth #####\ntype:\tglobus\ntoken_url:\t%s\nprofile_url:\t%s\n\n", GLOBUS_TOKEN_URL, GLOBUS_PROFILE_URL)
 	}
-	fmt.Printf("##### Directories #####\nsite:\t%s\ndata:\t%s\nlogs:\t%s\nawf:\t%s\n\n", SITE_PATH, DATA_PATH, LOGS_PATH, AWF_PATH)
+	fmt.Printf("##### Directories #####\nsite:\t%s\ndata:\t%s\nlogs:\t%s\n", SITE_PATH, DATA_PATH, LOGS_PATH)
+	if service == "server" {
+		fmt.Printf("awf:\t%s\n", AWF_PATH)
+	}
+	fmt.Println()
+
 	if SSL_ENABLED {
 		fmt.Printf("##### SSL #####\nenabled:\t%t\nkey:\t%s\ncert:\t%s\n\n", SSL_ENABLED, SSL_KEY_FILE, SSL_CERT_FILE)
 	} else {
 		fmt.Printf("##### SSL #####\nenabled:\t%t\n\n", SSL_ENABLED)
 	}
-	fmt.Printf("##### Mongodb #####\nhost(s):\t%s\n\n", MONGODB)
-	fmt.Printf("##### Ports #####\nsite:\t%d\napi:\t%d\n\n", SITE_PORT, API_PORT)
+
+	if service == "server" {
+		fmt.Printf("##### Mongodb #####\nhost(s):\t%s\n", MONGODB)
+	}
+	fmt.Println()
+	if service == "server" {
+		fmt.Printf("##### Ports #####\nsite:\t%d\napi:\t%d\n\n", SITE_PORT, API_PORT)
+	} else if service == "proxy" {
+		fmt.Printf("##### Ports #####\nsite:\t%d\napi:\t%d\n\n", P_SITE_PORT, P_API_PORT)
+	}
 }
 
 func PrintClientCfg() {
@@ -241,5 +254,9 @@ func PrintClientUsage() {
 }
 
 func PrintServerUsage() {
-	fmt.Printf("Usage: awe-server -conf </path/to/cfg> [-recover] [debug 0-3]\n")
+	fmt.Printf("Usage: awe-server -conf </path/to/cfg> [-dev] [-recover] [debug 0-3]\n")
+}
+
+func PrintProxyUsage() {
+	fmt.Printf("Usage: awe-prox -conf </path/to/cfg> [debug 0-3]\n")
 }

@@ -121,4 +121,8 @@ func (qm *ProxyMgr) RecoverJobs() (err error) {
 	return
 }
 
+func (qm *ProxyMgr) FinalizeWorkPerf(string, string) (err error) {
+	return
+}
+
 //---end of job methods

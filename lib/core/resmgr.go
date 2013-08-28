@@ -4,7 +4,7 @@ import ()
 
 var (
 	QMgr    ResourceMgr
-	Service string
+	Service string = "unknown"
 )
 
 type ClientMgr interface {

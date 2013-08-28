@@ -170,6 +170,9 @@ func ComposeProfile() (profile *core.Client, err error) {
 			}
 		}
 	}
+	if core.Service == "proxy" {
+		profile.Proxy = true
+	}
 	return
 }
 

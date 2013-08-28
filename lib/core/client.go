@@ -31,6 +31,7 @@ type Client struct {
 	Skip_work       []string        `bson:"skip_work" json:"skip_work"`
 	Last_failed     int             `bson:"-" json:"-"`
 	Tag             bool            `bson:"-" json:"-"`
+	Proxy           bool            `bson:"proxy" json:"proxy"`
 }
 
 func NewClient() (client *Client) {

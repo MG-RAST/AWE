@@ -290,4 +290,9 @@ func (qm *CQMgr) ShowWorkunits(status string) (workunits []*Workunit) {
 	return workunits
 }
 
+func (qm *CQMgr) EnqueueWorkunit(work *Workunit) (err error) {
+	err = qm.workQueue.Add(work)
+	return
+}
+
 //---end of workunit methods

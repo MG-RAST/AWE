@@ -7,9 +7,9 @@ import (
 )
 
 var (
-	chanRaw       chan *mediumwork // workStealer -> dataMover
-	chanParsed    chan *mediumwork // dataMover -> processor
-	chanProcessed chan *mediumwork // processor -> deliverer
+	fromStealer   chan *mediumwork // workStealer -> dataMover
+	fromMover     chan *mediumwork // dataMover -> processor
+	fromProcessor chan *mediumwork // processor -> deliverer
 	chanPermit    = make(chan bool)
 	self          *core.Client
 	chankill      chan bool      //heartbeater -> worker
@@ -22,11 +22,12 @@ type mediumwork struct {
 }
 
 const (
-	ID_HEARTBEATER = 0
-	ID_WORKSTEALER = 1
-	ID_DATAMOVER   = 2
-	ID_WORKER      = 3
-	ID_DELIVERER   = 4
+	ID_HEARTBEATER   = 0
+	ID_WORKSTEALER   = 1
+	ID_DATAMOVER     = 2
+	ID_WORKER        = 3
+	ID_DELIVERER     = 4
+	ID_REDISTRIBUTOR = 5
 )
 
 func InitWorkers(client *core.Client) (err error) {
@@ -34,9 +35,9 @@ func InitWorkers(client *core.Client) (err error) {
 		return errors.New("InitWorkers(): empty client")
 	}
 	self = client
-	chanRaw = make(chan *mediumwork)       // workStealer -> dataMover
-	chanParsed = make(chan *mediumwork)    // dataMover -> processor
-	chanProcessed = make(chan *mediumwork) // processor -> deliverer
+	fromStealer = make(chan *mediumwork)   // workStealer -> dataMover
+	fromMover = make(chan *mediumwork)     // dataMover -> processor
+	fromProcessor = make(chan *mediumwork) // processor -> deliverer
 	chankill = make(chan bool)             //heartbeater -> worker
 	workmap = map[string]int{}             //workunit map [work_id]stage_idgit
 	return
@@ -46,37 +47,12 @@ func StartWorkers() {
 	control := make(chan int)
 	go heartBeater(control)
 	go workStealer(control)
-	go dataMover(control)
-	go processor(control)
-	go deliverer(control)
-	for {
-		who := <-control //block till someone dies and then restart it
-		switch who {
-		case ID_HEARTBEATER:
-			go heartBeater(control)
-			logger.Error("heartBeater died and restarted")
-		case ID_WORKSTEALER:
-			go workStealer(control)
-			logger.Error("workStealer died and restarted")
-		case ID_DATAMOVER:
-			go dataMover(control)
-			logger.Error("dataMover died and restarted")
-		case ID_WORKER:
-			go processor(control)
-			logger.Error("worker died and restarted")
-		case ID_DELIVERER:
-			go deliverer(control)
-			logger.Error("deliverer died and restarted")
-		}
+	if core.Service == "proxy" {
+		go redistributor(control)
+	} else {
+		go dataMover(control)
+		go processor(control)
 	}
-}
-
-func StartProxyWorkers() {
-	control := make(chan int)
-	go heartBeater(control)
-	go workStealer(control)
-	go dataMover(control)
-	go processor(control)
 	go deliverer(control)
 	for {
 		who := <-control //block till someone dies and then restart it

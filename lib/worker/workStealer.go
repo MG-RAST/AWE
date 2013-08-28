@@ -64,7 +64,7 @@ func workStealer(control chan int) {
 			workunit: wu,
 			perfstat: workstat,
 		}
-		chanRaw <- rawWork
+		fromStealer <- rawWork
 
 		//if worker overlap is inhibited, wait until deliverer finishes processing the workunit
 		if conf.WORKER_OVERLAP == false {

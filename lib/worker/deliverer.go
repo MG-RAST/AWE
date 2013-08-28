@@ -18,7 +18,7 @@ func deliverer(control chan int) {
 	fmt.Printf("deliverer lanched, client=%s\n", self.Id)
 	defer fmt.Printf("deliverer exiting...\n")
 	for {
-		processed := <-chanProcessed
+		processed := <-fromProcessor
 		work := processed.workunit
 		workmap[work.Id] = ID_DELIVERER
 		perfstat := processed.perfstat

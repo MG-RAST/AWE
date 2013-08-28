@@ -8,13 +8,14 @@ import (
 )
 
 const (
-	WORK_STAT_QUEUED   = "queued"
-	WORK_STAT_CHECKOUT = "checkout"
-	WORK_STAT_SUSPEND  = "suspend"
-	WORK_STAT_DONE     = "done"
-	WORK_STAT_FAIL     = "fail"
-	WORK_STAT_PREPARED = "prepared"
-	WORK_STAT_COMPUTED = "computed"
+	WORK_STAT_QUEUED      = "queued"
+	WORK_STAT_CHECKOUT    = "checkout"
+	WORK_STAT_SUSPEND     = "suspend"
+	WORK_STAT_DONE        = "done"
+	WORK_STAT_FAIL        = "fail"
+	WORK_STAT_PREPARED    = "prepared"
+	WORK_STAT_COMPUTED    = "computed"
+	WORK_STAT_PROXYQUEUED = "proxyqueued"
 )
 
 type Workunit struct {

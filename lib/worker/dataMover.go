@@ -19,7 +19,7 @@ func dataMover(control chan int) {
 	fmt.Printf("dataMover lanched, client=%s\n", self.Id)
 	defer fmt.Printf("dataMover exiting...\n")
 	for {
-		raw := <-chanRaw
+		raw := <-fromStealer
 		parsed := &mediumwork{
 			workunit: raw.workunit,
 			perfstat: raw.perfstat,
@@ -51,7 +51,7 @@ func dataMover(control chan int) {
 		datamove_end := time.Now().Unix()
 		parsed.perfstat.DataIn = datamove_end - datamove_start
 
-		chanParsed <- parsed
+		fromMover <- parsed
 	}
 	control <- ID_DATAMOVER //we are ending
 }

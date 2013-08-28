@@ -21,6 +21,7 @@ type WorkMgr interface {
 	ShowWorkunits(string) []*Workunit
 	CheckoutWorkunits(string, string, int) ([]*Workunit, error)
 	NotifyWorkStatus(Notice)
+	EnqueueWorkunit(work *Workunit) (err error)
 }
 
 type JobMgr interface {

@@ -17,7 +17,7 @@ func processor(control chan int) {
 	fmt.Printf("processor lanched, client=%s\n", self.Id)
 	defer fmt.Printf("processor exiting...\n")
 	for {
-		parsedwork := <-chanParsed
+		parsedwork := <-fromMover
 		work := parsedwork.workunit
 		workmap[work.Id] = ID_WORKER
 
@@ -29,7 +29,7 @@ func processor(control chan int) {
 		//if the work is not succesfully parsed in last stage, pass it into the next one immediately
 		if work.State == core.WORK_STAT_FAIL {
 			processed.workunit.State = core.WORK_STAT_FAIL
-			chanProcessed <- processed
+			fromProcessor <- processed
 			continue
 		}
 
@@ -44,7 +44,7 @@ func processor(control chan int) {
 		run_end := time.Now().Unix()
 		processed.perfstat.Runtime = run_end - run_start
 
-		chanProcessed <- processed
+		fromProcessor <- processed
 	}
 	control <- ID_WORKER //we are ending
 }

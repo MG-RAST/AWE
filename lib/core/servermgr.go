@@ -248,15 +248,6 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	return
 }
 
-// show functions used in debug
-func (qm *ServerMgr) ShowWorkQueue() {
-	fmt.Printf("current queuing workunits (%d):\n", qm.workQueue.Len())
-	for key, _ := range qm.workQueue.workMap {
-		fmt.Printf("workunit id: %s\n", key)
-	}
-	return
-}
-
 func (qm *ServerMgr) ShowStatus() string {
 	total_task := len(qm.taskMap)
 	queuing_work := len(qm.workQueue.wait)

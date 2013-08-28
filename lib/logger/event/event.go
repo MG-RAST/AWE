@@ -28,4 +28,6 @@ const (
 	FILE_READY  = "FR" //finish fetching input file from shock
 	FILE_OUT    = "FO" //start pushing output file to shock
 	FILE_DONE   = "FD" //finish pushing output file to shock
+	//proxy only events
+	WORK_QUEUED = "WQ" //workunit queued at proxy
 )

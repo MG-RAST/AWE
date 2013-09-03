@@ -43,7 +43,7 @@ func heartBeater(control chan int) {
 
 //client sends heartbeat to server to maintain active status and re-register when needed
 func SendHeartBeat() {
-	hbmsg, err := heartbeating(conf.SERVER_URL, self.Id)
+	hbmsg, err := heartbeating(conf.SERVER_URL, core.Self.Id)
 	if err != nil {
 		if err.Error() == e.ClientNotFound {
 			ReRegisterWithSelf(conf.SERVER_URL)
@@ -130,12 +130,12 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 
 func ReRegisterWithSelf(host string) (client *core.Client, err error) {
 	fmt.Printf("lost contact with server, try to re-register\n")
-	client, err = RegisterWithProfile(host, self)
+	client, err = RegisterWithProfile(host, core.Self)
 	if err != nil {
-		logger.Error("Error: fail to re-register, clientid=" + self.Id)
+		logger.Error("Error: fail to re-register, clientid=" + core.Self.Id)
 		fmt.Printf("failed to re-register\n")
 	} else {
-		logger.Event(event.CLIENT_AUTO_REREGI, "clientid="+self.Id)
+		logger.Event(event.CLIENT_AUTO_REREGI, "clientid="+core.Self.Id)
 		fmt.Printf("re-register successfully\n")
 	}
 	return

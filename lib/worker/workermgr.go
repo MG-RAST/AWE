@@ -11,7 +11,6 @@ var (
 	fromMover     chan *mediumwork // dataMover -> processor
 	fromProcessor chan *mediumwork // processor -> deliverer
 	chanPermit    = make(chan bool)
-	self          *core.Client
 	chankill      chan bool      //heartbeater -> worker
 	workmap       map[string]int //workunit map [work_id]stage_id}
 )
@@ -34,7 +33,6 @@ func InitWorkers(client *core.Client) (err error) {
 	if client == nil {
 		return errors.New("InitWorkers(): empty client")
 	}
-	self = client
 	fromStealer = make(chan *mediumwork)   // workStealer -> dataMover
 	fromMover = make(chan *mediumwork)     // dataMover -> processor
 	fromProcessor = make(chan *mediumwork) // processor -> deliverer

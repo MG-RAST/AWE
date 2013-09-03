@@ -16,7 +16,7 @@ import (
 )
 
 func dataMover(control chan int) {
-	fmt.Printf("dataMover lanched, client=%s\n", self.Id)
+	fmt.Printf("dataMover lanched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("dataMover exiting...\n")
 	for {
 		raw := <-fromStealer

@@ -14,7 +14,7 @@ import (
 )
 
 func processor(control chan int) {
-	fmt.Printf("processor lanched, client=%s\n", self.Id)
+	fmt.Printf("processor lanched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("processor exiting...\n")
 	for {
 		parsedwork := <-fromMover
@@ -45,6 +45,11 @@ func processor(control chan int) {
 		processed.perfstat.Runtime = run_end - run_start
 
 		fromProcessor <- processed
+
+		//release the permit lock, for work overlap inhibitted mode only
+		if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+			<-chanPermit
+		}
 	}
 	control <- ID_WORKER //we are ending
 }

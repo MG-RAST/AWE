@@ -34,6 +34,11 @@ func (wq *WQueue) Add(workunit *Workunit) (err error) {
 	return nil
 }
 
+func (wq *WQueue) Get(id string) (work *Workunit, ok bool) {
+	work, ok = wq.workMap[id]
+	return
+}
+
 func (wq *WQueue) Delete(id string) {
 	delete(wq.wait, id)
 	delete(wq.checkout, id)

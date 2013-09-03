@@ -277,7 +277,7 @@ func (qm *CQMgr) getWorkByClient(clientid string) (ids []string) {
 
 //handle feedback from a client about the execution of a workunit
 func (qm *CQMgr) handleWorkStatusChange(notice Notice) (err error) {
-	//to be implemented for proxy
+	//to be implemented for proxy or server
 	return
 }
 

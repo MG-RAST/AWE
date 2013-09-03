@@ -63,6 +63,12 @@ func (qm *ProxyMgr) InitMaxJid() (err error) {
 
 //handle feedback from a client about the execution of a workunit
 func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
+	//relay the notice to the server
+	perf := new(WorkPerf)
+	if work, ok := qm.workQueue.Get(notice.WorkId); ok {
+		work.State = notice.Status
+		proxy_relay_workunit(work, perf)
+	}
 	return
 }
 
@@ -71,6 +77,10 @@ func (qm *ProxyMgr) ShowStatus() string {
 }
 
 //---end of mgr methods
+
+//---start workunit methods
+
+//---end workunit methods
 
 //---task methods----
 

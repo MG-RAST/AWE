@@ -23,7 +23,7 @@ type WorkResponse struct {
 }
 
 func workStealer(control chan int) {
-	fmt.Printf("workStealer lanched, client=%s\n", self.Id)
+	fmt.Printf("workStealer lanched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("workStealer exiting...\n")
 	retry := 0
 	for {
@@ -53,8 +53,8 @@ func workStealer(control chan int) {
 		logger.Debug(2, "workStealer: checked out a workunit: id="+wu.Id)
 		//log event about work checktout (WC)
 		logger.Event(event.WORK_CHECKOUT, "workid="+wu.Id)
-		self.Total_checkout += 1
-		self.Current_work[wu.Id] = true
+		core.Self.Total_checkout += 1
+		core.Self.Current_work[wu.Id] = true
 		workmap[wu.Id] = ID_WORKSTEALER
 
 		//hand the work to the next step handler: dataMover
@@ -67,7 +67,7 @@ func workStealer(control chan int) {
 		fromStealer <- rawWork
 
 		//if worker overlap is inhibited, wait until deliverer finishes processing the workunit
-		if conf.WORKER_OVERLAP == false {
+		if conf.WORKER_OVERLAP == false && core.Service != "proxy" {
 			chanPermit <- true
 		}
 	}
@@ -78,9 +78,9 @@ func CheckoutWorkunitRemote(serverhost string) (workunit *core.Workunit, err err
 
 	response := new(WorkResponse)
 
-	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", serverhost, self.Id))
+	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", serverhost, core.Self.Id))
 
-	logger.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s", self.Id, serverhost))
+	logger.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s", core.Self.Id, serverhost))
 
 	if err != nil {
 		return

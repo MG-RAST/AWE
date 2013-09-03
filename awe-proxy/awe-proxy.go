@@ -96,6 +96,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "fail to register: %s\n", err.Error())
 		os.Exit(1)
 	}
+	core.InitClientProfile(self)
 
 	logger.Initialize("proxy")
 

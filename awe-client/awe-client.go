@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/worker"
@@ -48,6 +49,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "fail to register: %s\n", err.Error())
 		os.Exit(1)
 	}
+	core.InitClientProfile(self)
 
 	var logdir string
 	if self.Name != "" {

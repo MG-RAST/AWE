@@ -8,7 +8,7 @@ import (
 )
 
 func redistributor(control chan int) {
-	fmt.Printf("redistributor lanched, client=%s\n", self.Id)
+	fmt.Printf("redistributor lanched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("redistributor exiting...\n")
 	for {
 		parsed := <-fromStealer

@@ -5,15 +5,26 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io/ioutil"
 	"labix.org/v2/mgo/bson"
 	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
+
+var (
+	Self *Client
+)
+
+func InitClientProfile(profile *Client) {
+	Self = profile
+}
 
 type CoReq struct {
 	policy     string
@@ -411,4 +422,108 @@ func jidIncr(jid string) (newjid string) {
 		return strconv.Itoa(jidint)
 	}
 	return jid
+}
+
+//functions for REST API communication
+//notify AWE server a workunit is finished with status either "failed" or "done", and with perf statistics if "done"
+func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
+	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s", conf.SERVER_URL, work.Id, work.State, Self.Id)
+
+	argv := []string{}
+	argv = append(argv, "-X")
+	argv = append(argv, "PUT")
+	if work.State == WORK_STAT_DONE && perf != nil {
+		reportFile, err := getPerfFilePath(work, perf)
+		if err == nil {
+			argv = append(argv, "-F")
+			argv = append(argv, fmt.Sprintf("perf=@%s", reportFile))
+			target_url = target_url + "&report"
+		}
+	}
+	argv = append(argv, target_url)
+
+	cmd := exec.Command("curl", argv...)
+	err = cmd.Run()
+	if err != nil {
+		return
+	}
+	return
+}
+
+func PushOutputData(work *Workunit) (err error) {
+	for name, io := range work.Outputs {
+		file_path := fmt.Sprintf("%s/%s", work.Path(), name)
+		//use full path here, cwd could be changed by Worker (likely in worker-overlapping mode)
+		if fi, err := os.Stat(file_path); err != nil {
+			if io.Optional {
+				continue
+			} else {
+				return errors.New(fmt.Sprintf("output %s not generated for workunit %s", name, work.Id))
+			}
+		} else {
+			if io.Nonzero && fi.Size() == 0 {
+				return errors.New(fmt.Sprintf("workunit %s generated zero-sized output %s while non-zero-sized file required", work.Id, name))
+			}
+		}
+		logger.Debug(2, "deliverer: push output to shock, filename="+name)
+		logger.Event(event.FILE_OUT,
+			"workid="+work.Id,
+			"filename="+name,
+			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
+		if err := pushFileByCurl(file_path, io.Host, io.Node, work.Rank); err != nil {
+			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
+			if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {
+				fmt.Errorf("push file error\n")
+				logger.Error("op=pushfile,err=" + err.Error())
+				return err
+			}
+		}
+		logger.Event(event.FILE_DONE,
+			"workid="+work.Id,
+			"filename="+name,
+			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
+	}
+	return
+}
+
+//push file to shock
+func pushFileByCurl(filename string, host string, node string, rank int) (err error) {
+	shockurl := fmt.Sprintf("%s/node/%s", host, node)
+	if err := putFileByCurl(filename, shockurl, rank); err != nil {
+		return err
+	}
+	return
+}
+
+func putFileByCurl(filename string, target_url string, rank int) (err error) {
+	argv := []string{}
+	argv = append(argv, "-X")
+	argv = append(argv, "PUT")
+	argv = append(argv, "-F")
+
+	if rank == 0 {
+		argv = append(argv, fmt.Sprintf("upload=@%s", filename))
+	} else {
+		argv = append(argv, fmt.Sprintf("%d=@%s", rank, filename))
+	}
+	argv = append(argv, target_url)
+	logger.Debug(2, fmt.Sprintf("deliverer: curl argv=%#v", argv))
+	cmd := exec.Command("curl", argv...)
+	err = cmd.Run()
+	if err != nil {
+		return
+	}
+	return
+}
+
+func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err error) {
+	perfJsonstream, err := json.Marshal(perfstat)
+	if err != nil {
+		return reportPath, err
+	}
+	reportFile := fmt.Sprintf("%s/%s.perf", work.Path(), work.Id)
+	if err := ioutil.WriteFile(reportFile, []byte(perfJsonstream), 0644); err != nil {
+		return reportPath, err
+	}
+	return reportFile, nil
 }

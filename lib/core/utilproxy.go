@@ -9,7 +9,6 @@ import (
 
 func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 	//notify server the final process results
-	fmt.Printf("in proxy_relay_workunit\n")
 	if err := NotifyWorkunitProcessed(work, perfstat); err != nil {
 		time.Sleep(3 * time.Second) //wait 3 seconds and try another time
 		if err := NotifyWorkunitProcessed(work, perfstat); err != nil {

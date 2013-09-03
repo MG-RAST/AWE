@@ -2,47 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/MG-RAST/AWE/conf"
-	. "github.com/MG-RAST/AWE/core"
-	. "github.com/MG-RAST/AWE/logger"
+	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/worker"
 	"os"
-)
-
-var (
-	chanRaw       = make(chan *rawWork)       // workStealer -> dataMover
-	chanParsed    = make(chan *parsedWork)    // dataMover -> worker
-	chanProcessed = make(chan *processedWork) //worker -> deliverer
-	chanPerf      = make(chan *WorkPerf)      // -> perfmon
-	chanPermit    = make(chan bool)
-	self          = &Client{Id: "default-client"}
-	chankill      = make(chan bool)  //heartbeater -> worker
-	workmap       = map[string]int{} //workunit map [work_id]stage_id
-)
-
-type rawWork struct {
-	workunit *Workunit
-	perfstat *WorkPerf
-}
-
-type parsedWork struct {
-	workunit *Workunit
-	perfstat *WorkPerf
-	args     []string
-	status   string
-}
-
-type processedWork struct {
-	workunit *Workunit
-	perfstat *WorkPerf
-	status   string
-}
-
-const (
-	ID_HEARTBEATER = 0
-	ID_WORKSTEALER = 1
-	ID_DATAMOVER   = 2
-	ID_WORKER      = 3
-	ID_DELIVERER   = 4
 )
 
 func main() {
@@ -73,18 +38,18 @@ func main() {
 		}
 	}
 
-	var err error
-	var profile *Client
-	profile, err = ComposeProfile()
+	profile, err := worker.ComposeProfile()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fail to compose profile: %s\n", err.Error())
 		os.Exit(1)
 	}
-	self, err = RegisterWithProfile(conf.SERVER_URL, profile)
+
+	self, err := worker.RegisterWithProfile(conf.SERVER_URL, profile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fail to register: %s\n", err.Error())
 		os.Exit(1)
 	}
+	core.InitClientProfile(self)
 
 	var logdir string
 	if self.Name != "" {
@@ -93,36 +58,14 @@ func main() {
 		logdir = conf.CLIENT_NAME
 	}
 
-	Log = NewLogger("client-" + logdir)
-	go Log.Handle()
+	logger.Initialize("client-" + logdir)
 
 	fmt.Printf("Client registered, name=%s, id=%s\n", self.Name, self.Id)
-	Log.Event(EVENT_CLIENT_REGISTRATION, "clientid="+self.Id)
+	logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)
 
-	control := make(chan int)
-	go heartBeater(control)
-	go workStealer(control)
-	go dataMover(control)
-	go worker(control)
-	go deliverer(control)
-	for {
-		who := <-control //block till someone dies and then restart it
-		switch who {
-		case ID_HEARTBEATER:
-			go heartBeater(control)
-			Log.Error("heartBeater died and restarted")
-		case ID_WORKSTEALER:
-			go workStealer(control)
-			Log.Error("workStealer died and restarted")
-		case ID_DATAMOVER:
-			go dataMover(control)
-			Log.Error("dataMover died and restarted")
-		case ID_WORKER:
-			go worker(control)
-			Log.Error("worker died and restarted")
-		case ID_DELIVERER:
-			go deliverer(control)
-			Log.Error("deliverer died and restarted")
-		}
+	if err := worker.InitWorkers(self); err == nil {
+		worker.StartWorkers()
+	} else {
+		fmt.Printf("failed to initialize and start workers:" + err.Error())
 	}
 }

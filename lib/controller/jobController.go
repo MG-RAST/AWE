@@ -6,7 +6,6 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/lib/util"
 	"github.com/jaredwilkening/goweb"
 	"labix.org/v2/mgo/bson"
 	"net/http"
@@ -32,10 +31,10 @@ func handleAuthError(err error, cx *goweb.Context) {
 // POST: /job
 func (cr *JobController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 
 	// Parse uploaded form
-	params, files, err := util.ParseMultipartForm(cx.Request)
+	params, files, err := ParseMultipartForm(cx.Request)
 
 	if err != nil {
 		if err.Error() == "request Content-Type isn't multipart/form-data" {
@@ -85,7 +84,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 // GET: /job/{id}
 func (cr *JobController) Read(id string, cx *goweb.Context) {
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 
 	// Load job by id
 	job, err := core.LoadJob(id)
@@ -110,10 +109,10 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 // To do:
 // - Iterate job queries
 func (cr *JobController) ReadMany(cx *goweb.Context) {
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 
 	// Gather query params
-	query := &util.Query{Li: cx.Request.URL.Query()}
+	query := &Query{Li: cx.Request.URL.Query()}
 
 	// Setup query and jobs objects
 	q := bson.M{}
@@ -211,9 +210,9 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 // PUT: /job/{id} -> used for job manipulation
 func (cr *JobController) Update(id string, cx *goweb.Context) {
 	// Log Request and check for Auth
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 	// Gather query params
-	query := &util.Query{Li: cx.Request.URL.Query()}
+	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("resume") { // to resume a suspended job
 		if err := core.QMgr.ResumeSuspendedJob(id); err != nil {
 			cx.RespondWithErrorMessage("fail to resume job: "+id+" "+err.Error(), http.StatusBadRequest)
@@ -241,7 +240,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 
 // DELETE: /job/{id}
 func (cr *JobController) Delete(id string, cx *goweb.Context) {
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 	if err := core.QMgr.DeleteJob(id); err != nil {
 		cx.RespondWithErrorMessage("fail to delete job: "+id, http.StatusBadRequest)
 		return
@@ -252,9 +251,9 @@ func (cr *JobController) Delete(id string, cx *goweb.Context) {
 
 // DELETE: /job?suspend
 func (cr *JobController) DeleteMany(cx *goweb.Context) {
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 	// Gather query params
-	query := &util.Query{Li: cx.Request.URL.Query()}
+	query := &Query{Li: cx.Request.URL.Query()}
 
 	if query.Has("suspend") {
 		num := core.QMgr.DeleteSuspendedJobs()

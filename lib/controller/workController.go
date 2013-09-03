@@ -5,7 +5,6 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/lib/util"
 	"github.com/jaredwilkening/goweb"
 	"io/ioutil"
 	"net/http"
@@ -17,7 +16,7 @@ type WorkController struct{}
 // GET: /work/{id}
 // get a workunit by id, read-only
 func (cr *WorkController) Read(id string, cx *goweb.Context) {
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 
 	// Load workunit by id
 	workunit, err := core.QMgr.GetWorkById(id)
@@ -40,7 +39,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 	// Gather query params
-	query := &util.Query{Li: cx.Request.URL.Query()}
+	query := &Query{Li: cx.Request.URL.Query()}
 
 	if !query.Has("client") { //view workunits
 		var workunits []*core.Workunit
@@ -66,7 +65,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	}
 
 	//log access info only when the queue is not empty, save some log
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 
 	//log event about workunit checkout (WO)
 	workids := []string{}
@@ -86,14 +85,14 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 // PUT: /work/{id} -> status update
 func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	// Log Request and check for Auth
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 	// Gather query params
-	query := &util.Query{Li: cx.Request.URL.Query()}
+	query := &Query{Li: cx.Request.URL.Query()}
 
 	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
 		notice := core.Notice{WorkId: id, Status: query.Value("status"), ClientId: query.Value("client"), Notes: ""}
 		if query.Has("report") { // if "report" is specified in query, parse performance statistics or errlog
-			if _, files, err := util.ParseMultipartForm(cx.Request); err == nil {
+			if _, files, err := ParseMultipartForm(cx.Request); err == nil {
 				if _, ok := files["perf"]; ok {
 					core.QMgr.FinalizeWorkPerf(id, files["perf"].Path)
 				}

@@ -7,7 +7,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/lib/util"
 	"github.com/MG-RAST/AWE/lib/worker"
 	"github.com/jaredwilkening/goweb"
 	"os"
@@ -19,7 +18,7 @@ func launchAPI(control chan int, port int) {
 	r := &goweb.RouteManager{}
 	r.MapRest("/work", c.Work)
 	r.MapRest("/client", c.Client)
-	r.MapFunc("*", util.ResourceDescription, goweb.GetMethod)
+	r.MapFunc("*", controller.ResourceDescription, goweb.GetMethod)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.P_API_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
 		if err != nil {

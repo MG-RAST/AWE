@@ -5,7 +5,6 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/lib/util"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
 )
@@ -15,10 +14,10 @@ type ClientController struct{}
 // POST: /client
 func (cr *ClientController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 
 	// Parse uploaded form
-	_, files, err := util.ParseMultipartForm(cx.Request)
+	_, files, err := ParseMultipartForm(cx.Request)
 	if err != nil {
 		if err.Error() != "request Content-Type isn't multipart/form-data" {
 			logger.Error("Error parsing form: " + err.Error())
@@ -45,7 +44,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 // GET: /client/{id}
 func (cr *ClientController) Read(id string, cx *goweb.Context) {
 	// Gather query params
-	query := &util.Query{Li: cx.Request.URL.Query()}
+	query := &Query{Li: cx.Request.URL.Query()}
 
 	if query.Has("heartbeat") { //handle heartbeat
 		hbmsg, err := core.QMgr.ClientHeartBeat(id)
@@ -57,7 +56,7 @@ func (cr *ClientController) Read(id string, cx *goweb.Context) {
 		return
 	}
 
-	util.LogRequest(cx.Request) //skip heartbeat in access log
+	LogRequest(cx.Request) //skip heartbeat in access log
 
 	client, err := core.QMgr.GetClient(id)
 	if err != nil {
@@ -74,14 +73,14 @@ func (cr *ClientController) Read(id string, cx *goweb.Context) {
 
 // GET: /client
 func (cr *ClientController) ReadMany(cx *goweb.Context) {
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 	clients := core.QMgr.GetAllClients()
 	if len(clients) == 0 {
 		cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
 		return
 	}
 
-	query := &util.Query{Li: cx.Request.URL.Query()}
+	query := &Query{Li: cx.Request.URL.Query()}
 	filtered := []*core.Client{}
 	if query.Has("busy") {
 		for _, client := range clients {
@@ -97,25 +96,25 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 
 // PUT: /client/{id} -> status update
 func (cr *ClientController) Update(id string, cx *goweb.Context) {
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 	cx.RespondWithError(http.StatusNotImplemented)
 }
 
 // PUT: /client
 func (cr *ClientController) UpdateMany(cx *goweb.Context) {
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 	cx.RespondWithError(http.StatusNotImplemented)
 }
 
 // DELETE: /client/{id}
 func (cr *ClientController) Delete(id string, cx *goweb.Context) {
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 	core.QMgr.DeleteClient(id)
 	cx.RespondWithData("ok")
 }
 
 // DELETE: /client
 func (cr *ClientController) DeleteMany(cx *goweb.Context) {
-	util.LogRequest(cx.Request)
+	LogRequest(cx.Request)
 	cx.RespondWithError(http.StatusNotImplemented)
 }

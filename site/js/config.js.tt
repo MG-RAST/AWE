@@ -1,0 +1,4 @@
+var RetinaConfig = {
+    "awe_ip": "[% api_ip %]:[% api_port %]",
+    "workflow_ip": "http://[% api_ip %]:[% api_port %]/awf"
+}

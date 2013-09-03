@@ -2,58 +2,56 @@ package main
 
 import (
 	"fmt"
-	"github.com/MG-RAST/AWE/conf"
-	"github.com/MG-RAST/AWE/core"
-	. "github.com/MG-RAST/AWE/logger"
+	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/controller"
+	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/jaredwilkening/goweb"
 	"os"
-)
-
-var (
-	queueMgr = core.NewQueueMgr()
-	awfMgr   = core.NewWorkflowMgr()
 )
 
 func launchSite(control chan int, port int) {
 	goweb.ConfigureDefaultFormatters()
 	r := &goweb.RouteManager{}
-	r.MapFunc("*", SiteDir)
+	r.MapFunc("*", controller.SiteDir)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.SITE_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: site: %v\n", err)
-			Log.Error("ERROR: site: " + err.Error())
+			logger.Error("ERROR: site: " + err.Error())
 		}
 	} else {
 		err := goweb.ListenAndServeRoutes(fmt.Sprintf(":%d", conf.SITE_PORT), r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: site: %v\n", err)
-			Log.Error("ERROR: site: " + err.Error())
+			logger.Error("ERROR: site: " + err.Error())
 		}
 	}
 	control <- 1 //we are ending
 }
 
 func launchAPI(control chan int, port int) {
+	c := controller.NewServerController()
 	goweb.ConfigureDefaultFormatters()
 	r := &goweb.RouteManager{}
-	r.MapRest("/job", new(JobController))
-	r.MapRest("/work", new(WorkController))
-	r.MapRest("/client", new(ClientController))
-	r.MapRest("/queue", new(QueueController))
-	r.MapRest("/awf", new(AwfController))
-	r.MapFunc("*", ResourceDescription, goweb.GetMethod)
+	r.MapRest("/job", c.Job)
+	r.MapRest("/work", c.Work)
+	r.MapRest("/client", c.Client)
+	r.MapRest("/queue", c.Queue)
+	r.MapRest("/awf", c.Awf)
+	r.MapFunc("*", controller.ResourceDescription, goweb.GetMethod)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.API_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: api: %v\n", err)
-			Log.Error("ERROR: api: " + err.Error())
+			logger.Error("ERROR: api: " + err.Error())
 		}
 	} else {
 		err := goweb.ListenAndServeRoutes(fmt.Sprintf(":%d", conf.API_PORT), r)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: api: %v\n", err)
-			Log.Error("ERROR: api: " + err.Error())
+			logger.Error("ERROR: api: " + err.Error())
 		}
 	}
 	control <- 1 //we are ending
@@ -66,8 +64,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	printLogo()
-	conf.Print()
+	core.InitResMgr("server")
+	core.InitAwfMgr()
+
+	controller.PrintLogo()
+	conf.Print("server")
 
 	if _, err := os.Stat(conf.DATA_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.DATA_PATH, 0777); err != nil {
@@ -91,7 +92,7 @@ func main() {
 	}
 
 	//init logger
-	Log = NewLogger("server")
+	logger.Initialize("server")
 
 	//init db
 	core.InitDB()
@@ -106,7 +107,7 @@ func main() {
 	}
 
 	//init max job number (jid)
-	if err := queueMgr.InitMaxJid(); err != nil {
+	if err := core.QMgr.InitMaxJid(); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		os.Exit(1)
 	}
@@ -114,7 +115,7 @@ func main() {
 	//recover unfinished jobs before server went down last time
 	if conf.RECOVER {
 		fmt.Println("####### Recovering unfinished jobs #######")
-		if err := queueMgr.RecoverJobs(); err != nil {
+		if err := core.QMgr.RecoverJobs(); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		}
 		fmt.Println("Done")
@@ -122,15 +123,14 @@ func main() {
 
 	//launch server
 	control := make(chan int)
-	go Log.Handle()
-	go queueMgr.Handle()
-	go queueMgr.Timer()
-	go queueMgr.ClientChecker()
+	go core.QMgr.Handle()
+	go core.QMgr.Timer()
+	go core.QMgr.ClientChecker()
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)
 
-	if err := awfMgr.LoadWorkflows(); err != nil {
-		Log.Error("LoadWorkflows: " + err.Error())
+	if err := core.AwfMgr.LoadWorkflows(); err != nil {
+		logger.Error("LoadWorkflows: " + err.Error())
 	}
 
 	var host string
@@ -138,9 +138,9 @@ func main() {
 		host = fmt.Sprintf("%s:%d", hostname, conf.API_PORT)
 	}
 	if conf.RECOVER {
-		Log.Event(EVENT_SERVER_RECOVER, "host="+host)
+		logger.Event(event.SERVER_RECOVER, "host="+host)
 	} else {
-		Log.Event(EVENT_SERVER_START, "host="+host)
+		logger.Event(event.SERVER_START, "host="+host)
 	}
 
 	<-control //block till something dies

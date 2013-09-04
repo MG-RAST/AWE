@@ -8,7 +8,7 @@ import (
 )
 
 func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
-	fmt.Printf("work to relay: %v\n", work)
+	fmt.Printf("work to relay: %s\n", work.Id)
 
 	//notify server the final process results
 	if err := NotifyWorkunitProcessed(work, perfstat); err != nil {
@@ -18,7 +18,7 @@ func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 			logger.Error("err@NotifyWorkunitProcessed: workid=" + work.Id + ", err=" + err.Error())
 			//mark this work in Current_work map as false, something needs to be done in the future
 			//to clean this kind of work that has been proccessed but its result can't be sent to server!
-			core.Self.Current_work[work.Id] = false
+			Self.Current_work[work.Id] = false
 		}
 	}
 
@@ -31,5 +31,6 @@ func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 		Self.Total_failed += 1
 	}
 	delete(Self.Current_work, work.Id)
+	fmt.Printf("work relay done: %v\n", work.Id)
 	return
 }

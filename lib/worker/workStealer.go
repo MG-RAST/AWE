@@ -27,10 +27,8 @@ func workStealer(control chan int) {
 	defer fmt.Printf("workStealer exiting...\n")
 	retry := 0
 	for {
-		fmt.Printf("work stealer new loop\n")
 		if core.Service == "proxy" {
-			c := <-core.ProxyWorkChan
-			fmt.Printf("c=%t\n", c)
+			<-core.ProxyWorkChan
 		}
 		wu, err := CheckoutWorkunitRemote(conf.SERVER_URL)
 		if err != nil {
@@ -50,7 +48,7 @@ func workStealer(control chan int) {
 			if retry == 3 {
 				os.Exit(1)
 			}
-			if core.Service != "proxy" {
+			if core.Service != "proxy" { //proxy: event driven, client: timer driven
 				time.Sleep(10 * time.Second)
 			}
 			continue

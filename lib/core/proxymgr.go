@@ -65,9 +65,31 @@ func (qm *ProxyMgr) InitMaxJid() (err error) {
 func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	//relay the notice to the server
 	perf := new(WorkPerf)
-	if work, ok := qm.workQueue.Get(notice.WorkId); ok {
+	workid := notice.WorkId
+	clientid := notice.ClientId
+	if _, ok := qm.clientMap[clientid]; ok {
+		delete(qm.clientMap[clientid].Current_work, workid)
+	}
+	if work, ok := qm.workQueue.Get(workid); ok {
 		work.State = notice.Status
-		proxy_relay_workunit(work, perf)
+		if err = proxy_relay_workunit(work, perf); err != nil {
+			return
+		}
+		if work.State == WORK_STAT_DONE {
+			if client, ok := qm.clientMap[clientid]; ok {
+				client.Total_completed += 1
+				client.Last_failed = 0 //reset last consecutive failures
+			}
+		} else if work.State == WORK_STAT_FAIL {
+			if client, ok := qm.clientMap[clientid]; ok {
+				client.Skip_work = append(client.Skip_work, workid)
+				client.Total_failed += 1
+				client.Last_failed += 1 //last consecutive failures
+				if client.Last_failed == conf.MAX_CLIENT_FAILURE {
+					client.Status = CLIENT_STAT_SUSPEND
+				}
+			}
+		}
 	}
 	return
 }

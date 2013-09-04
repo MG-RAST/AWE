@@ -53,16 +53,13 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		return
 	}
 
-	if core.Service == "proxy" {
+	if core.Service == "proxy" { //drive proxy workStealer to checkout work from server
 		core.ProxyWorkChan <- true
-		fmt.Printf("proxy add one opening\n")
 	}
 
 	//checkout a workunit in FCFS order
 	clientid := query.Value("client")
 	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, 1)
-
-	fmt.Printf("checkout request from %s\n", query.Value("client"))
 
 	if err != nil {
 		if err.Error() != e.QueueEmpty && err.Error() != e.NoEligibleWorkunitFound {

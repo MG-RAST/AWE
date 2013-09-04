@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -52,9 +53,16 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		return
 	}
 
+	if core.Service == "proxy" {
+		core.ProxyWorkChan <- true
+		fmt.Printf("proxy add one opening\n")
+	}
+
 	//checkout a workunit in FCFS order
 	clientid := query.Value("client")
 	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, 1)
+
+	fmt.Printf("checkout request from %s\n", query.Value("client"))
 
 	if err != nil {
 		if err.Error() != e.QueueEmpty && err.Error() != e.NoEligibleWorkunitFound {

@@ -32,6 +32,7 @@ type Client struct {
 	Last_failed     int             `bson:"-" json:"-"`
 	Tag             bool            `bson:"-" json:"-"`
 	Proxy           bool            `bson:"proxy" json:"proxy"`
+	SubClients      int             `bson:"subclients" json:"subclients"`
 }
 
 func NewClient() (client *Client) {

@@ -7,6 +7,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
+	"strconv"
 )
 
 type ClientController struct{}
@@ -97,6 +98,18 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 // PUT: /client/{id} -> status update
 func (cr *ClientController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
+	if query.Has("subclients") { // to resume a suspended job
+		if count, err := strconv.Atoi(query.Value("subclients")); err != nil {
+			cx.RespondWithError(http.StatusNotImplemented)
+		} else {
+			core.QMgr.UpdateSubClients(id, count)
+			cx.RespondWithData("ok")
+		}
+		return
+	}
 	cx.RespondWithError(http.StatusNotImplemented)
 }
 

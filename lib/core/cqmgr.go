@@ -177,6 +177,12 @@ func (qm *CQMgr) DeleteClient(id string) {
 	delete(qm.clientMap, id)
 }
 
+func (qm *CQMgr) UpdateSubClients(id string, count int) {
+	if _, ok := qm.clientMap[id]; ok {
+		qm.clientMap[id].SubClients = count
+	}
+}
+
 //--------end client methods-------
 
 //-------start of workunit methods---

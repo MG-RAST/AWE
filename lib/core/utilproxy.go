@@ -2,8 +2,10 @@ package core
 
 import (
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"os/exec"
 	"time"
 )
 
@@ -16,6 +18,7 @@ func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 			logger.Error("err@NotifyWorkunitProcessed: workid=" + work.Id + ", err=" + err.Error())
 			//mark this work in Current_work map as false, something needs to be done in the future
 			//to clean this kind of work that has been proccessed but its result can't be sent to server!
+			Self.Current_work[work.Id] = false
 		}
 	}
 
@@ -28,5 +31,19 @@ func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 		Self.Total_failed += 1
 	}
 	delete(Self.Current_work, work.Id)
+	return
+}
+
+func notifySubClients(clientid string, count int) (err error) {
+	argv := []string{}
+	argv = append(argv, "-X")
+	argv = append(argv, "PUT")
+	target_url := fmt.Sprintf("%s/client/%s?subclients=%d", conf.SERVER_URL, clientid, count)
+	argv = append(argv, target_url)
+	cmd := exec.Command("curl", argv...)
+	err = cmd.Run()
+	if err != nil {
+		return
+	}
 	return
 }

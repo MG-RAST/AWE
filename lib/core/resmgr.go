@@ -2,11 +2,6 @@ package core
 
 import ()
 
-var (
-	QMgr    ResourceMgr
-	Service string = "unknown"
-)
-
 type ClientMgr interface {
 	RegisterNewClient(FormFiles) (*Client, error)
 	ClientHeartBeat(string) (HBmsg, error)
@@ -14,6 +9,7 @@ type ClientMgr interface {
 	GetAllClients() []*Client
 	DeleteClient(string)
 	ClientChecker()
+	UpdateSubClients(id string, count int)
 }
 
 type WorkMgr interface {
@@ -50,13 +46,4 @@ type ResourceMgr interface {
 	Handle()
 	ShowStatus() string
 	Timer()
-}
-
-func InitResMgr(service string) {
-	if service == "server" {
-		QMgr = NewServerMgr()
-	} else if service == "proxy" {
-		QMgr = NewProxyMgr()
-	}
-	Service = service
 }

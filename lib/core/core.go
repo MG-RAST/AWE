@@ -19,11 +19,27 @@ import (
 )
 
 var (
-	Self *Client
+	QMgr          ResourceMgr
+	Service       string = "unknown"
+	Self          *Client
+	ProxyWorkChan chan bool
 )
+
+func InitResMgr(service string) {
+	if service == "server" {
+		QMgr = NewServerMgr()
+	} else if service == "proxy" {
+		QMgr = NewProxyMgr()
+	}
+	Service = service
+}
 
 func InitClientProfile(profile *Client) {
 	Self = profile
+}
+
+func InitProxyWorkChan() {
+	ProxyWorkChan = make(chan bool, 100)
 }
 
 type CoReq struct {

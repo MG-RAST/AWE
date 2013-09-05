@@ -96,8 +96,7 @@ func main() {
 		os.Exit(1)
 	}
 	core.InitClientProfile(self)
-
-	logger.Initialize("proxy")
+	core.InitProxyWorkChan()
 
 	fmt.Printf("Proxy registered, name=%s, id=%s\n", self.Name, self.Id)
 	logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)

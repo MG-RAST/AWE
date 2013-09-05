@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
+	"os"
 	"time"
 )
 
@@ -61,6 +63,14 @@ func (qm *ProxyMgr) InitMaxJid() (err error) {
 	return
 }
 
+func (qm *ProxyMgr) ShowStatus() string {
+	return ""
+}
+
+//---end of mgr methods
+
+// workunit methods
+
 //handle feedback from a client about the execution of a workunit
 func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	//relay the notice to the server
@@ -94,25 +104,79 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	return
 }
 
-func (qm *ProxyMgr) ShowStatus() string {
-	return ""
+//end of workunits methods
+
+//client methods
+
+func (qm *ProxyMgr) RegisterNewClient(files FormFiles) (client *Client, err error) {
+	if _, ok := files["profile"]; ok {
+		client, err = NewProfileClient(files["profile"].Path)
+		os.Remove(files["profile"].Path)
+	} else {
+		client = NewClient()
+	}
+	if err != nil {
+		return nil, err
+	}
+	qm.clientMap[client.Id] = client
+
+	if len(client.Current_work) > 0 { //re-registered client
+		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
+		for workid, _ := range client.Current_work {
+			if qm.workQueue.Has(workid) {
+				qm.workQueue.StatusChange(workid, WORK_STAT_CHECKOUT)
+			}
+		}
+	}
+	//proxy specific
+	Self.SubClients += 1
+	notifySubClients(Self.Id, Self.SubClients)
+	return
 }
 
-//---end of mgr methods
+func (qm *ProxyMgr) ClientChecker() {
+	for {
+		time.Sleep(30 * time.Second)
+		for clientid, client := range qm.clientMap {
+			if client.Tag == true {
+				client.Tag = false
+				total_minutes := int(time.Now().Sub(client.RegTime).Minutes())
+				hours := total_minutes / 60
+				minutes := total_minutes % 60
+				client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
+				if len(client.Current_work) > 0 {
+					client.Idle_time = 0
+				} else {
+					client.Idle_time += 30
+				}
+			} else {
+				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
+				logger.Event(event.CLIENT_UNREGISTER, "clientid="+clientid+";name="+qm.clientMap[clientid].Name)
 
-//---start workunit methods
+				//requeue unfinished workunits associated with the failed client
+				workids := qm.getWorkByClient(clientid)
+				for _, workid := range workids {
+					if qm.workQueue.Has(workid) {
+						qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
+						logger.Event(event.WORK_REQUEUE, "workid="+workid)
+					}
+				}
+				//delete the client from client map
+				delete(qm.clientMap, clientid)
+				//proxy specific
+				Self.SubClients -= 1
+				notifySubClients(Self.Id, Self.SubClients)
+			}
+		}
+	}
+}
 
-//---end workunit methods
-
-//---task methods----
+//end of client methods
 
 func (qm *ProxyMgr) EnqueueTasksByJobId(jobid string, tasks []*Task) (err error) {
 	return
 }
 
-//---end of task methods
-
-//---job methods---
 func (qm *ProxyMgr) JobRegister() (jid string, err error) {
 	return
 }

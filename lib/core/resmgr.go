@@ -9,6 +9,7 @@ type ClientMgr interface {
 	GetAllClients() []*Client
 	DeleteClient(string)
 	ClientChecker()
+	UpdateSubClients(id string, count int)
 }
 
 type WorkMgr interface {

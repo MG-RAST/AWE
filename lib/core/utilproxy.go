@@ -2,14 +2,14 @@ package core
 
 import (
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"os/exec"
 	"time"
 )
 
 func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
-	fmt.Printf("work to relay: %s\n", work.Id)
-
 	//notify server the final process results
 	if err := NotifyWorkunitProcessed(work, perfstat); err != nil {
 		time.Sleep(3 * time.Second) //wait 3 seconds and try another time
@@ -31,6 +31,19 @@ func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 		Self.Total_failed += 1
 	}
 	delete(Self.Current_work, work.Id)
-	fmt.Printf("work relay done: %v\n", work.Id)
+	return
+}
+
+func notifySubClients(clientid string, count int) (err error) {
+	argv := []string{}
+	argv = append(argv, "-X")
+	argv = append(argv, "PUT")
+	target_url := fmt.Sprintf("%s/client/%s?subclients=%d", conf.SERVER_URL, clientid, count)
+	argv = append(argv, target_url)
+	cmd := exec.Command("curl", argv...)
+	err = cmd.Run()
+	if err != nil {
+		return
+	}
 	return
 }

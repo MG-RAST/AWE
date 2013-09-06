@@ -269,7 +269,7 @@
 	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/client", function (data) {
 		var result_data = [];
 		if (data.data == null) {
-		    result_data = [ ['-','-','-','-','-','-','-','-','-','-','-','-','-'] ];
+		    result_data = [ ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'] ];
 		} else {
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
@@ -281,6 +281,8 @@
 					    obj.apps.join(", "),
 					    obj.regtime,
 					    obj.serve_time,
+					    obj.proxy || "-",
+					    obj.subclients || "0",
 					    obj.Status,
 					    obj.total_checkout || "0",
 					    obj.total_completed || "0",
@@ -296,6 +298,8 @@
 					  "apps",
 					  "register time",
 					  "up-time",
+					  "proxy",
+					  "subclients",
 					  "status",
 					  "c/o",
 					  "done",
@@ -303,7 +307,7 @@
 					  "failed wuid"],
 				data: result_data };
 
-		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [1,73,73,70,73,1,115,83,75,57,67,68,90];
+		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [70,73,50,70,73,1,115,83,70,90,75,57,67,68,90];
 		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["clients"].render();
 		Retina.WidgetInstances.awe_monitor[1].check_update();

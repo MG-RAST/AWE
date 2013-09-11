@@ -56,6 +56,28 @@ func dataMover(control chan int) {
 	control <- ID_DATAMOVER //we are ending
 }
 
+func proxyDataMover(control chan int) {
+	fmt.Printf("proxyDataMover lanched, client=%s\n", core.Self.Id)
+	defer fmt.Printf("proxyDataMover exiting...\n")
+
+	for {
+		raw := <-fromStealer
+		parsed := &mediumwork{
+			workunit: raw.workunit,
+			perfstat: raw.perfstat,
+		}
+		work := raw.workunit
+		workmap[work.Id] = ID_DATAMOVER
+		//check the availability prerequisite data and download if needed
+		if err := proxyMovePreData(parsed.workunit); err != nil {
+			logger.Error("err@dataMover_work.movePreData, workid=" + work.Id + " error=" + err.Error())
+			parsed.workunit.State = core.WORK_STAT_FAIL
+		}
+		fromMover <- parsed
+	}
+	control <- ID_DATAMOVER
+}
+
 //parse workunit, fetch input data, compose command arguments
 func ParseWorkunitArgs(work *core.Workunit) (args []string, err error) {
 	argstr := work.Cmd.Args
@@ -158,4 +180,9 @@ func isFileExisting(path string) bool {
 		return true
 	}
 	return false
+}
+
+func proxyMovePreData(workunit *core.Workunit) (err error) {
+	//to be implemented
+	return
 }

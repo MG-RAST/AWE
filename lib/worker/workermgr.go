@@ -85,8 +85,8 @@ func StartProxyWorkers() {
 		case ID_WORKSTEALER:
 			go workStealer(control)
 			logger.Error("workStealer died and restarted")
-		case ID_DELIVERER:
-			go deliverer(control)
+		case ID_REDISTRIBUTOR:
+			go redistributor(control)
 			logger.Error("deliverer died and restarted")
 		}
 	}

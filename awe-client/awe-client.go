@@ -64,7 +64,7 @@ func main() {
 	logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)
 
 	if err := worker.InitWorkers(self); err == nil {
-		worker.StartWorkers()
+		worker.StartClientWorkers()
 	} else {
 		fmt.Printf("failed to initialize and start workers:" + err.Error())
 	}

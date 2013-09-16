@@ -5,6 +5,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/controller"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/db"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/jaredwilkening/goweb"
@@ -64,12 +65,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	core.InitResMgr("server")
-	core.InitAwfMgr()
-
-	controller.PrintLogo()
-	conf.Print("server")
-
 	if _, err := os.Stat(conf.DATA_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.DATA_PATH, 0777); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR in creating data_path %s\n", err.Error())
@@ -95,7 +90,14 @@ func main() {
 	logger.Initialize("server")
 
 	//init db
-	core.InitDB()
+	db.Initialize()
+
+	core.InitResMgr("server")
+	core.InitAwfMgr()
+	core.InitJobDB()
+
+	controller.PrintLogo()
+	conf.Print("server")
 
 	// reload job directory
 	if conf.RELOAD != "" {

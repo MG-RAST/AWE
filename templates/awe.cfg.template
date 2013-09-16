@@ -30,6 +30,9 @@ awf=$GOPATH/src/github.com/MG-RAST/AWE/template/awf_template
 # Mongodb configuration:
 # Hostnames and ports hosts=host1[,host2:port,...,hostN]
 hosts=localhost
+database=AWEDB
+user=
+password=
 
 [Mongodb-Node-Indices]
 # See http://www.mongodb.org/display/DOCS/Indexes#Indexes-CreationOptions for more info on mongodb index options.

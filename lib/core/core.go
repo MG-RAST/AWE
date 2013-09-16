@@ -8,11 +8,9 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io/ioutil"
-	"labix.org/v2/mgo/bson"
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -139,53 +137,6 @@ func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job
 	}
 
 	err = job.Save()
-	return
-}
-
-func LoadJob(id string) (job *Job, err error) {
-	if db, err := DBConnect(); err == nil {
-		defer db.Close()
-		job = new(Job)
-		if err = db.FindById(id, job); err == nil {
-			return job, nil
-		} else {
-			return nil, err
-		}
-	}
-	return nil, err
-}
-
-func LoadJobs(ids []string) (jobs []*Job, err error) {
-	if db, err := DBConnect(); err == nil {
-		defer db.Close()
-		if err = db.FindJobs(ids, &jobs); err == nil {
-			return jobs, err
-		} else {
-			return nil, err
-		}
-	}
-	return nil, err
-}
-
-func ReloadFromDisk(path string) (err error) {
-	id := filepath.Base(path)
-	jobbson, err := ioutil.ReadFile(path + "/" + id + ".bson")
-	if err != nil {
-		return
-	}
-	job := new(Job)
-	err = bson.Unmarshal(jobbson, &job)
-	if err == nil {
-		db, er := DBConnect()
-		if er != nil {
-			err = er
-		}
-		defer db.Close()
-		err = db.Upsert(job)
-		if err != nil {
-			err = er
-		}
-	}
 	return
 }
 

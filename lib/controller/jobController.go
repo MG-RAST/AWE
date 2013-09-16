@@ -116,7 +116,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 
 	// Setup query and jobs objects
 	q := bson.M{}
-	jobs := new(core.Jobs)
+	jobs := core.Jobs{}
 
 	// Gather params to make db query. Do not include the
 	// following list.
@@ -154,7 +154,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		}
 		var err error
 		if recent > 0 {
-			err = jobs.GetAllRecent(q, recent)
+			_, err = jobs.GetAllRecent(q, recent)
 		} else {
 			err = jobs.GetAllLimitOffset(q, lim, off)
 		}

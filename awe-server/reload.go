@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/Shock/shock-server/db"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -40,10 +41,10 @@ func reload(source string) (err error) {
 
 func reloadDB() (err error) {
 	fmt.Printf("dropping & re-initializing database...")
-	if err = core.DropDB(); err != nil {
+	if err = db.Drop(); err != nil {
 		return err
 	}
-	core.InitDB()
+	db.Initialize()
 	fmt.Printf("done\n")
 	return
 }

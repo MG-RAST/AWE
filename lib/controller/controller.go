@@ -8,6 +8,7 @@ type ServerController struct {
 	Job    *JobController
 	Queue  *QueueController
 	Work   *WorkController
+	User   *UserController
 }
 
 func NewServerController() *ServerController {
@@ -17,6 +18,7 @@ func NewServerController() *ServerController {
 		Job:    new(JobController),
 		Queue:  new(QueueController),
 		Work:   new(WorkController),
+		User:   new(UserController),
 	}
 }
 

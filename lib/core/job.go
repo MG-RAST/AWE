@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"labix.org/v2/mgo/bson"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -75,12 +76,12 @@ func (job *Job) UpdateFile(params map[string]string, files FormFiles) (err error
 
 func (job *Job) Save() (err error) {
 	job.UpdateTime = time.Now()
-	db, err := DBConnect()
+	/*db, err := DBConnect()
 	if err != nil {
 		return
 	}
 	defer db.Close()
-
+	*/
 	bsonPath := fmt.Sprintf("%s/%s.bson", job.Path(), job.Id)
 	os.Remove(bsonPath)
 	nbson, err := bson.Marshal(job)
@@ -91,7 +92,7 @@ func (job *Job) Save() (err error) {
 	if err != nil {
 		return
 	}
-	err = db.Upsert(job)
+	err = dbUpsert(job)
 	if err != nil {
 		return
 	}
@@ -175,4 +176,30 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	}
 	job.Tasks[idx] = task
 	return job.RemainTasks, job.Save()
+}
+
+func LoadJob(id string) (job *Job, err error) {
+	job = new(Job)
+	if err = DB.Find(bson.M{"id": id}).One(&job); err == nil {
+		return job, nil
+	} else {
+		return nil, err
+	}
+	return nil, err
+}
+
+func ReloadFromDisk(path string) (err error) {
+	id := filepath.Base(path)
+	jobbson, err := ioutil.ReadFile(path + "/" + id + ".bson")
+	if err != nil {
+		return
+	}
+	job := new(Job)
+	err = bson.Unmarshal(jobbson, &job)
+	if err == nil {
+		if err = dbUpsert(job); err != nil {
+			return err
+		}
+	}
+	return
 }

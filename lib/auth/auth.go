@@ -16,7 +16,7 @@ var authMethods []func(string) (*user.User, error)
 func Initialize() {
 	authCache = cache{m: make(map[string]cacheValue)}
 	authMethods = []func(string) (*user.User, error){}
-	if conf.AUTH_TYPE != "basic" {
+	if conf.AUTH_TYPE == "basic" {
 		authMethods = append(authMethods, basic.Auth)
 	}
 }

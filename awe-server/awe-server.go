@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/auth"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/controller"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/db"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/jaredwilkening/goweb"
 	"os"
 )
@@ -41,6 +43,7 @@ func launchAPI(control chan int, port int) {
 	r.MapRest("/client", c.Client)
 	r.MapRest("/queue", c.Queue)
 	r.MapRest("/awf", c.Awf)
+	r.MapRest("/user", c.User)
 	r.MapFunc("*", controller.ResourceDescription, goweb.GetMethod)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.API_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
@@ -91,6 +94,12 @@ func main() {
 
 	//init db
 	db.Initialize()
+
+	//init auth
+	auth.Initialize()
+
+	//init db collection for user
+	user.Initialize()
 
 	core.InitResMgr("server")
 	core.InitAwfMgr()

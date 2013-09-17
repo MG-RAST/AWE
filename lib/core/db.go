@@ -2,87 +2,58 @@ package core
 
 import (
 	//	"errors"
-	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
+	"errors"
+	"github.com/MG-RAST/AWE/lib/db"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
-	"os"
-	"time"
 )
 
-const (
-	DbTimeout = time.Duration(time.Second * 1)
-)
+var DB *mgo.Collection
 
-type db struct {
-	Jobs    *mgo.Collection
-	Session *mgo.Session
+func InitJobDB() {
+	DB = db.Connection.DB.C("Jobs")
+	DB.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
 }
 
-func InitDB() {
-	d, err := DBConnect()
-	defer d.Close()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "ERROR: no reachable mongodb servers")
-		os.Exit(1)
-	}
-	idIdx := mgo.Index{Key: []string{"id"}, Unique: true}
-	err = d.Jobs.EnsureIndex(idIdx)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: fatal mongodb initialization error: %v", err)
-		os.Exit(1)
-	}
+func dbDelete(q bson.M) (err error) {
+	_, err = DB.RemoveAll(q)
+	return
 }
 
-func DBConnect() (d *db, err error) {
-	session, err := mgo.DialWithTimeout(conf.MONGODB, DbTimeout)
-	if err != nil {
+func dbUpsert(j *Job) (err error) {
+	_, err = DB.Upsert(bson.M{"id": j.Id}, &j)
+	return
+}
+
+func dbFind(q bson.M, results *Jobs, options map[string]int) (count int, err error) {
+	query := DB.Find(q)
+	if count, err = query.Count(); err != nil {
+		return 0, err
+	}
+	if limit, has := options["limit"]; has {
+		if offset, has := options["offset"]; has {
+			err = query.Limit(limit).Skip(offset).All(results)
+			return
+		} else {
+			return 0, errors.New("store.db.Find options limit and offset must be used together")
+		}
+	}
+	err = query.All(results)
+	return
+}
+
+func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string) (count int, err error) {
+	if sortby == "" {
+		return 0, errors.New("sortby must be an nonempty string")
+	}
+	query := DB.Find(q)
+	if count, err = query.Count(); err != nil {
+		return 0, err
+	}
+	if limit, has := options["limit"]; has {
+		err = DB.Find(q).Sort(sortby).Limit(limit).All(results)
 		return
 	}
-	d = &db{Jobs: session.DB("AWEDB").C("Jobs"), Session: session}
-	return
-}
-
-func DropDB() (err error) {
-	d, err := DBConnect()
-	defer d.Close()
-	if err != nil {
-		return err
-	}
-	return d.Jobs.DropCollection()
-}
-
-func (d *db) Upsert(job *Job) (err error) {
-	_, err = d.Jobs.Upsert(bson.M{"id": job.Id}, &job)
-	return
-}
-
-func (d *db) FindById(id string, result *Job) (err error) {
-	err = d.Jobs.Find(bson.M{"id": id}).One(&result)
-	return
-}
-
-func (d *db) FindJobs(ids []string, results *[]*Job) (err error) {
-	err = d.Jobs.Find(bson.M{"id": bson.M{"$in": ids}}).All(results)
-	return
-}
-
-func (d *db) GetAll(q bson.M, results *Jobs) (err error) {
-	err = d.Jobs.Find(q).All(results)
-	return
-}
-
-func (d *db) GetAllLimitOffset(q bson.M, results *Jobs, limit int, offset int) (err error) {
-	err = d.Jobs.Find(q).Limit(limit).Skip(offset).All(results)
-	return
-}
-
-func (d *db) GetAllRecent(q bson.M, results *Jobs, recent int) (err error) {
-	err = d.Jobs.Find(q).Sort("-jid").Limit(recent).All(results)
-	return
-}
-
-func (d *db) Close() {
-	d.Session.Close()
+	err = query.All(results)
 	return
 }

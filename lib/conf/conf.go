@@ -60,7 +60,10 @@ var (
 	AWF_PATH  = ""
 
 	// Mongodb
-	MONGODB = ""
+	MONGODB_HOST     = ""
+	MONGODB_DATABASE = "AWEDB"
+	MONGODB_USER     = ""
+	MONGODB_PASSWD   = ""
 
 	//debug log level
 	DEBUG_LEVEL = 0
@@ -167,7 +170,13 @@ func init() {
 	AWF_PATH, _ = c.String("Directories", "awf")
 
 	// Mongodb
-	MONGODB, _ = c.String("Mongodb", "hosts")
+	MONGODB_HOST, _ = c.String("Mongodb", "hosts")
+	MONGODB_DATABASE, _ = c.String("Mongodb", "database")
+	MONGODB_USER, _ = c.String("Mongodb", "user")
+	MONGODB_PASSWD, _ = c.String("Mongodb", "password")
+	if MONGODB_DATABASE == "" {
+		MONGODB_DATABASE = "AWEDB"
+	}
 
 	// Server options
 	if perf_log_workunit, err := c.Bool("Server", "perf_log_workunit"); err == nil {
@@ -232,7 +241,7 @@ func Print(service string) {
 	}
 
 	if service == "server" {
-		fmt.Printf("##### Mongodb #####\nhost(s):\t%s\n", MONGODB)
+		fmt.Printf("##### Mongodb #####\nhost(s):\t%s\ndatabase:\t%s\n\n", MONGODB_HOST, MONGODB_DATABASE)
 	}
 	fmt.Println()
 	if service == "server" {

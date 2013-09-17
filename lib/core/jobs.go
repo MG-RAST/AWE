@@ -8,32 +8,22 @@ import (
 type Jobs []Job
 
 func (n *Jobs) GetAll(q bson.M) (err error) {
-	db, err := DBConnect()
-	if err != nil {
-		return
-	}
-	defer db.Close()
-	err = db.GetAll(q, n)
+	_, err = dbFind(q, n, nil)
+	return
+}
+
+func (n *Jobs) GetPaginated(q bson.M, limit int, offset int) (count int, err error) {
+	count, err = dbFind(q, n, map[string]int{"limit": limit, "offset": offset})
 	return
 }
 
 func (n *Jobs) GetAllLimitOffset(q bson.M, limit int, offset int) (err error) {
-	db, err := DBConnect()
-	if err != nil {
-		return
-	}
-	defer db.Close()
-	err = db.GetAllLimitOffset(q, n, limit, offset)
+	_, err = dbFind(q, n, map[string]int{"limit": limit, "offset": offset})
 	return
 }
 
-func (n *Jobs) GetAllRecent(q bson.M, recent int) (err error) {
-	db, err := DBConnect()
-	if err != nil {
-		return
-	}
-	defer db.Close()
-	err = db.GetAllRecent(q, n, recent)
+func (n *Jobs) GetAllRecent(q bson.M, recent int) (count int, err error) {
+	count, err = dbFindSort(q, n, map[string]int{"limit": recent}, "-jid")
 	return
 }
 

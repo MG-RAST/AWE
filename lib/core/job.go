@@ -76,12 +76,6 @@ func (job *Job) UpdateFile(params map[string]string, files FormFiles) (err error
 
 func (job *Job) Save() (err error) {
 	job.UpdateTime = time.Now()
-	/*db, err := DBConnect()
-	if err != nil {
-		return
-	}
-	defer db.Close()
-	*/
 	bsonPath := fmt.Sprintf("%s/%s.bson", job.Path(), job.Id)
 	os.Remove(bsonPath)
 	nbson, err := bson.Marshal(job)

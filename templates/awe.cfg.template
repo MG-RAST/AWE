@@ -53,3 +53,5 @@ group=default_group
 auto_clean_dir=false
 worker_overlap=false
 print_app_msg=false
+username=
+password=

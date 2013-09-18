@@ -187,6 +187,7 @@ func ComposeProfile() (profile *core.Client, err error) {
 	profile.Name = conf.CLIENT_NAME
 	profile.Group = conf.CLIENT_GROUP
 	profile.CPUs = runtime.NumCPU()
+	profile.User = conf.CLIENT_USERNAME
 
 	//app list
 	profile.Apps = []string{}

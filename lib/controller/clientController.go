@@ -5,6 +5,7 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
 	"strconv"
@@ -16,6 +17,18 @@ type ClientController struct{}
 func (cr *ClientController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
+
+	_, err := request.Authenticate(cx.Request)
+	if err != nil {
+		if err.Error() == e.NoAuth || err.Error() == e.UnAuth {
+			cx.RespondWithError(http.StatusUnauthorized)
+			return
+		} else {
+			logger.Error("Err@user_Read: " + err.Error())
+			cx.RespondWithError(http.StatusInternalServerError)
+			return
+		}
+	}
 
 	// Parse uploaded form
 	_, files, err := ParseMultipartForm(cx.Request)

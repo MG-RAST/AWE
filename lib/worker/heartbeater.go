@@ -8,6 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
+	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -109,20 +111,59 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 	contentType := bodyWriter.FormDataContentType()
 	bodyWriter.Close()
 	targetUrl := host + "/client"
+
 	resp, err := http.Post(targetUrl, contentType, bodyBuf)
+
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	jsonstream, err := ioutil.ReadAll(resp.Body)
+
 	response := new(ClientResponse)
 	if err = json.Unmarshal(jsonstream, response); err != nil {
-		if len(response.Errs) > 0 {
-			//or if err.Error() == "json: cannot unmarshal null into Go value of type core.Client"
-			return nil, errors.New(strings.Join(response.Errs, ","))
-		}
-		return
+		return nil, errors.New("fail to unmashal response:" + string(jsonstream))
+	}
+	if len(response.Errs) > 0 {
+		return nil, errors.New(strings.Join(response.Errs, ","))
+	}
+	client = &response.Data
+	return
+}
+
+func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, err error) {
+	if conf.CLIENT_USERNAME == "" || conf.CLIENT_PASSWORD == "" {
+		return nil, errors.New("client username and password not configured")
+	}
+
+	profile_jsonstream, err := json.Marshal(profile)
+	profile_path := conf.DATA_PATH + "/clientprofile.json"
+	ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
+
+	form := httpclient.NewForm()
+	form.AddFile("profile", profile_path)
+	if err := form.Create(); err != nil {
+		return nil, err
+	}
+	headers := httpclient.Header{
+		"Content-Type":   form.ContentType,
+		"Content-Length": strconv.FormatInt(form.Length, 10),
+	}
+	user := httpclient.GetUserByBasicAuth(conf.CLIENT_USERNAME, conf.CLIENT_PASSWORD)
+	targetUrl := host + "/client"
+
+	resp, err := httpclient.Post(targetUrl, headers, form.Reader, user)
+	if err != nil {
+		return nil, err
+	}
+	jsonstream, err := ioutil.ReadAll(resp.Body)
+	response := new(ClientResponse)
+	if err = json.Unmarshal(jsonstream, response); err != nil {
+		return nil, errors.New("fail to unmashal response:" + string(jsonstream))
+	}
+	if len(response.Errs) > 0 {
+		return nil, errors.New(strings.Join(response.Errs, ","))
 	}
 	client = &response.Data
 	return
@@ -130,7 +171,7 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 
 func ReRegisterWithSelf(host string) (client *core.Client, err error) {
 	fmt.Printf("lost contact with server, try to re-register\n")
-	client, err = RegisterWithProfile(host, core.Self)
+	client, err = RegisterWithAuth(host, core.Self)
 	if err != nil {
 		logger.Error("Error: fail to re-register, clientid=" + core.Self.Id)
 		fmt.Printf("failed to re-register\n")

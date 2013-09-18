@@ -96,8 +96,8 @@ var (
 	WORKER_OVERLAP  = false
 	PRINT_APP_MSG   = false
 	AUTO_CLEAN_DIR  = false
-	CLIENT_USERNAME = ""
-	CLIENT_PASSWORD = ""
+	CLIENT_USERNAME = "public"
+	CLIENT_PASSWORD = "public"
 
 	//tag
 	INIT_SUCCESS = true
@@ -219,6 +219,12 @@ func init() {
 	CLIENT_USERNAME, _ = c.String("Client", "username")
 	CLIENT_PASSWORD, _ = c.String("Client", "password")
 
+	if CLIENT_USERNAME == "" {
+		CLIENT_USERNAME = "public"
+	}
+	if CLIENT_PASSWORD == "" {
+		CLIENT_PASSWORD = "public"
+	}
 	//Proxy
 	P_SITE_PORT, _ = c.Int("Proxy", "p-site-port")
 	P_API_PORT, _ = c.Int("Proxy", "p-api-port")

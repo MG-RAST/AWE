@@ -133,8 +133,8 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 }
 
 func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, err error) {
-	if conf.CLIENT_USERNAME == "" || conf.CLIENT_PASSWORD == "" {
-		return nil, errors.New("client username and password not configured")
+	if conf.CLIENT_USERNAME == "public" {
+		fmt.Println("client username and password not configured, register as a public user (can only access public data)")
 	}
 
 	profile_jsonstream, err := json.Marshal(profile)

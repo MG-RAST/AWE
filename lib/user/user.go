@@ -27,6 +27,7 @@ func Initialize() {
 	DB = db.Connection.DB.C("Users")
 	DB.EnsureIndex(mgo.Index{Key: []string{"uuid"}, Unique: true})
 	DB.EnsureIndex(mgo.Index{Key: []string{"username"}, Unique: true})
+	New("public", "public", false) //initialize a default public user
 }
 
 func New(username string, password string, isAdmin bool) (u *User, err error) {

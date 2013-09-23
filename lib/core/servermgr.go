@@ -561,7 +561,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			delete(qm.taskMap, task.Id)
 		}
 		//log event about job done (JD)
-		logger.Event(event.JOB_DONE, "jobid="+job.Id)
+		logger.Event(event.JOB_DONE, "jobid="+job.Id+";jid="+job.Jid+";project="+job.Info.Project+";name="+job.Info.Name)
 	}
 	return
 }

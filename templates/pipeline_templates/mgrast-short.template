@@ -174,7 +174,7 @@
                     "md5nr.2":{
                         "url":"http://140.221.84.150:8000/node/08956b07-0abc-4e4c-bb08-e2581744e30e?download"
                     }
-                },rm 
+                },
                 "partinfo": {
                      "input": "#jobname.clust.faa",
                      "output": "#jobname.hits.blat"

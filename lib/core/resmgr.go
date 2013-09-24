@@ -34,6 +34,7 @@ type JobMgr interface {
 	RecoverJobs() error
 	FinalizeWorkPerf(string, string) error
 	RecomputeJob(string, string) error
+	UpdateGroup(string, string) error
 }
 
 type ClientWorkMgr interface {

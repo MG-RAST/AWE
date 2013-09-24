@@ -783,6 +783,24 @@ func isAncestor(job *Job, taskId string, testId string) bool {
 	return false
 }
 
+//update job group
+func (qm *ServerMgr) UpdateGroup(jobid string, newgroup string) (err error) {
+	if _, ok := qm.actJobs[jobid]; ok {
+		return errors.New("job " + jobid + " is active")
+	}
+	//Load job by id
+	dbjob, err := LoadJob(jobid)
+	if err != nil {
+		return errors.New("failed to load job " + err.Error())
+	}
+	if dbjob.State != JOB_STAT_COMPLETED && dbjob.State != JOB_STAT_SUSPEND {
+		return errors.New("job " + jobid + " is not in 'completed' or 'suspend' status")
+	}
+	dbjob.Info.ClientGroups = newgroup
+	dbjob.Save()
+	return
+}
+
 //---end of job methods
 
 //---perf related methods

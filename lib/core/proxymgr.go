@@ -217,6 +217,15 @@ func (qm *ProxyMgr) RecoverJobs() (err error) {
 	return
 }
 
+//recompute jobs from specified task stage
+func (qm *ProxyMgr) RecomputeJob(jobid string, stage string) (err error) {
+	return
+}
+
+func (qm *ProxyMgr) UpdateGroup(jobid string, newgroup string) (err error) {
+	return
+}
+
 func (qm *ProxyMgr) FinalizeWorkPerf(string, string) (err error) {
 	return
 }

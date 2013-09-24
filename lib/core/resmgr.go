@@ -33,6 +33,7 @@ type JobMgr interface {
 	InitMaxJid() error
 	RecoverJobs() error
 	FinalizeWorkPerf(string, string) error
+	RecomputeJob(string, string) error
 }
 
 type ClientWorkMgr interface {

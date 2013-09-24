@@ -699,6 +699,90 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	return
 }
 
+//recompute jobs from specified task stage
+func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
+	if _, ok := qm.actJobs[jobid]; ok {
+		return errors.New("job " + jobid + " is already active")
+	}
+	//Load job by id
+	dbjob, err := LoadJob(jobid)
+	if err != nil {
+		return errors.New("failed to load job " + err.Error())
+	}
+	if dbjob.State != JOB_STAT_COMPLETED && dbjob.State != JOB_STAT_SUSPEND {
+		return errors.New("job " + jobid + " is not in 'completed' or 'suspend' status")
+	}
+	from_task_id := fmt.Sprintf("%s_%s", jobid, stage)
+	remaintasks := 0
+	found := false
+	for _, task := range dbjob.Tasks {
+		if task.Id == from_task_id {
+			resetTask(task)
+			remaintasks += 1
+			found = true
+		}
+	}
+	if !found {
+		return errors.New("task not found:" + from_task_id)
+	}
+	for _, task := range dbjob.Tasks {
+		if isAncestor(dbjob, task.Id, from_task_id) {
+			resetTask(task)
+			remaintasks += 1
+		}
+	}
+	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+	dbjob.RemainTasks = remaintasks
+	dbjob.UpdateState(JOB_STAT_INPROGRESS, "recomputed from task "+from_task_id)
+	return
+}
+
+func resetTask(task *Task) {
+	task.State = TASK_STAT_PENDING
+	task.RemainWork = task.TotalWork
+	for _, input := range task.Inputs {
+		if input.Origin != "" {
+			input.Node = "-"
+			input.Url = ""
+			input.Size = 0
+		}
+	}
+	for _, output := range task.Outputs {
+		output.Node = "-"
+		output.Url = ""
+		output.Size = 0
+	}
+}
+
+func isAncestor(job *Job, taskId string, testId string) bool {
+	if taskId == testId {
+		return false
+	}
+	idx := -1
+	for i, t := range job.Tasks {
+		if t.Id == taskId {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		return false
+	}
+
+	task := job.Tasks[idx]
+	if len(task.DependsOn) == 0 {
+		return false
+	}
+	if contains(task.DependsOn, testId) {
+		return true
+	} else {
+		for _, t := range task.DependsOn {
+			return isAncestor(job, t, testId)
+		}
+	}
+	return false
+}
+
 //---end of job methods
 
 //---perf related methods

@@ -234,6 +234,17 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		cx.RespondWithData("job resubmitted: " + id)
 		return
 	}
+	if query.Has("recompute") { // to recompute a job from task i, the successive/downstream tasks of i will all be computed
+		stage := query.Value("recompute")
+		if stage == "" {
+			cx.RespondWithErrorMessage("lacking stage id from which the recompute starts", http.StatusBadRequest)
+		}
+		if err := core.QMgr.RecomputeJob(id, stage); err != nil {
+			cx.RespondWithErrorMessage("fail to recompute job: "+id+" "+err.Error(), http.StatusBadRequest)
+		}
+		cx.RespondWithData("job recompute started: " + id)
+		return
+	}
 	cx.RespondWithData("no supported job operation requested")
 	return
 }

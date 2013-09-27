@@ -43,6 +43,8 @@ var (
 
 	// Auth
 	BASIC_AUTH         = true
+	GLOBUS_OAUTH       = false
+	MGRAST_OAUTH       = false
 	GLOBUS_TOKEN_URL   = ""
 	GLOBUS_PROFILE_URL = ""
 	MGRAST_OAUTH_URL   = ""
@@ -230,9 +232,11 @@ func Print(service string) {
 		fmt.Printf("basic_auth:\ttrue\n")
 	}
 	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
+		GLOBUS_OAUTH = true
 		fmt.Printf("globus_token_url:\t%s\nglobus_profile_url:\t%s\n", GLOBUS_TOKEN_URL, GLOBUS_PROFILE_URL)
 	}
 	if MGRAST_OAUTH_URL != "" {
+		MGRAST_OAUTH = true
 		fmt.Printf("mgrast_oauth_url:\t%s\n", MGRAST_OAUTH_URL)
 	}
 	fmt.Printf("\n")

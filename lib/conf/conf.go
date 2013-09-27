@@ -42,12 +42,10 @@ var (
 	ANON_CREATEUSER = false
 
 	// Auth
-	AUTH_TYPE               = "" //globus, oauth, basic
-	GLOBUS_TOKEN_URL        = ""
-	GLOBUS_PROFILE_URL      = ""
-	OAUTH_REQUEST_TOKEN_URL = ""
-	OAUTH_AUTH_TOKEN_URL    = ""
-	OAUTH_ACCESS_TOKEN_URL  = ""
+	BASIC_AUTH         = true
+	GLOBUS_TOKEN_URL   = ""
+	GLOBUS_PROFILE_URL = ""
+	MGRAST_OAUTH_URL   = ""
 
 	// Admin
 	ADMIN_EMAIL = ""
@@ -148,18 +146,12 @@ func init() {
 	ANON_CREATEUSER, _ = c.Bool("Anonymous", "create-user")
 
 	// Auth
-	AUTH_TYPE, _ = c.String("Auth", "type")
-	switch AUTH_TYPE {
-	case "globus":
-		GLOBUS_TOKEN_URL, _ = c.String("Auth", "globus_token_url")
-		GLOBUS_PROFILE_URL, _ = c.String("Auth", "globus_profile_url")
-	case "oauth":
-		OAUTH_REQUEST_TOKEN_URL, _ = c.String("Auth", "oauth_request_token_url")
-		OAUTH_AUTH_TOKEN_URL, _ = c.String("Auth", "oauth_auth_token_url")
-		OAUTH_ACCESS_TOKEN_URL, _ = c.String("Auth", "oauth_access_token_url")
-	case "basic":
-		// nothing yet
+	if basic_auth, err := c.Bool("Auth", "basic"); err == nil {
+		BASIC_AUTH = basic_auth
 	}
+	GLOBUS_TOKEN_URL, _ = c.String("Auth", "globus_token_url")
+	GLOBUS_PROFILE_URL, _ = c.String("Auth", "globus_profile_url")
+	MGRAST_OAUTH_URL, _ = c.String("Auth", "mgrast_oauth_url")
 
 	// Admin
 	ADMIN_EMAIL, _ = c.String("Admin", "email")
@@ -233,11 +225,18 @@ func init() {
 func Print(service string) {
 	fmt.Printf("##### Admin #####\nemail:\t%s\nsecretkey:\t%s\n\n", ADMIN_EMAIL, SECRET_KEY)
 	fmt.Printf("####### Anonymous ######\nread:\t%t\nwrite:\t%t\ncreate-user:\t%t\n\n", ANON_READ, ANON_WRITE, ANON_CREATEUSER)
-	if AUTH_TYPE == "basic" {
-		fmt.Printf("##### Auth #####\ntype:\tbasic\n\n")
-	} else if AUTH_TYPE == "globus" {
-		fmt.Printf("##### Auth #####\ntype:\tglobus\ntoken_url:\t%s\nprofile_url:\t%s\n\n", GLOBUS_TOKEN_URL, GLOBUS_PROFILE_URL)
+	fmt.Printf("##### Auth #####\n")
+	if BASIC_AUTH {
+		fmt.Printf("basic_auth:\ttrue\n")
 	}
+	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
+		fmt.Printf("globus_token_url:\t%s\nglobus_profile_url:\t%s\n", GLOBUS_TOKEN_URL, GLOBUS_PROFILE_URL)
+	}
+	if MGRAST_OAUTH_URL != "" {
+		fmt.Printf("mgrast_oauth_url:\t%s\n", MGRAST_OAUTH_URL)
+	}
+	fmt.Printf("\n")
+
 	fmt.Printf("##### Directories #####\nsite:\t%s\ndata:\t%s\nlogs:\t%s\n", SITE_PATH, DATA_PATH, LOGS_PATH)
 	if service == "server" {
 		fmt.Printf("awf:\t%s\n", AWF_PATH)

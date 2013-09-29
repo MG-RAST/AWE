@@ -1,0 +1,101 @@
+{
+     "workflow_info": {
+          "name": "mgrast-qc",
+          "author": "wtang",
+          "update_date": "2013-08-29",
+          "description": "MG-RAST QC quality (control) pipeline (http://goo.gl/P5dxVI)",
+          "splits": 8
+     },
+     "job_info": {
+          "jobname": "#default",
+          "project": "#default",
+          "user": "#default",
+          "queue": "#default"
+     },
+     "raw_inputs": {
+          "#i_1": "#data_url"
+     },
+     "variables": {
+          "aa_pid": "90",
+          "dereplicate": "-dereplicate",
+          "fgs_type": "454",
+          "mem_size": "4G",
+          "prefix_length": "50",
+          "kmer": "15"
+     },
+     "data_server": "#shock_host",
+     "tasks": [
+          {
+               "taskid": 1,
+               "cmd": {
+                    "name": "awe_preprocess.pl",
+                    "args": "-input=@#i_1 -out_prefix=prep",
+                    "description": ""
+               },
+               "dependsOn": [
+                    0
+               ],
+               "inputs": {
+                    "#i_1": 0
+               },
+               "outputs": [
+                    "prep.passed.fna",
+                    "prep.removed.fna"
+               ]
+          },
+          {
+               "taskid": 2,
+               "cmd": {
+                    "name": "awe_dereplicate.pl",
+                    "args": "-input=@prep.passed.fna -out_prefix=derep -mem_size=$mem_size -prefix_length=$prefix_length $dereplicate",
+                    "description": ""
+               },
+               "dependsOn": [
+                    1
+               ],
+               "inputs": {
+                    "prep.passed.fna": 1
+               },
+               "outputs": [
+                    "derep.passed.fna",
+                    "derep.removed.fna"
+               ],
+               "splits": 0
+          },
+          {
+               "taskid": 3,
+               "cmd": {
+                    "name": "awe_bowtie_screen.pl",
+                    "args": "-input=@derep.passed.fna -output=screened.fna -index=h_sapiens_asm",
+                    "description": ""
+               },
+               "dependsOn": [
+                    2
+               ],
+               "inputs": {
+                    "derep.passed.fna": 2
+               },
+               "outputs": [
+                    "screened.fna"
+               ]
+          },
+          {
+               "taskid": 4,
+               "cmd": {
+                    "name": "awe_qc_stat.pl",
+                    "args": "-input=@#i_1 -kmer=$kmer -output=quality.stat",
+                    "description": "quality control statistics, including drisee, kmer profile, etc"
+               },
+               "dependsOn": [
+                    1
+               ],
+               "inputs": {
+                    "#i_1": 0
+               },
+               "outputs": [
+                    "qc.stat"
+               ],
+               "splits": 0
+          }
+     ]
+}

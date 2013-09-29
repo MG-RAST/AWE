@@ -58,6 +58,7 @@ func Auth(header string) (usr *user.User, err error) {
 	default:
 		return nil, errors.New("Invalid authentication header.")
 	}
+	return nil, errors.New("Invalid authentication header.")
 }
 
 // fetchToken takes username and password and then retrieves user token

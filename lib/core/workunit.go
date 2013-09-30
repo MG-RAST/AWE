@@ -2,7 +2,7 @@ package core
 
 import (
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
+	"../conf"
 	"os"
 	"time"
 )

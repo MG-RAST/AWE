@@ -2,10 +2,10 @@ package controller
 
 import (
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/core"
-	e "github.com/MG-RAST/AWE/lib/errors"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/logger/event"
+	"../core"
+	e "../errors"
+	"../logger"
+	"../logger/event"
 	"github.com/jaredwilkening/goweb"
 	"labix.org/v2/mgo/bson"
 	"net/http"

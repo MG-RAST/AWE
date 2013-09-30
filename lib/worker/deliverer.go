@@ -2,10 +2,10 @@ package worker
 
 import (
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/logger/event"
+	"../conf"
+	"../core"
+	"../logger"
+	"../logger/event"
 	"time"
 )
 

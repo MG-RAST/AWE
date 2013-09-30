@@ -2,10 +2,10 @@ package request
 
 import (
 	"errors"
-	"github.com/MG-RAST/AWE/lib/auth"
-	e "github.com/MG-RAST/AWE/lib/errors"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/user"
+	"../auth"
+	e "../errors"
+	"../logger"
+	"../user"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
 )

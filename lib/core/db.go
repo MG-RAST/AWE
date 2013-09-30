@@ -3,7 +3,7 @@ package core
 import (
 	//	"errors"
 	"errors"
-	"github.com/MG-RAST/AWE/lib/db"
+	"../db"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 )

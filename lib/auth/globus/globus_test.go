@@ -2,7 +2,7 @@ package globus_test
 
 import (
 	"fmt"
-	. "github.com/MG-RAST/AWE/lib/auth/globus"
+	. "./globus"
 	"testing"
 )
 

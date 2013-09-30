@@ -1,7 +1,7 @@
 package auth
 
 import (
-	"github.com/MG-RAST/AWE/lib/user"
+	"../user"
 	"time"
 )
 

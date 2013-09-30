@@ -2,9 +2,9 @@ package worker
 
 import (
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/logger/event"
+	"../core"
+	"../logger"
+	"../logger/event"
 )
 
 func redistributor(control chan int) {

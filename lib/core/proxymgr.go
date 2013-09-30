@@ -2,9 +2,9 @@ package core
 
 import (
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/logger/event"
+	"../conf"
+	"../logger"
+	"../logger/event"
 	"os"
 	"time"
 )

@@ -5,8 +5,8 @@ package basic
 import (
 	"encoding/base64"
 	"errors"
-	e "github.com/MG-RAST/AWE/lib/errors"
-	"github.com/MG-RAST/AWE/lib/user"
+	e "../../errors"
+	"../../user"
 	"strings"
 )
 

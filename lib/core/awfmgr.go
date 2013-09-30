@@ -3,7 +3,7 @@ package core
 import (
 	"encoding/json"
 	"errors"
-	"github.com/MG-RAST/AWE/lib/conf"
+	"../conf"
 	"io/ioutil"
 	"strings"
 )

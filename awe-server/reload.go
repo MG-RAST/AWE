@@ -3,9 +3,9 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/MG-RAST/AWE/lib/db"
+	"../lib/conf"
+	"../lib/core"
+	"../lib/db"
 	"os"
 	"path/filepath"
 	"regexp"

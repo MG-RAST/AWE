@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/MG-RAST/AWE/lib/core"
+	"../core"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
 )

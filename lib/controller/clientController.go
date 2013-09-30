@@ -1,11 +1,11 @@
 package controller
 
 import (
-	"github.com/MG-RAST/AWE/lib/core"
-	e "github.com/MG-RAST/AWE/lib/errors"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/lib/request"
+	"../core"
+	e "../errors"
+	"../logger"
+	"../logger/event"
+	"../request"
 	"github.com/jaredwilkening/goweb"
 	"net/http"
 	"strconv"

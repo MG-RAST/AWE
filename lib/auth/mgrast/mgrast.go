@@ -37,7 +37,6 @@ func authHeaderType(header string) string {
 // Auth takes the request authorization header and returns
 // user
 func Auth(header string) (*user.User, error) {
-	fmt.Printf("mgrast.Auth header=%s\n", header)
 	switch authHeaderType(header) {
 	case "mgrast", "oauth":
 		return authToken(strings.Split(header, " ")[1])
@@ -46,6 +45,7 @@ func Auth(header string) (*user.User, error) {
 	default:
 		return nil, errors.New("Invalid authentication header.")
 	}
+	return nil, errors.New("Invalid authentication header.")
 }
 
 // authToken validiates token by fetching user information.

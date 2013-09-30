@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/MG-RAST/AWE/lib/auth/basic"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/user"
@@ -41,7 +40,6 @@ func authHeaderType(header string) string {
 // Auth takes the request authorization header and returns
 // user
 func Auth(header string) (usr *user.User, err error) {
-	fmt.Printf("globus.Auth header=%s\n", header)
 	switch authHeaderType(header) {
 	case "globus-goauthtoken", "oauth":
 		return fetchProfile(strings.Split(header, " ")[1])
@@ -58,6 +56,7 @@ func Auth(header string) (usr *user.User, err error) {
 	default:
 		return nil, errors.New("Invalid authentication header.")
 	}
+	return nil, errors.New("Invalid authentication header.")
 }
 
 // fetchToken takes username and password and then retrieves user token

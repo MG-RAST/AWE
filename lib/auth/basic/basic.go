@@ -5,7 +5,6 @@ package basic
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/user"
 	"strings"
@@ -33,12 +32,7 @@ func DecodeHeader(header string) (username string, password string, err error) {
 // Auth takes the request authorization header and returns
 // user
 func Auth(header string) (u *user.User, err error) {
-	fmt.Printf("basic.Auth header=%s\n", header)
 	username, password, err := DecodeHeader(header)
-	fmt.Printf("username=%s, passwd=%s", username, password)
-	if err != nil {
-		fmt.Printf("err=%s\n", err.Error())
-	}
 	if err == nil {
 		return user.FindByUsernamePassword(username, password)
 	}

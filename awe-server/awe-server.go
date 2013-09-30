@@ -95,15 +95,16 @@ func main() {
 	//init db
 	db.Initialize()
 
-	//init auth
-	auth.Initialize()
-
 	//init db collection for user
 	user.Initialize()
 
+	//init resource manager
 	core.InitResMgr("server")
 	core.InitAwfMgr()
 	core.InitJobDB()
+
+	//init auth
+	auth.Initialize()
 
 	controller.PrintLogo()
 	conf.Print("server")

@@ -222,6 +222,14 @@ func init() {
 	//Proxy
 	P_SITE_PORT, _ = c.Int("Proxy", "p-site-port")
 	P_API_PORT, _ = c.Int("Proxy", "p-api-port")
+
+	//Auth
+	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
+		GLOBUS_OAUTH = true
+	}
+	if MGRAST_OAUTH_URL != "" {
+		MGRAST_OAUTH = true
+	}
 }
 
 func Print(service string) {
@@ -232,11 +240,9 @@ func Print(service string) {
 		fmt.Printf("basic_auth:\ttrue\n")
 	}
 	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
-		GLOBUS_OAUTH = true
 		fmt.Printf("globus_token_url:\t%s\nglobus_profile_url:\t%s\n", GLOBUS_TOKEN_URL, GLOBUS_PROFILE_URL)
 	}
 	if MGRAST_OAUTH_URL != "" {
-		MGRAST_OAUTH = true
 		fmt.Printf("mgrast_oauth_url:\t%s\n", MGRAST_OAUTH_URL)
 	}
 	fmt.Printf("\n")

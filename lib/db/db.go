@@ -4,7 +4,7 @@ package db
 import (
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
+	"../conf"
 	"labix.org/v2/mgo"
 	"os"
 	"time"

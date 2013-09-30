@@ -2,8 +2,8 @@ package worker
 
 import (
 	"errors"
-	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/MG-RAST/AWE/lib/logger"
+	"../core"
+	"../logger"
 )
 
 var (

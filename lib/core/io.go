@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
+	"../conf"
 	"io/ioutil"
 	"net/http"
 	"strings"

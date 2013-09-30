@@ -3,12 +3,12 @@ package auth
 
 import (
 	"errors"
-	"github.com/MG-RAST/AWE/lib/auth/basic"
-	"github.com/MG-RAST/AWE/lib/auth/globus"
-	"github.com/MG-RAST/AWE/lib/auth/mgrast"
-	"github.com/MG-RAST/AWE/lib/conf"
-	e "github.com/MG-RAST/AWE/lib/errors"
-	"github.com/MG-RAST/AWE/lib/user"
+	"../auth/basic"
+	"../auth/globus"
+	"../auth/mgrast"
+	"../conf"
+	e "../errors"
+	"../user"
 )
 
 // authCache is a

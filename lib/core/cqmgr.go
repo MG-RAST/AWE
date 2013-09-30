@@ -3,9 +3,9 @@ package core
 import (
 	"errors"
 	"fmt"
-	e "github.com/MG-RAST/AWE/lib/errors"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/logger/event"
+	e "../errors"
+	"../logger"
+	"../logger/event"
 	"os"
 	"strings"
 	"time"

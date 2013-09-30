@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/controller"
-	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/lib/worker"
+	"../lib/conf"
+	"../lib/controller"
+	"../lib/core"
+	"../lib/logger"
+	"../lib/logger/event"
+	"../lib/worker"
 	"github.com/jaredwilkening/goweb"
 	"os"
 )

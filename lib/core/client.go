@@ -2,7 +2,7 @@ package core
 
 import (
 	"encoding/json"
-	"github.com/MG-RAST/AWE/lib/core/uuid"
+	"../core/uuid"
 	"io/ioutil"
 	"time"
 )

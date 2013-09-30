@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/auth"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/controller"
-	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/MG-RAST/AWE/lib/db"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/lib/user"
+	"../lib/auth"
+	"../lib/conf"
+	"../lib/controller"
+	"../lib/core"
+	"../lib/db"
+	"../lib/logger"
+	"../lib/logger/event"
+	"../lib/user"
 	"github.com/jaredwilkening/goweb"
 	"os"
 )

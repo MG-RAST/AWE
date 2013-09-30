@@ -2,7 +2,7 @@ package logger
 
 import (
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
+	"../conf"
 	l4g "github.com/jaredwilkening/log4go"
 	"os"
 )

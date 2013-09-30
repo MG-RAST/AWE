@@ -2,7 +2,7 @@ package user
 
 import (
 	"code.google.com/p/go-uuid/uuid"
-	"github.com/MG-RAST/AWE/lib/db"
+	"../db"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 )

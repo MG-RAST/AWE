@@ -2,9 +2,9 @@ package controller
 
 import (
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/core"
-	. "github.com/MG-RAST/AWE/lib/logger"
+	"../conf"
+	"../core"
+	. "../logger"
 	"github.com/jaredwilkening/goweb"
 	"math/rand"
 	"net"

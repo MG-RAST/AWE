@@ -20,6 +20,15 @@ func Authenticate(req *http.Request) (u *user.User, err error) {
 	return
 }
 
+func RetrieveToken(req *http.Request) (token string, err error) {
+	if _, ok := req.Header["Datatoken"]; !ok {
+		err = errors.New("no token received")
+		return
+	}
+	token = req.Header.Get("Datatoken")
+	return
+}
+
 func AuthError(err error, cx *goweb.Context) {
 	if err.Error() == e.InvalidAuth {
 		cx.RespondWithErrorMessage("Invalid authorization header or content", http.StatusBadRequest)

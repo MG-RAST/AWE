@@ -6,6 +6,7 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/jaredwilkening/goweb"
 	"labix.org/v2/mgo/bson"
 	"net/http"
@@ -74,6 +75,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		return
 	}
 
+	if token, err := request.RetrieveToken(cx.Request); err == nil {
+		job.SetDataToken(token)
+	}
 	core.QMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
 
 	//log event about job submission (JB)

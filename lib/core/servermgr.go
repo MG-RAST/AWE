@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
+	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io/ioutil"
@@ -315,6 +316,30 @@ func (qm *ServerMgr) ShowStatus() string {
 }
 
 //---end of mgr methods
+
+//--workunit methds (servermgr implementation)
+func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token string, err error) {
+	//precheck if the client is registered
+	if _, hasClient := qm.clientMap[clientid]; !hasClient {
+		return "", errors.New(e.ClientNotFound)
+	}
+	if qm.clientMap[clientid].Status == CLIENT_STAT_SUSPEND {
+		return "", errors.New(e.ClientSuspended)
+	}
+	jobid, err := GetJobIdByWorkId(workid)
+	if err != nil {
+		return "", err
+	}
+	job, err := LoadJob(jobid)
+	if err != nil {
+		return "", err
+	}
+	token = job.GetDataToken()
+	if token == "" {
+		return token, errors.New("no data token set for workunit " + workid)
+	}
+	return token, nil
+}
 
 //---task methods----
 

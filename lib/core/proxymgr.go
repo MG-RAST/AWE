@@ -104,6 +104,10 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	return
 }
 
+func (qm *ProxyMgr) FetchDataToken(workid string, clientid string) (token string, err error) {
+	return
+}
+
 //end of workunits methods
 
 //client methods

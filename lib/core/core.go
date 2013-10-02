@@ -338,10 +338,16 @@ func GetJobIdByTaskId(taskid string) (jobid string, err error) {
 	parts := strings.Split(taskid, "_")
 	if len(parts) == 2 {
 		return parts[0], nil
-	} else {
-		return "", errors.New("invalid task id: " + taskid)
 	}
-	return
+	return "", errors.New("invalid task id: " + taskid)
+}
+
+func GetJobIdByWorkId(workid string) (jobid string, err error) {
+	parts := strings.Split(workid, "_")
+	if len(parts) == 3 {
+		return parts[0], nil
+	}
+	return "", errors.New("invalid work id: " + workid)
 }
 
 func IsFirstTask(taskid string) bool {

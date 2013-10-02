@@ -22,6 +22,12 @@ type WorkResponse struct {
 	Errs []string       `bson:"error" json:"error"`
 }
 
+type TokenResponse struct {
+	Code int      `bson:"status" json:"status"`
+	Data string   `bson:"data" json:"data"`
+	Errs []string `bson:"error" json:"error"`
+}
+
 func workStealer(control chan int) {
 	fmt.Printf("workStealer lanched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("workStealer exiting...\n")
@@ -80,35 +86,62 @@ func workStealer(control chan int) {
 }
 
 func CheckoutWorkunitRemote(serverhost string) (workunit *core.Workunit, err error) {
-
 	response := new(WorkResponse)
-
 	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", serverhost, core.Self.Id))
-
 	logger.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s", core.Self.Id, serverhost))
-
 	if err != nil {
 		return
 	}
-
 	defer res.Body.Close()
-
 	jsonstream, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
-
 	if err = json.Unmarshal(jsonstream, response); err != nil {
 		return
 	}
-
 	if len(response.Errs) > 0 {
 		return nil, errors.New(strings.Join(response.Errs, ","))
 	}
-
 	if response.Code == 200 {
 		workunit = response.Data
 		return workunit, nil
 	}
+	if workunit.Info.Auth == true {
+		if token, err := FetchDataTokenByWorkId(workunit.Id); err == nil {
+			workunit.Info.DataToken = token
+		} else {
+			return workunit, errors.New("need data token but failed to fetch one")
+		}
+	}
+	return
+}
+
+func FetchDataTokenByWorkId(serverhost string) (token string, err error) {
+	response := new(TokenResponse)
+	res, err := http.Get(fmt.Sprintf("%s/work?datatoken&client=%s", serverhost, core.Self.Id))
+	logger.Debug(3, fmt.Sprintf("client %s sent a datatoken checkout request to %s", core.Self.Id, serverhost))
+	if err != nil {
+		return
+	}
+	defer res.Body.Close()
+	jsonstream, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+	if err = json.Unmarshal(jsonstream, response); err != nil {
+		return
+	}
+	if len(response.Errs) > 0 {
+		return "", errors.New(strings.Join(response.Errs, ","))
+	}
+	if response.Code == 200 {
+		token = response.Data
+		return token, nil
+	}
+	return
+}
+
+func CheckoutTokenByJobId(jobid string) (token string, err error) {
 	return
 }

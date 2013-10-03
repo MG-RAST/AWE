@@ -161,7 +161,6 @@ func PostNode(io *IO, numParts int) (nodeid string, err error) {
 	shockurl := fmt.Sprintf("%s/node", io.Host)
 
 	c := make(chan int, 1)
-
 	go func() {
 		res, err = http.Post(shockurl, "", strings.NewReader(""))
 		c <- 1 //we are ending
@@ -198,6 +197,23 @@ func PostNode(io *IO, numParts int) (nodeid string, err error) {
 		putParts(io.Host, nodeid, numParts)
 	}
 	return
+}
+
+func PostNodeWithToken(io *IO, numParts int, token string) (nodeid string, err error) {
+	opts := Opts{}
+	node, err := createOrUpdate(opts, io.Host, "", token)
+	if err != nil {
+		return "", err
+	}
+	//create "parts" for output splits
+	if numParts > 1 {
+		opts["upload_type"] = "parts"
+		opts["parts"] = strconv.Itoa(numParts)
+		if _, err := createOrUpdate(opts, io.Host, node.Id, token); err != nil {
+			return node.Id, err
+		}
+	}
+	return node.Id, nil
 }
 
 //create parts
@@ -458,9 +474,10 @@ func PushOutputData(work *Workunit) (err error) {
 			"workid="+work.Id,
 			"filename="+name,
 			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
-		if err := pushFileByCurl(file_path, io.Host, io.Node, work.Rank); err != nil {
+
+		if err := putFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-			if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {
+			if err := putFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken); err != nil {
 				fmt.Errorf("push file error\n")
 				logger.Error("op=pushfile,err=" + err.Error())
 				return err
@@ -514,14 +531,11 @@ func putFileToShock(filename string, host string, nodeid string, rank int, token
 		opts["part"] = strconv.Itoa(rank)
 		opts["file"] = filename
 	}
-	if token != "" {
-		opts["token"] = token
-	}
-	err = createOrUpdate(opts, host, nodeid)
+	_, err = createOrUpdate(opts, host, nodeid, token)
 	return
 }
 
-func createOrUpdate(opts Opts, host string, nodeid string) (err error) {
+func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *ShockNode, err error) {
 	url := host + "/node"
 	method := "POST"
 	if nodeid != "" {
@@ -538,55 +552,62 @@ func createOrUpdate(opts Opts, host string, nodeid string) (err error) {
 			if opts.HasKey("full") {
 				form.AddFile("upload", opts.Value("full"))
 			} else {
-				return errors.New("missing file parameter: upload")
+				return nil, errors.New("missing file parameter: upload")
 			}
 		case "parts":
 			if opts.HasKey("parts") {
 				form.AddParam("parts", opts.Value("parts"))
 			} else {
-				return errors.New("missing partial upload parameter: parts")
+				return nil, errors.New("missing partial upload parameter: parts")
 			}
 		case "part":
 			if opts.HasKey("part") && opts.HasKey("file") {
 				form.AddFile(opts.Value("part"), opts.Value("file"))
 			} else {
-				return errors.New("missing partial upload parameter: part or file")
+				return nil, errors.New("missing partial upload parameter: part or file")
 			}
 		case "remote_path":
 			if opts.HasKey("remote_path") {
 				form.AddParam("path", opts.Value("remote_path"))
 			} else {
-				return errors.New("missing remote path parameter: path")
+				return nil, errors.New("missing remote path parameter: path")
 			}
 		case "virtual_file":
 			if opts.HasKey("virtual_file") {
 				form.AddParam("type", "virtual")
 				form.AddParam("source", opts.Value("virtual_file"))
 			} else {
-				return errors.New("missing virtual node parameter: source")
+				return nil, errors.New("missing virtual node parameter: source")
 			}
 		}
 	}
 	err = form.Create()
 	if err != nil {
-		return err
+		return
 	}
 	headers := httpclient.Header{
 		"Content-Type":   form.ContentType,
 		"Content-Length": strconv.FormatInt(form.Length, 10),
 	}
 	var user *httpclient.Auth
-	if opts.HasKey("token") {
-		user = httpclient.GetUserByTokenAuth(opts.Value("token"))
+	if token != "" {
+		user = httpclient.GetUserByTokenAuth(token)
 	}
 	if res, err := httpclient.Do(method, url, headers, form.Reader, user); err == nil {
-		if res.StatusCode != 200 {
-			return errors.New(fmt.Sprintf("error at uploading data to Shock, status code=%d", res.StatusCode))
+		jsonstream, _ := ioutil.ReadAll(res.Body)
+		res.Body.Close()
+		response := new(ShockResponse)
+		if err := json.Unmarshal(jsonstream, response); err != nil {
+			return nil, errors.New(fmt.Sprintf("failed to marshal response:\"%s\"", jsonstream))
 		}
+		if len(response.Errs) > 0 {
+			return nil, errors.New(strings.Join(response.Errs, ","))
+		}
+		node = &response.Data
 	} else {
-		return err
+		return nil, err
 	}
-	return nil
+	return
 }
 
 func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err error) {

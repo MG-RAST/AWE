@@ -514,7 +514,7 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 	outputs := task.Outputs
 	for name, io := range outputs {
 		logger.Debug(2, fmt.Sprintf("posting output Shock node for file %s in task %s\n", name, task.Id))
-		nodeid, err := PostNode(io, task.TotalWork)
+		nodeid, err := PostNodeWithToken(io, task.TotalWork, task.Info.DataToken)
 		if err != nil {
 			return err
 		}

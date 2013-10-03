@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io/ioutil"
@@ -110,6 +111,20 @@ type linkage struct {
 	Type      string   `bson: "relation" json:"relation"`
 	Ids       []string `bson:"ids" json:"ids"`
 	Operation string   `bson:"operation" json:"operation"`
+}
+
+type Opts map[string]string
+
+func (o *Opts) HasKey(key string) bool {
+	if _, has := (*o)[key]; has {
+		return true
+	}
+	return false
+}
+
+func (o *Opts) Value(key string) string {
+	val, _ := (*o)[key]
+	return val
 }
 
 //heartbeat response from awe-server to awe-client
@@ -487,6 +502,91 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 		return
 	}
 	return
+}
+
+func putFileToShock(filename string, host string, nodeid string, rank int, token string) (err error) {
+	opts := Opts{}
+	if rank == 0 {
+		opts["upload_type"] = "full"
+		opts["full"] = filename
+	} else {
+		opts["upload_type"] = "part"
+		opts["part"] = strconv.Itoa(rank)
+		opts["file"] = filename
+	}
+	if token != "" {
+		opts["token"] = token
+	}
+	err = createOrUpdate(opts, host, nodeid)
+	return
+}
+
+func createOrUpdate(opts Opts, host string, nodeid string) (err error) {
+	url := host + "/node"
+	method := "POST"
+	if nodeid != "" {
+		url += "/" + nodeid
+		method = "PUT"
+	}
+	form := httpclient.NewForm()
+	if opts.HasKey("attributes") {
+		form.AddFile("attributes", opts.Value("attributes"))
+	}
+	if opts.HasKey("upload_type") {
+		switch opts.Value("upload_type") {
+		case "full":
+			if opts.HasKey("full") {
+				form.AddFile("upload", opts.Value("full"))
+			} else {
+				return errors.New("missing file parameter: upload")
+			}
+		case "parts":
+			if opts.HasKey("parts") {
+				form.AddParam("parts", opts.Value("parts"))
+			} else {
+				return errors.New("missing partial upload parameter: parts")
+			}
+		case "part":
+			if opts.HasKey("part") && opts.HasKey("file") {
+				form.AddFile(opts.Value("part"), opts.Value("file"))
+			} else {
+				return errors.New("missing partial upload parameter: part or file")
+			}
+		case "remote_path":
+			if opts.HasKey("remote_path") {
+				form.AddParam("path", opts.Value("remote_path"))
+			} else {
+				return errors.New("missing remote path parameter: path")
+			}
+		case "virtual_file":
+			if opts.HasKey("virtual_file") {
+				form.AddParam("type", "virtual")
+				form.AddParam("source", opts.Value("virtual_file"))
+			} else {
+				return errors.New("missing virtual node parameter: source")
+			}
+		}
+	}
+	err = form.Create()
+	if err != nil {
+		return err
+	}
+	headers := httpclient.Header{
+		"Content-Type":   form.ContentType,
+		"Content-Length": strconv.FormatInt(form.Length, 10),
+	}
+	var user *httpclient.Auth
+	if opts.HasKey("token") {
+		user = httpclient.GetUserByTokenAuth(opts.Value("token"))
+	}
+	if res, err := httpclient.Do(method, url, headers, form.Reader, user); err == nil {
+		if res.StatusCode != 200 {
+			return errors.New(fmt.Sprintf("error at uploading data to Shock, status code=%d", res.StatusCode))
+		}
+	} else {
+		return err
+	}
+	return nil
 }
 
 func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err error) {

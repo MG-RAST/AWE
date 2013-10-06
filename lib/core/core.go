@@ -592,6 +592,12 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 			} else {
 				return nil, errors.New("missing virtual node parameter: source")
 			}
+		case "index":
+			if opts.HasKey("index_type") {
+				url += "/" + "?index=" + opts.Value("index_type")
+			} else {
+				return nil, errors.New("missing index type when creating index")
+			}
 		}
 	}
 	err = form.Create()
@@ -667,5 +673,13 @@ func ShockGet(host string, nodeid string, token string) (node *ShockNode, err er
 	if node == nil {
 		err = errors.New("empty node got from Shock")
 	}
+	return
+}
+
+func ShockPutIndex(host string, nodeid string, indexname string, token string) (err error) {
+	opts := Opts{}
+	opts["upload_type"] = "index"
+	opts["index_type"] = indexname
+	createOrUpdate(opts, host, nodeid, token)
 	return
 }

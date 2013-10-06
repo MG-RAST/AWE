@@ -154,7 +154,7 @@ func (task *Task) InitPartIndex() (err error) {
 
 	idxtype := conf.DEFAULT_INDEX
 	if _, ok := idxinfo[idxtype]; !ok { //if index not available, create index
-		if err := createIndex(input_io.Host, input_io.Node, idxtype); err != nil {
+		if err := ShockPutIndex(input_io.Host, input_io.Node, idxtype, task.Info.DataToken); err != nil {
 			task.setTotalWork(1)
 			logger.Error("warning: fail to create index on shock for taskid=" + task.Id)
 			return nil

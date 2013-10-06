@@ -535,6 +535,19 @@ func putFileToShock(filename string, host string, nodeid string, rank int, token
 	return
 }
 
+func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err error) {
+	perfJsonstream, err := json.Marshal(perfstat)
+	if err != nil {
+		return reportPath, err
+	}
+	reportFile := fmt.Sprintf("%s/%s.perf", work.Path(), work.Id)
+	if err := ioutil.WriteFile(reportFile, []byte(perfJsonstream), 0644); err != nil {
+		return reportPath, err
+	}
+	return reportFile, nil
+}
+
+//shock access functions
 func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *ShockNode, err error) {
 	url := host + "/node"
 	method := "POST"
@@ -610,14 +623,49 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 	return
 }
 
-func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err error) {
-	perfJsonstream, err := json.Marshal(perfstat)
+func ShockGet(host string, nodeid string, token string) (node *ShockNode, err error) {
+	if host == "" || nodeid == "" {
+		return nil, errors.New("empty shock host or node id")
+	}
+	var res *http.Response
+	shockurl := fmt.Sprintf("%s/node/%s", host, nodeid)
+
+	var user *httpclient.Auth
+	if token != "" {
+		user = httpclient.GetUserByTokenAuth(token)
+	}
+
+	c := make(chan int, 1)
+	go func() {
+		res, err = httpclient.Get(shockurl, httpclient.Header{}, nil, user)
+		c <- 1 //we are ending
+	}()
+	select {
+	case <-c:
+	//go ahead
+	case <-time.After(conf.SHOCK_TIMEOUT):
+		return nil, errors.New("timeout when getting node from shock, url=" + shockurl)
+	}
+
 	if err != nil {
-		return reportPath, err
+		return
 	}
-	reportFile := fmt.Sprintf("%s/%s.perf", work.Path(), work.Id)
-	if err := ioutil.WriteFile(reportFile, []byte(perfJsonstream), 0644); err != nil {
-		return reportPath, err
+
+	jsonstream, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
 	}
-	return reportFile, nil
+	res.Body.Close()
+	response := new(ShockResponse)
+	if err := json.Unmarshal(jsonstream, response); err != nil {
+		return nil, err
+	}
+	if len(response.Errs) > 0 {
+		return nil, errors.New(strings.Join(response.Errs, ","))
+	}
+	node = &response.Data
+	if node == nil {
+		err = errors.New("empty node got from Shock")
+	}
+	return
 }

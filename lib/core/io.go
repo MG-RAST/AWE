@@ -1,28 +1,24 @@
 package core
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"io/ioutil"
-	"net/http"
 	"strings"
-	"time"
 )
 
 type IO struct {
-	Name     string `bson:"name" json:"-"`
-	Host     string `bson:"host" json:"host"`
-	Node     string `bson:"node" json:"node"`
-	Url      string `bson:"url"  json:"url"`
-	Size     int64  `bson:"size" json:"size"`
-	MD5      string `bson:"md5" json:"-"`
-	Cache    bool   `bson:"cache" json:"-"`
-	Origin   string `bson:"origin" json:"origin"`
-	Path     string `bson:"path" json:"-"`
-	Optional bool   `bson:"optional" json:"-"`
-	Nonzero  bool   `bson:"nonzero"  json:"nonzero"`
+	Name      string `bson:"name" json:"-"`
+	Host      string `bson:"host" json:"host"`
+	Node      string `bson:"node" json:"node"`
+	Url       string `bson:"url"  json:"url"`
+	Size      int64  `bson:"size" json:"size"`
+	MD5       string `bson:"md5" json:"-"`
+	Cache     bool   `bson:"cache" json:"-"`
+	Origin    string `bson:"origin" json:"origin"`
+	Path      string `bson:"path" json:"-"`
+	Optional  bool   `bson:"optional" json:"-"`
+	Nonzero   bool   `bson:"nonzero"  json:"nonzero"`
+	DataToken string `bson:"datatoken"  json:"-"`
 }
 
 type PartInfo struct {
@@ -111,42 +107,7 @@ func (io *IO) GetShockNode() (node *ShockNode, err error) {
 	if io.Host == "" || io.Node == "" {
 		return nil, errors.New("empty shock host or node id")
 	}
-	var res *http.Response
-	shockurl := fmt.Sprintf("%s/node/%s", io.Host, io.Node)
-
-	c := make(chan int, 1)
-	go func() {
-		res, err = http.Get(shockurl)
-		c <- 1 //we are ending
-	}()
-	select {
-	case <-c:
-	//go ahead
-	case <-time.After(conf.SHOCK_TIMEOUT):
-		return nil, errors.New("timeout when getting node from shock, url=" + shockurl)
-	}
-
-	if err != nil {
-		return
-	}
-
-	jsonstream, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-	res.Body.Close()
-	response := new(ShockResponse)
-	if err := json.Unmarshal(jsonstream, response); err != nil {
-		return nil, err
-	}
-	if len(response.Errs) > 0 {
-		return nil, errors.New(strings.Join(response.Errs, ","))
-	}
-	node = &response.Data
-	if node == nil {
-		err = errors.New("empty node got from Shock")
-	}
-	return
+	return ShockGet(io.Host, io.Node, io.DataToken)
 }
 
 func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {

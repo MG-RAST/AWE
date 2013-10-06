@@ -95,6 +95,8 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 			io.Node = "-"
 		}
 	}
+
+	task.setTokenForIO()
 	task.State = TASK_STAT_INIT
 	return
 }
@@ -195,6 +197,18 @@ func (task *Task) setTotalWork(num int) {
 	task.TotalWork = num
 	task.RemainWork = num
 	task.WorkStatus = make([]string, num)
+}
+
+func (task *Task) setTokenForIO() {
+	if !task.Info.Auth || task.Info.DataToken == "" {
+		return
+	}
+	for _, io := range task.Inputs {
+		io.DataToken = task.Info.DataToken
+	}
+	for _, io := range task.Outputs {
+		io.DataToken = task.Info.DataToken
+	}
 }
 
 func (task *Task) ParseWorkunit() (wus []*Workunit, err error) {

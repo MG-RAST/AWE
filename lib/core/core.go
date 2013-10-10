@@ -155,7 +155,7 @@ func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job
 	return
 }
 
-//create a shock node for output
+//create a shock node for output  (=deprecated=)
 func PostNode(io *IO, numParts int) (nodeid string, err error) {
 	var res *http.Response
 	shockurl := fmt.Sprintf("%s/node", io.Host)
@@ -216,7 +216,7 @@ func PostNodeWithToken(io *IO, numParts int, token string) (nodeid string, err e
 	return node.Id, nil
 }
 
-//create parts
+//create parts (=deprecated=)
 func putParts(host string, nodeid string, numParts int) (err error) {
 	argv := []string{}
 	argv = append(argv, "-X")
@@ -491,7 +491,7 @@ func PushOutputData(work *Workunit) (err error) {
 	return
 }
 
-//push file to shock
+//push file to shock (=deprecated=)
 func pushFileByCurl(filename string, host string, node string, rank int) (err error) {
 	shockurl := fmt.Sprintf("%s/node/%s", host, node)
 	if err := putFileByCurl(filename, shockurl, rank); err != nil {
@@ -500,6 +500,7 @@ func pushFileByCurl(filename string, host string, node string, rank int) (err er
 	return
 }
 
+//(=deprecated=)
 func putFileByCurl(filename string, target_url string, rank int) (err error) {
 	argv := []string{}
 	argv = append(argv, "-X")
@@ -594,7 +595,8 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 			}
 		case "index":
 			if opts.HasKey("index_type") {
-				url += "/" + "?index=" + opts.Value("index_type")
+				url += "?index=" + opts.Value("index_type")
+				fmt.Printf("making index... url = %s\n", url)
 			} else {
 				return nil, errors.New("missing index type when creating index")
 			}

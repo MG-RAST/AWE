@@ -130,7 +130,6 @@ func FetchDataTokenByWorkId(workid string) (token string, err error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("jsontream=%s\n", jsonstream)
 	if err = json.Unmarshal(jsonstream, response); err != nil {
 		return
 	}

@@ -241,7 +241,7 @@ func (task *Task) Skippable() bool {
 		(len(task.DependsOn) <= 1)
 }
 
-//creat index
+//creat index (=deprecated=)
 func createIndex(host string, nodeid string, indexname string) (err error) {
 	argv := []string{}
 	argv = append(argv, "-X")

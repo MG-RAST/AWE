@@ -24,7 +24,6 @@ func dataMover(control chan int) {
 			workunit: raw.workunit,
 			perfstat: raw.perfstat,
 		}
-
 		work := raw.workunit
 		workmap[work.Id] = ID_DATAMOVER
 		//make a working directory for the workunit
@@ -130,7 +129,6 @@ func ParseWorkunitArgs(work *core.Workunit) (args []string, err error) {
 //fetch file by shock url
 func fetchFile(filename string, url string, token string) (err error) {
 	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
-
 	localfile, err := os.Create(filename)
 	if err != nil {
 		return err

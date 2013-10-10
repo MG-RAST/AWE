@@ -36,7 +36,7 @@ func workStealer(control chan int) {
 		if core.Service == "proxy" {
 			<-core.ProxyWorkChan
 		}
-		wu, err := CheckoutWorkunitRemote(conf.SERVER_URL)
+		wu, err := CheckoutWorkunitRemote()
 		if err != nil {
 			if err.Error() == e.QueueEmpty || err.Error() == e.NoEligibleWorkunitFound {
 				//normal, do nothing
@@ -85,10 +85,10 @@ func workStealer(control chan int) {
 	control <- ID_WORKSTEALER //we are ending
 }
 
-func CheckoutWorkunitRemote(serverhost string) (workunit *core.Workunit, err error) {
+func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	response := new(WorkResponse)
-	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", serverhost, core.Self.Id))
-	logger.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s", core.Self.Id, serverhost))
+	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", conf.SERVER_URL, core.Self.Id))
+	logger.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s", core.Self.Id, conf.SERVER_URL))
 	if err != nil {
 		return
 	}
@@ -105,22 +105,23 @@ func CheckoutWorkunitRemote(serverhost string) (workunit *core.Workunit, err err
 	}
 	if response.Code == 200 {
 		workunit = response.Data
-		return workunit, nil
-	}
-	if workunit.Info.Auth == true {
-		if token, err := FetchDataTokenByWorkId(workunit.Id); err == nil {
-			workunit.Info.DataToken = token
-		} else {
-			return workunit, errors.New("need data token but failed to fetch one")
+		if workunit.Info.Auth == true {
+			if token, err := FetchDataTokenByWorkId(workunit.Id); err == nil {
+				workunit.Info.DataToken = token
+			} else {
+				return workunit, errors.New("need data token but failed to fetch one")
+			}
 		}
+		return workunit, nil
 	}
 	return
 }
 
-func FetchDataTokenByWorkId(serverhost string) (token string, err error) {
+func FetchDataTokenByWorkId(workid string) (token string, err error) {
 	response := new(TokenResponse)
-	res, err := http.Get(fmt.Sprintf("%s/work?datatoken&client=%s", serverhost, core.Self.Id))
-	logger.Debug(3, fmt.Sprintf("client %s sent a datatoken checkout request to %s", core.Self.Id, serverhost))
+	requrl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, workid, core.Self.Id)
+	res, err := http.Get(requrl)
+	logger.Debug(3, "GET:"+requrl)
 	if err != nil {
 		return
 	}
@@ -129,6 +130,7 @@ func FetchDataTokenByWorkId(serverhost string) (token string, err error) {
 	if err != nil {
 		return "", err
 	}
+	fmt.Printf("jsontream=%s\n", jsonstream)
 	if err = json.Unmarshal(jsonstream, response); err != nil {
 		return
 	}

@@ -176,6 +176,10 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 func (job *Job) SetDataToken(token string) {
 	job.Info.DataToken = token
 	job.Info.Auth = true
+	for _, task := range job.Tasks {
+		task.Info.DataToken = token
+		task.setTokenForIO()
+	}
 	job.Save()
 }
 

@@ -80,6 +80,7 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 	}
 
 	task.Info = job.Info
+
 	if task.TotalWork > 0 {
 		task.WorkStatus = make([]string, task.TotalWork)
 	}

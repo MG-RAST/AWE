@@ -691,12 +691,17 @@ func (qm *ServerMgr) ResubmitJob(id string) (err error) {
 		return errors.New("job " + id + " is already active")
 	}
 	dbjob, err := LoadJob(id)
+
 	if err != nil {
 		return errors.New("failed to load job " + err.Error())
 	}
 	if dbjob.State != JOB_STAT_INPROGRESS &&
 		dbjob.State != JOB_STAT_SUSPEND {
 		return errors.New("job state 'in-progress' or 'suspend' needed while state=" + dbjob.State)
+	}
+	for _, task := range dbjob.Tasks {
+		task.Info = dbjob.Info
+		fmt.Printf("TaskInfoInfo=%#v\n", task.Info)
 	}
 	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 	return

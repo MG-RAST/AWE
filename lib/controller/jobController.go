@@ -78,6 +78,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	if token, err := request.RetrieveToken(cx.Request); err == nil {
 		job.SetDataToken(token)
 	}
+
 	core.QMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
 
 	//log event about job submission (JB)
@@ -260,6 +261,28 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		cx.RespondWithData("job group updated: " + id + " to " + newgroup)
 		return
 	}
+
+	if query.Has("settoken") { // set data token
+		token, err := request.RetrieveToken(cx.Request)
+		if err != nil {
+			cx.RespondWithErrorMessage("fail to retrieve token for job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		job, err := core.LoadJob(id)
+		if err != nil {
+			if err.Error() == e.MongoDocNotFound {
+				cx.RespondWithNotFound()
+			} else {
+				logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
+				cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
+			}
+			return
+		}
+		job.SetDataToken(token)
+		cx.RespondWithData("data token set for job: " + id)
+		return
+	}
+
 	cx.RespondWithData("requested job operation not supported")
 	return
 }

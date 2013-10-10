@@ -172,6 +172,21 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	return job.RemainTasks, job.Save()
 }
 
+//set token
+func (job *Job) SetDataToken(token string) {
+	job.Info.DataToken = token
+	job.Info.Auth = true
+	for _, task := range job.Tasks {
+		task.Info.DataToken = token
+		task.setTokenForIO()
+	}
+	job.Save()
+}
+
+func (job *Job) GetDataToken() (token string) {
+	return job.Info.DataToken
+}
+
 func LoadJob(id string) (job *Job, err error) {
 	job = new(Job)
 	if err = DB.Find(bson.M{"id": id}).One(&job); err == nil {

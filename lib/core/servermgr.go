@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
+	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io/ioutil"
@@ -316,6 +317,30 @@ func (qm *ServerMgr) ShowStatus() string {
 
 //---end of mgr methods
 
+//--workunit methds (servermgr implementation)
+func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token string, err error) {
+	//precheck if the client is registered
+	if _, hasClient := qm.clientMap[clientid]; !hasClient {
+		return "", errors.New(e.ClientNotFound)
+	}
+	if qm.clientMap[clientid].Status == CLIENT_STAT_SUSPEND {
+		return "", errors.New(e.ClientSuspended)
+	}
+	jobid, err := GetJobIdByWorkId(workid)
+	if err != nil {
+		return "", err
+	}
+	job, err := LoadJob(jobid)
+	if err != nil {
+		return "", err
+	}
+	token = job.GetDataToken()
+	if token == "" {
+		return token, errors.New("no data token set for workunit " + workid)
+	}
+	return token, nil
+}
+
 //---task methods----
 
 func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, tasks []*Task) (err error) {
@@ -489,7 +514,7 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 	outputs := task.Outputs
 	for name, io := range outputs {
 		logger.Debug(2, fmt.Sprintf("posting output Shock node for file %s in task %s\n", name, task.Id))
-		nodeid, err := PostNode(io, task.TotalWork)
+		nodeid, err := PostNodeWithToken(io, task.TotalWork, task.Info.DataToken)
 		if err != nil {
 			return err
 		}
@@ -666,12 +691,17 @@ func (qm *ServerMgr) ResubmitJob(id string) (err error) {
 		return errors.New("job " + id + " is already active")
 	}
 	dbjob, err := LoadJob(id)
+
 	if err != nil {
 		return errors.New("failed to load job " + err.Error())
 	}
 	if dbjob.State != JOB_STAT_INPROGRESS &&
 		dbjob.State != JOB_STAT_SUSPEND {
 		return errors.New("job state 'in-progress' or 'suspend' needed while state=" + dbjob.State)
+	}
+	for _, task := range dbjob.Tasks {
+		task.Info = dbjob.Info
+		fmt.Printf("TaskInfoInfo=%#v\n", task.Info)
 	}
 	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 	return

@@ -80,6 +80,7 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 	}
 
 	task.Info = job.Info
+
 	if task.TotalWork > 0 {
 		task.WorkStatus = make([]string, task.TotalWork)
 	}
@@ -95,6 +96,8 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 			io.Node = "-"
 		}
 	}
+
+	task.setTokenForIO()
 	task.State = TASK_STAT_INIT
 	return
 }
@@ -152,7 +155,7 @@ func (task *Task) InitPartIndex() (err error) {
 
 	idxtype := conf.DEFAULT_INDEX
 	if _, ok := idxinfo[idxtype]; !ok { //if index not available, create index
-		if err := createIndex(input_io.Host, input_io.Node, idxtype); err != nil {
+		if err := ShockPutIndex(input_io.Host, input_io.Node, idxtype, task.Info.DataToken); err != nil {
 			task.setTotalWork(1)
 			logger.Error("warning: fail to create index on shock for taskid=" + task.Id)
 			return nil
@@ -197,6 +200,18 @@ func (task *Task) setTotalWork(num int) {
 	task.WorkStatus = make([]string, num)
 }
 
+func (task *Task) setTokenForIO() {
+	if !task.Info.Auth || task.Info.DataToken == "" {
+		return
+	}
+	for _, io := range task.Inputs {
+		io.DataToken = task.Info.DataToken
+	}
+	for _, io := range task.Outputs {
+		io.DataToken = task.Info.DataToken
+	}
+}
+
 func (task *Task) ParseWorkunit() (wus []*Workunit, err error) {
 	//if a task contains only one workunit, assign rank 0
 	if task.TotalWork == 1 {
@@ -226,7 +241,7 @@ func (task *Task) Skippable() bool {
 		(len(task.DependsOn) <= 1)
 }
 
-//creat index
+//creat index (=deprecated=)
 func createIndex(host string, nodeid string, indexname string) (err error) {
 	argv := []string{}
 	argv = append(argv, "-X")

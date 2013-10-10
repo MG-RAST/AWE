@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -24,7 +24,6 @@ func dataMover(control chan int) {
 			workunit: raw.workunit,
 			perfstat: raw.perfstat,
 		}
-
 		work := raw.workunit
 		workmap[work.Id] = ID_DATAMOVER
 		//make a working directory for the workunit
@@ -110,7 +109,8 @@ func ParseWorkunitArgs(work *core.Workunit) (args []string, err error) {
 
 				logger.Debug(2, "mover: fetching input from url:"+dataUrl)
 				logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
-				if err := fetchFile(inputFilePath, dataUrl); err != nil { //get file from Shock
+
+				if err := fetchFile(inputFilePath, dataUrl, work.Info.DataToken); err != nil { //get file from Shock
 					return []string{}, err
 				}
 				logger.Event(event.FILE_READY, "workid="+work.Id+" url="+dataUrl)
@@ -127,17 +127,21 @@ func ParseWorkunitArgs(work *core.Workunit) (args []string, err error) {
 }
 
 //fetch file by shock url
-func fetchFile(filename string, url string) (err error) {
+func fetchFile(filename string, url string, token string) (err error) {
 	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
-
 	localfile, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 	defer localfile.Close()
 
+	var user *httpclient.Auth
+	if token != "" {
+		user = httpclient.GetUserByTokenAuth(token)
+	}
+
 	//download file from Shock
-	res, err := http.Get(url)
+	res, err := httpclient.Get(url, httpclient.Header{}, nil, user)
 	if err != nil {
 		return err
 	}
@@ -163,7 +167,7 @@ func movePreData(workunit *core.Workunit) (err error) {
 	for name, io := range workunit.Predata {
 		file_path := fmt.Sprintf("%s/%s", conf.DATA_PATH, name)
 		if !isFileExisting(file_path) {
-			if err = fetchFile(file_path, io.Url); err != nil {
+			if err = fetchFile(file_path, io.Url, ""); err != nil {
 				return
 			}
 		}

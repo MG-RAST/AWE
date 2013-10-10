@@ -287,6 +287,11 @@ func (qm *CQMgr) handleWorkStatusChange(notice Notice) (err error) {
 	return
 }
 
+func (qm *CQMgr) FetchDataToken(workid string, clientid string) (token string, err error) {
+	//to be implemented for proxy or server
+	return
+}
+
 func (qm *CQMgr) ShowWorkunits(status string) (workunits []*Workunit) {
 	for _, work := range qm.workQueue.workMap {
 		if work.State == status || status == "" {

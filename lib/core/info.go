@@ -14,7 +14,8 @@ type Info struct {
 	ClientGroups string    `bson:"clientgroups" json:"clientgroups"`
 	SubmitTime   time.Time `bson:"submittime" json:"submittime"`
 	Priority     int       `bson:"priority" json:"-"`
-	Auth         int       `bson:"auth" json:"auth"`
+	Auth         bool      `bson:"auth" json:"auth"`
+	DataToken    string    `bson:"datatoken" json:"-"`
 }
 
 func NewInfo() *Info {

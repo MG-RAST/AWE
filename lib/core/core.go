@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io/ioutil"
@@ -112,6 +113,20 @@ type linkage struct {
 	Operation string   `bson:"operation" json:"operation"`
 }
 
+type Opts map[string]string
+
+func (o *Opts) HasKey(key string) bool {
+	if _, has := (*o)[key]; has {
+		return true
+	}
+	return false
+}
+
+func (o *Opts) Value(key string) string {
+	val, _ := (*o)[key]
+	return val
+}
+
 //heartbeat response from awe-server to awe-client
 //used for issue operation request to client, e.g. discard suspended workunits
 type HBmsg map[string]string //map[op]obj1,obj2 e.g. map[discard]=work1,work2
@@ -140,13 +155,12 @@ func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job
 	return
 }
 
-//create a shock node for output
+//create a shock node for output  (=deprecated=)
 func PostNode(io *IO, numParts int) (nodeid string, err error) {
 	var res *http.Response
 	shockurl := fmt.Sprintf("%s/node", io.Host)
 
 	c := make(chan int, 1)
-
 	go func() {
 		res, err = http.Post(shockurl, "", strings.NewReader(""))
 		c <- 1 //we are ending
@@ -185,7 +199,24 @@ func PostNode(io *IO, numParts int) (nodeid string, err error) {
 	return
 }
 
-//create parts
+func PostNodeWithToken(io *IO, numParts int, token string) (nodeid string, err error) {
+	opts := Opts{}
+	node, err := createOrUpdate(opts, io.Host, "", token)
+	if err != nil {
+		return "", err
+	}
+	//create "parts" for output splits
+	if numParts > 1 {
+		opts["upload_type"] = "parts"
+		opts["parts"] = strconv.Itoa(numParts)
+		if _, err := createOrUpdate(opts, io.Host, node.Id, token); err != nil {
+			return node.Id, err
+		}
+	}
+	return node.Id, nil
+}
+
+//create parts (=deprecated=)
 func putParts(host string, nodeid string, numParts int) (err error) {
 	argv := []string{}
 	argv = append(argv, "-X")
@@ -338,10 +369,16 @@ func GetJobIdByTaskId(taskid string) (jobid string, err error) {
 	parts := strings.Split(taskid, "_")
 	if len(parts) == 2 {
 		return parts[0], nil
-	} else {
-		return "", errors.New("invalid task id: " + taskid)
 	}
-	return
+	return "", errors.New("invalid task id: " + taskid)
+}
+
+func GetJobIdByWorkId(workid string) (jobid string, err error) {
+	parts := strings.Split(workid, "_")
+	if len(parts) == 3 {
+		return parts[0], nil
+	}
+	return "", errors.New("invalid work id: " + workid)
 }
 
 func IsFirstTask(taskid string) bool {
@@ -437,9 +474,10 @@ func PushOutputData(work *Workunit) (err error) {
 			"workid="+work.Id,
 			"filename="+name,
 			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
-		if err := pushFileByCurl(file_path, io.Host, io.Node, work.Rank); err != nil {
+
+		if err := putFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-			if err := pushFileByCurl(name, io.Host, io.Node, work.Rank); err != nil {
+			if err := putFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken); err != nil {
 				fmt.Errorf("push file error\n")
 				logger.Error("op=pushfile,err=" + err.Error())
 				return err
@@ -453,7 +491,7 @@ func PushOutputData(work *Workunit) (err error) {
 	return
 }
 
-//push file to shock
+//push file to shock (=deprecated=)
 func pushFileByCurl(filename string, host string, node string, rank int) (err error) {
 	shockurl := fmt.Sprintf("%s/node/%s", host, node)
 	if err := putFileByCurl(filename, shockurl, rank); err != nil {
@@ -462,6 +500,7 @@ func pushFileByCurl(filename string, host string, node string, rank int) (err er
 	return
 }
 
+//(=deprecated=)
 func putFileByCurl(filename string, target_url string, rank int) (err error) {
 	argv := []string{}
 	argv = append(argv, "-X")
@@ -483,6 +522,20 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 	return
 }
 
+func putFileToShock(filename string, host string, nodeid string, rank int, token string) (err error) {
+	opts := Opts{}
+	if rank == 0 {
+		opts["upload_type"] = "full"
+		opts["full"] = filename
+	} else {
+		opts["upload_type"] = "part"
+		opts["part"] = strconv.Itoa(rank)
+		opts["file"] = filename
+	}
+	_, err = createOrUpdate(opts, host, nodeid, token)
+	return
+}
+
 func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err error) {
 	perfJsonstream, err := json.Marshal(perfstat)
 	if err != nil {
@@ -493,4 +546,143 @@ func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err
 		return reportPath, err
 	}
 	return reportFile, nil
+}
+
+//shock access functions
+func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *ShockNode, err error) {
+	url := host + "/node"
+	method := "POST"
+	if nodeid != "" {
+		url += "/" + nodeid
+		method = "PUT"
+	}
+	form := httpclient.NewForm()
+	if opts.HasKey("attributes") {
+		form.AddFile("attributes", opts.Value("attributes"))
+	}
+	if opts.HasKey("upload_type") {
+		switch opts.Value("upload_type") {
+		case "full":
+			if opts.HasKey("full") {
+				form.AddFile("upload", opts.Value("full"))
+			} else {
+				return nil, errors.New("missing file parameter: upload")
+			}
+		case "parts":
+			if opts.HasKey("parts") {
+				form.AddParam("parts", opts.Value("parts"))
+			} else {
+				return nil, errors.New("missing partial upload parameter: parts")
+			}
+		case "part":
+			if opts.HasKey("part") && opts.HasKey("file") {
+				form.AddFile(opts.Value("part"), opts.Value("file"))
+			} else {
+				return nil, errors.New("missing partial upload parameter: part or file")
+			}
+		case "remote_path":
+			if opts.HasKey("remote_path") {
+				form.AddParam("path", opts.Value("remote_path"))
+			} else {
+				return nil, errors.New("missing remote path parameter: path")
+			}
+		case "virtual_file":
+			if opts.HasKey("virtual_file") {
+				form.AddParam("type", "virtual")
+				form.AddParam("source", opts.Value("virtual_file"))
+			} else {
+				return nil, errors.New("missing virtual node parameter: source")
+			}
+		case "index":
+			if opts.HasKey("index_type") {
+				url += "?index=" + opts.Value("index_type")
+				fmt.Printf("making index... url = %s\n", url)
+			} else {
+				return nil, errors.New("missing index type when creating index")
+			}
+		}
+	}
+	err = form.Create()
+	if err != nil {
+		return
+	}
+	headers := httpclient.Header{
+		"Content-Type":   form.ContentType,
+		"Content-Length": strconv.FormatInt(form.Length, 10),
+	}
+	var user *httpclient.Auth
+	if token != "" {
+		user = httpclient.GetUserByTokenAuth(token)
+	}
+	if res, err := httpclient.Do(method, url, headers, form.Reader, user); err == nil {
+		jsonstream, _ := ioutil.ReadAll(res.Body)
+		res.Body.Close()
+		response := new(ShockResponse)
+		if err := json.Unmarshal(jsonstream, response); err != nil {
+			return nil, errors.New(fmt.Sprintf("failed to marshal response:\"%s\"", jsonstream))
+		}
+		if len(response.Errs) > 0 {
+			return nil, errors.New(strings.Join(response.Errs, ","))
+		}
+		node = &response.Data
+	} else {
+		return nil, err
+	}
+	return
+}
+
+func ShockGet(host string, nodeid string, token string) (node *ShockNode, err error) {
+	if host == "" || nodeid == "" {
+		return nil, errors.New("empty shock host or node id")
+	}
+
+	var res *http.Response
+	shockurl := fmt.Sprintf("%s/node/%s", host, nodeid)
+
+	var user *httpclient.Auth
+	if token != "" {
+		user = httpclient.GetUserByTokenAuth(token)
+	}
+
+	c := make(chan int, 1)
+	go func() {
+		res, err = httpclient.Get(shockurl, httpclient.Header{}, nil, user)
+		c <- 1 //we are ending
+	}()
+	select {
+	case <-c:
+	//go ahead
+	case <-time.After(conf.SHOCK_TIMEOUT):
+		return nil, errors.New("timeout when getting node from shock, url=" + shockurl)
+	}
+
+	if err != nil {
+		return
+	}
+
+	jsonstream, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	res.Body.Close()
+	response := new(ShockResponse)
+	if err := json.Unmarshal(jsonstream, response); err != nil {
+		return nil, err
+	}
+	if len(response.Errs) > 0 {
+		return nil, errors.New(strings.Join(response.Errs, ","))
+	}
+	node = &response.Data
+	if node == nil {
+		err = errors.New("empty node got from Shock")
+	}
+	return
+}
+
+func ShockPutIndex(host string, nodeid string, indexname string, token string) (err error) {
+	opts := Opts{}
+	opts["upload_type"] = "index"
+	opts["index_type"] = indexname
+	createOrUpdate(opts, host, nodeid, token)
+	return
 }

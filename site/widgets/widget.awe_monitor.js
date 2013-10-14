@@ -14,6 +14,7 @@
     };
 
     widget.tables = [];
+    widget.num_recent = 10;
         
     widget.display = function (wparams) {
 	// initialize
@@ -35,6 +36,7 @@
 	var views = [ "overview",
 		      "active",
 		      "suspended",
+		      "completed",
 		      "queuing_workunit",
 		      "checkout_workunit",
 		      "clients" ];
@@ -222,6 +224,48 @@
 		Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].settings.minwidths = [1,1,1,1,65,75,75,75];
 		Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].render();
+		Retina.WidgetInstances.awe_monitor[1].check_update();
+	    });
+
+	    break;
+	case "completed":
+	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/work?query&state=completed&recent="+widget.num_recent, function (data) {
+		var result_data = [];
+		if (data.data != null) {
+		    for (h=0;h<data.data.length;h++) {
+			var obj = data.data[h];
+			result_data.push( [ obj.info.submittime,
+					    "<a href='http://"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
+					    obj.info.name,
+					    obj.info.user,
+					    obj.info.project,
+					    obj.info.pipeline,
+					    obj.info.clientgroups,
+					    obj.tasks.length - obj.remaintasks || "0",
+					    obj.tasks.length,
+					    obj.state,
+                                            obj.updatetime
+					  ] );
+		    }
+		}
+		if (! result_data.length) {
+		    result_data.push(['-','-','-','-','-','-','-','-','-','-','-']);
+		}
+		return_data = { header: [ "created",
+					  "jid",
+					  "name",
+					  "user",
+					  "project",
+					  "pipeline",
+					  "group",
+					  "t-complete",
+					  "t-total",
+					  "state", 
+                                          "finished"],
+				data: result_data };
+		Retina.WidgetInstances.awe_monitor[1].tables["completed"].settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75];
+		Retina.WidgetInstances.awe_monitor[1].tables["completed"].settings.data = return_data;
+		Retina.WidgetInstances.awe_monitor[1].tables["completed"].render();
 		Retina.WidgetInstances.awe_monitor[1].check_update();
 	    });
 

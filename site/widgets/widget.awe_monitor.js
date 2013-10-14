@@ -34,6 +34,7 @@
 	Retina.RendererInstances.table = [ Retina.RendererInstances.table[0] ];
 
 	var views = [ "overview",
+		      "graphical",
 		      "active",
 		      "suspended",
 		      "completed",
@@ -104,6 +105,40 @@
 		document.getElementById('overview').innerHTML = html;
 	    });
 	    return;
+
+	    break;
+	case "graphical":
+	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/job", function (data) {
+		var result_data = [];
+		if (data.data != null) {
+		    var data2 = [];
+		    for (var i=0;i<data.data.length;i++) {
+			if ((data.data[i].state == 'in-progress') || (data.data[i].state == 'suspend') || (data.data[i].state == 'submitted')) {
+
+			    data2.push(data.data[i]);
+			}
+		    }
+		    data2 = data2.sort(widget.tasksort);
+		    for (h=0;h<data2.length;h++) {
+			var obj = data2[h];
+			result_data.push( [ obj.info.submittime,
+					    "<a href='http://"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+(obj.info.name || '-')+' ('+obj.jid+")</a>",
+					    widget.dots(obj.tasks),
+					    obj.info.pipeline,
+					    obj.state
+					  ] );
+		    }
+		}
+		if (! result_data.length) {
+		    result_data.push(['-','-','-','-','-']);
+		}
+		return_data = { header: [ "submission", "job", "status", "pipeline", "current state" ],
+				data: result_data };
+		Retina.WidgetInstances.awe_monitor[1].tables["graphical"].settings.minwidths = [1,300,1, 1];
+		Retina.WidgetInstances.awe_monitor[1].tables["graphical"].settings.data = return_data;
+		Retina.WidgetInstances.awe_monitor[1].tables["graphical"].render();
+		Retina.WidgetInstances.awe_monitor[1].check_update();
+	    });
 
 	    break;
 	case "active":
@@ -408,5 +443,40 @@
 	} else {
 	    document.getElementById('pbar') ? document.getElementById('pbar').setAttribute('style', "width: "+Retina.WidgetInstances.awe_monitor[1].updated+"%;") : "";
 	}
-    }
+    };
+
+    widget.dots = function (stages) {
+	var dots = '<span>';
+	if (stages.length > 0) {
+	    for (var i=0;i<stages.length;i++) {
+		if (stages[i].state == 'completed') {
+		    dots += '<span style="color: green;font-size: 19px; cursor: default;" title="completed: '+stages[i].cmd.description+'">&#9679;</span>';
+		} else if (stages[i].state == 'in-progress') {
+		    dots += '<span style="color: blue;font-size: 19px; cursor: default;" title="in-progress: '+stages[i].cmd.description+'">&#9679;</span>';
+		} else if (stages[i].state == 'queued') {
+		    dots += '<span style="color: orange;font-size: 19px; cursor: default;" title="queued: '+stages[i].cmd.description+'">&#9679;</span>';
+		} else if (stages[i].state == 'error') {
+		    dots += '<span style="color: red;font-size: 19px; cursor: default;" title="error: '+stages[i].cmd.description+'">&#9679;</span>';
+		} else if (stages[i].state == 'init') {
+		    dots += '<span style="color: gray;font-size: 19px; cursor: default;" title="init: '+stages[i].cmd.description+'">&#9679;</span>';
+		}
+	    }
+	}
+			  
+	dots += "</span>";
+
+	return dots;
+    };
+
+    widget.tasksort = function (a, b) {
+	var order = { "suspend": 0, "submitted": 1, "in-progress": 2 };
+	if (order[a.state] > order[b.state]) {
+	    return -1;
+	} else if (order[a.state] < order[b.state]) {
+	    return 1;
+	} else {
+	    return a.info.submittime.localeCompare(b.info.submittime);
+	}
+    };
+
 })();

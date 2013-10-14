@@ -14,7 +14,6 @@
     };
 
     widget.tables = [];
-    widget.num_recent = 10;
         
     widget.display = function (wparams) {
 	// initialize
@@ -229,7 +228,28 @@
 
 	    break;
 	case "completed":
-	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/work?query&state=completed&recent="+widget.num_recent, function (data) {
+	    var options = document.getElementById('completed_options');
+	    if (! options) {
+		options = document.createElement('div');
+		options.setAttribute('id', 'completed_options');
+		document.getElementById('completed').insertBefore(options, document.getElementById('completed').firstChild);
+		options.innerHTML = "<span style='position: relative; bottom: 4px;'>retrieve the last </span><input id='num_recent' value='10' class='span1' style='bottom: 1px; position:relative;'></id><span style='position: relative; bottom: 4px;'> entries </span> <input type='button' class='btn btn-mini' value='update' onclick='Retina.WidgetInstances.awe_monitor[1].update_data(\"completed\");' style='bottom: 5px; position:relative;'>";
+	    }
+	    var num_recent = document.getElementById('num_recent').value;
+	    if (isNaN(num_recent)) {
+		num_recent = "10";
+		document.getElementById('num_recent').value = "10";
+		alert('You may only enter numbers, defaulting to 10.');
+		num_recent = "&recent=10";
+	    } else {
+		num_recent = parseInt(num_recent);
+		if (num_recent > 0) {
+		    num_recent = "&recent=" + num_recent;
+		} else {
+		    num_recent = "";
+		}
+	    }
+	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/job?query&state=completed"+num_recent, function (data) {
 		var result_data = [];
 		if (data.data != null) {
 		    for (h=0;h<data.data.length;h++) {
@@ -264,6 +284,7 @@
                                           "finished"],
 				data: result_data };
 		Retina.WidgetInstances.awe_monitor[1].tables["completed"].settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75];
+		Retina.WidgetInstances.awe_monitor[1].tables["completed"].settings.tdata ? delete Retina.WidgetInstances.awe_monitor[1].tables["completed"].settings.tdata : "";
 		Retina.WidgetInstances.awe_monitor[1].tables["completed"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["completed"].render();
 		Retina.WidgetInstances.awe_monitor[1].check_update();
@@ -381,11 +402,10 @@
     
     widget.check_update = function () {
 	Retina.WidgetInstances.awe_monitor[1].updated += 100 / 6;
-	Retina.WidgetInstances.awe_monitor[1].updated
 	if (parseInt(Retina.WidgetInstances.awe_monitor[1].updated) == 100) {
 	    document.getElementById('refresh').innerHTML = '<button class="btn" onclick="Retina.WidgetInstances.awe_monitor[1].display();">refresh</button>';
 	} else {
-	    document.getElementById('pbar').setAttribute('style', "width: "+Retina.WidgetInstances.awe_monitor[1].updated+"%;");
+	    document.getElementById('pbar') ? document.getElementById('pbar').setAttribute('style', "width: "+Retina.WidgetInstances.awe_monitor[1].updated+"%;") : "";
 	}
     }
 })();

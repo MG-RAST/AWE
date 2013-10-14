@@ -31,6 +31,7 @@
 </div>';
 
 	widget.updated = 0;
+	Retina.RendererInstances.table = [ Retina.RendererInstances.table[0] ];
 
 	var views = [ "overview",
 		      "active",

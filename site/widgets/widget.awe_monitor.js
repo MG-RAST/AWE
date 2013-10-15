@@ -134,7 +134,8 @@
 		}
 		return_data = { header: [ "submission", "job", "status", "pipeline", "current state" ],
 				data: result_data };
-		Retina.WidgetInstances.awe_monitor[1].tables["graphical"].settings.minwidths = [1,300,1, 1];
+		Retina.WidgetInstances.awe_monitor[1].tables["graphical"].settings.rows_per_page = 20;
+		Retina.WidgetInstances.awe_monitor[1].tables["graphical"].settings.minwidths = [1,300,1, 1, 1];
 		Retina.WidgetInstances.awe_monitor[1].tables["graphical"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["graphical"].render();
 		Retina.WidgetInstances.awe_monitor[1].check_update();

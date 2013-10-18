@@ -3,30 +3,40 @@ package core
 import (
 	//	"errors"
 	"errors"
+	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 )
 
-var DB *mgo.Collection
-
 func InitJobDB() {
-	DB = db.Connection.DB.C("Jobs")
-	DB.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C("Jobs")
+	c.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
 }
 
 func dbDelete(q bson.M) (err error) {
-	_, err = DB.RemoveAll(q)
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C("Jobs")
+	_, err = c.RemoveAll(q)
 	return
 }
 
 func dbUpsert(j *Job) (err error) {
-	_, err = DB.Upsert(bson.M{"id": j.Id}, &j)
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C("Jobs")
+	_, err = c.Upsert(bson.M{"id": j.Id}, &j)
 	return
 }
 
 func dbFind(q bson.M, results *Jobs, options map[string]int) (count int, err error) {
-	query := DB.Find(q)
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C("Jobs")
+	query := c.Find(q)
 	if count, err = query.Count(); err != nil {
 		return 0, err
 	}
@@ -46,14 +56,30 @@ func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string) 
 	if sortby == "" {
 		return 0, errors.New("sortby must be an nonempty string")
 	}
-	query := DB.Find(q)
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C("Jobs")
+	query := c.Find(q)
 	if count, err = query.Count(); err != nil {
 		return 0, err
 	}
 	if limit, has := options["limit"]; has {
-		err = DB.Find(q).Sort(sortby).Limit(limit).All(results)
+		err = c.Find(q).Sort(sortby).Limit(limit).All(results)
 		return
 	}
 	err = query.All(results)
 	return
+}
+
+func LoadJob(id string) (job *Job, err error) {
+	job = new(Job)
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C("Jobs")
+	if err = c.Find(bson.M{"id": id}).One(&job); err == nil {
+		return job, nil
+	} else {
+		return nil, err
+	}
+	return nil, err
 }

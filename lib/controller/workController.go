@@ -75,7 +75,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, 1)
 
 	if err != nil {
-		if err.Error() != e.QueueEmpty && err.Error() != e.NoEligibleWorkunitFound {
+		if err.Error() != e.QueueEmpty && err.Error() != e.NoEligibleWorkunitFound && err.Error() != e.ClientNotFound {
 			logger.Error("Err@work_ReadMany:core.QMgr.GetWorkByFCFS(): " + err.Error() + ";client=" + clientid)
 		}
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)

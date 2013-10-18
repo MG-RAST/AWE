@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"labix.org/v2/mgo"
-	"os"
 	"time"
 )
 
@@ -31,7 +30,6 @@ func Initialize() (err error) {
 	s, err := mgo.DialWithTimeout(conf.MONGODB_HOST, DbTimeout)
 	if err != nil {
 		e := errors.New(fmt.Sprintf("no reachable mongodb server(s) at %s", conf.MONGODB_HOST))
-		fmt.Fprintln(os.Stderr, "Error: "+e.Error())
 		return e
 	}
 	c.Session = s

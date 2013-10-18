@@ -187,16 +187,6 @@ func (job *Job) GetDataToken() (token string) {
 	return job.Info.DataToken
 }
 
-func LoadJob(id string) (job *Job, err error) {
-	job = new(Job)
-	if err = DB.Find(bson.M{"id": id}).One(&job); err == nil {
-		return job, nil
-	} else {
-		return nil, err
-	}
-	return nil, err
-}
-
 func ReloadFromDisk(path string) (err error) {
 	id := filepath.Base(path)
 	jobbson, err := ioutil.ReadFile(path + "/" + id + ".bson")

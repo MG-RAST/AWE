@@ -2,12 +2,11 @@ package user
 
 import (
 	"code.google.com/p/go-uuid/uuid"
+	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 )
-
-var DB *mgo.Collection
 
 // Array of User
 type Users []User
@@ -24,9 +23,11 @@ type User struct {
 }
 
 func Initialize() {
-	DB = db.Connection.DB.C("Users")
-	DB.EnsureIndex(mgo.Index{Key: []string{"uuid"}, Unique: true})
-	DB.EnsureIndex(mgo.Index{Key: []string{"username"}, Unique: true})
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C("Users")
+	c.EnsureIndex(mgo.Index{Key: []string{"uuid"}, Unique: true})
+	c.EnsureIndex(mgo.Index{Key: []string{"username"}, Unique: true})
 	New("public", "public", false) //initialize a default public user
 }
 
@@ -39,23 +40,32 @@ func New(username string, password string, isAdmin bool) (u *User, err error) {
 }
 
 func FindByUuid(uuid string) (u *User, err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C("Users")
 	u = &User{Uuid: uuid}
-	if err = DB.Find(bson.M{"uuid": u.Uuid}).One(&u); err != nil {
+	if err = c.Find(bson.M{"uuid": u.Uuid}).One(&u); err != nil {
 		return nil, err
 	}
 	return
 }
 
 func FindByUsernamePassword(username string, password string) (u *User, err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C("Users")
 	u = &User{}
-	if err = DB.Find(bson.M{"username": username, "password": password}).One(&u); err != nil {
+	if err = c.Find(bson.M{"username": username, "password": password}).One(&u); err != nil {
 		return nil, err
 	}
 	return
 }
 
 func AdminGet(u *Users) (err error) {
-	err = DB.Find(nil).All(u)
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C("Users")
+	err = c.Find(nil).All(u)
 	return
 }
 
@@ -73,15 +83,22 @@ func (u *User) SetUuid() (err error) {
 }
 
 func dbGetUuid(email string) (uuid string, err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C("Users")
 	u := User{}
-	if err = DB.Find(bson.M{"email": email}).One(&u); err != nil {
+	if err = c.Find(bson.M{"email": email}).One(&u); err != nil {
 		return "", err
 	}
 	return u.Uuid, nil
 }
 
 func (u *User) Save() (err error) {
-	return DB.Insert(&u)
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C("Users")
+	err = c.Insert(&u)
+	return
 }
 
 func (u *User) RemovePasswd() (nu *User) {

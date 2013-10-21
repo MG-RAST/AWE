@@ -11,6 +11,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type JobController struct{}
@@ -130,7 +131,8 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		for key, val := range query.All() {
 			_, s := skip[key]
 			if !s {
-				q[key] = val[0]
+				queryvalues := strings.Split(val[0], ",")
+				q[key] = bson.M{"$in": queryvalues}
 			}
 		}
 	} else if query.Has("active") {

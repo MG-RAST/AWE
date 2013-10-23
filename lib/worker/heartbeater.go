@@ -157,6 +157,7 @@ func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, e
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 	jsonstream, err := ioutil.ReadAll(resp.Body)
 	response := new(ClientResponse)
 	if err = json.Unmarshal(jsonstream, response); err != nil {

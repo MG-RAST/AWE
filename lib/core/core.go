@@ -178,9 +178,9 @@ func PostNode(io *IO, numParts int) (nodeid string, err error) {
 	if err != nil {
 		return "", err
 	}
+	defer res.Body.Close()
 
 	jsonstream, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
 
 	response := new(ShockResponse)
 	if err := json.Unmarshal(jsonstream, response); err != nil {
@@ -596,7 +596,6 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 		case "index":
 			if opts.HasKey("index_type") {
 				url += "?index=" + opts.Value("index_type")
-				fmt.Printf("making index... url = %s\n", url)
 			} else {
 				return nil, errors.New("missing index type when creating index")
 			}
@@ -615,8 +614,8 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 		user = httpclient.GetUserByTokenAuth(token)
 	}
 	if res, err := httpclient.Do(method, url, headers, form.Reader, user); err == nil {
+		defer res.Body.Close()
 		jsonstream, _ := ioutil.ReadAll(res.Body)
-		res.Body.Close()
 		response := new(ShockResponse)
 		if err := json.Unmarshal(jsonstream, response); err != nil {
 			return nil, errors.New(fmt.Sprintf("failed to marshal response:\"%s\"", jsonstream))
@@ -655,16 +654,16 @@ func ShockGet(host string, nodeid string, token string) (node *ShockNode, err er
 	case <-time.After(conf.SHOCK_TIMEOUT):
 		return nil, errors.New("timeout when getting node from shock, url=" + shockurl)
 	}
-
 	if err != nil {
 		return
 	}
+	defer res.Body.Close()
 
 	jsonstream, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}
-	res.Body.Close()
+
 	response := new(ShockResponse)
 	if err := json.Unmarshal(jsonstream, response); err != nil {
 		return nil, err

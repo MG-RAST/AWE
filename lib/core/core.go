@@ -178,9 +178,9 @@ func PostNode(io *IO, numParts int) (nodeid string, err error) {
 	if err != nil {
 		return "", err
 	}
+	defer res.Body.Close()
 
 	jsonstream, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
 
 	response := new(ShockResponse)
 	if err := json.Unmarshal(jsonstream, response); err != nil {

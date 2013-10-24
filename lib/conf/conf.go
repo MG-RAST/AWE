@@ -3,7 +3,7 @@ package conf
 import (
 	"flag"
 	"fmt"
-	"github.com/jaredwilkening/goconfig/config"
+	"github.com/MG-RAST/golib/goconfig/config"
 	"os"
 	"time"
 )

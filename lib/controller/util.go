@@ -5,7 +5,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	. "github.com/MG-RAST/AWE/lib/logger"
-	"github.com/jaredwilkening/goweb"
+	"github.com/MG-RAST/golib/goweb"
 	"math/rand"
 	"net"
 	"net/http"

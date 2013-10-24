@@ -7,10 +7,10 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
+	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -88,9 +88,12 @@ func workStealer(control chan int) {
 
 func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	response := new(WorkResponse)
-	res, err := http.Get(fmt.Sprintf("%s/work?client=%s", conf.SERVER_URL, core.Self.Id))
+	targeturl := fmt.Sprintf("%s/work?client=%s", conf.SERVER_URL, core.Self.Id)
+	//res, err := http.Get(fmt.Sprintf("%s/work?client=%s", conf.SERVER_URL, core.Self.Id))
+	res, err := httpclient.Get(targeturl, httpclient.Header{}, nil, nil)
 	logger.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s", core.Self.Id, conf.SERVER_URL))
 	if err != nil {
+		fmt.Printf("err=%s\n", err.Error())
 		return
 	}
 	defer res.Body.Close()
@@ -120,9 +123,10 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 func FetchDataTokenByWorkId(workid string) (token string, err error) {
 	response := new(TokenResponse)
-	requrl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, workid, core.Self.Id)
-	res, err := http.Get(requrl)
-	logger.Debug(3, "GET:"+requrl)
+	targeturl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, workid, core.Self.Id)
+	//res, err := http.Get(requrl)
+	res, err := httpclient.Get(targeturl, httpclient.Header{}, nil, nil)
+	logger.Debug(3, "GET:"+targeturl)
 	if err != nil {
 		return
 	}

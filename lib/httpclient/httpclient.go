@@ -32,6 +32,7 @@ func GetUserByBasicAuth(username, password string) (user *Auth) {
 
 func Do(t string, url string, header Header, data io.Reader, user *Auth) (*http.Response, error) {
 	trans := newTransport()
+	trans.DisableKeepAlives = true
 	req, err := http.NewRequest(t, url, data)
 	if err != nil {
 		return nil, err

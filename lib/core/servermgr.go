@@ -155,6 +155,12 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		if qm.workQueue.workMap[workid].State != WORK_STAT_CHECKOUT { //could be suspended
 			return
 		}
+		var MAX_RETRY int
+		if task.Info.NoRetry == true {
+			MAX_RETRY = 0
+		} else {
+			MAX_RETRY = conf.MAX_WORK_FAILURE
+		}
 		if task.State == TASK_STAT_FAIL_SKIP {
 			// A work unit for this task failed before this one arrived.
 			// User set Skip=2 so the task was just skipped. Any subsiquent
@@ -215,7 +221,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 						qm.updateQueue()
 						// remove from the workQueue
 						qm.workQueue.Delete(workid)
-					} else if qm.workQueue.workMap[workid].Failed < conf.MAX_WORK_FAILURE {
+					} else if qm.workQueue.workMap[workid].Failed < MAX_RETRY {
 						qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
 						logger.Event(event.WORK_REQUEUE, "workid="+workid)
 					} else { //failure time exceeds limit, suspend workunit, task, job
@@ -224,7 +230,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 						qm.updateTaskWorkStatus(taskid, rank, WORK_STAT_SUSPEND)
 						qm.taskMap[taskid].State = TASK_STAT_SUSPEND
 
-						reason := fmt.Sprintf("workunit %s failed %d time(s).", workid, conf.MAX_WORK_FAILURE)
+						reason := fmt.Sprintf("workunit %s failed %d time(s).", workid, MAX_RETRY)
 						if len(notice.Notes) > 0 {
 							reason = reason + " msg from client:" + notice.Notes
 						}

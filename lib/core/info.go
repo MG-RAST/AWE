@@ -16,6 +16,7 @@ type Info struct {
 	Priority     int       `bson:"priority" json:"-"`
 	Auth         bool      `bson:"auth" json:"auth"`
 	DataToken    string    `bson:"datatoken" json:"-"`
+	NoRetry      bool      `bson:"noretry" json:"noretry"`
 }
 
 func NewInfo() *Info {

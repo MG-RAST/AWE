@@ -62,7 +62,7 @@ sub getJobQueue {
 	my @pairs = @_;
 	my $client_url = $self->awe_url.'/job';
 	
-	print "got: ".join(',', @pairs)."\n";
+	#print "got: ".join(',', @pairs)."\n";
 	
 	if (@pairs > 0) {
 		$client_url .= '?query';

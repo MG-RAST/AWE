@@ -56,6 +56,31 @@ sub transport_method {
     return $self->{transport_method};
 }
 
+# example: getJobQueue('info.clientgroups' => 'yourclientgroup')
+sub getJobQueue {
+	my ($self) = shift;
+	my @pairs = @_;
+	my $client_url = $self->awe_url.'/job';
+	
+	#print "got: ".join(',', @pairs)."\n";
+	
+	if (@pairs > 0) {
+		$client_url .= '?query';
+		for (my $i = 0 ; $i < @pairs ; $i+=2) {
+			$client_url .= '&'.$pairs[$i].'='.$pairs[$i+1];
+		}
+	}
+	
+	my $http_response = $self->agent->get($client_url);
+	my $http_response_content  = $http_response->decoded_content;
+	die "Can't get url $client_url ", $http_response->status_line
+	unless $http_response->is_success;
+	
+	my $http_response_content_hash = $self->json->decode($http_response_content);
+	
+	return $http_response_content_hash;
+}
+
 sub getClientList {
 	my ($self) = @_;
 	my $client_url = $self->awe_url.'/client/';

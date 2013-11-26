@@ -1,0 +1,50 @@
+    {
+        "info": {
+            "pipeline": "drisee",
+            "name": "#jobname",
+            "project": "#project",
+            "user": "#user",
+            "clientgroups":"#clientgroups"
+        }, 
+        "tasks": [
+            {
+                "cmd": {
+                    "args": "-i @#inputfile", 
+                    "description": "drisee", 
+                    "name": "process_DRISEE2_from_seq_file.pl"
+                }, 
+                "dependsOn": [], 
+                "inputs": {
+                   "#inputfile": {
+                        "host": "http://#shockurl",
+                        "node": "#shocknode"
+                    }
+                }, 
+                "outputs": {
+                    "#inputfile.drisee_STAT.txt.non_contaminated": {
+                        "host": "http://#shockurl"
+                    },
+                    "#inputfile.drisee_STAT.txt.contaminated": {
+                        "host": "http://#shockurl"
+                    },
+                    "#inputfile.drisee_STAT.txt": {
+                        "host": "http://#shockurl"
+                    },
+                    "#inputfile.drisee_STAT.txt.non_contaminated.per": {
+                        "host": "http://#shockurl"
+                    },
+                    "#inputfile.drisee_STAT.txt.contaminated.per": {
+                        "host": "http://#shockurl"
+                    },
+                    "#inputfile.drisee_stdout.txt": {
+                        "host": "http://#shockurl"
+                    },
+                    "#inputfile.drisee_log.txt": {
+                        "host": "http://#shockurl"
+                    }
+                },
+                "taskid": "0",
+                "totalwork": 1
+            }
+        ]
+    }

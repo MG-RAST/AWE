@@ -44,6 +44,7 @@ func ExportWorkflowRun(job *core.Job) (wfrun *WorkflowRun, err error) {
 		invocation.Id = task.Id
 		invocation.Name = task.Cmd.Name
 		invocation.Inputs = make(map[string]string)
+		invocation.Outputs = make(map[string]string)
 		for name, io := range task.Inputs {
 			invocation.Inputs[name] = io.Url
 		}

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -22,20 +23,23 @@ const (
 )
 
 type Task struct {
-	Id          string    `bson:"taskid" json:"taskid"`
-	Info        *Info     `bson:"info" json:"-"`
-	Inputs      IOmap     `bson:"inputs" json:"inputs"`
-	Outputs     IOmap     `bson:"outputs" json:"outputs"`
-	Predata     IOmap     `bson:"predata" json:"predata"`
-	Cmd         *Command  `bson:"cmd" json:"cmd"`
-	Partition   *PartInfo `bson:"partinfo" json:"-"`
-	DependsOn   []string  `bson:"dependsOn" json:"dependsOn"`
-	TotalWork   int       `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize int       `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork  int       `bson:"remainwork" json:"remainwork"`
-	WorkStatus  []string  `bson:"workstatus" json:"-"`
-	State       string    `bson:"state" json:"state"`
-	Skip        int       `bson:"skip" json:"-"`
+	Id            string    `bson:"taskid" json:"taskid"`
+	Info          *Info     `bson:"info" json:"-"`
+	Inputs        IOmap     `bson:"inputs" json:"inputs"`
+	Outputs       IOmap     `bson:"outputs" json:"outputs"`
+	Predata       IOmap     `bson:"predata" json:"predata"`
+	Cmd           *Command  `bson:"cmd" json:"cmd"`
+	Partition     *PartInfo `bson:"partinfo" json:"-"`
+	DependsOn     []string  `bson:"dependsOn" json:"dependsOn"`
+	TotalWork     int       `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize   int       `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork    int       `bson:"remainwork" json:"remainwork"`
+	WorkStatus    []string  `bson:"workstatus" json:"-"`
+	State         string    `bson:"state" json:"state"`
+	Skip          int       `bson:"skip" json:"-"`
+	CreatedDate   time.Time `bson:"createdDate" json:"-"`
+	StartedDate   time.Time `bson:"startedDate" json:"-"`
+	CompletedDate time.Time `bson:"completedDate" json:"-"`
 }
 
 func NewTask(job *Job, rank int) *Task {

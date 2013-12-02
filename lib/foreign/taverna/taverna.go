@@ -55,6 +55,9 @@ func ExportWorkflowRun(job *core.Job) (wfrun *WorkflowRun, err error) {
 			invocation.Outputs[name] = io.Url
 		}
 		report.Invocations = append(report.Invocations, invocation)
+		report.CreatedDate = task.CreatedDate
+		report.StartedDate = task.StartedDate
+		report.CompletedDate = task.CompletedDate
 		wfrun.ProcessorReports = append(wfrun.ProcessorReports, report)
 	}
 	return

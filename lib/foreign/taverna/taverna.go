@@ -8,8 +8,8 @@ import (
 type WorkflowRun struct {
 	State            string        `bson:"state" json:"state"`
 	Invocations      []*Invocation `bson:"invocations" json:"invocations"`
-	CreatedDate      time.Time     `bson:"createDate" json:"createDate"`
-	StartedDate      time.Time     `bson:"startedDate" json:"updateDate"`
+	CreatedDate      time.Time     `bson:"createdDate" json:"createdDate"`
+	StartedDate      time.Time     `bson:"startedDate" json:"startedDate"`
 	CompletedDate    time.Time     `bson:"completedDate" json:"completedDate"`
 	ProcessorReports []*ProcReport `bson:"processorReports" json:"processorReports"`
 	Subject          string        `bson:"subject" json:"subject"`
@@ -25,8 +25,8 @@ type Invocation struct {
 type ProcReport struct {
 	State         string        `bson:"state" json:"state"`
 	Invocations   []*Invocation `bson:"invocations" json:"invocations"`
-	CreatedDate   time.Time     `bson:"createDate" json:"createDate"`
-	StartedDate   time.Time     `bson:"startedDate" json:"updateDate"`
+	CreatedDate   time.Time     `bson:"createdDate" json:"createdDate"`
+	StartedDate   time.Time     `bson:"startedDate" json:"startedDate"`
 	CompletedDate time.Time     `bson:"completedDate" json:"completedDate"`
 }
 

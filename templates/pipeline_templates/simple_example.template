@@ -4,7 +4,8 @@
             "name": "#jobname",
             "project": "#project",
             "user": "#user",
-            "clientgroups":"#clientgroups"
+            "clientgroups":"#clientgroups",
+            "noretry": true
         }, 
         "tasks": [
             {

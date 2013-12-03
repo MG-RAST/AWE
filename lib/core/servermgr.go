@@ -182,6 +182,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 				task.RemainWork -= 1
 				if task.RemainWork == 0 {
 					task.State = TASK_STAT_COMPLETED
+					task.CompletedDate = time.Now()
 					for _, output := range task.Outputs {
 						output.GetFileSize()
 						output.DataUrl()
@@ -454,7 +455,9 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 		return err
 	}
 	task.State = TASK_STAT_QUEUED
-	qm.updateJobTask(task) //task status PENDING->QUEUED
+	task.CreatedDate = time.Now()
+	task.StartedDate = time.Now() //to-do: will be changed to the time when the first workunit is checked out
+	qm.updateJobTask(task)        //task status PENDING->QUEUED
 
 	//log event about task enqueue (TQ)
 	logger.Event(event.TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task.Id, task.TotalWork))

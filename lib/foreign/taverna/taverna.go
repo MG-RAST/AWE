@@ -1,6 +1,8 @@
 package taverna
 
 import (
+	"fmt"
+	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"time"
 )
@@ -36,7 +38,7 @@ func ExportWorkflowRun(job *core.Job) (wfrun *WorkflowRun, err error) {
 	wfrun.CreatedDate = job.Info.SubmitTime
 	wfrun.StartedDate = job.Info.SubmitTime
 	wfrun.CompletedDate = job.UpdateTime
-	wfrun.Subject = job.Id
+	wfrun.Subject = fmt.Sprintf("%s/job/%s/?export=taverna", conf.SERVER_URL, job.Id)
 	for _, task := range job.Tasks {
 		report := new(ProcReport)
 		report.State = task.State

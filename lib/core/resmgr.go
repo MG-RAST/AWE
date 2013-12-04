@@ -31,6 +31,7 @@ type JobMgr interface {
 	ResubmitJob(string) error
 	DeleteJob(string) error
 	DeleteSuspendedJobs() int
+	DeleteZombieJobs() int
 	InitMaxJid() error
 	RecoverJobs() error
 	FinalizeWorkPerf(string, string) error

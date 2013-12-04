@@ -677,6 +677,27 @@ func (qm *ServerMgr) DeleteSuspendedJobs() (num int) {
 	return
 }
 
+//delete jobs in db with "in-progress" state but not in the queue (zombie jobs)
+func (qm *ServerMgr) DeleteZombieJobs() (num int) {
+	dbjobs := new(Jobs)
+	q := bson.M{}
+	q["state"] = JOB_STAT_INPROGRESS
+	lim := 1000
+	off := 0
+	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {
+		logger.Error("DeleteZombieJobs()->GetAllLimitOffset():" + err.Error())
+		return
+	}
+	for _, dbjob := range *dbjobs {
+		if _, ok := qm.actJobs[dbjob.Id]; !ok {
+			if err := qm.DeleteJob(dbjob.Id); err == nil {
+				num += 1
+			}
+		}
+	}
+	return
+}
+
 //resubmit a suspended job
 func (qm *ServerMgr) ResumeSuspendedJob(id string) (err error) {
 	//Load job by id

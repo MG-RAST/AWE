@@ -19,7 +19,7 @@ type IO struct {
 	Optional     bool   `bson:"optional" json:"-"`
 	Nonzero      bool   `bson:"nonzero"  json:"nonzero"`
 	DataToken    string `bson:"datatoken"  json:"-"`
-	Intermediate bool   `bson:"datatoken"  json:"-"`
+	Intermediate bool   `bson:"Intermediate"  json:"-"`
 }
 
 type PartInfo struct {

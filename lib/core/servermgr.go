@@ -677,6 +677,16 @@ func (qm *ServerMgr) DeleteSuspendedJobs() (num int) {
 	return
 }
 
+func (qm *ServerMgr) ResumeSuspendedJobs() (num int) {
+	suspendjobs := qm.GetSuspendJobs()
+	for id, _ := range suspendjobs {
+		if err := qm.ResumeSuspendedJob(id); err == nil {
+			num += 1
+		}
+	}
+	return
+}
+
 //delete jobs in db with "in-progress" state but not in the queue (zombie jobs)
 func (qm *ServerMgr) DeleteZombieJobs() (num int) {
 	dbjobs := new(Jobs)

@@ -232,6 +232,19 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	return
 }
 
+// PUT: /job
+func (cr *JobController) UpdateMany(cx *goweb.Context) {
+	LogRequest(cx.Request)
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
+	if query.Has("resumeall") { //resume the suspended job
+		num := core.QMgr.ResumeSuspendedJobs()
+		cx.RespondWithData(fmt.Sprintf("%d suspended jobs resumed", num))
+		return
+	}
+	cx.RespondWithError(http.StatusNotImplemented)
+}
+
 // PUT: /job/{id} -> used for job manipulation
 func (cr *JobController) Update(id string, cx *goweb.Context) {
 	// Log Request and check for Auth

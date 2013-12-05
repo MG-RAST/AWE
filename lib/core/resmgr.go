@@ -8,6 +8,10 @@ type ClientMgr interface {
 	GetClient(string) (*Client, error)
 	GetAllClients() []*Client
 	DeleteClient(string)
+	SuspendClient(string) (err error)
+	ResumeClient(string) (err error)
+	ResumeSuspendedClients() (count int)
+	SuspendAllClients() (count int)
 	ClientChecker()
 	UpdateSubClients(id string, count int)
 }

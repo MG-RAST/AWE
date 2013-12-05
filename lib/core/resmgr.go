@@ -32,6 +32,7 @@ type JobMgr interface {
 	GetSuspendJobs() map[string]bool
 	SuspendJob(string, string) error
 	ResumeSuspendedJob(string) error
+	ResumeSuspendedJobs() int
 	ResubmitJob(string) error
 	DeleteJob(string) error
 	DeleteSuspendedJobs() int

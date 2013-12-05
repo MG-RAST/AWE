@@ -30,6 +30,7 @@ type ProcReport struct {
 	CreatedDate   time.Time     `bson:"createdDate" json:"createdDate"`
 	StartedDate   time.Time     `bson:"startedDate" json:"startedDate"`
 	CompletedDate time.Time     `bson:"completedDate" json:"completedDate"`
+	Subject       string        `bson:"subject" json:"subject"`
 }
 
 func ExportWorkflowRun(job *core.Job) (wfrun *WorkflowRun, err error) {
@@ -38,7 +39,7 @@ func ExportWorkflowRun(job *core.Job) (wfrun *WorkflowRun, err error) {
 	wfrun.CreatedDate = job.Info.SubmitTime
 	wfrun.StartedDate = job.Info.SubmitTime
 	wfrun.CompletedDate = job.UpdateTime
-	wfrun.Subject = fmt.Sprintf("%s/job/%s/?export=taverna", conf.SERVER_URL, job.Id)
+	wfrun.Subject = fmt.Sprintf("%s/job/%s/?export=taverna", conf.API_URL, job.Id)
 	for _, task := range job.Tasks {
 		report := new(ProcReport)
 		report.State = task.State
@@ -60,6 +61,7 @@ func ExportWorkflowRun(job *core.Job) (wfrun *WorkflowRun, err error) {
 		report.CreatedDate = task.CreatedDate
 		report.StartedDate = task.StartedDate
 		report.CompletedDate = task.CompletedDate
+		report.Subject = task.Cmd.Name
 		wfrun.ProcessorReports = append(wfrun.ProcessorReports, report)
 	}
 	return

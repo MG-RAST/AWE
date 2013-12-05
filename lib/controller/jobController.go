@@ -323,10 +323,12 @@ func (cr *JobController) DeleteMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
-
 	if query.Has("suspend") {
 		num := core.QMgr.DeleteSuspendedJobs()
 		cx.RespondWithData(fmt.Sprintf("deleted %d suspended jobs", num))
+	} else if query.Has("zombie") {
+		num := core.QMgr.DeleteZombieJobs()
+		cx.RespondWithData(fmt.Sprintf("deleted %d zombie jobs", num))
 	} else {
 		cx.RespondWithError(http.StatusNotImplemented)
 	}

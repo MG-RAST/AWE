@@ -205,6 +205,10 @@ func (qm *ProxyMgr) DeleteSuspendedJobs() (num int) {
 	return
 }
 
+func (qm *ProxyMgr) DeleteZombieJobs() (num int) {
+	return
+}
+
 //resubmit a suspended job
 func (qm *ProxyMgr) ResumeSuspendedJob(id string) (err error) {
 	//Load job by id

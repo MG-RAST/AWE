@@ -40,6 +40,12 @@ func ExportWorkflowRun(job *core.Job) (wfrun *WorkflowRun, err error) {
 	wfrun.StartedDate = job.Info.SubmitTime
 	wfrun.CompletedDate = job.UpdateTime
 	wfrun.Subject = fmt.Sprintf("%s/job/%s/?export=taverna", conf.API_URL, job.Id)
+	job_invocation := new(Invocation)
+	job_invocation.Id = job.Id
+	job_invocation.Name = job.Info.Pipeline
+	job_invocation.Inputs = make(map[string]string)
+	job_invocation.Outputs = make(map[string]string)
+
 	for _, task := range job.Tasks {
 		report := new(ProcReport)
 		report.State = task.State
@@ -50,12 +56,18 @@ func ExportWorkflowRun(job *core.Job) (wfrun *WorkflowRun, err error) {
 		invocation.Outputs = make(map[string]string)
 		for name, io := range task.Inputs {
 			invocation.Inputs[name] = io.Url
+			if !io.Intermediate {
+				job_invocation.Inputs[name] = io.Url
+			}
 		}
 		for name, io := range task.Predata {
 			invocation.Inputs[name] = io.Url
 		}
 		for name, io := range task.Outputs {
 			invocation.Outputs[name] = io.Url
+			if !io.Intermediate {
+				job_invocation.Outputs[name] = io.Url
+			}
 		}
 		report.Invocations = append(report.Invocations, invocation)
 		report.CreatedDate = task.CreatedDate
@@ -64,5 +76,6 @@ func ExportWorkflowRun(job *core.Job) (wfrun *WorkflowRun, err error) {
 		report.Subject = task.Cmd.Name
 		wfrun.ProcessorReports = append(wfrun.ProcessorReports, report)
 	}
+	wfrun.Invocations = append(wfrun.Invocations, job_invocation)
 	return
 }

@@ -148,9 +148,14 @@ func (cr *ClientController) UpdateMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
-	if query.Has("resume") { //resume the suspended client
+	if query.Has("resumeall") { //resume the suspended client
 		num := core.QMgr.ResumeSuspendedClients()
 		cx.RespondWithData(fmt.Sprintf("%d suspended clients resumed", num))
+		return
+	}
+	if query.Has("suspendall") { //resume the suspended client
+		num := core.QMgr.SuspendAllClients()
+		cx.RespondWithData(fmt.Sprintf("%d clients suspended", num))
 		return
 	}
 	cx.RespondWithError(http.StatusNotImplemented)

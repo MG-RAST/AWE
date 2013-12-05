@@ -11,6 +11,7 @@ type ClientMgr interface {
 	SuspendClient(string) (err error)
 	ResumeClient(string) (err error)
 	ResumeSuspendedClients() (count int)
+	SuspendAllClients() (count int)
 	ClientChecker()
 	UpdateSubClients(id string, count int)
 }

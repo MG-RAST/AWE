@@ -209,6 +209,16 @@ func (qm *CQMgr) ResumeSuspendedClients() (count int) {
 	return count
 }
 
+func (qm *CQMgr) SuspendAllClients() (count int) {
+	for _, client := range qm.clientMap {
+		if client.Status == CLIENT_STAT_ACTIVE {
+			client.Status = CLIENT_STAT_SUSPEND
+			count += 1
+		}
+	}
+	return count
+}
+
 func (qm *CQMgr) UpdateSubClients(id string, count int) {
 	if _, ok := qm.clientMap[id]; ok {
 		qm.clientMap[id].SubClients = count

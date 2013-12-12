@@ -197,11 +197,19 @@ func (qm *ProxyMgr) SuspendJob(jobid string, reason string) (err error) {
 	return
 }
 
+func (qm *ProxyMgr) ResumeSuspendedJobs() (num int) {
+	return
+}
+
 func (qm *ProxyMgr) DeleteJob(jobid string) (err error) {
 	return
 }
 
 func (qm *ProxyMgr) DeleteSuspendedJobs() (num int) {
+	return
+}
+
+func (qm *ProxyMgr) DeleteZombieJobs() (num int) {
 	return
 }
 

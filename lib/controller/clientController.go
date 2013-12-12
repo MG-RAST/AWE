@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -114,12 +115,28 @@ func (cr *ClientController) Update(id string, cx *goweb.Context) {
 
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
-	if query.Has("subclients") { // to resume a suspended job
+	if query.Has("subclients") { //update the number of subclients for a proxy
 		if count, err := strconv.Atoi(query.Value("subclients")); err != nil {
 			cx.RespondWithError(http.StatusNotImplemented)
 		} else {
 			core.QMgr.UpdateSubClients(id, count)
 			cx.RespondWithData("ok")
+		}
+		return
+	}
+	if query.Has("suspend") { //resume the suspended client
+		if err := core.QMgr.SuspendClient(id); err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		} else {
+			cx.RespondWithData("client suspended")
+		}
+		return
+	}
+	if query.Has("resume") { //resume the suspended client
+		if err := core.QMgr.ResumeClient(id); err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		} else {
+			cx.RespondWithData("client resumed")
 		}
 		return
 	}
@@ -129,6 +146,18 @@ func (cr *ClientController) Update(id string, cx *goweb.Context) {
 // PUT: /client
 func (cr *ClientController) UpdateMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
+	if query.Has("resumeall") { //resume the suspended client
+		num := core.QMgr.ResumeSuspendedClients()
+		cx.RespondWithData(fmt.Sprintf("%d suspended clients resumed", num))
+		return
+	}
+	if query.Has("suspendall") { //resume the suspended client
+		num := core.QMgr.SuspendAllClients()
+		cx.RespondWithData(fmt.Sprintf("%d clients suspended", num))
+		return
+	}
 	cx.RespondWithError(http.StatusNotImplemented)
 }
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
+	"github.com/MG-RAST/AWE/lib/foreign/taverna"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/request"
@@ -106,6 +107,23 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 			return
 		}
 	}
+
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
+	if query.Has("export") {
+		target := query.Value("export")
+		if target == "" {
+			cx.RespondWithErrorMessage("lacking stage id from which the recompute starts", http.StatusBadRequest)
+		} else if target == "taverna" {
+			wfrun, err := taverna.ExportWorkflowRun(job)
+			if err != nil {
+				cx.RespondWithErrorMessage("failed to export job to taverna workflowrun:"+id, http.StatusBadRequest)
+			}
+			cx.RespondWithData(wfrun)
+			return
+		}
+	}
+
 	// Base case respond with job in json
 	cx.RespondWithData(job)
 	return
@@ -214,6 +232,19 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	return
 }
 
+// PUT: /job
+func (cr *JobController) UpdateMany(cx *goweb.Context) {
+	LogRequest(cx.Request)
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
+	if query.Has("resumeall") { //resume the suspended job
+		num := core.QMgr.ResumeSuspendedJobs()
+		cx.RespondWithData(fmt.Sprintf("%d suspended jobs resumed", num))
+		return
+	}
+	cx.RespondWithError(http.StatusNotImplemented)
+}
+
 // PUT: /job/{id} -> used for job manipulation
 func (cr *JobController) Update(id string, cx *goweb.Context) {
 	// Log Request and check for Auth
@@ -305,10 +336,12 @@ func (cr *JobController) DeleteMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
-
 	if query.Has("suspend") {
 		num := core.QMgr.DeleteSuspendedJobs()
 		cx.RespondWithData(fmt.Sprintf("deleted %d suspended jobs", num))
+	} else if query.Has("zombie") {
+		num := core.QMgr.DeleteZombieJobs()
+		cx.RespondWithData(fmt.Sprintf("deleted %d zombie jobs", num))
 	} else {
 		cx.RespondWithError(http.StatusNotImplemented)
 	}

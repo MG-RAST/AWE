@@ -177,6 +177,48 @@ func (qm *CQMgr) DeleteClient(id string) {
 	delete(qm.clientMap, id)
 }
 
+func (qm *CQMgr) SuspendClient(id string) (err error) {
+	if client, ok := qm.clientMap[id]; ok {
+		if client.Status == CLIENT_STAT_ACTIVE {
+			client.Status = CLIENT_STAT_SUSPEND
+			return
+		}
+		return errors.New("client is not in active state")
+	}
+	return errors.New("client not found")
+}
+
+func (qm *CQMgr) ResumeClient(id string) (err error) {
+	if client, ok := qm.clientMap[id]; ok {
+		if client.Status == CLIENT_STAT_SUSPEND {
+			client.Status = CLIENT_STAT_ACTIVE
+			return
+		}
+		return errors.New("client is not in suspended state")
+	}
+	return errors.New("client not found")
+}
+
+func (qm *CQMgr) ResumeSuspendedClients() (count int) {
+	for _, client := range qm.clientMap {
+		if client.Status == CLIENT_STAT_SUSPEND {
+			client.Status = CLIENT_STAT_ACTIVE
+			count += 1
+		}
+	}
+	return count
+}
+
+func (qm *CQMgr) SuspendAllClients() (count int) {
+	for _, client := range qm.clientMap {
+		if client.Status == CLIENT_STAT_ACTIVE {
+			client.Status = CLIENT_STAT_SUSPEND
+			count += 1
+		}
+	}
+	return count
+}
+
 func (qm *CQMgr) UpdateSubClients(id string, count int) {
 	if _, ok := qm.clientMap[id]; ok {
 		qm.clientMap[id].SubClients = count

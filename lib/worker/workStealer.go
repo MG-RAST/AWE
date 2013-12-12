@@ -44,9 +44,9 @@ func workStealer(control chan int) {
 				//server may be restarted, waiting for the hearbeater goroutine to try re-register
 				ReRegisterWithSelf(conf.SERVER_URL)
 			} else if err.Error() == e.ClientSuspended {
-				fmt.Printf("client suspended, waiting for repair...\n")
+				fmt.Printf("client suspended, waiting for repair or resume request...\n")
 				//to-do: send out email notice that this client has problem and been suspended
-				time.Sleep(2 * time.Hour)
+				time.Sleep(2 * time.Minute)
 			} else {
 				//something is wrong, server may be down
 				fmt.Printf("error in checking out workunits: %v\n", err)

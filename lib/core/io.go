@@ -7,18 +7,19 @@ import (
 )
 
 type IO struct {
-	Name      string `bson:"name" json:"-"`
-	Host      string `bson:"host" json:"host"`
-	Node      string `bson:"node" json:"node"`
-	Url       string `bson:"url"  json:"url"`
-	Size      int64  `bson:"size" json:"size"`
-	MD5       string `bson:"md5" json:"-"`
-	Cache     bool   `bson:"cache" json:"-"`
-	Origin    string `bson:"origin" json:"origin"`
-	Path      string `bson:"path" json:"-"`
-	Optional  bool   `bson:"optional" json:"-"`
-	Nonzero   bool   `bson:"nonzero"  json:"nonzero"`
-	DataToken string `bson:"datatoken"  json:"-"`
+	Name         string `bson:"name" json:"-"`
+	Host         string `bson:"host" json:"host"`
+	Node         string `bson:"node" json:"node"`
+	Url          string `bson:"url"  json:"url"`
+	Size         int64  `bson:"size" json:"size"`
+	MD5          string `bson:"md5" json:"-"`
+	Cache        bool   `bson:"cache" json:"-"`
+	Origin       string `bson:"origin" json:"origin"`
+	Path         string `bson:"path" json:"-"`
+	Optional     bool   `bson:"optional" json:"-"`
+	Nonzero      bool   `bson:"nonzero"  json:"nonzero"`
+	DataToken    string `bson:"datatoken"  json:"-"`
+	Intermediate bool   `bson:"Intermediate"  json:"-"`
 }
 
 type PartInfo struct {

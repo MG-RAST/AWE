@@ -8,6 +8,10 @@ type ClientMgr interface {
 	GetClient(string) (*Client, error)
 	GetAllClients() []*Client
 	DeleteClient(string)
+	SuspendClient(string) (err error)
+	ResumeClient(string) (err error)
+	ResumeSuspendedClients() (count int)
+	SuspendAllClients() (count int)
 	ClientChecker()
 	UpdateSubClients(id string, count int)
 }
@@ -28,9 +32,11 @@ type JobMgr interface {
 	GetSuspendJobs() map[string]bool
 	SuspendJob(string, string) error
 	ResumeSuspendedJob(string) error
+	ResumeSuspendedJobs() int
 	ResubmitJob(string) error
 	DeleteJob(string) error
 	DeleteSuspendedJobs() int
+	DeleteZombieJobs() int
 	InitMaxJid() error
 	RecoverJobs() error
 	FinalizeWorkPerf(string, string) error

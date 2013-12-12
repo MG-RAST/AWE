@@ -182,6 +182,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 				task.RemainWork -= 1
 				if task.RemainWork == 0 {
 					task.State = TASK_STAT_COMPLETED
+					task.CompletedDate = time.Now()
 					for _, output := range task.Outputs {
 						output.GetFileSize()
 						output.DataUrl()
@@ -454,7 +455,9 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 		return err
 	}
 	task.State = TASK_STAT_QUEUED
-	qm.updateJobTask(task) //task status PENDING->QUEUED
+	task.CreatedDate = time.Now()
+	task.StartedDate = time.Now() //to-do: will be changed to the time when the first workunit is checked out
+	qm.updateJobTask(task)        //task status PENDING->QUEUED
 
 	//log event about task enqueue (TQ)
 	logger.Event(event.TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task.Id, task.TotalWork))
@@ -669,6 +672,37 @@ func (qm *ServerMgr) DeleteSuspendedJobs() (num int) {
 	for id, _ := range suspendjobs {
 		if err := qm.DeleteJob(id); err == nil {
 			num += 1
+		}
+	}
+	return
+}
+
+func (qm *ServerMgr) ResumeSuspendedJobs() (num int) {
+	suspendjobs := qm.GetSuspendJobs()
+	for id, _ := range suspendjobs {
+		if err := qm.ResumeSuspendedJob(id); err == nil {
+			num += 1
+		}
+	}
+	return
+}
+
+//delete jobs in db with "in-progress" state but not in the queue (zombie jobs)
+func (qm *ServerMgr) DeleteZombieJobs() (num int) {
+	dbjobs := new(Jobs)
+	q := bson.M{}
+	q["state"] = JOB_STAT_INPROGRESS
+	lim := 1000
+	off := 0
+	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {
+		logger.Error("DeleteZombieJobs()->GetAllLimitOffset():" + err.Error())
+		return
+	}
+	for _, dbjob := range *dbjobs {
+		if _, ok := qm.actJobs[dbjob.Id]; !ok {
+			if err := qm.DeleteJob(dbjob.Id); err == nil {
+				num += 1
+			}
 		}
 	}
 	return

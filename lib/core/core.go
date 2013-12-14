@@ -250,7 +250,10 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 		return nil, errors.New("error in reading job json file")
 	}
 
-	json.Unmarshal(jsonstream, job)
+	err = json.Unmarshal(jsonstream, job)
+	if err != nil {
+		return nil, err
+	}
 
 	if len(job.Tasks) == 0 {
 		return nil, errors.New("invalid job script: task list empty")

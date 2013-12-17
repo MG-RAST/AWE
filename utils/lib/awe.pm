@@ -104,6 +104,11 @@ sub deleteJob {
 
 sub getClientList {
 	my ($self) = @_;
+	
+	unless (defined $self->awe_url) {
+		die;
+	}
+	
 	my $client_url = $self->awe_url.'/client/';
 	my $http_response = $self->agent->get($client_url);
 	
@@ -119,8 +124,8 @@ sub getClientList {
 	return $http_response_content_hash;
 }
 
-
-sub upload {
+# submit json_file or json_data
+sub submit_job {
 	my ($self, %hash) = @_;
 	
 	 my $content = {};
@@ -131,6 +136,7 @@ sub upload {
 		$content->{upload} = [$hash{json_file}]
 	}
 	if (defined $hash{json_data}) {
+		#print "upload: ".$hash{json_data}."\n";
 		$content->{upload} = [undef, "n/a", Content => $hash{json_data}]
 	}
 	
@@ -175,36 +181,180 @@ sub getJobStatus {
     }
 }
 
+
+sub checkClientGroup {
+	my ($self, $clientgroup) = @_;
+	
+	my $client_list_hash = $self->getClientList();
+	#print Dumper($client_list_hash);
+	
+	print "\nList of clients:\n";
+	my $found_active_clients = 0;
+	
+	foreach my $client ( @{$client_list_hash->{'data'}} ) {
+		
+		
+		
+		unless (defined($client->{group}) && ($client->{group} eq $clientgroup)) {
+			print $client->{name}." (".$client->{Status}.")  group: ".$client->{group}."  apps: ".join(',',@{$client->{apps}})."\n";
+		}
+	}
+	print "My clientgroup:\n";
+	foreach my $client ( @{$client_list_hash->{'data'}} ) {
+		
+		
+		
+		if (defined($client->{group}) && ($client->{group} eq $clientgroup)) {
+			print $client->{name}." (".$client->{Status}.")  group: ".$client->{group}."  apps: ".join(',',@{$client->{apps}})."\n";
+			
+			if (lc($client->{Status}) eq 'active') {
+				$found_active_clients++;
+			} else {
+				print "warning: client not active:\n";
+			}
+		}
+	}
+	
+	
+	if ($found_active_clients == 0) {
+		print STDERR "warning: did not find any active client for clientgroup $clientgroup\n";
+		return 1;
+	}
+	
+	print "found $found_active_clients active client for clientgroup $clientgroup\n";
+	return 0;
+}
+
 1;
 
 ##########################################
 package AWE::Job;
+use Data::Dumper;
+use Storable qw(dclone);
 
 1;
 
-sub createTask {
+
+sub new {
+    my ($class, %h) = @_;
 	
-	my %h = @_;
+	my $self = {
+		
+		'data' => {'info' => $h{'info'}},
+		'tasks' => $h{'tasks'},
+		
+		
+		#'trojan' => $h{'trojan'},
+		'shockhost' => $h{'shockhost'},
+		'task_templates' => $h{'task_templates'}
+	};
+	
+	
+		
+	
+	
+	#assignTasks($self, %{$h{'job_input'}});
+	assignTasks($self);
+	replace_taskids($self);
+	#delete $self->{'trojan'};
+	#delete $self->{'shockhost'};
+	#delete $self->{'task_templates'};
+		
+	
+	bless $self, $class;
+    return $self;
+}
+
+sub create_simple_template {
+	my $cmd = shift(@_);
+	#get outputs
+	
+	#print "cmd1: $cmd\n";
+	my @outputs = $cmd =~ /@@(\S+)/g;
+	$cmd =~ s/\@\@(\S+)/$1/;
+	
+	my @inputs = $cmd =~ /[^@]@(\S+)/g;
+
+	#print "outputs: ".join(' ', @outputs)."\n";
+	#print "inputs: ".join(' ', @inputs)."\n";
+	#print "cmd2: $cmd\n";
+	
+	my $meta_template = {
+		"cmd" => $cmd,
+		"inputs" => \@inputs,
+		"outputs" => \@outputs,
+		"trojan" => {} # creates trojan script with basic features
+	};
+	
+	
+	return $meta_template;
+}
+
+sub createTask {
+	my ($self, %h)= @_;
+	
 	
 	my $taskid = $h{'task_id'};
-	my $task = $h{'task_tmpl'}; # TODO: make copy of template !
-	my $host = $h{'shockhost'};
+	my $task_templates = $self->{'task_templates'};
+	my $task_template_name = $h{'task_template'};
+	my $task_cmd = $h{'task_cmd'};
 	
 	
 	
-	my $cmd = $task->{'cmd'};
+	
+	
+	my $task_template=undef;
+	my $task;
+	
+	if (defined $task_template_name) {
+		
+		
+		$task_template = dclone($task_templates->{$task_template_name});
+		
+	} elsif (defined $task_cmd) {
+		$task_template = create_simple_template($task_cmd);
+		#print Dumper($task)."\n";
+	} else {
+		print Dumper(%h)."\n";
+		die "no task template found (task_template or task_cmd)";
+	}
+	
+	#print "template:\n";
+	#print Dumper($task_template)."\n";
+	
+	my $host = $h{'shockhost'} || $self->{'shockhost'};
+	
+	
+	
+	my $cmd = $task_template->{'cmd'};
 	$task->{'cmd'} = undef;
 	
-	$task->{'cmd'}->{'description'} = "description";
-	$task->{'cmd'}->{'name'} = "perl";
+	$task->{'cmd'}->{'description'} = $taskid ||  "description";   # since AWE does not accept string taskids, I move taskid into the description
 	
-	$task->{'taskid'} = $taskid;
+	$task->{'taskid'} = $taskid; # will be replaced later by numeric taskid
+	
+	
+	
+	if (defined $h{'TROJAN'}) {
+		push(@{$task_template->{'inputs'}}, '[TROJAN]');
+		#print "use trojan XXXXXXXXXXXXXXXXX\n";
+	}
+	
 	
 	
 	my $depends = {};
 	
 	my $inputs = {};
-	foreach my $key (@{$task->{'inputs'}}) {
+	foreach my $key_io (@{$task_template->{'inputs'}}) {
+		
+		my ($key) = $key_io =~ /^\[(.*)\]$/;
+	
+		unless (defined $key) {
+			
+			die "no input key found in: $key_io";
+			next;
+		}
+		
 		my $value = $h{$key};
 		if (defined $value) {
 			if (ref($value) eq 'ARRAY') {
@@ -230,21 +380,32 @@ sub createTask {
 			
 			
 		} else {
-			die "input $key not defined";
+			die "input key \"$key\" not defined";
 		}
 	}
 	$task->{'inputs'}=$inputs;
 	
 	
 	my $outputs = {};
-	foreach my $key (@{$task->{'outputs'}}) {
+	foreach my $key_io (@{$task_template->{'outputs'}}) {
+		
+		
+		my ($key) = $key_io =~ /^\[(.*)\]$/;
+		
+		
+		
+		unless (defined $key) {
+			$outputs->{$key_io}->{'host'} = $host;
+			next;
+		}
 		my $value = $h{$key};
 		if (defined $value) {
 			$outputs->{$value}->{'host'} = $host;
 			$cmd =~ s/\[$key\]/$value/g;
 		} else {
-			die "output $key not defined";
+			die "output key \"$key\" not defined";
 		}
+	
 	}
 	$task->{'outputs'}=$outputs;
 	
@@ -259,92 +420,206 @@ sub createTask {
 		$task->{'dependsOn'} = \@depends_on;
 	}
 	
+	#print "task:\n";
+	#print Dumper($task)."\n";
+#	exit(0);
+	
 	return $task;
 }
 
-sub new {
-    my ($class, %h) = @_;
-	
-	my $self = {
-		'tasks' => $h{'tasks'},
-		'info' => $h{'info'}
-	};
-	
-	delete $h{'tasks'};
-	delete $h{'info'};
-	
-	
-	if (defined $self->{tasks}) {
-		assignTasks($self, %h);
-	}
-	
-	bless $self, $class;
-    return $self;
-}
+
 
 sub assignTasks {
-	my ($self, %h) = @_;
+	my ($self) = @_;
 	
 	
 	
-	my $tasks = $self->{'tasks'};
+	my $task_specs = $self->{'tasks'};
 	
-	foreach my $task (@{$tasks}) {
+	
+	#replace variables in tasks
+	for (my $i =0  ; $i < @{$task_specs} ; ++$i) {
+		my $task_spec = $task_specs->[$i];
 		
-		#print Dumper($task)."\n";
+		#print "ref: ".ref($task)."\n";
+		#print "keys: ".join(',',keys(%$tasks))."\n";
+		#print Data::Dumper($task);
+		
+		print "task_spec:\n";
+		print Dumper($task_spec);
+		#my $trojan_file=$task->{'trojan_file'};
+		
+		
+
+		### createTask ###
+		my $newtask = createTask($self, %$task_spec);
+		$self->{'data'}->{'tasks'}->[$i] = $newtask;
+		
+		#if (defined($task_spec->{'TROJAN'})) {
+		#	$newtask->{'trojan_file'} = ${$task_spec->{'TROJAN'}}[2];
+		#};
+		
+		#$task = $tasks->[$i];
+		
+		#print Data::Dumper($task);
+		#exit(0);
+		
+		#my $trojan = $task->{'trojan'};
+		
+		#my $inputs = $task->{'inputs'};
+		
+	}
+}
+
+sub assignInput {
+	my ($self, %h) = @_;
+	# $h contains named_input to shock node mapping
+	my $tasks = $self->{'data'}->{'tasks'};
+	
+	
+	for (my $i =0  ; $i < @{$tasks} ; ++$i) {
+		my $task = $tasks->[$i];
+	
+		my $task_spec = $self->{'tasks'}->[$i];
+		
+		
+		#my $trojan_file=$task->{'trojan_file'};
+		my $trojan_file=undef;
+		if (defined($task_spec->{'TROJAN'})) {
+			$trojan_file = ${$task_spec->{'TROJAN'}}[2];
+		} else {
+			die;
+		}
+	
+		#print Dumper($task);
 		my $inputs = $task->{'inputs'};
 		
 		foreach my $inputfile (keys(%{$inputs})) {
-			
+			#print "inputfile: $inputfile\n";
 			my $input_obj = $inputs->{$inputfile};
-			#print Dumper($input_obj)."\n";
+			
 			
 			if (defined $input_obj->{'node'}) {
-				
-				#print "found ".$input_obj->{'node'}."\n";
-				
+
 				my ($variable) = $input_obj->{'node'} =~ /\[(.*)\]/;
 				
 				if (defined $variable) {
-					my $replacement = $h{$variable};
-					if (defined($replacement)) {
-						
-						$input_obj->{'node'} =~ s/\[$variable\]/$replacement/g;
+					my $file_obj = $h{$variable};
+					if (defined($file_obj)) {
+						$input_obj->{'node'} = $file_obj->{'node'};
+						$input_obj->{'host'} = $file_obj->{'shockhost'};
 					} else {
 						die "no replacement for variable $variable found";
 					}
 				}
 				
-				#foreach my $key (keys(%h)) {
-				#	my $value = $h{$key};
-				#	$input_obj->{'node'} =~ s/\[$key\]/$value/g;
-				#}
+			
+			}
+		}
+		#print Dumper($task);
+		#exit(0);
+		#print "got: ".$task->{'cmd'}->{'args'}."\n";
+		
+		unless (defined $task->{'cmd'}) {
+			die;
+		}
+		
+		unless (defined $task->{'cmd'}->{'args'}) {
+			die;
+		}
+		
+		
+		
+		if (defined($trojan_file)) {
+		#if ( defined($h{'TROJAN'}) ) {
+			
+			# modify AWE task to use trojan script
+			
+			
+			
+			$task->{'cmd'}->{'args'} = "\@".$trojan_file." ".$task->{'cmd'}->{'args'};
+			$task->{'cmd'}->{'name'} = "perl";
+			
+			
+		} else {
+			# extract the executable from command
+		
+			my $executable;
+			$task->{'cmd'}->{'args'} =~ s/^([\S]+)//;
+			$executable=$1;
+			$task->{'cmd'}->{'args'} =~ s/^[\s]*//;
+			
+			unless (defined $executable) {
+				die "executable not found in ".$task->{'cmd'}->{'args'};
+			}
+			
+			$task->{'cmd'}->{'name'} = $executable;
+		}
+	}
+	
+}
+
+sub replace_taskids {
+	my ($self) = @_;
+	
+	# $h contains named_input to shock node mapping
+	my $tasks = $self->{'data'}->{'tasks'};
+	my $taskid_num = {};
+	my $taskid_count = 0;
+	
+	#replace taskids with strings of numbers !
+	for (my $i =0  ; $i < @{$tasks} ; ++$i) {
+		my $task = $tasks->[$i];
+		my $taskid = $task->{'taskid'};
+		
+		unless (defined $taskid_num->{$taskid}) {
+			$taskid_num->{$taskid} = $taskid_count;
+			$taskid_count++;
+		}
+		$task->{'taskid'}= $taskid_num->{$taskid}.'';
+		
+		
+		my $dependsOn = $task->{'dependsOn'};
+		if (defined $dependsOn) {
+			my $dependsOn_new = [];
+			foreach my $dep_task (@$dependsOn) {
+				unless (defined $taskid_num->{$dep_task}) {
+					$taskid_num->{$dep_task} = $taskid_count;
+					$taskid_count++;
+				}
+				
+				push(@$dependsOn_new, $taskid_num->{$dep_task}.'');
+			}
+			if (@$dependsOn_new > 0) {
+				$task->{'dependsOn'} = $dependsOn_new;
+			}
+		}
+		
+		my $inputs = $task->{'inputs'};
+		
+		
+		foreach my $input (keys(%$inputs)) {
+			
+			if (defined($inputs->{$input}->{'origin'})) {
+				my $origin = $inputs->{$input}->{'origin'};
+				unless (defined $taskid_num->{$origin}) {
+					$taskid_num->{$origin} = $taskid_count;
+					$taskid_count++;
+				}
+				$inputs->{$input}->{'origin'} = $taskid_num->{$origin}.'';
 			}
 		}
 		
 		
-		#if ($trojan == 1) {
-	#		my $cmd = $task->{'cmd'};
-	#
-	#	}
-		
 		
 	}
 	
-	
-	
-	
-	## compose AWE job ##
-	#my $awe_qiime_job = {};
-	#$awe_qiime_job->{'tasks'} = $tasks;
-	#$awe_qiime_job->{'info'} = $info;
-	
-	#return $awe_qiime_job;
 }
 
 sub hash {
 	my ($self) = @_;
-	return {%$self}
+	#return {%$self}
+	return $self->{'data'};
 }
 
 sub json {
@@ -356,5 +631,100 @@ sub json {
 	return $job_json;
 }
 
+############################################
+#the trojan horse generator
+# - creates log files (stdin, stderr)
+# - ENV support
+# - archives directories
+# - scripts on VM do not need to be registered at AWE client
+sub get_trojanhorse {
+	my %h = @_;
+	
+	print "get_trojanhorse got: ".join(' ' , keys(%h))."\n";
+	#exit(0);
+	
+	my $out_dirs = $h{'out_dirs'};
+	my $resulttarfile = $h{'tar'};
+	
+	my $out_files = $h{'out_files'};
+	
+	
+	# start of trojanhorse_script
+	my $trojanhorse_script = <<'EOF';
+	#!/usr/bin/env perl
+	
+	use strict;
+	use warnings;
+	
+	use IO::Handle;
+	
+	open OUTPUT, '>', "trojan.stdout" or die $!;
+	open ERROR,  '>', "trojan.stderr"  or die $!;
+	
+	STDOUT->fdopen( \*OUTPUT, 'w' ) or die $!;
+	STDERR->fdopen( \*ERROR,  'w' ) or die $!;
+	
+	sub systemp {
+		print "cmd: ".join(' ', @_)."\n";
+		return system(@_);
+	}
+	
+	
+	eval {
+		print "hello trojan world\n";
+		
+		my $line = join(' ',@ARGV)."\n";
+		print "got: ".$line;
+		
+		
+		my $check = join('|', keys %ENV);
+		$line =~ s/\$($check)/$ENV{$1}/g;
+		
+		systemp($line)==0 or die;
+		
+	};
+	if ($@) {
+		print "well.. there was an error, but I catched it.. ;-)\n";
+	}
+	###TAR###
+	
+	###OUTFILES###
+	
+	close(OUTPUT);
+	close(ERROR);
+	select STDOUT; # back to normal
+	
+EOF
+	# end of trojanhorse_script
+	
+	if (defined $out_dirs && @$out_dirs > 0) {
+		my $outdirsstr = join(' ', @$out_dirs);
+		
+		# start of tarcmd
+		my $tarcmd = <<EOF;
+		systemp("tar --ignore-failed-read -cf $resulttarfile $outdirsstr trojan.stdout trojan.stderr")==0 or die;
+EOF
+		# end of tarcmd
+		
+		$trojanhorse_script =~ s/\#\#\#TAR\#\#\#/$tarcmd/g;
+	}
+	
+	if (defined $out_files && @$out_files > 0) {
+		my $out_files_str = join(' ', @$out_files);
+		
+		# start of tarcmd
+		my $cpcmd = <<EOF;
+		systemp("cp $out_files_str .")==0 or die;
+EOF
+		# end of tarcmd
+		
+		$trojanhorse_script =~ s/\#\#\#OUTFILES\#\#\#/$cpcmd/g;
+	}
+	
+	
+	return $trojanhorse_script;
+}
+# end of trojan generator
+############################################
 
 1;

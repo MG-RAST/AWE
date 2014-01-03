@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
@@ -89,9 +90,20 @@ func RunWorkunit(work *core.Workunit) (err error) {
 		return errors.New(fmt.Sprintf("start_cmd=%s, err=%s", commandName, err.Error()))
 	}
 
+	stdoutFilePath := fmt.Sprintf("%s/%s.stdout", work.Path(), work.Id)
+	stderrFilePath := fmt.Sprintf("%s/%s.stderr", work.Path(), work.Id)
+	outfile, err := os.Create(stdoutFilePath)
+	defer outfile.Close()
+	errfile, err := os.Create(stderrFilePath)
+	defer errfile.Close()
+	out_writer := bufio.NewWriter(outfile)
+	defer out_writer.Flush()
+	err_writer := bufio.NewWriter(errfile)
+	defer err_writer.Flush()
+
 	if conf.PRINT_APP_MSG {
-		go io.Copy(os.Stdout, stdout)
-		go io.Copy(os.Stderr, stderr)
+		go io.Copy(out_writer, stdout)
+		go io.Copy(err_writer, stderr)
 	}
 
 	done := make(chan error)

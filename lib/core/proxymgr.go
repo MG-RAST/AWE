@@ -242,4 +242,8 @@ func (qm *ProxyMgr) FinalizeWorkPerf(string, string) (err error) {
 	return
 }
 
+func (qm *ProxyMgr) SaveStdLog(string, string, string) (err error) {
+	return
+}
+
 //---end of job methods

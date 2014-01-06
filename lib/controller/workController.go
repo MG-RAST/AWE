@@ -119,6 +119,12 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 						notice.Notes = string(notes)
 					}
 				}
+				if _, ok := files["stdout"]; ok {
+					core.QMgr.SaveStdLog(id, "stdout", files["stdout"].Path)
+				}
+				if _, ok := files["stderr"]; ok {
+					core.QMgr.SaveStdLog(id, "stderr", files["stderr"].Path)
+				}
 			}
 		}
 		core.QMgr.NotifyWorkStatus(notice)

@@ -958,6 +958,17 @@ func (qm *ServerMgr) FinalizeWorkPerf(workid string, reportfile string) (err err
 	return
 }
 
+func (qm *ServerMgr) SaveStdLog(workid string, logname string, tmppath string) (err error) {
+	jobid, err := GetJobIdByWorkId(workid)
+	if err != nil {
+		return err
+	}
+	logdir := getPathByJobId(jobid)
+	savedpath := fmt.Sprintf("%s/%s.%s", logdir, workid, logname)
+	os.Rename(tmppath, savedpath)
+	return
+}
+
 func (qm *ServerMgr) LogJobPerf(jobid string) {
 	if perf, ok := qm.actJobs[jobid]; ok {
 		perfstr, _ := json.Marshal(perf)

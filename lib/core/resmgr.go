@@ -40,6 +40,7 @@ type JobMgr interface {
 	InitMaxJid() error
 	RecoverJobs() error
 	FinalizeWorkPerf(string, string) error
+	SaveStdLog(string, string, string) error
 	RecomputeJob(string, string) error
 	UpdateGroup(string, string) error
 }

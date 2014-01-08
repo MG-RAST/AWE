@@ -101,6 +101,9 @@ var (
 
 	//tag
 	INIT_SUCCESS = true
+
+	//const
+	ALL_APP = "*"
 )
 
 func init() {

@@ -596,9 +596,7 @@ func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err
 
 func getStdOutPath(work *Workunit) (stdoutFilePath string, err error) {
 	stdoutFilePath = fmt.Sprintf("%s/%s.stdout", work.Path(), work.Id)
-	fmt.Printf("stdoutFilPath=%s\n", stdoutFilePath)
-	st, err := os.Stat(stdoutFilePath)
-	fmt.Printf("st=%v, err=%v\n", st, err)
+	_, err = os.Stat(stdoutFilePath)
 	return stdoutFilePath, err
 }
 

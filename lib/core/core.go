@@ -497,7 +497,12 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 
 func PushOutputData(work *Workunit) (err error) {
 	for name, io := range work.Outputs {
-		file_path := fmt.Sprintf("%s/%s", work.Path(), name)
+		var file_path string
+		if io.Directory != "" {
+			file_path = fmt.Sprintf("%s/%s/%s", work.Path(), io.Directory, name)
+		} else {
+			file_path = fmt.Sprintf("%s/%s", work.Path(), name)
+		}
 		//use full path here, cwd could be changed by Worker (likely in worker-overlapping mode)
 		if fi, err := os.Stat(file_path); err != nil {
 			if io.Optional {

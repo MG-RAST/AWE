@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
@@ -11,6 +12,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -88,6 +90,21 @@ func ParseWorkunitArgs(work *core.Workunit) (args []string, err error) {
 	inputsMap := work.Inputs
 
 	for _, arg := range argList {
+		match, err := regexp.Match(`\$\{\w+\}`, []byte(arg))
+		if err == nil && match { //replace environment variable with its value
+			reg := regexp.MustCompile(`\$\{\w+\}`)
+			vabs := reg.FindAll([]byte(arg), -1)
+			parsedArg := arg
+			for _, vab := range vabs {
+				vb := bytes.TrimPrefix(vab, []byte("${"))
+				vb = bytes.TrimSuffix(vb, []byte("}"))
+				envvalue := os.Getenv(string(vb))
+				fmt.Printf("%s=%s\n", vb, envvalue)
+				parsedArg = strings.Replace(parsedArg, string(vab), envvalue, 1)
+			}
+			args = append(args, parsedArg)
+			continue
+		}
 		if strings.Contains(arg, "@") { //parse input/output to accessible local file
 			segs := strings.Split(arg, "@")
 			if len(segs) > 2 {
@@ -118,9 +135,10 @@ func ParseWorkunitArgs(work *core.Workunit) (args []string, err error) {
 				parsedArg := fmt.Sprintf("%s%s", segs[0], inputFilePath)
 				args = append(args, parsedArg)
 			}
-		} else { //no @, has nothing to do with input/output, append directly
-			args = append(args, arg)
+			continue
 		}
+		//no @ or $, append directly
+		args = append(args, arg)
 	}
 
 	return args, nil

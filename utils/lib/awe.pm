@@ -254,7 +254,9 @@ sub new {
 	
 	
 	#assignTasks($self, %{$h{'job_input'}});
+	print "A\n".Dumper($self->{'data'});
 	assignTasks($self);
+	print "B\n".Dumper($self->{'data'});
 	replace_taskids($self);
 	#delete $self->{'trojan'};
 	#delete $self->{'shockhost'};
@@ -309,10 +311,19 @@ sub createTask {
 	if (defined $task_template_name) {
 		
 		
-		$task_template = dclone($task_templates->{$task_template_name});
 		
+		my $tmpl = $task_templates->{$task_template_name};
+		unless (defined $tmpl) {
+			
+			#print Dumper($task_templates);
+			
+			die "template \"$task_template_name\" not found";
+		}
+		$task_template = dclone($tmpl);
+		print "use task template\n";
 	} elsif (defined $task_cmd) {
 		$task_template = create_simple_template($task_cmd);
+		print "use simple task\n";
 		#print Dumper($task)."\n";
 	} else {
 		print Dumper(%h)."\n";
@@ -387,14 +398,22 @@ sub createTask {
 	
 	
 	my $outputs = {};
+	
+	if (@{$task_template->{'outputs'}} == 0) {
+		print Dumper($task_template)."\n";
+		die "no outputs found in template";
+	}
+	
 	foreach my $key_io (@{$task_template->{'outputs'}}) {
-		
+		print "key_io: $key_io\n";
 		
 		my ($key) = $key_io =~ /^\[(.*)\]$/;
 		
 		
 		
 		unless (defined $key) {
+			
+			#die "key not defined in output";
 			$outputs->{$key_io}->{'host'} = $host;
 			next;
 		}
@@ -471,17 +490,16 @@ sub assignTasks {
 	}
 }
 
-sub assignInput {
-	my ($self, %h) = @_;
-	# $h contains named_input to shock node mapping
-	my $tasks = $self->{'data'}->{'tasks'};
+
+sub _assignInput {
+	my ($data, $task_specs, %h) = @_;
 	
-	
+	my $tasks = $data->{'tasks'};
 	for (my $i =0  ; $i < @{$tasks} ; ++$i) {
 		my $task = $tasks->[$i];
-	
-		my $task_spec = $self->{'tasks'}->[$i];
 		
+		#my $task_spec = $self->{'tasks'}->[$i];
+		my $task_spec = $task_specs->[$i];
 		
 		#my $trojan_file=$task->{'trojan_file'};
 		my $trojan_file=undef;
@@ -490,7 +508,7 @@ sub assignInput {
 		} else {
 			die;
 		}
-	
+		
 		#print Dumper($task);
 		my $inputs = $task->{'inputs'};
 		
@@ -500,12 +518,18 @@ sub assignInput {
 			
 			
 			if (defined $input_obj->{'node'}) {
-
+				
 				my ($variable) = $input_obj->{'node'} =~ /\[(.*)\]/;
 				
 				if (defined $variable) {
 					my $file_obj = $h{$variable};
 					if (defined($file_obj)) {
+						unless (defined $file_obj->{'node'}) {
+							die "node not defined for input $variable";
+						}
+						unless (defined $file_obj->{'shockhost'}) {
+							die "shockhost not defined for input $variable";
+						}
 						$input_obj->{'node'} = $file_obj->{'node'};
 						$input_obj->{'host'} = $file_obj->{'shockhost'};
 					} else {
@@ -513,7 +537,7 @@ sub assignInput {
 					}
 				}
 				
-			
+				
 			}
 		}
 		#print Dumper($task);
@@ -531,7 +555,7 @@ sub assignInput {
 		
 		
 		if (defined($trojan_file)) {
-		#if ( defined($h{'TROJAN'}) ) {
+			#if ( defined($h{'TROJAN'}) ) {
 			
 			# modify AWE task to use trojan script
 			
@@ -543,7 +567,7 @@ sub assignInput {
 			
 		} else {
 			# extract the executable from command
-		
+			
 			my $executable;
 			$task->{'cmd'}->{'args'} =~ s/^([\S]+)//;
 			$executable=$1;
@@ -556,6 +580,17 @@ sub assignInput {
 			$task->{'cmd'}->{'name'} = $executable;
 		}
 	}
+}
+
+
+# this assigns input to internal data
+sub assignInput {
+	my ($self, %h) = @_;
+	# $h contains named_input to shock node mapping
+	my $data = $self->{'data'};
+	
+	_assignInput($data, $self->{'tasks'}, %h);
+	
 	
 }
 
@@ -616,10 +651,12 @@ sub replace_taskids {
 	
 }
 
+#returns clone
 sub hash {
 	my ($self) = @_;
 	#return {%$self}
-	return $self->{'data'};
+
+	return dclone($self->{'data'});
 }
 
 sub json {
@@ -629,6 +666,17 @@ sub json {
 	my $json = JSON->new;
 	my $job_json = $json->encode( $job_hash );
 	return $job_json;
+}
+
+
+sub create {
+	my ($self, %h) = @_;
+	
+	
+	my $data_copy = hash($self);
+	_assignInput($data_copy, $self->{'tasks'}, %h);
+	
+	return $data_copy;
 }
 
 ############################################

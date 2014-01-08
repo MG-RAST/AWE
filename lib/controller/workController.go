@@ -32,6 +32,16 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		return
 	}
 
+	if query.Has("report") { //retrieve report: stdout or stderr
+		reportmsg, err := core.QMgr.GetReportMsg(id, query.Value("report"))
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+		cx.RespondWithData(reportmsg)
+		return
+	}
+
 	// Load workunit by id
 	workunit, err := core.QMgr.GetWorkById(id)
 
@@ -118,6 +128,12 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 					if notes, err := ioutil.ReadFile(files["notes"].Path); err == nil {
 						notice.Notes = string(notes)
 					}
+				}
+				if _, ok := files["stdout"]; ok {
+					core.QMgr.SaveStdLog(id, "stdout", files["stdout"].Path)
+				}
+				if _, ok := files["stderr"]; ok {
+					core.QMgr.SaveStdLog(id, "stderr", files["stderr"].Path)
 				}
 			}
 		}

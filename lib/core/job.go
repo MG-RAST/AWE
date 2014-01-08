@@ -102,7 +102,7 @@ func (job *Job) Mkdir() (err error) {
 }
 
 func (job *Job) SetFile(file FormFile) (err error) {
-	if err != nil {
+	if err != nil { //?
 		return
 	}
 	os.Rename(file.Path, job.FilePath())
@@ -112,17 +112,17 @@ func (job *Job) SetFile(file FormFile) (err error) {
 
 //---Path functions
 func (job *Job) Path() string {
-	return getPath(job.Id)
+	return getPathByJobId(job.Id)
 }
 
 func (job *Job) FilePath() string {
 	if job.Script.Path != "" {
 		return job.Script.Path
 	}
-	return getPath(job.Id) + "/" + job.Id + ".script"
+	return getPathByJobId(job.Id) + "/" + job.Id + ".script"
 }
 
-func getPath(id string) string {
+func getPathByJobId(id string) string {
 	return fmt.Sprintf("%s/%s/%s/%s/%s", conf.DATA_PATH, id[0:2], id[2:4], id[4:6], id)
 }
 

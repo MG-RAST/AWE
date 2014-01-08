@@ -457,9 +457,52 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 	return
 }
 
+func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (err error) {
+	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s", conf.SERVER_URL, work.Id, work.State, Self.Id)
+	form := httpclient.NewForm()
+	hasreport := false
+	if work.State == WORK_STAT_DONE && perf != nil {
+		perflog, err := getPerfFilePath(work, perf)
+		if err != nil {
+			form.AddFile("perf", perflog)
+			hasreport = true
+		}
+	}
+	if sendstdlogs { //send stdout and stderr files if specified and existed
+		stdoutFile, err := getStdOutPath(work)
+		if err == nil {
+			form.AddFile("stdout", stdoutFile)
+			hasreport = true
+		}
+		stderrFile, err := getStdErrPath(work)
+		if err == nil {
+			form.AddFile("stderr", stderrFile)
+			hasreport = true
+		}
+	}
+	if hasreport {
+		target_url = target_url + "&report"
+	}
+	if err := form.Create(); err != nil {
+		return err
+	}
+	headers := httpclient.Header{
+		"Content-Type":   form.ContentType,
+		"Content-Length": strconv.FormatInt(form.Length, 10),
+	}
+	user := httpclient.GetUserByBasicAuth(conf.CLIENT_USERNAME, conf.CLIENT_PASSWORD)
+	_, err = httpclient.Put(target_url, headers, form.Reader, user)
+	return
+}
+
 func PushOutputData(work *Workunit) (err error) {
 	for name, io := range work.Outputs {
-		file_path := fmt.Sprintf("%s/%s", work.Path(), name)
+		var file_path string
+		if io.Directory != "" {
+			file_path = fmt.Sprintf("%s/%s/%s", work.Path(), io.Directory, name)
+		} else {
+			file_path = fmt.Sprintf("%s/%s", work.Path(), name)
+		}
 		//use full path here, cwd could be changed by Worker (likely in worker-overlapping mode)
 		if fi, err := os.Stat(file_path); err != nil {
 			if io.Optional {
@@ -549,6 +592,21 @@ func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err
 		return reportPath, err
 	}
 	return reportFile, nil
+}
+
+func getStdOutPath(work *Workunit) (stdoutFilePath string, err error) {
+	stdoutFilePath = fmt.Sprintf("%s/%s.stdout", work.Path(), work.Id)
+	fmt.Printf("stdoutFilPath=%s\n", stdoutFilePath)
+	st, err := os.Stat(stdoutFilePath)
+	fmt.Printf("st=%v, err=%v\n", st, err)
+	return stdoutFilePath, err
+}
+
+func getStdErrPath(work *Workunit) (stderrFilePath string, err error) {
+	stderrFilePath = fmt.Sprintf("%s/%s.stderr", work.Path(), work.Id)
+	fmt.Printf("stderrFilPath=%s\n", stderrFilePath)
+	_, err = os.Stat(stderrFilePath)
+	return
 }
 
 //shock access functions

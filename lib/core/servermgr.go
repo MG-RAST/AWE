@@ -348,6 +348,43 @@ func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token strin
 	return token, nil
 }
 
+func (qm *ServerMgr) SaveStdLog(workid string, logname string, tmppath string) (err error) {
+	savedpath, err := getStdLogPathByWorkId(workid, logname)
+	if err != nil {
+		return err
+	}
+	os.Rename(tmppath, savedpath)
+	return
+}
+
+func (qm *ServerMgr) GetReportMsg(workid string, logname string) (report string, err error) {
+	logpath, err := getStdLogPathByWorkId(workid, logname)
+	if err != nil {
+		return "", err
+	}
+	if fi, err := os.Stat(logpath); err != nil {
+		return "", errors.New("log type '" + logname + "' not found")
+	} else {
+		fmt.Printf("fi=%v\n", fi)
+	}
+
+	content, err := ioutil.ReadFile(logpath)
+	if err != nil {
+		return "", err
+	}
+	return string(content), err
+}
+
+func getStdLogPathByWorkId(workid string, logname string) (string, error) {
+	jobid, err := GetJobIdByWorkId(workid)
+	if err != nil {
+		return "", err
+	}
+	logdir := getPathByJobId(jobid)
+	savedpath := fmt.Sprintf("%s/%s.%s", logdir, workid, logname)
+	return savedpath, nil
+}
+
 //---task methods----
 
 func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, tasks []*Task) (err error) {

@@ -8,6 +8,7 @@ import (
 
 type IO struct {
 	Name         string `bson:"name" json:"-"`
+	Directory    string `bson:"directory" json:"directory"`
 	Host         string `bson:"host" json:"host"`
 	Node         string `bson:"node" json:"node"`
 	Url          string `bson:"url"  json:"url"`

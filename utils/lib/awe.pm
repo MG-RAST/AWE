@@ -231,6 +231,7 @@ sub checkClientGroup {
 package AWE::Job;
 use Data::Dumper;
 use Storable qw(dclone);
+use File::Basename;
 
 1;
 
@@ -774,5 +775,602 @@ EOF
 }
 # end of trojan generator
 ############################################
+
+
+
+sub parse_command {
+	
+	my $command_str = shift(@_);
+	
+	
+	
+	
+	print "COMMAND_a: ".$command_str."\n";
+	my @COMMAND = split(/\s/, $command_str); # TODO need better way for this!?
+	
+	#print "split: ". join(',', @COMMAND)."\n";
+	#exit(0);
+	
+	
+	my @input_files_local=();
+	my @output_files=();
+	my @output_directories=();
+	
+	
+	
+	
+	for (my $i=0; $i <@COMMAND ; ++$i) {
+		
+		if ($COMMAND[$i] =~ /^@@@/) {
+			#print "at $ARGV[$i]\n";
+			my $output_directory = substr($COMMAND[$i], 3);
+			print "output_directory: $output_directory\n";
+			push (@output_directories, $output_directory);
+			$COMMAND[$i] = $output_directory; # need to encode info about directory in trojan script
+		} elsif ($COMMAND[$i] =~ /^@@/) {
+			#print "at $ARGV[$i]\n";
+			my $output_file = substr($COMMAND[$i], 2);
+			print "output_file: $output_file\n";
+			if (-e $output_file) {
+				print STDERR "error: output_file $output_file already exists\n";
+				exit(1);
+			}
+			
+			
+			my $id = @output_files;
+			push(@output_files, $output_file);
+			$COMMAND[$i] = $output_file;
+			#$COMMAND[$i] = '[OUTPUT'.$id.']';
+		} elsif ($COMMAND[$i] =~ /^@/) {
+			#print "at $ARGV[$i]\n";
+			my $input_file = substr($COMMAND[$i], 1);
+			print "input_file: $input_file\n";
+			
+			unless (-e $input_file) {
+				print STDERR "error: file $input_file not found\n";
+				exit(1);
+			}
+			
+			my $id = @input_files_local;
+			push(@input_files_local, $input_file);
+			$COMMAND[$i] = '@[INPUT'.$id.']';
+			#$COMMAND[$i] = '@'.basename($input_file);
+			
+			
+		}
+		
+	}
+	
+	my $cmd = join(' ',@COMMAND);
+	print "COMMAND_b: ".$cmd."\n";
+	
+	
+	my $resulttarfile = 'x.tar';
+	
+	if (@output_directories > 0) {
+		$resulttarfile = $output_directories[0];
+		$resulttarfile =~ s/\///g;
+		$resulttarfile.='.tar';
+		
+		if (-e $resulttarfile) {
+			print STDERR $resulttarfile." already exists\n";
+			exit(1);
+		}
+		
+	}
+	
+	return (\@input_files_local , \@output_files, \@output_directories, $cmd);
+}
+
+
+
+
+sub generateAndSubmitSimpleAWEJob {
+	my %h = @_;
+	
+	my $command = $h{'cmd'}; # example
+	
+	my $clientgroup = $h{'clientgroup'} || "qiime-wolfgang";
+	my $awe_user = "awe_user";
+	
+	
+	my $awe = $h{'awe'};
+	my $shock = $h{'shock'};
+	
+	
+	#parse input/output
+	
+	my ($input_files_local, $output_files, $output_directories, $command_parsed) = &parse_command($command);
+	
+	### create task template ###
+	my $task_template={};
+	$task_template->{'cmd'} = $command_parsed;
+	for (my $i=0 ; $i < @{$input_files_local} ; ++$i ) {
+		push(@{$task_template->{'inputs'}}, '[INPUT'.$i.']' );
+	}
+	
+	for (my $i=0 ; $i < @{$output_files} ; ++$i ) {
+		my $outputfile = $output_files->[$i];
+		push(@{$task_template->{'outputs'}}, basename($outputfile) );
+	}
+	if (defined $h{'output_files'} ) {
+		my @of = split(',', $h{'output_files'});
+		foreach my $file (@of) {
+			push(@{$task_template->{'outputs'}}, basename($file) );
+		}
+		
+		$task_template->{'trojan'}->{'out_files'}=\@of;
+	}
+	
+	print "generated template:\n";
+	print Dumper($task_template);
+	
+	
+	### create task (using the above generated template) ###
+	my $task = {
+		"task_id" => "single_task",
+		"task_template" => "template",
+		"TROJAN" => ["shock", "[TROJAN1]", "trojan1.pl"]
+	};
+	
+	
+	my @inputs=();
+	for (my $i=0 ; $i < @{$input_files_local} ; ++$i ) {
+		my $inputfile = $input_files_local->[$i];
+		$task->{'INPUT'.$i} = ["shock", "[INPUT".$i."]", $inputfile];
+		push(@inputs, 'INPUT'.$i);
+	}
+	#$task->{'inputs'} = \@inputs;
+	
+	my @outputs=();
+	for (my $i=0 ; $i < @{$output_files} ; ++$i ) {
+		my $outputfile = $output_files->[$i];
+		$task->{'OUTPUT'.$i} = $outputfile;
+		push(@outputs, basename($outputfile));
+		#print "push: ".basename($outputfile)."\n";
+	}
+	if (defined $h{'output_files'} ) {
+		my @of = split(',', $h{'output_files'});
+		foreach my $file (@of) {
+			push(@{$task->{'outputs'}}, basename($file) );
+		}
+	}
+	
+	print "generated task (without input):\n";
+	print Dumper($task);
+	
+	#exit(0);
+	
+	
+	#$task->{'outputs'} = \@outputs;
+	
+	
+	#my $task_tmpls={};
+	#$task_tmpls->{'template'} = $task_template;
+	
+	
+	#print "task:\n";
+	#print Dumper($task);
+	
+	my $awe_qiime_job = AWE::Job->new(
+	'info' => {
+		"pipeline"=> "simple-autogen",
+		"name"=> "simple-autogen-name",
+		"project"=> "simple-autogen-prj",
+		"user"=> $awe_user,
+		"clientgroups"=> $clientgroup,
+		"noretry"=> JSON::true
+	},
+	'shockhost' => $shock->{'shock_url'},
+	'task_templates' => {'template' => $task_template}, # only one template in hash
+	'tasks' => [$task]
+	);
+	
+	
+	
+	### define job input ###
+	my $job_input = {};
+	
+	if (defined $h{'output_files'} ) {
+		my @of = split(',', $h{'output_files'});
+		foreach my $file (@of) {
+			push(@outputs, basename($file));
+			print "push: ".basename($file)."\n";
+		}
+		$job_input->{'TROJAN1'}->{'data'} = AWE::Job::get_trojanhorse("out_files" => \@of) ;
+	} else  {
+		$job_input->{'TROJAN1'}->{'data'} = AWE::Job::get_trojanhorse() ;
+	}
+	#$job_input->{'TROJAN1'}->{'node'}= "fake_shock_node_trojan1";
+	#$job_input->{'TROJAN1'}->{'shockhost'}= "fake_host";
+	
+	
+	
+	# local files to be uploaded
+	for (my $i=0 ; $i < @{$input_files_local} ; ++$i ) {
+		my $inputfile = $input_files_local->[$i];
+		$job_input->{'INPUT'.$i}->{'file'} = $inputfile;
+		#$job_input->{'INPUT'.$i}->{'node'} = "fake_shock_node".$i;
+		#$job_input->{'INPUT'.$i}->{'shockhost'}= "fake_host";
+	}
+	
+	
+	
+	
+	
+	#$job_input->{'INPUT-PARAMETER'}->{'file'} = './otu_picking_params_97.txt';   	  # local file to be uploaded
+	
+	#print Dumper($job_input);
+	
+	
+	#upload job input files
+	$shock->upload_temporary_files($job_input);
+	
+	
+	# create job with the input defined above
+	my $workflow = $awe_qiime_job->create(%$job_input);
+	
+	#exit(0);
+	
+	#overwrite jobname:
+	#$workflow->{'info'}->{'name'} = $sample;
+	
+	my $json = JSON->new;
+	print "AWE job ready for submission:\n".$json->pretty->encode( $workflow )."\n";
+	
+	print "submit job to AWE server...\n";
+	my $submission_result = $awe->submit_job('json_data' => $json->encode($workflow));
+	
+	print "result from AWE server:\n".$json->pretty->encode( $submission_result )."\n";
+	
+	return $submission_result->{'data'}->{'id'};
+}
+
+
+sub get_jobs_and_cleanup {
+	
+	my %h = @_;
+	
+	my $awe = $h{'awe'};
+	my $shock= $h{'shock'};
+	my $jobs= $h{'jobs'};
+	my $clientgroup = $h{'clientgroup'};
+	unless (defined $awe) {
+		die;
+	}
+	unless (defined $shock) {
+		die;
+	}
+	
+	
+	my $job_hash={};
+	foreach my $job (@$jobs) {
+		$job_hash->{$job}=1;
+	}
+	my $jobs_to_process = @$jobs;
+	print "jobs_to_process: $jobs_to_process\n";
+	
+	
+	
+	
+	my $all_jobs = $awe->getJobQueue('info.clientgroups' => $clientgroup);
+	
+	#print Dumper($all_jobs);
+	
+	
+
+	
+	
+	
+	# get list of job objects
+	my @requested_jobs = ();
+	
+	foreach my $job_object (@{$all_jobs->{data}}) {
+		
+		my $job = $job_object->{'id'};
+		
+		unless (defined($job_hash->{$job})) {
+			next;
+		}
+		
+		push(@requested_jobs, $job_object);
+	}
+	
+	# download results, delete results, delete job
+	my $job_deletion_ok= 1;
+	foreach my $job_object (@requested_jobs) {
+		
+		my $job_id = $job_object->{'id'};
+		
+		
+		#print "completed job $job\n";
+		
+		print Dumper($job_object)."\n";
+		
+		download_output_job_nodes($job_object, $shock, 'only_last_task' => 1);
+		
+		my $node_delete_status = delete_output_job_nodes($job_object, $shock);
+		
+		if (defined $node_delete_status) {
+			print "deleting job ".$job_id."\n";
+			my $dd = $awe->deleteJob($job_id);
+			print Dumper($dd);
+		} else {
+			$job_deletion_ok = 0;
+		}
+		$jobs_to_process--;
+		
+		
+	}
+	
+	if ($jobs_to_process != 0 ) {
+		die "not all jobs processed";
+	}
+	
+	if ($job_deletion_ok == 1) {
+		return 1;
+	}
+	
+	return 0;
+}
+
+sub wait_and_get_job_results {
+	my %h = @_;
+	
+	my $awe = $h{'awe'};
+	my $shock= $h{'shock'};
+	my $jobs= $h{'jobs'};
+	my $clientgroup = $h{'clientgroup'};
+	
+	
+	unless (defined $awe) {
+		die;
+	}
+	unless (defined $shock) {
+		die;
+	}
+
+	
+	
+	my $jobs_to_download = {};
+	
+	foreach my $job_id (@$jobs) {
+		$jobs_to_download->{$job_id} = 1;
+	}
+	
+	
+	my $got_all=0;
+	while ($got_all==0) {
+		sleep(5);
+		
+		$got_all=1;
+		foreach my $job_id (@$jobs) {
+			my $waiting = $jobs_to_download->{$job_id};
+			
+			if ($waiting == 1) {
+				$got_all=0;
+				
+				my $jobstatus_hash;
+				eval {
+					$jobstatus_hash = $awe->getJobStatus($job_id);
+				};
+				if ($@) {
+					print "error: getJobStatus $job_id\n";
+					exit(1);
+				}
+				#print $json->pretty->encode( $jobstatus_hash )."\n";
+				my $state = $jobstatus_hash->{data}->{state};
+				print "state: $state\n";
+				if ($state ne 'completed') {
+					next;
+				}
+				print "job $job_id ready, download results\n";
+				
+				get_jobs_and_cleanup('awe' => $awe, 'shock' => $shock, 'jobs' => [$job_id], 'clientgroup' => $clientgroup);
+				#system("./mg-awe-submit.pl --get_jobs=".$job_id) == 0 or die;
+				$jobs_to_download->{$job_id} = 0;
+				
+			}
+			
+		}
+		
+		
+		
+	}
+	print "finished.\n";
+}
+
+
+sub download_output_job_nodes {
+	my ($job_hash, $shock, %h) = @_;
+	
+	
+	
+	
+	my $download_dir = ".";
+	
+	
+	#my $job_name = $job_hash->{'info'}->{'name'} || die;
+	#my $download_dir = $job_name;
+	#system("mkdir -p ".$download_dir);
+	
+	
+	my $download_output_nodes = get_awe_output_nodes($job_hash, %h);
+	
+	my $download_success = download_ouput_from_shock($shock, $download_output_nodes, $download_dir);
+	
+	
+	if ($download_success == 0 ) {
+		die "download failed";
+	}
+	
+}
+
+sub get_awe_output_nodes {
+	my ($job_hash, %h) = @_;
+	
+	
+	my $output_nodes = {};
+	
+	
+	my @tasks;
+	
+	if (defined $h{'only_last_task'}) {
+		@tasks = ($job_hash->{tasks}->[-1]);
+	} else {
+		@tasks = @{$job_hash->{tasks}};
+	}
+	
+	foreach my $task (@tasks) {
+		
+		if (defined $task->{outputs}) {
+			my $outputs = $task->{outputs};
+			
+			foreach my $resultfilename (keys(%$outputs)) {
+				
+				if (defined $output_nodes->{$resultfilename}) {
+					die "error: output filename not unique ($resultfilename)";
+				}
+				
+				$output_nodes->{$resultfilename} = $outputs->{$resultfilename};
+			}
+			
+			
+		}
+	}
+	#print Dumper($output_nodes);
+	#exit(0);
+	return $output_nodes;
+}
+
+sub download_ouput_from_shock{
+	my ($shock, $output_nodes, $download_dir, %h) = @_;
+	
+	my $download_success = 1 ;
+	print Dumper($output_nodes);
+	
+	foreach my $resultfilename (keys(%$output_nodes)) {
+		print "resultfilename: $resultfilename\n";
+		
+		my $download_name = $resultfilename;
+		if (defined $download_dir ) {
+			$download_name = $download_dir.'/'.$resultfilename;
+		}
+		
+		if (-e $download_name) {
+			print "$download_name already exists, refuse to overwrite...\n";
+			exit(1);
+		}
+		
+		my $result_obj = $output_nodes->{$resultfilename};
+		unless (defined $result_obj) {
+			die;
+		}
+		unless (ref($result_obj) eq 'HASH') {
+			die;
+		}
+		
+		
+		
+		
+		my $result_node = $result_obj->{'node'};
+		unless (defined $result_node) {
+			die;
+		}
+		#my $result_size =  $result_obj->{size};
+		
+		#print Dumper($result_obj);
+		
+		
+		
+		if (defined $result_node) {
+			#push(@temporary_shocknodes, $result_node);
+			print "downloading $resultfilename...\n";
+			$shock->download_to_path($result_node, $download_name);
+			
+		} else {
+			print Dumper($result_obj);
+			#exit(0);
+			
+			#print $json->pretty->encode( $jobstatus_hash )."\n";
+			print STDERR "warning: no result found\n";
+			$download_success=0;
+			die;
+		}
+		
+		
+	}
+	return $download_success;
+}
+
+sub delete_shock_nodes{
+	my ($shock, $output_nodes) = @_;
+	
+	
+	
+	
+	my $delete_ok = 1;
+	foreach my $resultfilename (keys %$output_nodes) {
+		
+		my $result_obj = $output_nodes->{$resultfilename};
+		my $node_to_be_deleted = $result_obj->{node};
+		#my $result_size =  $result_obj->{size};
+		
+		if (defined $node_to_be_deleted) {
+			
+			# delete
+			print "try to delete $node_to_be_deleted\n";
+			
+			my $nodeinfo = $shock->get_node($node_to_be_deleted);
+			
+			if (defined $nodeinfo) {
+				#print Dumper($nodeinfo);
+				
+				my $deleteshock = $shock->delete($node_to_be_deleted);
+				#print Dumper($deleteshock);
+				
+				unless (defined $deleteshock->{'status'} && $deleteshock->{'status'}==200) {
+					print "error deleting $node_to_be_deleted\n";
+					$delete_ok = 0;
+				} else {
+					print "deleted $node_to_be_deleted\n"
+				}
+			} else {
+				print "error deleting node $node_to_be_deleted, node not found\n";
+			}
+			
+		} else {
+			#print $json->pretty->encode( $jobstatus_hash )."\n";
+			print STDERR "warning: no result found\n";
+			$delete_ok = 0;
+		}
+	}
+	return $delete_ok;
+}
+
+
+
+
+
+sub delete_output_job_nodes {
+	my ($job_hash, $shock) = @_;
+	
+	
+	my $all_output_nodes = get_awe_output_nodes($job_hash);
+	
+	
+	
+	### delete output shock nodes ####
+	my $delete_ok = delete_shock_nodes($shock, $all_output_nodes);
+	
+	
+	
+	if ($delete_ok == 0) {
+		return undef;
+	} else {
+		return 1;
+	}
+}
+
 
 1;

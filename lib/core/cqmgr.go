@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/conf"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
@@ -307,7 +308,7 @@ func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string) {
 			}
 		}
 		//append works whos apps are supported by the client
-		if contains(client.Apps, work.Cmd.Name) {
+		if contains(client.Apps, work.Cmd.Name) || contains(client.Apps, conf.ALL_APP) {
 			ids = append(ids, id)
 		}
 	}

@@ -181,6 +181,12 @@ func init() {
 	if big_data_size, err := c.Int("Server", "big_data_size"); err == nil {
 		BIG_DATA_SIZE = int64(big_data_size)
 	}
+	if max_work_failure, err := c.Int("Server", "max_work_failure"); err == nil {
+		MAX_WORK_FAILURE = max_work_failure
+	}
+	if max_client_failure, err := c.Int("Server", "max_client_failure"); err == nil {
+		MAX_CLIENT_FAILURE = max_client_failure
+	}
 	/*
 		if default_index, err := c.String("Server", "default_index"); err == nil {
 			DEFAULT_INDEX = default_index

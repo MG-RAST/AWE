@@ -602,7 +602,6 @@ func getStdOutPath(work *Workunit) (stdoutFilePath string, err error) {
 
 func getStdErrPath(work *Workunit) (stderrFilePath string, err error) {
 	stderrFilePath = fmt.Sprintf("%s/%s.stderr", work.Path(), work.Id)
-	fmt.Printf("stderrFilPath=%s\n", stderrFilePath)
 	_, err = os.Stat(stderrFilePath)
 	return
 }

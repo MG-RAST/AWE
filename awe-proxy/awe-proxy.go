@@ -90,7 +90,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	self, err := worker.RegisterWithProfile(conf.SERVER_URL, profile)
+	self, err := worker.RegisterWithAuth(conf.SERVER_URL, profile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fail to register: %s\n", err.Error())
 		os.Exit(1)

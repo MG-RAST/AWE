@@ -7,7 +7,7 @@ type ClientMgr interface {
 	ClientHeartBeat(string) (HBmsg, error)
 	GetClient(string) (*Client, error)
 	GetAllClients() []*Client
-	DeleteClient(string)
+	DeleteClient(string) (err error)
 	SuspendClient(string) (err error)
 	ResumeClient(string) (err error)
 	ResumeSuspendedClients() (count int)

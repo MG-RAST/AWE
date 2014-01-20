@@ -164,8 +164,11 @@ func (cr *ClientController) UpdateMany(cx *goweb.Context) {
 // DELETE: /client/{id}
 func (cr *ClientController) Delete(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
-	core.QMgr.DeleteClient(id)
-	cx.RespondWithData("ok")
+	if err := core.QMgr.DeleteClient(id); err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+	} else {
+		cx.RespondWithData("client deleted")
+	}
 }
 
 // DELETE: /client

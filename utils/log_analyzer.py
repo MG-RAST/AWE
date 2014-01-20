@@ -17,7 +17,7 @@ color_list = ['b', 'r', 'k', 'g', 'm', 'y']
 stage_list = ["prep", "derep", "screen", "fgs", "uclust", "blat"]
 
 DEFAULT_TOTALWORK = 1
-CLIENT_QUOTA = 80
+CLIENT_QUOTA = 200
 
 def parsePerfLog(filename):
     '''parse perf log'''
@@ -49,8 +49,12 @@ def parsePerfLog(filename):
             else:
                 print key, val
         job_dict[data['Id']] = data
-        print "data movement overhead of job %s: %f" % (data['Id'], float(total_data_move) / (total_data_move + total_compute))
-    print "%d completed jobs have been parsed from the perf log" % len(job_dict.keys())    
+        if (total_data_move + total_compute > 0):
+            print "data movement overhead of job %s: %f" % (data['Id'], float(total_data_move) / (total_data_move + total_compute))
+    print "%d completed jobs have been parsed from the perf log" % len(job_dict.keys())
+    
+    wlf.close()
+       
     return job_dict                       
 
 def parseEventLog(filename):
@@ -92,7 +96,7 @@ def parseEventLog(filename):
             job['jid'] = attr['jid']
             job['submit'] = timestamp
             job['total_task'] = 0
-            job['task_list'] = []
+            job['task_list'] = {}
             job_dict[id] = job
             
         if event == "TQ" or event == "TD":  # task enqueue
@@ -108,15 +112,12 @@ def parseEventLog(filename):
             
             if event == "TQ":
                 task_interval = [timestamp-anchor, 0]
-                if stage == job['total_task']: #record the first TQ
-                    job['task_list'].append(task_interval) 
+                if not job['task_list'].has_key(stage):
+                    job['task_list'][stage] = task_interval
+            else: #event== "TD"
+                if job['task_list'].has_key(stage):
+                    job['task_list'][stage][1] = timestamp-anchor
                     job['total_task'] += 1
-                else:
-                    del job_dict[jobid]
-                    continue   # ignore jobs that have task re-queued for now
-            else:
-                job['task_list'][-1][1] = timestamp-anchor
-                
                 
         if event == "JD":
             id =  attr['jobid']
@@ -128,11 +129,6 @@ def parseEventLog(filename):
     for key, value in job_dict.items():
         if not value.has_key('end'):
             del job_dict[key]
-        else:
-            value['time_points'] = [0]
-            anchor = job['submit']
-            for item in job['task_list']:
-                timepoint = item[0] - anchor              
      
     print "%d completed jobs have been parsed from the event log" % len(job_dict.keys())    
          
@@ -214,11 +210,11 @@ def print_task_runtime_table(job_dict):
         print line
         
 def parse_workload(filename):
-    raw_job_dict = {}
+    
+    job_dict = parseEventLog(filename)
+    
     wlf = open(filename, "r")
-    
-    job_dict = {}
-    
+           
     i = 1
     starttime = 0
     
@@ -261,16 +257,32 @@ def parse_workload(filename):
             attr[key] = val
             
         if event == "JQ":  #job submitted
-            jobct += 1
-            taskct += 6
+            jobid = attr["jobid"]
+            if job_dict.has_key(jobid):
+                jobct += 1
+                taskct += job_dict[jobid]["total_task"]
         elif event == "JD":
-            jobct -= 1
+            if job_dict.has_key(jobid):
+                jobct -= 1
         elif event == "TQ":
-            workct += int(attr.get("totalwork", DEFAULT_TOTALWORK))
+            taskid = attr['taskid']
+            segs = taskid.split('_')
+            jobid = segs[0]
+            if job_dict.has_key(jobid):
+                taskct += 1
+                workct += int(attr.get("totalwork", DEFAULT_TOTALWORK))
         elif event == "TD":
-            taskct -= 1
+            taskid = attr['taskid']
+            segs = taskid.split('_')
+            jobid = segs[0]
+            if job_dict.has_key(jobid):
+                taskct -= 1
         elif event == "WD":
-            workct -= 1
+            workid = attr['workid']
+            segs = workid.split('_')
+            jobid = segs[0]
+            if job_dict.has_key(jobid):
+                workct -= 1
             
         if event in ["JQ", "JD"]:
             jobload.append((timestamp, jobct))
@@ -331,7 +343,50 @@ def plot_workload(workload, name):
     ax.set_xlabel('time elapsed (sec)')
     ax.grid(True)
     print "max_timepoint=", timepoints[-1]
-    plt.savefig(name+".eps")
+    plt.savefig(name+"-workunit.png")
+    
+    
+def plot_jobload(workload, name):
+    print "plotting: workload"
+    print len(workload), workload[-1]
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    plt.title("number of active jobs (in-progress)")
+    interval = 5
+    max_point = workload[-1][0] / interval
+    timepoint = 0
+    timepoints = []
+    workct = []
+    maxjob = 0
+    lastpoint = 0
+    for i in range(0, max_point+1):
+        timepoint = i * interval
+        j = lastpoint
+        
+        while timepoint >= workload[j][0]:
+            j += 1
+            if j == len(workload):
+                break
+        lastpoint = j - 1
+        if lastpoint < 0:
+            lastpoint = 0
+        print timepoint, workload[lastpoint][1], workload[lastpoint]
+        workct.append(workload[lastpoint][1])
+        timepoints.append(i * interval)
+        #print timepoint, workct[i]
+
+    
+    timepoints.append(timepoints[-1] + interval)
+    workct.append(0)
+    
+    ax.plot(timepoints, workct, color = "b", lw=1.5)
+    
+    #ax.set_ylim(0, 160)
+    #ax.set_xlim(0, 30000)
+    ax.set_xlabel('time elapsed (sec)')
+    ax.grid(True)
+    print "max_timepoint=", timepoints[-1]
+    plt.savefig(name+"-job.png")
 
 if __name__ == "__main__":
     p = OptionParser()
@@ -405,17 +460,9 @@ if __name__ == "__main__":
             print "workload parsing (-w) needs to specify event log (-e)"
             exit()
         jobload, taskload, workload = parse_workload(opts.eventlog)
-        
-        #for load in workload:
-        #    print load[0], load[1]
-        #print "========="        
-        #for load in taskload:
-        #    print load[0], load[1]
-        #print "========="
-        #for load in jobload:
-        #    print load[0], load[1]
-            
+       
         plot_workload(workload, opts.eventlog.split(".")[0])
+        plot_jobload(jobload, opts.eventlog.split(".")[0])
         
         
         

@@ -11,6 +11,7 @@ var (
 const (
 	ClientNotFound           = "Client not found"
 	ClientSuspended          = "Client suspended"
+	ClientDeleted            = "Client deleted"
 	InvalidFileTypeForFilter = "Invalid file type for filter"
 	InvalidIndex             = "Invalid Index"
 	InvalidAuth              = "Invalid Auth Header"

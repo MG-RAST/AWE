@@ -47,6 +47,9 @@ func workStealer(control chan int) {
 				fmt.Printf("client suspended, waiting for repair or resume request...\n")
 				//to-do: send out email notice that this client has problem and been suspended
 				time.Sleep(2 * time.Minute)
+			} else if err.Error() == e.ClientDeleted {
+				fmt.Printf("client deleted, exiting...\n")
+				os.Exit(1)
 			} else {
 				//something is wrong, server may be down
 				fmt.Printf("error in checking out workunits: %v\n", err)

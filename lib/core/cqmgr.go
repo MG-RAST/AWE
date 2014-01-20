@@ -130,6 +130,9 @@ func (qm *CQMgr) ClientHeartBeat(id string) (hbmsg HBmsg, err error) {
 		if len(suspended) > 0 {
 			hbmsg["discard"] = strings.Join(suspended, ",")
 		}
+		if qm.clientMap[id].Status == CLIENT_STAT_DELETED {
+			hbmsg["stop"] = id
+		}
 		//hbmsg["discard"] = strings.Join(workids, ",")
 		return hbmsg, nil
 	}
@@ -174,8 +177,12 @@ func (qm *CQMgr) GetAllClients() []*Client {
 	return clients
 }
 
-func (qm *CQMgr) DeleteClient(id string) {
-	delete(qm.clientMap, id)
+func (qm *CQMgr) DeleteClient(id string) (err error) {
+	if client, ok := qm.clientMap[id]; ok {
+		client.Status = CLIENT_STAT_DELETED
+		return
+	}
+	return errors.New("client not found")
 }
 
 func (qm *CQMgr) SuspendClient(id string) (err error) {
@@ -237,6 +244,10 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, num int)
 	}
 	if qm.clientMap[client_id].Status == CLIENT_STAT_SUSPEND {
 		return nil, errors.New(e.ClientSuspended)
+	}
+	if qm.clientMap[client_id].Status == CLIENT_STAT_DELETED {
+		delete(qm.clientMap, client_id)
+		return nil, errors.New(e.ClientDeleted)
 	}
 
 	//lock semephore, at one time only one client's checkout request can be served

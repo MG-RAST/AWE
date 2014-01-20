@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"github.com/MG-RAST/AWE/lib/core/uuid"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"io/ioutil"
 	"time"
 )
@@ -10,6 +11,7 @@ import (
 const (
 	CLIENT_STAT_ACTIVE  = "active"
 	CLIENT_STAT_SUSPEND = "suspend"
+	CLIENT_STAT_DELETED = "deleted"
 )
 
 type Client struct {
@@ -58,6 +60,7 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 		return nil, err
 	}
 	if err := json.Unmarshal(jsonstream, client); err != nil {
+		logger.Error("failed to unmashal json stream for client profile: " + string(jsonstream[:]))
 		return nil, err
 	}
 	if client.Id == "" {

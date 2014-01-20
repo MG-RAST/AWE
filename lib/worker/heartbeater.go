@@ -238,8 +238,8 @@ func RestartClient() (err error) {
 }
 
 func StopClient() (err error) {
-	fmt.Printf("try to stop client\n")
-	//to-do: implementation here
+	fmt.Printf("client deleted, exiting...\n")
+	os.Exit(0)
 	return
 }
 

@@ -15,18 +15,27 @@ from optparse import OptionParser
 
 color_list = ['b', 'r', 'k', 'g', 'm', 'y']
 stage_list = ["prep", "derep", "screen", "fgs", "uclust", "blat"]
+cmd_list = ["prep", "drpl", "scrn", "gncl", "clst", "sims", "rsch", "rcls", "rsim", "annt"]  #order matters (MG-RAST production pipeline)
 
 DEFAULT_TOTALWORK = 1
 CLIENT_QUOTA = 200
 
-def parsePerfLog(filename):
+jobperf_dict = {}
+taskperf_dict = {}
+workperf_dict = {}
+
+def parsePerfLogRaw(filename):
     '''parse perf log'''
     raw_job_dict = {}
     wlf = open(filename, "r")
     
-    job_dict = {}
+    jobtrace = open(filename + ".jobtrace", "w")
+    tasktrace = open(filename + ".tasktrace", "w")
+    worktrace = open(filename + ".worktrace", "w")
     
     for line in wlf:
+        jobentry = {}
+        
         total_data_move = 0
         total_compute = 0
         line = line.strip('\n')
@@ -35,27 +44,85 @@ def parsePerfLog(filename):
             continue
         jsonstream = line[26:]
         data =  json.loads(jsonstream)
-        #pprint(data)
-        print "======="
+        linemsg = ""
         for key, val in data.iteritems():
+            #print key, val
             if key == 'Ptasks':
-                for k in sorted(val.keys()):
-                    print k, val[k]
+                parse_task_perf(val, tasktrace)
             elif key == 'Pworks':
-                for k in sorted(val.keys()):
-                    print k, val[k]
-                    total_data_move += val[k]['DataIn'] + val[k]['DataOut']
-                    total_compute += val[k]['Runtime']
+                parse_work_perf(val, worktrace)           
             else:
-                print key, val
-        job_dict[data['Id']] = data
-        if (total_data_move + total_compute > 0):
-            print "data movement overhead of job %s: %f" % (data['Id'], float(total_data_move) / (total_data_move + total_compute))
-    print "%d completed jobs have been parsed from the perf log" % len(job_dict.keys())
+                if key == "Id":
+                    linemsg = "jobid=%s;" % val + linemsg
+                    jobentry["jobid"] = val
+                else:
+                    linemsg += "%s=%s;" % (key.lower(), val)
+                    jobentry[str(key.lower())] = val
+        linemsg = linemsg[:-1] + "\n"
+        jobtrace.write(linemsg)
+        jobperf_dict[str(jobentry["jobid"])] = jobentry
+                
+    print "%d completed jobs have been parsed from the perf log" % len(jobperf_dict.keys())
     
     wlf.close()
-       
-    return job_dict                       
+    jobtrace.close()
+    tasktrace.close()
+    worktrace.close()
+
+def parse_task_perf(dataitems, tasktrace):
+    for taskid, taskval in dataitems.iteritems():
+        task = {}
+        msg = "taskid=%s;" % taskid
+        parts = taskid.split('_')
+        jobid = parts[0]
+        msg += "jobid=%s;" % jobid
+        stage = parts[1]
+        msg += "cmd=%s;" % cmd_list[int(stage)]
+        
+        task["taskid"] = taskid
+        task["jobid"] = jobid
+        task["cmd"] = cmd_list[int(stage)]
+        
+        for k, v in taskval.iteritems():
+            if k=="InFileSizes":
+                s = sum(v)
+                msg += "inputsize=%s;" % s
+                task["inputsize"] = s
+            elif k=="OutFileSizes":
+                s = sum(v)
+                msg += "outputsize=%s;" % s
+                task["outputsize"] = s
+            elif k== "Size":
+                pass
+            else:
+                msg += "%s=%s;" % (k.lower(), v)
+                task[str(k.lower())] = v
+        msg = msg[:-1] + "\n"
+        tasktrace.write(msg)
+        taskperf_dict[taskid] = task
+    return
+
+def parse_work_perf(dataitems, worktrace):
+    for workid, workval in dataitems.iteritems():
+        workunit = {}
+        parts = workid.split('_')
+        jobid = parts[0]
+        stage = parts[1]
+        rank = parts[2]
+        msg = "workid=%s;rank=%s;stage=%s;jobid=%s;cmd=%s;" % (workid, rank, stage, jobid, cmd_list[int(stage)])
+        workunit["workid"] = workid
+        workunit["rank"] = rank
+        workunit["stage"] = stage
+        workunit["jobid"] = jobid
+        workunit["cmd"] = cmd_list[int(stage)]
+        
+        for k, v in workval.iteritems():
+            msg += "%s=%s;" % (k.lower(), v)
+            workunit[str(k.lower())] = v
+        msg = msg[:-1] + "\n"
+        worktrace.write(msg)
+        workperf_dict[workid] = workunit
+    return                          
 
 def parseEventLog(filename):
     '''parse event log'''
@@ -387,7 +454,7 @@ def plot_jobload(workload, name):
     ax.grid(True)
     print "max_timepoint=", timepoints[-1]
     plt.savefig(name+"-job.png")
-
+    
 if __name__ == "__main__":
     p = OptionParser()
     p.add_option("-e", dest = "eventlog", type = "string", 
@@ -432,7 +499,13 @@ if __name__ == "__main__":
     if opts.eventlog:
         job_dict = parseEventLog(opts.eventlog)
     elif opts.perflog:
-        job_dict = parsePerfLog(opts.perflog)
+        parsePerfLogRaw(opts.perflog)
+        for k, v in workperf_dict.iteritems():
+            print k, v
+        for k, v in taskperf_dict.iteritems():
+            print k, v
+        for k, v in jobperf_dict.iteritems():
+            print k, v
         
     if opts.taskbars:
         bins = {}
@@ -464,9 +537,5 @@ if __name__ == "__main__":
         plot_workload(workload, opts.eventlog.split(".")[0])
         plot_jobload(jobload, opts.eventlog.split(".")[0])
         
-        
-        
-        
-        
-    
-    
+       
+   

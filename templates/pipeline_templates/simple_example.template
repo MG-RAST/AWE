@@ -23,7 +23,8 @@
                 }, 
                 "outputs": {
                     "#jobname.prep.fna": {
-                        "host": "http://#shockurl"
+                        "host": "http://#shockurl",
+                        "attrfile": "prep.fna.attr"
                     }
                 },
                 "partinfo": {

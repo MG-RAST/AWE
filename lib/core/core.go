@@ -535,9 +535,18 @@ func PushOutputData(work *Workunit) (err error) {
 			"filename="+name,
 			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
 
-		if err := putFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken); err != nil {
+		//upload attribute file to shock IF attribute file is specified in outputs AND it is found in local directory.
+		var attrfile_path string = ""
+		if io.AttrFile != "" {
+			attrfile_path = fmt.Sprintf("%s/%s", work.Path(), io.AttrFile)
+			if fi, err := os.Stat(attrfile_path); err != nil || fi.Size() == 0 {
+				attrfile_path = ""
+			}
+		}
+
+		if err := putFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-			if err := putFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken); err != nil {
+			if err := putFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path); err != nil {
 				fmt.Errorf("push file error\n")
 				logger.Error("op=pushfile,err=" + err.Error())
 				return err
@@ -582,8 +591,11 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 	return
 }
 
-func putFileToShock(filename string, host string, nodeid string, rank int, token string) (err error) {
+func putFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string) (err error) {
 	opts := Opts{}
+	if attrfile != "" {
+		opts["attributes"] = attrfile
+	}
 	if rank == 0 {
 		opts["upload_type"] = "full"
 		opts["full"] = filename

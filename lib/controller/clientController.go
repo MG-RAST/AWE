@@ -14,6 +14,13 @@ import (
 
 type ClientController struct{}
 
+// OPTIONS: /client
+func (cr *ClientController) Options(cx *goweb.Context) {
+	LogRequest(cx.Request)
+    cx.RespondWithOK()
+    return
+}
+
 // POST: /client
 func (cr *ClientController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth

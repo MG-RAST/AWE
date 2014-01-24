@@ -13,6 +13,13 @@ import (
 
 type WorkController struct{}
 
+// OPTIONS: /work
+func (cr *WorkController) Options(cx *goweb.Context) {
+	LogRequest(cx.Request)
+    cx.RespondWithOK()
+    return
+}
+
 // GET: /work/{id}
 // get a workunit by id, read-only
 func (cr *WorkController) Read(id string, cx *goweb.Context) {

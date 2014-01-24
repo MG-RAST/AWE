@@ -90,8 +90,8 @@ func RunWorkunit(work *core.Workunit) (err error) {
 		return errors.New(fmt.Sprintf("start_cmd=%s, err=%s", commandName, err.Error()))
 	}
 
-	stdoutFilePath := fmt.Sprintf("%s/%s.stdout", work.Path(), work.Id)
-	stderrFilePath := fmt.Sprintf("%s/%s.stderr", work.Path(), work.Id)
+	stdoutFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDOUT_FILENAME)
+	stderrFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDERR_FILENAME)
 	outfile, err := os.Create(stdoutFilePath)
 	defer outfile.Close()
 	errfile, err := os.Create(stderrFilePath)

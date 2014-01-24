@@ -98,6 +98,8 @@ var (
 	AUTO_CLEAN_DIR  = true
 	CLIENT_USERNAME = "public"
 	CLIENT_PASSWORD = "public"
+	STDOUT_FILENAME = "awe_stdout.txt"
+	STDERR_FILENAME = "awe_stderr.txt"
 
 	//tag
 	INIT_SUCCESS = true

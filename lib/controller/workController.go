@@ -16,8 +16,8 @@ type WorkController struct{}
 // OPTIONS: /work
 func (cr *WorkController) Options(cx *goweb.Context) {
 	LogRequest(cx.Request)
-    cx.RespondWithOK()
-    return
+	cx.RespondWithOK()
+	return
 }
 
 // GET: /work/{id}

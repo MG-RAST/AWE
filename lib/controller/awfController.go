@@ -11,8 +11,8 @@ type AwfController struct{}
 // OPTIONS: /awf
 func (cr *AwfController) Options(cx *goweb.Context) {
 	LogRequest(cx.Request)
-    cx.RespondWithOK()
-    return
+	cx.RespondWithOK()
+	return
 }
 
 // GET: /awf/{name}

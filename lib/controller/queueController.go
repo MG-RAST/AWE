@@ -11,8 +11,8 @@ type QueueController struct{}
 // OPTIONS: /queue
 func (cr *QueueController) Options(cx *goweb.Context) {
 	LogRequest(cx.Request)
-    cx.RespondWithOK()
-    return
+	cx.RespondWithOK()
+	return
 }
 
 // POST: /queue

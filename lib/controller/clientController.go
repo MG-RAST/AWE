@@ -17,8 +17,8 @@ type ClientController struct{}
 // OPTIONS: /client
 func (cr *ClientController) Options(cx *goweb.Context) {
 	LogRequest(cx.Request)
-    cx.RespondWithOK()
-    return
+	cx.RespondWithOK()
+	return
 }
 
 // POST: /client

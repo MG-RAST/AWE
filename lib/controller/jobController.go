@@ -34,8 +34,8 @@ func handleAuthError(err error, cx *goweb.Context) {
 // OPTIONS: /job
 func (cr *JobController) Options(cx *goweb.Context) {
 	LogRequest(cx.Request)
-    cx.RespondWithOK()
-    return
+	cx.RespondWithOK()
+	return
 }
 
 // POST: /job

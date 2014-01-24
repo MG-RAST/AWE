@@ -621,13 +621,13 @@ func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err
 }
 
 func getStdOutPath(work *Workunit) (stdoutFilePath string, err error) {
-	stdoutFilePath = fmt.Sprintf("%s/%s.stdout", work.Path(), work.Id)
+	stdoutFilePath = fmt.Sprintf("%s/%s", work.Path(), conf.STDOUT_FILENAME)
 	_, err = os.Stat(stdoutFilePath)
 	return stdoutFilePath, err
 }
 
 func getStdErrPath(work *Workunit) (stderrFilePath string, err error) {
-	stderrFilePath = fmt.Sprintf("%s/%s.stderr", work.Path(), work.Id)
+	stderrFilePath = fmt.Sprintf("%s/%s", work.Path(), conf.STDERR_FILENAME)
 	_, err = os.Stat(stderrFilePath)
 	return
 }

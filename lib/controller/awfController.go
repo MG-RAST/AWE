@@ -8,6 +8,13 @@ import (
 
 type AwfController struct{}
 
+// OPTIONS: /awf
+func (cr *AwfController) Options(cx *goweb.Context) {
+	LogRequest(cx.Request)
+	cx.RespondWithOK()
+	return
+}
+
 // GET: /awf/{name}
 // get a workflow by name, read-only
 func (cr *AwfController) Read(id string, cx *goweb.Context) {

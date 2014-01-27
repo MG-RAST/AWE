@@ -14,6 +14,13 @@ import (
 
 type ClientController struct{}
 
+// OPTIONS: /client
+func (cr *ClientController) Options(cx *goweb.Context) {
+	LogRequest(cx.Request)
+	cx.RespondWithOK()
+	return
+}
+
 // POST: /client
 func (cr *ClientController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
@@ -164,8 +171,11 @@ func (cr *ClientController) UpdateMany(cx *goweb.Context) {
 // DELETE: /client/{id}
 func (cr *ClientController) Delete(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
-	core.QMgr.DeleteClient(id)
-	cx.RespondWithData("ok")
+	if err := core.QMgr.DeleteClient(id); err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+	} else {
+		cx.RespondWithData("client deleted")
+	}
 }
 
 // DELETE: /client

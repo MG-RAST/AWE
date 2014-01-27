@@ -16,7 +16,7 @@ import (
 
 type UserController struct{}
 
-// Options: /user
+// OPTIONS: /user
 func (cr *UserController) Options(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	cx.RespondWithOK()

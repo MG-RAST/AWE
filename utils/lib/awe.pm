@@ -1038,7 +1038,7 @@ sub generateAndSubmitSimpleAWEJob {
 	
 	#upload job input files
 	$shock->upload_temporary_files($job_input);
-	
+	print "all temporary files uploaded.\n";
 	
 	# create job with the input defined above
 	my $workflow = $awe_qiime_job->create(%$job_input);

@@ -56,6 +56,13 @@ sub transport_method {
     return $self->{transport_method};
 }
 
+
+sub pretty {
+	my ($self, $hash) = @_;
+	
+	return $self->json->pretty->encode ($hash);
+}
+
 # example: getJobQueue('info.clientgroups' => 'yourclientgroup')
 sub getJobQueue {
 	my ($self) = shift;
@@ -257,9 +264,9 @@ sub new {
 	
 	
 	#assignTasks($self, %{$h{'job_input'}});
-	print "A\n".Dumper($self->{'data'});
+	#print "A\n".Dumper($self->{'data'});
 	assignTasks($self);
-	print "B\n".Dumper($self->{'data'});
+	#print "B\n".Dumper($self->{'data'});
 	replace_taskids($self);
 	#delete $self->{'trojan'};
 	#delete $self->{'shockhost'};
@@ -905,6 +912,8 @@ sub generateAndSubmitSimpleAWEJob {
 	my $awe = $h{'awe'};
 	my $shock = $h{'shock'};
 	
+	my $shock_url = $h{'shock_url'} || $shock->{'shock_url'};
+	
 	
 	#parse input/output
 	
@@ -994,7 +1003,7 @@ sub generateAndSubmitSimpleAWEJob {
 		"clientgroups"=> $clientgroup,
 		"noretry"=> JSON::true
 	},
-	'shockhost' => $shock->{'shock_url'},
+	'shockhost' => $shock_url,
 	'task_templates' => {'template' => $task_template}, # only one template in hash
 	'tasks' => [$task]
 	);
@@ -1023,8 +1032,8 @@ sub generateAndSubmitSimpleAWEJob {
 	for (my $i=0 ; $i < @{$input_files_local} ; ++$i ) {
 		my $inputfile = $input_files_local->[$i];
 		$job_input->{'INPUT'.$i}->{'file'} = $inputfile;
+		$job_input->{'INPUT'.$i}->{'shockhost'}= $shock_url;
 		#$job_input->{'INPUT'.$i}->{'node'} = "fake_shock_node".$i;
-		#$job_input->{'INPUT'.$i}->{'shockhost'}= "fake_host";
 	}
 	
 	

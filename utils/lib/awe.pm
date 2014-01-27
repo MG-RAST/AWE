@@ -188,18 +188,20 @@ sub checkClientGroup {
 	my $client_list_hash = $self->getClientList();
 	#print Dumper($client_list_hash);
 	
-	print "\nList of clients:\n";
+	print "\nOther clients:\n";
 	my $found_active_clients = 0;
-	
+	my $other_clients = 0;
 	foreach my $client ( @{$client_list_hash->{'data'}} ) {
-		
-		
-		
 		unless (defined($client->{group}) && ($client->{group} eq $clientgroup)) {
 			print $client->{name}." (".$client->{Status}.")  group: ".$client->{group}."  apps: ".join(',',@{$client->{apps}})."\n";
+			$other_clients++;
 		}
 	}
-	print "My clientgroup:\n";
+	if ($other_clients == 0) {
+		print "none.\n";
+	}
+	
+	print "\nClients in clientgroup \"$clientgroup\":\n";
 	foreach my $client ( @{$client_list_hash->{'data'}} ) {
 		
 		
@@ -221,7 +223,7 @@ sub checkClientGroup {
 		return 1;
 	}
 	
-	print "found $found_active_clients active client for clientgroup $clientgroup\n";
+	print "Summary: found $found_active_clients active client for clientgroup $clientgroup\n";
 	return 0;
 }
 
@@ -336,7 +338,7 @@ sub createTask {
 	
 	my $host = $h{'shockhost'} || $self->{'shockhost'};
 	
-	
+	$task->{'totalwork'} = 1;
 	
 	my $cmd = $task_template->{'cmd'};
 	$task->{'cmd'} = undef;
@@ -400,9 +402,9 @@ sub createTask {
 	
 	my $outputs = {};
 	
-	if (@{$task_template->{'outputs'}} == 0) {
+	if (!defined ($task_template->{'outputs'}) || @{$task_template->{'outputs'}} == 0) {
 		print Dumper($task_template)."\n";
-		die "no outputs found in template";
+		die "no outputs found in task template for task \"$taskid\"";
 	}
 	
 	foreach my $key_io (@{$task_template->{'outputs'}}) {
@@ -410,21 +412,38 @@ sub createTask {
 		
 		my ($key) = $key_io =~ /^\[(.*)\]$/;
 		
+		#replace variable if possible
+		if (defined $key) {
+		
+			my $value = $h{$key};
+			if (defined $value) {
+				#$outputs->{$value}->{'host'} = $host;
+				$cmd =~ s/\[$key\]/$value/g;
+			} else {
+				
+				print Dumper($task_template);
+				
+				die "output key \"$key\" not defined";
+			}
+			$key_io = $value;
+		}
 		
 		
-		unless (defined $key) {
 			
-			#die "key not defined in output";
-			$outputs->{$key_io}->{'host'} = $host;
-			next;
+		my $filename_base = basename($key_io);
+		my $dir = dirname($key_io);
+		
+		unless ($dir eq '.') {
+			$outputs->{$filename_base}->{'directory'} = $dir;
 		}
-		my $value = $h{$key};
-		if (defined $value) {
-			$outputs->{$value}->{'host'} = $host;
-			$cmd =~ s/\[$key\]/$value/g;
-		} else {
-			die "output key \"$key\" not defined";
-		}
+		
+		#die "key not defined in output";
+		$outputs->{$filename_base}->{'host'} = $host;
+		
+		
+		
+		
+		
 	
 	}
 	$task->{'outputs'}=$outputs;
@@ -442,7 +461,7 @@ sub createTask {
 	
 	#print "task:\n";
 	#print Dumper($task)."\n";
-#	exit(0);
+	#exit(0);
 	
 	return $task;
 }
@@ -492,6 +511,7 @@ sub assignTasks {
 }
 
 
+# search for [variable] inf workflow and replace with SHOCK information
 sub _assignInput {
 	my ($data, $task_specs, %h) = @_;
 	
@@ -506,8 +526,6 @@ sub _assignInput {
 		my $trojan_file=undef;
 		if (defined($task_spec->{'TROJAN'})) {
 			$trojan_file = ${$task_spec->{'TROJAN'}}[2];
-		} else {
-			die;
 		}
 		
 		#print Dumper($task);
@@ -520,6 +538,7 @@ sub _assignInput {
 			
 			if (defined $input_obj->{'node'}) {
 				
+				# search for [variable]
 				my ($variable) = $input_obj->{'node'} =~ /\[(.*)\]/;
 				
 				if (defined $variable) {
@@ -541,6 +560,15 @@ sub _assignInput {
 				
 			}
 		}
+		
+		#my $outputs = $task->{'outputs'};
+		#foreach my $outputfile (keys(%{$outputs})) {
+		#	my $output_obj = $outputs->{$outputfile};
+			
+			
+		#}
+		
+		
 		#print Dumper($task);
 		#exit(0);
 		#print "got: ".$task->{'cmd'}->{'args'}."\n";
@@ -812,7 +840,7 @@ sub parse_command {
 			my $output_file = substr($COMMAND[$i], 2);
 			print "output_file: $output_file\n";
 			if (-e $output_file) {
-				print STDERR "error: output_file $output_file already exists\n";
+				print STDERR "error: output_file \"$output_file\" already exists\n";
 				exit(1);
 			}
 			
@@ -870,7 +898,7 @@ sub generateAndSubmitSimpleAWEJob {
 	
 	my $command = $h{'cmd'}; # example
 	
-	my $clientgroup = $h{'clientgroup'} || "qiime-wolfgang";
+	my $clientgroup = $h{'clientgroup'} || die "no clientgroup defined";
 	my $awe_user = "awe_user";
 	
 	
@@ -881,6 +909,12 @@ sub generateAndSubmitSimpleAWEJob {
 	#parse input/output
 	
 	my ($input_files_local, $output_files, $output_directories, $command_parsed) = &parse_command($command);
+	if (defined $h{'output_files'} ) {
+		my @of = split(',', $h{'output_files'});
+		push(@{$output_files}, @of);
+	}
+	
+	
 	
 	### create task template ###
 	my $task_template={};
@@ -891,26 +925,30 @@ sub generateAndSubmitSimpleAWEJob {
 	
 	for (my $i=0 ; $i < @{$output_files} ; ++$i ) {
 		my $outputfile = $output_files->[$i];
-		push(@{$task_template->{'outputs'}}, basename($outputfile) );
-	}
-	if (defined $h{'output_files'} ) {
-		my @of = split(',', $h{'output_files'});
-		foreach my $file (@of) {
-			push(@{$task_template->{'outputs'}}, basename($file) );
-		}
 		
-		$task_template->{'trojan'}->{'out_files'}=\@of;
+		
+		#my ($outputfilename, $outputfilepath) = fileparse($fullname);
+		
+		push(@{$task_template->{'outputs'}}, $outputfile);
 	}
+	#if (defined $h{'output_files'} ) {
+	#	my @of = split(',', $h{'output_files'});
+	#	foreach my $file (@of) {
+	#		push(@{$task_template->{'outputs'}}, basename($file) );
+	#	}
+	#
+	#	$task_template->{'trojan'}->{'out_files'}=\@of;
+	#}
 	
 	print "generated template:\n";
 	print Dumper($task_template);
-	
+	#exit(0);
 	
 	### create task (using the above generated template) ###
 	my $task = {
 		"task_id" => "single_task",
 		"task_template" => "template",
-		"TROJAN" => ["shock", "[TROJAN1]", "trojan1.pl"]
+#		"TROJAN" => ["shock", "[TROJAN1]", "trojan1.pl"]
 	};
 	
 	
@@ -926,16 +964,11 @@ sub generateAndSubmitSimpleAWEJob {
 	for (my $i=0 ; $i < @{$output_files} ; ++$i ) {
 		my $outputfile = $output_files->[$i];
 		$task->{'OUTPUT'.$i} = $outputfile;
-		push(@outputs, basename($outputfile));
+
+		push(@outputs, $outputfile);
 		#print "push: ".basename($outputfile)."\n";
 	}
-	if (defined $h{'output_files'} ) {
-		my @of = split(',', $h{'output_files'});
-		foreach my $file (@of) {
-			push(@{$task->{'outputs'}}, basename($file) );
-		}
-	}
-	
+		
 	print "generated task (without input):\n";
 	print Dumper($task);
 	
@@ -971,16 +1004,16 @@ sub generateAndSubmitSimpleAWEJob {
 	### define job input ###
 	my $job_input = {};
 	
-	if (defined $h{'output_files'} ) {
-		my @of = split(',', $h{'output_files'});
-		foreach my $file (@of) {
-			push(@outputs, basename($file));
-			print "push: ".basename($file)."\n";
-		}
-		$job_input->{'TROJAN1'}->{'data'} = AWE::Job::get_trojanhorse("out_files" => \@of) ;
-	} else  {
-		$job_input->{'TROJAN1'}->{'data'} = AWE::Job::get_trojanhorse() ;
-	}
+	#if (defined $h{'output_files'} ) {
+	#	my @of = split(',', $h{'output_files'});
+	#	foreach my $file (@of) {
+	#		push(@outputs, basename($file));
+	#		print "push: ".basename($file)."\n";
+	#	}
+		#$job_input->{'TROJAN1'}->{'data'} = AWE::Job::get_trojanhorse("out_files" => \@of) ;
+	#} else  {
+		#$job_input->{'TROJAN1'}->{'data'} = AWE::Job::get_trojanhorse() ;
+	#}
 	#$job_input->{'TROJAN1'}->{'node'}= "fake_shock_node_trojan1";
 	#$job_input->{'TROJAN1'}->{'shockhost'}= "fake_host";
 	
@@ -1005,7 +1038,7 @@ sub generateAndSubmitSimpleAWEJob {
 	
 	#upload job input files
 	$shock->upload_temporary_files($job_input);
-	
+	print "all temporary files uploaded.\n";
 	
 	# create job with the input defined above
 	my $workflow = $awe_qiime_job->create(%$job_input);
@@ -1017,7 +1050,7 @@ sub generateAndSubmitSimpleAWEJob {
 	
 	my $json = JSON->new;
 	print "AWE job ready for submission:\n".$json->pretty->encode( $workflow )."\n";
-	
+#exit(0);
 	print "submit job to AWE server...\n";
 	my $submission_result = $awe->submit_job('json_data' => $json->encode($workflow));
 	
@@ -1027,18 +1060,17 @@ sub generateAndSubmitSimpleAWEJob {
 }
 
 
-sub get_jobs_and_cleanup {
+# return 0 if all jobs are completed
+sub check_jobs {
 	
 	my %h = @_;
 	
 	my $awe = $h{'awe'};
-	my $shock= $h{'shock'};
 	my $jobs= $h{'jobs'};
 	my $clientgroup = $h{'clientgroup'};
+	
+	
 	unless (defined $awe) {
-		die;
-	}
-	unless (defined $shock) {
 		die;
 	}
 	
@@ -1047,8 +1079,59 @@ sub get_jobs_and_cleanup {
 	foreach my $job (@$jobs) {
 		$job_hash->{$job}=1;
 	}
-	my $jobs_to_process = @$jobs;
-	print "jobs_to_process: $jobs_to_process\n";
+	
+	
+	
+	
+	
+	my $all_jobs = $awe->getJobQueue('info.clientgroups' => $clientgroup);
+	
+	
+	my $all_jobs_hash = {};
+	
+	foreach my $job_object (@{$all_jobs->{data}}) {
+		my $job = $job_object->{'id'};
+		$all_jobs_hash->{$job} = $job_object;
+	}
+	
+	
+	foreach my $job (@$jobs) {
+		my $job_object = $all_jobs_hash->{$job};
+		
+		unless (defined $job_object) {
+			return 1;
+		}
+		
+		unless ($job_object->{'state'} eq "completed") { # TODO need to detect fail state !!!
+			return 1;
+		}
+		
+	}
+	
+	
+	return 0;
+	
+}
+
+sub get_jobs {
+	
+	my %h = @_;
+	
+	my $awe = $h{'awe'};
+	my $jobs= $h{'jobs'};
+	my $clientgroup = $h{'clientgroup'};
+	my $properties = $h{'properties'};
+	
+	unless (defined $awe) {
+		die;
+	}
+		
+	
+	my $job_hash={};
+	foreach my $job (@$jobs) {
+		$job_hash->{$job}=1;
+	}
+	
 	
 	
 	
@@ -1058,7 +1141,7 @@ sub get_jobs_and_cleanup {
 	#print Dumper($all_jobs);
 	
 	
-
+	
 	
 	
 	
@@ -1073,8 +1156,52 @@ sub get_jobs_and_cleanup {
 			next;
 		}
 		
+		my $skip = 0;
+		foreach my $p (keys(%$properties)) {
+			my $pval = $properties->{$p};
+			if ($job_object->{$p} ne $pval) {
+				$skip =1 ;
+				last;
+			}
+			if ($skip == 1) {
+				last;
+			}
+			
+		}
+		
+		if ($skip == 1) {
+			next;
+		}
+		
+		#unless ($job_object->{'state'} eq "completed") {
+		#	print STDERR "warning: job $job not yet completed\n";
+		#	next;
+		#}
+		
 		push(@requested_jobs, $job_object);
 	}
+
+	print 'get_jobs returns: '.@requested_jobs."\n";
+	return  @requested_jobs;
+}
+
+
+sub download_jobs {
+	
+	my %h = @_;
+	
+	my $awe = $h{'awe'};
+	my $shock= $h{'shock'};
+	my $jobs= $h{'jobs'};
+	my $clientgroup = $h{'clientgroup'};
+	my $use_download_dir = $h{'use_download_dir'};
+	my $only_last_task = $h{'only_last_task'};
+	
+	
+	my @requested_jobs = get_jobs(@_, 'properties' => {'state' => 'completed'});
+	
+	my $jobs_to_process = @requested_jobs;
+	print "jobs_to_process: $jobs_to_process\n";
 	
 	# download results, delete results, delete job
 	my $job_deletion_ok= 1;
@@ -1087,8 +1214,53 @@ sub get_jobs_and_cleanup {
 		
 		print Dumper($job_object)."\n";
 		
-		download_output_job_nodes($job_object, $shock, 'only_last_task' => 1);
+		download_output_job_nodes($job_object, $shock, 'only_last_task' => $only_last_task, 'use_download_dir' => $use_download_dir);
 		
+		
+		$jobs_to_process--;
+		
+		
+	}
+	
+	if ($jobs_to_process != 0 ) {
+		die "not all jobs processed";
+	}
+	
+	
+	return 0;
+}
+
+
+#deletes all "temporary" shock nodes of a given list of AWE job IDs
+sub delete_jobs {
+	
+	my %h = @_;
+	
+	my $awe = $h{'awe'};
+	my $shock= $h{'shock'};
+	my $jobs= $h{'jobs'};
+	my $clientgroup = $h{'clientgroup'};
+	
+	#'properties' => {'state' => 'completed'}
+	my @requested_jobs = get_jobs(@_);
+	#my @requested_jobs = @$jobs;
+	
+	
+	my $jobs_to_process = @requested_jobs;
+	print "jobs_to_process: $jobs_to_process\n";
+	
+	# download results, delete results, delete job
+	my $job_deletion_ok= 1;
+	foreach my $job_object (@requested_jobs) {
+		
+		my $job_id = $job_object->{'id'};
+		
+		#print "got jobid: $job_id\n";
+		#print "completed job $job\n";
+		
+		print Dumper($job_object)."\n";
+		
+				
 		my $node_delete_status = delete_output_job_nodes($job_object, $shock);
 		
 		if (defined $node_delete_status) {
@@ -1114,7 +1286,7 @@ sub get_jobs_and_cleanup {
 	return 0;
 }
 
-sub wait_and_get_job_results {
+sub wait_and_download_job_results {
 	my %h = @_;
 	
 	my $awe = $h{'awe'};
@@ -1166,8 +1338,8 @@ sub wait_and_get_job_results {
 				}
 				print "job $job_id ready, download results\n";
 				
-				get_jobs_and_cleanup('awe' => $awe, 'shock' => $shock, 'jobs' => [$job_id], 'clientgroup' => $clientgroup);
-				#system("./mg-awe-submit.pl --get_jobs=".$job_id) == 0 or die;
+				download_jobs('awe' => $awe, 'shock' => $shock, 'jobs' => [$job_id], 'clientgroup' => $clientgroup);
+				
 				$jobs_to_download->{$job_id} = 0;
 				
 			}
@@ -1189,10 +1361,20 @@ sub download_output_job_nodes {
 	
 	my $download_dir = ".";
 	
+	if (defined $h{'use_download_dir'} && $h{'use_download_dir'} == 1) {
+		my $job_name = $job_hash->{'info'}->{'name'} || die;
+		$download_dir = $job_name;
+		
+		if (-d $download_dir) {
+			die "download_dir \"$download_dir\" already exists\n";
+		}
+		
+		system("mkdir -p ".$download_dir) == 0 or die;
+		print STDERR "created output directory \"$download_dir\".\n";
+		
+	}
 	
-	#my $job_name = $job_hash->{'info'}->{'name'} || die;
-	#my $download_dir = $job_name;
-	#system("mkdir -p ".$download_dir);
+	
 	
 	
 	my $download_output_nodes = get_awe_output_nodes($job_hash, %h);
@@ -1215,8 +1397,8 @@ sub get_awe_output_nodes {
 	
 	my @tasks;
 	
-	if (defined $h{'only_last_task'}) {
-		@tasks = ($job_hash->{tasks}->[-1]);
+	if (defined $h{'only_last_task'} && $h{'only_last_task'}==1) {
+		@tasks = ($job_hash->{tasks}->[-1]); #TODO this is last task in json, not last by dependency !
 	} else {
 		@tasks = @{$job_hash->{tasks}};
 	}
@@ -1258,7 +1440,7 @@ sub download_ouput_from_shock{
 		}
 		
 		if (-e $download_name) {
-			print "$download_name already exists, refuse to overwrite...\n";
+			print "\"$download_name\" already exists, refuse to overwrite...\n";
 			exit(1);
 		}
 		
@@ -1319,24 +1501,24 @@ sub delete_shock_nodes{
 		if (defined $node_to_be_deleted) {
 			
 			# delete
-			print "try to delete $node_to_be_deleted\n";
+			print "try to delete shock node $node_to_be_deleted\n";
 			
 			my $nodeinfo = $shock->get_node($node_to_be_deleted);
 			
 			if (defined $nodeinfo) {
-				#print Dumper($nodeinfo);
+				print Dumper($nodeinfo);
 				
-				my $deleteshock = $shock->delete($node_to_be_deleted);
-				#print Dumper($deleteshock);
-				
-				unless (defined $deleteshock->{'status'} && $deleteshock->{'status'}==200) {
+				my $deleteshock = $shock->delete_node($node_to_be_deleted);
+								
+				unless (defined $deleteshock && defined $deleteshock->{'status'} && $deleteshock->{'status'}==200) {
 					print "error deleting $node_to_be_deleted\n";
 					$delete_ok = 0;
 				} else {
 					print "deleted $node_to_be_deleted\n"
 				}
 			} else {
-				print "error deleting node $node_to_be_deleted, node not found\n";
+				print "warning: cannot delete node, node \"$node_to_be_deleted\" not found\n";
+				next;
 			}
 			
 		} else {
@@ -1351,7 +1533,7 @@ sub delete_shock_nodes{
 
 
 
-
+#deletes all "temporary" shock nodes of an AWE job object
 sub delete_output_job_nodes {
 	my ($job_hash, $shock) = @_;
 	

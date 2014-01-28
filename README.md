@@ -31,8 +31,7 @@ A manual for running a workflow example:
 
 http://www.mcs.anl.gov/~wtang/files/awe-example.pdf
 
-Paper to cite:
+Papers to cite:
 
-[Wei Tang; Wilkening, J.; Desai, N.; Gerlach, W.; Wilke, A.; Meyer, F., "A scalable data analysis platform for metagenomics," Big Data, 2013 IEEE International Conference on, pp.21,26, 6-9 Oct. 2013]
-(http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=6691723&searchWithin%3Dscalable%26sortType%3Dasc_p_Sequence%26filter%3DAND%28p_IS_Number%3A6690588%29)
+[W. Tang, J. Wilkening, N. Desai, W. Gerlach, A. Wilke, F. Meyer, "A scalable data analysis platform for metagenomics," in Proc. of IEEE International Conference on Big Data, 2013.](http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=6691723) [ieeeexplore link](http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=6691723) [pdf](http://www.mcs.anl.gov/papers/P5012-0913_1.pdf)
 

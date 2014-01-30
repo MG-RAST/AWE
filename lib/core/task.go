@@ -12,14 +12,15 @@ import (
 )
 
 const (
-	TASK_STAT_INIT      = "init"
-	TASK_STAT_QUEUED    = "queued"
-	TASK_STAT_PENDING   = "pending"
-	TASK_STAT_SUSPEND   = "suspend"
-	TASK_STAT_COMPLETED = "completed"
-	TASK_STAT_SKIPPED   = "user_skipped"
-	TASK_STAT_FAIL_SKIP = "skipped"
-	TASK_STAT_PASSED    = "passed"
+	TASK_STAT_INIT       = "init"
+	TASK_STAT_QUEUED     = "queued"
+	TASK_STAT_INPROGRESS = "in-progress"
+	TASK_STAT_PENDING    = "pending"
+	TASK_STAT_SUSPEND    = "suspend"
+	TASK_STAT_COMPLETED  = "completed"
+	TASK_STAT_SKIPPED    = "user_skipped"
+	TASK_STAT_FAIL_SKIP  = "skipped"
+	TASK_STAT_PASSED     = "passed"
 )
 
 type Task struct {

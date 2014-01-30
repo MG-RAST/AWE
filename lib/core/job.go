@@ -14,11 +14,14 @@ import (
 
 const (
 	JOB_STAT_SUBMITTED  = "submitted"
+	JOB_STAT_QUEUED     = "queued"
 	JOB_STAT_INPROGRESS = "in-progress"
 	JOB_STAT_COMPLETED  = "completed"
 	JOB_STAT_SUSPEND    = "suspend"
 	JOB_STAT_DELETED    = "deleted"
 )
+
+var JOB_STATS_ACTIVE = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS}
 
 type Job struct {
 	Id          string    `bson:"id" json:"id"`

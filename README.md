@@ -20,7 +20,7 @@ Shock is actively being developed at [github.com/MG-RAST/Shock](http://github.co
 
 
 
-Manual:
+Documents:
 ------
 
 A detailed manual and API doc of AWE is available at:
@@ -33,5 +33,12 @@ http://www.mcs.anl.gov/~wtang/files/awe-example.pdf
 
 Papers to cite:
 
-[W. Tang, J. Wilkening, N. Desai, W. Gerlach, A. Wilke, F. Meyer, "A scalable data analysis platform for metagenomics," in Proc. of IEEE International Conference on Big Data, 2013.](http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=6691723) [[ieeeexplore link]](http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=6691723) [[pdf]](http://www.mcs.anl.gov/papers/P5012-0913_1.pdf)
+W. Tang, J. Wilkening, N. Desai, W. Gerlach, A. Wilke, F. Meyer, "A scalable data analysis platform for metagenomics," in Proc. of IEEE International Conference on Big Data, 2013.[[ieeexplore]](http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=6691723) [[pdf]](http://www.mcs.anl.gov/papers/P5012-0913_1.pdf)
+
+
+
+Google Group:
+------
+
+awe-users@awe-users@googlegroups.com  (bug reports and feature requests are welcomed!)
 

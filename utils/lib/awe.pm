@@ -65,77 +65,164 @@ sub pretty {
 
 # example: getJobQueue('info.clientgroups' => 'yourclientgroup')
 sub getJobQueue {
-	my ($self) = shift;
-	my @pairs = @_;
-	my $client_url = $self->awe_url.'/job';
+	my ($self, %query) = @_;
 	
-	#print "got: ".join(',', @pairs)."\n";
+	$query{'query'}=undef;
+
+	return $self->request('GET', 'job', \%query);
+}
+
+sub create_url {
+	my ($self, $resource, %query) = @_;
 	
-	if (@pairs > 0) {
-		$client_url .= '?query';
-		for (my $i = 0 ; $i < @pairs ; $i+=2) {
-			$client_url .= '&'.$pairs[$i].'='.$pairs[$i+1];
-		}
+	
+	unless (defined $self->awe_url ) {
+		die "awe_url not defined";
 	}
 	
-	my $http_response = $self->agent->get($client_url);
-	my $http_response_content  = $http_response->decoded_content;
-	die "Can't get url $client_url ", $http_response->status_line
-	unless $http_response->is_success;
+	if ($self->awe_url eq '') {
+		die "awe_url string empty";
+	}
 	
-	my $http_response_content_hash = $self->json->decode($http_response_content);
+	my $my_url = $self->awe_url . "/$resource";
 	
-	return $http_response_content_hash;
+	#if (defined $self->token) {
+	#	$query{'auth'}=$self->token;
+	#}
+	
+	#build query string:
+	my $query_string = "";
+	
+	foreach my $key (keys %query) {
+		my $value = $query{$key};
+		
+		if ($query_string ne '') {
+			$query_string .= '&';
+		}
+		
+		unless (defined $value) {
+			$query_string .= $key;
+			next;
+		}
+		
+		my @values=();
+		if (ref($value) eq 'ARRAY') {
+			@values=@$value;
+		} else {
+			@values=($value);
+		}
+		
+		foreach my $value (@values) {
+			if ((length($query_string) != 0)) {
+				$query_string .= '&';
+			}
+			$query_string .= $key.'='.$value;
+		}
+		
+	}
+	
+	
+	if (length($query_string) != 0) {
+		
+		#print "url: ".$my_url.'?'.$query_string."\n";
+		$my_url .= '?'.$query_string;#uri_escape()
+	}
+	
+	
+	
+	
+	return $my_url;
+}
+
+sub request {
+	#print 'request: '.join(',',@_)."\n";
+	my ($self, $method, $resource, $query, $headers) = @_;
+	
+	
+	my $my_url = $self->create_url($resource, (defined($query)?%$query:()));
+	
+	print "request: $method $my_url\n";
+	
+	
+	
+	my @method_args=($my_url); # ($my_url, ($self->token)?('Authorization' , "OAuth ".$self->token):());
+	
+	if (defined $headers) {
+		push(@method_args, %$headers);
+	}
+	
+	#print 'method_args: '.join(',', @method_args)."\n";
+	
+	my $response_content = undef;
+    
+    eval {
+		
+        my $response_object = undef;
+		
+        if ($method eq 'GET') {
+			$response_object = $self->agent->get(@method_args );
+		} elsif ($method eq 'DELETE') {
+			$response_object = $self->agent->delete(@method_args );
+		} elsif ($method eq 'POST') {
+			$self->agent->show_progress(1);
+			$response_object = $self->agent->post(@method_args );
+		} elsif ($method eq 'PUT') {
+			$self->agent->show_progress(1);
+			$response_object = $self->agent->put(@method_args );
+		} else {
+			die "method \"$method\"not implemented";
+		}
+		
+		
+		$response_content = $self->json->decode( $response_object->content );
+        
+    };
+    
+	if ($@ || (! ref($response_content))) {
+        print STDERR "[error] unable to connect to AWE ".$self->awe_url."\n";
+        return undef;
+    } elsif (exists($response_content->{error}) && $response_content->{error}) {
+        print STDERR "[error] unable to send $method request to AWE: ".$response_content->{error}[0]."\n";
+		return undef;
+    } else {
+        return $response_content;
+    }
+	
 }
 
 sub deleteJob {
 	my ($self, $job_id) = @_;
 	
-	my $deletejob_url = $self->awe_url.'/job/'.$job_id;
-	
-	my $respond_content=undef;
-	eval {
-        
-		my $http_response = $self->agent->delete( $deletejob_url );
-		$respond_content = $self->json->decode( $http_response->content );
-	};
-	if ($@ || (! ref($respond_content))) {
-        print STDERR "[error] unable to connect to AWE ".$self->awe_url."\n";
-        return undef;
-    } elsif (exists($respond_content->{error}) && $respond_content->{error}) {
-        print STDERR "[error] unable to delete job from AWE: ".$respond_content->{error}[0]."\n";
-    } else {
-        return $respond_content;
-    }
+	return $self->request('DELETE', 'job/'.$job_id);
 }
+
+
+sub showJob {
+	my ($self, $job_id) = @_;
+	
+	return $self->request('GET', 'job/'.$job_id);
+}
+
+sub resumeJob {
+	my ($self, $job_id) = @_;
+	
+	return $self->request('PUT', 'job/'.$job_id, {'resume'});
+}
+
 
 sub getClientList {
 	my ($self) = @_;
 	
-	unless (defined $self->awe_url) {
-		die;
-	}
 	
-	my $client_url = $self->awe_url.'/client/';
-	my $http_response = $self->agent->get($client_url);
-	
-	my $http_response_content  = $http_response->decoded_content;
-	#print "http_response_content: ".$http_response_content."\n";
-	
-	die "Can't get url $client_url ", $http_response->status_line
-	unless $http_response->is_success;
-	
+	return $self->request('GET', 'client');
 
-	my $http_response_content_hash = $self->json->decode($http_response_content);
-
-	return $http_response_content_hash;
 }
 
 # submit json_file or json_data
 sub submit_job {
 	my ($self, %hash) = @_;
 	
-	 my $content = {};
+	my $content = {};
 	if (defined $hash{json_file}) {
 		unless (-s $hash{json_file}) {
 			die "file not found";
@@ -147,52 +234,44 @@ sub submit_job {
 		$content->{upload} = [undef, "n/a", Content => $hash{json_data}]
 	}
 	
-	#my $content = {upload => [undef, "n/a", Content => $awe_qiime_job_json]};
-	my $job_url = $self->awe_url.'/job';
 	
-	my $respond_content=undef;
-	eval {
-        
-		my $http_response = $self->agent->post( $job_url, Datatoken => $self->shocktoken, Content_Type => 'multipart/form-data', Content => $content );
-		$respond_content = $self->json->decode( $http_response->content );
-	};
-	if ($@ || (! ref($respond_content))) {
-        print STDERR "[error] unable to connect to AWE ".$self->awe_url."\n";
-        return undef;
-    } elsif (exists($respond_content->{error}) && $respond_content->{error}) {
-        print STDERR "[error] unable to post data to AWE: ".$respond_content->{error}[0]."\n";
-    } else {
-        return $respond_content;
-    }
+	return $self->request(
+		'POST',
+		'job',
+		undef,
+		{Datatoken => $self->shocktoken, Content_Type => 'multipart/form-data', Content => $content}
+	);
+	
+	#my $content = {upload => [undef, "n/a", Content => $awe_qiime_job_json]};
+#	my $job_url = $self->awe_url.'/job';
+#	
+#	my $respond_content=undef;
+#	eval {
+#        
+#		my $http_response = $self->agent->post( $job_url, Datatoken => $self->shocktoken, Content_Type => 'multipart/form-data', Content => $content );
+#		$respond_content = $self->json->decode( $http_response->content );
+#	};
+#	if ($@ || (! ref($respond_content))) {
+#        print STDERR "[error] unable to connect to AWE ".$self->awe_url."\n";
+#        return undef;
+#    } elsif (exists($respond_content->{error}) && $respond_content->{error}) {
+#        print STDERR "[error] unable to post data to AWE: ".$respond_content->{error}[0]."\n";
+#    } else {
+#        return $respond_content;
+#    }
 }
 
 sub getJobStatus {
 	my ($self, $job_id) = @_;
 	
-	
-	my $jobstatus_url = $self->awe_url.'/job/'.$job_id;
-	
-	my $respond_content=undef;
-	eval {
-        
-		my $http_response = $self->agent->get( $jobstatus_url );
-		$respond_content = $self->json->decode( $http_response->content );
-	};
-	if ($@ || (! ref($respond_content))) {
-        print STDERR "[error] unable to connect to AWE ".$self->awe_url."\n";
-        return undef;
-    } elsif (exists($respond_content->{error}) && $respond_content->{error}) {
-        print STDERR "[error] unable to get data from AWE: ".$respond_content->{error}[0]."\n";
-    } else {
-        return $respond_content;
-    }
+	return $self->request('GET', 'job/'.$job_id);
 }
 
 
 sub checkClientGroup {
 	my ($self, $clientgroup) = @_;
 	
-	my $client_list_hash = $self->getClientList();
+	my $client_list_hash = $self->getClientList() || die "client list undefined";
 	#print Dumper($client_list_hash);
 	
 	print "\nOther clients:\n";
@@ -906,8 +985,9 @@ sub generateAndSubmitSimpleAWEJob {
 	my $command = $h{'cmd'}; # example
 	
 	my $clientgroup = $h{'clientgroup'} || die "no clientgroup defined";
-	my $awe_user = "awe_user";
+	my $awe_user = $h{'user'} || 'awe_user';
 	
+	my $job_name = $h{'job_name'} || "simple-autogen-name";
 	
 	my $awe = $h{'awe'};
 	my $shock = $h{'shock'};
@@ -997,7 +1077,7 @@ sub generateAndSubmitSimpleAWEJob {
 	my $awe_qiime_job = AWE::Job->new(
 	'info' => {
 		"pipeline"=> "simple-autogen",
-		"name"=> "simple-autogen-name",
+		"name"=> $job_name,
 		"project"=> "simple-autogen-prj",
 		"user"=> $awe_user,
 		"clientgroups"=> $clientgroup,
@@ -1135,17 +1215,19 @@ sub get_jobs {
 		die;
 	}
 		
-	
+	print "job list conatins ".@$jobs." jobs\n";
 	my $job_hash={};
 	foreach my $job (@$jobs) {
 		$job_hash->{$job}=1;
 	}
 	
 	
+	my %query;
+	if (defined($clientgroup)) {
+		$query{'info.clientgroups'} = $clientgroup;
+	}
 	
-	
-	
-	my $all_jobs = $awe->getJobQueue('info.clientgroups' => $clientgroup);
+	my $all_jobs = $awe->getJobQueue(%query);
 	
 	#print Dumper($all_jobs);
 	
@@ -1164,6 +1246,8 @@ sub get_jobs {
 		unless (defined($job_hash->{$job})) {
 			next;
 		}
+		
+		print "found job $job from job list\n";
 		
 		my $skip = 0;
 		foreach my $p (keys(%$properties)) {
@@ -1203,11 +1287,16 @@ sub download_jobs {
 	my $shock= $h{'shock'};
 	my $jobs= $h{'jobs'};
 	my $clientgroup = $h{'clientgroup'};
-	my $use_download_dir = $h{'use_download_dir'};
-	my $only_last_task = $h{'only_last_task'};
 	
+	
+	print 'use_download_dir: '.($h{'use_download_dir'}|| 'undef')."\n";
 	
 	my @requested_jobs = get_jobs(@_, 'properties' => {'state' => 'completed'});
+	
+	
+	if (@requested_jobs == 0) {
+		die "no jobs found";
+	}
 	
 	my $jobs_to_process = @requested_jobs;
 	print "jobs_to_process: $jobs_to_process\n";
@@ -1223,7 +1312,7 @@ sub download_jobs {
 		
 		print Dumper($job_object)."\n";
 		
-		download_output_job_nodes($job_object, $shock, 'only_last_task' => $only_last_task, 'use_download_dir' => $use_download_dir);
+		download_output_job_nodes($job_object, $shock, 'only_last_task' => $h{'only_last_task'}, 'use_download_dir' => $h{'use_download_dir'});
 		
 		
 		$jobs_to_process--;
@@ -1362,6 +1451,7 @@ sub wait_and_download_job_results {
 }
 
 
+# if use_download_dir is not defined, a directory is created that reflects the job name
 sub download_output_job_nodes {
 	my ($job_hash, $shock, %h) = @_;
 	
@@ -1370,17 +1460,35 @@ sub download_output_job_nodes {
 	
 	my $download_dir = ".";
 	
-	if (defined $h{'use_download_dir'} && $h{'use_download_dir'} == 1) {
+	if (defined $h{'use_download_dir'}) {
+		
+		print "use_download_dir: ".$h{'use_download_dir'}."\n";
+		
+		if ($h{'use_download_dir'} == 1 ) {
+			die "deprecated!";
+		}
+		
+	
+		
+		$download_dir = $h{'use_download_dir'};
+		
+	} else {
 		my $job_name = $job_hash->{'info'}->{'name'} || die;
 		$download_dir = $job_name;
 		
+		$download_dir =~ s/[^A-Za-z0-9\-\.]/\_/g;
+		
+		
 		if (-d $download_dir) {
-			die "download_dir \"$download_dir\" already exists\n";
+			die "download dir \"$download_dir\" already exists";
 		}
 		
+	}
+	
+	
+	unless (-d $download_dir) {
 		system("mkdir -p ".$download_dir) == 0 or die;
 		print STDERR "created output directory \"$download_dir\".\n";
-		
 	}
 	
 	
@@ -1440,6 +1548,21 @@ sub download_ouput_from_shock{
 	my $download_success = 1 ;
 	print Dumper($output_nodes);
 	
+	
+	# first check no local file will be overwritten
+	foreach my $resultfilename (keys(%$output_nodes)) {
+		my $download_name = $resultfilename;
+		if (defined $download_dir ) {
+			$download_name = $download_dir.'/'.$resultfilename;
+		}
+		
+		if (-e $download_name) {
+			print "\"$download_name\" already exists, refuse to overwrite...\n";
+			exit(1);
+		}
+	}
+	
+	# download files
 	foreach my $resultfilename (keys(%$output_nodes)) {
 		print "resultfilename: $resultfilename\n";
 		

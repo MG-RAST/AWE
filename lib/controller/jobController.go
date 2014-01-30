@@ -161,7 +161,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			}
 		}
 	} else if query.Has("active") {
-		q["state"] = core.JOB_STAT_INPROGRESS
+		q["state"] = bson.M{"$in": core.JOB_STATS_ACTIVE}
 	} else if query.Has("suspend") {
 		q["state"] = core.JOB_STAT_SUSPEND
 	}

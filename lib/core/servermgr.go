@@ -66,6 +66,9 @@ func (qm *ServerMgr) Handle() {
 		case coReq := <-qm.coReq:
 			logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v\n", coReq))
 			works, err := qm.popWorks(coReq)
+			if err == nil {
+				qm.UpdateJobTaskToInProgress(works)
+			}
 			ack := CoAck{workunits: works, err: err}
 			qm.coAck <- ack
 
@@ -155,11 +158,11 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		if qm.workQueue.workMap[workid].State != WORK_STAT_CHECKOUT { //could be suspended
 			return
 		}
-		var MAX_RETRY int
+		var MAX_FAILURE int
 		if task.Info.NoRetry == true {
-			MAX_RETRY = 0
+			MAX_FAILURE = 1
 		} else {
-			MAX_RETRY = conf.MAX_WORK_FAILURE
+			MAX_FAILURE = conf.MAX_WORK_FAILURE
 		}
 		if task.State == TASK_STAT_FAIL_SKIP {
 			// A work unit for this task failed before this one arrived.
@@ -222,7 +225,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 						qm.updateQueue()
 						// remove from the workQueue
 						qm.workQueue.Delete(workid)
-					} else if qm.workQueue.workMap[workid].Failed < MAX_RETRY {
+					} else if qm.workQueue.workMap[workid].Failed < MAX_FAILURE {
 						qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
 						logger.Event(event.WORK_REQUEUE, "workid="+workid)
 					} else { //failure time exceeds limit, suspend workunit, task, job
@@ -231,7 +234,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 						qm.updateTaskWorkStatus(taskid, rank, WORK_STAT_SUSPEND)
 						qm.taskMap[taskid].State = TASK_STAT_SUSPEND
 
-						reason := fmt.Sprintf("workunit %s failed %d time(s).", workid, MAX_RETRY)
+						reason := fmt.Sprintf("workunit %s failed %d time(s).", workid, MAX_FAILURE)
 						if len(notice.Notes) > 0 {
 							reason = reason + " msg from client:" + notice.Notes
 						}
@@ -263,6 +266,7 @@ func (qm *ServerMgr) ShowStatus() string {
 	suspend_work := len(qm.workQueue.suspend)
 	total_active_work := len(qm.workQueue.workMap)
 	queuing_task := 0
+	started_task := 0
 	pending_task := 0
 	completed_task := 0
 	suspended_task := 0
@@ -275,6 +279,8 @@ func (qm *ServerMgr) ShowStatus() string {
 			pending_task += 1
 		} else if task.State == TASK_STAT_QUEUED {
 			queuing_task += 1
+		} else if task.State == TASK_STAT_INPROGRESS {
+			started_task += 1
 		} else if task.State == TASK_STAT_SUSPEND {
 			suspended_task += 1
 		} else if task.State == TASK_STAT_SKIPPED {
@@ -284,9 +290,9 @@ func (qm *ServerMgr) ShowStatus() string {
 		}
 	}
 	total_task -= skipped_task // user doesn't see skipped tasks
-	in_progress_job := len(qm.actJobs)
+	active_jobs := len(qm.actJobs)
 	suspend_job := len(qm.susJobs)
-	total_job := in_progress_job + suspend_job
+	total_job := active_jobs + suspend_job
 	busy_client := 0
 	idle_client := 0
 	suspend_client := 0
@@ -302,10 +308,11 @@ func (qm *ServerMgr) ShowStatus() string {
 
 	statMsg := "++++++++AWE server queue status++++++++\n" +
 		fmt.Sprintf("total jobs ............... %d\n", total_job) +
-		fmt.Sprintf("    in-progress:      (%d)\n", in_progress_job) +
+		fmt.Sprintf("    active:           (%d)\n", active_jobs) +
 		fmt.Sprintf("    suspended:        (%d)\n", suspend_job) +
 		fmt.Sprintf("total tasks .............. %d\n", total_task) +
 		fmt.Sprintf("    queuing:          (%d)\n", queuing_task) +
+		fmt.Sprintf("    in-progress:      (%d)\n", started_task) +
 		fmt.Sprintf("    pending:          (%d)\n", pending_task) +
 		fmt.Sprintf("    completed:        (%d)\n", completed_task) +
 		fmt.Sprintf("    suspended:        (%d)\n", suspended_task) +
@@ -502,7 +509,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 
 	if IsFirstTask(task.Id) {
 		jobid, _ := GetJobIdByTaskId(task.Id)
-		UpdateJobState(jobid, JOB_STAT_INPROGRESS)
+		UpdateJobState(jobid, JOB_STAT_QUEUED, []string{JOB_STAT_SUBMITTED, JOB_STAT_SUSPEND})
 	}
 	return
 }
@@ -637,6 +644,48 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	return
 }
 
+//update job/task states from "queued" to "in-progress" once the first workunit is checked out
+func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
+	for _, work := range works {
+		job_was_inprogress := false
+		task_was_inprogress := false
+		taskid, _ := GetTaskIdByWorkId(work.Id)
+		jobid, _ := GetJobIdByWorkId(work.Id)
+		//Load job by id
+		job, err := LoadJob(jobid)
+		if err != nil {
+			continue
+		}
+		//update job status
+		if job.State == JOB_STAT_INPROGRESS {
+			job_was_inprogress = true
+		} else {
+			job.State = JOB_STAT_INPROGRESS
+		}
+		//update task status
+		idx := -1
+		for i, t := range job.Tasks {
+			if t.Id == taskid {
+				idx = i
+				break
+			}
+		}
+		if idx == -1 {
+			continue
+		}
+		//if task state changed to "completed", update remaining task in job
+		if job.Tasks[idx].State == TASK_STAT_INPROGRESS {
+			task_was_inprogress = true
+		} else {
+			job.Tasks[idx].State = TASK_STAT_INPROGRESS
+		}
+
+		if !job_was_inprogress || !task_was_inprogress {
+			job.Save()
+		}
+	}
+}
+
 func (qm *ServerMgr) GetActiveJobs() map[string]*JobPerf {
 	return qm.actJobs
 }
@@ -665,7 +714,7 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string) (err error) {
 
 	//suspend parsed tasks
 	for _, task := range job.Tasks {
-		if task.State == TASK_STAT_QUEUED || task.State == TASK_STAT_INIT {
+		if task.State == TASK_STAT_QUEUED || task.State == TASK_STAT_INIT || task.State == TASK_STAT_INPROGRESS {
 			if _, ok := qm.taskMap[task.Id]; ok {
 				qm.taskMap[task.Id].State = TASK_STAT_SUSPEND
 				task.State = TASK_STAT_SUSPEND
@@ -724,11 +773,11 @@ func (qm *ServerMgr) ResumeSuspendedJobs() (num int) {
 	return
 }
 
-//delete jobs in db with "in-progress" state but not in the queue (zombie jobs)
+//delete jobs in db with "queued" or "in-progress" state but not in the queue (zombie jobs)
 func (qm *ServerMgr) DeleteZombieJobs() (num int) {
 	dbjobs := new(Jobs)
 	q := bson.M{}
-	q["state"] = JOB_STAT_INPROGRESS
+	q["state"] = bson.M{"in": JOB_STATS_ACTIVE}
 	lim := 1000
 	off := 0
 	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {
@@ -756,7 +805,11 @@ func (qm *ServerMgr) ResumeSuspendedJob(id string) (err error) {
 		return errors.New("job " + id + " is not in 'suspend' status")
 	}
 	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
-	dbjob.UpdateState(JOB_STAT_INPROGRESS, "")
+	if dbjob.RemainTasks < len(dbjob.Tasks) {
+		dbjob.UpdateState(JOB_STAT_INPROGRESS, "resumed")
+	} else {
+		dbjob.UpdateState(JOB_STAT_QUEUED, "resumed")
+	}
 	delete(qm.susJobs, id)
 	return
 }
@@ -772,9 +825,9 @@ func (qm *ServerMgr) ResubmitJob(id string) (err error) {
 	if err != nil {
 		return errors.New("failed to load job " + err.Error())
 	}
-	if dbjob.State != JOB_STAT_INPROGRESS &&
-		dbjob.State != JOB_STAT_SUSPEND {
-		return errors.New("job state 'in-progress' or 'suspend' needed while state=" + dbjob.State)
+	if dbjob.State == JOB_STAT_COMPLETED ||
+		dbjob.State == JOB_STAT_DELETED {
+		return errors.New("job is in " + dbjob.State + "  state thus cannot be recovered")
 	}
 	for _, task := range dbjob.Tasks {
 		task.Info = dbjob.Info
@@ -789,7 +842,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	//Get jobs to be recovered from db whose states are "submitted"
 	dbjobs := new(Jobs)
 	q := bson.M{}
-	q["state"] = JOB_STAT_INPROGRESS
+	q["state"] = bson.M{"$in": JOB_STATS_ACTIVE}
 	lim := 1000
 	off := 0
 	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {
@@ -840,7 +893,11 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	}
 	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 	dbjob.RemainTasks = remaintasks
-	dbjob.UpdateState(JOB_STAT_INPROGRESS, "recomputed from task "+from_task_id)
+	if dbjob.RemainTasks < len(dbjob.Tasks) {
+		dbjob.UpdateState(JOB_STAT_INPROGRESS, "recomputed from task "+from_task_id)
+	} else {
+		dbjob.UpdateState(JOB_STAT_QUEUED, "recomputed from task "+from_task_id)
+	}
 	return
 }
 

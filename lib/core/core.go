@@ -384,6 +384,14 @@ func GetJobIdByWorkId(workid string) (jobid string, err error) {
 	return "", errors.New("invalid work id: " + workid)
 }
 
+func GetTaskIdByWorkId(workid string) (taskid string, err error) {
+	parts := strings.Split(workid, "_")
+	if len(parts) == 3 {
+		return fmt.Sprintf("%s_%s", parts[0], parts[1]), nil
+	}
+	return "", errors.New("invalid task id: " + workid)
+}
+
 func IsFirstTask(taskid string) bool {
 	parts := strings.Split(taskid, "_")
 	if len(parts) == 2 {
@@ -394,10 +402,21 @@ func IsFirstTask(taskid string) bool {
 	return false
 }
 
-func UpdateJobState(jobid string, newstate string) (err error) {
+//update job state to "newstate" only if the current state is in one of the "oldstates"
+func UpdateJobState(jobid string, newstate string, oldstates []string) (err error) {
 	job, err := LoadJob(jobid)
 	if err != nil {
 		return
+	}
+	matched := false
+	for _, oldstate := range oldstates {
+		if oldstate == job.State {
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		return errors.New("old state not matching one of the required ones")
 	}
 	if err := job.UpdateState(newstate, ""); err != nil {
 		return err

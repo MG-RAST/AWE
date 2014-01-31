@@ -419,10 +419,21 @@ sub createTask {
 		die "no task template found (task_template or task_cmd)";
 	}
 	
-	print "template:\n";
+	
+	if (defined $h{'TROJAN'} || defined $task_template->{'bash-wrapper'}) {
+		push(@{$task_template->{'inputs'}}, '[TROJAN]');
+		#print "use trojan XXXXXXXXXXXXXXXXX\n";
+	}
+
+	
+	print "final template version:\n";
 	print Dumper($task_template)."\n";
 	
 	my $host = $h{'shockhost'} || $self->{'shockhost'};
+	
+	
+	# start generaring task
+	my $task;
 	
 	$task->{'totalwork'} = 1;
 	
@@ -434,14 +445,11 @@ sub createTask {
 	$task->{'taskid'} = $taskid; # will be replaced later by numeric taskid
 	
 	
-	print "aaaaaaa\n";
-	print Dumper($task_template) ."\n";
 	
-	if (defined $h{'TROJAN'} || defined $task_template->{'bash-wrapper'}) {
-		push(@{$task_template->{'inputs'}}, '[TROJAN]');
-		#print "use trojan XXXXXXXXXXXXXXXXX\n";
-	}
 	
+		
+	print "task start:\n";
+	print Dumper($task) ."\n";
 	
 	
 	my $depends = {};

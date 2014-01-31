@@ -457,8 +457,8 @@ sub createTask {
 	my $inputs = {};
 	
 	if (defined $task_template->{'bash-wrapper'}) {
-		$inputs->{$filename}->{'node'} = 'x';
-		$inputs->{$filename}->{'host'} = $host;
+		$inputs->{'wrapper.sh'}->{'node'} = 'x';
+		$inputs->{'wrapper.sh'}->{'host'} = $host;
 	}
 	
 	foreach my $key_io (@{$task_template->{'inputs'}}) {

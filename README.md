@@ -44,5 +44,9 @@ W. Tang, J. Wilkening, N. Desai, W. Gerlach, A. Wilke, F. Meyer, "A scalable dat
 Google Group:
 ------
 
-awe-users@googlegroups.com  (bug reports and feature requests are welcomed!)
+Forum: https://groups.google.com/d/forum/awe-users
+
+Mailing list: awe-users@googlegroups.com  
+
+(bug reports and feature requests are welcomed!)
 

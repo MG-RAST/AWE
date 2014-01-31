@@ -405,7 +405,7 @@ sub createTask {
 		unless (defined $tmpl) {
 			
 			#print Dumper($task_templates);
-			
+			print STDERR "templates found: ".join(',', keys(%$task_templates))."\n";
 			die "template \"$task_template_name\" not found";
 		}
 		$task_template = dclone($tmpl);
@@ -933,8 +933,8 @@ sub parse_command {
 			
 			my $id = @output_files;
 			push(@output_files, $output_file);
-			$COMMAND[$i] = $output_file;
-			#$COMMAND[$i] = '[OUTPUT'.$id.']';
+			#$COMMAND[$i] = $output_file;
+			$COMMAND[$i] = '[OUTPUT'.$id.']';
 		} elsif ($COMMAND[$i] =~ /^@/) {
 			#print "at $ARGV[$i]\n";
 			my $input_file = substr($COMMAND[$i], 1);
@@ -978,34 +978,16 @@ sub parse_command {
 
 
 
-
-sub generateAndSubmitSimpleAWEJob {
-	my %h = @_;
-	
-	my $command = $h{'cmd'}; # example
-	
-	my $clientgroup = $h{'clientgroup'} || die "no clientgroup defined";
-	my $awe_user = $h{'user'} || 'awe_user';
-	
-	my $job_name = $h{'job_name'} || "simple-autogen-name";
-	
-	my $awe = $h{'awe'};
-	my $shock = $h{'shock'};
-	
-	my $shock_url = $h{'shock_url'} || $shock->{'shock_url'};
-	
-	
-	#parse input/output
+sub generateTaskTemplate {
+	my ($command, %h) = @_;
 	
 	my ($input_files_local, $output_files, $output_directories, $command_parsed) = &parse_command($command);
-	if (defined $h{'output_files'} ) {
-		my @of = split(',', $h{'output_files'});
+	
+	if (defined $h{'other_output_files'} ) {
+		my @of = split(',', $h{'other_output_files'});
 		push(@{$output_files}, @of);
 	}
 	
-	
-	
-	### create task template ###
 	my $task_template={};
 	$task_template->{'cmd'} = $command_parsed;
 	for (my $i=0 ; $i < @{$input_files_local} ; ++$i ) {
@@ -1018,20 +1000,37 @@ sub generateAndSubmitSimpleAWEJob {
 		
 		#my ($outputfilename, $outputfilepath) = fileparse($fullname);
 		
-		push(@{$task_template->{'outputs'}}, $outputfile);
+		#push(@{$task_template->{'outputs'}}, $outputfile);
+		push(@{$task_template->{'outputs'}}, '[OUTPUT'.$i.']');
 	}
-	#if (defined $h{'output_files'} ) {
-	#	my @of = split(',', $h{'output_files'});
-	#	foreach my $file (@of) {
-	#		push(@{$task_template->{'outputs'}}, basename($file) );
-	#	}
-	#
-	#	$task_template->{'trojan'}->{'out_files'}=\@of;
-	#}
-	
+		
 	print "generated template:\n";
 	print Dumper($task_template);
-	#exit(0);
+	
+	return ($task_template, $input_files_local, $output_files);
+}
+
+
+
+sub generateAndSubmitSimpleAWEJob {
+	my %h = @_;
+	
+	my $command = $h{'cmd'} || die "no cmd defined";
+	my $clientgroup = $h{'clientgroup'} || die "no clientgroup defined";
+	my $awe_user = $h{'user'} || 'awe_user';
+	my $job_name = $h{'job_name'} || "simple-autogen-name";
+	
+	my $awe = $h{'awe'} || die "no awe defined";
+	my $shock = $h{'shock'} || die "no shick defined";
+	
+	my $shock_url = $h{'shock_url'} || $shock->{'shock_url'}; # this can be used to tell AWE to use another shock url than used for upload
+	
+	
+	
+	
+	### generate tas template
+	my ($task_template, $input_files_local , $output_files)= generateTaskTemplate($command, 'other_output_files' => $h{'output_files'});
+	
 	
 	### create task (using the above generated template) ###
 	my $task = {
@@ -1061,19 +1060,7 @@ sub generateAndSubmitSimpleAWEJob {
 	print "generated task (without input):\n";
 	print Dumper($task);
 	
-	#exit(0);
-	
-	
-	#$task->{'outputs'} = \@outputs;
-	
-	
-	#my $task_tmpls={};
-	#$task_tmpls->{'template'} = $task_template;
-	
-	
-	#print "task:\n";
-	#print Dumper($task);
-	
+		
 	my $awe_qiime_job = AWE::Job->new(
 	'info' => {
 		"pipeline"=> "simple-autogen",
@@ -1109,37 +1096,43 @@ sub generateAndSubmitSimpleAWEJob {
 	
 	
 	# local files to be uploaded
+	
+	my $fakeshock =0 ;
+	
 	for (my $i=0 ; $i < @{$input_files_local} ; ++$i ) {
 		my $inputfile = $input_files_local->[$i];
+		if ($fakeshock==1) {
+			$inputfile = 'file'.$i;
+			$job_input->{'INPUT'.$i}->{'node'} = '0';
+		}
+		
 		$job_input->{'INPUT'.$i}->{'file'} = $inputfile;
 		$job_input->{'INPUT'.$i}->{'shockhost'}= $shock_url;
 		#$job_input->{'INPUT'.$i}->{'node'} = "fake_shock_node".$i;
 	}
 	
-	
-	
-	
-	
-	#$job_input->{'INPUT-PARAMETER'}->{'file'} = './otu_picking_params_97.txt';   	  # local file to be uploaded
-	
 	#print Dumper($job_input);
 	
 	
 	#upload job input files
-	$shock->upload_temporary_files($job_input);
+	if ($fakeshock == 0) {
+		$shock->upload_temporary_files($job_input);
+	}
 	print "all temporary files uploaded.\n";
 	
-	# create job with the input defined above
+	
+	# create complete job with the input defined above
 	my $workflow = $awe_qiime_job->create(%$job_input);
 	
-	#exit(0);
-	
-	#overwrite jobname:
-	#$workflow->{'info'}->{'name'} = $sample;
 	
 	my $json = JSON->new;
 	print "AWE job ready for submission:\n".$json->pretty->encode( $workflow )."\n";
 #exit(0);
+	
+	if ($fakeshock == 1) {
+		print "used fakeshock\n";
+		exit(0);
+	}
 	print "submit job to AWE server...\n";
 	my $submission_result = $awe->submit_job('json_data' => $json->encode($workflow));
 	

@@ -420,10 +420,10 @@ sub createTask {
 	}
 	
 	
-	if (defined $h{'TROJAN'} || defined $task_template->{'bash-wrapper'}) {
-		push(@{$task_template->{'inputs'}}, '[TROJAN]');
-		#print "use trojan XXXXXXXXXXXXXXXXX\n";
-	}
+	#if (defined $task_template->{'bash-wrapper'}) {
+	#	push(@{$task_template->{'inputs'}}, '[TROJAN]');
+	#	#print "use trojan XXXXXXXXXXXXXXXXX\n";
+	#}
 
 	
 	print "final template version:\n";
@@ -455,6 +455,12 @@ sub createTask {
 	my $depends = {};
 	
 	my $inputs = {};
+	
+	if (defined $task_template->{'bash-wrapper'}) {
+		$inputs->{$filename}->{'node'} = 'x';
+		$inputs->{$filename}->{'host'} = $host;
+	}
+	
 	foreach my $key_io (@{$task_template->{'inputs'}}) {
 		
 		my ($key) = $key_io =~ /^\[(.*)\]$/;
@@ -535,13 +541,11 @@ sub createTask {
 		
 		#die "key not defined in output";
 		$outputs->{$filename_base}->{'host'} = $host;
-		
-		
-		
-		
-		
 	
 	}
+	
+	
+	
 	$task->{'outputs'}=$outputs;
 	
 	$task->{'cmd'}->{'args'} = $cmd;

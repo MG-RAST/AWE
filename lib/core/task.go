@@ -38,9 +38,10 @@ type Task struct {
 	WorkStatus    []string  `bson:"workstatus" json:"-"`
 	State         string    `bson:"state" json:"state"`
 	Skip          int       `bson:"skip" json:"-"`
-	CreatedDate   time.Time `bson:"createdDate" json:"-"`
-	StartedDate   time.Time `bson:"startedDate" json:"-"`
-	CompletedDate time.Time `bson:"completedDate" json:"-"`
+	CreatedDate   time.Time `bson:"createdDate" json:"createddate"`
+	StartedDate   time.Time `bson:"startedDate" json:"starteddate"`
+	CompletedDate time.Time `bson:"completedDate" json:"completeddate"`
+	ComputeTime   int       `bson:"computetime" json:"computetime"`
 }
 
 func NewTask(job *Job, rank int) *Task {

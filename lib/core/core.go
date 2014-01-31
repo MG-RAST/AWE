@@ -53,10 +53,11 @@ type CoAck struct {
 }
 
 type Notice struct {
-	WorkId   string
-	Status   string
-	ClientId string
-	Notes    string
+	WorkId      string
+	Status      string
+	ClientId    string
+	ComputeTime int
+	Notes       string
 }
 
 type coInfo struct {
@@ -477,7 +478,7 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 }
 
 func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (err error) {
-	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s", conf.SERVER_URL, work.Id, work.State, Self.Id)
+	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work.Id, work.State, Self.Id, work.ComputeTime)
 	form := httpclient.NewForm()
 	hasreport := false
 	if work.State == WORK_STAT_DONE && perf != nil {

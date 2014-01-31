@@ -8,6 +8,7 @@ import (
 	"github.com/MG-RAST/golib/goweb"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -126,6 +127,11 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 
 	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
 		notice := core.Notice{WorkId: id, Status: query.Value("status"), ClientId: query.Value("client"), Notes: ""}
+		if query.Has("computetime") {
+			if comptime, err := strconv.Atoi(query.Value("computetime")); err == nil {
+				notice.ComputeTime = comptime
+			}
+		}
 		if query.Has("report") { // if "report" is specified in query, parse performance statistics or errlog
 			if _, files, err := ParseMultipartForm(cx.Request); err == nil {
 				if _, ok := files["perf"]; ok {

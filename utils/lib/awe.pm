@@ -434,8 +434,8 @@ sub createTask {
 	$task->{'taskid'} = $taskid; # will be replaced later by numeric taskid
 	
 	
-	
-	
+	print "aaaaaaa\n";
+	print Dumper($task_template) ."\n";
 	
 	if (defined $h{'TROJAN'} || defined $task_template->{'bash-wrapper'}) {
 		push(@{$task_template->{'inputs'}}, '[TROJAN]');

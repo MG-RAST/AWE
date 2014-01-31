@@ -373,8 +373,8 @@ sub create_simple_template {
 	my $meta_template = {
 		"cmd" => $cmd,
 		"inputs" => \@inputs,
-		"outputs" => \@outputs,
-		"trojan" => {} # creates trojan script with basic features
+		"outputs" => \@outputs
+		#"trojan" => {} # creates trojan script with basic features
 	};
 	
 	
@@ -435,7 +435,9 @@ sub createTask {
 	
 	
 	
-	if (defined $h{'TROJAN'}) {
+	
+	
+	if (defined $h{'TROJAN'} || defined $task_template->{'bash-wrapper'}) {
 		push(@{$task_template->{'inputs'}}, '[TROJAN]');
 		#print "use trojan XXXXXXXXXXXXXXXXX\n";
 	}

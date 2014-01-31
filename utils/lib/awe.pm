@@ -458,7 +458,7 @@ sub createTask {
 	
 	my $bash_wrapper_filename = undef; # = 'wrapper.sh';
 	if (defined $task_template->{'bash-wrapper'}) {
-		my ($bash_wrapper_filename) = $cmd =~ /^([^\S+])/;
+		my ($bash_wrapper_filename) = $cmd =~ /^([^\S]+)/;
 		unless (defined($bash_wrapper_filename)) {
 			die "could not extract bash script name from cmd: $cmd";
 		}

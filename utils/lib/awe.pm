@@ -456,9 +456,16 @@ sub createTask {
 	
 	my $inputs = {};
 	
+	my $bash_wrapper_filename = undef; # = 'wrapper.sh';
 	if (defined $task_template->{'bash-wrapper'}) {
-		$inputs->{'wrapper.sh'}->{'node'} = 'x';
-		$inputs->{'wrapper.sh'}->{'host'} = $host;
+		my ($bash_wrapper_filename) = $task->{'cmd'}->{'args'} =~ /^([^\S+])/;
+		unless (defined($bash_wrapper_filename)) {
+			die "could not extract bash script name";
+		}
+		print "using bash script name: $bash_wrapper_filename\n";
+		$trojan_file = $bash_wrapper_filename;
+		$inputs->{$trojan_file}->{'node'} = '[TROJAN]';
+		$inputs->{$trojan_file}->{'host'} = $host;
 	}
 	
 	foreach my $key_io (@{$task_template->{'inputs'}}) {
@@ -547,6 +554,35 @@ sub createTask {
 	
 	
 	$task->{'outputs'}=$outputs;
+	
+	
+
+	
+	if (defined($task_template->{'bash-wrapper'})) {
+			# modify AWE task to use trojan script
+		
+		
+		
+		$task->{'cmd'}->{'args'} = "\@".$task->{'cmd'}->{'args'};
+		$task->{'cmd'}->{'name'} = "bash";
+		
+		
+	} else {
+		# extract the executable from command
+		
+		my $executable;
+		$task->{'cmd'}->{'args'} =~ s/^([\S]+)//;
+		$executable=$1;
+		$task->{'cmd'}->{'args'} =~ s/^[\s]*//;
+		
+		unless (defined $executable) {
+			die "executable not found in ".$task->{'cmd'}->{'args'};
+		}
+		
+		$task->{'cmd'}->{'name'} = $executable;
+	}
+	
+	
 	
 	$task->{'cmd'}->{'args'} = $cmd;
 	
@@ -683,31 +719,6 @@ sub _assignInput {
 		
 		
 		
-		if (defined($trojan_file)) {
-			#if ( defined($h{'TROJAN'}) ) {
-			
-			# modify AWE task to use trojan script
-			
-			
-			
-			$task->{'cmd'}->{'args'} = "\@".$trojan_file." ".$task->{'cmd'}->{'args'};
-			$task->{'cmd'}->{'name'} = "perl";
-			
-			
-		} else {
-			# extract the executable from command
-			
-			my $executable;
-			$task->{'cmd'}->{'args'} =~ s/^([\S]+)//;
-			$executable=$1;
-			$task->{'cmd'}->{'args'} =~ s/^[\s]*//;
-			
-			unless (defined $executable) {
-				die "executable not found in ".$task->{'cmd'}->{'args'};
-			}
-			
-			$task->{'cmd'}->{'name'} = $executable;
-		}
 	}
 }
 

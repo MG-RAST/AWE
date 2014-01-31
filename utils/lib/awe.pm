@@ -419,8 +419,8 @@ sub createTask {
 		die "no task template found (task_template or task_cmd)";
 	}
 	
-	#print "template:\n";
-	#print Dumper($task_template)."\n";
+	print "template:\n";
+	print Dumper($task_template)."\n";
 	
 	my $host = $h{'shockhost'} || $self->{'shockhost'};
 	

@@ -14,6 +14,7 @@ type Info struct {
 	Pipeline      string    `bson:"pipeline" json:"pipeline"`
 	ClientGroups  string    `bson:"clientgroups" json:"clientgroups"`
 	SubmitTime    time.Time `bson:"submittime" json:"submittime"`
+	StartedTme    time.Time `bson:"startedtime" json:"startedtime"`
 	CompletedTime time.Time `bson:"completedtime" json:"completedtime"`
 	Priority      int       `bson:"priority" json:"-"`
 	Auth          bool      `bson:"auth" json:"auth"`

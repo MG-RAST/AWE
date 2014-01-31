@@ -663,6 +663,7 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 			job_was_inprogress = true
 		} else {
 			job.State = JOB_STAT_INPROGRESS
+			job.Info.StartedTme = time.Now()
 		}
 		//update task status
 		idx := -1

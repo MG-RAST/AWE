@@ -585,7 +585,7 @@ sub createTask {
 	
 	
 	
-	$task->{'cmd'}->{'args'} = $cmd;
+	#$task->{'cmd'}->{'args'} = $cmd;
 	
 	
 	my @depends_on = ();

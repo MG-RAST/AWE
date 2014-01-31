@@ -463,9 +463,9 @@ sub createTask {
 			die "could not extract bash script name";
 		}
 		print "using bash script name: $bash_wrapper_filename\n";
-		$trojan_file = $bash_wrapper_filename;
-		$inputs->{$trojan_file}->{'node'} = '[TROJAN]';
-		$inputs->{$trojan_file}->{'host'} = $host;
+		#$trojan_file = $bash_wrapper_filename;
+		$inputs->{$bash_wrapper_filename}->{'node'} = '[TROJAN]';
+		$inputs->{$bash_wrapper_filename}->{'host'} = $host;
 	}
 	
 	foreach my $key_io (@{$task_template->{'inputs'}}) {

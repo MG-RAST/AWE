@@ -458,7 +458,7 @@ sub createTask {
 	
 	my $bash_wrapper_filename = undef; # = 'wrapper.sh';
 	if (defined $task_template->{'bash-wrapper'}) {
-		my ($bash_wrapper_filename) = $task->{'cmd'}->{'args'} =~ /^([^\S+])/;
+		my ($bash_wrapper_filename) = $cmd =~ /^([^\S+])/;
 		unless (defined($bash_wrapper_filename)) {
 			die "could not extract bash script name";
 		}
@@ -563,7 +563,7 @@ sub createTask {
 		
 		
 		
-		$task->{'cmd'}->{'args'} = "\@".$task->{'cmd'}->{'args'};
+		$task->{'cmd'}->{'args'} = "\@".$cmd;
 		$task->{'cmd'}->{'name'} = "bash";
 		
 		
@@ -571,6 +571,7 @@ sub createTask {
 		# extract the executable from command
 		
 		my $executable;
+		$task->{'cmd'}->{'args'} = $cmd;
 		$task->{'cmd'}->{'args'} =~ s/^([\S]+)//;
 		$executable=$1;
 		$task->{'cmd'}->{'args'} =~ s/^[\s]*//;

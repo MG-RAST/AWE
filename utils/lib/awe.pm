@@ -460,7 +460,7 @@ sub createTask {
 	if (defined $task_template->{'bash-wrapper'}) {
 		my ($bash_wrapper_filename) = $cmd =~ /^([^\S+])/;
 		unless (defined($bash_wrapper_filename)) {
-			die "could not extract bash script name";
+			die "could not extract bash script name from cmd: $cmd";
 		}
 		print "using bash script name: $bash_wrapper_filename\n";
 		#$trojan_file = $bash_wrapper_filename;

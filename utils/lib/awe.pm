@@ -395,7 +395,7 @@ sub createTask {
 	
 	
 	my $task_template=undef;
-	my $task;
+	
 	
 	if (defined $task_template_name) {
 		

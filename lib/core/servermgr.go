@@ -141,6 +141,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	workid := notice.WorkId
 	status := notice.Status
 	clientid := notice.ClientId
+	computetime := notice.ComputeTime
 	parts := strings.Split(workid, "_")
 	taskid := fmt.Sprintf("%s_%s", parts[0], parts[1])
 	jobid := parts[0]
@@ -183,6 +184,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 					//it happens when feedback is sent after server restarted and before client re-registered
 				}
 				task.RemainWork -= 1
+				task.ComputeTime += computetime
 				if task.RemainWork == 0 {
 					task.State = TASK_STAT_COMPLETED
 					task.CompletedDate = time.Now()
@@ -673,11 +675,11 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 		if idx == -1 {
 			continue
 		}
-		//if task state changed to "completed", update remaining task in job
 		if job.Tasks[idx].State == TASK_STAT_INPROGRESS {
 			task_was_inprogress = true
 		} else {
 			job.Tasks[idx].State = TASK_STAT_INPROGRESS
+			job.Tasks[idx].StartedDate = time.Now()
 		}
 
 		if !job_was_inprogress || !task_was_inprogress {

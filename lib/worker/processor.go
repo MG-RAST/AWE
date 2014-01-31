@@ -43,7 +43,9 @@ func processor(control chan int) {
 			processed.workunit.State = core.WORK_STAT_COMPUTED
 		}
 		run_end := time.Now().Unix()
-		processed.perfstat.Runtime = run_end - run_start
+		computetime := run_end - run_start
+		processed.perfstat.Runtime = computetime
+		processed.workunit.ComputeTime = int(computetime)
 
 		fromProcessor <- processed
 

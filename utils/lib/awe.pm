@@ -595,8 +595,8 @@ sub createTask {
 		$task->{'dependsOn'} = \@depends_on;
 	}
 	
-	#print "task:\n";
-	#print Dumper($task)."\n";
+	print "task produced:\n";
+	print Dumper($task)."\n";
 	#exit(0);
 	
 	return $task;

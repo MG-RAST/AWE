@@ -206,7 +206,7 @@ sub showJob {
 sub resumeJob {
 	my ($self, $job_id) = @_;
 	
-	return $self->request('PUT', 'job/'.$job_id, {'resume'});
+	return $self->request('PUT', 'job/'.$job_id, {'resume' => undef});
 }
 
 
@@ -382,7 +382,7 @@ sub create_simple_template {
 }
 
 sub createTask {
-	my ($self, %h)= @_;
+	my ($self, $num, %h)= @_;
 	
 	
 	my $taskid = $h{'task_id'};
@@ -464,7 +464,7 @@ sub createTask {
 		}
 		print "using bash script name: $bash_wrapper_filename\n";
 		#$trojan_file = $bash_wrapper_filename;
-		$inputs->{$bash_wrapper_filename}->{'node'} = '[TROJAN]';
+		$inputs->{$bash_wrapper_filename}->{'node'} = '[TROJAN'.$num.']';
 		$inputs->{$bash_wrapper_filename}->{'host'} = $host;
 	}
 	
@@ -628,7 +628,7 @@ sub assignTasks {
 		
 
 		### createTask ###
-		my $newtask = createTask($self, %$task_spec);
+		my $newtask = createTask($self, $i+1, %$task_spec);
 		$self->{'data'}->{'tasks'}->[$i] = $newtask;
 		
 		#if (defined($task_spec->{'TROJAN'})) {
@@ -660,10 +660,10 @@ sub _assignInput {
 		my $task_spec = $task_specs->[$i];
 		
 		#my $trojan_file=$task->{'trojan_file'};
-		my $trojan_file=undef;
-		if (defined($task_spec->{'TROJAN'})) {
-			$trojan_file = ${$task_spec->{'TROJAN'}}[2];
-		}
+		#my $trojan_file=undef;
+		#if (defined($task_spec->{'TROJAN'})) {
+		#	$trojan_file = ${$task_spec->{'TROJAN'}}[2];
+		#}
 		
 		#print Dumper($task);
 		my $inputs = $task->{'inputs'};

@@ -151,6 +151,9 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	}
 	if _, ok := qm.clientMap[clientid]; ok {
 		delete(qm.clientMap[clientid].Current_work, workid)
+		if len(qm.clientMap[clientid].Current_work) == 0 {
+			qm.clientMap[clientid].Status = CLIENT_STAT_ACTIVE_IDLE
+		}
 	}
 	if task, ok := qm.taskMap[taskid]; ok {
 		if _, ok := qm.workQueue.workMap[workid]; !ok {

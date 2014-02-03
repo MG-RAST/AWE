@@ -187,7 +187,7 @@ func (qm *CQMgr) DeleteClient(id string) (err error) {
 
 func (qm *CQMgr) SuspendClient(id string) (err error) {
 	if client, ok := qm.clientMap[id]; ok {
-		if client.Status == CLIENT_STAT_ACTIVE {
+		if client.Status == CLIENT_STAT_ACTIVE_IDLE || client.Status == CLIENT_STAT_ACTIVE_BUSY {
 			client.Status = CLIENT_STAT_SUSPEND
 			return
 		}
@@ -199,7 +199,7 @@ func (qm *CQMgr) SuspendClient(id string) (err error) {
 func (qm *CQMgr) ResumeClient(id string) (err error) {
 	if client, ok := qm.clientMap[id]; ok {
 		if client.Status == CLIENT_STAT_SUSPEND {
-			client.Status = CLIENT_STAT_ACTIVE
+			client.Status = CLIENT_STAT_ACTIVE_IDLE
 			return
 		}
 		return errors.New("client is not in suspended state")
@@ -210,7 +210,7 @@ func (qm *CQMgr) ResumeClient(id string) (err error) {
 func (qm *CQMgr) ResumeSuspendedClients() (count int) {
 	for _, client := range qm.clientMap {
 		if client.Status == CLIENT_STAT_SUSPEND {
-			client.Status = CLIENT_STAT_ACTIVE
+			client.Status = CLIENT_STAT_ACTIVE_IDLE
 			count += 1
 		}
 	}
@@ -219,7 +219,7 @@ func (qm *CQMgr) ResumeSuspendedClients() (count int) {
 
 func (qm *CQMgr) SuspendAllClients() (count int) {
 	for _, client := range qm.clientMap {
-		if client.Status == CLIENT_STAT_ACTIVE {
+		if client.Status == CLIENT_STAT_ACTIVE_IDLE || client.Status == CLIENT_STAT_ACTIVE_BUSY {
 			client.Status = CLIENT_STAT_SUSPEND
 			count += 1
 		}
@@ -261,6 +261,9 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, num int)
 		for _, work := range ack.workunits {
 			qm.clientMap[client_id].Total_checkout += 1
 			qm.clientMap[client_id].Current_work[work.Id] = true
+		}
+		if qm.clientMap[client_id].Status == CLIENT_STAT_ACTIVE_IDLE {
+			qm.clientMap[client_id].Status = CLIENT_STAT_ACTIVE_BUSY
 		}
 	}
 

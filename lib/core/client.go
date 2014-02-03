@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	CLIENT_STAT_ACTIVE  = "active"
-	CLIENT_STAT_SUSPEND = "suspend"
-	CLIENT_STAT_DELETED = "deleted"
+	CLIENT_STAT_ACTIVE_BUSY = "active-busy"
+	CLIENT_STAT_ACTIVE_IDLE = "active-idle"
+	CLIENT_STAT_SUSPEND     = "suspend"
+	CLIENT_STAT_DELETED     = "deleted"
 )
 
 type Client struct {
@@ -42,7 +43,7 @@ func NewClient() (client *Client) {
 	client.Id = uuid.New()
 	client.Apps = []string{}
 	client.Skip_work = []string{}
-	client.Status = CLIENT_STAT_ACTIVE
+	client.Status = CLIENT_STAT_ACTIVE_IDLE
 	client.Total_checkout = 0
 	client.Total_completed = 0
 	client.Total_failed = 0
@@ -73,7 +74,7 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 		client.Apps = []string{}
 	}
 	client.Skip_work = []string{}
-	client.Status = "active"
+	client.Status = CLIENT_STAT_ACTIVE_IDLE
 	if client.Current_work == nil {
 		client.Current_work = map[string]bool{}
 	}

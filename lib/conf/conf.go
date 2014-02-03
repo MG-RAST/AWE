@@ -54,10 +54,11 @@ var (
 	SECRET_KEY  = ""
 
 	// Directories
-	DATA_PATH = ""
-	SITE_PATH = ""
-	LOGS_PATH = ""
-	AWF_PATH  = ""
+	DATA_PATH     = ""
+	SITE_PATH     = ""
+	LOGS_PATH     = ""
+	AWF_PATH      = ""
+	PID_FILE_PATH = ""
 
 	// Mongodb
 	MONGODB_HOST     = ""
@@ -169,6 +170,12 @@ func init() {
 	DATA_PATH, _ = c.String("Directories", "data")
 	LOGS_PATH, _ = c.String("Directories", "logs")
 	AWF_PATH, _ = c.String("Directories", "awf")
+
+	// Paths
+	PID_FILE_PATH, _ = c.String("Paths", "pidfile")
+	if PID_FILE_PATH == "" {
+		PID_FILE_PATH = DATA_PATH + "/pidfile"
+	}
 
 	// Mongodb
 	MONGODB_HOST, _ = c.String("Mongodb", "hosts")

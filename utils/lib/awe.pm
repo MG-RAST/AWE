@@ -57,6 +57,7 @@ sub transport_method {
 }
 
 
+
 sub pretty {
 	my ($self, $hash) = @_;
 	
@@ -295,7 +296,7 @@ sub checkClientGroup {
 		if (defined($client->{group}) && ($client->{group} eq $clientgroup)) {
 			print $client->{name}." (".$client->{Status}.")  group: ".$client->{group}."  apps: ".join(',',@{$client->{apps}})."\n";
 			
-			if (lc($client->{Status}) eq 'active') {
+			if (lc($client->{Status}) eq 'active-idle' || lc($client->{Status}) eq 'active-busy') {
 				$found_active_clients++;
 			} else {
 				print "warning: client not active:\n";
@@ -1647,6 +1648,9 @@ sub delete_shock_nodes{
 		
 		my $result_obj = $output_nodes->{$resultfilename};
 		my $node_to_be_deleted = $result_obj->{node};
+		if ($node_to_be_deleted eq '-') {
+			next;
+		}
 		#my $result_size =  $result_obj->{size};
 		
 		if (defined $node_to_be_deleted) {

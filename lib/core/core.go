@@ -269,7 +269,8 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 
 	job.setId()     //uuid for the job
 	job.setJid(jid) //an incremental id for the jobs within a AWE server domain
-	job.State = JOB_STAT_SUBMITTED
+	job.State = JOB_STAT_INIT
+	job.Registered = true
 
 	for i := 0; i < len(job.Tasks); i++ {
 		if err := job.Tasks[i].InitTask(job, i); err != nil {

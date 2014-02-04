@@ -514,7 +514,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 
 	if IsFirstTask(task.Id) {
 		jobid, _ := GetJobIdByTaskId(task.Id)
-		UpdateJobState(jobid, JOB_STAT_QUEUED, []string{JOB_STAT_SUBMITTED, JOB_STAT_SUSPEND})
+		UpdateJobState(jobid, JOB_STAT_QUEUED, []string{JOB_STAT_INIT, JOB_STAT_SUSPEND})
 	}
 	return
 }
@@ -694,6 +694,16 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 
 func (qm *ServerMgr) GetActiveJobs() map[string]*JobPerf {
 	return qm.actJobs
+}
+
+func (qm *ServerMgr) IsJobRegistered(id string) bool {
+	if _, ok := qm.actJobs[id]; ok {
+		return true
+	}
+	if _, ok := qm.susJobs[id]; ok {
+		return true
+	}
+	return false
 }
 
 func (qm *ServerMgr) GetSuspendJobs() map[string]bool {

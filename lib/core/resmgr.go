@@ -29,6 +29,7 @@ type JobMgr interface {
 	JobRegister() (string, error)
 	EnqueueTasksByJobId(string, []*Task) error
 	GetActiveJobs() map[string]*JobPerf
+	IsJobRegistered(string) bool
 	GetSuspendJobs() map[string]bool
 	SuspendJob(string, string) error
 	ResumeSuspendedJob(string) error

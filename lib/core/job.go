@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	JOB_STAT_SUBMITTED  = "submitted"
+	JOB_STAT_INIT       = "init"
 	JOB_STAT_QUEUED     = "queued"
 	JOB_STAT_INPROGRESS = "in-progress"
 	JOB_STAT_COMPLETED  = "completed"
@@ -30,6 +30,7 @@ type Job struct {
 	Tasks       []*Task   `bson:"tasks" json:"tasks"`
 	Script      script    `bson:"script" json:"-"`
 	State       string    `bson:"state" json:"state"`
+	Registered  bool      `bson:"-" json:"registered"` //job in memory (not only in mongodb) (assigned on the fly, db value meaningless)
 	RemainTasks int       `bson:"remaintasks" json:"remaintasks"`
 	UpdateTime  time.Time `bson:"updatetime" json:"updatetime"`
 	Notes       string    `bson:"notes" json:"notes"`
@@ -54,7 +55,8 @@ func (job *Job) initJob(jid string) {
 	job.Info.Priority = conf.BasePriority
 	job.setId()     //uuid for the job
 	job.setJid(jid) //an incremental id for the jobs within a AWE server domain
-	job.State = JOB_STAT_SUBMITTED
+	job.State = JOB_STAT_INIT
+	job.Registered = true
 }
 
 type script struct {

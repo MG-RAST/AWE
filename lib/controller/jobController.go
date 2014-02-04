@@ -102,6 +102,13 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 
 	// Load job by id
 	job, err := core.LoadJob(id)
+
+	if core.QMgr.IsJobRegistered(id) {
+		job.Registered = true
+	} else {
+		job.Registered = false
+	}
+
 	if err != nil {
 		if err.Error() == e.MongoDocNotFound {
 			cx.RespondWithNotFound()
@@ -213,6 +220,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		length := jobs.Length()
 		for i := 0; i < length; i++ {
 			job := jobs.GetJobAt(i)
+			job.Registered = true
 			if _, ok := act_jobs[job.Id]; ok {
 				filtered_jobs = append(filtered_jobs, job)
 			}
@@ -228,6 +236,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		length := jobs.Length()
 		for i := 0; i < length; i++ {
 			job := jobs.GetJobAt(i)
+			job.Registered = true
 			if _, ok := suspend_jobs[job.Id]; ok {
 				filtered_jobs = append(filtered_jobs, job)
 			}
@@ -235,7 +244,20 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		cx.RespondWithData(filtered_jobs)
 		return
 	}
-	cx.RespondWithData(jobs)
+
+	filtered_jobs := []core.Job{}
+	length := jobs.Length()
+	for i := 0; i < length; i++ {
+		job := jobs.GetJobAt(i)
+		if core.QMgr.IsJobRegistered(job.Id) {
+			job.Registered = true
+		} else {
+			job.Registered = false
+		}
+		filtered_jobs = append(filtered_jobs, job)
+	}
+
+	cx.RespondWithData(filtered_jobs)
 	return
 }
 
@@ -272,7 +294,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		cx.RespondWithData("job suspended: " + id)
 		return
 	}
-	if query.Has("resubmit") { // to re-submit a job from mongodb
+	if query.Has("resubmit") || query.Has("reregister") { // to re-submit a job from mongodb
 		if err := core.QMgr.ResubmitJob(id); err != nil {
 			cx.RespondWithErrorMessage("fail to resubmit job: "+id+" "+err.Error(), http.StatusBadRequest)
 		}

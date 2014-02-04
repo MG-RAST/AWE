@@ -210,6 +210,11 @@ sub resumeJob {
 	return $self->request('PUT', 'job/'.$job_id, {'resume' => undef});
 }
 
+sub suspendJob {
+	my ($self, $job_id) = @_;
+	
+	return $self->request('PUT', 'job/'.$job_id, {'suspend' => undef});
+}
 
 sub getClientList {
 	my ($self) = @_;

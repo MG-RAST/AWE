@@ -20,18 +20,15 @@ cmd_list = ["prep", "drpl", "scrn", "gncl", "clst", "sims", "rsch", "rcls", "rsi
 DEFAULT_TOTALWORK = 1
 CLIENT_QUOTA = 200
 
-jobperf_dict = {}
-taskperf_dict = {}
-workperf_dict = {}
 
 def parsePerfLogRaw(filename):
     '''parse perf log'''
-    raw_job_dict = {}
-    wlf = open(filename, "r")
     
-    jobtrace = open(filename + ".jobtrace", "w")
-    tasktrace = open(filename + ".tasktrace", "w")
-    worktrace = open(filename + ".worktrace", "w")
+    jobperf_dict = {}
+    taskperf_dict = {}
+    workperf_dict = {}
+
+    wlf = open(filename, "r")
     
     for line in wlf:
         jobentry = {}
@@ -48,9 +45,9 @@ def parsePerfLogRaw(filename):
         for key, val in data.iteritems():
             #print key, val
             if key == 'Ptasks':
-                parse_task_perf(val, tasktrace)
+                taskperf_dict = parse_task_perf(val, taskperf_dict)
             elif key == 'Pworks':
-                parse_work_perf(val, worktrace)           
+                workperf_dict = parse_work_perf(val, workperf_dict)           
             else:
                 if key == "Id":
                     linemsg = "jobid=%s;" % val + linemsg
@@ -58,26 +55,29 @@ def parsePerfLogRaw(filename):
                 else:
                     linemsg += "%s=%s;" % (key.lower(), val)
                     jobentry[str(key.lower())] = val
-        linemsg = linemsg[:-1] + "\n"
-        jobtrace.write(linemsg)
         jobperf_dict[str(jobentry["jobid"])] = jobentry
                 
     print "%d completed jobs have been parsed from the perf log" % len(jobperf_dict.keys())
     
+    for workid in workperf_dict.keys():
+        parts = workid.split('_')
+        jobid = parts[0]
+        taskid = parts[0]+"_"+parts[1]
+        if taskperf_dict.has_key(taskid):
+            if taskperf_dict[taskid].has_key("splits"):
+                taskperf_dict[taskid]["splits"] += 1
+            else:
+                taskperf_dict[taskid]["splits"] = 1
+    #calc splits for each task
     wlf.close()
-    jobtrace.close()
-    tasktrace.close()
-    worktrace.close()
-
-def parse_task_perf(dataitems, tasktrace):
+    return jobperf_dict, taskperf_dict, workperf_dict
+    
+def parse_task_perf(dataitems, taskperf_dict):
     for taskid, taskval in dataitems.iteritems():
         task = {}
-        msg = "taskid=%s;" % taskid
         parts = taskid.split('_')
         jobid = parts[0]
-        msg += "jobid=%s;" % jobid
         stage = parts[1]
-        msg += "cmd=%s;" % cmd_list[int(stage)]
         
         task["taskid"] = taskid
         task["jobid"] = jobid
@@ -86,43 +86,67 @@ def parse_task_perf(dataitems, tasktrace):
         for k, v in taskval.iteritems():
             if k=="InFileSizes":
                 s = sum(v)
-                msg += "inputsize=%s;" % s
                 task["inputsize"] = s
             elif k=="OutFileSizes":
                 s = sum(v)
-                msg += "outputsize=%s;" % s
                 task["outputsize"] = s
             elif k== "Size":
                 pass
             else:
-                msg += "%s=%s;" % (k.lower(), v)
                 task[str(k.lower())] = v
-        msg = msg[:-1] + "\n"
-        tasktrace.write(msg)
         taskperf_dict[taskid] = task
-    return
+    return taskperf_dict
 
-def parse_work_perf(dataitems, worktrace):
+def parse_work_perf(dataitems, workperf_dict):
     for workid, workval in dataitems.iteritems():
         workunit = {}
         parts = workid.split('_')
         jobid = parts[0]
+        taskid = parts[0]+"_"+parts[1]
         stage = parts[1]
         rank = parts[2]
-        msg = "workid=%s;rank=%s;stage=%s;jobid=%s;cmd=%s;" % (workid, rank, stage, jobid, cmd_list[int(stage)])
         workunit["workid"] = workid
         workunit["rank"] = rank
         workunit["stage"] = stage
-        workunit["jobid"] = jobid
+        workunit["taskid"] = taskid
         workunit["cmd"] = cmd_list[int(stage)]
-        
         for k, v in workval.iteritems():
-            msg += "%s=%s;" % (k.lower(), v)
             workunit[str(k.lower())] = v
+        workperf_dict[workid] = workunit
+    return workperf_dict    
+
+def gen_traces(filename, job_dict, task_dict, work_dict):
+    jobtrace = open(filename + ".jobtrace", "w")
+    tasktrace = open(filename + ".tasktrace", "w")
+    worktrace = open(filename + ".worktrace", "w")
+    
+    for id, job in job_dict.iteritems():
+        msg = "jobid=%s;" % id
+        for k, v in job.iteritems():
+            if k != "jobid":
+                msg += "%s=%s;" % (k.lower(), v)
+        msg = msg[:-1] + "\n"
+        jobtrace.write(msg)
+        
+    for id, task in task_dict.iteritems():
+        msg = "taskid=%s;" % id
+        for k, v in task.iteritems():
+            if k != "taskid":
+                msg += "%s=%s;" % (k.lower(), v)
+        msg = msg[:-1] + "\n"
+        tasktrace.write(msg)
+        
+    for id, work in work_dict.iteritems():
+        msg = "workid=%s;" % id
+        for k, v in work.iteritems():
+            if k != "workid":
+                msg += "%s=%s;" % (k.lower(), v)
         msg = msg[:-1] + "\n"
         worktrace.write(msg)
-        workperf_dict[workid] = workunit
-    return                          
+    
+    jobtrace.close()
+    tasktrace.close()
+    worktrace.close()               
 
 def parseEventLog(filename):
     '''parse event log'''
@@ -499,13 +523,8 @@ if __name__ == "__main__":
     if opts.eventlog:
         job_dict = parseEventLog(opts.eventlog)
     elif opts.perflog:
-        parsePerfLogRaw(opts.perflog)
-        for k, v in workperf_dict.iteritems():
-            print k, v
-        for k, v in taskperf_dict.iteritems():
-            print k, v
-        for k, v in jobperf_dict.iteritems():
-            print k, v
+        job_dict, task_dict, work_dict = parsePerfLogRaw(opts.perflog)
+        gen_traces(opts.perflog, job_dict, task_dict, work_dict)
         
     if opts.taskbars:
         bins = {}

@@ -6,6 +6,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"os"
 	"time"
 )
 
@@ -60,18 +61,23 @@ func deliverer(control chan int) {
 		if work.State == core.WORK_STAT_DONE {
 			logger.Event(event.WORK_DONE, "workid="+work.Id)
 			core.Self.Total_completed += 1
-
 			if conf.AUTO_CLEAN_DIR {
-				if err := work.RemoveDir(); err != nil {
-					logger.Error("err@work.RemoveDir(): workid=" + work.Id + ", err=" + err.Error())
-				}
+				go removeDirLater(work.Path(), conf.CLIEN_DIR_DELAY_DONE)
 			}
 		} else {
 			logger.Event(event.WORK_RETURN, "workid="+work.Id)
 			core.Self.Total_failed += 1
+			if conf.AUTO_CLEAN_DIR {
+				go removeDirLater(work.Path(), conf.CLIEN_DIR_DELAY_FAIL)
+			}
 		}
 		delete(core.Self.Current_work, work.Id)
 		delete(workmap, work.Id)
 	}
 	control <- ID_DELIVERER //we are ending
+}
+
+func removeDirLater(path string, duration time.Duration) (err error) {
+	time.Sleep(duration)
+	return os.RemoveAll(path)
 }

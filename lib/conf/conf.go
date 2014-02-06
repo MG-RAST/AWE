@@ -86,21 +86,23 @@ var (
 	SHOCK_TIMEOUT = 30 * time.Second
 
 	//[client]
-	TOTAL_WORKER    = 1
-	WORK_PATH       = ""
-	APP_PATH        = ""
-	SUPPORTED_APPS  = ""
-	SERVER_URL      = "http://localhost:8001"
-	CLIENT_NAME     = "default"
-	CLIENT_GROUP    = "default"
-	CLIENT_PROFILE  = ""
-	WORKER_OVERLAP  = false
-	PRINT_APP_MSG   = false
-	AUTO_CLEAN_DIR  = true
-	CLIENT_USERNAME = "public"
-	CLIENT_PASSWORD = "public"
-	STDOUT_FILENAME = "awe_stdout.txt"
-	STDERR_FILENAME = "awe_stderr.txt"
+	TOTAL_WORKER         = 1
+	WORK_PATH            = ""
+	APP_PATH             = ""
+	SUPPORTED_APPS       = ""
+	SERVER_URL           = "http://localhost:8001"
+	CLIENT_NAME          = "default"
+	CLIENT_GROUP         = "default"
+	CLIENT_PROFILE       = ""
+	WORKER_OVERLAP       = false
+	PRINT_APP_MSG        = false
+	AUTO_CLEAN_DIR       = true
+	CLIEN_DIR_DELAY_FAIL = 30 * time.Minute //clean failed workunit dir after 30 minutes
+	CLIEN_DIR_DELAY_DONE = 1 * time.Minute  // clean done workunit dir after 1 minute
+	CLIENT_USERNAME      = "public"
+	CLIENT_PASSWORD      = "public"
+	STDOUT_FILENAME      = "awe_stdout.txt"
+	STDERR_FILENAME      = "awe_stderr.txt"
 
 	//tag
 	INIT_SUCCESS = true

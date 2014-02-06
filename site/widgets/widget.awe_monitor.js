@@ -70,14 +70,13 @@
 		var rows = result.split("\n");
 		
 		return_data = { "total jobs": { "all": rows[1].match(/\d+/)[0],
-						"in-progress": rows[5].match(/\d+/)[0],
 						"suspended": rows[2].match(/\d+/)[0] },
 				"total tasks": { "all": rows[3].match(/\d+/)[0],
 						 "queuing": rows[4].match(/\d+/)[0],
+						 "in-progress": rows[5].match(/\d+/)[0],
 						 "pending": rows[6].match(/\d+/)[0],
 						 "completed": rows[7].match(/\d+/)[0],
-						 "suspended": rows[8].match(/\d+/)[0],
-						 "failed and skipped": rows[9].match(/\d+/)[0] },
+						 "suspended": rows[8].match(/\d+/)[0] },
 				"total workunits": { "all": rows[10].match(/\d+/)[0],
 						     "queueing": rows[11].match(/\d+/)[0],
 						     "checkout": rows[12].match(/\d+/)[0],

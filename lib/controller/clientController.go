@@ -97,10 +97,6 @@ func (cr *ClientController) Read(id string, cx *goweb.Context) {
 func (cr *ClientController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	clients := core.QMgr.GetAllClients()
-	if len(clients) == 0 {
-		cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
-		return
-	}
 
 	query := &Query{Li: cx.Request.URL.Query()}
 	filtered := []*core.Client{}

@@ -170,7 +170,7 @@ func (qm *CQMgr) GetClient(id string) (client *Client, err error) {
 }
 
 func (qm *CQMgr) GetAllClients() []*Client {
-	var clients []*Client
+	clients := []*Client{}
 	for _, client := range qm.clientMap {
 		clients = append(clients, client)
 	}

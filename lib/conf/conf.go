@@ -93,7 +93,6 @@ var (
 	SERVER_URL           = "http://localhost:8001"
 	CLIENT_NAME          = "default"
 	CLIENT_GROUP         = "default"
-	CLIENT_PROFILE       = ""
 	WORKER_OVERLAP       = false
 	PRINT_APP_MSG        = false
 	AUTO_CLEAN_DIR       = true
@@ -115,8 +114,7 @@ func init() {
 	flag.StringVar(&CONFIG_FILE, "conf", "", "path to config file")
 	flag.StringVar(&RELOAD, "reload", "", "path or url to awe job data. WARNING this will drop all current jobs.")
 	flag.BoolVar(&RECOVER, "recover", false, "path to awe job data.")
-	flag.StringVar(&CLIENT_PROFILE, "profile", "", "path to awe client profile.")
-	flag.IntVar(&DEBUG_LEVEL, "debug", 0, "debug level: 0-3")
+	flag.IntVar(&DEBUG_LEVEL, "debug", -1, "debug level: 0-3")
 	flag.BoolVar(&DEV_MODE, "dev", false, "dev or demo mode, print some msgs on screen")
 	flag.Parse()
 
@@ -218,9 +216,6 @@ func init() {
 	if clientgroup, err := c.String("Client", "group"); err == nil {
 		CLIENT_GROUP = clientgroup
 	}
-	if clientprofile, err := c.String("Client", "clientprofile"); err == nil {
-		CLIENT_PROFILE = clientprofile
-	}
 	if print_app_msg, err := c.Bool("Client", "print_app_msg"); err == nil {
 		PRINT_APP_MSG = print_app_msg
 	}
@@ -249,6 +244,15 @@ func init() {
 	}
 	if MGRAST_OAUTH_URL != "" {
 		MGRAST_OAUTH = true
+	}
+
+	//Args
+	if DEBUG_LEVEL == -1 { //if no debug level set in cmd line args, find values in config file.
+		if dlevel, err := c.Int("Args", "debuglevel"); err == nil {
+			DEBUG_LEVEL = dlevel
+		} else {
+			DEBUG_LEVEL = 0
+		}
 	}
 }
 

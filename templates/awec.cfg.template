@@ -1,0 +1,22 @@
+[Directories]
+# See documentation for details of deploying Shock
+site=$GOPATH/src/github.com/MG-RAST/AWE/site
+data=/mnt/data/awe/data
+logs=/mnt/data/awe/logs
+
+[Args]
+debuglevel=0
+
+[Client]
+totalworker=2
+workpath=/mnt/data/awe/work
+supported_apps=
+app_path=/home/ubuntu/apps/bin
+serverurl=http://localhost:8001
+name=default_client
+group=default_group
+auto_clean_dir=false
+worker_overlap=false
+print_app_msg=false
+username=
+password=

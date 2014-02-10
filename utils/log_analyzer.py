@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 import time
+from sets import Set
 from optparse import OptionParser
 from Carbon.Aliases import true
 
@@ -312,7 +313,7 @@ def print_task_runtime_table(job_dict):
         line = line[:-1]
         print line
         
-def parse_workload(filename, valid_client_dict):
+def parse_workload(filename):
     
     job_dict = parseEventLog(filename)
     
@@ -325,11 +326,15 @@ def parse_workload(filename, valid_client_dict):
     totalclient_load = []
     busyclient_load = []
     
-    busy_workunit_dict = {}
+    active_task_dict = {}
     
     busy_host_dict = {}
     
-    busy_client_dict = {} 
+    busy_client_dict = {}
+    
+    parsed_tasks = Set([])
+    
+    active_work_dict = {}
     
     jobct = 0
     taskct = 0
@@ -337,8 +342,6 @@ def parse_workload(filename, valid_client_dict):
     totalclient_ct = 0
     busyclient_ct = 0
     busyc = 0 
-    
-    zombie_clients = []
     
     wlf = open(filename, "r")
     
@@ -359,6 +362,7 @@ def parse_workload(filename, valid_client_dict):
         
         if i==1:
             starttime = unixtime
+        i += 1
         
         timestamp = unixtime - starttime
         
@@ -379,16 +383,31 @@ def parse_workload(filename, valid_client_dict):
             if job_dict.has_key(jobid):
                 jobct += 1
                 taskct += job_dict[jobid]["total_task"]
-        elif event == "JD":
+        elif event == "JD":  #job done
+            jobid = attr["jobid"]
             if job_dict.has_key(jobid):
                 jobct -= 1
+        elif event == "JP": #job suspended
+            suspended_jobid = attr["jobid"]
+            if job_dict.has_key(jobid):
+                for workid in active_work_dict.keys():
+                    jobid = workid.split("_")[0]
+                    if jobid == suspended_jobid:
+                        workct -= 1
+                        del active_work_dict[workid]
+                        
         elif event == "TQ":
             taskid = attr['taskid']
             segs = taskid.split('_')
             jobid = segs[0]
             if job_dict.has_key(jobid):
                 taskct += 1
-                workct += int(attr.get("totalwork", DEFAULT_TOTALWORK))
+                totalwork = int(attr.get("totalwork", DEFAULT_TOTALWORK)) 
+                workct += totalwork
+                workunits = get_workunits_by_task(taskid, totalwork)
+                for work in workunits:
+                    active_work_dict[work] = True                
+                
         elif event == "TD":
             taskid = attr['taskid']
             segs = taskid.split('_')
@@ -409,6 +428,7 @@ def parse_workload(filename, valid_client_dict):
             jobid = segs[0]
             if job_dict.has_key(jobid):
                 workct -= 1
+                del active_work_dict[workid]
             clientid = attr['clientid']
             if busy_client_dict.has_key(clientid):
                 busy_client_dict[clientid] -= 1
@@ -416,14 +436,18 @@ def parse_workload(filename, valid_client_dict):
                     busyclient_ct -= 1
                     del busy_client_dict[clientid]
                     busy_client_updated = True
-            busyc -= 1
         elif event == "WF":
             clientid = attr['clientid']
             if busy_client_dict.has_key(clientid):
                 busyclient_ct -= 1
                 del busy_client_dict[clientid]
                 busy_client_updated = True
-            busyc -= 1
+#        elif event == "WP":
+#            segs = workid.split('_')
+#            jobid = segs[0]
+#            if job_dict.has_key(jobid):
+#                del active_work_dict[workid]
+            
         elif event == "SS": #server restart
             totalclient_ct = 0
             workct = 0
@@ -458,7 +482,7 @@ def parse_workload(filename, valid_client_dict):
             jobload.append((timestamp, jobct))
         if event in ["JQ", "TD", "SR"]:
             taskload.append((timestamp, taskct))
-        if event in ["TQ", "WD", "SS", "SR"]:
+        if event in ["TQ", "WD", "SS", "SR", "JP"]:
             workload.append((timestamp, workct))
         if event in ["SS", "CR", "CU"]:
             totalclient_load.append((timestamp, totalclient_ct))
@@ -466,8 +490,7 @@ def parse_workload(filename, valid_client_dict):
             busyclient_load.append((timestamp, busyclient_ct))
         #if event in ["WC", "WR", "WD"]:
          #   busyclient_load.append((timestamp, busyc))
-        i += 1
-        
+       
     return jobload, taskload, workload, totalclient_load, busyclient_load
 
 def  get_host_by_id(clientid, busy_host_dict):
@@ -478,8 +501,18 @@ def  get_host_by_id(clientid, busy_host_dict):
             break
     return found_host
 
+def get_workunits_by_task(taskid, totalwork):
+    workunits = []
+    if totalwork == 1:
+        workunits = ["%s_0" % taskid]
+    else:
+        for i in range(totalwork):
+            rank = i + 1
+            workunits.append("%s_%d" % (taskid, rank))
+    return workunits
+            
+
 def parse_clients(filename):
-    job_dict = parseEventLog(filename)
     
     wlf = open(filename, "r")
     
@@ -569,7 +602,7 @@ def parse_clients(filename):
     return client_dict, filtered_client_dict           
         
 
-def plot_workload(workload, totalclient_load, busyclient_load, name):
+def plot_workload(workload, jobload, totalclient_load, busyclient_load, name):
     print "plotting: workload"
     print len(workload), workload[-1]
     fig = plt.figure()
@@ -580,12 +613,14 @@ def plot_workload(workload, totalclient_load, busyclient_load, name):
     timepoint = 0
     timepoints = []
     workct = []
+    totaljob_ct = []
     totalclient_ct = []
     busyclient_ct = []
     maxjob = 0
 
     #workload series
     lastpoint_w = 0
+    lastpoint_jc = 0
     lastpoint_tc = 0
     lastpoint_bc = 0
     for i in range(0, max_point+1):
@@ -602,6 +637,17 @@ def plot_workload(workload, totalclient_load, busyclient_load, name):
             lastpoint_w = 0
         #print timepoint, workload[lastpoint_w][1], workload[lastpoint_w]
         workct.append(workload[lastpoint_w][1])
+        
+        j = lastpoint_jc
+        while timepoint >= jobload[j][0]:
+            j += 1
+            if j == len(jobload):
+                break
+        lastpoint_jc = j - 1
+        if lastpoint_jc < 0:
+            lastpoint_jc = 0
+        #print timepoint, busyclient_load[lastpoint_bc][1], busyclient_load[lastpoint_bc]
+        totaljob_ct.append(jobload[lastpoint_jc][1])
         
         j = lastpoint_tc
         while timepoint >= totalclient_load[j][0]:
@@ -623,19 +669,17 @@ def plot_workload(workload, totalclient_load, busyclient_load, name):
         if lastpoint_bc < 0:
             lastpoint_bc = 0
         #print timepoint, busyclient_load[lastpoint_bc][1], busyclient_load[lastpoint_bc]
-        busyclient_ct.append(busyclient_load[lastpoint_bc][1])
+        busyclient = busyclient_load[lastpoint_bc][1]
+#        if busyclient > workct[-1]:
+#            busyclient = workct[-1]        
+        busyclient_ct.append(busyclient)
 
-
-    #timepoints.append(timepoints[-1] + interval)
-    #totalclient_ct.append(0)
-    #busyclient_ct.append(0)
-    #workct.append(0)
-    
-    ax.plot(timepoints, workct, color = "b", lw=1.5)
+    ax.plot(timepoints, workct, color = "b", lw=1)
+    #ax.plot(timepoints, totaljob_ct, color = "y", lw=1)
     ax.plot(timepoints, totalclient_ct, color = "r", lw=1.5)
     ax.plot(timepoints, busyclient_ct, color = "g", lw=1.5)
-    #ax.fill_between(timepoints, 0, busyclient)
-    #ax.set_ylim(0, 160)
+    #ax.fill_between(timepoints, 0, busyclient_ct,  color = "g")
+    #ax.set_ylim(0, 1600)
     #ax.set_xlim(0, 30000)
     ax.set_xlabel('time elapsed (sec)')
     ax.grid(True)
@@ -763,10 +807,10 @@ if __name__ == "__main__":
             exit(1)
             
         client_dict, filtered_client_dict = parse_clients(opts.eventlog)
-        
-        jobload, taskload, workload, totalclient_load, busyclient_load = parse_workload(opts.eventlog, client_dict)
+            
+        jobload, taskload, workload, totalclient_load, busyclient_load = parse_workload(opts.eventlog)
        
-        plot_workload(workload, totalclient_load, busyclient_load, opts.eventlog.split(".")[0])
+        plot_workload(workload, jobload, totalclient_load, busyclient_load, opts.eventlog.split(".")[0])
         
         plot_jobload(jobload, opts.eventlog.split(".")[0]+".job")
         

@@ -700,7 +700,7 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 			}
 		case "index":
 			if opts.HasKey("index_type") {
-				url += "?index=" + opts.Value("index_type")
+				url += "/index/" + opts.Value("index_type")
 			} else {
 				return nil, errors.New("missing index type when creating index")
 			}

@@ -766,6 +766,7 @@ func (qm *ServerMgr) DeleteJob(jobid string) (err error) {
 	qm.DeleteJobPerf(jobid)
 	delete(qm.susJobs, jobid)
 
+	logger.Event(event.JOB_DELETED, "jobid="+jobid)
 	return
 }
 

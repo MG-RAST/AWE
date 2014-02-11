@@ -484,7 +484,7 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 	hasreport := false
 	if work.State == WORK_STAT_DONE && perf != nil {
 		perflog, err := getPerfFilePath(work, perf)
-		if err != nil {
+		if err == nil {
 			form.AddFile("perf", perflog)
 			hasreport = true
 		}

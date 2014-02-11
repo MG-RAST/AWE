@@ -20,6 +20,7 @@ const (
 	TASK_SKIPPED   = "TS" //task skipped (skip option > 0)
 	JOB_DONE       = "JD" //job done (all the tasks in the job have finished)
 	JOB_SUSPEND    = "JP" //job suspended
+	JOB_DELETED    = "JL" //job deleted
 	//client only events
 	WORK_START  = "WS" //workunit command start running
 	WORK_END    = "WE" //workunit command finish running

@@ -24,16 +24,17 @@ type TaskPerf struct {
 }
 
 type WorkPerf struct {
-	Queued     int64 // WQ (queued at server or client, depending on who creates it)
-	Done       int64 // WD (done at server)
-	Resp       int64 // Done - Queued (server metric)
-	Checkout   int64 // checkout at client
-	Deliver    int64 // done at client
-	ClientResp int64 // Deliver - Checkout (client metric)
-	DataIn     int64 // input data move-in at client
-	DataOut    int64 // output data move-out at client
-	Runtime    int64 // computing time at client
-	ClientId   string
+	Queued      int64  // WQ (queued at server or client, depending on who creates it)
+	Done        int64  // WD (done at server)
+	Resp        int64  // Done - Queued (server metric)
+	Checkout    int64  // checkout at client
+	Deliver     int64  // done at client
+	ClientResp  int64  // Deliver - Checkout (client metric)
+	DataIn      int64  // input data move-in at client
+	DataOut     int64  // output data move-out at client
+	Runtime     int64  // computing time at client
+	MaxMemUsage uint64 // maxium memery consumption
+	ClientId    string
 }
 
 func NewJobPerf(id string) *JobPerf {

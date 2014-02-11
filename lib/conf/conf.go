@@ -102,6 +102,7 @@ var (
 	CLIENT_PASSWORD      = "public"
 	STDOUT_FILENAME      = "awe_stdout.txt"
 	STDERR_FILENAME      = "awe_stderr.txt"
+	MEM_CHECK_INTERVAL   = 10 * time.Second
 
 	//tag
 	INIT_SUCCESS = true

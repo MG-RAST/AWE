@@ -20,6 +20,7 @@ type Client struct {
 	Name            string          `bson:"name" json:"name"`
 	Group           string          `bson:"group" json:"group"`
 	User            string          `bson:"user" json:"user"`
+	InstanceId      string          `bson:"instanceid" json:"instanceid"`
 	Host            string          `bson:"host" json:"host"`
 	CPUs            int             `bson:"cores" json:"cores"`
 	Apps            []string        `bson:"apps" json:"apps"`

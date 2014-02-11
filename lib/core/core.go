@@ -452,7 +452,7 @@ func jidIncr(jid string) (newjid string) {
 	return jid
 }
 
-//functions for REST API communication
+//functions for REST API communication  (=deprecated=)
 //notify AWE server a workunit is finished with status either "failed" or "done", and with perf statistics if "done"
 func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s", conf.SERVER_URL, work.Id, work.State, Self.Id)

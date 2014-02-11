@@ -215,6 +215,11 @@ func ComposeProfile() (profile *core.Client, err error) {
 			}
 		}
 	}
+
+	if len(conf.INSTANCE_ID_URL) > 7 { // longer than "http://"
+		profile.InstanceId = getInstanceID()
+	}
+
 	if core.Service == "proxy" {
 		profile.Proxy = true
 	}
@@ -246,5 +251,31 @@ func StopClient() (err error) {
 func CleanDisk() (err error) {
 	fmt.Printf("try to clean disk space\n")
 	//to-do: implementation here
+	return
+}
+
+func getInstanceID() (instanceid string) {
+	var res *http.Response
+	var err error
+	c := make(chan bool, 1)
+	go func() {
+		res, err = http.Get(conf.INSTANCE_ID_URL)
+		c <- true //we are ending
+	}()
+	select {
+	case <-c:
+		//go ahead
+	case <-time.After(2 * time.Second): //GET timeout
+		return ""
+	}
+	if err != nil {
+		return ""
+	}
+	defer res.Body.Close()
+	if bodybytes, err := ioutil.ReadAll(res.Body); err == nil {
+		instanceid = string(bodybytes[:])
+	} else {
+		instanceid = ""
+	}
 	return
 }

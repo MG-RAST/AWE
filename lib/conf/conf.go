@@ -91,6 +91,7 @@ var (
 	APP_PATH             = ""
 	SUPPORTED_APPS       = ""
 	SERVER_URL           = "http://localhost:8001"
+	INSTANCE_ID_URL      = "http://169.254.169.254/2009-04-04/meta-data/instance-id"
 	CLIENT_NAME          = "default"
 	CLIENT_GROUP         = "default"
 	WORKER_OVERLAP       = false
@@ -210,6 +211,7 @@ func init() {
 	WORK_PATH, _ = c.String("Client", "workpath")
 	APP_PATH, _ = c.String("Client", "app_path")
 	SERVER_URL, _ = c.String("Client", "serverurl")
+	INSTANCE_ID_URL, _ = c.String("Client", "instance_id_url")
 	SUPPORTED_APPS, _ = c.String("Client", "supported_apps")
 	if clientname, err := c.String("Client", "name"); err == nil {
 		CLIENT_NAME = clientname

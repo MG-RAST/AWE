@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -125,8 +124,6 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
-
-	fmt.Printf("query=%#v\n", query)
 
 	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
 		notice := core.Notice{WorkId: id, Status: query.Value("status"), ClientId: query.Value("client"), Notes: ""}

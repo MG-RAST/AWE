@@ -86,24 +86,26 @@ var (
 	SHOCK_TIMEOUT = 30 * time.Second
 
 	//[client]
-	TOTAL_WORKER         = 1
-	WORK_PATH            = ""
-	APP_PATH             = ""
-	SUPPORTED_APPS       = ""
-	SERVER_URL           = "http://localhost:8001"
-	INSTANCE_ID_URL      = "http://169.254.169.254/2009-04-04/meta-data/instance-id"
-	CLIENT_NAME          = "default"
-	CLIENT_GROUP         = "default"
-	WORKER_OVERLAP       = false
-	PRINT_APP_MSG        = false
-	AUTO_CLEAN_DIR       = true
-	CLIEN_DIR_DELAY_FAIL = 30 * time.Minute //clean failed workunit dir after 30 minutes
-	CLIEN_DIR_DELAY_DONE = 1 * time.Minute  // clean done workunit dir after 1 minute
-	CLIENT_USERNAME      = "public"
-	CLIENT_PASSWORD      = "public"
-	STDOUT_FILENAME      = "awe_stdout.txt"
-	STDERR_FILENAME      = "awe_stderr.txt"
-	MEM_CHECK_INTERVAL   = 10 * time.Second
+	TOTAL_WORKER              = 1
+	WORK_PATH                 = ""
+	APP_PATH                  = ""
+	SUPPORTED_APPS            = ""
+	SERVER_URL                = "http://localhost:8001"
+	OPENSTACK_METADATA_URL    = "" //openstack metadata url, e.g. "http://169.254.169.254/2009-04-04/meta-data"
+	INSTANCE_METADATA_TIMEOUT = 5 * time.Second
+	CLIENT_NAME               = "default"
+	CLIENT_GROUP              = "default"
+	CLIENT_DOMAIN             = "default"
+	WORKER_OVERLAP            = false
+	PRINT_APP_MSG             = false
+	AUTO_CLEAN_DIR            = true
+	CLIEN_DIR_DELAY_FAIL      = 30 * time.Minute //clean failed workunit dir after 30 minutes
+	CLIEN_DIR_DELAY_DONE      = 1 * time.Minute  // clean done workunit dir after 1 minute
+	CLIENT_USERNAME           = "public"
+	CLIENT_PASSWORD           = "public"
+	STDOUT_FILENAME           = "awe_stdout.txt"
+	STDERR_FILENAME           = "awe_stderr.txt"
+	MEM_CHECK_INTERVAL        = 10 * time.Second
 
 	//tag
 	INIT_SUCCESS = true
@@ -211,13 +213,16 @@ func init() {
 	WORK_PATH, _ = c.String("Client", "workpath")
 	APP_PATH, _ = c.String("Client", "app_path")
 	SERVER_URL, _ = c.String("Client", "serverurl")
-	INSTANCE_ID_URL, _ = c.String("Client", "instance_id_url")
+	OPENSTACK_METADATA_URL, _ = c.String("Client", "openstack_metadata_url")
 	SUPPORTED_APPS, _ = c.String("Client", "supported_apps")
 	if clientname, err := c.String("Client", "name"); err == nil {
 		CLIENT_NAME = clientname
 	}
 	if clientgroup, err := c.String("Client", "group"); err == nil {
 		CLIENT_GROUP = clientgroup
+	}
+	if clientdomain, err := c.String("Client", "domain"); err == nil {
+		CLIENT_DOMAIN = clientdomain
 	}
 	if print_app_msg, err := c.Bool("Client", "print_app_msg"); err == nil {
 		PRINT_APP_MSG = print_app_msg

@@ -191,6 +191,7 @@ func ComposeProfile() (profile *core.Client, err error) {
 	profile.Group = conf.CLIENT_GROUP
 	profile.CPUs = runtime.NumCPU()
 	profile.User = conf.CLIENT_USERNAME
+	profile.Domain = conf.CLIENT_DOMAIN
 
 	//app list
 	profile.Apps = []string{}
@@ -216,8 +217,20 @@ func ComposeProfile() (profile *core.Client, err error) {
 		}
 	}
 
-	if len(conf.INSTANCE_ID_URL) > 7 { // longer than "http://"
-		profile.InstanceId = getInstanceID()
+	if len(conf.OPENSTACK_METADATA_URL) > 7 { // longer than "http://"
+		fmt.Printf("openstack_metadata_url=%s, getting instance_id and instance_type...\n", conf.OPENSTACK_METADATA_URL)
+		for i := 0; i < 3; i++ {
+			profile.InstanceId, _ = getInstanceId()
+			if profile.InstanceId != "" {
+				break
+			}
+		}
+		for i := 0; i < 3; i++ {
+			profile.InstanceType, _ = getInstanceType()
+			if profile.InstanceType != "" {
+				break
+			}
+		}
 	}
 
 	if core.Service == "proxy" {
@@ -254,28 +267,56 @@ func CleanDisk() (err error) {
 	return
 }
 
-func getInstanceID() (instanceid string) {
+func getInstanceId() (instance_id string, err error) {
+	var instance_id_url = fmt.Sprintf("%s/instance-id", conf.OPENSTACK_METADATA_URL)
 	var res *http.Response
-	var err error
 	c := make(chan bool, 1)
 	go func() {
-		res, err = http.Get(conf.INSTANCE_ID_URL)
+		res, err = http.Get(instance_id_url)
 		c <- true //we are ending
 	}()
 	select {
 	case <-c:
 		//go ahead
-	case <-time.After(2 * time.Second): //GET timeout
-		return ""
+	case <-time.After(conf.INSTANCE_METADATA_TIMEOUT): //GET timeout
+		return "", errors.New("timeout")
 	}
 	if err != nil {
-		return ""
+		return "", err
 	}
 	defer res.Body.Close()
-	if bodybytes, err := ioutil.ReadAll(res.Body); err == nil {
-		instanceid = string(bodybytes[:])
-	} else {
-		instanceid = ""
+	bodybytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return "", err
 	}
+	instance_id = string(bodybytes[:])
+	fmt.Printf("instance_id=%s\n", instance_id)
+	return
+}
+
+func getInstanceType() (instance_type string, err error) {
+	var instance_type_url = fmt.Sprintf("%s/instance-type", conf.OPENSTACK_METADATA_URL)
+	var res *http.Response
+	c := make(chan bool, 1)
+	go func() {
+		res, err = http.Get(instance_type_url)
+		c <- true //we are ending
+	}()
+	select {
+	case <-c:
+		//go ahead
+	case <-time.After(conf.INSTANCE_METADATA_TIMEOUT): //GET timeout
+		return "", errors.New("timeout")
+	}
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	bodybytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+	instance_type = string(bodybytes[:])
+	fmt.Printf("instance_type=%s\n", instance_type)
 	return
 }

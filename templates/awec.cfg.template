@@ -22,3 +22,4 @@ username=
 password=
 #for openstack client only
 #instance_id_url=http://169.254.169.254/2009-04-04/meta-data
+domain=default-domain #e.g. megallan

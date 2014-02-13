@@ -103,12 +103,6 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	// Load job by id
 	job, err := core.LoadJob(id)
 
-	if core.QMgr.IsJobRegistered(id) {
-		job.Registered = true
-	} else {
-		job.Registered = false
-	}
-
 	if err != nil {
 		if err.Error() == e.MongoDocNotFound {
 			cx.RespondWithNotFound()
@@ -120,6 +114,12 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 			cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
 			return
 		}
+	}
+
+	if core.QMgr.IsJobRegistered(id) {
+		job.Registered = true
+	} else {
+		job.Registered = false
 	}
 
 	// Gather query params

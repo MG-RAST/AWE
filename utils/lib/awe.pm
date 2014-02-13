@@ -56,79 +56,197 @@ sub transport_method {
     return $self->{transport_method};
 }
 
+
+
+sub pretty {
+	my ($self, $hash) = @_;
+	
+	return $self->json->pretty->encode ($hash);
+}
+
 # example: getJobQueue('info.clientgroups' => 'yourclientgroup')
 sub getJobQueue {
-	my ($self) = shift;
-	my @pairs = @_;
-	my $client_url = $self->awe_url.'/job';
+	my ($self, %query) = @_;
 	
-	#print "got: ".join(',', @pairs)."\n";
+	$query{'query'}=undef;
+
+	return $self->request('GET', 'job', \%query);
+}
+
+sub create_url {
+	my ($self, $resource, %query) = @_;
 	
-	if (@pairs > 0) {
-		$client_url .= '?query';
-		for (my $i = 0 ; $i < @pairs ; $i+=2) {
-			$client_url .= '&'.$pairs[$i].'='.$pairs[$i+1];
-		}
+	
+	unless (defined $self->awe_url ) {
+		die "awe_url not defined";
 	}
 	
-	my $http_response = $self->agent->get($client_url);
-	my $http_response_content  = $http_response->decoded_content;
-	die "Can't get url $client_url ", $http_response->status_line
-	unless $http_response->is_success;
+	if ($self->awe_url eq '') {
+		die "awe_url string empty";
+	}
 	
-	my $http_response_content_hash = $self->json->decode($http_response_content);
+	my $my_url = $self->awe_url . "/$resource";
 	
-	return $http_response_content_hash;
+	#if (defined $self->token) {
+	#	$query{'auth'}=$self->token;
+	#}
+	
+	#build query string:
+	my $query_string = "";
+	
+	foreach my $key (keys %query) {
+		my $value = $query{$key};
+		
+		if ($query_string ne '') {
+			$query_string .= '&';
+		}
+		
+		unless (defined $value) {
+			$query_string .= $key;
+			next;
+		}
+		
+		my @values=();
+		if (ref($value) eq 'ARRAY') {
+			@values=@$value;
+		} else {
+			@values=($value);
+		}
+		
+		foreach my $value (@values) {
+			if ((length($query_string) != 0)) {
+				$query_string .= '&';
+			}
+			$query_string .= $key.'='.$value;
+		}
+		
+	}
+	
+	
+	if (length($query_string) != 0) {
+		
+		#print "url: ".$my_url.'?'.$query_string."\n";
+		$my_url .= '?'.$query_string;#uri_escape()
+	}
+	
+	
+	
+	
+	return $my_url;
+}
+
+sub request {
+	#print 'request: '.join(',',@_)."\n";
+	my ($self, $method, $resource, $query, $headers) = @_;
+	
+	
+	my $my_url = $self->create_url($resource, (defined($query)?%$query:()));
+	
+	print "request: $method $my_url\n";
+	
+	
+	
+	my @method_args=($my_url); # ($my_url, ($self->token)?('Authorization' , "OAuth ".$self->token):());
+	
+	if (defined $headers) {
+		push(@method_args, %$headers);
+	}
+	
+	#print 'method_args: '.join(',', @method_args)."\n";
+	
+	my $response_content = undef;
+    
+    eval {
+		
+        my $response_object = undef;
+		
+        if ($method eq 'GET') {
+			$response_object = $self->agent->get(@method_args );
+		} elsif ($method eq 'DELETE') {
+			$response_object = $self->agent->delete(@method_args );
+		} elsif ($method eq 'POST') {
+			$self->agent->show_progress(1);
+			$response_object = $self->agent->post(@method_args );
+		} elsif ($method eq 'PUT') {
+			$self->agent->show_progress(1);
+			$response_object = $self->agent->put(@method_args );
+		} else {
+			die "method \"$method\"not implemented";
+		}
+		
+		
+		$response_content = $self->json->decode( $response_object->content );
+        
+    };
+    
+	if ($@ || (! ref($response_content))) {
+        print STDERR "[error] unable to connect to AWE ".$self->awe_url."\n";
+        return undef;
+    } elsif (exists($response_content->{error}) && $response_content->{error}) {
+        print STDERR "[error] unable to send $method request to AWE: ".$response_content->{error}[0]."\n";
+		return undef;
+    } else {
+        return $response_content;
+    }
+	
 }
 
 sub deleteJob {
 	my ($self, $job_id) = @_;
 	
-	my $deletejob_url = $self->awe_url.'/job/'.$job_id;
+	return $self->request('DELETE', 'job/'.$job_id);
+}
+
+
+sub showJob {
+	my ($self, $job_id) = @_;
 	
-	my $respond_content=undef;
-	eval {
-        
-		my $http_response = $self->agent->delete( $deletejob_url );
-		$respond_content = $self->json->decode( $http_response->content );
-	};
-	if ($@ || (! ref($respond_content))) {
-        print STDERR "[error] unable to connect to AWE ".$self->awe_url."\n";
-        return undef;
-    } elsif (exists($respond_content->{error}) && $respond_content->{error}) {
-        print STDERR "[error] unable to delete job from AWE: ".$respond_content->{error}[0]."\n";
-    } else {
-        return $respond_content;
-    }
+	return $self->request('GET', 'job/'.$job_id);
+}
+
+sub resumeJob {
+	my ($self, $job_id) = @_;
+	
+	return $self->request('PUT', 'job/'.$job_id, {'resume' => undef});
+}
+
+sub suspendJob {
+	my ($self, $job_id) = @_;
+	
+	return $self->request('PUT', 'job/'.$job_id, {'suspend' => undef});
+}
+
+sub resubmitJob {
+	my ($self, $job_id) = @_;
+	
+	return $self->request('PUT', 'job/'.$job_id, {'resubmit' => undef});
+}
+
+sub resumeClient {
+	my ($self, $client_id) = @_;
+	
+	return $self->request('PUT', 'client/'.$client_id, {'resume' => undef});
+}
+
+sub suspendClient {
+	my ($self, $client_id) = @_;
+	
+	return $self->request('PUT', 'client/'.$client_id, {'suspend' => undef});
 }
 
 sub getClientList {
 	my ($self) = @_;
 	
-	unless (defined $self->awe_url) {
-		die;
-	}
 	
-	my $client_url = $self->awe_url.'/client/';
-	my $http_response = $self->agent->get($client_url);
-	
-	my $http_response_content  = $http_response->decoded_content;
-	#print "http_response_content: ".$http_response_content."\n";
-	
-	die "Can't get url $client_url ", $http_response->status_line
-	unless $http_response->is_success;
-	
+	return $self->request('GET', 'client');
 
-	my $http_response_content_hash = $self->json->decode($http_response_content);
-
-	return $http_response_content_hash;
 }
 
 # submit json_file or json_data
 sub submit_job {
 	my ($self, %hash) = @_;
 	
-	 my $content = {};
+	my $content = {};
 	if (defined $hash{json_file}) {
 		unless (-s $hash{json_file}) {
 			die "file not found";
@@ -140,52 +258,44 @@ sub submit_job {
 		$content->{upload} = [undef, "n/a", Content => $hash{json_data}]
 	}
 	
-	#my $content = {upload => [undef, "n/a", Content => $awe_qiime_job_json]};
-	my $job_url = $self->awe_url.'/job';
 	
-	my $respond_content=undef;
-	eval {
-        
-		my $http_response = $self->agent->post( $job_url, Datatoken => $self->shocktoken, Content_Type => 'multipart/form-data', Content => $content );
-		$respond_content = $self->json->decode( $http_response->content );
-	};
-	if ($@ || (! ref($respond_content))) {
-        print STDERR "[error] unable to connect to AWE ".$self->awe_url."\n";
-        return undef;
-    } elsif (exists($respond_content->{error}) && $respond_content->{error}) {
-        print STDERR "[error] unable to post data to AWE: ".$respond_content->{error}[0]."\n";
-    } else {
-        return $respond_content;
-    }
+	return $self->request(
+		'POST',
+		'job',
+		undef,
+		{Datatoken => $self->shocktoken, Content_Type => 'multipart/form-data', Content => $content}
+	);
+	
+	#my $content = {upload => [undef, "n/a", Content => $awe_qiime_job_json]};
+#	my $job_url = $self->awe_url.'/job';
+#	
+#	my $respond_content=undef;
+#	eval {
+#        
+#		my $http_response = $self->agent->post( $job_url, Datatoken => $self->shocktoken, Content_Type => 'multipart/form-data', Content => $content );
+#		$respond_content = $self->json->decode( $http_response->content );
+#	};
+#	if ($@ || (! ref($respond_content))) {
+#        print STDERR "[error] unable to connect to AWE ".$self->awe_url."\n";
+#        return undef;
+#    } elsif (exists($respond_content->{error}) && $respond_content->{error}) {
+#        print STDERR "[error] unable to post data to AWE: ".$respond_content->{error}[0]."\n";
+#    } else {
+#        return $respond_content;
+#    }
 }
 
 sub getJobStatus {
 	my ($self, $job_id) = @_;
 	
-	
-	my $jobstatus_url = $self->awe_url.'/job/'.$job_id;
-	
-	my $respond_content=undef;
-	eval {
-        
-		my $http_response = $self->agent->get( $jobstatus_url );
-		$respond_content = $self->json->decode( $http_response->content );
-	};
-	if ($@ || (! ref($respond_content))) {
-        print STDERR "[error] unable to connect to AWE ".$self->awe_url."\n";
-        return undef;
-    } elsif (exists($respond_content->{error}) && $respond_content->{error}) {
-        print STDERR "[error] unable to get data from AWE: ".$respond_content->{error}[0]."\n";
-    } else {
-        return $respond_content;
-    }
+	return $self->request('GET', 'job/'.$job_id);
 }
 
 
 sub checkClientGroup {
 	my ($self, $clientgroup) = @_;
 	
-	my $client_list_hash = $self->getClientList();
+	my $client_list_hash = $self->getClientList() || die "client list undefined";
 	#print Dumper($client_list_hash);
 	
 	print "\nOther clients:\n";
@@ -209,7 +319,7 @@ sub checkClientGroup {
 		if (defined($client->{group}) && ($client->{group} eq $clientgroup)) {
 			print $client->{name}." (".$client->{Status}.")  group: ".$client->{group}."  apps: ".join(',',@{$client->{apps}})."\n";
 			
-			if (lc($client->{Status}) eq 'active') {
+			if (lc($client->{Status}) eq 'active-idle' || lc($client->{Status}) eq 'active-busy') {
 				$found_active_clients++;
 			} else {
 				print "warning: client not active:\n";
@@ -257,9 +367,9 @@ sub new {
 	
 	
 	#assignTasks($self, %{$h{'job_input'}});
-	print "A\n".Dumper($self->{'data'});
+	#print "A\n".Dumper($self->{'data'});
 	assignTasks($self);
-	print "B\n".Dumper($self->{'data'});
+	#print "B\n".Dumper($self->{'data'});
 	replace_taskids($self);
 	#delete $self->{'trojan'};
 	#delete $self->{'shockhost'};
@@ -287,8 +397,8 @@ sub create_simple_template {
 	my $meta_template = {
 		"cmd" => $cmd,
 		"inputs" => \@inputs,
-		"outputs" => \@outputs,
-		"trojan" => {} # creates trojan script with basic features
+		"outputs" => \@outputs
+		#"trojan" => {} # creates trojan script with basic features
 	};
 	
 	
@@ -296,7 +406,7 @@ sub create_simple_template {
 }
 
 sub createTask {
-	my ($self, %h)= @_;
+	my ($self, $num, %h)= @_;
 	
 	
 	my $taskid = $h{'task_id'};
@@ -309,7 +419,7 @@ sub createTask {
 	
 	
 	my $task_template=undef;
-	my $task;
+	
 	
 	if (defined $task_template_name) {
 		
@@ -319,7 +429,7 @@ sub createTask {
 		unless (defined $tmpl) {
 			
 			#print Dumper($task_templates);
-			
+			print STDERR "templates found: ".join(',', keys(%$task_templates))."\n";
 			die "template \"$task_template_name\" not found";
 		}
 		$task_template = dclone($tmpl);
@@ -333,10 +443,21 @@ sub createTask {
 		die "no task template found (task_template or task_cmd)";
 	}
 	
-	#print "template:\n";
-	#print Dumper($task_template)."\n";
+	
+	#if (defined $task_template->{'bash-wrapper'}) {
+	#	push(@{$task_template->{'inputs'}}, '[TROJAN]');
+	#	#print "use trojan XXXXXXXXXXXXXXXXX\n";
+	#}
+
+	
+	print "final template version:\n";
+	print Dumper($task_template)."\n";
 	
 	my $host = $h{'shockhost'} || $self->{'shockhost'};
+	
+	
+	# start generaring task
+	my $task;
 	
 	$task->{'totalwork'} = 1;
 	
@@ -349,16 +470,28 @@ sub createTask {
 	
 	
 	
-	if (defined $h{'TROJAN'}) {
-		push(@{$task_template->{'inputs'}}, '[TROJAN]');
-		#print "use trojan XXXXXXXXXXXXXXXXX\n";
-	}
 	
+		
+	print "task start:\n";
+	print Dumper($task) ."\n";
 	
 	
 	my $depends = {};
 	
 	my $inputs = {};
+	
+	my $bash_wrapper_filename = undef; # = 'wrapper.sh';
+	if (defined $task_template->{'bash-wrapper'}) {
+		my ($bash_wrapper_filename) = $cmd =~ /^([a-zA-Z0-9\.\-\_]+)/;
+		unless (defined($bash_wrapper_filename)) {
+			die "could not extract bash script name from cmd: $cmd";
+		}
+		print "using bash script name: $bash_wrapper_filename\n";
+		#$trojan_file = $bash_wrapper_filename;
+		$inputs->{$bash_wrapper_filename}->{'node'} = '[TROJAN'.$num.']';
+		$inputs->{$bash_wrapper_filename}->{'host'} = $host;
+	}
+	
 	foreach my $key_io (@{$task_template->{'inputs'}}) {
 		
 		my ($key) = $key_io =~ /^\[(.*)\]$/;
@@ -439,16 +572,44 @@ sub createTask {
 		
 		#die "key not defined in output";
 		$outputs->{$filename_base}->{'host'} = $host;
-		
-		
-		
-		
-		
 	
 	}
+	
+	
+	
 	$task->{'outputs'}=$outputs;
 	
-	$task->{'cmd'}->{'args'} = $cmd;
+	
+
+	
+	if (defined($task_template->{'bash-wrapper'})) {
+			# modify AWE task to use trojan script
+		
+		
+		
+		$task->{'cmd'}->{'args'} = "\@".$cmd;
+		$task->{'cmd'}->{'name'} = "bash";
+		
+		
+	} else {
+		# extract the executable from command
+		
+		my $executable;
+		$task->{'cmd'}->{'args'} = $cmd;
+		$task->{'cmd'}->{'args'} =~ s/^([\S]+)//;
+		$executable=$1;
+		$task->{'cmd'}->{'args'} =~ s/^[\s]*//;
+		
+		unless (defined $executable) {
+			die "executable not found in ".$task->{'cmd'}->{'args'};
+		}
+		
+		$task->{'cmd'}->{'name'} = $executable;
+	}
+	
+	
+	
+	#$task->{'cmd'}->{'args'} = $cmd;
 	
 	
 	my @depends_on = ();
@@ -459,8 +620,8 @@ sub createTask {
 		$task->{'dependsOn'} = \@depends_on;
 	}
 	
-	#print "task:\n";
-	#print Dumper($task)."\n";
+	print "task produced:\n";
+	print Dumper($task)."\n";
 	#exit(0);
 	
 	return $task;
@@ -491,7 +652,7 @@ sub assignTasks {
 		
 
 		### createTask ###
-		my $newtask = createTask($self, %$task_spec);
+		my $newtask = createTask($self, $i+1, %$task_spec);
 		$self->{'data'}->{'tasks'}->[$i] = $newtask;
 		
 		#if (defined($task_spec->{'TROJAN'})) {
@@ -523,10 +684,10 @@ sub _assignInput {
 		my $task_spec = $task_specs->[$i];
 		
 		#my $trojan_file=$task->{'trojan_file'};
-		my $trojan_file=undef;
-		if (defined($task_spec->{'TROJAN'})) {
-			$trojan_file = ${$task_spec->{'TROJAN'}}[2];
-		}
+		#my $trojan_file=undef;
+		#if (defined($task_spec->{'TROJAN'})) {
+		#	$trojan_file = ${$task_spec->{'TROJAN'}}[2];
+		#}
 		
 		#print Dumper($task);
 		my $inputs = $task->{'inputs'};
@@ -583,31 +744,6 @@ sub _assignInput {
 		
 		
 		
-		if (defined($trojan_file)) {
-			#if ( defined($h{'TROJAN'}) ) {
-			
-			# modify AWE task to use trojan script
-			
-			
-			
-			$task->{'cmd'}->{'args'} = "\@".$trojan_file." ".$task->{'cmd'}->{'args'};
-			$task->{'cmd'}->{'name'} = "perl";
-			
-			
-		} else {
-			# extract the executable from command
-			
-			my $executable;
-			$task->{'cmd'}->{'args'} =~ s/^([\S]+)//;
-			$executable=$1;
-			$task->{'cmd'}->{'args'} =~ s/^[\s]*//;
-			
-			unless (defined $executable) {
-				die "executable not found in ".$task->{'cmd'}->{'args'};
-			}
-			
-			$task->{'cmd'}->{'name'} = $executable;
-		}
 	}
 }
 
@@ -847,8 +983,8 @@ sub parse_command {
 			
 			my $id = @output_files;
 			push(@output_files, $output_file);
-			$COMMAND[$i] = $output_file;
-			#$COMMAND[$i] = '[OUTPUT'.$id.']';
+			#$COMMAND[$i] = $output_file;
+			$COMMAND[$i] = '[OUTPUT'.$id.']';
 		} elsif ($COMMAND[$i] =~ /^@/) {
 			#print "at $ARGV[$i]\n";
 			my $input_file = substr($COMMAND[$i], 1);
@@ -892,31 +1028,16 @@ sub parse_command {
 
 
 
-
-sub generateAndSubmitSimpleAWEJob {
-	my %h = @_;
-	
-	my $command = $h{'cmd'}; # example
-	
-	my $clientgroup = $h{'clientgroup'} || die "no clientgroup defined";
-	my $awe_user = "awe_user";
-	
-	
-	my $awe = $h{'awe'};
-	my $shock = $h{'shock'};
-	
-	
-	#parse input/output
+sub generateTaskTemplate {
+	my ($command, %h) = @_;
 	
 	my ($input_files_local, $output_files, $output_directories, $command_parsed) = &parse_command($command);
-	if (defined $h{'output_files'} ) {
-		my @of = split(',', $h{'output_files'});
+	
+	if (defined $h{'other_output_files'} ) {
+		my @of = split(',', $h{'other_output_files'});
 		push(@{$output_files}, @of);
 	}
 	
-	
-	
-	### create task template ###
 	my $task_template={};
 	$task_template->{'cmd'} = $command_parsed;
 	for (my $i=0 ; $i < @{$input_files_local} ; ++$i ) {
@@ -929,20 +1050,37 @@ sub generateAndSubmitSimpleAWEJob {
 		
 		#my ($outputfilename, $outputfilepath) = fileparse($fullname);
 		
-		push(@{$task_template->{'outputs'}}, $outputfile);
+		#push(@{$task_template->{'outputs'}}, $outputfile);
+		push(@{$task_template->{'outputs'}}, '[OUTPUT'.$i.']');
 	}
-	#if (defined $h{'output_files'} ) {
-	#	my @of = split(',', $h{'output_files'});
-	#	foreach my $file (@of) {
-	#		push(@{$task_template->{'outputs'}}, basename($file) );
-	#	}
-	#
-	#	$task_template->{'trojan'}->{'out_files'}=\@of;
-	#}
-	
+		
 	print "generated template:\n";
 	print Dumper($task_template);
-	#exit(0);
+	
+	return ($task_template, $input_files_local, $output_files);
+}
+
+
+
+sub generateAndSubmitSimpleAWEJob {
+	my %h = @_;
+	
+	my $command = $h{'cmd'} || die "no cmd defined";
+	my $clientgroup = $h{'clientgroup'} || die "no clientgroup defined";
+	my $awe_user = $h{'user'} || 'awe_user';
+	my $job_name = $h{'job_name'} || "simple-autogen-name";
+	
+	my $awe = $h{'awe'} || die "no awe defined";
+	my $shock = $h{'shock'} || die "no shick defined";
+	
+	my $shock_url = $h{'shock_url'} || $shock->{'shock_url'}; # this can be used to tell AWE to use another shock url than used for upload
+	
+	
+	
+	
+	### generate tas template
+	my ($task_template, $input_files_local , $output_files)= generateTaskTemplate($command, 'other_output_files' => $h{'output_files'});
+	
 	
 	### create task (using the above generated template) ###
 	my $task = {
@@ -972,29 +1110,17 @@ sub generateAndSubmitSimpleAWEJob {
 	print "generated task (without input):\n";
 	print Dumper($task);
 	
-	#exit(0);
-	
-	
-	#$task->{'outputs'} = \@outputs;
-	
-	
-	#my $task_tmpls={};
-	#$task_tmpls->{'template'} = $task_template;
-	
-	
-	#print "task:\n";
-	#print Dumper($task);
-	
+		
 	my $awe_qiime_job = AWE::Job->new(
 	'info' => {
 		"pipeline"=> "simple-autogen",
-		"name"=> "simple-autogen-name",
+		"name"=> $job_name,
 		"project"=> "simple-autogen-prj",
 		"user"=> $awe_user,
 		"clientgroups"=> $clientgroup,
 		"noretry"=> JSON::true
 	},
-	'shockhost' => $shock->{'shock_url'},
+	'shockhost' => $shock_url,
 	'task_templates' => {'template' => $task_template}, # only one template in hash
 	'tasks' => [$task]
 	);
@@ -1020,37 +1146,43 @@ sub generateAndSubmitSimpleAWEJob {
 	
 	
 	# local files to be uploaded
+	
+	my $fakeshock =0 ;
+	
 	for (my $i=0 ; $i < @{$input_files_local} ; ++$i ) {
 		my $inputfile = $input_files_local->[$i];
+		if ($fakeshock==1) {
+			$inputfile = 'file'.$i;
+			$job_input->{'INPUT'.$i}->{'node'} = '0';
+		}
+		
 		$job_input->{'INPUT'.$i}->{'file'} = $inputfile;
+		$job_input->{'INPUT'.$i}->{'shockhost'}= $shock_url;
 		#$job_input->{'INPUT'.$i}->{'node'} = "fake_shock_node".$i;
-		#$job_input->{'INPUT'.$i}->{'shockhost'}= "fake_host";
 	}
-	
-	
-	
-	
-	
-	#$job_input->{'INPUT-PARAMETER'}->{'file'} = './otu_picking_params_97.txt';   	  # local file to be uploaded
 	
 	#print Dumper($job_input);
 	
 	
 	#upload job input files
-	$shock->upload_temporary_files($job_input);
+	if ($fakeshock == 0) {
+		$shock->upload_temporary_files($job_input);
+	}
 	print "all temporary files uploaded.\n";
 	
-	# create job with the input defined above
+	
+	# create complete job with the input defined above
 	my $workflow = $awe_qiime_job->create(%$job_input);
 	
-	#exit(0);
-	
-	#overwrite jobname:
-	#$workflow->{'info'}->{'name'} = $sample;
 	
 	my $json = JSON->new;
 	print "AWE job ready for submission:\n".$json->pretty->encode( $workflow )."\n";
 #exit(0);
+	
+	if ($fakeshock == 1) {
+		print "used fakeshock\n";
+		exit(0);
+	}
 	print "submit job to AWE server...\n";
 	my $submission_result = $awe->submit_job('json_data' => $json->encode($workflow));
 	
@@ -1126,17 +1258,19 @@ sub get_jobs {
 		die;
 	}
 		
-	
+	print "job list conatins ".@$jobs." jobs\n";
 	my $job_hash={};
 	foreach my $job (@$jobs) {
 		$job_hash->{$job}=1;
 	}
 	
 	
+	my %query;
+	if (defined($clientgroup)) {
+		$query{'info.clientgroups'} = $clientgroup;
+	}
 	
-	
-	
-	my $all_jobs = $awe->getJobQueue('info.clientgroups' => $clientgroup);
+	my $all_jobs = $awe->getJobQueue(%query);
 	
 	#print Dumper($all_jobs);
 	
@@ -1155,6 +1289,8 @@ sub get_jobs {
 		unless (defined($job_hash->{$job})) {
 			next;
 		}
+		
+		print "found job $job from job list\n";
 		
 		my $skip = 0;
 		foreach my $p (keys(%$properties)) {
@@ -1194,11 +1330,16 @@ sub download_jobs {
 	my $shock= $h{'shock'};
 	my $jobs= $h{'jobs'};
 	my $clientgroup = $h{'clientgroup'};
-	my $use_download_dir = $h{'use_download_dir'};
-	my $only_last_task = $h{'only_last_task'};
 	
+	
+	print 'use_download_dir: '.($h{'use_download_dir'}|| 'undef')."\n";
 	
 	my @requested_jobs = get_jobs(@_, 'properties' => {'state' => 'completed'});
+	
+	
+	if (@requested_jobs == 0) {
+		die "no jobs found";
+	}
 	
 	my $jobs_to_process = @requested_jobs;
 	print "jobs_to_process: $jobs_to_process\n";
@@ -1214,7 +1355,7 @@ sub download_jobs {
 		
 		print Dumper($job_object)."\n";
 		
-		download_output_job_nodes($job_object, $shock, 'only_last_task' => $only_last_task, 'use_download_dir' => $use_download_dir);
+		download_output_job_nodes($job_object, $shock, 'only_last_task' => $h{'only_last_task'}, 'use_download_dir' => $h{'use_download_dir'});
 		
 		
 		$jobs_to_process--;
@@ -1353,6 +1494,7 @@ sub wait_and_download_job_results {
 }
 
 
+# if use_download_dir is not defined, a directory is created that reflects the job name
 sub download_output_job_nodes {
 	my ($job_hash, $shock, %h) = @_;
 	
@@ -1361,17 +1503,35 @@ sub download_output_job_nodes {
 	
 	my $download_dir = ".";
 	
-	if (defined $h{'use_download_dir'} && $h{'use_download_dir'} == 1) {
+	if (defined $h{'use_download_dir'}) {
+		
+		print "use_download_dir: ".$h{'use_download_dir'}."\n";
+		
+		if ($h{'use_download_dir'} == 1 ) {
+			die "deprecated!";
+		}
+		
+	
+		
+		$download_dir = $h{'use_download_dir'};
+		
+	} else {
 		my $job_name = $job_hash->{'info'}->{'name'} || die;
 		$download_dir = $job_name;
 		
+		$download_dir =~ s/[^A-Za-z0-9\-\.]/\_/g;
+		
+		
 		if (-d $download_dir) {
-			die "download_dir \"$download_dir\" already exists\n";
+			die "download dir \"$download_dir\" already exists";
 		}
 		
+	}
+	
+	
+	unless (-d $download_dir) {
 		system("mkdir -p ".$download_dir) == 0 or die;
 		print STDERR "created output directory \"$download_dir\".\n";
-		
 	}
 	
 	
@@ -1431,6 +1591,21 @@ sub download_ouput_from_shock{
 	my $download_success = 1 ;
 	print Dumper($output_nodes);
 	
+	
+	# first check no local file will be overwritten
+	foreach my $resultfilename (keys(%$output_nodes)) {
+		my $download_name = $resultfilename;
+		if (defined $download_dir ) {
+			$download_name = $download_dir.'/'.$resultfilename;
+		}
+		
+		if (-e $download_name) {
+			print "\"$download_name\" already exists, refuse to overwrite...\n";
+			exit(1);
+		}
+	}
+	
+	# download files
 	foreach my $resultfilename (keys(%$output_nodes)) {
 		print "resultfilename: $resultfilename\n";
 		
@@ -1496,6 +1671,9 @@ sub delete_shock_nodes{
 		
 		my $result_obj = $output_nodes->{$resultfilename};
 		my $node_to_be_deleted = $result_obj->{node};
+		if ($node_to_be_deleted eq '-') {
+			next;
+		}
 		#my $result_size =  $result_obj->{size};
 		
 		if (defined $node_to_be_deleted) {

@@ -54,10 +54,11 @@ var (
 	SECRET_KEY  = ""
 
 	// Directories
-	DATA_PATH = ""
-	SITE_PATH = ""
-	LOGS_PATH = ""
-	AWF_PATH  = ""
+	DATA_PATH     = ""
+	SITE_PATH     = ""
+	LOGS_PATH     = ""
+	AWF_PATH      = ""
+	PID_FILE_PATH = ""
 
 	// Mongodb
 	MONGODB_HOST     = ""
@@ -85,21 +86,26 @@ var (
 	SHOCK_TIMEOUT = 30 * time.Second
 
 	//[client]
-	TOTAL_WORKER    = 1
-	WORK_PATH       = ""
-	APP_PATH        = ""
-	SUPPORTED_APPS  = ""
-	SERVER_URL      = "http://localhost:8001"
-	CLIENT_NAME     = "default"
-	CLIENT_GROUP    = "default"
-	CLIENT_PROFILE  = ""
-	WORKER_OVERLAP  = false
-	PRINT_APP_MSG   = false
-	AUTO_CLEAN_DIR  = true
-	CLIENT_USERNAME = "public"
-	CLIENT_PASSWORD = "public"
-	STDOUT_FILENAME = "awe_stdout.txt"
-	STDERR_FILENAME = "awe_stderr.txt"
+	TOTAL_WORKER              = 1
+	WORK_PATH                 = ""
+	APP_PATH                  = ""
+	SUPPORTED_APPS            = ""
+	SERVER_URL                = "http://localhost:8001"
+	OPENSTACK_METADATA_URL    = "" //openstack metadata url, e.g. "http://169.254.169.254/2009-04-04/meta-data"
+	INSTANCE_METADATA_TIMEOUT = 5 * time.Second
+	CLIENT_NAME               = "default"
+	CLIENT_GROUP              = "default"
+	CLIENT_DOMAIN             = "default"
+	WORKER_OVERLAP            = false
+	PRINT_APP_MSG             = false
+	AUTO_CLEAN_DIR            = true
+	CLIEN_DIR_DELAY_FAIL      = 30 * time.Minute //clean failed workunit dir after 30 minutes
+	CLIEN_DIR_DELAY_DONE      = 1 * time.Minute  // clean done workunit dir after 1 minute
+	CLIENT_USERNAME           = "public"
+	CLIENT_PASSWORD           = "public"
+	STDOUT_FILENAME           = "awe_stdout.txt"
+	STDERR_FILENAME           = "awe_stderr.txt"
+	MEM_CHECK_INTERVAL        = 10 * time.Second
 
 	//tag
 	INIT_SUCCESS = true
@@ -112,8 +118,7 @@ func init() {
 	flag.StringVar(&CONFIG_FILE, "conf", "", "path to config file")
 	flag.StringVar(&RELOAD, "reload", "", "path or url to awe job data. WARNING this will drop all current jobs.")
 	flag.BoolVar(&RECOVER, "recover", false, "path to awe job data.")
-	flag.StringVar(&CLIENT_PROFILE, "profile", "", "path to awe client profile.")
-	flag.IntVar(&DEBUG_LEVEL, "debug", 0, "debug level: 0-3")
+	flag.IntVar(&DEBUG_LEVEL, "debug", -1, "debug level: 0-3")
 	flag.BoolVar(&DEV_MODE, "dev", false, "dev or demo mode, print some msgs on screen")
 	flag.Parse()
 
@@ -170,6 +175,12 @@ func init() {
 	LOGS_PATH, _ = c.String("Directories", "logs")
 	AWF_PATH, _ = c.String("Directories", "awf")
 
+	// Paths
+	PID_FILE_PATH, _ = c.String("Paths", "pidfile")
+	if PID_FILE_PATH == "" {
+		PID_FILE_PATH = DATA_PATH + "/pidfile"
+	}
+
 	// Mongodb
 	MONGODB_HOST, _ = c.String("Mongodb", "hosts")
 	MONGODB_DATABASE, _ = c.String("Mongodb", "database")
@@ -202,6 +213,7 @@ func init() {
 	WORK_PATH, _ = c.String("Client", "workpath")
 	APP_PATH, _ = c.String("Client", "app_path")
 	SERVER_URL, _ = c.String("Client", "serverurl")
+	OPENSTACK_METADATA_URL, _ = c.String("Client", "openstack_metadata_url")
 	SUPPORTED_APPS, _ = c.String("Client", "supported_apps")
 	if clientname, err := c.String("Client", "name"); err == nil {
 		CLIENT_NAME = clientname
@@ -209,8 +221,8 @@ func init() {
 	if clientgroup, err := c.String("Client", "group"); err == nil {
 		CLIENT_GROUP = clientgroup
 	}
-	if clientprofile, err := c.String("Client", "clientprofile"); err == nil {
-		CLIENT_PROFILE = clientprofile
+	if clientdomain, err := c.String("Client", "domain"); err == nil {
+		CLIENT_DOMAIN = clientdomain
 	}
 	if print_app_msg, err := c.Bool("Client", "print_app_msg"); err == nil {
 		PRINT_APP_MSG = print_app_msg
@@ -240,6 +252,15 @@ func init() {
 	}
 	if MGRAST_OAUTH_URL != "" {
 		MGRAST_OAUTH = true
+	}
+
+	//Args
+	if DEBUG_LEVEL == -1 { //if no debug level set in cmd line args, find values in config file.
+		if dlevel, err := c.Int("Args", "debuglevel"); err == nil {
+			DEBUG_LEVEL = dlevel
+		} else {
+			DEBUG_LEVEL = 0
+		}
 	}
 }
 

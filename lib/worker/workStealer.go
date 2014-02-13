@@ -56,6 +56,7 @@ func workStealer(control chan int) {
 				retry += 1
 			}
 			if retry == 3 {
+				fmt.Printf("failed to checkout workunits for 3 times, exiting...\n")
 				os.Exit(1)
 			}
 			if core.Service != "proxy" { //proxy: event driven, client: timer driven

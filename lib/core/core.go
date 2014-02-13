@@ -53,10 +53,11 @@ type CoAck struct {
 }
 
 type Notice struct {
-	WorkId   string
-	Status   string
-	ClientId string
-	Notes    string
+	WorkId      string
+	Status      string
+	ClientId    string
+	ComputeTime int
+	Notes       string
 }
 
 type coInfo struct {
@@ -268,7 +269,8 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 
 	job.setId()     //uuid for the job
 	job.setJid(jid) //an incremental id for the jobs within a AWE server domain
-	job.State = JOB_STAT_SUBMITTED
+	job.State = JOB_STAT_INIT
+	job.Registered = true
 
 	for i := 0; i < len(job.Tasks); i++ {
 		if err := job.Tasks[i].InitTask(job, i); err != nil {
@@ -384,6 +386,14 @@ func GetJobIdByWorkId(workid string) (jobid string, err error) {
 	return "", errors.New("invalid work id: " + workid)
 }
 
+func GetTaskIdByWorkId(workid string) (taskid string, err error) {
+	parts := strings.Split(workid, "_")
+	if len(parts) == 3 {
+		return fmt.Sprintf("%s_%s", parts[0], parts[1]), nil
+	}
+	return "", errors.New("invalid task id: " + workid)
+}
+
 func IsFirstTask(taskid string) bool {
 	parts := strings.Split(taskid, "_")
 	if len(parts) == 2 {
@@ -394,10 +404,21 @@ func IsFirstTask(taskid string) bool {
 	return false
 }
 
-func UpdateJobState(jobid string, newstate string) (err error) {
+//update job state to "newstate" only if the current state is in one of the "oldstates"
+func UpdateJobState(jobid string, newstate string, oldstates []string) (err error) {
 	job, err := LoadJob(jobid)
 	if err != nil {
 		return
+	}
+	matched := false
+	for _, oldstate := range oldstates {
+		if oldstate == job.State {
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		return errors.New("old state not matching one of the required ones")
 	}
 	if err := job.UpdateState(newstate, ""); err != nil {
 		return err
@@ -431,7 +452,7 @@ func jidIncr(jid string) (newjid string) {
 	return jid
 }
 
-//functions for REST API communication
+//functions for REST API communication  (=deprecated=)
 //notify AWE server a workunit is finished with status either "failed" or "done", and with perf statistics if "done"
 func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s", conf.SERVER_URL, work.Id, work.State, Self.Id)
@@ -458,12 +479,12 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 }
 
 func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (err error) {
-	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s", conf.SERVER_URL, work.Id, work.State, Self.Id)
+	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work.Id, work.State, Self.Id, work.ComputeTime)
 	form := httpclient.NewForm()
 	hasreport := false
 	if work.State == WORK_STAT_DONE && perf != nil {
 		perflog, err := getPerfFilePath(work, perf)
-		if err != nil {
+		if err == nil {
 			form.AddFile("perf", perflog)
 			hasreport = true
 		}
@@ -679,7 +700,7 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 			}
 		case "index":
 			if opts.HasKey("index_type") {
-				url += "?index=" + opts.Value("index_type")
+				url += "/index/" + opts.Value("index_type")
 			} else {
 				return nil, errors.New("missing index type when creating index")
 			}

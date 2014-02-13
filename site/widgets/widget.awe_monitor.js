@@ -50,7 +50,10 @@
 		var target_space = document.createElement('div');
 		target_space.innerHTML = "";
 		view.appendChild(target_space);
-		widget.tables[views[i]] = Retina.Renderer.create("table", { target: target_space, data: {}, filter_autodetect: true, sort_autodetect: true }); 
+		widget.tables[views[i]] = Retina.Renderer.create("table", { target: target_space, data: {}, filter_autodetect: true, sort_autodetect: true });
+		if (views[i] == "clients") {
+		    widget.tables[views[i]].settings.rows_per_page = 100;
+		}
 	    }
 	    
 	    widget.update_data(views[i]);
@@ -62,27 +65,27 @@
 
 	switch (which) {
 	case "overview":	    
-	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/queue", function(data) {
+	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/queue", function(data) {
 		var result = data.data;
 		var rows = result.split("\n");
 		
 		return_data = { "total jobs": { "all": rows[1].match(/\d+/)[0],
-						"in-progress": rows[2].match(/\d+/)[0],
+		                                "in-progress": rows[2].match(/\d+/)[0],
 						"suspended": rows[3].match(/\d+/)[0] },
 				"total tasks": { "all": rows[4].match(/\d+/)[0],
 						 "queuing": rows[5].match(/\d+/)[0],
-						 "pending": rows[6].match(/\d+/)[0],
-						 "completed": rows[7].match(/\d+/)[0],
-						 "suspended": rows[8].match(/\d+/)[0],
-						 "failed and skipped": rows[9].match(/\d+/)[0] },
-				"total workunits": { "all": rows[10].match(/\d+/)[0],
-						     "queueing": rows[11].match(/\d+/)[0],
-						     "checkout": rows[12].match(/\d+/)[0],
-						     "suspended": rows[13].match(/\d+/)[0] },
-				"total clients": { "all": rows[14].match(/\d+/)[0],
-						   "busy": rows[15].match(/\d+/)[0],
-						   "idle": rows[16].match(/\d+/)[0],
-						   "suspended": rows[17].match(/\d+/)[0] } };
+						 "in-progress": rows[6].match(/\d+/)[0],
+						 "pending": rows[7].match(/\d+/)[0],
+						 "completed": rows[8].match(/\d+/)[0],
+						 "suspended": rows[9].match(/\d+/)[0] },
+				"total workunits": { "all": rows[11].match(/\d+/)[0],
+						     "queueing": rows[12].match(/\d+/)[0],
+						     "checkout": rows[13].match(/\d+/)[0],
+						     "suspended": rows[14].match(/\d+/)[0] },
+				"total clients": { "all": rows[15].match(/\d+/)[0],
+						   "busy": rows[16].match(/\d+/)[0],
+						   "idle": rows[17].match(/\d+/)[0],
+						   "suspended": rows[18].match(/\d+/)[0] } };
 		
 		var html = '<h4>Overview</h4><table class="table">';
 		for (h in return_data) {
@@ -108,7 +111,7 @@
 
 	    break;
 	case "graphical":
-	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/job", function (data) {
+	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/job", function (data) {
 		var result_data = [];
 		if (data.data != null) {
 		    var data2 = [];
@@ -122,7 +125,7 @@
 		    for (h=0;h<data2.length;h++) {
 			var obj = data2[h];
 			result_data.push( [ obj.info.submittime,
-					    "<a href='http://"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+(obj.info.name || '-')+' ('+obj.jid+")</a>",
+					    "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+(obj.info.name || '-')+' ('+obj.jid+")</a>",
 					    widget.dots(obj.tasks),
 					    obj.info.pipeline,
 					    obj.state
@@ -143,13 +146,13 @@
 
 	    break;
 	case "active":
-	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/job?active", function (data) {
+	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/job?active", function (data) {
 		var result_data = [];
 		if (data.data != null) {
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
 			result_data.push( [ obj.info.submittime,
-					    "<a href='http://"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
+					    "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
 					    obj.info.name,
 					    obj.info.user,
 					    obj.info.project,
@@ -185,13 +188,13 @@
 
 	    break;
 	case "suspended":
-	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/job?suspend", function (data) {
+	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/job?suspend", function (data) {
 		var result_data = [];
 		if (data.data != null) {
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
 			result_data.push( [ obj.info.submittime,
-                                            "<a href='http://"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
+                                            "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
 					    obj.info.name,
 					    obj.info.user,
 					    obj.info.project,
@@ -228,7 +231,7 @@
 
 	    break;
 	case "queuing_workunit":
-	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/work?query&state=queued", function (data) {
+	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/work?query&state=queued", function (data) {
 		var result_data = [];
 		if (data.data != null) {
 		    for (h=0;h<data.data.length;h++) {
@@ -286,13 +289,13 @@
 		    num_recent = "";
 		}
 	    }
-	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/job?query&state=completed"+num_recent, function (data) {
+	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/job?query&state=completed"+num_recent, function (data) {
 		var result_data = [];
 		if (data.data != null) {
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
 			result_data.push( [ obj.info.submittime,
-					    "<a href='http://"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
+					    "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
 					    obj.info.name,
 					    obj.info.user,
 					    obj.info.project,
@@ -329,13 +332,13 @@
 
 	    break;
 	case "checkout_workunit":
-	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/work?query&state=checkout", function (data) {
+	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/work?query&state=checkout", function (data) {
 		var result_data = [];
 		if (data.data != null) {
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
-			result_data.push( [ "<a href='http://"+RetinaConfig["awe_ip"]+"/work/"+obj.wuid+"' target=_blank>"+obj.wuid+"</a>",
-                                            "<a href='http://"+RetinaConfig["awe_ip"]+"/client/"+obj.client+"' target=_blank>"+obj.client+"</a>",
+			result_data.push( [ "<a href='"+RetinaConfig["awe_ip"]+"/work/"+obj.wuid+"' target=_blank>"+obj.wuid+"</a>",
+                                            "<a href='"+RetinaConfig["awe_ip"]+"/client/"+obj.client+"' target=_blank>"+obj.client+"</a>",
 					    obj.checkout_time,
                                             obj.cmd.name,
 					    obj.cmd.args,
@@ -368,14 +371,14 @@
 
 	    break;
 	case "clients":
-	    jQuery.getJSON("http://"+RetinaConfig["awe_ip"]+"/client", function (data) {
+	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/client", function (data) {
 		var result_data = [];
 		if (data.data == null) {
 		    result_data = [ ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'] ];
 		} else {
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
-			result_data.push( ["<a href='http://"+RetinaConfig["awe_ip"]+"/client/"+obj.id+"' target=_blank>"+obj.name+"</a>",
+			result_data.push( ["<a href='"+RetinaConfig["awe_ip"]+"/client/"+obj.id+"' target=_blank>"+obj.name+"</a>",
 					    obj.group,
 					    obj.user || "-",
 					    obj.host,

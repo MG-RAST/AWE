@@ -11,7 +11,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 import time
+from sets import Set
 from optparse import OptionParser
+from Carbon.Aliases import true
 
 color_list = ['b', 'r', 'k', 'g', 'm', 'y']
 stage_list = ["prep", "derep", "screen", "fgs", "uclust", "blat"]
@@ -20,18 +22,15 @@ cmd_list = ["prep", "drpl", "scrn", "gncl", "clst", "sims", "rsch", "rcls", "rsi
 DEFAULT_TOTALWORK = 1
 CLIENT_QUOTA = 200
 
-jobperf_dict = {}
-taskperf_dict = {}
-workperf_dict = {}
 
 def parsePerfLogRaw(filename):
     '''parse perf log'''
-    raw_job_dict = {}
-    wlf = open(filename, "r")
     
-    jobtrace = open(filename + ".jobtrace", "w")
-    tasktrace = open(filename + ".tasktrace", "w")
-    worktrace = open(filename + ".worktrace", "w")
+    jobperf_dict = {}
+    taskperf_dict = {}
+    workperf_dict = {}
+
+    wlf = open(filename, "r")
     
     for line in wlf:
         jobentry = {}
@@ -48,9 +47,9 @@ def parsePerfLogRaw(filename):
         for key, val in data.iteritems():
             #print key, val
             if key == 'Ptasks':
-                parse_task_perf(val, tasktrace)
+                taskperf_dict = parse_task_perf(val, taskperf_dict)
             elif key == 'Pworks':
-                parse_work_perf(val, worktrace)           
+                workperf_dict = parse_work_perf(val, workperf_dict)           
             else:
                 if key == "Id":
                     linemsg = "jobid=%s;" % val + linemsg
@@ -58,26 +57,29 @@ def parsePerfLogRaw(filename):
                 else:
                     linemsg += "%s=%s;" % (key.lower(), val)
                     jobentry[str(key.lower())] = val
-        linemsg = linemsg[:-1] + "\n"
-        jobtrace.write(linemsg)
         jobperf_dict[str(jobentry["jobid"])] = jobentry
                 
     print "%d completed jobs have been parsed from the perf log" % len(jobperf_dict.keys())
     
+    for workid in workperf_dict.keys():
+        parts = workid.split('_')
+        jobid = parts[0]
+        taskid = parts[0]+"_"+parts[1]
+        if taskperf_dict.has_key(taskid):
+            if taskperf_dict[taskid].has_key("splits"):
+                taskperf_dict[taskid]["splits"] += 1
+            else:
+                taskperf_dict[taskid]["splits"] = 1
+    #calc splits for each task
     wlf.close()
-    jobtrace.close()
-    tasktrace.close()
-    worktrace.close()
-
-def parse_task_perf(dataitems, tasktrace):
+    return jobperf_dict, taskperf_dict, workperf_dict
+    
+def parse_task_perf(dataitems, taskperf_dict):
     for taskid, taskval in dataitems.iteritems():
         task = {}
-        msg = "taskid=%s;" % taskid
         parts = taskid.split('_')
         jobid = parts[0]
-        msg += "jobid=%s;" % jobid
         stage = parts[1]
-        msg += "cmd=%s;" % cmd_list[int(stage)]
         
         task["taskid"] = taskid
         task["jobid"] = jobid
@@ -86,43 +88,78 @@ def parse_task_perf(dataitems, tasktrace):
         for k, v in taskval.iteritems():
             if k=="InFileSizes":
                 s = sum(v)
-                msg += "inputsize=%s;" % s
                 task["inputsize"] = s
             elif k=="OutFileSizes":
                 s = sum(v)
-                msg += "outputsize=%s;" % s
                 task["outputsize"] = s
             elif k== "Size":
                 pass
             else:
-                msg += "%s=%s;" % (k.lower(), v)
                 task[str(k.lower())] = v
-        msg = msg[:-1] + "\n"
-        tasktrace.write(msg)
         taskperf_dict[taskid] = task
-    return
+    return taskperf_dict
 
-def parse_work_perf(dataitems, worktrace):
+def parse_work_perf(dataitems, workperf_dict):
     for workid, workval in dataitems.iteritems():
         workunit = {}
         parts = workid.split('_')
         jobid = parts[0]
+        taskid = parts[0]+"_"+parts[1]
         stage = parts[1]
         rank = parts[2]
-        msg = "workid=%s;rank=%s;stage=%s;jobid=%s;cmd=%s;" % (workid, rank, stage, jobid, cmd_list[int(stage)])
         workunit["workid"] = workid
         workunit["rank"] = rank
         workunit["stage"] = stage
-        workunit["jobid"] = jobid
+        workunit["taskid"] = taskid
         workunit["cmd"] = cmd_list[int(stage)]
-        
         for k, v in workval.iteritems():
-            msg += "%s=%s;" % (k.lower(), v)
             workunit[str(k.lower())] = v
+        workperf_dict[workid] = workunit
+    return workperf_dict    
+
+def gen_traces(filename, job_dict, task_dict, work_dict):
+    jobtrace = open(filename + ".jobtrace", "w")
+    tasktrace = open(filename + ".tasktrace", "w")
+    worktrace = open(filename + ".worktrace", "w")
+    
+    for id, job in job_dict.iteritems():
+        msg = "jobid=%s;" % id
+        for k, v in job.iteritems():
+            if k != "jobid":
+                msg += "%s=%s;" % (k.lower(), v)
+        msg = msg[:-1] + "\n"
+        jobtrace.write(msg)
+        
+    for id, task in task_dict.iteritems():
+        msg = "taskid=%s;" % id
+        for k, v in task.iteritems():
+            if k != "taskid":
+                msg += "%s=%s;" % (k.lower(), v)
+        msg = msg[:-1] + "\n"
+        tasktrace.write(msg)
+        
+    for id, work in work_dict.iteritems():
+        msg = "workid=%s;" % id
+        for k, v in work.iteritems():
+            if k != "workid":
+                msg += "%s=%s;" % (k.lower(), v)
         msg = msg[:-1] + "\n"
         worktrace.write(msg)
-        workperf_dict[workid] = workunit
-    return                          
+    
+    jobtrace.close()
+    tasktrace.close()
+    worktrace.close()
+    
+def gen_client_trace(filename, client_dict):
+    clienttrace = open(filename + ".clientrace", "w")
+    for id, client in client_dict.iteritems():
+        msg = "clientid=%s;" % id
+        for k, v in client.iteritems():
+            if k != "id":
+                msg += "%s=%s;" % (k.lower(), v)
+        msg = msg[:-1] + "\n"
+        clienttrace.write(msg)
+    clienttrace.close()        
 
 def parseEventLog(filename):
     '''parse event log'''
@@ -280,20 +317,37 @@ def parse_workload(filename):
     
     job_dict = parseEventLog(filename)
     
-    wlf = open(filename, "r")
-           
     i = 1
     starttime = 0
     
     jobload = []
     taskload = []
     workload = []
+    totalclient_load = []
+    busyclient_load = []
+    
+    active_task_dict = {}
+    
+    busy_host_dict = {}
+    
+    busy_client_dict = {}
+    
+    parsed_tasks = Set([])
+    
+    active_work_dict = {}
     
     jobct = 0
     taskct = 0
-    workct = 0    
+    workct = 0
+    totalclient_ct = 0
+    busyclient_ct = 0
+    busyc = 0 
+    
+    wlf = open(filename, "r")
     
     for line in wlf:
+        busy_client_updated = False
+        
         line = line.strip('\n')
         line = line.strip('\r')
         if len(line) == 0:
@@ -308,6 +362,7 @@ def parse_workload(filename):
         
         if i==1:
             starttime = unixtime
+        i += 1
         
         timestamp = unixtime - starttime
         
@@ -322,90 +377,309 @@ def parse_workload(filename):
             key = segs[0]
             val = segs[1]
             attr[key] = val
-            
+        
         if event == "JQ":  #job submitted
             jobid = attr["jobid"]
             if job_dict.has_key(jobid):
                 jobct += 1
                 taskct += job_dict[jobid]["total_task"]
-        elif event == "JD":
+        elif event == "JD":  #job done
+            jobid = attr["jobid"]
             if job_dict.has_key(jobid):
                 jobct -= 1
+        elif event == "JP": #job suspended
+            suspended_jobid = attr["jobid"]
+            if job_dict.has_key(jobid):
+                for workid in active_work_dict.keys():
+                    jobid = workid.split("_")[0]
+                    if jobid == suspended_jobid:
+                        workct -= 1
+                        del active_work_dict[workid]
+                        
         elif event == "TQ":
             taskid = attr['taskid']
             segs = taskid.split('_')
             jobid = segs[0]
             if job_dict.has_key(jobid):
                 taskct += 1
-                workct += int(attr.get("totalwork", DEFAULT_TOTALWORK))
+                totalwork = int(attr.get("totalwork", DEFAULT_TOTALWORK)) 
+                workct += totalwork
+                workunits = get_workunits_by_task(taskid, totalwork)
+                for work in workunits:
+                    active_work_dict[work] = True                
+                
         elif event == "TD":
             taskid = attr['taskid']
             segs = taskid.split('_')
             jobid = segs[0]
             if job_dict.has_key(jobid):
                 taskct -= 1
+        elif event == "WC":
+            clientid = attr['clientid']
+            if busy_client_dict.has_key(clientid):
+                busy_client_dict[clientid] += 1
+            else:
+                busy_client_dict[clientid] = 1
+                busyclient_ct += 1
+                busy_client_updated = True
         elif event == "WD":
             workid = attr['workid']
             segs = workid.split('_')
             jobid = segs[0]
             if job_dict.has_key(jobid):
                 workct -= 1
+                del active_work_dict[workid]
+            clientid = attr['clientid']
+            if busy_client_dict.has_key(clientid):
+                busy_client_dict[clientid] -= 1
+                if busy_client_dict[clientid] == 0:
+                    busyclient_ct -= 1
+                    del busy_client_dict[clientid]
+                    busy_client_updated = True
+        elif event == "WF":
+            clientid = attr['clientid']
+            if busy_client_dict.has_key(clientid):
+                busyclient_ct -= 1
+                del busy_client_dict[clientid]
+                busy_client_updated = True
+#        elif event == "WP":
+#            segs = workid.split('_')
+#            jobid = segs[0]
+#            if job_dict.has_key(jobid):
+#                del active_work_dict[workid]
             
-        if event in ["JQ", "JD"]:
+        elif event == "SS": #server restart
+            totalclient_ct = 0
+            workct = 0
+            jobct = 0
+            taskct = 0
+        elif event == "SR": #server restart with queue recovered
+            totalclient_ct = 0
+            busy_host_dict.clear()
+            workct = 0
+        elif event == "CR":
+            clientid = attr['clientid']
+            host = attr['host']
+            if busy_host_dict.has_key(host):
+                if busy_host_dict['host'] != clientid:
+                    busy_host_dict['host'] = clientid
+            else:
+                busy_host_dict['host'] = clientid
+                totalclient_ct += 1
+            
+        elif event == "CU":
+            totalclient_ct -= 1
+            clientid = attr['clientid']
+            if busy_client_dict.has_key(clientid):
+                busyclient_ct -= 1
+                del busy_client_dict[clientid]
+                busy_client_updated = True
+            hostname = get_host_by_id(clientid, busy_host_dict)
+            if len(hostname) > 0:
+                del busy_host_dict[hostname]
+            
+        if event in ["JQ", "JD", "SS"]:
             jobload.append((timestamp, jobct))
-        if event in ["JQ", "TD"]:
+        if event in ["JQ", "TD", "SR"]:
             taskload.append((timestamp, taskct))
-        if event in ["TQ", "WD"]:
+        if event in ["TQ", "WD", "SS", "SR", "JP"]:
             workload.append((timestamp, workct))
-            
-        i += 1
-        
-    return jobload, taskload, workload
+        if event in ["SS", "CR", "CU"]:
+            totalclient_load.append((timestamp, totalclient_ct))
+        if busy_client_updated:
+            busyclient_load.append((timestamp, busyclient_ct))
+        #if event in ["WC", "WR", "WD"]:
+         #   busyclient_load.append((timestamp, busyc))
+       
+    return jobload, taskload, workload, totalclient_load, busyclient_load
 
-def plot_workload(workload, name):
+def  get_host_by_id(clientid, busy_host_dict):
+    found_host = ""
+    for host, id in busy_host_dict.iteritems():
+        if id == clientid:
+            found_host = host
+            break
+    return found_host
+
+def get_workunits_by_task(taskid, totalwork):
+    workunits = []
+    if totalwork == 1:
+        workunits = ["%s_0" % taskid]
+    else:
+        for i in range(totalwork):
+            rank = i + 1
+            workunits.append("%s_%d" % (taskid, rank))
+    return workunits
+            
+
+def parse_clients(filename):
+    
+    wlf = open(filename, "r")
+    
+    csvf = open("client.csv", "w")
+           
+    i = 1
+    starttime = 0
+    
+    client_dict = {} # {id:xxx,name:xxx,group:xxx, host:xxx CR_work:n, DONE_work:n, RETURNED_work:n}
+    busy_client_dict = {} 
+    
+    for line in wlf:
+        line = line.strip('\n')
+        line = line.strip('\r')
+        if len(line) == 0:
+            continue
+        if line[0] != "[":
+            continue 
+        timestr = line[1:20]
+        timeobj = datetime.datetime.strptime(timestr, "%Y/%m/%d %H:%M:%S")
+        unixtime = int(time.mktime(timeobj.timetuple()))
+        if i==1:
+            starttime = unixtime
+        i += 1
+        timestamp = unixtime - starttime
+        infostr = line.split()[4]
+        parts = infostr.split(';')
+        event = parts[0]
+                        
+        attr = {}
+        for item in parts[1:]:
+            segs = item.split('=')
+            key = segs[0]
+            val = segs[1]
+            attr[key] = val
+        
+        if event == "SS":
+#            totalclient_ct = 0
+#            busyclient_ct = 0
+#            busyc = 0
+#            busy_client_dict.clear()
+            pass
+        elif event == "SR":
+            pass
+        elif event == "CR":
+            clientid = attr['clientid']
+            if not client_dict.has_key(clientid):
+                if not attr.has_key('host'):
+                    print clientid
+                client_entry = {"id":clientid, "name":attr['name'], "host":attr['host'], "checkedout":0, "done":0, "failed":0, "CR":[timestamp], "CU":[]}
+                client_dict[clientid] = client_entry
+            else:
+                client_dict[clientid]["CR"].append(timestamp)
+        elif event == "CU":
+            clientid = attr['clientid']
+            if client_dict.has_key(clientid):
+                client_dict[clientid]["CU"].append(timestamp)
+            else:
+                print "unregistered not found: ", clientid
+        elif event == "WC":
+            clientid = attr['clientid']
+            if client_dict.has_key(clientid):
+                client_dict[clientid]["checkedout"] += 1
+        elif event == "WD":
+            clientid = attr['clientid']
+            if client_dict.has_key(clientid):
+               client_dict[clientid]["done"] += 1
+        elif event == "WF":
+            clientid = attr['clientid']
+            if client_dict.has_key(clientid):
+               client_dict[clientid]["failed"] += 1
+            
+        
+    filtered_client_dict = {}
+    for id, client in client_dict.iteritems():
+        if len(client["CU"])>0:
+            msg = "%s,%s,%s,%s,%s,%d\n" % (id, client["host"], client["checkedout"], client["done"], client["failed"], client["CU"][-1]-client["CR"][0])
+            csvf.write(msg)
+            
+        if len(client["CR"])>1 and len(client["CU"])==0:
+            continue
+        filtered_client_dict[id] = client
+    
+    wlf.close()
+    csvf.close()
+        
+    return client_dict, filtered_client_dict           
+        
+
+def plot_workload(workload, jobload, totalclient_load, busyclient_load, name):
     print "plotting: workload"
     print len(workload), workload[-1]
     fig = plt.figure()
-    ax = fig.add_subplot(111)
+    ax = fig.add_subplot(1,1,1)
     plt.title("number of active workunits (queuing + running)")
     interval = 5
     max_point = workload[-1][0] / interval
     timepoint = 0
     timepoints = []
     workct = []
+    totaljob_ct = []
+    totalclient_ct = []
+    busyclient_ct = []
     maxjob = 0
-    lastpoint = 0
+
+    #workload series
+    lastpoint_w = 0
+    lastpoint_jc = 0
+    lastpoint_tc = 0
+    lastpoint_bc = 0
     for i in range(0, max_point+1):
         timepoint = i * interval
-        j = lastpoint
+        timepoints.append(i * interval)
         
+        j = lastpoint_w
         while timepoint >= workload[j][0]:
             j += 1
             if j == len(workload):
                 break
-        lastpoint = j - 1
-        if lastpoint < 0:
-            lastpoint = 0
-        print timepoint, workload[lastpoint][1], workload[lastpoint]
-        workct.append(workload[lastpoint][1])
-        timepoints.append(i * interval)
-        #print timepoint, workct[i]
+        lastpoint_w = j - 1
+        if lastpoint_w < 0:
+            lastpoint_w = 0
+        #print timepoint, workload[lastpoint_w][1], workload[lastpoint_w]
+        workct.append(workload[lastpoint_w][1])
+        
+        j = lastpoint_jc
+        while timepoint >= jobload[j][0]:
+            j += 1
+            if j == len(jobload):
+                break
+        lastpoint_jc = j - 1
+        if lastpoint_jc < 0:
+            lastpoint_jc = 0
+        #print timepoint, busyclient_load[lastpoint_bc][1], busyclient_load[lastpoint_bc]
+        totaljob_ct.append(jobload[lastpoint_jc][1])
+        
+        j = lastpoint_tc
+        while timepoint >= totalclient_load[j][0]:
+            j += 1
+            if j == len(totalclient_load):
+                break
+        lastpoint_tc = j - 1
+        if lastpoint_tc < 0:
+            lastpoint_tc = 0
+        #print timepoint, totalclient_load[lastpoint_tc][1], totalclient_load[lastpoint_tc]
+        totalclient_ct.append(totalclient_load[lastpoint_tc][1])
+        
+        j = lastpoint_bc
+        while timepoint >= busyclient_load[j][0]:
+            j += 1
+            if j == len(busyclient_load):
+                break
+        lastpoint_bc = j - 1
+        if lastpoint_bc < 0:
+            lastpoint_bc = 0
+        #print timepoint, busyclient_load[lastpoint_bc][1], busyclient_load[lastpoint_bc]
+        busyclient = busyclient_load[lastpoint_bc][1]
+#        if busyclient > workct[-1]:
+#            busyclient = workct[-1]        
+        busyclient_ct.append(busyclient)
 
-    busyclient = []
-    for ct in workct:
-        if ct >= CLIENT_QUOTA:
-            busyclient.append(CLIENT_QUOTA)
-        else:
-            busyclient.append(ct)
-    
-    timepoints.append(timepoints[-1] + interval)
-    busyclient.append(0)
-    workct.append(0)
-    
-    ax.plot(timepoints, workct, color = "b", lw=1.5)
-    ax.plot(timepoints, [CLIENT_QUOTA for i in range(0, len(timepoints))], color = "r")
-    ax.fill_between(timepoints, 0, busyclient)
-    #ax.set_ylim(0, 160)
+    ax.plot(timepoints, workct, color = "b", lw=1)
+    #ax.plot(timepoints, totaljob_ct, color = "y", lw=1)
+    ax.plot(timepoints, totalclient_ct, color = "r", lw=1.5)
+    ax.plot(timepoints, busyclient_ct, color = "g", lw=1.5)
+    #ax.fill_between(timepoints, 0, busyclient_ct,  color = "g")
+    #ax.set_ylim(0, 1600)
     #ax.set_xlim(0, 30000)
     ax.set_xlabel('time elapsed (sec)')
     ax.grid(True)
@@ -437,7 +711,7 @@ def plot_jobload(workload, name):
         lastpoint = j - 1
         if lastpoint < 0:
             lastpoint = 0
-        print timepoint, workload[lastpoint][1], workload[lastpoint]
+        #print timepoint, workload[lastpoint][1], workload[lastpoint]
         workct.append(workload[lastpoint][1])
         timepoints.append(i * interval)
         #print timepoint, workct[i]
@@ -465,6 +739,9 @@ if __name__ == "__main__":
     
     p.add_option("-w", dest = "workload", action = "store_true", default = False,
                     help = "draw workload running graph, used with -e")
+    
+    p.add_option("-c", dest = "client", action = "store_true", default = False,
+                    help = "generate with client trace, used with -e")
     
     p.add_option("-r", "--rawjobs", dest = "rawjobs", \
             action = "store_true", \
@@ -497,15 +774,11 @@ if __name__ == "__main__":
     job_dict = {}
     
     if opts.eventlog:
-        job_dict = parseEventLog(opts.eventlog)
+        #job_dict = parseEventLog(opts.eventlog)
+        pass
     elif opts.perflog:
-        parsePerfLogRaw(opts.perflog)
-        for k, v in workperf_dict.iteritems():
-            print k, v
-        for k, v in taskperf_dict.iteritems():
-            print k, v
-        for k, v in jobperf_dict.iteritems():
-            print k, v
+        job_dict, task_dict, work_dict = parsePerfLogRaw(opts.perflog)
+        gen_traces(opts.perflog, job_dict, task_dict, work_dict)
         
     if opts.taskbars:
         bins = {}
@@ -531,11 +804,17 @@ if __name__ == "__main__":
     if opts.workload:
         if not opts.eventlog:
             print "workload parsing (-w) needs to specify event log (-e)"
-            exit()
-        jobload, taskload, workload = parse_workload(opts.eventlog)
+            exit(1)
+            
+        client_dict, filtered_client_dict = parse_clients(opts.eventlog)
+            
+        jobload, taskload, workload, totalclient_load, busyclient_load = parse_workload(opts.eventlog)
        
-        plot_workload(workload, opts.eventlog.split(".")[0])
-        plot_jobload(jobload, opts.eventlog.split(".")[0])
+        plot_workload(workload, jobload, totalclient_load, busyclient_load, opts.eventlog.split(".")[0])
         
+        plot_jobload(jobload, opts.eventlog.split(".")[0]+".job")
+        
+        gen_client_trace(opts.eventlog, filtered_client_dict)
+        
+        gen_client_trace(opts.eventlog+".filetered.", filtered_client_dict)
        
-   

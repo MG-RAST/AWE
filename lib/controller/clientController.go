@@ -57,7 +57,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	}
 
 	//log event about client registration (CR)
-	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.Id+";name="+client.Name+";host="+client.Host)
+	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.Id+";name="+client.Name+";host="+client.Host+";group="+client.Group+";instance_id="+client.InstanceId+";instance_type="+client.InstanceType+";domain="+client.Domain)
 
 	cx.RespondWithData(client)
 	return
@@ -97,10 +97,6 @@ func (cr *ClientController) Read(id string, cx *goweb.Context) {
 func (cr *ClientController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	clients := core.QMgr.GetAllClients()
-	if len(clients) == 0 {
-		cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
-		return
-	}
 
 	query := &Query{Li: cx.Request.URL.Query()}
 	filtered := []*core.Client{}

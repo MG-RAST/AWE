@@ -189,6 +189,10 @@ func (qm *ProxyMgr) GetActiveJobs() map[string]*JobPerf {
 	return nil
 }
 
+func (qm *ProxyMgr) IsJobRegistered(id string) bool {
+	return false
+}
+
 func (qm *ProxyMgr) GetSuspendJobs() map[string]bool {
 	return nil
 }

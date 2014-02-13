@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"time"
 )
 
@@ -35,15 +36,19 @@ func processor(control chan int) {
 		}
 
 		run_start := time.Now().Unix()
-		if err := RunWorkunit(work); err != nil {
+		pstat, err := RunWorkunit(work)
+		if err != nil {
 			fmt.Printf("!!!RunWorkunit() returned error: %s\n", err.Error())
 			logger.Error("RunWorkunit(): workid=" + work.Id + ", " + err.Error())
 			processed.workunit.State = core.WORK_STAT_FAIL
 		} else {
 			processed.workunit.State = core.WORK_STAT_COMPUTED
+			processed.perfstat.MaxMemUsage = pstat.MaxMemUsage
 		}
 		run_end := time.Now().Unix()
-		processed.perfstat.Runtime = run_end - run_start
+		computetime := run_end - run_start
+		processed.perfstat.Runtime = computetime
+		processed.workunit.ComputeTime = int(computetime)
 
 		fromProcessor <- processed
 
@@ -55,13 +60,14 @@ func processor(control chan int) {
 	control <- ID_WORKER //we are ending
 }
 
-func RunWorkunit(work *core.Workunit) (err error) {
+func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
+	pstats = new(core.WorkPerf)
 
 	args := work.Cmd.ParsedArgs
 
 	//change cwd to the workunit's working directory
 	if err := work.CDworkpath(); err != nil {
-		return err
+		return nil, err
 	}
 
 	commandName := work.Cmd.Name
@@ -78,16 +84,16 @@ func RunWorkunit(work *core.Workunit) (err error) {
 	if conf.PRINT_APP_MSG {
 		stdout, err = cmd.StdoutPipe()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		stderr, err = cmd.StderrPipe()
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	if err := cmd.Start(); err != nil {
-		return errors.New(fmt.Sprintf("start_cmd=%s, err=%s", commandName, err.Error()))
+		return nil, errors.New(fmt.Sprintf("start_cmd=%s, err=%s", commandName, err.Error()))
 	}
 
 	stdoutFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDOUT_FILENAME)
@@ -106,10 +112,26 @@ func RunWorkunit(work *core.Workunit) (err error) {
 		go io.Copy(err_writer, stderr)
 	}
 
+	var MaxMem uint64 = 0
 	done := make(chan error)
 	go func() {
 		done <- cmd.Wait()
 	}()
+	go func() {
+		mstats := new(runtime.MemStats)
+		runtime.ReadMemStats(mstats)
+		MaxMem = mstats.Alloc
+		time.Sleep(2 * time.Second)
+		for {
+			mstats := new(runtime.MemStats)
+			runtime.ReadMemStats(mstats)
+			if mstats.Alloc > MaxMem {
+				MaxMem = mstats.Alloc
+			}
+			time.Sleep(conf.MEM_CHECK_INTERVAL)
+		}
+	}()
+
 	select {
 	case <-chankill:
 		if err := cmd.Process.Kill(); err != nil {
@@ -117,12 +139,13 @@ func RunWorkunit(work *core.Workunit) (err error) {
 		}
 		<-done // allow goroutine to exit
 		fmt.Println("process killed")
-		return errors.New("process killed")
+		return nil, errors.New("process killed")
 	case err := <-done:
 		if err != nil {
-			return errors.New(fmt.Sprintf("wait_cmd=%s, err=%s", commandName, err.Error()))
+			return nil, errors.New(fmt.Sprintf("wait_cmd=%s, err=%s", commandName, err.Error()))
 		}
 	}
 	logger.Event(event.WORK_END, "workid="+work.Id)
+	pstats.MaxMemUsage = MaxMem
 	return
 }

@@ -38,6 +38,21 @@ func main() {
 		}
 	}
 
+	if conf.PID_FILE_PATH != "" {
+		f, err := os.Create(conf.PID_FILE_PATH)
+		if err != nil {
+			err_msg := "Could not create pid file: " + conf.PID_FILE_PATH + "\n"
+			fmt.Fprintf(os.Stderr, err_msg)
+			logger.Error("ERROR: " + err_msg)
+			os.Exit(1)
+		}
+		defer f.Close()
+		pid := os.Getpid()
+		fmt.Fprintln(f, pid)
+		fmt.Println("##### pidfile #####")
+		fmt.Printf("pid: %d saved to file: %s\n\n", pid, conf.PID_FILE_PATH)
+	}
+
 	profile, err := worker.ComposeProfile()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fail to compose profile: %s\n", err.Error())

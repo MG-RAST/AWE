@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	CLIENT_STAT_ACTIVE  = "active"
-	CLIENT_STAT_SUSPEND = "suspend"
-	CLIENT_STAT_DELETED = "deleted"
+	CLIENT_STAT_ACTIVE_BUSY = "active-busy"
+	CLIENT_STAT_ACTIVE_IDLE = "active-idle"
+	CLIENT_STAT_SUSPEND     = "suspend"
+	CLIENT_STAT_DELETED     = "deleted"
 )
 
 type Client struct {
@@ -19,6 +20,9 @@ type Client struct {
 	Name            string          `bson:"name" json:"name"`
 	Group           string          `bson:"group" json:"group"`
 	User            string          `bson:"user" json:"user"`
+	Domain          string          `bson:"domain" json:"domain"`
+	InstanceId      string          `bson:"instance_id" json:"instance_id"`
+	InstanceType    string          `bson:"instance_type" json:"instance_type"`
 	Host            string          `bson:"host" json:"host"`
 	CPUs            int             `bson:"cores" json:"cores"`
 	Apps            []string        `bson:"apps" json:"apps"`
@@ -42,7 +46,7 @@ func NewClient() (client *Client) {
 	client.Id = uuid.New()
 	client.Apps = []string{}
 	client.Skip_work = []string{}
-	client.Status = CLIENT_STAT_ACTIVE
+	client.Status = CLIENT_STAT_ACTIVE_IDLE
 	client.Total_checkout = 0
 	client.Total_completed = 0
 	client.Total_failed = 0
@@ -73,7 +77,7 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 		client.Apps = []string{}
 	}
 	client.Skip_work = []string{}
-	client.Status = "active"
+	client.Status = CLIENT_STAT_ACTIVE_IDLE
 	if client.Current_work == nil {
 		client.Current_work = map[string]bool{}
 	}

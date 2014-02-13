@@ -35,16 +35,19 @@ func dataMover(control chan int) {
 		}
 
 		//check the availability prerequisite data and download if needed
-		if err := movePreData(parsed.workunit); err != nil {
+		if moved_data, err := movePreData(parsed.workunit); err != nil {
 			logger.Error("err@dataMover_work.movePreData, workid=" + work.Id + " error=" + err.Error())
 			parsed.workunit.State = core.WORK_STAT_FAIL
+		} else {
+			parsed.perfstat.PreDataSize = moved_data
 		}
 
 		//parse the args, including fetching input data from Shock and composing the local file path
 		datamove_start := time.Now().Unix()
-		if arglist, err := ParseWorkunitArgs(parsed.workunit); err == nil {
+		if arglist, moved_data, err := ParseWorkunitArgs(parsed.workunit); err == nil {
 			parsed.workunit.State = core.WORK_STAT_PREPARED
 			parsed.workunit.Cmd.ParsedArgs = arglist
+			parsed.perfstat.InFileSize = moved_data
 		} else {
 			logger.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + work.Id + " error=" + err.Error())
 			parsed.workunit.State = core.WORK_STAT_FAIL
@@ -80,7 +83,8 @@ func proxyDataMover(control chan int) {
 }
 
 //parse workunit, fetch input data, compose command arguments
-func ParseWorkunitArgs(work *core.Workunit) (args []string, err error) {
+func ParseWorkunitArgs(work *core.Workunit) (args []string, size int64, err error) {
+	size = 0
 	argstr := work.Cmd.Args
 	if argstr == "" {
 		return
@@ -108,7 +112,7 @@ func ParseWorkunitArgs(work *core.Workunit) (args []string, err error) {
 		if strings.Contains(arg, "@") { //parse input/output to accessible local file
 			segs := strings.Split(arg, "@")
 			if len(segs) > 2 {
-				return []string{}, errors.New("invalid format in command args, multiple @ within one arg")
+				return []string{}, 0, errors.New("invalid format in command args, multiple @ within one arg")
 			}
 			inputname := segs[1]
 
@@ -127,10 +131,12 @@ func ParseWorkunitArgs(work *core.Workunit) (args []string, err error) {
 				logger.Debug(2, "mover: fetching input from url:"+dataUrl)
 				logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
 
-				if err := fetchFile(inputFilePath, dataUrl, work.Info.DataToken); err != nil { //get file from Shock
-					return []string{}, err
+				if datamoved, err := fetchFile(inputFilePath, dataUrl, work.Info.DataToken); err != nil {
+					return []string{}, size, err
+				} else {
+					size += datamoved
 				}
-				logger.Event(event.FILE_READY, "workid="+work.Id+" url="+dataUrl)
+				logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
 
 				parsedArg := fmt.Sprintf("%s%s", segs[0], inputFilePath)
 				args = append(args, parsedArg)
@@ -140,16 +146,15 @@ func ParseWorkunitArgs(work *core.Workunit) (args []string, err error) {
 		//no @ or $, append directly
 		args = append(args, arg)
 	}
-
-	return args, nil
+	return args, size, nil
 }
 
 //fetch file by shock url
-func fetchFile(filename string, url string, token string) (err error) {
+func fetchFile(filename string, url string, token string) (size int64, err error) {
 	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
 	localfile, err := os.Create(filename)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer localfile.Close()
 
@@ -161,7 +166,7 @@ func fetchFile(filename string, url string, token string) (err error) {
 	//download file from Shock
 	res, err := httpclient.Get(url, httpclient.Header{}, nil, user)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	defer res.Body.Close()
@@ -169,25 +174,22 @@ func fetchFile(filename string, url string, token string) (err error) {
 	if res.StatusCode != 200 { //err in fetching data
 		resbody, _ := ioutil.ReadAll(res.Body)
 		msg := fmt.Sprintf("op=fetchFile, url=%s, res=%s", url, resbody)
-		return errors.New(msg)
+		return 0, errors.New(msg)
 	}
 
-	_, err = io.Copy(localfile, res.Body)
+	size, err = io.Copy(localfile, res.Body)
 	if err != nil {
-		return err
+		return 0, err
 	}
-
 	return
 }
 
 //fetch prerequisite data (e.g. reference dbs)
-func movePreData(workunit *core.Workunit) (err error) {
+func movePreData(workunit *core.Workunit) (size int64, err error) {
 	for name, io := range workunit.Predata {
 		file_path := fmt.Sprintf("%s/%s", conf.DATA_PATH, name)
 		if !isFileExisting(file_path) {
-			if err = fetchFile(file_path, io.Url, ""); err != nil {
-				return
-			}
+			return fetchFile(file_path, io.Url, "")
 		}
 		//make a link in work dir to predata in conf.DATA_PATH
 		linkname := fmt.Sprintf("%s/%s", workunit.Path(), name)

@@ -35,6 +35,9 @@ type WorkPerf struct {
 	Runtime     int64  // computing time at client
 	MaxMemUsage uint64 // maxium memery consumption
 	ClientId    string
+	PreDataSize int64 //predata moved over network
+	InFileSize  int64 //input file moved over network
+	OutFileSize int64 //outpuf file moved over network
 }
 
 func NewJobPerf(id string) *JobPerf {

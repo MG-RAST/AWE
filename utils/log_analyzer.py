@@ -41,7 +41,10 @@ def parsePerfLogRaw(filename):
         line = line.strip('\r')
         if len(line)==0:
             continue
-        jsonstream = line[26:]
+        if line[0] == "[":
+            jsonstream = line[26:]
+        else:
+            jsonstream = line
         data =  json.loads(jsonstream)
         linemsg = ""
         for key, val in data.iteritems():

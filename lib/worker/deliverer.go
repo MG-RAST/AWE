@@ -22,11 +22,12 @@ func deliverer(control chan int) {
 		//post-process for works computed successfully: push output data to Shock
 		move_start := time.Now().Unix()
 		if work.State == core.WORK_STAT_COMPUTED {
-			if err := core.PushOutputData(work); err != nil {
+			if data_moved, err := core.PushOutputData(work); err != nil {
 				work.State = core.WORK_STAT_FAIL
 				logger.Error("err@pushOutputData: workid=" + work.Id + ", err=" + err.Error())
 			} else {
 				work.State = core.WORK_STAT_DONE
+				perfstat.OutFileSize = data_moved
 			}
 		}
 		move_end := time.Now().Unix()

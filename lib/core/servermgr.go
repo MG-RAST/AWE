@@ -683,6 +683,9 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 			task_was_inprogress = true
 		} else {
 			job.Tasks[idx].State = TASK_STAT_INPROGRESS
+			if _, ok := qm.taskMap[taskid]; ok {
+				qm.taskMap[taskid].State = TASK_STAT_INPROGRESS
+			}
 			job.Tasks[idx].StartedDate = time.Now()
 		}
 

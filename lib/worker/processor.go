@@ -32,6 +32,10 @@ func processor(control chan int) {
 		if work.State == core.WORK_STAT_FAIL {
 			processed.workunit.State = core.WORK_STAT_FAIL
 			fromProcessor <- processed
+			//release the permit lock, for work overlap inhibitted mode only
+			if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+				<-chanPermit
+			}
 			continue
 		}
 

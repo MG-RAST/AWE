@@ -111,15 +111,12 @@
 
 	    break;
 	case "graphical":
-	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/job", function (data) {
+	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/job?registered", function (data) {
 		var result_data = [];
 		if (data.data != null) {
 		    var data2 = [];
 		    for (var i=0;i<data.data.length;i++) {
-			if ((data.data[i].state == 'in-progress') || (data.data[i].state == 'suspend') || (data.data[i].state == 'submitted')) {
-
-			    data2.push(data.data[i]);
-			}
+			data2.push(data.data[i]);
 		    }
 		    data2 = data2.sort(widget.tasksort);
 		    for (h=0;h<data2.length;h++) {

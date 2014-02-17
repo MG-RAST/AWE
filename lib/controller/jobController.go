@@ -246,18 +246,24 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	}
 
 	filtered_jobs := []core.Job{}
+	registered_jobs := []core.Job{}
 	length := jobs.Length()
 	for i := 0; i < length; i++ {
 		job := jobs.GetJobAt(i)
 		if core.QMgr.IsJobRegistered(job.Id) {
 			job.Registered = true
+			registered_jobs = append(registered_jobs, job)
 		} else {
 			job.Registered = false
 		}
 		filtered_jobs = append(filtered_jobs, job)
 	}
 
-	cx.RespondWithData(filtered_jobs)
+	if query.Has("registered") {
+		cx.RespondWithData(registered_jobs)
+	} else {
+		cx.RespondWithData(filtered_jobs)
+	}
 	return
 }
 

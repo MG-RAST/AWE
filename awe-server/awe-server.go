@@ -12,6 +12,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
 	"os"
+	"runtime"
 )
 
 func launchSite(control chan int, port int) {
@@ -173,6 +174,30 @@ func main() {
 
 		fmt.Println("##### pidfile #####")
 		fmt.Printf("pid: %d saved to file: %s\n\n", pid, conf.PID_FILE_PATH)
+	}
+
+	// setting GOMAXPROCS
+	var procs int
+	avail := runtime.NumCPU()
+	if avail <= 2 {
+		procs = 1
+	} else if avail == 3 {
+		procs = 2
+	} else {
+		procs = avail - 2
+	}
+	fmt.Println("##### Procs #####")
+	fmt.Printf("Number of available CPUs = %d\n", avail)
+	if conf.GOMAXPROCS > 0 {
+		procs = conf.GOMAXPROCS
+	}
+	if procs <= avail {
+		fmt.Printf("Running AWE server with GOMAXPROCS = %d\n\n", procs)
+		runtime.GOMAXPROCS(procs)
+	} else {
+		fmt.Println("GOMAXPROCS config value is greater than available number of CPUs.")
+		fmt.Printf("Running Shock server with GOMAXPROCS = %d\n\n", avail)
+		runtime.GOMAXPROCS(avail)
 	}
 
 	<-control //block till something dies

@@ -667,6 +667,7 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 		} else {
 			job.State = JOB_STAT_INPROGRESS
 			job.Info.StartedTme = time.Now()
+			qm.UpdateJobPerfStartTime(jobid)
 		}
 		//update task status
 		idx := -1
@@ -687,6 +688,7 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 				qm.taskMap[taskid].State = TASK_STAT_INPROGRESS
 			}
 			job.Tasks[idx].StartedDate = time.Now()
+			qm.UpdateTaskPerfStartTime(taskid)
 		}
 
 		if !job_was_inprogress || !task_was_inprogress {
@@ -994,8 +996,15 @@ func (qm *ServerMgr) CreateJobPerf(jobid string) {
 	}
 }
 
-func (qm *ServerMgr) FinalizeJobPerf(jobid string) {
+func (qm *ServerMgr) UpdateJobPerfStartTime(jobid string) {
+	if perf, ok := qm.actJobs[jobid]; ok {
+		now := time.Now().Unix()
+		perf.Start = now
+	}
+	return
+}
 
+func (qm *ServerMgr) FinalizeJobPerf(jobid string) {
 	if perf, ok := qm.actJobs[jobid]; ok {
 		now := time.Now().Unix()
 		perf.End = now
@@ -1008,6 +1017,16 @@ func (qm *ServerMgr) CreateTaskPerf(taskid string) {
 	jobid := getParentJobId(taskid)
 	if perf, ok := qm.actJobs[jobid]; ok {
 		perf.Ptasks[taskid] = NewTaskPerf(taskid)
+	}
+}
+
+func (qm *ServerMgr) UpdateTaskPerfStartTime(taskid string) {
+	jobid := getParentJobId(taskid)
+	if jobperf, ok := qm.actJobs[jobid]; ok {
+		if taskperf, ok := jobperf.Ptasks[taskid]; ok {
+			now := time.Now().Unix()
+			taskperf.Start = now
+		}
 	}
 }
 
@@ -1028,7 +1047,6 @@ func (qm *ServerMgr) FinalizeTaskPerf(taskid string) {
 					taskperf.OutFileSizes = append(taskperf.OutFileSizes, io.Size)
 				}
 			}
-
 			return
 		}
 	}
@@ -1075,7 +1093,8 @@ func (qm *ServerMgr) FinalizeWorkPerf(workid string, reportfile string) (err err
 func (qm *ServerMgr) LogJobPerf(jobid string) {
 	if perf, ok := qm.actJobs[jobid]; ok {
 		perfstr, _ := json.Marshal(perf)
-		logger.Perf(string(perfstr))
+		logger.Perf(string(perfstr)) //write into perf log
+		dbUpsert(perf)               //write into mongodb
 	}
 }
 

@@ -3,6 +3,7 @@ package core
 import (
 	//	"errors"
 	"errors"
+	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
 	"labix.org/v2/mgo"
@@ -12,30 +13,40 @@ import (
 func InitJobDB() {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
-	c := session.DB(conf.MONGODB_DATABASE).C("Jobs")
-	c.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
+	cj := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	cj.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
+	cp := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_PERF)
+	cp.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
 }
 
-func dbDelete(q bson.M) (err error) {
+func dbDelete(q bson.M, coll string) (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
-	c := session.DB(conf.MONGODB_DATABASE).C("Jobs")
+	c := session.DB(conf.MONGODB_DATABASE).C(coll)
 	_, err = c.RemoveAll(q)
 	return
 }
 
-func dbUpsert(j *Job) (err error) {
+func dbUpsert(t interface{}) (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
-	c := session.DB(conf.MONGODB_DATABASE).C("Jobs")
-	_, err = c.Upsert(bson.M{"id": j.Id}, &j)
+	switch t := t.(type) {
+	case *Job:
+		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+		_, err = c.Upsert(bson.M{"id": t.Id}, &t)
+	case *JobPerf:
+		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_PERF)
+		_, err = c.Upsert(bson.M{"id": t.Id}, &t)
+	default:
+		fmt.Printf("invalid database entry type\n")
+	}
 	return
 }
 
 func dbFind(q bson.M, results *Jobs, options map[string]int) (count int, err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
-	c := session.DB(conf.MONGODB_DATABASE).C("Jobs")
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 	query := c.Find(q)
 	if count, err = query.Count(); err != nil {
 		return 0, err
@@ -75,9 +86,22 @@ func LoadJob(id string) (job *Job, err error) {
 	job = new(Job)
 	session := db.Connection.Session.Copy()
 	defer session.Close()
-	c := session.DB(conf.MONGODB_DATABASE).C("Jobs")
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 	if err = c.Find(bson.M{"id": id}).One(&job); err == nil {
 		return job, nil
+	} else {
+		return nil, err
+	}
+	return nil, err
+}
+
+func LoadJobPerf(id string) (perf *JobPerf, err error) {
+	perf = new(JobPerf)
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_PERF)
+	if err = c.Find(bson.M{"id": id}).One(&perf); err == nil {
+		return perf, nil
 	} else {
 		return nil, err
 	}

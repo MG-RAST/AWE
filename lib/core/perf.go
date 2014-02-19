@@ -10,8 +10,8 @@ type JobPerf struct {
 	Start  int64                `bson:"start" json:"start"`
 	End    int64                `bson:"end" json:"end"`
 	Resp   int64                `bson:"resp" json:"resp"` //End - Queued
-	Ptasks map[string]*TaskPerf `bson:"task_stats" json: "task_stats"`
-	Pworks map[string]*WorkPerf `bson:"work_stats" json: "work_stats"`
+	Ptasks map[string]*TaskPerf `bson:"task_stats" json:"task_stats"`
+	Pworks map[string]*WorkPerf `bson:"work_stats" json:"work_stats"`
 }
 
 type TaskPerf struct {
@@ -19,8 +19,8 @@ type TaskPerf struct {
 	Start        int64   `bson:"start" json:"start"`
 	End          int64   `bson:"end" json:"end"`
 	Resp         int64   `bson:"resp" json:"resp"` //End -Queued
-	InFileSizes  []int64 `bson:"size_infile" json: "size_infile"`
-	OutFileSizes []int64 `bson:"size_outfile" json: "size_outfile"`
+	InFileSizes  []int64 `bson:"size_infile" json:"size_infile"`
+	OutFileSizes []int64 `bson:"size_outfile" json:"size_outfile"`
 }
 
 type WorkPerf struct {
@@ -35,9 +35,9 @@ type WorkPerf struct {
 	Runtime     int64  `bson:"runtime" json:"runtime"`             // computing time at client
 	MaxMemUsage uint64 `bson:"max_mem_usage" json:"max_mem_usage"` // maxium memery consumption
 	ClientId    string `bson:"client_id" json:"client_id"`
-	PreDataSize int64  `bson:"size_predata" json:"size_predata"`  //predata moved over network
-	InFileSize  int64  `bson:"size_infile" json: "size_infile"`   //input file moved over network
-	OutFileSize int64  `bson:"size_outfile" json: "size_outfile"` //outpuf file moved over network
+	PreDataSize int64  `bson:"size_predata" json:"size_predata"` //predata moved over network
+	InFileSize  int64  `bson:"size_infile" json:"size_infile"`   //input file moved over network
+	OutFileSize int64  `bson:"size_outfile" json:"size_outfile"` //outpuf file moved over network
 }
 
 func NewJobPerf(id string) *JobPerf {

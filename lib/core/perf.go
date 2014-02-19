@@ -15,7 +15,6 @@ type JobPerf struct {
 }
 
 type TaskPerf struct {
-	Size         int64   `bson:"id" json:"id"`
 	Queued       int64   `bson:"queued" json:"queued"`
 	Start        int64   `bson:"start" json:"start"`
 	End          int64   `bson:"end" json:"end"`

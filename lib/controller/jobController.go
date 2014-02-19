@@ -100,6 +100,28 @@ func (cr *JobController) Create(cx *goweb.Context) {
 func (cr *JobController) Read(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
+
+	if query.Has("perf") {
+		//Load job perf by id
+		perf, err := core.LoadJobPerf(id)
+		if err != nil {
+			if err.Error() == e.MongoDocNotFound {
+				cx.RespondWithNotFound()
+				return
+			} else {
+				// In theory the db connection could be lost between
+				// checking user and load but seems unlikely.
+				logger.Error("Err@LoadJobPerf: " + id + ":" + err.Error())
+				cx.RespondWithErrorMessage("job perf stats not found:"+id, http.StatusBadRequest)
+				return
+			}
+		}
+		cx.RespondWithData(perf)
+		return //done with returning perf, no need to load job further.
+	}
+
 	// Load job by id
 	job, err := core.LoadJob(id)
 
@@ -122,8 +144,6 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 		job.Registered = false
 	}
 
-	// Gather query params
-	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("export") {
 		target := query.Value("export")
 		if target == "" {

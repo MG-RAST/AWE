@@ -65,6 +65,9 @@ var (
 	MONGODB_DATABASE = "AWEDB"
 	MONGODB_USER     = ""
 	MONGODB_PASSWD   = ""
+	DB_COLL_JOBS     = "Jobs"
+	DB_COLL_PERF     = "Perf"
+	DB_COLL_USERS    = "Users"
 
 	//debug log level
 	DEBUG_LEVEL = 0

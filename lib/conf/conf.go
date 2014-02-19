@@ -88,6 +88,8 @@ var (
 	//Shock_TimeOut
 	SHOCK_TIMEOUT = 30 * time.Second
 
+	GOMAXPROCS = 0
+
 	//[client]
 	TOTAL_WORKER              = 1
 	WORK_PATH                 = ""
@@ -205,6 +207,9 @@ func init() {
 	}
 	if max_client_failure, err := c.Int("Server", "max_client_failure"); err == nil {
 		MAX_CLIENT_FAILURE = max_client_failure
+	}
+	if go_max_procs, err := c.Int("Server", "go_max_procs"); err == nil {
+		GOMAXPROCS = go_max_procs
 	}
 	/*
 		if default_index, err := c.String("Server", "default_index"); err == nil {

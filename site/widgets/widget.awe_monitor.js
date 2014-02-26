@@ -4,7 +4,7 @@
                 title: "AWE Task Status Monitor",
                 name: "awe_monitor",
                 author: "Tobias Paczian",
-                requires: [ ]
+                requires: [ 'xlsx.js', 'jszip.min.js' ]
         }
     });
     
@@ -50,9 +50,9 @@
 		var target_space = document.createElement('div');
 		target_space.innerHTML = "";
 		view.appendChild(target_space);
-		widget.tables[views[i]] = Retina.Renderer.create("table", { target: target_space, data: {}, filter_autodetect: true, sort_autodetect: true });
+		Retina.WidgetInstances.awe_monitor[1].tables[views[i]] = Retina.Renderer.create("table", { target: target_space, data: {}, filter_autodetect: true, sort_autodetect: true });
 		if (views[i] == "clients") {
-		    widget.tables[views[i]].settings.rows_per_page = 100;
+		    Retina.WidgetInstances.awe_monitor[1].tables[views[i]].settings.rows_per_page = 100;
 		}
 	    }
 	    
@@ -292,7 +292,8 @@
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
 			result_data.push( [ obj.info.submittime,
-					    "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
+					    //"<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
+					    "<span style='color: blue; cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].jobDetails(\""+obj.id+"\")'>"+obj.jid+"</span>",
 					    obj.info.name,
 					    obj.info.user,
 					    obj.info.project,
@@ -484,4 +485,160 @@
 	}
     };
 
+    widget.jobDetails = function (jobid) {
+	jQuery.getJSON(RetinaConfig["awe_ip"]+"/job/"+jobid, function (data) {
+	    var job = data.data;
+	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/job/"+jobid+"?perf", function (data) {
+		if (data.data) {
+		    job.queued = data.data.queued;
+		    job.start = data.data.start;
+		    job.end = data.data.end;
+		    job.resp = data.data.resp;
+		    job.task_stats = data.data.task_stats;
+		    job.work_stats = data.data.work_stats;
+		    Retina.WidgetInstances.awe_monitor[1].xlsExport(job);
+		} else {
+		    alert('no job statistics available');
+		}
+	    });
+	});
+    };
+
+    widget.xlsExport = function (job) {
+	// issue an XMLHttpRequest to load the empty Excel workbook from disk
+	var xhr = new XMLHttpRequest();
+	var method = "GET";
+	var base_url = "Workbook1.xlsx";
+	if ("withCredentials" in xhr) {
+	    xhr.open(method, base_url, true);
+	} else if (typeof XDomainRequest != "undefined") {
+	    xhr = new XDomainRequest();
+	    xhr.open(method, base_url);
+	} else {
+	    alert("your browser does not support CORS requests");
+	    console.log("your browser does not support CORS requests");
+	    return undefined;
+	}
+	
+	xhr.responseType = 'arraybuffer';
+	
+	xhr.onload = function() {
+	    
+	    // the file is loaded, create a javascript object from it
+	    var wb = xlsx(xhr.response);
+	    
+	    // create the worksheets
+	    wb.worksheets[0].name = "main";
+	    wb.addWorksheet({ name: "task" });
+	    wb.addWorksheet({ name: "work" });
+	    
+	    // write the overview data
+	    wb.setCell(0, 0, 0, "id");
+	    wb.setCell(0, 1, 0, "queued");
+	    wb.setCell(0, 2, 0, "start");
+	    wb.setCell(0, 3, 0, "end");
+	    wb.setCell(0, 4, 0, "resp");
+	    
+	    wb.setCell(0, 0, 1, job.id);
+	    wb.setCell(0, 1, 1, job.queued);
+	    wb.setCell(0, 2, 1, job.start);
+	    wb.setCell(0, 3, 1, job.end);
+	    wb.setCell(0, 4, 1, job.resp);
+	    
+	    // write task header
+	    wb.setCell(1, 0, 0, "queued");
+	    wb.setCell(1, 1, 0, "start");
+	    wb.setCell(1, 2, 0, "end");
+	    wb.setCell(1, 3, 0, "resp");
+	    var maxInfile = 0;
+	    var maxOutfile = 0;
+	    for (var i in job.task_stats) {
+		if (job.task_stats.hasOwnProperty(i)) {
+		    if (job.task_stats[i].size_infile.length > maxInfile) {
+			maxInfile = job.task_stats[i].size_infile.length;
+		    }
+		    if (job.task_stats[i].size_outfile.length > maxOutfile) {
+			maxOutfile = job.task_stats[i].size_outfile.length;
+		    }
+		}
+	    }
+	    var currCol = 4;
+	    for (var i=0; i<maxInfile; i++) {
+		wb.setCell(1, currCol, 0, "size infile "+i);
+		currCol++;
+	    }
+	    for (var i=0; i<maxOutfile; i++) {
+		wb.setCell(1, currCol, 0, "size outfile "+i);
+		currCol++;
+	    }
+
+	    // write task data
+	    currCol = 4;
+	    var currRow = 1;
+
+	    for (var i in job.task_stats) {
+		if (job.task_stats.hasOwnProperty(i)) {
+		    wb.setCell(1, 0, currRow, job.task_stats[i].queued);
+		    wb.setCell(1, 1, currRow, job.task_stats[i].start);
+		    wb.setCell(1, 2, currRow, job.task_stats[i].end);
+		    wb.setCell(1, 3, currRow, job.task_stats[i].resp);
+		    var currCol = 4;
+		    for (var h=0; h<job.task_stats[i].size_infile.length;h++) {
+			wb.setCell(1, currCol, currRow, job.task_stats[i].size_infile[h]);
+			currCol++;
+		    }
+		    currCol = 4 + maxInfile;
+		    for (var h=0; h<job.task_stats[i].size_outfile.length;h++) {
+			wb.setCell(1, currCol, currRow, job.task_stats[i].size_outfile[h]);
+			currCol++;
+		    }
+		    currRow++;
+		}
+	    }
+	    
+	    // write work header
+	    wb.setCell(2, 0, 0, "queued");
+	    wb.setCell(2, 1, 0, "done");
+	    wb.setCell(2, 2, 0, "resp");
+	    wb.setCell(2, 3, 0, "checkout");
+	    wb.setCell(2, 4, 0, "deliver");
+	    wb.setCell(2, 5, 0, "clientresp");
+	    wb.setCell(2, 6, 0, "time data in");
+	    wb.setCell(2, 7, 0, "time data out");
+	    wb.setCell(2, 8, 0, "runtime");
+	    wb.setCell(2, 9, 0, "max mem usage");
+	    wb.setCell(2, 10, 0, "client id");
+	    wb.setCell(2, 11, 0, "size predata");
+	    wb.setCell(2, 12, 0, "size infile");
+	    wb.setCell(2, 13, 0, "size outfile");
+
+	    // write work data
+	    currRow = 1;
+	    for (var i in job.work_stats) {
+		if (job.work_stats.hasOwnProperty(i)) {
+		    wb.setCell(2, 0, currRow, job.work_stats[i].queued);
+		    wb.setCell(2, 1, currRow, job.work_stats[i].done);
+		    wb.setCell(2, 2, currRow, job.work_stats[i].resp);
+		    wb.setCell(2, 3, currRow, job.work_stats[i].checkout);
+		    wb.setCell(2, 4, currRow, job.work_stats[i].deliver);
+		    wb.setCell(2, 5, currRow, job.work_stats[i].clientresp);
+		    wb.setCell(2, 6, currRow, job.work_stats[i].time_data_in);
+		    wb.setCell(2, 7, currRow, job.work_stats[i].time_data_out);
+		    wb.setCell(2, 8, currRow, job.work_stats[i].runtime);
+		    wb.setCell(2, 9, currRow, job.work_stats[i].max_mem_usage);
+		    wb.setCell(2, 10, currRow, job.work_stats[i].client_id);
+		    wb.setCell(2, 11, currRow, job.work_stats[i].size_predata);
+		    wb.setCell(2, 12, currRow, job.work_stats[i].size_infile);
+		    wb.setCell(2, 13, currRow, job.work_stats[i].size_outfile);
+		    currRow++;
+		}
+	    }
+
+	    // open a save dialog for the user through the stm.saveAs function
+	    stm.saveAs(xlsx(wb).base64, job.info.name+"_statistics.xlsx", "data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,");
+	}
+
+	xhr.send();
+    };
+    
 })();

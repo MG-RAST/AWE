@@ -27,14 +27,14 @@
 	
 	var rendererResources = settings.renderer_resources;
 	if (rendererResources) {
-	    for (i in rendererResources) {
+	    for (var i in rendererResources) {
 		promises.push(Retina.query_renderer_resource(rendererResources[i]));
 	    }
 	}
 	
 	var widgetResources = settings.widget_resources;
 	if (widgetResources) {
-	    for (i in widgetResources) {
+	    for (var i in widgetResources) {
 		promises.push(Retina.query_widget_resource(widgetResources[i]));
 	    }
 	}
@@ -47,9 +47,9 @@
 		// adjust bootstrap to the library location
 		var cssRuleCode = document.all ? 'rules' : 'cssRules'; // account for IE and FF
 		var styles = document.styleSheets;
-		for (i=0;i<styles.length;i++) {
+		for (var i=0;i<styles.length;i++) {
 	    	    if (styles[i].href && styles[i].href.indexOf('bootstrap.min.css') > -1) {
-	    		for (h=0; h<styles[i][cssRuleCode].length; h++) {
+	    		for (var h=0; h<styles[i][cssRuleCode].length; h++) {
 	    		    if (styles[i][cssRuleCode][h].selectorText == '[class^="icon-"], [class*=" icon-"]') {
 	    			styles[i][cssRuleCode][h].style.backgroundImage = "url('http://raw.github.com/MG-RAST/Retina/master/images/glyphicons-halflings.png')";
 	    		    }
@@ -103,7 +103,7 @@
     // Retrieve the values of an object's properties.
     Retina.values = function (object) {
 	var values = [];
-	for (var key in this) {
+	for (var key in object) {
 	    if (object.hasOwnProperty(key)) {
 		values[values.length] = object[key];
 	    }
@@ -111,6 +111,12 @@
 	return values;
     };
     
+    Retina.propSort = function(prop) {
+	return function(a, b) {
+            return a[prop] - b[prop];
+	}
+    };
+
     Retina.require = function (resource, successCb, errorCb) {
 	var promise = Retina.load_library(resource);
 	promise.then(successCb, errorCb);
@@ -318,9 +324,24 @@
 	
     }
 
+    Retina.cgiParam = function (name) {
+	name = name.replace(/[\[]/, "\\\[").replace(/[\]]/, "\\\]");
+	var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+        results = regex.exec(location.search);
+	return results == null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+    }
+
     Number.prototype.formatString = function(c, d, t) {
 	var n = this, c = isNaN(c = Math.abs(c)) ? 0 : c, d = d == undefined ? "." : d, t = t == undefined ? "," : t, s = n < 0 ? "-" : "", i = parseInt(n = Math.abs(+n || 0).toFixed(c)) + "", j = (j = i.length) > 3 ? j % 3 : 0;
 	return s + (j ? i.substr(0, j) + t : "") + i.substr(j).replace(/(\d{3})(?=\d)/g, "$1" + t) + (c ? d + Math.abs(n - i).toFixed(c).slice(2) : "");
+    };
+
+    Array.prototype.max = function() {
+	return Math.max.apply(null, this);
+    };
+    
+    Array.prototype.min = function() {
+	return Math.min.apply(null, this);
     };
 
     /* ===================================================
@@ -416,7 +437,7 @@
 	
 	jQuery.getJSON(resource, function (data) {
 	    renderer_resources.push(resource);
-	    for (i = 0; i < data.length; i++) {
+	    for (var i = 0; i < data.length; i++) {
 		var rend = {};
 		rend.resource = resource;
 		rend.name = data[i].substring(data[i].indexOf(".") + 1, data[i].lastIndexOf("."));
@@ -436,7 +457,7 @@
 	var renderer_select = document.getElementById(list);
 	if (renderer_select) {
 	    renderer_select.options.length = 0;
-	    for (i in available_renderers) {
+	    for (var i in available_renderers) {
 		renderer_select.add(new Option(i, i), null);
 	    }
 	}
@@ -447,7 +468,7 @@
 	
 	jQuery.getJSON(resource, function (data) {
 	    widget_resources.push(resource);
-	    for (ii=0; ii < data.length; ii++) {
+	    for (var ii=0; ii < data.length; ii++) {
 		var widget = {};
 		widget.resource = resource;
 		widget.name = data[ii].substring(data[ii].indexOf(".") + 1, data[ii].lastIndexOf("."));

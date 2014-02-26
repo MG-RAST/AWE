@@ -11,7 +11,7 @@
     stm.SourceOrigin = "*";
     stm.TargetOrigin = "*";
     stm.Authentication = null;
-    stm.Config = RetinaConfig;
+    stm.Config = typeof RetinaConfig == 'undefined' ? {} : RetinaConfig;
 
     // receive messages sent from other frames
     //window.addEventListener("message", receiveMessage, false);
@@ -98,21 +98,17 @@
     
     // set up / reset the DataHandler, adding initial repositories
     stm.init = function (repo, nocheck, name) {
-	stm.DataStore = [];
-	stm.TypeData = [];
-	stm.TypeData['object_count'] = [];
-	stm.TypeData['type_count'] = 0;
-	CallbackList = [];
-	stm.DataRepositories = [];
-	stm.DataRepositoriesCount = 0;
-	stm.DataRepositoryDefault = null;
-	if (repo) {
-	    return stm.add_repository(repo, null, nocheck, name);
-	} else {
-	    var p = jQuery.Deferred();
-	    p.resolve();
-	    return p;
-	}
+	    stm.DataStore = [];
+	    stm.TypeData = [];
+	    stm.TypeData['object_count'] = [];
+	    stm.TypeData['type_count'] = 0;
+	    CallbackList = [];
+	    stm.DataRepositories = [];
+	    stm.DataRepositoriesCount = 0;
+	    stm.DataRepositoryDefault = null;
+	    if (repo) {
+	        return stm.add_repository(repo, null, nocheck, name);
+	    }
     };
     
     // generic data loader
@@ -145,7 +141,7 @@
 	    }
 	    if (typeof(new_data[0]) != 'object') {
 		var dataids = [];
-		for (i=0; i<new_data.length; i++) {
+		for (var i=0; i<new_data.length; i++) {
 		    dataids.push( { 'id': new_data[i] } );
 		}
 		new_data = dataids;
@@ -169,7 +165,7 @@
 	    if (repository) {
 	        if (offline_mode) {
 	            repository_name = repository_name || 'default';
-		        stm.DataRepositories[repository_name] = { url: repository, name: repository_name };
+	            stm.DataRepositories[repository_name] = repository;
 		        stm.DataRepositoriesCount++;
 		        if (stm.DataRepositoryDefault == null) {
 		            stm.DataRepositoryDefault = stm.DataRepositories[repository_name];
@@ -203,6 +199,7 @@
 		        return promise;
 	        }
 	    }
+	    return undefined;
     };
     
     // removes a repository from the stm.DataRepositories list
@@ -266,6 +263,11 @@
 	    repo = stm.default_repository();
 	}
 
+	var method = 'GET';
+	if (params.hasOwnProperty('method')) {
+            method = params['method'];
+	}
+
 	var type = params['type'];
 	var id = params['id'];
 	if (params.hasOwnProperty('return_type') && (params.return_type == 'search')) {
@@ -282,7 +284,13 @@
 	if (options) {
 	    query_params = "?";
 	    for (var i in options) {
+		if (typeof options[i] == "object") {
+		    for (var h=0;h<options[i].length;h++) {
+			query_params += i + '=' + options[i][h] + '&';
+		    }
+		} else {
 		    query_params += i + '=' + options[i] + '&';
+		}
 	    }
 	    query_params = query_params.slice(0,-1);
 	}
@@ -292,55 +300,69 @@
 	var xhr = new XMLHttpRequest(); 
 	xhr.addEventListener("progress", updateProgress, false);
 	if ("withCredentials" in xhr) {
-	    xhr.open('GET', base_url, true);
+	    xhr.open(method, base_url, true);
 	} else if (typeof XDomainRequest != "undefined") {
 	    xhr = new XDomainRequest();
-	    xhr.open('GET', base_url);
+	    xhr.open(method, base_url);
 	} else {
 	    alert("your browser does not support CORS requests");
 	    console.log("your browser does not support CORS requests");
-	    return;
+	    return undefined;
 	}
+	
 	xhr.onload = function() {
 	    var progressIndicator = document.getElementById('progressIndicator');
 	    if (progressIndicator) {
-		document.getElementById('progressBar').innerHTML = "waiting for respose...";
+		    document.getElementById('progressBar').innerHTML = "waiting for respose...";
 		//progressIndicator.style.display = "none";
 	    }
 	    if (params.hasOwnProperty('return_type')) {
-		switch (params.return_type) {
-		case 'text':
-		    var d = {};
-		    d['id'] = params['id'];
-		    d['data'] = xhr.responseText;
-		    stm.load_data({ "data": d, "type": type });
-		    break;
-		case 'shock':
-		    var d = JSON.parse(xhr.responseText);
-		    if (d.error == null) {
-			stm.load_data({ "data": d.data, "type": type });
-		    } else {
-			alert(d.error);
-			console.log(d);
+	        var d = {};
+		    switch (params.return_type) {
+		        case 'text':
+		        d['id'] = params['id'];
+		        d['data'] = xhr.responseText;
+		        stm.load_data({ "data": d, "type": type });
+		        break;
+		        case 'shock':
+		        d = JSON.parse(xhr.responseText);
+		        if (d.error == null) {
+			        stm.load_data({ "data": d.data, "type": type });
+		        } else {
+			        alert(d.error+' ('+d.status+')');
+			        console.log(d);
+		        }
+		        break;
+	            case 'search':
+		        d = JSON.parse(xhr.responseText);
+		        if (d.found && d.found > 0 && d.body && d.body.length) {
+			        for (var i=0;i<d.body.length;i++) {
+			            if (d.body[i].hasOwnProperty('gid')) { d.body[i].id = d.body[i].gid; }
+			            if (d.body[i].hasOwnProperty('fid')) { d.body[i].id = d.body[i].fid; }
+			            if (d.body[i].hasOwnProperty('kbfid')) { d.body[i].id = d.body[i].kbfid; }
+			        }
+			        stm.load_data({ "data": d.body, "type": type });
+		        } else {
+			        alert('could not retrieve requested data');
+			        console.log(d);
+		        }
+		        break;
+		        case 'ipynbo':
+		        d = JSON.parse(xhr.responseText);
+		        if (d.error == null) {
+			        stm.load_data({ "data": d.data, "type": type });
+		        } else {
+			        alert(d.error+' ('+d.status+')');
+			        console.log(d);
+		        }
+		        break;
+		        default:
+		        alert("Invalid return_type "+params.return_type);
+		        console.log("Invalid return_type "+params.return_type);
+		        break;
 		    }
-		    break;
-		case 'search':
-		    var d = JSON.parse(xhr.responseText);
-		    if (d.found && d.found > 0 && d.body && d.body.length) {
-			for (i=0;i<d.body.length;i++) {
-			    if (d.body[i].hasOwnProperty('gid')) { d.body[i].id = d.body[i].gid; }
-			    if (d.body[i].hasOwnProperty('fid')) { d.body[i].id = d.body[i].fid; }
-			    if (d.body[i].hasOwnProperty('kbfid')) { d.body[i].id = d.body[i].kbfid; }
-			}
-			stm.load_data({ "data": d.body, "type": type });
-		    } else {
-			alert('could not retrieve requested data');
-			console.log(d);
-		    }
-		    break;
-		}
 	    } else {
-		stm.load_data({ "data": JSON.parse(xhr.responseText), "type": type });
+		    stm.load_data({ "data": JSON.parse(xhr.responseText), "type": type });
 	    }
 
 	    promise.resolve();
@@ -377,12 +399,12 @@
 	if (progressBar) {
 	    document.getElementById('progressIndicator').style.display = "";	    
 	    if (e.loaded) {
-		progressBar.innerHTML = "received... "+pretty_size(e.loaded);
+		progressBar.innerHTML = "received... "+stm.prettySize(e.loaded);
 	    }
 	}
     }
     
-    function pretty_size (size) {
+    stm.prettySize = function (size) {
 	var magnitude = "B";
 	if (size > 999) {
 	    size = size / 1024;
@@ -460,18 +482,21 @@
 
     // session dumping
     stm.dump = function () {
-	var dstring = "";
-	dstring += "{";
-	for (i in stm.DataStore) {
+	var dstring = "{";
+	for (var i in stm.DataStore) {
 	    if (stm.DataStore.hasOwnProperty(i)) {
 		dstring += '"'+i+'":[';
-		for (h in stm.DataStore[i]) {
+		var hasOne = false;
+		for (var h in stm.DataStore[i]) {
 		    if (stm.DataStore[i].hasOwnProperty(h)) {
+			hasOne = true;
 			dstring += JSON.stringify(stm.DataStore[i][h]);
 			dstring += ",";
 		    }
 		}
-		dstring = dstring.slice(0,-1);
+		if (hasOne) {
+		    dstring = dstring.slice(0,-1);
+		}
 		dstring += "],";
 	    }
 	}
@@ -486,8 +511,29 @@
     };
 
     // save as dialog
-    stm.saveAs = function (data, filename) {
-	data = 'data:application/octet-stream;base64,' + window.btoa(data);
+    stm.saveAs = function (data, filename, prefix) {
+	if (! prefix) {
+	    try {
+		data = window.btoa(data);
+	    } catch (err) {
+		var utftext = "";
+		for(var n=0; n<data.length; n++) {
+		    var c=data.charCodeAt(n);
+		    if (c<128)
+			utftext += String.fromCharCode(c);
+                    else if((c>127) && (c<2048)) {
+			utftext += String.fromCharCode((c>>6)|192);
+			utftext += String.fromCharCode((c&63)|128);}
+		    else {
+			utftext += String.fromCharCode((c>>12)|224);
+			utftext += String.fromCharCode(((c>>6)&63)|128);
+			utftext += String.fromCharCode((c&63)|128);}
+		}
+		data = window.btoa(utftext);
+	    }
+	}
+	data = prefix ? prefix + data : 'data:application/octet-stream;base64,'+data;
+	
 	var anchor = document.createElement('a');
 	anchor.setAttribute('download', filename || "download.txt");
 	anchor.setAttribute('href', data);

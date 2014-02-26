@@ -118,8 +118,10 @@ func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	var MaxMem uint64 = 0
 	done := make(chan error)
+	memcheck_done := make(chan bool)
 	go func() {
 		done <- cmd.Wait()
+		memcheck_done <- true
 	}()
 	go func() {
 		mstats := new(runtime.MemStats)
@@ -127,12 +129,17 @@ func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		MaxMem = mstats.Alloc
 		time.Sleep(2 * time.Second)
 		for {
-			mstats := new(runtime.MemStats)
-			runtime.ReadMemStats(mstats)
-			if mstats.Alloc > MaxMem {
-				MaxMem = mstats.Alloc
+			select {
+			default:
+				mstats := new(runtime.MemStats)
+				runtime.ReadMemStats(mstats)
+				if mstats.Alloc > MaxMem {
+					MaxMem = mstats.Alloc
+				}
+				time.Sleep(conf.MEM_CHECK_INTERVAL)
+			case <-memcheck_done:
+				return
 			}
-			time.Sleep(conf.MEM_CHECK_INTERVAL)
 		}
 	}()
 

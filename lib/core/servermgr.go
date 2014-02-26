@@ -743,7 +743,7 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string) (err error) {
 			}
 		}
 	}
-
+	qm.LogJobPerf(jobid)
 	qm.DeleteJobPerf(jobid)
 	logger.Event(event.JOB_SUSPEND, "jobid="+jobid+";reason="+reason)
 	return

@@ -87,9 +87,10 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 
 	task.Info = job.Info
 
-	if task.TotalWork > 0 {
-		task.WorkStatus = make([]string, task.TotalWork)
+	if task.TotalWork <= 0 {
+		task.setTotalWork(1)
 	}
+	task.WorkStatus = make([]string, task.TotalWork)
 	task.RemainWork = task.TotalWork
 
 	for _, io := range task.Inputs {

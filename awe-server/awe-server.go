@@ -128,15 +128,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	//recover unfinished jobs before server went down last time
-	if conf.RECOVER {
-		fmt.Println("####### Recovering unfinished jobs #######")
-		if err := core.QMgr.RecoverJobs(); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
-		}
-		fmt.Println("Done")
-	}
-
 	//launch server
 	control := make(chan int)
 	go core.QMgr.Handle()
@@ -153,7 +144,14 @@ func main() {
 	if hostname, err := os.Hostname(); err == nil {
 		host = fmt.Sprintf("%s:%d", hostname, conf.API_PORT)
 	}
+	
+	//recover unfinished jobs before server went down last time
 	if conf.RECOVER {
+		fmt.Println("####### Recovering unfinished jobs #######")
+		if err := core.QMgr.RecoverJobs(); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		}
+		fmt.Println("Done")
 		logger.Event(event.SERVER_RECOVER, "host="+host)
 	} else {
 		logger.Event(event.SERVER_START, "host="+host)

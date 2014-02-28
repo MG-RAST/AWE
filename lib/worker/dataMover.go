@@ -189,7 +189,10 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 	for name, io := range workunit.Predata {
 		file_path := fmt.Sprintf("%s/%s", conf.DATA_PATH, name)
 		if !isFileExisting(file_path) {
-			return fetchFile(file_path, io.Url, "")
+			size, err = fetchFile(file_path, io.Url, "")
+			if err != nil {
+			    return
+			}
 		}
 		//make a link in work dir to predata in conf.DATA_PATH
 		linkname := fmt.Sprintf("%s/%s", workunit.Path(), name)

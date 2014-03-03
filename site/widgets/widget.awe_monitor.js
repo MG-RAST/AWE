@@ -292,7 +292,7 @@
 		    for (h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
 			result_data.push( [ obj.info.submittime,
-					    "<a href=# onclick='Retina.WidgetInstances.awe_monitor[1].tooltip(jQuery(this), \""+obj.id+"\")'>"+obj.jid+"</a>",
+					    "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].tooltip(jQuery(this), \""+obj.id+"\")'>"+obj.jid+"</a>",
 					    obj.info.name,
 					    obj.info.user,
 					    obj.info.project,
@@ -373,8 +373,12 @@
 		if (data.data == null) {
 		    result_data = [ ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'] ];
 		} else {
-		    for (h=0;h<data.data.length;h++) {
+		    for (var h=0;h<data.data.length;h++) {
 			var obj = data.data[h];
+			var skipwork = [];
+			for (var j=0;j<obj.skip_work.length;j++) {
+			    skipwork.push("<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.skip_work[j]+"\")'>"+obj.skip_work[j]+"</a>");
+			}
 			result_data.push( ["<a href='"+RetinaConfig["awe_ip"]+"/client/"+obj.id+"' target=_blank>"+obj.name+"</a>",
 					    obj.group,
 					    obj.user || "-",
@@ -389,7 +393,7 @@
 					    obj.total_checkout || "0",
 					    obj.total_completed || "0",
 					    obj.total_failed || "0",
-					    obj.skip_work.join(", ")]);
+					    skipwork.join(", ") ]);
 		    }
 		}
 		return_data = { header: [ "name",
@@ -486,9 +490,23 @@
 
     widget.tooltip = function (obj, id) {
 	obj.popover('destroy');
-	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a href="+RetinaConfig["awe_ip"]+"/job/"+id+" target=_blank onclick=this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode) >job details</a><br><a href="+RetinaConfig["awe_ip"]+"/job/"+id+"?perf target=_blank onclick=this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode)>job stats</a><br><a href=# onclick='Retina.WidgetInstances.awe_monitor[1].jobDetails(&#39;"+id+"&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>excel</a>",html:true,placement:"top"});
+	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a href="+RetinaConfig["awe_ip"]+"/job/"+id+" target=_blank onclick=this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode) >job details</a><br><a href="+RetinaConfig["awe_ip"]+"/job/"+id+"?perf target=_blank onclick=this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode)>job stats</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].jobDetails(&#39;"+id+"&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>excel</a>",html:true,placement:"top"});
 	obj.popover('show');
     }
+
+    widget.clientTooltip = function (obj, id) {
+	obj.popover('destroy');
+	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;err&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>error</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;out&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>output</a>",html:true,placement:"top"});
+	obj.popover('show');
+    }
+
+    widget.workunitDetails = function (id, which) {
+	if (which=='out') {
+	    window.open(RetinaConfig["awe_ip"]+"/work/"+id+"?report=stdout");
+	} else {
+	    window.open(RetinaConfig["awe_ip"]+"/work/"+id+"?report=stderr");
+	}
+    };
 
     widget.jobDetails = function (jobid) {
 	jQuery.getJSON(RetinaConfig["awe_ip"]+"/job/"+jobid, function (data) {

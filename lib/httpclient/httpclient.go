@@ -8,7 +8,8 @@ import (
 	"net/http"
 )
 
-type Header map[string]string
+type Header http.Header
+
 type Auth struct {
 	Type     string
 	Username string
@@ -45,7 +46,9 @@ func Do(t string, url string, header Header, data io.Reader, user *Auth) (*http.
 		}
 	}
 	for k, v := range header {
-		req.Header.Add(k, v)
+		for _, v2 := range v {
+			req.Header.Add(k, v2)
+		}
 	}
 	return trans.RoundTrip(req)
 }

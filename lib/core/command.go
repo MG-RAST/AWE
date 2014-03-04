@@ -10,6 +10,7 @@ var (
 )
 
 type Command struct {
+	Dockerimage string   `bson:"Dockerimage" json:"Dockerimage"`
 	Name        string   `bson:"name" json:"name"`
 	Options     string   `bson:"options" json:"-"`
 	Args        string   `bson:"args" json:"args"`

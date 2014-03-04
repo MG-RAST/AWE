@@ -65,8 +65,8 @@ func authToken(t string) (*user.User, error) {
 	}
 
 	headers := httpclient.Header{
-		"Content-Type":   form.ContentType,
-		"Content-Length": strconv.FormatInt(form.Length, 10),
+		"Content-Type":   []string{form.ContentType},
+		"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
 	}
 
 	if res, err := httpclient.Do("POST", url, headers, form.Reader, &httpclient.Auth{Type: "mgrast", Token: t}); err == nil {

@@ -132,7 +132,7 @@ func (sc *ShockClient) Get_node_download_url (node ShockNode) (download_url stri
 	return 
 }
 
-// example: query_response_p, err := sc.Shock_query(url.Values{"docker": {"1"}, "docker_image_name" : {"wgerlach/bowtie2:2.2.0"}});
+// example: query_response_p, err := sc.Shock_query(host, url.Values{"docker": {"1"}, "docker_image_name" : {"wgerlach/bowtie2:2.2.0"}});
 func (sc *ShockClient) Query (query url.Values) (sqr_p *ShockQueryResponse, err error) {
 	
 	query.Add("query","")

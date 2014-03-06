@@ -32,7 +32,7 @@ func deliverer(control chan int) {
 		}
 		move_end := time.Now().UnixNano()
 		perfstat.DataOut = float64(move_end-move_start) / 1e9
-		perfstat.Deliver = move_end
+		perfstat.Deliver = int64(move_end / 1e9)
 		perfstat.ClientResp = perfstat.Deliver - perfstat.Checkout
 		perfstat.ClientId = core.Self.Id
 

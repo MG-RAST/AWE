@@ -111,6 +111,7 @@ var (
 	STDOUT_FILENAME           = "awe_stdout.txt"
 	STDERR_FILENAME           = "awe_stderr.txt"
 	MEM_CHECK_INTERVAL        = 10 * time.Second
+	KB_AUTH_TOKEN             = "KB_AUTH_TOKEN"
 
 	//tag
 	INIT_SUCCESS = true

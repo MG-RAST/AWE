@@ -39,6 +39,8 @@ func processor(control chan int) {
 			continue
 		}
 
+		envkeys := SetEnv(work)
+
 		run_start := time.Now().Unix()
 		pstat, err := RunWorkunit(work)
 		if err != nil {
@@ -53,6 +55,10 @@ func processor(control chan int) {
 		computetime := run_end - run_start
 		processed.perfstat.Runtime = computetime
 		processed.workunit.ComputeTime = int(computetime)
+
+		if len(envkeys) > 0 {
+			UnSetEnv(envkeys)
+		}
 
 		fromProcessor <- processed
 
@@ -159,4 +165,30 @@ func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	logger.Event(event.WORK_END, "workid="+work.Id)
 	pstats.MaxMemUsage = MaxMem
 	return
+}
+
+func SetEnv(work *core.Workunit) (envkeys []string) {
+	for key, val := range work.Cmd.Environ {
+		if key == conf.KB_AUTH_TOKEN {
+			if work.Info.DataToken != "" {
+				if err := os.Setenv(key, work.Info.DataToken); err == nil {
+					envkeys = append(envkeys, key)
+				}
+			}
+		} else {
+			if oldval := os.Getenv(key); oldval == "" {
+				if err := os.Setenv(key, val); err == nil {
+					envkeys = append(envkeys, key)
+				}
+			}
+
+		}
+	}
+	return
+}
+
+func UnSetEnv(envkeys []string) {
+	for _, key := range envkeys {
+		os.Setenv(key, "")
+	}
 }

@@ -36,19 +36,6 @@ func deliverer(control chan int) {
 		perfstat.ClientResp = perfstat.Deliver - perfstat.Checkout
 		perfstat.ClientId = core.Self.Id
 
-		//notify server the final process results
-		/*		if err := core.NotifyWorkunitProcessed(work, perfstat); err != nil {
-					time.Sleep(3 * time.Second) //wait 3 seconds and try another time
-					if err := core.NotifyWorkunitProcessed(work, perfstat); err != nil {
-						fmt.Printf("!!!NotifyWorkunitDone returned error: %s\n", err.Error())
-						logger.Error("err@NotifyWorkunitProcessed: workid=" + work.Id + ", err=" + err.Error())
-						//mark this work in Current_work map as false, something needs to be done in the future
-						//to clean this kind of work that has been proccessed but its result can't be sent to server!
-						core.Self.Current_work[work.Id] = false //server doesn't know this yet
-					}
-				}
-		*/
-
 		//notify server the final process results; send perflog, stdout, and stderr if needed
 		if err := core.NotifyWorkunitProcessedWithLogs(work, perfstat, conf.PRINT_APP_MSG); err != nil {
 			fmt.Printf("!!!NotifyWorkunitDone returned error: %s\n", err.Error())

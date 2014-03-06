@@ -35,32 +35,43 @@ func dataMover(control chan int) {
 		}
 
 		//check the availability prerequisite data and download if needed
+		predatamove_start := time.Now().UnixNano()
 		if moved_data, err := movePreData(parsed.workunit); err != nil {
 			logger.Error("err@dataMover_work.movePreData, workid=" + work.Id + " error=" + err.Error())
 			parsed.workunit.State = core.WORK_STAT_FAIL
+			//hand the parsed workunit to next stage and continue to get new workunit to process
+			fromMover <- parsed
+			continue
 		} else {
-			parsed.perfstat.PreDataSize = moved_data
+			if moved_data > 0 {
+				parsed.perfstat.PreDataSize = moved_data
+				predatamove_end := time.Now().UnixNano()
+				parsed.perfstat.PreDataIn = float64(predatamove_end-predatamove_start) / 1e9
+			}
 		}
 
 		//parse the args, replacing @input_name to local file path (file not downloaded yet)
-		if arglist, err := ParseWorkunitArgs(parsed.workunit); err == nil {
-			parsed.workunit.State = core.WORK_STAT_PREPARED
-			parsed.workunit.Cmd.ParsedArgs = arglist
-		} else {
+		if arglist, err := ParseWorkunitArgs(parsed.workunit); err != nil {
 			logger.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + work.Id + " error=" + err.Error())
 			parsed.workunit.State = core.WORK_STAT_FAIL
+			//hand the parsed workunit to next stage and continue to get new workunit to process
+			fromMover <- parsed
+			continue
+		} else {
+			parsed.workunit.Cmd.ParsedArgs = arglist
+			parsed.workunit.State = core.WORK_STAT_PREPARED
 		}
 
 		//download input data
-		datamove_start := time.Now().Unix()
+		datamove_start := time.Now().UnixNano()
 		if moved_data, err := moveInputData(parsed.workunit); err != nil {
 			logger.Error("err@dataMover_work.moveInputData, workid=" + work.Id + " error=" + err.Error())
 			parsed.workunit.State = core.WORK_STAT_FAIL
 		} else {
 			parsed.perfstat.InFileSize = moved_data
+			datamove_end := time.Now().UnixNano()
+			parsed.perfstat.DataIn = float64(datamove_end-datamove_start) / 1e9
 		}
-		datamove_end := time.Now().Unix()
-		parsed.perfstat.DataIn = datamove_end - datamove_start
 
 		fromMover <- parsed
 	}

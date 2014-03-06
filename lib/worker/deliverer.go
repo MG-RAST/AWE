@@ -20,7 +20,7 @@ func deliverer(control chan int) {
 		perfstat := processed.perfstat
 
 		//post-process for works computed successfully: push output data to Shock
-		move_start := time.Now().Unix()
+		move_start := time.Now().UnixNano()
 		if work.State == core.WORK_STAT_COMPUTED {
 			if data_moved, err := core.PushOutputData(work); err != nil {
 				work.State = core.WORK_STAT_FAIL
@@ -30,8 +30,8 @@ func deliverer(control chan int) {
 				perfstat.OutFileSize = data_moved
 			}
 		}
-		move_end := time.Now().Unix()
-		perfstat.DataOut = move_end - move_start
+		move_end := time.Now().UnixNano()
+		perfstat.DataOut = float64(move_end-move_start) / 1e9
 		perfstat.Deliver = move_end
 		perfstat.ClientResp = perfstat.Deliver - perfstat.Checkout
 		perfstat.ClientId = core.Self.Id

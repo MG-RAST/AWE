@@ -144,7 +144,7 @@ func main() {
 	if hostname, err := os.Hostname(); err == nil {
 		host = fmt.Sprintf("%s:%d", hostname, conf.API_PORT)
 	}
-	
+
 	//recover unfinished jobs before server went down last time
 	if conf.RECOVER {
 		fmt.Println("####### Recovering unfinished jobs #######")

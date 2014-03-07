@@ -114,7 +114,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	if response.Code == 200 {
 		workunit = response.Data
 		if workunit.Info.Auth == true {
-			if token, err := FetchDataTokenByWorkId(workunit.Id); err == nil {
+			if token, err := FetchDataTokenByWorkId(workunit.Id); err == nil && token != "" {
 				workunit.Info.DataToken = token
 			} else {
 				return workunit, errors.New("need data token but failed to fetch one")
@@ -126,28 +126,15 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 }
 
 func FetchDataTokenByWorkId(workid string) (token string, err error) {
-	response := new(TokenResponse)
 	targeturl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, workid, core.Self.Id)
-	//res, err := http.Get(requrl)
 	res, err := httpclient.Get(targeturl, httpclient.Header{}, nil, nil)
-	logger.Debug(3, "GET:"+targeturl)
-	if err != nil {
-		return
-	}
-	defer res.Body.Close()
-	jsonstream, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return "", err
 	}
-	if err = json.Unmarshal(jsonstream, response); err != nil {
-		return
-	}
-	if len(response.Errs) > 0 {
-		return "", errors.New(strings.Join(response.Errs, ","))
-	}
-	if response.Code == 200 {
-		token = response.Data
-		return token, nil
+	if res.Header != nil {
+		if _, ok := res.Header["Datatoken"]; ok {
+			token = res.Header["Datatoken"][0]
+		}
 	}
 	return
 }

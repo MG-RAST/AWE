@@ -36,7 +36,8 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		if err != nil {
 			cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
 		}
-		cx.RespondWithData(token)
+		//cx.RespondWithData(token)
+		RespondTokenInHeader(cx, token)
 		return
 	}
 

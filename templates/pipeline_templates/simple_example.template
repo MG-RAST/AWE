@@ -12,7 +12,9 @@
                 "cmd": {
                     "args": "-input=@#inputfile -output=#jobname.prep.fna", 
                     "description": "preprocess", 
-                    "name": "awe_preprocess.pl"
+                    "name": "awe_preprocess.pl",
+                    "environ": {"MYENV":"ENVVAL",
+                                "KB_AUTH_TOKEN":""}
                 }, 
                 "dependsOn": [], 
                 "inputs": {
@@ -31,9 +33,7 @@
                      "input": "#inputfile",
                      "output": "#jobname.prep.fna"
                 },
-                "taskid": "0",
-                "skip": 0,
-                "totalwork": 1                
+                "taskid": "0"
             },
             {
                 "cmd": {
@@ -82,8 +82,6 @@
                      "input": "#jobname.derep.fna"
                 },
                 "taskid": "2",
-                "skip": 0,
-                "totalwork": #totalwork,
                 "maxworksize": 5 
             }
         ]

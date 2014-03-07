@@ -13,7 +13,8 @@
                     "args": "-input=@#inputfile -output=#jobname.prep.fna", 
                     "description": "preprocess", 
                     "name": "awe_preprocess.pl",
-                    "environ": {"MYENV":"ENVVAL"}
+                    "environ": {"MYENV":"ENVVAL",
+                                "KB_AUTH_TOKEN":""}
                 }, 
                 "dependsOn": [], 
                 "inputs": {

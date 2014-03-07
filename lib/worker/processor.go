@@ -102,10 +102,6 @@ func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}
 
-	if err := cmd.Start(); err != nil {
-		return nil, errors.New(fmt.Sprintf("start_cmd=%s, err=%s", commandName, err.Error()))
-	}
-
 	stdoutFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDOUT_FILENAME)
 	stderrFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDERR_FILENAME)
 	outfile, err := os.Create(stdoutFilePath)
@@ -120,6 +116,10 @@ func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	if conf.PRINT_APP_MSG {
 		go io.Copy(out_writer, stdout)
 		go io.Copy(err_writer, stderr)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return nil, errors.New(fmt.Sprintf("start_cmd=%s, err=%s", commandName, err.Error()))
 	}
 
 	var MaxMem uint64 = 0

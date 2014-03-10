@@ -35,6 +35,10 @@ REST API doc:
 
 https://github.com/MG-RAST/AWE/wiki/AWE-APIs
 
+For more documents, check the wiki pages:
+
+https://github.com/MG-RAST/AWE/wiki/_pages
+
 Papers to cite:
 
 W. Tang, J. Wilkening, N. Desai, W. Gerlach, A. Wilke, F. Meyer, "A scalable data analysis platform for metagenomics," in Proc. of IEEE International Conference on Big Data, 2013.[[ieeexplore]](http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=6691723) [[pdf]](http://www.mcs.anl.gov/papers/P5012-0913_1.pdf)

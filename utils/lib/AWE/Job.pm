@@ -1041,16 +1041,22 @@ sub delete_jobs {
 	my $clientgroup = $h{'clientgroup'};
 	
 	#'properties' => {'state' => 'completed'}
-	my @requested_jobs = get_jobs(@_);
-	#my @requested_jobs = @$jobs;
 	
 	
-	my $jobs_to_process = @requested_jobs;
+	#if (defined $jobs) {
+	my	@requested_job_objects = get_jobs(@_);
+	
+	
+	if (@requested_job_objects == 0 ) {
+		print STDERR "(delete_jobs) warning: no jobs found\n";
+	}
+	
+	my $jobs_to_process = @requested_job_objects;
 	print "jobs_to_process: $jobs_to_process\n";
 	
 	# download results, delete results, delete job
 	my $job_deletion_ok= 1;
-	foreach my $job_object (@requested_jobs) {
+	foreach my $job_object (@requested_job_objects) {
 		
 		my $job_id = $job_object->{'id'};
 		
@@ -1209,16 +1215,27 @@ sub download_output_job_nodes {
 sub get_awe_output_nodes {
 	my ($job_hash, %h) = @_;
 	
+	print "get_awe_output_nodes: ".Dumper($job_hash)."\n";
 	
 	my $output_nodes = {};
 	
 	
 	my @tasks;
 	
+	
+	unless (defined $job_hash) {
+		die "get_awe_output_nodes: job_hash not defined";
+	}
+	
+	
 	if (defined $h{'only_last_task'} && $h{'only_last_task'}==1) {
-		@tasks = ($job_hash->{tasks}->[-1]); #TODO this is last task in json, not last by dependency !
+		@tasks = ($job_hash->{'tasks'}->[-1]); #TODO this is last task in json, not last by dependency !
 	} else {
-		@tasks = @{$job_hash->{tasks}};
+		@tasks = @{$job_hash->{'tasks'}};
+	}
+	
+	if (@tasks == 0) {
+		die "error, get_awe_output_nodes: task list empty";
 	}
 	
 	foreach my $task (@tasks) {

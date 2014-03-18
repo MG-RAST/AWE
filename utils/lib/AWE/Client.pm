@@ -20,11 +20,16 @@ sub new {
     $json->max_size(0);
     $json->allow_nonref;
     
+	if (defined($shocktoken) && $shocktoken eq '') {
+		$shocktoken = undef;
+	}
+	
+	
     my $self = {
         json => $json,
         agent => $agent,
         awe_url => $awe_url || '',
-        shocktoken => $shocktoken || '',
+        shocktoken => $shocktoken,
         transport_method => 'requests'
     };
     if (system("type shock-client > /dev/null 2>&1") == 0) {
@@ -259,11 +264,16 @@ sub submit_job {
 	}
 	
 	
+	my $header = {Content_Type => 'multipart/form-data', Content => $content};
+	if (defined $self->shocktoken) {
+		$header->{Datatoken} = $self->shocktoken;
+	}
+	
 	return $self->request(
 		'POST',
 		'job',
 		undef,
-		{Datatoken => $self->shocktoken, Content_Type => 'multipart/form-data', Content => $content}
+		$header
 	);
 	
 	#my $content = {upload => [undef, "n/a", Content => $awe_qiime_job_json]};

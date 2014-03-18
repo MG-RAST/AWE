@@ -102,7 +102,7 @@ var (
 	CLIENT_GROUP              = "default"
 	CLIENT_DOMAIN             = "default"
 	WORKER_OVERLAP            = false
-	PRINT_APP_MSG             = false
+	PRINT_APP_MSG             = true
 	AUTO_CLEAN_DIR            = true
 	CLIEN_DIR_DELAY_FAIL      = 30 * time.Minute //clean failed workunit dir after 30 minutes
 	CLIEN_DIR_DELAY_DONE      = 1 * time.Minute  // clean done workunit dir after 1 minute

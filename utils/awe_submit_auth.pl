@@ -268,6 +268,7 @@ Options:
      -project=<project name>
      -cgroups=<exclusive_client_group_list (separate by ',')>
      -totalwork=<number of workunits to split for splitable tasks (default 1)>
+     -token=<\"your_token_string\" to access shock (with \" \")>
      
      
 Use case 1: submit a job with a shock url for the input file location and a pipeline template (input file is on shock)

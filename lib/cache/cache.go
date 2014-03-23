@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"io"
+	"io/ioutil"
 	"os"
 	"time"
 )
@@ -75,12 +78,12 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
 
 		//move output files to cache
-		cacheDir := getCachePath(io.Node)
+		cacheDir := getCacheDir(io.Node)
 		if err := os.MkdirAll(cacheDir, 0777); err != nil {
 			logger.Error("cache os.MkdirAll():" + err.Error())
 		}
-		cacheFilePath := fmt.Sprintf("%s/%s.data", cacheDir, io.Node) //use the same naming mechanism used by shock server
-		fmt.Printf("moving file from %s to %s\n", file_path, cacheFilePath)
+		cacheFilePath := getCacheFilePath(io.Node) //use the same naming mechanism used by shock server
+		//fmt.Printf("moving file from %s to %s\n", file_path, cacheFilePath)
 		if err := os.Rename(file_path, cacheFilePath); err != nil {
 			logger.Error("cache os.Rename():" + err.Error())
 		}
@@ -88,9 +91,101 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 	return
 }
 
-func getCachePath(id string) string {
+func getCacheDir(id string) string {
 	if len(id) < 7 {
 		return conf.DATA_PATH
 	}
 	return fmt.Sprintf("%s/%s/%s/%s/%s", conf.DATA_PATH, id[0:2], id[2:4], id[4:6], id)
+}
+
+func getCacheFilePath(id string) string {
+	cacheDir := getCacheDir(id)
+	return fmt.Sprintf("%s/%s.data", cacheDir, id)
+}
+
+func StatCacheFilePath(id string) (file_path string, err error) {
+	file_path = getCacheFilePath(id)
+	_, err = os.Stat(file_path)
+	return file_path, err
+}
+
+//fetch input data
+func MoveInputData(work *core.Workunit) (size int64, err error) {
+	for inputname, io := range work.Inputs {
+		var dataUrl string
+
+		inputFilePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
+
+		if work.Rank == 0 {
+			if io.Node != "" {
+				if file_path, err := StatCacheFilePath(io.Node); err == nil {
+					//make a link in work dir from cached file
+					linkname := fmt.Sprintf("%s/%s", work.Path(), inputname)
+					fmt.Printf("input found in cache, making link: " + file_path + " -> " + linkname + "\n")
+					err = os.Symlink(file_path, linkname)
+					if err == nil {
+						logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
+					}
+					return 0, err
+				}
+			}
+			dataUrl = io.DataUrl()
+		} else {
+			dataUrl = fmt.Sprintf("%s&index=%s&part=%s", io.DataUrl(), work.IndexType(), work.Part())
+		}
+
+		logger.Debug(2, "mover: fetching input from url:"+dataUrl)
+		logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
+
+		if datamoved, err := fetchFile(inputFilePath, dataUrl, work.Info.DataToken); err != nil {
+			return size, err
+		} else {
+			size += datamoved
+		}
+		logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
+	}
+	return
+}
+
+func isFileExistingInCache(id string) bool {
+	file_path := getCacheFilePath(id)
+	if _, err := os.Stat(file_path); err == nil {
+		return true
+	}
+	return false
+}
+
+//fetch file by shock url
+func fetchFile(filename string, url string, token string) (size int64, err error) {
+	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
+	localfile, err := os.Create(filename)
+	if err != nil {
+		return 0, err
+	}
+	defer localfile.Close()
+
+	var user *httpclient.Auth
+	if token != "" {
+		user = httpclient.GetUserByTokenAuth(token)
+	}
+
+	//download file from Shock
+	res, err := httpclient.Get(url, httpclient.Header{}, nil, user)
+	if err != nil {
+		return 0, err
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 { //err in fetching data
+		resbody, _ := ioutil.ReadAll(res.Body)
+		msg := fmt.Sprintf("op=fetchFile, url=%s, res=%s", url, resbody)
+		return 0, errors.New(msg)
+	}
+
+	size, err = io.Copy(localfile, res.Body)
+	if err != nil {
+		return 0, err
+	}
+	return
 }

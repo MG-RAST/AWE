@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/cache"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/httpclient"
@@ -64,7 +65,7 @@ func dataMover(control chan int) {
 
 		//download input data
 		datamove_start := time.Now().UnixNano()
-		if moved_data, err := moveInputData(parsed.workunit); err != nil {
+		if moved_data, err := cache.MoveInputData(parsed.workunit); err != nil {
 			logger.Error("err@dataMover_work.moveInputData, workid=" + work.Id + " error=" + err.Error())
 			parsed.workunit.State = core.WORK_STAT_FAIL
 		} else {

@@ -77,15 +77,17 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 			"filename="+name,
 			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
 
-		//move output files to cache
-		cacheDir := getCacheDir(io.Node)
-		if err := os.MkdirAll(cacheDir, 0777); err != nil {
-			logger.Error("cache os.MkdirAll():" + err.Error())
-		}
-		cacheFilePath := getCacheFilePath(io.Node) //use the same naming mechanism used by shock server
-		//fmt.Printf("moving file from %s to %s\n", file_path, cacheFilePath)
-		if err := os.Rename(file_path, cacheFilePath); err != nil {
-			logger.Error("cache os.Rename():" + err.Error())
+		if conf.CACHE_ENABLED {
+			//move output files to cache
+			cacheDir := getCacheDir(io.Node)
+			if err := os.MkdirAll(cacheDir, 0777); err != nil {
+				logger.Error("cache os.MkdirAll():" + err.Error())
+			}
+			cacheFilePath := getCacheFilePath(io.Node) //use the same naming mechanism used by shock server
+			//fmt.Printf("moving file from %s to %s\n", file_path, cacheFilePath)
+			if err := os.Rename(file_path, cacheFilePath); err != nil {
+				logger.Error("cache os.Rename():" + err.Error())
+			}
 		}
 	}
 	return
@@ -117,7 +119,7 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 		inputFilePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
 
 		if work.Rank == 0 {
-			if io.Node != "" {
+			if conf.CACHE_ENABLED && io.Node != "" {
 				if file_path, err := StatCacheFilePath(io.Node); err == nil {
 					//make a link in work dir from cached file
 					linkname := fmt.Sprintf("%s/%s", work.Path(), inputname)

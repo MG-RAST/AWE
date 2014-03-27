@@ -566,9 +566,9 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 			}
 		}
 
-		if err := putFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path); err != nil {
+		if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-			if err := putFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path); err != nil {
+			if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path); err != nil {
 				fmt.Errorf("push file error\n")
 				logger.Error("op=pushfile,err=" + err.Error())
 				return size, err
@@ -613,7 +613,7 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 	return
 }
 
-func putFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string) (err error) {
+func PutFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string) (err error) {
 	opts := Opts{}
 	if attrfile != "" {
 		opts["attributes"] = attrfile

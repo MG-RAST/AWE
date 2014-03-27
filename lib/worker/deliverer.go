@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/cache"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -22,7 +23,7 @@ func deliverer(control chan int) {
 		//post-process for works computed successfully: push output data to Shock
 		move_start := time.Now().UnixNano()
 		if work.State == core.WORK_STAT_COMPUTED {
-			if data_moved, err := core.PushOutputData(work); err != nil {
+			if data_moved, err := cache.UploadOutputData(work); err != nil {
 				work.State = core.WORK_STAT_FAIL
 				logger.Error("err@pushOutputData: workid=" + work.Id + ", err=" + err.Error())
 			} else {

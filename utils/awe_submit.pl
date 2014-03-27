@@ -233,7 +233,15 @@ if (length($node_id)>0 || (length($infile)>0)) { #use case 1 or 2
 #upload job script to awe server
 system("stat $jobscript");
 print "submitting job script to AWE...jobscript=$jobscript \n";
-my $out_awe_sub = `curl -H "Datatoken: $token_string" -X POST -F upload=\@$jobscript http://$awe_url/job | python -mjson.tool |  grep \\\"id\\\"`;
+
+my $out_awe_sub = "";
+
+if (length($token_string) == 0) {
+    $out_awe_sub = `curl -X POST -F upload=\@$jobscript http://$awe_url/job | python -mjson.tool |  grep \\\"id\\\"`;
+} else {
+    $out_awe_sub = `curl -H "Datatoken: $token_string" -X POST -F upload=\@$jobscript http://$awe_url/job | python -mjson.tool |  grep \\\"id\\\"`;
+}
+
 if($? != 0) {
     print "Error: Failed to submit job script to AWE server, return value $?\n";
     exit $?;

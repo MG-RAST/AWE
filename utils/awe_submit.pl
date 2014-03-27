@@ -47,6 +47,7 @@ no warnings('once');
 
 use Getopt::Long;
 use File::Copy;
+use File::Slurp;
 use File::Basename;
 use POSIX qw(strftime);
 umask 000;
@@ -65,7 +66,9 @@ my $job_name="";
 my $clients="";
 my $total_work=1;
 my $file_type="";
+my $token_string="";
 my $help = 0;
+my %vars = ();  # Hash to store variables that we'll replace in the AWE job template
 
 my $options = GetOptions ("upload=s"   => \$infile,
                           "awe=s"    => \$awe_url,
@@ -79,6 +82,7 @@ my $options = GetOptions ("upload=s"   => \$infile,
                           "type=s" => \$file_type,
                           "cgroups=s" => \$clients,
                           "totalwork=i" => \$total_work,
+			  "token=s" => \$token_string,
                           "h"  => \$help,
 			 );
 
@@ -89,8 +93,6 @@ if ($help) {
     print_usage();
     exit 0;
 }
-
-print "total_work=".$total_work;
 
 if (length($awe_url)==0) {
     $awe_url = $ENV{'AWE_HOST'};
@@ -170,8 +172,13 @@ if (length($node_id)>0 || (length($infile)>0)) { #use case 1 or 2
         
         #upload input to shock
         print "uploading input file to Shock...\n";
-
-        my $out_shock_upload = `curl -X POST -F upload=\@$infile $shock_url/node  | python -mjson.tool | grep \\\"id\\\"`;
+	
+	my $out_shock_upload = "";	
+	if (length($token_string) == 0) {
+	    $out_shock_upload = `curl -X POST -F upload=\@$infile $shock_url/node  | python -mjson.tool | grep \\\"id\\\"`;    
+	} else {
+	    $out_shock_upload = `curl -H "Authorization: OAuth $token_string" -X POST -F upload=\@$infile $shock_url/node  | python -mjson.tool | grep \\\"id\\\"`;    
+	}
         chomp($out_shock_upload);
         my @values = split('"', $out_shock_upload);
         $shock_id = $values[3];
@@ -194,17 +201,23 @@ if (length($node_id)>0 || (length($infile)>0)) { #use case 1 or 2
     }
     print "job_name=".$job_name."\n";
 
-    $jobscript = "tempjob.json";
-        
-    system("cp $pipeline_template $jobscript");
-    system("perl -p -i -e 's/#shockurl/$shock_url/g;' $jobscript");
-    system("perl -p -i -e 's/#shocknode/$shock_id/g;' $jobscript");
-    system("perl -p -i -e 's/#project/$project_name/g;' $jobscript");
-    system("perl -p -i -e 's/#user/$user_name/g;' $jobscript");
-    system("perl -p -i -e 's/#jobname/$job_name/g;' $jobscript");
-    system("perl -p -i -e 's/#clientgroups/$clients/g;' $jobscript");
-    system("perl -p -i -e 's/#totalwork/$total_work/g;' $jobscript");
+    $vars{shockurl} = $shock_url;
+    $vars{shocknode}=$shock_id;
+    $vars{project}=$project_name;
+    $vars{user}=$user_name;
+    $vars{jobname}=$job_name;
+    $vars{clientgroups}=$clients;
+    $vars{totalwork}=$total_work;
     
+    my $text = read_file($pipeline_template);
+    foreach my $key (keys %vars) {
+        $text =~ s/#$key/$vars{$key}/g;
+    }
+    
+    $jobscript = "tempjob.json";
+    open OUT, ">$jobscript";
+    print OUT $text;
+    close OUT;
     
     
     if (length($infile_base)>0) {
@@ -220,7 +233,7 @@ if (length($node_id)>0 || (length($infile)>0)) { #use case 1 or 2
 #upload job script to awe server
 system("stat $jobscript");
 print "submitting job script to AWE...jobscript=$jobscript \n";
-my $out_awe_sub = `curl -X POST -F upload=\@$jobscript http://$awe_url/job | python -mjson.tool |  grep \\\"id\\\"`;
+my $out_awe_sub = `curl -H "Datatoken: $token_string" -X POST -F upload=\@$jobscript http://$awe_url/job | python -mjson.tool |  grep \\\"id\\\"`;
 if($? != 0) {
     print "Error: Failed to submit job script to AWE server, return value $?\n";
     exit $?;
@@ -268,6 +281,7 @@ Options:
      -project=<project name>
      -cgroups=<exclusive_client_group_list (separate by ',')>
      -totalwork=<number of workunits to split for splitable tasks (default 1)>
+     -token=<\"your_token_string\" to access shock (with \" \")>
      
      
 Use case 1: submit a job with a shock url for the input file location and a pipeline template (input file is on shock)

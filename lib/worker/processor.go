@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"runtime"
 	"net/url"
-	"path"
 	"strings"
 	"bytes"
 	"time"

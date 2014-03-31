@@ -31,15 +31,17 @@ func dataMover(control chan int) {
 		workmap[work.Id] = ID_DATAMOVER
 		//make a working directory for the workunit
 		if err := work.Mkdir(); err != nil {
-			logger.Error("err@dataMover_work.Mkdir, workid=" + work.Id + " error=" + err.Error())
+			logger.Error("[dataMover#work.Mkdir], workid=" + work.Id + " error=" + err.Error())
+			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#work.Mkdir]" + err.Error()
 			parsed.workunit.State = core.WORK_STAT_FAIL
 		}
 
 		//check the availability prerequisite data and download if needed
 		predatamove_start := time.Now().UnixNano()
 		if moved_data, err := movePreData(parsed.workunit); err != nil {
-			logger.Error("err@dataMover_work.movePreData, workid=" + work.Id + " error=" + err.Error())
+			logger.Error("[dataMover#movePreData], workid=" + work.Id + " error=" + err.Error())
 			parsed.workunit.State = core.WORK_STAT_FAIL
+			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#movePreData]" + err.Error()
 			//hand the parsed workunit to next stage and continue to get new workunit to process
 			fromMover <- parsed
 			continue
@@ -54,6 +56,7 @@ func dataMover(control chan int) {
 		//parse the args, replacing @input_name to local file path (file not downloaded yet)
 		if arglist, err := ParseWorkunitArgs(parsed.workunit); err != nil {
 			logger.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + work.Id + " error=" + err.Error())
+			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#ParseWorkunitArgs]" + err.Error()
 			parsed.workunit.State = core.WORK_STAT_FAIL
 			//hand the parsed workunit to next stage and continue to get new workunit to process
 			fromMover <- parsed
@@ -67,6 +70,7 @@ func dataMover(control chan int) {
 		datamove_start := time.Now().UnixNano()
 		if moved_data, err := cache.MoveInputData(parsed.workunit); err != nil {
 			logger.Error("err@dataMover_work.moveInputData, workid=" + work.Id + " error=" + err.Error())
+			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#MoveInputData]" + err.Error()
 			parsed.workunit.State = core.WORK_STAT_FAIL
 		} else {
 			parsed.perfstat.InFileSize = moved_data
@@ -94,6 +98,7 @@ func proxyDataMover(control chan int) {
 		//check the availability prerequisite data and download if needed
 		if err := proxyMovePreData(parsed.workunit); err != nil {
 			logger.Error("err@dataMover_work.movePreData, workid=" + work.Id + " error=" + err.Error())
+			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#proxyMovePreData]" + err.Error()
 			parsed.workunit.State = core.WORK_STAT_FAIL
 		}
 		fromMover <- parsed

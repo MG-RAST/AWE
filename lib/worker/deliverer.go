@@ -25,7 +25,8 @@ func deliverer(control chan int) {
 		if work.State == core.WORK_STAT_COMPUTED {
 			if data_moved, err := cache.UploadOutputData(work); err != nil {
 				work.State = core.WORK_STAT_FAIL
-				logger.Error("err@pushOutputData: workid=" + work.Id + ", err=" + err.Error())
+				logger.Error("[deliverer#UploadOutputData]workid=" + work.Id + ", err=" + err.Error())
+				work.Notes = work.Notes + "###[deliverer#UploadOutputData]" + err.Error()
 			} else {
 				work.State = core.WORK_STAT_DONE
 				perfstat.OutFileSize = data_moved
@@ -40,7 +41,8 @@ func deliverer(control chan int) {
 		//notify server the final process results; send perflog, stdout, and stderr if needed
 		if err := core.NotifyWorkunitProcessedWithLogs(work, perfstat, conf.PRINT_APP_MSG); err != nil {
 			fmt.Printf("!!!NotifyWorkunitDone returned error: %s\n", err.Error())
-			logger.Error("err@NotifyWorkunitProcessed: workid=" + work.Id + ", err=" + err.Error())
+			logger.Error("[deliverer#NotifyWorkunitProcessedWithLogs]workid=" + work.Id + ", err=" + err.Error())
+			work.Notes = work.Notes + "###[deliverer#NotifyWorkunitProcessedWithLogs]" + err.Error()
 			//mark this work in Current_work map as false, something needs to be done in the future
 			//to clean this kind of work that has been proccessed but its result can't be sent to server!
 			core.Self.Current_work[work.Id] = false //server doesn't know this yet

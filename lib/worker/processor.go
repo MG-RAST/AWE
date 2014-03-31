@@ -54,6 +54,7 @@ func processor(control chan int) {
 		if err != nil {
 			fmt.Printf("!!!RunWorkunit() returned error: %s\n", err.Error())
 			logger.Error("RunWorkunit(): workid=" + work.Id + ", " + err.Error())
+			processed.workunit.Notes = processed.workunit.Notes + "###[precessor#RunWorkunit]" + err.Error()
 			processed.workunit.State = core.WORK_STAT_FAIL
 		} else {
 			processed.workunit.State = core.WORK_STAT_COMPUTED

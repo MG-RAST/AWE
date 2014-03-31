@@ -41,7 +41,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		return
 	}
 
-	if query.Has("report") { //retrieve report: stdout or stderr
+	if query.Has("report") { //retrieve report: stdout or stderr or worknotes
 		reportmsg, err := core.QMgr.GetReportMsg(id, query.Value("report"))
 		if err != nil {
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
@@ -148,6 +148,9 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 				}
 				if _, ok := files["stderr"]; ok {
 					core.QMgr.SaveStdLog(id, "stderr", files["stderr"].Path)
+				}
+				if _, ok := files["worknotes"]; ok {
+					core.QMgr.SaveStdLog(id, "worknotes", files["worknotes"].Path)
 				}
 			}
 		}

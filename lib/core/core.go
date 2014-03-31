@@ -459,6 +459,11 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 			form.AddFile("stderr", stderrFile)
 			hasreport = true
 		}
+		worknotesFile, err := getWorkNotesPath(work)
+		if err == nil {
+			form.AddFile("worknotes", worknotesFile)
+			hasreport = true
+		}
 	}
 	if hasreport {
 		target_url = target_url + "&report"
@@ -594,22 +599,41 @@ func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err
 	if err != nil {
 		return reportPath, err
 	}
-	reportFile := fmt.Sprintf("%s/%s.perf", work.Path(), work.Id)
-	if err := ioutil.WriteFile(reportFile, []byte(perfJsonstream), 0644); err != nil {
-		return reportPath, err
-	}
-	return reportFile, nil
+	reportPath = fmt.Sprintf("%s/%s.perf", work.Path(), work.Id)
+	err = ioutil.WriteFile(reportPath, []byte(perfJsonstream), 0644)
+	return
 }
 
 func getStdOutPath(work *Workunit) (stdoutFilePath string, err error) {
 	stdoutFilePath = fmt.Sprintf("%s/%s", work.Path(), conf.STDOUT_FILENAME)
-	_, err = os.Stat(stdoutFilePath)
+	fi, err := os.Stat(stdoutFilePath)
+	if err != nil {
+		return stdoutFilePath, err
+	}
+	if fi.Size() == 0 {
+		return stdoutFilePath, errors.New("stdout file empty")
+	}
 	return stdoutFilePath, err
 }
 
 func getStdErrPath(work *Workunit) (stderrFilePath string, err error) {
 	stderrFilePath = fmt.Sprintf("%s/%s", work.Path(), conf.STDERR_FILENAME)
-	_, err = os.Stat(stderrFilePath)
+	fi, err := os.Stat(stderrFilePath)
+	if err != nil {
+		return stderrFilePath, err
+	}
+	if fi.Size() == 0 {
+		return stderrFilePath, errors.New("stderr file empty")
+	}
+	return
+}
+
+func getWorkNotesPath(work *Workunit) (worknotesFilePath string, err error) {
+	worknotesFilePath = fmt.Sprintf("%s/%s", work.Path(), conf.WORKNOTES_FILENAME)
+	if work.Notes == "" {
+		return worknotesFilePath, errors.New("work notes empty")
+	}
+	err = ioutil.WriteFile(worknotesFilePath, []byte(work.Notes), 0644)
 	return
 }
 

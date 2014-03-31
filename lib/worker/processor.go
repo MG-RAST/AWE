@@ -180,7 +180,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			case image_retrieval == "load" : { // for images that have been saved
 				err = dockerLoadImage(client, Dockerimage)
 			}
-			case image_retrieval == "import" : { // for containeres that have been exported
+			case image_retrieval == "import" : { // for containers that have been exported
 				err = dockerImportImage(client, Dockerimage)
 			}
 			case image_retrieval == "build" : { // to create image from Dockerfile
@@ -535,11 +535,7 @@ func dockerLoadImage(client *docker.Client, Dockerimage string) (err error) {
 		return errors.New(fmt.Sprintf("Error getting Shock stream, err=%s", err.Error()))
 	}
 	
-	gr, err := gzip.NewReader(image_stream) //(*Reader, error)
-	
-	
-	//http://stackoverflow.com/questions/16946978/how-to-unzip-io-readcloser
-	
+	gr, err := gzip.NewReader(image_stream) //returns (*Reader, error) // TODO not sure if I have to close gr later ?
 	
 	logger.Debug(1, fmt.Sprintf("loading image..."))
 	//go io.Copy(image_writer, image_stream)

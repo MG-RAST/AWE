@@ -33,6 +33,7 @@ type Workunit struct {
 	CheckoutTime time.Time `bson:"checkout_time" json:"checkout_time"`
 	Client       string    `bson:"client" json:"client"`
 	ComputeTime  int       `bson:"computetime" json:"computetime"`
+	Notes        string    `bson:"-" json:"-"`
 }
 
 func NewWorkunit(task *Task, rank int) *Workunit {

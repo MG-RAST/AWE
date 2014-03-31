@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/cache"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -20,9 +21,9 @@ func deliverer(control chan int) {
 		perfstat := processed.perfstat
 
 		//post-process for works computed successfully: push output data to Shock
-		move_start := time.Now().Unix()
+		move_start := time.Now().UnixNano()
 		if work.State == core.WORK_STAT_COMPUTED {
-			if data_moved, err := core.PushOutputData(work); err != nil {
+			if data_moved, err := cache.UploadOutputData(work); err != nil {
 				work.State = core.WORK_STAT_FAIL
 				logger.Error("err@pushOutputData: workid=" + work.Id + ", err=" + err.Error())
 			} else {
@@ -30,24 +31,11 @@ func deliverer(control chan int) {
 				perfstat.OutFileSize = data_moved
 			}
 		}
-		move_end := time.Now().Unix()
-		perfstat.DataOut = move_end - move_start
-		perfstat.Deliver = move_end
+		move_end := time.Now().UnixNano()
+		perfstat.DataOut = float64(move_end-move_start) / 1e9
+		perfstat.Deliver = int64(move_end / 1e9)
 		perfstat.ClientResp = perfstat.Deliver - perfstat.Checkout
 		perfstat.ClientId = core.Self.Id
-
-		//notify server the final process results
-		/*		if err := core.NotifyWorkunitProcessed(work, perfstat); err != nil {
-					time.Sleep(3 * time.Second) //wait 3 seconds and try another time
-					if err := core.NotifyWorkunitProcessed(work, perfstat); err != nil {
-						fmt.Printf("!!!NotifyWorkunitDone returned error: %s\n", err.Error())
-						logger.Error("err@NotifyWorkunitProcessed: workid=" + work.Id + ", err=" + err.Error())
-						//mark this work in Current_work map as false, something needs to be done in the future
-						//to clean this kind of work that has been proccessed but its result can't be sent to server!
-						core.Self.Current_work[work.Id] = false //server doesn't know this yet
-					}
-				}
-		*/
 
 		//notify server the final process results; send perflog, stdout, and stderr if needed
 		if err := core.NotifyWorkunitProcessedWithLogs(work, perfstat, conf.PRINT_APP_MSG); err != nil {

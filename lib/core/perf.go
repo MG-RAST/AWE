@@ -24,20 +24,21 @@ type TaskPerf struct {
 }
 
 type WorkPerf struct {
-	Queued      int64  `bson:"queued" json:"queued"`               // WQ (queued at server or client, depending on who creates it)
-	Done        int64  `bson:"done" json:"done"`                   // WD (done at server)
-	Resp        int64  `bson:"resp" json:"resp"`                   // Done - Queued (server metric)
-	Checkout    int64  `bson:"checkout" json:"checkout"`           // checkout at client
-	Deliver     int64  `bson:"deliver" json:"deliver"`             // done at client
-	ClientResp  int64  `bson:"clientresp" json:"clientresp"`       // Deliver - Checkout (client metric)
-	DataIn      int64  `bson:"time_data_in" json:"time_data_in"`   // input data move-in at client
-	DataOut     int64  `bson:"time_data_out" json:"time_data_out"` // output data move-out at client
-	Runtime     int64  `bson:"runtime" json:"runtime"`             // computing time at client
-	MaxMemUsage uint64 `bson:"max_mem_usage" json:"max_mem_usage"` // maxium memery consumption
-	ClientId    string `bson:"client_id" json:"client_id"`
-	PreDataSize int64  `bson:"size_predata" json:"size_predata"` //predata moved over network
-	InFileSize  int64  `bson:"size_infile" json:"size_infile"`   //input file moved over network
-	OutFileSize int64  `bson:"size_outfile" json:"size_outfile"` //outpuf file moved over network
+	Queued      int64   `bson:"queued" json:"queued"`                   // WQ (queued at server or client, depending on who creates it)
+	Done        int64   `bson:"done" json:"done"`                       // WD (done at server)
+	Resp        int64   `bson:"resp" json:"resp"`                       // Done - Queued (server metric)
+	Checkout    int64   `bson:"checkout" json:"checkout"`               // checkout at client
+	Deliver     int64   `bson:"deliver" json:"deliver"`                 // done at client
+	ClientResp  int64   `bson:"clientresp" json:"clientresp"`           // Deliver - Checkout (client metric)
+	PreDataIn   float64 `bson:"time_predata_in" json:"time_predata_in"` // time in seconds for downloading prerequisite data at client
+	DataIn      float64 `bson:"time_data_in" json:"time_data_in"`       // time in seconds for input data move-in at client
+	DataOut     float64 `bson:"time_data_out" json:"time_data_out"`     // time in seconds for output data move-out at client
+	Runtime     int64   `bson:"runtime" json:"runtime"`                 // time in seconds for computation at client
+	MaxMemUsage uint64  `bson:"max_mem_usage" json:"max_mem_usage"`     // maxium memery consumption
+	ClientId    string  `bson:"client_id" json:"client_id"`
+	PreDataSize int64   `bson:"size_predata" json:"size_predata"` //predata moved over network
+	InFileSize  int64   `bson:"size_infile" json:"size_infile"`   //input file moved over network
+	OutFileSize int64   `bson:"size_outfile" json:"size_outfile"` //outpuf file moved over network
 }
 
 func NewJobPerf(id string) *JobPerf {

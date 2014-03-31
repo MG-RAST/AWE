@@ -45,6 +45,8 @@ func processor(control chan int) {
 			continue
 		}
 
+		envkeys := SetEnv(work)
+
 		run_start := time.Now().Unix()
 		
 		pstat, err := RunWorkunit(work)
@@ -61,6 +63,10 @@ func processor(control chan int) {
 		computetime := run_end - run_start
 		processed.perfstat.Runtime = computetime
 		processed.workunit.ComputeTime = int(computetime)
+
+		if len(envkeys) > 0 {
+			UnSetEnv(envkeys)
+		}
 
 		fromProcessor <- processed
 
@@ -410,10 +416,6 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}
 
-	if err := cmd.Start(); err != nil {
-		return nil, errors.New(fmt.Sprintf("start_cmd=%s, err=%s", commandName, err.Error()))
-	}
-
 	stdoutFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDOUT_FILENAME)
 	stderrFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDERR_FILENAME)
 	outfile, err := os.Create(stdoutFilePath)
@@ -428,6 +430,10 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	if conf.PRINT_APP_MSG {
 		go io.Copy(out_writer, stdout)
 		go io.Copy(err_writer, stderr)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return nil, errors.New(fmt.Sprintf("start_cmd=%s, err=%s", commandName, err.Error()))
 	}
 
 	var MaxMem uint64 = 0
@@ -473,4 +479,30 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	logger.Event(event.WORK_END, "workid="+work.Id)
 	pstats.MaxMemUsage = MaxMem
 	return
+}
+
+func SetEnv(work *core.Workunit) (envkeys []string) {
+	for key, val := range work.Cmd.Environ {
+		if key == conf.KB_AUTH_TOKEN {
+			if work.Info.DataToken != "" {
+				if err := os.Setenv(key, work.Info.DataToken); err == nil {
+					envkeys = append(envkeys, key)
+				}
+			}
+		} else {
+			if oldval := os.Getenv(key); oldval == "" {
+				if err := os.Setenv(key, val); err == nil {
+					envkeys = append(envkeys, key)
+				}
+			}
+
+		}
+	}
+	return
+}
+
+func UnSetEnv(envkeys []string) {
+	for _, key := range envkeys {
+		os.Setenv(key, "")
+	}
 }

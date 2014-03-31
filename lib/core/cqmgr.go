@@ -97,13 +97,7 @@ func (qm *CQMgr) ClientChecker() {
 				logger.Event(event.CLIENT_UNREGISTER, "clientid="+clientid+";name="+qm.clientMap[clientid].Name)
 
 				//requeue unfinished workunits associated with the failed client
-				workids := qm.getWorkByClient(clientid)
-				for _, workid := range workids {
-					if qm.workQueue.Has(workid) {
-						qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
-						logger.Event(event.WORK_REQUEUE, "workid="+workid)
-					}
-				}
+				qm.ReQueueWorkunitByClient(clientid)
 				//delete the client from client map
 				delete(qm.clientMap, clientid)
 			}
@@ -189,6 +183,7 @@ func (qm *CQMgr) SuspendClient(id string) (err error) {
 	if client, ok := qm.clientMap[id]; ok {
 		if client.Status == CLIENT_STAT_ACTIVE_IDLE || client.Status == CLIENT_STAT_ACTIVE_BUSY {
 			client.Status = CLIENT_STAT_SUSPEND
+			qm.ReQueueWorkunitByClient(id)
 			return
 		}
 		return errors.New("client is not in active state")
@@ -220,7 +215,7 @@ func (qm *CQMgr) ResumeSuspendedClients() (count int) {
 func (qm *CQMgr) SuspendAllClients() (count int) {
 	for _, client := range qm.clientMap {
 		if client.Status == CLIENT_STAT_ACTIVE_IDLE || client.Status == CLIENT_STAT_ACTIVE_BUSY {
-			client.Status = CLIENT_STAT_SUSPEND
+			qm.SuspendClient(client.Id)
 			count += 1
 		}
 	}
@@ -360,6 +355,17 @@ func (qm *CQMgr) ShowWorkunits(status string) (workunits []*Workunit) {
 
 func (qm *CQMgr) EnqueueWorkunit(work *Workunit) (err error) {
 	err = qm.workQueue.Add(work)
+	return
+}
+
+func (qm *CQMgr) ReQueueWorkunitByClient(clientid string) (err error) {
+	workids := qm.getWorkByClient(clientid)
+	for _, workid := range workids {
+		if qm.workQueue.Has(workid) {
+			qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
+			logger.Event(event.WORK_REQUEUE, "workid="+workid)
+		}
+	}
 	return
 }
 

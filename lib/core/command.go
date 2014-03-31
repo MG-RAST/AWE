@@ -1,15 +1,7 @@
 package core
 
-import (
-	"regexp"
-)
-
-var (
-	//<inputs::i1> <inputs::i2> <outputs::o1>
-	TemplateRe = regexp.MustCompile("\\w+::\\w+")
-)
-
 type Command struct {
+<<<<<<< HEAD
 	Dockerimage string   `bson:"Dockerimage" json:"Dockerimage"`
 	Name        string   `bson:"name" json:"name"`
 	Options     string   `bson:"options" json:"-"`
@@ -27,6 +19,13 @@ func (c *Command) Substitute(inputs *IOmap, outputs *IOmap) (err error) {
 		print(s + "\n")
 	}
 	return
+=======
+	Name        string            `bson:"name" json:"name"`
+	Args        string            `bson:"args" json:"args"`
+	Environ     map[string]string `bson:"environ" json:"environ"`
+	Description string            `bson:"description" json:"description"`
+	ParsedArgs  []string          `bson:"-" json:"-"`
+>>>>>>> ce578bed8944f29dade6b9700b5cea01457b8129
 }
 
 func NewCommand(name string) *Command {

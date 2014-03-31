@@ -102,7 +102,7 @@ var (
 	CLIENT_GROUP              = "default"
 	CLIENT_DOMAIN             = "default"
 	WORKER_OVERLAP            = false
-	PRINT_APP_MSG             = false
+	PRINT_APP_MSG             = true
 	AUTO_CLEAN_DIR            = true
 	CLIEN_DIR_DELAY_FAIL      = 30 * time.Minute //clean failed workunit dir after 30 minutes
 	CLIEN_DIR_DELAY_DONE      = 1 * time.Minute  // clean done workunit dir after 1 minute
@@ -113,7 +113,8 @@ var (
 	MEM_CHECK_INTERVAL        = 10 * time.Second
 	DOCKER_WORK_DIR           = "/workdir/"
 	SHOCK_DOCKER_IMAGE_REPOSITORY = "http://shock.metagenomics.anl.gov"
-	
+	KB_AUTH_TOKEN             = "KB_AUTH_TOKEN"
+	CACHE_ENABLED             = false
 	//tag
 	INIT_SUCCESS = true
 
@@ -243,6 +244,10 @@ func init() {
 	if auto_clean_dir, err := c.Bool("Client", "auto_clean_dir"); err == nil {
 		AUTO_CLEAN_DIR = auto_clean_dir
 	}
+	if cache_enabled, err := c.Bool("Client", "cache_enabled"); err == nil {
+		CACHE_ENABLED = cache_enabled
+	}
+
 	CLIENT_USERNAME, _ = c.String("Client", "username")
 	CLIENT_PASSWORD, _ = c.String("Client", "password")
 

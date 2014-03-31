@@ -177,3 +177,8 @@ func ParseMultipartForm(r *http.Request) (params map[string]string, files core.F
 
 	return
 }
+
+func RespondTokenInHeader(cx *goweb.Context, token string) {
+	cx.ResponseWriter.Header().Set("DataToken", token)
+	cx.Respond(nil, http.StatusOK, nil, cx)
+}

@@ -117,7 +117,7 @@ func (task *Task) UpdateState(newState string) string {
 //get part size based on partition/index info
 //if fail to get index info, task.TotalWork fall back to 1 and return nil
 func (task *Task) InitPartIndex() (err error) {
-	if task.TotalWork == 1 {
+	if task.TotalWork == 1 && task.MaxWorkSize == 0 {
 		return
 	}
 	var input_io *IO

@@ -253,7 +253,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 					client.Total_failed += 1
 					client.Last_failed += 1 //last consecutive failures
 					if client.Last_failed == conf.MAX_CLIENT_FAILURE {
-						client.Status = CLIENT_STAT_SUSPEND
+						qm.SuspendClient(client.Id)
 					}
 				}
 			}

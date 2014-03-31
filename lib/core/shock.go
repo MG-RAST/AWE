@@ -1,26 +1,25 @@
 package core
 
 import (
-    //"github.com/MG-RAST/AWE/lib/httpclient"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"errors"
-	"github.com/MG-RAST/AWE/lib/httpclient"
-	"fmt"
-	"time"
+	//"github.com/MG-RAST/AWE/lib/httpclient"
 	"encoding/json"
-	"io/ioutil"
+	"errors"
+	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
-	"strings"
+	"github.com/MG-RAST/AWE/lib/httpclient"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
+	"time"
 )
 
 // TODO use Token
 type ShockClient struct {
-	Host string
+	Host  string
 	Token string
 }
-
 
 type ShockResponse struct {
 	Code int       `bson:"status" json:"status"`
@@ -64,12 +63,12 @@ type linkage struct {
 }
 
 type ShockQueryResponse struct {
-	Code int       `bson:"status" json:"status"`
-	Data []ShockNode `bson:"data" json:"data"`
-	Errs []string  `bson:"error" json:"error"`
-	Limit int  	   `bson:"limit" json:"limit"`
-	Offset int  	   `bson:"offset" json:"offset"`
-	TotalCount int `bson:"total_count" json:"total_count"`
+	Code       int         `bson:"status" json:"status"`
+	Data       []ShockNode `bson:"data" json:"data"`
+	Errs       []string    `bson:"error" json:"error"`
+	Limit      int         `bson:"limit" json:"limit"`
+	Offset     int         `bson:"offset" json:"offset"`
+	TotalCount int         `bson:"total_count" json:"total_count"`
 }
 
 func ShockGet(host string, nodeid string, token string) (node *ShockNode, err error) {
@@ -120,53 +119,51 @@ func ShockGet(host string, nodeid string, token string) (node *ShockNode, err er
 	return
 }
 
-func (sc *ShockClient) Get_node_download_url (node ShockNode) (download_url string, err error) {
-	myurl, err := url.ParseRequestURI(sc.Host) 
+func (sc *ShockClient) Get_node_download_url(node ShockNode) (download_url string, err error) {
+	myurl, err := url.ParseRequestURI(sc.Host)
 	if err != nil {
 		return "", err
 	}
 	(*myurl).Path = fmt.Sprint("node/", node.Id)
 	(*myurl).RawQuery = "download"
-	
-	download_url = myurl.String()
-	return 
-}
 
-// example: query_response_p, err := sc.Shock_query(host, url.Values{"docker": {"1"}, "docker_image_name" : {"wgerlach/bowtie2:2.2.0"}});
-func (sc *ShockClient) Query (query url.Values) (sqr_p *ShockQueryResponse, err error) {
-	
-	query.Add("query","")
-		
-	sqr_p = new (ShockQueryResponse)
-	err = sc.Get_request("/node/", query, &sqr_p)
-	
+	download_url = myurl.String()
 	return
 }
 
+// example: query_response_p, err := sc.Shock_query(host, url.Values{"docker": {"1"}, "docker_image_name" : {"wgerlach/bowtie2:2.2.0"}});
+func (sc *ShockClient) Query(query url.Values) (sqr_p *ShockQueryResponse, err error) {
+
+	query.Add("query", "")
+
+	sqr_p = new(ShockQueryResponse)
+	err = sc.Get_request("/node/", query, &sqr_p)
+
+	return
+}
 
 func (sc *ShockClient) Get_request(resource string, query url.Values, response interface{}) (err error) {
-	
-	logger.Debug(1, fmt.Sprint("string_url: ",sc.Host))
-	
-	myurl, err := url.ParseRequestURI(sc.Host) 
+
+	logger.Debug(1, fmt.Sprint("string_url: ", sc.Host))
+
+	myurl, err := url.ParseRequestURI(sc.Host)
 	if err != nil {
 		return err
 	}
-	
+
 	(*myurl).Path = resource
 	(*myurl).RawQuery = query.Encode()
-	
+
 	shockurl := myurl.String()
-	
-	logger.Debug(1, fmt.Sprint("shock request url: ",shockurl))
-	
+
+	logger.Debug(1, fmt.Sprint("shock request url: ", shockurl))
+
 	if len(shockurl) < 5 {
 		return errors.New("could not parse SHOCK_DOCKER_IMAGE_REPOSITORY")
 	}
-	
-	
+
 	var res *http.Response
-	
+
 	c := make(chan int, 1)
 	go func() {
 		res, err = httpclient.Get(shockurl, httpclient.Header{}, nil, nil)
@@ -202,5 +199,3 @@ func (sc *ShockClient) Get_request(resource string, query url.Values, response i
 	//}
 	return
 }
-
-

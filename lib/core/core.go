@@ -695,7 +695,6 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 	return
 }
 
-
 func ShockPutIndex(host string, nodeid string, indexname string, token string) (err error) {
 	opts := Opts{}
 	opts["upload_type"] = "index"

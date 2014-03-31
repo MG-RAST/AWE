@@ -149,8 +149,8 @@ func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, e
 		return nil, err
 	}
 	headers := httpclient.Header{
-		"Content-Type":   form.ContentType,
-		"Content-Length": strconv.FormatInt(form.Length, 10),
+		"Content-Type":   []string{form.ContentType},
+		"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
 	}
 	user := httpclient.GetUserByBasicAuth(conf.CLIENT_USERNAME, conf.CLIENT_PASSWORD)
 	targetUrl := host + "/client"

@@ -111,9 +111,10 @@ var (
 	STDOUT_FILENAME           = "awe_stdout.txt"
 	STDERR_FILENAME           = "awe_stderr.txt"
 	MEM_CHECK_INTERVAL        = 10 * time.Second
+	DOCKER_WORK_DIR           = "/workdir/"
+	SHOCK_DOCKER_IMAGE_REPOSITORY = "http://shock.metagenomics.anl.gov"
 	KB_AUTH_TOKEN             = "KB_AUTH_TOKEN"
 	CACHE_ENABLED             = false
-
 	//tag
 	INIT_SUCCESS = true
 

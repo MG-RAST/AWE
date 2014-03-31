@@ -91,30 +91,30 @@ var (
 	GOMAXPROCS = 0
 
 	//[client]
-	TOTAL_WORKER              = 1
-	WORK_PATH                 = ""
-	APP_PATH                  = ""
-	SUPPORTED_APPS            = ""
-	SERVER_URL                = "http://localhost:8001"
-	OPENSTACK_METADATA_URL    = "" //openstack metadata url, e.g. "http://169.254.169.254/2009-04-04/meta-data"
-	INSTANCE_METADATA_TIMEOUT = 5 * time.Second
-	CLIENT_NAME               = "default"
-	CLIENT_GROUP              = "default"
-	CLIENT_DOMAIN             = "default"
-	WORKER_OVERLAP            = false
-	PRINT_APP_MSG             = true
-	AUTO_CLEAN_DIR            = true
-	CLIEN_DIR_DELAY_FAIL      = 30 * time.Minute //clean failed workunit dir after 30 minutes
-	CLIEN_DIR_DELAY_DONE      = 1 * time.Minute  // clean done workunit dir after 1 minute
-	CLIENT_USERNAME           = "public"
-	CLIENT_PASSWORD           = "public"
-	STDOUT_FILENAME           = "awe_stdout.txt"
-	STDERR_FILENAME           = "awe_stderr.txt"
-	MEM_CHECK_INTERVAL        = 10 * time.Second
-	DOCKER_WORK_DIR           = "/workdir/"
+	TOTAL_WORKER                  = 1
+	WORK_PATH                     = ""
+	APP_PATH                      = ""
+	SUPPORTED_APPS                = ""
+	SERVER_URL                    = "http://localhost:8001"
+	OPENSTACK_METADATA_URL        = "" //openstack metadata url, e.g. "http://169.254.169.254/2009-04-04/meta-data"
+	INSTANCE_METADATA_TIMEOUT     = 5 * time.Second
+	CLIENT_NAME                   = "default"
+	CLIENT_GROUP                  = "default"
+	CLIENT_DOMAIN                 = "default"
+	WORKER_OVERLAP                = false
+	PRINT_APP_MSG                 = true
+	AUTO_CLEAN_DIR                = true
+	CLIEN_DIR_DELAY_FAIL          = 30 * time.Minute //clean failed workunit dir after 30 minutes
+	CLIEN_DIR_DELAY_DONE          = 1 * time.Minute  // clean done workunit dir after 1 minute
+	CLIENT_USERNAME               = "public"
+	CLIENT_PASSWORD               = "public"
+	STDOUT_FILENAME               = "awe_stdout.txt"
+	STDERR_FILENAME               = "awe_stderr.txt"
+	MEM_CHECK_INTERVAL            = 10 * time.Second
+	DOCKER_WORK_DIR               = "/workdir/"
 	SHOCK_DOCKER_IMAGE_REPOSITORY = "http://shock.metagenomics.anl.gov"
-	KB_AUTH_TOKEN             = "KB_AUTH_TOKEN"
-	CACHE_ENABLED             = false
+	KB_AUTH_TOKEN                 = "KB_AUTH_TOKEN"
+	CACHE_ENABLED                 = false
 	//tag
 	INIT_SUCCESS = true
 

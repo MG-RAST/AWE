@@ -180,7 +180,6 @@ func fetchFile(filename string, url string, token string) (size int64, err error
 	return
 }
 
-
 //fetch file by shock url
 func fetchFile2(filename string, url string, token string) (size int64, err error) {
 	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
@@ -190,7 +189,6 @@ func fetchFile2(filename string, url string, token string) (size int64, err erro
 	}
 	defer localfile.Close()
 
-	
 	body, err := fetchShockStream(url, token)
 
 	defer body.Close()
@@ -207,7 +205,7 @@ func fetchFile2(filename string, url string, token string) (size int64, err erro
 }
 
 func fetchShockStream(url string, token string) (r io.ReadCloser, err error) {
-	
+
 	var user *httpclient.Auth
 	if token != "" {
 		user = httpclient.GetUserByTokenAuth(token)
@@ -226,8 +224,6 @@ func fetchShockStream(url string, token string) (r io.ReadCloser, err error) {
 
 	return res.Body, err
 }
-
-
 
 //fetch prerequisite data (e.g. reference dbs)
 func movePreData(workunit *core.Workunit) (size int64, err error) {

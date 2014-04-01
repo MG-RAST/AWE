@@ -93,6 +93,7 @@ type resource struct {
 	C string   `json:"contact"`
 	I string   `json:"id"`
 	T string   `json:"type"`
+	V string   `json:"version"`
 }
 
 func ResourceDescription(cx *goweb.Context) {
@@ -104,6 +105,7 @@ func ResourceDescription(cx *goweb.Context) {
 		C: conf.ADMIN_EMAIL,
 		I: "AWE",
 		T: core.Service,
+		V: conf.VERSION,
 	}
 	if core.Service == "server" {
 		r.R = []string{"job", "work", "client", "queue", "awf"}

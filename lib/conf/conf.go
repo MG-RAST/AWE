@@ -10,6 +10,9 @@ import (
 
 // Setup conf variables
 var (
+	VERSION      = "0.9.1"
+	SHOW_VERSION = false
+
 	//Reload
 	RELOAD   = ""
 	RECOVER  = false
@@ -127,11 +130,17 @@ func init() {
 	flag.StringVar(&CONFIG_FILE, "conf", "", "path to config file")
 	flag.StringVar(&RELOAD, "reload", "", "path or url to awe job data. WARNING this will drop all current jobs.")
 	flag.BoolVar(&RECOVER, "recover", false, "path to awe job data.")
+	flag.BoolVar(&SHOW_VERSION, "version", false, "show version.")
 	flag.IntVar(&DEBUG_LEVEL, "debug", -1, "debug level: 0-3")
 	flag.BoolVar(&DEV_MODE, "dev", false, "dev or demo mode, print some msgs on screen")
 	flag.Parse()
 
 	//	fmt.Printf("in conf.init(), flag=%v", flag)
+
+	if SHOW_VERSION {
+		PrintVersionMsg()
+		os.Exit(0)
+	}
 
 	if len(CONFIG_FILE) == 0 {
 		fmt.Fprintf(os.Stderr, "ERROR: conf file not specified\n")
@@ -334,5 +343,9 @@ func PrintServerUsage() {
 }
 
 func PrintProxyUsage() {
-	fmt.Printf("Usage: awe-prox -conf </path/to/cfg> [debug 0-3]\n")
+	fmt.Printf("Usage: awe-proxy -conf </path/to/cfg> [debug 0-3]\n")
+}
+
+func PrintVersionMsg() {
+	fmt.Printf("AWE version: %s\n", VERSION)
 }

@@ -496,15 +496,19 @@
 
     widget.clientTooltip = function (obj, id) {
 	obj.popover('destroy');
-	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;err&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>error</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;out&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>output</a>",html:true,placement:"top"});
+	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stderr&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>error</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stdout&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>output</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;worknotes&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>worknotes</a>",html:true,placement:"top"});
 	obj.popover('show');
     }
 
     widget.workunitDetails = function (id, which) {
-	if (which=='out') {
+	if (which=='stdout') {
 	    window.open(RetinaConfig["awe_ip"]+"/work/"+id+"?report=stdout");
-	} else {
+	} else if (which=='stderr') {
 	    window.open(RetinaConfig["awe_ip"]+"/work/"+id+"?report=stderr");
+	} else if (which=='worknotes') {
+	    window.open(RetinaConfig["awe_ip"]+"/work/"+id+"?report=worknotes");
+	} else {
+	    console.log('call to workunitDetails for id "'+id+'" with unknown param: "'+which+'"');
 	}
     };
 

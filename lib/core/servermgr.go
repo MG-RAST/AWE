@@ -868,7 +868,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	//Get jobs to be recovered from db whose states are "submitted"
 	dbjobs := new(Jobs)
 	q := bson.M{}
-	q["state"] = bson.M{"$in": JOB_STATS_ACTIVE}
+	q["state"] = bson.M{"$in": JOB_STATS_TO_RECOVER}
 	lim := 1000
 	off := 0
 	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {

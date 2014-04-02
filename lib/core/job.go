@@ -22,6 +22,7 @@ const (
 )
 
 var JOB_STATS_ACTIVE = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS}
+var JOB_STATS_TO_RECOVER = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 
 type Job struct {
 	Id          string    `bson:"id" json:"id"`

@@ -23,11 +23,11 @@ Shock is actively being developed at [github.com/MG-RAST/Shock](http://github.co
 Documents:
 ------
 
-A detailed manual and API doc of AWE is available at:
+A manual for getting started:
 
-http://www.mcs.anl.gov/~wtang/files/awe-manual.pdf
+https://github.com/MG-RAST/AWE/wiki/Manual-to-Get-Started
 
-A manual for running a workflow example:
+A step-by-step manual for running a simple workflow example:
 
 http://www.mcs.anl.gov/~wtang/files/awe-example.pdf
 

@@ -987,6 +987,11 @@ func (qm *ServerMgr) UpdateGroup(jobid string, newgroup string) (err error) {
 		return errors.New("job " + jobid + " is not in 'completed' or 'suspend' status")
 	}
 	dbjob.Info.ClientGroups = newgroup
+
+	for _, task := range dbjob.Tasks {
+		task.Info = dbjob.Info
+	}
+
 	dbjob.Save()
 	return
 }

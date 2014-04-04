@@ -362,8 +362,13 @@ func (qm *CQMgr) ReQueueWorkunitByClient(clientid string) (err error) {
 	workids := qm.getWorkByClient(clientid)
 	for _, workid := range workids {
 		if qm.workQueue.Has(workid) {
-			qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
-			logger.Event(event.WORK_REQUEUE, "workid="+workid)
+			jobid, _ := GetJobIdByWorkId(workid)
+			if job, err := LoadJob(jobid); err == nil {
+				if contains(JOB_STATS_ACTIVE, job.State) { //only requeue workunits belonging to active jobs (rule out suspended jobs)
+					qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
+					logger.Event(event.WORK_REQUEUE, "workid="+workid)
+				}
+			}
 		}
 	}
 	return

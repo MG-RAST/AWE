@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/davecgh/go-spew/spew"
@@ -45,7 +47,17 @@ func processor(control chan int) {
 			continue
 		}
 
-		envkeys := SetEnv(work)
+		envkeys, err := SetEnv(work)
+		if err != nil {
+			logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
+			processed.workunit.Notes = processed.workunit.Notes + "###[precessor#SetEnv]" + err.Error()
+			processed.workunit.State = core.WORK_STAT_FAIL
+			//release the permit lock, for work overlap inhibitted mode only
+			if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+				<-chanPermit
+			}
+			continue
+		}
 
 		run_start := time.Now().Unix()
 
@@ -560,21 +572,21 @@ func dockerImportImage(client *docker.Client, Dockerimage string) (err error) {
 	return
 }
 
-func SetEnv(work *core.Workunit) (envkeys []string) {
-	for key, val := range work.Cmd.Environ {
-		if key == conf.KB_AUTH_TOKEN {
-			if work.Info.DataToken != "" {
-				if err := os.Setenv(key, work.Info.DataToken); err == nil {
-					envkeys = append(envkeys, key)
-				}
+func SetEnv(work *core.Workunit) (envkeys []string, err error) {
+	for key, val := range work.Cmd.Environ.Public {
+		if err := os.Setenv(key, val); err == nil {
+			envkeys = append(envkeys, key)
+		}
+	}
+	if work.Cmd.HasPrivateEnv {
+		envs, err := FetchPrivateEnvByWorkId(work.Id)
+		if err != nil {
+			return envkeys, err
+		}
+		for key, val := range envs {
+			if err := os.Setenv(key, val); err == nil {
+				envkeys = append(envkeys, key)
 			}
-		} else {
-			if oldval := os.Getenv(key); oldval == "" {
-				if err := os.Setenv(key, val); err == nil {
-					envkeys = append(envkeys, key)
-				}
-			}
-
 		}
 	}
 	return
@@ -584,4 +596,30 @@ func UnSetEnv(envkeys []string) {
 	for _, key := range envkeys {
 		os.Setenv(key, "")
 	}
+}
+
+func FetchPrivateEnvByWorkId(workid string) (envs map[string]string, err error) {
+	targeturl := fmt.Sprintf("%s/work/%s?privateenv&client=%s", conf.SERVER_URL, workid, core.Self.Id)
+	res, err := httpclient.Get(targeturl, httpclient.Header{}, nil, nil)
+	if err != nil {
+		return envs, err
+	}
+	var jsonstream string
+	if res.Header != nil {
+		if _, ok := res.Header["Privateenv"]; ok {
+			jsonstream = res.Header["Privateenv"][0]
+		}
+	}
+	tmp_map := new(map[string]string)
+
+	if err := json.Unmarshal([]byte(jsonstream), tmp_map); err != nil {
+		return nil, err
+	}
+
+	envs = make(map[string]string)
+
+	for key, val := range *tmp_map {
+		envs[key] = val
+	}
+	return
 }

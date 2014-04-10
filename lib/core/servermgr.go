@@ -360,6 +360,40 @@ func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token strin
 	return token, nil
 }
 
+func (qm *ServerMgr) FetchPrivateEnvs(workid string, clientid string) (envs map[string]string, err error) {
+	//precheck if the client is registered
+	if _, hasClient := qm.clientMap[clientid]; !hasClient {
+		return nil, errors.New(e.ClientNotFound)
+	}
+	if qm.clientMap[clientid].Status == CLIENT_STAT_SUSPEND {
+		return nil, errors.New(e.ClientSuspended)
+	}
+	jobid, err := GetJobIdByWorkId(workid)
+	if err != nil {
+		return nil, err
+	}
+
+	job, err := LoadJob(jobid)
+	if err != nil {
+		return nil, err
+	}
+
+	taskid, _ := GetTaskIdByWorkId(workid)
+
+	idx := -1
+	for i, t := range job.Tasks {
+		if t.Id == taskid {
+			idx = i
+			break
+		}
+	}
+	envs = job.Tasks[idx].Cmd.Environ.Private
+	if envs == nil {
+		return nil, errors.New("no private envs for workunit " + workid)
+	}
+	return envs, nil
+}
+
 func (qm *ServerMgr) SaveStdLog(workid string, logname string, tmppath string) (err error) {
 	savedpath, err := getStdLogPathByWorkId(workid, logname)
 	if err != nil {
@@ -1112,3 +1146,24 @@ func (qm *ServerMgr) DeleteJobPerf(jobid string) {
 }
 
 //---end of perf related methods
+
+func (qm *ServerMgr) FetchPrivateEnv(workid string, clientid string) (env map[string]string, err error) {
+	//precheck if the client is registered
+	if _, hasClient := qm.clientMap[clientid]; !hasClient {
+		return env, errors.New(e.ClientNotFound)
+	}
+	if qm.clientMap[clientid].Status == CLIENT_STAT_SUSPEND {
+		return env, errors.New(e.ClientSuspended)
+	}
+	jobid, err := GetJobIdByWorkId(workid)
+	if err != nil {
+		return env, err
+	}
+	job, err := LoadJob(jobid)
+	if err != nil {
+		return env, err
+	}
+	taskid, err := GetTaskIdByWorkId(workid)
+	env = job.GetPrivateEnv(taskid)
+	return env, nil
+}

@@ -195,6 +195,15 @@ func (job *Job) GetDataToken() (token string) {
 	return job.Info.DataToken
 }
 
+func (job *Job) GetPrivateEnv(taskid string) (env map[string]string) {
+	for _, task := range job.Tasks {
+		if taskid == task.Id {
+			return task.Cmd.Environ.Private
+		}
+	}
+	return
+}
+
 func ReloadFromDisk(path string) (err error) {
 	id := filepath.Base(path)
 	jobbson, err := ioutil.ReadFile(path + "/" + id + ".bson")

@@ -104,6 +104,10 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 		}
 	}
 
+	if len(task.Cmd.Environ.Private) > 0 {
+		task.Cmd.HasPrivateEnv = true
+	}
+
 	task.setTokenForIO()
 	task.State = TASK_STAT_INIT
 	return

@@ -91,7 +91,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	core.QMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
 
 	//log event about job submission (JB)
-	logger.Event(event.JOB_SUBMISSION, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project)
+	logger.Event(event.JOB_SUBMISSION, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	cx.RespondWithData(job)
 	return
 }

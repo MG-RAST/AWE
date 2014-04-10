@@ -231,6 +231,21 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 	job.State = JOB_STAT_INIT
 	job.Registered = true
 
+	//parse private fields task.Cmd.Environ.Private
+	job_p := new(Job_p)
+	err = json.Unmarshal(jsonstream, job_p)
+	if err == nil {
+		for idx, task := range job_p.Tasks {
+			if task.Cmd.Environ == nil || task.Cmd.Environ.Private == nil {
+				continue
+			}
+			for key, val := range task.Cmd.Environ.Private {
+				job.Tasks[idx].Cmd.Environ.Private = make(map[string]string)
+				job.Tasks[idx].Cmd.Environ.Private[key] = val
+			}
+		}
+	}
+
 	for i := 0; i < len(job.Tasks); i++ {
 		if err := job.Tasks[i].InitTask(job, i); err != nil {
 			return nil, err

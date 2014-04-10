@@ -23,6 +23,7 @@ type WorkMgr interface {
 	NotifyWorkStatus(Notice)
 	EnqueueWorkunit(*Workunit) error
 	FetchDataToken(string, string) (string, error)
+	FetchPrivateEnv(string, string) (map[string]string, error)
 }
 
 type JobMgr interface {

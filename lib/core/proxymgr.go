@@ -108,6 +108,10 @@ func (qm *ProxyMgr) FetchDataToken(workid string, clientid string) (token string
 	return
 }
 
+func (qm *ProxyMgr) FetchPrivateEnv(workid string, clientid string) (env map[string]string, err error) {
+	return
+}
+
 //end of workunits methods
 
 //client methods

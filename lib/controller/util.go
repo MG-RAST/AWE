@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
@@ -181,6 +182,16 @@ func ParseMultipartForm(r *http.Request) (params map[string]string, files core.F
 }
 
 func RespondTokenInHeader(cx *goweb.Context, token string) {
-	cx.ResponseWriter.Header().Set("DataToken", token)
+	cx.ResponseWriter.Header().Set("Datatoken", token)
 	cx.Respond(nil, http.StatusOK, nil, cx)
+}
+
+func RespondPrivateEnvInHeader(cx *goweb.Context, Envs map[string]string) (err error) {
+	env_stream, err := json.Marshal(Envs)
+	if err != nil {
+		return err
+	}
+	cx.ResponseWriter.Header().Set("Privateenv", string(env_stream[:]))
+	cx.Respond(nil, http.StatusOK, nil, cx)
+	return
 }

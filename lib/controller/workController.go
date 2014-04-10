@@ -41,6 +41,18 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		return
 	}
 
+	if query.Has("privateenv") && query.Has("client") { //a client is requesting data token for this job
+		//***insert code to authenticate and check ACL***
+		clientid := query.Value("client")
+		envs, err := core.QMgr.FetchPrivateEnv(id, clientid)
+		if err != nil {
+			cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
+		}
+		//cx.RespondWithData(token)
+		RespondPrivateEnvInHeader(cx, envs)
+		return
+	}
+
 	if query.Has("report") { //retrieve report: stdout or stderr or worknotes
 		reportmsg, err := core.QMgr.GetReportMsg(id, query.Value("report"))
 		if err != nil {

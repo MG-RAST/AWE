@@ -1030,6 +1030,34 @@ func (qm *ServerMgr) UpdateGroup(jobid string, newgroup string) (err error) {
 	return
 }
 
+func (qm *ServerMgr) UpdatePriority(jobid string, priority int) (err error) {
+	//update info in db
+	dbjob, err := LoadJob(jobid)
+	if err != nil {
+		return errors.New("failed to load job " + err.Error())
+	}
+	dbjob.Info.Priority = priority
+	for _, task := range dbjob.Tasks {
+		task.Info.Priority = priority
+	}
+	dbjob.Save()
+
+	//update in-memory data structures
+	for workid, _ := range qm.workQueue.workMap {
+		if jobid == strings.Split(workid, "_")[0] {
+			qm.workQueue.workMap[workid].Info.Priority = priority
+		}
+	}
+	for _, task := range dbjob.Tasks {
+		if task.State == TASK_STAT_QUEUED || task.State == TASK_STAT_INIT || task.State == TASK_STAT_INPROGRESS {
+			if _, ok := qm.taskMap[task.Id]; ok {
+				qm.taskMap[task.Id].Info.Priority = priority
+			}
+		}
+	}
+	return
+}
+
 //---end of job methods
 
 //---perf related methods

@@ -104,6 +104,17 @@ func (wl WorkList) Swap(i, j int) { wl[i], wl[j] = wl[j], wl[i] }
 
 type byFCFS struct{ WorkList }
 
-func (s byFCFS) Less(i, j int) bool {
-	return s.WorkList[i].Info.SubmitTime.Before(s.WorkList[j].Info.SubmitTime)
+//compare priority first, then FCFS (if priorities are the same)
+func (s byFCFS) Less(i, j int) (ret bool) {
+	p_i := s.WorkList[i].Info.Priority
+	p_j := s.WorkList[j].Info.Priority
+	switch {
+	case p_i > p_j:
+		return true
+	case p_i < p_j:
+		return false
+	case p_i == p_j:
+		return s.WorkList[i].Info.SubmitTime.Before(s.WorkList[j].Info.SubmitTime)
+	}
+	return
 }

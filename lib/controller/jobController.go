@@ -403,6 +403,21 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		cx.RespondWithData("job group updated: " + id + " to " + newgroup)
 		return
 	}
+	if query.Has("priority") { // change the clientgroup attribute of the job
+		priority_str := query.Value("priority")
+		if priority_str == "" {
+			cx.RespondWithErrorMessage("lacking priority value (0-3)", http.StatusBadRequest)
+		}
+		priority, err := strconv.Atoi(priority_str)
+		if err != nil {
+			cx.RespondWithErrorMessage("need int for priority value (0-3)", http.StatusBadRequest)
+		}
+		if err := core.QMgr.UpdatePriority(id, priority); err != nil {
+			cx.RespondWithErrorMessage("fail to priority for job: "+id+" "+err.Error(), http.StatusBadRequest)
+		}
+		cx.RespondWithData("job priority updated: " + id + " to " + priority_str)
+		return
+	}
 
 	if query.Has("settoken") { // set data token
 		token, err := request.RetrieveToken(cx.Request)

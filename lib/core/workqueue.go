@@ -105,5 +105,6 @@ func (wl WorkList) Swap(i, j int) { wl[i], wl[j] = wl[j], wl[i] }
 type byFCFS struct{ WorkList }
 
 func (s byFCFS) Less(i, j int) bool {
+
 	return s.WorkList[i].Info.SubmitTime.Before(s.WorkList[j].Info.SubmitTime)
 }

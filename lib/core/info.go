@@ -16,7 +16,7 @@ type Info struct {
 	SubmitTime    time.Time `bson:"submittime" json:"submittime"`
 	StartedTme    time.Time `bson:"startedtime" json:"startedtime"`
 	CompletedTime time.Time `bson:"completedtime" json:"completedtime"`
-	Priority      int       `bson:"priority" json:"-"`
+	Priority      int       `bson:"priority" json:"priority"`
 	Auth          bool      `bson:"auth" json:"auth"`
 	DataToken     string    `bson:"datatoken" json:"-"`
 	NoRetry       bool      `bson:"noretry" json:"noretry"`

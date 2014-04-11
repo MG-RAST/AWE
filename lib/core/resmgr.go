@@ -46,6 +46,7 @@ type JobMgr interface {
 	GetReportMsg(string, string) (string, error)
 	RecomputeJob(string, string) error
 	UpdateGroup(string, string) error
+	UpdatePriority(string, int) error
 }
 
 type ClientWorkMgr interface {

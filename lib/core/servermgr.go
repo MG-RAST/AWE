@@ -1030,6 +1030,21 @@ func (qm *ServerMgr) UpdateGroup(jobid string, newgroup string) (err error) {
 	return
 }
 
+func (qm *ServerMgr) UpdatePriority(jobid string, priority int) (err error) {
+	//Load job by id
+	dbjob, err := LoadJob(jobid)
+	if err != nil {
+		return errors.New("failed to load job " + err.Error())
+	}
+	dbjob.Info.Priority = priority
+
+	for _, task := range dbjob.Tasks {
+		task.Info = dbjob.Info
+	}
+	dbjob.Save()
+	return
+}
+
 //---end of job methods
 
 //---perf related methods

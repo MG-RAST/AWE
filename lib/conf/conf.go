@@ -90,6 +90,8 @@ var (
 	DEFAULT_CHUNK_SIZE int64 = 1048576 * 1
 	//Shock_TimeOut
 	SHOCK_TIMEOUT = 30 * time.Second
+	//Default page size
+	DEFAULT_PAGE_SIZE = 25
 
 	GOMAXPROCS = 0
 

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/foreign/taverna"
@@ -176,9 +177,32 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	q := bson.M{}
 	jobs := core.Jobs{}
 
+	limit := conf.DEFAULT_PAGE_SIZE
+	offset := 0
+
+	// Limit and skip. Set default if both are not specified
+	if query.Has("limit") || query.Has("offset") {
+		var recent int
+		if query.Has("limit") {
+			limit, _ = strconv.Atoi(query.Value("limit"))
+		}
+		if query.Has("offset") {
+			offset, _ = strconv.Atoi(query.Value("offset"))
+		}
+		var err error
+		if recent > 0 {
+			_, err = jobs.GetAllRecent(q, recent)
+		}
+		if err != nil {
+			logger.Error("err " + err.Error())
+			cx.RespondWithError(http.StatusBadRequest)
+			return
+		}
+	}
+
 	// Gather params to make db query. Do not include the
 	// following list.
-	skip := map[string]int{"limit": 1, "skip": 1, "query": 1, "recent": 1}
+	skip := map[string]int{"limit": 1, "skip": 1, "offset": 1, "query": 1, "recent": 1}
 	if query.Has("query") {
 		for key, val := range query.All() {
 			_, s := skip[key]
@@ -193,98 +217,128 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		q["state"] = core.JOB_STAT_SUSPEND
 	}
 
-	// Limit and skip. Set default if both are not specified
-	if query.Has("limit") || query.Has("skip") || query.Has("recent") {
-		var lim, off, recent int
-		if query.Has("limit") {
-			lim, _ = strconv.Atoi(query.Value("limit"))
-		} else {
-			lim = 100
-		}
-		if query.Has("skip") {
-			off, _ = strconv.Atoi(query.Value("skip"))
-		} else {
-			off = 0
-		}
-		if query.Has("recent") {
-			recent, _ = strconv.Atoi(query.Value("recent"))
-		} else {
-			recent = 0
-		}
-		var err error
-		if recent > 0 {
-			_, err = jobs.GetAllRecent(q, recent)
-		} else {
-			err = jobs.GetAllLimitOffset(q, lim, off)
-		}
-		if err != nil {
-			logger.Error("err " + err.Error())
-			cx.RespondWithError(http.StatusBadRequest)
-			return
-		}
-	} else {
-		// Get jobs from db
+	//getting real active (in-progress) job (some jobs are in "submitted" states but not in the queue,
+	//because they may have failed and not recovered from the mongodb).
+	if query.Has("active") {
 		err := jobs.GetAll(q)
 		if err != nil {
 			logger.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
 			return
 		}
-	}
 
-	//getting real active (in-progress) job (some jobs are in "submitted" states but not in the queue,
-	//because they may have failed and not recovered from the mongodb).
-	if query.Has("active") {
 		filtered_jobs := []core.Job{}
 		act_jobs := core.QMgr.GetActiveJobs()
 		length := jobs.Length()
+
+		skip := 0
+		count := 0
 		for i := 0; i < length; i++ {
 			job := jobs.GetJobAt(i)
-			job.Registered = true
 			if _, ok := act_jobs[job.Id]; ok {
+				if skip < offset {
+					skip += 1
+					continue
+				}
+				job.Registered = true
 				filtered_jobs = append(filtered_jobs, job)
+				count += 1
+				if count == limit {
+					break
+				}
 			}
 		}
-		cx.RespondWithData(filtered_jobs)
+		cx.RespondWithPaginatedData(filtered_jobs, limit, offset, len(act_jobs))
 		return
 	}
 
 	//geting suspended job in the current queue (excluding jobs in db but not in qmgr)
 	if query.Has("suspend") {
+		err := jobs.GetAll(q)
+		if err != nil {
+			logger.Error("err " + err.Error())
+			cx.RespondWithError(http.StatusBadRequest)
+			return
+		}
+
 		filtered_jobs := []core.Job{}
 		suspend_jobs := core.QMgr.GetSuspendJobs()
 		length := jobs.Length()
+
+		skip := 0
+		count := 0
 		for i := 0; i < length; i++ {
 			job := jobs.GetJobAt(i)
-			job.Registered = true
 			if _, ok := suspend_jobs[job.Id]; ok {
+				if skip < offset {
+					skip += 1
+					continue
+				}
+				job.Registered = true
 				filtered_jobs = append(filtered_jobs, job)
+				count += 1
+				if count == limit {
+					break
+				}
 			}
 		}
-		cx.RespondWithData(filtered_jobs)
+		cx.RespondWithPaginatedData(filtered_jobs, limit, offset, len(suspend_jobs))
 		return
 	}
 
+	if query.Has("registered") {
+		err := jobs.GetAll(q)
+		if err != nil {
+			logger.Error("err " + err.Error())
+			cx.RespondWithError(http.StatusBadRequest)
+			return
+		}
+
+		paged_jobs := []core.Job{}
+		registered_jobs := []core.Job{}
+		length := jobs.Length()
+
+		total := 0
+		for i := 0; i < length; i++ {
+			job := jobs.GetJobAt(i)
+			if core.QMgr.IsJobRegistered(job.Id) {
+				job.Registered = true
+				registered_jobs = append(registered_jobs, job)
+				total += 1
+			}
+		}
+		count := 0
+		for i := offset; i < len(registered_jobs); i++ {
+			paged_jobs = append(paged_jobs, registered_jobs[i])
+			count += 1
+			if count == limit {
+				break
+			}
+		}
+		cx.RespondWithPaginatedData(paged_jobs, limit, offset, total)
+		return
+	}
+
+	total, err := jobs.GetPaginated(q, limit, offset)
+	if err != nil {
+		logger.Error("err " + err.Error())
+		cx.RespondWithError(http.StatusBadRequest)
+		return
+	}
 	filtered_jobs := []core.Job{}
-	registered_jobs := []core.Job{}
 	length := jobs.Length()
 	for i := 0; i < length; i++ {
 		job := jobs.GetJobAt(i)
 		if core.QMgr.IsJobRegistered(job.Id) {
 			job.Registered = true
-			registered_jobs = append(registered_jobs, job)
 		} else {
 			job.Registered = false
 		}
 		filtered_jobs = append(filtered_jobs, job)
 	}
-
-	if query.Has("registered") {
-		cx.RespondWithData(registered_jobs)
-	} else {
-		cx.RespondWithData(filtered_jobs)
-	}
+	cx.RespondWithPaginatedData(filtered_jobs, limit, offset, total)
 	return
+
 }
 
 // PUT: /job

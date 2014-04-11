@@ -8,12 +8,12 @@ import (
 type Jobs []Job
 
 func (n *Jobs) GetAll(q bson.M) (err error) {
-	_, err = dbFind(q, n, nil)
+	_, err = dbFindSort(q, n, nil, "-updatetime")
 	return
 }
 
 func (n *Jobs) GetPaginated(q bson.M, limit int, offset int) (count int, err error) {
-	count, err = dbFind(q, n, map[string]int{"limit": limit, "offset": offset})
+	count, err = dbFindSort(q, n, map[string]int{"limit": limit, "offset": offset}, "-updatetime")
 	return
 }
 
@@ -23,7 +23,7 @@ func (n *Jobs) GetAllLimitOffset(q bson.M, limit int, offset int) (err error) {
 }
 
 func (n *Jobs) GetAllRecent(q bson.M, recent int) (count int, err error) {
-	count, err = dbFindSort(q, n, map[string]int{"limit": recent}, "-jid")
+	count, err = dbFindSort(q, n, map[string]int{"limit": recent}, "-updatetime")
 	return
 }
 

@@ -197,7 +197,16 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 
 	// Gather params to make db query. Do not include the
 	// following list.
-	skip := map[string]int{"limit": 1, "skip": 1, "offset": 1, "query": 1, "recent": 1, "order": 1, "direction": 1}
+	skip := map[string]int{"limit": 1,
+		"offset":     1,
+		"query":      1,
+		"recent":     1,
+		"order":      1,
+		"direction":  1,
+		"active":     1,
+		"suspend":    1,
+		"registered": 1,
+	}
 	if query.Has("query") {
 		for key, val := range query.All() {
 			_, s := skip[key]

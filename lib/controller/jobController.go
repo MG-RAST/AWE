@@ -179,30 +179,25 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 
 	limit := conf.DEFAULT_PAGE_SIZE
 	offset := 0
+	order := "updatetime"
+	direction := "desc"
 
-	// Limit and skip. Set default if both are not specified
-	if query.Has("limit") || query.Has("offset") {
-		var recent int
-		if query.Has("limit") {
-			limit, _ = strconv.Atoi(query.Value("limit"))
-		}
-		if query.Has("offset") {
-			offset, _ = strconv.Atoi(query.Value("offset"))
-		}
-		var err error
-		if recent > 0 {
-			_, err = jobs.GetAllRecent(q, recent)
-		}
-		if err != nil {
-			logger.Error("err " + err.Error())
-			cx.RespondWithError(http.StatusBadRequest)
-			return
-		}
+	if query.Has("limit") {
+		limit, _ = strconv.Atoi(query.Value("limit"))
+	}
+	if query.Has("offset") {
+		offset, _ = strconv.Atoi(query.Value("offset"))
+	}
+	if query.Has("order") {
+		order = query.Value("order")
+	}
+	if query.Has("direction") {
+		direction = query.Value("direction")
 	}
 
 	// Gather params to make db query. Do not include the
 	// following list.
-	skip := map[string]int{"limit": 1, "skip": 1, "offset": 1, "query": 1, "recent": 1}
+	skip := map[string]int{"limit": 1, "skip": 1, "offset": 1, "query": 1, "recent": 1, "order": 1, "direction": 1}
 	if query.Has("query") {
 		for key, val := range query.All() {
 			_, s := skip[key]
@@ -220,7 +215,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	//getting real active (in-progress) job (some jobs are in "submitted" states but not in the queue,
 	//because they may have failed and not recovered from the mongodb).
 	if query.Has("active") {
-		err := jobs.GetAll(q)
+		err := jobs.GetAll(q, order, direction)
 		if err != nil {
 			logger.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
@@ -254,7 +249,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 
 	//geting suspended job in the current queue (excluding jobs in db but not in qmgr)
 	if query.Has("suspend") {
-		err := jobs.GetAll(q)
+		err := jobs.GetAll(q, order, direction)
 		if err != nil {
 			logger.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
@@ -287,7 +282,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	}
 
 	if query.Has("registered") {
-		err := jobs.GetAll(q)
+		err := jobs.GetAll(q, order, direction)
 		if err != nil {
 			logger.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
@@ -319,7 +314,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		return
 	}
 
-	total, err := jobs.GetPaginated(q, limit, offset)
+	total, err := jobs.GetPaginated(q, limit, offset, order, direction)
 	if err != nil {
 		logger.Error("err " + err.Error())
 		cx.RespondWithError(http.StatusBadRequest)
@@ -422,9 +417,10 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 	if query.Has("settoken") { // set data token
 		token, err := request.RetrieveToken(cx.Request)
 		if err != nil {
-			cx.RespondWithErrorMessage("fail to retrieve token for job: "+id+" "+err.Error(), http.StatusBadRequest)
+			cx.RespondWithErrorMessage("fail to retrieve token for job, pls set token in header: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
+
 		job, err := core.LoadJob(id)
 		if err != nil {
 			if err.Error() == e.MongoDocNotFound {

@@ -7,13 +7,19 @@ import (
 // Job array type
 type Jobs []Job
 
-func (n *Jobs) GetAll(q bson.M) (err error) {
-	_, err = dbFindSort(q, n, nil, "-updatetime")
+func (n *Jobs) GetAll(q bson.M, order string, direction string) (err error) {
+	if direction == "desc" {
+		order = "-" + order
+	}
+	_, err = dbFindSort(q, n, nil, order)
 	return
 }
 
-func (n *Jobs) GetPaginated(q bson.M, limit int, offset int) (count int, err error) {
-	count, err = dbFindSort(q, n, map[string]int{"limit": limit, "offset": offset}, "-updatetime")
+func (n *Jobs) GetPaginated(q bson.M, limit int, offset int, order string, direction string) (count int, err error) {
+	if direction == "desc" {
+		order = "-" + order
+	}
+	count, err = dbFindSort(q, n, map[string]int{"limit": limit, "offset": offset}, order)
 	return
 }
 

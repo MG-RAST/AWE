@@ -77,7 +77,7 @@ func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string) 
 
 	if limit, has := options["limit"]; has {
 		if offset, has := options["offset"]; has {
-			err = c.Find(q).Sort(sortby).Limit(limit).Skip(offset).All(results)
+			err = query.Sort(sortby).Limit(limit).Skip(offset).All(results)
 			return
 		}
 	}

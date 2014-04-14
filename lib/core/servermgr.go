@@ -1009,24 +1009,28 @@ func isAncestor(job *Job, taskId string, testId string) bool {
 
 //update job group
 func (qm *ServerMgr) UpdateGroup(jobid string, newgroup string) (err error) {
-	if _, ok := qm.actJobs[jobid]; ok {
-		return errors.New("job " + jobid + " is active")
-	}
-	//Load job by id
+	//update info in db
 	dbjob, err := LoadJob(jobid)
 	if err != nil {
 		return errors.New("failed to load job " + err.Error())
 	}
-	if dbjob.State != JOB_STAT_COMPLETED && dbjob.State != JOB_STAT_SUSPEND {
-		return errors.New("job " + jobid + " is not in 'completed' or 'suspend' status")
-	}
 	dbjob.Info.ClientGroups = newgroup
-
 	for _, task := range dbjob.Tasks {
-		task.Info = dbjob.Info
+		task.Info.ClientGroups = newgroup
 	}
-
 	dbjob.Save()
+
+	//update in-memory data structures
+	for workid, _ := range qm.workQueue.workMap {
+		if jobid == strings.Split(workid, "_")[0] {
+			qm.workQueue.workMap[workid].Info.ClientGroups = newgroup
+		}
+	}
+	for _, task := range dbjob.Tasks {
+		if _, ok := qm.taskMap[task.Id]; ok {
+			qm.taskMap[task.Id].Info.ClientGroups = newgroup
+		}
+	}
 	return
 }
 
@@ -1049,10 +1053,8 @@ func (qm *ServerMgr) UpdatePriority(jobid string, priority int) (err error) {
 		}
 	}
 	for _, task := range dbjob.Tasks {
-		if task.State == TASK_STAT_QUEUED || task.State == TASK_STAT_INIT || task.State == TASK_STAT_INPROGRESS {
-			if _, ok := qm.taskMap[task.Id]; ok {
-				qm.taskMap[task.Id].Info.Priority = priority
-			}
+		if _, ok := qm.taskMap[task.Id]; ok {
+			qm.taskMap[task.Id].Info.Priority = priority
 		}
 	}
 	return

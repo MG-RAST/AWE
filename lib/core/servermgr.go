@@ -912,7 +912,11 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	//Locate the job script and parse tasks for each job
 	jobct := 0
 	for _, dbjob := range *dbjobs {
-		qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+	    if dbjob.State == "JOB_STAT_TO_SUSPEND" {
+	        qm.susJobs[dbjob.Id] = true  //suspended jobs recovered as suspended
+	    } else {
+	    	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+	    }
 		jobct += 1
 	}
 	fmt.Printf("%d unfinished jobs recovered\n", jobct)

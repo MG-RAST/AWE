@@ -51,9 +51,6 @@
 		target_space.innerHTML = "";
 		view.appendChild(target_space);
 		Retina.WidgetInstances.awe_monitor[1].tables[views[i]] = Retina.Renderer.create("table", { target: target_space, data: {}, filter_autodetect: true, sort_autodetect: true });
-		if (views[i] == "clients") {
-		    Retina.WidgetInstances.awe_monitor[1].tables[views[i]].settings.rows_per_page = 100;
-		}
 	    }
 	    
 	    widget.update_data(views[i]);
@@ -111,35 +108,19 @@
 
 	    break;
 	case "graphical":
-	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/job?registered", function (data) {
-		var result_data = [];
-		if (data.data != null) {
-		    var data2 = [];
-		    for (var i=0;i<data.data.length;i++) {
-			data2.push(data.data[i]);
-		    }
-		    data2 = data2.sort(widget.tasksort);
-		    for (h=0;h<data2.length;h++) {
-			var obj = data2[h];
-			result_data.push( [ obj.info.submittime,
-					    "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+(obj.info.name || '-')+' ('+obj.jid+")</a>",
-					    widget.dots(obj.tasks),
-					    obj.info.pipeline,
-					    obj.state
-					  ] );
-		    }
-		}
-		if (! result_data.length) {
-		    result_data.push(['-','-','-','-','-']);
-		}
-		return_data = { header: [ "submission", "job", "status", "pipeline", "current state" ],
-				data: result_data };
-		Retina.WidgetInstances.awe_monitor[1].tables["graphical"].settings.rows_per_page = 20;
-		Retina.WidgetInstances.awe_monitor[1].tables["graphical"].settings.minwidths = [1,300,1, 1, 1];
-		Retina.WidgetInstances.awe_monitor[1].tables["graphical"].settings.data = return_data;
-		Retina.WidgetInstances.awe_monitor[1].tables["graphical"].render();
-		Retina.WidgetInstances.awe_monitor[1].check_update();
-	    });
+	    var gt = Retina.WidgetInstances.awe_monitor[1].tables["graphical"];
+	    gt.settings.synchronous = false;
+	    gt.settings.query_type = 'prefix';
+	    gt.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationGraphical,
+	    gt.settings.navigation_url = RetinaConfig["awe_ip"]+"/job";
+	    gt.settings.rows_per_page = 20;
+	    gt.settings.minwidths = [1,300,1, 1, 1];
+	    gt.settings.disable_sort = { 0: 1, 1: 1, 2: 1, 3: 1, 4: 1 };
+	    gt.settings.filter_autodetect = false;
+	    gt.settings.sort_autodetect = false;
+	    gt.settings.data = { data: [], header: [ "submission", "job", "status", "pipeline", "current state" ] };
+	    gt.render();
+	    gt.update({}, gt.index);
 
 	    break;
 	case "active":
@@ -265,67 +246,29 @@
 
 	    break;
 	case "completed":
-	    var options = document.getElementById('completed_options');
-	    if (! options) {
-		options = document.createElement('div');
-		options.setAttribute('id', 'completed_options');
-		document.getElementById('completed').insertBefore(options, document.getElementById('completed').firstChild);
-		options.innerHTML = "<span style='position: relative; bottom: 4px;'>retrieve the last </span><input type='text' id='num_recent' value='10' class='span1' style='bottom: 1px; position:relative;'></id><span style='position: relative; bottom: 4px;'> entries </span> <input type='button' class='btn btn-mini' value='update' onclick='Retina.WidgetInstances.awe_monitor[1].update_data(\"completed\");' style='bottom: 5px; position:relative;'>";
-	    }
-	    var num_recent = document.getElementById('num_recent').value;
-	    if (isNaN(num_recent)) {
-		num_recent = "10";
-		document.getElementById('num_recent').value = "10";
-		alert('You may only enter numbers, defaulting to 10.');
-		num_recent = "&recent=10";
-	    } else {
-		num_recent = parseInt(num_recent);
-		if (num_recent > 0) {
-		    num_recent = "&recent=" + num_recent;
-		} else {
-		    num_recent = "";
-		}
-	    }
-	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/job?query&state=completed"+num_recent, function (data) {
-		var result_data = [];
-		if (data.data != null) {
-		    for (h=0;h<data.data.length;h++) {
-			var obj = data.data[h];
-			result_data.push( [ obj.info.submittime,
-					    "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].tooltip(jQuery(this), \""+obj.id+"\")'>"+obj.jid+"</a>",
-					    obj.info.name,
-					    obj.info.user,
-					    obj.info.project,
-					    obj.info.pipeline,
-					    obj.info.clientgroups,
-					    obj.tasks.length - obj.remaintasks || "0",
-					    obj.tasks.length,
-					    obj.state,
-                                            obj.updatetime
-					  ] );
-		    }
-		}
-		if (! result_data.length) {
-		    result_data.push(['-','-','-','-','-','-','-','-','-','-','-']);
-		}
-		return_data = { header: [ "created",
-					  "jid",
-					  "name",
-					  "user",
-					  "project",
-					  "pipeline",
-					  "group",
-					  "t-complete",
-					  "t-total",
-					  "state", 
-                                          "finished"],
-				data: result_data };
-		Retina.WidgetInstances.awe_monitor[1].tables["completed"].settings.minwidths = [1,51,65,64,83,85,90,107,75,75,75];
-		Retina.WidgetInstances.awe_monitor[1].tables["completed"].settings.tdata ? delete Retina.WidgetInstances.awe_monitor[1].tables["completed"].settings.tdata : "";
-		Retina.WidgetInstances.awe_monitor[1].tables["completed"].settings.data = return_data;
-		Retina.WidgetInstances.awe_monitor[1].tables["completed"].render();
-		Retina.WidgetInstances.awe_monitor[1].check_update();
-	    });
+	    var ct = Retina.WidgetInstances.awe_monitor[1].tables["completed"];
+	    ct.settings.synchronous = false;
+	    ct.settings.query_type = 'prefix';
+	    ct.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationCompleted,
+	    ct.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?query&state=completed";
+	    ct.settings.rows_per_page = 20;
+	    ct.settings.minwidths = [1,51,65,64,83,85,90,107,75,75,75];
+	    ct.settings.disable_sort = { 0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1, 10: 1 };
+	    ct.settings.filter_autodetect = false;
+	    ct.settings.sort_autodetect = false;
+	    ct.settings.data = { data: [], header: [ "created",
+						     "jid",
+						     "name",
+						     "user",
+						     "project",
+						     "pipeline",
+						     "group",
+						     "t-complete",
+						     "t-total",
+						     "state", 
+						     "finished" ] };
+	    ct.render();
+	    ct.update({}, ct.index);
 
 	    break;
 	case "checkout_workunit":
@@ -413,6 +356,7 @@
 					  "failed wuid"],
 				data: result_data };
 
+		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.rows_per_page = 100;
 		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [70,73,50,70,73,1,115,83,70,90,75,57,67,68,90];
 		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.data = return_data;
 		Retina.WidgetInstances.awe_monitor[1].tables["clients"].render();
@@ -527,6 +471,58 @@
 		alert('no job statistics available');
 	    });
 	});
+    };
+
+    widget.dataManipulationGraphical = function (data) {
+	var result_data = [];
+	for (var i=0;i<data.length;i++) {
+	    var obj = data[i];
+	    result_data.push( { "submission": obj.info.submittime,
+				"job": "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+(obj.info.name || '-')+' ('+obj.jid+")</a>",
+				"status": widget.dots(obj.tasks),
+				"pipeline": obj.info.pipeline,
+				"current state": obj.state
+			      } );
+	}
+	if (! result_data.length) {
+	    result_data.push({"submission": "-", "job": "-", "status": "-", "pipeline": "-", "current state": "-"});
+	}
+
+	return result_data;
+    };
+
+    widget.dataManipulationCompleted = function (data) {
+	var result_data = [];
+	for (var i=0;i<data.length;i++) {
+	    var obj = data[i];
+	    result_data.push( { "created": obj.info.submittime,
+				"jid": "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].tooltip(jQuery(this), \""+obj.id+"\")'>"+obj.jid+"</a>",
+				"name": obj.info.name,
+				"user": obj.info.user,
+				"project": obj.info.project,
+				"pipeline": obj.info.pipeline,
+				"group": obj.info.clientgroups,
+				"t-complete": obj.tasks.length - obj.remaintasks || "0",
+				"t-total": obj.tasks.length,
+				"state": obj.state, 
+				"finished": obj.updatetime  
+			      } );
+	}
+	if (! result_data.length) {
+	    result_data.push({ "created": "-",
+			       "jid": "-",
+			       "name": "-",
+			       "user": "-",
+			       "project": "-",
+			       "pipeline": "-",
+			       "group": "-",
+			       "t-complete": "-",
+			       "t-total": "-",
+			       "state": "-", 
+			       "finished": "-" });
+	}
+
+	return result_data;
     };
 
     widget.xlsExport = function (job) {

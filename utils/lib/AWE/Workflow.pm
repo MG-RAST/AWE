@@ -112,7 +112,7 @@ sub shock_upload {
 				}
 				
 				print 'upload data '.$filename."\n";
-				$node_object= $shock->upload('data' => $data, 'attr' => $attr);
+				$node_object= $shock->upload('data' => $$data, 'attr' => $attr);
 				
 			} elsif (defined  $localfile) {
 				if (defined $uploaded_files->{$localfile}) {

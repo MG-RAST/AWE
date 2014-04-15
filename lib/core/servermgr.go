@@ -256,6 +256,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 						qm.SuspendClient(client.Id)
 					}
 				}
+			} else if status == WORK_STAT_DISCARDED { //workunit discarded,
+				//do nothing
 			}
 		}
 	} else { //task not existed, possible when job is deleted before the workunit done
@@ -891,7 +893,6 @@ func (qm *ServerMgr) ResubmitJob(id string) (err error) {
 	}
 	for _, task := range dbjob.Tasks {
 		task.Info = dbjob.Info
-		fmt.Printf("TaskInfoInfo=%#v\n", task.Info)
 	}
 	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 	return
@@ -912,11 +913,11 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	//Locate the job script and parse tasks for each job
 	jobct := 0
 	for _, dbjob := range *dbjobs {
-	    if dbjob.State == "JOB_STAT_TO_SUSPEND" {
-	        qm.susJobs[dbjob.Id] = true  //suspended jobs recovered as suspended
-	    } else {
-	    	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
-	    }
+		if dbjob.State == "JOB_STAT_TO_SUSPEND" {
+			qm.susJobs[dbjob.Id] = true //suspended jobs recovered as suspended
+		} else {
+			qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+		}
 		jobct += 1
 	}
 	fmt.Printf("%d unfinished jobs recovered\n", jobct)
@@ -936,6 +937,12 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	if dbjob.State != JOB_STAT_COMPLETED && dbjob.State != JOB_STAT_SUSPEND {
 		return errors.New("job " + jobid + " is not in 'completed' or 'suspend' status")
 	}
+
+	was_suspend := false
+	if dbjob.State == JOB_STAT_SUSPEND {
+		was_suspend = true
+	}
+
 	from_task_id := fmt.Sprintf("%s_%s", jobid, stage)
 	remaintasks := 0
 	found := false
@@ -962,6 +969,11 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	} else {
 		dbjob.UpdateState(JOB_STAT_QUEUED, "recomputed from task "+from_task_id)
 	}
+
+	if was_suspend {
+		delete(qm.susJobs, dbjob.Id)
+	}
+
 	return
 }
 

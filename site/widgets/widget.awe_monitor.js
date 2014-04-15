@@ -112,10 +112,17 @@
 	    gt.settings.synchronous = false;
 	    gt.settings.query_type = 'prefix';
 	    gt.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationGraphical,
-	    gt.settings.navigation_url = RetinaConfig["awe_ip"]+"/job";
+	    gt.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?query";
 	    gt.settings.rows_per_page = 20;
 	    gt.settings.minwidths = [1,300,1, 1, 1];
-	    gt.settings.disable_sort = { 0: 1, 1: 1, 2: 1, 3: 1, 4: 1 };
+	    gt.settings.disable_sort = { 2: 1 };
+	    gt.settings.filter = { 1: { type: "text" },
+				   3: { type: "text" },
+				   4: { type: "text" } };
+	    gt.settings.asynch_column_mapping = { "submission": "info.submittime",
+						  "job": "info.name",
+						  "pipeline": "info.pipeline",
+						  "current state": "state" };
 	    gt.settings.filter_autodetect = false;
 	    gt.settings.sort_autodetect = false;
 	    gt.settings.data = { data: [], header: [ "submission", "job", "status", "pipeline", "current state" ] };
@@ -253,7 +260,25 @@
 	    ct.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?query&state=completed";
 	    ct.settings.rows_per_page = 20;
 	    ct.settings.minwidths = [1,51,65,64,83,85,90,107,75,75,75];
-	    ct.settings.disable_sort = { 0: 1, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1, 10: 1 };
+	    ct.settings.asynch_column_mapping = { "created": "info.submittime",
+						  "jid": "jid",
+						  "name": "info.name",
+						  "user": "info.user",
+						  "project": "info.project",
+						  "pipeline": "info.pipeline",
+						  "group": "info.clientgroups",
+						  "state": "state", 
+						  "finished": "updatetime" };
+	    ct.settings.filter = { 0: { type: "text" },
+				   1: { type: "text" },
+				   2: { type: "text" },
+				   3: { type: "text" },
+				   4: { type: "text" },
+				   5: { type: "text" },
+				   6: { type: "text" },
+				   9: { type: "text" },
+				   10: { type: "text" } };
+	    ct.settings.disable_sort = { 7: 1, 8: 1 };
 	    ct.settings.filter_autodetect = false;
 	    ct.settings.sort_autodetect = false;
 	    ct.settings.data = { data: [], header: [ "created",

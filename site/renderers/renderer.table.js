@@ -111,7 +111,8 @@
 		'target': 'table_space',
 		'data': 'exampleData()',
 		'synchronous': true,
-		'query_type': 'infix'
+		'query_type': 'infix',
+		'asynch_column_mapping': null
 	    }
       },
 	exampleData: function () {
@@ -969,6 +970,9 @@
     		        renderer.settings.sortDir = 'asc';
 	            } else {
 		        renderer.settings.sort = params.sort;
+			if (renderer.settings.asynch_column_mapping) {
+			    renderer.settings.sort = renderer.settings.asynch_column_mapping[params.sort];
+			}
 		        renderer.settings.sortDir = params.dir;
 	            }
 	        }
@@ -979,6 +983,13 @@
 	            if (typeof params.query != 'object') {
 	                renderer.settings.query = {};
 	            } else {
+			if (renderer.settings.asynch_column_mapping) {
+			    for (var i in params.query) {
+				if (params.query.hasOwnProperty(i)) {
+				    params.query[i].field = renderer.settings.asynch_column_mapping[params.query[i].field];
+				}
+			    }
+			}
 			renderer.settings.query = params.query;
 		    }
 	        }
@@ -999,6 +1010,9 @@
 			query += (query.match(/\?/) ? "&" : "?") + renderer.settings.query[i].field + '=' + renderer.settings.query[i].searchword;
 		    }
 	        }
+	    }
+	    if (renderer.settings.navigation_url.match(/\?/) && query.match(/\?/)) {
+		query = query.replace(/\?/, "&");
 	    }
 
 	    var url = renderer.settings.navigation_url + query;

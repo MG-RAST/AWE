@@ -17,6 +17,12 @@ func deliverer(control chan int) {
 	for {
 		processed := <-fromProcessor
 		work := processed.workunit
+
+		if workmap[work.Id] == ID_DISCARDED {
+			work.State = core.WORK_STAT_DISCARDED
+			logger.Event(event.WORK_DISCARD, "workid="+work.Id)
+		}
+
 		workmap[work.Id] = ID_DELIVERER
 		perfstat := processed.perfstat
 

@@ -241,17 +241,18 @@ func ComposeProfile() (profile *core.Client, err error) {
 }
 
 func DiscardWorkunit(id string) (err error) {
-	fmt.Printf("try to discard workunit %s\n", id)
+	//fmt.Printf("try to discard workunit %s\n", id)
 	if stage, ok := workmap[id]; ok {
 		if stage == ID_WORKER {
 			chankill <- true
 		}
+		workmap[id] = ID_DISCARDED
 	}
 	return
 }
 
 func RestartClient() (err error) {
-	fmt.Printf("try to restart client\n")
+	//fmt.Printf("try to restart client\n")
 	//to-do: implementation here
 	return
 }
@@ -263,7 +264,7 @@ func StopClient() (err error) {
 }
 
 func CleanDisk() (err error) {
-	fmt.Printf("try to clean disk space\n")
+	//fmt.Printf("try to clean disk space\n")
 	//to-do: implementation here
 	return
 }

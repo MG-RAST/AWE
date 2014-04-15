@@ -29,7 +29,6 @@ func processor(control chan int) {
 	for {
 		parsedwork := <-fromMover
 		work := parsedwork.workunit
-		workmap[work.Id] = ID_WORKER
 
 		processed := &mediumwork{
 			workunit: work,
@@ -37,8 +36,12 @@ func processor(control chan int) {
 		}
 
 		//if the work is not succesfully parsed in last stage, pass it into the next one immediately
-		if work.State == core.WORK_STAT_FAIL {
-			processed.workunit.State = core.WORK_STAT_FAIL
+		if work.State == core.WORK_STAT_FAIL || workmap[work.Id] == ID_DISCARDED {
+			if workmap[work.Id] == ID_DISCARDED {
+				processed.workunit.State = core.WORK_STAT_DISCARDED
+			} else {
+				processed.workunit.State = core.WORK_STAT_FAIL
+			}
 			fromProcessor <- processed
 			//release the permit lock, for work overlap inhibitted mode only
 			if !conf.WORKER_OVERLAP && core.Service != "proxy" {
@@ -46,6 +49,8 @@ func processor(control chan int) {
 			}
 			continue
 		}
+
+		workmap[work.Id] = ID_WORKER
 
 		envkeys, err := SetEnv(work)
 		if err != nil {

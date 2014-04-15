@@ -28,6 +28,7 @@ func dataMover(control chan int) {
 			perfstat: raw.perfstat,
 		}
 		work := raw.workunit
+
 		workmap[work.Id] = ID_DATAMOVER
 		//make a working directory for the workunit
 		if err := work.Mkdir(); err != nil {

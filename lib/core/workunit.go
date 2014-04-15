@@ -15,6 +15,7 @@ const (
 	WORK_STAT_FAIL        = "fail"
 	WORK_STAT_PREPARED    = "prepared"
 	WORK_STAT_COMPUTED    = "computed"
+	WORK_STAT_DISCARDED   = "discarded"
 	WORK_STAT_PROXYQUEUED = "proxyqueued"
 )
 

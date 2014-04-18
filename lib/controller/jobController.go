@@ -44,6 +44,12 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 
+	if conf.ADMIN_AUTH {
+		if AdminAuthenticated(cx) == false {
+			return
+		}
+	}
+
 	// Parse uploaded form
 	params, files, err := ParseMultipartForm(cx.Request)
 
@@ -100,6 +106,12 @@ func (cr *JobController) Create(cx *goweb.Context) {
 // GET: /job/{id}
 func (cr *JobController) Read(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	if conf.ADMIN_AUTH {
+		if AdminAuthenticated(cx) == false {
+			return
+		}
+	}
 
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
@@ -169,6 +181,12 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 // - Iterate job queries
 func (cr *JobController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	if conf.ADMIN_AUTH {
+		if AdminAuthenticated(cx) == false {
+			return
+		}
+	}
 
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
@@ -348,6 +366,13 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 // PUT: /job
 func (cr *JobController) UpdateMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	if conf.ADMIN_AUTH {
+		if AdminAuthenticated(cx) == false {
+			return
+		}
+	}
+
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("resumeall") { //resume the suspended job
@@ -362,6 +387,13 @@ func (cr *JobController) UpdateMany(cx *goweb.Context) {
 func (cr *JobController) Update(id string, cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
+
+	if conf.ADMIN_AUTH {
+		if AdminAuthenticated(cx) == false {
+			return
+		}
+	}
+
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("resume") { // to resume a suspended job
@@ -451,6 +483,13 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 
 // DELETE: /job/{id}
 func (cr *JobController) Delete(id string, cx *goweb.Context) {
+
+	if conf.ADMIN_AUTH {
+		if AdminAuthenticated(cx) == false {
+			return
+		}
+	}
+
 	LogRequest(cx.Request)
 	if err := core.QMgr.DeleteJob(id); err != nil {
 		cx.RespondWithErrorMessage("fail to delete job: "+id, http.StatusBadRequest)
@@ -462,6 +501,12 @@ func (cr *JobController) Delete(id string, cx *goweb.Context) {
 
 // DELETE: /job?suspend
 func (cr *JobController) DeleteMany(cx *goweb.Context) {
+	if conf.ADMIN_AUTH {
+		if AdminAuthenticated(cx) == false {
+			return
+		}
+	}
+
 	LogRequest(cx.Request)
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}

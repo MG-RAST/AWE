@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	e "github.com/MG-RAST/AWE/lib/errors"
 	. "github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/golib/goweb"
 	"math/rand"
 	"net"
@@ -194,4 +196,22 @@ func RespondPrivateEnvInHeader(cx *goweb.Context, Envs map[string]string) (err e
 	cx.ResponseWriter.Header().Set("Privateenv", string(env_stream[:]))
 	cx.Respond(nil, http.StatusOK, nil, cx)
 	return
+}
+
+func AdminAuthenticated(cx *goweb.Context) bool {
+	user, err := request.Authenticate(cx.Request)
+	if err != nil {
+		if err.Error() == e.NoAuth || err.Error() == e.UnAuth {
+			cx.RespondWithError(http.StatusUnauthorized)
+		} else {
+			request.AuthError(err, cx)
+		}
+		return false
+	}
+	if _, ok := conf.Admin_List[user.Username]; !ok {
+		msg := fmt.Sprintf("user %s has no admin right", user.Username)
+		cx.RespondWithErrorMessage(msg, http.StatusBadRequest)
+		return false
+	}
+	return true
 }

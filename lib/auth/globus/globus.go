@@ -96,6 +96,7 @@ func fetchProfile(t string) (u *user.User, err error) {
 		return nil, err
 	}
 	req.Header.Add("Authorization", "Globus-Goauthtoken "+t)
+
 	if resp, err := client.Do(req); err == nil {
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {

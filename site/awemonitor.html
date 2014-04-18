@@ -13,13 +13,15 @@
         <script>
         stm.init();
         Retina.init( { library_resource: "js/" } ).then( function() {
-//	    Retina.add_widget({"name": "login", "resource": "widgets/",  "filename": "widget.login.js"});
-//	    Retina.load_widget("login").then( function() {
-//		Retina.Widget.create('login', {"target": document.getElementById("login_space")});
-//	    });
+	    
 	    Retina.add_widget({"name": "awe_monitor", "resource": "widgets/",  "filename": "widget.awe_monitor.js"});
 	    Retina.load_widget("awe_monitor").then( function() {
 		Retina.Widget.create("awe_monitor", {});
+		Retina.add_widget({"name": "login", "resource": "widgets/",  "filename": "widget.login.js"});
+		Retina.load_widget("login").then( function() {
+		    Retina.Widget.create('login', { "target": document.getElementById("login_space"),
+						    "callback": Retina.WidgetInstances.awe_monitor[1].loginAction });
+		});
 	    });
 	});
         </script>

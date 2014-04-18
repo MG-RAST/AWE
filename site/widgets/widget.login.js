@@ -187,7 +187,7 @@
 <div class="userinfo" id="userinfo" style="display: none;">\
    <img src="images/user.png">\
    <h4 style="margin-top: 5px;">'+user.firstname+' '+user.lastname+'</h4>\
-<p style="margin-top: -10px;">'+(user.email || "<br>") +'</p>\
+<p style="margin-top: -10px;">'+user.email+'</p>\
    <button class="btn btn-inverse" onclick="document.getElementById(\'userinfo\').style.display=\'none\';Retina.WidgetInstances.login['+index+'].perform_logout('+index+');">logout</button>\
 '+(mydataEnabled ? '<button class="btn" style="float: left;">myData</button>' : '')+'\
 </div>';
@@ -214,11 +214,27 @@
 	var auth_url = stm.Config.mgrast_api+'?auth='+widget.authResources[widget.authResources.default].prefix+Retina.Base64.encode(login+":"+pass);
 	jQuery.get(auth_url, function(d) {
 	    if (d && d.token) {
-		var user = { login: d.login || login,
-			     firstname: d.firstname || login,
-			     lastname: d.lastname || "",
-			     email: d.email || "",
+		var user;
+		if (d.hasOwnProperty('firstname')) {
+		    user = { login: d.login,
+			     firstname: d.firstname,
+			     lastname: d.lastname,
+			     email: d.email,
 			   };
+		} else {
+		    console.log("in here");
+		    jQuery.ajax({ url: stm.Config.mgrast_api+"/user/"+login,
+				  headers: { "Auth": d.token },
+				  success: function(result) {
+				      user = { login: result.login,
+					       firstname: result.firstname,
+					       lastname: result.lastname,
+					       email: result.email,
+					     };
+				  },
+				  async: false
+				});
+		}
 		stm.Authentication = d.token;
 		Retina.WidgetInstances.login[index].target.innerHTML = Retina.WidgetInstances.login[index].login_box(index, user);
 		document.getElementById('failure').innerHTML = "";

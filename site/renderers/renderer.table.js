@@ -1023,7 +1023,7 @@
 	    if (renderer.settings.sortDir) {
 		url += "&direction=" + renderer.settings.sortDir;
 	    }
-	    var headers = stm.Authentication ? {'AUTH': stm.Authentication} : {};
+	    var headers = renderer.settings.hasOwnProperty('headers') ? renderer.settings.headers : (stm.Authentication ? {'AUTH': stm.Authentication} : {});
 	
 	    jQuery.ajax({ url: url, headers: headers, dataType: "json", index: index, success: function(data) {
 		var index = this.index;

@@ -58,57 +58,64 @@
     };
 
     widget.update_data = function (which) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
 	var return_data = {};
 
 	switch (which) {
-	case "overview":	    
-	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/queue", function(data) {
-		var result = data.data;
-		var rows = result.split("\n");
-		
-		return_data = { "total jobs": { "all": rows[1].match(/\d+/)[0],
-		                                "in-progress": rows[2].match(/\d+/)[0],
-						"suspended": rows[3].match(/\d+/)[0] },
-				"total tasks": { "all": rows[4].match(/\d+/)[0],
-						 "queuing": rows[5].match(/\d+/)[0],
-						 "in-progress": rows[6].match(/\d+/)[0],
-						 "pending": rows[7].match(/\d+/)[0],
-						 "completed": rows[8].match(/\d+/)[0],
-						 "suspended": rows[9].match(/\d+/)[0] },
-				"total workunits": { "all": rows[11].match(/\d+/)[0],
-						     "queueing": rows[12].match(/\d+/)[0],
-						     "checkout": rows[13].match(/\d+/)[0],
-						     "suspended": rows[14].match(/\d+/)[0] },
-				"total clients": { "all": rows[15].match(/\d+/)[0],
-						   "busy": rows[16].match(/\d+/)[0],
-						   "idle": rows[17].match(/\d+/)[0],
-						   "suspended": rows[18].match(/\d+/)[0] } };
-		
-		var html = '<h4>Overview</h4><table class="table">';
-		for (h in return_data) {
-		    if (return_data.hasOwnProperty(h)) {
-			html += '<tr><th colspan=2>'+h+'</th><th>'+return_data[h]['all']+'</th></tr>';
-			for (j in return_data[h]) {
-			    if (return_data[h].hasOwnProperty(j)) {
-				if (j == 'all') {
-				    continue;
-				}
-				html += '<tr><td></td><td>'+j+'</td><td>'+return_data[h][j]+'</td></tr>';
-			    }
-			}
-		    }
-		}
-		html += '</table>';
-		
-		Retina.WidgetInstances.awe_monitor[1].check_update();
+	case "overview":
+	    jQuery.ajax( { dataType: "json",
+			   url: RetinaConfig["awe_ip"]+"/queue",
+			   headers: widget.authHeader,
+			   success: function(data) {
+			       var widget = Retina.WidgetInstances.awe_monitor[1];
+			       var result = data.data;
+			       var rows = result.split("\n");
+			       
+			       return_data = { "total jobs": { "all": rows[1].match(/\d+/)[0],
+							       "in-progress": rows[2].match(/\d+/)[0],
+							       "suspended": rows[3].match(/\d+/)[0] },
+					       "total tasks": { "all": rows[4].match(/\d+/)[0],
+								"queuing": rows[5].match(/\d+/)[0],
+								"in-progress": rows[6].match(/\d+/)[0],
+								"pending": rows[7].match(/\d+/)[0],
+								"completed": rows[8].match(/\d+/)[0],
+								"suspended": rows[9].match(/\d+/)[0] },
+					       "total workunits": { "all": rows[11].match(/\d+/)[0],
+								    "queueing": rows[12].match(/\d+/)[0],
+								    "checkout": rows[13].match(/\d+/)[0],
+								    "suspended": rows[14].match(/\d+/)[0] },
+					       "total clients": { "all": rows[15].match(/\d+/)[0],
+								  "busy": rows[16].match(/\d+/)[0],
+								  "idle": rows[17].match(/\d+/)[0],
+								  "suspended": rows[18].match(/\d+/)[0] } };
+			       
+			       var html = '<h4>Overview</h4><table class="table">';
+			       for (h in return_data) {
+				   if (return_data.hasOwnProperty(h)) {
+				       html += '<tr><th colspan=2>'+h+'</th><th>'+return_data[h]['all']+'</th></tr>';
+				       for (j in return_data[h]) {
+					   if (return_data[h].hasOwnProperty(j)) {
+					       if (j == 'all') {
+						   continue;
+					       }
+					       html += '<tr><td></td><td>'+j+'</td><td>'+return_data[h][j]+'</td></tr>';
+					   }
+				       }
+				   }
+			       }
+			       html += '</table>';
+			       
+			       Retina.WidgetInstances.awe_monitor[1].check_update();
 
-		document.getElementById('overview').innerHTML = html;
-	    });
+			       document.getElementById('overview').innerHTML = html;
+			   }
+			 });
 	    return;
 
 	    break;
 	case "graphical":
 	    var gt = Retina.WidgetInstances.awe_monitor[1].tables["graphical"];
+	    gt.settings.headers = widget.authHeader;
 	    gt.settings.synchronous = false;
 	    gt.settings.query_type = 'prefix';
 	    gt.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationGraphical,
@@ -131,129 +138,145 @@
 
 	    break;
 	case "active":
-	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/job?active", function (data) {
-		var result_data = [];
-		if (data.data != null) {
-		    for (h=0;h<data.data.length;h++) {
-			var obj = data.data[h];
-			result_data.push( [ obj.info.submittime,
-					    "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
-					    obj.info.name,
-					    obj.info.user,
-					    obj.info.project,
-					    obj.info.pipeline,
-					    obj.info.clientgroups,
-					    obj.tasks.length - obj.remaintasks || "0",
-					    obj.tasks.length,
-					    obj.state,
-                                            obj.updatetime
-					  ] );
-		    }
-		}
-		if (! result_data.length) {
-		    result_data.push(['-','-','-','-','-','-','-','-','-','-','-']);
-		}
-		return_data = { header: [ "created",
-					  "jid",
-					  "name",
-					  "user",
-					  "project",
-					  "pipeline",
-					  "group",
-					  "t-complete",
-					  "t-total",
-					  "state", 
-                                          "updated"],
-				data: result_data };
-		Retina.WidgetInstances.awe_monitor[1].tables["active"].settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75];
-		Retina.WidgetInstances.awe_monitor[1].tables["active"].settings.data = return_data;
-		Retina.WidgetInstances.awe_monitor[1].tables["active"].render();
-		Retina.WidgetInstances.awe_monitor[1].check_update();
+	    jQuery.ajax( { dataType: "json",
+			   url: RetinaConfig["awe_ip"]+"/job?active",
+			   headers: widget.authHeader,
+			   success: function (data) {
+			       var widget = Retina.WidgetInstances.awe_monitor[1];
+			       var result_data = [];
+			       if (data.data != null) {
+				   for (h=0;h<data.data.length;h++) {
+				       var obj = data.data[h];
+				       result_data.push( [ obj.info.submittime,
+							   "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
+							   obj.info.name,
+							   obj.info.user,
+							   obj.info.project,
+							   obj.info.pipeline,
+							   obj.info.clientgroups,
+							   obj.tasks.length - obj.remaintasks || "0",
+							   obj.tasks.length,
+							   obj.state,
+							   obj.updatetime
+							 ] );
+				   }
+			       }
+			       if (! result_data.length) {
+				   result_data.push(['-','-','-','-','-','-','-','-','-','-','-']);
+			       }
+			       return_data = { header: [ "created",
+							 "jid",
+							 "name",
+							 "user",
+							 "project",
+							 "pipeline",
+							 "group",
+							 "t-complete",
+							 "t-total",
+							 "state", 
+							 "updated"],
+					       data: result_data };
+			       Retina.WidgetInstances.awe_monitor[1].tables["active"].settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75];
+			       Retina.WidgetInstances.awe_monitor[1].tables["active"].settings.data = return_data;
+			       Retina.WidgetInstances.awe_monitor[1].tables["active"].render();
+			       Retina.WidgetInstances.awe_monitor[1].check_update();
+			   }
 	    });
 
 	    break;
 	case "suspended":
-	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/job?suspend", function (data) {
-		var result_data = [];
-		if (data.data != null) {
-		    for (h=0;h<data.data.length;h++) {
-			var obj = data.data[h];
-			result_data.push( [ obj.info.submittime,
-                                            "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
-					    obj.info.name,
-					    obj.info.user,
-					    obj.info.project,
-					    obj.info.pipeline,
-					    obj.info.clientgroups,
-					    obj.tasks.length - obj.remaintasks || "0",
-					    obj.tasks.length,
-					    obj.state,
-                                            obj.updatetime
-					  ] );
-		    }
-		}
-		if (! result_data.length) {
-		    result_data.push(['-','-','-','-','-','-','-','-','-','-','-']);
-		}
-		return_data = { header: [ "submitted",
-					  "jid",
-					  "name",
-					  "user",
-					  "project",
-					  "pipeline",
-					  "group",
-					  "t-complete",
-					  "t-total",
-					  "state",
-                                          "updated"],
-				data: result_data };
+	    jQuery.ajax( { dataType: "json",
+			   url: RetinaConfig["awe_ip"]+"/job?suspend",
+			   headers: widget.authHeader,
+			   success: function (data) {
+			       var widget = Retina.WidgetInstances.awe_monitor[1];
+			       var result_data = [];
+			       if (data.data != null) {
+				   for (h=0;h<data.data.length;h++) {
+				       var obj = data.data[h];
+				       result_data.push( [ obj.info.submittime,
+							   "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
+							   obj.info.name,
+							   obj.info.user,
+							   obj.info.project,
+							   obj.info.pipeline,
+							   obj.info.clientgroups,
+							   obj.tasks.length - obj.remaintasks || "0",
+							   obj.tasks.length,
+							   obj.state,
+							   obj.updatetime
+							 ] );
+				   }
+			       }
+			       if (! result_data.length) {
+				   result_data.push(['-','-','-','-','-','-','-','-','-','-','-']);
+			       }
+			       return_data = { header: [ "submitted",
+							 "jid",
+							 "name",
+							 "user",
+							 "project",
+							 "pipeline",
+							 "group",
+							 "t-complete",
+							 "t-total",
+							 "state",
+							 "updated"],
+					       data: result_data };
 
-		Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75];
-		Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.data = return_data;
-		Retina.WidgetInstances.awe_monitor[1].tables["suspended"].render();
-		Retina.WidgetInstances.awe_monitor[1].check_update();
+			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75];
+			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.data = return_data;
+			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].render();
+			       Retina.WidgetInstances.awe_monitor[1].check_update();
+			   }
 	    });
 
 	    break;
 	case "queuing_workunit":
-	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/work?query&state=queued", function (data) {
-		var result_data = [];
-		if (data.data != null) {
-		    for (h=0;h<data.data.length;h++) {
-			var obj = data.data[h];
-			result_data.push( [ obj.wuid,
-					    obj.info.submittime,
-					    obj.cmd.name,
-					    obj.cmd.args,
-					    obj.rank || "0",
-					    obj.totalwork || "0",
-					    obj.state,
-					    obj.failed || "0"
-					  ] );
-		    }
-		}
-		if (! result_data.length) {
-		    result_data.push(['-','-','-','-','-','-','-','-']);
-		}
-		return_data = { header: [ "wuid",
-					  "submission time",
-					  "cmd name",
-					  "cmd args",
-					  "rank",
-					  "t-work",
-					  "state",
-					  "failed" ],
-				data: result_data };
+	    jQuery.ajax( { dataType: "json",
+			   url: RetinaConfig["awe_ip"]+"/work?query&state=queued",
+			   headers: widget.authHeader,
+			   success: function (data) {
+			       var widget = Retina.WidgetInstances.awe_monitor[1];
+			       var result_data = [];
+			       if (data.data != null) {
+				   for (h=0;h<data.data.length;h++) {
+				       var obj = data.data[h];
+				       result_data.push( [ obj.wuid,
+							   obj.info.submittime,
+							   obj.cmd.name,
+							   obj.cmd.args,
+							   obj.rank || "0",
+							   obj.totalwork || "0",
+							   obj.state,
+							   obj.failed || "0"
+							 ] );
+				   }
+			       }
+			       if (! result_data.length) {
+				   result_data.push(['-','-','-','-','-','-','-','-']);
+			       }
+			       return_data = { header: [ "wuid",
+							 "submission time",
+							 "cmd name",
+							 "cmd args",
+							 "rank",
+							 "t-work",
+							 "state",
+							 "failed" ],
+					       data: result_data };
 
-		Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].settings.minwidths = [1,1,1,1,65,75,75,75];
-		Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].settings.data = return_data;
-		Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].render();
-		Retina.WidgetInstances.awe_monitor[1].check_update();
+			       Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].settings.minwidths = [1,1,1,1,65,75,75,75];
+			       Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].settings.data = return_data;
+			       Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].render();
+			       Retina.WidgetInstances.awe_monitor[1].check_update();
+			   }
 	    });
 
 	    break;
 	case "completed":
 	    var ct = Retina.WidgetInstances.awe_monitor[1].tables["completed"];
+	    ct.settings.headers = widget.authHeader;
 	    ct.settings.synchronous = false;
 	    ct.settings.query_type = 'prefix';
 	    ct.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationCompleted,
@@ -297,96 +320,107 @@
 
 	    break;
 	case "checkout_workunit":
-	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/work?query&state=checkout", function (data) {
-		var result_data = [];
-		if (data.data != null) {
-		    for (h=0;h<data.data.length;h++) {
-			var obj = data.data[h];
-			result_data.push( [ "<a href='"+RetinaConfig["awe_ip"]+"/work/"+obj.wuid+"' target=_blank>"+obj.wuid+"</a>",
-                                            "<a href='"+RetinaConfig["awe_ip"]+"/client/"+obj.client+"' target=_blank>"+obj.client+"</a>",
-					    obj.checkout_time,
-                                            obj.cmd.name,
-					    obj.cmd.args,
-					    obj.rank || "0",
-					    obj.totalwork || "0",
-					    obj.state,
-					    obj.failed || "0"
-					  ] );
-		    }
-		}
-		if (! result_data.length) {
-		    result_data.push(['-','-','-','-','-','-','-','-','-']);
-		}
-		return_data = { header: [ "wuid",
-					  "client",
-                                          "checkout time",
-					  "cmd name",
-					  "cmd args",
-					  "rank",
-					  "t-work",
-					  "state",
-					  "failed" ],
-				data: result_data };
+	    jQuery.ajax( { dataType: "json",
+			   url: RetinaConfig["awe_ip"]+"/work?query&state=checkout",
+			   headers: widget.authHeader,
+			   success: function (data) {
+			       var widget = Retina.WidgetInstances.awe_monitor[1];
+			       var result_data = [];
+			       if (data.data != null) {
+				   for (h=0;h<data.data.length;h++) {
+				       var obj = data.data[h];
+				       result_data.push( [ "<a href='"+RetinaConfig["awe_ip"]+"/work/"+obj.wuid+"' target=_blank>"+obj.wuid+"</a>",
+							   "<a href='"+RetinaConfig["awe_ip"]+"/client/"+obj.client+"' target=_blank>"+obj.client+"</a>",
+							   obj.checkout_time,
+							   obj.cmd.name,
+							   obj.cmd.args,
+							   obj.rank || "0",
+							   obj.totalwork || "0",
+							   obj.state,
+							   obj.failed || "0"
+							 ] );
+				   }
+			       }
+			       if (! result_data.length) {
+				   result_data.push(['-','-','-','-','-','-','-','-','-']);
+			       }
+			       return_data = { header: [ "wuid",
+							 "client",
+							 "checkout time",
+							 "cmd name",
+							 "cmd args",
+							 "rank",
+							 "t-work",
+							 "state",
+							 "failed" ],
+					       data: result_data };
 
-		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.minwidths = [1,1,1,1,1,50,50,50,50];
-		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.data = return_data;
-		Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].render();
-		Retina.WidgetInstances.awe_monitor[1].check_update();
+			       Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.minwidths = [1,1,1,1,1,50,50,50,50];
+			       Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.data = return_data;
+			       Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].render();
+			       Retina.WidgetInstances.awe_monitor[1].check_update();
+			   }
 	    });
 
 	    break;
 	case "clients":
-	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/client", function (data) {
-		var result_data = [];
-		if (data.data == null) {
-		    result_data = [ ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'] ];
-		} else {
-		    for (var h=0;h<data.data.length;h++) {
-			var obj = data.data[h];
-			var skipwork = [];
-			for (var j=0;j<obj.skip_work.length;j++) {
-			    skipwork.push("<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.skip_work[j]+"\")'>"+obj.skip_work[j]+"</a>");
-			}
-			result_data.push( ["<a href='"+RetinaConfig["awe_ip"]+"/client/"+obj.id+"' target=_blank>"+obj.name+"</a>",
-					    obj.group,
-					    obj.user || "-",
-					    obj.host,
-					    obj.cores || "0",
-					    obj.apps.join(", "),
-					    obj.regtime,
-					    obj.serve_time,
-					    obj.proxy || "-",
-					    obj.subclients || "0",
-					    obj.Status,
-					    obj.total_checkout || "0",
-					    obj.total_completed || "0",
-					    obj.total_failed || "0",
-					    skipwork.join(", ") ]);
-		    }
-		}
-		return_data = { header: [ "name",
-					  "group",
-					  "user",
-					  "host",
-					  "cores",
-					  "apps",
-					  "register time",
-					  "up-time",
-					  "proxy",
-					  "subclients",
-					  "status",
-					  "c/o",
-					  "done",
-					  "failed",
-					  "failed wuid"],
-				data: result_data };
+	    jQuery.ajax( { dataType: "json",
+			   url: RetinaConfig["awe_ip"]+"/client",
+			   headers: widget.authHeader,
+			   success: function (data) {
+			       var widget = Retina.WidgetInstances.awe_monitor[1];
+			       var result_data = [];
+			       if (data.data == null) {
+				   result_data = [ ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'] ];
+			       } else {
+				   for (var h=0;h<data.data.length;h++) {
+				       var obj = data.data[h];
+				       var skipwork = [];
+				       for (var j=0;j<obj.skip_work.length;j++) {
+					   skipwork.push("<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.skip_work[j]+"\")'>"+obj.skip_work[j]+"</a>");
+				       }
+				       result_data.push( ["<a href='"+RetinaConfig["awe_ip"]+"/client/"+obj.id+"' target=_blank>"+obj.name+"</a>",
+							  obj.group,
+							  obj.user || "-",
+							  obj.host,
+							  obj.cores || "0",
+							  obj.apps.join(", "),
+							  obj.regtime,
+							  obj.serve_time,
+							  obj.proxy || "-",
+							  obj.subclients || "0",
+							  obj.Status,
+							  obj.total_checkout || "0",
+							  obj.total_completed || "0",
+							  obj.total_failed || "0",
+							  skipwork.join(", ") ]);
+				   }
+			       }
+			       return_data = { header: [ "name",
+							 "group",
+							 "user",
+							 "host",
+							 "cores",
+							 "apps",
+							 "register time",
+							 "up-time",
+							 "proxy",
+							 "subclients",
+							 "status",
+							 "c/o",
+							 "done",
+							 "failed",
+							 "failed wuid"],
+					       data: result_data };
 
-		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.rows_per_page = 100;
-		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [70,73,50,70,73,1,115,83,70,90,75,57,67,68,90];
-		Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.data = return_data;
-		Retina.WidgetInstances.awe_monitor[1].tables["clients"].render();
-		Retina.WidgetInstances.awe_monitor[1].check_update();
+			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.rows_per_page = 100;
+			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [70,73,50,70,73,1,115,83,70,90,75,57,67,68,90];
+			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.data = return_data;
+			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].render();
+			       Retina.WidgetInstances.awe_monitor[1].check_update();
+			   }
 	    }).error(function(){
+		var widget = Retina.WidgetInstances.awe_monitor[1];
 		var result_data = [ ['-','-','-','-','-','-','-','-','-','-','-','-','-'] ];
 		return_data = { header: [ "id",
 					  "name",
@@ -415,6 +449,7 @@
     };
     
     widget.check_update = function () {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
 	Retina.WidgetInstances.awe_monitor[1].updated += 100 / 6;
 	if (parseInt(Retina.WidgetInstances.awe_monitor[1].updated) == 100) {
 	    document.getElementById('refresh').innerHTML = '<button class="btn" onclick="Retina.WidgetInstances.awe_monitor[1].display();">refresh</button>';
@@ -424,6 +459,7 @@
     };
 
     widget.dots = function (stages) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
 	var dots = '<span>';
 	if (stages.length > 0) {
 	    for (var i=0;i<stages.length;i++) {
@@ -447,6 +483,7 @@
     };
 
     widget.tasksort = function (a, b) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
 	var order = { "suspend": 0, "submitted": 1, "in-progress": 2 };
 	if (order[a.state] > order[b.state]) {
 	    return -1;
@@ -458,18 +495,21 @@
     };
 
     widget.tooltip = function (obj, id) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
 	obj.popover('destroy');
 	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a href="+RetinaConfig["awe_ip"]+"/job/"+id+" target=_blank onclick=this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode) >job details</a><br><a href="+RetinaConfig["awe_ip"]+"/job/"+id+"?perf target=_blank onclick=this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode)>job stats</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].jobDetails(&#39;"+id+"&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>excel</a>",html:true,placement:"top"});
 	obj.popover('show');
     }
 
     widget.clientTooltip = function (obj, id) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
 	obj.popover('destroy');
 	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stderr&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>error</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stdout&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>output</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;worknotes&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>worknotes</a>",html:true,placement:"top"});
 	obj.popover('show');
     }
 
     widget.workunitDetails = function (id, which) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
 	if (which=='stdout') {
 	    window.open(RetinaConfig["awe_ip"]+"/work/"+id+"?report=stdout");
 	} else if (which=='stderr') {
@@ -482,9 +522,12 @@
     };
 
     widget.jobDetails = function (jobid) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
 	jQuery.getJSON(RetinaConfig["awe_ip"]+"/job/"+jobid, function (data) {
+	    var widget = Retina.WidgetInstances.awe_monitor[1];
 	    var job = data.data;
 	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/job/"+jobid+"?perf", function (data) {
+		var widget = Retina.WidgetInstances.awe_monitor[1];
 		    job.queued = data.data.queued;
 		    job.start = data.data.start;
 		    job.end = data.data.end;
@@ -493,12 +536,14 @@
 		    job.work_stats = data.data.work_stats;
 		    Retina.WidgetInstances.awe_monitor[1].xlsExport(job);
 	    }).fail(function() {
+		var widget = Retina.WidgetInstances.awe_monitor[1];
 		alert('no job statistics available');
 	    });
 	});
     };
 
     widget.dataManipulationGraphical = function (data) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
 	var result_data = [];
 	for (var i=0;i<data.length;i++) {
 	    var obj = data[i];
@@ -517,6 +562,7 @@
     };
 
     widget.dataManipulationCompleted = function (data) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
 	var result_data = [];
 	for (var i=0;i<data.length;i++) {
 	    var obj = data[i];
@@ -551,6 +597,7 @@
     };
 
     widget.xlsExport = function (job) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
 	// issue an XMLHttpRequest to load the empty Excel workbook from disk
 	var xhr = new XMLHttpRequest();
 	var method = "GET";
@@ -569,6 +616,7 @@
 	xhr.responseType = 'arraybuffer';
 	
 	xhr.onload = function() {
+	    var widget = Retina.WidgetInstances.awe_monitor[1];
 	    
 	    // the file is loaded, create a javascript object from it
 	    var wb = xlsx(xhr.response);
@@ -685,6 +733,16 @@
 	}
 
 	xhr.send();
+    };
+
+    widget.loginAction = function (action) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
+	if (action.action == "login" && action.result == "success") {
+	    widget.authHeader = { "Datatoken": "OAuth "+action.token };
+	} else {
+	    widget.authHeader = {};
+	}
+	widget.display();
     };
     
 })();

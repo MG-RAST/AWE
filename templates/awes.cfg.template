@@ -19,6 +19,12 @@ api-url=
 email=admin@host.com
 secretkey=supersecretkey
 
+[Auth]
+globus_token_url=https://nexus.api.globusonline.org/goauth/token?grant_type=client_credentials
+globus_profile_url=https://nexus.api.globusonline.org/users
+admin_list=wtang,jbischof
+admin_auth=false
+
 [Directories]
 # See documentation for details of deploying Shock
 site=$GOPATH/src/github.com/MG-RAST/AWE/site

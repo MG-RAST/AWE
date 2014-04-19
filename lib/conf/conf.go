@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/golib/goconfig/config"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -51,6 +52,7 @@ var (
 	GLOBUS_TOKEN_URL   = ""
 	GLOBUS_PROFILE_URL = ""
 	MGRAST_OAUTH_URL   = ""
+	ADMIN_AUTH         = false
 
 	// Admin
 	ADMIN_EMAIL = ""
@@ -126,6 +128,8 @@ var (
 
 	//const
 	ALL_APP = "*"
+
+	Admin_List = make(map[string]bool)
 )
 
 func init() {
@@ -185,6 +189,23 @@ func init() {
 	GLOBUS_PROFILE_URL, _ = c.String("Auth", "globus_profile_url")
 	MGRAST_OAUTH_URL, _ = c.String("Auth", "mgrast_oauth_url")
 
+	if admin_list, err := c.String("Auth", "admin_list"); err == nil {
+		for _, name := range strings.Split(admin_list, ",") {
+			Admin_List[name] = true
+		}
+	}
+
+	if admin_auth, err := c.Bool("Auth", "admin_auth"); err == nil {
+		ADMIN_AUTH = admin_auth
+	}
+
+	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
+		GLOBUS_OAUTH = true
+	}
+	if MGRAST_OAUTH_URL != "" {
+		MGRAST_OAUTH = true
+	}
+
 	// Admin
 	ADMIN_EMAIL, _ = c.String("Admin", "email")
 	SECRET_KEY, _ = c.String("Admin", "secretkey")
@@ -226,11 +247,6 @@ func init() {
 	if go_max_procs, err := c.Int("Server", "go_max_procs"); err == nil {
 		GOMAXPROCS = go_max_procs
 	}
-	/*
-		if default_index, err := c.String("Server", "default_index"); err == nil {
-			DEFAULT_INDEX = default_index
-		}
-	*/
 
 	// Client
 	WORK_PATH, _ = c.String("Client", "workpath")
@@ -273,14 +289,6 @@ func init() {
 	P_SITE_PORT, _ = c.Int("Proxy", "p-site-port")
 	P_API_PORT, _ = c.Int("Proxy", "p-api-port")
 
-	//Auth
-	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
-		GLOBUS_OAUTH = true
-	}
-	if MGRAST_OAUTH_URL != "" {
-		MGRAST_OAUTH = true
-	}
-
 	//Args
 	if DEBUG_LEVEL == -1 { //if no debug level set in cmd line args, find values in config file.
 		if dlevel, err := c.Int("Args", "debuglevel"); err == nil {
@@ -303,6 +311,13 @@ func Print(service string) {
 	}
 	if MGRAST_OAUTH_URL != "" {
 		fmt.Printf("mgrast_oauth_url:\t%s\n", MGRAST_OAUTH_URL)
+	}
+	if ADMIN_AUTH {
+		fmt.Printf("admin_auth:\ttrue\nadmin_list:\t")
+		for name, _ := range Admin_List {
+			fmt.Printf("%s ", name)
+		}
+		fmt.Printf("\n")
 	}
 	fmt.Printf("\n")
 

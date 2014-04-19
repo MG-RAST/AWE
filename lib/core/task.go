@@ -24,24 +24,25 @@ const (
 )
 
 type Task struct {
-	Id            string    `bson:"taskid" json:"taskid"`
-	Info          *Info     `bson:"info" json:"-"`
-	Inputs        IOmap     `bson:"inputs" json:"inputs"`
-	Outputs       IOmap     `bson:"outputs" json:"outputs"`
-	Predata       IOmap     `bson:"predata" json:"predata"`
-	Cmd           *Command  `bson:"cmd" json:"cmd"`
-	Partition     *PartInfo `bson:"partinfo" json:"-"`
-	DependsOn     []string  `bson:"dependsOn" json:"dependsOn"`
-	TotalWork     int       `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize   int       `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork    int       `bson:"remainwork" json:"remainwork"`
-	WorkStatus    []string  `bson:"workstatus" json:"-"`
-	State         string    `bson:"state" json:"state"`
-	Skip          int       `bson:"skip" json:"-"`
-	CreatedDate   time.Time `bson:"createdDate" json:"createddate"`
-	StartedDate   time.Time `bson:"startedDate" json:"starteddate"`
-	CompletedDate time.Time `bson:"completedDate" json:"completeddate"`
-	ComputeTime   int       `bson:"computetime" json:"computetime"`
+	Id            string            `bson:"taskid" json:"taskid"`
+	Info          *Info             `bson:"info" json:"-"`
+	Inputs        IOmap             `bson:"inputs" json:"inputs"`
+	Outputs       IOmap             `bson:"outputs" json:"outputs"`
+	Predata       IOmap             `bson:"predata" json:"predata"`
+	Cmd           *Command          `bson:"cmd" json:"cmd"`
+	Partition     *PartInfo         `bson:"partinfo" json:"-"`
+	DependsOn     []string          `bson:"dependsOn" json:"dependsOn"`
+	TotalWork     int               `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize   int               `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork    int               `bson:"remainwork" json:"remainwork"`
+	WorkStatus    []string          `bson:"workstatus" json:"-"`
+	State         string            `bson:"state" json:"state"`
+	Skip          int               `bson:"skip" json:"-"`
+	CreatedDate   time.Time         `bson:"createdDate" json:"createddate"`
+	StartedDate   time.Time         `bson:"startedDate" json:"starteddate"`
+	CompletedDate time.Time         `bson:"completedDate" json:"completeddate"`
+	ComputeTime   int               `bson:"computetime" json:"computetime"`
+	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
 }
 
 func NewTask(job *Job, rank int) *Task {

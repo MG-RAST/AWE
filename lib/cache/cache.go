@@ -77,6 +77,12 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 			"filename="+name,
 			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
 
+		if io.ShockIndex != "" {
+			if err := core.ShockPutIndex(io.Host, io.Node, io.ShockIndex, work.Info.DataToken); err != nil {
+				logger.Error("warning: fail to create index on shock for shock node: " + io.Node)
+			}
+		}
+
 		if conf.CACHE_ENABLED {
 			//move output files to cache
 			cacheDir := getCacheDir(io.Node)

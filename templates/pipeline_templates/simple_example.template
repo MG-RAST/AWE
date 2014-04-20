@@ -74,7 +74,8 @@
                 }, 
                 "outputs": {
                     "#jobname.genecalled.faa": {
-                        "host": "http://#shockurl"
+                        "host": "http://#shockurl",
+                        "shockindex": "record"
                     },
                     "#jobname.genecalled.fna": {
                         "host": "http://#shockurl"

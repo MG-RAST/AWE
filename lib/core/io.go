@@ -22,6 +22,7 @@ type IO struct {
 	DataToken     string `bson:"datatoken"  json:"-"`
 	Intermediate  bool   `bson:"Intermediate"  json:"-"`
 	ShockFilename string `bson:"shockfilename" json:"shockfilename"`
+	ShockIndex    string `bson:"shockindex" json:"shockindex"`
 	AttrFile      string `bson:"attrfile" json:"attrfile"`
 }
 

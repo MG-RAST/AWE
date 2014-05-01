@@ -138,50 +138,32 @@
 
 	    break;
 	case "active":
-	    jQuery.ajax( { dataType: "json",
-			   url: RetinaConfig["awe_ip"]+"/job?active",
-			   headers: widget.authHeader,
-			   success: function (data) {
-			       var widget = Retina.WidgetInstances.awe_monitor[1];
-			       var result_data = [];
-			       if (data.data != null) {
-				   for (h=0;h<data.data.length;h++) {
-				       var obj = data.data[h];
-				       result_data.push( [ obj.info.submittime,
-							   "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
-							   obj.info.name,
-							   obj.info.user,
-							   obj.info.project,
-							   obj.info.pipeline,
-							   obj.info.clientgroups,
-							   obj.tasks.length - obj.remaintasks || "0",
-							   obj.tasks.length,
-							   obj.state,
-							   obj.updatetime
-							 ] );
-				   }
-			       }
-			       if (! result_data.length) {
-				   result_data.push(['-','-','-','-','-','-','-','-','-','-','-']);
-			       }
-			       return_data = { header: [ "created",
-							 "jid",
-							 "name",
-							 "user",
-							 "project",
-							 "pipeline",
-							 "group",
-							 "t-complete",
-							 "t-total",
-							 "state", 
-							 "updated"],
-					       data: result_data };
-			       Retina.WidgetInstances.awe_monitor[1].tables["active"].settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75];
-			       Retina.WidgetInstances.awe_monitor[1].tables["active"].settings.data = return_data;
-			       Retina.WidgetInstances.awe_monitor[1].tables["active"].render();
-			       Retina.WidgetInstances.awe_monitor[1].check_update();
-			   }
-	    });
+	    var at = Retina.WidgetInstances.awe_monitor[1].tables["active"];
+	    at.settings.headers = widget.authHeader;
+	    at.settings.synchronous = false;
+	    at.settings.query_type = 'prefix';
+	    at.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationActive,
+	    at.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?active";
+	    at.settings.rows_per_page = 20;
+	    at.settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75,83];
+	    at.settings.disable_sort = { };
+	    at.settings.filter = { };
+	    at.settings.asynch_column_mapping = { "created": "info.submittime",
+						  "jid": "jid",
+						  "name": "info.name",
+						  "user": "info.user",
+						  "project": "info.project",
+						  "pipeline": "info.pipeline",
+						  "group": "info.clientgroups",
+						  "t-total": "tasks.length",
+						  "state": "state",
+						  "updated": "updatetime",
+						  "priority": "info.priority" };
+	    at.settings.filter_autodetect = false;
+	    at.settings.sort_autodetect = false;
+	    at.settings.data = { data: [], header: [ "created", "jid", "name", "user", "project", "pipeline", "group", "t-complete", "t-total", "state", "updated", "priority" ] };
+	    at.render();
+	    at.update({}, at.index);
 
 	    break;
 	case "suspended":
@@ -233,6 +215,38 @@
 
 	    break;
 	case "queuing_workunit":
+	    // var qt = Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"];
+	    // qt.settings.headers = widget.authHeader;
+	    // qt.settings.synchronous = false;
+	    // qt.settings.query_type = 'prefix';
+	    // qt.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationQueued,
+	    // qt.settings.navigation_url = RetinaConfig["awe_ip"]+"/work?query&state=queued";
+	    // qt.settings.rows_per_page = 20;
+	    // qt.settings.minwidths = [1,1,1,1,65,78,75,75,83];
+	    // qt.settings.asynch_column_mapping = { "wuid": "quid",
+	    // 					  "submission time": "info.submittime",
+	    // 					  "cmd name": "cmd.name",
+	    // 					  "cmd args": "cmd.args",
+	    // 					  "rank": "rank",
+	    // 					  "t-work": "totalwork",
+	    // 					  "state": "state",
+	    // 					  "failed": "failed",
+	    //                                    "priority": "info.priority"};
+	    // qt.settings.filter = { };
+	    // qt.settings.disable_sort = {};
+	    // qt.settings.filter_autodetect = false;
+	    // qt.settings.sort_autodetect = false;
+	    // qt.settings.data = { data: [], header: [ "wuid",
+	    // 					     "submission time",
+	    // 					     "cmd name",
+	    // 					     "cmd args",
+	    // 					     "rank",
+	    // 					     "t-work",
+	    // 					     "state",
+	    // 					     "failed",
+	    //                                       "priority" ] };
+	    // qt.render();
+	    // qt.update({}, qt.index);
 	    jQuery.ajax( { dataType: "json",
 			   url: RetinaConfig["awe_ip"]+"/work?query&state=queued",
 			   headers: widget.authHeader,
@@ -249,12 +263,13 @@
 							   obj.rank || "0",
 							   obj.totalwork || "0",
 							   obj.state,
-							   obj.failed || "0"
+							   obj.failed || "0",
+							   obj.info.priority
 							 ] );
 				   }
 			       }
 			       if (! result_data.length) {
-				   result_data.push(['-','-','-','-','-','-','-','-']);
+				   result_data.push(['-','-','-','-','-','-','-','-','-']);
 			       }
 			       return_data = { header: [ "wuid",
 							 "submission time",
@@ -263,16 +278,16 @@
 							 "rank",
 							 "t-work",
 							 "state",
-							 "failed" ],
+							 "failed",
+							 "priority" ],
 					       data: result_data };
 
-			       Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].settings.minwidths = [1,1,1,1,65,75,75,75];
+			       Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].settings.minwidths = [1,1,1,1,65,78,75,75,83];
 			       Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].settings.data = return_data;
 			       Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"].render();
 			       Retina.WidgetInstances.awe_monitor[1].check_update();
 			   }
-	    });
-
+			 });
 	    break;
 	case "completed":
 	    var ct = Retina.WidgetInstances.awe_monitor[1].tables["completed"];
@@ -450,7 +465,7 @@
     
     widget.check_update = function () {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
-	Retina.WidgetInstances.awe_monitor[1].updated += 100 / 6;
+	Retina.WidgetInstances.awe_monitor[1].updated += 100 / 5;
 	if (parseInt(Retina.WidgetInstances.awe_monitor[1].updated) == 100) {
 	    document.getElementById('refresh').innerHTML = '<button class="btn" onclick="Retina.WidgetInstances.awe_monitor[1].display();">refresh</button>';
 	} else {
@@ -593,6 +608,72 @@
 			       "finished": "-" });
 	}
 
+	return result_data;
+    };
+
+    widget.dataManipulationActive = function (data) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
+	var result_data = [];
+	for (var i=0;i<data.length;i++) {
+	    var obj = data[i];
+	    result_data.push( { "created": obj.info.submittime,
+				"jid": "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
+				"name": obj.info.name,
+				"user": obj.info.user,
+				"project": obj.info.project,
+				"pipeline": obj.info.pipeline,
+				"group": obj.info.clientgroups,
+				"t-complete": obj.tasks.length - obj.remaintasks || "0",
+				"t-total": obj.tasks.length,
+				"state": obj.state,
+				"updated": obj.updatetime,
+				"priority": obj.info.priority
+			      } );
+	}
+	if (! result_data.length) {
+	    result_data.push({ "created": "-",
+			       "jid": "-",
+			       "name": "-",
+			       "user": "-",
+			       "project": "-",
+			       "pipeline": "-",
+			       "group": "-",
+			       "t-complete": "-",
+			       "t-total": "-",
+			       "state": "-", 
+			       "updated": "-",
+			       "priority": "-" });
+	}
+	return result_data;
+    };
+
+    widget.dataManipulationQueued = function (data) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
+	var result_data = [];
+	for (var i=0;i<data.length;i++) {
+	    var obj = data[i];
+	    result_data.push( { "wuid": obj.wuid,
+				"submission time": obj.info.submittime,
+				"cmd name": obj.cmd.name,
+				"cmd args": obj.cmd.args,
+				"rank": obj.rank || "0",
+				"t-work": obj.totalwork || "0",
+				"state": obj.state,
+				"failed": obj.failed || "0",
+				"priority": obj.info.priority
+			      } );
+	}
+	if (! result_data.length) {
+	    result_data.push({ "wuid": "-",
+			       "submission time": "-",
+			       "cmd name": "-",
+			       "cmd args": "-",
+			       "rank": "-",
+			       "t-work": "-",
+			       "state": "-",
+			       "failed": "-",
+			       "priority": "-" });
+	}
 	return result_data;
     };
 

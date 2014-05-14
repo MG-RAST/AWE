@@ -2,6 +2,7 @@ package worker
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/cache"
@@ -77,6 +78,17 @@ func dataMover(control chan int) {
 			parsed.perfstat.InFileSize = moved_data
 			datamove_end := time.Now().UnixNano()
 			parsed.perfstat.DataIn = float64(datamove_end-datamove_start) / 1e9
+		}
+
+		//create userattr.json
+		user_attr := getUserAttr(parsed.workunit)
+		if len(user_attr) > 0 {
+			attr_json, _ := json.Marshal(user_attr)
+			if err := ioutil.WriteFile(fmt.Sprintf("%s/userattr.json", parsed.workunit.Path()), attr_json, 0644); err != nil {
+				logger.Error("err@dataMover_work.getUserAttr, workid=" + work.Id + " error=" + err.Error())
+				parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#getUserAttr]" + err.Error()
+				parsed.workunit.State = core.WORK_STAT_FAIL
+			}
 		}
 
 		fromMover <- parsed
@@ -272,6 +284,22 @@ func moveInputData(work *core.Workunit) (size int64, err error) {
 		logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
 	}
 	return
+}
+
+//fetch user attr - merged from job.info and task
+func getUserAttr(work *core.Workunit) (userattr map[string]string) {
+	userattr = make(map[string]string)
+	if len(work.Info.UserAttr) > 0 {
+		for k, v := range work.Info.UserAttr {
+			userattr[k] = v
+		}
+	}
+	if len(work.UserAttr) > 0 {
+		for k, v := range work.UserAttr {
+			userattr[k] = v
+		}
+	}
+	return userattr
 }
 
 func isFileExisting(path string) bool {

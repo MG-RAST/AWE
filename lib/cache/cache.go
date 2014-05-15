@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
@@ -149,11 +150,26 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 		logger.Debug(2, "mover: fetching input from url:"+dataUrl)
 		logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
 
+		// download file
 		if datamoved, err := fetchFile(inputFilePath, dataUrl, work.Info.DataToken); err != nil {
 			return size, err
 		} else {
 			size += datamoved
 		}
+
+		// download node attributes if requested
+		if io.AttrFile != "" {
+			if node, err := io.GetShockNode(); err != nil {
+				return size, err
+			} else {
+				attrFilePath := fmt.Sprintf("%s/%s", work.Path(), io.AttrFile)
+				attr_json, _ := json.Marshal(node.Attributes)
+				if err := ioutil.WriteFile(attrFilePath, attr_json, 0644); err != nil {
+					return size, err
+				}
+			}
+		}
+
 		logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
 	}
 	return

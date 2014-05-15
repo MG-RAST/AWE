@@ -519,8 +519,12 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 		}
 		//use full path here, cwd could be changed by Worker (likely in worker-overlapping mode)
 		if fi, err := os.Stat(file_path); err != nil {
+			//skip this output if missing file and optional
+			//ignore missing file if type=copy or nofile=true
 			if io.Optional {
 				continue
+			} else if (io.Type == "copy") || io.NoFile {
+				file_path = ""
 			} else {
 				return size, errors.New(fmt.Sprintf("output %s not generated for workunit %s", name, work.Id))
 			}
@@ -545,9 +549,9 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 			}
 		}
 
-		if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path); err != nil {
+		if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-			if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path); err != nil {
+			if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions); err != nil {
 				fmt.Errorf("push file error\n")
 				logger.Error("op=pushfile,err=" + err.Error())
 				return size, err
@@ -592,18 +596,25 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 	return
 }
 
-func PutFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string) (err error) {
+func PutFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string, ntype string, formopts map[string]string) (err error) {
 	opts := Opts{}
 	if attrfile != "" {
 		opts["attributes"] = attrfile
 	}
+	if filename != "" {
+		opts["file"] = filename
+	}
 	if rank == 0 {
-		opts["upload_type"] = "full"
-		opts["full"] = filename
+		opts["upload_type"] = "basic"
 	} else {
 		opts["upload_type"] = "part"
 		opts["part"] = strconv.Itoa(rank)
-		opts["file"] = filename
+	}
+	if ((ntype == "copy") || (ntype == "subset")) && (len(formopts) > 0) {
+		opts["upload_type"] = ntype
+		for k, v := range formopts {
+			opts[k] = v
+		}
 	}
 	_, err = createOrUpdate(opts, host, nodeid, token)
 	return
@@ -666,11 +677,9 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 	}
 	if opts.HasKey("upload_type") {
 		switch opts.Value("upload_type") {
-		case "full":
-			if opts.HasKey("full") {
-				form.AddFile("upload", opts.Value("full"))
-			} else {
-				return nil, errors.New("missing file parameter: upload")
+		case "basic":
+			if opts.HasKey("file") {
+				form.AddFile("upload", opts.Value("file"))
 			}
 		case "parts":
 			if opts.HasKey("parts") {
@@ -702,6 +711,23 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 				url += "/index/" + opts.Value("index_type")
 			} else {
 				return nil, errors.New("missing index type when creating index")
+			}
+		case "copy":
+			if opts.HasKey("parent_node") {
+				form.AddParam("copy_data", opts.Value("parent_node"))
+			} else {
+				return nil, errors.New("missing copy node parameter: copy_data")
+			}
+			if opts.HasKey("copy_indexes") {
+				form.AddParam("copy_indexes", "1")
+			}
+		case "subset":
+			if opts.HasKey("parent_node") && opts.HasKey("parent_index") && opts.HasKey("file") {
+				form.AddParam("parent_node", opts.Value("parent_node"))
+				form.AddParam("parent_index", opts.Value("parent_index"))
+				form.AddFile("subset_indices", opts.Value("file"))
+			} else {
+				return nil, errors.New("missing subset node parameter: parent_node or parent_index or file")
 			}
 		}
 	}

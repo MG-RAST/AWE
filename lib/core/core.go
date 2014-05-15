@@ -598,7 +598,7 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 
 func PutFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string, ntype string, formopts map[string]string) (err error) {
 	opts := Opts{}
-	if attrfile != "" {
+	if (attrfile != "") && (rank < 2) {
 		opts["attributes"] = attrfile
 	}
 	if filename != "" {

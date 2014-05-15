@@ -38,12 +38,12 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 		}
 		//use full path here, cwd could be changed by Worker (likely in worker-overlapping mode)
 		if fi, err := os.Stat(file_path); err != nil {
-			//skip this output if missing file and optional
 			//ignore missing file if type=copy or nofile=true
-			if io.Optional {
-				continue
-			} else if (io.Type == "copy") || io.NoFile {
+			//skip this output if missing file and optional
+			if (io.Type == "copy") || io.NoFile {
 				file_path = ""
+			} else if io.Optional {
+				continue
 			} else {
 				return size, errors.New(fmt.Sprintf("output %s not generated for workunit %s", name, work.Id))
 			}

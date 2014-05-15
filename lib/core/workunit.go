@@ -20,21 +20,22 @@ const (
 )
 
 type Workunit struct {
-	Id           string    `bson:"wuid" json:"wuid"`
-	Info         *Info     `bson:"info" json:"info"`
-	Inputs       IOmap     `bson:"inputs" json:"inputs"`
-	Outputs      IOmap     `bson:"outputs" json:"outputs"`
-	Predata      IOmap     `bson:"predata" json:"predata"`
-	Cmd          *Command  `bson:"cmd" json:"cmd"`
-	Rank         int       `bson:"rank" json:"rank"`
-	TotalWork    int       `bson:"totalwork" json:"totalwork"`
-	Partition    *PartInfo `bson:"part" json:"part"`
-	State        string    `bson:"state" json:"state"`
-	Failed       int       `bson:"failed" json:"failed"`
-	CheckoutTime time.Time `bson:"checkout_time" json:"checkout_time"`
-	Client       string    `bson:"client" json:"client"`
-	ComputeTime  int       `bson:"computetime" json:"computetime"`
-	Notes        string    `bson:"-" json:"-"`
+	Id           string            `bson:"wuid" json:"wuid"`
+	Info         *Info             `bson:"info" json:"info"`
+	Inputs       IOmap             `bson:"inputs" json:"inputs"`
+	Outputs      IOmap             `bson:"outputs" json:"outputs"`
+	Predata      IOmap             `bson:"predata" json:"predata"`
+	Cmd          *Command          `bson:"cmd" json:"cmd"`
+	Rank         int               `bson:"rank" json:"rank"`
+	TotalWork    int               `bson:"totalwork" json:"totalwork"`
+	Partition    *PartInfo         `bson:"part" json:"part"`
+	State        string            `bson:"state" json:"state"`
+	Failed       int               `bson:"failed" json:"failed"`
+	CheckoutTime time.Time         `bson:"checkout_time" json:"checkout_time"`
+	Client       string            `bson:"client" json:"client"`
+	ComputeTime  int               `bson:"computetime" json:"computetime"`
+	Notes        string            `bson:"-" json:"-"`
+	UserAttr     map[string]string `bson:"userattr" json:"userattr"`
 }
 
 func NewWorkunit(task *Task, rank int) *Workunit {
@@ -50,6 +51,7 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 		Partition: task.Partition,
 		State:     WORK_STAT_QUEUED,
 		Failed:    0,
+		UserAttr:  task.UserAttr,
 	}
 }
 

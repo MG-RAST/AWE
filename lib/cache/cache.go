@@ -38,7 +38,11 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 		}
 		//use full path here, cwd could be changed by Worker (likely in worker-overlapping mode)
 		if fi, err := os.Stat(file_path); err != nil {
-			if io.Optional {
+			//ignore missing file if type=copy or nofile=true
+			//skip this output if missing file and optional
+			if (io.Type == "copy") || io.NoFile {
+				file_path = ""
+			} else if io.Optional {
 				continue
 			} else {
 				return size, errors.New(fmt.Sprintf("output %s not generated for workunit %s", name, work.Id))
@@ -64,9 +68,9 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 			}
 		}
 
-		if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path); err != nil {
+		if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-			if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path); err != nil {
+			if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions); err != nil {
 				fmt.Errorf("push file error\n")
 				logger.Error("op=pushfile,err=" + err.Error())
 				return size, err

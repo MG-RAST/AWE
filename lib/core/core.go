@@ -549,6 +549,15 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 			}
 		}
 
+		//set io.FormOptions["parent_node"] if not present and io.FormOptions["parent_name"] exists
+		if parent_name, ok := io.FormOptions["parent_name"]; ok {
+			for in_name, in_io := range work.Inputs {
+				if in_name == parent_name {
+					io.FormOptions["parent_node"] = in_io.Node
+				}
+			}
+		}
+
 		if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
 			if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions); err != nil {
@@ -598,7 +607,7 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 
 func PutFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string, ntype string, formopts map[string]string) (err error) {
 	opts := Opts{}
-	if attrfile != "" {
+	if (attrfile != "") && (rank < 2) {
 		opts["attributes"] = attrfile
 	}
 	if filename != "" {
@@ -716,7 +725,7 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 			if opts.HasKey("parent_node") {
 				form.AddParam("copy_data", opts.Value("parent_node"))
 			} else {
-				return nil, errors.New("missing copy node parameter: copy_data")
+				return nil, errors.New("missing copy node parameter: parent_node")
 			}
 			if opts.HasKey("copy_indexes") {
 				form.AddParam("copy_indexes", "1")

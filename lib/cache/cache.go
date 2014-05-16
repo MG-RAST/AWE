@@ -69,6 +69,15 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 			}
 		}
 
+		//set io.FormOptions["parent_node"] if not present and io.FormOptions["parent_name"] exists
+		if parent_name, ok := io.FormOptions["parent_name"]; ok {
+			for in_name, in_io := range work.Inputs {
+				if in_name == parent_name {
+					io.FormOptions["parent_node"] = in_io.Node
+				}
+			}
+		}
+
 		if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
 			if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions); err != nil {

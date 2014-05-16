@@ -676,7 +676,11 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		qm.LogJobPerf(jobid)
 		qm.DeleteJobPerf(jobid)
 		//delete tasks in task map
+		//delete from shock output flagged for deletion
 		for _, task := range job.TaskList() {
+			if err := task.DeleteOutput(); err != nil {
+				return err
+			}
 			delete(qm.taskMap, task.Id)
 		}
 		//log event about job done (JD)

@@ -25,6 +25,7 @@ type IO struct {
 	ShockIndex    string            `bson:"shockindex" json:"shockindex"`
 	AttrFile      string            `bson:"attrfile" json:"attrfile"`
 	NoFile        bool              `bson:"nofile" json:"nofile"`
+	Delete        bool              `bson:"delete" json:"delete"`
 	Type          string            `bson:"type" json:"type"`
 	FormOptions   map[string]string `bson:"formoptions" json:"formoptions"`
 }
@@ -130,4 +131,13 @@ func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
 		}
 	}
 	return 0, errors.New("invalid totalunits for shock node:" + io.Node)
+}
+
+func (io *IO) DeleteNode() (err error) {
+	if io.Delete {
+		if err := ShockDelete(io.Host, io.Node, io.DataToken); err != nil {
+			return err
+		}
+	}
+	return
 }

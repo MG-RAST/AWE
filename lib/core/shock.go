@@ -32,12 +32,17 @@ type ShockNode struct {
 	Version    string             `bson:"version" json:"version"`
 	File       shockfile          `bson:"file" json:"file"`
 	Attributes interface{}        `bson:"attributes" json:"attributes"`
+	Public     bool               `bson:"public" json:"public"`
 	Indexes    map[string]IdxInfo `bson:"indexes" json:"indexes"`
-	//Acl          Acl                `bson:"acl" json:"-"`
-	VersionParts map[string]string `bson:"version_parts" json:"-"`
-	Tags         []string          `bson:"tags" json:"tags"`
-	//	Revisions    []ShockNode       `bson:"revisions" json:"-"`
-	Linkages []linkage `bson:"linkage" json:"linkages"`
+	//Acl          Acl               `bson:"acl" json:"-"`
+	//VersionParts map[string]string `bson:"version_parts" json:"-"`
+	Tags []string `bson:"tags" json:"tags"`
+	//Revisions    []ShockNode       `bson:"revisions" json:"-"`
+	Linkages     []linkage `bson:"linkage" json:"linkages"`
+	CreatedOn    time.Time `bson:"created_on" json:"created_on"`
+	LastModified time.Time `bson:"last_modified" json:"last_modified"`
+	Type         string    `bson:"type" json:"type"`
+	//Subset       Subset            `bson:"subset" json:"-"`
 }
 
 type shockfile struct {
@@ -54,6 +59,7 @@ type IdxInfo struct {
 	Type        string `bson:"index_type" json:"-"`
 	TotalUnits  int64  `bson:"total_units" json:"total_units"`
 	AvgUnitSize int64  `bson:"average_unit_size" json:"average_unit_size"`
+	Format      string `bson:"format" json:"-"`
 }
 
 type linkage struct {

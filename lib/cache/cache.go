@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
@@ -65,6 +66,15 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 			attrfile_path = fmt.Sprintf("%s/%s", work.Path(), io.AttrFile)
 			if fi, err := os.Stat(attrfile_path); err != nil || fi.Size() == 0 {
 				attrfile_path = ""
+			}
+		}
+
+		//set io.FormOptions["parent_node"] if not present and io.FormOptions["parent_name"] exists
+		if parent_name, ok := io.FormOptions["parent_name"]; ok {
+			for in_name, in_io := range work.Inputs {
+				if in_name == parent_name {
+					io.FormOptions["parent_node"] = in_io.Node
+				}
 			}
 		}
 
@@ -149,11 +159,26 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 		logger.Debug(2, "mover: fetching input from url:"+dataUrl)
 		logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
 
+		// download file
 		if datamoved, err := fetchFile(inputFilePath, dataUrl, work.Info.DataToken); err != nil {
 			return size, err
 		} else {
 			size += datamoved
 		}
+
+		// download node attributes if requested
+		if io.AttrFile != "" {
+			if node, err := io.GetShockNode(); err != nil {
+				return size, err
+			} else {
+				attrFilePath := fmt.Sprintf("%s/%s", work.Path(), io.AttrFile)
+				attr_json, _ := json.Marshal(node.Attributes)
+				if err := ioutil.WriteFile(attrFilePath, attr_json, 0644); err != nil {
+					return size, err
+				}
+			}
+		}
+
 		logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
 	}
 	return

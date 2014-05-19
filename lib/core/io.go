@@ -133,11 +133,12 @@ func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
 	return 0, errors.New("invalid totalunits for shock node:" + io.Node)
 }
 
-func (io *IO) DeleteNode() (err error) {
+func (io *IO) DeleteNode() (nodeid string, err error) {
 	if io.Delete {
 		if err := ShockDelete(io.Host, io.Node, io.DataToken); err != nil {
-			return err
+			return io.Node, err
 		}
+		return io.Node, nil
 	}
-	return
+	return nil, nil
 }

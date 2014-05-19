@@ -253,19 +253,18 @@ func (task *Task) Skippable() bool {
 		(len(task.DependsOn) <= 1)
 }
 
-func (task *Task) DeleteOutput() (err error) {
+func (task *Task) DeleteOutput() {
 	if task.State == TASK_STAT_COMPLETED ||
 		task.State == TASK_STAT_SKIPPED ||
 		task.State == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Outputs {
 			if io.Delete {
-				if err := io.DeleteNode(); err != nil {
-					return err
-				}
+			    if nodeid, err := io.DeleteNode(); err != nil {
+    			    logger.Error(fmt.Sprintf("warning: fail to delete shock node %s: %s", nodeid, err.Error()))
+    			}
 			}
 		}
 	}
-	return
 }
 
 //creat index (=deprecated=)

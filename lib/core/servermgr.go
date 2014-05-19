@@ -678,7 +678,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		//delete tasks in task map
 		//delete from shock output flagged for deletion
 		for _, task := range job.TaskList() {
-		    task.DeleteOutput()
+			task.DeleteOutput()
 			delete(qm.taskMap, task.Id)
 		}
 		//log event about job done (JD)

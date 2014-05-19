@@ -140,5 +140,5 @@ func (io *IO) DeleteNode() (nodeid string, err error) {
 		}
 		return io.Node, nil
 	}
-	return nil, nil
+	return "", nil
 }

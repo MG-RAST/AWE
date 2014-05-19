@@ -259,9 +259,9 @@ func (task *Task) DeleteOutput() {
 		task.State == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Outputs {
 			if io.Delete {
-			    if nodeid, err := io.DeleteNode(); err != nil {
-    			    logger.Error(fmt.Sprintf("warning: fail to delete shock node %s: %s", nodeid, err.Error()))
-    			}
+				if nodeid, err := io.DeleteNode(); err != nil {
+					logger.Error(fmt.Sprintf("warning: fail to delete shock node %s: %s", nodeid, err.Error()))
+				}
 			}
 		}
 	}

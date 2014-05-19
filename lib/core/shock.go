@@ -125,6 +125,50 @@ func ShockGet(host string, nodeid string, token string) (node *ShockNode, err er
 	return
 }
 
+func ShockDelete(host string, nodeid string, token string) (err error) {
+	if host == "" || nodeid == "" {
+		return errors.New("empty shock host or node id")
+	}
+
+	var res *http.Response
+	shockurl := fmt.Sprintf("%s/node/%s", host, nodeid)
+
+	var user *httpclient.Auth
+	if token != "" {
+		user = httpclient.GetUserByTokenAuth(token)
+	}
+
+	c := make(chan int, 1)
+	go func() {
+		res, err = httpclient.Delete(shockurl, httpclient.Header{}, nil, user)
+		c <- 1 //we are ending
+	}()
+	select {
+	case <-c:
+	//go ahead
+	case <-time.After(conf.SHOCK_TIMEOUT):
+		return errors.New("timeout when getting node from shock, url=" + shockurl)
+	}
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	jsonstream, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+
+	response := new(ShockResponse)
+	if err := json.Unmarshal(jsonstream, response); err != nil {
+		return err
+	}
+	if len(response.Errs) > 0 {
+		return errors.New(strings.Join(response.Errs, ","))
+	}
+	return
+}
+
 func (sc *ShockClient) Get_node_download_url(node ShockNode) (download_url string, err error) {
 	myurl, err := url.ParseRequestURI(sc.Host)
 	if err != nil {

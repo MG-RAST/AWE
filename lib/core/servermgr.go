@@ -557,7 +557,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 
 func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 	logger.Debug(2, "trying to locate Inputs of task "+task.Id)
-	jobid, _ :=  GetJobIdByTaskId(task.Id)
+	jobid, _ := GetJobIdByTaskId(task.Id)
 	for name, io := range task.Inputs {
 		if io.Url == "" {
 			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
@@ -636,7 +636,7 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 }
 
 func (qm *ServerMgr) locateUpdate(taskid string, name string, origin string) (nodeid string, err error) {
-    jobid, _ :=  GetJobIdByTaskId(task.Id)
+	jobid, _ := GetJobIdByTaskId(taskid)
 	preId := fmt.Sprintf("%s_%s", jobid, origin)
 	logger.Debug(2, fmt.Sprintf("task %s: trying to locate Node of update %s from task %s", taskid, name, preId))
 	// scan outputs in origin task

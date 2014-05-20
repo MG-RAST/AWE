@@ -557,7 +557,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 
 func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 	logger.Debug(2, "trying to locate Inputs of task "+task.Id)
-	jobid := strings.Split(task.Id, "_")[0]
+	jobid, _ := GetJobIdByTaskId(task.Id)
 	for name, io := range task.Inputs {
 		if io.Url == "" {
 			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
@@ -607,15 +607,46 @@ func (qm *ServerMgr) parseTask(task *Task) (err error) {
 func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 	outputs := task.Outputs
 	for name, io := range outputs {
-		logger.Debug(2, fmt.Sprintf("posting output Shock node for file %s in task %s\n", name, task.Id))
-		nodeid, err := PostNodeWithToken(io, task.TotalWork, task.Info.DataToken)
-		if err != nil {
-			return err
+		if io.Type == "update" {
+			// this an update output, it will update an existing shock node and not create a new one
+			io.DataUrl()
+			if (io.Node == "") || (io.Node == "-") {
+				if io.Origin == "" {
+					return errors.New(fmt.Sprintf("update output %s in task %s is missing required origin", name, task.Id))
+				}
+				nodeid, err := qm.locateUpdate(task.Id, name, io.Origin)
+				if err != nil {
+					return err
+				}
+				io.Node = nodeid
+			}
+			logger.Debug(2, fmt.Sprintf("outout %s in task %s is an update of node %s\n", name, task.Id, io.Node))
+		} else {
+			// POST empty shock node for this output
+			logger.Debug(2, fmt.Sprintf("posting output Shock node for file %s in task %s\n", name, task.Id))
+			nodeid, err := PostNodeWithToken(io, task.TotalWork, task.Info.DataToken)
+			if err != nil {
+				return err
+			}
+			io.Node = nodeid
+			logger.Debug(2, fmt.Sprintf("task %s: output Shock node created, node=%s\n", task.Id, nodeid))
 		}
-		io.Node = nodeid
-		logger.Debug(2, fmt.Sprintf("task %s: output Shock node created, node=%s\n", task.Id, nodeid))
 	}
 	return
+}
+
+func (qm *ServerMgr) locateUpdate(taskid string, name string, origin string) (nodeid string, err error) {
+	jobid, _ := GetJobIdByTaskId(taskid)
+	preId := fmt.Sprintf("%s_%s", jobid, origin)
+	logger.Debug(2, fmt.Sprintf("task %s: trying to locate Node of update %s from task %s", taskid, name, preId))
+	// scan outputs in origin task
+	if preTask, ok := qm.taskMap[preId]; ok {
+		outputs := preTask.Outputs
+		if outio, ok := outputs[name]; ok {
+			return outio.Node, nil
+		}
+	}
+	return "", errors.New(fmt.Sprintf("failed to locate Node for task %s / update %s from task %s", taskid, name, preId))
 }
 
 func (qm *ServerMgr) updateTaskWorkStatus(taskid string, rank int, newstatus string) {

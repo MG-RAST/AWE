@@ -146,10 +146,11 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 						//make a link in work dir from cached file
 						linkname := fmt.Sprintf("%s/%s", work.Path(), inputname)
 						fmt.Printf("input found in cache, making link: " + file_path + " -> " + linkname + "\n")
-						if err = os.Symlink(file_path, linkname); err != nil {
-							return 0, err
+						err = os.Symlink(file_path, linkname)
+						if err == nil {
+							logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
 						}
-						logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
+						return 0, err
 					}
 				}
 				dataUrl = io.DataUrl()

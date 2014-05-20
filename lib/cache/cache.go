@@ -134,36 +134,38 @@ func StatCacheFilePath(id string) (file_path string, err error) {
 //fetch input data
 func MoveInputData(work *core.Workunit) (size int64, err error) {
 	for inputname, io := range work.Inputs {
-		var dataUrl string
 
-		inputFilePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
+		// skip if NoFile == true
+		if !io.NoFile {
+			var dataUrl string
+			inputFilePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
 
-		if work.Rank == 0 {
-			if conf.CACHE_ENABLED && io.Node != "" {
-				if file_path, err := StatCacheFilePath(io.Node); err == nil {
-					//make a link in work dir from cached file
-					linkname := fmt.Sprintf("%s/%s", work.Path(), inputname)
-					fmt.Printf("input found in cache, making link: " + file_path + " -> " + linkname + "\n")
-					err = os.Symlink(file_path, linkname)
-					if err == nil {
+			if work.Rank == 0 {
+				if conf.CACHE_ENABLED && io.Node != "" {
+					if file_path, err := StatCacheFilePath(io.Node); err == nil {
+						//make a link in work dir from cached file
+						linkname := fmt.Sprintf("%s/%s", work.Path(), inputname)
+						fmt.Printf("input found in cache, making link: " + file_path + " -> " + linkname + "\n")
+						if err = os.Symlink(file_path, linkname); err != nil {
+							return 0, err
+						}
 						logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
 					}
-					return 0, err
 				}
+				dataUrl = io.DataUrl()
+			} else {
+				dataUrl = fmt.Sprintf("%s&index=%s&part=%s", io.DataUrl(), work.IndexType(), work.Part())
 			}
-			dataUrl = io.DataUrl()
-		} else {
-			dataUrl = fmt.Sprintf("%s&index=%s&part=%s", io.DataUrl(), work.IndexType(), work.Part())
-		}
+			logger.Debug(2, "mover: fetching input from url:"+dataUrl)
+			logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
 
-		logger.Debug(2, "mover: fetching input from url:"+dataUrl)
-		logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
-
-		// download file
-		if datamoved, err := fetchFile(inputFilePath, dataUrl, work.Info.DataToken); err != nil {
-			return size, err
-		} else {
-			size += datamoved
+			// download file
+			if datamoved, err := fetchFile(inputFilePath, dataUrl, work.Info.DataToken); err != nil {
+				return size, err
+			} else {
+				size += datamoved
+			}
+			logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
 		}
 
 		// download node attributes if requested
@@ -178,8 +180,6 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 				}
 			}
 		}
-
-		logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
 	}
 	return
 }

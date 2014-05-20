@@ -39,9 +39,9 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 		}
 		//use full path here, cwd could be changed by Worker (likely in worker-overlapping mode)
 		if fi, err := os.Stat(file_path); err != nil {
-			//ignore missing file if type=copy or nofile=true
+			//ignore missing file if type=copy or type==update or nofile=true
 			//skip this output if missing file and optional
-			if (io.Type == "copy") || io.NoFile {
+			if (io.Type == "copy") || (io.Type == "update") || io.NoFile {
 				file_path = ""
 			} else if io.Optional {
 				continue

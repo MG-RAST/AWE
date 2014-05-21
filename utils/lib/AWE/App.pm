@@ -4,6 +4,9 @@ use strict;
 use warnings;
 
 
+use parent qw(AWE::Task);
+use Data::Dumper;
+1;
 
 sub get_app_mode {
 	my ($app_definitions, $package, $app) = @_;
@@ -123,6 +126,8 @@ sub parse_function_parameters {
 }
 
 sub app {
+	my $self = shift(@_);
+	my $app_definitions = shift(@_);
 	my $app_path = shift(@_);
 	
 	my @app_args = @_;
@@ -171,7 +176,7 @@ sub app {
 	
 	
 	#print "cmd: $command_def\n";
-	return $command_def;
-	
+	#return $command_def;
+	$self->command($command_def);
 }
 

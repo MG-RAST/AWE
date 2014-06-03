@@ -9,7 +9,7 @@ AWE is a workload management system for bioinformatic workflow applications. AWE
 - Explicit task parallelization and convenient application integration
 - Scalable and portable workflow computation
 - Integration of heterogenous and geographically distributed computing resources
-- Performance-aware, cost efficiency service and resource management
+- Performance-aware, cost-efficienct service management and resource management
 - Reusable and reproducible data product management 
 
 ![awe-diagram](https://raw.githubusercontent.com/MG-RAST/AWE/master/site/images/awe-diagram.png)

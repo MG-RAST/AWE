@@ -496,6 +496,13 @@ func (qm *ServerMgr) deleteTasks(tasks []*Task) (err error) {
 //check whether a pending task is ready to enqueue (dependent tasks are all done)
 func (qm *ServerMgr) isTaskReady(task *Task) (ready bool) {
 	ready = false
+
+	//skip if the belonging job is suspended
+	jobid, _ := GetJobIdByTaskId(task.Id)
+	if _, ok := qm.susJobs[jobid]; ok {
+		return false
+	}
+
 	if task.State == TASK_STAT_PENDING {
 		ready = true
 		for _, predecessor := range task.DependsOn {

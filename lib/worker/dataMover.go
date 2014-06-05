@@ -248,7 +248,7 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 	for name, io := range workunit.Predata {
 		file_path := fmt.Sprintf("%s/%s", conf.DATA_PATH, name)
 		if !isFileExisting(file_path) {
-			size, err = fetchFile(file_path, io.Url, "")
+			size, err = fetchFile(file_path, io.Url, workunit.Info.DataToken)
 			if err != nil {
 				return
 			}

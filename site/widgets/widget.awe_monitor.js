@@ -819,7 +819,7 @@
     widget.loginAction = function (action) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
 	if (action.action == "login" && action.result == "success") {
-	    widget.authHeader = { "Datatoken": "OAuth "+action.token };
+	    widget.authHeader = { "Authorization": "OAuth "+action.token };
 	} else {
 	    widget.authHeader = {};
 	}

@@ -7,7 +7,7 @@ About:
 AWE is a workload management system for bioinformatic workflow applications. AWE, together with Shock data management system, can be used to build an integrated platform for efficient data analysis and management which features following functionalities:
 
 - Explicit task parallelization and convenient application integration
-- Scalable and portable workflow computation
+- Scalable, portable, and fault-tolerant workflow computation
 - Integration of heterogeneous and geographically distributed computing resources
 - Performance-aware, cost-efficient service management and resource management
 - Reusable and reproducible data product management 

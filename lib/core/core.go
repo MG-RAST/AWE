@@ -239,8 +239,8 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 			if task.Cmd.Environ == nil || task.Cmd.Environ.Private == nil {
 				continue
 			}
+			job.Tasks[idx].Cmd.Environ.Private = make(map[string]string)
 			for key, val := range task.Cmd.Environ.Private {
-				job.Tasks[idx].Cmd.Environ.Private = make(map[string]string)
 				job.Tasks[idx].Cmd.Environ.Private[key] = val
 			}
 		}

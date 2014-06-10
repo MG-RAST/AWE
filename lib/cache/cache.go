@@ -157,8 +157,8 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 			} else {
 				dataUrl = fmt.Sprintf("%s&index=%s&part=%s", io.DataUrl(), work.IndexType(), work.Part())
 			}
-			logger.Debug(2, "mover: fetching input from url:"+dataUrl)
-			logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
+			logger.Debug(2, "mover: fetching input file from url:"+dataUrl)
+			logger.Event(event.FILE_IN, "workid="+work.Id+";url="+dataUrl)
 
 			// download file
 			if datamoved, err := fetchFile(inputFilePath, dataUrl, work.Info.DataToken); err != nil {
@@ -171,15 +171,20 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 
 		// download node attributes if requested
 		if io.AttrFile != "" {
-			if node, err := io.GetShockNode(); err != nil {
+			// get node
+			node, err := core.ShockGet(io.Host, io.Node, work.Info.DataToken)
+			if err != nil {
 				return size, err
-			} else {
-				attrFilePath := fmt.Sprintf("%s/%s", work.Path(), io.AttrFile)
-				attr_json, _ := json.Marshal(node.Attributes)
-				if err := ioutil.WriteFile(attrFilePath, attr_json, 0644); err != nil {
-					return size, err
-				}
 			}
+			logger.Debug(2, "mover: fetching input attributes from node:"+node.Id)
+			logger.Event(event.ATTR_IN, "workid="+work.Id+";node="+node.Id)
+			// print node attributes
+			attrFilePath := fmt.Sprintf("%s/%s", work.Path(), io.AttrFile)
+			attr_json, _ := json.Marshal(node.Attributes)
+			if err := ioutil.WriteFile(attrFilePath, attr_json, 0644); err != nil {
+				return size, err
+			}
+			logger.Event(event.ATTR_READY, "workid="+work.Id+";path="+attrFilePath)
 		}
 	}
 	return

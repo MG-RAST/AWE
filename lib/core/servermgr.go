@@ -129,7 +129,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 		if qm.isTaskReady(task) {
 			if err := qm.taskEnQueue(task); err != nil {
 				jobid, _ := GetJobIdByTaskId(task.Id)
-				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()))
+				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
 			}
 		}
 	}
@@ -243,7 +243,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 						if len(notice.Notes) > 0 {
 							reason = reason + " msg from client:" + notice.Notes
 						}
-						if err := qm.SuspendJob(jobid, reason); err != nil {
+						if err := qm.SuspendJob(jobid, reason, workid); err != nil {
 							logger.Error("error returned by SuspendJOb()" + err.Error())
 						}
 					}
@@ -466,7 +466,7 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 	if qm.isTaskReady(task) {
 		if err := qm.taskEnQueue(task); err != nil {
 			jobid, _ := GetJobIdByTaskId(task.Id)
-			qm.SuspendJob(jobid, fmt.Sprintf("failed in enqueuing task %s, err=%s", task.Id, err.Error()))
+			qm.SuspendJob(jobid, fmt.Sprintf("failed in enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
 			return err
 		}
 	}
@@ -791,10 +791,13 @@ func (qm *ServerMgr) GetSuspendJobs() map[string]bool {
 	return qm.susJobs
 }
 
-func (qm *ServerMgr) SuspendJob(jobid string, reason string) (err error) {
+func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err error) {
 	job, err := LoadJob(jobid)
 	if err != nil {
 		return
+	}
+	if id != "" {
+		job.LastFailed = id
 	}
 	if err := job.UpdateState(JOB_STAT_SUSPEND, reason); err != nil {
 		return err

@@ -35,6 +35,7 @@ type Job struct {
 	RemainTasks int       `bson:"remaintasks" json:"remaintasks"`
 	UpdateTime  time.Time `bson:"updatetime" json:"updatetime"`
 	Notes       string    `bson:"notes" json:"notes"`
+	LastFailed  string    `bson:"lastfailed" json:"lastfailed"`
 	Resumed     int       `bson:"resumed" json:"resumed"` //number of times the job has been resumed from suspension
 }
 

@@ -1,6 +1,6 @@
 var RetinaConfig = {
     "awe_ip": "[% api_ip %]:[% api_port %]",
-    "workflow_ip": "[% api_ip %]:[% api_port %]/awf"
+    "workflow_ip": "[% api_ip %]:[% api_port %]/awf",
     "authResources": { "default": "KBase",
 		       "KBase": { "icon": "KBase_favicon.ico",
 				  "prefix": "kbgo4711" } },

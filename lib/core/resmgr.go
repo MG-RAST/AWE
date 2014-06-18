@@ -32,7 +32,7 @@ type JobMgr interface {
 	GetActiveJobs() map[string]*JobPerf
 	IsJobRegistered(string) bool
 	GetSuspendJobs() map[string]bool
-	SuspendJob(string, string) error
+	SuspendJob(string, string, string) error
 	ResumeSuspendedJob(string) error
 	ResumeSuspendedJobs() int
 	ResubmitJob(string) error

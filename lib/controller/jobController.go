@@ -404,7 +404,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		return
 	}
 	if query.Has("suspend") { // to suspend an in-progress job
-		if err := core.QMgr.SuspendJob(id, "manually suspended"); err != nil {
+		if err := core.QMgr.SuspendJob(id, "manually suspended", ""); err != nil {
 			cx.RespondWithErrorMessage("fail to suspend job: "+id+" "+err.Error(), http.StatusBadRequest)
 		}
 		cx.RespondWithData("job suspended: " + id)

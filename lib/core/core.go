@@ -239,8 +239,8 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 			if task.Cmd.Environ == nil || task.Cmd.Environ.Private == nil {
 				continue
 			}
+			job.Tasks[idx].Cmd.Environ.Private = make(map[string]string)
 			for key, val := range task.Cmd.Environ.Private {
-				job.Tasks[idx].Cmd.Environ.Private = make(map[string]string)
 				job.Tasks[idx].Cmd.Environ.Private[key] = val
 			}
 		}
@@ -519,9 +519,9 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 		}
 		//use full path here, cwd could be changed by Worker (likely in worker-overlapping mode)
 		if fi, err := os.Stat(file_path); err != nil {
-			//ignore missing file if type=copy or nofile=true
+			//ignore missing file if type=copy or type==update or nofile=true
 			//skip this output if missing file and optional
-			if (io.Type == "copy") || io.NoFile {
+			if (io.Type == "copy") || (io.Type == "update") || io.NoFile {
 				file_path = ""
 			} else if io.Optional {
 				continue

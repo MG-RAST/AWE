@@ -129,7 +129,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 		if qm.isTaskReady(task) {
 			if err := qm.taskEnQueue(task); err != nil {
 				jobid, _ := GetJobIdByTaskId(task.Id)
-				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()))
+				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
 			}
 		}
 	}
@@ -243,7 +243,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 						if len(notice.Notes) > 0 {
 							reason = reason + " msg from client:" + notice.Notes
 						}
-						if err := qm.SuspendJob(jobid, reason); err != nil {
+						if err := qm.SuspendJob(jobid, reason, workid); err != nil {
 							logger.Error("error returned by SuspendJOb()" + err.Error())
 						}
 					}
@@ -466,7 +466,7 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 	if qm.isTaskReady(task) {
 		if err := qm.taskEnQueue(task); err != nil {
 			jobid, _ := GetJobIdByTaskId(task.Id)
-			qm.SuspendJob(jobid, fmt.Sprintf("failed in enqueuing task %s, err=%s", task.Id, err.Error()))
+			qm.SuspendJob(jobid, fmt.Sprintf("failed in enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
 			return err
 		}
 	}
@@ -496,6 +496,13 @@ func (qm *ServerMgr) deleteTasks(tasks []*Task) (err error) {
 //check whether a pending task is ready to enqueue (dependent tasks are all done)
 func (qm *ServerMgr) isTaskReady(task *Task) (ready bool) {
 	ready = false
+
+	//skip if the belonging job is suspended
+	jobid, _ := GetJobIdByTaskId(task.Id)
+	if _, ok := qm.susJobs[jobid]; ok {
+		return false
+	}
+
 	if task.State == TASK_STAT_PENDING {
 		ready = true
 		for _, predecessor := range task.DependsOn {
@@ -557,7 +564,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 
 func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 	logger.Debug(2, "trying to locate Inputs of task "+task.Id)
-	jobid := strings.Split(task.Id, "_")[0]
+	jobid, _ := GetJobIdByTaskId(task.Id)
 	for name, io := range task.Inputs {
 		if io.Url == "" {
 			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
@@ -607,15 +614,46 @@ func (qm *ServerMgr) parseTask(task *Task) (err error) {
 func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 	outputs := task.Outputs
 	for name, io := range outputs {
-		logger.Debug(2, fmt.Sprintf("posting output Shock node for file %s in task %s\n", name, task.Id))
-		nodeid, err := PostNodeWithToken(io, task.TotalWork, task.Info.DataToken)
-		if err != nil {
-			return err
+		if io.Type == "update" {
+			// this an update output, it will update an existing shock node and not create a new one
+			io.DataUrl()
+			if (io.Node == "") || (io.Node == "-") {
+				if io.Origin == "" {
+					return errors.New(fmt.Sprintf("update output %s in task %s is missing required origin", name, task.Id))
+				}
+				nodeid, err := qm.locateUpdate(task.Id, name, io.Origin)
+				if err != nil {
+					return err
+				}
+				io.Node = nodeid
+			}
+			logger.Debug(2, fmt.Sprintf("outout %s in task %s is an update of node %s\n", name, task.Id, io.Node))
+		} else {
+			// POST empty shock node for this output
+			logger.Debug(2, fmt.Sprintf("posting output Shock node for file %s in task %s\n", name, task.Id))
+			nodeid, err := PostNodeWithToken(io, task.TotalWork, task.Info.DataToken)
+			if err != nil {
+				return err
+			}
+			io.Node = nodeid
+			logger.Debug(2, fmt.Sprintf("task %s: output Shock node created, node=%s\n", task.Id, nodeid))
 		}
-		io.Node = nodeid
-		logger.Debug(2, fmt.Sprintf("task %s: output Shock node created, node=%s\n", task.Id, nodeid))
 	}
 	return
+}
+
+func (qm *ServerMgr) locateUpdate(taskid string, name string, origin string) (nodeid string, err error) {
+	jobid, _ := GetJobIdByTaskId(taskid)
+	preId := fmt.Sprintf("%s_%s", jobid, origin)
+	logger.Debug(2, fmt.Sprintf("task %s: trying to locate Node of update %s from task %s", taskid, name, preId))
+	// scan outputs in origin task
+	if preTask, ok := qm.taskMap[preId]; ok {
+		outputs := preTask.Outputs
+		if outio, ok := outputs[name]; ok {
+			return outio.Node, nil
+		}
+	}
+	return "", errors.New(fmt.Sprintf("failed to locate Node for task %s / update %s from task %s", taskid, name, preId))
 }
 
 func (qm *ServerMgr) updateTaskWorkStatus(taskid string, rank int, newstatus string) {
@@ -753,10 +791,13 @@ func (qm *ServerMgr) GetSuspendJobs() map[string]bool {
 	return qm.susJobs
 }
 
-func (qm *ServerMgr) SuspendJob(jobid string, reason string) (err error) {
+func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err error) {
 	job, err := LoadJob(jobid)
 	if err != nil {
 		return
+	}
+	if id != "" {
+		job.LastFailed = id
 	}
 	if err := job.UpdateState(JOB_STAT_SUSPEND, reason); err != nil {
 		return err

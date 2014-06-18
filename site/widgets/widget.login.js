@@ -222,7 +222,6 @@
 			     email: d.email,
 			   };
 		} else {
-		    console.log("in here");
 		    jQuery.ajax({ url: stm.Config.mgrast_api+"/user/"+login,
 				  headers: { "Auth": d.token },
 				  success: function(result) {

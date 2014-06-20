@@ -38,10 +38,10 @@ type ShockNode struct {
 	//VersionParts map[string]string `bson:"version_parts" json:"-"`
 	Tags []string `bson:"tags" json:"tags"`
 	//Revisions    []ShockNode       `bson:"revisions" json:"-"`
-	Linkages     []linkage `bson:"linkage" json:"linkages"`
-	CreatedOn    time.Time `bson:"created_on" json:"created_on"`
-	LastModified time.Time `bson:"last_modified" json:"last_modified"`
-	Type         string    `bson:"type" json:"type"`
+	Linkages []linkage `bson:"linkage" json:"linkages"`
+	//CreatedOn    time.Time `bson:"created_on" json:"created_on"`
+	//LastModified time.Time `bson:"last_modified" json:"last_modified"`
+	Type string `bson:"type" json:"type"`
 	//Subset       Subset            `bson:"subset" json:"-"`
 }
 

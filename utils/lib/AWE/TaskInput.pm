@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use JSON;
-
+use Data::Dumper;
 
 # leave localfile undef if you do not upload the file
 sub new {
@@ -31,7 +31,12 @@ sub new {
 	}
 	
 	
+	
+	
     bless $self, $class;
+	
+	$self->reference_update();
+	
     return $self;
 }
 
@@ -76,16 +81,45 @@ sub node {
 
 sub origin {
     my ($self) = @_;
+	if (defined $self->reference) {
+		my $taskref = $self->reference->taskref || die;
+		my $taskid = $taskref->taskid;
+		unless (defined $taskid) {
+			die "taskid undefined";
+		}
+		if ($taskid eq '') {
+			die "taskid is empty string";
+		}
+		return $taskref->taskid;
+	}
+	
     return $self->{origin};
 }
 
 sub reference_update {
 	my ($self) = @_;
+	
 	if (defined $self->reference) {
+		#print Dumper($self);
 		$self->{host}		= $self->reference->host;
-		$self->{filename}	= $self->reference->filename;
-		$self->{origin}		= $self->reference->taskref->taskid;
+		
+		
+		
+		my $filename = $self->reference->filename;
+		#print "filename: $filename\n";
+		if ($filename =~ /\//) {
+			my ($filename_base) = $filename =~ /\/([^\/]*)$/;
+			$filename = $filename_base;
+		}
+		#print "filename: $filename\n";
+		#exit(0);
+		$self->{filename}	= $filename;
+		
+		#print Dumper($self->reference);
+		#print "--------------------\n";
 	}
+	
+	#exit(0);
 }
 
 
@@ -97,7 +131,7 @@ sub getPair {
 	my $f = {
 		'host' => $self->host,
 		'node' => $self->node,
-		'origin' => $self->origin
+		'origin' => $self->origin()
 	};
 	
 	return ($self->filename => $f);

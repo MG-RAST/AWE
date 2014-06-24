@@ -3,6 +3,11 @@ package AWE::Workflow;
 use strict;
 use warnings;
 
+use AWE::Task;
+use AWE::App;
+use AWE::TaskInput;
+use AWE::TaskOutput;
+
 use JSON;
 
 
@@ -45,7 +50,7 @@ sub taskcount {
     return scalar(@{$self->{tasks}});
 }
 
-# add task to workflow and return task
+# add task to workflow and return task with taskid assigned
 sub addTask {
 	my ($self, $task) = @_;
 	
@@ -58,6 +63,23 @@ sub addTask {
 	
 	return $task;
 }
+
+# add tasks and assign taskids
+sub addTasks {
+	my ($self) = shift(@_);
+	
+	my @tasks = @_;
+	
+	foreach my $task (@tasks) {
+		push(@{$self->tasks}, $task);
+		my $taskid = scalar(@{$self->tasks})-1;
+		$task->taskid($taskid."");
+	}
+	return;
+}
+
+
+
 
 sub getHash {
 	my ($self) = @_;

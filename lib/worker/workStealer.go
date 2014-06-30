@@ -131,6 +131,7 @@ func FetchDataTokenByWorkId(workid string) (token string, err error) {
 	if err != nil {
 		return "", err
 	}
+	defer res.Body.Close()
 	if res.Header != nil {
 		if _, ok := res.Header["Datatoken"]; ok {
 			token = res.Header["Datatoken"][0]

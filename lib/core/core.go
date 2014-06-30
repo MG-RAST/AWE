@@ -491,7 +491,11 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 		"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
 	}
 	user := httpclient.GetUserByBasicAuth(conf.CLIENT_USERNAME, conf.CLIENT_PASSWORD)
-	_, err = httpclient.Put(target_url, headers, form.Reader, user)
+	res, err := httpclient.Put(target_url, headers, form.Reader, user)
+	if err == nil {
+		defer res.Body.Close()
+	}
+
 	return
 }
 

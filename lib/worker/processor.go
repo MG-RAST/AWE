@@ -609,6 +609,7 @@ func FetchPrivateEnvByWorkId(workid string) (envs map[string]string, err error) 
 	if err != nil {
 		return envs, err
 	}
+	defer res.Body.Close()
 	var jsonstream string
 	if res.Header != nil {
 		if _, ok := res.Header["Privateenv"]; ok {

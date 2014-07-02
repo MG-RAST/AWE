@@ -248,7 +248,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	if false {
 		container, err := client.InspectContainer(container_id)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("error inspectinf container, err=%s", err.Error()))
+			return nil, errors.New(fmt.Sprintf("error inspecting container, err=%s", err.Error()))
 		}
 		spew.Dump(container)
 		spew.Dump(container.Config)

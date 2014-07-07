@@ -12,6 +12,8 @@ import (
 
 func main() {
 
+	// workstealer -> dataMover (download from Shock) -> processor -> deliverer (upload to Shock)
+
 	if !conf.INIT_SUCCESS {
 		conf.PrintClientUsage()
 		os.Exit(1)

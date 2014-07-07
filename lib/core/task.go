@@ -43,6 +43,7 @@ type Task struct {
 	CompletedDate time.Time         `bson:"completedDate" json:"completeddate"`
 	ComputeTime   int               `bson:"computetime" json:"computetime"`
 	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
+	AppVariables  AppVariables
 }
 
 func NewTask(job *Job, rank int) *Task {

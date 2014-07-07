@@ -257,6 +257,13 @@ func init() {
 	if clientname, err := c.String("Client", "name"); err == nil {
 		CLIENT_NAME = clientname
 	}
+	if CLIENT_NAME == "" || CLIENT_NAME == "default" || CLIENT_NAME == "hostname" {
+		hostname, err := os.Hostname()
+		if err == nil {
+			CLIENT_NAME = hostname
+		}
+	}
+
 	if clientgroup, err := c.String("Client", "group"); err == nil {
 		CLIENT_GROUP = clientgroup
 	}

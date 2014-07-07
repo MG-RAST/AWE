@@ -15,16 +15,20 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/wgerlach/go-dockerclient"
 	"io"
+	"io/ioutil"
+	"log"
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
 
 func processor(control chan int) {
-	fmt.Printf("processor lanched, client=%s\n", core.Self.Id)
+	fmt.Printf("processor launched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("processor exiting...\n")
 	for {
 		parsedwork := <-fromMover
@@ -69,11 +73,11 @@ func processor(control chan int) {
 		pstat, err := RunWorkunit(work)
 
 		if err != nil {
-			fmt.Printf("!!!RunWorkunit() returned error: %s\n", err.Error())
-			logger.Error("RunWorkunit(): workid=" + work.Id + ", " + err.Error())
+			logger.Error("RunWorkunit(): returned error , workid=" + work.Id + ", " + err.Error())
 			processed.workunit.Notes = processed.workunit.Notes + "###[precessor#RunWorkunit]" + err.Error()
 			processed.workunit.State = core.WORK_STAT_FAIL
 		} else {
+			logger.Debug(1, "RunWorkunit() returned without error, workid="+work.Id)
 			processed.workunit.State = core.WORK_STAT_COMPUTED
 			processed.perfstat.MaxMemUsage = pstat.MaxMemUsage
 		}
@@ -106,9 +110,64 @@ func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 }
 
+func RemoveOldAWEContainers(client *docker.Client, container_name string) (err error) {
+
+	containers, _ := client.ListContainers(docker.ListContainersOptions{All: true})
+
+	old_containers_deleted := 0
+	for _, cont := range containers {
+		spew.Dump(cont)
+		delete_old_container := false
+
+		logger.Debug(1, fmt.Sprintf("container ID: %s", cont.ID))
+		for _, cname := range cont.Names {
+			logger.Debug(1, fmt.Sprintf("container name: %s", cname))
+			if cname == container_name {
+				delete_old_container = true
+			}
+			if cname == "/"+container_name {
+				delete_old_container = true
+			}
+		}
+
+		if delete_old_container == true {
+			logger.Debug(1, fmt.Sprintf("found old container %s and try to delete it...", container_name))
+			container, err := client.InspectContainer(cont.ID)
+			if err != nil {
+				return errors.New(fmt.Sprintf("error inspecting old container id=%s, err=%s", cont.ID, err.Error()))
+			}
+			if container.State.Running == true {
+				logger.Debug(1, fmt.Sprintf("try to kill old container %s...", container_name))
+				err := client.KillContainer(docker.KillContainerOptions{ID: cont.ID})
+				if err != nil {
+					return errors.New(fmt.Sprintf("error killing old container id=%s, err=%s", cont.ID, err.Error()))
+				}
+			}
+			container, err = client.InspectContainer(cont.ID)
+			if err != nil {
+				return errors.New(fmt.Sprintf("error inspecting old container id=%s, err=%s", cont.ID, err.Error()))
+			}
+			if container.State.Running == true {
+				return errors.New(fmt.Sprintf("old container is still running"))
+			}
+			logger.Debug(1, fmt.Sprintf("try to remove old container %s...", container_name))
+			c_remove_opts := docker.RemoveContainerOptions{ID: cont.ID}
+			err = client.RemoveContainer(c_remove_opts)
+			if err != nil {
+				return errors.New(fmt.Sprintf("error removing old container id=%s, err=%s", cont.ID, err.Error()))
+			}
+			logger.Debug(1, fmt.Sprintf("old container %s should have been removed", container_name))
+			old_containers_deleted += 1
+		}
+
+	}
+	logger.Debug(1, fmt.Sprintf("old_containers_deleted: %d", old_containers_deleted))
+	return
+}
+
 func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	pstats = new(core.WorkPerf)
-
+	pstats.MaxMemUsage = 0
 	args := work.Cmd.ParsedArgs
 
 	//change cwd to the workunit's working directory
@@ -117,9 +176,38 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}
 
 	commandName := work.Cmd.Name
+
+	use_wrapper_script := false
+
+	wrapper_script_filename := "awe_workunit_wrapper.sh"
+	wrapper_script_filename_host := path.Join(work.Path(), wrapper_script_filename)
+	wrapper_script_filename_docker := path.Join(conf.DOCKER_WORK_DIR, wrapper_script_filename)
+	if strings.HasPrefix(commandName, "app:") {
+
+		if len(work.Cmd.ParsedArgs) > 0 {
+			use_wrapper_script = true
+
+			// create wrapper script
+
+			//conf.DOCKER_WORK_DIR
+			var wrapper_content_string = "#!/bin/bash\n" + strings.Join(work.Cmd.Cmd_script, "\n") + "\n"
+
+			logger.Debug(1, fmt.Sprintf("write wrapper script: %s\n%s", wrapper_script_filename_host, strings.Join(work.Cmd.Cmd_script, ", ")))
+
+			var wrapper_content_bytes = []byte(wrapper_content_string)
+
+			err = ioutil.WriteFile(wrapper_script_filename_host, wrapper_content_bytes, 0644)
+			if err != nil {
+				return nil, errors.New(fmt.Sprintf("error writing wrapper script, err=%s", err.Error()))
+			}
+
+		}
+
+	}
+
 	//cmd := exec.Command(commandName, args...)
 
-	container_name := "AWE_container"
+	container_name := "AWE_workunit"
 
 	Dockerimage := work.Cmd.Dockerimage
 
@@ -136,56 +224,16 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		spew.Dump(img)
 	}
 
-	containers, _ := client.ListContainers(docker.ListContainersOptions{All: true})
-
-	// delete any AWE_container or container from same image
-	for _, cont := range containers {
-		spew.Dump(cont)
-		delete_old_container := false
-		if cont.Image == Dockerimage {
-			delete_old_container = true
-		} else {
-		}
-		for _, cname := range cont.Names {
-			if cname == container_name {
-				delete_old_container = true
-			}
-		}
-
-		if delete_old_container == true {
-			container, err := client.InspectContainer(cont.ID)
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("error inspecting old container id=%s, err=%s", cont.ID, err.Error()))
-			}
-			if container.State.Running == true {
-				err := client.KillContainer(cont.ID)
-				if err != nil {
-					return nil, errors.New(fmt.Sprintf("error killing old container id=%s, err=%s", cont.ID, err.Error()))
-				}
-			}
-			container, err = client.InspectContainer(cont.ID)
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("error inspecting old container id=%s, err=%s", cont.ID, err.Error()))
-			}
-			if container.State.Running == true {
-				return nil, errors.New(fmt.Sprintf("old container is still running"))
-			}
-
-			c_remove_opts := docker.RemoveContainerOptions{ID: cont.ID}
-			err = client.RemoveContainer(c_remove_opts)
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("error removing old container id=%s, err=%s", cont.ID, err.Error()))
-			}
-
-		}
-
+	// delete any old AWE_container
+	err = RemoveOldAWEContainers(client, container_name)
+	if err != nil {
+		return nil, err
 	}
 
 	// *** find/inspect image
 	image, err := client.InspectImage(Dockerimage)
 
 	if err != nil {
-		fmt.Println("image not found !? ")
 
 		logger.Debug(1, fmt.Sprintf("docker image %s is not yet in local repository", Dockerimage))
 
@@ -226,23 +274,31 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	pipe_output := fmt.Sprintf(" 2> %s 1> %s", conf.STDERR_FILENAME, conf.STDOUT_FILENAME)
 
-	bash_command := fmt.Sprint(commandName, " ", strings.Join(args, " "), " ", pipe_output)
+	bash_command := ""
+	if use_wrapper_script {
+		bash_command = fmt.Sprint("/bin/bash", " ", wrapper_script_filename_docker, " ", pipe_output)
+	} else {
+		bash_command = fmt.Sprint(commandName, " ", strings.Join(args, " "), " ", pipe_output)
+
+	}
 
 	logger.Debug(1, fmt.Sprint("bash_command: ", bash_command))
 
 	// example: "/bin/bash", "-c", "bowtie2 -h 2> awe_stderr.txt 1> awe_stdout.txt"
-	container_cmd := []string{"/bin/bash", "-c", bash_command}
+
+	container_cmd := []string{"/bin/bash", "-c", bash_command} // TODO remove bash if possible, but is needed for piping
 
 	config := docker.Config{Image: imageid, WorkingDir: conf.DOCKER_WORK_DIR, AttachStdout: true, AttachStderr: true, AttachStdin: false, Cmd: container_cmd, Volumes: map[string]struct{}{conf.DOCKER_WORK_DIR: {}}}
 	opts := docker.CreateContainerOptions{Name: container_name, Config: &config}
 
 	// *** create container (or find container ?)
+	logger.Debug(1, fmt.Sprintf("creating docker container from image %s", Dockerimage))
 	container_incomplete, err := client.CreateContainer(opts)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("error creating container, err=%s", err.Error()))
 	}
 	container_id := container_incomplete.ID
-	logger.Debug(1, fmt.Sprintf("got container ID: %s", container_id))
+	logger.Debug(1, fmt.Sprintf("created docker container with ID: %s", container_id))
 
 	// *** inspect the new container
 	if false {
@@ -256,14 +312,48 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}
 
 	// *** start container
-	bindstr := fmt.Sprintf("%s/:%s", work.Path(), conf.DOCKER_WORK_DIR)
-	info_binstr := fmt.Sprintf("docker container bindstr: (%s)", bindstr)
-	logger.Debug(1, fmt.Sprintf(info_binstr))
 
-	err = client.StartContainer(container_id, &docker.HostConfig{Binds: []string{bindstr}})
+	logger.Debug(1, "starting docker container...")
+
+	var bindarray = []string{}
+
+	bindstr_workdir := work.Path() + "/:" + conf.DOCKER_WORK_DIR
+	logger.Debug(1, "bindstr_workdir: "+bindstr_workdir)
+
+	// only mount predata if it is actually used
+	if len(work.Predata) > 0 {
+		predata_directory := path.Join(conf.DATA_PATH, "predata")
+		bindstr_predata := predata_directory + "/:" + "/db" // TODO put in config
+		logger.Debug(1, "bindstr_predata: "+bindstr_predata)
+		bindarray = []string{bindstr_workdir, bindstr_predata}
+	} else {
+		bindarray = []string{bindstr_workdir}
+	}
+
+	err = client.StartContainer(container_id, &docker.HostConfig{Binds: bindarray})
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("error starting container, id=%s, err=%s", container_id, err.Error()))
 	}
+
+	defer func(container_id string) {
+		// *** clean up
+		// ** kill container
+		err = client.KillContainer(docker.KillContainerOptions{ID: container_id})
+		if err != nil {
+			logger.Error(fmt.Sprintf("error killing container id=%s, err=%s", container_id, err.Error()))
+		}
+
+		// *** remove Container
+		opts_remove := docker.RemoveContainerOptions{ID: container_id}
+		err = client.RemoveContainer(opts_remove)
+		if err != nil {
+			logger.Error(fmt.Sprintf("error removing container id=%s, err=%s", container_id, err.Error()))
+		} else {
+			logger.Debug(1, "removed docker container")
+		}
+
+		return
+	}(container_id)
 
 	var status int = 0
 
@@ -276,44 +366,86 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}()
 
 	var MaxMem uint64 = 0
-	go func() {
+
+	memory_stat_filename := path.Join("/sys/fs/cgroup/memory/docker/", container_id, "/memory.stat")
+
+	go func() { // memory checker
 
 		for {
 
 			select {
-			case <-done:
+			case err = <-done:
+				if err != nil {
+					logger.Error("channerl done returned error: " + err.Error())
+				}
 				return
 			default:
 			}
 
-			container, err := client.InspectContainer(container_id)
+			//container, err := client.InspectContainer(container_id)
 
+			//if err != nil {
+			//	logger.Debug(1, fmt.Sprint("error inspecting container (for mem info) ", err.Error()))
+			//} else {
+			// /sys/fs/cgroup/memory/docker/<id>/memory.stat
+			//memory := uint64(container.Config.Memory)
+			var memory uint64 = 0
+			memory_stat_file, err := os.Open(memory_stat_filename)
 			if err != nil {
-				logger.Debug(1, fmt.Sprint("error inspecting container (for mem info) ", err.Error()))
+				log.Fatal("Error opening memory_stat_file file:", err)
+			}
+
+			// Closes the file when we leave the scope of the current function,
+			// this makes sure we never forget to close the file if the
+			// function can exit in multiple places.
+			defer memory_stat_file.Close()
+
+			memory_stat_file_scanner := bufio.NewScanner(memory_stat_file)
+
+			// scanner.Scan() advances to the next token returning false if an error was encountered
+			for memory_stat_file_scanner.Scan() {
+				line := memory_stat_file_scanner.Text()
+				if strings.HasPrefix(line, "total_rss ") { // TODO what is total_rss_huge
+					//logger.Debug(1, fmt.Sprint("inspecting container with memory line=", line))
+
+					memory, err = strconv.ParseUint(strings.TrimPrefix(line, "total_rss "), 10, 64)
+					if err != nil {
+						memory = 0
+					}
+					break
+				}
+
+			}
+
+			// When finished scanning if any error other than io.EOF occured
+			// it will be returned by scanner.Err().
+			if err := memory_stat_file_scanner.Err(); err != nil {
+				logger.Error(fmt.Sprintf("error reading memory usage from cgroups=", memory_stat_file_scanner.Err()))
 			} else {
-				memory := uint64(container.Config.Memory)
 				//fmt.Println("memory: ", memory )
 				if memory > MaxMem {
 					MaxMem = memory
 				}
+				logger.Debug(1, fmt.Sprintf("inspecting container with memory=%d, maximum=%d", memory, MaxMem))
+
 			}
 
-			time.Sleep(3 * time.Second)
-			//time.Sleep(conf.MEM_CHECK_INTERVAL)
+			//time.Sleep(5 * time.Second)
+			time.Sleep(conf.MEM_CHECK_INTERVAL)
 		}
 	}()
 
 	select {
 	case <-chankill:
-
-		if err := client.KillContainer(container_id); err != nil {
+		logger.Debug(1, fmt.Sprint("chankill, try to kill conatiner %s... ", container_id))
+		if err := client.KillContainer(docker.KillContainerOptions{ID: container_id}); err != nil {
 			return nil, errors.New(fmt.Sprintf("error killing container id=%s, err=%s", container_id, err.Error()))
 		}
 
 		<-done // allow goroutine to exit
 
 		return nil, errors.New("process killed as requested from chankill")
-	case err := <-done:
+	case err = <-done:
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("wait_cmd=%s, err=%s", commandName, err.Error()))
 		}
@@ -321,26 +453,12 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}
 
 	if status != 0 {
-		return nil, errors.New(fmt.Sprintf("error status not zero"))
+		return nil, errors.New(fmt.Sprintf("error WaitContainer returned non-zero status=%d", status))
 	}
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 	pstats.MaxMemUsage = MaxMem
+	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 
-	// *** clean up
-	// ** kill container
-	err = client.KillContainer(container_id)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("error killing container id=%s, err=%s", container_id, err.Error()))
-	}
-
-	// *** remove Container
-	opts_remove := docker.RemoveContainerOptions{ID: container_id}
-	err = client.RemoveContainer(opts_remove)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("error removing container id=%s, err=%s", container_id, err.Error()))
-	}
-
-	logger.Debug(1, "finished and removed container!")
 	return pstats, err
 }
 
@@ -490,9 +608,9 @@ func getDockerImageUrl(Dockerimage string) (download_url string, err error) {
 	shock_docker_repo := core.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
 
 	logger.Debug(1, fmt.Sprint("try to import docker image, Dockerimage=", Dockerimage))
-	//query url = "docker=1&tag=wgerlach/bowtie2:2.2.0"
+	//query url = type=dockerimage&name=wgerlach/bowtie2:2.2.0"
 
-	query_response_p, err := shock_docker_repo.Query(url.Values{"docker": {"1"}, "tag": {Dockerimage}})
+	query_response_p, err := shock_docker_repo.Query(url.Values{"type": {"dockerimage"}, "name": {Dockerimage}})
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("shock node not found for image=%s, err=%s", Dockerimage, err.Error()))
 	}
@@ -561,6 +679,7 @@ func dockerImportImage(client *docker.Client, Dockerimage string) (err error) {
 	Dockerimage_array := strings.Split(Dockerimage, ":")
 	Dockerimage_repo, Dockerimage_tag := Dockerimage_array[0], Dockerimage_array[1]
 
+	logger.Debug(1, fmt.Sprintf("importing image..."))
 	var buf bytes.Buffer
 	opts := docker.ImportImageOptions{
 		Source:       download_url,

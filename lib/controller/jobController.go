@@ -199,12 +199,20 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	offset := 0
 	order := "updatetime"
 	direction := "desc"
-
+	var err error
 	if query.Has("limit") {
-		limit, _ = strconv.Atoi(query.Value("limit"))
+		limit, err = strconv.Atoi(query.Value("limit"))
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	if query.Has("offset") {
-		offset, _ = strconv.Atoi(query.Value("offset"))
+		offset, err = strconv.Atoi(query.Value("offset"))
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	if query.Has("order") {
 		order = query.Value("order")
@@ -245,7 +253,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		err := jobs.GetAll(q, order, direction)
 		if err != nil {
 			logger.Error("err " + err.Error())
-			cx.RespondWithError(http.StatusBadRequest)
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -446,7 +454,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		}
 		priority, err := strconv.Atoi(priority_str)
 		if err != nil {
-			cx.RespondWithErrorMessage("need int for priority value (0-3)", http.StatusBadRequest)
+			cx.RespondWithErrorMessage("need int for priority value (0-3) "+err.Error(), http.StatusBadRequest)
 		}
 		if err := core.QMgr.UpdatePriority(id, priority); err != nil {
 			cx.RespondWithErrorMessage("fail to priority for job: "+id+" "+err.Error(), http.StatusBadRequest)

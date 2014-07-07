@@ -81,7 +81,7 @@ func ShockGet(host string, nodeid string, token string) (node *ShockNode, err er
 	if host == "" || nodeid == "" {
 		return nil, errors.New("empty shock host or node id")
 	}
-
+	logger.Debug(1, fmt.Sprintf("ShockGet: %s %s %s", host, nodeid, token))
 	var res *http.Response
 	shockurl := fmt.Sprintf("%s/node/%s", host, nodeid)
 

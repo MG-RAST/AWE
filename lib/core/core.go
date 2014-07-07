@@ -100,18 +100,41 @@ func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job
 	}
 
 	if err != nil {
+		err = errors.New("error parsing job, error=" + err.Error())
 		return
 	}
 	err = job.Mkdir()
 	if err != nil {
+		err = errors.New("error creating job directory, error=" + err.Error())
 		return
 	}
+
+	// TODO need a way update app-defintions in AWE server...
+	if MyAppRegistry == nil {
+		MyAppRegistry, err = MakeAppRegistry()
+		if err != nil {
+			return job, errors.New("error creating app registry, error=" + err.Error())
+		}
+		logger.Debug(1, "app defintions read")
+	}
+
+	err = MyAppRegistry.createIOnodes(job)
+	if err != nil {
+		err = errors.New("error in createIOnodes, error=" + err.Error())
+		return
+	}
+
 	err = job.UpdateFile(params, files)
 	if err != nil {
+		err = errors.New("error in UpdateFile, error=" + err.Error())
 		return
 	}
 
 	err = job.Save()
+	if err != nil {
+		err = errors.New("error in job.Save(), error=" + err.Error())
+		return
+	}
 	return
 }
 
@@ -207,12 +230,12 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 	jsonstream, err := ioutil.ReadFile(filename)
 
 	if err != nil {
-		return nil, errors.New("error in reading job json file")
+		return nil, errors.New("error in reading job json file" + err.Error())
 	}
 
 	err = json.Unmarshal(jsonstream, job)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("error in unmarshaling job json file: " + err.Error())
 	}
 
 	if len(job.Tasks) == 0 {
@@ -248,7 +271,7 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 
 	for i := 0; i < len(job.Tasks); i++ {
 		if err := job.Tasks[i].InitTask(job, i); err != nil {
-			return nil, err
+			return nil, errors.New("error in InitTask: " + err.Error())
 		}
 	}
 

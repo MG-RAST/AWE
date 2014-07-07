@@ -40,5 +40,6 @@ func Authenticate(header string) (u *user.User, err error) {
 			}
 		}
 	}
+
 	return nil, errors.New(e.InvalidAuth)
 }

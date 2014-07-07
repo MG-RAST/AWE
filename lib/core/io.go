@@ -3,11 +3,14 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"strings"
 )
 
 type IO struct {
 	Name          string            `bson:"name" json:"-"`
+	AppName       string            `bson:"appname" json:"-"`     // specifies abstract name of output as defined by the app
+	AppPosition   int               `bson:"appposition" json:"-"` // specifies position in app output array
 	Directory     string            `bson:"directory" json:"directory"`
 	Host          string            `bson:"host" json:"host"`
 	Node          string            `bson:"node" json:"node"`
@@ -97,6 +100,7 @@ func (io *IO) GetFileSize() int64 {
 	}
 	shocknode, err := io.GetShockNode()
 	if err != nil {
+		logger.Error(fmt.Sprintf("GetFileSize error: %s", err.Error()))
 		return -1
 	}
 	io.Size = shocknode.File.Size
@@ -114,8 +118,11 @@ func (io *IO) GetIndexInfo() (idxinfo map[string]IdxInfo, err error) {
 }
 
 func (io *IO) GetShockNode() (node *ShockNode, err error) {
-	if io.Host == "" || io.Node == "" {
-		return nil, errors.New("empty shock host or node id")
+	if io.Host == "" {
+		return nil, errors.New("empty shock host")
+	}
+	if io.Node == "" {
+		return nil, errors.New("empty node id")
 	}
 	return ShockGet(io.Host, io.Node, io.DataToken)
 }

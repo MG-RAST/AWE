@@ -97,27 +97,44 @@ func (qm *ServerMgr) Timer() {
 
 func (qm *ServerMgr) InitMaxJid() (err error) {
 	jidfile := conf.DATA_PATH + "/maxjid"
+
 	if _, err := os.Stat(jidfile); err != nil {
+
 		f, err := os.Create(jidfile)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, fmt.Sprintf("error creating jidfile ", err.Error())) // logger does not work
+			logger.Error(fmt.Sprintf("error creating jidfile ", err.Error()))
 			return err
 		}
 		f.WriteString("10000")
 		qm.nextJid = "10001"
 		f.Close()
 	} else {
+
 		buf, err := ioutil.ReadFile(jidfile)
 		if err != nil {
+			if conf.DEBUG_LEVEL > 0 {
+				fmt.Println("error ioutil.ReadFile(jidfile)")
+			}
 			return err
 		}
 		bufstr := strings.TrimSpace(string(buf))
 
 		maxjid, err := strconv.Atoi(bufstr)
 		if err != nil {
+			if conf.DEBUG_LEVEL > 0 {
+				fmt.Println(fmt.Sprintf("error strconv.Atoi(bufstr), bufstr=\"%s\"", bufstr))
+			}
+			fmt.Fprintf(os.Stderr, fmt.Sprintf("Could not convert \"%s\" into int", bufstr)) // logger does not work
+			logger.Error(fmt.Sprintf("Could not convert \"%s\" into int", bufstr))
 			return err
 		}
 
 		qm.nextJid = strconv.Itoa(maxjid + 1)
+
+	}
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("in InitMaxJid C")
 	}
 	logger.Debug(2, fmt.Sprintf("qmgr:jid initialized, next jid=%s\n", qm.nextJid))
 	return
@@ -512,6 +529,8 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool) {
 					qm.taskMap[predecessor].State != TASK_STAT_SKIPPED &&
 					qm.taskMap[predecessor].State != TASK_STAT_FAIL_SKIP {
 					ready = false
+				} else {
+					logger.Error("warning: predecessor " + predecessor + " is unknown")
 				}
 			}
 		}

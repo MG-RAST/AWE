@@ -323,7 +323,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	// only mount predata if it is actually used
 	if len(work.Predata) > 0 {
 		predata_directory := path.Join(conf.DATA_PATH, "predata")
-		bindstr_predata := predata_directory + "/:" + "/db" // TODO put in config
+		bindstr_predata := predata_directory + "/:" + "/db:ro" // TODO put in config
 		logger.Debug(1, "bindstr_predata: "+bindstr_predata)
 		bindarray = []string{bindstr_workdir, bindstr_predata}
 	} else {

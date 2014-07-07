@@ -681,7 +681,7 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 
 func NewVariableExpander(app_variables AppVariables) VariableExpander {
 
-	return VariableExpander{simple_variable_match: regexp.MustCompile(`\$\{[\w-]+\}`),
+	return VariableExpander{simple_variable_match: regexp.MustCompile(`\$\{[\w-]+\}`), // inlcudes underscore
 		functional_variable_match: regexp.MustCompile(`\$\{[\w-]+\:[\w-]+\}`),
 		app_variables:             app_variables}
 }

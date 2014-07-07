@@ -611,6 +611,7 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 
 func PutFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string, ntype string, formopts map[string]string) (err error) {
 	opts := Opts{}
+	fi, err := os.Stat(filename)
 	if (attrfile != "") && (rank < 2) {
 		opts["attributes"] = attrfile
 	}
@@ -623,7 +624,9 @@ func PutFileToShock(filename string, host string, nodeid string, rank int, token
 		opts["upload_type"] = "part"
 		opts["part"] = strconv.Itoa(rank)
 	}
-	if ((ntype == "copy") || (ntype == "subset")) && (len(formopts) > 0) {
+	if ((ntype == "subset") && (rank == 0) && (fi.Size() == 0)) {
+	    opts["upload_type"] = "basic"
+	} else if ((ntype == "copy") || (ntype == "subset")) && (len(formopts) > 0) {
 		opts["upload_type"] = ntype
 		for k, v := range formopts {
 			opts[k] = v

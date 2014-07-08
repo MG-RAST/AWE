@@ -260,17 +260,6 @@ func init() {
 		CLIENT_NAME = clientname
 	}
 
-	if strings.HasPrefix(CLIENT_NAME, "http://") {
-
-		esp, err := http.Get(CLIENT_NAME)
-		if err != nil {
-			// handle error
-			fmt.Printf("could not read hostname from url " + CLIENT_NAME)
-
-		}
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-	}
 	if CLIENT_NAME == "" || CLIENT_NAME == "default" || CLIENT_NAME == "hostname" {
 		hostname, err := os.Hostname()
 		if err == nil {

@@ -728,7 +728,7 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 				return nil, errors.New("missing partial upload parameter: parts")
 			}
 			if opts.HasKey("file_name") {
-			    form.AddParam("file_name", opts.Value("file_name"))
+				form.AddParam("file_name", opts.Value("file_name"))
 			}
 		case "part":
 			if opts.HasKey("part") && opts.HasKey("file") {

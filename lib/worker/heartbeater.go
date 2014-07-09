@@ -285,6 +285,7 @@ func CleanDisk() (err error) {
 
 func getMetaDataField(field string) (result string, err error) {
 	var url = fmt.Sprintf("%s/%s", conf.OPENSTACK_METADATA_URL, field)
+	fmt.Printf("url=%s\n", url)
 	var res *http.Response
 	c := make(chan bool, 1)
 	go func() {

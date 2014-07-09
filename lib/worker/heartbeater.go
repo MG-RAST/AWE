@@ -219,19 +219,33 @@ func ComposeProfile() (profile *core.Client, err error) {
 	}
 
 	if len(conf.OPENSTACK_METADATA_URL) > 7 { // longer than "http://"
+
 		fmt.Printf("openstack_metadata_url=%s, getting instance_id and instance_type...\n", conf.OPENSTACK_METADATA_URL)
-		for i := 0; i < 3; i++ {
-			profile.InstanceId, _ = getInstanceId()
-			if profile.InstanceId != "" {
-				break
-			}
+
+		instance_name, err := getMetaDataField("name")
+		if err == nil {
+			profile.Name = instance_name
 		}
-		for i := 0; i < 3; i++ {
-			profile.InstanceType, _ = getInstanceType()
-			if profile.InstanceType != "" {
-				break
-			}
+		instance_id, err := getMetaDataField("instance_id")
+		if err == nil {
+			profile.InstanceId = instance_id
 		}
+		instance_type, err := getMetaDataField("instance_type")
+		if err == nil {
+			profile.InstanceType = instance_type
+		}
+		//for i := 0; i < 3; i++ {
+		//	profile.InstanceId, _ = getInstanceId()
+		//	if profile.InstanceId != "" {
+		//		break
+		//	}
+		//}
+		//for i := 0; i < 3; i++ {
+		//	profile.InstanceType, _ = getInstanceType()
+		//	if profile.InstanceType != "" {
+		//		break
+		//	}
+		//}
 	}
 
 	if core.Service == "proxy" {
@@ -266,6 +280,33 @@ func StopClient() (err error) {
 func CleanDisk() (err error) {
 	//fmt.Printf("try to clean disk space\n")
 	//to-do: implementation here
+	return
+}
+
+func getMetaDataField(field string) (result string, err error) {
+	var url = fmt.Sprintf("%s/%s", conf.OPENSTACK_METADATA_URL, field)
+	var res *http.Response
+	c := make(chan bool, 1)
+	go func() {
+		res, err = http.Get(url)
+		c <- true //we are ending
+	}()
+	select {
+	case <-c:
+		//go ahead
+	case <-time.After(conf.INSTANCE_METADATA_TIMEOUT): //GET timeout
+		return "", errors.New("timeout")
+	}
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	bodybytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+	result = string(bodybytes[:])
+	logger.Debug(1, fmt.Sprintf("Intance Metadata %s => \"%s\"", url, result))
 	return
 }
 

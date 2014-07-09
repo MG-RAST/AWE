@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/MG-RAST/golib/goconfig/config"
-	"http"
 	"io/ioutil"
 	"os"
 	"strings"

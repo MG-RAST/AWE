@@ -168,6 +168,7 @@ func PostNodeWithToken(io *IO, numParts int, token string) (nodeid string, err e
 	//create "parts" for output splits
 	if numParts > 1 {
 		opts["upload_type"] = "parts"
+		opts["file_name"] = io.Name
 		opts["parts"] = strconv.Itoa(numParts)
 		if _, err := createOrUpdate(opts, io.Host, node.Id, token); err != nil {
 			return node.Id, err
@@ -702,6 +703,9 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 				form.AddParam("parts", opts.Value("parts"))
 			} else {
 				return nil, errors.New("missing partial upload parameter: parts")
+			}
+			if opts.HasKey("file_name") {
+			    form.AddParam("file_name", opts.Value("file_name"))
 			}
 		case "part":
 			if opts.HasKey("part") && opts.HasKey("file") {

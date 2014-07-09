@@ -222,9 +222,9 @@ func ComposeProfile() (profile *core.Client, err error) {
 
 		fmt.Printf("openstack_metadata_url=%s, getting instance_id and instance_type...\n", conf.OPENSTACK_METADATA_URL)
 
-		instance_name, err := getMetaDataField("name")
+		instance_hostname, err := getMetaDataField("hostname")
 		if err == nil {
-			profile.Name = instance_name
+			profile.Name = instance_hostname
 		}
 		instance_id, err := getMetaDataField("instance_id")
 		if err == nil {

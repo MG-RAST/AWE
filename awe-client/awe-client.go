@@ -56,6 +56,15 @@ func main() {
 		fmt.Printf("pid: %d saved to file: %s\n\n", pid, conf.PID_FILE_PATH)
 	}
 
+	var logdir string
+	if conf.CLIENT_NAME != "" {
+		logdir = conf.CLIENT_NAME
+	} else {
+		logdir = "default"
+	}
+
+	logger.Initialize("client-" + logdir)
+
 	profile, err := worker.ComposeProfile()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fail to compose profile: %s\n", err.Error())
@@ -77,15 +86,6 @@ func main() {
 		os.Exit(1)
 	}
 	core.InitClientProfile(self)
-
-	var logdir string
-	if self.Name != "" {
-		logdir = self.Name
-	} else {
-		logdir = conf.CLIENT_NAME
-	}
-
-	logger.Initialize("client-" + logdir)
 
 	fmt.Printf("Client registered, name=%s, id=%s\n", self.Name, self.Id)
 	logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)

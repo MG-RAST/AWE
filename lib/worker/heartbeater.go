@@ -286,31 +286,48 @@ func CleanDisk() (err error) {
 func getMetaDataField(field string) (result string, err error) {
 	var url = fmt.Sprintf("%s/%s", conf.OPENSTACK_METADATA_URL, field)
 	fmt.Printf("url=%s\n", url)
-	var res *http.Response
-	c := make(chan bool, 1)
-	go func() {
-		res, err = http.Get(url)
-		c <- true //we are ending
-	}()
-	select {
-	case <-c:
-		//go ahead
-	case <-time.After(conf.INSTANCE_METADATA_TIMEOUT): //GET timeout
-		return "", errors.New("timeout")
+
+	for i := 0; i < 3; i++ {
+		var res *http.Response
+		c := make(chan bool, 1)
+		go func() {
+			res, err = http.Get(url)
+			c <- true //we are ending
+		}()
+		select {
+		case <-c:
+			//go ahead
+		case <-time.After(conf.INSTANCE_METADATA_TIMEOUT): //GET timeout
+			return "", errors.New("timeout")
+		}
+		if err != nil {
+			return "", err
+		}
+		defer res.Body.Close()
+		bodybytes, err := ioutil.ReadAll(res.Body)
+		result = string(bodybytes[:])
+		if err != nil {
+			fmt.Printf("error: (iteration=%d) %s \"%s\"\n", i, url, err.Error())
+		} else if result == "" {
+			fmt.Printf("error: (iteration=%d) %s , empty result\n", i, url)
+		} else {
+			break
+		}
 	}
+
 	if err != nil {
 		return "", err
 	}
-	defer res.Body.Close()
-	bodybytes, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return "", err
+
+	if result == "" {
+		return "", errors.New("metadata result empty, %s", url)
 	}
-	result = string(bodybytes[:])
+	fmt.Printf("Intance Metadata %s => \"%s\"", url, result)
 	//logger.Debug(1, fmt.Sprintf("Intance Metadata %s => \"%s\"", url, result))
 	return
 }
 
+// TODO deprecated by getMetaDataField !?
 func getInstanceId() (instance_id string, err error) {
 	var instance_id_url = fmt.Sprintf("%s/instance-id", conf.OPENSTACK_METADATA_URL)
 	var res *http.Response
@@ -338,6 +355,7 @@ func getInstanceId() (instance_id string, err error) {
 	return
 }
 
+// TODO deprecated by getMetaDataField !?
 func getInstanceType() (instance_type string, err error) {
 	var instance_type_url = fmt.Sprintf("%s/instance-type", conf.OPENSTACK_METADATA_URL)
 	var res *http.Response

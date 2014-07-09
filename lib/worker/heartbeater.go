@@ -306,7 +306,7 @@ func getMetaDataField(field string) (result string, err error) {
 		return "", err
 	}
 	result = string(bodybytes[:])
-	logger.Debug(1, fmt.Sprintf("Intance Metadata %s => \"%s\"", url, result))
+	//logger.Debug(1, fmt.Sprintf("Intance Metadata %s => \"%s\"", url, result))
 	return
 }
 

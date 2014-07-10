@@ -320,7 +320,7 @@ func getMetaDataField(field string) (result string, err error) {
 	}
 
 	if result == "" {
-		return "", errors.New("metadata result empty, %s", url)
+		return "", errors.New(fmt.Sprintf("metadata result empty, %s", url))
 	}
 	fmt.Printf("Intance Metadata %s => \"%s\"", url, result)
 	//logger.Debug(1, fmt.Sprintf("Intance Metadata %s => \"%s\"", url, result))

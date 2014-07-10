@@ -136,7 +136,8 @@ func MakeAppRegistry() (new_instance AppRegistry, err error) {
 	new_instance = make(AppRegistry)
 
 	//new_instance.packages = make(map[string]*AppPackage)
-
+	app_registry_json := ""
+	
 MYFOR:
 	for i := 0; i < 3; i++ {
 		var res *http.Response
@@ -154,11 +155,12 @@ MYFOR:
 			break MYFOR
 		}
 		if err == nil {
-
-			app_registry_json, err := ioutil.ReadAll(res.Body)
-			if err == nil {
+			app_registry_json = ""
+			app_registry_json, err = ioutil.ReadAll(res.Body)
+			if err == nil && app_registry_json != "" {
 				break
 			}
+			
 		}
 		if i == 3 {
 			break

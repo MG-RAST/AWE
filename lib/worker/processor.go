@@ -12,7 +12,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/wgerlach/go-dockerclient"
 	"io"
 	"io/ioutil"
@@ -116,7 +116,7 @@ func RemoveOldAWEContainers(client *docker.Client, container_name string) (err e
 
 	old_containers_deleted := 0
 	for _, cont := range containers {
-		spew.Dump(cont)
+		//spew.Dump(cont)
 		delete_old_container := false
 
 		logger.Debug(1, fmt.Sprintf("container ID: %s", cont.ID))
@@ -220,9 +220,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}
 
 	imgs, _ := client.ListImages(false)
-	for _, img := range imgs {
-		spew.Dump(img)
-	}
+	//for _, img := range imgs {
+	//	spew.Dump(img)
+	//}
 
 	// delete any old AWE_container
 	err = RemoveOldAWEContainers(client, container_name)
@@ -306,8 +306,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("error inspectinf container, err=%s", err.Error()))
 		}
-		spew.Dump(container)
-		spew.Dump(container.Config)
+		//spew.Dump(container)
+		//spew.Dump(container.Config)
 		fmt.Println("name: ", container.Name)
 	}
 

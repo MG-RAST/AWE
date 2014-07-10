@@ -111,7 +111,7 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 
 	// get arguments
 	//args_array := strings.Split(args_string_space_removed, ",")
-	args_array := parsed.workunit.Cmd.App_args
+	//args_array := parsed.workunit.Cmd.App_args
 
 	logger.Debug(1, "+++ replace_filepath_with_full_filepath")
 	// expand filenames

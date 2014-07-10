@@ -219,7 +219,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		return nil, errors.New(fmt.Sprintf("error creating docker client", err.Error()))
 	}
 
-	imgs, _ := client.ListImages(false)
+	//imgs, _ := client.ListImages(false)
 	//for _, img := range imgs {
 	//	spew.Dump(img)
 	//}

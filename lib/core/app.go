@@ -137,7 +137,26 @@ func MakeAppRegistry() (new_instance AppRegistry, err error) {
 
 	//new_instance.packages = make(map[string]*AppPackage)
 
-	res, err := http.Get(conf.APP_REGISTRY_URL) // TODO loop, timeout, AWE client get from server
+	for i := 0; i < 3; i++ {
+		c := make(chan bool, 1)
+		go func() {
+			res, err := http.Get(conf.APP_REGISTRY_URL)
+			c <- true //we are ending
+		}()
+		select {
+		case <-c:
+			//go ahead
+		case <-time.After(5): //GET timeout
+			return "", errors.New("timeout")
+		}
+		if err == nil {
+			break
+		}
+		if i == 3 {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 
 	if err != nil {
 		err = errors.New("downloading app registry, error=" + err.Error())

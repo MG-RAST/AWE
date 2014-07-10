@@ -225,9 +225,7 @@ func ComposeProfile() (profile *core.Client, err error) {
 		// read all values: for i in `curl http://169.254.169.254/1.0/meta-data/` ; do echo ${i}: `curl -s http://169.254.169.254/1.0/meta-data/${i}` ; done
 		instance_hostname, err := getMetaDataField("hostname")
 		if err == nil {
-
 			instance_hostname = strings.TrimSuffix(instance_hostname, ".novalocal")
-
 			profile.Name = instance_hostname
 		}
 		instance_id, err := getMetaDataField("instance-id")
@@ -238,6 +236,11 @@ func ComposeProfile() (profile *core.Client, err error) {
 		if err == nil {
 			profile.InstanceType = instance_type
 		}
+		local_ipv4, err := getMetaDataField("local-ipv4")
+		if err == nil {
+			profile.Host = local_ipv4
+		}
+
 		//for i := 0; i < 3; i++ {
 		//	profile.InstanceId, _ = getInstanceId()
 		//	if profile.InstanceId != "" {

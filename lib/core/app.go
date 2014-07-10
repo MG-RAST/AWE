@@ -141,7 +141,7 @@ MYFOR:
 	for i := 0; i < 3; i++ {
 
 		if i > 0 {
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(5000 * time.Millisecond)
 		}
 
 		var res *http.Response
@@ -154,7 +154,7 @@ MYFOR:
 		select {
 		case <-c:
 			//go ahead
-		case <-time.After(5): //GET timeout
+		case <-time.After(5000 * time.Millisecond): //GET timeout
 			logger.Error("warning: " + conf.APP_REGISTRY_URL + " timeout")
 			break MYFOR
 		}

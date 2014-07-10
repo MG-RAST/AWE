@@ -137,6 +137,7 @@ func MakeAppRegistry() (new_instance AppRegistry, err error) {
 
 	//new_instance.packages = make(map[string]*AppPackage)
 
+MYFOR:
 	for i := 0; i < 3; i++ {
 		var res *http.Response
 		defer res.Body.Close()
@@ -149,7 +150,8 @@ func MakeAppRegistry() (new_instance AppRegistry, err error) {
 		case <-c:
 			//go ahead
 		case <-time.After(5): //GET timeout
-			return "", errors.New("timeout")
+			logger.Error("warning: " + conf.APP_REGISTRY_URL + " timeout")
+			break MYFOR
 		}
 		if err == nil {
 

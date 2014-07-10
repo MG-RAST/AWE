@@ -138,6 +138,8 @@ func MakeAppRegistry() (new_instance AppRegistry, err error) {
 	//new_instance.packages = make(map[string]*AppPackage)
 
 	for i := 0; i < 3; i++ {
+		var res *http.Response
+		defer res.Body.Close()
 		c := make(chan bool, 1)
 		go func() {
 			res, err := http.Get(conf.APP_REGISTRY_URL)
@@ -150,7 +152,11 @@ func MakeAppRegistry() (new_instance AppRegistry, err error) {
 			return "", errors.New("timeout")
 		}
 		if err == nil {
-			break
+
+			app_registry_json, err := ioutil.ReadAll(res.Body)
+			if err == nil {
+				break
+			}
 		}
 		if i == 3 {
 			break
@@ -163,19 +169,6 @@ func MakeAppRegistry() (new_instance AppRegistry, err error) {
 
 		return
 	}
-	//logger.Debug(1, fmt.Sprintf("app downloaded: %s", parsed.workunit.Cmd.Name))
-
-	app_registry_json, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-	//logger.Debug(1, fmt.Sprintf("app stored in app_registry_json: %s", parsed.workunit.Cmd.Name))
-
-	if err != nil {
-		err = errors.New("error reading app registry, error=" + err.Error())
-		return
-	}
-	//logger.Debug(1, fmt.Sprintf("app registry downloaded: %s", app_string))
-
-	//fmt.Printf("%s", app_registry_json)
 
 	// transform json into go struct interface
 	//var f map[string]interface{}

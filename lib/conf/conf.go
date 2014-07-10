@@ -97,6 +97,9 @@ var (
 
 	GOMAXPROCS = 0
 
+	//APP
+	APP_REGISTRY_URL = ""
+
 	//[client]
 	TOTAL_WORKER                  = 1
 	WORK_PATH                     = ""
@@ -230,6 +233,9 @@ func init() {
 	if MONGODB_DATABASE == "" {
 		MONGODB_DATABASE = "AWEDB"
 	}
+
+	// APP
+	APP_REGISTRY_URL, _ = c.String("App", "app_registry_url")
 
 	// Server options
 	if perf_log_workunit, err := c.Bool("Server", "perf_log_workunit"); err == nil {

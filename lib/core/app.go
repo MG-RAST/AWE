@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var app_registry_url = "https://raw.githubusercontent.com/wgerlach/SODOKU/master/apps/apps.json"
+//var app_registry_url = "https://raw.githubusercontent.com/wgerlach/SODOKU/master/apps/apps.json"
 var MyAppRegistry AppRegistry
 
 type AppCommandMode struct {
@@ -127,11 +127,16 @@ func apptype2string(ait AppInputType) string {
 // generator function for app registry
 func MakeAppRegistry() (new_instance AppRegistry, err error) {
 
+	if conf.APP_REGISTRY_URL == "" {
+		err = errors.New("error app registry url empty")
+		return
+	}
+
 	new_instance = make(AppRegistry)
 
 	//new_instance.packages = make(map[string]*AppPackage)
 
-	res, err := http.Get(app_registry_url)
+	res, err := http.Get(conf.APP_REGISTRY_URL) // TODO loop, timeout, AWE client get from server
 
 	if err != nil {
 		err = errors.New("downloading app registry, error=" + err.Error())

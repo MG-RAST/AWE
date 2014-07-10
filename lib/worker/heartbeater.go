@@ -222,15 +222,16 @@ func ComposeProfile() (profile *core.Client, err error) {
 
 		fmt.Printf("openstack_metadata_url=%s, getting instance_id and instance_type...\n", conf.OPENSTACK_METADATA_URL)
 
+		// read all values: for i in `curl http://169.254.169.254/1.0/meta-data/` ; do echo ${i}: `curl -s http://169.254.169.254/1.0/meta-data/${i}` ; done
 		instance_hostname, err := getMetaDataField("hostname")
 		if err == nil {
 			profile.Name = instance_hostname
 		}
-		instance_id, err := getMetaDataField("instance_id")
+		instance_id, err := getMetaDataField("instance-id")
 		if err == nil {
 			profile.InstanceId = instance_id
 		}
-		instance_type, err := getMetaDataField("instance_type")
+		instance_type, err := getMetaDataField("instance-type")
 		if err == nil {
 			profile.InstanceType = instance_type
 		}
@@ -284,7 +285,7 @@ func CleanDisk() (err error) {
 }
 
 func getMetaDataField(field string) (result string, err error) {
-	var url = fmt.Sprintf("%s/%s", conf.OPENSTACK_METADATA_URL, field)
+	var url = fmt.Sprintf("%s/%s", conf.OPENSTACK_METADATA_URL, field) // TODO this is not OPENSTACK, this is EC2
 	fmt.Printf("url=%s\n", url)
 
 	for i := 0; i < 3; i++ {

@@ -136,10 +136,14 @@ func MakeAppRegistry() (new_instance AppRegistry, err error) {
 	new_instance = make(AppRegistry)
 
 	//new_instance.packages = make(map[string]*AppPackage)
-	app_registry_json := ""
-	
+
 MYFOR:
 	for i := 0; i < 3; i++ {
+
+		if i > 0 {
+			time.Sleep(500 * time.Millisecond)
+		}
+
 		var res *http.Response
 		defer res.Body.Close()
 		c := make(chan bool, 1)
@@ -154,35 +158,34 @@ MYFOR:
 			logger.Error("warning: " + conf.APP_REGISTRY_URL + " timeout")
 			break MYFOR
 		}
-		if err == nil {
-			app_registry_json = ""
-			app_registry_json, err = ioutil.ReadAll(res.Body)
-			if err == nil && app_registry_json != "" {
-				break
-			}
-			
+		if err != nil {
+			logger.Error("warning: " + conf.APP_REGISTRY_URL + " " + err.Error())
+			continue
 		}
-		if i == 3 {
-			break
+
+		app_registry_json, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			logger.Error(fmt.Sprintf("warning, could not read app registry json"))
+			continue
 		}
-		time.Sleep(500 * time.Millisecond)
+
+		// transform json into go struct interface
+		//var f map[string]interface{}
+		err = json.Unmarshal(app_registry_json, &new_instance)
+
+		if err != nil {
+			logger.Error("error unmarshaling app registry, error=" + err.Error())
+			continue
+		}
+
+		logger.Debug(1, fmt.Sprintf("app registry unmarshalled"))
+
 	}
 
 	if err != nil {
-		err = errors.New("downloading app registry, error=" + err.Error())
-
+		err = errors.New("could not get app registry, error=" + err.Error())
 		return
 	}
-
-	// transform json into go struct interface
-	//var f map[string]interface{}
-	err = json.Unmarshal(app_registry_json, &new_instance)
-
-	if err != nil {
-		err = errors.New("error unmarshaling app registry, error=" + err.Error())
-		return
-	}
-	logger.Debug(1, fmt.Sprintf("app registry unmarshalled"))
 
 	return
 }

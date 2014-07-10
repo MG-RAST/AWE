@@ -229,6 +229,7 @@ func ComposeProfile() (profile *core.Client, err error) {
 		}
 		instance_id, err := getMetaDataField("instance-id")
 		if err == nil {
+			instance_id = strings.TrimSuffix(instance_id, ".novalocal")
 			profile.InstanceId = instance_id
 		}
 		instance_type, err := getMetaDataField("instance-type")

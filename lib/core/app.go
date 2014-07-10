@@ -145,7 +145,7 @@ MYFOR:
 		}
 
 		var res *http.Response
-		defer res.Body.Close()
+		
 		c := make(chan bool, 1)
 		go func() {
 			res, err = http.Get(conf.APP_REGISTRY_URL)
@@ -158,6 +158,7 @@ MYFOR:
 			logger.Error("warning: " + conf.APP_REGISTRY_URL + " timeout")
 			break MYFOR
 		}
+		defer res.Body.Close()
 		if err != nil {
 			logger.Error("warning: " + conf.APP_REGISTRY_URL + " " + err.Error())
 			continue

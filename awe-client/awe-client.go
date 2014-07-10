@@ -56,14 +56,7 @@ func main() {
 		fmt.Printf("pid: %d saved to file: %s\n\n", pid, conf.PID_FILE_PATH)
 	}
 
-	var logdir string
-	if conf.CLIENT_NAME != "" {
-		logdir = conf.CLIENT_NAME
-	} else {
-		logdir = "default"
-	}
-
-	logger.Initialize("client-" + logdir)
+	logger.Initialize("client")
 
 	profile, err := worker.ComposeProfile()
 	if err != nil {

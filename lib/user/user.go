@@ -28,7 +28,14 @@ func Initialize() {
 	c := session.DB(conf.MONGODB_DATABASE).C("Users")
 	c.EnsureIndex(mgo.Index{Key: []string{"uuid"}, Unique: true})
 	c.EnsureIndex(mgo.Index{Key: []string{"username"}, Unique: true})
-	New("public", "public", false) //initialize a default public user
+
+	// Setting admin users based on config file.  First, set all users to Admin = false
+	c.UpdateAll(bson.M{}, bson.M{"admin": false})
+
+	// This config parameter contains a string that should be a comma-separated list of users that are Admins.
+	for _, v := range conf.Admin_Users {
+		c.Update(bson.M{"username": v}, bson.M{"$set": bson.M{"admin": true}})
+	}
 }
 
 func New(username string, password string, isAdmin bool) (u *User, err error) {
@@ -69,9 +76,10 @@ func AdminGet(u *Users) (err error) {
 	return
 }
 
-func (u *User) SetUuid() (err error) {
-	if uu, err := dbGetUuid(u.Email); err == nil {
+func (u *User) SetMongoInfo() (err error) {
+	if uu, admin, err := dbGetInfo(u.Username); err == nil {
 		u.Uuid = uu
+		u.Admin = admin
 		return nil
 	} else {
 		u.Uuid = uuid.New()
@@ -82,26 +90,20 @@ func (u *User) SetUuid() (err error) {
 	return
 }
 
-func dbGetUuid(email string) (uuid string, err error) {
+func dbGetInfo(username string) (uuid string, admin bool, err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C("Users")
 	u := User{}
-	if err = c.Find(bson.M{"email": email}).One(&u); err != nil {
-		return "", err
+	if err = c.Find(bson.M{"username": username}).One(&u); err != nil {
+		return "", false, err
 	}
-	return u.Uuid, nil
+	return u.Uuid, u.Admin, nil
 }
 
 func (u *User) Save() (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C("Users")
-	err = c.Insert(&u)
-	return
-}
-
-func (u *User) RemovePasswd() (nu *User) {
-	nu = &User{Uuid: u.Uuid, Username: u.Username, Password: "**********", Admin: u.Admin}
-	return
+	return c.Insert(&u)
 }

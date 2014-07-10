@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
+	e "github.com/MG-RAST/AWE/lib/errors"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 )
@@ -91,6 +92,23 @@ func LoadJob(id string) (job *Job, err error) {
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 	if err = c.Find(bson.M{"id": id}).One(&job); err == nil {
+		return job, nil
+	} else {
+		return nil, err
+	}
+	return nil, err
+}
+
+func LoadJobByUser(id string, uuid string) (job *Job, err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	job = new(Job)
+	if err = c.Find(bson.M{"id": id}).One(&job); err == nil {
+		rights := job.Acl.Check(uuid)
+		if !rights["read"] && uuid != job.Acl.Owner {
+			return nil, errors.New(e.UnAuth)
+		}
 		return job, nil
 	} else {
 		return nil, err

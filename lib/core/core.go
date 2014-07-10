@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/user"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -91,7 +93,7 @@ func (o *Opts) Value(key string) string {
 //used for issue operation request to client, e.g. discard suspended workunits
 type HBmsg map[string]string //map[op]obj1,obj2 e.g. map[discard]=work1,work2
 
-func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job *Job, err error) {
+func CreateJobUpload(u *user.User, params map[string]string, files FormFiles, jid string) (job *Job, err error) {
 
 	if _, has_upload := files["upload"]; has_upload {
 		job, err = ParseJobTasks(files["upload"].Path, jid)
@@ -103,6 +105,11 @@ func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job
 		err = errors.New("error parsing job, error=" + err.Error())
 		return
 	}
+
+	// Once, job has been created, set job owner and add owner to all ACL's
+	job.Acl.SetOwner(u.Uuid)
+	job.Acl.Set(u.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
+
 	err = job.Mkdir()
 	if err != nil {
 		err = errors.New("error creating job directory, error=" + err.Error())

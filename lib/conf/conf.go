@@ -52,7 +52,7 @@ var (
 	GLOBUS_TOKEN_URL   = ""
 	GLOBUS_PROFILE_URL = ""
 	MGRAST_OAUTH_URL   = ""
-	ADMIN_AUTH         = false
+	CLIENT_AUTH_REQ    = false
 
 	// Admin
 	ADMIN_EMAIL = ""
@@ -129,7 +129,7 @@ var (
 	//const
 	ALL_APP = "*"
 
-	Admin_List = make(map[string]bool)
+	Admin_Users = make(map[string]bool)
 )
 
 func init() {
@@ -189,16 +189,6 @@ func init() {
 	GLOBUS_PROFILE_URL, _ = c.String("Auth", "globus_profile_url")
 	MGRAST_OAUTH_URL, _ = c.String("Auth", "mgrast_oauth_url")
 
-	if admin_list, err := c.String("Auth", "admin_list"); err == nil {
-		for _, name := range strings.Split(admin_list, ",") {
-			Admin_List[name] = true
-		}
-	}
-
-	if admin_auth, err := c.Bool("Auth", "admin_auth"); err == nil {
-		ADMIN_AUTH = admin_auth
-	}
-
 	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
 		GLOBUS_OAUTH = true
 	}
@@ -206,7 +196,15 @@ func init() {
 		MGRAST_OAUTH = true
 	}
 
+	CLIENT_AUTH_REQ, _ = c.Bool("Auth", "client_auth_required")
+
 	// Admin
+	if admin_users, err := c.String("Admin", "users"); err == nil {
+		for _, name := range strings.Split(admin_users, ",") {
+			Admin_Users[name] = true
+		}
+	}
+
 	ADMIN_EMAIL, _ = c.String("Admin", "email")
 	SECRET_KEY, _ = c.String("Admin", "secretkey")
 
@@ -319,9 +317,9 @@ func Print(service string) {
 	if MGRAST_OAUTH_URL != "" {
 		fmt.Printf("mgrast_oauth_url:\t%s\n", MGRAST_OAUTH_URL)
 	}
-	if ADMIN_AUTH {
-		fmt.Printf("admin_auth:\ttrue\nadmin_list:\t")
-		for name, _ := range Admin_List {
+	if len(Admin_Users) > 0 {
+		fmt.Printf("admin_auth:\ttrue\nadmin_users:\t")
+		for name, _ := range Admin_Users {
 			fmt.Printf("%s ", name)
 		}
 		fmt.Printf("\n")

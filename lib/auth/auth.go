@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/MG-RAST/AWE/lib/auth/basic"
 	"github.com/MG-RAST/AWE/lib/auth/globus"
-	"github.com/MG-RAST/AWE/lib/auth/mgrast"
+	//"github.com/MG-RAST/AWE/lib/auth/mgrast"
 	"github.com/MG-RAST/AWE/lib/conf"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/user"
@@ -24,9 +24,9 @@ func Initialize() {
 	if conf.GLOBUS_OAUTH {
 		authMethods = append(authMethods, globus.Auth)
 	}
-	if conf.MGRAST_OAUTH {
-		authMethods = append(authMethods, mgrast.Auth)
-	}
+	//if conf.MGRAST_OAUTH {
+	//	authMethods = append(authMethods, mgrast.Auth)
+	//}
 }
 
 func Authenticate(header string) (u *user.User, err error) {
@@ -34,12 +34,11 @@ func Authenticate(header string) (u *user.User, err error) {
 		return u, nil
 	} else {
 		for _, auth := range authMethods {
-			if u, _ := auth(header); u != nil {
+			if u, err := auth(header); u != nil && err == nil {
 				authCache.add(header, u)
 				return u, nil
 			}
 		}
 	}
-
 	return nil, errors.New(e.InvalidAuth)
 }

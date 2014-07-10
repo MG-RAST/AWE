@@ -220,14 +220,14 @@ func ComposeProfile() (profile *core.Client, err error) {
 
 	if len(conf.OPENSTACK_METADATA_URL) > 7 { // longer than "http://"
 
-		fmt.Printf("openstack_metadata_url=%s, getting instance_id and instance_type...\n", conf.OPENSTACK_METADATA_URL)
+		logger.Debug(1, fmt.Sprintf("openstack_metadata_url=%s, getting instance_id and instance_type...", conf.OPENSTACK_METADATA_URL))
 
 		// read all values: for i in `curl http://169.254.169.254/1.0/meta-data/` ; do echo ${i}: `curl -s http://169.254.169.254/1.0/meta-data/${i}` ; done
 		instance_hostname, err := getMetaDataField("hostname")
 		if err == nil {
-			//fmt.Printf("instance_hostname: " + instance_hostname)
+
 			instance_hostname = strings.TrimSuffix(instance_hostname, ".novalocal")
-			//fmt.Printf("instance_hostname, trimmed: " + instance_hostname)
+
 			profile.Name = instance_hostname
 		}
 		instance_id, err := getMetaDataField("instance-id")
@@ -289,8 +289,7 @@ func CleanDisk() (err error) {
 
 func getMetaDataField(field string) (result string, err error) {
 	var url = fmt.Sprintf("%s/%s", conf.OPENSTACK_METADATA_URL, field) // TODO this is not OPENSTACK, this is EC2
-	fmt.Printf("url=%s\n", url)
-
+	logger.Debug(1, fmt.Sprintf("url=%s", url))
 	for i := 0; i < 3; i++ {
 		var res *http.Response
 		c := make(chan bool, 1)
@@ -311,9 +310,9 @@ func getMetaDataField(field string) (result string, err error) {
 		bodybytes, err := ioutil.ReadAll(res.Body)
 		result = string(bodybytes[:])
 		if err != nil {
-			fmt.Printf("error: (iteration=%d) %s \"%s\"\n", i, url, err.Error())
+			logger.Error(fmt.Sprintf("warning: (iteration=%d) %s \"%s\"", i, url, err.Error()))
 		} else if result == "" {
-			fmt.Printf("error: (iteration=%d) %s , empty result\n", i, url)
+			logger.Error(fmt.Sprintf("warning: (iteration=%d) %s empty result", i, url))
 		} else {
 			break
 		}
@@ -326,8 +325,8 @@ func getMetaDataField(field string) (result string, err error) {
 	if result == "" {
 		return "", errors.New(fmt.Sprintf("metadata result empty, %s", url))
 	}
-	fmt.Printf("Intance Metadata %s => \"%s\"", url, result)
-	//logger.Debug(1, fmt.Sprintf("Intance Metadata %s => \"%s\"", url, result))
+	//fmt.Printf("Intance Metadata %s => \"%s\"\n", url, result)
+	logger.Debug(1, fmt.Sprintf("Intance Metadata %s => \"%s\"", url, result))
 	return
 }
 

@@ -225,13 +225,13 @@ func ComposeProfile() (profile *core.Client, err error) {
 		// read all values: for i in `curl http://169.254.169.254/1.0/meta-data/` ; do echo ${i}: `curl -s http://169.254.169.254/1.0/meta-data/${i}` ; done
 		instance_hostname, err := getMetaDataField("hostname")
 		if err == nil {
+			//fmt.Printf("instance_hostname: " + instance_hostname)
+			instance_hostname = strings.TrimSuffix(instance_hostname, ".novalocal")
+			//fmt.Printf("instance_hostname, trimmed: " + instance_hostname)
 			profile.Name = instance_hostname
 		}
 		instance_id, err := getMetaDataField("instance-id")
 		if err == nil {
-			fmt.Printf("instance_id: " + instance_id)
-			instance_id = strings.TrimSuffix(instance_id, ".novalocal")
-			fmt.Printf("instance_id, trimmed: " + instance_id)
 			profile.InstanceId = instance_id
 		}
 		instance_type, err := getMetaDataField("instance-type")

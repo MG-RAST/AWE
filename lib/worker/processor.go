@@ -119,9 +119,9 @@ func RemoveOldAWEContainers(client *docker.Client, container_name string) (err e
 		//spew.Dump(cont)
 		delete_old_container := false
 
-		logger.Debug(1, fmt.Sprintf("container ID: %s", cont.ID))
+		logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) check container with ID: %s", cont.ID))
 		for _, cname := range cont.Names {
-			logger.Debug(1, fmt.Sprintf("container name: %s", cname))
+			logger.Debug(1, fmt.Sprintf("c(RemoveOldAWEContainers) ontainer name: %s", cname))
 			if cname == container_name {
 				delete_old_container = true
 			}
@@ -131,32 +131,32 @@ func RemoveOldAWEContainers(client *docker.Client, container_name string) (err e
 		}
 
 		if delete_old_container == true {
-			logger.Debug(1, fmt.Sprintf("found old container %s and try to delete it...", container_name))
+			logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) found old container %s and try to delete it...", container_name))
 			container, err := client.InspectContainer(cont.ID)
 			if err != nil {
-				return errors.New(fmt.Sprintf("error inspecting old container id=%s, err=%s", cont.ID, err.Error()))
+				return errors.New(fmt.Sprintf("(RemoveOldAWEContainers) error inspecting old container id=%s, err=%s", cont.ID, err.Error()))
 			}
 			if container.State.Running == true {
-				logger.Debug(1, fmt.Sprintf("try to kill old container %s...", container_name))
+				logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) try to kill old container %s...", container_name))
 				err := client.KillContainer(docker.KillContainerOptions{ID: cont.ID})
 				if err != nil {
-					return errors.New(fmt.Sprintf("error killing old container id=%s, err=%s", cont.ID, err.Error()))
+					return errors.New(fmt.Sprintf("(RemoveOldAWEContainers) error killing old container id=%s, err=%s", cont.ID, err.Error()))
 				}
 			}
 			container, err = client.InspectContainer(cont.ID)
 			if err != nil {
-				return errors.New(fmt.Sprintf("error inspecting old container id=%s, err=%s", cont.ID, err.Error()))
+				return errors.New(fmt.Sprintf("(RemoveOldAWEContainers) error inspecting old container id=%s, err=%s", cont.ID, err.Error()))
 			}
 			if container.State.Running == true {
-				return errors.New(fmt.Sprintf("old container is still running"))
+				return errors.New(fmt.Sprintf("(RemoveOldAWEContainers) old container is still running"))
 			}
-			logger.Debug(1, fmt.Sprintf("try to remove old container %s...", container_name))
+			logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) try to remove old container %s...", container_name))
 			c_remove_opts := docker.RemoveContainerOptions{ID: cont.ID}
 			err = client.RemoveContainer(c_remove_opts)
 			if err != nil {
-				return errors.New(fmt.Sprintf("error removing old container id=%s, err=%s", cont.ID, err.Error()))
+				return errors.New(fmt.Sprintf("(RemoveOldAWEContainers) error removing old container id=%s, err=%s", cont.ID, err.Error()))
 			}
-			logger.Debug(1, fmt.Sprintf("old container %s should have been removed", container_name))
+			logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) old container %s should have been removed", container_name))
 			old_containers_deleted += 1
 		}
 
@@ -367,7 +367,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	var MaxMem uint64 = 0
 
-	memory_stat_filename := path.Join("/sys/fs/cgroup/memory/docker/", container_id, "/memory.stat")
+	memory_stat_filename := path.Join(conf.CGROUP_MEMORY_DOCKER_DIR, container_id, "/memory.stat")
 
 	go func() { // memory checker
 

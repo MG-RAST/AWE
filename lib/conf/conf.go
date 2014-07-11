@@ -129,6 +129,7 @@ var (
 	//tag
 	INIT_SUCCESS = true
 
+	CGROUP_MEMORY_DOCKER_DIR = ""
 	//const
 	ALL_APP = "*"
 
@@ -142,6 +143,7 @@ func init() {
 	flag.BoolVar(&SHOW_VERSION, "version", false, "show version.")
 	flag.IntVar(&DEBUG_LEVEL, "debug", -1, "debug level: 0-3")
 	flag.BoolVar(&DEV_MODE, "dev", false, "dev or demo mode, print some msgs on screen")
+	flag.StringVar(&CGROUP_MEMORY_DOCKER_DIR, "cgroup_memory_docker_dir", "/sys/fs/cgroup/memory/docker/", "path to cgroup directory for docker")
 	flag.Parse()
 
 	//	fmt.Printf("in conf.init(), flag=%v", flag)

@@ -56,7 +56,8 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 }
 
 func (work *Workunit) Mkdir() (err error) {
-	os.RemoveAll(work.Path()) // delete workdir just in case it exists
+	// delete workdir just in case it exists; will not work if awe-client is not in docker container AND tasks are in container
+	os.RemoveAll(work.Path())
 
 	err = os.MkdirAll(work.Path(), 0777)
 	if err != nil {

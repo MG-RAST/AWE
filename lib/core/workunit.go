@@ -56,7 +56,7 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 }
 
 func (work *Workunit) Mkdir() (err error) {
-	RemoveAll(work.Path()) // delete workdir just in case it exists
+	os.RemoveAll(work.Path()) // delete workdir just in case it exists
 
 	err = os.MkdirAll(work.Path(), 0777)
 	if err != nil {

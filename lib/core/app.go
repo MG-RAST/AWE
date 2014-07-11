@@ -145,7 +145,7 @@ MYFOR:
 		}
 
 		var res *http.Response
-		
+
 		c := make(chan bool, 1)
 		go func() {
 			res, err = http.Get(conf.APP_REGISTRY_URL)

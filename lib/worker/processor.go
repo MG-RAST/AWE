@@ -16,7 +16,7 @@ import (
 	"github.com/wgerlach/go-dockerclient"
 	"io"
 	"io/ioutil"
-	"log"
+	//"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -392,7 +392,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			var memory uint64 = 0
 			memory_stat_file, err := os.Open(memory_stat_filename)
 			if err != nil {
-				logger.Error("warning: error opening memory_stat_file file:"+ err.Error())
+				logger.Error("warning: error opening memory_stat_file file:" + err.Error())
 				err = nil
 				time.Sleep(conf.MEM_CHECK_INTERVAL)
 				continue

@@ -419,8 +419,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 			// When finished scanning if any error other than io.EOF occured
 			// it will be returned by scanner.Err().
-			if err := memory_stat_file_scanner.Err(); err != nil {
-				logger.Error(fmt.Sprintf("error reading memory usage from cgroups=", memory_stat_file_scanner.Err()))
+			if err = memory_stat_file_scanner.Err(); err != nil {
+				logger.Error(fmt.Sprintf("warning: could no read memory usage from cgroups=", memory_stat_file_scanner.Err()))
+				err = nil
 			} else {
 				//fmt.Println("memory: ", memory )
 				if memory > MaxMem {

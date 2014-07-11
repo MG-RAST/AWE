@@ -121,7 +121,7 @@ func RemoveOldAWEContainers(client *docker.Client, container_name string) (err e
 
 		logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) check container with ID: %s", cont.ID))
 		for _, cname := range cont.Names {
-			logger.Debug(1, fmt.Sprintf("c(RemoveOldAWEContainers) ontainer name: %s", cname))
+			logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) container name: %s", cname))
 			if cname == container_name {
 				delete_old_container = true
 			}

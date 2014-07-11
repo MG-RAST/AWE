@@ -293,7 +293,7 @@ func CleanDisk() (err error) {
 func getMetaDataField(field string) (result string, err error) {
 	var url = fmt.Sprintf("%s/%s", conf.OPENSTACK_METADATA_URL, field) // TODO this is not OPENSTACK, this is EC2
 	logger.Debug(1, fmt.Sprintf("url=%s", url))
-MYFOR:
+
 	for i := 0; i < 3; i++ {
 		var res *http.Response
 		c := make(chan bool, 1)

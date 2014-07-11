@@ -392,7 +392,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			var memory uint64 = 0
 			memory_stat_file, err := os.Open(memory_stat_filename)
 			if err != nil {
-				log.Fatal("Error opening memory_stat_file file:", err)
+				log.Error("warning: error opening memory_stat_file file:"+ err.Error())
+				time.Sleep(conf.MEM_CHECK_INTERVAL)
+				continue
 			}
 
 			// Closes the file when we leave the scope of the current function,

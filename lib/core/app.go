@@ -137,7 +137,6 @@ func MakeAppRegistry() (new_instance AppRegistry, err error) {
 
 	//new_instance.packages = make(map[string]*AppPackage)
 
-MYFOR:
 	for i := 0; i < 3; i++ {
 
 		if i > 0 {
@@ -155,8 +154,7 @@ MYFOR:
 		case <-c:
 			//go ahead
 		case <-time.After(5000 * time.Millisecond): //GET timeout
-			logger.Error("warning: " + conf.APP_REGISTRY_URL + " timeout")
-			break MYFOR
+			err = errors.New("warning: " + conf.APP_REGISTRY_URL + " timeout")
 		}
 		defer res.Body.Close()
 		if err != nil {
@@ -180,7 +178,7 @@ MYFOR:
 		}
 
 		logger.Debug(1, fmt.Sprintf("app registry unmarshalled"))
-
+		break
 	}
 
 	if err != nil {

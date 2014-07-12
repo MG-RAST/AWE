@@ -272,7 +272,7 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 		return
 	}
 
-	argList := strings.Fields(argstr)
+	argList := parse_arg_string(argstr)
 
 	for _, arg := range argList {
 		match, err := regexp.Match(`\$\{\w+\}`, []byte(arg))
@@ -476,5 +476,47 @@ func isFileExisting(path string) bool {
 
 func proxyMovePreData(workunit *core.Workunit) (err error) {
 	//to be implemented
+	return
+}
+
+// split arg string into arg array, deliminated by space, ' '
+func parse_arg_string(argstr string) (argarr []string) {
+	buf := make([]byte, 150)
+	tmpstr := ""
+	i := 0
+	argarr = []string{}
+	startquote := false
+	for j, c := range argstr {
+		if c == '\'' {
+			if startquote == true { // meet closing quote
+				buf[i] = byte(c)
+				tmpstr = string(buf[:i+1])
+				argarr = append(argarr, tmpstr)
+				tmpstr = ""
+				i = 0
+				startquote = false
+				continue
+			} else { //meet starting quote
+				startquote = true
+			}
+		}
+		//skip space if no quote encountered yet
+		if startquote == false {
+			if c == ' ' {
+				if len(tmpstr) > 0 {
+					argarr = append(argarr, tmpstr)
+					tmpstr = ""
+					i = 0
+				}
+				continue
+			}
+		}
+		buf[i] = byte(c)
+		i += 1
+		tmpstr = string(buf[:i])
+		if j == len(argstr)-1 {
+			argarr = append(argarr, tmpstr)
+		}
+	}
 	return
 }

@@ -365,7 +365,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		done <- err // inform memory checker
 	}()
 
-	var MaxMem uint64 = 0
+	var MaxMem int64 = -1
+	var max_memory_total_rss int64 = -1
+	var max_memory_total_swap int64 = -1
 
 	memory_stat_filename := path.Join(conf.CGROUP_MEMORY_DOCKER_DIR, container_id, "/memory.stat")
 
@@ -443,10 +445,27 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 				err = nil
 			} else {
 
-				if memory > MaxMem {
-					MaxMem = memory
+				// RSS maxium
+				if memory_total_rss >= 0 && memory_total_rss > max_memory_total_rss {
+					max_memory_total_rss = memory_total_rss
 				}
-				logger.Debug(1, fmt.Sprintf("inspecting container with memory=%d, maximum=%d", memory, MaxMem))
+
+				// SWAP maximum
+				if memory_total_swap >= 0 && memory_total_swap > max_memory_total_swap {
+					max_memory_total_swap = memory_total_swap
+				}
+
+				// RSS+SWAP maximum
+				if memory_total_rss >= 0 && memory_total_swap >= 0 {
+
+					memory_combined := memory_total_rss + memory_total_swap
+					if memory_combined > MaxMem {
+						MaxMem = memory_combined
+					}
+
+				}
+
+				logger.Debug(1, fmt.Sprintf("memory: rss=%d, swap=%d, maximum: rss=%d swap=%d combined=%d", memory_total_rss, memory_total_swap))
 
 			}
 

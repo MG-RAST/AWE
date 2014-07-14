@@ -105,9 +105,13 @@ func (qm *CQMgr) ClientChecker() {
 	}
 }
 
-func (qm *CQMgr) ClientHeartBeat(id string) (hbmsg HBmsg, err error) {
+func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err error) {
 	hbmsg = make(map[string]string, 1)
 	if _, ok := qm.clientMap[id]; ok {
+		// If the name of the clientgroup (from auth token) does not match the name in the client retrieved, throw an error
+		if cg != nil && qm.clientMap[id].Group != cg.Name {
+			return nil, errors.New("Clientgroup name in token does not match that in the client.")
+		}
 		qm.clientMap[id].Tag = true
 		logger.Debug(3, "HeartBeatFrom:"+"clientid="+id+",name="+qm.clientMap[id].Name)
 
@@ -133,7 +137,7 @@ func (qm *CQMgr) ClientHeartBeat(id string) (hbmsg HBmsg, err error) {
 	return hbmsg, errors.New(e.ClientNotFound)
 }
 
-func (qm *CQMgr) RegisterNewClient(files FormFiles) (client *Client, err error) {
+func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Client, err error) {
 	if _, ok := files["profile"]; ok {
 		client, err = NewProfileClient(files["profile"].Path)
 		os.Remove(files["profile"].Path)
@@ -142,6 +146,10 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles) (client *Client, err error) 
 	}
 	if err != nil {
 		return nil, err
+	}
+	// If the name of the clientgroup (from auth token) does not match the name in the client profile, throw an error
+	if cg != nil && client.Group != cg.Name {
+		return nil, errors.New("Clientgroup name in token does not match that in the client configuration.")
 	}
 	qm.clientMap[client.Id] = client
 

@@ -41,9 +41,12 @@ var (
 	SSL_CERT_FILE = ""
 
 	// Anonymous-Access-Control
-	ANON_WRITE      = false
-	ANON_READ       = true
-	ANON_CREATEUSER = false
+	ANON_WRITE     = false
+	ANON_READ      = true
+	ANON_DELETE    = false
+	ANON_CG_WRITE  = false
+	ANON_CG_READ   = false
+	ANON_CG_DELETE = false
 
 	// Auth
 	BASIC_AUTH         = true
@@ -53,6 +56,7 @@ var (
 	GLOBUS_PROFILE_URL = ""
 	MGRAST_OAUTH_URL   = ""
 	CLIENT_AUTH_REQ    = false
+	CLIENT_GROUP_TOKEN = ""
 
 	// Admin
 	ADMIN_EMAIL = ""
@@ -72,6 +76,7 @@ var (
 	MONGODB_PASSWD   = ""
 	DB_COLL_JOBS     = "Jobs"
 	DB_COLL_PERF     = "Perf"
+	DB_COLL_CGS      = "ClientGroups"
 	DB_COLL_USERS    = "Users"
 
 	//debug log level
@@ -113,8 +118,6 @@ var (
 	AUTO_CLEAN_DIR                = true
 	CLIEN_DIR_DELAY_FAIL          = 30 * time.Minute //clean failed workunit dir after 30 minutes
 	CLIEN_DIR_DELAY_DONE          = 1 * time.Minute  // clean done workunit dir after 1 minute
-	CLIENT_USERNAME               = "public"
-	CLIENT_PASSWORD               = "public"
 	STDOUT_FILENAME               = "awe_stdout.txt"
 	STDERR_FILENAME               = "awe_stderr.txt"
 	WORKNOTES_FILENAME            = "awe_worknotes.txt"
@@ -179,7 +182,10 @@ func init() {
 	// Access-Control
 	ANON_WRITE, _ = c.Bool("Anonymous", "write")
 	ANON_READ, _ = c.Bool("Anonymous", "read")
-	ANON_CREATEUSER, _ = c.Bool("Anonymous", "create-user")
+	ANON_DELETE, _ = c.Bool("Anonymous", "delete")
+	ANON_CG_WRITE, _ = c.Bool("Anonymous", "cg_write")
+	ANON_CG_READ, _ = c.Bool("Anonymous", "cg_read")
+	ANON_CG_DELETE, _ = c.Bool("Anonymous", "cg_delete")
 
 	// Auth
 	if basic_auth, err := c.Bool("Auth", "basic"); err == nil {
@@ -281,15 +287,8 @@ func init() {
 		CACHE_ENABLED = cache_enabled
 	}
 
-	CLIENT_USERNAME, _ = c.String("Client", "username")
-	CLIENT_PASSWORD, _ = c.String("Client", "password")
+	CLIENT_GROUP_TOKEN, _ = c.String("Client", "clientgroup_token")
 
-	if CLIENT_USERNAME == "" {
-		CLIENT_USERNAME = "public"
-	}
-	if CLIENT_PASSWORD == "" {
-		CLIENT_PASSWORD = "public"
-	}
 	//Proxy
 	P_SITE_PORT, _ = c.Int("Proxy", "p-site-port")
 	P_API_PORT, _ = c.Int("Proxy", "p-api-port")
@@ -306,7 +305,8 @@ func init() {
 
 func Print(service string) {
 	fmt.Printf("##### Admin #####\nemail:\t%s\nsecretkey:\t%s\n\n", ADMIN_EMAIL, SECRET_KEY)
-	fmt.Printf("####### Anonymous ######\nread:\t%t\nwrite:\t%t\ncreate-user:\t%t\n\n", ANON_READ, ANON_WRITE, ANON_CREATEUSER)
+	fmt.Printf("####### Anonymous ######\nread:\t%t\nwrite:\t%t\ndelete:\t%t\n", ANON_READ, ANON_WRITE, ANON_DELETE)
+	fmt.Printf("clientgroup read:\t%t\nclientgroup write:\t%t\nclientgroup delete:\t%t\n\n", ANON_CG_READ, ANON_CG_WRITE, ANON_CG_DELETE)
 	fmt.Printf("##### Auth #####\n")
 	if BASIC_AUTH {
 		fmt.Printf("basic_auth:\ttrue\n")

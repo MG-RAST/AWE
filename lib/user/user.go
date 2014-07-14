@@ -2,10 +2,12 @@ package user
 
 import (
 	"code.google.com/p/go-uuid/uuid"
+	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+	"os"
 )
 
 // Array of User
@@ -31,10 +33,12 @@ func Initialize() {
 
 	// Setting admin users based on config file.  First, set all users to Admin = false
 	c.UpdateAll(bson.M{}, bson.M{"admin": false})
+	fmt.Fprintf(os.Stderr, "test\n")
 
 	// This config parameter contains a string that should be a comma-separated list of users that are Admins.
-	for _, v := range conf.Admin_Users {
-		c.Update(bson.M{"username": v}, bson.M{"$set": bson.M{"admin": true}})
+	for k, _ := range conf.Admin_Users {
+		fmt.Fprintf(os.Stderr, "username = %v\n", k)
+		c.Update(bson.M{"username": k}, bson.M{"$set": bson.M{"admin": true}})
 	}
 }
 

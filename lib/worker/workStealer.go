@@ -53,7 +53,6 @@ func workStealer(control chan int) {
 				os.Exit(1) // TODO is there a better way of exiting ? E.g. in regard of the logger who wants to flush....
 			} else {
 				//something is wrong, server may be down
-
 				logger.Error(fmt.Sprintf("error in checking out workunit: %s, retry+=1", err.Error()))
 				retry += 1
 			}
@@ -97,7 +96,13 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	response := new(WorkResponse)
 	targeturl := fmt.Sprintf("%s/work?client=%s", conf.SERVER_URL, core.Self.Id)
 	//res, err := http.Get(fmt.Sprintf("%s/work?client=%s", conf.SERVER_URL, core.Self.Id))
-	res, err := httpclient.Get(targeturl, httpclient.Header{}, nil, nil)
+	var headers httpclient.Header
+	if conf.CLIENT_GROUP_TOKEN != "" {
+		headers = httpclient.Header{
+			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
+		}
+	}
+	res, err := httpclient.Get(targeturl, headers, nil, nil)
 	logger.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s", core.Self.Id, conf.SERVER_URL))
 	if err != nil {
 		fmt.Printf("err=%s\n", err.Error())
@@ -130,7 +135,13 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 func FetchDataTokenByWorkId(workid string) (token string, err error) {
 	targeturl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, workid, core.Self.Id)
-	res, err := httpclient.Get(targeturl, httpclient.Header{}, nil, nil)
+	var headers httpclient.Header
+	if conf.CLIENT_GROUP_TOKEN != "" {
+		headers = httpclient.Header{
+			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
+		}
+	}
+	res, err := httpclient.Get(targeturl, headers, nil, nil)
 	if err != nil {
 		return "", err
 	}

@@ -3,7 +3,7 @@
 # values: true/false
 read=true
 write=true
-create-user=true
+delete=true
 
 [Ports]
 # Ports for site/api
@@ -30,7 +30,7 @@ client_auth_required=false
 site=$GOPATH/src/github.com/MG-RAST/AWE/site
 data=/mnt/data/awe/data
 logs=/mnt/data/awe/logs
-awf=$GOPATH/src/github.com/MG-RAST/AWE/template/awf_template
+awf=$GOPATH/src/github.com/MG-RAST/AWE/templates/awf_templates
 
 [Mongodb]
 # Mongodb configuration:

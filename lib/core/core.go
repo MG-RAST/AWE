@@ -516,12 +516,20 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 	if err := form.Create(); err != nil {
 		return err
 	}
-	headers := httpclient.Header{
-		"Content-Type":   []string{form.ContentType},
-		"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
+	var headers httpclient.Header
+	if conf.CLIENT_GROUP_TOKEN == "" {
+		headers = httpclient.Header{
+			"Content-Type":   []string{form.ContentType},
+			"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
+		}
+	} else {
+		headers = httpclient.Header{
+			"Content-Type":   []string{form.ContentType},
+			"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
+			"Authorization":  []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
+		}
 	}
-	user := httpclient.GetUserByBasicAuth(conf.CLIENT_USERNAME, conf.CLIENT_PASSWORD)
-	res, err := httpclient.Put(target_url, headers, form.Reader, user)
+	res, err := httpclient.Put(target_url, headers, form.Reader, nil)
 	if err == nil {
 		defer res.Body.Close()
 	}

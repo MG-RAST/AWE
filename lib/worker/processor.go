@@ -724,7 +724,13 @@ func UnSetEnv(envkeys []string) {
 
 func FetchPrivateEnvByWorkId(workid string) (envs map[string]string, err error) {
 	targeturl := fmt.Sprintf("%s/work/%s?privateenv&client=%s", conf.SERVER_URL, workid, core.Self.Id)
-	res, err := httpclient.Get(targeturl, httpclient.Header{}, nil, nil)
+	var headers httpclient.Header
+	if conf.CLIENT_GROUP_TOKEN != "" {
+		headers = httpclient.Header{
+			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
+		}
+	}
+	res, err := httpclient.Get(targeturl, headers, nil, nil)
 	if err != nil {
 		return envs, err
 	}

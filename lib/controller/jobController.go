@@ -35,6 +35,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	u, err := request.Authenticate(cx.Request)
 	if err != nil && err.Error() != e.NoAuth {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+		return
 	}
 
 	// If no auth was provided, and anonymous write is allowed, use the public user
@@ -43,6 +44,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			u = &user.User{Uuid: "public"}
 		} else {
 			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+			return
 		}
 	}
 
@@ -107,28 +109,24 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	u, err := request.Authenticate(cx.Request)
 	if err != nil && err.Error() != e.NoAuth {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+		return
 	}
 
 	// If no auth was provided, and anonymous read is allowed, use the public user
 	if u == nil {
-		if conf.ANON_WRITE == true {
+		if conf.ANON_READ == true {
 			u = &user.User{Uuid: "public"}
 		} else {
 			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+			return
 		}
 	}
 
-	// Gather query params
-	query := &Query{Li: cx.Request.URL.Query()}
-
 	// Load job by id
-	job, err := core.LoadJobByUser(id, u.Uuid)
+	job, err := core.LoadJob(id)
 
 	if err != nil {
-		if err.Error() == e.UnAuth {
-			cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
-			return
-		} else if err.Error() == e.MongoDocNotFound {
+		if err.Error() == e.MongoDocNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {
@@ -139,6 +137,16 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 			return
 		}
 	}
+
+	// User must have read permissions on job or be job owner or be an admin
+	rights := job.Acl.Check(u.Uuid)
+	if job.Acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false {
+		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
+		return
+	}
+
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
 
 	if query.Has("perf") {
 		//Load job perf by id
@@ -169,10 +177,12 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 		target := query.Value("export")
 		if target == "" {
 			cx.RespondWithErrorMessage("lacking stage id from which the recompute starts", http.StatusBadRequest)
+			return
 		} else if target == "taverna" {
 			wfrun, err := taverna.ExportWorkflowRun(job)
 			if err != nil {
 				cx.RespondWithErrorMessage("failed to export job to taverna workflowrun:"+id, http.StatusBadRequest)
+				return
 			}
 			cx.RespondWithData(wfrun)
 			return
@@ -190,6 +200,23 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 func (cr *JobController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
+	// Try to authenticate user.
+	u, err := request.Authenticate(cx.Request)
+	if err != nil && err.Error() != e.NoAuth {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// If no auth was provided, and anonymous read is allowed, use the public user
+	if u == nil {
+		if conf.ANON_READ == true {
+			u = &user.User{Uuid: "public"}
+		} else {
+			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+			return
+		}
+	}
+
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 
@@ -197,11 +224,15 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	q := bson.M{}
 	jobs := core.Jobs{}
 
+	// Add authorization checking to query if the user is not an admin
+	if u.Admin == false {
+		q["$or"] = []bson.M{bson.M{"acl.read": "public"}, bson.M{"acl.read": u.Uuid}, bson.M{"acl.owner": u.Uuid}}
+	}
+
 	limit := conf.DEFAULT_PAGE_SIZE
 	offset := 0
 	order := "updatetime"
 	direction := "desc"
-	var err error
 	if query.Has("limit") {
 		limit, err = strconv.Atoi(query.Value("limit"))
 		if err != nil {
@@ -370,21 +401,38 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	}
 	cx.RespondWithPaginatedData(filtered_jobs, limit, offset, total)
 	return
-
 }
 
 // PUT: /job
 func (cr *JobController) UpdateMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
+	// Try to authenticate user.
+	u, err := request.Authenticate(cx.Request)
+	if err != nil && err.Error() != e.NoAuth {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// If no auth was provided, and anonymous write is allowed, use the public user
+	if u == nil {
+		if conf.ANON_WRITE == true {
+			u = &user.User{Uuid: "public"}
+		} else {
+			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+			return
+		}
+	}
+
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("resumeall") { //resume the suspended job
-		num := core.QMgr.ResumeSuspendedJobs()
+		num := core.QMgr.ResumeSuspendedJobsByUser(u)
 		cx.RespondWithData(fmt.Sprintf("%d suspended jobs resumed", num))
 		return
 	}
 	cx.RespondWithError(http.StatusNotImplemented)
+	return
 }
 
 // PUT: /job/{id} -> used for job manipulation
@@ -392,11 +440,52 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 
+	// Try to authenticate user.
+	u, err := request.Authenticate(cx.Request)
+	if err != nil && err.Error() != e.NoAuth {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// If no auth was provided, and anonymous write is allowed, use the public user
+	if u == nil {
+		if conf.ANON_WRITE == true {
+			u = &user.User{Uuid: "public"}
+		} else {
+			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+			return
+		}
+	}
+
+	// Load job by id
+	job, err := core.LoadJob(id)
+
+	if err != nil {
+		if err.Error() == e.MongoDocNotFound {
+			cx.RespondWithNotFound()
+			return
+		} else {
+			// In theory the db connection could be lost between
+			// checking user and load but seems unlikely.
+			// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
+			cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
+			return
+		}
+	}
+
+	// User must have write permissions on job or be job owner or be an admin
+	rights := job.Acl.Check(u.Uuid)
+	if job.Acl.Owner != u.Uuid && rights["write"] == false && u.Admin == false {
+		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
+		return
+	}
+
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("resume") { // to resume a suspended job
 		if err := core.QMgr.ResumeSuspendedJob(id); err != nil {
 			cx.RespondWithErrorMessage("fail to resume job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
 		}
 		cx.RespondWithData("job resumed: " + id)
 		return
@@ -404,6 +493,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 	if query.Has("suspend") { // to suspend an in-progress job
 		if err := core.QMgr.SuspendJob(id, "manually suspended", ""); err != nil {
 			cx.RespondWithErrorMessage("fail to suspend job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
 		}
 		cx.RespondWithData("job suspended: " + id)
 		return
@@ -411,6 +501,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 	if query.Has("resubmit") || query.Has("reregister") { // to re-submit a job from mongodb
 		if err := core.QMgr.ResubmitJob(id); err != nil {
 			cx.RespondWithErrorMessage("fail to resubmit job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
 		}
 		cx.RespondWithData("job resubmitted: " + id)
 		return
@@ -419,9 +510,11 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		stage := query.Value("recompute")
 		if stage == "" {
 			cx.RespondWithErrorMessage("lacking stage id from which the recompute starts", http.StatusBadRequest)
+			return
 		}
 		if err := core.QMgr.RecomputeJob(id, stage); err != nil {
 			cx.RespondWithErrorMessage("fail to recompute job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
 		}
 		cx.RespondWithData("job recompute started: " + id)
 		return
@@ -430,9 +523,11 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		newgroup := query.Value("clientgroup")
 		if newgroup == "" {
 			cx.RespondWithErrorMessage("lacking groupname", http.StatusBadRequest)
+			return
 		}
 		if err := core.QMgr.UpdateGroup(id, newgroup); err != nil {
 			cx.RespondWithErrorMessage("fail to update group for job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
 		}
 		cx.RespondWithData("job group updated: " + id + " to " + newgroup)
 		return
@@ -441,13 +536,16 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		priority_str := query.Value("priority")
 		if priority_str == "" {
 			cx.RespondWithErrorMessage("lacking priority value (0-3)", http.StatusBadRequest)
+			return
 		}
 		priority, err := strconv.Atoi(priority_str)
 		if err != nil {
 			cx.RespondWithErrorMessage("need int for priority value (0-3) "+err.Error(), http.StatusBadRequest)
+			return
 		}
 		if err := core.QMgr.UpdatePriority(id, priority); err != nil {
 			cx.RespondWithErrorMessage("fail to priority for job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
 		}
 		cx.RespondWithData("job priority updated: " + id + " to " + priority_str)
 		return
@@ -464,11 +562,12 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		if err != nil {
 			if err.Error() == e.MongoDocNotFound {
 				cx.RespondWithNotFound()
+				return
 			} else {
 				logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
 				cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
+				return
 			}
-			return
 		}
 		job.SetDataToken(token)
 		cx.RespondWithData("data token set for job: " + id)
@@ -483,25 +582,64 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 func (cr *JobController) Delete(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 
-	if err := core.QMgr.DeleteJob(id); err != nil {
-		cx.RespondWithErrorMessage("fail to delete job: "+id, http.StatusBadRequest)
-		return
+	// Try to authenticate user.
+	u, err := request.Authenticate(cx.Request)
+	if err != nil && err.Error() != e.NoAuth {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
 	}
+
+	// If no auth was provided, and anonymous delete is allowed, use the public user
+	if u == nil {
+		if conf.ANON_DELETE == true {
+			u = &user.User{Uuid: "public"}
+		} else {
+			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+		}
+	}
+
+	if err = core.QMgr.DeleteJobByUser(id, u); err != nil {
+		if err.Error() == e.MongoDocNotFound {
+			cx.RespondWithNotFound()
+			return
+		} else if err.Error() == e.UnAuth {
+			cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
+			return
+		} else {
+			cx.RespondWithErrorMessage("fail to delete job: "+id, http.StatusBadRequest)
+			return
+		}
+	}
+
 	cx.RespondWithData("job deleted: " + id)
 	return
 }
 
-// DELETE: /job?suspend
+// DELETE: /job?suspend, /job?zombie
 func (cr *JobController) DeleteMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	// Try to authenticate user.
+	u, err := request.Authenticate(cx.Request)
+	if err != nil && err.Error() != e.NoAuth {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+	}
+
+	// If no auth was provided, and anonymous delete is allowed, use the public user
+	if u == nil {
+		if conf.ANON_DELETE == true {
+			u = &user.User{Uuid: "public"}
+		} else {
+			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+		}
+	}
 
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("suspend") {
-		num := core.QMgr.DeleteSuspendedJobs()
+		num := core.QMgr.DeleteSuspendedJobsByUser(u)
 		cx.RespondWithData(fmt.Sprintf("deleted %d suspended jobs", num))
 	} else if query.Has("zombie") {
-		num := core.QMgr.DeleteZombieJobs()
+		num := core.QMgr.DeleteZombieJobsByUser(u)
 		cx.RespondWithData(fmt.Sprintf("deleted %d zombie jobs", num))
 	} else {
 		cx.RespondWithError(http.StatusNotImplemented)

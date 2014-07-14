@@ -1,10 +1,12 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/user"
 	"os"
 	"time"
 )
@@ -116,7 +118,7 @@ func (qm *ProxyMgr) FetchPrivateEnv(workid string, clientid string) (env map[str
 
 //client methods
 
-func (qm *ProxyMgr) RegisterNewClient(files FormFiles) (client *Client, err error) {
+func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Client, err error) {
 	if _, ok := files["profile"]; ok {
 		client, err = NewProfileClient(files["profile"].Path)
 		os.Remove(files["profile"].Path)
@@ -125,6 +127,10 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles) (client *Client, err erro
 	}
 	if err != nil {
 		return nil, err
+	}
+	// If the name of the clientgroup does not match the name in the client profile, throw an error
+	if cg != nil && client.Group != cg.Name {
+		return nil, errors.New("Clientgroup name in token does not match that in the client configuration.")
 	}
 	qm.clientMap[client.Id] = client
 
@@ -209,7 +215,15 @@ func (qm *ProxyMgr) ResumeSuspendedJobs() (num int) {
 	return
 }
 
+func (qm *ProxyMgr) ResumeSuspendedJobsByUser(u *user.User) (num int) {
+	return
+}
+
 func (qm *ProxyMgr) DeleteJob(jobid string) (err error) {
+	return
+}
+
+func (qm *ProxyMgr) DeleteJobByUser(jobid string, u *user.User) (err error) {
 	return
 }
 
@@ -217,12 +231,26 @@ func (qm *ProxyMgr) DeleteSuspendedJobs() (num int) {
 	return
 }
 
+func (qm *ProxyMgr) DeleteSuspendedJobsByUser(u *user.User) (num int) {
+	return
+}
+
 func (qm *ProxyMgr) DeleteZombieJobs() (num int) {
+	return
+}
+
+func (qm *ProxyMgr) DeleteZombieJobsByUser(u *user.User) (num int) {
 	return
 }
 
 //resubmit a suspended job
 func (qm *ProxyMgr) ResumeSuspendedJob(id string) (err error) {
+	//Load job by id
+	return
+}
+
+//resubmit a suspended job if user has rights
+func (qm *ProxyMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err error) {
 	//Load job by id
 	return
 }

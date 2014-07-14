@@ -557,7 +557,7 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		return nil, errors.New(fmt.Sprintf("start_cmd=%s, err=%s", commandName, err.Error()))
 	}
 
-	var MaxMem int64 = 0
+	var MaxMem uint64 = 0
 	done := make(chan error)
 	memcheck_done := make(chan bool)
 	go func() {
@@ -598,7 +598,7 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}
 	logger.Event(event.WORK_END, "workid="+work.Id)
-	pstats.MaxMemUsage = MaxMem
+	pstats.MaxMemUsage = MaxMem.(in64)
 	return
 }
 

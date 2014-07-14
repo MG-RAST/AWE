@@ -1,9 +1,13 @@
 [Anonymous]
-# Controls weither an anonymous user can read/write
+# Controls whether an anonymous user can read/write/delete jobs.
+# Also controls whether an anonymous user can read/write/delete clientgroups.
 # values: true/false
 read=true
 write=true
 delete=true
+cg_read=false
+cg_write=false
+cg_delete=false
 
 [Ports]
 # Ports for site/api

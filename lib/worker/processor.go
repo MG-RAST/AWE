@@ -557,7 +557,7 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		return nil, errors.New(fmt.Sprintf("start_cmd=%s, err=%s", commandName, err.Error()))
 	}
 
-	var MaxMem uint64 = 0
+	var MaxMem int64 = 0
 	done := make(chan error)
 	memcheck_done := make(chan bool)
 	go func() {

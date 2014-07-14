@@ -3,7 +3,7 @@
 # values: true/false
 read=true
 write=true
-create-user=true
+delete=true
 
 [Ports]
 # Ports for site/api
@@ -16,14 +16,14 @@ site-url=
 api-url=
 
 [Admin]
+users=wtang,jbischof
 email=admin@host.com
 secretkey=supersecretkey
 
 [Auth]
 globus_token_url=https://nexus.api.globusonline.org/goauth/token?grant_type=client_credentials
 globus_profile_url=https://nexus.api.globusonline.org/users
-admin_list=wtang,jbischof
-admin_auth=false
+client_auth_required=false
 
 [Directories]
 # See documentation for details of deploying Shock

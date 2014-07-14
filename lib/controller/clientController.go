@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -26,13 +27,15 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 
-	_, err := request.Authenticate(cx.Request)
+	cg, err := request.AuthenticateClientGroup(cx.Request)
 	if err != nil {
-		if err.Error() == e.NoAuth || err.Error() == e.UnAuth {
-			cx.RespondWithError(http.StatusUnauthorized)
-			return
+		if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
+			if conf.CLIENT_AUTH_REQ == true {
+				cx.RespondWithError(http.StatusUnauthorized)
+				return
+			}
 		} else {
-			logger.Error("Err@user_Read: " + err.Error())
+			logger.Error("Err@AuthenticateClientGroup: " + err.Error())
 			cx.RespondWithError(http.StatusInternalServerError)
 			return
 		}
@@ -48,7 +51,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 		}
 	}
 
-	client, err := core.QMgr.RegisterNewClient(files)
+	client, err := core.QMgr.RegisterNewClient(files, cg)
 	if err != nil {
 		msg := "Error in registering new client:" + err.Error()
 		logger.Error(msg)
@@ -69,7 +72,21 @@ func (cr *ClientController) Read(id string, cx *goweb.Context) {
 	query := &Query{Li: cx.Request.URL.Query()}
 
 	if query.Has("heartbeat") { //handle heartbeat
-		hbmsg, err := core.QMgr.ClientHeartBeat(id)
+		cg, err := request.AuthenticateClientGroup(cx.Request)
+		if err != nil {
+			if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
+				if conf.CLIENT_AUTH_REQ == true {
+					cx.RespondWithError(http.StatusUnauthorized)
+					return
+				}
+			} else {
+				logger.Error("Err@AuthenticateClientGroup: " + err.Error())
+				cx.RespondWithError(http.StatusInternalServerError)
+				return
+			}
+		}
+
+		hbmsg, err := core.QMgr.ClientHeartBeat(id, cg)
 		if err != nil {
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		} else {

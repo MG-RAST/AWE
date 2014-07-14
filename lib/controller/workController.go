@@ -1,10 +1,12 @@
 package controller
 
 import (
+	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/golib/goweb"
 	"io/ioutil"
 	"net/http"
@@ -29,28 +31,51 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 
-	if query.Has("datatoken") && query.Has("client") { //a client is requesting data token for this job
-		//***insert code to authenticate and check ACL***
-		clientid := query.Value("client")
-		token, err := core.QMgr.FetchDataToken(id, clientid)
+	if (query.Has("datatoken") || query.Has("privateenv")) && query.Has("client") {
+		cg, err := request.AuthenticateClientGroup(cx.Request)
 		if err != nil {
-			cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
+			if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
+				if conf.CLIENT_AUTH_REQ == true {
+					cx.RespondWithError(http.StatusUnauthorized)
+					return
+				}
+			} else {
+				logger.Error("Err@AuthenticateClientGroup: " + err.Error())
+				cx.RespondWithError(http.StatusInternalServerError)
+				return
+			}
 		}
-		//cx.RespondWithData(token)
-		RespondTokenInHeader(cx, token)
-		return
-	}
+		// check that clientgroup auth token matches group of client
+		clientid := query.Value("client")
+		client, err := core.QMgr.GetClient(clientid)
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+		if cg != nil && client.Group != cg.Name {
+			cx.RespondWithErrorMessage("Clientgroup name in token does not match that in the client configuration.", http.StatusBadRequest)
+			return
+		}
 
-	if query.Has("privateenv") && query.Has("client") { //a client is requesting data token for this job
-		//***insert code to authenticate and check ACL***
-		clientid := query.Value("client")
-		envs, err := core.QMgr.FetchPrivateEnv(id, clientid)
-		if err != nil {
-			cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
+		if query.Has("datatoken") { //a client is requesting data token for this job
+			token, err := core.QMgr.FetchDataToken(id, clientid)
+			if err != nil {
+				cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
+			}
+			//cx.RespondWithData(token)
+			RespondTokenInHeader(cx, token)
+			return
 		}
-		//cx.RespondWithData(token)
-		RespondPrivateEnvInHeader(cx, envs)
-		return
+
+		if query.Has("privateenv") { //a client is requesting data token for this job
+			envs, err := core.QMgr.FetchPrivateEnv(id, clientid)
+			if err != nil {
+				cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
+			}
+			//cx.RespondWithData(token)
+			RespondPrivateEnvInHeader(cx, envs)
+			return
+		}
 	}
 
 	if query.Has("report") { //retrieve report: stdout or stderr or worknotes
@@ -97,12 +122,37 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		return
 	}
 
+	cg, err := request.AuthenticateClientGroup(cx.Request)
+	if err != nil {
+		if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
+			if conf.CLIENT_AUTH_REQ == true {
+				cx.RespondWithError(http.StatusUnauthorized)
+				return
+			}
+		} else {
+			logger.Error("Err@AuthenticateClientGroup: " + err.Error())
+			cx.RespondWithError(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// check that clientgroup auth token matches group of client
+	clientid := query.Value("client")
+	client, err := core.QMgr.GetClient(clientid)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+	if cg != nil && client.Group != cg.Name {
+		cx.RespondWithErrorMessage("Clientgroup name in token does not match that in the client configuration.", http.StatusBadRequest)
+		return
+	}
+
 	if core.Service == "proxy" { //drive proxy workStealer to checkout work from server
 		core.ProxyWorkChan <- true
 	}
 
 	//checkout a workunit in FCFS order
-	clientid := query.Value("client")
 	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, 1)
 
 	if err != nil {
@@ -133,10 +183,40 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 // PUT: /work/{id} -> status update
 func (cr *WorkController) Update(id string, cx *goweb.Context) {
-	// Log Request and check for Auth
 	LogRequest(cx.Request)
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
+	if !query.Has("client") {
+		cx.RespondWithErrorMessage("This request type requires the client=clientid parameter.", http.StatusBadRequest)
+		return
+	}
+
+	// Check auth
+	cg, err := request.AuthenticateClientGroup(cx.Request)
+	if err != nil {
+		if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
+			if conf.CLIENT_AUTH_REQ == true {
+				cx.RespondWithError(http.StatusUnauthorized)
+				return
+			}
+		} else {
+			logger.Error("Err@AuthenticateClientGroup: " + err.Error())
+			cx.RespondWithError(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// check that clientgroup auth token matches group of client
+	clientid := query.Value("client")
+	client, err := core.QMgr.GetClient(clientid)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+	if cg != nil && client.Group != cg.Name {
+		cx.RespondWithErrorMessage("Clientgroup name in token does not match that in the client configuration.", http.StatusBadRequest)
+		return
+	}
 
 	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
 		notice := core.Notice{WorkId: id, Status: query.Value("status"), ClientId: query.Value("client"), Notes: ""}

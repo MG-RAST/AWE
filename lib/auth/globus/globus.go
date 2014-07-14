@@ -8,6 +8,8 @@ import (
 	"errors"
 	"github.com/MG-RAST/AWE/lib/auth/basic"
 	"github.com/MG-RAST/AWE/lib/conf"
+	e "github.com/MG-RAST/AWE/lib/errors"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/user"
 	"io/ioutil"
 	"net/http"
@@ -96,7 +98,6 @@ func fetchProfile(t string) (u *user.User, err error) {
 		return nil, err
 	}
 	req.Header.Add("Authorization", "Globus-Goauthtoken "+t)
-
 	if resp, err := client.Do(req); err == nil {
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
@@ -105,13 +106,17 @@ func fetchProfile(t string) (u *user.User, err error) {
 				if err = json.Unmarshal(body, &u); err != nil {
 					return nil, err
 				} else {
-					if err = u.SetUuid(); err != nil {
+					if err = u.SetMongoInfo(); err != nil {
 						return nil, err
 					}
 				}
 			}
+		} else if resp.StatusCode == http.StatusForbidden {
+			return nil, errors.New(e.InvalidAuth)
 		} else {
-			return nil, errors.New("Authentication failed: Unexpected response status: " + resp.Status)
+			err_str := "Authentication failed: Unexpected response status: " + resp.Status
+			logger.Error(err_str)
+			return nil, errors.New(err_str)
 		}
 	} else {
 		return nil, err

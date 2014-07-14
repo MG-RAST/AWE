@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"io/ioutil"
@@ -27,6 +28,7 @@ var JOB_STATS_TO_RECOVER = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_ST
 type Job struct {
 	Id          string    `bson:"id" json:"id"`
 	Jid         string    `bson:"jid" json:"jid"`
+	Acl         acl.Acl   `bson:"acl" json:"-"`
 	Info        *Info     `bson:"info" json:"info"`
 	Tasks       []*Task   `bson:"tasks" json:"tasks"`
 	Script      script    `bson:"script" json:"-"`

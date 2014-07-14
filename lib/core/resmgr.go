@@ -1,10 +1,12 @@
 package core
 
-import ()
+import (
+	"github.com/MG-RAST/AWE/lib/user"
+)
 
 type ClientMgr interface {
-	RegisterNewClient(FormFiles) (*Client, error)
-	ClientHeartBeat(string) (HBmsg, error)
+	RegisterNewClient(FormFiles, *ClientGroup) (*Client, error)
+	ClientHeartBeat(string, *ClientGroup) (HBmsg, error)
 	GetClient(string) (*Client, error)
 	GetAllClients() []*Client
 	DeleteClient(string) (err error)
@@ -34,11 +36,16 @@ type JobMgr interface {
 	GetSuspendJobs() map[string]bool
 	SuspendJob(string, string, string) error
 	ResumeSuspendedJob(string) error
+	ResumeSuspendedJobByUser(string, *user.User) error
 	ResumeSuspendedJobs() int
+	ResumeSuspendedJobsByUser(*user.User) int
 	ResubmitJob(string) error
 	DeleteJob(string) error
+	DeleteJobByUser(string, *user.User) error
 	DeleteSuspendedJobs() int
+	DeleteSuspendedJobsByUser(*user.User) int
 	DeleteZombieJobs() int
+	DeleteZombieJobsByUser(*user.User) int
 	InitMaxJid() error
 	RecoverJobs() error
 	FinalizeWorkPerf(string, string) error

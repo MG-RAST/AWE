@@ -8,6 +8,7 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/user"
 	"io/ioutil"
 	"labix.org/v2/mgo/bson"
 	"os"
@@ -873,6 +874,37 @@ func (qm *ServerMgr) DeleteJob(jobid string) (err error) {
 	return
 }
 
+func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User) (err error) {
+	job, err := LoadJob(jobid)
+	if err != nil {
+		return
+	}
+	// User must have delete permissions on job or be job owner or be an admin
+	rights := job.Acl.Check(u.Uuid)
+	if job.Acl.Owner != u.Uuid && rights["delete"] == false && u.Admin == false {
+		return errors.New(e.UnAuth)
+	}
+	if err := job.UpdateState(JOB_STAT_DELETED, "deleted"); err != nil {
+		return err
+	}
+	//delete queueing workunits
+	for workid, _ := range qm.workQueue.workMap {
+		if jobid == strings.Split(workid, "_")[0] {
+			qm.workQueue.Delete(workid)
+		}
+	}
+	//delete parsed tasks
+	for i := 0; i < len(job.TaskList()); i++ {
+		task_id := fmt.Sprintf("%s_%d", jobid, i)
+		delete(qm.taskMap, task_id)
+	}
+	qm.DeleteJobPerf(jobid)
+	delete(qm.susJobs, jobid)
+
+	logger.Event(event.JOB_DELETED, "jobid="+jobid)
+	return
+}
+
 func (qm *ServerMgr) DeleteSuspendedJobs() (num int) {
 	suspendjobs := qm.GetSuspendJobs()
 	for id, _ := range suspendjobs {
@@ -883,10 +915,30 @@ func (qm *ServerMgr) DeleteSuspendedJobs() (num int) {
 	return
 }
 
+func (qm *ServerMgr) DeleteSuspendedJobsByUser(u *user.User) (num int) {
+	suspendjobs := qm.GetSuspendJobs()
+	for id, _ := range suspendjobs {
+		if err := qm.DeleteJobByUser(id, u); err == nil {
+			num += 1
+		}
+	}
+	return
+}
+
 func (qm *ServerMgr) ResumeSuspendedJobs() (num int) {
 	suspendjobs := qm.GetSuspendJobs()
 	for id, _ := range suspendjobs {
 		if err := qm.ResumeSuspendedJob(id); err == nil {
+			num += 1
+		}
+	}
+	return
+}
+
+func (qm *ServerMgr) ResumeSuspendedJobsByUser(u *user.User) (num int) {
+	suspendjobs := qm.GetSuspendJobs()
+	for id, _ := range suspendjobs {
+		if err := qm.ResumeSuspendedJobByUser(id, u); err == nil {
 			num += 1
 		}
 	}
@@ -914,6 +966,27 @@ func (qm *ServerMgr) DeleteZombieJobs() (num int) {
 	return
 }
 
+//delete jobs in db with "queued" or "in-progress" state but not in the queue (zombie jobs) that user has access to
+func (qm *ServerMgr) DeleteZombieJobsByUser(u *user.User) (num int) {
+	dbjobs := new(Jobs)
+	q := bson.M{}
+	q["state"] = bson.M{"in": JOB_STATS_ACTIVE}
+	lim := 1000
+	off := 0
+	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {
+		logger.Error("DeleteZombieJobs()->GetAllLimitOffset():" + err.Error())
+		return
+	}
+	for _, dbjob := range *dbjobs {
+		if _, ok := qm.actJobs[dbjob.Id]; !ok {
+			if err := qm.DeleteJobByUser(dbjob.Id, u); err == nil {
+				num += 1
+			}
+		}
+	}
+	return
+}
+
 //resubmit a suspended job
 func (qm *ServerMgr) ResumeSuspendedJob(id string) (err error) {
 	//Load job by id
@@ -921,6 +994,37 @@ func (qm *ServerMgr) ResumeSuspendedJob(id string) (err error) {
 	if err != nil {
 		return errors.New("failed to load job " + err.Error())
 	}
+	if dbjob.State != JOB_STAT_SUSPEND {
+		return errors.New("job " + id + " is not in 'suspend' status")
+	}
+	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+
+	if dbjob.RemainTasks < len(dbjob.Tasks) {
+		dbjob.State = JOB_STAT_INPROGRESS
+	} else {
+		dbjob.State = JOB_STAT_QUEUED
+	}
+	dbjob.Resumed += 1
+	dbjob.Save()
+
+	delete(qm.susJobs, id)
+	return
+}
+
+//resubmit a suspended job if the user is authorized
+func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err error) {
+	//Load job by id
+	dbjob, err := LoadJob(id)
+	if err != nil {
+		return errors.New("failed to load job " + err.Error())
+	}
+
+	// User must have write permissions on job or be job owner or be an admin
+	rights := dbjob.Acl.Check(u.Uuid)
+	if dbjob.Acl.Owner != u.Uuid && rights["write"] == false && u.Admin == false {
+		return errors.New(e.UnAuth)
+	}
+
 	if dbjob.State != JOB_STAT_SUSPEND {
 		return errors.New("job " + id + " is not in 'suspend' status")
 	}

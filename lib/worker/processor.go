@@ -168,6 +168,8 @@ func RemoveOldAWEContainers(client *docker.Client, container_name string) (err e
 func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	pstats = new(core.WorkPerf)
 	pstats.MaxMemUsage = -1
+	pstats.MaxMemoryTotalRss = -1
+	pstats.MaxMemoryTotalSwap = -1
 	args := work.Cmd.ParsedArgs
 
 	//change cwd to the workunit's working directory
@@ -496,6 +498,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 	pstats.MaxMemUsage = MaxMem
+	pstats.MaxMemoryTotalRss = max_memory_total_rss
+	pstats.MaxMemoryTotalSwap = max_memory_total_swap
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 
 	return pstats, err

@@ -198,6 +198,7 @@ func PostNodeWithToken(io *IO, numParts int, token string) (nodeid string, err e
 	//create "parts" for output splits
 	if numParts > 1 {
 		opts["upload_type"] = "parts"
+		opts["file_name"] = io.Name
 		opts["parts"] = strconv.Itoa(numParts)
 		if _, err := createOrUpdate(opts, io.Host, node.Id, token); err != nil {
 			return node.Id, err
@@ -649,6 +650,7 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 
 func PutFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string, ntype string, formopts map[string]string) (err error) {
 	opts := Opts{}
+	fi, _ := os.Stat(filename)
 	if (attrfile != "") && (rank < 2) {
 		opts["attributes"] = attrfile
 	}
@@ -661,7 +663,9 @@ func PutFileToShock(filename string, host string, nodeid string, rank int, token
 		opts["upload_type"] = "part"
 		opts["part"] = strconv.Itoa(rank)
 	}
-	if ((ntype == "copy") || (ntype == "subset")) && (len(formopts) > 0) {
+	if (ntype == "subset") && (rank == 0) && (fi.Size() == 0) {
+		opts["upload_type"] = "basic"
+	} else if ((ntype == "copy") || (ntype == "subset")) && (len(formopts) > 0) {
 		opts["upload_type"] = ntype
 		for k, v := range formopts {
 			opts[k] = v
@@ -737,6 +741,9 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 				form.AddParam("parts", opts.Value("parts"))
 			} else {
 				return nil, errors.New("missing partial upload parameter: parts")
+			}
+			if opts.HasKey("file_name") {
+				form.AddParam("file_name", opts.Value("file_name"))
 			}
 		case "part":
 			if opts.HasKey("part") && opts.HasKey("file") {

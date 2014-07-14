@@ -167,7 +167,7 @@ func RemoveOldAWEContainers(client *docker.Client, container_name string) (err e
 
 func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	pstats = new(core.WorkPerf)
-	pstats.MaxMemUsage = 0
+	pstats.MaxMemUsage = -1
 	args := work.Cmd.ParsedArgs
 
 	//change cwd to the workunit's working directory
@@ -389,7 +389,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			//} else {
 			// /sys/fs/cgroup/memory/docker/<id>/memory.stat
 			//memory := uint64(container.Config.Memory)
-			var memory uint64 = 0
+			var memory_total_rss int64 = -1
+			var memory_total_swap int64 = -1
 			memory_stat_file, err := os.Open(memory_stat_filename)
 			if err != nil {
 				logger.Error("warning: error opening memory_stat_file file:" + err.Error())
@@ -405,16 +406,31 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 			memory_stat_file_scanner := bufio.NewScanner(memory_stat_file)
 
+			memory_total_rss_read := false
+			memory_total_swap_read := false
 			// scanner.Scan() advances to the next token returning false if an error was encountered
 			for memory_stat_file_scanner.Scan() {
 				line := memory_stat_file_scanner.Text()
 				if strings.HasPrefix(line, "total_rss ") { // TODO what is total_rss_huge
 					//logger.Debug(1, fmt.Sprint("inspecting container with memory line=", line))
 
-					memory, err = strconv.ParseUint(strings.TrimPrefix(line, "total_rss "), 10, 64)
+					memory_total_rss, err = strconv.ParseInt(strings.TrimPrefix(line, "total_rss "), 10, 64)
 					if err != nil {
-						memory = 0
+						memory_total_rss = -1
 					}
+					memory_total_rss_read = true
+				} else if strings.HasPrefix(line, "total_swap ") { // TODO what is total_rss_huge
+					//logger.Debug(1, fmt.Sprint("inspecting container with memory line=", line))
+
+					memory_total_swap, err = strconv.ParseInt(strings.TrimPrefix(line, "total_swap "), 10, 64)
+					if err != nil {
+						memory_total_swap = -1
+					}
+					memory_total_swap_read = true
+				} else {
+					continue
+				}
+				if memory_total_rss_read && memory_total_swap_read {
 					break
 				}
 
@@ -426,7 +442,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 				logger.Error(fmt.Sprintf("warning: could no read memory usage from cgroups=", memory_stat_file_scanner.Err()))
 				err = nil
 			} else {
-				//fmt.Println("memory: ", memory )
+
 				if memory > MaxMem {
 					MaxMem = memory
 				}

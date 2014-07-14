@@ -2,6 +2,9 @@
 # Controls whether an anonymous user can read/write/delete jobs.
 # Also controls whether an anonymous user can read/write/delete clientgroups.
 # values: true/false
+# NOTE: You'll want all of these values to be false in a secure setup, leaving
+#       any of these as true is basically done for ease of development or if you
+#       are running AWE in a closed environment where you can trust all connections.
 read=true
 write=true
 delete=true
@@ -20,7 +23,10 @@ site-url=
 api-url=
 
 [Admin]
-users=wtang,jbischof
+# If you're running AWE with user and clientgroup Auth enabled, you'll want
+# to designate at least one admin user for creation of the clientgroups and
+# managing your AWE server.
+users=
 email=admin@host.com
 secretkey=supersecretkey
 

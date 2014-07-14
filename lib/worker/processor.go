@@ -598,7 +598,7 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}
 	logger.Event(event.WORK_END, "workid="+work.Id)
-	pstats.MaxMemUsage = MaxMem.(int64)
+	pstats.MaxMemUsage = int64(MaxMem)
 	return
 }
 

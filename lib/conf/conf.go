@@ -41,9 +41,9 @@ var (
 	SSL_CERT_FILE = ""
 
 	// Anonymous-Access-Control
-	ANON_WRITE     = false
+	ANON_WRITE     = true
 	ANON_READ      = true
-	ANON_DELETE    = false
+	ANON_DELETE    = true
 	ANON_CG_WRITE  = false
 	ANON_CG_READ   = false
 	ANON_CG_DELETE = false

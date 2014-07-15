@@ -8,14 +8,22 @@ type ClientMgr interface {
 	RegisterNewClient(FormFiles, *ClientGroup) (*Client, error)
 	ClientHeartBeat(string, *ClientGroup) (HBmsg, error)
 	GetClient(string) (*Client, error)
+	GetClientByUser(string, *user.User) (*Client, error)
 	GetAllClients() []*Client
-	DeleteClient(string) (err error)
-	SuspendClient(string) (err error)
-	ResumeClient(string) (err error)
-	ResumeSuspendedClients() (count int)
-	SuspendAllClients() (count int)
+	GetAllClientsByUser(*user.User) []*Client
+	DeleteClient(string) error
+	DeleteClientByUser(string, *user.User) error
+	SuspendClient(string) error
+	SuspendClientByUser(string, *user.User) error
+	ResumeClient(string) error
+	ResumeClientByUser(string, *user.User) error
+	ResumeSuspendedClients() int
+	ResumeSuspendedClientsByUser(*user.User) int
+	SuspendAllClients() int
+	SuspendAllClientsByUser(*user.User) int
 	ClientChecker()
-	UpdateSubClients(id string, count int)
+	UpdateSubClients(string, int)
+	UpdateSubClientsByUser(string, int, *user.User)
 }
 
 type WorkMgr interface {

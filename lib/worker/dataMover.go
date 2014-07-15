@@ -151,7 +151,7 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 
 func dataMover(control chan int) {
 	var err error
-	fmt.Printf("dataMover lanched, client=%s\n", core.Self.Id)
+	fmt.Printf("dataMover launched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("dataMover exiting...\n")
 	for {
 		raw := <-fromStealer
@@ -240,7 +240,7 @@ func dataMover(control chan int) {
 }
 
 func proxyDataMover(control chan int) {
-	fmt.Printf("proxyDataMover lanched, client=%s\n", core.Self.Id)
+	fmt.Printf("proxyDataMover launched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("proxyDataMover exiting...\n")
 
 	for {

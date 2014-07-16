@@ -166,7 +166,7 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 			u := &user.User{Uuid: "public"}
 			cg, err = CreateClientGroup(client.Group, u)
 			if err != nil {
-				return nil, errors.New("Could not create public clientgroup for this client")
+				return nil, err
 			}
 		}
 	}

@@ -47,14 +47,10 @@ func (a *Acl) Check(str string) (r Rights) {
 	r = Rights{"read": false, "write": false, "delete": false}
 	acls := map[string][]string{"read": a.Read, "write": a.Write, "delete": a.Delete}
 	for k, v := range acls {
-		if len(v) == 0 {
-			r[k] = true
-		} else {
-			for _, id := range v {
-				if str == id {
-					r[k] = true
-					break
-				}
+		for _, id := range v {
+			if str == id {
+				r[k] = true
+				break
 			}
 		}
 	}

@@ -149,6 +149,27 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 	if err != nil {
 		return nil, err
 	}
+	// If clientgroup is nil at this point, create a publicly owned clientgroup, with the provided group name (if one doesn't exist with the same name)
+	if cg == nil {
+		// See if clientgroup already exists with this name
+		// If it does and it does not have "public" execution rights, throw error
+		// If it doesn't, create one owned by public, and continue with client registration
+		// Otherwise proceed with client registration.
+		cg, _ = LoadClientGroupByName(client.Group)
+
+		if cg != nil {
+			rights := cg.Acl.Check("public")
+			if rights["execute"] == false {
+				return nil, errors.New("Clientgroup with the group specified by your client exists, but you cannot register with it, without clientgroup token.")
+			}
+		} else {
+			u := &user.User{Uuid: "public"}
+			cg, err = CreateClientGroup(client.Group, u)
+			if err != nil {
+				return nil, errors.New("Could not create public clientgroup for this client")
+			}
+		}
+	}
 	// If the name of the clientgroup (from auth token) does not match the name in the client profile, throw an error
 	if cg != nil && client.Group != cg.Name {
 		return nil, errors.New("Clientgroup name in token does not match that in the client configuration.")

@@ -23,7 +23,7 @@ func (cr *ClientController) Options(cx *goweb.Context) {
 	return
 }
 
-// POST: /client
+// POST: /client - register a new client
 func (cr *ClientController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)

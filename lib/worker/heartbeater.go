@@ -233,19 +233,40 @@ func ComposeProfile() (profile *core.Client, err error) {
 	}
 
 	if len(conf.OPENSTACK_METADATA_URL) > 7 { // longer than "http://"
-		fmt.Printf("openstack_metadata_url=%s, getting instance_id and instance_type...\n", conf.OPENSTACK_METADATA_URL)
-		for i := 0; i < 3; i++ {
-			profile.InstanceId, _ = getInstanceId()
-			if profile.InstanceId != "" {
-				break
-			}
+
+		logger.Debug(1, fmt.Sprintf("openstack_metadata_url=%s, getting instance_id and instance_type...", conf.OPENSTACK_METADATA_URL))
+
+		// read all values: for i in `curl http://169.254.169.254/1.0/meta-data/` ; do echo ${i}: `curl -s http://169.254.169.254/1.0/meta-data/${i}` ; done
+		instance_hostname, err := getMetaDataField("hostname")
+		if err == nil {
+			instance_hostname = strings.TrimSuffix(instance_hostname, ".novalocal")
+			profile.Name = instance_hostname
 		}
-		for i := 0; i < 3; i++ {
-			profile.InstanceType, _ = getInstanceType()
-			if profile.InstanceType != "" {
-				break
-			}
+		instance_id, err := getMetaDataField("instance-id")
+		if err == nil {
+			profile.InstanceId = instance_id
 		}
+		instance_type, err := getMetaDataField("instance-type")
+		if err == nil {
+			profile.InstanceType = instance_type
+		}
+		local_ipv4, err := getMetaDataField("local-ipv4")
+		if err == nil {
+			profile.Host = local_ipv4
+		}
+
+		//for i := 0; i < 3; i++ {
+		//	profile.InstanceId, _ = getInstanceId()
+		//	if profile.InstanceId != "" {
+		//		break
+		//	}
+		//}
+		//for i := 0; i < 3; i++ {
+		//	profile.InstanceType, _ = getInstanceType()
+		//	if profile.InstanceType != "" {
+		//		break
+		//	}
+		//}
 	}
 
 	if core.Service == "proxy" {
@@ -283,6 +304,57 @@ func CleanDisk() (err error) {
 	return
 }
 
+func getMetaDataField(field string) (result string, err error) {
+	var url = fmt.Sprintf("%s/%s", conf.OPENSTACK_METADATA_URL, field) // TODO this is not OPENSTACK, this is EC2
+	logger.Debug(1, fmt.Sprintf("url=%s", url))
+
+	for i := 0; i < 3; i++ {
+		var res *http.Response
+		c := make(chan bool, 1)
+		go func() {
+			res, err = http.Get(url)
+			c <- true //we are ending
+		}()
+		select {
+		case <-c:
+			//go ahead
+		case <-time.After(conf.INSTANCE_METADATA_TIMEOUT): //GET timeout
+			err = errors.New("warning: " + url + " timeout")
+		}
+		defer res.Body.Close()
+		if err != nil {
+			//return "", err
+			logger.Error("warning: " + url + " " + err.Error())
+			continue
+		}
+
+		bodybytes, err := ioutil.ReadAll(res.Body)
+		result = string(bodybytes[:])
+		if err != nil {
+			logger.Error(fmt.Sprintf("warning: (iteration=%d) %s \"%s\"", i, url, err.Error()))
+			continue
+		} else if result == "" {
+			logger.Error(fmt.Sprintf("warning: (iteration=%d) %s empty result", i, url))
+			continue
+		}
+
+		break
+
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	if result == "" {
+		return "", errors.New(fmt.Sprintf("metadata result empty, %s", url))
+	}
+	//fmt.Printf("Intance Metadata %s => \"%s\"\n", url, result)
+	logger.Debug(1, fmt.Sprintf("Intance Metadata %s => \"%s\"", url, result))
+	return
+}
+
+// TODO deprecated by getMetaDataField !?
 func getInstanceId() (instance_id string, err error) {
 	var instance_id_url = fmt.Sprintf("%s/instance-id", conf.OPENSTACK_METADATA_URL)
 	var res *http.Response
@@ -310,6 +382,7 @@ func getInstanceId() (instance_id string, err error) {
 	return
 }
 
+// TODO deprecated by getMetaDataField !?
 func getInstanceType() (instance_type string, err error) {
 	var instance_type_url = fmt.Sprintf("%s/instance-type", conf.OPENSTACK_METADATA_URL)
 	var res *http.Response

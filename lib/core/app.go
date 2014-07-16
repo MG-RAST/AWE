@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"io/ioutil"
 	"net/http"
@@ -13,7 +14,7 @@ import (
 	"time"
 )
 
-var app_registry_url = "https://raw.githubusercontent.com/wgerlach/SODOKU/master/apps/apps.json"
+//var app_registry_url = "https://raw.githubusercontent.com/wgerlach/SODOKU/master/apps/apps.json"
 var MyAppRegistry AppRegistry
 
 type AppCommandMode struct {
@@ -127,40 +128,63 @@ func apptype2string(ait AppInputType) string {
 // generator function for app registry
 func MakeAppRegistry() (new_instance AppRegistry, err error) {
 
+	if conf.APP_REGISTRY_URL == "" {
+		err = errors.New("error app registry url empty")
+		return
+	}
+
 	new_instance = make(AppRegistry)
 
 	//new_instance.packages = make(map[string]*AppPackage)
 
-	res, err := http.Get(app_registry_url)
+	for i := 0; i < 3; i++ {
+
+		if i > 0 {
+			time.Sleep(5000 * time.Millisecond)
+		}
+
+		var res *http.Response
+
+		c := make(chan bool, 1)
+		go func() {
+			res, err = http.Get(conf.APP_REGISTRY_URL)
+			c <- true //we are ending
+		}()
+		select {
+		case <-c:
+			//go ahead
+		case <-time.After(5000 * time.Millisecond): //GET timeout
+			err = errors.New("warning: " + conf.APP_REGISTRY_URL + " timeout")
+		}
+		defer res.Body.Close()
+		if err != nil {
+			logger.Error("warning: " + conf.APP_REGISTRY_URL + " " + err.Error())
+			continue
+		}
+
+		app_registry_json, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			logger.Error(fmt.Sprintf("warning, could not read app registry json"))
+			continue
+		}
+
+		// transform json into go struct interface
+		//var f map[string]interface{}
+		err = json.Unmarshal(app_registry_json, &new_instance)
+
+		if err != nil {
+			logger.Error("error unmarshaling app registry, error=" + err.Error())
+			continue
+		}
+
+		logger.Debug(1, fmt.Sprintf("app registry unmarshalled"))
+		break
+	}
 
 	if err != nil {
-		err = errors.New("downloading app registry, error=" + err.Error())
-
+		err = errors.New("could not get app registry, error=" + err.Error())
 		return
 	}
-	//logger.Debug(1, fmt.Sprintf("app downloaded: %s", parsed.workunit.Cmd.Name))
-
-	app_registry_json, err := ioutil.ReadAll(res.Body)
-	res.Body.Close()
-	//logger.Debug(1, fmt.Sprintf("app stored in app_registry_json: %s", parsed.workunit.Cmd.Name))
-
-	if err != nil {
-		err = errors.New("error reading app registry, error=" + err.Error())
-		return
-	}
-	//logger.Debug(1, fmt.Sprintf("app registry downloaded: %s", app_string))
-
-	//fmt.Printf("%s", app_registry_json)
-
-	// transform json into go struct interface
-	//var f map[string]interface{}
-	err = json.Unmarshal(app_registry_json, &new_instance)
-
-	if err != nil {
-		err = errors.New("error unmarshaling app registry, error=" + err.Error())
-		return
-	}
-	logger.Debug(1, fmt.Sprintf("app registry unmarshalled"))
 
 	return
 }
@@ -681,7 +705,7 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 
 func NewVariableExpander(app_variables AppVariables) VariableExpander {
 
-	return VariableExpander{simple_variable_match: regexp.MustCompile(`\$\{[\w-]+\}`),
+	return VariableExpander{simple_variable_match: regexp.MustCompile(`\$\{[\w-]+\}`), // inlcudes underscore
 		functional_variable_match: regexp.MustCompile(`\$\{[\w-]+\:[\w-]+\}`),
 		app_variables:             app_variables}
 }

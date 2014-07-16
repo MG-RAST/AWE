@@ -117,7 +117,7 @@ func CreateJobUpload(u *user.User, params map[string]string, files FormFiles, ji
 	}
 
 	// TODO need a way update app-defintions in AWE server...
-	if MyAppRegistry == nil {
+	if MyAppRegistry == nil && conf.APP_REGISTRY_URL != "" {
 		MyAppRegistry, err = MakeAppRegistry()
 		if err != nil {
 			return job, errors.New("error creating app registry, error=" + err.Error())

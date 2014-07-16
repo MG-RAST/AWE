@@ -27,7 +27,7 @@ type ClientGroup struct {
 }
 
 var (
-	CGNameRegex = regexp.MustCompile(`^[A-Za-z0-9\_-\.]+$`)
+	CGNameRegex = regexp.MustCompile(`^[A-Za-z0-9\_-.]+$`)
 )
 
 func CreateClientGroup(name string, u *user.User) (cg *ClientGroup, err error) {
@@ -40,7 +40,7 @@ func CreateClientGroup(name string, u *user.User) (cg *ClientGroup, err error) {
 	}
 
 	if !CGNameRegex.Match([]byte(name)) {
-		return nil, errors.New("Clientgroup name must contain only alphanumeric characters, underscore or dash.")
+		return nil, errors.New("Clientgroup name must contain only alphanumeric characters, underscore, dash or dot.")
 	}
 
 	t := time.Now()

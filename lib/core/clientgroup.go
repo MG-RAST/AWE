@@ -27,7 +27,7 @@ type ClientGroup struct {
 }
 
 var (
-	CGNameRegex = regexp.MustCompile(`^[A-Za-z0-9\_-\.]+$`)
+	CGNameRegex = regexp.MustCompile(`^[A-Za-z0-9\_\-\.]+$`)
 )
 
 func CreateClientGroup(name string, u *user.User) (cg *ClientGroup, err error) {

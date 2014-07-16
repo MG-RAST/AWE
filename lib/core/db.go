@@ -23,6 +23,8 @@ func InitClientGroupDB() {
 	defer session.Close()
 	cc := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_CGS)
 	cc.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
+	cc.EnsureIndex(mgo.Index{Key: []string{"name"}, Unique: true})
+	cc.EnsureIndex(mgo.Index{Key: []string{"token"}, Unique: true})
 }
 
 func dbDelete(q bson.M, coll string) (err error) {
@@ -156,6 +158,17 @@ func LoadClientGroup(id string) (clientgroup *ClientGroup, err error) {
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_CGS)
 	if err = c.Find(bson.M{"id": id}).One(&clientgroup); err == nil {
+		return clientgroup, nil
+	}
+	return nil, err
+}
+
+func LoadClientGroupByName(name string) (clientgroup *ClientGroup, err error) {
+	clientgroup = new(ClientGroup)
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_CGS)
+	if err = c.Find(bson.M{"name": name}).One(&clientgroup); err == nil {
 		return clientgroup, nil
 	}
 	return nil, err

@@ -142,7 +142,7 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 
 func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, err error) {
 	if conf.CLIENT_GROUP_TOKEN == "" {
-		fmt.Println("clientgroup not configured, register as a public client (can only access public data)")
+		fmt.Println("clientgroup token not set, register as a public client (can only access public data)")
 	}
 
 	profile_jsonstream, err := json.Marshal(profile)

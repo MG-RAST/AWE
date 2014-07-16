@@ -1,19 +1,29 @@
 package core
 
-import ()
+import (
+	"github.com/MG-RAST/AWE/lib/user"
+)
 
 type ClientMgr interface {
-	RegisterNewClient(FormFiles) (*Client, error)
-	ClientHeartBeat(string) (HBmsg, error)
+	RegisterNewClient(FormFiles, *ClientGroup) (*Client, error)
+	ClientHeartBeat(string, *ClientGroup) (HBmsg, error)
 	GetClient(string) (*Client, error)
+	GetClientByUser(string, *user.User) (*Client, error)
 	GetAllClients() []*Client
-	DeleteClient(string) (err error)
-	SuspendClient(string) (err error)
-	ResumeClient(string) (err error)
-	ResumeSuspendedClients() (count int)
-	SuspendAllClients() (count int)
+	GetAllClientsByUser(*user.User) []*Client
+	DeleteClient(string) error
+	DeleteClientByUser(string, *user.User) error
+	SuspendClient(string) error
+	SuspendClientByUser(string, *user.User) error
+	ResumeClient(string) error
+	ResumeClientByUser(string, *user.User) error
+	ResumeSuspendedClients() int
+	ResumeSuspendedClientsByUser(*user.User) int
+	SuspendAllClients() int
+	SuspendAllClientsByUser(*user.User) int
 	ClientChecker()
-	UpdateSubClients(id string, count int)
+	UpdateSubClients(string, int)
+	UpdateSubClientsByUser(string, int, *user.User)
 }
 
 type WorkMgr interface {
@@ -34,11 +44,16 @@ type JobMgr interface {
 	GetSuspendJobs() map[string]bool
 	SuspendJob(string, string, string) error
 	ResumeSuspendedJob(string) error
+	ResumeSuspendedJobByUser(string, *user.User) error
 	ResumeSuspendedJobs() int
+	ResumeSuspendedJobsByUser(*user.User) int
 	ResubmitJob(string) error
 	DeleteJob(string) error
+	DeleteJobByUser(string, *user.User) error
 	DeleteSuspendedJobs() int
+	DeleteSuspendedJobsByUser(*user.User) int
 	DeleteZombieJobs() int
+	DeleteZombieJobsByUser(*user.User) int
 	InitMaxJid() error
 	RecoverJobs() error
 	FinalizeWorkPerf(string, string) error

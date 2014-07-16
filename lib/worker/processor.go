@@ -306,7 +306,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	if false {
 		container, err := client.InspectContainer(container_id)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("error inspectinf container, err=%s", err.Error()))
+			return nil, errors.New(fmt.Sprintf("error inspecting container, err=%s", err.Error()))
 		}
 		//spew.Dump(container)
 		//spew.Dump(container.Config)
@@ -767,7 +767,13 @@ func UnSetEnv(envkeys []string) {
 
 func FetchPrivateEnvByWorkId(workid string) (envs map[string]string, err error) {
 	targeturl := fmt.Sprintf("%s/work/%s?privateenv&client=%s", conf.SERVER_URL, workid, core.Self.Id)
-	res, err := httpclient.Get(targeturl, httpclient.Header{}, nil, nil)
+	var headers httpclient.Header
+	if conf.CLIENT_GROUP_TOKEN != "" {
+		headers = httpclient.Header{
+			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
+		}
+	}
+	res, err := httpclient.Get(targeturl, headers, nil, nil)
 	if err != nil {
 		return envs, err
 	}

@@ -3,6 +3,7 @@ package request
 import (
 	"errors"
 	"github.com/MG-RAST/AWE/lib/auth"
+	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/user"
@@ -17,6 +18,16 @@ func Authenticate(req *http.Request) (u *user.User, err error) {
 	}
 	header := req.Header.Get("Authorization")
 	u, err = auth.Authenticate(header)
+	return
+}
+
+func AuthenticateClientGroup(req *http.Request) (cg *core.ClientGroup, err error) {
+	if _, ok := req.Header["Authorization"]; !ok {
+		err = errors.New(e.NoAuth)
+		return
+	}
+	header := req.Header.Get("Authorization")
+	cg, err = auth.AuthenticateClientGroup(header)
 	return
 }
 

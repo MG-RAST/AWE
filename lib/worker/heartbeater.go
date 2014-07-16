@@ -72,7 +72,13 @@ func heartbeating(host string, clientid string) (msg core.HBmsg, err error) {
 	response := new(HeartbeatResponse)
 	targeturl := fmt.Sprintf("%s/client/%s?heartbeat", host, clientid)
 	//res, err := http.Get(targeturl)
-	res, err := httpclient.Get(targeturl, httpclient.Header{}, nil, nil)
+	var headers httpclient.Header
+	if conf.CLIENT_GROUP_TOKEN != "" {
+		headers = httpclient.Header{
+			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
+		}
+	}
+	res, err := httpclient.Get(targeturl, headers, nil, nil)
 	logger.Debug(3, fmt.Sprintf("client %s sent a heartbeat to %s", host, clientid))
 	if err != nil {
 		return
@@ -135,8 +141,8 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 }
 
 func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, err error) {
-	if conf.CLIENT_USERNAME == "public" {
-		fmt.Println("client username and password not configured, register as a public user (can only access public data)")
+	if conf.CLIENT_GROUP_TOKEN == "" {
+		fmt.Println("clientgroup token not set, register as a public client (can only access public data)")
 	}
 
 	profile_jsonstream, err := json.Marshal(profile)
@@ -148,14 +154,23 @@ func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, e
 	if err := form.Create(); err != nil {
 		return nil, err
 	}
-	headers := httpclient.Header{
-		"Content-Type":   []string{form.ContentType},
-		"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
+	var headers httpclient.Header
+	if conf.CLIENT_GROUP_TOKEN == "" {
+		headers = httpclient.Header{
+			"Content-Type":   []string{form.ContentType},
+			"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
+		}
+	} else {
+		headers = httpclient.Header{
+			"Content-Type":   []string{form.ContentType},
+			"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
+			"Authorization":  []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
+		}
 	}
-	user := httpclient.GetUserByBasicAuth(conf.CLIENT_USERNAME, conf.CLIENT_PASSWORD)
+
 	targetUrl := host + "/client"
 
-	resp, err := httpclient.Post(targetUrl, headers, form.Reader, user)
+	resp, err := httpclient.Post(targetUrl, headers, form.Reader, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +205,6 @@ func ComposeProfile() (profile *core.Client, err error) {
 	profile.Name = conf.CLIENT_NAME
 	profile.Group = conf.CLIENT_GROUP
 	profile.CPUs = runtime.NumCPU()
-	profile.User = conf.CLIENT_USERNAME
 	profile.Domain = conf.CLIENT_DOMAIN
 	profile.Version = conf.VERSION
 

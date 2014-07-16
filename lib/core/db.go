@@ -1,7 +1,6 @@
 package core
 
 import (
-	//	"errors"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
@@ -17,6 +16,15 @@ func InitJobDB() {
 	cj.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
 	cp := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_PERF)
 	cp.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
+}
+
+func InitClientGroupDB() {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	cc := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_CGS)
+	cc.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
+	cc.EnsureIndex(mgo.Index{Key: []string{"name"}, Unique: true})
+	cc.EnsureIndex(mgo.Index{Key: []string{"token"}, Unique: true})
 }
 
 func dbDelete(q bson.M, coll string) (err error) {
@@ -36,6 +44,9 @@ func dbUpsert(t interface{}) (err error) {
 		_, err = c.Upsert(bson.M{"id": t.Id}, &t)
 	case *JobPerf:
 		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_PERF)
+		_, err = c.Upsert(bson.M{"id": t.Id}, &t)
+	case *ClientGroup:
+		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_CGS)
 		_, err = c.Upsert(bson.M{"id": t.Id}, &t)
 	default:
 		fmt.Printf("invalid database entry type\n")
@@ -69,7 +80,41 @@ func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string) 
 	}
 	session := db.Connection.Session.Copy()
 	defer session.Close()
-	c := session.DB(conf.MONGODB_DATABASE).C("Jobs")
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	query := c.Find(q)
+	if count, err = query.Count(); err != nil {
+		return 0, err
+	}
+
+	if limit, has := options["limit"]; has {
+		if offset, has := options["offset"]; has {
+			err = query.Sort(sortby).Limit(limit).Skip(offset).All(results)
+			return
+		}
+	}
+	err = query.Sort(sortby).All(results)
+	return
+}
+
+func dbFindClientGroups(q bson.M, results *ClientGroups) (count int, err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_CGS)
+	query := c.Find(q)
+	if count, err = query.Count(); err != nil {
+		return 0, err
+	}
+	err = query.All(results)
+	return
+}
+
+func dbFindSortClientGroups(q bson.M, results *ClientGroups, options map[string]int, sortby string) (count int, err error) {
+	if sortby == "" {
+		return 0, errors.New("sortby must be an nonempty string")
+	}
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_CGS)
 	query := c.Find(q)
 	if count, err = query.Count(); err != nil {
 		return 0, err
@@ -92,8 +137,6 @@ func LoadJob(id string) (job *Job, err error) {
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 	if err = c.Find(bson.M{"id": id}).One(&job); err == nil {
 		return job, nil
-	} else {
-		return nil, err
 	}
 	return nil, err
 }
@@ -105,8 +148,44 @@ func LoadJobPerf(id string) (perf *JobPerf, err error) {
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_PERF)
 	if err = c.Find(bson.M{"id": id}).One(&perf); err == nil {
 		return perf, nil
-	} else {
-		return nil, err
 	}
 	return nil, err
+}
+
+func LoadClientGroup(id string) (clientgroup *ClientGroup, err error) {
+	clientgroup = new(ClientGroup)
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_CGS)
+	if err = c.Find(bson.M{"id": id}).One(&clientgroup); err == nil {
+		return clientgroup, nil
+	}
+	return nil, err
+}
+
+func LoadClientGroupByName(name string) (clientgroup *ClientGroup, err error) {
+	clientgroup = new(ClientGroup)
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_CGS)
+	if err = c.Find(bson.M{"name": name}).One(&clientgroup); err == nil {
+		return clientgroup, nil
+	}
+	return nil, err
+}
+
+func LoadClientGroupByToken(token string) (clientgroup *ClientGroup, err error) {
+	clientgroup = new(ClientGroup)
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_CGS)
+	if err = c.Find(bson.M{"token": token}).One(&clientgroup); err == nil {
+		return clientgroup, nil
+	}
+	return nil, err
+}
+
+func DeleteClientGroup(id string) (err error) {
+	err = dbDelete(bson.M{"id": id}, conf.DB_COLL_CGS)
+	return
 }

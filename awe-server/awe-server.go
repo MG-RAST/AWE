@@ -115,7 +115,10 @@ func main() {
 		fmt.Println("init db collection for user...")
 	}
 	//init db collection for user
-	user.Initialize()
+	if err := user.Initialize(); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR initializing user database: %s\n", err.Error())
+		os.Exit(1)
+	}
 
 	if conf.DEBUG_LEVEL > 0 {
 		fmt.Println("init resource manager...")

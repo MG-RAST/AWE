@@ -567,6 +567,23 @@ func (qm *CQMgr) ShowWorkunits(status string) (workunits []*Workunit) {
 	return workunits
 }
 
+func (qm *CQMgr) ShowWorkunitsByUser(status string, u *user.User) (workunits []*Workunit) {
+	// Only returns workunits of jobs that the user has read access to or is the owner of.  If user is admin, return all.
+	for _, work := range qm.workQueue.workMap {
+		if jobid, err := GetJobIdByWorkId(work.Id); err == nil {
+			if job, err := LoadJob(jobid); err == nil {
+				rights := job.Acl.Check(u.Uuid)
+				if job.Acl.Owner == u.Uuid || rights["read"] == true || u.Admin == true {
+					if work.State == status || status == "" {
+						workunits = append(workunits, work)
+					}
+				}
+			}
+		}
+	}
+	return workunits
+}
+
 func (qm *CQMgr) EnqueueWorkunit(work *Workunit) (err error) {
 	err = qm.workQueue.Add(work)
 	return

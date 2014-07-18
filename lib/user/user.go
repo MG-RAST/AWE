@@ -2,12 +2,10 @@ package user
 
 import (
 	"code.google.com/p/go-uuid/uuid"
-	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
-	"os"
 )
 
 // Array of User
@@ -24,22 +22,32 @@ type User struct {
 	CustomFields interface{} `bson:"custom_fields" json:"custom_fields"`
 }
 
-func Initialize() {
+func Initialize() (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C("Users")
-	c.EnsureIndex(mgo.Index{Key: []string{"uuid"}, Unique: true})
-	c.EnsureIndex(mgo.Index{Key: []string{"username"}, Unique: true})
+	if err = c.EnsureIndex(mgo.Index{Key: []string{"uuid"}, Unique: true}); err != nil {
+		return err
+	}
+	if err = c.EnsureIndex(mgo.Index{Key: []string{"username"}, Unique: true}); err != nil {
+		return err
+	}
 
 	// Setting admin users based on config file.  First, set all users to Admin = false
-	c.UpdateAll(bson.M{}, bson.M{"admin": false})
-	fmt.Fprintf(os.Stderr, "test\n")
+	if _, err = c.UpdateAll(bson.M{}, bson.M{"$set": bson.M{"admin": false}}); err != nil {
+
+		return err
+	}
 
 	// This config parameter contains a string that should be a comma-separated list of users that are Admins.
 	for k, _ := range conf.Admin_Users {
-		fmt.Fprintf(os.Stderr, "username = %v\n", k)
-		c.Update(bson.M{"username": k}, bson.M{"$set": bson.M{"admin": true}})
+		if k != "" {
+			if err = c.Update(bson.M{"username": k}, bson.M{"$set": bson.M{"admin": true}}); err != nil {
+				return err
+			}
+		}
 	}
+	return
 }
 
 func New(username string, password string, isAdmin bool) (u *User, err error) {

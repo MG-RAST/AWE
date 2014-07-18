@@ -7,6 +7,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/request"
+	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
 	"io/ioutil"
 	"net/http"
@@ -78,6 +79,49 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		}
 	}
 
+	// Try to authenticate user.
+	u, err := request.Authenticate(cx.Request)
+	if err != nil && err.Error() != e.NoAuth {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// If no auth was provided, and anonymous read is allowed, use the public user
+	if u == nil {
+		if conf.ANON_READ == true {
+			u = &user.User{Uuid: "public"}
+		} else {
+			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+			return
+		}
+	}
+
+	// Load workunit by id
+	workunit, err := core.QMgr.GetWorkById(id)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	jobid, err := core.GetJobIdByWorkId(id)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	job, err := core.LoadJob(jobid)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// User must have read permissions on job or be job owner or be an admin
+	rights := job.Acl.Check(u.Uuid)
+	if job.Acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false {
+		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
+		return
+	}
+
 	if query.Has("report") { //retrieve report: stdout or stderr or worknotes
 		reportmsg, err := core.QMgr.GetReportMsg(id, query.Value("report"))
 		if err != nil {
@@ -87,9 +131,6 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		cx.RespondWithData(reportmsg)
 		return
 	}
-
-	// Load workunit by id
-	workunit, err := core.QMgr.GetWorkById(id)
 
 	if err != nil {
 		if err.Error() != e.QueueEmpty {
@@ -112,11 +153,28 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	query := &Query{Li: cx.Request.URL.Query()}
 
 	if !query.Has("client") { //view workunits
+		// Try to authenticate user.
+		u, err := request.Authenticate(cx.Request)
+		if err != nil && err.Error() != e.NoAuth {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		// If no auth was provided, and anonymous read is allowed, use the public user
+		if u == nil {
+			if conf.ANON_READ == true {
+				u = &user.User{Uuid: "public"}
+			} else {
+				cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+				return
+			}
+		}
+
 		var workunits []*core.Workunit
 		if query.Has("state") {
-			workunits = core.QMgr.ShowWorkunits(query.Value("state"))
+			workunits = core.QMgr.ShowWorkunitsByUser(query.Value("state"), u)
 		} else {
-			workunits = core.QMgr.ShowWorkunits("")
+			workunits = core.QMgr.ShowWorkunitsByUser("", u)
 		}
 		cx.RespondWithData(workunits)
 		return

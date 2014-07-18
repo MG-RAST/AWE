@@ -107,7 +107,7 @@ func (cr *ClientController) Read(id string, cx *goweb.Context) {
 
 	// If no auth was provided, and anonymous read is allowed, use the public user
 	if u == nil {
-		if conf.CLIENT_AUTH_REQ == false {
+		if conf.ANON_READ == true {
 			u = &user.User{Uuid: "public"}
 		} else {
 			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
@@ -141,7 +141,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 
 	// If no auth was provided, and anonymous read is allowed, use the public user
 	if u == nil {
-		if conf.CLIENT_AUTH_REQ == false {
+		if conf.ANON_READ == true {
 			u = &user.User{Uuid: "public"}
 		} else {
 			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
@@ -179,7 +179,7 @@ func (cr *ClientController) Update(id string, cx *goweb.Context) {
 
 	// If no auth was provided, and anonymous read is allowed, use the public user
 	if u == nil {
-		if conf.CLIENT_AUTH_REQ == false {
+		if conf.ANON_WRITE == true {
 			u = &user.User{Uuid: "public"}
 		} else {
 			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
@@ -230,7 +230,7 @@ func (cr *ClientController) UpdateMany(cx *goweb.Context) {
 
 	// If no auth was provided, and anonymous read is allowed, use the public user
 	if u == nil {
-		if conf.CLIENT_AUTH_REQ == false {
+		if conf.ANON_WRITE == true {
 			u = &user.User{Uuid: "public"}
 		} else {
 			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
@@ -266,7 +266,7 @@ func (cr *ClientController) Delete(id string, cx *goweb.Context) {
 
 	// If no auth was provided, and anonymous read is allowed, use the public user
 	if u == nil {
-		if conf.CLIENT_AUTH_REQ == false {
+		if conf.ANON_DELETE == true {
 			u = &user.User{Uuid: "public"}
 		} else {
 			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)

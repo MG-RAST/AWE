@@ -18,6 +18,28 @@ import (
 func launchSite(control chan int, port int) {
 	goweb.ConfigureDefaultFormatters()
 	r := &goweb.RouteManager{}
+
+	site_directory := conf.SITE_PATH
+	fileinfo, err := os.Stat(site_directory)
+	if err != nil {
+		message := fmt.Sprintf("ERROR: site, path %s does not exist: %s", site_directory, err.Error())
+		if os.IsNotExist(err) {
+			message += " IsNotExist"
+		}
+
+		fmt.Fprintf(os.Stderr, message, "\n")
+		logger.Error(message)
+
+		os.Exit(1)
+	} else {
+		if !fileinfo.IsDir() {
+			message := fmt.Sprintf("ERROR: site, path %s exists, but is not a directory", site_directory)
+			fmt.Fprintf(os.Stderr, message, "\n")
+			logger.Error(message)
+			os.Exit(1)
+		}
+
+	}
 	r.MapFunc("*", controller.SiteDir)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.SITE_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)

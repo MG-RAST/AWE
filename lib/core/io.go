@@ -100,7 +100,7 @@ func (io *IO) GetFileSize() int64 {
 	}
 	shocknode, err := io.GetShockNode()
 	if err != nil {
-		logger.Error(fmt.Sprintf("GetFileSize error: %s", err.Error()))
+		logger.Error(fmt.Sprintf("GetFileSize error: %s, node: %s", err.Error(), io.Node))
 		return -1
 	}
 	io.Size = shocknode.File.Size

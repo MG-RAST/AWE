@@ -75,8 +75,17 @@ func (io *IO) DataUrl() string {
 	if io.Url != "" {
 		if io.Host == "" || io.Node == "-" {
 			parts := strings.Split(io.Url, "/")
-			io.Host = "http://" + parts[2]
-			io.Node = strings.Split(parts[4], "?")[0]
+
+			// test if url is a shock url   ; len nodeid?download 36+9 = 45
+			if parts[2] != "" && parts[3] == "node" {
+				if (strings.HasSuffix(parts[3], "?download") && len(parts[3]) == 45) || len(parts[3]) == 36 {
+					host := "http://" + parts[2]
+					node := strings.Split(parts[4], "?")[0]
+
+					io.Host = host
+					io.Node = node
+				}
+			}
 		}
 		return io.Url
 	} else {

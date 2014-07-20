@@ -17,8 +17,18 @@ import (
 //var app_registry_url = "https://raw.githubusercontent.com/wgerlach/SODOKU/master/apps/apps.json"
 var MyAppRegistry AppRegistry
 
+type AppInput struct {
+	Type         string `bson:"type" json:"type"`
+	Name         string `bson:"name" json:"name"`
+	DefaultValue string `bson:"default_value" json:"default_value"`
+	Required     bool   `bson:"required" json:"required"` // or use optional // TODO remove
+	Optional     bool   `bson:"optional" json:"optional"`
+	Option       string `bson:"option" json:"option"` // this is the name used by the command line proramm, e.g. "--input="
+	//Description		`bson:"description" json:"description"`
+}
+
 type AppCommandMode struct {
-	Input           [][]string          `bson:"input" json:"input"`
+	Input           []AppInput          `bson:"input" json:"input"`
 	Output_array    []string            `bson:"output_array" json:"output_array"`
 	Output_map      map[string]string   `bson:"output_map" json:"output_map"`
 	Predata         IOmap               `bson:"predata" json:"predata"`
@@ -36,10 +46,12 @@ type AppPackage struct {
 
 type AppRegistry map[string]*AppPackage
 
+// part of workflow document, used in "Command", defines input: shock, task, string
 type AppResource struct {
 	Resource       string `bson:"resource" json:"resource"`
 	Host           string `bson:"host" json:"host"`
 	Node           string `bson:"node" json:"node"`
+	Url            string `bson:"url" json:"url"`
 	Filename       string `bson:"filename" json:"filename"`
 	Key            string `bson:"key" json:"key"`
 	Value          string `bson:"value" json:"value"`
@@ -55,14 +67,17 @@ const (
 	Ait_file
 	Ait_string
 	Ait_shock
+	Ait_url
 	Ait_task
 )
 
 type AppVariable struct {
 	Value    string
 	Var_type AppInputType
+	Option   string
 }
 
+// part of the (internal-only) workflow document, used in "Task""
 type AppVariables map[string]AppVariable
 
 type VariableExpander struct {
@@ -82,6 +97,9 @@ func (this_ait AppInputType) HasType(ait AppInputType) bool {
 		if this_ait == Ait_shock {
 			return true
 		}
+		if this_ait == Ait_url {
+			return true
+		}
 		if this_ait == Ait_task {
 			return true
 		}
@@ -97,6 +115,8 @@ func string2apptype(type_string string) (ait AppInputType, err error) {
 		ait = Ait_string
 	} else if type_string == "shock" {
 		ait = Ait_shock
+	} else if type_string == "url" {
+		ait = Ait_url
 	} else if type_string == "task" {
 		ait = Ait_task
 	} else {
@@ -116,6 +136,8 @@ func apptype2string(ait AppInputType) string {
 		return "string"
 	case Ait_shock:
 		return "shock"
+	case Ait_url:
+		return "url"
 	case Ait_task:
 		return "task"
 
@@ -236,30 +258,20 @@ func (acm AppCommandMode) Get_default_app_variables() (app_variables AppVariable
 	logger.Debug(1, fmt.Sprintf("Get_default_app_variables: size of acm.Input=%d", len(acm.Input)))
 	time.Sleep(15 * time.Millisecond)
 	for _, input_arg := range acm.Input {
-		logger.Debug(1, fmt.Sprintf("app input arg: %s", strings.Join(input_arg, ", ")))
+		//logger.Debug(1, fmt.Sprintf("app input arg: %s", strings.Join(input_arg, ", ")))
 
 		// save the defaults if available
 
-		if len(input_arg) >= 2 {
-			variable_name := input_arg[1]
-			logger.Debug(1, fmt.Sprintf("from app-definition: variable \"%s\"", variable_name))
-			app_type, err := string2apptype(input_arg[0])
-			if err != nil {
-				err = errors.New(fmt.Sprintf("error converting type, error=%s", err.Error()))
-				return app_variables, err
-			}
-			logger.Debug(1, fmt.Sprintf("from app-definition: variable \"%s\" has type %s", variable_name, apptype2string(app_type)))
-
-			if len(input_arg) >= 3 && input_arg[2] != "" {
-
-				logger.Debug(1, fmt.Sprintf("from app-definition: write variable:\"%s\" - default value: \"%s\"", variable_name, input_arg[2]))
-				app_variables[variable_name] = AppVariable{Value: input_arg[2], Var_type: app_type}
-
-			} else {
-				app_variables[variable_name] = AppVariable{Var_type: app_type}
-			}
-
+		logger.Debug(1, fmt.Sprintf("from app-definition: variable \"%s\"", input_arg.Name))
+		app_type, err := string2apptype(input_arg.Type)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("error converting type, error=%s", err.Error()))
+			return app_variables, err
 		}
+		logger.Debug(1, fmt.Sprintf("from app-definition: variable \"%s\" has type %s", input_arg.Name, apptype2string(app_type)))
+
+		logger.Debug(1, fmt.Sprintf("from app-definition: write variable:\"%s\" - default value: \"%s\"", input_arg.Name, input_arg.DefaultValue))
+		app_variables[input_arg.Name] = AppVariable{Var_type: app_type, Value: input_arg.DefaultValue, Option: input_arg.Option}
 
 	}
 
@@ -556,13 +568,18 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 
 		resource_type, err := string2apptype(input_arg.Resource)
 
-		if err != nil || resource_type == Ait_undefined {
+		if err != nil {
+			err = errors.New(fmt.Sprintf("app input type undefined err=%s", err.Error()))
+			return err
+		}
+
+		if resource_type == Ait_undefined {
 			err = errors.New(fmt.Sprintf("app input type undefined"))
 			return err
 		}
 
 		if input_variable_name == "" {
-			input_variable_name = acm.Input[arg_position][1] // use position to infer key name
+			input_variable_name = acm.Input[arg_position].Name // use position to infer key name
 		}
 
 		if input_variable_name == "" {
@@ -610,7 +627,27 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 				inputs[filename] = &IO{Host: host, Node: node, DataToken: task.Info.DataToken} // TODO set ShockFilename ?
 
 			}
+		case Ait_url:
+			logger.Debug(1, fmt.Sprintf("processing: %s", apptype2string(resource_type)))
+			filename := input_arg.Filename
+			url := input_arg.Url
+			if filename != "" {
+				input_variable_value = filename
+			} else {
+				//TODO invent filename ?
+			}
 
+			// TODO make sure resource_type corresponds to expected type in app def
+
+			if job != nil {
+
+				if _, ok := inputs[filename]; ok {
+					return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
+				}
+
+				inputs[filename] = &IO{Url: url} // TODO set ShockFilename ?
+
+			}
 		case Ait_task:
 			logger.Debug(1, fmt.Sprintf("processing: %s", apptype2string(resource_type)))
 
@@ -752,6 +789,16 @@ func (va VariableExpander) Expand(line string) (expanded string, err error) {
 				//logger.Debug(1, fmt.Sprintf("trimmed: %s", function_variable_value))
 			}
 			logger.Debug(1, fmt.Sprintf("modified function_variable_value: %s", function_variable_value))
+		} else if function_command == "option" {
+			//app_var, ok := va.app_variables[]
+			option := function_variable_obj.Option
+
+			if option == "" {
+				logger.Error("Warning: option requested but not found for " + variable)
+			}
+
+			return option + function_variable_value
+
 		} else {
 			logger.Debug(1, fmt.Sprintf("warning: (Expand_app_variables) functional variable %s not recognized", variable))
 

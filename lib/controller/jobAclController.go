@@ -53,7 +53,7 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 
 	// User must have read permissions on job or be job owner or be an admin
 	rights := job.Acl.Check(u.Uuid)
-	if job.Acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false {
+	if job.Acl.Owner != u.Uuid && u.Admin == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}

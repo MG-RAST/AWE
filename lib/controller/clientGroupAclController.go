@@ -53,7 +53,7 @@ var ClientGroupAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 
 	// User must have read permissions on clientgroup or be clientgroup owner or be an admin
 	rights := cg.Acl.Check(u.Uuid)
-	if cg.Acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false {
+	if cg.Acl.Owner != u.Uuid && u.Admin == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}

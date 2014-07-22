@@ -12,11 +12,11 @@ import (
 	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/wgerlach/go-dockerclient"
 	"io"
 	"io/ioutil"
-	"log"
+	//"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -116,12 +116,12 @@ func RemoveOldAWEContainers(client *docker.Client, container_name string) (err e
 
 	old_containers_deleted := 0
 	for _, cont := range containers {
-		spew.Dump(cont)
+		//spew.Dump(cont)
 		delete_old_container := false
 
-		logger.Debug(1, fmt.Sprintf("container ID: %s", cont.ID))
+		logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) check container with ID: %s", cont.ID))
 		for _, cname := range cont.Names {
-			logger.Debug(1, fmt.Sprintf("container name: %s", cname))
+			logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) container name: %s", cname))
 			if cname == container_name {
 				delete_old_container = true
 			}
@@ -131,32 +131,32 @@ func RemoveOldAWEContainers(client *docker.Client, container_name string) (err e
 		}
 
 		if delete_old_container == true {
-			logger.Debug(1, fmt.Sprintf("found old container %s and try to delete it...", container_name))
+			logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) found old container %s and try to delete it...", container_name))
 			container, err := client.InspectContainer(cont.ID)
 			if err != nil {
-				return errors.New(fmt.Sprintf("error inspecting old container id=%s, err=%s", cont.ID, err.Error()))
+				return errors.New(fmt.Sprintf("(RemoveOldAWEContainers) error inspecting old container id=%s, err=%s", cont.ID, err.Error()))
 			}
 			if container.State.Running == true {
-				logger.Debug(1, fmt.Sprintf("try to kill old container %s...", container_name))
+				logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) try to kill old container %s...", container_name))
 				err := client.KillContainer(docker.KillContainerOptions{ID: cont.ID})
 				if err != nil {
-					return errors.New(fmt.Sprintf("error killing old container id=%s, err=%s", cont.ID, err.Error()))
+					return errors.New(fmt.Sprintf("(RemoveOldAWEContainers) error killing old container id=%s, err=%s", cont.ID, err.Error()))
 				}
 			}
 			container, err = client.InspectContainer(cont.ID)
 			if err != nil {
-				return errors.New(fmt.Sprintf("error inspecting old container id=%s, err=%s", cont.ID, err.Error()))
+				return errors.New(fmt.Sprintf("(RemoveOldAWEContainers) error inspecting old container id=%s, err=%s", cont.ID, err.Error()))
 			}
 			if container.State.Running == true {
-				return errors.New(fmt.Sprintf("old container is still running"))
+				return errors.New(fmt.Sprintf("(RemoveOldAWEContainers) old container is still running"))
 			}
-			logger.Debug(1, fmt.Sprintf("try to remove old container %s...", container_name))
+			logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) try to remove old container %s...", container_name))
 			c_remove_opts := docker.RemoveContainerOptions{ID: cont.ID}
 			err = client.RemoveContainer(c_remove_opts)
 			if err != nil {
-				return errors.New(fmt.Sprintf("error removing old container id=%s, err=%s", cont.ID, err.Error()))
+				return errors.New(fmt.Sprintf("(RemoveOldAWEContainers) error removing old container id=%s, err=%s", cont.ID, err.Error()))
 			}
-			logger.Debug(1, fmt.Sprintf("old container %s should have been removed", container_name))
+			logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) old container %s should have been removed", container_name))
 			old_containers_deleted += 1
 		}
 
@@ -167,7 +167,9 @@ func RemoveOldAWEContainers(client *docker.Client, container_name string) (err e
 
 func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	pstats = new(core.WorkPerf)
-	pstats.MaxMemUsage = 0
+	pstats.MaxMemUsage = -1
+	pstats.MaxMemoryTotalRss = -1
+	pstats.MaxMemoryTotalSwap = -1
 	args := work.Cmd.ParsedArgs
 
 	//change cwd to the workunit's working directory
@@ -219,10 +221,10 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		return nil, errors.New(fmt.Sprintf("error creating docker client", err.Error()))
 	}
 
-	imgs, _ := client.ListImages(false)
-	for _, img := range imgs {
-		spew.Dump(img)
-	}
+	//imgs, _ := client.ListImages(false)
+	//for _, img := range imgs {
+	//	spew.Dump(img)
+	//}
 
 	// delete any old AWE_container
 	err = RemoveOldAWEContainers(client, container_name)
@@ -306,8 +308,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("error inspecting container, err=%s", err.Error()))
 		}
-		spew.Dump(container)
-		spew.Dump(container.Config)
+		//spew.Dump(container)
+		//spew.Dump(container.Config)
 		fmt.Println("name: ", container.Name)
 	}
 
@@ -323,7 +325,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	// only mount predata if it is actually used
 	if len(work.Predata) > 0 {
 		predata_directory := path.Join(conf.DATA_PATH, "predata")
-		bindstr_predata := predata_directory + "/:" + "/db" // TODO put in config
+		bindstr_predata := predata_directory + "/:" + "/db:ro" // TODO put in config
 		logger.Debug(1, "bindstr_predata: "+bindstr_predata)
 		bindarray = []string{bindstr_workdir, bindstr_predata}
 	} else {
@@ -365,9 +367,11 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		done <- err // inform memory checker
 	}()
 
-	var MaxMem uint64 = 0
+	var MaxMem int64 = -1
+	var max_memory_total_rss int64 = -1
+	var max_memory_total_swap int64 = -1
 
-	memory_stat_filename := path.Join("/sys/fs/cgroup/memory/docker/", container_id, "/memory.stat")
+	memory_stat_filename := path.Join(conf.CGROUP_MEMORY_DOCKER_DIR, container_id, "/memory.stat")
 
 	go func() { // memory checker
 
@@ -389,10 +393,14 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			//} else {
 			// /sys/fs/cgroup/memory/docker/<id>/memory.stat
 			//memory := uint64(container.Config.Memory)
-			var memory uint64 = 0
+			var memory_total_rss int64 = -1
+			var memory_total_swap int64 = -1
 			memory_stat_file, err := os.Open(memory_stat_filename)
 			if err != nil {
-				log.Fatal("Error opening memory_stat_file file:", err)
+				logger.Error("warning: error opening memory_stat_file file:" + err.Error())
+				err = nil
+				time.Sleep(conf.MEM_CHECK_INTERVAL)
+				continue
 			}
 
 			// Closes the file when we leave the scope of the current function,
@@ -402,16 +410,31 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 			memory_stat_file_scanner := bufio.NewScanner(memory_stat_file)
 
+			memory_total_rss_read := false
+			memory_total_swap_read := false
 			// scanner.Scan() advances to the next token returning false if an error was encountered
 			for memory_stat_file_scanner.Scan() {
 				line := memory_stat_file_scanner.Text()
 				if strings.HasPrefix(line, "total_rss ") { // TODO what is total_rss_huge
 					//logger.Debug(1, fmt.Sprint("inspecting container with memory line=", line))
 
-					memory, err = strconv.ParseUint(strings.TrimPrefix(line, "total_rss "), 10, 64)
+					memory_total_rss, err = strconv.ParseInt(strings.TrimPrefix(line, "total_rss "), 10, 64)
 					if err != nil {
-						memory = 0
+						memory_total_rss = -1
 					}
+					memory_total_rss_read = true
+				} else if strings.HasPrefix(line, "total_swap ") { // TODO what is total_rss_huge
+					//logger.Debug(1, fmt.Sprint("inspecting container with memory line=", line))
+
+					memory_total_swap, err = strconv.ParseInt(strings.TrimPrefix(line, "total_swap "), 10, 64)
+					if err != nil {
+						memory_total_swap = -1
+					}
+					memory_total_swap_read = true
+				} else {
+					continue
+				}
+				if memory_total_rss_read && memory_total_swap_read {
 					break
 				}
 
@@ -419,14 +442,32 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 			// When finished scanning if any error other than io.EOF occured
 			// it will be returned by scanner.Err().
-			if err := memory_stat_file_scanner.Err(); err != nil {
-				logger.Error(fmt.Sprintf("error reading memory usage from cgroups=", memory_stat_file_scanner.Err()))
+			if err = memory_stat_file_scanner.Err(); err != nil {
+				logger.Error(fmt.Sprintf("warning: could no read memory usage from cgroups=", memory_stat_file_scanner.Err()))
+				err = nil
 			} else {
-				//fmt.Println("memory: ", memory )
-				if memory > MaxMem {
-					MaxMem = memory
+
+				// RSS maxium
+				if memory_total_rss >= 0 && memory_total_rss > max_memory_total_rss {
+					max_memory_total_rss = memory_total_rss
 				}
-				logger.Debug(1, fmt.Sprintf("inspecting container with memory=%d, maximum=%d", memory, MaxMem))
+
+				// SWAP maximum
+				if memory_total_swap >= 0 && memory_total_swap > max_memory_total_swap {
+					max_memory_total_swap = memory_total_swap
+				}
+
+				// RSS+SWAP maximum
+				if memory_total_rss >= 0 && memory_total_swap >= 0 {
+
+					memory_combined := memory_total_rss + memory_total_swap
+					if memory_combined > MaxMem {
+						MaxMem = memory_combined
+					}
+
+				}
+
+				logger.Debug(1, fmt.Sprintf("memory: rss=%d, swap=%d, maximum: rss=%d swap=%d combined=%d", memory_total_rss, memory_total_swap))
 
 			}
 
@@ -457,6 +498,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 	pstats.MaxMemUsage = MaxMem
+	pstats.MaxMemoryTotalRss = max_memory_total_rss
+	pstats.MaxMemoryTotalSwap = max_memory_total_swap
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 
 	return pstats, err
@@ -555,7 +598,7 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}
 	logger.Event(event.WORK_END, "workid="+work.Id)
-	pstats.MaxMemUsage = MaxMem
+	pstats.MaxMemUsage = int64(MaxMem)
 	return
 }
 

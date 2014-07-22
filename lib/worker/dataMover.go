@@ -111,34 +111,8 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 
 	// get arguments
 	//args_array := strings.Split(args_string_space_removed, ",")
-	args_array := parsed.workunit.Cmd.App_args
-	if false { // TODO remove
-		//get app variables (defaults and input)
-		logger.Debug(1, "+++ app_cmd_mode_object.Get_default_app_variables")
-		app_variables, err := app_cmd_mode_object.Get_default_app_variables()
-		if err != nil {
-			return errors.New(fmt.Sprintf("error: app_cmd_mode_object.Get_default_app_variables, %s", err.Error()))
-		}
+	//args_array := parsed.workunit.Cmd.App_args
 
-		logger.Debug(1, "+++ app_cmd_mode_object.ParseAppInput")
-		err = app_cmd_mode_object.ParseAppInput(app_variables, args_array, nil, nil, nil)
-		if err != nil {
-			return errors.New(fmt.Sprintf("error: app_cmd_mode_object.ParseAppInput, %s", err.Error()))
-		}
-
-		logger.Debug(1, fmt.Sprintf("+++ add variables from the app variables defintion"))
-		err = app_cmd_mode_object.Get_app_variables(app_variables)
-		if err != nil {
-			return errors.New(fmt.Sprintf("error: app_cmd_mode_object.Get_app_variables, %s", err.Error()))
-		}
-
-		logger.Debug(1, "+++ core.Expand_app_variables")
-		// expand app variables in cmd_script
-		err = core.Expand_app_variables(app_variables, cmd_script)
-		if err != nil {
-			return errors.New(fmt.Sprintf("error: core.Expand_app_variables, %s", err.Error()))
-		}
-	}
 	logger.Debug(1, "+++ replace_filepath_with_full_filepath")
 	// expand filenames
 	err = replace_filepath_with_full_filepath(&parsed.workunit.Inputs, cmd_script)
@@ -312,11 +286,7 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 	return nil
 }
 
-func fetchFile(filename string, url string, token string) (size int64, err error) {
-	return fetchFile2(filename, url, token)
-}
-
-//fetch file by shock url
+//fetch file by shock url,  TODO remove
 func fetchFile_old(filename string, url string, token string) (size int64, err error) {
 	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
 	localfile, err := os.Create(filename)
@@ -352,7 +322,7 @@ func fetchFile_old(filename string, url string, token string) (size int64, err e
 }
 
 //fetch file by shock url
-func fetchFile2(filename string, url string, token string) (size int64, err error) {
+func fetchFile(filename string, url string, token string) (size int64, err error) {
 	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
 
 	localfile, err := os.Create(filename)

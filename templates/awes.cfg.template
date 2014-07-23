@@ -1,9 +1,16 @@
 [Anonymous]
-# Controls weither an anonymous user can read/write
+# Controls whether an anonymous user can read/write/delete jobs.
+# Also controls whether an anonymous user can read/write/delete clientgroups.
 # values: true/false
+# NOTE: You'll want all of these values to be false in a secure setup, leaving
+#       any of these as true is basically done for ease of development or if you
+#       are running AWE in a closed environment where you can trust all connections.
 read=true
 write=true
-create-user=true
+delete=true
+cg_read=false
+cg_write=false
+cg_delete=false
 
 [Ports]
 # Ports for site/api
@@ -16,14 +23,17 @@ site-url=
 api-url=
 
 [Admin]
+# If you're running AWE with user and clientgroup Auth enabled, you'll want
+# to designate at least one admin user for creation of the clientgroups and
+# managing your AWE server.
+users=
 email=admin@host.com
 secretkey=supersecretkey
 
 [Auth]
 globus_token_url=https://nexus.api.globusonline.org/goauth/token?grant_type=client_credentials
 globus_profile_url=https://nexus.api.globusonline.org/users
-admin_list=wtang,jbischof
-admin_auth=false
+client_auth_required=false
 
 [Directories]
 # See documentation for details of deploying Shock
@@ -51,3 +61,19 @@ debuglevel=0
 [Server]
 perf_log_workunit=true
 
+[Client]
+totalworker=2
+workpath=/mnt/data/awe/work
+supported_apps=
+app_path=/home/ubuntu/apps/bin
+serverurl=http://localhost:8001
+name=default_client
+group=default_group
+auto_clean_dir=false
+worker_overlap=false
+print_app_msg=false
+username=
+password=
+#for openstack client only
+#openstack_metadata_url=http://169.254.169.254/2009-04-04/meta-data
+domain=default-domain #e.g. megallan

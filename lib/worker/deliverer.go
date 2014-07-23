@@ -12,7 +12,7 @@ import (
 )
 
 func deliverer(control chan int) {
-	fmt.Printf("deliverer lanched, client=%s\n", core.Self.Id)
+	fmt.Printf("deliverer launched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("deliverer exiting...\n")
 	for {
 		processed := <-fromProcessor

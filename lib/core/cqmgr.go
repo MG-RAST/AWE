@@ -7,6 +7,8 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/user"
+	"labix.org/v2/mgo/bson"
 	"os"
 	"strings"
 	"time"
@@ -105,9 +107,13 @@ func (qm *CQMgr) ClientChecker() {
 	}
 }
 
-func (qm *CQMgr) ClientHeartBeat(id string) (hbmsg HBmsg, err error) {
+func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err error) {
 	hbmsg = make(map[string]string, 1)
 	if _, ok := qm.clientMap[id]; ok {
+		// If the name of the clientgroup (from auth token) does not match the name in the client retrieved, throw an error
+		if cg != nil && qm.clientMap[id].Group != cg.Name {
+			return nil, errors.New("Clientgroup name in token does not match that in the client.")
+		}
 		qm.clientMap[id].Tag = true
 		logger.Debug(3, "HeartBeatFrom:"+"clientid="+id+",name="+qm.clientMap[id].Name)
 
@@ -133,7 +139,7 @@ func (qm *CQMgr) ClientHeartBeat(id string) (hbmsg HBmsg, err error) {
 	return hbmsg, errors.New(e.ClientNotFound)
 }
 
-func (qm *CQMgr) RegisterNewClient(files FormFiles) (client *Client, err error) {
+func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Client, err error) {
 	if _, ok := files["profile"]; ok {
 		client, err = NewProfileClient(files["profile"].Path)
 		os.Remove(files["profile"].Path)
@@ -142,6 +148,31 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles) (client *Client, err error) 
 	}
 	if err != nil {
 		return nil, err
+	}
+	// If clientgroup is nil at this point, create a publicly owned clientgroup, with the provided group name (if one doesn't exist with the same name)
+	if cg == nil {
+		// See if clientgroup already exists with this name
+		// If it does and it does not have "public" execution rights, throw error
+		// If it doesn't, create one owned by public, and continue with client registration
+		// Otherwise proceed with client registration.
+		cg, _ = LoadClientGroupByName(client.Group)
+
+		if cg != nil {
+			rights := cg.Acl.Check("public")
+			if rights["execute"] == false {
+				return nil, errors.New("Clientgroup with the group specified by your client exists, but you cannot register with it, without clientgroup token.")
+			}
+		} else {
+			u := &user.User{Uuid: "public"}
+			cg, err = CreateClientGroup(client.Group, u)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	// If the name of the clientgroup (from auth token) does not match the name in the client profile, throw an error
+	if cg != nil && client.Group != cg.Name {
+		return nil, errors.New("Clientgroup name in token does not match that in the client configuration.")
 	}
 	qm.clientMap[client.Id] = client
 
@@ -163,6 +194,27 @@ func (qm *CQMgr) GetClient(id string) (client *Client, err error) {
 	return nil, errors.New(e.ClientNotFound)
 }
 
+func (qm *CQMgr) GetClientByUser(id string, u *user.User) (client *Client, err error) {
+	// Get all clientgroups that user owns or that are publicly owned, or all if user is admin
+	q := bson.M{}
+	clientgroups := new(ClientGroups)
+	dbFindClientGroups(q, clientgroups)
+	filtered_clientgroups := map[string]bool{}
+	for _, cg := range *clientgroups {
+		if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || u.Admin == true || cg.Acl.Owner == "public")) ||
+			(u.Uuid == "public" && conf.CLIENT_AUTH_REQ == false && cg.Acl.Owner == "public") {
+			filtered_clientgroups[cg.Name] = true
+		}
+	}
+
+	if client, ok := qm.clientMap[id]; ok {
+		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
+			return client, nil
+		}
+	}
+	return nil, errors.New(e.ClientNotFound)
+}
+
 func (qm *CQMgr) GetAllClients() []*Client {
 	clients := []*Client{}
 	for _, client := range qm.clientMap {
@@ -171,10 +223,55 @@ func (qm *CQMgr) GetAllClients() []*Client {
 	return clients
 }
 
+func (qm *CQMgr) GetAllClientsByUser(u *user.User) []*Client {
+	// Get all clientgroups that user owns or that are publicly owned, or all if user is admin
+	q := bson.M{}
+	clientgroups := new(ClientGroups)
+	dbFindClientGroups(q, clientgroups)
+	filtered_clientgroups := map[string]bool{}
+	for _, cg := range *clientgroups {
+		if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || u.Admin == true || cg.Acl.Owner == "public")) ||
+			(u.Uuid == "public" && conf.CLIENT_AUTH_REQ == false && cg.Acl.Owner == "public") {
+			filtered_clientgroups[cg.Name] = true
+		}
+	}
+
+	clients := []*Client{}
+	for _, client := range qm.clientMap {
+		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
+			clients = append(clients, client)
+		}
+	}
+	return clients
+}
+
 func (qm *CQMgr) DeleteClient(id string) (err error) {
 	if client, ok := qm.clientMap[id]; ok {
 		client.Status = CLIENT_STAT_DELETED
 		return
+	}
+	return errors.New("client not found")
+}
+
+func (qm *CQMgr) DeleteClientByUser(id string, u *user.User) (err error) {
+	// Get all clientgroups that user owns or that are publicly owned, or all if user is admin
+	q := bson.M{}
+	clientgroups := new(ClientGroups)
+	dbFindClientGroups(q, clientgroups)
+	filtered_clientgroups := map[string]bool{}
+	for _, cg := range *clientgroups {
+		if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || u.Admin == true || cg.Acl.Owner == "public")) ||
+			(u.Uuid == "public" && conf.CLIENT_AUTH_REQ == false && cg.Acl.Owner == "public") {
+			filtered_clientgroups[cg.Name] = true
+		}
+	}
+
+	if client, ok := qm.clientMap[id]; ok {
+		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
+			client.Status = CLIENT_STAT_DELETED
+			return
+		}
+		return errors.New(e.UnAuth)
 	}
 	return errors.New("client not found")
 }
@@ -191,6 +288,33 @@ func (qm *CQMgr) SuspendClient(id string) (err error) {
 	return errors.New("client not found")
 }
 
+func (qm *CQMgr) SuspendClientByUser(id string, u *user.User) (err error) {
+	// Get all clientgroups that user owns or that are publicly owned, or all if user is admin
+	q := bson.M{}
+	clientgroups := new(ClientGroups)
+	dbFindClientGroups(q, clientgroups)
+	filtered_clientgroups := map[string]bool{}
+	for _, cg := range *clientgroups {
+		if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || u.Admin == true || cg.Acl.Owner == "public")) ||
+			(u.Uuid == "public" && conf.CLIENT_AUTH_REQ == false && cg.Acl.Owner == "public") {
+			filtered_clientgroups[cg.Name] = true
+		}
+	}
+
+	if client, ok := qm.clientMap[id]; ok {
+		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
+			if client.Status == CLIENT_STAT_ACTIVE_IDLE || client.Status == CLIENT_STAT_ACTIVE_BUSY {
+				client.Status = CLIENT_STAT_SUSPEND
+				qm.ReQueueWorkunitByClient(id)
+				return
+			}
+			return errors.New("client is not in active state")
+		}
+		return errors.New(e.UnAuth)
+	}
+	return errors.New("client not found")
+}
+
 func (qm *CQMgr) ResumeClient(id string) (err error) {
 	if client, ok := qm.clientMap[id]; ok {
 		if client.Status == CLIENT_STAT_SUSPEND {
@@ -202,9 +326,57 @@ func (qm *CQMgr) ResumeClient(id string) (err error) {
 	return errors.New("client not found")
 }
 
+func (qm *CQMgr) ResumeClientByUser(id string, u *user.User) (err error) {
+	// Get all clientgroups that user owns or that are publicly owned, or all if user is admin
+	q := bson.M{}
+	clientgroups := new(ClientGroups)
+	dbFindClientGroups(q, clientgroups)
+	filtered_clientgroups := map[string]bool{}
+	for _, cg := range *clientgroups {
+		if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || u.Admin == true || cg.Acl.Owner == "public")) ||
+			(u.Uuid == "public" && conf.CLIENT_AUTH_REQ == false && cg.Acl.Owner == "public") {
+			filtered_clientgroups[cg.Name] = true
+		}
+	}
+
+	if client, ok := qm.clientMap[id]; ok {
+		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
+			if client.Status == CLIENT_STAT_SUSPEND {
+				client.Status = CLIENT_STAT_ACTIVE_IDLE
+				return
+			}
+			return errors.New("client is not in suspended state")
+		}
+		return errors.New(e.UnAuth)
+	}
+	return errors.New("client not found")
+}
+
 func (qm *CQMgr) ResumeSuspendedClients() (count int) {
 	for _, client := range qm.clientMap {
 		if client.Status == CLIENT_STAT_SUSPEND {
+			client.Status = CLIENT_STAT_ACTIVE_IDLE
+			count += 1
+		}
+	}
+	return count
+}
+
+func (qm *CQMgr) ResumeSuspendedClientsByUser(u *user.User) (count int) {
+	// Get all clientgroups that user owns or that are publicly owned, or all if user is admin
+	q := bson.M{}
+	clientgroups := new(ClientGroups)
+	dbFindClientGroups(q, clientgroups)
+	filtered_clientgroups := map[string]bool{}
+	for _, cg := range *clientgroups {
+		if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || u.Admin == true || cg.Acl.Owner == "public")) ||
+			(u.Uuid == "public" && conf.CLIENT_AUTH_REQ == false && cg.Acl.Owner == "public") {
+			filtered_clientgroups[cg.Name] = true
+		}
+	}
+
+	for _, client := range qm.clientMap {
+		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true && client.Status == CLIENT_STAT_SUSPEND {
 			client.Status = CLIENT_STAT_ACTIVE_IDLE
 			count += 1
 		}
@@ -222,9 +394,51 @@ func (qm *CQMgr) SuspendAllClients() (count int) {
 	return count
 }
 
+func (qm *CQMgr) SuspendAllClientsByUser(u *user.User) (count int) {
+	// Get all clientgroups that user owns or that are publicly owned, or all if user is admin
+	q := bson.M{}
+	clientgroups := new(ClientGroups)
+	dbFindClientGroups(q, clientgroups)
+	filtered_clientgroups := map[string]bool{}
+	for _, cg := range *clientgroups {
+		if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || u.Admin == true || cg.Acl.Owner == "public")) ||
+			(u.Uuid == "public" && conf.CLIENT_AUTH_REQ == false && cg.Acl.Owner == "public") {
+			filtered_clientgroups[cg.Name] = true
+		}
+	}
+
+	for _, client := range qm.clientMap {
+		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true && (client.Status == CLIENT_STAT_ACTIVE_IDLE || client.Status == CLIENT_STAT_ACTIVE_BUSY) {
+			qm.SuspendClient(client.Id)
+			count += 1
+		}
+	}
+	return count
+}
+
 func (qm *CQMgr) UpdateSubClients(id string, count int) {
 	if _, ok := qm.clientMap[id]; ok {
 		qm.clientMap[id].SubClients = count
+	}
+}
+
+func (qm *CQMgr) UpdateSubClientsByUser(id string, count int, u *user.User) {
+	// Get all clientgroups that user owns or that are publicly owned, or all if user is admin
+	q := bson.M{}
+	clientgroups := new(ClientGroups)
+	dbFindClientGroups(q, clientgroups)
+	filtered_clientgroups := map[string]bool{}
+	for _, cg := range *clientgroups {
+		if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || u.Admin == true || cg.Acl.Owner == "public")) ||
+			(u.Uuid == "public" && conf.CLIENT_AUTH_REQ == false && cg.Acl.Owner == "public") {
+			filtered_clientgroups[cg.Name] = true
+		}
+	}
+
+	if client, ok := qm.clientMap[id]; ok {
+		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
+			qm.clientMap[id].SubClients = count
+		}
 	}
 }
 
@@ -348,6 +562,23 @@ func (qm *CQMgr) ShowWorkunits(status string) (workunits []*Workunit) {
 	for _, work := range qm.workQueue.workMap {
 		if work.State == status || status == "" {
 			workunits = append(workunits, work)
+		}
+	}
+	return workunits
+}
+
+func (qm *CQMgr) ShowWorkunitsByUser(status string, u *user.User) (workunits []*Workunit) {
+	// Only returns workunits of jobs that the user has read access to or is the owner of.  If user is admin, return all.
+	for _, work := range qm.workQueue.workMap {
+		if jobid, err := GetJobIdByWorkId(work.Id); err == nil {
+			if job, err := LoadJob(jobid); err == nil {
+				rights := job.Acl.Check(u.Uuid)
+				if job.Acl.Owner == u.Uuid || rights["read"] == true || u.Admin == true {
+					if work.State == status || status == "" {
+						workunits = append(workunits, work)
+					}
+				}
+			}
 		}
 	}
 	return workunits

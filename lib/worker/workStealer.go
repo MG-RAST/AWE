@@ -29,7 +29,8 @@ type TokenResponse struct {
 }
 
 func workStealer(control chan int) {
-	fmt.Printf("workStealer lanched, client=%s\n", core.Self.Id)
+	//fmt.Printf("workStealer launched, client=%s\n", core.Self.Id)
+	logger.Debug(0, fmt.Sprintf("workStealer launched, client=%s\n", core.Self.Id))
 	defer fmt.Printf("workStealer exiting...\n")
 	retry := 0
 	for {
@@ -44,20 +45,21 @@ func workStealer(control chan int) {
 				//server may be restarted, waiting for the hearbeater goroutine to try re-register
 				ReRegisterWithSelf(conf.SERVER_URL)
 			} else if err.Error() == e.ClientSuspended {
-				fmt.Printf("client suspended, waiting for repair or resume request...\n")
-				//to-do: send out email notice that this client has problem and been suspended
+				logger.Error("client suspended, waiting for repair or resume request...")
+				//TODO: send out email notice that this client has problem and been suspended
 				time.Sleep(2 * time.Minute)
 			} else if err.Error() == e.ClientDeleted {
 				fmt.Printf("client deleted, exiting...\n")
-				os.Exit(1)
+				os.Exit(1) // TODO is there a better way of exiting ? E.g. in regard of the logger who wants to flush....
 			} else {
 				//something is wrong, server may be down
-				fmt.Printf("error in checking out workunits: %v\n", err)
+				logger.Error(fmt.Sprintf("error in checking out workunit: %s, retry+=1", err.Error()))
 				retry += 1
 			}
 			if retry == 12 {
 				fmt.Printf("failed to checkout workunits for 12 times, exiting...\n")
-				os.Exit(1)
+				logger.Error("failed to checkout workunits for 12 times, exiting...")
+				os.Exit(1) // TODO fix !
 			}
 			if core.Service != "proxy" { //proxy: event driven, client: timer driven
 				time.Sleep(10 * time.Second)
@@ -66,7 +68,7 @@ func workStealer(control chan int) {
 		} else {
 			retry = 0
 		}
-		logger.Debug(2, "workStealer: checked out a workunit: id="+wu.Id)
+		logger.Debug(1, "workStealer: checked out workunit, id="+wu.Id)
 		//log event about work checktout (WC)
 		logger.Event(event.WORK_CHECKOUT, "workid="+wu.Id)
 		core.Self.Total_checkout += 1
@@ -80,7 +82,7 @@ func workStealer(control chan int) {
 			workunit: wu,
 			perfstat: workstat,
 		}
-		fromStealer <- rawWork
+		fromStealer <- rawWork // sends to dataMover
 
 		//if worker overlap is inhibited, wait until deliverer finishes processing the workunit
 		if conf.WORKER_OVERLAP == false && core.Service != "proxy" {
@@ -94,7 +96,13 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	response := new(WorkResponse)
 	targeturl := fmt.Sprintf("%s/work?client=%s", conf.SERVER_URL, core.Self.Id)
 	//res, err := http.Get(fmt.Sprintf("%s/work?client=%s", conf.SERVER_URL, core.Self.Id))
-	res, err := httpclient.Get(targeturl, httpclient.Header{}, nil, nil)
+	var headers httpclient.Header
+	if conf.CLIENT_GROUP_TOKEN != "" {
+		headers = httpclient.Header{
+			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
+		}
+	}
+	res, err := httpclient.Get(targeturl, headers, nil, nil)
 	logger.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s", core.Self.Id, conf.SERVER_URL))
 	if err != nil {
 		fmt.Printf("err=%s\n", err.Error())
@@ -127,10 +135,17 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 func FetchDataTokenByWorkId(workid string) (token string, err error) {
 	targeturl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, workid, core.Self.Id)
-	res, err := httpclient.Get(targeturl, httpclient.Header{}, nil, nil)
+	var headers httpclient.Header
+	if conf.CLIENT_GROUP_TOKEN != "" {
+		headers = httpclient.Header{
+			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
+		}
+	}
+	res, err := httpclient.Get(targeturl, headers, nil, nil)
 	if err != nil {
 		return "", err
 	}
+	defer res.Body.Close()
 	if res.Header != nil {
 		if _, ok := res.Header["Datatoken"]; ok {
 			token = res.Header["Datatoken"][0]

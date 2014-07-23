@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/user"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -91,7 +93,7 @@ func (o *Opts) Value(key string) string {
 //used for issue operation request to client, e.g. discard suspended workunits
 type HBmsg map[string]string //map[op]obj1,obj2 e.g. map[discard]=work1,work2
 
-func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job *Job, err error) {
+func CreateJobUpload(u *user.User, params map[string]string, files FormFiles, jid string) (job *Job, err error) {
 
 	if _, has_upload := files["upload"]; has_upload {
 		job, err = ParseJobTasks(files["upload"].Path, jid)
@@ -100,18 +102,46 @@ func CreateJobUpload(params map[string]string, files FormFiles, jid string) (job
 	}
 
 	if err != nil {
+		err = errors.New("error parsing job, error=" + err.Error())
 		return
 	}
+
+	// Once, job has been created, set job owner and add owner to all ACL's
+	job.Acl.SetOwner(u.Uuid)
+	job.Acl.Set(u.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
+
 	err = job.Mkdir()
 	if err != nil {
+		err = errors.New("error creating job directory, error=" + err.Error())
 		return
 	}
+
+	// TODO need a way update app-defintions in AWE server...
+	if MyAppRegistry == nil && conf.APP_REGISTRY_URL != "" {
+		MyAppRegistry, err = MakeAppRegistry()
+		if err != nil {
+			return job, errors.New("error creating app registry, error=" + err.Error())
+		}
+		logger.Debug(1, "app defintions read")
+	}
+
+	err = MyAppRegistry.createIOnodes(job)
+	if err != nil {
+		err = errors.New("error in createIOnodes, error=" + err.Error())
+		return
+	}
+
 	err = job.UpdateFile(params, files)
 	if err != nil {
+		err = errors.New("error in UpdateFile, error=" + err.Error())
 		return
 	}
 
 	err = job.Save()
+	if err != nil {
+		err = errors.New("error in job.Save(), error=" + err.Error())
+		return
+	}
 	return
 }
 
@@ -168,6 +198,7 @@ func PostNodeWithToken(io *IO, numParts int, token string) (nodeid string, err e
 	//create "parts" for output splits
 	if numParts > 1 {
 		opts["upload_type"] = "parts"
+		opts["file_name"] = io.Name
 		opts["parts"] = strconv.Itoa(numParts)
 		if _, err := createOrUpdate(opts, io.Host, node.Id, token); err != nil {
 			return node.Id, err
@@ -207,12 +238,12 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 	jsonstream, err := ioutil.ReadFile(filename)
 
 	if err != nil {
-		return nil, errors.New("error in reading job json file")
+		return nil, errors.New("error in reading job json file" + err.Error())
 	}
 
 	err = json.Unmarshal(jsonstream, job)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("error in unmarshaling job json file: " + err.Error())
 	}
 
 	if len(job.Tasks) == 0 {
@@ -239,8 +270,8 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 			if task.Cmd.Environ == nil || task.Cmd.Environ.Private == nil {
 				continue
 			}
+			job.Tasks[idx].Cmd.Environ.Private = make(map[string]string)
 			for key, val := range task.Cmd.Environ.Private {
-				job.Tasks[idx].Cmd.Environ.Private = make(map[string]string)
 				job.Tasks[idx].Cmd.Environ.Private[key] = val
 			}
 		}
@@ -248,7 +279,7 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 
 	for i := 0; i < len(job.Tasks); i++ {
 		if err := job.Tasks[i].InitTask(job, i); err != nil {
-			return nil, err
+			return nil, errors.New("error in InitTask: " + err.Error())
 		}
 	}
 
@@ -486,12 +517,24 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 	if err := form.Create(); err != nil {
 		return err
 	}
-	headers := httpclient.Header{
-		"Content-Type":   []string{form.ContentType},
-		"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
+	var headers httpclient.Header
+	if conf.CLIENT_GROUP_TOKEN == "" {
+		headers = httpclient.Header{
+			"Content-Type":   []string{form.ContentType},
+			"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
+		}
+	} else {
+		headers = httpclient.Header{
+			"Content-Type":   []string{form.ContentType},
+			"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
+			"Authorization":  []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
+		}
 	}
-	user := httpclient.GetUserByBasicAuth(conf.CLIENT_USERNAME, conf.CLIENT_PASSWORD)
-	_, err = httpclient.Put(target_url, headers, form.Reader, user)
+	res, err := httpclient.Put(target_url, headers, form.Reader, nil)
+	if err == nil {
+		defer res.Body.Close()
+	}
+
 	return
 }
 
@@ -607,6 +650,7 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 
 func PutFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string, ntype string, formopts map[string]string) (err error) {
 	opts := Opts{}
+	fi, _ := os.Stat(filename)
 	if (attrfile != "") && (rank < 2) {
 		opts["attributes"] = attrfile
 	}
@@ -619,7 +663,9 @@ func PutFileToShock(filename string, host string, nodeid string, rank int, token
 		opts["upload_type"] = "part"
 		opts["part"] = strconv.Itoa(rank)
 	}
-	if ((ntype == "copy") || (ntype == "subset")) && (len(formopts) > 0) {
+	if (ntype == "subset") && (rank == 0) && (fi.Size() == 0) {
+		opts["upload_type"] = "basic"
+	} else if ((ntype == "copy") || (ntype == "subset")) && (len(formopts) > 0) {
 		opts["upload_type"] = ntype
 		for k, v := range formopts {
 			opts[k] = v
@@ -695,6 +741,9 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 				form.AddParam("parts", opts.Value("parts"))
 			} else {
 				return nil, errors.New("missing partial upload parameter: parts")
+			}
+			if opts.HasKey("file_name") {
+				form.AddParam("file_name", opts.Value("file_name"))
 			}
 		case "part":
 			if opts.HasKey("part") && opts.HasKey("file") {

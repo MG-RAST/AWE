@@ -11,7 +11,7 @@ import (
 
 // Setup conf variables
 var (
-	VERSION      = "0.9.2"
+	VERSION      = "0.9.3"
 	SHOW_VERSION = false
 
 	//Reload
@@ -41,9 +41,12 @@ var (
 	SSL_CERT_FILE = ""
 
 	// Anonymous-Access-Control
-	ANON_WRITE      = false
-	ANON_READ       = true
-	ANON_CREATEUSER = false
+	ANON_WRITE     = true
+	ANON_READ      = true
+	ANON_DELETE    = true
+	ANON_CG_WRITE  = false
+	ANON_CG_READ   = false
+	ANON_CG_DELETE = false
 
 	// Auth
 	BASIC_AUTH         = true
@@ -52,7 +55,8 @@ var (
 	GLOBUS_TOKEN_URL   = ""
 	GLOBUS_PROFILE_URL = ""
 	MGRAST_OAUTH_URL   = ""
-	ADMIN_AUTH         = false
+	CLIENT_AUTH_REQ    = false
+	CLIENT_GROUP_TOKEN = ""
 
 	// Admin
 	ADMIN_EMAIL = ""
@@ -72,6 +76,7 @@ var (
 	MONGODB_PASSWD   = ""
 	DB_COLL_JOBS     = "Jobs"
 	DB_COLL_PERF     = "Perf"
+	DB_COLL_CGS      = "ClientGroups"
 	DB_COLL_USERS    = "Users"
 
 	//debug log level
@@ -97,6 +102,9 @@ var (
 
 	GOMAXPROCS = 0
 
+	//APP
+	APP_REGISTRY_URL = ""
+
 	//[client]
 	TOTAL_WORKER                  = 1
 	WORK_PATH                     = ""
@@ -113,8 +121,6 @@ var (
 	AUTO_CLEAN_DIR                = true
 	CLIEN_DIR_DELAY_FAIL          = 30 * time.Minute //clean failed workunit dir after 30 minutes
 	CLIEN_DIR_DELAY_DONE          = 1 * time.Minute  // clean done workunit dir after 1 minute
-	CLIENT_USERNAME               = "public"
-	CLIENT_PASSWORD               = "public"
 	STDOUT_FILENAME               = "awe_stdout.txt"
 	STDERR_FILENAME               = "awe_stderr.txt"
 	WORKNOTES_FILENAME            = "awe_worknotes.txt"
@@ -126,10 +132,11 @@ var (
 	//tag
 	INIT_SUCCESS = true
 
+	CGROUP_MEMORY_DOCKER_DIR = ""
 	//const
 	ALL_APP = "*"
 
-	Admin_List = make(map[string]bool)
+	Admin_Users = make(map[string]bool)
 )
 
 func init() {
@@ -139,6 +146,7 @@ func init() {
 	flag.BoolVar(&SHOW_VERSION, "version", false, "show version.")
 	flag.IntVar(&DEBUG_LEVEL, "debug", -1, "debug level: 0-3")
 	flag.BoolVar(&DEV_MODE, "dev", false, "dev or demo mode, print some msgs on screen")
+	flag.StringVar(&CGROUP_MEMORY_DOCKER_DIR, "cgroup_memory_docker_dir", "/sys/fs/cgroup/memory/docker/", "path to cgroup directory for docker")
 	flag.Parse()
 
 	//	fmt.Printf("in conf.init(), flag=%v", flag)
@@ -179,7 +187,10 @@ func init() {
 	// Access-Control
 	ANON_WRITE, _ = c.Bool("Anonymous", "write")
 	ANON_READ, _ = c.Bool("Anonymous", "read")
-	ANON_CREATEUSER, _ = c.Bool("Anonymous", "create-user")
+	ANON_DELETE, _ = c.Bool("Anonymous", "delete")
+	ANON_CG_WRITE, _ = c.Bool("Anonymous", "cg_write")
+	ANON_CG_READ, _ = c.Bool("Anonymous", "cg_read")
+	ANON_CG_DELETE, _ = c.Bool("Anonymous", "cg_delete")
 
 	// Auth
 	if basic_auth, err := c.Bool("Auth", "basic"); err == nil {
@@ -189,16 +200,6 @@ func init() {
 	GLOBUS_PROFILE_URL, _ = c.String("Auth", "globus_profile_url")
 	MGRAST_OAUTH_URL, _ = c.String("Auth", "mgrast_oauth_url")
 
-	if admin_list, err := c.String("Auth", "admin_list"); err == nil {
-		for _, name := range strings.Split(admin_list, ",") {
-			Admin_List[name] = true
-		}
-	}
-
-	if admin_auth, err := c.Bool("Auth", "admin_auth"); err == nil {
-		ADMIN_AUTH = admin_auth
-	}
-
 	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
 		GLOBUS_OAUTH = true
 	}
@@ -206,7 +207,15 @@ func init() {
 		MGRAST_OAUTH = true
 	}
 
+	CLIENT_AUTH_REQ, _ = c.Bool("Auth", "client_auth_required")
+
 	// Admin
+	if admin_users, err := c.String("Admin", "users"); err == nil {
+		for _, name := range strings.Split(admin_users, ",") {
+			Admin_Users[name] = true
+		}
+	}
+
 	ADMIN_EMAIL, _ = c.String("Admin", "email")
 	SECRET_KEY, _ = c.String("Admin", "secretkey")
 
@@ -230,6 +239,9 @@ func init() {
 	if MONGODB_DATABASE == "" {
 		MONGODB_DATABASE = "AWEDB"
 	}
+
+	// APP
+	APP_REGISTRY_URL, _ = c.String("App", "app_registry_url")
 
 	// Server options
 	if perf_log_workunit, err := c.Bool("Server", "perf_log_workunit"); err == nil {
@@ -257,6 +269,14 @@ func init() {
 	if clientname, err := c.String("Client", "name"); err == nil {
 		CLIENT_NAME = clientname
 	}
+
+	if CLIENT_NAME == "" || CLIENT_NAME == "default" || CLIENT_NAME == "hostname" {
+		hostname, err := os.Hostname()
+		if err == nil {
+			CLIENT_NAME = hostname
+		}
+	}
+
 	if clientgroup, err := c.String("Client", "group"); err == nil {
 		CLIENT_GROUP = clientgroup
 	}
@@ -276,15 +296,8 @@ func init() {
 		CACHE_ENABLED = cache_enabled
 	}
 
-	CLIENT_USERNAME, _ = c.String("Client", "username")
-	CLIENT_PASSWORD, _ = c.String("Client", "password")
+	CLIENT_GROUP_TOKEN, _ = c.String("Client", "clientgroup_token")
 
-	if CLIENT_USERNAME == "" {
-		CLIENT_USERNAME = "public"
-	}
-	if CLIENT_PASSWORD == "" {
-		CLIENT_PASSWORD = "public"
-	}
 	//Proxy
 	P_SITE_PORT, _ = c.Int("Proxy", "p-site-port")
 	P_API_PORT, _ = c.Int("Proxy", "p-api-port")
@@ -301,7 +314,8 @@ func init() {
 
 func Print(service string) {
 	fmt.Printf("##### Admin #####\nemail:\t%s\nsecretkey:\t%s\n\n", ADMIN_EMAIL, SECRET_KEY)
-	fmt.Printf("####### Anonymous ######\nread:\t%t\nwrite:\t%t\ncreate-user:\t%t\n\n", ANON_READ, ANON_WRITE, ANON_CREATEUSER)
+	fmt.Printf("####### Anonymous ######\nread:\t%t\nwrite:\t%t\ndelete:\t%t\n", ANON_READ, ANON_WRITE, ANON_DELETE)
+	fmt.Printf("clientgroup read:\t%t\nclientgroup write:\t%t\nclientgroup delete:\t%t\n\n", ANON_CG_READ, ANON_CG_WRITE, ANON_CG_DELETE)
 	fmt.Printf("##### Auth #####\n")
 	if BASIC_AUTH {
 		fmt.Printf("basic_auth:\ttrue\n")
@@ -312,9 +326,9 @@ func Print(service string) {
 	if MGRAST_OAUTH_URL != "" {
 		fmt.Printf("mgrast_oauth_url:\t%s\n", MGRAST_OAUTH_URL)
 	}
-	if ADMIN_AUTH {
-		fmt.Printf("admin_auth:\ttrue\nadmin_list:\t")
-		for name, _ := range Admin_List {
+	if len(Admin_Users) > 0 {
+		fmt.Printf("admin_auth:\ttrue\nadmin_users:\t")
+		for name, _ := range Admin_Users {
 			fmt.Printf("%s ", name)
 		}
 		fmt.Printf("\n")

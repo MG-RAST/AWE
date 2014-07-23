@@ -38,10 +38,10 @@ type ShockNode struct {
 	//VersionParts map[string]string `bson:"version_parts" json:"-"`
 	Tags []string `bson:"tags" json:"tags"`
 	//Revisions    []ShockNode       `bson:"revisions" json:"-"`
-	Linkages     []linkage `bson:"linkage" json:"linkages"`
-	CreatedOn    time.Time `bson:"created_on" json:"created_on"`
-	LastModified time.Time `bson:"last_modified" json:"last_modified"`
-	Type         string    `bson:"type" json:"type"`
+	Linkages []linkage `bson:"linkage" json:"linkages"`
+	//CreatedOn    time.Time `bson:"created_on" json:"created_on"`
+	//LastModified time.Time `bson:"last_modified" json:"last_modified"`
+	Type string `bson:"type" json:"type"`
 	//Subset       Subset            `bson:"subset" json:"-"`
 }
 
@@ -81,7 +81,7 @@ func ShockGet(host string, nodeid string, token string) (node *ShockNode, err er
 	if host == "" || nodeid == "" {
 		return nil, errors.New("empty shock host or node id")
 	}
-
+	logger.Debug(1, fmt.Sprintf("ShockGet: %s %s %s", host, nodeid, token))
 	var res *http.Response
 	shockurl := fmt.Sprintf("%s/node/%s", host, nodeid)
 

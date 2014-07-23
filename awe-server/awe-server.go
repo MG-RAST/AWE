@@ -18,6 +18,28 @@ import (
 func launchSite(control chan int, port int) {
 	goweb.ConfigureDefaultFormatters()
 	r := &goweb.RouteManager{}
+
+	site_directory := conf.SITE_PATH
+	fileinfo, err := os.Stat(site_directory)
+	if err != nil {
+		message := fmt.Sprintf("ERROR: site, path %s does not exist: %s", site_directory, err.Error())
+		if os.IsNotExist(err) {
+			message += " IsNotExist"
+		}
+
+		fmt.Fprintf(os.Stderr, message, "\n")
+		logger.Error(message)
+
+		os.Exit(1)
+	} else {
+		if !fileinfo.IsDir() {
+			message := fmt.Sprintf("ERROR: site, path %s exists, but is not a directory", site_directory)
+			fmt.Fprintf(os.Stderr, message, "\n")
+			logger.Error(message)
+			os.Exit(1)
+		}
+
+	}
 	r.MapFunc("*", controller.SiteDir)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.SITE_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
@@ -39,12 +61,17 @@ func launchAPI(control chan int, port int) {
 	c := controller.NewServerController()
 	goweb.ConfigureDefaultFormatters()
 	r := &goweb.RouteManager{}
+	r.Map("/job/{jid}/acl/{type}", c.JobAcl["typed"])
+	r.Map("/job/{jid}/acl", c.JobAcl["base"])
+	r.Map("/cgroup/{cgid}/acl/{type}", c.ClientGroupAcl["typed"])
+	r.Map("/cgroup/{cgid}/acl", c.ClientGroupAcl["base"])
+	r.Map("/cgroup/{cgid}/token", c.ClientGroupToken)
 	r.MapRest("/job", c.Job)
 	r.MapRest("/work", c.Work)
+	r.MapRest("/cgroup", c.ClientGroup)
 	r.MapRest("/client", c.Client)
 	r.MapRest("/queue", c.Queue)
 	r.MapRest("/awf", c.Awf)
-	r.MapRest("/user", c.User)
 	r.MapFunc("*", controller.ResourceDescription, goweb.GetMethod)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.API_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
@@ -68,7 +95,9 @@ func main() {
 		conf.PrintServerUsage()
 		os.Exit(1)
 	}
-
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("DEBUG_LEVEL > 0")
+	}
 	if _, err := os.Stat(conf.DATA_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.DATA_PATH, 0777); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR in creating data_path %s\n", err.Error())
@@ -89,24 +118,42 @@ func main() {
 			os.Exit(1)
 		}
 	}
-
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("logger.Initialize...")
+	}
 	//init logger
 	logger.Initialize("server")
 
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("init db...")
+	}
 	//init db
 	if err := db.Initialize(); err != nil {
 		fmt.Printf("failed to initialize job db: %s\n", err.Error())
 		os.Exit(1)
 	}
 
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("init db collection for user...")
+	}
 	//init db collection for user
-	user.Initialize()
+	if err := user.Initialize(); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR initializing user database: %s\n", err.Error())
+		os.Exit(1)
+	}
 
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("init resource manager...")
+	}
 	//init resource manager
 	core.InitResMgr("server")
 	core.InitAwfMgr()
 	core.InitJobDB()
+	core.InitClientGroupDB()
 
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("init auth...")
+	}
 	//init auth
 	auth.Initialize()
 
@@ -122,12 +169,17 @@ func main() {
 		fmt.Println("Done")
 	}
 
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("init max job number (jid)...")
+	}
 	//init max job number (jid)
 	if err := core.QMgr.InitMaxJid(); err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		fmt.Fprintf(os.Stderr, "ERROR from InitMaxJid : %v\n", err)
 		os.Exit(1)
 	}
-
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("launching server...")
+	}
 	//launch server
 	control := make(chan int)
 	go core.QMgr.Handle()
@@ -136,6 +188,9 @@ func main() {
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)
 
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("API launched...")
+	}
 	if err := core.AwfMgr.LoadWorkflows(); err != nil {
 		logger.Error("LoadWorkflows: " + err.Error())
 	}
@@ -174,6 +229,9 @@ func main() {
 		fmt.Printf("pid: %d saved to file: %s\n\n", pid, conf.PID_FILE_PATH)
 	}
 
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("setting GOMAXPROCS...")
+	}
 	// setting GOMAXPROCS
 	var procs int
 	avail := runtime.NumCPU()

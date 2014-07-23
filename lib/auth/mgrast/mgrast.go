@@ -70,6 +70,7 @@ func authToken(t string) (*user.User, error) {
 	}
 
 	if res, err := httpclient.Do("POST", url, headers, form.Reader, &httpclient.Auth{Type: "mgrast", Token: t}); err == nil {
+		defer res.Body.Close()
 		if res.StatusCode == 200 {
 			r := credentials{}
 			body, _ := ioutil.ReadAll(res.Body)

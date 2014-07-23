@@ -208,7 +208,7 @@ func AdminAuthenticated(cx *goweb.Context) bool {
 		}
 		return false
 	}
-	if _, ok := conf.Admin_List[user.Username]; !ok {
+	if _, ok := conf.Admin_Users[user.Username]; !ok {
 		msg := fmt.Sprintf("user %s has no admin right", user.Username)
 		cx.RespondWithErrorMessage(msg, http.StatusBadRequest)
 		return false

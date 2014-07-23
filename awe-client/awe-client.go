@@ -8,9 +8,12 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/worker"
 	"os"
+	"strings"
 )
 
 func main() {
+
+	// workstealer -> dataMover (download from Shock) -> processor -> deliverer (upload to Shock)
 
 	if !conf.INIT_SUCCESS {
 		conf.PrintClientUsage()
@@ -53,9 +56,20 @@ func main() {
 		fmt.Printf("pid: %d saved to file: %s\n\n", pid, conf.PID_FILE_PATH)
 	}
 
+	logger.Initialize("client")
+
 	profile, err := worker.ComposeProfile()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fail to compose profile: %s\n", err.Error())
+		os.Exit(1)
+	}
+
+	if conf.SERVER_URL == "" {
+		fmt.Fprintf(os.Stderr, "AWE server url not configured or is empty. Please check the [Client]serverurl field in the configuration file.\n")
+		os.Exit(1)
+	}
+	if strings.Contains(conf.SERVER_URL, "http") == false {
+		fmt.Fprintf(os.Stderr, "serverurl not valid (require http://): %s \n", conf.SERVER_URL)
 		os.Exit(1)
 	}
 
@@ -65,15 +79,6 @@ func main() {
 		os.Exit(1)
 	}
 	core.InitClientProfile(self)
-
-	var logdir string
-	if self.Name != "" {
-		logdir = self.Name
-	} else {
-		logdir = conf.CLIENT_NAME
-	}
-
-	logger.Initialize("client-" + logdir)
 
 	fmt.Printf("Client registered, name=%s, id=%s\n", self.Name, self.Id)
 	logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)

@@ -1,7 +1,11 @@
 package AWE::Task;
 
+# this is a generic representation of an AWE task. It also serves as parent class for AWE apps.
+
 use strict;
 use warnings;
+
+
 
 use JSON;
 
@@ -16,25 +20,13 @@ sub new {
 		"environ"		=> {},
 		"description"	=> ""
 	};
-		
-	my $dependsOn = [];
-	
-	my $inputs = [];
-	
-	my $outputs = [];
-	
-	my $partinfo= {};
-	
-	my $taskid = "";
-	
-	
-	
+			
     my $self = {
 		cmd => $cmd,
-		inputs => $inputs,
-		outputs => $outputs,
-		partinfo => $partinfo,
-		taskid => $taskid
+		inputs => [],
+		outputs => [],
+		partinfo => {},
+		taskid => ""
 	};
 	
     bless $self, $class;
@@ -67,6 +59,7 @@ sub taskid {
 	
     return $self->{taskid};
 }
+
 
 
 sub command {

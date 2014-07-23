@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"io/ioutil"
@@ -27,6 +28,7 @@ var JOB_STATS_TO_RECOVER = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_ST
 type Job struct {
 	Id          string    `bson:"id" json:"id"`
 	Jid         string    `bson:"jid" json:"jid"`
+	Acl         acl.Acl   `bson:"acl" json:"-"`
 	Info        *Info     `bson:"info" json:"info"`
 	Tasks       []*Task   `bson:"tasks" json:"tasks"`
 	Script      script    `bson:"script" json:"-"`
@@ -35,7 +37,9 @@ type Job struct {
 	RemainTasks int       `bson:"remaintasks" json:"remaintasks"`
 	UpdateTime  time.Time `bson:"updatetime" json:"updatetime"`
 	Notes       string    `bson:"notes" json:"notes"`
-	Resumed     int       `bson:"resumed" json:"resumed"` //number of times the job has been resumed from suspension
+	LastFailed  string    `bson:"lastfailed" json:"lastfailed"`
+	Resumed     int       `bson:"resumed" json:"resumed"`     //number of times the job has been resumed from suspension
+	ShockHost   string    `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
 }
 
 //set job's uuid
@@ -87,14 +91,17 @@ func (job *Job) Save() (err error) {
 	os.Remove(bsonPath)
 	nbson, err := bson.Marshal(job)
 	if err != nil {
+		err = errors.New("error in Marshal in job.Save(), error=" + err.Error())
 		return
 	}
 	err = ioutil.WriteFile(bsonPath, nbson, 0644)
 	if err != nil {
+		err = errors.New("error writing file in job.Save(), error=" + err.Error())
 		return
 	}
 	err = dbUpsert(job)
 	if err != nil {
+		err = errors.New("error in dbUpdate in job.Save(), error=" + err.Error())
 		return
 	}
 	return

@@ -1,10 +1,13 @@
 package controller
 
 import (
+	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/request"
+	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
 	"io/ioutil"
 	"net/http"
@@ -29,27 +32,93 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 
-	if query.Has("datatoken") && query.Has("client") { //a client is requesting data token for this job
-		//***insert code to authenticate and check ACL***
-		clientid := query.Value("client")
-		token, err := core.QMgr.FetchDataToken(id, clientid)
+	if (query.Has("datatoken") || query.Has("privateenv")) && query.Has("client") {
+		cg, err := request.AuthenticateClientGroup(cx.Request)
 		if err != nil {
-			cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
+			if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
+				if conf.CLIENT_AUTH_REQ == true {
+					cx.RespondWithError(http.StatusUnauthorized)
+					return
+				}
+			} else {
+				logger.Error("Err@AuthenticateClientGroup: " + err.Error())
+				cx.RespondWithError(http.StatusInternalServerError)
+				return
+			}
 		}
-		//cx.RespondWithData(token)
-		RespondTokenInHeader(cx, token)
+		// check that clientgroup auth token matches group of client
+		clientid := query.Value("client")
+		client, err := core.QMgr.GetClient(clientid)
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+		if cg != nil && client.Group != cg.Name {
+			cx.RespondWithErrorMessage("Clientgroup name in token does not match that in the client configuration.", http.StatusBadRequest)
+			return
+		}
+
+		if query.Has("datatoken") { //a client is requesting data token for this job
+			token, err := core.QMgr.FetchDataToken(id, clientid)
+			if err != nil {
+				cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
+			}
+			//cx.RespondWithData(token)
+			RespondTokenInHeader(cx, token)
+			return
+		}
+
+		if query.Has("privateenv") { //a client is requesting data token for this job
+			envs, err := core.QMgr.FetchPrivateEnv(id, clientid)
+			if err != nil {
+				cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
+			}
+			//cx.RespondWithData(token)
+			RespondPrivateEnvInHeader(cx, envs)
+			return
+		}
+	}
+
+	// Try to authenticate user.
+	u, err := request.Authenticate(cx.Request)
+	if err != nil && err.Error() != e.NoAuth {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	if query.Has("privateenv") && query.Has("client") { //a client is requesting data token for this job
-		//***insert code to authenticate and check ACL***
-		clientid := query.Value("client")
-		envs, err := core.QMgr.FetchPrivateEnv(id, clientid)
-		if err != nil {
-			cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
+	// If no auth was provided, and anonymous read is allowed, use the public user
+	if u == nil {
+		if conf.ANON_READ == true {
+			u = &user.User{Uuid: "public"}
+		} else {
+			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+			return
 		}
-		//cx.RespondWithData(token)
-		RespondPrivateEnvInHeader(cx, envs)
+	}
+
+	// Load workunit by id
+	workunit, err := core.QMgr.GetWorkById(id)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	jobid, err := core.GetJobIdByWorkId(id)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	job, err := core.LoadJob(jobid)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// User must have read permissions on job or be job owner or be an admin
+	rights := job.Acl.Check(u.Uuid)
+	if job.Acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false {
+		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}
 
@@ -62,9 +131,6 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		cx.RespondWithData(reportmsg)
 		return
 	}
-
-	// Load workunit by id
-	workunit, err := core.QMgr.GetWorkById(id)
 
 	if err != nil {
 		if err.Error() != e.QueueEmpty {
@@ -87,13 +153,56 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	query := &Query{Li: cx.Request.URL.Query()}
 
 	if !query.Has("client") { //view workunits
+		// Try to authenticate user.
+		u, err := request.Authenticate(cx.Request)
+		if err != nil && err.Error() != e.NoAuth {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		// If no auth was provided, and anonymous read is allowed, use the public user
+		if u == nil {
+			if conf.ANON_READ == true {
+				u = &user.User{Uuid: "public"}
+			} else {
+				cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+				return
+			}
+		}
+
 		var workunits []*core.Workunit
 		if query.Has("state") {
-			workunits = core.QMgr.ShowWorkunits(query.Value("state"))
+			workunits = core.QMgr.ShowWorkunitsByUser(query.Value("state"), u)
 		} else {
-			workunits = core.QMgr.ShowWorkunits("")
+			workunits = core.QMgr.ShowWorkunitsByUser("", u)
 		}
 		cx.RespondWithData(workunits)
+		return
+	}
+
+	cg, err := request.AuthenticateClientGroup(cx.Request)
+	if err != nil {
+		if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
+			if conf.CLIENT_AUTH_REQ == true {
+				cx.RespondWithError(http.StatusUnauthorized)
+				return
+			}
+		} else {
+			logger.Error("Err@AuthenticateClientGroup: " + err.Error())
+			cx.RespondWithError(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// check that clientgroup auth token matches group of client
+	clientid := query.Value("client")
+	client, err := core.QMgr.GetClient(clientid)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+	if cg != nil && client.Group != cg.Name {
+		cx.RespondWithErrorMessage("Clientgroup name in token does not match that in the client configuration.", http.StatusBadRequest)
 		return
 	}
 
@@ -102,7 +211,6 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	}
 
 	//checkout a workunit in FCFS order
-	clientid := query.Value("client")
 	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, 1)
 
 	if err != nil {
@@ -133,10 +241,40 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 // PUT: /work/{id} -> status update
 func (cr *WorkController) Update(id string, cx *goweb.Context) {
-	// Log Request and check for Auth
 	LogRequest(cx.Request)
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
+	if !query.Has("client") {
+		cx.RespondWithErrorMessage("This request type requires the client=clientid parameter.", http.StatusBadRequest)
+		return
+	}
+
+	// Check auth
+	cg, err := request.AuthenticateClientGroup(cx.Request)
+	if err != nil {
+		if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
+			if conf.CLIENT_AUTH_REQ == true {
+				cx.RespondWithError(http.StatusUnauthorized)
+				return
+			}
+		} else {
+			logger.Error("Err@AuthenticateClientGroup: " + err.Error())
+			cx.RespondWithError(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// check that clientgroup auth token matches group of client
+	clientid := query.Value("client")
+	client, err := core.QMgr.GetClient(clientid)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+	if cg != nil && client.Group != cg.Name {
+		cx.RespondWithErrorMessage("Clientgroup name in token does not match that in the client configuration.", http.StatusBadRequest)
+		return
+	}
 
 	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
 		notice := core.Notice{WorkId: id, Status: query.Value("status"), ClientId: query.Value("client"), Notes: ""}

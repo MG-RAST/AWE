@@ -8,6 +8,7 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/user"
 	"io/ioutil"
 	"labix.org/v2/mgo/bson"
 	"os"
@@ -97,27 +98,44 @@ func (qm *ServerMgr) Timer() {
 
 func (qm *ServerMgr) InitMaxJid() (err error) {
 	jidfile := conf.DATA_PATH + "/maxjid"
+
 	if _, err := os.Stat(jidfile); err != nil {
+
 		f, err := os.Create(jidfile)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, fmt.Sprintf("error creating jidfile ", err.Error())) // logger does not work
+			logger.Error(fmt.Sprintf("error creating jidfile ", err.Error()))
 			return err
 		}
 		f.WriteString("10000")
 		qm.nextJid = "10001"
 		f.Close()
 	} else {
+
 		buf, err := ioutil.ReadFile(jidfile)
 		if err != nil {
+			if conf.DEBUG_LEVEL > 0 {
+				fmt.Println("error ioutil.ReadFile(jidfile)")
+			}
 			return err
 		}
 		bufstr := strings.TrimSpace(string(buf))
 
 		maxjid, err := strconv.Atoi(bufstr)
 		if err != nil {
+			if conf.DEBUG_LEVEL > 0 {
+				fmt.Println(fmt.Sprintf("error strconv.Atoi(bufstr), bufstr=\"%s\"", bufstr))
+			}
+			fmt.Fprintf(os.Stderr, fmt.Sprintf("Could not convert \"%s\" into int", bufstr)) // logger does not work
+			logger.Error(fmt.Sprintf("Could not convert \"%s\" into int", bufstr))
 			return err
 		}
 
 		qm.nextJid = strconv.Itoa(maxjid + 1)
+
+	}
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("in InitMaxJid C")
 	}
 	logger.Debug(2, fmt.Sprintf("qmgr:jid initialized, next jid=%s\n", qm.nextJid))
 	return
@@ -129,7 +147,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 		if qm.isTaskReady(task) {
 			if err := qm.taskEnQueue(task); err != nil {
 				jobid, _ := GetJobIdByTaskId(task.Id)
-				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()))
+				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
 			}
 		}
 	}
@@ -243,7 +261,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 						if len(notice.Notes) > 0 {
 							reason = reason + " msg from client:" + notice.Notes
 						}
-						if err := qm.SuspendJob(jobid, reason); err != nil {
+						if err := qm.SuspendJob(jobid, reason, workid); err != nil {
 							logger.Error("error returned by SuspendJOb()" + err.Error())
 						}
 					}
@@ -466,7 +484,7 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 	if qm.isTaskReady(task) {
 		if err := qm.taskEnQueue(task); err != nil {
 			jobid, _ := GetJobIdByTaskId(task.Id)
-			qm.SuspendJob(jobid, fmt.Sprintf("failed in enqueuing task %s, err=%s", task.Id, err.Error()))
+			qm.SuspendJob(jobid, fmt.Sprintf("failed in enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
 			return err
 		}
 	}
@@ -512,6 +530,8 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool) {
 					qm.taskMap[predecessor].State != TASK_STAT_SKIPPED &&
 					qm.taskMap[predecessor].State != TASK_STAT_FAIL_SKIP {
 					ready = false
+				} else {
+					logger.Error("warning: predecessor " + predecessor + " is unknown")
 				}
 			}
 		}
@@ -791,10 +811,13 @@ func (qm *ServerMgr) GetSuspendJobs() map[string]bool {
 	return qm.susJobs
 }
 
-func (qm *ServerMgr) SuspendJob(jobid string, reason string) (err error) {
+func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err error) {
 	job, err := LoadJob(jobid)
 	if err != nil {
 		return
+	}
+	if id != "" {
+		job.LastFailed = id
 	}
 	if err := job.UpdateState(JOB_STAT_SUSPEND, reason); err != nil {
 		return err
@@ -851,6 +874,37 @@ func (qm *ServerMgr) DeleteJob(jobid string) (err error) {
 	return
 }
 
+func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User) (err error) {
+	job, err := LoadJob(jobid)
+	if err != nil {
+		return
+	}
+	// User must have delete permissions on job or be job owner or be an admin
+	rights := job.Acl.Check(u.Uuid)
+	if job.Acl.Owner != u.Uuid && rights["delete"] == false && u.Admin == false {
+		return errors.New(e.UnAuth)
+	}
+	if err := job.UpdateState(JOB_STAT_DELETED, "deleted"); err != nil {
+		return err
+	}
+	//delete queueing workunits
+	for workid, _ := range qm.workQueue.workMap {
+		if jobid == strings.Split(workid, "_")[0] {
+			qm.workQueue.Delete(workid)
+		}
+	}
+	//delete parsed tasks
+	for i := 0; i < len(job.TaskList()); i++ {
+		task_id := fmt.Sprintf("%s_%d", jobid, i)
+		delete(qm.taskMap, task_id)
+	}
+	qm.DeleteJobPerf(jobid)
+	delete(qm.susJobs, jobid)
+
+	logger.Event(event.JOB_DELETED, "jobid="+jobid)
+	return
+}
+
 func (qm *ServerMgr) DeleteSuspendedJobs() (num int) {
 	suspendjobs := qm.GetSuspendJobs()
 	for id, _ := range suspendjobs {
@@ -861,10 +915,30 @@ func (qm *ServerMgr) DeleteSuspendedJobs() (num int) {
 	return
 }
 
+func (qm *ServerMgr) DeleteSuspendedJobsByUser(u *user.User) (num int) {
+	suspendjobs := qm.GetSuspendJobs()
+	for id, _ := range suspendjobs {
+		if err := qm.DeleteJobByUser(id, u); err == nil {
+			num += 1
+		}
+	}
+	return
+}
+
 func (qm *ServerMgr) ResumeSuspendedJobs() (num int) {
 	suspendjobs := qm.GetSuspendJobs()
 	for id, _ := range suspendjobs {
 		if err := qm.ResumeSuspendedJob(id); err == nil {
+			num += 1
+		}
+	}
+	return
+}
+
+func (qm *ServerMgr) ResumeSuspendedJobsByUser(u *user.User) (num int) {
+	suspendjobs := qm.GetSuspendJobs()
+	for id, _ := range suspendjobs {
+		if err := qm.ResumeSuspendedJobByUser(id, u); err == nil {
 			num += 1
 		}
 	}
@@ -892,6 +966,27 @@ func (qm *ServerMgr) DeleteZombieJobs() (num int) {
 	return
 }
 
+//delete jobs in db with "queued" or "in-progress" state but not in the queue (zombie jobs) that user has access to
+func (qm *ServerMgr) DeleteZombieJobsByUser(u *user.User) (num int) {
+	dbjobs := new(Jobs)
+	q := bson.M{}
+	q["state"] = bson.M{"in": JOB_STATS_ACTIVE}
+	lim := 1000
+	off := 0
+	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {
+		logger.Error("DeleteZombieJobs()->GetAllLimitOffset():" + err.Error())
+		return
+	}
+	for _, dbjob := range *dbjobs {
+		if _, ok := qm.actJobs[dbjob.Id]; !ok {
+			if err := qm.DeleteJobByUser(dbjob.Id, u); err == nil {
+				num += 1
+			}
+		}
+	}
+	return
+}
+
 //resubmit a suspended job
 func (qm *ServerMgr) ResumeSuspendedJob(id string) (err error) {
 	//Load job by id
@@ -899,6 +994,37 @@ func (qm *ServerMgr) ResumeSuspendedJob(id string) (err error) {
 	if err != nil {
 		return errors.New("failed to load job " + err.Error())
 	}
+	if dbjob.State != JOB_STAT_SUSPEND {
+		return errors.New("job " + id + " is not in 'suspend' status")
+	}
+	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+
+	if dbjob.RemainTasks < len(dbjob.Tasks) {
+		dbjob.State = JOB_STAT_INPROGRESS
+	} else {
+		dbjob.State = JOB_STAT_QUEUED
+	}
+	dbjob.Resumed += 1
+	dbjob.Save()
+
+	delete(qm.susJobs, id)
+	return
+}
+
+//resubmit a suspended job if the user is authorized
+func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err error) {
+	//Load job by id
+	dbjob, err := LoadJob(id)
+	if err != nil {
+		return errors.New("failed to load job " + err.Error())
+	}
+
+	// User must have write permissions on job or be job owner or be an admin
+	rights := dbjob.Acl.Check(u.Uuid)
+	if dbjob.Acl.Owner != u.Uuid && rights["write"] == false && u.Admin == false {
+		return errors.New(e.UnAuth)
+	}
+
 	if dbjob.State != JOB_STAT_SUSPEND {
 		return errors.New("job " + id + " is not in 'suspend' status")
 	}

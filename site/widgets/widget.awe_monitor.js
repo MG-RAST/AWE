@@ -512,7 +512,7 @@
     widget.tooltip = function (obj, id) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
 	obj.popover('destroy');
-	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a href="+RetinaConfig["awe_ip"]+"/job/"+id+" target=_blank onclick=this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode) >job details</a><br><a href="+RetinaConfig["awe_ip"]+"/job/"+id+"?perf target=_blank onclick=this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode)>job stats</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].jobDetails(&#39;"+id+"&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>excel</a>",html:true,placement:"top"});
+	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a style='cursor: pointer;' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/job/"+id+"\");'>job details</a><br><a style='cursor: pointer;' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/job/"+id+"?perf\");'>job stats</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].jobDetails(&#39;"+id+"&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>excel</a>",html:true,placement:"top"});
 	obj.popover('show');
     }
 
@@ -526,11 +526,11 @@
     widget.workunitDetails = function (id, which) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
 	if (which=='stdout') {
-	    window.open(RetinaConfig["awe_ip"]+"/work/"+id+"?report=stdout");
+	    Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(RetinaConfig["awe_ip"]+"/work/"+id+"?report=stdout");
 	} else if (which=='stderr') {
-	    window.open(RetinaConfig["awe_ip"]+"/work/"+id+"?report=stderr");
+	    Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(RetinaConfig["awe_ip"]+"/work/"+id+"?report=stderr");
 	} else if (which=='worknotes') {
-	    window.open(RetinaConfig["awe_ip"]+"/work/"+id+"?report=worknotes");
+	    Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(RetinaConfig["awe_ip"]+"/work/"+id+"?report=worknotes");
 	} else {
 	    console.log('call to workunitDetails for id "'+id+'" with unknown param: "'+which+'"');
 	}
@@ -538,11 +538,15 @@
 
     widget.jobDetails = function (jobid) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
-	jQuery.getJSON(RetinaConfig["awe_ip"]+"/job/"+jobid, function (data) {
-	    var widget = Retina.WidgetInstances.awe_monitor[1];
-	    var job = data.data;
-	    jQuery.getJSON(RetinaConfig["awe_ip"]+"/job/"+jobid+"?perf", function (data) {
+	jQuery.ajax({ 
+	    dataType: "json",
+	    headers: widget.authHeader, 
+	    url: RetinaConfig["awe_ip"]+"/job/"+jobid,
+	    success: function (data) {
 		var widget = Retina.WidgetInstances.awe_monitor[1];
+		var job = data.data;
+		jQuery.getJSON(RetinaConfig["awe_ip"]+"/job/"+jobid+"?perf", function (data) {
+		    var widget = Retina.WidgetInstances.awe_monitor[1];
 		    job.queued = data.data.queued;
 		    job.start = data.data.start;
 		    job.end = data.data.end;
@@ -550,10 +554,11 @@
 		    job.task_stats = data.data.task_stats;
 		    job.work_stats = data.data.work_stats;
 		    Retina.WidgetInstances.awe_monitor[1].xlsExport(job);
-	    }).fail(function() {
-		var widget = Retina.WidgetInstances.awe_monitor[1];
-		alert('no job statistics available');
-	    });
+		}).fail(function() {
+		    var widget = Retina.WidgetInstances.awe_monitor[1];
+		    alert('no job statistics available');
+		});
+	    }
 	});
     };
 
@@ -818,7 +823,6 @@
 
     widget.authenticatedJSON = function (url) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
-
 	jQuery.ajax( { dataType: "json",
 		       url: url,
 		       headers: widget.authHeader,
@@ -826,6 +830,9 @@
 			   var w = window.open();
 			   w.document.write("<pre>"+JSON.stringify(data, null, 2)+"</pre>");
 			   w.document.close();
+		       },
+		       error: function (xhr, data) {
+			   alert(JSON.parse(xhr.responseText).error[0]);
 		       }
 		     } );
     };

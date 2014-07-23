@@ -823,7 +823,6 @@
 
     widget.authenticatedJSON = function (url) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
-	console.log(url);
 	jQuery.ajax( { dataType: "json",
 		       url: url,
 		       headers: widget.authHeader,

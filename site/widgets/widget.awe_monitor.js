@@ -177,7 +177,7 @@
 				   for (h=0;h<data.data.length;h++) {
 				       var obj = data.data[h];
 				       result_data.push( [ obj.info.submittime,
-							   "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
+							   "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/job/"+obj.id+"\");' style='cursor: pointer;'>"+obj.jid+"</a>",
 							   obj.info.name,
 							   obj.info.user,
 							   obj.info.project,
@@ -344,8 +344,8 @@
 			       if (data.data != null) {
 				   for (h=0;h<data.data.length;h++) {
 				       var obj = data.data[h];
-				       result_data.push( [ "<a href='"+RetinaConfig["awe_ip"]+"/work/"+obj.wuid+"' target=_blank>"+obj.wuid+"</a>",
-							   "<a href='"+RetinaConfig["awe_ip"]+"/client/"+obj.client+"' target=_blank>"+obj.client+"</a>",
+				       result_data.push( [ "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/work/"+obj.wuid+"\");' style='cursor: pointer;'>"+obj.wuid+"</a>",
+							   "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/client/"+obj.client+"\");' style='cursor: pointer;'>"+obj.client+"</a>",
 							   obj.checkout_time,
 							   obj.cmd.name,
 							   obj.cmd.args,
@@ -394,7 +394,7 @@
 				       for (var j=0;j<obj.skip_work.length;j++) {
 					   skipwork.push("<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.skip_work[j]+"\")'>"+obj.skip_work[j]+"</a>");
 				       }
-				       result_data.push( ["<a href='"+RetinaConfig["awe_ip"]+"/client/"+obj.id+"' target=_blank>"+obj.name+"</a>",
+				       result_data.push( [ "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/client/"+obj.id+"\");' style='cursor: pointer;'>"+obj.name+"</a>",
 							  obj.group,
 							  obj.user || "-",
 							  obj.host,
@@ -563,7 +563,7 @@
 	for (var i=0;i<data.length;i++) {
 	    var obj = data[i];
 	    result_data.push( { "submission": obj.info.submittime,
-				"job": "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+(obj.info.name || '-')+' ('+obj.jid+")</a>",
+				"job": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/job/"+obj.id+"\");' style='cursor: pointer;'>"+(obj.info.name || '-')+' ('+obj.jid+")</a>",
 				"status": widget.dots(obj.tasks),
 				"pipeline": obj.info.pipeline,
 				"current state": obj.state
@@ -617,7 +617,7 @@
 	for (var i=0;i<data.length;i++) {
 	    var obj = data[i];
 	    result_data.push( { "created": obj.info.submittime,
-				"jid": "<a href='"+RetinaConfig["awe_ip"]+"/job/"+obj.id+"' target=_blank>"+obj.jid+"</a>",
+				"jid": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/job/"+obj.id+"\");' style='cursor: pointer;'>"+obj.jid+"</a>",
 				"name": obj.info.name,
 				"user": obj.info.user,
 				"project": obj.info.project,
@@ -814,6 +814,20 @@
 	}
 
 	xhr.send();
+    };
+
+    widget.authenticatedJSON = function (url) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
+
+	jQuery.ajax( { dataType: "json",
+		       url: url,
+		       headers: widget.authHeader,
+		       success: function(data) {
+			   var w = window.open();
+			   w.document.write("<pre>"+JSON.stringify(data, null, 2)+"</pre>");
+			   w.document.close();
+		       }
+		     } );
     };
 
     widget.loginAction = function (action) {

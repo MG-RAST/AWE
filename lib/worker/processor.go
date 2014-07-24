@@ -602,6 +602,83 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	return
 }
 
+func runPreWorkExecutionScript(work *core.Workunit) (err error) {
+	// conf.PreWorkScript is a string
+	// conf.PreWorkScriptArgs is a string array
+	args := conf.PRE_WORK_SCRIPT_ARGS
+	commandName := conf.PRE_WORK_SCRIPT
+
+	if commandName == "" {
+		return nil
+	}
+
+	cmd := exec.Command(commandName, args...)
+
+	msg := fmt.Sprintf("worker: start pre-work cmd=%s, args=%v", commandName, args)
+	fmt.Println(msg)
+	logger.Debug(1, msg)
+	logger.Event(event.PRE_WORK_START, "workid="+work.Id,
+		"pre-work cmd="+commandName,
+		fmt.Sprintf("args=%v", args))
+
+	var stdout, stderr io.ReadCloser
+
+	if conf.PRINT_APP_MSG {
+		stdout, err = cmd.StdoutPipe()
+		if err != nil {
+			return
+		}
+		stderr, err = cmd.StderrPipe()
+		if err != nil {
+			return
+		}
+	}
+
+	stdoutFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDOUT_FILENAME)
+	stderrFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDERR_FILENAME)
+	outfile, err := os.Create(stdoutFilePath)
+	defer outfile.Close()
+	errfile, err := os.Create(stderrFilePath)
+	defer errfile.Close()
+	out_writer := bufio.NewWriter(outfile)
+	defer out_writer.Flush()
+	err_writer := bufio.NewWriter(errfile)
+	defer err_writer.Flush()
+
+	if conf.PRINT_APP_MSG {
+		go io.Copy(out_writer, stdout)
+		go io.Copy(err_writer, stderr)
+	}
+
+	if err := cmd.Start(); err != nil {
+		msg := fmt.Sprintf(fmt.Sprintf("start pre-work cmd=%s, err=%s", commandName, err.Error()))
+		fmt.Println(msg)
+		logger.Debug(1, msg)
+		return errors.New(msg)
+	}
+
+	done := make(chan error)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	select {
+	case <-chankill:
+		if err := cmd.Process.Kill(); err != nil {
+			fmt.Println("failed to kill" + err.Error())
+		}
+		<-done // allow goroutine to exit
+		fmt.Println("process killed")
+		return errors.New("process killed")
+	case err := <-done:
+		if err != nil {
+			return errors.New(fmt.Sprintf("wait on pre-work cmd=%s, err=%s", commandName, err.Error()))
+		}
+	}
+	logger.Event(event.PRE_WORK_END, "workid="+work.Id)
+	return
+}
+
 func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 
 	shock_docker_repo := core.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}

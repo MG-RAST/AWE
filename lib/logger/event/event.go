@@ -22,16 +22,18 @@ const (
 	JOB_SUSPEND    = "JP" //job suspended
 	JOB_DELETED    = "JL" //job deleted
 	//client only events
-	WORK_START   = "WS" //workunit command start running
-	WORK_END     = "WE" //workunit command finish running
-	WORK_RETURN  = "WR" //send back failed workunit to server
-	WORK_DISCARD = "WI" //workunit discarded after receiving discard signal from server
-	FILE_IN      = "FI" //start fetching input file from shock
-	FILE_READY   = "FR" //finish fetching input file from shock
-	FILE_OUT     = "FO" //start pushing output file to shock
-	FILE_DONE    = "FD" //finish pushing output file to shock
-	ATTR_IN      = "AI" //start fetching input attributes from shock
-	ATTR_READY   = "AR" //finish fetching input attributes from shock
+	WORK_START     = "WS" //workunit command start running
+	WORK_END       = "WE" //workunit command finish running
+	WORK_RETURN    = "WR" //send back failed workunit to server
+	WORK_DISCARD   = "WI" //workunit discarded after receiving discard signal from server
+	PRE_WORK_START = "PS" //workunit command start running
+	PRE_WORK_END   = "PE" //workunit command finish running
+	FILE_IN        = "FI" //start fetching input file from shock
+	FILE_READY     = "FR" //finish fetching input file from shock
+	FILE_OUT       = "FO" //start pushing output file to shock
+	FILE_DONE      = "FD" //finish pushing output file to shock
+	ATTR_IN        = "AI" //start fetching input attributes from shock
+	ATTR_READY     = "AR" //finish fetching input attributes from shock
 	//proxy only events
 	WORK_QUEUED = "WQ" //workunit queued at proxy
 )

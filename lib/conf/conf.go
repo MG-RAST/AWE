@@ -110,6 +110,8 @@ var (
 	WORK_PATH                     = ""
 	APP_PATH                      = ""
 	SUPPORTED_APPS                = ""
+	PRE_WORK_SCRIPT               = ""
+	PRE_WORK_SCRIPT_ARGS          = []string{}
 	SERVER_URL                    = "http://localhost:8001"
 	OPENSTACK_METADATA_URL        = "" //openstack metadata url, e.g. "http://169.254.169.254/2009-04-04/meta-data"
 	INSTANCE_METADATA_TIMEOUT     = 5 * time.Second
@@ -268,6 +270,13 @@ func init() {
 	SUPPORTED_APPS, _ = c.String("Client", "supported_apps")
 	if clientname, err := c.String("Client", "name"); err == nil {
 		CLIENT_NAME = clientname
+	}
+
+	if pre_work_script, err := c.String("Client", "pre_work_script"); err == nil {
+		PRE_WORK_SCRIPT = pre_work_script
+	}
+	if pre_work_script_args, err := c.String("Client", "pre_work_script_args"); err == nil {
+		PRE_WORK_SCRIPT_ARGS = strings.Split(pre_work_script_args, ",")
 	}
 
 	if CLIENT_NAME == "" || CLIENT_NAME == "default" || CLIENT_NAME == "hostname" {

@@ -141,14 +141,27 @@ func dataMover(control chan int) {
 			logger.Error("[dataMover#work.Mkdir], workid=" + work.Id + " error=" + err.Error())
 			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#work.Mkdir]" + err.Error()
 			parsed.workunit.State = core.WORK_STAT_FAIL
+			//hand the parsed workunit to next stage and continue to get new workunit to process
+			fromMover <- parsed
+			continue
+		}
+
+		//run the PreWorkExecutionScript
+		if err := runPreWorkExecutionScript(parsed.workunit); err != nil {
+			logger.Error("[dataMover#runPreWorkExecutionScript], workid=" + work.Id + " error=" + err.Error())
+			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#runPreWorkExecutionScript]" + err.Error()
+			parsed.workunit.State = core.WORK_STAT_FAIL
+			//hand the parsed workunit to next stage and continue to get new workunit to process
+			fromMover <- parsed
+			continue
 		}
 
 		//check the availability prerequisite data and download if needed
 		predatamove_start := time.Now().UnixNano()
 		if moved_data, err := movePreData(parsed.workunit); err != nil {
 			logger.Error("[dataMover#movePreData], workid=" + work.Id + " error=" + err.Error())
-			parsed.workunit.State = core.WORK_STAT_FAIL
 			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#movePreData]" + err.Error()
+			parsed.workunit.State = core.WORK_STAT_FAIL
 			//hand the parsed workunit to next stage and continue to get new workunit to process
 			fromMover <- parsed
 			continue
@@ -168,6 +181,7 @@ func dataMover(control chan int) {
 				logger.Error("err@dataMover_work.prepareAppTask, workid=" + work.Id + " error=" + err.Error())
 				parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#prepareAppTask]" + err.Error()
 				parsed.workunit.State = core.WORK_STAT_FAIL
+				//hand the parsed workunit to next stage and continue to get new workunit to process
 				fromMover <- parsed
 				continue
 			}
@@ -191,6 +205,9 @@ func dataMover(control chan int) {
 			logger.Error("err@dataMover_work.moveInputData, workid=" + work.Id + " error=" + err.Error())
 			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#MoveInputData]" + err.Error()
 			parsed.workunit.State = core.WORK_STAT_FAIL
+			//hand the parsed workunit to next stage and continue to get new workunit to process
+			fromMover <- parsed
+			continue
 		} else {
 			parsed.perfstat.InFileSize = moved_data
 			datamove_end := time.Now().UnixNano()
@@ -205,6 +222,9 @@ func dataMover(control chan int) {
 				logger.Error("err@dataMover_work.getUserAttr, workid=" + work.Id + " error=" + err.Error())
 				parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#getUserAttr]" + err.Error()
 				parsed.workunit.State = core.WORK_STAT_FAIL
+				//hand the parsed workunit to next stage and continue to get new workunit to process
+				fromMover <- parsed
+				continue
 			}
 		}
 

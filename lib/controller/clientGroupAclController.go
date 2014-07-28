@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"errors"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
@@ -11,6 +10,11 @@ import (
 	"github.com/MG-RAST/golib/goweb"
 	"net/http"
 	"strings"
+)
+
+var (
+	validClientGroupAclTypes = map[string]bool{"all": true, "read": true, "write": true, "delete": true, "owner": true, "execute": true,
+		"public_all": true, "public_read": true, "public_write": true, "public_delete": true, "public_execute": true}
 )
 
 // GET: /cgroup/{cgid}/acl/ (only GET is supported here)
@@ -51,9 +55,8 @@ var ClientGroupAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 		}
 	}
 
-	// User must have read permissions on clientgroup or be clientgroup owner or be an admin
-	rights := cg.Acl.Check(u.Uuid)
-	if cg.Acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false {
+	// User must be clientgroup owner or be an admin
+	if cg.Acl.Owner != u.Uuid && u.Admin == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}
@@ -83,7 +86,7 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 	rtype := cx.PathParams["type"]
 	rmeth := cx.Request.Method
 
-	if rtype != "all" && rtype != "owner" && rtype != "read" && rtype != "write" && rtype != "delete" && rtype != "execute" {
+	if !validClientGroupAclTypes[rtype] {
 		cx.RespondWithErrorMessage("Invalid acl type", http.StatusBadRequest)
 		return
 	}
@@ -103,9 +106,9 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 		}
 	}
 
-	// Users that are not the clientgroup owner can only delete themselves from an ACL.
+	// Users that are not the clientgroup owner or an admin can only delete themselves from an ACL.
 	// Clientgroup owners can view/edit/delete ACLs
-	if cg.Acl.Owner != u.Uuid {
+	if cg.Acl.Owner != u.Uuid && u.Admin == false {
 		if rmeth == "DELETE" {
 			ids, err := parseClientGroupAclRequestTyped(cx)
 			if err != nil {
@@ -134,7 +137,7 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 		return
 	}
 
-	// At this point we know we're dealing with just the clientgroup owner.
+	// At this point we know we're dealing with just the clientgroup owner or an admin.
 	if rmeth != "GET" {
 		ids, err := parseClientGroupAclRequestTyped(cx)
 		if err != nil {
@@ -155,6 +158,18 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 						cg.Acl.Set(i, map[string]bool{atype: true})
 					}
 				}
+			} else if rtype == "public_read" {
+				cg.Acl.Set("public", map[string]bool{"read": true})
+			} else if rtype == "public_write" {
+				cg.Acl.Set("public", map[string]bool{"write": true})
+			} else if rtype == "public_delete" {
+				cg.Acl.Set("public", map[string]bool{"delete": true})
+			} else if rtype == "public_execute" {
+				cg.Acl.Set("public", map[string]bool{"execute": true})
+			} else if rtype == "public_all" {
+				for _, atype := range []string{"read", "write", "delete", "execute"} {
+					cg.Acl.Set("public", map[string]bool{atype: true})
+				}
 			} else {
 				for _, i := range ids {
 					cg.Acl.Set(i, map[string]bool{rtype: true})
@@ -170,6 +185,18 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 					for _, i := range ids {
 						cg.Acl.UnSet(i, map[string]bool{atype: true})
 					}
+				}
+			} else if rtype == "public_read" {
+				cg.Acl.UnSet("public", map[string]bool{"read": true})
+			} else if rtype == "public_write" {
+				cg.Acl.UnSet("public", map[string]bool{"write": true})
+			} else if rtype == "public_delete" {
+				cg.Acl.UnSet("public", map[string]bool{"delete": true})
+			} else if rtype == "public_execute" {
+				cg.Acl.UnSet("public", map[string]bool{"execute": true})
+			} else if rtype == "public_all" {
+				for _, atype := range []string{"read", "write", "delete", "execute"} {
+					cg.Acl.UnSet("public", map[string]bool{atype: true})
 				}
 			} else {
 				for _, i := range ids {
@@ -188,15 +215,15 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 		cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)
 	case "owner":
 		cx.RespondWithData(map[string]string{"owner": cg.Acl.Owner})
-	case "read":
+	case "read", "public_read":
 		cx.RespondWithData(map[string][]string{"read": cg.Acl.Read})
-	case "write":
+	case "write", "public_write":
 		cx.RespondWithData(map[string][]string{"write": cg.Acl.Write})
-	case "delete":
+	case "delete", "public_delete":
 		cx.RespondWithData(map[string][]string{"delete": cg.Acl.Delete})
-	case "execute":
+	case "execute", "public_execute":
 		cx.RespondWithData(map[string][]string{"execute": cg.Acl.Execute})
-	case "all":
+	case "all", "public_all":
 		cx.RespondWithData(cg.Acl)
 	}
 
@@ -212,7 +239,7 @@ func parseClientGroupAclRequestTyped(cx *goweb.Context) (ids []string, err error
 	} else if params["users"] != "" {
 		users = strings.Split(params["users"], ",")
 	} else {
-		return nil, errors.New("Action requires list of comma separated usernames in 'users' parameter")
+		return nil, nil
 	}
 	for _, v := range users {
 		if uuid.Parse(v) != nil {

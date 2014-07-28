@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"errors"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
@@ -51,9 +50,8 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 		}
 	}
 
-	// User must have read permissions on job or be job owner or be an admin
-	rights := job.Acl.Check(u.Uuid)
-	if job.Acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false {
+	// User must be job owner or be an admin
+	if job.Acl.Owner != u.Uuid && u.Admin == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}
@@ -103,9 +101,9 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 		}
 	}
 
-	// Users that are not the job owner can only delete themselves from an ACL.
+	// Users that are not the job owner or an admin can only delete themselves from an ACL.
 	// Job owners can view/edit/delete ACLs
-	if job.Acl.Owner != u.Uuid {
+	if job.Acl.Owner != u.Uuid && u.Admin == false {
 		if rmeth == "DELETE" {
 			ids, err := parseJobAclRequestTyped(cx)
 			if err != nil {
@@ -134,7 +132,7 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 		return
 	}
 
-	// At this point we know we're dealing with just the clientgroup owner.
+	// At this point we know we're dealing with just the clientgroup owner or an admin.
 	if rmeth != "GET" {
 		ids, err := parseJobAclRequestTyped(cx)
 		if err != nil {
@@ -155,6 +153,16 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 						job.Acl.Set(i, map[string]bool{atype: true})
 					}
 				}
+			} else if rtype == "public_read" {
+				job.Acl.Set("public", map[string]bool{"read": true})
+			} else if rtype == "public_write" {
+				job.Acl.Set("public", map[string]bool{"write": true})
+			} else if rtype == "public_delete" {
+				job.Acl.Set("public", map[string]bool{"delete": true})
+			} else if rtype == "public_all" {
+				for _, atype := range []string{"read", "write", "delete"} {
+					job.Acl.Set("public", map[string]bool{atype: true})
+				}
 			} else {
 				for _, i := range ids {
 					job.Acl.Set(i, map[string]bool{rtype: true})
@@ -170,6 +178,16 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 					for _, i := range ids {
 						job.Acl.UnSet(i, map[string]bool{atype: true})
 					}
+				}
+			} else if rtype == "public_read" {
+				job.Acl.UnSet("public", map[string]bool{"read": true})
+			} else if rtype == "public_write" {
+				job.Acl.UnSet("public", map[string]bool{"write": true})
+			} else if rtype == "public_delete" {
+				job.Acl.UnSet("public", map[string]bool{"delete": true})
+			} else if rtype == "public_all" {
+				for _, atype := range []string{"read", "write", "delete"} {
+					job.Acl.UnSet("public", map[string]bool{atype: true})
 				}
 			} else {
 				for _, i := range ids {
@@ -188,13 +206,13 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 		cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)
 	case "owner":
 		cx.RespondWithData(map[string]string{"owner": job.Acl.Owner})
-	case "read":
+	case "read", "public_read":
 		cx.RespondWithData(map[string][]string{"read": job.Acl.Read})
-	case "write":
+	case "write", "public_write":
 		cx.RespondWithData(map[string][]string{"write": job.Acl.Write})
-	case "delete":
+	case "delete", "public_delete":
 		cx.RespondWithData(map[string][]string{"delete": job.Acl.Delete})
-	case "all":
+	case "all", "public_all":
 		cx.RespondWithData(job.Acl)
 	}
 
@@ -210,7 +228,7 @@ func parseJobAclRequestTyped(cx *goweb.Context) (ids []string, err error) {
 	} else if params["users"] != "" {
 		users = strings.Split(params["users"], ",")
 	} else {
-		return nil, errors.New("Action requires list of comma separated usernames in 'users' parameter")
+		return nil, nil
 	}
 	for _, v := range users {
 		if uuid.Parse(v) != nil {

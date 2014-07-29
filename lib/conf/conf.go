@@ -149,6 +149,7 @@ func init() {
 	flag.IntVar(&DEBUG_LEVEL, "debug", -1, "debug level: 0-3")
 	flag.BoolVar(&DEV_MODE, "dev", false, "dev or demo mode, print some msgs on screen")
 	flag.StringVar(&CGROUP_MEMORY_DOCKER_DIR, "cgroup_memory_docker_dir", "/sys/fs/cgroup/memory/docker/", "path to cgroup directory for docker")
+	flag.StringVar(&SERVER_URL, "server_url", "", "URL of AWE server, including API port")
 	flag.Parse()
 
 	//	fmt.Printf("in conf.init(), flag=%v", flag)
@@ -265,7 +266,9 @@ func init() {
 	// Client
 	WORK_PATH, _ = c.String("Client", "workpath")
 	APP_PATH, _ = c.String("Client", "app_path")
-	SERVER_URL, _ = c.String("Client", "serverurl")
+	if SERVER_URL == "" {
+		SERVER_URL, _ = c.String("Client", "serverurl")
+	}
 	OPENSTACK_METADATA_URL, _ = c.String("Client", "openstack_metadata_url")
 	SUPPORTED_APPS, _ = c.String("Client", "supported_apps")
 	if clientname, err := c.String("Client", "name"); err == nil {

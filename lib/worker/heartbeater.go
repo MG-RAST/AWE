@@ -321,12 +321,13 @@ func getMetaDataField(field string) (result string, err error) {
 		case <-time.After(conf.INSTANCE_METADATA_TIMEOUT): //GET timeout
 			err = errors.New("warning: " + url + " timeout")
 		}
-		defer res.Body.Close()
+
 		if err != nil {
 			//return "", err
 			logger.Error("warning: " + url + " " + err.Error())
 			continue
 		}
+		defer res.Body.Close()
 
 		bodybytes, err := ioutil.ReadAll(res.Body)
 		result = string(bodybytes[:])

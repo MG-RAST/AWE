@@ -303,8 +303,63 @@ func CleanDisk() (err error) {
 	//to-do: implementation here
 	return
 }
-
 func getMetaDataField(field string) (result string, err error) {
+	var url = fmt.Sprintf("%s/%s", conf.OPENSTACK_METADATA_URL, field) // TODO this is not OPENSTACK, this is EC2
+	logger.Debug(1, fmt.Sprintf("url=%s", url))
+
+	for i := 0; i < 3; i++ {
+		var res *http.Response
+		c := make(chan error)
+		go func() {
+			res, err = http.Get(url)
+			if err != nil {
+				c <- err //we are ending with error
+				return
+			}
+
+			defer res.Body.Close()
+			bodybytes, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				c <- err //we are ending with error
+				return
+			}
+			result = string(bodybytes[:])
+
+			c <- nil //we are ending without error
+		}()
+		select {
+		case err = <-c:
+			//go ahead
+		case <-time.After(conf.INSTANCE_METADATA_TIMEOUT): //GET timeout
+			err = errors.New("timeout: " + url)
+		}
+
+		if err != nil {
+			logger.Error(fmt.Sprintf("warning: (iteration=%d) %s \"%s\"", i, url, err.Error()))
+			continue
+		} else if result == "" {
+			logger.Error(fmt.Sprintf("warning: (iteration=%d) %s empty result", i, url))
+			continue
+		}
+
+		break
+
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	if result == "" {
+		return "", errors.New(fmt.Sprintf("metadata result empty, %s", url))
+	}
+
+	logger.Debug(1, fmt.Sprintf("Intance Metadata %s => \"%s\"", url, result))
+	return
+}
+
+//deprecated
+func getMetaDataField_old(field string) (result string, err error) {
 	var url = fmt.Sprintf("%s/%s", conf.OPENSTACK_METADATA_URL, field) // TODO this is not OPENSTACK, this is EC2
 	logger.Debug(1, fmt.Sprintf("url=%s", url))
 

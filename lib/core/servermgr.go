@@ -609,7 +609,7 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 			return errors.New(fmt.Sprintf("error in locate input for task %s, %s", task.Id, name))
 		}
 		//need time out!
-		if io.GetFileSize() < 0 {
+		if io.Node != "" && io.GetFileSize() < 0 {
 			return errors.New(fmt.Sprintf("task %s: input file %s not available", task.Id, name))
 		}
 		logger.Debug(2, fmt.Sprintf("inputs located %s, %s\n", name, io.Node))

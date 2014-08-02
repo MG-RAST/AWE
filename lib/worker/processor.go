@@ -245,11 +245,17 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Error getting docker url, err=%s", err.Error()))
 	}
-	node_attr, ok := node.Attributes.(Shock_Dockerimage_attributes)
+
+	node_attr_map, ok := node.Attributes.(map[string]interface{})
 	if !ok {
-		return nil, errors.New(fmt.Sprintf("could type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage))
+		return nil, errors.New(fmt.Sprintf("(1) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage))
 	}
-	dockerimage_id := node_attr.Id
+
+	dockerimage_id, ok := node_attr_map["id"].(string)
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("(2) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage))
+	}
+
 	if dockerimage_id == "" {
 		return nil, errors.New(fmt.Sprintf("Id of Dockerimage=%s not found", Dockerimage))
 	}

@@ -75,6 +75,7 @@ type AppVariable struct {
 	Value    string
 	Var_type AppInputType
 	Option   string
+	Optional bool // indicates that an empty value is ok and not an error
 }
 
 // part of the (internal-only) workflow document, used in "Task""
@@ -271,7 +272,10 @@ func (acm AppCommandMode) Get_default_app_variables() (app_variables AppVariable
 		logger.Debug(1, fmt.Sprintf("from app-definition: variable \"%s\" has type %s", input_arg.Name, apptype2string(app_type)))
 
 		logger.Debug(1, fmt.Sprintf("from app-definition: write variable:\"%s\" - default value: \"%s\"", input_arg.Name, input_arg.DefaultValue))
-		app_variables[input_arg.Name] = AppVariable{Var_type: app_type, Value: input_arg.DefaultValue, Option: input_arg.Option}
+		app_variables[input_arg.Name] = AppVariable{Var_type: app_type,
+			Value:    input_arg.DefaultValue,
+			Option:   input_arg.Option,
+			Optional: input_arg.Optional}
 
 	}
 
@@ -775,9 +779,13 @@ func (va VariableExpander) Expand(line string) (expanded string, err error) {
 		}
 		function_variable_value := function_variable_obj.Value
 		if function_variable_value == "" {
-			logger.Debug(1, fmt.Sprintf("value of function_variable \"%s\" empty", function_variable))
-			err = errors.New(fmt.Sprintf("function_variable_value empty"))
-			return "ERROR"
+			if function_variable_obj.Optional {
+				return ""
+			} else {
+				logger.Debug(1, fmt.Sprintf("value of function_variable \"%s\" empty", function_variable))
+				err = errors.New(fmt.Sprintf("function_variable_value empty"))
+				return "ERROR"
+			}
 		}
 
 		logger.Debug(1, fmt.Sprintf("function_variable_value: %s ", function_variable_value))

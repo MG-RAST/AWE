@@ -27,6 +27,13 @@ import (
 	"time"
 )
 
+type Shock_Dockerimage_attributes struct {
+	Id          string `bson:"id" json:"id"`                       // this is docker image id, not Shock id
+	Name        string `bson:"name" json:"name"`                   // docker image name
+	Type        string `bson:"type" json:"type"`                   // should be "dockerimage"
+	BaseImageId string `bson:"base_image_id" json:"base_image_id"` // could used to reference parent image
+}
+
 func processor(control chan int) {
 	fmt.Printf("processor launched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("processor exiting...\n")
@@ -232,18 +239,34 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		return nil, err
 	}
 
+	//var node *core.ShockNode = nil
+	// find image in repo (e.g. extract docker image id)
+	node, dockerimage_download_url, err := findDockerImageInShock(Dockerimage)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Error getting docker url, err=%s", err.Error()))
+	}
+	node_attr, ok := node.Attributes.(Shock_Dockerimage_attributes)
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("could type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage))
+	}
+	dockerimage_id := node_attr.Id
+	if dockerimage_id == "" {
+		return nil, errors.New(fmt.Sprintf("Id of Dockerimage=%s not found", Dockerimage))
+	}
+	logger.Debug(1, fmt.Sprintf("using dockerimage id %s instead of name %s ", dockerimage_id, Dockerimage))
+
 	// *** find/inspect image
-	image, err := client.InspectImage(Dockerimage)
+	image, err := client.InspectImage(dockerimage_id)
 
 	if err != nil {
 
 		logger.Debug(1, fmt.Sprintf("docker image %s is not yet in local repository", Dockerimage))
 
-		image_retrieval := "load"
+		image_retrieval := "load" // TODO only load is guaraneed to work
 		switch {
 		case image_retrieval == "load":
 			{ // for images that have been saved
-				err = dockerLoadImage(client, Dockerimage)
+				err = dockerLoadImage(client, dockerimage_download_url)
 			}
 		case image_retrieval == "import":
 			{ // for containers that have been exported
@@ -263,16 +286,38 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		// view node: http://shock.metagenomics.anl.gov/node/ed0a6b20-c535-40d7-92e8-754bb8b6b48f
 		// download http://shock.metagenomics.anl.gov/node/ed0a6b20-c535-40d7-92e8-754bb8b6b48f?download
 
-		// last test
-		image, err = client.InspectImage(Dockerimage)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("(InspectImage) Docker image was not correctly imported or built, err=%s", err.Error()))
+		if node != nil {
+
 		}
+		// last test
+		if dockerimage_id != "" {
+			image, err = client.InspectImage(dockerimage_id)
+			if err != nil {
+				return nil, errors.New(fmt.Sprintf("(InspectImage) Docker image (%s , %s) was not correctly imported or built, err=%s", Dockerimage, dockerimage_id, err.Error()))
+			}
+		} else {
+			image, err = client.InspectImage(Dockerimage)
+			if err != nil {
+				return nil, errors.New(fmt.Sprintf("(InspectImage) Docker image (%s) was not correctly imported or built, err=%s", Dockerimage, err.Error()))
+			}
+		}
+
 	} else {
 		logger.Debug(1, fmt.Sprintf("docker image %s is already in local repository", Dockerimage))
 	}
 
-	imageid := image.ID
+	if dockerimage_id != image.ID {
+		return nil, errors.New(fmt.Sprintf("error: dockerimage_id != image.ID, %s != %s (%s)", dockerimage_id, image.ID, Dockerimage))
+	}
+
+	// tag image to make debugging easier
+	if Dockerimage != "" {
+		tag_opts := docker.TagImageOptions{Repo: Dockerimage}
+		err = client.TagImage(dockerimage_id, tag_opts)
+		if err != nil {
+			logger.Error(fmt.Sprintf("warning: tagging of image %s with %s failed, err:", dockerimage_id, Dockerimage, err.Error()))
+		}
+	}
 
 	pipe_output := fmt.Sprintf(" 2> %s 1> %s", conf.STDERR_FILENAME, conf.STDOUT_FILENAME)
 
@@ -290,11 +335,11 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	container_cmd := []string{"/bin/bash", "-c", bash_command} // TODO remove bash if possible, but is needed for piping
 
-	config := docker.Config{Image: imageid, WorkingDir: conf.DOCKER_WORK_DIR, AttachStdout: true, AttachStderr: true, AttachStdin: false, Cmd: container_cmd, Volumes: map[string]struct{}{conf.DOCKER_WORK_DIR: {}}}
+	config := docker.Config{Image: dockerimage_id, WorkingDir: conf.DOCKER_WORK_DIR, AttachStdout: true, AttachStderr: true, AttachStdin: false, Cmd: container_cmd, Volumes: map[string]struct{}{conf.DOCKER_WORK_DIR: {}}}
 	opts := docker.CreateContainerOptions{Name: container_name, Config: &config}
 
 	// *** create container (or find container ?)
-	logger.Debug(1, fmt.Sprintf("creating docker container from image %s", Dockerimage))
+	logger.Debug(1, fmt.Sprintf("creating docker container from image %s (%s)", Dockerimage, dockerimage_id))
 	container_incomplete, err := client.CreateContainer(opts)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("error creating container, err=%s", err.Error()))
@@ -723,7 +768,8 @@ func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 	return nil
 }
 
-func getDockerImageUrl(Dockerimage string) (download_url string, err error) {
+// was getDockerImageUrl(Dockerimage string) (download_url string, err error)
+func findDockerImageInShock(Dockerimage string) (node *core.ShockNode, download_url string, err error) {
 
 	shock_docker_repo := core.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
 
@@ -732,35 +778,30 @@ func getDockerImageUrl(Dockerimage string) (download_url string, err error) {
 
 	query_response_p, err := shock_docker_repo.Query(url.Values{"type": {"dockerimage"}, "name": {Dockerimage}})
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("shock node not found for image=%s, err=%s", Dockerimage, err.Error()))
+		return nil, "", errors.New(fmt.Sprintf("shock node not found for image=%s, err=%s", Dockerimage, err.Error()))
 	}
 	logger.Debug(1, fmt.Sprintf("query result: %v", query_response_p))
 
 	datalen := len((*query_response_p).Data)
 
 	if datalen == 0 {
-		return "", errors.New(fmt.Sprintf("image %s not found in shocks docker repo", Dockerimage))
+		return nil, "", errors.New(fmt.Sprintf("image %s not found in shocks docker repo", Dockerimage))
 	} else if datalen > 1 {
-		return "", errors.New(fmt.Sprintf("more than one image %s found in shocks docker repo", Dockerimage))
+		return nil, "", errors.New(fmt.Sprintf("more than one image %s found in shocks docker repo", Dockerimage))
 	}
 
-	node := (*query_response_p).Data[0]
+	node = &(*query_response_p).Data[0]
 	logger.Debug(1, fmt.Sprintf("found SHOCK node for docker image: %s", node.Id))
 
-	download_url, err = shock_docker_repo.Get_node_download_url(node)
+	download_url, err = shock_docker_repo.Get_node_download_url(*node)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Could not create download url, err=%s", err.Error()))
+		return nil, "", errors.New(fmt.Sprintf("Could not create download url, err=%s", err.Error()))
 	}
 
 	return
 }
 
-func dockerLoadImage(client *docker.Client, Dockerimage string) (err error) {
-
-	download_url, err := getDockerImageUrl(Dockerimage)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Error getting docker url, err=%s", err.Error()))
-	}
+func dockerLoadImage(client *docker.Client, download_url string) (err error) {
 
 	image_stream, err := fetchShockStream(download_url, "") // token empty here, assume that images are public
 	if err != nil {
@@ -780,12 +821,12 @@ func dockerLoadImage(client *docker.Client, Dockerimage string) (err error) {
 	}
 
 	logger.Debug(1, fmt.Sprintf("load image returned: %v", &buf))
-	return nil
+	return
 }
 
 func dockerImportImage(client *docker.Client, Dockerimage string) (err error) {
 
-	download_url, err := getDockerImageUrl(Dockerimage)
+	_, download_url, err := findDockerImageInShock(Dockerimage) // TODO get node
 
 	if err != nil {
 		return err

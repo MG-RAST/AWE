@@ -17,6 +17,8 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -103,6 +105,13 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 	//var cmd_script = parsed.workunit.Cmd.ParsedArgs[:]
 
 	var cmd_script = parsed.workunit.Cmd.Cmd_script
+
+	// expand variables on client-side
+	numcpu := runtime.NumCPU() //TODO document reserved variable NumCPU
+	numcpu_str := strconv.Itoa(numcpu)
+	for i, _ := range cmd_script {
+		cmd_script[i] = strings.Replace(cmd_script[i], "${NumCPU}", numcpu_str, -1)
+	}
 
 	//if err != nil {
 	//TODO error

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/shock"
 	"strings"
 )
 
@@ -14,7 +15,7 @@ type IO struct {
 	Directory     string            `bson:"directory" json:"directory"`
 	Host          string            `bson:"host" json:"host"`
 	Node          string            `bson:"node" json:"node"`
-	Url           string            `bson:"url"  json:"url"`
+	Url           string            `bson:"url"  json:"url"` // can be shock or any other url
 	Size          int64             `bson:"size" json:"size"`
 	MD5           string            `bson:"md5" json:"-"`
 	Cache         bool              `bson:"cache" json:"-"`
@@ -32,6 +33,7 @@ type IO struct {
 	Delete        bool              `bson:"delete" json:"delete"`
 	Type          string            `bson:"type" json:"type"`
 	FormOptions   map[string]string `bson:"formoptions" json:"formoptions"`
+	Uncompress    string            `bson:"uncompress" json:"uncompress"` // tells AWE client to uncompress this file, e.g. "gzip"
 }
 
 type PartInfo struct {
@@ -116,8 +118,8 @@ func (io *IO) GetFileSize() int64 {
 	return io.Size
 }
 
-func (io *IO) GetIndexInfo() (idxinfo map[string]IdxInfo, err error) {
-	var shocknode *ShockNode
+func (io *IO) GetIndexInfo() (idxinfo map[string]shock.IdxInfo, err error) {
+	var shocknode *shock.ShockNode
 	shocknode, err = io.GetShockNode()
 	if err != nil {
 		return
@@ -126,18 +128,18 @@ func (io *IO) GetIndexInfo() (idxinfo map[string]IdxInfo, err error) {
 	return
 }
 
-func (io *IO) GetShockNode() (node *ShockNode, err error) {
+func (io *IO) GetShockNode() (node *shock.ShockNode, err error) {
 	if io.Host == "" {
 		return nil, errors.New("empty shock host")
 	}
 	if io.Node == "" {
 		return nil, errors.New("empty node id")
 	}
-	return ShockGet(io.Host, io.Node, io.DataToken)
+	return shock.ShockGet(io.Host, io.Node, io.DataToken)
 }
 
 func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
-	var shocknode *ShockNode
+	var shocknode *shock.ShockNode
 	shocknode, err = io.GetShockNode()
 	if err != nil {
 		return
@@ -152,7 +154,7 @@ func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
 
 func (io *IO) DeleteNode() (nodeid string, err error) {
 	if io.Delete {
-		if err := ShockDelete(io.Host, io.Node, io.DataToken); err != nil {
+		if err := shock.ShockDelete(io.Host, io.Node, io.DataToken); err != nil {
 			return io.Node, err
 		}
 		return io.Node, nil

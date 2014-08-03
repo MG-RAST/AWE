@@ -12,11 +12,10 @@ import (
 	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	//"github.com/davecgh/go-spew/spew"
+	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/go-dockerclient"
 	"io"
 	"io/ioutil"
-	//"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -246,6 +245,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		return nil, errors.New(fmt.Sprintf("Error getting docker url, err=%s", err.Error()))
 	}
 
+	// TODO attr_json, _ := json.Marshal(node.Attributes) might be better
 	node_attr_map, ok := node.Attributes.(map[string]interface{})
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("(1) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage))
@@ -733,7 +733,7 @@ func runPreWorkExecutionScript(work *core.Workunit) (err error) {
 
 func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 
-	shock_docker_repo := core.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
+	shock_docker_repo := shock.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
 
 	logger.Debug(1, fmt.Sprint("try to build docker image from dockerfile, Dockerimage=", Dockerimage))
 
@@ -776,9 +776,9 @@ func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 }
 
 // was getDockerImageUrl(Dockerimage string) (download_url string, err error)
-func findDockerImageInShock(Dockerimage string) (node *core.ShockNode, download_url string, err error) {
+func findDockerImageInShock(Dockerimage string) (node *shock.ShockNode, download_url string, err error) {
 
-	shock_docker_repo := core.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
+	shock_docker_repo := shock.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
 
 	logger.Debug(1, fmt.Sprint("try to import docker image, Dockerimage=", Dockerimage))
 	//query url = type=dockerimage&name=wgerlach/bowtie2:2.2.0"
@@ -810,7 +810,7 @@ func findDockerImageInShock(Dockerimage string) (node *core.ShockNode, download_
 
 func dockerLoadImage(client *docker.Client, download_url string) (err error) {
 
-	image_stream, err := fetchShockStream(download_url, "") // token empty here, assume that images are public
+	image_stream, err := shock.FetchShockStream(download_url, "") // token empty here, assume that images are public
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error getting Shock stream, err=%s", err.Error()))
 	}

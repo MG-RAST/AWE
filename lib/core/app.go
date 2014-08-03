@@ -47,6 +47,7 @@ type AppPackage struct {
 type AppRegistry map[string]*AppPackage
 
 // part of workflow document, used in "Command", defines input: shock, task, string
+// those can generate IO structs (see io.go)
 type AppResource struct {
 	Resource       string `bson:"resource" json:"resource"`
 	Host           string `bson:"host" json:"host"`
@@ -58,6 +59,7 @@ type AppResource struct {
 	Task           string `bson:"task" json:"task"`
 	OutputPosition *int   `bson:"position" json:"position"`
 	OutputName     string `bson:"name" json:"name"`
+	Uncompress     string `bson:"uncompress" json:"uncompress"` // tells AWE client to uncompress this file, e.g. "gzip"
 }
 
 type AppInputType int
@@ -335,7 +337,7 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		return
 	}
 
-	// recurse into providing
+	// recurse into providing tasks (parent tasks)
 	args_array := task.Cmd.App_args
 
 	for _, argument := range args_array {
@@ -628,7 +630,7 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 					return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
 				}
 
-				inputs[filename] = &IO{Host: host, Node: node, DataToken: task.Info.DataToken} // TODO set ShockFilename ?
+				inputs[filename] = &IO{Host: host, Node: node, DataToken: task.Info.DataToken, Uncompress: input_arg.Uncompress} // TODO set ShockFilename ?
 
 			}
 		case Ait_url:
@@ -649,7 +651,7 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 					return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
 				}
 
-				inputs[filename] = &IO{Url: url} // TODO set ShockFilename ?
+				inputs[filename] = &IO{Url: url, Uncompress: input_arg.Uncompress} // TODO set ShockFilename ?
 
 			}
 		case Ait_task:
@@ -718,7 +720,7 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 					return err
 				}
 
-				inputs[filename] = &IO{Origin: providing_task_id, Host: hostname}
+				inputs[filename] = &IO{Origin: providing_task_id, Host: hostname, Uncompress: input_arg.Uncompress}
 			}
 
 			input_variable_value = filename

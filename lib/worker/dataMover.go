@@ -11,6 +11,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/shock"
 	"io"
 	"io/ioutil"
 	"os"
@@ -341,52 +342,6 @@ func fetchFile_old(filename string, url string, token string) (size int64, err e
 	return
 }
 
-//fetch file by shock url
-func fetchFile(filename string, url string, token string) (size int64, err error) {
-	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
-
-	localfile, err := os.Create(filename)
-	if err != nil {
-		return 0, err
-	}
-	defer localfile.Close()
-
-	body, err := fetchShockStream(url, token)
-
-	defer body.Close()
-
-	if err != nil {
-		return 0, err
-	}
-
-	size, err = io.Copy(localfile, body)
-	if err != nil {
-		return 0, err
-	}
-	return
-}
-
-func fetchShockStream(url string, token string) (r io.ReadCloser, err error) {
-
-	var user *httpclient.Auth
-	if token != "" {
-		user = httpclient.GetUserByTokenAuth(token)
-	}
-
-	//download file from Shock
-	res, err := httpclient.Get(url, httpclient.Header{}, nil, user)
-	if err != nil {
-		return nil, err
-	}
-
-	if res.StatusCode != 200 { //err in fetching data
-		resbody, _ := ioutil.ReadAll(res.Body)
-		return nil, errors.New(fmt.Sprintf("op=fetchFile, url=%s, res=%s", url, resbody))
-	}
-
-	return res.Body, err
-}
-
 //fetch prerequisite data (e.g. reference dbs)
 func movePreData(workunit *core.Workunit) (size int64, err error) {
 	for name, io := range workunit.Predata {
@@ -399,7 +354,7 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		file_path := path.Join(predata_directory, name)
 		if !isFileExisting(file_path) {
 
-			size, err = fetchFile(file_path, io.Url, workunit.Info.DataToken)
+			size, err = shock.FetchFile(file_path, io.Url, workunit.Info.DataToken, io.Uncompress)
 			if err != nil {
 				return 0, errors.New("error in fetchFile:" + err.Error())
 			}
@@ -431,7 +386,7 @@ func moveInputData(work *core.Workunit) (size int64, err error) {
 		logger.Debug(2, "mover: fetching input from url:"+dataUrl)
 		logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
 
-		if datamoved, err := fetchFile(inputFilePath, dataUrl, work.Info.DataToken); err != nil {
+		if datamoved, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress); err != nil {
 			return size, err
 		} else {
 			size += datamoved

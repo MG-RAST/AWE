@@ -1,16 +1,19 @@
-package core
+package shock
 
 import (
 	//"github.com/MG-RAST/AWE/lib/httpclient"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -248,4 +251,64 @@ func (sc *ShockClient) Get_request(resource string, query url.Values, response i
 	//	err = errors.New("empty node got from Shock")
 	//}
 	return
+}
+
+//fetch file by shock url
+func FetchFile(filename string, url string, token string, uncompress string) (size int64, err error) {
+	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
+
+	localfile, err := os.Create(filename)
+	if err != nil {
+		return 0, err
+	}
+	defer localfile.Close()
+
+	body, err := FetchShockStream(url, token)
+
+	if err != nil {
+		return 0, err
+	}
+
+	defer body.Close()
+
+	if uncompress == "" {
+		logger.Debug(1, fmt.Sprintf("downloading file %s from %s", filename, url))
+		size, err = io.Copy(localfile, body)
+		if err != nil {
+			return 0, err
+		}
+	} else if uncompress == "gzip" {
+		logger.Debug(1, fmt.Sprintf("downloading and unzipping file %s from %s", filename, url))
+		gr, err := gzip.NewReader(body)
+		defer gr.Close()
+		size, err = io.Copy(localfile, gr)
+		if err != nil {
+			return 0, err
+		}
+	} else {
+		return 0, errors.New("uncompress method unknown: " + uncompress)
+	}
+
+	return
+}
+
+func FetchShockStream(url string, token string) (r io.ReadCloser, err error) {
+
+	var user *httpclient.Auth
+	if token != "" {
+		user = httpclient.GetUserByTokenAuth(token)
+	}
+
+	//download file from Shock
+	res, err := httpclient.Get(url, httpclient.Header{}, nil, user)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode != 200 { //err in fetching data
+		resbody, _ := ioutil.ReadAll(res.Body)
+		return nil, errors.New(fmt.Sprintf("op=fetchFile, url=%s, res=%s", url, resbody))
+	}
+
+	return res.Body, err
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/shock"
 	"io"
 	"io/ioutil"
 	"os"
@@ -136,7 +137,7 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 	for inputname, io := range work.Inputs {
 
 		// skip if NoFile == true
-		if !io.NoFile {
+		if !io.NoFile { // is file !
 			var dataUrl string
 			inputFilePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
 
@@ -161,7 +162,7 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 			logger.Event(event.FILE_IN, "workid="+work.Id+";url="+dataUrl)
 
 			// download file
-			if datamoved, err := fetchFile(inputFilePath, dataUrl, work.Info.DataToken); err != nil {
+			if datamoved, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress); err != nil {
 				return size, err
 			} else {
 				size += datamoved
@@ -172,7 +173,7 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 		// download node attributes if requested
 		if io.AttrFile != "" {
 			// get node
-			node, err := core.ShockGet(io.Host, io.Node, work.Info.DataToken)
+			node, err := shock.ShockGet(io.Host, io.Node, work.Info.DataToken)
 			if err != nil {
 				return size, err
 			}
@@ -198,8 +199,8 @@ func isFileExistingInCache(id string) bool {
 	return false
 }
 
-//fetch file by shock url
-func fetchFile(filename string, url string, token string) (size int64, err error) {
+//fetch file by shock url TODO deprecated
+func fetchFile_deprecated(filename string, url string, token string) (size int64, err error) {
 	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
 	localfile, err := os.Create(filename)
 	if err != nil {

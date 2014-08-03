@@ -9,6 +9,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/AWE/lib/user"
 	"io/ioutil"
 	"net/http"
@@ -172,7 +173,7 @@ func PostNode(io *IO, numParts int) (nodeid string, err error) {
 
 	jsonstream, err := ioutil.ReadAll(res.Body)
 
-	response := new(ShockResponse)
+	response := new(shock.ShockResponse)
 	if err := json.Unmarshal(jsonstream, response); err != nil {
 		return "", errors.New(fmt.Sprintf("failed to marshal post response:\"%s\"", jsonstream))
 	}
@@ -719,7 +720,7 @@ func getWorkNotesPath(work *Workunit) (worknotesFilePath string, err error) {
 }
 
 //shock access functions
-func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *ShockNode, err error) {
+func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *shock.ShockNode, err error) {
 	url := host + "/node"
 	method := "POST"
 	if nodeid != "" {
@@ -804,7 +805,7 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string) (node *
 	if res, err := httpclient.Do(method, url, headers, form.Reader, user); err == nil {
 		defer res.Body.Close()
 		jsonstream, _ := ioutil.ReadAll(res.Body)
-		response := new(ShockResponse)
+		response := new(shock.ShockResponse)
 		if err := json.Unmarshal(jsonstream, response); err != nil {
 			return nil, errors.New(fmt.Sprintf("failed to marshal response:\"%s\"", jsonstream))
 		}

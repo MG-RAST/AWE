@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -256,6 +257,9 @@ func (appr AppRegistry) Get_dockerimage(app_package_name string) (dockerimage st
 
 func (acm AppCommandMode) Get_default_app_variables() (app_variables AppVariables, err error) {
 	app_variables = make(AppVariables)
+
+	app_variables["NumCPU"] = AppVariable{Var_type: Ait_string,
+		Value: strconv.Itoa(Self.CPUs)} // TODO document reserved variable NumCPU
 
 	// *** app input arguments (app definition)
 	logger.Debug(1, fmt.Sprintf("Get_default_app_variables: size of acm.Input=%d", len(acm.Input)))

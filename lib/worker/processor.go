@@ -13,7 +13,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	//"github.com/davecgh/go-spew/spew"
-	"github.com/wgerlach/go-dockerclient"
+	"github.com/MG-RAST/go-dockerclient"
 	"io"
 	"io/ioutil"
 	//"log"
@@ -318,7 +318,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	// tag image to make debugging easier
 	if Dockerimage != "" {
-		tag_opts := docker.TagImageOptions{Repo: Dockerimage}
+		Dockerimage_array := strings.Split(Dockerimage, ":") // TODO split by colon is risky
+		tag_opts := docker.TagImageOptions{Repo: Dockerimage_array[0], Tag: Dockerimage_array[1]}
 		err = client.TagImage(dockerimage_id, tag_opts)
 		if err != nil {
 			logger.Error(fmt.Sprintf("warning: tagging of image %s with %s failed, err:", dockerimage_id, Dockerimage, err.Error()))

@@ -368,8 +368,16 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 				return 0, errors.New("error in fetchFile:" + err.Error())
 			}
 		}
-		//make a link in work dir to predata in conf.DATA_PATH // TODO not needed/usefull for docker containers
-		linkname := path.Join(workunit.Path(), name)
+
+		linkname := ""
+		if workunit.Cmd.Dockerimage != "" || strings.HasPrefix(workunit.Cmd.Name, "app:") { // TODO need more save way to detect use of docker
+
+			linkname = path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, name) // some tasks want to write there, thus need symlink
+		} else {
+
+			linkname = path.Join(workunit.Path(), name)
+		}
+
 		//fmt.Printf(linkname + " -> " + file_path + "\n")
 		logger.Debug(1, "symlink:"+linkname+" -> "+file_path)
 		err = os.Symlink(file_path, linkname)

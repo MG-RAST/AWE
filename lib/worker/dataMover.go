@@ -373,11 +373,12 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		use_symlink := true
 		linkname := path.Join(workunit.Path(), name)
 		if workunit.Cmd.Dockerimage != "" || strings.HasPrefix(workunit.Cmd.Name, "app:") { // TODO need more save way to detect use of docker
-			file_path = path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, name)
+			
 
 			use_symlink = false // TODO mechanism
 
 			if use_symlink {
+				file_path = path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, name)
 				// some tasks want to write in predata dir, thus need symlink
 				logger.Debug(1, "dangling symlink:"+linkname+" -> "+file_path)
 

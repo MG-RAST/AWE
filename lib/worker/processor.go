@@ -519,7 +519,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 				}
 
-				logger.Debug(1, fmt.Sprintf("memory: rss=%d, swap=%d, maximum: rss=%d swap=%d combined=%d", memory_total_rss, memory_total_swap))
+				logger.Debug(1, fmt.Sprintf("memory: rss=%d, swap=%d, max_rss=%d max_swap=%d max_combined=%d",
+					memory_total_rss, memory_total_swap, max_memory_total_rss, max_memory_total_swap, MaxMem))
 
 			}
 
@@ -554,7 +555,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	pstats.MaxMemoryTotalSwap = max_memory_total_swap
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 
-	return pstats, err
+	return
 }
 
 func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {

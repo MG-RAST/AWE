@@ -370,19 +370,33 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 			}
 		}
 
+		use_symlink := true
 		linkname := path.Join(workunit.Path(), name)
 		if workunit.Cmd.Dockerimage != "" || strings.HasPrefix(workunit.Cmd.Name, "app:") { // TODO need more save way to detect use of docker
 			file_path = path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, name)
 
-			// some tasks want to write in predata dir, thus need symlink
-			logger.Debug(1, "dangling symlink:"+linkname+" -> "+file_path)
+			use_symlink = false // TODO mechanism
 
-			// creation of dangling symlinks is not possible with with os.Symlink, thus use system ln
-			link_out, err := exec.Command("ln", "-s", file_path, linkname).CombinedOutput()
-			logger.Debug(1, fmt.Sprintf("ln returned %s", link_out))
+			if use_symlink {
+				// some tasks want to write in predata dir, thus need symlink
+				logger.Debug(1, "dangling symlink:"+linkname+" -> "+file_path)
 
-			if err != nil {
-				return 0, errors.New("error creating predata file symlink (dangling version): " + err.Error())
+				// creation of dangling symlinks is not possible with with os.Symlink, thus use system ln
+				link_out, err := exec.Command("ln", "-s", file_path, linkname).CombinedOutput()
+				logger.Debug(1, fmt.Sprintf("ln returned %s", link_out))
+
+				if err != nil {
+					return 0, errors.New("error creating predata file symlink (dangling version): " + err.Error())
+				}
+			} else {
+				// some programs do not accept symlinks (e.g. emirge), need to copy the file into the work directory
+				// linkname refers to target file now.
+				logger.Debug(1, "copy predata:"+file_path+" -> "+linkname)
+
+				_, err := shock.CopyFile(file_path, linkname)
+				if err != nil {
+					return 0, fmt.Errorf("error copying file from %s to % s: ", file_path, linkname, err.Error())
+				}
 			}
 		} else {
 

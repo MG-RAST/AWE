@@ -15,6 +15,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"regexp"
 	"runtime"
@@ -369,21 +370,29 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 			}
 		}
 
-		linkname := ""
 		if workunit.Cmd.Dockerimage != "" || strings.HasPrefix(workunit.Cmd.Name, "app:") { // TODO need more save way to detect use of docker
 
-			linkname = path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, name) // some tasks want to write there, thus need symlink
+			// creation of dangling symlinks is not possible with with os.Symlink
+			linkname := path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, name) // some tasks want to write there, thus need symlink
+			logger.Debug(1, "dangling symlink:"+linkname+" -> "+file_path)
+
+			link_out, err := exec.Command("ln", "-s", file_path, linkname).Output()
+			logger.Debug(1, fmt.Sprintf("ln returned %s", link_out))
+
+			if err != nil {
+				return 0, errors.New("error creating predata file symlink (dangling version): " + err.Error())
+			}
 		} else {
 
-			linkname = path.Join(workunit.Path(), name)
+			linkname := path.Join(workunit.Path(), name)
+			logger.Debug(1, "symlink:"+linkname+" -> "+file_path)
+
+			err = os.Symlink(file_path, linkname)
+			if err != nil {
+				return 0, errors.New("error creating predata file symlink: " + err.Error())
+			}
 		}
 
-		//fmt.Printf(linkname + " -> " + file_path + "\n")
-		logger.Debug(1, "symlink:"+linkname+" -> "+file_path)
-		err = os.Symlink(file_path, linkname)
-		if err != nil {
-			return 0, errors.New("error creating predata file symlink: " + err.Error())
-		}
 	}
 	return
 }

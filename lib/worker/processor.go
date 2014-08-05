@@ -328,7 +328,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}
 
 	pipe_output := fmt.Sprintf(" 2> %s 1> %s", conf.STDERR_FILENAME, conf.STDOUT_FILENAME)
-
+	wrapper_script_filename_docker = "ls /dhdhdhdhdh" // faster debugging...
 	bash_command := ""
 	if use_wrapper_script {
 		bash_command = fmt.Sprint("/bin/bash", " ", wrapper_script_filename_docker, " ", pipe_output)

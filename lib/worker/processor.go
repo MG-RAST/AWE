@@ -547,8 +547,10 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}
 	logger.Debug(1, fmt.Sprint("(2)docker command returned with status ", status))
 	if status != 0 {
-		logger.Debug(1, fmt.Sprint(" WaitContainer returned non-zero status ", status))
-		return nil, errors.New(fmt.Sprintf("error WaitContainer returned non-zero status=%d", status))
+		logger.Debug(1, fmt.Sprint("WaitContainer returned non-zero status ", status))
+		err = errors.New(fmt.Sprintf("error WaitContainer returned non-zero status=%d", status))
+		return
+		//return nil, errors.New(fmt.Sprintf("error WaitContainer returned non-zero status=%d", status))
 	}
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 	pstats.MaxMemUsage = MaxMem

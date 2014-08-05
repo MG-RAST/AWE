@@ -399,15 +399,15 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	defer func(container_id string) {
 		// *** clean up
 		// ** kill container
-		err = client.KillContainer(docker.KillContainerOptions{ID: container_id})
-		if err != nil {
-			logger.Error(fmt.Sprintf("error killing container id=%s, err=%s", container_id, err.Error()))
+		err_kill := client.KillContainer(docker.KillContainerOptions{ID: container_id})
+		if err_kill != nil {
+			logger.Error(fmt.Sprintf("error killing container id=%s, err=%s", container_id, err_kill.Error()))
 		}
 
 		// *** remove Container
 		opts_remove := docker.RemoveContainerOptions{ID: container_id}
-		err = client.RemoveContainer(opts_remove)
-		if err != nil {
+
+		if err := client.RemoveContainer(opts_remove); err != nil {
 			logger.Error(fmt.Sprintf("error removing container id=%s, err=%s", container_id, err.Error()))
 		} else {
 			logger.Debug(1, "(deferred func) removed docker container")
@@ -420,9 +420,10 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	// wait for container to finish
 	done := make(chan error)
 	go func() {
-		status, err = client.WaitContainer(container_id)
-		done <- err // inform main function
-		done <- err // inform memory checker
+		var errwait error
+		status, errwait = client.WaitContainer(container_id)
+		done <- errwait // inform main function
+		done <- errwait // inform memory checker
 	}()
 
 	var MaxMem int64 = -1
@@ -437,9 +438,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		for {
 
 			select {
-			case err = <-done:
-				if err != nil {
-					logger.Error("channel done returned error: " + err.Error())
+			case err_mem := <-done:
+				if err_mem != nil {
+					logger.Error("channel done returned error: " + err_mem.Error())
 				}
 				return
 			default:
@@ -447,18 +448,18 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 			var memory_total_rss int64 = -1
 			var memory_total_swap int64 = -1
-			memory_stat_file, err := os.Open(memory_stat_filename)
-			if err != nil {
-				logger.Error("warning: error opening memory_stat_file file:" + err.Error())
-				err = nil
+			memory_stat_file, err_mem := os.Open(memory_stat_filename)
+			if err_mem != nil {
+
+				logger.Error("warning: error opening memory_stat_file file:" + err_mem.Error())
 				time.Sleep(conf.MEM_CHECK_INTERVAL)
 				continue
 			}
+			defer memory_stat_file.Close()
 
 			// Closes the file when we leave the scope of the current function,
 			// this makes sure we never forget to close the file if the
 			// function can exit in multiple places.
-			defer memory_stat_file.Close()
 
 			memory_stat_file_scanner := bufio.NewScanner(memory_stat_file)
 
@@ -494,9 +495,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 			// When finished scanning if any error other than io.EOF occured
 			// it will be returned by scanner.Err().
-			if err = memory_stat_file_scanner.Err(); err != nil {
+			if err := memory_stat_file_scanner.Err(); err != nil {
 				logger.Error(fmt.Sprintf("warning: could no read memory usage from cgroups=%s", memory_stat_file_scanner.Err()))
-				err = nil
+				//err = nil
 			} else {
 
 				// RSS maxium
@@ -548,9 +549,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	logger.Debug(1, fmt.Sprint("(2)docker command returned with status ", status))
 	if status != 0 {
 		logger.Debug(1, fmt.Sprint("WaitContainer returned non-zero status ", status))
-		err = errors.New(fmt.Sprintf("error WaitContainer returned non-zero status=%d", status))
-		return
-		//return nil, errors.New(fmt.Sprintf("error WaitContainer returned non-zero status=%d", status))
+		//err = errors.New(fmt.Sprintf("error WaitContainer returned non-zero status=%d", status))
+		//return
+		return nil, errors.New(fmt.Sprintf("error WaitContainer returned non-zero status=%d", status))
 	}
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 	pstats.MaxMemUsage = MaxMem

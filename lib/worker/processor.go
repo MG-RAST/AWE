@@ -110,11 +110,11 @@ func processor(control chan int) {
 func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	if work.Cmd.Dockerimage == "" {
-		return RunWorkunitDirect(work)
+		pstats, err = RunWorkunitDirect(work)
 	} else {
-		return RunWorkunitDocker(work)
+		pstats, err = RunWorkunitDocker(work)
 	}
-
+	return
 }
 
 func RemoveOldAWEContainers(client *docker.Client, container_name string) (err error) {
@@ -404,7 +404,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		if err != nil {
 			logger.Error(fmt.Sprintf("error removing container id=%s, err=%s", container_id, err.Error()))
 		} else {
-			logger.Debug(1, "removed docker container")
+			logger.Debug(1, "(deferred func) removed docker container")
 		}
 
 		return
@@ -538,10 +538,11 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("wait_cmd=%s, err=%s", commandName, err.Error()))
 		}
-		logger.Debug(1, fmt.Sprint("docker command returned with status ", status))
+		logger.Debug(1, fmt.Sprint("(1)docker command returned with status ", status))
 	}
-
+	logger.Debug(1, fmt.Sprint("(2)docker command returned with status ", status))
 	if status != 0 {
+		logger.Debug(1, fmt.Sprint(" WaitContainer returned non-zero status ", status))
 		return nil, errors.New(fmt.Sprintf("error WaitContainer returned non-zero status=%d", status))
 	}
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))

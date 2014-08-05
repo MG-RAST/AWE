@@ -113,6 +113,12 @@ func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		pstats, err = RunWorkunitDirect(work)
 	} else {
 		pstats, err = RunWorkunitDocker(work)
+
+		if err != nil {
+			logger.Debug(1, "RunWorkunitDocker(): returned error , workid="+work.Id+", "+err.Error())
+		} else {
+			logger.Debug(1, "RunWorkunitDocker(): returned without error , workid="+work.Id)
+		}
 	}
 	return
 }

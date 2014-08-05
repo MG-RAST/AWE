@@ -84,6 +84,7 @@ func processor(control chan int) {
 			processed.workunit.State = core.WORK_STAT_FAIL
 		} else {
 			logger.Debug(1, "RunWorkunit() returned without error, workid="+work.Id)
+			time.Sleep(10000 * time.Millisecond)
 			processed.workunit.State = core.WORK_STAT_COMPUTED
 			processed.perfstat.MaxMemUsage = pstat.MaxMemUsage
 		}
@@ -367,8 +368,6 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	// *** start container
 
-	logger.Debug(1, "starting docker container...")
-
 	var bindarray = []string{}
 
 	bindstr_workdir := work.Path() + "/:" + conf.DOCKER_WORK_DIR
@@ -383,6 +382,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	} else {
 		bindarray = []string{bindstr_workdir}
 	}
+
+	logger.Debug(1, "starting docker container...")
 
 	err = client.StartContainer(container_id, &docker.HostConfig{Binds: bindarray})
 	if err != nil {
@@ -423,6 +424,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	var max_memory_total_rss int64 = -1
 	var max_memory_total_swap int64 = -1
 
+	// e.g. /sys/fs/cgroup/memory/docker/<id>/memory.stat
 	memory_stat_filename := path.Join(conf.CGROUP_MEMORY_DOCKER_DIR, container_id, "/memory.stat")
 
 	go func() { // memory checker
@@ -432,19 +434,12 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			select {
 			case err = <-done:
 				if err != nil {
-					logger.Error("channerl done returned error: " + err.Error())
+					logger.Error("channel done returned error: " + err.Error())
 				}
 				return
 			default:
 			}
 
-			//container, err := client.InspectContainer(container_id)
-
-			//if err != nil {
-			//	logger.Debug(1, fmt.Sprint("error inspecting container (for mem info) ", err.Error()))
-			//} else {
-			// /sys/fs/cgroup/memory/docker/<id>/memory.stat
-			//memory := uint64(container.Config.Memory)
 			var memory_total_rss int64 = -1
 			var memory_total_swap int64 = -1
 			memory_stat_file, err := os.Open(memory_stat_filename)
@@ -486,7 +481,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 				} else {
 					continue
 				}
-				if memory_total_rss_read && memory_total_swap_read {
+				if memory_total_rss_read && memory_total_swap_read { // we found all information we need, leave the loop
 					break
 				}
 
@@ -495,7 +490,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			// When finished scanning if any error other than io.EOF occured
 			// it will be returned by scanner.Err().
 			if err = memory_stat_file_scanner.Err(); err != nil {
-				logger.Error(fmt.Sprintf("warning: could no read memory usage from cgroups=", memory_stat_file_scanner.Err()))
+				logger.Error(fmt.Sprintf("warning: could no read memory usage from cgroups=%s", memory_stat_file_scanner.Err()))
 				err = nil
 			} else {
 

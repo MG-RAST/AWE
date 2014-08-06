@@ -373,15 +373,19 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	logger.Debug(1, "bindstr_workdir: "+bindstr_workdir)
 
 	// only mount predata if it is actually used
+	fake_predata := ""
 	if len(work.Predata) > 0 {
 		predata_directory := path.Join(conf.DATA_PATH, "predata")
 		bindstr_predata := predata_directory + "/:" + "/db:ro" // TODO put in config
 		logger.Debug(1, "bindstr_predata: "+bindstr_predata)
+		fake_predata = " -v " + bindstr_predata
 		bindarray = []string{bindstr_workdir, bindstr_predata}
 	} else {
 		bindarray = []string{bindstr_workdir}
 	}
 
+	fake_docker_cmd := "sudo docker run -t -i --name awe-client -v " + bindstr_workdir + fake_predata + " --workdir= " + conf.DOCKER_WORK_DIR + " " + dockerimage_id + " " + strings.Join(container_cmd, " ")
+	logger.Debug(1, "fake_docker_cmd ("+Dockerimage+"): "+fake_docker_cmd)
 	logger.Debug(1, "starting docker container...")
 
 	err = client.StartContainer(container_id, &docker.HostConfig{Binds: bindarray})

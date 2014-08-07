@@ -496,6 +496,7 @@ func (qm *CQMgr) NotifyWorkStatus(notice Notice) {
 
 func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 	filtered := qm.filterWorkByClient(req.fromclient)
+	logger.Debug(2, fmt.Sprintf("popWorks filtered: %d (0 meansNoEligibleWorkunitFound)", filtered))
 	if len(filtered) == 0 {
 		return nil, errors.New(e.NoEligibleWorkunitFound)
 	}

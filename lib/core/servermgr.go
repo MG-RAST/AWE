@@ -729,6 +729,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		return err
 	}
 
+	logger.Debug(2, fmt.Sprintf("remaining tasks for task %s: %d", task.Id, remainTasks))
+
 	if remainTasks == 0 { //job done
 		qm.FinalizeJobPerf(jobid)
 		qm.LogJobPerf(jobid)

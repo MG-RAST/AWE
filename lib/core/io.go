@@ -9,31 +9,32 @@ import (
 )
 
 type IO struct {
-	Name          string            `bson:"name" json:"-"`
-	AppName       string            `bson:"appname" json:"-"`     // specifies abstract name of output as defined by the app
-	AppPosition   int               `bson:"appposition" json:"-"` // specifies position in app output array
-	Directory     string            `bson:"directory" json:"directory"`
-	Host          string            `bson:"host" json:"host"`
-	Node          string            `bson:"node" json:"node"`
-	Url           string            `bson:"url"  json:"url"` // can be shock or any other url
-	Size          int64             `bson:"size" json:"size"`
-	MD5           string            `bson:"md5" json:"-"`
-	Cache         bool              `bson:"cache" json:"-"`
-	Origin        string            `bson:"origin" json:"origin"`
-	Path          string            `bson:"path" json:"-"`
-	Optional      bool              `bson:"optional" json:"-"`
-	Nonzero       bool              `bson:"nonzero"  json:"nonzero"`
-	DataToken     string            `bson:"datatoken"  json:"-"`
-	Intermediate  bool              `bson:"Intermediate"  json:"-"`
-	Temporary     bool              `bson:"temporary"  json:"temporary"`
-	ShockFilename string            `bson:"shockfilename" json:"shockfilename"`
-	ShockIndex    string            `bson:"shockindex" json:"shockindex"`
-	AttrFile      string            `bson:"attrfile" json:"attrfile"`
-	NoFile        bool              `bson:"nofile" json:"nofile"`
-	Delete        bool              `bson:"delete" json:"delete"`
-	Type          string            `bson:"type" json:"type"`
-	FormOptions   map[string]string `bson:"formoptions" json:"formoptions"`
-	Uncompress    string            `bson:"uncompress" json:"uncompress"` // tells AWE client to uncompress this file, e.g. "gzip"
+	Name          string                 `bson:"name" json:"-"`
+	AppName       string                 `bson:"appname" json:"-"`     // specifies abstract name of output as defined by the app
+	AppPosition   int                    `bson:"appposition" json:"-"` // specifies position in app output array
+	Directory     string                 `bson:"directory" json:"directory"`
+	Host          string                 `bson:"host" json:"host"`
+	Node          string                 `bson:"node" json:"node"`
+	Url           string                 `bson:"url"  json:"url"` // can be shock or any other url
+	Size          int64                  `bson:"size" json:"size"`
+	MD5           string                 `bson:"md5" json:"-"`
+	Cache         bool                   `bson:"cache" json:"-"`
+	Origin        string                 `bson:"origin" json:"origin"`
+	Path          string                 `bson:"path" json:"-"`
+	Optional      bool                   `bson:"optional" json:"-"`
+	Nonzero       bool                   `bson:"nonzero"  json:"nonzero"`
+	DataToken     string                 `bson:"datatoken"  json:"-"`
+	Intermediate  bool                   `bson:"Intermediate"  json:"-"`
+	Temporary     bool                   `bson:"temporary"  json:"temporary"`
+	ShockFilename string                 `bson:"shockfilename" json:"shockfilename"`
+	ShockIndex    string                 `bson:"shockindex" json:"shockindex"`
+	AttrFile      string                 `bson:"attrfile" json:"attrfile"`
+	NoFile        bool                   `bson:"nofile" json:"nofile"`
+	Delete        bool                   `bson:"delete" json:"delete"`
+	Type          string                 `bson:"type" json:"type"`
+	NodeAttr      map[string]interface{} `bson:"nodeattr" json:"nodeattr"` // specifies attribute data to be stored in shock node (output only)
+	FormOptions   map[string]string      `bson:"formoptions" json:"formoptions"`
+	Uncompress    string                 `bson:"uncompress" json:"uncompress"` // tells AWE client to uncompress this file, e.g. "gzip"
 }
 
 type PartInfo struct {

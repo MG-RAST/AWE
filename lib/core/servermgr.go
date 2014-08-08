@@ -632,6 +632,7 @@ func (qm *ServerMgr) parseTask(task *Task) (err error) {
 }
 
 func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
+
 	outputs := task.Outputs
 	for name, io := range outputs {
 		if io.Type == "update" {

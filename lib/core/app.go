@@ -420,8 +420,20 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 			directory = "" // TODO "." might be ok
 		}
 
-		my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken}
-		task_outputs[filename] = my_io
+		if job.Info.Tracking {
+
+			my_attr := make(map[string]interface{})
+			workflow := make(map[string]interface{})
+			my_attr["workflow_tracking"] = &workflow
+
+			workflow["Info"] = job.Info
+
+			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken, NodeAttr: my_attr}
+			task_outputs[filename] = my_io
+		} else {
+			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken}
+			task_outputs[filename] = my_io
+		}
 
 	}
 

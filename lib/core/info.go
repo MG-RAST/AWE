@@ -23,6 +23,7 @@ type Info struct {
 	NoRetry       bool              `bson:"noretry" json:"noretry"`
 	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
 	Description   string            `bson:"description" json:"description"`
+	Tracking      bool              `bson:"tracking" json:"tracking"`
 }
 
 func NewInfo() *Info {

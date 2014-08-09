@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -426,7 +427,21 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 			workflow := make(map[string]interface{})
 			my_attr["workflow_tracking"] = &workflow
 
-			workflow["Info"] = job.Info
+			//info, ok := job.Info.(map[string]interface{})
+			//if !ok {
+			//	return errors.New(fmt.Sprintf("NodeAttr error: Info map fails"))
+			//}
+
+			// all that stuff just to delete a datatoken:
+			info_r := reflect.New(reflect.TypeOf(job.Info))
+			value_datatoken := info_r.FieldByName("datatoken")
+			if value_datatoken.IsNil() {
+				return errors.New(fmt.Sprintf("NodeAttr error: value_datatoken is nil"))
+			}
+			if value_datatoken.CanSet() == false {
+				return errors.New(fmt.Sprintf("NodeAttr error: CanSet()false"))
+			}
+			value_datatoken.SetString("")
 
 			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken, NodeAttr: my_attr}
 			task_outputs[filename] = my_io

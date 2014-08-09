@@ -280,6 +280,9 @@ func FetchFile(filename string, url string, token string, uncompress string) (si
 	} else if uncompress == "gzip" {
 		logger.Debug(1, fmt.Sprintf("downloading and unzipping file %s from %s", filename, url))
 		gr, err := gzip.NewReader(body)
+		if err != nil {
+			return 0, err
+		}
 		defer gr.Close()
 		size, err = io.Copy(localfile, gr)
 		if err != nil {

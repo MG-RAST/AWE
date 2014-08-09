@@ -452,7 +452,6 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 				time.Sleep(conf.MEM_CHECK_INTERVAL)
 				continue
 			}
-			defer memory_stat_file.Close()
 
 			// Closes the file when we leave the scope of the current function,
 			// this makes sure we never forget to close the file if the
@@ -521,9 +520,10 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 					memory_total_rss, memory_total_swap, max_memory_total_rss, max_memory_total_swap, MaxMem))
 
 			}
-
+			memory_stat_file.Close() // defer does not work in for loop !
 			//time.Sleep(5 * time.Second)
 			time.Sleep(conf.MEM_CHECK_INTERVAL)
+
 		}
 	}()
 

@@ -425,15 +425,12 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 
 			my_attr := make(map[string]interface{})
 			workflow := make(map[string]interface{})
-			my_attr["workflow_tracking"] = &workflow
+			my_attr["workflow_tracking"] = workflow
 
-			//info, ok := job.Info.(map[string]interface{})
-			//if !ok {
-			//	return errors.New(fmt.Sprintf("NodeAttr error: Info map fails"))
-			//}
+			workflow["Info"] = job.Info // this should copy (not a nested copy)
 
 			// all that stuff just to delete a datatoken:
-			info_r := reflect.New(reflect.TypeOf(job.Info))
+			info_r := reflect.New(reflect.TypeOf(workflow["Info"]))
 			value_datatoken := info_r.FieldByName("datatoken")
 			if value_datatoken.IsNil() {
 				return errors.New(fmt.Sprintf("NodeAttr error: value_datatoken is nil"))

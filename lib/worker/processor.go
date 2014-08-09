@@ -384,7 +384,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		bindarray = []string{bindstr_workdir}
 	}
 
-	fake_docker_cmd := "sudo docker run -t -i --name awe-client -v " + bindstr_workdir + fake_predata + " --workdir=" + conf.DOCKER_WORK_DIR + " " + dockerimage_id + " " + strings.Join(container_cmd, " ")
+	fake_docker_cmd := "sudo docker run -t -i --name test -v " + bindstr_workdir + fake_predata + " --workdir=" + conf.DOCKER_WORK_DIR + " " + dockerimage_id + " " + strings.Join(container_cmd, " ")
 	logger.Debug(1, "fake_docker_cmd ("+Dockerimage+"): "+fake_docker_cmd)
 	logger.Debug(1, "starting docker container...")
 

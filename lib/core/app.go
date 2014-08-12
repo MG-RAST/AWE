@@ -444,7 +444,8 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 				return errors.New(fmt.Sprintf("error: info_r is not Struct, it is %s", info_r.Kind().String()))
 			}
 
-			value_datatoken := info_r.FieldByName("datatoken")
+			value_datatoken := info_r.FieldByName("DataToken")
+
 			if value_datatoken.IsNil() {
 				return errors.New(fmt.Sprintf("NodeAttr error: value_datatoken is nil"))
 			}

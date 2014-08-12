@@ -440,8 +440,8 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 			// struct
 			info_r := info_r_ptr.Elem()
 
-			if info_r.Kind() != reflect.Ptr {
-				return errors.New(fmt.Sprintf("error: info_r is not ptr, it is %s", info_r.Kind().String()))
+			if info_r.Kind() != reflect.Struct {
+				return errors.New(fmt.Sprintf("error: info_r is not Struct, it is %s", info_r.Kind().String()))
 			}
 
 			value_datatoken := info_r.FieldByName("datatoken")

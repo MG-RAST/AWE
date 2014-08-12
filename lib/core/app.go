@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -409,6 +408,31 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 
 	shockhost := job.ShockHost // TODO do something if this is not defined/empty
 
+	var my_attr map[string]interface{}
+	var workflow map[string]interface{}
+	var newinfo Info
+
+	if job.Info.Tracking {
+
+		// allows me to make nested! copy of Info (without datatoken)
+		info_byte, err := json.Marshal(job.Info)
+		if err != nil {
+			return err
+		}
+
+		err = json.Unmarshal(info_byte, &newinfo)
+		if err != nil {
+			return err
+		}
+
+		my_attr = make(map[string]interface{}) // this will be appended to each output node
+		workflow = make(map[string]interface{})
+		my_attr["workflow_tracking"] = workflow
+
+		workflow["info"] = newinfo
+		workflow["id"] = job.Id
+	}
+
 	for pos, app_output := range output_array_copy {
 		if app_output == "" {
 			return errors.New("error: app_output is empty string")
@@ -422,39 +446,6 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		}
 
 		if job.Info.Tracking {
-
-			my_attr := make(map[string]interface{})
-			workflow := make(map[string]interface{})
-			my_attr["workflow_tracking"] = workflow
-
-			workflow["Info"] = job.Info // this should copy (not a nested copy)
-
-			// all that stuff just to delete a datatoken:
-			//info_r_ptr := reflect.New(reflect.TypeOf(workflow["Info"]))
-			info_r_ptr := reflect.ValueOf(workflow["Info"])
-			if info_r_ptr.Kind() != reflect.Ptr {
-
-				return errors.New(fmt.Sprintf("error: info_r_ptr is not ptr, it is %s", info_r_ptr.Kind().String()))
-			}
-
-			// struct
-			info_r := info_r_ptr.Elem()
-
-			if info_r.Kind() != reflect.Struct {
-				return errors.New(fmt.Sprintf("error: info_r is not Struct, it is %s", info_r.Kind().String()))
-			}
-
-			value_datatoken := info_r.FieldByName("DataToken")
-
-			if value_datatoken.Kind() != reflect.String {
-				return errors.New(fmt.Sprintf("error: value_datatoken is not String, it is %s", value_datatoken.Kind().String()))
-			}
-
-
-			if value_datatoken.CanSet() == false {
-				return errors.New(fmt.Sprintf("NodeAttr error: CanSet()false"))
-			}
-			value_datatoken.SetString("")
 
 			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken, NodeAttr: my_attr}
 			task_outputs[filename] = my_io

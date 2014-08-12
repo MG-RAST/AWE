@@ -431,6 +431,11 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 
 			// all that stuff just to delete a datatoken:
 			info_r := reflect.New(reflect.TypeOf(workflow["Info"]))
+
+			if info_r.Kind() != reflect.Struct {
+
+				return errors.New(fmt.Sprintf("error: info_r is not struct, it is %s", info_r.Kind().String()))
+			}
 			value_datatoken := info_r.FieldByName("datatoken")
 			if value_datatoken.IsNil() {
 				return errors.New(fmt.Sprintf("NodeAttr error: value_datatoken is nil"))

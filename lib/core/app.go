@@ -446,9 +446,11 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 
 			value_datatoken := info_r.FieldByName("DataToken")
 
-			if value_datatoken.IsNil() {
-				return errors.New(fmt.Sprintf("NodeAttr error: value_datatoken is nil"))
+			if value_datatoken.Kind() != reflect.String {
+				return errors.New(fmt.Sprintf("error: value_datatoken is not String, it is %s", value_datatoken.Kind().String()))
 			}
+
+
 			if value_datatoken.CanSet() == false {
 				return errors.New(fmt.Sprintf("NodeAttr error: CanSet()false"))
 			}

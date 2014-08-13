@@ -310,7 +310,7 @@ func (acm AppCommandMode) Get_app_variables(app_variables AppVariables) (err err
 	return
 }
 
-// Overview of createIOnodes_forTask
+// Overview of createIOnodes_forTask (this is executed server-side) // TODO rename this function and the caller
 // -------------------------------
 // recurse into task dependencies
 // get app object
@@ -318,9 +318,14 @@ func (acm AppCommandMode) Get_app_variables(app_variables AppVariables) (err err
 // task input          -> variables
 // app/task variables  -> variables
 // eval outputs
-// create outputs
-// create inputs
-// extend dependsOn
+// creates task.AppVariables (from "variables"" above)
+// creates task.Outputs
+//   -> creates io.NodeAttr.workflow_tracking for Output nodes if requested
+// creates task.Inputs
+// extends DependsOn
+// creates job.ShockHost
+// creates task.PreData
+
 func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task map[string]*Task, taskid_processed map[string]bool) (err error) {
 
 	taskid_split := strings.Split(task.Id, "_")
@@ -354,16 +359,13 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		}
 	}
 
+	// get app definition for this command
 	app_string := strings.TrimPrefix(task.Cmd.Name, "app:")
-
 	app_array := strings.Split(app_string, ".")
-
 	if len(app_array) != 3 {
-
 		err = errors.New("error: app could not be parsed, app=" + app_string)
 		return
 	}
-
 	app_cmd_mode_object, err := appr.Get_cmd_mode_object(app_array[0], app_array[1], app_array[2])
 
 	if err != nil {
@@ -521,8 +523,8 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 	}
 
 	logger.Debug(1, "+++ core.Expand_app_variables")
+
 	// expand app variables in cmd_script
-	// TODO rename Bash into Cmd_script
 
 	task.Cmd.Cmd_script = make([]string, len(app_cmd_mode_object.Cmd_script))
 	copy(task.Cmd.Cmd_script, app_cmd_mode_object.Cmd_script)

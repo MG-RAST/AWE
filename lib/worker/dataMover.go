@@ -78,7 +78,7 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 	}
 
 	if core.MyAppRegistry == nil {
-		core.MyAppRegistry, err = core.MakeAppRegistry() // TODO how do I read err ???
+		core.MyAppRegistry, err = core.MakeAppRegistry()
 		if err != nil {
 			return errors.New("error creating app registry, workid=" + work.Id + " error=" + err.Error())
 		}
@@ -95,29 +95,31 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 
 	var cmd_interpreter = app_cmd_mode_object.Cmd_interpreter
 
-	logger.Debug(1, fmt.Sprintf("success, cmd_interpreter: %s", cmd_interpreter))
-
-	if len(app_cmd_mode_object.Cmd_script) > 0 {
-		//logger.Debug(1, fmt.Sprintf("found cmd_script"))
-		parsed.workunit.Cmd.ParsedArgs = app_cmd_mode_object.Cmd_script
-
-		//logger.Debug(1, fmt.Sprintf("cmd_script: %s", strings.Join(cmd_script, ", ")))
-	}
-	//var cmd_script = parsed.workunit.Cmd.ParsedArgs[:]
-
+	logger.Debug(1, fmt.Sprintf("cmd_interpreter: %s", cmd_interpreter))
 	var cmd_script = parsed.workunit.Cmd.Cmd_script
 
-	// expand variables on client-side
-	numcpu := runtime.NumCPU() //TODO document reserved variable NumCPU
-	numcpu_str := strconv.Itoa(numcpu)
-	for i, _ := range cmd_script {
-		cmd_script[i] = strings.Replace(cmd_script[i], "${NumCPU}", numcpu_str, -1)
+	if len(app_cmd_mode_object.Cmd_script) > 0 {
+		parsed.workunit.Cmd.ParsedArgs = app_cmd_mode_object.Cmd_script
+		logger.Debug(2, fmt.Sprintf("cmd_script: %s", strings.Join(cmd_script, ", ")))
 	}
 
-	//if err != nil {
-	//TODO error
-	//	logger.Error(fmt.Sprintf("error: compiling regex, error=%s", err.Error()))
-	//	continue
+	// expand variables on client-side
+
+	numcpu := runtime.NumCPU() //TODO document reserved variable NumCPU // TODO read NumCPU from client profile info
+	numcpu_str := strconv.Itoa(numcpu)
+	logger.Debug(2, fmt.Sprintf("NumCPU: %s", numcpu_str))
+
+	app_variables := make(core.AppVariables)
+
+	app_variables["NumCPU"] = core.AppVariable{Var_type: core.Ait_string, Value: numcpu_str}
+
+	err = core.Expand_app_variables(app_variables, cmd_script)
+	if err != nil {
+		return errors.New(fmt.Sprintf("error: core.Expand_app_variables, %s", err.Error()))
+	}
+
+	//for i, _ := range cmd_script {
+	//	cmd_script[i] = strings.Replace(cmd_script[i], "${NumCPU}", numcpu_str, -1)
 	//}
 
 	// get arguments

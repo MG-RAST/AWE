@@ -76,8 +76,8 @@ const (
 type AppVariable struct {
 	Value    string
 	Var_type AppInputType
-	Option   string
-	Optional bool // indicates that an empty value is ok and not an error
+	Option   string // a flag that is needed to activate an argument on the command line, e.g. "--input ", mainly used for optional arguments
+	Optional bool   // indicates that an empty value is ok and not an error
 }
 
 // part of the (internal-only) workflow document, used in "Task""
@@ -434,6 +434,8 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		workflow["info"] = newinfo
 		workflow["job_id"] = job.Id
 		workflow["task_id"] = task.Id
+		workflow["app"] = task.Cmd.Name
+		workflow["app_args"] = task.Cmd.App_args
 	}
 
 	for pos, app_output := range output_array_copy {
@@ -571,11 +573,6 @@ func (appr AppRegistry) createIOnodes(job *Job) (err error) {
 	return
 }
 
-// read variables and (optionally) populate with input nodes
-// 1) for reading variables, it needs only acm.Get_default_app_variables()
-// 2) for populating input nodes it needs output of 2 !
-// this is done server-side !
-
 func variable_keys_2_string(app_variables AppVariables) string {
 
 	variable_keys_array := make([]string, len(app_variables))
@@ -587,6 +584,10 @@ func variable_keys_2_string(app_variables AppVariables) string {
 	return strings.Join(variable_keys_array, ",")
 }
 
+// read variables and (optionally) populate with input nodes
+// 1) for reading variables, it needs only acm.Get_default_app_variables()
+// 2) for populating input nodes it needs output of 2 !
+// this is done server-side !
 func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array []AppResource, job *Job, task *Task, taskid2task map[string]*Task) (err error) {
 
 	//app_variables, err = acm.Get_default_app_variables()

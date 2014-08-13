@@ -594,6 +594,7 @@ func (cr *JobController) Delete(id string, cx *goweb.Context) {
 			u = &user.User{Uuid: "public"}
 		} else {
 			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+			return
 		}
 	}
 

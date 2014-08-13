@@ -430,7 +430,8 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		my_attr["workflow_tracking"] = workflow
 
 		workflow["info"] = newinfo
-		workflow["id"] = job.Id
+		workflow["job_id"] = job.Id
+		workflow["task_id"] = task.Id
 	}
 
 	for pos, app_output := range output_array_copy {

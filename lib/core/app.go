@@ -574,6 +574,19 @@ func (appr AppRegistry) createIOnodes(job *Job) (err error) {
 // read variables and (optionally) populate with input nodes
 // 1) for reading variables, it needs only acm.Get_default_app_variables()
 // 2) for populating input nodes it needs output of 2 !
+// this is done server-side !
+
+func variable_keys_2_string(app_variables AppVariables) string {
+
+	variable_keys_array := make([]string, len(app_variables))
+	i := 0
+	for key := range app_variables {
+		variable_keys_array[i] = key
+		i++
+	}
+	return strings.Join(variable_keys_array, ",")
+}
+
 func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array []AppResource, job *Job, task *Task, taskid2task map[string]*Task) (err error) {
 
 	//app_variables, err = acm.Get_default_app_variables()
@@ -592,6 +605,8 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 		inputs = task.Inputs
 		//outputs = task.Outputs
 	}
+
+	//app_variables
 
 	//reg_equal := regexp.MustCompile(`\s*=\s*`)
 
@@ -629,7 +644,7 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 
 		app_var, ok := app_variables[input_variable_name]
 		if !ok {
-			err = errors.New(fmt.Sprintf("variable \"%s\" not found", input_variable_name))
+			err = errors.New(fmt.Sprintf("variable \"%s\" not found in app_variables, possible: ", input_variable_name, variable_keys_2_string(app_variables)))
 			return err
 		}
 

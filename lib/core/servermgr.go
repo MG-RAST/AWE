@@ -552,6 +552,12 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 		return err
 	}
 
+	//create shock index on input nodes (if set in workflow document)
+	if err := task.CreateIndex(); err != nil {
+		logger.Error("qmgr.taskEnQueue CreateIndex:" + err.Error())
+		return err
+	}
+
 	//init partition
 	if err := task.InitPartIndex(); err != nil {
 		logger.Error("qmgr.taskEnQueue InitPartitionIndex:" + err.Error())

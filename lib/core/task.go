@@ -120,6 +120,28 @@ func (task *Task) UpdateState(newState string) string {
 	return task.State
 }
 
+func (task *Task) CreateIndex() (err error) {
+	for _, io := range task.Inputs {
+		if len(io.ShockIndex) > 0 {
+			idxinfo, err := io.GetIndexInfo()
+			if err != nil {
+				errMsg := "could not retrieve index info from input shock node, taskid=" + task.Id
+				logger.Error("error: " + errMsg)
+				return errors.New(errMsg)
+			}
+
+			if _, ok := idxinfo[io.ShockIndex]; !ok {
+				if err := ShockPutIndex(io.Host, io.Node, io.ShockIndex, task.Info.DataToken); err != nil {
+					errMsg := "failed to create index on shock node for taskid=" + task.Id
+					logger.Error("error: " + errMsg)
+					return errors.New(errMsg)
+				}
+			}
+		}
+	}
+	return
+}
+
 //get part size based on partition/index info
 //if fail to get index info, task.TotalWork fall back to 1 and return nil
 func (task *Task) InitPartIndex() (err error) {

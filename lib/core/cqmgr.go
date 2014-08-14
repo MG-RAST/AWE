@@ -517,7 +517,7 @@ func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string) {
 	client := qm.clientMap[clientid]
 	for id, _ := range qm.workQueue.wait {
 		if _, ok := qm.workQueue.workMap[id]; !ok {
-			logger.Debug(2, fmt.Sprintf("1) qm.workQueue.workMap[id] %s", id))
+			logger.Error(fmt.Sprintf("error: workunit %s is in wait queue but not in workMap", id))
 			continue
 		}
 		work := qm.workQueue.workMap[id]

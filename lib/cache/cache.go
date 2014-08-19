@@ -37,13 +37,12 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 				os.Rename(local_filepath, file_path)
 			}
 		}
-		//use full path here, cwd could be changed by Worker (likely in worker-overlapping mode)
-		if fi, err := os.Stat(file_path); err != nil {
-			//ignore missing file if type=copy or type==update or nofile=true
+
+		if (io.Type == "copy") || (io.Type == "update") || io.NoFile {
+			file_path = ""
+		} else if fi, err := os.Stat(file_path); err != nil {
 			//skip this output if missing file and optional
-			if (io.Type == "copy") || (io.Type == "update") || io.NoFile {
-				file_path = ""
-			} else if io.Optional {
+			if io.Optional {
 				continue
 			} else {
 				return size, errors.New(fmt.Sprintf("output %s not generated for workunit %s", name, work.Id))
@@ -54,6 +53,7 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 			}
 			size += fi.Size()
 		}
+
 		logger.Debug(2, "deliverer: push output to shock, filename="+name)
 		logger.Event(event.FILE_OUT,
 			"workid="+work.Id,

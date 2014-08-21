@@ -14,7 +14,6 @@ import (
 	"time"
 )
 
-//var app_registry_url = "https://raw.githubusercontent.com/wgerlach/SODOKU/master/apps/apps.json"
 var MyAppRegistry AppRegistry
 
 type AppInput struct {

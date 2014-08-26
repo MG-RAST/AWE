@@ -43,16 +43,14 @@ func Initialize() (err error) {
 	for k, _ := range conf.Admin_Users {
 		if k != "" {
 			if info, err := c.UpdateAll(bson.M{"username": k}, bson.M{"$set": bson.M{"admin": true}}); err != nil {
+				return err
+			} else if info.Updated == 0 {
+				u, err := New(k, "", true)
 				if err != nil {
 					return err
-				} else if info.Updated == 0 {
-					u, err := New(k, "", true)
-					if err != nil {
-						return err
-					}
-					if err := u.Save(); err != nil {
-						return err
-					}
+				}
+				if err := u.Save(); err != nil {
+					return err
 				}
 			}
 		}

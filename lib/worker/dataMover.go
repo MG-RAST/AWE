@@ -11,11 +11,15 @@ import (
 	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/shock"
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"regexp"
+	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -74,7 +78,7 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 	}
 
 	if core.MyAppRegistry == nil {
-		core.MyAppRegistry, err = core.MakeAppRegistry() // TODO how do I read err ???
+		core.MyAppRegistry, err = core.MakeAppRegistry()
 		if err != nil {
 			return errors.New("error creating app registry, workid=" + work.Id + " error=" + err.Error())
 		}
@@ -91,22 +95,31 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 
 	var cmd_interpreter = app_cmd_mode_object.Cmd_interpreter
 
-	logger.Debug(1, fmt.Sprintf("success, cmd_interpreter: %s", cmd_interpreter))
-
-	if len(app_cmd_mode_object.Cmd_script) > 0 {
-		//logger.Debug(1, fmt.Sprintf("found cmd_script"))
-		parsed.workunit.Cmd.ParsedArgs = app_cmd_mode_object.Cmd_script
-
-		//logger.Debug(1, fmt.Sprintf("cmd_script: %s", strings.Join(cmd_script, ", ")))
-	}
-	//var cmd_script = parsed.workunit.Cmd.ParsedArgs[:]
-
+	logger.Debug(1, fmt.Sprintf("cmd_interpreter: %s", cmd_interpreter))
 	var cmd_script = parsed.workunit.Cmd.Cmd_script
 
-	//if err != nil {
-	//TODO error
-	//	logger.Error(fmt.Sprintf("error: compiling regex, error=%s", err.Error()))
-	//	continue
+	if len(app_cmd_mode_object.Cmd_script) > 0 {
+		parsed.workunit.Cmd.ParsedArgs = app_cmd_mode_object.Cmd_script
+		logger.Debug(2, fmt.Sprintf("cmd_script: %s", strings.Join(cmd_script, ", ")))
+	}
+
+	// expand variables on client-side
+
+	numcpu := runtime.NumCPU() //TODO document reserved variable NumCPU // TODO read NumCPU from client profile info
+	numcpu_str := strconv.Itoa(numcpu)
+	logger.Debug(2, fmt.Sprintf("NumCPU: %s", numcpu_str))
+
+	app_variables := make(core.AppVariables)
+
+	app_variables["NumCPU"] = core.AppVariable{Var_type: core.Ait_string, Value: numcpu_str}
+
+	err = core.Expand_app_variables(app_variables, cmd_script)
+	if err != nil {
+		return errors.New(fmt.Sprintf("error: core.Expand_app_variables, %s", err.Error()))
+	}
+
+	//for i, _ := range cmd_script {
+	//	cmd_script[i] = strings.Replace(cmd_script[i], "${NumCPU}", numcpu_str, -1)
 	//}
 
 	// get arguments
@@ -341,52 +354,6 @@ func fetchFile_old(filename string, url string, token string) (size int64, err e
 	return
 }
 
-//fetch file by shock url
-func fetchFile(filename string, url string, token string) (size int64, err error) {
-	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
-
-	localfile, err := os.Create(filename)
-	if err != nil {
-		return 0, err
-	}
-	defer localfile.Close()
-
-	body, err := fetchShockStream(url, token)
-
-	defer body.Close()
-
-	if err != nil {
-		return 0, err
-	}
-
-	size, err = io.Copy(localfile, body)
-	if err != nil {
-		return 0, err
-	}
-	return
-}
-
-func fetchShockStream(url string, token string) (r io.ReadCloser, err error) {
-
-	var user *httpclient.Auth
-	if token != "" {
-		user = httpclient.GetUserByTokenAuth(token)
-	}
-
-	//download file from Shock
-	res, err := httpclient.Get(url, httpclient.Header{}, nil, user)
-	if err != nil {
-		return nil, err
-	}
-
-	if res.StatusCode != 200 { //err in fetching data
-		resbody, _ := ioutil.ReadAll(res.Body)
-		return nil, errors.New(fmt.Sprintf("op=fetchFile, url=%s, res=%s", url, resbody))
-	}
-
-	return res.Body, err
-}
-
 //fetch prerequisite data (e.g. reference dbs)
 func movePreData(workunit *core.Workunit) (size int64, err error) {
 	for name, io := range workunit.Predata {
@@ -399,19 +366,51 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		file_path := path.Join(predata_directory, name)
 		if !isFileExisting(file_path) {
 
-			size, err = fetchFile(file_path, io.Url, workunit.Info.DataToken)
+			size, err = shock.FetchFile(file_path, io.Url, workunit.Info.DataToken, io.Uncompress)
 			if err != nil {
 				return 0, errors.New("error in fetchFile:" + err.Error())
 			}
 		}
-		//make a link in work dir to predata in conf.DATA_PATH // TODO not needed/usefull for docker containers
+
+		use_symlink := false
 		linkname := path.Join(workunit.Path(), name)
-		//fmt.Printf(linkname + " -> " + file_path + "\n")
-		logger.Debug(1, "symlink:"+linkname+" -> "+file_path)
-		err = os.Symlink(file_path, linkname)
-		if err != nil {
-			return 0, errors.New("error creating predata file symlink: " + err.Error())
+		if workunit.Cmd.Dockerimage != "" || strings.HasPrefix(workunit.Cmd.Name, "app:") { // TODO need more save way to detect use of docker
+
+			use_symlink = false // TODO mechanism
+
+			if use_symlink {
+				file_path = path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, name)
+				// some tasks want to write in predata dir, thus need symlink
+				logger.Debug(1, "dangling symlink:"+linkname+" -> "+file_path)
+
+				// creation of dangling symlinks is not possible with with os.Symlink, thus use system ln
+				link_out, err := exec.Command("ln", "-s", file_path, linkname).CombinedOutput()
+				logger.Debug(1, fmt.Sprintf("ln returned %s", link_out))
+
+				if err != nil {
+					return 0, errors.New("error creating predata file symlink (dangling version): " + err.Error())
+				}
+			} else {
+				// some programs do not accept symlinks (e.g. emirge), need to copy the file into the work directory
+				// linkname refers to target file now.
+				logger.Debug(1, "copy predata:"+file_path+" -> "+linkname)
+
+				_, err := shock.CopyFile(file_path, linkname)
+				if err != nil {
+					return 0, fmt.Errorf("error copying file from %s to % s: ", file_path, linkname, err.Error())
+				}
+			}
+		} else {
+
+			//linkname := path.Join(workunit.Path(), name)
+			logger.Debug(1, "symlink:"+linkname+" -> "+file_path)
+
+			err = os.Symlink(file_path, linkname)
+			if err != nil {
+				return 0, errors.New("error creating predata file symlink: " + err.Error())
+			}
 		}
+
 	}
 	return
 }
@@ -431,7 +430,7 @@ func moveInputData(work *core.Workunit) (size int64, err error) {
 		logger.Debug(2, "mover: fetching input from url:"+dataUrl)
 		logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
 
-		if datamoved, err := fetchFile(inputFilePath, dataUrl, work.Info.DataToken); err != nil {
+		if datamoved, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress); err != nil {
 			return size, err
 		} else {
 			size += datamoved

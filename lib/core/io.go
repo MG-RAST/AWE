@@ -4,34 +4,37 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/shock"
 	"strings"
 )
 
 type IO struct {
-	Name          string            `bson:"name" json:"-"`
-	AppName       string            `bson:"appname" json:"-"`     // specifies abstract name of output as defined by the app
-	AppPosition   int               `bson:"appposition" json:"-"` // specifies position in app output array
-	Directory     string            `bson:"directory" json:"directory"`
-	Host          string            `bson:"host" json:"host"`
-	Node          string            `bson:"node" json:"node"`
-	Url           string            `bson:"url"  json:"url"`
-	Size          int64             `bson:"size" json:"size"`
-	MD5           string            `bson:"md5" json:"-"`
-	Cache         bool              `bson:"cache" json:"-"`
-	Origin        string            `bson:"origin" json:"origin"`
-	Path          string            `bson:"path" json:"-"`
-	Optional      bool              `bson:"optional" json:"-"`
-	Nonzero       bool              `bson:"nonzero"  json:"nonzero"`
-	DataToken     string            `bson:"datatoken"  json:"-"`
-	Intermediate  bool              `bson:"Intermediate"  json:"-"`
-	Temporary     bool              `bson:"temporary"  json:"temporary"`
-	ShockFilename string            `bson:"shockfilename" json:"shockfilename"`
-	ShockIndex    string            `bson:"shockindex" json:"shockindex"`
-	AttrFile      string            `bson:"attrfile" json:"attrfile"`
-	NoFile        bool              `bson:"nofile" json:"nofile"`
-	Delete        bool              `bson:"delete" json:"delete"`
-	Type          string            `bson:"type" json:"type"`
-	FormOptions   map[string]string `bson:"formoptions" json:"formoptions"`
+	Name          string                 `bson:"name" json:"-"`
+	AppName       string                 `bson:"appname" json:"-"`     // specifies abstract name of output as defined by the app
+	AppPosition   int                    `bson:"appposition" json:"-"` // specifies position in app output array
+	Directory     string                 `bson:"directory" json:"directory"`
+	Host          string                 `bson:"host" json:"host"`
+	Node          string                 `bson:"node" json:"node"`
+	Url           string                 `bson:"url"  json:"url"` // can be shock or any other url
+	Size          int64                  `bson:"size" json:"size"`
+	MD5           string                 `bson:"md5" json:"-"`
+	Cache         bool                   `bson:"cache" json:"-"`
+	Origin        string                 `bson:"origin" json:"origin"`
+	Path          string                 `bson:"path" json:"-"`
+	Optional      bool                   `bson:"optional" json:"-"`
+	Nonzero       bool                   `bson:"nonzero"  json:"nonzero"`
+	DataToken     string                 `bson:"datatoken"  json:"-"`
+	Intermediate  bool                   `bson:"Intermediate"  json:"-"`
+	Temporary     bool                   `bson:"temporary"  json:"temporary"`
+	ShockFilename string                 `bson:"shockfilename" json:"shockfilename"`
+	ShockIndex    string                 `bson:"shockindex" json:"shockindex"`
+	AttrFile      string                 `bson:"attrfile" json:"attrfile"`
+	NoFile        bool                   `bson:"nofile" json:"nofile"`
+	Delete        bool                   `bson:"delete" json:"delete"`
+	Type          string                 `bson:"type" json:"type"`
+	NodeAttr      map[string]interface{} `bson:"nodeattr" json:"nodeattr"` // specifies attribute data to be stored in shock node (output only)
+	FormOptions   map[string]string      `bson:"formoptions" json:"formoptions"`
+	Uncompress    string                 `bson:"uncompress" json:"uncompress"` // tells AWE client to uncompress this file, e.g. "gzip"
 }
 
 type PartInfo struct {
@@ -116,8 +119,8 @@ func (io *IO) GetFileSize() int64 {
 	return io.Size
 }
 
-func (io *IO) GetIndexInfo() (idxinfo map[string]IdxInfo, err error) {
-	var shocknode *ShockNode
+func (io *IO) GetIndexInfo() (idxinfo map[string]shock.IdxInfo, err error) {
+	var shocknode *shock.ShockNode
 	shocknode, err = io.GetShockNode()
 	if err != nil {
 		return
@@ -126,18 +129,18 @@ func (io *IO) GetIndexInfo() (idxinfo map[string]IdxInfo, err error) {
 	return
 }
 
-func (io *IO) GetShockNode() (node *ShockNode, err error) {
+func (io *IO) GetShockNode() (node *shock.ShockNode, err error) {
 	if io.Host == "" {
 		return nil, errors.New("empty shock host")
 	}
 	if io.Node == "" {
 		return nil, errors.New("empty node id")
 	}
-	return ShockGet(io.Host, io.Node, io.DataToken)
+	return shock.ShockGet(io.Host, io.Node, io.DataToken)
 }
 
 func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
-	var shocknode *ShockNode
+	var shocknode *shock.ShockNode
 	shocknode, err = io.GetShockNode()
 	if err != nil {
 		return
@@ -152,7 +155,7 @@ func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
 
 func (io *IO) DeleteNode() (nodeid string, err error) {
 	if io.Delete {
-		if err := ShockDelete(io.Host, io.Node, io.DataToken); err != nil {
+		if err := shock.ShockDelete(io.Host, io.Node, io.DataToken); err != nil {
 			return io.Node, err
 		}
 		return io.Node, nil

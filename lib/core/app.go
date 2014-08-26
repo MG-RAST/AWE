@@ -14,7 +14,6 @@ import (
 	"time"
 )
 
-//var app_registry_url = "https://raw.githubusercontent.com/wgerlach/SODOKU/master/apps/apps.json"
 var MyAppRegistry AppRegistry
 
 type AppInput struct {
@@ -47,6 +46,7 @@ type AppPackage struct {
 type AppRegistry map[string]*AppPackage
 
 // part of workflow document, used in "Command", defines input: shock, task, string
+// those can generate IO structs (see io.go)
 type AppResource struct {
 	Resource       string `bson:"resource" json:"resource"`
 	Host           string `bson:"host" json:"host"`
@@ -58,6 +58,7 @@ type AppResource struct {
 	Task           string `bson:"task" json:"task"`
 	OutputPosition *int   `bson:"position" json:"position"`
 	OutputName     string `bson:"name" json:"name"`
+	Uncompress     string `bson:"uncompress" json:"uncompress"` // tells AWE client to uncompress this file, e.g. "gzip"
 }
 
 type AppInputType int
@@ -74,7 +75,8 @@ const (
 type AppVariable struct {
 	Value    string
 	Var_type AppInputType
-	Option   string
+	Option   string // a flag that is needed to activate an argument on the command line, e.g. "--input ", mainly used for optional arguments
+	Optional bool   // indicates that an empty value is ok and not an error
 }
 
 // part of the (internal-only) workflow document, used in "Task""
@@ -253,6 +255,7 @@ func (appr AppRegistry) Get_dockerimage(app_package_name string) (dockerimage st
 
 func (acm AppCommandMode) Get_default_app_variables() (app_variables AppVariables, err error) {
 	app_variables = make(AppVariables)
+	// this function is called on the server
 
 	// *** app input arguments (app definition)
 	logger.Debug(1, fmt.Sprintf("Get_default_app_variables: size of acm.Input=%d", len(acm.Input)))
@@ -271,7 +274,10 @@ func (acm AppCommandMode) Get_default_app_variables() (app_variables AppVariable
 		logger.Debug(1, fmt.Sprintf("from app-definition: variable \"%s\" has type %s", input_arg.Name, apptype2string(app_type)))
 
 		logger.Debug(1, fmt.Sprintf("from app-definition: write variable:\"%s\" - default value: \"%s\"", input_arg.Name, input_arg.DefaultValue))
-		app_variables[input_arg.Name] = AppVariable{Var_type: app_type, Value: input_arg.DefaultValue, Option: input_arg.Option}
+		app_variables[input_arg.Name] = AppVariable{Var_type: app_type,
+			Value:    input_arg.DefaultValue,
+			Option:   input_arg.Option,
+			Optional: input_arg.Optional}
 
 	}
 
@@ -303,7 +309,7 @@ func (acm AppCommandMode) Get_app_variables(app_variables AppVariables) (err err
 	return
 }
 
-// Overview of createIOnodes_forTask
+// Overview of createIOnodes_forTask (this is executed server-side) // TODO rename this function and the caller
 // -------------------------------
 // recurse into task dependencies
 // get app object
@@ -311,9 +317,14 @@ func (acm AppCommandMode) Get_app_variables(app_variables AppVariables) (err err
 // task input          -> variables
 // app/task variables  -> variables
 // eval outputs
-// create outputs
-// create inputs
-// extend dependsOn
+// creates task.AppVariables (from "variables"" above)
+// creates task.Outputs
+//   -> creates io.NodeAttr.workflow_tracking for Output nodes if requested
+// creates task.Inputs
+// extends DependsOn
+// creates job.ShockHost
+// creates task.PreData
+
 func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task map[string]*Task, taskid_processed map[string]bool) (err error) {
 
 	taskid_split := strings.Split(task.Id, "_")
@@ -331,7 +342,7 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		return
 	}
 
-	// recurse into providing
+	// recurse into providing tasks (parent tasks)
 	args_array := task.Cmd.App_args
 
 	for _, argument := range args_array {
@@ -347,16 +358,13 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		}
 	}
 
+	// get app definition for this command
 	app_string := strings.TrimPrefix(task.Cmd.Name, "app:")
-
 	app_array := strings.Split(app_string, ".")
-
 	if len(app_array) != 3 {
-
 		err = errors.New("error: app could not be parsed, app=" + app_string)
 		return
 	}
-
 	app_cmd_mode_object, err := appr.Get_cmd_mode_object(app_array[0], app_array[1], app_array[2])
 
 	if err != nil {
@@ -401,6 +409,34 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 
 	shockhost := job.ShockHost // TODO do something if this is not defined/empty
 
+	var my_attr map[string]interface{}
+	var workflow map[string]interface{}
+	var newinfo Info
+
+	if job.Info.Tracking {
+
+		// allows me to make nested! copy of Info (without datatoken)
+		info_byte, err := json.Marshal(job.Info)
+		if err != nil {
+			return err
+		}
+
+		err = json.Unmarshal(info_byte, &newinfo)
+		if err != nil {
+			return err
+		}
+
+		my_attr = make(map[string]interface{}) // this will be appended to each output node
+		workflow = make(map[string]interface{})
+		my_attr["workflow_tracking"] = workflow
+
+		workflow["info"] = newinfo
+		workflow["job_id"] = job.Id
+		workflow["task_id"] = task.Id
+		workflow["app"] = task.Cmd.Name
+		workflow["app_args"] = task.Cmd.App_args
+	}
+
 	for pos, app_output := range output_array_copy {
 		if app_output == "" {
 			return errors.New("error: app_output is empty string")
@@ -413,8 +449,14 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 			directory = "" // TODO "." might be ok
 		}
 
-		my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken}
-		task_outputs[filename] = my_io
+		if job.Info.Tracking {
+
+			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken, NodeAttr: my_attr}
+			task_outputs[filename] = my_io
+		} else {
+			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken}
+			task_outputs[filename] = my_io
+		}
 
 	}
 
@@ -482,8 +524,8 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 	}
 
 	logger.Debug(1, "+++ core.Expand_app_variables")
+
 	// expand app variables in cmd_script
-	// TODO rename Bash into Cmd_script
 
 	task.Cmd.Cmd_script = make([]string, len(app_cmd_mode_object.Cmd_script))
 	copy(task.Cmd.Cmd_script, app_cmd_mode_object.Cmd_script)
@@ -530,9 +572,21 @@ func (appr AppRegistry) createIOnodes(job *Job) (err error) {
 	return
 }
 
+func variable_keys_2_string(app_variables AppVariables) string {
+
+	variable_keys_array := make([]string, len(app_variables))
+	i := 0
+	for key := range app_variables {
+		variable_keys_array[i] = key
+		i++
+	}
+	return strings.Join(variable_keys_array, ",")
+}
+
 // read variables and (optionally) populate with input nodes
 // 1) for reading variables, it needs only acm.Get_default_app_variables()
 // 2) for populating input nodes it needs output of 2 !
+// this is done server-side !
 func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array []AppResource, job *Job, task *Task, taskid2task map[string]*Task) (err error) {
 
 	//app_variables, err = acm.Get_default_app_variables()
@@ -551,6 +605,8 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 		inputs = task.Inputs
 		//outputs = task.Outputs
 	}
+
+	//app_variables
 
 	//reg_equal := regexp.MustCompile(`\s*=\s*`)
 
@@ -588,7 +644,7 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 
 		app_var, ok := app_variables[input_variable_name]
 		if !ok {
-			err = errors.New(fmt.Sprintf("variable \"%s\" not found", input_variable_name))
+			err = errors.New(fmt.Sprintf("variable \"%s\" not found in app_variables, possible: ", input_variable_name, variable_keys_2_string(app_variables)))
 			return err
 		}
 
@@ -624,7 +680,7 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 					return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
 				}
 
-				inputs[filename] = &IO{Host: host, Node: node, DataToken: task.Info.DataToken} // TODO set ShockFilename ?
+				inputs[filename] = &IO{Host: host, Node: node, DataToken: task.Info.DataToken, Uncompress: input_arg.Uncompress} // TODO set ShockFilename ?
 
 			}
 		case Ait_url:
@@ -645,7 +701,7 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 					return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
 				}
 
-				inputs[filename] = &IO{Url: url} // TODO set ShockFilename ?
+				inputs[filename] = &IO{Url: url, Uncompress: input_arg.Uncompress} // TODO set ShockFilename ?
 
 			}
 		case Ait_task:
@@ -714,7 +770,7 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 					return err
 				}
 
-				inputs[filename] = &IO{Origin: providing_task_id, Host: hostname}
+				inputs[filename] = &IO{Origin: providing_task_id, Host: hostname, Uncompress: input_arg.Uncompress}
 			}
 
 			input_variable_value = filename
@@ -775,9 +831,13 @@ func (va VariableExpander) Expand(line string) (expanded string, err error) {
 		}
 		function_variable_value := function_variable_obj.Value
 		if function_variable_value == "" {
-			logger.Debug(1, fmt.Sprintf("value of function_variable \"%s\" empty", function_variable))
-			err = errors.New(fmt.Sprintf("function_variable_value empty"))
-			return "ERROR"
+			if function_variable_obj.Optional {
+				return ""
+			} else {
+				logger.Debug(1, fmt.Sprintf("value of function_variable \"%s\" empty", function_variable))
+				err = errors.New(fmt.Sprintf("function_variable_value empty"))
+				return "ERROR"
+			}
 		}
 
 		logger.Debug(1, fmt.Sprintf("function_variable_value: %s ", function_variable_value))

@@ -638,6 +638,7 @@ func (qm *ServerMgr) parseTask(task *Task) (err error) {
 }
 
 func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
+
 	outputs := task.Outputs
 	for name, io := range outputs {
 		if io.Type == "update" {
@@ -734,6 +735,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	if err != nil {
 		return err
 	}
+
+	logger.Debug(2, fmt.Sprintf("remaining tasks for task %s: %d", task.Id, remainTasks))
 
 	if remainTasks == 0 { //job done
 		qm.FinalizeJobPerf(jobid)

@@ -46,11 +46,11 @@ func Initialize() (err error) {
 				if err != nil {
 					return err
 				} else if info.Updated == 0 {
-					u := User{Username: k}
-					if err = u.SetMongoInfo(); err != nil {
+					u, err := New(k, "", true)
+					if err != nil {
 						return err
 					}
-					if _, err = c.UpdateAll(bson.M{"username": k}, bson.M{"$set": bson.M{"admin": true}}); err != nil {
+					if err := u.Save(); err != nil {
 						return err
 					}
 				}

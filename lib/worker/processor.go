@@ -12,11 +12,10 @@ import (
 	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	//"github.com/davecgh/go-spew/spew"
-	"github.com/wgerlach/go-dockerclient"
+	"github.com/MG-RAST/AWE/lib/shock"
+	"github.com/MG-RAST/go-dockerclient"
 	"io"
 	"io/ioutil"
-	//"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -26,6 +25,13 @@ import (
 	"strings"
 	"time"
 )
+
+type Shock_Dockerimage_attributes struct {
+	Id          string `bson:"id" json:"id"`                       // this is docker image id, not Shock id
+	Name        string `bson:"name" json:"name"`                   // docker image name
+	Type        string `bson:"type" json:"type"`                   // should be "dockerimage"
+	BaseImageId string `bson:"base_image_id" json:"base_image_id"` // could used to reference parent image
+}
 
 func processor(control chan int) {
 	fmt.Printf("processor launched, client=%s\n", core.Self.Id)
@@ -78,6 +84,7 @@ func processor(control chan int) {
 			processed.workunit.State = core.WORK_STAT_FAIL
 		} else {
 			logger.Debug(1, "RunWorkunit() returned without error, workid="+work.Id)
+			time.Sleep(10000 * time.Millisecond)
 			processed.workunit.State = core.WORK_STAT_COMPUTED
 			processed.perfstat.MaxMemUsage = pstat.MaxMemUsage
 		}
@@ -103,11 +110,11 @@ func processor(control chan int) {
 func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	if work.Cmd.Dockerimage == "" {
-		return RunWorkunitDirect(work)
+		pstats, err = RunWorkunitDirect(work)
 	} else {
-		return RunWorkunitDocker(work)
+		pstats, err = RunWorkunitDocker(work)
 	}
-
+	return
 }
 
 func RemoveOldAWEContainers(client *docker.Client, container_name string) (err error) {
@@ -232,18 +239,41 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		return nil, err
 	}
 
+	//var node *core.ShockNode = nil
+	// find image in repo (e.g. extract docker image id)
+	node, dockerimage_download_url, err := findDockerImageInShock(Dockerimage)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Error getting docker url, err=%s", err.Error()))
+	}
+
+	// TODO attr_json, _ := json.Marshal(node.Attributes) might be better
+	node_attr_map, ok := node.Attributes.(map[string]interface{})
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("(1) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage))
+	}
+
+	dockerimage_id, ok := node_attr_map["id"].(string)
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("(2) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage))
+	}
+
+	if dockerimage_id == "" {
+		return nil, errors.New(fmt.Sprintf("Id of Dockerimage=%s not found", Dockerimage))
+	}
+	logger.Debug(1, fmt.Sprintf("using dockerimage id %s instead of name %s ", dockerimage_id, Dockerimage))
+
 	// *** find/inspect image
-	image, err := client.InspectImage(Dockerimage)
+	image, err := client.InspectImage(dockerimage_id)
 
 	if err != nil {
 
 		logger.Debug(1, fmt.Sprintf("docker image %s is not yet in local repository", Dockerimage))
 
-		image_retrieval := "load"
+		image_retrieval := "load" // TODO only load is guaraneed to work
 		switch {
 		case image_retrieval == "load":
 			{ // for images that have been saved
-				err = dockerLoadImage(client, Dockerimage)
+				err = dockerLoadImage(client, dockerimage_download_url)
 			}
 		case image_retrieval == "import":
 			{ // for containers that have been exported
@@ -263,19 +293,41 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		// view node: http://shock.metagenomics.anl.gov/node/ed0a6b20-c535-40d7-92e8-754bb8b6b48f
 		// download http://shock.metagenomics.anl.gov/node/ed0a6b20-c535-40d7-92e8-754bb8b6b48f?download
 
-		// last test
-		image, err = client.InspectImage(Dockerimage)
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("(InspectImage) Docker image was not correctly imported or built, err=%s", err.Error()))
+		if node != nil {
+
 		}
+		// last test
+		if dockerimage_id != "" {
+			image, err = client.InspectImage(dockerimage_id)
+			if err != nil {
+				return nil, errors.New(fmt.Sprintf("(InspectImage) Docker image (%s , %s) was not correctly imported or built, err=%s", Dockerimage, dockerimage_id, err.Error()))
+			}
+		} else {
+			image, err = client.InspectImage(Dockerimage)
+			if err != nil {
+				return nil, errors.New(fmt.Sprintf("(InspectImage) Docker image (%s) was not correctly imported or built, err=%s", Dockerimage, err.Error()))
+			}
+		}
+
 	} else {
 		logger.Debug(1, fmt.Sprintf("docker image %s is already in local repository", Dockerimage))
 	}
 
-	imageid := image.ID
+	if dockerimage_id != image.ID {
+		return nil, errors.New(fmt.Sprintf("error: dockerimage_id != image.ID, %s != %s (%s)", dockerimage_id, image.ID, Dockerimage))
+	}
+
+	// tag image to make debugging easier
+	if Dockerimage != "" {
+		Dockerimage_array := strings.Split(Dockerimage, ":") // TODO split by colon is risky
+		tag_opts := docker.TagImageOptions{Repo: Dockerimage_array[0], Tag: Dockerimage_array[1]}
+		err = client.TagImage(dockerimage_id, tag_opts)
+		if err != nil {
+			logger.Error(fmt.Sprintf("warning: tagging of image %s with %s failed, err:", dockerimage_id, Dockerimage, err.Error()))
+		}
+	}
 
 	pipe_output := fmt.Sprintf(" 2> %s 1> %s", conf.STDERR_FILENAME, conf.STDOUT_FILENAME)
-
 	bash_command := ""
 	if use_wrapper_script {
 		bash_command = fmt.Sprint("/bin/bash", " ", wrapper_script_filename_docker, " ", pipe_output)
@@ -290,11 +342,11 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	container_cmd := []string{"/bin/bash", "-c", bash_command} // TODO remove bash if possible, but is needed for piping
 
-	config := docker.Config{Image: imageid, WorkingDir: conf.DOCKER_WORK_DIR, AttachStdout: true, AttachStderr: true, AttachStdin: false, Cmd: container_cmd, Volumes: map[string]struct{}{conf.DOCKER_WORK_DIR: {}}}
+	config := docker.Config{Image: dockerimage_id, WorkingDir: conf.DOCKER_WORK_DIR, AttachStdout: true, AttachStderr: true, AttachStdin: false, Cmd: container_cmd, Volumes: map[string]struct{}{conf.DOCKER_WORK_DIR: {}}}
 	opts := docker.CreateContainerOptions{Name: container_name, Config: &config}
 
 	// *** create container (or find container ?)
-	logger.Debug(1, fmt.Sprintf("creating docker container from image %s", Dockerimage))
+	logger.Debug(1, fmt.Sprintf("creating docker container from image %s (%s)", Dockerimage, dockerimage_id))
 	container_incomplete, err := client.CreateContainer(opts)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("error creating container, err=%s", err.Error()))
@@ -315,22 +367,26 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	// *** start container
 
-	logger.Debug(1, "starting docker container...")
-
 	var bindarray = []string{}
 
 	bindstr_workdir := work.Path() + "/:" + conf.DOCKER_WORK_DIR
 	logger.Debug(1, "bindstr_workdir: "+bindstr_workdir)
 
 	// only mount predata if it is actually used
+	fake_predata := ""
 	if len(work.Predata) > 0 {
 		predata_directory := path.Join(conf.DATA_PATH, "predata")
 		bindstr_predata := predata_directory + "/:" + "/db:ro" // TODO put in config
 		logger.Debug(1, "bindstr_predata: "+bindstr_predata)
+		fake_predata = " -v " + bindstr_predata
 		bindarray = []string{bindstr_workdir, bindstr_predata}
 	} else {
 		bindarray = []string{bindstr_workdir}
 	}
+
+	fake_docker_cmd := "sudo docker run -t -i --name test -v " + bindstr_workdir + fake_predata + " --workdir=" + conf.DOCKER_WORK_DIR + " " + dockerimage_id + " " + strings.Join(container_cmd, " ")
+	logger.Debug(1, "fake_docker_cmd ("+Dockerimage+"): "+fake_docker_cmd)
+	logger.Debug(1, "starting docker container...")
 
 	err = client.StartContainer(container_id, &docker.HostConfig{Binds: bindarray})
 	if err != nil {
@@ -340,21 +396,20 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	defer func(container_id string) {
 		// *** clean up
 		// ** kill container
-		err = client.KillContainer(docker.KillContainerOptions{ID: container_id})
-		if err != nil {
-			logger.Error(fmt.Sprintf("error killing container id=%s, err=%s", container_id, err.Error()))
+		err_kill := client.KillContainer(docker.KillContainerOptions{ID: container_id})
+		if err_kill != nil {
+			logger.Error(fmt.Sprintf("error killing container id=%s, err=%s", container_id, err_kill.Error()))
 		}
 
 		// *** remove Container
 		opts_remove := docker.RemoveContainerOptions{ID: container_id}
-		err = client.RemoveContainer(opts_remove)
-		if err != nil {
+
+		if err := client.RemoveContainer(opts_remove); err != nil {
 			logger.Error(fmt.Sprintf("error removing container id=%s, err=%s", container_id, err.Error()))
 		} else {
-			logger.Debug(1, "removed docker container")
+			logger.Debug(1, "(deferred func) removed docker container")
 		}
 
-		return
 	}(container_id)
 
 	var status int = 0
@@ -362,15 +417,17 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	// wait for container to finish
 	done := make(chan error)
 	go func() {
-		status, err = client.WaitContainer(container_id)
-		done <- err // inform main function
-		done <- err // inform memory checker
+		var errwait error
+		status, errwait = client.WaitContainer(container_id)
+		done <- errwait // inform main function
+		done <- errwait // inform memory checker
 	}()
 
 	var MaxMem int64 = -1
 	var max_memory_total_rss int64 = -1
 	var max_memory_total_swap int64 = -1
 
+	// e.g. /sys/fs/cgroup/memory/docker/<id>/memory.stat
 	memory_stat_filename := path.Join(conf.CGROUP_MEMORY_DOCKER_DIR, container_id, "/memory.stat")
 
 	go func() { // memory checker
@@ -378,27 +435,20 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		for {
 
 			select {
-			case err = <-done:
-				if err != nil {
-					logger.Error("channerl done returned error: " + err.Error())
+			case err_mem := <-done:
+				if err_mem != nil {
+					logger.Error("channel done returned error: " + err_mem.Error())
 				}
 				return
 			default:
 			}
 
-			//container, err := client.InspectContainer(container_id)
-
-			//if err != nil {
-			//	logger.Debug(1, fmt.Sprint("error inspecting container (for mem info) ", err.Error()))
-			//} else {
-			// /sys/fs/cgroup/memory/docker/<id>/memory.stat
-			//memory := uint64(container.Config.Memory)
 			var memory_total_rss int64 = -1
 			var memory_total_swap int64 = -1
-			memory_stat_file, err := os.Open(memory_stat_filename)
-			if err != nil {
-				logger.Error("warning: error opening memory_stat_file file:" + err.Error())
-				err = nil
+			memory_stat_file, err_mem := os.Open(memory_stat_filename)
+			if err_mem != nil {
+
+				logger.Error("warning: error opening memory_stat_file file:" + err_mem.Error())
 				time.Sleep(conf.MEM_CHECK_INTERVAL)
 				continue
 			}
@@ -406,7 +456,6 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			// Closes the file when we leave the scope of the current function,
 			// this makes sure we never forget to close the file if the
 			// function can exit in multiple places.
-			defer memory_stat_file.Close()
 
 			memory_stat_file_scanner := bufio.NewScanner(memory_stat_file)
 
@@ -434,7 +483,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 				} else {
 					continue
 				}
-				if memory_total_rss_read && memory_total_swap_read {
+				if memory_total_rss_read && memory_total_swap_read { // we found all information we need, leave the loop
 					break
 				}
 
@@ -442,9 +491,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 			// When finished scanning if any error other than io.EOF occured
 			// it will be returned by scanner.Err().
-			if err = memory_stat_file_scanner.Err(); err != nil {
-				logger.Error(fmt.Sprintf("warning: could no read memory usage from cgroups=", memory_stat_file_scanner.Err()))
-				err = nil
+			if err := memory_stat_file_scanner.Err(); err != nil {
+				logger.Error(fmt.Sprintf("warning: could no read memory usage from cgroups=%s", memory_stat_file_scanner.Err()))
+				//err = nil
 			} else {
 
 				// RSS maxium
@@ -467,12 +516,14 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 				}
 
-				logger.Debug(1, fmt.Sprintf("memory: rss=%d, swap=%d, maximum: rss=%d swap=%d combined=%d", memory_total_rss, memory_total_swap))
+				logger.Debug(1, fmt.Sprintf("memory: rss=%d, swap=%d, max_rss=%d max_swap=%d max_combined=%d",
+					memory_total_rss, memory_total_swap, max_memory_total_rss, max_memory_total_swap, MaxMem))
 
 			}
-
+			memory_stat_file.Close() // defer does not work in for loop !
 			//time.Sleep(5 * time.Second)
 			time.Sleep(conf.MEM_CHECK_INTERVAL)
+
 		}
 	}()
 
@@ -490,10 +541,11 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		if err != nil {
 			return nil, errors.New(fmt.Sprintf("wait_cmd=%s, err=%s", commandName, err.Error()))
 		}
-		logger.Debug(1, fmt.Sprint("docker command returned with status ", status))
+		logger.Debug(1, fmt.Sprint("(1)docker command returned with status ", status))
 	}
-
+	logger.Debug(1, fmt.Sprint("(2)docker command returned with status ", status))
 	if status != 0 {
+		logger.Debug(1, fmt.Sprint("WaitContainer returned non-zero status ", status))
 		return nil, errors.New(fmt.Sprintf("error WaitContainer returned non-zero status=%d", status))
 	}
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
@@ -502,7 +554,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	pstats.MaxMemoryTotalSwap = max_memory_total_swap
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 
-	return pstats, err
+	return
 }
 
 func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
@@ -681,7 +733,7 @@ func runPreWorkExecutionScript(work *core.Workunit) (err error) {
 
 func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 
-	shock_docker_repo := core.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
+	shock_docker_repo := shock.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
 
 	logger.Debug(1, fmt.Sprint("try to build docker image from dockerfile, Dockerimage=", Dockerimage))
 
@@ -723,46 +775,42 @@ func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 	return nil
 }
 
-func getDockerImageUrl(Dockerimage string) (download_url string, err error) {
+// was getDockerImageUrl(Dockerimage string) (download_url string, err error)
+func findDockerImageInShock(Dockerimage string) (node *shock.ShockNode, download_url string, err error) {
 
-	shock_docker_repo := core.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
+	shock_docker_repo := shock.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
 
 	logger.Debug(1, fmt.Sprint("try to import docker image, Dockerimage=", Dockerimage))
 	//query url = type=dockerimage&name=wgerlach/bowtie2:2.2.0"
 
 	query_response_p, err := shock_docker_repo.Query(url.Values{"type": {"dockerimage"}, "name": {Dockerimage}})
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("shock node not found for image=%s, err=%s", Dockerimage, err.Error()))
+		return nil, "", errors.New(fmt.Sprintf("shock node not found for image=%s, err=%s", Dockerimage, err.Error()))
 	}
 	logger.Debug(1, fmt.Sprintf("query result: %v", query_response_p))
 
 	datalen := len((*query_response_p).Data)
 
 	if datalen == 0 {
-		return "", errors.New(fmt.Sprintf("image %s not found in shocks docker repo", Dockerimage))
+		return nil, "", errors.New(fmt.Sprintf("image %s not found in shocks docker repo", Dockerimage))
 	} else if datalen > 1 {
-		return "", errors.New(fmt.Sprintf("more than one image %s found in shocks docker repo", Dockerimage))
+		return nil, "", errors.New(fmt.Sprintf("more than one image %s found in shocks docker repo", Dockerimage))
 	}
 
-	node := (*query_response_p).Data[0]
+	node = &(*query_response_p).Data[0]
 	logger.Debug(1, fmt.Sprintf("found SHOCK node for docker image: %s", node.Id))
 
-	download_url, err = shock_docker_repo.Get_node_download_url(node)
+	download_url, err = shock_docker_repo.Get_node_download_url(*node)
 	if err != nil {
-		return "", errors.New(fmt.Sprintf("Could not create download url, err=%s", err.Error()))
+		return nil, "", errors.New(fmt.Sprintf("Could not create download url, err=%s", err.Error()))
 	}
 
 	return
 }
 
-func dockerLoadImage(client *docker.Client, Dockerimage string) (err error) {
+func dockerLoadImage(client *docker.Client, download_url string) (err error) {
 
-	download_url, err := getDockerImageUrl(Dockerimage)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Error getting docker url, err=%s", err.Error()))
-	}
-
-	image_stream, err := fetchShockStream(download_url, "") // token empty here, assume that images are public
+	image_stream, err := shock.FetchShockStream(download_url, "") // token empty here, assume that images are public
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error getting Shock stream, err=%s", err.Error()))
 	}
@@ -780,12 +828,12 @@ func dockerLoadImage(client *docker.Client, Dockerimage string) (err error) {
 	}
 
 	logger.Debug(1, fmt.Sprintf("load image returned: %v", &buf))
-	return nil
+	return
 }
 
 func dockerImportImage(client *docker.Client, Dockerimage string) (err error) {
 
-	download_url, err := getDockerImageUrl(Dockerimage)
+	_, download_url, err := findDockerImageInShock(Dockerimage) // TODO get node
 
 	if err != nil {
 		return err

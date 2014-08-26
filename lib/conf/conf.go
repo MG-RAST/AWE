@@ -134,7 +134,8 @@ var (
 	//tag
 	INIT_SUCCESS = true
 
-	CGROUP_MEMORY_DOCKER_DIR = ""
+	CGROUP_MEMORY_DOCKER_DIR    = ""
+	DOCKER_WORKUNIT_PREDATA_DIR = "/db/"
 	//const
 	ALL_APP = "*"
 

@@ -496,6 +496,7 @@ func (qm *CQMgr) NotifyWorkStatus(notice Notice) {
 
 func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 	filtered := qm.filterWorkByClient(req.fromclient)
+	logger.Debug(2, fmt.Sprintf("popWorks filtered: %d (0 meansNoEligibleWorkunitFound)", filtered))
 	if len(filtered) == 0 {
 		return nil, errors.New(e.NoEligibleWorkunitFound)
 	}
@@ -516,23 +517,28 @@ func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string) {
 	client := qm.clientMap[clientid]
 	for id, _ := range qm.workQueue.wait {
 		if _, ok := qm.workQueue.workMap[id]; !ok {
+			logger.Error(fmt.Sprintf("error: workunit %s is in wait queue but not in workMap", id))
 			continue
 		}
 		work := qm.workQueue.workMap[id]
 		//skip works that are in the client's skip-list
 		if contains(client.Skip_work, work.Id) {
+			logger.Debug(2, fmt.Sprintf("2) contains(client.Skip_work, work.Id) %s", id))
 			continue
 		}
 		//skip works that have dedicate client groups which this client doesn't belong to
 		if len(work.Info.ClientGroups) > 0 {
 			eligible_groups := strings.Split(work.Info.ClientGroups, ",")
 			if !contains(eligible_groups, client.Group) {
+				logger.Debug(2, fmt.Sprintf("3) !contains(eligible_groups, client.Group) %s", id))
 				continue
 			}
 		}
 		//append works whos apps are supported by the client
 		if contains(client.Apps, work.Cmd.Name) || contains(client.Apps, conf.ALL_APP) {
 			ids = append(ids, id)
+		} else {
+			logger.Debug(2, fmt.Sprintf("3) contains(client.Apps, work.Cmd.Name) || contains(client.Apps, conf.ALL_APP) %s", id))
 		}
 	}
 	return ids

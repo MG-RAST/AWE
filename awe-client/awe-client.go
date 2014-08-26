@@ -58,6 +58,8 @@ func main() {
 
 	logger.Initialize("client")
 
+	logger.Debug(0, "PATH="+os.Getenv("PATH"))
+
 	profile, err := worker.ComposeProfile()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fail to compose profile: %s\n", err.Error())

@@ -53,16 +53,21 @@ func workStealer(control chan int) {
 				os.Exit(1) // TODO is there a better way of exiting ? E.g. in regard of the logger who wants to flush....
 			} else {
 				//something is wrong, server may be down
-				logger.Error(fmt.Sprintf("error in checking out workunit: %s, retry+=1", err.Error()))
+
+				logger.Error(fmt.Sprintf("error in checking out workunit: %s, retry=%d", err.Error(), retry))
 				retry += 1
 			}
-			if retry == 12 {
-				fmt.Printf("failed to checkout workunits for 12 times, exiting...\n")
-				logger.Error("failed to checkout workunits for 12 times, exiting...")
-				os.Exit(1) // TODO fix !
-			}
+			//if retry == 12 {
+			//	fmt.Printf("failed to checkout workunits for 12 times, exiting...\n")
+			//	logger.Error("failed to checkout workunits for 12 times, exiting...")
+			//	os.Exit(1) // TODO fix !
+			//}
 			if core.Service != "proxy" { //proxy: event driven, client: timer driven
-				time.Sleep(10 * time.Second)
+				if retry <= 10 {
+					time.Sleep(10 * time.Second)
+				} else {
+					time.Sleep(30 * time.Second)
+				}
 			}
 			continue
 		} else {

@@ -125,5 +125,6 @@ func (u *User) Save() (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C("Users")
-	return c.Insert(&u)
+	_, err = c.Upsert(bson.M{"uuid": u.Uuid}, &u)
+	return
 }

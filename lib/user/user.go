@@ -42,8 +42,10 @@ func Initialize() (err error) {
 	// This config parameter contains a string that should be a comma-separated list of users that are Admins.
 	for k, _ := range conf.Admin_Users {
 		if k != "" {
-			if _, err = c.UpdateAll(bson.M{"username": k}, bson.M{"$set": bson.M{"admin": true}}); err != nil {
-				if err.Error() == "not found" {
+			if info, err := c.UpdateAll(bson.M{"username": k}, bson.M{"$set": bson.M{"admin": true}}); err != nil {
+				if err != nil {
+					return err
+				} else if info.Updated == 0 {
 					u := User{Username: k}
 					if err = u.SetMongoInfo(); err != nil {
 						return err
@@ -51,8 +53,6 @@ func Initialize() (err error) {
 					if _, err = c.UpdateAll(bson.M{"username": k}, bson.M{"$set": bson.M{"admin": true}}); err != nil {
 						return err
 					}
-				} else {
-					return err
 				}
 			}
 		}

@@ -219,7 +219,7 @@ func init() {
 	// Admin
 	if admin_users, err := c.String("Admin", "users"); err == nil {
 		for _, name := range strings.Split(admin_users, ",") {
-			Admin_Users[name] = true
+			Admin_Users[strings.TrimSpace(name)] = true
 		}
 	}
 

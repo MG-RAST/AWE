@@ -185,7 +185,7 @@
 							   obj.info.clientgroups,
 							   obj.tasks.length - obj.remaintasks || "0",
 							   obj.tasks.length,
-							   "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/work/"+obj.lastfailed+"\");' style='cursor: pointer;'>"+obj.lastfailed+"</a>",
+							   "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.lastfailed+"\")'>"+obj.lastfailed+"</a>",
 							   obj.updatetime
 							 ] );
 				   }

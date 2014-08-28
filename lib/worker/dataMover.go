@@ -483,6 +483,7 @@ func parse_arg_string(argstr string) (argarr []string) {
 				argarr = append(argarr, tmpstr)
 				tmpstr = ""
 				i = 0
+				buf = nil
 				startquote = false
 				continue
 			} else { //meet starting quote
@@ -496,6 +497,7 @@ func parse_arg_string(argstr string) (argarr []string) {
 					argarr = append(argarr, tmpstr)
 					tmpstr = ""
 					i = 0
+					buf = nil
 				}
 				continue
 			}

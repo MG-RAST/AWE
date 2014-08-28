@@ -470,7 +470,7 @@ func proxyMovePreData(workunit *core.Workunit) (err error) {
 
 // split arg string into arg array, deliminated by space, ' '
 func parse_arg_string(argstr string) (argarr []string) {
-	buf := make([]byte, 150)
+	var buf []byte
 	tmpstr := ""
 	i := 0
 	argarr = []string{}
@@ -478,7 +478,7 @@ func parse_arg_string(argstr string) (argarr []string) {
 	for j, c := range argstr {
 		if c == '\'' {
 			if startquote == true { // meet closing quote
-				buf[i] = byte(c)
+				buf = append(buf, byte(c))
 				tmpstr = string(buf[:i+1])
 				argarr = append(argarr, tmpstr)
 				tmpstr = ""
@@ -500,7 +500,7 @@ func parse_arg_string(argstr string) (argarr []string) {
 				continue
 			}
 		}
-		buf[i] = byte(c)
+		buf = append(buf, byte(c))
 		i += 1
 		tmpstr = string(buf[:i])
 		if j == len(argstr)-1 {

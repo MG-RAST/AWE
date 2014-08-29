@@ -61,6 +61,27 @@ sub taskid {
 }
 
 
+sub description {
+    my ($self, $newdescription) = @_;
+	
+	if (defined $newdescription) {
+		$self->{'cmd'}->{'description'} = $newdescription;
+	}
+	
+    return $self->{'cmd'}->{'description'};
+}
+
+sub environ {
+    my ($self, $newenviron) = @_;
+	
+	if (defined $newenviron) {
+		$self->{'cmd'}->{'environ'} = $newenviron;
+	}
+	
+    return $self->{'cmd'}->{'environ'};
+}
+
+
 
 sub command {
     my ($self, $cmd) = @_;

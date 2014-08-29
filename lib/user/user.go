@@ -42,16 +42,14 @@ func Initialize() (err error) {
 	// This config parameter contains a string that should be a comma-separated list of users that are Admins.
 	for k, _ := range conf.Admin_Users {
 		if k != "" {
-			if err = c.Update(bson.M{"username": k}, bson.M{"$set": bson.M{"admin": true}}); err != nil {
-				if err.Error() == "not found" {
-					u := User{Username: k}
-					if err = u.SetMongoInfo(); err != nil {
-						return err
-					}
-					if err = c.Update(bson.M{"username": k}, bson.M{"$set": bson.M{"admin": true}}); err != nil {
-						return err
-					}
-				} else {
+			if info, err := c.UpdateAll(bson.M{"username": k}, bson.M{"$set": bson.M{"admin": true}}); err != nil {
+				return err
+			} else if info.Updated == 0 {
+				u, err := New(k, "", true)
+				if err != nil {
+					return err
+				}
+				if err := u.Save(); err != nil {
 					return err
 				}
 			}
@@ -127,5 +125,6 @@ func (u *User) Save() (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C("Users")
-	return c.Insert(&u)
+	_, err = c.Upsert(bson.M{"uuid": u.Uuid}, &u)
+	return
 }

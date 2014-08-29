@@ -226,7 +226,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 
 	// Add authorization checking to query if the user is not an admin
 	if u.Admin == false {
-		q["$or"] = []bson.M{bson.M{"acl.read": "public"}, bson.M{"acl.read": u.Uuid}, bson.M{"acl.owner": u.Uuid}}
+		q["$or"] = []bson.M{bson.M{"acl.read": "public"}, bson.M{"acl.read": u.Uuid}, bson.M{"acl.owner": u.Uuid}, bson.M{"acl": bson.M{"$exists": "false"}}}
 	}
 
 	limit := conf.DEFAULT_PAGE_SIZE

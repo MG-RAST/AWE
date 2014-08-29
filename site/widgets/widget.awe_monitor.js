@@ -185,7 +185,7 @@
 							   obj.info.clientgroups,
 							   obj.tasks.length - obj.remaintasks || "0",
 							   obj.tasks.length,
-							   obj.state,
+							   "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.lastfailed+"\")'>"+obj.lastfailed+"</a>",
 							   obj.updatetime
 							 ] );
 				   }
@@ -828,6 +828,7 @@
 		       headers: widget.authHeader,
 		       success: function(data) {
 			   var w = window.open();
+			   w.document.write("<h3>"+this.url+"</h3>");
 			   w.document.write("<pre>"+JSON.stringify(data, null, 2)+"</pre>");
 			   w.document.close();
 		       },

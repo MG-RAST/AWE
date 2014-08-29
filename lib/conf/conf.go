@@ -11,7 +11,7 @@ import (
 
 // Setup conf variables
 var (
-	VERSION      = "0.9.3"
+	VERSION      = "0.9.5"
 	SHOW_VERSION = false
 
 	//Reload
@@ -220,7 +220,7 @@ func init() {
 	// Admin
 	if admin_users, err := c.String("Admin", "users"); err == nil {
 		for _, name := range strings.Split(admin_users, ",") {
-			Admin_Users[name] = true
+			Admin_Users[strings.TrimSpace(name)] = true
 		}
 	}
 

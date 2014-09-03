@@ -66,6 +66,9 @@
 	    jQuery.ajax( { dataType: "json",
 			   url: RetinaConfig["awe_ip"]+"/queue",
 			   headers: widget.authHeader,
+			   error: function () {
+			       Retina.WidgetInstances.awe_monitor[1].check_update();
+			   },
 			   success: function(data) {
 			       var widget = Retina.WidgetInstances.awe_monitor[1];
 			       var result = data.data;
@@ -170,6 +173,9 @@
 	    jQuery.ajax( { dataType: "json",
 			   url: RetinaConfig["awe_ip"]+"/job?suspend",
 			   headers: widget.authHeader,
+			   error: function () {
+			       Retina.WidgetInstances.awe_monitor[1].check_update();
+			   },
 			   success: function (data) {
 			       var widget = Retina.WidgetInstances.awe_monitor[1];
 			       var result_data = [];
@@ -250,6 +256,9 @@
 	    jQuery.ajax( { dataType: "json",
 			   url: RetinaConfig["awe_ip"]+"/work?query&state=queued",
 			   headers: widget.authHeader,
+			   error: function () {
+			       Retina.WidgetInstances.awe_monitor[1].check_update();
+			   },
 			   success: function (data) {
 			       var widget = Retina.WidgetInstances.awe_monitor[1];
 			       var result_data = [];
@@ -338,6 +347,9 @@
 	    jQuery.ajax( { dataType: "json",
 			   url: RetinaConfig["awe_ip"]+"/work?query&state=checkout",
 			   headers: widget.authHeader,
+			   error: function () {
+			       Retina.WidgetInstances.awe_monitor[1].check_update();
+			   },
 			   success: function (data) {
 			       var widget = Retina.WidgetInstances.awe_monitor[1];
 			       var result_data = [];

@@ -1,7 +1,7 @@
 package core
 
 import (
-	"labix.org/v2/mgo/bson"
+	"github.com/MG-RAST/golib/mgo/bson"
 )
 
 // Job array type

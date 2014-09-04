@@ -7,6 +7,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+	"github.com/MG-RAST/golib/mgo"
 	"net/http"
 )
 
@@ -37,7 +38,7 @@ var ClientGroupTokenController goweb.ControllerFunc = func(cx *goweb.Context) {
 	cg, err := core.LoadClientGroup(cgid)
 
 	if err != nil {
-		if err.Error() == e.MongoDocNotFound {
+		if err.Error() == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {

@@ -15,7 +15,6 @@ const (
 	InvalidFileTypeForFilter = "Invalid file type for filter"
 	InvalidIndex             = "Invalid Index"
 	InvalidAuth              = "Invalid Auth Header"
-	MongoDocNotFound         = "Document not found"
 	NoAuth                   = "No Authorization"
 	NoEligibleWorkunitFound  = "No eligible workunit found"
 	QueueEmpty               = "Server queue is empty"

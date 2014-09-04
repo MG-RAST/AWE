@@ -8,6 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/MG-RAST/golib/goweb"
+	"github.com/MG-RAST/golib/mgo"
 	"net/http"
 	"strings"
 )
@@ -44,7 +45,7 @@ var ClientGroupAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	cg, err := core.LoadClientGroup(cgid)
 
 	if err != nil {
-		if err.Error() == e.MongoDocNotFound {
+		if err.Error() == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {
@@ -95,7 +96,7 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 	cg, err := core.LoadClientGroup(cgid)
 
 	if err != nil {
-		if err.Error() == e.MongoDocNotFound {
+		if err.Error() == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {

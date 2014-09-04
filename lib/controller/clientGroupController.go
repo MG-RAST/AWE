@@ -7,7 +7,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
-	"labix.org/v2/mgo/bson"
+	"github.com/MG-RAST/golib/mgo"
+	"github.com/MG-RAST/golib/mgo/bson"
 	"net/http"
 	"strconv"
 	"strings"
@@ -82,7 +83,7 @@ func (cr *ClientGroupController) Read(id string, cx *goweb.Context) {
 	cg, err := core.LoadClientGroup(id)
 
 	if err != nil {
-		if err.Error() == e.MongoDocNotFound {
+		if err.Error() == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {
@@ -220,7 +221,7 @@ func (cr *ClientGroupController) Delete(id string, cx *goweb.Context) {
 	cg, err := core.LoadClientGroup(id)
 
 	if err != nil {
-		if err.Error() == e.MongoDocNotFound {
+		if err.Error() == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {

@@ -471,42 +471,31 @@ func proxyMovePreData(workunit *core.Workunit) (err error) {
 // split arg string into arg array, deliminated by space, ' '
 func parse_arg_string(argstr string) (argarr []string) {
 	var buf []byte
-	tmpstr := ""
-	i := 0
 	argarr = []string{}
 	startquote := false
 	for j, c := range argstr {
 		if c == '\'' {
 			if startquote == true { // meet closing quote
-				buf = append(buf, byte(c))
-				tmpstr = string(buf[:i+1])
-				argarr = append(argarr, tmpstr)
-				tmpstr = ""
-				i = 0
+				argarr = append(argarr, string(buf[:]))
 				buf = nil
 				startquote = false
 				continue
 			} else { //meet starting quote
 				startquote = true
-			}
-		}
-		//skip space if no quote encountered yet
-		if startquote == false {
-			if c == ' ' {
-				if len(tmpstr) > 0 {
-					argarr = append(argarr, tmpstr)
-					tmpstr = ""
-					i = 0
-					buf = nil
-				}
 				continue
 			}
 		}
+		//skip space if no quote encountered yet
+		if startquote == false && c == ' ' {
+			if len(buf) > 0 {
+				argarr = append(argarr, string(buf[:]))
+				buf = nil
+			}
+			continue
+		}
 		buf = append(buf, byte(c))
-		i += 1
-		tmpstr = string(buf[:i])
 		if j == len(argstr)-1 {
-			argarr = append(argarr, tmpstr)
+			argarr = append(argarr, string(buf[:]))
 		}
 	}
 	return

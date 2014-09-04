@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
-	"labix.org/v2/mgo"
+	"github.com/MG-RAST/golib/mgo"
 	"time"
 )
 

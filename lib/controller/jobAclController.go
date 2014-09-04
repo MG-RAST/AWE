@@ -8,6 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/MG-RAST/golib/goweb"
+	"github.com/MG-RAST/golib/mgo"
 	"net/http"
 	"strings"
 )
@@ -37,9 +38,8 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 
 	// Load job by id
 	job, err := core.LoadJob(jid)
-
 	if err != nil {
-		if err.Error() == e.MongoDocNotFound {
+		if err.Error() == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {
@@ -51,7 +51,7 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	}
 
 	// User must be job owner or be an admin
-	if job.Acl.Owner != u.Uuid && u.Admin == false {
+	if job.Acl.Owner != u.Uuid && u.Admin == false && job.Acl.Owner != "public" {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}
@@ -90,19 +90,16 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 	job, err := core.LoadJob(jid)
 
 	if err != nil {
-		if err.Error() == e.MongoDocNotFound {
+		if err.Error() == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {
-			// In theory the db connection could be lost between
-			// checking user and load but seems unlikely.
 			cx.RespondWithErrorMessage("job not found: "+jid, http.StatusBadRequest)
 			return
 		}
 	}
 
-	// Users that are not the job owner or an admin can only delete themselves from an ACL.
-	// Job owners can view/edit/delete ACLs
+	// Users that are not an admin or the clientgroup owner can only delete themselves from an ACL.
 	if job.Acl.Owner != u.Uuid && u.Admin == false {
 		if rmeth == "DELETE" {
 			ids, err := parseJobAclRequestTyped(cx)
@@ -111,13 +108,14 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 				return
 			}
 			if len(ids) != 1 || (len(ids) == 1 && ids[0] != u.Uuid) {
-				cx.RespondWithErrorMessage("Non-owners of job can delete one and only user from the ACLs (themselves)", http.StatusBadRequest)
+				cx.RespondWithErrorMessage("Non-owners of a job can delete one and only user from the ACLs (themselves).", http.StatusBadRequest)
 				return
 			}
 			if rtype == "owner" {
-				cx.RespondWithErrorMessage("Deleting ownership is not a supported request type.", http.StatusBadRequest)
+				cx.RespondWithErrorMessage("Deleting job ownership is not a supported request type.", http.StatusBadRequest)
 				return
-			} else if rtype == "all" {
+			}
+			if rtype == "all" {
 				for _, atype := range []string{"read", "write", "delete"} {
 					job.Acl.UnSet(ids[0], map[string]bool{atype: true})
 				}
@@ -132,7 +130,8 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 		return
 	}
 
-	// At this point we know we're dealing with just the clientgroup owner or an admin.
+	// At this point we know we're dealing with an admin or the clientgroup owner.
+	// Admins and clientgroup owners can view/edit/delete ACLs
 	if rmeth != "GET" {
 		ids, err := parseJobAclRequestTyped(cx)
 		if err != nil {

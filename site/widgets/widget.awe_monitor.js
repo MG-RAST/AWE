@@ -9,8 +9,7 @@
     });
     
     widget.setup = function () {
-	    return [ Retina.add_renderer({"name": "table", "resource": "./renderers/",  "filename": "renderer.table.js" }),
-  		     Retina.load_renderer("table") ];
+	    return [ Retina.load_renderer("table") ];
     };
 
     widget.tables = [];
@@ -19,6 +18,53 @@
 	// initialize
         widget = this;
 	var index = widget.index;
+
+	widget.target = wparams.target;
+	widget.target.innerHTML = '\
+<div id="refresh" style="position: absolute; top: 64px; left: 17px; z-index: 100;">\
+    </div>\
+    <div id="overview" class="sidebar"></div>\
+    <div class="mainview">\
+      <ul class="nav nav-tabs">\
+	<li class="active">\
+	  <a data-toggle="tab" href="#graphical">overview</a>\
+	</li>\
+	<li>\
+	  <a data-toggle="tab" href="#active">active jobs</a>\
+	</li>\
+	<li class="">\
+	  <a data-toggle="tab" href="#suspended">suspended jobs</a>\
+	</li>\
+	<li class="">\
+	  <a data-toggle="tab" href="#completed">completed jobs</a>\
+	</li>\
+	<li class="">\
+	  <a data-toggle="tab" href="#queuing_workunit">queued workunits</a>\
+	</li>\
+	<li class="">\
+	  <a data-toggle="tab" href="#checkout_workunit">checked-out workunits</a>\
+	</li>\
+	<li class="">\
+	  <a data-toggle="tab" href="#clients">clients</a>\
+	</li>\
+      </ul>\
+      <div class="tab-content">\
+	<div id="graphical" class="tab-pane active">\
+	</div>\
+	<div id="active" class="tab-pane">\
+	</div>\
+	<div id="suspended" class="tab-pane">\
+	</div>\
+	<div id="completed" class="tab-pane">\
+	</div>\
+	<div id="queuing_workunit" class="tab-pane">\
+	</div>\
+	<div id="checkout_workunit" class="tab-pane">\
+	</div>\
+	<div id="clients" class="tab-pane">\
+	</div>\
+      </div>\
+    </div>';
 
 	var update = document.getElementById('refresh');
 	update.innerHTML = '\

@@ -4,8 +4,10 @@
     <meta http-equiv="content-type" content="text/html; charset=UTF-8">
     <title>AWE - Home</title>
     <link rel="icon" href="images/awe-lg.png" type="image/x-icon">
-    <script src="js/jquery.min.js"></script>
-    <script src="js/bootstrap.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="Retina/js/jquery.min.js"></script>
+    <script src="Retina/js/bootstrap.min.js"></script>
+    <script src="Retina/js/retina.js"></script>
     <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
     <style>
 	  .tab-pane {
@@ -29,6 +31,24 @@
 	  top: 120px;
 	  }
     </style>
+    <script>
+    jQuery( document ).ready(function(){
+	Retina.init({});
+	    
+	var page = Retina.cgiParam("page") || "home";	
+	document.title = "AWE - "+page.charAt(0).toUpperCase()+page.substr(1);
+
+	Retina.load_widget("awe_"+page).then( function() {
+	    var awep = Retina.Widget.create('awe_'+page, { target: document.getElementById('mainview') });
+	    if (RetinaConfig.authentication) {
+		     Retina.load_widget({"name": "login", "resource": "Retina/widgets/"}).then( function() {
+			 Retina.Widget.create('login', { "target": document.getElementById("login_space"),
+							 "callback": typeof Retina.WidgetInstances["awe_"+page][1].loginAction == "function" ?  Retina.WidgetInstances["awe_"+page][1].loginAction : null });
+		     });
+	    }
+	});
+    });
+    </script>
   </head>
 
   <body style="margin-top: 60px; margin-bottom: 100px;">
@@ -43,13 +63,10 @@
 		<a href="main.html">Home</a>
 	      </li>
 	      <li class="">
-		<a href="awemonitor.html">Status Monitor</a>
+		<a href="main.html?page=monitor">Status Monitor</a>
 	      </li>
 	      <li class="">
-		<a href="awesubmission.html">Job Submission</a>
-	      </li>
-	      <li class="">
-		<a href="aweworkflow.html">Workflow Editor</a>
+		<a href="main.html?page=clientgroups">Clientgroups</a>
 	      </li>
 	    </ul>
 	  </div>
@@ -58,17 +75,7 @@
       </div>
     </div>
 
-    <div class="mainview">
-
-      <h2>Welcome to AWE!</h2>
-
-      <hr>
-
-      <p>AWE is a workflow engine that manages and executes scientific computing workflows or pipelines.</p>
-
-      <p>AWE is designed as a distributed system that contains a centralized server and multiple distributed clients. The server receives job submissions and parses jobs into tasks, splits tasks into workunits, and manages workunits in a queue. The AWE clients, running on distributed, heterogeneous computing resources, keep checking out workunits from the server queue and dispatching the workunits on the local computing resources.</p>
-
-      <p>AWE uses the Shock data management system to handle input and output data (retrieval, storage, splitting, and merge). AWE uses a RESTful API for communication between AWE components and with outside components such as Shock, the job submitter, and the status monitor.</p>
+    <div id="mainview">
 
     </div>
     

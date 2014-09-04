@@ -1,0 +1,4 @@
+[submodule "site/Retina"]
+	path = site/Retina
+	url = git@github.com:MG-RAST/Retina.git
+	branch = master

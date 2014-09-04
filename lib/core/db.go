@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"github.com/MG-RAST/golib/mgo"
+	"github.com/MG-RAST/golib/mgo/bson"
 )
 
 func InitJobDB() {
@@ -14,6 +14,8 @@ func InitJobDB() {
 	defer session.Close()
 	cj := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 	cj.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
+	cj.EnsureIndex(mgo.Index{Key: []string{"jid"}, Background: true})
+	cj.EnsureIndex(mgo.Index{Key: []string{"updatetime"}, Background: true})
 	cp := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_PERF)
 	cp.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
 }

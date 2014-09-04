@@ -4,8 +4,8 @@ import (
 	"code.google.com/p/go-uuid/uuid"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"github.com/MG-RAST/golib/mgo"
+	"github.com/MG-RAST/golib/mgo/bson"
 )
 
 // Array of User

@@ -8,7 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/uniuri"
-	"labix.org/v2/mgo/bson"
+	"github.com/MG-RAST/golib/mgo/bson"
 	"os"
 	"regexp"
 	"strconv"

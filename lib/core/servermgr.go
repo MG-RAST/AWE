@@ -10,7 +10,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/user"
 	"io/ioutil"
-	"labix.org/v2/mgo/bson"
+	"github.com/MG-RAST/golib/mgo/bson"
 	"os"
 	"strconv"
 	"strings"

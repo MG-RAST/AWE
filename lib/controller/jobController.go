@@ -11,7 +11,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
-	"labix.org/v2/mgo/bson"
+	"github.com/MG-RAST/golib/mgo"
+	"github.com/MG-RAST/golib/mgo/bson"
 	"net/http"
 	"strconv"
 	"strings"
@@ -126,7 +127,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	job, err := core.LoadJob(id)
 
 	if err != nil {
-		if err.Error() == e.MongoDocNotFound {
+		if err.Error() == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {
@@ -152,7 +153,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 		//Load job perf by id
 		perf, err := core.LoadJobPerf(id)
 		if err != nil {
-			if err.Error() == e.MongoDocNotFound {
+			if err.Error() == mgo.ErrNotFound {
 				cx.RespondWithNotFound()
 				return
 			} else {
@@ -278,6 +279,8 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		q["state"] = bson.M{"$in": core.JOB_STATS_ACTIVE}
 	} else if query.Has("suspend") {
 		q["state"] = core.JOB_STAT_SUSPEND
+	} else if query.Has("registered") {
+		q["state"] = bson.M{"$in": core.JOB_STATS_REGISTERED}
 	}
 
 	//getting real active (in-progress) job (some jobs are in "submitted" states but not in the queue,
@@ -461,7 +464,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 	job, err := core.LoadJob(id)
 
 	if err != nil {
-		if err.Error() == e.MongoDocNotFound {
+		if err.Error() == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {
@@ -560,7 +563,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 
 		job, err := core.LoadJob(id)
 		if err != nil {
-			if err.Error() == e.MongoDocNotFound {
+			if err.Error() == mgo.ErrNotFound {
 				cx.RespondWithNotFound()
 				return
 			} else {
@@ -599,7 +602,7 @@ func (cr *JobController) Delete(id string, cx *goweb.Context) {
 	}
 
 	if err = core.QMgr.DeleteJobByUser(id, u); err != nil {
-		if err.Error() == e.MongoDocNotFound {
+		if err.Error() == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else if err.Error() == e.UnAuth {

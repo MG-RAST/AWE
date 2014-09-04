@@ -2,7 +2,7 @@ package core
 
 import (
 	"encoding/json"
-	"labix.org/v2/mgo/bson"
+	"github.com/MG-RAST/golib/mgo/bson"
 	"testing"
 )
 

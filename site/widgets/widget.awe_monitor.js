@@ -19,7 +19,7 @@
         widget = this;
 	var index = widget.index;
 
-	widget.target = wparams.target;
+	widget.target = widget.target || wparams.target;
 	widget.target.innerHTML = '\
 <div id="refresh" style="position: absolute; top: 64px; left: 17px; z-index: 100;">\
     </div>\
@@ -170,7 +170,7 @@
 	    gt.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationGraphical,
 	    gt.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?query";
 	    gt.settings.rows_per_page = 20;
-	    gt.settings.minwidths = [1,300,1, 1, 1];
+	    gt.settings.minwidths = [1,300,1, 95, 125];
 	    gt.settings.disable_sort = { 2: 1 };
 	    gt.settings.filter = { 1: { type: "text" },
 				   3: { type: "text" },
@@ -194,7 +194,7 @@
 	    at.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationActive,
 	    at.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?active";
 	    at.settings.rows_per_page = 20;
-	    at.settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75,83];
+	    at.settings.minwidths = [1,1,65,1,85,85,90,40,40,75,75,83];
 	    at.settings.disable_sort = { };
 	    at.settings.filter = { };
 	    at.settings.asynch_column_mapping = { "created": "info.submittime",
@@ -204,20 +204,20 @@
 						  "project": "info.project",
 						  "pipeline": "info.pipeline",
 						  "group": "info.clientgroups",
-						  "t-total": "tasks.length",
+						  "tot": "tasks.length",
 						  "state": "state",
 						  "updated": "updatetime",
 						  "priority": "info.priority" };
 	    at.settings.filter_autodetect = false;
 	    at.settings.sort_autodetect = false;
-	    at.settings.data = { data: [], header: [ "created", "jid", "name", "user", "project", "pipeline", "group", "t-complete", "t-total", "state", "updated", "priority" ] };
+	    at.settings.data = { data: [], header: [ "created", "jid", "name", "user", "project", "pipeline", "group", "ok", "tot", "state", "updated", "priority" ] };
 	    at.render();
 	    at.update({}, at.index);
 
 	    break;
 	case "suspended":
 	    jQuery.ajax( { dataType: "json",
-			   url: RetinaConfig["awe_ip"]+"/job?suspend",
+			   url: RetinaConfig["awe_ip"]+"/job?suspend&limit=1000",
 			   headers: widget.authHeader,
 			   error: function () {
 			       Retina.WidgetInstances.awe_monitor[1].check_update();
@@ -252,13 +252,14 @@
 							 "project",
 							 "pipeline",
 							 "group",
-							 "t-complete",
-							 "t-total",
+							 "ok",
+							 "tot",
 							 "state",
 							 "updated"],
 					       data: result_data };
 
-			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75];
+			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.minwidths = [1,55,75,1,75,85,90,55,55,75,75];
+			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.invisible_columns = { 10: true };
 			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.data = return_data;
 			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].render();
 			       Retina.WidgetInstances.awe_monitor[1].check_update();
@@ -267,38 +268,6 @@
 
 	    break;
 	case "queuing_workunit":
-	    // var qt = Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"];
-	    // qt.settings.headers = widget.authHeader;
-	    // qt.settings.synchronous = false;
-	    // qt.settings.query_type = 'prefix';
-	    // qt.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationQueued,
-	    // qt.settings.navigation_url = RetinaConfig["awe_ip"]+"/work?query&state=queued";
-	    // qt.settings.rows_per_page = 20;
-	    // qt.settings.minwidths = [1,1,1,1,65,78,75,75,83];
-	    // qt.settings.asynch_column_mapping = { "wuid": "quid",
-	    // 					  "submission time": "info.submittime",
-	    // 					  "cmd name": "cmd.name",
-	    // 					  "cmd args": "cmd.args",
-	    // 					  "rank": "rank",
-	    // 					  "t-work": "totalwork",
-	    // 					  "state": "state",
-	    // 					  "failed": "failed",
-	    //                                    "priority": "info.priority"};
-	    // qt.settings.filter = { };
-	    // qt.settings.disable_sort = {};
-	    // qt.settings.filter_autodetect = false;
-	    // qt.settings.sort_autodetect = false;
-	    // qt.settings.data = { data: [], header: [ "wuid",
-	    // 					     "submission time",
-	    // 					     "cmd name",
-	    // 					     "cmd args",
-	    // 					     "rank",
-	    // 					     "t-work",
-	    // 					     "state",
-	    // 					     "failed",
-	    //                                       "priority" ] };
-	    // qt.render();
-	    // qt.update({}, qt.index);
 	    jQuery.ajax( { dataType: "json",
 			   url: RetinaConfig["awe_ip"]+"/work?query&state=queued",
 			   headers: widget.authHeader,
@@ -331,7 +300,7 @@
 							 "cmd name",
 							 "cmd args",
 							 "rank",
-							 "t-work",
+							 "tot",
 							 "state",
 							 "failed",
 							 "priority" ],
@@ -352,7 +321,7 @@
 	    ct.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationCompleted,
 	    ct.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?query&state=completed";
 	    ct.settings.rows_per_page = 20;
-	    ct.settings.minwidths = [1,51,65,64,83,85,90,107,75,75,75];
+	    ct.settings.minwidths = [1,51,75,64,83,85,90,107,75,75,75];
 	    ct.settings.asynch_column_mapping = { "created": "info.submittime",
 						  "jid": "jid",
 						  "name": "info.name",
@@ -381,8 +350,8 @@
 						     "project",
 						     "pipeline",
 						     "group",
-						     "t-complete",
-						     "t-total",
+						     "ok",
+						     "tot",
 						     "state", 
 						     "finished" ] };
 	    ct.render();
@@ -423,12 +392,12 @@
 							 "cmd name",
 							 "cmd args",
 							 "rank",
-							 "t-work",
+							 "tot",
 							 "state",
 							 "failed" ],
 					       data: result_data };
 
-			       Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.minwidths = [1,1,1,1,1,50,50,50,50];
+			       Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.minwidths = [1,1,1,1,1,65,65,75,75];
 			       Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.data = return_data;
 			       Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].render();
 			       Retina.WidgetInstances.awe_monitor[1].check_update();
@@ -542,10 +511,12 @@
 		    dots += '<span style="color: blue;font-size: 19px; cursor: default;" title="in-progress: '+stages[i].cmd.description+'">&#9679;</span>';
 		} else if (stages[i].state == 'queued') {
 		    dots += '<span style="color: orange;font-size: 19px; cursor: default;" title="queued: '+stages[i].cmd.description+'">&#9679;</span>';
-		} else if (stages[i].state == 'error') {
+		} else if (stages[i].state == 'error' || stages[i].state == 'suspend') {
 		    dots += '<span style="color: red;font-size: 19px; cursor: default;" title="error: '+stages[i].cmd.description+'">&#9679;</span>';
-		} else if (stages[i].state == 'init') {
+		} else if (stages[i].state == 'init' || stages[i].state == 'pending') {
 		    dots += '<span style="color: gray;font-size: 19px; cursor: default;" title="init: '+stages[i].cmd.description+'">&#9679;</span>';
+		} else {
+		    console.log(stages[i].state);
 		}
 	    }
 	}
@@ -651,8 +622,8 @@
 				"project": obj.info.project,
 				"pipeline": obj.info.pipeline,
 				"group": obj.info.clientgroups,
-				"t-complete": obj.tasks.length - obj.remaintasks || "0",
-				"t-total": obj.tasks.length,
+				"ok": obj.tasks.length - obj.remaintasks || "0",
+				"tot": obj.tasks.length,
 				"state": obj.state, 
 				"finished": obj.updatetime  
 			      } );
@@ -665,8 +636,8 @@
 			       "project": "-",
 			       "pipeline": "-",
 			       "group": "-",
-			       "t-complete": "-",
-			       "t-total": "-",
+			       "ok": "-",
+			       "tot": "-",
 			       "state": "-", 
 			       "finished": "-" });
 	}
@@ -686,8 +657,8 @@
 				"project": obj.info.project,
 				"pipeline": obj.info.pipeline,
 				"group": obj.info.clientgroups,
-				"t-complete": obj.tasks.length - obj.remaintasks || "0",
-				"t-total": obj.tasks.length,
+				"ok": obj.tasks.length - obj.remaintasks || "0",
+				"tot": obj.tasks.length,
 				"state": obj.state,
 				"updated": obj.updatetime,
 				"priority": obj.info.priority
@@ -701,8 +672,8 @@
 			       "project": "-",
 			       "pipeline": "-",
 			       "group": "-",
-			       "t-complete": "-",
-			       "t-total": "-",
+			       "ok": "-",
+			       "tot": "-",
 			       "state": "-", 
 			       "updated": "-",
 			       "priority": "-" });
@@ -720,7 +691,7 @@
 				"cmd name": obj.cmd.name,
 				"cmd args": obj.cmd.args,
 				"rank": obj.rank || "0",
-				"t-work": obj.totalwork || "0",
+				"tot": obj.totalwork || "0",
 				"state": obj.state,
 				"failed": obj.failed || "0",
 				"priority": obj.info.priority
@@ -732,7 +703,7 @@
 			       "cmd name": "-",
 			       "cmd args": "-",
 			       "rank": "-",
-			       "t-work": "-",
+			       "tot": "-",
 			       "state": "-",
 			       "failed": "-",
 			       "priority": "-" });

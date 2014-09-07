@@ -45,7 +45,7 @@ var ClientGroupAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	cg, err := core.LoadClientGroup(cgid)
 
 	if err != nil {
-		if err.Error() == mgo.ErrNotFound {
+		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {
@@ -96,7 +96,7 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 	cg, err := core.LoadClientGroup(cgid)
 
 	if err != nil {
-		if err.Error() == mgo.ErrNotFound {
+		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {

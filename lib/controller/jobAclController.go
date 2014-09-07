@@ -39,7 +39,7 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	// Load job by id
 	job, err := core.LoadJob(jid)
 	if err != nil {
-		if err.Error() == mgo.ErrNotFound {
+		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {
@@ -90,7 +90,7 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 	job, err := core.LoadJob(jid)
 
 	if err != nil {
-		if err.Error() == mgo.ErrNotFound {
+		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {

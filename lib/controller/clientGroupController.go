@@ -83,7 +83,7 @@ func (cr *ClientGroupController) Read(id string, cx *goweb.Context) {
 	cg, err := core.LoadClientGroup(id)
 
 	if err != nil {
-		if err.Error() == mgo.ErrNotFound {
+		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {
@@ -221,7 +221,7 @@ func (cr *ClientGroupController) Delete(id string, cx *goweb.Context) {
 	cg, err := core.LoadClientGroup(id)
 
 	if err != nil {
-		if err.Error() == mgo.ErrNotFound {
+		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {

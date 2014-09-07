@@ -127,7 +127,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	job, err := core.LoadJob(id)
 
 	if err != nil {
-		if err.Error() == mgo.ErrNotFound {
+		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {
@@ -153,7 +153,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 		//Load job perf by id
 		perf, err := core.LoadJobPerf(id)
 		if err != nil {
-			if err.Error() == mgo.ErrNotFound {
+			if err == mgo.ErrNotFound {
 				cx.RespondWithNotFound()
 				return
 			} else {
@@ -464,7 +464,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 	job, err := core.LoadJob(id)
 
 	if err != nil {
-		if err.Error() == mgo.ErrNotFound {
+		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else {
@@ -563,7 +563,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 
 		job, err := core.LoadJob(id)
 		if err != nil {
-			if err.Error() == mgo.ErrNotFound {
+			if err == mgo.ErrNotFound {
 				cx.RespondWithNotFound()
 				return
 			} else {
@@ -602,7 +602,7 @@ func (cr *JobController) Delete(id string, cx *goweb.Context) {
 	}
 
 	if err = core.QMgr.DeleteJobByUser(id, u); err != nil {
-		if err.Error() == mgo.ErrNotFound {
+		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
 		} else if err.Error() == e.UnAuth {

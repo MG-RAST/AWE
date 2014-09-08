@@ -427,6 +427,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	var max_memory_total_rss int64 = -1
 	var max_memory_total_swap int64 = -1
 
+	// documentation: https://docs.docker.com/articles/runmetrics/
 	// e.g. /sys/fs/cgroup/memory/docker/<id>/memory.stat
 	memory_stat_filename := path.Join(conf.CGROUP_MEMORY_DOCKER_DIR, container_id, "/memory.stat")
 

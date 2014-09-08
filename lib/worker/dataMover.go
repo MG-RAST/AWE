@@ -24,16 +24,19 @@ import (
 	"time"
 )
 
-func replace_filepath_with_full_filepath(inputs *core.IOmap, cmd_script []string) (err error) {
+// this functions replaces filename if they match regular expression and they match the filename reported in IOmap
+func replace_filepath_with_full_filepath(inputs *core.IOmap, workpath string, cmd_script []string) (err error) {
+
+	// workpath may be conf.DOCKER_WORK_DIR
 
 	for _, cmd_line := range cmd_script {
 		logger.Debug(1, fmt.Sprintf("C cmd_line : %s", cmd_line))
 	}
 
 	// replace @files with abosulte file path
-	match_at_file, err := regexp.Compile(`@[^\s]+`)
+	// was: match_at_file, err := regexp.Compile(`@[^\s]+`)
+	match_at_file, err := regexp.Compile(`@[\w-]+`) // [0-9A-Za-z_] and "-" //TODO support for space using quotes
 	if err != nil {
-
 		err = errors.New(fmt.Sprintf("error: compiling regex (match_at_file), error=%s", err.Error()))
 		return
 	}
@@ -46,7 +49,7 @@ func replace_filepath_with_full_filepath(inputs *core.IOmap, cmd_script []string
 
 		if inputs.Has(inputname) {
 			//inputFilePath := fmt.Sprintf("%s/%s", conf.DOCKER_WORK_DIR, inputname)
-			inputFilePath := path.Join(conf.DOCKER_WORK_DIR, inputname)
+			inputFilePath := path.Join(workpath, inputname)
 			logger.Debug(1, fmt.Sprintf("return full file_name: %s", inputname))
 			return inputFilePath
 		}
@@ -128,7 +131,7 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 
 	logger.Debug(1, "+++ replace_filepath_with_full_filepath")
 	// expand filenames
-	err = replace_filepath_with_full_filepath(&parsed.workunit.Inputs, cmd_script)
+	err = replace_filepath_with_full_filepath(&parsed.workunit.Inputs, conf.DOCKER_WORK_DIR, cmd_script)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error: replace_filepath_with_full_filepath, %s", err.Error()))
 	}
@@ -279,6 +282,11 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 		return
 	}
 
+	// use better file name replacement technique
+	var virtual_cmd_script = []string{argstr}
+	replace_filepath_with_full_filepath(&work.Inputs, work.Path(), virtual_cmd_script)
+	argstr = virtual_cmd_script[0]
+
 	argList := parse_arg_string(argstr)
 
 	for _, arg := range argList {
@@ -297,6 +305,8 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 			args = append(args, parsedArg)
 			continue
 		}
+
+		// this might be deprecated by replace_filepath_with_full_filepath
 		if strings.Contains(arg, "@") { //parse input/output to accessible local file
 			segs := strings.Split(arg, "@")
 			if len(segs) > 2 {

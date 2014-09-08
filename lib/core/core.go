@@ -603,9 +603,9 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 			}
 		}
 
-		if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, &io.NodeAttr); err != nil {
+		if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-			if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, &io.NodeAttr); err != nil {
+			if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 				fmt.Errorf("push file error\n")
 				logger.Error("op=pushfile,err=" + err.Error())
 				return size, err
@@ -650,7 +650,7 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 	return
 }
 
-func PutFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string, ntype string, formopts map[string]string, nodeattr *map[string]interface{}) (err error) {
+func PutFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string, ntype string, formopts map[string]string, nodeattr map[string]interface{}) (err error) {
 	opts := Opts{}
 	fi, _ := os.Stat(filename)
 	if (attrfile != "") && (rank < 2) {
@@ -722,7 +722,7 @@ func getWorkNotesPath(work *Workunit) (worknotesFilePath string, err error) {
 }
 
 //shock access functions
-func createOrUpdate(opts Opts, host string, nodeid string, token string, nodeattr *map[string]interface{}) (node *shock.ShockNode, err error) {
+func createOrUpdate(opts Opts, host string, nodeid string, token string, nodeattr map[string]interface{}) (node *shock.ShockNode, err error) {
 	url := host + "/node"
 	method := "POST"
 	if nodeid != "" {
@@ -737,7 +737,7 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string, nodeatt
 	//	form.AddParam("attributes_str", opts.Value("attributes_str"))
 	//}
 
-	if len(*nodeattr) != 0 {
+	if len(nodeattr) != 0 {
 		nodeattr_json, err := json.Marshal(nodeattr)
 		if err != nil {
 			return nil, errors.New("error marshalling NodeAttr")

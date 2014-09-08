@@ -737,7 +737,7 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string, nodeatt
 	//	form.AddParam("attributes_str", opts.Value("attributes_str"))
 	//}
 
-	if nodeattr != nil {
+	if len(nodeattr) != 0 {
 		nodeattr_json, err := json.Marshal(nodeattr)
 		if err != nil {
 			return nil, errors.New("error marshalling NodeAttr")

@@ -93,8 +93,10 @@
 	    view.innerHTML = "";
 	   
 	    if (views[i] != "overview") {
+		var options = document.createElement('div');
+		options.setAttribute('id', 'optionsDiv'+views[i]);
+		view.appendChild(options);
 		var target_space = document.createElement('div');
-		target_space.innerHTML = "";
 		view.appendChild(target_space);
 		Retina.WidgetInstances.awe_monitor[1].tables[views[i]] = Retina.Renderer.create("table", { target: target_space, data: {}, filter_autodetect: true, sort_autodetect: true });
 	    }
@@ -216,6 +218,8 @@
 
 	    break;
 	case "suspended":
+	    var options = document.getElementById('optionsDivsuspended');
+	    options.innerHTML = "<button class='btn btn-small btn-primary' onclick='Retina.WidgetInstances.awe_monitor[1].resumeAllJobs();'>resume all jobs</button>";
 	    jQuery.ajax( { dataType: "json",
 			   url: RetinaConfig["awe_ip"]+"/job?suspend&limit=1000",
 			   headers: widget.authHeader,
@@ -548,7 +552,7 @@
     widget.clientTooltip = function (obj, id) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
 	obj.popover('destroy');
-	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stderr&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>error</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stdout&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>output</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;worknotes&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>worknotes</a>",html:true,placement:"top"});
+	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stderr&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>error</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stdout&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>output</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;worknotes&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>worknotes</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].resumeJob(&#39;"+id+"&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>resume</a>",html:true,placement:"top"});
 	obj.popover('show');
     }
 
@@ -709,6 +713,36 @@
 			       "priority": "-" });
 	}
 	return result_data;
+    };
+
+    widget.resumeJob = function (jobid) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
+	jQuery.ajax({
+	    method: "PUT",
+	    dataType: "json",
+	    headers: widget.authHeader, 
+	    url: RetinaConfig["awe_ip"]+"/job/"+jobid+"?resume",
+	    success: function (data) {
+		Retina.WidgetInstances.awe_monitor[1].updateData('suspended');
+		alert('job resumed');
+	    }}).fail(function(xhr, error) {
+		alert('failed to resume job');
+	    });
+    };
+
+    widget.resumeAllJobs = function () {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
+	jQuery.ajax({
+	    method: "PUT",
+	    dataType: "json",
+	    headers: widget.authHeader, 
+	    url: RetinaConfig["awe_ip"]+"/job?resumeall",
+	    success: function (data) {
+		Retina.WidgetInstances.awe_monitor[1].updateData('suspended');
+		alert('all jobs resumed');
+	    }}).fail(function(xhr, error) {
+		alert('failed to resume all jobs');
+	    });
     };
 
     widget.xlsExport = function (job) {

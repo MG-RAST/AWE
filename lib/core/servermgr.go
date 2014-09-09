@@ -455,6 +455,9 @@ func getStdLogPathByWorkId(workid string, logname string) (string, error) {
 
 func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, tasks []*Task) (err error) {
 	for _, task := range tasks {
+		if task.Info == nil {
+			fmt.Printf("task.Info is nil for job: %v\n", jobid)
+		}
 		qm.taskIn <- task
 	}
 	qm.CreateJobPerf(jobid)
@@ -959,9 +962,7 @@ func (qm *ServerMgr) DeleteZombieJobs() (num int) {
 	dbjobs := new(Jobs)
 	q := bson.M{}
 	q["state"] = bson.M{"in": JOB_STATS_ACTIVE}
-	lim := 1000
-	off := 0
-	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {
+	if err := dbjobs.GetAll(q, "info.submittime", "asc"); err != nil {
 		logger.Error("DeleteZombieJobs()->GetAllLimitOffset():" + err.Error())
 		return
 	}
@@ -980,9 +981,7 @@ func (qm *ServerMgr) DeleteZombieJobsByUser(u *user.User) (num int) {
 	dbjobs := new(Jobs)
 	q := bson.M{}
 	q["state"] = bson.M{"in": JOB_STATS_ACTIVE}
-	lim := 1000
-	off := 0
-	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {
+	if err := dbjobs.GetAll(q, "info.submittime", "asc"); err != nil {
 		logger.Error("DeleteZombieJobs()->GetAllLimitOffset():" + err.Error())
 		return
 	}
@@ -1079,9 +1078,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	dbjobs := new(Jobs)
 	q := bson.M{}
 	q["state"] = bson.M{"$in": JOB_STATS_TO_RECOVER}
-	lim := 1000
-	off := 0
-	if err := dbjobs.GetAllLimitOffset(q, lim, off); err != nil {
+	if err := dbjobs.GetAll(q, "info.submittime", "asc"); err != nil {
 		logger.Error("RecoverJobs()->GetAllLimitOffset():" + err.Error())
 		return err
 	}

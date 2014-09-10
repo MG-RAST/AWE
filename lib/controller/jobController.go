@@ -267,24 +267,26 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		"registered": 1,
 	}
 	if query.Has("query") {
+		const shortForm = "2006-01-02"
 		date_query := bson.M{}
 		for key, val := range query.All() {
 			_, s := skip[key]
 			if !s {
-				// special case for date range, otherwise check for inclusiveness
-				if key == "date_start" {
-					if t, err := time.Parse(time.RFC3339, val[0]); err != nil {
-						date_query["$gte"] = t
-					} else {
-						cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-						return
+				// special case for date range, either full date-time or just date
+				if (key == "date_start") || (key == "date_end") {
+					opr := "$gte"
+					if key == "date_end" {
+						opr = "$lt"
 					}
-				} else if key == "date_end" {
-					if t, err := time.Parse(time.RFC3339, val[0]); err != nil {
-						date_query["$lt"] = t
+					if t_long, err := time.Parse(time.RFC3339, val[0]); err != nil {
+						if t_short, err := time.Parse(shortForm, val[0]); err != nil {
+							cx.RespondWithErrorMessage("Invalid datetime format: "+val[0], http.StatusBadRequest)
+							return
+						} else {
+							date_query[opr] = t_short
+						}
 					} else {
-						cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-						return
+						date_query[opr] = t_long
 					}
 				} else {
 					// handle either multiple values for key, or single comma-spereated value

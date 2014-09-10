@@ -327,6 +327,20 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}
 
+	// collect environment
+	var docker_environment []string
+	docker_environment_string := "" // this is only for the debug output
+	for key, val := range work.Cmd.Environ.Public {
+		env_pair := key + "=" + val
+		docker_environment = append(docker_environment, env_pair)
+		docker_environment_string += "-e " + env_pair
+	}
+	for key, val := range work.Cmd.Environ.Private {
+		env_pair := key + "=" + val
+		docker_environment = append(docker_environment, key+"="+val)
+		docker_environment_string += "-e " + env_pair
+	}
+
 	pipe_output := fmt.Sprintf(" 2> %s 1> %s", conf.STDERR_FILENAME, conf.STDOUT_FILENAME)
 	bash_command := ""
 	if use_wrapper_script {
@@ -342,7 +356,14 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	container_cmd := []string{"/bin/bash", "-c", bash_command} // TODO remove bash if possible, but is needed for piping
 
-	config := docker.Config{Image: dockerimage_id, WorkingDir: conf.DOCKER_WORK_DIR, AttachStdout: true, AttachStderr: true, AttachStdin: false, Cmd: container_cmd, Volumes: map[string]struct{}{conf.DOCKER_WORK_DIR: {}}}
+	config := docker.Config{Image: dockerimage_id,
+		WorkingDir:   conf.DOCKER_WORK_DIR,
+		AttachStdout: true,
+		AttachStderr: true,
+		AttachStdin:  false,
+		Cmd:          container_cmd,
+		Volumes:      map[string]struct{}{conf.DOCKER_WORK_DIR: {}},
+		Env:          docker_environment}
 	opts := docker.CreateContainerOptions{Name: container_name, Config: &config}
 
 	// *** create container (or find container ?)
@@ -384,7 +405,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		bindarray = []string{bindstr_workdir}
 	}
 
-	fake_docker_cmd := "sudo docker run -t -i --name test -v " + bindstr_workdir + fake_predata + " --workdir=" + conf.DOCKER_WORK_DIR + " " + dockerimage_id + " " + strings.Join(container_cmd, " ")
+	fake_docker_cmd := "sudo docker run -t -i --name test -v " + bindstr_workdir + fake_predata + " " + docker_environment_string + " --workdir=" + conf.DOCKER_WORK_DIR + " " + dockerimage_id + " " + strings.Join(container_cmd, " ")
 	logger.Debug(1, "fake_docker_cmd ("+Dockerimage+"): "+fake_docker_cmd)
 	logger.Debug(1, "starting docker container...")
 

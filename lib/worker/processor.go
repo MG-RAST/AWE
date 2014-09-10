@@ -333,12 +333,19 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	for key, val := range work.Cmd.Environ.Public {
 		env_pair := key + "=" + val
 		docker_environment = append(docker_environment, env_pair)
-		docker_environment_string += "-e " + env_pair
+		docker_environment_string += " -e " + env_pair
 	}
-	for key, val := range work.Cmd.Environ.Private {
-		env_pair := key + "=" + val
-		docker_environment = append(docker_environment, key+"="+val)
-		docker_environment_string += "-e " + env_pair
+	if work.Cmd.HasPrivateEnv {
+		private_envs, err := FetchPrivateEnvByWorkId(work.Id)
+		if err != nil {
+			return nil, err
+		}
+		for key, val := range private_envs {
+			env_pair := key + "=" + val
+			docker_environment = append(docker_environment, env_pair)
+			docker_environment_string += " -e " + env_pair
+
+		}
 	}
 
 	pipe_output := fmt.Sprintf(" 2> %s 1> %s", conf.STDERR_FILENAME, conf.STDOUT_FILENAME)

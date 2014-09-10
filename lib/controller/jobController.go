@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type JobController struct{}
@@ -232,7 +233,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 
 	limit := conf.DEFAULT_PAGE_SIZE
 	offset := 0
-	order := "updatetime"
+	order := "info.submittime"
 	direction := "desc"
 	if query.Has("limit") {
 		limit, err = strconv.Atoi(query.Value("limit"))
@@ -268,12 +269,39 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		"registered": 1,
 	}
 	if query.Has("query") {
+		date_query := bson.M{}
 		for key, val := range query.All() {
 			_, s := skip[key]
 			if !s {
-				queryvalues := strings.Split(val[0], ",")
-				q[key] = bson.M{"$in": queryvalues}
+				// special case for date range, otherwise check for inclusiveness
+				if key == "date_start" {
+					if t, err := time.Parse(time.RFC3339, val[0]); err != nil {
+						date_query["$gte"] = t
+					} else {
+						cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+						return
+					}
+				} else if key == "date_end" {
+					if t, err := time.Parse(time.RFC3339, val[0]); err != nil {
+						date_query["$lt"] = t
+					} else {
+						cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+						return
+					}
+				} else {
+					// handle either multiple values for key, or single comma-spereated value
+					if len(val) == 1 {
+						queryvalues := strings.Split(val[0], ",")
+						q[key] = bson.M{"$in": queryvalues}
+					} else if len(val) > 1 {
+						q[key] = bson.M{"$in": val}
+					}
+				}
 			}
+		}
+		// add submittime range query
+		if len(date_query) > 0 {
+			q["info.submittime"] = date_query
 		}
 	} else if query.Has("active") {
 		q["state"] = bson.M{"$in": core.JOB_STATS_ACTIVE}

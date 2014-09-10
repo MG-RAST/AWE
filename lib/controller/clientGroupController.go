@@ -85,13 +85,12 @@ func (cr *ClientGroupController) Read(id string, cx *goweb.Context) {
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
-			return
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
 			cx.RespondWithErrorMessage("clientgroup id not found:"+id, http.StatusBadRequest)
-			return
 		}
+		return
 	}
 
 	// User must have read permissions on clientgroup or be clientgroup owner or be an admin or the clientgroup is publicly readable.
@@ -223,13 +222,12 @@ func (cr *ClientGroupController) Delete(id string, cx *goweb.Context) {
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
-			return
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
 			cx.RespondWithErrorMessage("clientgroup id not found:"+id, http.StatusBadRequest)
-			return
 		}
+		return
 	}
 
 	// User must have delete permissions on clientgroup or be clientgroup owner or be an admin or the clientgroup is publicly deletable.

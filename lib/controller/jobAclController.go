@@ -41,13 +41,12 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
-			return
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
 			cx.RespondWithErrorMessage("job not found: "+jid, http.StatusBadRequest)
-			return
 		}
+		return
 	}
 
 	// User must be job owner or be an admin
@@ -58,10 +57,8 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 
 	if cx.Request.Method == "GET" {
 		cx.RespondWithData(job.Acl)
-		return
 	} else {
 		cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)
-		return
 	}
 	return
 }
@@ -92,11 +89,10 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
-			return
 		} else {
 			cx.RespondWithErrorMessage("job not found: "+jid, http.StatusBadRequest)
-			return
 		}
+		return
 	}
 
 	// Users that are not an admin or the clientgroup owner can only delete themselves from an ACL.

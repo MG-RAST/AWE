@@ -282,9 +282,14 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 		return
 	}
 
+	workpath := work.Path()
+	if len(work.Cmd.Dockerimage) > 0 {
+		workpath = conf.DOCKER_WORK_DIR
+	}
+
 	// use better file name replacement technique
 	var virtual_cmd_script = []string{argstr}
-	replace_filepath_with_full_filepath(&work.Inputs, work.Path(), virtual_cmd_script)
+	replace_filepath_with_full_filepath(&work.Inputs, workpath, virtual_cmd_script)
 	argstr = virtual_cmd_script[0]
 
 	argList := parse_arg_string(argstr)
@@ -314,7 +319,7 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 			}
 			inputname := segs[1]
 			if work.Inputs.Has(inputname) {
-				inputFilePath := path.Join(work.Path(), inputname)
+				inputFilePath := path.Join(workpath, inputname)
 				parsedArg := fmt.Sprintf("%s%s", segs[0], inputFilePath)
 				args = append(args, parsedArg)
 			}

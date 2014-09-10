@@ -11,7 +11,7 @@ import (
 
 // Setup conf variables
 var (
-	VERSION      = "0.9.5"
+	VERSION      = "0.9.6"
 	SHOW_VERSION = false
 
 	//Reload

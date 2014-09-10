@@ -151,6 +151,26 @@ func (qm *ServerMgr) updateQueue() (err error) {
 			}
 		}
 	}
+	for id, work := range qm.workQueue.workMap {
+		if work == nil || work.Info == nil {
+			jid, err := GetJobIdByWorkId(id)
+			if err != nil {
+				qm.workQueue.Delete(id)
+				logger.Error(fmt.Sprintf("error: in updateQueue() workunit %s is nil, cannot get job id", id))
+				continue
+			}
+
+			if work == nil {
+				qm.workQueue.Delete(id)
+				qm.SuspendJob(jid, fmt.Sprintf("workunit %s is nil", id), id)
+				logger.Error(fmt.Sprintf("error: workunit %s is nil, deleted from queue", id))
+			} else if work.Info == nil {
+				qm.workQueue.Delete(id)
+				qm.SuspendJob(jid, fmt.Sprintf("workunit %s has Info=nil", id), id)
+				logger.Error(fmt.Sprintf("error: workunit %s has Info=nil, deleted from queue", id))
+			}
+		}
+	}
 	return
 }
 

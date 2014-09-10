@@ -40,13 +40,12 @@ var ClientGroupTokenController goweb.ControllerFunc = func(cx *goweb.Context) {
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
-			return
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
 			cx.RespondWithErrorMessage("clientgroup id not found:"+cgid, http.StatusBadRequest)
-			return
 		}
+		return
 	}
 
 	// User must have write permissions on clientgroup or be clientgroup owner or be an admin or the clientgroup is publicly writable.

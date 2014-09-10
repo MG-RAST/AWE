@@ -62,6 +62,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 			token, err := core.QMgr.FetchDataToken(id, clientid)
 			if err != nil {
 				cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
+				return
 			}
 			//cx.RespondWithData(token)
 			RespondTokenInHeader(cx, token)
@@ -72,6 +73,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 			envs, err := core.QMgr.FetchPrivateEnv(id, clientid)
 			if err != nil {
 				cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
+				return
 			}
 			//cx.RespondWithData(token)
 			RespondPrivateEnvInHeader(cx, envs)

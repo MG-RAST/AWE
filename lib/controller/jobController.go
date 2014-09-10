@@ -130,14 +130,13 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
-			return
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
 			// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
 			cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
-			return
 		}
+		return
 	}
 
 	// User must have read permissions on job or be job owner or be an admin
@@ -156,14 +155,13 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 		if err != nil {
 			if err == mgo.ErrNotFound {
 				cx.RespondWithNotFound()
-				return
 			} else {
 				// In theory the db connection could be lost between
 				// checking user and load but seems unlikely.
 				logger.Error("Err@LoadJobPerf: " + id + ":" + err.Error())
 				cx.RespondWithErrorMessage("job perf stats not found:"+id, http.StatusBadRequest)
-				return
 			}
+			return
 		}
 		cx.RespondWithData(perf)
 		return //done with returning perf, no need to load job further.
@@ -494,14 +492,13 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
-			return
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
 			// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
 			cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
-			return
 		}
+		return
 	}
 
 	// User must have write permissions on job or be job owner or be an admin
@@ -593,12 +590,11 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		if err != nil {
 			if err == mgo.ErrNotFound {
 				cx.RespondWithNotFound()
-				return
 			} else {
 				logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
 				cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
-				return
 			}
+			return
 		}
 		job.SetDataToken(token)
 		cx.RespondWithData("data token set for job: " + id)
@@ -654,6 +650,7 @@ func (cr *JobController) DeleteMany(cx *goweb.Context) {
 	u, err := request.Authenticate(cx.Request)
 	if err != nil && err.Error() != e.NoAuth {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+		return
 	}
 
 	// If no auth was provided, and anonymous delete is allowed, use the public user
@@ -662,6 +659,7 @@ func (cr *JobController) DeleteMany(cx *goweb.Context) {
 			u = &user.User{Uuid: "public"}
 		} else {
 			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+			return
 		}
 	}
 

@@ -126,6 +126,7 @@ func (cr *ClientController) Read(id string, cx *goweb.Context) {
 		return
 	}
 	cx.RespondWithData(client)
+	return
 }
 
 // GET: /client
@@ -215,6 +216,7 @@ func (cr *ClientController) Update(id string, cx *goweb.Context) {
 		return
 	}
 	cx.RespondWithError(http.StatusNotImplemented)
+	return
 }
 
 // PUT: /client
@@ -251,6 +253,7 @@ func (cr *ClientController) UpdateMany(cx *goweb.Context) {
 		return
 	}
 	cx.RespondWithError(http.StatusNotImplemented)
+	return
 }
 
 // DELETE: /client/{id}
@@ -279,10 +282,12 @@ func (cr *ClientController) Delete(id string, cx *goweb.Context) {
 	} else {
 		cx.RespondWithData("client deleted")
 	}
+	return
 }
 
 // DELETE: /client
 func (cr *ClientController) DeleteMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	cx.RespondWithError(http.StatusNotImplemented)
+	return
 }

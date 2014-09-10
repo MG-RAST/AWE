@@ -117,6 +117,7 @@ func ResourceDescription(cx *goweb.Context) {
 	}
 
 	cx.WriteResponse(r, 200)
+	return
 }
 
 func apiUrl(cx *goweb.Context) string {
@@ -186,6 +187,7 @@ func ParseMultipartForm(r *http.Request) (params map[string]string, files core.F
 func RespondTokenInHeader(cx *goweb.Context, token string) {
 	cx.ResponseWriter.Header().Set("Datatoken", token)
 	cx.Respond(nil, http.StatusOK, nil, cx)
+	return
 }
 
 func RespondPrivateEnvInHeader(cx *goweb.Context, Envs map[string]string) (err error) {

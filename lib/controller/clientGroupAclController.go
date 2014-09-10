@@ -64,10 +64,8 @@ var ClientGroupAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 
 	if cx.Request.Method == "GET" {
 		cx.RespondWithData(cg.Acl)
-		return
 	} else {
 		cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)
-		return
 	}
 	return
 }
@@ -98,13 +96,12 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
-			return
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
 			cx.RespondWithErrorMessage("clientgroup not found: "+cgid, http.StatusBadRequest)
-			return
 		}
+		return
 	}
 
 	// Users that are not the clientgroup owner or an admin can only delete themselves from an ACL.

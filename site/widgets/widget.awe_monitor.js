@@ -219,57 +219,51 @@
 	    break;
 	case "suspended":
 	    var options = document.getElementById('optionsDivsuspended');
-	    options.innerHTML = "<button class='btn btn-small btn-primary' onclick='Retina.WidgetInstances.awe_monitor[1].resumeAllJobs();'>resume all jobs</button>";
-	    jQuery.ajax( { dataType: "json",
-			   url: RetinaConfig["awe_ip"]+"/job?suspend&limit=1000",
-			   headers: widget.authHeader,
-			   error: function () {
-			       Retina.WidgetInstances.awe_monitor[1].check_update();
-			   },
-			   success: function (data) {
-			       var widget = Retina.WidgetInstances.awe_monitor[1];
-			       var result_data = [];
-			       if (data.data != null) {
-				   for (h=0;h<data.data.length;h++) {
-				       var obj = data.data[h];
-				       result_data.push( [ obj.info.submittime,
-							   "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/job/"+obj.id+"\");' style='cursor: pointer;'>"+obj.jid+"</a>",
-							   obj.info.name,
-							   obj.info.user,
-							   obj.info.project,
-							   obj.info.pipeline,
-							   obj.info.clientgroups,
-							   obj.tasks.length - obj.remaintasks || "0",
-							   obj.tasks.length,
-							   "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.lastfailed+"\")'>"+obj.lastfailed+"</a>",
-							   obj.updatetime
-							 ] );
-				   }
-			       }
-			       if (! result_data.length) {
-				   result_data.push(['-','-','-','-','-','-','-','-','-','-','-']);
-			       }
-			       return_data = { header: [ "submitted",
-							 "jid",
-							 "name",
-							 "user",
-							 "project",
-							 "pipeline",
-							 "group",
-							 "ok",
-							 "tot",
-							 "state",
-							 "updated"],
-					       data: result_data };
+	    options.innerHTML = "<button class='btn btn-small btn-primary' onclick='Retina.WidgetInstances.awe_monitor[1].resumeAllJobs();' style='margin-bottom: 10px;'>resume all jobs</button>";
 
-			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.minwidths = [1,55,75,1,75,85,90,55,55,75,75];
-			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.invisible_columns = { 10: true };
-			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.data = return_data;
-			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].render();
-			       Retina.WidgetInstances.awe_monitor[1].check_update();
-			   }
-	    });
-
+	    var st = Retina.WidgetInstances.awe_monitor[1].tables["suspended"];
+	    st.settings.headers = widget.authHeader;
+	    st.settings.synchronous = false;
+	    st.settings.query_type = 'prefix';
+	    st.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationSuspended,
+	    st.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?suspend";
+	    st.settings.rows_per_page = 10;
+	    st.settings.minwidths = [1,55,75,1,75,85,90,55,55,75,75];
+	    st.settings.invisible_columns = { 10: true };
+	    st.settings.filter = { 0: { type: "text" },
+				   1: { type: "text" },
+				   2: { type: "text" },
+				   3: { type: "text" },
+				   4: { type: "text" },
+				   5: { type: "text" },
+				   6: { type: "text" },
+				   9: { type: "text" },
+				   10: { type: "text" } };
+	    st.settings.asynch_column_mapping = { "submitted": "info.submittime",
+						  "jid": "jid",
+						  "name": "info.name",
+						  "user": "info.user",
+						  "project": "info.project",
+						  "pipeline": "info.pipeline",
+						  "group": "info.clientgroups",
+						  "state": "lastfailed",
+						  "updated": "updatetime" };
+	    st.settings.filter_autodetect = false;
+	    st.settings.sort_autodetect = false;
+	    st.settings.data = { data: [], header: [ "submitted",
+						     "jid",
+						     "name",
+						     "user",
+						     "project",
+						     "pipeline",
+						     "group",
+						     "ok",
+						     "tot",
+						     "state",
+						     "updated" ] };
+	    st.render();
+	    st.update({}, st.index);
+	    
 	    break;
 	case "queuing_workunit":
 	    jQuery.ajax( { dataType: "json",
@@ -609,6 +603,31 @@
 	}
 	if (! result_data.length) {
 	    result_data.push({"submission": "-", "job": "-", "status": "-", "pipeline": "-", "current state": "-"});
+	}
+
+	return result_data;
+    };
+
+    widget.dataManipulationSuspended = function (data) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
+	var result_data = [];
+	for (var i=0;i<data.length;i++) {
+	    var obj = data[i];
+	    result_data.push( { "submitted": obj.info.submittime,
+				"jid": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/job/"+obj.id+"\");' style='cursor: pointer;'>"+obj.jid+"</a>",
+				"name": obj.info.name,
+				"user": obj.info.user,
+				"project": obj.info.project,
+				"pipeline": obj.info.pipeline,
+				"group": obj.info.clientgroups,
+				"ok": obj.tasks.length - obj.remaintasks || "0",
+				"tot": obj.tasks.length,
+				"state": "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.lastfailed+"\")'>"+obj.lastfailed+"</a>",
+				"updated": obj.updatetime
+			      } );
+	}
+	if (! result_data.length) {
+	    result_data.push({"submitted": "-", "jid": "-", "name": "-", "user": "-", "project": "-", "pipeline": "-", "group": "-", "ok": "-", "tot": "-", "state": "-", "updated": "-"});
 	}
 
 	return result_data;

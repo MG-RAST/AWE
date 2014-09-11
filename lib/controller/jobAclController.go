@@ -13,9 +13,14 @@ import (
 	"strings"
 )
 
-// GET: /job/{jid}/acl/ (only GET is supported here)
+// GET: /job/{jid}/acl/ (only OPTIONS and GET are supported here)
 var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	if cx.Request.Method == "OPTIONS" {
+		cx.RespondWithOK()
+		return
+	}
 
 	jid := cx.PathParams["jid"]
 
@@ -63,9 +68,14 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	return
 }
 
-// GET, POST, PUT, DELETE: /job/{jid}/acl/{type}
+// GET, POST, PUT, DELETE, OPTIONS: /job/{jid}/acl/{type}
 var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	if cx.Request.Method == "OPTIONS" {
+		cx.RespondWithOK()
+		return
+	}
 
 	// Try to authenticate user.
 	u, err := request.Authenticate(cx.Request)

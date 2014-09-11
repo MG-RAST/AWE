@@ -9,8 +9,7 @@
     });
     
     widget.setup = function () {
-	    return [ Retina.add_renderer({"name": "table", "resource": "./renderers/",  "filename": "renderer.table.js" }),
-  		     Retina.load_renderer("table") ];
+	    return [ Retina.load_renderer("table") ];
     };
 
     widget.tables = [];
@@ -19,6 +18,53 @@
 	// initialize
         widget = this;
 	var index = widget.index;
+
+	widget.target = widget.target || wparams.target;
+	widget.target.innerHTML = '\
+<div id="refresh" style="position: absolute; top: 64px; left: 17px; z-index: 100;">\
+    </div>\
+    <div id="overview" class="sidebar"></div>\
+    <div class="mainview">\
+      <ul class="nav nav-tabs">\
+	<li class="active">\
+	  <a data-toggle="tab" href="#graphical">overview</a>\
+	</li>\
+	<li>\
+	  <a data-toggle="tab" href="#active">active jobs</a>\
+	</li>\
+	<li class="">\
+	  <a data-toggle="tab" href="#suspended">suspended jobs</a>\
+	</li>\
+	<li class="">\
+	  <a data-toggle="tab" href="#completed">completed jobs</a>\
+	</li>\
+	<li class="">\
+	  <a data-toggle="tab" href="#queuing_workunit">queued workunits</a>\
+	</li>\
+	<li class="">\
+	  <a data-toggle="tab" href="#checkout_workunit">checked-out workunits</a>\
+	</li>\
+	<li class="">\
+	  <a data-toggle="tab" href="#clients">clients</a>\
+	</li>\
+      </ul>\
+      <div class="tab-content">\
+	<div id="graphical" class="tab-pane active">\
+	</div>\
+	<div id="active" class="tab-pane">\
+	</div>\
+	<div id="suspended" class="tab-pane">\
+	</div>\
+	<div id="completed" class="tab-pane">\
+	</div>\
+	<div id="queuing_workunit" class="tab-pane">\
+	</div>\
+	<div id="checkout_workunit" class="tab-pane">\
+	</div>\
+	<div id="clients" class="tab-pane">\
+	</div>\
+      </div>\
+    </div>';
 
 	var update = document.getElementById('refresh');
 	update.innerHTML = '\
@@ -47,8 +93,10 @@
 	    view.innerHTML = "";
 	   
 	    if (views[i] != "overview") {
+		var options = document.createElement('div');
+		options.setAttribute('id', 'optionsDiv'+views[i]);
+		view.appendChild(options);
 		var target_space = document.createElement('div');
-		target_space.innerHTML = "";
 		view.appendChild(target_space);
 		Retina.WidgetInstances.awe_monitor[1].tables[views[i]] = Retina.Renderer.create("table", { target: target_space, data: {}, filter_autodetect: true, sort_autodetect: true });
 	    }
@@ -124,7 +172,7 @@
 	    gt.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationGraphical,
 	    gt.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?query";
 	    gt.settings.rows_per_page = 20;
-	    gt.settings.minwidths = [1,300,1, 1, 1];
+	    gt.settings.minwidths = [1,300,1, 95, 125];
 	    gt.settings.disable_sort = { 2: 1 };
 	    gt.settings.filter = { 1: { type: "text" },
 				   3: { type: "text" },
@@ -148,7 +196,7 @@
 	    at.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationActive,
 	    at.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?active";
 	    at.settings.rows_per_page = 20;
-	    at.settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75,83];
+	    at.settings.minwidths = [1,1,65,1,85,85,90,40,40,75,75,83];
 	    at.settings.disable_sort = { };
 	    at.settings.filter = { };
 	    at.settings.asynch_column_mapping = { "created": "info.submittime",
@@ -158,101 +206,66 @@
 						  "project": "info.project",
 						  "pipeline": "info.pipeline",
 						  "group": "info.clientgroups",
-						  "t-total": "tasks.length",
+						  "tot": "tasks.length",
 						  "state": "state",
 						  "updated": "updatetime",
 						  "priority": "info.priority" };
 	    at.settings.filter_autodetect = false;
 	    at.settings.sort_autodetect = false;
-	    at.settings.data = { data: [], header: [ "created", "jid", "name", "user", "project", "pipeline", "group", "t-complete", "t-total", "state", "updated", "priority" ] };
+	    at.settings.data = { data: [], header: [ "created", "jid", "name", "user", "project", "pipeline", "group", "ok", "tot", "state", "updated", "priority" ] };
 	    at.render();
 	    at.update({}, at.index);
 
 	    break;
 	case "suspended":
-	    jQuery.ajax( { dataType: "json",
-			   url: RetinaConfig["awe_ip"]+"/job?suspend",
-			   headers: widget.authHeader,
-			   error: function () {
-			       Retina.WidgetInstances.awe_monitor[1].check_update();
-			   },
-			   success: function (data) {
-			       var widget = Retina.WidgetInstances.awe_monitor[1];
-			       var result_data = [];
-			       if (data.data != null) {
-				   for (h=0;h<data.data.length;h++) {
-				       var obj = data.data[h];
-				       result_data.push( [ obj.info.submittime,
-							   "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/job/"+obj.id+"\");' style='cursor: pointer;'>"+obj.jid+"</a>",
-							   obj.info.name,
-							   obj.info.user,
-							   obj.info.project,
-							   obj.info.pipeline,
-							   obj.info.clientgroups,
-							   obj.tasks.length - obj.remaintasks || "0",
-							   obj.tasks.length,
-							   "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.lastfailed+"\")'>"+obj.lastfailed+"</a>",
-							   obj.updatetime
-							 ] );
-				   }
-			       }
-			       if (! result_data.length) {
-				   result_data.push(['-','-','-','-','-','-','-','-','-','-','-']);
-			       }
-			       return_data = { header: [ "submitted",
-							 "jid",
-							 "name",
-							 "user",
-							 "project",
-							 "pipeline",
-							 "group",
-							 "t-complete",
-							 "t-total",
-							 "state",
-							 "updated"],
-					       data: result_data };
+	    var options = document.getElementById('optionsDivsuspended');
+	    options.innerHTML = "<button class='btn btn-small btn-primary' onclick='Retina.WidgetInstances.awe_monitor[1].resumeAllJobs();' style='margin-bottom: 10px;'>resume all jobs</button>";
 
-			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.minwidths = [1,1,65,1,75,85,90,10,10,75,75];
-			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].settings.data = return_data;
-			       Retina.WidgetInstances.awe_monitor[1].tables["suspended"].render();
-			       Retina.WidgetInstances.awe_monitor[1].check_update();
-			   }
-	    });
-
+	    var st = Retina.WidgetInstances.awe_monitor[1].tables["suspended"];
+	    st.settings.headers = widget.authHeader;
+	    st.settings.synchronous = false;
+	    st.settings.query_type = 'prefix';
+	    st.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationSuspended,
+	    st.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?suspend";
+	    st.settings.rows_per_page = 10;
+	    st.settings.minwidths = [1,55,75,1,75,85,90,55,55,75,75];
+	    st.settings.invisible_columns = { 10: true };
+	    st.settings.filter = { 0: { type: "text" },
+				   1: { type: "text" },
+				   2: { type: "text" },
+				   3: { type: "text" },
+				   4: { type: "text" },
+				   5: { type: "text" },
+				   6: { type: "text" },
+				   9: { type: "text" },
+				   10: { type: "text" } };
+	    st.settings.asynch_column_mapping = { "submitted": "info.submittime",
+						  "jid": "jid",
+						  "name": "info.name",
+						  "user": "info.user",
+						  "project": "info.project",
+						  "pipeline": "info.pipeline",
+						  "group": "info.clientgroups",
+						  "state": "lastfailed",
+						  "updated": "updatetime" };
+	    st.settings.filter_autodetect = false;
+	    st.settings.sort_autodetect = false;
+	    st.settings.data = { data: [], header: [ "submitted",
+						     "jid",
+						     "name",
+						     "user",
+						     "project",
+						     "pipeline",
+						     "group",
+						     "ok",
+						     "tot",
+						     "state",
+						     "updated" ] };
+	    st.render();
+	    st.update({}, st.index);
+	    
 	    break;
 	case "queuing_workunit":
-	    // var qt = Retina.WidgetInstances.awe_monitor[1].tables["queuing_workunit"];
-	    // qt.settings.headers = widget.authHeader;
-	    // qt.settings.synchronous = false;
-	    // qt.settings.query_type = 'prefix';
-	    // qt.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationQueued,
-	    // qt.settings.navigation_url = RetinaConfig["awe_ip"]+"/work?query&state=queued";
-	    // qt.settings.rows_per_page = 20;
-	    // qt.settings.minwidths = [1,1,1,1,65,78,75,75,83];
-	    // qt.settings.asynch_column_mapping = { "wuid": "quid",
-	    // 					  "submission time": "info.submittime",
-	    // 					  "cmd name": "cmd.name",
-	    // 					  "cmd args": "cmd.args",
-	    // 					  "rank": "rank",
-	    // 					  "t-work": "totalwork",
-	    // 					  "state": "state",
-	    // 					  "failed": "failed",
-	    //                                    "priority": "info.priority"};
-	    // qt.settings.filter = { };
-	    // qt.settings.disable_sort = {};
-	    // qt.settings.filter_autodetect = false;
-	    // qt.settings.sort_autodetect = false;
-	    // qt.settings.data = { data: [], header: [ "wuid",
-	    // 					     "submission time",
-	    // 					     "cmd name",
-	    // 					     "cmd args",
-	    // 					     "rank",
-	    // 					     "t-work",
-	    // 					     "state",
-	    // 					     "failed",
-	    //                                       "priority" ] };
-	    // qt.render();
-	    // qt.update({}, qt.index);
 	    jQuery.ajax( { dataType: "json",
 			   url: RetinaConfig["awe_ip"]+"/work?query&state=queued",
 			   headers: widget.authHeader,
@@ -285,7 +298,7 @@
 							 "cmd name",
 							 "cmd args",
 							 "rank",
-							 "t-work",
+							 "tot",
 							 "state",
 							 "failed",
 							 "priority" ],
@@ -306,7 +319,7 @@
 	    ct.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationCompleted,
 	    ct.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?query&state=completed";
 	    ct.settings.rows_per_page = 20;
-	    ct.settings.minwidths = [1,51,65,64,83,85,90,107,75,75,75];
+	    ct.settings.minwidths = [1,51,75,64,83,85,90,107,75,75,75];
 	    ct.settings.asynch_column_mapping = { "created": "info.submittime",
 						  "jid": "jid",
 						  "name": "info.name",
@@ -335,8 +348,8 @@
 						     "project",
 						     "pipeline",
 						     "group",
-						     "t-complete",
-						     "t-total",
+						     "ok",
+						     "tot",
 						     "state", 
 						     "finished" ] };
 	    ct.render();
@@ -377,12 +390,12 @@
 							 "cmd name",
 							 "cmd args",
 							 "rank",
-							 "t-work",
+							 "tot",
 							 "state",
 							 "failed" ],
 					       data: result_data };
 
-			       Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.minwidths = [1,1,1,1,1,50,50,50,50];
+			       Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.minwidths = [1,1,1,1,1,65,65,75,75];
 			       Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].settings.data = return_data;
 			       Retina.WidgetInstances.awe_monitor[1].tables["checkout_workunit"].render();
 			       Retina.WidgetInstances.awe_monitor[1].check_update();
@@ -496,10 +509,12 @@
 		    dots += '<span style="color: blue;font-size: 19px; cursor: default;" title="in-progress: '+stages[i].cmd.description+'">&#9679;</span>';
 		} else if (stages[i].state == 'queued') {
 		    dots += '<span style="color: orange;font-size: 19px; cursor: default;" title="queued: '+stages[i].cmd.description+'">&#9679;</span>';
-		} else if (stages[i].state == 'error') {
+		} else if (stages[i].state == 'error' || stages[i].state == 'suspend') {
 		    dots += '<span style="color: red;font-size: 19px; cursor: default;" title="error: '+stages[i].cmd.description+'">&#9679;</span>';
-		} else if (stages[i].state == 'init') {
+		} else if (stages[i].state == 'init' || stages[i].state == 'pending') {
 		    dots += '<span style="color: gray;font-size: 19px; cursor: default;" title="init: '+stages[i].cmd.description+'">&#9679;</span>';
+		} else {
+		    console.log(stages[i].state);
 		}
 	    }
 	}
@@ -531,7 +546,7 @@
     widget.clientTooltip = function (obj, id) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
 	obj.popover('destroy');
-	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stderr&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>error</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stdout&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>output</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;worknotes&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>worknotes</a>",html:true,placement:"top"});
+	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stderr&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>error</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stdout&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>output</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;worknotes&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>worknotes</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].resumeJob(&#39;"+id+"&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>resume</a>",html:true,placement:"top"});
 	obj.popover('show');
     }
 
@@ -593,6 +608,31 @@
 	return result_data;
     };
 
+    widget.dataManipulationSuspended = function (data) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
+	var result_data = [];
+	for (var i=0;i<data.length;i++) {
+	    var obj = data[i];
+	    result_data.push( { "submitted": obj.info.submittime,
+				"jid": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/job/"+obj.id+"\");' style='cursor: pointer;'>"+obj.jid+"</a>",
+				"name": obj.info.name,
+				"user": obj.info.user,
+				"project": obj.info.project,
+				"pipeline": obj.info.pipeline,
+				"group": obj.info.clientgroups,
+				"ok": obj.tasks.length - obj.remaintasks || "0",
+				"tot": obj.tasks.length,
+				"state": "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.lastfailed+"\")'>"+obj.lastfailed+"</a>",
+				"updated": obj.updatetime
+			      } );
+	}
+	if (! result_data.length) {
+	    result_data.push({"submitted": "-", "jid": "-", "name": "-", "user": "-", "project": "-", "pipeline": "-", "group": "-", "ok": "-", "tot": "-", "state": "-", "updated": "-"});
+	}
+
+	return result_data;
+    };
+
     widget.dataManipulationCompleted = function (data) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
 	var result_data = [];
@@ -605,8 +645,8 @@
 				"project": obj.info.project,
 				"pipeline": obj.info.pipeline,
 				"group": obj.info.clientgroups,
-				"t-complete": obj.tasks.length - obj.remaintasks || "0",
-				"t-total": obj.tasks.length,
+				"ok": obj.tasks.length - obj.remaintasks || "0",
+				"tot": obj.tasks.length,
 				"state": obj.state, 
 				"finished": obj.updatetime  
 			      } );
@@ -619,8 +659,8 @@
 			       "project": "-",
 			       "pipeline": "-",
 			       "group": "-",
-			       "t-complete": "-",
-			       "t-total": "-",
+			       "ok": "-",
+			       "tot": "-",
 			       "state": "-", 
 			       "finished": "-" });
 	}
@@ -640,8 +680,8 @@
 				"project": obj.info.project,
 				"pipeline": obj.info.pipeline,
 				"group": obj.info.clientgroups,
-				"t-complete": obj.tasks.length - obj.remaintasks || "0",
-				"t-total": obj.tasks.length,
+				"ok": obj.tasks.length - obj.remaintasks || "0",
+				"tot": obj.tasks.length,
 				"state": obj.state,
 				"updated": obj.updatetime,
 				"priority": obj.info.priority
@@ -655,8 +695,8 @@
 			       "project": "-",
 			       "pipeline": "-",
 			       "group": "-",
-			       "t-complete": "-",
-			       "t-total": "-",
+			       "ok": "-",
+			       "tot": "-",
 			       "state": "-", 
 			       "updated": "-",
 			       "priority": "-" });
@@ -674,7 +714,7 @@
 				"cmd name": obj.cmd.name,
 				"cmd args": obj.cmd.args,
 				"rank": obj.rank || "0",
-				"t-work": obj.totalwork || "0",
+				"tot": obj.totalwork || "0",
 				"state": obj.state,
 				"failed": obj.failed || "0",
 				"priority": obj.info.priority
@@ -686,12 +726,42 @@
 			       "cmd name": "-",
 			       "cmd args": "-",
 			       "rank": "-",
-			       "t-work": "-",
+			       "tot": "-",
 			       "state": "-",
 			       "failed": "-",
 			       "priority": "-" });
 	}
 	return result_data;
+    };
+
+    widget.resumeJob = function (jobid) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
+	jQuery.ajax({
+	    method: "PUT",
+	    dataType: "json",
+	    headers: widget.authHeader, 
+	    url: RetinaConfig["awe_ip"]+"/job/"+jobid+"?resume",
+	    success: function (data) {
+		Retina.WidgetInstances.awe_monitor[1].updateData('suspended');
+		alert('job resumed');
+	    }}).fail(function(xhr, error) {
+		alert('failed to resume job');
+	    });
+    };
+
+    widget.resumeAllJobs = function () {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
+	jQuery.ajax({
+	    method: "PUT",
+	    dataType: "json",
+	    headers: widget.authHeader, 
+	    url: RetinaConfig["awe_ip"]+"/job?resumeall",
+	    success: function (data) {
+		Retina.WidgetInstances.awe_monitor[1].updateData('suspended');
+		alert('all jobs resumed');
+	    }}).fail(function(xhr, error) {
+		alert('failed to resume all jobs');
+	    });
     };
 
     widget.xlsExport = function (job) {

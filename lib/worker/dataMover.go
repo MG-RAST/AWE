@@ -381,9 +381,15 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		file_path := path.Join(predata_directory, name)
 		if !isFileExisting(file_path) {
 
-			size, err = shock.FetchFile(file_path, io.Url, workunit.Info.DataToken, io.Uncompress)
+			file_path_part := file_path + ".part" // temporary name
+			size, err = shock.FetchFile(file_path_part, io.Url, workunit.Info.DataToken, io.Uncompress)
 			if err != nil {
 				return 0, errors.New("error in fetchFile:" + err.Error())
+			}
+
+			os.Rename(file_path_part, file_path)
+			if err != nil {
+				return 0, errors.New("error renaming after download of preData:" + err.Error())
 			}
 		}
 

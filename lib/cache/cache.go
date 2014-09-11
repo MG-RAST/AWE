@@ -78,10 +78,12 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 				}
 			}
 		}
+
 		logger.Debug(1, "UploadOutputData, core.PutFileToShock: "+file_path)
-		if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, &io.NodeAttr); err != nil {
+		if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
+
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-			if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, &io.NodeAttr); err != nil {
+			if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 				fmt.Errorf("push file error\n")
 				logger.Error("op=pushfile,err=" + err.Error())
 				return size, err

@@ -11,9 +11,14 @@ import (
 	"net/http"
 )
 
-// GET, POST, PUT, DELETE: /cgroup/{cgid}/token/ (only PUT and DELETE are implemented)
+// GET, POST, PUT, DELETE, OPTIONS: /cgroup/{cgid}/token/ (only OPTIONS, PUT and DELETE are implemented)
 var ClientGroupTokenController goweb.ControllerFunc = func(cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	if cx.Request.Method == "OPTIONS" {
+		cx.RespondWithOK()
+		return
+	}
 
 	// Try to authenticate user.
 	u, err := request.Authenticate(cx.Request)
@@ -40,13 +45,12 @@ var ClientGroupTokenController goweb.ControllerFunc = func(cx *goweb.Context) {
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
-			return
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
 			cx.RespondWithErrorMessage("clientgroup id not found:"+cgid, http.StatusBadRequest)
-			return
 		}
+		return
 	}
 
 	// User must have write permissions on clientgroup or be clientgroup owner or be an admin or the clientgroup is publicly writable.

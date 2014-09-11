@@ -13,9 +13,14 @@ import (
 	"strings"
 )
 
-// GET: /job/{jid}/acl/ (only GET is supported here)
+// GET: /job/{jid}/acl/ (only OPTIONS and GET are supported here)
 var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	if cx.Request.Method == "OPTIONS" {
+		cx.RespondWithOK()
+		return
+	}
 
 	jid := cx.PathParams["jid"]
 
@@ -41,13 +46,12 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
-			return
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
 			cx.RespondWithErrorMessage("job not found: "+jid, http.StatusBadRequest)
-			return
 		}
+		return
 	}
 
 	// User must be job owner or be an admin
@@ -58,17 +62,20 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 
 	if cx.Request.Method == "GET" {
 		cx.RespondWithData(job.Acl)
-		return
 	} else {
 		cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)
-		return
 	}
 	return
 }
 
-// GET, POST, PUT, DELETE: /job/{jid}/acl/{type}
+// GET, POST, PUT, DELETE, OPTIONS: /job/{jid}/acl/{type}
 var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	if cx.Request.Method == "OPTIONS" {
+		cx.RespondWithOK()
+		return
+	}
 
 	// Try to authenticate user.
 	u, err := request.Authenticate(cx.Request)
@@ -92,11 +99,10 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
-			return
 		} else {
 			cx.RespondWithErrorMessage("job not found: "+jid, http.StatusBadRequest)
-			return
 		}
+		return
 	}
 
 	// Users that are not an admin or the clientgroup owner can only delete themselves from an ACL.

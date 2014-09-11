@@ -521,6 +521,26 @@ func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string) {
 			continue
 		}
 		work := qm.workQueue.workMap[id]
+
+		// In case of edge case where pointer to workunit is in queue but workunit has been deleted
+		// If work.Info is nil, this will cause errors in execution
+		// These will be deleted by servermgr.updateQueue()
+		if work == nil || work.Info == nil {
+			continue
+		}
+
+		if client == nil {
+			fmt.Fprintf(os.Stderr, "error: Skip_work for client %s is nil", clientid)
+			logger.Error(fmt.Sprintf("error: client %s is nil", clientid))
+			continue
+		}
+
+		if client.Skip_work == nil {
+			fmt.Fprintf(os.Stderr, "error: Skip_work for client %s is nil", clientid)
+			logger.Error(fmt.Sprintf("error: Skip_work for client %s is nil", clientid))
+			continue
+		}
+
 		//skip works that are in the client's skip-list
 		if contains(client.Skip_work, work.Id) {
 			logger.Debug(2, fmt.Sprintf("2) contains(client.Skip_work, work.Id) %s", id))

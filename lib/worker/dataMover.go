@@ -393,11 +393,11 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 			}
 		}
 
-		use_symlink := false
+		use_symlink := true
 		linkname := path.Join(workunit.Path(), name)
 		if workunit.Cmd.Dockerimage != "" || strings.HasPrefix(workunit.Cmd.Name, "app:") { // TODO need more save way to detect use of docker
 
-			use_symlink = false // TODO mechanism
+			//use_symlink = true // TODO mechanism
 
 			if use_symlink {
 				file_path = path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, name)

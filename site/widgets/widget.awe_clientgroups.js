@@ -61,16 +61,16 @@
 	var widget = Retina.WidgetInstances.awe_clientgroups[1];
 
 	jQuery.ajax( { dataType: "json",
+		       method: "POST",
 		       url: RetinaConfig["awe_ip"]+"/cgroup/"+name,
 		       headers: widget.authHeader,
 		       error: function (xhr, error) {
 			   var widget = Retina.WidgetInstances.awe_clientgroups[1];
-			   console.log(xhr);
-			   console.log(error);
+			   alert('clientgroup creation failed');
 		       },
 		       success: function (data) {
 			   var widget = Retina.WidgetInstances.awe_clientgroups[1];
-			   console.log(data);
+			   widget.showClientgroups();
 		       }
 	    });
     };
@@ -126,7 +126,7 @@
 
 	var html = "<h4>clientgroup: "+cgroup.name+"</h4>";
 	html += '\
-<button class="btn btn-small" style="margin-right: 15px;" onclick="Retina.WidgetInstances.awe_clientgroups[1].clientgroupUpdateToken(\''+id+'\', \'delete\');">delete token</button><button class="btn btn-small">new token</button>\
+<button class="btn btn-small" style="margin-right: 15px;" onclick="Retina.WidgetInstances.awe_clientgroups[1].clientgroupUpdateToken(\''+id+'\', \'delete\');">delete token</button><button class="btn btn-small" onclick="Retina.WidgetInstances.awe_clientgroups[1].clientgroupUpdateToken(\''+id+'\', \'new\');">new token</button>\
 <table class="table table-hover" style="table-layout: fixed; word-wrap: break-word; margin-top: 15px;">\
   <tr><td class="span2"><b>status</b></td><td>'+status+'</td></tr>\
   <tr><td><b>created</b></td><td>'+cgroup.created_on+'</td></tr>\

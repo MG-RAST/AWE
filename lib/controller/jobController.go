@@ -443,9 +443,9 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				// if completed or deleted move on
 				mjob.State = job.State
 				mjob.Task = -1
-			} else if job.State == "suspended" {
+			} else if job.State == "suspend" {
 				// get failed task
-				mjob.State = "suspended"
+				mjob.State = "suspend"
 				parts := strings.Split(job.LastFailed, "_")
 				if (len(parts) == 2) || (len(parts) == 3) {
 					if tid, err := strconv.Atoi(parts[1]); err != nil {

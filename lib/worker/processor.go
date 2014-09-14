@@ -273,7 +273,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		switch {
 		case image_retrieval == "load":
 			{ // for images that have been saved
-				err = dockerLoadImage(client, dockerimage_download_url)
+				err = dockerLoadImage(client, dockerimage_download_url, work.Info.DataToken)
 			}
 		case image_retrieval == "import":
 			{ // for containers that have been exported
@@ -839,9 +839,9 @@ func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.S
 	return
 }
 
-func dockerLoadImage(client *docker.Client, download_url string) (err error) {
+func dockerLoadImage(client *docker.Client, download_url string, datatoken string) (err error) {
 
-	image_stream, err := shock.FetchShockStream(download_url, "") // token empty here, assume that images are public
+	image_stream, err := shock.FetchShockStream(download_url, datatoken) // token empty here, assume that images are public
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error getting Shock stream, err=%s", err.Error()))
 	}

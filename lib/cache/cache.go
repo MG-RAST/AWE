@@ -55,7 +55,7 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 			size += fi.Size()
 		}
 
-		logger.Debug(2, "deliverer: push output to shock, filename="+name)
+		logger.Debug(1, "deliverer: push output to shock, filename="+name)
 		logger.Event(event.FILE_OUT,
 			"workid="+work.Id,
 			"filename="+name,

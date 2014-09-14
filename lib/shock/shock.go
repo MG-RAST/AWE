@@ -215,11 +215,16 @@ func (sc *ShockClient) Get_request(resource string, query url.Values, response i
 		return errors.New("could not parse SHOCK_DOCKER_IMAGE_REPOSITORY")
 	}
 
+	var user *httpclient.Auth
+	if sc.Token != "" {
+		user = httpclient.GetUserByTokenAuth(sc.Token)
+	}
+
 	var res *http.Response
 
 	c := make(chan int, 1)
 	go func() {
-		res, err = httpclient.Get(shockurl, httpclient.Header{}, nil, nil)
+		res, err = httpclient.Get(shockurl, httpclient.Header{}, nil, user)
 		c <- 1 //we are ending
 	}()
 	select {

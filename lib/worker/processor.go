@@ -241,7 +241,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	//var node *core.ShockNode = nil
 	// find image in repo (e.g. extract docker image id)
-	node, dockerimage_download_url, err := findDockerImageInShock(Dockerimage)
+	node, dockerimage_download_url, err := findDockerImageInShock(Dockerimage, work.Info.DataToken)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Error getting docker url, err=%s", err.Error()))
 	}
@@ -277,7 +277,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			}
 		case image_retrieval == "import":
 			{ // for containers that have been exported
-				err = dockerImportImage(client, Dockerimage)
+				err = dockerImportImage(client, Dockerimage, work.Info.DataToken)
 			}
 		case image_retrieval == "build":
 			{ // to create image from Dockerfile
@@ -805,9 +805,9 @@ func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 }
 
 // was getDockerImageUrl(Dockerimage string) (download_url string, err error)
-func findDockerImageInShock(Dockerimage string) (node *shock.ShockNode, download_url string, err error) {
+func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.ShockNode, download_url string, err error) {
 
-	shock_docker_repo := shock.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
+	shock_docker_repo := shock.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, datatoken}
 
 	logger.Debug(1, fmt.Sprint("try to import docker image, Dockerimage=", Dockerimage))
 	//query url = type=dockerimage&name=wgerlach/bowtie2:2.2.0"
@@ -860,9 +860,9 @@ func dockerLoadImage(client *docker.Client, download_url string) (err error) {
 	return
 }
 
-func dockerImportImage(client *docker.Client, Dockerimage string) (err error) {
+func dockerImportImage(client *docker.Client, Dockerimage string, datatoken string) (err error) {
 
-	_, download_url, err := findDockerImageInShock(Dockerimage) // TODO get node
+	_, download_url, err := findDockerImageInShock(Dockerimage, datatoken) // TODO get node
 
 	if err != nil {
 		return err

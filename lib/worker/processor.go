@@ -807,6 +807,8 @@ func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 // was getDockerImageUrl(Dockerimage string) (download_url string, err error)
 func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.ShockNode, download_url string, err error) {
 
+	logger.Debug(1, fmt.Sprint("datatoken for dockerimage: ", datatoken[0:15]))
+
 	shock_docker_repo := shock.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, datatoken}
 
 	logger.Debug(1, fmt.Sprint("try to import docker image, Dockerimage=", Dockerimage))

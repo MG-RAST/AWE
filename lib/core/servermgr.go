@@ -448,7 +448,7 @@ func (qm *ServerMgr) GetReportMsg(workid string, logname string) (report string,
 	if err != nil {
 		return "", err
 	}
-	if fi, err := os.Stat(logpath); err != nil {
+	if _, err := os.Stat(logpath); err != nil {
 		return "", errors.New("log type '" + logname + "' not found")
 	}
 

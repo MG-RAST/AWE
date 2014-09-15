@@ -450,8 +450,6 @@ func (qm *ServerMgr) GetReportMsg(workid string, logname string) (report string,
 	}
 	if fi, err := os.Stat(logpath); err != nil {
 		return "", errors.New("log type '" + logname + "' not found")
-	} else {
-		fmt.Printf("fi=%v\n", fi)
 	}
 
 	content, err := ioutil.ReadFile(logpath)

@@ -150,6 +150,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 // checkout a workunit with earliest submission time
 // to-do: to support more options for workunit checkout
 func (cr *WorkController) ReadMany(cx *goweb.Context) {
+	LogRequest(cx.Request)
 
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
@@ -222,9 +223,6 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	//log access info only when the queue is not empty, save some log
-	LogRequest(cx.Request)
 
 	//log event about workunit checkout (WO)
 	workids := []string{}

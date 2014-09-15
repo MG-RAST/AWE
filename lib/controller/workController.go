@@ -172,13 +172,31 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 			}
 		}
 
+		// get pagination options
+		limit := conf.DEFAULT_PAGE_SIZE
+		offset := 0
+		if query.Has("limit") {
+			limit, err = strconv.Atoi(query.Value("limit"))
+			if err != nil {
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+		if query.Has("offset") {
+			offset, err = strconv.Atoi(query.Value("offset"))
+			if err != nil {
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+
 		var workunits []*core.Workunit
 		if query.Has("state") {
 			workunits = core.QMgr.ShowWorkunitsByUser(query.Value("state"), u)
 		} else {
 			workunits = core.QMgr.ShowWorkunitsByUser("", u)
 		}
-		cx.RespondWithData(workunits)
+		cx.RespondWithPaginatedData(workunits, limit, offset, len(workunits))
 		return
 	}
 

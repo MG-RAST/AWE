@@ -18,9 +18,14 @@ var (
 		"public_all": true, "public_read": true, "public_write": true, "public_delete": true, "public_execute": true}
 )
 
-// GET: /cgroup/{cgid}/acl/ (only GET is supported here)
+// GET: /cgroup/{cgid}/acl/ (only GET and OPTIONS are supported here)
 var ClientGroupAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	if cx.Request.Method == "OPTIONS" {
+		cx.RespondWithOK()
+		return
+	}
 
 	// Try to authenticate user.
 	u, err := request.Authenticate(cx.Request)
@@ -70,9 +75,14 @@ var ClientGroupAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	return
 }
 
-// GET, POST, PUT, DELETE: /cgroup/{cgid}/acl/{type}
+// GET, POST, PUT, DELETE, OPTIONS: /cgroup/{cgid}/acl/{type}
 var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	if cx.Request.Method == "OPTIONS" {
+		cx.RespondWithOK()
+		return
+	}
 
 	// Try to authenticate user.
 	u, err := request.Authenticate(cx.Request)

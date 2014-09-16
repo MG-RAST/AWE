@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type JobController struct{}
@@ -230,7 +231,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 
 	limit := conf.DEFAULT_PAGE_SIZE
 	offset := 0
-	order := "updatetime"
+	order := "info.submittime"
 	direction := "desc"
 	if query.Has("limit") {
 		limit, err = strconv.Atoi(query.Value("limit"))
@@ -264,14 +265,44 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		"active":     1,
 		"suspend":    1,
 		"registered": 1,
+		"verbosity":  1,
 	}
 	if query.Has("query") {
+		const shortForm = "2006-01-02"
+		date_query := bson.M{}
 		for key, val := range query.All() {
 			_, s := skip[key]
 			if !s {
-				queryvalues := strings.Split(val[0], ",")
-				q[key] = bson.M{"$in": queryvalues}
+				// special case for date range, either full date-time or just date
+				if (key == "date_start") || (key == "date_end") {
+					opr := "$gte"
+					if key == "date_end" {
+						opr = "$lt"
+					}
+					if t_long, err := time.Parse(time.RFC3339, val[0]); err != nil {
+						if t_short, err := time.Parse(shortForm, val[0]); err != nil {
+							cx.RespondWithErrorMessage("Invalid datetime format: "+val[0], http.StatusBadRequest)
+							return
+						} else {
+							date_query[opr] = t_short
+						}
+					} else {
+						date_query[opr] = t_long
+					}
+				} else {
+					// handle either multiple values for key, or single comma-spereated value
+					if len(val) == 1 {
+						queryvalues := strings.Split(val[0], ",")
+						q[key] = bson.M{"$in": queryvalues}
+					} else if len(val) > 1 {
+						q[key] = bson.M{"$in": val}
+					}
+				}
 			}
+		}
+		// add submittime range query
+		if len(date_query) > 0 {
+			q["info.submittime"] = date_query
 		}
 	} else if query.Has("active") {
 		q["state"] = bson.M{"$in": core.JOB_STATS_ACTIVE}
@@ -380,6 +411,82 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			}
 		}
 		cx.RespondWithPaginatedData(paged_jobs, limit, offset, total)
+		return
+	}
+
+	if query.Has("verbosity") && (query.Value("verbosity") == "minimal") {
+		// TODO - have mongo query only return fields needed to populate JobMin struct
+		total, err := jobs.GetPaginated(q, limit, offset, order, direction)
+		if err != nil {
+			logger.Error("err " + err.Error())
+			cx.RespondWithError(http.StatusBadRequest)
+			return
+		}
+		minimal_jobs := []core.JobMin{}
+		length := jobs.Length()
+		for i := 0; i < length; i++ {
+			job := jobs.GetJobAt(i)
+			// create and populate minimal job
+			mjob := core.JobMin{}
+			mjob.Id = job.Id
+			mjob.Name = job.Info.Name
+			mjob.SubmitTime = job.Info.SubmitTime
+			mjob.CompletedTime = job.Info.CompletedTime
+			// get size of input
+			var size_sum int64 = 0
+			for _, v := range job.Tasks[0].Inputs {
+				size_sum = size_sum + v.Size
+			}
+			mjob.Size = size_sum
+
+			if (job.State == "completed") || (job.State == "deleted") {
+				// if completed or deleted move on
+				mjob.State = job.State
+				mjob.Task = -1
+			} else if job.State == "suspend" {
+				// get failed task
+				mjob.State = "suspend"
+				parts := strings.Split(job.LastFailed, "_")
+				if (len(parts) == 2) || (len(parts) == 3) {
+					if tid, err := strconv.Atoi(parts[1]); err != nil {
+						mjob.Task = -1
+					} else {
+						mjob.Task = tid
+					}
+				} else {
+					mjob.Task = -1
+				}
+			} else {
+				// determine most recent task of states (or oldest for pending or init)
+				state := map[string]int{}
+				for j := 0; j < len(job.Tasks); j++ {
+					task := job.Tasks[j]
+					if (task.State == "pending") || (task.State == "init") {
+						if _, ok := state[task.State]; !ok {
+							state[task.State] = j
+						}
+					} else {
+						state[task.State] = j
+					}
+				}
+				// fancy logic to get "current" state and its task
+				ordered := [4]string{"in-progress", "queued", "pending", "init"}
+				for s := range ordered {
+					if val, ok := state[ordered[s]]; ok {
+						mjob.State = ordered[s]
+						mjob.Task = val
+						break
+					}
+				}
+				// catch-all for bad state
+				if mjob.State == "" {
+					mjob.State = "unknown"
+					mjob.Task = -1
+				}
+			}
+			minimal_jobs = append(minimal_jobs, mjob)
+		}
+		cx.RespondWithPaginatedData(minimal_jobs, limit, offset, total)
 		return
 	}
 

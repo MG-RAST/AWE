@@ -43,6 +43,16 @@ type Job struct {
 	ShockHost   string    `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
 }
 
+type JobMin struct {
+	Id            string    `bson:"id" json:"id"`
+	Name          string    `bson:"name" json:"name"`
+	Size          int64     `bson:"size" json:"size"`
+	SubmitTime    time.Time `bson:"submittime" json:"submittime"`
+	CompletedTime time.Time `bson:"completedtime" json:"completedtime"`
+	Task          int       `bson:"task" json:"task"`
+	State         string    `bson:"state" json:"state"`
+}
+
 //set job's uuid
 func (job *Job) setId() {
 	job.Id = uuid.New()

@@ -11,6 +11,7 @@ import (
 	"github.com/MG-RAST/golib/goweb"
 	"io/ioutil"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -176,6 +177,8 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		// get pagination options
 		limit := conf.DEFAULT_PAGE_SIZE
 		offset := 0
+		order := "info.submittime"
+		direction := "desc"
 		if query.Has("limit") {
 			limit, err = strconv.Atoi(query.Value("limit"))
 			if err != nil {
@@ -190,6 +193,12 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 				return
 			}
 		}
+		if query.Has("order") {
+			order = query.Value("order")
+		}
+		if query.Has("direction") {
+			direction = query.Value("direction")
+		}
 
 		var workunits []*core.Workunit
 		if query.Has("state") {
@@ -197,8 +206,32 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		} else {
 			workunits = core.QMgr.ShowWorkunitsByUser("", u)
 		}
-		cx.RespondWithPaginatedData(workunits, limit, offset, len(workunits))
-		return
+
+		// if using query syntax then do pagination and sorting
+		if query.Has("query") {
+			filtered_work := []core.Workunit{}
+			sorted_work := core.WorkunitsSortby{order, direction, workunits}
+			sort.Sort(sorted_work)
+
+			skip := 0
+			count := 0
+			for _, w := range sorted_work.Workunits {
+				if skip < offset {
+					skip += 1
+					continue
+				}
+				filtered_work = append(filtered_work, *w)
+				count += 1
+				if count == limit {
+					break
+				}
+			}
+			cx.RespondWithPaginatedData(filtered_work, limit, offset, len(sorted_work.Workunits))
+			return
+		} else {
+			cx.RespondWithData(workunits)
+			return
+		}
 	}
 
 	cg, err := request.AuthenticateClientGroup(cx.Request)

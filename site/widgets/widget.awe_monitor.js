@@ -15,7 +15,6 @@
     widget.tables = [];
         
     widget.display = function (wparams) {
-	// initialize
         widget = this;
 	var index = widget.index;
 
@@ -490,7 +489,7 @@
     
     widget.check_update = function () {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
-	Retina.WidgetInstances.awe_monitor[1].updated += 100 / 5;
+	Retina.WidgetInstances.awe_monitor[1].updated += 100 / 4;
 	if (parseInt(Retina.WidgetInstances.awe_monitor[1].updated) == 100) {
 	    document.getElementById('refresh').innerHTML = '<button class="btn" onclick="Retina.WidgetInstances.awe_monitor[1].display();">refresh</button>';
 	} else {

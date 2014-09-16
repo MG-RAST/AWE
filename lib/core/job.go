@@ -187,7 +187,7 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	if task.State == TASK_STAT_COMPLETED ||
 		task.State == TASK_STAT_SKIPPED ||
 		task.State == TASK_STAT_FAIL_SKIP {
-		remain_tasks := len(job.Tasks) - 1
+		remain_tasks := len(job.Tasks)
 		for _, t := range job.Tasks { //double check all task other than the one with state change
 			if t.State == TASK_STAT_COMPLETED ||
 				t.State == TASK_STAT_SKIPPED ||

@@ -11,8 +11,10 @@ use LWP::UserAgent;
 
 1;
 
+our $global_debug = 0;
+
 sub new {
-    my ($class, $awe_url, $shocktoken) = @_;
+    my ($class, $awe_url, $shocktoken, $awetoken, $debug) = @_;
     
     my $agent = LWP::UserAgent->new;
     my $json = JSON->new;
@@ -24,13 +26,23 @@ sub new {
 		$shocktoken = undef;
 	}
 	
+	if (defined($awetoken) && $awetoken eq '') {
+		$awetoken = undef;
+	}
+	
+	unless (defined $awetoken) {
+		$awetoken = $shocktoken; # TODO ugly work around
+	}
+	
 	
     my $self = {
         json => $json,
         agent => $agent,
         awe_url => $awe_url || '',
         shocktoken => $shocktoken,
-        transport_method => 'requests'
+		awetoken => $awetoken,
+        transport_method => 'requests',
+		debug => $debug || $global_debug
     };
     if (system("type shock-client > /dev/null 2>&1") == 0) {
         $self->{transport_method} = 'shock-client';
@@ -38,6 +50,11 @@ sub new {
 
     bless $self, $class;
     return $self;
+}
+
+sub debug {
+    my ($self) = @_;
+    return $self->{debug};
 }
 
 sub json {
@@ -55,6 +72,10 @@ sub awe_url {
 sub shocktoken {
     my ($self) = @_;
     return $self->{shocktoken};
+}
+sub awetoken {
+    my ($self) = @_;
+    return $self->{awetoken};
 }
 sub transport_method {
     my ($self) = @_;
@@ -149,12 +170,24 @@ sub request {
 	
 	print "request: $method $my_url\n";
 	
+	if ($self->{'debug'} ==1) {
+		if (defined $self->token) {
+			print "found AWE token: ".substr($self->awetoken, 0, 20)."... \n";
+		} else {
+			print "found no AWE token\n";
+		}
+		
+	}
 	
-	
-	my @method_args=($my_url); # ($my_url, ($self->token)?('Authorization' , "OAuth ".$self->token):());
+	my @method_args=($my_url, ($self->awetoken)?('Authorization' , "OAuth ".$self->awetoken):());
 	
 	if (defined $headers) {
 		push(@method_args, %$headers);
+	}
+	
+	if ($self->{'debug'} ==1) {
+		#print 'method_args: '.join(',', @method_args)."\n";
+		print 'method_args: '.Dumper(@method_args)."\n";
 	}
 	
 	#print 'method_args: '.join(',', @method_args)."\n";
@@ -250,6 +283,9 @@ sub getClientList {
 # submit json_file or json_data
 sub submit_job {
 	my ($self, %hash) = @_;
+	
+	
+	
 	
 	my $content = {};
 	if (defined $hash{json_file}) {

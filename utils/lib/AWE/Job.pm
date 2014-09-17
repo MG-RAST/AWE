@@ -926,6 +926,7 @@ sub get_jobs {
 	my %query;
 	if (defined($clientgroup)) {
 		$query{'info.clientgroups'} = $clientgroup;
+		$query{'limit'} = 1000;
 	}
 	
 	my $all_jobs = $awe->getJobQueue(%query);
@@ -1364,7 +1365,7 @@ sub delete_shock_nodes{
 				my $deleteshock = $shock->delete_node($node_to_be_deleted);
 								
 				unless (defined $deleteshock && defined $deleteshock->{'status'} && $deleteshock->{'status'}==200) {
-					print "error deleting $node_to_be_deleted\n";
+					print "error deleting $node_to_be_deleted (".$shock->shock_url().")\n";
 					$delete_ok = 0;
 				} else {
 					print "deleted $node_to_be_deleted\n"

@@ -95,6 +95,9 @@ func (qm *CQMgr) ClientChecker() {
 					client.Idle_time += 30
 				}
 			} else {
+				if _, ok := qm.clientMap[clientid]; !ok {
+					continue
+				}
 				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
 				logger.Event(event.CLIENT_UNREGISTER, "clientid="+clientid+";name="+qm.clientMap[clientid].Name)
 

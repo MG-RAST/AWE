@@ -394,6 +394,8 @@
 	    cwt.update({}, cwt.index);
 	    break;
 	case "clients":
+	    var options = document.getElementById('optionsDivclients');
+	    options.innerHTML = "<button class='btn btn-small btn-primary' onclick='Retina.WidgetInstances.awe_monitor[1].resumeAllClients();' style='margin-bottom: 10px;'>resume all clients</button>";
 	    jQuery.ajax( { dataType: "json",
 			   url: RetinaConfig["awe_ip"]+"/client",
 			   headers: widget.authHeader,
@@ -407,9 +409,9 @@
 				       var obj = data.data[h];
 				       var skipwork = [];
 				       for (var j=0;j<obj.skip_work.length;j++) {
-					   skipwork.push("<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.skip_work[j]+"\")'>"+obj.skip_work[j]+"</a>");
+					   skipwork.push("<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitTooltip(jQuery(this), \""+obj.skip_work[j]+"\")'>"+obj.skip_work[j]+"</a>");
 				       }
-				       result_data.push( [ "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/client/"+obj.id+"\");' style='cursor: pointer;'>"+obj.name+"</a>",
+				       result_data.push( [ "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.id+"\")'>"+obj.name+"</a>",
 							  obj.group,
 							  obj.user || "-",
 							  obj.host,
@@ -444,7 +446,7 @@
 					       data: result_data };
 
 			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.rows_per_page = 100;
-			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [70,73,50,70,73,1,115,83,70,90,75,57,67,68,90];
+			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [75,73,70,70,73,75,115,90,75,105,75,60,70,75,90];
 			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.data = return_data;
 			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].render();
 			       Retina.WidgetInstances.awe_monitor[1].check_update();
@@ -526,19 +528,27 @@
 	}
     };
 
-    widget.tooltip = function (obj, id) {
+    widget.jobTooltip = function (obj, id) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
 	obj.popover('destroy');
 	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a style='cursor: pointer;' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/job/"+id+"\");'>job details</a><br><a style='cursor: pointer;' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/job/"+id+"?perf\");'>job stats</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].jobDetails(&#39;"+id+"&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>excel</a>",html:true,placement:"top"});
 	obj.popover('show');
-    }
+    };
 
     widget.clientTooltip = function (obj, id) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
 	obj.popover('destroy');
-	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stderr&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>error</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;stdout&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>output</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+id+"&#39;,&#39;worknotes&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>worknotes</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].resumeJob(&#39;"+id+"&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>resume</a>",html:true,placement:"top"});
+	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/client/"+id+"\");this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>details</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].resumeClient(&#39;"+id+"&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>resume</a>",html:true,placement:"top"});
 	obj.popover('show');
-    }
+    };
+
+
+    widget.workunitTooltip = function (obj, wuid, jid) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
+	obj.popover('destroy');
+	obj.popover({content: "<button class='close' style='position: relative; bottom: 8px; left: 8px;' type='button' onclick='this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>×</button><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+wuid+"&#39;,&#39;stderr&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>error</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+wuid+"&#39;,&#39;stdout&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>output</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitDetails(&#39;"+wuid+"&#39;,&#39;worknotes&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>worknotes</a><br><a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].resumeJob(&#39;"+jid+"&#39;,&#39;worknotes&#39;);this.parentNode.parentNode.parentNode.removeChild(this.parentNode.parentNode);'>resume job</a>",html:true,placement:"top"});
+	obj.popover('show');
+    };
 
     widget.workunitDetails = function (id, which) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
@@ -661,7 +671,7 @@
 				"group": obj.info.clientgroups,
 				"ok": obj.tasks.length - obj.remaintasks || "0",
 				"tot": obj.tasks.length,
-				"state": "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.lastfailed+"\")'>"+obj.lastfailed+"</a>",
+				"state": "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitTooltip(jQuery(this), \""+obj.lastfailed+"\", \""+obj.id+"\")'>"+obj.lastfailed+"</a>",
 				"updated": obj.updatetime
 			      } );
 	}
@@ -678,7 +688,7 @@
 	for (var i=0;i<data.length;i++) {
 	    var obj = data[i];
 	    result_data.push( { "created": obj.info.submittime,
-				"jid": "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].tooltip(jQuery(this), \""+obj.id+"\")'>"+obj.jid+"</a>",
+				"jid": "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].jobTooltip(jQuery(this), \""+obj.id+"\")'>"+obj.jid+"</a>",
 				"name": obj.info.name,
 				"user": obj.info.user,
 				"project": obj.info.project,
@@ -772,6 +782,40 @@
 	}
 	return result_data;
     };
+
+    /*
+      Resume functions
+     */
+    widget.resumeClient = function (clientid) {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
+	jQuery.ajax({
+	    method: "PUT",
+	    dataType: "json",
+	    headers: widget.authHeader, 
+	    url: RetinaConfig["awe_ip"]+"/client/"+clientid+"?resume",
+	    success: function (data) {
+		Retina.WidgetInstances.awe_monitor[1].updateData('clients');
+		alert('client resumed');
+	    }}).fail(function(xhr, error) {
+		alert('failed to resume client');
+	    });
+    };
+
+    widget.resumeAllClients = function () {
+	var widget = Retina.WidgetInstances.awe_monitor[1];
+	jQuery.ajax({
+	    method: "PUT",
+	    dataType: "json",
+	    headers: widget.authHeader, 
+	    url: RetinaConfig["awe_ip"]+"/client?resumeall",
+	    success: function (data) {
+		Retina.WidgetInstances.awe_monitor[1].updateData('clients');
+		alert('all clients resumed');
+	    }}).fail(function(xhr, error) {
+		alert('failed to resume all clients');
+	    });
+    };
+
 
     widget.resumeJob = function (jobid) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];

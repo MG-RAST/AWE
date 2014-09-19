@@ -233,7 +233,8 @@ func (qm *CQMgr) GetAllClientsByUser(u *user.User) []*Client {
 	dbFindClientGroups(q, clientgroups)
 	filtered_clientgroups := map[string]bool{}
 	for _, cg := range *clientgroups {
-		if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || u.Admin == true || cg.Acl.Owner == "public")) ||
+		rights := cg.Acl.Check(u.Uuid)
+		if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || rights["read"] == true || u.Admin == true || cg.Acl.Owner == "public")) ||
 			(u.Uuid == "public" && conf.CLIENT_AUTH_REQ == false && cg.Acl.Owner == "public") {
 			filtered_clientgroups[cg.Name] = true
 		}

@@ -448,7 +448,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		var errwait error
 		status, errwait = client.WaitContainer(container_id)
 		done <- errwait // inform main function
-		done <- errwait // inform memory checker
+		if conf.MEM_CHECK_INTERVAL != 0 {
+			done <- errwait // inform memory checker
+		}
 	}()
 
 	var MaxMem int64 = -1
@@ -459,102 +461,106 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	// e.g. /sys/fs/cgroup/memory/docker/<id>/memory.stat
 	memory_stat_filename := path.Join(conf.CGROUP_MEMORY_DOCKER_DIR, container_id, "/memory.stat")
 
-	go func() { // memory checker
+	if conf.MEM_CHECK_INTERVAL != 0 {
+		go func() { // memory checker
 
-		for {
+			for {
 
-			select {
-			case err_mem := <-done:
-				if err_mem != nil {
-					logger.Error("channel done returned error: " + err_mem.Error())
+				select {
+				case err_mem := <-done:
+					if err_mem != nil {
+						logger.Error("channel done returned error: " + err_mem.Error())
+					}
+					return
+				default:
 				}
-				return
-			default:
-			}
 
-			var memory_total_rss int64 = -1
-			var memory_total_swap int64 = -1
-			memory_stat_file, err_mem := os.Open(memory_stat_filename)
-			if err_mem != nil {
+				var memory_total_rss int64 = -1
+				var memory_total_swap int64 = -1
+				memory_stat_file, err_mem := os.Open(memory_stat_filename)
+				if err_mem != nil {
 
-				logger.Error("warning: error opening memory_stat_file file:" + err_mem.Error())
-				time.Sleep(conf.MEM_CHECK_INTERVAL)
-				continue
-			}
-
-			// Closes the file when we leave the scope of the current function,
-			// this makes sure we never forget to close the file if the
-			// function can exit in multiple places.
-
-			memory_stat_file_scanner := bufio.NewScanner(memory_stat_file)
-
-			memory_total_rss_read := false
-			memory_total_swap_read := false
-			// scanner.Scan() advances to the next token returning false if an error was encountered
-			for memory_stat_file_scanner.Scan() {
-				line := memory_stat_file_scanner.Text()
-				if strings.HasPrefix(line, "total_rss ") { // TODO what is total_rss_huge
-					//logger.Debug(1, fmt.Sprint("inspecting container with memory line=", line))
-
-					memory_total_rss, err = strconv.ParseInt(strings.TrimPrefix(line, "total_rss "), 10, 64)
-					if err != nil {
-						memory_total_rss = -1
-					}
-					memory_total_rss_read = true
-				} else if strings.HasPrefix(line, "total_swap ") { // TODO what is total_rss_huge
-					//logger.Debug(1, fmt.Sprint("inspecting container with memory line=", line))
-
-					memory_total_swap, err = strconv.ParseInt(strings.TrimPrefix(line, "total_swap "), 10, 64)
-					if err != nil {
-						memory_total_swap = -1
-					}
-					memory_total_swap_read = true
-				} else {
+					logger.Error("warning: error opening memory_stat_file file:" + err_mem.Error())
+					time.Sleep(conf.MEM_CHECK_INTERVAL)
 					continue
 				}
-				if memory_total_rss_read && memory_total_swap_read { // we found all information we need, leave the loop
-					break
-				}
 
-			}
+				// Closes the file when we leave the scope of the current function,
+				// this makes sure we never forget to close the file if the
+				// function can exit in multiple places.
 
-			// When finished scanning if any error other than io.EOF occured
-			// it will be returned by scanner.Err().
-			if err := memory_stat_file_scanner.Err(); err != nil {
-				logger.Error(fmt.Sprintf("warning: could no read memory usage from cgroups=%s", memory_stat_file_scanner.Err()))
-				//err = nil
-			} else {
+				memory_stat_file_scanner := bufio.NewScanner(memory_stat_file)
 
-				// RSS maxium
-				if memory_total_rss >= 0 && memory_total_rss > max_memory_total_rss {
-					max_memory_total_rss = memory_total_rss
-				}
+				memory_total_rss_read := false
+				memory_total_swap_read := false
+				// scanner.Scan() advances to the next token returning false if an error was encountered
+				for memory_stat_file_scanner.Scan() {
+					line := memory_stat_file_scanner.Text()
+					if strings.HasPrefix(line, "total_rss ") { // TODO what is total_rss_huge
+						//logger.Debug(1, fmt.Sprint("inspecting container with memory line=", line))
 
-				// SWAP maximum
-				if memory_total_swap >= 0 && memory_total_swap > max_memory_total_swap {
-					max_memory_total_swap = memory_total_swap
-				}
+						memory_total_rss, err = strconv.ParseInt(strings.TrimPrefix(line, "total_rss "), 10, 64)
+						if err != nil {
+							memory_total_rss = -1
+						}
+						memory_total_rss_read = true
+					} else if strings.HasPrefix(line, "total_swap ") { // TODO what is total_rss_huge
+						//logger.Debug(1, fmt.Sprint("inspecting container with memory line=", line))
 
-				// RSS+SWAP maximum
-				if memory_total_rss >= 0 && memory_total_swap >= 0 {
-
-					memory_combined := memory_total_rss + memory_total_swap
-					if memory_combined > MaxMem {
-						MaxMem = memory_combined
+						memory_total_swap, err = strconv.ParseInt(strings.TrimPrefix(line, "total_swap "), 10, 64)
+						if err != nil {
+							memory_total_swap = -1
+						}
+						memory_total_swap_read = true
+					} else {
+						continue
+					}
+					if memory_total_rss_read && memory_total_swap_read { // we found all information we need, leave the loop
+						break
 					}
 
 				}
 
-				logger.Debug(1, fmt.Sprintf("memory: rss=%d, swap=%d, max_rss=%d max_swap=%d max_combined=%d",
-					memory_total_rss, memory_total_swap, max_memory_total_rss, max_memory_total_swap, MaxMem))
+				// When finished scanning if any error other than io.EOF occured
+				// it will be returned by scanner.Err().
+				if err := memory_stat_file_scanner.Err(); err != nil {
+					logger.Error(fmt.Sprintf("warning: could no read memory usage from cgroups=%s", memory_stat_file_scanner.Err()))
+					//err = nil
+				} else {
+
+					// RSS maxium
+					if memory_total_rss >= 0 && memory_total_rss > max_memory_total_rss {
+						max_memory_total_rss = memory_total_rss
+					}
+
+					// SWAP maximum
+					if memory_total_swap >= 0 && memory_total_swap > max_memory_total_swap {
+						max_memory_total_swap = memory_total_swap
+					}
+
+					// RSS+SWAP maximum
+					if memory_total_rss >= 0 && memory_total_swap >= 0 {
+
+						memory_combined := memory_total_rss + memory_total_swap
+						if memory_combined > MaxMem {
+							MaxMem = memory_combined
+						}
+
+					}
+
+					logger.Debug(1, fmt.Sprintf("memory: rss=%d, swap=%d, max_rss=%d max_swap=%d max_combined=%d",
+						memory_total_rss, memory_total_swap, max_memory_total_rss, max_memory_total_swap, MaxMem))
+
+				}
+				memory_stat_file.Close() // defer does not work in for loop !
+				//time.Sleep(5 * time.Second)
+				time.Sleep(conf.MEM_CHECK_INTERVAL)
 
 			}
-			memory_stat_file.Close() // defer does not work in for loop !
-			//time.Sleep(5 * time.Second)
-			time.Sleep(conf.MEM_CHECK_INTERVAL)
-
-		}
-	}()
+		}()
+	} else {
+		logger.Debug(1, "memory checking disabled")
+	}
 
 	select {
 	case <-chankill:
@@ -645,6 +651,12 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		done <- cmd.Wait()
 		memcheck_done <- true
 	}()
+
+	mem_check_interval_here := conf.MEM_CHECK_INTERVAL
+	if mem_check_interval_here == 0 {
+		mem_check_interval_here = 10 * time.Second
+	}
+
 	go func() {
 		mstats := new(runtime.MemStats)
 		runtime.ReadMemStats(mstats)
@@ -658,7 +670,7 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 				if mstats.Alloc > MaxMem {
 					MaxMem = mstats.Alloc
 				}
-				time.Sleep(conf.MEM_CHECK_INTERVAL)
+				time.Sleep(mem_check_interval_here)
 			case <-memcheck_done:
 				return
 			}

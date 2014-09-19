@@ -76,7 +76,7 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 		//if task.Id is an "integer", it is unmashalled from job.json (submitted by template)
 		//convert to standard taskid
 		if rank != idInt {
-			return errors.New(fmt.Sprintf("invalid job script: task id doen't match stage %d vs %d", rank, idInt))
+			return errors.New(fmt.Sprintf("invalid job script: task id doesn't match stage %d vs %d", rank, idInt))
 		}
 		task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
 		for j := 0; j < len(task.DependsOn); j++ {

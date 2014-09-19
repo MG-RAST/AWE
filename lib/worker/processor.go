@@ -62,18 +62,23 @@ func processor(control chan int) {
 
 		workmap[work.Id] = ID_WORKER
 
-		envkeys, err := SetEnv(work)
-		if err != nil {
-			logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
-			processed.workunit.Notes = processed.workunit.Notes + "###[precessor#SetEnv]" + err.Error()
-			processed.workunit.State = core.WORK_STAT_FAIL
-			//release the permit lock, for work overlap inhibitted mode only
-			if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-				<-chanPermit
-			}
-			continue
-		}
+		var err error
+		var envkeys []string
+		_ = envkeys
 
+		if work.Cmd.Dockerimage == "" {
+			envkeys, err = SetEnv(work)
+			if err != nil {
+				logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
+				processed.workunit.Notes = processed.workunit.Notes + "###[precessor#SetEnv]" + err.Error()
+				processed.workunit.State = core.WORK_STAT_FAIL
+				//release the permit lock, for work overlap inhibitted mode only
+				if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+					<-chanPermit
+				}
+				continue
+			}
+		}
 		run_start := time.Now().Unix()
 
 		pstat, err := RunWorkunit(work)
@@ -93,8 +98,10 @@ func processor(control chan int) {
 		processed.perfstat.Runtime = computetime
 		processed.workunit.ComputeTime = int(computetime)
 
-		if len(envkeys) > 0 {
-			UnSetEnv(envkeys)
+		if work.Cmd.Dockerimage == "" {
+			if len(envkeys) > 0 {
+				UnSetEnv(envkeys)
+			}
 		}
 
 		fromProcessor <- processed
@@ -373,7 +380,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		Env:          docker_environment}
 	opts := docker.CreateContainerOptions{Name: container_name, Config: &config}
 
-	// *** create container (or find container ?)
+	// *** create container
 	logger.Debug(1, fmt.Sprintf("creating docker container from image %s (%s)", Dockerimage, dockerimage_id))
 	container_incomplete, err := client.CreateContainer(opts)
 	if err != nil {

@@ -452,13 +452,14 @@ func (qm *CQMgr) UpdateSubClientsByUser(id string, count int, u *user.User) {
 
 func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, num int) (workunits []*Workunit, err error) {
 	//precheck if the client is registered
-	if _, hasClient := qm.clientMap[client_id]; !hasClient {
+	client, hasClient := qm.clientMap[client_id]
+	if !hasClient {
 		return nil, errors.New(e.ClientNotFound)
 	}
-	if qm.clientMap[client_id].Status == CLIENT_STAT_SUSPEND {
+	if client.Status == CLIENT_STAT_SUSPEND {
 		return nil, errors.New(e.ClientSuspended)
 	}
-	if qm.clientMap[client_id].Status == CLIENT_STAT_DELETED {
+	if client.Status == CLIENT_STAT_DELETED {
 		delete(qm.clientMap, client_id)
 		return nil, errors.New(e.ClientDeleted)
 	}
@@ -470,15 +471,22 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, num int)
 	qm.coReq <- req
 	ack := <-qm.coAck
 
+	client, hasClient = qm.clientMap[client_id]
+	if !hasClient {
+		return nil, errors.New(e.ClientNotFound)
+	}
+
 	if ack.err == nil {
 		for _, work := range ack.workunits {
-			qm.clientMap[client_id].Total_checkout += 1
-			qm.clientMap[client_id].Current_work[work.Id] = true
+			client.Total_checkout += 1
+			client.Current_work[work.Id] = true
 		}
-		if qm.clientMap[client_id].Status == CLIENT_STAT_ACTIVE_IDLE {
-			qm.clientMap[client_id].Status = CLIENT_STAT_ACTIVE_BUSY
+		if client.Status == CLIENT_STAT_ACTIVE_IDLE {
+			client.Status = CLIENT_STAT_ACTIVE_BUSY
 		}
 	}
+
+	qm.clientMap[client_id] = client
 
 	//unlock
 	<-qm.coSem
@@ -499,7 +507,10 @@ func (qm *CQMgr) NotifyWorkStatus(notice Notice) {
 }
 
 func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
-	filtered := qm.filterWorkByClient(req.fromclient)
+	filtered, err := qm.filterWorkByClient(req.fromclient)
+	if err != nil {
+		return
+	}
 	logger.Debug(2, fmt.Sprintf("popWorks filtered: %d (0 meansNoEligibleWorkunitFound)", filtered))
 	if len(filtered) == 0 {
 		return nil, errors.New(e.NoEligibleWorkunitFound)
@@ -517,13 +528,13 @@ func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 	return
 }
 
-func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string) {
+func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string, err error) {
 	client, ok := qm.clientMap[clientid]
 	if !ok {
 		err_msg := fmt.Sprintf("error: unregistered client %s trying to checkout workunit, most likely cause is client disappeared after request to checkout workunit combined with slow response to workunit checkout request", clientid)
 		fmt.Fprintln(os.Stderr, err_msg)
 		logger.Error(err_msg)
-		return
+		return nil, errors.New(e.ClientNotFound)
 	}
 	for id, _ := range qm.workQueue.wait {
 		if _, ok := qm.workQueue.workMap[id]; !ok {
@@ -552,7 +563,7 @@ func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string) {
 			logger.Debug(2, fmt.Sprintf("3) contains(client.Apps, work.Cmd.Name) || contains(client.Apps, conf.ALL_APP) %s", id))
 		}
 	}
-	return ids
+	return ids, nil
 }
 
 func (qm *CQMgr) getWorkByClient(clientid string) (ids []string) {

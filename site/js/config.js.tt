@@ -2,11 +2,11 @@ var RetinaConfig = {
     "awe_ip": "[% api_url %]",
     "workflow_ip": "[% api_url %]/awf",
     "authResources": { "default": "KBase",
-		       "KBase": { "icon": "KBase_favicon.ico",
-				  "prefix": "kbgo4711",
-				  "keyword": "auth",
-				  "url": "http://api.metagenomics.anl.gov",
-				  "useHeader": false  } },
+                       "KBase": { "icon": "KBase_favicon.ico",
+                                  "prefix": "kbgo4711",
+                                  "keyword": "auth",
+                                  "url": "http://api.metagenomics.anl.gov?verbosity=verbose",
+                                  "useHeader": false  } },
     "mgrast_api": "http://api.metagenomics.anl.gov",
     "authentication": true
 }

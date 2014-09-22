@@ -87,7 +87,7 @@ var (
 	PERF_LOG_WORKUNIT = true
 	//number of times that one workunit fails before the workunit considered suspend
 	MAX_WORK_FAILURE = 3
-	//number of times that one clinet consecutively fails running workunits before the clinet considered suspend
+	//number of times that one client consecutively fails running workunits before the client considered suspend
 	MAX_CLIENT_FAILURE = 5
 	//big data threshold
 	BIG_DATA_SIZE int64 = 1048576 * 1024

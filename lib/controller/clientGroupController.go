@@ -16,14 +16,14 @@ import (
 
 type ClientGroupController struct{}
 
-// OPTIONS: /clientgroup
+// OPTIONS: /cgroup
 func (cr *ClientGroupController) Options(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	cx.RespondWithOK()
 	return
 }
 
-// POST: /clientgroup/{name}
+// POST: /cgroup/{name}
 func (cr *ClientGroupController) CreateWithId(name string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 
@@ -56,7 +56,7 @@ func (cr *ClientGroupController) CreateWithId(name string, cx *goweb.Context) {
 	return
 }
 
-// GET: /clientgroup/{id}
+// GET: /cgroup/{id}
 func (cr *ClientGroupController) Read(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 
@@ -107,7 +107,7 @@ func (cr *ClientGroupController) Read(id string, cx *goweb.Context) {
 	return
 }
 
-// GET: /clientgroup
+// GET: /cgroup
 func (cr *ClientGroupController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
@@ -193,7 +193,7 @@ func (cr *ClientGroupController) ReadMany(cx *goweb.Context) {
 	return
 }
 
-// DELETE: /clientgroup/{id}
+// DELETE: /cgroup/{id}
 func (cr *ClientGroupController) Delete(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 

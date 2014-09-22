@@ -24,16 +24,19 @@ import (
 	"time"
 )
 
-func replace_filepath_with_full_filepath(inputs *core.IOmap, cmd_script []string) (err error) {
+// this functions replaces filename if they match regular expression and they match the filename reported in IOmap
+func replace_filepath_with_full_filepath(inputs *core.IOmap, workpath string, cmd_script []string) (err error) {
+
+	// workpath may be conf.DOCKER_WORK_DIR
 
 	for _, cmd_line := range cmd_script {
 		logger.Debug(1, fmt.Sprintf("C cmd_line : %s", cmd_line))
 	}
 
 	// replace @files with abosulte file path
-	match_at_file, err := regexp.Compile(`@[^\s]+`)
+	// was: match_at_file, err := regexp.Compile(`@[^\s]+`)
+	match_at_file, err := regexp.Compile(`@[\w-]+`) // [0-9A-Za-z_] and "-" //TODO support for space using quotes
 	if err != nil {
-
 		err = errors.New(fmt.Sprintf("error: compiling regex (match_at_file), error=%s", err.Error()))
 		return
 	}
@@ -46,7 +49,7 @@ func replace_filepath_with_full_filepath(inputs *core.IOmap, cmd_script []string
 
 		if inputs.Has(inputname) {
 			//inputFilePath := fmt.Sprintf("%s/%s", conf.DOCKER_WORK_DIR, inputname)
-			inputFilePath := path.Join(conf.DOCKER_WORK_DIR, inputname)
+			inputFilePath := path.Join(workpath, inputname)
 			logger.Debug(1, fmt.Sprintf("return full file_name: %s", inputname))
 			return inputFilePath
 		}
@@ -128,7 +131,7 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 
 	logger.Debug(1, "+++ replace_filepath_with_full_filepath")
 	// expand filenames
-	err = replace_filepath_with_full_filepath(&parsed.workunit.Inputs, cmd_script)
+	err = replace_filepath_with_full_filepath(&parsed.workunit.Inputs, conf.DOCKER_WORK_DIR, cmd_script)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error: replace_filepath_with_full_filepath, %s", err.Error()))
 	}
@@ -279,6 +282,16 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 		return
 	}
 
+	workpath := work.Path()
+	if len(work.Cmd.Dockerimage) > 0 {
+		workpath = conf.DOCKER_WORK_DIR
+	}
+
+	// use better file name replacement technique
+	var virtual_cmd_script = []string{argstr}
+	replace_filepath_with_full_filepath(&work.Inputs, workpath, virtual_cmd_script)
+	argstr = virtual_cmd_script[0]
+
 	argList := parse_arg_string(argstr)
 
 	for _, arg := range argList {
@@ -297,6 +310,8 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 			args = append(args, parsedArg)
 			continue
 		}
+
+		// this might be deprecated by replace_filepath_with_full_filepath
 		if strings.Contains(arg, "@") { //parse input/output to accessible local file
 			segs := strings.Split(arg, "@")
 			if len(segs) > 2 {
@@ -304,7 +319,7 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 			}
 			inputname := segs[1]
 			if work.Inputs.Has(inputname) {
-				inputFilePath := path.Join(work.Path(), inputname)
+				inputFilePath := path.Join(workpath, inputname)
 				parsedArg := fmt.Sprintf("%s%s", segs[0], inputFilePath)
 				args = append(args, parsedArg)
 			}
@@ -366,17 +381,23 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		file_path := path.Join(predata_directory, name)
 		if !isFileExisting(file_path) {
 
-			size, err = shock.FetchFile(file_path, io.Url, workunit.Info.DataToken, io.Uncompress)
+			file_path_part := file_path + ".part" // temporary name
+			size, err = shock.FetchFile(file_path_part, io.Url, workunit.Info.DataToken, io.Uncompress)
 			if err != nil {
 				return 0, errors.New("error in fetchFile:" + err.Error())
 			}
+
+			os.Rename(file_path_part, file_path)
+			if err != nil {
+				return 0, errors.New("error renaming after download of preData:" + err.Error())
+			}
 		}
 
-		use_symlink := false
+		use_symlink := true
 		linkname := path.Join(workunit.Path(), name)
 		if workunit.Cmd.Dockerimage != "" || strings.HasPrefix(workunit.Cmd.Name, "app:") { // TODO need more save way to detect use of docker
 
-			use_symlink = false // TODO mechanism
+			//use_symlink = true // TODO mechanism
 
 			if use_symlink {
 				file_path = path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, name)

@@ -62,18 +62,23 @@ func processor(control chan int) {
 
 		workmap[work.Id] = ID_WORKER
 
-		envkeys, err := SetEnv(work)
-		if err != nil {
-			logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
-			processed.workunit.Notes = processed.workunit.Notes + "###[precessor#SetEnv]" + err.Error()
-			processed.workunit.State = core.WORK_STAT_FAIL
-			//release the permit lock, for work overlap inhibitted mode only
-			if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-				<-chanPermit
-			}
-			continue
-		}
+		var err error
+		var envkeys []string
+		_ = envkeys
 
+		if work.Cmd.Dockerimage == "" {
+			envkeys, err = SetEnv(work)
+			if err != nil {
+				logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
+				processed.workunit.Notes = processed.workunit.Notes + "###[precessor#SetEnv]" + err.Error()
+				processed.workunit.State = core.WORK_STAT_FAIL
+				//release the permit lock, for work overlap inhibitted mode only
+				if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+					<-chanPermit
+				}
+				continue
+			}
+		}
 		run_start := time.Now().Unix()
 
 		pstat, err := RunWorkunit(work)
@@ -84,7 +89,6 @@ func processor(control chan int) {
 			processed.workunit.State = core.WORK_STAT_FAIL
 		} else {
 			logger.Debug(1, "RunWorkunit() returned without error, workid="+work.Id)
-			time.Sleep(10000 * time.Millisecond)
 			processed.workunit.State = core.WORK_STAT_COMPUTED
 			processed.perfstat.MaxMemUsage = pstat.MaxMemUsage
 		}
@@ -93,8 +97,10 @@ func processor(control chan int) {
 		processed.perfstat.Runtime = computetime
 		processed.workunit.ComputeTime = int(computetime)
 
-		if len(envkeys) > 0 {
-			UnSetEnv(envkeys)
+		if work.Cmd.Dockerimage == "" {
+			if len(envkeys) > 0 {
+				UnSetEnv(envkeys)
+			}
 		}
 
 		fromProcessor <- processed
@@ -241,7 +247,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	//var node *core.ShockNode = nil
 	// find image in repo (e.g. extract docker image id)
-	node, dockerimage_download_url, err := findDockerImageInShock(Dockerimage)
+	node, dockerimage_download_url, err := findDockerImageInShock(Dockerimage, work.Info.DataToken)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Error getting docker url, err=%s", err.Error()))
 	}
@@ -273,11 +279,11 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		switch {
 		case image_retrieval == "load":
 			{ // for images that have been saved
-				err = dockerLoadImage(client, dockerimage_download_url)
+				err = dockerLoadImage(client, dockerimage_download_url, work.Info.DataToken)
 			}
 		case image_retrieval == "import":
 			{ // for containers that have been exported
-				err = dockerImportImage(client, Dockerimage)
+				err = dockerImportImage(client, Dockerimage, work.Info.DataToken)
 			}
 		case image_retrieval == "build":
 			{ // to create image from Dockerfile
@@ -327,6 +333,27 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}
 
+	// collect environment
+	var docker_environment []string
+	docker_environment_string := "" // this is only for the debug output
+	for key, val := range work.Cmd.Environ.Public {
+		env_pair := key + "=" + val
+		docker_environment = append(docker_environment, env_pair)
+		docker_environment_string += " -e " + env_pair
+	}
+	if work.Cmd.HasPrivateEnv {
+		private_envs, err := FetchPrivateEnvByWorkId(work.Id)
+		if err != nil {
+			return nil, err
+		}
+		for key, val := range private_envs {
+			env_pair := key + "=" + val
+			docker_environment = append(docker_environment, env_pair)
+			docker_environment_string += " -e " + env_pair
+
+		}
+	}
+
 	pipe_output := fmt.Sprintf(" 2> %s 1> %s", conf.STDERR_FILENAME, conf.STDOUT_FILENAME)
 	bash_command := ""
 	if use_wrapper_script {
@@ -342,10 +369,17 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	container_cmd := []string{"/bin/bash", "-c", bash_command} // TODO remove bash if possible, but is needed for piping
 
-	config := docker.Config{Image: dockerimage_id, WorkingDir: conf.DOCKER_WORK_DIR, AttachStdout: true, AttachStderr: true, AttachStdin: false, Cmd: container_cmd, Volumes: map[string]struct{}{conf.DOCKER_WORK_DIR: {}}}
+	config := docker.Config{Image: dockerimage_id,
+		WorkingDir:   conf.DOCKER_WORK_DIR,
+		AttachStdout: true,
+		AttachStderr: true,
+		AttachStdin:  false,
+		Cmd:          container_cmd,
+		Volumes:      map[string]struct{}{conf.DOCKER_WORK_DIR: {}},
+		Env:          docker_environment}
 	opts := docker.CreateContainerOptions{Name: container_name, Config: &config}
 
-	// *** create container (or find container ?)
+	// *** create container
 	logger.Debug(1, fmt.Sprintf("creating docker container from image %s (%s)", Dockerimage, dockerimage_id))
 	container_incomplete, err := client.CreateContainer(opts)
 	if err != nil {
@@ -384,7 +418,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		bindarray = []string{bindstr_workdir}
 	}
 
-	fake_docker_cmd := "sudo docker run -t -i --name test -v " + bindstr_workdir + fake_predata + " --workdir=" + conf.DOCKER_WORK_DIR + " " + dockerimage_id + " " + strings.Join(container_cmd, " ")
+	fake_docker_cmd := "sudo docker run -t -i --name test -v " + bindstr_workdir + fake_predata + " " + docker_environment_string + " --workdir=" + conf.DOCKER_WORK_DIR + " " + dockerimage_id + " " + strings.Join(container_cmd, " ")
 	logger.Debug(1, "fake_docker_cmd ("+Dockerimage+"): "+fake_docker_cmd)
 	logger.Debug(1, "starting docker container...")
 
@@ -420,112 +454,119 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		var errwait error
 		status, errwait = client.WaitContainer(container_id)
 		done <- errwait // inform main function
-		done <- errwait // inform memory checker
+		if conf.MEM_CHECK_INTERVAL != 0 {
+			done <- errwait // inform memory checker
+		}
 	}()
 
 	var MaxMem int64 = -1
 	var max_memory_total_rss int64 = -1
 	var max_memory_total_swap int64 = -1
 
+	// documentation: https://docs.docker.com/articles/runmetrics/
 	// e.g. /sys/fs/cgroup/memory/docker/<id>/memory.stat
 	memory_stat_filename := path.Join(conf.CGROUP_MEMORY_DOCKER_DIR, container_id, "/memory.stat")
 
-	go func() { // memory checker
+	if conf.MEM_CHECK_INTERVAL != 0 {
+		go func() { // memory checker
 
-		for {
+			for {
 
-			select {
-			case err_mem := <-done:
-				if err_mem != nil {
-					logger.Error("channel done returned error: " + err_mem.Error())
+				select {
+				case err_mem := <-done:
+					if err_mem != nil {
+						logger.Error("channel done returned error: " + err_mem.Error())
+					}
+					return
+				default:
 				}
-				return
-			default:
-			}
 
-			var memory_total_rss int64 = -1
-			var memory_total_swap int64 = -1
-			memory_stat_file, err_mem := os.Open(memory_stat_filename)
-			if err_mem != nil {
+				var memory_total_rss int64 = -1
+				var memory_total_swap int64 = -1
+				memory_stat_file, err_mem := os.Open(memory_stat_filename)
+				if err_mem != nil {
 
-				logger.Error("warning: error opening memory_stat_file file:" + err_mem.Error())
-				time.Sleep(conf.MEM_CHECK_INTERVAL)
-				continue
-			}
-
-			// Closes the file when we leave the scope of the current function,
-			// this makes sure we never forget to close the file if the
-			// function can exit in multiple places.
-
-			memory_stat_file_scanner := bufio.NewScanner(memory_stat_file)
-
-			memory_total_rss_read := false
-			memory_total_swap_read := false
-			// scanner.Scan() advances to the next token returning false if an error was encountered
-			for memory_stat_file_scanner.Scan() {
-				line := memory_stat_file_scanner.Text()
-				if strings.HasPrefix(line, "total_rss ") { // TODO what is total_rss_huge
-					//logger.Debug(1, fmt.Sprint("inspecting container with memory line=", line))
-
-					memory_total_rss, err = strconv.ParseInt(strings.TrimPrefix(line, "total_rss "), 10, 64)
-					if err != nil {
-						memory_total_rss = -1
-					}
-					memory_total_rss_read = true
-				} else if strings.HasPrefix(line, "total_swap ") { // TODO what is total_rss_huge
-					//logger.Debug(1, fmt.Sprint("inspecting container with memory line=", line))
-
-					memory_total_swap, err = strconv.ParseInt(strings.TrimPrefix(line, "total_swap "), 10, 64)
-					if err != nil {
-						memory_total_swap = -1
-					}
-					memory_total_swap_read = true
-				} else {
+					logger.Error("warning: error opening memory_stat_file file:" + err_mem.Error())
+					time.Sleep(conf.MEM_CHECK_INTERVAL)
 					continue
 				}
-				if memory_total_rss_read && memory_total_swap_read { // we found all information we need, leave the loop
-					break
-				}
 
-			}
+				// Closes the file when we leave the scope of the current function,
+				// this makes sure we never forget to close the file if the
+				// function can exit in multiple places.
 
-			// When finished scanning if any error other than io.EOF occured
-			// it will be returned by scanner.Err().
-			if err := memory_stat_file_scanner.Err(); err != nil {
-				logger.Error(fmt.Sprintf("warning: could no read memory usage from cgroups=%s", memory_stat_file_scanner.Err()))
-				//err = nil
-			} else {
+				memory_stat_file_scanner := bufio.NewScanner(memory_stat_file)
 
-				// RSS maxium
-				if memory_total_rss >= 0 && memory_total_rss > max_memory_total_rss {
-					max_memory_total_rss = memory_total_rss
-				}
+				memory_total_rss_read := false
+				memory_total_swap_read := false
+				// scanner.Scan() advances to the next token returning false if an error was encountered
+				for memory_stat_file_scanner.Scan() {
+					line := memory_stat_file_scanner.Text()
+					if strings.HasPrefix(line, "total_rss ") { // TODO what is total_rss_huge
+						//logger.Debug(1, fmt.Sprint("inspecting container with memory line=", line))
 
-				// SWAP maximum
-				if memory_total_swap >= 0 && memory_total_swap > max_memory_total_swap {
-					max_memory_total_swap = memory_total_swap
-				}
+						memory_total_rss, err = strconv.ParseInt(strings.TrimPrefix(line, "total_rss "), 10, 64)
+						if err != nil {
+							memory_total_rss = -1
+						}
+						memory_total_rss_read = true
+					} else if strings.HasPrefix(line, "total_swap ") { // TODO what is total_rss_huge
+						//logger.Debug(1, fmt.Sprint("inspecting container with memory line=", line))
 
-				// RSS+SWAP maximum
-				if memory_total_rss >= 0 && memory_total_swap >= 0 {
-
-					memory_combined := memory_total_rss + memory_total_swap
-					if memory_combined > MaxMem {
-						MaxMem = memory_combined
+						memory_total_swap, err = strconv.ParseInt(strings.TrimPrefix(line, "total_swap "), 10, 64)
+						if err != nil {
+							memory_total_swap = -1
+						}
+						memory_total_swap_read = true
+					} else {
+						continue
+					}
+					if memory_total_rss_read && memory_total_swap_read { // we found all information we need, leave the loop
+						break
 					}
 
 				}
 
-				logger.Debug(1, fmt.Sprintf("memory: rss=%d, swap=%d, max_rss=%d max_swap=%d max_combined=%d",
-					memory_total_rss, memory_total_swap, max_memory_total_rss, max_memory_total_swap, MaxMem))
+				// When finished scanning if any error other than io.EOF occured
+				// it will be returned by scanner.Err().
+				if err := memory_stat_file_scanner.Err(); err != nil {
+					logger.Error(fmt.Sprintf("warning: could no read memory usage from cgroups=%s", memory_stat_file_scanner.Err()))
+					//err = nil
+				} else {
+
+					// RSS maxium
+					if memory_total_rss >= 0 && memory_total_rss > max_memory_total_rss {
+						max_memory_total_rss = memory_total_rss
+					}
+
+					// SWAP maximum
+					if memory_total_swap >= 0 && memory_total_swap > max_memory_total_swap {
+						max_memory_total_swap = memory_total_swap
+					}
+
+					// RSS+SWAP maximum
+					if memory_total_rss >= 0 && memory_total_swap >= 0 {
+
+						memory_combined := memory_total_rss + memory_total_swap
+						if memory_combined > MaxMem {
+							MaxMem = memory_combined
+						}
+
+					}
+
+					logger.Debug(1, fmt.Sprintf("memory: rss=%d, swap=%d, max_rss=%d max_swap=%d max_combined=%d",
+						memory_total_rss, memory_total_swap, max_memory_total_rss, max_memory_total_swap, MaxMem))
+
+				}
+				memory_stat_file.Close() // defer does not work in for loop !
+				//time.Sleep(5 * time.Second)
+				time.Sleep(conf.MEM_CHECK_INTERVAL)
 
 			}
-			memory_stat_file.Close() // defer does not work in for loop !
-			//time.Sleep(5 * time.Second)
-			time.Sleep(conf.MEM_CHECK_INTERVAL)
-
-		}
-	}()
+		}()
+	} else {
+		logger.Debug(1, "memory checking disabled")
+	}
 
 	select {
 	case <-chankill:
@@ -616,6 +657,12 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		done <- cmd.Wait()
 		memcheck_done <- true
 	}()
+
+	mem_check_interval_here := conf.MEM_CHECK_INTERVAL
+	if mem_check_interval_here == 0 {
+		mem_check_interval_here = 10 * time.Second
+	}
+
 	go func() {
 		mstats := new(runtime.MemStats)
 		runtime.ReadMemStats(mstats)
@@ -629,7 +676,7 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 				if mstats.Alloc > MaxMem {
 					MaxMem = mstats.Alloc
 				}
-				time.Sleep(conf.MEM_CHECK_INTERVAL)
+				time.Sleep(mem_check_interval_here)
 			case <-memcheck_done:
 				return
 			}
@@ -776,9 +823,11 @@ func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 }
 
 // was getDockerImageUrl(Dockerimage string) (download_url string, err error)
-func findDockerImageInShock(Dockerimage string) (node *shock.ShockNode, download_url string, err error) {
+func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.ShockNode, download_url string, err error) {
 
-	shock_docker_repo := shock.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
+	logger.Debug(1, fmt.Sprint("datatoken for dockerimage: ", datatoken[0:15]))
+
+	shock_docker_repo := shock.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, datatoken}
 
 	logger.Debug(1, fmt.Sprint("try to import docker image, Dockerimage=", Dockerimage))
 	//query url = type=dockerimage&name=wgerlach/bowtie2:2.2.0"
@@ -808,9 +857,9 @@ func findDockerImageInShock(Dockerimage string) (node *shock.ShockNode, download
 	return
 }
 
-func dockerLoadImage(client *docker.Client, download_url string) (err error) {
+func dockerLoadImage(client *docker.Client, download_url string, datatoken string) (err error) {
 
-	image_stream, err := shock.FetchShockStream(download_url, "") // token empty here, assume that images are public
+	image_stream, err := shock.FetchShockStream(download_url, datatoken) // token empty here, assume that images are public
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error getting Shock stream, err=%s", err.Error()))
 	}
@@ -831,9 +880,9 @@ func dockerLoadImage(client *docker.Client, download_url string) (err error) {
 	return
 }
 
-func dockerImportImage(client *docker.Client, Dockerimage string) (err error) {
+func dockerImportImage(client *docker.Client, Dockerimage string, datatoken string) (err error) {
 
-	_, download_url, err := findDockerImageInShock(Dockerimage) // TODO get node
+	_, download_url, err := findDockerImageInShock(Dockerimage, datatoken) // TODO get node
 
 	if err != nil {
 		return err

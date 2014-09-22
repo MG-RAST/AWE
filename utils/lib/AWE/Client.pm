@@ -11,8 +11,10 @@ use LWP::UserAgent;
 
 1;
 
+our $global_debug = 0;
+
 sub new {
-    my ($class, $awe_url, $shocktoken) = @_;
+    my ($class, $awe_url, $shocktoken, $awetoken, $debug) = @_;
     
     my $agent = LWP::UserAgent->new;
     my $json = JSON->new;
@@ -24,13 +26,23 @@ sub new {
 		$shocktoken = undef;
 	}
 	
+	if (defined($awetoken) && $awetoken eq '') {
+		$awetoken = undef;
+	}
+	
+	unless (defined $awetoken) {
+		$awetoken = $shocktoken; # TODO ugly work around
+	}
+	
 	
     my $self = {
         json => $json,
         agent => $agent,
         awe_url => $awe_url || '',
         shocktoken => $shocktoken,
-        transport_method => 'requests'
+		awetoken => $awetoken,
+        transport_method => 'requests',
+		debug => $debug || $global_debug
     };
     if (system("type shock-client > /dev/null 2>&1") == 0) {
         $self->{transport_method} = 'shock-client';
@@ -38,6 +50,11 @@ sub new {
 
     bless $self, $class;
     return $self;
+}
+
+sub debug {
+    my ($self) = @_;
+    return $self->{debug};
 }
 
 sub json {
@@ -55,6 +72,10 @@ sub awe_url {
 sub shocktoken {
     my ($self) = @_;
     return $self->{shocktoken};
+}
+sub awetoken {
+    my ($self) = @_;
+    return $self->{awetoken};
 }
 sub transport_method {
     my ($self) = @_;
@@ -78,6 +99,24 @@ sub getJobQueue {
 	return $self->request('GET', 'job', \%query);
 }
 
+
+sub join_url {
+	
+	my @pieces=@_;
+	
+	# strip of leading and trailing '/'
+	for ( my $i =0 ; $i < @pieces ; ++$i ) {
+		
+		#my ($stripped) = $pieces[$i] =~ /^\/*(.*)\/*$/;
+		#$pieces[$i] = $stripped;
+		$pieces[$i] =~ s/^\/+|\/+$//g
+		
+	}
+	
+	#merge
+	return join('/', @pieces);
+}
+
 sub create_url {
 	my ($self, $resource, %query) = @_;
 	
@@ -90,7 +129,7 @@ sub create_url {
 		die "awe_url string empty";
 	}
 	
-	my $my_url = $self->awe_url . "/$resource";
+	my $my_url = join_url($self->awe_url , $resource);
 	
 	#if (defined $self->token) {
 	#	$query{'auth'}=$self->token;
@@ -147,23 +186,42 @@ sub request {
 	
 	my $my_url = $self->create_url($resource, (defined($query)?%$query:()));
 	
-	print "request: $method $my_url\n";
 	
 	
+	if ($self->{'debug'} ==1) {
+		
+		print STDERR "request: $method $my_url\n";
+		
+		#this is AWE token, not Shock data token
+		#datatoken is only added when submit_job is used
+		
+		if (defined $self->awetoken) {
+			print STDERR "found AWE token: ".substr($self->awetoken, 0, 20)."... \n";
+		} else {
+			print STDERR "found no AWE token\n";
+		}
+		
+	}
 	
-	my @method_args=($my_url); # ($my_url, ($self->token)?('Authorization' , "OAuth ".$self->token):());
+	my @method_args=($my_url, ($self->awetoken)?('Authorization' , "OAuth ".$self->awetoken):());
 	
 	if (defined $headers) {
 		push(@method_args, %$headers);
 	}
 	
+	if ($self->{'debug'} ==1) {
+		#print 'method_args: '.join(',', @method_args)."\n";
+		print STDERR 'method_args: '.Dumper(@method_args)."\n";
+	}
+	
 	#print 'method_args: '.join(',', @method_args)."\n";
 	
 	my $response_content = undef;
-    
+    my $response_object = undef;
+	
     eval {
 		
-        my $response_object = undef;
+        
 		
         if ($method eq 'GET') {
 			$response_object = $self->agent->get(@method_args );
@@ -186,6 +244,11 @@ sub request {
     
 	if ($@ || (! ref($response_content))) {
         print STDERR "[error] unable to connect to AWE ".$self->awe_url."\n";
+		
+		if (! ref($response_content)) {
+			print STDERR "response_object->content: ".substr($response_object->content, 0, 100)."... \n";
+		}
+		
         return undef;
     } elsif (exists($response_content->{error}) && $response_content->{error}) {
         print STDERR "[error] unable to send $method request to AWE: ".$response_content->{error}[0]."\n";
@@ -251,6 +314,9 @@ sub getClientList {
 sub submit_job {
 	my ($self, %hash) = @_;
 	
+	
+	
+	
 	my $content = {};
 	if (defined $hash{json_file}) {
 		unless (-s $hash{json_file}) {
@@ -312,31 +378,31 @@ sub checkClientGroup {
 	my $client_list_hash = $self->getClientList() || die "client list undefined";
 	#print Dumper($client_list_hash);
 	
-	print "\nOther clients:\n";
+	print STDERR "\nOther clients:\n";
 	my $found_active_clients = 0;
 	my $other_clients = 0;
 	foreach my $client ( @{$client_list_hash->{'data'}} ) {
 		unless (defined($client->{group}) && ($client->{group} eq $clientgroup)) {
-			print $client->{name}." (".$client->{Status}.")  group: ".$client->{group}."  apps: ".join(',',@{$client->{apps}})."\n";
+			print STDERR $client->{name}." (".$client->{Status}.")  group: ".$client->{group}."  apps: ".join(',',@{$client->{apps}})."\n";
 			$other_clients++;
 		}
 	}
 	if ($other_clients == 0) {
-		print "none.\n";
+		print STDERR "none.\n";
 	}
 	
-	print "\nClients in clientgroup \"$clientgroup\":\n";
+	print STDERR "\nClients in clientgroup \"$clientgroup\":\n";
 	foreach my $client ( @{$client_list_hash->{'data'}} ) {
 		
 		
 		
 		if (defined($client->{group}) && ($client->{group} eq $clientgroup)) {
-			print $client->{name}." (".$client->{Status}.")  group: ".$client->{group}."  apps: ".join(',',@{$client->{apps}})."\n";
+			print STDERR $client->{name}." (".$client->{Status}.")  group: ".$client->{group}."  apps: ".join(',',@{$client->{apps}})."\n";
 			
 			if (lc($client->{Status}) eq 'active-idle' || lc($client->{Status}) eq 'active-busy') {
 				$found_active_clients++;
 			} else {
-				print "warning: client not active:\n";
+				print STDERR "warning: client not active:\n";
 			}
 		}
 	}
@@ -347,7 +413,7 @@ sub checkClientGroup {
 		return 1;
 	}
 	
-	print "Summary: found $found_active_clients active client for clientgroup $clientgroup\n";
+	print STDERR "Summary: found $found_active_clients active client for clientgroup $clientgroup\n";
 	return 0;
 }
 

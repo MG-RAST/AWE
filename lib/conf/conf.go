@@ -126,7 +126,7 @@ var (
 	STDOUT_FILENAME               = "awe_stdout.txt"
 	STDERR_FILENAME               = "awe_stderr.txt"
 	WORKNOTES_FILENAME            = "awe_worknotes.txt"
-	MEM_CHECK_INTERVAL            = 10 * time.Second
+	MEM_CHECK_INTERVAL            = 0 * time.Second //in milliseconds e.g. use 10 * time.Second
 	DOCKER_WORK_DIR               = "/workdir/"
 	SHOCK_DOCKER_IMAGE_REPOSITORY = "http://shock.metagenomics.anl.gov"
 	KB_AUTH_TOKEN                 = "KB_AUTH_TOKEN"
@@ -143,6 +143,9 @@ var (
 )
 
 func init() {
+
+	MEM_CHECK_INTERVAL_SECONDS := -1
+
 	flag.StringVar(&CONFIG_FILE, "conf", "", "path to config file")
 	flag.StringVar(&RELOAD, "reload", "", "path or url to awe job data. WARNING this will drop all current jobs.")
 	flag.BoolVar(&RECOVER, "recover", false, "path to awe job data.")
@@ -154,6 +157,7 @@ func init() {
 	flag.StringVar(&CGROUP_MEMORY_DOCKER_DIR, "cgroup_memory_docker_dir", "/sys/fs/cgroup/memory/docker/", "path to cgroup directory for docker")
 	flag.StringVar(&SERVER_URL, "server_url", "", "URL of AWE server, including API port")
 	flag.StringVar(&CLIENT_GROUP, "client_group", "", "name of client group")
+	flag.IntVar(&MEM_CHECK_INTERVAL_SECONDS, "mem_check_interval_seconds", 0, "memory check interval in seconds (kernel needs to support that)")
 
 	flag.Parse()
 
@@ -313,6 +317,18 @@ func init() {
 	}
 	if cache_enabled, err := c.Bool("Client", "cache_enabled"); err == nil {
 		CACHE_ENABLED = cache_enabled
+	}
+
+	if MEM_CHECK_INTERVAL_SECONDS == -1 { // command line has higher priority than config file
+		if mem_seconds, err := c.Int("Client", "mem_check_interval_seconds"); err == nil {
+			MEM_CHECK_INTERVAL_SECONDS = mem_seconds
+		}
+
+	}
+
+	if MEM_CHECK_INTERVAL_SECONDS >= 0 {
+		MEM_CHECK_INTERVAL = time.Duration(MEM_CHECK_INTERVAL_SECONDS) * time.Second
+		// TODO
 	}
 
 	CLIENT_GROUP_TOKEN, _ = c.String("Client", "clientgroup_token")

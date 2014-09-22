@@ -89,7 +89,6 @@ func processor(control chan int) {
 			processed.workunit.State = core.WORK_STAT_FAIL
 		} else {
 			logger.Debug(1, "RunWorkunit() returned without error, workid="+work.Id)
-			time.Sleep(10000 * time.Millisecond)
 			processed.workunit.State = core.WORK_STAT_COMPUTED
 			processed.perfstat.MaxMemUsage = pstat.MaxMemUsage
 		}

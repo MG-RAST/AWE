@@ -464,8 +464,9 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, num int)
 		return nil, errors.New(e.ClientDeleted)
 	}
 
-	//lock semephore, at one time only one client's checkout request can be served
-	qm.coSem <- 1
+	//lock semaphore, at one time only one client's checkout request can be served
+	qm.LockSemaphore()
+	defer qm.UnlockSemaphore()
 
 	req := CoReq{policy: req_policy, fromclient: client_id, count: num}
 	qm.coReq <- req
@@ -488,10 +489,15 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, num int)
 
 	qm.clientMap[client_id] = client
 
-	//unlock
-	<-qm.coSem
-
 	return ack.workunits, ack.err
+}
+
+func (qm *CQMgr) LockSemaphore() {
+	qm.coSem <- 1
+}
+
+func (qm *CQMgr) UnlockSemaphore() {
+	<-qm.coSem
 }
 
 func (qm *CQMgr) GetWorkById(id string) (workunit *Workunit, err error) {

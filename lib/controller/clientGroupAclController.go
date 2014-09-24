@@ -18,7 +18,7 @@ var (
 		"public_all": true, "public_read": true, "public_write": true, "public_delete": true, "public_execute": true}
 )
 
-// GET: /cgroup/{cgid}/acl/ (only GET and OPTIONS are supported here)
+// GET: /cgroup/{cgid}/acl/ (only OPTIONS and GET are supported here)
 var ClientGroupAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
@@ -48,7 +48,6 @@ var ClientGroupAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 
 	// Load clientgroup by id
 	cg, err := core.LoadClientGroup(cgid)
-
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
@@ -61,8 +60,13 @@ var ClientGroupAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 		}
 	}
 
-	// User must be clientgroup owner or be an admin
-	if cg.Acl.Owner != u.Uuid && u.Admin == false {
+	// Only the owner, an admin, or someone with read access can view acl's.
+	//
+	// NOTE: If the clientgroup is publicly owned, then anyone can view all acl's. The owner can only
+	//       be "public" when anonymous clientgroup creation (ANON_CG_WRITE) is enabled in AWE config.
+
+	rights := cg.Acl.Check(u.Uuid)
+	if cg.Acl.Owner != u.Uuid && u.Admin == false && cg.Acl.Owner != "public" && rights["read"] == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}
@@ -102,7 +106,6 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 
 	// Load clientgroup by id
 	cg, err := core.LoadClientGroup(cgid)
-
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
@@ -114,15 +117,16 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 		return
 	}
 
-	// Users that are not the clientgroup owner or an admin can only delete themselves from an ACL.
-	// Clientgroup owners can view/edit/delete ACLs
+	// Parse user list
+	ids, err := parseClientGroupAclRequestTyped(cx)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Users that are not an admin or clientgroup job owner can only delete themselves from an ACL.
 	if cg.Acl.Owner != u.Uuid && u.Admin == false {
 		if rmeth == "DELETE" {
-			ids, err := parseClientGroupAclRequestTyped(cx)
-			if err != nil {
-				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-				return
-			}
 			if len(ids) != 1 || (len(ids) == 1 && ids[0] != u.Uuid) {
 				cx.RespondWithErrorMessage("Non-owners of clientgroups can delete one and only user from the ACLs (themselves)", http.StatusBadRequest)
 				return
@@ -131,111 +135,83 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 				cx.RespondWithErrorMessage("Deleting ownership is not a supported request type.", http.StatusBadRequest)
 				return
 			} else if rtype == "all" {
-				for _, atype := range []string{"read", "write", "delete", "execute"} {
-					cg.Acl.UnSet(ids[0], map[string]bool{atype: true})
-				}
+				cg.Acl.UnSet(ids[0], map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
 			} else {
 				cg.Acl.UnSet(ids[0], map[string]bool{rtype: true})
 			}
 			cg.Save()
-			cx.RespondWithOK()
+			cx.RespondWithData(cg.Acl)
 			return
 		}
 		cx.RespondWithErrorMessage("Users that are not clientgroup owners can only delete themselves from ACLs.", http.StatusBadRequest)
 		return
 	}
 
-	// At this point we know we're dealing with just the clientgroup owner or an admin.
-	if rmeth != "GET" {
-		ids, err := parseClientGroupAclRequestTyped(cx)
-		if err != nil {
-			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-			return
-		}
-		if rmeth == "POST" || rmeth == "PUT" {
-			if rtype == "owner" {
-				if len(ids) == 1 {
-					cg.Acl.SetOwner(ids[0])
-				} else {
-					cx.RespondWithErrorMessage("Too many users. Clientgroups may have only one owner.", http.StatusBadRequest)
-					return
-				}
-			} else if rtype == "all" {
-				for _, atype := range []string{"read", "write", "delete", "execute"} {
-					for _, i := range ids {
-						cg.Acl.Set(i, map[string]bool{atype: true})
-					}
-				}
-			} else if rtype == "public_read" {
-				cg.Acl.Set("public", map[string]bool{"read": true})
-			} else if rtype == "public_write" {
-				cg.Acl.Set("public", map[string]bool{"write": true})
-			} else if rtype == "public_delete" {
-				cg.Acl.Set("public", map[string]bool{"delete": true})
-			} else if rtype == "public_execute" {
-				cg.Acl.Set("public", map[string]bool{"execute": true})
-			} else if rtype == "public_all" {
-				for _, atype := range []string{"read", "write", "delete", "execute"} {
-					cg.Acl.Set("public", map[string]bool{atype: true})
-				}
-			} else {
-				for _, i := range ids {
-					cg.Acl.Set(i, map[string]bool{rtype: true})
-				}
-			}
-			cg.Save()
-		} else if rmeth == "DELETE" {
-			if rtype == "owner" {
-				cx.RespondWithErrorMessage("Deleting ownership is not a supported request type.", http.StatusBadRequest)
-				return
-			} else if rtype == "all" {
-				for _, atype := range []string{"read", "write", "delete", "execute"} {
-					for _, i := range ids {
-						cg.Acl.UnSet(i, map[string]bool{atype: true})
-					}
-				}
-			} else if rtype == "public_read" {
-				cg.Acl.UnSet("public", map[string]bool{"read": true})
-			} else if rtype == "public_write" {
-				cg.Acl.UnSet("public", map[string]bool{"write": true})
-			} else if rtype == "public_delete" {
-				cg.Acl.UnSet("public", map[string]bool{"delete": true})
-			} else if rtype == "public_execute" {
-				cg.Acl.UnSet("public", map[string]bool{"execute": true})
-			} else if rtype == "public_all" {
-				for _, atype := range []string{"read", "write", "delete", "execute"} {
-					cg.Acl.UnSet("public", map[string]bool{atype: true})
-				}
-			} else {
-				for _, i := range ids {
-					cg.Acl.UnSet(i, map[string]bool{rtype: true})
-				}
-			}
-			cg.Save()
-		} else {
-			cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)
-			return
-		}
-	}
-
-	switch rtype {
-	default:
-		cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)
-	case "owner":
-		cx.RespondWithData(map[string]string{"owner": cg.Acl.Owner})
-	case "read", "public_read":
-		cx.RespondWithData(map[string][]string{"read": cg.Acl.Read})
-	case "write", "public_write":
-		cx.RespondWithData(map[string][]string{"write": cg.Acl.Write})
-	case "delete", "public_delete":
-		cx.RespondWithData(map[string][]string{"delete": cg.Acl.Delete})
-	case "execute", "public_execute":
-		cx.RespondWithData(map[string][]string{"execute": cg.Acl.Execute})
-	case "all", "public_all":
+	// At this point we know we're dealing with an admin or the clientgroup owner.
+	// Admins and clientgroup owners can view/edit/delete ACLs
+	if rmeth == "GET" {
 		cx.RespondWithData(cg.Acl)
+		return
+	} else if rmeth == "POST" || rmeth == "PUT" {
+		if rtype == "owner" {
+			if len(ids) == 1 {
+				cg.Acl.SetOwner(ids[0])
+			} else {
+				cx.RespondWithErrorMessage("Clientgroups must have one owner.", http.StatusBadRequest)
+				return
+			}
+		} else if rtype == "all" {
+			for _, i := range ids {
+				cg.Acl.Set(i, map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
+			}
+		} else if rtype == "public_read" {
+			cg.Acl.Set("public", map[string]bool{"read": true})
+		} else if rtype == "public_write" {
+			cg.Acl.Set("public", map[string]bool{"write": true})
+		} else if rtype == "public_delete" {
+			cg.Acl.Set("public", map[string]bool{"delete": true})
+		} else if rtype == "public_execute" {
+			cg.Acl.Set("public", map[string]bool{"execute": true})
+		} else if rtype == "public_all" {
+			cg.Acl.Set("public", map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
+		} else {
+			for _, i := range ids {
+				cg.Acl.Set(i, map[string]bool{rtype: true})
+			}
+		}
+		cg.Save()
+		cx.RespondWithData(cg.Acl)
+		return
+	} else if rmeth == "DELETE" {
+		if rtype == "owner" {
+			cx.RespondWithErrorMessage("Deleting ownership is not a supported request type.", http.StatusBadRequest)
+			return
+		} else if rtype == "all" {
+			for _, i := range ids {
+				cg.Acl.UnSet(i, map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
+			}
+		} else if rtype == "public_read" {
+			cg.Acl.UnSet("public", map[string]bool{"read": true})
+		} else if rtype == "public_write" {
+			cg.Acl.UnSet("public", map[string]bool{"write": true})
+		} else if rtype == "public_delete" {
+			cg.Acl.UnSet("public", map[string]bool{"delete": true})
+		} else if rtype == "public_execute" {
+			cg.Acl.UnSet("public", map[string]bool{"execute": true})
+		} else if rtype == "public_all" {
+			cg.Acl.UnSet("public", map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
+		} else {
+			for _, i := range ids {
+				cg.Acl.UnSet(i, map[string]bool{rtype: true})
+			}
+		}
+		cg.Save()
+		cx.RespondWithData(cg.Acl)
+		return
+	} else {
+		cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)
+		return
 	}
-
-	return
 }
 
 func parseClientGroupAclRequestTyped(cx *goweb.Context) (ids []string, err error) {

@@ -266,6 +266,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		"suspend":    1,
 		"registered": 1,
 		"verbosity":  1,
+		"userattr":   1,
 	}
 	if query.Has("query") {
 		const shortForm = "2006-01-02"
@@ -438,6 +439,15 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				size_sum = size_sum + v.Size
 			}
 			mjob.Size = size_sum
+			// add userattr fields
+			if query.Has("userattr") {
+				mjob.UserAttr = map[string]string{}
+				for _, attr := range query.List("userattr") {
+					if val, ok := job.Info.UserAttr[attr]; ok {
+						mjob.UserAttr[attr] = val
+					}
+				}
+			}
 
 			if (job.State == "completed") || (job.State == "deleted") {
 				// if completed or deleted move on

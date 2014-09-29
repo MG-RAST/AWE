@@ -256,7 +256,9 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 	}
 
 	job.Info.SubmitTime = time.Now()
-	job.Info.Priority = conf.BasePriority
+	if job.Info.Priority < conf.BasePriority {
+		job.Info.Priority = conf.BasePriority
+	}
 
 	job.setId()     //uuid for the job
 	job.setJid(jid) //an incremental id for the jobs within a AWE server domain

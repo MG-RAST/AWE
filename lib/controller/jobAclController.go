@@ -13,6 +13,11 @@ import (
 	"strings"
 )
 
+var (
+	validJobAclTypes = map[string]bool{"all": true, "read": true, "write": true, "delete": true, "owner": true,
+		"public_all": true, "public_read": true, "public_write": true, "public_delete": true}
+)
+
 // GET: /job/{jid}/acl/ (only OPTIONS and GET are supported here)
 var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	LogRequest(cx.Request)
@@ -21,8 +26,6 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 		cx.RespondWithOK()
 		return
 	}
-
-	jid := cx.PathParams["jid"]
 
 	// Try to authenticate user.
 	u, err := request.Authenticate(cx.Request)
@@ -41,6 +44,8 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 		}
 	}
 
+	jid := cx.PathParams["jid"]
+
 	// Load job by id
 	job, err := core.LoadJob(jid)
 	if err != nil {
@@ -54,8 +59,13 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 		return
 	}
 
-	// User must be job owner or be an admin
-	if job.Acl.Owner != u.Uuid && u.Admin == false && job.Acl.Owner != "public" {
+	// Only the owner, an admin, or someone with read access can view acl's.
+	//
+	// NOTE: If the job is publicly owned, then anyone can view all acl's. The owner can only
+	//       be "public" when anonymous job creation (ANON_WRITE) is enabled in AWE config.
+
+	rights := job.Acl.Check(u.Uuid)
+	if job.Acl.Owner != u.Uuid && u.Admin == false && job.Acl.Owner != "public" && rights["read"] == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}
@@ -88,14 +98,13 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 	rtype := cx.PathParams["type"]
 	rmeth := cx.Request.Method
 
-	if rtype != "all" && rtype != "owner" && rtype != "read" && rtype != "write" && rtype != "delete" {
+	if !validJobAclTypes[rtype] {
 		cx.RespondWithErrorMessage("Invalid acl type", http.StatusBadRequest)
 		return
 	}
 
 	// Load job by id
 	job, err := core.LoadJob(jid)
-
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
@@ -105,14 +114,16 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 		return
 	}
 
-	// Users that are not an admin or the clientgroup owner can only delete themselves from an ACL.
+	// Parse user list
+	ids, err := parseJobAclRequestTyped(cx)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Users that are not an admin or the job owner can only delete themselves from an ACL.
 	if job.Acl.Owner != u.Uuid && u.Admin == false {
 		if rmeth == "DELETE" {
-			ids, err := parseJobAclRequestTyped(cx)
-			if err != nil {
-				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-				return
-			}
 			if len(ids) != 1 || (len(ids) == 1 && ids[0] != u.Uuid) {
 				cx.RespondWithErrorMessage("Non-owners of a job can delete one and only user from the ACLs (themselves).", http.StatusBadRequest)
 				return
@@ -122,106 +133,79 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 				return
 			}
 			if rtype == "all" {
-				for _, atype := range []string{"read", "write", "delete"} {
-					job.Acl.UnSet(ids[0], map[string]bool{atype: true})
-				}
+				job.Acl.UnSet(ids[0], map[string]bool{"read": true, "write": true, "delete": true})
 			} else {
 				job.Acl.UnSet(ids[0], map[string]bool{rtype: true})
 			}
 			job.Save()
-			cx.RespondWithOK()
+			cx.RespondWithData(job.Acl)
 			return
 		}
 		cx.RespondWithErrorMessage("Users that are not job owners can only delete themselves from ACLs.", http.StatusBadRequest)
 		return
 	}
 
-	// At this point we know we're dealing with an admin or the clientgroup owner.
-	// Admins and clientgroup owners can view/edit/delete ACLs
-	if rmeth != "GET" {
-		ids, err := parseJobAclRequestTyped(cx)
-		if err != nil {
-			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-			return
-		}
-		if rmeth == "POST" || rmeth == "PUT" {
-			if rtype == "owner" {
-				if len(ids) == 1 {
-					job.Acl.SetOwner(ids[0])
-				} else {
-					cx.RespondWithErrorMessage("Too many users. Jobs may have only one owner.", http.StatusBadRequest)
-					return
-				}
-			} else if rtype == "all" {
-				for _, atype := range []string{"read", "write", "delete"} {
-					for _, i := range ids {
-						job.Acl.Set(i, map[string]bool{atype: true})
-					}
-				}
-			} else if rtype == "public_read" {
-				job.Acl.Set("public", map[string]bool{"read": true})
-			} else if rtype == "public_write" {
-				job.Acl.Set("public", map[string]bool{"write": true})
-			} else if rtype == "public_delete" {
-				job.Acl.Set("public", map[string]bool{"delete": true})
-			} else if rtype == "public_all" {
-				for _, atype := range []string{"read", "write", "delete"} {
-					job.Acl.Set("public", map[string]bool{atype: true})
-				}
-			} else {
-				for _, i := range ids {
-					job.Acl.Set(i, map[string]bool{rtype: true})
-				}
-			}
-			job.Save()
-		} else if rmeth == "DELETE" {
-			if rtype == "owner" {
-				cx.RespondWithErrorMessage("Deleting ownership is not a supported request type.", http.StatusBadRequest)
-				return
-			} else if rtype == "all" {
-				for _, atype := range []string{"read", "write", "delete", "execute"} {
-					for _, i := range ids {
-						job.Acl.UnSet(i, map[string]bool{atype: true})
-					}
-				}
-			} else if rtype == "public_read" {
-				job.Acl.UnSet("public", map[string]bool{"read": true})
-			} else if rtype == "public_write" {
-				job.Acl.UnSet("public", map[string]bool{"write": true})
-			} else if rtype == "public_delete" {
-				job.Acl.UnSet("public", map[string]bool{"delete": true})
-			} else if rtype == "public_all" {
-				for _, atype := range []string{"read", "write", "delete"} {
-					job.Acl.UnSet("public", map[string]bool{atype: true})
-				}
-			} else {
-				for _, i := range ids {
-					job.Acl.UnSet(i, map[string]bool{rtype: true})
-				}
-			}
-			job.Save()
-		} else {
-			cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)
-			return
-		}
-	}
-
-	switch rtype {
-	default:
-		cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)
-	case "owner":
-		cx.RespondWithData(map[string]string{"owner": job.Acl.Owner})
-	case "read", "public_read":
-		cx.RespondWithData(map[string][]string{"read": job.Acl.Read})
-	case "write", "public_write":
-		cx.RespondWithData(map[string][]string{"write": job.Acl.Write})
-	case "delete", "public_delete":
-		cx.RespondWithData(map[string][]string{"delete": job.Acl.Delete})
-	case "all", "public_all":
+	// At this point we know we're dealing with an admin or the job owner.
+	// Admins and job owners can view/edit/delete ACLs
+	if rmeth == "GET" {
 		cx.RespondWithData(job.Acl)
+		return
+	} else if rmeth == "POST" || rmeth == "PUT" {
+		if rtype == "owner" {
+			if len(ids) == 1 {
+				job.Acl.SetOwner(ids[0])
+			} else {
+				cx.RespondWithErrorMessage("Jobs must have one owner.", http.StatusBadRequest)
+				return
+			}
+		} else if rtype == "all" {
+			for _, i := range ids {
+				job.Acl.Set(i, map[string]bool{"read": true, "write": true, "delete": true})
+			}
+		} else if rtype == "public_read" {
+			job.Acl.Set("public", map[string]bool{"read": true})
+		} else if rtype == "public_write" {
+			job.Acl.Set("public", map[string]bool{"write": true})
+		} else if rtype == "public_delete" {
+			job.Acl.Set("public", map[string]bool{"delete": true})
+		} else if rtype == "public_all" {
+			job.Acl.Set("public", map[string]bool{"read": true, "write": true, "delete": true})
+		} else {
+			for _, i := range ids {
+				job.Acl.Set(i, map[string]bool{rtype: true})
+			}
+		}
+		job.Save()
+		cx.RespondWithData(job.Acl)
+		return
+	} else if rmeth == "DELETE" {
+		if rtype == "owner" {
+			cx.RespondWithErrorMessage("Deleting ownership is not a supported request type.", http.StatusBadRequest)
+			return
+		} else if rtype == "all" {
+			for _, i := range ids {
+				job.Acl.UnSet(i, map[string]bool{"read": true, "write": true, "delete": true})
+			}
+		} else if rtype == "public_read" {
+			job.Acl.UnSet("public", map[string]bool{"read": true})
+		} else if rtype == "public_write" {
+			job.Acl.UnSet("public", map[string]bool{"write": true})
+		} else if rtype == "public_delete" {
+			job.Acl.UnSet("public", map[string]bool{"delete": true})
+		} else if rtype == "public_all" {
+			job.Acl.UnSet("public", map[string]bool{"read": true, "write": true, "delete": true})
+		} else {
+			for _, i := range ids {
+				job.Acl.UnSet(i, map[string]bool{rtype: true})
+			}
+		}
+		job.Save()
+		cx.RespondWithData(job.Acl)
+		return
+	} else {
+		cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)
+		return
 	}
-
-	return
 }
 
 func parseJobAclRequestTyped(cx *goweb.Context) (ids []string, err error) {

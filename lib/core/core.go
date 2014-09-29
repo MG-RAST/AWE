@@ -256,7 +256,7 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 	}
 
 	job.Info.SubmitTime = time.Now()
-	if job.Info.Priority < 1 {
+	if job.Info.Priority < conf.BasePriority {
 		job.Info.Priority = conf.BasePriority
 	}
 

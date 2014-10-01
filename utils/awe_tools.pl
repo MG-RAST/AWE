@@ -1,5 +1,12 @@
 #!/usr/bin/env perl
 
+#example to get dependencies:
+#cd ~/git/ ; git clone https://github.com/MG-RAST/Shock.git ; git clone https://github.com/MG-RAST/AWE.git ; git clone https://github.com/wgerlach/USAGEPOD.git
+#export PERL5LIB=$PERL5LIB:~/git/Shock/libs
+#export PERL5LIB=$PERL5LIB:~/git/AWE/utils/lib
+#export PERL5LIB=$PERL5LIB:~/git/USAGEPOD/lib
+
+
 use strict;
 use warnings;
 

@@ -464,6 +464,7 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, num int)
 		return nil, errors.New(e.ClientDeleted)
 	}
 
+	logger.Debug(3, fmt.Sprintf("lock semaphore in CheckoutWorkunits() for client: %s", client_id))
 	//lock semaphore, at one time only one client's checkout request can be served
 	qm.LockSemaphore()
 	defer qm.UnlockSemaphore()
@@ -489,6 +490,7 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, num int)
 
 	qm.clientMap[client_id] = client
 
+	logger.Debug(3, fmt.Sprintf("unlock semaphore in CheckoutWorkunits() for client: %s", client_id))
 	return ack.workunits, ack.err
 }
 
@@ -513,6 +515,8 @@ func (qm *CQMgr) NotifyWorkStatus(notice Notice) {
 }
 
 func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
+	logger.Debug(3, fmt.Sprintf("starting popWorks() for client: %s\n", req.fromclient))
+	
 	filtered, err := qm.filterWorkByClient(req.fromclient)
 	if err != nil {
 		return
@@ -531,10 +535,14 @@ func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 			qm.workQueue.StatusChange(work.Id, WORK_STAT_CHECKOUT)
 		}
 	}
+	logger.Debug(3, fmt.Sprintf("done with popWorks() for client: %s\n", req.fromclient))
+	
 	return
 }
 
 func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string, err error) {
+	logger.Debug(3, fmt.Sprintf("starting filterWorkByClient() for client: %s\n", clientid))
+	
 	client, ok := qm.clientMap[clientid]
 	if !ok {
 		err_msg := fmt.Sprintf("error: unregistered client %s trying to checkout workunit, most likely cause is client disappeared after request to checkout workunit combined with slow response to workunit checkout request", clientid)
@@ -569,6 +577,8 @@ func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string, err error) {
 			logger.Debug(2, fmt.Sprintf("3) contains(client.Apps, work.Cmd.Name) || contains(client.Apps, conf.ALL_APP) %s", id))
 		}
 	}
+	logger.Debug(3, fmt.Sprintf("done with filterWorkByClient() for client: %s\n", clientid))
+	
 	return ids, nil
 }
 

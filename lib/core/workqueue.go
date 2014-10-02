@@ -2,6 +2,8 @@ package core
 
 import (
 	"errors"
+	"fmt"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"sort"
 )
 
@@ -83,7 +85,7 @@ func (wq *WQueue) StatusChange(id string, new_status string) (err error) {
 //select workunits, return a slice of ids based on given queuing policy and requested count
 func (wq *WQueue) selectWorkunits(workid []string, policy string, count int) (selected []*Workunit, err error) {
 	logger.Debug(3, fmt.Sprintf("starting selectWorkunits\n"))
-	
+
 	worklist := []*Workunit{}
 	for _, id := range workid {
 		worklist = append(worklist, wq.workMap[id])
@@ -96,7 +98,7 @@ func (wq *WQueue) selectWorkunits(workid []string, policy string, count int) (se
 		selected = append(selected, worklist[i])
 	}
 	logger.Debug(3, fmt.Sprintf("done with selectWorkunits\n"))
-	
+
 	return
 }
 

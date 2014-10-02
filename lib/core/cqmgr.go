@@ -516,7 +516,7 @@ func (qm *CQMgr) NotifyWorkStatus(notice Notice) {
 
 func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 	logger.Debug(3, fmt.Sprintf("starting popWorks() for client: %s\n", req.fromclient))
-	
+
 	filtered, err := qm.filterWorkByClient(req.fromclient)
 	if err != nil {
 		return
@@ -536,13 +536,13 @@ func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 		}
 	}
 	logger.Debug(3, fmt.Sprintf("done with popWorks() for client: %s\n", req.fromclient))
-	
+
 	return
 }
 
 func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string, err error) {
 	logger.Debug(3, fmt.Sprintf("starting filterWorkByClient() for client: %s\n", clientid))
-	
+
 	client, ok := qm.clientMap[clientid]
 	if !ok {
 		err_msg := fmt.Sprintf("error: unregistered client %s trying to checkout workunit, most likely cause is client disappeared after request to checkout workunit combined with slow response to workunit checkout request", clientid)
@@ -578,7 +578,7 @@ func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string, err error) {
 		}
 	}
 	logger.Debug(3, fmt.Sprintf("done with filterWorkByClient() for client: %s\n", clientid))
-	
+
 	return ids, nil
 }
 

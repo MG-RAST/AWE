@@ -259,6 +259,16 @@ sub request {
 	
 }
 
+
+
+
+sub getJobPerf {
+	my ($self, $job) = @_;
+	
+	return $self->request('GET', 'job/'.$job.'?perf');
+}
+
+
 sub deleteJob {
 	my ($self, $job_id) = @_;
 	

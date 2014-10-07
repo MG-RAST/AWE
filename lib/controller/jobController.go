@@ -301,9 +301,9 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				}
 			}
 		}
-		// add submittime range query
+		// add submittime and completedtime range query
 		if len(date_query) > 0 {
-			q["info.submittime"] = date_query
+			q["$or"] = []bson.M{bson.M{"info.submittime": date_query}, bson.M{"info.completedtime": date_query}}
 		}
 	} else if query.Has("active") {
 		q["state"] = bson.M{"$in": core.JOB_STATS_ACTIVE}

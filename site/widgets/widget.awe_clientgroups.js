@@ -17,6 +17,15 @@
     widget.display = function (wparams) {
 	widget = Retina.WidgetInstances.awe_clientgroups[1];
 
+	jQuery.ajax({ url: RetinaConfig["awe_ip"],
+		      dataType: "json",
+		      success: function(data) {
+			  if (data.hasOwnProperty('title')) {
+			      document.getElementById('serverTitle').innerHTML = data.title;
+			  }
+		      }
+		    });
+
 	widget.target = widget.target || wparams.target;
 	widget.target.className = "mainview";
 	widget.target.style.width = "800px";

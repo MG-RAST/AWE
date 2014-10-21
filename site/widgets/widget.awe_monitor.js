@@ -13,6 +13,7 @@
     };
 
     widget.tables = [];
+    widget.activeTab = 'graphical';
         
     widget.display = function (wparams) {
         widget = this;
@@ -34,42 +35,42 @@
     <div id="overview" class="sidebar"></div>\
     <div class="mainview">\
       <ul class="nav nav-tabs">\
-	<li class="active">\
-	  <a data-toggle="tab" href="#graphical">overview</a>\
+        <li'+(widget.activeTab=='graphical' ? ' class="active"' : '')+'>\
+	  <a data-toggle="tab" href="#graphical" onclick="Retina.WidgetInstances.awe_monitor[1].activeTab=\'graphical\';">overview</a>\
 	</li>\
-	<li>\
-	  <a data-toggle="tab" href="#active">active jobs</a>\
+	<li'+(widget.activeTab=='active' ? ' class="active"' : '')+'>\
+	  <a data-toggle="tab" href="#active" onclick="Retina.WidgetInstances.awe_monitor[1].activeTab=\'active\';">active jobs</a>\
 	</li>\
-	<li class="">\
-	  <a data-toggle="tab" href="#suspended">suspended jobs</a>\
+	<li'+(widget.activeTab=='suspended' ? ' class="active"' : '')+'>\
+	  <a data-toggle="tab" href="#suspended" onclick="Retina.WidgetInstances.awe_monitor[1].activeTab=\'suspended\';">suspended jobs</a>\
 	</li>\
-	<li class="">\
-	  <a data-toggle="tab" href="#completed">completed jobs</a>\
+	<li'+(widget.activeTab=='completed' ? ' class="active"' : '')+'>\
+	  <a data-toggle="tab" href="#completed" onclick="Retina.WidgetInstances.awe_monitor[1].activeTab=\'completed\';">completed jobs</a>\
 	</li>\
-	<li class="">\
-	  <a data-toggle="tab" href="#queuing_workunit">queued workunits</a>\
+	<li'+(widget.activeTab=='queuing_workunit' ? ' class="active"' : '')+'>\
+	  <a data-toggle="tab" href="#queuing_workunit" onclick="Retina.WidgetInstances.awe_monitor[1].activeTab=\'queuing_workunit\';">queued workunits</a>\
 	</li>\
-	<li class="">\
-	  <a data-toggle="tab" href="#checkout_workunit">checked-out workunits</a>\
+	<li'+(widget.activeTab=='checkout_workunit' ? ' class="active"' : '')+'>\
+	  <a data-toggle="tab" href="#checkout_workunit" onclick="Retina.WidgetInstances.awe_monitor[1].activeTab=\'checkout_workunit\';">checked-out workunits</a>\
 	</li>\
-	<li class="">\
-	  <a data-toggle="tab" href="#clients">clients</a>\
+	<li'+(widget.activeTab=='clients' ? ' class="active"' : '')+'>\
+	  <a data-toggle="tab" href="#clients" onclick="Retina.WidgetInstances.awe_monitor[1].activeTab=\'clients\';">clients</a>\
 	</li>\
       </ul>\
       <div class="tab-content">\
-	<div id="graphical" class="tab-pane active">\
+	<div id="graphical" class="tab-pane'+(widget.activeTab=='graphical' ? ' active' : '')+'">\
 	</div>\
-	<div id="active" class="tab-pane">\
+	<div id="active" class="tab-pane'+(widget.activeTab=='active' ? ' active' : '')+'">\
 	</div>\
-	<div id="suspended" class="tab-pane">\
+	<div id="suspended" class="tab-pane'+(widget.activeTab=='suspended' ? ' active' : '')+'">\
 	</div>\
-	<div id="completed" class="tab-pane">\
+	<div id="completed" class="tab-pane'+(widget.activeTab=='completed' ? ' active' : '')+'">\
 	</div>\
-	<div id="queuing_workunit" class="tab-pane">\
+	<div id="queuing_workunit" class="tab-pane'+(widget.activeTab=='queuing_workunit' ? ' active' : '')+'">\
 	</div>\
-	<div id="checkout_workunit" class="tab-pane">\
+	<div id="checkout_workunit" class="tab-pane'+(widget.activeTab=='checkout_workunit' ? ' active' : '')+'">\
 	</div>\
-	<div id="clients" class="tab-pane">\
+	<div id="clients" class="tab-pane'+(widget.activeTab=='clients' ? ' active' : '')+'">\
 	</div>\
       </div>\
     </div>';

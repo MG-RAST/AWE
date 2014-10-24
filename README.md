@@ -23,42 +23,30 @@ AWE uses the Shock data management system to handle input and output data (retri
 
 AWE is actively being developed at [github.com/MG-RAST/AWE](http://github.com/MG-RAST/AWE).
 
-
 Shock is actively being developed at [github.com/MG-RAST/Shock](http://github.com/MG-RAST/Shock).
 
 
 
-Documents:
+Documentation
 ------
+Documentation can be found on the AWE wiki pages:
 
-A manual for getting started:
+https://github.com/MG-RAST/AWE/wiki
 
-https://github.com/MG-RAST/AWE/wiki/Manual-to-Get-Started
 
-A step-by-step manual for running a simple workflow example:
 
-http://www.mcs.anl.gov/~wtang/files/awe-example.pdf
-
-REST API doc:
-
-https://github.com/MG-RAST/AWE/wiki/AWE-APIs
-
-For more documents, check the wiki pages:
-
-https://github.com/MG-RAST/AWE/wiki/_pages
-
-Papers to cite:
+Papers to cite
+------
 
 W. Tang, J. Wilkening, N. Desai, W. Gerlach, A. Wilke, F. Meyer, "A scalable data analysis platform for metagenomics," in Proc. of IEEE International Conference on Big Data, 2013.[[ieeexplore]](http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=6691723) [[pdf]](http://www.mcs.anl.gov/papers/P5012-0913_1.pdf)
 
 
 
-Google Group:
+AWE Discussion Group
 ------
+For questions, bug reports or feature requests please use the awe-users mailing list:
 
-Forum: https://groups.google.com/d/forum/awe-users
+https://groups.google.com/d/forum/awe-users (Email: awe-users@googlegroups.com) 
 
-Mailing list: awe-users@googlegroups.com  
 
-(bug reports and feature requests are welcomed!)
 

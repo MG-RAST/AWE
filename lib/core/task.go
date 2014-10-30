@@ -44,6 +44,7 @@ type Task struct {
 	ComputeTime   int               `bson:"computetime" json:"computetime"`
 	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
 	AppVariables  AppVariables
+	AppDef        *AppCommandMode `bson:"appdef" json:"appdef"` // App defintion
 }
 
 func NewTask(job *Job, rank int) *Task {

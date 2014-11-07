@@ -729,6 +729,9 @@ if (defined($h->{"status"})) {
 	
 	foreach my $job (@jobs) {
 		my $job_obj = $awe->getJobStatus($job);
+		unless (defined $job_obj) {
+			die;
+		}
 		drawWorkflow($job_obj->{'data'}, $job, $h->{"nolabel"});
 	}
 	exit(0);

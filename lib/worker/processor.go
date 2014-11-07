@@ -490,7 +490,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			logger.Error(fmt.Sprintf("error inspecting container=%s, err=%s", container_id, err.Error()))
 		}
 
-		inspect_filename := path.Join(conf.DOCKER_WORK_DIR, "container_inspect.json")
+		inspect_filename := path.Join(work.Path(), "container_inspect.json")
 
 		b_inspect, _ := json.MarshalIndent(cont, "", "    ")
 

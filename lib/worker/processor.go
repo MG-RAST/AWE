@@ -320,7 +320,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	for key, val := range work.Cmd.Environ.Public {
 		env_pair := key + "=" + val
 		docker_environment = append(docker_environment, env_pair)
-		docker_environment_string += " -e " + env_pair
+		docker_environment_string += " --env=" + env_pair
 	}
 	if work.Cmd.HasPrivateEnv {
 		private_envs, err := FetchPrivateEnvByWorkId(work.Id)
@@ -483,6 +483,24 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 
 	}(container_id)
+
+	if client != nil {
+		cont, err := client.InspectContainer(container_id)
+		if err != nil {
+			logger.Error(fmt.Sprintf("error inspecting container=%s, err=%s", container_id, err.Error()))
+		}
+
+		inspect_filename := path.Join(conf.DOCKER_WORK_DIR, "container_inspect.json")
+
+		b_inspect, _ := json.MarshalIndent(cont, "", "    ")
+
+		err = ioutil.WriteFile(inspect_filename, b_inspect, 0666)
+		if err != nil {
+			logger.Error(fmt.Sprintf("error writing inspect file for container=%s, err=%s", container_id, err.Error()))
+		} else {
+			logger.Debug(1, fmt.Sprintf("wrote %s for container %s", inspect_filename, container_id))
+		}
+	}
 
 	var status int = 0
 

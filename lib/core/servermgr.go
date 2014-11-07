@@ -551,9 +551,9 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool) {
 					qm.taskMap[predecessor].State != TASK_STAT_SKIPPED &&
 					qm.taskMap[predecessor].State != TASK_STAT_FAIL_SKIP {
 					ready = false
-				} else {
-					logger.Error("warning: predecessor " + predecessor + " is unknown")
 				}
+			} else {
+				logger.Error("warning: predecessor " + predecessor + " is unknown")
 			}
 		}
 	}

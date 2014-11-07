@@ -49,8 +49,8 @@ type JobMin struct {
 	Size          int64             `bson:"size" json:"size"`
 	SubmitTime    time.Time         `bson:"submittime" json:"submittime"`
 	CompletedTime time.Time         `bson:"completedtime" json:"completedtime"`
-	Task          int               `bson:"task" json:"task"`
-	State         string            `bson:"state" json:"state"`
+	Task          []int             `bson:"task" json:"task"`
+	State         []string          `bson:"state" json:"state"`
 	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
 }
 
@@ -104,6 +104,12 @@ func (job *Job) Save() (err error) {
 	nbson, err := bson.Marshal(job)
 	if err != nil {
 		err = errors.New("error in Marshal in job.Save(), error=" + err.Error())
+		return
+	}
+	// this is incase job path does not exist, ignored if it does
+	err = job.Mkdir()
+	if err != nil {
+		err = errors.New("error creating dir in job.Save(), error=" + err.Error())
 		return
 	}
 	err = ioutil.WriteFile(bsonPath, nbson, 0644)

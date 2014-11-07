@@ -106,6 +106,12 @@ func (job *Job) Save() (err error) {
 		err = errors.New("error in Marshal in job.Save(), error=" + err.Error())
 		return
 	}
+	// this is incase job path does not exist, ignored if it does
+	err = job.Mkdir()
+	if err != nil {
+		err = errors.New("error creating dir in job.Save(), error=" + err.Error())
+		return
+	}
 	err = ioutil.WriteFile(bsonPath, nbson, 0644)
 	if err != nil {
 		err = errors.New("error writing file in job.Save(), error=" + err.Error())

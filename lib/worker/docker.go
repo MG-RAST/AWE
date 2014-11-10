@@ -72,7 +72,7 @@ func InspectImage(client *docker.Client, dockerimage_id string) (image *docker.I
 }
 
 func RemoveOldAWEContainers(client *docker.Client, container_name string) (err error) {
-	logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) %s:", container_name))
+	logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) %s", container_name))
 	if client == nil {
 		cmd := exec.Command(conf.DOCKER_BINARY, "rm", "-f", container_name)
 		output, err := cmd.CombinedOutput()
@@ -83,9 +83,9 @@ func RemoveOldAWEContainers(client *docker.Client, container_name string) (err e
 			logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) deleteing %s:", container_name, output))
 		}
 
-		if err = cmd.Start(); err != nil {
-			return err
-		}
+		//if err = cmd.Start(); err != nil {
+		//	return err
+		//}
 
 		err = cmd.Wait()
 

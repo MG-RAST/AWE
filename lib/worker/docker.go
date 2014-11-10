@@ -236,6 +236,10 @@ func CreateContainer(create_args []string) (container_id string, err error) {
 	}
 
 	err = cmd.Wait()
+	if err != nil {
+		return "", err
+	}
+
 	var stdout_line string
 	for {
 

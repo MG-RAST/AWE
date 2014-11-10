@@ -338,7 +338,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	pipe_output := fmt.Sprintf(" 2> %s 1> %s", conf.STDERR_FILENAME, conf.STDOUT_FILENAME)
 	bash_command := ""
 	if use_wrapper_script {
-		bash_command = fmt.Sprint("/bin/bash", " ", wrapper_script_filename_docker, " ", pipe_output)
+		//bash_command = fmt.Sprint("/bin/bash", " ", wrapper_script_filename_docker, " ", pipe_output) // bash for wrapper script
+		bash_command = fmt.Sprint(wrapper_script_filename_docker, " ", pipe_output)
 	} else {
 		bash_command = fmt.Sprint(commandName, " ", strings.Join(args, " "), " ", pipe_output)
 
@@ -348,7 +349,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	// example: "/bin/bash", "-c", "bowtie2 -h 2> awe_stderr.txt 1> awe_stdout.txt"
 
-	container_cmd := []string{"/bin/bash", "-c", bash_command} // TODO remove bash if possible, but is needed for piping
+	container_cmd := []string{"/bin/bash", "-c", "\"" + bash_command + "\""} // TODO remove bash if possible, but is needed for piping
 
 	//var empty_struct struct{}
 	bindstr_workdir := work.Path() + "/:" + conf.DOCKER_WORK_DIR

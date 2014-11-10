@@ -41,10 +41,12 @@ func InspectImage(client *docker.Client, dockerimage_id string) (image *docker.I
 			return nil, err
 		}
 
-		err_json := json.NewDecoder(stdout).Decode(&image)
+		var image_array []docker.Image
+
+		err_json := json.NewDecoder(stdout).Decode(&image_array)
 
 		if err_json != nil {
-			logger.Debug(1, fmt.Sprintf("(InspectImage) STDERR: %s", err))
+			logger.Debug(1, fmt.Sprintf("(InspectImage) err_json: %s", err_json.Error()))
 			image = nil
 		}
 
@@ -60,6 +62,12 @@ func InspectImage(client *docker.Client, dockerimage_id string) (image *docker.I
 			return nil, err
 		} else {
 			err = err_json // in case that failed...
+		}
+
+		if len(image_array) == 1 {
+			image = &image_array[0]
+		} else {
+			err = errors.New("error: inspect returned zero (or more than one) images")
 		}
 
 		return image, err

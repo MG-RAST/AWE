@@ -21,7 +21,7 @@ import (
 )
 
 func InspectImage(client *docker.Client, dockerimage_id string) (image *docker.Image, err error) {
-
+	logger.Debug(1, fmt.Sprintf("(InspectImage) %s:", dockerimage_id))
 	if client == nil {
 		// if image does not exists, return status 1 and text on stderr
 
@@ -72,7 +72,7 @@ func InspectImage(client *docker.Client, dockerimage_id string) (image *docker.I
 }
 
 func RemoveOldAWEContainers(client *docker.Client, container_name string) (err error) {
-
+	logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) %s:", container_name))
 	if client == nil {
 		cmd := exec.Command(conf.DOCKER_BINARY, "rm", "-f", container_name)
 		output, err := cmd.CombinedOutput()
@@ -146,6 +146,7 @@ func RemoveOldAWEContainers(client *docker.Client, container_name string) (err e
 }
 
 func TagImage(client *docker.Client, dockerimage_id string, tag_opts docker.TagImageOptions) (err error) {
+	logger.Debug(1, fmt.Sprintf("(TagImage) %s:", dockerimage_id))
 	if client == nil {
 		// docker tag skyport/cap:20141020 skyport/cap:newname
 		// returns error code 1 on failure
@@ -187,7 +188,7 @@ func TagImage(client *docker.Client, dockerimage_id string, tag_opts docker.TagI
 }
 
 func KillContainer(container_id string) (err error) {
-
+	logger.Debug(1, fmt.Sprintf("(KillContainer) %s:", container_id))
 	cmd := exec.Command(conf.DOCKER_BINARY, "kill", container_id)
 
 	if err = cmd.Start(); err != nil {
@@ -248,7 +249,7 @@ func CreateContainer(create_args []string) (container_id string, err error) {
 
 // ** not tested **
 func RunContainer(run_args []string) (container_id string, err error) {
-
+	logger.Debug(1, fmt.Sprintf("(RunContainer) %s:", container_id))
 	//docker run [OPTIONS] IMAGE [COMMAND] [ARG...]
 	// first line contains ID
 	// must have "-t" to attach, this is not documented in docker.
@@ -296,7 +297,7 @@ func RunContainer(run_args []string) (container_id string, err error) {
 }
 
 func RemoveContainer(container_id string) (err error) {
-
+	logger.Debug(1, fmt.Sprintf("(RemoveContainer) %s:", container_id))
 	cmd := exec.Command(conf.DOCKER_BINARY, "rm", "-f", container_id)
 	if err = cmd.Start(); err != nil {
 		return err
@@ -307,7 +308,7 @@ func RemoveContainer(container_id string) (err error) {
 
 func StartContainer(container_id string, args string) (err error) {
 	// docker start CONTAINER [CONTAINER...]
-
+	logger.Debug(1, fmt.Sprintf("(StartContainer) %s:", container_id))
 	cmd := exec.Command(conf.DOCKER_BINARY, "start", container_id)
 
 	if err = cmd.Start(); err != nil {
@@ -321,6 +322,7 @@ func StartContainer(container_id string, args string) (err error) {
 }
 
 func WaitContainer(container_id string) (status int, err error) {
+	logger.Debug(1, fmt.Sprintf("(WaitContainer) %s:", container_id))
 	cmd := exec.Command(conf.DOCKER_BINARY, "wait", container_id)
 
 	if err = cmd.Start(); err != nil {
@@ -359,6 +361,7 @@ func WaitContainer(container_id string) (status int, err error) {
 }
 
 func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
+	logger.Debug(1, fmt.Sprintf("(dockerBuildImage) %s:", Dockerimage))
 
 	shock_docker_repo := shock.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
 

@@ -379,10 +379,11 @@ func WaitContainer(container_id string) (status int, err error) {
 	endofline := bytes.IndexByte(stdo, '\n')
 
 	stdout_line := ""
-	if endofline >= 0 {
+	if endofline > 0 {
 		stdout_line = string(stdo[0 : endofline-1])
 	} else {
 		err = errors.New("docker create returned empty string")
+		return 0, err
 	}
 
 	negative_status := false

@@ -233,6 +233,7 @@ func CreateContainer(create_args []string) (container_id string, err error) {
 		logger.Debug(1, "(CreateContainer) error getting StderrPipe")
 		return "", err
 	}
+
 	rd_err := bufio.NewReader(stderr)
 
 	if err = cmd.Start(); err != nil {
@@ -245,13 +246,23 @@ func CreateContainer(create_args []string) (container_id string, err error) {
 		logger.Debug(1, "(CreateContainer) cmd.Wait returned error")
 
 		var stderr_line string
+		var line_count = 0
 		for {
-
+			line_count++
+			if line_count >= 10 {
+				break
+			}
 			stderr_line, err = rd_err.ReadString('\n')
 
 			if err == io.EOF {
 				break
 			}
+
+			if err != nil {
+				logger.Debug(1, "(CreateContainer) error reading stderr.")
+				break
+			}
+
 			logger.Debug(1, "(CreateContainer) error stderr: "+stderr_line)
 		}
 

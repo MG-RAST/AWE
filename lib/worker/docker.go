@@ -353,7 +353,7 @@ func StartContainer(container_id string, args string) (err error) {
 }
 
 func WaitContainer(container_id string) (status int, err error) {
-	logger.Debug(1, fmt.Sprintf("(WaitContainer) %s:", container_id))
+	logger.Debug(1, fmt.Sprintf("(WaitContainer) container id: %s", container_id))
 
 	stdo, stde, err := RunCommand(conf.DOCKER_BINARY, []string{"wait", container_id}...)
 
@@ -367,6 +367,9 @@ func WaitContainer(container_id string) (status int, err error) {
 
 		return 0, err
 	}
+
+	logger.Debug(1, fmt.Sprintf("(WaitContainer) cmd.Wait stdout: %s", stdo))
+	logger.Debug(1, fmt.Sprintf("(WaitContainer) cmd.Wait stderr: %s", stde))
 
 	// extract only first line
 	endofline := bytes.IndexByte(stdo, '\n')

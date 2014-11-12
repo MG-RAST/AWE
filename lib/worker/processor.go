@@ -180,7 +180,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 			var wrapper_content_bytes = []byte(wrapper_content_string)
 
-			err = ioutil.WriteFile(wrapper_script_filename_host, wrapper_content_bytes, 0644)
+			err = ioutil.WriteFile(wrapper_script_filename_host, wrapper_content_bytes, 0755) // not executable: 0644
 			if err != nil {
 				return nil, errors.New(fmt.Sprintf("error writing wrapper script, err=%s", err.Error()))
 			}

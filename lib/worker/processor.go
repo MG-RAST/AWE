@@ -349,7 +349,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	// example: "/bin/bash", "-c", "bowtie2 -h 2> awe_stderr.txt 1> awe_stdout.txt"
 
-	container_cmd := []string{"/bin/bash", "-c", "\"" + bash_command + "\""} // TODO remove bash if possible, but is needed for piping
+	container_cmd := []string{"/bin/bash", "-c", bash_command} // TODO remove bash if possible, but is needed for piping
 
 	//var empty_struct struct{}
 	bindstr_workdir := work.Path() + "/:" + conf.DOCKER_WORK_DIR

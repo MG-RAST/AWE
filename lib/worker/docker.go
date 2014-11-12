@@ -243,24 +243,23 @@ func CreateContainer(create_args []string) (container_id string, err error) {
 
 	err = cmd.Wait()
 	if err != nil {
-		logger.Debug(1, "(CreateContainer) cmd.Wait returned error")
+		logger.Debug(1, fmt.Sprintf("(CreateContainer) cmd.Wait returned error: %s", err.Error()))
 
-		var stderr_line string
 		var line_count = 0
 		for {
 			line_count++
 			if line_count >= 10 {
+				return "", err
+			}
+			stderr_line, err_readstr := rd_err.ReadString('\n')
+
+			if err_readstr == io.EOF {
 				break
 			}
-			stderr_line, err = rd_err.ReadString('\n')
 
-			if err == io.EOF {
-				break
-			}
-
-			if err != nil {
+			if err_readstr != nil {
 				logger.Debug(1, "(CreateContainer) error reading stderr.")
-				break
+				return "", err
 			}
 
 			logger.Debug(1, fmt.Sprintf("(CreateContainer) error stderr (%d): %s", line_count, stderr_line))

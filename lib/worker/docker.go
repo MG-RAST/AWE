@@ -361,17 +361,18 @@ func WaitContainer(container_id string) (status int, err error) {
 
 	rd := bufio.NewReader(stdout)
 
+	var stdout_line string
+
+	stdout_line, err = rd.ReadString('\n')
+
+	if err == io.EOF {
+		return 0, err
+	}
+
 	err = cmd.Wait()
 
-	var stdout_line string
-	for {
-
-		stdout_line, err = rd.ReadString('\n')
-
-		if err == io.EOF {
-			return 0, err
-		}
-		break
+	if err != nil {
+		return 0, err
 	}
 
 	status, err = strconv.Atoi(stdout_line)

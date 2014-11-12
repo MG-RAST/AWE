@@ -226,7 +226,7 @@ func CreateContainer(create_args []string) (container_id string, err error) {
 		return "", err
 	}
 
-	rd := bufio.NewReader(stdout)
+	//rd := bufio.NewReader(stdout)
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -234,53 +234,36 @@ func CreateContainer(create_args []string) (container_id string, err error) {
 		return "", err
 	}
 
-	rd_err := bufio.NewReader(stderr)
+	//rd_err := bufio.NewReader(stderr)
 
 	if err = cmd.Start(); err != nil {
 		logger.Debug(1, "(CreateContainer) cmd.Start failed")
 		return "", err
 	}
 
+	stdo, stdo_err := ioutil.ReadAll(stdout)
+	stde, stde_err := ioutil.ReadAll(stderr)
+
+	_ = stdo_err // because of stupid go warning
+	_ = stde_err
+
 	err = cmd.Wait()
+
 	if err != nil {
 		logger.Debug(1, fmt.Sprintf("(CreateContainer) cmd.Wait returned error: %s", err.Error()))
-
-		var line_count = 0
-		for {
-			line_count++
-			if line_count >= 10 {
-				return "", err
-			}
-			stderr_line, err_readstr := rd_err.ReadString('\n')
-
-			if err_readstr == io.EOF {
-				break
-			}
-
-			if err_readstr != nil {
-				logger.Debug(1, "(CreateContainer) error reading stderr "+err_readstr.Error())
-				return "", err
-			}
-
-			logger.Debug(1, fmt.Sprintf("(CreateContainer) error stderr (%d): %s", line_count, stderr_line))
+		if stde_err == nil {
+			logger.Debug(1, fmt.Sprintf("(CreateContainer) error: %s", stde))
 		}
-
 		return "", err
 	}
 
-	var stdout_line string
-	for {
+	endofline := bytes.IndexByte(stdo, '\n')
 
-		stdout_line, err = rd.ReadString('\n')
-
-		if err == io.EOF {
-			return "", err
-		}
-		break
-	}
-
-	if err != nil {
-		return "", err
+	stdout_line := ""
+	if endofline >= 0 {
+		stdout_line = string(stdo[0 : endofline-1])
+	} else {
+		err = errors.New("docker create returned empty string")
 	}
 
 	return stdout_line, err

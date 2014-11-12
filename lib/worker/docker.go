@@ -207,6 +207,44 @@ func KillContainer(container_id string) (err error) {
 	return nil
 }
 
+// execute command, wait, and return stdout and stderr ; do not use for large outputs !
+// it returns both stdout and stderr
+func RunCommand(name string, arg ...string) (stdo []byte, stde []byte, err error) {
+
+	cmd := exec.Command(name, arg...)
+
+	logger.Debug(1, fmt.Sprintf("(RunCommand) cmd struct: %#v", cmd))
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		logger.Debug(1, "(RunCommand) error getting StdoutPipe")
+		return stdo, stde, err
+	}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		logger.Debug(1, "(RunCommand) error getting StderrPipe")
+		return stdo, stde, err
+	}
+
+	if err = cmd.Start(); err != nil {
+		logger.Debug(1, "(RunCommand) cmd.Start failed")
+		return stdo, stde, err
+	}
+
+	stdo, _ = ioutil.ReadAll(stdout)
+	stde, stde_err := ioutil.ReadAll(stderr)
+
+	if stde_err == nil {
+		logger.Debug(1, fmt.Sprintf("(RunCommand) error: %s", stde))
+	}
+
+	err = cmd.Wait()
+
+	return stdo, stde, err
+
+}
+
 func CreateContainer(create_args []string) (container_id string, err error) {
 
 	//docker create [OPTIONS] IMAGE [COMMAND] [ARG...]
@@ -218,47 +256,15 @@ func CreateContainer(create_args []string) (container_id string, err error) {
 
 	logger.Debug(1, fmt.Sprintf("(CreateContainer) cmd: %s %s", conf.DOCKER_BINARY, strings.Join(create_args, " ")))
 
-	cmd := exec.Command(conf.DOCKER_BINARY, create_args...)
-
-	logger.Debug(1, fmt.Sprintf("(CreateContainer) cmd struct: %#v", cmd))
-
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		logger.Debug(1, "(CreateContainer) error getting StdoutPipe")
-		return "", err
-	}
-
-	//rd := bufio.NewReader(stdout)
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		logger.Debug(1, "(CreateContainer) error getting StderrPipe")
-		return "", err
-	}
-
-	//rd_err := bufio.NewReader(stderr)
-
-	if err = cmd.Start(); err != nil {
-		logger.Debug(1, "(CreateContainer) cmd.Start failed")
-		return "", err
-	}
-
-	stdo, stdo_err := ioutil.ReadAll(stdout)
-	stde, stde_err := ioutil.ReadAll(stderr)
-
-	_ = stdo_err // because of stupid go warning
-	_ = stde_err
-
-	err = cmd.Wait()
+	stdo, _, err := RunCommand(conf.DOCKER_BINARY, create_args...)
 
 	if err != nil {
 		logger.Debug(1, fmt.Sprintf("(CreateContainer) cmd.Wait returned error: %s", err.Error()))
-		if stde_err == nil {
-			logger.Debug(1, fmt.Sprintf("(CreateContainer) error: %s", stde))
-		}
+
 		return "", err
 	}
 
+	// extract only first line
 	endofline := bytes.IndexByte(stdo, '\n')
 
 	stdout_line := ""
@@ -348,36 +354,28 @@ func StartContainer(container_id string, args string) (err error) {
 
 func WaitContainer(container_id string) (status int, err error) {
 	logger.Debug(1, fmt.Sprintf("(WaitContainer) %s:", container_id))
-	cmd := exec.Command(conf.DOCKER_BINARY, "wait", container_id)
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return 0, err
-	}
-
-	rd := bufio.NewReader(stdout)
-
-	if err = cmd.Start(); err != nil {
-		return 0, err
-	}
-
-	var stdout_line string
-
-	stdout_line, err = rd.ReadString('\n')
-
-	if err == io.EOF {
-		return 0, err
-	}
-
-	err = cmd.Wait()
+	stdo, _, err := RunCommand(conf.DOCKER_BINARY, []string{"wait", container_id}...)
 
 	if err != nil {
+		logger.Debug(1, fmt.Sprintf("(WaitContainer) cmd.Wait returned error: %s", err.Error()))
+
 		return 0, err
+	}
+
+	// extract only first line
+	endofline := bytes.IndexByte(stdo, '\n')
+
+	stdout_line := ""
+	if endofline >= 0 {
+		stdout_line = string(stdo[0 : endofline-1])
+	} else {
+		err = errors.New("docker create returned empty string")
 	}
 
 	status, err = strconv.Atoi(stdout_line)
 	if err != nil {
-		logger.Debug(1, fmt.Sprintf("could not interpret status code: \"%s\"", stdout_line))
+		logger.Debug(1, fmt.Sprintf("(WaitContainer) could not interpret status code: \"%s\"", stdout_line))
 		// handle error
 		return 0, err
 	}

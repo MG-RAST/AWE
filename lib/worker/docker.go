@@ -258,7 +258,7 @@ func CreateContainer(create_args []string) (container_id string, err error) {
 			}
 
 			if err_readstr != nil {
-				logger.Debug(1, "(CreateContainer) error reading stderr.")
+				logger.Debug(1, "(CreateContainer) error reading stderr "+err_readstr.Error())
 				return "", err
 			}
 

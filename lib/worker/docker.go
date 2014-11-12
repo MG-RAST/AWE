@@ -220,6 +220,8 @@ func CreateContainer(create_args []string) (container_id string, err error) {
 
 	cmd := exec.Command(conf.DOCKER_BINARY, create_args...)
 
+	logger.Debug(1, fmt.Sprintf("(CreateContainer) cmd struct: %#v", cmd))
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		logger.Debug(1, "(CreateContainer) error getting StdoutPipe")

@@ -237,6 +237,7 @@ func RunCommand(name string, arg ...string) (stdo []byte, stde []byte, err error
 
 	if stde_err == nil {
 		logger.Debug(1, fmt.Sprintf("(RunCommand) error: %s", stde))
+		logger.Debug(1, fmt.Sprintf("(RunCommand) stdout: %s", stdo))
 	}
 
 	err = cmd.Wait()

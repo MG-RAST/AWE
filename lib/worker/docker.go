@@ -350,16 +350,16 @@ func WaitContainer(container_id string) (status int, err error) {
 	logger.Debug(1, fmt.Sprintf("(WaitContainer) %s:", container_id))
 	cmd := exec.Command(conf.DOCKER_BINARY, "wait", container_id)
 
-	if err = cmd.Start(); err != nil {
-		return 0, err
-	}
-
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return 0, err
 	}
 
 	rd := bufio.NewReader(stdout)
+
+	if err = cmd.Start(); err != nil {
+		return 0, err
+	}
 
 	var stdout_line string
 

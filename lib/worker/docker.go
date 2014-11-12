@@ -355,10 +355,15 @@ func StartContainer(container_id string, args string) (err error) {
 func WaitContainer(container_id string) (status int, err error) {
 	logger.Debug(1, fmt.Sprintf("(WaitContainer) %s:", container_id))
 
-	stdo, _, err := RunCommand(conf.DOCKER_BINARY, []string{"wait", container_id}...)
+	stdo, stde, err := RunCommand(conf.DOCKER_BINARY, []string{"wait", container_id}...)
+
+	_ = stde
 
 	if err != nil {
 		logger.Debug(1, fmt.Sprintf("(WaitContainer) cmd.Wait returned error: %s", err.Error()))
+
+		logger.Debug(1, fmt.Sprintf("(WaitContainer) cmd.Wait stdout: %s", stdo))
+		logger.Debug(1, fmt.Sprintf("(WaitContainer) cmd.Wait stderr: %s", stde))
 
 		return 0, err
 	}

@@ -263,7 +263,7 @@ func CreateContainer(create_args []string) (container_id string, err error) {
 				break
 			}
 
-			logger.Debug(1, "(CreateContainer) error stderr: "+stderr_line)
+			logger.Debug(1, fmt.Sprintf("(CreateContainer) error stderr (%d): %s", line_count, stderr_line))
 		}
 
 		return "", err

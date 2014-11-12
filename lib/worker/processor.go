@@ -376,11 +376,14 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	// version for docker command line
 	docker_commandline_create := []string{
-		// "-t" would required if I want to attach to the container later, check again documentation if needed
+		// "-t" would be required if I want to attach to the container later, check again documentation if needed
 		"--name=" + container_name,
 		"--workdir=" + conf.DOCKER_WORK_DIR,
 		volume_str, // for workdir and optionally predata
-		docker_environment_string,
+	}
+
+	if docker_environment_string != "" {
+		docker_commandline_create = append(docker_commandline_create, docker_environment_string)
 	}
 
 	// version for docker API

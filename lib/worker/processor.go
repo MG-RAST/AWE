@@ -416,8 +416,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		container_obj, err := client.CreateContainer(opts)
 		if err == nil {
 			container_id = container_obj.ID
-		}
-		if err != nil {
+		} else {
 			return nil, errors.New(fmt.Sprintf("error creating container, err=%s", err.Error()))
 		}
 	} else {

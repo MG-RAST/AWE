@@ -222,21 +222,39 @@ func CreateContainer(create_args []string) (container_id string, err error) {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		logger.Debug(1, "(CreateContainer) error getting StdoutPipe")
 		return "", err
 	}
 
 	rd := bufio.NewReader(stdout)
-	//stderr, err := cmd.StderrPipe()
-	//if err != nil {
-	//	return nil, err
-	//}
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		logger.Debug(1, "(CreateContainer) error getting StderrPipe")
+		return "", err
+	}
+	rd_err := bufio.NewReader(stderr)
 
 	if err = cmd.Start(); err != nil {
+		logger.Debug(1, "(CreateContainer) cmd.Start failed")
 		return "", err
 	}
 
 	err = cmd.Wait()
 	if err != nil {
+		logger.Debug(1, "(CreateContainer) cmd.Wait returned error")
+
+		var stderr_line string
+		for {
+
+			stderr_line, err = rd_err.ReadString('\n')
+
+			if err == io.EOF {
+				break
+			}
+			logger.Debug(1, "(CreateContainer) error stderr: "+stderr_line)
+		}
+
 		return "", err
 	}
 

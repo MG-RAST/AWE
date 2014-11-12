@@ -385,11 +385,22 @@ func WaitContainer(container_id string) (status int, err error) {
 		err = errors.New("docker create returned empty string")
 	}
 
+	negative_status := false
+
+	if strings.HasPrefix(stdout_line, "-") {
+		stdout_line = strings.TrimPrefix(stdout_line, "-")
+		negative_status = true
+	}
+
 	status, err = strconv.Atoi(stdout_line)
 	if err != nil {
 		logger.Debug(1, fmt.Sprintf("(WaitContainer) could not interpret status code: \"%s\"", stdout_line))
 		// handle error
 		return 0, err
+	}
+
+	if negative_status {
+		status *= -1
 	}
 
 	return status, nil

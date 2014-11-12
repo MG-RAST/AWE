@@ -340,15 +340,21 @@ func RemoveContainer(container_id string) (err error) {
 func StartContainer(container_id string, args string) (err error) {
 	// docker start CONTAINER [CONTAINER...]
 	logger.Debug(1, fmt.Sprintf("(StartContainer) %s:", container_id))
-	cmd := exec.Command(conf.DOCKER_BINARY, "start", container_id)
 
-	if err = cmd.Start(); err != nil {
-		return err
+	stdo, stde, err := RunCommand(conf.DOCKER_BINARY, []string{"start", container_id}...)
+
+	_ = stdo
+	_ = stde
+
+	if err != nil {
+		logger.Debug(1, fmt.Sprintf("(StartContainer) cmd.Wait returned error: %s", err.Error()))
+
+		logger.Debug(1, fmt.Sprintf("(StartContainer) cmd.Wait stdout: %s", stdo))
+		logger.Debug(1, fmt.Sprintf("(StartContainer) cmd.Wait stderr: %s", stde))
+
 	}
 
-	err = cmd.Wait()
-
-	return nil
+	return err
 
 }
 
@@ -367,9 +373,6 @@ func WaitContainer(container_id string) (status int, err error) {
 
 		return 0, err
 	}
-
-	logger.Debug(1, fmt.Sprintf("(WaitContainer) cmd.Wait stdout: %s", stdo))
-	logger.Debug(1, fmt.Sprintf("(WaitContainer) cmd.Wait stderr: %s", stde))
 
 	// extract only first line
 	endofline := bytes.IndexByte(stdo, '\n')

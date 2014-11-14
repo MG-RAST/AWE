@@ -16,9 +16,55 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os/exec"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
+
+type DockerImageAttributes struct {
+	Name       string `bson:"name" json:"name"`
+	Tag        string `bson:"tag" json:"tag"`
+	Repository string `bson:"repository" json:"repository"`
+}
+
+type DockerShockNode struct {
+	shock.ShockNode
+	Version    []int
+	Attributes DockerImageAttributes
+}
+
+type DockerShockNodeArray []DockerShockNode
+
+func (a DockerShockNodeArray) Len() int      { return len(a) }
+func (a DockerShockNodeArray) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a DockerShockNodeArray) Less(i, j int) bool {
+
+	i_len := len(a[i].Version)
+	j_len := len(a[j].Version)
+
+	pos := 0
+	for pos < i_len || pos < j_len {
+		x := 0
+		y := 0
+		if pos < i_len {
+			x = a[i].Version[pos]
+		}
+		if pos < j_len {
+			y = a[j].Version[pos]
+		}
+
+		if x < y {
+			return true
+		}
+		if x > y {
+			return false
+		}
+		pos++
+	}
+
+	return false
+}
 
 func InspectImage(client *docker.Client, dockerimage_id string) (image *docker.Image, err error) {
 	logger.Debug(1, fmt.Sprintf("(InspectImage) %s:", dockerimage_id))
@@ -457,27 +503,105 @@ func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.ShockNode, download_url string, err error) {
 
 	logger.Debug(1, fmt.Sprint("datatoken for dockerimage: ", datatoken[0:15]))
+	logger.Debug(1, fmt.Sprint("try to import docker image, Dockerimage=", Dockerimage))
 
 	shock_docker_repo := shock.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, datatoken}
 
-	logger.Debug(1, fmt.Sprint("try to import docker image, Dockerimage=", Dockerimage))
-	//query url = type=dockerimage&name=wgerlach/bowtie2:2.2.0"
+	dockerimage_array := strings.Split(Dockerimage, ":")
 
-	query_response_p, err := shock_docker_repo.Query(url.Values{"type": {"dockerimage"}, "name": {Dockerimage}})
-	if err != nil {
-		return nil, "", errors.New(fmt.Sprintf("shock node not found for image=%s, err=%s", Dockerimage, err.Error()))
-	}
-	logger.Debug(1, fmt.Sprintf("query result: %v", query_response_p))
-
-	datalen := len((*query_response_p).Data)
-
-	if datalen == 0 {
-		return nil, "", errors.New(fmt.Sprintf("image %s not found in shocks docker repo", Dockerimage))
-	} else if datalen > 1 {
-		return nil, "", errors.New(fmt.Sprintf("more than one image %s found in shocks docker repo", Dockerimage))
+	if len(dockerimage_array) != 2 {
+		return nil, "", errors.New(fmt.Sprintf("could not split dockerimage name %s into two pieces", Dockerimage))
 	}
 
-	node = &(*query_response_p).Data[0]
+	dockerimage_repo := dockerimage_array[0]
+	dockerimage_tag := dockerimage_array[1]
+
+	var version_array = [...]string{"unknown", "dev", "develop", "alpha", "a", "beta", "b", "c", "d", "e"}
+	var version_strings = make(map[string]int)
+	for i, val := range version_array {
+		version_strings[val] = i
+	}
+
+	if dockerimage_tag == "latest" {
+		query_response_p, err := shock_docker_repo.Query(url.Values{"type": {"dockerimage"}, "repository": {dockerimage_repo}})
+		if err != nil {
+			return nil, "", errors.New(fmt.Sprintf("shock node not found for image repo=%s, err=%s", dockerimage_repo, err.Error()))
+		}
+		logger.Debug(1, fmt.Sprintf("query result: %v", query_response_p))
+		datalen := len((*query_response_p).Data)
+		if datalen == 0 {
+			return nil, "", errors.New(fmt.Sprintf("image repo %s not found in shocks docker repo", dockerimage_repo))
+		}
+
+		images := (*query_response_p).Data
+
+		dsn_array := make([]DockerShockNode, 30)
+
+		reg_version, err := regexp.Compile(`^(\d*)?\-(.*)`)
+
+		for _, image := range images {
+
+			//version_int_array := make([]int, len(version_str_array) )
+
+			dsn := DockerShockNode{ShockNode: image,
+				Attributes: image.Attributes.(DockerImageAttributes)}
+
+			version_str_array := strings.Split(dsn.Attributes.Tag, ".")
+
+			for j, val := range version_str_array {
+				// j*2+1 is reserved for characters in version number // TODO 2.2b -> 2,0,2,1
+				dsn.Version[j*2] = 0
+				dsn.Version[j*2+1] = 0
+
+				reg_version_matches := reg_version.FindAllStringSubmatch(val, -1)[0]
+
+				if len(reg_version_matches) > 0 {
+					val_number := reg_version_matches[0]
+
+					val_int, err := strconv.Atoi(val_number)
+					if err != nil {
+						dsn.Version[j*2] = val_int
+					}
+				}
+
+				if len(reg_version_matches) > 1 {
+					val_text := reg_version_matches[0]
+
+					dsn.Version[j*2+1] = version_strings[val_text]
+
+				}
+
+			}
+			dsn_array = append(dsn_array, dsn)
+		}
+
+		sort.Sort(sort.Reverse(DockerShockNodeArray(dsn_array)))
+		node = &dsn_array[0].ShockNode
+
+		logger.Debug(1, fmt.Sprint("dockerimage latest has been requested and this tag was found: %s", dsn_array[0].Attributes.Tag))
+
+	} else {
+
+		//query url = type=dockerimage&name=wgerlach/bowtie2:2.2.0"
+
+		query_response_p, err := shock_docker_repo.Query(url.Values{"type": {"dockerimage"}, "name": {Dockerimage}})
+		if err != nil {
+			return nil, "", errors.New(fmt.Sprintf("shock node not found for image=%s, err=%s", Dockerimage, err.Error()))
+		}
+		logger.Debug(1, fmt.Sprintf("query result: %v", query_response_p))
+
+		datalen := len((*query_response_p).Data)
+
+		if datalen == 0 {
+			return nil, "", errors.New(fmt.Sprintf("image %s not found in shocks docker repo", Dockerimage))
+		} else if datalen > 1 {
+			return nil, "", errors.New(fmt.Sprintf("more than one image %s found in shocks docker repo", Dockerimage))
+		}
+
+		node = &(*query_response_p).Data[0]
+
+	}
+
 	logger.Debug(1, fmt.Sprintf("found SHOCK node for docker image: %s", node.Id))
 
 	download_url, err = shock_docker_repo.Get_node_download_url(*node)

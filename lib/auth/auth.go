@@ -6,7 +6,7 @@ import (
 	//"github.com/MG-RAST/AWE/lib/auth/basic"
 	"github.com/MG-RAST/AWE/lib/auth/clientgroup"
 	"github.com/MG-RAST/AWE/lib/auth/globus"
-	//"github.com/MG-RAST/AWE/lib/auth/mgrast"
+	"github.com/MG-RAST/AWE/lib/auth/mgrast"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
@@ -26,9 +26,9 @@ func Initialize() {
 	if conf.GLOBUS_OAUTH {
 		authMethods = append(authMethods, globus.Auth)
 	}
-	//if conf.MGRAST_OAUTH {
-	//	authMethods = append(authMethods, mgrast.Auth)
-	//}
+	if conf.MGRAST_OAUTH {
+		authMethods = append(authMethods, mgrast.Auth)
+	}
 }
 
 func Authenticate(header string) (u *user.User, err error) {

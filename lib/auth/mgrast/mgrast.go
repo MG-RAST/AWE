@@ -3,14 +3,15 @@
 package mgrast
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/httpclient"
+	e "github.com/MG-RAST/AWE/lib/errors"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/user"
 	"io/ioutil"
-	"strconv"
+	"net/http"
 	"strings"
 )
 
@@ -19,11 +20,10 @@ type resErr struct {
 }
 
 type credentials struct {
-	Uname  string   `json:"user"`
-	Fname  string   `json:"firstname"`
-	Lname  string   `json:"lastname"`
-	Email  string   `json:"email"`
-	Groups []string `json:"groups"`
+	Uname string `json:"login"`
+	Fname string `json:"firstname"`
+	Lname string `json:"lastname"`
+	Email string `json:"email"`
 }
 
 func authHeaderType(header string) string {
@@ -45,49 +45,47 @@ func Auth(header string) (*user.User, error) {
 	default:
 		return nil, errors.New("Invalid authentication header.")
 	}
-	return nil, errors.New("Invalid authentication header.")
 }
 
 // authToken validiates token by fetching user information.
-func authToken(t string) (*user.User, error) {
-	url := conf.MGRAST_OAUTH_URL
-	if url == "" {
-		return nil, errors.New("mgrast_oauth_url not set in configuration")
+func authToken(t string) (u *user.User, err error) {	
+	client := &http.Client{
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	}
-
-	form := httpclient.NewForm()
-	form.AddParam("token", t)
-	form.AddParam("action", "credentials")
-	form.AddParam("groups", "true")
-	err := form.Create()
+	req, err := http.NewRequest("GET", conf.MGRAST_OAUTH_URL, nil)
 	if err != nil {
 		return nil, err
 	}
-
-	headers := httpclient.Header{
-		"Content-Type":   []string{form.ContentType},
-		"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
-	}
-
-	if res, err := httpclient.Do("POST", url, headers, form.Reader, &httpclient.Auth{Type: "mgrast", Token: t}); err == nil {
-		defer res.Body.Close()
-		if res.StatusCode == 200 {
-			r := credentials{}
-			body, _ := ioutil.ReadAll(res.Body)
-			if err = json.Unmarshal(body, &r); err != nil {
-				return nil, err
+	req.Header.Add("Auth", t)
+	if resp, err := client.Do(req); err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			if body, err := ioutil.ReadAll(resp.Body); err == nil {
+				u = &user.User{}
+				c := &credentials{}
+				if err = json.Unmarshal(body, &c); err != nil {
+					return nil, err
+				} else {
+					if c.Uname == "" {
+						return nil, errors.New(e.InvalidAuth)
+					}
+					u.Username = c.Uname
+					u.Fullname = c.Fname + " " + c.Lname
+					u.Email = c.Email
+					if err = u.SetMongoInfo(); err != nil {
+						return nil, err
+					}
+				}
 			}
-			return &user.User{Username: r.Uname, Fullname: r.Fname + " " + r.Lname, Email: r.Email, CustomFields: map[string][]string{"groups": r.Groups}}, nil
+		} else if resp.StatusCode == http.StatusForbidden {
+			return nil, errors.New(e.InvalidAuth)
 		} else {
-			r := resErr{}
-			body, _ := ioutil.ReadAll(res.Body)
-			fmt.Printf("%s\n", body)
-			if err = json.Unmarshal(body, &r); err == nil {
-				return nil, errors.New("request error: " + res.Status)
-			} else {
-				return nil, errors.New(res.Status + ": " + r.error)
-			}
+			err_str := "Authentication failed: Unexpected response status: " + resp.Status
+			logger.Error(err_str)
+			return nil, errors.New(err_str)
 		}
+	} else {
+		return nil, err
 	}
-	return nil, nil
+	return
 }

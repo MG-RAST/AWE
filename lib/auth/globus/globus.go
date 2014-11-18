@@ -90,6 +90,11 @@ func fetchToken(u string, p string) (t *token, err error) {
 
 // fetchProfile validiates token by using it to fetch user profile
 func fetchProfile(t string) (u *user.User, err error) {
+	// First check to see if this could possibly be a globus token (contain string 'globus').  If not, return error.
+	if strings.Contains(t, "globus") == false {
+		return nil, errors.New(e.InvalidAuth)
+	}
+
 	client := &http.Client{
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	}

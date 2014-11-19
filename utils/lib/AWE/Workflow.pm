@@ -1,4 +1,5 @@
 package AWE::Workflow;
+use base qw(Exporter);
 
 use strict;
 use warnings;
@@ -8,7 +9,18 @@ use AWE::App;
 use AWE::TaskInput;
 use AWE::TaskOutput;
 
+
+use SHOCK::Client;
+
 use JSON;
+
+use Data::Dumper;
+
+
+
+our @ISA    = qw(Exporter); # Use our.
+# Exporting the add and subtract routine
+our @EXPORT = qw(list_resource shock_resource task_resource string_resource);
 
 
 
@@ -16,23 +28,36 @@ sub new {
     my ($class, %h) = @_;
     
 	my $info = {
-		"pipeline"		=> $h{'pipeline'} || "#pipeline",
-		"name"			=> $h{'name'} || "#jobname",
-		"project"		=> $h{'project'} || "#project",
-		"user"			=> $h{'user'} || "#user",
-		"clientgroups"	=> $h{'clientgroups'} || "#clientgroups",
-		"noretry"		=> $h{'noretry'} || JSON::true
+		"pipeline"		=> ($h{'pipeline'} || "#pipeline"),
+		"name"			=> ($h{'name'} || "#jobname"),
+		"project"		=> ($h{'project'} || "#project"),
+		"user"			=> ($h{'user'} || "#user"),
+		"clientgroups"	=> ($h{'clientgroups'} || "#clientgroups"),
+		"noretry"		=> ($h{'noretry'} || JSON::true)
 	};
 	
 	my $tasks = [];
 	
     my $self = {
 		info => $info,
-		tasks => $tasks
+		tasks => $tasks,
+		shockhost => $h{'shockhost'},
+		shocktoken => $h{'shocktoken'}
 	};
 	
     bless $self, $class;
     return $self;
+}
+
+sub shockhost {
+	my ($self) = @_;
+	return $self->{shockhost};
+}
+
+
+sub shocktoken {
+	my ($self) = @_;
+	return $self->{shocktoken};
 }
 
 sub info {
@@ -50,7 +75,7 @@ sub taskcount {
     return scalar(@{$self->{tasks}});
 }
 
-# add task to workflow and return task with taskid assigned
+# add task to workflow and return task with taskid assigned (see newTask)
 sub addTask {
 	my ($self, $task) = @_;
 	
@@ -62,6 +87,88 @@ sub addTask {
 	$task->taskid($taskid."");
 	
 	return $task;
+}
+
+#creates, adds, and return a new task
+sub newTask {
+	my ($self, $name, @app_args) = @_;
+	my $newtask = new AWE::Task();
+	
+	unless (defined $name) {
+		die "app name not defined";
+	}
+	$newtask->{'cmd'}->{'name'} = $name;
+	
+	for (my $i=0; $i < @app_args ; $i++) {
+		my $res = $app_args[$i];
+		unless (defined $res->{'resource'}) {
+			die "resource type not defined";
+		}
+		
+		
+		if (lc($res->{'resource'}) eq 'shock') { # TODO this is a feature that should be handled by AWE
+			$self->addFilenameToResource($res);
+			unless (defined $res->{'resource'}) {
+				die;
+			}
+		} elsif (lc($res->{'resource'}) eq 'list') {
+			my $list = $res->{'list'};
+			foreach my $elem (@{$list}) {
+				if (lc($elem->{'resource'}) eq 'shock') {
+					$self->addFilenameToResource($elem);
+				}
+				
+			}
+			
+		}
+		
+	}
+	
+	
+	$newtask->{'cmd'}->{'app_args'} = \@app_args;
+	
+	
+	return $self->addTask($newtask);
+}
+
+sub addFilenameToResource {
+	my ($self, $res) = @_;
+	
+	my $filename = $res->{'filename'};
+	my $host = $res->{'host'};
+	my $node = $res->{'node'};
+	unless (defined $filename && $filename ne "") {
+		
+		
+		#print "token: ". $self->shocktoken(). "\n";
+		
+		my $shock = new SHOCK::Client($host, $self->shocktoken(), 0);
+		
+		my $obj = $shock->get_node($node);
+		unless (defined $obj) {
+			die "could not read shock node";
+		}
+		
+		my $node_filename = "";
+		if (defined $obj) {
+			$node_filename = $obj->{data}->{file}->{name};
+		}
+		
+		unless (defined $node_filename) {
+			$node_filename = "";
+		}
+		if ($node_filename eq "") {
+			
+			print Dumper($obj);
+			print $node."\n";
+			die;
+			
+			$node_filename = $node.".dat";
+		}
+		$filename = $node_filename;
+		$res->{'filename'} =$filename;
+	}
+	return;
 }
 
 # add tasks and assign taskids
@@ -95,6 +202,9 @@ sub getHash {
 	}
 	
 	$wf->{'tasks'} = $tasks_;
+	
+	
+	$wf->{'shockhost'} = $self->shockhost();
 	
 	return $wf;
 }
@@ -184,5 +294,77 @@ sub shock_upload {
 	return;
 }
 
+
+sub list_resource {
+	my ($list_ref) = @_;
+
+	
+	my $res = {	"resource" => "list",
+		"list" => $list_ref
+	};
+	
+}
+
+sub shock_resource {
+	my ($host, $node, $filename) = @_;
+	
+	unless (defined $node) {
+		#http://shock.metagenomics.anl.gov/node/80cce328-f8ce-4f2c-b189-803ac12f9e44
+		my ($h, $n) =$host =~ /^(.*)\/node\/(.*)(\?download)?/;
+		
+		unless (defined $n) {
+			die "could not parse shock url";
+		}
+		$host = $h;
+		$node = $n;
+		
+	}
+	
+	
+	my $res = {"resource" => "shock",
+		"host" => $host,
+		"node" => $node};
+	
+	
+	if (defined $filename) {
+		$res->{"filename"} = $filename ;
+	}
+	return $res;
+}
+
+
+# key-value pair or only value
+sub string_resource {
+	my ($key, $value) = @_;
+	
+	unless (defined $value) {
+		$value = $key;
+	}
+	
+	my $res = {"resource" => "string",
+				"value" => $value
+	};
+	
+	if (defined $key) {
+		$res->{'key'} = $key;
+	}
+	
+	return $res;
+}
+
+
+
+sub task_resource {
+	my ($task, $pos, $host) = @_;
+	
+	my $res = {"resource" => "task",
+		"task" => $task, #string
+		"position" => $pos, # number;
+		"host" => $host
+	};
+	
+	
+	return $res;
+}
 
 1;

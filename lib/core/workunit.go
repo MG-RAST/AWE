@@ -36,6 +36,8 @@ type Workunit struct {
 	ComputeTime  int               `bson:"computetime" json:"computetime"`
 	Notes        string            `bson:"notes" json:"notes"`
 	UserAttr     map[string]string `bson:"userattr" json:"userattr"`
+	AppDef       *AppCommandMode   `bson:"appdef" json:"appdef"` // App defintion
+	//AppVariables  AppVariables
 }
 
 // create workunit slice type to use for sorting
@@ -89,6 +91,7 @@ func (w WorkunitsSortby) Less(i, j int) bool {
 }
 
 func NewWorkunit(task *Task, rank int) *Workunit {
+
 	return &Workunit{
 		Id:        fmt.Sprintf("%s_%d", task.Id, rank),
 		Info:      task.Info,
@@ -102,6 +105,8 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 		State:     WORK_STAT_QUEUED,
 		Failed:    0,
 		UserAttr:  task.UserAttr,
+		AppDef:    task.AppDef,
+		//AppVariables: task.AppVariables // not needed yet
 	}
 }
 

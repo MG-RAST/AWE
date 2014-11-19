@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -48,17 +49,18 @@ type AppRegistry map[string]*AppPackage
 // part of workflow document, used in "Command", defines input: shock, task, string
 // those can generate IO structs (see io.go)
 type AppResource struct {
-	Resource       string `bson:"resource" json:"resource"`
-	Host           string `bson:"host" json:"host"`
-	Node           string `bson:"node" json:"node"`
-	Url            string `bson:"url" json:"url"`
-	Filename       string `bson:"filename" json:"filename"`
-	Key            string `bson:"key" json:"key"`
-	Value          string `bson:"value" json:"value"`
-	Task           string `bson:"task" json:"task"`
-	OutputPosition *int   `bson:"position" json:"position"`
-	OutputName     string `bson:"name" json:"name"`
-	Uncompress     string `bson:"uncompress" json:"uncompress"` // tells AWE client to uncompress this file, e.g. "gzip"
+	Resource       string        `bson:"resource" json:"resource"`
+	Host           string        `bson:"host" json:"host"`
+	Node           string        `bson:"node" json:"node"`
+	Url            string        `bson:"url" json:"url"`
+	Filename       string        `bson:"filename" json:"filename"`
+	Key            string        `bson:"key" json:"key"`
+	Value          string        `bson:"value" json:"value"`
+	Task           string        `bson:"task" json:"task"`
+	OutputPosition *int          `bson:"position" json:"position"`
+	OutputName     string        `bson:"name" json:"name"`
+	Uncompress     string        `bson:"uncompress" json:"uncompress"` // tells AWE client to uncompress this file, e.g. "gzip"
+	List           []AppResource `bson:"list" json:"list"`
 }
 
 type AppInputType int
@@ -70,6 +72,7 @@ const (
 	Ait_shock
 	Ait_url
 	Ait_task
+	Ait_list
 )
 
 type AppVariable struct {
@@ -121,6 +124,8 @@ func string2apptype(type_string string) (ait AppInputType, err error) {
 		ait = Ait_url
 	} else if type_string == "task" {
 		ait = Ait_task
+	} else if type_string == "list" {
+		ait = Ait_list
 	} else {
 		err = errors.New(fmt.Sprintf("could not convert type: %s", type_string))
 	}
@@ -142,7 +147,8 @@ func apptype2string(ait AppInputType) string {
 		return "url"
 	case Ait_task:
 		return "task"
-
+	case Ait_list:
+		return "list"
 	}
 
 	return "unknown"
@@ -231,7 +237,7 @@ func (appr AppRegistry) Get_cmd_mode_object(app_package_name string, app_command
 
 	app_cmd_mode_object_ref, ok = app_command_object_ref[app_cmd_mode_name]
 	if !ok {
-		err = errors.New("app_cmd_mode_name=" + app_cmd_mode_name + " not found in app registry")
+		err = errors.New("app_cmd_mode_name=" + app_cmd_mode_name + " not found in app registry , " + app_package_name + "." + app_command_name)
 		return
 	}
 
@@ -339,6 +345,10 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 
 	// is it an app ?
 	if !strings.HasPrefix(task.Cmd.Name, "app:") {
+		if conf.USE_APP_DEFS == "only" {
+			return errors.New("Error: Task " + task.Id + " does not use an app-defintion")
+		}
+
 		return
 	}
 
@@ -370,6 +380,24 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("error reading app registry, error=%s", err.Error()))
 		return err
+	}
+
+	if task.AppDef != nil {
+		err = errors.New(fmt.Sprintf("error: AppDef cannot be defined within worflow document"))
+		return err
+	}
+
+	task.AppDef = app_cmd_mode_object
+
+	if task.AppDef.Dockerimage == "" {
+		image, err := appr.Get_dockerimage(app_array[0])
+
+		if err != nil {
+			err = errors.New(fmt.Sprintf("Could not read dockerimage, error=%s", err.Error()))
+			return err
+		}
+
+		task.AppDef.Dockerimage = image
 	}
 
 	// create app_variables from app-input definition
@@ -583,26 +611,178 @@ func variable_keys_2_string(app_variables AppVariables) string {
 	return strings.Join(variable_keys_array, ",")
 }
 
+func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, task *Task, taskid2task map[string]*Task) (err error) {
+
+	resource_type, err := string2apptype(input_arg.Resource)
+
+	var input_variable_value = ""
+	var input_variable_name = input_arg.Key
+
+	if input_variable_name == "" {
+		return errors.New(fmt.Sprintf("input_variable_name is empty"))
+	}
+
+	var inputs IOmap
+	if job != nil {
+		inputs = task.Inputs
+	}
+
+	switch resource_type {
+	case Ait_shock:
+		logger.Debug(1, fmt.Sprintf("processing: %s", apptype2string(resource_type)))
+		filename := input_arg.Filename
+		host := input_arg.Host
+		node := input_arg.Node
+		if filename != "" {
+			input_variable_value = filename
+		} else {
+			//TODO invent filename ?
+		}
+
+		// TODO make sure resource_type corresponds to expected type in app def
+
+		if job != nil {
+
+			if _, ok := inputs[filename]; ok {
+				return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
+			}
+
+			inputs[filename] = &IO{Name: filename, AppName: input_variable_name, Host: host, Node: node, DataToken: task.Info.DataToken, Uncompress: input_arg.Uncompress} // TODO set ShockFilename ?
+			//app_variables[input_variable_name + ".Host"] = host // do not here
+			//app_variables[input_variable_name + ".Node"] = node
+		}
+	case Ait_url:
+		logger.Debug(1, fmt.Sprintf("processing: %s", apptype2string(resource_type)))
+		filename := input_arg.Filename
+		url := input_arg.Url
+		if filename != "" {
+			input_variable_value = filename
+		} else {
+			//TODO invent filename ?
+		}
+
+		// TODO make sure resource_type corresponds to expected type in app def
+
+		if job != nil {
+
+			if _, ok := inputs[filename]; ok {
+				return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
+			}
+
+			inputs[filename] = &IO{Name: filename, AppName: input_variable_name, Url: url, Uncompress: input_arg.Uncompress} // TODO set ShockFilename ?
+
+		}
+	case Ait_task:
+		logger.Debug(1, fmt.Sprintf("processing: %s", apptype2string(resource_type)))
+
+		//taskid2task
+
+		providing_task_id := input_arg.Task
+		outputPosition := input_arg.OutputPosition
+		outputName := input_arg.OutputName
+		shockhost := input_arg.Host
+
+		// find filename
+		filename := ""
+		providing_task, ok := taskid2task[providing_task_id]
+
+		if !ok {
+
+			err = errors.New(fmt.Sprintf("did not find providing task: %s", providing_task_id))
+			return err
+		}
+
+		if outputPosition != nil {
+		Loop_outputPosition:
+			for io_filename, my_io := range providing_task.Outputs {
+
+				if my_io.AppPosition == *outputPosition {
+
+					filename = io_filename
+					break Loop_outputPosition
+				}
+
+			}
+			if filename == "" {
+				err = errors.New(fmt.Sprintf("did not find providing position \"%d\" in task \"%s\"", *outputPosition, task))
+				return err
+			}
+		} else if outputName != "" {
+		Loop_outputName:
+			for io_filename, my_io := range providing_task.Outputs {
+				logger.Debug(1, fmt.Sprintf("Ait_task C"))
+				if my_io.AppName == outputName {
+
+					filename = io_filename
+					break Loop_outputName
+				}
+
+			}
+
+		} else {
+			err = errors.New(fmt.Sprintf("neither name nor position has been defined for providing_task_id %s", providing_task_id))
+			return err
+		}
+
+		if filename == "" {
+			err = errors.New(fmt.Sprintf("did not find dependency in task \"%s\"", task))
+			return err
+		}
+		logger.Debug(1, fmt.Sprintf("Ait_task filename %s", filename))
+
+		if job != nil {
+
+			if shockhost == "" {
+				if job.ShockHost != "" {
+					shockhost = job.ShockHost
+				} else {
+					err = errors.New(fmt.Sprintf("job.ShockHost and host for task input not defined"))
+					return err
+				}
+			}
+			inputs[filename] = &IO{Name: filename, AppName: input_variable_name, Origin: providing_task_id, Host: shockhost, Uncompress: input_arg.Uncompress}
+		}
+
+		input_variable_value = filename
+
+	case Ait_string:
+		logger.Debug(1, fmt.Sprintf("processing: %s", apptype2string(resource_type)))
+		input_variable_value = input_arg.Value
+		if input_variable_value == "" {
+			return errors.New(fmt.Sprintf("no value found for variable name: %s", input_variable_name))
+		}
+
+	default:
+		err = errors.New(fmt.Sprintf("Resource type unknown: %s", resource_type))
+		return err
+	} // end switch
+
+	app_variables[input_variable_name] = AppVariable{Value: input_variable_value, Var_type: resource_type}
+
+	logger.Debug(1, fmt.Sprintf("from task definition: input_variable_name: \"%s\", input_variable_value: \"%s\"", input_variable_name, input_variable_value))
+	// can overwrite defaults from the app-definition
+
+	return
+}
+
 // read variables and (optionally) populate with input nodes
-// 1) for reading variables, it needs only acm.Get_default_app_variables()
+// 1) for reading variables, it needs only acm.Get_default_app_variables(), job and task will be nil
 // 2) for populating input nodes it needs output of 2 !
 // this is done server-side !
 func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array []AppResource, job *Job, task *Task, taskid2task map[string]*Task) (err error) {
-
-	//app_variables, err = acm.Get_default_app_variables()
 
 	if err != nil {
 		return
 	}
 
-	var inputs IOmap
+	//var inputs IOmap
 	//var outputs IOmap
 
 	if job != nil {
 		if task.Inputs == nil {
 			task.Inputs = make(IOmap)
 		}
-		inputs = task.Inputs
+		//inputs = task.Inputs
 		//outputs = task.Outputs
 	}
 
@@ -615,7 +795,6 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 		logger.Debug(1, fmt.Sprintf("resource: %s", input_arg.Resource))
 
 		var input_variable_name = input_arg.Key // can be used by any resource
-		var input_variable_value = ""
 
 		//logger.Debug(1, fmt.Sprintf("Key: %s", input_arg.Key))
 		//logger.Debug(1, fmt.Sprintf("Value: %s", input_arg.Value))
@@ -636,6 +815,7 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 
 		if input_variable_name == "" {
 			input_variable_name = acm.Input[arg_position].Name // use position to infer key name
+			input_arg.Key = input_variable_name                // name the unnamed key
 		}
 
 		if input_variable_name == "" {
@@ -660,137 +840,36 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 			return err
 		}
 
-		switch resource_type {
-		case Ait_shock:
-			logger.Debug(1, fmt.Sprintf("processing: %s", apptype2string(resource_type)))
-			filename := input_arg.Filename
-			host := input_arg.Host
-			node := input_arg.Node
-			if filename != "" {
-				input_variable_value = filename
-			} else {
-				//TODO invent filename ?
-			}
+		if resource_type == Ait_list {
 
-			// TODO make sure resource_type corresponds to expected type in app def
-
-			if job != nil {
-
-				if _, ok := inputs[filename]; ok {
-					return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
-				}
-
-				inputs[filename] = &IO{Host: host, Node: node, DataToken: task.Info.DataToken, Uncompress: input_arg.Uncompress} // TODO set ShockFilename ?
-
-			}
-		case Ait_url:
-			logger.Debug(1, fmt.Sprintf("processing: %s", apptype2string(resource_type)))
-			filename := input_arg.Filename
-			url := input_arg.Url
-			if filename != "" {
-				input_variable_value = filename
-			} else {
-				//TODO invent filename ?
-			}
-
-			// TODO make sure resource_type corresponds to expected type in app def
-
-			if job != nil {
-
-				if _, ok := inputs[filename]; ok {
-					return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
-				}
-
-				inputs[filename] = &IO{Url: url, Uncompress: input_arg.Uncompress} // TODO set ShockFilename ?
-
-			}
-		case Ait_task:
-			logger.Debug(1, fmt.Sprintf("processing: %s", apptype2string(resource_type)))
-
-			//taskid2task
-
-			providing_task_id := input_arg.Task
-			outputPosition := input_arg.OutputPosition
-			outputName := input_arg.OutputName
-
-			// find filename
-			filename := ""
-			providing_task, ok := taskid2task[providing_task_id]
-
-			if !ok {
-
-				err = errors.New(fmt.Sprintf("did not find providing task: %s", providing_task_id))
-				return err
-			}
-
-			if outputPosition != nil {
-			Loop_outputPosition:
-				for io_filename, my_io := range providing_task.Outputs {
-
-					if my_io.AppPosition == *outputPosition {
-
-						filename = io_filename
-						break Loop_outputPosition
-					}
-
-				}
-				if filename == "" {
-					err = errors.New(fmt.Sprintf("did not find providing position \"%d\" in task \"%s\"", *outputPosition, task))
+			for pos, element := range input_arg.List { // TODO make sure only one resource type is used in list
+				element_type, err := string2apptype(element.Resource)
+				if err != nil {
+					err = errors.New(fmt.Sprintf("app input type undefined err=%s", err.Error()))
 					return err
 				}
-			} else if outputName != "" {
-			Loop_outputName:
-				for io_filename, my_io := range providing_task.Outputs {
-					logger.Debug(1, fmt.Sprintf("Ait_task C"))
-					if my_io.AppName == outputName {
-
-						filename = io_filename
-						break Loop_outputName
-					}
-
+				if element_type != Ait_task && element_type != Ait_shock && element_type != Ait_url {
+					err = errors.New(fmt.Sprintf("error: elements in resource list can only be of type task, shock or url"))
+					return err
 				}
+				element.Key = input_variable_name + "." + strconv.Itoa(pos)
 
-			} else {
-				err = errors.New(fmt.Sprintf("neither name nor position has been defined for providing_task_id %s", providing_task_id))
-				return err
-			}
-
-			if filename == "" {
-				err = errors.New(fmt.Sprintf("did not find dependency in task \"%s\"", task))
-				return err
-			}
-			logger.Debug(1, fmt.Sprintf("Ait_task filename %s", filename))
-
-			if job != nil {
-				hostname := ""
-				if job.ShockHost != "" {
-					hostname = job.ShockHost // TODO check if defined
-				} else {
-					err = errors.New(fmt.Sprintf("job.ShockHost not defined"))
+				err = ParseResource(element, app_variables, job, task, taskid2task)
+				if err != nil {
+					err = errors.New(fmt.Sprintf("ParseResource failed, err=%s", err.Error()))
 					return err
 				}
 
-				inputs[filename] = &IO{Origin: providing_task_id, Host: hostname, Uncompress: input_arg.Uncompress}
+			}
+		} else {
+
+			err = ParseResource(input_arg, app_variables, job, task, taskid2task)
+			if err != nil {
+				err = errors.New(fmt.Sprintf("ParseResource failed, err=%s", err.Error()))
+				return err
 			}
 
-			input_variable_value = filename
-
-		case Ait_string:
-			logger.Debug(1, fmt.Sprintf("processing: %s", apptype2string(resource_type)))
-			input_variable_value = input_arg.Value
-			if input_variable_value == "" {
-				return errors.New(fmt.Sprintf("no value found for variable name: %s", input_variable_name))
-			}
-
-		default:
-			err = errors.New(fmt.Sprintf("Resource type unknown: %s", resource_type))
-			return err
-		} // end switch
-
-		logger.Debug(1, fmt.Sprintf("from task definition: input_variable_name: \"%s\", input_variable_value: \"%s\"", input_variable_name, input_variable_value))
-		// can overwrite defaults from the app-definition
-		app_variables[input_variable_name] = AppVariable{Value: input_variable_value, Var_type: resource_type}
-
+		}
 	}
 
 	return
@@ -798,8 +877,8 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 
 func NewVariableExpander(app_variables AppVariables) VariableExpander {
 
-	return VariableExpander{simple_variable_match: regexp.MustCompile(`\$\{[\w-]+\}`), // inlcudes underscore
-		functional_variable_match: regexp.MustCompile(`\$\{[\w-]+\:[\w-]+\}`),
+	return VariableExpander{simple_variable_match: regexp.MustCompile(`\$\{[\w-\.]+\}`), // inlcudes underscore
+		functional_variable_match: regexp.MustCompile(`\$\{[\w-]+\:[\w-\.]+\}`),
 		app_variables:             app_variables}
 }
 
@@ -821,43 +900,44 @@ func (va VariableExpander) Expand(line string) (expanded string, err error) {
 		}
 
 		function_command := f_var[0]
-		function_variable := f_var[1]
+		function_argument := f_var[1]
 
-		function_variable_obj, ok := va.app_variables[function_variable]
-		if !ok {
-			logger.Debug(1, fmt.Sprintf("function_variable not found %s", function_variable))
-			err = errors.New(fmt.Sprintf("warning: (Expand_app_variables) value of variable %s is empty: ", function_variable))
-			return "ERROR"
-		}
-		function_variable_value := function_variable_obj.Value
-		if function_variable_value == "" {
-			if function_variable_obj.Optional {
-				return ""
-			} else {
-				logger.Debug(1, fmt.Sprintf("value of function_variable \"%s\" empty", function_variable))
-				err = errors.New(fmt.Sprintf("function_variable_value empty"))
-				return "ERROR"
-			}
-		}
-
-		logger.Debug(1, fmt.Sprintf("function_variable_value: %s ", function_variable_value))
 		if function_command == "remove_extension" {
-			extension := path.Ext(function_variable_value)
+			extension := path.Ext(function_argument)
 			//logger.Debug(1, fmt.Sprintf("extension: %s", extension))
 			if extension != "" {
-				function_variable_value = strings.TrimSuffix(function_variable_value, extension)
-				//logger.Debug(1, fmt.Sprintf("trimmed: %s", function_variable_value))
+				function_argument = strings.TrimSuffix(function_argument, extension)
+				//logger.Debug(1, fmt.Sprintf("trimmed: %s", function_argument))
 			}
-			logger.Debug(1, fmt.Sprintf("modified function_variable_value: %s", function_variable_value))
+			logger.Debug(1, fmt.Sprintf("modified function_argument: %s", function_argument))
+
 		} else if function_command == "option" {
+
+			function_argument_obj, ok := va.app_variables[function_argument]
+			if !ok {
+				logger.Debug(1, fmt.Sprintf("function_argument not found %s", function_argument))
+				err = errors.New(fmt.Sprintf("warning: (Expand_app_variables) value of variable %s is empty: ", function_argument))
+				return "ERROR"
+			}
+			function_argument_value := function_argument_obj.Value
+			if function_argument_value == "" {
+				if function_argument_obj.Optional {
+					return ""
+				} else {
+					logger.Debug(1, fmt.Sprintf("value of function_argument \"%s\" empty", function_argument))
+					err = errors.New(fmt.Sprintf("function_argument_value empty"))
+					return "ERROR"
+				}
+			}
+			logger.Debug(1, fmt.Sprintf("function_argument_value: %s ", function_argument_value))
 			//app_var, ok := va.app_variables[]
-			option := function_variable_obj.Option
+			option := function_argument_obj.Option
 
 			if option == "" {
 				logger.Error("Warning: option requested but not found for " + variable)
 			}
 
-			return option + function_variable_value
+			return option + function_argument_value
 
 		} else {
 			logger.Debug(1, fmt.Sprintf("warning: (Expand_app_variables) functional variable %s not recognized", variable))
@@ -865,7 +945,7 @@ func (va VariableExpander) Expand(line string) (expanded string, err error) {
 			return variable
 		}
 
-		return function_variable_value
+		return function_argument
 
 	}
 

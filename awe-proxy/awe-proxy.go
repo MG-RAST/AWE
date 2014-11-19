@@ -37,10 +37,16 @@ func launchAPI(control chan int, port int) {
 
 func main() {
 
-	if !conf.INIT_SUCCESS {
-		conf.PrintServerUsage()
+	err := conf.Init_conf("proxy") // TODO config not adapted for proxy
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: error reading conf file: "+err.Error())
 		os.Exit(1)
 	}
+	//if !conf.INIT_SUCCESS {
+	//	conf.PrintServerUsage()
+	//	os.Exit(1)
+	//}
 	fmt.Printf("--------AWE Proxy running--------\n\n")
 	conf.Print("proxy")
 

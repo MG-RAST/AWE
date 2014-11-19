@@ -72,27 +72,16 @@ func replace_filepath_with_full_filepath(inputs *core.IOmap, workpath string, cm
 
 func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 
-	app_string := strings.TrimPrefix(parsed.workunit.Cmd.Name, "app:")
-
-	app_array := strings.Split(app_string, ".")
-
-	if len(app_array) != 3 {
-		return errors.New("app could not be parsed, workid=" + work.Id + " app=" + app_string)
-	}
-
-	if core.MyAppRegistry == nil {
-		core.MyAppRegistry, err = core.MakeAppRegistry()
-		if err != nil {
-			return errors.New("error creating app registry, workid=" + work.Id + " error=" + err.Error())
-		}
-	}
-
 	// get app definition
-	app_cmd_mode_object, err := core.MyAppRegistry.Get_cmd_mode_object(app_array[0], app_array[1], app_array[2])
+	//app_cmd_mode_object, err := core.MyAppRegistry.Get_cmd_mode_object(app_array[0], app_array[1], app_array[2])
 
-	if err != nil {
-		return errors.New("error reading app registry, workid=" + work.Id + " error=" + err.Error())
+	if work.AppDef == nil {
+		return errors.New("error reading app defintion AppDef from workunit, workid=" + work.Id)
 	}
+	app_cmd_mode_object := work.AppDef
+	//if err != nil {
+	//	return errors.New("error reading app registry, workid=" + work.Id + " error=" + err.Error())
+	//}
 
 	parsed.workunit.Cmd.Dockerimage = app_cmd_mode_object.Dockerimage
 
@@ -112,9 +101,26 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 	numcpu_str := strconv.Itoa(numcpu)
 	logger.Debug(2, fmt.Sprintf("NumCPU: %s", numcpu_str))
 
-	app_variables := make(core.AppVariables)
+	app_variables := make(core.AppVariables) // this does not reuse exiting app variables, this more like a constant
+	//app_variables := work.AppVariables // workunit does not need it yet
 
 	app_variables["NumCPU"] = core.AppVariable{Var_type: core.Ait_string, Value: numcpu_str}
+
+	for _, io_obj := range work.Inputs {
+		name := io_obj.AppName
+		if io_obj.Host != "" {
+			app_variables[name+".host"] = core.AppVariable{Var_type: core.Ait_string, Value: io_obj.Host}
+		}
+		if io_obj.Node != "" {
+			app_variables[name+".node"] = core.AppVariable{Var_type: core.Ait_string, Value: io_obj.Node}
+		}
+		if io_obj.Url != "" {
+			app_variables[name+".url"] = core.AppVariable{Var_type: core.Ait_string, Value: io_obj.Url}
+		}
+
+	}
+
+	app_variables["datatoken"] = core.AppVariable{Var_type: core.Ait_string, Value: work.Info.DataToken}
 
 	err = core.Expand_app_variables(app_variables, cmd_script)
 	if err != nil {
@@ -189,8 +195,29 @@ func dataMover(control chan int) {
 			}
 		}
 
+		wants_app := false
 		if strings.HasPrefix(parsed.workunit.Cmd.Name, "app:") {
 			logger.Debug(1, fmt.Sprintf("app mode, requested: %s", parsed.workunit.Cmd.Name))
+			wants_app = true
+		}
+
+		if wants_app && conf.USE_APP_DEFS == "no" {
+			logger.Error("error: use of app definitions on this client has been disabled by administrator")
+			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#work.Mkdir]" + "error: use of app definitions on this client has been disabled by administrator"
+			parsed.workunit.State = core.WORK_STAT_FAIL
+			fromMover <- parsed
+			continue
+		}
+
+		if wants_app == false && conf.USE_APP_DEFS == "only" {
+			logger.Error("error: use of app definitions on this client is required")
+			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#work.Mkdir]" + "error: use of app definitions on this client is required"
+			parsed.workunit.State = core.WORK_STAT_FAIL
+			fromMover <- parsed
+			continue
+		}
+
+		if wants_app {
 
 			err = prepareAppTask(parsed, raw.workunit)
 			if err != nil {
@@ -395,18 +422,32 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 
 		use_symlink := true
 		linkname := path.Join(workunit.Path(), name)
+
+		wants_docker := false
 		if workunit.Cmd.Dockerimage != "" || strings.HasPrefix(workunit.Cmd.Name, "app:") { // TODO need more save way to detect use of docker
+			wants_docker = true
+		}
+
+		if wants_docker && conf.USE_DOCKER == "no" {
+			return 0, errors.New("error: use of docker images has been disabled by administrator")
+		}
+
+		if wants_docker == false && conf.USE_DOCKER == "only" {
+			return 0, errors.New("error: use of docker images is enforced by administrator")
+		}
+
+		if wants_docker {
 
 			//use_symlink = true // TODO mechanism
 
 			if use_symlink {
 				file_path = path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, name)
 				// some tasks want to write in predata dir, thus need symlink
-				logger.Debug(1, "dangling symlink:"+linkname+" -> "+file_path)
+				logger.Debug(1, "creating dangling symlink: "+linkname+" -> "+file_path)
 
 				// creation of dangling symlinks is not possible with with os.Symlink, thus use system ln
 				link_out, err := exec.Command("ln", "-s", file_path, linkname).CombinedOutput()
-				logger.Debug(1, fmt.Sprintf("ln returned %s", link_out))
+				logger.Debug(1, fmt.Sprintf("ln returned: \"%s\"", link_out))
 
 				if err != nil {
 					return 0, errors.New("error creating predata file symlink (dangling version): " + err.Error())

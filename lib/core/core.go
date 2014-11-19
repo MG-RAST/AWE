@@ -118,7 +118,7 @@ func CreateJobUpload(u *user.User, params map[string]string, files FormFiles, ji
 	}
 
 	// TODO need a way update app-defintions in AWE server...
-	if MyAppRegistry == nil && conf.APP_REGISTRY_URL != "" {
+	if MyAppRegistry == nil && conf.USE_APP_DEFS != "no" {
 		MyAppRegistry, err = MakeAppRegistry()
 		if err != nil {
 			return job, errors.New("error creating app registry, error=" + err.Error())
@@ -126,10 +126,12 @@ func CreateJobUpload(u *user.User, params map[string]string, files FormFiles, ji
 		logger.Debug(1, "app defintions read")
 	}
 
-	err = MyAppRegistry.createIOnodes(job)
-	if err != nil {
-		err = errors.New("error in createIOnodes, error=" + err.Error())
-		return
+	if conf.USE_APP_DEFS != "no" {
+		err = MyAppRegistry.createIOnodes(job)
+		if err != nil {
+			err = errors.New("error in createIOnodes, error=" + err.Error())
+			return
+		}
 	}
 
 	err = job.UpdateFile(params, files)

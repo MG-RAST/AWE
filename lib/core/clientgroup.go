@@ -40,7 +40,7 @@ func CreateClientGroup(name string, u *user.User) (cg *ClientGroup, err error) {
 	}
 
 	if !CGNameRegex.Match([]byte(name)) {
-		return nil, errors.New("Clientgroup name must contain only alphanumeric characters, underscore, dash or dot.")
+		return nil, errors.New(fmt.Sprintf("Clientgroup name (%s) must contain only alphanumeric characters, underscore, dash or dot.", name))
 	}
 
 	t := time.Now()

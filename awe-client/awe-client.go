@@ -15,28 +15,35 @@ func main() {
 
 	// workstealer -> dataMover (download from Shock) -> processor -> deliverer (upload to Shock)
 
-	if !conf.INIT_SUCCESS {
-		conf.PrintClientUsage()
+	err := conf.Init_conf("client")
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: error reading conf file: "+err.Error())
 		os.Exit(1)
 	}
 
-	if _, err := os.Stat(conf.WORK_PATH); err != nil && os.IsNotExist(err) {
+	//if !conf.INIT_SUCCESS {
+	//	conf.PrintClientUsage()
+	//	os.Exit(1)
+	//}
+
+	if _, err = os.Stat(conf.WORK_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.WORK_PATH, 0777); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR in creating work_path %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "ERROR in creating work_path \"%s\" : %s\n", conf.WORK_PATH, err.Error())
 			os.Exit(1)
 		}
 	}
 
 	if _, err := os.Stat(conf.DATA_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.DATA_PATH, 0777); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR in creating data_path %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "ERROR in creating data_path \"%s\" : %s\n", conf.DATA_PATH, err.Error())
 			os.Exit(1)
 		}
 	}
 
 	if _, err := os.Stat(conf.LOGS_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.LOGS_PATH, 0777); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR in creating log_path %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "ERROR in creating log_path \"%s\" : %s\n", conf.LOGS_PATH, err.Error())
 			os.Exit(1)
 		}
 	}

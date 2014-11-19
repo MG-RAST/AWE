@@ -279,8 +279,17 @@ sub deleteJob {
 sub showJob {
 	my ($self, $job_id) = @_;
 	
+	print STDERR "deprecated: please use getJob, not showJob\n";
+	
+	return getJob($job_id);
+}
+
+sub getJob {
+	my ($self, $job_id) = @_;
+	
 	return $self->request('GET', 'job/'.$job_id);
 }
+
 
 sub resumeJob {
 	my ($self, $job_id) = @_;

@@ -11,8 +11,12 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+	"io"
+	"io/ioutil"
 	"os"
+	"path"
 	"runtime"
+	"strings"
 )
 
 func launchSite(control chan int, port int) {
@@ -40,6 +44,39 @@ func launchSite(control chan int, port int) {
 		}
 
 	}
+
+	if conf.API_URL == "" {
+		fmt.Fprintf(os.Stderr, "ERROR: API_URL is not defined. \n")
+		logger.Error("ERROR: API_URL is not defined.")
+	}
+	template_conf_filename := path.Join(conf.SITE_PATH, "js/config.js.tt")
+	target_conf_filename := path.Join(conf.SITE_PATH, "js/config.js")
+	buf, err := ioutil.ReadFile(template_conf_filename)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: could not read config template: %v\n", err)
+		logger.Error("ERROR: could not read config template: " + err.Error())
+	}
+	template_conf_string := string(buf)
+
+	// example: [% api_url %]
+
+	template_conf_string = strings.Replace(template_conf_string, "[% api_url %]", conf.API_URL, -1)
+
+	target_conf_file, err := os.Create(target_conf_filename)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: could not write config for Retina: %v\n", err)
+		logger.Error("ERROR: could not write config for Retina: " + err.Error())
+	}
+
+	_, err = io.WriteString(target_conf_file, template_conf_string)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: could not write config for Retina: %v\n", err)
+		logger.Error("ERROR: could not write config for Retina: " + err.Error())
+	}
+
+	target_conf_file.Close()
+
 	r.MapFunc("*", controller.SiteDir)
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.SITE_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
@@ -91,23 +128,30 @@ func launchAPI(control chan int, port int) {
 
 func main() {
 
-	if !conf.INIT_SUCCESS {
-		conf.PrintServerUsage()
+	err := conf.Init_conf("server")
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: error reading conf file: "+err.Error())
 		os.Exit(1)
 	}
+
+	//if !conf.INIT_SUCCESS {
+	//	conf.PrintServerUsage()
+	//	os.Exit(1)
+	//}
 	if conf.DEBUG_LEVEL > 0 {
 		fmt.Println("DEBUG_LEVEL > 0")
 	}
 	if _, err := os.Stat(conf.DATA_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.DATA_PATH, 0777); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR in creating data_path %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "ERROR in creating data_path \"%s\", %s\n", conf.DATA_PATH, err.Error())
 			os.Exit(1)
 		}
 	}
 
 	if _, err := os.Stat(conf.LOGS_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.LOGS_PATH, 0777); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR in creating log_path %s\n", err.Error())
+			fmt.Fprintf(os.Stderr, "ERROR in creating log_path \"%s\" %s\n", conf.LOGS_PATH, err.Error())
 			os.Exit(1)
 		}
 	}

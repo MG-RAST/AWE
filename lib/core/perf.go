@@ -34,6 +34,7 @@ type WorkPerf struct {
 	DataIn             float64 `bson:"time_data_in" json:"time_data_in"`       // time in seconds for input data move-in at client
 	DataOut            float64 `bson:"time_data_out" json:"time_data_out"`     // time in seconds for output data move-out at client
 	Runtime            int64   `bson:"runtime" json:"runtime"`                 // time in seconds for computation at client
+	DockerPrep         int64   `bson:"dockerprep" json:"dockerprep"`           // time in seconds for docker preparation on client
 	MaxMemUsage        int64   `bson:"max_mem_usage" json:"max_mem_usage"`     // maxium memory consumption
 	MaxMemoryTotalRss  int64   `bson:"max_memory_total_rss" json:"max_memory_total_rss"`
 	MaxMemoryTotalSwap int64   `bson:"max_memory_total_swap" json:"max_memory_total_swap"`

@@ -128,14 +128,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	job, err := core.LoadJob(id)
 
 	if err != nil {
-		if err == mgo.ErrNotFound {
-			cx.RespondWithNotFound()
-		} else {
-			// In theory the db connection could be lost between
-			// checking user and load but seems unlikely.
-			// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
-			cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
-		}
+		cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
 		return
 	}
 

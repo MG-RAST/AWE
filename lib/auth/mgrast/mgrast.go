@@ -48,7 +48,7 @@ func Auth(header string) (*user.User, error) {
 }
 
 // authToken validiates token by fetching user information.
-func authToken(t string) (u *user.User, err error) {	
+func authToken(t string) (u *user.User, err error) {
 	client := &http.Client{
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	}

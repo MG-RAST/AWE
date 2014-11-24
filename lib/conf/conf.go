@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/golib/goconfig/config"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -373,6 +374,7 @@ func (this Config_store) PrintHelp() {
 
 }
 
+
 func get_my_config_string(c *config.Config, f *flag.FlagSet, val *Config_value_string) {
 	//fmt.Printf("get_my_config_string")
 	//overwrite variable if defined in config file
@@ -383,12 +385,14 @@ func get_my_config_string(c *config.Config, f *flag.FlagSet, val *Config_value_s
 	f.StringVar(val.Target, val.Key, *val.Target, val.Descr_short)
 }
 
+
 func get_my_config_int(c *config.Config, f *flag.FlagSet, val *Config_value_int) {
 	//fmt.Printf("get_my_config_int")
 	//overwrite variable if defined in config file
 	if c != nil {
 		getDefinedValueInt(c, val.Section, val.Key, val.Target)
 	}
+
 	//overwrite variable if defined on command line (default values are overwritten by config file)
 	f.IntVar(val.Target, val.Key, *val.Target, val.Descr_short)
 }
@@ -460,6 +464,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&AWF_PATH, "", "Directories", "awf", "", "")
 	}
 
+
 	c_store.AddString(&DATA_PATH, "/mnt/data/awe/data", "Directories", "data", "a file path for store some system related data (job script, cached data, etc)", "")
 	c_store.AddString(&LOGS_PATH, "/mnt/data/awe/logs", "Directories", "logs", "a path for storing logs", "")
 
@@ -491,6 +496,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 
 		c_store.AddString(&RELOAD, "", "Server", "reload", "path or url to awe job data. WARNING this will drop all current jobs", "")
 		c_store.AddBool(&RECOVER, false, "Server", "recover", "path to awe job data", "")
+
 
 	}
 

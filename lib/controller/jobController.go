@@ -128,14 +128,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	job, err := core.LoadJob(id)
 
 	if err != nil {
-		if err == mgo.ErrNotFound {
-			cx.RespondWithNotFound()
-		} else {
-			// In theory the db connection could be lost between
-			// checking user and load but seems unlikely.
-			// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
-			cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
-		}
+		cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
 		return
 	}
 
@@ -450,48 +443,36 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			}
 
 			if (job.State == "completed") || (job.State == "deleted") {
-				// if completed or deleted move on
-				mjob.State = job.State
-				mjob.Task = -1
+				// if completed or deleted move on, empty task array
+				mjob.State = append(mjob.State, job.State)
 			} else if job.State == "suspend" {
-				// get failed task
-				mjob.State = "suspend"
+				// get failed task if info available, otherwise empty task array
+				mjob.State = append(mjob.State, "suspend")
 				parts := strings.Split(job.LastFailed, "_")
 				if (len(parts) == 2) || (len(parts) == 3) {
-					if tid, err := strconv.Atoi(parts[1]); err != nil {
-						mjob.Task = -1
-					} else {
-						mjob.Task = tid
+					if tid, err := strconv.Atoi(parts[1]); err == nil {
+						mjob.Task = append(mjob.Task, tid)
 					}
-				} else {
-					mjob.Task = -1
 				}
 			} else {
-				// determine most recent task of states (or oldest for pending or init)
-				state := map[string]int{}
+				// get multiple tasks in state queued or in-progress
 				for j := 0; j < len(job.Tasks); j++ {
 					task := job.Tasks[j]
-					if (task.State == "pending") || (task.State == "init") {
-						if _, ok := state[task.State]; !ok {
-							state[task.State] = j
+					if (task.State == "in-progress") || (task.State == "queued") {
+						mjob.State = append(mjob.State, task.State)
+						mjob.Task = append(mjob.Task, j)
+					}
+				}
+				// otherwise get oldest pending or init task
+				if len(mjob.State) == 0 {
+					for j := 0; j < len(job.Tasks); j++ {
+						task := job.Tasks[j]
+						if (task.State == "pending") || (task.State == "init") {
+							mjob.State = append(mjob.State, task.State)
+							mjob.Task = append(mjob.Task, j)
+							break
 						}
-					} else {
-						state[task.State] = j
 					}
-				}
-				// fancy logic to get "current" state and its task
-				ordered := [4]string{"in-progress", "queued", "pending", "init"}
-				for s := range ordered {
-					if val, ok := state[ordered[s]]; ok {
-						mjob.State = ordered[s]
-						mjob.Task = val
-						break
-					}
-				}
-				// catch-all for bad state
-				if mjob.State == "" {
-					mjob.State = "unknown"
-					mjob.Task = -1
 				}
 			}
 			minimal_jobs = append(minimal_jobs, mjob)

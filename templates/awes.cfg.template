@@ -33,6 +33,7 @@ secretkey=supersecretkey
 [Auth]
 globus_token_url=https://nexus.api.globusonline.org/goauth/token?grant_type=client_credentials
 globus_profile_url=https://nexus.api.globusonline.org/users
+#mgrast_oauth_url=http://api.metagenomics.anl.gov/user/authenticate
 client_auth_required=false
 
 [Directories]

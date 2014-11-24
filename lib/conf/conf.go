@@ -374,7 +374,6 @@ func (this Config_store) PrintHelp() {
 
 }
 
-
 func get_my_config_string(c *config.Config, f *flag.FlagSet, val *Config_value_string) {
 	//fmt.Printf("get_my_config_string")
 	//overwrite variable if defined in config file
@@ -384,7 +383,6 @@ func get_my_config_string(c *config.Config, f *flag.FlagSet, val *Config_value_s
 	//overwrite variable if defined on command line (default values are overwritten by config file)
 	f.StringVar(val.Target, val.Key, *val.Target, val.Descr_short)
 }
-
 
 func get_my_config_int(c *config.Config, f *flag.FlagSet, val *Config_value_int) {
 	//fmt.Printf("get_my_config_int")
@@ -464,7 +462,6 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&AWF_PATH, "", "Directories", "awf", "", "")
 	}
 
-
 	c_store.AddString(&DATA_PATH, "/mnt/data/awe/data", "Directories", "data", "a file path for store some system related data (job script, cached data, etc)", "")
 	c_store.AddString(&LOGS_PATH, "/mnt/data/awe/logs", "Directories", "logs", "a path for storing logs", "")
 
@@ -496,7 +493,6 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 
 		c_store.AddString(&RELOAD, "", "Server", "reload", "path or url to awe job data. WARNING this will drop all current jobs", "")
 		c_store.AddBool(&RECOVER, false, "Server", "recover", "path to awe job data", "")
-
 
 	}
 
@@ -640,14 +636,14 @@ func Init_conf(mode string) (err error) {
 	if PRE_WORK_SCRIPT_ARGS_STRING != "" {
 		PRE_WORK_SCRIPT_ARGS = strings.Split(PRE_WORK_SCRIPT_ARGS_STRING, ",")
 	}
-	
+
 	WORK_PATH, _ = filepath.Abs(WORK_PATH)
 	APP_PATH, _ = filepath.Abs(APP_PATH)
 	SITE_PATH, _ = filepath.Abs(SITE_PATH)
 	DATA_PATH, _ = filepath.Abs(DATA_PATH)
 	LOGS_PATH, _ = filepath.Abs(LOGS_PATH)
 	AWF_PATH, _ = filepath.Abs(AWF_PATH)
-	
+
 	return
 }
 

@@ -640,6 +640,14 @@ func Init_conf(mode string) (err error) {
 	if PRE_WORK_SCRIPT_ARGS_STRING != "" {
 		PRE_WORK_SCRIPT_ARGS = strings.Split(PRE_WORK_SCRIPT_ARGS_STRING, ",")
 	}
+	
+	WORK_PATH, _ = filepath.Abs(WORK_PATH)
+	APP_PATH, _ = filepath.Abs(APP_PATH)
+	SITE_PATH, _ = filepath.Abs(SITE_PATH)
+	DATA_PATH, _ = filepath.Abs(DATA_PATH)
+	LOGS_PATH, _ = filepath.Abs(LOGS_PATH)
+	AWF_PATH, _ = filepath.Abs(AWF_PATH)
+	
 	return
 }
 

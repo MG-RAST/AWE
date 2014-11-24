@@ -308,7 +308,7 @@ func FetchShockStream(url string, token string) (r io.ReadCloser, err error) {
 	}
 
 	//download file from Shock
-	res, err := httpclient.Get(url, httpclient.Header{}, nil, user)
+	res, err := httpclient.GetTimeout(url, httpclient.Header{}, nil, user, time.Second*60)
 	if err != nil {
 		return nil, err
 	}

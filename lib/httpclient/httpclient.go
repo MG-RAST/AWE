@@ -34,25 +34,7 @@ func GetUserByBasicAuth(username, password string) (user *Auth) {
 }
 
 func Do(t string, url string, header Header, data io.Reader, user *Auth) (*http.Response, error) {
-	trans := newTransport()
-	trans.DisableKeepAlives = true
-	req, err := http.NewRequest(t, url, data)
-	if err != nil {
-		return nil, err
-	}
-	if user != nil {
-		if user.Type == "basic" {
-			req.SetBasicAuth(user.Username, user.Password)
-		} else {
-			req.Header.Add("Authorization", "OAuth "+user.Token)
-		}
-	}
-	for k, v := range header {
-		for _, v2 := range v {
-			req.Header.Add(k, v2)
-		}
-	}
-	return trans.RoundTrip(req)
+	return DoTimeout(t, url, header, data, user, time.Second*60)
 }
 
 func Get(url string, header Header, data io.Reader, user *Auth) (resp *http.Response, err error) {

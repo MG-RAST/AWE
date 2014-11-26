@@ -535,50 +535,114 @@ func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.S
 
 		images := (*query_response_p).Data
 
-		dsn_array := make([]DockerShockNode, 30)
+		dsn_array := make([]DockerShockNode, 0, 100)
 
-		reg_version, err := regexp.Compile(`^(\d*)?\-(.*)`)
+		reg_version, err := regexp.Compile(`^([0-9]+)\-?([^0-9]*)$`)
 
 		for _, image := range images {
 
 			//version_int_array := make([]int, len(version_str_array) )
 
-			dsn := DockerShockNode{ShockNode: image,
-				Attributes: image.Attributes.(DockerImageAttributes)}
 
-			version_str_array := strings.Split(dsn.Attributes.Tag, ".")
+			attr_map, ok := image.Attributes.(map[string]interface{}) // is of type map[string]interface{}
+
+
+			if !ok {
+				return nil, "", errors.New(fmt.Sprintf("could not convert attributes=%s", Dockerimage))
+			}
+
+			attr := DockerImageAttributes{}
+
+			// conversion from shock attributes interface to struct
+			// name
+			value, ok := attr_map["name"]
+			if !ok {
+				return nil, "", errors.New(fmt.Sprintf("error reading docker image info from shock node=%s", Dockerimage))
+			}
+			value_str, ok := value.(string)
+			if !ok || value_str == "" {
+				return nil, "", errors.New(fmt.Sprintf("error reading docker image info from shock node=%s", Dockerimage))
+			}
+			attr.Name = value_str
+
+			// tag
+			value, ok = attr_map["tag"]
+			if !ok {
+				return nil, "", errors.New(fmt.Sprintf("error reading docker image info from shock node=%s", Dockerimage))
+			}
+			value_str, ok = value.(string)
+			if !ok || value_str == "" {
+				return nil, "", errors.New(fmt.Sprintf("error reading docker image info from shock node=%s", Dockerimage))
+			}
+			attr.Tag = value_str
+
+			// repository
+			value, ok = attr_map["repository"]
+			if !ok {
+				return nil, "", errors.New(fmt.Sprintf("error reading docker image info from shock node=%s", Dockerimage))
+			}
+			value_str, ok = value.(string)
+			if !ok || value_str == "" {
+				return nil, "", errors.New(fmt.Sprintf("error reading docker image info from shock node=%s", Dockerimage))
+			}
+			attr.Repository = value_str
+
+			version_str_array := strings.Split(attr.Tag, ".")
+			version_str_array_len := len(version_str_array)
+			dsn := DockerShockNode{ShockNode: image,
+				Attributes: attr,
+				Version:    make([]int, 2*version_str_array_len, 2*version_str_array_len)}
+
+
+			logger.Debug(1, fmt.Sprintf("dsn.Attributes.Tag: "+dsn.Attributes.Tag))
 
 			for j, val := range version_str_array {
+				logger.Debug(1, fmt.Sprintf("version_str_array: j=%d val=%s ", j, val))
 				// j*2+1 is reserved for characters in version number // TODO 2.2b -> 2,0,2,1
 				dsn.Version[j*2] = 0
 				dsn.Version[j*2+1] = 0
 
-				reg_version_matches := reg_version.FindAllStringSubmatch(val, -1)[0]
+				reg_version_matches := reg_version.FindStringSubmatch(val)
+				//if len(reg_version_matches_all) == 0 {
+				//	return nil, "", errors.New(fmt.Sprintf("could not parse version tag \"%s\" \"%s\" %s", val, attr.Tag, Dockerimage))
+				//}
+				//if len(reg_version_matches_all) > 1 {
+				//	return nil, "", errors.New(fmt.Sprintf("to many matches in version tag \"%s\" \"%s\" %s", val, attr.Tag, Dockerimage))
+				//}
+				//reg_version_matches := reg_version_matches_all[0]
 
-				if len(reg_version_matches) > 0 {
-					val_number := reg_version_matches[0]
+				if len(reg_version_matches) > 1 {
+					val_number := reg_version_matches[1]
+					logger.Debug(1, fmt.Sprintf("version match 0 (number): %s ", val_number))
 
 					val_int, err := strconv.Atoi(val_number)
 					if err != nil {
-						dsn.Version[j*2] = val_int
+						return nil, "", errors.New(fmt.Sprintf("could not convert version string into number \"%s\" %s", val_number, Dockerimage))
 					}
+					dsn.Version[j*2] = val_int
 				}
 
-				if len(reg_version_matches) > 1 {
-					val_text := reg_version_matches[0]
+				if len(reg_version_matches) > 2 {
+					val_text := reg_version_matches[2]
+					logger.Debug(1, fmt.Sprintf("version match 1 (text): %s ", val_text))
 
 					dsn.Version[j*2+1] = version_strings[val_text]
 
 				}
-
+				logger.Debug(1, fmt.Sprintf("version pair: (j*2=%d) %d %d ", j*2, dsn.Version[j*2], dsn.Version[j*2+1]))
 			}
 			dsn_array = append(dsn_array, dsn)
 		}
+		if len(dsn_array) == 0 {
+			return nil, "", errors.New(fmt.Sprintf("I did not find the \"latest\" docker image %s", Dockerimage))
+		}
+
+		logger.Debug(1, fmt.Sprintf("dockerimage count of versions available=%d", len(dsn_array)))
 
 		sort.Sort(sort.Reverse(DockerShockNodeArray(dsn_array)))
-		node = &dsn_array[0].ShockNode
+		node = &dsn_array[0].ShockNode // TODO check that highest version number is unique !
 
-		logger.Debug(1, fmt.Sprint("dockerimage latest has been requested and this tag was found: %s", dsn_array[0].Attributes.Tag))
+		logger.Debug(1, fmt.Sprintf("dockerimage latest has been requested and this tag was found: %s", dsn_array[0].Attributes.Tag))
 
 	} else {
 

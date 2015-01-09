@@ -58,6 +58,17 @@ func dbUpsert(t interface{}) (err error) {
 	return
 }
 
+func dbCount(q bson.M) (count int, err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	if count, err = c.Find(q).Count(); err != nil {
+		return 0, err
+	} else {
+		return count, nil
+	}
+}
+
 func dbFind(q bson.M, results *Jobs, options map[string]int) (count int, err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()

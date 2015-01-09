@@ -40,3 +40,8 @@ func (n *Jobs) GetJobAt(index int) Job {
 func (n *Jobs) Length() int {
 	return len([]Job(*n))
 }
+
+func GetJobCount(q bson.M) (count int, err error) {
+	count, err = dbCount(q)
+	return
+}

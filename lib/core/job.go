@@ -34,7 +34,7 @@ type Job struct {
 	Tasks       []*Task   `bson:"tasks" json:"tasks"`
 	Script      script    `bson:"script" json:"-"`
 	State       string    `bson:"state" json:"state"`
-	Registered  bool      `bson:"-" json:"registered"` //job in memory (not only in mongodb) (assigned on the fly, db value meaningless)
+	Registered  bool      `bson:"registered" json:"registered"`
 	RemainTasks int       `bson:"remaintasks" json:"remaintasks"`
 	UpdateTime  time.Time `bson:"updatetime" json:"updatetime"`
 	Notes       string    `bson:"notes" json:"notes"`

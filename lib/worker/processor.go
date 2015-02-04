@@ -70,7 +70,7 @@ func processor(control chan int) {
 			envkeys, err = SetEnv(work)
 			if err != nil {
 				logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
-				processed.workunit.Notes = processed.workunit.Notes + "###[precessor#SetEnv]" + err.Error()
+				processed.workunit.Notes = processed.workunit.Notes + "###[processor#SetEnv]" + err.Error()
 				processed.workunit.State = core.WORK_STAT_FAIL
 				//release the permit lock, for work overlap inhibitted mode only
 				if !conf.WORKER_OVERLAP && core.Service != "proxy" {
@@ -85,7 +85,7 @@ func processor(control chan int) {
 
 		if err != nil {
 			logger.Error("RunWorkunit(): returned error , workid=" + work.Id + ", " + err.Error())
-			processed.workunit.Notes = processed.workunit.Notes + "###[precessor#RunWorkunit]" + err.Error()
+			processed.workunit.Notes = processed.workunit.Notes + "###[processor#RunWorkunit]" + err.Error()
 			processed.workunit.State = core.WORK_STAT_FAIL
 		} else {
 			logger.Debug(1, "RunWorkunit() returned without error, workid="+work.Id)

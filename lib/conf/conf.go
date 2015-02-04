@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/golib/goconfig/config"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -233,15 +234,20 @@ func init() {
 
 	// Directories
 	SITE_PATH, _ = c.String("Directories", "site")
+	SITE_PATH, _ = filepath.Abs(SITE_PATH)
 	DATA_PATH, _ = c.String("Directories", "data")
+	DATA_PATH, _ = filepath.Abs(DATA_PATH)
 	LOGS_PATH, _ = c.String("Directories", "logs")
+	LOGS_PATH, _ = filepath.Abs(LOGS_PATH)
 	AWF_PATH, _ = c.String("Directories", "awf")
+	AWF_PATH, _ = filepath.Abs(AWF_PATH)
 
 	// Paths
 	PID_FILE_PATH, _ = c.String("Paths", "pidfile")
 	if PID_FILE_PATH == "" {
 		PID_FILE_PATH = DATA_PATH + "/pidfile"
 	}
+	PID_FILE_PATH, _ = filepath.Abs(PID_FILE_PATH)
 
 	// Mongodb
 	MONGODB_HOST, _ = c.String("Mongodb", "hosts")
@@ -274,7 +280,9 @@ func init() {
 
 	// Client
 	WORK_PATH, _ = c.String("Client", "workpath")
+	WORK_PATH, _ = filepath.Abs(WORK_PATH)
 	APP_PATH, _ = c.String("Client", "app_path")
+	APP_PATH, _ = filepath.Abs(APP_PATH)
 	if SERVER_URL == "" {
 		SERVER_URL, _ = c.String("Client", "serverurl")
 	}

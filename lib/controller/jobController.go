@@ -128,14 +128,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	job, err := core.LoadJob(id)
 
 	if err != nil {
-		if err == mgo.ErrNotFound {
-			cx.RespondWithNotFound()
-		} else {
-			// In theory the db connection could be lost between
-			// checking user and load but seems unlikely.
-			// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
-			cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
-		}
+		cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
 		return
 	}
 
@@ -165,6 +158,38 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 		}
 		cx.RespondWithData(perf)
 		return //done with returning perf, no need to load job further.
+	}
+
+	if query.Has("position") {
+		if job.State != "queued" && job.State != "in-progress" {
+			cx.RespondWithErrorMessage("job is not queued or in-progress, job state:"+job.State, http.StatusBadRequest)
+			return
+		}
+
+		// Retrieve the job's approximate position in the queue (this is a rough estimate since jobs are not actually in a queue)
+		q := bson.M{}
+		qState := bson.M{}    // query job state
+		qPriority := bson.M{} // query job priority
+		qCgroup := bson.M{}   // query job clietgroup
+
+		qState["$or"] = []bson.M{bson.M{"state": core.JOB_STAT_INIT}, bson.M{"state": core.JOB_STAT_QUEUED}, bson.M{"state": core.JOB_STAT_INPROGRESS}}
+		qPriority["$or"] = []bson.M{bson.M{"info.priority": bson.M{"$gt": job.Info.Priority}}, bson.M{"$and": []bson.M{bson.M{"info.priority": job.Info.Priority}, bson.M{"info.submittime": bson.M{"$lt": job.Info.SubmitTime}}}}}
+
+		var cgroups []bson.M
+		for _, value := range strings.Split(job.Info.ClientGroups, ",") {
+			cgroups = append(cgroups, bson.M{"info.clientgroups": bson.M{"$regex": value}})
+		}
+		qCgroup["$or"] = cgroups
+		q["$and"] = []bson.M{qState, qPriority, qCgroup}
+
+		if count, err := core.GetJobCount(q); err != nil {
+			cx.RespondWithErrorMessage("error retrieving job position in queue", http.StatusInternalServerError)
+		} else {
+			m := make(map[string]int)
+			m["position"] = count + 1
+			cx.RespondWithData(m)
+		}
+		return
 	}
 
 	if core.QMgr.IsJobRegistered(id) {
@@ -627,29 +652,29 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 	if query.Has("clientgroup") { // change the clientgroup attribute of the job
 		newgroup := query.Value("clientgroup")
 		if newgroup == "" {
-			cx.RespondWithErrorMessage("lacking groupname", http.StatusBadRequest)
+			cx.RespondWithErrorMessage("lacking clientgroup name", http.StatusBadRequest)
 			return
 		}
 		if err := core.QMgr.UpdateGroup(id, newgroup); err != nil {
-			cx.RespondWithErrorMessage("fail to update group for job: "+id+" "+err.Error(), http.StatusBadRequest)
+			cx.RespondWithErrorMessage("failed to update group for job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		cx.RespondWithData("job group updated: " + id + " to " + newgroup)
 		return
 	}
-	if query.Has("priority") { // change the clientgroup attribute of the job
+	if query.Has("priority") { // change the priority attribute of the job
 		priority_str := query.Value("priority")
 		if priority_str == "" {
-			cx.RespondWithErrorMessage("lacking priority value (0-3)", http.StatusBadRequest)
+			cx.RespondWithErrorMessage("lacking priority value", http.StatusBadRequest)
 			return
 		}
 		priority, err := strconv.Atoi(priority_str)
 		if err != nil {
-			cx.RespondWithErrorMessage("need int for priority value (0-3) "+err.Error(), http.StatusBadRequest)
+			cx.RespondWithErrorMessage("priority value must be an integer"+err.Error(), http.StatusBadRequest)
 			return
 		}
 		if err := core.QMgr.UpdatePriority(id, priority); err != nil {
-			cx.RespondWithErrorMessage("fail to priority for job: "+id+" "+err.Error(), http.StatusBadRequest)
+			cx.RespondWithErrorMessage("failed to set the priority for job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		cx.RespondWithData("job priority updated: " + id + " to " + priority_str)

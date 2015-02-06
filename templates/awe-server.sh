@@ -8,8 +8,8 @@
 # config: /etc/awe/awe-server.conf
  
 NAME="awe-server"
-PID_FILE="/var/run/${NAME}.pid"
 LOG_FILE="/var/log/${NAME}.log"
+PID_FILE="/etc/awe/data/pidfile"
 CONF_FILE="/etc/awe/${NAME}.conf"
 
 start() {
@@ -23,8 +23,7 @@ start() {
 	    echo "is already running!"
     else
 	    $NAME $AWE_OPTS > $LOG_FILE 2>&1 &
-	    sleep 2
-	    echo `ps -ef | grep -v grep | grep 'awe-server' | awk '{print $2}'` > $PID_FILE
+	    sleep 1
 	    echo "(Done)"
     fi
     return 0
@@ -35,7 +34,7 @@ stop() {
     if [ -f $PID_FILE ]; then
 	    PIDN=`cat $PID_FILE`
 	    kill $PIDN 2>&1
-	    sleep 2
+	    sleep 1
 	    rm $PID_FILE
 	    echo "(Done)"
     else

@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/go-dockerclient"
+	"github.com/MG-RAST/golib/httpclient"
 	"io"
 	"io/ioutil"
 	//"net/url"
@@ -64,7 +64,7 @@ func processor(control chan int) {
 		var envkeys []string
 		_ = envkeys
 
-		if work.Cmd.Dockerimage == "" {
+		if work.Cmd.Dockerimage == "" && work.App.Name != "" {
 			envkeys, err = SetEnv(work)
 			if err != nil {
 				logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
@@ -99,7 +99,7 @@ func processor(control chan int) {
 		processed.perfstat.Runtime = computetime
 		processed.workunit.ComputeTime = int(computetime)
 
-		if work.Cmd.Dockerimage == "" {
+		if work.Cmd.Dockerimage == "" && work.App.Name != "" {
 			if len(envkeys) > 0 {
 				UnSetEnv(envkeys)
 			}
@@ -117,11 +117,12 @@ func processor(control chan int) {
 
 func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
-	if work.Cmd.Dockerimage == "" {
-		pstats, err = RunWorkunitDirect(work)
-	} else {
+	if work.Cmd.Dockerimage != "" || work.App.Name != "" {
 		pstats, err = RunWorkunitDocker(work)
+	} else {
+		pstats, err = RunWorkunitDirect(work)
 	}
+
 	return
 }
 
@@ -166,25 +167,22 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	wrapper_script_filename := "awe_workunit_wrapper.sh"
 	wrapper_script_filename_host := path.Join(work.Path(), wrapper_script_filename)
 	wrapper_script_filename_docker := path.Join(conf.DOCKER_WORK_DIR, wrapper_script_filename)
-	if strings.HasPrefix(commandName, "app:") {
 
-		if len(work.Cmd.ParsedArgs) > 0 {
-			use_wrapper_script = true
+	if len(work.Cmd.Cmd_script) > 0 {
+		use_wrapper_script = true
 
-			// create wrapper script
+		// create wrapper script
 
-			//conf.DOCKER_WORK_DIR
-			var wrapper_content_string = "#!/bin/bash\n" + strings.Join(work.Cmd.Cmd_script, "\n") + "\n"
+		//conf.DOCKER_WORK_DIR
+		var wrapper_content_string = "#!/bin/bash\n" + strings.Join(work.Cmd.Cmd_script, "\n") + "\n"
 
-			logger.Debug(1, fmt.Sprintf("write wrapper script: %s\n%s", wrapper_script_filename_host, strings.Join(work.Cmd.Cmd_script, ", ")))
+		logger.Debug(1, fmt.Sprintf("write wrapper script: %s\n%s", wrapper_script_filename_host, strings.Join(work.Cmd.Cmd_script, ", ")))
 
-			var wrapper_content_bytes = []byte(wrapper_content_string)
+		var wrapper_content_bytes = []byte(wrapper_content_string)
 
-			err = ioutil.WriteFile(wrapper_script_filename_host, wrapper_content_bytes, 0755) // not executable: 0644
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("error writing wrapper script, err=%s", err.Error()))
-			}
-
+		err = ioutil.WriteFile(wrapper_script_filename_host, wrapper_content_bytes, 0755) // not executable: 0644
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("error writing wrapper script, err=%s", err.Error()))
 		}
 
 	}
@@ -194,6 +192,13 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	container_name := "AWE_workunit"
 
 	Dockerimage := work.Cmd.Dockerimage
+	if work.App.Name != "" {
+		Dockerimage = work.App.AppDef.Dockerimage
+	}
+
+	if Dockerimage == "" {
+		return nil, errors.New(fmt.Sprintf("Error Dockerimage string empty"))
+	}
 
 	logger.Debug(1, fmt.Sprintf("Dockerimage: %s", Dockerimage))
 
@@ -679,6 +684,11 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}
 
 	commandName := work.Cmd.Name
+
+	if commandName == "" {
+		return nil, errors.New(fmt.Sprintf("error: command name is empty"))
+	}
+
 	cmd := exec.Command(commandName, args...)
 
 	msg := fmt.Sprintf("worker: start cmd=%s, args=%v", commandName, args)

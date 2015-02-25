@@ -39,6 +39,7 @@ type Client struct {
 	Tag             bool            `bson:"-" json:"-"`
 	Proxy           bool            `bson:"proxy" json:"proxy"`
 	SubClients      int             `bson:"subclients" json:"subclients"`
+	GitCommitHash   string          `bson:"git_commit_hash" json:"git_commit_hash"`
 	Version         string          `bson:"version" json:"version"`
 }
 

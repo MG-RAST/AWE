@@ -457,7 +457,7 @@ func WaitContainer(container_id string) (status int, err error) {
 func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 	logger.Debug(1, fmt.Sprintf("(dockerBuildImage) %s:", Dockerimage))
 
-	shock_docker_repo := shock.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, ""}
+	shock_docker_repo := shock.ShockClient{Host: conf.SHOCK_DOCKER_IMAGE_REPOSITORY, Token: ""}
 
 	logger.Debug(1, fmt.Sprint("try to build docker image from dockerfile, Dockerimage=", Dockerimage))
 
@@ -505,7 +505,7 @@ func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.S
 	logger.Debug(1, fmt.Sprint("datatoken for dockerimage: ", datatoken[0:15]))
 	logger.Debug(1, fmt.Sprint("try to import docker image, Dockerimage=", Dockerimage))
 
-	shock_docker_repo := shock.ShockClient{conf.SHOCK_DOCKER_IMAGE_REPOSITORY, datatoken}
+	shock_docker_repo := shock.ShockClient{Host: conf.SHOCK_DOCKER_IMAGE_REPOSITORY, Token: datatoken}
 
 	dockerimage_array := strings.Split(Dockerimage, ":")
 
@@ -543,9 +543,7 @@ func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.S
 
 			//version_int_array := make([]int, len(version_str_array) )
 
-
 			attr_map, ok := image.Attributes.(map[string]interface{}) // is of type map[string]interface{}
-
 
 			if !ok {
 				return nil, "", errors.New(fmt.Sprintf("could not convert attributes=%s", Dockerimage))
@@ -592,7 +590,6 @@ func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.S
 			dsn := DockerShockNode{ShockNode: image,
 				Attributes: attr,
 				Version:    make([]int, 2*version_str_array_len, 2*version_str_array_len)}
-
 
 			logger.Debug(1, fmt.Sprintf("dsn.Attributes.Tag: "+dsn.Attributes.Tag))
 
@@ -691,8 +688,8 @@ func dockerLoadImage(client *docker.Client, download_url string, datatoken strin
 	var buf bytes.Buffer
 
 	if client != nil {
-
-		err = client.LoadImage(gr, &buf) // in io.Reader, w io.Writer
+		opts := docker.LoadImageOptions{InputStream: gr}
+		err = client.LoadImage(opts)
 
 	} else {
 

@@ -9,8 +9,8 @@ import (
 )
 
 type IO struct {
-	Name          string                 `bson:"name" json:"-"`
-	AppName       string                 `bson:"appname" json:"-"`     // specifies abstract name of output as defined by the app
+	FileName      string                 `bson:"filename" json:"filename"`
+	Name          string                 `bson:"name" json:"name"`     // specifies abstract name of output as defined by the app
 	AppPosition   int                    `bson:"appposition" json:"-"` // specifies position in app output array
 	Directory     string                 `bson:"directory" json:"directory"`
 	Host          string                 `bson:"host" json:"host"`
@@ -18,7 +18,7 @@ type IO struct {
 	Url           string                 `bson:"url"  json:"url"` // can be shock or any other url
 	Size          int64                  `bson:"size" json:"size"`
 	MD5           string                 `bson:"md5" json:"-"`
-	Cache         bool                   `bson:"cache" json:"-"`
+	Cache         bool                   `bson:"cache" json:"cache"` // indicates that this files is "predata"" that needs to be cached
 	Origin        string                 `bson:"origin" json:"origin"`
 	Path          string                 `bson:"path" json:"-"`
 	Optional      bool                   `bson:"optional" json:"-"`
@@ -27,7 +27,7 @@ type IO struct {
 	Intermediate  bool                   `bson:"Intermediate"  json:"-"`
 	Temporary     bool                   `bson:"temporary"  json:"temporary"`
 	ShockFilename string                 `bson:"shockfilename" json:"shockfilename"`
-	ShockIndex    string                 `bson:"shockindex" json:"shockindex"`
+	ShockIndex    string                 `bson:"shockindex" json:"shockindex"` // on input it indicates that Shock node has to be indexed by AWE server
 	AttrFile      string                 `bson:"attrfile" json:"attrfile"`
 	NoFile        bool                   `bson:"nofile" json:"nofile"`
 	Delete        bool                   `bson:"delete" json:"delete"`
@@ -52,7 +52,7 @@ func NewIOmap() IOmap {
 }
 
 func (i IOmap) Add(name string, host string, node string, md5 string, cache bool) {
-	i[name] = &IO{Name: name, Host: host, Node: node, MD5: md5, Cache: cache}
+	i[name] = &IO{FileName: name, Host: host, Node: node, MD5: md5, Cache: cache}
 	return
 }
 

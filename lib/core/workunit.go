@@ -26,6 +26,7 @@ type Workunit struct {
 	Outputs      IOmap             `bson:"outputs" json:"outputs"`
 	Predata      IOmap             `bson:"predata" json:"predata"`
 	Cmd          *Command          `bson:"cmd" json:"cmd"`
+	App          *App              `bson:"app" json:"app"`
 	Rank         int               `bson:"rank" json:"rank"`
 	TotalWork    int               `bson:"totalwork" json:"totalwork"`
 	Partition    *PartInfo         `bson:"part" json:"part"`
@@ -36,8 +37,6 @@ type Workunit struct {
 	ComputeTime  int               `bson:"computetime" json:"computetime"`
 	Notes        string            `bson:"notes" json:"notes"`
 	UserAttr     map[string]string `bson:"userattr" json:"userattr"`
-	AppDef       *AppCommandMode   `bson:"appdef" json:"appdef"` // App defintion
-	//AppVariables  AppVariables
 }
 
 // create workunit slice type to use for sorting
@@ -94,18 +93,19 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 
 	return &Workunit{
 		Id:        fmt.Sprintf("%s_%d", task.Id, rank),
+		Cmd:       task.Cmd,
+		App:       task.App,
 		Info:      task.Info,
 		Inputs:    task.Inputs,
 		Outputs:   task.Outputs,
 		Predata:   task.Predata,
-		Cmd:       task.Cmd,
 		Rank:      rank,
 		TotalWork: task.TotalWork, //keep this info in workunit for load balancing
 		Partition: task.Partition,
 		State:     WORK_STAT_QUEUED,
 		Failed:    0,
 		UserAttr:  task.UserAttr,
-		AppDef:    task.AppDef,
+
 		//AppVariables: task.AppVariables // not needed yet
 	}
 }

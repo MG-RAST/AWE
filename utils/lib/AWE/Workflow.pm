@@ -89,7 +89,7 @@ sub addTask {
 	return $task;
 }
 
-#creates, adds, and return a new task
+#creates, adds, and return a new task (only from app !!!)
 sub newTask {
 	my ($self, $name, @app_args) = @_;
 	my $newtask = new AWE::Task();
@@ -97,10 +97,13 @@ sub newTask {
 	unless (defined $name) {
 		die "app name not defined";
 	}
-	$newtask->{'cmd'}->{'name'} = $name;
+	$newtask->{'app'}->{'name'} = $name;
 	
 	for (my $i=0; $i < @app_args ; $i++) {
 		my $res = $app_args[$i];
+		
+		
+		
 		unless (defined $res->{'resource'}) {
 			die "resource type not defined";
 		}
@@ -125,7 +128,7 @@ sub newTask {
 	}
 	
 	
-	$newtask->{'cmd'}->{'app_args'} = \@app_args;
+	$newtask->{'app'}->{'app_args'} = \@app_args;
 	
 	
 	return $self->addTask($newtask);
@@ -338,7 +341,8 @@ sub string_resource {
 	my ($key, $value) = @_;
 	
 	unless (defined $value) {
-		$value = $key;
+		$value = $key."";
+		$key = undef;
 	}
 	
 	my $res = {"resource" => "string",
@@ -357,11 +361,21 @@ sub string_resource {
 sub task_resource {
 	my ($task, $pos, $host) = @_;
 	
+	
+	
+	
 	my $res = {"resource" => "task",
 		"task" => $task, #string
-		"position" => $pos, # number;
 		"host" => $host
 	};
+	
+	if ($pos =~ /^\d+$/) {
+		$res->{'position'} = $pos * 1; #number
+	} else {
+		$res->{'name'} = $pos; #string
+	}
+	
+	
 	
 	
 	return $res;

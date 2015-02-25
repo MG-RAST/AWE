@@ -13,6 +13,8 @@ import (
 
 const VERSION string = "0.9.11"
 
+var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
+
 const BasePriority int = 1
 
 const DB_COLL_JOBS string = "Jobs"
@@ -160,8 +162,9 @@ var (
 	//tag
 	//INIT_SUCCESS = true
 
-	PRINT_HELP bool
-	SHOW_HELP  bool // simple usage
+	PRINT_HELP           bool
+	SHOW_HELP            bool // simple usage
+	SHOW_GIT_COMMIT_HASH bool
 
 	Admin_Users = make(map[string]bool)
 
@@ -532,7 +535,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 	}
 	if mode == "server" {
 		c_store.AddString(&USE_APP_DEFS, "no", "Docker", "use_app_defs", "\"yes\", \"no\" or \"only\"", "yes: allow app defs, no: do not allow app defs, only: allow only app defs")
-		c_store.AddString(&APP_REGISTRY_URL, "https://raw.githubusercontent.com/MG-RAST/Skyport/master/apps.json", "Docker", "app_registry_url", "URL for app defintions", "")
+		c_store.AddString(&APP_REGISTRY_URL, "https://raw.githubusercontent.com/MG-RAST/Skyport/master/app_definitions/", "Docker", "app_registry_url", "URL for app defintions", "")
 	}
 
 	//Proxy
@@ -544,6 +547,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 	c_store.AddBool(&DEV_MODE, false, "Other", "dev", "dev or demo mode, print some msgs on screen", "")
 	c_store.AddString(&CONFIG_FILE, "", "Other", "conf", "path to config file", "")
 	c_store.AddBool(&SHOW_VERSION, false, "Other", "version", "show version", "")
+	c_store.AddBool(&SHOW_GIT_COMMIT_HASH, false, "Other", "show_git_commit_hash", "", "")
 	c_store.AddBool(&PRINT_HELP, false, "Other", "fullhelp", "show detailed usage without \"--\"-prefixes", "")
 	c_store.AddBool(&SHOW_HELP, false, "Other", "help", "show usage", "")
 
@@ -598,6 +602,11 @@ func Init_conf(mode string) (err error) {
 
 	if SHOW_VERSION {
 		PrintVersionMsg()
+		os.Exit(0)
+	}
+
+	if SHOW_GIT_COMMIT_HASH {
+		fmt.Fprintf(os.Stdout, "GIT_COMMIT_HASH=%s\n", GIT_COMMIT_HASH)
 		os.Exit(0)
 	}
 

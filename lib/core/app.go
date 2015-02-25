@@ -15,22 +15,23 @@ import (
 	"time"
 )
 
-var MyAppRegistry AppRegistry
-
+// part of the app-definition
 type AppInput struct {
 	Type         string `bson:"type" json:"type"`
 	Name         string `bson:"name" json:"name"`
 	DefaultValue string `bson:"default_value" json:"default_value"`
 	Required     bool   `bson:"required" json:"required"` // or use optional // TODO remove
 	Optional     bool   `bson:"optional" json:"optional"`
-	Option       string `bson:"option" json:"option"` // this is the name used by the command line proramm, e.g. "--input="
+	Option       string `bson:"option" json:"option"`         // this is the name used by the command line proramm, e.g. "--input="
+	Cache        bool   `bson:"cache" json:"cache"`           // specifies that input has to be cached (predata)
+	ShockIndex   string `bson:"shockindex" json:"shockindex"` // specifies that (shock) input has to be indexed in Shock by the AWE server
 	//Description		`bson:"description" json:"description"`
 }
 
 type AppCommandMode struct {
 	Input           []AppInput          `bson:"input" json:"input"`
 	Output_array    []string            `bson:"output_array" json:"output_array"`
-	Output_map      map[string]string   `bson:"output_map" json:"output_map"`
+	Outputs         []IO                `bson:"outputs" json:"outputs"`
 	Predata         IOmap               `bson:"predata" json:"predata"`
 	Cmd             string              `bson:"cmd" json:"cmd"`
 	Cmd_interpreter string              `bson:"cmd_interpreter" json:"cmd_interpreter"`
@@ -61,6 +62,8 @@ type AppResource struct {
 	OutputName     string        `bson:"name" json:"name"`
 	Uncompress     string        `bson:"uncompress" json:"uncompress"` // tells AWE client to uncompress this file, e.g. "gzip"
 	List           []AppResource `bson:"list" json:"list"`
+	Cache          bool          `bson:"cache" json:"cache"`
+	ShockIndex     string        `bson:"shockindex" json:"shockindex"` // specifies that (shock) input has to be indexed in Shock by the AWE server
 }
 
 type AppInputType int
@@ -112,7 +115,7 @@ func (this_ait AppInputType) HasType(ait AppInputType) bool {
 	return false
 }
 
-func string2apptype(type_string string) (ait AppInputType, err error) {
+func String2apptype(type_string string) (ait AppInputType, err error) {
 
 	if type_string == "file" {
 		ait = Ait_file
@@ -164,20 +167,32 @@ func MakeAppRegistry() (new_instance AppRegistry, err error) {
 	}
 
 	new_instance = make(AppRegistry)
+	return
+}
 
-	//new_instance.packages = make(map[string]*AppPackage)
+func (apr AppRegistry) GetAppPackage(app_package string) (ap *AppPackage, err error) {
+
+	ap, ok := apr[app_package]
+	if ok {
+		return ap, nil
+	}
+
+	package_url := conf.APP_REGISTRY_URL + "/" + app_package + ".json"
+
+	var new_app_package AppPackage
 
 	for i := 0; i < 3; i++ {
 
 		if i > 0 {
-			time.Sleep(5000 * time.Millisecond)
+			time.Sleep(1000 * time.Millisecond)
 		}
+		logger.Debug(1, fmt.Sprintf("downloading app package \"%s\"", package_url))
 
 		var res *http.Response
 
 		c := make(chan bool, 1)
 		go func() {
-			res, err = http.Get(conf.APP_REGISTRY_URL)
+			res, err = http.Get(package_url)
 			c <- true //we are ending
 		}()
 		select {
@@ -192,7 +207,7 @@ func MakeAppRegistry() (new_instance AppRegistry, err error) {
 			continue
 		}
 
-		app_registry_json, err := ioutil.ReadAll(res.Body)
+		app_package_json, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			logger.Error(fmt.Sprintf("warning, could not read app registry json"))
 			continue
@@ -200,31 +215,31 @@ func MakeAppRegistry() (new_instance AppRegistry, err error) {
 
 		// transform json into go struct interface
 		//var f map[string]interface{}
-		err = json.Unmarshal(app_registry_json, &new_instance)
+		err = json.Unmarshal(app_package_json, &new_app_package)
 
 		if err != nil {
-			logger.Error("error unmarshaling app registry, error=" + err.Error())
+			logger.Error("error unmarshaling app package " + app_package + ", error=" + err.Error())
 			continue
 		}
 
-		logger.Debug(1, fmt.Sprintf("app registry unmarshalled"))
-		break
+		apr[app_package] = &new_app_package
+		ap = &new_app_package
+
+		logger.Debug(1, fmt.Sprintf("app package unmarshalled"))
+		return ap, nil
 	}
 
-	if err != nil {
-		err = errors.New("could not get app registry, error=" + err.Error())
-		return
-	}
-
+	ap = nil
+	err = errors.New("could not get app package from " + package_url)
 	return
+
 }
 
 func (appr AppRegistry) Get_cmd_mode_object(app_package_name string, app_command_name string, app_cmd_mode_name string) (app_cmd_mode_object_ref *AppCommandMode, err error) {
 
-	// map app call to registry
-	app_package_object_ref, ok := appr[app_package_name]
-	if !ok {
-		err = errors.New("app_package_name=" + app_package_name + " not found in app registry")
+	// test if app package exsists, if not, load it
+	app_package_object_ref, err := appr.GetAppPackage(app_package_name) // this loads the app package !
+	if err != nil {
 		return
 	}
 
@@ -272,7 +287,7 @@ func (acm AppCommandMode) Get_default_app_variables() (app_variables AppVariable
 		// save the defaults if available
 
 		logger.Debug(1, fmt.Sprintf("from app-definition: variable \"%s\"", input_arg.Name))
-		app_type, err := string2apptype(input_arg.Type)
+		app_type, err := String2apptype(input_arg.Type)
 		if err != nil {
 			err = errors.New(fmt.Sprintf("error converting type, error=%s", err.Error()))
 			return app_variables, err
@@ -344,7 +359,7 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 	taskid_processed[taskid] = true
 
 	// is it an app ?
-	if !strings.HasPrefix(task.Cmd.Name, "app:") {
+	if task.App == nil || task.App.Name == "" {
 		if conf.USE_APP_DEFS == "only" {
 			return errors.New("Error: Task " + task.Id + " does not use an app-defintion")
 		}
@@ -353,13 +368,16 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 	}
 
 	// recurse into providing tasks (parent tasks)
-	args_array := task.Cmd.App_args
+	args_array := task.App.App_args
 
 	for _, argument := range args_array {
 		if argument.Resource == "task" {
 			providing_taskid := argument.Task
 			logger.Debug(1, fmt.Sprintf("recursion from %s into %s", taskid, providing_taskid))
-			providing_task := taskid2task[providing_taskid]
+			providing_task, ok := taskid2task[providing_taskid]
+			if !ok {
+				return errors.New("Error: Task \"" + providing_taskid + "\" could not be found")
+			}
 			err = appr.createIOnodes_forTask(job, providing_task, taskid2task, taskid_processed)
 			if err != nil {
 				return
@@ -369,7 +387,7 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 	}
 
 	// get app definition for this command
-	app_string := strings.TrimPrefix(task.Cmd.Name, "app:")
+	app_string := task.App.Name
 	app_array := strings.Split(app_string, ".")
 	if len(app_array) != 3 {
 		err = errors.New("error: app could not be parsed, app=" + app_string)
@@ -382,14 +400,14 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		return err
 	}
 
-	if task.AppDef != nil {
+	if task.App.AppDef != nil {
 		err = errors.New(fmt.Sprintf("error: AppDef cannot be defined within worflow document"))
 		return err
 	}
 
-	task.AppDef = app_cmd_mode_object
+	task.App.AppDef = app_cmd_mode_object
 
-	if task.AppDef.Dockerimage == "" {
+	if task.App.AppDef.Dockerimage == "" {
 		image, err := appr.Get_dockerimage(app_array[0])
 
 		if err != nil {
@@ -397,7 +415,8 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 			return err
 		}
 
-		task.AppDef.Dockerimage = image
+		task.App.AppDef.Dockerimage = image
+		task.Cmd.Dockerimage = image
 	}
 
 	// create app_variables from app-input definition
@@ -410,7 +429,7 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 
 	// add variables from task input (args_array)
 	logger.Debug(1, fmt.Sprintf("+++ %s +++ add variables from task input (args_array)", task.Id))
-	err = app_cmd_mode_object.ParseAppInput(app_variables, args_array, nil, nil, taskid2task)
+	err = app_cmd_mode_object.ParseAppInput(app_variables, args_array, nil, task, taskid2task) // task I need here only because of the task id for debug info
 	if err != nil {
 		return errors.New(fmt.Sprintf("error parsing input, error=%s", err.Error()))
 	}
@@ -435,7 +454,7 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		return
 	}
 
-	shockhost := job.ShockHost // TODO do something if this is not defined/empty
+	shockhost := job.ShockHost // this is only used as a backup (or default) if output nodes have no shockhost defined
 
 	var my_attr map[string]interface{}
 	var workflow map[string]interface{}
@@ -461,8 +480,8 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		workflow["info"] = newinfo
 		workflow["job_id"] = job.Id
 		workflow["task_id"] = task.Id
-		workflow["app"] = task.Cmd.Name
-		workflow["app_args"] = task.Cmd.App_args
+		workflow["app"] = task.App.Name
+		workflow["app_args"] = task.App.App_args
 	}
 
 	for pos, app_output := range output_array_copy {
@@ -488,12 +507,54 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 
 	}
 
-	// TODO output from map
+	expander := NewVariableExpander(app_variables)
 
-	//for key, value := range mymap {
-	//my_io := &IO{Host: shockhost, Directory: directory, AppName: XXX}
-	// TODO this could add an output file already listed in the array, that is ok I think
-	//}
+	// output files
+	for pos, io := range app_cmd_mode_object.Outputs {
+
+		if io.Host == "" {
+			if shockhost == "" {
+				err = errors.New(fmt.Sprintf("error task output has no shock host specified (neither local nor global)"))
+				return err
+			}
+			io.Host = shockhost
+		}
+
+		io.FileName, err = expander.Expand(io.FileName)
+		if err != nil {
+			return err
+		}
+
+		io.AttrFile, err = expander.Expand(io.AttrFile)
+		if err != nil {
+			return err
+		}
+
+		if len(io.FormOptions) > 0 {
+			parent_name, ok := io.FormOptions["parent_name"]
+
+			if ok {
+				if parent_name != "" {
+					parent_name, err = expander.Expand(parent_name)
+					if err == nil {
+						io.FormOptions["parent_name"] = parent_name
+					}
+				}
+			}
+		}
+
+		filename := io.FileName
+
+		if filename == "" {
+			err = errors.New(fmt.Sprintf("error task output at position %d has no filename", pos))
+			return err
+		}
+
+		my_io := &IO{}
+		*my_io = io
+		my_io.AppPosition = pos
+		task_outputs[filename] = my_io
+	}
 
 	// populate with input fields:
 	logger.Debug(1, fmt.Sprintf("+++ %s +++ populate with input fields", task.Id))
@@ -553,7 +614,7 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 
 	logger.Debug(1, "+++ core.Expand_app_variables")
 
-	// expand app variables in cmd_script
+	// expand app variables in cmd_script (this is servser-side)
 
 	task.Cmd.Cmd_script = make([]string, len(app_cmd_mode_object.Cmd_script))
 	copy(task.Cmd.Cmd_script, app_cmd_mode_object.Cmd_script)
@@ -613,7 +674,7 @@ func variable_keys_2_string(app_variables AppVariables) string {
 
 func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, task *Task, taskid2task map[string]*Task) (err error) {
 
-	resource_type, err := string2apptype(input_arg.Resource)
+	resource_type, err := String2apptype(input_arg.Resource)
 
 	var input_variable_value = ""
 	var input_variable_name = input_arg.Key
@@ -623,8 +684,15 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 	}
 
 	var inputs IOmap
+	var predata IOmap
 	if job != nil {
 		inputs = task.Inputs
+
+		if task.Predata == nil {
+			task.Predata = make(IOmap)
+		}
+
+		predata = task.Predata
 	}
 
 	switch resource_type {
@@ -637,6 +705,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 			input_variable_value = filename
 		} else {
 			//TODO invent filename ?
+			return errors.New(fmt.Sprintf("filename is missing for app argument %s", input_variable_name))
 		}
 
 		// TODO make sure resource_type corresponds to expected type in app def
@@ -647,7 +716,21 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 				return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
 			}
 
-			inputs[filename] = &IO{Name: filename, AppName: input_variable_name, Host: host, Node: node, DataToken: task.Info.DataToken, Uncompress: input_arg.Uncompress} // TODO set ShockFilename ?
+			input_temp := &IO{
+				FileName:   filename,
+				Name:       input_variable_name,
+				Host:       host,
+				Node:       node,
+				DataToken:  task.Info.DataToken,
+				Uncompress: input_arg.Uncompress,
+				Cache:      input_arg.Cache,
+				ShockIndex: input_arg.ShockIndex,
+			}
+			if input_arg.Cache {
+				predata[filename] = input_temp
+			} else {
+				inputs[filename] = input_temp // TODO set ShockFilename ?
+			}
 			//app_variables[input_variable_name + ".Host"] = host // do not here
 			//app_variables[input_variable_name + ".Node"] = node
 		}
@@ -659,6 +742,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 			input_variable_value = filename
 		} else {
 			//TODO invent filename ?
+			return errors.New(fmt.Sprintf("filename is missing for app argument %s", input_variable_name))
 		}
 
 		// TODO make sure resource_type corresponds to expected type in app def
@@ -669,8 +753,19 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 				return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
 			}
 
-			inputs[filename] = &IO{Name: filename, AppName: input_variable_name, Url: url, Uncompress: input_arg.Uncompress} // TODO set ShockFilename ?
+			input_temp := &IO{
+				FileName:   filename,
+				Name:       input_variable_name,
+				Url:        url,
+				Uncompress: input_arg.Uncompress,
+				Cache:      input_arg.Cache,
+			}
 
+			if input_arg.Cache {
+				predata[filename] = input_temp
+			} else {
+				inputs[filename] = input_temp // TODO set ShockFilename ?
+			}
 		}
 	case Ait_task:
 		logger.Debug(1, fmt.Sprintf("processing: %s", apptype2string(resource_type)))
@@ -711,7 +806,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 		Loop_outputName:
 			for io_filename, my_io := range providing_task.Outputs {
 				logger.Debug(1, fmt.Sprintf("Ait_task C"))
-				if my_io.AppName == outputName {
+				if my_io.Name == outputName {
 
 					filename = io_filename
 					break Loop_outputName
@@ -740,7 +835,21 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 					return err
 				}
 			}
-			inputs[filename] = &IO{Name: filename, AppName: input_variable_name, Origin: providing_task_id, Host: shockhost, Uncompress: input_arg.Uncompress}
+			input_temp := &IO{
+				FileName:   filename,
+				Name:       input_variable_name,
+				Origin:     providing_task_id,
+				Host:       shockhost,
+				Uncompress: input_arg.Uncompress,
+				Cache:      input_arg.Cache,
+				ShockIndex: input_arg.ShockIndex,
+			}
+
+			if input_arg.Cache {
+				predata[filename] = input_temp
+			} else {
+				inputs[filename] = input_temp
+			}
 		}
 
 		input_variable_value = filename
@@ -766,6 +875,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 }
 
 // read variables and (optionally) populate with input nodes
+// also transfers information from app defintions to app inputs
 // 1) for reading variables, it needs only acm.Get_default_app_variables(), job and task will be nil
 // 2) for populating input nodes it needs output of 2 !
 // this is done server-side !
@@ -779,11 +889,33 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 	//var outputs IOmap
 
 	if job != nil {
+
+		if task == nil {
+			err = errors.New(fmt.Sprintf("error: task pointer is empty"))
+			return err
+		}
+
 		if task.Inputs == nil {
 			task.Inputs = make(IOmap)
 		}
 		//inputs = task.Inputs
 		//outputs = task.Outputs
+	}
+
+	name2pos := make(map[string]int)
+	for acm_pos, acm_arg := range acm.Input {
+
+		if acm_arg.Name == "" {
+			acm_arg.Name = "anonymous_input." + strconv.Itoa(acm_pos)
+		}
+
+		_, found := name2pos[acm_arg.Name]
+		if found {
+			err = errors.New(fmt.Sprintf("error: app input name \"%s\" is not unique", acm_arg.Name))
+			return err
+		}
+		name2pos[acm_arg.Name] = acm_pos
+
 	}
 
 	//app_variables
@@ -801,7 +933,7 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 
 		var input_variable_type_expected = Ait_undefined
 
-		resource_type, err := string2apptype(input_arg.Resource)
+		resource_type, err := String2apptype(input_arg.Resource)
 
 		if err != nil {
 			err = errors.New(fmt.Sprintf("app input type undefined err=%s", err.Error()))
@@ -814,12 +946,29 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 		}
 
 		if input_variable_name == "" {
+			if arg_position >= len(acm.Input) {
+				err = errors.New(fmt.Sprintf("app input at position %d not defined in app defintion (task: %s)", arg_position, task.Id))
+				return err
+			}
 			input_variable_name = acm.Input[arg_position].Name // use position to infer key name
 			input_arg.Key = input_variable_name                // name the unnamed key
 		}
 
 		if input_variable_name == "" {
 			return errors.New(fmt.Sprintf("error: name/key for argument not found"))
+		}
+
+		acm_pos, acm_found := name2pos[input_variable_name]
+		if !acm_found {
+			return errors.New(fmt.Sprintf("error: name %s not found", input_variable_name))
+		}
+
+		if acm.Input[acm_pos].Cache { // cache if app def or app input indicate cache, this cannot disable cache
+			input_arg.Cache = true
+		}
+
+		if input_arg.ShockIndex == "" && acm.Input[acm_pos].ShockIndex != "" { // app input can overwrite app def
+			input_arg.ShockIndex = acm.Input[acm_pos].ShockIndex
 		}
 
 		app_var, ok := app_variables[input_variable_name]
@@ -843,7 +992,7 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 		if resource_type == Ait_list {
 
 			for pos, element := range input_arg.List { // TODO make sure only one resource type is used in list
-				element_type, err := string2apptype(element.Resource)
+				element_type, err := String2apptype(element.Resource)
 				if err != nil {
 					err = errors.New(fmt.Sprintf("app input type undefined err=%s", err.Error()))
 					return err
@@ -933,8 +1082,10 @@ func (va VariableExpander) Expand(line string) (expanded string, err error) {
 			//app_var, ok := va.app_variables[]
 			option := function_argument_obj.Option
 
+			sigil := "--" // TODO make the prefix -- configurable
+
 			if option == "" {
-				logger.Error("Warning: option requested but not found for " + variable)
+				option = sigil + function_argument + "="
 			}
 
 			return option + function_argument_value

@@ -154,11 +154,12 @@
 	if (! widget.hasOwnProperty('rendPlotC')) {
 	    widget.rendPlotC = Retina.Renderer.create("plot", { target: document.getElementById('plotC'),
 								show_legend: true,
-								show_dots: false,
+								show_dots: true,
 								height: 200,
 								data: pdataC }).render();
 	} else {
 	    widget.rendPlotC.settings.data = pdataC;
+	    widget.rendPlotC.settings.x_min = undefined;
 	    widget.rendPlotC.settings.target = document.getElementById('plotC');
 	    widget.rendPlotC.render();
 	}
@@ -170,6 +171,7 @@
 								data: pdataJ }).render();
 	} else {
 	    widget.rendPlotJ.settings.data = pdataJ;
+	    widget.rendPlotJ.settings.x_min = undefined;
 	    widget.rendPlotJ.settings.target = document.getElementById('plotJ');
 	    widget.rendPlotJ.render();
 	}
@@ -181,6 +183,7 @@
 								data: pdataT }).render();
 	} else {
 	    widget.rendPlotT.settings.data = pdataT;
+	    widget.rendPlotT.settings.x_min = undefined;
 	    widget.rendPlotT.settings.target = document.getElementById('plotT');
 	    widget.rendPlotT.render();
 	}
@@ -192,6 +195,7 @@
 								data: pdataW }).render();
 	} else {
 	    widget.rendPlotW.settings.data = pdataW;
+	    widget.rendPlotW.settings.x_min = undefined;
 	    widget.rendPlotW.settings.target = document.getElementById('plotW');
 	    widget.rendPlotW.render();
 	}

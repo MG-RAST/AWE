@@ -105,7 +105,10 @@
 </div>";
 	
 	// graph
-	html += "<div style='float: left;' id='plotC'></div><div style='float: left;' id='plotJ'></div><div style='float: left;' id='plotT'></div><div style='float: left;' id='plotW'></div>";
+	html += "<div style='float: left;'><h5 style='text-align: center; margin-bottom: -17px; position: relative; right: 50px;'>client status</h5><div id='plotC'></div>";
+	html += "<div style='float: left;'><h5 style='text-align: center; margin-bottom: -17px; position: relative; right: 50px;'>job status</h5><div id='plotJ'></div>";
+	html += "<div style='float: left;'><h5 style='text-align: center; margin-bottom: -17px; position: relative; right: 50px;'>task status</h5><div id='plotT'></div>";
+	html += "<div style='float: left;'><h5 style='text-align: center; margin-bottom: -17px; position: relative; right: 50px;'>workunit status</h5><div id='plotW'></div>";
 
 	target.innerHTML = html;
 
@@ -150,7 +153,6 @@
 
 	if (! widget.hasOwnProperty('rendPlotC')) {
 	    widget.rendPlotC = Retina.Renderer.create("plot", { target: document.getElementById('plotC'),
-								y_title: 'client status',
 								show_legend: true,
 								show_dots: false,
 								height: 200,
@@ -162,7 +164,6 @@
 	}
 	if (! widget.hasOwnProperty('rendPlotJ')) {
 	    widget.rendPlotJ = Retina.Renderer.create("plot", { target: document.getElementById('plotJ'),
-								y_title: 'job status',
 								show_legend: true,
 								height: 200,
 								show_dots: false,
@@ -174,7 +175,6 @@
 	}
 	if (! widget.hasOwnProperty('rendPlotT')) {
 	    widget.rendPlotT = Retina.Renderer.create("plot", { target: document.getElementById('plotT'),
-								y_title: 'task status',
 								show_legend: true,
 								height: 200,
 								show_dots: false,
@@ -186,7 +186,6 @@
 	}
 	if (! widget.hasOwnProperty('rendPlotW')) {
 	    widget.rendPlotW = Retina.Renderer.create("plot", { target: document.getElementById('plotW'),
-								y_title: 'workunit status',
 								show_legend: true,
 								height: 200,
 								show_dots: false,

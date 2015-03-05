@@ -34,13 +34,18 @@
 	var target = document.getElementById('awe_details');
 	
 	var data = widget.aweClientData;
-	
+
+	var coreGroups = {};
 	var stats = { stati: {} };
 	for (var i=0; i<data.length; i++) {
 	    if (! stats.stati.hasOwnProperty(data[i].Status)) {
 		stats.stati[data[i].Status] = 0;
 	    }
 	    stats.stati[data[i].Status]++;
+	    if (! coreGroups.hasOwnProperty(data[i].cores)) {
+		coreGroups[data[i].cores] = [];
+	    }
+	    coreGroups[data[i].cores].push(data[i]);
 	}
 	var clientData = { all: data.length };
 	for (var i in stats.stati) {
@@ -57,19 +62,23 @@
 
 	// box-display
 	var boxDisplay = "<div style='width: 600px; margin-top: 10px;'>";
-	for (var i=0; i<data.length; i++) {
-	    if (data[i].Status == "active-idle") {
-		boxDisplay += widget.aweNode('info', i);
-		numIdle++;
-	    } else if (data[i].Status == "active-busy") {
-		boxDisplay += widget.aweNode('success', i);
-		numBusy++;
-	    } else if (data[i].Status == "suspend") {
-		boxDisplay += widget.aweNode('danger', i);
-		numError++;
-	    } else if (data[i].Status == "deleted") {
-		boxDisplay += widget.aweNode('warning', i);
-		numDeleted++;
+	var coreList = Retina.keys(coreGroups).sort();
+	for (var h=0; h<coreList.length; h++) {
+	    boxDisplay += "<h5 style='clear: both;'>"+coreList[h]+" cores</h5>";
+	    for (var i=0; i<coreGroups[coreList[h]].length; i++) {
+		if (coreGroups[coreList[h]][i].Status == "active-idle") {
+		    boxDisplay += widget.aweNode('info', i);
+		    numIdle++;
+		} else if (coreGroups[coreList[h]][i].Status == "active-busy") {
+		    boxDisplay += widget.aweNode('success', i);
+		    numBusy++;
+		} else if (coreGroups[coreList[h]][i].Status == "suspend") {
+		    boxDisplay += widget.aweNode('danger', i);
+		    numError++;
+		} else if (coreGroups[coreList[h]][i].Status == "deleted") {
+		    boxDisplay += widget.aweNode('warning', i);
+		    numDeleted++;
+		}
 	    }
 	}
 	boxDisplay += "</div><div style='clear: both;'></div>";
@@ -239,6 +248,10 @@
 
     widget.aweNode = function (status, id) {
 	return "<div class='alert alert-"+status+"' style='width: 24px; height: 24px; padding: 0px; margin-bottom: 5px; margin-right: 5px; float: left; cursor: pointer;' onclick='Retina.WidgetInstances.awe_panel[1].aweNodeDetail("+id+");'></div>";
+    };
+
+    widget.aweNodeDetail = function (nodeID) {
+	
     };
 
     widget.resumeAllJobs = function () {

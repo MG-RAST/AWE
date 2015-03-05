@@ -154,7 +154,7 @@
 	if (! widget.hasOwnProperty('rendPlotC')) {
 	    widget.rendPlotC = Retina.Renderer.create("plot", { target: document.getElementById('plotC'),
 								show_legend: true,
-								show_dots: true,
+								show_dots: false,
 								height: 200,
 								data: pdataC }).render();
 	} else {

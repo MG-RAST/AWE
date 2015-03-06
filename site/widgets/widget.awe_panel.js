@@ -164,6 +164,8 @@
 	    widget.rendPlotC = Retina.Renderer.create("plot", { target: document.getElementById('plotC'),
 								show_legend: true,
 								show_dots: false,
+								x_scale: "int",
+								y_scale: "int",
 								height: 200,
 								data: pdataC }).render();
 	} else {
@@ -175,6 +177,8 @@
 	if (! widget.hasOwnProperty('rendPlotJ')) {
 	    widget.rendPlotJ = Retina.Renderer.create("plot", { target: document.getElementById('plotJ'),
 								show_legend: true,
+								x_scale: "int",
+								y_scale: "int",
 								height: 200,
 								show_dots: false,
 								data: pdataJ }).render();
@@ -187,6 +191,8 @@
 	if (! widget.hasOwnProperty('rendPlotT')) {
 	    widget.rendPlotT = Retina.Renderer.create("plot", { target: document.getElementById('plotT'),
 								show_legend: true,
+								x_scale: "int",
+								y_scale: "int",
 								height: 200,
 								show_dots: false,
 								data: pdataT }).render();
@@ -199,6 +205,8 @@
 	if (! widget.hasOwnProperty('rendPlotW')) {
 	    widget.rendPlotW = Retina.Renderer.create("plot", { target: document.getElementById('plotW'),
 								show_legend: true,
+								x_scale: "int",
+								y_scale: "int",
 								height: 200,
 								show_dots: false,
 								data: pdataW }).render();

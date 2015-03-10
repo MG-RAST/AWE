@@ -26,6 +26,7 @@ type Workunit struct {
 	Outputs      IOmap             `bson:"outputs" json:"outputs"`
 	Predata      IOmap             `bson:"predata" json:"predata"`
 	Cmd          *Command          `bson:"cmd" json:"cmd"`
+	App          *App              `bson:"app" json:"app"`
 	Rank         int               `bson:"rank" json:"rank"`
 	TotalWork    int               `bson:"totalwork" json:"totalwork"`
 	Partition    *PartInfo         `bson:"part" json:"part"`
@@ -89,19 +90,23 @@ func (w WorkunitsSortby) Less(i, j int) bool {
 }
 
 func NewWorkunit(task *Task, rank int) *Workunit {
+
 	return &Workunit{
 		Id:        fmt.Sprintf("%s_%d", task.Id, rank),
+		Cmd:       task.Cmd,
+		App:       task.App,
 		Info:      task.Info,
 		Inputs:    task.Inputs,
 		Outputs:   task.Outputs,
 		Predata:   task.Predata,
-		Cmd:       task.Cmd,
 		Rank:      rank,
 		TotalWork: task.TotalWork, //keep this info in workunit for load balancing
 		Partition: task.Partition,
 		State:     WORK_STAT_QUEUED,
 		Failed:    0,
 		UserAttr:  task.UserAttr,
+
+		//AppVariables: task.AppVariables // not needed yet
 	}
 }
 

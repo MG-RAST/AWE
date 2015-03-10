@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/AWE/lib/user"
+	"github.com/MG-RAST/golib/httpclient"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -117,19 +117,24 @@ func CreateJobUpload(u *user.User, params map[string]string, files FormFiles, ji
 		return
 	}
 
-	// TODO need a way update app-defintions in AWE server...
-	if MyAppRegistry == nil && conf.APP_REGISTRY_URL != "" {
+	// TODO move app definitions from git into something faster ?
+
+	var MyAppRegistry AppRegistry // this will be populated with latest version every time a workflow is submitted
+
+	if MyAppRegistry == nil && conf.USE_APP_DEFS != "no" {
 		MyAppRegistry, err = MakeAppRegistry()
 		if err != nil {
 			return job, errors.New("error creating app registry, error=" + err.Error())
 		}
-		logger.Debug(1, "app defintions read")
+		//logger.Debug(1, "app defintions read")
 	}
 
-	err = MyAppRegistry.createIOnodes(job)
-	if err != nil {
-		err = errors.New("error in createIOnodes, error=" + err.Error())
-		return
+	if conf.USE_APP_DEFS != "no" {
+		err = MyAppRegistry.createIOnodes(job)
+		if err != nil {
+			err = errors.New("error in createIOnodes, error=" + err.Error())
+			return
+		}
 	}
 
 	err = job.UpdateFile(params, files)
@@ -199,7 +204,7 @@ func PostNodeWithToken(io *IO, numParts int, token string) (nodeid string, err e
 	//create "parts" for output splits
 	if numParts > 1 {
 		opts["upload_type"] = "parts"
-		opts["file_name"] = io.Name
+		opts["file_name"] = io.FileName
 		opts["parts"] = strconv.Itoa(numParts)
 		if _, err := createOrUpdate(opts, io.Host, node.Id, token, nil); err != nil {
 			return node.Id, err
@@ -331,13 +336,13 @@ func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
 		task := NewTask(job, awf_task.TaskId)
 		for name, origin := range awf_task.Inputs {
 			io := new(IO)
-			io.Name = name
+			io.FileName = name
 			io.Host = awf.DataServer
 			io.Node = "-"
 			io.Origin = strconv.Itoa(origin)
 			task.Inputs[name] = io
 			if origin == 0 {
-				if dataurl, ok := awf.RawInputs[io.Name]; ok {
+				if dataurl, ok := awf.RawInputs[io.FileName]; ok {
 					io.Url = dataurl
 				}
 			}
@@ -345,7 +350,7 @@ func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
 
 		for _, name := range awf_task.Outputs {
 			io := new(IO)
-			io.Name = name
+			io.FileName = name
 			io.Host = awf.DataServer
 			io.Node = "-"
 			task.Outputs[name] = io
@@ -725,6 +730,11 @@ func getWorkNotesPath(work *Workunit) (worknotesFilePath string, err error) {
 
 //shock access functions
 func createOrUpdate(opts Opts, host string, nodeid string, token string, nodeattr map[string]interface{}) (node *shock.ShockNode, err error) {
+
+	if host == "" {
+		return nil, errors.New("error: (createOrUpdate) host is not defined")
+	}
+
 	url := host + "/node"
 	method := "POST"
 	if nodeid != "" {

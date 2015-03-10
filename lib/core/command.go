@@ -1,15 +1,22 @@
 package core
 
+type App struct {
+	Name     string        `bson:"name" json:"name"`
+	App_args []AppResource `bson:"app_args" json:"app_args"`
+
+	AppDef *AppCommandMode `bson:"appdef" json:"appdef"` // App defintion
+
+}
+
 type Command struct {
-	Name          string        `bson:"name" json:"name"`
-	Args          string        `bson:"args" json:"args"`
-	App_args      []AppResource `bson:"app_args" json:"app_args"`
-	Cmd_script    []string      `bson:"cmd_script" json:"cmd_script"`
-	Dockerimage   string        `bson:"Dockerimage" json:"Dockerimage"`
-	Environ       Envs          `bson:"environ" json:"environ"`
-	HasPrivateEnv bool          `bson:"has_private_env" json:"has_private_env"`
-	Description   string        `bson:"description" json:"description"`
-	ParsedArgs    []string      `bson:"-" json:"-"`
+	Name          string   `bson:"name" json:"name"`
+	Args          string   `bson:"args" json:"args"`
+	Dockerimage   string   `bson:"Dockerimage" json:"Dockerimage"`
+	Cmd_script    []string `bson:"cmd_script" json:"cmd_script"`
+	Environ       Envs     `bson:"environ" json:"environ"`
+	HasPrivateEnv bool     `bson:"has_private_env" json:"has_private_env"`
+	Description   string   `bson:"description" json:"description"`
+	ParsedArgs    []string `bson:"-" json:"-"`
 }
 
 type Envs struct {

@@ -13,11 +13,15 @@ func InitJobDB() {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 	cj := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	cj.EnsureIndex(mgo.Index{Key: []string{"acl.owner"}, Background: true})
+	cj.EnsureIndex(mgo.Index{Key: []string{"acl.read"}, Background: true})
+	cj.EnsureIndex(mgo.Index{Key: []string{"acl.write"}, Background: true})
+	cj.EnsureIndex(mgo.Index{Key: []string{"acl.delete"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
+	cj.EnsureIndex(mgo.Index{Key: []string{"info.submittime"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"jid"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"state"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"updatetime"}, Background: true})
-	cj.EnsureIndex(mgo.Index{Key: []string{"info.submittime"}, Background: true})
 	cp := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_PERF)
 	cp.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
 }
@@ -56,6 +60,17 @@ func dbUpsert(t interface{}) (err error) {
 		fmt.Printf("invalid database entry type\n")
 	}
 	return
+}
+
+func dbCount(q bson.M) (count int, err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	if count, err = c.Find(q).Count(); err != nil {
+		return 0, err
+	} else {
+		return count, nil
+	}
 }
 
 func dbFind(q bson.M, results *Jobs, options map[string]int) (count int, err error) {

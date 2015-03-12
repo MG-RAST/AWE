@@ -223,7 +223,7 @@ func dataMover(control chan int) {
 			parsed.workunit.App.Name = app_string
 			wants_app = true
 		}
-		if parsed.workunit.App.Name != "" {
+		if parsed.workunit.App != nil && parsed.workunit.App.Name != "" {
 			logger.Debug(1, fmt.Sprintf("app mode, requested: %s", parsed.workunit.App.Name))
 			wants_app = true
 		} else {

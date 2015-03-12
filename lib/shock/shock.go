@@ -35,9 +35,9 @@ type ShockResponse struct {
 }
 
 type ShockResponseGeneric struct {
-	Code int       `bson:"status" json:"status"`
+	Code int         `bson:"status" json:"status"`
 	Data interface{} `bson:"data" json:"data"`
-	Errs []string  `bson:"error" json:"error"`
+	Errs []string    `bson:"error" json:"error"`
 }
 
 type ShockNode struct {

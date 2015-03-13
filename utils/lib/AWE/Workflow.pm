@@ -33,7 +33,10 @@ sub new {
 		"project"		=> ($h{'project'} || "#project"),
 		"user"			=> ($h{'user'} || "#user"),
 		"clientgroups"	=> ($h{'clientgroups'} || "#clientgroups"),
-		"noretry"		=> ($h{'noretry'} || JSON::true)
+		"noretry"		=> ($h{'noretry'} || JSON::true),
+		"userattr"		=> $h{'userattr'},
+		"priority"		=> $h{'priority'},
+		"xref"			=> $h{'xref'}
 	};
 	
 	my $tasks = [];

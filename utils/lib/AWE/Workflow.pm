@@ -48,7 +48,7 @@ sub new {
 		shocktoken => $h{'shocktoken'}
 	};
 	
-	print "h: ".Dumper($h)."\n";
+	print "h: ".Dumper(%h)."\n";
 	print "self: ".Dumper($self)."\n";
 	if (defined $h{'shockhost'}) {
 		print "got shockhost:" .$self->{'shockhost'}."\n";

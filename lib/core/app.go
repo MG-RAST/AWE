@@ -641,7 +641,7 @@ func (appr AppRegistry) createIOnodes(job *Job) (err error) {
 
 		err = appr.createIOnodes_forTask(job, task, taskid2task, taskid_processed)
 		if err != nil {
-			return err
+			return errors.New(fmt.Sprintf("error in task %s: %s", task.App.Name, err.Error()))
 		}
 	}
 

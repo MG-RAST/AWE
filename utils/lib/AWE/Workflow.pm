@@ -50,7 +50,7 @@ sub new {
 	
 	
 	if (defined $h{'shockhost'}) {
-		print "got shockhost:" .$wf->{'shockhost'}."\n";
+		print "got shockhost:" .$self->{'shockhost'}."\n";
 	}
 	
     bless $self, $class;

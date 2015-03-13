@@ -48,11 +48,11 @@ sub new {
 		shocktoken => $h{'shocktoken'}
 	};
 	
-	print "h: ".Dumper(%h)."\n";
-	print "self: ".Dumper($self)."\n";
-	if (defined $h{'shockhost'}) {
-		print "got shockhost:" .$self->{'shockhost'}."\n";
-	}
+	#print "h: ".Dumper(%h)."\n";
+	#print "self: ".Dumper($self)."\n";
+	#if (defined $h{'shockhost'}) {
+	#	print "got shockhost:" .$self->{'shockhost'}."\n";
+	#}
 	
     bless $self, $class;
     return $self;
@@ -218,9 +218,9 @@ sub getHash {
 	
 	$wf->{'shockhost'} = $self->shockhost();
 	
-	if (defined $wf->{'shockhost'}) {
-		print "write shockhost:" .$wf->{'shockhost'}."\n";
-	}
+	#if (defined $wf->{'shockhost'}) {
+	#	print "write shockhost:" .$wf->{'shockhost'}."\n";
+	#}
 	
 	return $wf;
 }

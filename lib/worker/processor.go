@@ -64,7 +64,7 @@ func processor(control chan int) {
 		var envkeys []string
 		_ = envkeys
 
-		if (work.Cmd == nil || work.Cmd.Dockerimage == "") && (work.App !=nil && work.App.Name != "") {
+		if (work.Cmd == nil || work.Cmd.Dockerimage == "") && (work.App != nil && work.App.Name != "") {
 			envkeys, err = SetEnv(work)
 			if err != nil {
 				logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
@@ -99,8 +99,7 @@ func processor(control chan int) {
 		processed.perfstat.Runtime = computetime
 		processed.workunit.ComputeTime = int(computetime)
 
-
-		if (work.Cmd == nil || work.Cmd.Dockerimage == "") && (work.App !=nil && work.App.Name != "") {
+		if (work.Cmd == nil || work.Cmd.Dockerimage == "") && (work.App != nil && work.App.Name != "") {
 			if len(envkeys) > 0 {
 				UnSetEnv(envkeys)
 			}

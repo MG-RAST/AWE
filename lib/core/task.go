@@ -44,6 +44,7 @@ type Task struct {
 	ComputeTime   int               `bson:"computetime" json:"computetime"`
 	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
 	AppVariables  AppVariables
+	ClientGroups  string            `bson:"clientgroups" json:"clientgroups"`
 }
 
 func NewTask(job *Job, rank int) *Task {
@@ -88,6 +89,9 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 	}
 
 	task.Info = job.Info
+	if task.ClientGroups != "" {
+		task.Info.ClientGroups = task.ClientGroups
+	}
 
 	if task.TotalWork <= 0 {
 		task.setTotalWork(1)

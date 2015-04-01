@@ -291,6 +291,13 @@ func (task *Task) DeleteOutput() {
 				}
 			}
 		}
+	}
+}
+
+func (task *Task) DeleteInput() {
+	if task.State == TASK_STAT_COMPLETED ||
+		task.State == TASK_STAT_SKIPPED ||
+		task.State == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Inputs {
 			if io.Delete {
 				if nodeid, err := io.DeleteNode(); err != nil {

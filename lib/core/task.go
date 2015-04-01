@@ -44,7 +44,7 @@ type Task struct {
 	ComputeTime   int               `bson:"computetime" json:"computetime"`
 	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
 	AppVariables  AppVariables
-	ClientGroups  string            `bson:"clientgroups" json:"clientgroups"`
+	ClientGroups  string `bson:"clientgroups" json:"clientgroups"`
 }
 
 func NewTask(job *Job, rank int) *Task {
@@ -285,6 +285,13 @@ func (task *Task) DeleteOutput() {
 		task.State == TASK_STAT_SKIPPED ||
 		task.State == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Outputs {
+			if io.Delete {
+				if nodeid, err := io.DeleteNode(); err != nil {
+					logger.Error(fmt.Sprintf("warning: fail to delete shock node %s: %s", nodeid, err.Error()))
+				}
+			}
+		}
+		for _, io := range task.Inputs {
 			if io.Delete {
 				if nodeid, err := io.DeleteNode(); err != nil {
 					logger.Error(fmt.Sprintf("warning: fail to delete shock node %s: %s", nodeid, err.Error()))

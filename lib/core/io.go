@@ -133,7 +133,7 @@ func (io *IO) GetShockNode() (node *shock.ShockNode, err error) {
 	if io.Host == "" {
 		return nil, errors.New("empty shock host")
 	}
-	if io.Node == "" {
+	if (io.Node == "") || (io.Node == "-") {
 		return nil, errors.New("empty node id")
 	}
 	return shock.ShockGet(io.Host, io.Node, io.DataToken)

@@ -3,6 +3,7 @@ package shock
 import (
 	//"github.com/MG-RAST/AWE/lib/httpclient"
 	"compress/gzip"
+	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -259,7 +260,7 @@ func (sc *ShockClient) Get_request(resource string, query url.Values, response i
 }
 
 //fetch file by shock url
-func FetchFile(filename string, url string, token string, uncompress string) (size int64, err error) {
+func FetchFile(filename string, url string, token string, uncompress string, computeMD5 bool) (size int64, err error) {
 	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
 
 	localfile, err := os.Create(filename)
@@ -269,19 +270,16 @@ func FetchFile(filename string, url string, token string, uncompress string) (si
 	defer localfile.Close()
 
 	body, err := FetchShockStream(url, token)
-
 	if err != nil {
 		return 0, err
 	}
-
 	defer body.Close()
 
+	var input io.ReadCloser
+	// input is uncompressed or compressed reader
 	if uncompress == "" {
 		logger.Debug(1, fmt.Sprintf("downloading file %s from %s", filename, url))
-		size, err = io.Copy(localfile, body)
-		if err != nil {
-			return 0, err
-		}
+		input = body
 	} else if uncompress == "gzip" {
 		logger.Debug(1, fmt.Sprintf("downloading and unzipping file %s from %s", filename, url))
 		gr, err := gzip.NewReader(body)
@@ -289,12 +287,29 @@ func FetchFile(filename string, url string, token string, uncompress string) (si
 			return 0, err
 		}
 		defer gr.Close()
-		size, err = io.Copy(localfile, gr)
+		input = gr
+	} else {
+		return 0, errors.New("uncompress method unknown: " + uncompress)
+	}
+
+	if computeMD5 {
+		md5h := md5.New()
+		dst := io.MultiWriter(localfile, md5h)
+		size, err = io.Copy(dst, input)
 		if err != nil {
 			return 0, err
 		}
+		md5file, err := os.Create(filename + ".md5")
+		if err != nil {
+			return 0, err
+		}
+		defer md5file.Close()
+		md5file.WriteString(fmt.Sprintf("%x", md5h.Sum(nil)))
 	} else {
-		return 0, errors.New("uncompress method unknown: " + uncompress)
+		size, err = io.Copy(localfile, input)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	return

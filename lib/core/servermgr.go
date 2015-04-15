@@ -641,6 +641,18 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 		}
 		logger.Debug(2, fmt.Sprintf("inputs located %s, %s\n", name, io.Node))
 	}
+	// locate predata
+	for name, io := range task.Predata {
+		io.DataUrl()
+		if io.Node == "-" {
+			return errors.New(fmt.Sprintf("error in locate predata for task %s, %s", task.Id, name))
+		}
+		//need time out!
+		if io.Node != "" && io.GetFileSize() < 0 {
+			return errors.New(fmt.Sprintf("task %s: predata file %s not available", task.Id, name))
+		}
+		logger.Debug(2, fmt.Sprintf("predata located %s, %s\n", name, io.Node))
+	}
 	return
 }
 

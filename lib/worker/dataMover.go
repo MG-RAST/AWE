@@ -379,34 +379,48 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 			return 0, errors.New("error creating predata_directory: " + err.Error())
 		}
 
+		// file name is from io keyword
 		file_path := path.Join(predata_directory, name)
-		md5_path := file_path + ".md5"
 
 		// get shock and local md5sums
-		node, err := shock.ShockGet(io.Host, io.Node, workunit.Info.DataToken)
-		if err != nil {
-			return 0, errors.New("error in ShockGet:" + err.Error())
-		}
-		node_md5 := node.File.Checksum["md5"]
-		local_md5 := ""
-		if isFileExisting(file_path) && isFileExisting(md5_path) {
-			local_md5 = slurpFile(md5_path)
+		isShockPredata := true
+		node_md5 := ""
+		if (io.Node == "") || (io.Node == "-") {
+			isShockPredata = false
+		} else {
+			node, err := shock.ShockGet(io.Host, io.Node, workunit.Info.DataToken)
+			if err != nil {
+				return 0, errors.New("error in ShockGet: " + err.Error())
+			}
+			// rename file to be md5sum
+			node_md5 = node.File.Checksum["md5"]
+			file_path = path.Join(predata_directory, node_md5)
 		}
 
-		// md5sum does not match or file is not there - download
-		if local_md5 != node_md5 {
+		// file does not exist or its md5sum is wrong
+		if !isFileExisting(file_path) {
+			logger.Debug(2, "mover: fetching predata from url: "+io.Url)
+			logger.Event(event.PRE_IN, "workid="+workunit.Id+" url="+io.Url)
+
+			var md5sum string
 			file_path_part := file_path + ".part" // temporary name
-			size, err = shock.FetchFile(file_path_part, io.Url, workunit.Info.DataToken, io.Uncompress, true)
+			size, md5sum, err = shock.FetchFile(file_path_part, io.Url, workunit.Info.DataToken, io.Uncompress, isShockPredata)
 			if err != nil {
-				return 0, errors.New("error in fetchFile:" + err.Error())
+				return 0, errors.New("error in fetchFile: " + err.Error())
 			}
 			os.Rename(file_path_part, file_path)
 			if err != nil {
-				return 0, errors.New("error renaming after download of preData:" + err.Error())
+				return 0, errors.New("error renaming after download of preData: " + err.Error())
 			}
-			if slurpFile(md5_path) != node_md5 {
-				return 0, errors.New("error downloaded file md5 does not mach shock md5, node: " + io.Node)
+			if isShockPredata {
+				if node_md5 != md5sum {
+					return 0, errors.New("error downloaded file md5 does not mach shock md5, node: " + io.Node)
+				} else {
+					logger.Debug(2, "mover: predata "+name+" has md5sum "+md5sum)
+				}
 			}
+		} else {
+			logger.Debug(2, "mover: predata already exists: "+name)
 		}
 
 		use_symlink := true
@@ -416,20 +430,18 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 			if use_symlink {
 				file_path = path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, name)
 				// some tasks want to write in predata dir, thus need symlink
-				logger.Debug(1, "dangling symlink:"+linkname+" -> "+file_path)
+				logger.Debug(1, "dangling symlink: "+linkname+" -> "+file_path)
 
 				// creation of dangling symlinks is not possible with with os.Symlink, thus use system ln
 				link_out, err := exec.Command("ln", "-s", file_path, linkname).CombinedOutput()
 				logger.Debug(1, fmt.Sprintf("ln returned %s", link_out))
-
 				if err != nil {
 					return 0, errors.New("error creating predata file symlink (dangling version): " + err.Error())
 				}
 			} else {
 				// some programs do not accept symlinks (e.g. emirge), need to copy the file into the work directory
 				// linkname refers to target file now.
-				logger.Debug(1, "copy predata:"+file_path+" -> "+linkname)
-
+				logger.Debug(1, "copy predata: "+file_path+" -> "+linkname)
 				_, err := shock.CopyFile(file_path, linkname)
 				if err != nil {
 					return 0, fmt.Errorf("error copying file from %s to % s: ", file_path, linkname, err.Error())
@@ -444,6 +456,14 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 			}
 		}
 
+		logger.Event(event.PRE_READY, "workid="+workunit.Id+";url="+io.Url)
+		// timstamp for last access - future caching
+		accessfile, err := os.Create(file_path + ".access")
+		if err != nil {
+			return 0, errors.New("error creating predata access file: " + err.Error())
+		}
+		defer accessfile.Close()
+		accessfile.WriteString(time.Now().String())
 	}
 	return
 }
@@ -463,7 +483,7 @@ func moveInputData(work *core.Workunit) (size int64, err error) {
 		logger.Debug(2, "mover: fetching input from url:"+dataUrl)
 		logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
 
-		if datamoved, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false); err != nil {
+		if datamoved, _, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false); err != nil {
 			return size, err
 		} else {
 			size += datamoved
@@ -494,14 +514,6 @@ func isFileExisting(path string) bool {
 		return true
 	}
 	return false
-}
-
-func slurpFile(path string) string {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-	return string(content)
 }
 
 func proxyMovePreData(workunit *core.Workunit) (err error) {

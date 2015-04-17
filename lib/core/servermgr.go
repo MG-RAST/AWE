@@ -631,7 +631,7 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 				}
 			}
 		}
-		io.DataUrl()
+		logger.Debug(2, fmt.Sprintf("processing input %s, %s\n", name, io.Node))
 		if io.Node == "-" {
 			return errors.New(fmt.Sprintf("error in locate input for task %s, %s", task.Id, name))
 		}
@@ -643,7 +643,7 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 	}
 	// locate predata
 	for name, io := range task.Predata {
-		io.DataUrl()
+		logger.Debug(2, fmt.Sprintf("processing predata %s, %s\n", name, io.Node))
 		// only verify predata that is a shock node
 		if (io.Node != "") && (io.Node != "-") && (io.GetFileSize() < 0) {
 			// bad shock node
@@ -676,7 +676,6 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 	for name, io := range outputs {
 		if io.Type == "update" {
 			// this an update output, it will update an existing shock node and not create a new one
-			io.DataUrl()
 			if (io.Node == "") || (io.Node == "-") {
 				if io.Origin == "" {
 					return errors.New(fmt.Sprintf("update output %s in task %s is missing required origin", name, task.Id))

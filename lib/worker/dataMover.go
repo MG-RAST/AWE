@@ -372,20 +372,19 @@ func fetchFile_old(filename string, url string, token string) (size int64, err e
 //fetch prerequisite data (e.g. reference dbs)
 func movePreData(workunit *core.Workunit) (size int64, err error) {
 	for name, io := range workunit.Predata {
-		io.DataUrl()
 		predata_directory := path.Join(conf.DATA_PATH, "predata")
 		err = os.MkdirAll(predata_directory, 755)
 		if err != nil {
 			return 0, errors.New("error creating predata_directory: " + err.Error())
 		}
 
-		// file name is from io keyword
 		file_path := path.Join(predata_directory, name)
+		dataUrl := io.DataUrl()
 
 		// get shock and local md5sums
 		isShockPredata := true
 		node_md5 := ""
-		if (io.Node == "") || (io.Node == "-") {
+		if io.Node == "-" {
 			isShockPredata = false
 		} else {
 			node, err := shock.ShockGet(io.Host, io.Node, workunit.Info.DataToken)
@@ -399,12 +398,12 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 
 		// file does not exist or its md5sum is wrong
 		if !isFileExisting(file_path) {
-			logger.Debug(2, "mover: fetching predata from url: "+io.Url)
-			logger.Event(event.PRE_IN, "workid="+workunit.Id+" url="+io.Url)
+			logger.Debug(2, "mover: fetching predata from url: "+dataUrl)
+			logger.Event(event.PRE_IN, "workid="+workunit.Id+" url="+dataUrl)
 
 			var md5sum string
 			file_path_part := file_path + ".part" // temporary name
-			size, md5sum, err = shock.FetchFile(file_path_part, io.Url, workunit.Info.DataToken, io.Uncompress, isShockPredata)
+			size, md5sum, err = shock.FetchFile(file_path_part, dataUrl, workunit.Info.DataToken, io.Uncompress, isShockPredata)
 			if err != nil {
 				return 0, errors.New("error in fetchFile: " + err.Error())
 			}
@@ -456,7 +455,7 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 			}
 		}
 
-		logger.Event(event.PRE_READY, "workid="+workunit.Id+";url="+io.Url)
+		logger.Event(event.PRE_READY, "workid="+workunit.Id+";url="+dataUrl)
 		// timstamp for last access - future caching
 		accessfile, err := os.Create(file_path + ".access")
 		if err != nil {

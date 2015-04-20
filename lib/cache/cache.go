@@ -164,8 +164,7 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 			logger.Event(event.FILE_IN, "workid="+work.Id+";url="+dataUrl)
 
 			// download file
-			if datamoved, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress); err != nil {
-				//return size, err
+			if datamoved, _, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false); err != nil {
 				return size, errors.New("shock.FetchFile returned: " + err.Error())
 			} else {
 				size += datamoved

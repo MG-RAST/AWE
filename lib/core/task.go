@@ -100,15 +100,27 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 	task.WorkStatus = make([]string, task.TotalWork)
 	task.RemainWork = task.TotalWork
 
+	// set node / host / url for files
 	for _, io := range task.Inputs {
 		if io.Node == "" {
 			io.Node = "-"
 		}
+		io.DataUrl()
+		logger.Debug(2, "inittask input: host="+io.Host+", node="+io.Node+", url="+io.Url)
 	}
 	for _, io := range task.Outputs {
 		if io.Node == "" {
 			io.Node = "-"
 		}
+		io.DataUrl()
+		logger.Debug(2, "inittask output: host="+io.Host+", node="+io.Node+", url="+io.Url)
+	}
+	for _, io := range task.Predata {
+		if io.Node == "" {
+			io.Node = "-"
+		}
+		io.DataUrl()
+		logger.Debug(2, "inittask predata: host="+io.Host+", node="+io.Node+", url="+io.Url)
 	}
 
 	if len(task.Cmd.Environ.Private) > 0 {
@@ -286,6 +298,20 @@ func (task *Task) DeleteOutput() {
 		task.State == TASK_STAT_SKIPPED ||
 		task.State == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Outputs {
+			if io.Delete {
+				if nodeid, err := io.DeleteNode(); err != nil {
+					logger.Error(fmt.Sprintf("warning: fail to delete shock node %s: %s", nodeid, err.Error()))
+				}
+			}
+		}
+	}
+}
+
+func (task *Task) DeleteInput() {
+	if task.State == TASK_STAT_COMPLETED ||
+		task.State == TASK_STAT_SKIPPED ||
+		task.State == TASK_STAT_FAIL_SKIP {
+		for _, io := range task.Inputs {
 			if io.Delete {
 				if nodeid, err := io.DeleteNode(); err != nil {
 					logger.Error(fmt.Sprintf("warning: fail to delete shock node %s: %s", nodeid, err.Error()))

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/shock"
+	"github.com/MG-RAST/golib/go-uuid/uuid"
+	"net/url"
 	"strings"
 )
 
@@ -77,17 +79,13 @@ func NewIO() *IO {
 func (io *IO) DataUrl() string {
 	if io.Url != "" {
 		if io.Host == "" || io.Node == "-" {
-			parts := strings.Split(io.Url, "/")
-
-			// test if url is a shock url   ; len nodeid?download 36+9 = 45
-			if parts[2] != "" && parts[3] == "node" {
-				if (strings.HasSuffix(parts[3], "?download") && len(parts[3]) == 45) || len(parts[3]) == 36 {
-					host := "http://" + parts[2]
-					node := strings.Split(parts[4], "?")[0]
-
-					io.Host = host
-					io.Node = node
-				}
+			u, _ := url.Parse(io.Url)
+			trimPath := strings.Trim(u.Path, "/")
+			cleanUuid := strings.Trim(strings.TrimPrefix(trimPath, "node"), "/")
+			// appears to be a shock url
+			if (cleanUuid != trimPath) && (uuid.Parse(cleanUuid) != nil) {
+				io.Host = u.Scheme + "://" + u.Host
+				io.Node = cleanUuid
 			}
 		}
 		return io.Url

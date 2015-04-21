@@ -28,6 +28,8 @@ const (
 	WORK_DISCARD   = "WI" //workunit discarded after receiving discard signal from server
 	PRE_WORK_START = "PS" //workunit command start running
 	PRE_WORK_END   = "PE" //workunit command finish running
+	PRE_IN         = "PI" //start fetching predata file from url
+	PRE_READY      = "PR" //predata file is available
 	FILE_IN        = "FI" //start fetching input file from shock
 	FILE_READY     = "FR" //finish fetching input file from shock
 	FILE_OUT       = "FO" //start pushing output file to shock

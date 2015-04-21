@@ -3,6 +3,7 @@ package shock
 import (
 	//"github.com/MG-RAST/AWE/lib/httpclient"
 	"compress/gzip"
+	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -373,45 +374,70 @@ func (sc *ShockClient) Do_request_DEPRECATED(method string, resource string, que
 }
 
 //fetch file by shock url
-func FetchFile(filename string, url string, token string, uncompress string) (size int64, err error) {
+func FetchFile(filename string, url string, token string, uncompress string, computeMD5 bool) (size int64, md5sum string, err error) {
 	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
 
 	localfile, err := os.Create(filename)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	defer localfile.Close()
 
 	body, err := FetchShockStream(url, token)
-
 	if err != nil {
-		//return 0, err
-		return 0, errors.New("FetchShockStream returned: " + err.Error())
+		return 0, "", errors.New("FetchShockStream returned: " + err.Error())
 	}
-
 	defer body.Close()
 
+	// set md5 compute
+	md5h := md5.New()
+
 	if uncompress == "" {
-		//logger.Debug(1, fmt.Sprintf("downloading file %s from %s", filename, url))
-		size, err = io.Copy(localfile, body)
+		logger.Debug(1, fmt.Sprintf("downloading file %s from %s", filename, url))
+		// split stream to file and md5
+		var dst io.Writer
+		if computeMD5 {
+			dst = io.MultiWriter(localfile, md5h)
+		} else {
+			dst = localfile
+		}
+		size, err = io.Copy(dst, body)
 		if err != nil {
-			return 0, err
+			return 0, "", err
 		}
 	} else if uncompress == "gzip" {
-		//logger.Debug(1, fmt.Sprintf("downloading and unzipping file %s from %s", filename, url))
-		gr, err := gzip.NewReader(body)
+		logger.Debug(1, fmt.Sprintf("downloading and unzipping file %s from %s", filename, url))
+		// split stream to gzip and md5
+		var input io.ReadCloser
+		if computeMD5 {
+			pReader, pWriter := io.Pipe()
+			defer pReader.Close()
+			dst := io.MultiWriter(pWriter, md5h)
+			go func() {
+				io.Copy(dst, body)
+				pWriter.Close()
+			}()
+			input = pReader
+		} else {
+			input = body
+		}
+
+		gr, err := gzip.NewReader(input)
 		if err != nil {
-			return 0, err
+			return 0, "", err
 		}
 		defer gr.Close()
 		size, err = io.Copy(localfile, gr)
 		if err != nil {
-			return 0, err
+			return 0, "", err
 		}
 	} else {
-		return 0, errors.New("uncompress method unknown: " + uncompress)
+		return 0, "", errors.New("uncompress method unknown: " + uncompress)
 	}
 
+	if computeMD5 {
+		md5sum = fmt.Sprintf("%x", md5h.Sum(nil))
+	}
 	return
 }
 

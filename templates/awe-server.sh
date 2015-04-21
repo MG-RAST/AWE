@@ -46,7 +46,12 @@ stop() {
 status() {
     if [ -f $PID_FILE ]; then
 	    PIDN=`cat $PID_FILE`
-	    echo "$NAME is running with pid $PIDN."
+	    PSTAT=`ps -p $PIDN | grep -v -w 'PID'`
+	    if [ -z "$PSTAT" ]; then
+	        echo "$NAME has pidfile ($PIDN) but is not running."
+	    else
+	        echo "$NAME is running with pid $PIDN."
+	    fi
     else
 	    echo "$NAME is not running."
     fi

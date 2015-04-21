@@ -631,7 +631,7 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 				}
 			}
 		}
-		io.DataUrl()
+		logger.Debug(2, fmt.Sprintf("processing input %s, %s\n", name, io.Node))
 		if io.Node == "-" {
 			return errors.New(fmt.Sprintf("error in locate input for task %s, %s", task.Id, name))
 		}
@@ -640,6 +640,18 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 			return errors.New(fmt.Sprintf("task %s: input file %s not available", task.Id, name))
 		}
 		logger.Debug(2, fmt.Sprintf("inputs located %s, %s\n", name, io.Node))
+	}
+	// locate predata
+	for name, io := range task.Predata {
+		logger.Debug(2, fmt.Sprintf("processing predata %s, %s\n", name, io.Node))
+		// only verify predata that is a shock node
+		if (io.Node != "") && (io.Node != "-") && (io.GetFileSize() < 0) {
+			// bad shock node
+			if io.GetFileSize() < 0 {
+				return errors.New(fmt.Sprintf("task %s: predata file %s not available", task.Id, name))
+			}
+			logger.Debug(2, fmt.Sprintf("predata located %s, %s\n", name, io.Node))
+		}
 	}
 	return
 }
@@ -664,7 +676,6 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 	for name, io := range outputs {
 		if io.Type == "update" {
 			// this an update output, it will update an existing shock node and not create a new one
-			io.DataUrl()
 			if (io.Node == "") || (io.Node == "-") {
 				if io.Origin == "" {
 					return errors.New(fmt.Sprintf("update output %s in task %s is missing required origin", name, task.Id))
@@ -767,6 +778,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		//delete from shock output flagged for deletion
 		for _, task := range job.TaskList() {
 			task.DeleteOutput()
+			task.DeleteInput()
 			delete(qm.taskMap, task.Id)
 		}
 		//log event about job done (JD)

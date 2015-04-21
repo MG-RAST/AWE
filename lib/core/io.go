@@ -76,10 +76,15 @@ func NewIO() *IO {
 	return &IO{}
 }
 
-func (io *IO) DataUrl() string {
+func (io *IO) DataUrl() (dataurl string, err error) {
 	if io.Url != "" {
-		if io.Host == "" || io.Node == "-" {
-			u, _ := url.Parse(io.Url)
+		// parse and test url
+		u, _ := url.Parse(io.Url)
+		if (u.Scheme == "") || (u.Host == "") || (u.Path == "") {
+			return "", errors.New("Not a valid url: " + io.Url)
+		}
+		// get shock info from url
+		if (io.Host == "") || (io.Node == "") || (io.Node == "-") {
 			trimPath := strings.Trim(u.Path, "/")
 			cleanUuid := strings.Trim(strings.TrimPrefix(trimPath, "node"), "/")
 			// appears to be a shock url
@@ -88,15 +93,13 @@ func (io *IO) DataUrl() string {
 				io.Node = cleanUuid
 			}
 		}
-		return io.Url
+		return io.Url, nil
+	} else if (io.Host != "") && (io.Node != "") && (io.Node != "-") {
+		io.Url = fmt.Sprintf("%s/node/%s?download", io.Host, io.Node)
+		return io.Url, nil
 	} else {
-		if io.Host != "" && io.Node != "-" {
-			downloadUrl := fmt.Sprintf("%s/node/%s?download", io.Host, io.Node)
-			io.Url = downloadUrl
-			return downloadUrl
-		}
+		return "", errors.New("Invalid IO, required fields url or host / node missing")
 	}
-	return ""
 }
 
 func (io *IO) TotalUnits(indextype string) (count int, err error) {

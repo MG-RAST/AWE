@@ -435,7 +435,10 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		}
 
 		file_path := path.Join(predata_directory, name)
-		dataUrl := io.DataUrl()
+		dataUrl, uerr := io.DataUrl()
+		if uerr != nil {
+			return 0, uerr
+		}
 
 		// get shock and local md5sums
 		isShockPredata := true
@@ -541,11 +544,12 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 //fetch input data
 func moveInputData(work *core.Workunit) (size int64, err error) {
 	for inputname, io := range work.Inputs {
-		var dataUrl string
-		if work.Rank == 0 {
-			dataUrl = io.DataUrl()
-		} else {
-			dataUrl = fmt.Sprintf("%s&index=%s&part=%s", io.DataUrl(), work.IndexType(), work.Part())
+		dataUrl, uerr := io.DataUrl()
+		if uerr != nil {
+			return 0, uerr
+		}
+		if work.Rank > 0 {
+			dataUrl = fmt.Sprintf("%s&index=%s&part=%s", dataUrl, work.IndexType(), work.Part())
 		}
 
 		inputFilePath := path.Join(work.Path(), inputname)

@@ -393,7 +393,7 @@ func FetchFile(filename string, url string, token string, uncompress string, com
 	md5h := md5.New()
 
 	if uncompress == "" {
-		logger.Debug(1, fmt.Sprintf("downloading file %s from %s", filename, url))
+		//logger.Debug(1, fmt.Sprintf("downloading file %s from %s", filename, url))
 		// split stream to file and md5
 		var dst io.Writer
 		if computeMD5 {
@@ -406,7 +406,7 @@ func FetchFile(filename string, url string, token string, uncompress string, com
 			return 0, "", err
 		}
 	} else if uncompress == "gzip" {
-		logger.Debug(1, fmt.Sprintf("downloading and unzipping file %s from %s", filename, url))
+		//logger.Debug(1, fmt.Sprintf("downloading and unzipping file %s from %s", filename, url))
 		// split stream to gzip and md5
 		var input io.ReadCloser
 		if computeMD5 {

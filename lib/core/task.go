@@ -105,21 +105,27 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 		if io.Node == "" {
 			io.Node = "-"
 		}
-		io.DataUrl()
+		if _, err = io.DataUrl(); err != nil {
+			return err
+		}
 		logger.Debug(2, "inittask input: host="+io.Host+", node="+io.Node+", url="+io.Url)
 	}
 	for _, io := range task.Outputs {
 		if io.Node == "" {
 			io.Node = "-"
 		}
-		io.DataUrl()
+		if _, err = io.DataUrl(); err != nil {
+			return err
+		}
 		logger.Debug(2, "inittask output: host="+io.Host+", node="+io.Node+", url="+io.Url)
 	}
 	for _, io := range task.Predata {
 		if io.Node == "" {
 			io.Node = "-"
 		}
-		io.DataUrl()
+		if _, err = io.DataUrl(); err != nil {
+			return err
+		}
 		logger.Debug(2, "inittask predata: host="+io.Host+", node="+io.Node+", url="+io.Url)
 	}
 

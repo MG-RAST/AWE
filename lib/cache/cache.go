@@ -140,7 +140,10 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 
 		// skip if NoFile == true
 		if !io.NoFile { // is file !
-			var dataUrl string
+			dataUrl, uerr := io.DataUrl()
+			if uerr != nil {
+				return 0, uerr
+			}
 			inputFilePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
 
 			if work.Rank == 0 {
@@ -156,9 +159,8 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 						return 0, err
 					}
 				}
-				dataUrl = io.DataUrl()
 			} else {
-				dataUrl = fmt.Sprintf("%s&index=%s&part=%s", io.DataUrl(), work.IndexType(), work.Part())
+				dataUrl = fmt.Sprintf("%s&index=%s&part=%s", dataUrl, work.IndexType(), work.Part())
 			}
 			logger.Debug(2, "mover: fetching input file from url:"+dataUrl)
 			logger.Event(event.FILE_IN, "workid="+work.Id+";url="+dataUrl)

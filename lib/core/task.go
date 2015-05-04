@@ -117,6 +117,10 @@ func (task *Task) InitTask(job *Job) (err error) {
 		if _, err = io.DataUrl(); err != nil {
 			return err
 		}
+		// predata IO can not be empty
+		if (io.Url == "") && (io.Node == "-") {
+		    return errors.New("Invalid IO, required fields url or host / node missing")
+		}
 		logger.Debug(2, "inittask predata: host="+io.Host+", node="+io.Node+", url="+io.Url)
 	}
 

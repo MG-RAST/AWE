@@ -6,7 +6,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -65,27 +64,20 @@ func NewTask(job *Job, rank int) *Task {
 }
 
 // fill some info (lacked in input json) for a task
-func (task *Task) InitTask(job *Job, rank int) (err error) {
+func (task *Task) InitTask(job *Job) (err error) {
 	//validate taskid
 	if len(task.Id) == 0 {
 		return errors.New("invalid taskid:" + task.Id)
 	}
+
 	parts := strings.Split(task.Id, "_")
-	if len(parts) == 2 {
-		//is standard taskid (%s_%d), do nothing
-	} else if idInt, err := strconv.Atoi(task.Id); err == nil {
-		//if task.Id is an "integer", it is unmashalled from job.json (submitted by template)
-		//convert to standard taskid
-		if rank != idInt {
-			return errors.New(fmt.Sprintf("invalid job script: task id doesn't match stage %d vs %d", rank, idInt))
-		}
+	if len(parts) == 1 {
+		// is not standard taskid, convert it
 		task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
 		for j := 0; j < len(task.DependsOn); j++ {
 			depend := task.DependsOn[j]
 			task.DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)
 		}
-	} else {
-		return errors.New("invalid taskid:" + task.Id)
 	}
 
 	task.Info = job.Info
@@ -124,6 +116,10 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 		}
 		if _, err = io.DataUrl(); err != nil {
 			return err
+		}
+		// predata IO can not be empty
+		if (io.Url == "") && (io.Node == "-") {
+		    return errors.New("Invalid IO, required fields url or host / node missing")
 		}
 		logger.Debug(2, "inittask predata: host="+io.Host+", node="+io.Node+", url="+io.Url)
 	}

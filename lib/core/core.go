@@ -281,7 +281,11 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 	}
 
 	for i := 0; i < len(job.Tasks); i++ {
-		if err := job.Tasks[i].InitTask(job, i); err != nil {
+		if strings.Contains(job.Tasks[i].Id, "_") {
+			// no "_" allowed in inital taskid
+			return nil, errors.New("invalid taskid, may not contain '_'")
+		}
+		if err := job.Tasks[i].InitTask(job); err != nil {
 			return nil, errors.New("error in InitTask: " + err.Error())
 		}
 	}
@@ -370,7 +374,7 @@ func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
 			parent_id := getParentTask(task.Id, parent)
 			task.DependsOn = append(task.DependsOn, parent_id)
 		}
-		task.InitTask(job, awf_task.TaskId)
+		task.InitTask(job)
 		job.Tasks = append(job.Tasks, task)
 	}
 	job.RemainTasks = len(job.Tasks) - 1

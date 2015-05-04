@@ -485,7 +485,7 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		linkname := path.Join(workunit.Path(), name)
 
 		wants_docker := false
-		if workunit.Cmd.Dockerimage != "" || workunit.App.Name != "" { // TODO need more save way to detect use of docker
+		if workunit.Cmd.Dockerimage != "" || workunit.App != nil { // TODO need more save way to detect use of docker
 			wants_docker = true
 		}
 		if wants_docker && conf.USE_DOCKER == "no" {

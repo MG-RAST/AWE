@@ -63,8 +63,13 @@ func processor(control chan int) {
 		var err error
 		var envkeys []string
 		_ = envkeys
+		
+		wants_docker := false
+		if work.Cmd.Dockerimage != "" || work.App != nil {
+			wants_docker = true
+		}
 
-		if (work.Cmd == nil || work.Cmd.Dockerimage == "") && (work.App != nil && work.App.Name != "") {
+		if ! wants_docker {
 			envkeys, err = SetEnv(work)
 			if err != nil {
 				logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
@@ -99,7 +104,7 @@ func processor(control chan int) {
 		processed.perfstat.Runtime = computetime
 		processed.workunit.ComputeTime = int(computetime)
 
-		if (work.Cmd == nil || work.Cmd.Dockerimage == "") && (work.App != nil && work.App.Name != "") {
+		if ! wants_docker {
 			if len(envkeys) > 0 {
 				UnSetEnv(envkeys)
 			}
@@ -117,7 +122,7 @@ func processor(control chan int) {
 
 func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
-	if (work.Cmd != nil && work.Cmd.Dockerimage != "") || (work.App != nil && work.App.Name != "") {
+	if work.Cmd.Dockerimage != "" || work.App != nil {
 		pstats, err = RunWorkunitDocker(work)
 	} else {
 		pstats, err = RunWorkunitDirect(work)

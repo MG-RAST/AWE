@@ -29,6 +29,8 @@ type Task struct {
 	Outputs       IOmap             `bson:"outputs" json:"outputs"`
 	Predata       IOmap             `bson:"predata" json:"predata"`
 	Cmd           *Command          `bson:"cmd" json:"cmd"`
+	App           *App              `bson:"app" json:"app"`
+	AppVariables  AppVariables      // not in App as workunit does not need AppVariables and I want to pass App
 	Partition     *PartInfo         `bson:"partinfo" json:"-"`
 	DependsOn     []string          `bson:"dependsOn" json:"dependsOn"`
 	TotalWork     int               `bson:"totalwork" json:"totalwork"`
@@ -42,8 +44,7 @@ type Task struct {
 	CompletedDate time.Time         `bson:"completedDate" json:"completeddate"`
 	ComputeTime   int               `bson:"computetime" json:"computetime"`
 	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
-	AppVariables  AppVariables
-	ClientGroups  string `bson:"clientgroups" json:"clientgroups"`
+	ClientGroups  string            `bson:"clientgroups" json:"clientgroups"`
 }
 
 func NewTask(job *Job, rank int) *Task {

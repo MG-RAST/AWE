@@ -370,6 +370,7 @@ my ($h, $help_text) = &parse_options (
 		'',
 		'Actions:',
 		[ 'status'						, "show job states on AWE server"],
+		[ 'job_queue'					, "show job queue"],
 		[ 'cmd=s'						, "command to execute"],
         [ 'show_clients'                , "show clients in current clientgroup"],
 		[ 'resume_clients=s'            , " "],
@@ -425,6 +426,25 @@ print "clientgroup: ". ($clientgroup || 'undef') ."\n\n";
 if (defined($h->{"status"})) {
 	showAWEstatus();
 	exit(0);
+} elsif (defined($h->{"job_queue"})) {
+	my $awe = new AWE::Client($aweserverurl, $shocktoken);
+	unless (defined $awe) {
+		die;
+	}
+
+	my $jq = $awe->getJobQueue();
+	#print Dumper($jq);
+	foreach my $job (@{$jq->{data}}) {
+		print $job->{id}." ".$job->{state} ."\n";
+	}
+	
+	foreach my $job (@{$jq->{data}}) {
+		print $job->{id}." ";
+	}
+	print "\n";
+	
+	exit(0);
+	
 } elsif (defined($h->{"show_clients"})) {
 	my $awe = new AWE::Client($aweserverurl, $shocktoken);
 	unless (defined $awe) {
@@ -729,6 +749,9 @@ if (defined($h->{"status"})) {
 	
 	foreach my $job (@jobs) {
 		my $job_obj = $awe->getJobStatus($job);
+		unless (defined $job_obj) {
+			die;
+		}
 		drawWorkflow($job_obj->{'data'}, $job, $h->{"nolabel"});
 	}
 	exit(0);

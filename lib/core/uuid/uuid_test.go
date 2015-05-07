@@ -2,7 +2,7 @@ package uuid_test
 
 import (
 	"fmt"
-	. "github.com/MG-RAST/AWE/core/uuid"
+	. "github.com/MG-RAST/AWE/lib/core/uuid"
 	"testing"
 )
 

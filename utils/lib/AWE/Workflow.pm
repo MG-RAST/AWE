@@ -33,7 +33,10 @@ sub new {
 		"project"		=> ($h{'project'} || "#project"),
 		"user"			=> ($h{'user'} || "#user"),
 		"clientgroups"	=> ($h{'clientgroups'} || "#clientgroups"),
-		"noretry"		=> ($h{'noretry'} || JSON::true)
+		"noretry"		=> ($h{'noretry'} || JSON::true),
+		"userattr"		=> $h{'userattr'},
+		"priority"		=> $h{'priority'},
+		"xref"			=> $h{'xref'}
 	};
 	
 	my $tasks = [];
@@ -44,6 +47,12 @@ sub new {
 		shockhost => $h{'shockhost'},
 		shocktoken => $h{'shocktoken'}
 	};
+	
+	#print "h: ".Dumper(%h)."\n";
+	#print "self: ".Dumper($self)."\n";
+	#if (defined $h{'shockhost'}) {
+	#	print "got shockhost:" .$self->{'shockhost'}."\n";
+	#}
 	
     bless $self, $class;
     return $self;
@@ -208,6 +217,10 @@ sub getHash {
 	
 	
 	$wf->{'shockhost'} = $self->shockhost();
+	
+	#if (defined $wf->{'shockhost'}) {
+	#	print "write shockhost:" .$wf->{'shockhost'}."\n";
+	#}
 	
 	return $wf;
 }

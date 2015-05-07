@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/golib/httpclient"
 	"io/ioutil"
-	"net/http"
 	"path"
 	"regexp"
 	"strconv"
@@ -188,20 +188,8 @@ func (apr AppRegistry) GetAppPackage(app_package string) (ap *AppPackage, err er
 		}
 		logger.Debug(1, fmt.Sprintf("downloading app package \"%s\"", package_url))
 
-		var res *http.Response
+		res, err := httpclient.GetTimeout(package_url, nil, nil, nil, 5000*time.Millisecond)
 
-		c := make(chan bool, 1)
-		go func() {
-			res, err = http.Get(package_url)
-			c <- true //we are ending
-		}()
-		select {
-		case <-c:
-			//go ahead
-		case <-time.After(5000 * time.Millisecond): //GET timeout
-			err = errors.New("warning: " + conf.APP_REGISTRY_URL + " timeout")
-		}
-		defer res.Body.Close()
 		if err != nil {
 			logger.Error("warning: " + conf.APP_REGISTRY_URL + " " + err.Error())
 			continue
@@ -209,7 +197,7 @@ func (apr AppRegistry) GetAppPackage(app_package string) (ap *AppPackage, err er
 
 		app_package_json, err := ioutil.ReadAll(res.Body)
 		if err != nil {
-			logger.Error(fmt.Sprintf("warning, could not read app registry json"))
+			logger.Error(fmt.Sprintf("warning, could not read app registry json: %s", err.Error()))
 			continue
 		}
 
@@ -653,7 +641,7 @@ func (appr AppRegistry) createIOnodes(job *Job) (err error) {
 
 		err = appr.createIOnodes_forTask(job, task, taskid2task, taskid_processed)
 		if err != nil {
-			return err
+			return errors.New(fmt.Sprintf("error in task %s: %s", task.App.Name, err.Error()))
 		}
 	}
 

@@ -63,13 +63,13 @@ func processor(control chan int) {
 		var err error
 		var envkeys []string
 		_ = envkeys
-		
+
 		wants_docker := false
 		if work.Cmd.Dockerimage != "" || work.App != nil {
 			wants_docker = true
 		}
 
-		if ! wants_docker {
+		if !wants_docker {
 			envkeys, err = SetEnv(work)
 			if err != nil {
 				logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
@@ -104,7 +104,7 @@ func processor(control chan int) {
 		processed.perfstat.Runtime = computetime
 		processed.workunit.ComputeTime = int(computetime)
 
-		if ! wants_docker {
+		if !wants_docker {
 			if len(envkeys) > 0 {
 				UnSetEnv(envkeys)
 			}

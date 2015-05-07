@@ -1,0 +1,111 @@
+{
+	"ImportPath": "github.com/MG-RAST/AWE",
+	"GoVersion": "go1.3.1",
+	"Packages": [
+		"github.com/MG-RAST/AWE/..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "code.google.com/p/go-uuid/uuid",
+			"Comment": "null-15",
+			"Rev": "35bc42037350f0078e3c974c6ea690f1926603ab"
+		},
+		{
+			"ImportPath": "github.com/MG-RAST/Shock/shock-server/auth/mgrast",
+			"Comment": "v0.9.4-126-g193e567",
+			"Rev": "193e5678593bc5360055d314597e582f2ce31472"
+		},
+		{
+			"ImportPath": "github.com/MG-RAST/Shock/shock-server/conf",
+			"Comment": "v0.9.4-126-g193e567",
+			"Rev": "193e5678593bc5360055d314597e582f2ce31472"
+		},
+		{
+			"ImportPath": "github.com/MG-RAST/Shock/shock-server/db",
+			"Comment": "v0.9.4-126-g193e567",
+			"Rev": "193e5678593bc5360055d314597e582f2ce31472"
+		},
+		{
+			"ImportPath": "github.com/MG-RAST/Shock/shock-server/errors",
+			"Comment": "v0.9.4-126-g193e567",
+			"Rev": "193e5678593bc5360055d314597e582f2ce31472"
+		},
+		{
+			"ImportPath": "github.com/MG-RAST/Shock/shock-server/logger",
+			"Comment": "v0.9.4-126-g193e567",
+			"Rev": "193e5678593bc5360055d314597e582f2ce31472"
+		},
+		{
+			"ImportPath": "github.com/MG-RAST/Shock/shock-server/user",
+			"Comment": "v0.9.4-126-g193e567",
+			"Rev": "193e5678593bc5360055d314597e582f2ce31472"
+		},
+		{
+			"ImportPath": "github.com/MG-RAST/golib/go-uuid/uuid",
+			"Rev": "bba5ac08ab7c9ef165f2144e2f17cc339d1d9d4f"
+		},
+		{
+			"ImportPath": "github.com/MG-RAST/golib/goconfig/config",
+			"Rev": "bba5ac08ab7c9ef165f2144e2f17cc339d1d9d4f"
+		},
+		{
+			"ImportPath": "github.com/MG-RAST/golib/goweb",
+			"Rev": "bba5ac08ab7c9ef165f2144e2f17cc339d1d9d4f"
+		},
+		{
+			"ImportPath": "github.com/MG-RAST/golib/httpclient",
+			"Rev": "bba5ac08ab7c9ef165f2144e2f17cc339d1d9d4f"
+		},
+		{
+			"ImportPath": "github.com/MG-RAST/golib/log4go",
+			"Rev": "bba5ac08ab7c9ef165f2144e2f17cc339d1d9d4f"
+		},
+		{
+			"ImportPath": "github.com/MG-RAST/golib/mgo",
+			"Rev": "bba5ac08ab7c9ef165f2144e2f17cc339d1d9d4f"
+		},
+		{
+			"ImportPath": "github.com/MG-RAST/golib/uniuri",
+			"Rev": "bba5ac08ab7c9ef165f2144e2f17cc339d1d9d4f"
+		},
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.7.3-4-gaaf92c9",
+			"Rev": "aaf92c95712104318fc35409745f1533aa5ff327"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/archive",
+			"Comment": "v1.4.1-3257-g1ab875b",
+			"Rev": "1ab875b38b012bca8ae1efc534ac5170b77024ea"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/fileutils",
+			"Comment": "v1.4.1-3257-g1ab875b",
+			"Rev": "1ab875b38b012bca8ae1efc534ac5170b77024ea"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/ioutils",
+			"Comment": "v1.4.1-3257-g1ab875b",
+			"Rev": "1ab875b38b012bca8ae1efc534ac5170b77024ea"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/pools",
+			"Comment": "v1.4.1-3257-g1ab875b",
+			"Rev": "1ab875b38b012bca8ae1efc534ac5170b77024ea"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/promise",
+			"Comment": "v1.4.1-3257-g1ab875b",
+			"Rev": "1ab875b38b012bca8ae1efc534ac5170b77024ea"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/system",
+			"Comment": "v1.4.1-3257-g1ab875b",
+			"Rev": "1ab875b38b012bca8ae1efc534ac5170b77024ea"
+		},
+		{
+			"ImportPath": "github.com/fsouza/go-dockerclient",
+			"Rev": "0ba7f0a32981ca4c1043c245017eb099708695ef"
+		}
+	]
+}

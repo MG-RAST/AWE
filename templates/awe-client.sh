@@ -15,7 +15,7 @@ CONF_FILE="/etc/awe/${NAME}.conf"
 start() {
     AWE_OPTS="-conf $CONF_FILE"
     if [ -n "$1" ]; then
-    	AWE_OPTS="-debug 3 $AWE_OPTS"
+    	AWE_OPTS="-debuglevel 3 $AWE_OPTS"
     	echo "Running in debug mode"
     fi
     echo -n "Starting $NAME... "

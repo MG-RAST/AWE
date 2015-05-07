@@ -9,8 +9,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/go-dockerclient"
 	"github.com/MG-RAST/golib/httpclient"
+	"github.com/fsouza/go-dockerclient"
 	"io"
 	"io/ioutil"
 	//"net/url"
@@ -536,11 +536,23 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	var max_memory_total_rss int64 = -1
 	var max_memory_total_swap int64 = -1
 
-	// documentation: https://docs.docker.com/articles/runmetrics/
-	// e.g. /sys/fs/cgroup/memory/docker/<id>/memory.stat
-	memory_stat_filename := path.Join(conf.CGROUP_MEMORY_DOCKER_DIR, container_id, "/memory.stat")
-
+	memory_stat_filename := ""
 	if conf.MEM_CHECK_INTERVAL != 0 {
+
+		// documentation: https://docs.docker.com/articles/runmetrics/
+		// e.g. ubuntu: /sys/fs/cgroup/memory/docker/[ID]/memory.stat
+		//      coreos: /sys/fs/cgroup/memory/system.slice/docker-[ID].scope/memory.stat
+
+		memory_stat_filename = strings.Replace(conf.CGROUP_MEMORY_DOCKER_DIR, "[ID]", container_id, -1)
+
+		if _, err := os.Stat(memory_stat_filename); os.IsNotExist(err) {
+			logger.Error("warning: memory measurement requested, but no memory.stat found: %s" + memory_stat_filename)
+			memory_stat_filename = ""
+		}
+
+	}
+
+	if conf.MEM_CHECK_INTERVAL != 0 && memory_stat_filename != "" {
 		go func() { // memory checker
 
 			for {

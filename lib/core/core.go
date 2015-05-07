@@ -132,7 +132,7 @@ func CreateJobUpload(u *user.User, params map[string]string, files FormFiles, ji
 	if conf.USE_APP_DEFS != "no" {
 		err = MyAppRegistry.createIOnodes(job)
 		if err != nil {
-			err = errors.New("error in createIOnodes, error=" + err.Error())
+			err = errors.New(fmt.Sprintf("error in createIOnodes, error=%s", err.Error()))
 			return
 		}
 	}

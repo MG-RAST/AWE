@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/shock"
-	"github.com/MG-RAST/go-dockerclient"
+	"github.com/fsouza/go-dockerclient"
 	"io"
 	"io/ioutil"
 	"net/url"

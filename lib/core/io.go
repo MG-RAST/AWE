@@ -98,7 +98,7 @@ func (io *IO) DataUrl() (dataurl string, err error) {
 		io.Url = fmt.Sprintf("%s/node/%s?download", io.Host, io.Node)
 		return io.Url, nil
 	} else {
-	    // empty IO is valid
+		// empty IO is valid
 		return "", nil
 	}
 }

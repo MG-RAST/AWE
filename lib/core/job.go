@@ -43,6 +43,25 @@ type Job struct {
 	ShockHost   string    `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
 }
 
+// Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
+// Jobs that cannot be parsed into the Job struct, but can be parsed into the JobDep struct will be translated to the new Job struct.
+type JobDep struct {
+	Id          string     `bson:"id" json:"id"`
+	Jid         string     `bson:"jid" json:"jid"`
+	Acl         acl.Acl    `bson:"acl" json:"-"`
+	Info        *Info      `bson:"info" json:"info"`
+	Tasks       []*TaskDep `bson:"tasks" json:"tasks"`
+	Script      script     `bson:"script" json:"-"`
+	State       string     `bson:"state" json:"state"`
+	Registered  bool       `bson:"registered" json:"registered"`
+	RemainTasks int        `bson:"remaintasks" json:"remaintasks"`
+	UpdateTime  time.Time  `bson:"updatetime" json:"updatetime"`
+	Notes       string     `bson:"notes" json:"notes"`
+	LastFailed  string     `bson:"lastfailed" json:"lastfailed"`
+	Resumed     int        `bson:"resumed" json:"resumed"`     //number of times the job has been resumed from suspension
+	ShockHost   string     `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
+}
+
 type JobMin struct {
 	Id            string            `bson:"id" json:"id"`
 	Name          string            `bson:"name" json:"name"`

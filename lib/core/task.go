@@ -25,6 +25,33 @@ const (
 type Task struct {
 	Id            string            `bson:"taskid" json:"taskid"`
 	Info          *Info             `bson:"info" json:"-"`
+	Inputs        []*IO             `bson:"inputs" json:"inputs"`
+	Outputs       []*IO             `bson:"outputs" json:"outputs"`
+	Predata       []*IO             `bson:"predata" json:"predata"`
+	Cmd           *Command          `bson:"cmd" json:"cmd"`
+	App           *App              `bson:"app" json:"app"`
+	AppVariables  AppVariables      // not in App as workunit does not need AppVariables and I want to pass App
+	Partition     *PartInfo         `bson:"partinfo" json:"-"`
+	DependsOn     []string          `bson:"dependsOn" json:"dependsOn"`
+	TotalWork     int               `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize   int               `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork    int               `bson:"remainwork" json:"remainwork"`
+	WorkStatus    []string          `bson:"workstatus" json:"-"`
+	State         string            `bson:"state" json:"state"`
+	Skip          int               `bson:"skip" json:"-"`
+	CreatedDate   time.Time         `bson:"createdDate" json:"createddate"`
+	StartedDate   time.Time         `bson:"startedDate" json:"starteddate"`
+	CompletedDate time.Time         `bson:"completedDate" json:"completeddate"`
+	ComputeTime   int               `bson:"computetime" json:"computetime"`
+	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
+	ClientGroups  string            `bson:"clientgroups" json:"clientgroups"`
+}
+
+// Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
+// Jobs that cannot be parsed into the Job struct, but can be parsed into the JobDep struct will be translated to the new Job struct.
+type TaskDep struct {
+	Id            string            `bson:"taskid" json:"taskid"`
+	Info          *Info             `bson:"info" json:"-"`
 	Inputs        IOmap             `bson:"inputs" json:"inputs"`
 	Outputs       IOmap             `bson:"outputs" json:"outputs"`
 	Predata       IOmap             `bson:"predata" json:"predata"`
@@ -51,8 +78,9 @@ func NewTask(job *Job, rank int) *Task {
 	return &Task{
 		Id:         fmt.Sprintf("%s_%d", job.Id, rank),
 		Info:       job.Info,
-		Inputs:     NewIOmap(),
-		Outputs:    NewIOmap(),
+		Inputs:     []*IO{},
+		Outputs:    []*IO{},
+		Predata:    []*IO{},
 		Cmd:        &Command{},
 		Partition:  nil,
 		DependsOn:  []string{},
@@ -170,10 +198,10 @@ func (task *Task) InitPartIndex() (err error) {
 	var input_io *IO
 	if task.Partition == nil {
 		if len(task.Inputs) == 1 {
-			for filename, io := range task.Inputs {
+			for _, io := range task.Inputs {
 				input_io = io
 				task.Partition = new(PartInfo)
-				task.Partition.Input = filename
+				task.Partition.Input = io.FileName
 				task.Partition.MaxPartSizeMB = task.MaxWorkSize
 				break
 			}
@@ -190,12 +218,18 @@ func (task *Task) InitPartIndex() (err error) {
 			task.setTotalWork(1)
 			return
 		}
-		if _, ok := task.Inputs[task.Partition.Input]; !ok {
+		found := false
+		for _, io := range task.Inputs {
+			if io.FileName == task.Partition.Input {
+				found = true
+				input_io = io
+			}
+		}
+		if !found {
 			task.setTotalWork(1)
 			logger.Error("warning: invalid partition info, taskid=" + task.Id)
 			return
 		}
-		input_io = task.Inputs[task.Partition.Input]
 	}
 
 	var totalunits int

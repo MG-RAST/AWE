@@ -24,7 +24,7 @@ import (
 )
 
 // this functions replaces filename if they match regular expression and they match the filename reported in IOmap
-func replace_filepath_with_full_filepath(inputs *core.IOmap, workpath string, cmd_script []string) (err error) {
+func replace_filepath_with_full_filepath(inputs []*core.IO, workpath string, cmd_script []string) (err error) {
 
 	// workpath may be conf.DOCKER_WORK_DIR
 
@@ -46,11 +46,13 @@ func replace_filepath_with_full_filepath(inputs *core.IOmap, workpath string, cm
 		var inputname = variable[1:] // remove @ in front ; TODO filenames with spaces would need quotes
 		logger.Debug(1, fmt.Sprintf("file_name: %s", inputname))
 
-		if inputs.Has(inputname) {
-			//inputFilePath := fmt.Sprintf("%s/%s", conf.DOCKER_WORK_DIR, inputname)
-			inputFilePath := path.Join(workpath, inputname)
-			logger.Debug(1, fmt.Sprintf("return full file_name: %s", inputname))
-			return inputFilePath
+		for _, io := range inputs {
+			if io.FileName == inputname {
+				//inputFilePath := fmt.Sprintf("%s/%s", conf.DOCKER_WORK_DIR, inputname)
+				inputFilePath := path.Join(workpath, inputname)
+				logger.Debug(1, fmt.Sprintf("return full file_name: %s", inputname))
+				return inputFilePath
+			}
 		}
 
 		logger.Debug(1, fmt.Sprintf("warning: could not find input file for variable_name: %s", variable))
@@ -158,7 +160,7 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 
 	logger.Debug(1, "+++ replace_filepath_with_full_filepath")
 	// expand filenames
-	err = replace_filepath_with_full_filepath(&parsed.workunit.Inputs, conf.DOCKER_WORK_DIR, cmd_script)
+	err = replace_filepath_with_full_filepath(parsed.workunit.Inputs, conf.DOCKER_WORK_DIR, cmd_script)
 	if err != nil {
 		return errors.New(fmt.Sprintf("error: replace_filepath_with_full_filepath, %s", err.Error()))
 	}
@@ -345,7 +347,7 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 
 	// use better file name replacement technique
 	var virtual_cmd_script = []string{argstr}
-	replace_filepath_with_full_filepath(&work.Inputs, workpath, virtual_cmd_script)
+	replace_filepath_with_full_filepath(work.Inputs, workpath, virtual_cmd_script)
 	argstr = virtual_cmd_script[0]
 
 	argList := parse_arg_string(argstr)
@@ -374,10 +376,12 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 				return errors.New("invalid format in command args, multiple @ within one arg")
 			}
 			inputname := segs[1]
-			if work.Inputs.Has(inputname) {
-				inputFilePath := path.Join(workpath, inputname)
-				parsedArg := fmt.Sprintf("%s%s", segs[0], inputFilePath)
-				args = append(args, parsedArg)
+			for _, io := range work.Inputs {
+				if io.FileName == inputname {
+					inputFilePath := path.Join(workpath, inputname)
+					parsedArg := fmt.Sprintf("%s%s", segs[0], inputFilePath)
+					args = append(args, parsedArg)
+				}
 			}
 			continue
 		}
@@ -427,7 +431,8 @@ func fetchFile_old(filename string, url string, token string) (size int64, err e
 
 //fetch prerequisite data (e.g. reference dbs)
 func movePreData(workunit *core.Workunit) (size int64, err error) {
-	for name, io := range workunit.Predata {
+	for _, io := range workunit.Predata {
+		name := io.FileName
 		predata_directory := path.Join(conf.DATA_PATH, "predata")
 		err = os.MkdirAll(predata_directory, 755)
 		if err != nil {
@@ -543,7 +548,8 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 
 //fetch input data
 func moveInputData(work *core.Workunit) (size int64, err error) {
-	for inputname, io := range work.Inputs {
+	for _, io := range work.Inputs {
+		inputname := io.FileName
 		dataUrl, uerr := io.DataUrl()
 		if uerr != nil {
 			return 0, uerr

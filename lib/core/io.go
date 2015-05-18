@@ -47,6 +47,8 @@ type PartInfo struct {
 	Options       string `bson:"options" json:"-"`
 }
 
+// Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
+// Jobs that cannot be parsed into the Job struct, but can be parsed into the JobDep struct will be translated to the new Job struct.
 type IOmap map[string]*IO // [filename]attributes
 
 func NewIOmap() IOmap {

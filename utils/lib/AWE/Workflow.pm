@@ -340,6 +340,10 @@ sub shock_resource {
 sub string_resource {
 	my ($key, $value) = @_;
 	
+	unless (defined $key) {
+		die "no argument defined for string_resource"
+	}
+	
 	unless (defined $value) {
 		$value = $key."";
 		$key = undef;

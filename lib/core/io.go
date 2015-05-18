@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/shock"
+	"github.com/MG-RAST/golib/go-uuid/uuid"
+	"net/url"
 	"strings"
 )
 
@@ -74,31 +76,31 @@ func NewIO() *IO {
 	return &IO{}
 }
 
-func (io *IO) DataUrl() string {
+func (io *IO) DataUrl() (dataurl string, err error) {
 	if io.Url != "" {
-		if io.Host == "" || io.Node == "-" {
-			parts := strings.Split(io.Url, "/")
-
-			// test if url is a shock url   ; len nodeid?download 36+9 = 45
-			if parts[2] != "" && parts[3] == "node" {
-				if (strings.HasSuffix(parts[3], "?download") && len(parts[3]) == 45) || len(parts[3]) == 36 {
-					host := "http://" + parts[2]
-					node := strings.Split(parts[4], "?")[0]
-
-					io.Host = host
-					io.Node = node
-				}
+		// parse and test url
+		u, _ := url.Parse(io.Url)
+		if (u.Scheme == "") || (u.Host == "") || (u.Path == "") {
+			return "", errors.New("Not a valid url: " + io.Url)
+		}
+		// get shock info from url
+		if (io.Host == "") || (io.Node == "") || (io.Node == "-") {
+			trimPath := strings.Trim(u.Path, "/")
+			cleanUuid := strings.Trim(strings.TrimPrefix(trimPath, "node"), "/")
+			// appears to be a shock url
+			if (cleanUuid != trimPath) && (uuid.Parse(cleanUuid) != nil) {
+				io.Host = u.Scheme + "://" + u.Host
+				io.Node = cleanUuid
 			}
 		}
-		return io.Url
+		return io.Url, nil
+	} else if (io.Host != "") && (io.Node != "") && (io.Node != "-") {
+		io.Url = fmt.Sprintf("%s/node/%s?download", io.Host, io.Node)
+		return io.Url, nil
 	} else {
-		if io.Host != "" && io.Node != "-" {
-			downloadUrl := fmt.Sprintf("%s/node/%s?download", io.Host, io.Node)
-			io.Url = downloadUrl
-			return downloadUrl
-		}
+		// empty IO is valid
+		return "", nil
 	}
-	return ""
 }
 
 func (io *IO) TotalUnits(indextype string) (count int, err error) {
@@ -133,7 +135,7 @@ func (io *IO) GetShockNode() (node *shock.ShockNode, err error) {
 	if io.Host == "" {
 		return nil, errors.New("empty shock host")
 	}
-	if io.Node == "" {
+	if io.Node == "-" {
 		return nil, errors.New("empty node id")
 	}
 	return shock.ShockGet(io.Host, io.Node, io.DataToken)

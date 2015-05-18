@@ -15,7 +15,7 @@ CONF_FILE="/etc/awe/${NAME}.conf"
 start() {
     AWE_OPTS="-conf $CONF_FILE"
     if [ -n "$1" ]; then
-    	AWE_OPTS="-debug 3 $AWE_OPTS"
+    	AWE_OPTS="-debuglevel 3 $AWE_OPTS"
     	echo "Running in debug mode"
     fi
     echo -n "Starting $NAME... "
@@ -46,7 +46,12 @@ stop() {
 status() {
     if [ -f $PID_FILE ]; then
 	    PIDN=`cat $PID_FILE`
-	    echo "$NAME is running with pid $PIDN."
+	    PSTAT=`ps -p $PIDN | grep -v -w 'PID'`
+	    if [ -z "$PSTAT" ]; then
+	        echo "$NAME has pidfile ($PIDN) but is not running."
+	    else
+	        echo "$NAME is running with pid $PIDN."
+	    fi
     else
 	    echo "$NAME is not running."
     fi

@@ -99,13 +99,6 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		}
 	}
 
-	// Load workunit by id
-	workunit, err := core.QMgr.GetWorkById(id)
-	if err != nil {
-		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-		return
-	}
-
 	jobid, err := core.GetJobIdByWorkId(id)
 	if err != nil {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
@@ -142,7 +135,13 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
+
 	// Base case respond with workunit in json
+	workunit, err := core.QMgr.GetWorkById(id)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
 	cx.RespondWithData(workunit)
 	return
 }

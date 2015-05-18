@@ -90,25 +90,29 @@ func SiteDir(cx *goweb.Context) {
 }
 
 type resource struct {
-	R []string `json:"resources"`
-	U string   `json:"url"`
-	D string   `json:"documentation"`
-	C string   `json:"contact"`
-	I string   `json:"id"`
-	T string   `json:"type"`
-	V string   `json:"version"`
+	R             []string `json:"resources"`
+	U             string   `json:"url"`
+	D             string   `json:"documentation"`
+	Title         string   `json:"title"` // title to show in AWE monitor
+	C             string   `json:"contact"`
+	I             string   `json:"id"`
+	T             string   `json:"type"`
+	V             string   `json:"version"`
+	GitCommitHash string   `json:"git_commit_hash"`
 }
 
 func ResourceDescription(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	r := resource{
-		R: []string{},
-		U: apiUrl(cx) + "/",
-		D: siteUrl(cx) + "/",
-		C: conf.ADMIN_EMAIL,
-		I: "AWE",
-		T: core.Service,
-		V: conf.VERSION,
+		R:             []string{},
+		U:             apiUrl(cx) + "/",
+		D:             siteUrl(cx) + "/",
+		Title:         conf.TITLE,
+		C:             conf.ADMIN_EMAIL,
+		I:             "AWE",
+		T:             core.Service,
+		V:             conf.VERSION,
+		GitCommitHash: conf.GIT_COMMIT_HASH,
 	}
 	if core.Service == "server" {
 		r.R = []string{"job", "work", "client", "queue", "awf"}

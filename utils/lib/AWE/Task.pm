@@ -1,6 +1,6 @@
 package AWE::Task;
 
-# this is a generic representation of an AWE task. It also serves as parent class for AWE apps.
+# this is a generic representation of an AWE task. (can be used with or without app defintions)
 
 use strict;
 use warnings;
@@ -13,24 +13,32 @@ use JSON;
 
 sub new {
     my ($class) = @_;
-    
-	my $cmd = {
-		"name"			=> "",
-		"args"			=> "",
-		"environ"		=> {},
-		"description"	=> ""
-	};
-			
+	
     my $self = {
-		cmd => $cmd,
+		cmd => {
+			"name"			=> "",
+			"args"			=> "",
+			"environ"		=> {},
+			"description"	=> ""
+		},
+		app => {
+			"name"			=> "", # name of the app
+			'app_args' => {} # arguments for the app
+		},
 		inputs => [],
 		outputs => [],
 		partinfo => {},
+		userattr => {},
 		taskid => ""
 	};
 	
     bless $self, $class;
     return $self;
+}
+
+sub app {
+	my ($self) = @_;
+	return $self->{'app'};
 }
 
 sub cmd {
@@ -60,6 +68,15 @@ sub taskid {
     return $self->{taskid};
 }
 
+sub userattr {
+	my ($self, %values) = @_;
+	
+	if (keys(%values) > 0) {
+		$self->{userattr} = \%values
+	}
+	
+	return $self->{userattr};
+}
 
 sub description {
     my ($self, $newdescription) = @_;
@@ -145,19 +162,23 @@ sub getHash {
 		$outputs->{$f} = $n;
 	}
 	
-	my @dependsOn = keys($deps);
+	my @dependsOn = keys(%$deps);
 	
 	my $t = {
-		'cmd' => $self->cmd,
+		'cmd' 		=> $self->cmd,
+		'app' 		=> $self->app,
 		'dependsOn' => \@dependsOn,
-		'inputs' => $inputs,
-		'outputs' => $outputs,
-		'partinfo' => $self->partinfo,
-		'taskid' => $self->taskid
+		'inputs' 	=> $inputs,
+		'outputs' 	=> $outputs,
+		'partinfo' 	=> $self->partinfo,
+		'userattr'	=> $self->userattr,
+		'taskid' 	=> $self->taskid
 	};
 	
 	return $t;
 
 }
+
+
 
 1;

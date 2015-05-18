@@ -6,7 +6,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -30,6 +29,8 @@ type Task struct {
 	Outputs       IOmap             `bson:"outputs" json:"outputs"`
 	Predata       IOmap             `bson:"predata" json:"predata"`
 	Cmd           *Command          `bson:"cmd" json:"cmd"`
+	App           *App              `bson:"app" json:"app"`
+	AppVariables  AppVariables      // not in App as workunit does not need AppVariables and I want to pass App
 	Partition     *PartInfo         `bson:"partinfo" json:"-"`
 	DependsOn     []string          `bson:"dependsOn" json:"dependsOn"`
 	TotalWork     int               `bson:"totalwork" json:"totalwork"`
@@ -43,7 +44,7 @@ type Task struct {
 	CompletedDate time.Time         `bson:"completedDate" json:"completeddate"`
 	ComputeTime   int               `bson:"computetime" json:"computetime"`
 	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
-	AppVariables  AppVariables
+	ClientGroups  string            `bson:"clientgroups" json:"clientgroups"`
 }
 
 func NewTask(job *Job, rank int) *Task {
@@ -64,30 +65,26 @@ func NewTask(job *Job, rank int) *Task {
 }
 
 // fill some info (lacked in input json) for a task
-func (task *Task) InitTask(job *Job, rank int) (err error) {
+func (task *Task) InitTask(job *Job) (err error) {
 	//validate taskid
 	if len(task.Id) == 0 {
 		return errors.New("invalid taskid:" + task.Id)
 	}
+
 	parts := strings.Split(task.Id, "_")
-	if len(parts) == 2 {
-		//is standard taskid (%s_%d), do nothing
-	} else if idInt, err := strconv.Atoi(task.Id); err == nil {
-		//if task.Id is an "integer", it is unmashalled from job.json (submitted by template)
-		//convert to standard taskid
-		if rank != idInt {
-			return errors.New(fmt.Sprintf("invalid job script: task id doesn't match stage %d vs %d", rank, idInt))
-		}
+	if len(parts) == 1 {
+		// is not standard taskid, convert it
 		task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
 		for j := 0; j < len(task.DependsOn); j++ {
 			depend := task.DependsOn[j]
 			task.DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)
 		}
-	} else {
-		return errors.New("invalid taskid:" + task.Id)
 	}
 
 	task.Info = job.Info
+	if task.ClientGroups != "" {
+		task.Info.ClientGroups = task.ClientGroups
+	}
 
 	if task.TotalWork <= 0 {
 		task.setTotalWork(1)
@@ -95,15 +92,37 @@ func (task *Task) InitTask(job *Job, rank int) (err error) {
 	task.WorkStatus = make([]string, task.TotalWork)
 	task.RemainWork = task.TotalWork
 
+	// set node / host / url for files
 	for _, io := range task.Inputs {
 		if io.Node == "" {
 			io.Node = "-"
 		}
+		if _, err = io.DataUrl(); err != nil {
+			return err
+		}
+		logger.Debug(2, "inittask input: host="+io.Host+", node="+io.Node+", url="+io.Url)
 	}
 	for _, io := range task.Outputs {
 		if io.Node == "" {
 			io.Node = "-"
 		}
+		if _, err = io.DataUrl(); err != nil {
+			return err
+		}
+		logger.Debug(2, "inittask output: host="+io.Host+", node="+io.Node+", url="+io.Url)
+	}
+	for _, io := range task.Predata {
+		if io.Node == "" {
+			io.Node = "-"
+		}
+		if _, err = io.DataUrl(); err != nil {
+			return err
+		}
+		// predata IO can not be empty
+		if (io.Url == "") && (io.Node == "-") {
+			return errors.New("Invalid IO, required fields url or host / node missing")
+		}
+		logger.Debug(2, "inittask predata: host="+io.Host+", node="+io.Node+", url="+io.Url)
 	}
 
 	if len(task.Cmd.Environ.Private) > 0 {
@@ -281,6 +300,20 @@ func (task *Task) DeleteOutput() {
 		task.State == TASK_STAT_SKIPPED ||
 		task.State == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Outputs {
+			if io.Delete {
+				if nodeid, err := io.DeleteNode(); err != nil {
+					logger.Error(fmt.Sprintf("warning: fail to delete shock node %s: %s", nodeid, err.Error()))
+				}
+			}
+		}
+	}
+}
+
+func (task *Task) DeleteInput() {
+	if task.State == TASK_STAT_COMPLETED ||
+		task.State == TASK_STAT_SKIPPED ||
+		task.State == TASK_STAT_FAIL_SKIP {
+		for _, io := range task.Inputs {
 			if io.Delete {
 				if nodeid, err := io.DeleteNode(); err != nil {
 					logger.Error(fmt.Sprintf("warning: fail to delete shock node %s: %s", nodeid, err.Error()))

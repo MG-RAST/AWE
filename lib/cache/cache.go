@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/shock"
+	"github.com/MG-RAST/golib/httpclient"
 	"io"
 	"io/ioutil"
 	"os"
@@ -140,7 +140,10 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 
 		// skip if NoFile == true
 		if !io.NoFile { // is file !
-			var dataUrl string
+			dataUrl, uerr := io.DataUrl()
+			if uerr != nil {
+				return 0, uerr
+			}
 			inputFilePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
 
 			if work.Rank == 0 {
@@ -156,16 +159,15 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 						return 0, err
 					}
 				}
-				dataUrl = io.DataUrl()
 			} else {
-				dataUrl = fmt.Sprintf("%s&index=%s&part=%s", io.DataUrl(), work.IndexType(), work.Part())
+				dataUrl = fmt.Sprintf("%s&index=%s&part=%s", dataUrl, work.IndexType(), work.Part())
 			}
 			logger.Debug(2, "mover: fetching input file from url:"+dataUrl)
 			logger.Event(event.FILE_IN, "workid="+work.Id+";url="+dataUrl)
 
 			// download file
-			if datamoved, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress); err != nil {
-				return size, err
+			if datamoved, _, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false); err != nil {
+				return size, errors.New("shock.FetchFile returned: " + err.Error())
 			} else {
 				size += datamoved
 			}
@@ -177,7 +179,8 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 			// get node
 			node, err := shock.ShockGet(io.Host, io.Node, work.Info.DataToken)
 			if err != nil {
-				return size, err
+				//return size, err
+				return size, errors.New("shock.ShockGet (node attributes) returned: " + err.Error())
 			}
 			logger.Debug(2, "mover: fetching input attributes from node:"+node.Id)
 			logger.Event(event.ATTR_IN, "workid="+work.Id+";node="+node.Id)

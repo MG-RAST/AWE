@@ -8,9 +8,9 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
-	"github.com/MG-RAST/AWE/lib/httpclient"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/golib/httpclient"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -207,6 +207,7 @@ func ComposeProfile() (profile *core.Client, err error) {
 	profile.CPUs = runtime.NumCPU()
 	profile.Domain = conf.CLIENT_DOMAIN
 	profile.Version = conf.VERSION
+	profile.GitCommitHash = conf.GIT_COMMIT_HASH
 
 	//app list
 	profile.Apps = []string{}

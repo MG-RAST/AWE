@@ -1,4 +1,4 @@
-# AWE worker and server (for a server with mongodb, please use the awe-server Dockerfile)
+# AWE worker and server binaries
 
 FROM ubuntu:14.04
 
@@ -18,6 +18,12 @@ ENV GOROOT /usr/local/go
 ENV PATH /usr/local/go/bin:/gopath/bin:/usr/local/bin:$PATH
 ENV GOPATH /gopath/
 
-RUN go get github.com/MG-RAST/AWE/...
+# clone first to get commit hash
+RUN /usr/bin/mkdir -p /gopath/src/github.com/MG-RAST/ && \
+  cd /gopath/src/github.com/MG-RAST/ && \
+  git clone --recursive https://github.com/MG-RAST/AWE.git
+
+RUN GITHASH=$(git -C /gopath/src/github.com/MG-RAST/AWE rev-parse HEAD) && \
+  go get -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH ${GITHASH}" github.com/MG-RAST/AWE/...
 
 CMD ["bash"]

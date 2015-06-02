@@ -8,7 +8,7 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	. "github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/request"
-	"github.com/MG-RAST/golib/goweb"
+	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goweb"
 	"math/rand"
 	"net"
 	"net/http"

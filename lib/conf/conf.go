@@ -4,7 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/MG-RAST/golib/goconfig/config"
+	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goconfig/config"
 	"os"
 	"path/filepath"
 	"strings"
@@ -530,8 +530,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 	if mode == "client" {
 
 		c_store.AddString(&DOCKER_BINARY, "API", "Docker", "docker_binary", "docker binary to use, default is the docker API (API recommended)", "")
-		c_store.AddInt(&MEM_CHECK_INTERVAL_SECONDS, -1, "Docker", "mem_check_interval_seconds", "memory check interval in seconds (kernel needs to support that)", "")
-		c_store.AddString(&CGROUP_MEMORY_DOCKER_DIR, "/sys/fs/cgroup/memory/docker/", "Docker", "cgroup_memory_docker_dir", "path to cgroup directory for docker", "")
+		c_store.AddInt(&MEM_CHECK_INTERVAL_SECONDS, 0, "Docker", "mem_check_interval_seconds", "memory check interval in seconds (kernel needs to support that)", "0 seconds means disabled")
+		c_store.AddString(&CGROUP_MEMORY_DOCKER_DIR, "/sys/fs/cgroup/memory/docker/[ID]/memory.stat", "Docker", "cgroup_memory_docker_dir", "path to cgroup directory for docker", "")
 	}
 	if mode == "server" {
 		c_store.AddString(&USE_APP_DEFS, "no", "Docker", "use_app_defs", "\"yes\", \"no\" or \"only\"", "yes: allow app defs, no: do not allow app defs, only: allow only app defs")
@@ -619,7 +619,7 @@ func Init_conf(mode string) (err error) {
 			}
 		}
 
-		if MEM_CHECK_INTERVAL_SECONDS >= 0 {
+		if MEM_CHECK_INTERVAL_SECONDS > 0 {
 			MEM_CHECK_INTERVAL = time.Duration(MEM_CHECK_INTERVAL_SECONDS) * time.Second
 			// TODO
 		}

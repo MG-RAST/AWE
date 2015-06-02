@@ -19,7 +19,7 @@ ENV PATH /usr/local/go/bin:/gopath/bin:/usr/local/bin:$PATH
 ENV GOPATH /gopath/
 
 # clone first to get commit hash
-RUN /usr/bin/mkdir -p /gopath/src/github.com/MG-RAST/ && \
+RUN /bin/mkdir -p /gopath/src/github.com/MG-RAST/ && \
   cd /gopath/src/github.com/MG-RAST/ && \
   git clone --recursive https://github.com/MG-RAST/AWE.git
 

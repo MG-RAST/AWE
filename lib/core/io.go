@@ -49,17 +49,21 @@ type PartInfo struct {
 
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
 // Jobs that cannot be parsed into the Job struct, but can be parsed into the JobDep struct will be translated to the new Job struct.
+// (=deprecated=)
 type IOmap map[string]*IO // [filename]attributes
 
+// (=deprecated=)
 func NewIOmap() IOmap {
 	return IOmap{}
 }
 
+// (=deprecated=)
 func (i IOmap) Add(name string, host string, node string, md5 string, cache bool) {
 	i[name] = &IO{FileName: name, Host: host, Node: node, MD5: md5, Cache: cache}
 	return
 }
 
+// (=deprecated=)
 func (i IOmap) Has(name string) bool {
 	if _, has := i[name]; has {
 		return true
@@ -67,6 +71,7 @@ func (i IOmap) Has(name string) bool {
 	return false
 }
 
+// (=deprecated=)
 func (i IOmap) Find(name string) *IO {
 	if val, has := i[name]; has {
 		return val

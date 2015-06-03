@@ -21,8 +21,8 @@ ENV GOPATH /gopath/
 # clone first to get commit hash
 RUN /bin/mkdir -p /gopath/src/github.com/MG-RAST/ && \
   cd /gopath/src/github.com/MG-RAST/ && \
-  git clone --recursive https://github.com/MG-RAST/AWE.git \
-  cd AWE \
+  git clone --recursive https://github.com/MG-RAST/AWE.git && \
+  cd AWE && \
   git checkout develop
 
 RUN GITHASH=$(git -C /gopath/src/github.com/MG-RAST/AWE rev-parse HEAD) && \

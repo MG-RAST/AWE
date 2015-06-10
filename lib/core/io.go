@@ -108,6 +108,24 @@ func (io *IO) TotalUnits(indextype string) (count int, err error) {
 	return
 }
 
+func (io *IO) HasFile() bool {
+	// set io.Size and io.MD5
+	shocknode, err := io.GetShockNode()
+	if err != nil {
+		logger.Error(fmt.Sprintf("HasFile error: %s, node: %s", err.Error(), io.Node))
+		return false
+	}
+	io.Size = shocknode.File.Size
+	if md5, ok := shocknode.File.Checksum["md5"]; ok {
+		io.MD5 = md5
+	}
+	// both can not be empty
+	if (io.Size == 0) && (io.MD5 == "") {
+		return false
+	}
+	return true
+}
+
 func (io *IO) GetFileSize() int64 {
 	if io.Size > 0 {
 		return io.Size

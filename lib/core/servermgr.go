@@ -230,11 +230,11 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 					task.State = TASK_STAT_COMPLETED
 					task.CompletedDate = time.Now()
 					for _, output := range task.Outputs {
-						_, err = output.DataUrl(); err != nil {
-						    return err
+						if _, err = output.DataUrl(); err != nil {
+							return err
 						}
-						if hasFile := output.HasFile(); ! hasFile {
-						    return errors.New(fmt.Sprintf("Task %s, output %s missing shock file", taskid, output.FileName))
+						if hasFile := output.HasFile(); !hasFile {
+							return errors.New(fmt.Sprintf("Task %s, output %s missing shock file", taskid, output.FileName))
 						}
 					}
 					//log event about task done (TD)

@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	//"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/golib/httpclient"
+	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/httpclient"
 	//"github.com/MG-RAST/AWE/lib/logger"
 	"io"
 	"io/ioutil"

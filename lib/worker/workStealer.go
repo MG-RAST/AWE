@@ -9,7 +9,7 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/golib/httpclient"
+	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/httpclient"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -107,7 +107,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
 		}
 	}
-	res, err := httpclient.Get(targeturl, headers, nil, nil)
+	res, err := httpclient.DoTimeout("GET", targeturl, headers, nil, nil, time.Second*0)
 	logger.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s", core.Self.Id, conf.SERVER_URL))
 	if err != nil {
 		fmt.Printf("err=%s\n", err.Error())

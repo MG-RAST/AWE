@@ -10,9 +10,9 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
-	"github.com/MG-RAST/golib/goweb"
-	"github.com/MG-RAST/golib/mgo"
-	"github.com/MG-RAST/golib/mgo/bson"
+	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goweb"
+	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo"
+	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo/bson"
 	"net/http"
 	"strconv"
 	"strings"
@@ -134,7 +134,8 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 
 	// User must have read permissions on job or be job owner or be an admin
 	rights := job.Acl.Check(u.Uuid)
-	if job.Acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false {
+	prights := job.Acl.Check("public")
+	if job.Acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false && prights["read"] == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}
@@ -232,16 +233,6 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		return
 	}
 
-	// If no auth was provided, and anonymous read is allowed, use the public user
-	if u == nil {
-		if conf.ANON_READ == true {
-			u = &user.User{Uuid: "public"}
-		} else {
-			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
-			return
-		}
-	}
-
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 
@@ -249,9 +240,20 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	q := bson.M{}
 	jobs := core.Jobs{}
 
-	// Add authorization checking to query if the user is not an admin
-	if u.Admin == false {
-		q["$or"] = []bson.M{bson.M{"acl.read": "public"}, bson.M{"acl.read": u.Uuid}, bson.M{"acl.owner": u.Uuid}, bson.M{"acl": bson.M{"$exists": "false"}}}
+	if u != nil {
+		// Add authorization checking to query if the user is not an admin
+		if u.Admin == false {
+			q["$or"] = []bson.M{bson.M{"acl.read": "public"}, bson.M{"acl.read": u.Uuid}, bson.M{"acl.owner": u.Uuid}, bson.M{"acl": bson.M{"$exists": "false"}}}
+		}
+	} else {
+		// User is anonymous
+		if conf.ANON_READ {
+			// select on only jobs that are publicly readable
+			q["acl.read"] = "public"
+		} else {
+			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+			return
+		}
 	}
 
 	limit := conf.DEFAULT_PAGE_SIZE

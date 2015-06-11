@@ -14,7 +14,7 @@ use LWP::UserAgent;
 our $global_debug = 0;
 
 sub new {
-    my ($class, $awe_url, $shocktoken, $awetoken, $debug) = @_;
+    my ($class, $awe_url, $shocktoken, $awetoken, $debug, $shockprefix, $aweprefix) = @_;
     
     my $agent = LWP::UserAgent->new;
     my $json = JSON->new;
@@ -22,10 +22,16 @@ sub new {
     $json->max_size(0);
     $json->allow_nonref;
     
+    unless ($shockprefix) {
+        $shockprefix = "OAuth";
+    }
+    unless ($aweprefix) {
+        $aweprefix = "OAuth";
+    }
+    
 	if (defined($shocktoken) && $shocktoken eq '') {
 		$shocktoken = undef;
 	}
-	
 	if (defined($awetoken) && $awetoken eq '') {
 		$awetoken = undef;
 	}
@@ -40,7 +46,9 @@ sub new {
         agent => $agent,
         awe_url => $awe_url || '',
         shocktoken => $shocktoken,
+        shockprefix => $shockprefix,
 		awetoken => $awetoken,
+		aweprefix => $aweprefix,
         transport_method => 'requests',
 		debug => $debug || $global_debug
     };
@@ -73,9 +81,17 @@ sub shocktoken {
     my ($self) = @_;
     return $self->{shocktoken};
 }
+sub shockprefix {
+    my ($self) = @_;
+    return $self->{shockprefix};
+}
 sub awetoken {
     my ($self) = @_;
     return $self->{awetoken};
+}
+sub aweprefix {
+    my ($self) = @_;
+    return $self->{aweprefix};
 }
 sub transport_method {
     my ($self) = @_;
@@ -203,7 +219,7 @@ sub request {
 		
 	}
 	
-	my @method_args=($my_url, ($self->awetoken)?('Authorization' , "OAuth ".$self->awetoken):());
+	my @method_args=($my_url, ($self->awetoken)?('Authorization' , $self->aweprefix." ".$self->awetoken):());
 	
 	if (defined $headers) {
 		push(@method_args, %$headers);
@@ -351,7 +367,7 @@ sub submit_job {
 	
 	my $header = {Content_Type => 'multipart/form-data', Content => $content};
 	if (defined $self->shocktoken) {
-		$header->{Datatoken} = $self->shocktoken;
+		$header->{Datatoken} = $self->shockprefix." ".$self->shocktoken;
 	}
 	
 	return $self->request(

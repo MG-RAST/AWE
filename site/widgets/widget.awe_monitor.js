@@ -181,18 +181,20 @@
 	    gt.settings.data_manipulation = Retina.WidgetInstances.awe_monitor[1].dataManipulationGraphical,
 	    gt.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?query";
 	    gt.settings.rows_per_page = 20;
-	    gt.settings.minwidths = [1,300,1, 95, 125];
-	    gt.settings.disable_sort = { 2: 1 };
+	    gt.settings.minwidths = [1,150,150,1, 95, 125];
+	    gt.settings.disable_sort = { 3: 1 };
 	    gt.settings.filter = { 1: { type: "text" },
-				   3: { type: "text" },
-				   4: { type: "text" } };
+				   2: { type: "text" },
+				   4: { type: "text" },
+				   5: { type: "text" } };
 	    gt.settings.asynch_column_mapping = { "submission": "info.submittime",
 						  "job": "info.name",
+						  "job id": "jid",
 						  "pipeline": "info.pipeline",
 						  "current state": "state" };
 	    gt.settings.filter_autodetect = false;
 	    gt.settings.sort_autodetect = false;
-	    gt.settings.data = { data: [], header: [ "submission", "job", "status", "pipeline", "current state" ] };
+	    gt.settings.data = { data: [], header: [ "submission", "job name", "job id", "status", "pipeline", "current state" ] };
 	    gt.render();
 	    gt.update({}, gt.index);
 
@@ -654,14 +656,15 @@
 	for (var i=0;i<data.length;i++) {
 	    var obj = data[i];
 	    result_data.push( { "submission": obj.info.submittime,
-				"job": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/job/"+obj.id+"\");' style='cursor: pointer;'>"+(obj.info.name || '-')+' ('+obj.jid+")</a>",
+				"job name": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/job/"+obj.id+"\");' style='cursor: pointer;'>"+(obj.info.name || '-')+'</a>',
+				"job id": obj.jid,
 				"status": widget.dots(obj.tasks),
 				"pipeline": obj.info.pipeline,
 				"current state": obj.state
 			      } );
 	}
 	if (! result_data.length) {
-	    result_data.push({"submission": "-", "job": "-", "status": "-", "pipeline": "-", "current state": "-"});
+	    result_data.push({"submission": "-", "job name": "-", "job id": "-", "status": "-", "pipeline": "-", "current state": "-"});
 	}
 
 	return result_data;

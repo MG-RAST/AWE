@@ -9,7 +9,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
-	"github.com/MG-RAST/golib/goweb"
+	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goweb"
 	"net/http"
 	"strconv"
 )

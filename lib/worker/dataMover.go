@@ -11,7 +11,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/shock"
-	"github.com/MG-RAST/golib/httpclient"
+	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/httpclient"
 	"io"
 	"io/ioutil"
 	"os"

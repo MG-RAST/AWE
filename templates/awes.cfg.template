@@ -28,7 +28,6 @@ api-url=
 # managing your AWE server.
 users=
 email=admin@host.com
-secretkey=supersecretkey
 
 [Auth]
 globus_token_url=https://nexus.api.globusonline.org/goauth/token?grant_type=client_credentials

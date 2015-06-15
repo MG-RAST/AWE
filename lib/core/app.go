@@ -32,7 +32,7 @@ type AppCommandMode struct {
 	Input           []AppInput          `bson:"input" json:"input"`
 	Output_array    []string            `bson:"output_array" json:"output_array"`
 	Outputs         []IO                `bson:"outputs" json:"outputs"`
-	Predata         IOmap               `bson:"predata" json:"predata"`
+	Predata         []IO                `bson:"predata" json:"predata"`
 	Cmd             string              `bson:"cmd" json:"cmd"`
 	Cmd_interpreter string              `bson:"cmd_interpreter" json:"cmd_interpreter"`
 	Cmd_script      []string            `bson:"cmd_script" json:"cmd_script"`
@@ -428,9 +428,9 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 
 	// create ouputs
 	logger.Debug(1, fmt.Sprintf("+++ %s +++ create outputs", task.Id))
-	if task.Outputs == nil {
-		task.Outputs = make(IOmap)
-	}
+	//if task.Outputs == nil {
+	//	task.Outputs = make(IOmap)
+	//}
 
 	task_outputs := task.Outputs
 
@@ -485,12 +485,11 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		}
 
 		if job.Info.Tracking {
-
-			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken, NodeAttr: my_attr}
-			task_outputs[filename] = my_io
+			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken, NodeAttr: my_attr, FileName: filename}
+			task_outputs = append(task_outputs, my_io)
 		} else {
-			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken}
-			task_outputs[filename] = my_io
+			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken, FileName: filename}
+			task_outputs = append(task_outputs, my_io)
 		}
 
 	}
@@ -541,7 +540,8 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		my_io := &IO{}
 		*my_io = io
 		my_io.AppPosition = pos
-		task_outputs[filename] = my_io
+		my_io.FileName = filename
+		task_outputs = append(task_outputs, my_io)
 	}
 
 	// populate with input fields:
@@ -555,13 +555,9 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 	// copy predata
 	//copy(task.Predata, app_cmd_mode_object.Predata) // TODO expand variables
 	//*task.Predata = *app_cmd_mode_object.Predata
-	if app_cmd_mode_object.Predata != nil {
-		if task.Predata == nil {
-			task.Predata = make(IOmap)
-		}
-		for key, _ := range app_cmd_mode_object.Predata {
-			task.Predata[key] = &IO{}
-			*task.Predata[key] = *app_cmd_mode_object.Predata[key]
+	if len(app_cmd_mode_object.Predata) != 0 {
+		for _, val := range app_cmd_mode_object.Predata {
+			task.Predata = append(task.Predata, &val)
 		}
 	}
 	// convenient dependencies (dependsOn is only used now if dependency without files is needed)
@@ -671,15 +667,10 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 		return errors.New(fmt.Sprintf("input_variable_name is empty"))
 	}
 
-	var inputs IOmap
-	var predata IOmap
+	var inputs []*IO
+	var predata []*IO
 	if job != nil {
 		inputs = task.Inputs
-
-		if task.Predata == nil {
-			task.Predata = make(IOmap)
-		}
-
 		predata = task.Predata
 	}
 
@@ -699,9 +690,10 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 		// TODO make sure resource_type corresponds to expected type in app def
 
 		if job != nil {
-
-			if _, ok := inputs[filename]; ok {
-				return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
+			for _, i := range inputs {
+				if i.FileName == filename {
+					return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
+				}
 			}
 
 			input_temp := &IO{
@@ -715,9 +707,9 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 				ShockIndex: input_arg.ShockIndex,
 			}
 			if input_arg.Cache {
-				predata[filename] = input_temp
+				predata = append(predata, input_temp)
 			} else {
-				inputs[filename] = input_temp // TODO set ShockFilename ?
+				inputs = append(inputs, input_temp)
 			}
 			//app_variables[input_variable_name + ".Host"] = host // do not here
 			//app_variables[input_variable_name + ".Node"] = node
@@ -737,8 +729,10 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 
 		if job != nil {
 
-			if _, ok := inputs[filename]; ok {
-				return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
+			for _, i := range inputs {
+				if i.FileName == filename {
+					return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
+				}
 			}
 
 			input_temp := &IO{
@@ -750,9 +744,9 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 			}
 
 			if input_arg.Cache {
-				predata[filename] = input_temp
+				predata = append(predata, input_temp)
 			} else {
-				inputs[filename] = input_temp // TODO set ShockFilename ?
+				inputs = append(inputs, input_temp)
 			}
 		}
 	case Ait_task:
@@ -777,11 +771,11 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 
 		if outputPosition != nil {
 		Loop_outputPosition:
-			for io_filename, my_io := range providing_task.Outputs {
+			for _, my_io := range providing_task.Outputs {
 
 				if my_io.AppPosition == *outputPosition {
 
-					filename = io_filename
+					filename = my_io.FileName
 					break Loop_outputPosition
 				}
 
@@ -792,11 +786,11 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 			}
 		} else if outputName != "" {
 		Loop_outputName:
-			for io_filename, my_io := range providing_task.Outputs {
+			for _, my_io := range providing_task.Outputs {
 				logger.Debug(1, fmt.Sprintf("Ait_task C"))
 				if my_io.Name == outputName {
 
-					filename = io_filename
+					filename = my_io.FileName
 					break Loop_outputName
 				}
 
@@ -834,9 +828,9 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 			}
 
 			if input_arg.Cache {
-				predata[filename] = input_temp
+				predata = append(predata, input_temp)
 			} else {
-				inputs[filename] = input_temp
+				inputs = append(inputs, input_temp)
 			}
 		}
 
@@ -883,9 +877,9 @@ func (acm AppCommandMode) ParseAppInput(app_variables AppVariables, args_array [
 			return err
 		}
 
-		if task.Inputs == nil {
-			task.Inputs = make(IOmap)
-		}
+		//if task.Inputs == nil {
+		//	task.Inputs = make(IOmap)
+		//}
 		//inputs = task.Inputs
 		//outputs = task.Outputs
 	}

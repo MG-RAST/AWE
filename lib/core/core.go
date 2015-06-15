@@ -98,6 +98,13 @@ func CreateJobUpload(u *user.User, params map[string]string, files FormFiles, ji
 
 	if _, has_upload := files["upload"]; has_upload {
 		job, err = ParseJobTasks(files["upload"].Path, jid)
+		if err != nil {
+			errDep := errors.New("")
+			job, errDep = ParseJobTasksDep(files["upload"].Path, jid)
+			if errDep == nil {
+				err = nil
+			}
+		}
 	} else {
 		job, err = ParseAwf(files["awf"].Path, jid)
 	}
@@ -151,7 +158,7 @@ func CreateJobUpload(u *user.User, params map[string]string, files FormFiles, ji
 	return
 }
 
-//create a shock node for output  (=deprecated=)
+// Create a shock node for output  (=deprecated=)
 func PostNode(io *IO, numParts int) (nodeid string, err error) {
 	var res *http.Response
 	shockurl := fmt.Sprintf("%s/node", io.Host)
@@ -213,7 +220,7 @@ func PostNodeWithToken(io *IO, numParts int, token string) (nodeid string, err e
 	return node.Id, nil
 }
 
-//create parts (=deprecated=)
+// Create parts (=deprecated=)
 func putParts(host string, nodeid string, numParts int) (err error) {
 	argv := []string{}
 	argv = append(argv, "-X")
@@ -231,13 +238,13 @@ func putParts(host string, nodeid string, numParts int) (err error) {
 	return
 }
 
-//get jobid from task id or workunit id
+// Get job id from task id or workunit id
 func getParentJobId(id string) (jobid string) {
 	parts := strings.Split(id, "_")
 	return parts[0]
 }
 
-//parse job by job script
+// Parses job by job script.
 func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 	job = new(Job)
 
@@ -250,6 +257,128 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 	err = json.Unmarshal(jsonstream, job)
 	if err != nil {
 		return nil, errors.New("error in unmarshaling job json file: " + err.Error())
+	}
+
+	if len(job.Tasks) == 0 {
+		return nil, errors.New("invalid job script: task list empty")
+	}
+
+	if job.Info == nil {
+		job.Info = NewInfo()
+	}
+
+	job.Info.SubmitTime = time.Now()
+	if job.Info.Priority < conf.BasePriority {
+		job.Info.Priority = conf.BasePriority
+	}
+
+	job.setId()     //uuid for the job
+	job.setJid(jid) //an incremental id for the jobs within a AWE server domain
+	job.State = JOB_STAT_INIT
+	job.Registered = true
+
+	//parse private fields task.Cmd.Environ.Private
+	job_p := new(Job_p)
+	err = json.Unmarshal(jsonstream, job_p)
+	if err == nil {
+		for idx, task := range job_p.Tasks {
+			if task.Cmd.Environ == nil || task.Cmd.Environ.Private == nil {
+				continue
+			}
+			job.Tasks[idx].Cmd.Environ.Private = make(map[string]string)
+			for key, val := range task.Cmd.Environ.Private {
+				job.Tasks[idx].Cmd.Environ.Private[key] = val
+			}
+		}
+	}
+
+	for i := 0; i < len(job.Tasks); i++ {
+		if strings.Contains(job.Tasks[i].Id, "_") {
+			// no "_" allowed in inital taskid
+			return nil, errors.New("invalid taskid, may not contain '_'")
+		}
+		if err := job.Tasks[i].InitTask(job); err != nil {
+			return nil, errors.New("error in InitTask: " + err.Error())
+		}
+	}
+
+	job.RemainTasks = len(job.Tasks)
+
+	return
+}
+
+// Parses job by job script using the deprecated Job struct. Maintained for backwards compatibility. (=deprecated=)
+func ParseJobTasksDep(filename string, jid string) (job *Job, err error) {
+	jobDep := new(JobDep)
+	job = new(Job)
+
+	jsonstream, err := ioutil.ReadFile(filename)
+
+	if err != nil {
+		return nil, errors.New("error in reading job json file" + err.Error())
+	}
+
+	err = json.Unmarshal(jsonstream, jobDep)
+	if err != nil {
+		return nil, errors.New("error in unmarshaling job json file: " + err.Error())
+	}
+
+	//copy contents of jobDep struct into job struct
+
+	job.Id = jobDep.Id
+	job.Jid = jobDep.Jid
+	job.Acl = jobDep.Acl
+	job.Info = jobDep.Info
+	job.Script = jobDep.Script
+	job.State = jobDep.State
+	job.Registered = jobDep.Registered
+	job.RemainTasks = jobDep.RemainTasks
+	job.UpdateTime = jobDep.UpdateTime
+	job.Notes = jobDep.Notes
+	job.LastFailed = jobDep.LastFailed
+	job.Resumed = jobDep.Resumed
+	job.ShockHost = jobDep.ShockHost
+
+	for _, taskDep := range jobDep.Tasks {
+		task := new(Task)
+		task.Id = taskDep.Id
+		task.Info = taskDep.Info
+		task.Cmd = taskDep.Cmd
+		task.App = taskDep.App
+		task.AppVariables = taskDep.AppVariables
+		task.Partition = taskDep.Partition
+		task.DependsOn = taskDep.DependsOn
+		task.TotalWork = taskDep.TotalWork
+		task.MaxWorkSize = taskDep.MaxWorkSize
+		task.RemainWork = taskDep.RemainWork
+		task.WorkStatus = taskDep.WorkStatus
+		task.State = taskDep.State
+		task.Skip = taskDep.Skip
+		task.CreatedDate = taskDep.CreatedDate
+		task.StartedDate = taskDep.StartedDate
+		task.CompletedDate = taskDep.CompletedDate
+		task.ComputeTime = taskDep.ComputeTime
+		task.UserAttr = taskDep.UserAttr
+		task.ClientGroups = taskDep.ClientGroups
+		for key, val := range taskDep.Inputs {
+			io := new(IO)
+			io = val
+			io.FileName = key
+			task.Inputs = append(task.Inputs, io)
+		}
+		for key, val := range taskDep.Outputs {
+			io := new(IO)
+			io = val
+			io.FileName = key
+			task.Outputs = append(task.Outputs, io)
+		}
+		for key, val := range taskDep.Predata {
+			io := new(IO)
+			io = val
+			io.FileName = key
+			task.Predata = append(task.Predata, io)
+		}
+		job.Tasks = append(job.Tasks, task)
 	}
 
 	if len(job.Tasks) == 0 {
@@ -344,7 +473,7 @@ func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
 			io.Host = awf.DataServer
 			io.Node = "-"
 			io.Origin = strconv.Itoa(origin)
-			task.Inputs[name] = io
+			task.Inputs = append(task.Inputs, io)
 			if origin == 0 {
 				if dataurl, ok := awf.RawInputs[io.FileName]; ok {
 					io.Url = dataurl
@@ -357,7 +486,7 @@ func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
 			io.FileName = name
 			io.Host = awf.DataServer
 			io.Node = "-"
-			task.Outputs[name] = io
+			task.Outputs = append(task.Outputs, io)
 		}
 		if awf_task.Splits == 0 {
 			task.TotalWork = 1
@@ -552,7 +681,8 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 
 // deprecated, see cache.UploadOutputData
 func PushOutputData(work *Workunit) (size int64, err error) {
-	for name, io := range work.Outputs {
+	for _, io := range work.Outputs {
+		name := io.FileName
 		var local_filepath string //local file name generated by the cmd
 		var file_path string      //file name to be uploaded to shock
 
@@ -607,8 +737,8 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 
 		//set io.FormOptions["parent_node"] if not present and io.FormOptions["parent_name"] exists
 		if parent_name, ok := io.FormOptions["parent_name"]; ok {
-			for in_name, in_io := range work.Inputs {
-				if in_name == parent_name {
+			for _, in_io := range work.Inputs {
+				if in_io.FileName == parent_name {
 					io.FormOptions["parent_node"] = in_io.Node
 				}
 			}

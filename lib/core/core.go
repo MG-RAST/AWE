@@ -98,6 +98,13 @@ func CreateJobUpload(u *user.User, params map[string]string, files FormFiles, ji
 
 	if _, has_upload := files["upload"]; has_upload {
 		job, err = ParseJobTasks(files["upload"].Path, jid)
+		if err != nil {
+			errDep := errors.New("")
+			job, errDep = ParseJobTasksDep(files["upload"].Path, jid)
+			if errDep == nil {
+				err = nil
+			}
+		}
 	} else {
 		job, err = ParseAwf(files["awf"].Path, jid)
 	}
@@ -317,6 +324,62 @@ func ParseJobTasksDep(filename string, jid string) (job *Job, err error) {
 	}
 
 	//copy contents of jobDep struct into job struct
+
+	job.Id = jobDep.Id
+	job.Jid = jobDep.Jid
+	job.Acl = jobDep.Acl
+	job.Info = jobDep.Info
+	job.Script = jobDep.Script
+	job.State = jobDep.State
+	job.Registered = jobDep.Registered
+	job.RemainTasks = jobDep.RemainTasks
+	job.UpdateTime = jobDep.UpdateTime
+	job.Notes = jobDep.Notes
+	job.LastFailed = jobDep.LastFailed
+	job.Resumed = jobDep.Resumed
+	job.ShockHost = jobDep.ShockHost
+
+	for _, taskDep := range jobDep.Tasks {
+		task := new(Task)
+		task.Id = taskDep.Id
+		task.Info = taskDep.Info
+		task.Cmd = taskDep.Cmd
+		task.App = taskDep.App
+		task.AppVariables = taskDep.AppVariables
+		task.Partition = taskDep.Partition
+		task.DependsOn = taskDep.DependsOn
+		task.TotalWork = taskDep.TotalWork
+		task.MaxWorkSize = taskDep.MaxWorkSize
+		task.RemainWork = taskDep.RemainWork
+		task.WorkStatus = taskDep.WorkStatus
+		task.State = taskDep.State
+		task.Skip = taskDep.Skip
+		task.CreatedDate = taskDep.CreatedDate
+		task.StartedDate = taskDep.StartedDate
+		task.CompletedDate = taskDep.CompletedDate
+		task.ComputeTime = taskDep.ComputeTime
+		task.UserAttr = taskDep.UserAttr
+		task.ClientGroups = taskDep.ClientGroups
+		for key, val := range taskDep.Inputs {
+			io := new(IO)
+			io = val
+			io.FileName = key
+			task.Inputs = append(task.Inputs, io)
+		}
+		for key, val := range taskDep.Outputs {
+			io := new(IO)
+			io = val
+			io.FileName = key
+			task.Outputs = append(task.Outputs, io)
+		}
+		for key, val := range taskDep.Predata {
+			io := new(IO)
+			io = val
+			io.FileName = key
+			task.Predata = append(task.Predata, io)
+		}
+		job.Tasks = append(job.Tasks, task)
+	}
 
 	if len(job.Tasks) == 0 {
 		return nil, errors.New("invalid job script: task list empty")

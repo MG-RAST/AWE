@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/auth"
 	"github.com/MG-RAST/AWE/lib/conf"
@@ -58,9 +60,25 @@ func launchSite(control chan int, port int) {
 	}
 	template_conf_string := string(buf)
 
-	// example: [% api_url %]
+	// add / replace AWE API url
+	url_replace := fmt.Sprintf("%s:%d", conf.API_URL, conf.API_PORT)
+	template_conf_string = strings.Replace(template_conf_string, "[% api_url %]", url_replace, -1)
 
-	template_conf_string = strings.Replace(template_conf_string, "[% api_url %]", conf.API_URL, -1)
+	// add auth
+	auth_on := "false"
+	auth_resources := ""
+	if conf.GLOBUS_OAUTH || conf.MGRAST_OAUTH {
+		auth_on = "true"
+		b, _ := json.Marshal(conf.AUTH_RESOURCES)
+		b = bytes.TrimPrefix(b, []byte("{"))
+		b = bytes.TrimSuffix(b, []byte("}"))
+		auth_resources = "," + string(b)
+	}
+
+	// replace auth
+	template_conf_string = strings.Replace(template_conf_string, "[% auth_on %]", auth_on, -1)
+	template_conf_string = strings.Replace(template_conf_string, "[% auth_default %]", conf.AUTH_DEFAULT, -1)
+	template_conf_string = strings.Replace(template_conf_string, "[% auth_resources %]", auth_resources, -1)
 
 	target_conf_file, err := os.Create(target_conf_filename)
 	if err != nil {

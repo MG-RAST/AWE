@@ -14,7 +14,6 @@ import (
 const VERSION string = "0.9.15"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
-
 const BasePriority int = 1
 
 const DB_COLL_JOBS string = "Jobs"
@@ -47,13 +46,14 @@ const STDOUT_FILENAME string = "awe_stdout.txt"
 const STDERR_FILENAME string = "awe_stderr.txt"
 const WORKNOTES_FILENAME string = "awe_worknotes.txt"
 
+const MGRAST_API string = "http://api.metagenomics.anl.gov"
+
 const ALL_APP string = "*"
 
 // set defaults in function "getConfiguration" below !!!!!
 var (
 	SHOW_VERSION bool
-
-	TITLE string
+	TITLE        string
 
 	//Reload
 	RELOAD   string
@@ -118,19 +118,15 @@ var (
 	DEBUG_LEVEL int
 
 	//[server] options
-
-	PERF_LOG_WORKUNIT bool
-
-	MAX_WORK_FAILURE int
-
+	PERF_LOG_WORKUNIT  bool
+	MAX_WORK_FAILURE   int
 	MAX_CLIENT_FAILURE int
+
 	//big data threshold
 	//BIG_DATA_SIZE int64 = 1048576 * 1024
-
 	GOMAXPROCS int
 
 	//[client]
-
 	//TOTAL_WORKER                  = 1
 	WORK_PATH                   string
 	APP_PATH                    string
@@ -166,7 +162,9 @@ var (
 	SHOW_HELP            bool // simple usage
 	SHOW_GIT_COMMIT_HASH bool
 
-	Admin_Users = make(map[string]bool)
+	Admin_Users    = make(map[string]bool)
+	AUTH_RESOURCES = make(map[string]AuthResource)
+	AUTH_DEFAULT   string
 
 	FAKE_VAR = false // ignore this
 )
@@ -174,7 +172,6 @@ var (
 // writes to target only if has been defined in config
 // avoids overwriting of default values if config is not defined
 func getDefinedValueInt(c *config.Config, section string, key string, target *int) {
-
 	if c.HasOption(section, key) {
 		if int_value, err := c.Int(section, key); err == nil {
 			*target = int_value
@@ -183,7 +180,6 @@ func getDefinedValueInt(c *config.Config, section string, key string, target *in
 }
 
 func getDefinedValueBool(c *config.Config, section string, key string, target *bool) {
-
 	if c.HasOption(section, key) {
 		if bool_value, err := c.Bool(section, key); err == nil {
 			*target = bool_value
@@ -192,12 +188,8 @@ func getDefinedValueBool(c *config.Config, section string, key string, target *b
 }
 
 func getDefinedValueString(c *config.Config, section string, key string, target *string) {
-	//fmt.Printf("%s %s\n", section, key)
-
 	if string_value, err := c.String(section, key); err == nil {
-		//fmt.Printf("string_value: %s\n", string_value)
 		string_value = os.ExpandEnv(string_value)
-		//fmt.Printf("string_value after: %s\n", string_value)
 		*target = string_value
 	}
 
@@ -239,20 +231,23 @@ type Config_value_bool struct {
 
 type Config_store struct {
 	Store []*Config_value
+	Fs    *flag.FlagSet
+	Con   *config.Config
+}
 
-	Fs  *flag.FlagSet
-	Con *config.Config
+type AuthResource struct {
+	Icon      string `json:"icon"`
+	Prefix    string `json:"prefix"`
+	Keyword   string `json:"keyword"`
+	Url       string `json:"url"`
+	UseHeader bool   `json:"useHeader"`
 }
 
 func NewCS(c *config.Config) *Config_store {
-
 	cs := &Config_store{Store: make([]*Config_value, 0, 100), Con: c} // length 0, capacity 100
-
 	cs.Fs = flag.NewFlagSet("name", flag.ContinueOnError)
-
 	cs.Fs.BoolVar(&FAKE_VAR, "fake_var", true, "ignore this")
 	cs.Fs.BoolVar(&SHOW_HELP, "h", false, "ignore this") // for help: -h
-
 	return cs
 }
 
@@ -302,7 +297,6 @@ func (this Config_store) Parse() {
 	c := this.Con
 	f := this.Fs
 	for _, val := range this.Store {
-		//fmt.Printf("i: %d", i)
 		if val.Conf_type == "string" {
 			get_my_config_string(c, f, val.Conf_str)
 		} else if val.Conf_type == "int" {
@@ -311,44 +305,32 @@ func (this Config_store) Parse() {
 			get_my_config_bool(c, f, val.Conf_bool)
 		}
 	}
-	//fmt.Fprintf(os.Stderr, "parsing...: ")
 	err := this.Fs.Parse(os.Args[1:])
-
 	if err != nil {
 		this.PrintHelp()
 		fmt.Fprintf(os.Stderr, "error parsing command line args: "+err.Error()+"\n")
 		os.Exit(1)
 	}
-	//fmt.Fprintf(os.Stderr, "parsing command line arguments successful.\n")
 }
 
 func (this Config_store) PrintHelp() {
-
-	//fmt.Printf("Section\tKey\tDescription\tDefault\n")
-
 	current_section := ""
-
 	prefix := "--"
 	if PRINT_HELP {
 		prefix = ""
 	}
-
 	for _, val := range this.Store {
-		//fmt.Printf("i: %d", i)
 		if val.Conf_type == "string" {
 			d := val.Conf_str
-
 			if current_section != d.Section {
 				current_section = d.Section
 				fmt.Printf("\n[%s]\n", current_section)
 			}
-
 			fmt.Printf("%s%-27s %s (default: \"%s\")\n", prefix, d.Key+"=<string>", d.Descr_short, d.Default_value)
 
 			if PRINT_HELP && d.Descr_long != "" {
 				fmt.Printf("     %s\n", d.Descr_long)
 			}
-
 		} else if val.Conf_type == "int" {
 			d := val.Conf_int
 			if current_section != d.Section {
@@ -360,7 +342,6 @@ func (this Config_store) PrintHelp() {
 			if PRINT_HELP && d.Descr_long != "" {
 				fmt.Printf("     %s\n", d.Descr_long)
 			}
-
 		} else if val.Conf_type == "bool" {
 			d := val.Conf_bool
 			if current_section != d.Section {
@@ -378,7 +359,6 @@ func (this Config_store) PrintHelp() {
 }
 
 func get_my_config_string(c *config.Config, f *flag.FlagSet, val *Config_value_string) {
-	//fmt.Printf("get_my_config_string")
 	//overwrite variable if defined in config file
 	if c != nil {
 		getDefinedValueString(c, val.Section, val.Key, val.Target)
@@ -388,18 +368,15 @@ func get_my_config_string(c *config.Config, f *flag.FlagSet, val *Config_value_s
 }
 
 func get_my_config_int(c *config.Config, f *flag.FlagSet, val *Config_value_int) {
-	//fmt.Printf("get_my_config_int")
 	//overwrite variable if defined in config file
 	if c != nil {
 		getDefinedValueInt(c, val.Section, val.Key, val.Target)
 	}
-
 	//overwrite variable if defined on command line (default values are overwritten by config file)
 	f.IntVar(val.Target, val.Key, *val.Target, val.Descr_short)
 }
 
 func get_my_config_bool(c *config.Config, f *flag.FlagSet, val *Config_value_bool) {
-	//fmt.Printf("get_my_config_bool")
 	//overwrite variable if defined in config file
 	if c != nil {
 		getDefinedValueBool(c, val.Section, val.Key, val.Target)
@@ -410,9 +387,7 @@ func get_my_config_bool(c *config.Config, f *flag.FlagSet, val *Config_value_boo
 
 // wolfgang: I started to change it such that config values are only written when defined in the config file
 func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err error) {
-
 	c_store = NewCS(c)
-
 	// examples:
 	// c_store.AddString(&VARIABLE, "", "section", "key", "", "")
 	// c_store.AddInt(&VARIABLE, 0, "section", "key", "", "")
@@ -424,11 +399,10 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddInt(&API_PORT, 8001, "Ports", "api-port", "Internal port for API", "")
 
 		// External
-		c_store.AddString(&SITE_URL, "", "External", "site-url", "External URL of AWE monitor, including port", "")
-		c_store.AddString(&API_URL, "", "External", "api-url", "External API URL of AWE server, including port", "")
+		c_store.AddString(&SITE_URL, "http://localhost", "External", "site-url", "External URL of AWE monitor", "")
+		c_store.AddString(&API_URL, "http://localhost", "External", "api-url", "External API URL of AWE server", "")
 
 		// SSL
-
 		c_store.AddBool(&SSL_ENABLED, false, "SSL", "enable", "", "")
 
 		// if SSL_ENABLED { // TODO this needs to be checked !
@@ -436,7 +410,6 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&SSL_CERT_FILE, "", "SSL", "cert", "", "")
 
 		// Access-Control
-
 		c_store.AddBool(&ANON_WRITE, true, "Anonymous", "write", "", "")
 		c_store.AddBool(&ANON_READ, true, "Anonymous", "read", "", "")
 		c_store.AddBool(&ANON_DELETE, true, "Anonymous", "delete", "", "")
@@ -446,17 +419,14 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 
 		// Auth
 		c_store.AddBool(&BASIC_AUTH, true, "Auth", "basic", "", "")
-
 		c_store.AddString(&GLOBUS_TOKEN_URL, "https://nexus.api.globusonline.org/goauth/token?grant_type=client_credentials", "Auth", "globus_token_url", "", "")
 		c_store.AddString(&GLOBUS_PROFILE_URL, "https://nexus.api.globusonline.org/users", "Auth", "globus_profile_url", "", "")
 		c_store.AddString(&MGRAST_OAUTH_URL, "", "Auth", "mgrast_oauth_url", "", "")
-
 		c_store.AddBool(&CLIENT_AUTH_REQ, false, "Auth", "client_auth_required", "", "")
 
 		// Admin
 		c_store.AddString(&ADMIN_USERS_VAR, "", "Admin", "users", "", "")
 		c_store.AddString(&ADMIN_EMAIL, "", "Admin", "email", "", "")
-		// c_store.AddString(&SECRET_KEY, "", "Admin", "secretkey", "", "") // not used anymore
 
 	}
 	// Directories
@@ -464,7 +434,6 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&SITE_PATH, os.Getenv("GOPATH")+"/src/github.com/MG-RAST/AWE/site", "Directories", "site", "the path to the website", "")
 		c_store.AddString(&AWF_PATH, "", "Directories", "awf", "", "")
 	}
-
 	c_store.AddString(&DATA_PATH, "/mnt/data/awe/data", "Directories", "data", "a file path for store some system related data (job script, cached data, etc)", "")
 	c_store.AddString(&LOGS_PATH, "/mnt/data/awe/logs", "Directories", "logs", "a path for storing logs", "")
 
@@ -472,7 +441,6 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 	c_store.AddString(&PID_FILE_PATH, "", "Paths", "pidfile", "", "")
 
 	if mode == "server" {
-
 		// Mongodb
 		c_store.AddString(&MONGODB_HOST, "localhost", "Mongodb", "hosts", "", "")
 		c_store.AddString(&MONGODB_DATABASE, "AWEDB", "Mongodb", "database", "", "")
@@ -481,7 +449,6 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 
 		// Server options
 		c_store.AddString(&TITLE, "AWE Server", "Server", "title", "", "")
-
 		c_store.AddBool(&PERF_LOG_WORKUNIT, true, "Server", "perf_log_workunit", "collecting performance log per workunit", "")
 
 		// BIG_DATA_SIZE seems not to be used ?
@@ -489,7 +456,6 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		//if big_data_size, err := c.Int("Server", "big_data_size"); err == nil {
 		//	BIG_DATA_SIZE = int64(big_data_size)
 		//}
-
 		c_store.AddInt(&MAX_WORK_FAILURE, 3, "Server", "max_work_failure", "number of times that one workunit fails before the workunit considered suspend", "")
 		c_store.AddInt(&MAX_CLIENT_FAILURE, 5, "Server", "max_client_failure", "number of times that one client consecutively fails running workunits before the client considered suspend", "")
 		c_store.AddInt(&GOMAXPROCS, 0, "Server", "go_max_procs", "", "")
@@ -501,7 +467,6 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 
 	if mode == "client" {
 		// [Client]
-
 		// client basics:
 		c_store.AddString(&SERVER_URL, "http://localhost:8001", "Client", "serverurl", "URL of AWE server, including API port", "")
 		c_store.AddString(&CLIENT_GROUP, "default", "Client", "group", "name of client group", "")
@@ -528,7 +493,6 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 	//Docker
 	c_store.AddString(&USE_DOCKER, "yes", "Docker", "use_docker", "\"yes\", \"no\" or \"only\"", "yes: allow docker tasks, no: do not allow docker tasks, only: allow only docker tasks ; if docker is not installed on the clients, choose \"no\"")
 	if mode == "client" {
-
 		c_store.AddString(&DOCKER_BINARY, "API", "Docker", "docker_binary", "docker binary to use, default is the docker API (API recommended)", "")
 		c_store.AddInt(&MEM_CHECK_INTERVAL_SECONDS, 0, "Docker", "mem_check_interval_seconds", "memory check interval in seconds (kernel needs to support that)", "0 seconds means disabled")
 		c_store.AddString(&CGROUP_MEMORY_DOCKER_DIR, "/sys/fs/cgroup/memory/docker/[ID]/memory.stat", "Docker", "cgroup_memory_docker_dir", "path to cgroup directory for docker", "")
@@ -557,27 +521,19 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 }
 
 func Init_conf(mode string) (err error) {
-
 	// the flag libary needs to parse after config file has been read, thus the conf file is parsed manually here
 	for i, elem := range os.Args {
-		//fmt.Printf("%d %s\n", i, elem)
 		if elem == "-conf" || elem == "--conf" {
 			if i+1 < len(os.Args) {
 				CONFIG_FILE = os.Args[i+1]
-				//fmt.Printf("CONFIG_FILE: %s\n", CONFIG_FILE)
 			}
 		}
-		//if elem == "-printhelp" || elem == "--printhelp" {
-		//	PRINT_HELP = true
-		//}
 	}
 
 	var c *config.Config = nil
-
 	if CONFIG_FILE != "" {
 		c, err = config.ReadDefault(CONFIG_FILE)
 		if err != nil {
-			//INIT_SUCCESS = false
 			return errors.New("ERROR: error reading conf file: " + err.Error())
 		}
 	}
@@ -594,17 +550,14 @@ func Init_conf(mode string) (err error) {
 		fmt.Fprintf(os.Stderr, "ERROR: config was not parsed\n")
 		os.Exit(1)
 	}
-
 	if PRINT_HELP || SHOW_HELP {
 		c_store.PrintHelp()
 		os.Exit(0)
 	}
-
 	if SHOW_VERSION {
 		PrintVersionMsg()
 		os.Exit(0)
 	}
-
 	if SHOW_GIT_COMMIT_HASH {
 		fmt.Fprintf(os.Stdout, "GIT_COMMIT_HASH=%s\n", GIT_COMMIT_HASH)
 		os.Exit(0)
@@ -618,7 +571,6 @@ func Init_conf(mode string) (err error) {
 				CLIENT_NAME = hostname
 			}
 		}
-
 		if MEM_CHECK_INTERVAL_SECONDS > 0 {
 			MEM_CHECK_INTERVAL = time.Duration(MEM_CHECK_INTERVAL_SECONDS) * time.Second
 			// TODO
@@ -627,9 +579,25 @@ func Init_conf(mode string) (err error) {
 
 	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
 		GLOBUS_OAUTH = true
+		AUTH_DEFAULT = "KBase"
+		AUTH_RESOURCES["KBase"] = AuthResource{
+			Icon:      "KBase_favicon.ico",
+			Prefix:    "kbgo4711",
+			Keyword:   "auth",
+			Url:       MGRAST_API + "?verbosity=verbose",
+			UseHeader: false,
+		}
 	}
 	if MGRAST_OAUTH_URL != "" {
 		MGRAST_OAUTH = true
+		AUTH_DEFAULT = "MG-RAST"
+		AUTH_RESOURCES["MG-RAST"] = AuthResource{
+			Icon:      "MGRAST_favicon.ico",
+			Prefix:    "mgo4711",
+			Keyword:   "auth",
+			Url:       MGRAST_OAUTH_URL + "?verbosity=verbose",
+			UseHeader: false,
+		}
 	}
 
 	if ADMIN_USERS_VAR != "" {

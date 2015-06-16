@@ -8,7 +8,13 @@ RUN apt-get update && apt-get install -y curl
 RUN mkdir -p /mongodb/ ; \
   curl -s http://downloads.mongodb.org/linux/mongodb-linux-x86_64-2.4.14.tgz | tar -v -C /mongodb/ -xz
 
+
+RUN ln -s /mongodb/mongodb-linux-x86_64-2.4.14/bin/mongod /usr/bin/mongod
+
+CMD ["mongod"]
+
 # execute directly: 
 # /mongodb/bin/mongod --dbpath /data/
 # execute in background: 
 # nohup /mongodb/bin/mongod --dbpath /data/ &
+

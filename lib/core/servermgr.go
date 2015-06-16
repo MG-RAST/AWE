@@ -119,6 +119,7 @@ func (qm *ServerMgr) putSusJob(id string) {
 func (qm *ServerMgr) GetSuspendJobs() (sjobs map[string]bool) {
 	qm.sjLock.RLock()
 	defer qm.sjLock.RUnlock()
+	sjobs = make(map[string]bool)
 	for id, _ := range qm.susJobs {
 		sjobs[id] = true
 	}
@@ -177,6 +178,7 @@ func (qm *ServerMgr) getActJob(id string) (*JobPerf, bool) {
 func (qm *ServerMgr) GetActiveJobs() (ajobs map[string]bool) {
 	qm.ajLock.RLock()
 	defer qm.ajLock.RUnlock()
+	ajobs = make(map[string]bool)
 	for id, _ := range qm.actJobs {
 		ajobs[id] = true
 	}

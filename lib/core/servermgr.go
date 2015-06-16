@@ -791,7 +791,8 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 	logger.Debug(2, "trying to locate Inputs of task "+task.Id)
 	jobid, _ := GetJobIdByTaskId(task.Id)
-	for name, io := range task.Inputs {
+	for _, io := range task.Inputs {
+		name := io.FileName
 		if io.Url == "" {
 			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
 			if preTask, ok := qm.getTask(preId); ok {
@@ -804,8 +805,10 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 					//locateSkippedInput(qm, preTask, io)
 				} else {
 					outputs := preTask.Outputs
-					if outio, ok := outputs[name]; ok {
-						io.Node = outio.Node
+					for _, outio := range outputs {
+						if outio.FileName == name {
+							io.Node = outio.Node
+						}
 					}
 				}
 			}
@@ -821,7 +824,8 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 		logger.Debug(2, fmt.Sprintf("inputs located %s, %s\n", name, io.Node))
 	}
 	// locate predata
-	for name, io := range task.Predata {
+	for _, io := range task.Predata {
+		name := io.FileName
 		logger.Debug(2, fmt.Sprintf("processing predata %s, %s\n", name, io.Node))
 		// only verify predata that is a shock node
 		if (io.Node != "") && (io.Node != "-") && (io.GetFileSize() < 0) {
@@ -852,7 +856,8 @@ func (qm *ServerMgr) parseTask(task *Task) (err error) {
 func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 
 	outputs := task.Outputs
-	for name, io := range outputs {
+	for _, io := range outputs {
+		name := io.FileName
 		if io.Type == "update" {
 			// this an update output, it will update an existing shock node and not create a new one
 			if (io.Node == "") || (io.Node == "-") {
@@ -887,8 +892,10 @@ func (qm *ServerMgr) locateUpdate(taskid string, name string, origin string) (no
 	// scan outputs in origin task
 	if preTask, ok := qm.getTask(preId); ok {
 		outputs := preTask.Outputs
-		if outio, ok := outputs[name]; ok {
-			return outio.Node, nil
+		for _, outio := range outputs {
+			if outio.FileName == name {
+				return outio.Node, nil
+			}
 		}
 	}
 	return "", errors.New(fmt.Sprintf("failed to locate Node for task %s / update %s from task %s", taskid, name, preId))

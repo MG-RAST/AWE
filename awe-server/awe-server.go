@@ -58,9 +58,9 @@ func launchSite(control chan int, port int) {
 
 	// add / replace AWE API url
 	if conf.API_URL == "" {
-        fmt.Fprintf(os.Stderr, "ERROR: API_URL is not defined. \n")
-        logger.Error("ERROR: API_URL is not defined.")
-    }
+		fmt.Fprintf(os.Stderr, "ERROR: API_URL is not defined. \n")
+		logger.Error("ERROR: API_URL is not defined.")
+	}
 	template_conf_string = strings.Replace(template_conf_string, "[% api_url %]", conf.API_URL, -1)
 
 	// add auth

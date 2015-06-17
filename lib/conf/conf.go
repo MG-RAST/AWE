@@ -399,8 +399,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddInt(&API_PORT, 8001, "Ports", "api-port", "Internal port for API", "")
 
 		// External
-		c_store.AddString(&SITE_URL, "http://localhost", "External", "site-url", "External URL of AWE monitor", "")
-		c_store.AddString(&API_URL, "http://localhost", "External", "api-url", "External API URL of AWE server", "")
+		c_store.AddString(&SITE_URL, "", "External", "site-url", "External URL of AWE monitor, including port", "")
+		c_store.AddString(&API_URL, "", "External", "api-url", "External API URL of AWE server, including port", "")
 
 		// SSL
 		c_store.AddBool(&SSL_ENABLED, false, "SSL", "enable", "", "")
@@ -595,7 +595,7 @@ func Init_conf(mode string) (err error) {
 			Icon:      "MGRAST_favicon.ico",
 			Prefix:    "mgo4711",
 			Keyword:   "auth",
-			Url:       MGRAST_OAUTH_URL + "?verbosity=verbose",
+			Url:       MGRAST_API + "?verbosity=verbose",
 			UseHeader: false,
 		}
 	}

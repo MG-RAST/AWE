@@ -47,10 +47,6 @@ func launchSite(control chan int, port int) {
 
 	}
 
-	if conf.API_URL == "" {
-		fmt.Fprintf(os.Stderr, "ERROR: API_URL is not defined. \n")
-		logger.Error("ERROR: API_URL is not defined.")
-	}
 	template_conf_filename := path.Join(conf.SITE_PATH, "js/config.js.tt")
 	target_conf_filename := path.Join(conf.SITE_PATH, "js/config.js")
 	buf, err := ioutil.ReadFile(template_conf_filename)
@@ -61,8 +57,11 @@ func launchSite(control chan int, port int) {
 	template_conf_string := string(buf)
 
 	// add / replace AWE API url
-	url_replace := fmt.Sprintf("%s:%d", conf.API_URL, conf.API_PORT)
-	template_conf_string = strings.Replace(template_conf_string, "[% api_url %]", url_replace, -1)
+	if conf.API_URL == "" {
+        fmt.Fprintf(os.Stderr, "ERROR: API_URL is not defined. \n")
+        logger.Error("ERROR: API_URL is not defined.")
+    }
+	template_conf_string = strings.Replace(template_conf_string, "[% api_url %]", conf.API_URL, -1)
 
 	// add auth
 	auth_on := "false"

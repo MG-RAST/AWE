@@ -117,6 +117,9 @@ var (
 
 	DEBUG_LEVEL int
 
+	// Versions, used to track changes in data structures
+	VERSIONS = make(map[string]int)
+
 	//[server] options
 
 	PERF_LOG_WORKUNIT bool
@@ -652,6 +655,8 @@ func Init_conf(mode string) (err error) {
 	DATA_PATH, _ = filepath.Abs(DATA_PATH)
 	LOGS_PATH, _ = filepath.Abs(LOGS_PATH)
 	AWF_PATH, _ = filepath.Abs(AWF_PATH)
+
+	VERSIONS["Job"] = 2
 
 	return
 }

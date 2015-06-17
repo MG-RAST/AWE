@@ -20,7 +20,6 @@ func NewProxyMgr() *ProxyMgr {
 		CQMgr: CQMgr{
 			clientMap: map[string]*Client{},
 			workQueue: NewWQueue(),
-			reminder:  make(chan bool),
 			coReq:     make(chan CoReq),
 			coAck:     make(chan CoAck),
 			feedback:  make(chan Notice),
@@ -29,9 +28,15 @@ func NewProxyMgr() *ProxyMgr {
 	}
 }
 
-//to-do: consider separate some independent tasks into another goroutine to handle
+func (qm *ProxyMgr) JidHandle() {
+	return
+}
 
-func (qm *ProxyMgr) Handle() {
+func (qm *ProxyMgr) TaskHandle() {
+	return
+}
+
+func (qm *ProxyMgr) ClientHandle() {
 	for {
 		select {
 		case coReq := <-qm.coReq:
@@ -39,25 +44,12 @@ func (qm *ProxyMgr) Handle() {
 			works, err := qm.popWorks(coReq)
 			ack := CoAck{workunits: works, err: err}
 			qm.coAck <- ack
-
 		case notice := <-qm.feedback:
 			logger.Debug(2, fmt.Sprintf("proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
 			if err := qm.handleWorkStatusChange(notice); err != nil {
 				logger.Error("handleWorkStatusChange(): " + err.Error())
 			}
-		case <-qm.reminder:
-			logger.Debug(3, "time to update workunit queue....\n")
-			if conf.DEV_MODE {
-				fmt.Println(qm.ShowStatus())
-			}
 		}
-	}
-}
-
-func (qm *ProxyMgr) Timer() {
-	for {
-		time.Sleep(10 * time.Second)
-		qm.reminder <- true
 	}
 }
 

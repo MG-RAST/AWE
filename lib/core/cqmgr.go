@@ -19,7 +19,6 @@ type CQMgr struct {
 	clientLock sync.RWMutex
 	clientMap  map[string]*Client
 	workQueue  *WQueue
-	reminder   chan bool
 	coReq      chan CoReq  //workunit checkout request (WorkController -> qmgr.Handler)
 	coAck      chan CoAck  //workunit checkout item including data and err (qmgr.Handler -> WorkController)
 	feedback   chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
@@ -30,7 +29,6 @@ func NewCQMgr() *CQMgr {
 	return &CQMgr{
 		clientMap: map[string]*Client{},
 		workQueue: NewWQueue(),
-		reminder:  make(chan bool),
 		coReq:     make(chan CoReq),
 		coAck:     make(chan CoAck),
 		feedback:  make(chan Notice),
@@ -39,9 +37,8 @@ func NewCQMgr() *CQMgr {
 }
 
 //--------mgr methods-------
-//to-do: consider separate some independent tasks into another goroutine to handle
 
-func (qm *CQMgr) Handle() {
+func (qm *CQMgr) ClientHandle() {
 	for {
 		select {
 		case coReq := <-qm.coReq:
@@ -49,23 +46,12 @@ func (qm *CQMgr) Handle() {
 			works, err := qm.popWorks(coReq)
 			ack := CoAck{workunits: works, err: err}
 			qm.coAck <- ack
-
 		case notice := <-qm.feedback:
 			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
 			if err := qm.handleWorkStatusChange(notice); err != nil {
 				logger.Error("handleWorkStatusChange(): " + err.Error())
 			}
-
-		case <-qm.reminder:
-			logger.Debug(3, "time to update workunit queue....\n")
 		}
-	}
-}
-
-func (qm *CQMgr) Timer() {
-	for {
-		time.Sleep(10 * time.Second)
-		qm.reminder <- true
 	}
 }
 
@@ -158,6 +144,7 @@ func (qm *CQMgr) ListClients() (ids []string) {
 func (qm *CQMgr) ClientChecker() {
 	for {
 		time.Sleep(30 * time.Second)
+		logger.Debug(3, "time to update client list....\n")
 		for _, client := range qm.GetAllClients() {
 			if client.Tag == true {
 				client.Tag = false
@@ -177,7 +164,6 @@ func (qm *CQMgr) ClientChecker() {
 				}
 				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
 				logger.Event(event.CLIENT_UNREGISTER, "clientid="+client.Id+";name="+client.Name)
-
 				//requeue unfinished workunits associated with the failed client
 				qm.ReQueueWorkunitByClient(client.Id)
 				//delete the client from client map

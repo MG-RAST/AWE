@@ -20,17 +20,18 @@ import (
 
 type ServerMgr struct {
 	CQMgr
-	taskLock sync.RWMutex
-	ajLock   sync.RWMutex
-	sjLock   sync.RWMutex
-	taskMap  map[string]*Task
-	actJobs  map[string]*JobPerf
-	susJobs  map[string]bool
-	jsReq    chan bool   //channel for job submission request (JobController -> qmgr.Handler)
-	jsAck    chan string //channel for return an assigned job number in response to jsReq  (qmgr.Handler -> JobController)
-	taskIn   chan *Task  //channel for receiving Task (JobController -> qmgr.Handler)
-	coSem    chan int    //semaphore for checkout (mutual exclusion between different clients)
-	nextJid  string      //next jid that will be assigned to newly submitted job
+	queueLock sync.Mutex //only update one at a time
+	taskLock  sync.RWMutex
+	ajLock    sync.RWMutex
+	sjLock    sync.RWMutex
+	taskMap   map[string]*Task
+	actJobs   map[string]*JobPerf
+	susJobs   map[string]bool
+	jsReq     chan bool   //channel for job submission request (JobController -> qmgr.Handler)
+	jsAck     chan string //channel for return an assigned job number in response to jsReq  (qmgr.Handler -> JobController)
+	taskIn    chan *Task  //channel for receiving Task (JobController -> qmgr.Handler)
+	coSem     chan int    //semaphore for checkout (mutual exclusion between different clients)
+	nextJid   string      //next jid that will be assigned to newly submitted job
 }
 
 func NewServerMgr() *ServerMgr {
@@ -38,7 +39,6 @@ func NewServerMgr() *ServerMgr {
 		CQMgr: CQMgr{
 			clientMap: map[string]*Client{},
 			workQueue: NewWQueue(),
-			reminder:  make(chan bool),
 			coReq:     make(chan CoReq),
 			coAck:     make(chan CoAck),
 			feedback:  make(chan Notice),
@@ -55,49 +55,43 @@ func NewServerMgr() *ServerMgr {
 }
 
 //--------mgr methods-------
-//to-do: consider separate some independent tasks into another goroutine to handle
 
-func (qm *ServerMgr) Handle() {
+func (qm *ServerMgr) JidHandle() {
+	for {
+		<-qm.jsReq
+		jid := qm.getNextJid()
+		qm.jsAck <- jid
+		logger.Debug(2, fmt.Sprintf("qmgr:receive a job submission request, assigned jid=%s\n", jid))
+	}
+}
+
+func (qm *ServerMgr) TaskHandle() {
+	for {
+		task := <-qm.taskIn
+		logger.Debug(2, fmt.Sprintf("qmgr:task recived from chan taskIn, id=%s\n", task.Id))
+		qm.addTask(task)
+	}
+}
+
+func (qm *ServerMgr) ClientHandle() {
 	for {
 		select {
-		case <-qm.jsReq:
-			jid := qm.getNextJid()
-			qm.jsAck <- jid
-			logger.Debug(2, fmt.Sprintf("qmgr:receive a job submission request, assigned jid=%s\n", jid))
-
-		case task := <-qm.taskIn:
-			logger.Debug(2, fmt.Sprintf("qmgr:task recived from chan taskIn, id=%s\n", task.Id))
-			qm.addTask(task)
-
 		case coReq := <-qm.coReq:
 			logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v\n", coReq))
+			qm.updateQueue()
 			works, err := qm.popWorks(coReq)
 			if err == nil {
 				qm.UpdateJobTaskToInProgress(works)
 			}
 			ack := CoAck{workunits: works, err: err}
 			qm.coAck <- ack
-
 		case notice := <-qm.feedback:
 			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
 			if err := qm.handleWorkStatusChange(notice); err != nil {
 				logger.Error("handleWorkStatusChange(): " + err.Error())
 			}
-
-		case <-qm.reminder:
-			logger.Debug(3, "time to update workunit queue....\n")
 			qm.updateQueue()
-			if conf.DEV_MODE {
-				fmt.Println(qm.ShowStatus())
-			}
 		}
-	}
-}
-
-func (qm *ServerMgr) Timer() {
-	for {
-		time.Sleep(10 * time.Second)
-		qm.reminder <- true
 	}
 }
 
@@ -335,6 +329,8 @@ func (qm *ServerMgr) InitMaxJid() (err error) {
 
 //poll ready tasks and push into workQueue
 func (qm *ServerMgr) updateQueue() (err error) {
+	qm.queueLock.Lock()
+	defer qm.queueLock.Unlock()
 	for _, task := range qm.getAllTasks() {
 		if qm.isTaskReady(task) {
 			if err := qm.taskEnQueue(task); err != nil {
@@ -405,8 +401,6 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	}
 
 	// we want these to happen at end
-	// update task before updating queue
-	defer qm.updateQueue()
 	defer qm.updateTask(task)
 
 	qm.updateTaskWorkStatus(task, rank, status)

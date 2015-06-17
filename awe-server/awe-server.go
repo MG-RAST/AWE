@@ -12,6 +12,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/user"
+	"github.com/MG-RAST/AWE/lib/versions"
 	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goweb"
 	"io"
 	"io/ioutil"
@@ -191,6 +192,13 @@ func main() {
 	//init db
 	if err := db.Initialize(); err != nil {
 		fmt.Printf("failed to initialize job db: %s\n", err.Error())
+		os.Exit(1)
+	}
+
+	//init versions
+	if err := versions.Initialize(); err != nil {
+		fmt.Fprintf(os.Stderr, "Err@versions.Initialize: %v\n", err)
+		logger.Error("Err@versions.Initialize: " + err.Error())
 		os.Exit(1)
 	}
 

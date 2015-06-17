@@ -821,7 +821,7 @@
 			   headers: widget.authHeader,
 			   success: function (data) {
 			       var target = document.getElementById('errorJob'+job.id);
-			       target.innerHTML += "<div><b>workunit stdout</b><br><pre>"+JSON.stringify(data.data, null, 2)+"</pre></div>";
+			       target.innerHTML += "<div><b>workunit stdout</b><br><pre>"+data.data+"</pre></div>";
 			   }
 		     });
 
@@ -830,7 +830,7 @@
 			   headers: widget.authHeader,
 			   success: function (data) {
 			       var target = document.getElementById('errorJob'+job.id);
-			       target.innerHTML += "<div><b>workunit stderr</b><br><pre>"+JSON.stringify(data.data, null, 2)+"</pre></div>";
+			       target.innerHTML += "<div><b>workunit stderr</b><br><pre>"+data.data+"</pre></div>";
 			   }
 		     });
 
@@ -839,7 +839,7 @@
 			   headers: widget.authHeader,
 			   success: function (data) {
 			       var target = document.getElementById('errorJob'+job.id);
-			       target.innerHTML += "<div><b>workunit worknotes</b><br><pre>"+JSON.stringify(data.data, null, 2)+"</pre></div>";
+			       target.innerHTML += "<div><b>workunit worknotes</b><br><pre>"+data.data+"</pre></div>";
 			   }
 		     });
 	

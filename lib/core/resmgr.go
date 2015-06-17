@@ -73,7 +73,8 @@ type ClientWorkMgr interface {
 type ResourceMgr interface {
 	ClientWorkMgr
 	JobMgr
-	Handle()
+	JidHandle()
+	TaskHandle()
+	ClientHandle()
 	ShowStatus() string
-	Timer()
 }

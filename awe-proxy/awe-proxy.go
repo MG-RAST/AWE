@@ -79,8 +79,9 @@ func main() {
 
 	//launch server
 	control := make(chan int)
-	go core.QMgr.Handle()
-	go core.QMgr.Timer()
+	go core.QMgr.JidHandle()
+	go core.QMgr.TaskHandle()
+	go core.QMgr.ClientHandle()
 	go core.QMgr.ClientChecker()
 	go launchAPI(control, conf.API_PORT)
 

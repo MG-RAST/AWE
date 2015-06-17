@@ -310,7 +310,6 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 // Parses job by job script using the deprecated Job struct. Maintained for backwards compatibility. (=deprecated=)
 func ParseJobTasksDep(filename string, jid string) (job *Job, err error) {
 	jobDep := new(JobDep)
-	job = new(Job)
 
 	jsonstream, err := ioutil.ReadFile(filename)
 
@@ -324,7 +323,59 @@ func ParseJobTasksDep(filename string, jid string) (job *Job, err error) {
 	}
 
 	//copy contents of jobDep struct into job struct
+	job = JobDepToJob(jobDep)
 
+	if len(job.Tasks) == 0 {
+		return nil, errors.New("invalid job script: task list empty")
+	}
+
+	if job.Info == nil {
+		job.Info = NewInfo()
+	}
+
+	job.Info.SubmitTime = time.Now()
+	if job.Info.Priority < conf.BasePriority {
+		job.Info.Priority = conf.BasePriority
+	}
+
+	job.setId()     //uuid for the job
+	job.setJid(jid) //an incremental id for the jobs within a AWE server domain
+	job.State = JOB_STAT_INIT
+	job.Registered = true
+
+	//parse private fields task.Cmd.Environ.Private
+	job_p := new(Job_p)
+	err = json.Unmarshal(jsonstream, job_p)
+	if err == nil {
+		for idx, task := range job_p.Tasks {
+			if task.Cmd.Environ == nil || task.Cmd.Environ.Private == nil {
+				continue
+			}
+			job.Tasks[idx].Cmd.Environ.Private = make(map[string]string)
+			for key, val := range task.Cmd.Environ.Private {
+				job.Tasks[idx].Cmd.Environ.Private[key] = val
+			}
+		}
+	}
+
+	for i := 0; i < len(job.Tasks); i++ {
+		if strings.Contains(job.Tasks[i].Id, "_") {
+			// no "_" allowed in inital taskid
+			return nil, errors.New("invalid taskid, may not contain '_'")
+		}
+		if err := job.Tasks[i].InitTask(job); err != nil {
+			return nil, errors.New("error in InitTask: " + err.Error())
+		}
+	}
+
+	job.RemainTasks = len(job.Tasks)
+
+	return
+}
+
+// Takes the deprecated (version 1) Job struct and returns the version 2 Job struct or an error
+func JobDepToJob(jobDep *JobDep) (job *Job) {
+	job = new(Job)
 	job.Id = jobDep.Id
 	job.Jid = jobDep.Jid
 	job.Acl = jobDep.Acl
@@ -380,52 +431,6 @@ func ParseJobTasksDep(filename string, jid string) (job *Job, err error) {
 		}
 		job.Tasks = append(job.Tasks, task)
 	}
-
-	if len(job.Tasks) == 0 {
-		return nil, errors.New("invalid job script: task list empty")
-	}
-
-	if job.Info == nil {
-		job.Info = NewInfo()
-	}
-
-	job.Info.SubmitTime = time.Now()
-	if job.Info.Priority < conf.BasePriority {
-		job.Info.Priority = conf.BasePriority
-	}
-
-	job.setId()     //uuid for the job
-	job.setJid(jid) //an incremental id for the jobs within a AWE server domain
-	job.State = JOB_STAT_INIT
-	job.Registered = true
-
-	//parse private fields task.Cmd.Environ.Private
-	job_p := new(Job_p)
-	err = json.Unmarshal(jsonstream, job_p)
-	if err == nil {
-		for idx, task := range job_p.Tasks {
-			if task.Cmd.Environ == nil || task.Cmd.Environ.Private == nil {
-				continue
-			}
-			job.Tasks[idx].Cmd.Environ.Private = make(map[string]string)
-			for key, val := range task.Cmd.Environ.Private {
-				job.Tasks[idx].Cmd.Environ.Private[key] = val
-			}
-		}
-	}
-
-	for i := 0; i < len(job.Tasks); i++ {
-		if strings.Contains(job.Tasks[i].Id, "_") {
-			// no "_" allowed in inital taskid
-			return nil, errors.New("invalid taskid, may not contain '_'")
-		}
-		if err := job.Tasks[i].InitTask(job); err != nil {
-			return nil, errors.New("error in InitTask: " + err.Error())
-		}
-	}
-
-	job.RemainTasks = len(job.Tasks)
-
 	return
 }
 

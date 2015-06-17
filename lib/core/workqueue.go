@@ -67,9 +67,8 @@ func (wq *WQueue) Add(workunit *Workunit) (err error) {
 	}
 	wq.Lock()
 	defer wq.Unlock()
-	copy := wq.copyWork(workunit)
-	id := copy.Id
-	wq.workMap[id] = copy
+	id := workunit.Id
+	wq.workMap[id] = workunit
 	wq.wait[id] = true
 	delete(wq.checkout, id)
 	delete(wq.suspend, id)
@@ -79,8 +78,7 @@ func (wq *WQueue) Add(workunit *Workunit) (err error) {
 
 func (wq *WQueue) Put(workunit *Workunit) {
 	wq.Lock()
-	copy := wq.copyWork(workunit)
-	wq.workMap[copy.Id] = copy
+	wq.workMap[workunit.Id] = workunit
 	wq.Unlock()
 }
 

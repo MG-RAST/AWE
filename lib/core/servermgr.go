@@ -160,8 +160,7 @@ func (qm *ServerMgr) lenActJobs() (l int) {
 
 func (qm *ServerMgr) putActJob(jperf *JobPerf) {
 	qm.ajLock.Lock()
-	copy := qm.copyJobPerf(jperf)
-	qm.actJobs[copy.Id] = copy
+	qm.actJobs[jperf.Id] = jperf
 	qm.ajLock.Unlock()
 }
 
@@ -219,8 +218,15 @@ func (qm *ServerMgr) lenTasks() (l int) {
 
 func (qm *ServerMgr) putTask(task *Task) {
 	qm.taskLock.Lock()
-	copy := qm.copyTask(task)
-	qm.taskMap[copy.Id] = copy
+	qm.taskMap[task.Id] = task
+	qm.taskLock.Unlock()
+}
+
+func (qm *ServerMgr) updateTask(task *Task) {
+	qm.taskLock.Lock()
+	if _, ok := qm.taskMap[task.Id]; ok {
+		qm.taskMap[task.Id] = task
+	}
 	qm.taskLock.Unlock()
 }
 
@@ -337,7 +343,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
 			}
 		}
-		qm.putTask(task)
+		qm.updateTask(task)
 	}
 	for _, id := range qm.workQueue.Clean() {
 		jid, err := GetJobIdByWorkId(id)
@@ -401,7 +407,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	// we want these to happen at end
 	// update task before updating queue
 	defer qm.updateQueue()
-	defer qm.putTask(task)
+	defer qm.updateTask(task)
 
 	qm.updateTaskWorkStatus(task, rank, status)
 	if status == WORK_STAT_DONE {
@@ -1414,7 +1420,7 @@ func (qm *ServerMgr) UpdateGroup(jobid string, newgroup string) (err error) {
 	for _, task := range dbjob.Tasks {
 		if mtask, ok := qm.getTask(task.Id); ok {
 			mtask.Info.ClientGroups = newgroup
-			qm.putTask(mtask)
+			qm.updateTask(mtask)
 		}
 	}
 	return
@@ -1440,7 +1446,7 @@ func (qm *ServerMgr) UpdatePriority(jobid string, priority int) (err error) {
 	for _, task := range dbjob.Tasks {
 		if mtask, ok := qm.getTask(task.Id); ok {
 			mtask.Info.Priority = priority
-			qm.putTask(mtask)
+			qm.updateTask(mtask)
 		}
 	}
 	return

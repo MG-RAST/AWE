@@ -88,8 +88,7 @@ func (qm *CQMgr) copyClient(a *Client) (b *Client) {
 
 func (qm *CQMgr) PutClient(client *Client) {
 	qm.clientLock.Lock()
-	copy := qm.copyClient(client)
-	qm.clientMap[copy.Id] = copy
+	qm.clientMap[client.Id] = client
 	qm.clientLock.Unlock()
 }
 

@@ -191,7 +191,7 @@
 				   ] },
 				   6: { type: "text" } };
 	    gt.settings.asynch_column_mapping = { "submission": "info.submittime",
-						  "job": "info.name",
+						  "job name": "info.name",
 						  "job id": "jid",
 						  "pipeline": "info.pipeline",
 						  "current state": "state",

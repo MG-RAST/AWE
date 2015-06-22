@@ -10,6 +10,7 @@ RUN mkdir -p /mongodb/ ; \
 
 
 RUN ln -s /mongodb/mongodb-linux-x86_64-2.4.14/bin/mongod /usr/bin/mongod
+ENV PATH $PATH:/mongodb/mongodb-linux-x86_64-2.4.14/bin
 
 CMD ["mongod"]
 

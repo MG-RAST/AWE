@@ -537,7 +537,7 @@ func Init_conf(mode string) (err error) {
 			CONFIG_FILE = strings.TrimPrefix(elem, "--conf=")
 		}
 
-		if conf_option == true && len(CONFIG_FILE) <= 2 && i+1 < len(os.Args) {
+		if conf_option == true && CONFIG_FILE != elem && i+1 < len(os.Args) {
 			CONFIG_FILE = os.Args[i+1]
 		}
 	}

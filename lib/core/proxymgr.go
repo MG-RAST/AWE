@@ -20,7 +20,6 @@ func NewProxyMgr() *ProxyMgr {
 		CQMgr: CQMgr{
 			clientMap: map[string]*Client{},
 			workQueue: NewWQueue(),
-			reminder:  make(chan bool),
 			coReq:     make(chan CoReq),
 			coAck:     make(chan CoAck),
 			feedback:  make(chan Notice),
@@ -29,9 +28,15 @@ func NewProxyMgr() *ProxyMgr {
 	}
 }
 
-//to-do: consider separate some independent tasks into another goroutine to handle
+func (qm *ProxyMgr) JidHandle() {
+	return
+}
 
-func (qm *ProxyMgr) Handle() {
+func (qm *ProxyMgr) TaskHandle() {
+	return
+}
+
+func (qm *ProxyMgr) ClientHandle() {
 	for {
 		select {
 		case coReq := <-qm.coReq:
@@ -39,25 +44,12 @@ func (qm *ProxyMgr) Handle() {
 			works, err := qm.popWorks(coReq)
 			ack := CoAck{workunits: works, err: err}
 			qm.coAck <- ack
-
 		case notice := <-qm.feedback:
 			logger.Debug(2, fmt.Sprintf("proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
 			if err := qm.handleWorkStatusChange(notice); err != nil {
 				logger.Error("handleWorkStatusChange(): " + err.Error())
 			}
-		case <-qm.reminder:
-			logger.Debug(3, "time to update workunit queue....\n")
-			if conf.DEV_MODE {
-				fmt.Println(qm.ShowStatus())
-			}
 		}
-	}
-}
-
-func (qm *ProxyMgr) Timer() {
-	for {
-		time.Sleep(10 * time.Second)
-		qm.reminder <- true
 	}
 }
 
@@ -79,8 +71,12 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	perf := new(WorkPerf)
 	workid := notice.WorkId
 	clientid := notice.ClientId
-	if _, ok := qm.clientMap[clientid]; ok {
-		delete(qm.clientMap[clientid].Current_work, workid)
+	if client, ok := qm.GetClient(clientid); ok {
+		delete(client.Current_work, workid)
+		if len(client.Current_work) == 0 {
+			client.Status = CLIENT_STAT_ACTIVE_IDLE
+		}
+		qm.PutClient(client)
 	}
 	if work, ok := qm.workQueue.Get(workid); ok {
 		work.State = notice.Status
@@ -88,20 +84,23 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 			return
 		}
 		if work.State == WORK_STAT_DONE {
-			if client, ok := qm.clientMap[clientid]; ok {
+			if client, ok := qm.GetClient(clientid); ok {
 				client.Total_completed += 1
 				client.Last_failed = 0 //reset last consecutive failures
+				qm.PutClient(client)
 			}
 		} else if work.State == WORK_STAT_FAIL {
-			if client, ok := qm.clientMap[clientid]; ok {
+			if client, ok := qm.GetClient(clientid); ok {
 				client.Skip_work = append(client.Skip_work, workid)
 				client.Total_failed += 1
 				client.Last_failed += 1 //last consecutive failures
 				if client.Last_failed == conf.MAX_CLIENT_FAILURE {
 					client.Status = CLIENT_STAT_SUSPEND
 				}
+				qm.PutClient(client)
 			}
 		}
+		qm.workQueue.Put(work)
 	}
 	return
 }
@@ -132,8 +131,7 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 	if cg != nil && client.Group != cg.Name {
 		return nil, errors.New("Clientgroup name in token does not match that in the client configuration.")
 	}
-	qm.clientMap[client.Id] = client
-
+	qm.PutClient(client)
 	if len(client.Current_work) > 0 { //re-registered client
 		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
 		for workid, _ := range client.Current_work {
@@ -151,7 +149,7 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 func (qm *ProxyMgr) ClientChecker() {
 	for {
 		time.Sleep(30 * time.Second)
-		for clientid, client := range qm.clientMap {
+		for _, client := range qm.GetAllClients() {
 			if client.Tag == true {
 				client.Tag = false
 				total_minutes := int(time.Now().Sub(client.RegTime).Minutes())
@@ -163,20 +161,15 @@ func (qm *ProxyMgr) ClientChecker() {
 				} else {
 					client.Idle_time += 30
 				}
+				qm.PutClient(client)
 			} else {
 				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
-				logger.Event(event.CLIENT_UNREGISTER, "clientid="+clientid+";name="+qm.clientMap[clientid].Name)
+				logger.Event(event.CLIENT_UNREGISTER, "clientid="+client.Id+";name="+client.Name)
 
 				//requeue unfinished workunits associated with the failed client
-				workids := qm.getWorkByClient(clientid)
-				for _, workid := range workids {
-					if qm.workQueue.Has(workid) {
-						qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
-						logger.Event(event.WORK_REQUEUE, "workid="+workid)
-					}
-				}
+				qm.ReQueueWorkunitByClient(client.Id)
 				//delete the client from client map
-				delete(qm.clientMap, clientid)
+				qm.RemoveClient(client.Id)
 				//proxy specific
 				Self.SubClients -= 1
 				notifySubClients(Self.Id, Self.SubClients)
@@ -195,7 +188,7 @@ func (qm *ProxyMgr) JobRegister() (jid string, err error) {
 	return
 }
 
-func (qm *ProxyMgr) GetActiveJobs() map[string]*JobPerf {
+func (qm *ProxyMgr) GetActiveJobs() map[string]bool {
 	return nil
 }
 

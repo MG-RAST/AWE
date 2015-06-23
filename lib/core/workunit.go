@@ -22,9 +22,9 @@ const (
 type Workunit struct {
 	Id           string            `bson:"wuid" json:"wuid"`
 	Info         *Info             `bson:"info" json:"info"`
-	Inputs       IOmap             `bson:"inputs" json:"inputs"`
-	Outputs      IOmap             `bson:"outputs" json:"outputs"`
-	Predata      IOmap             `bson:"predata" json:"predata"`
+	Inputs       []*IO             `bson:"inputs" json:"inputs"`
+	Outputs      []*IO             `bson:"outputs" json:"outputs"`
+	Predata      []*IO             `bson:"predata" json:"predata"`
 	Cmd          *Command          `bson:"cmd" json:"cmd"`
 	App          *App              `bson:"app" json:"app"`
 	Rank         int               `bson:"rank" json:"rank"`

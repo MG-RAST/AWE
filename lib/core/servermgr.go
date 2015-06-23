@@ -14,19 +14,24 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 type ServerMgr struct {
 	CQMgr
-	taskMap map[string]*Task
-	actJobs map[string]*JobPerf
-	susJobs map[string]bool
-	jsReq   chan bool   //channel for job submission request (JobController -> qmgr.Handler)
-	jsAck   chan string //channel for return an assigned job number in response to jsReq  (qmgr.Handler -> JobController)
-	taskIn  chan *Task  //channel for receiving Task (JobController -> qmgr.Handler)
-	coSem   chan int    //semaphore for checkout (mutual exclusion between different clients)
-	nextJid string      //next jid that will be assigned to newly submitted job
+	queueLock sync.Mutex //only update one at a time
+	taskLock  sync.RWMutex
+	ajLock    sync.RWMutex
+	sjLock    sync.RWMutex
+	taskMap   map[string]*Task
+	actJobs   map[string]*JobPerf
+	susJobs   map[string]bool
+	jsReq     chan bool   //channel for job submission request (JobController -> qmgr.Handler)
+	jsAck     chan string //channel for return an assigned job number in response to jsReq  (qmgr.Handler -> JobController)
+	taskIn    chan *Task  //channel for receiving Task (JobController -> qmgr.Handler)
+	coSem     chan int    //semaphore for checkout (mutual exclusion between different clients)
+	nextJid   string      //next jid that will be assigned to newly submitted job
 }
 
 func NewServerMgr() *ServerMgr {
@@ -34,7 +39,6 @@ func NewServerMgr() *ServerMgr {
 		CQMgr: CQMgr{
 			clientMap: map[string]*Client{},
 			workQueue: NewWQueue(),
-			reminder:  make(chan bool),
 			coReq:     make(chan CoReq),
 			coAck:     make(chan CoAck),
 			feedback:  make(chan Notice),
@@ -50,51 +54,233 @@ func NewServerMgr() *ServerMgr {
 	}
 }
 
-//to-do: consider separate some independent tasks into another goroutine to handle
+//--------mgr methods-------
 
-func (qm *ServerMgr) Handle() {
+func (qm *ServerMgr) JidHandle() {
+	for {
+		<-qm.jsReq
+		jid := qm.getNextJid()
+		qm.jsAck <- jid
+		logger.Debug(2, fmt.Sprintf("qmgr:receive a job submission request, assigned jid=%s\n", jid))
+	}
+}
+
+func (qm *ServerMgr) TaskHandle() {
+	for {
+		task := <-qm.taskIn
+		logger.Debug(2, fmt.Sprintf("qmgr:task recived from chan taskIn, id=%s\n", task.Id))
+		qm.addTask(task)
+	}
+}
+
+func (qm *ServerMgr) ClientHandle() {
 	for {
 		select {
-		case <-qm.jsReq:
-			jid := qm.getNextJid()
-			qm.jsAck <- jid
-			logger.Debug(2, fmt.Sprintf("qmgr:receive a job submission request, assigned jid=%s\n", jid))
-
-		case task := <-qm.taskIn:
-			logger.Debug(2, fmt.Sprintf("qmgr:task recived from chan taskIn, id=%s\n", task.Id))
-			qm.addTask(task)
-
 		case coReq := <-qm.coReq:
 			logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v\n", coReq))
+			qm.updateQueue()
 			works, err := qm.popWorks(coReq)
 			if err == nil {
 				qm.UpdateJobTaskToInProgress(works)
 			}
 			ack := CoAck{workunits: works, err: err}
 			qm.coAck <- ack
-
 		case notice := <-qm.feedback:
 			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
 			if err := qm.handleWorkStatusChange(notice); err != nil {
 				logger.Error("handleWorkStatusChange(): " + err.Error())
 			}
-
-		case <-qm.reminder:
-			logger.Debug(3, "time to update workunit queue....\n")
 			qm.updateQueue()
-			if conf.DEV_MODE {
-				fmt.Println(qm.ShowStatus())
-			}
 		}
 	}
 }
 
-func (qm *ServerMgr) Timer() {
-	for {
-		time.Sleep(10 * time.Second)
-		qm.reminder <- true
-	}
+//--------suspend job accessor methods-------
+
+func (qm *ServerMgr) lenSusJobs() (l int) {
+	qm.sjLock.RLock()
+	l = len(qm.susJobs)
+	qm.sjLock.RUnlock()
+	return
 }
+
+func (qm *ServerMgr) putSusJob(id string) {
+	qm.sjLock.Lock()
+	qm.susJobs[id] = true
+	qm.sjLock.Unlock()
+}
+
+func (qm *ServerMgr) GetSuspendJobs() (sjobs map[string]bool) {
+	qm.sjLock.RLock()
+	defer qm.sjLock.RUnlock()
+	sjobs = make(map[string]bool)
+	for id, _ := range qm.susJobs {
+		sjobs[id] = true
+	}
+	return
+}
+
+func (qm *ServerMgr) removeSusJob(id string) {
+	qm.sjLock.Lock()
+	delete(qm.susJobs, id)
+	qm.sjLock.Unlock()
+}
+
+func (qm *ServerMgr) isSusJob(id string) (has bool) {
+	qm.sjLock.RLock()
+	defer qm.sjLock.RUnlock()
+	if _, ok := qm.susJobs[id]; ok {
+		has = true
+	} else {
+		has = false
+	}
+	return
+}
+
+//--------active job accessor methods-------
+
+func (qm *ServerMgr) copyJobPerf(a *JobPerf) (b *JobPerf) {
+	b = new(JobPerf)
+	*b = *a
+	return
+}
+
+func (qm *ServerMgr) lenActJobs() (l int) {
+	qm.ajLock.RLock()
+	l = len(qm.actJobs)
+	qm.ajLock.RUnlock()
+	return
+}
+
+func (qm *ServerMgr) putActJob(jperf *JobPerf) {
+	qm.ajLock.Lock()
+	qm.actJobs[jperf.Id] = jperf
+	qm.ajLock.Unlock()
+}
+
+func (qm *ServerMgr) getActJob(id string) (*JobPerf, bool) {
+	qm.ajLock.RLock()
+	defer qm.ajLock.RUnlock()
+	if jobperf, ok := qm.actJobs[id]; ok {
+		copy := qm.copyJobPerf(jobperf)
+		return copy, true
+	}
+	return nil, false
+}
+
+func (qm *ServerMgr) GetActiveJobs() (ajobs map[string]bool) {
+	qm.ajLock.RLock()
+	defer qm.ajLock.RUnlock()
+	ajobs = make(map[string]bool)
+	for id, _ := range qm.actJobs {
+		ajobs[id] = true
+	}
+	return
+}
+
+func (qm *ServerMgr) removeActJob(id string) {
+	qm.ajLock.Lock()
+	delete(qm.actJobs, id)
+	qm.ajLock.Unlock()
+}
+
+func (qm *ServerMgr) isActJob(id string) (has bool) {
+	qm.ajLock.RLock()
+	defer qm.ajLock.RUnlock()
+	if _, ok := qm.actJobs[id]; ok {
+		has = true
+	} else {
+		has = false
+	}
+	return
+}
+
+//--------task accessor methods-------
+
+func (qm *ServerMgr) copyTask(a *Task) (b *Task) {
+	b = new(Task)
+	*b = *a
+	return
+}
+
+func (qm *ServerMgr) lenTasks() (l int) {
+	qm.taskLock.RLock()
+	l = len(qm.taskMap)
+	qm.taskLock.RUnlock()
+	return
+}
+
+func (qm *ServerMgr) putTask(task *Task) {
+	qm.taskLock.Lock()
+	qm.taskMap[task.Id] = task
+	qm.taskLock.Unlock()
+}
+
+func (qm *ServerMgr) updateTask(task *Task) {
+	qm.taskLock.Lock()
+	if _, ok := qm.taskMap[task.Id]; ok {
+		qm.taskMap[task.Id] = task
+	}
+	qm.taskLock.Unlock()
+}
+
+func (qm *ServerMgr) getTask(id string) (*Task, bool) {
+	qm.taskLock.RLock()
+	defer qm.taskLock.RUnlock()
+	if task, ok := qm.taskMap[id]; ok {
+		copy := qm.copyTask(task)
+		return copy, true
+	}
+	return nil, false
+}
+
+func (qm *ServerMgr) getAllTasks() (tasks []*Task) {
+	qm.taskLock.RLock()
+	defer qm.taskLock.RUnlock()
+	for _, task := range qm.taskMap {
+		copy := qm.copyTask(task)
+		tasks = append(tasks, copy)
+	}
+	return
+}
+
+func (qm *ServerMgr) deleteTask(id string) {
+	qm.taskLock.Lock()
+	delete(qm.taskMap, id)
+	qm.taskLock.Unlock()
+}
+
+func (qm *ServerMgr) taskStateChange(id string, new_state string) (err error) {
+	qm.taskLock.Lock()
+	defer qm.taskLock.Unlock()
+	if task, ok := qm.taskMap[id]; ok {
+		task.State = new_state
+		return nil
+	}
+	return errors.New(fmt.Sprintf("task %s not found", id))
+}
+
+func (qm *ServerMgr) hasTask(id string) (has bool) {
+	qm.taskLock.RLock()
+	defer qm.taskLock.RUnlock()
+	if _, ok := qm.taskMap[id]; ok {
+		has = true
+	} else {
+		has = false
+	}
+	return
+}
+
+func (qm *ServerMgr) listTasks() (ids []string) {
+	qm.taskLock.RLock()
+	defer qm.taskLock.RUnlock()
+	for id := range qm.taskMap {
+		ids = append(ids, id)
+	}
+	return
+}
+
+//--------server methods-------
 
 func (qm *ServerMgr) InitMaxJid() (err error) {
 	jidfile := conf.DATA_PATH + "/maxjid"
@@ -143,33 +329,26 @@ func (qm *ServerMgr) InitMaxJid() (err error) {
 
 //poll ready tasks and push into workQueue
 func (qm *ServerMgr) updateQueue() (err error) {
-	for _, task := range qm.taskMap {
+	qm.queueLock.Lock()
+	defer qm.queueLock.Unlock()
+	for _, task := range qm.getAllTasks() {
 		if qm.isTaskReady(task) {
 			if err := qm.taskEnQueue(task); err != nil {
-				jobid, _ := GetJobIdByTaskId(task.Id)
+				task.State = TASK_STAT_SUSPEND
+				jobid := getParentJobId(task.Id)
 				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
 			}
 		}
+		qm.updateTask(task)
 	}
-	for id, work := range qm.workQueue.workMap {
-		if work == nil || work.Info == nil {
-			jid, err := GetJobIdByWorkId(id)
-			if err != nil {
-				qm.workQueue.Delete(id)
-				logger.Error(fmt.Sprintf("error: in updateQueue() workunit %s is nil, cannot get job id", id))
-				continue
-			}
-
-			if work == nil {
-				qm.workQueue.Delete(id)
-				qm.SuspendJob(jid, fmt.Sprintf("workunit %s is nil", id), id)
-				logger.Error(fmt.Sprintf("error: workunit %s is nil, deleted from queue", id))
-			} else if work.Info == nil {
-				qm.workQueue.Delete(id)
-				qm.SuspendJob(jid, fmt.Sprintf("workunit %s has Info=nil", id), id)
-				logger.Error(fmt.Sprintf("error: workunit %s has Info=nil, deleted from queue", id))
-			}
+	for _, id := range qm.workQueue.Clean() {
+		jid, err := GetJobIdByWorkId(id)
+		if err != nil {
+			logger.Error(fmt.Sprintf("error: in updateQueue() workunit %s is nil, cannot get job id", id))
+			continue
 		}
+		qm.SuspendJob(jid, fmt.Sprintf("workunit %s is nil", id), id)
+		logger.Error(fmt.Sprintf("error: workunit %s is nil, suspending job %s", id, jid))
 	}
 	return
 }
@@ -187,133 +366,137 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	if err != nil {
 		return errors.New(fmt.Sprintf("invalid workid %s", workid))
 	}
-	if _, ok := qm.clientMap[clientid]; ok {
-		delete(qm.clientMap[clientid].Current_work, workid)
-		if len(qm.clientMap[clientid].Current_work) == 0 {
-			qm.clientMap[clientid].Status = CLIENT_STAT_ACTIVE_IDLE
+
+	if client, ok := qm.GetClient(clientid); ok {
+		delete(client.Current_work, workid)
+		if len(client.Current_work) == 0 {
+			client.Status = CLIENT_STAT_ACTIVE_IDLE
 		}
+		qm.PutClient(client)
 	}
-	if task, ok := qm.taskMap[taskid]; ok {
-		if _, ok := qm.workQueue.workMap[workid]; !ok {
-			return
+
+	task, tok := qm.getTask(taskid)
+	if !tok {
+		//task not existed, possible when job is deleted before the workunit done
+		qm.workQueue.Delete(workid)
+		return
+	}
+	work, wok := qm.workQueue.Get(workid)
+	if (!wok) || (work.State != WORK_STAT_CHECKOUT) {
+		return
+	}
+
+	var MAX_FAILURE int
+	if task.Info.NoRetry == true {
+		MAX_FAILURE = 1
+	} else {
+		MAX_FAILURE = conf.MAX_WORK_FAILURE
+	}
+	if task.State == TASK_STAT_FAIL_SKIP {
+		// A work unit for this task failed before this one arrived.
+		// User set Skip=2 so the task was just skipped. Any subsiquent
+		// workunits are just deleted...
+		qm.workQueue.Delete(workid)
+		return
+	}
+
+	// we want these to happen at end
+	defer qm.updateTask(task)
+
+	qm.updateTaskWorkStatus(task, rank, status)
+	if status == WORK_STAT_DONE {
+		//log event about work done (WD)
+		logger.Event(event.WORK_DONE, "workid="+workid+";clientid="+clientid)
+		//update client status
+		if client, ok := qm.GetClient(clientid); ok {
+			client.Total_completed += 1
+			client.Last_failed = 0 //reset last consecutive failures
+			qm.PutClient(client)
 		}
-		if qm.workQueue.workMap[workid].State != WORK_STAT_CHECKOUT { //could be suspended
-			return
+		task.RemainWork -= 1
+		task.ComputeTime += computetime
+		if task.RemainWork == 0 {
+			task.State = TASK_STAT_COMPLETED
+			task.CompletedDate = time.Now()
+			for _, output := range task.Outputs {
+				if _, err = output.DataUrl(); err != nil {
+					return err
+				}
+				if hasFile := output.HasFile(); !hasFile {
+					return errors.New(fmt.Sprintf("Task %s, output %s missing shock file", taskid, output.FileName))
+				}
+			}
+			//log event about task done (TD)
+			qm.FinalizeTaskPerf(task)
+			logger.Event(event.TASK_DONE, "taskid="+taskid)
+			//update the info of the job which the task is belong to, could result in deletion of the
+			//task in the task map when the task is the final task of the job to be done.
+			err = qm.updateJobTask(task) //task state QUEUED -> COMPELTED
 		}
-		var MAX_FAILURE int
-		if task.Info.NoRetry == true {
-			MAX_FAILURE = 1
-		} else {
-			MAX_FAILURE = conf.MAX_WORK_FAILURE
-		}
-		if task.State == TASK_STAT_FAIL_SKIP {
-			// A work unit for this task failed before this one arrived.
-			// User set Skip=2 so the task was just skipped. Any subsiquent
-			// workunits are just deleted...
+		//done, remove from the workQueue
+		qm.workQueue.Delete(workid)
+	} else if status == WORK_STAT_FAIL { //workunit failed, requeue or put it to suspend list
+		logger.Event(event.WORK_FAIL, "workid="+workid+";clientid="+clientid)
+		work.Failed += 1
+		qm.workQueue.Put(work)
+		if task.Skip == 2 && task.Skippable() {
+			// user wants to skip task - not a real failure
+			// don't mark client as failed
+			task.RemainWork = 0 // not doing anything else...
+			task.State = TASK_STAT_FAIL_SKIP
+			for _, output := range task.Outputs {
+				output.GetFileSize()
+				output.DataUrl()
+			}
+			qm.FinalizeTaskPerf(task)
+			// log event about task skipped
+			logger.Event(event.TASK_SKIPPED, "taskid="+taskid)
+			//update the info of the job which the task is belong to, could result in deletion of the
+			//task in the task map when the task is the final task of the job to be done.
+			if err = qm.updateJobTask(task); err != nil { //task state QUEUED -> FAIL_SKIP
+				return
+			}
+			// remove from the workQueue
 			qm.workQueue.Delete(workid)
+			return
+		}
+		if work.Failed < MAX_FAILURE {
+			qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
+			logger.Event(event.WORK_REQUEUE, "workid="+workid)
 		} else {
-			qm.updateTaskWorkStatus(taskid, rank, status)
-			if status == WORK_STAT_DONE {
-				//log event about work done (WD)
-				logger.Event(event.WORK_DONE, "workid="+workid+";clientid="+clientid)
+			//failure time exceeds limit, suspend workunit, task, job
+			qm.workQueue.StatusChange(workid, WORK_STAT_SUSPEND)
+			logger.Event(event.WORK_SUSPEND, "workid="+workid)
+			qm.updateTaskWorkStatus(task, rank, WORK_STAT_SUSPEND)
+			task.State = TASK_STAT_SUSPEND
 
-				//update client status
-				if client, ok := qm.clientMap[clientid]; ok {
-					client.Total_completed += 1
-					client.Last_failed = 0 //reset last consecutive failures
-				} else {
-					//it happens when feedback is sent after server restarted and before client re-registered
-				}
-				task.RemainWork -= 1
-				task.ComputeTime += computetime
-				if task.RemainWork == 0 {
-					task.State = TASK_STAT_COMPLETED
-					task.CompletedDate = time.Now()
-					for _, output := range task.Outputs {
-						if _, err = output.DataUrl(); err != nil {
-							return err
-						}
-						if hasFile := output.HasFile(); !hasFile {
-							return errors.New(fmt.Sprintf("Task %s, output %s missing shock file", taskid, output.FileName))
-						}
-					}
-					//log event about task done (TD)
-					qm.FinalizeTaskPerf(taskid)
-					logger.Event(event.TASK_DONE, "taskid="+taskid)
-					//update the info of the job which the task is belong to, could result in deletion of the
-					//task in the task map when the task is the final task of the job to be done.
-					if err = qm.updateJobTask(task); err != nil { //task state QUEUED -> COMPELTED
-						return
-					}
-					qm.updateQueue()
-				}
-				//done, remove from the workQueue
-				qm.workQueue.Delete(workid)
-			} else if status == WORK_STAT_FAIL { //workunit failed, requeue or put it to suspend list
-				logger.Event(event.WORK_FAIL, "workid="+workid+";clientid="+clientid)
-				if qm.workQueue.Has(workid) {
-					qm.workQueue.workMap[workid].Failed += 1
-					if task.Skip == 2 && task.Skippable() { // user wants to skip task
-
-						task.RemainWork = 0 // not doing anything else...
-						task.State = TASK_STAT_FAIL_SKIP
-						for _, output := range task.Outputs {
-							output.GetFileSize()
-							output.DataUrl()
-						}
-						qm.FinalizeTaskPerf(taskid)
-						// log event about task skipped
-						logger.Event(event.TASK_SKIPPED, "taskid="+taskid)
-						//update the info of the job which the task is belong to, could result in deletion of the
-						//task in the task map when the task is the final task of the job to be done.
-						if err = qm.updateJobTask(task); err != nil { //task state QUEUED -> FAIL_SKIP
-							return
-						}
-						qm.updateQueue()
-						// remove from the workQueue
-						qm.workQueue.Delete(workid)
-					} else if qm.workQueue.workMap[workid].Failed < MAX_FAILURE {
-						qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
-						logger.Event(event.WORK_REQUEUE, "workid="+workid)
-					} else { //failure time exceeds limit, suspend workunit, task, job
-						qm.workQueue.StatusChange(workid, WORK_STAT_SUSPEND)
-						logger.Event(event.WORK_SUSPEND, "workid="+workid)
-						qm.updateTaskWorkStatus(taskid, rank, WORK_STAT_SUSPEND)
-						qm.taskMap[taskid].State = TASK_STAT_SUSPEND
-
-						reason := fmt.Sprintf("workunit %s failed %d time(s).", workid, MAX_FAILURE)
-						if len(notice.Notes) > 0 {
-							reason = reason + " msg from client:" + notice.Notes
-						}
-						if err := qm.SuspendJob(jobid, reason, workid); err != nil {
-							logger.Error("error returned by SuspendJOb()" + err.Error())
-						}
-					}
-				}
-				if client, ok := qm.clientMap[clientid]; ok {
-					client.Skip_work = append(client.Skip_work, workid)
-					client.Total_failed += 1
-					client.Last_failed += 1 //last consecutive failures
-					if client.Last_failed == conf.MAX_CLIENT_FAILURE {
-						qm.SuspendClient(client.Id)
-					}
-				}
-			} else if status == WORK_STAT_DISCARDED { //workunit discarded,
-				//do nothing
+			reason := fmt.Sprintf("workunit %s failed %d time(s).", workid, MAX_FAILURE)
+			if len(notice.Notes) > 0 {
+				reason = reason + " msg from client:" + notice.Notes
+			}
+			if err := qm.SuspendJob(jobid, reason, workid); err != nil {
+				logger.Error("error returned by SuspendJOb()" + err.Error())
 			}
 		}
-	} else { //task not existed, possible when job is deleted before the workunit done
-		qm.workQueue.Delete(workid)
+		if client, ok := qm.GetClient(clientid); ok {
+			client.Skip_work = append(client.Skip_work, workid)
+			client.Total_failed += 1
+			client.Last_failed += 1 //last consecutive failures
+			qm.PutClient(client)
+			if client.Last_failed == conf.MAX_CLIENT_FAILURE {
+				qm.SuspendClient(client.Id)
+			}
+		}
 	}
 	return
 }
 
 func (qm *ServerMgr) ShowStatus() string {
-	total_task := len(qm.taskMap)
-	queuing_work := len(qm.workQueue.wait)
-	out_work := len(qm.workQueue.checkout)
-	suspend_work := len(qm.workQueue.suspend)
-	total_active_work := len(qm.workQueue.workMap)
+	queuing_work := qm.workQueue.WaitLen()
+	out_work := qm.workQueue.CheckoutLen()
+	suspend_work := qm.workQueue.SuspendLen()
+	total_active_work := qm.workQueue.Len()
+	total_task := 0
 	queuing_task := 0
 	started_task := 0
 	pending_task := 0
@@ -321,7 +504,8 @@ func (qm *ServerMgr) ShowStatus() string {
 	suspended_task := 0
 	skipped_task := 0
 	fail_skip_task := 0
-	for _, task := range qm.taskMap {
+	for _, task := range qm.getAllTasks() {
+		total_task += 1
 		if task.State == TASK_STAT_COMPLETED {
 			completed_task += 1
 		} else if task.State == TASK_STAT_PENDING {
@@ -339,13 +523,15 @@ func (qm *ServerMgr) ShowStatus() string {
 		}
 	}
 	total_task -= skipped_task // user doesn't see skipped tasks
-	active_jobs := len(qm.actJobs)
-	suspend_job := len(qm.susJobs)
+	active_jobs := qm.lenActJobs()
+	suspend_job := qm.lenSusJobs()
 	total_job := active_jobs + suspend_job
+	total_client := 0
 	busy_client := 0
 	idle_client := 0
 	suspend_client := 0
-	for _, client := range qm.clientMap {
+	for _, client := range qm.GetAllClients() {
+		total_client += 1
 		if client.Status == CLIENT_STAT_SUSPEND {
 			suspend_client += 1
 		} else if client.IsBusy() {
@@ -370,7 +556,7 @@ func (qm *ServerMgr) ShowStatus() string {
 		fmt.Sprintf("    queuing:          (%d)\n", queuing_work) +
 		fmt.Sprintf("    checkout:         (%d)\n", out_work) +
 		fmt.Sprintf("    suspended:        (%d)\n", suspend_work) +
-		fmt.Sprintf("total clients ............ %d\n", len(qm.clientMap)) +
+		fmt.Sprintf("total clients ............ %d\n", total_client) +
 		fmt.Sprintf("    busy:             (%d)\n", busy_client) +
 		fmt.Sprintf("    idle:             (%d)\n", idle_client) +
 		fmt.Sprintf("    suspend:          (%d)\n", suspend_client) +
@@ -383,10 +569,11 @@ func (qm *ServerMgr) ShowStatus() string {
 //--workunit methds (servermgr implementation)
 func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token string, err error) {
 	//precheck if the client is registered
-	if _, hasClient := qm.clientMap[clientid]; !hasClient {
+	client, ok := qm.GetClient(clientid)
+	if !ok {
 		return "", errors.New(e.ClientNotFound)
 	}
-	if qm.clientMap[clientid].Status == CLIENT_STAT_SUSPEND {
+	if client.Status == CLIENT_STAT_SUSPEND {
 		return "", errors.New(e.ClientSuspended)
 	}
 	jobid, err := GetJobIdByWorkId(workid)
@@ -406,10 +593,11 @@ func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token strin
 
 func (qm *ServerMgr) FetchPrivateEnvs(workid string, clientid string) (envs map[string]string, err error) {
 	//precheck if the client is registered
-	if _, hasClient := qm.clientMap[clientid]; !hasClient {
+	client, ok := qm.GetClient(clientid)
+	if !ok {
 		return nil, errors.New(e.ClientNotFound)
 	}
-	if qm.clientMap[clientid].Status == CLIENT_STAT_SUSPEND {
+	if client.Status == CLIENT_STAT_SUSPEND {
 		return nil, errors.New(e.ClientSuspended)
 	}
 	jobid, err := GetJobIdByWorkId(workid)
@@ -489,9 +677,9 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, tasks []*Task) (err error
 //---end of task methods
 
 func (qm *ServerMgr) addTask(task *Task) (err error) {
-	id := task.Id
-	if task.State == TASK_STAT_COMPLETED { //for job recovery from db
-		qm.taskMap[id] = task
+	//for job recovery from db or for pseudo-task
+	if (task.State == TASK_STAT_COMPLETED) || (task.State == TASK_STAT_PASSED) {
+		qm.putTask(task)
 		return
 	}
 	if task.Skip == 1 && task.Skippable() {
@@ -499,23 +687,18 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 		return
 	}
 
-	if task.State == TASK_STAT_PASSED { //for pseudo-task
-		qm.taskMap[id] = task
-		return
-	}
-
+	defer qm.putTask(task)
 	task.State = TASK_STAT_PENDING
-	qm.taskMap[id] = task
+
 	if qm.isTaskReady(task) {
-		if err := qm.taskEnQueue(task); err != nil {
-			jobid, _ := GetJobIdByTaskId(task.Id)
+		if err = qm.taskEnQueue(task); err != nil {
+			task.State = TASK_STAT_SUSPEND
+			jobid := getParentJobId(task.Id)
 			qm.SuspendJob(jobid, fmt.Sprintf("failed in enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
 			return err
 		}
 	}
-	if err = qm.updateJobTask(task); err != nil { //task state INIT->PENDING
-		return
-	}
+	err = qm.updateJobTask(task) //task state INIT->PENDING
 	return
 }
 
@@ -526,13 +709,7 @@ func (qm *ServerMgr) skipTask(task *Task) (err error) {
 	if err = qm.updateJobTask(task); err != nil { //TASK state  -> SKIPPED
 		return
 	}
-	qm.taskMap[task.Id] = task
 	logger.Event(event.TASK_SKIPPED, "taskid="+task.Id)
-	return
-}
-
-//delete task from taskMap
-func (qm *ServerMgr) deleteTasks(tasks []*Task) (err error) {
 	return
 }
 
@@ -542,18 +719,18 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool) {
 
 	//skip if the belonging job is suspended
 	jobid, _ := GetJobIdByTaskId(task.Id)
-	if _, ok := qm.susJobs[jobid]; ok {
+	if qm.isSusJob(jobid) {
 		return false
 	}
 
 	if task.State == TASK_STAT_PENDING {
 		ready = true
 		for _, predecessor := range task.DependsOn {
-			if _, haskey := qm.taskMap[predecessor]; haskey {
-				if qm.taskMap[predecessor].State != TASK_STAT_COMPLETED &&
-					qm.taskMap[predecessor].State != TASK_STAT_PASSED &&
-					qm.taskMap[predecessor].State != TASK_STAT_SKIPPED &&
-					qm.taskMap[predecessor].State != TASK_STAT_FAIL_SKIP {
+			if pretask, ok := qm.getTask(predecessor); ok {
+				if pretask.State != TASK_STAT_COMPLETED &&
+					pretask.State != TASK_STAT_PASSED &&
+					pretask.State != TASK_STAT_SKIPPED &&
+					pretask.State != TASK_STAT_FAIL_SKIP {
 					ready = false
 				}
 			} else {
@@ -616,10 +793,11 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 	logger.Debug(2, "trying to locate Inputs of task "+task.Id)
 	jobid, _ := GetJobIdByTaskId(task.Id)
-	for name, io := range task.Inputs {
+	for _, io := range task.Inputs {
+		name := io.FileName
 		if io.Url == "" {
 			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
-			if preTask, ok := qm.taskMap[preId]; ok {
+			if preTask, ok := qm.getTask(preId); ok {
 				if preTask.State == TASK_STAT_SKIPPED ||
 					preTask.State == TASK_STAT_FAIL_SKIP {
 					// For now we know that skipped tasks have
@@ -629,8 +807,10 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 					//locateSkippedInput(qm, preTask, io)
 				} else {
 					outputs := preTask.Outputs
-					if outio, ok := outputs[name]; ok {
-						io.Node = outio.Node
+					for _, outio := range outputs {
+						if outio.FileName == name {
+							io.Node = outio.Node
+						}
 					}
 				}
 			}
@@ -646,7 +826,8 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 		logger.Debug(2, fmt.Sprintf("inputs located %s, %s\n", name, io.Node))
 	}
 	// locate predata
-	for name, io := range task.Predata {
+	for _, io := range task.Predata {
+		name := io.FileName
 		logger.Debug(2, fmt.Sprintf("processing predata %s, %s\n", name, io.Node))
 		// only verify predata that is a shock node
 		if (io.Node != "") && (io.Node != "-") && (io.GetFileSize() < 0) {
@@ -677,7 +858,8 @@ func (qm *ServerMgr) parseTask(task *Task) (err error) {
 func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 
 	outputs := task.Outputs
-	for name, io := range outputs {
+	for _, io := range outputs {
+		name := io.FileName
 		if io.Type == "update" {
 			// this an update output, it will update an existing shock node and not create a new one
 			if (io.Node == "") || (io.Node == "-") {
@@ -710,31 +892,30 @@ func (qm *ServerMgr) locateUpdate(taskid string, name string, origin string) (no
 	preId := fmt.Sprintf("%s_%s", jobid, origin)
 	logger.Debug(2, fmt.Sprintf("task %s: trying to locate Node of update %s from task %s", taskid, name, preId))
 	// scan outputs in origin task
-	if preTask, ok := qm.taskMap[preId]; ok {
+	if preTask, ok := qm.getTask(preId); ok {
 		outputs := preTask.Outputs
-		if outio, ok := outputs[name]; ok {
-			return outio.Node, nil
+		for _, outio := range outputs {
+			if outio.FileName == name {
+				return outio.Node, nil
+			}
 		}
 	}
 	return "", errors.New(fmt.Sprintf("failed to locate Node for task %s / update %s from task %s", taskid, name, preId))
 }
 
-func (qm *ServerMgr) updateTaskWorkStatus(taskid string, rank int, newstatus string) {
-	if _, ok := qm.taskMap[taskid]; !ok {
-		return
-	}
+func (qm *ServerMgr) updateTaskWorkStatus(task *Task, rank int, newstatus string) {
 	if rank == 0 {
-		qm.taskMap[taskid].WorkStatus[rank] = newstatus
+		task.WorkStatus[rank] = newstatus
 	} else {
-		qm.taskMap[taskid].WorkStatus[rank-1] = newstatus
+		task.WorkStatus[rank-1] = newstatus
 	}
 	return
 }
 
 func (qm *ServerMgr) ShowTasks() {
-	fmt.Printf("current active tasks  (%d):\n", len(qm.taskMap))
-	for key, task := range qm.taskMap {
-		fmt.Printf("workunit id: %s, status:%s\n", key, task.State)
+	fmt.Printf("current active tasks  (%d):\n", qm.lenTasks())
+	for _, task := range qm.getAllTasks() {
+		fmt.Printf("task id: %s, status:%s\n", task.Id, task.State)
 	}
 }
 
@@ -777,13 +958,13 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	if remainTasks == 0 { //job done
 		qm.FinalizeJobPerf(jobid)
 		qm.LogJobPerf(jobid)
-		qm.DeleteJobPerf(jobid)
+		qm.removeActJob(jobid)
 		//delete tasks in task map
 		//delete from shock output flagged for deletion
 		for _, task := range job.TaskList() {
 			task.DeleteOutput()
 			task.DeleteInput()
-			delete(qm.taskMap, task.Id)
+			qm.deleteTask(task.Id)
 		}
 		//log event about job done (JD)
 		logger.Event(event.JOB_DONE, "jobid="+job.Id+";jid="+job.Jid+";project="+job.Info.Project+";name="+job.Info.Name)
@@ -826,9 +1007,7 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 			task_was_inprogress = true
 		} else {
 			job.Tasks[idx].State = TASK_STAT_INPROGRESS
-			if _, ok := qm.taskMap[taskid]; ok {
-				qm.taskMap[taskid].State = TASK_STAT_INPROGRESS
-			}
+			qm.taskStateChange(taskid, TASK_STAT_INPROGRESS)
 			job.Tasks[idx].StartedDate = time.Now()
 			qm.UpdateTaskPerfStartTime(taskid)
 		}
@@ -839,22 +1018,14 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 	}
 }
 
-func (qm *ServerMgr) GetActiveJobs() map[string]*JobPerf {
-	return qm.actJobs
-}
-
 func (qm *ServerMgr) IsJobRegistered(id string) bool {
-	if _, ok := qm.actJobs[id]; ok {
+	if qm.isActJob(id) {
 		return true
 	}
-	if _, ok := qm.susJobs[id]; ok {
+	if qm.isSusJob(id) {
 		return true
 	}
 	return false
-}
-
-func (qm *ServerMgr) GetSuspendJobs() map[string]bool {
-	return qm.susJobs
 }
 
 func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err error) {
@@ -868,12 +1039,11 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 	if err := job.UpdateState(JOB_STAT_SUSPEND, reason); err != nil {
 		return err
 	}
-	//qm.DeleteJobPerf(jobid)
-	qm.susJobs[jobid] = true
+	qm.putSusJob(jobid)
 
 	//suspend queueing workunits
-	for workid, _ := range qm.workQueue.workMap {
-		if jobid == strings.Split(workid, "_")[0] {
+	for _, workid := range qm.workQueue.List() {
+		if jobid == getParentJobId(workid) {
 			qm.workQueue.StatusChange(workid, WORK_STAT_SUSPEND)
 		}
 	}
@@ -881,15 +1051,13 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 	//suspend parsed tasks
 	for _, task := range job.Tasks {
 		if task.State == TASK_STAT_QUEUED || task.State == TASK_STAT_INIT || task.State == TASK_STAT_INPROGRESS {
-			if _, ok := qm.taskMap[task.Id]; ok {
-				qm.taskMap[task.Id].State = TASK_STAT_SUSPEND
-				task.State = TASK_STAT_SUSPEND
-				job.UpdateTask(task)
-			}
+			qm.taskStateChange(task.Id, TASK_STAT_SUSPEND)
+			task.State = TASK_STAT_SUSPEND
+			job.UpdateTask(task)
 		}
 	}
 	qm.LogJobPerf(jobid)
-	qm.DeleteJobPerf(jobid)
+	qm.removeActJob(jobid)
 	logger.Event(event.JOB_SUSPEND, "jobid="+jobid+";reason="+reason)
 	return
 }
@@ -903,18 +1071,18 @@ func (qm *ServerMgr) DeleteJob(jobid string) (err error) {
 		return err
 	}
 	//delete queueing workunits
-	for workid, _ := range qm.workQueue.workMap {
-		if jobid == strings.Split(workid, "_")[0] {
+	for _, workid := range qm.workQueue.List() {
+		if jobid == getParentJobId(workid) {
 			qm.workQueue.Delete(workid)
 		}
 	}
 	//delete parsed tasks
 	for i := 0; i < len(job.TaskList()); i++ {
 		task_id := fmt.Sprintf("%s_%d", jobid, i)
-		delete(qm.taskMap, task_id)
+		qm.deleteTask(task_id)
 	}
-	qm.DeleteJobPerf(jobid)
-	delete(qm.susJobs, jobid)
+	qm.removeActJob(jobid)
+	qm.removeSusJob(jobid)
 
 	logger.Event(event.JOB_DELETED, "jobid="+jobid)
 	return
@@ -934,26 +1102,25 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User) (err error) {
 		return err
 	}
 	//delete queueing workunits
-	for workid, _ := range qm.workQueue.workMap {
-		if jobid == strings.Split(workid, "_")[0] {
+	for _, workid := range qm.workQueue.List() {
+		if jobid == getParentJobId(workid) {
 			qm.workQueue.Delete(workid)
 		}
 	}
 	//delete parsed tasks
 	for i := 0; i < len(job.TaskList()); i++ {
 		task_id := fmt.Sprintf("%s_%d", jobid, i)
-		delete(qm.taskMap, task_id)
+		qm.deleteTask(task_id)
 	}
-	qm.DeleteJobPerf(jobid)
-	delete(qm.susJobs, jobid)
+	qm.removeActJob(jobid)
+	qm.removeSusJob(jobid)
 
 	logger.Event(event.JOB_DELETED, "jobid="+jobid)
 	return
 }
 
 func (qm *ServerMgr) DeleteSuspendedJobs() (num int) {
-	suspendjobs := qm.GetSuspendJobs()
-	for id, _ := range suspendjobs {
+	for id := range qm.GetSuspendJobs() {
 		if err := qm.DeleteJob(id); err == nil {
 			num += 1
 		}
@@ -962,8 +1129,7 @@ func (qm *ServerMgr) DeleteSuspendedJobs() (num int) {
 }
 
 func (qm *ServerMgr) DeleteSuspendedJobsByUser(u *user.User) (num int) {
-	suspendjobs := qm.GetSuspendJobs()
-	for id, _ := range suspendjobs {
+	for id := range qm.GetSuspendJobs() {
 		if err := qm.DeleteJobByUser(id, u); err == nil {
 			num += 1
 		}
@@ -972,8 +1138,7 @@ func (qm *ServerMgr) DeleteSuspendedJobsByUser(u *user.User) (num int) {
 }
 
 func (qm *ServerMgr) ResumeSuspendedJobs() (num int) {
-	suspendjobs := qm.GetSuspendJobs()
-	for id, _ := range suspendjobs {
+	for id := range qm.GetSuspendJobs() {
 		if err := qm.ResumeSuspendedJob(id); err == nil {
 			num += 1
 		}
@@ -982,8 +1147,7 @@ func (qm *ServerMgr) ResumeSuspendedJobs() (num int) {
 }
 
 func (qm *ServerMgr) ResumeSuspendedJobsByUser(u *user.User) (num int) {
-	suspendjobs := qm.GetSuspendJobs()
-	for id, _ := range suspendjobs {
+	for id := range qm.GetSuspendJobs() {
 		if err := qm.ResumeSuspendedJobByUser(id, u); err == nil {
 			num += 1
 		}
@@ -1001,7 +1165,7 @@ func (qm *ServerMgr) DeleteZombieJobs() (num int) {
 		return
 	}
 	for _, dbjob := range *dbjobs {
-		if _, ok := qm.actJobs[dbjob.Id]; !ok {
+		if !qm.isActJob(dbjob.Id) {
 			if err := qm.DeleteJob(dbjob.Id); err == nil {
 				num += 1
 			}
@@ -1020,7 +1184,7 @@ func (qm *ServerMgr) DeleteZombieJobsByUser(u *user.User) (num int) {
 		return
 	}
 	for _, dbjob := range *dbjobs {
-		if _, ok := qm.actJobs[dbjob.Id]; !ok {
+		if !qm.isActJob(dbjob.Id) {
 			if err := qm.DeleteJobByUser(dbjob.Id, u); err == nil {
 				num += 1
 			}
@@ -1049,7 +1213,7 @@ func (qm *ServerMgr) ResumeSuspendedJob(id string) (err error) {
 	dbjob.Resumed += 1
 	dbjob.Save()
 
-	delete(qm.susJobs, id)
+	qm.removeSusJob(id)
 	return
 }
 
@@ -1080,14 +1244,14 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 	dbjob.Resumed += 1
 	dbjob.Save()
 
-	delete(qm.susJobs, id)
+	qm.removeSusJob(id)
 	return
 }
 
 //re-submit a job in db but not in the queue (caused by server restarting)
 func (qm *ServerMgr) ResubmitJob(id string) (err error) {
 	//Load job by id
-	if _, ok := qm.actJobs[id]; ok {
+	if qm.isActJob(id) {
 		return errors.New("job " + id + " is already active")
 	}
 	dbjob, err := LoadJob(id)
@@ -1120,7 +1284,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	jobct := 0
 	for _, dbjob := range *dbjobs {
 		if dbjob.State == JOB_STAT_SUSPEND {
-			qm.susJobs[dbjob.Id] = true //suspended jobs recovered as suspended
+			qm.putSusJob(dbjob.Id)
 		} else {
 			qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 		}
@@ -1132,7 +1296,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 
 //recompute jobs from specified task stage
 func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
-	if _, ok := qm.actJobs[jobid]; ok {
+	if qm.isActJob(jobid) {
 		return errors.New("job " + jobid + " is already active")
 	}
 	//Load job by id
@@ -1177,7 +1341,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	}
 
 	if was_suspend {
-		delete(qm.susJobs, dbjob.Id)
+		qm.removeSusJob(dbjob.Id)
 	}
 
 	return
@@ -1243,14 +1407,14 @@ func (qm *ServerMgr) UpdateGroup(jobid string, newgroup string) (err error) {
 	dbjob.Save()
 
 	//update in-memory data structures
-	for workid, _ := range qm.workQueue.workMap {
-		if jobid == strings.Split(workid, "_")[0] {
-			qm.workQueue.workMap[workid].Info.ClientGroups = newgroup
-		}
+	for _, work := range qm.workQueue.GetForJob(jobid) {
+		work.Info.ClientGroups = newgroup
+		qm.workQueue.Put(work)
 	}
 	for _, task := range dbjob.Tasks {
-		if _, ok := qm.taskMap[task.Id]; ok {
-			qm.taskMap[task.Id].Info.ClientGroups = newgroup
+		if mtask, ok := qm.getTask(task.Id); ok {
+			mtask.Info.ClientGroups = newgroup
+			qm.updateTask(mtask)
 		}
 	}
 	return
@@ -1269,14 +1433,14 @@ func (qm *ServerMgr) UpdatePriority(jobid string, priority int) (err error) {
 	dbjob.Save()
 
 	//update in-memory data structures
-	for workid, _ := range qm.workQueue.workMap {
-		if jobid == strings.Split(workid, "_")[0] {
-			qm.workQueue.workMap[workid].Info.Priority = priority
-		}
+	for _, work := range qm.workQueue.GetForJob(jobid) {
+		work.Info.Priority = priority
+		qm.workQueue.Put(work)
 	}
 	for _, task := range dbjob.Tasks {
-		if _, ok := qm.taskMap[task.Id]; ok {
-			qm.taskMap[task.Id].Info.Priority = priority
+		if mtask, ok := qm.getTask(task.Id); ok {
+			mtask.Info.Priority = priority
+			qm.updateTask(mtask)
 		}
 	}
 	return
@@ -1286,62 +1450,64 @@ func (qm *ServerMgr) UpdatePriority(jobid string, priority int) (err error) {
 
 //---perf related methods
 func (qm *ServerMgr) CreateJobPerf(jobid string) {
-	if _, ok := qm.actJobs[jobid]; !ok {
-		qm.actJobs[jobid] = NewJobPerf(jobid)
+	if !qm.isActJob(jobid) {
+		qm.putActJob(NewJobPerf(jobid))
 	}
 }
 
 func (qm *ServerMgr) UpdateJobPerfStartTime(jobid string) {
-	if perf, ok := qm.actJobs[jobid]; ok {
+	if perf, ok := qm.getActJob(jobid); ok {
 		now := time.Now().Unix()
 		perf.Start = now
+		qm.putActJob(perf)
 	}
 	return
 }
 
 func (qm *ServerMgr) FinalizeJobPerf(jobid string) {
-	if perf, ok := qm.actJobs[jobid]; ok {
+	if perf, ok := qm.getActJob(jobid); ok {
 		now := time.Now().Unix()
 		perf.End = now
 		perf.Resp = now - perf.Queued
+		qm.putActJob(perf)
 	}
 	return
 }
 
 func (qm *ServerMgr) CreateTaskPerf(taskid string) {
 	jobid := getParentJobId(taskid)
-	if perf, ok := qm.actJobs[jobid]; ok {
+	if perf, ok := qm.getActJob(jobid); ok {
 		perf.Ptasks[taskid] = NewTaskPerf(taskid)
+		qm.putActJob(perf)
 	}
 }
 
 func (qm *ServerMgr) UpdateTaskPerfStartTime(taskid string) {
 	jobid := getParentJobId(taskid)
-	if jobperf, ok := qm.actJobs[jobid]; ok {
+	if jobperf, ok := qm.getActJob(jobid); ok {
 		if taskperf, ok := jobperf.Ptasks[taskid]; ok {
 			now := time.Now().Unix()
 			taskperf.Start = now
+			qm.putActJob(jobperf)
 		}
 	}
 }
 
-func (qm *ServerMgr) FinalizeTaskPerf(taskid string) {
-	jobid := getParentJobId(taskid)
-	if jobperf, ok := qm.actJobs[jobid]; ok {
-		if taskperf, ok := jobperf.Ptasks[taskid]; ok {
+func (qm *ServerMgr) FinalizeTaskPerf(task *Task) {
+	jobid := getParentJobId(task.Id)
+	if jobperf, ok := qm.getActJob(jobid); ok {
+		if taskperf, ok := jobperf.Ptasks[task.Id]; ok {
 			now := time.Now().Unix()
 			taskperf.End = now
 			taskperf.Resp = now - taskperf.Queued
-			//qm.actJobs[jobid].Ptasks[taskid] = taskperf
 
-			if task, ok := qm.taskMap[taskid]; ok {
-				for _, io := range task.Inputs {
-					taskperf.InFileSizes = append(taskperf.InFileSizes, io.Size)
-				}
-				for _, io := range task.Outputs {
-					taskperf.OutFileSizes = append(taskperf.OutFileSizes, io.Size)
-				}
+			for _, io := range task.Inputs {
+				taskperf.InFileSizes = append(taskperf.InFileSizes, io.Size)
 			}
+			for _, io := range task.Outputs {
+				taskperf.OutFileSizes = append(taskperf.OutFileSizes, io.Size)
+			}
+			qm.putActJob(jobperf)
 			return
 		}
 	}
@@ -1352,10 +1518,10 @@ func (qm *ServerMgr) CreateWorkPerf(workid string) {
 		return
 	}
 	jobid := getParentJobId(workid)
-	if _, ok := qm.actJobs[jobid]; !ok {
-		return
+	if jobperf, ok := qm.getActJob(jobid); ok {
+		jobperf.Pworks[workid] = NewWorkPerf(workid)
+		qm.putActJob(jobperf)
 	}
-	qm.actJobs[jobid].Pworks[workid] = NewWorkPerf(workid)
 }
 
 func (qm *ServerMgr) FinalizeWorkPerf(workid string, reportfile string) (err error) {
@@ -1371,40 +1537,40 @@ func (qm *ServerMgr) FinalizeWorkPerf(workid string, reportfile string) (err err
 		return err
 	}
 	jobid := getParentJobId(workid)
-	if _, ok := qm.actJobs[jobid]; !ok {
+	jobperf, ok := qm.getActJob(jobid)
+	if !ok {
 		return errors.New("job perf not found:" + jobid)
 	}
-	if _, ok := qm.actJobs[jobid].Pworks[workid]; !ok {
+	if _, ok := jobperf.Pworks[workid]; !ok {
 		return errors.New("work perf not found:" + workid)
 	}
-	workperf.Queued = qm.actJobs[jobid].Pworks[workid].Queued
+
+	workperf.Queued = jobperf.Pworks[workid].Queued
 	workperf.Done = time.Now().Unix()
 	workperf.Resp = workperf.Done - workperf.Queued
-	qm.actJobs[jobid].Pworks[workid] = workperf
+	jobperf.Pworks[workid] = workperf
+	qm.putActJob(jobperf)
 	os.Remove(reportfile)
 	return
 }
 
 func (qm *ServerMgr) LogJobPerf(jobid string) {
-	if perf, ok := qm.actJobs[jobid]; ok {
+	if perf, ok := qm.getActJob(jobid); ok {
 		perfstr, _ := json.Marshal(perf)
 		logger.Perf(string(perfstr)) //write into perf log
 		dbUpsert(perf)               //write into mongodb
 	}
 }
 
-func (qm *ServerMgr) DeleteJobPerf(jobid string) {
-	delete(qm.actJobs, jobid)
-}
-
 //---end of perf related methods
 
 func (qm *ServerMgr) FetchPrivateEnv(workid string, clientid string) (env map[string]string, err error) {
 	//precheck if the client is registered
-	if _, hasClient := qm.clientMap[clientid]; !hasClient {
+	client, ok := qm.GetClient(clientid)
+	if !ok {
 		return env, errors.New(e.ClientNotFound)
 	}
-	if qm.clientMap[clientid].Status == CLIENT_STAT_SUSPEND {
+	if client.Status == CLIENT_STAT_SUSPEND {
 		return env, errors.New(e.ClientSuspended)
 	}
 	jobid, err := GetJobIdByWorkId(workid)

@@ -525,11 +525,20 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 
 func Init_conf(mode string) (err error) {
 	// the flag libary needs to parse after config file has been read, thus the conf file is parsed manually here
+	CONFIG_FILE = ""
+
 	for i, elem := range os.Args {
-		if elem == "-conf" || elem == "--conf" {
-			if i+1 < len(os.Args) {
-				CONFIG_FILE = os.Args[i+1]
-			}
+		var conf_option = false
+		if strings.HasPrefix(elem, "-conf") {
+			conf_option = true
+			CONFIG_FILE = strings.TrimPrefix(elem, "-conf=")
+		} else if strings.HasPrefix(elem, "--conf") {
+			conf_option = true
+			CONFIG_FILE = strings.TrimPrefix(elem, "--conf=")
+		}
+
+		if conf_option == true && len(CONFIG_FILE) <= 2 && i+1 < len(os.Args) {
+			CONFIG_FILE = os.Args[i+1]
 		}
 	}
 

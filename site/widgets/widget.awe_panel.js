@@ -47,6 +47,11 @@
 	    }
 	    coreGroups[data[i].cores].push(data[i]);
 	}
+	for (var i in coreGroups) {
+	    if (coreGroups.hasOwnProperty(i)) {
+		coreGroups[i].sort(Retina.propSort("id"));
+	    }
+	}
 	var clientData = { all: data.length };
 	for (var i in stats.stati) {
 	    if (stats.stati.hasOwnProperty(i)) {

@@ -7,7 +7,7 @@ import (
 type ClientMgr interface {
 	RegisterNewClient(FormFiles, *ClientGroup) (*Client, error)
 	ClientHeartBeat(string, *ClientGroup) (HBmsg, error)
-	GetClient(string) (*Client, error)
+	GetClient(string) (*Client, bool)
 	GetClientByUser(string, *user.User) (*Client, error)
 	GetAllClients() []*Client
 	GetAllClientsByUser(*user.User) []*Client
@@ -40,7 +40,7 @@ type WorkMgr interface {
 type JobMgr interface {
 	JobRegister() (string, error)
 	EnqueueTasksByJobId(string, []*Task) error
-	GetActiveJobs() map[string]*JobPerf
+	GetActiveJobs() map[string]bool
 	IsJobRegistered(string) bool
 	GetSuspendJobs() map[string]bool
 	SuspendJob(string, string, string) error
@@ -73,7 +73,8 @@ type ClientWorkMgr interface {
 type ResourceMgr interface {
 	ClientWorkMgr
 	JobMgr
-	Handle()
+	JidHandle()
+	TaskHandle()
+	ClientHandle()
 	ShowStatus() string
-	Timer()
 }

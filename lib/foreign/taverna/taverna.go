@@ -54,19 +54,19 @@ func ExportWorkflowRun(job *core.Job) (wfrun *WorkflowRun, err error) {
 		invocation.Name = task.Cmd.Name
 		invocation.Inputs = make(map[string]string)
 		invocation.Outputs = make(map[string]string)
-		for name, io := range task.Inputs {
-			invocation.Inputs[name] = io.Url
+		for _, io := range task.Inputs {
+			invocation.Inputs[io.FileName] = io.Url
 			if !io.Intermediate {
-				job_invocation.Inputs[name] = io.Url
+				job_invocation.Inputs[io.FileName] = io.Url
 			}
 		}
-		for name, io := range task.Predata {
-			invocation.Inputs[name] = io.Url
+		for _, io := range task.Predata {
+			invocation.Inputs[io.FileName] = io.Url
 		}
-		for name, io := range task.Outputs {
-			invocation.Outputs[name] = io.Url
+		for _, io := range task.Outputs {
+			invocation.Outputs[io.FileName] = io.Url
 			if !io.Intermediate {
-				job_invocation.Outputs[name] = io.Url
+				job_invocation.Outputs[io.FileName] = io.Url
 			}
 		}
 		report.Invocations = append(report.Invocations, invocation)

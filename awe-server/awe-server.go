@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/auth"
 	"github.com/MG-RAST/AWE/lib/conf"
@@ -10,6 +12,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/user"
+	"github.com/MG-RAST/AWE/lib/versions"
 	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goweb"
 	"io"
 	"io/ioutil"
@@ -45,10 +48,6 @@ func launchSite(control chan int, port int) {
 
 	}
 
-	if conf.API_URL == "" {
-		fmt.Fprintf(os.Stderr, "ERROR: API_URL is not defined. \n")
-		logger.Error("ERROR: API_URL is not defined.")
-	}
 	template_conf_filename := path.Join(conf.SITE_PATH, "js/config.js.tt")
 	target_conf_filename := path.Join(conf.SITE_PATH, "js/config.js")
 	buf, err := ioutil.ReadFile(template_conf_filename)
@@ -58,9 +57,28 @@ func launchSite(control chan int, port int) {
 	}
 	template_conf_string := string(buf)
 
-	// example: [% api_url %]
-
+	// add / replace AWE API url
+	if conf.API_URL == "" {
+		fmt.Fprintf(os.Stderr, "ERROR: API_URL is not defined. \n")
+		logger.Error("ERROR: API_URL is not defined.")
+	}
 	template_conf_string = strings.Replace(template_conf_string, "[% api_url %]", conf.API_URL, -1)
+
+	// add auth
+	auth_on := "false"
+	auth_resources := ""
+	if conf.GLOBUS_OAUTH || conf.MGRAST_OAUTH {
+		auth_on = "true"
+		b, _ := json.Marshal(conf.AUTH_RESOURCES)
+		b = bytes.TrimPrefix(b, []byte("{"))
+		b = bytes.TrimSuffix(b, []byte("}"))
+		auth_resources = "," + string(b)
+	}
+
+	// replace auth
+	template_conf_string = strings.Replace(template_conf_string, "[% auth_on %]", auth_on, -1)
+	template_conf_string = strings.Replace(template_conf_string, "[% auth_default %]", conf.AUTH_DEFAULT, -1)
+	template_conf_string = strings.Replace(template_conf_string, "[% auth_resources %]", auth_resources, -1)
 
 	target_conf_file, err := os.Create(target_conf_filename)
 	if err != nil {
@@ -177,6 +195,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	//init versions
+	if err := versions.Initialize(); err != nil {
+		fmt.Fprintf(os.Stderr, "Err@versions.Initialize: %v\n", err)
+		logger.Error("Err@versions.Initialize: " + err.Error())
+		os.Exit(1)
+	}
+
 	if conf.DEBUG_LEVEL > 0 {
 		fmt.Println("init db collection for user...")
 	}
@@ -226,8 +251,9 @@ func main() {
 	}
 	//launch server
 	control := make(chan int)
-	go core.QMgr.Handle()
-	go core.QMgr.Timer()
+	go core.QMgr.JidHandle()
+	go core.QMgr.TaskHandle()
+	go core.QMgr.ClientHandle()
 	go core.QMgr.ClientChecker()
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)

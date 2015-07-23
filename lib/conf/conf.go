@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const VERSION string = "0.9.15"
+const VERSION string = "0.9.18"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -528,17 +528,15 @@ func Init_conf(mode string) (err error) {
 	CONFIG_FILE = ""
 
 	for i, elem := range os.Args {
-		var conf_option = false
-		if strings.HasPrefix(elem, "-conf") {
-			conf_option = true
-			CONFIG_FILE = strings.TrimPrefix(elem, "-conf=")
-		} else if strings.HasPrefix(elem, "--conf") {
-			conf_option = true
-			CONFIG_FILE = strings.TrimPrefix(elem, "--conf=")
-		}
-
-		if conf_option == true && CONFIG_FILE != elem && i+1 < len(os.Args) {
-			CONFIG_FILE = os.Args[i+1]
+		if strings.HasPrefix(elem, "-conf") || strings.HasPrefix(elem, "--conf") {
+			parts := strings.SplitN(elem, "=", 2)
+			if len(parts) == 2 {
+				CONFIG_FILE = parts[1]
+			} else if i+1 < len(os.Args) {
+				CONFIG_FILE = os.Args[i+1]
+			} else {
+				return errors.New("ERROR: parsing command options, missing conf file")
+			}
 		}
 	}
 

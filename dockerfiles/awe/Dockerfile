@@ -24,6 +24,8 @@ RUN /bin/mkdir -p /gopath/src/github.com/MG-RAST/ && \
   git clone --recursive https://github.com/MG-RAST/AWE.git
 
 RUN GITHASH=$(git -C /gopath/src/github.com/MG-RAST/AWE rev-parse HEAD) && \
-  go get -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH ${GITHASH}" github.com/MG-RAST/AWE/...
+  CGO_ENABLED=0 go install -a -installsuffix cgo -v -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH ${GITHASH}" github.com/MG-RAST/AWE/...
+
+# dynamic: go get -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH ${GITHASH}" github.com/MG-RAST/AWE/...
 
 CMD ["bash"]

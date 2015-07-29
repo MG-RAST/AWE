@@ -603,7 +603,7 @@ func Init_conf(mode string) (err error) {
 		AUTH_DEFAULT = "MG-RAST"
 		AUTH_RESOURCES["MG-RAST"] = AuthResource{
 			Icon:      "MGRAST_favicon.ico",
-			Prefix:    "mgo4711",
+			Prefix:    "mggo4711",
 			Keyword:   "auth",
 			Url:       MGRAST_API + "?verbosity=verbose",
 			UseHeader: false,

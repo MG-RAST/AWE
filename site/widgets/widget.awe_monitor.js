@@ -117,6 +117,22 @@
 	    
 	    widget.update_data(views[i]);
 	}
+
+	if (Retina.cgiParam('jobdetail')) {
+	    jQuery.ajax( { dataType: "json",
+			   url: RetinaConfig["awe_ip"]+"/job/"+Retina.cgiParam('jobdetail'),
+			   headers: widget.authHeader,
+			   error: function () { },
+			   success: function(data) {
+			       var widget = Retina.WidgetInstances.awe_monitor[1];
+			       if (! stm.DataStore.hasOwnProperty('job')) {
+				   stm.DataStore.job = {};
+			       }
+			       stm.DataStore.job[data.data.id] = data.data;
+			       widget.jobDetails(data.data.id);
+			   }
+			 } );
+	}
     };
 
     widget.update_data = function (which) {

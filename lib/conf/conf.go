@@ -424,7 +424,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&GLOBUS_TOKEN_URL, "https://nexus.api.globusonline.org/goauth/token?grant_type=client_credentials", "Auth", "globus_token_url", "", "")
 		c_store.AddString(&GLOBUS_PROFILE_URL, "https://nexus.api.globusonline.org/users", "Auth", "globus_profile_url", "", "")
 		c_store.AddString(&MGRAST_OAUTH_URL, "", "Auth", "mgrast_oauth_url", "", "")
-		c_store.AddString(MGRAST_LOGIN_URL, "", "Auth", "mgrast_login_url", "", "")
+		c_store.AddString(&MGRAST_LOGIN_URL, "", "Auth", "mgrast_login_url", "", "")
 		c_store.AddBool(&CLIENT_AUTH_REQ, false, "Auth", "client_auth_required", "", "")
 
 		// Admin

@@ -267,7 +267,7 @@ func (qm *CQMgr) GetClientByUser(id string, u *user.User) (client *Client, err e
 	}
 
 	if client, ok := qm.GetClient(id); ok {
-		if val, exists := filtered_clientgroups[client.Group]; exists != true || val != true {
+		if val, exists := filtered_clientgroups[client.Group]; exists == true || val == true {
 			return client, nil
 		}
 	}

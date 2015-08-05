@@ -535,7 +535,7 @@
 	    headers: widget.authHeader, 
 	    url: RetinaConfig["awe_ip"]+"/job/"+jobid+"?resume",
 	    success: function (data) {
-		Retina.WidgetInstances.awe_monitor[1].display();
+		Retina.WidgetInstances.awe_monitor[1].tables["jobs"].update({}, Retina.WidgetInstances.awe_monitor[1].tables["jobs"].index);
 		alert('job resumed');
 	    }}).fail(function(xhr, error) {
 		alert('failed to resume job');

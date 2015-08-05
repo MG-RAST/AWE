@@ -435,7 +435,8 @@
 	var widget = Retina.WidgetInstances.awe_monitor[1];
 	var job = stm.DataStore.job[jobid];
 	if (json) {
-	    stm.saveAs(JSON.stringify(job, null, 2), "job"+job.jid+".json");
+	    var w = window.open();
+	    w.document.body.innerHTML = "<pre>"+JSON.stringify(job, null, 2)+"</pre>";
 	} else {
 	    document.getElementById('debug').innerHTML = widget.stagePills(job);
 	    document.getElementById('debugRef').click();
@@ -762,7 +763,8 @@
 		       url: url,
 		       headers: widget.authHeader,
 		       success: function(data) {
-			   stm.saveAs(JSON.stringify(data, null, 2), "data.json");
+			   var w = window.open();
+			   w.document.body.innerHTML = "<pre>"+JSON.stringify(data, null, 2)+"</pre>";
 		       },
 		       error: function (xhr, data) {
 			   alert(JSON.parse(xhr.responseText).error[0]);
@@ -883,7 +885,7 @@
 		if (task.inputs[i].nofile || i == "mysql.tar" || i == "postgresql.tar") {
 		    continue;
 		}
-		inputs.push("<tr><td>"+(task.inputs[i].name || i)+"</td><td>"+task.inputs[i].size.byteSize()+"</td>"+(task.inputs[i].origin ? "<td>"+(tasks[task.inputs[i].origin].cmd.description || (parseInt(task.inputs[i].origin) + 1))+"</td></tr>" : "<td>-</td></tr>"));
+		inputs.push("<tr><td>"+(task.inputs[i].filename)+"</td><td>"+task.inputs[i].size.byteSize()+"</td>"+(task.inputs[i].origin ? "<td>"+(tasks[task.inputs[i].origin].cmd.description || (parseInt(task.inputs[i].origin) + 1))+"</td></tr>" : "<td>-</td></tr>"));
 	    }
 	}
 	inputs = "<table class='table table-condensed table-striped table-hover'><thead><tr><td>filename</td><td>size</td><td>origin</td></tr></thead><tbody>"+inputs.join('')+"</tbody></table>";
@@ -893,7 +895,7 @@
 		if (task.outputs[i].type == "update") {
 		    continue;
 		}
-		outputs.push(i+" ("+task.outputs[i].size.byteSize()+")"+(task.outputs[i]["delete"] ? " <i>temporary</i>" : ""));
+		outputs.push(task.outputs[i].filename+" ("+task.outputs[i].size.byteSize()+")"+(task.outputs[i]["delete"] ? " <i>temporary</i>" : ""));
 	    }
 	}
 	outputs = outputs.join('<br>');

@@ -50,6 +50,7 @@ hosts=localhost
 database=AWEDB
 user=
 password=
+timeout=1200
 
 [Mongodb-Node-Indices]
 # See http://www.mongodb.org/display/DOCS/Indexes#Indexes-CreationOptions for more info on mongodb index options.

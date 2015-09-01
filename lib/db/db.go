@@ -9,12 +9,9 @@ import (
 	"time"
 )
 
-const (
-	DbTimeout = time.Duration(time.Second * 10)
-)
-
 var (
 	Connection connection
+	DbTimeout  = time.Second * time.Duration(conf.MONGODB_TIMEOUT)
 )
 
 type connection struct {

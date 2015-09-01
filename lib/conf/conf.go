@@ -114,6 +114,7 @@ var (
 	MONGODB_DATABASE string
 	MONGODB_USER     string
 	MONGODB_PASSWD   string
+	MONGODB_TIMEOUT  int
 
 	DEBUG_LEVEL int
 
@@ -478,6 +479,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&MONGODB_DATABASE, "AWEDB", "Mongodb", "database", "", "")
 		c_store.AddString(&MONGODB_USER, "", "Mongodb", "user", "", "")
 		c_store.AddString(&MONGODB_PASSWD, "", "Mongodb", "password", "", "")
+		c_store.AddInt(&MONGODB_TIMEOUT, 1200, "Mongodb", "timeout", "", "")
 
 		// Server options
 		c_store.AddString(&TITLE, "AWE Server", "Server", "title", "", "")
@@ -693,7 +695,7 @@ func Print(service string) {
 	}
 
 	if service == "server" {
-		fmt.Printf("##### Mongodb #####\nhost(s):\t%s\ndatabase:\t%s\n\n", MONGODB_HOST, MONGODB_DATABASE)
+		fmt.Printf("##### Mongodb #####\nhost(s):\t%s\ndatabase:\t%s\ntimeout:\t%d\n", MONGODB_HOST, MONGODB_DATABASE, MONGODB_TIMEOUT)
 	}
 	fmt.Println()
 	if service == "server" {

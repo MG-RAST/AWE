@@ -263,6 +263,17 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 		return nil, errors.New("invalid job script: task list empty")
 	}
 
+	// check that input FileName is not repeated within an individual task
+	for _, task := range job.Tasks {
+		inputFileNames := make(map[string]bool)
+		for _, io := range task.Inputs {
+			if _, exists := inputFileNames[io.FileName]; exists {
+				return nil, errors.New("invalid inputs: task " + task.Id + " contains multiple inputs with filename=" + io.FileName)
+			}
+			inputFileNames[io.FileName] = true
+		}
+	}
+
 	if job.Info == nil {
 		job.Info = NewInfo()
 	}

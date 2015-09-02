@@ -33,6 +33,7 @@ email=admin@host.com
 globus_token_url=https://nexus.api.globusonline.org/goauth/token?grant_type=client_credentials
 globus_profile_url=https://nexus.api.globusonline.org/users
 #mgrast_oauth_url=http://api.metagenomics.anl.gov/user/authenticate
+#mgrast_login_url=https://api.metagenomics.anl.gov?verbosity=verbose
 client_auth_required=false
 
 [Directories]

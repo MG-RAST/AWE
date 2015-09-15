@@ -770,13 +770,14 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 		}
 
 		if outputPosition != nil {
-		Loop_outputPosition:
+			//Loop_outputPosition:
+			logger.Debug(1, fmt.Sprintf("size of providing_task.Outputs ", len(providing_task.Outputs)))
 			for _, my_io := range providing_task.Outputs {
-
+				logger.Debug(1, fmt.Sprintf("my_io.FileName: %s my_io.AppPosition: %d outputPosition: ", my_io.FileName, my_io.AppPosition, *outputPosition))
 				if my_io.AppPosition == *outputPosition {
 
 					filename = my_io.FileName
-					break Loop_outputPosition
+					//break Loop_outputPosition
 				}
 
 			}

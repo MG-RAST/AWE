@@ -8,7 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goweb"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo"
+	mgo "github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2"
 	"net/http"
 	"strings"
 )

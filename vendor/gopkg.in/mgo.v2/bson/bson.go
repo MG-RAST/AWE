@@ -33,6 +33,7 @@
 package bson
 
 import (
+	"bytes"
 	"crypto/md5"
 	"crypto/rand"
 	"encoding/binary"
@@ -117,7 +118,7 @@ type M map[string]interface{}
 // using a map is generally more comfortable. See bson.M and bson.RawD.
 type D []DocElem
 
-// See the D type.
+// DocElem is an element of the bson.D document representation.
 type DocElem struct {
 	Name  string
 	Value interface{}
@@ -194,7 +195,7 @@ var objectIdCounter uint32 = 0
 // to NewObjectId function.
 var machineId = readMachineId()
 
-// initMachineId generates machine id and puts it into the machineId global
+// readMachineId generates machine id and puts it into the machineId global
 // variable. If this function fails to get the hostname, it will cause
 // a runtime error.
 func readMachineId() []byte {
@@ -215,8 +216,6 @@ func readMachineId() []byte {
 }
 
 // NewObjectId returns a new unique ObjectId.
-// This function causes a runtime error if it fails to get the hostname
-// of the current machine.
 func NewObjectId() ObjectId {
 	var b [12]byte
 	// Timestamp, 4 bytes, big endian
@@ -264,8 +263,14 @@ func (id ObjectId) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf(`"%x"`, string(id))), nil
 }
 
+var nullBytes = []byte("null")
+
 // UnmarshalJSON turns *bson.ObjectId into a json.Unmarshaller.
 func (id *ObjectId) UnmarshalJSON(data []byte) error {
+	if len(data) == 2 && data[0] == '"' && data[1] == '"' || bytes.Equal(data, nullBytes) {
+		*id = ""
+		return nil
+	}
 	if len(data) != 26 || data[0] != '"' || data[25] != '"' {
 		return errors.New(fmt.Sprintf("Invalid ObjectId in JSON: %s", string(data)))
 	}
@@ -388,6 +393,15 @@ type JavaScript struct {
 	Scope interface{}
 }
 
+// DBPointer refers to a document id in a namespace.
+//
+// This type is deprecated in the BSON specification and should not be used
+// except for backwards compatibility with ancient applications.
+type DBPointer struct {
+	Namespace string
+	Id        ObjectId
+}
+
 const initialBufferSize = 64
 
 func handleErr(err *error) {
@@ -483,10 +497,17 @@ func Marshal(in interface{}) (out []byte, err error) {
 //
 // Pointer values are initialized when necessary.
 func Unmarshal(in []byte, out interface{}) (err error) {
+	if raw, ok := out.(*Raw); ok {
+		raw.Kind = 3
+		raw.Data = in
+		return nil
+	}
 	defer handleErr(&err)
 	v := reflect.ValueOf(out)
 	switch v.Kind() {
-	case reflect.Map, reflect.Ptr:
+	case reflect.Ptr:
+		fallthrough
+	case reflect.Map:
 		d := newDecoder(in)
 		d.readDocTo(v)
 	case reflect.Struct:

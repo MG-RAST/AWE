@@ -6,7 +6,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/uuid"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo/bson"
+	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"os"
 	"path/filepath"

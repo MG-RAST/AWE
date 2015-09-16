@@ -30,12 +30,13 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo/bson"
 	"hash"
 	"io"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
 )
 
 type GridFS struct {
@@ -123,14 +124,14 @@ func finalizeFile(file *GridFile) {
 //
 // A simple example inserting a new file:
 //
-//     func check(err os.Error) {
+//     func check(err error) {
 //         if err != nil {
 //             panic(err.String())
 //         }
 //     }
 //     file, err := db.GridFS("fs").Create("myfile.txt")
 //     check(err)
-//     n, err := file.Write([]byte("Hello world!")
+//     n, err := file.Write([]byte("Hello world!"))
 //     check(err)
 //     err = file.Close()
 //     check(err)
@@ -153,7 +154,7 @@ func (gfs *GridFS) Create(name string) (file *GridFile, err error) {
 	file = gfs.newFile()
 	file.mode = gfsWriting
 	file.wsum = md5.New()
-	file.doc = gfsFile{Id: bson.NewObjectId(), ChunkSize: 256 * 1024, Filename: name}
+	file.doc = gfsFile{Id: bson.NewObjectId(), ChunkSize: 255 * 1024, Filename: name}
 	return
 }
 
@@ -166,7 +167,7 @@ func (gfs *GridFS) Create(name string) (file *GridFile, err error) {
 //
 // The following example will print the first 8192 bytes from the file:
 //
-//     func check(err os.Error) {
+//     func check(err error) {
 //         if err != nil {
 //             panic(err.String())
 //         }
@@ -318,7 +319,7 @@ func (gfs *GridFS) RemoveId(id interface{}) error {
 	if err != nil {
 		return err
 	}
-	_, err = gfs.Chunks.RemoveAll(bson.M{"files_id": id})
+	_, err = gfs.Chunks.RemoveAll(bson.D{{"files_id", id}})
 	return err
 }
 
@@ -352,7 +353,7 @@ func (file *GridFile) assertMode(mode gfsFileMode) {
 	case gfsClosed:
 		panic("GridFile is closed")
 	default:
-		panic("Internal error: missing GridFile mode")
+		panic("internal error: missing GridFile mode")
 	}
 }
 
@@ -375,7 +376,7 @@ func (file *GridFile) Id() interface{} {
 	return file.doc.Id
 }
 
-// SetId changes the current file Id.  It is a runtime
+// SetId changes the current file Id.
 //
 // It is a runtime error to call this function once the file has started
 // being written to, or when the file is not open for writing.
@@ -480,6 +481,17 @@ func (file *GridFile) UploadDate() time.Time {
 	return file.doc.UploadDate
 }
 
+// SetUploadDate changes the file upload time.
+//
+// It is a runtime error to call this function when the file is not open
+// for writing.
+func (file *GridFile) SetUploadDate(t time.Time) {
+	file.assertMode(gfsWriting)
+	file.m.Lock()
+	file.doc.UploadDate = t
+	file.m.Unlock()
+}
+
 // Close flushes any pending changes in case the file is being written
 // to, waits for any background operations to finish, and closes the file.
 //
@@ -490,11 +502,11 @@ func (file *GridFile) Close() (err error) {
 	file.m.Lock()
 	defer file.m.Unlock()
 	if file.mode == gfsWriting {
-		if len(file.wbuf) > 0 {
+		if len(file.wbuf) > 0 && file.err == nil {
 			file.insertChunk(file.wbuf)
 			file.wbuf = file.wbuf[0:0]
 		}
-		file.insertFile()
+		file.completeWrite()
 	} else if file.mode == gfsReading && file.rcache != nil {
 		file.rcache.wait.Lock()
 		file.rcache = nil
@@ -502,6 +514,38 @@ func (file *GridFile) Close() (err error) {
 	file.mode = gfsClosed
 	debugf("GridFile %p: closed", file)
 	return file.err
+}
+
+func (file *GridFile) completeWrite() {
+	for file.wpending > 0 {
+		debugf("GridFile %p: waiting for %d pending chunks to complete file write", file, file.wpending)
+		file.c.Wait()
+	}
+	if file.err == nil {
+		hexsum := hex.EncodeToString(file.wsum.Sum(nil))
+		if file.doc.UploadDate.IsZero() {
+			file.doc.UploadDate = bson.Now()
+		}
+		file.doc.MD5 = hexsum
+		file.err = file.gfs.Files.Insert(file.doc)
+		file.gfs.Chunks.EnsureIndexKey("files_id", "n")
+	}
+	if file.err != nil {
+		file.gfs.Chunks.RemoveAll(bson.D{{"files_id", file.doc.Id}})
+	}
+}
+
+// Abort cancels an in-progress write, preventing the file from being
+// automically created and ensuring previously written chunks are
+// removed when the file is closed.
+//
+// It is a runtime error to call Abort when the file was not opened
+// for writing.
+func (file *GridFile) Abort() {
+	if file.mode != gfsWriting {
+		panic("file.Abort must be called on file opened for writing")
+	}
+	file.err = errors.New("write aborted")
 }
 
 // Write writes the provided data to the file and returns the
@@ -600,25 +644,11 @@ func (file *GridFile) insertChunk(data []byte) {
 	}()
 }
 
-func (file *GridFile) insertFile() {
-	hexsum := hex.EncodeToString(file.wsum.Sum(nil))
-	for file.wpending > 0 {
-		debugf("GridFile %p: waiting for %d pending chunks to insert file", file, file.wpending)
-		file.c.Wait()
-	}
-	if file.err == nil {
-		file.doc.UploadDate = bson.Now()
-		file.doc.MD5 = hexsum
-		file.err = file.gfs.Files.Insert(file.doc)
-		file.gfs.Chunks.EnsureIndexKey("files_id", "n")
-	}
-}
-
 // Seek sets the offset for the next Read or Write on file to
 // offset, interpreted according to whence: 0 means relative to
 // the origin of the file, 1 means relative to the current offset,
 // and 2 means relative to the end. It returns the new offset and
-// an Error, if any.
+// an error, if any.
 func (file *GridFile) Seek(offset int64, whence int) (pos int64, err error) {
 	file.m.Lock()
 	debugf("GridFile %p: seeking for %s (whence=%d)", file, offset, whence)
@@ -630,10 +660,18 @@ func (file *GridFile) Seek(offset int64, whence int) (pos int64, err error) {
 	case os.SEEK_END:
 		offset += file.doc.Length
 	default:
-		panic("Unsupported whence value")
+		panic("unsupported whence value")
 	}
 	if offset > file.doc.Length {
-		return file.offset, errors.New("Seek past end of file")
+		return file.offset, errors.New("seek past end of file")
+	}
+	if offset == file.doc.Length {
+		// If we're seeking to the end of the file,
+		// no need to read anything. This enables
+		// a client to find the size of the file using only the
+		// io.ReadSeeker interface with low overhead.
+		file.offset = offset
+		return file.offset, nil
 	}
 	chunk := int(offset / int64(file.doc.ChunkSize))
 	if chunk+1 == file.chunk && offset >= file.offset {

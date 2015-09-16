@@ -28,10 +28,14 @@ package mgo
 
 import (
 	"errors"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo/bson"
+	"fmt"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
+	"strconv"
+	"strings"
 )
 
 // ---------------------------------------------------------------------------
@@ -53,18 +57,20 @@ type mongoCluster struct {
 	direct       bool
 	failFast     bool
 	syncCount    uint
+	setName      string
 	cachedIndex  map[string]bool
 	sync         chan bool
 	dial         dialer
 }
 
-func newCluster(userSeeds []string, direct, failFast bool, dial dialer) *mongoCluster {
+func newCluster(userSeeds []string, direct, failFast bool, dial dialer, setName string) *mongoCluster {
 	cluster := &mongoCluster{
 		userSeeds:  userSeeds,
 		references: 1,
 		direct:     direct,
 		failFast:   failFast,
 		dial:       dial,
+		setName:    setName,
 	}
 	cluster.serverSynced.L = cluster.RWMutex.RLocker()
 	cluster.sync = make(chan bool, 1)
@@ -123,13 +129,15 @@ func (cluster *mongoCluster) removeServer(server *mongoServer) {
 }
 
 type isMasterResult struct {
-	IsMaster  bool
-	Secondary bool
-	Primary   string
-	Hosts     []string
-	Passives  []string
-	Tags      bson.D
-	Msg       string
+	IsMaster       bool
+	Secondary      bool
+	Primary        string
+	Hosts          []string
+	Passives       []string
+	Tags           bson.D
+	Msg            string
+	SetName        string `bson:"setName"`
+	MaxWireVersion int    `bson:"maxWireVersion"`
 }
 
 func (cluster *mongoCluster) isMaster(socket *mongoSocket, result *isMasterResult) error {
@@ -148,6 +156,16 @@ type possibleTimeout interface {
 var syncSocketTimeout = 5 * time.Second
 
 func (cluster *mongoCluster) syncServer(server *mongoServer) (info *mongoServerInfo, hosts []string, err error) {
+	var syncTimeout time.Duration
+	if raceDetector {
+		// This variable is only ever touched by tests.
+		globalMutex.Lock()
+		syncTimeout = syncSocketTimeout
+		globalMutex.Unlock()
+	} else {
+		syncTimeout = syncSocketTimeout
+	}
+
 	addr := server.Addr
 	log("SYNC Processing ", addr, "...")
 
@@ -164,12 +182,12 @@ func (cluster *mongoCluster) syncServer(server *mongoServer) (info *mongoServerI
 				// Give a chance for waiters to timeout as well.
 				cluster.serverSynced.Broadcast()
 			}
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(syncShortDelay)
 		}
 
 		// It's not clear what would be a good timeout here. Is it
 		// better to wait longer or to retry?
-		socket, _, err := server.AcquireSocket(0, syncSocketTimeout)
+		socket, _, err := server.AcquireSocket(0, syncTimeout)
 		if err != nil {
 			tryerr = err
 			logf("SYNC Failed to get socket to %s: %v", addr, err)
@@ -186,26 +204,34 @@ func (cluster *mongoCluster) syncServer(server *mongoServer) (info *mongoServerI
 		break
 	}
 
+	if cluster.setName != "" && result.SetName != cluster.setName {
+		logf("SYNC Server %s is not a member of replica set %q", addr, cluster.setName)
+		return nil, nil, fmt.Errorf("server %s is not a member of replica set %q", addr, cluster.setName)
+	}
+
 	if result.IsMaster {
 		debugf("SYNC %s is a master.", addr)
-		// Made an incorrect assumption above, so fix stats.
-		stats.conn(-1, false)
-		stats.conn(+1, true)
+		if !server.info.Master {
+			// Made an incorrect assumption above, so fix stats.
+			stats.conn(-1, false)
+			stats.conn(+1, true)
+		}
 	} else if result.Secondary {
 		debugf("SYNC %s is a slave.", addr)
 	} else if cluster.direct {
 		logf("SYNC %s in unknown state. Pretending it's a slave due to direct connection.", addr)
 	} else {
 		logf("SYNC %s is neither a master nor a slave.", addr)
-		// Made an incorrect assumption above, so fix stats.
-		stats.conn(-1, false)
+		// Let stats track it as whatever was known before.
 		return nil, nil, errors.New(addr + " is not a master nor slave")
 	}
 
 	info = &mongoServerInfo{
-		Master: result.IsMaster,
-		Mongos: result.Msg == "isdbgrid",
-		Tags:   result.Tags,
+		Master:         result.IsMaster,
+		Mongos:         result.Msg == "isdbgrid",
+		Tags:           result.Tags,
+		SetName:        result.SetName,
+		MaxWireVersion: result.MaxWireVersion,
 	}
 
 	hosts = make([]string, 0, 1+len(result.Hosts)+len(result.Passives))
@@ -303,6 +329,7 @@ func (cluster *mongoCluster) syncServers() {
 // How long to wait for a checkup of the cluster topology if nothing
 // else kicks a synchronization before that.
 const syncServersDelay = 30 * time.Second
+const syncShortDelay = 500 * time.Millisecond
 
 // syncServersLoop loops while the cluster is alive to keep its idea of
 // the server topology up-to-date. It must be called just once from
@@ -338,7 +365,7 @@ func (cluster *mongoCluster) syncServersLoop() {
 		// Hold off before allowing another sync. No point in
 		// burning CPU looking for down servers.
 		if !cluster.failFast {
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(syncShortDelay)
 		}
 
 		cluster.Lock()
@@ -356,6 +383,7 @@ func (cluster *mongoCluster) syncServersLoop() {
 
 		if restart {
 			log("SYNC No masters found. Will synchronize again.")
+			time.Sleep(syncShortDelay)
 			continue
 		}
 
@@ -382,11 +410,29 @@ func (cluster *mongoCluster) server(addr string, tcpaddr *net.TCPAddr) *mongoSer
 }
 
 func resolveAddr(addr string) (*net.TCPAddr, error) {
-	tcpaddr, err := net.ResolveTCPAddr("tcp", addr)
-	if err != nil {
-		log("SYNC Failed to resolve ", addr, ": ", err.Error())
-		return nil, err
+	// Simple cases that do not need actual resolution. Works with IPv4 and v6.
+	if host, port, err := net.SplitHostPort(addr); err == nil {
+		if port, _ := strconv.Atoi(port); port > 0 {
+			zone := ""
+			if i := strings.LastIndex(host, "%"); i >= 0 {
+				zone = host[i+1:]
+				host = host[:i]
+			}
+			ip := net.ParseIP(host)
+			if ip != nil {
+				return &net.TCPAddr{IP: ip, Port: port, Zone: zone}, nil
+			}
+		}
 	}
+
+	// This unfortunate hack allows having a timeout on address resolution.
+	conn, err := net.DialTimeout("udp4", addr, 10*time.Second)
+	if err != nil {
+		log("SYNC Failed to resolve server address: ", addr)
+		return nil, errors.New("failed to resolve server address: " + addr)
+	}
+	tcpaddr := (*net.TCPAddr)(conn.RemoteAddr().(*net.UDPAddr))
+	conn.Close()
 	if tcpaddr.String() != addr {
 		debug("SYNC Address ", addr, " resolved as ", tcpaddr.String())
 	}
@@ -499,12 +545,10 @@ func (cluster *mongoCluster) syncServersIteration(direct bool) {
 	cluster.Unlock()
 }
 
-var socketsPerServer = 4096
-
 // AcquireSocket returns a socket to a server in the cluster.  If slaveOk is
 // true, it will attempt to return a socket to a slave server.  If it is
 // false, the socket will necessarily be to a master server.
-func (cluster *mongoCluster) AcquireSocket(slaveOk bool, syncTimeout time.Duration, socketTimeout time.Duration, serverTags []bson.D) (s *mongoSocket, err error) {
+func (cluster *mongoCluster) AcquireSocket(slaveOk bool, syncTimeout time.Duration, socketTimeout time.Duration, serverTags []bson.D, poolLimit int) (s *mongoSocket, err error) {
 	var started time.Time
 	var syncCount uint
 	warnedLimit := false
@@ -546,12 +590,13 @@ func (cluster *mongoCluster) AcquireSocket(slaveOk bool, syncTimeout time.Durati
 			continue
 		}
 
-		s, abended, err := server.AcquireSocket(socketsPerServer, socketTimeout)
-		if err == errSocketLimit {
+		s, abended, err := server.AcquireSocket(poolLimit, socketTimeout)
+		if err == errPoolLimit {
 			if !warnedLimit {
+				warnedLimit = true
 				log("WARNING: Per-server connection limit reached.")
 			}
-			time.Sleep(1e8)
+			time.Sleep(100 * time.Millisecond)
 			continue
 		}
 		if err != nil {
@@ -566,7 +611,7 @@ func (cluster *mongoCluster) AcquireSocket(slaveOk bool, syncTimeout time.Durati
 				logf("Cannot confirm server %s as master (%v)", server.Addr, err)
 				s.Release()
 				cluster.syncServers()
-				time.Sleep(1e8)
+				time.Sleep(100 * time.Millisecond)
 				continue
 			}
 		}

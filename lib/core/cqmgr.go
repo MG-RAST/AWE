@@ -8,7 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/user"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo/bson"
+	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
 	"os"
 	"strings"
 	"sync"
@@ -267,7 +267,7 @@ func (qm *CQMgr) GetClientByUser(id string, u *user.User) (client *Client, err e
 	}
 
 	if client, ok := qm.GetClient(id); ok {
-		if val, exists := filtered_clientgroups[client.Group]; exists != true || val != true {
+		if val, exists := filtered_clientgroups[client.Group]; exists == true || val == true {
 			return client, nil
 		}
 	}

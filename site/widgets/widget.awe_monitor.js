@@ -117,6 +117,22 @@
 	    
 	    widget.update_data(views[i]);
 	}
+
+	if (Retina.cgiParam('jobdetail')) {
+	    jQuery.ajax( { dataType: "json",
+			   url: RetinaConfig["awe_ip"]+"/job/"+Retina.cgiParam('jobdetail'),
+			   headers: widget.authHeader,
+			   error: function () { },
+			   success: function(data) {
+			       var widget = Retina.WidgetInstances.awe_monitor[1];
+			       if (! stm.DataStore.hasOwnProperty('job')) {
+				   stm.DataStore.job = {};
+			       }
+			       stm.DataStore.job[data.data.id] = data.data;
+			       widget.jobDetails(data.data.id);
+			   }
+			 } );
+	}
     };
 
     widget.update_data = function (which) {
@@ -150,9 +166,9 @@
 								    "checkout": rows[13].match(/\d+/)[0],
 								    "suspended": rows[14].match(/\d+/)[0] },
 					       "total clients": { "all": rows[15].match(/\d+/)[0],
-								  "busy": rows[16].match(/\d+/)[0],
-								  "idle": rows[17].match(/\d+/)[0],
-								  "suspended": rows[18].match(/\d+/)[0] } };
+								  "busy": "<span id='clBusy'></span>",
+								  "idle": "<span id='clIdle'></span>",
+								  "suspended": "<span id='clSuspended'></span>" } };
 			       
 			       var html = '<h4>Overview</h4><table class="table">';
 			       for (h in return_data) {
@@ -206,7 +222,7 @@
 						  "job id": "jid",
 						  "pipeline": "info.pipeline",
 						  "current state": "state",
-						  "todo": "remaintasks" };
+						  "todo": "remaintasks"};
 	    gt.settings.filter_autodetect = false;
 	    gt.settings.sort_autodetect = false;
 	    gt.settings.data = { data: [], header: [ "submission", "job name", "job id", "status", "pipeline", "current state", "todo", "AWE ID" ] };
@@ -265,11 +281,15 @@
 			   success: function (data) {
 			       var widget = Retina.WidgetInstances.awe_monitor[1];
 			       var result_data = [];
+			       var clientsStati = { "active-idle": 0, "active-busy": 0, "suspend": 0 };
 			       if (data.data == null) {
 				   result_data = [ ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'] ];
 			       } else {
 				   for (var h=0;h<data.data.length;h++) {
 				       var obj = data.data[h];
+				       if (clientsStati.hasOwnProperty(obj.Status)) {
+					   clientsStati[obj.Status]++;
+				       }
 				       var skipwork = [];
 				       for (var j=0;j<obj.skip_work.length;j++) {
 					   skipwork.push("<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitTooltip(jQuery(this), \""+obj.skip_work[j]+"\")'>"+(j+1)+"</a>");
@@ -288,6 +308,9 @@
 							  obj.total_failed || "0",
 							  skipwork.join(", ") ]);
 				   }
+				   document.getElementById('clIdle').innerHTML = clientsStati["active-idle"];
+				   document.getElementById('clBusy').innerHTML = clientsStati["active-busy"];
+				   document.getElementById('clSuspended').innerHTML = clientsStati["suspend"];
 			       }
 			       return_data = { header: [ "name",
 							 "group",
@@ -419,7 +442,8 @@
 	var widget = Retina.WidgetInstances.awe_monitor[1];
 	var job = stm.DataStore.job[jobid];
 	if (json) {
-	    stm.saveAs(JSON.stringify(job, null, 2), "job"+job.jid+".json");
+	    var w = window.open();
+	    w.document.body.innerHTML = "<pre>"+JSON.stringify(job, null, 2)+"</pre>";
 	} else {
 	    document.getElementById('debug').innerHTML = widget.stagePills(job);
 	    document.getElementById('debugRef').click();
@@ -518,7 +542,7 @@
 	    headers: widget.authHeader, 
 	    url: RetinaConfig["awe_ip"]+"/job/"+jobid+"?resume",
 	    success: function (data) {
-		Retina.WidgetInstances.awe_monitor[1].display();
+		Retina.WidgetInstances.awe_monitor[1].tables["jobs"].update({}, Retina.WidgetInstances.awe_monitor[1].tables["jobs"].index);
 		alert('job resumed');
 	    }}).fail(function(xhr, error) {
 		alert('failed to resume job');
@@ -746,7 +770,8 @@
 		       url: url,
 		       headers: widget.authHeader,
 		       success: function(data) {
-			   stm.saveAs(JSON.stringify(data, null, 2), "data.json");
+			   var w = window.open();
+			   w.document.body.innerHTML = "<pre>"+JSON.stringify(data, null, 2)+"</pre>";
 		       },
 		       error: function (xhr, data) {
 			   alert(JSON.parse(xhr.responseText).error[0]);
@@ -867,7 +892,7 @@
 		if (task.inputs[i].nofile || i == "mysql.tar" || i == "postgresql.tar") {
 		    continue;
 		}
-		inputs.push("<tr><td>"+(task.inputs[i].name || i)+"</td><td>"+task.inputs[i].size.byteSize()+"</td>"+(task.inputs[i].origin ? "<td>"+(tasks[task.inputs[i].origin].cmd.description || (parseInt(task.inputs[i].origin) + 1))+"</td></tr>" : "<td>-</td></tr>"));
+		inputs.push("<tr><td>"+(task.inputs[i].filename)+"</td><td>"+task.inputs[i].size.byteSize()+"</td>"+(task.inputs[i].origin ? "<td>"+(tasks[task.inputs[i].origin].cmd.description || (parseInt(task.inputs[i].origin) + 1))+"</td></tr>" : "<td>-</td></tr>"));
 	    }
 	}
 	inputs = "<table class='table table-condensed table-striped table-hover'><thead><tr><td>filename</td><td>size</td><td>origin</td></tr></thead><tbody>"+inputs.join('')+"</tbody></table>";
@@ -877,7 +902,7 @@
 		if (task.outputs[i].type == "update") {
 		    continue;
 		}
-		outputs.push(i+" ("+task.outputs[i].size.byteSize()+")"+(task.outputs[i]["delete"] ? " <i>temporary</i>" : ""));
+		outputs.push(task.outputs[i].filename+" ("+task.outputs[i].size.byteSize()+")"+(task.outputs[i]["delete"] ? " <i>temporary</i>" : ""));
 	    }
 	}
 	outputs = outputs.join('<br>');

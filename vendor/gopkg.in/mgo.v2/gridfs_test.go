@@ -27,12 +27,13 @@
 package mgo_test
 
 import (
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo/bson"
 	"io"
-	. "launchpad.net/gocheck"
 	"os"
 	"time"
+
+	. "github.com/MG-RAST/AWE/vendor/gopkg.in/check.v1"
+	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2"
+	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
 )
 
 func (s *S) TestGridFSCreate(c *C) {
@@ -75,7 +76,7 @@ func (s *S) TestGridFSCreate(c *C) {
 	expected := M{
 		"_id":        "<id>",
 		"length":     9,
-		"chunkSize":  262144,
+		"chunkSize":  255 * 1024,
 		"uploadDate": "<timestamp>",
 		"md5":        "1e50210a0202497fb79bc38b6ade6c34",
 	}
@@ -172,7 +173,7 @@ func (s *S) TestGridFSFileDetails(c *C) {
 	expected := M{
 		"_id":         "myid",
 		"length":      9,
-		"chunkSize":   262144,
+		"chunkSize":   255 * 1024,
 		"uploadDate":  "<timestamp>",
 		"md5":         "1e50210a0202497fb79bc38b6ade6c34",
 		"filename":    "myfile2.txt",
@@ -180,6 +181,34 @@ func (s *S) TestGridFSFileDetails(c *C) {
 		"metadata":    M{"any": "thing"},
 	}
 	c.Assert(result, DeepEquals, expected)
+}
+
+func (s *S) TestGridFSSetUploadDate(c *C) {
+	session, err := mgo.Dial("localhost:40011")
+	c.Assert(err, IsNil)
+	defer session.Close()
+
+	db := session.DB("mydb")
+
+	gfs := db.GridFS("fs")
+	file, err := gfs.Create("")
+	c.Assert(err, IsNil)
+
+	t := time.Date(2014, 1, 1, 1, 1, 1, 0, time.Local)
+	file.SetUploadDate(t)
+
+	err = file.Close()
+	c.Assert(err, IsNil)
+
+	// Check the file information.
+	result := M{}
+	err = db.C("fs.files").Find(nil).One(result)
+	c.Assert(err, IsNil)
+
+	ud := result["uploadDate"].(time.Time)
+	if !ud.Equal(t) {
+		c.Fatalf("want upload date %s, got %s", t, ud)
+	}
 }
 
 func (s *S) TestGridFSCreateWithChunking(c *C) {
@@ -261,6 +290,71 @@ func (s *S) TestGridFSCreateWithChunking(c *C) {
 		}
 		c.Assert(result, DeepEquals, expected)
 	}
+}
+
+func (s *S) TestGridFSAbort(c *C) {
+	session, err := mgo.Dial("localhost:40011")
+	c.Assert(err, IsNil)
+	defer session.Close()
+
+	db := session.DB("mydb")
+
+	gfs := db.GridFS("fs")
+	file, err := gfs.Create("")
+	c.Assert(err, IsNil)
+
+	file.SetChunkSize(5)
+
+	n, err := file.Write([]byte("some data"))
+	c.Assert(err, IsNil)
+	c.Assert(n, Equals, 9)
+
+	var count int
+	for i := 0; i < 10; i++ {
+		count, err = db.C("fs.chunks").Count()
+		if count > 0 || err != nil {
+			break
+		}
+	}
+	c.Assert(err, IsNil)
+	c.Assert(count, Equals, 1)
+
+	file.Abort()
+
+	err = file.Close()
+	c.Assert(err, ErrorMatches, "write aborted")
+
+	count, err = db.C("fs.chunks").Count()
+	c.Assert(err, IsNil)
+	c.Assert(count, Equals, 0)
+}
+
+func (s *S) TestGridFSCloseConflict(c *C) {
+	session, err := mgo.Dial("localhost:40011")
+	c.Assert(err, IsNil)
+	defer session.Close()
+
+	db := session.DB("mydb")
+
+	db.C("fs.files").EnsureIndex(mgo.Index{Key: []string{"filename"}, Unique: true})
+
+	// For a closing-time conflict
+	err = db.C("fs.files").Insert(M{"filename": "foo.txt"})
+	c.Assert(err, IsNil)
+
+	gfs := db.GridFS("fs")
+	file, err := gfs.Create("foo.txt")
+	c.Assert(err, IsNil)
+
+	_, err = file.Write([]byte("some data"))
+	c.Assert(err, IsNil)
+
+	err = file.Close()
+	c.Assert(mgo.IsDup(err), Equals, true)
+
+	count, err := db.C("fs.chunks").Count()
+	c.Assert(err, IsNil)
+	c.Assert(count, Equals, 0)
 }
 
 func (s *S) TestGridFSOpenNotFound(c *C) {
@@ -447,6 +541,13 @@ func (s *S) TestGridFSSeek(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(b, DeepEquals, []byte("nopqr"))
 
+	o, err = file.Seek(0, os.SEEK_END)
+	c.Assert(err, IsNil)
+	c.Assert(o, Equals, int64(22))
+	n, err = file.Read(b)
+	c.Assert(err, Equals, io.EOF)
+	c.Assert(n, Equals, 0)
+
 	o, err = file.Seek(-10, os.SEEK_END)
 	c.Assert(err, IsNil)
 	c.Assert(o, Equals, int64(12))
@@ -475,7 +576,7 @@ func (s *S) TestGridFSSeek(c *C) {
 	// Try seeking past end of file.
 	file.Seek(3, os.SEEK_SET)
 	o, err = file.Seek(23, os.SEEK_SET)
-	c.Assert(err, ErrorMatches, "Seek past end of file")
+	c.Assert(err, ErrorMatches, "seek past end of file")
 	c.Assert(o, Equals, int64(3))
 }
 

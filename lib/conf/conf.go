@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const VERSION string = "0.9.18"
+const VERSION string = "0.9.19"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -45,8 +45,6 @@ const CLIEN_DIR_DELAY_DONE time.Duration = 1 * time.Minute  // clean done workun
 const STDOUT_FILENAME string = "awe_stdout.txt"
 const STDERR_FILENAME string = "awe_stderr.txt"
 const WORKNOTES_FILENAME string = "awe_worknotes.txt"
-
-const MGRAST_API string = "http://api.metagenomics.anl.gov"
 
 const ALL_APP string = "*"
 
@@ -94,6 +92,7 @@ var (
 	GLOBUS_TOKEN_URL   string
 	GLOBUS_PROFILE_URL string
 	MGRAST_OAUTH_URL   string
+	MGRAST_LOGIN_URL   string
 	CLIENT_AUTH_REQ    bool
 	CLIENT_GROUP_TOKEN string
 
@@ -114,6 +113,7 @@ var (
 	MONGODB_DATABASE string
 	MONGODB_USER     string
 	MONGODB_PASSWD   string
+	MONGODB_TIMEOUT  int
 
 	DEBUG_LEVEL int
 
@@ -425,6 +425,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&GLOBUS_TOKEN_URL, "https://nexus.api.globusonline.org/goauth/token?grant_type=client_credentials", "Auth", "globus_token_url", "", "")
 		c_store.AddString(&GLOBUS_PROFILE_URL, "https://nexus.api.globusonline.org/users", "Auth", "globus_profile_url", "", "")
 		c_store.AddString(&MGRAST_OAUTH_URL, "", "Auth", "mgrast_oauth_url", "", "")
+		c_store.AddString(&MGRAST_LOGIN_URL, "", "Auth", "mgrast_login_url", "", "")
 		c_store.AddBool(&CLIENT_AUTH_REQ, false, "Auth", "client_auth_required", "", "")
 
 		// Admin
@@ -449,6 +450,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&MONGODB_DATABASE, "AWEDB", "Mongodb", "database", "", "")
 		c_store.AddString(&MONGODB_USER, "", "Mongodb", "user", "", "")
 		c_store.AddString(&MONGODB_PASSWD, "", "Mongodb", "password", "", "")
+		c_store.AddInt(&MONGODB_TIMEOUT, 1200, "Mongodb", "timeout", "", "")
 
 		// Server options
 		c_store.AddString(&TITLE, "AWE Server", "Server", "title", "", "")
@@ -594,7 +596,7 @@ func Init_conf(mode string) (err error) {
 			Icon:      "KBase_favicon.ico",
 			Prefix:    "kbgo4711",
 			Keyword:   "auth",
-			Url:       MGRAST_API + "?verbosity=verbose",
+			Url:       MGRAST_LOGIN_URL,
 			UseHeader: false,
 		}
 	}
@@ -603,9 +605,9 @@ func Init_conf(mode string) (err error) {
 		AUTH_DEFAULT = "MG-RAST"
 		AUTH_RESOURCES["MG-RAST"] = AuthResource{
 			Icon:      "MGRAST_favicon.ico",
-			Prefix:    "mgo4711",
+			Prefix:    "mggo4711",
 			Keyword:   "auth",
-			Url:       MGRAST_API + "?verbosity=verbose",
+			Url:       MGRAST_LOGIN_URL,
 			UseHeader: false,
 		}
 	}
@@ -651,6 +653,9 @@ func Print(service string) {
 	if MGRAST_OAUTH_URL != "" {
 		fmt.Printf("mgrast_oauth_url:\t%s\n", MGRAST_OAUTH_URL)
 	}
+	if MGRAST_LOGIN_URL != "" {
+		fmt.Printf("mgrast_login_url:\t%s\n", MGRAST_LOGIN_URL)
+	}
 	if len(Admin_Users) > 0 {
 		fmt.Printf("admin_auth:\ttrue\nadmin_users:\t")
 		for name, _ := range Admin_Users {
@@ -673,7 +678,7 @@ func Print(service string) {
 	}
 
 	if service == "server" {
-		fmt.Printf("##### Mongodb #####\nhost(s):\t%s\ndatabase:\t%s\n\n", MONGODB_HOST, MONGODB_DATABASE)
+		fmt.Printf("##### Mongodb #####\nhost(s):\t%s\ndatabase:\t%s\ntimeout:\t%d\n", MONGODB_HOST, MONGODB_DATABASE, MONGODB_TIMEOUT)
 	}
 	fmt.Println()
 	if service == "server" {

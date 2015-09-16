@@ -28,14 +28,15 @@ package mgo_test
 
 import (
 	"fmt"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo/bson"
 	"io"
-	. "launchpad.net/gocheck"
 	"net"
 	"strings"
 	"sync"
 	"time"
+
+	. "github.com/MG-RAST/AWE/vendor/gopkg.in/check.v1"
+	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2"
+	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
 )
 
 func (s *S) TestNewSession(c *C) {
@@ -703,9 +704,16 @@ func (s *S) TestPreserveSocketCountOnSync(c *C) {
 	s.Stop("localhost:40011")
 
 	// Wait for the logic to run for a bit and bring it back.
+	startedAll := make(chan bool)
 	go func() {
 		time.Sleep(5e9)
 		s.StartAll()
+		startedAll <- true
+	}()
+
+	// Do not allow the test to return before the goroutine above is done.
+	defer func() {
+		<-startedAll
 	}()
 
 	// Do an action to kick the resync logic in, and also to
@@ -897,6 +905,69 @@ func (s *S) TestSocketTimeoutOnInactiveSocket(c *C) {
 	// Do something again. The timeout above should not have killed
 	// the socket as there was nothing to be done.
 	c.Assert(session.Ping(), IsNil)
+}
+
+func (s *S) TestDialWithReplicaSetName(c *C) {
+	seedLists := [][]string{
+		// rs1 primary and rs2 primary
+		[]string{"localhost:40011", "localhost:40021"},
+		// rs1 primary and rs2 secondary
+		[]string{"localhost:40011", "localhost:40022"},
+		// rs1 secondary and rs2 primary
+		[]string{"localhost:40012", "localhost:40021"},
+		// rs1 secondary and rs2 secondary
+		[]string{"localhost:40012", "localhost:40022"},
+	}
+
+	rs2Members := []string{":40021", ":40022", ":40023"}
+
+	verifySyncedServers := func(session *mgo.Session, numServers int) {
+		// wait for the server(s) to be synced
+		for len(session.LiveServers()) != numServers {
+			c.Log("Waiting for cluster sync to finish...")
+			time.Sleep(5e8)
+		}
+
+		// ensure none of the rs2 set members are communicated with
+		for _, addr := range session.LiveServers() {
+			for _, rs2Member := range rs2Members {
+				c.Assert(strings.HasSuffix(addr, rs2Member), Equals, false)
+			}
+		}
+	}
+
+	// only communication with rs1 members is expected
+	for _, seedList := range seedLists {
+		info := mgo.DialInfo{
+			Addrs:          seedList,
+			Timeout:        5 * time.Second,
+			ReplicaSetName: "rs1",
+		}
+
+		session, err := mgo.DialWithInfo(&info)
+		c.Assert(err, IsNil)
+		verifySyncedServers(session, 3)
+		session.Close()
+
+		info.Direct = true
+		session, err = mgo.DialWithInfo(&info)
+		c.Assert(err, IsNil)
+		verifySyncedServers(session, 1)
+		session.Close()
+
+		connectionUrl := fmt.Sprintf("mongodb://%v/?replicaSet=rs1", strings.Join(seedList, ","))
+		session, err = mgo.Dial(connectionUrl)
+		c.Assert(err, IsNil)
+		verifySyncedServers(session, 3)
+		session.Close()
+
+		connectionUrl += "&connect=direct"
+		session, err = mgo.Dial(connectionUrl)
+		c.Assert(err, IsNil)
+		verifySyncedServers(session, 1)
+		session.Close()
+	}
+
 }
 
 func (s *S) TestDirect(c *C) {
@@ -1114,8 +1185,6 @@ func (s *S) TestRemovalOfClusterMember(c *C) {
 	c.Logf("========== Removing slave: %s ==========", slaveAddr)
 
 	master.Run(bson.D{{"$eval", `rs.remove("` + slaveAddr + `")`}}, nil)
-	err = master.Ping()
-	c.Assert(err, Equals, io.EOF)
 
 	master.Refresh()
 
@@ -1143,13 +1212,47 @@ func (s *S) TestRemovalOfClusterMember(c *C) {
 	c.Log("========== Test succeeded. ==========")
 }
 
-func (s *S) TestSocketLimit(c *C) {
+func (s *S) TestPoolLimitSimple(c *C) {
+	for test := 0; test < 2; test++ {
+		var session *mgo.Session
+		var err error
+		if test == 0 {
+			session, err = mgo.Dial("localhost:40001")
+			c.Assert(err, IsNil)
+			session.SetPoolLimit(1)
+		} else {
+			session, err = mgo.Dial("localhost:40001?maxPoolSize=1")
+			c.Assert(err, IsNil)
+		}
+		defer session.Close()
+
+		// Put one socket in use.
+		c.Assert(session.Ping(), IsNil)
+
+		done := make(chan time.Duration)
+
+		// Now block trying to get another one due to the pool limit.
+		go func() {
+			copy := session.Copy()
+			defer copy.Close()
+			started := time.Now()
+			c.Check(copy.Ping(), IsNil)
+			done <- time.Now().Sub(started)
+		}()
+
+		time.Sleep(300 * time.Millisecond)
+
+		// Put the one socket back in the pool, freeing it for the copy.
+		session.Refresh()
+		delay := <-done
+		c.Assert(delay > 300*time.Millisecond, Equals, true, Commentf("Delay: %s", delay))
+	}
+}
+
+func (s *S) TestPoolLimitMany(c *C) {
 	if *fast {
 		c.Skip("-fast")
 	}
-	const socketLimit = 64
-	restore := mgo.HackSocketsPerServer(socketLimit)
-	defer restore()
 
 	session, err := mgo.Dial("localhost:40011")
 	c.Assert(err, IsNil)
@@ -1159,17 +1262,19 @@ func (s *S) TestSocketLimit(c *C) {
 	for stats.MasterConns+stats.SlaveConns != 3 {
 		stats = mgo.GetStats()
 		c.Log("Waiting for all connections to be established...")
-		time.Sleep(5e8)
+		time.Sleep(500 * time.Millisecond)
 	}
 	c.Assert(stats.SocketsAlive, Equals, 3)
 
+	const poolLimit = 64
+	session.SetPoolLimit(poolLimit)
+
 	// Consume the whole limit for the master.
 	var master []*mgo.Session
-	for i := 0; i < socketLimit; i++ {
+	for i := 0; i < poolLimit; i++ {
 		s := session.Copy()
 		defer s.Close()
-		err := s.Ping()
-		c.Assert(err, IsNil)
+		c.Assert(s.Ping(), IsNil)
 		master = append(master, s)
 	}
 
@@ -1179,7 +1284,7 @@ func (s *S) TestSocketLimit(c *C) {
 		master[0].Refresh()
 	}()
 
-	// Now a single ping must block, since it would need another
+	// Then, a single ping must block, since it would need another
 	// connection to the master, over the limit. Once the goroutine
 	// above releases its socket, it should move on.
 	session.Ping()

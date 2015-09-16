@@ -31,12 +31,13 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo/bson"
-	. "launchpad.net/gocheck"
 	"net/url"
 	"reflect"
 	"testing"
 	"time"
+
+	. "github.com/MG-RAST/AWE/vendor/gopkg.in/check.v1"
+	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
 )
 
 func TestAll(t *testing.T) {
@@ -66,7 +67,7 @@ func makeZeroDoc(value interface{}) (zero interface{}) {
 	case reflect.Ptr:
 		pv := reflect.New(v.Type().Elem())
 		zero = pv.Interface()
-	case reflect.Slice:
+	case reflect.Slice, reflect.Int:
 		zero = reflect.New(t).Interface()
 	default:
 		panic("unsupported doc type")
@@ -138,6 +139,8 @@ var allItems = []testItemType{
 		"\x06_\x00"},
 	{bson.M{"_": bson.ObjectId("0123456789ab")},
 		"\x07_\x000123456789ab"},
+	{bson.M{"_": bson.DBPointer{"testnamespace", bson.ObjectId("0123456789ab")}},
+		"\x0C_\x00\x0e\x00\x00\x00testnamespace\x000123456789ab"},
 	{bson.M{"_": false},
 		"\x08_\x00\x00"},
 	{bson.M{"_": true},
@@ -853,6 +856,9 @@ type typeWithGetter struct {
 }
 
 func (t *typeWithGetter) GetBSON() (interface{}, error) {
+	if t == nil {
+		return "<value is nil>", nil
+	}
 	return t.result, t.err
 }
 
@@ -912,7 +918,18 @@ func (s *S) TestMarshalShortWithGetter(c *C) {
 	c.Assert(err, IsNil)
 	m := bson.M{}
 	err = bson.Unmarshal(data, m)
+	c.Assert(err, IsNil)
 	c.Assert(m["v"], Equals, 42)
+}
+
+func (s *S) TestMarshalWithGetterNil(c *C) {
+	obj := docWithGetterField{}
+	data, err := bson.Marshal(obj)
+	c.Assert(err, IsNil)
+	m := bson.M{}
+	err = bson.Unmarshal(data, m)
+	c.Assert(err, IsNil)
+	c.Assert(m, DeepEquals, bson.M{"_": "<value is nil>"})
 }
 
 // --------------------------------------------------------------------------
@@ -1009,6 +1026,55 @@ type inlineBadKeyMap struct {
 	M map[int]int ",inline"
 }
 
+type getterSetterD bson.D
+
+func (s getterSetterD) GetBSON() (interface{}, error) {
+	if len(s) == 0 {
+		return bson.D{}, nil
+	}
+	return bson.D(s[:len(s)-1]), nil
+}
+
+func (s *getterSetterD) SetBSON(raw bson.Raw) error {
+	var doc bson.D
+	err := raw.Unmarshal(&doc)
+	doc = append(doc, bson.DocElem{"suffix", true})
+	*s = getterSetterD(doc)
+	return err
+}
+
+type getterSetterInt int
+
+func (i getterSetterInt) GetBSON() (interface{}, error) {
+	return bson.D{{"a", int(i)}}, nil
+}
+
+func (i *getterSetterInt) SetBSON(raw bson.Raw) error {
+	var doc struct{ A int }
+	err := raw.Unmarshal(&doc)
+	*i = getterSetterInt(doc.A)
+	return err
+}
+
+type ifaceType interface {
+	Hello()
+}
+
+type ifaceSlice []ifaceType
+
+func (s *ifaceSlice) SetBSON(raw bson.Raw) error {
+	var ns []int
+	if err := raw.Unmarshal(&ns); err != nil {
+		return err
+	}
+	*s = make(ifaceSlice, ns[0])
+	return nil
+}
+
+func (s ifaceSlice) GetBSON() (interface{}, error) {
+	return []int{len(s)}, nil
+}
+
 type (
 	MyString string
 	MyBytes  []byte
@@ -1026,6 +1092,8 @@ var (
 	int64ptr = &int64var
 	intvar   = int(42)
 	intptr   = &intvar
+
+	gsintvar = getterSetterInt(42)
 )
 
 func parseURL(s string) *url.URL {
@@ -1200,6 +1268,7 @@ var twoWayCrossItems = []crossTypeItem{
 
 	// arrays
 	{&struct{ V [2]int }{[...]int{1, 2}}, map[string][2]int{"v": [2]int{1, 2}}},
+	{&struct{ V [2]byte }{[...]byte{1, 2}}, map[string][2]byte{"v": [2]byte{1, 2}}},
 
 	// zero time
 	{&struct{ V time.Time }{}, map[string]interface{}{"v": time.Time{}}},
@@ -1211,6 +1280,7 @@ var twoWayCrossItems = []crossTypeItem{
 	// bson.D <=> []DocElem
 	{&bson.D{{"a", bson.D{{"b", 1}, {"c", 2}}}}, &bson.D{{"a", bson.D{{"b", 1}, {"c", 2}}}}},
 	{&bson.D{{"a", bson.D{{"b", 1}, {"c", 2}}}}, &MyD{{"a", MyD{{"b", 1}, {"c", 2}}}}},
+	{&struct{ V MyD }{MyD{{"a", 1}}}, &bson.D{{"v", bson.D{{"a", 1}}}}},
 
 	// bson.RawD <=> []RawDocElem
 	{&bson.RawD{{"a", bson.Raw{0x08, []byte{0x01}}}}, &bson.RawD{{"a", bson.Raw{0x08, []byte{0x01}}}}},
@@ -1222,6 +1292,18 @@ var twoWayCrossItems = []crossTypeItem{
 
 	// bson.M <=> map[MyString]
 	{bson.M{"a": bson.M{"b": 1, "c": 2}}, map[MyString]interface{}{"a": map[MyString]interface{}{"b": 1, "c": 2}}},
+
+	// json.Number <=> int64, float64
+	{&struct{ N json.Number }{"5"}, map[string]interface{}{"n": int64(5)}},
+	{&struct{ N json.Number }{"5.05"}, map[string]interface{}{"n": 5.05}},
+	{&struct{ N json.Number }{"9223372036854776000"}, map[string]interface{}{"n": float64(1 << 63)}},
+
+	// bson.D <=> non-struct getter/setter
+	{&bson.D{{"a", 1}}, &getterSetterD{{"a", 1}, {"suffix", true}}},
+	{&bson.D{{"a", 42}}, &gsintvar},
+
+	// Interface slice setter.
+	{&struct{ V ifaceSlice }{ifaceSlice{nil, nil, nil}}, bson.M{"v": []interface{}{3}}},
 }
 
 // Same thing, but only one way (obj1 => obj2).
@@ -1237,6 +1319,11 @@ var oneWayCrossItems = []crossTypeItem{
 
 	// Would get decoded into a int32 too in the opposite direction.
 	{&shortIface{int64(1) << 30}, map[string]interface{}{"v": 1 << 30}},
+
+	// Ensure omitempty on struct with private fields works properly.
+	{&struct {
+		V struct{ v time.Time } ",omitempty"
+	}{}, map[string]interface{}{}},
 }
 
 func testCrossPair(c *C, dump interface{}, load interface{}) {
@@ -1387,31 +1474,65 @@ func (s *S) TestNewObjectIdWithTime(c *C) {
 // ObjectId JSON marshalling.
 
 type jsonType struct {
-	Id *bson.ObjectId
+	Id bson.ObjectId
 }
+
+var jsonIdTests = []struct {
+	value     jsonType
+	json      string
+	marshal   bool
+	unmarshal bool
+	error     string
+}{{
+	value:     jsonType{Id: bson.ObjectIdHex("4d88e15b60f486e428412dc9")},
+	json:      `{"Id":"4d88e15b60f486e428412dc9"}`,
+	marshal:   true,
+	unmarshal: true,
+}, {
+	value:     jsonType{},
+	json:      `{"Id":""}`,
+	marshal:   true,
+	unmarshal: true,
+}, {
+	value:     jsonType{},
+	json:      `{"Id":null}`,
+	marshal:   false,
+	unmarshal: true,
+}, {
+	json:      `{"Id":"4d88e15b60f486e428412dc9A"}`,
+	error:     `Invalid ObjectId in JSON: "4d88e15b60f486e428412dc9A"`,
+	marshal:   false,
+	unmarshal: true,
+}, {
+	json:      `{"Id":"4d88e15b60f486e428412dcZ"}`,
+	error:     `Invalid ObjectId in JSON: "4d88e15b60f486e428412dcZ" .*`,
+	marshal:   false,
+	unmarshal: true,
+}}
 
 func (s *S) TestObjectIdJSONMarshaling(c *C) {
-	id := bson.ObjectIdHex("4d88e15b60f486e428412dc9")
-	v := jsonType{Id: &id}
-	data, err := json.Marshal(&v)
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, `{"Id":"4d88e15b60f486e428412dc9"}`)
-}
+	for _, test := range jsonIdTests {
+		if test.marshal {
+			data, err := json.Marshal(&test.value)
+			if test.error == "" {
+				c.Assert(err, IsNil)
+				c.Assert(string(data), Equals, test.json)
+			} else {
+				c.Assert(err, ErrorMatches, test.error)
+			}
+		}
 
-func (s *S) TestObjectIdJSONUnmarshaling(c *C) {
-	data := []byte(`{"Id":"4d88e15b60f486e428412dc9"}`)
-	v := jsonType{}
-	err := json.Unmarshal(data, &v)
-	c.Assert(err, IsNil)
-	c.Assert(*v.Id, Equals, bson.ObjectIdHex("4d88e15b60f486e428412dc9"))
-}
-
-func (s *S) TestObjectIdJSONUnmarshalingError(c *C) {
-	v := jsonType{}
-	err := json.Unmarshal([]byte(`{"Id":"4d88e15b60f486e428412dc9A"}`), &v)
-	c.Assert(err, ErrorMatches, `Invalid ObjectId in JSON: "4d88e15b60f486e428412dc9A"`)
-	err = json.Unmarshal([]byte(`{"Id":"4d88e15b60f486e428412dcZ"}`), &v)
-	c.Assert(err, ErrorMatches, `Invalid ObjectId in JSON: "4d88e15b60f486e428412dcZ" .*`)
+		if test.unmarshal {
+			var value jsonType
+			err := json.Unmarshal([]byte(test.json), &value)
+			if test.error == "" {
+				c.Assert(err, IsNil)
+				c.Assert(value, DeepEquals, test.value)
+			} else {
+				c.Assert(err, ErrorMatches, test.error)
+			}
+		}
+	}
 }
 
 // --------------------------------------------------------------------------
@@ -1421,14 +1542,21 @@ type BenchT struct {
 	A, B, C, D, E, F string
 }
 
-func BenchmarkUnmarhsalStruct(b *testing.B) {
+type BenchRawT struct {
+	A string
+	B int
+	C bson.M
+	D []float64
+}
+
+func (s *S) BenchmarkUnmarhsalStruct(c *C) {
 	v := BenchT{A: "A", D: "D", E: "E"}
 	data, err := bson.Marshal(&v)
 	if err != nil {
 		panic(err)
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	c.ResetTimer()
+	for i := 0; i < c.N; i++ {
 		err = bson.Unmarshal(data, &v)
 	}
 	if err != nil {
@@ -1436,15 +1564,40 @@ func BenchmarkUnmarhsalStruct(b *testing.B) {
 	}
 }
 
-func BenchmarkUnmarhsalMap(b *testing.B) {
+func (s *S) BenchmarkUnmarhsalMap(c *C) {
 	m := bson.M{"a": "a", "d": "d", "e": "e"}
 	data, err := bson.Marshal(&m)
 	if err != nil {
 		panic(err)
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	c.ResetTimer()
+	for i := 0; i < c.N; i++ {
 		err = bson.Unmarshal(data, &m)
+	}
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (s *S) BenchmarkUnmarshalRaw(c *C) {
+	var err error
+	m := BenchRawT{
+		A: "test_string",
+		B: 123,
+		C: bson.M{
+			"subdoc_int": 12312,
+			"subdoc_doc": bson.M{"1": 1},
+		},
+		D: []float64{0.0, 1.3333, -99.9997, 3.1415},
+	}
+	data, err := bson.Marshal(&m)
+	if err != nil {
+		panic(err)
+	}
+	raw := bson.Raw{}
+	c.ResetTimer()
+	for i := 0; i < c.N; i++ {
+		err = bson.Unmarshal(data, &raw)
 	}
 	if err != nil {
 		panic(err)

@@ -166,9 +166,9 @@
 								    "checkout": rows[13].match(/\d+/)[0],
 								    "suspended": rows[14].match(/\d+/)[0] },
 					       "total clients": { "all": rows[15].match(/\d+/)[0],
-								  "busy": rows[16].match(/\d+/)[0],
-								  "idle": rows[17].match(/\d+/)[0],
-								  "suspended": rows[18].match(/\d+/)[0] } };
+								  "busy": "<span id='clBusy'></span>",
+								  "idle": "<span id='clIdle'></span>",
+								  "suspended": "<span id='clSuspended'></span>" } };
 			       
 			       var html = '<h4>Overview</h4><table class="table">';
 			       for (h in return_data) {
@@ -222,7 +222,7 @@
 						  "job id": "jid",
 						  "pipeline": "info.pipeline",
 						  "current state": "state",
-						  "todo": "remaintasks" };
+						  "todo": "remaintasks"};
 	    gt.settings.filter_autodetect = false;
 	    gt.settings.sort_autodetect = false;
 	    gt.settings.data = { data: [], header: [ "submission", "job name", "job id", "status", "pipeline", "current state", "todo", "AWE ID" ] };
@@ -281,11 +281,15 @@
 			   success: function (data) {
 			       var widget = Retina.WidgetInstances.awe_monitor[1];
 			       var result_data = [];
+			       var clientsStati = { "active-idle": 0, "active-busy": 0, "suspend": 0 };
 			       if (data.data == null) {
 				   result_data = [ ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'] ];
 			       } else {
 				   for (var h=0;h<data.data.length;h++) {
 				       var obj = data.data[h];
+				       if (clientsStati.hasOwnProperty(obj.Status)) {
+					   clientsStati[obj.Status]++;
+				       }
 				       var skipwork = [];
 				       for (var j=0;j<obj.skip_work.length;j++) {
 					   skipwork.push("<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitTooltip(jQuery(this), \""+obj.skip_work[j]+"\")'>"+(j+1)+"</a>");
@@ -304,6 +308,9 @@
 							  obj.total_failed || "0",
 							  skipwork.join(", ") ]);
 				   }
+				   document.getElementById('clIdle').innerHTML = clientsStati["active-idle"];
+				   document.getElementById('clBusy').innerHTML = clientsStati["active-busy"];
+				   document.getElementById('clSuspended').innerHTML = clientsStati["suspend"];
 			       }
 			       return_data = { header: [ "name",
 							 "group",

@@ -434,6 +434,8 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 
 	task_outputs := task.Outputs
 
+	logger.Debug(2, fmt.Sprintf("(task.Id=%s) len of app_cmd_mode_object.Output_array: %d ", task.Id, len(app_cmd_mode_object.Output_array)))
+
 	output_array_copy := make([]string, len(app_cmd_mode_object.Output_array))
 	copy(output_array_copy, app_cmd_mode_object.Output_array)
 
@@ -484,14 +486,13 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 			directory = "" // TODO "." might be ok
 		}
 
+		my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken, FileName: filename}
+
 		if job.Info.Tracking {
-			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken, NodeAttr: my_attr, FileName: filename}
-			task_outputs = append(task_outputs, my_io)
-		} else {
-			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken, FileName: filename}
-			task_outputs = append(task_outputs, my_io)
+			my_io.NodeAttr = my_attr
 		}
 
+		task_outputs = append(task_outputs, my_io)
 	}
 
 	expander := NewVariableExpander(app_variables)
@@ -541,6 +542,7 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		*my_io = io
 		my_io.AppPosition = pos
 		my_io.FileName = filename
+		logger.Debug(1, fmt.Sprintf("+++ %s +++ append output %s", task.Id, filename))
 		task_outputs = append(task_outputs, my_io)
 	}
 

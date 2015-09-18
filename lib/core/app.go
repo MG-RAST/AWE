@@ -433,6 +433,7 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 	//}
 
 	task_outputs := task.Outputs
+	logger.Debug(2, fmt.Sprintf("+++ %s +++ initial len of task_outputs: $d", task.Id, len(task_outputs)))
 
 	logger.Debug(2, fmt.Sprintf("(task.Id=%s) len of app_cmd_mode_object.Output_array: %d ", task.Id, len(app_cmd_mode_object.Output_array)))
 
@@ -494,10 +495,11 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 
 		task_outputs = append(task_outputs, my_io)
 	}
-
+	logger.Debug(2, fmt.Sprintf("+++ %s +++ len of task_outputs after parsing Output_array: $d", task.Id, len(task_outputs)))
 	expander := NewVariableExpander(app_variables)
 
 	// output files
+	logger.Debug(1, fmt.Sprintf("+++ %s +++ append outputs...", task.Id))
 	for pos, io := range app_cmd_mode_object.Outputs {
 
 		if io.Host == "" {
@@ -545,6 +547,7 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		logger.Debug(1, fmt.Sprintf("+++ %s +++ append output %s", task.Id, filename))
 		task_outputs = append(task_outputs, my_io)
 	}
+	logger.Debug(2, fmt.Sprintf("+++ %s +++ len of task_outputs after parsing .Outputs(array of objects): $d", task.Id, len(task_outputs)))
 
 	// populate with input fields:
 	logger.Debug(1, fmt.Sprintf("+++ %s +++ populate with input fields", task.Id))

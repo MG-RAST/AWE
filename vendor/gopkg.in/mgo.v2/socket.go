@@ -28,10 +28,11 @@ package mgo
 
 import (
 	"errors"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo/bson"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
 )
 
 type replyFunc func(err error, reply *replyOp, docNum int, docData []byte)
@@ -45,8 +46,8 @@ type mongoSocket struct {
 	nextRequestId uint32
 	replyFuncs    map[uint32]replyFunc
 	references    int
-	auth          []authInfo
-	logout        []authInfo
+	creds         []Credential
+	logout        []Credential
 	cachedNonce   string
 	gotNonce      sync.Cond
 	dead          error
@@ -85,6 +86,9 @@ type queryWrapper struct {
 	Explain        bool        "$explain,omitempty"
 	Snapshot       bool        "$snapshot,omitempty"
 	ReadPreference bson.D      "$readPreference,omitempty"
+	MaxScan        int         "$maxScan,omitempty"
+	MaxTimeMS      int         "$maxTimeMS,omitempty"
+	Comment        string      "$comment,omitempty"
 }
 
 func (op *queryOp) finalQuery(socket *mongoSocket) interface{} {
@@ -122,6 +126,7 @@ type replyOp struct {
 type insertOp struct {
 	collection string        // "database.collection"
 	documents  []interface{} // One or more documents to insert
+	flags      uint32
 }
 
 type updateOp struct {
@@ -300,10 +305,11 @@ func (socket *mongoSocket) kill(err error, abend bool) {
 	socket.replyFuncs = make(map[uint32]replyFunc)
 	server := socket.server
 	socket.server = nil
+	socket.gotNonce.Broadcast()
 	socket.Unlock()
-	for _, f := range replyFuncs {
+	for _, replyFunc := range replyFuncs {
 		logf("Socket %p to %s: notifying replyFunc of closed socket: %s", socket, socket.addr, err.Error())
-		f(err, nil, -1, nil)
+		replyFunc(err, nil, -1, nil)
 	}
 	if abend {
 		server.AbendSocket(socket)
@@ -311,24 +317,33 @@ func (socket *mongoSocket) kill(err error, abend bool) {
 }
 
 func (socket *mongoSocket) SimpleQuery(op *queryOp) (data []byte, err error) {
-	var mutex sync.Mutex
+	var wait, change sync.Mutex
+	var replyDone bool
 	var replyData []byte
 	var replyErr error
-	mutex.Lock()
+	wait.Lock()
 	op.replyFunc = func(err error, reply *replyOp, docNum int, docData []byte) {
-		replyData = docData
-		replyErr = err
-		mutex.Unlock()
+		change.Lock()
+		if !replyDone {
+			replyDone = true
+			replyErr = err
+			if err == nil {
+				replyData = docData
+			}
+		}
+		change.Unlock()
+		wait.Unlock()
 	}
 	err = socket.Query(op)
 	if err != nil {
 		return nil, err
 	}
-	mutex.Lock() // Wait.
-	if replyErr != nil {
-		return nil, replyErr
-	}
-	return replyData, nil
+	wait.Lock()
+	change.Lock()
+	data = replyData
+	err = replyErr
+	change.Unlock()
+	return data, err
 }
 
 func (socket *mongoSocket) Query(ops ...interface{}) (err error) {
@@ -370,7 +385,7 @@ func (socket *mongoSocket) Query(ops ...interface{}) (err error) {
 
 		case *insertOp:
 			buf = addHeader(buf, 2002)
-			buf = addInt32(buf, 0) // Reserved
+			buf = addInt32(buf, int32(op.flags))
 			buf = addCString(buf, op.collection)
 			for _, doc := range op.documents {
 				debugf("Socket %p to %s: serializing document for insertion: %#v", socket, socket.addr, doc)
@@ -426,7 +441,7 @@ func (socket *mongoSocket) Query(ops ...interface{}) (err error) {
 			}
 
 		default:
-			panic("Internal error: unknown operation type")
+			panic("internal error: unknown operation type")
 		}
 
 		setInt32(buf, start, int32(len(buf)-start))
@@ -535,7 +550,10 @@ func (socket *mongoSocket) readLoop() {
 		stats.receivedDocs(int(reply.replyDocs))
 
 		socket.Lock()
-		replyFunc, replyFuncFound := socket.replyFuncs[uint32(responseTo)]
+		replyFunc, ok := socket.replyFuncs[uint32(responseTo)]
+		if ok {
+			delete(socket.replyFuncs, uint32(responseTo))
+		}
 		socket.Unlock()
 
 		if replyFunc != nil && reply.replyDocs == 0 {
@@ -544,6 +562,9 @@ func (socket *mongoSocket) readLoop() {
 			for i := 0; i != int(reply.replyDocs); i++ {
 				err := fill(conn, s)
 				if err != nil {
+					if replyFunc != nil {
+						replyFunc(err, nil, -1, nil)
+					}
 					socket.kill(err, true)
 					return
 				}
@@ -558,6 +579,9 @@ func (socket *mongoSocket) readLoop() {
 
 				err = fill(conn, b[4:])
 				if err != nil {
+					if replyFunc != nil {
+						replyFunc(err, nil, -1, nil)
+					}
 					socket.kill(err, true)
 					return
 				}
@@ -577,11 +601,7 @@ func (socket *mongoSocket) readLoop() {
 			}
 		}
 
-		// Only remove replyFunc after iteration, so that kill() will see it.
 		socket.Lock()
-		if replyFuncFound {
-			delete(socket.replyFuncs, uint32(responseTo))
-		}
 		if len(socket.replyFuncs) == 0 {
 			// Nothing else to read for now. Disable deadline.
 			socket.conn.SetReadDeadline(time.Time{})

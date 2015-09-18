@@ -32,6 +32,7 @@ import (
 	"math"
 	"net/url"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -72,35 +73,39 @@ const (
 	setterAddr
 )
 
-var setterStyle map[reflect.Type]int
+var setterStyles map[reflect.Type]int
 var setterIface reflect.Type
 var setterMutex sync.RWMutex
 
 func init() {
 	var iface Setter
 	setterIface = reflect.TypeOf(&iface).Elem()
-	setterStyle = make(map[reflect.Type]int)
+	setterStyles = make(map[reflect.Type]int)
 }
 
-func getSetter(outt reflect.Type, out reflect.Value) Setter {
+func setterStyle(outt reflect.Type) int {
 	setterMutex.RLock()
-	style := setterStyle[outt]
+	style := setterStyles[outt]
 	setterMutex.RUnlock()
-	if style == setterNone {
-		return nil
-	}
 	if style == setterUnknown {
 		setterMutex.Lock()
 		defer setterMutex.Unlock()
 		if outt.Implements(setterIface) {
-			setterStyle[outt] = setterType
+			setterStyles[outt] = setterType
 		} else if reflect.PtrTo(outt).Implements(setterIface) {
-			setterStyle[outt] = setterAddr
+			setterStyles[outt] = setterAddr
 		} else {
-			setterStyle[outt] = setterNone
-			return nil
+			setterStyles[outt] = setterNone
 		}
-		style = setterStyle[outt]
+		style = setterStyles[outt]
+	}
+	return style
+}
+
+func getSetter(outt reflect.Type, out reflect.Value) Setter {
+	style := setterStyle(outt)
+	if style == setterNone {
+		return nil
 	}
 	if style == setterAddr {
 		if !out.CanAddr() {
@@ -433,20 +438,28 @@ func (d *decoder) readElemTo(out reflect.Value, kind byte) (good bool) {
 	start := d.i
 
 	if kind == '\x03' {
-		// Special case for documents. Delegate to readDocTo().
-		switch out.Kind() {
+		// Delegate unmarshaling of documents.
+		outt := out.Type()
+		outk := out.Kind()
+		switch outk {
 		case reflect.Interface, reflect.Ptr, reflect.Struct, reflect.Map:
 			d.readDocTo(out)
-		default:
-			switch out.Interface().(type) {
-			case D:
-				out.Set(d.readDocElems(out.Type()))
-			case RawD:
-				out.Set(d.readRawDocElems(out.Type()))
-			default:
-				d.readDocTo(blackHole)
-			}
+			return true
 		}
+		if setterStyle(outt) != setterNone {
+			d.readDocTo(out)
+			return true
+		}
+		if outk == reflect.Slice {
+			switch outt.Elem() {
+			case typeDocElem:
+				out.Set(d.readDocElems(outt))
+			case typeRawDocElem:
+				out.Set(d.readRawDocElems(outt))
+			}
+			return true
+		}
+		d.readDocTo(blackHole)
 		return true
 	}
 
@@ -461,6 +474,11 @@ func (d *decoder) readElemTo(out reflect.Value, kind byte) (good bool) {
 		panic("Can't happen. Handled above.")
 	case 0x04: // Array
 		outt := out.Type()
+		if setterStyle(outt) != setterNone {
+			// Skip the value so its data is handed to the setter below.
+			d.dropElem(kind)
+			break
+		}
 		for outt.Kind() == reflect.Ptr {
 			outt = outt.Elem()
 		}
@@ -498,6 +516,8 @@ func (d *decoder) readElemTo(out reflect.Value, kind byte) (good bool) {
 		in = nil
 	case 0x0B: // RegEx
 		in = d.readRegEx()
+	case 0x0C:
+		in = DBPointer{Namespace: d.readStr(), Id: ObjectId(d.readBytes(12))}
 	case 0x0D: // JavaScript without scope
 		in = JavaScript{Code: d.readStr()}
 	case 0x0E: // Symbol
@@ -594,6 +614,16 @@ func (d *decoder) readElemTo(out reflect.Value, kind byte) (good bool) {
 				out.SetString(string(b))
 				return true
 			}
+		case reflect.Int, reflect.Int64:
+			if outt == typeJSONNumber {
+				out.SetString(strconv.FormatInt(inv.Int(), 10))
+				return true
+			}
+		case reflect.Float64:
+			if outt == typeJSONNumber {
+				out.SetString(strconv.FormatFloat(inv.Float(), 'f', -1, 64))
+				return true
+			}
 		}
 	case reflect.Slice, reflect.Array:
 		// Remember, array (0x04) slices are built with the correct
@@ -632,7 +662,7 @@ func (d *decoder) readElemTo(out reflect.Value, kind byte) (good bool) {
 			}
 			return true
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-			panic("Can't happen. No uint types in BSON?")
+			panic("can't happen: no uint types in BSON (!?)")
 		}
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		switch inv.Kind() {

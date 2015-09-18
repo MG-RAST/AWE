@@ -776,6 +776,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 
 		if outputPosition != nil {
 			//Loop_outputPosition:
+			logger.Debug(1, fmt.Sprintf("task: %s , providing_task: %s ", task, providing_task_id))
 			logger.Debug(1, fmt.Sprintf("size of providing_task.Outputs ", len(providing_task.Outputs)))
 			for _, my_io := range providing_task.Outputs {
 				logger.Debug(1, fmt.Sprintf("my_io.FileName: %s my_io.AppPosition: %d outputPosition: ", my_io.FileName, my_io.AppPosition, *outputPosition))
@@ -787,7 +788,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 
 			}
 			if filename == "" {
-				err = errors.New(fmt.Sprintf("did not find providing position \"%d\" in task \"%s\"", *outputPosition, task))
+				err = errors.New(fmt.Sprintf("did not find providing position \"%d\" in providing task \"%s\" for task \"%s\"", *outputPosition, providing_task_id, task))
 				return err
 			}
 		} else if outputName != "" {

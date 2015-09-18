@@ -79,6 +79,7 @@ const (
 )
 
 type AppVariable struct {
+	Key      string
 	Value    string
 	Var_type AppInputType
 	Option   string // a flag that is needed to activate an argument on the command line, e.g. "--input ", mainly used for optional arguments
@@ -283,7 +284,8 @@ func (acm AppCommandMode) Get_default_app_variables() (app_variables AppVariable
 		logger.Debug(1, fmt.Sprintf("from app-definition: variable \"%s\" has type %s", input_arg.Name, apptype2string(app_type)))
 
 		logger.Debug(1, fmt.Sprintf("from app-definition: write variable:\"%s\" - default value: \"%s\"", input_arg.Name, input_arg.DefaultValue))
-		app_variables[input_arg.Name] = AppVariable{Var_type: app_type,
+		app_variables[input_arg.Name] = AppVariable{Key: input_arg.Name,
+			Var_type: app_type,
 			Value:    input_arg.DefaultValue,
 			Option:   input_arg.Option,
 			Optional: input_arg.Optional}
@@ -309,7 +311,7 @@ func (acm AppCommandMode) Get_app_variables(app_variables AppVariables) (err err
 			if ok {
 				variable_obj.Value = expanded_var
 			} else {
-				app_variables[variable_name] = AppVariable{Var_type: Ait_string, Value: expanded_var}
+				app_variables[variable_name] = AppVariable{Key: variable_name, Var_type: Ait_string, Value: expanded_var}
 			}
 
 		}
@@ -413,7 +415,10 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 	if err != nil {
 		return err
 	}
-	task.AppVariables = app_variables
+	//was: task.AppVariables = app_variables
+	for _, object := range app_variables {
+		task.AppVariablesArray = append(task.AppVariablesArray, &object)
+	}
 
 	// add variables from task input (args_array)
 	logger.Debug(1, fmt.Sprintf("+++ %s +++ add variables from task input (args_array)", task.Id))
@@ -855,7 +860,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 		return err
 	} // end switch
 
-	app_variables[input_variable_name] = AppVariable{Value: input_variable_value, Var_type: resource_type}
+	app_variables[input_variable_name] = AppVariable{Key: input_variable_name, Value: input_variable_value, Var_type: resource_type}
 
 	logger.Debug(1, fmt.Sprintf("from task definition: input_variable_name: \"%s\", input_variable_value: \"%s\"", input_variable_name, input_variable_value))
 	// can overwrite defaults from the app-definition

@@ -432,8 +432,8 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 	//	task.Outputs = make(IOmap)
 	//}
 
-	task_outputs := task.Outputs
-	logger.Debug(2, fmt.Sprintf("+++ %s +++ initial len of task_outputs: $d", task.Id, len(task_outputs)))
+	task_outputs := &task.Outputs
+	logger.Debug(2, fmt.Sprintf("+++ %s +++ initial len of task_outputs: $d", task.Id, len(*task_outputs)))
 
 	logger.Debug(2, fmt.Sprintf("(task.Id=%s) len of app_cmd_mode_object.Output_array: %d ", task.Id, len(app_cmd_mode_object.Output_array)))
 
@@ -493,9 +493,9 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 			my_io.NodeAttr = my_attr
 		}
 
-		task_outputs = append(task_outputs, my_io)
+		*task_outputs = append(*task_outputs, my_io)
 	}
-	logger.Debug(2, fmt.Sprintf("+++ %s +++ len of task_outputs after parsing Output_array: $d", task.Id, len(task_outputs)))
+	logger.Debug(2, fmt.Sprintf("+++ %s +++ len of task_outputs after parsing Output_array: $d", task.Id, len(*task_outputs)))
 	expander := NewVariableExpander(app_variables)
 
 	// output files
@@ -545,9 +545,9 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		my_io.AppPosition = pos
 		my_io.FileName = filename
 		logger.Debug(1, fmt.Sprintf("+++ %s +++ append output %s", task.Id, filename))
-		task_outputs = append(task_outputs, my_io)
+		*task_outputs = append(*task_outputs, my_io)
 	}
-	logger.Debug(2, fmt.Sprintf("+++ %s +++ len of task_outputs after parsing .Outputs(array of objects): $d", task.Id, len(task_outputs)))
+	logger.Debug(2, fmt.Sprintf("+++ %s +++ len of task_outputs after parsing .Outputs(array of objects): $d", task.Id, len(*task_outputs)))
 
 	// populate with input fields:
 	logger.Debug(1, fmt.Sprintf("+++ %s +++ populate with input fields", task.Id))
@@ -776,7 +776,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 
 		if outputPosition != nil {
 			//Loop_outputPosition:
-			logger.Debug(1, fmt.Sprintf("task: %s , providing_task: %s ", task, providing_task_id))
+			logger.Debug(1, fmt.Sprintf("task: %s , providing_task: %s ", task.Id, providing_task_id))
 			logger.Debug(1, fmt.Sprintf("size of providing_task.Outputs ", len(providing_task.Outputs)))
 			for _, my_io := range providing_task.Outputs {
 				logger.Debug(1, fmt.Sprintf("my_io.FileName: %s my_io.AppPosition: %d outputPosition: ", my_io.FileName, my_io.AppPosition, *outputPosition))
@@ -788,7 +788,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 
 			}
 			if filename == "" {
-				err = errors.New(fmt.Sprintf("did not find providing position \"%d\" in providing task \"%s\" for task \"%s\"", *outputPosition, providing_task_id, task))
+				err = errors.New(fmt.Sprintf("did not find providing position \"%d\" in providing task \"%s\" for task \"%s\"", *outputPosition, providing_task_id, task.Id))
 				return err
 			}
 		} else if outputName != "" {

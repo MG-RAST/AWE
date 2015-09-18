@@ -677,11 +677,11 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 		return errors.New(fmt.Sprintf("input_variable_name is empty"))
 	}
 
-	var inputs []*IO
-	var predata []*IO
+	var inputs *[]*IO
+	var predata *[]*IO
 	if job != nil {
-		inputs = task.Inputs
-		predata = task.Predata
+		inputs = &task.Inputs
+		predata = &task.Predata
 	}
 
 	switch resource_type {
@@ -700,7 +700,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 		// TODO make sure resource_type corresponds to expected type in app def
 
 		if job != nil {
-			for _, i := range inputs {
+			for _, i := range *inputs {
 				if i.FileName == filename {
 					return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
 				}
@@ -717,9 +717,9 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 				ShockIndex: input_arg.ShockIndex,
 			}
 			if input_arg.Cache {
-				predata = append(predata, input_temp)
+				*predata = append(*predata, input_temp)
 			} else {
-				inputs = append(inputs, input_temp)
+				*inputs = append(*inputs, input_temp)
 			}
 			//app_variables[input_variable_name + ".Host"] = host // do not here
 			//app_variables[input_variable_name + ".Node"] = node
@@ -739,7 +739,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 
 		if job != nil {
 
-			for _, i := range inputs {
+			for _, i := range *inputs {
 				if i.FileName == filename {
 					return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
 				}
@@ -754,9 +754,9 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 			}
 
 			if input_arg.Cache {
-				predata = append(predata, input_temp)
+				*predata = append(*predata, input_temp)
 			} else {
-				inputs = append(inputs, input_temp)
+				*inputs = append(*inputs, input_temp)
 			}
 		}
 	case Ait_task:
@@ -840,9 +840,9 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 			}
 
 			if input_arg.Cache {
-				predata = append(predata, input_temp)
+				*predata = append(*predata, input_temp)
 			} else {
-				inputs = append(inputs, input_temp)
+				*inputs = append(*inputs, input_temp)
 			}
 		}
 

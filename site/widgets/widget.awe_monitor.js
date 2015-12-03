@@ -217,6 +217,10 @@
 				       { "text": "queued", "value": "queued" }
 				   ] },
 				   6: { type: "text" } };
+	    if (Retina.cgiParam('pipeline')) {
+		gt.settings.filter[4].searchword = Retina.cgiParam('pipeline');
+		gt.settings.query = { 4: { field: 'info.pipeline', type: "text", searchword: Retina.cgiParam('pipeline') } };
+	    }
 	    gt.settings.asynch_column_mapping = { "submission": "info.submittime",
 						  "job name": "info.name",
 						  "job id": "jid",

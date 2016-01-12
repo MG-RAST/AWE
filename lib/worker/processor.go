@@ -197,7 +197,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	container_name := "AWE_workunit"
 
 	Dockerimage := work.Cmd.Dockerimage
-	if work.App.Name != "" {
+	if work.App != nil && work.App.Name != "" {
 		Dockerimage = work.App.AppDef.Dockerimage
 	}
 

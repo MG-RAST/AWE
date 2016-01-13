@@ -19,6 +19,7 @@ func InitJobDB() {
 	cj.EnsureIndex(mgo.Index{Key: []string{"acl.delete"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"info.submittime"}, Background: true})
+	cj.EnsureIndex(mgo.Index{Key: []string{"info.completedtime"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"info.pipeline"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"info.user"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"jid"}, Background: true})

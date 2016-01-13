@@ -79,6 +79,7 @@ const (
 )
 
 type AppVariable struct {
+	Key      string
 	Value    string
 	Var_type AppInputType
 	Option   string // a flag that is needed to activate an argument on the command line, e.g. "--input ", mainly used for optional arguments
@@ -283,7 +284,8 @@ func (acm AppCommandMode) Get_default_app_variables() (app_variables AppVariable
 		logger.Debug(1, fmt.Sprintf("from app-definition: variable \"%s\" has type %s", input_arg.Name, apptype2string(app_type)))
 
 		logger.Debug(1, fmt.Sprintf("from app-definition: write variable:\"%s\" - default value: \"%s\"", input_arg.Name, input_arg.DefaultValue))
-		app_variables[input_arg.Name] = AppVariable{Var_type: app_type,
+		app_variables[input_arg.Name] = AppVariable{Key: input_arg.Name,
+			Var_type: app_type,
 			Value:    input_arg.DefaultValue,
 			Option:   input_arg.Option,
 			Optional: input_arg.Optional}
@@ -309,7 +311,7 @@ func (acm AppCommandMode) Get_app_variables(app_variables AppVariables) (err err
 			if ok {
 				variable_obj.Value = expanded_var
 			} else {
-				app_variables[variable_name] = AppVariable{Var_type: Ait_string, Value: expanded_var}
+				app_variables[variable_name] = AppVariable{Key: variable_name, Var_type: Ait_string, Value: expanded_var}
 			}
 
 		}
@@ -413,7 +415,10 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 	if err != nil {
 		return err
 	}
-	task.AppVariables = app_variables
+	//was: task.AppVariables = app_variables
+	for _, object := range app_variables {
+		task.AppVariablesArray = append(task.AppVariablesArray, &object)
+	}
 
 	// add variables from task input (args_array)
 	logger.Debug(1, fmt.Sprintf("+++ %s +++ add variables from task input (args_array)", task.Id))
@@ -432,7 +437,10 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 	//	task.Outputs = make(IOmap)
 	//}
 
-	task_outputs := task.Outputs
+	task_outputs := &task.Outputs
+	logger.Debug(2, fmt.Sprintf("+++ %s +++ initial len of task_outputs: $d", task.Id, len(*task_outputs)))
+
+	logger.Debug(2, fmt.Sprintf("(task.Id=%s) len of app_cmd_mode_object.Output_array: %d ", task.Id, len(app_cmd_mode_object.Output_array)))
 
 	output_array_copy := make([]string, len(app_cmd_mode_object.Output_array))
 	copy(output_array_copy, app_cmd_mode_object.Output_array)
@@ -484,19 +492,19 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 			directory = "" // TODO "." might be ok
 		}
 
+		my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken, FileName: filename}
+
 		if job.Info.Tracking {
-			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken, NodeAttr: my_attr, FileName: filename}
-			task_outputs = append(task_outputs, my_io)
-		} else {
-			my_io := &IO{Host: shockhost, Directory: directory, AppPosition: pos, DataToken: task.Info.DataToken, FileName: filename}
-			task_outputs = append(task_outputs, my_io)
+			my_io.NodeAttr = my_attr
 		}
 
+		*task_outputs = append(*task_outputs, my_io)
 	}
-
+	logger.Debug(2, fmt.Sprintf("+++ %s +++ len of task_outputs after parsing Output_array: $d", task.Id, len(*task_outputs)))
 	expander := NewVariableExpander(app_variables)
 
 	// output files
+	logger.Debug(1, fmt.Sprintf("+++ %s +++ append outputs...", task.Id))
 	for pos, io := range app_cmd_mode_object.Outputs {
 
 		if io.Host == "" {
@@ -541,8 +549,10 @@ func (appr AppRegistry) createIOnodes_forTask(job *Job, task *Task, taskid2task 
 		*my_io = io
 		my_io.AppPosition = pos
 		my_io.FileName = filename
-		task_outputs = append(task_outputs, my_io)
+		logger.Debug(1, fmt.Sprintf("+++ %s +++ append output %s", task.Id, filename))
+		*task_outputs = append(*task_outputs, my_io)
 	}
+	logger.Debug(2, fmt.Sprintf("+++ %s +++ len of task_outputs after parsing .Outputs(array of objects): $d", task.Id, len(*task_outputs)))
 
 	// populate with input fields:
 	logger.Debug(1, fmt.Sprintf("+++ %s +++ populate with input fields", task.Id))
@@ -667,11 +677,11 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 		return errors.New(fmt.Sprintf("input_variable_name is empty"))
 	}
 
-	var inputs []*IO
-	var predata []*IO
+	var inputs *[]*IO
+	var predata *[]*IO
 	if job != nil {
-		inputs = task.Inputs
-		predata = task.Predata
+		inputs = &task.Inputs
+		predata = &task.Predata
 	}
 
 	switch resource_type {
@@ -690,7 +700,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 		// TODO make sure resource_type corresponds to expected type in app def
 
 		if job != nil {
-			for _, i := range inputs {
+			for _, i := range *inputs {
 				if i.FileName == filename {
 					return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
 				}
@@ -707,9 +717,9 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 				ShockIndex: input_arg.ShockIndex,
 			}
 			if input_arg.Cache {
-				predata = append(predata, input_temp)
+				*predata = append(*predata, input_temp)
 			} else {
-				inputs = append(inputs, input_temp)
+				*inputs = append(*inputs, input_temp)
 			}
 			//app_variables[input_variable_name + ".Host"] = host // do not here
 			//app_variables[input_variable_name + ".Node"] = node
@@ -729,7 +739,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 
 		if job != nil {
 
-			for _, i := range inputs {
+			for _, i := range *inputs {
 				if i.FileName == filename {
 					return errors.New(fmt.Sprintf("input node already exists: %s", input_variable_name))
 				}
@@ -744,9 +754,9 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 			}
 
 			if input_arg.Cache {
-				predata = append(predata, input_temp)
+				*predata = append(*predata, input_temp)
 			} else {
-				inputs = append(inputs, input_temp)
+				*inputs = append(*inputs, input_temp)
 			}
 		}
 	case Ait_task:
@@ -770,18 +780,20 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 		}
 
 		if outputPosition != nil {
-		Loop_outputPosition:
+			//Loop_outputPosition:
+			logger.Debug(1, fmt.Sprintf("task: %s , providing_task: %s ", task.Id, providing_task_id))
+			logger.Debug(1, fmt.Sprintf("size of providing_task.Outputs ", len(providing_task.Outputs)))
 			for _, my_io := range providing_task.Outputs {
-
+				logger.Debug(1, fmt.Sprintf("my_io.FileName: %s my_io.AppPosition: %d outputPosition: ", my_io.FileName, my_io.AppPosition, *outputPosition))
 				if my_io.AppPosition == *outputPosition {
 
 					filename = my_io.FileName
-					break Loop_outputPosition
+					//break Loop_outputPosition
 				}
 
 			}
 			if filename == "" {
-				err = errors.New(fmt.Sprintf("did not find providing position \"%d\" in task \"%s\"", *outputPosition, task))
+				err = errors.New(fmt.Sprintf("did not find providing position \"%d\" in providing task \"%s\" for task \"%s\"", *outputPosition, providing_task_id, task.Id))
 				return err
 			}
 		} else if outputName != "" {
@@ -828,9 +840,9 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 			}
 
 			if input_arg.Cache {
-				predata = append(predata, input_temp)
+				*predata = append(*predata, input_temp)
 			} else {
-				inputs = append(inputs, input_temp)
+				*inputs = append(*inputs, input_temp)
 			}
 		}
 
@@ -848,7 +860,7 @@ func ParseResource(input_arg AppResource, app_variables AppVariables, job *Job, 
 		return err
 	} // end switch
 
-	app_variables[input_variable_name] = AppVariable{Value: input_variable_value, Var_type: resource_type}
+	app_variables[input_variable_name] = AppVariable{Key: input_variable_name, Value: input_variable_value, Var_type: resource_type}
 
 	logger.Debug(1, fmt.Sprintf("from task definition: input_variable_name: \"%s\", input_variable_value: \"%s\"", input_variable_name, input_variable_value))
 	// can overwrite defaults from the app-definition

@@ -407,7 +407,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job) {
 		task.Info = taskDep.Info
 		task.Cmd = taskDep.Cmd
 		task.App = taskDep.App
-		task.AppVariables = taskDep.AppVariables
+		task.AppVariablesArray = taskDep.AppVariablesArray
 		task.Partition = taskDep.Partition
 		task.DependsOn = taskDep.DependsOn
 		task.TotalWork = taskDep.TotalWork

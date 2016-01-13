@@ -105,18 +105,18 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 	app_variables := make(core.AppVariables) // this does not reuse exiting app variables, this more like a constant
 	//app_variables := work.AppVariables // workunit does not need it yet
 
-	app_variables["NumCPU"] = core.AppVariable{Var_type: core.Ait_string, Value: numcpu_str}
+	app_variables["NumCPU"] = core.AppVariable{Key: "NumCPU", Var_type: core.Ait_string, Value: numcpu_str}
 
 	for _, io_obj := range work.Inputs {
 		name := io_obj.Name
 		if io_obj.Host != "" {
-			app_variables[name+".host"] = core.AppVariable{Var_type: core.Ait_string, Value: io_obj.Host}
+			app_variables[name+".host"] = core.AppVariable{Key: name + ".host", Var_type: core.Ait_string, Value: io_obj.Host}
 		}
 		if io_obj.Node != "" {
-			app_variables[name+".node"] = core.AppVariable{Var_type: core.Ait_string, Value: io_obj.Node}
+			app_variables[name+".node"] = core.AppVariable{Key: name + ".node", Var_type: core.Ait_string, Value: io_obj.Node}
 		}
 		if io_obj.Url != "" {
-			app_variables[name+".url"] = core.AppVariable{Var_type: core.Ait_string, Value: io_obj.Url}
+			app_variables[name+".url"] = core.AppVariable{Key: name + ".url", Var_type: core.Ait_string, Value: io_obj.Url}
 		}
 
 	}
@@ -139,11 +139,12 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 	}
 
 	app_variables["arguments"] = core.AppVariable{
+		Key:      "arguments",
 		Value:    arguments_string,
 		Var_type: core.Ait_string,
 	}
 
-	app_variables["datatoken"] = core.AppVariable{Var_type: core.Ait_string, Value: work.Info.DataToken}
+	app_variables["datatoken"] = core.AppVariable{Key: "datatoken", Var_type: core.Ait_string, Value: work.Info.DataToken}
 
 	err = core.Expand_app_variables(app_variables, cmd_script)
 	if err != nil {

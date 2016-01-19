@@ -487,55 +487,25 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 			logger.Debug(2, "mover: predata already exists: "+name)
 		}
 
-		use_symlink := true // TODO mechanism
 		linkname := path.Join(workunit.Path(), name)
 
-		wants_docker := false
-		if workunit.Cmd.Dockerimage != "" || workunit.App != nil { // TODO need more save way to detect use of docker
-			wants_docker = true
-		}
-		if wants_docker && conf.USE_DOCKER == "no" {
-			return 0, errors.New("error: use of docker images has been disabled by administrator")
-		}
-		if wants_docker == false && conf.USE_DOCKER == "only" {
-			return 0, errors.New("error: use of docker images is enforced by administrator")
-		}
-
-		if wants_docker {
-			if use_symlink {
-				file_path = path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, name)
-				// some tasks want to write in predata dir, thus need symlink
-				logger.Debug(1, "creating dangling symlink: "+linkname+" -> "+file_path)
-
-				// dangling link will give error, we ignore that here
-				_ = os.Symlink(file_path, linkname)
-
-				// creation of dangling symlinks is not possible with with os.Symlink, thus use system ln
-				//link_out, err := exec.Command("ln", "-s", file_path, linkname).CombinedOutput()
-				//logger.Debug(1, fmt.Sprintf("ln returned: \"%s\"", link_out))
-
-				//if err != nil {
-				//	return 0, errors.New("error creating predata file symlink (dangling version): " + err.Error())
-				//}
-			} else {
-				// some programs do not accept symlinks (e.g. emirge), need to copy the file into the work directory
-				// linkname refers to target file now.
-				logger.Debug(1, "copy predata: "+file_path+" -> "+linkname)
-				_, err := shock.CopyFile(file_path, linkname)
-				if err != nil {
-					return 0, fmt.Errorf("error copying file from %s to % s: ", file_path, linkname, err.Error())
-				}
+		if conf.NO_SYMLINK {
+			// some programs do not accept symlinks (e.g. emirge), need to copy the file into the work directory
+			logger.Debug(1, "copy predata: "+file_path+" -> "+linkname)
+			_, err := shock.CopyFile(file_path, linkname)
+			if err != nil {
+				return 0, fmt.Errorf("error copying file from %s to % s: ", file_path, linkname, err.Error())
 			}
 		} else {
-			//linkname := path.Join(workunit.Path(), name)
 			logger.Debug(1, "symlink:"+linkname+" -> "+file_path)
 			err = os.Symlink(file_path, linkname)
 			if err != nil {
-				return 0, errors.New("error creating predata file symlink: " + err.Error())
+				return 0, fmt.Errorf("error creating symlink %s to %s: ", linkname, file_path, err.Error())
 			}
 		}
 
 		logger.Event(event.PRE_READY, "workid="+workunit.Id+";url="+dataUrl)
+
 		// timstamp for last access - future caching
 		accessfile, err := os.Create(file_path + ".access")
 		if err != nil {

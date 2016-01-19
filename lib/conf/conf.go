@@ -151,9 +151,10 @@ var (
 	MEM_CHECK_INTERVAL            = 0 * time.Second //in milliseconds e.g. use 10 * time.Second
 	MEM_CHECK_INTERVAL_SECONDS    int
 	APP_REGISTRY_URL              string
-	DOCKER_SOCKET                 string = "unix:///var/run/docker.sock"
-	DOCKER_WORK_DIR               string = "/workdir/"
-	SHOCK_DOCKER_IMAGE_REPOSITORY string = "http://shock.metagenomics.anl.gov"
+	DOCKER_SOCKET                 string
+	DOCKER_WORK_DIR               string
+	DOCKER_WORKUNIT_PREDATA_DIR   string
+	SHOCK_DOCKER_IMAGE_REPOSITORY string
 
 	//KB_AUTH_TOKEN                 = "KB_AUTH_TOKEN"
 	CACHE_ENABLED bool
@@ -499,6 +500,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&CGROUP_MEMORY_DOCKER_DIR, "/sys/fs/cgroup/memory/docker/[ID]/memory.stat", "Docker", "cgroup_memory_docker_dir", "path to cgroup directory for docker", "")
 		c_store.AddString(&DOCKER_SOCKET, "unix:///var/run/docker.sock", "Docker", "docker_socket", "", "")
 		c_store.AddString(&DOCKER_WORK_DIR, "/workdir/", "Docker", "docker_workpath", "", "")
+		c_store.AddString(&DOCKER_WORKUNIT_PREDATA_DIR, "/db/", "Docker", "docker_data", "", "")
 		c_store.AddString(&SHOCK_DOCKER_IMAGE_REPOSITORY, "http://shock.metagenomics.anl.gov", "Docker", "image_url", "", "")
 	}
 	if mode == "server" {

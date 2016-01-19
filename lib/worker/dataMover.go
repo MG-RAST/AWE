@@ -487,8 +487,28 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 			logger.Debug(2, "mover: predata already exists: "+name)
 		}
 
-		linkname := path.Join(workunit.Path(), name)
+		// timstamp for last access - future caching
+		accessfile, err := os.Create(file_path + ".access")
+		if err != nil {
+			return 0, errors.New("error creating predata access file: " + err.Error())
+		}
+		defer accessfile.Close()
+		accessfile.WriteString(time.Now().String())
 
+		// determine if running with docker
+		wants_docker := false
+		if workunit.Cmd.Dockerimage != "" || workunit.App != nil { // TODO need more save way to detect use of docker
+			wants_docker = true
+		}
+		if wants_docker && conf.USE_DOCKER == "no" {
+			return 0, errors.New("error: use of docker images has been disabled by administrator")
+		}
+		if wants_docker == false && conf.USE_DOCKER == "only" {
+			return 0, errors.New("error: use of docker images is enforced by administrator")
+		}
+
+		// copy or create symlink in work dir
+		linkname := path.Join(workunit.Path(), name)
 		if conf.NO_SYMLINK {
 			// some programs do not accept symlinks (e.g. emirge), need to copy the file into the work directory
 			logger.Debug(1, "copy predata: "+file_path+" -> "+linkname)
@@ -497,22 +517,22 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 				return 0, fmt.Errorf("error copying file from %s to % s: ", file_path, linkname, err.Error())
 			}
 		} else {
-			logger.Debug(1, "symlink:"+linkname+" -> "+file_path)
-			err = os.Symlink(file_path, linkname)
-			if err != nil {
-				return 0, fmt.Errorf("error creating symlink %s to %s: ", linkname, file_path, err.Error())
+			if wants_docker {
+				// new filepath for predata dir in container
+				docker_file_path := path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, node_md5)
+				logger.Debug(1, "creating dangling symlink: "+linkname+" -> "+docker_file_path)
+				// dangling link will give error, we ignore that here
+				_ = os.Symlink(docker_file_path, linkname)
+			} else {
+				logger.Debug(1, "symlink:"+linkname+" -> "+file_path)
+				err = os.Symlink(file_path, linkname)
+				if err != nil {
+					return 0, errors.New("error creating predata file symlink: " + err.Error())
+				}
 			}
 		}
 
 		logger.Event(event.PRE_READY, "workid="+workunit.Id+";url="+dataUrl)
-
-		// timstamp for last access - future caching
-		accessfile, err := os.Create(file_path + ".access")
-		if err != nil {
-			return 0, errors.New("error creating predata access file: " + err.Error())
-		}
-		defer accessfile.Close()
-		accessfile.WriteString(time.Now().String())
 	}
 	return
 }

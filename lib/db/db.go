@@ -5,16 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/mgo"
+	mgo "github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2"
 	"time"
-)
-
-const (
-	DbTimeout = time.Duration(time.Second * 10)
 )
 
 var (
 	Connection connection
+	DbTimeout  = time.Second * time.Duration(conf.MONGODB_TIMEOUT)
 )
 
 type connection struct {

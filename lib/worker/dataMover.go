@@ -468,6 +468,7 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 
 			var md5sum string
 			file_path_part := file_path + ".part" // temporary name
+			// this gets file from any downloadable url, not just shock
 			size, md5sum, err = shock.FetchFile(file_path_part, dataUrl, workunit.Info.DataToken, io.Uncompress, isShockPredata)
 			if err != nil {
 				return 0, errors.New("error in fetchFile: " + err.Error())
@@ -519,7 +520,12 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		} else {
 			if wants_docker {
 				// new filepath for predata dir in container
-				docker_file_path := path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, node_md5)
+				var docker_file_path string
+				if isShockPredata {
+					docker_file_path = path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, node_md5)
+				} else {
+					docker_file_path = path.Join(conf.DOCKER_WORKUNIT_PREDATA_DIR, name)
+				}
 				logger.Debug(1, "creating dangling symlink: "+linkname+" -> "+docker_file_path)
 				// dangling link will give error, we ignore that here
 				_ = os.Symlink(docker_file_path, linkname)
@@ -554,6 +560,7 @@ func moveInputData(work *core.Workunit) (size int64, err error) {
 		logger.Debug(2, "mover: fetching input from url:"+dataUrl)
 		logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
 
+		// this gets file from any downloadable url, not just shock
 		if datamoved, _, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false); err != nil {
 			return size, err
 		} else {

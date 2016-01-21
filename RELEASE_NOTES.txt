@@ -1,3 +1,8 @@
+# v0.9.22
+
+- fixed bug with docker predata dir
+- added config options to client that were previously hardcoded
+
 # v0.9.21
 
 - adding logging and code cleanup to App usage

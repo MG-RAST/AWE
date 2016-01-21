@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const VERSION string = "0.9.21"
+const VERSION string = "0.9.22"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -32,11 +32,6 @@ const SHOCK_TIMEOUT time.Duration = 30 * time.Second
 
 //Default page size
 const DEFAULT_PAGE_SIZE int = 25
-
-const DOCKER_SOCKET string = "unix:///var/run/docker.sock"
-const DOCKER_WORK_DIR string = "/workdir/"
-const DOCKER_WORKUNIT_PREDATA_DIR string = "/db/"
-const SHOCK_DOCKER_IMAGE_REPOSITORY string = "http://shock.metagenomics.anl.gov"
 
 const INSTANCE_METADATA_TIMEOUT time.Duration = 5 * time.Second
 
@@ -146,15 +141,20 @@ var (
 	WORKER_OVERLAP bool
 	PRINT_APP_MSG  bool
 	AUTO_CLEAN_DIR bool
+	NO_SYMLINK     bool
 
 	//[Docker]
-	USE_DOCKER                 string
-	DOCKER_BINARY              string
-	USE_APP_DEFS               string
-	CGROUP_MEMORY_DOCKER_DIR   string
-	MEM_CHECK_INTERVAL         = 0 * time.Second //in milliseconds e.g. use 10 * time.Second
-	MEM_CHECK_INTERVAL_SECONDS int
-	APP_REGISTRY_URL           string
+	USE_DOCKER                    string
+	DOCKER_BINARY                 string
+	USE_APP_DEFS                  string
+	CGROUP_MEMORY_DOCKER_DIR      string
+	MEM_CHECK_INTERVAL            = 0 * time.Second //in milliseconds e.g. use 10 * time.Second
+	MEM_CHECK_INTERVAL_SECONDS    int
+	APP_REGISTRY_URL              string
+	DOCKER_SOCKET                 string
+	DOCKER_WORK_DIR               string
+	DOCKER_WORKUNIT_PREDATA_DIR   string
+	SHOCK_DOCKER_IMAGE_REPOSITORY string
 
 	//KB_AUTH_TOKEN                 = "KB_AUTH_TOKEN"
 	CACHE_ENABLED bool
@@ -432,13 +432,13 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&ADMIN_USERS_VAR, "", "Admin", "users", "", "")
 		c_store.AddString(&ADMIN_EMAIL, "", "Admin", "email", "", "")
 
-	}
-	// Directories
-	if mode == "server" {
+		// Directories
 		c_store.AddString(&SITE_PATH, os.Getenv("GOPATH")+"/src/github.com/MG-RAST/AWE/site", "Directories", "site", "the path to the website", "")
 		c_store.AddString(&AWF_PATH, "", "Directories", "awf", "", "")
 	}
-	c_store.AddString(&DATA_PATH, "/mnt/data/awe/data", "Directories", "data", "a file path for store some system related data (job script, cached data, etc)", "")
+
+	// Directories
+	c_store.AddString(&DATA_PATH, "/mnt/data/awe/data", "Directories", "data", "a file path for storing system related data (job script, cached data, etc)", "")
 	c_store.AddString(&LOGS_PATH, "/mnt/data/awe/logs", "Directories", "logs", "a path for storing logs", "")
 
 	// Paths
@@ -452,10 +452,9 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&MONGODB_PASSWD, "", "Mongodb", "password", "", "")
 		c_store.AddInt(&MONGODB_TIMEOUT, 1200, "Mongodb", "timeout", "", "")
 
-		// Server options
+		// Server
 		c_store.AddString(&TITLE, "AWE Server", "Server", "title", "", "")
 		c_store.AddBool(&PERF_LOG_WORKUNIT, true, "Server", "perf_log_workunit", "collecting performance log per workunit", "")
-
 		// BIG_DATA_SIZE seems not to be used ?
 		//c_store.AddInt(&BIG_DATA_SIZE, 0, "Server", "big_data_size", "", "")
 		//if big_data_size, err := c.Int("Server", "big_data_size"); err == nil {
@@ -464,15 +463,12 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddInt(&MAX_WORK_FAILURE, 3, "Server", "max_work_failure", "number of times that one workunit fails before the workunit considered suspend", "")
 		c_store.AddInt(&MAX_CLIENT_FAILURE, 5, "Server", "max_client_failure", "number of times that one client consecutively fails running workunits before the client considered suspend", "")
 		c_store.AddInt(&GOMAXPROCS, 0, "Server", "go_max_procs", "", "")
-
 		c_store.AddString(&RELOAD, "", "Server", "reload", "path or url to awe job data. WARNING this will drop all current jobs", "")
 		c_store.AddBool(&RECOVER, false, "Server", "recover", "path to awe job data", "")
-
 	}
 
 	if mode == "client" {
-		// [Client]
-		// client basics:
+		// Client
 		c_store.AddString(&SERVER_URL, "http://localhost:8001", "Client", "serverurl", "URL of AWE server, including API port", "")
 		c_store.AddString(&CLIENT_GROUP, "default", "Client", "group", "name of client group", "")
 		c_store.AddString(&CLIENT_NAME, "default", "Client", "name", "default determines client name by openstack meta data", "")
@@ -492,15 +488,20 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddBool(&WORKER_OVERLAP, false, "Client", "worker_overlap", "overlap client side computation and data movement", "")
 		c_store.AddBool(&AUTO_CLEAN_DIR, true, "Client", "auto_clean_dir", "delete workunit directory to save space after completion, turn of for debugging", "")
 		c_store.AddBool(&CACHE_ENABLED, false, "Client", "cache_enabled", "", "")
-
+		c_store.AddBool(&NO_SYMLINK, false, "Client", "no_symlink", "copy files from predata to work dir, default is to create symlink", "")
 	}
 
-	//Docker
-	c_store.AddString(&USE_DOCKER, "yes", "Docker", "use_docker", "\"yes\", \"no\" or \"only\"", "yes: allow docker tasks, no: do not allow docker tasks, only: allow only docker tasks ; if docker is not installed on the clients, choose \"no\"")
+	// Docker
+	c_store.AddString(&USE_DOCKER, "yes", "Docker", "use_docker", "\"yes\", \"no\" or \"only\"", "yes: allow docker tasks, no: do not allow docker tasks, only: allow only docker tasks; if docker is not installed on the clients, choose \"no\"")
+
 	if mode == "client" {
 		c_store.AddString(&DOCKER_BINARY, "API", "Docker", "docker_binary", "docker binary to use, default is the docker API (API recommended)", "")
 		c_store.AddInt(&MEM_CHECK_INTERVAL_SECONDS, 0, "Docker", "mem_check_interval_seconds", "memory check interval in seconds (kernel needs to support that)", "0 seconds means disabled")
 		c_store.AddString(&CGROUP_MEMORY_DOCKER_DIR, "/sys/fs/cgroup/memory/docker/[ID]/memory.stat", "Docker", "cgroup_memory_docker_dir", "path to cgroup directory for docker", "")
+		c_store.AddString(&DOCKER_SOCKET, "unix:///var/run/docker.sock", "Docker", "docker_socket", "docker socket path", "")
+		c_store.AddString(&DOCKER_WORK_DIR, "/workdir/", "Docker", "docker_workpath", "work dir in docker container started by client", "")
+		c_store.AddString(&DOCKER_WORKUNIT_PREDATA_DIR, "/db/", "Docker", "docker_data", "predata dir in docker container started by client", "")
+		c_store.AddString(&SHOCK_DOCKER_IMAGE_REPOSITORY, "http://shock.metagenomics.anl.gov", "Docker", "image_url", "url of shock server hosting docker images", "")
 	}
 	if mode == "server" {
 		c_store.AddString(&USE_APP_DEFS, "no", "Docker", "use_app_defs", "\"yes\", \"no\" or \"only\"", "yes: allow app defs, no: do not allow app defs, only: allow only app defs")

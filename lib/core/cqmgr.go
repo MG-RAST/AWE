@@ -16,23 +16,25 @@ import (
 )
 
 type CQMgr struct {
-	clientLock sync.RWMutex
-	clientMap  map[string]*Client
-	workQueue  *WQueue
-	coReq      chan CoReq  //workunit checkout request (WorkController -> qmgr.Handler)
-	coAck      chan CoAck  //workunit checkout item including data and err (qmgr.Handler -> WorkController)
-	feedback   chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
-	coSem      chan int    //semaphore for checkout (mutual exclusion between different clients)
+	clientLock   sync.RWMutex
+	clientMap    map[string]*Client
+	workQueue    *WQueue
+	suspendQueue bool
+	coReq        chan CoReq  //workunit checkout request (WorkController -> qmgr.Handler)
+	coAck        chan CoAck  //workunit checkout item including data and err (qmgr.Handler -> WorkController)
+	feedback     chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
+	coSem        chan int    //semaphore for checkout (mutual exclusion between different clients)
 }
 
 func NewCQMgr() *CQMgr {
 	return &CQMgr{
-		clientMap: map[string]*Client{},
-		workQueue: NewWQueue(),
-		coReq:     make(chan CoReq),
-		coAck:     make(chan CoAck),
-		feedback:  make(chan Notice),
-		coSem:     make(chan int, 1), //non-blocking buffered channel
+		clientMap:    map[string]*Client{},
+		workQueue:    NewWQueue(),
+		suspendQueue: false,
+		coReq:        make(chan CoReq),
+		coAck:        make(chan CoAck),
+		feedback:     make(chan Notice),
+		coSem:        make(chan int, 1), //non-blocking buffered channel
 	}
 }
 
@@ -43,8 +45,14 @@ func (qm *CQMgr) ClientHandle() {
 		select {
 		case coReq := <-qm.coReq:
 			logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v\n", coReq))
-			works, err := qm.popWorks(coReq)
-			ack := CoAck{workunits: works, err: err}
+			var ack CoAck
+			if qm.suspendQueue {
+				// queue is suspended, return suspend error
+				ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
+			} else {
+				works, err := qm.popWorks(coReq)
+				ack = CoAck{workunits: works, err: err}
+			}
 			qm.coAck <- ack
 		case notice := <-qm.feedback:
 			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))

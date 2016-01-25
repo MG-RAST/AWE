@@ -35,7 +35,6 @@ func Initialize() (err error) {
 
 	// Setting admin users based on config file.  First, set all users to Admin = false
 	if _, err = c.UpdateAll(bson.M{}, bson.M{"$set": bson.M{"admin": false}}); err != nil {
-
 		return err
 	}
 
@@ -102,7 +101,15 @@ func (u *User) SetMongoInfo() (err error) {
 		u.Admin = admin
 		return nil
 	} else {
+		// this is a new user
 		u.Uuid = uuid.New()
+		// check if user is on admin list, if so set as true
+		for k, _ := range conf.Admin_Users {
+			if k == u.Username {
+				u.Admin = true
+				break
+			}
+		}
 		if err := u.Save(); err != nil {
 			return err
 		}

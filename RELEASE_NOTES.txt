@@ -1,3 +1,7 @@
+# v0.9.23
+
+- added suspend / resume action for server work queue, admin users only
+
 # v0.9.22
 
 - fixed bug with docker predata dir

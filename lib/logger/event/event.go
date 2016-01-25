@@ -11,6 +11,8 @@ const (
 	//server only events
 	SERVER_START   = "SS" //awe-server start
 	SERVER_RECOVER = "SR" //awe-server start with recover option  (-recover)
+	QUEUE_RESUME   = "QR" //awe-server queue resumed if suspended
+	QUEUE_SUSPEND  = "QS" //awe-server queue suspended, not handing out work
 	JOB_SUBMISSION = "JQ" //job submitted
 	TASK_ENQUEUE   = "TQ" //task parsed and enqueue
 	WORK_DONE      = "WD" //workunit received successful feedback from client

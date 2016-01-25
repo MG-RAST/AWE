@@ -77,4 +77,7 @@ type ResourceMgr interface {
 	TaskHandle()
 	ClientHandle()
 	ShowStatus() string
+	QueueStatus() string
+	SuspendQueue()
+	ResumeQueue()
 }

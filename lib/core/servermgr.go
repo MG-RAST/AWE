@@ -37,12 +37,13 @@ type ServerMgr struct {
 func NewServerMgr() *ServerMgr {
 	return &ServerMgr{
 		CQMgr: CQMgr{
-			clientMap: map[string]*Client{},
-			workQueue: NewWQueue(),
-			coReq:     make(chan CoReq),
-			coAck:     make(chan CoAck),
-			feedback:  make(chan Notice),
-			coSem:     make(chan int, 1), //non-blocking buffered channel
+			clientMap:    map[string]*Client{},
+			workQueue:    NewWQueue(),
+			suspendQueue: false,
+			coReq:        make(chan CoReq),
+			coAck:        make(chan CoAck),
+			feedback:     make(chan Notice),
+			coSem:        make(chan int, 1), //non-blocking buffered channel
 		},
 		taskMap: map[string]*Task{},
 		jsReq:   make(chan bool),
@@ -78,12 +79,18 @@ func (qm *ServerMgr) ClientHandle() {
 		select {
 		case coReq := <-qm.coReq:
 			logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v\n", coReq))
-			qm.updateQueue()
-			works, err := qm.popWorks(coReq)
-			if err == nil {
-				qm.UpdateJobTaskToInProgress(works)
+			var ack CoAck
+			if qm.suspendQueue {
+				// queue is suspended, return suspend error
+				ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
+			} else {
+				qm.updateQueue()
+				works, err := qm.popWorks(coReq)
+				if err == nil {
+					qm.UpdateJobTaskToInProgress(works)
+				}
+				ack = CoAck{workunits: works, err: err}
 			}
-			ack := CoAck{workunits: works, err: err}
 			qm.coAck <- ack
 		case notice := <-qm.feedback:
 			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
@@ -92,6 +99,24 @@ func (qm *ServerMgr) ClientHandle() {
 			}
 			qm.updateQueue()
 		}
+	}
+}
+
+//--------queue status methods-------
+
+func (qm *ServerMgr) SuspendQueue() {
+	qm.suspendQueue = true
+}
+
+func (qm *ServerMgr) ResumeQueue() {
+	qm.suspendQueue = false
+}
+
+func (qm *ServerMgr) QueueStatus() string {
+	if qm.suspendQueue {
+		return "suspended"
+	} else {
+		return "running"
 	}
 }
 

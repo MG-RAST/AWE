@@ -39,8 +39,9 @@ func workStealer(control chan int) {
 		}
 		wu, err := CheckoutWorkunitRemote()
 		if err != nil {
-			if err.Error() == e.QueueEmpty || err.Error() == e.NoEligibleWorkunitFound {
+			if err.Error() == e.QueueEmpty || err.Error() == e.QueueSuspend || err.Error() == e.NoEligibleWorkunitFound {
 				//normal, do nothing
+				logger.Debug(3, fmt.Sprintf("client %s recieved status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL))
 			} else if err.Error() == e.ClientNotFound {
 				//server may be restarted, waiting for the hearbeater goroutine to try re-register
 				ReRegisterWithSelf(conf.SERVER_URL)

@@ -97,6 +97,7 @@ type resource struct {
 	C             string   `json:"contact"`
 	I             string   `json:"id"`
 	T             string   `json:"type"`
+	S             string   `json:"queue_status"`
 	V             string   `json:"version"`
 	GitCommitHash string   `json:"git_commit_hash"`
 }
@@ -111,6 +112,7 @@ func ResourceDescription(cx *goweb.Context) {
 		C:             conf.ADMIN_EMAIL,
 		I:             "AWE",
 		T:             core.Service,
+		S:             core.QMgr.QueueStatus(),
 		V:             conf.VERSION,
 		GitCommitHash: conf.GIT_COMMIT_HASH,
 	}

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
+	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/user"
@@ -18,12 +19,13 @@ type ProxyMgr struct {
 func NewProxyMgr() *ProxyMgr {
 	return &ProxyMgr{
 		CQMgr: CQMgr{
-			clientMap: map[string]*Client{},
-			workQueue: NewWQueue(),
-			coReq:     make(chan CoReq),
-			coAck:     make(chan CoAck),
-			feedback:  make(chan Notice),
-			coSem:     make(chan int, 1), //non-blocking buffered channel
+			clientMap:    map[string]*Client{},
+			workQueue:    NewWQueue(),
+			suspendQueue: false,
+			coReq:        make(chan CoReq),
+			coAck:        make(chan CoAck),
+			feedback:     make(chan Notice),
+			coSem:        make(chan int, 1), //non-blocking buffered channel
 		},
 	}
 }
@@ -41,8 +43,14 @@ func (qm *ProxyMgr) ClientHandle() {
 		select {
 		case coReq := <-qm.coReq:
 			logger.Debug(2, fmt.Sprintf("proxymgr: workunit checkout request received, Req=%v\n", coReq))
-			works, err := qm.popWorks(coReq)
-			ack := CoAck{workunits: works, err: err}
+			var ack CoAck
+			if qm.suspendQueue {
+				// queue is suspended, return suspend error
+				ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
+			} else {
+				works, err := qm.popWorks(coReq)
+				ack = CoAck{workunits: works, err: err}
+			}
 			qm.coAck <- ack
 		case notice := <-qm.feedback:
 			logger.Debug(2, fmt.Sprintf("proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
@@ -51,6 +59,18 @@ func (qm *ProxyMgr) ClientHandle() {
 			}
 		}
 	}
+}
+
+func (qm *ProxyMgr) SuspendQueue() {
+	return
+}
+
+func (qm *ProxyMgr) ResumeQueue() {
+	return
+}
+
+func (qm *ProxyMgr) QueueStatus() string {
+	return ""
 }
 
 func (qm *ProxyMgr) InitMaxJid() (err error) {

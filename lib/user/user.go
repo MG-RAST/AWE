@@ -44,11 +44,7 @@ func Initialize() (err error) {
 			if info, err := c.UpdateAll(bson.M{"username": k}, bson.M{"$set": bson.M{"admin": true}}); err != nil {
 				return err
 			} else if info.Updated == 0 {
-				u, err := New(k, "", true)
-				if err != nil {
-					return err
-				}
-				if err := u.Save(); err != nil {
+				if _, err := New(k, "", true); err != nil {
 					return err
 				}
 			}
@@ -59,7 +55,8 @@ func Initialize() (err error) {
 
 func New(username string, password string, isAdmin bool) (u *User, err error) {
 	u = &User{Uuid: uuid.New(), Username: username, Password: password, Admin: isAdmin}
-	if err = u.Save(); err != nil {
+	err = u.Save()
+	if err != nil {
 		u = nil
 	}
 	return

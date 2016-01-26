@@ -1,7 +1,7 @@
 package uuid
 
 import (
-	gouuid "code.google.com/p/go-uuid/uuid"
+	gouuid "github.com/pborman/uuid"
 )
 
 func New() string {

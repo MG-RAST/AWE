@@ -263,8 +263,16 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		core.ProxyWorkChan <- true
 	}
 
+	// get available disk space if sent
+	availableBytes := int64(-1)
+	if query.Has("available") {
+		if value, errv := strconv.ParseInt(query.Value("available"), 10, 64); errv == nil {
+			availableBytes = value
+		}
+	}
+
 	//checkout a workunit in FCFS order
-	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, 1)
+	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, availableBytes, 1)
 
 	if err != nil {
 		if err.Error() != e.QueueEmpty && err.Error() != e.QueueSuspend && err.Error() != e.NoEligibleWorkunitFound && err.Error() != e.ClientNotFound && err.Error() != e.ClientSuspended {

@@ -215,14 +215,27 @@ func (wq *WQueue) StatusChange(id string, new_status string) (err error) {
 }
 
 //select workunits, return a slice of ids based on given queuing policy and requested count
-func (wq *WQueue) selectWorkunits(workid []string, policy string, count int) (selected []*Workunit, err error) {
+//if available is a positive value, filter by workunit input size
+func (wq *WQueue) selectWorkunits(workid []string, policy string, available int64, count int) (selected []*Workunit, err error) {
 	logger.Debug(3, fmt.Sprintf("starting selectWorkunits\n"))
 	worklist := wq.GetSet(workid)
 	if policy == "FCFS" {
 		sort.Sort(byFCFS{worklist})
 	}
-	for i := 0; i < count; i++ {
-		selected = append(selected, worklist[i])
+	added := 0
+	for _, work := range worklist {
+		if added == count {
+			break
+		}
+		inputSize := int64(0)
+		for _, input := range work.Inputs {
+			inputSize = inputSize + input.Size
+		}
+		// skip work that is too large for client
+		if (available < 0) || (available > inputSize) {
+			selected = append(selected, work)
+			added = added + 1
+		}
 	}
 	logger.Debug(3, fmt.Sprintf("done with selectWorkunits\n"))
 	return

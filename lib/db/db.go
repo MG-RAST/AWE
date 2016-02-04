@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+const (
+	DialTimeout  = time.Duration(time.Second * 10)
+	DialAttempts = 3
+)
+
 var (
 	Connection connection
 	DbTimeout  = time.Second * time.Duration(conf.MONGODB_TIMEOUT)
@@ -24,10 +29,25 @@ type connection struct {
 
 func Initialize() (err error) {
 	c := connection{}
+
+	// test connection
+	canDial := false
+	for i := 0; i < DialAttempts; i++ {
+		s, err := mgo.DialWithTimeout(conf.MONGODB_HOST, DialTimeout)
+		if err == nil {
+			s.Close()
+			canDial = true
+			break
+		}
+	}
+	if !canDial {
+		return errors.New(fmt.Sprintf("no reachable mongodb server(s) at %s", conf.MONGODB_HOST))
+	}
+
+	// get handle
 	s, err := mgo.DialWithTimeout(conf.MONGODB_HOST, DbTimeout)
 	if err != nil {
-		e := errors.New(fmt.Sprintf("no reachable mongodb server(s) at %s", conf.MONGODB_HOST))
-		return e
+		return errors.New(fmt.Sprintf("no reachable mongodb server(s) at %s", conf.MONGODB_HOST))
 	}
 	c.Session = s
 	c.DB = c.Session.DB(conf.MONGODB_DATABASE)

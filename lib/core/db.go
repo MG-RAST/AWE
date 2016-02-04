@@ -9,6 +9,9 @@ import (
 	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
 )
 
+// mongodb has hard limit of 16 MB docuemnt size
+var DocumentMaxByte = 16777216
+
 func InitJobDB() {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
@@ -47,6 +50,12 @@ func dbDelete(q bson.M, coll string) (err error) {
 }
 
 func dbUpsert(t interface{}) (err error) {
+	// test that document not to large
+	if nbson, err := bson.Marshal(t); err == nil {
+		if len(nbson) >= DocumentMaxByte {
+			return errors.New(fmt.Sprintf("bson document size is greater than limit of %d bytes", DocumentMaxByte))
+		}
+	}
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 	switch t := t.(type) {

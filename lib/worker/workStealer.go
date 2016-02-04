@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -99,9 +100,14 @@ func workStealer(control chan int) {
 }
 
 func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
+	// get available work dir disk space
+	var stat syscall.Statfs_t
+	syscall.Statfs(conf.WORK_PATH, &stat)
+	availableBytes := stat.Bavail * uint64(stat.Bsize)
+
 	response := new(WorkResponse)
-	targeturl := fmt.Sprintf("%s/work?client=%s", conf.SERVER_URL, core.Self.Id)
-	//res, err := http.Get(fmt.Sprintf("%s/work?client=%s", conf.SERVER_URL, core.Self.Id))
+	targeturl := fmt.Sprintf("%s/work?client=%s&availble=%d", conf.SERVER_URL, core.Self.Id, availableBytes)
+
 	var headers httpclient.Header
 	if conf.CLIENT_GROUP_TOKEN != "" {
 		headers = httpclient.Header{

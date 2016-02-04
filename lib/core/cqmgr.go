@@ -502,7 +502,7 @@ func (qm *CQMgr) UpdateSubClientsByUser(id string, count int, u *user.User) {
 
 //-------start of workunit methods---
 
-func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, num int) (workunits []*Workunit, err error) {
+func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, available_bytes int64, num int) (workunits []*Workunit, err error) {
 	//precheck if the client is registered
 	client, hasClient := qm.GetClient(client_id)
 	if !hasClient {
@@ -521,7 +521,7 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, num int)
 	qm.LockSemaphore()
 	defer qm.UnlockSemaphore()
 
-	req := CoReq{policy: req_policy, fromclient: client_id, count: num}
+	req := CoReq{policy: req_policy, fromclient: client_id, available: available_bytes, count: num}
 	qm.coReq <- req
 	ack := <-qm.coAck
 
@@ -577,7 +577,7 @@ func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 	if len(filtered) == 0 {
 		return nil, errors.New(e.NoEligibleWorkunitFound)
 	}
-	works, err = qm.workQueue.selectWorkunits(filtered, req.policy, req.count)
+	works, err = qm.workQueue.selectWorkunits(filtered, req.policy, req.available, req.count)
 	if err == nil { //get workunits successfully, put them into coWorkMap
 		for _, work := range works {
 			work.Client = req.fromclient

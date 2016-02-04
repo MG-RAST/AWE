@@ -30,7 +30,7 @@ type WorkMgr interface {
 	GetWorkById(string) (*Workunit, error)
 	ShowWorkunits(string) []*Workunit
 	ShowWorkunitsByUser(string, *user.User) []*Workunit
-	CheckoutWorkunits(string, string, int) ([]*Workunit, error)
+	CheckoutWorkunits(string, string, int64, int) ([]*Workunit, error)
 	NotifyWorkStatus(Notice)
 	EnqueueWorkunit(*Workunit) error
 	FetchDataToken(string, string) (string, error)

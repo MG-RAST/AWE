@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
@@ -263,14 +264,23 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		core.ProxyWorkChan <- true
 	}
 
+	// get available disk space if sent
+	availableBytes := int64(-1)
+	if query.Has("available") {
+		if value, errv := strconv.ParseInt(query.Value("available"), 10, 64); errv == nil {
+			availableBytes = value
+		}
+	}
+
 	//checkout a workunit in FCFS order
-	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, 1)
+	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, availableBytes, 1)
 
 	if err != nil {
 		if err.Error() != e.QueueEmpty && err.Error() != e.QueueSuspend && err.Error() != e.NoEligibleWorkunitFound && err.Error() != e.ClientNotFound && err.Error() != e.ClientSuspended {
 			logger.Error("Err@work_ReadMany:core.QMgr.GetWorkByFCFS(): " + err.Error() + ";client=" + clientid)
 		}
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		logger.Debug(3, fmt.Sprintf("clientid=%s;available=%d;status=%s", clientid, availableBytes, err.Error()))
 		return
 	}
 
@@ -282,7 +292,8 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 	logger.Event(event.WORK_CHECKOUT,
 		"workids="+strings.Join(workids, ","),
-		"clientid="+clientid)
+		"clientid="+clientid,
+		"available="+strconv.FormatInt(availableBytes, 64))
 
 	// Base case respond with node in json
 	cx.RespondWithData(workunits[0])

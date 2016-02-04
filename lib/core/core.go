@@ -47,6 +47,7 @@ func InitProxyWorkChan() {
 type CoReq struct {
 	policy     string
 	fromclient string
+	available  int64
 	count      int
 }
 

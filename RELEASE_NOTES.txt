@@ -1,3 +1,10 @@
+# v0.9.24
+
+- explicit check for bson document max size upon save, return meaningful error
+- test mongo connection with short timeout on startup
+- client sends available disk size in bytes when requesting a workunit
+- server filters workunits based on sum of input sizes compared to available disk space on client
+
 # v0.9.23
 
 - added suspend / resume action for server work queue, admin users only

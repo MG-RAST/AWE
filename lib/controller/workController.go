@@ -289,11 +289,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	for _, work := range workunits {
 		workids = append(workids, work.Id)
 	}
-
-	logger.Event(event.WORK_CHECKOUT,
-		"workids="+strings.Join(workids, ","),
-		"clientid="+clientid,
-		"available="+strconv.FormatInt(availableBytes, 64))
+	logger.Event(event.WORK_CHECKOUT, fmt.Sprintf("workids=%s;clientid=%s;available=%d", strings.Join(workids, ","), clientid, availableBytes))
 
 	// Base case respond with node in json
 	cx.RespondWithData(workunits[0])

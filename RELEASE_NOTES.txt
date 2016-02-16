@@ -1,3 +1,7 @@
+# v0.9.25
+
+- fix bug in server when checking out workunit
+
 # v0.9.24
 
 - explicit check for bson document max size upon save, return meaningful error

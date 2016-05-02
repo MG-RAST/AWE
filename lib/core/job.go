@@ -153,6 +153,10 @@ func (job *Job) Mkdir() (err error) {
 	return
 }
 
+func (job *Job) Rmdir() (err error) {
+	return os.RemoveAll(job.Path())
+}
+
 func (job *Job) SetFile(file FormFile) (err error) {
 	if err != nil { //?
 		return

@@ -615,7 +615,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("resume") { // to resume a suspended job
-		if err := core.QMgr.ResumeSuspendedJob(id); err != nil {
+		if err := core.QMgr.ResumeSuspendedJobByUser(id, u); err != nil {
 			cx.RespondWithErrorMessage("fail to resume job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -729,7 +729,14 @@ func (cr *JobController) Delete(id string, cx *goweb.Context) {
 		}
 	}
 
-	if err = core.QMgr.DeleteJobByUser(id, u); err != nil {
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
+	full := false
+	if query.Has("full") {
+		full = true
+	}
+
+	if err = core.QMgr.DeleteJobByUser(id, u, full); err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
@@ -769,11 +776,15 @@ func (cr *JobController) DeleteMany(cx *goweb.Context) {
 
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
+	full := false
+	if query.Has("full") {
+		full = true
+	}
 	if query.Has("suspend") {
-		num := core.QMgr.DeleteSuspendedJobsByUser(u)
+		num := core.QMgr.DeleteSuspendedJobsByUser(u, full)
 		cx.RespondWithData(fmt.Sprintf("deleted %d suspended jobs", num))
 	} else if query.Has("zombie") {
-		num := core.QMgr.DeleteZombieJobsByUser(u)
+		num := core.QMgr.DeleteZombieJobsByUser(u, full)
 		cx.RespondWithData(fmt.Sprintf("deleted %d zombie jobs", num))
 	} else {
 		cx.RespondWithError(http.StatusNotImplemented)

@@ -216,6 +216,11 @@ func LoadClientGroupByToken(token string) (clientgroup *ClientGroup, err error) 
 	return nil, err
 }
 
+func DeleteJob(id string) (err error) {
+	err = dbDelete(bson.M{"id": id}, conf.DB_COLL_JOBS)
+	return
+}
+
 func DeleteClientGroup(id string) (err error) {
 	err = dbDelete(bson.M{"id": id}, conf.DB_COLL_CGS)
 	return

@@ -224,41 +224,19 @@ func (qm *ProxyMgr) SuspendJob(jobid string, reason string, id string) (err erro
 	return
 }
 
-func (qm *ProxyMgr) ResumeSuspendedJobs() (num int) {
-	return
-}
-
 func (qm *ProxyMgr) ResumeSuspendedJobsByUser(u *user.User) (num int) {
 	return
 }
 
-func (qm *ProxyMgr) DeleteJob(jobid string) (err error) {
+func (qm *ProxyMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err error) {
 	return
 }
 
-func (qm *ProxyMgr) DeleteJobByUser(jobid string, u *user.User) (err error) {
+func (qm *ProxyMgr) DeleteSuspendedJobsByUser(u *user.User, full bool) (num int) {
 	return
 }
 
-func (qm *ProxyMgr) DeleteSuspendedJobs() (num int) {
-	return
-}
-
-func (qm *ProxyMgr) DeleteSuspendedJobsByUser(u *user.User) (num int) {
-	return
-}
-
-func (qm *ProxyMgr) DeleteZombieJobs() (num int) {
-	return
-}
-
-func (qm *ProxyMgr) DeleteZombieJobsByUser(u *user.User) (num int) {
-	return
-}
-
-//resubmit a suspended job
-func (qm *ProxyMgr) ResumeSuspendedJob(id string) (err error) {
-	//Load job by id
+func (qm *ProxyMgr) DeleteZombieJobsByUser(u *user.User, full bool) (num int) {
 	return
 }
 

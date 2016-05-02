@@ -1087,33 +1087,7 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 	return
 }
 
-func (qm *ServerMgr) DeleteJob(jobid string) (err error) {
-	job, err := LoadJob(jobid)
-	if err != nil {
-		return
-	}
-	if err := job.UpdateState(JOB_STAT_DELETED, "deleted"); err != nil {
-		return err
-	}
-	//delete queueing workunits
-	for _, workid := range qm.workQueue.List() {
-		if jobid == getParentJobId(workid) {
-			qm.workQueue.Delete(workid)
-		}
-	}
-	//delete parsed tasks
-	for i := 0; i < len(job.TaskList()); i++ {
-		task_id := fmt.Sprintf("%s_%d", jobid, i)
-		qm.deleteTask(task_id)
-	}
-	qm.removeActJob(jobid)
-	qm.removeSusJob(jobid)
-
-	logger.Event(event.JOB_DELETED, "jobid="+jobid)
-	return
-}
-
-func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User) (err error) {
+func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err error) {
 	job, err := LoadJob(jobid)
 	if err != nil {
 		return
@@ -1141,30 +1115,22 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User) (err error) {
 	qm.removeSusJob(jobid)
 
 	logger.Event(event.JOB_DELETED, "jobid="+jobid)
-	return
-}
 
-func (qm *ServerMgr) DeleteSuspendedJobs() (num int) {
-	for id := range qm.GetSuspendJobs() {
-		if err := qm.DeleteJob(id); err == nil {
-			num += 1
+	// really delete it from mongodb and filesystem
+	if full {
+		if err := DeleteJob(jobid); err != nil {
+			return err
+		}
+		if err := job.Rmdir(); err != nil {
+			return err
 		}
 	}
 	return
 }
 
-func (qm *ServerMgr) DeleteSuspendedJobsByUser(u *user.User) (num int) {
+func (qm *ServerMgr) DeleteSuspendedJobsByUser(u *user.User, full bool) (num int) {
 	for id := range qm.GetSuspendJobs() {
-		if err := qm.DeleteJobByUser(id, u); err == nil {
-			num += 1
-		}
-	}
-	return
-}
-
-func (qm *ServerMgr) ResumeSuspendedJobs() (num int) {
-	for id := range qm.GetSuspendJobs() {
-		if err := qm.ResumeSuspendedJob(id); err == nil {
+		if err := qm.DeleteJobByUser(id, u, full); err == nil {
 			num += 1
 		}
 	}
@@ -1180,27 +1146,8 @@ func (qm *ServerMgr) ResumeSuspendedJobsByUser(u *user.User) (num int) {
 	return
 }
 
-//delete jobs in db with "queued" or "in-progress" state but not in the queue (zombie jobs)
-func (qm *ServerMgr) DeleteZombieJobs() (num int) {
-	dbjobs := new(Jobs)
-	q := bson.M{}
-	q["state"] = bson.M{"in": JOB_STATS_ACTIVE}
-	if err := dbjobs.GetAll(q, "info.submittime", "asc"); err != nil {
-		logger.Error("DeleteZombieJobs()->GetAllLimitOffset():" + err.Error())
-		return
-	}
-	for _, dbjob := range *dbjobs {
-		if !qm.isActJob(dbjob.Id) {
-			if err := qm.DeleteJob(dbjob.Id); err == nil {
-				num += 1
-			}
-		}
-	}
-	return
-}
-
 //delete jobs in db with "queued" or "in-progress" state but not in the queue (zombie jobs) that user has access to
-func (qm *ServerMgr) DeleteZombieJobsByUser(u *user.User) (num int) {
+func (qm *ServerMgr) DeleteZombieJobsByUser(u *user.User, full bool) (num int) {
 	dbjobs := new(Jobs)
 	q := bson.M{}
 	q["state"] = bson.M{"in": JOB_STATS_ACTIVE}
@@ -1210,35 +1157,11 @@ func (qm *ServerMgr) DeleteZombieJobsByUser(u *user.User) (num int) {
 	}
 	for _, dbjob := range *dbjobs {
 		if !qm.isActJob(dbjob.Id) {
-			if err := qm.DeleteJobByUser(dbjob.Id, u); err == nil {
+			if err := qm.DeleteJobByUser(dbjob.Id, u, full); err == nil {
 				num += 1
 			}
 		}
 	}
-	return
-}
-
-//resubmit a suspended job
-func (qm *ServerMgr) ResumeSuspendedJob(id string) (err error) {
-	//Load job by id
-	dbjob, err := LoadJob(id)
-	if err != nil {
-		return errors.New("failed to load job " + err.Error())
-	}
-	if dbjob.State != JOB_STAT_SUSPEND {
-		return errors.New("job " + id + " is not in 'suspend' status")
-	}
-	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
-
-	if dbjob.RemainTasks < len(dbjob.Tasks) {
-		dbjob.State = JOB_STAT_INPROGRESS
-	} else {
-		dbjob.State = JOB_STAT_QUEUED
-	}
-	dbjob.Resumed += 1
-	dbjob.Save()
-
-	qm.removeSusJob(id)
 	return
 }
 

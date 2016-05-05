@@ -27,6 +27,7 @@ func InitJobDB() {
 	cj.EnsureIndex(mgo.Index{Key: []string{"info.user"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"jid"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"state"}, Background: true})
+	cj.EnsureIndex(mgo.Index{Key: []string{"expiration"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"updatetime"}, Background: true})
 	cp := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_PERF)
 	cp.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
@@ -214,11 +215,6 @@ func LoadClientGroupByToken(token string) (clientgroup *ClientGroup, err error) 
 		return clientgroup, nil
 	}
 	return nil, err
-}
-
-func DeleteJob(id string) (err error) {
-	err = dbDelete(bson.M{"id": id}, conf.DB_COLL_JOBS)
-	return
 }
 
 func DeleteClientGroup(id string) (err error) {

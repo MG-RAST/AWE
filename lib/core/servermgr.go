@@ -973,7 +973,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	if err != nil {
 		return
 	}
-	remainTasks, err := job.UpdateTask(task)
+	remainTasks, err := job.UpdateTask(task) // sets job.State == completed if done
 	if err != nil {
 		return err
 	}
@@ -990,6 +990,19 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			task.DeleteOutput()
 			task.DeleteInput()
 			qm.deleteTask(task.Id)
+		}
+		//set expiration from conf if not set
+		nullTime := time.Time{}
+		if job.Expiration == nullTime {
+			expire := conf.GLOBAL_EXPIRE
+			if val, ok := conf.PIPELINE_EXPIRE_MAP[job.Info.Pipeline]; ok {
+				expire = val
+			}
+			if expire != "" {
+				if err := job.SetExpiration(expire); err != nil {
+					return err
+				}
+			}
 		}
 		//log event about job done (JD)
 		logger.Event(event.JOB_DONE, "jobid="+job.Id+";jid="+job.Jid+";project="+job.Info.Project+";name="+job.Info.Name)
@@ -1114,16 +1127,11 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 	qm.removeActJob(jobid)
 	qm.removeSusJob(jobid)
 
-	logger.Event(event.JOB_DELETED, "jobid="+jobid)
-
-	// really delete it from mongodb and filesystem
+	// really delete it !
 	if full {
-		if err := DeleteJob(jobid); err != nil {
-			return err
-		}
-		if err := job.Rmdir(); err != nil {
-			return err
-		}
+		return job.Delete()
+	} else {
+		logger.Event(event.JOB_DELETED, "jobid="+jobid)
 	}
 	return
 }

@@ -7,6 +7,11 @@ import (
 // Job array type
 type Jobs []Job
 
+func (n *Jobs) GetAllUnsorted(q bson.M) (err error) {
+	_, err = dbFind(q, n, nil)
+	return
+}
+
 func (n *Jobs) GetAll(q bson.M, order string, direction string) (err error) {
 	if direction == "desc" {
 		order = "-" + order

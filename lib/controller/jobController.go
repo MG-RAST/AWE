@@ -682,25 +682,29 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		cx.RespondWithData("job priority updated: " + id + " to " + priority_str)
 		return
 	}
-
+	if query.Has("expiration") { // change the expiration attribute of the job, does not get reaped until in completed state
+		expire := query.Value("expiration")
+		if expire == "" {
+			cx.RespondWithErrorMessage("lacking expiration value", http.StatusBadRequest)
+			return
+		}
+		if err := job.SetExpiration(expire); err != nil {
+			cx.RespondWithErrorMessage("failed to set the expiration for job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		cx.RespondWithData("expiration '" + job.Expiration.String() + "' set for job: " + id)
+		return
+	}
 	if query.Has("settoken") { // set data token
 		token, err := request.RetrieveToken(cx.Request)
 		if err != nil {
 			cx.RespondWithErrorMessage("fail to retrieve token for job, pls set token in header: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		job, err := core.LoadJob(id)
-		if err != nil {
-			if err == mgo.ErrNotFound {
-				cx.RespondWithNotFound()
-			} else {
-				logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
-				cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
-			}
+		if err := job.SetDataToken(token); err != nil {
+			cx.RespondWithErrorMessage("failed to set the token for job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		job.SetDataToken(token)
 		cx.RespondWithData("data token set for job: " + id)
 		return
 	}

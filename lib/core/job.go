@@ -6,10 +6,13 @@ import (
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/uuid"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -36,10 +39,11 @@ type Job struct {
 	State       string    `bson:"state" json:"state"`
 	Registered  bool      `bson:"registered" json:"registered"`
 	RemainTasks int       `bson:"remaintasks" json:"remaintasks"`
+	Expiration  time.Time `bson:"expiration" json:"expiration"` // 0 means no expiration
 	UpdateTime  time.Time `bson:"updatetime" json:"updatetime"`
 	Notes       string    `bson:"notes" json:"notes"`
 	LastFailed  string    `bson:"lastfailed" json:"lastfailed"`
-	Resumed     int       `bson:"resumed" json:"resumed"`     //number of times the job has been resumed from suspension
+	Resumed     int       `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
 	ShockHost   string    `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
 }
 
@@ -145,6 +149,17 @@ func (job *Job) Save() (err error) {
 	return
 }
 
+func (job *Job) Delete() (err error) {
+	if err = dbDelete(bson.M{"id": job.Id}, conf.DB_COLL_JOBS); err != nil {
+		return err
+	}
+	if err = job.Rmdir(); err != nil {
+		return err
+	}
+	logger.Event(event.JOB_FULL_DELETE, "jobid="+job.Id)
+	return
+}
+
 func (job *Job) Mkdir() (err error) {
 	err = os.MkdirAll(job.Path(), 0777)
 	if err != nil {
@@ -235,15 +250,39 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	return job.RemainTasks, job.Save()
 }
 
+func (job *Job) SetExpiration(expire string) (err error) {
+	parts := ExpireRegex.FindStringSubmatch(expire)
+	if len(parts) == 0 {
+		return errors.New("expiration format '" + expire + "' is invalid")
+	}
+	var expireTime time.Duration
+	expireNum, _ := strconv.Atoi(parts[1])
+	currTime := time.Now()
+
+	switch parts[2] {
+	case "M":
+		expireTime = time.Duration(expireNum) * time.Minute
+	case "H":
+		expireTime = time.Duration(expireNum) * time.Hour
+	case "D":
+		expireTime = time.Duration(expireNum*24) * time.Hour
+	}
+
+	job.Expiration = currTime.Add(expireTime)
+	err = job.Save()
+	return
+}
+
 //set token
-func (job *Job) SetDataToken(token string) {
+func (job *Job) SetDataToken(token string) (err error) {
 	job.Info.DataToken = token
 	job.Info.Auth = true
 	for _, task := range job.Tasks {
 		task.Info.DataToken = token
 		task.setTokenForIO()
 	}
-	job.Save()
+	err = job.Save()
+	return
 }
 
 func (job *Job) GetDataToken() (token string) {

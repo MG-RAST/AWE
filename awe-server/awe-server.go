@@ -251,6 +251,7 @@ func main() {
 	}
 	//launch server
 	control := make(chan int)
+	go core.Ttl.Handle()
 	go core.QMgr.JidHandle()
 	go core.QMgr.TaskHandle()
 	go core.QMgr.ClientHandle()

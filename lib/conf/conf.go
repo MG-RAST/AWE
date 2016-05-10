@@ -7,6 +7,7 @@ import (
 	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goconfig/config"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -42,6 +43,8 @@ const STDERR_FILENAME string = "awe_stderr.txt"
 const WORKNOTES_FILENAME string = "awe_worknotes.txt"
 
 const ALL_APP string = "*"
+
+var checkExpire = regexp.MustCompile(`^(\d+)(M|H|D)$`)
 
 // set defaults in function "getConfiguration" below !!!!!
 var (
@@ -116,6 +119,9 @@ var (
 	VERSIONS = make(map[string]int)
 
 	//[server] options
+	EXPIRE_WAIT        int
+	GLOBAL_EXPIRE      string
+	PIPELINE_EXPIRE    string
 	PERF_LOG_WORKUNIT  bool
 	MAX_WORK_FAILURE   int
 	MAX_CLIENT_FAILURE int
@@ -164,6 +170,8 @@ var (
 	PRINT_HELP           bool
 	SHOW_HELP            bool // simple usage
 	SHOW_GIT_COMMIT_HASH bool
+
+	PIPELINE_EXPIRE_MAP = make(map[string]string)
 
 	Admin_Users    = make(map[string]bool)
 	AUTH_RESOURCES = make(map[string]AuthResource)
@@ -460,6 +468,9 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		//if big_data_size, err := c.Int("Server", "big_data_size"); err == nil {
 		//	BIG_DATA_SIZE = int64(big_data_size)
 		//}
+		c_store.AddInt(&EXPIRE_WAIT, 60, "Server", "expire_wait", "wait time for expiration reaper in minutes", "")
+		c_store.AddString(&GLOBAL_EXPIRE, "", "Server", "global_expire", "default number and unit of time after job completion before it expires", "")
+		c_store.AddString(&PIPELINE_EXPIRE, "", "Server", "pipeline_expire", "comma seperated list of pipeline_name=expire_days_unit, overrides global_expire", "")
 		c_store.AddInt(&MAX_WORK_FAILURE, 3, "Server", "max_work_failure", "number of times that one workunit fails before the workunit considered suspend", "")
 		c_store.AddInt(&MAX_CLIENT_FAILURE, 5, "Server", "max_client_failure", "number of times that one client consecutively fails running workunits before the client considered suspend", "")
 		c_store.AddInt(&GOMAXPROCS, 0, "Server", "go_max_procs", "", "")
@@ -616,6 +627,25 @@ func Init_conf(mode string) (err error) {
 	if ADMIN_USERS_VAR != "" {
 		for _, name := range strings.Split(ADMIN_USERS_VAR, ",") {
 			Admin_Users[strings.TrimSpace(name)] = true
+		}
+	}
+
+	if mode == "server" {
+		if PIPELINE_EXPIRE != "" {
+			for _, set := range strings.Split(PIPELINE_EXPIRE, ",") {
+				parts := strings.Split(set, "=")
+				match := checkExpire.FindStringSubmatch(parts[1])
+				if len(match) == 0 {
+					return errors.New("expiration format in pipeline_expire is invalid")
+				}
+				PIPELINE_EXPIRE_MAP[parts[0]] = parts[1]
+			}
+		}
+		if GLOBAL_EXPIRE != "" {
+			match := checkExpire.FindStringSubmatch(GLOBAL_EXPIRE)
+			if len(match) == 0 {
+				return errors.New("expiration format in global_expire is invalid")
+			}
 		}
 	}
 

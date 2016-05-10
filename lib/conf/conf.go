@@ -469,7 +469,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		//	BIG_DATA_SIZE = int64(big_data_size)
 		//}
 		c_store.AddInt(&EXPIRE_WAIT, 60, "Server", "expire_wait", "wait time for expiration reaper in minutes", "")
-		c_store.AddString(&GLOBAL_EXPIRE, "30D", "Server", "global_expire", "default number and unit of time after job completion before it expires", "")
+		c_store.AddString(&GLOBAL_EXPIRE, "", "Server", "global_expire", "default number and unit of time after job completion before it expires", "")
 		c_store.AddString(&PIPELINE_EXPIRE, "", "Server", "pipeline_expire", "comma seperated list of pipeline_name=expire_days_unit, overrides global_expire", "")
 		c_store.AddInt(&MAX_WORK_FAILURE, 3, "Server", "max_work_failure", "number of times that one workunit fails before the workunit considered suspend", "")
 		c_store.AddInt(&MAX_CLIENT_FAILURE, 5, "Server", "max_client_failure", "number of times that one client consecutively fails running workunits before the client considered suspend", "")

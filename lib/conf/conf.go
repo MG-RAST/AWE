@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -634,16 +635,14 @@ func Init_conf(mode string) (err error) {
 		if PIPELINE_EXPIRE != "" {
 			for _, set := range strings.Split(PIPELINE_EXPIRE, ",") {
 				parts := strings.Split(set, "=")
-				match := checkExpire.FindStringSubmatch(parts[1])
-				if len(match) == 0 {
+				if valid, _, _ := parseExpiration(parts[1]); !valid {
 					return errors.New("expiration format in pipeline_expire is invalid")
 				}
 				PIPELINE_EXPIRE_MAP[parts[0]] = parts[1]
 			}
 		}
 		if GLOBAL_EXPIRE != "" {
-			match := checkExpire.FindStringSubmatch(GLOBAL_EXPIRE)
-			if len(match) == 0 {
+			if valid, _, _ := parseExpiration(GLOBAL_EXPIRE); !valid {
 				return errors.New("expiration format in global_expire is invalid")
 			}
 		}
@@ -666,6 +665,24 @@ func Init_conf(mode string) (err error) {
 
 	VERSIONS["Job"] = 2
 
+	return
+}
+
+func parseExpiration(expire string) (valid bool, duration int, unit string) {
+	match := checkExpire.FindStringSubmatch(expire)
+	if len(match) == 0 {
+		return
+	}
+	valid = true
+	duration, _ = strconv.Atoi(match[1])
+	switch match[2] {
+	case "M":
+		unit = "minutes"
+	case "H":
+		unit = "hours"
+	case "D":
+		unit = "days"
+	}
 	return
 }
 
@@ -693,6 +710,28 @@ func Print(service string) {
 			fmt.Printf("%s ", name)
 		}
 		fmt.Printf("\n")
+	}
+	fmt.Printf("\n")
+
+	if service == "server" {
+		fmt.Printf("##### Expiration #####\nexpire_wait:\t%d minutes\n", EXPIRE_WAIT)
+		fmt.Printf("global_expire:\t")
+		if GLOBAL_EXPIRE == "" {
+			fmt.Printf("disabled\n")
+		} else {
+			_, duration, unit := parseExpiration(GLOBAL_EXPIRE)
+			fmt.Printf("%d %s\n", duration, unit)
+		}
+		fmt.Printf("pipeline_expire:")
+		if PIPELINE_EXPIRE == "" {
+			fmt.Printf("\tdisabled\n")
+		} else {
+			for name, expire := range PIPELINE_EXPIRE_MAP {
+				_, duration, unit := parseExpiration(expire)
+				fmt.Printf("\n\t%s:\t%d %s", name, duration, unit)
+			}
+			fmt.Printf("\n")
+		}
 	}
 	fmt.Printf("\n")
 

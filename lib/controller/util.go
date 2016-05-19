@@ -7,6 +7,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	. "github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goweb"
 	"math/rand"
@@ -57,6 +58,13 @@ func (q *Query) List(key string) []string {
 
 func (q *Query) All() map[string][]string {
 	return q.Li
+}
+
+func (q *Query) Empty() bool {
+	if len(q.Li) == 0 {
+		return true
+	}
+	return false
 }
 
 func LogRequest(req *http.Request) {
@@ -123,6 +131,12 @@ func ResourceDescription(cx *goweb.Context) {
 	}
 
 	cx.WriteResponse(r, 200)
+	return
+}
+
+func EventDescription(cx *goweb.Context) {
+	LogRequest(cx.Request)
+	cx.RespondWithData(event.EventDiscription)
 	return
 }
 

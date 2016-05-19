@@ -51,7 +51,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	}
 
 	// Parse uploaded form
-	params, files, err := ParseMultipartForm(cx.Request)
+	_, files, err := ParseMultipartForm(cx.Request)
 
 	if err != nil {
 		if err.Error() == "request Content-Type isn't multipart/form-data" {
@@ -66,39 +66,51 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		return
 	}
 
+	_, has_import := files["import"]
 	_, has_upload := files["upload"]
 	_, has_awf := files["awf"]
 
-	if !has_upload && !has_awf {
+	var job *core.Job
+
+	if has_import {
+		// import a job document
+		job, err = core.CreateJobImport(u, files["import"])
+		if err != nil {
+			logger.Error("Err@job_Create:CreateJobImport: " + err.Error())
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+		logger.Event(event.JOB_IMPORT, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
+	} else if !has_upload && !has_awf {
 		cx.RespondWithErrorMessage("No job script or awf is submitted", http.StatusBadRequest)
 		return
-	}
-
-	//send job submission request and get back an assigned job number (jid)
-	var jid string
-	jid, err = core.QMgr.JobRegister()
-	if err != nil {
-		logger.Error("Err@job_Create:GetNextJobNum: " + err.Error())
-		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var job *core.Job
-	job, err = core.CreateJobUpload(u, params, files, jid)
-	if err != nil {
-		logger.Error("Err@job_Create:CreateJobUpload: " + err.Error())
-		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-		return
+	} else {
+		// send job submission request and get back an assigned job number (jid)
+		var jid string
+		jid, err = core.QMgr.JobRegister()
+		if err != nil {
+			logger.Error("Err@job_Create:GetNextJobNum: " + err.Error())
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+		// create new uploaded job
+		job, err = core.CreateJobUpload(u, files, jid)
+		if err != nil {
+			logger.Error("Err@job_Create:CreateJobUpload: " + err.Error())
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+		logger.Event(event.JOB_SUBMISSION, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	}
 
 	if token, err := request.RetrieveToken(cx.Request); err == nil {
 		job.SetDataToken(token)
 	}
+	// don't enqueue imports
+	if !has_import {
+		core.QMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
+	}
 
-	core.QMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
-
-	//log event about job submission (JB)
-	logger.Event(event.JOB_SUBMISSION, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	cx.RespondWithData(job)
 	return
 }
@@ -630,12 +642,12 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		cx.RespondWithData("job suspended: " + id)
 		return
 	}
-	if query.Has("resubmit") || query.Has("reregister") { // to re-submit a job from mongodb
-		if err := core.QMgr.ResubmitJob(id); err != nil {
-			cx.RespondWithErrorMessage("fail to resubmit job: "+id+" "+err.Error(), http.StatusBadRequest)
+	if query.Has("recover") || query.Has("register") { // to recover a job from mongodb missing from queue
+		if err := core.QMgr.RecoverJob(id); err != nil {
+			cx.RespondWithErrorMessage("fail to recover job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		cx.RespondWithData("job resubmitted: " + id)
+		cx.RespondWithData("job recovered: " + id)
 		return
 	}
 	if query.Has("recompute") { // to recompute a job from task i, the successive/downstream tasks of i will all be computed
@@ -649,6 +661,14 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 			return
 		}
 		cx.RespondWithData("job recompute started: " + id)
+		return
+	}
+	if query.Has("resubmit") { // to recompute a job from the beginning, all tasks will be computed
+		if err := core.QMgr.ResubmitJob(id); err != nil {
+			cx.RespondWithErrorMessage("fail to resubmit job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		cx.RespondWithData("job resubmitted: " + id)
 		return
 	}
 	if query.Has("clientgroup") { // change the clientgroup attribute of the job
@@ -680,6 +700,19 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 			return
 		}
 		cx.RespondWithData("job priority updated: " + id + " to " + priority_str)
+		return
+	}
+	if query.Has("pipeline") { // change the pipeline attribute of the job
+		pipeline := query.Value("pipeline")
+		if pipeline == "" {
+			cx.RespondWithErrorMessage("lacking pipeline value", http.StatusBadRequest)
+			return
+		}
+		if err := job.SetPipeline(pipeline); err != nil {
+			cx.RespondWithErrorMessage("failed to set the pipeline for job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		cx.RespondWithData("job pipeline updated: " + id + " to " + pipeline)
 		return
 	}
 	if query.Has("expiration") { // change the expiration attribute of the job, does not get reaped until in completed state

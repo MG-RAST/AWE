@@ -102,7 +102,7 @@ func (io *IO) DataUrl() (dataurl string, err error) {
 		}
 		return io.Url, nil
 	} else if (io.Host != "") && (io.Node != "") && (io.Node != "-") {
-		io.Url = fmt.Sprintf("%s/node/%s?download", io.Host, io.Node)
+		io.Url = fmt.Sprintf("%s/node/%s%s", io.Host, io.Node, shock.DATA_SUFFIX)
 		return io.Url, nil
 	} else {
 		// empty IO is valid

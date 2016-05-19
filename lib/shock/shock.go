@@ -22,6 +22,7 @@ import (
 // TODO use Token
 
 var SHOCK_TIMEOUT = 60 * time.Second
+var DATA_SUFFIX = "?download"
 
 type ShockClient struct {
 	Host  string

@@ -51,6 +51,7 @@ type JobMgr interface {
 	DeleteSuspendedJobsByUser(*user.User, bool) int
 	DeleteZombieJobsByUser(*user.User, bool) int
 	InitMaxJid() error
+	RecoverJob(string) error
 	RecoverJobs() error
 	FinalizeWorkPerf(string, string) error
 	SaveStdLog(string, string, string) error
@@ -71,8 +72,10 @@ type ResourceMgr interface {
 	JidHandle()
 	TaskHandle()
 	ClientHandle()
-	ShowStatus() string
+	GetJsonStatus() map[string]map[string]int
+	GetTextStatus() string
 	QueueStatus() string
+	GetQueue(string) interface{}
 	SuspendQueue()
 	ResumeQueue()
 }

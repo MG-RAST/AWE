@@ -24,6 +24,7 @@ func InitJobDB() {
 	cj.EnsureIndex(mgo.Index{Key: []string{"info.submittime"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"info.completedtime"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"info.pipeline"}, Background: true})
+	cj.EnsureIndex(mgo.Index{Key: []string{"info.clientgroup"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"info.user"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"jid"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"state"}, Background: true})

@@ -73,11 +73,19 @@ func (qm *ProxyMgr) QueueStatus() string {
 	return ""
 }
 
+func (qm *ProxyMgr) GetQueue(name string) interface{} {
+	return nil
+}
+
 func (qm *ProxyMgr) InitMaxJid() (err error) {
 	return
 }
 
-func (qm *ProxyMgr) ShowStatus() string {
+func (qm *ProxyMgr) GetJsonStatus() (status map[string]map[string]int) {
+	return status
+}
+
+func (qm *ProxyMgr) GetTextStatus() string {
 	return ""
 }
 
@@ -248,6 +256,11 @@ func (qm *ProxyMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err error
 
 //re-submit a job in db but not in the queue (caused by server restarting)
 func (qm *ProxyMgr) ResubmitJob(id string) (err error) {
+	return
+}
+
+//recover job not in queue
+func (qm *ProxyMgr) RecoverJob(id string) (err error) {
 	return
 }
 

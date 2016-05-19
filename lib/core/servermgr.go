@@ -8,6 +8,7 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
 	"io/ioutil"
@@ -17,6 +18,11 @@ import (
 	"sync"
 	"time"
 )
+
+type jQueueShow struct {
+	Active  map[string]*JobPerf `bson:"active" json:"active"`
+	Suspend map[string]bool     `bson:"suspend" json:"suspend"`
+}
 
 type ServerMgr struct {
 	CQMgr
@@ -62,14 +68,14 @@ func (qm *ServerMgr) JidHandle() {
 		<-qm.jsReq
 		jid := qm.getNextJid()
 		qm.jsAck <- jid
-		logger.Debug(2, fmt.Sprintf("qmgr:receive a job submission request, assigned jid=%s\n", jid))
+		logger.Debug(2, fmt.Sprintf("qmgr:receive a job submission request, assigned jid=%s", jid))
 	}
 }
 
 func (qm *ServerMgr) TaskHandle() {
 	for {
 		task := <-qm.taskIn
-		logger.Debug(2, fmt.Sprintf("qmgr:task recived from chan taskIn, id=%s\n", task.Id))
+		logger.Debug(2, fmt.Sprintf("qmgr:task recived from chan taskIn, id=%s", task.Id))
 		qm.addTask(task)
 	}
 }
@@ -78,7 +84,7 @@ func (qm *ServerMgr) ClientHandle() {
 	for {
 		select {
 		case coReq := <-qm.coReq:
-			logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v\n", coReq))
+			logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v", coReq))
 			var ack CoAck
 			if qm.suspendQueue {
 				// queue is suspended, return suspend error
@@ -93,7 +99,7 @@ func (qm *ServerMgr) ClientHandle() {
 			}
 			qm.coAck <- ack
 		case notice := <-qm.feedback:
-			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
+			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))
 			if err := qm.handleWorkStatusChange(notice); err != nil {
 				logger.Error("handleWorkStatusChange(): " + err.Error())
 			}
@@ -118,6 +124,28 @@ func (qm *ServerMgr) QueueStatus() string {
 	} else {
 		return "running"
 	}
+}
+
+func (qm *ServerMgr) GetQueue(name string) interface{} {
+	if name == "job" {
+		return jQueueShow{qm.actJobs, qm.susJobs}
+	}
+	if name == "task" {
+		if conf.DEBUG_LEVEL > 0 {
+			qm.ShowTasks()
+		}
+		return qm.taskMap
+	}
+	if name == "work" {
+		if conf.DEBUG_LEVEL > 0 {
+			qm.ShowWorkQueue()
+		}
+		return wQueueShow{qm.workQueue.workMap, qm.workQueue.wait, qm.workQueue.checkout, qm.workQueue.suspend}
+	}
+	if name == "client" {
+		return qm.clientMap
+	}
+	return nil
 }
 
 //--------suspend job accessor methods-------
@@ -348,7 +376,7 @@ func (qm *ServerMgr) InitMaxJid() (err error) {
 	if conf.DEBUG_LEVEL > 0 {
 		fmt.Println("in InitMaxJid C")
 	}
-	logger.Debug(2, fmt.Sprintf("qmgr:jid initialized, next jid=%s\n", qm.nextJid))
+	logger.Debug(2, fmt.Sprintf("qmgr:jid initialized, next jid=%s", qm.nextJid))
 	return
 }
 
@@ -516,7 +544,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	return
 }
 
-func (qm *ServerMgr) ShowStatus() string {
+func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
 	queuing_work := qm.workQueue.WaitLen()
 	out_work := qm.workQueue.CheckoutLen()
 	suspend_work := qm.workQueue.SuspendLen()
@@ -565,26 +593,62 @@ func (qm *ServerMgr) ShowStatus() string {
 			idle_client += 1
 		}
 	}
+	jobs := map[string]int{
+		"total":     total_job,
+		"active":    active_jobs,
+		"suspended": suspend_job,
+	}
+	tasks := map[string]int{
+		"total":       total_task,
+		"queuing":     queuing_task,
+		"in-progress": started_task,
+		"pending":     pending_task,
+		"completed":   completed_task,
+		"suspended":   suspended_task,
+		"failed":      fail_skip_task,
+	}
+	workunits := map[string]int{
+		"total":     total_active_work,
+		"queuing":   queuing_work,
+		"checkout":  out_work,
+		"suspended": suspend_work,
+	}
+	clients := map[string]int{
+		"total":     total_client,
+		"busy":      busy_client,
+		"idle":      idle_client,
+		"suspended": suspend_client,
+	}
+	status = map[string]map[string]int{
+		"jobs":      jobs,
+		"tasks":     tasks,
+		"workunits": workunits,
+		"clients":   clients,
+	}
+	return
+}
 
+func (qm *ServerMgr) GetTextStatus() string {
+	status := qm.GetJsonStatus()
 	statMsg := "++++++++AWE server queue status++++++++\n" +
-		fmt.Sprintf("total jobs ............... %d\n", total_job) +
-		fmt.Sprintf("    active:           (%d)\n", active_jobs) +
-		fmt.Sprintf("    suspended:        (%d)\n", suspend_job) +
-		fmt.Sprintf("total tasks .............. %d\n", total_task) +
-		fmt.Sprintf("    queuing:          (%d)\n", queuing_task) +
-		fmt.Sprintf("    in-progress:      (%d)\n", started_task) +
-		fmt.Sprintf("    pending:          (%d)\n", pending_task) +
-		fmt.Sprintf("    completed:        (%d)\n", completed_task) +
-		fmt.Sprintf("    suspended:        (%d)\n", suspended_task) +
-		fmt.Sprintf("    failed & skipped: (%d)\n", fail_skip_task) +
-		fmt.Sprintf("total workunits .......... %d\n", total_active_work) +
-		fmt.Sprintf("    queuing:          (%d)\n", queuing_work) +
-		fmt.Sprintf("    checkout:         (%d)\n", out_work) +
-		fmt.Sprintf("    suspended:        (%d)\n", suspend_work) +
-		fmt.Sprintf("total clients ............ %d\n", total_client) +
-		fmt.Sprintf("    busy:             (%d)\n", busy_client) +
-		fmt.Sprintf("    idle:             (%d)\n", idle_client) +
-		fmt.Sprintf("    suspend:          (%d)\n", suspend_client) +
+		fmt.Sprintf("total jobs ............... %d\n", status["jobs"]["total"]) +
+		fmt.Sprintf("    active:           (%d)\n", status["jobs"]["active"]) +
+		fmt.Sprintf("    suspended:        (%d)\n", status["jobs"]["suspended"]) +
+		fmt.Sprintf("total tasks .............. %d\n", status["tasks"]["total"]) +
+		fmt.Sprintf("    queuing:          (%d)\n", status["tasks"]["queuing"]) +
+		fmt.Sprintf("    in-progress:      (%d)\n", status["tasks"]["in-progress"]) +
+		fmt.Sprintf("    pending:          (%d)\n", status["tasks"]["pending"]) +
+		fmt.Sprintf("    completed:        (%d)\n", status["tasks"]["completed"]) +
+		fmt.Sprintf("    suspended:        (%d)\n", status["tasks"]["suspended"]) +
+		fmt.Sprintf("    failed & skipped: (%d)\n", status["tasks"]["failed"]) +
+		fmt.Sprintf("total workunits .......... %d\n", status["workunits"]["total"]) +
+		fmt.Sprintf("    queuing:          (%d)\n", status["workunits"]["queuing"]) +
+		fmt.Sprintf("    checkout:         (%d)\n", status["workunits"]["checkout"]) +
+		fmt.Sprintf("    suspended:        (%d)\n", status["workunits"]["suspended"]) +
+		fmt.Sprintf("total clients ............ %d\n", status["clients"]["total"]) +
+		fmt.Sprintf("    busy:             (%d)\n", status["clients"]["busy"]) +
+		fmt.Sprintf("    idle:             (%d)\n", status["clients"]["idle"]) +
+		fmt.Sprintf("    suspend:          (%d)\n", status["clients"]["suspended"]) +
 		fmt.Sprintf("---last update: %s\n\n", time.Now())
 	return statMsg
 }
@@ -690,9 +754,6 @@ func getStdLogPathByWorkId(workid string, logname string) (string, error) {
 
 func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, tasks []*Task) (err error) {
 	for _, task := range tasks {
-		if task.Info == nil {
-			fmt.Printf("task.Info is nil for job: %v\n", jobid)
-		}
 		qm.taskIn <- task
 	}
 	qm.CreateJobPerf(jobid)
@@ -760,6 +821,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool) {
 				}
 			} else {
 				logger.Error("warning: predecessor " + predecessor + " is unknown")
+				ready = false
 			}
 		}
 	}
@@ -840,7 +902,7 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 				}
 			}
 		}
-		logger.Debug(2, fmt.Sprintf("processing input %s, %s\n", name, io.Node))
+		logger.Debug(2, fmt.Sprintf("processing input %s, %s", name, io.Node))
 		if io.Node == "-" {
 			return errors.New(fmt.Sprintf("error in locate input for task %s, %s", task.Id, name))
 		}
@@ -848,19 +910,19 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 		if io.Node != "" && io.GetFileSize() < 0 {
 			return errors.New(fmt.Sprintf("task %s: input file %s not available", task.Id, name))
 		}
-		logger.Debug(2, fmt.Sprintf("inputs located %s, %s\n", name, io.Node))
+		logger.Debug(2, fmt.Sprintf("inputs located %s, %s", name, io.Node))
 	}
 	// locate predata
 	for _, io := range task.Predata {
 		name := io.FileName
-		logger.Debug(2, fmt.Sprintf("processing predata %s, %s\n", name, io.Node))
+		logger.Debug(2, fmt.Sprintf("processing predata %s, %s", name, io.Node))
 		// only verify predata that is a shock node
 		if (io.Node != "") && (io.Node != "-") && (io.GetFileSize() < 0) {
 			// bad shock node
 			if io.GetFileSize() < 0 {
 				return errors.New(fmt.Sprintf("task %s: predata file %s not available", task.Id, name))
 			}
-			logger.Debug(2, fmt.Sprintf("predata located %s, %s\n", name, io.Node))
+			logger.Debug(2, fmt.Sprintf("predata located %s, %s", name, io.Node))
 		}
 	}
 	return
@@ -897,16 +959,16 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 				}
 				io.Node = nodeid
 			}
-			logger.Debug(2, fmt.Sprintf("outout %s in task %s is an update of node %s\n", name, task.Id, io.Node))
+			logger.Debug(2, fmt.Sprintf("outout %s in task %s is an update of node %s", name, task.Id, io.Node))
 		} else {
 			// POST empty shock node for this output
-			logger.Debug(2, fmt.Sprintf("posting output Shock node for file %s in task %s\n", name, task.Id))
+			logger.Debug(2, fmt.Sprintf("posting output Shock node for file %s in task %s", name, task.Id))
 			nodeid, err := PostNodeWithToken(io, task.TotalWork, task.Info.DataToken)
 			if err != nil {
 				return err
 			}
 			io.Node = nodeid
-			logger.Debug(2, fmt.Sprintf("task %s: output Shock node created, node=%s\n", task.Id, nodeid))
+			logger.Debug(2, fmt.Sprintf("task %s: output Shock node created, node=%s", task.Id, nodeid))
 		}
 	}
 	return
@@ -937,8 +999,9 @@ func (qm *ServerMgr) updateTaskWorkStatus(task *Task, rank int, newstatus string
 	return
 }
 
+// show functions used in debug
 func (qm *ServerMgr) ShowTasks() {
-	fmt.Printf("current active tasks  (%d):\n", qm.lenTasks())
+	fmt.Printf("current active tasks (%d):\n", qm.lenTasks())
 	for _, task := range qm.getAllTasks() {
 		fmt.Printf("task id: %s, status:%s\n", task.Id, task.State)
 	}
@@ -977,7 +1040,6 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	if err != nil {
 		return err
 	}
-
 	logger.Debug(2, fmt.Sprintf("remaining tasks for task %s: %d", task.Id, remainTasks))
 
 	if remainTasks == 0 { //job done
@@ -1190,7 +1252,6 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 	if dbjob.State != JOB_STAT_SUSPEND {
 		return errors.New("job " + id + " is not in 'suspend' status")
 	}
-	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 
 	if dbjob.RemainTasks < len(dbjob.Tasks) {
 		dbjob.State = JOB_STAT_INPROGRESS
@@ -1201,11 +1262,12 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 	dbjob.Save()
 
 	qm.removeSusJob(id)
+	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 	return
 }
 
-//re-submit a job in db but not in the queue (caused by server restarting)
-func (qm *ServerMgr) ResubmitJob(id string) (err error) {
+//recover a job in db that is missing from queue (caused by server restarting)
+func (qm *ServerMgr) RecoverJob(id string) (err error) {
 	//Load job by id
 	if qm.isActJob(id) {
 		return errors.New("job " + id + " is already active")
@@ -1215,14 +1277,19 @@ func (qm *ServerMgr) ResubmitJob(id string) (err error) {
 	if err != nil {
 		return errors.New("failed to load job " + err.Error())
 	}
-	if dbjob.State == JOB_STAT_COMPLETED ||
-		dbjob.State == JOB_STAT_DELETED {
-		return errors.New("job is in " + dbjob.State + "  state thus cannot be recovered")
+	if dbjob.State == JOB_STAT_SUSPEND {
+		qm.putSusJob(dbjob.Id)
+	} else {
+		if dbjob.State == JOB_STAT_COMPLETED || dbjob.State == JOB_STAT_DELETED {
+			return errors.New("job is in " + dbjob.State + " state thus cannot be recovered")
+		}
+		for _, task := range dbjob.Tasks {
+			task.Info = dbjob.Info
+		}
+		qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 	}
-	for _, task := range dbjob.Tasks {
-		task.Info = dbjob.Info
-	}
-	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+
+	logger.Debug(2, fmt.Sprintf("Recovered job %s", id))
 	return
 }
 
@@ -1250,7 +1317,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	return
 }
 
-//recompute jobs from specified task stage
+//recompute job from specified task stage
 func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	if qm.isActJob(jobid) {
 		return errors.New("job " + jobid + " is already active")
@@ -1274,7 +1341,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	found := false
 	for _, task := range dbjob.Tasks {
 		if task.Id == from_task_id {
-			resetTask(task)
+			resetTask(task, dbjob.Info)
 			remaintasks += 1
 			found = true
 		}
@@ -1284,11 +1351,12 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	}
 	for _, task := range dbjob.Tasks {
 		if isAncestor(dbjob, task.Id, from_task_id) {
-			resetTask(task)
+			resetTask(task, dbjob.Info)
 			remaintasks += 1
 		}
 	}
-	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+
+	dbjob.Resumed += 1
 	dbjob.RemainTasks = remaintasks
 	if dbjob.RemainTasks < len(dbjob.Tasks) {
 		dbjob.UpdateState(JOB_STAT_INPROGRESS, "recomputed from task "+from_task_id)
@@ -1299,13 +1367,56 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	if was_suspend {
 		qm.removeSusJob(dbjob.Id)
 	}
+	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 
+	logger.Debug(2, fmt.Sprintf("Recomputed job %s from task %d", jobid, stage))
 	return
 }
 
-func resetTask(task *Task) {
+//recompute job from beginning
+func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
+	if qm.isActJob(jobid) {
+		return errors.New("job " + jobid + " is already active")
+	}
+	//Load job by id
+	dbjob, err := LoadJob(jobid)
+	if err != nil {
+		return errors.New("failed to load job " + err.Error())
+	}
+	if dbjob.State != JOB_STAT_COMPLETED && dbjob.State != JOB_STAT_SUSPEND {
+		return errors.New("job " + jobid + " is not in 'completed' or 'suspend' status")
+	}
+
+	was_suspend := false
+	if dbjob.State == JOB_STAT_SUSPEND {
+		was_suspend = true
+	}
+
+	remaintasks := 0
+	for _, task := range dbjob.Tasks {
+		resetTask(task, dbjob.Info)
+		remaintasks += 1
+	}
+
+	dbjob.Resumed += 1
+	dbjob.RemainTasks = remaintasks
+	dbjob.UpdateState(JOB_STAT_QUEUED, "restarted from the beginning")
+
+	if was_suspend {
+		qm.removeSusJob(dbjob.Id)
+	}
+	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+
+	logger.Debug(2, fmt.Sprintf("Restarted job %s from beginning", jobid))
+	return
+}
+
+func resetTask(task *Task, info *Info) {
+	task.Info = info
 	task.State = TASK_STAT_PENDING
 	task.RemainWork = task.TotalWork
+	task.ComputeTime = 0
+	task.CompletedDate = time.Time{}
 	for _, input := range task.Inputs {
 		if input.Origin != "" {
 			input.Node = "-"
@@ -1314,6 +1425,16 @@ func resetTask(task *Task) {
 		}
 	}
 	for _, output := range task.Outputs {
+		if dataUrl, _ := output.DataUrl(); dataUrl != "" {
+			// delete dataUrl if is shock node
+			if strings.HasSuffix(dataUrl, shock.DATA_SUFFIX) {
+				if err := shock.ShockDelete(output.Host, output.Node, output.DataToken); err == nil {
+					logger.Debug(2, fmt.Sprintf("Deleted node %s from shock", output.Node))
+				} else {
+					logger.Error(fmt.Sprintf("resetTask: unable to deleted node %s from shock: %s", output.Node, err.Error()))
+				}
+			}
+		}
 		output.Node = "-"
 		output.Url = ""
 		output.Size = 0

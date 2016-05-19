@@ -8,6 +8,13 @@ import (
 	"sync"
 )
 
+type wQueueShow struct {
+	WorkMap  map[string]*Workunit `bson:"workmap" json:"workmap"`
+	Wait     map[string]bool      `bson:"wait" json:"wait"`
+	Checkout map[string]bool      `bson:"checkout" json:"checkout"`
+	Suspend  map[string]bool      `bson:"suspend" json:"suspend"`
+}
+
 type WQueue struct {
 	sync.RWMutex
 	workMap  map[string]*Workunit //all parsed workunits
@@ -217,7 +224,7 @@ func (wq *WQueue) StatusChange(id string, new_status string) (err error) {
 //select workunits, return a slice of ids based on given queuing policy and requested count
 //if available is a positive value, filter by workunit input size
 func (wq *WQueue) selectWorkunits(workid []string, policy string, available int64, count int) (selected []*Workunit, err error) {
-	logger.Debug(3, fmt.Sprintf("starting selectWorkunits\n"))
+	logger.Debug(3, fmt.Sprintf("starting selectWorkunits"))
 	worklist := wq.GetSet(workid)
 	if policy == "FCFS" {
 		sort.Sort(byFCFS{worklist})
@@ -237,7 +244,7 @@ func (wq *WQueue) selectWorkunits(workid []string, policy string, available int6
 			added = added + 1
 		}
 	}
-	logger.Debug(3, fmt.Sprintf("done with selectWorkunits\n"))
+	logger.Debug(3, fmt.Sprintf("done with selectWorkunits"))
 	return
 }
 

@@ -143,8 +143,7 @@ func DbFindDistinct(q bson.M, d string) (results interface{}, err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
-	query := c.Find(q)
-	err = query.Distinct("info."+d, &results)
+	err = c.Find(q).Distinct("info."+d, &results)
 	return
 }
 

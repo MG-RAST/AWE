@@ -13,10 +13,10 @@ import (
 var DocumentMaxByte = 16777216
 
 // indexed info fields for search
-var jobInfoIndexes = []string{"submittime", "completedtime", "pipeline", "clientgroups", "project", "service", "user", "priority"}
+var JobInfoIndexes = []string{"submittime", "completedtime", "pipeline", "clientgroups", "project", "service", "user", "priority"}
 
 func HasInfoField(a string) bool {
-	for _, b := range jobInfoIndexes {
+	for _, b := range JobInfoIndexes {
 		if b == a {
 			return true
 		}
@@ -37,7 +37,7 @@ func InitJobDB() {
 	cj.EnsureIndex(mgo.Index{Key: []string{"state"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"expiration"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"updatetime"}, Background: true})
-	for _, v := range jobInfoIndexes {
+	for _, v := range JobInfoIndexes {
 		cj.EnsureIndex(mgo.Index{Key: []string{"info." + v}, Background: true})
 	}
 	cp := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_PERF)

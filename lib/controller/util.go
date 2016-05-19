@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 var (
@@ -99,6 +100,7 @@ func SiteDir(cx *goweb.Context) {
 
 type resource struct {
 	R             []string `json:"resources"`
+	F             []string `json:"info_indexes"`
 	U             string   `json:"url"`
 	D             string   `json:"documentation"`
 	Title         string   `json:"title"` // title to show in AWE monitor
@@ -107,6 +109,7 @@ type resource struct {
 	T             string   `json:"type"`
 	S             string   `json:"queue_status"`
 	V             string   `json:"version"`
+	Time          string   `json:"server_time"`
 	GitCommitHash string   `json:"git_commit_hash"`
 }
 
@@ -114,6 +117,7 @@ func ResourceDescription(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	r := resource{
 		R:             []string{},
+		F:             core.JobInfoIndexes,
 		U:             apiUrl(cx) + "/",
 		D:             siteUrl(cx) + "/",
 		Title:         conf.TITLE,
@@ -122,10 +126,11 @@ func ResourceDescription(cx *goweb.Context) {
 		T:             core.Service,
 		S:             core.QMgr.QueueStatus(),
 		V:             conf.VERSION,
+		Time:          time.Now().String(),
 		GitCommitHash: conf.GIT_COMMIT_HASH,
 	}
 	if core.Service == "server" {
-		r.R = []string{"job", "work", "client", "queue", "awf"}
+		r.R = []string{"job", "work", "client", "queue", "awf", "event"}
 	} else if core.Service == "proxy" {
 		r.R = []string{"client", "work"}
 	}

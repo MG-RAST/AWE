@@ -295,7 +295,8 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 
 	// Gather params to make db query. Do not include the
 	// following list.
-	skip := map[string]int{"limit": 1,
+	skip := map[string]int{
+		"limit":      1,
 		"offset":     1,
 		"query":      1,
 		"recent":     1,
@@ -306,6 +307,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		"registered": 1,
 		"verbosity":  1,
 		"userattr":   1,
+		"distinct":   1,
 	}
 	if query.Has("query") {
 		const shortForm = "2006-01-02"
@@ -524,6 +526,21 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			minimal_jobs = append(minimal_jobs, mjob)
 		}
 		cx.RespondWithPaginatedData(minimal_jobs, limit, offset, total)
+		return
+	}
+
+	if query.Has("distinct") {
+		dField := query.Value("distinct")
+		if !core.HasInfoField(dField) {
+			cx.RespondWithErrorMessage("unable to run distinct query on non-indexed info field: "+dField, http.StatusBadRequest)
+		}
+		results, err := core.DbFindDistinct(q, dField)
+		if err != nil {
+			logger.Error("err " + err.Error())
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+		cx.RespondWithData(results)
 		return
 	}
 

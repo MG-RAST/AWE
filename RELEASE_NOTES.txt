@@ -1,3 +1,23 @@
+# v0.9.26
+
+- added 'full' option to job DELETE, actually deletes job from mongoDB and filesystem
+- added expiration to job document
+  - set globally or per pipeline in config (off by default)
+  - user settable
+  - time is from completion of job
+- added 'resubmit' option to job PUT, re-starts job from beginning
+- refactor re-enqueue functions: resume, recompute, resubmit, recover
+- re-enqueueing a task now deletes the shock nodes of the outputs, no more orphaned nodes
+- fix race-condition resulting in broken re-enqueueing of tasks
+- add 'distinct' option to job query for list of distinct values, must be indexed field in job.info
+- update base API response
+- added /event resource - event code descriptions
+- expanded /queue resource
+  - option for json output format
+  - admin user only options to view current state of in-memory queues
+- added 'import' field to job POST, allow import of completed job documents into mongoDB
+- add validation for some config parameters
+
 # v0.9.25
 
 - fix bug in server when checking out workunit

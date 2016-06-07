@@ -7,6 +7,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	. "github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goweb"
 	"math/rand"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 var (
@@ -59,6 +61,13 @@ func (q *Query) All() map[string][]string {
 	return q.Li
 }
 
+func (q *Query) Empty() bool {
+	if len(q.Li) == 0 {
+		return true
+	}
+	return false
+}
+
 func LogRequest(req *http.Request) {
 	host, _, _ := net.SplitHostPort(req.RemoteAddr)
 	//	prefix := fmt.Sprintf("%s [%s]", host, time.Now().Format(time.RFC1123))
@@ -91,6 +100,7 @@ func SiteDir(cx *goweb.Context) {
 
 type resource struct {
 	R             []string `json:"resources"`
+	F             []string `json:"info_indexes"`
 	U             string   `json:"url"`
 	D             string   `json:"documentation"`
 	Title         string   `json:"title"` // title to show in AWE monitor
@@ -99,6 +109,7 @@ type resource struct {
 	T             string   `json:"type"`
 	S             string   `json:"queue_status"`
 	V             string   `json:"version"`
+	Time          string   `json:"server_time"`
 	GitCommitHash string   `json:"git_commit_hash"`
 }
 
@@ -106,6 +117,7 @@ func ResourceDescription(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	r := resource{
 		R:             []string{},
+		F:             core.JobInfoIndexes,
 		U:             apiUrl(cx) + "/",
 		D:             siteUrl(cx) + "/",
 		Title:         conf.TITLE,
@@ -114,15 +126,22 @@ func ResourceDescription(cx *goweb.Context) {
 		T:             core.Service,
 		S:             core.QMgr.QueueStatus(),
 		V:             conf.VERSION,
+		Time:          time.Now().String(),
 		GitCommitHash: conf.GIT_COMMIT_HASH,
 	}
 	if core.Service == "server" {
-		r.R = []string{"job", "work", "client", "queue", "awf"}
+		r.R = []string{"job", "work", "client", "queue", "awf", "event"}
 	} else if core.Service == "proxy" {
 		r.R = []string{"client", "work"}
 	}
 
 	cx.WriteResponse(r, 200)
+	return
+}
+
+func EventDescription(cx *goweb.Context) {
+	LogRequest(cx.Request)
+	cx.RespondWithData(event.EventDiscription)
 	return
 }
 

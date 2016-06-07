@@ -7,11 +7,13 @@ import (
 	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goconfig/config"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
 
-const VERSION string = "0.9.25"
+const VERSION string = "0.9.26"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -42,6 +44,8 @@ const STDERR_FILENAME string = "awe_stderr.txt"
 const WORKNOTES_FILENAME string = "awe_worknotes.txt"
 
 const ALL_APP string = "*"
+
+var checkExpire = regexp.MustCompile(`^(\d+)(M|H|D)$`)
 
 // set defaults in function "getConfiguration" below !!!!!
 var (
@@ -116,6 +120,9 @@ var (
 	VERSIONS = make(map[string]int)
 
 	//[server] options
+	EXPIRE_WAIT        int
+	GLOBAL_EXPIRE      string
+	PIPELINE_EXPIRE    string
 	PERF_LOG_WORKUNIT  bool
 	MAX_WORK_FAILURE   int
 	MAX_CLIENT_FAILURE int
@@ -164,6 +171,8 @@ var (
 	PRINT_HELP           bool
 	SHOW_HELP            bool // simple usage
 	SHOW_GIT_COMMIT_HASH bool
+
+	PIPELINE_EXPIRE_MAP = make(map[string]string)
 
 	Admin_Users    = make(map[string]bool)
 	AUTH_RESOURCES = make(map[string]AuthResource)
@@ -460,6 +469,9 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		//if big_data_size, err := c.Int("Server", "big_data_size"); err == nil {
 		//	BIG_DATA_SIZE = int64(big_data_size)
 		//}
+		c_store.AddInt(&EXPIRE_WAIT, 60, "Server", "expire_wait", "wait time for expiration reaper in minutes", "")
+		c_store.AddString(&GLOBAL_EXPIRE, "", "Server", "global_expire", "default number and unit of time after job completion before it expires", "")
+		c_store.AddString(&PIPELINE_EXPIRE, "", "Server", "pipeline_expire", "comma seperated list of pipeline_name=expire_days_unit, overrides global_expire", "")
 		c_store.AddInt(&MAX_WORK_FAILURE, 3, "Server", "max_work_failure", "number of times that one workunit fails before the workunit considered suspend", "")
 		c_store.AddInt(&MAX_CLIENT_FAILURE, 5, "Server", "max_client_failure", "number of times that one client consecutively fails running workunits before the client considered suspend", "")
 		c_store.AddInt(&GOMAXPROCS, 0, "Server", "go_max_procs", "", "")
@@ -619,6 +631,23 @@ func Init_conf(mode string) (err error) {
 		}
 	}
 
+	if mode == "server" {
+		if PIPELINE_EXPIRE != "" {
+			for _, set := range strings.Split(PIPELINE_EXPIRE, ",") {
+				parts := strings.Split(set, "=")
+				if valid, _, _ := parseExpiration(parts[1]); !valid {
+					return errors.New("expiration format in pipeline_expire is invalid")
+				}
+				PIPELINE_EXPIRE_MAP[parts[0]] = parts[1]
+			}
+		}
+		if GLOBAL_EXPIRE != "" {
+			if valid, _, _ := parseExpiration(GLOBAL_EXPIRE); !valid {
+				return errors.New("expiration format in global_expire is invalid")
+			}
+		}
+	}
+
 	if PID_FILE_PATH == "" {
 		PID_FILE_PATH = DATA_PATH + "/pidfile"
 	}
@@ -636,6 +665,24 @@ func Init_conf(mode string) (err error) {
 
 	VERSIONS["Job"] = 2
 
+	return
+}
+
+func parseExpiration(expire string) (valid bool, duration int, unit string) {
+	match := checkExpire.FindStringSubmatch(expire)
+	if len(match) == 0 {
+		return
+	}
+	valid = true
+	duration, _ = strconv.Atoi(match[1])
+	switch match[2] {
+	case "M":
+		unit = "minutes"
+	case "H":
+		unit = "hours"
+	case "D":
+		unit = "days"
+	}
 	return
 }
 
@@ -663,6 +710,28 @@ func Print(service string) {
 			fmt.Printf("%s ", name)
 		}
 		fmt.Printf("\n")
+	}
+	fmt.Printf("\n")
+
+	if service == "server" {
+		fmt.Printf("##### Expiration #####\nexpire_wait:\t%d minutes\n", EXPIRE_WAIT)
+		fmt.Printf("global_expire:\t")
+		if GLOBAL_EXPIRE == "" {
+			fmt.Printf("disabled\n")
+		} else {
+			_, duration, unit := parseExpiration(GLOBAL_EXPIRE)
+			fmt.Printf("%d %s\n", duration, unit)
+		}
+		fmt.Printf("pipeline_expire:")
+		if PIPELINE_EXPIRE == "" {
+			fmt.Printf("\tdisabled\n")
+		} else {
+			for name, expire := range PIPELINE_EXPIRE_MAP {
+				_, duration, unit := parseExpiration(expire)
+				fmt.Printf("\n\t%s:\t%d %s", name, duration, unit)
+			}
+			fmt.Printf("\n")
+		}
 	}
 	fmt.Printf("\n")
 

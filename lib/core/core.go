@@ -95,7 +95,7 @@ func (o *Opts) Value(key string) string {
 //used for issue operation request to client, e.g. discard suspended workunits
 type HBmsg map[string]string //map[op]obj1,obj2 e.g. map[discard]=work1,work2
 
-func CreateJobUpload(u *user.User, params map[string]string, files FormFiles, jid string) (job *Job, err error) {
+func CreateJobUpload(u *user.User, files FormFiles, jid string) (job *Job, err error) {
 
 	if _, has_upload := files["upload"]; has_upload {
 		job, err = ParseJobTasks(files["upload"].Path, jid)
@@ -145,9 +145,64 @@ func CreateJobUpload(u *user.User, params map[string]string, files FormFiles, ji
 		}
 	}
 
-	err = job.UpdateFile(params, files)
+	err = job.UpdateFile(files)
 	if err != nil {
 		err = errors.New("error in UpdateFile, error=" + err.Error())
+		return
+	}
+
+	err = job.Save()
+	if err != nil {
+		err = errors.New("error in job.Save(), error=" + err.Error())
+		return
+	}
+	return
+}
+
+func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
+	job = new(Job)
+
+	jsonstream, err := ioutil.ReadFile(file.Path)
+	if err != nil {
+		return nil, errors.New("error in reading job json file" + err.Error())
+	}
+
+	err = json.Unmarshal(jsonstream, job)
+	if err != nil {
+		return nil, errors.New("error in unmarshaling job json file: " + err.Error())
+	}
+
+	if len(job.Tasks) == 0 {
+		return nil, errors.New("invalid job document: task list empty")
+	}
+	if job.State != JOB_STAT_COMPLETED {
+		return nil, errors.New("invalid job import: must be completed")
+	}
+	if job.Info == nil {
+		return nil, errors.New("invalid job import: missing job info")
+	}
+	if job.Id == "" || job.Jid == "" {
+		return nil, errors.New("invalid job import: missing job id")
+	}
+
+	// check that input FileName is not repeated within an individual task
+	for _, task := range job.Tasks {
+		inputFileNames := make(map[string]bool)
+		for _, io := range task.Inputs {
+			if _, exists := inputFileNames[io.FileName]; exists {
+				return nil, errors.New("invalid inputs: task " + task.Id + " contains multiple inputs with filename=" + io.FileName)
+			}
+			inputFileNames[io.FileName] = true
+		}
+	}
+
+	// Once, job has been created, set job owner and add owner to all ACL's
+	job.Acl.SetOwner(u.Uuid)
+	job.Acl.Set(u.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
+
+	err = job.Mkdir()
+	if err != nil {
+		err = errors.New("error creating job directory, error=" + err.Error())
 		return
 	}
 

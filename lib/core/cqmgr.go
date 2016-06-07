@@ -44,7 +44,7 @@ func (qm *CQMgr) ClientHandle() {
 	for {
 		select {
 		case coReq := <-qm.coReq:
-			logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v\n", coReq))
+			logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v", coReq))
 			var ack CoAck
 			if qm.suspendQueue {
 				// queue is suspended, return suspend error
@@ -55,7 +55,7 @@ func (qm *CQMgr) ClientHandle() {
 			}
 			qm.coAck <- ack
 		case notice := <-qm.feedback:
-			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
+			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))
 			if err := qm.handleWorkStatusChange(notice); err != nil {
 				logger.Error("handleWorkStatusChange(): " + err.Error())
 			}
@@ -152,7 +152,7 @@ func (qm *CQMgr) ListClients() (ids []string) {
 func (qm *CQMgr) ClientChecker() {
 	for {
 		time.Sleep(30 * time.Second)
-		logger.Debug(3, "time to update client list....\n")
+		logger.Debug(3, "time to update client list....")
 		for _, client := range qm.GetAllClients() {
 			if client.Tag == true {
 				client.Tag = false
@@ -567,7 +567,7 @@ func (qm *CQMgr) NotifyWorkStatus(notice Notice) {
 }
 
 func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
-	logger.Debug(3, fmt.Sprintf("starting popWorks() for client: %s\n", req.fromclient))
+	logger.Debug(3, fmt.Sprintf("starting popWorks() for client: %s", req.fromclient))
 
 	filtered, err := qm.filterWorkByClient(req.fromclient)
 	if err != nil {
@@ -586,12 +586,12 @@ func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 			qm.workQueue.StatusChange(work.Id, WORK_STAT_CHECKOUT)
 		}
 	}
-	logger.Debug(3, fmt.Sprintf("done with popWorks() for client: %s\n", req.fromclient))
+	logger.Debug(3, fmt.Sprintf("done with popWorks() for client: %s", req.fromclient))
 	return
 }
 
 func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string, err error) {
-	logger.Debug(3, fmt.Sprintf("starting filterWorkByClient() for client: %s\n", clientid))
+	logger.Debug(3, fmt.Sprintf("starting filterWorkByClient() for client: %s", clientid))
 
 	client, ok := qm.GetClient(clientid)
 	if !ok {
@@ -627,7 +627,7 @@ func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string, err error) {
 			logger.Debug(2, fmt.Sprintf("3) contains(client.Apps, work.Cmd.Name) || contains(client.Apps, conf.ALL_APP) %s", id))
 		}
 	}
-	logger.Debug(3, fmt.Sprintf("done with filterWorkByClient() for client: %s\n", clientid))
+	logger.Debug(3, fmt.Sprintf("done with filterWorkByClient() for client: %s", clientid))
 
 	return ids, nil
 }

@@ -51,7 +51,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	}
 
 	// Parse uploaded form
-	params, files, err := ParseMultipartForm(cx.Request)
+	_, files, err := ParseMultipartForm(cx.Request)
 
 	if err != nil {
 		if err.Error() == "request Content-Type isn't multipart/form-data" {
@@ -66,39 +66,51 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		return
 	}
 
+	_, has_import := files["import"]
 	_, has_upload := files["upload"]
 	_, has_awf := files["awf"]
 
-	if !has_upload && !has_awf {
+	var job *core.Job
+
+	if has_import {
+		// import a job document
+		job, err = core.CreateJobImport(u, files["import"])
+		if err != nil {
+			logger.Error("Err@job_Create:CreateJobImport: " + err.Error())
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+		logger.Event(event.JOB_IMPORT, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
+	} else if !has_upload && !has_awf {
 		cx.RespondWithErrorMessage("No job script or awf is submitted", http.StatusBadRequest)
 		return
-	}
-
-	//send job submission request and get back an assigned job number (jid)
-	var jid string
-	jid, err = core.QMgr.JobRegister()
-	if err != nil {
-		logger.Error("Err@job_Create:GetNextJobNum: " + err.Error())
-		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	var job *core.Job
-	job, err = core.CreateJobUpload(u, params, files, jid)
-	if err != nil {
-		logger.Error("Err@job_Create:CreateJobUpload: " + err.Error())
-		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-		return
+	} else {
+		// send job submission request and get back an assigned job number (jid)
+		var jid string
+		jid, err = core.QMgr.JobRegister()
+		if err != nil {
+			logger.Error("Err@job_Create:GetNextJobNum: " + err.Error())
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+		// create new uploaded job
+		job, err = core.CreateJobUpload(u, files, jid)
+		if err != nil {
+			logger.Error("Err@job_Create:CreateJobUpload: " + err.Error())
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+		logger.Event(event.JOB_SUBMISSION, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	}
 
 	if token, err := request.RetrieveToken(cx.Request); err == nil {
 		job.SetDataToken(token)
 	}
+	// don't enqueue imports
+	if !has_import {
+		core.QMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
+	}
 
-	core.QMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
-
-	//log event about job submission (JB)
-	logger.Event(event.JOB_SUBMISSION, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	cx.RespondWithData(job)
 	return
 }
@@ -283,7 +295,8 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 
 	// Gather params to make db query. Do not include the
 	// following list.
-	skip := map[string]int{"limit": 1,
+	skip := map[string]int{
+		"limit":      1,
 		"offset":     1,
 		"query":      1,
 		"recent":     1,
@@ -294,6 +307,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		"registered": 1,
 		"verbosity":  1,
 		"userattr":   1,
+		"distinct":   1,
 	}
 	if query.Has("query") {
 		const shortForm = "2006-01-02"
@@ -515,6 +529,21 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		return
 	}
 
+	if query.Has("distinct") {
+		dField := query.Value("distinct")
+		if !core.HasInfoField(dField) {
+			cx.RespondWithErrorMessage("unable to run distinct query on non-indexed info field: "+dField, http.StatusBadRequest)
+		}
+		results, err := core.DbFindDistinct(q, dField)
+		if err != nil {
+			logger.Error("err " + err.Error())
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+		cx.RespondWithData(results)
+		return
+	}
+
 	total, err := jobs.GetPaginated(q, limit, offset, order, direction)
 	if err != nil {
 		logger.Error("err " + err.Error())
@@ -615,7 +644,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("resume") { // to resume a suspended job
-		if err := core.QMgr.ResumeSuspendedJob(id); err != nil {
+		if err := core.QMgr.ResumeSuspendedJobByUser(id, u); err != nil {
 			cx.RespondWithErrorMessage("fail to resume job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -630,12 +659,12 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		cx.RespondWithData("job suspended: " + id)
 		return
 	}
-	if query.Has("resubmit") || query.Has("reregister") { // to re-submit a job from mongodb
-		if err := core.QMgr.ResubmitJob(id); err != nil {
-			cx.RespondWithErrorMessage("fail to resubmit job: "+id+" "+err.Error(), http.StatusBadRequest)
+	if query.Has("recover") || query.Has("register") { // to recover a job from mongodb missing from queue
+		if err := core.QMgr.RecoverJob(id); err != nil {
+			cx.RespondWithErrorMessage("fail to recover job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		cx.RespondWithData("job resubmitted: " + id)
+		cx.RespondWithData("job recovered: " + id)
 		return
 	}
 	if query.Has("recompute") { // to recompute a job from task i, the successive/downstream tasks of i will all be computed
@@ -649,6 +678,14 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 			return
 		}
 		cx.RespondWithData("job recompute started: " + id)
+		return
+	}
+	if query.Has("resubmit") { // to recompute a job from the beginning, all tasks will be computed
+		if err := core.QMgr.ResubmitJob(id); err != nil {
+			cx.RespondWithErrorMessage("fail to resubmit job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		cx.RespondWithData("job resubmitted: " + id)
 		return
 	}
 	if query.Has("clientgroup") { // change the clientgroup attribute of the job
@@ -682,25 +719,42 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		cx.RespondWithData("job priority updated: " + id + " to " + priority_str)
 		return
 	}
-
+	if query.Has("pipeline") { // change the pipeline attribute of the job
+		pipeline := query.Value("pipeline")
+		if pipeline == "" {
+			cx.RespondWithErrorMessage("lacking pipeline value", http.StatusBadRequest)
+			return
+		}
+		if err := job.SetPipeline(pipeline); err != nil {
+			cx.RespondWithErrorMessage("failed to set the pipeline for job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		cx.RespondWithData("job pipeline updated: " + id + " to " + pipeline)
+		return
+	}
+	if query.Has("expiration") { // change the expiration attribute of the job, does not get reaped until in completed state
+		expire := query.Value("expiration")
+		if expire == "" {
+			cx.RespondWithErrorMessage("lacking expiration value", http.StatusBadRequest)
+			return
+		}
+		if err := job.SetExpiration(expire); err != nil {
+			cx.RespondWithErrorMessage("failed to set the expiration for job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		cx.RespondWithData("expiration '" + job.Expiration.String() + "' set for job: " + id)
+		return
+	}
 	if query.Has("settoken") { // set data token
 		token, err := request.RetrieveToken(cx.Request)
 		if err != nil {
 			cx.RespondWithErrorMessage("fail to retrieve token for job, pls set token in header: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
-
-		job, err := core.LoadJob(id)
-		if err != nil {
-			if err == mgo.ErrNotFound {
-				cx.RespondWithNotFound()
-			} else {
-				logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
-				cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
-			}
+		if err := job.SetDataToken(token); err != nil {
+			cx.RespondWithErrorMessage("failed to set the token for job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		job.SetDataToken(token)
 		cx.RespondWithData("data token set for job: " + id)
 		return
 	}
@@ -729,7 +783,14 @@ func (cr *JobController) Delete(id string, cx *goweb.Context) {
 		}
 	}
 
-	if err = core.QMgr.DeleteJobByUser(id, u); err != nil {
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
+	full := false
+	if query.Has("full") {
+		full = true
+	}
+
+	if err = core.QMgr.DeleteJobByUser(id, u, full); err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 			return
@@ -769,11 +830,15 @@ func (cr *JobController) DeleteMany(cx *goweb.Context) {
 
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
+	full := false
+	if query.Has("full") {
+		full = true
+	}
 	if query.Has("suspend") {
-		num := core.QMgr.DeleteSuspendedJobsByUser(u)
+		num := core.QMgr.DeleteSuspendedJobsByUser(u, full)
 		cx.RespondWithData(fmt.Sprintf("deleted %d suspended jobs", num))
 	} else if query.Has("zombie") {
-		num := core.QMgr.DeleteZombieJobsByUser(u)
+		num := core.QMgr.DeleteZombieJobsByUser(u, full)
 		cx.RespondWithData(fmt.Sprintf("deleted %d zombie jobs", num))
 	} else {
 		cx.RespondWithError(http.StatusNotImplemented)

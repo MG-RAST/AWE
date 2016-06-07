@@ -73,11 +73,19 @@ func (qm *ProxyMgr) QueueStatus() string {
 	return ""
 }
 
+func (qm *ProxyMgr) GetQueue(name string) interface{} {
+	return nil
+}
+
 func (qm *ProxyMgr) InitMaxJid() (err error) {
 	return
 }
 
-func (qm *ProxyMgr) ShowStatus() string {
+func (qm *ProxyMgr) GetJsonStatus() (status map[string]map[string]int) {
+	return status
+}
+
+func (qm *ProxyMgr) GetTextStatus() string {
 	return ""
 }
 
@@ -224,41 +232,19 @@ func (qm *ProxyMgr) SuspendJob(jobid string, reason string, id string) (err erro
 	return
 }
 
-func (qm *ProxyMgr) ResumeSuspendedJobs() (num int) {
-	return
-}
-
 func (qm *ProxyMgr) ResumeSuspendedJobsByUser(u *user.User) (num int) {
 	return
 }
 
-func (qm *ProxyMgr) DeleteJob(jobid string) (err error) {
+func (qm *ProxyMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err error) {
 	return
 }
 
-func (qm *ProxyMgr) DeleteJobByUser(jobid string, u *user.User) (err error) {
+func (qm *ProxyMgr) DeleteSuspendedJobsByUser(u *user.User, full bool) (num int) {
 	return
 }
 
-func (qm *ProxyMgr) DeleteSuspendedJobs() (num int) {
-	return
-}
-
-func (qm *ProxyMgr) DeleteSuspendedJobsByUser(u *user.User) (num int) {
-	return
-}
-
-func (qm *ProxyMgr) DeleteZombieJobs() (num int) {
-	return
-}
-
-func (qm *ProxyMgr) DeleteZombieJobsByUser(u *user.User) (num int) {
-	return
-}
-
-//resubmit a suspended job
-func (qm *ProxyMgr) ResumeSuspendedJob(id string) (err error) {
-	//Load job by id
+func (qm *ProxyMgr) DeleteZombieJobsByUser(u *user.User, full bool) (num int) {
 	return
 }
 
@@ -270,6 +256,11 @@ func (qm *ProxyMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err error
 
 //re-submit a job in db but not in the queue (caused by server restarting)
 func (qm *ProxyMgr) ResubmitJob(id string) (err error) {
+	return
+}
+
+//recover job not in queue
+func (qm *ProxyMgr) RecoverJob(id string) (err error) {
 	return
 }
 

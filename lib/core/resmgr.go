@@ -44,18 +44,14 @@ type JobMgr interface {
 	IsJobRegistered(string) bool
 	GetSuspendJobs() map[string]bool
 	SuspendJob(string, string, string) error
-	ResumeSuspendedJob(string) error
 	ResumeSuspendedJobByUser(string, *user.User) error
-	ResumeSuspendedJobs() int
 	ResumeSuspendedJobsByUser(*user.User) int
 	ResubmitJob(string) error
-	DeleteJob(string) error
-	DeleteJobByUser(string, *user.User) error
-	DeleteSuspendedJobs() int
-	DeleteSuspendedJobsByUser(*user.User) int
-	DeleteZombieJobs() int
-	DeleteZombieJobsByUser(*user.User) int
+	DeleteJobByUser(string, *user.User, bool) error
+	DeleteSuspendedJobsByUser(*user.User, bool) int
+	DeleteZombieJobsByUser(*user.User, bool) int
 	InitMaxJid() error
+	RecoverJob(string) error
 	RecoverJobs() error
 	FinalizeWorkPerf(string, string) error
 	SaveStdLog(string, string, string) error
@@ -76,8 +72,10 @@ type ResourceMgr interface {
 	JidHandle()
 	TaskHandle()
 	ClientHandle()
-	ShowStatus() string
+	GetJsonStatus() map[string]map[string]int
+	GetTextStatus() string
 	QueueStatus() string
+	GetQueue(string) interface{}
 	SuspendQueue()
 	ResumeQueue()
 }

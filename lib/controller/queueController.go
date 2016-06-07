@@ -12,6 +12,8 @@ import (
 
 type QueueController struct{}
 
+var queueTypes = []string{"job", "task", "work", "client"}
+
 // OPTIONS: /queue
 func (cr *QueueController) Options(cx *goweb.Context) {
 	LogRequest(cx.Request)
@@ -38,8 +40,42 @@ func (cr *QueueController) Read(id string, cx *goweb.Context) {
 func (cr *QueueController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
-	msg := core.QMgr.ShowStatus()
-	cx.RespondWithData(msg)
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
+
+	// unathenticated queue status, numbers only
+	if query.Empty() {
+		statusText := core.QMgr.GetTextStatus()
+		cx.RespondWithData(statusText)
+		return
+	}
+	if query.Has("json") {
+		statusJson := core.QMgr.GetJsonStatus()
+		cx.RespondWithData(statusJson)
+		return
+	}
+
+	// Try to authenticate user.
+	u, err := request.Authenticate(cx.Request)
+	if err != nil && err.Error() != e.NoAuth {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+		return
+	}
+	// must be admin user
+	if u == nil || u.Admin == false {
+		cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+		return
+	}
+	// check if valid queue type requested
+	for _, q := range queueTypes {
+		if query.Has(q) {
+			queueData := core.QMgr.GetQueue(q)
+			cx.RespondWithData(queueData)
+			return
+		}
+	}
+
+	cx.RespondWithErrorMessage("requested queue operation not supported", http.StatusBadRequest)
 	return
 }
 

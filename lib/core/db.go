@@ -12,6 +12,18 @@ import (
 // mongodb has hard limit of 16 MB docuemnt size
 var DocumentMaxByte = 16777216
 
+// indexed info fields for search
+var JobInfoIndexes = []string{"submittime", "completedtime", "pipeline", "clientgroups", "project", "service", "user", "priority"}
+
+func HasInfoField(a string) bool {
+	for _, b := range JobInfoIndexes {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
 func InitJobDB() {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
@@ -21,13 +33,13 @@ func InitJobDB() {
 	cj.EnsureIndex(mgo.Index{Key: []string{"acl.write"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"acl.delete"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
-	cj.EnsureIndex(mgo.Index{Key: []string{"info.submittime"}, Background: true})
-	cj.EnsureIndex(mgo.Index{Key: []string{"info.completedtime"}, Background: true})
-	cj.EnsureIndex(mgo.Index{Key: []string{"info.pipeline"}, Background: true})
-	cj.EnsureIndex(mgo.Index{Key: []string{"info.user"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"jid"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"state"}, Background: true})
+	cj.EnsureIndex(mgo.Index{Key: []string{"expiration"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"updatetime"}, Background: true})
+	for _, v := range JobInfoIndexes {
+		cj.EnsureIndex(mgo.Index{Key: []string{"info." + v}, Background: true})
+	}
 	cp := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_PERF)
 	cp.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
 }
@@ -124,6 +136,14 @@ func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string) 
 		}
 	}
 	err = query.Sort(sortby).All(results)
+	return
+}
+
+func DbFindDistinct(q bson.M, d string) (results interface{}, err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	err = c.Find(q).Distinct("info."+d, &results)
 	return
 }
 

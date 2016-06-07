@@ -61,7 +61,12 @@ id=unique:true
 debuglevel=0
 
 [Server]
+expire_wait=60
+global_expire=
+pipeline_expire=
 perf_log_workunit=true
+max_work_failure=3
+max_client_failure=5
 
 [Client]
 totalworker=2

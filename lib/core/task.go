@@ -75,6 +75,14 @@ type TaskDep struct {
 	ClientGroups      string            `bson:"clientgroups" json:"clientgroups"`
 }
 
+type TaskLog struct {
+	Id            string     `bson:"taskid" json:"taskid"`
+	State         string     `bson:"state" json:"state"`
+	TotalWork     int        `bson:"totalwork" json:"totalwork"`
+	CompletedDate time.Time  `bson:"completedDate" json:"completeddate"`
+	Workunits     []*WorkLog `bson:"workunits" json:"workunits"`
+}
+
 func NewTask(job *Job, rank int) *Task {
 	return &Task{
 		Id:         fmt.Sprintf("%s_%d", job.Id, rank),
@@ -312,6 +320,22 @@ func (task *Task) ParseWorkunit() (wus []*Workunit, err error) {
 	for i := 1; i <= task.TotalWork; i++ {
 		workunit := NewWorkunit(task, i)
 		wus = append(wus, workunit)
+	}
+	return
+}
+
+func (task *Task) GetTaskLogs() (tlog *TaskLog) {
+	tlog = new(TaskLog)
+	tlog.Id = task.Id
+	tlog.State = task.State
+	tlog.TotalWork = task.TotalWork
+	tlog.CompletedDate = task.CompletedDate
+	if task.TotalWork == 1 {
+		tlog.Workunits = append(tlog.Workunits, NewWorkLog(task.Id, 0))
+	} else {
+		for i := 1; i <= task.TotalWork; i++ {
+			tlog.Workunits = append(tlog.Workunits, NewWorkLog(task.Id, i))
+		}
 	}
 	return
 }

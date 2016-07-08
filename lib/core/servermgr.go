@@ -33,11 +33,11 @@ type ServerMgr struct {
 	taskMap   map[string]*Task
 	actJobs   map[string]*JobPerf
 	susJobs   map[string]bool
-	jsReq     chan bool   //channel for job submission request (JobController -> qmgr.Handler)
-	jsAck     chan string //channel for return an assigned job number in response to jsReq  (qmgr.Handler -> JobController)
-	taskIn    chan *Task  //channel for receiving Task (JobController -> qmgr.Handler)
-	coSem     chan int    //semaphore for checkout (mutual exclusion between different clients)
-	nextJid   string      //next jid that will be assigned to newly submitted job
+	jsReq     chan bool  //channel for job submission request (JobController -> qmgr.Handler)
+	jsAck     chan int   //channel for return an assigned job number in response to jsReq  (qmgr.Handler -> JobController)
+	taskIn    chan *Task //channel for receiving Task (JobController -> qmgr.Handler)
+	coSem     chan int   //semaphore for checkout (mutual exclusion between different clients)
+	nextJid   int        //next jid that will be assigned to newly submitted job
 }
 
 func NewServerMgr() *ServerMgr {
@@ -53,11 +53,11 @@ func NewServerMgr() *ServerMgr {
 		},
 		taskMap: map[string]*Task{},
 		jsReq:   make(chan bool),
-		jsAck:   make(chan string),
+		jsAck:   make(chan int),
 		taskIn:  make(chan *Task, 1024),
 		actJobs: map[string]*JobPerf{},
 		susJobs: map[string]bool{},
-		nextJid: "",
+		nextJid: 0,
 	}
 }
 
@@ -68,7 +68,7 @@ func (qm *ServerMgr) JidHandle() {
 		<-qm.jsReq
 		jid := qm.getNextJid()
 		qm.jsAck <- jid
-		logger.Debug(2, fmt.Sprintf("qmgr:receive a job submission request, assigned jid=%s", jid))
+		logger.Debug(2, fmt.Sprintf("qmgr:receive a job submission request, assigned jid=%d", jid))
 	}
 }
 
@@ -336,47 +336,22 @@ func (qm *ServerMgr) listTasks() (ids []string) {
 //--------server methods-------
 
 func (qm *ServerMgr) InitMaxJid() (err error) {
+	// this is for backwards compatibility with jid on filysystem
+	startjid := conf.JOB_ID_START
 	jidfile := conf.DATA_PATH + "/maxjid"
-
-	if _, err := os.Stat(jidfile); err != nil {
-
-		f, err := os.Create(jidfile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, fmt.Sprintf("error creating jidfile ", err.Error())) // logger does not work
-			logger.Error(fmt.Sprintf("error creating jidfile ", err.Error()))
-			return err
-		}
-		f.WriteString("10000")
-		qm.nextJid = "10001"
-		f.Close()
-	} else {
-
-		buf, err := ioutil.ReadFile(jidfile)
-		if err != nil {
-			if conf.DEBUG_LEVEL > 0 {
-				fmt.Println("error ioutil.ReadFile(jidfile)")
-			}
-			return err
-		}
+	if buf, ferr := ioutil.ReadFile(jidfile); ferr == nil {
 		bufstr := strings.TrimSpace(string(buf))
-
-		maxjid, err := strconv.Atoi(bufstr)
-		if err != nil {
-			if conf.DEBUG_LEVEL > 0 {
-				fmt.Println(fmt.Sprintf("error strconv.Atoi(bufstr), bufstr=\"%s\"", bufstr))
-			}
-			fmt.Fprintf(os.Stderr, fmt.Sprintf("Could not convert \"%s\" into int", bufstr)) // logger does not work
-			logger.Error(fmt.Sprintf("Could not convert \"%s\" into int", bufstr))
-			return err
+		if jid, serr := strconv.Atoi(bufstr); serr == nil {
+			startjid = jid
 		}
-
-		qm.nextJid = strconv.Itoa(maxjid + 1)
-
 	}
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("in InitMaxJid C")
+	// set in mongoDB
+	if err := initMaxJidDB(startjid); err != nil {
+		return err
 	}
-	logger.Debug(2, fmt.Sprintf("qmgr:jid initialized, next jid=%s", qm.nextJid))
+	qm.nextJid = startjid + 1
+
+	logger.Debug(2, fmt.Sprintf("qmgr:jid initialized, next jid=%d", qm.nextJid))
 	return
 }
 
@@ -1012,19 +987,18 @@ func (qm *ServerMgr) ShowTasks() {
 //---job methods---
 func (qm *ServerMgr) JobRegister() (jid string, err error) {
 	qm.jsReq <- true
-	jid = <-qm.jsAck
-
-	if jid == "" {
+	id := <-qm.jsAck
+	if id == 0 {
 		return "", errors.New("failed to assign a job number for the newly submitted job")
 	}
-	return jid, nil
+	return strconv.Itoa(id), nil
 }
 
-func (qm *ServerMgr) getNextJid() (jid string) {
+func (qm *ServerMgr) getNextJid() (jid int) {
 	jid = qm.nextJid
-	jidfile := conf.DATA_PATH + "/maxjid"
-	ioutil.WriteFile(jidfile, []byte(jid), 0644)
-	qm.nextJid = jidIncr(qm.nextJid)
+	nextjid := &JobID{"jid", jid}
+	dbUpsert(nextjid)
+	qm.nextJid += 1
 	return jid
 }
 

@@ -19,9 +19,11 @@ var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.G
 const BasePriority int = 1
 
 const DB_COLL_JOBS string = "Jobs"
+const DB_COLL_JID string = "MaxID"
 const DB_COLL_PERF string = "Perf"
 const DB_COLL_CGS string = "ClientGroups"
 const DB_COLL_USERS string = "Users"
+const JOB_ID_START int = 10000
 
 //default index type used for intermediate data
 const DEFAULT_INDEX string = "chunkrecord"

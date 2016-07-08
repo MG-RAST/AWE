@@ -39,6 +39,25 @@ type Workunit struct {
 	UserAttr     map[string]string `bson:"userattr" json:"userattr"`
 }
 
+type WorkLog struct {
+	Id        string `bson:"wuid" json:"wuid"`
+	Rank      int    `bson:"rank" json:"rank"`
+	Stdout    string `bson:"stdout" json:"stdout"`
+	Stderr    string `bson:"stderr" json:"stderr"`
+	Worknotes string `bson:"worknotes" json:"worknotes"`
+}
+
+func NewWorkLog(tid string, rank int) (wlog *WorkLog) {
+	wid := fmt.Sprintf("%s_%d", tid, rank)
+	wlog = new(WorkLog)
+	wlog.Id = wid
+	wlog.Rank = rank
+	wlog.Stdout, _ = QMgr.GetReportMsg(wid, "stdout")
+	wlog.Stderr, _ = QMgr.GetReportMsg(wid, "stderr")
+	wlog.Worknotes, _ = QMgr.GetReportMsg(wid, "worknotes")
+	return
+}
+
 // create workunit slice type to use for sorting
 
 type WorkunitsSortby struct {

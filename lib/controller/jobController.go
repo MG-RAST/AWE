@@ -205,6 +205,16 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 		return
 	}
 
+	if query.Has("report") {
+		jobLogs, err := job.GetJobLogs()
+		if err != nil {
+			logger.Error("Err@GetJobLogs: " + id + ":" + err.Error())
+			cx.RespondWithErrorMessage("job logs not found: "+id, http.StatusBadRequest)
+		}
+		cx.RespondWithData(jobLogs)
+		return
+	}
+
 	if core.QMgr.IsJobRegistered(id) {
 		job.Registered = true
 	} else {

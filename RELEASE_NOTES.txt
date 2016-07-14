@@ -1,3 +1,9 @@
+# v0.9.28
+
+- docker file updates
+  - ubuntu 16.04
+  - golang 1.6.2
+
 # v0.9.27
 
 - improved log / error messages

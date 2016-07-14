@@ -32,7 +32,7 @@ type IO struct {
 	ShockIndex    string                 `bson:"shockindex" json:"shockindex"` // on input it indicates that Shock node has to be indexed by AWE server
 	AttrFile      string                 `bson:"attrfile" json:"attrfile"`
 	NoFile        bool                   `bson:"nofile" json:"nofile"`
-	Delete        bool                   `bson:"delete" json:"delete"`  // speficies that this is a temorary node, to be deleted from shock on job completion
+	Delete        bool                   `bson:"delete" json:"delete"` // speficies that this is a temorary node, to be deleted from shock on job completion
 	Type          string                 `bson:"type" json:"type"`
 	NodeAttr      map[string]interface{} `bson:"nodeattr" json:"nodeattr"` // specifies attribute data to be stored in shock node (output only)
 	FormOptions   map[string]string      `bson:"formoptions" json:"formoptions"`

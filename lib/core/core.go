@@ -652,7 +652,6 @@ func getParentTask(taskid string, origin int) string {
 	return taskid
 }
 
-//
 func contains(list []string, elem string) bool {
 	for _, t := range list {
 		if t == elem {
@@ -660,14 +659,6 @@ func contains(list []string, elem string) bool {
 		}
 	}
 	return false
-}
-
-func jidIncr(jid string) (newjid string) {
-	if jidint, err := strconv.Atoi(jid); err == nil {
-		jidint += 1
-		return strconv.Itoa(jidint)
-	}
-	return jid
 }
 
 //functions for REST API communication  (=deprecated=)

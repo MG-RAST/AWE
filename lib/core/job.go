@@ -78,6 +78,21 @@ type JobMin struct {
 	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
 }
 
+type JobLog struct {
+	Id         string     `bson:"id" json:"id"`
+	State      string     `bson:"state" json:"state"`
+	UpdateTime time.Time  `bson:"updatetime" json:"updatetime"`
+	Notes      string     `bson:"notes" json:"notes"`
+	LastFailed string     `bson:"lastfailed" json:"lastfailed"`
+	Resumed    int        `bson:"resumed" json:"resumed"`
+	Tasks      []*TaskLog `bson:"tasks" json:"tasks"`
+}
+
+type JobID struct {
+	Name string `bson:"name" json:"name"`
+	Max  int    `bson:"max" json:"max"`
+}
+
 //set job's uuid
 func (job *Job) setId() {
 	job.Id = uuid.New()
@@ -298,6 +313,20 @@ func (job *Job) GetPrivateEnv(taskid string) (env map[string]string) {
 		if taskid == task.Id {
 			return task.Cmd.Environ.Private
 		}
+	}
+	return
+}
+
+func (job *Job) GetJobLogs() (jlog *JobLog, err error) {
+	jlog = new(JobLog)
+	jlog.Id = job.Id
+	jlog.State = job.State
+	jlog.UpdateTime = job.UpdateTime
+	jlog.Notes = job.Notes
+	jlog.LastFailed = job.LastFailed
+	jlog.Resumed = job.Resumed
+	for _, task := range job.Tasks {
+		jlog.Tasks = append(jlog.Tasks, task.GetTaskLogs())
 	}
 	return
 }

@@ -239,10 +239,7 @@ func main() {
 		fmt.Println("Done")
 	}
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("init max job number (jid)...")
-	}
-	//init max job number (jid)
+	// init max job number (jid), backwards compatible with jobid file
 	if err := core.QMgr.InitMaxJid(); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR from InitMaxJid : %v\n", err)
 		os.Exit(1)

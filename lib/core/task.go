@@ -181,14 +181,14 @@ func (task *Task) CreateIndex() (err error) {
 		if len(io.ShockIndex) > 0 {
 			idxinfo, err := io.GetIndexInfo()
 			if err != nil {
-				errMsg := "could not retrieve index info from input shock node, taskid=" + task.Id
+				errMsg := "could not retrieve index info from input shock node, taskid="+task.Id+", error="+err.Error()
 				logger.Error("error: " + errMsg)
 				return errors.New(errMsg)
 			}
 
 			if _, ok := idxinfo[io.ShockIndex]; !ok {
 				if err := ShockPutIndex(io.Host, io.Node, io.ShockIndex, task.Info.DataToken); err != nil {
-					errMsg := "failed to create index on shock node for taskid=" + task.Id
+					errMsg := "failed to create index on shock node for taskid="+task.Id+", error="+err.Error()
 					logger.Error("error: " + errMsg)
 					return errors.New(errMsg)
 				}
@@ -246,7 +246,7 @@ func (task *Task) InitPartIndex() (err error) {
 	idxinfo, err := input_io.GetIndexInfo()
 	if err != nil {
 		task.setTotalWork(1)
-		logger.Error("warning: invalid file info, taskid=" + task.Id)
+		logger.Error("warning: invalid file info, taskid="+task.Id+", error="+err.Error())
 		return nil
 	}
 
@@ -254,13 +254,13 @@ func (task *Task) InitPartIndex() (err error) {
 	if _, ok := idxinfo[idxtype]; !ok { //if index not available, create index
 		if err := ShockPutIndex(input_io.Host, input_io.Node, idxtype, task.Info.DataToken); err != nil {
 			task.setTotalWork(1)
-			logger.Error("warning: fail to create index on shock for taskid=" + task.Id)
+			logger.Error("warning: fail to create index on shock for taskid="+task.Id+", error="+err.Error())
 			return nil
 		}
 		totalunits, err = input_io.TotalUnits(idxtype) //get index info again
 		if err != nil {
 			task.setTotalWork(1)
-			logger.Error("warning: fail to get index units, taskid=" + task.Id + ":" + err.Error())
+			logger.Error("warning: fail to get index units, taskid="+task.Id+", error="+err.Error())
 			return nil
 		}
 	} else { //index existing, use it directly

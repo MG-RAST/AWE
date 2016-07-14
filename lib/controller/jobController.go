@@ -687,7 +687,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 			cx.RespondWithErrorMessage("fail to recompute job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		cx.RespondWithData("job recompute started: " + id)
+		cx.RespondWithData("job recompute started at task " + stage + ": " + id)
 		return
 	}
 	if query.Has("resubmit") { // to recompute a job from the beginning, all tasks will be computed

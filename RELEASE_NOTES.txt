@@ -1,3 +1,10 @@
+# v0.9.27
+
+- improved log / error messages
+- added 'report' option to job GET, returns a summary of job with stdout, stderr, and worknotes for each workunit ran
+- changed max jid to be stored in mongodb and not on filesystem
+  - this is backwards compatible, will use jid on filesystem for first time if no value is in mongodb
+
 # v0.9.26
 
 - added 'full' option to job DELETE, actually deletes job from mongoDB and filesystem

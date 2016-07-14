@@ -1,6 +1,6 @@
 # AWE worker and server binaries
 
-FROM ubuntu:15.10
+FROM ubuntu:16.04
 
 RUN apt-get update && apt-get install -y \
 	git-core \
@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
 	ca-certificates \
 	curl
 
-RUN curl -s https://storage.googleapis.com/golang/go1.5.2.linux-amd64.tar.gz | tar -v -C /usr/local -xz
+RUN curl -s https://storage.googleapis.com/golang/go1.6.2.linux-amd64.tar.gz | tar -v -C /usr/local -xz
 
 ENV GOROOT /usr/local/go
 ENV PATH /usr/local/go/bin:/gopath/bin:/usr/local/bin:$PATH

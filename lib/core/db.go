@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
-	mgo "github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2"
-	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
+	mgo "gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // mongodb has hard limit of 16 MB docuemnt size

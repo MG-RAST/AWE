@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // ClientGroup array type

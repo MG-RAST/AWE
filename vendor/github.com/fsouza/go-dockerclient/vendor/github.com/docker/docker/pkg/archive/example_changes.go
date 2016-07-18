@@ -13,8 +13,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/MG-RAST/AWE/vendor/github.com/fsouza/go-dockerclient/vendor/github.com/Sirupsen/logrus"
-	"github.com/MG-RAST/AWE/vendor/github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/archive"
+	"github.com/Sirupsen/logrus"
+	"github.com/docker/docker/pkg/archive"
 )
 
 var (

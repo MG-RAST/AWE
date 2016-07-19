@@ -4,8 +4,8 @@ import (
 	"crypto/sha1"
 	"testing"
 
-	. "github.com/MG-RAST/AWE/vendor/gopkg.in/check.v1"
-	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/internal/scram"
+	. "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/internal/scram"
 	"strings"
 )
 

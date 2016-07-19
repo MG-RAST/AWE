@@ -4,7 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goconfig/config"
+	"github.com/MG-RAST/golib/goconfig/config"
 	"os"
 	"path/filepath"
 	"regexp"

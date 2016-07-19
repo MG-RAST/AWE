@@ -2,8 +2,8 @@ package mgrast_test
 
 import (
 	"fmt"
-	. "github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/Shock/shock-server/auth/mgrast"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/Shock/shock-server/conf"
+	. "github.com/MG-RAST/Shock/shock-server/auth/mgrast"
+	"github.com/MG-RAST/Shock/shock-server/conf"
 	"testing"
 )
 

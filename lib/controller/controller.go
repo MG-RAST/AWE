@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goweb"
+	"github.com/MG-RAST/golib/goweb"
 )
 
 type ServerController struct {

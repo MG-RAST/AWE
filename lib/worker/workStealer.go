@@ -9,7 +9,7 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/httpclient"
+	"github.com/MG-RAST/golib/httpclient"
 	"io/ioutil"
 	"os"
 	"strings"

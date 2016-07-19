@@ -12,9 +12,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/MG-RAST/AWE/vendor/github.com/fsouza/go-dockerclient/vendor/github.com/Sirupsen/logrus"
-	"github.com/MG-RAST/AWE/vendor/github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/pools"
-	"github.com/MG-RAST/AWE/vendor/github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/system"
+	"github.com/Sirupsen/logrus"
+	"github.com/docker/docker/pkg/pools"
+	"github.com/docker/docker/pkg/system"
 )
 
 type ChangeType int

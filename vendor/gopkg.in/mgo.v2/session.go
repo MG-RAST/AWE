@@ -41,7 +41,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 type mode int

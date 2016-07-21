@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/MG-RAST/AWE/vendor/github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/archive"
+	"github.com/docker/docker/pkg/archive"
 )
 
 func TestBuildImageMultipleContextsError(t *testing.T) {

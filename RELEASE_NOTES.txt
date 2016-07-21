@@ -1,8 +1,9 @@
-# v0.9.28
+# v0.9.29
 
+- vendor path changes for golang 1.6 support
 - docker file updates
-  - ubuntu 16.04
-  - golang 1.6.2
+  - alpha base image
+  - golang 1.6.3
 
 # v0.9.27
 

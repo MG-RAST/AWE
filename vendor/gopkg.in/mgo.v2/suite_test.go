@@ -37,9 +37,9 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/MG-RAST/AWE/vendor/gopkg.in/check.v1"
-	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2"
-	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
+	. "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 )
 
 var fast = flag.Bool("fast", false, "Skip slow tests")

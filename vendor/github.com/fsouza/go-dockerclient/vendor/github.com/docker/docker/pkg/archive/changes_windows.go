@@ -1,7 +1,7 @@
 package archive
 
 import (
-	"github.com/MG-RAST/AWE/vendor/github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/system"
+	"github.com/docker/docker/pkg/system"
 )
 
 func statDifferent(oldStat *system.Stat_t, newStat *system.Stat_t) bool {

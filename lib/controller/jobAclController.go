@@ -6,9 +6,9 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/go-uuid/uuid"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/goweb"
-	mgo "github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2"
+	"github.com/MG-RAST/golib/go-uuid/uuid"
+	"github.com/MG-RAST/golib/goweb"
+	mgo "gopkg.in/mgo.v2"
 	"net/http"
 	"strings"
 )

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
-	mgo "github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2"
+	mgo "gopkg.in/mgo.v2"
 	"time"
 )
 

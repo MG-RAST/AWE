@@ -2,7 +2,7 @@ package core
 
 import (
 	"encoding/json"
-	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/bson"
 	"testing"
 )
 

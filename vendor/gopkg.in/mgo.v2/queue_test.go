@@ -27,7 +27,7 @@
 package mgo
 
 import (
-	. "github.com/MG-RAST/AWE/vendor/gopkg.in/check.v1"
+	. "gopkg.in/check.v1"
 )
 
 type QS struct{}

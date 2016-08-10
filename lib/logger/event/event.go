@@ -11,6 +11,7 @@ const (
 	//server only events
 	SERVER_START    = "SS" //awe-server start
 	SERVER_RECOVER  = "SR" //awe-server start with recover option  (-recover)
+	DEBUG_LEVEL     = "DL" //debug level changed
 	QUEUE_RESUME    = "QR" //awe-server queue resumed if suspended
 	QUEUE_SUSPEND   = "QS" //awe-server queue suspended, not handing out work
 	JOB_SUBMISSION  = "JQ" //job submitted
@@ -56,6 +57,7 @@ var EventDiscription = map[string]map[string]string{
 	"server": map[string]string{
 		"SS": "awe-server start",
 		"SR": "awe-server start with recover option  (-recover)",
+		"DL": "debug level changed",
 		"QR": "awe-server queue resumed if suspended",
 		"QS": "awe-server queue suspended, not handing out work",
 		"JQ": "job submitted",

@@ -766,15 +766,15 @@ func PrintClientCfg() {
 }
 
 func PrintClientUsage() {
-	fmt.Printf("Usage: awe-client -conf </path/to/cfg> [-debug 0-3]\n")
+	fmt.Printf("Usage: awe-client -conf </path/to/cfg> [-debuglevel 0-3]\n")
 }
 
 func PrintServerUsage() {
-	fmt.Printf("Usage: awe-server -conf </path/to/cfg> [-dev] [-recover] [debug 0-3]\n")
+	fmt.Printf("Usage: awe-server -conf </path/to/cfg> [-dev] [-recover] [-debuglevel 0-3]\n")
 }
 
 func PrintProxyUsage() {
-	fmt.Printf("Usage: awe-proxy -conf </path/to/cfg> [debug 0-3]\n")
+	fmt.Printf("Usage: awe-proxy -conf </path/to/cfg> [-debuglevel 0-3]\n")
 }
 
 func PrintVersionMsg() {

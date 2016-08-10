@@ -239,18 +239,12 @@ func main() {
 		fmt.Println("Done")
 	}
 
-	// init max job number (jid), backwards compatible with jobid file
-	if err := core.QMgr.InitMaxJid(); err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR from InitMaxJid : %v\n", err)
-		os.Exit(1)
-	}
 	if conf.DEBUG_LEVEL > 0 {
 		fmt.Println("launching server...")
 	}
 	//launch server
 	control := make(chan int)
 	go core.Ttl.Handle()
-	go core.QMgr.JidHandle()
 	go core.QMgr.TaskHandle()
 	go core.QMgr.ClientHandle()
 	go core.QMgr.ClientChecker()

@@ -30,10 +30,6 @@ func NewProxyMgr() *ProxyMgr {
 	}
 }
 
-func (qm *ProxyMgr) JidHandle() {
-	return
-}
-
 func (qm *ProxyMgr) TaskHandle() {
 	return
 }
@@ -75,10 +71,6 @@ func (qm *ProxyMgr) QueueStatus() string {
 
 func (qm *ProxyMgr) GetQueue(name string) interface{} {
 	return nil
-}
-
-func (qm *ProxyMgr) InitMaxJid() (err error) {
-	return
 }
 
 func (qm *ProxyMgr) GetJsonStatus() (status map[string]map[string]int) {

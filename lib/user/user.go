@@ -1,9 +1,9 @@
 package user
 
 import (
+	"code.google.com/p/go-uuid/uuid"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
-	"code.google.com/p/go-uuid/uuid"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )

@@ -79,7 +79,6 @@ func main() {
 
 	//launch server
 	control := make(chan int)
-	go core.QMgr.JidHandle()
 	go core.QMgr.TaskHandle()
 	go core.QMgr.ClientHandle()
 	go core.QMgr.ClientChecker()

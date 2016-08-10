@@ -31,7 +31,6 @@ var JOB_STATS_TO_RECOVER = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_ST
 
 type Job struct {
 	Id          string    `bson:"id" json:"id"`
-	Jid         string    `bson:"jid" json:"jid"`
 	Acl         acl.Acl   `bson:"acl" json:"-"`
 	Info        *Info     `bson:"info" json:"info"`
 	Tasks       []*Task   `bson:"tasks" json:"tasks"`
@@ -52,7 +51,6 @@ type Job struct {
 // (=deprecated=)
 type JobDep struct {
 	Id          string     `bson:"id" json:"id"`
-	Jid         string     `bson:"jid" json:"jid"`
 	Acl         acl.Acl    `bson:"acl" json:"-"`
 	Info        *Info      `bson:"info" json:"info"`
 	Tasks       []*TaskDep `bson:"tasks" json:"tasks"`
@@ -88,20 +86,10 @@ type JobLog struct {
 	Tasks      []*TaskLog `bson:"tasks" json:"tasks"`
 }
 
-type JobID struct {
-	Name string `bson:"name" json:"name"`
-	Max  int    `bson:"max" json:"max"`
-}
-
 //set job's uuid
 func (job *Job) setId() {
 	job.Id = uuid.New()
 	return
-}
-
-//set job's jid
-func (job *Job) setJid(jid string) {
-	job.Jid = jid
 }
 
 func (job *Job) initJob(jid string) {
@@ -110,8 +98,7 @@ func (job *Job) initJob(jid string) {
 	}
 	job.Info.SubmitTime = time.Now()
 	job.Info.Priority = conf.BasePriority
-	job.setId()     //uuid for the job
-	job.setJid(jid) //an incremental id for the jobs within a AWE server domain
+	job.setId() //uuid for the job
 	job.State = JOB_STAT_INIT
 	job.Registered = true
 }

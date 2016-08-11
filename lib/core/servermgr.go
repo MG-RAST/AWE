@@ -13,6 +13,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -684,6 +685,25 @@ func (qm *ServerMgr) GetReportMsg(workid string, logname string) (report string,
 	return string(content), err
 }
 
+func deleteStdLogByTask(taskid string, logname string) (err error) {
+	jobid, err := GetJobIdByTaskId(taskid)
+	if err != nil {
+		return err
+	}
+	logdir := getPathByJobId(jobid)
+	globpath := fmt.Sprintf("%s/%s_*.%s", logdir, taskid, logname)
+	logfiles, err := filepath.Glob(globpath)
+	if err != nil {
+		return err
+	}
+	for _, logfile := range logfiles {
+		workid := strings.Split(filepath.Base(logfile), ".")[0]
+		logger.Debug(2, fmt.Sprintf("Deleted %s log for workunit %s", logname, workid))
+		os.Remove(logfile)
+	}
+	return
+}
+
 func getStdLogPathByWorkId(workid string, logname string) (string, error) {
 	jobid, err := GetJobIdByWorkId(workid)
 	if err != nil {
@@ -1352,6 +1372,7 @@ func resetTask(task *Task, info *Info) {
 	task.RemainWork = task.TotalWork
 	task.ComputeTime = 0
 	task.CompletedDate = time.Time{}
+	// reset all inputs with an origin
 	for _, input := range task.Inputs {
 		if input.Origin != "" {
 			input.Node = "-"
@@ -1359,6 +1380,7 @@ func resetTask(task *Task, info *Info) {
 			input.Size = 0
 		}
 	}
+	// reset / delete all outputs
 	for _, output := range task.Outputs {
 		if dataUrl, _ := output.DataUrl(); dataUrl != "" {
 			// delete dataUrl if is shock node
@@ -1373,6 +1395,10 @@ func resetTask(task *Task, info *Info) {
 		output.Node = "-"
 		output.Url = ""
 		output.Size = 0
+	}
+	// delete all workunit logs
+	for _, log := range conf.WORKUNIT_LOGS {
+		deleteStdLogByTask(task.Id, log)
 	}
 }
 

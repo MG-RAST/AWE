@@ -12,6 +12,7 @@ type ServerController struct {
 	ClientGroupToken goweb.ControllerFunc
 	Job              *JobController
 	JobAcl           map[string]goweb.ControllerFunc
+	Logger           *LoggerController
 	Queue            *QueueController
 	Work             *WorkController
 }
@@ -25,6 +26,7 @@ func NewServerController() *ServerController {
 		ClientGroupToken: ClientGroupTokenController,
 		Job:              new(JobController),
 		JobAcl:           map[string]goweb.ControllerFunc{"base": JobAclController, "typed": JobAclControllerTyped},
+		Logger:           new(LoggerController),
 		Queue:            new(QueueController),
 		Work:             new(WorkController),
 	}

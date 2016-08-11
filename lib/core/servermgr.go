@@ -13,6 +13,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,7 +38,6 @@ type ServerMgr struct {
 	jsAck     chan int   //channel for return an assigned job number in response to jsReq  (qmgr.Handler -> JobController)
 	taskIn    chan *Task //channel for receiving Task (JobController -> qmgr.Handler)
 	coSem     chan int   //semaphore for checkout (mutual exclusion between different clients)
-	nextJid   int        //next jid that will be assigned to newly submitted job
 }
 
 func NewServerMgr() *ServerMgr {
@@ -57,20 +57,10 @@ func NewServerMgr() *ServerMgr {
 		taskIn:  make(chan *Task, 1024),
 		actJobs: map[string]*JobPerf{},
 		susJobs: map[string]bool{},
-		nextJid: 0,
 	}
 }
 
 //--------mgr methods-------
-
-func (qm *ServerMgr) JidHandle() {
-	for {
-		<-qm.jsReq
-		jid := qm.getNextJid()
-		qm.jsAck <- jid
-		logger.Debug(2, fmt.Sprintf("qmgr:receive a job submission request, assigned jid=%d", jid))
-	}
-}
 
 func (qm *ServerMgr) TaskHandle() {
 	for {
@@ -131,15 +121,11 @@ func (qm *ServerMgr) GetQueue(name string) interface{} {
 		return jQueueShow{qm.actJobs, qm.susJobs}
 	}
 	if name == "task" {
-		if conf.DEBUG_LEVEL > 0 {
-			qm.ShowTasks()
-		}
+		qm.ShowTasks() // only if debug level is set
 		return qm.taskMap
 	}
 	if name == "work" {
-		if conf.DEBUG_LEVEL > 0 {
-			qm.ShowWorkQueue()
-		}
+		qm.ShowWorkQueue() // only if debug level is set
 		return wQueueShow{qm.workQueue.workMap, qm.workQueue.wait, qm.workQueue.checkout, qm.workQueue.suspend}
 	}
 	if name == "client" {
@@ -334,26 +320,6 @@ func (qm *ServerMgr) listTasks() (ids []string) {
 }
 
 //--------server methods-------
-
-func (qm *ServerMgr) InitMaxJid() (err error) {
-	// this is for backwards compatibility with jid on filysystem
-	startjid := conf.JOB_ID_START
-	jidfile := conf.DATA_PATH + "/maxjid"
-	if buf, ferr := ioutil.ReadFile(jidfile); ferr == nil {
-		bufstr := strings.TrimSpace(string(buf))
-		if jid, serr := strconv.Atoi(bufstr); serr == nil {
-			startjid = jid
-		}
-	}
-	// set in mongoDB
-	if err := initMaxJidDB(startjid); err != nil {
-		return err
-	}
-	qm.nextJid = startjid + 1
-
-	logger.Debug(2, fmt.Sprintf("qmgr:jid initialized, next jid=%d", qm.nextJid))
-	return
-}
 
 //poll ready tasks and push into workQueue
 func (qm *ServerMgr) updateQueue() (err error) {
@@ -715,6 +681,25 @@ func (qm *ServerMgr) GetReportMsg(workid string, logname string) (report string,
 	return string(content), err
 }
 
+func deleteStdLogByTask(taskid string, logname string) (err error) {
+	jobid, err := GetJobIdByTaskId(taskid)
+	if err != nil {
+		return err
+	}
+	logdir := getPathByJobId(jobid)
+	globpath := fmt.Sprintf("%s/%s_*.%s", logdir, taskid, logname)
+	logfiles, err := filepath.Glob(globpath)
+	if err != nil {
+		return err
+	}
+	for _, logfile := range logfiles {
+		workid := strings.Split(filepath.Base(logfile), ".")[0]
+		logger.Debug(2, fmt.Sprintf("Deleted %s log for workunit %s", logname, workid))
+		os.Remove(logfile)
+	}
+	return
+}
+
 func getStdLogPathByWorkId(workid string, logname string) (string, error) {
 	jobid, err := GetJobIdByWorkId(workid)
 	if err != nil {
@@ -976,9 +961,9 @@ func (qm *ServerMgr) updateTaskWorkStatus(task *Task, rank int, newstatus string
 
 // show functions used in debug
 func (qm *ServerMgr) ShowTasks() {
-	fmt.Printf("current active tasks (%d):\n", qm.lenTasks())
+	logger.Debug(1, fmt.Sprintf("current active tasks (%d)", qm.lenTasks()))
 	for _, task := range qm.getAllTasks() {
-		fmt.Printf("task id: %s, status:%s\n", task.Id, task.State)
+		logger.Debug(1, fmt.Sprintf("taskid=%s;status=%s", task.Id, task.State))
 	}
 }
 
@@ -992,14 +977,6 @@ func (qm *ServerMgr) JobRegister() (jid string, err error) {
 		return "", errors.New("failed to assign a job number for the newly submitted job")
 	}
 	return strconv.Itoa(id), nil
-}
-
-func (qm *ServerMgr) getNextJid() (jid int) {
-	jid = qm.nextJid
-	nextjid := &JobID{"jid", jid}
-	dbUpsert(nextjid)
-	qm.nextJid += 1
-	return jid
 }
 
 //update job info when a task in that job changed to a new state
@@ -1041,7 +1018,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			}
 		}
 		//log event about job done (JD)
-		logger.Event(event.JOB_DONE, "jobid="+job.Id+";jid="+job.Jid+";project="+job.Info.Project+";name="+job.Info.Name)
+		logger.Event(event.JOB_DONE, "jobid="+job.Id+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	}
 	return
 }
@@ -1391,6 +1368,7 @@ func resetTask(task *Task, info *Info) {
 	task.RemainWork = task.TotalWork
 	task.ComputeTime = 0
 	task.CompletedDate = time.Time{}
+	// reset all inputs with an origin
 	for _, input := range task.Inputs {
 		if input.Origin != "" {
 			input.Node = "-"
@@ -1398,6 +1376,7 @@ func resetTask(task *Task, info *Info) {
 			input.Size = 0
 		}
 	}
+	// reset / delete all outputs
 	for _, output := range task.Outputs {
 		if dataUrl, _ := output.DataUrl(); dataUrl != "" {
 			// delete dataUrl if is shock node
@@ -1412,6 +1391,10 @@ func resetTask(task *Task, info *Info) {
 		output.Node = "-"
 		output.Url = ""
 		output.Size = 0
+	}
+	// delete all workunit logs
+	for _, log := range conf.WORKUNIT_LOGS {
+		deleteStdLogByTask(task.Id, log)
 	}
 }
 

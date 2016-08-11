@@ -63,51 +63,85 @@ func Perf(message string) {
 func NewLogger(name string) *Logger {
 	l := &Logger{queue: make(chan m, 1024), logs: map[string]l4g.Logger{}}
 
-	logdir := fmt.Sprintf("%s/%s", conf.LOGS_PATH, name)
-	if err := os.MkdirAll(logdir, 0777); err != nil {
-		fmt.Errorf("ERROR: error creating directory for logs: %s", logdir)
-		os.Exit(1)
+	// log file dir
+	var logdir string
+	if (conf.LOG_OUTPUT == "file") || (conf.LOG_OUTPUT == "both") {
+		logdir = fmt.Sprintf("%s/%s", conf.LOGS_PATH, name)
+		if err := os.MkdirAll(logdir, 0777); err != nil {
+			fmt.Errorf("ERROR: error creating directory for logs: %s", logdir)
+			os.Exit(1)
+		}
 	}
 
+	// access log
 	l.logs["access"] = make(l4g.Logger)
-	accessf := l4g.NewFileLogWriter(logdir+"/access.log", false)
-	if accessf == nil {
-		fmt.Fprintln(os.Stderr, "ERROR: error creating access log file")
-		os.Exit(1)
+	if (conf.LOG_OUTPUT == "file") || (conf.LOG_OUTPUT == "both") {
+		accessf := l4g.NewFileLogWriter(logdir+"/access.log", false)
+		if accessf == nil {
+			fmt.Fprintln(os.Stderr, "ERROR: error creating access log file")
+			os.Exit(1)
+		}
+		l.logs["access"].AddFilter("access", l4g.FINEST, accessf.SetFormat("[%D %T] %M").SetRotate(true).SetRotateDaily(true))
 	}
-	l.logs["access"].AddFilter("access", l4g.FINEST, accessf.SetFormat("[%D %T] %M").SetRotate(true).SetRotateDaily(true))
+	if (conf.LOG_OUTPUT == "console") || (conf.LOG_OUTPUT == "both") {
+		l.logs["access"].AddFilter("stdout", l4g.FINEST, l4g.NewConsoleLogWriter())
+	}
 
+	// error log
 	l.logs["error"] = make(l4g.Logger)
-	errorf := l4g.NewFileLogWriter(logdir+"/error.log", false)
-	if errorf == nil {
-		fmt.Fprintln(os.Stderr, "ERROR: error creating error log file")
-		os.Exit(1)
+	if (conf.LOG_OUTPUT == "file") || (conf.LOG_OUTPUT == "both") {
+		errorf := l4g.NewFileLogWriter(logdir+"/error.log", false)
+		if errorf == nil {
+			fmt.Fprintln(os.Stderr, "ERROR: error creating error log file")
+			os.Exit(1)
+		}
+		l.logs["error"].AddFilter("error", l4g.FINEST, errorf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
 	}
-	l.logs["error"].AddFilter("error", l4g.FINEST, errorf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
+	if (conf.LOG_OUTPUT == "console") || (conf.LOG_OUTPUT == "both") {
+		l.logs["error"].AddFilter("stderr", l4g.FINEST, l4g.NewConsoleLogWriter())
+	}
 
+	// event log
 	l.logs["event"] = make(l4g.Logger)
-	eventf := l4g.NewFileLogWriter(logdir+"/event.log", false)
-	if eventf == nil {
-		fmt.Fprintln(os.Stderr, "ERROR: error creating event log file")
-		os.Exit(1)
+	if (conf.LOG_OUTPUT == "file") || (conf.LOG_OUTPUT == "both") {
+		eventf := l4g.NewFileLogWriter(logdir+"/event.log", false)
+		if eventf == nil {
+			fmt.Fprintln(os.Stderr, "ERROR: error creating event log file")
+			os.Exit(1)
+		}
+		l.logs["event"].AddFilter("event", l4g.FINEST, eventf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
 	}
-	l.logs["event"].AddFilter("event", l4g.FINEST, eventf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
+	if (conf.LOG_OUTPUT == "console") || (conf.LOG_OUTPUT == "both") {
+		l.logs["event"].AddFilter("stdout", l4g.FINEST, l4g.NewConsoleLogWriter())
+	}
 
+	// debug log
 	l.logs["debug"] = make(l4g.Logger)
-	debugf := l4g.NewFileLogWriter(logdir+"/debug.log", false)
-	if debugf == nil {
-		fmt.Fprintln(os.Stderr, "ERROR: error creating debug log file")
-		os.Exit(1)
+	if (conf.LOG_OUTPUT == "file") || (conf.LOG_OUTPUT == "both") {
+		debugf := l4g.NewFileLogWriter(logdir+"/debug.log", false)
+		if debugf == nil {
+			fmt.Fprintln(os.Stderr, "ERROR: error creating debug log file")
+			os.Exit(1)
+		}
+		l.logs["debug"].AddFilter("debug", l4g.FINEST, debugf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
 	}
-	l.logs["debug"].AddFilter("debug", l4g.FINEST, debugf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
+	if (conf.LOG_OUTPUT == "console") || (conf.LOG_OUTPUT == "both") {
+		l.logs["debug"].AddFilter("stdout", l4g.FINEST, l4g.NewConsoleLogWriter())
+	}
 
+	// perf log
 	l.logs["perf"] = make(l4g.Logger)
-	perff := l4g.NewFileLogWriter(logdir+"/perf.log", false)
-	if perff == nil {
-		fmt.Fprintln(os.Stderr, "ERROR: error creating perf log file")
-		os.Exit(1)
+	if (conf.LOG_OUTPUT == "file") || (conf.LOG_OUTPUT == "both") {
+		perff := l4g.NewFileLogWriter(logdir+"/perf.log", false)
+		if perff == nil {
+			fmt.Fprintln(os.Stderr, "ERROR: error creating perf log file")
+			os.Exit(1)
+		}
+		l.logs["perf"].AddFilter("perf", l4g.FINEST, perff.SetFormat("[%D %T] %M").SetRotate(true).SetRotateDaily(true))
 	}
-	l.logs["perf"].AddFilter("perf", l4g.FINEST, perff.SetFormat("[%D %T] %M").SetRotate(true).SetRotateDaily(true))
+	if (conf.LOG_OUTPUT == "console") || (conf.LOG_OUTPUT == "both") {
+		l.logs["perf"].AddFilter("stdout", l4g.FINEST, l4g.NewConsoleLogWriter())
+	}
 
 	return l
 }

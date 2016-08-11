@@ -181,7 +181,7 @@ func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
 	if job.Info == nil {
 		return nil, errors.New("invalid job import: missing job info")
 	}
-	if job.Id == "" || job.Jid == "" {
+	if job.Id == "" {
 		return nil, errors.New("invalid job import: missing job id")
 	}
 
@@ -339,8 +339,7 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 		job.Info.Priority = conf.BasePriority
 	}
 
-	job.setId()     //uuid for the job
-	job.setJid(jid) //an incremental id for the jobs within a AWE server domain
+	job.setId() //uuid for the job
 	job.State = JOB_STAT_INIT
 	job.Registered = true
 
@@ -405,8 +404,7 @@ func ParseJobTasksDep(filename string, jid string) (job *Job, err error) {
 		job.Info.Priority = conf.BasePriority
 	}
 
-	job.setId()     //uuid for the job
-	job.setJid(jid) //an incremental id for the jobs within a AWE server domain
+	job.setId() //uuid for the job
 	job.State = JOB_STAT_INIT
 	job.Registered = true
 
@@ -444,7 +442,6 @@ func ParseJobTasksDep(filename string, jid string) (job *Job, err error) {
 func JobDepToJob(jobDep *JobDep) (job *Job) {
 	job = new(Job)
 	job.Id = jobDep.Id
-	job.Jid = jobDep.Jid
 	job.Acl = jobDep.Acl
 	job.Info = jobDep.Info
 	job.Script = jobDep.Script

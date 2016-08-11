@@ -50,7 +50,6 @@ type JobMgr interface {
 	DeleteJobByUser(string, *user.User, bool) error
 	DeleteSuspendedJobsByUser(*user.User, bool) int
 	DeleteZombieJobsByUser(*user.User, bool) int
-	InitMaxJid() error
 	RecoverJob(string) error
 	RecoverJobs() error
 	FinalizeWorkPerf(string, string) error
@@ -69,7 +68,6 @@ type ClientWorkMgr interface {
 type ResourceMgr interface {
 	ClientWorkMgr
 	JobMgr
-	JidHandle()
 	TaskHandle()
 	ClientHandle()
 	GetJsonStatus() map[string]map[string]int

@@ -33,7 +33,6 @@ func InitJobDB() {
 	cj.EnsureIndex(mgo.Index{Key: []string{"acl.write"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"acl.delete"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
-	cj.EnsureIndex(mgo.Index{Key: []string{"jid"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"state"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"expiration"}, Background: true})
 	cj.EnsureIndex(mgo.Index{Key: []string{"updatetime"}, Background: true})
@@ -51,21 +50,6 @@ func InitClientGroupDB() {
 	cc.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
 	cc.EnsureIndex(mgo.Index{Key: []string{"name"}, Unique: true})
 	cc.EnsureIndex(mgo.Index{Key: []string{"token"}, Unique: true})
-}
-
-// if max job id does not exist, set to start value
-func initMaxJidDB(startjid int) (err error) {
-	session := db.Connection.Session.Copy()
-	defer session.Close()
-	cc := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JID)
-	cc.EnsureIndex(mgo.Index{Key: []string{"name"}, Unique: true})
-	if _, jerr := dbFindMaxJobID(); jerr != nil {
-		initjid := &JobID{"jid", startjid}
-		if err := dbUpsert(initjid); err != nil {
-			return err
-		}
-	}
-	return
 }
 
 func dbDelete(q bson.M, coll string) (err error) {
@@ -95,9 +79,6 @@ func dbUpsert(t interface{}) (err error) {
 	case *ClientGroup:
 		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_CGS)
 		_, err = c.Upsert(bson.M{"id": t.Id}, &t)
-	case *JobID:
-		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JID)
-		_, err = c.Upsert(bson.M{"name": t.Name}, &t)
 	default:
 		fmt.Printf("invalid database entry type\n")
 	}
@@ -197,16 +178,6 @@ func dbFindSortClientGroups(q bson.M, results *ClientGroups, options map[string]
 	}
 	err = query.Sort(sortby).All(results)
 	return
-}
-
-func dbFindMaxJobID() (jid *JobID, err error) {
-	session := db.Connection.Session.Copy()
-	defer session.Close()
-	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JID)
-	if err = c.Find(bson.M{}).One(&jid); err == nil {
-		return jid, nil
-	}
-	return nil, err
 }
 
 func LoadJob(id string) (job *Job, err error) {

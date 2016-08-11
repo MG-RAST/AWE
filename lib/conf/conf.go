@@ -45,6 +45,9 @@ const WORKNOTES_FILENAME string = "awe_worknotes.txt"
 
 const ALL_APP string = "*"
 
+var WORKUNIT_LOGS = [3]string{"stdout", "stderr", "worknotes"}
+var LOG_OUTPUTS = [3]string{"file", "console", "both"}
+
 var checkExpire = regexp.MustCompile(`^(\d+)(M|H|D)$`)
 
 // set defaults in function "getConfiguration" below !!!!!
@@ -52,13 +55,9 @@ var (
 	SHOW_VERSION bool
 	TITLE        string
 
-	//Reload
-	RELOAD   string
-	RECOVER  bool
-	DEV_MODE bool
-
-	// Config File
-	CONFIG_FILE string
+	// Reload
+	RELOAD  string
+	RECOVER bool
 
 	// AWE server port
 	SITE_PORT int
@@ -96,8 +95,7 @@ var (
 	CLIENT_GROUP_TOKEN string
 
 	// Admin
-	ADMIN_EMAIL string
-	//SECRET_KEY      string // not used anymore
+	ADMIN_EMAIL     string
 	ADMIN_USERS_VAR string
 
 	// Directories
@@ -114,34 +112,25 @@ var (
 	MONGODB_PASSWD   string
 	MONGODB_TIMEOUT  int
 
-	DEBUG_LEVEL int
-
-	// Versions, used to track changes in data structures
-	VERSIONS = make(map[string]int)
-
-	//[server] options
+	// Server
 	EXPIRE_WAIT        int
 	GLOBAL_EXPIRE      string
 	PIPELINE_EXPIRE    string
 	PERF_LOG_WORKUNIT  bool
 	MAX_WORK_FAILURE   int
 	MAX_CLIENT_FAILURE int
+	GOMAXPROCS         int
 
-	//big data threshold
-	//BIG_DATA_SIZE int64 = 1048576 * 1024
-	GOMAXPROCS int
-
-	//[client]
-	//TOTAL_WORKER                  = 1
+	// Client
 	WORK_PATH                   string
 	APP_PATH                    string
 	SUPPORTED_APPS              string
 	PRE_WORK_SCRIPT             string
 	PRE_WORK_SCRIPT_ARGS_STRING string
 	PRE_WORK_SCRIPT_ARGS        = []string{}
-	SERVER_URL                  string
 	OPENSTACK_METADATA_URL      string
 
+	SERVER_URL     string
 	CLIENT_NAME    string
 	CLIENT_GROUP   string
 	CLIENT_DOMAIN  string
@@ -149,8 +138,9 @@ var (
 	PRINT_APP_MSG  bool
 	AUTO_CLEAN_DIR bool
 	NO_SYMLINK     bool
+	CACHE_ENABLED  bool
 
-	//[Docker]
+	// Docker
 	USE_DOCKER                    string
 	DOCKER_BINARY                 string
 	USE_APP_DEFS                  string
@@ -163,22 +153,28 @@ var (
 	DOCKER_WORKUNIT_PREDATA_DIR   string
 	SHOCK_DOCKER_IMAGE_REPOSITORY string
 
-	//KB_AUTH_TOKEN                 = "KB_AUTH_TOKEN"
-	CACHE_ENABLED bool
-	//tag
-	//INIT_SUCCESS = true
-
-	PRINT_HELP           bool
+	// Other
+	DEV_MODE             bool
+	DEBUG_LEVEL          int
+	CONFIG_FILE          string
+	LOG_OUTPUT           string
+	PRINT_HELP           bool // full usage
 	SHOW_HELP            bool // simple usage
 	SHOW_GIT_COMMIT_HASH bool
 
+	// used to track changes in data structures
+	VERSIONS = make(map[string]int)
+
+	// used to track expiration for different pipelines
 	PIPELINE_EXPIRE_MAP = make(map[string]string)
 
+	// used to track admin users
 	Admin_Users    = make(map[string]bool)
 	AUTH_RESOURCES = make(map[string]AuthResource)
 	AUTH_DEFAULT   string
 
-	FAKE_VAR = false // ignore this
+	// internal config control
+	FAKE_VAR = false
 )
 
 // writes to target only if has been defined in config
@@ -464,11 +460,6 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		// Server
 		c_store.AddString(&TITLE, "AWE Server", "Server", "title", "", "")
 		c_store.AddBool(&PERF_LOG_WORKUNIT, true, "Server", "perf_log_workunit", "collecting performance log per workunit", "")
-		// BIG_DATA_SIZE seems not to be used ?
-		//c_store.AddInt(&BIG_DATA_SIZE, 0, "Server", "big_data_size", "", "")
-		//if big_data_size, err := c.Int("Server", "big_data_size"); err == nil {
-		//	BIG_DATA_SIZE = int64(big_data_size)
-		//}
 		c_store.AddInt(&EXPIRE_WAIT, 60, "Server", "expire_wait", "wait time for expiration reaper in minutes", "")
 		c_store.AddString(&GLOBAL_EXPIRE, "", "Server", "global_expire", "default number and unit of time after job completion before it expires", "")
 		c_store.AddString(&PIPELINE_EXPIRE, "", "Server", "pipeline_expire", "comma seperated list of pipeline_name=expire_days_unit, overrides global_expire", "")
@@ -525,9 +516,10 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 	c_store.AddInt(&P_API_PORT, 8002, "Proxy", "p-api-port", "", "")
 
 	//Other
-	c_store.AddInt(&DEBUG_LEVEL, 0, "Other", "debuglevel", "debug level: 0-3", "")
 	c_store.AddBool(&DEV_MODE, false, "Other", "dev", "dev or demo mode, print some msgs on screen", "")
+	c_store.AddInt(&DEBUG_LEVEL, 0, "Other", "debuglevel", "debug level: 0-3", "")
 	c_store.AddString(&CONFIG_FILE, "", "Other", "conf", "path to config file", "")
+	c_store.AddString(&LOG_OUTPUT, "file", "Other", "logoutput", "log output stream, one of: file, console, both", "")
 	c_store.AddBool(&SHOW_VERSION, false, "Other", "version", "show version", "")
 	c_store.AddBool(&SHOW_GIT_COMMIT_HASH, false, "Other", "show_git_commit_hash", "", "")
 	c_store.AddBool(&PRINT_HELP, false, "Other", "fullhelp", "show detailed usage without \"--\"-prefixes", "")
@@ -656,6 +648,16 @@ func Init_conf(mode string) (err error) {
 		PRE_WORK_SCRIPT_ARGS = strings.Split(PRE_WORK_SCRIPT_ARGS_STRING, ",")
 	}
 
+	vaildLogout := false
+	for _, logout := range LOG_OUTPUTS {
+		if LOG_OUTPUT == logout {
+			vaildLogout = true
+		}
+	}
+	if !vaildLogout {
+		return errors.New("invalid option for logoutput, use one of: file, console, both")
+	}
+
 	WORK_PATH, _ = filepath.Abs(WORK_PATH)
 	APP_PATH, _ = filepath.Abs(APP_PATH)
 	SITE_PATH, _ = filepath.Abs(SITE_PATH)
@@ -687,7 +689,6 @@ func parseExpiration(expire string) (valid bool, duration int, unit string) {
 }
 
 func Print(service string) {
-	//fmt.Printf("##### Admin #####\nemail:\t%s\nsecretkey:\t%s\n\n", ADMIN_EMAIL, SECRET_KEY)
 	fmt.Printf("##### Admin #####\nemail:\t%s\n\n", ADMIN_EMAIL)
 	fmt.Printf("####### Anonymous ######\nread:\t%t\nwrite:\t%t\ndelete:\t%t\n", ANON_READ, ANON_WRITE, ANON_DELETE)
 	fmt.Printf("clientgroup read:\t%t\nclientgroup write:\t%t\nclientgroup delete:\t%t\n\n", ANON_CG_READ, ANON_CG_WRITE, ANON_CG_DELETE)

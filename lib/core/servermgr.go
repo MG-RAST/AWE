@@ -121,15 +121,11 @@ func (qm *ServerMgr) GetQueue(name string) interface{} {
 		return jQueueShow{qm.actJobs, qm.susJobs}
 	}
 	if name == "task" {
-		if conf.DEBUG_LEVEL > 0 {
-			qm.ShowTasks()
-		}
+		qm.ShowTasks() // only if debug level is set
 		return qm.taskMap
 	}
 	if name == "work" {
-		if conf.DEBUG_LEVEL > 0 {
-			qm.ShowWorkQueue()
-		}
+		qm.ShowWorkQueue() // only if debug level is set
 		return wQueueShow{qm.workQueue.workMap, qm.workQueue.wait, qm.workQueue.checkout, qm.workQueue.suspend}
 	}
 	if name == "client" {
@@ -965,9 +961,9 @@ func (qm *ServerMgr) updateTaskWorkStatus(task *Task, rank int, newstatus string
 
 // show functions used in debug
 func (qm *ServerMgr) ShowTasks() {
-	fmt.Printf("current active tasks (%d):\n", qm.lenTasks())
+	logger.Debug(1, fmt.Sprintf("current active tasks (%d)", qm.lenTasks()))
 	for _, task := range qm.getAllTasks() {
-		fmt.Printf("task id: %s, status:%s\n", task.Id, task.State)
+		logger.Debug(1, fmt.Sprintf("taskid=%s;status=%s", task.Id, task.State))
 	}
 }
 

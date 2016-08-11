@@ -65,9 +65,9 @@ func (qm *CQMgr) ClientHandle() {
 
 // show functions used in debug
 func (qm *CQMgr) ShowWorkQueue() {
-	fmt.Printf("current queuing workunits (%d):\n", qm.workQueue.Len())
+	logger.Debug(1, fmt.Sprintf("current queuing workunits (%d)", qm.workQueue.Len()))
 	for _, id := range qm.workQueue.List() {
-		fmt.Printf("workunit id: %s\n", id)
+		logger.Debug(1, fmt.Sprintf("workid=%s", id))
 	}
 	return
 }

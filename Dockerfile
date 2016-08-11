@@ -12,6 +12,9 @@ WORKDIR /go/bin
 
 COPY . /go/src/github.com/MG-RAST/AWE
 
+# backwards compatible pathing with old dockerfile
+RUN ln -s /go /gopath
+
 # compile AWE
 RUN mkdir -p ${AWE} && \
   cd ${AWE} && \

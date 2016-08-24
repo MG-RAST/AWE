@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/worker"
-	"os"
-	"strings"
 )
 
 func main() {
@@ -77,7 +78,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "AWE server url not configured or is empty. Please check the [Client]serverurl field in the configuration file.\n")
 		os.Exit(1)
 	}
-	if strings.Contains(conf.SERVER_URL, "http") == false {
+	if strings.HasPrefix(conf.SERVER_URL, "http") == false {
 		fmt.Fprintf(os.Stderr, "serverurl not valid (require http://): %s \n", conf.SERVER_URL)
 		os.Exit(1)
 	}

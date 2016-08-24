@@ -12,17 +12,12 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
-	"github.com/davecgh/go-spew/spew" // for debnugging only
-	//"github.com/ghodss/yaml"
-	//"encoding/json"
-	"github.com/mitchellh/mapstructure"
+	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -107,119 +102,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			cx.RespondWithErrorMessage("cwlVersion unknown", http.StatusBadRequest)
 		}
 
-		// this yaml parser (gopkg.in/yaml.v2) has problems with the CWL yaml format. We skip the header aand jump directly to "$graph" because of that.
-		graph_pos := strings.Index(yaml_str, "$graph:")
-
-		if graph_pos == -1 {
-			cx.RespondWithErrorMessage("yaml parisng error. keyword $graph missing", http.StatusBadRequest)
-		}
-		logger.Debug(1, "graph_pos: "+string(graph_pos))
-		yaml_str = strings.Replace(yaml_str, "$graph", "graph", -1) // remove dollar sign
-
-		//logger.Debug(1, "yaml_str: "+string(yaml_str[:]))
-		//[]byte(yaml_str)
-		cwl_gen := cwl.CWL_document_generic{}
-
-		err = yaml.Unmarshal([]byte(yaml_str), &cwl_gen)
-		if err != nil {
-			logger.Debug(1, "CWL unmarshal error")
-			logger.Error("error: " + err.Error())
-		}
-		fmt.Printf("--------------")
-		spew.Dump(cwl_gen)
-		fmt.Printf("--- cwl:\n%v\n\n", cwl_gen)
-
-		fmt.Println(reflect.TypeOf(cwl_gen.Graph))
-
-		var CommandLineTools []cwl.CommandLineTool
-		var Workflows []cwl.Workflow
-
-		container := []cwl.CWL_object{}
-
-		for _, elem := range cwl_gen.Graph {
-
-			cwl_object_type := elem["class"].(string)
-
-			switch {
-			case cwl_object_type == "CommandLineTool":
-
-				//*** check if "inputs"" is an array or a map"
-				switch elem["inputs"].(type) {
-				case map[interface{}]interface{}:
-					// Convert map of inputs into array of inputs
-					elem["inputs"] = cwl.CreateCommandInputArray(elem["inputs"])
-				}
-
-				switch elem["outputs"].(type) {
-				case map[interface{}]interface{}:
-					// Convert map of outputs into array of outputs
-					elem["outputs"] = cwl.CreateCommandOutputArray(elem["outputs"])
-				}
-
-				spew.Dump(elem)
-
-				var result cwl.CommandLineTool
-				err := mapstructure.Decode(elem, &result)
-				if err != nil {
-					panic(err)
-				}
-				spew.Dump(result)
-				CommandLineTools = append(CommandLineTools, result)
-				container = append(container, result)
-			case cwl_object_type == "Workflow":
-
-				// convert input map into input array
-				switch elem["inputs"].(type) {
-				case map[interface{}]interface{}:
-					// Convert map of inputs into array of inputs
-					elem["inputs"] = cwl.CreateInputParameterArray(elem["inputs"])
-				}
-
-				switch elem["outputs"].(type) {
-				case map[interface{}]interface{}:
-					// Convert map of outputs into array of outputs
-					elem["outputs"] = cwl.CreateWorkflowOutputParameterArray(elem["outputs"])
-				}
-
-				var result cwl.Workflow
-				err := mapstructure.Decode(elem, &result)
-				if err != nil {
-					panic(err)
-				}
-				spew.Dump(result)
-				Workflows = append(Workflows, result)
-				container = append(container, result)
-			}
-
-			fmt.Printf("----------------------------------------------\n")
-			//spew.Dump(CommandLineTools)
-			//spew.Dump(Workflows)
-			spew.Dump(container)
-
-			// pretty print json
-			//b, err := json.MarshalIndent(CommandLineTools, "", "    ")
-			//if err != nil {
-			//		fmt.Println(err)
-			//	return
-			//}
-			//fmt.Println(string(b))
-			//t := elem.(cwl.CommandLineTool)
-
-			//spew.Dump(t)
-
-			//fmt.Println("A elem: " + elem.Class)
-			//test_map := elem.(map[string]cwl.CWL_class)
-			//test_map := elem.(map[string]interface{})
-			//test_obj := test_map.(cwl.CWL_class)
-			//fmt.Println("B test_map:")
-			//spew.Dump(test_map)
-
-			//value := test_map["class"]
-			//fmt.Println("C")
-			//value_str := value.(string)
-			//fmt.Println("got: " + value_str)
-		}
-
+		cwl_container := cwl.Parse_cwl_document(yaml_str)
+		spew.Dump(cwl_container)
 		os.Exit(0)
 
 	} else if !has_upload && !has_awf {

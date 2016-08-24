@@ -4,13 +4,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/MG-RAST/golib/goconfig/config"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/MG-RAST/golib/goconfig/config"
 )
 
 const VERSION string = "0.9.30"
@@ -407,8 +408,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddInt(&API_PORT, 8001, "Ports", "api-port", "Internal port for API", "")
 
 		// External
-		c_store.AddString(&SITE_URL, "", "External", "site-url", "External URL of AWE monitor, including port", "")
-		c_store.AddString(&API_URL, "", "External", "api-url", "External API URL of AWE server, including port", "")
+		c_store.AddString(&SITE_URL, "http://localhost:8081", "External", "site-url", "External URL of AWE monitor, including port", "")
+		c_store.AddString(&API_URL, "http://localhost:8001", "External", "api-url", "External API URL of AWE server, including port", "")
 
 		// SSL
 		c_store.AddBool(&SSL_ENABLED, false, "SSL", "enable", "", "")

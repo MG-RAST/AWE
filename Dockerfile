@@ -7,6 +7,11 @@ FROM golang:1.7.0-alpine
 # needed for GIT_COMMIT_HASH
 RUN apk update && apk add git
 
+
+# not sure why this is needed sometimes for sasl
+# RUN apk add gcc libc-dev cyrus-sasl-dev
+
+
 ENV AWE=/go/src/github.com/MG-RAST/AWE
 WORKDIR /go/bin
 

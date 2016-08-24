@@ -1,19 +1,26 @@
 package cwl
 
 import (
+	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
+	"gopkg.in/yaml.v2"
+	"os"
+	"reflect"
+	"strings"
 )
 
+// this is used by YAML or JSON library for inital parsing
 type CWL_document_generic struct {
 	CwlVersion string               `yaml:"cwlVersion"`
 	Graph      []CWL_object_generic `yaml:"graph"`
 }
 
 //type CWL_document struct {
-//	CwlVersion string               `yaml:"cwlVersion"`
-//	Graph      []CWL_object_generic `yaml:"graph"`
+//	CwlVersion string       `yaml:"cwlVersion"`
+//	Graph      []CWL_object `yaml:"graph"`
 //}
 
 type CWL_object_generic map[string]interface{}
@@ -22,97 +29,13 @@ type CWL_object interface {
 	Class() string
 }
 
-type Workflow struct {
-	Id string `yaml:"id"`
-	//Class string `yaml:"class"`
-
-	Inputs       []InputParameter          `yaml:"inputs"`
-	Outputs      []WorkflowOutputParameter `yaml:"outputs"`
-	Requirements interface{}               `yaml:"requirements"`
-	Hints        interface{}               `yaml:"hints"`
-	Label        string                    `yaml:"label"`
-	Doc          string                    `yaml:"doc"`
-	CwlVersion   CWLVersion                `yaml:"cwlVersion"`
-}
-
-func (w Workflow) Class() string { return "Workflow" }
-
-type InputParameter struct {
-	Id             string             `yaml:"id"`
-	Label          string             `yaml:"label"`
-	SecondaryFiles []string           `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         string             `yaml:"format"`
-	Streamable     bool               `yaml:"streamable"`
-	Doc            string             `yaml:"doc"`
-	InputBinding   CommandLineBinding `yaml:"inputBinding"` //TODO
-	Default        Any                `yaml:"default"`
-	Type           string             `yaml:"type"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
-}
-
-type WorkflowOutputParameter struct {
-	Id             string               `yaml:"id"`
-	Label          string               `yaml:"label"`
-	SecondaryFiles []Expression         `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         []Expression         `yaml:"format"`
-	Streamable     bool                 `yaml:"streamable"`
-	Doc            string               `yaml:"doc"`
-	OutputBinding  CommandOutputBinding `yaml:"outputBinding"` //TODO
-	OutputSource   []string             `yaml:"outputSource"`
-	LinkMerge      LinkMergeMethod      `yaml:"linkMerge"`
-	Type           string               `yaml:"type"` // TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
-}
-
-type CommandLineBinding struct {
-	LoadContents  bool   `yaml:"loadContents"`
-	Position      int    `yaml:"position"`
-	Prefix        string `yaml:"prefix"`
-	Separate      string `yaml:"separate"`
-	ItemSeparator string `yaml:"itemSeparator"`
-	ValueFrom     string `yaml:"valueFrom"`
-	ShellQuote    bool   `yaml:"shellQuote"`
-}
-
-type CommandOutputBinding struct {
-	Glob         []Expression `yaml:"glob"`
-	LoadContents bool         `yaml:"loadContents"`
-	OutputEval   Expression   `yaml:"outputEval"`
-}
-
-type CommandLineTool struct {
-	Id string `yaml:"id"`
-	//Class string `yaml:"class"`
-
-	BaseCommand        string                   `yaml:"baseCommand"` // TODO also allow []string
-	Inputs             []CommandInputParameter  `yaml:"inputs"`
-	Ouputs             []CommandOutputParameter `yaml:"outputs"`
-	Hints              interface{}              `yaml:"hints"` // TODO Any
-	Label              string                   `yaml:"label"`
-	Description        string                   `yaml:"description"`
-	CwlVersion         CWLVersion               `yaml:"cwlVersion"`
-	Arguments          []string                 `yaml:"arguments"` // TODO support CommandLineBinding
-	Stdin              string                   `yaml:"stdin"`     // TODO support Expression
-	Stdout             string                   `yaml:"stdout"`    // TODO support Expression
-	SuccessCodes       []int                    `yaml:"successCodes"`
-	TemporaryFailCodes []int                    `yaml:"temporaryFailCodes"`
-	PermanentFailCodes []int                    `yaml:"permanentFailCodes"`
-}
-
-func (c CommandLineTool) Class() string { return "CommandLineTool" }
-
-type DockerRequirement struct {
-	//Class         string `yaml:"class"`
-	DockerPull    string `yaml:"dockerPull"`
-	DockerLoad    string `yaml:"dockerLoad"`
-	DockerFile    string `yaml:"dockerFile"`
-	DockerImport  string `yaml:"dockerImport"`
-	DockerImageId string `yaml:"dockerImageId"`
-}
-
 type Expression string
-type Any interface{}        // TODO
+
 type CWLVersion interface{} // TODO
 
-type LinkMergeMethod interface{} // TODO
+type Any interface{}
+
+type LinkMergeMethod string // merge_nested or merge_flattened
 
 type File struct {
 	Path           string `yaml:"path"`
@@ -122,105 +45,182 @@ type File struct {
 	Format         string `yaml:"format"`
 }
 
-type CommandInputParameter struct {
-	Id             string   `yaml:"id"`
-	SecondaryFiles []string `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         string   `yaml:"format"`
-	Streamable     bool     `yaml:"streamable"`
-	Type           string   `yaml:"type"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
-	Label          string   `yaml:"label"`
-	Description    string   `yaml:"description"`
-	InputBinding   string   `yaml:"inputBinding"` //TODO
-	Default        Any      `yaml:"default"`
+func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, CommandLineTools []CommandLineTool) {
+
+	// this yaml parser (gopkg.in/yaml.v2) has problems with the CWL yaml format. We skip the header aand jump directly to "$graph" because of that.
+	graph_pos := strings.Index(yaml_str, "$graph:")
+
+	if graph_pos == -1 {
+		//cx.RespondWithErrorMessage("yaml parisng error. keyword $graph missing", http.StatusBadRequest) TODO
+	}
+	logger.Debug(1, "graph_pos: "+string(graph_pos))
+	yaml_str = strings.Replace(yaml_str, "$graph", "graph", -1) // remove dollar sign
+
+	//logger.Debug(1, "yaml_str: "+string(yaml_str[:]))
+	//[]byte(yaml_str)
+
+	cwl_gen := CWL_document_generic{}
+
+	err = yaml.Unmarshal([]byte(yaml_str), &cwl_gen)
+	if err != nil {
+		logger.Debug(1, "CWL unmarshal error")
+		logger.Error("error: " + err.Error())
+	}
+	fmt.Printf("--------------")
+	spew.Dump(cwl_gen)
+	fmt.Printf("--- cwl:\n%v\n\n", cwl_gen)
+
+	fmt.Println(reflect.TypeOf(cwl_gen.Graph))
+
+	//var CommandLineTools []CommandLineTool
+	//var Workflows []Workflow
+
+	//container = []CWL_object{}
+
+	for _, elem := range cwl_gen.Graph {
+
+		cwl_object_type := elem["class"].(string)
+
+		switch elem["hints"].(type) {
+		case map[interface{}]interface{}:
+			// Convert map of outputs into array of outputs
+			err, elem["hints"] = CreateAnyArray(elem["hints"])
+			if err != nil {
+				return
+			}
+		}
+
+		switch {
+		case cwl_object_type == "CommandLineTool":
+
+			//*** check if "inputs"" is an array or a map"
+			switch elem["inputs"].(type) {
+			case map[interface{}]interface{}:
+				// Convert map of inputs into array of inputs
+				err, elem["inputs"] = CreateCommandInputArray(elem["inputs"])
+				if err != nil {
+					return
+				}
+			}
+
+			switch elem["outputs"].(type) {
+			case map[interface{}]interface{}:
+				// Convert map of outputs into array of outputs
+				err, elem["outputs"] = CreateCommandOutputArray(elem["outputs"])
+				if err != nil {
+					return
+				}
+			}
+
+			spew.Dump(elem)
+			os.Exit(0)
+
+			var result CommandLineTool
+			err = mapstructure.Decode(elem, &result)
+			if err != nil {
+				return
+			}
+			spew.Dump(result)
+			CommandLineTools = append(CommandLineTools, result)
+			//container = append(container, result)
+		case cwl_object_type == "Workflow":
+
+			// convert input map into input array
+			switch elem["inputs"].(type) {
+			case map[interface{}]interface{}:
+				// Convert map of inputs into array of inputs
+				err, elem["inputs"] = CreateInputParameterArray(elem["inputs"])
+				if err != nil {
+					return
+				}
+			}
+
+			switch elem["outputs"].(type) {
+			case map[interface{}]interface{}:
+				// Convert map of outputs into array of outputs
+				err, elem["outputs"] = CreateWorkflowOutputParameterArray(elem["outputs"])
+				if err != nil {
+					return
+				}
+			}
+
+			// convert steps to array if it is a map
+			switch elem["steps"].(type) {
+			case map[interface{}]interface{}:
+				err, elem["steps"] = CreateWorkflowStepsArray(elem["steps"])
+				if err != nil {
+					return
+				}
+			}
+
+			//fmt.Printf("-- Steps found ------------") // WorkflowStep
+			//for _, step := range elem["steps"].([]interface{}) {
+
+			//	spew.Dump(step)
+
+			//}
+
+			var workflow Workflow
+			err = mapstructure.Decode(elem, &workflow)
+			if err != nil {
+				return
+			}
+
+			//spew.Dump(workflow)
+			Workflows = append(Workflows, workflow)
+			//container = append(container, result)
+		} // end switch
+
+		fmt.Printf("----------------------------------------------\n")
+		//spew.Dump(CommandLineTools)
+		//spew.Dump(Workflows)
+
+		// pretty print json
+		//b, err := json.MarshalIndent(CommandLineTools, "", "    ")
+		//if err != nil {
+		//		fmt.Println(err)
+		//	return
+		//}
+		//fmt.Println(string(b))
+		//t := elem.(CommandLineTool)
+
+		//spew.Dump(t)
+
+		//fmt.Println("A elem: " + elem.Class)
+		//test_map := elem.(map[string]CWL_class)
+		//test_map := elem.(map[string]interface{})
+		//test_obj := test_map.(CWL_class)
+		//fmt.Println("B test_map:")
+		//spew.Dump(test_map)
+
+		//value := test_map["class"]
+		//fmt.Println("C")
+		//value_str := value.(string)
+		//fmt.Println("got: " + value_str)
+
+	} // end for
+
+	return
 }
 
-type CommandOutputParameter struct {
-	Id             string   `yaml:"id"`
-	SecondaryFiles []string `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         string   `yaml:"format"`
-	Streamable     bool     `yaml:"streamable"`
-	Type           string   `yaml:"type"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
-	Label          string   `yaml:"label"`
-	Description    string   `yaml:"description"`
-	OutputBinding  string   `yaml:"inputBinding"` //TODO
-}
-
-// keyname will be converted into 'Id'-field
-func CreateCommandInputArray(original interface{}) []CommandInputParameter {
-
-	var new_array []CommandInputParameter
+func CreateAnyArray(original interface{}) (err error, new_array []Any) {
+	fmt.Printf("CreateAnyArray :::::::::::::::::::")
 
 	for k, v := range original.(map[interface{}]interface{}) {
-		fmt.Printf("A")
+		//fmt.Printf("A")
 
-		var input_parameter CommandInputParameter
-		mapstructure.Decode(v, &input_parameter)
-		input_parameter.Id = k.(string)
-		fmt.Printf("C")
-		new_array = append(new_array, input_parameter)
-		fmt.Printf("D")
-
-	}
-	spew.Dump(new_array)
-	return new_array
-}
-
-// keyname will be converted into 'Id'-field
-func CreateCommandOutputArray(original interface{}) []CommandOutputParameter {
-	fmt.Printf("CreateOutputMap")
-	var new_array []CommandOutputParameter
-
-	for k, v := range original.(map[interface{}]interface{}) {
-		fmt.Printf("A")
-
-		var output_parameter CommandOutputParameter
-		mapstructure.Decode(v, &output_parameter)
-		output_parameter.Id = k.(string)
-		fmt.Printf("C")
-		new_array = append(new_array, output_parameter)
-		fmt.Printf("D")
+		switch v.(type) {
+		case map[interface{}]interface{}: // the hint is a struct itself
+			fmt.Printf("match")
+			vmap := v.(map[interface{}]interface{})
+			vmap["id"] = k.(string)
+			new_array = append(new_array, vmap)
+		default:
+			fmt.Printf("not match")
+			return errors.New("error"), nil
+		}
 
 	}
-	spew.Dump(new_array)
-	return new_array
-}
-
-// InputParameter
-func CreateInputParameterArray(original interface{}) []InputParameter {
-
-	var new_array []InputParameter
-
-	for k, v := range original.(map[interface{}]interface{}) {
-		fmt.Printf("A")
-
-		var input_parameter InputParameter
-		mapstructure.Decode(v, &input_parameter)
-		input_parameter.Id = k.(string)
-		fmt.Printf("C")
-		new_array = append(new_array, input_parameter)
-		fmt.Printf("D")
-
-	}
-	spew.Dump(new_array)
-	return new_array
-}
-
-// WorkflowOutputParameter
-func CreateWorkflowOutputParameterArray(original interface{}) []WorkflowOutputParameter {
-
-	var new_array []WorkflowOutputParameter
-
-	for k, v := range original.(map[interface{}]interface{}) {
-		fmt.Printf("A")
-
-		var output_parameter WorkflowOutputParameter
-		mapstructure.Decode(v, &output_parameter)
-		output_parameter.Id = k.(string)
-		fmt.Printf("C")
-		new_array = append(new_array, output_parameter)
-		fmt.Printf("D")
-
-	}
-	spew.Dump(new_array)
-	return new_array
+	//spew.Dump(new_array)
+	return
 }

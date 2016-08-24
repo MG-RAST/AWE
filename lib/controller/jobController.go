@@ -102,8 +102,31 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			cx.RespondWithErrorMessage("cwlVersion unknown", http.StatusBadRequest)
 		}
 
-		cwl_container := cwl.Parse_cwl_document(yaml_str)
-		spew.Dump(cwl_container)
+		err, Workflows, CommandLineTools := cwl.Parse_cwl_document(yaml_str)
+		if err != nil {
+			logger.Debug(1, "CWL error")
+			cx.RespondWithErrorMessage("error in parsing job yaml file: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		//spew.Dump(cwl_container)
+
+		for _, elem := range Workflows {
+			fmt.Println(elem.Class())
+			spew.Dump(elem)
+		}
+
+		for _, elem := range CommandLineTools {
+			fmt.Println(elem.Class())
+			spew.Dump(elem)
+		}
+
+		myworkflow := Workflows[0]
+
+		fmt.Println("\n\n\n---------------------------------")
+		for _, step := range myworkflow.Steps {
+			spew.Dump(step)
+		}
+
 		os.Exit(0)
 
 	} else if !has_upload && !has_awf {

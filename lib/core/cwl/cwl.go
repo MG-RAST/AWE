@@ -153,6 +153,14 @@ func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, Comma
 				}
 			}
 
+			switch elem["requirements"].(type) {
+			case map[interface{}]interface{}:
+				// Convert map of outputs into array of outputs
+				err, elem["requirements"] = CreateRequirementArray(elem["requirements"])
+				if err != nil {
+					return
+				}
+			}
 			//fmt.Printf("-- Steps found ------------") // WorkflowStep
 			//for _, step := range elem["steps"].([]interface{}) {
 

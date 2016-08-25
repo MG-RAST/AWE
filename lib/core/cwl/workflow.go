@@ -175,6 +175,15 @@ func CreateWorkflowStepsArray(original interface{}) (err error, new_array []Work
 			}
 		}
 
+		switch v_map["requirements"].(type) {
+		case map[interface{}]interface{}:
+			// Convert map of outputs into array of outputs
+			err, v_map["requirements"] = CreateRequirementArray(v_map["requirements"])
+			if err != nil {
+				return
+			}
+		}
+
 		var step WorkflowStep
 		mapstructure.Decode(v, &step)
 		step.Id = k.(string)

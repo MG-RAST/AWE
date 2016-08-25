@@ -127,23 +127,23 @@ func CreateJobUpload(u *user.User, files FormFiles, jid string) (job *Job, err e
 
 	// TODO move app definitions from git into something faster ?
 
-	var MyAppRegistry AppRegistry // this will be populated with latest version every time a workflow is submitted
+	//var MyAppRegistry AppRegistry // this will be populated with latest version every time a workflow is submitted
 
-	if MyAppRegistry == nil && conf.USE_APP_DEFS != "no" {
-		MyAppRegistry, err = MakeAppRegistry()
-		if err != nil {
-			return job, errors.New("error creating app registry, error=" + err.Error())
-		}
-		//logger.Debug(1, "app defintions read")
-	}
+	//if MyAppRegistry == nil && conf.USE_APP_DEFS != "no" {
+	//	MyAppRegistry, err = MakeAppRegistry()
+	//	if err != nil {
+	//		return job, errors.New("error creating app registry, error=" + err.Error())
+	//	}
+	//	//logger.Debug(1, "app defintions read")
+	//}
 
-	if conf.USE_APP_DEFS != "no" {
-		err = MyAppRegistry.createIOnodes(job)
-		if err != nil {
-			err = errors.New(fmt.Sprintf("error in createIOnodes, error=%s", err.Error()))
-			return
-		}
-	}
+	//if conf.USE_APP_DEFS != "no" {
+	//	err = MyAppRegistry.createIOnodes(job)
+	//	if err != nil {
+	//		err = errors.New(fmt.Sprintf("error in createIOnodes, error=%s", err.Error()))
+	//		return
+	//	}
+	//}
 
 	err = job.UpdateFile(files)
 	if err != nil {
@@ -459,8 +459,8 @@ func JobDepToJob(jobDep *JobDep) (job *Job) {
 		task.Id = taskDep.Id
 		task.Info = taskDep.Info
 		task.Cmd = taskDep.Cmd
-		task.App = taskDep.App
-		task.AppVariablesArray = taskDep.AppVariablesArray
+		//task.App = taskDep.App
+		//task.AppVariablesArray = taskDep.AppVariablesArray
 		task.Partition = taskDep.Partition
 		task.DependsOn = taskDep.DependsOn
 		task.TotalWork = taskDep.TotalWork

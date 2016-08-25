@@ -23,56 +23,56 @@ const (
 )
 
 type Task struct {
-	Id                string            `bson:"taskid" json:"taskid"`
-	Info              *Info             `bson:"info" json:"-"`
-	Inputs            []*IO             `bson:"inputs" json:"inputs"`
-	Outputs           []*IO             `bson:"outputs" json:"outputs"`
-	Predata           []*IO             `bson:"predata" json:"predata"`
-	Cmd               *Command          `bson:"cmd" json:"cmd"`
-	App               *App              `bson:"app" json:"app"`
-	AppVariablesArray []*AppVariable    // not in App as workunit does not need AppVariables and I want to pass App
-	Partition         *PartInfo         `bson:"partinfo" json:"-"`
-	DependsOn         []string          `bson:"dependsOn" json:"dependsOn"`
-	TotalWork         int               `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize       int               `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork        int               `bson:"remainwork" json:"remainwork"`
-	WorkStatus        []string          `bson:"workstatus" json:"-"`
-	State             string            `bson:"state" json:"state"`
-	Skip              int               `bson:"skip" json:"-"`
-	CreatedDate       time.Time         `bson:"createdDate" json:"createddate"`
-	StartedDate       time.Time         `bson:"startedDate" json:"starteddate"`
-	CompletedDate     time.Time         `bson:"completedDate" json:"completeddate"`
-	ComputeTime       int               `bson:"computetime" json:"computetime"`
-	UserAttr          map[string]string `bson:"userattr" json:"userattr"`
-	ClientGroups      string            `bson:"clientgroups" json:"clientgroups"`
+	Id      string   `bson:"taskid" json:"taskid"`
+	Info    *Info    `bson:"info" json:"-"`
+	Inputs  []*IO    `bson:"inputs" json:"inputs"`
+	Outputs []*IO    `bson:"outputs" json:"outputs"`
+	Predata []*IO    `bson:"predata" json:"predata"`
+	Cmd     *Command `bson:"cmd" json:"cmd"`
+	//	App               *App              `bson:"app" json:"app"`
+	//	AppVariablesArray []*AppVariable    // not in App as workunit does not need AppVariables and I want to pass App
+	Partition     *PartInfo         `bson:"partinfo" json:"-"`
+	DependsOn     []string          `bson:"dependsOn" json:"dependsOn"`
+	TotalWork     int               `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize   int               `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork    int               `bson:"remainwork" json:"remainwork"`
+	WorkStatus    []string          `bson:"workstatus" json:"-"`
+	State         string            `bson:"state" json:"state"`
+	Skip          int               `bson:"skip" json:"-"`
+	CreatedDate   time.Time         `bson:"createdDate" json:"createddate"`
+	StartedDate   time.Time         `bson:"startedDate" json:"starteddate"`
+	CompletedDate time.Time         `bson:"completedDate" json:"completeddate"`
+	ComputeTime   int               `bson:"computetime" json:"computetime"`
+	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
+	ClientGroups  string            `bson:"clientgroups" json:"clientgroups"`
 }
 
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
 // Jobs that cannot be parsed into the Job struct, but can be parsed into the JobDep struct will be translated to the new Job struct.
 // (=deprecated=)
 type TaskDep struct {
-	Id                string            `bson:"taskid" json:"taskid"`
-	Info              *Info             `bson:"info" json:"-"`
-	Inputs            IOmap             `bson:"inputs" json:"inputs"`
-	Outputs           IOmap             `bson:"outputs" json:"outputs"`
-	Predata           IOmap             `bson:"predata" json:"predata"`
-	Cmd               *Command          `bson:"cmd" json:"cmd"`
-	App               *App              `bson:"app" json:"app"`
-	AppVariablesArray []*AppVariable    // not in App as workunit does not need AppVariables and I want to pass App
-	Partition         *PartInfo         `bson:"partinfo" json:"-"`
-	DependsOn         []string          `bson:"dependsOn" json:"dependsOn"`
-	TotalWork         int               `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize       int               `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork        int               `bson:"remainwork" json:"remainwork"`
-	WorkStatus        []string          `bson:"workstatus" json:"-"`
-	State             string            `bson:"state" json:"state"`
-	Skip              int               `bson:"skip" json:"-"`
-	CreatedDate       time.Time         `bson:"createdDate" json:"createddate"`
-	StartedDate       time.Time         `bson:"startedDate" json:"starteddate"`
-	CompletedDate     time.Time         `bson:"completedDate" json:"completeddate"`
-	ComputeTime       int               `bson:"computetime" json:"computetime"`
-	UserAttr          map[string]string `bson:"userattr" json:"userattr"`
-	ClientGroups      string            `bson:"clientgroups" json:"clientgroups"`
+	Id      string   `bson:"taskid" json:"taskid"`
+	Info    *Info    `bson:"info" json:"-"`
+	Inputs  IOmap    `bson:"inputs" json:"inputs"`
+	Outputs IOmap    `bson:"outputs" json:"outputs"`
+	Predata IOmap    `bson:"predata" json:"predata"`
+	Cmd     *Command `bson:"cmd" json:"cmd"`
+	//	App               *App              `bson:"app" json:"app"`
+	//	AppVariablesArray []*AppVariable    // not in App as workunit does not need AppVariables and I want to pass App
+	Partition     *PartInfo         `bson:"partinfo" json:"-"`
+	DependsOn     []string          `bson:"dependsOn" json:"dependsOn"`
+	TotalWork     int               `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize   int               `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork    int               `bson:"remainwork" json:"remainwork"`
+	WorkStatus    []string          `bson:"workstatus" json:"-"`
+	State         string            `bson:"state" json:"state"`
+	Skip          int               `bson:"skip" json:"-"`
+	CreatedDate   time.Time         `bson:"createdDate" json:"createddate"`
+	StartedDate   time.Time         `bson:"startedDate" json:"starteddate"`
+	CompletedDate time.Time         `bson:"completedDate" json:"completeddate"`
+	ComputeTime   int               `bson:"computetime" json:"computetime"`
+	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
+	ClientGroups  string            `bson:"clientgroups" json:"clientgroups"`
 }
 
 type TaskLog struct {

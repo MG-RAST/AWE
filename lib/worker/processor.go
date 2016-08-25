@@ -65,7 +65,7 @@ func processor(control chan int) {
 		_ = envkeys
 
 		wants_docker := false
-		if work.Cmd.Dockerimage != "" || work.App != nil {
+		if work.Cmd.Dockerimage != "" {
 			wants_docker = true
 		}
 
@@ -122,7 +122,7 @@ func processor(control chan int) {
 
 func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
-	if work.Cmd.Dockerimage != "" || work.App != nil {
+	if work.Cmd.Dockerimage != "" {
 		pstats, err = RunWorkunitDocker(work)
 	} else {
 		pstats, err = RunWorkunitDirect(work)
@@ -197,9 +197,6 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	container_name := "AWE_workunit"
 
 	Dockerimage := work.Cmd.Dockerimage
-	if work.App != nil && work.App.Name != "" {
-		Dockerimage = work.App.AppDef.Dockerimage
-	}
 
 	if Dockerimage == "" {
 		return nil, errors.New(fmt.Sprintf("Error Dockerimage string empty"))

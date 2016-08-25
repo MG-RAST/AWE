@@ -14,7 +14,7 @@ type Workflow struct {
 	Id           string                    `yaml:"id"`
 	Steps        []WorkflowStep            `yaml:"steps"`
 	Requirements []Requirement             `yaml:"requirements"`
-	Hints        []Any                     `yaml:"hints"`
+	Hints        []Requirement             `yaml:"hints"` // TODO Hints may contain non-requirement objects. Give warning in those cases.
 	Label        string                    `yaml:"label"`
 	Doc          string                    `yaml:"doc"`
 	CwlVersion   CWLVersion                `yaml:"cwlVersion"`
@@ -28,7 +28,7 @@ type WorkflowStep struct {
 	Out           []WorkflowStepOutput `yaml:"out"`
 	Run           string               `yaml:"run"` // Specification unclear: string | CommandLineTool | ExpressionTool | Workflow
 	Requirements  []Requirement        `yaml:"requirements"`
-	Hints         []Any                `yaml:"hints"`
+	Hints         []Requirement        `yaml:"hints"`
 	Label         string               `yaml:"label"`
 	Doc           string               `yaml:"doc"`
 	Scatter       string               `yaml:"scatter"`
@@ -169,7 +169,7 @@ func CreateWorkflowStepsArray(original interface{}) (err error, new_array []Work
 		switch v_map["hints"].(type) {
 		case map[interface{}]interface{}:
 			// Convert map of outputs into array of outputs
-			err, v_map["hints"] = CreateAnyArray(v_map["hints"])
+			err, v_map["hints"] = CreateRequirementArray(v_map["hints"])
 			if err != nil {
 				return
 			}

@@ -12,7 +12,7 @@ type CommandLineTool struct {
 	BaseCommand        string                   `yaml:"baseCommand"` // TODO also allow []string
 	Inputs             []CommandInputParameter  `yaml:"inputs"`
 	Ouputs             []CommandOutputParameter `yaml:"outputs"`
-	Hints              []Any                    `yaml:"hints"` // TODO Any
+	Hints              []Requirement            `yaml:"hints"` // TODO Any
 	Label              string                   `yaml:"label"`
 	Description        string                   `yaml:"description"`
 	CwlVersion         CWLVersion               `yaml:"cwlVersion"`

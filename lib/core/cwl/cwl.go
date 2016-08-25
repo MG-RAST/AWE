@@ -7,8 +7,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"gopkg.in/yaml.v2"
-	"os"
-	"reflect"
+	//"os"
+	//"reflect"
 	"strings"
 )
 
@@ -66,17 +66,11 @@ func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, Comma
 		logger.Debug(1, "CWL unmarshal error")
 		logger.Error("error: " + err.Error())
 	}
-	fmt.Printf("--------------")
+	fmt.Println("-------------- raw CWL")
 	spew.Dump(cwl_gen)
-	fmt.Printf("--- cwl:\n%v\n\n", cwl_gen)
+	fmt.Println("-------------- Start real parsing")
 
-	fmt.Println(reflect.TypeOf(cwl_gen.Graph))
-
-	//var CommandLineTools []CommandLineTool
-	//var Workflows []Workflow
-
-	//container = []CWL_object{}
-
+	// iterated over Graph
 	for _, elem := range cwl_gen.Graph {
 
 		cwl_object_type := elem["class"].(string)
@@ -84,7 +78,7 @@ func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, Comma
 		switch elem["hints"].(type) {
 		case map[interface{}]interface{}:
 			// Convert map of outputs into array of outputs
-			err, elem["hints"] = CreateAnyArray(elem["hints"])
+			err, elem["hints"] = CreateRequirementArray(elem["hints"])
 			if err != nil {
 				return
 			}
@@ -111,9 +105,6 @@ func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, Comma
 					return
 				}
 			}
-
-			spew.Dump(elem)
-			os.Exit(0)
 
 			var result CommandLineTool
 			err = mapstructure.Decode(elem, &result)
@@ -212,7 +203,7 @@ func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, Comma
 }
 
 func CreateAnyArray(original interface{}) (err error, new_array []Any) {
-	fmt.Printf("CreateAnyArray :::::::::::::::::::")
+	//fmt.Printf("CreateAnyArray :::::::::::::::::::")
 
 	for k, v := range original.(map[interface{}]interface{}) {
 		//fmt.Printf("A")

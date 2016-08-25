@@ -2,7 +2,8 @@ package cwl
 
 import (
 	"errors"
-	"fmt"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/mitchellh/mapstructure"
 )
 
 type Requirement interface {
@@ -22,24 +23,34 @@ func (c DockerRequirement) Class() string { return "DockerRequirement" }
 
 // []Requirement
 func CreateRequirementArray(original interface{}) (err error, new_array []Requirement) {
-	fmt.Printf("CreateAnyArray :::::::::::::::::::")
-
+	// here the keynames are actually class names
 	for k, v := range original.(map[interface{}]interface{}) {
-		//fmt.Printf("A")
 
 		switch v.(type) {
 		case map[interface{}]interface{}: // the Requirement is a struct itself
-			fmt.Printf("match")
 			vmap := v.(map[interface{}]interface{})
-			vmap["id"] = k.(string)
-			requirement := k.(Requirement)
-			new_array = append(new_array, requirement)
+			class := k.(string)
+			vmap["class"] = class
+
+			switch {
+			case class == "DockerRequirement":
+				var requirement DockerRequirement
+				err = mapstructure.Decode(v, &requirement)
+				if err != nil {
+					spew.Dump(v)
+					return errors.New("object not a DockerRequirement"), nil
+
+				}
+				new_array = append(new_array, requirement)
+			default:
+				return errors.New("object class not supported " + class), nil
+
+			}
+
 		default:
-			fmt.Printf("not match")
-			return errors.New("error"), nil
+			return errors.New("error: Requirement struct expected, but not struct found"), nil
 		}
 
 	}
-	//spew.Dump(new_array)
 	return
 }

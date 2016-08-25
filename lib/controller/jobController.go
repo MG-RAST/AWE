@@ -91,7 +91,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		yamlstream, err := ioutil.ReadFile(files["cwl"].Path)
 		if err != nil {
-			logger.Debug(1, "CWL error")
+			logger.Debug(1, "CWL error: "+err.Error())
 			cx.RespondWithErrorMessage("error in reading job yaml file: "+err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -104,7 +104,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		err, Workflows, CommandLineTools := cwl.Parse_cwl_document(yaml_str)
 		if err != nil {
-			logger.Debug(1, "CWL error")
+			logger.Debug(1, "CWL error"+err.Error())
 			cx.RespondWithErrorMessage("error in parsing job yaml file: "+err.Error(), http.StatusBadRequest)
 			return
 		}

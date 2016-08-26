@@ -145,7 +145,7 @@ func CreateJobUpload(u *user.User, files FormFiles, jid string) (job *Job, err e
 	//	}
 	//}
 
-	err = job.UpdateFile(files)
+	err = job.UpdateFile(files, "upload")
 	if err != nil {
 		err = errors.New("error in UpdateFile, error=" + err.Error())
 		return

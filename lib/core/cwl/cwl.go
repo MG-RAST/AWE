@@ -45,9 +45,10 @@ type File struct {
 	Format         string `yaml:"format"`
 }
 
-func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, CommandLineTools []CommandLineTool) {
+func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, CommandLineTools map[string]CommandLineTool) {
 
 	// TODO check cwlVersion
+	// TODO screen for "$import": // this might break the YAML parser !
 
 	// this yaml parser (gopkg.in/yaml.v2) has problems with the CWL yaml format. We skip the header aand jump directly to "$graph" because of that.
 	graph_pos := strings.Index(yaml_str, "$graph:")
@@ -113,7 +114,7 @@ func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, Comma
 				return
 			}
 			spew.Dump(result)
-			CommandLineTools = append(CommandLineTools, result)
+			CommandLineTools[result.Id] = result
 			//container = append(container, result)
 		case cwl_object_type == "Workflow":
 

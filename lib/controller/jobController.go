@@ -126,7 +126,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 
 		fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
-		err, job = core.CWL2AWE(_user, cwl_workflow, CommandLineTools)
+		err, job = core.CWL2AWE(_user, files, cwl_workflow, CommandLineTools)
 		if err != nil {
 			return
 		}

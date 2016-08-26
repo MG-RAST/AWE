@@ -128,14 +128,14 @@ type script struct {
 	Path string `bson:"path" json:"-"`
 }
 
-//---Script upload
-func (job *Job) UpdateFile(files FormFiles) (err error) {
-	_, isRegularUpload := files["upload"]
+//---Script upload (e.g. field="upload")
+func (job *Job) UpdateFile(files FormFiles, field string) (err error) {
+	_, isRegularUpload := files[field]
 	if isRegularUpload {
-		if err = job.SetFile(files["upload"]); err != nil {
+		if err = job.SetFile(files[field]); err != nil {
 			return err
 		}
-		delete(files, "upload")
+		delete(files, field)
 	}
 	return
 }

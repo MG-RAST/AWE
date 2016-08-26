@@ -514,8 +514,9 @@ func ParseAwf(filename string, jid string) (job *Job, err error) {
 }
 
 func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
-	job = new(Job)
-	job.initJob(jid)
+	//job = new(Job)
+	job = NewJob(jid)
+	//job.initJob(jid)
 
 	//mapping info
 	job.Info.Pipeline = awf.WfInfo.Name

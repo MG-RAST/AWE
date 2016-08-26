@@ -86,22 +86,41 @@ type JobLog struct {
 	Tasks      []*TaskLog `bson:"tasks" json:"tasks"`
 }
 
-//set job's uuid
-func (job *Job) setId() {
-	job.Id = uuid.New()
+func NewJob(jid string) (job *Job) {
+
+	_ = jid // not used !!!!
+
+	job = &Job{
+		Info:       NewInfo(),
+		State:      JOB_STAT_INIT,
+		Registered: true,
+	}
+
+	if jid == "" {
+		job.setId() //uuid for the job
+	}
+	// job.State = JOB_STAT_INIT
+	// 	job.Registered = true
 	return
 }
 
-func (job *Job) initJob(jid string) {
-	if job.Info == nil {
-		job.Info = new(Info)
-	}
-	job.Info.SubmitTime = time.Now()
-	job.Info.Priority = conf.BasePriority
-	job.setId() //uuid for the job
-	job.State = JOB_STAT_INIT
-	job.Registered = true
+//set job's uuid
+func (job *Job) setId() {
+	job.Id = uuid.New()
+
+	return
 }
+
+// func (job *Job) initJob(jid string) {
+// 	if job.Info == nil {
+// 		job.Info = new(Info)
+// 	}
+// 	job.Info.SubmitTime = time.Now()
+// 	job.Info.Priority = conf.BasePriority
+// 	job.setId() //uuid for the job
+// 	job.State = JOB_STAT_INIT
+// 	job.Registered = true
+// }
 
 type script struct {
 	Name string `bson:"name" json:"name"`

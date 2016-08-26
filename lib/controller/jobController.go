@@ -17,7 +17,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"net/http"
-	"os"
+	//"os"
 	"strconv"
 	"strings"
 	"time"
@@ -38,16 +38,16 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
 	// Try to authenticate user.
-	u, err := request.Authenticate(cx.Request)
+	_user, err := request.Authenticate(cx.Request)
 	if err != nil && err.Error() != e.NoAuth {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
 		return
 	}
 
 	// If no auth was provided, and anonymous write is allowed, use the public user
-	if u == nil {
+	if _user == nil {
 		if conf.ANON_WRITE == true {
-			u = &user.User{Uuid: "public"}
+			_user = &user.User{Uuid: "public"}
 		} else {
 			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
 			return
@@ -79,7 +79,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	if has_import {
 		// import a job document
-		job, err = core.CreateJobImport(u, files["import"])
+		job, err = core.CreateJobImport(_user, files["import"])
 		if err != nil {
 			logger.Error("Err@job_Create:CreateJobImport: " + err.Error())
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
@@ -89,6 +89,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	} else if has_cwl {
 		logger.Debug(1, "got CWL")
 
+		// get CWL as byte[]
 		yamlstream, err := ioutil.ReadFile(files["cwl"].Path)
 		if err != nil {
 			logger.Debug(1, "CWL error: "+err.Error())
@@ -96,11 +97,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			return
 		}
 
+		// convert CWL to string
 		yaml_str := string(yamlstream[:])
-		if !strings.HasPrefix(yaml_str, "cwlVersion:") {
-			logger.Debug(1, "cwlVersion unknown")
-			cx.RespondWithErrorMessage("cwlVersion unknown", http.StatusBadRequest)
-		}
 
 		err, Workflows, CommandLineTools := cwl.Parse_cwl_document(yaml_str)
 		if err != nil {
@@ -120,14 +118,22 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			spew.Dump(elem)
 		}
 
-		myworkflow := Workflows[0]
+		cwl_workflow := Workflows[0]
 
-		fmt.Println("\n\n\n---------------------------------")
-		for _, step := range myworkflow.Steps {
+		fmt.Println("\n\n\n--------------------------------- Steps:\n")
+		for _, step := range cwl_workflow.Steps {
 			spew.Dump(step)
 		}
 
-		os.Exit(0)
+		fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
+		err, job = core.CWL2AWE(_user, cwl_workflow, CommandLineTools)
+		if err != nil {
+			return
+		}
+
+		fmt.Println("\n\n\n--------------------------------- Done... now respond...")
+		cx.RespondWithData(job)
+		return
 
 	} else if !has_upload && !has_awf {
 		cx.RespondWithErrorMessage("No job script or awf is submitted", http.StatusBadRequest)
@@ -142,7 +148,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			return
 		}
 		// create new uploaded job
-		job, err = core.CreateJobUpload(u, files, jid)
+		job, err = core.CreateJobUpload(_user, files, jid)
 		if err != nil {
 			logger.Error("Err@job_Create:CreateJobUpload: " + err.Error())
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)

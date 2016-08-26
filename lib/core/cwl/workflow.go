@@ -18,6 +18,7 @@ type Workflow struct {
 	Label        string                    `yaml:"label"`
 	Doc          string                    `yaml:"doc"`
 	CwlVersion   CWLVersion                `yaml:"cwlVersion"`
+	Metadata     map[string]interface{}    `yaml:"metadata"`
 }
 
 func (w Workflow) Class() string { return "Workflow" }

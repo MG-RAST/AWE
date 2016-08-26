@@ -47,17 +47,17 @@ type File struct {
 
 func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, CommandLineTools []CommandLineTool) {
 
+	// TODO check cwlVersion
+
 	// this yaml parser (gopkg.in/yaml.v2) has problems with the CWL yaml format. We skip the header aand jump directly to "$graph" because of that.
 	graph_pos := strings.Index(yaml_str, "$graph:")
 
 	if graph_pos == -1 {
-		//cx.RespondWithErrorMessage("yaml parisng error. keyword $graph missing", http.StatusBadRequest) TODO
+		err = errors.New("yaml parisng error. keyword $graph missing")
+		return
 	}
-	logger.Debug(1, "graph_pos: "+string(graph_pos))
-	yaml_str = strings.Replace(yaml_str, "$graph", "graph", -1) // remove dollar sign
 
-	//logger.Debug(1, "yaml_str: "+string(yaml_str[:]))
-	//[]byte(yaml_str)
+	yaml_str = strings.Replace(yaml_str, "$graph", "graph", -1) // remove dollar sign
 
 	cwl_gen := CWL_document_generic{}
 
@@ -66,6 +66,7 @@ func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, Comma
 		logger.Debug(1, "CWL unmarshal error")
 		logger.Error("error: " + err.Error())
 	}
+
 	fmt.Println("-------------- raw CWL")
 	spew.Dump(cwl_gen)
 	fmt.Println("-------------- Start real parsing")
@@ -202,24 +203,24 @@ func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, Comma
 	return
 }
 
-func CreateAnyArray(original interface{}) (err error, new_array []Any) {
-	//fmt.Printf("CreateAnyArray :::::::::::::::::::")
-
-	for k, v := range original.(map[interface{}]interface{}) {
-		//fmt.Printf("A")
-
-		switch v.(type) {
-		case map[interface{}]interface{}: // the hint is a struct itself
-			fmt.Printf("match")
-			vmap := v.(map[interface{}]interface{})
-			vmap["id"] = k.(string)
-			new_array = append(new_array, vmap)
-		default:
-			fmt.Printf("not match")
-			return errors.New("error"), nil
-		}
-
-	}
-	//spew.Dump(new_array)
-	return
-}
+// func CreateAnyArray(original interface{}) (err error, new_array []Any) {
+// 	//fmt.Printf("CreateAnyArray :::::::::::::::::::")
+//
+// 	for k, v := range original.(map[interface{}]interface{}) {
+// 		//fmt.Printf("A")
+//
+// 		switch v.(type) {
+// 		case map[interface{}]interface{}: // the hint is a struct itself
+// 			fmt.Printf("match")
+// 			vmap := v.(map[interface{}]interface{})
+// 			vmap["id"] = k.(string)
+// 			new_array = append(new_array, vmap)
+// 		default:
+// 			fmt.Printf("not match")
+// 			return errors.New("error"), nil
+// 		}
+//
+// 	}
+// 	//spew.Dump(new_array)
+// 	return
+// }

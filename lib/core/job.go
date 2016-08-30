@@ -92,7 +92,7 @@ func (job *Job) setId() {
 	return
 }
 
-func (job *Job) initJob(jid string) {
+func (job *Job) initJob() {
 	if job.Info == nil {
 		job.Info = new(Info)
 	}

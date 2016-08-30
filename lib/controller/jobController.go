@@ -85,16 +85,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		cx.RespondWithErrorMessage("No job script or awf is submitted", http.StatusBadRequest)
 		return
 	} else {
-		// send job submission request and get back an assigned job number (jid)
-		var jid string
-		jid, err = core.QMgr.JobRegister()
-		if err != nil {
-			logger.Error("Err@job_Create:GetNextJobNum: " + err.Error())
-			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-			return
-		}
 		// create new uploaded job
-		job, err = core.CreateJobUpload(u, files, jid)
+		job, err = core.CreateJobUpload(u, files)
 		if err != nil {
 			logger.Error("Err@job_Create:CreateJobUpload: " + err.Error())
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)

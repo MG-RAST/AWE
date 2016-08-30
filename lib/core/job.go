@@ -111,17 +111,6 @@ func (job *Job) setId() {
 	return
 }
 
-// func (job *Job) initJob(jid string) {
-// 	if job.Info == nil {
-// 		job.Info = new(Info)
-// 	}
-// 	job.Info.SubmitTime = time.Now()
-// 	job.Info.Priority = conf.BasePriority
-// 	job.setId() //uuid for the job
-// 	job.State = JOB_STAT_INIT
-// 	job.Registered = true
-// }
-
 type script struct {
 	Name string `bson:"name" json:"name"`
 	Type string `bson:"type" json:"type"`

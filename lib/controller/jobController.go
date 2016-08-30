@@ -100,7 +100,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		// convert CWL to string
 		yaml_str := string(yamlstream[:])
 
-		err, Workflows, CommandLineTools := cwl.Parse_cwl_document(yaml_str)
+		err, cwl_container := cwl.Parse_cwl_document(yaml_str)
 		if err != nil {
 			logger.Debug(1, "CWL error"+err.Error())
 			cx.RespondWithErrorMessage("error in parsing job yaml file: "+err.Error(), http.StatusBadRequest)
@@ -108,17 +108,22 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 		//spew.Dump(cwl_container)
 
-		for _, elem := range Workflows {
-			fmt.Println(elem.Class())
+		for _, elem := range cwl_container.Workflows {
+			fmt.Println(elem.GetClass())
 			spew.Dump(elem)
 		}
 
-		for _, elem := range CommandLineTools {
-			fmt.Println(elem.Class())
+		for _, elem := range cwl_container.CommandLineTools {
+			fmt.Println(elem.GetClass())
 			spew.Dump(elem)
 		}
 
-		cwl_workflow := Workflows[0]
+		cwl_workflow, ok := cwl_container.Workflows["main"]
+		if !ok {
+
+			cx.RespondWithErrorMessage("Workflow main not found", http.StatusBadRequest)
+			return
+		}
 
 		fmt.Println("\n\n\n--------------------------------- Steps:\n")
 		for _, step := range cwl_workflow.Steps {
@@ -126,7 +131,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 
 		fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
-		err, job = core.CWL2AWE(_user, files, cwl_workflow, CommandLineTools)
+		err, job = core.CWL2AWE(_user, files, &cwl_workflow, &cwl_container)
 		if err != nil {
 			return
 		}

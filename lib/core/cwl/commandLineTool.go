@@ -24,7 +24,8 @@ type CommandLineTool struct {
 	PermanentFailCodes []int                    `yaml:"permanentFailCodes"`
 }
 
-func (c CommandLineTool) Class() string { return "CommandLineTool" }
+func (c CommandLineTool) GetClass() string { return "CommandLineTool" }
+func (c CommandLineTool) GetId() string    { return c.Id }
 
 type CommandInputParameter struct {
 	Id             string   `yaml:"id"`

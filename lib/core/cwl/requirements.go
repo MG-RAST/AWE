@@ -7,7 +7,7 @@ import (
 )
 
 type Requirement interface {
-	Class() string
+	GetClass() string
 }
 
 type DockerRequirement struct {
@@ -19,7 +19,8 @@ type DockerRequirement struct {
 	DockerImageId string `yaml:"dockerImageId"`
 }
 
-func (c DockerRequirement) Class() string { return "DockerRequirement" }
+func (c DockerRequirement) GetClass() string { return "DockerRequirement" }
+func (c DockerRequirement) GetId() string    { return "None" }
 
 // []Requirement
 func CreateRequirementArray(original interface{}) (err error, new_array []Requirement) {

@@ -5,7 +5,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"reflect"
-	"strings"
+	_ "strings"
 )
 
 type Workflow struct {
@@ -21,7 +21,8 @@ type Workflow struct {
 	Metadata     map[string]interface{}    `yaml:"metadata"`
 }
 
-func (w Workflow) Class() string { return "Workflow" }
+func (w Workflow) GetClass() string { return "Workflow" }
+func (w Workflow) GetId() string    { return w.Id }
 
 type WorkflowStep struct {
 	Id            string               `yaml:"id"`
@@ -32,16 +33,16 @@ type WorkflowStep struct {
 	Hints         []Requirement        `yaml:"hints"`
 	Label         string               `yaml:"label"`
 	Doc           string               `yaml:"doc"`
-	Scatter       string               `yaml:"scatter"`
-	ScatterMethod string               `yaml:"scatterMethod"`
+	Scatter       string               `yaml:"scatter"`       // ScatterFeatureRequirement
+	ScatterMethod string               `yaml:"scatterMethod"` // ScatterFeatureRequirement
 }
 
 type WorkflowStepInput struct {
 	Id        string          `yaml:"id"`
-	Source    []string        `yaml:"source"`
+	Source    []string        `yaml:"source"` // MultipleInputFeatureRequirement
 	LinkMerge LinkMergeMethod `yaml:"linkMerge"`
-	Default   Any             `yaml:"default"`
-	ValueFrom Expression      `yaml:"valueFrom"`
+	Default   []string        `yaml:"default"`   // type Any does not make sense
+	ValueFrom Expression      `yaml:"valueFrom"` // this is a StepInputExpressionRequirement
 }
 
 type WorkflowStepOutput struct {
@@ -59,6 +60,9 @@ type InputParameter struct {
 	Default        Any                `yaml:"default"`
 	Type           string             `yaml:"type"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
 }
+
+func (i InputParameter) GetClass() string { return "InputParameter" }
+func (i InputParameter) GetId() string    { return i.Id }
 
 type WorkflowOutputParameter struct {
 	Id             string               `yaml:"id"`
@@ -213,13 +217,9 @@ func CreateWorkflowStepInputArray(original interface{}) (err error, new_array []
 		case string:
 			source_string := v.(string)
 			fmt.Printf("source_string: %s\n", source_string)
-			if strings.HasPrefix(source_string, "#") {
-				input_parameter.Source = []string{source_string} // TODO this is a  WorkflowStepInput.source or WorkflowStepInput (the latter would not make much sense)
-			} else {
-				input_parameter.Default = source_string //  TODO this should be an Expression, not just a string !?
-			}
-		default:
-			input_parameter.Default = v
+			input_parameter.Source = []string{source_string} // TODO this is a  WorkflowStepInput.source or WorkflowStepInput (the latter would not make much sense)
+			//default:
+			//input_parameter.Default = v
 		}
 
 		fmt.Println("done.")

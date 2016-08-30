@@ -527,7 +527,7 @@ func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
 
 	//create task 0: pseudo-task representing the success of job submission
 	//to-do: in the future this task can serve as raw input data validation
-	task := NewTask(job, 0)
+	task := NewTask(job, "0")
 	task.Cmd.Description = "job submission"
 	task.State = TASK_STAT_PASSED
 	task.RemainWork = 0
@@ -536,7 +536,7 @@ func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
 
 	//mapping tasks
 	for _, awf_task := range awf.Tasks {
-		task := NewTask(job, awf_task.TaskId)
+		task := NewTask(job, string(awf_task.TaskId))
 		for name, origin := range awf_task.Inputs {
 			io := new(IO)
 			io.FileName = name

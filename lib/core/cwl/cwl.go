@@ -18,16 +18,12 @@ type CWL_document_generic struct {
 	Graph      []CWL_object_generic `yaml:"graph"`
 }
 
-//type CWL_document struct {
-//	CwlVersion string       `yaml:"cwlVersion"`
-//	Graph      []CWL_object `yaml:"graph"`
-//}
+type CWL_object interface {
+	GetClass() string
+	GetId() string
+}
 
 type CWL_object_generic map[string]interface{}
-
-type CWL_object interface {
-	Class() string
-}
 
 type Expression string
 
@@ -38,6 +34,7 @@ type Any interface{}
 type LinkMergeMethod string // merge_nested or merge_flattened
 
 type File struct {
+	Id             string `yaml:"id"`
 	Path           string `yaml:"path"`
 	Checksum       string `yaml:"checksum"`
 	Size           int32  `yaml:"size"`
@@ -45,10 +42,15 @@ type File struct {
 	Format         string `yaml:"format"`
 }
 
-func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, CommandLineTools map[string]CommandLineTool) {
+func (f File) GetClass() string { return "File" }
+func (f File) GetId() string    { return f.Id }
+
+func Parse_cwl_document(yaml_str string) (err error, collection CWL_collection) {
 
 	// TODO check cwlVersion
 	// TODO screen for "$import": // this might break the YAML parser !
+
+	collection = NewCWL_collection()
 
 	// this yaml parser (gopkg.in/yaml.v2) has problems with the CWL yaml format. We skip the header aand jump directly to "$graph" because of that.
 	graph_pos := strings.Index(yaml_str, "$graph:")
@@ -77,6 +79,8 @@ func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, Comma
 
 		cwl_object_type := elem["class"].(string)
 
+		cwl_object_id := elem["id"].(string)
+		_ = cwl_object_id
 		switch elem["hints"].(type) {
 		case map[interface{}]interface{}:
 			// Convert map of outputs into array of outputs
@@ -86,8 +90,8 @@ func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, Comma
 			}
 		}
 
-		switch {
-		case cwl_object_type == "CommandLineTool":
+		switch cwl_object_type {
+		case "CommandLineTool":
 
 			//*** check if "inputs"" is an array or a map"
 			switch elem["inputs"].(type) {
@@ -114,9 +118,9 @@ func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, Comma
 				return
 			}
 			spew.Dump(result)
-			CommandLineTools[result.Id] = result
-			//container = append(container, result)
-		case cwl_object_type == "Workflow":
+			collection.CommandLineTools[result.Id] = result
+			//collection = append(collection, result)
+		case "Workflow":
 
 			// convert input map into input array
 			switch elem["inputs"].(type) {
@@ -167,61 +171,34 @@ func Parse_cwl_document(yaml_str string) (err error, Workflows []Workflow, Comma
 				return
 			}
 
+			for _, input := range workflow.Inputs {
+				// input is InputParameter
+				collection.add(input)
+			}
+
 			//spew.Dump(workflow)
-			Workflows = append(Workflows, workflow)
-			//container = append(container, result)
+			collection.add(workflow)
+			//collection.Workflows = append(collection.Workflows, workflow)
+			//collection = append(collection, result)
+		case "File":
+			var cwl_file File
+			err = mapstructure.Decode(elem, &cwl_file)
+			if err != nil {
+				return
+			}
+			if cwl_file.Id == "" {
+				cwl_file.Id = cwl_object_id
+			}
+			//collection.Files[cwl_file.Id] = cwl_file
+			collection.add(cwl_file)
+		default:
+			err = errors.New("object unknown")
+			return
 		} // end switch
 
 		fmt.Printf("----------------------------------------------\n")
-		//spew.Dump(CommandLineTools)
-		//spew.Dump(Workflows)
-
-		// pretty print json
-		//b, err := json.MarshalIndent(CommandLineTools, "", "    ")
-		//if err != nil {
-		//		fmt.Println(err)
-		//	return
-		//}
-		//fmt.Println(string(b))
-		//t := elem.(CommandLineTool)
-
-		//spew.Dump(t)
-
-		//fmt.Println("A elem: " + elem.Class)
-		//test_map := elem.(map[string]CWL_class)
-		//test_map := elem.(map[string]interface{})
-		//test_obj := test_map.(CWL_class)
-		//fmt.Println("B test_map:")
-		//spew.Dump(test_map)
-
-		//value := test_map["class"]
-		//fmt.Println("C")
-		//value_str := value.(string)
-		//fmt.Println("got: " + value_str)
 
 	} // end for
 
 	return
 }
-
-// func CreateAnyArray(original interface{}) (err error, new_array []Any) {
-// 	//fmt.Printf("CreateAnyArray :::::::::::::::::::")
-//
-// 	for k, v := range original.(map[interface{}]interface{}) {
-// 		//fmt.Printf("A")
-//
-// 		switch v.(type) {
-// 		case map[interface{}]interface{}: // the hint is a struct itself
-// 			fmt.Printf("match")
-// 			vmap := v.(map[interface{}]interface{})
-// 			vmap["id"] = k.(string)
-// 			new_array = append(new_array, vmap)
-// 		default:
-// 			fmt.Printf("not match")
-// 			return errors.New("error"), nil
-// 		}
-//
-// 	}
-// 	//spew.Dump(new_array)
-// 	return
-// }

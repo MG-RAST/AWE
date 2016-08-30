@@ -24,6 +24,7 @@ const (
 
 type Task struct {
 	Id      string   `bson:"taskid" json:"taskid"`
+	JobId   string   `bson:"jobid" json:"jobid"`
 	Info    *Info    `bson:"info" json:"-"`
 	Inputs  []*IO    `bson:"inputs" json:"inputs"`
 	Outputs []*IO    `bson:"outputs" json:"outputs"`
@@ -83,9 +84,9 @@ type TaskLog struct {
 	Workunits     []*WorkLog `bson:"workunits" json:"workunits"`
 }
 
-func NewTask(job *Job, rank int) *Task {
+func NewTask(job *Job, task_id string) *Task {
 	return &Task{
-		Id:         fmt.Sprintf("%s_%d", job.Id, rank),
+		Id:         fmt.Sprintf("%s_%s", job.Id, task_id),
 		Info:       job.Info,
 		Inputs:     []*IO{},
 		Outputs:    []*IO{},

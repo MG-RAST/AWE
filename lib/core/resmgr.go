@@ -38,7 +38,6 @@ type WorkMgr interface {
 }
 
 type JobMgr interface {
-	JobRegister() (string, error)
 	EnqueueTasksByJobId(string, []*Task) error
 	GetActiveJobs() map[string]bool
 	IsJobRegistered(string) bool

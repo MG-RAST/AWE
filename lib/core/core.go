@@ -95,19 +95,19 @@ func (o *Opts) Value(key string) string {
 //used for issue operation request to client, e.g. discard suspended workunits
 type HBmsg map[string]string //map[op]obj1,obj2 e.g. map[discard]=work1,work2
 
-func CreateJobUpload(u *user.User, files FormFiles, jid string) (job *Job, err error) {
+func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 
 	if _, has_upload := files["upload"]; has_upload {
-		job, err = ParseJobTasks(files["upload"].Path, jid)
+		job, err = ParseJobTasks(files["upload"].Path)
 		if err != nil {
 			errDep := errors.New("")
-			job, errDep = ParseJobTasksDep(files["upload"].Path, jid)
+			job, errDep = ParseJobTasksDep(files["upload"].Path)
 			if errDep == nil {
 				err = nil
 			}
 		}
 	} else {
-		job, err = ParseAwf(files["awf"].Path, jid)
+		job, err = ParseAwf(files["awf"].Path)
 	}
 
 	if err != nil {
@@ -301,7 +301,7 @@ func getParentJobId(id string) (jobid string) {
 }
 
 // Parses job by job script.
-func ParseJobTasks(filename string, jid string) (job *Job, err error) {
+func ParseJobTasks(filename string) (job *Job, err error) {
 	job = new(Job)
 
 	jsonstream, err := ioutil.ReadFile(filename)
@@ -374,7 +374,7 @@ func ParseJobTasks(filename string, jid string) (job *Job, err error) {
 }
 
 // Parses job by job script using the deprecated Job struct. Maintained for backwards compatibility. (=deprecated=)
-func ParseJobTasksDep(filename string, jid string) (job *Job, err error) {
+func ParseJobTasksDep(filename string) (job *Job, err error) {
 	jobDep := new(JobDep)
 
 	jsonstream, err := ioutil.ReadFile(filename)
@@ -499,23 +499,23 @@ func JobDepToJob(jobDep *JobDep) (job *Job) {
 }
 
 //parse .awf.json - sudo-function only, to be finished
-func ParseAwf(filename string, jid string) (job *Job, err error) {
+func ParseAwf(filename string) (job *Job, err error) {
 	workflow := new(Workflow)
 	jsonstream, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.New("error in reading job json file")
 	}
 	json.Unmarshal(jsonstream, workflow)
-	job, err = AwfToJob(workflow, jid)
+	job, err = AwfToJob(workflow)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func AwfToJob(awf *Workflow, jid string) (job *Job, err error) {
+func AwfToJob(awf *Workflow) (job *Job, err error) {
 	job = new(Job)
-	job.initJob(jid)
+	job.initJob()
 
 	//mapping info
 	job.Info.Pipeline = awf.WfInfo.Name

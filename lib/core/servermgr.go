@@ -34,8 +34,6 @@ type ServerMgr struct {
 	taskMap   map[string]*Task
 	actJobs   map[string]*JobPerf
 	susJobs   map[string]bool
-	jsReq     chan bool  //channel for job submission request (JobController -> qmgr.Handler)
-	jsAck     chan int   //channel for return an assigned job number in response to jsReq  (qmgr.Handler -> JobController)
 	taskIn    chan *Task //channel for receiving Task (JobController -> qmgr.Handler)
 	coSem     chan int   //semaphore for checkout (mutual exclusion between different clients)
 }
@@ -52,8 +50,6 @@ func NewServerMgr() *ServerMgr {
 			coSem:        make(chan int, 1), //non-blocking buffered channel
 		},
 		taskMap: map[string]*Task{},
-		jsReq:   make(chan bool),
-		jsAck:   make(chan int),
 		taskIn:  make(chan *Task, 1024),
 		actJobs: map[string]*JobPerf{},
 		susJobs: map[string]bool{},
@@ -968,16 +964,6 @@ func (qm *ServerMgr) ShowTasks() {
 }
 
 //---end of task methods---
-
-//---job methods---
-func (qm *ServerMgr) JobRegister() (jid string, err error) {
-	qm.jsReq <- true
-	id := <-qm.jsAck
-	if id == 0 {
-		return "", errors.New("failed to assign a job number for the newly submitted job")
-	}
-	return strconv.Itoa(id), nil
-}
 
 //update job info when a task in that job changed to a new state
 func (qm *ServerMgr) updateJobTask(task *Task) (err error) {

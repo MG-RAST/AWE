@@ -8,7 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/user"
-	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/bson"
 	"os"
 	"strings"
 	"sync"

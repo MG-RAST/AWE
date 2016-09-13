@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/shock"
-	"github.com/MG-RAST/AWE/vendor/github.com/MG-RAST/golib/go-uuid/uuid"
+	"github.com/MG-RAST/golib/go-uuid/uuid"
 	"net/url"
 	"strings"
 )

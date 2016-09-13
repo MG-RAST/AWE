@@ -8,7 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/vendor/gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"os"
 	"path/filepath"

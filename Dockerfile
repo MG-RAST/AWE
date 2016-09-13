@@ -1,32 +1,22 @@
-# AWE worker and server binaries
+#[build] export TAG=`date +"%Y%m%d.%H%M"`
+#[build] export NAME=mgrast/awe
+#[build] docker build -t ${NAME}:${TAG} .
 
-FROM golang:1.5.0
+FROM golang:1.6.3-alpine
 
+# needed for GIT_COMMIT_HASH
+RUN apk update && apk add git
 
-# old:
-#FROM ubuntu:14.04
-#RUN apt-get update && apt-get install -y \
-#	git-core \
-#	bzr \
-#	make \
-#	gcc \
-#	mercurial \
-#	ca-certificates \
-#	curl
-#RUN curl -s https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz | tar -v -C /usr/local -xz
-#ENV GOROOT /usr/local/go
-#ENV PATH /usr/local/go/bin:/gopath/bin:/usr/local/bin:$PATH
-#ENV GOPATH /gopath/
+ENV AWE=/go/src/github.com/MG-RAST/AWE
+WORKDIR /go/bin
 
+COPY . /go/src/github.com/MG-RAST/AWE
 
-ENV AWE /go/src/github.com/MG-RAST/AWE 
-RUN mkdir -p ${AWE}  ; ln -s /go /gopath
-ADD . ${AWE} 
-WORKDIR ${AWE}  
-
-
-RUN GITHASH=$(git -C ${AWE} rev-parse HEAD) && \
+# compile AWE
+RUN mkdir -p ${AWE} && \
+  cd ${AWE} && \
+  GITHASH=$(git -C ${AWE} rev-parse HEAD) && \
   CGO_ENABLED=0 go install -a -installsuffix cgo -v -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH=${GITHASH}" ...
 
-
-CMD ["bash"]
+# since this produces three binaries, we just specify (b)ash
+CMD ["/bin/ash"]

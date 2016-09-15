@@ -7,7 +7,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	. "github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/golib/goweb"
 	"math/rand"
@@ -136,12 +135,6 @@ func ResourceDescription(cx *goweb.Context) {
 	}
 
 	cx.WriteResponse(r, 200)
-	return
-}
-
-func EventDescription(cx *goweb.Context) {
-	LogRequest(cx.Request)
-	cx.RespondWithData(event.EventDiscription)
 	return
 }
 

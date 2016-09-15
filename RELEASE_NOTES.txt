@@ -1,3 +1,13 @@
+# v0.9.30
+
+- added /logger resource
+  - /logger?debug=N - PUT debug level
+  - /logger?debug - GET debug level
+  - /logger?event - GET event code descriptions
+- removed unneeded / unused jid from job document and codebase (servermgr handle)
+- workunit log cleanup - delete on task reset
+- add server and client config option '--logoutput' to set output logs to file or console, or both
+
 # v0.9.29
 
 - vendor path changes for golang 1.6 support

@@ -1,8 +1,8 @@
-#[build] export TAG=`date +"%Y%m%d.%H%M"`
-#[build] export NAME=mgrast/awe
-#[build] docker build -t ${NAME}:${TAG} .
+#export TAG=`date +"%Y%m%d.%H%M"`
+#export NAME=mgrast/awe
+#docker build --force-rm --no-cache --rm -t ${NAME}:${TAG} .
 
-FROM golang:1.6.3-alpine
+FROM golang:1.7.0-alpine
 
 # needed for GIT_COMMIT_HASH
 RUN apk update && apk add git
@@ -11,6 +11,9 @@ ENV AWE=/go/src/github.com/MG-RAST/AWE
 WORKDIR /go/bin
 
 COPY . /go/src/github.com/MG-RAST/AWE
+
+# backwards compatible pathing with old dockerfile
+RUN ln -s /go /gopath
 
 # compile AWE
 RUN mkdir -p ${AWE} && \

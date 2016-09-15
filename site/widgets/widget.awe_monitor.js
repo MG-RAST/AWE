@@ -203,7 +203,6 @@
 	    gt.settings.navigation_url = RetinaConfig["awe_ip"]+"/job?query";
 	    gt.settings.rows_per_page = 20;
 	    gt.settings.minwidths = [1,150,150,1, 95, 125, 65];
-	    gt.settings.invisible_columns = { 7: true };
 	    gt.settings.disable_sort = { 3: true };
 	    gt.settings.filter = { 1: { type: "text" },
 				   2: { type: "text" },
@@ -221,15 +220,16 @@
 		gt.settings.filter[4].searchword = Retina.cgiParam('pipeline');
 		gt.settings.query = { 4: { field: 'info.pipeline', type: "text", searchword: Retina.cgiParam('pipeline') } };
 	    }
-	    gt.settings.asynch_column_mapping = { "submission": "info.submittime",
+	    gt.settings.asynch_column_mapping = {
+	                      "submission": "info.submittime",
 						  "job name": "info.name",
-						  "job id": "jid",
+						  "job id": "id",
 						  "pipeline": "info.pipeline",
 						  "current state": "state",
-						  "todo": "remaintasks"};
+						  "todo": "remaintasks" };
 	    gt.settings.filter_autodetect = false;
 	    gt.settings.sort_autodetect = false;
-	    gt.settings.data = { data: [], header: [ "submission", "job name", "job id", "status", "pipeline", "current state", "todo", "AWE ID" ] };
+	    gt.settings.data = { data: [], header: [ "submission", "job name", "job id", "status", "pipeline", "current state", "todo" ] };
 	    gt.render();
 	    gt.update({}, gt.index);
 
@@ -490,16 +490,15 @@
 	    stm.DataStore.job[obj.id] = obj;
 	    result_data.push( { "submission": obj.info.submittime,
 				"job name": "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].jobTooltip(jQuery(this), \""+obj.id+"\")'>"+obj.info.name+"</a>",
-				"job id": obj.jid,
+				"job id": obj.id,
 				"status": widget.dots(obj.tasks),
 				"pipeline": obj.info.pipeline,
 				"current state": obj.state + (obj.state == "suspend" ? "<button class='btn btn-mini btn-success' style='margin-left: 5px;' onclick='Retina.WidgetInstances.awe_monitor[1].resumeJobs([\""+obj.id+"\"]);'>resume</button>" : ""),
-				"todo": obj.remaintasks,
-				"AWE ID": obj.id
+				"todo": obj.remaintasks
 			      } );
 	}
 	if (! result_data.length) {
-	    result_data.push({"submission": "-", "job name": "-", "job id": "-", "status": "-", "pipeline": "-", "current state": "-", "AWE ID": "-" });
+	    result_data.push({"submission": "-", "job name": "-", "job id": "-", "status": "-", "pipeline": "-", "current state": "-" });
 	}
 
 	return result_data;

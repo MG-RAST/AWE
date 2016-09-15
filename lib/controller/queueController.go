@@ -77,13 +77,17 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 	}
 	// build set of running jobs based on clientgroup
 	if query.Has("clientgroup") {
+		if query.Value("clientgroup") == "" {
+			cx.RespondWithErrorMessage("missing required clientgroup name", http.StatusBadRequest)
+			return
+		}
 		cg, err := core.LoadClientGroupByName(query.Value("clientgroup"))
 		if err != nil {
-			cx.RespondWithErrorMessage("unable to retrieve clientgroup "+query.Value("clientgroup")+": "+err.Error(), http.StatusBadRequest)
+			cx.RespondWithErrorMessage("unable to retrieve clientgroup '"+query.Value("clientgroup")+"': "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		if cg == nil {
-			cx.RespondWithErrorMessage("clientgroup "+query.Value("clientgroup")+" does not exist", http.StatusBadRequest)
+			cx.RespondWithErrorMessage("clientgroup '"+query.Value("clientgroup")+"' does not exist", http.StatusBadRequest)
 			return
 		}
 		// User must have read permissions on clientgroup or be clientgroup owner or be an admin or the clientgroup is publicly readable.

@@ -12,6 +12,7 @@ import (
 	"github.com/MG-RAST/golib/goweb"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 type ClientController struct{}
@@ -158,6 +159,29 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 		for _, client := range clients {
 			if len(client.Current_work) > 0 {
 				filtered = append(filtered, client)
+			}
+		}
+	} else if query.Has("group") {
+		for _, client := range clients {
+			if client.Group == query.Value("group") {
+				filtered = append(filtered, client)
+			}
+		}
+	} else if query.Has("status") {
+		for _, client := range clients {
+			stat := strings.Split(client.Status, "-")
+			if client.Status == query.Value("status") {
+				filtered = append(filtered, client)
+			} else if (len(stat) == 2) && (stat[1] == query.Value("status")) {
+				filtered = append(filtered, client)
+			}
+		}
+	} else if query.Has("app") {
+		for _, client := range clients {
+			for _, app := range client.Apps {
+				if app == query.Value("app") {
+					filtered = append(filtered, client)
+				}
 			}
 		}
 	} else {

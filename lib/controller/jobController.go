@@ -80,27 +80,19 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}
-		logger.Event(event.JOB_IMPORT, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
+		logger.Event(event.JOB_IMPORT, "jobid="+job.Id+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	} else if !has_upload && !has_awf {
 		cx.RespondWithErrorMessage("No job script or awf is submitted", http.StatusBadRequest)
 		return
 	} else {
-		// send job submission request and get back an assigned job number (jid)
-		var jid string
-		jid, err = core.QMgr.JobRegister()
-		if err != nil {
-			logger.Error("Err@job_Create:GetNextJobNum: " + err.Error())
-			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-			return
-		}
 		// create new uploaded job
-		job, err = core.CreateJobUpload(u, files, jid)
+		job, err = core.CreateJobUpload(u, files)
 		if err != nil {
 			logger.Error("Err@job_Create:CreateJobUpload: " + err.Error())
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}
-		logger.Event(event.JOB_SUBMISSION, "jobid="+job.Id+";jid="+job.Jid+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
+		logger.Event(event.JOB_SUBMISSION, "jobid="+job.Id+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	}
 
 	if token, err := request.RetrieveToken(cx.Request); err == nil {

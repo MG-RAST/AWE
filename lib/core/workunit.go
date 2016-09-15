@@ -40,11 +40,9 @@ type Workunit struct {
 }
 
 type WorkLog struct {
-	Id        string `bson:"wuid" json:"wuid"`
-	Rank      int    `bson:"rank" json:"rank"`
-	Stdout    string `bson:"stdout" json:"stdout"`
-	Stderr    string `bson:"stderr" json:"stderr"`
-	Worknotes string `bson:"worknotes" json:"worknotes"`
+	Id   string            `bson:"wuid" json:"wuid"`
+	Rank int               `bson:"rank" json:"rank"`
+	Logs map[string]string `bson:"logs" json:"logs"`
 }
 
 func NewWorkLog(tid string, rank int) (wlog *WorkLog) {
@@ -52,9 +50,10 @@ func NewWorkLog(tid string, rank int) (wlog *WorkLog) {
 	wlog = new(WorkLog)
 	wlog.Id = wid
 	wlog.Rank = rank
-	wlog.Stdout, _ = QMgr.GetReportMsg(wid, "stdout")
-	wlog.Stderr, _ = QMgr.GetReportMsg(wid, "stderr")
-	wlog.Worknotes, _ = QMgr.GetReportMsg(wid, "worknotes")
+	wlog.Logs = map[string]string{}
+	for _, log := range conf.WORKUNIT_LOGS {
+		wlog.Logs[log], _ = QMgr.GetReportMsg(wid, log)
+	}
 	return
 }
 

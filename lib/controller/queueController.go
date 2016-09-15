@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -73,6 +74,41 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 			cx.RespondWithData(queueData)
 			return
 		}
+	}
+	// build set of running jobs based on clientgroup
+	if query.Has("clientgroup") {
+		cg, err := core.LoadClientGroupByName(query.Value("clientgroup"))
+		if err != nil {
+			cx.RespondWithErrorMessage("unable to retrieve clientgroup "+query.Value("clientgroup")+": "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if cg == nil {
+			cx.RespondWithErrorMessage("clientgroup "+query.Value("clientgroup")+" does not exist", http.StatusBadRequest)
+			return
+		}
+		// User must have read permissions on clientgroup or be clientgroup owner or be an admin or the clientgroup is publicly readable.
+		// The other possibility is that public read of clientgroups is enabled and the clientgroup is publicly readable.
+		rights := cg.Acl.Check(u.Uuid)
+		public_rights := cg.Acl.Check("public")
+		if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || rights["read"] == true || u.Admin == true || public_rights["read"] == true)) ||
+			(u.Uuid == "public" && conf.ANON_CG_READ == true && public_rights["read"] == true) {
+			// get running jobs for clients for clientgroup
+			jobs := []*core.Job{}
+			for _, client := range core.QMgr.GetAllClients() {
+				if client.Group == cg.Name {
+					for wid, _ := range client.Current_work {
+						jid, _ := core.GetJobIdByWorkId(wid)
+						if job, err := core.LoadJob(jid); err == nil {
+							jobs = append(jobs, job)
+						}
+					}
+				}
+			}
+			cx.RespondWithData(jobs)
+			return
+		}
+		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
+		return
 	}
 
 	cx.RespondWithErrorMessage("requested queue operation not supported", http.StatusBadRequest)

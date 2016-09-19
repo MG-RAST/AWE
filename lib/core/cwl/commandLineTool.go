@@ -28,15 +28,15 @@ func (c CommandLineTool) GetClass() string { return "CommandLineTool" }
 func (c CommandLineTool) GetId() string    { return c.Id }
 
 type CommandInputParameter struct {
-	Id             string   `yaml:"id"`
-	SecondaryFiles []string `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         string   `yaml:"format"`
-	Streamable     bool     `yaml:"streamable"`
-	Type           string   `yaml:"type"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
-	Label          string   `yaml:"label"`
-	Description    string   `yaml:"description"`
-	InputBinding   string   `yaml:"inputBinding"` //TODO
-	Default        Any      `yaml:"default"`
+	Id             string             `yaml:"id"`
+	SecondaryFiles []string           `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
+	Format         string             `yaml:"format"`
+	Streamable     bool               `yaml:"streamable"`
+	Type           string             `yaml:"type"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
+	Label          string             `yaml:"label"`
+	Description    string             `yaml:"description"`
+	InputBinding   CommandLineBinding `yaml:"inputBinding"`
+	Default        Any                `yaml:"default"`
 }
 
 type CommandOutputParameter struct {

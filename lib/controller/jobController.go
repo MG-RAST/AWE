@@ -73,7 +73,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	_, has_import := files["import"]
 	_, has_upload := files["upload"]
 	_, has_awf := files["awf"]
-	_, has_cwl := files["cwl"]
+	_, has_cwl := files["cwl"] // TODO I could overload 'upload'
+	_, has_job := files["job"] // input data for an CWL workflow
 
 	var job *core.Job
 
@@ -87,38 +88,44 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 		logger.Event(event.JOB_IMPORT, "jobid="+job.Id+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	} else if has_cwl {
+
+		if !has_job {
+			logger.Error("job missing")
+			cx.RespondWithErrorMessage("job missing", http.StatusBadRequest)
+			return
+		}
+
+		collection := cwl.NewCWL_collection()
+
+		// 1) parse job
+		err = cwl.ParseJob(&collection, files["job"].Path)
+		if err != nil {
+			logger.Debug(1, "ParseJob: "+err.Error())
+			cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		// 2) parse cwl
 		logger.Debug(1, "got CWL")
 
 		// get CWL as byte[]
 		yamlstream, err := ioutil.ReadFile(files["cwl"].Path)
 		if err != nil {
 			logger.Debug(1, "CWL error: "+err.Error())
-			cx.RespondWithErrorMessage("error in reading job yaml file: "+err.Error(), http.StatusBadRequest)
+			cx.RespondWithErrorMessage("error in reading workflow file: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		// convert CWL to string
 		yaml_str := string(yamlstream[:])
 
-		err, cwl_container := cwl.Parse_cwl_document(yaml_str)
+		err = cwl.Parse_cwl_document(&collection, yaml_str)
 		if err != nil {
 			logger.Debug(1, "CWL error"+err.Error())
 			cx.RespondWithErrorMessage("error in parsing job yaml file: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		//spew.Dump(cwl_container)
 
-		for _, elem := range cwl_container.Workflows {
-			fmt.Println(elem.GetClass())
-			spew.Dump(elem)
-		}
-
-		for _, elem := range cwl_container.CommandLineTools {
-			fmt.Println(elem.GetClass())
-			spew.Dump(elem)
-		}
-
-		cwl_workflow, ok := cwl_container.Workflows["main"]
+		cwl_workflow, ok := collection.Workflows["main"]
 		if !ok {
 
 			cx.RespondWithErrorMessage("Workflow main not found", http.StatusBadRequest)
@@ -131,8 +138,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 
 		fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
-		err, job = core.CWL2AWE(_user, files, &cwl_workflow, &cwl_container)
+		err, job = core.CWL2AWE(_user, files, &cwl_workflow, &collection)
 		if err != nil {
+			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 

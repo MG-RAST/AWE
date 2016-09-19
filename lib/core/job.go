@@ -86,9 +86,7 @@ type JobLog struct {
 	Tasks      []*TaskLog `bson:"tasks" json:"tasks"`
 }
 
-func NewJob(jid string) (job *Job) {
-
-	_ = jid // not used !!!!
+func NewJob() (job *Job) {
 
 	job = &Job{
 		Info:       NewInfo(),
@@ -96,9 +94,7 @@ func NewJob(jid string) (job *Job) {
 		Registered: true,
 	}
 
-	if jid == "" {
-		job.setId() //uuid for the job
-	}
+	job.setId() //uuid for the job
 	// job.State = JOB_STAT_INIT
 	// 	job.Registered = true
 	return

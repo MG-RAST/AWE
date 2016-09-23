@@ -11,7 +11,6 @@ import (
 	//"io/ioutil"
 	//"os"
 	_ "reflect"
-	"strconv"
 	"strings"
 )
 
@@ -28,9 +27,19 @@ type CWL_object interface {
 
 type CWL_object_generic map[string]interface{}
 
-type Expression string
+// CWLType
+// http://www.commonwl.org/v1.0/CommandLineTool.html#CWLType
+// null, boolean, int, long, float, double, string, File, Directory
+type CWLType interface {
+	is_CWLType()
+}
 
 type CWLVersion interface{} // TODO
+
+// generic class to represent Files and Directories
+type CWL_location interface {
+	GetLocation() string
+}
 
 type Any interface {
 	CWL_object
@@ -38,34 +47,6 @@ type Any interface {
 }
 
 type LinkMergeMethod string // merge_nested or merge_flattened
-
-// this is a generic CWL_object. Its only purpose is to retrieve the value of "class"
-type Empty struct {
-	Id    string `yaml:"id"`
-	Class string `yaml:"class"`
-}
-
-func (e Empty) GetClass() string { return e.Class }
-func (e Empty) GetId() string    { return e.Id }
-func (e Empty) String() string   { return "Empty" }
-
-type String struct {
-	Id    string `yaml:"id"`
-	Value string `yaml:"value"`
-}
-
-func (s String) GetClass() string { return "String" }
-func (s String) GetId() string    { return s.Id }
-func (s String) String() string   { return s.Value }
-
-type Int struct {
-	Id    string `yaml:"id"`
-	Value int    `yaml:"value"`
-}
-
-func (i Int) GetClass() string { return "Int" }
-func (i Int) GetId() string    { return i.Id }
-func (i Int) String() string   { return strconv.Itoa(i.Value) }
 
 func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error) {
 
@@ -122,31 +103,13 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 		switch cwl_object_type {
 		case "CommandLineTool":
 
-			//*** check if "inputs"" is an array or a map"
-			switch elem["inputs"].(type) {
-			case map[interface{}]interface{}:
-				// Convert map of inputs into array of inputs
-				err, elem["inputs"] = CreateCommandInputArray(elem["inputs"])
-				if err != nil {
-					return
-				}
-			}
-
-			switch elem["outputs"].(type) {
-			case map[interface{}]interface{}:
-				// Convert map of outputs into array of outputs
-				err, elem["outputs"] = CreateCommandOutputArray(elem["outputs"])
-				if err != nil {
-					return
-				}
-			}
-
-			var result CommandLineTool
-			err = mapstructure.Decode(elem, &result)
-			if err != nil {
+			result, xerr := getCommandLineTool(elem)
+			if xerr != nil {
+				err = xerr
 				return
 			}
-			spew.Dump(result)
+			//*** check if "inputs"" is an array or a map"
+
 			//collection.CommandLineTools[result.Id] = result
 			err = collection.Add(result)
 			if err != nil {
@@ -155,55 +118,13 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 			//collection = append(collection, result)
 		case "Workflow":
 
-			// convert input map into input array
-			switch elem["inputs"].(type) {
-			case map[interface{}]interface{}:
-				// Convert map of inputs into array of inputs
-				err, elem["inputs"] = CreateInputParameterArray(elem["inputs"])
-				if err != nil {
-					return
-				}
-			}
-
-			switch elem["outputs"].(type) {
-			case map[interface{}]interface{}:
-				// Convert map of outputs into array of outputs
-				err, elem["outputs"] = CreateWorkflowOutputParameterArray(elem["outputs"])
-				if err != nil {
-					return
-				}
-			}
-
-			// convert steps to array if it is a map
-			switch elem["steps"].(type) {
-			case map[interface{}]interface{}:
-				err, elem["steps"] = CreateWorkflowStepsArray(elem["steps"])
-				if err != nil {
-					return
-				}
-			}
-
-			switch elem["requirements"].(type) {
-			case map[interface{}]interface{}:
-				// Convert map of outputs into array of outputs
-				err, elem["requirements"] = CreateRequirementArray(elem["requirements"])
-				if err != nil {
-					return
-				}
-			}
-			//fmt.Printf("-- Steps found ------------") // WorkflowStep
-			//for _, step := range elem["steps"].([]interface{}) {
-
-			//	spew.Dump(step)
-
-			//}
-
-			var workflow Workflow
-			err = mapstructure.Decode(elem, &workflow)
-			if err != nil {
+			workflow, xerr := getWorkflow(elem)
+			if xerr != nil {
+				err = xerr
 				return
 			}
 
+			// some checks and add inputs to collection
 			for _, input := range workflow.Inputs {
 				// input is InputParameter
 
@@ -220,11 +141,13 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 				}
 			}
 
+			//fmt.Println("WORKFLOW")
 			//spew.Dump(workflow)
 			err = collection.Add(workflow)
 			if err != nil {
 				return
 			}
+
 			//collection.Workflows = append(collection.Workflows, workflow)
 			//collection = append(collection, result)
 		case "File":

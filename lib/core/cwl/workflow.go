@@ -44,8 +44,11 @@ type WorkflowStepInput struct {
 	Source    []string        `yaml:"source"` // MultipleInputFeatureRequirement
 	LinkMerge LinkMergeMethod `yaml:"linkMerge"`
 	Default   Any             `yaml:"default"`   // type Any does not make sense
-	ValueFrom Expression      `yaml:"valueFrom"` // this is a StepInputExpressionRequirement
+	ValueFrom Expression      `yaml:"valueFrom"` // StepInputExpressionRequirement
 }
+
+func (w WorkflowStepInput) GetClass() string { return "WorkflowStepInput" }
+func (w WorkflowStepInput) GetId() string    { return w.Id }
 
 type WorkflowStepOutput struct {
 	Id string `yaml:"id"`
@@ -247,7 +250,7 @@ func CreateWorkflowStepsArray(original interface{}) (err error, new_array []Work
 	return
 }
 
-func GetMapElement(m map[interface{}]interface{}, key string) (err error, value interface{}) {
+func GetMapElement(m map[interface{}]interface{}, key string) (value interface{}, err error) {
 
 	for k, v := range m {
 		k_str, ok := k.(string)
@@ -258,7 +261,7 @@ func GetMapElement(m map[interface{}]interface{}, key string) (err error, value 
 			}
 		}
 	}
-	err = fmt.Errorf("Element in map not found")
+	err = fmt.Errorf("Element \"%s\" not found in map", key)
 	return
 }
 
@@ -294,24 +297,29 @@ func CreateWorkflowStepInputArray(original interface{}) (err error, new_array []
 			fmt.Println("case map[interface{}]interface{}")
 			mapstructure.Decode(v, &input_parameter)
 
-			// take care of Default key:
-
-			errx, default_value := GetMapElement(v.(map[interface{}]interface{}), "default")
-
-			//fmt.Println("test:", test.(string))
-
-			if errx != nil {
-				return errx, new_array
+			// set Default field
+			default_value, errx := GetMapElement(v.(map[interface{}]interface{}), "default")
+			if errx == nil {
+				switch default_value.(type) {
+				case string:
+					input_parameter.Default = String{Id: input_parameter.Id, Value: default_value.(string)}
+				case int:
+					input_parameter.Default = Int{Id: input_parameter.Id, Value: default_value.(int)}
+				default:
+					err = fmt.Errorf("string or int expected for key \"default\"")
+					return
+				}
 			}
 
-			switch default_value.(type) {
-			case string:
-				input_parameter.Default = String{Id: input_parameter.Id, Value: default_value.(string)}
-			case int:
-				input_parameter.Default = Int{Id: input_parameter.Id, Value: default_value.(int)}
-			default:
-				err = fmt.Errorf("string or int expected for key \"default\"")
-				return
+			// set ValueFrom field
+			valueFrom_if, errx := GetMapElement(v.(map[interface{}]interface{}), "valueFrom")
+			if errx == nil {
+				valueFrom_str, ok := valueFrom_if.(string)
+				if !ok {
+					err = fmt.Errorf("cannot convert valueFrom")
+					return
+				}
+				input_parameter.ValueFrom = Expression(valueFrom_str)
 			}
 
 		default:
@@ -375,5 +383,101 @@ func CreateWorkflowStepOutputArray(original interface{}) (err error, new_array [
 	} // end switch
 
 	//spew.Dump(new_array)
+	return
+}
+
+func getWorkflow(object CWL_object_generic) (workflow Workflow, err error) {
+
+	// convert input map into input array
+	switch object["inputs"].(type) {
+	case map[interface{}]interface{}:
+		// Convert map of inputs into array of inputs
+		err, object["inputs"] = CreateInputParameterArray(object["inputs"])
+		if err != nil {
+			return
+		}
+	}
+
+	switch object["outputs"].(type) {
+	case map[interface{}]interface{}:
+		// Convert map of outputs into array of outputs
+		err, object["outputs"] = CreateWorkflowOutputParameterArray(object["outputs"])
+		if err != nil {
+			return
+		}
+	}
+
+	// convert steps to array if it is a map
+	switch object["steps"].(type) {
+	case map[interface{}]interface{}:
+		err, object["steps"] = CreateWorkflowStepsArray(object["steps"])
+		if err != nil {
+			return
+		}
+	}
+
+	switch object["requirements"].(type) {
+	case map[interface{}]interface{}:
+		// Convert map of outputs into array of outputs
+		err, object["requirements"] = CreateRequirementArray(object["requirements"])
+		if err != nil {
+			return
+		}
+	case []interface{}:
+		req_array := []Requirement{}
+
+		for _, requirement_if := range object["requirements"].([]interface{}) {
+			switch requirement_if.(type) {
+
+			case map[interface{}]interface{}:
+
+				requirement_map_if := requirement_if.(map[interface{}]interface{})
+				requirement_data_if, xerr := GetMapElement(requirement_map_if, "class")
+
+				if xerr != nil {
+					err = fmt.Errorf("Not sure how to parse Requirements, class not found")
+					return
+				}
+
+				switch requirement_data_if.(type) {
+				case string:
+					requirement_name := requirement_data_if.(string)
+					requirement, xerr := NewRequirement(requirement_name, requirement_data_if)
+					if xerr != nil {
+						err = fmt.Errorf("error creating Requirement %s: %s", requirement_name, xerr.Error())
+						return
+					}
+					req_array = append(req_array, requirement)
+				default:
+					err = fmt.Errorf("Not sure how to parse Requirements, not a string")
+					return
+
+				}
+			default:
+				err = fmt.Errorf("Not sure how to parse Requirements, map expected")
+				return
+
+			} // end switch
+
+		} // end for
+
+		object["requirements"] = req_array
+	}
+	fmt.Printf("......WORKFLOW raw")
+	spew.Dump(object)
+	//fmt.Printf("-- Steps found ------------") // WorkflowStep
+	//for _, step := range elem["steps"].([]interface{}) {
+
+	//	spew.Dump(step)
+
+	//}
+
+	err = mapstructure.Decode(object, &workflow)
+	if err != nil {
+		err = fmt.Errorf("error parsing workflow class: %s", err.Error())
+		return
+	}
+	fmt.Printf(".....WORKFLOW")
+	spew.Dump(workflow)
 	return
 }

@@ -520,7 +520,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 	c_store.AddBool(&DEV_MODE, false, "Other", "dev", "dev or demo mode, print some msgs on screen", "")
 	c_store.AddInt(&DEBUG_LEVEL, 0, "Other", "debuglevel", "debug level: 0-3", "")
 	c_store.AddString(&CONFIG_FILE, "", "Other", "conf", "path to config file", "")
-	c_store.AddString(&LOG_OUTPUT, "file", "Other", "logoutput", "log output stream, one of: file, console, both", "")
+	c_store.AddString(&LOG_OUTPUT, "console", "Other", "logoutput", "log output stream, one of: file, console, both", "")
 	c_store.AddBool(&SHOW_VERSION, false, "Other", "version", "show version", "")
 	c_store.AddBool(&SHOW_GIT_COMMIT_HASH, false, "Other", "show_git_commit_hash", "", "")
 	c_store.AddBool(&PRINT_HELP, false, "Other", "fullhelp", "show detailed usage without \"--\"-prefixes", "")

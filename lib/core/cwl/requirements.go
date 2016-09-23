@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"errors"
+	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
@@ -9,6 +10,13 @@ import (
 type Requirement interface {
 	GetClass() string
 }
+
+type StepInputExpressionRequirement struct {
+	//Class         string `yaml:"class"`
+}
+
+func (c StepInputExpressionRequirement) GetClass() string { return "StepInputExpressionRequirement" }
+func (c StepInputExpressionRequirement) GetId() string    { return "None" }
 
 type DockerRequirement struct {
 	//Class         string `yaml:"class"`
@@ -22,6 +30,28 @@ type DockerRequirement struct {
 func (c DockerRequirement) GetClass() string { return "DockerRequirement" }
 func (c DockerRequirement) GetId() string    { return "None" }
 
+func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
+	switch {
+	case class == "DockerRequirement":
+		var requirement DockerRequirement
+		err = mapstructure.Decode(obj, &requirement)
+		if err != nil {
+			spew.Dump(obj)
+			err = fmt.Errorf("object not a DockerRequirement")
+			return
+
+		}
+		r = requirement
+	case class == "StepInputExpressionRequirement":
+		var requirement StepInputExpressionRequirement
+		r = requirement
+	default:
+		err = errors.New("object class not supported " + class)
+
+	}
+	return
+}
+
 // []Requirement
 func CreateRequirementArray(original interface{}) (err error, new_array []Requirement) {
 	// here the keynames are actually class names
@@ -33,20 +63,12 @@ func CreateRequirementArray(original interface{}) (err error, new_array []Requir
 			class := k.(string)
 			vmap["class"] = class
 
-			switch {
-			case class == "DockerRequirement":
-				var requirement DockerRequirement
-				err = mapstructure.Decode(v, &requirement)
-				if err != nil {
-					spew.Dump(v)
-					return errors.New("object not a DockerRequirement"), nil
-
-				}
-				new_array = append(new_array, requirement)
-			default:
-				return errors.New("object class not supported " + class), nil
-
+			requirement, xerr := NewRequirement(class, v)
+			if xerr != nil {
+				err = xerr
+				return
 			}
+			new_array = append(new_array, requirement)
 
 		default:
 			return errors.New("error: Requirement struct expected, but not struct found"), nil

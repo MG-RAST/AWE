@@ -36,6 +36,19 @@ type WorkflowStep struct {
 	Doc           string               `yaml:"doc"`
 	Scatter       string               `yaml:"scatter"`       // ScatterFeatureRequirement
 	ScatterMethod string               `yaml:"scatterMethod"` // ScatterFeatureRequirement
+	AWE_task      *Task
+}
+
+func (w WorkflowStep) GetOutput(id string) (output *WorkflowStepOutput, err error) {
+	for _, o := range linked_step.Out {
+		// o is a WorkflowStepOutput
+		if o.Id == id {
+			output = &o
+			return
+		}
+	}
+	err = fmt.Errof("WorkflowStepOutput %s not found in WorkflowStep", id)
+	return
 }
 
 //http://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
@@ -49,6 +62,33 @@ type WorkflowStepInput struct {
 
 func (w WorkflowStepInput) GetClass() string { return "WorkflowStepInput" }
 func (w WorkflowStepInput) GetId() string    { return w.Id }
+
+//func (input WorkflowStepInput) GetString() (value string, err error) {
+//	if len(input.Source) > 0 {
+//		err = fmt.Errorf("Source is defined and should be used")
+//	} else if string(input.ValueFrom) != "" {
+//		value = string(input.ValueFrom)
+//	} else if input.Default != nil {
+//		value = input.Default
+//	} else {
+//		err = fmt.Errorf("no input (source, default or valueFrom) defined for %s", id)
+//	}
+//	return
+//}
+
+func (input WorkflowStepInput) GetObject() (obj *CWLObject, err error) {
+
+	if len(input.Source) > 0 {
+		err = fmt.Errorf("Source is defined and should be used")
+	} else if string(input.ValueFrom) != "" {
+		obj = String{Id: input.id, Value: string(input.ValueFrom)} // TODO evaluate here !!!!! get helper
+	} else if input.Default != nil {
+		obj = &input.Default
+	} else {
+		err = fmt.Errorf("no input (source, default or valueFrom) defined for %s", id)
+	}
+	return
+}
 
 type WorkflowStepOutput struct {
 	Id string `yaml:"id"`

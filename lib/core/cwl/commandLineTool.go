@@ -8,8 +8,7 @@ import (
 )
 
 type CommandLineTool struct {
-	Id string `yaml:"id"`
-
+	Id                 string                   `yaml:"id"`
 	BaseCommand        string                   `yaml:"baseCommand"` // TODO also allow []string
 	Inputs             []CommandInputParameter  `yaml:"inputs"`
 	Outputs            []CommandOutputParameter `yaml:"outputs"`
@@ -25,8 +24,9 @@ type CommandLineTool struct {
 	PermanentFailCodes []int                    `yaml:"permanentFailCodes"`
 }
 
-func (c CommandLineTool) GetClass() string { return "CommandLineTool" }
-func (c CommandLineTool) GetId() string    { return c.Id }
+func (c *CommandLineTool) GetClass() string { return "CommandLineTool" }
+func (c *CommandLineTool) GetId() string    { return c.Id }
+func (c *CommandLineTool) SetId(id string)  { c.Id = id }
 
 type CommandInputParameter struct {
 	Id             string             `yaml:"id"`
@@ -147,7 +147,9 @@ func CreateCommandOutputArray(original interface{}) (err error, new_array []Comm
 	return
 }
 
-func getCommandLineTool(object CWL_object_generic) (commandLineTool CommandLineTool, err error) {
+func getCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
+
+	commandLineTool = &CommandLineTool{}
 
 	switch object["inputs"].(type) {
 	case map[interface{}]interface{}:
@@ -167,7 +169,7 @@ func getCommandLineTool(object CWL_object_generic) (commandLineTool CommandLineT
 		}
 	}
 
-	err = mapstructure.Decode(object, &commandLineTool)
+	err = mapstructure.Decode(object, commandLineTool)
 	if err != nil {
 		err = fmt.Errorf("error parsing CommandLineTool class: %s", err.Error())
 		return

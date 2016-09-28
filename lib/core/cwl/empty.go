@@ -8,4 +8,5 @@ type Empty struct {
 
 func (e Empty) GetClass() string { return e.Class }
 func (e Empty) GetId() string    { return e.Id }
+func (e Empty) SetId(id string)  { e.Id = id }
 func (e Empty) String() string   { return "Empty" }

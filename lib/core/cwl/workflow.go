@@ -22,8 +22,9 @@ type Workflow struct {
 	Metadata     map[string]interface{}    `yaml:"metadata"`
 }
 
-func (w Workflow) GetClass() string { return "Workflow" }
-func (w Workflow) GetId() string    { return w.Id }
+func (w *Workflow) GetClass() string { return "Workflow" }
+func (w *Workflow) GetId() string    { return w.Id }
+func (w *Workflow) SetId(id string)  { w.Id = id }
 
 type WorkflowStep struct {
 	Id            string               `yaml:"id"`
@@ -36,18 +37,17 @@ type WorkflowStep struct {
 	Doc           string               `yaml:"doc"`
 	Scatter       string               `yaml:"scatter"`       // ScatterFeatureRequirement
 	ScatterMethod string               `yaml:"scatterMethod"` // ScatterFeatureRequirement
-	AWE_task      *Task
 }
 
 func (w WorkflowStep) GetOutput(id string) (output *WorkflowStepOutput, err error) {
-	for _, o := range linked_step.Out {
+	for _, o := range w.Out {
 		// o is a WorkflowStepOutput
 		if o.Id == id {
 			output = &o
 			return
 		}
 	}
-	err = fmt.Errof("WorkflowStepOutput %s not found in WorkflowStep", id)
+	err = fmt.Errorf("WorkflowStepOutput %s not found in WorkflowStep", id)
 	return
 }
 
@@ -62,6 +62,7 @@ type WorkflowStepInput struct {
 
 func (w WorkflowStepInput) GetClass() string { return "WorkflowStepInput" }
 func (w WorkflowStepInput) GetId() string    { return w.Id }
+func (w WorkflowStepInput) SetId(id string)  { w.Id = id }
 
 //func (input WorkflowStepInput) GetString() (value string, err error) {
 //	if len(input.Source) > 0 {
@@ -76,17 +77,20 @@ func (w WorkflowStepInput) GetId() string    { return w.Id }
 //	return
 //}
 
-func (input WorkflowStepInput) GetObject() (obj *CWLObject, err error) {
+func (input WorkflowStepInput) GetObject() (obj *CWL_object, err error) {
+
+	var cwl_obj CWL_object
 
 	if len(input.Source) > 0 {
 		err = fmt.Errorf("Source is defined and should be used")
 	} else if string(input.ValueFrom) != "" {
-		obj = String{Id: input.id, Value: string(input.ValueFrom)} // TODO evaluate here !!!!! get helper
+		cwl_obj = String{Id: input.Id, Value: string(input.ValueFrom)} // TODO evaluate here !!!!! get helper
 	} else if input.Default != nil {
-		obj = &input.Default
+		cwl_obj = input.Default
 	} else {
-		err = fmt.Errorf("no input (source, default or valueFrom) defined for %s", id)
+		err = fmt.Errorf("no input (source, default or valueFrom) defined for %s", input.Id)
 	}
+	obj = &cwl_obj
 	return
 }
 
@@ -108,6 +112,7 @@ type InputParameter struct {
 
 func (i InputParameter) GetClass() string { return "InputParameter" }
 func (i InputParameter) GetId() string    { return i.Id }
+func (i InputParameter) SetId(id string)  { i.Id = id }
 
 type WorkflowOutputParameter struct {
 	Id             string               `yaml:"id"`
@@ -332,7 +337,7 @@ func CreateWorkflowStepInputArray(original interface{}) (err error, new_array []
 			input_parameter.Source = []string{"#" + source_string} // TODO this is a  WorkflowStepInput.source or WorkflowStepInput (the latter would not make much sense)
 		case int:
 			fmt.Println("int")
-			input_parameter.Default = Int{Id: input_parameter.Id, Value: v.(int)}
+			input_parameter.Default = &Int{Id: input_parameter.Id, Value: v.(int)}
 		case map[interface{}]interface{}:
 			fmt.Println("case map[interface{}]interface{}")
 			mapstructure.Decode(v, &input_parameter)
@@ -344,7 +349,7 @@ func CreateWorkflowStepInputArray(original interface{}) (err error, new_array []
 				case string:
 					input_parameter.Default = String{Id: input_parameter.Id, Value: default_value.(string)}
 				case int:
-					input_parameter.Default = Int{Id: input_parameter.Id, Value: default_value.(int)}
+					input_parameter.Default = &Int{Id: input_parameter.Id, Value: default_value.(int)}
 				default:
 					err = fmt.Errorf("string or int expected for key \"default\"")
 					return

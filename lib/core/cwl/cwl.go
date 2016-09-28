@@ -23,12 +23,13 @@ type CWL_document_generic struct {
 type CWL_object interface {
 	GetClass() string
 	GetId() string
+	SetId(string)
 }
 
 type CWL_object_generic map[string]interface{}
 
 // CWLType
-// http://www.commonwl.org/v1.0/CommandLineTool.html#CWLType
+// httpCWL_objectmonwl.org/v1.0/CommandLineTool.html#CWLType
 // null, boolean, int, long, float, double, string, File, Directory
 type CWLType interface {
 	is_CWLType()

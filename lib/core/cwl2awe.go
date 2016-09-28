@@ -16,21 +16,20 @@ type Helper struct {
 	processed_ws   *map[string]*cwl.WorkflowStep
 	collection     *cwl.CWL_collection
 	job            *Job
+	AWE_tasks      *map[string]*Task
 }
 
+func parseSourceString(source string, id string) (linked_step_name string, fieldname string, err error) {
 
-func parseSourceString(source string) (linked_step_name string, fieldname string, err error) {
-	
 	if !strings.HasPrefix(source, "#") {
-		err = fmt.Errorf("source has to start with # (cwl_step %s)", id)
+		err = fmt.Errorf("source has to start with # (%s)", id)
 		return
 	}
 
 	source = strings.TrimPrefix(source, "#")
 
 	source_array := strings.Split(source, ".")
-	
-	
+
 	switch len(source_array) {
 	case 0:
 		err = fmt.Errorf("source empty (%s)", id)
@@ -42,17 +41,16 @@ func parseSourceString(source string) (linked_step_name string, fieldname string
 	default:
 		err = fmt.Errorf("source has too many fields (%s)", id)
 	}
-	
+
 	return
 }
-
 
 func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.WorkflowStep, awe_task *Task) (err error) {
 
 	// valueFrom is a StepInputExpressionRequirement
 	// http://www.commonwl.org/v1.0/Workflow.html#StepInputExpressionRequirement
 
-	collection := helper.collection
+	//collection := helper.collection
 	//unprocessed_ws := helper.unprocessed_ws
 	processed_ws := helper.processed_ws
 
@@ -66,11 +64,11 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 
 	fmt.Println("=============================================== variables")
 	// collect variables in local_collection
-	for _, input := range cwl_step.In {
+	for _, workflow_step_input := range cwl_step.In {
 		// input is a cwl.WorkflowStepInput
 
-		spew.Dump(input)
-		id := input.Id
+		spew.Dump(workflow_step_input)
+		id := workflow_step_input.Id
 
 		if id == "" {
 			err = fmt.Errorf("id is empty")
@@ -79,25 +77,22 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 
 		fmt.Println("//////////////// step input: " + id)
 
-
 		if len(workflow_step_input.Source) > 0 {
-			
-			
-			
+
 			if len(workflow_step_input.Source) == 1 {
 				source := workflow_step_input.Source[0] // #fieldname or #stepname.fieldname
 
 				var linked_step_name string
 				var fieldname string
-				linked_step_name, fieldname, err = parseSourceString(source)
+				linked_step_name, fieldname, err = parseSourceString(source, id)
 				if err != nil {
 					return
 				}
 
 				// find fieldname, may refer to other task, recurse in creation of that other task if necessary
-				var linked_step WorkflowStepInput
+				var linked_step cwl.WorkflowStep
 				if linked_step_name != "" {
-					linked_step, ok = (*processed_ws)[linked_step_name]
+					this_linked_step, ok := (*processed_ws)[linked_step_name]
 					if !ok {
 
 						// recurse into depending step
@@ -107,29 +102,36 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 							return
 						}
 
-						linked_step, ok = (*processed_ws)[linked_step_name]
+						this2_linked_step, ok := (*processed_ws)[linked_step_name]
 						if !ok {
 							err = fmt.Errorf("linked_step %s not found after processing", linked_step_name)
 							return
 						}
+						linked_step = *this2_linked_step
+					} else {
+						linked_step = *this_linked_step
 					}
 					// linked_step is defined now.
 					_ = linked_step
-					
-					
-					// search output of linked_step 
-					
-					linked_task_id := linked_output.AWE_task.Id
-					
+
+					// search output of linked_step
+
+					linked_awe_task, ok := (*helper.AWE_tasks)[linked_step_name]
+					if !ok {
+						err = fmt.Errorf("Could not find AWE task for linked step %s", linked_step_name)
+						return
+					}
+					linked_task_id := linked_awe_task.Id
+
 					linked_filename := ""
-					for _, awe_output := range linked_step.AWE_task.Outputs {
+					for _, awe_output := range linked_awe_task.Outputs {
 						// awe_output is an AWE IO{} object
 						if awe_output.Name == fieldname {
 							linked_filename = awe_output.FileName
 							break
 						}
 					}
-					
+
 					if linked_filename == "" {
 						err = fmt.Errorf("Output %s not found", fieldname)
 						return
@@ -138,59 +140,66 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 					//if err != nil {
 					//	return
 					//}
-					
+
 					// linked_output.Id provides
-					linked_IO[id] = new IO{Origin: linked_task_id, FileName: linked_filename, Name: id}
-					
-										
+					linked_IO[id] = &IO{Origin: linked_task_id, FileName: linked_filename, Name: id}
+
 					// TODO STORE THIS und use below !
-					
-					
+
 				} else {
 					// use workflow input as input
-					
-					var obj * CWLObject
+
+					var obj *cwl.CWL_object
 					obj, err = (*helper.collection).Get(fieldname)
 					if err != nil {
 						return
 					}
-					
+
 					obj_local := *obj
-					obj_local.Id := id
-					local_collection.Add(obj_local)
-					
-					
+					obj_local.SetId(id)
+					fmt.Printf("ADDEDb %s\n", id)
+					fmt.Printf("ADDED2b %s\n", obj_local.GetId())
+					err = local_collection.Add(obj_local)
+					if err != nil {
+						return
+					}
+
 				}
-				
 
 			} else {
 				err = fmt.Errorf("MultipleInputFeatureRequirement not supported yet (id=%s)", id)
 				return
 			}
-			
-			
-			
-			var obj *CWL_object
-			obj, err = input.GetObject()
-			if err != nil {
-				return
-			}
-			
-			obj_local := *obj
-			obj_local.Id := id
-			local_collection.Add(obj_local) // add (global) object with local input name
+
 		} else {
 
-		
-			var obj *CWLObject
-			obj, err = input.GetObject() // from ValueFrom or Default fields
+			var obj *cwl.CWL_object
+			obj, err = workflow_step_input.GetObject() // from ValueFrom or Default fields
 			if err != nil {
 				return
 			}
 			obj_local := *obj
-			obj_local.Id := id
-			
-			local_collection.Add(obj_local) // add object with local input name
+
+			//obj_int, ok := obj_local.(cwl.Int)
+			//if ok {
+			//	fmt.Printf("obj_int.Id: %s\n", obj_int.Id)
+			//	obj_int.Id = "test"
+			//	fmt.Printf("obj_int.Id: %s\n", obj_int.Id)
+			//	fmt.Printf("obj_int.Value: %d\n", obj_int.Value)
+			//	spew.Dump(obj_int)
+			//	obj_int.SetId(id)
+			//	fmt.Printf("obj_int]]]]]]] %s\n", obj_int.GetId())
+			//}
+
+			spew.Dump(obj_local)
+			obj_local.SetId(id)
+			spew.Dump(obj_local)
+			fmt.Printf("ADDED %s\n", id)
+			fmt.Printf("ADDED2 %s\n", obj_local.GetId())
+			err = local_collection.Add(obj_local) // add object with local input name
+			if err != nil {
+				return
+			}
 		}
 
 		//workflowStepInputMap[id] = input
@@ -212,6 +221,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 		input_optional := strings.HasSuffix(expected_input.Type, "?")
 		expected_input_type := strings.ToLower(strings.TrimSuffix(expected_input.Type, "?"))
 		_ = input_optional
+		_ = expected_input_type
 
 		// TODO lookup id in workflow step input
 
@@ -225,76 +235,65 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 		//}
 		//fmt.Println("workflow_step_input: ")
 		//spew.Dump(workflow_step_input)
-		//input_string := ""
-		
-		var obj *CWLObject 
+		input_string := ""
+		var obj *cwl.CWL_object
 		obj, err = local_collection.Get(id)
 		if err != nil {
-			
-			var io_struct *IO
-			io_struct, ok = linked_IO[id]
-			if ! ok {
+
+			io_struct, ok := linked_IO[id]
+			if !ok {
 				err = fmt.Errorf("%s not found in local_collection or linked_IO", id)
+
+				fmt.Println("-------------------------------------------------")
+				spew.Dump(local_collection)
+				spew.Dump(linked_IO)
+
 				return
 			}
-			
-			
+
 			// TODO
 			// io_struct.DataToken = ..
 
 			awe_task.Inputs = append(awe_task.Inputs, io_struct)
-			
-			
+
 		} else {
-			
-			obj_class := obj.GetClass()
+
+			obj_class := (*obj).GetClass()
 			switch obj_class {
-				
-				
+
 			case "File":
-				
-				
-				var file_obj File
+
+				var file_obj cwl.File
 				file_obj, err = local_collection.GetFile(id)
 				if err != nil {
 					err = fmt.Errorf("%s not found in local_collection ", id)
 					return
 				}
-				
+
 				// TODO HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE
-				input_string = input_file.Basename
+				input_string = file_obj.Basename
 
 				awe_input := NewIO()
-				awe_input.FileName = input_file.Basename
-				awe_input.Name = input_file.Id
-				awe_input.Host = input_file.Host
-				awe_input.Node = input_file.Node
+				awe_input.FileName = file_obj.Basename
+				awe_input.Name = file_obj.Id
+				awe_input.Host = file_obj.Host
+				awe_input.Node = file_obj.Node
 				//awe_input.Url=input_file.
-				awe_input.DataToken = input_file.Token
+				awe_input.DataToken = file_obj.Token
 
 				awe_task.Inputs = append(awe_task.Inputs, awe_input)
 			case "String":
-				err = fmt.Error("not implemented yet (%s)", obj_class )
+				err = fmt.Errorf("not implemented yet (%s)", obj_class)
 			case "Int":
-				err = fmt.Error("not implemented yet (%s)", obj_class )
-				
+				err = fmt.Errorf("not implemented yet (%s)", obj_class)
+
 			default:
-				
-				err = fmt.Error("not implemented yet (%s)", obj_class )
-				
-				
-				
+
+				err = fmt.Errorf("not implemented yet (%s)", obj_class)
+
 			}
-			
-			
-			
-			
+
 		}
-		
-		
-		
-		
-		
 
 		input_binding := expected_input.InputBinding
 
@@ -444,7 +443,8 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 
 	pos := len(*helper.processed_ws)
 	awe_task := NewTask(job, string(pos))
-	step.AWE_task = awe_task
+
+	(*helper.AWE_tasks)[job.Id] = awe_task
 	awe_task.JobId = job.Id
 
 	err = createAweTask(helper, &cmdlinetool, step, awe_task)
@@ -510,10 +510,12 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 
 	processed_ws := make(map[string]*cwl.WorkflowStep)
 	unprocessed_ws := make(map[string]*cwl.WorkflowStep)
+	awe_tasks := make(map[string]*Task)
 	helper.processed_ws = &processed_ws
 	helper.unprocessed_ws = &unprocessed_ws
 	helper.collection = collection
 	helper.job = job
+	helper.AWE_tasks = &awe_tasks
 
 	for _, step := range cwl_workflow.Steps {
 		unprocessed_ws[step.Id] = &step

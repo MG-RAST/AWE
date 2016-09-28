@@ -31,10 +31,11 @@ type File struct {
 	Token  string
 }
 
-func (f File) GetClass() string    { return "File" }
-func (f File) GetId() string       { return f.Id }
-func (f File) String() string      { return f.Path }
-func (f File) GetLocation() string { return f.Location } // for CWL_location
+func (f *File) GetClass() string    { return "File" }
+func (f *File) GetId() string       { return f.Id }
+func (f *File) SetId(id string)     { f.Id = id }
+func (f *File) String() string      { return f.Path }
+func (f *File) GetLocation() string { return f.Location } // for CWL_location
 
 func MakeFile(id string, obj interface{}) (file File, err error) {
 	file = File{}

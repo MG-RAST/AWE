@@ -36,6 +36,11 @@ func Debug(level int, message string) {
 	return
 }
 
+func Debugf(level int, format string, a ...interface{}) {
+	Log.Debugf(level, format, a...)
+	return
+}
+
 // Event is a short cut function that uses package initialized logger and error log
 func Event(evttype string, attributes ...string) {
 	Log.Event(evttype, attributes)
@@ -161,6 +166,13 @@ func (l *Logger) Log(log string, lvl l4g.Level, message string) {
 func (l *Logger) Debug(level int, message string) {
 	if level <= conf.DEBUG_LEVEL {
 		l.Log("debug", l4g.DEBUG, message)
+	}
+	return
+}
+
+func (l *Logger) Debugf(level int, format string, a ...interface{}) {
+	if level <= conf.DEBUG_LEVEL {
+		l.Log("debug", l4g.DEBUG, fmt.Sprintf(format, a...))
 	}
 	return
 }

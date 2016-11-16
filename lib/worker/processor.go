@@ -313,7 +313,17 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	// tag image to make debugging easier
 	if Dockerimage != "" {
 		Dockerimage_array := strings.Split(Dockerimage, ":") // TODO split by colon is risky
-		tag_opts := docker.TagImageOptions{Repo: Dockerimage_array[0], Tag: Dockerimage_array[1]}
+		dockerimage_repo := ""
+		dockerimage_tag := ""
+
+		if len(Dockerimage_array) > 0 {
+			dockerimage_repo = Dockerimage_array[0]
+		}
+		if len(Dockerimage_array) > 1 {
+			dockerimage_tag = Dockerimage_array[1]
+		}
+
+		tag_opts := docker.TagImageOptions{Repo: dockerimage_repo, Tag: dockerimage_tag}
 
 		err = TagImage(client, dockerimage_id, tag_opts)
 		if err != nil {

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/davecgh/go-spew/spew"
 	//aw_sequences"os"
+	"strconv"
 	"strings"
 )
 
@@ -144,8 +146,6 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 					// linked_output.Id provides
 					linked_IO[id] = &IO{Origin: linked_task_id, FileName: linked_filename, Name: id}
 
-					// TODO STORE THIS und use below !
-
 				} else {
 					// use workflow input as input
 
@@ -174,7 +174,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 		} else {
 
 			var obj *cwl.CWL_object
-			obj, err = workflow_step_input.GetObject() // from ValueFrom or Default fields
+			obj, err = workflow_step_input.GetObject(helper.collection) // from ValueFrom or Default fields
 			if err != nil {
 				return
 			}
@@ -263,7 +263,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 
 			case "File":
 
-				var file_obj cwl.File
+				var file_obj *cwl.File
 				file_obj, err = local_collection.GetFile(id)
 				if err != nil {
 					err = fmt.Errorf("%s not found in local_collection ", id)
@@ -283,10 +283,23 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 
 				awe_task.Inputs = append(awe_task.Inputs, awe_input)
 			case "String":
-				err = fmt.Errorf("not implemented yet (%s)", obj_class)
-			case "Int":
-				err = fmt.Errorf("not implemented yet (%s)", obj_class)
 
+				var string_obj *cwl.String
+				string_obj, err = local_collection.GetString(id)
+				if err != nil {
+					err = fmt.Errorf("%s not found in local_collection ", id)
+					return
+				}
+				input_string = string_obj.String()
+			case "Int":
+
+				var int_obj *cwl.Int
+				int_obj, err = local_collection.GetInt(id)
+				if err != nil {
+					err = fmt.Errorf("%s not found in local_collection ", id)
+					return
+				}
+				input_string = int_obj.String()
 			default:
 
 				err = fmt.Errorf("not implemented yet (%s)", obj_class)
@@ -396,6 +409,9 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 			return
 		}
 
+		if awe_output.Host == "" {
+			awe_output.Host = helper.job.ShockHost
+		}
 		awe_task.Outputs = append(awe_task.Outputs, awe_output)
 	}
 
@@ -405,6 +421,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 }
 
 func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
+	logger.Debug(0, "cwl_step_2_awe_task, step_id: "+step_id)
 
 	processed_ws := helper.processed_ws
 	job := helper.job
@@ -442,12 +459,22 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 	}
 
 	pos := len(*helper.processed_ws)
-	awe_task := NewTask(job, string(pos))
+	logger.Debugf(0, "pos: %d", pos)
+
+	pos_str := strconv.Itoa(pos)
+	logger.Debugf(0, "pos_str: %s", pos_str)
+	var awe_task *Task
+	awe_task, err = NewTask(job, pos_str)
+	if err != nil {
+		err = fmt.Errorf("Task creation failed: %v", err)
+		return
+	}
+	logger.Debugf(0, "Task created: %s", awe_task.Id)
 
 	(*helper.AWE_tasks)[job.Id] = awe_task
 	awe_task.JobId = job.Id
 
-	err = createAweTask(helper, &cmdlinetool, step, awe_task)
+	err = createAweTask(helper, cmdlinetool, step, awe_task)
 	if err != nil {
 		return
 	}
@@ -455,6 +482,7 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 	job.Tasks = append(job.Tasks, awe_task)
 
 	(*processed_ws)[step.Id] = step
+	logger.Debug(0, "LEAVING cwl_step_2_awe_task, step_id: "+step_id)
 	return
 }
 
@@ -463,7 +491,7 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 	//CommandLineTools := collection.CommandLineTools
 
 	// check that all expected workflow inputs exist and that they have the correct type
-
+	logger.Debug(0, "CWL2AWE starting")
 	for _, input := range cwl_workflow.Inputs {
 		// input is a cwl.InputParameter object
 
@@ -497,8 +525,36 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 	}
 	//os.Exit(0)
 	job = NewJob()
+	logger.Debug(0, "Job created")
 
-	//job.initJob("0")
+	found_ShockRequirement := false
+	for _, r := range cwl_workflow.Requirements { // TODO put ShockRequirement in Hints
+		switch r.GetClass() {
+		case "ShockRequirement":
+			sr, ok := r.(cwl.ShockRequirement)
+			if !ok {
+				err = fmt.Errorf("Could not assert ShockRequirement")
+				return
+			}
+
+			job.ShockHost = sr.Host
+			found_ShockRequirement = true
+
+		}
+	}
+
+	if !found_ShockRequirement {
+		err = fmt.Errorf("ShockRequirement has to be provided in the workflow object")
+		return
+	}
+	logger.Debug(0, "Requirements checked")
+
+	err = job.Init()
+	if err != nil {
+		err = fmt.Errorf("job.Init() failed: %v", err)
+		return
+	}
+	logger.Debug(0, "Init called")
 
 	// Once, job has been created, set job owner and add owner to all ACL's
 	job.Acl.SetOwner(_user.Uuid)
@@ -540,7 +596,15 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 		}
 
 	}
+	logger.Debug(0, "cwl_step_2_awe_task done")
 	// loop until all steps have been converted
+
+	err = job.InitTasks()
+	if err != nil {
+		err = fmt.Errorf("job.InitTasks() failed: %v", err)
+		return
+	}
+	logger.Debug(0, "job.InitTasks done")
 
 	err = job.Mkdir()
 	if err != nil {
@@ -554,6 +618,9 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 		return
 	}
 
+	spew.Dump(job)
+
+	logger.Debugf(0, "job.Id: %s", job.Id)
 	err = job.Save()
 	if err != nil {
 		err = errors.New("error in job.Save(), error=" + err.Error())

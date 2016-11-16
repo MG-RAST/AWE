@@ -22,16 +22,11 @@ const (
 	TASK_STAT_PASSED     = "passed"
 )
 
-type Task struct {
-	Id      string   `bson:"taskid" json:"taskid"`
-	JobId   string   `bson:"jobid" json:"jobid"`
-	Info    *Info    `bson:"info" json:"-"`
-	Inputs  []*IO    `bson:"inputs" json:"inputs"`
-	Outputs []*IO    `bson:"outputs" json:"outputs"`
-	Predata []*IO    `bson:"predata" json:"predata"`
-	Cmd     *Command `bson:"cmd" json:"cmd"`
-	//	App               *App              `bson:"app" json:"app"`
-	//	AppVariablesArray []*AppVariable    // not in App as workunit does not need AppVariables and I want to pass App
+type TaskRaw struct {
+	Id            string            `bson:"taskid" json:"taskid"`
+	JobId         string            `bson:"jobid" json:"jobid"`
+	Info          *Info             `bson:"info" json:"-"`
+	Cmd           *Command          `bson:"cmd" json:"cmd"`
 	Partition     *PartInfo         `bson:"partinfo" json:"-"`
 	DependsOn     []string          `bson:"dependsOn" json:"dependsOn"`
 	TotalWork     int               `bson:"totalwork" json:"totalwork"`
@@ -48,32 +43,21 @@ type Task struct {
 	ClientGroups  string            `bson:"clientgroups" json:"clientgroups"`
 }
 
+type Task struct {
+	TaskRaw `bson:",inline"`
+	Inputs  []*IO `bson:"inputs" json:"inputs"`
+	Outputs []*IO `bson:"outputs" json:"outputs"`
+	Predata []*IO `bson:"predata" json:"predata"`
+}
+
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
 // Jobs that cannot be parsed into the Job struct, but can be parsed into the JobDep struct will be translated to the new Job struct.
 // (=deprecated=)
 type TaskDep struct {
-	Id      string   `bson:"taskid" json:"taskid"`
-	Info    *Info    `bson:"info" json:"-"`
-	Inputs  IOmap    `bson:"inputs" json:"inputs"`
-	Outputs IOmap    `bson:"outputs" json:"outputs"`
-	Predata IOmap    `bson:"predata" json:"predata"`
-	Cmd     *Command `bson:"cmd" json:"cmd"`
-	//	App               *App              `bson:"app" json:"app"`
-	//	AppVariablesArray []*AppVariable    // not in App as workunit does not need AppVariables and I want to pass App
-	Partition     *PartInfo         `bson:"partinfo" json:"-"`
-	DependsOn     []string          `bson:"dependsOn" json:"dependsOn"`
-	TotalWork     int               `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize   int               `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork    int               `bson:"remainwork" json:"remainwork"`
-	WorkStatus    []string          `bson:"workstatus" json:"-"`
-	State         string            `bson:"state" json:"state"`
-	Skip          int               `bson:"skip" json:"-"`
-	CreatedDate   time.Time         `bson:"createdDate" json:"createddate"`
-	StartedDate   time.Time         `bson:"startedDate" json:"starteddate"`
-	CompletedDate time.Time         `bson:"completedDate" json:"completeddate"`
-	ComputeTime   int               `bson:"computetime" json:"computetime"`
-	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
-	ClientGroups  string            `bson:"clientgroups" json:"clientgroups"`
+	TaskRaw `bson:",inline"`
+	Inputs  IOmap `bson:"inputs" json:"inputs"`
+	Outputs IOmap `bson:"outputs" json:"outputs"`
+	Predata IOmap `bson:"predata" json:"predata"`
 }
 
 type TaskLog struct {
@@ -84,13 +68,13 @@ type TaskLog struct {
 	Workunits     []*WorkLog `bson:"workunits" json:"workunits"`
 }
 
-func NewTask(job *Job, task_id string) *Task {
-	return &Task{
-		Id:         fmt.Sprintf("%s_%s", job.Id, task_id),
-		Info:       job.Info,
-		Inputs:     []*IO{},
-		Outputs:    []*IO{},
-		Predata:    []*IO{},
+func NewTaskRaw(job_id string, task_id string, info *Info) TaskRaw {
+
+	logger.Debugf(0, "Task.Id: %s_%s", job_id, task_id)
+	return TaskRaw{
+		//Id:         fmt.Sprintf("%s_%s", job_id, task_id),
+		Id:         task_id,
+		Info:       info,
 		Cmd:        &Command{},
 		Partition:  nil,
 		DependsOn:  []string{},
@@ -100,6 +84,23 @@ func NewTask(job *Job, task_id string) *Task {
 		State:      TASK_STAT_INIT,
 		Skip:       0,
 	}
+}
+
+func NewTask(job *Job, task_id string) (t *Task, err error) {
+
+	job_id := job.Id
+	if job_id == "" {
+		err = fmt.Errorf("(NewTask) job_id empty")
+		return
+	}
+
+	t = &Task{
+		TaskRaw: NewTaskRaw(job_id, task_id, job.Info),
+		Inputs:  []*IO{},
+		Outputs: []*IO{},
+		Predata: []*IO{},
+	}
+	return
 }
 
 // fill some info (lacked in input json) for a task

@@ -77,6 +77,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	_, has_job := files["job"] // input data for an CWL workflow
 
 	var job *core.Job
+	job = nil
 
 	if has_import {
 		// import a job document
@@ -124,6 +125,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			cx.RespondWithErrorMessage("error in parsing job yaml file: "+err.Error(), http.StatusBadRequest)
 			return
 		}
+		logger.Debug(0, "Parse_cwl_document done")
 
 		cwl_workflow, ok := collection.Workflows["main"]
 		if !ok {
@@ -138,15 +140,16 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 
 		fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
-		job, err = core.CWL2AWE(_user, files, &cwl_workflow, &collection)
+		job, err = core.CWL2AWE(_user, files, cwl_workflow, &collection)
 		if err != nil {
 			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
 			return
 		}
+		logger.Debug(0, "CWL2AWE done")
 
-		fmt.Println("\n\n\n--------------------------------- Done... now respond...")
-		cx.RespondWithData(job)
-		return
+		//fmt.Println("\n\n\n--------------------------------- Done... now respond...")
+		//cx.RespondWithData(job)
+		//return
 
 	} else if !has_upload && !has_awf {
 		cx.RespondWithErrorMessage("No job script or awf is submitted", http.StatusBadRequest)

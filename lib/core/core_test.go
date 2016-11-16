@@ -41,14 +41,14 @@ func TestCommand(t *testing.T) {
 
 func TestTask(t *testing.T) {
 	print("\nTestTask\n")
-	nt := NewTask()
+	nt, _ := NewTask()
 	m, _ := json.Marshal(nt)
 	print(string(m) + "\n")
 }
 
 func BenchmarkTask(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		nt := NewTask()
+		nt, _ := NewTask()
 		json.Marshal(nt)
 	}
 }

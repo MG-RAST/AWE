@@ -5,11 +5,7 @@
 FROM golang:1.7.0-alpine
 
 # needed for GIT_COMMIT_HASH
-RUN apk update && apk add git
-
-
-# not sure why this is needed sometimes for sasl
-# RUN apk add gcc libc-dev cyrus-sasl-dev
+RUN apk update && apk add git gcc libc-dev cyrus-sasl-dev
 
 
 ENV AWE=/go/src/github.com/MG-RAST/AWE
@@ -24,7 +20,7 @@ RUN ln -s /go /gopath
 RUN mkdir -p ${AWE} && \
   cd ${AWE} && \
   GITHASH=$(git -C ${AWE} rev-parse HEAD) && \
-  CGO_ENABLED=0 go install -a -installsuffix cgo -v -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH=${GITHASH}" ...
+  CGO_ENABLED=0 go get -a -installsuffix cgo -v -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH=${GITHASH}" ...
 
 # since this produces three binaries, we just specify (b)ash
 CMD ["/bin/ash"]

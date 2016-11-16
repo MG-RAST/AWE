@@ -19,8 +19,7 @@ RUN ln -s /go /gopath
 # compile AWE
 RUN mkdir -p ${AWE} && \
   cd ${AWE} && \
-  GITHASH=$(git -C ${AWE} rev-parse HEAD) && \
-  CGO_ENABLED=0 go get -a -installsuffix cgo -v -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH=${GITHASH}" ...
+  ./compile.sh
 
 # since this produces three binaries, we just specify (b)ash
 CMD ["/bin/ash"]

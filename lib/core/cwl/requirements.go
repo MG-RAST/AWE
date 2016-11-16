@@ -30,9 +30,16 @@ type DockerRequirement struct {
 func (c DockerRequirement) GetClass() string { return "DockerRequirement" }
 func (c DockerRequirement) GetId() string    { return "None" }
 
+type ShockRequirement struct {
+	Host string `yaml:"host"`
+}
+
+func (s ShockRequirement) GetClass() string { return "ShockRequirement" }
+func (s ShockRequirement) GetId() string    { return "None" }
+
 func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
-	switch {
-	case class == "DockerRequirement":
+	switch class {
+	case "DockerRequirement":
 		var requirement DockerRequirement
 		err = mapstructure.Decode(obj, &requirement)
 		if err != nil {
@@ -42,8 +49,18 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 
 		}
 		r = requirement
-	case class == "StepInputExpressionRequirement":
+	case "StepInputExpressionRequirement":
 		var requirement StepInputExpressionRequirement
+		r = requirement
+	case "ShockRequirement":
+		var requirement ShockRequirement
+		err = mapstructure.Decode(obj, &requirement)
+		if err != nil {
+			spew.Dump(obj)
+			err = fmt.Errorf("object not a DockerRequirement")
+			return
+
+		}
 		r = requirement
 	default:
 		err = errors.New("object class not supported " + class)
@@ -57,23 +74,29 @@ func CreateRequirementArray(original interface{}) (err error, new_array []Requir
 	// here the keynames are actually class names
 	for k, v := range original.(map[interface{}]interface{}) {
 
+		var requirement Requirement
+		class := k.(string)
+
 		switch v.(type) {
 		case map[interface{}]interface{}: // the Requirement is a struct itself
 			vmap := v.(map[interface{}]interface{})
-			class := k.(string)
+
 			vmap["class"] = class
 
-			requirement, xerr := NewRequirement(class, v)
-			if xerr != nil {
-				err = xerr
+			requirement, err = NewRequirement(class, v)
+			if err != nil {
 				return
 			}
-			new_array = append(new_array, requirement)
 
 		default:
-			return errors.New("error: Requirement struct expected, but not struct found"), nil
+			requirement, err = NewRequirement(class, nil)
+			if err != nil {
+				return
+			}
+
 		}
 
+		new_array = append(new_array, requirement)
 	}
 	return
 }

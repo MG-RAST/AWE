@@ -53,6 +53,7 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 		return
 	}
 	scheme := strings.ToLower(file_url.Scheme)
+
 	switch scheme {
 	case "shock":
 
@@ -67,12 +68,12 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 		}
 		file.Node = array[2]
 
-		file.Host = file_url.Host
-		shock_client := shock.ShockClient{Host: "http://" + file.Host} // TODO Token: datatoken
+		file.Host = "http://" + file_url.Host
+		shock_client := shock.ShockClient{Host: file.Host} // TODO Token: datatoken
 		node, xerr := shock_client.Get_node(file.Node)
 
 		if xerr != nil {
-			err = fmt.Errorf("(Get_node) Could not get shock node: %s", xerr.Error())
+			err = fmt.Errorf("(Get_node) Could not get shock node (%s, %s): %s", file.Host, file.Node, xerr.Error())
 			return
 		}
 		//fmt.Println("---node:")
@@ -101,6 +102,9 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 	case "ftp":
 		//extract filename ?
 		err = fmt.Errorf("Location scheme not supported yet, %s", id) // TODO
+		return
+	case "":
+		err = fmt.Errorf("Location scheme missing, %s", id)
 		return
 	default:
 		err = fmt.Errorf("Location scheme \"%s\" unknown, %s", scheme, id)

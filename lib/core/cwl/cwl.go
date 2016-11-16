@@ -144,7 +144,7 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 
 			//fmt.Println("WORKFLOW")
 			//spew.Dump(workflow)
-			err = collection.Add(workflow)
+			err = collection.Add(&workflow)
 			if err != nil {
 				return
 			}
@@ -161,7 +161,7 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 				cwl_file.Id = cwl_object_id
 			}
 			//collection.Files[cwl_file.Id] = cwl_file
-			err = collection.Add(cwl_file)
+			err = collection.Add(&cwl_file)
 			if err != nil {
 				return
 			}

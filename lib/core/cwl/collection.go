@@ -111,6 +111,14 @@ func (c CWL_collection) GetString(id string) (obj *String, err error) {
 	return
 }
 
+func (c CWL_collection) GetInt(id string) (obj *Int, err error) {
+	obj, ok := c.Ints[id]
+	if !ok {
+		err = fmt.Errorf("item %s not found in collection", id)
+	}
+	return
+}
+
 func (c CWL_collection) GetWorkflowStepInput(id string) (obj *WorkflowStepInput, err error) {
 	obj, ok := c.WorkflowStepInputs[id]
 	if !ok {

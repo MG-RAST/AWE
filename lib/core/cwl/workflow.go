@@ -77,14 +77,17 @@ func (w WorkflowStepInput) SetId(id string)  { w.Id = id }
 //	return
 //}
 
-func (input WorkflowStepInput) GetObject() (obj *CWL_object, err error) {
+func (input WorkflowStepInput) GetObject(c *CWL_collection) (obj *CWL_object, err error) {
 
 	var cwl_obj CWL_object
 
 	if len(input.Source) > 0 {
 		err = fmt.Errorf("Source is defined and should be used")
 	} else if string(input.ValueFrom) != "" {
-		cwl_obj = String{Id: input.Id, Value: string(input.ValueFrom)} // TODO evaluate here !!!!! get helper
+		new_string := string(input.ValueFrom)
+		evaluated_string := c.Evaluate(new_string)
+
+		cwl_obj = &String{Id: input.Id, Value: evaluated_string} // TODO evaluate here !!!!! get helper
 	} else if input.Default != nil {
 		cwl_obj = input.Default
 	} else {
@@ -347,7 +350,7 @@ func CreateWorkflowStepInputArray(original interface{}) (err error, new_array []
 			if errx == nil {
 				switch default_value.(type) {
 				case string:
-					input_parameter.Default = String{Id: input_parameter.Id, Value: default_value.(string)}
+					input_parameter.Default = &String{Id: input_parameter.Id, Value: default_value.(string)}
 				case int:
 					input_parameter.Default = &Int{Id: input_parameter.Id, Value: default_value.(int)}
 				default:

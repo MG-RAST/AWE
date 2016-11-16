@@ -1,3 +1,7 @@
+// Copyright 2014 go-dockerclient authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package docker
 
 import (
@@ -6,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -35,6 +40,17 @@ func TestBuildImageMultipleContextsError(t *testing.T) {
 func TestBuildImageContextDirDockerignoreParsing(t *testing.T) {
 	fakeRT := &FakeRoundTripper{message: "", status: http.StatusOK}
 	client := newTestClient(fakeRT)
+
+	if err := os.Symlink("doesnotexist", "testing/data/symlink"); err != nil {
+		t.Errorf("error creating symlink on demand: %s", err)
+	}
+	defer func() {
+		if err := os.Remove("testing/data/symlink"); err != nil {
+			t.Errorf("error removing symlink on demand: %s", err)
+		}
+	}()
+	workingdir, err := os.Getwd()
+
 	var buf bytes.Buffer
 	opts := BuildImageOptions{
 		Name:                "testImage",
@@ -43,9 +59,9 @@ func TestBuildImageContextDirDockerignoreParsing(t *testing.T) {
 		RmTmpContainer:      true,
 		ForceRmTmpContainer: true,
 		OutputStream:        &buf,
-		ContextDir:          "testing/data",
+		ContextDir:          filepath.Join(workingdir, "testing", "data"),
 	}
-	err := client.BuildImage(opts)
+	err = client.BuildImage(opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +72,7 @@ func TestBuildImageContextDirDockerignoreParsing(t *testing.T) {
 	}
 
 	defer func() {
-		if err := os.RemoveAll(tmpdir); err != nil {
+		if err = os.RemoveAll(tmpdir); err != nil {
 			t.Fatal(err)
 		}
 	}()

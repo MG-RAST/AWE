@@ -19,6 +19,7 @@ RUN ln -s /go /gopath
 # compile AWE
 RUN mkdir -p ${AWE} && \
   cd ${AWE} && \
+  go get -d ./awe-client/ ./awe-server/ && \
   ./compile.sh
 
 # since this produces three binaries, we just specify (b)ash

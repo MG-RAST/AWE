@@ -459,17 +459,17 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 	}
 
 	pos := len(*helper.processed_ws)
-	logger.Debugf(0, "pos: %d", pos)
+	logger.Debug(0, "pos: %d", pos)
 
 	pos_str := strconv.Itoa(pos)
-	logger.Debugf(0, "pos_str: %s", pos_str)
+	logger.Debug(0, "pos_str: %s", pos_str)
 	var awe_task *Task
 	awe_task, err = NewTask(job, pos_str)
 	if err != nil {
 		err = fmt.Errorf("Task creation failed: %v", err)
 		return
 	}
-	logger.Debugf(0, "Task created: %s", awe_task.Id)
+	logger.Debug(0, "Task created: %s", awe_task.Id)
 
 	(*helper.AWE_tasks)[job.Id] = awe_task
 	awe_task.JobId = job.Id
@@ -620,7 +620,7 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 
 	spew.Dump(job)
 
-	logger.Debugf(0, "job.Id: %s", job.Id)
+	logger.Debug(0, "job.Id: %s", job.Id)
 	err = job.Save()
 	if err != nil {
 		err = errors.New("error in job.Save(), error=" + err.Error())

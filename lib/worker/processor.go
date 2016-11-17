@@ -483,7 +483,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			err_kill = KillContainer(container_id)
 		}
 		if err_kill != nil {
-			logger.Error(fmt.Sprintf("error killing container id=%s, err=%s", container_id, err_kill.Error()))
+			logger.Error(fmt.Sprintf("(clean-up after running container) error killing container id=%s, err=%s", container_id, err_kill.Error()))
 		}
 
 		// *** remove Container
@@ -671,7 +671,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("error killing container id=%s, err=%s", container_id, err.Error()))
+			return nil, errors.New(fmt.Sprintf("(chankill) error killing container id=%s, err=%s", container_id, err.Error()))
 		}
 
 		<-done // allow goroutine to exit

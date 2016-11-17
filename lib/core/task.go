@@ -70,7 +70,7 @@ type TaskLog struct {
 
 func NewTaskRaw(job_id string, task_id string, info *Info) TaskRaw {
 
-	logger.Debugf(0, "Task.Id: %s_%s", job_id, task_id)
+	logger.Debug(0, "Task.Id: %s_%s", job_id, task_id)
 	return TaskRaw{
 		//Id:         fmt.Sprintf("%s_%s", job_id, task_id),
 		Id:         task_id,

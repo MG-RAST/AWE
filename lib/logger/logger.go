@@ -31,11 +31,6 @@ func Initialize(name string) {
 }
 
 // Debug is a short cut function that uses package initialized logger and performance log
-//func Debug(level int, message string) {
-//	Log.Debug(level, message)
-//	return
-//}
-
 func Debug(level int, format string, a ...interface{}) {
 	Log.Debug(level, format, a...)
 	return

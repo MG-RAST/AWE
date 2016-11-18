@@ -172,6 +172,8 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 func dataMover(control chan int) {
 	//var err error
 	fmt.Printf("dataMover launched, client=%s\n", core.Self.Id)
+	logger.Debug(1, "dataMover launched, client=%s\n", core.Self.Id)
+
 	defer fmt.Printf("dataMover exiting...\n")
 	for {
 		raw := <-fromStealer

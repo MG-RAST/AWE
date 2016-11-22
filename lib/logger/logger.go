@@ -43,8 +43,8 @@ func Event(evttype string, attributes ...string) {
 }
 
 // Error is a short cut function that uses package initialized logger and error log
-func Error(message string) {
-	Log.Error(message)
+func Error(format string, a ...interface{}) {
+	Log.Error(format, a...)
 	return
 }
 
@@ -182,8 +182,8 @@ func (l *Logger) Info(log string, message string) {
 	return
 }
 
-func (l *Logger) Error(message string) {
-	l.Log("error", l4g.ERROR, message)
+func (l *Logger) Error(format string, a ...interface{}) {
+	l.Log("error", l4g.ERROR, fmt.Sprintf(format, a...))
 	return
 }
 

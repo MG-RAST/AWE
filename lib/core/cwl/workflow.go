@@ -165,6 +165,8 @@ func CreateInputParameterArray(original interface{}) (err error, new_array []Inp
 			switch strings.ToLower(type_string) {
 			case "string":
 				input_parameter = InputParameter{Id: id, Type: "string"}
+			case "int":
+				input_parameter = InputParameter{Id: id, Type: "int"}
 			case "file":
 				input_parameter = InputParameter{Id: id, Type: "file"}
 			default:

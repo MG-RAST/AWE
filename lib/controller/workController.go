@@ -152,7 +152,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 // to-do: to support more options for workunit checkout
 func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
-
+	logger.Debug(3, "GET: /work") // TODO remove this
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 
@@ -250,11 +250,13 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 	// check that clientgroup auth token matches group of client
 	clientid := query.Value("client")
+	logger.Debug(3, "work request with clientid=%s", clientid)
 	client, ok := core.QMgr.GetClient(clientid)
 	if !ok {
 		cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
 		return
 	}
+
 	if cg != nil && client.Group != cg.Name {
 		cx.RespondWithErrorMessage("Clientgroup name in token does not match that in the client configuration.", http.StatusBadRequest)
 		return
@@ -279,8 +281,8 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		if err.Error() != e.QueueEmpty && err.Error() != e.QueueSuspend && err.Error() != e.NoEligibleWorkunitFound && err.Error() != e.ClientNotFound && err.Error() != e.ClientSuspended {
 			logger.Error("Err@work_ReadMany:core.QMgr.GetWorkByFCFS(): " + err.Error() + ";client=" + clientid)
 		}
+		logger.Debug(3, fmt.Sprintf("Error in CheckoutWorkunits: clientid=%s;available=%d;error=%s", clientid, availableBytes, err.Error()))
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-		logger.Debug(3, fmt.Sprintf("clientid=%s;available=%d;status=%s", clientid, availableBytes, err.Error()))
 		return
 	}
 

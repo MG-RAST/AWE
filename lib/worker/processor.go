@@ -678,9 +678,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 		return nil, errors.New("process killed as requested from chankill")
 	case err = <-done:
-		logger.Debug(1, fmt.Sprint("(1)docker wait returned with status ", status))
+		logger.Debug(1, "(1)docker wait returned with status %d", status)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("dockerWait=%s, err=%s", commandName, err.Error()))
+			return nil, fmt.Errorf("dockerWait=%s, err=%s", commandName, err.Error())
 		}
 	}
 	logger.Debug(1, fmt.Sprint("(2)docker wait returned with status ", status))

@@ -49,8 +49,8 @@ func Error(format string, a ...interface{}) {
 }
 
 // Info is a short cut function that uses package initialized logger
-func Info(log string, message string) {
-	Log.Info(log, message)
+func Info(log string, format string, a ...interface{}) {
+	Log.Info(log, format, a...)
 	return
 }
 
@@ -172,13 +172,13 @@ func (l *Logger) Debug(level int, format string, a ...interface{}) {
 	return
 }
 
-func (l *Logger) Warning(log string, message string) {
-	l.Log(log, l4g.WARNING, message)
+func (l *Logger) Warning(log string, format string, a ...interface{}) {
+	l.Log(log, l4g.WARNING, fmt.Sprintf(format, a...))
 	return
 }
 
-func (l *Logger) Info(log string, message string) {
-	l.Log(log, l4g.INFO, message)
+func (l *Logger) Info(log string, format string, a ...interface{}) {
+	l.Log(log, l4g.INFO, fmt.Sprintf(format, a...))
 	return
 }
 
@@ -192,8 +192,8 @@ func (l *Logger) Perf(message string) {
 	return
 }
 
-func (l *Logger) Critical(log string, message string) {
-	l.Log(log, l4g.CRITICAL, message)
+func (l *Logger) Critical(log string, format string, a ...interface{})) {
+	l.Log(log, l4g.CRITICAL, fmt.Sprintf(format, a...))
 	return
 }
 

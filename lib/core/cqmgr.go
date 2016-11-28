@@ -160,7 +160,7 @@ func (qm *CQMgr) ClientChecker() {
 				hours := total_minutes / 60
 				minutes := total_minutes % 60
 				client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
-				if len(client.Current_work) > 0 {
+				if client.Current_work_length() > 0 {
 					client.Idle_time = 0
 				} else {
 					client.Idle_time += 30
@@ -250,13 +250,15 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 	}
 	qm.PutClient(client)
 
-	if len(client.Current_work) > 0 { //re-registered client
+	if client.Current_work_length() > 0 { //re-registered client
 		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
+		client.Current_work_lock.RLock()
 		for workid, _ := range client.Current_work {
 			if qm.workQueue.Has(workid) {
 				qm.workQueue.StatusChange(workid, WORK_STAT_CHECKOUT)
 			}
 		}
+		client.Current_work_lock.Unlock()
 	}
 	return
 }
@@ -533,7 +535,7 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 	if ack.err == nil {
 		for _, work := range ack.workunits {
 			client.Total_checkout += 1
-			client.Current_work[work.Id] = true
+			client.Current_work_add(work.Id)
 		}
 		if client.Status == CLIENT_STAT_ACTIVE_IDLE {
 			client.Status = CLIENT_STAT_ACTIVE_BUSY
@@ -634,9 +636,11 @@ func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string, err error) {
 
 func (qm *CQMgr) getWorkByClient(clientid string) (ids []string) {
 	if client, ok := qm.GetClient(clientid); ok {
+		client.Current_work_lock.RLock()
 		for id, _ := range client.Current_work {
 			ids = append(ids, id)
 		}
+		client.Current_work_lock.RUnlock()
 	}
 	return
 }

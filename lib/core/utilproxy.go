@@ -18,7 +18,7 @@ func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 			logger.Error("err@NotifyWorkunitProcessed: workid=" + work.Id + ", err=" + err.Error())
 			//mark this work in Current_work map as false, something needs to be done in the future
 			//to clean this kind of work that has been proccessed but its result can't be sent to server!
-			Self.Current_work[work.Id] = false
+			Self.Current_work_false(work.Id)
 		}
 	}
 
@@ -30,7 +30,8 @@ func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 		logger.Event(event.WORK_RETURN, "workid="+work.Id)
 		Self.Total_failed += 1
 	}
-	delete(Self.Current_work, work.Id)
+	Self.Current_work_delete(work.Id)
+	//delete(Self.Current_work, work.Id)
 	return
 }
 

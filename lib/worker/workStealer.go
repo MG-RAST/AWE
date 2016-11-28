@@ -79,7 +79,7 @@ func workStealer(control chan int) {
 		//log event about work checktout (WC)
 		logger.Event(event.WORK_CHECKOUT, "workid="+wu.Id)
 		core.Self.Total_checkout += 1
-		core.Self.Current_work[wu.Id] = true
+		core.Self.Current_work_add(wu.Id)
 		workmap[wu.Id] = ID_WORKSTEALER
 
 		//hand the work to the next step handler: dataMover

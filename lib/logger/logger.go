@@ -48,6 +48,11 @@ func Error(format string, a ...interface{}) {
 	return
 }
 
+func Warning(format string, a ...interface{}) {
+	Log.Warning(format, a...)
+	return
+}
+
 // Info is a short cut function that uses package initialized logger
 func Info(log string, format string, a ...interface{}) {
 	Log.Info(log, format, a...)
@@ -99,6 +104,20 @@ func NewLogger(name string) *Logger {
 	}
 	if (conf.LOG_OUTPUT == "console") || (conf.LOG_OUTPUT == "both") {
 		l.logs["error"].AddFilter("stderr", l4g.FINEST, l4g.NewConsoleLogWriter())
+	}
+
+	// warning log
+	l.logs["warning"] = make(l4g.Logger)
+	if (conf.LOG_OUTPUT == "file") || (conf.LOG_OUTPUT == "both") {
+		errorf := l4g.NewFileLogWriter(logdir+"/warning.log", false)
+		if errorf == nil {
+			fmt.Fprintln(os.Stderr, "ERROR: error creating warning log file")
+			os.Exit(1)
+		}
+		l.logs["warning"].AddFilter("error", l4g.FINEST, errorf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
+	}
+	if (conf.LOG_OUTPUT == "console") || (conf.LOG_OUTPUT == "both") {
+		l.logs["warning"].AddFilter("stderr", l4g.FINEST, l4g.NewConsoleLogWriter())
 	}
 
 	// event log
@@ -172,8 +191,8 @@ func (l *Logger) Debug(level int, format string, a ...interface{}) {
 	return
 }
 
-func (l *Logger) Warning(log string, format string, a ...interface{}) {
-	l.Log(log, l4g.WARNING, fmt.Sprintf(format, a...))
+func (l *Logger) Warning(format string, a ...interface{}) {
+	l.Log("warning", l4g.WARNING, fmt.Sprintf(format, a...))
 	return
 }
 
@@ -192,7 +211,7 @@ func (l *Logger) Perf(message string) {
 	return
 }
 
-func (l *Logger) Critical(log string, format string, a ...interface{})) {
+func (l *Logger) Critical(log string, format string, a ...interface{}) {
 	l.Log(log, l4g.CRITICAL, fmt.Sprintf(format, a...))
 	return
 }

@@ -355,7 +355,7 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 
 //fetch file by shock url,  TODO remove
 func fetchFile_old(filename string, url string, token string) (size int64, err error) {
-	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
+	fmt.Printf("(fetchFile_old) fetching file name=%s, url=%s\n", filename, url)
 	localfile, err := os.Create(filename)
 	if err != nil {
 		return 0, err

@@ -1272,6 +1272,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	//Locate the job script and parse tasks for each job
 	jobct := 0
 	for _, dbjob := range *dbjobs {
+		logger.Debug(2, fmt.Sprintf("recovering %d: job=%s, state=%s", jobct, dbjob.Id, dbjob.State))
 		if dbjob.State == JOB_STAT_SUSPEND {
 			qm.putSusJob(dbjob.Id)
 		} else {

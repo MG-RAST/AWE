@@ -1,5 +1,13 @@
 # v0.9.30
 
+- golang 1.7.1
+- removed duplicate uuid vendor library
+- more GET /client query options
+  - /client?group=<clientgroup name>
+  - /client?status=<client status>
+  - /client?app=<app in list>
+- added GET /queue?clientgroup
+  - return list of running jobs for that clientgroup
 - added /logger resource
   - /logger?debug=N - PUT debug level
   - /logger?debug - GET debug level

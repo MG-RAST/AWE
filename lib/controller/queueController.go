@@ -100,12 +100,14 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 			jobs := []*core.Job{}
 			for _, client := range core.QMgr.GetAllClients() {
 				if client.Group == cg.Name {
+					client.Current_work_lock.RLock()
 					for wid, _ := range client.Current_work {
 						jid, _ := core.GetJobIdByWorkId(wid)
 						if job, err := core.LoadJob(jid); err == nil {
 							jobs = append(jobs, job)
 						}
 					}
+					client.Current_work_lock.RUnlock()
 				}
 			}
 			cx.RespondWithData(jobs)

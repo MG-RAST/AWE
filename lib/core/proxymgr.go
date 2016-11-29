@@ -92,9 +92,10 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	workid := notice.WorkId
 	clientid := notice.ClientId
 	if client, ok := qm.GetClient(clientid); ok {
-		delete(client.Current_work, workid)
-		if len(client.Current_work) == 0 {
-			client.Status = CLIENT_STAT_ACTIVE_IDLE
+		//delete(client.Current_work, workid)
+		client.Current_work_delete(workid)
+		if client.Current_work_length() == 0 {
+			client.Set_Status(CLIENT_STAT_ACTIVE_IDLE)
 		}
 		qm.PutClient(client)
 	}
@@ -105,17 +106,17 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 		}
 		if work.State == WORK_STAT_DONE {
 			if client, ok := qm.GetClient(clientid); ok {
-				client.Total_completed += 1
+				client.Increment_total_completed()
 				client.Last_failed = 0 //reset last consecutive failures
 				qm.PutClient(client)
 			}
 		} else if work.State == WORK_STAT_FAIL {
 			if client, ok := qm.GetClient(clientid); ok {
-				client.Skip_work = append(client.Skip_work, workid)
-				client.Total_failed += 1
+				client.Append_Skip_work(workid)
+				client.Increment_total_failed()
 				client.Last_failed += 1 //last consecutive failures
 				if client.Last_failed == conf.MAX_CLIENT_FAILURE {
-					client.Status = CLIENT_STAT_SUSPEND
+					client.Set_Status(CLIENT_STAT_SUSPEND)
 				}
 				qm.PutClient(client)
 			}
@@ -152,13 +153,15 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 		return nil, errors.New("Clientgroup name in token does not match that in the client configuration.")
 	}
 	qm.PutClient(client)
-	if len(client.Current_work) > 0 { //re-registered client
+	if client.Current_work_length() > 0 { //re-registered client
 		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
+		client.Current_work_lock.RLock()
 		for workid, _ := range client.Current_work {
 			if qm.workQueue.Has(workid) {
 				qm.workQueue.StatusChange(workid, WORK_STAT_CHECKOUT)
 			}
 		}
+		client.Current_work_lock.RUnlock()
 	}
 	//proxy specific
 	Self.SubClients += 1
@@ -176,7 +179,7 @@ func (qm *ProxyMgr) ClientChecker() {
 				hours := total_minutes / 60
 				minutes := total_minutes % 60
 				client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
-				if len(client.Current_work) > 0 {
+				if client.Current_work_length() > 0 {
 					client.Idle_time = 0
 				} else {
 					client.Idle_time += 30

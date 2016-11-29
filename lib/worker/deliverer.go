@@ -51,24 +51,25 @@ func deliverer(control chan int) {
 			work.Notes = work.Notes + "###[deliverer#NotifyWorkunitProcessedWithLogs]" + err.Error()
 			//mark this work in Current_work map as false, something needs to be done in the future
 			//to clean this kind of work that has been proccessed but its result can't be sent to server!
-			core.Self.Current_work[work.Id] = false //server doesn't know this yet
+			core.Self.Current_work_false(work.Id) //server doesn't know this yet
 		}
 
 		//now final status report sent to server, update some local info
 		if work.State == core.WORK_STAT_DONE {
 			logger.Event(event.WORK_DONE, "workid="+work.Id)
-			core.Self.Total_completed += 1
+			core.Self.Increment_total_completed()
 			if conf.AUTO_CLEAN_DIR {
 				go removeDirLater(work.Path(), conf.CLIEN_DIR_DELAY_DONE)
 			}
 		} else {
 			logger.Event(event.WORK_RETURN, "workid="+work.Id)
-			core.Self.Total_failed += 1
+			core.Self.Increment_total_failed()
 			if conf.AUTO_CLEAN_DIR {
 				go removeDirLater(work.Path(), conf.CLIEN_DIR_DELAY_FAIL)
 			}
 		}
-		delete(core.Self.Current_work, work.Id)
+		core.Self.Current_work_delete(work.Id)
+		//delete(core.Self.Current_work, work.Id)
 		delete(workmap, work.Id)
 	}
 	control <- ID_DELIVERER //we are ending

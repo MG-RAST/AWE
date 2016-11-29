@@ -25,10 +25,10 @@ func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 	//now final status report sent to server, update some local info
 	if work.State == WORK_STAT_DONE {
 		logger.Event(event.WORK_DONE, "workid="+work.Id)
-		Self.Total_completed += 1
+		Self.Increment_total_completed()
 	} else {
 		logger.Event(event.WORK_RETURN, "workid="+work.Id)
-		Self.Total_failed += 1
+		Self.Increment_total_failed()
 	}
 	Self.Current_work_delete(work.Id)
 	//delete(Self.Current_work, work.Id)

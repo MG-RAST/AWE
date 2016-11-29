@@ -18,6 +18,7 @@ const (
 
 type Client struct {
 	Id                string          `bson:"id" json:"id"`
+	Lock              sync.RWMutex    // Locks only members that can change. Current_work has its own lock.
 	Name              string          `bson:"name" json:"name"`
 	Group             string          `bson:"group" json:"group"`
 	User              string          `bson:"user" json:"user"`
@@ -86,6 +87,90 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 		client.Current_work = map[string]bool{}
 	}
 	client.Tag = true
+	return
+}
+
+func (cl *Client) Append_Skip_work(workid string) {
+	cl.Lock.Lock()
+	cl.Skip_work = append(cl.Skip_work, workid)
+	cl.Lock.Unlock()
+	return
+}
+
+func (cl *Client) Contains_Skip_work(workid string) (c bool) {
+	cl.Lock.RLock()
+	c = contains(cl.Skip_work, workid)
+	cl.Lock.RUnlock()
+	return
+}
+
+func (cl *Client) Get_Status() (s string) {
+	cl.Lock.RLock()
+	s = cl.Status
+	cl.Lock.RUnlock()
+	return
+}
+
+func (cl *Client) Set_Status(s string) {
+	cl.Lock.Lock()
+	cl.Status = s
+	cl.Lock.Unlock()
+	return
+}
+
+func (cl *Client) Get_Total_checkout() (count int) {
+	cl.Lock.RLock()
+	count = cl.Total_checkout
+	cl.Lock.RUnlock()
+	return
+}
+
+func (cl *Client) Increment_total_checkout() {
+	cl.Lock.Lock()
+	cl.Total_checkout += 1
+	cl.Lock.Unlock()
+	return
+}
+
+func (cl *Client) Get_Total_completed() (count int) {
+	cl.Lock.RLock()
+	count = cl.Total_completed
+	cl.Lock.RUnlock()
+	return
+}
+
+func (cl *Client) Increment_total_completed() {
+	cl.Lock.Lock()
+	cl.Total_completed += 1
+	cl.Lock.Unlock()
+	return
+}
+
+func (cl *Client) Get_Total_failed() (count int) {
+	cl.Lock.RLock()
+	count = cl.Total_failed
+	cl.Lock.RUnlock()
+	return
+}
+
+func (cl *Client) Increment_total_failed() {
+	cl.Lock.Lock()
+	cl.Total_failed += 1
+	cl.Lock.Unlock()
+	return
+}
+
+func (cl *Client) Get_Last_failed() (count int) {
+	cl.Lock.RLock()
+	count = cl.Last_failed
+	cl.Lock.RUnlock()
+	return
+}
+
+func (cl *Client) Increment_last_failed() {
+	cl.Lock.Lock()
+	cl.Last_failed += 1
+	cl.Lock.Unlock()
 	return
 }
 

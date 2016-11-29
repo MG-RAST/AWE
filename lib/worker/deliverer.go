@@ -57,13 +57,13 @@ func deliverer(control chan int) {
 		//now final status report sent to server, update some local info
 		if work.State == core.WORK_STAT_DONE {
 			logger.Event(event.WORK_DONE, "workid="+work.Id)
-			core.Self.Total_completed += 1
+			core.Self.Increment_total_completed()
 			if conf.AUTO_CLEAN_DIR {
 				go removeDirLater(work.Path(), conf.CLIEN_DIR_DELAY_DONE)
 			}
 		} else {
 			logger.Event(event.WORK_RETURN, "workid="+work.Id)
-			core.Self.Total_failed += 1
+			core.Self.Increment_total_failed()
 			if conf.AUTO_CLEAN_DIR {
 				go removeDirLater(work.Path(), conf.CLIEN_DIR_DELAY_FAIL)
 			}

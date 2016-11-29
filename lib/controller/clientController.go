@@ -169,8 +169,9 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 		}
 	} else if query.Has("status") {
 		for _, client := range clients {
-			stat := strings.Split(client.Status, "-")
-			if client.Status == query.Value("status") {
+			status := client.Get_Status()
+			stat := strings.Split(status, "-")
+			if status == query.Value("status") {
 				filtered = append(filtered, client)
 			} else if (len(stat) == 2) && (stat[1] == query.Value("status")) {
 				filtered = append(filtered, client)

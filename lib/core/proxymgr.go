@@ -95,7 +95,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 		//delete(client.Current_work, workid)
 		client.Current_work_delete(workid)
 		if client.Current_work_length() == 0 {
-			client.Status = CLIENT_STAT_ACTIVE_IDLE
+			client.Set_Status(CLIENT_STAT_ACTIVE_IDLE)
 		}
 		qm.PutClient(client)
 	}
@@ -106,17 +106,17 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 		}
 		if work.State == WORK_STAT_DONE {
 			if client, ok := qm.GetClient(clientid); ok {
-				client.Total_completed += 1
+				client.Increment_total_completed()
 				client.Last_failed = 0 //reset last consecutive failures
 				qm.PutClient(client)
 			}
 		} else if work.State == WORK_STAT_FAIL {
 			if client, ok := qm.GetClient(clientid); ok {
-				client.Skip_work = append(client.Skip_work, workid)
-				client.Total_failed += 1
+				client.Append_Skip_work(workid)
+				client.Increment_total_failed()
 				client.Last_failed += 1 //last consecutive failures
 				if client.Last_failed == conf.MAX_CLIENT_FAILURE {
-					client.Status = CLIENT_STAT_SUSPEND
+					client.Set_Status(CLIENT_STAT_SUSPEND)
 				}
 				qm.PutClient(client)
 			}

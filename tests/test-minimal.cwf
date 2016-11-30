@@ -1,0 +1,19 @@
+{
+    "info": {
+        "pipeline": "test",
+        "name": "testname",
+        "project": "testproject",
+        "clientgroups": "docker"
+    },
+    "tasks": [
+        {
+            "cmd": {
+                "name": "uname",
+                "args": "-a",
+                "description": "test",
+                "Dockerimage": "xxx"
+            },
+            "taskid": "0", 
+            "totalwork": 1
+        }
+}

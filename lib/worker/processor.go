@@ -388,7 +388,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	// example: "/bin/bash", "-c", "bowtie2 -h 2> awe_stderr.txt 1> awe_stdout.txt"
 
-	container_cmd := []string{"/bin/bash", "-c", bash_command} // TODO remove bash if possible, but is needed for piping
+	//container_cmd := []string{"/bin/bash", "-c", bash_command} // TODO remove bash if possible, but is needed for piping
+	container_cmd := []string{bash_command}
 
 	//var empty_struct struct{}
 	bindstr_workdir := work.Path() + "/:" + conf.DOCKER_WORK_DIR
@@ -425,6 +426,18 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		docker_commandline_create = append(docker_commandline_create, docker_environment_string)
 	}
 
+
+	# use :Mount struct {
+	Name        string
+	Source      string
+	Destination string
+	Driver      string
+	Mode        string
+	RW          bool
+}
+
+
+
 	// version for docker API
 	config := docker.Config{Image: dockerimage_id,
 		WorkingDir:   conf.DOCKER_WORK_DIR,
@@ -433,8 +446,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		AttachStdin:  false,
 		Cmd:          container_cmd,
 		//Volumes:      map[string]struct{}{conf.DOCKER_WORK_DIR: struct{}{}}, // old version
-		Volumes: map[string]struct{}{bindstr_workdir: struct{}{}},
-		Env:     docker_environment,
+		//Volumes: map[string]struct{}{bindstr_workdir: struct{}{}},
+		Mounts: 
+		Env: docker_environment,
 	}
 
 	if len(work.Predata) > 0 {
@@ -467,6 +481,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			return nil, errors.New(fmt.Sprintf("error creating container, err=%s", err.Error()))
 		}
 	}
+	logger.Debug(3, "Container created.")
 
 	if container_id == "" {
 		return nil, errors.New(fmt.Sprintf("error creating container, container_id is empty"))
@@ -494,6 +509,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("error starting container, id=%s, err=%s", container_id, err.Error()))
 	}
+	logger.Debug(3, "Container started.")
 
 	defer func(container_id string) {
 		// *** clean up
@@ -531,6 +547,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		if err != nil {
 			logger.Error(fmt.Sprintf("error inspecting container=%s, err=%s", container_id, err.Error()))
 		}
+
+		logger.Debug(3, "Container status: %s", cont.State.Status)
 
 		inspect_filename := path.Join(work.Path(), "container_inspect.json")
 
@@ -714,6 +732,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	}
 
+	logger.Debug(3, "WaitContainer returned non-zero status=%d", cresult.Status)
 	if cresult.Status != 0 {
 		logger.Debug(3, "WaitContainer returned non-zero status=%d", cresult.Status)
 		return nil, fmt.Errorf("error WaitContainer returned non-zero status=%d", cresult.Status)

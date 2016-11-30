@@ -17,33 +17,32 @@ const (
 )
 
 type Client struct {
-	Id                string          `bson:"id" json:"id"`
-	Lock              sync.RWMutex    // Locks only members that can change. Current_work has its own lock.
-	Name              string          `bson:"name" json:"name"`
-	Group             string          `bson:"group" json:"group"`
-	User              string          `bson:"user" json:"user"`
-	Domain            string          `bson:"domain" json:"domain"`
-	InstanceId        string          `bson:"instance_id" json:"instance_id"`
-	InstanceType      string          `bson:"instance_type" json:"instance_type"`
-	Host              string          `bson:"host" json:"host"`
-	CPUs              int             `bson:"cores" json:"cores"`
-	Apps              []string        `bson:"apps" json:"apps"`
-	RegTime           time.Time       `bson:"regtime" json:"regtime"`
-	Serve_time        string          `bson:"serve_time" json:"serve_time"`
-	Idle_time         int             `bson:"idle_time" json:"idle_time"`
-	Status            string          `bson:"Status" json:"Status"`
-	Total_checkout    int             `bson:"total_checkout" json:"total_checkout"`
-	Total_completed   int             `bson:"total_completed" json:"total_completed"`
-	Total_failed      int             `bson:"total_failed" json:"total_failed"`
-	Current_work      map[string]bool `bson:"current_work" json:"current_work"`
-	Current_work_lock sync.RWMutex
-	Skip_work         []string `bson:"skip_work" json:"skip_work"`
-	Last_failed       int      `bson:"-" json:"-"`
-	Tag               bool     `bson:"-" json:"-"`
-	Proxy             bool     `bson:"proxy" json:"proxy"`
-	SubClients        int      `bson:"subclients" json:"subclients"`
-	GitCommitHash     string   `bson:"git_commit_hash" json:"git_commit_hash"`
-	Version           string   `bson:"version" json:"version"`
+	sync.RWMutex                    // Locks only members that can change. Current_work has its own lock.
+	Id              string          `bson:"id" json:"id"`
+	Name            string          `bson:"name" json:"name"`
+	Group           string          `bson:"group" json:"group"`
+	User            string          `bson:"user" json:"user"`
+	Domain          string          `bson:"domain" json:"domain"`
+	InstanceId      string          `bson:"instance_id" json:"instance_id"`
+	InstanceType    string          `bson:"instance_type" json:"instance_type"`
+	Host            string          `bson:"host" json:"host"`
+	CPUs            int             `bson:"cores" json:"cores"`
+	Apps            []string        `bson:"apps" json:"apps"`
+	RegTime         time.Time       `bson:"regtime" json:"regtime"`
+	Serve_time      string          `bson:"serve_time" json:"serve_time"`
+	Idle_time       int             `bson:"idle_time" json:"idle_time"`
+	Status          string          `bson:"Status" json:"Status"`
+	Total_checkout  int             `bson:"total_checkout" json:"total_checkout"`
+	Total_completed int             `bson:"total_completed" json:"total_completed"`
+	Total_failed    int             `bson:"total_failed" json:"total_failed"`
+	Current_work    map[string]bool `bson:"current_work" json:"current_work"`
+	Skip_work       []string        `bson:"skip_work" json:"skip_work"`
+	Last_failed     int             `bson:"-" json:"-"`
+	Tag             bool            `bson:"-" json:"-"`
+	Proxy           bool            `bson:"proxy" json:"proxy"`
+	SubClients      int             `bson:"subclients" json:"subclients"`
+	GitCommitHash   string          `bson:"git_commit_hash" json:"git_commit_hash"`
+	Version         string          `bson:"version" json:"version"`
 }
 
 func NewClient() (client *Client) {
@@ -90,118 +89,147 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 	return
 }
 
-func (cl *Client) Append_Skip_work(workid string) {
-	cl.Lock.Lock()
+func (cl *Client) Append_Skip_work(workid string, write_lock bool) {
+	if write_lock {
+		cl.Lock()
+	}
 	cl.Skip_work = append(cl.Skip_work, workid)
-	cl.Lock.Unlock()
+	if write_lock {
+		cl.Unlock()
+	}
 	return
 }
 
 func (cl *Client) Contains_Skip_work(workid string) (c bool) {
-	cl.Lock.RLock()
+	cl.RLock()
 	c = contains(cl.Skip_work, workid)
-	cl.Lock.RUnlock()
+	cl.RUnlock()
 	return
 }
 
-func (cl *Client) Get_Status() (s string) {
-	cl.Lock.RLock()
+func (cl *Client) Get_Status(read_lock bool) (s string) {
+	if read_lock {
+		cl.RLock()
+	}
 	s = cl.Status
-	cl.Lock.RUnlock()
+	if read_lock {
+		cl.RUnlock()
+	}
 	return
 }
 
-func (cl *Client) Set_Status(s string) {
-	cl.Lock.Lock()
+func (cl *Client) Set_Status(s string, write_lock bool) {
+	if write_lock {
+		cl.Lock()
+		defer cl.Unlock()
+	}
 	cl.Status = s
-	cl.Lock.Unlock()
+
 	return
 }
 
 func (cl *Client) Get_Total_checkout() (count int) {
-	cl.Lock.RLock()
+	cl.RLock()
 	count = cl.Total_checkout
-	cl.Lock.RUnlock()
+	cl.RUnlock()
 	return
 }
 
 func (cl *Client) Increment_total_checkout() {
-	cl.Lock.Lock()
+	cl.Lock()
+	defer cl.Unlock()
 	cl.Total_checkout += 1
-	cl.Lock.Unlock()
 	return
 }
 
 func (cl *Client) Get_Total_completed() (count int) {
-	cl.Lock.RLock()
+	cl.RLock()
 	count = cl.Total_completed
-	cl.Lock.RUnlock()
+	cl.RUnlock()
 	return
 }
 
 func (cl *Client) Increment_total_completed() {
-	cl.Lock.Lock()
+	cl.Lock()
+	defer cl.Unlock()
 	cl.Total_completed += 1
-	cl.Lock.Unlock()
+
 	return
 }
 
 func (cl *Client) Get_Total_failed() (count int) {
-	cl.Lock.RLock()
+	cl.RLock()
 	count = cl.Total_failed
-	cl.Lock.RUnlock()
+	cl.RUnlock()
 	return
 }
 
-func (cl *Client) Increment_total_failed() {
-	cl.Lock.Lock()
+func (cl *Client) Increment_total_failed(write_lock bool) {
+	if write_lock {
+		cl.Lock()
+		defer cl.Unlock()
+	}
 	cl.Total_failed += 1
-	cl.Lock.Unlock()
+
 	return
 }
 
 func (cl *Client) Get_Last_failed() (count int) {
-	cl.Lock.RLock()
+	cl.RLock()
 	count = cl.Last_failed
-	cl.Lock.RUnlock()
+	cl.RUnlock()
 	return
 }
 
 func (cl *Client) Increment_last_failed() {
-	cl.Lock.Lock()
+	cl.Lock()
+	defer cl.Unlock()
 	cl.Last_failed += 1
-	cl.Lock.Unlock()
+
 	return
 }
 
-func (cl *Client) Current_work_delete(workid string) {
-	cl.Current_work_lock.Lock()
+func (cl *Client) Current_work_delete(workid string, write_lock bool) {
+	if write_lock {
+		cl.Lock()
+		defer cl.Unlock()
+	}
 	delete(cl.Current_work, workid)
-	cl.Current_work_lock.Unlock()
+
 }
 
 // TODO: Wolfgang: Can we use delete instead ?
 func (cl *Client) Current_work_false(workid string) {
-	cl.Current_work_lock.Lock()
+	cl.Lock()
+	defer cl.Unlock()
 	cl.Current_work[workid] = false
-	cl.Current_work_lock.Unlock()
 }
 
-func (cl *Client) Current_work_add(workid string) {
-	cl.Current_work_lock.Lock()
+// _nolock assumes you already have global lock
+func (cl *Client) Add_work_nolock(workid string) {
 	cl.Current_work[workid] = true
-	cl.Current_work_lock.Unlock()
+	cl.Total_checkout += 1
 }
 
-func (cl *Client) Current_work_length() int {
-	cl.Current_work_lock.RLock()
-	clength := len(cl.Current_work)
-	cl.Current_work_lock.RUnlock()
+func (cl *Client) Add_work(workid string) {
+	cl.Lock()
+	defer cl.Unlock()
+	cl.Add_work_nolock(workid)
+}
+
+func (cl *Client) Current_work_length(lock bool) (clength int) {
+	if lock {
+		cl.RLock()
+	}
+	clength = len(cl.Current_work)
+	if lock {
+		cl.RUnlock()
+	}
 	return clength
 }
 
-func (cl *Client) IsBusy() bool {
-	if cl.Current_work_length() > 0 {
+func (cl *Client) IsBusy(lock bool) bool {
+	if cl.Current_work_length(lock) > 0 {
 		return true
 	}
 	return false

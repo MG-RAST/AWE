@@ -16,10 +16,15 @@ type ProxyMgr struct {
 	CQMgr
 }
 
+func (qm *ProxyMgr) Lock()    {}
+func (qm *ProxyMgr) Unlock()  {}
+func (qm *ProxyMgr) RLock()   {}
+func (qm *ProxyMgr) RUnlock() {}
+
 func NewProxyMgr() *ProxyMgr {
 	return &ProxyMgr{
 		CQMgr: CQMgr{
-			clientMap:    map[string]*Client{},
+			clientMap:    *NewClientMap(),
 			workQueue:    NewWQueue(),
 			suspendQueue: false,
 			coReq:        make(chan CoReq),
@@ -93,11 +98,13 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	clientid := notice.ClientId
 	if client, ok := qm.GetClient(clientid); ok {
 		//delete(client.Current_work, workid)
-		client.Current_work_delete(workid)
-		if client.Current_work_length() == 0 {
-			client.Set_Status(CLIENT_STAT_ACTIVE_IDLE)
+		client.Lock()
+		client.Current_work_delete(workid, false)
+		if client.Current_work_length(false) == 0 {
+			client.Status = CLIENT_STAT_ACTIVE_IDLE
 		}
-		qm.PutClient(client)
+		qm.AddClient(client, true)
+		client.Unlock()
 	}
 	if work, ok := qm.workQueue.Get(workid); ok {
 		work.State = notice.Status
@@ -108,17 +115,19 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 			if client, ok := qm.GetClient(clientid); ok {
 				client.Increment_total_completed()
 				client.Last_failed = 0 //reset last consecutive failures
-				qm.PutClient(client)
+				qm.AddClient(client, true)
 			}
 		} else if work.State == WORK_STAT_FAIL {
 			if client, ok := qm.GetClient(clientid); ok {
-				client.Append_Skip_work(workid)
-				client.Increment_total_failed()
+				client.Lock()
+				client.Append_Skip_work(workid, false)
+				client.Increment_total_failed(false)
 				client.Last_failed += 1 //last consecutive failures
 				if client.Last_failed == conf.MAX_CLIENT_FAILURE {
-					client.Set_Status(CLIENT_STAT_SUSPEND)
+					client.Status = CLIENT_STAT_SUSPEND
 				}
-				qm.PutClient(client)
+				qm.AddClient(client, false)
+				client.Unlock()
 			}
 		}
 		qm.workQueue.Put(work)
@@ -148,20 +157,23 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 	if err != nil {
 		return nil, err
 	}
+	client.Lock()
+	defer client.Unlock()
+
 	// If the name of the clientgroup does not match the name in the client profile, throw an error
 	if cg != nil && client.Group != cg.Name {
 		return nil, errors.New("Clientgroup name in token does not match that in the client configuration.")
 	}
-	qm.PutClient(client)
-	if client.Current_work_length() > 0 { //re-registered client
+	qm.AddClient(client, true)
+	if client.Current_work_length(false) > 0 { //re-registered client
 		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
-		client.Current_work_lock.RLock()
+
 		for workid, _ := range client.Current_work {
 			if qm.workQueue.Has(workid) {
 				qm.workQueue.StatusChange(workid, WORK_STAT_CHECKOUT)
 			}
 		}
-		client.Current_work_lock.RUnlock()
+
 	}
 	//proxy specific
 	Self.SubClients += 1
@@ -172,31 +184,52 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 func (qm *ProxyMgr) ClientChecker() {
 	for {
 		time.Sleep(30 * time.Second)
-		for _, client := range qm.GetAllClients() {
+
+		delete_clients := []string{}
+
+		qm.clientMap.RLock()
+		for _, client := range *qm.clientMap.GetMap() {
+			//for _, client := range qm.GetAllClients() {
+			client.Lock()
 			if client.Tag == true {
 				client.Tag = false
 				total_minutes := int(time.Now().Sub(client.RegTime).Minutes())
 				hours := total_minutes / 60
 				minutes := total_minutes % 60
 				client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
-				if client.Current_work_length() > 0 {
+				if client.Current_work_length(false) > 0 {
 					client.Idle_time = 0
 				} else {
 					client.Idle_time += 30
 				}
-				qm.PutClient(client)
+
 			} else {
 				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
 				logger.Event(event.CLIENT_UNREGISTER, "clientid="+client.Id+";name="+client.Name)
 
+				//qm.RemoveClient(client.Id)
+				delete_clients = append(delete_clients, client.Id)
+
+			}
+			client.Unlock()
+		}
+		qm.clientMap.RUnlock()
+
+		// Now delete clients
+		if len(delete_clients) > 0 {
+			qm.clientMap.Lock()
+			for _, client_id := range delete_clients {
 				//requeue unfinished workunits associated with the failed client
-				qm.ReQueueWorkunitByClient(client.Id)
+				qm.ReQueueWorkunitByClient(client_id)
 				//delete the client from client map
-				qm.RemoveClient(client.Id)
+
+				qm.RemoveClient(client_id, false)
+
 				//proxy specific
 				Self.SubClients -= 1
 				notifySubClients(Self.Id, Self.SubClients)
 			}
+			qm.clientMap.Unlock()
 		}
 	}
 }

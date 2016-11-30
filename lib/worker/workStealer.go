@@ -78,8 +78,9 @@ func workStealer(control chan int) {
 		logger.Debug(1, "workStealer: checked out workunit, id="+wu.Id)
 		//log event about work checktout (WC)
 		logger.Event(event.WORK_CHECKOUT, "workid="+wu.Id)
-		core.Self.Increment_total_checkout()
-		core.Self.Current_work_add(wu.Id)
+
+		core.Self.Add_work(wu.Id)
+
 		workmap[wu.Id] = ID_WORKSTEALER
 
 		//hand the work to the next step handler: dataMover

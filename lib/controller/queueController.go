@@ -98,18 +98,22 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 			(u.Uuid == "public" && conf.ANON_CG_READ == true && public_rights["read"] == true) {
 			// get running jobs for clients for clientgroup
 			jobs := []*core.Job{}
-			for _, client := range core.QMgr.GetAllClients() {
+
+			client_map := core.QMgr.GetClientMap()
+			client_map.RLock()
+			for _, client := range *client_map.GetMap() {
 				if client.Group == cg.Name {
-					client.Current_work_lock.RLock()
+					client.Lock()
 					for wid, _ := range client.Current_work {
 						jid, _ := core.GetJobIdByWorkId(wid)
 						if job, err := core.LoadJob(jid); err == nil {
 							jobs = append(jobs, job)
 						}
 					}
-					client.Current_work_lock.RUnlock()
+					client.Unlock()
 				}
 			}
+			client_map.RUnlock()
 			cx.RespondWithData(jobs)
 			return
 		}

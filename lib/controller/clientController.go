@@ -157,7 +157,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 	filtered := []*core.Client{}
 	if query.Has("busy") {
 		for _, client := range clients {
-			if client.Current_work_length() > 0 {
+			if client.Current_work_length(true) > 0 {
 				filtered = append(filtered, client)
 			}
 		}
@@ -169,7 +169,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 		}
 	} else if query.Has("status") {
 		for _, client := range clients {
-			status := client.Get_Status()
+			status := client.Get_Status(false)
 			stat := strings.Split(status, "-")
 			if status == query.Value("status") {
 				filtered = append(filtered, client)

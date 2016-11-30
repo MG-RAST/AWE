@@ -63,12 +63,12 @@ func deliverer(control chan int) {
 			}
 		} else {
 			logger.Event(event.WORK_RETURN, "workid="+work.Id)
-			core.Self.Increment_total_failed()
+			core.Self.Increment_total_failed(true)
 			if conf.AUTO_CLEAN_DIR {
 				go removeDirLater(work.Path(), conf.CLIEN_DIR_DELAY_FAIL)
 			}
 		}
-		core.Self.Current_work_delete(work.Id)
+		core.Self.Current_work_delete(work.Id, true)
 		//delete(core.Self.Current_work, work.Id)
 		delete(workmap, work.Id)
 	}

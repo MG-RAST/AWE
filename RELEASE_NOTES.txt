@@ -1,3 +1,9 @@
+# v0.9.31
+
+- golang 1.7.3
+- UI site update
+- added RWLock to Client
+
 # v0.9.30
 
 - golang 1.7.1

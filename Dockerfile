@@ -2,7 +2,7 @@
 #export NAME=mgrast/awe
 #docker build --force-rm --no-cache --rm -t ${NAME}:${TAG} .
 
-FROM golang:1.7.1-alpine
+FROM golang:1.7.3-alpine
 
 # needed for GIT_COMMIT_HASH
 RUN apk update && apk add git

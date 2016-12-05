@@ -213,7 +213,8 @@
 				       { "text": "suspend", "value": "suspend" },
 				       { "text": "in-progress", "value": "in-progress" },
 				       { "text": "checkout", "value": "checkout" },
-				       { "text": "queued", "value": "queued" }
+				       { "text": "queued", "value": "queued" },
+				       { "text": "init", "value": "init" }
 				   ] },
 				   6: { type: "text" } };
 	    if (Retina.cgiParam('pipeline')) {

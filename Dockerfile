@@ -7,7 +7,7 @@ FROM golang:1.7.4-wheezy
 
 # needed for GIT_COMMIT_HASH
 #RUN apk update && apk add git
-RUN apt-get update && apt-get install -y git
+RUN apt-get update && apt-get install -y libsasl2-dev
 
 ENV AWE=/go/src/github.com/MG-RAST/AWE
 WORKDIR /go/bin
@@ -21,7 +21,7 @@ RUN ln -s /go /gopath
 RUN mkdir -p ${AWE} && \
   cd ${AWE} && \
   GITHASH=$(git rev-parse HEAD) && \
-  CGO_ENABLED=1 go install -a -installsuffix cgo -v -race -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH=${GITHASH}" ...
+  go install -a -v -race -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH=${GITHASH}" ...
 #  GITHASH=$(git -C ${AWE} rev-parse HEAD) && \
 #  CGO_ENABLED=0 go install -a -installsuffix cgo -v -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH=${GITHASH}" ...
 

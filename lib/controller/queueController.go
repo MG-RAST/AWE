@@ -101,6 +101,7 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 
 			client_map := core.QMgr.GetClientMap()
 			client_map.RLock()
+			defer client_map.RUnlock()
 			for _, client := range *client_map.GetMap() {
 				if client.Group == cg.Name {
 					client.Lock()
@@ -113,7 +114,7 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 					client.Unlock()
 				}
 			}
-			client_map.RUnlock()
+
 			cx.RespondWithData(jobs)
 			return
 		}

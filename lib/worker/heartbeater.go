@@ -36,6 +36,10 @@ type ClientResponse struct {
 }
 
 func heartBeater(control chan int) {
+	fmt.Printf("heartBeater launched, client=%s\n", core.Self.Id)
+	logger.Debug(0, fmt.Sprintf("heartBeater launched, client=%s\n", core.Self.Id))
+	defer fmt.Printf("heartBeater exiting...\n")
+
 	for {
 		time.Sleep(10 * time.Second)
 		SendHeartBeat()
@@ -141,18 +145,25 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 }
 
 func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, err error) {
+	logger.Debug(3, "Try to register client")
 	if conf.CLIENT_GROUP_TOKEN == "" {
 		fmt.Println("clientgroup token not set, register as a public client (can only access public data)")
 	}
 
 	profile_jsonstream, err := json.Marshal(profile)
+	if err != nil {
+		err = fmt.Errorf("json.Marshal(profile) error: %s", err.Error())
+		return
+	}
+	logger.Debug(3, "profile_jsonstream: "+string(profile_jsonstream))
 	profile_path := conf.DATA_PATH + "/clientprofile.json"
 	ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
 
 	form := httpclient.NewForm()
 	form.AddFile("profile", profile_path)
-	if err := form.Create(); err != nil {
-		return nil, err
+	if err = form.Create(); err != nil {
+		err = fmt.Errorf("form.Create() error: %s", err.Error())
+		return
 	}
 	var headers httpclient.Header
 	if conf.CLIENT_GROUP_TOKEN == "" {
@@ -170,20 +181,26 @@ func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, e
 
 	targetUrl := host + "/client"
 
-	resp, err := httpclient.Post(targetUrl, headers, form.Reader, nil)
+	//resp, err := httpclient.Post(targetUrl, headers, form.Reader, nil)
+	resp, err := httpclient.DoTimeout("POST", targetUrl, headers, form.Reader, nil, time.Second*10)
 	if err != nil {
-		return nil, err
+		err = fmt.Errorf("POST %s error: %s", targetUrl, err.Error())
+		return
 	}
 	defer resp.Body.Close()
-	jsonstream, err := ioutil.ReadAll(resp.Body)
+
 	response := new(ClientResponse)
+	jsonstream, err := ioutil.ReadAll(resp.Body)
 	if err = json.Unmarshal(jsonstream, response); err != nil {
-		return nil, errors.New("fail to unmashal response:" + string(jsonstream))
+		err = errors.New("fail to unmashal response:" + string(jsonstream))
+		return
 	}
 	if len(response.Errs) > 0 {
-		return nil, errors.New(strings.Join(response.Errs, ","))
+		err = errors.New(strings.Join(response.Errs, ","))
+		return
 	}
 	client = &response.Data
+	logger.Debug(3, "Client registered")
 	return
 }
 

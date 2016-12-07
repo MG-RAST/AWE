@@ -42,12 +42,12 @@ func NewServerMgr() *ServerMgr {
 	return &ServerMgr{
 		CQMgr: CQMgr{
 			clientMap:    *NewClientMap(),
-			workQueue:    NewWQueue(),
+			workQueue:    NewWorkQueue(),
 			suspendQueue: false,
 			coReq:        make(chan CoReq),
-			coAck:        make(chan CoAck),
-			feedback:     make(chan Notice),
-			coSem:        make(chan int, 1), //non-blocking buffered channel
+			//coAck:        make(chan CoAck),
+			feedback: make(chan Notice),
+			coSem:    make(chan int, 1), //non-blocking buffered channel
 		},
 		taskMap: map[string]*Task{},
 		taskIn:  make(chan *Task, 1024),
@@ -88,7 +88,8 @@ func (qm *ServerMgr) ClientHandle() {
 				}
 				ack = CoAck{workunits: works, err: err}
 			}
-			qm.coAck <- ack
+			//qm.coAck <- ack
+			coReq.response <- ack
 		case notice := <-qm.feedback:
 			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))
 			if err := qm.handleWorkStatusChange(notice); err != nil {
@@ -366,7 +367,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		//delete(client.Current_work, workid)
 		client.Lock()
 		client.Current_work_delete(workid, false)
-		if client.Current_work_length(false) == 0 {
+		if client.Current_work_length(false) == 0 && client.Status == CLIENT_STAT_ACTIVE_BUSY {
 			client.Status = CLIENT_STAT_ACTIVE_IDLE
 		}
 		client.Unlock()

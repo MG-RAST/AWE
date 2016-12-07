@@ -11,9 +11,10 @@
                 "name": "uname",
                 "args": "-a",
                 "description": "test",
-                "Dockerimage": "xxx"
+                "_Dockerimage": "ubuntu"
             },
             "taskid": "0", 
             "totalwork": 1
         }
+    ]
 }

@@ -44,16 +44,18 @@ func InitProxyWorkChan() {
 	ProxyWorkChan = make(chan bool, 100)
 }
 
-type CoReq struct {
-	policy     string
-	fromclient string
-	available  int64
-	count      int
-}
-
 type CoAck struct {
 	workunits []*Workunit
 	err       error
+}
+
+type CoReq struct {
+	policy string
+	//fromclient string
+	fromclient *Client
+	available  int64
+	count      int
+	response   chan CoAck
 }
 
 type Notice struct {

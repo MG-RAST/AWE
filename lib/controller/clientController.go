@@ -29,6 +29,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 
+	fmt.Printf("AuthenticateClientGroup\n")
 	cg, err := request.AuthenticateClientGroup(cx.Request)
 	if err != nil {
 		if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
@@ -44,6 +45,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	}
 
 	// Parse uploaded form
+	fmt.Printf("ParseMultipartForm\n")
 	_, files, err := ParseMultipartForm(cx.Request)
 	if err != nil {
 		if err.Error() != "request Content-Type isn't multipart/form-data" {
@@ -53,6 +55,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 		}
 	}
 
+	fmt.Printf("RegisterNewClient\n")
 	client, err := core.QMgr.RegisterNewClient(files, cg)
 	if err != nil {
 		msg := "Error in registering new client:" + err.Error()

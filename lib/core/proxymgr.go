@@ -25,12 +25,12 @@ func NewProxyMgr() *ProxyMgr {
 	return &ProxyMgr{
 		CQMgr: CQMgr{
 			clientMap:    *NewClientMap(),
-			workQueue:    NewWQueue(),
+			workQueue:    NewWorkQueue(),
 			suspendQueue: false,
 			coReq:        make(chan CoReq),
-			coAck:        make(chan CoAck),
-			feedback:     make(chan Notice),
-			coSem:        make(chan int, 1), //non-blocking buffered channel
+			//coAck:        make(chan CoAck),
+			feedback: make(chan Notice),
+			coSem:    make(chan int, 1), //non-blocking buffered channel
 		},
 	}
 }
@@ -52,7 +52,8 @@ func (qm *ProxyMgr) ClientHandle() {
 				works, err := qm.popWorks(coReq)
 				ack = CoAck{workunits: works, err: err}
 			}
-			qm.coAck <- ack
+			//qm.coAck <- ack
+			coReq.response <- ack
 		case notice := <-qm.feedback:
 			logger.Debug(2, fmt.Sprintf("proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
 			if err := qm.handleWorkStatusChange(notice); err != nil {
@@ -151,12 +152,13 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 	if _, ok := files["profile"]; ok {
 		client, err = NewProfileClient(files["profile"].Path)
 		os.Remove(files["profile"].Path)
+		if err != nil {
+			return
+		}
 	} else {
 		client = NewClient()
 	}
-	if err != nil {
-		return nil, err
-	}
+
 	client.Lock()
 	defer client.Unlock()
 
@@ -220,7 +222,7 @@ func (qm *ProxyMgr) ClientChecker() {
 			qm.clientMap.Lock()
 			for _, client_id := range delete_clients {
 				//requeue unfinished workunits associated with the failed client
-				qm.ReQueueWorkunitByClient(client_id)
+				qm.ReQueueWorkunitByClient(client_id, true)
 				//delete the client from client map
 
 				qm.RemoveClient(client_id, false)

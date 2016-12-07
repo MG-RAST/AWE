@@ -2,10 +2,10 @@ package core
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"io/ioutil"
-	"sync"
 	"time"
 )
 
@@ -17,7 +17,8 @@ const (
 )
 
 type Client struct {
-	sync.RWMutex                    // Locks only members that can change. Current_work has its own lock.
+	coAckChannel chan CoAck `bson:"-" json:"-"` //workunit checkout item including data and err (qmgr.Handler -> WorkController)
+	RWMutex
 	Id              string          `bson:"id" json:"id"`
 	Name            string          `bson:"name" json:"name"`
 	Group           string          `bson:"group" json:"group"`
@@ -47,6 +48,7 @@ type Client struct {
 
 func NewClient() (client *Client) {
 	client = new(Client)
+	client.coAckChannel = make(chan CoAck)
 	client.Id = uuid.New()
 	client.Apps = []string{}
 	client.Skip_work = []string{}
@@ -58,19 +60,25 @@ func NewClient() (client *Client) {
 	client.Tag = true
 	client.Serve_time = "0"
 	client.Last_failed = 0
+	client.RWMutex.Name = "client"
 	return
 }
 
 func NewProfileClient(filepath string) (client *Client, err error) {
 	client = new(Client)
+
 	jsonstream, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return nil, err
 	}
+
 	if err := json.Unmarshal(jsonstream, client); err != nil {
 		logger.Error("failed to unmashal json stream for client profile: " + string(jsonstream[:]))
 		return nil, err
 	}
+
+	client.coAckChannel = make(chan CoAck)
+
 	if client.Id == "" {
 		client.Id = uuid.New()
 	}
@@ -86,12 +94,31 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 		client.Current_work = map[string]bool{}
 	}
 	client.Tag = true
+	client.RWMutex.Name = "client"
+	return
+}
+
+func (cl *Client) Get_Ack() (ack CoAck, err error) {
+	timeout := make(chan bool, 1)
+	go func() {
+		time.Sleep(5 * time.Second) // TODO set this higher
+		timeout <- true
+	}()
+
+	select {
+	case ack = <-cl.coAckChannel:
+		logger.Debug(3, "got ack")
+	case <-timeout:
+		err = fmt.Errorf("(CheckoutWorkunits) workunit request timed out")
+		return
+	}
+
 	return
 }
 
 func (cl *Client) Append_Skip_work(workid string, write_lock bool) {
 	if write_lock {
-		cl.Lock()
+		cl.LockNamed("Append_Skip_work")
 	}
 	cl.Skip_work = append(cl.Skip_work, workid)
 	if write_lock {
@@ -100,10 +127,8 @@ func (cl *Client) Append_Skip_work(workid string, write_lock bool) {
 	return
 }
 
-func (cl *Client) Contains_Skip_work(workid string) (c bool) {
-	cl.RLock()
+func (cl *Client) Contains_Skip_work_nolock(workid string) (c bool) {
 	c = contains(cl.Skip_work, workid)
-	cl.RUnlock()
 	return
 }
 
@@ -120,7 +145,7 @@ func (cl *Client) Get_Status(read_lock bool) (s string) {
 
 func (cl *Client) Set_Status(s string, write_lock bool) {
 	if write_lock {
-		cl.Lock()
+		cl.LockNamed("Set_Status")
 		defer cl.Unlock()
 	}
 	cl.Status = s
@@ -136,7 +161,7 @@ func (cl *Client) Get_Total_checkout() (count int) {
 }
 
 func (cl *Client) Increment_total_checkout() {
-	cl.Lock()
+	cl.LockNamed("Increment_total_checkout")
 	defer cl.Unlock()
 	cl.Total_checkout += 1
 	return
@@ -150,7 +175,7 @@ func (cl *Client) Get_Total_completed() (count int) {
 }
 
 func (cl *Client) Increment_total_completed() {
-	cl.Lock()
+	cl.LockNamed("Increment_total_completed")
 	defer cl.Unlock()
 	cl.Total_completed += 1
 
@@ -166,7 +191,7 @@ func (cl *Client) Get_Total_failed() (count int) {
 
 func (cl *Client) Increment_total_failed(write_lock bool) {
 	if write_lock {
-		cl.Lock()
+		cl.LockNamed("Increment_total_failed")
 		defer cl.Unlock()
 	}
 	cl.Total_failed += 1
@@ -182,7 +207,7 @@ func (cl *Client) Get_Last_failed() (count int) {
 }
 
 func (cl *Client) Increment_last_failed() {
-	cl.Lock()
+	cl.LockNamed("Increment_last_failed")
 	defer cl.Unlock()
 	cl.Last_failed += 1
 
@@ -191,7 +216,7 @@ func (cl *Client) Increment_last_failed() {
 
 func (cl *Client) Current_work_delete(workid string, write_lock bool) {
 	if write_lock {
-		cl.Lock()
+		cl.LockNamed("Current_work_delete")
 		defer cl.Unlock()
 	}
 	delete(cl.Current_work, workid)
@@ -200,7 +225,7 @@ func (cl *Client) Current_work_delete(workid string, write_lock bool) {
 
 // TODO: Wolfgang: Can we use delete instead ?
 func (cl *Client) Current_work_false(workid string) {
-	cl.Lock()
+	cl.LockNamed("Current_work_false")
 	defer cl.Unlock()
 	cl.Current_work[workid] = false
 }
@@ -212,7 +237,7 @@ func (cl *Client) Add_work_nolock(workid string) {
 }
 
 func (cl *Client) Add_work(workid string) {
-	cl.Lock()
+	cl.LockNamed("Add_work")
 	defer cl.Unlock()
 	cl.Add_work_nolock(workid)
 }

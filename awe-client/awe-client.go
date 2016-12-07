@@ -85,6 +85,7 @@ func main() {
 	self, err := worker.RegisterWithAuth(conf.SERVER_URL, profile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "fail to register: %s\n", err.Error())
+		logger.Error(fmt.Sprintf("fail to register: %s\n", err.Error()))
 		os.Exit(1)
 	}
 	core.InitClientProfile(self)

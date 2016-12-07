@@ -43,29 +43,41 @@ func NewCQMgr() *CQMgr {
 //--------mgr methods-------
 
 func (qm *CQMgr) ClientHandle() {
-	for {
-		// CheckoutWorkunits already locked the client, no need to lock it again.
-		select {
-		case coReq := <-qm.coReq:
-			fmt.Printf("qmgr: workunit checkout request received, Req=%v\n", coReq)
-			logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v", coReq))
-			var ack CoAck
-			if qm.suspendQueue {
-				// queue is suspended, return suspend error
-				ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
-			} else {
-				works, err := qm.popWorks(coReq)
-				ack = CoAck{workunits: works, err: err}
-			}
-			//qm.coAck <- ack
-			coReq.response <- ack
-		case notice := <-qm.feedback:
-			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))
-			if err := qm.handleWorkStatusChange(notice); err != nil {
-				logger.Error("handleWorkStatusChange(): " + err.Error())
-			}
-		}
-	}
+	// this code is not beeing used
+	// fmt.Println("(CQMgr ClientHandle) starting")
+	// for {
+	// 	// CheckoutWorkunits already locked the client, no need to lock it again.
+	// 	select {
+	// 	case coReq := <-qm.coReq:
+	// 		fmt.Printf("(ClientHandle) got coReq\n")
+	// 		fmt.Printf("qmgr: workunit checkout request received, Req=%v\n", coReq)
+	// 		logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v", coReq))
+	// 		var ack CoAck
+	// 		if qm.suspendQueue {
+	// 			// queue is suspended, return suspend error
+	// 			ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
+	// 		} else {
+	// 			fmt.Printf("(ClientHandle) do popWorks\n")
+	// 			works, err := qm.popWorks(coReq)
+	// 			fmt.Printf("(ClientHandle) got popWorks results\n")
+	// 			ack = CoAck{workunits: works, err: err}
+	// 		}
+	// 		//qm.coAck <- ack
+	// 		fmt.Printf("(ClientHandle) send response\n")
+	// 		select {
+	// 		case coReq.response <- ack:
+	// 			logger.Debug(2, "send workunit to client via response channel")
+	// 		default:
+	// 			logger.Error("could not deliver workunit, client did not read from channel") // TODO  release workunit !!!!!
+	// 		}
+	// 		fmt.Printf("(ClientHandle) done\n")
+	// 	case notice := <-qm.feedback:
+	// 		logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))
+	// 		if err := qm.handleWorkStatusChange(notice); err != nil {
+	// 			logger.Error("handleWorkStatusChange(): " + err.Error())
+	// 		}
+	// 	}
+	// }
 }
 
 // show functions used in debug
@@ -609,22 +621,17 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 		return nil, errors.New(e.ClientDeleted)
 	}
 
-	//logger.Debug(3, fmt.Sprintf("lock semaphore in CheckoutWorkunits() for client: %s", client_id))
-	//lock semaphore, at one time only one client's checkout request can be served
-	//fmt.Printf("(CheckoutWorkunits) request qm lock\n")
-	//qm.LockSemaphore()
-	//defer qm.UnlockSemaphore()
-	//fmt.Printf("(CheckoutWorkunits) request got qm lock\n")
-
 	//req := CoReq{policy: req_policy, fromclient: client_id, available: available_bytes, count: num, response: client.coAckChannel}
 	req := CoReq{policy: req_policy, fromclient: client, available: available_bytes, count: num, response: client.coAckChannel}
 
 	fmt.Printf("(CheckoutWorkunits) qm.coReq <- req\n")
+	// request workunit
 	qm.coReq <- req
-	fmt.Printf("(CheckoutWorkunits) ack := client.CoAckChannel\n")
+	fmt.Printf("(CheckoutWorkunits) client.Get_Ack()\n")
 	//ack := <-qm.coAck
 
 	var ack CoAck
+	// get workunit
 	ack, err = client.Get_Ack()
 	fmt.Printf("(CheckoutWorkunits)got ack\n")
 	if err != nil {
@@ -644,7 +651,6 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 		logger.Debug(3, fmt.Sprintf("ack.err: %s", ack.err.Error()))
 	}
 
-	logger.Debug(3, fmt.Sprintf("unlock semaphore in CheckoutWorkunits() for client: %s", client_id))
 	fmt.Printf("(CheckoutWorkunits) finished\n")
 	return ack.workunits, ack.err
 }

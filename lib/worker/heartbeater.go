@@ -54,6 +54,7 @@ func SendHeartBeat() {
 		if err.Error() == e.ClientNotFound {
 			ReRegisterWithSelf(conf.SERVER_URL)
 		}
+		logger.Debug(3, "heartbeat returned error: "+err.Error())
 	}
 	//handle requested ops from the server
 	for op, objs := range hbmsg {

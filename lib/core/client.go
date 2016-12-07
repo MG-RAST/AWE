@@ -101,7 +101,7 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 func (cl *Client) Get_Ack() (ack CoAck, err error) {
 	timeout := make(chan bool, 1)
 	go func() {
-		time.Sleep(5 * time.Second) // TODO set this higher
+		time.Sleep(10 * time.Second) // TODO set this higher
 		timeout <- true
 	}()
 

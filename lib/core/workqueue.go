@@ -195,13 +195,13 @@ func (wq *WQueue) WaitList() (workids []string) {
 //--------end of accessors-------
 
 func (wq *WQueue) StatusChange(id string, new_status string) (err error) {
-	if _, ok := wq.workMap[id]; !ok {
-		return errors.New("WQueue.statusChange: invalid workunit id:" + id)
-	}
 	//move workunit id between maps. no need to care about the old status because
 	//delete function will do nothing if the operated map has no such key.
 	wq.Lock()
 	defer wq.Unlock()
+	if _, ok := wq.workMap[id]; !ok {
+		return errors.New("WQueue.statusChange: invalid workunit id:" + id)
+	}
 	if new_status == WORK_STAT_CHECKOUT {
 		wq.checkout[id] = true
 		delete(wq.wait, id)

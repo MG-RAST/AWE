@@ -241,11 +241,6 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		client = NewClient()
 	}
 
-	if client == nil {
-		err = fmt.Errorf("client == nil")
-		return
-	}
-
 	client.LockNamed("RegisterNewClient")
 	defer client.Unlock()
 
@@ -274,9 +269,8 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 	if cg != nil && client.Group != cg.Name {
 		return nil, errors.New(e.ClientGroupBadName)
 	}
-	fmt.Printf("(RegisterNewClient) AddClient\n")
+
 	qm.AddClient(client, true) // locks clientMap
-	fmt.Printf("(RegisterNewClient) AddClient finished\n")
 
 	if client.Current_work_length(false) > 0 { //re-registered client
 		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
@@ -288,7 +282,7 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		}
 
 	}
-	fmt.Printf("(RegisterNewClient) finished\n")
+
 	return
 }
 
@@ -607,22 +601,22 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 	//req := CoReq{policy: req_policy, fromclient: client_id, available: available_bytes, count: num, response: client.coAckChannel}
 	req := CoReq{policy: req_policy, fromclient: client_id, available: available_bytes, count: num, response: response_channel}
 
-	fmt.Printf("(CheckoutWorkunits) qm.coReq <- req\n")
+	logger.Debug(3, "(CheckoutWorkunits) qm.coReq <- req")
 	// request workunit
 	qm.coReq <- req
-	fmt.Printf("(CheckoutWorkunits) client.Get_Ack()\n")
+	logger.Debug(3, "(CheckoutWorkunits) client.Get_Ack()")
 	//ack := <-qm.coAck
 
 	var ack CoAck
 	// get workunit
 	ack, err = client.Get_Ack()
 
-	fmt.Printf("(CheckoutWorkunits)got ack\n")
+	logger.Debug(3, "(CheckoutWorkunits)got ack")
 	if err != nil {
 		return
 	}
 
-	fmt.Printf("(CheckoutWorkunits) got ack\n")
+	logger.Debug(3, "(CheckoutWorkunits) got ack")
 	if ack.err == nil {
 		for _, work := range ack.workunits {
 			client.Add_work_nolock(work.Id)
@@ -632,10 +626,10 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 		}
 	} else {
 		fmt.Printf("ack.err: %s", ack.err.Error())
-		logger.Debug(3, fmt.Sprintf("ack.err: %s", ack.err.Error()))
+		logger.Debug(3, "ack.err: %s", ack.err.Error())
 	}
 
-	fmt.Printf("(CheckoutWorkunits) finished\n")
+	logger.Debug(3, "(CheckoutWorkunits) finished")
 	return ack.workunits, ack.err
 }
 
@@ -680,7 +674,7 @@ func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 	if err != nil {
 		return
 	}
-	logger.Debug(2, fmt.Sprintf("popWorks filtered: %d (0 meansNoEligibleWorkunitFound)", filtered))
+	logger.Debug(2, fmt.Sprintf("popWorks filtered: %d (0 meansNoEligibleWorkunitFound)", len(filtered)))
 	if len(filtered) == 0 {
 		return nil, errors.New(e.NoEligibleWorkunitFound)
 	}

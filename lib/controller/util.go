@@ -80,7 +80,7 @@ func LogRequest(req *http.Request) {
 	} else {
 		url = fmt.Sprintf("%s %s", req.Method, req.URL.Path)
 	}
-	Log.Info("access", host+" \""+url+suffix+"\"")
+	Log.Access(host + " \"" + url + suffix + "\"")
 }
 
 func RawDir(cx *goweb.Context) {

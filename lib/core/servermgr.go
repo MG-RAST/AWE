@@ -68,7 +68,7 @@ func (qm *ServerMgr) RUnlock() {}
 func (qm *ServerMgr) TaskHandle() {
 	for {
 		task := <-qm.taskIn
-		logger.Debug(2, fmt.Sprintf("qmgr:task recived from chan taskIn, id=%s", task.Id))
+		logger.Debug(2, "qmgr:task recived from chan taskIn, id=%s", task.Id)
 		qm.addTask(task)
 	}
 }
@@ -79,7 +79,7 @@ func (qm *ServerMgr) ClientHandle() {
 		//select {
 		//case coReq := <-qm.coReq
 		coReq := <-qm.coReq
-		logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v", coReq))
+		logger.Debug(2, "qmgr: workunit checkout request received, Req=%v", coReq)
 		fmt.Printf("(ServerMgr ClientHandle %s) got coReq\n", coReq.fromclient)
 		var ack CoAck
 		if qm.suspendQueue {
@@ -126,7 +126,7 @@ func (qm *ServerMgr) NoticeHandle() {
 	for {
 		notice := <-qm.feedback
 		fmt.Println("(ServerMgr NoticeHandle) got notice")
-		logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))
+		logger.Debug(2, "qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId)
 		if err := qm.handleWorkStatusChange(notice); err != nil {
 			fmt.Println("(ServerMgr NoticeHandle) handleWorkStatusChange error")
 			logger.Error("handleWorkStatusChange(): " + err.Error())
@@ -311,11 +311,11 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	for _, id := range qm.workQueue.Clean() {
 		jid, err := GetJobIdByWorkId(id)
 		if err != nil {
-			logger.Error(fmt.Sprintf("error: in updateQueue() workunit %s is nil, cannot get job id", id))
+			logger.Error("error: in updateQueue() workunit %s is nil, cannot get job id", id)
 			continue
 		}
 		qm.SuspendJob(jid, fmt.Sprintf("workunit %s is nil", id), id)
-		logger.Error(fmt.Sprintf("error: workunit %s is nil, suspending job %s", id, jid))
+		logger.Error("error: workunit %s is nil, suspending job %s", id, jid)
 	}
 	return
 }
@@ -331,7 +331,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	jobid := parts[0]
 	rank, err := strconv.Atoi(parts[2])
 	if err != nil {
-		return errors.New(fmt.Sprintf("invalid workid %s", workid))
+		err = fmt.Errorf("invalid workid %s", workid)
+		return
 	}
 
 	client, ok := qm.GetClient(clientid, true)
@@ -400,7 +401,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 					return err
 				}
 				if hasFile := output.HasFile(); !hasFile {
-					return errors.New(fmt.Sprintf("Task %s, output %s missing shock file", taskid, output.FileName))
+					fmt.Errorf("Task %s, output %s missing shock file", taskid, output.FileName)
+					return
 				}
 			}
 			//log event about task done (TD)
@@ -694,7 +696,7 @@ func deleteStdLogByTask(taskid string, logname string) (err error) {
 	}
 	for _, logfile := range logfiles {
 		workid := strings.Split(filepath.Base(logfile), ".")[0]
-		logger.Debug(2, fmt.Sprintf("Deleted %s log for workunit %s", logname, workid))
+		logger.Debug(2, "Deleted %s log for workunit %s", logname, workid)
 		os.Remove(logfile)
 	}
 	return
@@ -866,27 +868,30 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 				}
 			}
 		}
-		logger.Debug(2, fmt.Sprintf("processing input %s, %s", name, io.Node))
+		logger.Debug(2, "processing input %s, %s", name, io.Node)
 		if io.Node == "-" {
-			return errors.New(fmt.Sprintf("error in locate input for task %s, %s", task.Id, name))
+			err = fmt.Errorf("error in locate input for task %s, %s", task.Id, name)
+			return
 		}
 		//need time out!
 		if io.Node != "" && io.GetFileSize() < 0 {
-			return errors.New(fmt.Sprintf("task %s: input file %s not available", task.Id, name))
+			err = fmt.Errorf("task %s: input file %s not available", task.Id, name)
+			return
 		}
-		logger.Debug(2, fmt.Sprintf("inputs located %s, %s", name, io.Node))
+		logger.Debug(2, "inputs located %s, %s", name, io.Node)
 	}
 	// locate predata
 	for _, io := range task.Predata {
 		name := io.FileName
-		logger.Debug(2, fmt.Sprintf("processing predata %s, %s", name, io.Node))
+		logger.Debug(2, "processing predata %s, %s", name, io.Node)
 		// only verify predata that is a shock node
 		if (io.Node != "") && (io.Node != "-") && (io.GetFileSize() < 0) {
 			// bad shock node
 			if io.GetFileSize() < 0 {
-				return errors.New(fmt.Sprintf("task %s: predata file %s not available", task.Id, name))
+				err = fmt.Errorf("task %s: predata file %s not available", task.Id, name)
+				return
 			}
-			logger.Debug(2, fmt.Sprintf("predata located %s, %s", name, io.Node))
+			logger.Debug(2, "predata located %s, %s", name, io.Node)
 		}
 	}
 	return
@@ -926,10 +931,10 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 				}
 				io.Node = nodeid
 			}
-			logger.Debug(2, fmt.Sprintf("outout %s in task %s is an update of node %s", name, task.Id, io.Node))
+			logger.Debug(2, "outout %s in task %s is an update of node %s", name, task.Id, io.Node)
 		} else {
 			// POST empty shock node for this output
-			logger.Debug(2, fmt.Sprintf("posting output Shock node for file %s in task %s", name, task.Id))
+			logger.Debug(2, "posting output Shock node for file %s in task %s", name, task.Id)
 			var nodeid string
 			nodeid, err = PostNodeWithToken(io, task.TotalWork, task.Info.DataToken)
 			if err != nil {
@@ -937,7 +942,7 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 				return
 			}
 			io.Node = nodeid
-			logger.Debug(2, fmt.Sprintf("task %s: output Shock node created, node=%s", task.Id, nodeid))
+			logger.Debug(2, "task %s: output Shock node created, node=%s", task.Id, nodeid)
 		}
 	}
 	return
@@ -946,7 +951,7 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 func (qm *ServerMgr) locateUpdate(taskid string, name string, origin string) (nodeid string, err error) {
 	jobid, _ := GetJobIdByTaskId(taskid)
 	preId := fmt.Sprintf("%s_%s", jobid, origin)
-	logger.Debug(2, fmt.Sprintf("task %s: trying to locate Node of update %s from task %s", taskid, name, preId))
+	logger.Debug(2, "task %s: trying to locate Node of update %s from task %s", taskid, name, preId)
 	// scan outputs in origin task
 	if preTask, ok := qm.TaskMap.Get(preId, true); ok {
 		outputs := preTask.Outputs
@@ -956,7 +961,8 @@ func (qm *ServerMgr) locateUpdate(taskid string, name string, origin string) (no
 			}
 		}
 	}
-	return "", errors.New(fmt.Sprintf("failed to locate Node for task %s / update %s from task %s", taskid, name, preId))
+	err = fmt.Errorf("failed to locate Node for task %s / update %s from task %s", taskid, name, preId)
+	return
 }
 
 func (qm *ServerMgr) updateTaskWorkStatus(task *Task, rank int, newstatus string) (err error) {
@@ -979,9 +985,9 @@ func (qm *ServerMgr) updateTaskWorkStatus(task *Task, rank int, newstatus string
 
 // show functions used in debug
 func (qm *ServerMgr) ShowTasks() {
-	logger.Debug(1, fmt.Sprintf("current active tasks (%d)", qm.TaskMap.Len()))
+	logger.Debug(1, "current active tasks (%d)", qm.TaskMap.Len())
 	for _, task := range qm.TaskMap.Map {
-		logger.Debug(1, fmt.Sprintf("taskid=%s;status=%s", task.Id, task.State))
+		logger.Debug(1, "taskid=%s;status=%s", task.Id, task.State)
 	}
 }
 
@@ -999,7 +1005,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	if err != nil {
 		return err
 	}
-	logger.Debug(2, fmt.Sprintf("remaining tasks for task %s: %d", task.Id, remainTasks))
+	logger.Debug(2, "remaining tasks for task %s: %d", task.Id, remainTasks)
 
 	if remainTasks == 0 { //job done
 		qm.FinalizeJobPerf(jobid)
@@ -1248,7 +1254,7 @@ func (qm *ServerMgr) RecoverJob(id string) (err error) {
 		qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 	}
 
-	logger.Debug(2, fmt.Sprintf("Recovered job %s", id))
+	logger.Debug(2, "Recovered job %s", id)
 	return
 }
 
@@ -1265,7 +1271,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	//Locate the job script and parse tasks for each job
 	jobct := 0
 	for _, dbjob := range *dbjobs {
-		logger.Debug(2, fmt.Sprintf("recovering %d: job=%s, state=%s", jobct, dbjob.Id, dbjob.State))
+		logger.Debug(2, "recovering %d: job=%s, state=%s", jobct, dbjob.Id, dbjob.State)
 		if dbjob.State == JOB_STAT_SUSPEND {
 			qm.putSusJob(dbjob.Id)
 		} else {
@@ -1329,7 +1335,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	}
 	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 
-	logger.Debug(2, fmt.Sprintf("Recomputed job %s from task %d", jobid, stage))
+	logger.Debug(2, "Recomputed job %s from task %d", jobid, stage)
 	return
 }
 
@@ -1367,7 +1373,7 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 	}
 	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
 
-	logger.Debug(2, fmt.Sprintf("Restarted job %s from beginning", jobid))
+	logger.Debug(2, "Restarted job %s from beginning", jobid)
 	return
 }
 
@@ -1391,9 +1397,9 @@ func resetTask(task *Task, info *Info) {
 			// delete dataUrl if is shock node
 			if strings.HasSuffix(dataUrl, shock.DATA_SUFFIX) {
 				if err := shock.ShockDelete(output.Host, output.Node, output.DataToken); err == nil {
-					logger.Debug(2, fmt.Sprintf("Deleted node %s from shock", output.Node))
+					logger.Debug(2, "Deleted node %s from shock", output.Node)
 				} else {
-					logger.Error(fmt.Sprintf("resetTask: unable to deleted node %s from shock: %s", output.Node, err.Error()))
+					logger.Error("resetTask: unable to deleted node %s from shock: %s", output.Node, err.Error())
 				}
 			}
 		}

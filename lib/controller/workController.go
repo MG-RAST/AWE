@@ -274,7 +274,6 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		}
 	}
 
-	fmt.Printf("checking out workunit...\n")
 	//checkout a workunit in FCFS order
 	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, availableBytes, 1)
 
@@ -286,7 +285,6 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
-	fmt.Printf("got workunit(s)...\n")
 
 	//log event about workunit checkout (WO)
 	workids := []string{}

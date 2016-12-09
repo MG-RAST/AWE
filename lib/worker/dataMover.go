@@ -29,33 +29,33 @@ func replace_filepath_with_full_filepath(inputs []*core.IO, workpath string, cmd
 	// workpath may be conf.DOCKER_WORK_DIR
 
 	for _, cmd_line := range cmd_script {
-		logger.Debug(1, fmt.Sprintf("C cmd_line : %s", cmd_line))
+		logger.Debug(1, "C cmd_line : %s", cmd_line)
 	}
 
 	// replace @files with abosulte file path
 	// was: match_at_file, err := regexp.Compile(`@[^\s]+`)
 	match_at_file, err := regexp.Compile(`@[\w-\.]+`) // [0-9A-Za-z_] and "-" //TODO support for space using quotes
 	if err != nil {
-		err = errors.New(fmt.Sprintf("error: compiling regex (match_at_file), error=%s", err.Error()))
+		err = errors.New("error: compiling regex (match_at_file), error=%s", err.Error())
 		return
 	}
 
 	replace_with_full_path := func(variable string) string {
 		//cut name out of brackets....
-		logger.Debug(1, fmt.Sprintf("variable: %s", variable))
+		logger.Debug(1, "variable: %s", variable)
 		var inputname = variable[1:] // remove @ in front ; TODO filenames with spaces would need quotes
-		logger.Debug(1, fmt.Sprintf("file_name: %s", inputname))
+		logger.Debug(1, "file_name: %s", inputname)
 
 		for _, io := range inputs {
 			if io.FileName == inputname {
 				//inputFilePath := fmt.Sprintf("%s/%s", conf.DOCKER_WORK_DIR, inputname)
 				inputFilePath := path.Join(workpath, inputname)
-				logger.Debug(1, fmt.Sprintf("return full file_name: %s", inputname))
+				logger.Debug(1, "return full file_name: %s", inputname)
 				return inputFilePath
 			}
 		}
 
-		logger.Debug(1, fmt.Sprintf("warning: could not find input file for variable_name: %s", variable))
+		logger.Debug(1, "warning: could not find input file for variable_name: %s", variable)
 		return variable
 	}
 
@@ -65,7 +65,7 @@ func replace_filepath_with_full_filepath(inputs []*core.IO, workpath string, cmd
 	}
 
 	for _, cmd_line := range cmd_script {
-		logger.Debug(1, fmt.Sprintf("D cmd_line : %s", cmd_line))
+		logger.Debug(1, "D cmd_line : %s", cmd_line)
 	}
 
 	return
@@ -100,7 +100,7 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 
 	numcpu := runtime.NumCPU() //TODO document reserved variable NumCPU // TODO read NumCPU from client profile info
 	numcpu_str := strconv.Itoa(numcpu)
-	logger.Debug(2, fmt.Sprintf("NumCPU: %s", numcpu_str))
+	logger.Debug(2, "NumCPU: %s", numcpu_str)
 
 	//app_variables := make(core.AppVariables) // this does not reuse exiting app variables, this more like a constant
 	//app_variables := work.AppVariables // workunit does not need it yet
@@ -163,9 +163,10 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 	// expand filenames
 	err = replace_filepath_with_full_filepath(parsed.workunit.Inputs, conf.DOCKER_WORK_DIR, cmd_script)
 	if err != nil {
-		return errors.New(fmt.Sprintf("error: replace_filepath_with_full_filepath, %s", err.Error()))
+		err = fmt.Errorf("error: replace_filepath_with_full_filepath, %s", err.Error())
+		return
 	}
-	logger.Debug(1, fmt.Sprintf("cmd_script (expanded): %s", strings.Join(cmd_script, ", ")))
+	logger.Debug(1, "cmd_script (expanded): %s", strings.Join(cmd_script, ", "))
 	return
 }
 

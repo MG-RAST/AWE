@@ -143,7 +143,7 @@ func (wq *WorkQueue) Clean() (workids []string) {
 			delete(wq.checkout, id)
 			delete(wq.suspend, id)
 			delete(wq.workMap, id)
-			logger.Error(fmt.Sprintf("error: in WorkQueue workunit %s is nil, deleted from queue", id))
+			logger.Error("error: in WorkQueue workunit %s is nil, deleted from queue", id)
 		}
 	}
 	return
@@ -163,7 +163,7 @@ func (wq *WorkQueue) Has(id string) (has bool) {
 	defer wq.RUnlock()
 	if work, ok := wq.workMap[id]; ok {
 		if work == nil {
-			logger.Error(fmt.Sprintf("error: in WorkQueue workunit %s is nil", id))
+			logger.Error("error: in WorkQueue workunit %s is nil", id)
 			has = false
 		} else {
 			has = true
@@ -224,7 +224,7 @@ func (wq *WorkQueue) StatusChange(id string, new_status string) (err error) {
 //select workunits, return a slice of ids based on given queuing policy and requested count
 //if available is a positive value, filter by workunit input size
 func (wq *WorkQueue) selectWorkunits(workid []string, policy string, available int64, count int) (selected []*Workunit, err error) {
-	logger.Debug(3, fmt.Sprintf("starting selectWorkunits"))
+	logger.Debug(3, "starting selectWorkunits")
 	worklist := wq.GetSet(workid)
 	if policy == "FCFS" {
 		sort.Sort(byFCFS{worklist})
@@ -244,7 +244,7 @@ func (wq *WorkQueue) selectWorkunits(workid []string, policy string, available i
 			added = added + 1
 		}
 	}
-	logger.Debug(3, fmt.Sprintf("done with selectWorkunits"))
+	logger.Debug(3, "done with selectWorkunits")
 	return
 }
 

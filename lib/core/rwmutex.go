@@ -1,9 +1,8 @@
 package core
 
 import (
-	"fmt"
-	//"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/core/uuid"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"strings"
 	"sync"
 	"time"
@@ -23,8 +22,6 @@ type RWMutex struct {
 }
 
 func (m *RWMutex) Init(name string) {
-	fmt.Printf("(%s) created\n", name)
-
 	m.Name = name
 	m.writeLock = make(chan int, 1)
 	m.readers = make(map[string]string)
@@ -35,8 +32,7 @@ func (m *RWMutex) Init(name string) {
 	}
 
 	m.writeLock <- 1 // Put the initial value into the channel
-	fmt.Printf("Init. current name:  %s\n", m.Name)
-	fmt.Printf("Init. current owner:  %s\n", m.lockOwner)
+
 	return
 }
 
@@ -52,7 +48,7 @@ func (m *RWMutex) Lock() {
 func (m *RWMutex) LockNamed(name string) {
 	//logger.Debug(3, "Lock")
 	reader_list := strings.Join(m.RList(), ",")
-	fmt.Printf("(%s) %s requests Lock. current owner:  %s (reader list :%s)\n", m.Name, name, m.lockOwner, reader_list)
+	logger.Debug(3, "(%s) %s requests Lock. current owner:  %s (reader list :%s)", m.Name, name, m.lockOwner, reader_list)
 	if m.Name == "" {
 		panic("LockNamed: object has no name")
 	}
@@ -66,7 +62,7 @@ func (m *RWMutex) LockNamed(name string) {
 		time.Sleep(100)
 	}
 
-	fmt.Printf("(%s) LOCKED by %s. \n", m.Name, name)
+	logger.Debug(3, "(%s) LOCKED by %s", m.Name, name)
 }
 
 func (m *RWMutex) Unlock() {
@@ -75,16 +71,16 @@ func (m *RWMutex) Unlock() {
 	m.lockOwner = "nobody_anymore"
 	//m.RWMutex.Unlock()
 	m.writeLock <- 1 // Give it back
-	fmt.Printf("(%s) UNLOCKED by %s **********************\n", m.Name, old_owner)
+	logger.Debug(3, "(%s) UNLOCKED by %s **********************", m.Name, old_owner)
 }
 
 func (m *RWMutex) RLockNamed(name string) ReadLock {
-	fmt.Printf("(%s) request RLock and Lock.\n", m.Name)
+	logger.Debug(3, "(%s) request RLock and Lock.", m.Name)
 	if m.Name == "" {
 		panic("xzy name empty")
 	}
 	m.LockNamed("RLock")
-	fmt.Printf("(%s) RLock got Lock.\n", m.Name)
+	logger.Debug(3, "(%s) RLock got Lock.", m.Name)
 	m.readLock.Lock()
 	new_uuid := uuid.New()
 
@@ -93,7 +89,7 @@ func (m *RWMutex) RLockNamed(name string) ReadLock {
 	//m.readCounter += 1
 	m.readLock.Unlock()
 	m.Unlock()
-	fmt.Printf("(%s) got RLock.\n", m.Name)
+	logger.Debug(3, "(%s) got RLock.", m.Name)
 	return ReadLock{id: new_uuid}
 }
 
@@ -108,18 +104,18 @@ func (m *RWMutex) RUnlockNamed(rl ReadLock) {
 
 	lock_uuid := rl.Get_Id()
 
-	fmt.Printf("(%s) request RUnlock.\n", m.Name)
+	logger.Debug(3, "(%s) request RUnlock.", m.Name)
 	m.readLock.Lock()
 	//m.readCounter -= 1
 	name, ok := m.readers[lock_uuid]
 	if ok {
 		delete(m.readers, lock_uuid)
-		fmt.Printf("(%s) %s did RUnlock.\n", m.Name, name)
+		logger.Debug(3, "(%s) %s did RUnlock.", m.Name, name)
 	} else {
-		fmt.Printf("(%s) ERROR: %s did not have RLock !?!??!?!?.\n", m.Name, name)
+		logger.Debug(3, "(%s) ERROR: %s did not have RLock !?!??!?!?.", m.Name, name)
 	}
 	m.readLock.Unlock()
-	fmt.Printf("(%s) did RUnlock.\n", m.Name)
+	logger.Debug(3, "(%s) did RUnlock.", m.Name)
 }
 
 func (m *RWMutex) RCount() (c int) {

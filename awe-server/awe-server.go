@@ -189,9 +189,8 @@ func main() {
 	//init logger
 	logger.Initialize("server")
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("init db...")
-	}
+	logger.Info("init db...")
+
 	//init db
 	if err := db.Initialize(); err != nil {
 		fmt.Printf("failed to initialize job db: %s\n", err.Error())
@@ -214,27 +213,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("init resource manager...")
-	}
+	logger.Info("init resource manager...")
+
 	//init resource manager
 	core.InitResMgr("server")
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("InitAwfMgr...")
-	}
+
+	logger.Info("InitAwfMgr...")
 	core.InitAwfMgr()
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("InitJobDB...")
-	}
+
+	logger.Info("InitJobDB...")
 	core.InitJobDB()
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("InitClientGroupDB...")
-	}
+
+	logger.Info("InitClientGroupDB...")
 	core.InitClientGroupDB()
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("init auth...")
-	}
+	logger.Info("init auth...")
 	//init auth
 	auth.Initialize()
 
@@ -250,9 +243,8 @@ func main() {
 		fmt.Println("Done")
 	}
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("launching server...")
-	}
+	logger.Info("launching server...")
+
 	//launch server
 	control := make(chan int)
 	go core.Ttl.Handle()
@@ -263,9 +255,8 @@ func main() {
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("API launched...")
-	}
+	logger.Info("API launched...")
+
 	if err := core.AwfMgr.LoadWorkflows(); err != nil {
 		logger.Error("LoadWorkflows: " + err.Error())
 	}

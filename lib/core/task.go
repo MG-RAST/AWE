@@ -363,7 +363,7 @@ func (task *Task) DeleteOutput() {
 		for _, io := range task.Outputs {
 			if io.Delete {
 				if nodeid, err := io.DeleteNode(); err != nil {
-					logger.Error(fmt.Sprintf("warning: fail to delete shock node %s: %s", nodeid, err.Error()))
+					logger.Error("warning: fail to delete shock node %s: %s", nodeid, err.Error())
 				}
 			}
 		}
@@ -377,7 +377,7 @@ func (task *Task) DeleteInput() {
 		for _, io := range task.Inputs {
 			if io.Delete {
 				if nodeid, err := io.DeleteNode(); err != nil {
-					logger.Error(fmt.Sprintf("warning: fail to delete shock node %s: %s", nodeid, err.Error()))
+					logger.Error("warning: fail to delete shock node %s: %s", nodeid, err.Error())
 				}
 			}
 		}

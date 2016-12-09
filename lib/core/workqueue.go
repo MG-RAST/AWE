@@ -2,7 +2,7 @@ package core
 
 import (
 	"errors"
-	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/logger"
 	"sort"
 	"sync"

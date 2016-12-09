@@ -193,7 +193,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		err = ioutil.WriteFile(wrapper_script_filename_host, wrapper_content_bytes, 0755) // not executable: 0644
 		if err != nil {
 			err = fmt.Errorf("error writing wrapper script, err=%s", err.Error())
-			return 
+			return
 		}
 
 	}
@@ -206,7 +206,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	if Dockerimage == "" {
 		err = fmt.Errorf("Error Dockerimage string empty")
-		return 
+		return
 	}
 
 	logger.Debug(1, "Dockerimage: %s", Dockerimage)
@@ -391,7 +391,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		err = ioutil.WriteFile(wrapper_script_filename_host, wrapper_content_bytes, 0755) // not executable: 0644
 		if err != nil {
 			err = fmt.Errorf("error writing wrapper script, err=%s", err.Error())
-			return 
+			return
 		}
 		bash_command = wrapper_script_filename_docker
 	}
@@ -438,17 +438,14 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		docker_commandline_create = append(docker_commandline_create, docker_environment_string)
 	}
 
-
-	# use :Mount struct {
-	Name        string
-	Source      string
-	Destination string
-	Driver      string
-	Mode        string
-	RW          bool
-}
-
-
+	// 	# use :Mount struct {
+	// 	Name        string
+	// 	Source      string
+	// 	Destination string
+	// 	Driver      string
+	// 	Mode        string
+	// 	RW          bool
+	// }
 
 	// version for docker API
 	config := docker.Config{Image: dockerimage_id,
@@ -459,7 +456,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		Cmd:          container_cmd,
 		//Volumes:      map[string]struct{}{conf.DOCKER_WORK_DIR: struct{}{}}, // old version
 		//Volumes: map[string]struct{}{bindstr_workdir: struct{}{}},
-		Mounts: 
+		//Mounts:
 		Env: docker_environment,
 	}
 
@@ -481,11 +478,11 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	if client != nil {
 
-		container_obj, err := client.CreateContainer(opts)
-		if err == nil {
+		container_obj, xerr := client.CreateContainer(opts)
+		if xerr == nil {
 			container_id = container_obj.ID
 		} else {
-			err = fmt.Errorf("error creating container, err=%s", err.Error())
+			err = fmt.Errorf("error creating container, err=%s", xerr.Error())
 			return
 		}
 	} else {
@@ -815,7 +812,7 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		go io.Copy(err_writer, stderr)
 	}
 
-	if err := cmd.Start(); err != nil {
+	if err = cmd.Start(); err != nil {
 		err = fmt.Errorf("start_cmd=%s, err=%s", commandName, err.Error())
 		return
 	}
@@ -861,7 +858,7 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		<-done // allow goroutine to exit
 		fmt.Println("process killed")
 		return nil, errors.New("process killed")
-	case err := <-done:
+	case err = <-done:
 		if err != nil {
 			err = fmt.Errorf("wait_cmd=%s, err=%s", commandName, err.Error())
 			return

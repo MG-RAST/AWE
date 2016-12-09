@@ -36,7 +36,7 @@ func replace_filepath_with_full_filepath(inputs []*core.IO, workpath string, cmd
 	// was: match_at_file, err := regexp.Compile(`@[^\s]+`)
 	match_at_file, err := regexp.Compile(`@[\w-\.]+`) // [0-9A-Za-z_] and "-" //TODO support for space using quotes
 	if err != nil {
-		err = errors.New("error: compiling regex (match_at_file), error=%s", err.Error())
+		err = fmt.Errorf("error: compiling regex (match_at_file), error=%s", err.Error())
 		return
 	}
 

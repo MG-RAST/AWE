@@ -76,47 +76,64 @@ func (qm *ServerMgr) TaskHandle() {
 func (qm *ServerMgr) ClientHandle() {
 	fmt.Println("(ServerMgr ClientHandle) starting")
 	for {
-		select {
-		case coReq := <-qm.coReq:
-			logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v", coReq))
-			fmt.Println("(ServerMgr ClientHandle) got coReq")
-			var ack CoAck
-			if qm.suspendQueue {
-				// queue is suspended, return suspend error
-				ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
-			} else {
-				fmt.Println("(ServerMgr ClientHandle) updateQueue")
-				qm.updateQueue()
-				fmt.Println("(ServerMgr ClientHandle) popWorks")
-				works, err := qm.popWorks(coReq)
-				fmt.Println("(ServerMgr ClientHandle) popWorks done")
-				if err == nil {
-					fmt.Println("(ServerMgr ClientHandle) UpdateJobTaskToInProgress")
-					qm.UpdateJobTaskToInProgress(works)
-					fmt.Println("(ServerMgr ClientHandle) UpdateJobTaskToInProgress done")
-				}
-				ack = CoAck{workunits: works, err: err}
-
-			}
-			fmt.Println("(ServerMgr ClientHandle) send response")
-			select {
-			case coReq.response <- ack:
-				logger.Debug(2, "send workunit to client via response channel")
-			default:
-				logger.Error("could not deliver workunit, client did not read from channel") // TODO  release workunit !!!!!
-			}
-			fmt.Println("(ServerMgr ClientHandle) done")
-		case notice := <-qm.feedback:
-			fmt.Println("(ServerMgr ClientHandle) got notice")
-			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))
-			if err := qm.handleWorkStatusChange(notice); err != nil {
-				fmt.Println("(ServerMgr ClientHandle) handleWorkStatusChange error")
-				logger.Error("handleWorkStatusChange(): " + err.Error())
-			}
-			fmt.Println("(ServerMgr ClientHandle) updateQueue")
+		//select {
+		//case coReq := <-qm.coReq
+		coReq := <-qm.coReq
+		logger.Debug(2, fmt.Sprintf("qmgr: workunit checkout request received, Req=%v", coReq))
+		fmt.Printf("(ServerMgr ClientHandle %s) got coReq\n", coReq.fromclient)
+		var ack CoAck
+		if qm.suspendQueue {
+			// queue is suspended, return suspend error
+			ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
+		} else {
+			fmt.Printf("(ServerMgr ClientHandle %s) updateQueue\n", coReq.fromclient)
 			qm.updateQueue()
-			fmt.Println("(ServerMgr ClientHandle) updateQueue done")
+			fmt.Printf("(ServerMgr ClientHandle %s) popWorks\n", coReq.fromclient)
+			works, err := qm.popWorks(coReq)
+			fmt.Printf("(ServerMgr ClientHandle %s) popWorks done\n", coReq.fromclient)
+			if err == nil {
+				fmt.Printf("(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress\n", coReq.fromclient)
+				qm.UpdateJobTaskToInProgress(works)
+				fmt.Printf("(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress done\n", coReq.fromclient)
+			}
+			ack = CoAck{workunits: works, err: err}
+
 		}
+		fmt.Printf("(ServerMgr ClientHandle %s) send response\n", coReq.fromclient)
+		select {
+		case coReq.response <- ack:
+			logger.Debug(2, "send workunit to client via response channel")
+		default:
+			logger.Error("could not deliver workunit, client did not read from channel") // TODO  release workunit !!!!!
+		}
+		fmt.Printf("(ServerMgr ClientHandle %s) done\n", coReq.fromclient)
+		// case notice := <-qm.feedback:
+		// 			fmt.Println("(ServerMgr ClientHandle) got notice")
+		// 			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))
+		// 			if err := qm.handleWorkStatusChange(notice); err != nil {
+		// 				fmt.Println("(ServerMgr ClientHandle) handleWorkStatusChange error")
+		// 				logger.Error("handleWorkStatusChange(): " + err.Error())
+		// 			}
+		// 			fmt.Println("(ServerMgr ClientHandle) updateQueue")
+		// 			qm.updateQueue()
+		// 			fmt.Println("(ServerMgr ClientHandle) updateQueue done")
+		//}
+	}
+}
+
+func (qm *ServerMgr) NoticeHandle() {
+	fmt.Println("(ServerMgr NoticeHandle) starting")
+	for {
+		notice := <-qm.feedback
+		fmt.Println("(ServerMgr NoticeHandle) got notice")
+		logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))
+		if err := qm.handleWorkStatusChange(notice); err != nil {
+			fmt.Println("(ServerMgr NoticeHandle) handleWorkStatusChange error")
+			logger.Error("handleWorkStatusChange(): " + err.Error())
+		}
+		fmt.Println("(ServerMgr NoticeHandle) updateQueue")
+		qm.updateQueue()
+		fmt.Println("(ServerMgr NoticeHandle) updateQueue done")
 	}
 }
 
@@ -258,12 +275,27 @@ func (qm *ServerMgr) isActJob(id string) (has bool) {
 
 //--------server methods-------
 
+// func (qm *ServerMgr) NotifyWorkStatus(notice Notice) {
+//
+// 	fmt.Println("(NotifyWorkStatus) got notice")
+// 	logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))
+// 	if err := qm.handleWorkStatusChange(notice); err != nil {
+// 		fmt.Println("(NotifyWorkStatus) handleWorkStatusChange error")
+// 		logger.Error("handleWorkStatusChange(): " + err.Error())
+// 	}
+// 	fmt.Println("(NotifyWorkStatus) updateQueue")
+// 	qm.updateQueue()
+// 	fmt.Println("(NotifyWorkStatus) updateQueue done")
+//
+// 	return
+// }
+
 //poll ready tasks and push into workQueue
 func (qm *ServerMgr) updateQueue() (err error) {
 	qm.queueLock.Lock()
 	defer qm.queueLock.Unlock()
 
-	qm.TaskMap.RLock()
+	read_lock := qm.TaskMap.RLockNamed("updateQueue")
 	for _, task := range qm.TaskMap.Map {
 		if qm.isTaskReady(task) {
 			if err := qm.taskEnQueue(task); err != nil {
@@ -274,7 +306,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 		}
 		//qm.updateTask(task)
 	}
-	qm.TaskMap.RUnlock()
+	qm.TaskMap.RUnlockNamed(read_lock)
 
 	for _, id := range qm.workQueue.Clean() {
 		jid, err := GetJobIdByWorkId(id)
@@ -302,9 +334,10 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return errors.New(fmt.Sprintf("invalid workid %s", workid))
 	}
 
-	if client, ok := qm.GetClient(clientid); ok {
+	client, ok := qm.GetClient(clientid, true)
+	if ok {
 		//delete(client.Current_work, workid)
-		client.Lock()
+		client.LockNamed("ServerMgr/handleWorkStatusChange A")
 		client.Current_work_delete(workid, false)
 		if client.Current_work_length(false) == 0 && client.Status == CLIENT_STAT_ACTIVE_BUSY {
 			client.Status = CLIENT_STAT_ACTIVE_IDLE
@@ -346,13 +379,13 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		//log event about work done (WD)
 		logger.Event(event.WORK_DONE, "workid="+workid+";clientid="+clientid)
 		//update client status
-		if client, ok := qm.GetClient(clientid); ok {
-			client.Lock()
-			client.Total_completed += 1
-			client.Last_failed = 0 //reset last consecutive failures
-			client.Unlock()
-			qm.AddClient(client, true)
-		}
+
+		client.LockNamed("ServerMgr/handleWorkStatusChange B")
+		client.Total_completed += 1
+		client.Last_failed = 0 //reset last consecutive failures
+		client.Unlock()
+		qm.AddClient(client, true)
+
 		task.RemainWork -= 1
 		task.ComputeTime += computetime
 		if task.RemainWork == 0 {
@@ -418,7 +451,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 				logger.Error("error returned by SuspendJOb()" + err.Error())
 			}
 		}
-		if client, ok := qm.GetClient(clientid); ok {
+		if client, ok := qm.GetClient(clientid, true); ok {
 			client.Lock()
 			client.Append_Skip_work(workid, false)
 			client.Increment_total_failed(false)
@@ -446,7 +479,7 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
 	suspended_task := 0
 	skipped_task := 0
 	fail_skip_task := 0
-	qm.TaskMap.RLock()
+	read_lock := qm.TaskMap.RLockNamed("GetJsonStatus")
 	for _, task := range qm.TaskMap.Map {
 		total_task += 1
 		if task.State == TASK_STAT_COMPLETED {
@@ -465,7 +498,7 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
 			fail_skip_task += 1
 		}
 	}
-	qm.TaskMap.RUnlock()
+	qm.TaskMap.RUnlockNamed(read_lock)
 
 	total_task -= skipped_task // user doesn't see skipped tasks
 	active_jobs := qm.lenActJobs()
@@ -475,7 +508,7 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
 	busy_client := 0
 	idle_client := 0
 	suspend_client := 0
-	qm.clientMap.RLock()
+	read_lock = qm.clientMap.RLockNamed("GetJsonStatusB")
 	for _, client := range *qm.clientMap.GetMap() {
 		total_client += 1
 
@@ -488,7 +521,7 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
 		}
 
 	}
-	qm.clientMap.RUnlock()
+	qm.clientMap.RUnlockNamed(read_lock)
 
 	jobs := map[string]int{
 		"total":     total_job,
@@ -555,7 +588,7 @@ func (qm *ServerMgr) GetTextStatus() string {
 //--workunit methds (servermgr implementation)
 func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token string, err error) {
 	//precheck if the client is registered
-	client, ok := qm.GetClient(clientid)
+	client, ok := qm.GetClient(clientid, true)
 	if !ok {
 		return "", errors.New(e.ClientNotFound)
 	}
@@ -579,7 +612,7 @@ func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token strin
 
 func (qm *ServerMgr) FetchPrivateEnvs(workid string, clientid string) (envs map[string]string, err error) {
 	//precheck if the client is registered
-	client, ok := qm.GetClient(clientid)
+	client, ok := qm.GetClient(clientid, true)
 	if !ok {
 		return nil, errors.New(e.ClientNotFound)
 	}
@@ -1547,7 +1580,7 @@ func (qm *ServerMgr) LogJobPerf(jobid string) {
 
 func (qm *ServerMgr) FetchPrivateEnv(workid string, clientid string) (env map[string]string, err error) {
 	//precheck if the client is registered
-	client, ok := qm.GetClient(clientid)
+	client, ok := qm.GetClient(clientid, true)
 	if !ok {
 		return env, errors.New(e.ClientNotFound)
 	}

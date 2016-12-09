@@ -13,6 +13,7 @@ func NewTaskMap() (t *TaskMap) {
 	t = &TaskMap{
 		Map: make(map[string]*Task),
 	}
+	t.RWMutex.Init("TaskMap")
 	return t
 
 }
@@ -20,15 +21,15 @@ func NewTaskMap() (t *TaskMap) {
 //--------task accessor methods-------
 
 func (tm *TaskMap) Len() int {
-	tm.RLock()
-	defer tm.RUnlock()
+	read_lock := tm.RLockNamed("Len")
+	defer tm.RUnlockNamed(read_lock)
 	return len(tm.Map)
 }
 
 func (tm *TaskMap) Get(taskid string, lock bool) (task *Task, ok bool) {
 	if lock {
-		tm.RLock()
-		defer tm.RUnlock()
+		read_lock := tm.RLockNamed("Len")
+		defer tm.RUnlockNamed(read_lock)
 	}
 
 	task, ok = tm.Map[taskid]
@@ -36,14 +37,14 @@ func (tm *TaskMap) Get(taskid string, lock bool) (task *Task, ok bool) {
 }
 
 func (tm *TaskMap) Delete(taskid string) (task *Task, ok bool) {
-	tm.Lock()
+	tm.LockNamed("Delete")
 	defer tm.Unlock()
 	delete(tm.Map, taskid) // TODO should get write lock on task first
 	return
 }
 
 func (tm *TaskMap) Add(task *Task) {
-	tm.Lock()
+	tm.LockNamed("Add")
 	defer tm.Unlock()
 	tm.Map[task.Id] = task // TODO prevent overwriting
 	return

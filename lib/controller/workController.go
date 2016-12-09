@@ -50,7 +50,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		}
 		// check that clientgroup auth token matches group of client
 		clientid := query.Value("client")
-		client, ok := core.QMgr.GetClient(clientid)
+		client, ok := core.QMgr.GetClient(clientid, true)
 		if !ok {
 			cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
 			return
@@ -251,7 +251,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	// check that clientgroup auth token matches group of client
 	clientid := query.Value("client")
 	fmt.Printf("clientid: " + clientid + "\n")
-	client, ok := core.QMgr.GetClient(clientid)
+	client, ok := core.QMgr.GetClient(clientid, true)
 	if !ok {
 		cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
 		return
@@ -328,7 +328,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 
 	// check that clientgroup auth token matches group of client
 	clientid := query.Value("client")
-	client, ok := core.QMgr.GetClient(clientid)
+	client, ok := core.QMgr.GetClient(clientid, true)
 	if !ok {
 		cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
 		return

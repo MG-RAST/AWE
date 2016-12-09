@@ -11,7 +11,7 @@ type ClientMap struct {
 
 func NewClientMap() *ClientMap {
 	cm := &ClientMap{_map: make(map[string]*Client)}
-	cm.RWMutex.Name = "ClientMap"
+	cm.RWMutex.Init("ClientMap")
 	return cm
 }
 
@@ -32,12 +32,15 @@ func (cl *ClientMap) Add(client *Client, lock bool) {
 
 }
 
-func (cl *ClientMap) Get(client_id string) (client *Client, ok bool) {
-	fmt.Println("(ClientMap) Get\n")
-	cl.RLock()
+func (cl *ClientMap) Get(client_id string, lock bool) (client *Client, ok bool) {
+
+	if lock {
+		read_lock := cl.RLockNamed("Get")
+		defer cl.RUnlockNamed(read_lock)
+	}
+
 	client, ok = cl._map[client_id]
-	cl.RUnlock()
-	fmt.Println("(ClientMap) Get done\n")
+
 	return
 }
 
@@ -56,12 +59,23 @@ func (cl *ClientMap) Delete(client_id string, lock bool) {
 }
 
 func (cl *ClientMap) GetClientIds() (ids []string) {
-	fmt.Println("(GetClientIds) GetClientIds\n")
-	cl.RLock()
+
+	read_lock := cl.RLockNamed("GetClientIds")
+	defer cl.RUnlockNamed(read_lock)
 	for id, _ := range cl._map {
 		ids = append(ids, id)
 	}
-	cl.RUnlock()
-	fmt.Println("(GetClientIds) GetClientIds done\n")
+
+	return
+}
+
+func (cl *ClientMap) GetClients() (clients []*Client) {
+
+	read_lock := cl.RLockNamed("GetClients")
+	defer cl.RUnlockNamed(read_lock)
+	for _, client := range cl._map {
+		clients = append(clients, client)
+	}
+
 	return
 }

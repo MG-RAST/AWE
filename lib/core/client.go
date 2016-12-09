@@ -46,21 +46,43 @@ type Client struct {
 	Version         string          `bson:"version" json:"version"`
 }
 
-func NewClient() (client *Client) {
-	client = new(Client)
+func (client *Client) Init() {
 	client.coAckChannel = make(chan CoAck)
-	client.Id = uuid.New()
-	client.Apps = []string{}
-	client.Skip_work = []string{}
 	client.Status = CLIENT_STAT_ACTIVE_IDLE
-	client.Total_checkout = 0
-	client.Total_completed = 0
-	client.Total_failed = 0
-	client.Current_work = map[string]bool{}
 	client.Tag = true
-	client.Serve_time = "0"
-	client.Last_failed = 0
-	client.RWMutex.Name = "client"
+
+	if client.Id == "" {
+		client.Id = uuid.New()
+	}
+	client.RWMutex.Init("client_" + client.Id)
+
+	if client.RegTime.IsZero() {
+		client.RegTime = time.Now()
+	}
+	if client.Apps == nil {
+		client.Apps = []string{}
+	}
+	if client.Skip_work == nil {
+		client.Skip_work = []string{}
+	}
+	if client.Current_work == nil {
+		client.Current_work = map[string]bool{}
+	}
+
+}
+
+func NewClient() (client *Client) {
+	client = &Client{
+		Total_checkout:  0,
+		Total_completed: 0,
+		Total_failed:    0,
+
+		Serve_time:  "0",
+		Last_failed: 0,
+	}
+
+	client.Init()
+
 	return
 }
 
@@ -77,39 +99,26 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 		return nil, err
 	}
 
-	client.coAckChannel = make(chan CoAck)
+	client.Init()
 
-	if client.Id == "" {
-		client.Id = uuid.New()
-	}
-	if client.RegTime.IsZero() {
-		client.RegTime = time.Now()
-	}
-	if client.Apps == nil {
-		client.Apps = []string{}
-	}
-	client.Skip_work = []string{}
-	client.Status = CLIENT_STAT_ACTIVE_IDLE
-	if client.Current_work == nil {
-		client.Current_work = map[string]bool{}
-	}
-	client.Tag = true
-	client.RWMutex.Name = "client"
 	return
 }
 
 func (cl *Client) Get_Ack() (ack CoAck, err error) {
+	start_time := time.Now()
 	timeout := make(chan bool, 1)
 	go func() {
-		time.Sleep(10 * time.Second) // TODO set this higher
+		time.Sleep(100 * time.Second)
 		timeout <- true
 	}()
 
 	select {
 	case ack = <-cl.coAckChannel:
-		logger.Debug(3, "got ack")
+		elapsed_time := time.Since(start_time)
+		logger.Debug(3, fmt.Sprintf("got ack after %s", elapsed_time))
 	case <-timeout:
-		err = fmt.Errorf("(CheckoutWorkunits) workunit request timed out")
+		elapsed_time := time.Since(start_time)
+		err = fmt.Errorf("(CheckoutWorkunits) workunit request timed out after %s ", elapsed_time)
 		return
 	}
 
@@ -134,12 +143,10 @@ func (cl *Client) Contains_Skip_work_nolock(workid string) (c bool) {
 
 func (cl *Client) Get_Status(read_lock bool) (s string) {
 	if read_lock {
-		cl.RLock()
+		read_lock := cl.RLockNamed("Get_Status")
+		defer cl.RUnlockNamed(read_lock)
 	}
 	s = cl.Status
-	if read_lock {
-		cl.RUnlock()
-	}
 	return
 }
 
@@ -154,9 +161,10 @@ func (cl *Client) Set_Status(s string, write_lock bool) {
 }
 
 func (cl *Client) Get_Total_checkout() (count int) {
-	cl.RLock()
+	read_lock := cl.RLockNamed("Get_Total_checkout")
+	defer cl.RUnlockNamed(read_lock)
 	count = cl.Total_checkout
-	cl.RUnlock()
+
 	return
 }
 
@@ -168,9 +176,10 @@ func (cl *Client) Increment_total_checkout() {
 }
 
 func (cl *Client) Get_Total_completed() (count int) {
-	cl.RLock()
+	read_lock := cl.RLockNamed("Get_Total_completed")
+	defer cl.RUnlockNamed(read_lock)
 	count = cl.Total_completed
-	cl.RUnlock()
+
 	return
 }
 
@@ -183,9 +192,10 @@ func (cl *Client) Increment_total_completed() {
 }
 
 func (cl *Client) Get_Total_failed() (count int) {
-	cl.RLock()
+	read_lock := cl.RLockNamed("Get_Total_failed")
+	defer cl.RUnlockNamed(read_lock)
 	count = cl.Total_failed
-	cl.RUnlock()
+
 	return
 }
 
@@ -200,9 +210,10 @@ func (cl *Client) Increment_total_failed(write_lock bool) {
 }
 
 func (cl *Client) Get_Last_failed() (count int) {
-	cl.RLock()
+	read_lock := cl.RLockNamed("Get_Last_failed")
+	defer cl.RUnlockNamed(read_lock)
 	count = cl.Last_failed
-	cl.RUnlock()
+
 	return
 }
 
@@ -244,12 +255,11 @@ func (cl *Client) Add_work(workid string) {
 
 func (cl *Client) Current_work_length(lock bool) (clength int) {
 	if lock {
-		cl.RLock()
+		read_lock := cl.RLockNamed("Current_work_length")
+		defer cl.RUnlockNamed(read_lock)
 	}
 	clength = len(cl.Current_work)
-	if lock {
-		cl.RUnlock()
-	}
+
 	return clength
 }
 

@@ -63,6 +63,11 @@ func (qm *ProxyMgr) ClientHandle() {
 	}
 }
 
+func (qm *ProxyMgr) NoticeHandle() {
+	//TODO copy code from ClientHandle, and/or reuse server code
+	return
+}
+
 func (qm *ProxyMgr) SuspendQueue() {
 	return
 }
@@ -97,7 +102,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	perf := new(WorkPerf)
 	workid := notice.WorkId
 	clientid := notice.ClientId
-	if client, ok := qm.GetClient(clientid); ok {
+	if client, ok := qm.GetClient(clientid, true); ok {
 		//delete(client.Current_work, workid)
 		client.Lock()
 		client.Current_work_delete(workid, false)
@@ -113,13 +118,13 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 			return
 		}
 		if work.State == WORK_STAT_DONE {
-			if client, ok := qm.GetClient(clientid); ok {
+			if client, ok := qm.GetClient(clientid, true); ok {
 				client.Increment_total_completed()
 				client.Last_failed = 0 //reset last consecutive failures
 				qm.AddClient(client, true)
 			}
 		} else if work.State == WORK_STAT_FAIL {
-			if client, ok := qm.GetClient(clientid); ok {
+			if client, ok := qm.GetClient(clientid, true); ok {
 				client.Lock()
 				client.Append_Skip_work(workid, false)
 				client.Increment_total_failed(false)
@@ -159,7 +164,7 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 		client = NewClient()
 	}
 
-	client.Lock()
+	client.LockNamed("proxymgr/RegisterNewClient")
 	defer client.Unlock()
 
 	// If the name of the clientgroup does not match the name in the client profile, throw an error
@@ -189,7 +194,7 @@ func (qm *ProxyMgr) ClientChecker() {
 
 		delete_clients := []string{}
 
-		qm.clientMap.RLock()
+		read_lock := qm.clientMap.RLockNamed("proxy/ClientChecker")
 		for _, client := range *qm.clientMap.GetMap() {
 			//for _, client := range qm.GetAllClients() {
 			client.Lock()
@@ -215,11 +220,11 @@ func (qm *ProxyMgr) ClientChecker() {
 			}
 			client.Unlock()
 		}
-		qm.clientMap.RUnlock()
+		qm.clientMap.RUnlockNamed(read_lock)
 
 		// Now delete clients
 		if len(delete_clients) > 0 {
-			qm.clientMap.Lock()
+			qm.clientMap.LockNamed("ClientChecker")
 			for _, client_id := range delete_clients {
 				//requeue unfinished workunits associated with the failed client
 				qm.ReQueueWorkunitByClient(client_id, true)

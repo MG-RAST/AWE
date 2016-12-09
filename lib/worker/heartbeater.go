@@ -141,6 +141,7 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 	if len(response.Errs) > 0 {
 		return nil, errors.New(strings.Join(response.Errs, ","))
 	}
+	response.Data.Init()
 	client = &response.Data
 	return
 }
@@ -201,6 +202,7 @@ func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, e
 		return
 	}
 	client = &response.Data
+	client.Init()
 	logger.Debug(3, "Client registered")
 	return
 }

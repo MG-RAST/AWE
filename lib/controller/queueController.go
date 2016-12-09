@@ -100,11 +100,13 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 			jobs := []*core.Job{}
 
 			client_map := core.QMgr.GetClientMap()
-			client_map.RLock()
-			defer client_map.RUnlock()
+
+			read_lock := client_map.RLockNamed("QueueController/ReadMany")
+			defer client_map.RUnlockNamed(read_lock)
+
 			for _, client := range *client_map.GetMap() {
 				if client.Group == cg.Name {
-					client.Lock()
+					client.LockNamed("QueueController/ReadMany")
 					for wid, _ := range client.Current_work {
 						jid, _ := core.GetJobIdByWorkId(wid)
 						if job, err := core.LoadJob(jid); err == nil {

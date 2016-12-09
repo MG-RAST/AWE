@@ -7,7 +7,7 @@ import (
 type ClientMgr interface {
 	RegisterNewClient(FormFiles, *ClientGroup) (*Client, error)
 	ClientHeartBeat(string, *ClientGroup) (HBmsg, error)
-	GetClient(string) (*Client, bool)
+	GetClient(string, bool) (*Client, bool)
 	GetClientByUser(string, *user.User) (*Client, error)
 	//GetAllClients() []*Client
 	GetClientMap() *ClientMap
@@ -71,6 +71,7 @@ type ResourceMgr interface {
 	JobMgr
 	TaskHandle()
 	ClientHandle()
+	NoticeHandle()
 	GetJsonStatus() map[string]map[string]int
 	GetTextStatus() string
 	QueueStatus() string

@@ -7,13 +7,15 @@ import (
 type ClientMgr interface {
 	RegisterNewClient(FormFiles, *ClientGroup) (*Client, error)
 	ClientHeartBeat(string, *ClientGroup) (HBmsg, error)
-	GetClient(string) (*Client, bool)
+	GetClient(string, bool) (*Client, bool)
 	GetClientByUser(string, *user.User) (*Client, error)
-	GetAllClients() []*Client
+	//GetAllClients() []*Client
+	GetClientMap() *ClientMap
 	GetAllClientsByUser(*user.User) []*Client
-	DeleteClient(string) error
+	DeleteClient(*Client) error
+	DeleteClientById(string) error
 	DeleteClientByUser(string, *user.User) error
-	SuspendClient(string) error
+	SuspendClient(string, *Client, bool) error
 	SuspendClientByUser(string, *user.User) error
 	ResumeClient(string) error
 	ResumeClientByUser(string, *user.User) error
@@ -69,10 +71,15 @@ type ResourceMgr interface {
 	JobMgr
 	TaskHandle()
 	ClientHandle()
+	NoticeHandle()
 	GetJsonStatus() map[string]map[string]int
 	GetTextStatus() string
 	QueueStatus() string
 	GetQueue(string) interface{}
 	SuspendQueue()
 	ResumeQueue()
+	Lock()
+	Unlock()
+	RLock()
+	RUnlock()
 }

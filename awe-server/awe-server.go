@@ -217,8 +217,17 @@ func main() {
 	}
 	//init resource manager
 	core.InitResMgr("server")
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("InitAwfMgr...")
+	}
 	core.InitAwfMgr()
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("InitJobDB...")
+	}
 	core.InitJobDB()
+	if conf.DEBUG_LEVEL > 0 {
+		fmt.Println("InitClientGroupDB...")
+	}
 	core.InitClientGroupDB()
 
 	if conf.DEBUG_LEVEL > 0 {
@@ -247,6 +256,7 @@ func main() {
 	go core.Ttl.Handle()
 	go core.QMgr.TaskHandle()
 	go core.QMgr.ClientHandle()
+	go core.QMgr.NoticeHandle()
 	go core.QMgr.ClientChecker()
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)

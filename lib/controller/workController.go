@@ -50,7 +50,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		}
 		// check that clientgroup auth token matches group of client
 		clientid := query.Value("client")
-		client, ok := core.QMgr.GetClient(clientid)
+		client, ok := core.QMgr.GetClient(clientid, true)
 		if !ok {
 			cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
 			return
@@ -250,11 +250,14 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 	// check that clientgroup auth token matches group of client
 	clientid := query.Value("client")
-	client, ok := core.QMgr.GetClient(clientid)
+	fmt.Printf("clientid: " + clientid + "\n")
+	client, ok := core.QMgr.GetClient(clientid, true)
 	if !ok {
 		cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
 		return
 	}
+	fmt.Printf("found client: " + clientid + "\n")
+
 	if cg != nil && client.Group != cg.Name {
 		cx.RespondWithErrorMessage("Clientgroup name in token does not match that in the client configuration.", http.StatusBadRequest)
 		return
@@ -272,6 +275,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		}
 	}
 
+	fmt.Printf("checking out workunit...\n")
 	//checkout a workunit in FCFS order
 	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, availableBytes, 1)
 
@@ -283,6 +287,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		logger.Debug(3, fmt.Sprintf("clientid=%s;available=%d;status=%s", clientid, availableBytes, err.Error()))
 		return
 	}
+	fmt.Printf("got workunit(s)...\n")
 
 	//log event about workunit checkout (WO)
 	workids := []string{}
@@ -323,7 +328,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 
 	// check that clientgroup auth token matches group of client
 	clientid := query.Value("client")
-	client, ok := core.QMgr.GetClient(clientid)
+	client, ok := core.QMgr.GetClient(clientid, true)
 	if !ok {
 		cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
 		return

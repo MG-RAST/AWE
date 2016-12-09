@@ -30,7 +30,7 @@ type TokenResponse struct {
 }
 
 func workStealer(control chan int) {
-	//fmt.Printf("workStealer launched, client=%s\n", core.Self.Id)
+	fmt.Printf("workStealer launched, client=%s\n", core.Self.Id)
 	logger.Debug(0, fmt.Sprintf("workStealer launched, client=%s\n", core.Self.Id))
 	defer fmt.Printf("workStealer exiting...\n")
 	retry := 0
@@ -44,8 +44,10 @@ func workStealer(control chan int) {
 				//normal, do nothing
 				logger.Debug(3, fmt.Sprintf("client %s recieved status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL))
 			} else if err.Error() == e.ClientNotFound {
+				logger.Error("server responds: client not found, will wait for heartbeat process to fix this")
 				//server may be restarted, waiting for the hearbeater goroutine to try re-register
-				ReRegisterWithSelf(conf.SERVER_URL)
+				//ReRegisterWithSelf(conf.SERVER_URL)
+				// this has to be done by the heartbeat
 			} else if err.Error() == e.ClientSuspended {
 				logger.Error("client suspended, waiting for repair or resume request...")
 				//TODO: send out email notice that this client has problem and been suspended
@@ -78,8 +80,9 @@ func workStealer(control chan int) {
 		logger.Debug(1, "workStealer: checked out workunit, id="+wu.Id)
 		//log event about work checktout (WC)
 		logger.Event(event.WORK_CHECKOUT, "workid="+wu.Id)
-		core.Self.Increment_total_checkout()
-		core.Self.Current_work_add(wu.Id)
+
+		core.Self.Add_work(wu.Id)
+
 		workmap[wu.Id] = ID_WORKSTEALER
 
 		//hand the work to the next step handler: dataMover
@@ -100,6 +103,7 @@ func workStealer(control chan int) {
 }
 
 func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
+	logger.Debug(3, "CheckoutWorkunitRemote()")
 	// get available work dir disk space
 	var stat syscall.Statfs_t
 	syscall.Statfs(conf.WORK_PATH, &stat)
@@ -114,10 +118,11 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
 		}
 	}
+	logger.Debug(3, fmt.Sprintf("client %s sends a checkout request to %s with available %d", core.Self.Id, conf.SERVER_URL, availableBytes))
 	res, err := httpclient.DoTimeout("GET", targeturl, headers, nil, nil, time.Second*0)
 	logger.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s with available %d", core.Self.Id, conf.SERVER_URL, availableBytes))
 	if err != nil {
-		fmt.Printf("err=%s\n", err.Error())
+		err = fmt.Errorf("error sending checkout request: %s", err.Error())
 		return
 	}
 	defer res.Body.Close()
@@ -140,6 +145,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 				return workunit, errors.New("need data token but failed to fetch one")
 			}
 		}
+		logger.Debug(3, fmt.Sprintf("client %s got a workunit", core.Self.Id))
 		return workunit, nil
 	}
 	return

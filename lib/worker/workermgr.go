@@ -2,6 +2,7 @@ package worker
 
 import (
 	"errors"
+	"fmt"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/logger"
 )
@@ -31,6 +32,7 @@ const (
 )
 
 func InitWorkers(client *core.Client) (err error) {
+	fmt.Printf("InitWorkers()\n")
 	if client == nil {
 		return errors.New("InitClientWorkers(): empty client")
 	}
@@ -45,6 +47,7 @@ func InitWorkers(client *core.Client) (err error) {
 
 func StartClientWorkers() {
 	control := make(chan int)
+	fmt.Printf("start ClientWorkers, client=%s\n", core.Self.Id)
 	go heartBeater(control)
 	go workStealer(control)
 	go dataMover(control)

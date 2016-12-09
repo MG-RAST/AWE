@@ -358,9 +358,10 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	}
 
 	if client, ok := qm.GetClient(clientid); ok {
-		delete(client.Current_work, workid)
-		if len(client.Current_work) == 0 {
-			client.Status = CLIENT_STAT_ACTIVE_IDLE
+		//delete(client.Current_work, workid)
+		client.Current_work_delete(workid)
+		if client.Current_work_length() == 0 {
+			client.Set_Status(CLIENT_STAT_ACTIVE_IDLE)
 		}
 		qm.PutClient(client)
 	}
@@ -399,7 +400,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		logger.Event(event.WORK_DONE, "workid="+workid+";clientid="+clientid)
 		//update client status
 		if client, ok := qm.GetClient(clientid); ok {
-			client.Total_completed += 1
+			client.Increment_total_completed()
 			client.Last_failed = 0 //reset last consecutive failures
 			qm.PutClient(client)
 		}
@@ -469,8 +470,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			}
 		}
 		if client, ok := qm.GetClient(clientid); ok {
-			client.Skip_work = append(client.Skip_work, workid)
-			client.Total_failed += 1
+			client.Append_Skip_work(workid)
+			client.Increment_total_failed()
 			client.Last_failed += 1 //last consecutive failures
 			qm.PutClient(client)
 			if client.Last_failed == conf.MAX_CLIENT_FAILURE {
@@ -522,7 +523,7 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
 	suspend_client := 0
 	for _, client := range qm.GetAllClients() {
 		total_client += 1
-		if client.Status == CLIENT_STAT_SUSPEND {
+		if client.Get_Status() == CLIENT_STAT_SUSPEND {
 			suspend_client += 1
 		} else if client.IsBusy() {
 			busy_client += 1
@@ -599,7 +600,7 @@ func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token strin
 	if !ok {
 		return "", errors.New(e.ClientNotFound)
 	}
-	if client.Status == CLIENT_STAT_SUSPEND {
+	if client.Get_Status() == CLIENT_STAT_SUSPEND {
 		return "", errors.New(e.ClientSuspended)
 	}
 	jobid, err := GetJobIdByWorkId(workid)
@@ -623,7 +624,7 @@ func (qm *ServerMgr) FetchPrivateEnvs(workid string, clientid string) (envs map[
 	if !ok {
 		return nil, errors.New(e.ClientNotFound)
 	}
-	if client.Status == CLIENT_STAT_SUSPEND {
+	if client.Get_Status() == CLIENT_STAT_SUSPEND {
 		return nil, errors.New(e.ClientSuspended)
 	}
 	jobid, err := GetJobIdByWorkId(workid)
@@ -1591,7 +1592,7 @@ func (qm *ServerMgr) FetchPrivateEnv(workid string, clientid string) (env map[st
 	if !ok {
 		return env, errors.New(e.ClientNotFound)
 	}
-	if client.Status == CLIENT_STAT_SUSPEND {
+	if client.Get_Status() == CLIENT_STAT_SUSPEND {
 		return env, errors.New(e.ClientSuspended)
 	}
 	jobid, err := GetJobIdByWorkId(workid)

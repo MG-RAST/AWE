@@ -118,10 +118,10 @@ func (qm *CQMgr) DeleteClient(id string) (err error) {
 }
 
 func (qm *CQMgr) ClientStatusChange(id string, new_status string) (err error) {
-	qm.clientLock.Lock()
+	qm.clientLock.Lock() // TODO Would RLock be sufficient here ?
 	defer qm.clientLock.Unlock()
 	if client, ok := qm.clientMap[id]; ok {
-		client.Status = new_status
+		client.Set_Status(new_status)
 		return
 	}
 	return errors.New(e.ClientNotFound)
@@ -160,7 +160,7 @@ func (qm *CQMgr) ClientChecker() {
 				hours := total_minutes / 60
 				minutes := total_minutes % 60
 				client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
-				if len(client.Current_work) > 0 {
+				if client.Current_work_length() > 0 {
 					client.Idle_time = 0
 				} else {
 					client.Idle_time += 30
@@ -204,7 +204,7 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err e
 		if len(suspended) > 0 {
 			hbmsg["discard"] = strings.Join(suspended, ",")
 		}
-		if client.Status == CLIENT_STAT_DELETED {
+		if client.Get_Status() == CLIENT_STAT_DELETED {
 			hbmsg["stop"] = id
 		}
 		//hbmsg["discard"] = strings.Join(workids, ",")
@@ -250,13 +250,15 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 	}
 	qm.PutClient(client)
 
-	if len(client.Current_work) > 0 { //re-registered client
+	if client.Current_work_length() > 0 { //re-registered client
 		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
+		client.Current_work_lock.RLock()
 		for workid, _ := range client.Current_work {
 			if qm.workQueue.Has(workid) {
 				qm.workQueue.StatusChange(workid, WORK_STAT_CHECKOUT)
 			}
 		}
+		client.Current_work_lock.Unlock()
 	}
 	return
 }
@@ -329,7 +331,8 @@ func (qm *CQMgr) DeleteClientByUser(id string, u *user.User) (err error) {
 
 func (qm *CQMgr) SuspendClient(id string) (err error) {
 	if client, ok := qm.GetClient(id); ok {
-		if client.Status == CLIENT_STAT_ACTIVE_IDLE || client.Status == CLIENT_STAT_ACTIVE_BUSY {
+		status := client.Get_Status()
+		if status == CLIENT_STAT_ACTIVE_IDLE || status == CLIENT_STAT_ACTIVE_BUSY {
 			if err = qm.ClientStatusChange(id, CLIENT_STAT_SUSPEND); err != nil {
 				return
 			}
@@ -365,7 +368,8 @@ func (qm *CQMgr) SuspendClientByUser(id string, u *user.User) (err error) {
 
 	if client, ok := qm.GetClient(id); ok {
 		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
-			if client.Status == CLIENT_STAT_ACTIVE_IDLE || client.Status == CLIENT_STAT_ACTIVE_BUSY {
+			status := client.Get_Status()
+			if status == CLIENT_STAT_ACTIVE_IDLE || status == CLIENT_STAT_ACTIVE_BUSY {
 				if err = qm.ClientStatusChange(id, CLIENT_STAT_SUSPEND); err != nil {
 					return
 				}
@@ -393,7 +397,8 @@ func (qm *CQMgr) SuspendAllClientsByUser(u *user.User) (count int) {
 	}
 
 	for _, client := range qm.GetAllClients() {
-		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true && (client.Status == CLIENT_STAT_ACTIVE_IDLE || client.Status == CLIENT_STAT_ACTIVE_BUSY) {
+		status := client.Get_Status()
+		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true && (status == CLIENT_STAT_ACTIVE_IDLE || status == CLIENT_STAT_ACTIVE_BUSY) {
 			qm.SuspendClient(client.Id)
 			count += 1
 		}
@@ -403,7 +408,7 @@ func (qm *CQMgr) SuspendAllClientsByUser(u *user.User) (count int) {
 
 func (qm *CQMgr) ResumeClient(id string) (err error) {
 	if client, ok := qm.GetClient(id); ok {
-		if client.Status == CLIENT_STAT_SUSPEND {
+		if client.Get_Status() == CLIENT_STAT_SUSPEND {
 			err = qm.ClientStatusChange(id, CLIENT_STAT_ACTIVE_IDLE)
 			return
 		}
@@ -427,7 +432,7 @@ func (qm *CQMgr) ResumeClientByUser(id string, u *user.User) (err error) {
 
 	if client, ok := qm.GetClient(id); ok {
 		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
-			if client.Status == CLIENT_STAT_SUSPEND {
+			if client.Get_Status() == CLIENT_STAT_SUSPEND {
 				err = qm.ClientStatusChange(id, CLIENT_STAT_ACTIVE_IDLE)
 				return
 			}
@@ -440,7 +445,7 @@ func (qm *CQMgr) ResumeClientByUser(id string, u *user.User) (err error) {
 
 func (qm *CQMgr) ResumeSuspendedClients() (count int) {
 	for _, client := range qm.GetAllClients() {
-		if client.Status == CLIENT_STAT_SUSPEND {
+		if client.Get_Status() == CLIENT_STAT_SUSPEND {
 			qm.ClientStatusChange(client.Id, CLIENT_STAT_ACTIVE_IDLE)
 			count += 1
 		}
@@ -462,7 +467,7 @@ func (qm *CQMgr) ResumeSuspendedClientsByUser(u *user.User) (count int) {
 	}
 
 	for _, client := range qm.GetAllClients() {
-		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true && client.Status == CLIENT_STAT_SUSPEND {
+		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true && client.Get_Status() == CLIENT_STAT_SUSPEND {
 			qm.ClientStatusChange(client.Id, CLIENT_STAT_ACTIVE_IDLE)
 			count += 1
 		}
@@ -508,10 +513,11 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 	if !hasClient {
 		return nil, errors.New(e.ClientNotFound)
 	}
-	if client.Status == CLIENT_STAT_SUSPEND {
+	status := client.Get_Status()
+	if status == CLIENT_STAT_SUSPEND {
 		return nil, errors.New(e.ClientSuspended)
 	}
-	if client.Status == CLIENT_STAT_DELETED {
+	if status == CLIENT_STAT_DELETED {
 		qm.RemoveClient(client_id)
 		return nil, errors.New(e.ClientDeleted)
 	}
@@ -532,11 +538,11 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 
 	if ack.err == nil {
 		for _, work := range ack.workunits {
-			client.Total_checkout += 1
-			client.Current_work[work.Id] = true
+			client.Increment_total_checkout()
+			client.Current_work_add(work.Id)
 		}
-		if client.Status == CLIENT_STAT_ACTIVE_IDLE {
-			client.Status = CLIENT_STAT_ACTIVE_BUSY
+		if client.Get_Status() == CLIENT_STAT_ACTIVE_IDLE {
+			client.Set_Status(CLIENT_STAT_ACTIVE_BUSY)
 		}
 	}
 	qm.PutClient(client)
@@ -608,8 +614,8 @@ func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string, err error) {
 			continue
 		}
 		//skip works that are in the client's skip-list
-		if contains(client.Skip_work, work.Id) {
-			logger.Debug(2, fmt.Sprintf("2) contains(client.Skip_work, work.Id) %s", id))
+		if client.Contains_Skip_work(work.Id) {
+			logger.Debug(2, fmt.Sprintf("2) client.Contains_Skip_work(work.Id) %s", id))
 			continue
 		}
 		//skip works that have dedicate client groups which this client doesn't belong to
@@ -634,9 +640,11 @@ func (qm *CQMgr) filterWorkByClient(clientid string) (ids []string, err error) {
 
 func (qm *CQMgr) getWorkByClient(clientid string) (ids []string) {
 	if client, ok := qm.GetClient(clientid); ok {
+		client.Current_work_lock.RLock()
 		for id, _ := range client.Current_work {
 			ids = append(ids, id)
 		}
+		client.Current_work_lock.RUnlock()
 	}
 	return
 }

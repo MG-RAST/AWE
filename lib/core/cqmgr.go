@@ -184,14 +184,19 @@ func (qm *CQMgr) ClientChecker() {
 
 		// Now delete clients
 		if len(delete_clients) > 0 {
-			qm.clientMap.LockNamed("cqmgr/ClientChecker")
-			defer qm.clientMap.Unlock()
-			for _, client_id := range delete_clients {
-				qm.RemoveClient(client_id, false)
-			}
+			qm.DeleteClients(delete_clients)
 
 		}
 	}
+}
+
+func (qm *CQMgr) DeleteClients(delete_clients []string) {
+	qm.clientMap.LockNamed("cqmgr/ClientChecker/DeleteClients")
+	defer qm.clientMap.Unlock()
+	for _, client_id := range delete_clients {
+		qm.RemoveClient(client_id, false)
+	}
+
 }
 
 func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err error) {

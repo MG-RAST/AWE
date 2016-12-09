@@ -1,6 +1,7 @@
 package goweb
 
 import (
+	"github.com/MG-RAST/AWE/lib/logger"
 	"net/http"
 	"strconv"
 	"strings"
@@ -154,6 +155,7 @@ func (c *Context) writeInternalServerError(err error, statusCode int) {
 // Responds with the specified HTTP status code defined in RFC 2616
 // see http://golang.org/src/pkg/http/status.go for options
 func (c *Context) RespondWithStatus(statusCode int) error {
+	logger.Debug(3, "RespondWithStatus (%d) ", statusCode)
 	return c.Respond(nil, statusCode, nil, c)
 }
 
@@ -161,15 +163,18 @@ func (c *Context) RespondWithStatus(statusCode int) error {
 // and adds the description to the errors list
 // see http://golang.org/src/pkg/http/status.go for options
 func (c *Context) RespondWithError(statusCode int) error {
+	logger.Debug(3, "RespondWithError (%d) ", statusCode)
 	return c.RespondWithErrorMessage(http.StatusText(statusCode), statusCode)
 }
 
 func (c *Context) RespondWithErrorMessage(message string, statusCode int) error {
+	logger.Debug(3, "RespondWithErrorMessage (%d) message: %s", statusCode, message)
 	return c.Respond(nil, statusCode, []string{message}, c)
 }
 
 // Responds with the specified data
 func (c *Context) RespondWithData(data interface{}) error {
+	logger.Debug(3, "RespondWithData")
 	return c.Respond(data, http.StatusOK, nil, c)
 }
 
@@ -182,27 +187,31 @@ func (c *Context) RespondWithPaginatedData(data interface{}, limit, offset, coun
 	obj.Limit = limit
 	obj.Offset = offset
 	obj.Count = count
-
+	logger.Debug(3, "RespondWithPaginatedData")
 	return c.WriteResponse(obj, http.StatusOK)
 }
 
 // Responds with OK status (200) and no data
 func (c *Context) RespondWithOK() error {
+	logger.Debug(3, "RespondWithOK")
 	return c.RespondWithData(nil)
 }
 
 // Responds with 404 Not Found
 func (c *Context) RespondWithNotFound() error {
+	logger.Debug(3, "RespondWithNotFound")
 	return c.RespondWithError(http.StatusNotFound)
 }
 
 // Responds with 501 Not Implemented
 func (c *Context) RespondWithNotImplemented() error {
+	logger.Debug(3, "RespondWithNotImplemented")
 	return c.RespondWithError(http.StatusNotImplemented)
 }
 
 // Responds with 302 Temporarily Moved (redirect)
 func (c *Context) RespondWithLocation(location string) error {
+	logger.Debug(3, "RespondWithLocation")
 	c.ResponseWriter.Header().Set("Location", location)
 	return c.RespondWithStatus(302)
 }

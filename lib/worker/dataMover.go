@@ -76,19 +76,19 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 	// get app definition
 	//app_cmd_mode_object, err := core.MyAppRegistry.Get_cmd_mode_object(app_array[0], app_array[1], app_array[2])
 
-	if work.App.AppDef == nil {
-		return errors.New("error reading app defintion AppDef from workunit, workid=" + work.Id)
-	}
-	app_cmd_mode_object := work.App.AppDef
+	//if work.App.AppDef == nil {
+	//	return errors.New("error reading app defintion AppDef from workunit, workid=" + work.Id)
+	//}
+	//app_cmd_mode_object := work.App.AppDef
 	//if err != nil {
 	//	return errors.New("error reading app registry, workid=" + work.Id + " error=" + err.Error())
 	//}
 
-	parsed.workunit.Cmd.Dockerimage = app_cmd_mode_object.Dockerimage
+	//parsed.workunit.Cmd.Dockerimage = app_cmd_mode_object.Dockerimage
 
-	var cmd_interpreter = app_cmd_mode_object.Cmd_interpreter
+	//var cmd_interpreter = app_cmd_mode_object.Cmd_interpreter
 
-	logger.Debug(1, fmt.Sprintf("cmd_interpreter: %s", cmd_interpreter))
+	//logger.Debug(1, fmt.Sprintf("cmd_interpreter: %s", cmd_interpreter))
 	var cmd_script = parsed.workunit.Cmd.Cmd_script
 
 	//if len(app_cmd_mode_object.Cmd_script) > 0 {
@@ -102,54 +102,54 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 	numcpu_str := strconv.Itoa(numcpu)
 	logger.Debug(2, fmt.Sprintf("NumCPU: %s", numcpu_str))
 
-	app_variables := make(core.AppVariables) // this does not reuse exiting app variables, this more like a constant
+	//app_variables := make(core.AppVariables) // this does not reuse exiting app variables, this more like a constant
 	//app_variables := work.AppVariables // workunit does not need it yet
 
-	app_variables["NumCPU"] = core.AppVariable{Key: "NumCPU", Var_type: core.Ait_string, Value: numcpu_str}
+	//app_variables["NumCPU"] = core.AppVariable{Key: "NumCPU", Var_type: core.Ait_string, Value: numcpu_str}
 
-	for _, io_obj := range work.Inputs {
-		name := io_obj.Name
-		if io_obj.Host != "" {
-			app_variables[name+".host"] = core.AppVariable{Key: name + ".host", Var_type: core.Ait_string, Value: io_obj.Host}
-		}
-		if io_obj.Node != "" {
-			app_variables[name+".node"] = core.AppVariable{Key: name + ".node", Var_type: core.Ait_string, Value: io_obj.Node}
-		}
-		if io_obj.Url != "" {
-			app_variables[name+".url"] = core.AppVariable{Key: name + ".url", Var_type: core.Ait_string, Value: io_obj.Url}
-		}
+	//for _, io_obj := range work.Inputs {
+	// name := io_obj.Name
+	// 	if io_obj.Host != "" {
+	// 		app_variables[name+".host"] = core.AppVariable{Key: name + ".host", Var_type: core.Ait_string, Value: io_obj.Host}
+	// 	}
+	// 	if io_obj.Node != "" {
+	// 		app_variables[name+".node"] = core.AppVariable{Key: name + ".node", Var_type: core.Ait_string, Value: io_obj.Node}
+	// 	}
+	// 	if io_obj.Url != "" {
+	// 		app_variables[name+".url"] = core.AppVariable{Key: name + ".url", Var_type: core.Ait_string, Value: io_obj.Url}
+	// 	}
+	//
+	// }
 
-	}
-
-	sigil := "--" // TODO use config from app definition
-	arguments_string := ""
-	for _, app_arg := range work.App.App_args {
-		name := app_arg.Key
-		value, ok := app_variables[name]
-		if ok {
-
-			if app_arg.Resource == "string" {
-				arguments_string += " " + sigil + name + "=" + value.Value
-			} else if app_arg.Resource == "bool" {
-				if value.Value == "true" {
-					arguments_string += " " + sigil + name
-				}
-			}
-		}
-	}
-
-	app_variables["arguments"] = core.AppVariable{
-		Key:      "arguments",
-		Value:    arguments_string,
-		Var_type: core.Ait_string,
-	}
-
-	app_variables["datatoken"] = core.AppVariable{Key: "datatoken", Var_type: core.Ait_string, Value: work.Info.DataToken}
-
-	err = core.Expand_app_variables(app_variables, cmd_script)
-	if err != nil {
-		return errors.New(fmt.Sprintf("error: core.Expand_app_variables, %s", err.Error()))
-	}
+	// sigil := "--" // TODO use config from app definition
+	// 	arguments_string := ""
+	// 	for _, app_arg := range work.App.App_args {
+	// 		name := app_arg.Key
+	// 		value, ok := app_variables[name]
+	// 		if ok {
+	//
+	// 			if app_arg.Resource == "string" {
+	// 				arguments_string += " " + sigil + name + "=" + value.Value
+	// 			} else if app_arg.Resource == "bool" {
+	// 				if value.Value == "true" {
+	// 					arguments_string += " " + sigil + name
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	//
+	// 	app_variables["arguments"] = core.AppVariable{
+	// 		Key:      "arguments",
+	// 		Value:    arguments_string,
+	// 		Var_type: core.Ait_string,
+	// 	}
+	//
+	// 	app_variables["datatoken"] = core.AppVariable{Key: "datatoken", Var_type: core.Ait_string, Value: work.Info.DataToken}
+	//
+	// 	err = core.Expand_app_variables(app_variables, cmd_script)
+	// 	if err != nil {
+	// 		return errors.New(fmt.Sprintf("error: core.Expand_app_variables, %s", err.Error()))
+	// 	}
 
 	//for i, _ := range cmd_script {
 	//	cmd_script[i] = strings.Replace(cmd_script[i], "${NumCPU}", numcpu_str, -1)
@@ -170,8 +170,10 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 }
 
 func dataMover(control chan int) {
-	var err error
+	//var err error
 	fmt.Printf("dataMover launched, client=%s\n", core.Self.Id)
+	logger.Debug(1, "dataMover launched, client=%s\n", core.Self.Id)
+
 	defer fmt.Printf("dataMover exiting...\n")
 	for {
 		raw := <-fromStealer
@@ -219,61 +221,17 @@ func dataMover(control chan int) {
 			}
 		}
 
-		wants_app := false
-		if strings.HasPrefix(parsed.workunit.Cmd.Name, "app:") { // TODO : deprecated
-			//logger.Debug(1, fmt.Sprintf("app mode, requested: %s", parsed.workunit.Cmd.Name))
-			app_string := strings.TrimPrefix(parsed.workunit.Cmd.Name, "app:")
-			parsed.workunit.App.Name = app_string
-			wants_app = true
-		}
-		if parsed.workunit.App != nil && parsed.workunit.App.Name != "" {
-			logger.Debug(1, fmt.Sprintf("app mode, requested: %s", parsed.workunit.App.Name))
-			wants_app = true
-		} else {
-			logger.Debug(1, fmt.Sprintf("app mode was not requested"))
-		}
+		//parse the args, replacing @input_name to local file path (file not downloaded yet)
 
-		if wants_app && conf.USE_APP_DEFS == "no" {
-			logger.Error("error: use of app definitions on this client has been disabled by administrator")
-			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#work.Mkdir]" + "error: use of app definitions on this client has been disabled by administrator"
+		if err := ParseWorkunitArgs(parsed.workunit); err != nil {
+			logger.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + work.Id + " error=" + err.Error())
+			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#ParseWorkunitArgs]" + err.Error()
 			parsed.workunit.State = core.WORK_STAT_FAIL
+			//hand the parsed workunit to next stage and continue to get new workunit to process
 			fromMover <- parsed
 			continue
 		}
 
-		if wants_app == false && conf.USE_APP_DEFS == "only" {
-			logger.Error("error: use of app definitions on this client is required")
-			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#work.Mkdir]" + "error: use of app definitions on this client is required"
-			parsed.workunit.State = core.WORK_STAT_FAIL
-			fromMover <- parsed
-			continue
-		}
-
-		if wants_app {
-			logger.Debug(1, fmt.Sprintf("mode with app defintion"))
-			err = prepareAppTask(parsed, raw.workunit)
-			if err != nil {
-				logger.Error("err@dataMover_work.prepareAppTask, workid=" + work.Id + " error=" + err.Error())
-				parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#prepareAppTask]" + err.Error()
-				parsed.workunit.State = core.WORK_STAT_FAIL
-				//hand the parsed workunit to next stage and continue to get new workunit to process
-				fromMover <- parsed
-				continue
-			}
-
-		} else {
-			logger.Debug(1, fmt.Sprintf("mode without app defintion"))
-			//parse the args, replacing @input_name to local file path (file not downloaded yet)
-
-			if err := ParseWorkunitArgs(parsed.workunit); err != nil {
-				logger.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + work.Id + " error=" + err.Error())
-				parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#ParseWorkunitArgs]" + err.Error()
-				parsed.workunit.State = core.WORK_STAT_FAIL
-				//hand the parsed workunit to next stage and continue to get new workunit to process
-				fromMover <- parsed
-				continue
-			}
-		}
 		//download input data
 		datamove_start := time.Now().UnixNano()
 		if moved_data, err := cache.MoveInputData(parsed.workunit); err != nil {
@@ -397,7 +355,7 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 
 //fetch file by shock url,  TODO remove
 func fetchFile_old(filename string, url string, token string) (size int64, err error) {
-	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
+	fmt.Printf("(fetchFile_old) fetching file name=%s, url=%s\n", filename, url)
 	localfile, err := os.Create(filename)
 	if err != nil {
 		return 0, err
@@ -498,7 +456,7 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 
 		// determine if running with docker
 		wants_docker := false
-		if workunit.Cmd.Dockerimage != "" || workunit.App != nil { // TODO need more save way to detect use of docker
+		if workunit.Cmd.Dockerimage != "" {
 			wants_docker = true
 		}
 		if wants_docker && conf.USE_DOCKER == "no" {

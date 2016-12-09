@@ -581,6 +581,9 @@ func (qm *CQMgr) UpdateSubClientsByUser(id string, count int, u *user.User) {
 //-------start of workunit methods---
 
 func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, available_bytes int64, num int) (workunits []*Workunit, err error) {
+
+	logger.Debug(3, "run CheckoutWorkunits for client %s", client_id)
+
 	//precheck if the client is registered
 	client, hasClient := qm.GetClient(client_id, true)
 	if !hasClient {
@@ -702,6 +705,7 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (ids []string, err error) {
 	logger.Debug(3, fmt.Sprintf("starting filterWorkByClient() for client: %s", clientid))
 
 	for _, id := range qm.workQueue.WaitList() {
+		logger.Debug(3, "check if job %s would fit client %s", id, clientid)
 		work, ok := qm.workQueue.Get(id)
 		if !ok {
 			logger.Error(fmt.Sprintf("error: workunit %s is in wait queue but not in workMap", id))
@@ -709,19 +713,20 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (ids []string, err error) {
 		}
 		//skip works that are in the client's skip-list
 		if client.Contains_Skip_work_nolock(work.Id) {
-			logger.Debug(2, fmt.Sprintf("2) client.Contains_Skip_work_nolock(work.Id) %s", id))
+			logger.Debug(3, "2) workunit %s is in Skip_work list of the client %s) %s", id, clientid)
 			continue
 		}
 		//skip works that have dedicate client groups which this client doesn't belong to
 		if len(work.Info.ClientGroups) > 0 {
 			eligible_groups := strings.Split(work.Info.ClientGroups, ",")
 			if !contains(eligible_groups, client.Group) {
-				logger.Debug(2, fmt.Sprintf("3) !contains(eligible_groups, client.Group) %s", id))
+				logger.Debug(3, fmt.Sprintf("3) !contains(eligible_groups, client.Group) %s", id))
 				continue
 			}
 		}
 		//append works whos apps are supported by the client
 		if contains(client.Apps, work.Cmd.Name) || contains(client.Apps, conf.ALL_APP) {
+			logger.Debug(3, "append job %s to list of client %s", id, clientid)
 			ids = append(ids, id)
 		} else {
 			logger.Debug(2, fmt.Sprintf("3) contains(client.Apps, work.Cmd.Name) || contains(client.Apps, conf.ALL_APP) %s", id))

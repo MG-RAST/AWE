@@ -30,8 +30,10 @@ type TokenResponse struct {
 }
 
 func workStealer(control chan int) {
+
 	fmt.Printf("workStealer launched, client=%s\n", core.Self.Id)
 	logger.Debug(0, fmt.Sprintf("workStealer launched, client=%s\n", core.Self.Id))
+
 	defer fmt.Printf("workStealer exiting...\n")
 	retry := 0
 	for {

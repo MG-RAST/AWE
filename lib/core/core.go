@@ -99,22 +99,26 @@ type HBmsg map[string]string //map[op]obj1,obj2 e.g. map[discard]=work1,work2
 
 func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 
-	if _, has_upload := files["upload"]; has_upload {
-		job, err = ParseJobTasks(files["upload"].Path)
+	upload_file, has_upload := files["upload"]
+
+	if has_upload {
+		upload_file_path := upload_file.Path
+		job, err = ParseJobTasks(upload_file_path)
 		if err != nil {
-			errDep := errors.New("")
-			job, errDep = ParseJobTasksDep(files["upload"].Path)
-			if errDep == nil {
-				err = nil
+			//errDep := errors.New("")
+			err = nil
+			job, err = ParseJobTasksDep(files["upload"].Path)
+			if err == nil {
+				//err = nil
+				return
 			}
 		}
 	} else {
 		job, err = ParseAwf(files["awf"].Path)
-	}
-
-	if err != nil {
-		err = errors.New("error parsing job, error=" + err.Error())
-		return
+		if err != nil {
+			err = errors.New("(ParseAwf) error parsing job, error=" + err.Error())
+			return
+		}
 	}
 
 	// Once, job has been created, set job owner and add owner to all ACL's
@@ -129,25 +133,25 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 
 	// TODO move app definitions from git into something faster ?
 
-	var MyAppRegistry AppRegistry // this will be populated with latest version every time a workflow is submitted
+	//var MyAppRegistry AppRegistry // this will be populated with latest version every time a workflow is submitted
 
-	if MyAppRegistry == nil && conf.USE_APP_DEFS != "no" {
-		MyAppRegistry, err = MakeAppRegistry()
-		if err != nil {
-			return job, errors.New("error creating app registry, error=" + err.Error())
-		}
-		//logger.Debug(1, "app defintions read")
-	}
+	//if MyAppRegistry == nil && conf.USE_APP_DEFS != "no" {
+	//	MyAppRegistry, err = MakeAppRegistry()
+	//	if err != nil {
+	//		return job, errors.New("error creating app registry, error=" + err.Error())
+	//	}
+	//	//logger.Debug(1, "app defintions read")
+	//}
 
-	if conf.USE_APP_DEFS != "no" {
-		err = MyAppRegistry.createIOnodes(job)
-		if err != nil {
-			err = errors.New(fmt.Sprintf("error in createIOnodes, error=%s", err.Error()))
-			return
-		}
-	}
+	//if conf.USE_APP_DEFS != "no" {
+	//	err = MyAppRegistry.createIOnodes(job)
+	//	if err != nil {
+	//		err = errors.New(fmt.Sprintf("error in createIOnodes, error=%s", err.Error()))
+	//		return
+	//	}
+	//}
 
-	err = job.UpdateFile(files)
+	err = job.UpdateFile(files, "upload")
 	if err != nil {
 		err = errors.New("error in UpdateFile, error=" + err.Error())
 		return
@@ -262,17 +266,22 @@ func PostNode(io *IO, numParts int) (nodeid string, err error) {
 
 func PostNodeWithToken(io *IO, numParts int, token string) (nodeid string, err error) {
 	opts := Opts{}
-	node, err := createOrUpdate(opts, io.Host, "", token, nil)
+	var node *shock.ShockNode
+	node, err = createOrUpdate(opts, io.Host, "", token, nil)
 	if err != nil {
-		return "", err
+		err = fmt.Errorf("(1) createOrUpdate in PostNodeWithToken failed (%s): %v", io.Host, err)
+		return
 	}
 	//create "parts" for output splits
 	if numParts > 1 {
 		opts["upload_type"] = "parts"
 		opts["file_name"] = io.FileName
 		opts["parts"] = strconv.Itoa(numParts)
-		if _, err := createOrUpdate(opts, io.Host, node.Id, token, nil); err != nil {
-			return node.Id, err
+		_, err = createOrUpdate(opts, io.Host, node.Id, token, nil)
+		if err != nil {
+			nodeid = node.Id
+			err = fmt.Errorf("(2) createOrUpdate in PostNodeWithToken failed (%s, %s): %v", io.Host, node.Id, err)
+			return
 		}
 	}
 	return node.Id, nil
@@ -302,75 +311,60 @@ func getParentJobId(id string) (jobid string) {
 	return parts[0]
 }
 
-// Parses job by job script.
-func ParseJobTasks(filename string) (job *Job, err error) {
-	job = new(Job)
+func ReadJobFile(filename string) (job *Job, err error) {
 
-	jsonstream, err := ioutil.ReadFile(filename)
+	//job = new(Job)
+	job = NewJob()
 
+	var jsonstream []byte
+	jsonstream, err = ioutil.ReadFile(filename)
 	if err != nil {
-		return nil, errors.New("error in reading job json file" + err.Error())
+		err = fmt.Errorf("error in reading job json file: %s", err.Error())
+		return
 	}
 
 	err = json.Unmarshal(jsonstream, job)
 	if err != nil {
-		return nil, errors.New("error in unmarshaling job json file: " + err.Error())
+		err = fmt.Errorf("error in unmarshaling job json file: %s ", err.Error())
 	}
-
-	if len(job.Tasks) == 0 {
-		return nil, errors.New("invalid job script: task list empty")
-	}
-
-	// check that input FileName is not repeated within an individual task
-	for _, task := range job.Tasks {
-		inputFileNames := make(map[string]bool)
-		for _, io := range task.Inputs {
-			if _, exists := inputFileNames[io.FileName]; exists {
-				return nil, errors.New("invalid inputs: task " + task.Id + " contains multiple inputs with filename=" + io.FileName)
-			}
-			inputFileNames[io.FileName] = true
-		}
-	}
-
-	if job.Info == nil {
-		job.Info = NewInfo()
-	}
-
-	job.Info.SubmitTime = time.Now()
-	if job.Info.Priority < conf.BasePriority {
-		job.Info.Priority = conf.BasePriority
-	}
-
-	job.setId() //uuid for the job
-	job.State = JOB_STAT_INIT
-	job.Registered = true
 
 	//parse private fields task.Cmd.Environ.Private
 	job_p := new(Job_p)
 	err = json.Unmarshal(jsonstream, job_p)
-	if err == nil {
-		for idx, task := range job_p.Tasks {
-			if task.Cmd.Environ == nil || task.Cmd.Environ.Private == nil {
-				continue
-			}
-			job.Tasks[idx].Cmd.Environ.Private = make(map[string]string)
-			for key, val := range task.Cmd.Environ.Private {
-				job.Tasks[idx].Cmd.Environ.Private[key] = val
-			}
+	if err != nil {
+		return
+	}
+
+	for idx, task := range job_p.Tasks {
+		if task.Cmd.Environ == nil || task.Cmd.Environ.Private == nil {
+			continue
+		}
+		job.Tasks[idx].Cmd.Environ.Private = make(map[string]string)
+		for key, val := range task.Cmd.Environ.Private {
+			job.Tasks[idx].Cmd.Environ.Private[key] = val
 		}
 	}
 
-	for i := 0; i < len(job.Tasks); i++ {
-		if strings.Contains(job.Tasks[i].Id, "_") {
-			// no "_" allowed in inital taskid
-			return nil, errors.New("invalid taskid, may not contain '_'")
-		}
-		if err := job.Tasks[i].InitTask(job); err != nil {
-			return nil, errors.New("error in InitTask: " + err.Error())
-		}
+	return
+}
+
+// Parses job by job script.
+func ParseJobTasks(filename string) (job *Job, err error) {
+
+	job, err = ReadJobFile(filename)
+	if err != nil {
+		return
 	}
 
-	job.RemainTasks = len(job.Tasks)
+	err = job.Init()
+	if err != nil {
+		return
+	}
+
+	err = job.InitTasks()
+	if err != nil {
+		return
+	}
 
 	return
 }
@@ -461,8 +455,8 @@ func JobDepToJob(jobDep *JobDep) (job *Job) {
 		task.Id = taskDep.Id
 		task.Info = taskDep.Info
 		task.Cmd = taskDep.Cmd
-		task.App = taskDep.App
-		task.AppVariablesArray = taskDep.AppVariablesArray
+		//task.App = taskDep.App
+		//task.AppVariablesArray = taskDep.AppVariablesArray
 		task.Partition = taskDep.Partition
 		task.DependsOn = taskDep.DependsOn
 		task.TotalWork = taskDep.TotalWork
@@ -516,8 +510,7 @@ func ParseAwf(filename string) (job *Job, err error) {
 }
 
 func AwfToJob(awf *Workflow) (job *Job, err error) {
-	job = new(Job)
-	job.initJob()
+	job = NewJob()
 
 	//mapping info
 	job.Info.Pipeline = awf.WfInfo.Name
@@ -528,7 +521,11 @@ func AwfToJob(awf *Workflow) (job *Job, err error) {
 
 	//create task 0: pseudo-task representing the success of job submission
 	//to-do: in the future this task can serve as raw input data validation
-	task := NewTask(job, 0)
+	var task *Task
+	task, err = NewTask(job, "0")
+	if err != nil {
+		return
+	}
 	task.Cmd.Description = "job submission"
 	task.State = TASK_STAT_PASSED
 	task.RemainWork = 0
@@ -537,7 +534,11 @@ func AwfToJob(awf *Workflow) (job *Job, err error) {
 
 	//mapping tasks
 	for _, awf_task := range awf.Tasks {
-		task := NewTask(job, awf_task.TaskId)
+		var task *Task
+		task, err = NewTask(job, string(awf_task.TaskId))
+		if err != nil {
+			return
+		}
 		for name, origin := range awf_task.Inputs {
 			io := new(IO)
 			io.FileName = name
@@ -928,7 +929,7 @@ func getWorkNotesPath(work *Workunit) (worknotesFilePath string, err error) {
 func createOrUpdate(opts Opts, host string, nodeid string, token string, nodeattr map[string]interface{}) (node *shock.ShockNode, err error) {
 
 	if host == "" {
-		return nil, errors.New("error: (createOrUpdate) host is not defined")
+		return nil, fmt.Errorf("error: (createOrUpdate) host is not defined in Shock node")
 	}
 
 	url := host + "/node"

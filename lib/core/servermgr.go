@@ -374,7 +374,11 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	// we want these to happen at end
 	//defer qm.updateTask(task) // TODO use lock instead
 
-	qm.updateTaskWorkStatus(task, rank, status)
+	err = qm.updateTaskWorkStatus(task, rank, status)
+	if err != nil {
+		return
+	}
+
 	if status == WORK_STAT_DONE {
 		//log event about work done (WD)
 		logger.Event(event.WORK_DONE, "workid="+workid+";clientid="+clientid)
@@ -440,7 +444,10 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			//failure time exceeds limit, suspend workunit, task, job
 			qm.workQueue.StatusChange(workid, WORK_STAT_SUSPEND)
 			logger.Event(event.WORK_SUSPEND, "workid="+workid)
-			qm.updateTaskWorkStatus(task, rank, WORK_STAT_SUSPEND)
+			err = qm.updateTaskWorkStatus(task, rank, WORK_STAT_SUSPEND)
+			if err != nil {
+				return
+			}
 			task.State = TASK_STAT_SUSPEND
 
 			reason := fmt.Sprintf("workunit %s failed %d time(s).", workid, MAX_FAILURE)
@@ -675,11 +682,15 @@ func deleteStdLogByTask(taskid string, logname string) (err error) {
 	if err != nil {
 		return err
 	}
-	logdir := getPathByJobId(jobid)
+	var logdir string
+	logdir, err = getPathByJobId(jobid)
+	if err != nil {
+		return
+	}
 	globpath := fmt.Sprintf("%s/%s_*.%s", logdir, taskid, logname)
 	logfiles, err := filepath.Glob(globpath)
 	if err != nil {
-		return err
+		return
 	}
 	for _, logfile := range logfiles {
 		workid := strings.Split(filepath.Base(logfile), ".")[0]
@@ -689,14 +700,18 @@ func deleteStdLogByTask(taskid string, logname string) (err error) {
 	return
 }
 
-func getStdLogPathByWorkId(workid string, logname string) (string, error) {
+func getStdLogPathByWorkId(workid string, logname string) (savedpath string, err error) {
 	jobid, err := GetJobIdByWorkId(workid)
 	if err != nil {
 		return "", err
 	}
-	logdir := getPathByJobId(jobid)
-	savedpath := fmt.Sprintf("%s/%s.%s", logdir, workid, logname)
-	return savedpath, nil
+	var logdir string
+	logdir, err = getPathByJobId(jobid)
+	if err != nil {
+		return
+	}
+	savedpath = fmt.Sprintf("%s/%s.%s", logdir, workid, logname)
+	return
 }
 
 //---task methods----
@@ -900,11 +915,14 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 			// this an update output, it will update an existing shock node and not create a new one
 			if (io.Node == "") || (io.Node == "-") {
 				if io.Origin == "" {
-					return errors.New(fmt.Sprintf("update output %s in task %s is missing required origin", name, task.Id))
+					err = fmt.Errorf("(createOutputNode) update output %s in task %s is missing required origin", name, task.Id)
+					return
 				}
-				nodeid, err := qm.locateUpdate(task.Id, name, io.Origin)
+				var nodeid string
+				nodeid, err = qm.locateUpdate(task.Id, name, io.Origin)
 				if err != nil {
-					return err
+					err = fmt.Errorf("qm.locateUpdate in createOutputNode failed: %v", err)
+					return
 				}
 				io.Node = nodeid
 			}
@@ -912,9 +930,11 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 		} else {
 			// POST empty shock node for this output
 			logger.Debug(2, fmt.Sprintf("posting output Shock node for file %s in task %s", name, task.Id))
-			nodeid, err := PostNodeWithToken(io, task.TotalWork, task.Info.DataToken)
+			var nodeid string
+			nodeid, err = PostNodeWithToken(io, task.TotalWork, task.Info.DataToken)
 			if err != nil {
-				return err
+				err = fmt.Errorf("PostNodeWithToken in createOutputNode failed: %v", err)
+				return
 			}
 			io.Node = nodeid
 			logger.Debug(2, fmt.Sprintf("task %s: output Shock node created, node=%s", task.Id, nodeid))
@@ -939,12 +959,21 @@ func (qm *ServerMgr) locateUpdate(taskid string, name string, origin string) (no
 	return "", errors.New(fmt.Sprintf("failed to locate Node for task %s / update %s from task %s", taskid, name, preId))
 }
 
-func (qm *ServerMgr) updateTaskWorkStatus(task *Task, rank int, newstatus string) {
-	if rank == 0 {
-		task.WorkStatus[rank] = newstatus
-	} else {
-		task.WorkStatus[rank-1] = newstatus
+func (qm *ServerMgr) updateTaskWorkStatus(task *Task, rank int, newstatus string) (err error) {
+
+	rank_in_array := 0
+
+	if rank > 0 {
+		rank_in_array = rank - 1
 	}
+
+	if rank_in_array >= len(task.WorkStatus) {
+		err = fmt.Errorf("index out of range, len(task.WorkStatus): %d rank_in_array: %d", len(task.WorkStatus), rank_in_array)
+		return
+	}
+
+	task.WorkStatus[rank_in_array] = newstatus
+
 	return
 }
 

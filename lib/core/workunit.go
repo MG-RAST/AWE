@@ -20,13 +20,13 @@ const (
 )
 
 type Workunit struct {
-	Id           string            `bson:"wuid" json:"wuid"`
-	Info         *Info             `bson:"info" json:"info"`
-	Inputs       []*IO             `bson:"inputs" json:"inputs"`
-	Outputs      []*IO             `bson:"outputs" json:"outputs"`
-	Predata      []*IO             `bson:"predata" json:"predata"`
-	Cmd          *Command          `bson:"cmd" json:"cmd"`
-	App          *App              `bson:"app" json:"app"`
+	Id      string   `bson:"wuid" json:"wuid"`
+	Info    *Info    `bson:"info" json:"info"`
+	Inputs  []*IO    `bson:"inputs" json:"inputs"`
+	Outputs []*IO    `bson:"outputs" json:"outputs"`
+	Predata []*IO    `bson:"predata" json:"predata"`
+	Cmd     *Command `bson:"cmd" json:"cmd"`
+	//	App          *App              `bson:"app" json:"app"`
 	Rank         int               `bson:"rank" json:"rank"`
 	TotalWork    int               `bson:"totalwork" json:"totalwork"`
 	Partition    *PartInfo         `bson:"part" json:"part"`
@@ -110,9 +110,9 @@ func (w WorkunitsSortby) Less(i, j int) bool {
 func NewWorkunit(task *Task, rank int) *Workunit {
 
 	return &Workunit{
-		Id:        fmt.Sprintf("%s_%d", task.Id, rank),
-		Cmd:       task.Cmd,
-		App:       task.App,
+		Id:  fmt.Sprintf("%s_%d", task.Id, rank),
+		Cmd: task.Cmd,
+		//App:       task.App,
 		Info:      task.Info,
 		Inputs:    task.Inputs,
 		Outputs:   task.Outputs,

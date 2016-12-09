@@ -168,10 +168,12 @@ func main() {
 		}
 	}
 
-	if _, err := os.Stat(conf.LOGS_PATH); err != nil && os.IsNotExist(err) {
-		if err := os.MkdirAll(conf.LOGS_PATH, 0777); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR in creating log_path \"%s\" %s\n", conf.LOGS_PATH, err.Error())
-			os.Exit(1)
+	if (conf.LOG_OUTPUT == "file") || (conf.LOG_OUTPUT == "both") {
+		if _, err := os.Stat(conf.LOGS_PATH); err != nil && os.IsNotExist(err) {
+			if err := os.MkdirAll(conf.LOGS_PATH, 0777); err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR in creating log_path \"%s\" %s\n", conf.LOGS_PATH, err.Error())
+				os.Exit(1)
+			}
 		}
 	}
 

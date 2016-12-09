@@ -31,6 +31,11 @@ type Shock_Dockerimage_attributes struct {
 	BaseImageId string `bson:"base_image_id" json:"base_image_id"` // could used to reference parent image
 }
 
+type WaitContainerResult struct {
+	Error  error
+	Status int
+}
+
 func processor(control chan int) {
 	fmt.Printf("processor launched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("processor exiting...\n")
@@ -65,7 +70,7 @@ func processor(control chan int) {
 		_ = envkeys
 
 		wants_docker := false
-		if work.Cmd.Dockerimage != "" || work.App != nil {
+		if work.Cmd.Dockerimage != "" {
 			wants_docker = true
 		}
 
@@ -122,7 +127,7 @@ func processor(control chan int) {
 
 func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
-	if work.Cmd.Dockerimage != "" || work.App != nil {
+	if work.Cmd.Dockerimage != "" {
 		pstats, err = RunWorkunitDocker(work)
 	} else {
 		pstats, err = RunWorkunitDirect(work)
@@ -197,9 +202,6 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	container_name := "AWE_workunit"
 
 	Dockerimage := work.Cmd.Dockerimage
-	if work.App != nil && work.App.Name != "" {
-		Dockerimage = work.App.AppDef.Dockerimage
-	}
 
 	if Dockerimage == "" {
 		return nil, errors.New(fmt.Sprintf("Error Dockerimage string empty"))
@@ -316,7 +318,17 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	// tag image to make debugging easier
 	if Dockerimage != "" {
 		Dockerimage_array := strings.Split(Dockerimage, ":") // TODO split by colon is risky
-		tag_opts := docker.TagImageOptions{Repo: Dockerimage_array[0], Tag: Dockerimage_array[1]}
+		dockerimage_repo := ""
+		dockerimage_tag := ""
+
+		if len(Dockerimage_array) > 0 {
+			dockerimage_repo = Dockerimage_array[0]
+		}
+		if len(Dockerimage_array) > 1 {
+			dockerimage_tag = Dockerimage_array[1]
+		}
+
+		tag_opts := docker.TagImageOptions{Repo: dockerimage_repo, Tag: dockerimage_tag}
 
 		err = TagImage(client, dockerimage_id, tag_opts)
 		if err != nil {
@@ -345,21 +357,39 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}
 
-	pipe_output := fmt.Sprintf(" 2> %s 1> %s", conf.STDERR_FILENAME, conf.STDOUT_FILENAME)
+	stdout_file := path.Join(conf.DOCKER_WORK_DIR, conf.STDOUT_FILENAME)
+	stderr_file := path.Join(conf.DOCKER_WORK_DIR, conf.STDERR_FILENAME)
+
+	pipe_output := fmt.Sprintf(" 2> %s 1> %s", stderr_file, stdout_file)
+
 	bash_command := ""
 	if use_wrapper_script {
 		//bash_command = fmt.Sprint("/bin/bash", " ", wrapper_script_filename_docker, " ", pipe_output) // bash for wrapper script
 		bash_command = fmt.Sprint(wrapper_script_filename_docker, " ", pipe_output)
 	} else {
-		bash_command = fmt.Sprint(commandName, " ", strings.Join(args, " "), " ", pipe_output)
+		_ = args
+		//bash_command = fmt.Sprintf("%s %s %s", commandName, strings.Join(args, " "), pipe_output)
+		bash_command = fmt.Sprintf("uname -a %s", pipe_output)
 
+		var wrapper_content_string = "#!/bin/bash\n" + bash_command + "\n"
+
+		logger.Debug(1, fmt.Sprintf("write wrapper script: %s\n%s", wrapper_script_filename_host, bash_command))
+
+		var wrapper_content_bytes = []byte(wrapper_content_string)
+
+		err = ioutil.WriteFile(wrapper_script_filename_host, wrapper_content_bytes, 0755) // not executable: 0644
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("error writing wrapper script, err=%s", err.Error()))
+		}
+		bash_command = wrapper_script_filename_docker
 	}
-
+	//bash_command = fmt.Sprintf("sleep 3 ; uname -a ; ./awe_qc.pl -format my_file_format.075 -out_prefix my_job_id.075 -assembled 1 -filter_options my_filter_options -proc 8 -input Ebin3.fa; uname -a 2> %s 1> %s", conf.STDERR_FILENAME, conf.STDOUT_FILENAME)
 	logger.Debug(1, fmt.Sprint("bash_command: ", bash_command))
 
 	// example: "/bin/bash", "-c", "bowtie2 -h 2> awe_stderr.txt 1> awe_stdout.txt"
 
-	container_cmd := []string{"/bin/bash", "-c", bash_command} // TODO remove bash if possible, but is needed for piping
+	//container_cmd := []string{"/bin/bash", "-c", bash_command} // TODO remove bash if possible, but is needed for piping
+	container_cmd := []string{bash_command}
 
 	//var empty_struct struct{}
 	bindstr_workdir := work.Path() + "/:" + conf.DOCKER_WORK_DIR
@@ -396,6 +426,18 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		docker_commandline_create = append(docker_commandline_create, docker_environment_string)
 	}
 
+
+	# use :Mount struct {
+	Name        string
+	Source      string
+	Destination string
+	Driver      string
+	Mode        string
+	RW          bool
+}
+
+
+
 	// version for docker API
 	config := docker.Config{Image: dockerimage_id,
 		WorkingDir:   conf.DOCKER_WORK_DIR,
@@ -404,8 +446,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		AttachStdin:  false,
 		Cmd:          container_cmd,
 		//Volumes:      map[string]struct{}{conf.DOCKER_WORK_DIR: struct{}{}}, // old version
-		Volumes: map[string]struct{}{bindstr_workdir: struct{}{}},
-		Env:     docker_environment,
+		//Volumes: map[string]struct{}{bindstr_workdir: struct{}{}},
+		Mounts: 
+		Env: docker_environment,
 	}
 
 	if len(work.Predata) > 0 {
@@ -438,6 +481,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			return nil, errors.New(fmt.Sprintf("error creating container, err=%s", err.Error()))
 		}
 	}
+	logger.Debug(3, "Container created.")
 
 	if container_id == "" {
 		return nil, errors.New(fmt.Sprintf("error creating container, container_id is empty"))
@@ -465,6 +509,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("error starting container, id=%s, err=%s", container_id, err.Error()))
 	}
+	logger.Debug(3, "Container started.")
 
 	defer func(container_id string) {
 		// *** clean up
@@ -476,7 +521,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			err_kill = KillContainer(container_id)
 		}
 		if err_kill != nil {
-			logger.Error(fmt.Sprintf("error killing container id=%s, err=%s", container_id, err_kill.Error()))
+			logger.Warning("(deferred func) (clean-up after running container) could not kill container id=%s, err=%s", container_id, err_kill.Error())
 		}
 
 		// *** remove Container
@@ -490,7 +535,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			err = RemoveContainer(container_id)
 		}
 		if err != nil {
-			logger.Error(fmt.Sprintf("error removing container id=%s, err=%s", container_id, err.Error()))
+			logger.Warning("(deferred func) could not remove container id=%s, err=%s", container_id, err.Error())
 		} else {
 			logger.Debug(1, "(deferred func) removed docker container")
 		}
@@ -503,32 +548,39 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			logger.Error(fmt.Sprintf("error inspecting container=%s, err=%s", container_id, err.Error()))
 		}
 
+		logger.Debug(3, "Container status: %s", cont.State.Status)
+
 		inspect_filename := path.Join(work.Path(), "container_inspect.json")
 
 		b_inspect, _ := json.MarshalIndent(cont, "", "    ")
 
 		err = ioutil.WriteFile(inspect_filename, b_inspect, 0666)
 		if err != nil {
-			logger.Error(fmt.Sprintf("error writing inspect file for container=%s, err=%s", container_id, err.Error()))
+			fmt.Errorf("error writing inspect file for container=%s, err=%s", container_id, err.Error())
 		} else {
-			logger.Debug(1, fmt.Sprintf("wrote %s for container %s", inspect_filename, container_id))
+			logger.Debug(1, "wrote %s for container %s", inspect_filename, container_id)
 		}
 	}
 
-	var status int = 0
-
 	// wait for container to finish
-	done := make(chan error)
+	done := make(chan WaitContainerResult)
 	go func() {
+
+		//time.Sleep(300 * time.Second)
+
 		var errwait error
+		var status int = -1
 		if client != nil {
 			status, errwait = client.WaitContainer(container_id)
 		} else {
 			status, errwait = WaitContainer(container_id)
 		}
-		done <- errwait // inform main function
+
+		cresult := WaitContainerResult{errwait, status}
+
+		done <- cresult // inform main function
 		if conf.MEM_CHECK_INTERVAL != 0 {
-			done <- errwait // inform memory checker
+			done <- cresult // inform memory checker
 		}
 	}()
 
@@ -558,9 +610,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			for {
 
 				select {
-				case err_mem := <-done:
-					if err_mem != nil {
-						logger.Error("channel done returned error: " + err_mem.Error())
+				case cresult := <-done:
+					if cresult.Error != nil {
+						logger.Error("channel done returned error: " + cresult.Error.Error())
 					}
 					return
 				default:
@@ -653,6 +705,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		logger.Debug(1, "memory checking disabled")
 	}
 
+	cresult := WaitContainerResult{nil, -1}
+
 	select {
 	case <-chankill:
 		logger.Debug(1, fmt.Sprint("chankill, try to kill conatiner %s... ", container_id))
@@ -664,22 +718,24 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("error killing container id=%s, err=%s", container_id, err.Error()))
+			return nil, errors.New(fmt.Sprintf("(chankill) error killing container id=%s, err=%s", container_id, err.Error()))
 		}
 
 		<-done // allow goroutine to exit
 
 		return nil, errors.New("process killed as requested from chankill")
-	case err = <-done:
-		logger.Debug(1, fmt.Sprint("(1)docker wait returned with status ", status))
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("dockerWait=%s, err=%s", commandName, err.Error()))
+	case cresult = <-done:
+		logger.Debug(3, "(1)docker wait returned with status %d", cresult.Status)
+		if cresult.Error != nil {
+			return nil, fmt.Errorf("dockerWait=%s, status=%d, err=%s", commandName, cresult.Status, cresult.Error.Error())
 		}
+
 	}
-	logger.Debug(1, fmt.Sprint("(2)docker wait returned with status ", status))
-	if status != 0 {
-		logger.Debug(1, fmt.Sprint("WaitContainer returned non-zero status ", status))
-		return nil, errors.New(fmt.Sprintf("error WaitContainer returned non-zero status=%d", status))
+
+	logger.Debug(3, "WaitContainer returned non-zero status=%d", cresult.Status)
+	if cresult.Status != 0 {
+		logger.Debug(3, "WaitContainer returned non-zero status=%d", cresult.Status)
+		return nil, fmt.Errorf("error WaitContainer returned non-zero status=%d", cresult.Status)
 	}
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 	pstats.MaxMemUsage = MaxMem

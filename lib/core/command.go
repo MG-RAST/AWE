@@ -1,12 +1,12 @@
 package core
 
-type App struct {
-	Name     string        `bson:"name" json:"name"`
-	App_args []AppResource `bson:"app_args" json:"app_args"`
+//type App struct {
+//	Name     string        `bson:"name" json:"name"`
+//	App_args []AppResource `bson:"app_args" json:"app_args"`
 
-	AppDef *AppCommandMode `bson:"appdef" json:"appdef"` // App defintion
+//	AppDef *AppCommandMode `bson:"appdef" json:"appdef"` // App defintion
 
-}
+//}
 
 type Command struct {
 	Name          string   `bson:"name" json:"name"`

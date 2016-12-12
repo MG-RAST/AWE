@@ -74,39 +74,39 @@ func (qm *ServerMgr) TaskHandle() {
 }
 
 func (qm *ServerMgr) ClientHandle() {
-	fmt.Println("(ServerMgr ClientHandle) starting")
+	logger.Info("(ServerMgr ClientHandle) starting")
 	for {
 		//select {
 		//case coReq := <-qm.coReq
 		coReq := <-qm.coReq
-		logger.Debug(2, "qmgr: workunit checkout request received, Req=%v", coReq)
-		fmt.Printf("(ServerMgr ClientHandle %s) got coReq\n", coReq.fromclient)
+		logger.Debug(2, "qmgr: workunit checkout request received from client %s, Req=%v", coReq.fromclient, coReq)
+
 		var ack CoAck
 		if qm.suspendQueue {
 			// queue is suspended, return suspend error
 			ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
 		} else {
-			fmt.Printf("(ServerMgr ClientHandle %s) updateQueue\n", coReq.fromclient)
+			logger.Debug(3, "(ServerMgr ClientHandle %s) updateQueue\n", coReq.fromclient)
 			qm.updateQueue()
-			fmt.Printf("(ServerMgr ClientHandle %s) popWorks\n", coReq.fromclient)
+			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks\n", coReq.fromclient)
 			works, err := qm.popWorks(coReq)
-			fmt.Printf("(ServerMgr ClientHandle %s) popWorks done\n", coReq.fromclient)
+			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks done\n", coReq.fromclient)
 			if err == nil {
-				fmt.Printf("(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress\n", coReq.fromclient)
+				logger.Debug(3, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress\n", coReq.fromclient)
 				qm.UpdateJobTaskToInProgress(works)
-				fmt.Printf("(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress done\n", coReq.fromclient)
+				logger.Debug(3, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress done\n", coReq.fromclient)
 			}
 			ack = CoAck{workunits: works, err: err}
 
 		}
-		fmt.Printf("(ServerMgr ClientHandle %s) send response\n", coReq.fromclient)
+		logger.Debug(3, "(ServerMgr ClientHandle %s) send response\n", coReq.fromclient)
 		select {
 		case coReq.response <- ack:
 			logger.Debug(2, "send workunit to client via response channel")
 		default:
 			logger.Error("could not deliver workunit, client did not read from channel") // TODO  release workunit !!!!!
 		}
-		fmt.Printf("(ServerMgr ClientHandle %s) done\n", coReq.fromclient)
+		logger.Debug(3, "(ServerMgr ClientHandle %s) done\n", coReq.fromclient)
 		// case notice := <-qm.feedback:
 		// 			fmt.Println("(ServerMgr ClientHandle) got notice")
 		// 			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))

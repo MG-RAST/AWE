@@ -606,22 +606,22 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 	//req := CoReq{policy: req_policy, fromclient: client_id, available: available_bytes, count: num, response: client.coAckChannel}
 	req := CoReq{policy: req_policy, fromclient: client_id, available: available_bytes, count: num, response: response_channel}
 
-	logger.Debug(3, "(CheckoutWorkunits) qm.coReq <- req")
+	logger.Debug(3, "(CheckoutWorkunits) %s qm.coReq <- req", client_id)
 	// request workunit
 	qm.coReq <- req
-	logger.Debug(3, "(CheckoutWorkunits) client.Get_Ack()")
+	logger.Debug(3, "(CheckoutWorkunits) %s client.Get_Ack()", client_id)
 	//ack := <-qm.coAck
 
 	var ack CoAck
 	// get workunit
 	ack, err = client.Get_Ack()
 
-	logger.Debug(3, "(CheckoutWorkunits)got ack")
+	logger.Debug(3, "(CheckoutWorkunits) %s got ack", client_id)
 	if err != nil {
 		return
 	}
 
-	logger.Debug(3, "(CheckoutWorkunits) got ack")
+	logger.Debug(3, "(CheckoutWorkunits) %s got ack", client_id)
 	if ack.err == nil {
 		for _, work := range ack.workunits {
 			client.Add_work_nolock(work.Id)
@@ -630,11 +630,11 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 			client.Status = CLIENT_STAT_ACTIVE_BUSY
 		}
 	} else {
-		fmt.Printf("ack.err: %s", ack.err.Error())
-		logger.Debug(3, "ack.err: %s", ack.err.Error())
+
+		logger.Debug(3, "(CheckoutWorkunits) %s ack.err: %s", client_id, ack.err.Error())
 	}
 
-	logger.Debug(3, "(CheckoutWorkunits) finished")
+	logger.Debug(3, "(CheckoutWorkunits) %s finished", client_id)
 	return ack.workunits, ack.err
 }
 

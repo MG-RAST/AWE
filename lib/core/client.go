@@ -118,7 +118,7 @@ func (cl *Client) Get_Ack() (ack CoAck, err error) {
 		logger.Debug(3, "got ack after %s", elapsed_time)
 	case <-timeout:
 		elapsed_time := time.Since(start_time)
-		err = fmt.Errorf("(CheckoutWorkunits) workunit request timed out after %s ", elapsed_time)
+		err = fmt.Errorf("(CheckoutWorkunits) %s workunit request timed out after %s ", cl.Id, elapsed_time)
 		return
 	}
 

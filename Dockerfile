@@ -4,7 +4,7 @@
 
 
 #FROM golang:1.7.4-alpine
-FROM golang:1.7.4
+FROM golang:1.8
 
 
 # needed for GIT_COMMIT_HASH

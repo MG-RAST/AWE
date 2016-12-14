@@ -18,12 +18,19 @@ import (
 	"io/ioutil"
 	"net/http"
 	//"os"
+	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
 )
 
 type JobController struct{}
+
+type standardResponse struct {
+	S int         `json:"status"`
+	D interface{} `json:"data"`
+	E []string    `json:"error"`
+}
 
 // OPTIONS: /job
 func (cr *JobController) Options(cx *goweb.Context) {
@@ -170,12 +177,27 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	if token, err := request.RetrieveToken(cx.Request); err == nil {
 		job.SetDataToken(token)
 	}
+
+	// make a copy to prevent race conditions
+	SR := standardResponse{
+		S: http.StatusOK,
+		D: job,
+		E: nil,
+	}
+
+	var response_bytes []byte
+	response_bytes, err = json.Marshal(SR)
+
 	// don't enqueue imports
 	if !has_import {
 		core.QMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
 	}
 
-	cx.RespondWithData(job)
+	//cx.RespondWithData(job)
+	cx.ResponseWriter.WriteHeader(http.StatusOK)
+	cx.ResponseWriter.Write(response_bytes)
+
+	//cx.WriteResponse(string(job_bytes[:]), http.StatusOK)
 	return
 }
 

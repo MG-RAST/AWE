@@ -23,7 +23,7 @@ import (
 )
 
 func launchSite(control chan int, port int) {
-	goweb.ConfigureDefaultFormatters()
+
 	r := &goweb.RouteManager{}
 
 	site_directory := conf.SITE_PATH
@@ -114,7 +114,7 @@ func launchSite(control chan int, port int) {
 
 func launchAPI(control chan int, port int) {
 	c := controller.NewServerController()
-	goweb.ConfigureDefaultFormatters()
+	//goweb.ConfigureDefaultFormatters()
 	r := &goweb.RouteManager{}
 	r.Map("/job/{jid}/acl/{type}", c.JobAcl["typed"])
 	r.Map("/job/{jid}/acl", c.JobAcl["base"])
@@ -252,6 +252,8 @@ func main() {
 	go core.QMgr.ClientHandle()
 	go core.QMgr.NoticeHandle()
 	go core.QMgr.ClientChecker()
+
+	goweb.ConfigureDefaultFormatters()
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)
 

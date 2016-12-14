@@ -4,12 +4,12 @@
 
 
 #FROM golang:1.7.4-alpine
-FROM golang:1.7.4-wheezy
+FROM golang:1.7.4 # this is jessie
 
 
 # needed for GIT_COMMIT_HASH
 #RUN apk update && apk add git gcc libc-dev cyrus-sasl-dev
-RUN apt-get update && apt-get install -y libsasl2-dev
+RUN apt-get update && apt-get install -y git libsasl2-dev
 
 
 ENV AWE=/go/src/github.com/MG-RAST/AWE

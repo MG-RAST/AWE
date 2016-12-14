@@ -3,10 +3,13 @@
 #docker build --force-rm --no-cache --rm -t ${NAME}:${TAG} .
 
 
-FROM golang:1.7.3-alpine
+#FROM golang:1.7.4-alpine
+FROM golang:1.7.4-wheezy
+
 
 # needed for GIT_COMMIT_HASH
-RUN apk update && apk add git gcc libc-dev cyrus-sasl-dev
+#RUN apk update && apk add git gcc libc-dev cyrus-sasl-dev
+RUN apt-get update && apt-get install -y libsasl2-dev
 
 
 ENV AWE=/go/src/github.com/MG-RAST/AWE
@@ -24,4 +27,5 @@ RUN mkdir -p ${AWE} && \
   ./compile.sh
 
 # since this produces three binaries, we just specify (b)ash
-CMD ["/bin/ash"]
+CMD ["/bin/bash"]
+#CMD ["/bin/ash"]

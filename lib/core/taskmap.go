@@ -50,52 +50,6 @@ func (tm *TaskMap) Add(task *Task) {
 	return
 }
 
-// func (qm *ServerMgr) copyTask(a *Task) (b *Task) {
-// 	b = new(Task)
-// 	*b = *a
-// 	return
-// }
-
-// func (qm *ServerMgr) putTask(task *Task) {
-// 	qm.taskLock.Lock()
-// 	qm.taskMap[task.Id] = task
-// 	qm.taskLock.Unlock()
-// }
-
-// func (qm *ServerMgr) updateTask(task *Task) {
-// 	qm.taskLock.Lock()
-// 	if _, ok := qm.taskMap[task.Id]; ok {
-// 		qm.taskMap[task.Id] = task
-// 	}
-// 	qm.taskLock.Unlock()
-// }
-
-// func (qm *ServerMgr) getTask(id string) (*Task, bool) {
-// 	qm.taskLock.RLock()
-// 	defer qm.taskLock.RUnlock()
-// 	if task, ok := qm.taskMap[id]; ok {
-// 		copy := qm.copyTask(task)
-// 		return copy, true
-// 	}
-// 	return nil, false
-// }
-
-// func (qm *ServerMgr) getAllTasks() (tasks []*Task) {
-// 	qm.taskLock.RLock()
-// 	defer qm.taskLock.RUnlock()
-// 	for _, task := range qm.taskMap {
-// 		copy := qm.copyTask(task)
-// 		tasks = append(tasks, copy)
-// 	}
-// 	return
-// }
-
-// func (qm *ServerMgr) deleteTask(id string) {
-// 	qm.taskLock.Lock()
-// 	delete(qm.taskMap, id)
-// 	qm.taskLock.Unlock()
-// }
-
 func (tm *TaskMap) SetState(id string, new_state string) (err error) {
 	task, ok := tm.Get(id, true)
 	if !ok {
@@ -105,34 +59,3 @@ func (tm *TaskMap) SetState(id string, new_state string) (err error) {
 	task.State = new_state
 	return
 }
-
-// func (qm *ServerMgr) taskStateChange(id string, new_state string) (err error) {
-//
-// 	qm.taskLock.Lock()
-// 	defer qm.taskLock.Unlock()
-// 	if task, ok := qm.taskMap[id]; ok {
-// 		task.State = new_state
-// 		return nil
-// 	}
-// 	return errors.New(fmt.Sprintf("task %s not found", id))
-// }
-
-// func (qm *ServerMgr) hasTask(id string) (has bool) {
-// 	qm.taskLock.RLock()
-// 	defer qm.taskLock.RUnlock()
-// 	if _, ok := qm.taskMap[id]; ok {
-// 		has = true
-// 	} else {
-// 		has = false
-// 	}
-// 	return
-// }
-
-// func (qm *ServerMgr) listTasks() (ids []string) {
-// 	qm.taskLock.RLock()
-// 	defer qm.taskLock.RUnlock()
-// 	for id := range qm.taskMap {
-// 		ids = append(ids, id)
-// 	}
-// 	return
-// }

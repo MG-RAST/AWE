@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+// This RWLock keeps track of the owener and of each reader
+// Because channels are used for the locking mechanism, you can use locks with timeouts.
+// Each reader gets a ReadLock object that has to be used to unlock after reading is done.
+
 type ReadLock struct {
 	id string
 }

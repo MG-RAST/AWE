@@ -99,12 +99,22 @@ func (qm *ServerMgr) ClientHandle() {
 			ack = CoAck{workunits: works, err: err}
 
 		}
-		logger.Debug(3, "(ServerMgr ClientHandle %s) send response\n", coReq.fromclient)
+		logger.Debug(3, "(ServerMgr ClientHandle %s) send response now\n", coReq.fromclient)
+
+		start_time := time.Now()
+		timeout := make(chan bool, 1)
+		go func() {
+			time.Sleep(100 * time.Second)
+			timeout <- true
+		}()
+
 		select {
 		case coReq.response <- ack:
-			logger.Debug(2, "send workunit to client via response channel")
-		default:
-			logger.Error("could not deliver workunit, client did not read from channel") // TODO  release workunit !!!!!
+			logger.Debug(3, "(ServerMgr ClientHandle %s) send workunit to client via response channel", coReq.fromclient)
+		case <-timeout:
+			elapsed_time := time.Since(start_time)
+			logger.Error("(ServerMgr ClientHandle %s) timed out after %s ", coReq.fromclient, elapsed_time)
+			return
 		}
 		logger.Debug(3, "(ServerMgr ClientHandle %s) done\n", coReq.fromclient)
 		// case notice := <-qm.feedback:
@@ -125,15 +135,11 @@ func (qm *ServerMgr) NoticeHandle() {
 	fmt.Println("(ServerMgr NoticeHandle) starting")
 	for {
 		notice := <-qm.feedback
-		fmt.Println("(ServerMgr NoticeHandle) got notice")
-		logger.Debug(2, "qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId)
+		logger.Debug(3, "(ServerMgr NoticeHandle) got notice: workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId)
 		if err := qm.handleWorkStatusChange(notice); err != nil {
-			fmt.Println("(ServerMgr NoticeHandle) handleWorkStatusChange error")
 			logger.Error("handleWorkStatusChange(): " + err.Error())
 		}
-		fmt.Println("(ServerMgr NoticeHandle) updateQueue")
 		qm.updateQueue()
-		fmt.Println("(ServerMgr NoticeHandle) updateQueue done")
 	}
 }
 
@@ -274,21 +280,6 @@ func (qm *ServerMgr) isActJob(id string) (has bool) {
 }
 
 //--------server methods-------
-
-// func (qm *ServerMgr) NotifyWorkStatus(notice Notice) {
-//
-// 	fmt.Println("(NotifyWorkStatus) got notice")
-// 	logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))
-// 	if err := qm.handleWorkStatusChange(notice); err != nil {
-// 		fmt.Println("(NotifyWorkStatus) handleWorkStatusChange error")
-// 		logger.Error("handleWorkStatusChange(): " + err.Error())
-// 	}
-// 	fmt.Println("(NotifyWorkStatus) updateQueue")
-// 	qm.updateQueue()
-// 	fmt.Println("(NotifyWorkStatus) updateQueue done")
-//
-// 	return
-// }
 
 //poll ready tasks and push into workQueue
 func (qm *ServerMgr) updateQueue() (err error) {

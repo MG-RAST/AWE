@@ -1,7 +1,7 @@
 package core
 
 import (
-	"fmt"
+	"github.com/MG-RAST/AWE/lib/logger"
 )
 
 type ClientMap struct {
@@ -16,7 +16,7 @@ func NewClientMap() *ClientMap {
 }
 
 func (cl *ClientMap) GetMap() *map[string]*Client {
-	fmt.Println("(ClientMap) GetMap\n")
+	logger.Debug(3, "(ClientMap) GetMap\n")
 	return &cl._map
 }
 
@@ -52,7 +52,7 @@ func (cl *ClientMap) Delete(client_id string, lock bool) {
 	delete(cl._map, client_id)
 	if lock {
 		cl.Unlock()
-		fmt.Println("(ClientMap) Delete done\n")
+		logger.Debug(3, "(ClientMap) Delete done\n")
 	}
 
 	return

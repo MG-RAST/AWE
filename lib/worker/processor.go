@@ -824,6 +824,7 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}
 
 	var MaxMem uint64 = 0
+	MaxMemChan := make(chan uint64)
 	done := make(chan error)
 	memcheck_done := make(chan bool)
 	go func() {
@@ -839,15 +840,16 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	go func() {
 		mstats := new(runtime.MemStats)
 		runtime.ReadMemStats(mstats)
-		MaxMem = mstats.Alloc
+		_MaxMem := mstats.Alloc
+		MaxMemChan <- mstats.Alloc
 		time.Sleep(2 * time.Second)
 		for {
 			select {
 			default:
 				mstats := new(runtime.MemStats)
 				runtime.ReadMemStats(mstats)
-				if mstats.Alloc > MaxMem {
-					MaxMem = mstats.Alloc
+				if mstats.Alloc > _MaxMem {
+					MaxMemChan <- mstats.Alloc
 				}
 				time.Sleep(mem_check_interval_here)
 			case <-memcheck_done:
@@ -856,18 +858,23 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}()
 
-	select {
-	case <-chankill:
-		if err := cmd.Process.Kill(); err != nil {
-			fmt.Println("failed to kill" + err.Error())
-		}
-		<-done // allow goroutine to exit
-		fmt.Println("process killed")
-		return nil, errors.New("process killed")
-	case err = <-done:
-		if err != nil {
-			err = fmt.Errorf("wait_cmd=%s, err=%s", commandName, err.Error())
-			return
+	for {
+		select {
+		case MaxMem = <-MaxMemChan:
+
+		case <-chankill:
+			if err := cmd.Process.Kill(); err != nil {
+				fmt.Println("failed to kill" + err.Error())
+			}
+			<-done // allow goroutine to exit
+			fmt.Println("process killed")
+			return nil, errors.New("process killed")
+		case err = <-done:
+			if err != nil {
+				err = fmt.Errorf("wait_cmd=%s, err=%s", commandName, err.Error())
+				return
+			}
+			break
 		}
 	}
 	logger.Event(event.WORK_END, "workid="+work.Id)
@@ -888,7 +895,7 @@ func runPreWorkExecutionScript(work *core.Workunit) (err error) {
 	cmd := exec.Command(commandName, args...)
 
 	msg := fmt.Sprintf("worker: start pre-work cmd=%s, args=%v", commandName, args)
-	fmt.Println(msg)
+
 	logger.Debug(1, msg)
 	logger.Event(event.PRE_WORK_START, "workid="+work.Id,
 		"pre-work cmd="+commandName,

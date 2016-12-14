@@ -358,10 +358,9 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	}
 
 	if client, ok := qm.GetClient(clientid); ok {
-		//delete(client.Current_work, workid)
-		client.Current_work_delete(workid)
-		if client.Current_work_length() == 0 {
-			client.Set_Status(CLIENT_STAT_ACTIVE_IDLE)
+		delete(client.Current_work, workid)
+		if len(client.Current_work) == 0 && client.Status == CLIENT_STAT_ACTIVE_BUSY {
+			client.Status = CLIENT_STAT_ACTIVE_IDLE
 		}
 		qm.PutClient(client)
 	}

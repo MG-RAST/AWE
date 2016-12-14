@@ -3,7 +3,7 @@ package core
 import (
 	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
-	"strings"
+	//"strings"
 	"sync"
 	"time"
 )
@@ -51,8 +51,8 @@ func (m *RWMutex) Lock() {
 
 func (m *RWMutex) LockNamed(name string) {
 	//logger.Debug(3, "Lock")
-	reader_list := strings.Join(m.RList(), ",")
-	logger.Debug(3, "(%s) %s requests Lock. current owner:  %s (reader list :%s)", m.Name, name, m.lockOwner, reader_list)
+	//reader_list := strings.Join(m.RList(), ",")
+	//logger.Debug(3, "(%s) %s requests Lock. current owner:  %s (reader list :%s)", m.Name, name, m.lockOwner, reader_list)
 	if m.Name == "" {
 		panic("LockNamed: object has no name")
 	}
@@ -66,7 +66,7 @@ func (m *RWMutex) LockNamed(name string) {
 		time.Sleep(100)
 	}
 
-	logger.Debug(3, "(%s) LOCKED by %s", m.Name, name)
+	//logger.Debug(3, "(%s) LOCKED by %s", m.Name, name)
 }
 
 func (m *RWMutex) Unlock() {

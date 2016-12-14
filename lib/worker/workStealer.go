@@ -85,7 +85,7 @@ func workStealer(control chan int) {
 
 		core.Self.Add_work(wu.Id)
 
-		workmap[wu.Id] = ID_WORKSTEALER
+		workmap.Set(wu.Id, ID_WORKSTEALER, "workStealer")
 
 		//hand the work to the next step handler: dataMover
 		workstat := core.NewWorkPerf(wu.Id)

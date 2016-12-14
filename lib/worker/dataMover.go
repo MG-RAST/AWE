@@ -184,7 +184,8 @@ func dataMover(control chan int) {
 		}
 		work := raw.workunit
 
-		workmap[work.Id] = ID_DATAMOVER
+		workmap.Set(work.Id, ID_DATAMOVER, "dataMover")
+
 		//make a working directory for the workunit
 		if err := work.Mkdir(); err != nil {
 			logger.Error("[dataMover#work.Mkdir], workid=" + work.Id + " error=" + err.Error())
@@ -278,7 +279,7 @@ func proxyDataMover(control chan int) {
 			perfstat: raw.perfstat,
 		}
 		work := raw.workunit
-		workmap[work.Id] = ID_DATAMOVER
+		workmap.Set(work.Id, ID_DATAMOVER, "proxyDataMover")
 		//check the availability prerequisite data and download if needed
 		if err := proxyMovePreData(parsed.workunit); err != nil {
 			logger.Error("err@dataMover_work.movePreData, workid=" + work.Id + " error=" + err.Error())

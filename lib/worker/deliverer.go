@@ -18,12 +18,19 @@ func deliverer(control chan int) {
 		processed := <-fromProcessor
 		work := processed.workunit
 
-		if workmap[work.Id] == ID_DISCARDED {
+		work_state, ok := workmap.Get(work.Id)
+		if !ok {
+			logger.Error("(deliverer) work id %s not found", work.Id)
+			continue
+		}
+
+		if work_state == ID_DISCARDED {
 			work.State = core.WORK_STAT_DISCARDED
 			logger.Event(event.WORK_DISCARD, "workid="+work.Id)
 		}
 
-		workmap[work.Id] = ID_DELIVERER
+		workmap.Set(work.Id, ID_DELIVERER, "deliverer")
+
 		perfstat := processed.perfstat
 
 		//post-process for works computed successfully: push output data to Shock
@@ -70,7 +77,8 @@ func deliverer(control chan int) {
 		}
 		core.Self.Current_work_delete(work.Id, true)
 		//delete(core.Self.Current_work, work.Id)
-		delete(workmap, work.Id)
+		//delete(workmap, work.Id)
+		workmap.Delete(work.Id)
 	}
 	control <- ID_DELIVERER //we are ending
 }

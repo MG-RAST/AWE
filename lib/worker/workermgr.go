@@ -12,8 +12,9 @@ var (
 	fromMover     chan *mediumwork // dataMover -> processor
 	fromProcessor chan *mediumwork // processor -> deliverer
 	chanPermit    chan bool
-	chankill      chan bool      //heartbeater -> worker
-	workmap       map[string]int //workunit map [work_id]stage_id}
+	chankill      chan bool //heartbeater -> worker
+	workmap       *WorkMap
+	//workmap       map[string]int //workunit map [work_id]stage_id}
 )
 
 type mediumwork struct {
@@ -41,7 +42,8 @@ func InitWorkers(client *core.Client) (err error) {
 	fromProcessor = make(chan *mediumwork) // processor -> deliverer
 	chankill = make(chan bool)             //heartbeater -> processor
 	chanPermit = make(chan bool)
-	workmap = map[string]int{} //workunit map [work_id]stage_idgit
+	//workmap = map[string]int{} //workunit map [work_id]stage_idgit
+	workmap = NewWorkMap()
 	return
 }
 

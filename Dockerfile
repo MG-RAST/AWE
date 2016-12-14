@@ -26,4 +26,5 @@ RUN mkdir -p ${AWE} && \
 #  CGO_ENABLED=0 go install -a -installsuffix cgo -v -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH=${GITHASH}" ...
 
 # since this produces three binaries, we just specify (b)ash
-CMD ["/bin/ash"]
+CMD ["/bin/bash"]
+#CMD ["/bin/ash"]

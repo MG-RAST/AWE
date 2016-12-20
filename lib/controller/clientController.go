@@ -48,7 +48,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	_, files, err := ParseMultipartForm(cx.Request)
 	if err != nil {
 		if err.Error() != "request Content-Type isn't multipart/form-data" {
-			logger.Error("Error parsing form: " + err.Error())
+			logger.Error("(ClientController/Create) Error parsing form: " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
 			return
 		}

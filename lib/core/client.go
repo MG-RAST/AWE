@@ -87,15 +87,22 @@ func NewClient() (client *Client) {
 }
 
 func NewProfileClient(filepath string) (client *Client, err error) {
-	client = new(Client)
 
 	jsonstream, err := ioutil.ReadFile(filepath)
 	if err != nil {
+		err = fmt.Errorf("(NewProfileClient) error in ioutil.ReadFile(filepath): %s %s", filepath, err.Error())
 		return nil, err
 	}
 
-	if err := json.Unmarshal(jsonstream, client); err != nil {
-		logger.Error("failed to unmashal json stream for client profile: " + string(jsonstream[:]))
+	if len(jsonstream) == 0 {
+		err = fmt.Errorf("filepath %s seems to be empty", filepath)
+		return
+	}
+
+	client = new(Client)
+	err = json.Unmarshal(jsonstream, client)
+	if err != nil {
+		err = fmt.Errorf("failed to unmashal json stream for client profile (error: %s) (file: %s) json: %s", err.Error(), filepath, string(jsonstream[:]))
 		return nil, err
 	}
 

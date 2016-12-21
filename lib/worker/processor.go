@@ -14,6 +14,7 @@ import (
 	"io"
 	"io/ioutil"
 	//"net/url"
+	"bytes"
 	"os"
 	"os/exec"
 	"path"
@@ -208,14 +209,21 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	container_name := "AWE_workunit"
 
-	Dockerimage := work.Cmd.Dockerimage
-
-	if Dockerimage == "" {
+	if work.Cmd.Dockerimage == "" {
 		err = fmt.Errorf("Error Dockerimage string empty")
 		return
 	}
 
-	logger.Debug(1, "Dockerimage: %s", Dockerimage)
+	logger.Debug(1, "Dockerimage: %s", work.Cmd.Dockerimage)
+
+	dockerimage_repo := ""
+	dockerimage_tag := ""
+	dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(work.Cmd.Dockerimage)
+	if err != nil {
+		return
+	}
+
+	Dockerimage_normalized := dockerimage_repo + ":" + dockerimage_tag
 
 	use_docker_api := true
 	if conf.DOCKER_BINARY != "API" {
@@ -248,7 +256,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	//var node *core.ShockNode = nil
 	// find image in repo (e.g. extract docker image id)
-	node, dockerimage_download_url, err := findDockerImageInShock(Dockerimage, work.Info.DataToken)
+	node, dockerimage_download_url, err := findDockerImageInShock(Dockerimage_normalized, work.Info.DataToken)
 	if err != nil {
 		err = fmt.Errorf("Error getting docker url, err=%s", err.Error())
 		return
@@ -257,49 +265,74 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	// TODO attr_json, _ := json.Marshal(node.Attributes) might be better
 	node_attr_map, ok := node.Attributes.(map[string]interface{})
 	if !ok {
-		err = fmt.Errorf("(1) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage)
+		err = fmt.Errorf("(1) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage_normalized)
 		return
 	}
 
 	dockerimage_id, ok := node_attr_map["id"].(string)
 	if !ok {
-		err = fmt.Errorf("(2) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage)
+		err = fmt.Errorf("(2) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage_normalized)
 		return
 	}
 
 	if dockerimage_id == "" {
-		err = fmt.Errorf("Id of Dockerimage=%s not found", Dockerimage)
+		err = fmt.Errorf("Id of Dockerimage=%s not found", Dockerimage_normalized)
 		return
 	}
-	logger.Debug(1, "using dockerimage id %s instead of name %s ", dockerimage_id, Dockerimage)
+	logger.Debug(1, "using dockerimage id %s instead of name %s ", dockerimage_id, Dockerimage_normalized)
 
 	// *** find/inspect image
 	image, err := InspectImage(client, dockerimage_id)
 
 	if err != nil {
 
-		logger.Debug(1, "docker image %s is not yet in local repository", Dockerimage)
+		logger.Debug(1, "docker image %s is not yet in local repository", Dockerimage_normalized)
+		err = nil
 
 		image_retrieval := "load" // TODO only load is guaraneed to work
+		//image_retrieval := "pull"
 		switch {
 		case image_retrieval == "load":
 			{ // for images that have been saved
+				logger.Debug(1, "Loading image %s", dockerimage_download_url)
 				err = dockerLoadImage(client, dockerimage_download_url, work.Info.DataToken)
+				if err != nil {
+					err = fmt.Errorf("Docker image was not correctly loaded, err=%s", err.Error())
+					return
+				}
 			}
 		case image_retrieval == "import":
 			{ // for containers that have been exported
-				err = dockerImportImage(client, Dockerimage, work.Info.DataToken)
+				logger.Debug(1, "Importing image %s", Dockerimage_normalized)
+				err = dockerImportImage(client, Dockerimage_normalized, work.Info.DataToken)
+				if err != nil {
+					err = fmt.Errorf("Docker image was not correctly imported, err=%s", err.Error())
+					return
+				}
 			}
 		case image_retrieval == "build":
 			{ // to create image from Dockerfile
-				err = dockerBuildImage(client, Dockerimage)
+				logger.Debug(1, "Building image %s", Dockerimage_normalized)
+				err = dockerBuildImage(client, Dockerimage_normalized)
+				if err != nil {
+					err = fmt.Errorf("Docker image was not correctly built, err=%s", err.Error())
+					return
+				}
+			}
+		case image_retrieval == "pull":
+			{ // pull from docker hub
+				logger.Debug(1, "Pulling image %s", Dockerimage_normalized)
+				var buf bytes.Buffer
+				pio := docker.PullImageOptions{Repository: Dockerimage_normalized, OutputStream: &buf}
+				err = client.PullImage(pio, docker.AuthConfiguration{})
+				logger.Debug(3, "docker pull response: ", buf.String())
+				if err != nil {
+					err = fmt.Errorf("Docker image was not correctly pulled, err=%s", err.Error())
+					return
+				}
 			}
 		}
 
-		if err != nil {
-			err = fmt.Errorf("Docker image was not correctly imported or built, err=%s", err.Error())
-			return
-		}
 		// example urls
 		// find image : http://shock.metagenomics.anl.gov/node/?query&docker=1&tag=wgerlach/bowtie2:2.2.0
 		// view node: http://shock.metagenomics.anl.gov/node/ed0a6b20-c535-40d7-92e8-754bb8b6b48f
@@ -312,45 +345,33 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		if dockerimage_id != "" {
 			image, err = InspectImage(client, dockerimage_id)
 			if err != nil {
-				err = fmt.Errorf("(InspectImage) Docker image (%s , %s) was not correctly imported or built, err=%s", Dockerimage, dockerimage_id, err.Error())
+				err = fmt.Errorf("(InspectImage) Docker image (%s , %s) was not correctly imported or built, err=%s", Dockerimage_normalized, dockerimage_id, err.Error())
 				return
 			}
 		} else {
-			image, err = InspectImage(client, Dockerimage)
+			image, err = InspectImage(client, Dockerimage_normalized)
 			if err != nil {
-				err = fmt.Errorf("(InspectImage) Docker image (%s) was not correctly imported or built, err=%s", Dockerimage, err.Error())
+				err = fmt.Errorf("(InspectImage) Docker image (%s) was not correctly imported or built, err=%s", Dockerimage_normalized, err.Error())
 				return
 			}
 		}
 
 	} else {
-		logger.Debug(1, "docker image %s is already in local repository", Dockerimage)
+		logger.Debug(1, "docker image %s is already in local repository", Dockerimage_normalized)
 	}
 
 	if dockerimage_id != image.ID {
-		err = fmt.Errorf("error: dockerimage_id != image.ID, %s != %s (%s)", dockerimage_id, image.ID, Dockerimage)
+		err = fmt.Errorf("error: dockerimage_id != image.ID, %s != %s (%s)", dockerimage_id, image.ID, Dockerimage_normalized)
 		return
 	}
 
 	// tag image to make debugging easier
-	if Dockerimage != "" {
-		Dockerimage_array := strings.Split(Dockerimage, ":") // TODO split by colon is risky
-		dockerimage_repo := ""
-		dockerimage_tag := ""
 
-		if len(Dockerimage_array) > 0 {
-			dockerimage_repo = Dockerimage_array[0]
-		}
-		if len(Dockerimage_array) > 1 {
-			dockerimage_tag = Dockerimage_array[1]
-		}
+	tag_opts := docker.TagImageOptions{Repo: dockerimage_repo, Tag: dockerimage_tag}
 
-		tag_opts := docker.TagImageOptions{Repo: dockerimage_repo, Tag: dockerimage_tag}
-
-		err = TagImage(client, dockerimage_id, tag_opts)
-		if err != nil {
-			logger.Error("warning: tagging of image %s with %s failed, err:", dockerimage_id, Dockerimage, err.Error())
-		}
+	err = TagImage(client, dockerimage_id, tag_opts)
+	if err != nil {
+		logger.Error("warning: tagging of image %s with %s failed, err:", dockerimage_id, Dockerimage_normalized, err.Error())
 	}
 
 	// collect environment
@@ -444,7 +465,29 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		docker_commandline_create = append(docker_commandline_create, docker_environment_string)
 	}
 
-	// 	# use :Mount struct {
+	// workdir
+	mount_point_workdir := docker.Mount{
+		Name:        "workdir",
+		Source:      work.Path(),
+		Destination: conf.DOCKER_WORK_DIR,
+		RW:          true,
+	}
+
+	// predata
+	var mount_point_predata docker.Mount
+
+	if len(work.Predata) > 0 {
+		predata_directory := path.Join(conf.DATA_PATH, "predata")
+		//bindstr_predata = predata_directory + "/:" + conf.DOCKER_WORKUNIT_PREDATA_DIR + ":ro"
+
+		mount_point_predata = docker.Mount{
+			Name:        "predata",
+			Source:      predata_directory,
+			Destination: conf.DOCKER_WORKUNIT_PREDATA_DIR,
+			RW:          false,
+		}
+	}
+	// Mount struct {
 	// 	Name        string
 	// 	Source      string
 	// 	Destination string
@@ -462,8 +505,14 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		Cmd:          container_cmd,
 		//Volumes:      map[string]struct{}{conf.DOCKER_WORK_DIR: struct{}{}}, // old version
 		//Volumes: map[string]struct{}{bindstr_workdir: struct{}{}},
-		//Mounts:
+
 		Env: docker_environment,
+	}
+
+	if len(work.Predata) > 0 {
+		config.Mounts = []docker.Mount{mount_point_workdir, mount_point_predata}
+	} else {
+		config.Mounts = []docker.Mount{mount_point_workdir}
 	}
 
 	if len(work.Predata) > 0 {
@@ -480,7 +529,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	container_id := ""
 
 	// *** create container
-	logger.Debug(1, "creating docker container from image %s (%s)", Dockerimage, dockerimage_id)
+	logger.Debug(1, "creating docker container from image %s (%s)", Dockerimage_normalized, dockerimage_id)
 
 	if client != nil {
 
@@ -510,7 +559,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	// *** start container
 
 	fake_docker_cmd := "sudo docker run -t -i --name test " + volume_str + " " + docker_environment_string + " --workdir=" + conf.DOCKER_WORK_DIR + " " + dockerimage_id + " " + strings.Join(container_cmd, " ")
-	logger.Debug(1, "fake_docker_cmd ("+Dockerimage+"): "+fake_docker_cmd)
+	logger.Debug(1, "fake_docker_cmd ("+Dockerimage_normalized+"): "+fake_docker_cmd)
 	logger.Debug(1, "starting docker container...")
 
 	docker_preparation_end := time.Now().Unix()
@@ -784,7 +833,7 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	cmd := exec.Command(commandName, args...)
 
 	msg := fmt.Sprintf("worker: start cmd=%s, args=%v", commandName, args)
-	fmt.Println(msg)
+	//fmt.Println(msg)
 	logger.Debug(1, msg)
 	logger.Event(event.WORK_START, "workid="+work.Id,
 		"cmd="+commandName,
@@ -858,23 +907,27 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}()
 
-	for {
+	do_loop := true
+	for do_loop {
+		logger.Debug(3, "processor.go for-loop")
 		select {
-		case MaxMem = <-MaxMemChan:
-
+		case MaxMem_value := <-MaxMemChan:
+			logger.Debug(3, "received MaxMem_value %d", MaxMem_value)
+			MaxMem = MaxMem_value
 		case <-chankill:
 			if err := cmd.Process.Kill(); err != nil {
 				fmt.Println("failed to kill" + err.Error())
 			}
 			<-done // allow goroutine to exit
-			fmt.Println("process killed")
+			logger.Info("worker process was killed")
 			return nil, errors.New("process killed")
 		case err = <-done:
+			logger.Debug(3, "received done")
 			if err != nil {
 				err = fmt.Errorf("wait_cmd=%s, err=%s", commandName, err.Error())
 				return
 			}
-			break
+			do_loop = false
 		}
 	}
 	logger.Event(event.WORK_END, "workid="+work.Id)

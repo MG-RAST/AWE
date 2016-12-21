@@ -240,6 +240,7 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		client, err = NewProfileClient(files["profile"].Path)
 		os.Remove(files["profile"].Path)
 		if err != nil {
+			err = fmt.Errorf("NewProfileClient returned: %s", err.Error())
 			return
 		}
 	} else {
@@ -260,12 +261,14 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		if cg != nil {
 			rights := cg.Acl.Check("public")
 			if rights["execute"] == false {
-				return nil, errors.New("Clientgroup with the group specified by your client exists, but you cannot register with it, without clientgroup token.")
+				err = errors.New("Clientgroup with the group specified by your client exists, but you cannot register with it, without clientgroup token.")
+				return nil, err
 			}
 		} else {
 			u := &user.User{Uuid: "public"}
 			cg, err = CreateClientGroup(client.Group, u)
 			if err != nil {
+				err = fmt.Errorf("CreateClientGroup returned: %s", err.Error())
 				return nil, err
 			}
 		}

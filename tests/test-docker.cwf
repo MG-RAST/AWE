@@ -11,7 +11,7 @@
                 "name": "uname",
                 "args": "-a",
                 "description": "test",
-                "Dockerimage": "ubuntu"
+                "Dockerimage": "mgrast/pipeline:latest"
             },
             "taskid": "0", 
             "totalwork": 1

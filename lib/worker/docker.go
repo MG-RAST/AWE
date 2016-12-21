@@ -67,7 +67,7 @@ func (a DockerShockNodeArray) Less(i, j int) bool {
 }
 
 func InspectImage(client *docker.Client, dockerimage_id string) (image *docker.Image, err error) {
-	logger.Debug(1, fmt.Sprintf("(InspectImage) %s:", dockerimage_id))
+	logger.Debug(1, "(InspectImage) %s:", dockerimage_id)
 	if client == nil {
 		// if image does not exists, return status 1 and text on stderr
 
@@ -499,6 +499,25 @@ func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 	return nil
 }
 
+func SplitDockerimageName(Dockerimage string) (repository string, tag string, err error) {
+
+	dockerimage_array := strings.Split(Dockerimage, ":")
+
+	if len(dockerimage_array) > 2 {
+		err = fmt.Errorf("dockerimage name %s contains nore than one colon", Dockerimage)
+	} else if len(dockerimage_array) == 2 {
+		repository = dockerimage_array[0]
+		tag = dockerimage_array[1]
+	} else if len(dockerimage_array) == 1 {
+		repository = dockerimage_array[0]
+		tag = "latest"
+	} else {
+		err = fmt.Errorf("dockerimage empty !?")
+	}
+
+	return
+}
+
 // was getDockerImageUrl(Dockerimage string) (download_url string, err error)
 func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.ShockNode, download_url string, err error) {
 
@@ -509,21 +528,12 @@ func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.S
 
 	shock_docker_repo := shock.ShockClient{Host: conf.SHOCK_DOCKER_IMAGE_REPOSITORY, Token: datatoken}
 
-	dockerimage_array := strings.Split(Dockerimage, ":")
-
 	dockerimage_repo := ""
 	dockerimage_tag := ""
 
-	if len(dockerimage_array) > 2 {
-		return nil, "", errors.New(fmt.Sprintf("dockerimage name %s contains nore than one colon", Dockerimage))
-	} else if len(dockerimage_array) == 2 {
-		dockerimage_repo = dockerimage_array[0]
-		dockerimage_tag = dockerimage_array[1]
-	} else if len(dockerimage_array) == 1 {
-		dockerimage_repo = dockerimage_array[0]
-		dockerimage_tag = "latest"
-	} else {
-		return nil, "", errors.New(fmt.Sprintf("dockerimage empty !?", Dockerimage))
+	dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(Dockerimage)
+	if err != nil {
+		return
 	}
 
 	var version_array = [...]string{"unknown", "dev", "develop", "alpha", "a", "beta", "b", "c", "d", "e"}

@@ -46,7 +46,7 @@ func workStealer(control chan int) {
 				//normal, do nothing
 				logger.Debug(3, fmt.Sprintf("client %s recieved status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL))
 			} else if err.Error() == e.ClientNotFound {
-				logger.Error("server responds: client not found, will wait for heartbeat process to fix this")
+				logger.Error("server responds: client not found. will wait for heartbeat process to fix this")
 				//server may be restarted, waiting for the hearbeater goroutine to try re-register
 				//ReRegisterWithSelf(conf.SERVER_URL)
 				// this has to be done by the heartbeat

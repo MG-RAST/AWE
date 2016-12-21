@@ -104,7 +104,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	clientid := notice.ClientId
 	if client, ok := qm.GetClient(clientid, true); ok {
 		//delete(client.Current_work, workid)
-		client.LockNamed("ProxyMgr/handleWorkStatusChange A")
+		client.LockNamed("ProxyMgr/handleWorkStatusChange A2")
 		client.Current_work_delete(workid, false)
 		if client.Current_work_length(false) == 0 {
 			client.Status = CLIENT_STAT_ACTIVE_IDLE

@@ -452,7 +452,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			}
 		}
 		if client, ok := qm.GetClient(clientid, true); ok {
-			client.Lock()
+			client.LockNamed("ServerMgr/handleWorkStatusChange C")
 			client.Append_Skip_work(workid, false)
 			client.Increment_total_failed(false)
 			client.Last_failed += 1 //last consecutive failures

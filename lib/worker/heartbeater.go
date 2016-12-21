@@ -105,6 +105,7 @@ func heartbeating(host string, clientid string) (msg core.HBmsg, err error) {
 func RegisterWithProfile(host string, profile *core.Client) (client *core.Client, err error) {
 	profile_jsonstream, err := json.Marshal(profile)
 	profile_path := conf.DATA_PATH + "/clientprofile.json"
+	logger.Debug(3, "profile_path: %s", profile_path)
 	ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
 
 	bodyBuf := &bytes.Buffer{}
@@ -157,9 +158,14 @@ func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, e
 		err = fmt.Errorf("json.Marshal(profile) error: %s", err.Error())
 		return
 	}
-	logger.Debug(3, "profile_jsonstream: "+string(profile_jsonstream))
+	logger.Debug(3, "profile_jsonstream: %s ", string(profile_jsonstream))
 	profile_path := conf.DATA_PATH + "/clientprofile.json"
-	ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
+	logger.Debug(3, "profile_path: %s", profile_path)
+	err = ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
+	if err != nil {
+		err = fmt.Errorf("(RegisterWithAuth) error in ioutil.WriteFile: %s", err.Error())
+		return
+	}
 
 	form := httpclient.NewForm()
 	form.AddFile("profile", profile_path)
@@ -182,7 +188,7 @@ func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, e
 	}
 
 	targetUrl := host + "/client"
-
+	logger.Debug(3, "Try to register client: %s", targetUrl)
 	//resp, err := httpclient.Post(targetUrl, headers, form.Reader, nil)
 	resp, err := httpclient.DoTimeout("POST", targetUrl, headers, form.Reader, nil, time.Second*10)
 	if err != nil {
@@ -198,7 +204,7 @@ func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, e
 		return
 	}
 	if len(response.Errs) > 0 {
-		err = errors.New(strings.Join(response.Errs, ","))
+		err = fmt.Errorf("Server returned: %s", strings.Join(response.Errs, ","))
 		return
 	}
 	client = &response.Data

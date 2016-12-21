@@ -104,7 +104,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	clientid := notice.ClientId
 	if client, ok := qm.GetClient(clientid, true); ok {
 		//delete(client.Current_work, workid)
-		client.Lock()
+		client.LockNamed("ProxyMgr/handleWorkStatusChange A")
 		client.Current_work_delete(workid, false)
 		if client.Current_work_length(false) == 0 {
 			client.Status = CLIENT_STAT_ACTIVE_IDLE
@@ -125,7 +125,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 			}
 		} else if work.State == WORK_STAT_FAIL {
 			if client, ok := qm.GetClient(clientid, true); ok {
-				client.Lock()
+				client.LockNamed("ProxyMgr/handleWorkStatusChange B")
 				client.Append_Skip_work(workid, false)
 				client.Increment_total_failed(false)
 				client.Last_failed += 1 //last consecutive failures
@@ -197,7 +197,7 @@ func (qm *ProxyMgr) ClientChecker() {
 		read_lock := qm.clientMap.RLockNamed("proxy/ClientChecker")
 		for _, client := range *qm.clientMap.GetMap() {
 			//for _, client := range qm.GetAllClients() {
-			client.Lock()
+			client.LockNamed("ProxyMgr/ClientChecker")
 			if client.Tag == true {
 				client.Tag = false
 				total_minutes := int(time.Now().Sub(client.RegTime).Minutes())

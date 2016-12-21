@@ -82,24 +82,27 @@ type JobLog struct {
 	Tasks      []*TaskLog `bson:"tasks" json:"tasks"`
 }
 
+func NewJobRaw() (job *JobRaw) {
+	return &JobRaw{
+		Info: NewInfo(),
+		Acl:  acl.Acl{},
+	}
+}
+
 func NewJob() (job *Job) {
 
-	r_job := JobRaw{
-		Info: NewInfo(),
-	}
+	r_job := NewJobRaw()
 
-	job = &Job{JobRaw: r_job}
+	job = &Job{JobRaw: *r_job}
 
 	return
 }
 
 func NewJobDep() (job *JobDep) {
 
-	r_job := JobRaw{
-		Info: NewInfo(),
-	}
+	r_job := NewJobRaw()
 
-	job = &JobDep{JobRaw: r_job}
+	job = &JobDep{JobRaw: *r_job}
 
 	return
 }

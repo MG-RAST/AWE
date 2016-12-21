@@ -122,6 +122,11 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 	}
 
 	// Once, job has been created, set job owner and add owner to all ACL's
+	if job == nil {
+		err = fmt.Errorf("job==nil")
+		return
+	}
+
 	job.Acl.SetOwner(u.Uuid)
 	job.Acl.Set(u.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
 

@@ -773,3 +773,28 @@ func dockerImportImage(client *docker.Client, Dockerimage string, datatoken stri
 
 	return
 }
+
+func DockerizeName(input string) string {
+
+	// valid according to docker source: [a-zA-Z0-9_-]
+	// source: https://github.com/docker/docker/blob/f63cdf0260cf6287d28a589a79d3f947def6a569/runtime.go#L33
+
+	whitelist_it := func(r rune) rune {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			return r
+		case r >= 'a' && r <= 'z':
+			return r
+		case r >= '0' && r <= '9':
+			return r
+		case r == '_':
+			return r
+		case r == '-':
+			return r
+		default:
+			return '_'
+		}
+		return r
+	}
+	return strings.Map(whitelist_it, input)
+}

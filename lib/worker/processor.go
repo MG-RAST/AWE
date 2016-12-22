@@ -207,7 +207,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	//cmd := exec.Command(commandName, args...)
 
-	container_name := "AWE_workunit"
+	container_name := "AWE_workunit_" + DockerizeName(conf.CLIENT_NAME)
 
 	if work.Cmd.Dockerimage == "" {
 		err = fmt.Errorf("Error Dockerimage string empty")
@@ -420,6 +420,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			err = fmt.Errorf("error writing wrapper script, err=%s", err.Error())
 			return
 		}
+		//time.Sleep(time.Second * 3000)
 		bash_command = wrapper_script_filename_docker
 	}
 	//bash_command = fmt.Sprintf("sleep 3 ; uname -a ; ./awe_qc.pl -format my_file_format.075 -out_prefix my_job_id.075 -assembled 1 -filter_options my_filter_options -proc 8 -input Ebin3.fa; uname -a 2> %s 1> %s", conf.STDERR_FILENAME, conf.STDOUT_FILENAME)
@@ -465,37 +466,6 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		docker_commandline_create = append(docker_commandline_create, docker_environment_string)
 	}
 
-	// workdir
-	mount_point_workdir := docker.Mount{
-		Name:        "workdir",
-		Source:      work.Path(),
-		Destination: conf.DOCKER_WORK_DIR,
-		RW:          true,
-	}
-
-	// predata
-	var mount_point_predata docker.Mount
-
-	if len(work.Predata) > 0 {
-		predata_directory := path.Join(conf.DATA_PATH, "predata")
-		//bindstr_predata = predata_directory + "/:" + conf.DOCKER_WORKUNIT_PREDATA_DIR + ":ro"
-
-		mount_point_predata = docker.Mount{
-			Name:        "predata",
-			Source:      predata_directory,
-			Destination: conf.DOCKER_WORKUNIT_PREDATA_DIR,
-			RW:          false,
-		}
-	}
-	// Mount struct {
-	// 	Name        string
-	// 	Source      string
-	// 	Destination string
-	// 	Driver      string
-	// 	Mode        string
-	// 	RW          bool
-	// }
-
 	// version for docker API
 	config := docker.Config{Image: dockerimage_id,
 		WorkingDir:   conf.DOCKER_WORK_DIR,
@@ -503,16 +473,10 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		AttachStderr: true,
 		AttachStdin:  false,
 		Cmd:          container_cmd,
-		//Volumes:      map[string]struct{}{conf.DOCKER_WORK_DIR: struct{}{}}, // old version
+		Volumes:      map[string]struct{}{conf.DOCKER_WORK_DIR: struct{}{}}, // old version
 		//Volumes: map[string]struct{}{bindstr_workdir: struct{}{}},
 
 		Env: docker_environment,
-	}
-
-	if len(work.Predata) > 0 {
-		config.Mounts = []docker.Mount{mount_point_workdir, mount_point_predata}
-	} else {
-		config.Mounts = []docker.Mount{mount_point_workdir}
 	}
 
 	if len(work.Predata) > 0 {
@@ -522,14 +486,14 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	docker_commandline_create = append(docker_commandline_create, dockerimage_id)   //
 	docker_commandline_create = append(docker_commandline_create, container_cmd...) // argument to the "docker create" command
 
-	opts := docker.CreateContainerOptions{Name: container_name, Config: &config}
+	opts := docker.CreateContainerOptions{Name: container_name, Config: &config, HostConfig: &docker.HostConfig{Binds: bindarray}}
 
 	// note: docker binary mounts on creation, while docker API mounts on start of container
 
 	container_id := ""
 
 	// *** create container
-	logger.Debug(1, "creating docker container from image %s (%s)", Dockerimage_normalized, dockerimage_id)
+	logger.Debug(1, "creating docker container %s from image %s (%s)", container_name, Dockerimage_normalized, dockerimage_id)
 
 	if client != nil {
 
@@ -573,6 +537,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	} else {
 		err = StartContainer(container_id, volume_str)
 	}
+
 	if err != nil {
 		err = fmt.Errorf("error starting container, id=%s, err=%s", container_id, err.Error())
 		return

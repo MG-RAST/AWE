@@ -19,7 +19,7 @@ RUN ln -s /go /gopath
 RUN mkdir -p ${AWE} && \
   cd ${AWE} && \
   GITHASH=$(git -C ${AWE} rev-parse HEAD) && \
-  go install -a -v -race -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH=${GITHASH}" ...
+  go install -a -v -race -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH=${GITHASH}" ./awe-client ./awe-server
 
-# since this produces three binaries, we just specify (b)ash
+# since this produces two binaries, we just specify (b)ash
 CMD ["/bin/bash"]

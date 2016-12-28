@@ -23,6 +23,7 @@ const (
 )
 
 type TaskRaw struct {
+	RWMutex
 	Id            string            `bson:"taskid" json:"taskid"`
 	JobId         string            `bson:"jobid" json:"jobid"`
 	Info          *Info             `bson:"info" json:"-"`
@@ -71,6 +72,7 @@ type TaskLog struct {
 func NewTaskRaw(job_id string, task_id string, info *Info) TaskRaw {
 
 	logger.Debug(0, "Task.Id: %s_%s", job_id, task_id)
+
 	return TaskRaw{
 		//Id:         fmt.Sprintf("%s_%s", job_id, task_id),
 		Id:         task_id,
@@ -84,6 +86,10 @@ func NewTaskRaw(job_id string, task_id string, info *Info) TaskRaw {
 		State:      TASK_STAT_INIT,
 		Skip:       0,
 	}
+}
+
+func (task *TaskRaw) Init() {
+	task.RWMutex.Init("task_" + task.Id)
 }
 
 func NewTask(job *Job, task_id string) (t *Task, err error) {
@@ -100,6 +106,19 @@ func NewTask(job *Job, task_id string) (t *Task, err error) {
 		Outputs: []*IO{},
 		Predata: []*IO{},
 	}
+	return
+}
+
+func (task *TaskRaw) GetState() string {
+	lock := task.RLockNamed("GetState")
+	defer task.RUnlockNamed(lock)
+	return task.State
+}
+
+func (task *TaskRaw) SetState(new_state string) {
+	task.LockNamed("SetState")
+	defer task.Unlock()
+	task.State = new_state
 	return
 }
 
@@ -169,11 +188,13 @@ func (task *Task) InitTask(job *Job) (err error) {
 	}
 
 	task.setTokenForIO()
-	task.State = TASK_STAT_INIT
+	task.SetState(TASK_STAT_INIT)
 	return
 }
 
 func (task *Task) UpdateState(newState string) string {
+	task.LockNamed("UpdateState")
+	defer task.Unlock()
 	task.State = newState
 	return task.State
 }
@@ -357,9 +378,10 @@ func (task *Task) Skippable() bool {
 }
 
 func (task *Task) DeleteOutput() {
-	if task.State == TASK_STAT_COMPLETED ||
-		task.State == TASK_STAT_SKIPPED ||
-		task.State == TASK_STAT_FAIL_SKIP {
+	task_state := task.GetState()
+	if task_state == TASK_STAT_COMPLETED ||
+		task_state == TASK_STAT_SKIPPED ||
+		task_state == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Outputs {
 			if io.Delete {
 				if nodeid, err := io.DeleteNode(); err != nil {
@@ -371,9 +393,10 @@ func (task *Task) DeleteOutput() {
 }
 
 func (task *Task) DeleteInput() {
-	if task.State == TASK_STAT_COMPLETED ||
-		task.State == TASK_STAT_SKIPPED ||
-		task.State == TASK_STAT_FAIL_SKIP {
+	task_state := task.GetState()
+	if task_state == TASK_STAT_COMPLETED ||
+		task_state == TASK_STAT_SKIPPED ||
+		task_state == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Inputs {
 			if io.Delete {
 				if nodeid, err := io.DeleteNode(); err != nil {

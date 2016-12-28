@@ -290,7 +290,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	for _, task := range qm.TaskMap.Map {
 		if qm.isTaskReady(task) {
 			if err := qm.taskEnQueue(task); err != nil {
-				task.State = TASK_STAT_SUSPEND
+				task.SetState(TASK_STAT_SUSPEND)
 				jobid := getParentJobId(task.Id)
 				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
 			}
@@ -355,7 +355,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	} else {
 		MAX_FAILURE = conf.MAX_WORK_FAILURE
 	}
-	if task.State == TASK_STAT_FAIL_SKIP {
+	if task.GetState() == TASK_STAT_FAIL_SKIP {
 		// A work unit for this task failed before this one arrived.
 		// User set Skip=2 so the task was just skipped. Any subsiquent
 		// workunits are just deleted...
@@ -385,7 +385,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		task.RemainWork -= 1
 		task.ComputeTime += computetime
 		if task.RemainWork == 0 {
-			task.State = TASK_STAT_COMPLETED
+			task.SetState(TASK_STAT_COMPLETED)
 			task.CompletedDate = time.Now()
 			for _, output := range task.Outputs {
 				if _, err = output.DataUrl(); err != nil {
@@ -413,7 +413,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			// user wants to skip task - not a real failure
 			// don't mark client as failed
 			task.RemainWork = 0 // not doing anything else...
-			task.State = TASK_STAT_FAIL_SKIP
+			task.SetState(TASK_STAT_FAIL_SKIP)
 			for _, output := range task.Outputs {
 				output.GetFileSize()
 				output.DataUrl()
@@ -441,7 +441,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			if err != nil {
 				return
 			}
-			task.State = TASK_STAT_SUSPEND
+			task.SetState(TASK_STAT_SUSPEND)
 
 			reason := fmt.Sprintf("workunit %s failed %d time(s).", workid, MAX_FAILURE)
 			if len(notice.Notes) > 0 {
@@ -482,19 +482,21 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
 	read_lock := qm.TaskMap.RLockNamed("GetJsonStatus")
 	for _, task := range qm.TaskMap.Map {
 		total_task += 1
-		if task.State == TASK_STAT_COMPLETED {
+		task_state := task.GetState()
+		switch task_state {
+		case TASK_STAT_COMPLETED:
 			completed_task += 1
-		} else if task.State == TASK_STAT_PENDING {
+		case TASK_STAT_PENDING:
 			pending_task += 1
-		} else if task.State == TASK_STAT_QUEUED {
+		case TASK_STAT_QUEUED:
 			queuing_task += 1
-		} else if task.State == TASK_STAT_INPROGRESS {
+		case TASK_STAT_INPROGRESS:
 			started_task += 1
-		} else if task.State == TASK_STAT_SUSPEND {
+		case TASK_STAT_SUSPEND:
 			suspended_task += 1
-		} else if task.State == TASK_STAT_SKIPPED {
+		case TASK_STAT_SKIPPED:
 			skipped_task += 1
-		} else if task.State == TASK_STAT_FAIL_SKIP {
+		case TASK_STAT_FAIL_SKIP:
 			fail_skip_task += 1
 		}
 	}
@@ -721,7 +723,8 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, tasks []*Task) (err error
 
 func (qm *ServerMgr) addTask(task *Task) (err error) {
 	//for job recovery from db or for pseudo-task
-	if (task.State == TASK_STAT_COMPLETED) || (task.State == TASK_STAT_PASSED) {
+	task_state := task.GetState()
+	if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
 		qm.TaskMap.Add(task)
 		return
 	}
@@ -731,11 +734,11 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 	}
 
 	defer qm.TaskMap.Add(task)
-	task.State = TASK_STAT_PENDING
+	task.SetState(TASK_STAT_PENDING)
 
 	if qm.isTaskReady(task) {
 		if err = qm.taskEnQueue(task); err != nil {
-			task.State = TASK_STAT_SUSPEND
+			task.SetState(TASK_STAT_SUSPEND)
 			jobid := getParentJobId(task.Id)
 			qm.SuspendJob(jobid, fmt.Sprintf("failed in enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
 			return err
@@ -746,7 +749,7 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 }
 
 func (qm *ServerMgr) skipTask(task *Task) (err error) {
-	task.State = TASK_STAT_SKIPPED
+	task.SetState(TASK_STAT_SKIPPED)
 	task.RemainWork = 0
 	//update job and queue info. Skipped task behaves as finished tasks
 	if err = qm.updateJobTask(task); err != nil { //TASK state  -> SKIPPED
@@ -766,14 +769,16 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool) {
 		return false
 	}
 
-	if task.State == TASK_STAT_PENDING {
+	task_state := task.GetState()
+	if task_state == TASK_STAT_PENDING {
 		ready = true
 		for _, predecessor := range task.DependsOn {
 			if pretask, ok := qm.TaskMap.Get(predecessor, true); ok {
-				if pretask.State != TASK_STAT_COMPLETED &&
-					pretask.State != TASK_STAT_PASSED &&
-					pretask.State != TASK_STAT_SKIPPED &&
-					pretask.State != TASK_STAT_FAIL_SKIP {
+				pretask_state := pretask.GetState()
+				if pretask_state != TASK_STAT_COMPLETED &&
+					pretask_state != TASK_STAT_PASSED &&
+					pretask_state != TASK_STAT_SKIPPED &&
+					pretask_state != TASK_STAT_FAIL_SKIP {
 					ready = false
 				}
 			} else {
@@ -818,7 +823,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 		logger.Error("qmgr.taskEnQueue parseTask:" + err.Error())
 		return err
 	}
-	task.State = TASK_STAT_QUEUED
+	task.SetState(TASK_STAT_QUEUED)
 	task.CreatedDate = time.Now()
 	task.StartedDate = time.Now() //to-do: will be changed to the time when the first workunit is checked out
 	qm.updateJobTask(task)        //task status PENDING->QUEUED
@@ -978,7 +983,7 @@ func (qm *ServerMgr) updateTaskWorkStatus(task *Task, rank int, newstatus string
 func (qm *ServerMgr) ShowTasks() {
 	logger.Debug(1, "current active tasks (%d)", qm.TaskMap.Len())
 	for _, task := range qm.TaskMap.Map {
-		logger.Debug(1, "taskid=%s;status=%s", task.Id, task.State)
+		logger.Debug(1, "taskid=%s;status=%s", task.Id, task.GetState())
 	}
 }
 
@@ -1106,9 +1111,10 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 
 	//suspend parsed tasks
 	for _, task := range job.Tasks {
-		if task.State == TASK_STAT_QUEUED || task.State == TASK_STAT_INIT || task.State == TASK_STAT_INPROGRESS {
+		task_state := task.GetState()
+		if task_state == TASK_STAT_QUEUED || task_state == TASK_STAT_INIT || task_state == TASK_STAT_INPROGRESS {
 			qm.TaskMap.SetState(task.Id, TASK_STAT_SUSPEND)
-			task.State = TASK_STAT_SUSPEND
+			task.SetState(TASK_STAT_SUSPEND)
 			job.UpdateTask(task)
 		}
 	}
@@ -1370,7 +1376,7 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 
 func resetTask(task *Task, info *Info) {
 	task.Info = info
-	task.State = TASK_STAT_PENDING
+	task.SetState(TASK_STAT_PENDING)
 	task.RemainWork = task.TotalWork
 	task.ComputeTime = 0
 	task.CompletedDate = time.Time{}

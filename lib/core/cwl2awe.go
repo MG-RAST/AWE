@@ -469,6 +469,7 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 		err = fmt.Errorf("Task creation failed: %v", err)
 		return
 	}
+	awe_task.Init()
 	logger.Debug(0, "Task created: %s", awe_task.Id)
 
 	(*helper.AWE_tasks)[job.Id] = awe_task

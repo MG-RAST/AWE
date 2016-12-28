@@ -334,9 +334,10 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	job.Tasks[idx] = task
 
 	//if this task is complete, count remain tasks for the job
-	if task.State == TASK_STAT_COMPLETED ||
-		task.State == TASK_STAT_SKIPPED ||
-		task.State == TASK_STAT_FAIL_SKIP {
+	task_state := task.GetState()
+	if task_state == TASK_STAT_COMPLETED ||
+		task_state == TASK_STAT_SKIPPED ||
+		task_state == TASK_STAT_FAIL_SKIP {
 		remain_tasks := len(job.Tasks)
 		for _, t := range job.Tasks { //double check all task other than the one with state change
 			if t.State == TASK_STAT_COMPLETED ||

@@ -468,7 +468,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job) {
 		task.MaxWorkSize = taskDep.MaxWorkSize
 		task.RemainWork = taskDep.RemainWork
 		task.WorkStatus = taskDep.WorkStatus
-		task.State = taskDep.State
+		task.SetState(taskDep.State)
 		task.Skip = taskDep.Skip
 		task.CreatedDate = taskDep.CreatedDate
 		task.StartedDate = taskDep.StartedDate
@@ -531,8 +531,9 @@ func AwfToJob(awf *Workflow) (job *Job, err error) {
 	if err != nil {
 		return
 	}
+	task.Init()
 	task.Cmd.Description = "job submission"
-	task.State = TASK_STAT_PASSED
+	task.SetState(TASK_STAT_PASSED)
 	task.RemainWork = 0
 	task.TotalWork = 0
 	job.Tasks = append(job.Tasks, task)
@@ -544,6 +545,7 @@ func AwfToJob(awf *Workflow) (job *Job, err error) {
 		if err != nil {
 			return
 		}
+		task.Init()
 		for name, origin := range awf_task.Inputs {
 			io := new(IO)
 			io.FileName = name

@@ -56,6 +56,6 @@ func (tm *TaskMap) SetState(id string, new_state string) (err error) {
 		err = fmt.Errorf("(SetState) Task not found")
 		return
 	}
-	task.State = new_state
+	task.SetState(new_state)
 	return
 }

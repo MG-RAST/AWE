@@ -13,7 +13,8 @@ func redistributor(control chan int) {
 	for {
 		parsed := <-fromStealer
 		work := parsed.workunit
-		workmap[work.Id] = ID_REDISTRIBUTOR
+
+		workmap.Set(work.Id, ID_REDISTRIBUTOR, "redistributor")
 
 		queued := &mediumwork{
 			workunit: parsed.workunit,

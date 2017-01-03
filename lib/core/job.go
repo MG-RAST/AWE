@@ -11,8 +11,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -29,11 +31,11 @@ var JOB_STATS_ACTIVE = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS}
 var JOB_STATS_REGISTERED = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 var JOB_STATS_TO_RECOVER = []string{JOB_STAT_INIT, JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 
-type Job struct {
-	Id          string    `bson:"id" json:"id"`
+type JobRaw struct {
+	Id string `bson:"id" json:"id"`
+	//Tasks       []*Task   `bson:"tasks" json:"tasks"`
 	Acl         acl.Acl   `bson:"acl" json:"-"`
 	Info        *Info     `bson:"info" json:"info"`
-	Tasks       []*Task   `bson:"tasks" json:"tasks"`
 	Script      script    `bson:"script" json:"-"`
 	State       string    `bson:"state" json:"state"`
 	Registered  bool      `bson:"registered" json:"registered"`
@@ -46,23 +48,17 @@ type Job struct {
 	ShockHost   string    `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
 }
 
+type Job struct {
+	JobRaw `bson:",inline"`
+	Tasks  []*Task `bson:"tasks" json:"tasks"`
+}
+
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
 // Jobs that cannot be parsed into the Job struct, but can be parsed into the JobDep struct will be translated to the new Job struct.
 // (=deprecated=)
 type JobDep struct {
-	Id          string     `bson:"id" json:"id"`
-	Acl         acl.Acl    `bson:"acl" json:"-"`
-	Info        *Info      `bson:"info" json:"info"`
-	Tasks       []*TaskDep `bson:"tasks" json:"tasks"`
-	Script      script     `bson:"script" json:"-"`
-	State       string     `bson:"state" json:"state"`
-	Registered  bool       `bson:"registered" json:"registered"`
-	RemainTasks int        `bson:"remaintasks" json:"remaintasks"`
-	UpdateTime  time.Time  `bson:"updatetime" json:"updatetime"`
-	Notes       string     `bson:"notes" json:"notes"`
-	LastFailed  string     `bson:"lastfailed" json:"lastfailed"`
-	Resumed     int        `bson:"resumed" json:"resumed"`     //number of times the job has been resumed from suspension
-	ShockHost   string     `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
+	JobRaw `bson:",inline"`
+	Tasks  []*TaskDep `bson:"tasks" json:"tasks"`
 }
 
 type JobMin struct {
@@ -86,21 +82,94 @@ type JobLog struct {
 	Tasks      []*TaskLog `bson:"tasks" json:"tasks"`
 }
 
-//set job's uuid
-func (job *Job) setId() {
-	job.Id = uuid.New()
+func NewJobRaw() (job *JobRaw) {
+	return &JobRaw{
+		Info: NewInfo(),
+		Acl:  acl.Acl{},
+	}
+}
+
+func NewJob() (job *Job) {
+
+	r_job := NewJobRaw()
+
+	job = &Job{JobRaw: *r_job}
+
 	return
 }
 
-func (job *Job) initJob() {
-	if job.Info == nil {
-		job.Info = new(Info)
-	}
-	job.Info.SubmitTime = time.Now()
-	job.Info.Priority = conf.BasePriority
-	job.setId() //uuid for the job
+func NewJobDep() (job *JobDep) {
+
+	r_job := NewJobRaw()
+
+	job = &JobDep{JobRaw: *r_job}
+
+	return
+}
+
+// this has to be called after Unmarshalling from JSON
+func (job *Job) Init() (err error) {
+
 	job.State = JOB_STAT_INIT
 	job.Registered = true
+
+	job.setId() //uuid for the job
+
+	if job.Info.SubmitTime.IsZero() {
+		job.Info.SubmitTime = time.Now()
+	}
+
+	if job.Info.Priority < conf.BasePriority {
+		job.Info.Priority = conf.BasePriority
+	}
+
+	return
+}
+
+func (job *Job) InitTasks() (err error) {
+
+	if len(job.Tasks) == 0 {
+		err = errors.New("invalid job script: task list empty")
+		return
+	}
+
+	// check that input FileName is not repeated within an individual task
+	for _, task := range job.Tasks {
+		inputFileNames := make(map[string]bool)
+		for _, io := range task.Inputs {
+			if _, exists := inputFileNames[io.FileName]; exists {
+				err = errors.New("invalid inputs: task " + task.Id + " contains multiple inputs with filename=" + io.FileName)
+				return
+			}
+			inputFileNames[io.FileName] = true
+		}
+	}
+
+	// InitTask
+	for i := 0; i < len(job.Tasks); i++ {
+		task_id := job.Tasks[i].Id
+		if strings.Contains(task_id, "_") {
+			// no "_" allowed in inital taskid
+			err = fmt.Errorf("invalid taskid (%s), may not contain '_'", task_id)
+			return
+		}
+		err = job.Tasks[i].InitTask(job)
+		if err != nil {
+			err = errors.New("error in InitTask: " + err.Error())
+			return
+		}
+	}
+
+	job.RemainTasks = len(job.Tasks)
+
+	return
+}
+
+//set job's uuid
+func (job *Job) setId() {
+	job.Id = uuid.New()
+
+	return
 }
 
 type script struct {
@@ -109,22 +178,35 @@ type script struct {
 	Path string `bson:"path" json:"-"`
 }
 
-//---Script upload
-func (job *Job) UpdateFile(files FormFiles) (err error) {
-	_, isRegularUpload := files["upload"]
+//---Script upload (e.g. field="upload")
+func (job *Job) UpdateFile(files FormFiles, field string) (err error) {
+	_, isRegularUpload := files[field]
 	if isRegularUpload {
-		if err = job.SetFile(files["upload"]); err != nil {
+		if err = job.SetFile(files[field]); err != nil {
 			return err
 		}
-		delete(files, "upload")
+		delete(files, field)
 	}
 	return
 }
 
 func (job *Job) Save() (err error) {
+	if job.Id == "" {
+		err = fmt.Errorf("job id empty")
+		return
+	}
+	logger.Debug(0, "Save() saving job: %s", job.Id)
+
 	job.UpdateTime = time.Now()
-	bsonPath := fmt.Sprintf("%s/%s.bson", job.Path(), job.Id)
+	var job_path string
+	job_path, err = job.Path()
+	if err != nil {
+		err = fmt.Errorf("Save() Path error: %v", err)
+		return
+	}
+	bsonPath := path.Join(job_path, job.Id+".bson")
 	os.Remove(bsonPath)
+	logger.Debug(0, "Save() bson.Marshal next: %s", job.Id)
 	nbson, err := bson.Marshal(job)
 	if err != nil {
 		err = errors.New("error in Marshal in job.Save(), error=" + err.Error())
@@ -141,11 +223,13 @@ func (job *Job) Save() (err error) {
 		err = errors.New("error writing file in job.Save(), error=" + err.Error())
 		return
 	}
+	logger.Debug(0, "Save() dbUpsert next: %s", job.Id)
 	err = dbUpsert(job)
 	if err != nil {
-		err = errors.New("error in dbUpdate in job.Save(), error=" + err.Error())
+		err = fmt.Errorf("error in dbUpsert in job.Save(), (job_id=%s) error=%v", job.Id, err)
 		return
 	}
+	logger.Debug(0, "Save() job saved: %s", job.Id)
 	return
 }
 
@@ -161,7 +245,12 @@ func (job *Job) Delete() (err error) {
 }
 
 func (job *Job) Mkdir() (err error) {
-	err = os.MkdirAll(job.Path(), 0777)
+	var path string
+	path, err = job.Path()
+	if err != nil {
+		return
+	}
+	err = os.MkdirAll(path, 0777)
 	if err != nil {
 		return
 	}
@@ -169,29 +258,47 @@ func (job *Job) Mkdir() (err error) {
 }
 
 func (job *Job) Rmdir() (err error) {
-	return os.RemoveAll(job.Path())
+	var path string
+	path, err = job.Path()
+	if err != nil {
+		return
+	}
+	return os.RemoveAll(path)
 }
 
 func (job *Job) SetFile(file FormFile) (err error) {
-	os.Rename(file.Path, job.FilePath())
+	var path string
+	path, err = job.FilePath()
+	os.Rename(file.Path, path)
 	job.Script.Name = file.Name
 	return
 }
 
 //---Path functions
-func (job *Job) Path() string {
+func (job *Job) Path() (path string, err error) {
 	return getPathByJobId(job.Id)
 }
 
-func (job *Job) FilePath() string {
+func (job *Job) FilePath() (path string, err error) {
 	if job.Script.Path != "" {
-		return job.Script.Path
+		path = job.Script.Path
+		return
 	}
-	return getPathByJobId(job.Id) + "/" + job.Id + ".script"
+	path, err = getPathByJobId(job.Id)
+	if err != nil {
+		return
+	}
+	path = path + "/" + job.Id + ".script"
+	return
 }
 
-func getPathByJobId(id string) string {
-	return fmt.Sprintf("%s/%s/%s/%s/%s", conf.DATA_PATH, id[0:2], id[2:4], id[4:6], id)
+func getPathByJobId(id string) (path string, err error) {
+	if len(id) < 6 {
+		err = fmt.Errorf("Job-Id format wrong: %s", id)
+		return
+	}
+	path = fmt.Sprintf("%s/%s/%s/%s/%s", conf.DATA_PATH, id[0:2], id[2:4], id[4:6], id)
+	return
 }
 
 //---Task functions
@@ -227,9 +334,10 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	job.Tasks[idx] = task
 
 	//if this task is complete, count remain tasks for the job
-	if task.State == TASK_STAT_COMPLETED ||
-		task.State == TASK_STAT_SKIPPED ||
-		task.State == TASK_STAT_FAIL_SKIP {
+	task_state := task.GetState()
+	if task_state == TASK_STAT_COMPLETED ||
+		task_state == TASK_STAT_SKIPPED ||
+		task_state == TASK_STAT_FAIL_SKIP {
 		remain_tasks := len(job.Tasks)
 		for _, t := range job.Tasks { //double check all task other than the one with state change
 			if t.State == TASK_STAT_COMPLETED ||

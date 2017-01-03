@@ -198,10 +198,27 @@ func (sc *ShockClient) Query(query url.Values) (sqr_p *ShockQueryResponse, err e
 	return
 }
 
-func (sc *ShockClient) Get_node(node_id string) (sqr_p *ShockResponse, err error) {
+//func (sc *ShockClient) Get_request(node_id string) (sqr_p *ShockResponse, err error) {
 
-	sqr_p = new(ShockResponse)
+//	sqr_p = new(ShockResponse)
+//	err = sc.Get_request("/node/"+node_id, nil, &sqr_p)
+
+//	return
+//}
+
+func (sc *ShockClient) Get_node(node_id string) (node *ShockNode, err error) {
+
+	sqr_p := new(ShockResponse)
 	err = sc.Get_request("/node/"+node_id, nil, &sqr_p)
+
+	if len(sqr_p.Errs) > 0 {
+		return nil, errors.New(strings.Join(sqr_p.Errs, ","))
+	}
+
+	node = &sqr_p.Data
+	if node == nil {
+		err = errors.New("empty node got from Shock")
+	}
 
 	return
 }
@@ -376,7 +393,7 @@ func (sc *ShockClient) Do_request_DEPRECATED(method string, resource string, que
 
 //fetch file by shock url
 func FetchFile(filename string, url string, token string, uncompress string, computeMD5 bool) (size int64, md5sum string, err error) {
-	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
+	fmt.Printf("(FetchFile) fetching file name=%s, url=%s\n", filename, url)
 
 	localfile, err := os.Create(filename)
 	if err != nil {

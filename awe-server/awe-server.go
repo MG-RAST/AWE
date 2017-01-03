@@ -23,7 +23,7 @@ import (
 )
 
 func launchSite(control chan int, port int) {
-	goweb.ConfigureDefaultFormatters()
+
 	r := &goweb.RouteManager{}
 
 	site_directory := conf.SITE_PATH
@@ -114,7 +114,7 @@ func launchSite(control chan int, port int) {
 
 func launchAPI(control chan int, port int) {
 	c := controller.NewServerController()
-	goweb.ConfigureDefaultFormatters()
+	//goweb.ConfigureDefaultFormatters()
 	r := &goweb.RouteManager{}
 	r.Map("/job/{jid}/acl/{type}", c.JobAcl["typed"])
 	r.Map("/job/{jid}/acl", c.JobAcl["base"])
@@ -168,10 +168,12 @@ func main() {
 		}
 	}
 
-	if _, err := os.Stat(conf.LOGS_PATH); err != nil && os.IsNotExist(err) {
-		if err := os.MkdirAll(conf.LOGS_PATH, 0777); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR in creating log_path \"%s\" %s\n", conf.LOGS_PATH, err.Error())
-			os.Exit(1)
+	if (conf.LOG_OUTPUT == "file") || (conf.LOG_OUTPUT == "both") {
+		if _, err := os.Stat(conf.LOGS_PATH); err != nil && os.IsNotExist(err) {
+			if err := os.MkdirAll(conf.LOGS_PATH, 0777); err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR in creating log_path \"%s\" %s\n", conf.LOGS_PATH, err.Error())
+				os.Exit(1)
+			}
 		}
 	}
 
@@ -187,9 +189,8 @@ func main() {
 	//init logger
 	logger.Initialize("server")
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("init db...")
-	}
+	logger.Info("init db...")
+
 	//init db
 	if err := db.Initialize(); err != nil {
 		fmt.Printf("failed to initialize job db: %s\n", err.Error())
@@ -212,18 +213,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("init resource manager...")
-	}
+	logger.Info("init resource manager...")
+
 	//init resource manager
 	core.InitResMgr("server")
+
+	logger.Info("InitAwfMgr...")
 	core.InitAwfMgr()
+
+	logger.Info("InitJobDB...")
 	core.InitJobDB()
+
+	logger.Info("InitClientGroupDB...")
 	core.InitClientGroupDB()
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("init auth...")
-	}
+	logger.Info("init auth...")
 	//init auth
 	auth.Initialize()
 
@@ -239,21 +243,22 @@ func main() {
 		fmt.Println("Done")
 	}
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("launching server...")
-	}
+	logger.Info("launching server...")
+
 	//launch server
 	control := make(chan int)
 	go core.Ttl.Handle()
 	go core.QMgr.TaskHandle()
 	go core.QMgr.ClientHandle()
+	go core.QMgr.NoticeHandle()
 	go core.QMgr.ClientChecker()
+
+	goweb.ConfigureDefaultFormatters()
 	go launchSite(control, conf.SITE_PORT)
 	go launchAPI(control, conf.API_PORT)
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("API launched...")
-	}
+	logger.Info("API launched...")
+
 	if err := core.AwfMgr.LoadWorkflows(); err != nil {
 		logger.Error("LoadWorkflows: " + err.Error())
 	}

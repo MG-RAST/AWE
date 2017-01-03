@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/foreign/taverna"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -11,15 +12,25 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"io/ioutil"
 	"net/http"
+	//"os"
+	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
 )
 
 type JobController struct{}
+
+type standardResponse struct {
+	S int         `json:"status"`
+	D interface{} `json:"data"`
+	E []string    `json:"error"`
+}
 
 // OPTIONS: /job
 func (cr *JobController) Options(cx *goweb.Context) {
@@ -34,16 +45,16 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
 	// Try to authenticate user.
-	u, err := request.Authenticate(cx.Request)
+	_user, err := request.Authenticate(cx.Request)
 	if err != nil && err.Error() != e.NoAuth {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
 		return
 	}
 
 	// If no auth was provided, and anonymous write is allowed, use the public user
-	if u == nil {
+	if _user == nil {
 		if conf.ANON_WRITE == true {
-			u = &user.User{Uuid: "public"}
+			_user = &user.User{Uuid: "public"}
 		} else {
 			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
 			return
@@ -60,7 +71,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			// Some error other than request encoding. Theoretically
 			// could be a lost db connection between user lookup and parsing.
 			// Blame the user, Its probaby their fault anyway.
-			logger.Error("Error parsing form: " + err.Error())
+			logger.Error("(JobController/Create) Error parsing form: " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
 		}
 		return
@@ -69,24 +80,92 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	_, has_import := files["import"]
 	_, has_upload := files["upload"]
 	_, has_awf := files["awf"]
+	_, has_cwl := files["cwl"] // TODO I could overload 'upload'
+	_, has_job := files["job"] // input data for an CWL workflow
 
 	var job *core.Job
+	job = nil
 
 	if has_import {
 		// import a job document
-		job, err = core.CreateJobImport(u, files["import"])
+		job, err = core.CreateJobImport(_user, files["import"])
 		if err != nil {
 			logger.Error("Err@job_Create:CreateJobImport: " + err.Error())
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}
 		logger.Event(event.JOB_IMPORT, "jobid="+job.Id+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
+	} else if has_cwl {
+
+		if !has_job {
+			logger.Error("job missing")
+			cx.RespondWithErrorMessage("job missing", http.StatusBadRequest)
+			return
+		}
+
+		collection := cwl.NewCWL_collection()
+
+		// 1) parse job
+		err = cwl.ParseJob(&collection, files["job"].Path)
+		if err != nil {
+			logger.Debug(1, "ParseJob: "+err.Error())
+			cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		// 2) parse cwl
+		logger.Debug(1, "got CWL")
+
+		// get CWL as byte[]
+		yamlstream, err := ioutil.ReadFile(files["cwl"].Path)
+		if err != nil {
+			logger.Debug(1, "CWL error: "+err.Error())
+			cx.RespondWithErrorMessage("error in reading workflow file: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// convert CWL to string
+		yaml_str := string(yamlstream[:])
+
+		err = cwl.Parse_cwl_document(&collection, yaml_str)
+		if err != nil {
+			logger.Debug(1, "CWL error"+err.Error())
+			cx.RespondWithErrorMessage("error in parsing job yaml file: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		logger.Debug(0, "Parse_cwl_document done")
+
+		cwl_workflow, ok := collection.Workflows["main"]
+		if !ok {
+
+			cx.RespondWithErrorMessage("Workflow main not found", http.StatusBadRequest)
+			return
+		}
+
+		fmt.Println("\n\n\n--------------------------------- Steps:\n")
+		for _, step := range cwl_workflow.Steps {
+			spew.Dump(step)
+		}
+
+		fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
+		job, err = core.CWL2AWE(_user, files, cwl_workflow, &collection)
+		if err != nil {
+			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		logger.Debug(0, "CWL2AWE done")
+
+		//fmt.Println("\n\n\n--------------------------------- Done... now respond...")
+		//cx.RespondWithData(job)
+		//return
+
 	} else if !has_upload && !has_awf {
 		cx.RespondWithErrorMessage("No job script or awf is submitted", http.StatusBadRequest)
 		return
 	} else {
 		// create new uploaded job
-		job, err = core.CreateJobUpload(u, files)
+
+		job, err = core.CreateJobUpload(_user, files)
+
 		if err != nil {
 			logger.Error("Err@job_Create:CreateJobUpload: " + err.Error())
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
@@ -98,12 +177,27 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	if token, err := request.RetrieveToken(cx.Request); err == nil {
 		job.SetDataToken(token)
 	}
+
+	// make a copy to prevent race conditions
+	SR := standardResponse{
+		S: http.StatusOK,
+		D: job,
+		E: nil,
+	}
+
+	var response_bytes []byte
+	response_bytes, err = json.Marshal(SR)
+
 	// don't enqueue imports
 	if !has_import {
 		core.QMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
 	}
 
-	cx.RespondWithData(job)
+	//cx.RespondWithData(job)
+	cx.ResponseWriter.WriteHeader(http.StatusOK)
+	cx.ResponseWriter.Write(response_bytes)
+
+	//cx.WriteResponse(string(job_bytes[:]), http.StatusOK)
 	return
 }
 
@@ -508,8 +602,9 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				// get multiple tasks in state queued or in-progress
 				for j := 0; j < len(job.Tasks); j++ {
 					task := job.Tasks[j]
-					if (task.State == "in-progress") || (task.State == "queued") {
-						mjob.State = append(mjob.State, task.State)
+					task_state := task.GetState()
+					if (task_state == "in-progress") || (task_state == "queued") {
+						mjob.State = append(mjob.State, task_state)
 						mjob.Task = append(mjob.Task, j)
 					}
 				}
@@ -517,8 +612,9 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				if len(mjob.State) == 0 {
 					for j := 0; j < len(job.Tasks); j++ {
 						task := job.Tasks[j]
-						if (task.State == "pending") || (task.State == "init") {
-							mjob.State = append(mjob.State, task.State)
+						task_state := task.GetState()
+						if (task_state == "pending") || (task_state == "init") {
+							mjob.State = append(mjob.State, task_state)
 							mjob.Task = append(mjob.Task, j)
 							break
 						}

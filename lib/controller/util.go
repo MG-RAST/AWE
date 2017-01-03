@@ -6,10 +6,12 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
-	. "github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/golib/goweb"
+	"io"
 	"math/rand"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"os"
@@ -80,7 +82,7 @@ func LogRequest(req *http.Request) {
 	} else {
 		url = fmt.Sprintf("%s %s", req.Method, req.URL.Path)
 	}
-	Log.Info("access", host+" \""+url+suffix+"\"")
+	logger.Log.Access(host + " \"" + url + suffix + "\"")
 }
 
 func RawDir(cx *goweb.Context) {
@@ -159,44 +161,101 @@ func ParseMultipartForm(r *http.Request) (params map[string]string, files core.F
 	params = make(map[string]string)
 	files = make(core.FormFiles)
 
-	reader, err := r.MultipartReader()
-	if err != nil {
+	reader, xerr := r.MultipartReader()
+	if xerr != nil {
+		err = fmt.Errorf("(ParseMultipartForm) MultipartReader not created: %s", xerr.Error())
 		return
 	}
 	for {
-		if part, err := reader.NextPart(); err == nil {
+		var part *multipart.Part
+		part, err = reader.NextPart()
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+				break
+			}
+			err = fmt.Errorf("(ParseMultipartForm) reader.NextPart() error: %s", err.Error())
+			return
+		}
 
-			if part.FileName() == "" {
-				buffer := make([]byte, 32*1024)
-				n, err := part.Read(buffer)
-				if n == 0 || err != nil {
+		if part.FileName() == "" {
+			buffer := make([]byte, 32*1024)
+			n, err := part.Read(buffer)
+			if n == 0 {
+				break
+			}
+			if err != nil {
+				if err == io.EOF {
+					err = nil
 					break
 				}
-				params[part.FormName()] = fmt.Sprintf("%s", buffer[0:n])
-			} else {
+				err = fmt.Errorf("(ParseMultipartForm) part.Read(buffer) error: %s", err.Error())
+				return nil, nil, err
+			}
 
-				tmpPath := fmt.Sprintf("%s/temp/%d%d", conf.DATA_PATH, rand.Int(), rand.Int())
-				files[part.FormName()] = core.FormFile{Name: part.FileName(), Path: tmpPath, Checksum: make(map[string]string)}
-				if tmpFile, err := os.Create(tmpPath); err == nil {
-					buffer := make([]byte, 32*1024)
-					for {
-						n, err := part.Read(buffer)
-						if n == 0 || err != nil {
-							break
-						}
-						tmpFile.Write(buffer[0:n])
+			//buf_len := 50
+			//if n < 50 {
+			//	buf_len = n
+			//}
+			//logger.Debug(3, "FormName: %s Content: %s", part.FormName(), buffer[0:buf_len])
+
+			params[part.FormName()] = fmt.Sprintf("%s", buffer[0:n])
+		} else {
+
+			tmpPath := fmt.Sprintf("%s/temp/%d%d", conf.DATA_PATH, rand.Int(), rand.Int())
+			//logger.Debug(3, "FormName: %s tmpPath: %s", part.FormName(), tmpPath)
+			files[part.FormName()] = core.FormFile{Name: part.FileName(), Path: tmpPath, Checksum: make(map[string]string)}
+			bytes_written := 0
+			var tmpFile *os.File
+			tmpFile, err = os.Create(tmpPath)
+			if err != nil {
+				err = fmt.Errorf("(ParseMultipartForm) os.Create(tmpPath) error: %s", err.Error())
+				return nil, nil, err
+			}
+
+			last_loop := false
+			buffer := make([]byte, 32*1024)
+			for {
+				n := 0
+
+				n, err = part.Read(buffer)
+				//logger.Debug(3, "read from part: %d", n)
+				if err != nil {
+					//logger.Debug(3, "err != nil")
+					if err == io.EOF {
+						err = nil
+						last_loop = true
+					} else {
+						err = fmt.Errorf("part.Read(buffer) error: %s", err.Error())
+						return
 					}
-					tmpFile.Close()
-				} else {
-					return nil, nil, err
+
+				}
+				//logger.Debug(3, "after reading.... n: %d", n)
+				if n == 0 {
+					break
+				}
+				bytes_written += n
+				//logger.Debug(3, "after reading, bytes_written: %d", bytes_written)
+				m := 0
+				m, err = tmpFile.Write(buffer[0:n])
+				if err != nil {
+					err = fmt.Errorf("(ParseMultipartForm) tmpFile.Write error: %s", err.Error())
+					return
+				}
+				if m != n {
+					err = fmt.Errorf("(ParseMultipartForm) m != n ")
+					return
+				}
+				if last_loop {
+					break
 				}
 			}
-		} else if err.Error() != "EOF" {
-			fmt.Println("err here")
-			return nil, nil, err
-		} else {
-			break
+			tmpFile.Close()
+
+			//logger.Debug(3, "FormName: %s bytes_written: %d", part.FormName(), bytes_written)
 		}
+
 	}
 
 	return

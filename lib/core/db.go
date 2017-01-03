@@ -135,6 +135,7 @@ func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string) 
 		}
 	}
 	err = query.Sort(sortby).All(results)
+	results.Init()
 	return
 }
 

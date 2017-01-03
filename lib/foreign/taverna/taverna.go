@@ -48,7 +48,7 @@ func ExportWorkflowRun(job *core.Job) (wfrun *WorkflowRun, err error) {
 
 	for _, task := range job.Tasks {
 		report := new(ProcReport)
-		report.State = task.State
+		report.State = task.GetState()
 		invocation := new(Invocation)
 		invocation.Id = task.Id
 		invocation.Name = task.Cmd.Name

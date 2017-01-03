@@ -36,6 +36,10 @@ type ClientResponse struct {
 }
 
 func heartBeater(control chan int) {
+	fmt.Printf("heartBeater launched, client=%s\n", core.Self.Id)
+	logger.Debug(0, fmt.Sprintf("heartBeater launched, client=%s\n", core.Self.Id))
+	defer fmt.Printf("heartBeater exiting...\n")
+
 	for {
 		time.Sleep(10 * time.Second)
 		SendHeartBeat()
@@ -50,6 +54,7 @@ func SendHeartBeat() {
 		if err.Error() == e.ClientNotFound {
 			ReRegisterWithSelf(conf.SERVER_URL)
 		}
+		logger.Debug(3, "heartbeat returned error: "+err.Error())
 	}
 	//handle requested ops from the server
 	for op, objs := range hbmsg {
@@ -100,6 +105,7 @@ func heartbeating(host string, clientid string) (msg core.HBmsg, err error) {
 func RegisterWithProfile(host string, profile *core.Client) (client *core.Client, err error) {
 	profile_jsonstream, err := json.Marshal(profile)
 	profile_path := conf.DATA_PATH + "/clientprofile.json"
+	logger.Debug(3, "profile_path: %s", profile_path)
 	ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
 
 	bodyBuf := &bytes.Buffer{}
@@ -136,23 +142,36 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 	if len(response.Errs) > 0 {
 		return nil, errors.New(strings.Join(response.Errs, ","))
 	}
+	response.Data.Init()
 	client = &response.Data
 	return
 }
 
 func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, err error) {
+	logger.Debug(3, "Try to register client")
 	if conf.CLIENT_GROUP_TOKEN == "" {
 		fmt.Println("clientgroup token not set, register as a public client (can only access public data)")
 	}
 
 	profile_jsonstream, err := json.Marshal(profile)
+	if err != nil {
+		err = fmt.Errorf("json.Marshal(profile) error: %s", err.Error())
+		return
+	}
+	logger.Debug(3, "profile_jsonstream: %s ", string(profile_jsonstream))
 	profile_path := conf.DATA_PATH + "/clientprofile.json"
-	ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
+	logger.Debug(3, "profile_path: %s", profile_path)
+	err = ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
+	if err != nil {
+		err = fmt.Errorf("(RegisterWithAuth) error in ioutil.WriteFile: %s", err.Error())
+		return
+	}
 
 	form := httpclient.NewForm()
 	form.AddFile("profile", profile_path)
-	if err := form.Create(); err != nil {
-		return nil, err
+	if err = form.Create(); err != nil {
+		err = fmt.Errorf("form.Create() error: %s", err.Error())
+		return
 	}
 	var headers httpclient.Header
 	if conf.CLIENT_GROUP_TOKEN == "" {
@@ -169,21 +188,28 @@ func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, e
 	}
 
 	targetUrl := host + "/client"
-
-	resp, err := httpclient.Post(targetUrl, headers, form.Reader, nil)
+	logger.Debug(3, "Try to register client: %s", targetUrl)
+	//resp, err := httpclient.Post(targetUrl, headers, form.Reader, nil)
+	resp, err := httpclient.DoTimeout("POST", targetUrl, headers, form.Reader, nil, time.Second*10)
 	if err != nil {
-		return nil, err
+		err = fmt.Errorf("POST %s error: %s", targetUrl, err.Error())
+		return
 	}
 	defer resp.Body.Close()
-	jsonstream, err := ioutil.ReadAll(resp.Body)
+
 	response := new(ClientResponse)
+	jsonstream, err := ioutil.ReadAll(resp.Body)
 	if err = json.Unmarshal(jsonstream, response); err != nil {
-		return nil, errors.New("fail to unmashal response:" + string(jsonstream))
+		err = errors.New("fail to unmashal response:" + string(jsonstream))
+		return
 	}
 	if len(response.Errs) > 0 {
-		return nil, errors.New(strings.Join(response.Errs, ","))
+		err = fmt.Errorf("Server returned: %s", strings.Join(response.Errs, ","))
+		return
 	}
 	client = &response.Data
+	client.Init()
+	logger.Debug(3, "Client registered")
 	return
 }
 
@@ -278,11 +304,13 @@ func ComposeProfile() (profile *core.Client, err error) {
 
 func DiscardWorkunit(id string) (err error) {
 	//fmt.Printf("try to discard workunit %s\n", id)
-	if stage, ok := workmap[id]; ok {
+	stage, ok := workmap.Get(id)
+	if ok {
 		if stage == ID_WORKER {
 			chankill <- true
 		}
-		workmap[id] = ID_DISCARDED
+
+		workmap.Set(id, ID_DISCARDED, "DiscardWorkunit")
 	}
 	return
 }

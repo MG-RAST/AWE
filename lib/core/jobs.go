@@ -7,6 +7,14 @@ import (
 // Job array type
 type Jobs []Job
 
+func (n *Jobs) Init() {
+	for _, job := range *n {
+		for _, task := range job.Tasks {
+			task.Init()
+		}
+	}
+}
+
 func (n *Jobs) GetAllUnsorted(q bson.M) (err error) {
 	_, err = dbFind(q, n, nil)
 	return

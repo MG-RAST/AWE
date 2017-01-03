@@ -675,7 +675,6 @@ func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 		return
 	}
 
-	fmt.Printf("starting popWorks() for client: %s\n", client_id)
 	logger.Debug(3, fmt.Sprintf("starting popWorks() for client: %s", client_id))
 
 	filtered, err := qm.filterWorkByClient(client)
@@ -696,7 +695,6 @@ func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 		}
 	}
 	logger.Debug(3, fmt.Sprintf("done with popWorks() for client: %s", client_id))
-	fmt.Printf("done with popWorks() for client: %s\n", client_id)
 	return
 }
 

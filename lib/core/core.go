@@ -333,6 +333,10 @@ func ReadJobFile(filename string) (job *Job, err error) {
 		err = fmt.Errorf("error in unmarshaling job json file: %s ", err.Error())
 	}
 
+	for _, task := range job.Tasks {
+		task.Init()
+	}
+
 	//parse private fields task.Cmd.Environ.Private
 	job_p := new(Job_p)
 	err = json.Unmarshal(jsonstream, job_p)

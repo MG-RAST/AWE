@@ -18,17 +18,20 @@ type ReadLock struct {
 
 type RWMutex struct {
 	//sync.RWMutex `bson:"-" json:"-"` // Locks only members that can change. Current_work has its own lock.
-	writeLock chan int
-	lockOwner string            `bson:"-" json:"-"`
-	Name      string            `bson:"-" json:"-"`
-	readers   map[string]string // map[Id]Name
-	readLock  sync.Mutex
+	writeLock   chan int
+	lockOwner   string            `bson:"-" json:"-"`
+	Name        string            `bson:"-" json:"-"`
+	readers     map[string]string // map[Id]Name (named readers)
+	anonCounter int               // (anonymous readers, use only when necessary)
+	readLock    sync.Mutex
 }
 
 func (m *RWMutex) Init(name string) {
 	m.Name = name
 	m.writeLock = make(chan int, 1)
 	m.readers = make(map[string]string)
+	m.anonCounter = 0
+
 	m.lockOwner = "nobody_init"
 
 	if name == "" {
@@ -104,6 +107,17 @@ func (m *RWMutex) RUnlock() {
 	panic("RUnlock() was called")
 }
 
+func (m *RWMutex) RLockAnon() {
+	m.readLock.Lock()
+	defer m.readLock.Unlock()
+	m.anonCounter += 1
+}
+func (m *RWMutex) RUnlockAnon() {
+	m.readLock.Lock()
+	defer m.readLock.Unlock()
+	m.anonCounter -= 1
+}
+
 func (m *RWMutex) RUnlockNamed(rl ReadLock) {
 
 	lock_uuid := rl.Get_Id()
@@ -126,6 +140,7 @@ func (m *RWMutex) RCount() (c int) {
 
 	m.readLock.Lock()
 	c = len(m.readers)
+	c += m.anonCounter
 	m.readLock.Unlock()
 	return
 }

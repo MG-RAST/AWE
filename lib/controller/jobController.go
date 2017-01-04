@@ -460,7 +460,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			return
 		}
 
-		filtered_jobs := []core.Job{}
+		filtered_jobs := core.Jobs{}
 		act_jobs := core.QMgr.GetActiveJobs()
 		length := jobs.Length()
 
@@ -481,6 +481,8 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				}
 			}
 		}
+		filtered_jobs.RLockRecursive()
+		defer filtered_jobs.RUnlockRecursive()
 		cx.RespondWithPaginatedData(filtered_jobs, limit, offset, len(act_jobs))
 		return
 	}
@@ -494,7 +496,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			return
 		}
 
-		filtered_jobs := []core.Job{}
+		filtered_jobs := core.Jobs{}
 		suspend_jobs := core.QMgr.GetSuspendJobs()
 		length := jobs.Length()
 
@@ -515,6 +517,10 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				}
 			}
 		}
+
+		filtered_jobs.RLockRecursive()
+		defer filtered_jobs.RUnlockRecursive()
+
 		cx.RespondWithPaginatedData(filtered_jobs, limit, offset, len(suspend_jobs))
 		return
 	}
@@ -527,8 +533,8 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			return
 		}
 
-		paged_jobs := []core.Job{}
-		registered_jobs := []core.Job{}
+		paged_jobs := core.Jobs{}
+		registered_jobs := core.Jobs{}
 		length := jobs.Length()
 
 		total := 0
@@ -548,6 +554,8 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				break
 			}
 		}
+		paged_jobs.RLockRecursive()
+		defer paged_jobs.RUnlockRecursive()
 		cx.RespondWithPaginatedData(paged_jobs, limit, offset, total)
 		return
 	}
@@ -623,6 +631,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			}
 			minimal_jobs = append(minimal_jobs, mjob)
 		}
+
 		cx.RespondWithPaginatedData(minimal_jobs, limit, offset, total)
 		return
 	}
@@ -648,7 +657,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		cx.RespondWithError(http.StatusBadRequest)
 		return
 	}
-	filtered_jobs := []core.Job{}
+	filtered_jobs := core.Jobs{}
 	length := jobs.Length()
 	for i := 0; i < length; i++ {
 		job := jobs.GetJobAt(i)

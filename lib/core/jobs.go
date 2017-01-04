@@ -5,13 +5,25 @@ import (
 )
 
 // Job array type
-type Jobs []Job
+type Jobs []*Job
 
 func (n *Jobs) Init() {
 	for _, job := range *n {
 		for _, task := range job.Tasks {
 			task.Init()
 		}
+	}
+}
+
+func (n *Jobs) RLockRecursive() {
+	for _, job := range *n {
+		job.RLockRecursive()
+	}
+}
+
+func (n *Jobs) RUnlockRecursive() {
+	for _, job := range *n {
+		job.RUnlockRecursive()
 	}
 }
 
@@ -46,12 +58,12 @@ func (n *Jobs) GetAllRecent(q bson.M, recent int) (count int, err error) {
 	return
 }
 
-func (n *Jobs) GetJobAt(index int) Job {
+func (n *Jobs) GetJobAt(index int) *Job {
 	return (*n)[index]
 }
 
 func (n *Jobs) Length() int {
-	return len([]Job(*n))
+	return len(*n)
 }
 
 func GetJobCount(q bson.M) (count int, err error) {

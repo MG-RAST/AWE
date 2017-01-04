@@ -627,10 +627,11 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 	logger.Debug(3, "(CheckoutWorkunits) %s got ack", client_id)
 	if ack.err == nil {
 		for _, work := range ack.workunits {
-			client.Add_work_nolock(work.Id)
+			work_id := work.Id
+			client.Add_work_nolock(work_id)
 		}
-		if client.Status == CLIENT_STAT_ACTIVE_IDLE {
-			client.Status = CLIENT_STAT_ACTIVE_BUSY
+		if client.Get_Status(false) == CLIENT_STAT_ACTIVE_IDLE {
+			client.Set_Status(CLIENT_STAT_ACTIVE_BUSY, false)
 		}
 	} else {
 

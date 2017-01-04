@@ -165,6 +165,18 @@ func (job *Job) InitTasks() (err error) {
 	return
 }
 
+func (job *Job) RLockRecursive() {
+	for _, task := range job.Tasks {
+		task.RLockAnon()
+	}
+}
+
+func (job *Job) RUnlockRecursive() {
+	for _, task := range job.Tasks {
+		task.RUnlockAnon()
+	}
+}
+
 //set job's uuid
 func (job *Job) setId() {
 	job.Id = uuid.New()

@@ -65,6 +65,8 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	//log event about client registration (CR)
 	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.Id+";name="+client.Name+";host="+client.Host+";group="+client.Group+";instance_id="+client.InstanceId+";instance_type="+client.InstanceType+";domain="+client.Domain)
 
+	rlock := client.RLockNamed("ClientController/Create")
+	defer client.RUnlockNamed(rlock)
 	cx.RespondWithData(client)
 	return
 }
@@ -127,6 +129,8 @@ func (cr *ClientController) Read(id string, cx *goweb.Context) {
 		}
 		return
 	}
+	rlock := client.RLockNamed("ClientController/Create")
+	defer client.RUnlockNamed(rlock)
 	cx.RespondWithData(client)
 	return
 }
@@ -155,7 +159,9 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 	clients := core.QMgr.GetAllClientsByUser(u)
 
 	query := &Query{Li: cx.Request.URL.Query()}
-	filtered := []*core.Client{}
+	//filtered := []*core.Client{}
+	filtered := core.Clients{}
+
 	if query.Has("busy") {
 		for _, client := range clients {
 			if client.Current_work_length(true) > 0 {
@@ -189,6 +195,10 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 	} else {
 		filtered = clients
 	}
+
+	filtered.RLockRecursive()
+	defer filtered.RUnlockRecursive()
+
 	cx.RespondWithData(filtered)
 	return
 }

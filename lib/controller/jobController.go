@@ -323,6 +323,9 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 		}
 	}
 
+	job.RLockRecursive()
+	defer job.RUnlockRecursive()
+
 	// Base case respond with job in json
 	cx.RespondWithData(job)
 	return

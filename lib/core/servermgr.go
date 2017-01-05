@@ -44,7 +44,7 @@ func NewServerMgr() *ServerMgr {
 		CQMgr: CQMgr{
 			clientMap:    *NewClientMap(),
 			workQueue:    NewWorkQueue(),
-			suspendQueue: false,
+			suspendQueue: true,
 			coReq:        make(chan CoReq),
 			//coAck:        make(chan CoAck),
 			feedback: make(chan Notice),
@@ -171,7 +171,7 @@ func (qm *ServerMgr) GetQueue(name string) interface{} {
 	}
 	if name == "work" {
 		qm.ShowWorkQueue() // only if debug level is set
-		return wQueueShow{qm.workQueue.workMap, qm.workQueue.wait, qm.workQueue.checkout, qm.workQueue.suspend}
+		return wQueueShow{qm.workQueue.workMap.Map, qm.workQueue.wait, qm.workQueue.checkout, qm.workQueue.suspend}
 	}
 	if name == "client" {
 		return qm.clientMap
@@ -510,8 +510,10 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
 	busy_client := 0
 	idle_client := 0
 	suspend_client := 0
-	read_lock = qm.clientMap.RLockNamed("GetJsonStatusB")
-	for _, client := range *qm.clientMap.GetMap() {
+
+	for _, client := range qm.clientMap.GetClients() {
+		rlock := client.RLockNamed("GetJsonStatus")
+
 		total_client += 1
 
 		if client.Status == CLIENT_STAT_SUSPEND {
@@ -521,9 +523,8 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
 		} else {
 			idle_client += 1
 		}
-
+		client.RUnlockNamed(rlock)
 	}
-	qm.clientMap.RUnlockNamed(read_lock)
 
 	jobs := map[string]int{
 		"total":     total_job,
@@ -1103,7 +1104,8 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 	qm.putSusJob(jobid)
 
 	//suspend queueing workunits
-	for _, workid := range qm.workQueue.List() {
+	for _, workunit := range qm.workQueue.GetAll() {
+		workid := workunit.Id
 		if jobid == getParentJobId(workid) {
 			qm.workQueue.StatusChange(workid, WORK_STAT_SUSPEND)
 		}
@@ -1138,7 +1140,8 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 		return err
 	}
 	//delete queueing workunits
-	for _, workid := range qm.workQueue.List() {
+	for _, workunit := range qm.workQueue.GetAll() {
+		workid := workunit.Id
 		if jobid == getParentJobId(workid) {
 			qm.workQueue.Delete(workid)
 		}

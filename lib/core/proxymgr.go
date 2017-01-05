@@ -194,8 +194,7 @@ func (qm *ProxyMgr) ClientChecker() {
 
 		delete_clients := []string{}
 
-		read_lock := qm.clientMap.RLockNamed("proxy/ClientChecker")
-		for _, client := range *qm.clientMap.GetMap() {
+		for _, client := range qm.clientMap.GetClients() {
 			//for _, client := range qm.GetAllClients() {
 			client.LockNamed("ProxyMgr/ClientChecker")
 			if client.Tag == true {
@@ -220,7 +219,6 @@ func (qm *ProxyMgr) ClientChecker() {
 			}
 			client.Unlock()
 		}
-		qm.clientMap.RUnlockNamed(read_lock)
 
 		// Now delete clients
 		if len(delete_clients) > 0 {

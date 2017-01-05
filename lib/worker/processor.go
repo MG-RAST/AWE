@@ -554,23 +554,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			err_kill = KillContainer(container_id)
 		}
 		if err_kill != nil {
-			logger.Warning("(deferred func) (clean-up after running container) could not kill container id=%s, err=%s", container_id, err_kill.Error())
-		}
-
-		// *** remove Container
-
-		var err error
-
-		if client != nil {
-			opts_remove := docker.RemoveContainerOptions{ID: container_id}
-			err = client.RemoveContainer(opts_remove)
-		} else {
-			err = RemoveContainer(container_id)
-		}
-		if err != nil {
-			logger.Warning("(deferred func) could not remove container id=%s, err=%s", container_id, err.Error())
-		} else {
-			logger.Debug(1, "(deferred func) removed docker container")
+			logger.Debug(3, "(deferred func) (clean-up after running container) could not kill container id=%s, err=%s", container_id, err_kill.Error())
 		}
 
 	}(container_id)

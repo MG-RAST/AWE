@@ -66,7 +66,7 @@ func main() {
 
 	logger.Initialize("client")
 
-	logger.Debug(0, "PATH="+os.Getenv("PATH"))
+	logger.Debug(1, "PATH="+os.Getenv("PATH"))
 
 	profile, err := worker.ComposeProfile()
 	if err != nil {

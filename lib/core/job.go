@@ -207,7 +207,7 @@ func (job *Job) Save() (err error) {
 		err = fmt.Errorf("job id empty")
 		return
 	}
-	logger.Debug(0, "Save() saving job: %s", job.Id)
+	logger.Debug(1, "Save() saving job: %s", job.Id)
 
 	job.UpdateTime = time.Now()
 	var job_path string
@@ -218,7 +218,7 @@ func (job *Job) Save() (err error) {
 	}
 	bsonPath := path.Join(job_path, job.Id+".bson")
 	os.Remove(bsonPath)
-	logger.Debug(0, "Save() bson.Marshal next: %s", job.Id)
+	logger.Debug(1, "Save() bson.Marshal next: %s", job.Id)
 	nbson, err := bson.Marshal(job)
 	if err != nil {
 		err = errors.New("error in Marshal in job.Save(), error=" + err.Error())
@@ -235,13 +235,13 @@ func (job *Job) Save() (err error) {
 		err = errors.New("error writing file in job.Save(), error=" + err.Error())
 		return
 	}
-	logger.Debug(0, "Save() dbUpsert next: %s", job.Id)
+	logger.Debug(1, "Save() dbUpsert next: %s", job.Id)
 	err = dbUpsert(job)
 	if err != nil {
 		err = fmt.Errorf("error in dbUpsert in job.Save(), (job_id=%s) error=%v", job.Id, err)
 		return
 	}
-	logger.Debug(0, "Save() job saved: %s", job.Id)
+	logger.Debug(1, "Save() job saved: %s", job.Id)
 	return
 }
 

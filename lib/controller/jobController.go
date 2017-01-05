@@ -132,7 +132,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			cx.RespondWithErrorMessage("error in parsing job yaml file: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		logger.Debug(0, "Parse_cwl_document done")
+		logger.Debug(1, "Parse_cwl_document done")
 
 		cwl_workflow, ok := collection.Workflows["main"]
 		if !ok {
@@ -152,7 +152,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		logger.Debug(0, "CWL2AWE done")
+		logger.Debug(1, "CWL2AWE done")
 
 		//fmt.Println("\n\n\n--------------------------------- Done... now respond...")
 		//cx.RespondWithData(job)

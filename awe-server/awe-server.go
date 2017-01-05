@@ -279,6 +279,7 @@ func main() {
 	} else {
 		logger.Event(event.SERVER_START, "host="+host)
 	}
+	core.QMgr.ResumeQueue()
 
 	if conf.PID_FILE_PATH != "" {
 		f, err := os.Create(conf.PID_FILE_PATH)

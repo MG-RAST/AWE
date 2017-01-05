@@ -1,9 +1,12 @@
 package core
 
+// +build !race
+
 import (
+	"fmt"
 	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
-	//"strings"
+	"strings"
 	"sync"
 	"time"
 )
@@ -19,11 +22,28 @@ type ReadLock struct {
 type RWMutex struct {
 	//sync.RWMutex `bson:"-" json:"-"` // Locks only members that can change. Current_work has its own lock.
 	writeLock   chan int
-	lockOwner   string            `bson:"-" json:"-"`
+	lockOwner   StringLocked      `bson:"-" json:"-"`
 	Name        string            `bson:"-" json:"-"`
 	readers     map[string]string // map[Id]Name (named readers)
 	anonCounter int               // (anonymous readers, use only when necessary)
 	readLock    sync.Mutex
+}
+
+type StringLocked struct {
+	sync.Mutex
+	value string
+}
+
+func (s *StringLocked) Set(value string) {
+	s.Lock()
+	defer s.Unlock()
+	s.value = value
+}
+
+func (s *StringLocked) Get() string {
+	s.Lock()
+	defer s.Unlock()
+	return s.value
 }
 
 func (m *RWMutex) Init(name string) {
@@ -32,7 +52,7 @@ func (m *RWMutex) Init(name string) {
 	m.readers = make(map[string]string)
 	m.anonCounter = 0
 
-	m.lockOwner = "nobody_init"
+	m.lockOwner.Set("nobody_init")
 
 	if name == "" {
 		panic("name not defined")
@@ -55,13 +75,29 @@ func (m *RWMutex) Lock() {
 func (m *RWMutex) LockNamed(name string) {
 	//logger.Debug(3, "Lock")
 	//reader_list := strings.Join(m.RList(), ",")
-	//logger.Debug(3, "(%s) %s requests Lock. current owner:  %s (reader list :%s)", m.Name, name, m.lockOwner, reader_list) // reading  m.lockOwner induces data race !
+	//logger.Debug(3, "(%s) %s requests Lock. current owner:  %s (reader list :%s)", m.Name, name, m.lockOwner.Get(), reader_list) // reading  m.lockOwner induces data race !
 	if m.Name == "" {
 		panic("LockNamed: object has no name")
 	}
 	//m.RWMutex.Lock()
-	<-m.writeLock // Grab the ticket
-	m.lockOwner = name
+	initial_owner := m.lockOwner.Get()
+	timer := time.NewTimer(time.Second * 100)
+
+	select {
+	case <-m.writeLock: // Grab the ticket
+		logger.Debug(3, "(RWMutex/LockNamed %s) got lock", name)
+	case <-timer.C:
+		//elapsed_time := time.Since(start_time)
+		reader_list := strings.Join(m.RList(), ",")
+		panic(fmt.Sprintf("(%s) %s requests Lock. TIMEOUT!!! current owner: %s (reader list :%s), initial owner: %s", m.Name, name, m.lockOwner.Get(), reader_list, initial_owner))
+		return
+	}
+	if !timer.Stop() {
+		<-timer.C
+	}
+
+	//<-m.writeLock // Grab the ticket
+	m.lockOwner.Set(name)
 
 	// wait for Readers to leave....
 
@@ -74,8 +110,8 @@ func (m *RWMutex) LockNamed(name string) {
 
 func (m *RWMutex) Unlock() {
 	//logger.Debug(3, "Unlock")
-	old_owner := m.lockOwner
-	m.lockOwner = "nobody_anymore"
+	old_owner := m.lockOwner.Get()
+	m.lockOwner.Set("nobody_anymore")
 	//m.RWMutex.Unlock()
 	m.writeLock <- 1 // Give it back
 	logger.Debug(3, "(%s) UNLOCKED by %s **********************", m.Name, old_owner)

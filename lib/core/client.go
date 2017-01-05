@@ -115,7 +115,7 @@ func (cl *Client) Get_Ack() (ack CoAck, err error) {
 	start_time := time.Now()
 	timeout := make(chan bool, 1)
 	go func() {
-		time.Sleep(100 * time.Second)
+		time.Sleep(60 * time.Second)
 		timeout <- true
 	}()
 

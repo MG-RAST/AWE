@@ -33,7 +33,7 @@ func NewCQMgr() *CQMgr {
 		clientMap:    ClientMap{_map: map[string]*Client{}},
 		workQueue:    NewWorkQueue(),
 		suspendQueue: false,
-		coReq:        make(chan CoReq),
+		coReq:        make(chan CoReq, 100),
 		//coAck:        make(chan CoAck),
 		feedback: make(chan Notice),
 		coSem:    make(chan int, 1), //non-blocking buffered channel
@@ -50,7 +50,8 @@ func (qm *CQMgr) ClientHandle() {
 // show functions used in debug
 func (qm *CQMgr) ShowWorkQueue() {
 	logger.Debug(1, fmt.Sprintf("current queuing workunits (%d)", qm.workQueue.Len()))
-	for _, id := range qm.workQueue.List() {
+	for _, workunit := range qm.workQueue.GetAll() {
+		id := workunit.Id
 		logger.Debug(1, fmt.Sprintf("workid=%s", id))
 	}
 	return
@@ -329,9 +330,7 @@ func (qm *CQMgr) GetAllClientsByUser(u *user.User) (clients []*Client) {
 		}
 	}
 
-	read_lock := qm.clientMap.RLockNamed("GetAllClientsByUser")
-	defer qm.clientMap.RUnlockNamed(read_lock)
-	for _, client := range *qm.clientMap.GetMap() {
+	for _, client := range qm.clientMap.GetClients() {
 		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
 			clients = append(clients, client)
 		}
@@ -447,9 +446,7 @@ func (qm *CQMgr) SuspendAllClientsByUser(u *user.User) (count int) {
 		}
 	}
 
-	read_lock := qm.clientMap.RLockNamed("SuspendAllClientsByUser")
-	defer qm.clientMap.RUnlockNamed(read_lock)
-	for _, client := range *qm.clientMap.GetMap() {
+	for _, client := range qm.clientMap.GetClients() {
 		client.LockNamed("SuspendAllClientsByUser")
 		status := client.Get_Status(false)
 		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true && (status == CLIENT_STAT_ACTIVE_IDLE || status == CLIENT_STAT_ACTIVE_BUSY) {
@@ -507,9 +504,8 @@ func (qm *CQMgr) ResumeClientByUser(id string, u *user.User) (err error) {
 }
 
 func (qm *CQMgr) ResumeSuspendedClients() (count int) {
-	read_lock := qm.clientMap.RLockNamed("ResumeSuspendedClients")
-	defer qm.clientMap.RUnlockNamed(read_lock)
-	for _, client := range *qm.clientMap.GetMap() {
+
+	for _, client := range qm.clientMap.GetClients() {
 		client.LockNamed("ResumeSuspendedClients")
 		if client.Status == CLIENT_STAT_SUSPEND {
 			//qm.ClientStatusChange(client.Id, CLIENT_STAT_ACTIVE_IDLE)
@@ -535,9 +531,7 @@ func (qm *CQMgr) ResumeSuspendedClientsByUser(u *user.User) (count int) {
 		}
 	}
 
-	read_lock := qm.clientMap.RLockNamed("ResumeSuspendedClientsByUser")
-	defer qm.clientMap.RUnlockNamed(read_lock)
-	for _, client := range *qm.clientMap.GetMap() {
+	for _, client := range qm.clientMap.GetClients() {
 		client.LockNamed("ResumeSuspendedClientsByUser")
 		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true && client.Status == CLIENT_STAT_SUSPEND {
 			//qm.ClientStatusChange(client.Id, CLIENT_STAT_ACTIVE_IDLE)

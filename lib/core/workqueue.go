@@ -17,26 +17,30 @@ type wQueueShow struct {
 
 type WorkQueue struct {
 	sync.RWMutex
-	workMap  map[string]*Workunit //all parsed workunits
-	wait     map[string]bool      //ids of waiting workunits
-	checkout map[string]bool      //ids of workunits being checked out
-	suspend  map[string]bool      //ids of suspended workunits
+	//workMap  map[string]*Workunit //all parsed workunits
+	workMap  WorkunitMap
+	wait     map[string]bool //ids of waiting workunits
+	checkout map[string]bool //ids of workunits being checked out
+	suspend  map[string]bool //ids of suspended workunits
 }
 
 func NewWorkQueue() *WorkQueue {
-	return &WorkQueue{
-		workMap:  map[string]*Workunit{},
+	wq := &WorkQueue{
+		workMap:  WorkunitMap{},
 		wait:     map[string]bool{},
 		checkout: map[string]bool{},
 		suspend:  map[string]bool{},
 	}
+
+	wq.workMap.Init("workMap")
+
+	return wq
 }
 
-func (wq *WorkQueue) Len() (l int) {
+func (wq *WorkQueue) Len() int {
 	wq.RLock()
-	l = len(wq.workMap)
-	wq.RUnlock()
-	return
+	defer wq.RUnlock()
+	return wq.workMap.Len()
 }
 
 func (wq *WorkQueue) WaitLen() (l int) {
@@ -75,35 +79,41 @@ func (wq *WorkQueue) Add(workunit *Workunit) (err error) {
 	wq.Lock()
 	defer wq.Unlock()
 	id := workunit.Id
-	wq.workMap[id] = workunit
+	//wq.workMap[id] = workunit
+	wq.workMap.Set(workunit)
 	wq.wait[id] = true
 	delete(wq.checkout, id)
 	delete(wq.suspend, id)
-	wq.workMap[id].State = WORK_STAT_QUEUED
+	//wq.workMap[id].State = WORK_STAT_QUEUED
+	workunit.State = WORK_STAT_QUEUED
 	return nil
 }
 
 func (wq *WorkQueue) Put(workunit *Workunit) {
-	wq.Lock()
-	wq.workMap[workunit.Id] = workunit
-	wq.Unlock()
+	//wq.Lock()
+	//wq.workMap[workunit.Id] = workunit
+	//wq.Unlock()
+	wq.workMap.Set(workunit)
 }
 
-func (wq *WorkQueue) Get(id string) (*Workunit, bool) {
-	wq.RLock()
-	defer wq.RUnlock()
-	if work, ok := wq.workMap[id]; ok {
-		copy := wq.copyWork(work)
-		return copy, true
-	}
-	return nil, false
+func (wq *WorkQueue) Get(id string) (w *Workunit, ok bool) {
+
+	w, ok = wq.workMap.Get(id)
+
+	return
+
+	//if work, ok := wq.workMap.Get(id); ok {
+	//	copy := wq.copyWork(work)
+	//	return copy, true
+	//}
+	//return nil, false
 }
 
+// TODO remove this function!
 func (wq *WorkQueue) GetSet(workids []string) (worklist []*Workunit) {
-	wq.RLock()
-	defer wq.RUnlock()
+
 	for _, id := range workids {
-		if work, ok := wq.workMap[id]; ok {
+		if work, ok := wq.workMap.Get(id); ok {
 			copy := wq.copyWork(work)
 			worklist = append(worklist, copy)
 		}
@@ -112,37 +122,32 @@ func (wq *WorkQueue) GetSet(workids []string) (worklist []*Workunit) {
 }
 
 func (wq *WorkQueue) GetForJob(jobid string) (worklist []*Workunit) {
-	wq.RLock()
-	defer wq.RUnlock()
-	for id, work := range wq.workMap {
-		if jobid == getParentJobId(id) {
-			copy := wq.copyWork(work)
-			worklist = append(worklist, copy)
+
+	for _, work := range wq.workMap.GetWorkunits() {
+
+		if jobid == getParentJobId(work.Id) {
+			worklist = append(worklist, work)
 		}
 	}
 	return
 }
 
 func (wq *WorkQueue) GetAll() (worklist []*Workunit) {
-	wq.RLock()
-	defer wq.RUnlock()
-	for _, work := range wq.workMap {
-		copy := wq.copyWork(work)
-		worklist = append(worklist, copy)
-	}
-	return
+
+	return wq.workMap.GetWorkunits()
 }
 
 func (wq *WorkQueue) Clean() (workids []string) {
 	wq.Lock()
 	defer wq.Unlock()
-	for id, work := range wq.workMap {
+	for _, work := range wq.workMap.GetWorkunits() {
+		id := work.Id
 		if work == nil || work.Info == nil {
 			workids = append(workids, id)
 			delete(wq.wait, id)
 			delete(wq.checkout, id)
 			delete(wq.suspend, id)
-			delete(wq.workMap, id)
+			wq.workMap.Delete(id)
 			logger.Error("error: in WorkQueue workunit %s is nil, deleted from queue", id)
 		}
 	}
@@ -154,34 +159,38 @@ func (wq *WorkQueue) Delete(id string) {
 	delete(wq.wait, id)
 	delete(wq.checkout, id)
 	delete(wq.suspend, id)
-	delete(wq.workMap, id)
+	wq.workMap.Delete(id)
 	wq.Unlock()
 }
 
 func (wq *WorkQueue) Has(id string) (has bool) {
-	wq.RLock()
-	defer wq.RUnlock()
-	if work, ok := wq.workMap[id]; ok {
-		if work == nil {
-			logger.Error("error: in WorkQueue workunit %s is nil", id)
-			has = false
-		} else {
-			has = true
-		}
-	} else {
-		has = false
-	}
+
+	_, has = wq.workMap.Get(id)
+
+	//wq.RLock()
+	//defer wq.RUnlock()
+	//if work, ok := wq.workMap[id]; ok {
+	//	if work == nil {
+	//		logger.Error("error: in WorkQueue workunit %s is nil", id)
+	//		has = false
+	//	} else {
+	//		has = true
+	//	}
+	//} else {
+	//	has = false
+	//}
 	return
 }
 
-func (wq *WorkQueue) List() (workids []string) {
-	wq.RLock()
-	defer wq.RUnlock()
-	for id, _ := range wq.workMap {
-		workids = append(workids, id)
-	}
-	return
-}
+// TODO remove this ???
+//func (wq *WorkQueue) List() (workids []string) {
+//	wq.RLock()
+//	defer wq.RUnlock()
+//	for id, _ := range wq.workMap.Map {
+//		workids = append(workids, id)
+//	}
+//	return
+//}
 
 func (wq *WorkQueue) WaitList() (workids []string) {
 	wq.RLock()
@@ -199,7 +208,8 @@ func (wq *WorkQueue) StatusChange(id string, new_status string) (err error) {
 	//delete function will do nothing if the operated map has no such key.
 	wq.Lock()
 	defer wq.Unlock()
-	if _, ok := wq.workMap[id]; !ok {
+	workunit, ok := wq.workMap.Get(id)
+	if !ok {
 		return errors.New("WQueue.statusChange: invalid workunit id:" + id)
 	}
 	if new_status == WORK_STAT_CHECKOUT {
@@ -217,7 +227,7 @@ func (wq *WorkQueue) StatusChange(id string, new_status string) (err error) {
 	} else {
 		return errors.New("WorkQueue.statusChange: invalid new status:" + new_status)
 	}
-	wq.workMap[id].State = new_status
+	workunit.State = new_status
 	return
 }
 

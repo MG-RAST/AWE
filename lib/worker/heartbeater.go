@@ -147,21 +147,27 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 	return
 }
 
-func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, err error) {
+func RegisterWithAuth(host string, pclient *core.Client) (client *core.Client, err error) {
 	logger.Debug(3, "Try to register client")
 	if conf.CLIENT_GROUP_TOKEN == "" {
 		fmt.Println("clientgroup token not set, register as a public client (can only access public data)")
 	}
 
-	profile_jsonstream, err := json.Marshal(profile)
+	rlock := pclient.RLockNamed("RegisterWithAuth")
+
+	client_jsonstream, err := pclient.Marshal()
+	//client_jsonstream, err := json.Marshal(pclient)
 	if err != nil {
-		err = fmt.Errorf("json.Marshal(profile) error: %s", err.Error())
+		err = fmt.Errorf("json.Marshal(client) error: %s", err.Error())
+		pclient.RUnlockNamed(rlock)
 		return
 	}
-	logger.Debug(3, "profile_jsonstream: %s ", string(profile_jsonstream))
+	pclient.RUnlockNamed(rlock)
+
+	logger.Debug(3, "client_jsonstream: %s ", string(client_jsonstream))
 	profile_path := conf.DATA_PATH + "/clientprofile.json"
 	logger.Debug(3, "profile_path: %s", profile_path)
-	err = ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
+	err = ioutil.WriteFile(profile_path, []byte(client_jsonstream), 0644)
 	if err != nil {
 		err = fmt.Errorf("(RegisterWithAuth) error in ioutil.WriteFile: %s", err.Error())
 		return
@@ -299,6 +305,9 @@ func ComposeProfile() (profile *core.Client, err error) {
 	if core.Service == "proxy" {
 		profile.Proxy = true
 	}
+
+	profile.Init()
+
 	return
 }
 

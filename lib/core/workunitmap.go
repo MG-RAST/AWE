@@ -5,6 +5,10 @@ type WorkunitMap struct {
 	Map map[string]*Workunit
 }
 
+func NewWorkunitMap() *WorkunitMap {
+	return &WorkunitMap{Map: map[string]*Workunit{}}
+}
+
 func (wm *WorkunitMap) Len() int {
 	rlock := wm.RLockNamed("WorkunitMap/Len")
 	defer wm.RUnlockNamed(rlock)

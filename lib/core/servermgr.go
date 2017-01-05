@@ -171,7 +171,7 @@ func (qm *ServerMgr) GetQueue(name string) interface{} {
 	}
 	if name == "work" {
 		qm.ShowWorkQueue() // only if debug level is set
-		return wQueueShow{qm.workQueue.workMap.Map, qm.workQueue.wait, qm.workQueue.checkout, qm.workQueue.suspend}
+		return qm.workQueue.workMap.Map
 	}
 	if name == "client" {
 		return qm.clientMap
@@ -329,13 +329,9 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	client, ok := qm.GetClient(clientid, true)
 	if ok {
 		//delete(client.Current_work, workid)
-		client.LockNamed("ServerMgr/handleWorkStatusChange A")
-		client.Current_work_delete(workid, false)
-		if client.Current_work_length(false) == 0 && client.Status == CLIENT_STAT_ACTIVE_BUSY {
-			client.Status = CLIENT_STAT_ACTIVE_IDLE
-		}
-		client.Unlock()
-		qm.AddClient(client, true)
+
+		client.Current_work_delete(workid, true)
+
 	}
 
 	task, tok := qm.TaskMap.Get(taskid, true)
@@ -376,10 +372,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		logger.Event(event.WORK_DONE, "workid="+workid+";clientid="+clientid)
 		//update client status
 
-		client.LockNamed("ServerMgr/handleWorkStatusChange B")
-		client.Total_completed += 1
-		client.Last_failed = 0 //reset last consecutive failures
-		client.Unlock()
+		client.Increment_total_completed()
+
 		qm.AddClient(client, true)
 
 		task.RemainWork -= 1
@@ -467,9 +461,9 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 }
 
 func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
-	queuing_work := qm.workQueue.WaitLen()
-	out_work := qm.workQueue.CheckoutLen()
-	suspend_work := qm.workQueue.SuspendLen()
+	queuing_work := qm.workQueue.Wait.Len()
+	out_work := qm.workQueue.Checkout.Len()
+	suspend_work := qm.workQueue.Suspend.Len()
 	total_active_work := qm.workQueue.Len()
 	total_task := 0
 	queuing_task := 0

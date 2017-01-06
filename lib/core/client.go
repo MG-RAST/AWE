@@ -115,7 +115,7 @@ func (cl *Client) Get_Ack() (ack CoAck, err error) {
 	start_time := time.Now()
 	timeout := make(chan bool, 1)
 	go func() {
-		time.Sleep(100 * time.Second)
+		time.Sleep(60 * time.Second)
 		timeout <- true
 	}()
 
@@ -194,7 +194,7 @@ func (cl *Client) Increment_total_completed() {
 	cl.LockNamed("Increment_total_completed")
 	defer cl.Unlock()
 	cl.Total_completed += 1
-
+	cl.Last_failed = 0 //reset last consecutive failures
 	return
 }
 
@@ -238,7 +238,21 @@ func (cl *Client) Current_work_delete(workid string, write_lock bool) {
 		defer cl.Unlock()
 	}
 	delete(cl.Current_work, workid)
+	if cl.Current_work_length(false) == 0 && cl.Status == CLIENT_STAT_ACTIVE_BUSY {
+		cl.Status = CLIENT_STAT_ACTIVE_IDLE
+	}
+}
 
+func (cl *Client) Get_current_work(read_lock bool) (current_work_ids []string) {
+	current_work_ids = []string{}
+	if read_lock {
+		read_lock := cl.RLockNamed("Get_current_work")
+		defer cl.RUnlockNamed(read_lock)
+	}
+	for id := range cl.Current_work {
+		current_work_ids = append(current_work_ids, id)
+	}
+	return
 }
 
 // TODO: Wolfgang: Can we use delete instead ?
@@ -275,4 +289,10 @@ func (cl *Client) IsBusy(lock bool) bool {
 		return true
 	}
 	return false
+}
+
+func (cl *Client) Marshal() ([]byte, error) {
+	read_lock := cl.RLockNamed("Marshal")
+	defer cl.RUnlockNamed(read_lock)
+	return json.Marshal(cl)
 }

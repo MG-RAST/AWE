@@ -165,6 +165,18 @@ func (job *Job) InitTasks() (err error) {
 	return
 }
 
+func (job *Job) RLockRecursive() {
+	for _, task := range job.Tasks {
+		task.RLockAnon()
+	}
+}
+
+func (job *Job) RUnlockRecursive() {
+	for _, task := range job.Tasks {
+		task.RUnlockAnon()
+	}
+}
+
 //set job's uuid
 func (job *Job) setId() {
 	job.Id = uuid.New()
@@ -195,7 +207,7 @@ func (job *Job) Save() (err error) {
 		err = fmt.Errorf("job id empty")
 		return
 	}
-	logger.Debug(0, "Save() saving job: %s", job.Id)
+	logger.Debug(1, "Save() saving job: %s", job.Id)
 
 	job.UpdateTime = time.Now()
 	var job_path string
@@ -206,7 +218,7 @@ func (job *Job) Save() (err error) {
 	}
 	bsonPath := path.Join(job_path, job.Id+".bson")
 	os.Remove(bsonPath)
-	logger.Debug(0, "Save() bson.Marshal next: %s", job.Id)
+	logger.Debug(1, "Save() bson.Marshal next: %s", job.Id)
 	nbson, err := bson.Marshal(job)
 	if err != nil {
 		err = errors.New("error in Marshal in job.Save(), error=" + err.Error())
@@ -223,13 +235,13 @@ func (job *Job) Save() (err error) {
 		err = errors.New("error writing file in job.Save(), error=" + err.Error())
 		return
 	}
-	logger.Debug(0, "Save() dbUpsert next: %s", job.Id)
+	logger.Debug(1, "Save() dbUpsert next: %s", job.Id)
 	err = dbUpsert(job)
 	if err != nil {
 		err = fmt.Errorf("error in dbUpsert in job.Save(), (job_id=%s) error=%v", job.Id, err)
 		return
 	}
-	logger.Debug(0, "Save() job saved: %s", job.Id)
+	logger.Debug(1, "Save() job saved: %s", job.Id)
 	return
 }
 
@@ -320,6 +332,7 @@ func (job *Job) UpdateState(newState string, notes string) (err error) {
 }
 
 //invoked to modify job info in mongodb when a task in that job changed to the new status
+// task is already locked
 func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	idx := -1
 	for i, t := range job.Tasks {
@@ -334,7 +347,7 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	job.Tasks[idx] = task
 
 	//if this task is complete, count remain tasks for the job
-	task_state := task.GetState()
+	task_state := task.State
 	if task_state == TASK_STAT_COMPLETED ||
 		task_state == TASK_STAT_SKIPPED ||
 		task_state == TASK_STAT_FAIL_SKIP {

@@ -97,14 +97,11 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 		if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || rights["read"] == true || u.Admin == true || public_rights["read"] == true)) ||
 			(u.Uuid == "public" && conf.ANON_CG_READ == true && public_rights["read"] == true) {
 			// get running jobs for clients for clientgroup
-			jobs := []*core.Job{}
+			jobs := core.Jobs{}
 
 			client_map := core.QMgr.GetClientMap()
 
-			read_lock := client_map.RLockNamed("QueueController/ReadMany")
-			defer client_map.RUnlockNamed(read_lock)
-
-			for _, client := range *client_map.GetMap() {
+			for _, client := range client_map.GetClients() {
 				if client.Group == cg.Name {
 					client.LockNamed("QueueController/ReadMany")
 					for wid, _ := range client.Current_work {
@@ -117,6 +114,8 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 				}
 			}
 
+			jobs.RLockRecursive()
+			defer jobs.RUnlockRecursive()
 			cx.RespondWithData(jobs)
 			return
 		}

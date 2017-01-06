@@ -46,7 +46,7 @@ func (c CWL_collection) Evaluate(raw string) (parsed string) {
 				value_str = value.String()
 			}
 
-			logger.Debug(0, "evaluate %s -> %s\n", key, value_str)
+			logger.Debug(1, "evaluate %s -> %s\n", key, value_str)
 			parsed = strings.Replace(parsed, string(match), value_str, 1)
 		}
 

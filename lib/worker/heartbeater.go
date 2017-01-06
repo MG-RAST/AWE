@@ -147,21 +147,27 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 	return
 }
 
-func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, err error) {
+func RegisterWithAuth(host string, pclient *core.Client) (client *core.Client, err error) {
 	logger.Debug(3, "Try to register client")
 	if conf.CLIENT_GROUP_TOKEN == "" {
 		fmt.Println("clientgroup token not set, register as a public client (can only access public data)")
 	}
 
-	profile_jsonstream, err := json.Marshal(profile)
+	//rlock := pclient.RLockNamed("RegisterWithAuth")
+	//logger.Debug(3, "Try to register client, got pclient lock")
+	client_jsonstream, err := pclient.Marshal()
+	//client_jsonstream, err := json.Marshal(pclient)
 	if err != nil {
-		err = fmt.Errorf("json.Marshal(profile) error: %s", err.Error())
+		err = fmt.Errorf("json.Marshal(client) error: %s", err.Error())
+		//pclient.RUnlockNamed(rlock)
 		return
 	}
-	logger.Debug(3, "profile_jsonstream: %s ", string(profile_jsonstream))
+	//pclient.RUnlockNamed(rlock)
+	//logger.Debug(3, "Try to register client, released  pclient lock")
+	logger.Debug(3, "client_jsonstream: %s ", string(client_jsonstream))
 	profile_path := conf.DATA_PATH + "/clientprofile.json"
 	logger.Debug(3, "profile_path: %s", profile_path)
-	err = ioutil.WriteFile(profile_path, []byte(profile_jsonstream), 0644)
+	err = ioutil.WriteFile(profile_path, []byte(client_jsonstream), 0644)
 	if err != nil {
 		err = fmt.Errorf("(RegisterWithAuth) error in ioutil.WriteFile: %s", err.Error())
 		return
@@ -198,6 +204,7 @@ func RegisterWithAuth(host string, profile *core.Client) (client *core.Client, e
 	defer resp.Body.Close()
 
 	response := new(ClientResponse)
+	logger.Debug(3, "client registration: got response")
 	jsonstream, err := ioutil.ReadAll(resp.Body)
 	if err = json.Unmarshal(jsonstream, response); err != nil {
 		err = errors.New("fail to unmashal response:" + string(jsonstream))
@@ -299,6 +306,9 @@ func ComposeProfile() (profile *core.Client, err error) {
 	if core.Service == "proxy" {
 		profile.Proxy = true
 	}
+
+	profile.Init()
+
 	return
 }
 
@@ -337,27 +347,30 @@ func getMetaDataField(field string) (result string, err error) {
 	logger.Debug(1, fmt.Sprintf("url=%s", url))
 
 	for i := 0; i < 3; i++ {
-		var res *http.Response
-		c := make(chan error)
+		//var res *http.Response
+		error_chan := make(chan error)
+		result_chan := make(chan string)
 		go func() {
-			res, err = http.Get(url)
-			if err != nil {
-				c <- err //we are ending with error
+			res, xerr := http.Get(url)
+			if xerr != nil {
+				error_chan <- xerr //we are ending with error
 				return
 			}
 
 			defer res.Body.Close()
-			bodybytes, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				c <- err //we are ending with error
+			bodybytes, xerr := ioutil.ReadAll(res.Body)
+			if xerr != nil {
+				error_chan <- xerr //we are ending with error
 				return
 			}
 			result = string(bodybytes[:])
 
-			c <- nil //we are ending without error
+			result_chan <- result
 		}()
 		select {
-		case err = <-c:
+		case err = <-error_chan:
+			//go ahead
+		case result = <-result_chan:
 			//go ahead
 		case <-time.After(conf.INSTANCE_METADATA_TIMEOUT): //GET timeout
 			err = errors.New("timeout: " + url)

@@ -421,7 +421,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 }
 
 func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
-	logger.Debug(0, "cwl_step_2_awe_task, step_id: "+step_id)
+	logger.Debug(1, "cwl_step_2_awe_task, step_id: "+step_id)
 
 	processed_ws := helper.processed_ws
 	job := helper.job
@@ -459,10 +459,10 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 	}
 
 	pos := len(*helper.processed_ws)
-	logger.Debug(0, "pos: %d", pos)
+	logger.Debug(1, "pos: %d", pos)
 
 	pos_str := strconv.Itoa(pos)
-	logger.Debug(0, "pos_str: %s", pos_str)
+	logger.Debug(1, "pos_str: %s", pos_str)
 	var awe_task *Task
 	awe_task, err = NewTask(job, pos_str)
 	if err != nil {
@@ -470,7 +470,7 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 		return
 	}
 	awe_task.Init()
-	logger.Debug(0, "Task created: %s", awe_task.Id)
+	logger.Debug(1, "Task created: %s", awe_task.Id)
 
 	(*helper.AWE_tasks)[job.Id] = awe_task
 	awe_task.JobId = job.Id
@@ -483,7 +483,7 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 	job.Tasks = append(job.Tasks, awe_task)
 
 	(*processed_ws)[step.Id] = step
-	logger.Debug(0, "LEAVING cwl_step_2_awe_task, step_id: "+step_id)
+	logger.Debug(1, "LEAVING cwl_step_2_awe_task, step_id: "+step_id)
 	return
 }
 
@@ -492,7 +492,7 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 	//CommandLineTools := collection.CommandLineTools
 
 	// check that all expected workflow inputs exist and that they have the correct type
-	logger.Debug(0, "CWL2AWE starting")
+	logger.Debug(1, "CWL2AWE starting")
 	for _, input := range cwl_workflow.Inputs {
 		// input is a cwl.InputParameter object
 
@@ -526,7 +526,7 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 	}
 	//os.Exit(0)
 	job = NewJob()
-	logger.Debug(0, "Job created")
+	logger.Debug(1, "Job created")
 
 	found_ShockRequirement := false
 	for _, r := range cwl_workflow.Requirements { // TODO put ShockRequirement in Hints
@@ -548,14 +548,14 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 		err = fmt.Errorf("ShockRequirement has to be provided in the workflow object")
 		return
 	}
-	logger.Debug(0, "Requirements checked")
+	logger.Debug(1, "Requirements checked")
 
 	err = job.Init()
 	if err != nil {
 		err = fmt.Errorf("job.Init() failed: %v", err)
 		return
 	}
-	logger.Debug(0, "Init called")
+	logger.Debug(1, "Init called")
 
 	// Once, job has been created, set job owner and add owner to all ACL's
 	job.Acl.SetOwner(_user.Uuid)
@@ -597,7 +597,7 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 		}
 
 	}
-	logger.Debug(0, "cwl_step_2_awe_task done")
+	logger.Debug(1, "cwl_step_2_awe_task done")
 	// loop until all steps have been converted
 
 	err = job.InitTasks()
@@ -605,7 +605,7 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 		err = fmt.Errorf("job.InitTasks() failed: %v", err)
 		return
 	}
-	logger.Debug(0, "job.InitTasks done")
+	logger.Debug(1, "job.InitTasks done")
 
 	err = job.Mkdir()
 	if err != nil {
@@ -621,7 +621,7 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 
 	spew.Dump(job)
 
-	logger.Debug(0, "job.Id: %s", job.Id)
+	logger.Debug(1, "job.Id: %s", job.Id)
 	err = job.Save()
 	if err != nil {
 		err = errors.New("error in job.Save(), error=" + err.Error())

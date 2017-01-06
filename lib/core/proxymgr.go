@@ -194,8 +194,7 @@ func (qm *ProxyMgr) ClientChecker() {
 
 		delete_clients := []string{}
 
-		read_lock := qm.clientMap.RLockNamed("proxy/ClientChecker")
-		for _, client := range *qm.clientMap.GetMap() {
+		for _, client := range qm.clientMap.GetClients() {
 			//for _, client := range qm.GetAllClients() {
 			client.LockNamed("ProxyMgr/ClientChecker")
 			if client.Tag == true {
@@ -220,23 +219,27 @@ func (qm *ProxyMgr) ClientChecker() {
 			}
 			client.Unlock()
 		}
-		qm.clientMap.RUnlockNamed(read_lock)
 
 		// Now delete clients
 		if len(delete_clients) > 0 {
-			qm.clientMap.LockNamed("ClientChecker")
+			//qm.clientMap.LockNamed("ClientChecker")
 			for _, client_id := range delete_clients {
-				//requeue unfinished workunits associated with the failed client
-				qm.ReQueueWorkunitByClient(client_id, true)
-				//delete the client from client map
 
-				qm.RemoveClient(client_id, false)
+				//client, ok := qm.workQueue.workMap.Get(client_id)
+				client, ok := qm.clientMap.Get(client_id, true)
+				if ok {
+					//requeue unfinished workunits associated with the failed client
+					qm.ReQueueWorkunitByClient(client, true)
+					//delete the client from client map
 
-				//proxy specific
-				Self.SubClients -= 1
-				notifySubClients(Self.Id, Self.SubClients)
+					qm.RemoveClient(client_id, true)
+
+					//proxy specific
+					Self.SubClients -= 1
+					notifySubClients(Self.Id, Self.SubClients)
+				}
 			}
-			qm.clientMap.Unlock()
+			//qm.clientMap.Unlock()
 		}
 	}
 }

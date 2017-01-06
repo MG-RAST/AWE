@@ -187,6 +187,9 @@ func LoadJob(id string) (job *Job, err error) {
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 	if err = c.Find(bson.M{"id": id}).One(&job); err == nil {
+		for _, task := range job.Tasks {
+			task.Init()
+		}
 		return job, nil
 	}
 	return nil, err

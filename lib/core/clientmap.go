@@ -15,11 +15,6 @@ func NewClientMap() *ClientMap {
 	return cm
 }
 
-func (cl *ClientMap) GetMap() *map[string]*Client {
-	logger.Debug(3, "(ClientMap) GetMap\n")
-	return &cl._map
-}
-
 func (cl *ClientMap) Add(client *Client, lock bool) {
 
 	if lock {
@@ -71,6 +66,7 @@ func (cl *ClientMap) GetClientIds() (ids []string) {
 
 func (cl *ClientMap) GetClients() (clients []*Client) {
 
+	clients = []*Client{}
 	read_lock := cl.RLockNamed("GetClients")
 	defer cl.RUnlockNamed(read_lock)
 	for _, client := range cl._map {

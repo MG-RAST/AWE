@@ -155,12 +155,12 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool) {
 func (qm *CQMgr) ClientChecker() {
 	for {
 		time.Sleep(30 * time.Second)
-		logger.Debug(3, "time to update client list....")
+		logger.Debug(3, "(ClientChecker) time to update client list....")
 
 		delete_clients := []string{}
 
 		client_list := qm.clientMap.GetClients() // this uses a list of pointers to prevent long locking of the CLientMap
-
+		logger.Debug(3, "(ClientChecker) check %d clients", len(client_list))
 		for _, client := range client_list {
 			ok := qm.CheckClient(client)
 			if !ok {
@@ -224,6 +224,7 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err e
 }
 
 func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Client, err error) {
+	logger.Debug(3, "RegisterNewClient called")
 	if _, ok := files["profile"]; ok {
 		client, err = NewProfileClient(files["profile"].Path)
 		os.Remove(files["profile"].Path)

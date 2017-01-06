@@ -505,10 +505,11 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
 	idle_client := 0
 	suspend_client := 0
 
-	for _, client := range qm.clientMap.GetClients() {
-		rlock := client.RLockNamed("GetJsonStatus")
+	client_list := qm.clientMap.GetClients()
+	total_client = len(client_list)
 
-		total_client += 1
+	for _, client := range client_list {
+		rlock := client.RLockNamed("GetJsonStatus")
 
 		if client.Status == CLIENT_STAT_SUSPEND {
 			suspend_client += 1

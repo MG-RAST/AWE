@@ -26,6 +26,7 @@ func (cr *ClientController) Options(cx *goweb.Context) {
 
 // POST: /client - register a new client
 func (cr *ClientController) Create(cx *goweb.Context) {
+	logger.Debug(3, "POST /client")
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 
@@ -54,6 +55,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 		}
 	}
 
+	logger.Debug(3, "POST /client, call RegisterNewClient")
 	client, err := core.QMgr.RegisterNewClient(files, cg)
 	if err != nil {
 		msg := "Error in registering new client:" + err.Error()

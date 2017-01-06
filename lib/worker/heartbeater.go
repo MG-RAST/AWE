@@ -153,17 +153,17 @@ func RegisterWithAuth(host string, pclient *core.Client) (client *core.Client, e
 		fmt.Println("clientgroup token not set, register as a public client (can only access public data)")
 	}
 
-	rlock := pclient.RLockNamed("RegisterWithAuth")
-
+	//rlock := pclient.RLockNamed("RegisterWithAuth")
+	//logger.Debug(3, "Try to register client, got pclient lock")
 	client_jsonstream, err := pclient.Marshal()
 	//client_jsonstream, err := json.Marshal(pclient)
 	if err != nil {
 		err = fmt.Errorf("json.Marshal(client) error: %s", err.Error())
-		pclient.RUnlockNamed(rlock)
+		//pclient.RUnlockNamed(rlock)
 		return
 	}
-	pclient.RUnlockNamed(rlock)
-
+	//pclient.RUnlockNamed(rlock)
+	//logger.Debug(3, "Try to register client, released  pclient lock")
 	logger.Debug(3, "client_jsonstream: %s ", string(client_jsonstream))
 	profile_path := conf.DATA_PATH + "/clientprofile.json"
 	logger.Debug(3, "profile_path: %s", profile_path)
@@ -204,6 +204,7 @@ func RegisterWithAuth(host string, pclient *core.Client) (client *core.Client, e
 	defer resp.Body.Close()
 
 	response := new(ClientResponse)
+	logger.Debug(3, "client registration: got response")
 	jsonstream, err := ioutil.ReadAll(resp.Body)
 	if err = json.Unmarshal(jsonstream, response); err != nil {
 		err = errors.New("fail to unmashal response:" + string(jsonstream))
@@ -350,16 +351,16 @@ func getMetaDataField(field string) (result string, err error) {
 		error_chan := make(chan error)
 		result_chan := make(chan string)
 		go func() {
-			res, err := http.Get(url)
-			if err != nil {
-				error_chan <- err //we are ending with error
+			res, xerr := http.Get(url)
+			if xerr != nil {
+				error_chan <- xerr //we are ending with error
 				return
 			}
 
 			defer res.Body.Close()
-			bodybytes, err := ioutil.ReadAll(res.Body)
-			if err != nil {
-				error_chan <- err //we are ending with error
+			bodybytes, xerr := ioutil.ReadAll(res.Body)
+			if xerr != nil {
+				error_chan <- xerr //we are ending with error
 				return
 			}
 			result = string(bodybytes[:])

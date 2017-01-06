@@ -50,6 +50,7 @@ func (tm *TaskMap) Add(task *Task) {
 	return
 }
 
+// TODO remove ?
 func (tm *TaskMap) SetState(id string, new_state string) (err error) {
 	task, ok := tm.Get(id, true)
 	if !ok {

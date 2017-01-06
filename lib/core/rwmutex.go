@@ -122,8 +122,8 @@ func (m *RWMutex) RLockNamed(name string) ReadLock {
 	if m.Name == "" {
 		panic("xzy name empty")
 	}
-	m.LockNamed("RLock")
-	logger.Debug(3, "(%s) RLock got Lock.", m.Name)
+	m.LockNamed("RLock/" + name)
+	logger.Debug(3, "(%s) RLock/%s got Lock.", m.Name, name)
 	m.readLock.Lock()
 	new_uuid := uuid.New()
 

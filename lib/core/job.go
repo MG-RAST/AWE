@@ -332,6 +332,7 @@ func (job *Job) UpdateState(newState string, notes string) (err error) {
 }
 
 //invoked to modify job info in mongodb when a task in that job changed to the new status
+// task is already locked
 func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	idx := -1
 	for i, t := range job.Tasks {
@@ -346,7 +347,7 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	job.Tasks[idx] = task
 
 	//if this task is complete, count remain tasks for the job
-	task_state := task.GetState()
+	task_state := task.State
 	if task_state == TASK_STAT_COMPLETED ||
 		task_state == TASK_STAT_SKIPPED ||
 		task_state == TASK_STAT_FAIL_SKIP {

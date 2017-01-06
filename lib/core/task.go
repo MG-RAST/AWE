@@ -378,7 +378,7 @@ func (task *Task) Skippable() bool {
 }
 
 func (task *Task) DeleteOutput() {
-	task_state := task.GetState()
+	task_state := task.State
 	if task_state == TASK_STAT_COMPLETED ||
 		task_state == TASK_STAT_SKIPPED ||
 		task_state == TASK_STAT_FAIL_SKIP {
@@ -393,7 +393,7 @@ func (task *Task) DeleteOutput() {
 }
 
 func (task *Task) DeleteInput() {
-	task_state := task.GetState()
+	task_state := task.State
 	if task_state == TASK_STAT_COMPLETED ||
 		task_state == TASK_STAT_SKIPPED ||
 		task_state == TASK_STAT_FAIL_SKIP {

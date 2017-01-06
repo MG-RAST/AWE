@@ -346,27 +346,30 @@ func getMetaDataField(field string) (result string, err error) {
 	logger.Debug(1, fmt.Sprintf("url=%s", url))
 
 	for i := 0; i < 3; i++ {
-		var res *http.Response
-		c := make(chan error)
+		//var res *http.Response
+		error_chan := make(chan error)
+		result_chan := make(chan string)
 		go func() {
-			res, err = http.Get(url)
+			res, err := http.Get(url)
 			if err != nil {
-				c <- err //we are ending with error
+				error_chan <- err //we are ending with error
 				return
 			}
 
 			defer res.Body.Close()
 			bodybytes, err := ioutil.ReadAll(res.Body)
 			if err != nil {
-				c <- err //we are ending with error
+				error_chan <- err //we are ending with error
 				return
 			}
 			result = string(bodybytes[:])
 
-			c <- nil //we are ending without error
+			result_chan <- result
 		}()
 		select {
-		case err = <-c:
+		case err = <-error_chan:
+			//go ahead
+		case result = <-result_chan:
 			//go ahead
 		case <-time.After(conf.INSTANCE_METADATA_TIMEOUT): //GET timeout
 			err = errors.New("timeout: " + url)

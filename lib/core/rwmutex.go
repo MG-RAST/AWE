@@ -81,20 +81,20 @@ func (m *RWMutex) LockNamed(name string) {
 	}
 	//m.RWMutex.Lock()
 	initial_owner := m.lockOwner.Get()
-	timer := time.NewTimer(time.Second * 100)
+	//timer := time.NewTimer(time.Second * 100)
 
 	select {
 	case <-m.writeLock: // Grab the ticket
 		logger.Debug(3, "(RWMutex/LockNamed %s) got lock", name)
-	case <-timer.C:
+	case <-time.After(time.Second * 100):
 		//elapsed_time := time.Since(start_time)
 		reader_list := strings.Join(m.RList(), ",")
 		panic(fmt.Sprintf("(%s) %s requests Lock. TIMEOUT!!! current owner: %s (reader list :%s), initial owner: %s", m.Name, name, m.lockOwner.Get(), reader_list, initial_owner))
 		return
 	}
-	if !timer.Stop() {
-		<-timer.C
-	}
+	//if !timer.Stop() {
+	//	<-timer.C
+	//}
 
 	//<-m.writeLock // Grab the ticket
 	m.lockOwner.Set(name)

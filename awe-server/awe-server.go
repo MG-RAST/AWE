@@ -234,15 +234,6 @@ func main() {
 	controller.PrintLogo()
 	conf.Print("server")
 
-	// reload job directory
-	if conf.RELOAD != "" {
-		fmt.Println("####### Reloading #######")
-		if err := reload(conf.RELOAD); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
-		}
-		fmt.Println("Done")
-	}
-
 	logger.Info("launching server...")
 
 	//launch server
@@ -258,6 +249,15 @@ func main() {
 	go launchAPI(control, conf.API_PORT)
 
 	logger.Info("API launched...")
+
+	// reload job directory
+	if conf.RELOAD != "" {
+		fmt.Println("####### Reloading #######")
+		if err := reload(conf.RELOAD); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		}
+		fmt.Println("Done")
+	}
 
 	if err := core.AwfMgr.LoadWorkflows(); err != nil {
 		logger.Error("LoadWorkflows: " + err.Error())

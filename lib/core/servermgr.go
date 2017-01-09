@@ -167,11 +167,13 @@ func (qm *ServerMgr) GetQueue(name string) interface{} {
 	}
 	if name == "task" {
 		qm.ShowTasks() // only if debug level is set
-		return qm.TaskMap.Map
+		//return qm.TaskMap.Map
+		return qm.TaskMap.GetTasks()
 	}
 	if name == "work" {
 		qm.ShowWorkQueue() // only if debug level is set
 		return qm.workQueue.workMap.Map
+
 	}
 	if name == "client" {
 		return qm.clientMap
@@ -286,8 +288,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	qm.queueLock.Lock()
 	defer qm.queueLock.Unlock()
 
-	read_lock := qm.TaskMap.RLockNamed("updateQueue")
-	for _, task := range qm.TaskMap.Map {
+	for _, task := range qm.TaskMap.GetTasks() {
 		if qm.isTaskReady(task) {
 			if err := qm.taskEnQueue(task); err != nil {
 				task.SetState(TASK_STAT_SUSPEND)
@@ -297,7 +298,6 @@ func (qm *ServerMgr) updateQueue() (err error) {
 		}
 		//qm.updateTask(task)
 	}
-	qm.TaskMap.RUnlockNamed(read_lock)
 
 	for _, id := range qm.workQueue.Clean() {
 		jid, err := GetJobIdByWorkId(id)
@@ -477,8 +477,8 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
 	suspended_task := 0
 	skipped_task := 0
 	fail_skip_task := 0
-	read_lock := qm.TaskMap.RLockNamed("GetJsonStatus")
-	for _, task := range qm.TaskMap.Map {
+
+	for _, task := range qm.TaskMap.GetTasks() {
 		total_task += 1
 		task_state := task.GetState()
 		switch task_state {
@@ -498,7 +498,6 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
 			fail_skip_task += 1
 		}
 	}
-	qm.TaskMap.RUnlockNamed(read_lock)
 
 	total_task -= skipped_task // user doesn't see skipped tasks
 	active_jobs := qm.lenActJobs()
@@ -989,7 +988,7 @@ func (qm *ServerMgr) updateTaskWorkStatus(task *Task, rank int, newstatus string
 // show functions used in debug
 func (qm *ServerMgr) ShowTasks() {
 	logger.Debug(1, "current active tasks (%d)", qm.TaskMap.Len())
-	for _, task := range qm.TaskMap.Map {
+	for _, task := range qm.TaskMap.GetTasks() {
 		logger.Debug(1, "taskid=%s;status=%s", task.Id, task.GetState())
 	}
 }

@@ -6,12 +6,12 @@ import (
 
 type TaskMap struct {
 	RWMutex
-	Map map[string]*Task
+	_map map[string]*Task
 }
 
 func NewTaskMap() (t *TaskMap) {
 	t = &TaskMap{
-		Map: make(map[string]*Task),
+		_map: make(map[string]*Task),
 	}
 	t.RWMutex.Init("TaskMap")
 	return t
@@ -23,7 +23,7 @@ func NewTaskMap() (t *TaskMap) {
 func (tm *TaskMap) Len() int {
 	read_lock := tm.RLockNamed("Len")
 	defer tm.RUnlockNamed(read_lock)
-	return len(tm.Map)
+	return len(tm._map)
 }
 
 func (tm *TaskMap) Get(taskid string, lock bool) (task *Task, ok bool) {
@@ -32,21 +32,35 @@ func (tm *TaskMap) Get(taskid string, lock bool) (task *Task, ok bool) {
 		defer tm.RUnlockNamed(read_lock)
 	}
 
-	task, ok = tm.Map[taskid]
+	task, ok = tm._map[taskid]
+	return
+}
+
+func (tm *TaskMap) GetTasks() (tasks []*Task) {
+
+	tasks = []*Task{}
+
+	read_lock := tm.RLockNamed("GetTasks")
+	defer tm.RUnlockNamed(read_lock)
+
+	for _, task := range tm._map {
+		tasks = append(tasks, task)
+	}
+
 	return
 }
 
 func (tm *TaskMap) Delete(taskid string) (task *Task, ok bool) {
 	tm.LockNamed("Delete")
 	defer tm.Unlock()
-	delete(tm.Map, taskid) // TODO should get write lock on task first
+	delete(tm._map, taskid) // TODO should get write lock on task first
 	return
 }
 
 func (tm *TaskMap) Add(task *Task) {
 	tm.LockNamed("Add")
 	defer tm.Unlock()
-	tm.Map[task.Id] = task // TODO prevent overwriting
+	tm._map[task.Id] = task // TODO prevent overwriting
 	return
 }
 

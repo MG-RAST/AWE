@@ -377,7 +377,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 		client.Increment_total_completed()
 
-		qm.AddClient(client, true)
+		qm.AddClient(client, true) // TODO why do we add client here ?!???
 
 		task.RemainWork -= 1
 		task.ComputeTime += computetime

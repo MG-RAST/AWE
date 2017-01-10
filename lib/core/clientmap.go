@@ -27,10 +27,14 @@ func (cl *ClientMap) Add(client *Client, lock bool) {
 
 }
 
-func (cl *ClientMap) Get(client_id string, lock bool) (client *Client, ok bool) {
+func (cl *ClientMap) Get(client_id string, lock bool) (client *Client, ok bool, err error) {
 
 	if lock {
-		read_lock := cl.RLockNamed("Get")
+		read_lock, xerr := cl.RLockNamed("Get")
+		if xerr != nil {
+			err = xerr
+			return
+		}
 		defer cl.RUnlockNamed(read_lock)
 	}
 
@@ -39,10 +43,13 @@ func (cl *ClientMap) Get(client_id string, lock bool) (client *Client, ok bool) 
 	return
 }
 
-func (cl *ClientMap) Delete(client_id string, lock bool) {
+func (cl *ClientMap) Delete(client_id string, lock bool) (err error) {
 
 	if lock {
-		cl.LockNamed("(ClientMap) Delete")
+		err = cl.LockNamed("(ClientMap) Delete")
+		if err != nil {
+			return
+		}
 	}
 	delete(cl._map, client_id)
 	if lock {
@@ -53,9 +60,12 @@ func (cl *ClientMap) Delete(client_id string, lock bool) {
 	return
 }
 
-func (cl *ClientMap) GetClientIds() (ids []string) {
+func (cl *ClientMap) GetClientIds() (ids []string, err error) {
 
-	read_lock := cl.RLockNamed("GetClientIds")
+	read_lock, err := cl.RLockNamed("GetClientIds")
+	if err != nil {
+		return
+	}
 	defer cl.RUnlockNamed(read_lock)
 	for id, _ := range cl._map {
 		ids = append(ids, id)
@@ -64,10 +74,13 @@ func (cl *ClientMap) GetClientIds() (ids []string) {
 	return
 }
 
-func (cl *ClientMap) GetClients() (clients []*Client) {
+func (cl *ClientMap) GetClients() (clients []*Client, err error) {
 
 	clients = []*Client{}
-	read_lock := cl.RLockNamed("GetClients")
+	read_lock, err := cl.RLockNamed("GetClients")
+	if err != nil {
+		return
+	}
 	defer cl.RUnlockNamed(read_lock)
 	for _, client := range cl._map {
 		clients = append(clients, client)

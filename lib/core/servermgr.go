@@ -326,7 +326,10 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return
 	}
 
-	client, ok := qm.GetClient(clientid, true)
+	client, ok, err := qm.GetClient(clientid, true)
+	if err != nil {
+		return
+	}
 	if ok {
 		//delete(client.Current_work, workid)
 
@@ -449,7 +452,11 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 				logger.Error("error returned by SuspendJOb()" + err.Error())
 			}
 		}
-		if client, ok := qm.GetClient(clientid, true); ok {
+		client, ok, err := qm.GetClient(clientid, true)
+		if err != nil {
+			return err
+		}
+		if ok {
 			client.LockNamed("ServerMgr/handleWorkStatusChange C")
 			client.Append_Skip_work(workid, false)
 			client.Increment_total_failed(false)
@@ -464,7 +471,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	return
 }
 
-func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
+func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err error) {
 	queuing_work := qm.workQueue.Wait.Len()
 	out_work := qm.workQueue.Checkout.Len()
 	suspend_work := qm.workQueue.Suspend.Len()
@@ -508,11 +515,17 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int) {
 	idle_client := 0
 	suspend_client := 0
 
-	client_list := qm.clientMap.GetClients()
+	client_list, err := qm.clientMap.GetClients()
+	if err != nil {
+		return
+	}
 	total_client = len(client_list)
 
 	for _, client := range client_list {
-		rlock := client.RLockNamed("GetJsonStatus")
+		rlock, err := client.RLockNamed("GetJsonStatus")
+		if err != nil {
+			continue
+		}
 
 		if client.Status == CLIENT_STAT_SUSPEND {
 			suspend_client += 1

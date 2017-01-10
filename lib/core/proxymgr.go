@@ -84,8 +84,8 @@ func (qm *ProxyMgr) GetQueue(name string) interface{} {
 	return nil
 }
 
-func (qm *ProxyMgr) GetJsonStatus() (status map[string]map[string]int) {
-	return status
+func (qm *ProxyMgr) GetJsonStatus() (status map[string]map[string]int, err error) {
+	return status, err
 }
 
 func (qm *ProxyMgr) GetTextStatus() string {
@@ -102,11 +102,23 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	perf := new(WorkPerf)
 	workid := notice.WorkId
 	clientid := notice.ClientId
-	if client, ok := qm.GetClient(clientid, true); ok {
+	client, ok, err := qm.GetClient(clientid, true)
+	if err != nil {
+		return
+	}
+	if ok {
 		//delete(client.Current_work, workid)
 		client.LockNamed("ProxyMgr/handleWorkStatusChange A2")
-		client.Current_work_delete(workid, false)
-		if client.Current_work_length(false) == 0 {
+		err = client.Current_work_delete(workid, false)
+		if err != nil {
+			return
+		}
+		cw_length, xerr := client.Current_work_length(false)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		if cw_length == 0 {
 			client.Status = CLIENT_STAT_ACTIVE_IDLE
 		}
 		qm.AddClient(client, true)
@@ -118,16 +130,32 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 			return
 		}
 		if work.State == WORK_STAT_DONE {
-			if client, ok := qm.GetClient(clientid, true); ok {
+			client, ok, xerr := qm.GetClient(clientid, true)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			if ok {
 				client.Increment_total_completed()
 				client.Last_failed = 0 //reset last consecutive failures
 				qm.AddClient(client, true)
 			}
 		} else if work.State == WORK_STAT_FAIL {
-			if client, ok := qm.GetClient(clientid, true); ok {
+			client, ok, xerr := qm.GetClient(clientid, true)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			if ok {
 				client.LockNamed("ProxyMgr/handleWorkStatusChange B")
-				client.Append_Skip_work(workid, false)
-				client.Increment_total_failed(false)
+				err = client.Append_Skip_work(workid, false)
+				if err != nil {
+					return
+				}
+				err = client.Increment_total_failed(false)
+				if err != nil {
+					return
+				}
 				client.Last_failed += 1 //last consecutive failures
 				if client.Last_failed == conf.MAX_CLIENT_FAILURE {
 					client.Status = CLIENT_STAT_SUSPEND
@@ -172,7 +200,11 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 		return nil, errors.New("Clientgroup name in token does not match that in the client configuration.")
 	}
 	qm.AddClient(client, true)
-	if client.Current_work_length(false) > 0 { //re-registered client
+	cw_length, err := client.Current_work_length(false)
+	if err != nil {
+		return
+	}
+	if cw_length > 0 { //re-registered client
 		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
 
 		for workid, _ := range client.Current_work {
@@ -194,7 +226,12 @@ func (qm *ProxyMgr) ClientChecker() {
 
 		delete_clients := []string{}
 
-		for _, client := range qm.clientMap.GetClients() {
+		clients, err := qm.clientMap.GetClients()
+		if err != nil {
+			logger.Error("ProxyMgr/ClientChecker: %s", err.Error())
+			continue
+		}
+		for _, client := range clients {
 			//for _, client := range qm.GetAllClients() {
 			client.LockNamed("ProxyMgr/ClientChecker")
 			if client.Tag == true {
@@ -203,7 +240,11 @@ func (qm *ProxyMgr) ClientChecker() {
 				hours := total_minutes / 60
 				minutes := total_minutes % 60
 				client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
-				if client.Current_work_length(false) > 0 {
+				cw_length, err := client.Current_work_length(false)
+				if err != nil {
+					return
+				}
+				if cw_length > 0 {
 					client.Idle_time = 0
 				} else {
 					client.Idle_time += 30
@@ -226,7 +267,10 @@ func (qm *ProxyMgr) ClientChecker() {
 			for _, client_id := range delete_clients {
 
 				//client, ok := qm.workQueue.workMap.Get(client_id)
-				client, ok := qm.clientMap.Get(client_id, true)
+				client, ok, err := qm.clientMap.Get(client_id, true)
+				if err != nil {
+					continue
+				}
 				if ok {
 					//requeue unfinished workunits associated with the failed client
 					qm.ReQueueWorkunitByClient(client, true)

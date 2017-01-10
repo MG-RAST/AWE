@@ -132,9 +132,12 @@ func (cl *Client) Get_Ack() (ack CoAck, err error) {
 	return
 }
 
-func (cl *Client) Append_Skip_work(workid string, write_lock bool) {
+func (cl *Client) Append_Skip_work(workid string, write_lock bool) (err error) {
 	if write_lock {
-		cl.LockNamed("Append_Skip_work")
+		err = cl.LockNamed("Append_Skip_work")
+		if err != nil {
+			return
+		}
 	}
 	cl.Skip_work = append(cl.Skip_work, workid)
 	if write_lock {
@@ -148,18 +151,25 @@ func (cl *Client) Contains_Skip_work_nolock(workid string) (c bool) {
 	return
 }
 
-func (cl *Client) Get_Status(read_lock bool) (s string) {
-	if read_lock {
-		read_lock := cl.RLockNamed("Get_Status")
+func (cl *Client) Get_Status(do_read_lock bool) (s string, err error) {
+	if do_read_lock {
+		read_lock, xerr := cl.RLockNamed("Get_Status")
+		if xerr != nil {
+			err = xerr
+			return
+		}
 		defer cl.RUnlockNamed(read_lock)
 	}
 	s = cl.Status
 	return
 }
 
-func (cl *Client) Set_Status(s string, write_lock bool) {
+func (cl *Client) Set_Status(s string, write_lock bool) (err error) {
 	if write_lock {
-		cl.LockNamed("Set_Status")
+		err = cl.LockNamed("Set_Status")
+		if err != nil {
+			return
+		}
 		defer cl.Unlock()
 	}
 	cl.Status = s
@@ -167,48 +177,66 @@ func (cl *Client) Set_Status(s string, write_lock bool) {
 	return
 }
 
-func (cl *Client) Get_Total_checkout() (count int) {
-	read_lock := cl.RLockNamed("Get_Total_checkout")
+func (cl *Client) Get_Total_checkout() (count int, err error) {
+	read_lock, err := cl.RLockNamed("Get_Total_checkout")
+	if err != nil {
+		return
+	}
 	defer cl.RUnlockNamed(read_lock)
 	count = cl.Total_checkout
 
 	return
 }
 
-func (cl *Client) Increment_total_checkout() {
-	cl.LockNamed("Increment_total_checkout")
+func (cl *Client) Increment_total_checkout(err error) {
+	err = cl.LockNamed("Increment_total_checkout")
+	if err != nil {
+		return
+	}
 	defer cl.Unlock()
 	cl.Total_checkout += 1
 	return
 }
 
-func (cl *Client) Get_Total_completed() (count int) {
-	read_lock := cl.RLockNamed("Get_Total_completed")
+func (cl *Client) Get_Total_completed() (count int, err error) {
+	read_lock, err := cl.RLockNamed("Get_Total_completed")
+	if err != nil {
+		return
+	}
 	defer cl.RUnlockNamed(read_lock)
 	count = cl.Total_completed
 
 	return
 }
 
-func (cl *Client) Increment_total_completed() {
-	cl.LockNamed("Increment_total_completed")
+func (cl *Client) Increment_total_completed() (err error) {
+	err = cl.LockNamed("Increment_total_completed")
+	if err != nil {
+		return
+	}
 	defer cl.Unlock()
 	cl.Total_completed += 1
 	cl.Last_failed = 0 //reset last consecutive failures
 	return
 }
 
-func (cl *Client) Get_Total_failed() (count int) {
-	read_lock := cl.RLockNamed("Get_Total_failed")
+func (cl *Client) Get_Total_failed() (count int, err error) {
+	read_lock, err := cl.RLockNamed("Get_Total_failed")
+	if err != nil {
+		return
+	}
 	defer cl.RUnlockNamed(read_lock)
 	count = cl.Total_failed
 
 	return
 }
 
-func (cl *Client) Increment_total_failed(write_lock bool) {
+func (cl *Client) Increment_total_failed(write_lock bool) (err error) {
 	if write_lock {
-		cl.LockNamed("Increment_total_failed")
+		err = cl.LockNamed("Increment_total_failed")
+		if err != nil {
+			return
+		}
 		defer cl.Unlock()
 	}
 	cl.Total_failed += 1
@@ -216,37 +244,50 @@ func (cl *Client) Increment_total_failed(write_lock bool) {
 	return
 }
 
-func (cl *Client) Get_Last_failed() (count int) {
-	read_lock := cl.RLockNamed("Get_Last_failed")
+func (cl *Client) Get_Last_failed() (count int, err error) {
+	read_lock, err := cl.RLockNamed("Get_Last_failed")
+	if err != nil {
+		return
+	}
 	defer cl.RUnlockNamed(read_lock)
 	count = cl.Last_failed
 
 	return
 }
 
-func (cl *Client) Increment_last_failed() {
-	cl.LockNamed("Increment_last_failed")
+func (cl *Client) Increment_last_failed(err error) {
+	err = cl.LockNamed("Increment_last_failed")
 	defer cl.Unlock()
 	cl.Last_failed += 1
 
 	return
 }
 
-func (cl *Client) Current_work_delete(workid string, write_lock bool) {
+func (cl *Client) Current_work_delete(workid string, write_lock bool) (err error) {
 	if write_lock {
-		cl.LockNamed("Current_work_delete")
+		err = cl.LockNamed("Current_work_delete")
 		defer cl.Unlock()
 	}
 	delete(cl.Current_work, workid)
-	if cl.Current_work_length(false) == 0 && cl.Status == CLIENT_STAT_ACTIVE_BUSY {
+	cw_length, err := cl.Current_work_length(false)
+	if err != nil {
+		return
+	}
+
+	if cw_length == 0 && cl.Status == CLIENT_STAT_ACTIVE_BUSY {
 		cl.Status = CLIENT_STAT_ACTIVE_IDLE
 	}
+	return
 }
 
-func (cl *Client) Get_current_work(read_lock bool) (current_work_ids []string) {
+func (cl *Client) Get_current_work(do_read_lock bool) (current_work_ids []string, err error) {
 	current_work_ids = []string{}
-	if read_lock {
-		read_lock := cl.RLockNamed("Get_current_work")
+	if do_read_lock {
+		read_lock, xerr := cl.RLockNamed("Get_current_work")
+		if xerr != nil {
+			err = xerr
+			return
+		}
 		defer cl.RUnlockNamed(read_lock)
 	}
 	for id := range cl.Current_work {
@@ -256,8 +297,8 @@ func (cl *Client) Get_current_work(read_lock bool) (current_work_ids []string) {
 }
 
 // TODO: Wolfgang: Can we use delete instead ?
-func (cl *Client) Current_work_false(workid string) {
-	cl.LockNamed("Current_work_false")
+func (cl *Client) Current_work_false(workid string, err error) {
+	err = cl.LockNamed("Current_work_false")
 	defer cl.Unlock()
 	cl.Current_work[workid] = false
 }
@@ -268,31 +309,48 @@ func (cl *Client) Add_work_nolock(workid string) {
 	cl.Total_checkout += 1
 }
 
-func (cl *Client) Add_work(workid string) {
-	cl.LockNamed("Add_work")
+func (cl *Client) Add_work(workid string, err error) {
+	err = cl.LockNamed("Add_work")
+	if err != nil {
+		return
+	}
 	defer cl.Unlock()
 	cl.Add_work_nolock(workid)
 }
 
-func (cl *Client) Current_work_length(lock bool) (clength int) {
+func (cl *Client) Current_work_length(lock bool) (clength int, err error) {
 	if lock {
-		read_lock := cl.RLockNamed("Current_work_length")
+		read_lock, xerr := cl.RLockNamed("Current_work_length")
+		if xerr != nil {
+			err = xerr
+			return
+		}
 		defer cl.RUnlockNamed(read_lock)
 	}
 	clength = len(cl.Current_work)
 
-	return clength
+	return
 }
 
-func (cl *Client) IsBusy(lock bool) bool {
-	if cl.Current_work_length(lock) > 0 {
-		return true
+func (cl *Client) IsBusy(lock bool) (busy bool, err error) {
+	cw_length, err := cl.Current_work_length(lock)
+	if err != nil {
+		return
 	}
-	return false
+	if cw_length > 0 {
+		busy = true
+		return
+	}
+	busy = false
+	return
 }
 
-func (cl *Client) Marshal() ([]byte, error) {
-	read_lock := cl.RLockNamed("Marshal")
+func (cl *Client) Marshal() (result []byte, err error) {
+	read_lock, err := cl.RLockNamed("Marshal")
+	if err != nil {
+		return
+	}
 	defer cl.RUnlockNamed(read_lock)
-	return json.Marshal(cl)
+	result, err = json.Marshal(cl)
+	return
 }

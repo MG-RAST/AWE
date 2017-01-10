@@ -51,7 +51,10 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 		return
 	}
 	if query.Has("json") {
-		statusJson := core.QMgr.GetJsonStatus()
+		statusJson, err := core.QMgr.GetJsonStatus()
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+		}
 		cx.RespondWithData(statusJson)
 		return
 	}

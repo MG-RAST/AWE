@@ -168,7 +168,11 @@ func (qm *ServerMgr) GetQueue(name string) interface{} {
 	if name == "task" {
 		qm.ShowTasks() // only if debug level is set
 		//return qm.TaskMap.Map
-		return qm.TaskMap.GetTasks()
+		tasks, err := qm.TaskMap.GetTasks()
+		if err != nil {
+			return err
+		}
+		return tasks
 	}
 	if name == "work" {
 		qm.ShowWorkQueue() // only if debug level is set
@@ -288,8 +292,17 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	qm.queueLock.Lock()
 	defer qm.queueLock.Unlock()
 
-	for _, task := range qm.TaskMap.GetTasks() {
-		if qm.isTaskReady(task) {
+	tasks, err := qm.TaskMap.GetTasks()
+	if err != nil {
+		return
+	}
+	for _, task := range tasks {
+		task_ready, xerr := qm.isTaskReady(task)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		if task_ready {
 			if err := qm.taskEnQueue(task); err != nil {
 				task.SetState(TASK_STAT_SUSPEND)
 				jobid := getParentJobId(task.Id)
@@ -337,7 +350,10 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 	}
 
-	task, tok := qm.TaskMap.Get(taskid, true)
+	task, tok, err := qm.TaskMap.Get(taskid, true)
+	if err != nil {
+		return
+	}
 	if !tok {
 		//task not existed, possible when job is deleted before the workunit done
 		qm.workQueue.Delete(workid)
@@ -487,7 +503,11 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 
 	for _, task := range qm.TaskMap.GetTasks() {
 		total_task += 1
-		task_state := task.GetState()
+		task_state, xerr := task.GetState()
+		if xerr != nil {
+			err = xerr
+			return
+		}
 		switch task_state {
 		case TASK_STAT_COMPLETED:
 			completed_task += 1
@@ -527,9 +547,11 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 			continue
 		}
 
+		busy, _ := client.IsBusy(false)
+
 		if client.Status == CLIENT_STAT_SUSPEND {
 			suspend_client += 1
-		} else if client.IsBusy(false) {
+		} else if busy {
 			busy_client += 1
 		} else {
 			idle_client += 1
@@ -573,7 +595,7 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 }
 
 func (qm *ServerMgr) GetTextStatus() string {
-	status := qm.GetJsonStatus()
+	status, _ := qm.GetJsonStatus() // TODO handle error
 	statMsg := "++++++++AWE server queue status++++++++\n" +
 		fmt.Sprintf("total jobs ............... %d\n", status["jobs"]["total"]) +
 		fmt.Sprintf("    active:           (%d)\n", status["jobs"]["active"]) +
@@ -602,11 +624,18 @@ func (qm *ServerMgr) GetTextStatus() string {
 //--workunit methds (servermgr implementation)
 func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token string, err error) {
 	//precheck if the client is registered
-	client, ok := qm.GetClient(clientid, true)
+	client, ok, err := qm.GetClient(clientid, true)
+	if err != nil {
+		return
+	}
 	if !ok {
 		return "", errors.New(e.ClientNotFound)
 	}
-	if client.Get_Status(true) == CLIENT_STAT_SUSPEND {
+	client_status, err := client.Get_Status(true)
+	if err != nil {
+		return
+	}
+	if client_status == CLIENT_STAT_SUSPEND {
 		return "", errors.New(e.ClientSuspended)
 	}
 	jobid, err := GetJobIdByWorkId(workid)
@@ -626,11 +655,18 @@ func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token strin
 
 func (qm *ServerMgr) FetchPrivateEnvs(workid string, clientid string) (envs map[string]string, err error) {
 	//precheck if the client is registered
-	client, ok := qm.GetClient(clientid, true)
+	client, ok, err := qm.GetClient(clientid, true)
+	if err != nil {
+		return
+	}
 	if !ok {
 		return nil, errors.New(e.ClientNotFound)
 	}
-	if client.Get_Status(true) == CLIENT_STAT_SUSPEND {
+	client_status, err := client.Get_Status(true)
+	if err != nil {
+		return
+	}
+	if client_status == CLIENT_STAT_SUSPEND {
 		return nil, errors.New(e.ClientSuspended)
 	}
 	jobid, err := GetJobIdByWorkId(workid)
@@ -737,22 +773,29 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 	//for job recovery from db or for pseudo-task
 
 	task.LockNamed("ServerMgr/addTask")
-	defer task.Unlock()
-
 	task_state := task.State
+	skip_task := task.Skip
+	task.Unlock()
+
 	if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
 		qm.TaskMap.Add(task)
 		return
 	}
-	if task.Skip == 1 && task.Skippable() {
+	if skip_task == 1 && task.Skippable() {
 		qm.skipTask(task)
 		return
 	}
 
 	defer qm.TaskMap.Add(task)
+	task.LockNamed("ServerMgr/addTask B")
 	task.State = TASK_STAT_PENDING
+	task.Unlock()
 
-	if qm.isTaskReady(task) {
+	task_ready, err := qm.isTaskReady(task)
+	if err != nil {
+		return
+	}
+	if task_ready {
 		if err = qm.taskEnQueue(task); err != nil {
 			task.SetState(TASK_STAT_SUSPEND)
 			jobid := getParentJobId(task.Id)
@@ -777,22 +820,39 @@ func (qm *ServerMgr) skipTask(task *Task) (err error) {
 }
 
 //check whether a pending task is ready to enqueue (dependent tasks are all done)
-// task is locked
-func (qm *ServerMgr) isTaskReady(task *Task) (ready bool) {
+// task is not locked
+func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 	ready = false
 
 	//skip if the belonging job is suspended
 	jobid, _ := GetJobIdByTaskId(task.Id)
 	if qm.isSusJob(jobid) {
-		return false
+		return
 	}
 
-	task_state := task.State
+	task_state, err := task.GetState()
+	if err != nil {
+		return
+	}
 	if task_state == TASK_STAT_PENDING {
 		ready = true
-		for _, predecessor := range task.DependsOn {
-			if pretask, ok := qm.TaskMap.Get(predecessor, true); ok {
-				pretask_state := pretask.GetState()
+		deps, xerr := task.GetDependsOn()
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		for _, predecessor := range deps {
+			pretask, ok, yerr := qm.TaskMap.Get(predecessor, true)
+			if yerr != nil {
+				err = yerr
+				return
+			}
+			if ok {
+				pretask_state, zerr := pretask.GetState()
+				if zerr != nil {
+					err = zerr
+					return
+				}
 				if pretask_state != TASK_STAT_COMPLETED &&
 					pretask_state != TASK_STAT_PASSED &&
 					pretask_state != TASK_STAT_SKIPPED &&
@@ -805,7 +865,11 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool) {
 			}
 		}
 	}
-	if task.Skip == 1 && task.Skippable() {
+	skip, err := task.GetSkip()
+	if err != nil {
+		return
+	}
+	if skip == 1 && task.Skippable() {
 		qm.skipTask(task)
 		ready = false
 	}
@@ -865,7 +929,13 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 		name := io.FileName
 		if io.Url == "" {
 			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
-			if preTask, ok := qm.TaskMap.Get(preId, true); ok {
+			preTask, ok, xerr := qm.TaskMap.Get(preId, true)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+
+			if ok {
 				if preTask.State == TASK_STAT_SKIPPED ||
 					preTask.State == TASK_STAT_FAIL_SKIP {
 					// For now we know that skipped tasks have
@@ -968,7 +1038,11 @@ func (qm *ServerMgr) locateUpdate(taskid string, name string, origin string) (no
 	preId := fmt.Sprintf("%s_%s", jobid, origin)
 	logger.Debug(2, "task %s: trying to locate Node of update %s from task %s", taskid, name, preId)
 	// scan outputs in origin task
-	if preTask, ok := qm.TaskMap.Get(preId, true); ok {
+	preTask, ok, err := qm.TaskMap.Get(preId, true)
+	if err != nil {
+		return
+	}
+	if ok {
 		outputs := preTask.Outputs
 		for _, outio := range outputs {
 			if outio.FileName == name {
@@ -1000,9 +1074,15 @@ func (qm *ServerMgr) updateTaskWorkStatus(task *Task, rank int, newstatus string
 
 // show functions used in debug
 func (qm *ServerMgr) ShowTasks() {
-	logger.Debug(1, "current active tasks (%d)", qm.TaskMap.Len())
+	length, _ := qm.TaskMap.Len()
+
+	logger.Debug(1, "current active tasks (%d)", length)
 	for _, task := range qm.TaskMap.GetTasks() {
-		logger.Debug(1, "taskid=%s;status=%s", task.Id, task.GetState())
+		state, err := task.GetState()
+		if err != nil {
+			state = "unknown"
+		}
+		logger.Debug(1, "taskid=%s;status=%s", task.Id, state)
 	}
 }
 
@@ -1486,7 +1566,12 @@ func (qm *ServerMgr) UpdateGroup(jobid string, newgroup string) (err error) {
 		qm.workQueue.Put(work)
 	}
 	for _, task := range dbjob.Tasks {
-		if mtask, ok := qm.TaskMap.Get(task.Id, true); ok {
+		mtask, ok, xerr := qm.TaskMap.Get(task.Id, true)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		if ok {
 			mtask.Info.ClientGroups = newgroup
 			//qm.updateTask(mtask)
 		}
@@ -1512,7 +1597,12 @@ func (qm *ServerMgr) UpdatePriority(jobid string, priority int) (err error) {
 		qm.workQueue.Put(work)
 	}
 	for _, task := range dbjob.Tasks {
-		if mtask, ok := qm.TaskMap.Get(task.Id, true); ok {
+		mtask, ok, xerr := qm.TaskMap.Get(task.Id, true)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		if ok {
 			mtask.Info.Priority = priority
 			//qm.updateTask(mtask)
 		}
@@ -1640,11 +1730,18 @@ func (qm *ServerMgr) LogJobPerf(jobid string) {
 
 func (qm *ServerMgr) FetchPrivateEnv(workid string, clientid string) (env map[string]string, err error) {
 	//precheck if the client is registered
-	client, ok := qm.GetClient(clientid, true)
+	client, ok, err := qm.GetClient(clientid, true)
+	if err != nil {
+		return
+	}
 	if !ok {
 		return env, errors.New(e.ClientNotFound)
 	}
-	if client.Get_Status(true) == CLIENT_STAT_SUSPEND {
+	client_status, err := client.Get_Status(true)
+	if err != nil {
+		return
+	}
+	if client_status == CLIENT_STAT_SUSPEND {
 		return env, errors.New(e.ClientSuspended)
 	}
 	jobid, err := GetJobIdByWorkId(workid)

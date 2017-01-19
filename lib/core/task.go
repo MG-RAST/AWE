@@ -109,16 +109,40 @@ func NewTask(job *Job, task_id string) (t *Task, err error) {
 	return
 }
 
-func (task *TaskRaw) GetState() string {
-	lock := task.RLockNamed("GetState")
+func (task *TaskRaw) GetState() (state string, err error) {
+	lock, err := task.RLockNamed("GetState")
+	if err != nil {
+		return
+	}
 	defer task.RUnlockNamed(lock)
-	return task.State
+	state = task.State
+	return
 }
 
 func (task *TaskRaw) SetState(new_state string) {
 	task.LockNamed("SetState")
 	defer task.Unlock()
 	task.State = new_state
+	return
+}
+
+func (task *TaskRaw) GetSkip() (skip int, err error) {
+	lock, err := task.RLockNamed("GetSkip")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	skip = task.Skip
+	return
+}
+
+func (task *TaskRaw) GetDependsOn() (dep []string, err error) {
+	lock, err := task.RLockNamed("GetDependsOn")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	dep = task.DependsOn
 	return
 }
 

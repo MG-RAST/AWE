@@ -20,15 +20,23 @@ func NewTaskMap() (t *TaskMap) {
 
 //--------task accessor methods-------
 
-func (tm *TaskMap) Len() int {
-	read_lock := tm.RLockNamed("Len")
+func (tm *TaskMap) Len() (length int, err error) {
+	read_lock, err := tm.RLockNamed("Len")
+	if err != nil {
+		return
+	}
 	defer tm.RUnlockNamed(read_lock)
-	return len(tm._map)
+	length = len(tm._map)
+	return
 }
 
-func (tm *TaskMap) Get(taskid string, lock bool) (task *Task, ok bool) {
+func (tm *TaskMap) Get(taskid string, lock bool) (task *Task, ok bool, err error) {
 	if lock {
-		read_lock := tm.RLockNamed("Len")
+		read_lock, xerr := tm.RLockNamed("Len")
+		if xerr != nil {
+			err = xerr
+			return
+		}
 		defer tm.RUnlockNamed(read_lock)
 	}
 
@@ -36,11 +44,14 @@ func (tm *TaskMap) Get(taskid string, lock bool) (task *Task, ok bool) {
 	return
 }
 
-func (tm *TaskMap) GetTasks() (tasks []*Task) {
+func (tm *TaskMap) GetTasks() (tasks []*Task, err error) {
 
 	tasks = []*Task{}
 
-	read_lock := tm.RLockNamed("GetTasks")
+	read_lock, err := tm.RLockNamed("GetTasks")
+	if err != nil {
+		return
+	}
 	defer tm.RUnlockNamed(read_lock)
 
 	for _, task := range tm._map {

@@ -238,7 +238,7 @@ func main() {
 
 	//launch server
 	control := make(chan int)
-	go core.Ttl.Handle()
+	go core.Ttl.Handle() // deletes expired jobs
 	go core.QMgr.TaskHandle()
 	go core.QMgr.ClientHandle()
 	go core.QMgr.NoticeHandle()

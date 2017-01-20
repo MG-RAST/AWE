@@ -699,10 +699,9 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 	}
 
 	client.LockNamed("CheckoutWorkunits serving " + client_id)
-	defer client.Unlock()
-
 	status := client.Status
 	response_channel := client.coAckChannel
+	client.Unlock()
 
 	if status == CLIENT_STAT_SUSPEND {
 		return nil, errors.New(e.ClientSuspended)
@@ -723,7 +722,12 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 
 	var ack CoAck
 	// get workunit
+	lock, err := client.RLockNamed("CheckoutWorkunits waiting for ack, client_id: " + client_id)
+	if err != nil {
+		return
+	}
 	ack, err = client.Get_Ack()
+	client.RUnlockNamed(lock)
 
 	logger.Debug(3, "(CheckoutWorkunits) %s got ack", client_id)
 	if err != nil {
@@ -734,15 +738,15 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 	if ack.err == nil {
 		for _, work := range ack.workunits {
 			work_id := work.Id
-			client.Add_work_nolock(work_id)
+			client.Add_work(work_id)
 		}
-		status, xerr := client.Get_Status(false)
+		status, xerr := client.Get_Status(true)
 		if xerr != nil {
 			err = xerr
 			return
 		}
 		if status == CLIENT_STAT_ACTIVE_IDLE {
-			client.Set_Status(CLIENT_STAT_ACTIVE_BUSY, false)
+			client.Set_Status(CLIENT_STAT_ACTIVE_BUSY, true)
 		}
 	} else {
 

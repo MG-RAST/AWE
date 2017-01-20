@@ -535,7 +535,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	logger.Debug(1, "DockerPrep time in seconds: %d", pstats.DockerPrep)
 
 	if client != nil {
-		err = client.StartContainer(container_id, &docker.HostConfig{Binds: bindarray}) // weired, seems to be needed
+		//err = client.StartContainer(container_id, &docker.HostConfig{Binds: bindarray}) // weired, seems to be needed
+		err = client.StartContainer(container_id, nil)
 		//err = client.StartContainer(container_id, &docker.HostConfig{})
 
 	} else {

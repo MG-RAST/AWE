@@ -613,7 +613,11 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				// get multiple tasks in state queued or in-progress
 				for j := 0; j < len(job.Tasks); j++ {
 					task := job.Tasks[j]
-					task_state := task.GetState()
+					task_state, xerr := task.GetState()
+					if xerr != nil {
+						continue
+					}
+
 					if (task_state == "in-progress") || (task_state == "queued") {
 						mjob.State = append(mjob.State, task_state)
 						mjob.Task = append(mjob.Task, j)
@@ -623,7 +627,10 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				if len(mjob.State) == 0 {
 					for j := 0; j < len(job.Tasks); j++ {
 						task := job.Tasks[j]
-						task_state := task.GetState()
+						task_state, xerr := task.GetState()
+						if xerr != nil {
+							continue
+						}
 						if (task_state == "pending") || (task_state == "init") {
 							mjob.State = append(mjob.State, task_state)
 							mjob.Task = append(mjob.Task, j)

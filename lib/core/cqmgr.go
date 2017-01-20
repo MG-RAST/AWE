@@ -49,8 +49,17 @@ func (qm *CQMgr) ClientHandle() {
 
 // show functions used in debug
 func (qm *CQMgr) ShowWorkQueue() {
-	logger.Debug(1, fmt.Sprintf("current queuing workunits (%d)", qm.workQueue.Len()))
-	for _, workunit := range qm.workQueue.GetAll() {
+	length, err := qm.workQueue.Len()
+	if err != nil {
+		logger.Error("error: %s", err.Error())
+		return
+	}
+	logger.Debug(1, fmt.Sprintf("current queuing workunits (%d)", length))
+	workunits, err := qm.workQueue.GetAll()
+	if err != nil {
+		return
+	}
+	for _, workunit := range workunits {
 		id := workunit.Id
 		logger.Debug(1, fmt.Sprintf("workid=%s", id))
 	}
@@ -239,7 +248,11 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err e
 	suspended := []string{}
 
 	for _, work_id := range current_work {
-		work, ok := qm.workQueue.workMap.Get(work_id)
+		work, ok, zerr := qm.workQueue.workMap.Get(work_id)
+		if err != nil {
+			err = zerr
+			return
+		}
 		if ok {
 			if work.State == WORK_STAT_SUSPEND {
 				suspended = append(suspended, work.Id)
@@ -311,7 +324,11 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
 
 		for workid, _ := range client.Current_work {
-			if qm.workQueue.Has(workid) {
+			has_work, xerr := qm.workQueue.Has(workid)
+			if xerr != nil {
+				continue
+			}
+			if has_work {
 				qm.workQueue.StatusChange(workid, WORK_STAT_CHECKOUT)
 			}
 		}
@@ -745,7 +762,10 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, availabl
 //}
 
 func (qm *CQMgr) GetWorkById(id string) (workunit *Workunit, err error) {
-	workunit, ok := qm.workQueue.Get(id)
+	workunit, ok, err := qm.workQueue.Get(id)
+	if err != nil {
+		return
+	}
 	if !ok {
 		err = errors.New(fmt.Sprintf("no workunit found with id %s", id))
 	}
@@ -801,7 +821,11 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err err
 	clientid := client.Id
 	logger.Debug(3, fmt.Sprintf("starting filterWorkByClient() for client: %s", clientid))
 
-	for _, workunit := range qm.workQueue.Wait.GetWorkunits() {
+	workunit_list, err := qm.workQueue.Wait.GetWorkunits()
+	if err != nil {
+		return
+	}
+	for _, workunit := range workunit_list {
 		id := workunit.Id
 		logger.Debug(3, "check if job %s would fit client %s", id, clientid)
 
@@ -851,18 +875,26 @@ func (qm *CQMgr) FetchDataToken(workid string, clientid string) (token string, e
 	return
 }
 
-func (qm *CQMgr) ShowWorkunits(status string) (workunits []*Workunit) {
-	for _, work := range qm.workQueue.GetAll() {
+func (qm *CQMgr) ShowWorkunits(status string) (workunits []*Workunit, err error) {
+	workunit_list, err := qm.workQueue.GetAll()
+	if err != nil {
+		return
+	}
+	for _, work := range workunit_list {
 		if work.State == status || status == "" {
 			workunits = append(workunits, work)
 		}
 	}
-	return workunits
+	return
 }
 
 func (qm *CQMgr) ShowWorkunitsByUser(status string, u *user.User) (workunits []*Workunit) {
 	// Only returns workunits of jobs that the user has read access to or is the owner of.  If user is admin, return all.
-	for _, work := range qm.workQueue.GetAll() {
+	workunit_list, err := qm.workQueue.GetAll()
+	if err != nil {
+		return
+	}
+	for _, work := range workunit_list {
 		// skip loading jobs from db if user is admin
 		if u.Admin == true {
 			if work.State == status || status == "" {
@@ -896,7 +928,11 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, lock bool) (err error) 
 		return
 	}
 	for _, workid := range worklist {
-		if qm.workQueue.Has(workid) {
+		has_work, xerr := qm.workQueue.Has(workid)
+		if xerr != nil {
+			continue
+		}
+		if has_work {
 			jobid, _ := GetJobIdByWorkId(workid)
 			if job, err := LoadJob(jobid); err == nil {
 				if contains(JOB_STATS_ACTIVE, job.State) { //only requeue workunits belonging to active jobs (rule out suspended jobs)

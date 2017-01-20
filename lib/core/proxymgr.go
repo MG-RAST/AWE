@@ -124,7 +124,11 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 		qm.AddClient(client, true)
 		client.Unlock()
 	}
-	if work, ok := qm.workQueue.Get(workid); ok {
+	work, ok, err := qm.workQueue.Get(workid)
+	if err != nil {
+		return
+	}
+	if ok {
 		work.State = notice.Status
 		if err = proxy_relay_workunit(work, perf); err != nil {
 			return
@@ -208,7 +212,11 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
 
 		for workid, _ := range client.Current_work {
-			if qm.workQueue.Has(workid) {
+			has_work, err := qm.workQueue.Has(workid)
+			if err != nil {
+				continue
+			}
+			if has_work {
 				qm.workQueue.StatusChange(workid, WORK_STAT_CHECKOUT)
 			}
 		}

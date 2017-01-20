@@ -362,7 +362,10 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	task.LockNamed("handleWorkStatusChange")
 	defer task.Unlock()
 
-	work, wok := qm.workQueue.Get(workid)
+	work, wok, err := qm.workQueue.Get(workid)
+	if err != nil {
+		return
+	}
 	if (!wok) || (work.State != WORK_STAT_CHECKOUT) {
 		return
 	}
@@ -488,10 +491,22 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 }
 
 func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err error) {
-	queuing_work := qm.workQueue.Wait.Len()
-	out_work := qm.workQueue.Checkout.Len()
-	suspend_work := qm.workQueue.Suspend.Len()
-	total_active_work := qm.workQueue.Len()
+	queuing_work, err := qm.workQueue.Wait.Len()
+	if err != nil {
+		return
+	}
+	out_work, err := qm.workQueue.Checkout.Len()
+	if err != nil {
+		return
+	}
+	suspend_work, err := qm.workQueue.Suspend.Len()
+	if err != nil {
+		return
+	}
+	total_active_work, err := qm.workQueue.Len()
+	if err != nil {
+		return
+	}
 	total_task := 0
 	queuing_task := 0
 	started_task := 0
@@ -501,7 +516,11 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 	skipped_task := 0
 	fail_skip_task := 0
 
-	for _, task := range qm.TaskMap.GetTasks() {
+	task_list, err := qm.TaskMap.GetTasks()
+	if err != nil {
+		return
+	}
+	for _, task := range task_list {
 		total_task += 1
 		task_state, xerr := task.GetState()
 		if xerr != nil {
@@ -1077,7 +1096,11 @@ func (qm *ServerMgr) ShowTasks() {
 	length, _ := qm.TaskMap.Len()
 
 	logger.Debug(1, "current active tasks (%d)", length)
-	for _, task := range qm.TaskMap.GetTasks() {
+	tasks, err := qm.TaskMap.GetTasks()
+	if err != nil {
+		logger.Error("error: %s", err.Error())
+	}
+	for _, task := range tasks {
 		state, err := task.GetState()
 		if err != nil {
 			state = "unknown"
@@ -1208,7 +1231,11 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 	qm.putSusJob(jobid)
 
 	//suspend queueing workunits
-	for _, workunit := range qm.workQueue.GetAll() {
+	workunit_list, err := qm.workQueue.GetAll()
+	if err != nil {
+		return
+	}
+	for _, workunit := range workunit_list {
 		workid := workunit.Id
 		if jobid == getParentJobId(workid) {
 			qm.workQueue.StatusChange(workid, WORK_STAT_SUSPEND)
@@ -1245,7 +1272,11 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 		return err
 	}
 	//delete queueing workunits
-	for _, workunit := range qm.workQueue.GetAll() {
+	workunit_list, err := qm.workQueue.GetAll()
+	if err != nil {
+		return
+	}
+	for _, workunit := range workunit_list {
 		workid := workunit.Id
 		if jobid == getParentJobId(workid) {
 			qm.workQueue.Delete(workid)
@@ -1561,7 +1592,11 @@ func (qm *ServerMgr) UpdateGroup(jobid string, newgroup string) (err error) {
 	dbjob.Save()
 
 	//update in-memory data structures
-	for _, work := range qm.workQueue.GetForJob(jobid) {
+	work_list, err := qm.workQueue.GetForJob(jobid)
+	if err != nil {
+		return
+	}
+	for _, work := range work_list {
 		work.Info.ClientGroups = newgroup
 		qm.workQueue.Put(work)
 	}
@@ -1592,7 +1627,11 @@ func (qm *ServerMgr) UpdatePriority(jobid string, priority int) (err error) {
 	dbjob.Save()
 
 	//update in-memory data structures
-	for _, work := range qm.workQueue.GetForJob(jobid) {
+	work_list, err := qm.workQueue.GetForJob(jobid)
+	if err != nil {
+		return
+	}
+	for _, work := range work_list {
 		work.Info.Priority = priority
 		qm.workQueue.Put(work)
 	}

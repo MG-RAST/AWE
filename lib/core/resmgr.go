@@ -30,7 +30,7 @@ type ClientMgr interface {
 
 type WorkMgr interface {
 	GetWorkById(string) (*Workunit, error)
-	ShowWorkunits(string) []*Workunit
+	ShowWorkunits(string) ([]*Workunit, error)
 	ShowWorkunitsByUser(string, *user.User) []*Workunit
 	CheckoutWorkunits(string, string, int64, int) ([]*Workunit, error)
 	NotifyWorkStatus(Notice)

@@ -297,10 +297,14 @@ func (cl *Client) Get_current_work(do_read_lock bool) (current_work_ids []string
 }
 
 // TODO: Wolfgang: Can we use delete instead ?
-func (cl *Client) Current_work_false(workid string, err error) {
+func (cl *Client) Current_work_false(workid string) (err error) {
 	err = cl.LockNamed("Current_work_false")
+	if err != nil {
+		return
+	}
 	defer cl.Unlock()
 	cl.Current_work[workid] = false
+	return
 }
 
 // _nolock assumes you already have global lock
@@ -309,13 +313,14 @@ func (cl *Client) Add_work_nolock(workid string) {
 	cl.Total_checkout += 1
 }
 
-func (cl *Client) Add_work(workid string, err error) {
+func (cl *Client) Add_work(workid string) (err error) {
 	err = cl.LockNamed("Add_work")
 	if err != nil {
 		return
 	}
 	defer cl.Unlock()
 	cl.Add_work_nolock(workid)
+	return
 }
 
 func (cl *Client) Current_work_length(lock bool) (clength int, err error) {

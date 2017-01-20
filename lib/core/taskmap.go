@@ -77,7 +77,10 @@ func (tm *TaskMap) Add(task *Task) {
 
 // TODO remove ?
 func (tm *TaskMap) SetState(id string, new_state string) (err error) {
-	task, ok := tm.Get(id, true)
+	task, ok, err := tm.Get(id, true)
+	if err != nil {
+		return
+	}
 	if !ok {
 		err = fmt.Errorf("(SetState) Task not found")
 		return

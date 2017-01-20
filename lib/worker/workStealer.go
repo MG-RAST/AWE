@@ -83,7 +83,11 @@ func workStealer(control chan int) {
 		//log event about work checktout (WC)
 		logger.Event(event.WORK_CHECKOUT, "workid="+wu.Id)
 
-		core.Self.Add_work(wu.Id)
+		err = core.Self.Add_work(wu.Id)
+		if err != nil {
+			logger.Error("error: %s", err.Error())
+			return
+		}
 
 		workmap.Set(wu.Id, ID_WORKSTEALER, "workStealer")
 

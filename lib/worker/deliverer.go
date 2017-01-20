@@ -18,7 +18,11 @@ func deliverer(control chan int) {
 		processed := <-fromProcessor
 		work := processed.workunit
 
-		work_state, ok := workmap.Get(work.Id)
+		work_state, ok, err := workmap.Get(work.Id)
+		if err != nil {
+			logger.Error("error: %s", err.Error())
+			continue
+		}
 		if !ok {
 			logger.Error("(deliverer) work id %s not found", work.Id)
 			continue

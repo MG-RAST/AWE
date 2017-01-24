@@ -27,6 +27,12 @@ var (
 	ProxyWorkChan chan bool
 )
 
+type StandardResponse struct {
+	S int         `json:"status"`
+	D interface{} `json:"data"`
+	E []string    `json:"error"`
+}
+
 func InitResMgr(service string) {
 	if service == "server" {
 		QMgr = NewServerMgr()
@@ -698,7 +704,7 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 	return
 }
 
-func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (err error) {
+func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (response *StandardResponse, err error) {
 	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work.Id, work.State, Self.Id, work.ComputeTime)
 	form := httpclient.NewForm()
 	hasreport := false
@@ -729,8 +735,9 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 	if hasreport {
 		target_url = target_url + "&report"
 	}
-	if err := form.Create(); err != nil {
-		return err
+	err = form.Create()
+	if err != nil {
+		return
 	}
 	var headers httpclient.Header
 	if conf.CLIENT_GROUP_TOKEN == "" {
@@ -746,8 +753,21 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 		}
 	}
 	res, err := httpclient.Put(target_url, headers, form.Reader, nil)
-	if err == nil {
-		defer res.Body.Close()
+	if err != nil {
+		return
+	}
+	defer res.Body.Close()
+
+	jsonstream, _ := ioutil.ReadAll(res.Body)
+	response = new(StandardResponse)
+	err = json.Unmarshal(jsonstream, response)
+	if err != nil {
+		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) failed to marshal response:\"%s\"", jsonstream)
+		return
+	}
+	if len(response.E) > 0 {
+		err = errors.New(strings.Join(response.E, ","))
+		return
 	}
 
 	return

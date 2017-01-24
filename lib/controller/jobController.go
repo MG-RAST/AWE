@@ -26,12 +26,6 @@ import (
 
 type JobController struct{}
 
-type standardResponse struct {
-	S int         `json:"status"`
-	D interface{} `json:"data"`
-	E []string    `json:"error"`
-}
-
 // OPTIONS: /job
 func (cr *JobController) Options(cx *goweb.Context) {
 	LogRequest(cx.Request)
@@ -179,7 +173,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	}
 
 	// make a copy to prevent race conditions
-	SR := standardResponse{
+	SR := StandardResponse{
 		S: http.StatusOK,
 		D: job,
 		E: nil,

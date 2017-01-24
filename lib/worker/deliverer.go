@@ -5,9 +5,12 @@ import (
 	"github.com/MG-RAST/AWE/lib/cache"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -56,13 +59,43 @@ func deliverer(control chan int) {
 		perfstat.ClientId = core.Self.Id
 
 		//notify server the final process results; send perflog, stdout, and stderr if needed
-		if err := core.NotifyWorkunitProcessedWithLogs(work, perfstat, conf.PRINT_APP_MSG); err != nil {
-			fmt.Printf("!!!NotifyWorkunitDone returned error: %s\n", err.Error())
-			logger.Error("[deliverer#NotifyWorkunitProcessedWithLogs]workid=" + work.Id + ", err=" + err.Error())
-			work.Notes = work.Notes + "###[deliverer#NotifyWorkunitProcessedWithLogs]" + err.Error()
-			//mark this work in Current_work map as false, something needs to be done in the future
-			//to clean this kind of work that has been proccessed but its result can't be sent to server!
-			core.Self.Current_work_false(work.Id) //server doesn't know this yet
+		// detect e.ClientNotFound
+		do_retry := true
+		retry_count := 0
+		for do_retry {
+			response, err := core.NotifyWorkunitProcessedWithLogs(work, perfstat, conf.PRINT_APP_MSG)
+			if err != nil {
+				logger.Error("[deliverer: workid=" + work.Id + ", err=" + err.Error())
+				work.Notes = work.Notes + "###[deliverer:]" + err.Error()
+				// keep retry
+			} else {
+
+				error_message := strings.Join(response.E, ",")
+				if strings.Contains(error_message, e.ClientNotFound) { // TODO need better method than string search. Maybe a field awe_status.
+					//mark this work in Current_work map as false, something needs to be done in the future
+					//to clean this kind of work that has been proccessed but its result can't be sent to server!
+					core.Self.Current_work_false(work.Id) //server doesn't know this yet
+					do_retry = false
+				}
+
+				if response.S == http.StatusOK {
+					// success, work delivered
+					logger.Debug(1, "work delivered successfully")
+					do_retry = false
+				} else {
+					logger.Error("deliverer: workid=" + work.Id + ", err=" + error_message)
+				}
+			}
+
+			if do_retry {
+				time.Sleep(time.Second * 60)
+				retry_count += 1
+			} else {
+				if retry_count > 100 { // TODO 100 ?
+					break
+				}
+				break
+			}
 		}
 
 		//now final status report sent to server, update some local info

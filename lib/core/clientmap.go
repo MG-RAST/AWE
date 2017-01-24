@@ -19,12 +19,17 @@ func (cl *ClientMap) Add(client *Client, lock bool) {
 
 	if lock {
 		cl.LockNamed("(ClientMap) Add")
-	}
-	cl._map[client.Id] = client
-	if lock {
-		cl.Unlock()
+		defer cl.Unlock()
 	}
 
+	_, found := cl._map[client.Id]
+	if found {
+		log.Warn("Client Id % already exists.", client.Id)
+	}
+
+	cl._map[client.Id] = client
+
+	return
 }
 
 func (cl *ClientMap) Get(client_id string, lock bool) (client *Client, ok bool, err error) {

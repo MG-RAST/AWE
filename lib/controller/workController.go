@@ -156,7 +156,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 // to-do: to support more options for workunit checkout
 func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
-	logger.Debug(3, "GET: /work") // TODO remove this
+
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 

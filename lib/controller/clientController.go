@@ -215,7 +215,9 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 			}
 		}
 	} else {
-		filtered = clients
+		for _, client := range clients {
+			filtered = append(filtered, client)
+		}
 	}
 
 	filtered.RLockRecursive()

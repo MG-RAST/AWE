@@ -399,8 +399,6 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 		client.Increment_total_completed()
 
-		qm.AddClient(client, true) // TODO why do we add client here ?!???
-
 		task.RemainWork -= 1
 		task.ComputeTime += computetime
 
@@ -484,7 +482,6 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 				qm.SuspendClient(client.Id, client, false)
 			}
 			client.Unlock()
-			qm.AddClient(client, true)
 		}
 	}
 	return

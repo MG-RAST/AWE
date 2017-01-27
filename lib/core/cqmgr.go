@@ -377,12 +377,12 @@ func (qm *CQMgr) GetAllClientsByUser(u *user.User) (clients []*Client, err error
 		}
 	}
 
-	clients, err = qm.clientMap.GetClients()
+	all_clients, err := qm.clientMap.GetClients()
 	if err != nil {
 		return
 	}
 
-	for _, client := range clients {
+	for _, client := range all_clients {
 		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
 			clients = append(clients, client)
 		}

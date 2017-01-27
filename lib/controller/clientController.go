@@ -67,7 +67,12 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	//log event about client registration (CR)
 	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.Id+";name="+client.Name+";host="+client.Host+";group="+client.Group+";instance_id="+client.InstanceId+";instance_type="+client.InstanceType+";domain="+client.Domain)
 
-	rlock := client.RLockNamed("ClientController/Create")
+	rlock, err := client.RLockNamed("ClientController/Create")
+	if err != nil {
+		msg := "Lock error:" + err.Error()
+		logger.Error(msg)
+		cx.RespondWithErrorMessage(msg, http.StatusBadRequest)
+	}
 	defer client.RUnlockNamed(rlock)
 	cx.RespondWithData(client)
 	return
@@ -131,7 +136,11 @@ func (cr *ClientController) Read(id string, cx *goweb.Context) {
 		}
 		return
 	}
-	rlock := client.RLockNamed("ClientController/Create")
+	rlock, err := client.RLockNamed("ClientController/Create")
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+		return
+	}
 	defer client.RUnlockNamed(rlock)
 	cx.RespondWithData(client)
 	return
@@ -158,7 +167,11 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 		}
 	}
 
-	clients := core.QMgr.GetAllClientsByUser(u)
+	clients, err := core.QMgr.GetAllClientsByUser(u)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	query := &Query{Li: cx.Request.URL.Query()}
 	//filtered := []*core.Client{}
@@ -166,7 +179,11 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 
 	if query.Has("busy") {
 		for _, client := range clients {
-			if client.Current_work_length(true) > 0 {
+			work_length, err := client.Current_work_length(true)
+			if err != nil {
+				continue
+			}
+			if work_length > 0 {
 				filtered = append(filtered, client)
 			}
 		}
@@ -178,7 +195,10 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 		}
 	} else if query.Has("status") {
 		for _, client := range clients {
-			status := client.Get_Status(false)
+			status, xerr := client.Get_Status(false)
+			if xerr != nil {
+				continue
+			}
 			stat := strings.Split(status, "-")
 			if status == query.Value("status") {
 				filtered = append(filtered, client)
@@ -195,7 +215,9 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 			}
 		}
 	} else {
-		filtered = clients
+		for _, client := range clients {
+			filtered = append(filtered, client)
+		}
 	}
 
 	filtered.RLockRecursive()

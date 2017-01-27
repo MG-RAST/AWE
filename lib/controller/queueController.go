@@ -51,7 +51,10 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 		return
 	}
 	if query.Has("json") {
-		statusJson := core.QMgr.GetJsonStatus()
+		statusJson, err := core.QMgr.GetJsonStatus()
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+		}
 		cx.RespondWithData(statusJson)
 		return
 	}
@@ -101,7 +104,11 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 
 			client_map := core.QMgr.GetClientMap()
 
-			for _, client := range client_map.GetClients() {
+			client_list, err := client_map.GetClients()
+			if err != nil {
+				cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+			}
+			for _, client := range client_list {
 				if client.Group == cg.Name {
 					client.LockNamed("QueueController/ReadMany")
 					for wid, _ := range client.Current_work {

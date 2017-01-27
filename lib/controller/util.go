@@ -34,6 +34,12 @@ var (
 		" +----+    +----+     \\-----/     \\-----/    +--------------+\n"
 )
 
+type StandardResponse struct {
+	S int         `json:"status"`
+	D interface{} `json:"data"`
+	E []string    `json:"error"`
+}
+
 func PrintLogo() {
 	fmt.Println(logo)
 	return

@@ -27,6 +27,12 @@ var (
 	ProxyWorkChan chan bool
 )
 
+type StandardResponse struct {
+	S int         `json:"status"`
+	D interface{} `json:"data"`
+	E []string    `json:"error"`
+}
+
 func InitResMgr(service string) {
 	if service == "server" {
 		QMgr = NewServerMgr()
@@ -114,11 +120,11 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 			}
 		}
 	} else {
-		job, err = ParseAwf(files["awf"].Path)
-		if err != nil {
-			err = errors.New("(ParseAwf) error parsing job, error=" + err.Error())
-			return
-		}
+		// job, err = ParseAwf(files["awf"].Path)
+		// if err != nil {
+		// 	err = errors.New("(ParseAwf) error parsing job, error=" + err.Error())
+		// 	return
+		// }
 	}
 
 	// Once, job has been created, set job owner and add owner to all ACL's
@@ -504,99 +510,99 @@ func JobDepToJob(jobDep *JobDep) (job *Job) {
 }
 
 //parse .awf.json - sudo-function only, to be finished
-func ParseAwf(filename string) (job *Job, err error) {
-	workflow := new(Workflow)
-	jsonstream, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return nil, errors.New("error in reading job json file")
-	}
-	json.Unmarshal(jsonstream, workflow)
-	job, err = AwfToJob(workflow)
-	if err != nil {
-		return
-	}
-	return
-}
+// func ParseAwf(filename string) (job *Job, err error) {
+// 	workflow := new(Workflow)
+// 	jsonstream, err := ioutil.ReadFile(filename)
+// 	if err != nil {
+// 		return nil, errors.New("error in reading job json file")
+// 	}
+// 	json.Unmarshal(jsonstream, workflow)
+// 	job, err = AwfToJob(workflow)
+// 	if err != nil {
+// 		return
+// 	}
+// 	return
+// }
 
-func AwfToJob(awf *Workflow) (job *Job, err error) {
-	job = NewJob()
-
-	//mapping info
-	job.Info.Pipeline = awf.WfInfo.Name
-	job.Info.Name = awf.JobInfo.Name
-	job.Info.Project = awf.JobInfo.Project
-	job.Info.User = awf.JobInfo.User
-	job.Info.ClientGroups = awf.JobInfo.Queue
-
-	//create task 0: pseudo-task representing the success of job submission
-	//to-do: in the future this task can serve as raw input data validation
-	var task *Task
-	task, err = NewTask(job, "0")
-	if err != nil {
-		return
-	}
-	task.Init()
-	task.Cmd.Description = "job submission"
-	task.SetState(TASK_STAT_PASSED)
-	task.RemainWork = 0
-	task.TotalWork = 0
-	job.Tasks = append(job.Tasks, task)
-
-	//mapping tasks
-	for _, awf_task := range awf.Tasks {
-		var task *Task
-		task, err = NewTask(job, string(awf_task.TaskId))
-		if err != nil {
-			return
-		}
-		task.Init()
-		for name, origin := range awf_task.Inputs {
-			io := new(IO)
-			io.FileName = name
-			io.Host = awf.DataServer
-			io.Node = "-"
-			io.Origin = strconv.Itoa(origin)
-			task.Inputs = append(task.Inputs, io)
-			if origin == 0 {
-				if dataurl, ok := awf.RawInputs[io.FileName]; ok {
-					io.Url = dataurl
-				}
-			}
-		}
-
-		for _, name := range awf_task.Outputs {
-			io := new(IO)
-			io.FileName = name
-			io.Host = awf.DataServer
-			io.Node = "-"
-			task.Outputs = append(task.Outputs, io)
-		}
-		if awf_task.Splits == 0 {
-			task.TotalWork = 1
-		} else {
-			task.TotalWork = awf_task.Splits
-		}
-
-		task.Cmd.Name = awf_task.Cmd.Name
-		arg_str := awf_task.Cmd.Args
-		if strings.Contains(arg_str, "$") { //contains variables, parse them
-			for name, value := range awf.Variables {
-				var_name := "$" + name
-				arg_str = strings.Replace(arg_str, var_name, value, -1)
-			}
-		}
-		task.Cmd.Args = arg_str
-
-		for _, parent := range awf_task.DependsOn {
-			parent_id := getParentTask(task.Id, parent)
-			task.DependsOn = append(task.DependsOn, parent_id)
-		}
-		task.InitTask(job)
-		job.Tasks = append(job.Tasks, task)
-	}
-	job.RemainTasks = len(job.Tasks) - 1
-	return
-}
+// func AwfToJob(awf *Workflow) (job *Job, err error) {
+// 	job = NewJob()
+//
+// 	//mapping info
+// 	job.Info.Pipeline = awf.WfInfo.Name
+// 	job.Info.Name = awf.JobInfo.Name
+// 	job.Info.Project = awf.JobInfo.Project
+// 	job.Info.User = awf.JobInfo.User
+// 	job.Info.ClientGroups = awf.JobInfo.Queue
+//
+// 	//create task 0: pseudo-task representing the success of job submission
+// 	//to-do: in the future this task can serve as raw input data validation
+// 	var task *Task
+// 	task, err = NewTask(job, "0")
+// 	if err != nil {
+// 		return
+// 	}
+// 	task.Init()
+// 	task.Cmd.Description = "job submission"
+// 	task.SetState(TASK_STAT_PASSED)
+// 	task.RemainWork = 0
+// 	task.TotalWork = 0
+// 	job.Tasks = append(job.Tasks, task)
+//
+// 	//mapping tasks
+// 	for _, awf_task := range awf.Tasks {
+// 		var task *Task
+// 		task, err = NewTask(job, string(awf_task.TaskId))
+// 		if err != nil {
+// 			return
+// 		}
+// 		task.Init()
+// 		for name, origin := range awf_task.Inputs {
+// 			io := new(IO)
+// 			io.FileName = name
+// 			io.Host = awf.DataServer
+// 			io.Node = "-"
+// 			io.Origin = strconv.Itoa(origin)
+// 			task.Inputs = append(task.Inputs, io)
+// 			if origin == 0 {
+// 				if dataurl, ok := awf.RawInputs[io.FileName]; ok {
+// 					io.Url = dataurl
+// 				}
+// 			}
+// 		}
+//
+// 		for _, name := range awf_task.Outputs {
+// 			io := new(IO)
+// 			io.FileName = name
+// 			io.Host = awf.DataServer
+// 			io.Node = "-"
+// 			task.Outputs = append(task.Outputs, io)
+// 		}
+// 		if awf_task.Splits == 0 {
+// 			task.TotalWork = 1
+// 		} else {
+// 			task.TotalWork = awf_task.Splits
+// 		}
+//
+// 		task.Cmd.Name = awf_task.Cmd.Name
+// 		arg_str := awf_task.Cmd.Args
+// 		if strings.Contains(arg_str, "$") { //contains variables, parse them
+// 			for name, value := range awf.Variables {
+// 				var_name := "$" + name
+// 				arg_str = strings.Replace(arg_str, var_name, value, -1)
+// 			}
+// 		}
+// 		task.Cmd.Args = arg_str
+//
+// 		for _, parent := range awf_task.DependsOn {
+// 			parent_id := getParentTask(task.Id, parent)
+// 			task.DependsOn = append(task.DependsOn, parent_id)
+// 		}
+// 		task.InitTask(job)
+// 		job.Tasks = append(job.Tasks, task)
+// 	}
+// 	job.RemainTasks = len(job.Tasks) - 1
+// 	return
+// }
 
 //misc
 func GetJobIdByTaskId(taskid string) (jobid string, err error) {
@@ -698,7 +704,7 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 	return
 }
 
-func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (err error) {
+func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (response *StandardResponse, err error) {
 	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work.Id, work.State, Self.Id, work.ComputeTime)
 	form := httpclient.NewForm()
 	hasreport := false
@@ -729,8 +735,9 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 	if hasreport {
 		target_url = target_url + "&report"
 	}
-	if err := form.Create(); err != nil {
-		return err
+	err = form.Create()
+	if err != nil {
+		return
 	}
 	var headers httpclient.Header
 	if conf.CLIENT_GROUP_TOKEN == "" {
@@ -746,8 +753,21 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 		}
 	}
 	res, err := httpclient.Put(target_url, headers, form.Reader, nil)
-	if err == nil {
-		defer res.Body.Close()
+	if err != nil {
+		return
+	}
+	defer res.Body.Close()
+
+	jsonstream, _ := ioutil.ReadAll(res.Body)
+	response = new(StandardResponse)
+	err = json.Unmarshal(jsonstream, response)
+	if err != nil {
+		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) failed to marshal response:\"%s\"", jsonstream)
+		return
+	}
+	if len(response.E) > 0 {
+		err = errors.New(strings.Join(response.E, ","))
+		return
 	}
 
 	return

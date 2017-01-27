@@ -50,7 +50,11 @@ func processor(control chan int) {
 		}
 
 		//if the work is not succesfully parsed in last stage, pass it into the next one immediately
-		work_state, ok := workmap.Get(work.Id)
+		work_state, ok, xerr := workmap.Get(work.Id)
+		if xerr != nil {
+			logger.Error("error: %s", xerr.Error())
+			continue
+		}
 		if !ok {
 			logger.Error("(processor) work.id %s not found", work.Id)
 			continue
@@ -531,7 +535,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	logger.Debug(1, "DockerPrep time in seconds: %d", pstats.DockerPrep)
 
 	if client != nil {
-		err = client.StartContainer(container_id, &docker.HostConfig{Binds: bindarray}) // weired, seems to be needed
+		//err = client.StartContainer(container_id, &docker.HostConfig{Binds: bindarray}) // weired, seems to be needed
+		err = client.StartContainer(container_id, nil)
 		//err = client.StartContainer(container_id, &docker.HostConfig{})
 
 	} else {

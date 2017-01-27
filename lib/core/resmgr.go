@@ -7,11 +7,11 @@ import (
 type ClientMgr interface {
 	RegisterNewClient(FormFiles, *ClientGroup) (*Client, error)
 	ClientHeartBeat(string, *ClientGroup) (HBmsg, error)
-	GetClient(string, bool) (*Client, bool)
+	GetClient(string, bool) (*Client, bool, error)
 	GetClientByUser(string, *user.User) (*Client, error)
 	//GetAllClients() []*Client
 	GetClientMap() *ClientMap
-	GetAllClientsByUser(*user.User) []*Client
+	GetAllClientsByUser(*user.User) ([]*Client, error)
 	DeleteClient(*Client) error
 	DeleteClientById(string) error
 	DeleteClientByUser(string, *user.User) error
@@ -19,18 +19,18 @@ type ClientMgr interface {
 	SuspendClientByUser(string, *user.User) error
 	ResumeClient(string) error
 	ResumeClientByUser(string, *user.User) error
-	ResumeSuspendedClients() int
+	ResumeSuspendedClients() (int, error)
 	ResumeSuspendedClientsByUser(*user.User) int
-	SuspendAllClients() int
+	SuspendAllClients() (int, error)
 	SuspendAllClientsByUser(*user.User) int
 	ClientChecker()
-	UpdateSubClients(string, int)
+	UpdateSubClients(string, int) error
 	UpdateSubClientsByUser(string, int, *user.User)
 }
 
 type WorkMgr interface {
 	GetWorkById(string) (*Workunit, error)
-	ShowWorkunits(string) []*Workunit
+	ShowWorkunits(string) ([]*Workunit, error)
 	ShowWorkunitsByUser(string, *user.User) []*Workunit
 	CheckoutWorkunits(string, string, int64, int) ([]*Workunit, error)
 	NotifyWorkStatus(Notice)
@@ -72,7 +72,7 @@ type ResourceMgr interface {
 	TaskHandle()
 	ClientHandle()
 	NoticeHandle()
-	GetJsonStatus() map[string]map[string]int
+	GetJsonStatus() (map[string]map[string]int, error)
 	GetTextStatus() string
 	QueueStatus() string
 	GetQueue(string) interface{}

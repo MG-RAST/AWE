@@ -213,7 +213,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 		// if using query syntax then do pagination and sorting
 		if query.Has("query") {
-			filtered_work := []core.Workunit{}
+			filtered_work := []*core.Workunit{}
 			sorted_work := core.WorkunitsSortby{order, direction, workunits}
 			sort.Sort(sorted_work)
 
@@ -224,7 +224,8 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 					skip += 1
 					continue
 				}
-				filtered_work = append(filtered_work, *w)
+
+				filtered_work = append(filtered_work, w)
 				count += 1
 				if count == limit {
 					break

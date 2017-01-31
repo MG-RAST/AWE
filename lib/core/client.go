@@ -307,19 +307,17 @@ func (cl *Client) Current_work_false(workid string) (err error) {
 	return
 }
 
-// _nolock assumes you already have global lock
-func (cl *Client) Add_work_nolock(workid string) {
-	cl.Current_work[workid] = true
-	cl.Total_checkout += 1
-}
-
+// lock always
 func (cl *Client) Add_work(workid string) (err error) {
+
 	err = cl.LockNamed("Add_work")
 	if err != nil {
 		return
 	}
 	defer cl.Unlock()
-	cl.Add_work_nolock(workid)
+
+	cl.Current_work[workid] = true
+	cl.Total_checkout += 1
 	return
 }
 

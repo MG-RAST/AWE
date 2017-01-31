@@ -172,7 +172,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
 		return
 	}
-	logger.Info("len: %s", len(clients))
+
 	query := &Query{Li: cx.Request.URL.Query()}
 	//filtered := []*core.Client{}
 	filtered := core.Clients{}

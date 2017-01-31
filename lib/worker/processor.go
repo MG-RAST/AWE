@@ -410,8 +410,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		bash_command = fmt.Sprint(wrapper_script_filename_docker, " ", pipe_output)
 	} else {
 		_ = args
-		//bash_command = fmt.Sprintf("%s %s %s", commandName, strings.Join(args, " "), pipe_output)
-		bash_command = fmt.Sprintf("uname -a %s", pipe_output)
+		bash_command = fmt.Sprintf("%s %s %s", commandName, strings.Join(args, " "), pipe_output)
+		//bash_command = fmt.Sprintf("uname -a %s", pipe_output)
 
 		var wrapper_content_string = "#!/bin/bash\n" + bash_command + "\n"
 

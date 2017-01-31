@@ -102,32 +102,19 @@ func (qm *ServerMgr) ClientHandle() {
 		logger.Debug(3, "(ServerMgr ClientHandle %s) send response now\n", coReq.fromclient)
 
 		start_time := time.Now()
-		timeout := make(chan bool, 1)
-		go func() {
-			time.Sleep(100 * time.Second)
-			timeout <- true
-		}()
+
+		timer := time.NewTimer(00 * time.Second)
 
 		select {
 		case coReq.response <- ack:
 			logger.Debug(3, "(ServerMgr ClientHandle %s) send workunit to client via response channel", coReq.fromclient)
-		case <-timeout:
+		case <-timer.C:
 			elapsed_time := time.Since(start_time)
 			logger.Error("(ServerMgr ClientHandle %s) timed out after %s ", coReq.fromclient, elapsed_time)
 			return
 		}
 		logger.Debug(3, "(ServerMgr ClientHandle %s) done\n", coReq.fromclient)
-		// case notice := <-qm.feedback:
-		// 			fmt.Println("(ServerMgr ClientHandle) got notice")
-		// 			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))
-		// 			if err := qm.handleWorkStatusChange(notice); err != nil {
-		// 				fmt.Println("(ServerMgr ClientHandle) handleWorkStatusChange error")
-		// 				logger.Error("handleWorkStatusChange(): " + err.Error())
-		// 			}
-		// 			fmt.Println("(ServerMgr ClientHandle) updateQueue")
-		// 			qm.updateQueue()
-		// 			fmt.Println("(ServerMgr ClientHandle) updateQueue done")
-		//}
+
 	}
 }
 
@@ -176,7 +163,7 @@ func (qm *ServerMgr) GetQueue(name string) interface{} {
 	}
 	if name == "work" {
 		qm.ShowWorkQueue() // only if debug level is set
-		return qm.workQueue.workMap.Map
+		return qm.workQueue.all.Map
 
 	}
 	if name == "client" {
@@ -488,7 +475,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 }
 
 func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err error) {
-	queuing_work, err := qm.workQueue.Wait.Len()
+	queuing_work, err := qm.workQueue.Queue.Len()
 	if err != nil {
 		return
 	}

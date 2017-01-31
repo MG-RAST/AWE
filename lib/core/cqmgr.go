@@ -248,7 +248,7 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err e
 	suspended := []string{}
 
 	for _, work_id := range current_work {
-		work, ok, zerr := qm.workQueue.workMap.Get(work_id)
+		work, ok, zerr := qm.workQueue.all.Get(work_id)
 		if err != nil {
 			err = zerr
 			return
@@ -321,10 +321,10 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		return
 	}
 	if cw_length > 0 { //re-registered client
-		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
+		// move already checked-out workunit from waiting queue (all) to checked-out list (coWorkMap)
 
 		for workid, _ := range client.Current_work {
-			has_work, xerr := qm.workQueue.Has(workid)
+			has_work, xerr := qm.workQueue.Has(workid) // TODO what if another client also has this workunit ? Delete workunit from client?
 			if xerr != nil {
 				continue
 			}
@@ -796,26 +796,29 @@ func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 		return
 	}
 
-	logger.Debug(3, fmt.Sprintf("starting popWorks() for client: %s", client_id))
+	logger.Debug(3, "starting popWorks() for client: %s", client_id)
 
 	filtered, err := qm.filterWorkByClient(client)
 	if err != nil {
 		return
 	}
-	logger.Debug(2, fmt.Sprintf("popWorks filtered: %d (0 meansNoEligibleWorkunitFound)", len(filtered)))
+	logger.Debug(2, "popWorks filtered: %d (0 meansNoEligibleWorkunitFound)", len(filtered))
 	if len(filtered) == 0 {
 		return nil, errors.New(e.NoEligibleWorkunitFound)
 	}
 	works, err = qm.workQueue.selectWorkunits(filtered, req.policy, req.available, req.count)
-	if err == nil { //get workunits successfully, put them into coWorkMap
-		for _, work := range works {
-			work.Client = client_id
-			work.CheckoutTime = time.Now()
-			qm.workQueue.Put(work)
-			qm.workQueue.StatusChange(work.Id, WORK_STAT_CHECKOUT)
-		}
+	if err != nil {
+		return
 	}
-	logger.Debug(3, fmt.Sprintf("done with popWorks() for client: %s", client_id))
+	//get workunits successfully, put them into coWorkMap
+	for _, work := range works {
+		work.Client = client_id
+		work.CheckoutTime = time.Now()
+		qm.workQueue.Put(work)
+		qm.workQueue.StatusChange(work.Id, WORK_STAT_CHECKOUT)
+	}
+
+	logger.Debug(3, "done with popWorks() for client: %s ", client_id)
 	return
 }
 
@@ -825,7 +828,7 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err err
 	clientid := client.Id
 	logger.Debug(3, fmt.Sprintf("starting filterWorkByClient() for client: %s", clientid))
 
-	workunit_list, err := qm.workQueue.Wait.GetWorkunits()
+	workunit_list, err := qm.workQueue.Queue.GetWorkunits()
 	if err != nil {
 		return
 	}

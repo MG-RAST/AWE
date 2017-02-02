@@ -27,7 +27,8 @@ type jQueueShow struct {
 
 type ServerMgr struct {
 	CQMgr
-	queueLock sync.Mutex //only update one at a time
+	queueLock  sync.Mutex //only update one at a time
+	lastUpdate time.Time
 	//taskLock  sync.RWMutex
 	TaskMap TaskMap
 	ajLock  sync.RWMutex
@@ -51,10 +52,11 @@ func NewServerMgr() *ServerMgr {
 			coSem:    make(chan int, 1), //non-blocking buffered channel
 		},
 		//TaskMap: map[string]*Task{},
-		TaskMap: *NewTaskMap(),
-		taskIn:  make(chan *Task, 1024),
-		actJobs: map[string]*JobPerf{},
-		susJobs: map[string]bool{},
+		lastUpdate: time.Now().Add(time.Second * -30),
+		TaskMap:    *NewTaskMap(),
+		taskIn:     make(chan *Task, 1024),
+		actJobs:    map[string]*JobPerf{},
+		susJobs:    map[string]bool{},
 	}
 }
 
@@ -87,13 +89,19 @@ func (qm *ServerMgr) ClientHandle() {
 			ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
 		} else {
 			logger.Debug(3, "(ServerMgr ClientHandle %s) updateQueue\n", coReq.fromclient)
+
 			qm.updateQueue()
+
 			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks\n", coReq.fromclient)
+
 			works, err := qm.popWorks(coReq)
+
 			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks done\n", coReq.fromclient)
 			if err == nil {
 				logger.Debug(3, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress\n", coReq.fromclient)
+
 				qm.UpdateJobTaskToInProgress(works)
+
 				logger.Debug(3, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress done\n", coReq.fromclient)
 			}
 			ack = CoAck{workunits: works, err: err}
@@ -279,6 +287,15 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	qm.queueLock.Lock()
 	defer qm.queueLock.Unlock()
 
+	logger.Debug(3, "-------- %s %s", qm.lastUpdate, time.Now())
+
+	updateInterval := 30
+	if !time.Now().After(qm.lastUpdate.Add(time.Second * time.Duration(updateInterval))) { // TODO do check before the lock
+		return
+	}
+	qm.lastUpdate = time.Now()
+
+	logger.Debug(3, "Starting updateQueue()")
 	tasks, err := qm.TaskMap.GetTasks()
 	if err != nil {
 		return
@@ -308,6 +325,10 @@ func (qm *ServerMgr) updateQueue() (err error) {
 		qm.SuspendJob(jid, fmt.Sprintf("workunit %s is nil", id), id)
 		logger.Error("error: workunit %s is nil, suspending job %s", id, jid)
 	}
+
+	qm.lastUpdate = time.Now()
+	logger.Debug(3, "Ending updateQueue()")
+
 	return
 }
 

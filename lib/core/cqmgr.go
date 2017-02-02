@@ -783,7 +783,7 @@ func (qm *CQMgr) NotifyWorkStatus(notice Notice) {
 }
 
 // when popWorks is called, the client should already be locked
-func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
+func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err error) {
 
 	client_id := req.fromclient
 
@@ -806,15 +806,15 @@ func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 	if len(filtered) == 0 {
 		return nil, errors.New(e.NoEligibleWorkunitFound)
 	}
-	works, err = qm.workQueue.selectWorkunits(filtered, req.policy, req.available, req.count)
+	client_specific_workunits, err = qm.workQueue.selectWorkunits(filtered, req.policy, req.available, req.count)
 	if err != nil {
 		return
 	}
 	//get workunits successfully, put them into coWorkMap
-	for _, work := range works {
+	for _, work := range client_specific_workunits {
 		work.Client = client_id
 		work.CheckoutTime = time.Now()
-		qm.workQueue.Put(work)
+		//qm.workQueue.Put(work) TODO isn't that already in the queue ?
 		qm.workQueue.StatusChange(work.Id, WORK_STAT_CHECKOUT)
 	}
 

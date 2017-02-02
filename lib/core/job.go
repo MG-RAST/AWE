@@ -370,16 +370,16 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 
 func (job *Job) SetClientgroups(clientgroups string) (err error) {
 	job.Info.ClientGroups = clientgroups
-	if err = core.QMgr.UpdateQueueJobInfo(job); err != nil {
+	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
 		return
 	}
 	err = job.Save()
 	return
 }
 
-func (job *Job) SetPriority(priority string) (err error) {
+func (job *Job) SetPriority(priority int) (err error) {
 	job.Info.Priority = priority
-	if err = core.QMgr.UpdateQueueJobInfo(job); err != nil {
+	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
 		return
 	}
 	err = job.Save()
@@ -388,7 +388,7 @@ func (job *Job) SetPriority(priority string) (err error) {
 
 func (job *Job) SetPipeline(pipeline string) (err error) {
 	job.Info.Pipeline = pipeline
-	if err = core.QMgr.UpdateQueueJobInfo(job); err != nil {
+	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
 		return
 	}
 	err = job.Save()
@@ -401,7 +401,7 @@ func (job *Job) SetDataToken(token string) (err error) {
 	for _, task := range job.Tasks {
 		task.setTokenForIO()
 	}
-	if err = core.QMgr.UpdateQueueJobInfo(job); err != nil {
+	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
 		return
 	}
 	err = job.Save()

@@ -364,11 +364,7 @@ func (qm *ProxyMgr) RecomputeJob(jobid string, stage string) (err error) {
 	return
 }
 
-func (qm *ProxyMgr) UpdateGroup(jobid string, newgroup string) (err error) {
-	return
-}
-
-func (qm *ProxyMgr) UpdatePriority(jobid string, priority int) (err error) {
+func (qm *ProxyMgr) UpdateQueueJobInfo(job *Job) (err error) {
 	return
 }
 

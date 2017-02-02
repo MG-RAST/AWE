@@ -163,10 +163,7 @@ func (task *Task) InitTask(job *Job) (err error) {
 		}
 	}
 
-	task.Info = job.Info
-	if task.ClientGroups != "" {
-		task.Info.ClientGroups = task.ClientGroups
-	}
+	task.Info = job.Info4
 
 	if task.TotalWork <= 0 {
 		task.setTotalWork(1)

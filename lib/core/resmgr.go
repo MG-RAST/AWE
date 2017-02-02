@@ -57,8 +57,7 @@ type JobMgr interface {
 	SaveStdLog(string, string, string) error
 	GetReportMsg(string, string) (string, error)
 	RecomputeJob(string, string) error
-	UpdateGroup(string, string) error
-	UpdatePriority(string, int) error
+	UpdateQueueJobInfo(*Job) error
 }
 
 type ClientWorkMgr interface {

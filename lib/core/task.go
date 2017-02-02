@@ -163,7 +163,7 @@ func (task *Task) InitTask(job *Job) (err error) {
 		}
 	}
 
-	task.Info = job.Info4
+	task.Info = job.Info
 
 	if task.TotalWork <= 0 {
 		task.setTotalWork(1)

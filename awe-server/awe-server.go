@@ -266,7 +266,7 @@ func main() {
 	//recover unfinished jobs before server went down last time
 	if conf.RECOVER {
 		if conf.RECOVER_MAX > 0 {
-			fmt.Println("####### Recovering " + conf.RECOVER_MAX + " unfinished jobs #######")
+			fmt.Println("####### Recovering %d unfinished jobs #######", conf.RECOVER_MAX)
 		} else {
 			fmt.Println("####### Recovering all unfinished jobs #######")
 		}

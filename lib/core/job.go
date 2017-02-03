@@ -250,7 +250,9 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 func (job *Job) SetPipeline(pipeline string) (err error) {
 	job.Info.Pipeline = pipeline
 	for _, task := range job.Tasks {
-		task.Info.Pipeline = pipeline
+		if task.Info != nil {
+			task.Info.Pipeline = pipeline
+		}
 	}
 	err = job.Save()
 	return

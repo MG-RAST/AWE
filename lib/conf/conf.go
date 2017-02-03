@@ -56,8 +56,9 @@ var (
 	TITLE        string
 
 	// Reload
-	RELOAD  string
-	RECOVER bool
+	RELOAD      string
+	RECOVER     bool
+	RECOVER_MAX int
 
 	// AWE server port
 	SITE_PORT int
@@ -467,7 +468,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddInt(&MAX_CLIENT_FAILURE, 5, "Server", "max_client_failure", "number of times that one client consecutively fails running workunits before the client considered suspend", "")
 		c_store.AddInt(&GOMAXPROCS, 0, "Server", "go_max_procs", "", "")
 		c_store.AddString(&RELOAD, "", "Server", "reload", "path or url to awe job data. WARNING this will drop all current jobs", "")
-		c_store.AddBool(&RECOVER, false, "Server", "recover", "path to awe job data", "")
+		c_store.AddBool(&RECOVER, false, "Server", "recover", "load unfinished jobs from mongodb on startup", "")
+		c_store.AddInt(&RECOVER_MAX, 0, "Server", "recover_max", "max number of jobs to recover, default (0) means recover all", "")
 	}
 
 	if mode == "client" {

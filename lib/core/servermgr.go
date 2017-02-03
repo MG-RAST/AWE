@@ -1237,7 +1237,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	q := bson.M{}
 	q["state"] = bson.M{"$in": JOB_STATS_TO_RECOVER}
 	if conf.RECOVER_MAX > 0 {
-		if err := dbjobs.GetPaginated(q, conf.RECOVER_MAX, 0, "info.priority", "desc"); err != nil {
+		if _, err := dbjobs.GetPaginated(q, conf.RECOVER_MAX, 0, "info.priority", "desc"); err != nil {
 			logger.Error("RecoverJobs()->GetPaginated():" + err.Error())
 			return err
 		}

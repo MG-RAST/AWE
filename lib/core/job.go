@@ -399,10 +399,16 @@ func (job *Job) SetDataToken(token string) (err error) {
 	job.Info.DataToken = token
 	job.Info.Auth = true
 	for _, task := range job.Tasks {
+<<<<<<< HEAD
 		task.setTokenForIO()
 	}
 	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
 		return
+=======
+		if task.Info != nil {
+			task.Info.Pipeline = pipeline
+		}
+>>>>>>> develop
 	}
 	err = job.Save()
 	return

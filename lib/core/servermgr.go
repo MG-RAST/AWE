@@ -1426,9 +1426,16 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	dbjobs := new(Jobs)
 	q := bson.M{}
 	q["state"] = bson.M{"$in": JOB_STATS_TO_RECOVER}
-	if err := dbjobs.GetAll(q, "info.submittime", "asc"); err != nil {
-		logger.Error("RecoverJobs()->GetAllLimitOffset():" + err.Error())
-		return err
+	if conf.RECOVER_MAX > 0 {
+		if _, err := dbjobs.GetPaginated(q, conf.RECOVER_MAX, 0, "info.priority", "desc"); err != nil {
+			logger.Error("RecoverJobs()->GetPaginated():" + err.Error())
+			return err
+		}
+	} else {
+		if err := dbjobs.GetAll(q, "info.submittime", "asc"); err != nil {
+			logger.Error("RecoverJobs()->GetAll():" + err.Error())
+			return err
+		}
 	}
 	//Locate the job script and parse tasks for each job
 	jobct := 0

@@ -270,7 +270,11 @@ func main() {
 
 	//recover unfinished jobs before server went down last time
 	if conf.RECOVER {
-		fmt.Println("####### Recovering unfinished jobs #######")
+		if conf.RECOVER_MAX > 0 {
+			fmt.Println("####### Recovering", conf.RECOVER_MAX, "unfinished jobs #######")
+		} else {
+			fmt.Println("####### Recovering all unfinished jobs #######")
+		}
 		if err := core.QMgr.RecoverJobs(); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 		}

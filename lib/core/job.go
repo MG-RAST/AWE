@@ -370,6 +370,11 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 
 func (job *Job) SetClientgroups(clientgroups string) (err error) {
 	job.Info.ClientGroups = clientgroups
+	for _, task := range job.Tasks {
+	    if task.Info != nil {
+	        task.Info.ClientGroups = clientgroups
+	    }
+    }
 	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
 		return
 	}
@@ -379,6 +384,11 @@ func (job *Job) SetClientgroups(clientgroups string) (err error) {
 
 func (job *Job) SetPriority(priority int) (err error) {
 	job.Info.Priority = priority
+	for _, task := range job.Tasks {
+	    if task.Info != nil {
+	        task.Info.Priority = priority
+	    }
+    }
 	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
 		return
 	}
@@ -388,6 +398,11 @@ func (job *Job) SetPriority(priority int) (err error) {
 
 func (job *Job) SetPipeline(pipeline string) (err error) {
 	job.Info.Pipeline = pipeline
+	for _, task := range job.Tasks {
+	    if task.Info != nil {
+	        task.Info.Pipeline = pipeline
+	    }
+    }
 	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
 		return
 	}
@@ -399,7 +414,11 @@ func (job *Job) SetDataToken(token string) (err error) {
 	job.Info.DataToken = token
 	job.Info.Auth = true
 	for _, task := range job.Tasks {
-		task.setTokenForIO()
+	    if task.Info != nil {
+	        task.Info.DataToken = token
+        	task.Info.Auth = true
+		    task.setTokenForIO()		    
+	    }
 	}
 	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
 		return

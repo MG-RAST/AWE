@@ -180,6 +180,7 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 }
 
 func (qm *CQMgr) ClientChecker() {
+	logger.Info("ClientChecker starting")
 	for {
 		time.Sleep(30 * time.Second)
 		logger.Debug(3, "(ClientChecker) time to update client list....")
@@ -685,22 +686,23 @@ func (qm *CQMgr) UpdateSubClientsByUser(id string, count int, u *user.User) {
 
 //-------start of workunit methods---
 
-func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, available_bytes int64, num int) (workunits []*Workunit, err error) {
+func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *Client, available_bytes int64, num int) (workunits []*Workunit, err error) {
 
 	logger.Debug(3, "run CheckoutWorkunits for client %s", client_id)
 
 	//precheck if the client is registered
-	client, hasClient, err := qm.GetClient(client_id, true)
-	if err != nil {
-		return
-	}
-	if !hasClient {
-		return nil, errors.New(e.ClientNotFound)
-	}
+	//client, hasClient, err := qm.GetClient(client_id, true)
+	//if err != nil {
+	//	return
+	//}
+	//if !hasClient {
+	//	return nil, errors.New(e.ClientNotFound)
+	//}
 
 	client.LockNamed("CheckoutWorkunits serving " + client_id)
 	status := client.Status
 	response_channel := client.coAckChannel
+
 	client.Unlock()
 
 	if status == CLIENT_STAT_SUSPEND {

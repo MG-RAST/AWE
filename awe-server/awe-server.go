@@ -20,6 +20,7 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"time"
 )
 
 func launchSite(control chan int, port int) {
@@ -188,6 +189,8 @@ func main() {
 	}
 	//init logger
 	logger.Initialize("server")
+
+	time.Sleep(time.Second * 3) // workaround to make sure logger is working correctly ; TODO better fix needed
 
 	logger.Info("init db...")
 

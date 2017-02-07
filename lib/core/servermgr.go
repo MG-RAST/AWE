@@ -68,6 +68,7 @@ func (qm *ServerMgr) RLock()   {}
 func (qm *ServerMgr) RUnlock() {}
 
 func (qm *ServerMgr) TaskHandle() {
+	logger.Info("TaskHandle is starting")
 	for {
 		task := <-qm.taskIn
 		logger.Debug(2, "qmgr:task recived from chan taskIn, id=%s", task.Id)
@@ -127,7 +128,7 @@ func (qm *ServerMgr) ClientHandle() {
 }
 
 func (qm *ServerMgr) NoticeHandle() {
-	fmt.Println("(ServerMgr NoticeHandle) starting")
+	logger.Info("(ServerMgr NoticeHandle) starting")
 	for {
 		notice := <-qm.feedback
 		logger.Debug(3, "(ServerMgr NoticeHandle) got notice: workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId)

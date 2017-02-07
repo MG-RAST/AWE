@@ -284,7 +284,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	}
 
 	//checkout a workunit in FCFS order
-	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, availableBytes, 1)
+	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, client, availableBytes, 1)
 
 	if err != nil {
 		if err.Error() != e.QueueEmpty && err.Error() != e.QueueSuspend && err.Error() != e.NoEligibleWorkunitFound && err.Error() != e.ClientNotFound && err.Error() != e.ClientSuspended {

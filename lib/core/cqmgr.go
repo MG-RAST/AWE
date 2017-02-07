@@ -180,6 +180,7 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 }
 
 func (qm *CQMgr) ClientChecker() {
+	logger.Info("ClientChecker starting")
 	for {
 		time.Sleep(30 * time.Second)
 		logger.Debug(3, "(ClientChecker) time to update client list....")
@@ -248,7 +249,7 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err e
 	suspended := []string{}
 
 	for _, work_id := range current_work {
-		work, ok, zerr := qm.workQueue.workMap.Get(work_id)
+		work, ok, zerr := qm.workQueue.all.Get(work_id)
 		if err != nil {
 			err = zerr
 			return
@@ -321,10 +322,10 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		return
 	}
 	if cw_length > 0 { //re-registered client
-		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
+		// move already checked-out workunit from waiting queue (all) to checked-out list (coWorkMap)
 
 		for workid, _ := range client.Current_work {
-			has_work, xerr := qm.workQueue.Has(workid)
+			has_work, xerr := qm.workQueue.Has(workid) // TODO what if another client also has this workunit ? Delete workunit from client?
 			if xerr != nil {
 				continue
 			}
@@ -685,22 +686,23 @@ func (qm *CQMgr) UpdateSubClientsByUser(id string, count int, u *user.User) {
 
 //-------start of workunit methods---
 
-func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, available_bytes int64, num int) (workunits []*Workunit, err error) {
+func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *Client, available_bytes int64, num int) (workunits []*Workunit, err error) {
 
 	logger.Debug(3, "run CheckoutWorkunits for client %s", client_id)
 
 	//precheck if the client is registered
-	client, hasClient, err := qm.GetClient(client_id, true)
-	if err != nil {
-		return
-	}
-	if !hasClient {
-		return nil, errors.New(e.ClientNotFound)
-	}
+	//client, hasClient, err := qm.GetClient(client_id, true)
+	//if err != nil {
+	//	return
+	//}
+	//if !hasClient {
+	//	return nil, errors.New(e.ClientNotFound)
+	//}
 
 	client.LockNamed("CheckoutWorkunits serving " + client_id)
 	status := client.Status
 	response_channel := client.coAckChannel
+
 	client.Unlock()
 
 	if status == CLIENT_STAT_SUSPEND {
@@ -783,7 +785,7 @@ func (qm *CQMgr) NotifyWorkStatus(notice Notice) {
 }
 
 // when popWorks is called, the client should already be locked
-func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
+func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err error) {
 
 	client_id := req.fromclient
 
@@ -796,26 +798,29 @@ func (qm *CQMgr) popWorks(req CoReq) (works []*Workunit, err error) {
 		return
 	}
 
-	logger.Debug(3, fmt.Sprintf("starting popWorks() for client: %s", client_id))
+	logger.Debug(3, "starting popWorks() for client: %s", client_id)
 
 	filtered, err := qm.filterWorkByClient(client)
 	if err != nil {
 		return
 	}
-	logger.Debug(2, fmt.Sprintf("popWorks filtered: %d (0 meansNoEligibleWorkunitFound)", len(filtered)))
+	logger.Debug(2, "popWorks filtered: %d (0 meansNoEligibleWorkunitFound)", len(filtered))
 	if len(filtered) == 0 {
 		return nil, errors.New(e.NoEligibleWorkunitFound)
 	}
-	works, err = qm.workQueue.selectWorkunits(filtered, req.policy, req.available, req.count)
-	if err == nil { //get workunits successfully, put them into coWorkMap
-		for _, work := range works {
-			work.Client = client_id
-			work.CheckoutTime = time.Now()
-			qm.workQueue.Put(work)
-			qm.workQueue.StatusChange(work.Id, WORK_STAT_CHECKOUT)
-		}
+	client_specific_workunits, err = qm.workQueue.selectWorkunits(filtered, req.policy, req.available, req.count)
+	if err != nil {
+		return
 	}
-	logger.Debug(3, fmt.Sprintf("done with popWorks() for client: %s", client_id))
+	//get workunits successfully, put them into coWorkMap
+	for _, work := range client_specific_workunits {
+		work.Client = client_id
+		work.CheckoutTime = time.Now()
+		//qm.workQueue.Put(work) TODO isn't that already in the queue ?
+		qm.workQueue.StatusChange(work.Id, WORK_STAT_CHECKOUT)
+	}
+
+	logger.Debug(3, "done with popWorks() for client: %s ", client_id)
 	return
 }
 
@@ -825,7 +830,7 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err err
 	clientid := client.Id
 	logger.Debug(3, fmt.Sprintf("starting filterWorkByClient() for client: %s", clientid))
 
-	workunit_list, err := qm.workQueue.Wait.GetWorkunits()
+	workunit_list, err := qm.workQueue.Queue.GetWorkunits()
 	if err != nil {
 		return
 	}

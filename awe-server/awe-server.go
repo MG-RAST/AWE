@@ -20,6 +20,7 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"time"
 )
 
 func launchSite(control chan int, port int) {
@@ -189,6 +190,8 @@ func main() {
 	//init logger
 	logger.Initialize("server")
 
+	time.Sleep(time.Second * 3) // workaround to make sure logger is working correctly ; TODO better fix needed
+
 	logger.Info("init db...")
 
 	//init db
@@ -271,14 +274,14 @@ func main() {
 	//recover unfinished jobs before server went down last time
 	if conf.RECOVER {
 		if conf.RECOVER_MAX > 0 {
-			fmt.Println("####### Recovering", conf.RECOVER_MAX, "unfinished jobs #######")
+			logger.Info("####### Recovering %s unfinished jobs #######", conf.RECOVER_MAX)
 		} else {
-			fmt.Println("####### Recovering all unfinished jobs #######")
+			logger.Info("####### Recovering all unfinished jobs #######")
 		}
 		if err := core.QMgr.RecoverJobs(); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+			logger.Error("RecoverJobs error: %v\n", err)
 		}
-		fmt.Println("Done")
+		logger.Info("Recovering done")
 		logger.Event(event.SERVER_RECOVER, "host="+host)
 	} else {
 		logger.Event(event.SERVER_START, "host="+host)

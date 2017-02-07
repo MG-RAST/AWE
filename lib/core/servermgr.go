@@ -27,7 +27,8 @@ type jQueueShow struct {
 
 type ServerMgr struct {
 	CQMgr
-	queueLock sync.Mutex //only update one at a time
+	queueLock  sync.Mutex //only update one at a time
+	lastUpdate time.Time
 	//taskLock  sync.RWMutex
 	TaskMap TaskMap
 	ajLock  sync.RWMutex
@@ -51,10 +52,11 @@ func NewServerMgr() *ServerMgr {
 			coSem:    make(chan int, 1), //non-blocking buffered channel
 		},
 		//TaskMap: map[string]*Task{},
-		TaskMap: *NewTaskMap(),
-		taskIn:  make(chan *Task, 1024),
-		actJobs: map[string]*JobPerf{},
-		susJobs: map[string]bool{},
+		lastUpdate: time.Now().Add(time.Second * -30),
+		TaskMap:    *NewTaskMap(),
+		taskIn:     make(chan *Task, 1024),
+		actJobs:    map[string]*JobPerf{},
+		susJobs:    map[string]bool{},
 	}
 }
 
@@ -66,6 +68,7 @@ func (qm *ServerMgr) RLock()   {}
 func (qm *ServerMgr) RUnlock() {}
 
 func (qm *ServerMgr) TaskHandle() {
+	logger.Info("TaskHandle is starting")
 	for {
 		task := <-qm.taskIn
 		logger.Debug(2, "qmgr:task recived from chan taskIn, id=%s", task.Id)
@@ -87,13 +90,19 @@ func (qm *ServerMgr) ClientHandle() {
 			ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
 		} else {
 			logger.Debug(3, "(ServerMgr ClientHandle %s) updateQueue\n", coReq.fromclient)
+
 			qm.updateQueue()
+
 			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks\n", coReq.fromclient)
+
 			works, err := qm.popWorks(coReq)
+
 			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks done\n", coReq.fromclient)
 			if err == nil {
 				logger.Debug(3, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress\n", coReq.fromclient)
+
 				qm.UpdateJobTaskToInProgress(works)
+
 				logger.Debug(3, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress done\n", coReq.fromclient)
 			}
 			ack = CoAck{workunits: works, err: err}
@@ -102,37 +111,24 @@ func (qm *ServerMgr) ClientHandle() {
 		logger.Debug(3, "(ServerMgr ClientHandle %s) send response now\n", coReq.fromclient)
 
 		start_time := time.Now()
-		timeout := make(chan bool, 1)
-		go func() {
-			time.Sleep(100 * time.Second)
-			timeout <- true
-		}()
+
+		timer := time.NewTimer(00 * time.Second)
 
 		select {
 		case coReq.response <- ack:
 			logger.Debug(3, "(ServerMgr ClientHandle %s) send workunit to client via response channel", coReq.fromclient)
-		case <-timeout:
+		case <-timer.C:
 			elapsed_time := time.Since(start_time)
 			logger.Error("(ServerMgr ClientHandle %s) timed out after %s ", coReq.fromclient, elapsed_time)
 			return
 		}
 		logger.Debug(3, "(ServerMgr ClientHandle %s) done\n", coReq.fromclient)
-		// case notice := <-qm.feedback:
-		// 			fmt.Println("(ServerMgr ClientHandle) got notice")
-		// 			logger.Debug(2, fmt.Sprintf("qmgr: workunit feedback received, workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId))
-		// 			if err := qm.handleWorkStatusChange(notice); err != nil {
-		// 				fmt.Println("(ServerMgr ClientHandle) handleWorkStatusChange error")
-		// 				logger.Error("handleWorkStatusChange(): " + err.Error())
-		// 			}
-		// 			fmt.Println("(ServerMgr ClientHandle) updateQueue")
-		// 			qm.updateQueue()
-		// 			fmt.Println("(ServerMgr ClientHandle) updateQueue done")
-		//}
+
 	}
 }
 
 func (qm *ServerMgr) NoticeHandle() {
-	fmt.Println("(ServerMgr NoticeHandle) starting")
+	logger.Info("(ServerMgr NoticeHandle) starting")
 	for {
 		notice := <-qm.feedback
 		logger.Debug(3, "(ServerMgr NoticeHandle) got notice: workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId)
@@ -176,7 +172,7 @@ func (qm *ServerMgr) GetQueue(name string) interface{} {
 	}
 	if name == "work" {
 		qm.ShowWorkQueue() // only if debug level is set
-		return qm.workQueue.workMap.Map
+		return qm.workQueue.all.Map
 
 	}
 	if name == "client" {
@@ -292,6 +288,15 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	qm.queueLock.Lock()
 	defer qm.queueLock.Unlock()
 
+	logger.Debug(3, "-------- %s %s", qm.lastUpdate, time.Now())
+
+	updateInterval := 30
+	if !time.Now().After(qm.lastUpdate.Add(time.Second * time.Duration(updateInterval))) { // TODO do check before the lock
+		return
+	}
+	qm.lastUpdate = time.Now()
+
+	logger.Debug(3, "Starting updateQueue()")
 	tasks, err := qm.TaskMap.GetTasks()
 	if err != nil {
 		return
@@ -321,6 +326,10 @@ func (qm *ServerMgr) updateQueue() (err error) {
 		qm.SuspendJob(jid, fmt.Sprintf("workunit %s is nil", id), id)
 		logger.Error("error: workunit %s is nil, suspending job %s", id, jid)
 	}
+
+	qm.lastUpdate = time.Now()
+	logger.Debug(3, "Ending updateQueue()")
+
 	return
 }
 
@@ -488,7 +497,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 }
 
 func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err error) {
-	queuing_work, err := qm.workQueue.Wait.Len()
+	start := time.Now()
+	queuing_work, err := qm.workQueue.Queue.Len()
 	if err != nil {
 		return
 	}
@@ -504,6 +514,9 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 	if err != nil {
 		return
 	}
+	elapsed := time.Since(start)
+	logger.Debug(3, "time GetJsonStatus/Len: %s", elapsed)
+
 	total_task := 0
 	queuing_task := 0
 	started_task := 0
@@ -513,10 +526,15 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 	skipped_task := 0
 	fail_skip_task := 0
 
+	start = time.Now()
 	task_list, err := qm.TaskMap.GetTasks()
 	if err != nil {
 		return
 	}
+	elapsed = time.Since(start)
+	logger.Debug(3, "time GetJsonStatus/GetTasks: %s", elapsed)
+
+	start = time.Now()
 	for _, task := range task_list {
 		total_task += 1
 		task_state, xerr := task.GetState()
@@ -541,6 +559,8 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 			fail_skip_task += 1
 		}
 	}
+	elapsed = time.Since(start)
+	logger.Debug(3, "time GetJsonStatus/task_list: %s", elapsed)
 
 	total_task -= skipped_task // user doesn't see skipped tasks
 	active_jobs := qm.lenActJobs()
@@ -551,11 +571,16 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 	idle_client := 0
 	suspend_client := 0
 
+	start = time.Now()
 	client_list, err := qm.clientMap.GetClients()
 	if err != nil {
 		return
 	}
 	total_client = len(client_list)
+	elapsed = time.Since(start)
+	logger.Debug(3, "time GetJsonStatus/GetClients: %s", elapsed)
+
+	start = time.Now()
 
 	for _, client := range client_list {
 		rlock, err := client.RLockNamed("GetJsonStatus")
@@ -564,16 +589,21 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 		}
 
 		busy, _ := client.IsBusy(false)
+		status := client.Status
 
-		if client.Status == CLIENT_STAT_SUSPEND {
+		client.RUnlockNamed(rlock)
+
+		if status == CLIENT_STAT_SUSPEND {
 			suspend_client += 1
 		} else if busy {
 			busy_client += 1
 		} else {
 			idle_client += 1
 		}
-		client.RUnlockNamed(rlock)
+
 	}
+	elapsed = time.Since(start)
+	logger.Debug(3, "time GetJsonStatus/client_list: %s", elapsed)
 
 	jobs := map[string]int{
 		"total":     total_job,

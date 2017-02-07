@@ -9,7 +9,7 @@
         {
             "cmd": {
                 "name": "sleep",
-                "args": "20",
+                "args": "10m",
                 "description": "sleep test",
                 "_Dockerimage": "ubuntu"
             },

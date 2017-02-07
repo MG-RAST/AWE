@@ -8,8 +8,8 @@
     "tasks": [
         {
             "cmd": {
-                "name": "uname",
-                "args": "-a",
+                "name": "sleep",
+                "args": "10m",
                 "description": "test",
                 "Dockerimage": "mgrast/pipeline:latest"
             },

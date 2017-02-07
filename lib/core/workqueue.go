@@ -11,62 +11,57 @@ import (
 type WorkQueue struct {
 	//sync.RWMutex
 	//workMap  map[string]*Workunit //all parsed workunits
-	workMap  WorkunitMap
-	Wait     WorkunitMap //ids of waiting workunits
-	Checkout WorkunitMap //ids of workunits being checked out
-	Suspend  WorkunitMap //ids of suspended workunits
+	all      WorkunitMap
+	Queue    WorkunitMap // WORK_STAT_QUEUED - waiting workunits
+	Checkout WorkunitMap // WORK_STAT_CHECKOUT - workunits being checked out
+	Suspend  WorkunitMap // WORK_STAT_SUSPEND - suspended workunits
 }
 
 func NewWorkQueue() *WorkQueue {
 	wq := &WorkQueue{
-		workMap:  *NewWorkunitMap(),
-		Wait:     *NewWorkunitMap(),
+		all:      *NewWorkunitMap(),
+		Queue:    *NewWorkunitMap(),
 		Checkout: *NewWorkunitMap(),
 		Suspend:  *NewWorkunitMap(),
 	}
 
-	wq.workMap.Init("WorkQueue/workMap")
-	wq.Wait.Init("WorkQueue/Wait")
+	wq.all.Init("WorkQueue/workMap")
+	wq.Queue.Init("WorkQueue/Queue")
 	wq.Checkout.Init("WorkQueue/Checkout")
 	wq.Suspend.Init("WorkQueue/Suspend")
 
 	return wq
 }
 
-func (wq *WorkQueue) Len() (int, error) {
-	return wq.workMap.Len()
-}
-
-//func (wq *WorkQueue) WaitLen() (l int) {
-//	wq.RLock()
-//	l = len(wq.wait)
-//	wq.RUnlock()
-//	return
-//}
-
 //--------accessor methods-------
 
-//func (wq *WorkQueue) copyWork(a *Workunit) (b *Workunit) {
-//	b = new(Workunit)
-//	*b = *a
-//	return
-//}
+func (wq *WorkQueue) Len() (int, error) {
+	return wq.all.Len()
+}
 
 func (wq *WorkQueue) Add(workunit *Workunit) (err error) {
 	if workunit.Id == "" {
 		return errors.New("try to push a workunit with an empty id")
 	}
-	//wq.Lock()
-	//defer wq.Unlock()
+
 	id := workunit.Id
-	//wq.workMap[id] = workunit
-	wq.workMap.Set(workunit)
-	wq.Wait.Set(workunit)
+
+	err = wq.all.Set(workunit)
+	if err != nil {
+		return
+	}
+	err = wq.Queue.Set(workunit)
+	if err != nil {
+		return
+	}
 	err = wq.Checkout.Delete(id)
 	if err != nil {
 		return
 	}
-	wq.Suspend.Delete(id)
+	err = wq.Suspend.Delete(id)
+	if err != nil {
+		return
+	}
 	//wq.workMap[id].State = WORK_STAT_QUEUED
 	workunit.State = WORK_STAT_QUEUED
 	return nil
@@ -76,37 +71,20 @@ func (wq *WorkQueue) Put(workunit *Workunit) {
 	//wq.Lock()
 	//wq.workMap[workunit.Id] = workunit
 	//wq.Unlock()
-	wq.workMap.Set(workunit)
+	wq.all.Set(workunit)
 }
 
 func (wq *WorkQueue) Get(id string) (w *Workunit, ok bool, err error) {
 
-	w, ok, err = wq.workMap.Get(id)
+	w, ok, err = wq.all.Get(id)
 
 	return
 
-	//if work, ok := wq.workMap.Get(id); ok {
-	//	copy := wq.copyWork(work)
-	//	return copy, true
-	//}
-	//return nil, false
 }
-
-// TODO remove this function!
-//func (wq *WorkQueue) GetSet(workids []string) (worklist []*Workunit) {
-
-//	for _, id := range workids {
-//		if work, ok := wq.workMap.Get(id); ok {
-//			copy := wq.copyWork(work)
-//			worklist = append(worklist, copy)
-//		}
-//	}
-//	return
-//}
 
 func (wq *WorkQueue) GetForJob(jobid string) (worklist []*Workunit, err error) {
 
-	workunits, err := wq.workMap.GetWorkunits()
+	workunits, err := wq.all.GetWorkunits()
 	if err != nil {
 		return
 	}
@@ -121,13 +99,13 @@ func (wq *WorkQueue) GetForJob(jobid string) (worklist []*Workunit, err error) {
 
 func (wq *WorkQueue) GetAll() (worklist []*Workunit, err error) {
 
-	return wq.workMap.GetWorkunits()
+	return wq.all.GetWorkunits()
 }
 
 func (wq *WorkQueue) Clean() (workids []string) {
 	//wq.Lock()
 	//defer wq.Unlock()
-	workunt_list, err := wq.workMap.GetWorkunits()
+	workunt_list, err := wq.all.GetWorkunits()
 	if err != nil {
 		return
 	}
@@ -135,10 +113,10 @@ func (wq *WorkQueue) Clean() (workids []string) {
 		id := work.Id
 		if work == nil || work.Info == nil {
 			workids = append(workids, id)
-			wq.Wait.Delete(id)
+			wq.Queue.Delete(id)
 			wq.Checkout.Delete(id)
 			wq.Suspend.Delete(id)
-			wq.workMap.Delete(id)
+			wq.all.Delete(id)
 			logger.Error("error: in WorkQueue workunit %s is nil, deleted from queue", id)
 		}
 	}
@@ -147,7 +125,7 @@ func (wq *WorkQueue) Clean() (workids []string) {
 
 func (wq *WorkQueue) Delete(id string) (err error) {
 
-	err = wq.Wait.Delete(id)
+	err = wq.Queue.Delete(id)
 	if err != nil {
 		return
 	}
@@ -159,7 +137,7 @@ func (wq *WorkQueue) Delete(id string) (err error) {
 	if err != nil {
 		return
 	}
-	err = wq.workMap.Delete(id)
+	err = wq.all.Delete(id)
 
 	return
 
@@ -167,41 +145,10 @@ func (wq *WorkQueue) Delete(id string) (err error) {
 
 func (wq *WorkQueue) Has(id string) (has bool, err error) {
 
-	_, has, err = wq.workMap.Get(id)
+	_, has, err = wq.all.Get(id)
 
-	//wq.RLock()
-	//defer wq.RUnlock()
-	//if work, ok := wq.workMap[id]; ok {
-	//	if work == nil {
-	//		logger.Error("error: in WorkQueue workunit %s is nil", id)
-	//		has = false
-	//	} else {
-	//		has = true
-	//	}
-	//} else {
-	//	has = false
-	//}
 	return
 }
-
-// TODO remove this ???
-//func (wq *WorkQueue) List() (workids []string) {
-//	wq.RLock()
-//	defer wq.RUnlock()
-//	for id, _ := range wq.workMap.Map {
-//		workids = append(workids, id)
-//	}
-//	return
-//}
-
-//func (wq *WorkQueue) WaitList() (workids []string) {
-//	wq.RLock()
-//	defer wq.RUnlock()
-//	for id, _ := range wq.wait {
-//		workids = append(workids, id)
-//	}
-//	return
-//}
 
 //--------end of accessors-------
 
@@ -209,26 +156,27 @@ func (wq *WorkQueue) StatusChange(id string, new_status string) (err error) {
 	//move workunit id between maps. no need to care about the old status because
 	//delete function will do nothing if the operated map has no such key.
 
-	workunit, ok, err := wq.workMap.Get(id)
+	workunit, ok, err := wq.all.Get(id)
 	if err != nil {
 		return
 	}
 	if !ok {
 		return errors.New("WQueue.statusChange: invalid workunit id:" + id)
 	}
-	if new_status == WORK_STAT_CHECKOUT {
+	switch new_status {
+	case WORK_STAT_CHECKOUT:
+		wq.Queue.Delete(id)
+		wq.Suspend.Delete(id)
 		wq.Checkout.Set(workunit)
-		wq.Wait.Delete(id)
-		wq.Suspend.Delete(id)
-	} else if new_status == WORK_STAT_QUEUED {
-		wq.Wait.Set(workunit)
+	case WORK_STAT_QUEUED:
 		wq.Checkout.Delete(id)
 		wq.Suspend.Delete(id)
-	} else if new_status == WORK_STAT_SUSPEND {
+		wq.Queue.Set(workunit)
+	case WORK_STAT_SUSPEND:
+		wq.Checkout.Delete(id)
+		wq.Queue.Delete(id)
 		wq.Suspend.Set(workunit)
-		wq.Checkout.Delete(id)
-		wq.Wait.Delete(id)
-	} else {
+	default:
 		return errors.New("WorkQueue.statusChange: invalid new status:" + new_status)
 	}
 	workunit.State = new_status

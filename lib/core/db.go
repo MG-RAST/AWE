@@ -113,6 +113,7 @@ func dbFind(q bson.M, results *Jobs, options map[string]int) (count int, err err
 		}
 	}
 	err = query.All(results)
+	results.Init()
 	return
 }
 

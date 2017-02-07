@@ -164,9 +164,6 @@ func (task *Task) InitTask(job *Job) (err error) {
 	}
 
 	task.Info = job.Info
-	if task.ClientGroups != "" {
-		task.Info.ClientGroups = task.ClientGroups
-	}
 
 	if task.TotalWork <= 0 {
 		task.setTotalWork(1)

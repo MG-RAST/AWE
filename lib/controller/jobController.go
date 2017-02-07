@@ -805,7 +805,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 			cx.RespondWithErrorMessage("lacking clientgroup name", http.StatusBadRequest)
 			return
 		}
-		if err := core.QMgr.UpdateGroup(id, newgroup); err != nil {
+		if err := job.SetClientgroups(newgroup); err != nil {
 			cx.RespondWithErrorMessage("failed to update group for job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -823,7 +823,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 			cx.RespondWithErrorMessage("priority value must be an integer"+err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := core.QMgr.UpdatePriority(id, priority); err != nil {
+		if err := job.SetPriority(priority); err != nil {
 			cx.RespondWithErrorMessage("failed to set the priority for job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}

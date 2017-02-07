@@ -1604,72 +1604,25 @@ func isAncestor(job *Job, taskId string, testId string) bool {
 	return false
 }
 
-//update job group
-func (qm *ServerMgr) UpdateGroup(jobid string, newgroup string) (err error) {
-	//update info in db
-	dbjob, err := LoadJob(jobid)
-	if err != nil {
-		return errors.New("failed to load job " + err.Error())
-	}
-	dbjob.Info.ClientGroups = newgroup
-	for _, task := range dbjob.Tasks {
-		task.Info.ClientGroups = newgroup
-	}
-	dbjob.Save()
-
-	//update in-memory data structures
-	work_list, err := qm.workQueue.GetForJob(jobid)
+//update job info for in-memory data structures
+func (qm *ServerMgr) UpdateQueueJobInfo(job *Job) (err error) {
+	work_list, err := qm.workQueue.GetForJob(job.Id)
 	if err != nil {
 		return
 	}
 	for _, work := range work_list {
-		work.Info.ClientGroups = newgroup
+		work.Info = job.Info
 		qm.workQueue.Put(work)
 	}
-	for _, task := range dbjob.Tasks {
+	for _, task := range job.Tasks {
 		mtask, ok, xerr := qm.TaskMap.Get(task.Id, true)
 		if xerr != nil {
 			err = xerr
 			return
 		}
 		if ok {
-			mtask.Info.ClientGroups = newgroup
-			//qm.updateTask(mtask)
-		}
-	}
-	return
-}
-
-func (qm *ServerMgr) UpdatePriority(jobid string, priority int) (err error) {
-	//update info in db
-	dbjob, err := LoadJob(jobid)
-	if err != nil {
-		return errors.New("failed to load job " + err.Error())
-	}
-	dbjob.Info.Priority = priority
-	for _, task := range dbjob.Tasks {
-		task.Info.Priority = priority
-	}
-	dbjob.Save()
-
-	//update in-memory data structures
-	work_list, err := qm.workQueue.GetForJob(jobid)
-	if err != nil {
-		return
-	}
-	for _, work := range work_list {
-		work.Info.Priority = priority
-		qm.workQueue.Put(work)
-	}
-	for _, task := range dbjob.Tasks {
-		mtask, ok, xerr := qm.TaskMap.Get(task.Id, true)
-		if xerr != nil {
-			err = xerr
-			return
-		}
-		if ok {
-			mtask.Info.Priority = priority
-			//qm.updateTask(mtask)
+			mtask.Info = job.Info
+			mtask.setTokenForIO()
 		}
 	}
 	return

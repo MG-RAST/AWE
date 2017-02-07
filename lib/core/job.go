@@ -368,10 +368,41 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 	return job.RemainTasks, job.Save()
 }
 
+func (job *Job) SetClientgroups(clientgroups string) (err error) {
+	job.Info.ClientGroups = clientgroups
+	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
+		return
+	}
+	err = job.Save()
+	return
+}
+
+func (job *Job) SetPriority(priority int) (err error) {
+	job.Info.Priority = priority
+	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
+		return
+	}
+	err = job.Save()
+	return
+}
+
 func (job *Job) SetPipeline(pipeline string) (err error) {
 	job.Info.Pipeline = pipeline
+	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
+		return
+	}
+	err = job.Save()
+	return
+}
+
+func (job *Job) SetDataToken(token string) (err error) {
+	job.Info.DataToken = token
+	job.Info.Auth = true
 	for _, task := range job.Tasks {
-		task.Info.Pipeline = pipeline
+		task.setTokenForIO()
+	}
+	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
+		return
 	}
 	err = job.Save()
 	return
@@ -396,18 +427,6 @@ func (job *Job) SetExpiration(expire string) (err error) {
 	}
 
 	job.Expiration = currTime.Add(expireTime)
-	err = job.Save()
-	return
-}
-
-//set token
-func (job *Job) SetDataToken(token string) (err error) {
-	job.Info.DataToken = token
-	job.Info.Auth = true
-	for _, task := range job.Tasks {
-		task.Info.DataToken = token
-		task.setTokenForIO()
-	}
 	err = job.Save()
 	return
 }

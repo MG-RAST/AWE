@@ -110,10 +110,14 @@ func NewJobDep() (job *JobDep) {
 // this has to be called after Unmarshalling from JSON
 func (job *Job) Init() (err error) {
 
-	job.State = JOB_STAT_INIT
+	if job.State == "" {
+		job.State = JOB_STAT_INIT
+	}
 	job.Registered = true
 
-	job.setId() //uuid for the job
+	if job.Id == "" {
+		job.setId() //uuid for the job
+	}
 
 	if job.Info.SubmitTime.IsZero() {
 		job.Info.SubmitTime = time.Now()
@@ -121,6 +125,10 @@ func (job *Job) Init() (err error) {
 
 	if job.Info.Priority < conf.BasePriority {
 		job.Info.Priority = conf.BasePriority
+	}
+
+	for _, task := range job.Tasks {
+		task.Init()
 	}
 
 	return

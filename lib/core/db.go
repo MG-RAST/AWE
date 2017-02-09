@@ -107,13 +107,18 @@ func dbFind(q bson.M, results *Jobs, options map[string]int) (count int, err err
 	if limit, has := options["limit"]; has {
 		if offset, has := options["offset"]; has {
 			err = query.Limit(limit).Skip(offset).All(results)
+			if results != nil {
+				results.Init()
+			}
 			return
 		} else {
 			return 0, errors.New("store.db.Find options limit and offset must be used together")
 		}
 	}
 	err = query.All(results)
-	results.Init()
+	if results != nil {
+		results.Init()
+	}
 	return
 }
 
@@ -132,11 +137,16 @@ func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string) 
 	if limit, has := options["limit"]; has {
 		if offset, has := options["offset"]; has {
 			err = query.Sort(sortby).Limit(limit).Skip(offset).All(results)
+			if results != nil {
+				results.Init()
+			}
 			return
 		}
 	}
 	err = query.Sort(sortby).All(results)
-	results.Init()
+	if results != nil {
+		results.Init()
+	}
 	return
 }
 
@@ -188,9 +198,7 @@ func LoadJob(id string) (job *Job, err error) {
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 	if err = c.Find(bson.M{"id": id}).One(&job); err == nil {
-		for _, task := range job.Tasks {
-			task.Init()
-		}
+		job.Init()
 		return job, nil
 	}
 	return nil, err

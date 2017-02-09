@@ -112,7 +112,7 @@ func (qm *ServerMgr) ClientHandle() {
 
 		start_time := time.Now()
 
-		timer := time.NewTimer(00 * time.Second)
+		timer := time.NewTimer(20 * time.Second)
 
 		select {
 		case coReq.response <- ack:

@@ -33,7 +33,7 @@ func NewCQMgr() *CQMgr {
 		clientMap:    ClientMap{_map: map[string]*Client{}},
 		workQueue:    NewWorkQueue(),
 		suspendQueue: false,
-		coReq:        make(chan CoReq, 1024),
+		coReq:        make(chan CoReq, 5),
 		//coAck:        make(chan CoAck),
 		feedback: make(chan Notice),
 		coSem:    make(chan int, 1), //non-blocking buffered channel
@@ -718,7 +718,15 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 
 	logger.Debug(3, "(CheckoutWorkunits) %s qm.coReq <- req", client_id)
 	// request workunit
-	qm.coReq <- req
+
+	select {
+	case qm.coReq <- req:
+	default:
+		err = fmt.Errorf("Too many work requests - Please try again later")
+		return
+
+	}
+
 	logger.Debug(3, "(CheckoutWorkunits) %s client.Get_Ack()", client_id)
 	//ack := <-qm.coAck
 

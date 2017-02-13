@@ -120,7 +120,7 @@ func (qm *ServerMgr) ClientHandle() {
 		case <-timer.C:
 			elapsed_time := time.Since(start_time)
 			logger.Error("(ServerMgr ClientHandle %s) timed out after %s ", coReq.fromclient, elapsed_time)
-			return
+			continue
 		}
 		logger.Debug(3, "(ServerMgr ClientHandle %s) done\n", coReq.fromclient)
 

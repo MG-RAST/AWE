@@ -45,7 +45,7 @@ func NewServerMgr() *ServerMgr {
 		CQMgr: CQMgr{
 			clientMap:    *NewClientMap(),
 			workQueue:    NewWorkQueue(),
-			suspendQueue: true,
+			suspendQueue: false,
 			coReq:        make(chan CoReq),
 			//coAck:        make(chan CoAck),
 			feedback: make(chan Notice),

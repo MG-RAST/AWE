@@ -63,12 +63,17 @@
 	    if (! apps.hasOwnProperty(wdata[i].cmd.name)) {
 		apps[wdata[i].cmd.name] = [];
 	    }
+	    wdata[i].client = wdata[i].client.replace(/^<[^>]+>([^<]+)<\/.+$/, '$1');
 	    apps[wdata[i].cmd.name].push(wdata[i].client);
-	    data[clientIndex[wdata[i].client]].current_work[wdata[i].wuid] = wdata[i].cmd.name;
-	    if (widget.currentApp && widget.currentApp == wdata[i].cmd.name) {
-		data[clientIndex[wdata[i].client]].highlight = true;
-	    } else {
-		data[clientIndex[wdata[i].client]].highlight = false;
+	    if (clientIndex[wdata[i].client] && data[clientIndex[wdata[i].client]]) {
+		data[clientIndex[wdata[i].client]].current_work[wdata[i].wuid] = "<span class='href' onclick='Retina.WidgetInstances.awe_panel[1].aweWorkunitDetail("+i+");'>"+wdata[i].cmd.name+"</span>";
+		
+		if (widget.currentApp && widget.currentApp == wdata[i].cmd.name) {
+		    data[clientIndex[wdata[i].client]].highlight = true;
+		} else {
+		    data[clientIndex[wdata[i].client]].highlight = false;
+		}
+		wdata[i].client = "<span class='href' onclick='Retina.WidgetInstances.awe_panel[1].aweNodeDetail("+clientIndex[wdata[i].client]+");'>"+wdata[i].client+"</span>";
 	    }
 	}
 	
@@ -147,7 +152,15 @@
 	
 	var node = widget.aweClientData[nodeIndex];
 
-	document.getElementById('detail').innerHTML = '<pre>'+JSON.stringify(node, true, 2)+'</pre>';
+	document.getElementById('detail').innerHTML = '<div class="json">'+JSON.stringify(node, true, 2)+'</div>';
+    };
+
+    widget.aweWorkunitDetail = function (id) {
+	var widget = this;
+
+	var node = widget.aweWorkData[id];
+
+	document.getElementById('detail').innerHTML = '<div class="json" style="width: 600px;">'+JSON.stringify(node, true, 2)+'</div>';	
     };
 
     widget.resumeAllJobs = function () {

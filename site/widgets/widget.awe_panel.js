@@ -21,7 +21,7 @@
 	widget.target = widget.target || wparams.target;
 	
 	if (! RetinaConfig.authentication || widget.loggedIn) {
-	    widget.target.innerHTML = "<div id='awe_details' style='margin-left: 50px; margin-top: 50px;'></div>";
+	    widget.target.innerHTML = "<div style='position: absolute; left: 540px; top: 90px;' id='control'><select style='margin-bottom: 0px; width: 100px; padding: 0px; height: 25px;' onchange='Retina.WidgetInstances.awe_panel[1].grouping=this.options[this.selectedIndex].value;Retina.WidgetInstances.awe_panel[1].showAWEDetails();'><option>cores</option><option>group</option></select></div><div id='awe_details' style='margin-left: 50px; margin-top: 50px;'></div><div style='float: left; padding: 20px;' id='detail'></div>";
 	    widget.getAWEDetails();
 	} else {
 	    widget.target.innerHTML = "<p>authorization required</p>";
@@ -32,30 +32,43 @@
 	var widget = Retina.WidgetInstances.awe_panel[1];
 	
 	var target = document.getElementById('awe_details');
+
+	var grouping = widget.grouping || "cores";
+	var groups = {};
+	var groupOrder = [];
 	
 	var data = widget.aweClientData;
-
-	var coreGroups = {};
-	var stats = { stati: {} };
+	var clientIndex = {};
+	data = data.sort(Retina.propSort('id'));
 	for (var i=0; i<data.length; i++) {
-	    if (! stats.stati.hasOwnProperty(data[i].Status)) {
-		stats.stati[data[i].Status] = 0;
+	    data[i].index = i;
+	    clientIndex[data[i].id] = i;
+	    if (! groups.hasOwnProperty(data[i][grouping])) {
+		groups[data[i][grouping]] = [];
+		groupOrder.push(data[i][grouping]);
 	    }
-	    stats.stati[data[i].Status]++;
-	    if (! coreGroups.hasOwnProperty(data[i].cores)) {
-		coreGroups[data[i].cores] = [];
-	    }
-	    coreGroups[data[i].cores].push(data[i]);
+	    groups[data[i][grouping]].push(data[i]);
 	}
-	for (var i in coreGroups) {
-	    if (coreGroups.hasOwnProperty(i)) {
-		coreGroups[i].sort(Retina.propSort("id"));
-	    }
+	if (typeof groupOrder[0].match == 'function') {
+	    groupOrder = groupOrder.sort();
+	} else {
+	    groupOrder = groupOrder.sort(Retina.Numsort);
 	}
-	var clientData = { all: data.length };
-	for (var i in stats.stati) {
-	    if (stats.stati.hasOwnProperty(i)) {
-		clientData[i] = stats.stati[i];
+
+	widget.clientIndex = clientIndex;
+
+	var apps = {};
+	var wdata = widget.aweWorkData;
+	for (var i=0; i<wdata.length; i++) {
+	    if (! apps.hasOwnProperty(wdata[i].cmd.name)) {
+		apps[wdata[i].cmd.name] = [];
+	    }
+	    apps[wdata[i].cmd.name].push(wdata[i].client);
+	    data[clientIndex[wdata[i].client]].current_work[wdata[i].wuid] = wdata[i].cmd.name;
+	    if (widget.currentApp && widget.currentApp == wdata[i].cmd.name) {
+		data[clientIndex[wdata[i].client]].highlight = true;
+	    } else {
+		data[clientIndex[wdata[i].client]].highlight = false;
 	    }
 	}
 	
@@ -67,204 +80,74 @@
 
 	// box-display
 	var boxDisplay = "<div style='width: 600px; margin-top: 10px;'>";
-	var coreList = Retina.keys(coreGroups).sort();
-	for (var h=0; h<coreList.length; h++) {
-	    boxDisplay += "<h5 style='clear: both;'>"+coreList[h]+" cores</h5>";
-	    for (var i=0; i<coreGroups[coreList[h]].length; i++) {
-		if (coreGroups[coreList[h]][i].Status == "active-idle") {
-		    boxDisplay += widget.aweNode('info', i);
+	for (var h=0; h<groupOrder.length; h++) {
+	    boxDisplay += "<h5 style='clear: both;'>"+grouping+": "+groupOrder[h]+"</h5>";
+	    for (var i=0; i<groups[groupOrder[h]].length; i++) {
+		if (groups[groupOrder[h]][i].Status == "active-idle") {
+		    boxDisplay += widget.aweNode('info', groups[groupOrder[h]][i]);
 		    numIdle++;
-		} else if (coreGroups[coreList[h]][i].Status == "active-busy") {
-		    boxDisplay += widget.aweNode('success', i);
+		} else if (groups[groupOrder[h]][i].Status == "active-busy") {
+		    boxDisplay += widget.aweNode('success', groups[groupOrder[h]][i]);
 		    numBusy++;
-		} else if (coreGroups[coreList[h]][i].Status == "suspend") {
-		    boxDisplay += widget.aweNode('danger', i);
+		} else if (groups[groupOrder[h]][i].Status == "suspend") {
+		    boxDisplay += widget.aweNode('danger', groups[groupOrder[h]][i]);
 		    numError++;
-		} else if (coreGroups[coreList[h]][i].Status == "deleted") {
-		    boxDisplay += widget.aweNode('warning', i);
+		} else if (groups[groupOrder[h]][i].Status == "deleted") {
+		    boxDisplay += widget.aweNode('warning', groups[groupOrder[h]][i]);
 		    numDeleted++;
 		}
 	    }
 	}
 	boxDisplay += "</div><div style='clear: both;'></div>";
-
-	// store history
-	widget.history.push([ Date.now(), numIdle, numBusy, numError, numDeleted, parseInt(widget.aweServerData["jobs"].inprogress), parseInt(widget.aweServerData["jobs"].suspended), parseInt(widget.aweServerData["tasks"].queuing), parseInt(widget.aweServerData["tasks"].inprogress), parseInt(widget.aweServerData["tasks"].pending), parseInt(widget.aweServerData["tasks"].completed), parseInt(widget.aweServerData["tasks"].suspended), parseInt(widget.aweServerData["workunits"].queueing), parseInt(widget.aweServerData["workunits"].checkout), parseInt(widget.aweServerData["workunits"].suspended) ]);
-	if (widget.history.length > widget.maxEntries) {
-	    widget.history.shift();
-	}
 	
 	// clients
-	var html = "<div style='float: left;'><table style='font-size: 30px; font-weight: bold; text-align: center;'><tr><td style='color: black; width: 120px;'>"+data.length+"</td><td style='color: blue; width: 120px;'>"+numIdle+"</td><td style='color: green; width: 120px;'>"+numBusy+"</td><td style='color: orange; width: 120px;'>"+numDeleted+"</td><td style='color: red; width: 120px;'>"+numError+"</td></tr></table>";
-	html += boxDisplay;
-	html += "</div>";
+	var html = ["<div style='float: left;'><table style='font-size: 30px; font-weight: bold; text-align: center;'><tr><td style='color: black; width: 120px;' title='total number of clients'>"+data.length+"</td><td style='color: blue; width: 120px;' title='number of idle clients'>"+numIdle+"</td><td style='color: green; width: 120px;' title='number of busy clients'>"+numBusy+"</td><td style='color: orange; width: 120px;' title='number of deleted clients'>"+numDeleted+"</td><td style='color: red; width: 120px;' title='number of error clients'>"+numError+"</td></tr></table>"];
+	html.push( boxDisplay );
+	html.push("</div>");
 
-	// jobs, tasks & workunits
-	html += "<div style='float: left; height: 800px;'>\
-<table class='table table-bordered'>\
-<tr><th>jobs</th><th>"+widget.aweServerData["jobs"].all+"</th></tr>\
-<tr><td>in-progress</td><td>"+widget.aweServerData["jobs"].inprogress+"</td></tr>\
-<tr><td>suspended</td><td>"+widget.aweServerData["jobs"].suspended+"</td></tr>\
-<tr><th>tasks</th><th>"+widget.aweServerData["tasks"].all+"</th></tr>\
-<tr><td>queuing</td><td>"+widget.aweServerData["tasks"].queuing+"</td></tr>\
-<tr><td>in-progress</td><td>"+widget.aweServerData["tasks"].inprogress+"</td></tr>\
-<tr><td>pending</td><td>"+widget.aweServerData["tasks"].pending+"</td></tr>\
-<tr><td>completed</td><td>"+widget.aweServerData["tasks"].completed+"</td></tr>\
-<tr><td>suspended</td><td>"+widget.aweServerData["tasks"].suspended+"</td>\
-<tr><th>workunits</th><th>"+widget.aweServerData["workunits"].all+"</th></tr>\
-<tr><td>queuing</td><td>"+widget.aweServerData["workunits"].queueing+"</td></tr>\
-<tr><td>checkout</td><td>"+widget.aweServerData["workunits"].checkout+"</td></tr>\
-<tr><td>suspended</td><td>"+widget.aweServerData["workunits"].suspended+"</td></tr>\
-</table>\
-</div>";
-	
-	// graph
-	html += "<div style='float: left;'><h5 style='text-align: center; margin-bottom: -17px; position: relative; right: 50px;'>client status</h5><div id='plotC'></div>";
-	html += "<div style='float: left;'><h5 style='text-align: center; margin-bottom: -17px; position: relative; right: 50px;'>job status</h5><div id='plotJ'></div>";
-	html += "<div style='float: left;'><h5 style='text-align: center; margin-bottom: -17px; position: relative; right: 50px;'>task status</h5><div id='plotT'></div>";
-	html += "<div style='float: left;'><h5 style='text-align: center; margin-bottom: -17px; position: relative; right: 50px;'>workunit status</h5><div id='plotW'></div>";
+	html.push("<div style='float: left; height: 800px;'><table class='table table-condensed table-bordered'><tr><th colspan='2' onclick='Retina.WidgetInstances.awe_panel[1].currentApp=null;Retina.WidgetInstances.awe_panel[1].showAWEDetails();' style='cursor: pointer;'>Running Applications</th></tr>");
+	var appNames = Retina.keys(apps).sort();
+	for (var i=0; i<appNames.length; i++) {
+	    html.push("<tr"+(widget.currentApp && widget.currentApp==appNames[i] ? " class='info'" : "")+"><td onclick='Retina.WidgetInstances.awe_panel[1].currentApp=\""+appNames[i]+"\";Retina.WidgetInstances.awe_panel[1].showAWEDetails();' style='cursor: pointer;'>"+appNames[i]+"</td><td style='padding-left: 10px;'>"+apps[appNames[i]].length+"</td></tr>");
+	}
+	html.push("</table></div>");
+		
+	target.innerHTML = html.join("");
 
-	target.innerHTML = html;
-
-	// draw the graphs
-	var now = Date.now();
-	var pointsClients = [ [], [], [], [] ];
-	var pointsJobs = [ [], [] ];
-	var pointsTasks = [ [], [], [], [], [] ];
-	var pointsWorkunits = [ [], [], [] ];
-	for (var i=0; i<widget.history.length; i++) {
-	    for (var h=1; h<5; h++) {
-		pointsClients[h - 1].push({ x: parseInt((now - widget.history[i][0]) / 1000), y: widget.history[i][h] });
-	    }
-	    for (var h=5; h<7; h++) {
-		pointsJobs[h - 5].push({ x: parseInt((now - widget.history[i][0]) / 1000), y: widget.history[i][h] });
-	    }
-	    for (var h=7; h<12; h++) {
-		pointsTasks[h - 7].push({ x: parseInt((now - widget.history[i][0]) / 1000), y: widget.history[i][h] });
-	    }
-	    for (var h=12; h<15; h++) {
-		pointsWorkunits[h - 12].push({ x: parseInt((now - widget.history[i][0]) / 1000), y: widget.history[i][h] });
-	    }
-	}
-	var pdataC = { series: [ { name: "idle", color: 'blue' },
-				 { name: "busy", color: 'green' },
-				 { name: "error", color: 'red' },
-				 { name: "deleted", color: 'orange' } ],
-		       points: pointsClients };
-	var pdataJ = { series: [ { name: "in-progress", color: 'green' },
-				 { name: "suspended", color: 'red' } ],
-		       points: pointsJobs };
-	var pdataT = { series: [ { name: "queuing", color: 'yellow' },
-				 { name: "in-progress", color: 'blue' },
-				 { name: "pending", color: 'orange' },
-				 { name: "completed", color: 'green' },
-				 { name: "suspended", color: 'red' } ],
-		       points: pointsTasks };
-	var pdataW = { series: [ { name: "queuing", color: 'blue' },
-				 { name: "checkout", color: 'green' },
-				 { name: "suspended", color: 'red' } ],
-		       points: pointsWorkunits };
-
-	if (! widget.hasOwnProperty('rendPlotC')) {
-	    widget.rendPlotC = Retina.Renderer.create("plot", { target: document.getElementById('plotC'),
-								show_legend: true,
-								show_dots: false,
-								x_scale: "int",
-								y_scale: "int",
-								height: 200,
-								data: pdataC }).render();
-	} else {
-	    widget.rendPlotC.settings.data = pdataC;
-	    widget.rendPlotC.settings.x_min = undefined;
-	    widget.rendPlotC.settings.target = document.getElementById('plotC');
-	    widget.rendPlotC.render();
-	}
-	if (! widget.hasOwnProperty('rendPlotJ')) {
-	    widget.rendPlotJ = Retina.Renderer.create("plot", { target: document.getElementById('plotJ'),
-								show_legend: true,
-								x_scale: "int",
-								y_scale: "int",
-								height: 200,
-								show_dots: false,
-								data: pdataJ }).render();
-	} else {
-	    widget.rendPlotJ.settings.data = pdataJ;
-	    widget.rendPlotJ.settings.x_min = undefined;
-	    widget.rendPlotJ.settings.target = document.getElementById('plotJ');
-	    widget.rendPlotJ.render();
-	}
-	if (! widget.hasOwnProperty('rendPlotT')) {
-	    widget.rendPlotT = Retina.Renderer.create("plot", { target: document.getElementById('plotT'),
-								show_legend: true,
-								x_scale: "int",
-								y_scale: "int",
-								height: 200,
-								show_dots: false,
-								data: pdataT }).render();
-	} else {
-	    widget.rendPlotT.settings.data = pdataT;
-	    widget.rendPlotT.settings.x_min = undefined;
-	    widget.rendPlotT.settings.target = document.getElementById('plotT');
-	    widget.rendPlotT.render();
-	}
-	if (! widget.hasOwnProperty('rendPlotW')) {
-	    widget.rendPlotW = Retina.Renderer.create("plot", { target: document.getElementById('plotW'),
-								show_legend: true,
-								x_scale: "int",
-								y_scale: "int",
-								height: 200,
-								show_dots: false,
-								data: pdataW }).render();
-	} else {
-	    widget.rendPlotW.settings.data = pdataW;
-	    widget.rendPlotW.settings.x_min = undefined;
-	    widget.rendPlotW.settings.target = document.getElementById('plotW');
-	    widget.rendPlotW.render();
-	}
     };
     
     widget.getAWEDetails = function () {
 	if (!(RetinaConfig.hasOwnProperty("alertPanelRefresh") && RetinaConfig.hasOwnProperty("alertPanelRefresh") == 0)) {
-	    setTimeout(widget.getAWEDetails, RetinaConfig.alertPanelRefresh || 15000);
+	    setTimeout(widget.getAWEDetails, RetinaConfig.alertPanelRefresh || 60000);
 	}
 	jQuery.ajax({ url: RetinaConfig.awe_ip+"/client",
 		      headers: widget.authHeader,
 		      dataType: "json",
 		      success: function(data) {
-			  jQuery.ajax({ url: RetinaConfig.awe_ip+"/queue",
+			  var widget = Retina.WidgetInstances.awe_panel[1];
+			  widget.aweClientData = data.data;
+			  jQuery.ajax({ url: RetinaConfig.awe_ip+"/work?query&state=checkout&limit=1000",
 					headers: widget.authHeader,
 					dataType: "json",
-					clients: data.data,
 					success: function(data) {
 					    var widget = Retina.WidgetInstances.awe_panel[1];
-					    widget.aweClientData = this.clients;
-					    var result = data.data;
-					    var rows = result.split("\n");
-					    widget.aweServerData = { "jobs": { "all": rows[1].match(/\d+/)[0],
-									       "inprogress": rows[2].match(/\d+/)[0],
-									       "suspended": rows[3].match(/\d+/)[0] },
-								     "tasks": { "all": rows[4].match(/\d+/)[0],
-										"queuing": rows[5].match(/\d+/)[0],
-										"inprogress": rows[6].match(/\d+/)[0],
-										"pending": rows[7].match(/\d+/)[0],
-										"completed": rows[8].match(/\d+/)[0],
-										"suspended": rows[9].match(/\d+/)[0] },
-								     "workunits": { "all": rows[11].match(/\d+/)[0],
-										    "queueing": rows[12].match(/\d+/)[0],
-										    "checkout": rows[13].match(/\d+/)[0],
-										    "suspended": rows[14].match(/\d+/)[0] } };
+					    widget.aweWorkData = data.data;
 					    widget.showAWEDetails();
 					}});
 		      }
 		    });
     };
 
-    widget.aweNode = function (status, id) {
-	return "<div class='alert alert-"+status+"' style='width: 24px; height: 24px; padding: 0px; margin-bottom: 5px; margin-right: 5px; float: left; cursor: pointer;' onclick='Retina.WidgetInstances.awe_panel[1].aweNodeDetail("+id+");'></div>";
+    widget.aweNode = function (status, data) {
+	return "<div class='box alert alert-"+status+"' "+(data.highlight ? " style='box-shadow: 0 0 1em blue;'" : "")+"onclick='Retina.WidgetInstances.awe_panel[1].aweNodeDetail("+data.index+");'>"+Retina.keys(data.current_work).length+"</div>";
     };
 
-    widget.aweNodeDetail = function (nodeID) {
+    widget.aweNodeDetail = function (nodeIndex) {
+	var widget = this;
 	
+	var node = widget.aweClientData[nodeIndex];
+
+	document.getElementById('detail').innerHTML = '<pre>'+JSON.stringify(node, true, 2)+'</pre>';
     };
 
     widget.resumeAllJobs = function () {

@@ -58,17 +58,22 @@
 	widget.clientIndex = clientIndex;
 
 	var apps = {};
+	var pipelines = {};
 	var wdata = widget.aweWorkData;
 	for (var i=0; i<wdata.length; i++) {
 	    if (! apps.hasOwnProperty(wdata[i].cmd.name)) {
 		apps[wdata[i].cmd.name] = [];
 	    }
+	    if (! pipelines.hasOwnProperty(wdata[i].info.pipeline)) {
+		pipelines[wdata[i].info.pipeline] = [];
+	    }
 	    wdata[i].client = wdata[i].client.replace(/^<[^>]+>([^<]+)<\/.+$/, '$1');
 	    apps[wdata[i].cmd.name].push(wdata[i].client);
+	    pipelines[wdata[i].info.pipeline].push(wdata[i].client);
 	    if (clientIndex[wdata[i].client] && data[clientIndex[wdata[i].client]]) {
 		data[clientIndex[wdata[i].client]].current_work[wdata[i].wuid] = "<span class='href' onclick='Retina.WidgetInstances.awe_panel[1].aweWorkunitDetail("+i+");'>"+wdata[i].cmd.name+"</span>";
 		
-		if (widget.currentApp && widget.currentApp == wdata[i].cmd.name) {
+		if (widget.currentApp && (widget.currentApp == wdata[i].cmd.name || widget.currentApp == wdata[i].info.pipeline) ) {
 		    data[clientIndex[wdata[i].client]].highlight = true;
 		} else {
 		    data[clientIndex[wdata[i].client]].highlight = false;
@@ -114,6 +119,11 @@
 	var appNames = Retina.keys(apps).sort();
 	for (var i=0; i<appNames.length; i++) {
 	    html.push("<tr"+(widget.currentApp && widget.currentApp==appNames[i] ? " class='info'" : "")+"><td onclick='Retina.WidgetInstances.awe_panel[1].currentApp=\""+appNames[i]+"\";Retina.WidgetInstances.awe_panel[1].showAWEDetails();' style='cursor: pointer;'>"+appNames[i]+"</td><td style='padding-left: 10px;'>"+apps[appNames[i]].length+"</td></tr>");
+	}
+	html.push("<tr><th colspan='2' onclick='Retina.WidgetInstances.awe_panel[1].currentApp=null;Retina.WidgetInstances.awe_panel[1].showAWEDetails();' style='cursor: pointer;'>Running Pipelines</th></tr>");
+	var pipeNames = Retina.keys(pipelines).sort();
+	for (var i=0; i<pipeNames.length; i++) {
+	    html.push("<tr"+(widget.currentApp && widget.currentApp==pipeNames[i] ? " class='info'" : "")+"><td onclick='Retina.WidgetInstances.awe_panel[1].currentApp=\""+pipeNames[i]+"\";Retina.WidgetInstances.awe_panel[1].showAWEDetails();' style='cursor: pointer;'>"+pipeNames[i]+"</td><td style='padding-left: 10px;'>"+pipelines[pipeNames[i]].length+"</td></tr>");
 	}
 	html.push("</table></div>");
 		

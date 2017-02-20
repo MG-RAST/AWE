@@ -1428,11 +1428,13 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	q := bson.M{}
 	q["state"] = bson.M{"$in": JOB_STATS_TO_RECOVER}
 	if conf.RECOVER_MAX > 0 {
+		logger.Info("Recover %d jobs...", conf.RECOVER_MAX)
 		if _, err := dbjobs.GetPaginated(q, conf.RECOVER_MAX, 0, "info.priority", "desc"); err != nil {
 			logger.Error("RecoverJobs()->GetPaginated():" + err.Error())
 			return err
 		}
 	} else {
+		logger.Info("Recover all jobs")
 		if err := dbjobs.GetAll(q, "info.submittime", "asc"); err != nil {
 			logger.Error("RecoverJobs()->GetAll():" + err.Error())
 			return err

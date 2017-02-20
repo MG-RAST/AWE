@@ -88,7 +88,7 @@ func main() {
 		logger.Error("fail to register: %s\n", err.Error())
 		os.Exit(1)
 	}
-	core.InitClientProfile(self)
+	core.SetClientProfile(self)
 
 	fmt.Printf("Client registered, name=%s, id=%s\n", self.Name, self.Id)
 	logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)

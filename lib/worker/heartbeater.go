@@ -102,6 +102,7 @@ func heartbeating(host string, clientid string) (msg core.HBmsg, err error) {
 	return
 }
 
+// not used, deprecated ?
 func RegisterWithProfile(host string, profile *core.Client) (client *core.Client, err error) {
 	profile_jsonstream, err := json.Marshal(profile)
 	profile_path := conf.DATA_PATH + "/clientprofile.json"
@@ -147,23 +148,22 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 	return
 }
 
+// invoked on start of AWE worker AND on ReRegisterWithSelf
 func RegisterWithAuth(host string, pclient *core.Client) (client *core.Client, err error) {
 	logger.Debug(3, "Try to register client")
 	if conf.CLIENT_GROUP_TOKEN == "" {
 		fmt.Println("clientgroup token not set, register as a public client (can only access public data)")
 	}
 
-	//rlock := pclient.RLockNamed("RegisterWithAuth")
-	//logger.Debug(3, "Try to register client, got pclient lock")
+	//serialize profile
 	client_jsonstream, err := pclient.Marshal()
 	//client_jsonstream, err := json.Marshal(pclient)
 	if err != nil {
 		err = fmt.Errorf("json.Marshal(client) error: %s", err.Error())
-		//pclient.RUnlockNamed(rlock)
 		return
 	}
-	//pclient.RUnlockNamed(rlock)
-	//logger.Debug(3, "Try to register client, released  pclient lock")
+
+	// write profile to file
 	logger.Debug(3, "client_jsonstream: %s ", string(client_jsonstream))
 	profile_path := conf.DATA_PATH + "/clientprofile.json"
 	logger.Debug(3, "profile_path: %s", profile_path)
@@ -173,6 +173,7 @@ func RegisterWithAuth(host string, pclient *core.Client) (client *core.Client, e
 		return
 	}
 
+	// create http form
 	form := httpclient.NewForm()
 	form.AddFile("profile", profile_path)
 	if err = form.Create(); err != nil {
@@ -193,9 +194,10 @@ func RegisterWithAuth(host string, pclient *core.Client) (client *core.Client, e
 		}
 	}
 
+	// send profile
 	targetUrl := host + "/client"
 	logger.Debug(3, "Try to register client: %s", targetUrl)
-	//resp, err := httpclient.Post(targetUrl, headers, form.Reader, nil)
+
 	resp, err := httpclient.DoTimeout("POST", targetUrl, headers, form.Reader, nil, time.Second*10)
 	if err != nil {
 		err = fmt.Errorf("POST %s error: %s", targetUrl, err.Error())
@@ -203,6 +205,7 @@ func RegisterWithAuth(host string, pclient *core.Client) (client *core.Client, e
 	}
 	defer resp.Body.Close()
 
+	// evaluate response
 	response := new(ClientResponse)
 	logger.Debug(3, "client registration: got response")
 	jsonstream, err := ioutil.ReadAll(resp.Body)
@@ -214,8 +217,12 @@ func RegisterWithAuth(host string, pclient *core.Client) (client *core.Client, e
 		err = fmt.Errorf("Server returned: %s", strings.Join(response.Errs, ","))
 		return
 	}
+
 	client = &response.Data
+
 	client.Init()
+	core.SetClientProfile(client)
+
 	logger.Debug(3, "Client registered")
 	return
 }
@@ -233,39 +240,8 @@ func ReRegisterWithSelf(host string) (client *core.Client, err error) {
 	return
 }
 
-func ComposeProfile() (profile *core.Client, err error) {
-	profile = new(core.Client)
-	profile.Name = conf.CLIENT_NAME
-	profile.Group = conf.CLIENT_GROUP
-	profile.CPUs = runtime.NumCPU()
-	profile.Domain = conf.CLIENT_DOMAIN
-	profile.Version = conf.VERSION
-	profile.GitCommitHash = conf.GIT_COMMIT_HASH
-
-	//app list
-	profile.Apps = []string{}
-	if conf.SUPPORTED_APPS != "" { //apps configured in .cfg
-		apps := strings.Split(conf.SUPPORTED_APPS, ",")
-		for _, item := range apps {
-			profile.Apps = append(profile.Apps, item)
-		}
-	} else { //apps not configured in .cfg, check the executables in APP_PATH)
-		if files, err := ioutil.ReadDir(conf.APP_PATH); err == nil {
-			for _, item := range files {
-				profile.Apps = append(profile.Apps, item.Name())
-			}
-		}
-	}
-
-	if addrs, err := net.InterfaceAddrs(); err == nil {
-		for _, a := range addrs {
-			if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && len(strings.Split(ipnet.IP.String(), ".")) == 4 {
-				profile.Host = ipnet.IP.String()
-				break
-			}
-		}
-	}
-
+func Set_Metadata(profile *core.Client) {
+	// TODO create option --metadata=ec2 instead
 	if len(conf.OPENSTACK_METADATA_URL) > 7 { // longer than "http://"
 
 		logger.Debug(1, fmt.Sprintf("openstack_metadata_url=%s, getting instance_id and instance_type...", conf.OPENSTACK_METADATA_URL))
@@ -289,25 +265,54 @@ func ComposeProfile() (profile *core.Client, err error) {
 			profile.Host = local_ipv4
 		}
 
-		//for i := 0; i < 3; i++ {
-		//	profile.InstanceId, _ = getInstanceId()
-		//	if profile.InstanceId != "" {
-		//		break
-		//	}
-		//}
-		//for i := 0; i < 3; i++ {
-		//	profile.InstanceType, _ = getInstanceType()
-		//	if profile.InstanceType != "" {
-		//		break
-		//	}
-		//}
+	} else {
+
+		if addrs, err := net.InterfaceAddrs(); err == nil {
+			for _, a := range addrs {
+				if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && len(strings.Split(ipnet.IP.String(), ".")) == 4 {
+					profile.Host = ipnet.IP.String()
+					break
+				}
+			}
+		}
+
 	}
+}
+
+// invoked only once on start of awe-worker
+func ComposeProfile() (profile *core.Client, err error) {
+	//profile = new(core.Client)
+	profile = core.NewClient() // includes init
+
+	profile.Name = conf.CLIENT_NAME
+	profile.Group = conf.CLIENT_GROUP
+	profile.CPUs = runtime.NumCPU()
+	profile.Domain = conf.CLIENT_DOMAIN
+	profile.Version = conf.VERSION
+	profile.GitCommitHash = conf.GIT_COMMIT_HASH
+
+	//app list
+	//profile.Apps = []string{}
+	if conf.SUPPORTED_APPS != "" { //apps configured in .cfg
+		apps := strings.Split(conf.SUPPORTED_APPS, ",")
+		for _, item := range apps {
+			profile.Apps = append(profile.Apps, item)
+		}
+	} else { //apps not configured in .cfg, check the executables in APP_PATH)
+		if files, err := ioutil.ReadDir(conf.APP_PATH); err == nil {
+			for _, item := range files {
+				profile.Apps = append(profile.Apps, item.Name())
+			}
+		}
+	}
+
+	Set_Metadata(profile)
 
 	if core.Service == "proxy" {
 		profile.Proxy = true
 	}
 
-	profile.Init()
+	//profile.Init()
 
 	return
 }

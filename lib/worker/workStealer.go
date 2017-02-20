@@ -44,23 +44,23 @@ func workStealer(control chan int) {
 		if err != nil {
 			if err.Error() == e.QueueEmpty || err.Error() == e.QueueSuspend || err.Error() == e.NoEligibleWorkunitFound {
 				//normal, do nothing
-				logger.Debug(3, fmt.Sprintf("client %s recieved status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL))
+				logger.Debug(3, "(workStealer) client %s recieved status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL)
 			} else if err.Error() == e.ClientNotFound {
-				logger.Error("server responds: client not found. will wait for heartbeat process to fix this")
+				logger.Error("(workStealer) server responds: client not found. will wait for heartbeat process to fix this")
 				//server may be restarted, waiting for the hearbeater goroutine to try re-register
 				//ReRegisterWithSelf(conf.SERVER_URL)
 				// this has to be done by the heartbeat
 			} else if err.Error() == e.ClientSuspended {
-				logger.Error("client suspended, waiting for repair or resume request...")
+				logger.Error("(workStealer) client suspended, waiting for repair or resume request...")
 				//TODO: send out email notice that this client has problem and been suspended
 				time.Sleep(2 * time.Minute)
 			} else if err.Error() == e.ClientDeleted {
-				fmt.Printf("client deleted, exiting...\n")
+				fmt.Printf("(workStealer) client deleted, exiting...\n")
 				os.Exit(1) // TODO is there a better way of exiting ? E.g. in regard of the logger who wants to flush....
 			} else {
 				//something is wrong, server may be down
 
-				logger.Error(fmt.Sprintf("error in checking out workunit: %s, retry=%d", err.Error(), retry))
+				logger.Error("(workStealer) error in checking out workunit: %s, retry=%d", err.Error(), retry)
 				retry += 1
 			}
 			//if retry == 12 {
@@ -70,8 +70,10 @@ func workStealer(control chan int) {
 			//}
 			if core.Service != "proxy" { //proxy: event driven, client: timer driven
 				if retry <= 10 {
+					logger.Debug(3, "(workStealer) sleep 10 seconds")
 					time.Sleep(10 * time.Second)
 				} else {
+					logger.Debug(3, "(workStealer) sleep 30 seconds")
 					time.Sleep(30 * time.Second)
 				}
 			}
@@ -79,13 +81,13 @@ func workStealer(control chan int) {
 		} else {
 			retry = 0
 		}
-		logger.Debug(1, "workStealer: checked out workunit, id="+wu.Id)
+		logger.Debug(1, "(workStealer) checked out workunit, id="+wu.Id)
 		//log event about work checktout (WC)
 		logger.Event(event.WORK_CHECKOUT, "workid="+wu.Id)
 
 		err = core.Self.Add_work(wu.Id)
 		if err != nil {
-			logger.Error("error: %s", err.Error())
+			logger.Error("(workStealer) error: %s", err.Error())
 			return
 		}
 

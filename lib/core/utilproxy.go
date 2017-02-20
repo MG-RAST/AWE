@@ -20,11 +20,11 @@ func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 			logger.Error("err@NotifyWorkunitProcessed: workid=" + work.Id + ", err=" + err.Error())
 			//mark this work in Current_work map as false, something needs to be done in the future
 			//to clean this kind of work that has been proccessed but its result can't be sent to server!
-			xerr := Self.Current_work_false(work.Id)
-			if xerr != nil {
-				err = xerr
-				return
-			}
+			//xerr := Self.Current_work_false(work.Id)
+			//if xerr != nil {
+			//	err = xerr
+			//	return
+			//}
 		}
 	}
 

@@ -8,13 +8,47 @@
     "tasks": [
         {
             "cmd": {
-                "name": "sleep",
-                "args": "10m",
+                "name": "ls / > ",
+                "args": "test.out",
                 "description": "test",
                 "Dockerimage": "mgrast/pipeline:latest"
             },
+            "outputs" : {
+                "test.out" : {
+                    "host": "http://localhost:7445"
+                }
+            },
             "taskid": "0", 
             "totalwork": 1
+        },
+        {
+            "cmd": {
+                "name" : "wc",
+                "args" : "-l @test.out > wordcount.txt",
+                "description": "test2",
+                "Dockerimage": "mgrast/pipeline:latest"
+            },
+            "inputs": {
+               "test.out": {
+                    "host": "http://localhost:7445",
+                    "origin" : "0"
+                }
+            },
+            "outputs" : {
+                "wordcount.txt" : {
+                    "host": "http://localhost:7445"
+                }
+            },
+            "taskid": "1", 
+            "totalwork": 1
+        },
+        {
+            "cmd": {
+                "name": "sleep",
+                "args": "10m",
+                "description": "test3",
+                "Dockerimage": "mgrast/pipeline:latest"
+            }
         }
     ]
 }

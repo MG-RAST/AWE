@@ -45,7 +45,7 @@ func NewServerMgr() *ServerMgr {
 		CQMgr: CQMgr{
 			clientMap:    *NewClientMap(),
 			workQueue:    NewWorkQueue(),
-			suspendQueue: true,
+			suspendQueue: false,
 			coReq:        make(chan CoReq),
 			//coAck:        make(chan CoAck),
 			feedback: make(chan Notice),
@@ -112,7 +112,7 @@ func (qm *ServerMgr) ClientHandle() {
 
 		start_time := time.Now()
 
-		timer := time.NewTimer(00 * time.Second)
+		timer := time.NewTimer(20 * time.Second)
 
 		select {
 		case coReq.response <- ack:
@@ -120,7 +120,7 @@ func (qm *ServerMgr) ClientHandle() {
 		case <-timer.C:
 			elapsed_time := time.Since(start_time)
 			logger.Error("(ServerMgr ClientHandle %s) timed out after %s ", coReq.fromclient, elapsed_time)
-			return
+			continue
 		}
 		logger.Debug(3, "(ServerMgr ClientHandle %s) done\n", coReq.fromclient)
 
@@ -1428,11 +1428,13 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	q := bson.M{}
 	q["state"] = bson.M{"$in": JOB_STATS_TO_RECOVER}
 	if conf.RECOVER_MAX > 0 {
+		logger.Info("Recover %d jobs...", conf.RECOVER_MAX)
 		if _, err := dbjobs.GetPaginated(q, conf.RECOVER_MAX, 0, "info.priority", "desc"); err != nil {
 			logger.Error("RecoverJobs()->GetPaginated():" + err.Error())
 			return err
 		}
 	} else {
+		logger.Info("Recover all jobs")
 		if err := dbjobs.GetAll(q, "info.submittime", "asc"); err != nil {
 			logger.Error("RecoverJobs()->GetAll():" + err.Error())
 			return err

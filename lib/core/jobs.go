@@ -9,9 +9,7 @@ type Jobs []*Job
 
 func (n *Jobs) Init() {
 	for _, job := range *n {
-		for _, task := range job.Tasks {
-			task.Init()
-		}
+		job.Init()
 	}
 }
 

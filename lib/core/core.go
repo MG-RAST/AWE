@@ -42,7 +42,7 @@ func InitResMgr(service string) {
 	Service = service
 }
 
-func InitClientProfile(profile *Client) {
+func SetClientProfile(profile *Client) {
 	Self = profile
 }
 
@@ -114,12 +114,14 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 			//errDep := errors.New("")
 			err = nil
 			job, err = ParseJobTasksDep(files["upload"].Path)
-			if err == nil {
+			if err != nil {
 				//err = nil
 				return
 			}
 		}
 	} else {
+		err = errors.New("(CreateJobUpload) has_upload is missing")
+		return
 		// job, err = ParseAwf(files["awf"].Path)
 		// if err != nil {
 		// 	err = errors.New("(ParseAwf) error parsing job, error=" + err.Error())

@@ -68,9 +68,9 @@ func processor(control chan int) {
 			}
 			fromProcessor <- processed
 			//release the permit lock, for work overlap inhibitted mode only
-			if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-				<-chanPermit
-			}
+			//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+			//	<-chanPermit
+			//}
 			continue
 		}
 
@@ -92,9 +92,9 @@ func processor(control chan int) {
 				processed.workunit.Notes = processed.workunit.Notes + "###[processor#SetEnv]" + err.Error()
 				processed.workunit.State = core.WORK_STAT_FAIL
 				//release the permit lock, for work overlap inhibitted mode only
-				if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-					<-chanPermit
-				}
+				//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+				//	<-chanPermit
+				//}
 				continue
 			}
 		}
@@ -129,9 +129,9 @@ func processor(control chan int) {
 		fromProcessor <- processed
 
 		//release the permit lock, for work overlap inhibitted mode only
-		if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-			<-chanPermit
-		}
+		//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+		//	<-chanPermit
+		//}
 	}
 	control <- ID_WORKER //we are ending
 }

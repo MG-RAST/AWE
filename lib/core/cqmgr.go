@@ -33,7 +33,7 @@ func NewCQMgr() *CQMgr {
 		clientMap:    ClientMap{_map: map[string]*Client{}},
 		workQueue:    NewWorkQueue(),
 		suspendQueue: false,
-		coReq:        make(chan CoReq, 1024),
+		coReq:        make(chan CoReq, 5),
 		//coAck:        make(chan CoAck),
 		feedback: make(chan Notice),
 		coSem:    make(chan int, 1), //non-blocking buffered channel
@@ -280,8 +280,12 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 			err = fmt.Errorf("NewProfileClient returned: %s", err.Error())
 			return
 		}
+
 	} else {
-		client = NewClient()
+
+		err = fmt.Errorf("Profile file not provided")
+		return
+		//client = NewClient()
 	}
 
 	client.LockNamed("RegisterNewClient")
@@ -703,7 +707,12 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	status := client.Status
 	response_channel := client.coAckChannel
 
+	work_length, _ := client.Current_work_length(false)
 	client.Unlock()
+
+	if work_length > 0 {
+		return nil, errors.New(e.ClientBusy)
+	}
 
 	if status == CLIENT_STAT_SUSPEND {
 		return nil, errors.New(e.ClientSuspended)
@@ -718,7 +727,15 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 
 	logger.Debug(3, "(CheckoutWorkunits) %s qm.coReq <- req", client_id)
 	// request workunit
-	qm.coReq <- req
+
+	select {
+	case qm.coReq <- req:
+	default:
+		err = fmt.Errorf("Too many work requests - Please try again later")
+		return
+
+	}
+
 	logger.Debug(3, "(CheckoutWorkunits) %s client.Get_Ack()", client_id)
 	//ack := <-qm.coAck
 
@@ -737,22 +754,28 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	}
 
 	logger.Debug(3, "(CheckoutWorkunits) %s got ack", client_id)
-	if ack.err == nil {
-		for _, work := range ack.workunits {
-			work_id := work.Id
-			client.Add_work(work_id)
-		}
-		status, xerr := client.Get_Status(true)
-		if xerr != nil {
-			err = xerr
+
+	if ack.err != nil {
+		logger.Debug(3, "(CheckoutWorkunits) %s ack.err: %s", client_id, ack.err.Error())
+		return ack.workunits, ack.err
+	}
+
+	added_work := 0
+	for _, work := range ack.workunits {
+		work_id := work.Id
+		err = client.Add_work(work_id)
+		if err != nil {
 			return
 		}
-		if status == CLIENT_STAT_ACTIVE_IDLE {
-			client.Set_Status(CLIENT_STAT_ACTIVE_BUSY, true)
-		}
-	} else {
-
-		logger.Debug(3, "(CheckoutWorkunits) %s ack.err: %s", client_id, ack.err.Error())
+		added_work += 1
+	}
+	status, xerr := client.Get_Status(true)
+	if xerr != nil {
+		err = xerr
+		return
+	}
+	if added_work > 0 && status == CLIENT_STAT_ACTIVE_IDLE {
+		client.Set_Status(CLIENT_STAT_ACTIVE_BUSY, true)
 	}
 
 	logger.Debug(3, "(CheckoutWorkunits) %s finished", client_id)

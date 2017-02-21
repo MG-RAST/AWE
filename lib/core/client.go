@@ -36,7 +36,7 @@ type Client struct {
 	Total_checkout  int             `bson:"total_checkout" json:"total_checkout"`
 	Total_completed int             `bson:"total_completed" json:"total_completed"`
 	Total_failed    int             `bson:"total_failed" json:"total_failed"`
-	Current_work    map[string]bool `bson:"current_work" json:"current_work"`
+	Current_work    map[string]bool `bson:"current_work" json:"current_work"` // the bool in the mapping is deprecated. It used to indicate completed work that could not be returned to server
 	Skip_work       []string        `bson:"skip_work" json:"skip_work"`
 	Last_failed     int             `bson:"-" json:"-"`
 	Tag             bool            `bson:"-" json:"-"`
@@ -46,9 +46,10 @@ type Client struct {
 	Version         string          `bson:"version" json:"version"`
 }
 
+// invoked by NewClient or manually after unmarshalling
 func (client *Client) Init() {
 	client.coAckChannel = make(chan CoAck)
-	client.Status = CLIENT_STAT_ACTIVE_IDLE
+
 	client.Tag = true
 
 	if client.Id == "" {
@@ -79,6 +80,7 @@ func NewClient() (client *Client) {
 
 		Serve_time:  "0",
 		Last_failed: 0,
+		Status:      CLIENT_STAT_ACTIVE_IDLE,
 	}
 
 	client.Init()
@@ -86,6 +88,7 @@ func NewClient() (client *Client) {
 	return
 }
 
+// create Client object from json file
 func NewProfileClient(filepath string) (client *Client, err error) {
 
 	jsonstream, err := ioutil.ReadFile(filepath)
@@ -297,15 +300,15 @@ func (cl *Client) Get_current_work(do_read_lock bool) (current_work_ids []string
 }
 
 // TODO: Wolfgang: Can we use delete instead ?
-func (cl *Client) Current_work_false(workid string) (err error) {
-	err = cl.LockNamed("Current_work_false")
-	if err != nil {
-		return
-	}
-	defer cl.Unlock()
-	cl.Current_work[workid] = false
-	return
-}
+//func (cl *Client) Current_work_false(workid string) (err error) {
+//	err = cl.LockNamed("Current_work_false")
+//	if err != nil {
+//		return
+//	}
+//	defer cl.Unlock()
+//	cl.Current_work[workid] = false
+//	return
+//}
 
 // lock always
 func (cl *Client) Add_work(workid string) (err error) {

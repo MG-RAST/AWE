@@ -118,7 +118,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "fail to register: %s\n", err.Error())
 		os.Exit(1)
 	}
-	core.InitClientProfile(self)
+	core.SetClientProfile(self)
 	core.InitProxyWorkChan()
 
 	fmt.Printf("Proxy registered, name=%s, id=%s\n", self.Name, self.Id)

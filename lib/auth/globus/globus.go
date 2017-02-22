@@ -134,7 +134,7 @@ func clientId(t string) string {
         client := &http.Client{
                 Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
         }
-        req, err := http.NewRequest("GET", conf.AUTH_GLOBUS_TOKEN_URL, nil)
+        req, err := http.NewRequest("GET", conf.GLOBUS_TOKEN_URL, nil)
         if err != nil {
                 return ""
         }

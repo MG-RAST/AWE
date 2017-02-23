@@ -19,6 +19,15 @@
 	widget = Retina.WidgetInstances.awe_panel[1];
 	
 	widget.target = widget.target || wparams.target;
+
+	jQuery.ajax({ url: RetinaConfig["awe_ip"],
+		      dataType: "json",
+		      success: function(data) {
+			  if (data.hasOwnProperty('title')) {
+			      document.getElementById('serverTitle').innerHTML = data.title;
+			  }
+		      }
+		    });
 	
 	if (! RetinaConfig.authentication || widget.loggedIn) {
 	    widget.target.innerHTML = "<div style='position: absolute; left: 540px; top: 90px;' id='control'><select style='margin-bottom: 0px; width: 100px; padding: 0px; height: 25px;' onchange='Retina.WidgetInstances.awe_panel[1].grouping=this.options[this.selectedIndex].value;Retina.WidgetInstances.awe_panel[1].showAWEDetails();'><option>cores</option><option>group</option></select></div><div id='awe_details' style='margin-left: 50px; margin-top: 50px;'></div><div style='float: left; padding: 20px;' id='detail'></div>";

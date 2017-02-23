@@ -24,18 +24,18 @@ const (
 
 type TaskRaw struct {
 	RWMutex
-	Id            string            `bson:"taskid" json:"taskid"`
-	JobId         string            `bson:"jobid" json:"jobid"`
-	Info          *Info             `bson:"info" json:"-"`
-	Cmd           *Command          `bson:"cmd" json:"cmd"`
-	Partition     *PartInfo         `bson:"partinfo" json:"-"`
-	DependsOn     []string          `bson:"dependsOn" json:"dependsOn"`
-	TotalWork     int               `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize   int               `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork    int               `bson:"remainwork" json:"remainwork"`
-	WorkStatus    []string          `bson:"workstatus" json:"-"`
-	State         string            `bson:"state" json:"state"`
-	Skip          int               `bson:"skip" json:"-"`
+	Id          string    `bson:"taskid" json:"taskid"`
+	JobId       string    `bson:"jobid" json:"jobid"`
+	Info        *Info     `bson:"info" json:"-"`
+	Cmd         *Command  `bson:"cmd" json:"cmd"`
+	Partition   *PartInfo `bson:"partinfo" json:"-"`
+	DependsOn   []string  `bson:"dependsOn" json:"dependsOn"`
+	TotalWork   int       `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize int       `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork  int       `bson:"remainwork" json:"remainwork"`
+	WorkStatus  []string  `bson:"workstatus" json:"-"`
+	State       string    `bson:"state" json:"state"`
+	//Skip          int               `bson:"skip" json:"-"`
 	CreatedDate   time.Time         `bson:"createdDate" json:"createddate"`
 	StartedDate   time.Time         `bson:"startedDate" json:"starteddate"`
 	CompletedDate time.Time         `bson:"completedDate" json:"completeddate"`
@@ -84,7 +84,7 @@ func NewTaskRaw(job_id string, task_id string, info *Info) TaskRaw {
 		RemainWork: 1,
 		WorkStatus: []string{},
 		State:      TASK_STAT_INIT,
-		Skip:       0,
+		//Skip:       0,
 	}
 }
 
@@ -119,22 +119,56 @@ func (task *TaskRaw) GetState() (state string, err error) {
 	return
 }
 
-func (task *TaskRaw) SetState(new_state string) {
-	task.LockNamed("SetState")
+// only for debugging purposes
+func (task *TaskRaw) GetStateNamed(name string) (state string, err error) {
+	lock, err := task.RLockNamed("GetState/" + name)
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	state = task.State
+	return
+}
+
+func (task *TaskRaw) GetId() (id string, err error) {
+	lock, err := task.RLockNamed("GetId")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	id = task.Id
+	return
+}
+
+func (task *TaskRaw) SetState(new_state string) (err error) {
+	err = task.LockNamed("SetState")
+	if err != nil {
+		return
+	}
 	defer task.Unlock()
 	task.State = new_state
 	return
 }
 
-func (task *TaskRaw) GetSkip() (skip int, err error) {
-	lock, err := task.RLockNamed("GetSkip")
+func (task *TaskRaw) SetCompletedDate(date time.Time) (err error) {
+	err = task.LockNamed("SetCompletedDate")
 	if err != nil {
 		return
 	}
-	defer task.RUnlockNamed(lock)
-	skip = task.Skip
+	defer task.Unlock()
+	task.CompletedDate = date
 	return
 }
+
+//func (task *TaskRaw) GetSkip() (skip int, err error) {
+//	lock, err := task.RLockNamed("GetSkip")
+//	if err != nil {
+//		return
+//	}
+//	defer task.RUnlockNamed(lock)
+//	skip = task.Skip
+//	return
+//}
 
 func (task *TaskRaw) GetDependsOn() (dep []string, err error) {
 	lock, err := task.RLockNamed("GetDependsOn")
@@ -384,19 +418,19 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog) {
 	return
 }
 
-func (task *Task) Skippable() bool {
-	// For a task to be skippable, it should meet
-	// the following requirements (this may change
-	// in the future):
-	// 1.- It should have exactly one input file
-	// and one output file (This way, we can connect tasks
-	// Ti-1 and Ti+1 transparently)
-	// 2.- It should be a simple pipeline task. That is,
-	// it should just have at most one "parent" Ti-1 ---> Ti
-	return (len(task.Inputs) == 1) &&
-		(len(task.Outputs) == 1) &&
-		(len(task.DependsOn) <= 1)
-}
+//func (task *Task) Skippable() bool {
+// For a task to be skippable, it should meet
+// the following requirements (this may change
+// in the future):
+// 1.- It should have exactly one input file
+// and one output file (This way, we can connect tasks
+// Ti-1 and Ti+1 transparently)
+// 2.- It should be a simple pipeline task. That is,
+// it should just have at most one "parent" Ti-1 ---> Ti
+//	return (len(task.Inputs) == 1) &&
+//		(len(task.Outputs) == 1) &&
+//		(len(task.DependsOn) <= 1)
+//}
 
 func (task *Task) DeleteOutput() {
 	task_state := task.State

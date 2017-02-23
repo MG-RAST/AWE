@@ -754,7 +754,6 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	}
 
-	logger.Debug(3, "WaitContainer returned non-zero status=%d", cresult.Status)
 	if cresult.Status != 0 {
 		logger.Debug(3, "WaitContainer returned non-zero status=%d", cresult.Status)
 		return nil, fmt.Errorf("error WaitContainer returned non-zero status=%d", cresult.Status)

@@ -27,8 +27,9 @@ type jQueueShow struct {
 
 type ServerMgr struct {
 	CQMgr
-	queueLock  sync.Mutex //only update one at a time
-	lastUpdate time.Time
+	queueLock      sync.Mutex //only update one at a time
+	lastUpdate     time.Time
+	lastUpdateLock sync.RWMutex
 	//taskLock  sync.RWMutex
 	TaskMap TaskMap
 	ajLock  sync.RWMutex
@@ -76,39 +77,57 @@ func (qm *ServerMgr) TaskHandle() {
 	}
 }
 
+func (qm *ServerMgr) UpdateQueueLoop() {
+	// TODO this may not be dynamic enough for small amounts of workunits, as they always have to wait
+	for {
+		qm.updateQueue()
+		time.Sleep(30 * time.Second)
+	}
+}
+
 func (qm *ServerMgr) ClientHandle() {
 	logger.Info("(ServerMgr ClientHandle) starting")
 	for {
 		//select {
 		//case coReq := <-qm.coReq
 		coReq := <-qm.coReq
-		logger.Debug(2, "qmgr: workunit checkout request received from client %s, Req=%v", coReq.fromclient, coReq)
+		logger.Debug(2, "(ServerMgr ClientHandle) workunit checkout request received from client %s, Req=%v", coReq.fromclient, coReq)
+
+		ok, err := qm.CQMgr.clientMap.Has(coReq.fromclient, true)
+		if err != nil {
+			logger.Warning("(ServerMgr ClientHandle) Could not get lock for client %s (%s)", coReq.fromclient, err.Error())
+			continue
+		}
+		if !ok {
+			logger.Error("(ServerMgr ClientHandle) Client %s not found. (It probably left in the mean-time)", coReq.fromclient)
+			continue
+		}
 
 		var ack CoAck
 		if qm.suspendQueue {
 			// queue is suspended, return suspend error
 			ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
 		} else {
-			logger.Debug(3, "(ServerMgr ClientHandle %s) updateQueue\n", coReq.fromclient)
+			//logger.Debug(3, "(ServerMgr ClientHandle %s) updateQueue\n", coReq.fromclient)
 
-			qm.updateQueue()
+			//qm.updateQueue()
 
-			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks\n", coReq.fromclient)
+			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks", coReq.fromclient)
 
 			works, err := qm.popWorks(coReq)
 
-			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks done\n", coReq.fromclient)
+			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks done", coReq.fromclient)
 			if err == nil {
-				logger.Debug(3, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress\n", coReq.fromclient)
+				logger.Debug(3, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress", coReq.fromclient)
 
 				qm.UpdateJobTaskToInProgress(works)
 
-				logger.Debug(3, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress done\n", coReq.fromclient)
+				logger.Debug(3, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress done", coReq.fromclient)
 			}
 			ack = CoAck{workunits: works, err: err}
 
 		}
-		logger.Debug(3, "(ServerMgr ClientHandle %s) send response now\n", coReq.fromclient)
+		logger.Debug(3, "(ServerMgr ClientHandle %s) send response now", coReq.fromclient)
 
 		start_time := time.Now()
 
@@ -122,7 +141,7 @@ func (qm *ServerMgr) ClientHandle() {
 			logger.Error("(ServerMgr ClientHandle %s) timed out after %s ", coReq.fromclient, elapsed_time)
 			continue
 		}
-		logger.Debug(3, "(ServerMgr ClientHandle %s) done\n", coReq.fromclient)
+		logger.Debug(3, "(ServerMgr ClientHandle %s) done", coReq.fromclient)
 
 	}
 }
@@ -135,7 +154,7 @@ func (qm *ServerMgr) NoticeHandle() {
 		if err := qm.handleWorkStatusChange(notice); err != nil {
 			logger.Error("handleWorkStatusChange(): " + err.Error())
 		}
-		qm.updateQueue()
+		//qm.updateQueue()
 	}
 }
 
@@ -285,38 +304,39 @@ func (qm *ServerMgr) isActJob(id string) (has bool) {
 
 //poll ready tasks and push into workQueue
 func (qm *ServerMgr) updateQueue() (err error) {
+
+	logger.Debug(3, "(updateQueue) wait for lock")
 	qm.queueLock.Lock()
 	defer qm.queueLock.Unlock()
 
-	logger.Debug(3, "-------- %s %s", qm.lastUpdate, time.Now())
-
-	updateInterval := 30
-	if !time.Now().After(qm.lastUpdate.Add(time.Second * time.Duration(updateInterval))) { // TODO do check before the lock
-		return
-	}
-	qm.lastUpdate = time.Now()
-
-	logger.Debug(3, "Starting updateQueue()")
+	logger.Debug(3, "(updateQueue) starting")
 	tasks, err := qm.TaskMap.GetTasks()
 	if err != nil {
 		return
 	}
+	logger.Debug(3, "(updateQueue) range tasks (%d)", len(tasks))
 	for _, task := range tasks {
+		logger.Debug(3, "(updateQueue) task: %s", task.Id)
 		task_ready, xerr := qm.isTaskReady(task)
 		if xerr != nil {
-			err = xerr
-			return
+			logger.Error("(updateQueue) isTaskReady=%s error: %s", task.Id, xerr.Error())
+			continue
 		}
+		logger.Debug(3, "(updateQueue) task ready: %s", task.Id)
 		if task_ready {
-			if err := qm.taskEnQueue(task); err != nil {
+			err := qm.taskEnQueue(task)
+			if err != nil {
 				task.SetState(TASK_STAT_SUSPEND)
 				jobid := getParentJobId(task.Id)
 				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
+				continue
 			}
+			logger.Debug(3, "(updateQueue) task enqueued: %s", task.Id)
 		}
 		//qm.updateTask(task)
 	}
 
+	logger.Debug(3, "(updateQueue) range qm.workQueue.Clean()")
 	for _, id := range qm.workQueue.Clean() {
 		jid, err := GetJobIdByWorkId(id)
 		if err != nil {
@@ -327,8 +347,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 		logger.Error("error: workunit %s is nil, suspending job %s", id, jid)
 	}
 
-	qm.lastUpdate = time.Now()
-	logger.Debug(3, "Ending updateQueue()")
+	logger.Debug(3, "(updateQueue) ending")
 
 	return
 }
@@ -368,8 +387,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		qm.workQueue.Delete(workid)
 		return
 	}
-	task.LockNamed("handleWorkStatusChange")
-	defer task.Unlock()
+	//task.LockNamed("handleWorkStatusChange")
+	//defer task.Unlock()
 
 	work, wok, err := qm.workQueue.Get(workid)
 	if err != nil {
@@ -379,13 +398,26 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return
 	}
 
+	err = task.LockNamed("handleWorkStatusChange/noretry")
+	if err != nil {
+		return
+	}
+	noretry := task.Info.NoRetry
+	task.Unlock()
+
 	var MAX_FAILURE int
-	if task.Info.NoRetry == true {
+	if noretry == true {
 		MAX_FAILURE = 1
 	} else {
 		MAX_FAILURE = conf.MAX_WORK_FAILURE
 	}
-	if task.State == TASK_STAT_FAIL_SKIP {
+
+	task_state, err := task.GetState()
+	if err != nil {
+		return
+	}
+
+	if task_state == TASK_STAT_FAIL_SKIP {
 		// A work unit for this task failed before this one arrived.
 		// User set Skip=2 so the task was just skipped. Any subsiquent
 		// workunits are just deleted...
@@ -408,12 +440,28 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 		client.Increment_total_completed()
 
+		err = task.LockNamed("handleWorkStatusChange/various")
+		if err != nil {
+			return
+		}
 		task.RemainWork -= 1
 		task.ComputeTime += computetime
+		remain_work := task.RemainWork
+		task.Unlock()
 
-		if task.RemainWork == 0 {
-			task.State = TASK_STAT_COMPLETED
-			task.CompletedDate = time.Now()
+		if remain_work == 0 {
+			err = task.SetState(TASK_STAT_COMPLETED)
+			if err != nil {
+				return
+			}
+			task.SetCompletedDate(time.Now())
+			if err != nil {
+				return
+			}
+			err = task.LockNamed("handleWorkStatusChange/Outputs")
+			if err != nil {
+				return
+			}
 			for _, output := range task.Outputs {
 				if _, err = output.DataUrl(); err != nil {
 					return err
@@ -423,12 +471,13 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 					return
 				}
 			}
+			task.Unlock()
 			//log event about task done (TD)
 			qm.FinalizeTaskPerf(task)
 			logger.Event(event.TASK_DONE, "taskid="+taskid)
 			//update the info of the job which the task is belong to, could result in deletion of the
 			//task in the task map when the task is the final task of the job to be done.
-			err = qm.updateJobTask(task, false) //task state QUEUED -> COMPELTED
+			err = qm.updateJobTask(task, true) //task state QUEUED -> COMPELTED
 		}
 		//done, remove from the workQueue
 		qm.workQueue.Delete(workid)
@@ -436,7 +485,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		logger.Event(event.WORK_FAIL, "workid="+workid+";clientid="+clientid)
 		work.Failed += 1
 		qm.workQueue.Put(work)
-		if task.Skip == 2 && task.Skippable() {
+		//if task.Skip == 2 && task.Skippable() {
+		if false {
 			// user wants to skip task - not a real failure
 			// don't mark client as failed
 			task.RemainWork = 0 // not doing anything else...
@@ -468,7 +518,10 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			if err != nil {
 				return
 			}
-			task.SetState(TASK_STAT_SUSPEND)
+			err = task.SetState(TASK_STAT_SUSPEND)
+			if err != nil {
+				return
+			}
 
 			reason := fmt.Sprintf("workunit %s failed %d time(s).", workid, MAX_FAILURE)
 			if len(notice.Notes) > 0 {
@@ -483,7 +536,11 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			return err
 		}
 		if ok {
-			client.LockNamed("ServerMgr/handleWorkStatusChange C")
+			xerr := client.LockNamed("ServerMgr/handleWorkStatusChange C")
+			if xerr != nil {
+				err = xerr
+				return err
+			}
 			client.Append_Skip_work(workid, false)
 			client.Increment_total_failed(false)
 			client.Last_failed += 1 //last consecutive failures
@@ -820,17 +877,17 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 
 	task.LockNamed("ServerMgr/addTask")
 	task_state := task.State
-	skip_task := task.Skip
+	//skip_task := task.Skip
 	task.Unlock()
 
 	if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
 		qm.TaskMap.Add(task)
 		return
 	}
-	if skip_task == 1 && task.Skippable() {
-		qm.skipTask(task)
-		return
-	}
+	//if skip_task == 1 && task.Skippable() {
+	//	qm.skipTask(task)
+	//	return
+	//}
 
 	defer qm.TaskMap.Add(task)
 	task.LockNamed("ServerMgr/addTask B")
@@ -870,62 +927,83 @@ func (qm *ServerMgr) skipTask(task *Task) (err error) {
 func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 	ready = false
 
+	logger.Debug(3, "(isTaskReady) starting")
+
+	task_state, err := task.GetStateNamed("isTaskReady")
+	if err != nil {
+		return
+	}
+
+	logger.Debug(3, "(isTaskReady) got state")
+
+	if task_state != TASK_STAT_PENDING {
+		return
+	}
+
+	logger.Debug(3, "(isTaskReady) state==TASK_STAT_PENDING")
+
+	task_id, err := task.GetId()
+	if err != nil {
+		return
+	}
+	logger.Debug(3, "(isTaskReady) task_id: %s", task_id)
+
 	//skip if the belonging job is suspended
-	jobid, _ := GetJobIdByTaskId(task.Id)
+	jobid, _ := GetJobIdByTaskId(task_id)
 	if qm.isSusJob(jobid) {
 		return
 	}
 
-	task_state, err := task.GetState()
-	if err != nil {
+	logger.Debug(3, "(isTaskReady) GetDependsOn %s", task_id)
+	deps, xerr := task.GetDependsOn()
+	if xerr != nil {
+		err = xerr
 		return
 	}
-	if task_state == TASK_STAT_PENDING {
-		ready = true
-		deps, xerr := task.GetDependsOn()
-		if xerr != nil {
-			err = xerr
+	ready = true
+	logger.Debug(3, "(isTaskReady) range deps %s (%d)", task_id, len(deps))
+	for _, predecessor := range deps {
+		pretask, ok, yerr := qm.TaskMap.Get(predecessor, true)
+		if yerr != nil {
+			err = yerr
+			ready = false
 			return
 		}
-		for _, predecessor := range deps {
-			pretask, ok, yerr := qm.TaskMap.Get(predecessor, true)
-			if yerr != nil {
-				err = yerr
+		if ok {
+			pretask_state, zerr := pretask.GetState()
+			if zerr != nil {
+				err = zerr
+				ready = false
 				return
 			}
-			if ok {
-				pretask_state, zerr := pretask.GetState()
-				if zerr != nil {
-					err = zerr
-					return
-				}
-				if pretask_state != TASK_STAT_COMPLETED &&
-					pretask_state != TASK_STAT_PASSED &&
-					pretask_state != TASK_STAT_SKIPPED &&
-					pretask_state != TASK_STAT_FAIL_SKIP {
-					ready = false
-				}
-			} else {
-				logger.Error("warning: predecessor " + predecessor + " is unknown")
+			if pretask_state != TASK_STAT_COMPLETED &&
+				pretask_state != TASK_STAT_PASSED &&
+				pretask_state != TASK_STAT_SKIPPED &&
+				pretask_state != TASK_STAT_FAIL_SKIP {
 				ready = false
 			}
+		} else {
+			logger.Error("warning: predecessor " + predecessor + " is unknown")
+			ready = false
 		}
 	}
-	skip, err := task.GetSkip()
-	if err != nil {
-		return
-	}
-	if skip == 1 && task.Skippable() {
-		qm.skipTask(task)
-		ready = false
-	}
+
+	//skip, err := task.GetSkip()
+	//if err != nil {
+	//	ready = false
+	//	return
+	//}
+	//if skip == 1 && task.Skippable() {
+	//	qm.skipTask(task)
+	//	ready = false
+	//}
 	return
 }
 
 // task has to be locked
 func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 
-	logger.Debug(2, "trying to enqueue task "+task.Id)
+	logger.Debug(2, "qmgr.taskEnQueue trying to enqueue task "+task.Id)
 
 	if err := qm.locateInputs(task); err != nil {
 		logger.Error("qmgr.taskEnQueue locateInputs:" + err.Error())

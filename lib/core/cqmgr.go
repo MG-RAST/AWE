@@ -33,7 +33,7 @@ func NewCQMgr() *CQMgr {
 		clientMap:    ClientMap{_map: map[string]*Client{}},
 		workQueue:    NewWorkQueue(),
 		suspendQueue: false,
-		coReq:        make(chan CoReq, 5),
+		coReq:        make(chan CoReq, 10), // number of clients that wait in queue to get a workunit. If queue is full, other client will be rejected and have to come back later again
 		//coAck:        make(chan CoAck),
 		feedback: make(chan Notice),
 		coSem:    make(chan int, 1), //non-blocking buffered channel
@@ -139,7 +139,10 @@ func (qm *CQMgr) ListClients() (ids []string, err error) {
 
 func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 	ok = true
-	client.LockNamed("ClientChecker")
+	err = client.LockNamed("ClientChecker")
+	if err != nil {
+		return
+	}
 	defer client.Unlock()
 
 	if client.Tag == true {
@@ -233,7 +236,10 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err e
 		return
 	}
 
-	client.LockNamed("ClientHeartBeat")
+	err = client.LockNamed("ClientHeartBeat")
+	if err != nil {
+		return
+	}
 	defer client.Unlock()
 
 	// If the name of the clientgroup (from auth token) does not match the name in the client retrieved, throw an error
@@ -288,7 +294,10 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		//client = NewClient()
 	}
 
-	client.LockNamed("RegisterNewClient")
+	err = client.LockNamed("RegisterNewClient")
+	if err != nil {
+		return
+	}
 	defer client.Unlock()
 
 	// If clientgroup is nil at this point, create a publicly owned clientgroup, with the provided group name (if one doesn't exist with the same name)
@@ -439,7 +448,10 @@ func (qm *CQMgr) SuspendClient(id string, client *Client, client_write_lock bool
 	}
 
 	if client_write_lock {
-		client.LockNamed("SuspendClient")
+		err = client.LockNamed("SuspendClient")
+		if err != nil {
+			return
+		}
 		defer client.Unlock()
 	}
 
@@ -491,27 +503,32 @@ func (qm *CQMgr) SuspendClientByUser(id string, u *user.User) (err error) {
 		return
 	}
 	if ok {
-		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
-			client.LockNamed("SuspendClientByUser")
-			defer client.Unlock()
-			status, xerr := client.Get_Status(false)
-			if xerr != nil {
-				err = xerr
-				return
-			}
-			if status == CLIENT_STAT_ACTIVE_IDLE || status == CLIENT_STAT_ACTIVE_BUSY {
-				client.Set_Status(CLIENT_STAT_SUSPEND, false)
-				//if err = qm.ClientStatusChange(id, CLIENT_STAT_SUSPEND); err != nil {
-				//	return
-				//}
-				qm.ReQueueWorkunitByClient(client, false)
-				return
-			}
-			return errors.New(e.ClientNotActive)
-		}
-		return errors.New(e.UnAuth)
+		return errors.New(e.ClientNotFound)
 	}
-	return errors.New(e.ClientNotFound)
+
+	if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
+		err = client.LockNamed("SuspendClientByUser")
+		if err != nil {
+			return
+		}
+		defer client.Unlock()
+		status, xerr := client.Get_Status(false)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		if status == CLIENT_STAT_ACTIVE_IDLE || status == CLIENT_STAT_ACTIVE_BUSY {
+			client.Set_Status(CLIENT_STAT_SUSPEND, false)
+			//if err = qm.ClientStatusChange(id, CLIENT_STAT_SUSPEND); err != nil {
+			//	return
+			//}
+			qm.ReQueueWorkunitByClient(client, false)
+			return
+		}
+		return errors.New(e.ClientNotActive)
+	}
+	return errors.New(e.UnAuth)
+
 }
 
 func (qm *CQMgr) SuspendAllClientsByUser(u *user.User) (count int) {
@@ -532,7 +549,10 @@ func (qm *CQMgr) SuspendAllClientsByUser(u *user.User) (count int) {
 		return
 	}
 	for _, client := range clients {
-		client.LockNamed("SuspendAllClientsByUser")
+		err = client.LockNamed("SuspendAllClientsByUser")
+		if err != nil {
+			continue
+		}
 		status, xerr := client.Get_Status(false)
 		if xerr != nil {
 			continue
@@ -556,7 +576,10 @@ func (qm *CQMgr) ResumeClient(id string) (err error) {
 		return errors.New(e.ClientNotFound)
 	}
 
-	client.LockNamed("ResumeClient")
+	err = client.LockNamed("ResumeClient")
+	if err != nil {
+		return
+	}
 	defer client.Unlock()
 	if client.Status == CLIENT_STAT_SUSPEND {
 		//err = qm.ClientStatusChange(id, CLIENT_STAT_ACTIVE_IDLE)
@@ -584,21 +607,26 @@ func (qm *CQMgr) ResumeClientByUser(id string, u *user.User) (err error) {
 	if err != nil {
 		return
 	}
-	if ok {
-		client.LockNamed("ResumeClientByUser")
-		defer client.Unlock()
-
-		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
-			if client.Status == CLIENT_STAT_SUSPEND {
-				//err = qm.ClientStatusChange(id, CLIENT_STAT_ACTIVE_IDLE)
-				client.Status = CLIENT_STAT_ACTIVE_IDLE
-				return
-			}
-			return errors.New(e.ClientNotSuspended)
-		}
-		return errors.New(e.UnAuth)
+	if !ok {
+		return errors.New(e.ClientNotFound)
 	}
-	return errors.New(e.ClientNotFound)
+
+	err = client.LockNamed("ResumeClientByUser")
+	if err != nil {
+		return
+	}
+	defer client.Unlock()
+
+	if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true {
+		if client.Status == CLIENT_STAT_SUSPEND {
+			//err = qm.ClientStatusChange(id, CLIENT_STAT_ACTIVE_IDLE)
+			client.Status = CLIENT_STAT_ACTIVE_IDLE
+			return
+		}
+		return errors.New(e.ClientNotSuspended)
+	}
+	return errors.New(e.UnAuth)
+
 }
 
 func (qm *CQMgr) ResumeSuspendedClients() (count int, err error) {
@@ -608,7 +636,10 @@ func (qm *CQMgr) ResumeSuspendedClients() (count int, err error) {
 		return
 	}
 	for _, client := range clients {
-		client.LockNamed("ResumeSuspendedClients")
+		err = client.LockNamed("ResumeSuspendedClients")
+		if err != nil {
+			continue
+		}
 		if client.Status == CLIENT_STAT_SUSPEND {
 			//qm.ClientStatusChange(client.Id, CLIENT_STAT_ACTIVE_IDLE)
 			client.Status = CLIENT_STAT_ACTIVE_IDLE
@@ -638,7 +669,10 @@ func (qm *CQMgr) ResumeSuspendedClientsByUser(u *user.User) (count int) {
 		return
 	}
 	for _, client := range clients {
-		client.LockNamed("ResumeSuspendedClientsByUser")
+		err = client.LockNamed("ResumeSuspendedClientsByUser")
+		if err != nil {
+			continue
+		}
 		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true && client.Status == CLIENT_STAT_SUSPEND {
 			//qm.ClientStatusChange(client.Id, CLIENT_STAT_ACTIVE_IDLE)
 			client.Status = CLIENT_STAT_ACTIVE_IDLE
@@ -703,7 +737,10 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	//	return nil, errors.New(e.ClientNotFound)
 	//}
 
-	client.LockNamed("CheckoutWorkunits serving " + client_id)
+	err = client.LockNamed("CheckoutWorkunits serving " + client_id)
+	if err != nil {
+		return
+	}
 	status := client.Status
 	response_channel := client.coAckChannel
 
@@ -850,7 +887,16 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 // client has to be read-locked
 func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err error) {
 
+	if client == nil {
+		panic("(filterWorkByClient) client == nil")
+	}
+
 	clientid := client.Id
+
+	if clientid == "" {
+		panic("(filterWorkByClient) clientid empty")
+	}
+
 	logger.Debug(3, fmt.Sprintf("starting filterWorkByClient() for client: %s", clientid))
 
 	workunit_list, err := qm.workQueue.Queue.GetWorkunits()
@@ -960,6 +1006,7 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, lock bool) (err error) 
 		return
 	}
 	for _, workid := range worklist {
+		logger.Debug(3, "(ReQueueWorkunitByClient) try to requeue work %s", workid)
 		has_work, xerr := qm.workQueue.Has(workid)
 		if xerr != nil {
 			continue

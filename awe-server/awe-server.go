@@ -246,6 +246,7 @@ func main() {
 	go core.QMgr.ClientHandle()
 	go core.QMgr.NoticeHandle()
 	go core.QMgr.ClientChecker()
+	go core.QMgr.UpdateQueueLoop()
 
 	goweb.ConfigureDefaultFormatters()
 	go launchSite(control, conf.SITE_PORT)

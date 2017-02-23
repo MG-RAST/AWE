@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 	//"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/golib/httpclient"
-	//"github.com/MG-RAST/AWE/lib/logger"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -393,7 +393,7 @@ func (sc *ShockClient) Do_request_DEPRECATED(method string, resource string, que
 
 //fetch file by shock url
 func FetchFile(filename string, url string, token string, uncompress string, computeMD5 bool) (size int64, md5sum string, err error) {
-	fmt.Printf("(FetchFile) fetching file name=%s, url=%s\n", filename, url)
+	logger.Debug(1, "(FetchFile) fetching file name=%s, url=%s\n", filename, url)
 
 	localfile, err := os.Create(filename)
 	if err != nil {

@@ -87,7 +87,7 @@ func (m *RWMutex) LockNamed(name string) (err error) {
 	select {
 	case <-m.writeLock: // Grab the ticket
 		logger.Debug(3, "(RWMutex/LockNamed %s) got lock", name)
-	case <-time.After(time.Second * 1800):
+	case <-time.After(time.Second * 20): //1800
 		//elapsed_time := time.Since(start_time)
 		reader_list := strings.Join(m.RList(), ",")
 		message := fmt.Sprintf("(%s) %s requests Lock. TIMEOUT!!! current owner: %s (reader list :%s), initial owner: %s", m.Name, name, m.lockOwner.Get(), reader_list, initial_owner)
@@ -122,11 +122,11 @@ func (m *RWMutex) Unlock() {
 }
 
 func (m *RWMutex) RLockNamed(name string) (rl ReadLock, err error) {
-	logger.Debug(3, "(%s) request RLock and Lock.", m.Name)
+	logger.Debug(3, "(%s, %s) request RLock and Lock.", m.Name, name)
 	if m.Name == "" {
 		panic("xzy name empty")
 	}
-	err = m.LockNamed("RLock/" + name)
+	err = m.LockNamed(m.Name + "/RLock " + name)
 	if err != nil {
 		return
 	}

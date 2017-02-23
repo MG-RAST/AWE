@@ -70,6 +70,7 @@ type ResourceMgr interface {
 	JobMgr
 	TaskHandle()
 	ClientHandle()
+	UpdateQueueLoop()
 	NoticeHandle()
 	GetJsonStatus() (map[string]map[string]int, error)
 	GetTextStatus() string

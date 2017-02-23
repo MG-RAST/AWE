@@ -48,6 +48,22 @@ func (cl *ClientMap) Get(client_id string, lock bool) (client *Client, ok bool, 
 	return
 }
 
+func (cl *ClientMap) Has(client_id string, lock bool) (ok bool, err error) {
+
+	if lock {
+		read_lock, xerr := cl.RLockNamed("Has")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer cl.RUnlockNamed(read_lock)
+	}
+
+	_, ok = cl._map[client_id]
+
+	return
+}
+
 func (cl *ClientMap) Delete(client_id string, lock bool) (err error) {
 
 	if lock {

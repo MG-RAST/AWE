@@ -111,6 +111,7 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 		upload_file_path := upload_file.Path
 		job, err = ParseJobTasks(upload_file_path)
 		if err != nil {
+			logger.Warning("(CreateJobUpload/ParseJobTasks) %s", err.Error())
 			//errDep := errors.New("")
 			err = nil
 			job, err = ParseJobTasksDep(files["upload"].Path)
@@ -188,7 +189,7 @@ func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
 
 	err = json.Unmarshal(jsonstream, job)
 	if err != nil {
-		return nil, errors.New("error in unmarshaling job json file: " + err.Error())
+		return nil, errors.New("(CreateJobImport) error in unmarshaling job json file: " + err.Error())
 	}
 
 	if len(job.Tasks) == 0 {
@@ -338,11 +339,12 @@ func ReadJobFile(filename string) (job *Job, err error) {
 
 	err = json.Unmarshal(jsonstream, job)
 	if err != nil {
-		err = fmt.Errorf("error in unmarshaling job json file: %s ", err.Error())
+		err = fmt.Errorf("(ReadJobFile) error in unmarshaling job json file: %s ", err.Error())
 	}
 
-	for _, task := range job.Tasks {
-		task.Init()
+	err = job.Init()
+	if err != nil {
+		return
 	}
 
 	//parse private fields task.Cmd.Environ.Private
@@ -373,11 +375,6 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 		return
 	}
 
-	err = job.Init()
-	if err != nil {
-		return
-	}
-
 	err = job.InitTasks()
 	if err != nil {
 		return
@@ -398,7 +395,7 @@ func ParseJobTasksDep(filename string) (job *Job, err error) {
 
 	err = json.Unmarshal(jsonstream, jobDep)
 	if err != nil {
-		return nil, errors.New("error in unmarshaling job json file: " + err.Error())
+		return nil, errors.New("(ParseJobTasksDep) error in unmarshaling job json file: " + err.Error())
 	}
 
 	//copy contents of jobDep struct into job struct
@@ -454,6 +451,7 @@ func ParseJobTasksDep(filename string) (job *Job, err error) {
 // Takes the deprecated (version 1) Job struct and returns the version 2 Job struct or an error
 func JobDepToJob(jobDep *JobDep) (job *Job) {
 	job = new(Job)
+	job.Init()
 	job.Id = jobDep.Id
 	job.Acl = jobDep.Acl
 	job.Info = jobDep.Info
@@ -470,6 +468,8 @@ func JobDepToJob(jobDep *JobDep) (job *Job) {
 	for _, taskDep := range jobDep.Tasks {
 		task := new(Task)
 		task.Id = taskDep.Id
+		task.Init()
+
 		task.Info = taskDep.Info
 		task.Cmd = taskDep.Cmd
 		//task.App = taskDep.App
@@ -481,7 +481,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job) {
 		task.RemainWork = taskDep.RemainWork
 		task.WorkStatus = taskDep.WorkStatus
 		task.SetState(taskDep.State)
-		task.Skip = taskDep.Skip
+		//task.Skip = taskDep.Skip
 		task.CreatedDate = taskDep.CreatedDate
 		task.StartedDate = taskDep.StartedDate
 		task.CompletedDate = taskDep.CompletedDate

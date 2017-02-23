@@ -60,7 +60,7 @@ func workStealer(control chan int) {
 			} else {
 				//something is wrong, server may be down
 
-				logger.Error("(workStealer) error in checking out workunit: %s, retry=%d", err.Error(), retry)
+				logger.Error("(workStealer) checking out workunit: %s, retry=%d", err.Error(), retry)
 				retry += 1
 			}
 			//if retry == 12 {

@@ -148,11 +148,8 @@ func clientId(t string) string {
 					return dat["client_id"].(string)
 				}
 			}
-		} else if resp.StatusCode == http.StatusForbidden {
-			errStr := "Authentication failed: Forbidden: " + resp.Status
-			logger.Error(errStr)
 		} else {
-			errStr := "Authentication failed: Unexpected response status: " + resp.Status
+			errStr := "Authentication failed: " + resp.Status
 			logger.Error(errStr)
 		}
 	}

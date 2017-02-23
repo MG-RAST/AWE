@@ -144,8 +144,9 @@ func clientId(t string) string {
 				if err = json.Unmarshal(body, &dat); err != nil {
 					errStr := "Error unmarshalling JSON body: " + err.Error()
 					logger.Error(errStr)
+				} else {
+					return dat["client_id"].(string)
 				}
-				return dat["client_id"].(string)
 			}
 		} else if resp.StatusCode == http.StatusForbidden {
 			errStr := "Authentication failed: Forbidden: " + resp.Status

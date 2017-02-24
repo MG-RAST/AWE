@@ -1522,6 +1522,15 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	jobct := 0
 	for _, dbjob := range *dbjobs {
 		logger.Debug(2, "recovering %d: job=%s, state=%s", jobct, dbjob.Id, dbjob.State)
+
+		// After AWE server restart no job can be in progress. (Unless we add this as a feature))
+		if dbjob.State == JOB_STAT_INPROGRESS {
+			reason := "awe server restart"
+			if err := dbjob.UpdateState(JOB_STAT_QUEUED, reason); err != nil {
+				continue
+			}
+		}
+
 		if dbjob.State == JOB_STAT_SUSPEND {
 			qm.putSusJob(dbjob.Id)
 		} else {

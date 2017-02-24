@@ -460,14 +460,17 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			}
 			err = task.LockNamed("handleWorkStatusChange/Outputs")
 			if err != nil {
+				task.Unlock()
 				return
 			}
 			for _, output := range task.Outputs {
 				if _, err = output.DataUrl(); err != nil {
+					task.Unlock()
 					return err
 				}
 				if hasFile := output.HasFile(); !hasFile {
-					fmt.Errorf("Task %s, output %s missing shock file", taskid, output.FileName)
+					err = fmt.Errorf("Task %s, output %s missing shock file", taskid, output.FileName)
+					task.Unlock()
 					return
 				}
 			}

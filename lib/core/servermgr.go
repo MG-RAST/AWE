@@ -486,6 +486,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		qm.workQueue.Delete(workid)
 	} else if status == WORK_STAT_FAIL { //workunit failed, requeue or put it to suspend list
 		logger.Event(event.WORK_FAIL, "workid="+workid+";clientid="+clientid)
+		logger.Debug(3, "work failed workid=%s clientid=%s", workid, clientid)
 		work.Failed += 1
 		qm.workQueue.Put(work)
 		//if task.Skip == 2 && task.Skippable() {

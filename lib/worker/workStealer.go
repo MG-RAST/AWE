@@ -118,6 +118,10 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	availableBytes := stat.Bavail * uint64(stat.Bsize)
 
 	response := new(WorkResponse)
+	if core.Self == nil {
+		err = fmt.Errorf("core.Self == nil")
+		return
+	}
 	targeturl := fmt.Sprintf("%s/work?client=%s&available=%d", conf.SERVER_URL, core.Self.Id, availableBytes)
 
 	var headers httpclient.Header

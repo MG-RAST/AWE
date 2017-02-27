@@ -25,6 +25,8 @@ func deliverer(control chan int) {
 
 func deliverer_run(control chan int) {
 
+	logger.Debug(3, "deliverer_run")
+
 	// this makes sure new work is only requested when deliverer is done
 	defer func() { <-chanPermit }()
 
@@ -52,8 +54,10 @@ func deliverer_run(control chan int) {
 
 	//post-process for works computed successfully: push output data to Shock
 	move_start := time.Now().UnixNano()
+	logger.Debug(3, "(deliverer_run) work.State: %s", work.State)
 	if work.State == core.WORK_STAT_COMPUTED {
-		if data_moved, err := cache.UploadOutputData(work); err != nil {
+		data_moved, err := cache.UploadOutputData(work)
+		if err != nil {
 			work.State = core.WORK_STAT_FAIL
 			logger.Error("[deliverer#UploadOutputData]workid=" + work.Id + ", err=" + err.Error())
 			work.Notes = work.Notes + "###[deliverer#UploadOutputData]" + err.Error()

@@ -409,7 +409,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		//bash_command = fmt.Sprint("/bin/bash", " ", wrapper_script_filename_docker, " ", pipe_output) // bash for wrapper script
 		bash_command = fmt.Sprint(wrapper_script_filename_docker, " ", pipe_output)
 	} else {
-		_ = args
+
 		bash_command = fmt.Sprintf("%s %s %s", commandName, strings.Join(args, " "), pipe_output)
 		//bash_command = fmt.Sprintf("uname -a %s", pipe_output)
 
@@ -731,7 +731,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	select {
 	case <-chankill:
-		logger.Debug(1, fmt.Sprint("chankill, try to kill conatiner %s... ", container_id))
+		logger.Debug(1, "chankill, try to kill container %s... ", container_id)
 
 		if client != nil {
 			err = client.KillContainer(docker.KillContainerOptions{ID: container_id})

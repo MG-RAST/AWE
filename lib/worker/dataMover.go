@@ -301,6 +301,8 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 		return
 	}
 
+	logger.Debug(3, "argstr: %s", argstr)
+
 	workpath := work.Path()
 	if len(work.Cmd.Dockerimage) > 0 {
 		workpath = conf.DOCKER_WORK_DIR

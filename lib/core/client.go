@@ -142,6 +142,7 @@ func (cl *Client) Append_Skip_work(workid string, write_lock bool) (err error) {
 			return
 		}
 	}
+
 	cl.Skip_work = append(cl.Skip_work, workid)
 	if write_lock {
 		cl.Unlock()

@@ -8,14 +8,14 @@
     "tasks": [
         {
             "cmd": {
-                "name": "ls / > ",
-                "args": "@test.out",
-                "description": "test",
+                "name": "cp",
+                "args": "/etc/hosts myhosts.txt",
+                "description": "copy",
                 "Dockerimage": "mgrast/pipeline:latest"
             },
             "outputs" : [
                 {
-                    "filename": "test.out", 
+                    "filename": "myhosts.txt", 
                     "host": "http://shock:7445"
                 }
             ],
@@ -24,21 +24,21 @@
         },
         {
             "cmd": {
-                "name" : "wc",
-                "args" : "-l @test.out > wordcount.txt",
-                "description": "test2",
+                "name" : "cp",
+                "args" : "@myhosts.txt secondfile.txt",
+                "description": "wordcount",
                 "Dockerimage": "mgrast/pipeline:latest"
             },
             "inputs": [
                 {
-                    "filename" : "test.out", 
+                    "filename" : "myhosts.txt", 
                     "host": "http://shock:7445",
                     "origin" : "0"
                 }
             ],
             "outputs" : [
                 {
-                    "filename" : "wordcount.txt",
+                    "filename" : "secondfile.txt",
                     "host"     : "http://shock:7445"
                 }
             ],

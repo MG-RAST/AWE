@@ -523,10 +523,25 @@ func moveInputData(work *core.Workunit) (size int64, err error) {
 		logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
 
 		// this gets file from any downloadable url, not just shock
-		if datamoved, _, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false); err != nil {
-			return size, err
-		} else {
+		retry := 1
+		for true {
+			datamoved, _, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false)
+			if err != nil {
+				if !strings.Contains(err.Error(), "Node has no file") {
+					return size, err
+				}
+				if retry >= 3 {
+					return size, err
+				}
+				logger.Warning("Will retry download, got this error: %s", err.Error())
+				time.Sleep(time.Second * 20)
+				retry += 1
+				continue
+			}
+
 			size += datamoved
+			break
+
 		}
 		logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
 	}

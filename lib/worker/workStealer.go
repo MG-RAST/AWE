@@ -44,7 +44,7 @@ func workStealer(control chan int) {
 		if err != nil {
 			if err.Error() == e.QueueEmpty || err.Error() == e.QueueSuspend || err.Error() == e.NoEligibleWorkunitFound {
 				//normal, do nothing
-				logger.Debug(3, "(workStealer) client %s recieved status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL)
+				logger.Debug(3, "(workStealer) client %s received status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL)
 			} else if err.Error() == e.ClientNotFound {
 				logger.Error("(workStealer) server responds: client not found. will wait for heartbeat process to fix this")
 				//server may be restarted, waiting for the hearbeater goroutine to try re-register

@@ -25,6 +25,18 @@ func (this *WorkMap) Get(id string) (value int, ok bool, err error) {
 	return
 }
 
+func (this *WorkMap) GetKeys() (value []string, err error) {
+	rlock, err := this.RLockNamed("Get")
+	if err != nil {
+		return
+	}
+	defer this.RUnlockNamed(rlock)
+	for work, _ := range this._map {
+		value = append(value, work)
+	}
+	return
+}
+
 func (this *WorkMap) Set(id string, value int, name string) (err error) {
 	err = this.LockNamed("Set_" + name)
 	if err != nil {

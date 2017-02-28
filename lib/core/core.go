@@ -25,6 +25,7 @@ var (
 	Service       string = "unknown"
 	Self          *Client
 	ProxyWorkChan chan bool
+	Server_UUID   string
 )
 
 type StandardResponse struct {

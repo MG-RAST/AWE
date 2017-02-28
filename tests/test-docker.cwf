@@ -48,7 +48,7 @@
         {
             "cmd": {
                 "name": "sleep",
-                "args": "1m",
+                "args": "10s",
                 "description": "test3",
                 "Dockerimage": "mgrast/pipeline:latest"
             },

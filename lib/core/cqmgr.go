@@ -25,6 +25,7 @@ type CQMgr struct {
 	//coAck        chan CoAck  //workunit checkout item including data and err (qmgr.Handler -> WorkController)
 	feedback chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
 	coSem    chan int    //semaphore for checkout (mutual exclusion between different clients)
+
 }
 
 func NewCQMgr() *CQMgr {
@@ -37,6 +38,7 @@ func NewCQMgr() *CQMgr {
 		//coAck:        make(chan CoAck),
 		feedback: make(chan Notice),
 		coSem:    make(chan int, 1), //non-blocking buffered channel
+
 	}
 }
 
@@ -272,6 +274,8 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err e
 	if client.Status == CLIENT_STAT_DELETED {
 		hbmsg["stop"] = id
 	}
+
+	hbmsg["server-uuid"] = Server_UUID
 
 	return
 
@@ -854,17 +858,17 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 		return
 	}
 	if !ok {
-		err = fmt.Errorf("Client %s not found", client_id)
+		err = fmt.Errorf("(popWorks) Client %s not found", client_id)
 		return
 	}
 
-	logger.Debug(3, "starting popWorks() for client: %s", client_id)
+	logger.Debug(3, "(popWorks) starting for client: %s", client_id)
 
 	filtered, err := qm.filterWorkByClient(client)
 	if err != nil {
 		return
 	}
-	logger.Debug(2, "popWorks filtered: %d (0 meansNoEligibleWorkunitFound)", len(filtered))
+	logger.Debug(2, "(popWorks) filterWorkByClient returned: %d (0 meansNoEligibleWorkunitFound)", len(filtered))
 	if len(filtered) == 0 {
 		return nil, errors.New(e.NoEligibleWorkunitFound)
 	}
@@ -897,19 +901,20 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err err
 		panic("(filterWorkByClient) clientid empty")
 	}
 
-	logger.Debug(3, fmt.Sprintf("starting filterWorkByClient() for client: %s", clientid))
+	logger.Debug(3, "(filterWorkByClient) starting for client: %s", clientid)
 
 	workunit_list, err := qm.workQueue.Queue.GetWorkunits()
 	if err != nil {
 		return
 	}
+	logger.Debug(3, "(filterWorkByClient) GetWorkunits() returned: %d", len(workunit_list))
 	for _, workunit := range workunit_list {
 		id := workunit.Id
 		logger.Debug(3, "check if job %s would fit client %s", id, clientid)
 
 		//skip works that are in the client's skip-list
 		if client.Contains_Skip_work_nolock(workunit.Id) {
-			logger.Debug(3, "2) workunit %s is in Skip_work list of the client %s) %s", id, clientid)
+			logger.Debug(3, "2) workunit %s is in Skip_work list of the client %s)", id, clientid)
 			continue
 		}
 		//skip works that have dedicate client groups which this client doesn't belong to

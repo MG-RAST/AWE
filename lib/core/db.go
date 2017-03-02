@@ -192,6 +192,26 @@ func dbFindSortClientGroups(q bson.M, results *ClientGroups, options map[string]
 	return
 }
 
+func dbUpdateTask(job_id string, task *Task) (err error) {
+	task_id, err := task.GetId()
+	if err != nil {
+		return
+	}
+
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+
+	selector := bson.M{"_id": job_id, "tasks.Id": task_id}
+
+	update_value := bson.M{"tasks.$": task}
+
+	err = c.Update(selector, bson.M{"$set": update_value})
+
+	return
+}
+
 func LoadJob(id string) (job *Job, err error) {
 	job = new(Job)
 	session := db.Connection.Session.Copy()

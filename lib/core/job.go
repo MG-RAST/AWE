@@ -367,17 +367,17 @@ func (job *Job) UpdateState(newState string, notes string) (err error) {
 //invoked to modify job info in mongodb when a task in that job changed to the new status
 // task is already locked
 func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
-	idx := -1
-	for i, t := range job.Tasks {
-		if t.Id == task.Id {
-			idx = i
-			break
-		}
-	}
-	if idx == -1 {
-		return job.RemainTasks, errors.New("job.UpdateTask: no task found with id=" + task.Id)
-	}
-	job.Tasks[idx] = task
+	//idx := -1
+	//for i, t := range job.Tasks {
+	//	if t.Id == task.Id {
+	//		idx = i
+	//		break
+	//	}
+	//}
+	//if idx == -1 {
+	//	return job.RemainTasks, errors.New("job.UpdateTask: no task found with id=" + task.Id)
+	//}
+	//job.Tasks[idx] = task
 
 	//if this task is complete, count remain tasks for the job
 	task_state := task.State
@@ -398,7 +398,9 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 			job.Info.CompletedTime = time.Now()
 		}
 	}
-	return job.RemainTasks, job.Save()
+	remainTasks = job.RemainTasks
+	err = job.Save()
+	return
 }
 
 func (job *Job) SetClientgroups(clientgroups string) (err error) {

@@ -323,8 +323,9 @@ func (qm *ServerMgr) updateQueue() (err error) {
 			logger.Error("(updateQueue) isTaskReady=%s error: %s", task.Id, xerr.Error())
 			continue
 		}
-		logger.Debug(3, "(updateQueue) task ready: %s", task.Id)
+
 		if task_ready {
+			logger.Debug(3, "(updateQueue) task ready: %s", task.Id)
 			err := qm.taskEnQueue(task)
 			if err != nil {
 				task.SetState(TASK_STAT_SUSPEND)
@@ -333,6 +334,8 @@ func (qm *ServerMgr) updateQueue() (err error) {
 				continue
 			}
 			logger.Debug(3, "(updateQueue) task enqueued: %s", task.Id)
+		} else {
+			logger.Debug(3, "(updateQueue) task not ready: %s", task.Id)
 		}
 		//qm.updateTask(task)
 	}
@@ -460,7 +463,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		remain_work := task.RemainWork
 		task.Unlock()
 
-		logger.Debug(3, "(handleWorkStatusChange) remain_work: %s", remain_work)
+		logger.Debug(3, "(handleWorkStatusChange) remain_work: %d (%s)", remain_work, workid)
 
 		if remain_work == 0 {
 			err = task.SetState(TASK_STAT_COMPLETED)
@@ -1239,6 +1242,12 @@ func (qm *ServerMgr) ShowTasks() {
 func (qm *ServerMgr) updateJobTask(task *Task, lock_task bool) (err error) {
 	parts := strings.Split(task.Id, "_")
 	jobid := parts[0]
+
+	err = dbUpdateTask(jobid, task)
+	if err != nil {
+		return
+	}
+
 	job, err := LoadJob(jobid)
 	if err != nil {
 		return

@@ -29,7 +29,7 @@ type TaskRaw struct {
 	Info        *Info     `bson:"info" json:"-"`
 	Cmd         *Command  `bson:"cmd" json:"cmd"`
 	Partition   *PartInfo `bson:"partinfo" json:"-"`
-	DependsOn   []string  `bson:"dependsOn" json:"dependsOn"`
+	DependsOn   []string  `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
 	TotalWork   int       `bson:"totalwork" json:"totalwork"`
 	MaxWorkSize int       `bson:"maxworksize"   json:"maxworksize"`
 	RemainWork  int       `bson:"remainwork" json:"remainwork"`
@@ -387,7 +387,7 @@ func (task *Task) setTokenForIO() {
 	}
 }
 
-func (task *Task) ParseWorkunit() (wus []*Workunit, err error) {
+func (task *Task) CreateWorkunits() (wus []*Workunit, err error) {
 	//if a task contains only one workunit, assign rank 0
 	if task.TotalWork == 1 {
 		workunit := NewWorkunit(task, 0)

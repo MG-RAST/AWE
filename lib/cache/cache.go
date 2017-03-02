@@ -13,6 +13,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -170,10 +171,26 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 			logger.Event(event.FILE_IN, "workid="+work.Id+";url="+dataUrl)
 
 			// download file
-			if datamoved, _, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false); err != nil {
-				return size, errors.New("shock.FetchFile returned: " + err.Error())
-			} else {
+			retry := 1
+			for true {
+				datamoved, _, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false)
+				if err != nil {
+					if !strings.Contains(err.Error(), "Node has no file") {
+						logger.Debug(3, "(MoveInputData) got: err.Error()")
+						return size, err
+					}
+					logger.Debug(3, "(MoveInputData) got: Node has no file")
+					if retry >= 3 {
+						return size, err
+					}
+					logger.Warning("(MoveInputData) Will retry download, got this error: %s", err.Error())
+					time.Sleep(time.Second * 20)
+					retry += 1
+					continue
+				}
+
 				size += datamoved
+				break
 			}
 			logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
 		}

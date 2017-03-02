@@ -29,7 +29,7 @@ const (
 	ID_WORKER        = 3
 	ID_DELIVERER     = 4
 	ID_REDISTRIBUTOR = 5
-	ID_DISCARDED     = 6
+	ID_DISCARDED     = 6 // flag acts as a message
 )
 
 func InitWorkers(client *core.Client) (err error) {

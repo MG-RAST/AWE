@@ -72,7 +72,7 @@ func (qm *ServerMgr) TaskHandle() {
 	logger.Info("TaskHandle is starting")
 	for {
 		task := <-qm.taskIn
-		logger.Debug(2, "qmgr:task recived from chan taskIn, id=%s", task.Id)
+		logger.Debug(2, "ServerMgr/TaskHandle received task from channel taskIn, id=%s", task.Id)
 		qm.addTask(task)
 	}
 }
@@ -151,8 +151,9 @@ func (qm *ServerMgr) NoticeHandle() {
 	for {
 		notice := <-qm.feedback
 		logger.Debug(3, "(ServerMgr NoticeHandle) got notice: workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId)
-		if err := qm.handleWorkStatusChange(notice); err != nil {
-			logger.Error("handleWorkStatusChange(): " + err.Error())
+		err := qm.handleWorkStatusChange(notice)
+		if err != nil {
+			logger.Error("(NoticeHandle) handleWorkStatusChange() returned: " + err.Error())
 		}
 		//qm.updateQueue()
 	}
@@ -357,6 +358,9 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	workid := notice.WorkId
 	status := notice.Status
 	clientid := notice.ClientId
+
+	logger.Debug(3, "(handleWorkStatusChange) workid: %s status: %s client: %s", workid, status, clientid)
+
 	computetime := notice.ComputeTime
 	parts := strings.Split(workid, "_")
 	taskid := fmt.Sprintf("%s_%s", parts[0], parts[1])
@@ -394,7 +398,14 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	if err != nil {
 		return
 	}
-	if (!wok) || (work.State != WORK_STAT_CHECKOUT) {
+
+	if !wok {
+		err = fmt.Errorf("(handleWorkStatusChange) workunit %s not found in workQueue", workid)
+		return
+	}
+
+	if work.State != WORK_STAT_CHECKOUT {
+		err = fmt.Errorf("(handleWorkStatusChange) workunit %s did not have state WORK_STAT_CHECKOUT", workid)
 		return
 	}
 
@@ -449,6 +460,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		remain_work := task.RemainWork
 		task.Unlock()
 
+		logger.Debug(3, "(handleWorkStatusChange) remain_work: %s", remain_work)
+
 		if remain_work == 0 {
 			err = task.SetState(TASK_STAT_COMPLETED)
 			if err != nil {
@@ -460,7 +473,6 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			}
 			err = task.LockNamed("handleWorkStatusChange/Outputs")
 			if err != nil {
-				task.Unlock()
 				return
 			}
 			for _, output := range task.Outputs {
@@ -469,7 +481,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 					return err
 				}
 				if hasFile := output.HasFile(); !hasFile {
-					err = fmt.Errorf("Task %s, output %s missing shock file", taskid, output.FileName)
+					err = fmt.Errorf("(handleWorkStatusChange) Task %s, output %s missing shock file", taskid, output.FileName)
 					task.Unlock()
 					return
 				}
@@ -480,7 +492,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			logger.Event(event.TASK_DONE, "taskid="+taskid)
 			//update the info of the job which the task is belong to, could result in deletion of the
 			//task in the task map when the task is the final task of the job to be done.
-			err = qm.updateJobTask(task, true) //task state QUEUED -> COMPELTED
+			err = qm.updateJobTask(task, true) //task state QUEUED -> COMPLETED
 		}
 		//done, remove from the workQueue
 		qm.workQueue.Delete(workid)
@@ -964,33 +976,36 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 		err = xerr
 		return
 	}
-	ready = true
+
 	logger.Debug(3, "(isTaskReady) range deps %s (%d)", task_id, len(deps))
 	for _, predecessor := range deps {
 		pretask, ok, yerr := qm.TaskMap.Get(predecessor, true)
 		if yerr != nil {
 			err = yerr
-			ready = false
+
 			return
 		}
 		if ok {
 			pretask_state, zerr := pretask.GetState()
 			if zerr != nil {
 				err = zerr
-				ready = false
+
 				return
 			}
 			if pretask_state != TASK_STAT_COMPLETED &&
 				pretask_state != TASK_STAT_PASSED &&
 				pretask_state != TASK_STAT_SKIPPED &&
 				pretask_state != TASK_STAT_FAIL_SKIP {
-				ready = false
+
+				return
 			}
 		} else {
 			logger.Error("warning: predecessor " + predecessor + " is unknown")
 			ready = false
 		}
 	}
+	logger.Debug(3, "(isTaskReady) task %s is ready", task_id)
+	ready = true
 
 	//skip, err := task.GetSkip()
 	//if err != nil {
@@ -1030,8 +1045,8 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 		logger.Error("qmgr.taskEnQueue createOutputNode:" + err.Error())
 		return err
 	}
-	if err := qm.parseTask(task); err != nil {
-		logger.Error("qmgr.taskEnQueue parseTask:" + err.Error())
+	if err := qm.CreateAndEnqueueWorkunits(task); err != nil {
+		logger.Error("qmgr.taskEnQueue CreateAndEnqueueWorkunits:" + err.Error())
 		return err
 	}
 	task.State = TASK_STAT_QUEUED
@@ -1110,8 +1125,8 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 	return
 }
 
-func (qm *ServerMgr) parseTask(task *Task) (err error) {
-	workunits, err := task.ParseWorkunit()
+func (qm *ServerMgr) CreateAndEnqueueWorkunits(task *Task) (err error) {
+	workunits, err := task.CreateWorkunits()
 	if err != nil {
 		return err
 	}

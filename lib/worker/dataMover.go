@@ -505,10 +505,12 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 	return
 }
 
-//fetch input data
+//fetch input data // TODO Is this deprecated ?
 func moveInputData(work *core.Workunit) (size int64, err error) {
+	logger.Debug(3, "(moveInputData) starting")
 	for _, io := range work.Inputs {
 		inputname := io.FileName
+		logger.Debug(3, "(moveInputData) inputname: %s", inputname)
 		dataUrl, uerr := io.DataUrl()
 		if uerr != nil {
 			return 0, uerr
@@ -528,8 +530,10 @@ func moveInputData(work *core.Workunit) (size int64, err error) {
 			datamoved, _, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false)
 			if err != nil {
 				if !strings.Contains(err.Error(), "Node has no file") {
+					logger.Debug(3, "(moveInputData) got: err.Error()")
 					return size, err
 				}
+				logger.Debug(3, "(moveInputData) got: Node has no file")
 				if retry >= 3 {
 					return size, err
 				}

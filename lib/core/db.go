@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
+	"github.com/MG-RAST/AWE/lib/logger"
+
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -203,11 +205,38 @@ func dbUpdateTask(job_id string, task *Task) (err error) {
 
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 
-	selector := bson.M{"_id": job_id, "tasks.Id": task_id}
+	logger.Debug(3, "(dbUpdateTask) task_id: %s", task_id)
+
+	selector := bson.M{"id": job_id, "tasks.taskid": task_id}
 
 	update_value := bson.M{"tasks.$": task}
 
 	err = c.Update(selector, bson.M{"$set": update_value})
+	if err != nil {
+		err = fmt.Errorf("Error updating task: " + err.Error())
+		return
+	}
+
+	return
+}
+
+func dbUpdateJobField(job_id string, key string, value string) (err error) {
+
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+
+	query := bson.M{"id": job_id}
+
+	update_value := bson.M{key: value}
+	update := bson.M{"$set": update_value}
+
+	err = c.Update(query, update)
+	if err != nil {
+		err = fmt.Errorf("Error updating job %s and key %s in job: %s", job_id, key, err.Error())
+		return
+	}
 
 	return
 }

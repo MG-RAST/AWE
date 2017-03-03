@@ -1243,11 +1243,14 @@ func (qm *ServerMgr) updateJobTask(task *Task, lock_task bool) (err error) {
 	parts := strings.Split(task.Id, "_")
 	jobid := parts[0]
 
+	logger.Debug(3, "(ServerMgr/updateJobTask) call dbUpdateTask")
 	err = dbUpdateTask(jobid, task)
 	if err != nil {
+		//panic(err.Error())
 		return
 	}
 
+	logger.Debug(3, "(ServerMgr/updateJobTask) call LoadJob")
 	job, err := LoadJob(jobid)
 	if err != nil {
 		return
@@ -1551,12 +1554,15 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	for _, dbjob := range *dbjobs {
 		logger.Debug(2, "recovering %d: job=%s, state=%s", jobct, dbjob.Id, dbjob.State)
 
-		// After AWE server restart no job can be in progress. (Unless we add this as a feature))
+		// Directly after AWE server restart no job can be in progress. (Unless we add this as a feature))
 		if dbjob.State == JOB_STAT_INPROGRESS {
-			reason := "awe server restart"
-			if err := dbjob.UpdateState(JOB_STAT_QUEUED, reason); err != nil {
+			//reason := "awe server restart"
+			err = dbUpdateJobField(dbjob.Id, "state", JOB_STAT_QUEUED)
+			if err != nil {
+				logger.Error("error while recover: " + err.Error())
 				continue
 			}
+			dbjob.State = JOB_STAT_QUEUED
 		}
 
 		if dbjob.State == JOB_STAT_SUSPEND {

@@ -235,14 +235,8 @@ func (job *Job) UpdateFile(files FormFiles, field string) (err error) {
 	return
 }
 
-func (job *Job) Save() (err error) {
-	if job.Id == "" {
-		err = fmt.Errorf("job id empty")
-		return
-	}
-	logger.Debug(1, "Save() saving job: %s", job.Id)
+func (job *Job) SaveToDisk() (err error) {
 
-	job.UpdateTime = time.Now()
 	var job_path string
 	job_path, err = job.Path()
 	if err != nil {
@@ -268,6 +262,24 @@ func (job *Job) Save() (err error) {
 		err = errors.New("error writing file in job.Save(), error=" + err.Error())
 		return
 	}
+
+	return
+}
+
+func (job *Job) Save() (err error) {
+	if job.Id == "" {
+		err = fmt.Errorf("job id empty")
+		return
+	}
+	logger.Debug(1, "Save() saving job: %s", job.Id)
+
+	job.UpdateTime = time.Now()
+
+	err = job.SaveToDisk()
+	if err != nil {
+		return
+	}
+
 	logger.Debug(1, "Save() dbUpsert next: %s", job.Id)
 	err = dbUpsert(job)
 	if err != nil {

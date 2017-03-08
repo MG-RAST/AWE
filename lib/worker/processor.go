@@ -81,7 +81,7 @@ func processor(control chan int) {
 		_ = envkeys
 
 		wants_docker := false
-		if work.Cmd.Dockerimage != "" {
+		if work.Cmd.Dockerimage != "" || work.Cmd.DockerPull != "" {
 			wants_docker = true
 		}
 
@@ -138,7 +138,7 @@ func processor(control chan int) {
 
 func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
-	if work.Cmd.Dockerimage != "" {
+	if work.Cmd.Dockerimage != "" || work.Cmd.DockerPull != "" {
 		pstats, err = RunWorkunitDocker(work)
 	} else {
 		pstats, err = RunWorkunitDirect(work)
@@ -213,18 +213,31 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	container_name := "AWE_workunit_" + DockerizeName(conf.CLIENT_NAME)
 
-	if work.Cmd.Dockerimage == "" {
-		err = fmt.Errorf("Error Dockerimage string empty")
+	if work.Cmd.Dockerimage != "" {
+		logger.Debug(1, "using Dockerimage: %s", work.Cmd.Dockerimage)
+	} else if work.Cmd.DockerPull != "" {
+		logger.Debug(1, "using DockerPull: %s", work.Cmd.DockerPull)
+	} else {
+		err = fmt.Errorf("Error Dockerimage/DockerPull string empty")
 		return
 	}
 
-	logger.Debug(1, "Dockerimage: %s", work.Cmd.Dockerimage)
-
 	dockerimage_repo := ""
 	dockerimage_tag := ""
-	dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(work.Cmd.Dockerimage)
-	if err != nil {
-		return
+
+	if work.Cmd.Dockerimage != "" {
+
+		dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(work.Cmd.Dockerimage)
+		if err != nil {
+			return
+		}
+	}
+	if work.Cmd.DockerPull != "" {
+
+		dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(work.Cmd.DockerPull)
+		if err != nil {
+			return
+		}
 	}
 
 	Dockerimage_normalized := dockerimage_repo + ":" + dockerimage_tag
@@ -260,122 +273,144 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	//var node *core.ShockNode = nil
 	// find image in repo (e.g. extract docker image id)
-	node, dockerimage_download_url, err := findDockerImageInShock(Dockerimage_normalized, work.Info.DataToken)
-	if err != nil {
-		err = fmt.Errorf("Error getting docker url, err=%s", err.Error())
-		return
-	}
 
-	// TODO attr_json, _ := json.Marshal(node.Attributes) might be better
-	node_attr_map, ok := node.Attributes.(map[string]interface{})
-	if !ok {
-		err = fmt.Errorf("(1) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage_normalized)
-		return
-	}
+	dockerimage_id := ""
 
-	dockerimage_id, ok := node_attr_map["id"].(string)
-	if !ok {
-		err = fmt.Errorf("(2) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage_normalized)
-		return
+	if work.Cmd.Dockerimage != "" {
+
+		node, dockerimage_download_url, xerr := findDockerImageInShock(Dockerimage_normalized, work.Info.DataToken)
+		if xerr != nil {
+			err = fmt.Errorf("Error getting docker url, err=%s", xerr.Error())
+			return
+		}
+
+		// TODO attr_json, _ := json.Marshal(node.Attributes) might be better
+		node_attr_map, ok := node.Attributes.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("(1) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage_normalized)
+			return
+		}
+
+		dockerimage_id, ok := node_attr_map["id"].(string)
+		if !ok {
+			err = fmt.Errorf("(2) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage_normalized)
+			return
+		}
+
+		if dockerimage_id == "" {
+			err = fmt.Errorf("Id of Dockerimage=%s not found", Dockerimage_normalized)
+			return
+		}
+		logger.Debug(1, "using dockerimage id %s instead of name %s ", dockerimage_id, Dockerimage_normalized)
+
+		// *** find/inspect image
+		var image *docker.Image
+		image, err = InspectImage(client, dockerimage_id)
+
+		if err != nil {
+
+			logger.Debug(1, "docker image %s is not yet in local repository", Dockerimage_normalized)
+			err = nil
+
+			image_retrieval := "load" // TODO only load is guaraneed to work
+			//image_retrieval := "pull"
+			switch {
+			case image_retrieval == "load":
+				{ // for images that have been saved
+					logger.Debug(1, "Loading image %s", dockerimage_download_url)
+					err = dockerLoadImage(client, dockerimage_download_url, work.Info.DataToken)
+					if err != nil {
+						err = fmt.Errorf("Docker image was not correctly loaded, err=%s", err.Error())
+						return
+					}
+				}
+			case image_retrieval == "import":
+				{ // for containers that have been exported
+					logger.Debug(1, "Importing image %s", Dockerimage_normalized)
+					xerr := dockerImportImage(client, Dockerimage_normalized, work.Info.DataToken)
+					if xerr != nil {
+						err = fmt.Errorf("Docker image was not correctly imported, err=%s", xerr.Error())
+						return
+					}
+				}
+			case image_retrieval == "build":
+				{ // to create image from Dockerfile
+					logger.Debug(1, "Building image %s", Dockerimage_normalized)
+					xerr := dockerBuildImage(client, Dockerimage_normalized)
+					if xerr != nil {
+						err = fmt.Errorf("Docker image was not correctly built, err=%s", xerr.Error())
+						return
+					}
+				}
+			case image_retrieval == "pull":
+				{ // pull from docker hub
+					logger.Debug(1, "Pulling image %s", Dockerimage_normalized)
+					var buf bytes.Buffer
+					pio := docker.PullImageOptions{Repository: Dockerimage_normalized, OutputStream: &buf}
+					xerr := client.PullImage(pio, docker.AuthConfiguration{})
+					logger.Debug(3, "docker pull response: ", buf.String())
+					if xerr != nil {
+						err = fmt.Errorf("Docker image was not correctly pulled, err=%s", xerr.Error())
+						return
+					}
+				}
+			}
+
+			// example urls
+			// find image : http://shock.metagenomics.anl.gov/node/?query&docker=1&tag=wgerlach/bowtie2:2.2.0
+			// view node: http://shock.metagenomics.anl.gov/node/ed0a6b20-c535-40d7-92e8-754bb8b6b48f
+			// download http://shock.metagenomics.anl.gov/node/ed0a6b20-c535-40d7-92e8-754bb8b6b48f?download
+
+			// last test
+			if dockerimage_id != "" {
+				image, err = InspectImage(client, dockerimage_id)
+				if err != nil {
+					err = fmt.Errorf("(InspectImage) Docker image (%s , %s) was not correctly imported or built, err=%s", Dockerimage_normalized, dockerimage_id, err.Error())
+					return
+				}
+			} else {
+				image, err = InspectImage(client, Dockerimage_normalized)
+				if xerr != nil {
+					err = fmt.Errorf("(InspectImage) Docker image (%s) was not correctly imported or built, err=%s", Dockerimage_normalized, err.Error())
+					return
+				}
+			}
+
+		} else {
+			logger.Debug(1, "docker image %s is already in local repository", Dockerimage_normalized)
+		}
+
+		if dockerimage_id != image.ID {
+			err = fmt.Errorf("error: dockerimage_id != image.ID, %s != %s (%s)", dockerimage_id, image.ID, Dockerimage_normalized)
+			return
+		}
+
+		// tag image to make debugging easier
+		tag_opts := docker.TagImageOptions{Repo: dockerimage_repo, Tag: dockerimage_tag}
+
+		err = TagImage(client, dockerimage_id, tag_opts)
+		if err != nil {
+			logger.Error("warning: tagging of image %s with %s failed, err:", dockerimage_id, Dockerimage_normalized, err.Error())
+		}
+
+	} else if work.Cmd.DockerPull != "" {
+
+		logger.Debug(1, "Pulling image %s from Docker Hub", Dockerimage_normalized)
+		var buf bytes.Buffer
+		pio := docker.PullImageOptions{Repository: Dockerimage_normalized, OutputStream: &buf}
+		err = client.PullImage(pio, docker.AuthConfiguration{})
+		logger.Debug(3, "docker pull response: ", buf.String())
+		if err != nil {
+			err = fmt.Errorf("Docker image was not correctly pulled, err=%s", err.Error())
+			return
+		}
+
+		dockerimage_id = work.Cmd.DockerPull
 	}
 
 	if dockerimage_id == "" {
-		err = fmt.Errorf("Id of Dockerimage=%s not found", Dockerimage_normalized)
+		err = fmt.Errorf("dockerimage_id empty")
 		return
-	}
-	logger.Debug(1, "using dockerimage id %s instead of name %s ", dockerimage_id, Dockerimage_normalized)
-
-	// *** find/inspect image
-	image, err := InspectImage(client, dockerimage_id)
-
-	if err != nil {
-
-		logger.Debug(1, "docker image %s is not yet in local repository", Dockerimage_normalized)
-		err = nil
-
-		image_retrieval := "load" // TODO only load is guaraneed to work
-		//image_retrieval := "pull"
-		switch {
-		case image_retrieval == "load":
-			{ // for images that have been saved
-				logger.Debug(1, "Loading image %s", dockerimage_download_url)
-				err = dockerLoadImage(client, dockerimage_download_url, work.Info.DataToken)
-				if err != nil {
-					err = fmt.Errorf("Docker image was not correctly loaded, err=%s", err.Error())
-					return
-				}
-			}
-		case image_retrieval == "import":
-			{ // for containers that have been exported
-				logger.Debug(1, "Importing image %s", Dockerimage_normalized)
-				err = dockerImportImage(client, Dockerimage_normalized, work.Info.DataToken)
-				if err != nil {
-					err = fmt.Errorf("Docker image was not correctly imported, err=%s", err.Error())
-					return
-				}
-			}
-		case image_retrieval == "build":
-			{ // to create image from Dockerfile
-				logger.Debug(1, "Building image %s", Dockerimage_normalized)
-				err = dockerBuildImage(client, Dockerimage_normalized)
-				if err != nil {
-					err = fmt.Errorf("Docker image was not correctly built, err=%s", err.Error())
-					return
-				}
-			}
-		case image_retrieval == "pull":
-			{ // pull from docker hub
-				logger.Debug(1, "Pulling image %s", Dockerimage_normalized)
-				var buf bytes.Buffer
-				pio := docker.PullImageOptions{Repository: Dockerimage_normalized, OutputStream: &buf}
-				err = client.PullImage(pio, docker.AuthConfiguration{})
-				logger.Debug(3, "docker pull response: ", buf.String())
-				if err != nil {
-					err = fmt.Errorf("Docker image was not correctly pulled, err=%s", err.Error())
-					return
-				}
-			}
-		}
-
-		// example urls
-		// find image : http://shock.metagenomics.anl.gov/node/?query&docker=1&tag=wgerlach/bowtie2:2.2.0
-		// view node: http://shock.metagenomics.anl.gov/node/ed0a6b20-c535-40d7-92e8-754bb8b6b48f
-		// download http://shock.metagenomics.anl.gov/node/ed0a6b20-c535-40d7-92e8-754bb8b6b48f?download
-
-		if node != nil {
-
-		}
-		// last test
-		if dockerimage_id != "" {
-			image, err = InspectImage(client, dockerimage_id)
-			if err != nil {
-				err = fmt.Errorf("(InspectImage) Docker image (%s , %s) was not correctly imported or built, err=%s", Dockerimage_normalized, dockerimage_id, err.Error())
-				return
-			}
-		} else {
-			image, err = InspectImage(client, Dockerimage_normalized)
-			if err != nil {
-				err = fmt.Errorf("(InspectImage) Docker image (%s) was not correctly imported or built, err=%s", Dockerimage_normalized, err.Error())
-				return
-			}
-		}
-
-	} else {
-		logger.Debug(1, "docker image %s is already in local repository", Dockerimage_normalized)
-	}
-
-	if dockerimage_id != image.ID {
-		err = fmt.Errorf("error: dockerimage_id != image.ID, %s != %s (%s)", dockerimage_id, image.ID, Dockerimage_normalized)
-		return
-	}
-
-	// tag image to make debugging easier
-
-	tag_opts := docker.TagImageOptions{Repo: dockerimage_repo, Tag: dockerimage_tag}
-
-	err = TagImage(client, dockerimage_id, tag_opts)
-	if err != nil {
-		logger.Error("warning: tagging of image %s with %s failed, err:", dockerimage_id, Dockerimage_normalized, err.Error())
 	}
 
 	// collect environment

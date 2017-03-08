@@ -180,12 +180,9 @@ func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
 	return 0, errors.New("invalid totalunits for shock node:" + io.Node)
 }
 
-func (io *IO) DeleteNode() (nodeid string, err error) {
-	if io.Delete {
-		if err := shock.ShockDelete(io.Host, io.Node, io.DataToken); err != nil {
-			return io.Node, err
-		}
-		return io.Node, nil
-	}
-	return "", nil
+func (io *IO) DeleteNode() (err error) {
+
+	err = shock.ShockDelete(io.Host, io.Node, io.DataToken)
+	return
+
 }

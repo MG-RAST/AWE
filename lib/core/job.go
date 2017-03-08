@@ -474,7 +474,7 @@ func (job *Job) SetDataToken(token string) (err error) {
 	return
 }
 
-func (job *Job) SetExpiration(expire string) (err error) {
+func SetExpiration(job_id string, expire string) (err error) {
 	parts := ExpireRegex.FindStringSubmatch(expire)
 	if len(parts) == 0 {
 		return errors.New("expiration format '" + expire + "' is invalid")
@@ -492,8 +492,12 @@ func (job *Job) SetExpiration(expire string) (err error) {
 		expireTime = time.Duration(expireNum*24) * time.Hour
 	}
 
-	job.Expiration = currTime.Add(expireTime)
-	err = job.Save()
+	//job.Expiration = currTime.Add(expireTime)
+	//err = job.Save()
+
+	update_value := bson.M{"expiration": currTime.Add(expireTime)}
+	err = dbUpdateJobFields(job_id, update_value)
+
 	return
 }
 

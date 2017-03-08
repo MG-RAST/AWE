@@ -9,6 +9,7 @@ import (
 
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"time"
 )
 
 // mongodb has hard limit of 16 MB docuemnt size
@@ -194,6 +195,138 @@ func dbFindSortClientGroups(q bson.M, results *ClientGroups, options map[string]
 	return
 }
 
+func dbUpdateJobState(job_id string, newState string, notes string) (err error) {
+
+	logger.Debug(3, "(dbUpdateJobState) job_id: %s", job_id)
+
+	var update_value bson.M
+
+	if newState == JOB_STAT_COMPLETED {
+		update_value = bson.M{"state": newState, "notes": notes, "info.completedtime": time.Now()}
+	} else {
+		update_value = bson.M{"state": newState, "notes": notes}
+	}
+
+	return dbUpdateJobFields(job_id, update_value)
+
+}
+
+func dbGetJobTaskField(job_id string, task_id string, fieldname string) (result string, err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+
+	selector := bson.M{"id": job_id, "tasks.taskid": task_id}
+
+	err = c.Find(selector).Select(bson.M{fieldname: 1}).One(&result)
+	if err != nil {
+		err = fmt.Errorf("Error getting field from job_id %s , task_id %s and fieldname %s: %s", job_id, task_id, fieldname, err.Error())
+		return
+	}
+
+	return
+}
+
+func dbGetJobField(job_id string, fieldname string) (result string, err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+
+	selector := bson.M{"id": job_id}
+
+	err = c.Find(selector).Select(bson.M{fieldname: 1}).One(&result)
+	if err != nil {
+		err = fmt.Errorf("Error getting field from job_id %s and fieldname %s: %s", job_id, fieldname, err.Error())
+		return
+	}
+
+	return
+}
+
+func dbGetJobFieldInt(job_id string, fieldname string) (result int, err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+
+	selector := bson.M{"id": job_id}
+
+	err = c.Find(selector).Select(bson.M{fieldname: 1}).One(&result)
+	if err != nil {
+		err = fmt.Errorf("Error getting field from job_id %s and fieldname %s: %s", job_id, fieldname, err.Error())
+		return
+	}
+
+	return
+}
+
+func dbGetJobFieldTime(job_id string, fieldname string) (result time.Time, err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+
+	selector := bson.M{"id": job_id}
+
+	err = c.Find(selector).Select(bson.M{fieldname: 1}).One(&result)
+	if err != nil {
+		err = fmt.Errorf("Error getting field from job_id %s and fieldname %s: %s", job_id, fieldname, err.Error())
+		return
+	}
+
+	return
+}
+
+func dbUpdateJobFields(job_id string, update_value bson.M) (err error) {
+
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+
+	selector := bson.M{"id": job_id}
+
+	//update_value := bson.M{"tasks.$." + fieldname: value}
+
+	err = c.Update(selector, bson.M{"$set": update_value})
+	if err != nil {
+		err = fmt.Errorf("Error updating job fields: " + err.Error())
+		return
+	}
+
+	return
+}
+
+func dbUpdateJobTaskFields(job_id string, task_id string, update_value bson.M) (err error) {
+
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+
+	selector := bson.M{"id": job_id, "tasks.taskid": task_id}
+
+	//update_value := bson.M{"tasks.$." + fieldname: value}
+
+	err = c.Update(selector, bson.M{"$set": update_value})
+	if err != nil {
+		err = fmt.Errorf("Error updating task: " + err.Error())
+		return
+	}
+
+	return
+}
+
+func dbUpdateJobTaskField(job_id string, task_id string, fieldname string, value interface{}) (err error) {
+
+	update_value := bson.M{"tasks.$." + fieldname: value}
+
+	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+
+}
+
 func dbUpdateTask(job_id string, task *Task) (err error) {
 	task_id, err := task.GetId()
 	if err != nil {
@@ -220,7 +353,7 @@ func dbUpdateTask(job_id string, task *Task) (err error) {
 	return
 }
 
-func dbUpdateJobField(job_id string, key string, value string) (err error) {
+func dbUpdateJobField(job_id string, key string, value interface{}) (err error) {
 
 	session := db.Connection.Session.Copy()
 	defer session.Close()

@@ -439,8 +439,8 @@ func (task *Task) DeleteOutput() {
 		task_state == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Outputs {
 			if io.Delete {
-				if nodeid, err := io.DeleteNode(); err != nil {
-					logger.Error("warning: fail to delete shock node %s: %s", nodeid, err.Error())
+				if err := io.DeleteNode(); err != nil {
+					logger.Warning("failed to delete shock node %s: %s", io.Node, err.Error())
 				}
 			}
 		}
@@ -454,8 +454,8 @@ func (task *Task) DeleteInput() {
 		task_state == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Inputs {
 			if io.Delete {
-				if nodeid, err := io.DeleteNode(); err != nil {
-					logger.Error("warning: fail to delete shock node %s: %s", nodeid, err.Error())
+				if err := io.DeleteNode(); err != nil {
+					logger.Warning("failed to delete shock node %s: %s", io.Node, err.Error())
 				}
 			}
 		}

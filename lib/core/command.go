@@ -11,7 +11,8 @@ package core
 type Command struct {
 	Name          string   `bson:"name" json:"name"`
 	Args          string   `bson:"args" json:"args"`
-	Dockerimage   string   `bson:"Dockerimage" json:"Dockerimage"`
+	Dockerimage   string   `bson:"Dockerimage" json:"Dockerimage"` // for Shock (TODO rename this !)
+	DockerPull    string   `bson:"dockerPull" json:"dockerPull"`   // docker pull
 	Cmd_script    []string `bson:"cmd_script" json:"cmd_script"`
 	Environ       Envs     `bson:"environ" json:"environ"`
 	HasPrivateEnv bool     `bson:"has_private_env" json:"has_private_env"`

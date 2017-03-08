@@ -11,7 +11,7 @@
                 "name": "cp",
                 "args": "/etc/hosts myhosts.txt",
                 "description": "copy",
-                "Dockerimage": "mgrast/pipeline:latest"
+                "dockerPull": "ubuntu:latest"
             },
             "outputs" : [
                 {
@@ -27,7 +27,7 @@
                 "name" : "cp",
                 "args" : "@myhosts.txt secondfile.txt",
                 "description": "wordcount",
-                "Dockerimage": "mgrast/pipeline:latest"
+                "dockerPull": "ubuntu:latest"
             },
             "inputs": [
                 {
@@ -50,7 +50,7 @@
                 "name": "sleep",
                 "args": "10s",
                 "description": "test3",
-                "Dockerimage": "mgrast/pipeline:latest"
+                "dockerPull": "ubuntu:latest"
             },
             "taskid": "2", 
             "totalwork": 1

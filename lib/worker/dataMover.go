@@ -160,6 +160,7 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 	//args_array := parsed.workunit.Cmd.App_args
 
 	logger.Debug(1, "+++ replace_filepath_with_full_filepath")
+	logger.Debug(1, "conf.DOCKER_WORK_DIR: %s", conf.DOCKER_WORK_DIR)
 	// expand filenames
 	err = replace_filepath_with_full_filepath(parsed.workunit.Inputs, conf.DOCKER_WORK_DIR, cmd_script)
 	if err != nil {
@@ -304,7 +305,7 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 	logger.Debug(3, "argstr: %s", argstr)
 
 	workpath := work.Path()
-	if len(work.Cmd.Dockerimage) > 0 {
+	if work.Cmd.Dockerimage != "" || work.Cmd.DockerPull != "" {
 		workpath = conf.DOCKER_WORK_DIR
 	}
 

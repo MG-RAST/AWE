@@ -1251,42 +1251,70 @@ func (qm *ServerMgr) updateJobTask(task *Task, lock_task bool) (err error) {
 	}
 
 	logger.Debug(3, "(ServerMgr/updateJobTask) call LoadJob")
-	job, err := LoadJob(jobid)
-	if err != nil {
-		return
-	}
+	//job, err := LoadJob(jobid)
+	//if err != nil {
+	//	return
+	//}
 
 	if lock_task {
 		task.LockNamed("ServerMgr/updateJobTask")
 		defer task.Unlock()
 	}
 
-	remainTasks, err := job.UpdateTask(task) // sets job.State == completed if done
-	if err != nil {
-		return err
-	}
+	remainTasks, err := dbGetJobFieldInt(jobid, "remaintasks")
+
+	//remainTasks, err := job.UpdateTask(task) // sets job.State == completed if done
+	//if err != nil {
+	//	return err
+	//}
 	logger.Debug(2, "remaining tasks for task %s: %d", task.Id, remainTasks)
 
 	if remainTasks == 0 { //job done
+		dbUpdateJobState(jobid, JOB_STAT_COMPLETED, "")
+
 		qm.FinalizeJobPerf(jobid)
 		qm.LogJobPerf(jobid)
 		qm.removeActJob(jobid)
 		//delete tasks in task map
 		//delete from shock output flagged for deletion
+
+		job, xerr := LoadJob(jobid) // TODO do the delete outputs without LoadJob
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
 		for _, task := range job.TaskList() {
 			task.DeleteOutput()
 			task.DeleteInput()
 			qm.TaskMap.Delete(task.Id)
 		}
+
+		job.Save()
+
 		//set expiration from conf if not set
 		nullTime := time.Time{}
-		if job.Expiration == nullTime {
+
+		job_expiration, xerr := dbGetJobFieldTime(jobid, "expiration")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		if job_expiration == nullTime {
 			expire := conf.GLOBAL_EXPIRE
-			if val, ok := conf.PIPELINE_EXPIRE_MAP[job.Info.Pipeline]; ok {
+
+			job_info_pipeline, xerr := dbGetJobField(jobid, "info.pipeline")
+			if xerr != nil {
+				err = xerr
+				return
+			}
+
+			if val, ok := conf.PIPELINE_EXPIRE_MAP[job_info_pipeline]; ok {
 				expire = val
 			}
 			if expire != "" {
-				if err := job.SetExpiration(expire); err != nil {
+				if err := SetExpiration(jobid, expire); err != nil {
 					return err
 				}
 			}
@@ -1300,46 +1328,63 @@ func (qm *ServerMgr) updateJobTask(task *Task, lock_task bool) (err error) {
 //update job/task states from "queued" to "in-progress" once the first workunit is checked out
 func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 	for _, work := range works {
-		job_was_inprogress := false
-		task_was_inprogress := false
+		//job_was_inprogress := false
+		//task_was_inprogress := false
 		taskid, _ := GetTaskIdByWorkId(work.Id)
 		jobid, _ := GetJobIdByWorkId(work.Id)
 		//Load job by id
-		job, err := LoadJob(jobid)
-		if err != nil {
-			continue
-		}
+		//job, err := LoadJob(jobid)
+		//if err != nil {
+		//	continue
+		//}
+		// get job state
+
+		job_state, err := dbGetJobField(jobid, "state")
+
 		//update job status
-		if job.State == JOB_STAT_INPROGRESS {
-			job_was_inprogress = true
-		} else {
-			job.State = JOB_STAT_INPROGRESS
-			job.Info.StartedTme = time.Now()
+		if job_state != JOB_STAT_INPROGRESS {
+
+			dbUpdateJobState(jobid, JOB_STAT_INPROGRESS, "")
+
+			dbUpdateJobField(jobid, "info.startedtime", time.Now())
+
 			qm.UpdateJobPerfStartTime(jobid)
 		}
 		//update task status
-		idx := -1
-		for i, t := range job.Tasks {
-			if t.Id == taskid {
-				idx = i
-				break
-			}
-		}
-		if idx == -1 {
+		//idx := -1
+		//for i, t := range job.Tasks {
+		//	if t.Id == taskid {
+		//		idx = i
+		//		break
+		//	}
+		//}
+		//if idx == -1 {
+		//	continue
+		//}
+
+		task_state, err := dbGetJobTaskField(jobid, taskid, "state")
+		if err != nil {
+			logger.Error("(UpdateJobTaskToInProgress) dbGetJobTaskField: %s", err.Error())
 			continue
 		}
-		if job.Tasks[idx].State == TASK_STAT_INPROGRESS {
-			task_was_inprogress = true
-		} else {
-			job.Tasks[idx].State = TASK_STAT_INPROGRESS
+		// task_state := job.Tasks[idx].State
+
+		if task_state != TASK_STAT_INPROGRESS {
+
+			dbUpdateJobTaskField(jobid, taskid, "state", TASK_STAT_INPROGRESS)
+
+			//job.Tasks[idx].State = TASK_STAT_INPROGRESS
 			qm.TaskMap.SetState(taskid, TASK_STAT_INPROGRESS)
-			job.Tasks[idx].StartedDate = time.Now()
+			//job.Tasks[idx].StartedDate = time.Now()
+
+			dbUpdateJobTaskField(jobid, taskid, "starteddate", time.Now())
+
 			qm.UpdateTaskPerfStartTime(taskid)
 		}
 
-		if !job_was_inprogress || !task_was_inprogress {
-			job.Save()
-		}
+		//if !job_was_inprogress || !task_was_inprogress {
+		//	job.Save()
+		//}
 	}
 }
 

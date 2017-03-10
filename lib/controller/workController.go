@@ -10,6 +10,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+	mgo "gopkg.in/mgo.v2"
 	"io/ioutil"
 	"net/http"
 	"sort"
@@ -110,15 +111,26 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		return
 	}
 
-	job, err := core.LoadJob(jobid)
+	//job, err := core.LoadJob(jobid)
+	//if err != nil {
+	//	cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+	//	return
+	//}
+	acl, err := core.DBGetJobAcl(jobid)
 	if err != nil {
-		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		if err == mgo.ErrNotFound {
+			cx.RespondWithNotFound()
+		} else {
+			// In theory the db connection could be lost between
+			// checking user and load but seems unlikely.
+			cx.RespondWithErrorMessage("job not found: "+jobid, http.StatusBadRequest)
+		}
 		return
 	}
 
 	// User must have read permissions on job or be job owner or be an admin
-	rights := job.Acl.Check(u.Uuid)
-	if job.Acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false {
+	rights := acl.Check(u.Uuid)
+	if acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}

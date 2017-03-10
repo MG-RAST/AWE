@@ -470,10 +470,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			if err != nil {
 				return
 			}
-			task.SetCompletedDate(time.Now())
-			if err != nil {
-				return
-			}
+
 			err = task.LockNamed("handleWorkStatusChange/Outputs")
 			if err != nil {
 				return
@@ -1262,14 +1259,24 @@ func (qm *ServerMgr) updateJobTask(task *Task, lock_task bool) (err error) {
 	}
 
 	remainTasks, err := dbGetJobFieldInt(jobid, "remaintasks")
+	if err != nil {
+		return
+	}
 
-	//remainTasks, err := job.UpdateTask(task) // sets job.State == completed if done
-	//if err != nil {
-	//	return err
-	//}
 	logger.Debug(2, "remaining tasks for task %s: %d", task.Id, remainTasks)
 
 	if remainTasks == 0 { //job done
+
+		job_state, xerr := dbGetJobFieldString(jobid, "state")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		if job_state == JOB_STAT_COMPLETED {
+			err = fmt.Errorf("job state is already JOB_STAT_COMPLETED")
+			return
+		}
+
 		dbUpdateJobState(jobid, JOB_STAT_COMPLETED, "")
 
 		qm.FinalizeJobPerf(jobid)
@@ -1304,7 +1311,7 @@ func (qm *ServerMgr) updateJobTask(task *Task, lock_task bool) (err error) {
 		if job_expiration == nullTime {
 			expire := conf.GLOBAL_EXPIRE
 
-			job_info_pipeline, xerr := dbGetJobField(jobid, "info.pipeline")
+			job_info_pipeline, xerr := dbGetJobFieldString(jobid, "info.pipeline")
 			if xerr != nil {
 				err = xerr
 				return
@@ -1314,7 +1321,7 @@ func (qm *ServerMgr) updateJobTask(task *Task, lock_task bool) (err error) {
 				expire = val
 			}
 			if expire != "" {
-				if err := SetExpiration(jobid, expire); err != nil {
+				if err := SetExpiration2(jobid, expire); err != nil {
 					return err
 				}
 			}
@@ -1339,14 +1346,14 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 		//}
 		// get job state
 
-		job_state, err := dbGetJobField(jobid, "state")
+		job_state, err := dbGetJobFieldString(jobid, "state")
 
 		//update job status
 		if job_state != JOB_STAT_INPROGRESS {
 
 			dbUpdateJobState(jobid, JOB_STAT_INPROGRESS, "")
 
-			dbUpdateJobField(jobid, "info.startedtime", time.Now())
+			DbUpdateJobField(jobid, "info.startedtime", time.Now())
 
 			qm.UpdateJobPerfStartTime(jobid)
 		}
@@ -1399,16 +1406,26 @@ func (qm *ServerMgr) IsJobRegistered(id string) bool {
 }
 
 func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err error) {
-	job, err := LoadJob(jobid)
+	//job, err := LoadJob(jobid)
+	//if err != nil {
+	//	return
+	//}
+
+	if id != "" {
+		//job.LastFailed = id
+		err = dbUpdateJobFieldString(jobid, "lastfailed", id)
+		if err != nil {
+			return
+		}
+	}
+
+	err = dbUpdateJobState(jobid, JOB_STAT_SUSPEND, reason)
 	if err != nil {
 		return
 	}
-	if id != "" {
-		job.LastFailed = id
-	}
-	if err := job.UpdateState(JOB_STAT_SUSPEND, reason); err != nil {
-		return err
-	}
+	//if err := job.UpdateState(JOB_STAT_SUSPEND, reason); err != nil {
+	//	return err
+	//}
 	qm.putSusJob(jobid)
 
 	//suspend queueing workunits
@@ -1423,13 +1440,17 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 		}
 	}
 
+	job, err := LoadJob(jobid) // TODO find a way to avoid loading the job
+	if err != nil {
+		return
+	}
+
 	//suspend parsed tasks
 	for _, task := range job.Tasks {
 		task.LockNamed("SuspendJob")
 		task_state := task.State
 		if task_state == TASK_STAT_QUEUED || task_state == TASK_STAT_INIT || task_state == TASK_STAT_INPROGRESS {
-			task.State = TASK_STAT_SUSPEND
-			job.UpdateTask(task)
+			task.SetState(TASK_STAT_SUSPEND)
 		}
 		task.Unlock()
 	}
@@ -1602,7 +1623,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 		// Directly after AWE server restart no job can be in progress. (Unless we add this as a feature))
 		if dbjob.State == JOB_STAT_INPROGRESS {
 			//reason := "awe server restart"
-			err = dbUpdateJobField(dbjob.Id, "state", JOB_STAT_QUEUED)
+			err = DbUpdateJobField(dbjob.Id, "state", JOB_STAT_QUEUED)
 			if err != nil {
 				logger.Error("error while recover: " + err.Error())
 				continue
@@ -1683,33 +1704,58 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 		return errors.New("job " + jobid + " is already active")
 	}
 	//Load job by id
-	dbjob, err := LoadJob(jobid)
+	//dbjob, err := LoadJob(jobid)
+	//if err != nil {
+	//	return errors.New("failed to load job " + err.Error())
+	//}
+
+	job_state, err := dbGetJobFieldString(jobid, "state")
 	if err != nil {
-		return errors.New("failed to load job " + err.Error())
+		return
 	}
-	if dbjob.State != JOB_STAT_COMPLETED && dbjob.State != JOB_STAT_SUSPEND {
+
+	if job_state != JOB_STAT_COMPLETED && job_state != JOB_STAT_SUSPEND {
 		return errors.New("job " + jobid + " is not in 'completed' or 'suspend' status")
 	}
 
 	was_suspend := false
-	if dbjob.State == JOB_STAT_SUSPEND {
+	if job_state == JOB_STAT_SUSPEND {
 		was_suspend = true
 	}
 
-	remaintasks := 0
-	for _, task := range dbjob.Tasks {
-		resetTask(task, dbjob.Info)
-		remaintasks += 1
+	//tasks, err := dbGetJobTasks(jobid, "tasks")
+
+	//remaintasks := 0
+	//for _, task := range tasks {
+	//	//resetTask(task, dbjob.Info)
+	//	remaintasks += 1
+	//}
+
+	err = dbIncrementJobField(jobid, "resumed", 1)
+	if err != nil {
+		return
 	}
 
-	dbjob.Resumed += 1
-	dbjob.RemainTasks = remaintasks
-	dbjob.UpdateState(JOB_STAT_QUEUED, "restarted from the beginning")
+	//dbjob.Resumed += 1
+	//dbjob.RemainTasks = remaintasks
+	dbUpdateJobState(jobid, JOB_STAT_QUEUED, "restarted from the beginning")
+	//dbjob.UpdateState(JOB_STAT_QUEUED, "restarted from the beginning")
 
 	if was_suspend {
-		qm.removeSusJob(dbjob.Id)
+		qm.removeSusJob(jobid)
 	}
-	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+
+	//Load job by id
+	//dbjob, err := LoadJob(jobid)
+	//if err != nil {
+	//	return errors.New("failed to load job " + err.Error())
+	//}
+	tasks, err := dbGetJobTasks(jobid)
+	if err != nil {
+		return
+	}
+	//qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+	qm.EnqueueTasksByJobId(jobid, tasks)
 
 	logger.Debug(2, "Restarted job %s from beginning", jobid)
 	return
@@ -1942,11 +1988,17 @@ func (qm *ServerMgr) FetchPrivateEnv(workid string, clientid string) (env map[st
 	if err != nil {
 		return env, err
 	}
-	job, err := LoadJob(jobid)
-	if err != nil {
-		return env, err
-	}
+	//job, err := LoadJob(jobid)
+	//if err != nil {
+	//	return env, err
+	//}
 	taskid, err := GetTaskIdByWorkId(workid)
-	env = job.GetPrivateEnv(taskid)
+	//env = job.GetPrivateEnv(taskid)
+
+	env, err = dbGetPrivateEnv(jobid, taskid)
+	if err != nil {
+		return
+	}
+
 	return env, nil
 }

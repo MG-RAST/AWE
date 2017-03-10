@@ -108,27 +108,67 @@ func NewJobDep() (job *JobDep) {
 }
 
 // this has to be called after Unmarshalling from JSON
-func (job *Job) Init() (err error) {
+func (job *Job) Init() (changed bool, err error) {
+	changed = false
 
 	if job.State == "" {
 		job.State = JOB_STAT_INIT
+		changed = true
 	}
 	job.Registered = true
 
 	if job.Id == "" {
 		job.setId() //uuid for the job
+		changed = true
 	}
 
 	if job.Info.SubmitTime.IsZero() {
 		job.Info.SubmitTime = time.Now()
+		changed = true
 	}
 
 	if job.Info.Priority < conf.BasePriority {
 		job.Info.Priority = conf.BasePriority
+		changed = true
 	}
+
+	old_remaintasks := job.RemainTasks
+	job.RemainTasks = 0
 
 	for _, task := range job.Tasks {
 		task.Init()
+		// set task.info pointer
+
+		if job.Info == nil {
+			panic("job.Info == nil")
+		}
+
+		task.JobId = job.Id
+		task.Info = job.Info
+
+		if task.State != TASK_STAT_COMPLETED {
+			job.RemainTasks += 1
+		}
+
+	}
+
+	// try to fix inconsistent state
+	if job.RemainTasks != old_remaintasks {
+		changed = true
+	}
+
+	// try to fix inconsistent state
+	if job.RemainTasks == 0 && job.State != JOB_STAT_COMPLETED {
+		job.State = JOB_STAT_COMPLETED
+		logger.Debug(3, "fixing state to JOB_STAT_COMPLETED")
+		changed = true
+	}
+
+	// try to fix inconsistent state
+	if job.RemainTasks > 0 && job.State == JOB_STAT_COMPLETED {
+		job.State = JOB_STAT_QUEUED
+		logger.Debug(3, "fixing state to JOB_STAT_QUEUED")
+		changed = true
 	}
 
 	return
@@ -474,7 +514,7 @@ func (job *Job) SetDataToken(token string) (err error) {
 	return
 }
 
-func SetExpiration(job_id string, expire string) (err error) {
+func SetExpiration2(job_id string, expire string) (err error) {
 	parts := ExpireRegex.FindStringSubmatch(expire)
 	if len(parts) == 0 {
 		return errors.New("expiration format '" + expire + "' is invalid")
@@ -497,6 +537,31 @@ func SetExpiration(job_id string, expire string) (err error) {
 
 	update_value := bson.M{"expiration": currTime.Add(expireTime)}
 	err = dbUpdateJobFields(job_id, update_value)
+
+	return
+}
+
+// TODO deprecated
+func (job *Job) SetExpiration(expire string) (err error) {
+	parts := ExpireRegex.FindStringSubmatch(expire)
+	if len(parts) == 0 {
+		return errors.New("expiration format '" + expire + "' is invalid")
+	}
+	var expireTime time.Duration
+	expireNum, _ := strconv.Atoi(parts[1])
+	currTime := time.Now()
+
+	switch parts[2] {
+	case "M":
+		expireTime = time.Duration(expireNum) * time.Minute
+	case "H":
+		expireTime = time.Duration(expireNum) * time.Hour
+	case "D":
+		expireTime = time.Duration(expireNum*24) * time.Hour
+	}
+
+	job.Expiration = currTime.Add(expireTime)
+	err = job.Save()
 
 	return
 }

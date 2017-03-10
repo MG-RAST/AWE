@@ -114,8 +114,8 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 		if err != nil {
 			logger.Warning("(CreateJobUpload/ParseJobTasks) %s", err.Error())
 			//errDep := errors.New("")
-			err = nil
-			job, err = ParseJobTasksDep(files["upload"].Path)
+			err = nil                                         // TODO we are loosing error messages. User needs them to figure out why something failed.
+			job, err = ParseJobTasksDep(files["upload"].Path) // TODO can we get rid of that ?
 			if err != nil {
 				//err = nil
 				return
@@ -343,7 +343,7 @@ func ReadJobFile(filename string) (job *Job, err error) {
 		err = fmt.Errorf("(ReadJobFile) error in unmarshaling job json file: %s ", err.Error())
 	}
 
-	err = job.Init()
+	_, err = job.Init()
 	if err != nil {
 		return
 	}
@@ -400,7 +400,10 @@ func ParseJobTasksDep(filename string) (job *Job, err error) {
 	}
 
 	//copy contents of jobDep struct into job struct
-	job = JobDepToJob(jobDep)
+	job, err = JobDepToJob(jobDep)
+	if err != nil {
+		return
+	}
 
 	if len(job.Tasks) == 0 {
 		return nil, errors.New("invalid job script: task list empty")
@@ -450,9 +453,12 @@ func ParseJobTasksDep(filename string) (job *Job, err error) {
 }
 
 // Takes the deprecated (version 1) Job struct and returns the version 2 Job struct or an error
-func JobDepToJob(jobDep *JobDep) (job *Job) {
+func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 	job = new(Job)
-	job.Init()
+	_, err = job.Init()
+	if err != nil {
+		return
+	}
 	job.Id = jobDep.Id
 	job.Acl = jobDep.Acl
 	job.Info = jobDep.Info

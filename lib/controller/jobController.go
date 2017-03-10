@@ -730,30 +730,44 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		}
 	}
 
-	// Load job by id
-	job, err := core.LoadJob(id)
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
 
+	// Load job by id
+	var job *core.Job
+	if query.Has("clientgroup") || query.Has("priority") || query.Has("pipeline") || query.Has("expiration") || query.Has("settoken") {
+		job, err = core.LoadJob(id)
+		if err != nil {
+			if err == mgo.ErrNotFound {
+				cx.RespondWithNotFound()
+			} else {
+				// In theory the db connection could be lost between
+				// checking user and load but seems unlikely.
+				// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
+				cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
+			}
+			return
+		}
+	}
+	// User must have write permissions on job or be job owner or be an admin
+	acl, err := core.DBGetJobAcl(id)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
-			// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
-			cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
+			cx.RespondWithErrorMessage("job not found: "+id, http.StatusBadRequest)
 		}
 		return
 	}
 
-	// User must have write permissions on job or be job owner or be an admin
-	rights := job.Acl.Check(u.Uuid)
-	if job.Acl.Owner != u.Uuid && rights["write"] == false && u.Admin == false {
+	rights := acl.Check(u.Uuid)
+	if acl.Owner != u.Uuid && rights["write"] == false && u.Admin == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}
 
-	// Gather query params
-	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("resume") { // to resume a suspended job
 		if err := core.QMgr.ResumeSuspendedJobByUser(id, u); err != nil {
 			cx.RespondWithErrorMessage("fail to resume job: "+id+" "+err.Error(), http.StatusBadRequest)

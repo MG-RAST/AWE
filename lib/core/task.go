@@ -26,7 +26,7 @@ type TaskRaw struct {
 	RWMutex
 	Id          string    `bson:"taskid" json:"taskid"`
 	JobId       string    `bson:"jobid" json:"jobid"`
-	Info        *Info     `bson:"info" json:"-"`
+	Info        *Info     `bson:"-" json:"-"`
 	Cmd         *Command  `bson:"cmd" json:"cmd"`
 	Partition   *PartInfo `bson:"partinfo" json:"-"`
 	DependsOn   []string  `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
@@ -146,11 +146,40 @@ func (task *TaskRaw) SetState(new_state string) (err error) {
 		return
 	}
 	defer task.Unlock()
+
+	if task.State == new_state {
+		return
+	}
+	if new_state == TASK_STAT_COMPLETED {
+		if task.State != TASK_STAT_COMPLETED {
+
+			// state TASK_STAT_COMPLETED is new!
+			err = dbIncrementJobField(task.JobId, "remaintasks", -1)
+			if err != nil {
+				return
+			}
+
+			this_time := time.Now()
+			task.CompletedDate = this_time
+			dbUpdateJobTaskField(task.JobId, task.Id, "completeddate", this_time)
+		}
+
+	} else {
+		// in case a completed teask is marked as something different
+		if task.State == TASK_STAT_COMPLETED {
+			err = dbIncrementJobField(task.JobId, "remaintasks", 1)
+			if err != nil {
+				return
+			}
+		}
+
+	}
+	dbUpdateJobTaskField(task.JobId, task.Id, "state", new_state)
 	task.State = new_state
 	return
 }
 
-func (task *TaskRaw) SetCompletedDate(date time.Time) (err error) {
+func (task *TaskRaw) SetCompletedDate_DEPRECATED(date time.Time) (err error) {
 	err = task.LockNamed("SetCompletedDate")
 	if err != nil {
 		return

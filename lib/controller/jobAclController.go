@@ -47,7 +47,8 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	jid := cx.PathParams["jid"]
 
 	// Load job by id
-	job, err := core.LoadJob(jid)
+	//job, err := core.LoadJob(jid)
+	acl, err := core.DBGetJobAcl(jid)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
@@ -64,14 +65,14 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	// NOTE: If the job is publicly owned, then anyone can view all acl's. The owner can only
 	//       be "public" when anonymous job creation (ANON_WRITE) is enabled in AWE config.
 
-	rights := job.Acl.Check(u.Uuid)
-	if job.Acl.Owner != u.Uuid && u.Admin == false && job.Acl.Owner != "public" && rights["read"] == false {
+	rights := acl.Check(u.Uuid)
+	if acl.Owner != u.Uuid && u.Admin == false && acl.Owner != "public" && rights["read"] == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}
 
 	if cx.Request.Method == "GET" {
-		cx.RespondWithData(job.Acl)
+		cx.RespondWithData(acl)
 	} else {
 		cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)
 	}
@@ -104,11 +105,23 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 	}
 
 	// Load job by id
-	job, err := core.LoadJob(jid)
+	//job, err := core.LoadJob(jid)
+	//if err != nil {
+	//	if err == mgo.ErrNotFound {
+	//		cx.RespondWithNotFound()
+	//	} else {
+	//		cx.RespondWithErrorMessage("job not found: "+jid, http.StatusBadRequest)
+	//	}
+	//	return
+	//}
+
+	acl, err := core.DBGetJobAcl(jid)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 		} else {
+			// In theory the db connection could be lost between
+			// checking user and load but seems unlikely.
 			cx.RespondWithErrorMessage("job not found: "+jid, http.StatusBadRequest)
 		}
 		return
@@ -122,7 +135,7 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 	}
 
 	// Users that are not an admin or the job owner can only delete themselves from an ACL.
-	if job.Acl.Owner != u.Uuid && u.Admin == false {
+	if acl.Owner != u.Uuid && u.Admin == false {
 		if rmeth == "DELETE" {
 			if len(ids) != 1 || (len(ids) == 1 && ids[0] != u.Uuid) {
 				cx.RespondWithErrorMessage("Non-owners of a job can delete one and only user from the ACLs (themselves).", http.StatusBadRequest)
@@ -133,12 +146,20 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 				return
 			}
 			if rtype == "all" {
-				job.Acl.UnSet(ids[0], map[string]bool{"read": true, "write": true, "delete": true})
+				acl.UnSet(ids[0], map[string]bool{"read": true, "write": true, "delete": true})
 			} else {
-				job.Acl.UnSet(ids[0], map[string]bool{rtype: true})
+				acl.UnSet(ids[0], map[string]bool{rtype: true})
 			}
-			job.Save()
-			cx.RespondWithData(job.Acl)
+
+			//save acl
+
+			err = core.DbUpdateJobField(jid, "acl", acl)
+			if err != nil {
+				cx.RespondWithErrorMessage("acl update error: "+jid, http.StatusBadRequest)
+				return
+			}
+
+			cx.RespondWithData(acl)
 			return
 		}
 		cx.RespondWithErrorMessage("Users that are not job owners can only delete themselves from ACLs.", http.StatusBadRequest)
@@ -148,35 +169,40 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 	// At this point we know we're dealing with an admin or the job owner.
 	// Admins and job owners can view/edit/delete ACLs
 	if rmeth == "GET" {
-		cx.RespondWithData(job.Acl)
+		cx.RespondWithData(acl)
 		return
 	} else if rmeth == "POST" || rmeth == "PUT" {
 		if rtype == "owner" {
 			if len(ids) == 1 {
-				job.Acl.SetOwner(ids[0])
+				acl.SetOwner(ids[0])
 			} else {
 				cx.RespondWithErrorMessage("Jobs must have one owner.", http.StatusBadRequest)
 				return
 			}
 		} else if rtype == "all" {
 			for _, i := range ids {
-				job.Acl.Set(i, map[string]bool{"read": true, "write": true, "delete": true})
+				acl.Set(i, map[string]bool{"read": true, "write": true, "delete": true})
 			}
 		} else if rtype == "public_read" {
-			job.Acl.Set("public", map[string]bool{"read": true})
+			acl.Set("public", map[string]bool{"read": true})
 		} else if rtype == "public_write" {
-			job.Acl.Set("public", map[string]bool{"write": true})
+			acl.Set("public", map[string]bool{"write": true})
 		} else if rtype == "public_delete" {
-			job.Acl.Set("public", map[string]bool{"delete": true})
+			acl.Set("public", map[string]bool{"delete": true})
 		} else if rtype == "public_all" {
-			job.Acl.Set("public", map[string]bool{"read": true, "write": true, "delete": true})
+			acl.Set("public", map[string]bool{"read": true, "write": true, "delete": true})
 		} else {
 			for _, i := range ids {
-				job.Acl.Set(i, map[string]bool{rtype: true})
+				acl.Set(i, map[string]bool{rtype: true})
 			}
 		}
-		job.Save()
-		cx.RespondWithData(job.Acl)
+		err = core.DbUpdateJobField(jid, "acl", acl)
+		if err != nil {
+			cx.RespondWithErrorMessage("acl update error: "+jid, http.StatusBadRequest)
+			return
+		}
+
+		cx.RespondWithData(acl)
 		return
 	} else if rmeth == "DELETE" {
 		if rtype == "owner" {
@@ -184,23 +210,27 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 			return
 		} else if rtype == "all" {
 			for _, i := range ids {
-				job.Acl.UnSet(i, map[string]bool{"read": true, "write": true, "delete": true})
+				acl.UnSet(i, map[string]bool{"read": true, "write": true, "delete": true})
 			}
 		} else if rtype == "public_read" {
-			job.Acl.UnSet("public", map[string]bool{"read": true})
+			acl.UnSet("public", map[string]bool{"read": true})
 		} else if rtype == "public_write" {
-			job.Acl.UnSet("public", map[string]bool{"write": true})
+			acl.UnSet("public", map[string]bool{"write": true})
 		} else if rtype == "public_delete" {
-			job.Acl.UnSet("public", map[string]bool{"delete": true})
+			acl.UnSet("public", map[string]bool{"delete": true})
 		} else if rtype == "public_all" {
-			job.Acl.UnSet("public", map[string]bool{"read": true, "write": true, "delete": true})
+			acl.UnSet("public", map[string]bool{"read": true, "write": true, "delete": true})
 		} else {
 			for _, i := range ids {
-				job.Acl.UnSet(i, map[string]bool{rtype: true})
+				acl.UnSet(i, map[string]bool{rtype: true})
 			}
 		}
-		job.Save()
-		cx.RespondWithData(job.Acl)
+		err = core.DbUpdateJobField(jid, "acl", acl)
+		if err != nil {
+			cx.RespondWithErrorMessage("acl update error: "+jid, http.StatusBadRequest)
+			return
+		}
+		cx.RespondWithData(acl)
 		return
 	} else {
 		cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)

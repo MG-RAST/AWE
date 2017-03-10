@@ -550,7 +550,7 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 	}
 	logger.Debug(1, "Requirements checked")
 
-	err = job.Init()
+	_, err = job.Init()
 	if err != nil {
 		err = fmt.Errorf("job.Init() failed: %v", err)
 		return

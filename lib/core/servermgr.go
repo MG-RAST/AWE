@@ -1447,12 +1447,15 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 
 	//suspend parsed tasks
 	for _, task := range job.Tasks {
-		task.LockNamed("SuspendJob")
-		task_state := task.State
+
+		task_state, err := task.GetState()
+		if err != nil {
+			continue
+		}
 		if task_state == TASK_STAT_QUEUED || task_state == TASK_STAT_INIT || task_state == TASK_STAT_INPROGRESS {
 			task.SetState(TASK_STAT_SUSPEND)
 		}
-		task.Unlock()
+
 	}
 	qm.LogJobPerf(jobid)
 	qm.removeActJob(jobid)

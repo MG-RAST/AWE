@@ -261,24 +261,52 @@ func dbGetJobTaskField(job_id string, task_id string, fieldname string) (result 
 		err = fmt.Errorf("Could not read field %s", fieldname)
 	}
 
+	logger.Debug(3, "(dbGetJobTaskField) %s=%s", fieldname, result)
+
 	return
 }
 
-func dbGetPrivateEnv(job_id string, task_id string) (result map[string]string, err error) {
+func dbGetJobTask(job_id string, task_id string) (result *Task, err error) {
+
+	dummy_job := NewJob()
+	dummy_job.Init()
 
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 
-	selector := bson.M{"id": job_id, "tasks.taskid": task_id}
+	selector := bson.M{"id": job_id}
+	projection := bson.M{"tasks": bson.M{"$elemMatch": bson.M{"taskid": task_id}}}
 
-	fieldname := "cmd.environ.private"
-
-	err = c.Find(selector).Select(bson.M{fieldname: 1}).One(&result)
+	err = c.Find(selector).Select(projection).One(&dummy_job)
 	if err != nil {
-		err = fmt.Errorf("(dbGetPrivateEnv) Error getting env from job_id %s , task_id %s : %s", job_id, task_id, err.Error())
+		err = fmt.Errorf("(dbGetJobTask) Error getting field from job_id %s , task_id %s : %s", job_id, task_id, err.Error())
 		return
+	}
+
+	if len(dummy_job.Tasks) != 1 {
+		err = fmt.Errorf("(dbGetJobTask) len(dummy_job.Tasks) != 1   len(dummy_job.Tasks)=%d", len(dummy_job.Tasks))
+		return
+	}
+
+	result = dummy_job.Tasks[0]
+
+	return
+}
+
+func dbGetPrivateEnv(job_id string, task_id string) (result map[string]string, err error) {
+
+	logger.Debug(3, "(dbGetPrivateEnv) starting")
+
+	task, err := dbGetJobTask(job_id, task_id)
+	if err != nil {
+		return
+	}
+
+	result = task.Cmd.Environ.Private
+	for key, val := range result {
+		logger.Debug(3, "(dbGetPrivateEnv) got %s=%s ", key, val)
 	}
 
 	return

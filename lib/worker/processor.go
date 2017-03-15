@@ -424,6 +424,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		docker_environment_string += " --env=" + env_pair
 	}
 	if work.Cmd.HasPrivateEnv {
+		logger.Debug(3, "HasPrivateEnv true")
 		private_envs, err := FetchPrivateEnvByWorkId(work.Id)
 		if err != nil {
 			return nil, err
@@ -434,6 +435,8 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			docker_environment_string += " -e " + env_pair
 
 		}
+	} else {
+		logger.Debug(3, "HasPrivateEnv false")
 	}
 
 	stdout_file := path.Join(conf.DOCKER_WORK_DIR, conf.STDOUT_FILENAME)

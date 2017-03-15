@@ -11,7 +11,12 @@
                 "name": "cp",
                 "args": "/etc/hosts myhosts.txt",
                 "description": "copy",
-                "dockerimage": "mgrast/pipeline:latest"
+                "dockerimage": "mgrast/pipeline:latest",
+                "environ" : {
+                    "private" : {
+                        "foo":"bar"
+                    }
+                }
             },
             "outputs" : [
                 {

@@ -11,7 +11,7 @@
                 "name": "cp",
                 "args": "/etc/hosts myhosts.txt",
                 "description": "copy",
-                "dockerPull": "ubuntu:latest"
+                "dockerimage": "mgrast/pipeline:latest"
             },
             "outputs" : [
                 {

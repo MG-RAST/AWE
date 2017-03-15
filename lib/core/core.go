@@ -387,7 +387,7 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 
 // Parses job by job script using the deprecated Job struct. Maintained for backwards compatibility. (=deprecated=)
 func ParseJobTasksDep(filename string) (job *Job, err error) {
-	jobDep := new(JobDep)
+	jobDep := NewJobDep()
 
 	jsonstream, err := ioutil.ReadFile(filename)
 

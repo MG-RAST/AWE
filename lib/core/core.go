@@ -341,6 +341,7 @@ func ReadJobFile(filename string) (job *Job, err error) {
 	err = json.Unmarshal(jsonstream, job)
 	if err != nil {
 		err = fmt.Errorf("(ReadJobFile) error in unmarshaling job json file: %s ", err.Error())
+		return
 	}
 
 	_, err = job.Init()

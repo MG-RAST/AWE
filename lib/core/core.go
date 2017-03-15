@@ -181,7 +181,7 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 }
 
 func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
-	job = new(Job)
+	job = NewJob()
 
 	jsonstream, err := ioutil.ReadFile(file.Path)
 	if err != nil {
@@ -455,7 +455,7 @@ func ParseJobTasksDep(filename string) (job *Job, err error) {
 
 // Takes the deprecated (version 1) Job struct and returns the version 2 Job struct or an error
 func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
-	job = new(Job)
+	job = NewJob()
 	_, err = job.Init()
 	if err != nil {
 		return

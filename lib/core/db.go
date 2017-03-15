@@ -516,7 +516,7 @@ func DbUpdateJobField(job_id string, key string, value interface{}) (err error) 
 }
 
 func LoadJob(id string) (job *Job, err error) {
-	job = new(Job)
+	job = NewJob()
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)

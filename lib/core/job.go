@@ -599,7 +599,7 @@ func ReloadFromDisk(path string) (err error) {
 	if err != nil {
 		return
 	}
-	job := new(Job)
+	job := NewJob()
 	err = bson.Unmarshal(jobbson, &job)
 	if err == nil {
 		if err = dbUpsert(job); err != nil {

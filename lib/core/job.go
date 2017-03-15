@@ -122,6 +122,11 @@ func (job *Job) Init() (changed bool, err error) {
 		changed = true
 	}
 
+	if job.Info == nil {
+		logger.Error("job.Info == nil")
+		job.Info = NewInfo()
+	}
+
 	if job.Info.SubmitTime.IsZero() {
 		job.Info.SubmitTime = time.Now()
 		changed = true

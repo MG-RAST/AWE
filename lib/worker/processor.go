@@ -241,6 +241,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}
 
 	Dockerimage_normalized := dockerimage_repo + ":" + dockerimage_tag
+	logger.Debug(3, "Dockerimage_normalized: %s", Dockerimage_normalized)
 
 	use_docker_api := true
 	if conf.DOCKER_BINARY != "API" {
@@ -291,11 +292,12 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			return
 		}
 
-		dockerimage_id, ok := node_attr_map["id"].(string)
+		dockerimage_id, ok = node_attr_map["id"].(string)
 		if !ok {
 			err = fmt.Errorf("(2) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage_normalized)
 			return
 		}
+		logger.Debug(3, "dockerimage_id: %s", dockerimage_id)
 
 		if dockerimage_id == "" {
 			err = fmt.Errorf("Id of Dockerimage=%s not found", Dockerimage_normalized)

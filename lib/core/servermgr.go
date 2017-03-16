@@ -1381,7 +1381,7 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 		}
 
 		if !ok {
-			logger.Error("(UpdateJobTaskToInProgress) task %s not found %s", taskid, err.Error())
+			logger.Error("(UpdateJobTaskToInProgress) task %s not found", taskid)
 			continue
 		}
 

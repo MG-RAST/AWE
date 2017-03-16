@@ -665,7 +665,7 @@ func UpdateJobState(jobid string, newstate string, oldstates []string) (err erro
 	if !matched {
 		return errors.New("old state not matching one of the required ones")
 	}
-	if err := job.UpdateState(newstate, ""); err != nil {
+	if err := job.SetState(newstate, ""); err != nil {
 		return err
 	}
 	return

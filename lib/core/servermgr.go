@@ -328,7 +328,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 			logger.Debug(3, "(updateQueue) task ready: %s", task.Id)
 			err := qm.taskEnQueue(task)
 			if err != nil {
-				task.SetState(TASK_STAT_SUSPEND)
+				_ = task.SetState(TASK_STAT_SUSPEND)
 				jobid := getParentJobId(task.Id)
 				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
 				continue
@@ -916,7 +916,7 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 	}
 	if task_ready {
 		if err = qm.taskEnQueue(task); err != nil {
-			task.SetState(TASK_STAT_SUSPEND)
+			_ = task.SetState(TASK_STAT_SUSPEND)
 			jobid := getParentJobId(task.Id)
 			qm.SuspendJob(jobid, fmt.Sprintf("failed in enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
 			return err
@@ -1102,8 +1102,9 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 			return
 		}
 		//need time out!
-		if io.Node != "" && io.GetFileSize() < 0 {
-			err = fmt.Errorf("task %s: input file %s not available", task.Id, name)
+		_, xerr := io.GetFileSize()
+		if xerr != nil {
+			err = fmt.Errorf("task %s: input file %s GetFileSize returns: %s", task.Id, name, xerr.Error())
 			return
 		}
 		logger.Debug(2, "inputs located %s, %s", name, io.Node)
@@ -1113,10 +1114,10 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 		name := io.FileName
 		logger.Debug(2, "processing predata %s, %s", name, io.Node)
 		// only verify predata that is a shock node
-		if (io.Node != "") && (io.Node != "-") && (io.GetFileSize() < 0) {
-			// bad shock node
-			if io.GetFileSize() < 0 {
-				err = fmt.Errorf("task %s: predata file %s not available", task.Id, name)
+		if (io.Node != "") && (io.Node != "-") {
+			_, xerr := io.GetFileSize()
+			if xerr != nil {
+				err = fmt.Errorf("task %s: input file %s GetFileSize returns: %s", task.Id, name, xerr.Error())
 				return
 			}
 			logger.Debug(2, "predata located %s, %s", name, io.Node)
@@ -1369,7 +1370,19 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 		//	continue
 		//}
 
-		task_state, err := dbGetJobTaskField(jobid, taskid, "state")
+		task, ok, err := qm.TaskMap.Get(taskid, true)
+
+		if err != nil {
+			logger.Error("(UpdateJobTaskToInProgress) %s", err.Error())
+			continue
+		}
+
+		if !ok {
+			logger.Error("(UpdateJobTaskToInProgress) task %s not found %s", taskid, err.Error())
+			continue
+		}
+
+		task_state, err := task.GetState()
 		if err != nil {
 			logger.Error("(UpdateJobTaskToInProgress) dbGetJobTaskField: %s", err.Error())
 			continue
@@ -1377,14 +1390,18 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 		// task_state := job.Tasks[idx].State
 
 		if task_state != TASK_STAT_INPROGRESS {
-
-			dbUpdateJobTaskField(jobid, taskid, "state", TASK_STAT_INPROGRESS)
+			err := task.SetState(TASK_STAT_INPROGRESS)
+			if err != nil {
+				logger.Error("(UpdateJobTaskToInProgress) could not update task %s", taskid)
+				continue
+			}
+			//dbUpdateJobTaskField(jobid, taskid, "state", TASK_STAT_INPROGRESS)
 
 			//job.Tasks[idx].State = TASK_STAT_INPROGRESS
-			qm.TaskMap.SetState(taskid, TASK_STAT_INPROGRESS)
+			//qm.TaskMap.SetState(taskid, TASK_STAT_INPROGRESS)
 			//job.Tasks[idx].StartedDate = time.Now()
 
-			dbUpdateJobTaskField(jobid, taskid, "starteddate", time.Now())
+			//dbUpdateJobTaskField(jobid, taskid, "starteddate", time.Now())
 
 			qm.UpdateTaskPerfStartTime(taskid)
 		}
@@ -1453,7 +1470,11 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 			continue
 		}
 		if task_state == TASK_STAT_QUEUED || task_state == TASK_STAT_INIT || task_state == TASK_STAT_INPROGRESS {
-			task.SetState(TASK_STAT_SUSPEND)
+			err = task.SetState(TASK_STAT_SUSPEND)
+			if err != nil {
+				logger.Error("(SuspendJob) : %s", err.Error())
+				continue
+			}
 		}
 
 	}
@@ -1473,7 +1494,7 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 	if job.Acl.Owner != u.Uuid && rights["delete"] == false && u.Admin == false {
 		return errors.New(e.UnAuth)
 	}
-	if err := job.UpdateState(JOB_STAT_DELETED, "deleted"); err != nil {
+	if err := job.SetState(JOB_STAT_DELETED, "deleted"); err != nil {
 		return err
 	}
 	//delete queueing workunits
@@ -1655,6 +1676,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	if err != nil {
 		return errors.New("failed to load job " + err.Error())
 	}
+
 	if dbjob.State != JOB_STAT_COMPLETED && dbjob.State != JOB_STAT_SUSPEND {
 		return errors.New("job " + jobid + " is not in 'completed' or 'suspend' status")
 	}
@@ -1685,11 +1707,14 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	}
 
 	dbjob.Resumed += 1
-	dbjob.RemainTasks = remaintasks
+	err = dbjob.SetRemainTasks(remaintasks)
+	if err != nil {
+		return
+	}
 	if dbjob.RemainTasks < len(dbjob.Tasks) {
-		dbjob.UpdateState(JOB_STAT_INPROGRESS, "recomputed from task "+from_task_id)
+		dbjob.SetState(JOB_STAT_INPROGRESS, "recomputed from task "+from_task_id)
 	} else {
-		dbjob.UpdateState(JOB_STAT_QUEUED, "recomputed from task "+from_task_id)
+		dbjob.SetState(JOB_STAT_QUEUED, "recomputed from task "+from_task_id)
 	}
 
 	if was_suspend {
@@ -1766,7 +1791,7 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 
 func resetTask(task *Task, info *Info) {
 	task.Info = info
-	task.SetState(TASK_STAT_PENDING)
+	_ = task.SetState(TASK_STAT_PENDING)
 	task.RemainWork = task.TotalWork
 	task.ComputeTime = 0
 	task.CompletedDate = time.Time{}

@@ -133,17 +133,19 @@ func (io *IO) HasFile() bool {
 	return true
 }
 
-func (io *IO) GetFileSize() int64 {
+func (io *IO) GetFileSize() (size int64, err error) {
 	if io.Size > 0 {
-		return io.Size
+		size = io.Size
+		return
 	}
 	shocknode, err := io.GetShockNode()
 	if err != nil {
-		logger.Error(fmt.Sprintf("GetFileSize error: %s, node: %s", err.Error(), io.Node))
-		return -1
+		err = fmt.Errorf("GetFileSize error: %s, node: %s", err.Error(), io.Node)
+		return
 	}
 	io.Size = shocknode.File.Size
-	return io.Size
+	size = io.Size
+	return
 }
 
 func (io *IO) GetIndexInfo() (idxinfo map[string]shock.IdxInfo, err error) {
@@ -163,7 +165,8 @@ func (io *IO) GetShockNode() (node *shock.ShockNode, err error) {
 	if io.Node == "-" {
 		return nil, errors.New("empty node id")
 	}
-	return shock.ShockGet(io.Host, io.Node, io.DataToken)
+	node, err = shock.ShockGet(io.Host, io.Node, io.DataToken)
+	return
 }
 
 func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {

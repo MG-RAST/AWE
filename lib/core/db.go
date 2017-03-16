@@ -420,6 +420,13 @@ func dbUpdateJobFieldString(job_id string, fieldname string, value string) (err 
 	return dbUpdateJobFields(job_id, update_value)
 }
 
+func dbUpdateJobFieldInt(job_id string, fieldname string, value int) (err error) {
+
+	update_value := bson.M{fieldname: value}
+
+	return dbUpdateJobFields(job_id, update_value)
+}
+
 func dbIncrementJobField(job_id string, fieldname string, increment_value int) (err error) {
 
 	session := db.Connection.Session.Copy()

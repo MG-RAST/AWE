@@ -413,28 +413,46 @@ func (job *Job) NumTask() int {
 }
 
 //---Field update functions
-func (job *Job) UpdateState(newState string, notes string) (err error) {
+func (job *Job) SetState(newState string, notes string) (err error) {
+
+	if job.State == newState {
+		return
+	}
+
+	if newState == JOB_STAT_COMPLETED && job.State != JOB_STAT_COMPLETED {
+
+		job.Info.CompletedTime = time.Now()
+
+	}
+
 	job.State = newState
 	if len(notes) > 0 {
 		job.Notes = notes
 	}
-	return job.Save()
+
+	dbUpdateJobFieldString(job.Id, "state", newState)
+
+	return
+}
+
+func (job *Job) SetRemainTasks(remain_tasks int) (err error) {
+
+	if remain_tasks == job.RemainTasks {
+		return
+	}
+
+	err = dbUpdateJobFieldInt(job.Id, "remaintasks", remain_tasks)
+	if err != nil {
+		return
+	}
+	job.RemainTasks = remain_tasks
+
+	return
 }
 
 //invoked to modify job info in mongodb when a task in that job changed to the new status
 // task is already locked
-func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
-	//idx := -1
-	//for i, t := range job.Tasks {
-	//	if t.Id == task.Id {
-	//		idx = i
-	//		break
-	//	}
-	//}
-	//if idx == -1 {
-	//	return job.RemainTasks, errors.New("job.UpdateTask: no task found with id=" + task.Id)
-	//}
-	//job.Tasks[idx] = task
+func (job *Job) UpdateTaskDEPRECATED(task *Task) (remainTasks int, err error) {
 
 	//if this task is complete, count remain tasks for the job
 	task_state := task.State
@@ -449,14 +467,15 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 				remain_tasks -= 1
 			}
 		}
-		job.RemainTasks = remain_tasks
-		if job.RemainTasks == 0 {
-			job.State = JOB_STAT_COMPLETED
-			job.Info.CompletedTime = time.Now()
+
+		job.SetRemainTasks(remain_tasks)
+		if remain_tasks == 0 {
+			job.SetState(JOB_STAT_COMPLETED, "")
+
 		}
 	}
 	remainTasks = job.RemainTasks
-	err = job.Save()
+
 	return
 }
 
@@ -515,7 +534,7 @@ func (job *Job) SetDataToken(token string) (err error) {
 	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
 		return
 	}
-	err = job.Save()
+
 	return
 }
 

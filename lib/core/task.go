@@ -272,7 +272,8 @@ func (task *Task) InitTask(job *Job) (err error) {
 	}
 
 	task.setTokenForIO()
-	task.SetState(TASK_STAT_INIT)
+	err = task.SetState(TASK_STAT_INIT)
+
 	return
 }
 

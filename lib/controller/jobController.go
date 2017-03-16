@@ -168,8 +168,24 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		logger.Event(event.JOB_SUBMISSION, "jobid="+job.Id+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	}
 
-	if token, err := request.RetrieveToken(cx.Request); err == nil {
-		job.SetDataToken(token)
+	token, err := request.RetrieveToken(cx.Request)
+	if err != nil {
+		logger.Debug(3, "job %s no token", job.Id)
+		panic("no token!")
+	} else {
+		err = job.SetDataToken(token)
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+		logger.Debug(3, "job %s got token", job.Id)
+
+	}
+
+	err = job.Save()
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	// make a copy to prevent race conditions
@@ -876,10 +892,19 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 			cx.RespondWithErrorMessage("fail to retrieve token for job, pls set token in header: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := job.SetDataToken(token); err != nil {
+
+		err = job.SetDataToken(token)
+
+		if err != nil {
 			cx.RespondWithErrorMessage("failed to set the token for job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
+		err = job.Save()
+		if err != nil {
+			cx.RespondWithErrorMessage("failed to save job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		cx.RespondWithData("data token set for job: " + id)
 		return
 	}

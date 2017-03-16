@@ -176,7 +176,10 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 		//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
 		logger.Event(event.CLIENT_UNREGISTER, "clientid="+client.Id+";name="+client.Name)
 		//requeue unfinished workunits associated with the failed client
-		qm.ReQueueWorkunitByClient(client, false)
+		err = qm.ReQueueWorkunitByClient(client, false)
+		if err != nil {
+			logger.Error("(CheckClient) %s", err.Error())
+		}
 		//delete the client from client map
 		//qm.RemoveClient(client.Id)
 		ok = false
@@ -1004,9 +1007,9 @@ func (qm *CQMgr) EnqueueWorkunit(work *Workunit) (err error) {
 	return
 }
 
-func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, lock bool) (err error) {
+func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool) (err error) {
 
-	worklist, err := client.Get_current_work(lock)
+	worklist, err := client.Get_current_work(client_write_lock)
 	if err != nil {
 		return
 	}
@@ -1018,12 +1021,17 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, lock bool) (err error) 
 		}
 		if has_work {
 			jobid, _ := GetJobIdByWorkId(workid)
-			if job, err := LoadJob(jobid); err == nil {
-				if contains(JOB_STATS_ACTIVE, job.State) { //only requeue workunits belonging to active jobs (rule out suspended jobs)
-					qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
-					logger.Event(event.WORK_REQUEUE, "workid="+workid)
-				}
+			job_state, err := dbGetJobFieldString(jobid, "state")
+			if err != nil {
+				logger.Error("(ReQueueWorkunitByClient) dbGetJobField: %s", err.Error())
+				continue
 			}
+
+			if contains(JOB_STATS_ACTIVE, job_state) { //only requeue workunits belonging to active jobs (rule out suspended jobs)
+				qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
+				logger.Event(event.WORK_REQUEUE, "workid="+workid)
+			}
+
 		}
 	}
 	return

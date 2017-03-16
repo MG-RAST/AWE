@@ -378,11 +378,14 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	if err != nil {
 		return
 	}
-	if ok {
+	if !ok {
 		//delete(client.Current_work, workid)
+		err = fmt.Errorf("(handleWorkStatusChange) client not found")
+	}
 
-		client.Current_work_delete(workid, true)
-
+	err = client.Current_work_delete(workid, true)
+	if err != nil {
+		return
 	}
 
 	task, tok, err := qm.TaskMap.Get(taskid, true)
@@ -454,14 +457,14 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 		client.Increment_total_completed()
 
-		err = task.LockNamed("handleWorkStatusChange/various")
-		if err != nil {
+		//task.RemainWork -= 1
+		remain_work, xerr := task.IncrementRemainWork(-1)
+		if xerr != nil {
+			err = xerr
 			return
 		}
-		task.RemainWork -= 1
-		task.ComputeTime += computetime
-		remain_work := task.RemainWork
-		task.Unlock()
+		//task.ComputeTime += computetime
+		task.IncrementComputeTime(computetime)
 
 		logger.Debug(3, "(handleWorkStatusChange) remain_work: %d (%s)", remain_work, workid)
 
@@ -492,10 +495,11 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			logger.Event(event.TASK_DONE, "taskid="+taskid)
 			//update the info of the job which the task is belong to, could result in deletion of the
 			//task in the task map when the task is the final task of the job to be done.
-			err = qm.updateJobTask(task, true) //task state QUEUED -> COMPLETED
+			err = qm.updateJobTask(task) //task state QUEUED -> COMPLETED
 		}
 		//done, remove from the workQueue
 		qm.workQueue.Delete(workid)
+
 	} else if status == WORK_STAT_FAIL { //workunit failed, requeue or put it to suspend list
 		logger.Event(event.WORK_FAIL, "workid="+workid+";clientid="+clientid)
 		logger.Debug(3, "work failed workid=%s clientid=%s", workid, clientid)
@@ -516,7 +520,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			logger.Event(event.TASK_SKIPPED, "taskid="+taskid)
 			//update the info of the job which the task is belong to, could result in deletion of the
 			//task in the task map when the task is the final task of the job to be done.
-			if err = qm.updateJobTask(task, false); err != nil { //task state QUEUED -> FAIL_SKIP
+			if err = qm.updateJobTask(task); err != nil { //task state QUEUED -> FAIL_SKIP
 				return
 			}
 			// remove from the workQueue
@@ -922,7 +926,7 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 			return err
 		}
 	}
-	err = qm.updateJobTask(task, false) //task state INIT->PENDING
+	err = qm.updateJobTask(task) //task state INIT->PENDING
 	return
 }
 
@@ -931,7 +935,7 @@ func (qm *ServerMgr) skipTask(task *Task) (err error) {
 	task.State = TASK_STAT_SKIPPED
 	task.RemainWork = 0
 	//update job and queue info. Skipped task behaves as finished tasks
-	if err = qm.updateJobTask(task, false); err != nil { //TASK state  -> SKIPPED
+	if err = qm.updateJobTask(task); err != nil { //TASK state  -> SKIPPED
 		return
 	}
 	logger.Event(event.TASK_SKIPPED, "taskid="+task.Id)
@@ -1052,7 +1056,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 	task.State = TASK_STAT_QUEUED
 	task.CreatedDate = time.Now()
 	task.StartedDate = time.Now() //to-do: will be changed to the time when the first workunit is checked out
-	qm.updateJobTask(task, false) //task status PENDING->QUEUED
+	qm.updateJobTask(task)        //task status PENDING->QUEUED
 
 	//log event about task enqueue (TQ)
 	logger.Event(event.TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task.Id, task.TotalWork))
@@ -1237,7 +1241,7 @@ func (qm *ServerMgr) ShowTasks() {
 //---end of task methods---
 
 //update job info when a task in that job changed to a new state
-func (qm *ServerMgr) updateJobTask(task *Task, lock_task bool) (err error) {
+func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	parts := strings.Split(task.Id, "_")
 	jobid := parts[0]
 
@@ -1248,17 +1252,6 @@ func (qm *ServerMgr) updateJobTask(task *Task, lock_task bool) (err error) {
 		return
 	}
 
-	logger.Debug(3, "(ServerMgr/updateJobTask) call LoadJob")
-	//job, err := LoadJob(jobid)
-	//if err != nil {
-	//	return
-	//}
-
-	if lock_task {
-		task.LockNamed("ServerMgr/updateJobTask")
-		defer task.Unlock()
-	}
-
 	remainTasks, err := dbGetJobFieldInt(jobid, "remaintasks")
 	if err != nil {
 		return
@@ -1266,70 +1259,80 @@ func (qm *ServerMgr) updateJobTask(task *Task, lock_task bool) (err error) {
 
 	logger.Debug(2, "remaining tasks for task %s: %d", task.Id, remainTasks)
 
-	if remainTasks == 0 { //job done
-
-		job_state, xerr := dbGetJobFieldString(jobid, "state")
-		if xerr != nil {
-			err = xerr
-			return
-		}
-		if job_state == JOB_STAT_COMPLETED {
-			err = fmt.Errorf("job state is already JOB_STAT_COMPLETED")
-			return
-		}
-
-		dbUpdateJobState(jobid, JOB_STAT_COMPLETED, "")
-
-		qm.FinalizeJobPerf(jobid)
-		qm.LogJobPerf(jobid)
-		qm.removeActJob(jobid)
-		//delete tasks in task map
-		//delete from shock output flagged for deletion
-
-		job, xerr := LoadJob(jobid) // TODO do the delete outputs without LoadJob
-		if xerr != nil {
-			err = xerr
-			return
-		}
-
-		for _, task := range job.TaskList() {
-			task.DeleteOutput()
-			task.DeleteInput()
-			qm.TaskMap.Delete(task.Id)
-		}
-
-		job.Save()
-
-		//set expiration from conf if not set
-		nullTime := time.Time{}
-
-		job_expiration, xerr := dbGetJobFieldTime(jobid, "expiration")
-		if xerr != nil {
-			err = xerr
-			return
-		}
-
-		if job_expiration == nullTime {
-			expire := conf.GLOBAL_EXPIRE
-
-			job_info_pipeline, xerr := dbGetJobFieldString(jobid, "info.pipeline")
-			if xerr != nil {
-				err = xerr
-				return
-			}
-
-			if val, ok := conf.PIPELINE_EXPIRE_MAP[job_info_pipeline]; ok {
-				expire = val
-			}
-			if expire != "" {
-				if err := SetExpiration2(jobid, expire); err != nil {
-					return err
-				}
-			}
-		}
-		//log event about job done (JD)
-		logger.Event(event.JOB_DONE, "jobid="+job.Id+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
+	if remainTasks > 0 {
+		return
 	}
+
+	// ----------------------------------
+	// --  job done
+
+	job_state, xerr := dbGetJobFieldString(jobid, "state")
+	if xerr != nil {
+		err = xerr
+		return
+	}
+	if job_state == JOB_STAT_COMPLETED {
+		err = fmt.Errorf("job state is already JOB_STAT_COMPLETED")
+		return
+	}
+
+	dbUpdateJobState(jobid, JOB_STAT_COMPLETED, "")
+
+	qm.FinalizeJobPerf(jobid)
+	qm.LogJobPerf(jobid)
+	qm.removeActJob(jobid)
+	//delete tasks in task map
+	//delete from shock output flagged for deletion
+
+	job, xerr := LoadJob(jobid) // TODO do the delete outputs without LoadJob
+	if xerr != nil {
+		err = xerr
+		return
+	}
+
+	modified := 0
+	for _, task := range job.TaskList() {
+		// delete nodes that have been flagged to be deleted
+		modified += task.DeleteOutput()
+		modified += task.DeleteInput()
+		qm.TaskMap.Delete(task.Id)
+	}
+
+	if modified > 0 {
+		// save only is something has changed
+		job.Save()
+	}
+
+	//set expiration from conf if not set
+	nullTime := time.Time{}
+
+	job_expiration, xerr := dbGetJobFieldTime(jobid, "expiration")
+	if xerr != nil {
+		err = xerr
+		return
+	}
+
+	if job_expiration == nullTime {
+		expire := conf.GLOBAL_EXPIRE
+
+		job_info_pipeline, xerr := dbGetJobFieldString(jobid, "info.pipeline")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		if val, ok := conf.PIPELINE_EXPIRE_MAP[job_info_pipeline]; ok {
+			expire = val
+		}
+		if expire != "" {
+			if err := SetExpiration2(jobid, expire); err != nil {
+				return err
+			}
+		}
+	}
+	//log event about job done (JD)
+	logger.Event(event.JOB_DONE, "jobid="+job.Id+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
+
 	return
 }
 

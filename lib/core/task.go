@@ -405,6 +405,43 @@ func (task *Task) setTotalWork(num int) {
 	task.WorkStatus = make([]string, num)
 }
 
+func (task *Task) SetRemainWork(num int) (err error) {
+	err = task.LockNamed("SetRemainWork")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+	task.RemainWork = num
+
+	return
+}
+
+func (task *Task) IncrementRemainWork(inc int) (remainwork int, err error) {
+	err = task.LockNamed("IncrementRemainWork")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	task.RemainWork += inc
+
+	remainwork = task.RemainWork
+
+	return
+}
+
+func (task *Task) IncrementComputeTime(inc_time int) (err error) {
+	err = task.LockNamed("IncrementComputeTime")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	task.ComputeTime += inc_time
+
+	return
+}
+
 func (task *Task) setTokenForIO() {
 	if !task.Info.Auth || task.Info.DataToken == "" {
 		return
@@ -462,7 +499,8 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog) {
 //		(len(task.DependsOn) <= 1)
 //}
 
-func (task *Task) DeleteOutput() {
+func (task *Task) DeleteOutput() (modified int) {
+	modified = 0
 	task_state := task.State
 	if task_state == TASK_STAT_COMPLETED ||
 		task_state == TASK_STAT_SKIPPED ||
@@ -472,12 +510,15 @@ func (task *Task) DeleteOutput() {
 				if err := io.DeleteNode(); err != nil {
 					logger.Warning("failed to delete shock node %s: %s", io.Node, err.Error())
 				}
+				modified += 1
 			}
 		}
 	}
+	return
 }
 
-func (task *Task) DeleteInput() {
+func (task *Task) DeleteInput() (modified int) {
+	modified = 0
 	task_state := task.State
 	if task_state == TASK_STAT_COMPLETED ||
 		task_state == TASK_STAT_SKIPPED ||
@@ -487,9 +528,11 @@ func (task *Task) DeleteInput() {
 				if err := io.DeleteNode(); err != nil {
 					logger.Warning("failed to delete shock node %s: %s", io.Node, err.Error())
 				}
+				modified += 1
 			}
 		}
 	}
+	return
 }
 
 //creat index (=deprecated=)

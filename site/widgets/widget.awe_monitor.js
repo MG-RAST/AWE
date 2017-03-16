@@ -277,8 +277,9 @@
 			       var result_data = [];
 			       var clientsStati = { "active-idle": 0, "active-busy": 0, "suspend": 0 };
 			       if (data.data == null) {
-				   result_data = [ ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'] ];
+				   result_data = [ ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'] ];
 			       } else {
+				   console.log(data.data[0]);
 				   for (var h=0;h<data.data.length;h++) {
 				       var obj = data.data[h];
 				       if (clientsStati.hasOwnProperty(obj.Status)) {
@@ -300,7 +301,8 @@
 							  obj.total_checkout || "0",
 							  obj.total_completed || "0",
 							  obj.total_failed || "0",
-							  skipwork.join(", ") ]);
+							   skipwork.join(", "),
+							 obj.version ]);
 				   }
 			       }
 			       return_data = { header: [ "name",
@@ -315,12 +317,13 @@
 							 "c/o",
 							 "done",
 							 "failed",
-							 "errors"],
+							 "errors",
+							 "version" ],
 					       data: result_data };
 
 			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.rows_per_page = 15;
-			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.invisible_columns = { 4: true };
-			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [110,73,70,73,75,115,90,105,75,60,70,75,90];
+			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.invisible_columns = { 4: true, 5: true };
+			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [110,73,70,73,75,115,90,105,75,60,70,75,90,85];
 			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.data = return_data;
 			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].render();
 			   }

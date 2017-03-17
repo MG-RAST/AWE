@@ -357,7 +357,7 @@ func DiscardWorkunit(id string) (err error) {
 		workmap.Set(id, ID_DISCARDED, "DiscardWorkunit")
 		err = core.Self.Current_work_delete(id, true)
 		if err != nil {
-			logger.Error("(DiscardWorkunit) Could not remove workunit %s from client", id
+			logger.Error("(DiscardWorkunit) Could not remove workunit %s from client", id)
 			err = nil
 		}
 	}

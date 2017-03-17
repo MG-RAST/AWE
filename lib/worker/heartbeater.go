@@ -66,7 +66,7 @@ func SendHeartBeat() {
 			} else {
 				if core.Server_UUID != val {
 					// server has been restarted, stop work on client (TODO in future we will try to recover work)
-					logger.Warning("uuid Server UUID has changed. Stop work units.")
+					logger.Warning("(SendHeartBeat) Server UUID has changed. Will stop all work units.")
 					all_work, _ := workmap.GetKeys()
 
 					for _, work := range all_work {
@@ -355,6 +355,11 @@ func DiscardWorkunit(id string) (err error) {
 		}
 
 		workmap.Set(id, ID_DISCARDED, "DiscardWorkunit")
+		err = core.Self.Current_work_delete(id, true)
+		if err != nil {
+			logger.Error("(DiscardWorkunit) Could not remove workunit %s from client", id
+			err = nil
+		}
 	}
 	return
 }

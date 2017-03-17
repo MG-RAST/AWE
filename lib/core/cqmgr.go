@@ -1043,7 +1043,7 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 	}
 	for _, workid := range worklist {
 		logger.Debug(3, "(ReQueueWorkunitByClient) try to requeue work %s", workid)
-		has_work, xerr := qm.workQueue.Has(workid)
+		work, has_work, xerr := qm.workQueue.Get(workid)
 		if xerr != nil {
 			continue
 		}
@@ -1056,8 +1056,10 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 			}
 
 			if contains(JOB_STATS_ACTIVE, job_state) { //only requeue workunits belonging to active jobs (rule out suspended jobs)
-				qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
-				logger.Event(event.WORK_REQUEUE, "workid="+workid)
+				if work.Client == client.Id {
+					qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
+					logger.Event(event.WORK_REQUEUE, "workid="+workid)
+				}
 			}
 
 		}

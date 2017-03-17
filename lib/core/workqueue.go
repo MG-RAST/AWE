@@ -166,10 +166,12 @@ func (wq *WorkQueue) StatusChange(id string, new_status string) (err error) {
 		wq.Checkout.Delete(id)
 		wq.Suspend.Delete(id)
 		wq.Queue.Set(workunit)
+		workunit.Client = ""
 	case WORK_STAT_SUSPEND:
 		wq.Checkout.Delete(id)
 		wq.Queue.Delete(id)
 		wq.Suspend.Set(workunit)
+		workunit.Client = ""
 	default:
 		return errors.New("WorkQueue.statusChange: invalid new status:" + new_status)
 	}

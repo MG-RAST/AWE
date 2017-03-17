@@ -248,7 +248,14 @@
 				    3: { type: "text" },
 				    4: { type: "text" },
 				    5: { type: "text" },
-				    6: { type: "text" },
+				    6: { "type": "premade-select",
+					 "options": [ 
+					     { "text": "show all", "value": "" },
+					     { "text": "queued", "value": "queued" },
+					     { "text": "suspend", "value": "suspend" },
+					     { "text": "checkout", "value": "checkout" }
+					 ],
+					 "searchword": "" },
 				    7: { type: "text" },
 				    8: { type: "text" } };
 	    qwt.settings.disable_sort = {};
@@ -277,9 +284,8 @@
 			       var result_data = [];
 			       var clientsStati = { "active-idle": 0, "active-busy": 0, "suspend": 0 };
 			       if (data.data == null) {
-				   result_data = [ ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'] ];
+				   result_data = [ ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-'] ];
 			       } else {
-				   console.log(data.data[0]);
 				   for (var h=0;h<data.data.length;h++) {
 				       var obj = data.data[h];
 				       if (clientsStati.hasOwnProperty(obj.Status)) {
@@ -290,19 +296,20 @@
 					   skipwork.push("<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].workunitTooltip(jQuery(this), \""+obj.skip_work[j]+"\")'>"+(j+1)+"</a>");
 				       }
 				       result_data.push( [ "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.id+"\")'>"+obj.name+"</a>",
-							  obj.group,
-							  obj.host,
-							  obj.cores || "0",
-							  obj.apps.join(", "),
-							  obj.regtime,
-							  obj.serve_time,
-							  obj.subclients || "0",
-							  obj.Status,
-							  obj.total_checkout || "0",
-							  obj.total_completed || "0",
-							  obj.total_failed || "0",
+							   obj.group,
+							   obj.host,
+							   obj.cores || "0",
+							   obj.apps.join(", "),
+							   obj.regtime,
+							   obj.serve_time,
+							   obj.subclients || "0",
+							   obj.Status,
+							   obj.total_checkout || "0",
+							   obj.total_completed || "0",
+							   obj.total_failed || "0",
 							   skipwork.join(", "),
-							 obj.version ]);
+							   obj.version,
+							   Retina.keys(obj.current_work).length ? Retina.keys(obj.current_work)[0] : '- none -' ]);
 				   }
 			       }
 			       return_data = { header: [ "name",
@@ -318,12 +325,31 @@
 							 "done",
 							 "failed",
 							 "errors",
-							 "version" ],
+							 "version",
+							 "workunit" ],
 					       data: result_data };
 
 			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.rows_per_page = 15;
 			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.invisible_columns = { 4: true, 5: true };
-			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [110,73,70,73,75,115,90,105,75,60,70,75,90,85];
+			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.filter_autodetect = false;
+			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.filter = {
+				   0: { type: "text" },
+				   1: { type: "select" },
+				   2: { type: "text" },
+				   3: { type: "text", operator: [ "=", ">", "<" ], active_operator: 0 },
+				   4: { type: "text" },
+				   5: { type: "text" },
+				   6: { type: "text" },
+				   7: { type: "text" },
+				   8: { type: "select" },
+				   9: { type: "text" },
+				   10: { type: "text" },
+				   11: { type: "text" },
+				   12: { type: "text" },
+				   13: { type: "text" },
+				   14: { type: "text" }
+			       };
+			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [110,73,70,73,75,115,90,105,85,60,70,75,90,85,110];
 			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.data = return_data;
 			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].render();
 			   }

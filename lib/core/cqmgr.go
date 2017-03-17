@@ -305,7 +305,9 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 	if err != nil {
 		return
 	}
-	defer client.Unlock()
+	client_group := client.Group
+	client_id := client.Id
+	client.Unlock()
 
 	// If clientgroup is nil at this point, create a publicly owned clientgroup, with the provided group name (if one doesn't exist with the same name)
 	if cg == nil {
@@ -313,7 +315,7 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		// If it does and it does not have "public" execution rights, throw error
 		// If it doesn't, create one owned by public, and continue with client registration
 		// Otherwise proceed with client registration.
-		cg, _ = LoadClientGroupByName(client.Group)
+		cg, _ = LoadClientGroupByName(client_group)
 
 		if cg != nil {
 			rights := cg.Acl.Check("public")
@@ -323,7 +325,7 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 			}
 		} else {
 			u := &user.User{Uuid: "public"}
-			cg, err = CreateClientGroup(client.Group, u)
+			cg, err = CreateClientGroup(client_group, u)
 			if err != nil {
 				err = fmt.Errorf("CreateClientGroup returned: %s", err.Error())
 				return nil, err
@@ -331,29 +333,55 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		}
 	}
 	// If the name of the clientgroup (from auth token) does not match the name in the client profile, throw an error
-	if cg != nil && client.Group != cg.Name {
+	if cg != nil && client_group != cg.Name {
 		return nil, errors.New(e.ClientGroupBadName)
 	}
 
 	qm.AddClient(client, true) // locks clientMap
 
-	cw_length, err := client.Current_work_length(false)
+	// move already checked-out workunit from waiting queue (all) to checked-out list (coWorkMap)
+
+	current_work, err := client.Get_current_work(true)
 	if err != nil {
 		return
 	}
-	if cw_length > 0 { //re-registered client
-		// move already checked-out workunit from waiting queue (all) to checked-out list (coWorkMap)
 
-		for workid, _ := range client.Current_work {
-			has_work, xerr := qm.workQueue.Has(workid) // TODO what if another client also has this workunit ? Delete workunit from client?
-			if xerr != nil {
-				continue
-			}
-			if has_work {
-				qm.workQueue.StatusChange(workid, WORK_STAT_CHECKOUT)
-			}
+	remove_work := []string{}
+	for _, workid := range current_work {
+		work, ok, xerr := qm.workQueue.Get(workid) // TODO what if another client also has this workunit ? Delete workunit from client?
+		if xerr != nil {
+			logger.Error("(RegisterNewClient) %s", xerr.Error())
+			continue
 		}
 
+		if !ok {
+			// TODO client has workunit the server does not know about !? (e.g. after reboot)
+			remove_work = append(remove_work, workid)
+			continue
+		}
+
+		if work.Client == client_id {
+			// all ok
+			continue
+		}
+
+		if work.Client == "" {
+			// reclaim work unit
+			work.Client = client_id
+			qm.workQueue.StatusChange(workid, WORK_STAT_CHECKOUT)
+			continue
+		}
+
+		// work.Client != client.Id
+		// TODO client claims workunit that another client already has (it seems)
+		// TODO tell client to discard workunit
+		remove_work = append(remove_work, workid)
+		continue
+
+	}
+
+	for _, workid := range remove_work {
+		client.Current_work_delete(workid, true)
 	}
 
 	return

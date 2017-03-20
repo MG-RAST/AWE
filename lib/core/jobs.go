@@ -7,10 +7,18 @@ import (
 // Job array type
 type Jobs []*Job
 
-func (n *Jobs) Init() {
+func (n *Jobs) Init() (err error) {
 	for _, job := range *n {
-		job.Init()
+		changed, xerr := job.Init()
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		if changed {
+			job.Save()
+		}
 	}
+	return
 }
 
 func (n *Jobs) RLockRecursive() {

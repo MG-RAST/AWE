@@ -44,7 +44,7 @@ func workStealer(control chan int) {
 		if err != nil {
 			if err.Error() == e.QueueEmpty || err.Error() == e.QueueSuspend || err.Error() == e.NoEligibleWorkunitFound {
 				//normal, do nothing
-				logger.Debug(3, "(workStealer) client %s recieved status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL)
+				logger.Debug(3, "(workStealer) client %s received status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL)
 			} else if err.Error() == e.ClientNotFound {
 				logger.Error("(workStealer) server responds: client not found. will wait for heartbeat process to fix this")
 				//server may be restarted, waiting for the hearbeater goroutine to try re-register
@@ -60,7 +60,7 @@ func workStealer(control chan int) {
 			} else {
 				//something is wrong, server may be down
 
-				logger.Error("(workStealer) error in checking out workunit: %s, retry=%d", err.Error(), retry)
+				logger.Error("(workStealer) checking out workunit: %s, retry=%d", err.Error(), retry)
 				retry += 1
 			}
 			//if retry == 12 {
@@ -118,6 +118,10 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	availableBytes := stat.Bavail * uint64(stat.Bsize)
 
 	response := new(WorkResponse)
+	if core.Self == nil {
+		err = fmt.Errorf("core.Self == nil")
+		return
+	}
 	targeturl := fmt.Sprintf("%s/work?client=%s&available=%d", conf.SERVER_URL, core.Self.Id, availableBytes)
 
 	var headers httpclient.Header

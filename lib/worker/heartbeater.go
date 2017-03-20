@@ -54,8 +54,33 @@ func SendHeartBeat() {
 		if err.Error() == e.ClientNotFound {
 			ReRegisterWithSelf(conf.SERVER_URL)
 		}
-		logger.Debug(3, "heartbeat returned error: "+err.Error())
+		logger.Debug(3, "(SendHeartBeat) heartbeat returned error: "+err.Error())
 	}
+
+	val, ok := hbmsg["server-uuid"]
+	if ok {
+		if len(val) > 0 {
+			if core.Server_UUID == "" {
+				logger.Debug(1, "(SendHeartBeat) Setting Server UUID to %s", val)
+				core.Server_UUID = val
+			} else {
+				if core.Server_UUID != val {
+					// server has been restarted, stop work on client (TODO in future we will try to recover work)
+					logger.Warning("(SendHeartBeat) Server UUID has changed. Will stop all work units.")
+					all_work, _ := workmap.GetKeys()
+
+					for _, work := range all_work {
+						DiscardWorkunit(work)
+					}
+					core.Server_UUID = val
+				}
+			}
+
+		} else {
+			logger.Debug(1, "(SendHeartBeat) No Server UUID received")
+		}
+	}
+
 	//handle requested ops from the server
 	for op, objs := range hbmsg {
 		if op == "discard" { //discard suspended workunits
@@ -319,6 +344,7 @@ func ComposeProfile() (profile *core.Client, err error) {
 
 func DiscardWorkunit(id string) (err error) {
 	//fmt.Printf("try to discard workunit %s\n", id)
+	logger.Info("trying to discard workunit %s", id)
 	stage, ok, err := workmap.Get(id)
 	if err != nil {
 		return
@@ -329,6 +355,11 @@ func DiscardWorkunit(id string) (err error) {
 		}
 
 		workmap.Set(id, ID_DISCARDED, "DiscardWorkunit")
+		err = core.Self.Current_work_delete(id, true)
+		if err != nil {
+			logger.Error("(DiscardWorkunit) Could not remove workunit %s from client", id)
+			err = nil
+		}
 	}
 	return
 }

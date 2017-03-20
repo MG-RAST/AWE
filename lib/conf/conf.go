@@ -14,7 +14,7 @@ import (
 	"github.com/MG-RAST/golib/goconfig/config"
 )
 
-const VERSION string = "0.9.31"
+const VERSION string = "0.9.32"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -251,6 +251,7 @@ type AuthResource struct {
 	Keyword   string `json:"keyword"`
 	Url       string `json:"url"`
 	UseHeader bool   `json:"useHeader"`
+	Bearer    string `json:"bearer"`
 }
 
 func NewCS(c *config.Config) *Config_store {
@@ -428,9 +429,9 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddBool(&ANON_CG_DELETE, false, "Anonymous", "cg_delete", "", "")
 
 		// Auth
-		c_store.AddBool(&BASIC_AUTH, true, "Auth", "basic", "", "")
-		c_store.AddString(&GLOBUS_TOKEN_URL, "https://nexus.api.globusonline.org/goauth/token?grant_type=client_credentials", "Auth", "globus_token_url", "", "")
-		c_store.AddString(&GLOBUS_PROFILE_URL, "https://nexus.api.globusonline.org/users", "Auth", "globus_profile_url", "", "")
+		c_store.AddBool(&BASIC_AUTH, false, "Auth", "basic", "", "")
+		c_store.AddString(&GLOBUS_TOKEN_URL, "", "Auth", "globus_token_url", "", "")
+		c_store.AddString(&GLOBUS_PROFILE_URL, "", "Auth", "globus_profile_url", "", "")
 		c_store.AddString(&MGRAST_OAUTH_URL, "", "Auth", "mgrast_oauth_url", "", "")
 		c_store.AddString(&MGRAST_LOGIN_URL, "", "Auth", "mgrast_login_url", "", "")
 		c_store.AddBool(&CLIENT_AUTH_REQ, false, "Auth", "client_auth_required", "", "")
@@ -606,6 +607,7 @@ func Init_conf(mode string) (err error) {
 			Keyword:   "auth",
 			Url:       MGRAST_LOGIN_URL,
 			UseHeader: false,
+			Bearer:    "OAuth",
 		}
 	}
 	if MGRAST_OAUTH_URL != "" {
@@ -617,6 +619,7 @@ func Init_conf(mode string) (err error) {
 			Keyword:   "auth",
 			Url:       MGRAST_LOGIN_URL,
 			UseHeader: false,
+			Bearer:    "mgrast",
 		}
 	}
 

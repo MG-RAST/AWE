@@ -168,8 +168,24 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		logger.Event(event.JOB_SUBMISSION, "jobid="+job.Id+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	}
 
-	if token, err := request.RetrieveToken(cx.Request); err == nil {
-		job.SetDataToken(token)
+	token, err := request.RetrieveToken(cx.Request)
+	if err != nil {
+		logger.Debug(3, "job %s no token", job.Id)
+		panic("no token!")
+	} else {
+		err = job.SetDataToken(token)
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+		logger.Debug(3, "job %s got token", job.Id)
+
+	}
+
+	err = job.Save()
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	// make a copy to prevent race conditions
@@ -730,30 +746,44 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		}
 	}
 
-	// Load job by id
-	job, err := core.LoadJob(id)
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
 
+	// Load job by id
+	var job *core.Job
+	if query.Has("clientgroup") || query.Has("priority") || query.Has("pipeline") || query.Has("expiration") || query.Has("settoken") {
+		job, err = core.LoadJob(id)
+		if err != nil {
+			if err == mgo.ErrNotFound {
+				cx.RespondWithNotFound()
+			} else {
+				// In theory the db connection could be lost between
+				// checking user and load but seems unlikely.
+				// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
+				cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
+			}
+			return
+		}
+	}
+	// User must have write permissions on job or be job owner or be an admin
+	acl, err := core.DBGetJobAcl(id)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
-			// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
-			cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
+			cx.RespondWithErrorMessage("job not found: "+id, http.StatusBadRequest)
 		}
 		return
 	}
 
-	// User must have write permissions on job or be job owner or be an admin
-	rights := job.Acl.Check(u.Uuid)
-	if job.Acl.Owner != u.Uuid && rights["write"] == false && u.Admin == false {
+	rights := acl.Check(u.Uuid)
+	if acl.Owner != u.Uuid && rights["write"] == false && u.Admin == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}
 
-	// Gather query params
-	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("resume") { // to resume a suspended job
 		if err := core.QMgr.ResumeSuspendedJobByUser(id, u); err != nil {
 			cx.RespondWithErrorMessage("fail to resume job: "+id+" "+err.Error(), http.StatusBadRequest)
@@ -862,10 +892,19 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 			cx.RespondWithErrorMessage("fail to retrieve token for job, pls set token in header: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := job.SetDataToken(token); err != nil {
+
+		err = job.SetDataToken(token)
+
+		if err != nil {
 			cx.RespondWithErrorMessage("failed to set the token for job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
+		err = job.Save()
+		if err != nil {
+			cx.RespondWithErrorMessage("failed to save job: "+id+" "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		cx.RespondWithData("data token set for job: " + id)
 		return
 	}

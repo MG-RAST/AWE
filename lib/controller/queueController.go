@@ -110,14 +110,20 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 			}
 			for _, client := range client_list {
 				if client.Group == cg.Name {
-					client.LockNamed("QueueController/ReadMany")
-					for wid, _ := range client.Current_work {
+
+					current_work_array, err := client.Get_current_work(true)
+					if err != nil {
+						logger.Error("(queue/ReadMany) %s", err.Error())
+						continue
+					}
+
+					for _, wid := range current_work_array {
 						jid, _ := core.GetJobIdByWorkId(wid)
 						if job, err := core.LoadJob(jid); err == nil {
 							jobs = append(jobs, job)
 						}
 					}
-					client.Unlock()
+
 				}
 			}
 

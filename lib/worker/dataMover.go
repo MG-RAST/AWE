@@ -160,6 +160,7 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 	//args_array := parsed.workunit.Cmd.App_args
 
 	logger.Debug(1, "+++ replace_filepath_with_full_filepath")
+	logger.Debug(1, "conf.DOCKER_WORK_DIR: %s", conf.DOCKER_WORK_DIR)
 	// expand filenames
 	err = replace_filepath_with_full_filepath(parsed.workunit.Inputs, conf.DOCKER_WORK_DIR, cmd_script)
 	if err != nil {
@@ -301,8 +302,10 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 		return
 	}
 
+	logger.Debug(3, "argstr: %s", argstr)
+
 	workpath := work.Path()
-	if len(work.Cmd.Dockerimage) > 0 {
+	if work.Cmd.Dockerimage != "" || work.Cmd.DockerPull != "" {
 		workpath = conf.DOCKER_WORK_DIR
 	}
 
@@ -503,10 +506,12 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 	return
 }
 
-//fetch input data
+//fetch input data // TODO Is this deprecated ?
 func moveInputData(work *core.Workunit) (size int64, err error) {
+	logger.Debug(3, "(moveInputData) starting")
 	for _, io := range work.Inputs {
 		inputname := io.FileName
+		logger.Debug(3, "(moveInputData) inputname: %s", inputname)
 		dataUrl, uerr := io.DataUrl()
 		if uerr != nil {
 			return 0, uerr
@@ -521,10 +526,27 @@ func moveInputData(work *core.Workunit) (size int64, err error) {
 		logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
 
 		// this gets file from any downloadable url, not just shock
-		if datamoved, _, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false); err != nil {
-			return size, err
-		} else {
+		retry := 1
+		for true {
+			datamoved, _, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false)
+			if err != nil {
+				if !strings.Contains(err.Error(), "Node has no file") {
+					logger.Debug(3, "(moveInputData) got: err.Error()")
+					return size, err
+				}
+				logger.Debug(3, "(moveInputData) got: Node has no file")
+				if retry >= 3 {
+					return size, err
+				}
+				logger.Warning("Will retry download, got this error: %s", err.Error())
+				time.Sleep(time.Second * 20)
+				retry += 1
+				continue
+			}
+
 			size += datamoved
+			break
+
 		}
 		logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
 	}

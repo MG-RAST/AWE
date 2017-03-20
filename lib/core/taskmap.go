@@ -76,7 +76,7 @@ func (tm *TaskMap) Add(task *Task) {
 }
 
 // TODO remove ?
-func (tm *TaskMap) SetState(id string, new_state string) (err error) {
+func (tm *TaskMap) SetStateDEPRECATED(id string, new_state string) (err error) {
 	task, ok, err := tm.Get(id, true)
 	if err != nil {
 		return
@@ -85,6 +85,6 @@ func (tm *TaskMap) SetState(id string, new_state string) (err error) {
 		err = fmt.Errorf("(SetState) Task not found")
 		return
 	}
-	task.SetState(new_state)
+	err = task.SetState(new_state)
 	return
 }

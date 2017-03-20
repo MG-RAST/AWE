@@ -21,6 +21,8 @@ func (qm *ProxyMgr) Unlock()  {}
 func (qm *ProxyMgr) RLock()   {}
 func (qm *ProxyMgr) RUnlock() {}
 
+func (qm *ProxyMgr) UpdateQueueLoop() {}
+
 func NewProxyMgr() *ProxyMgr {
 	return &ProxyMgr{
 		CQMgr: CQMgr{

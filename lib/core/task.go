@@ -24,18 +24,18 @@ const (
 
 type TaskRaw struct {
 	RWMutex
-	Id            string            `bson:"taskid" json:"taskid"`
-	JobId         string            `bson:"jobid" json:"jobid"`
-	Info          *Info             `bson:"info" json:"-"`
-	Cmd           *Command          `bson:"cmd" json:"cmd"`
-	Partition     *PartInfo         `bson:"partinfo" json:"-"`
-	DependsOn     []string          `bson:"dependsOn" json:"dependsOn"`
-	TotalWork     int               `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize   int               `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork    int               `bson:"remainwork" json:"remainwork"`
-	WorkStatus    []string          `bson:"workstatus" json:"-"`
-	State         string            `bson:"state" json:"state"`
-	Skip          int               `bson:"skip" json:"-"`
+	Id          string    `bson:"taskid" json:"taskid"`
+	JobId       string    `bson:"jobid" json:"jobid"`
+	Info        *Info     `bson:"-" json:"-"`
+	Cmd         *Command  `bson:"cmd" json:"cmd"`
+	Partition   *PartInfo `bson:"partinfo" json:"-"`
+	DependsOn   []string  `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
+	TotalWork   int       `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize int       `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork  int       `bson:"remainwork" json:"remainwork"`
+	WorkStatus  []string  `bson:"workstatus" json:"-"`
+	State       string    `bson:"state" json:"state"`
+	//Skip          int               `bson:"skip" json:"-"`
 	CreatedDate   time.Time         `bson:"createdDate" json:"createddate"`
 	StartedDate   time.Time         `bson:"startedDate" json:"starteddate"`
 	CompletedDate time.Time         `bson:"completedDate" json:"completeddate"`
@@ -84,7 +84,7 @@ func NewTaskRaw(job_id string, task_id string, info *Info) TaskRaw {
 		RemainWork: 1,
 		WorkStatus: []string{},
 		State:      TASK_STAT_INIT,
-		Skip:       0,
+		//Skip:       0,
 	}
 }
 
@@ -119,22 +119,85 @@ func (task *TaskRaw) GetState() (state string, err error) {
 	return
 }
 
-func (task *TaskRaw) SetState(new_state string) {
-	task.LockNamed("SetState")
-	defer task.Unlock()
-	task.State = new_state
-	return
-}
-
-func (task *TaskRaw) GetSkip() (skip int, err error) {
-	lock, err := task.RLockNamed("GetSkip")
+// only for debugging purposes
+func (task *TaskRaw) GetStateNamed(name string) (state string, err error) {
+	lock, err := task.RLockNamed("GetState/" + name)
 	if err != nil {
 		return
 	}
 	defer task.RUnlockNamed(lock)
-	skip = task.Skip
+	state = task.State
 	return
 }
+
+func (task *TaskRaw) GetId() (id string, err error) {
+	lock, err := task.RLockNamed("GetId")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	id = task.Id
+	return
+}
+
+func (task *TaskRaw) SetState(new_state string) (err error) {
+	err = task.LockNamed("SetState")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	if task.State == new_state {
+		return
+	}
+	if new_state == TASK_STAT_COMPLETED {
+		if task.State != TASK_STAT_COMPLETED {
+
+			// state TASK_STAT_COMPLETED is new!
+			err = dbIncrementJobField(task.JobId, "remaintasks", -1)
+			if err != nil {
+				return
+			}
+
+			this_time := time.Now()
+			task.CompletedDate = this_time
+			dbUpdateJobTaskField(task.JobId, task.Id, "completeddate", this_time)
+		}
+
+	} else {
+		// in case a completed teask is marked as something different
+		if task.State == TASK_STAT_COMPLETED {
+			err = dbIncrementJobField(task.JobId, "remaintasks", 1)
+			if err != nil {
+				return
+			}
+		}
+
+	}
+	dbUpdateJobTaskField(task.JobId, task.Id, "state", new_state)
+	task.State = new_state
+	return
+}
+
+func (task *TaskRaw) SetCompletedDate_DEPRECATED(date time.Time) (err error) {
+	err = task.LockNamed("SetCompletedDate")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+	task.CompletedDate = date
+	return
+}
+
+//func (task *TaskRaw) GetSkip() (skip int, err error) {
+//	lock, err := task.RLockNamed("GetSkip")
+//	if err != nil {
+//		return
+//	}
+//	defer task.RUnlockNamed(lock)
+//	skip = task.Skip
+//	return
+//}
 
 func (task *TaskRaw) GetDependsOn() (dep []string, err error) {
 	lock, err := task.RLockNamed("GetDependsOn")
@@ -209,7 +272,8 @@ func (task *Task) InitTask(job *Job) (err error) {
 	}
 
 	task.setTokenForIO()
-	task.SetState(TASK_STAT_INIT)
+	err = task.SetState(TASK_STAT_INIT)
+
 	return
 }
 
@@ -341,6 +405,43 @@ func (task *Task) setTotalWork(num int) {
 	task.WorkStatus = make([]string, num)
 }
 
+func (task *Task) SetRemainWork(num int) (err error) {
+	err = task.LockNamed("SetRemainWork")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+	task.RemainWork = num
+
+	return
+}
+
+func (task *Task) IncrementRemainWork(inc int) (remainwork int, err error) {
+	err = task.LockNamed("IncrementRemainWork")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	task.RemainWork += inc
+
+	remainwork = task.RemainWork
+
+	return
+}
+
+func (task *Task) IncrementComputeTime(inc_time int) (err error) {
+	err = task.LockNamed("IncrementComputeTime")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	task.ComputeTime += inc_time
+
+	return
+}
+
 func (task *Task) setTokenForIO() {
 	if !task.Info.Auth || task.Info.DataToken == "" {
 		return
@@ -353,7 +454,7 @@ func (task *Task) setTokenForIO() {
 	}
 }
 
-func (task *Task) ParseWorkunit() (wus []*Workunit, err error) {
+func (task *Task) CreateWorkunits() (wus []*Workunit, err error) {
 	//if a task contains only one workunit, assign rank 0
 	if task.TotalWork == 1 {
 		workunit := NewWorkunit(task, 0)
@@ -384,48 +485,54 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog) {
 	return
 }
 
-func (task *Task) Skippable() bool {
-	// For a task to be skippable, it should meet
-	// the following requirements (this may change
-	// in the future):
-	// 1.- It should have exactly one input file
-	// and one output file (This way, we can connect tasks
-	// Ti-1 and Ti+1 transparently)
-	// 2.- It should be a simple pipeline task. That is,
-	// it should just have at most one "parent" Ti-1 ---> Ti
-	return (len(task.Inputs) == 1) &&
-		(len(task.Outputs) == 1) &&
-		(len(task.DependsOn) <= 1)
-}
+//func (task *Task) Skippable() bool {
+// For a task to be skippable, it should meet
+// the following requirements (this may change
+// in the future):
+// 1.- It should have exactly one input file
+// and one output file (This way, we can connect tasks
+// Ti-1 and Ti+1 transparently)
+// 2.- It should be a simple pipeline task. That is,
+// it should just have at most one "parent" Ti-1 ---> Ti
+//	return (len(task.Inputs) == 1) &&
+//		(len(task.Outputs) == 1) &&
+//		(len(task.DependsOn) <= 1)
+//}
 
-func (task *Task) DeleteOutput() {
+func (task *Task) DeleteOutput() (modified int) {
+	modified = 0
 	task_state := task.State
 	if task_state == TASK_STAT_COMPLETED ||
 		task_state == TASK_STAT_SKIPPED ||
 		task_state == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Outputs {
 			if io.Delete {
-				if nodeid, err := io.DeleteNode(); err != nil {
-					logger.Error("warning: fail to delete shock node %s: %s", nodeid, err.Error())
+				if err := io.DeleteNode(); err != nil {
+					logger.Warning("failed to delete shock node %s: %s", io.Node, err.Error())
 				}
+				modified += 1
 			}
 		}
 	}
+	return
 }
 
-func (task *Task) DeleteInput() {
+func (task *Task) DeleteInput() (modified int) {
+	modified = 0
 	task_state := task.State
 	if task_state == TASK_STAT_COMPLETED ||
 		task_state == TASK_STAT_SKIPPED ||
 		task_state == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Inputs {
 			if io.Delete {
-				if nodeid, err := io.DeleteNode(); err != nil {
-					logger.Error("warning: fail to delete shock node %s: %s", nodeid, err.Error())
+				if err := io.DeleteNode(); err != nil {
+					logger.Warning("failed to delete shock node %s: %s", io.Node, err.Error())
 				}
+				modified += 1
 			}
 		}
 	}
+	return
 }
 
 //creat index (=deprecated=)

@@ -135,7 +135,10 @@ func RunVersionUpdates() (err error) {
 				iter := c.Find(bson.M{}).Iter()
 				defer iter.Close()
 				for iter.Next(jobDep) {
-					job = core.JobDepToJob(jobDep)
+					job, err = core.JobDepToJob(jobDep)
+					if err != nil {
+						return err
+					}
 					err = cNew.Insert(&job)
 					if err != nil {
 						return err

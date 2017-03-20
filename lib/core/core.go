@@ -25,6 +25,7 @@ var (
 	Service       string = "unknown"
 	Self          *Client
 	ProxyWorkChan chan bool
+	Server_UUID   string
 )
 
 type StandardResponse struct {
@@ -111,9 +112,10 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 		upload_file_path := upload_file.Path
 		job, err = ParseJobTasks(upload_file_path)
 		if err != nil {
+			logger.Warning("(CreateJobUpload/ParseJobTasks) %s", err.Error())
 			//errDep := errors.New("")
-			err = nil
-			job, err = ParseJobTasksDep(files["upload"].Path)
+			err = nil                                         // TODO we are loosing error messages. User needs them to figure out why something failed.
+			job, err = ParseJobTasksDep(files["upload"].Path) // TODO can we get rid of that ?
 			if err != nil {
 				//err = nil
 				return
@@ -179,7 +181,7 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 }
 
 func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
-	job = new(Job)
+	job = NewJob()
 
 	jsonstream, err := ioutil.ReadFile(file.Path)
 	if err != nil {
@@ -188,7 +190,7 @@ func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
 
 	err = json.Unmarshal(jsonstream, job)
 	if err != nil {
-		return nil, errors.New("error in unmarshaling job json file: " + err.Error())
+		return nil, errors.New("(CreateJobImport) error in unmarshaling job json file: " + err.Error())
 	}
 
 	if len(job.Tasks) == 0 {
@@ -338,11 +340,13 @@ func ReadJobFile(filename string) (job *Job, err error) {
 
 	err = json.Unmarshal(jsonstream, job)
 	if err != nil {
-		err = fmt.Errorf("error in unmarshaling job json file: %s ", err.Error())
+		err = fmt.Errorf("(ReadJobFile) error in unmarshaling job json file: %s ", err.Error())
+		return
 	}
 
-	for _, task := range job.Tasks {
-		task.Init()
+	_, err = job.Init()
+	if err != nil {
+		return
 	}
 
 	//parse private fields task.Cmd.Environ.Private
@@ -373,11 +377,6 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 		return
 	}
 
-	err = job.Init()
-	if err != nil {
-		return
-	}
-
 	err = job.InitTasks()
 	if err != nil {
 		return
@@ -388,7 +387,7 @@ func ParseJobTasks(filename string) (job *Job, err error) {
 
 // Parses job by job script using the deprecated Job struct. Maintained for backwards compatibility. (=deprecated=)
 func ParseJobTasksDep(filename string) (job *Job, err error) {
-	jobDep := new(JobDep)
+	jobDep := NewJobDep()
 
 	jsonstream, err := ioutil.ReadFile(filename)
 
@@ -398,11 +397,14 @@ func ParseJobTasksDep(filename string) (job *Job, err error) {
 
 	err = json.Unmarshal(jsonstream, jobDep)
 	if err != nil {
-		return nil, errors.New("error in unmarshaling job json file: " + err.Error())
+		return nil, errors.New("(ParseJobTasksDep) error in unmarshaling job json file: " + err.Error())
 	}
 
 	//copy contents of jobDep struct into job struct
-	job = JobDepToJob(jobDep)
+	job, err = JobDepToJob(jobDep)
+	if err != nil {
+		return
+	}
 
 	if len(job.Tasks) == 0 {
 		return nil, errors.New("invalid job script: task list empty")
@@ -452,8 +454,12 @@ func ParseJobTasksDep(filename string) (job *Job, err error) {
 }
 
 // Takes the deprecated (version 1) Job struct and returns the version 2 Job struct or an error
-func JobDepToJob(jobDep *JobDep) (job *Job) {
-	job = new(Job)
+func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
+	job = NewJob()
+	_, err = job.Init()
+	if err != nil {
+		return
+	}
 	job.Id = jobDep.Id
 	job.Acl = jobDep.Acl
 	job.Info = jobDep.Info
@@ -470,6 +476,8 @@ func JobDepToJob(jobDep *JobDep) (job *Job) {
 	for _, taskDep := range jobDep.Tasks {
 		task := new(Task)
 		task.Id = taskDep.Id
+		task.Init()
+
 		task.Info = taskDep.Info
 		task.Cmd = taskDep.Cmd
 		//task.App = taskDep.App
@@ -481,7 +489,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job) {
 		task.RemainWork = taskDep.RemainWork
 		task.WorkStatus = taskDep.WorkStatus
 		task.SetState(taskDep.State)
-		task.Skip = taskDep.Skip
+		//task.Skip = taskDep.Skip
 		task.CreatedDate = taskDep.CreatedDate
 		task.StartedDate = taskDep.StartedDate
 		task.CompletedDate = taskDep.CompletedDate
@@ -657,7 +665,7 @@ func UpdateJobState(jobid string, newstate string, oldstates []string) (err erro
 	if !matched {
 		return errors.New("old state not matching one of the required ones")
 	}
-	if err := job.UpdateState(newstate, ""); err != nil {
+	if err := job.SetState(newstate, ""); err != nil {
 		return err
 	}
 	return

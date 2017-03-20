@@ -125,19 +125,13 @@ func (wq *WorkQueue) Clean() (workids []string) {
 
 func (wq *WorkQueue) Delete(id string) (err error) {
 
-	err = wq.Queue.Delete(id)
-	if err != nil {
-		return
-	}
-	err = wq.Checkout.Delete(id)
-	if err != nil {
-		return
-	}
-	err = wq.Suspend.Delete(id)
-	if err != nil {
-		return
-	}
-	err = wq.all.Delete(id)
+	_ = wq.Queue.Delete(id)
+
+	_ = wq.Checkout.Delete(id)
+
+	_ = wq.Suspend.Delete(id)
+
+	_ = wq.all.Delete(id)
 
 	return
 
@@ -172,10 +166,12 @@ func (wq *WorkQueue) StatusChange(id string, new_status string) (err error) {
 		wq.Checkout.Delete(id)
 		wq.Suspend.Delete(id)
 		wq.Queue.Set(workunit)
+		workunit.Client = ""
 	case WORK_STAT_SUSPEND:
 		wq.Checkout.Delete(id)
 		wq.Queue.Delete(id)
 		wq.Suspend.Set(workunit)
+		workunit.Client = ""
 	default:
 		return errors.New("WorkQueue.statusChange: invalid new status:" + new_status)
 	}

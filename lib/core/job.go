@@ -108,27 +108,72 @@ func NewJobDep() (job *JobDep) {
 }
 
 // this has to be called after Unmarshalling from JSON
-func (job *Job) Init() (err error) {
+func (job *Job) Init() (changed bool, err error) {
+	changed = false
 
 	if job.State == "" {
 		job.State = JOB_STAT_INIT
+		changed = true
 	}
 	job.Registered = true
 
 	if job.Id == "" {
 		job.setId() //uuid for the job
+		changed = true
+	}
+
+	if job.Info == nil {
+		logger.Error("job.Info == nil")
+		job.Info = NewInfo()
 	}
 
 	if job.Info.SubmitTime.IsZero() {
 		job.Info.SubmitTime = time.Now()
+		changed = true
 	}
 
 	if job.Info.Priority < conf.BasePriority {
 		job.Info.Priority = conf.BasePriority
+		changed = true
 	}
+
+	old_remaintasks := job.RemainTasks
+	job.RemainTasks = 0
 
 	for _, task := range job.Tasks {
 		task.Init()
+		// set task.info pointer
+
+		if job.Info == nil {
+			panic("job.Info == nil")
+		}
+
+		task.JobId = job.Id
+		task.Info = job.Info
+
+		if task.State != TASK_STAT_COMPLETED {
+			job.RemainTasks += 1
+		}
+
+	}
+
+	// try to fix inconsistent state
+	if job.RemainTasks != old_remaintasks {
+		changed = true
+	}
+
+	// try to fix inconsistent state
+	if job.RemainTasks == 0 && job.State != JOB_STAT_COMPLETED {
+		job.State = JOB_STAT_COMPLETED
+		logger.Debug(3, "fixing state to JOB_STAT_COMPLETED")
+		changed = true
+	}
+
+	// try to fix inconsistent state
+	if job.RemainTasks > 0 && job.State == JOB_STAT_COMPLETED {
+		job.State = JOB_STAT_QUEUED
+		logger.Debug(3, "fixing state to JOB_STAT_QUEUED")
+		changed = true
 	}
 
 	return
@@ -139,6 +184,31 @@ func (job *Job) InitTasks() (err error) {
 	if len(job.Tasks) == 0 {
 		err = errors.New("invalid job script: task list empty")
 		return
+	}
+
+	// populate DependsOn
+	for _, task := range job.Tasks {
+		deps := make(map[string]bool)
+
+		// collect explicit dependencies
+		for _, deptask := range task.DependsOn {
+			deps[deptask] = true
+		}
+
+		// collect input-based dependencies
+		for _, input := range task.Inputs {
+
+			if input.Origin != "" {
+				deps[input.Origin] = true
+			}
+		}
+
+		// write all dependencies
+		task.DependsOn = []string{}
+		for deptask, _ := range deps {
+			task.DependsOn = append(task.DependsOn, deptask)
+		}
+
 	}
 
 	// check that input FileName is not repeated within an individual task
@@ -210,14 +280,8 @@ func (job *Job) UpdateFile(files FormFiles, field string) (err error) {
 	return
 }
 
-func (job *Job) Save() (err error) {
-	if job.Id == "" {
-		err = fmt.Errorf("job id empty")
-		return
-	}
-	logger.Debug(1, "Save() saving job: %s", job.Id)
+func (job *Job) SaveToDisk() (err error) {
 
-	job.UpdateTime = time.Now()
 	var job_path string
 	job_path, err = job.Path()
 	if err != nil {
@@ -243,6 +307,24 @@ func (job *Job) Save() (err error) {
 		err = errors.New("error writing file in job.Save(), error=" + err.Error())
 		return
 	}
+
+	return
+}
+
+func (job *Job) Save() (err error) {
+	if job.Id == "" {
+		err = fmt.Errorf("job id empty")
+		return
+	}
+	logger.Debug(1, "Save() saving job: %s", job.Id)
+
+	job.UpdateTime = time.Now()
+
+	err = job.SaveToDisk()
+	if err != nil {
+		return
+	}
+
 	logger.Debug(1, "Save() dbUpsert next: %s", job.Id)
 	err = dbUpsert(job)
 	if err != nil {
@@ -331,28 +413,46 @@ func (job *Job) NumTask() int {
 }
 
 //---Field update functions
-func (job *Job) UpdateState(newState string, notes string) (err error) {
+func (job *Job) SetState(newState string, notes string) (err error) {
+
+	if job.State == newState {
+		return
+	}
+
+	if newState == JOB_STAT_COMPLETED && job.State != JOB_STAT_COMPLETED {
+
+		job.Info.CompletedTime = time.Now()
+
+	}
+
 	job.State = newState
 	if len(notes) > 0 {
 		job.Notes = notes
 	}
-	return job.Save()
+
+	dbUpdateJobFieldString(job.Id, "state", newState)
+
+	return
+}
+
+func (job *Job) SetRemainTasks(remain_tasks int) (err error) {
+
+	if remain_tasks == job.RemainTasks {
+		return
+	}
+
+	err = dbUpdateJobFieldInt(job.Id, "remaintasks", remain_tasks)
+	if err != nil {
+		return
+	}
+	job.RemainTasks = remain_tasks
+
+	return
 }
 
 //invoked to modify job info in mongodb when a task in that job changed to the new status
 // task is already locked
-func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
-	idx := -1
-	for i, t := range job.Tasks {
-		if t.Id == task.Id {
-			idx = i
-			break
-		}
-	}
-	if idx == -1 {
-		return job.RemainTasks, errors.New("job.UpdateTask: no task found with id=" + task.Id)
-	}
-	job.Tasks[idx] = task
+func (job *Job) UpdateTaskDEPRECATED(task *Task) (remainTasks int, err error) {
 
 	//if this task is complete, count remain tasks for the job
 	task_state := task.State
@@ -367,13 +467,16 @@ func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
 				remain_tasks -= 1
 			}
 		}
-		job.RemainTasks = remain_tasks
-		if job.RemainTasks == 0 {
-			job.State = JOB_STAT_COMPLETED
-			job.Info.CompletedTime = time.Now()
+
+		job.SetRemainTasks(remain_tasks)
+		if remain_tasks == 0 {
+			job.SetState(JOB_STAT_COMPLETED, "")
+
 		}
 	}
-	return job.RemainTasks, job.Save()
+	remainTasks = job.RemainTasks
+
+	return
 }
 
 func (job *Job) SetClientgroups(clientgroups string) (err error) {
@@ -431,10 +534,38 @@ func (job *Job) SetDataToken(token string) (err error) {
 	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
 		return
 	}
-	err = job.Save()
+
 	return
 }
 
+func SetExpiration2(job_id string, expire string) (err error) {
+	parts := ExpireRegex.FindStringSubmatch(expire)
+	if len(parts) == 0 {
+		return errors.New("expiration format '" + expire + "' is invalid")
+	}
+	var expireTime time.Duration
+	expireNum, _ := strconv.Atoi(parts[1])
+	currTime := time.Now()
+
+	switch parts[2] {
+	case "M":
+		expireTime = time.Duration(expireNum) * time.Minute
+	case "H":
+		expireTime = time.Duration(expireNum) * time.Hour
+	case "D":
+		expireTime = time.Duration(expireNum*24) * time.Hour
+	}
+
+	//job.Expiration = currTime.Add(expireTime)
+	//err = job.Save()
+
+	update_value := bson.M{"expiration": currTime.Add(expireTime)}
+	err = dbUpdateJobFields(job_id, update_value)
+
+	return
+}
+
+// TODO deprecated
 func (job *Job) SetExpiration(expire string) (err error) {
 	parts := ExpireRegex.FindStringSubmatch(expire)
 	if len(parts) == 0 {
@@ -455,6 +586,7 @@ func (job *Job) SetExpiration(expire string) (err error) {
 
 	job.Expiration = currTime.Add(expireTime)
 	err = job.Save()
+
 	return
 }
 
@@ -491,7 +623,7 @@ func ReloadFromDisk(path string) (err error) {
 	if err != nil {
 		return
 	}
-	job := new(Job)
+	job := NewJob()
 	err = bson.Unmarshal(jobbson, &job)
 	if err == nil {
 		if err = dbUpsert(job); err != nil {

@@ -13,6 +13,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/AWE/lib/versions"
+	"github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/MG-RAST/golib/goweb"
 	"io"
 	"io/ioutil"
@@ -192,6 +193,8 @@ func main() {
 
 	time.Sleep(time.Second * 3) // workaround to make sure logger is working correctly ; TODO better fix needed
 
+	core.Server_UUID = uuid.New()
+
 	logger.Info("init db...")
 
 	//init db
@@ -246,6 +249,7 @@ func main() {
 	go core.QMgr.ClientHandle()
 	go core.QMgr.NoticeHandle()
 	go core.QMgr.ClientChecker()
+	go core.QMgr.UpdateQueueLoop()
 
 	goweb.ConfigureDefaultFormatters()
 	go launchSite(control, conf.SITE_PORT)

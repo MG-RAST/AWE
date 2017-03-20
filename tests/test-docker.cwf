@@ -8,47 +8,57 @@
     "tasks": [
         {
             "cmd": {
-                "name": "ls / > ",
-                "args": "test.out",
-                "description": "test",
-                "Dockerimage": "mgrast/pipeline:latest"
-            },
-            "outputs" : {
-                "test.out" : {
-                    "host": "http://localhost:7445"
+                "name": "cp",
+                "args": "/etc/hosts myhosts.txt",
+                "description": "copy",
+                "dockerimage": "mgrast/pipeline:latest",
+                "environ" : {
+                    "private" : {
+                        "foo":"bar"
+                    }
                 }
             },
+            "outputs" : [
+                {
+                    "filename": "myhosts.txt", 
+                    "host": "http://shock:7445"
+                }
+            ],
             "taskid": "0", 
             "totalwork": 1
         },
         {
             "cmd": {
-                "name" : "wc",
-                "args" : "-l @test.out > wordcount.txt",
-                "description": "test2",
-                "Dockerimage": "mgrast/pipeline:latest"
+                "name" : "cp",
+                "args" : "@myhosts.txt secondfile.txt",
+                "description": "wordcount",
+                "dockerPull": "ubuntu:latest"
             },
-            "inputs": {
-               "test.out": {
-                    "host": "http://localhost:7445",
+            "inputs": [
+                {
+                    "filename" : "myhosts.txt", 
+                    "host": "http://shock:7445",
                     "origin" : "0"
                 }
-            },
-            "outputs" : {
-                "wordcount.txt" : {
-                    "host": "http://localhost:7445"
+            ],
+            "outputs" : [
+                {
+                    "filename" : "secondfile.txt",
+                    "host"     : "http://shock:7445"
                 }
-            },
+            ],
             "taskid": "1", 
             "totalwork": 1
         },
         {
             "cmd": {
                 "name": "sleep",
-                "args": "10m",
+                "args": "10s",
                 "description": "test3",
-                "Dockerimage": "mgrast/pipeline:latest"
-            }
+                "dockerPull": "ubuntu:latest"
+            },
+            "taskid": "2", 
+            "totalwork": 1
         }
     ]
 }

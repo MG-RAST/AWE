@@ -80,7 +80,7 @@ func authToken(t string) (u *user.User, err error) {
 		} else if resp.StatusCode == http.StatusForbidden {
 			return nil, errors.New(e.InvalidAuth)
 		} else {
-			err_str := "Authentication failed: Unexpected response status: " + resp.Status
+			err_str := "(mgrast/authToken) Authentication failed: Unexpected response status: " + resp.Status
 			logger.Error(err_str)
 			return nil, errors.New(err_str)
 		}

@@ -58,10 +58,12 @@
 	    }
 	    groups[data[i][grouping]].push(data[i]);
 	}
-	if (typeof groupOrder[0].match == 'function') {
-	    groupOrder = groupOrder.sort();
-	} else {
-	    groupOrder = groupOrder.sort(Retina.Numsort);
+	if (groupOrder.length) {
+	    if (typeof groupOrder[0].match == 'function') {
+		groupOrder = groupOrder.sort();
+	    } else {
+		groupOrder = groupOrder.sort(Retina.Numsort);
+	    }
 	}
 
 	widget.clientIndex = clientIndex;

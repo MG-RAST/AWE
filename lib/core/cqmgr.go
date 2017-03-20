@@ -161,7 +161,7 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 		if cl_length > 0 {
 			client.Idle_time = 0
 		} else {
-			client.Idle_time += 30
+			client.Idle_time += 30 // TODO fix this !!!!!!
 		}
 
 	} else {
@@ -344,6 +344,10 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 	current_work, err := client.Get_current_work(true)
 	if err != nil {
 		return
+	}
+
+	if len(current_work) > 1 {
+		logger.Error("Client %s reports %d elements in Current_work", client_id, len(current_work))
 	}
 
 	remove_work := []string{}
@@ -783,6 +787,7 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	client.Unlock()
 
 	if work_length > 0 {
+		logger.Error("Client %s wants to checkout work, but still has work", client_id)
 		return nil, errors.New(e.ClientBusy)
 	}
 

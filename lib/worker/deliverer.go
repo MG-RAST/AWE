@@ -33,22 +33,24 @@ func deliverer_run(control chan int) {
 	processed := <-fromProcessor
 	work := processed.workunit
 
-	work_state, ok, err := workmap.Get(work.Id)
+	work_id := work.Id
+
+	work_state, ok, err := workmap.Get(work_id)
 	if err != nil {
 		logger.Error("error: %s", err.Error())
 		return
 	}
 	if !ok {
-		logger.Error("(deliverer) work id %s not found", work.Id)
+		logger.Error("(deliverer) work id %s not found", work_id)
 		return
 	}
 
 	if work_state == ID_DISCARDED {
 		work.State = core.WORK_STAT_DISCARDED
-		logger.Event(event.WORK_DISCARD, "workid="+work.Id)
+		logger.Event(event.WORK_DISCARD, "workid="+work_id)
 	}
 
-	workmap.Set(work.Id, ID_DELIVERER, "deliverer")
+	workmap.Set(work_id, ID_DELIVERER, "deliverer")
 
 	perfstat := processed.perfstat
 
@@ -59,7 +61,7 @@ func deliverer_run(control chan int) {
 		data_moved, err := cache.UploadOutputData(work)
 		if err != nil {
 			work.State = core.WORK_STAT_FAIL
-			logger.Error("[deliverer#UploadOutputData]workid=" + work.Id + ", err=" + err.Error())
+			logger.Error("[deliverer#UploadOutputData]workid=" + work_id + ", err=" + err.Error())
 			work.Notes = work.Notes + "###[deliverer#UploadOutputData]" + err.Error()
 		} else {
 			work.State = core.WORK_STAT_DONE
@@ -79,7 +81,7 @@ func deliverer_run(control chan int) {
 	for do_retry {
 		response, err := core.NotifyWorkunitProcessedWithLogs(work, perfstat, conf.PRINT_APP_MSG)
 		if err != nil {
-			logger.Error("[deliverer: workid=" + work.Id + ", err=" + err.Error())
+			logger.Error("[deliverer: workid=" + work_id + ", err=" + err.Error())
 			work.Notes = work.Notes + "###[deliverer:]" + err.Error()
 			// keep retry
 		} else {
@@ -97,7 +99,7 @@ func deliverer_run(control chan int) {
 				logger.Debug(1, "work delivered successfully")
 				do_retry = false
 			} else {
-				logger.Error("deliverer: workid=" + work.Id + ", err=" + error_message)
+				logger.Error("deliverer: workid=%s, err=%s", work_id, error_message)
 			}
 		}
 
@@ -114,22 +116,22 @@ func deliverer_run(control chan int) {
 
 	//now final status report sent to server, update some local info
 	if work.State == core.WORK_STAT_DONE {
-		logger.Event(event.WORK_DONE, "workid="+work.Id)
+		logger.Event(event.WORK_DONE, "workid="+work_id)
 		core.Self.Increment_total_completed()
 		if conf.AUTO_CLEAN_DIR {
 			go removeDirLater(work.Path(), conf.CLIEN_DIR_DELAY_DONE)
 		}
 	} else {
-		logger.Event(event.WORK_RETURN, "workid="+work.Id)
+		logger.Event(event.WORK_RETURN, "workid="+work_id)
 		core.Self.Increment_total_failed(true)
 		if conf.AUTO_CLEAN_DIR {
 			go removeDirLater(work.Path(), conf.CLIEN_DIR_DELAY_FAIL)
 		}
 	}
-	core.Self.Current_work_delete(work.Id, true)
-	//delete(core.Self.Current_work, work.Id)
+	core.Self.Current_work_delete(work_id, true)
+	//delete(core.Self.Current_work, work_id)
 	//delete(workmap, work.Id)
-	workmap.Delete(work.Id)
+	workmap.Delete(work_id)
 }
 
 func removeDirLater(path string, duration time.Duration) (err error) {

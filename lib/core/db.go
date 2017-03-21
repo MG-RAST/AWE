@@ -16,7 +16,7 @@ import (
 var DocumentMaxByte = 16777216
 
 // indexed info fields for search
-var JobInfoIndexes = []string{"submittime", "completedtime", "pipeline", "clientgroups", "project", "service", "user", "priority"}
+var JobInfoIndexes = []string{"name", "submittime", "completedtime", "pipeline", "clientgroups", "project", "service", "user", "priority", "userattr.submission"}
 
 func HasInfoField(a string) bool {
 	for _, b := range JobInfoIndexes {

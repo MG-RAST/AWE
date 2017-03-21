@@ -119,7 +119,7 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 
 					for _, wid := range current_work_array {
 						jid, _ := core.GetJobIdByWorkId(wid)
-						if job, err := core.LoadJob(jid); err == nil {
+						if job, err := core.GetJob(jid); err == nil {
 							jobs = append(jobs, job)
 						}
 					}

@@ -193,6 +193,7 @@ func main() {
 
 	time.Sleep(time.Second * 3) // workaround to make sure logger is working correctly ; TODO better fix needed
 
+	core.JM = core.NewJobMap()
 	core.Server_UUID = uuid.New()
 
 	logger.Info("init db...")
@@ -278,7 +279,7 @@ func main() {
 	//recover unfinished jobs before server went down last time
 	if conf.RECOVER {
 		if conf.RECOVER_MAX > 0 {
-			logger.Info("####### Recovering %s unfinished jobs #######", conf.RECOVER_MAX)
+			logger.Info("####### Recovering %d unfinished jobs #######", conf.RECOVER_MAX)
 		} else {
 			logger.Info("####### Recovering all unfinished jobs #######")
 		}

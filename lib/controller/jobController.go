@@ -171,7 +171,6 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	token, err := request.RetrieveToken(cx.Request)
 	if err != nil {
 		logger.Debug(3, "job %s no token", job.Id)
-		panic("no token!")
 	} else {
 		err = job.SetDataToken(token)
 		if err != nil {
@@ -200,7 +199,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	// don't enqueue imports
 	if !has_import {
-		core.QMgr.EnqueueTasksByJobId(job.Id, job.TaskList())
+		core.QMgr.EnqueueTasksByJobId(job.Id)
 	}
 
 	//cx.RespondWithData(job)
@@ -233,10 +232,13 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	}
 
 	// Load job by id
-	job, err := core.LoadJob(id)
+
+	//job, ok, err := core.QMgr.JobMap.Get(id)
+	job, err := core.GetJob(id)
+	//job, err := core.LoadJob(id)
 
 	if err != nil {
-		cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
+		cx.RespondWithErrorMessage("job not found:"+id+" "+err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -752,7 +754,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 	// Load job by id
 	var job *core.Job
 	if query.Has("clientgroup") || query.Has("priority") || query.Has("pipeline") || query.Has("expiration") || query.Has("settoken") {
-		job, err = core.LoadJob(id)
+		job, err = core.GetJob(id)
 		if err != nil {
 			if err == mgo.ErrNotFound {
 				cx.RespondWithNotFound()

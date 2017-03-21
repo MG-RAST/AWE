@@ -300,7 +300,7 @@ func (qm *ProxyMgr) ClientChecker() {
 
 //end of client methods
 
-func (qm *ProxyMgr) EnqueueTasksByJobId(jobid string, tasks []*Task) (err error) {
+func (qm *ProxyMgr) EnqueueTasksByJobId(jobid string) (err error) {
 	return
 }
 

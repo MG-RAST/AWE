@@ -109,6 +109,23 @@ func NewTask(job *Job, task_id string) (t *Task, err error) {
 	return
 }
 
+func (task *Task) GetOutputs() (outputs []*IO, err error) {
+
+	outputs = []*IO{}
+
+	lock, err := task.RLockNamed("GetOutputs")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+
+	for _, output := range task.Outputs {
+		outputs = append(outputs, output)
+	}
+
+	return
+}
+
 func (task *TaskRaw) GetState() (state string, err error) {
 	lock, err := task.RLockNamed("GetState")
 	if err != nil {
@@ -116,6 +133,38 @@ func (task *TaskRaw) GetState() (state string, err error) {
 	}
 	defer task.RUnlockNamed(lock)
 	state = task.State
+	return
+}
+
+func (task *TaskRaw) SetCreatedDate(t time.Time) (err error) {
+	err = task.LockNamed("SetCreatedDate")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	err = dbUpdateJobTaskTime(task.JobId, task.Id, "createddate", t)
+	if err != nil {
+		return
+	}
+	task.CreatedDate = t
+
+	return
+}
+
+func (task *TaskRaw) SetStartedDate(t time.Time) (err error) {
+	err = task.LockNamed("SetStartedDate")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	err = dbUpdateJobTaskTime(task.JobId, task.Id, "starteddate", t)
+	if err != nil {
+		return
+	}
+	task.StartedDate = t
+
 	return
 }
 
@@ -140,6 +189,16 @@ func (task *TaskRaw) GetId() (id string, err error) {
 	return
 }
 
+func (task *TaskRaw) GetJobId() (id string, err error) {
+	lock, err := task.RLockNamed("GetJobId")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	id = task.JobId
+	return
+}
+
 func (task *TaskRaw) SetState(new_state string) (err error) {
 	err = task.LockNamed("SetState")
 	if err != nil {
@@ -147,35 +206,46 @@ func (task *TaskRaw) SetState(new_state string) (err error) {
 	}
 	defer task.Unlock()
 
-	if task.State == new_state {
+	old_state := task.State
+	taskid := task.Id
+	jobid := task.JobId
+
+	if jobid == "" {
+		err = fmt.Errorf("task %s has no job id", taskid)
+		return
+	}
+
+	if old_state == new_state {
 		return
 	}
 	if new_state == TASK_STAT_COMPLETED {
-		if task.State != TASK_STAT_COMPLETED {
+		if old_state != TASK_STAT_COMPLETED {
 
 			// state TASK_STAT_COMPLETED is new!
-			err = dbIncrementJobField(task.JobId, "remaintasks", -1)
+			err = dbIncrementJobField(jobid, "remaintasks", -1)
 			if err != nil {
 				return
 			}
 
 			this_time := time.Now()
 			task.CompletedDate = this_time
-			dbUpdateJobTaskField(task.JobId, task.Id, "completeddate", this_time)
+			dbUpdateJobTaskField(jobid, taskid, "completeddate", this_time)
 		}
 
 	} else {
 		// in case a completed teask is marked as something different
-		if task.State == TASK_STAT_COMPLETED {
-			err = dbIncrementJobField(task.JobId, "remaintasks", 1)
+		if old_state == TASK_STAT_COMPLETED {
+			err = dbIncrementJobField(jobid, "remaintasks", 1)
 			if err != nil {
 				return
 			}
 		}
 
 	}
-	dbUpdateJobTaskField(task.JobId, task.Id, "state", new_state)
+
+	dbUpdateJobTaskField(jobid, taskid, "state", new_state)
 	task.State = new_state
+
 	return
 }
 
@@ -424,6 +494,10 @@ func (task *Task) IncrementRemainWork(inc int) (remainwork int, err error) {
 	defer task.Unlock()
 
 	task.RemainWork += inc
+	err = dbIncrementJobTaskField(task.JobId, task.Id, "remainwork", inc)
+	if err != nil {
+		return
+	}
 
 	remainwork = task.RemainWork
 
@@ -437,6 +511,10 @@ func (task *Task) IncrementComputeTime(inc_time int) (err error) {
 	}
 	defer task.Unlock()
 
+	err = dbIncrementJobTaskField(task.JobId, task.Id, "computetime", inc_time)
+	if err != nil {
+		return
+	}
 	task.ComputeTime += inc_time
 
 	return

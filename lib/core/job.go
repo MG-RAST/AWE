@@ -32,6 +32,7 @@ var JOB_STATS_REGISTERED = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_ST
 var JOB_STATS_TO_RECOVER = []string{JOB_STAT_INIT, JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 
 type JobRaw struct {
+	RWMutex
 	Id string `bson:"id" json:"id"`
 	//Tasks       []*Task   `bson:"tasks" json:"tasks"`
 	Acl         acl.Acl   `bson:"acl" json:"-"`
@@ -83,10 +84,13 @@ type JobLog struct {
 }
 
 func NewJobRaw() (job *JobRaw) {
-	return &JobRaw{
+	r := &JobRaw{
 		Info: NewInfo(),
 		Acl:  acl.Acl{},
 	}
+
+	r.RWMutex.Init("Job")
+	return r
 }
 
 func NewJob() (job *Job) {
@@ -110,6 +114,8 @@ func NewJobDep() (job *JobDep) {
 // this has to be called after Unmarshalling from JSON
 func (job *Job) Init() (changed bool, err error) {
 	changed = false
+
+	job.RWMutex.Init("Job")
 
 	if job.State == "" {
 		job.State = JOB_STAT_INIT
@@ -280,6 +286,22 @@ func (job *Job) UpdateFile(files FormFiles, field string) (err error) {
 	return
 }
 
+func (job *Job) IncrementResumed(inc int) (err error) {
+
+	err = job.LockNamed("IncrementResumed")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	err = dbIncrementJobField(job.Id, "resumed", inc)
+	if err != nil {
+		return
+	}
+	job.Resumed += 1
+	return
+}
+
 func (job *Job) SaveToDisk() (err error) {
 
 	var job_path string
@@ -403,6 +425,35 @@ func getPathByJobId(id string) (path string, err error) {
 	return
 }
 
+func (job *Job) GetTasks() (tasks []*Task, err error) {
+	tasks = []*Task{}
+
+	read_lock, err := job.RLockNamed("GetTasks")
+	if err != nil {
+		return
+	}
+	defer job.RUnlockNamed(read_lock)
+
+	for _, task := range job.Tasks {
+		tasks = append(tasks, task)
+	}
+
+	return
+}
+
+func (job *Job) GetState() (state string, err error) {
+
+	read_lock, err := job.RLockNamed("GetState")
+	if err != nil {
+		return
+	}
+	defer job.RUnlockNamed(read_lock)
+
+	state = job.State
+
+	return
+}
+
 //---Task functions
 func (job *Job) TaskList() []*Task {
 	return job.Tasks
@@ -413,7 +464,14 @@ func (job *Job) NumTask() int {
 }
 
 //---Field update functions
+
 func (job *Job) SetState(newState string, notes string) (err error) {
+
+	err = job.LockNamed("SetState")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
 
 	if job.State == newState {
 		return
@@ -468,7 +526,11 @@ func (job *Job) UpdateTaskDEPRECATED(task *Task) (remainTasks int, err error) {
 			}
 		}
 
-		job.SetRemainTasks(remain_tasks)
+		err = job.SetRemainTasks(remain_tasks)
+		if err != nil {
+			return
+		}
+
 		if remain_tasks == 0 {
 			job.SetState(JOB_STAT_COMPLETED, "")
 

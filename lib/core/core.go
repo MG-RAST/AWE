@@ -26,6 +26,7 @@ var (
 	Self          *Client
 	ProxyWorkChan chan bool
 	Server_UUID   string
+	JM            *JobMap
 )
 
 type StandardResponse struct {
@@ -41,6 +42,7 @@ func InitResMgr(service string) {
 		QMgr = NewProxyMgr()
 	}
 	Service = service
+
 }
 
 func SetClientProfile(profile *Client) {
@@ -474,8 +476,13 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 	job.ShockHost = jobDep.ShockHost
 
 	for _, taskDep := range jobDep.Tasks {
-		task := new(Task)
-		task.Id = taskDep.Id
+		//task := new(Task)
+		task, xerr := NewTask(job, taskDep.Id)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		//task.Id = taskDep.Id
 		task.Init()
 
 		task.Info = taskDep.Info
@@ -651,7 +658,7 @@ func IsFirstTask(taskid string) bool {
 
 //update job state to "newstate" only if the current state is in one of the "oldstates"
 func UpdateJobState(jobid string, newstate string, oldstates []string) (err error) {
-	job, err := LoadJob(jobid)
+	job, err := GetJob(jobid)
 	if err != nil {
 		return
 	}
@@ -1088,5 +1095,31 @@ func ShockPutIndex(host string, nodeid string, indexname string, token string) (
 	opts["upload_type"] = "index"
 	opts["index_type"] = indexname
 	createOrUpdate(opts, host, nodeid, token, nil)
+	return
+}
+
+func GetJob(id string) (job *Job, err error) {
+
+	job, ok, err := JM.Get(id, true)
+
+	if err != nil {
+		return
+	}
+
+	if !ok {
+
+		// load job if not already in memory
+
+		job, err = LoadJob(id)
+		if err != nil {
+			return
+		}
+
+		err = JM.Add(job)
+		if err != nil {
+			return
+		}
+	}
+
 	return
 }

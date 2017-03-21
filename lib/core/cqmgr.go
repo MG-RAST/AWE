@@ -1021,7 +1021,7 @@ func (qm *CQMgr) ShowWorkunitsByUser(status string, u *user.User) (workunits []*
 			}
 		} else {
 			if jobid, err := GetJobIdByWorkId(work.Id); err == nil {
-				if job, err := LoadJob(jobid); err == nil {
+				if job, err := GetJob(jobid); err == nil {
 					rights := job.Acl.Check(u.Uuid)
 					if job.Acl.Owner == u.Uuid || rights["read"] == true {
 						if work.State == status || status == "" {

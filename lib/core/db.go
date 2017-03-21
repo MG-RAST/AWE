@@ -258,7 +258,7 @@ func dbGetJobTaskField(job_id string, task_id string, fieldname string) (result 
 
 	result, ok := myresult[fieldname].(string)
 	if !ok {
-		err = fmt.Errorf("Could not read field %s", fieldname)
+		err = fmt.Errorf("(dbGetJobTaskField) Could not read field %s", fieldname)
 	}
 
 	logger.Debug(3, "(dbGetJobTaskField) %s=%s", fieldname, result)
@@ -312,43 +312,33 @@ func dbGetPrivateEnv(job_id string, task_id string) (result map[string]string, e
 	return
 }
 
-func dbGetJobFieldString(job_id string, fieldname string) (result string, err error) {
-
-	bson_result, err := dbGetJobField(job_id, fieldname)
-	if err != nil {
-		return
-	}
-
-	result, ok := bson_result[fieldname].(string)
-	if !ok {
-		err = fmt.Errorf("Could not read field %s", fieldname)
-	}
-	return
-}
-
 func dbGetJobFieldInt(job_id string, fieldname string) (result int, err error) {
 
-	bson_result, err := dbGetJobField(job_id, fieldname)
+	err = dbGetJobField(job_id, fieldname, &result)
 	if err != nil {
 		return
 	}
 
-	result, ok := bson_result[fieldname].(int)
-	if !ok {
-		err = fmt.Errorf("Could not read field %s", fieldname)
-	}
 	return
 }
 
-func dbGetJobField(job_id string, fieldname string) (result bson.M, err error) {
+func dbGetJobFieldString(job_id string, fieldname string) (result string, err error) {
+
+	err = dbGetJobField(job_id, fieldname, &result)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func dbGetJobField(job_id string, fieldname string, result interface{}) (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 
 	selector := bson.M{"id": job_id}
-
-	result = bson.M{}
 
 	err = c.Find(selector).Select(bson.M{fieldname: 1}).One(&result)
 	if err != nil {
@@ -440,7 +430,7 @@ func dbIncrementJobField(job_id string, fieldname string, increment_value int) (
 
 	err = c.Update(selector, bson.M{"$inc": update_value})
 	if err != nil {
-		err = fmt.Errorf("Error incrementing %s %s by %d: %s", job_id, fieldname, increment_value, err.Error())
+		err = fmt.Errorf("Error incrementing job_id=%s fieldname=%s by %d: %s", job_id, fieldname, increment_value, err.Error())
 		return
 	}
 
@@ -455,8 +445,6 @@ func dbUpdateJobTaskFields(job_id string, task_id string, update_value bson.M) (
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 
 	selector := bson.M{"id": job_id, "tasks.taskid": task_id}
-
-	//update_value := bson.M{"tasks.$." + fieldname: value}
 
 	err = c.Update(selector, bson.M{"$set": update_value})
 	if err != nil {
@@ -475,6 +463,15 @@ func dbUpdateJobTaskField(job_id string, task_id string, fieldname string, value
 
 }
 
+func dbUpdateJobTaskTime(job_id string, task_id string, fieldname string, value time.Time) (err error) {
+
+	update_value := bson.M{"tasks.$." + fieldname: value}
+
+	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+
+}
+
+// deprecated, replaced by more fine-grained modifications
 func dbUpdateTask(job_id string, task *Task) (err error) {
 	task_id, err := task.GetId()
 	if err != nil {
@@ -495,6 +492,26 @@ func dbUpdateTask(job_id string, task *Task) (err error) {
 	err = c.Update(selector, bson.M{"$set": update_value})
 	if err != nil {
 		err = fmt.Errorf("(dbUpdateTask) Error updating task: " + err.Error())
+		return
+	}
+
+	return
+}
+
+func dbIncrementJobTaskField(job_id string, task_id string, fieldname string, increment_value int) (err error) {
+
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+
+	selector := bson.M{"id": job_id, "tasks.taskid": task_id}
+
+	update_value := bson.M{fieldname: increment_value}
+
+	err = c.Update(selector, bson.M{"$inc": update_value})
+	if err != nil {
+		err = fmt.Errorf("Error incrementing job_id=%s fieldname=%s by %d: %s", job_id, fieldname, increment_value, err.Error())
 		return
 	}
 
@@ -534,7 +551,7 @@ func LoadJob(id string) (job *Job, err error) {
 			return
 		}
 
-		// To fix incomplete opr inconsistent database entries
+		// To fix incomplete or inconsistent database entries
 		if changed {
 			job.Save()
 		}

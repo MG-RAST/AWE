@@ -32,7 +32,7 @@ func (tm *TaskMap) Len() (length int, err error) {
 
 func (tm *TaskMap) Get(taskid string, lock bool) (task *Task, ok bool, err error) {
 	if lock {
-		read_lock, xerr := tm.RLockNamed("Len")
+		read_lock, xerr := tm.RLockNamed("Get")
 		if xerr != nil {
 			err = xerr
 			return

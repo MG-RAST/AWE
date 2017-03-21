@@ -606,7 +606,11 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 					}
 				}
 			}
-
+			// get current total computetime
+			for j := 0; j < len(job.Tasks); j++ {
+			    task := job.Tasks[j]
+			    mjob.ComputeTime += task.ComputeTime
+            }
 			if (job.State == "completed") || (job.State == "deleted") {
 				// if completed or deleted move on, empty task array
 				mjob.State = append(mjob.State, job.State)

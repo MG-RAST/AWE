@@ -147,7 +147,12 @@ func (job *Job) Init() (changed bool, err error) {
 	job.RemainTasks = 0
 
 	for _, task := range job.Tasks {
-		task.Init()
+		t_changed := task.Init()
+
+		if t_changed {
+			changed = true
+		}
+
 		// set task.info pointer
 
 		if job.Info == nil {
@@ -286,14 +291,14 @@ func (job *Job) UpdateFile(files FormFiles, field string) (err error) {
 	return
 }
 
-func (job *Job) IncrementResumed(inc int) (err error) {
-
-	err = job.LockNamed("IncrementResumed")
-	if err != nil {
-		return
+func (job *Job) IncrementResumed(inc int, writelock bool) (err error) {
+	if writelock {
+		err = job.LockNamed("IncrementResumed")
+		if err != nil {
+			return
+		}
+		defer job.Unlock()
 	}
-	defer job.Unlock()
-
 	err = dbIncrementJobField(job.Id, "resumed", inc)
 	if err != nil {
 		return
@@ -493,6 +498,17 @@ func (job *Job) SetState(newState string, notes string) (err error) {
 	return
 }
 
+func (job *Job) GetRemainTasks() (remain_tasks int, err error) {
+	read_lock, err := job.RLockNamed("GetRemainTasks")
+	if err != nil {
+		return
+	}
+	defer job.RUnlockNamed(read_lock)
+
+	remain_tasks = job.RemainTasks
+	return
+}
+
 func (job *Job) SetRemainTasks(remain_tasks int) (err error) {
 
 	if remain_tasks == job.RemainTasks {
@@ -505,6 +521,22 @@ func (job *Job) SetRemainTasks(remain_tasks int) (err error) {
 	}
 	job.RemainTasks = remain_tasks
 
+	return
+}
+
+func (job *Job) IncrementRemainTasks(inc int, writelock bool) (err error) {
+	if writelock {
+		err = job.LockNamed("IncrementRemainTasks")
+		if err != nil {
+			return
+		}
+		defer job.Unlock()
+	}
+	err = dbIncrementJobField(job.Id, "remaintasks", inc)
+	if err != nil {
+		return
+	}
+	job.Resumed += 1
 	return
 }
 

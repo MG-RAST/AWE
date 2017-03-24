@@ -457,12 +457,34 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 		client.Increment_total_completed()
 
-		//task.RemainWork -= 1
-		remain_work, xerr := task.IncrementRemainWork(-1)
+		test_remain_work, xerr := dbGetJobTaskInt(task.JobId, task.Id, "remainwork")
+		if xerr != nil {
+			err = xerr
+			panic("A dbGetJobTaskInt error: " + err.Error())
+			return
+		}
+
+		logger.Debug(3, " A test_remain_work: %d", test_remain_work)
+
+		remain_work, xerr := task.IncrementRemainWork(-1, true)
 		if xerr != nil {
 			err = fmt.Errorf("(handleWorkStatusChange/IncrementRemainWork) client=%s work=%s %s", clientid, workid, xerr.Error())
 			return
 		}
+
+		test_remain_work, xerr = dbGetJobTaskInt(task.JobId, task.Id, "remainwork")
+		if xerr != nil {
+			err = xerr
+			panic("B dbGetJobTaskInt error: " + err.Error())
+			return
+		}
+
+		logger.Debug(3, " B test_remain_work: %d", test_remain_work)
+
+		if remain_work != test_remain_work {
+			panic(fmt.Sprintf("remain_work %d != test_remain_work %d", remain_work, test_remain_work))
+		}
+
 		//task.ComputeTime += computetime
 		err = task.IncrementComputeTime(computetime)
 		if xerr != nil {
@@ -1277,6 +1299,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		return
 	}
 
+	job, err := GetJob(jobid)
+
 	//logger.Debug(3, "(ServerMgr/updateJobTask) call dbUpdateTask")
 	//err = dbUpdateTask(jobid, task)
 	//if err != nil {
@@ -1284,12 +1308,12 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	//	return
 	//}
 
-	remainTasks, err := dbGetJobFieldInt(jobid, "remaintasks")
+	remainTasks, err := job.GetRemainTasks()
 	if err != nil {
 		return
 	}
 
-	logger.Debug(2, "remaining tasks for task %s: %d", task.Id, remainTasks)
+	logger.Debug(2, "remaining tasks for job %s: %d", task.Id, remainTasks)
 
 	if remainTasks > 0 {
 		return
@@ -1315,12 +1339,6 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	qm.removeActJob(jobid)
 	//delete tasks in task map
 	//delete from shock output flagged for deletion
-
-	job, xerr := GetJob(jobid) // TODO do the delete outputs without GetJob
-	if xerr != nil {
-		err = xerr
-		return
-	}
 
 	modified := 0
 	for _, task := range job.TaskList() {
@@ -1621,7 +1639,7 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 		dbjob.SetState(JOB_STAT_QUEUED, "")
 	}
 
-	err = dbjob.IncrementResumed(1)
+	err = dbjob.IncrementResumed(1, true)
 	if err != nil {
 		return
 	}
@@ -1830,10 +1848,13 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 	return
 }
 
+// TODO Lock !!!!
 func resetTask(task *Task, info *Info) {
 	task.Info = info
 	_ = task.SetState(TASK_STAT_PENDING)
-	task.RemainWork = task.TotalWork
+
+	_ = task.SetRemainWork(task.TotalWork, false) // TODO err
+
 	task.ComputeTime = 0
 	task.CompletedDate = time.Time{}
 	// reset all inputs with an origin

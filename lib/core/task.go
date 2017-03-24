@@ -88,8 +88,24 @@ func NewTaskRaw(job_id string, task_id string, info *Info) TaskRaw {
 	}
 }
 
-func (task *TaskRaw) Init() {
+func (task *TaskRaw) Init() (changed bool) {
+	changed = false
 	task.RWMutex.Init("task_" + task.Id)
+
+	if task.RemainWork > 5 {
+		panic("task.RemainWork > 5")
+	}
+
+	logger.Debug(3, "%s, task.RemainWork: %d", task.Id, task.RemainWork)
+
+	if task.State != TASK_STAT_COMPLETED {
+		if task.RemainWork != task.TotalWork {
+			task.RemainWork = task.TotalWork
+			changed = true
+		}
+
+	}
+	return
 }
 
 func NewTask(job *Job, task_id string) (t *Task, err error) {
@@ -469,30 +485,34 @@ func (task *Task) InitPartIndex() (err error) {
 	return
 }
 
+// TODO lock !
 func (task *Task) setTotalWork(num int) {
 	task.TotalWork = num
-	task.RemainWork = num
+	_ = task.SetRemainWork(num, false)
 	task.WorkStatus = make([]string, num)
 }
 
-func (task *Task) SetRemainWork(num int) (err error) {
-	err = task.LockNamed("SetRemainWork")
-	if err != nil {
-		return
+func (task *Task) SetRemainWork(num int, writelock bool) (err error) {
+	if writelock {
+		err = task.LockNamed("SetRemainWork")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
 	}
-	defer task.Unlock()
 	task.RemainWork = num
 
 	return
 }
 
-func (task *Task) IncrementRemainWork(inc int) (remainwork int, err error) {
-	err = task.LockNamed("IncrementRemainWork")
-	if err != nil {
-		return
+func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, err error) {
+	if writelock {
+		err = task.LockNamed("IncrementRemainWork")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
 	}
-	defer task.Unlock()
-
 	task.RemainWork += inc
 	err = dbIncrementJobTaskField(task.JobId, task.Id, "remainwork", inc)
 	if err != nil {

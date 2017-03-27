@@ -457,14 +457,40 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 		client.Increment_total_completed()
 
-		//task.RemainWork -= 1
-		remain_work, xerr := task.IncrementRemainWork(-1)
+		test_remain_work, xerr := dbGetJobTaskInt(task.JobId, task.Id, "remainwork")
 		if xerr != nil {
 			err = xerr
+			panic("A dbGetJobTaskInt error: " + err.Error())
 			return
 		}
+
+		logger.Debug(3, " A test_remain_work: %d", test_remain_work)
+
+		remain_work, xerr := task.IncrementRemainWork(-1, true)
+		if xerr != nil {
+			err = fmt.Errorf("(handleWorkStatusChange/IncrementRemainWork) client=%s work=%s %s", clientid, workid, xerr.Error())
+			return
+		}
+
+		test_remain_work, xerr = dbGetJobTaskInt(task.JobId, task.Id, "remainwork")
+		if xerr != nil {
+			err = xerr
+			panic("B dbGetJobTaskInt error: " + err.Error())
+			return
+		}
+
+		logger.Debug(3, " B test_remain_work: %d", test_remain_work)
+
+		if remain_work != test_remain_work {
+			panic(fmt.Sprintf("remain_work %d != test_remain_work %d", remain_work, test_remain_work))
+		}
+
 		//task.ComputeTime += computetime
-		task.IncrementComputeTime(computetime)
+		err = task.IncrementComputeTime(computetime)
+		if xerr != nil {
+			err = fmt.Errorf("(handleWorkStatusChange/IncrementComputeTime) client=%s work=%s %s", clientid, workid, xerr.Error())
+			return
+		}
 
 		logger.Debug(3, "(handleWorkStatusChange) remain_work: %d (%s)", remain_work, workid)
 
@@ -474,22 +500,23 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 				return
 			}
 
-			err = task.LockNamed("handleWorkStatusChange/Outputs")
-			if err != nil {
+			outputs, xerr := task.GetOutputs()
+			if xerr != nil {
+				err = xerr
 				return
 			}
-			for _, output := range task.Outputs {
+
+			for _, output := range outputs {
 				if _, err = output.DataUrl(); err != nil {
-					task.Unlock()
-					return err
+					return
 				}
-				if hasFile := output.HasFile(); !hasFile {
-					err = fmt.Errorf("(handleWorkStatusChange) Task %s, output %s missing shock file", taskid, output.FileName)
-					task.Unlock()
+				hasFile := output.HasFile()
+				if !hasFile {
+					err = fmt.Errorf("(handleWorkStatusChange) task %s, output %s missing shock file", taskid, output.FileName)
 					return
 				}
 			}
-			task.Unlock()
+
 			//log event about task done (TD)
 			qm.FinalizeTaskPerf(task)
 			logger.Event(event.TASK_DONE, "taskid="+taskid)
@@ -765,7 +792,7 @@ func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token strin
 	if err != nil {
 		return "", err
 	}
-	job, err := LoadJob(jobid)
+	job, err := GetJob(jobid)
 	if err != nil {
 		return "", err
 	}
@@ -797,7 +824,7 @@ func (qm *ServerMgr) FetchPrivateEnvs(workid string, clientid string) (envs map[
 		return nil, err
 	}
 
-	job, err := LoadJob(jobid)
+	job, err := GetJob(jobid)
 	if err != nil {
 		return nil, err
 	}
@@ -882,7 +909,18 @@ func getStdLogPathByWorkId(workid string, logname string) (savedpath string, err
 
 //---task methods----
 
-func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, tasks []*Task) (err error) {
+func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
+
+	job, err := GetJob(jobid)
+	if err != nil {
+		return
+	}
+
+	tasks, err := job.GetTasks()
+	if err != nil {
+		return
+	}
+
 	for _, task := range tasks {
 		qm.taskIn <- task
 	}
@@ -895,10 +933,10 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, tasks []*Task) (err error
 func (qm *ServerMgr) addTask(task *Task) (err error) {
 	//for job recovery from db or for pseudo-task
 
-	task.LockNamed("ServerMgr/addTask")
-	task_state := task.State
-	//skip_task := task.Skip
-	task.Unlock()
+	task_state, err := task.GetState()
+	if err != nil {
+		return
+	}
 
 	if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
 		qm.TaskMap.Add(task)
@@ -910,19 +948,23 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 	//}
 
 	defer qm.TaskMap.Add(task)
-	task.LockNamed("ServerMgr/addTask B")
-	task.State = TASK_STAT_PENDING
-	task.Unlock()
+	err = task.SetState(TASK_STAT_PENDING)
+	if err != nil {
+		return
+	}
 
 	task_ready, err := qm.isTaskReady(task)
 	if err != nil {
 		return
 	}
 	if task_ready {
-		if err = qm.taskEnQueue(task); err != nil {
+		err = qm.taskEnQueue(task)
+		if err != nil {
 			_ = task.SetState(TASK_STAT_SUSPEND)
-			jobid := getParentJobId(task.Id)
-			qm.SuspendJob(jobid, fmt.Sprintf("failed in enqueuing task %s, err=%s", task.Id, err.Error()), task.Id)
+			task_id, _ := task.GetId()
+			job_id := getParentJobId(task_id)
+
+			qm.SuspendJob(job_id, fmt.Sprintf("failed in enqueuing task %s, err=%s", task_id, err.Error()), task_id)
 			return err
 		}
 	}
@@ -930,7 +972,7 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 	return
 }
 
-// task is locked
+// task is locked // DEPRECATED
 func (qm *ServerMgr) skipTask(task *Task) (err error) {
 	task.State = TASK_STAT_SKIPPED
 	task.RemainWork = 0
@@ -1023,10 +1065,14 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 	return
 }
 
-// task has to be locked
 func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 
-	logger.Debug(2, "qmgr.taskEnQueue trying to enqueue task "+task.Id)
+	task_id, err := task.GetId()
+	if err != nil {
+		return
+	}
+
+	logger.Debug(2, "qmgr.taskEnQueue trying to enqueue task %s", task_id)
 
 	if err := qm.locateInputs(task); err != nil {
 		logger.Error("qmgr.taskEnQueue locateInputs:" + err.Error())
@@ -1053,10 +1099,13 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 		logger.Error("qmgr.taskEnQueue CreateAndEnqueueWorkunits:" + err.Error())
 		return err
 	}
-	task.State = TASK_STAT_QUEUED
-	task.CreatedDate = time.Now()
-	task.StartedDate = time.Now() //to-do: will be changed to the time when the first workunit is checked out
-	qm.updateJobTask(task)        //task status PENDING->QUEUED
+	err = task.SetState(TASK_STAT_QUEUED)
+	if err != nil {
+		return
+	}
+	task.SetCreatedDate(time.Now())
+	task.SetStartedDate(time.Now()) //TODO: will be changed to the time when the first workunit is checked out
+	qm.updateJobTask(task)          //task status PENDING->QUEUED
 
 	//log event about task enqueue (TQ)
 	logger.Event(event.TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task.Id, task.TotalWork))
@@ -1242,22 +1291,29 @@ func (qm *ServerMgr) ShowTasks() {
 
 //update job info when a task in that job changed to a new state
 func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
-	parts := strings.Split(task.Id, "_")
-	jobid := parts[0]
+	//parts := strings.Split(task.Id, "_")
+	//jobid := parts[0]
+	jobid, err := task.GetJobId()
 
-	logger.Debug(3, "(ServerMgr/updateJobTask) call dbUpdateTask")
-	err = dbUpdateTask(jobid, task)
-	if err != nil {
-		//panic(err.Error())
-		return
-	}
-
-	remainTasks, err := dbGetJobFieldInt(jobid, "remaintasks")
 	if err != nil {
 		return
 	}
 
-	logger.Debug(2, "remaining tasks for task %s: %d", task.Id, remainTasks)
+	job, err := GetJob(jobid)
+
+	//logger.Debug(3, "(ServerMgr/updateJobTask) call dbUpdateTask")
+	//err = dbUpdateTask(jobid, task)
+	//if err != nil {
+	//panic(err.Error())
+	//	return
+	//}
+
+	remainTasks, err := job.GetRemainTasks()
+	if err != nil {
+		return
+	}
+
+	logger.Debug(2, "remaining tasks for job %s: %d", task.Id, remainTasks)
 
 	if remainTasks > 0 {
 		return
@@ -1284,12 +1340,6 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	//delete tasks in task map
 	//delete from shock output flagged for deletion
 
-	job, xerr := LoadJob(jobid) // TODO do the delete outputs without LoadJob
-	if xerr != nil {
-		err = xerr
-		return
-	}
-
 	modified := 0
 	for _, task := range job.TaskList() {
 		// delete nodes that have been flagged to be deleted
@@ -1300,7 +1350,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 	if modified > 0 {
 		// save only is something has changed
-		job.Save()
+		job.Save() // TODO avoid this, try partial updates
 	}
 
 	//set expiration from conf if not set
@@ -1344,7 +1394,7 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 		taskid, _ := GetTaskIdByWorkId(work.Id)
 		jobid, _ := GetJobIdByWorkId(work.Id)
 		//Load job by id
-		//job, err := LoadJob(jobid)
+		//job, err := GetJob(jobid)
 		//if err != nil {
 		//	continue
 		//}
@@ -1426,7 +1476,7 @@ func (qm *ServerMgr) IsJobRegistered(id string) bool {
 }
 
 func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err error) {
-	//job, err := LoadJob(jobid)
+	//job, err := GetJob(jobid)
 	//if err != nil {
 	//	return
 	//}
@@ -1460,7 +1510,7 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 		}
 	}
 
-	job, err := LoadJob(jobid) // TODO find a way to avoid loading the job
+	job, err := GetJob(jobid) // TODO find a way to avoid loading the job
 	if err != nil {
 		return
 	}
@@ -1488,7 +1538,7 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 }
 
 func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err error) {
-	job, err := LoadJob(jobid)
+	job, err := GetJob(jobid)
 	if err != nil {
 		return
 	}
@@ -1568,7 +1618,7 @@ func (qm *ServerMgr) DeleteZombieJobsByUser(u *user.User, full bool) (num int) {
 //resubmit a suspended job if the user is authorized
 func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err error) {
 	//Load job by id
-	dbjob, err := LoadJob(id)
+	dbjob, err := GetJob(id)
 	if err != nil {
 		return errors.New("failed to load job " + err.Error())
 	}
@@ -1584,15 +1634,20 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 	}
 
 	if dbjob.RemainTasks < len(dbjob.Tasks) {
-		dbjob.State = JOB_STAT_INPROGRESS
+		dbjob.SetState(JOB_STAT_INPROGRESS, "")
 	} else {
-		dbjob.State = JOB_STAT_QUEUED
+		dbjob.SetState(JOB_STAT_QUEUED, "")
 	}
-	dbjob.Resumed += 1
-	dbjob.Save()
+
+	err = dbjob.IncrementResumed(1, true)
+	if err != nil {
+		return
+	}
+
+	//dbjob.Save()
 
 	qm.removeSusJob(id)
-	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+	qm.EnqueueTasksByJobId(dbjob.Id)
 	return
 }
 
@@ -1602,21 +1657,31 @@ func (qm *ServerMgr) RecoverJob(id string) (err error) {
 	if qm.isActJob(id) {
 		return errors.New("job " + id + " is already active")
 	}
-	dbjob, err := LoadJob(id)
+	dbjob, err := GetJob(id)
+
+	job_state, err := dbjob.GetState()
+	if err != nil {
+		return
+	}
 
 	if err != nil {
 		return errors.New("failed to load job " + err.Error())
 	}
-	if dbjob.State == JOB_STAT_SUSPEND {
-		qm.putSusJob(dbjob.Id)
+	if job_state == JOB_STAT_SUSPEND {
+		qm.putSusJob(id)
 	} else {
-		if dbjob.State == JOB_STAT_COMPLETED || dbjob.State == JOB_STAT_DELETED {
-			return errors.New("job is in " + dbjob.State + " state thus cannot be recovered")
+		if job_state == JOB_STAT_COMPLETED || job_state == JOB_STAT_DELETED {
+			return errors.New("job is in " + job_state + " state thus cannot be recovered")
 		}
-		for _, task := range dbjob.Tasks {
-			task.Info = dbjob.Info
+		tasks, xerr := dbjob.GetTasks()
+		if xerr != nil {
+			err = xerr
+			return
 		}
-		qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+		for _, task := range tasks {
+			task.Info = dbjob.Info // in-memory only
+		}
+		qm.EnqueueTasksByJobId(id)
 	}
 
 	logger.Debug(2, "Recovered job %s", id)
@@ -1661,7 +1726,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 		if dbjob.State == JOB_STAT_SUSPEND {
 			qm.putSusJob(dbjob.Id)
 		} else {
-			qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+			qm.EnqueueTasksByJobId(dbjob.Id)
 		}
 		jobct += 1
 	}
@@ -1675,7 +1740,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 		return errors.New("job " + jobid + " is already active")
 	}
 	//Load job by id
-	dbjob, err := LoadJob(jobid)
+	dbjob, err := GetJob(jobid)
 	if err != nil {
 		return errors.New("failed to load job " + err.Error())
 	}
@@ -1723,7 +1788,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	if was_suspend {
 		qm.removeSusJob(dbjob.Id)
 	}
-	qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
+	qm.EnqueueTasksByJobId(dbjob.Id)
 
 	logger.Debug(2, "Recomputed job %s from task %d", jobid, stage)
 	return
@@ -1735,7 +1800,7 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 		return errors.New("job " + jobid + " is already active")
 	}
 	//Load job by id
-	//dbjob, err := LoadJob(jobid)
+	//dbjob, err := GetJob(jobid)
 	//if err != nil {
 	//	return errors.New("failed to load job " + err.Error())
 	//}
@@ -1776,26 +1841,20 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 		qm.removeSusJob(jobid)
 	}
 
-	//Load job by id
-	//dbjob, err := LoadJob(jobid)
-	//if err != nil {
-	//	return errors.New("failed to load job " + err.Error())
-	//}
-	tasks, err := dbGetJobTasks(jobid)
-	if err != nil {
-		return
-	}
 	//qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
-	qm.EnqueueTasksByJobId(jobid, tasks)
+	qm.EnqueueTasksByJobId(jobid)
 
 	logger.Debug(2, "Restarted job %s from beginning", jobid)
 	return
 }
 
+// TODO Lock !!!!
 func resetTask(task *Task, info *Info) {
 	task.Info = info
 	_ = task.SetState(TASK_STAT_PENDING)
-	task.RemainWork = task.TotalWork
+
+	_ = task.SetRemainWork(task.TotalWork, false) // TODO err
+
 	task.ComputeTime = 0
 	task.CompletedDate = time.Time{}
 	// reset all inputs with an origin
@@ -2019,7 +2078,7 @@ func (qm *ServerMgr) FetchPrivateEnv(workid string, clientid string) (env map[st
 	if err != nil {
 		return env, err
 	}
-	//job, err := LoadJob(jobid)
+	//job, err := GetJob(jobid)
 	//if err != nil {
 	//	return env, err
 	//}

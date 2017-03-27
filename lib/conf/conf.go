@@ -14,7 +14,7 @@ import (
 	"github.com/MG-RAST/golib/goconfig/config"
 )
 
-const VERSION string = "0.9.32"
+const VERSION string = "0.9.33"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -130,10 +130,11 @@ var (
 	PRE_WORK_SCRIPT             string
 	PRE_WORK_SCRIPT_ARGS_STRING string
 	PRE_WORK_SCRIPT_ARGS        = []string{}
-	OPENSTACK_METADATA_URL      string
+	METADATA                    string
 
 	SERVER_URL     string
 	CLIENT_NAME    string
+	CLIENT_HOST    string
 	CLIENT_GROUP   string
 	CLIENT_DOMAIN  string
 	WORKER_OVERLAP bool
@@ -479,6 +480,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&SERVER_URL, "http://localhost:8001", "Client", "serverurl", "URL of AWE server, including API port", "")
 		c_store.AddString(&CLIENT_GROUP, "default", "Client", "group", "name of client group", "")
 		c_store.AddString(&CLIENT_NAME, "default", "Client", "name", "default determines client name by openstack meta data", "")
+		c_store.AddString(&CLIENT_HOST, "127.0.0.1", "Client", "host", "host or ip address", "host or ip address to help finding machines where the clients runs on")
 		c_store.AddString(&CLIENT_DOMAIN, "default", "Client", "domain", "", "")
 		c_store.AddString(&CLIENT_GROUP_TOKEN, "", "Client", "clientgroup_token", "", "")
 
@@ -486,7 +488,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&APP_PATH, "", "Client", "app_path", "the file path of supported app", "")
 
 		c_store.AddString(&WORK_PATH, "/mnt/data/awe/work", "Client", "workpath", "the root dir for workunit working dirs", "")
-		c_store.AddString(&OPENSTACK_METADATA_URL, "http://169.254.169.254/2009-04-04/meta-data", "Client", "openstack_metadata_url", "", "")
+		c_store.AddString(&METADATA, "", "Client", "metadata", "", "e.g. ec2, openstack...")
 
 		c_store.AddString(&PRE_WORK_SCRIPT, "", "Client", "pre_work_script", "", "")
 		c_store.AddString(&PRE_WORK_SCRIPT_ARGS_STRING, "", "Client", "pre_work_script_args", "", "")

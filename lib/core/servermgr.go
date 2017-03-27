@@ -480,7 +480,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		logger.Debug(3, " B test_remain_work: %d", test_remain_work)
 
 		if remain_work != test_remain_work {
-			panic(fmt.Sprintf("remain_work %d != test_remain_work %d", remain_work, test_remain_work))
+			err = fmt.Errorf("remain_work %d != test_remain_work %d", remain_work, test_remain_work)
+			return
 		}
 
 		//task.ComputeTime += computetime

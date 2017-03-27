@@ -459,8 +459,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 		test_remain_work, xerr := dbGetJobTaskInt(task.JobId, task.Id, "remainwork")
 		if xerr != nil {
-			err = xerr
-			panic("A dbGetJobTaskInt error: " + err.Error())
+			err = fmt.Errorf("A dbGetJobTaskInt error: %s", xerr.Error())
 			return
 		}
 
@@ -474,8 +473,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 		test_remain_work, xerr = dbGetJobTaskInt(task.JobId, task.Id, "remainwork")
 		if xerr != nil {
-			err = xerr
-			panic("B dbGetJobTaskInt error: " + err.Error())
+			err = fmt.Errorf("B dbGetJobTaskInt error: %s", xerr.Error())
 			return
 		}
 

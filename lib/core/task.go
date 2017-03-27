@@ -92,10 +92,6 @@ func (task *TaskRaw) Init() (changed bool) {
 	changed = false
 	task.RWMutex.Init("task_" + task.Id)
 
-	if task.RemainWork > 5 {
-		panic("task.RemainWork > 5")
-	}
-
 	logger.Debug(3, "%s, task.RemainWork: %d", task.Id, task.RemainWork)
 
 	if task.State != TASK_STAT_COMPLETED {

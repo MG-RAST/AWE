@@ -146,6 +146,7 @@ func (job *Job) Init() (changed bool, err error) {
 	old_remaintasks := job.RemainTasks
 	job.RemainTasks = 0
 
+	create_new_tasks_array := false
 	for _, task := range job.Tasks {
 		t_changed := task.Init()
 
@@ -166,6 +167,21 @@ func (job *Job) Init() (changed bool, err error) {
 			job.RemainTasks += 1
 		}
 
+		if task.Id == "" {
+			create_new_tasks_array = true
+		}
+
+	}
+
+	if create_new_tasks_array {
+		new_tasks := []*Task{}
+		for _, task := range job.Tasks {
+			if task.Id != "" {
+				new_tasks = append(new_tasks, task)
+			}
+		}
+		job.Tasks = new_tasks
+		changed = true
 	}
 
 	// try to fix inconsistent state
@@ -575,91 +591,50 @@ func (job *Job) UpdateTaskDEPRECATED(task *Task) (remainTasks int, err error) {
 
 func (job *Job) SetClientgroups(clientgroups string) (err error) {
 	job.Info.ClientGroups = clientgroups
-	for _, task := range job.Tasks {
-		if task.Info != nil {
-			task.Info.ClientGroups = clientgroups
-		}
-	}
-	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
-		return
-	}
-	err = job.Save()
+	dbUpdateJobFieldString(job.Id, "info.clientgroups", clientgroups)
+
+	//for _, task := range job.Tasks {
+	//	if task.Info != nil {
+	//		task.Info.ClientGroups = clientgroups
+	//	}
+	//}
+	err = QMgr.UpdateQueueJobInfo(job)
+
+	//err = job.Save()
 	return
 }
 
 func (job *Job) SetPriority(priority int) (err error) {
+
 	job.Info.Priority = priority
-	for _, task := range job.Tasks {
-		if task.Info != nil {
-			task.Info.Priority = priority
-		}
-	}
-	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
-		return
-	}
-	err = job.Save()
+	dbUpdateJobFieldInt(job.Id, "info.priority", priority)
+
+	err = QMgr.UpdateQueueJobInfo(job)
+
 	return
 }
 
 func (job *Job) SetPipeline(pipeline string) (err error) {
 	job.Info.Pipeline = pipeline
-	for _, task := range job.Tasks {
-		if task.Info != nil {
-			task.Info.Pipeline = pipeline
-		}
-	}
-	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
-		return
-	}
-	err = job.Save()
+	dbUpdateJobFieldString(job.Id, "info.pipeline", pipeline)
+
+	err = QMgr.UpdateQueueJobInfo(job)
+
 	return
 }
 
 func (job *Job) SetDataToken(token string) (err error) {
+
 	job.Info.DataToken = token
 	job.Info.Auth = true
-	for _, task := range job.Tasks {
-		if task.Info != nil {
-			task.Info.DataToken = token
-			task.Info.Auth = true
-			task.setTokenForIO()
-		}
-	}
-	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
-		return
-	}
+	dbUpdateJobFieldString(job.Id, "info.token", token)
+	dbUpdateJobFieldBoolean(job.Id, "info.auth", true)
+
+	err = QMgr.UpdateQueueJobInfo(job)
 
 	return
 }
 
-func SetExpiration2(job_id string, expire string) (err error) {
-	parts := ExpireRegex.FindStringSubmatch(expire)
-	if len(parts) == 0 {
-		return errors.New("expiration format '" + expire + "' is invalid")
-	}
-	var expireTime time.Duration
-	expireNum, _ := strconv.Atoi(parts[1])
-	currTime := time.Now()
-
-	switch parts[2] {
-	case "M":
-		expireTime = time.Duration(expireNum) * time.Minute
-	case "H":
-		expireTime = time.Duration(expireNum) * time.Hour
-	case "D":
-		expireTime = time.Duration(expireNum*24) * time.Hour
-	}
-
-	//job.Expiration = currTime.Add(expireTime)
-	//err = job.Save()
-
-	update_value := bson.M{"expiration": currTime.Add(expireTime)}
-	err = dbUpdateJobFields(job_id, update_value)
-
-	return
-}
-
-// TODO deprecated
 func (job *Job) SetExpiration(expire string) (err error) {
 	parts := ExpireRegex.FindStringSubmatch(expire)
 	if len(parts) == 0 {
@@ -679,7 +654,10 @@ func (job *Job) SetExpiration(expire string) (err error) {
 	}
 
 	job.Expiration = currTime.Add(expireTime)
-	err = job.Save()
+	//err = job.Save()
+
+	update_value := bson.M{"expiration": job.Expiration}
+	err = dbUpdateJobFields(job.Id, update_value)
 
 	return
 }

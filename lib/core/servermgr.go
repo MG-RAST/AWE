@@ -480,7 +480,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		logger.Debug(3, " B test_remain_work: %d", test_remain_work)
 
 		if remain_work != test_remain_work {
-			err = fmt.Errorf("remain_work %d != test_remain_work %d", remain_work, test_remain_work)
+			err = fmt.Errorf("(%s) remain_work %d != test_remain_work %d", task.Id, remain_work, test_remain_work)
 			return
 		}
 
@@ -1374,7 +1374,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			expire = val
 		}
 		if expire != "" {
-			if err := SetExpiration2(jobid, expire); err != nil {
+			if err := job.SetExpiration(expire); err != nil {
 				return err
 			}
 		}
@@ -1922,7 +1922,7 @@ func (qm *ServerMgr) UpdateQueueJobInfo(job *Job) (err error) {
 		return
 	}
 	for _, work := range work_list {
-		work.Info = job.Info
+		work.Info = job.Info // TODO pointer update should not be needed, as this is a pointer. (verify this, then remove)
 		qm.workQueue.Put(work)
 	}
 	for _, task := range job.Tasks {
@@ -1932,7 +1932,7 @@ func (qm *ServerMgr) UpdateQueueJobInfo(job *Job) (err error) {
 			return
 		}
 		if ok {
-			mtask.Info = job.Info
+			//mtask.Info = job.Info
 			mtask.setTokenForIO()
 		}
 	}

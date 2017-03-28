@@ -421,7 +421,6 @@ func ParseJobTasksDep(filename string) (job *Job, err error) {
 		job.Info.Priority = conf.BasePriority
 	}
 
-	job.setId() //uuid for the job
 	job.State = JOB_STAT_INIT
 	job.Registered = true
 
@@ -462,7 +461,11 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 	if err != nil {
 		return
 	}
-	job.Id = jobDep.Id
+
+	if jobDep.Id != "" {
+		job.Id = jobDep.Id
+	}
+
 	job.Acl = jobDep.Acl
 	job.Info = jobDep.Info
 	job.Script = jobDep.Script

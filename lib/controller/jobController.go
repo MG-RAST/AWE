@@ -676,7 +676,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	total, err := jobs.GetPaginated(q, limit, offset, order, direction)
 	if err != nil {
 		logger.Error("err " + err.Error())
-		cx.RespondWithError(http.StatusBadRequest)
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
 	filtered_jobs := core.Jobs{}
@@ -950,7 +950,7 @@ func (cr *JobController) Delete(id string, cx *goweb.Context) {
 			cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 			return
 		} else {
-			cx.RespondWithErrorMessage("fail to delete job: "+id, http.StatusBadRequest)
+			cx.RespondWithErrorMessage("fail to delete job "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
 	}

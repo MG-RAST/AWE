@@ -1156,7 +1156,7 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 		//need time out!
 		_, xerr := io.GetFileSize()
 		if xerr != nil {
-			err = fmt.Errorf("task %s: input file %s GetFileSize returns: %s", task.Id, name, xerr.Error())
+			err = fmt.Errorf("task %s: input file %s GetFileSize returns: %s (DataToken len: %d)", task.Id, name, xerr.Error(), len(io.DataToken))
 			return
 		}
 		logger.Debug(2, "inputs located %s, %s", name, io.Node)

@@ -14,7 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
+	//"strings"
 	"time"
 )
 
@@ -125,7 +125,10 @@ func (job *Job) Init() (changed bool, err error) {
 
 	if job.Id == "" {
 		job.setId() //uuid for the job
+		logger.Debug(3, "XXX Set JobID: %s", job.Id)
 		changed = true
+	} else {
+		logger.Debug(3, "XXX Already have JobID: %s", job.Id)
 	}
 
 	if job.Info == nil {
@@ -148,7 +151,20 @@ func (job *Job) Init() (changed bool, err error) {
 
 	create_new_tasks_array := false
 	for _, task := range job.Tasks {
-		t_changed := task.Init()
+
+		if task.Id == "" {
+			logger.Error("(job.Init) task.Id empty, job %s broken?", job.Id)
+			task.Id = job.Id + "_" + uuid.New()
+			job.State = JOB_STAT_SUSPEND
+			job.Notes = "task.Id was empty"
+
+		}
+
+		t_changed, xerr := task.Init(job)
+		if xerr != nil {
+			err = xerr
+			return
+		}
 
 		if t_changed {
 			changed = true
@@ -157,11 +173,9 @@ func (job *Job) Init() (changed bool, err error) {
 		// set task.info pointer
 
 		if job.Info == nil {
-			panic("job.Info == nil")
+			err = fmt.Errorf("(job.Init) job.Info == nil")
+			return
 		}
-
-		task.JobId = job.Id
-		task.Info = job.Info
 
 		if task.State != TASK_STAT_COMPLETED {
 			job.RemainTasks += 1
@@ -203,13 +217,8 @@ func (job *Job) Init() (changed bool, err error) {
 		changed = true
 	}
 
-	return
-}
-
-func (job *Job) InitTasks() (err error) {
-
 	if len(job.Tasks) == 0 {
-		err = errors.New("invalid job script: task list empty")
+		err = errors.New("(job.Init) invalid job script: task list empty")
 		return
 	}
 
@@ -226,6 +235,15 @@ func (job *Job) InitTasks() (err error) {
 		for _, input := range task.Inputs {
 
 			if input.Origin != "" {
+				value, ok := deps[input.Origin]
+				if ok {
+					if value == false {
+						changed = true
+					}
+				} else {
+					changed = true
+				}
+
 				deps[input.Origin] = true
 			}
 		}
@@ -251,24 +269,30 @@ func (job *Job) InitTasks() (err error) {
 	}
 
 	// InitTask
-	for i := 0; i < len(job.Tasks); i++ {
-		task_id := job.Tasks[i].Id
-		if strings.Contains(task_id, "_") {
-			// no "_" allowed in inital taskid
-			err = fmt.Errorf("invalid taskid (%s), may not contain '_'", task_id)
-			return
-		}
-		err = job.Tasks[i].InitTask(job)
-		if err != nil {
-			err = errors.New("error in InitTask: " + err.Error())
-			return
-		}
-	}
+	//for i := 0; i < len(job.Tasks); i++ {
+	//task_id := job.Tasks[i].Id
+	//if strings.Contains(task_id, "_") {
+	// no "_" allowed in inital taskid
+	//	err = fmt.Errorf("(job.Init) invalid taskid (%s), may not contain '_'", task_id)
+	//	return
+	//}
+	//	_, err = job.Tasks[i].Init(job)
+	//	if err != nil {
+	//		err = errors.New("error in InitTask: " + err.Error())
+	//		return
+	//	}
+	//}
 
-	job.RemainTasks = len(job.Tasks)
+	//job.RemainTasks = len(job.Tasks)
 
 	return
 }
+
+// DEPRECATED in favor of job.Init()
+//func (job *Job) InitTasks() (err error) {
+//
+//return
+//}
 
 func (job *Job) RLockRecursive() {
 	for _, task := range job.Tasks {
@@ -397,6 +421,7 @@ func (job *Job) Mkdir() (err error) {
 	}
 	err = os.MkdirAll(path, 0777)
 	if err != nil {
+		err = fmt.Errorf("Could not run os.MkdirAll (path: %s) %s", path, err.Error())
 		return
 	}
 	return
@@ -439,7 +464,7 @@ func (job *Job) FilePath() (path string, err error) {
 
 func getPathByJobId(id string) (path string, err error) {
 	if len(id) < 6 {
-		err = fmt.Errorf("Job-Id format wrong: %s", id)
+		err = fmt.Errorf("Job-Id format wrong: \"%s\"", id)
 		return
 	}
 	path = fmt.Sprintf("%s/%s/%s/%s/%s", conf.DATA_PATH, id[0:2], id[2:4], id[4:6], id)

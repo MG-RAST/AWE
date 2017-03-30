@@ -469,7 +469,7 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 		err = fmt.Errorf("Task creation failed: %v", err)
 		return
 	}
-	awe_task.Init()
+	awe_task.Init(job)
 	logger.Debug(1, "Task created: %s", awe_task.Id)
 
 	(*helper.AWE_tasks)[job.Id] = awe_task
@@ -600,16 +600,16 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 	logger.Debug(1, "cwl_step_2_awe_task done")
 	// loop until all steps have been converted
 
-	err = job.InitTasks()
-	if err != nil {
-		err = fmt.Errorf("job.InitTasks() failed: %v", err)
-		return
-	}
-	logger.Debug(1, "job.InitTasks done")
+	//err = job.InitTasks()
+	//if err != nil {
+	//	err = fmt.Errorf("job.InitTasks() failed: %v", err)
+	//	return
+	//}
+	//logger.Debug(1, "job.InitTasks done")
 
 	err = job.Mkdir()
 	if err != nil {
-		err = errors.New("error creating job directory, error=" + err.Error())
+		err = errors.New("(CWL2AWE) error creating job directory, error=" + err.Error())
 		return
 	}
 

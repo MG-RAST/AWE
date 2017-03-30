@@ -411,7 +411,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	}
 
 	if work.State != WORK_STAT_CHECKOUT {
-		err = fmt.Errorf("(handleWorkStatusChange) workunit %s did not have state WORK_STAT_CHECKOUT", workid)
+		err = fmt.Errorf("(handleWorkStatusChange) workunit %s did not have state WORK_STAT_CHECKOUT (state is %s)", workid, work.State)
 		return
 	}
 
@@ -459,8 +459,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 		test_remain_work, xerr := dbGetJobTaskInt(task.JobId, task.Id, "remainwork")
 		if xerr != nil {
-			err = xerr
-			panic("A dbGetJobTaskInt error: " + err.Error())
+			err = fmt.Errorf("A dbGetJobTaskInt error: %s", xerr.Error())
 			return
 		}
 
@@ -474,15 +473,15 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 		test_remain_work, xerr = dbGetJobTaskInt(task.JobId, task.Id, "remainwork")
 		if xerr != nil {
-			err = xerr
-			panic("B dbGetJobTaskInt error: " + err.Error())
+			err = fmt.Errorf("B dbGetJobTaskInt error: %s", xerr.Error())
 			return
 		}
 
 		logger.Debug(3, " B test_remain_work: %d", test_remain_work)
 
 		if remain_work != test_remain_work {
-			panic(fmt.Sprintf("remain_work %d != test_remain_work %d", remain_work, test_remain_work))
+			err = fmt.Errorf("(%s) remain_work %d != test_remain_work %d", task.Id, remain_work, test_remain_work)
+			return
 		}
 
 		//task.ComputeTime += computetime
@@ -1046,8 +1045,9 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 				return
 			}
 		} else {
-			logger.Error("warning: predecessor " + predecessor + " is unknown")
+			logger.Error("predecessor %s of task %s is unknown", predecessor, task_id)
 			ready = false
+			return
 		}
 	}
 	logger.Debug(3, "(isTaskReady) task %s is ready", task_id)
@@ -1157,7 +1157,7 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 		//need time out!
 		_, xerr := io.GetFileSize()
 		if xerr != nil {
-			err = fmt.Errorf("task %s: input file %s GetFileSize returns: %s", task.Id, name, xerr.Error())
+			err = fmt.Errorf("task %s: input file %s GetFileSize returns: %s (DataToken len: %d)", task.Id, name, xerr.Error(), len(io.DataToken))
 			return
 		}
 		logger.Debug(2, "inputs located %s, %s", name, io.Node)
@@ -1375,7 +1375,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			expire = val
 		}
 		if expire != "" {
-			if err := SetExpiration2(jobid, expire); err != nil {
+			if err := job.SetExpiration(expire); err != nil {
 				return err
 			}
 		}
@@ -1923,7 +1923,7 @@ func (qm *ServerMgr) UpdateQueueJobInfo(job *Job) (err error) {
 		return
 	}
 	for _, work := range work_list {
-		work.Info = job.Info
+		work.Info = job.Info // TODO pointer update should not be needed, as this is a pointer. (verify this, then remove)
 		qm.workQueue.Put(work)
 	}
 	for _, task := range job.Tasks {
@@ -1933,7 +1933,7 @@ func (qm *ServerMgr) UpdateQueueJobInfo(job *Job) (err error) {
 			return
 		}
 		if ok {
-			mtask.Info = job.Info
+			//mtask.Info = job.Info
 			mtask.setTokenForIO()
 		}
 	}

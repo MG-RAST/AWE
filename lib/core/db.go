@@ -457,6 +457,13 @@ func dbUpdateJobFields(job_id string, update_value bson.M) (err error) {
 	return
 }
 
+func dbUpdateJobFieldBoolean(job_id string, fieldname string, value bool) (err error) {
+
+	update_value := bson.M{fieldname: value}
+
+	return dbUpdateJobFields(job_id, update_value)
+}
+
 func dbUpdateJobFieldString(job_id string, fieldname string, value string) (err error) {
 
 	update_value := bson.M{fieldname: value}

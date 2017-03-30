@@ -928,13 +928,15 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err error) {
 
 	if client == nil {
-		panic("(filterWorkByClient) client == nil")
+		err = fmt.Errorf("(filterWorkByClient) client == nil")
+		return
 	}
 
 	clientid := client.Id
 
 	if clientid == "" {
-		panic("(filterWorkByClient) clientid empty")
+		err = fmt.Errorf("(filterWorkByClient) clientid empty")
+		return
 	}
 
 	logger.Debug(3, "(filterWorkByClient) starting for client: %s", clientid)

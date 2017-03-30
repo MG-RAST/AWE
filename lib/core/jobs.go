@@ -9,13 +9,10 @@ type Jobs []*Job
 
 func (n *Jobs) Init() (err error) {
 	for _, job := range *n {
-		changed, xerr := job.Init()
+		_, xerr := job.Init()
 		if xerr != nil {
 			err = xerr
 			return
-		}
-		if changed {
-			job.Save()
 		}
 	}
 	return

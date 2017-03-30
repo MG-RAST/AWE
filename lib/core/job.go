@@ -222,40 +222,6 @@ func (job *Job) Init() (changed bool, err error) {
 		return
 	}
 
-	// populate DependsOn
-	for _, task := range job.Tasks {
-		deps := make(map[string]bool)
-
-		// collect explicit dependencies
-		for _, deptask := range task.DependsOn {
-			deps[deptask] = true
-		}
-
-		// collect input-based dependencies
-		for _, input := range task.Inputs {
-
-			if input.Origin != "" {
-				value, ok := deps[input.Origin]
-				if ok {
-					if value == false {
-						changed = true
-					}
-				} else {
-					changed = true
-				}
-
-				deps[input.Origin] = true
-			}
-		}
-
-		// write all dependencies
-		task.DependsOn = []string{}
-		for deptask, _ := range deps {
-			task.DependsOn = append(task.DependsOn, deptask)
-		}
-
-	}
-
 	// check that input FileName is not repeated within an individual task
 	for _, task := range job.Tasks {
 		inputFileNames := make(map[string]bool)

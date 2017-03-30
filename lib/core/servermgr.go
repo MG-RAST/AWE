@@ -1045,8 +1045,9 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 				return
 			}
 		} else {
-			logger.Error("warning: predecessor " + predecessor + " is unknown")
+			logger.Error("predecessor %s of task %s is unknown", predecessor, task_id)
 			ready = false
+			return
 		}
 	}
 	logger.Debug(3, "(isTaskReady) task %s is ready", task_id)

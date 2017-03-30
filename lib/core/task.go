@@ -110,17 +110,33 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	}
 
 	if !strings.Contains(task.Id, "_") {
-
 		// is not standard taskid, convert it
 		task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
-		for j := 0; j < len(task.DependsOn); j++ {
-			depend := task.DependsOn[j]
-			if !strings.Contains(depend, "_") {
-				task.DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)
-			}
+		changed = true
+	}
+
+	fix_DependsOn := false
+	for _, dependency := range task.DependsOn {
+		if !strings.Contains(dependency, "_") {
+			fix_DependsOn = true
+
 		}
 
 	}
+
+	if fix_DependsOn {
+		changed = true
+		new_DependsOn := []string{}
+		for _, dependency := range task.DependsOn {
+			if strings.Contains(dependency, "_") {
+				new_DependsOn = append(new_DependsOn, dependency)
+			} else {
+				new_DependsOn = append(new_DependsOn, fmt.Sprintf("%s_%s", job.Id, dependency))
+			}
+		}
+		task.DependsOn = new_DependsOn
+	}
+
 	if job.Info == nil {
 		err = fmt.Errorf("(NewTask) job.Info empty")
 		return
@@ -157,6 +173,53 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 	changed, err = task.InitRaw(job)
 	if err != nil {
 		return
+	}
+
+	// populate DependsOn
+	for _, dependency := range task.DependsOn {
+		deps := make(map[string]bool)
+
+		// collect explicit dependencies
+		for _, deptask := range task.DependsOn {
+			if !strings.Contains(deptask, "_") {
+				err = fmt.Errorf("deptask \"%s\" is missing _", dependency)
+				return
+			}
+			deps[deptask] = true
+		}
+
+		for _, input := range task.Inputs {
+
+			if input.Origin != "" {
+
+				origin := input.Origin
+				if !strings.Contains(origin, "_") {
+					origin = fmt.Sprintf("%s_%s", job.Id, origin)
+				}
+
+				value, ok := deps[origin]
+				if ok {
+					if value == false {
+						changed = true
+						deps[origin] = true
+					}
+				} else {
+					deps[origin] = true
+					changed = true
+				}
+
+			}
+		}
+
+		// write all dependencies
+		task.DependsOn = []string{}
+		previous_length := len(task.DependsOn)
+		for deptask, _ := range deps {
+			task.DependsOn = append(task.DependsOn, deptask)
+		}
+		if previous_length == len(task.DependsOn) {
+			changed = true
+		}
 	}
 
 	// set node / host / url for files

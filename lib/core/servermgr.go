@@ -411,7 +411,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	}
 
 	if work.State != WORK_STAT_CHECKOUT {
-		err = fmt.Errorf("(handleWorkStatusChange) workunit %s did not have state WORK_STAT_CHECKOUT", workid)
+		err = fmt.Errorf("(handleWorkStatusChange) workunit %s did not have state WORK_STAT_CHECKOUT (state is %s)", workid, work.State)
 		return
 	}
 

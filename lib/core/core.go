@@ -392,15 +392,14 @@ func ReadJobFile(filename string) (job *Job, err error) {
 		return
 	}
 
-	for _, task := range job_p.Tasks {
-		if task.Cmd.Environ == nil || task.Cmd.Environ.Private == nil {
+	for idx, task_p := range job_p.Tasks {
+		task := job.Tasks[idx]
+		if task_p.Cmd.Environ == nil || task_p.Cmd.Environ.Private == nil {
 			continue
 		}
-		if task.Cmd.Environ.Private == nil {
-			task.Cmd.Environ.Private = make(map[string]string)
-			for key, val := range task.Cmd.Environ.Private {
-				task.Cmd.Environ.Private[key] = val
-			}
+		task.Cmd.Environ.Private = make(map[string]string)
+		for key, val := range task_p.Cmd.Environ.Private {
+			task.Cmd.Environ.Private[key] = val
 		}
 	}
 

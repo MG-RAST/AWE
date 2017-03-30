@@ -356,11 +356,11 @@ func ReadJobFile(filename string) (job *Job, err error) {
 
 		jobDep := NewJobDep()
 
-		jsonstream, err = ioutil.ReadFile(filename)
-		if err != nil {
-			err = fmt.Errorf("(ReadJobFile) error in reading job json file: %s", err.Error())
-			return
-		}
+		//jsonstream, err = ioutil.ReadFile(filename)
+		//if err != nil {
+		//	err = fmt.Errorf("(ReadJobFile) error in reading job json file: %s", err.Error())
+		//	return
+		//}
 
 		err = json.Unmarshal(jsonstream, jobDep)
 		if err != nil {
@@ -376,7 +376,6 @@ func ReadJobFile(filename string) (job *Job, err error) {
 			return
 		}
 
-		return
 	} else {
 		// jobDep had been initialized already
 		_, err = job.Init()
@@ -393,6 +392,7 @@ func ReadJobFile(filename string) (job *Job, err error) {
 	}
 
 	for idx, task_p := range job_p.Tasks {
+
 		task := job.Tasks[idx]
 		if task_p.Cmd.Environ == nil || task_p.Cmd.Environ.Private == nil {
 			continue
@@ -402,11 +402,6 @@ func ReadJobFile(filename string) (job *Job, err error) {
 			task.Cmd.Environ.Private[key] = val
 		}
 	}
-
-	//err = job.InitTasks()
-	//if err != nil {
-	//	return
-	//}
 
 	return
 }

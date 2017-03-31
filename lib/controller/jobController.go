@@ -762,7 +762,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 				// In theory the db connection could be lost between
 				// checking user and load but seems unlikely.
 				// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
-				cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
+				cx.RespondWithErrorMessage("job not found:"+id+" "+err.Error(), http.StatusBadRequest)
 			}
 			return
 		}
@@ -775,7 +775,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
-			cx.RespondWithErrorMessage("job not found: "+id, http.StatusBadRequest)
+			cx.RespondWithErrorMessage("job not found: "+id+" "+err.Error(), http.StatusBadRequest)
 		}
 		return
 	}

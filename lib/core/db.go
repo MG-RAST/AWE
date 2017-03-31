@@ -387,6 +387,7 @@ func dbGetJobFieldString(job_id string, fieldname string) (result string, err er
 }
 
 func dbGetJobField(job_id string, fieldname string, result interface{}) (err error) {
+
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 
@@ -403,7 +404,16 @@ func dbGetJobField(job_id string, fieldname string, result interface{}) (err err
 	return
 }
 
-func DBGetJobAcl(job_id string) (acl acl.Acl, err error) {
+type Job_Acl struct {
+	Acl acl.Acl `bson:"acl" json:"-"`
+}
+
+func DBGetJobAcl(job_id string) (_acl acl.Acl, err error) {
+
+	// note from Wo: I have tried to use the generic dbGetJobField function, but it did not work. No idea why.
+
+	logger.Debug(3, "(DBGetJobAcl) %s", job_id)
+
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 
@@ -411,11 +421,17 @@ func DBGetJobAcl(job_id string) (acl acl.Acl, err error) {
 
 	selector := bson.M{"id": job_id}
 
-	err = c.Find(selector).One(&acl)
+	job := Job_Acl{}
+
+	//var job map[string]interface{}
+
+	err = c.Find(selector).Select(bson.M{"acl": 1}).One(&job)
 	if err != nil {
 		err = fmt.Errorf("Error getting acl field from job_id %s: %s", job_id, err.Error())
 		return
 	}
+
+	_acl = job.Acl
 
 	return
 }

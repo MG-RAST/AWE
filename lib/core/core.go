@@ -114,18 +114,7 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 		upload_file_path := upload_file.Path
 		job, err = ReadJobFile(upload_file_path)
 		if err != nil {
-			//logger.Debug(3, "Parsing: Failed using default format")
-			logger.Warning("(CreateJobUpload/ParseJobTasks) %s", err.Error())
-			//errDep := errors.New("")
-			//err = nil                                         // TODO we are loosing error messages. User needs them to figure out why something failed.
-			//job, err = ParseJobTasksDep(files["upload"].Path) // TODO can we get rid of that ?
-			//if err != nil {
-			//	//err = nil
-			//	logger.Error("Parsing: failed finally: %s", err.Error())
-			//	return
-			//}
-			//logger.Debug(3, "Parsing: Success using deprecated format")
-			logger.Debug(3, "Parsing: Failed (default and deprecated format)")
+			logger.Debug(3, "Parsing: Failed (default and deprecated format) %s", err.Error())
 			return
 		} else {
 			logger.Debug(3, "Parsing: Success (default or deprecated format)")
@@ -147,34 +136,19 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 		return
 	}
 
+	logger.Debug(3, "OWNER1: %s", u.Uuid)
+
 	job.Acl.SetOwner(u.Uuid)
+	logger.Debug(3, "OWNER2: %s", job.Acl.Owner)
 	job.Acl.Set(u.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
+
+	logger.Debug(3, "OWNER3: %s", job.Acl.Owner)
 
 	err = job.Mkdir()
 	if err != nil {
 		err = errors.New("(CreateJobUpload) error creating job directory, error=" + err.Error())
 		return
 	}
-
-	// TODO move app definitions from git into something faster ?
-
-	//var MyAppRegistry AppRegistry // this will be populated with latest version every time a workflow is submitted
-
-	//if MyAppRegistry == nil && conf.USE_APP_DEFS != "no" {
-	//	MyAppRegistry, err = MakeAppRegistry()
-	//	if err != nil {
-	//		return job, errors.New("error creating app registry, error=" + err.Error())
-	//	}
-	//	//logger.Debug(1, "app defintions read")
-	//}
-
-	//if conf.USE_APP_DEFS != "no" {
-	//	err = MyAppRegistry.createIOnodes(job)
-	//	if err != nil {
-	//		err = errors.New(fmt.Sprintf("error in createIOnodes, error=%s", err.Error()))
-	//		return
-	//	}
-	//}
 
 	err = job.UpdateFile(files, "upload")
 	if err != nil {
@@ -187,6 +161,9 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 		err = errors.New("error in job.Save(), error=" + err.Error())
 		return
 	}
+
+	logger.Debug(3, "OWNER4: %s", job.Acl.Owner)
+
 	return
 }
 

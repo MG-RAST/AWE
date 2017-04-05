@@ -237,6 +237,12 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	job, err := core.GetJob(id)
 	//job, err := core.LoadJob(id)
 
+	job_state, err := job.GetState(true)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if err != nil {
 		cx.RespondWithErrorMessage("job not found:"+id+" "+err.Error(), http.StatusBadRequest)
 		return
@@ -272,8 +278,8 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	}
 
 	if query.Has("position") {
-		if job.State != "queued" && job.State != "in-progress" {
-			cx.RespondWithErrorMessage("job is not queued or in-progress, job state:"+job.State, http.StatusBadRequest)
+		if job_state != "queued" && job_state != "in-progress" {
+			cx.RespondWithErrorMessage("job is not queued or in-progress, job state:"+job_state, http.StatusBadRequest)
 			return
 		}
 
@@ -587,6 +593,12 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		length := jobs.Length()
 		for i := 0; i < length; i++ {
 			job := jobs.GetJobAt(i)
+			job_state, err := job.GetState(true)
+			if err != nil {
+				logger.Error(err.Error())
+				continue
+			}
+
 			// create and populate minimal job
 			mjob := core.JobMin{}
 			mjob.Id = job.Id
@@ -609,10 +621,10 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				}
 			}
 
-			if (job.State == "completed") || (job.State == "deleted") {
+			if (job_state == "completed") || (job_state == "deleted") {
 				// if completed or deleted move on, empty task array
-				mjob.State = append(mjob.State, job.State)
-			} else if job.State == "suspend" {
+				mjob.State = append(mjob.State, job_state)
+			} else if job_state == "suspend" {
 				// get failed task if info available, otherwise empty task array
 				mjob.State = append(mjob.State, "suspend")
 				parts := strings.Split(job.LastFailed, "_")

@@ -150,9 +150,8 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	if len(task.WorkStatus) == 0 {
 		task.WorkStatus = make([]string, task.TotalWork)
 	}
-	task.RemainWork = task.TotalWork
 
-	logger.Debug(3, "%s, task.RemainWork: %d", task.Id, task.RemainWork)
+	//logger.Debug(3, "%s, task.RemainWork: %d", task.Id, task.RemainWork)
 
 	if task.State != TASK_STAT_COMPLETED {
 		if task.RemainWork != task.TotalWork {
@@ -496,8 +495,11 @@ func (task *Task) InitPartIndex() (err error) {
 				break
 			}
 		} else {
-			task.setTotalWork(1)
-			logger.Error("warning: lacking parition info while multiple inputs are specified, taskid=" + task.Id)
+			err = task.setTotalWork(1, true)
+			if err != nil {
+				return
+			}
+			logger.Error("warning: lacking partition info while multiple inputs are specified, taskid=" + task.Id)
 			return
 		}
 	} else {
@@ -505,7 +507,10 @@ func (task *Task) InitPartIndex() (err error) {
 			task.Partition.MaxPartSizeMB = task.MaxWorkSize
 		}
 		if task.Partition.MaxPartSizeMB == 0 && task.TotalWork <= 1 {
-			task.setTotalWork(1)
+			err = task.setTotalWork(1, true)
+			if err != nil {
+				return
+			}
 			return
 		}
 		found := false
@@ -516,7 +521,10 @@ func (task *Task) InitPartIndex() (err error) {
 			}
 		}
 		if !found {
-			task.setTotalWork(1)
+			err = task.setTotalWork(1, true)
+			if err != nil {
+				return
+			}
 			logger.Error("warning: invalid partition info, taskid=" + task.Id)
 			return
 		}
@@ -526,7 +534,7 @@ func (task *Task) InitPartIndex() (err error) {
 
 	idxinfo, err := input_io.GetIndexInfo()
 	if err != nil {
-		task.setTotalWork(1)
+		_ = task.setTotalWork(1, true)
 		logger.Error("warning: invalid file info, taskid=" + task.Id + ", error=" + err.Error())
 		return nil
 	}
@@ -534,13 +542,13 @@ func (task *Task) InitPartIndex() (err error) {
 	idxtype := conf.DEFAULT_INDEX
 	if _, ok := idxinfo[idxtype]; !ok { //if index not available, create index
 		if err := ShockPutIndex(input_io.Host, input_io.Node, idxtype, task.Info.DataToken); err != nil {
-			task.setTotalWork(1)
+			_ = task.setTotalWork(1, true)
 			logger.Error("warning: fail to create index on shock for taskid=" + task.Id + ", error=" + err.Error())
 			return nil
 		}
 		totalunits, err = input_io.TotalUnits(idxtype) //get index info again
 		if err != nil {
-			task.setTotalWork(1)
+			_ = task.setTotalWork(1, true)
 			logger.Error("warning: fail to get index units, taskid=" + task.Id + ", error=" + err.Error())
 			return nil
 		}
@@ -561,10 +569,13 @@ func (task *Task) InitPartIndex() (err error) {
 		if totalwork < task.TotalWork { //use bigger splits (specified by size or totalwork)
 			totalwork = task.TotalWork
 		}
-		task.setTotalWork(totalwork)
+		task.setTotalWork(totalwork, true)
+		if err != nil {
+			return
+		}
 	}
 	if totalunits < task.TotalWork {
-		task.setTotalWork(totalunits)
+		task.setTotalWork(totalunits, true)
 	}
 
 	task.Partition.Index = idxtype
@@ -572,11 +583,18 @@ func (task *Task) InitPartIndex() (err error) {
 	return
 }
 
-// TODO lock !
-func (task *Task) setTotalWork(num int) {
+func (task *Task) setTotalWork(num int, writelock bool) (err error) {
+	if writelock {
+		err = task.LockNamed("setTotalWork")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
 	task.TotalWork = num
 	_ = task.SetRemainWork(num, false)
 	task.WorkStatus = make([]string, num)
+	return
 }
 
 func (task *Task) SetRemainWork(num int, writelock bool) (err error) {

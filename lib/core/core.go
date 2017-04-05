@@ -697,9 +697,15 @@ func UpdateJobState(jobid string, newstate string, oldstates []string) (err erro
 	if err != nil {
 		return
 	}
+
+	job_state, err := job.GetState(true)
+	if err != nil {
+		return
+	}
+
 	matched := false
 	for _, oldstate := range oldstates {
-		if oldstate == job.State {
+		if oldstate == job_state {
 			matched = true
 			break
 		}

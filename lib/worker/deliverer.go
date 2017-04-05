@@ -128,7 +128,10 @@ func deliverer_run(control chan int) {
 			go removeDirLater(work.Path(), conf.CLIEN_DIR_DELAY_FAIL)
 		}
 	}
-	core.Self.Current_work_delete(work_id, true)
+	err = core.Self.Current_work_delete(work_id, true)
+	if err != nil {
+		logger.Error("Could not remove work_id %s", work_id)
+	}
 	//delete(core.Self.Current_work, work_id)
 	//delete(workmap, work.Id)
 	workmap.Delete(work_id)

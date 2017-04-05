@@ -428,6 +428,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	}
 	if !tok {
 		//task not existed, possible when job is deleted before the workunit done
+		logger.Error("Task %s for workunit %s not found", taskid, workid)
 		qm.workQueue.Delete(workid)
 		return
 	}
@@ -1085,6 +1086,8 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 		return
 	}
 
+	jobid, _ := GetJobIdByTaskId(task.Id)
+
 	logger.Debug(2, "qmgr.taskEnQueue trying to enqueue task %s", task_id)
 
 	if err := qm.locateInputs(task); err != nil {
@@ -1128,12 +1131,19 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 		jobid, _ := GetJobIdByTaskId(task.Id)
 		UpdateJobState(jobid, JOB_STAT_QUEUED, []string{JOB_STAT_INIT, JOB_STAT_SUSPEND})
 	}
+
+	err = dbUpdateTask(jobid, task) // TODO save more finegrained
+	if err != nil {
+		logger.Error("Could not update task")
+	}
+
 	return
 }
 
 func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 	logger.Debug(2, "trying to locate Inputs of task "+task.Id)
 	jobid, _ := GetJobIdByTaskId(task.Id)
+
 	for _, io := range task.Inputs {
 		name := io.FileName
 		if io.Url == "" {
@@ -1189,6 +1199,7 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 			logger.Debug(2, "predata located %s, %s", name, io.Node)
 		}
 	}
+
 	return
 }
 

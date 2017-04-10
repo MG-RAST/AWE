@@ -540,9 +540,57 @@ func dbUpdateJobTaskField(job_id string, task_id string, fieldname string, value
 
 }
 
+func dbUpdateJobTaskInt(job_id string, task_id string, fieldname string, value int) (err error) {
+
+	update_value := bson.M{"tasks.$." + fieldname: value}
+
+	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+
+}
+
+func dbUpdateJobTaskString(job_id string, task_id string, fieldname string, value string) (err error) {
+
+	update_value := bson.M{"tasks.$." + fieldname: value}
+
+	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+
+}
+
 func dbUpdateJobTaskTime(job_id string, task_id string, fieldname string, value time.Time) (err error) {
 
 	update_value := bson.M{"tasks.$." + fieldname: value}
+
+	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+
+}
+
+func dbUpdateJobTaskPartition(job_id string, task_id string, partition *PartInfo) (err error) {
+
+	update_value := bson.M{"tasks.$.partinfo": partition}
+
+	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+
+}
+
+func dbUpdateJobTaskInputs(job_id string, task_id string, inputs []*IO) (err error) {
+
+	update_value := bson.M{"tasks.$.inputs": inputs}
+
+	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+
+}
+
+func dbUpdateJobTaskPredata(job_id string, task_id string, predata []*IO) (err error) {
+
+	update_value := bson.M{"tasks.$.predata": predata}
+
+	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+
+}
+
+func dbUpdateJobTaskOutputs(job_id string, task_id string, outputs []*IO) (err error) {
+
+	update_value := bson.M{"tasks.$.outputs": outputs}
 
 	return dbUpdateJobTaskFields(job_id, task_id, update_value)
 

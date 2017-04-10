@@ -361,7 +361,7 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 			}
 
 			if work.Client == client_id {
-				qm.workQueue.StatusChange(work_id, WORK_STAT_QUEUED)
+				qm.workQueue.StatusChange(work_id, work, WORK_STAT_QUEUED)
 			}
 
 		}
@@ -404,7 +404,7 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		if work.Client == "" {
 			// reclaim work unit
 			work.Client = client_id
-			qm.workQueue.StatusChange(workid, WORK_STAT_CHECKOUT)
+			qm.workQueue.StatusChange(workid, work, WORK_STAT_CHECKOUT)
 
 			continue
 		}
@@ -952,7 +952,7 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 		work.Client = client_id
 		work.CheckoutTime = time.Now()
 		//qm.workQueue.Put(work) TODO isn't that already in the queue ?
-		qm.workQueue.StatusChange(work.Id, WORK_STAT_CHECKOUT)
+		qm.workQueue.StatusChange(work.Id, work, WORK_STAT_CHECKOUT)
 	}
 
 	logger.Debug(3, "done with popWorks() for client: %s ", client_id)
@@ -1099,7 +1099,7 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 
 			if contains(JOB_STATS_ACTIVE, job_state) { //only requeue workunits belonging to active jobs (rule out suspended jobs)
 				if work.Client == client.Id {
-					qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
+					qm.workQueue.StatusChange(workid, work, WORK_STAT_QUEUED)
 					logger.Event(event.WORK_REQUEUE, "workid="+workid)
 				}
 			}

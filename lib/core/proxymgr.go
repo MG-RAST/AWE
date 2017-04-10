@@ -219,7 +219,7 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 				continue
 			}
 			if has_work {
-				qm.workQueue.StatusChange(workid, WORK_STAT_CHECKOUT)
+				qm.workQueue.StatusChange(workid, nil, WORK_STAT_CHECKOUT)
 			}
 		}
 

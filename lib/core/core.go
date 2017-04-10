@@ -518,8 +518,8 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 		task.TotalWork = taskDep.TotalWork
 		task.MaxWorkSize = taskDep.MaxWorkSize
 		task.RemainWork = taskDep.RemainWork
-		task.WorkStatus = taskDep.WorkStatus
-		task.State = taskDep.State
+		//task.WorkStatus = taskDep.WorkStatus
+		//task.State = taskDep.State
 		//task.Skip = taskDep.Skip
 		task.CreatedDate = taskDep.CreatedDate
 		task.StartedDate = taskDep.StartedDate

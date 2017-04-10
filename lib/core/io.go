@@ -133,7 +133,8 @@ func (io *IO) HasFile() bool {
 	return true
 }
 
-func (io *IO) GetFileSize() (size int64, err error) {
+func (io *IO) GetFileSize() (size int64, modified bool, err error) {
+	modified = false
 	if io.Size > 0 {
 		size = io.Size
 		return
@@ -143,8 +144,13 @@ func (io *IO) GetFileSize() (size int64, err error) {
 		err = fmt.Errorf("GetFileSize error: %s, node: %s", err.Error(), io.Node)
 		return
 	}
-	io.Size = shocknode.File.Size
-	size = io.Size
+	size = shocknode.File.Size
+
+	if size != io.Size {
+		io.Size = size
+		modified = true
+	}
+
 	return
 }
 

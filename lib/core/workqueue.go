@@ -146,17 +146,25 @@ func (wq *WorkQueue) Has(id string) (has bool, err error) {
 
 //--------end of accessors-------
 
-func (wq *WorkQueue) StatusChange(id string, new_status string) (err error) {
+func (wq *WorkQueue) StatusChange(id string, workunit *Workunit, new_status string) (err error) {
 	//move workunit id between maps. no need to care about the old status because
 	//delete function will do nothing if the operated map has no such key.
 
-	workunit, ok, err := wq.all.Get(id)
-	if err != nil {
+	if workunit == nil {
+		var ok bool
+		workunit, ok, err = wq.all.Get(id)
+		if err != nil {
+			return
+		}
+		if !ok {
+			return errors.New("WQueue.statusChange: invalid workunit id:" + id)
+		}
+	}
+
+	if workunit.State == new_status {
 		return
 	}
-	if !ok {
-		return errors.New("WQueue.statusChange: invalid workunit id:" + id)
-	}
+
 	switch new_status {
 	case WORK_STAT_CHECKOUT:
 		wq.Queue.Delete(id)

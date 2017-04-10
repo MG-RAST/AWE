@@ -913,11 +913,11 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 			cx.RespondWithErrorMessage("failed to set the token for job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		err = job.Save()
-		if err != nil {
-			cx.RespondWithErrorMessage("failed to save job: "+id+" "+err.Error(), http.StatusBadRequest)
-			return
-		}
+		//err = job.Save()
+		//if err != nil {
+		//	cx.RespondWithErrorMessage("failed to save job: "+id+" "+err.Error(), http.StatusBadRequest)
+		//	return
+		//}
 
 		cx.RespondWithData("data token set for job: " + id)
 		return

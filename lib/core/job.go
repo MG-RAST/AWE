@@ -14,7 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	"strings"
+	//"strings"
 	"time"
 )
 
@@ -32,6 +32,7 @@ var JOB_STATS_REGISTERED = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_ST
 var JOB_STATS_TO_RECOVER = []string{JOB_STAT_INIT, JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 
 type JobRaw struct {
+	RWMutex
 	Id string `bson:"id" json:"id"`
 	//Tasks       []*Task   `bson:"tasks" json:"tasks"`
 	Acl         acl.Acl   `bson:"acl" json:"-"`
@@ -84,10 +85,13 @@ type JobLog struct {
 }
 
 func NewJobRaw() (job *JobRaw) {
-	return &JobRaw{
+	r := &JobRaw{
 		Info: NewInfo(),
 		Acl:  acl.Acl{},
 	}
+
+	r.RWMutex.Init("Job")
+	return r
 }
 
 func NewJob() (job *Job) {
@@ -112,6 +116,8 @@ func NewJobDep() (job *JobDep) {
 func (job *Job) Init() (changed bool, err error) {
 	changed = false
 
+	job.RWMutex.Init("Job")
+
 	if job.State == "" {
 		job.State = JOB_STAT_INIT
 		changed = true
@@ -120,7 +126,10 @@ func (job *Job) Init() (changed bool, err error) {
 
 	if job.Id == "" {
 		job.setId() //uuid for the job
+		logger.Debug(3, "XXX Set JobID: %s", job.Id)
 		changed = true
+	} else {
+		logger.Debug(3, "XXX Already have JobID: %s", job.Id)
 	}
 
 	if job.Info == nil {
@@ -141,21 +150,53 @@ func (job *Job) Init() (changed bool, err error) {
 	old_remaintasks := job.RemainTasks
 	job.RemainTasks = 0
 
+	create_new_tasks_array := false
 	for _, task := range job.Tasks {
-		task.Init()
+
+		if task.Id == "" {
+			logger.Error("(job.Init) task.Id empty, job %s broken?", job.Id)
+			task.Id = job.Id + "_" + uuid.New()
+			job.State = JOB_STAT_SUSPEND
+			job.Notes = "task.Id was empty"
+
+		}
+
+		t_changed, xerr := task.Init(job)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		if t_changed {
+			changed = true
+		}
+
 		// set task.info pointer
 
 		if job.Info == nil {
-			panic("job.Info == nil")
+			err = fmt.Errorf("(job.Init) job.Info == nil")
+			return
 		}
-
-		task.JobId = job.Id
-		task.Info = job.Info
 
 		if task.State != TASK_STAT_COMPLETED {
 			job.RemainTasks += 1
 		}
 
+		if task.Id == "" {
+			create_new_tasks_array = true
+		}
+
+	}
+
+	if create_new_tasks_array {
+		new_tasks := []*Task{}
+		for _, task := range job.Tasks {
+			if task.Id != "" {
+				new_tasks = append(new_tasks, task)
+			}
+		}
+		job.Tasks = new_tasks
+		changed = true
 	}
 
 	// try to fix inconsistent state
@@ -177,39 +218,9 @@ func (job *Job) Init() (changed bool, err error) {
 		changed = true
 	}
 
-	return
-}
-
-func (job *Job) InitTasks() (err error) {
-
 	if len(job.Tasks) == 0 {
-		err = errors.New("invalid job script: task list empty")
+		err = errors.New("(job.Init) invalid job script: task list empty")
 		return
-	}
-
-	// populate DependsOn
-	for _, task := range job.Tasks {
-		deps := make(map[string]bool)
-
-		// collect explicit dependencies
-		for _, deptask := range task.DependsOn {
-			deps[deptask] = true
-		}
-
-		// collect input-based dependencies
-		for _, input := range task.Inputs {
-
-			if input.Origin != "" {
-				deps[input.Origin] = true
-			}
-		}
-
-		// write all dependencies
-		task.DependsOn = []string{}
-		for deptask, _ := range deps {
-			task.DependsOn = append(task.DependsOn, deptask)
-		}
-
 	}
 
 	// check that input FileName is not repeated within an individual task
@@ -225,24 +236,30 @@ func (job *Job) InitTasks() (err error) {
 	}
 
 	// InitTask
-	for i := 0; i < len(job.Tasks); i++ {
-		task_id := job.Tasks[i].Id
-		if strings.Contains(task_id, "_") {
-			// no "_" allowed in inital taskid
-			err = fmt.Errorf("invalid taskid (%s), may not contain '_'", task_id)
-			return
-		}
-		err = job.Tasks[i].InitTask(job)
-		if err != nil {
-			err = errors.New("error in InitTask: " + err.Error())
-			return
-		}
-	}
+	//for i := 0; i < len(job.Tasks); i++ {
+	//task_id := job.Tasks[i].Id
+	//if strings.Contains(task_id, "_") {
+	// no "_" allowed in inital taskid
+	//	err = fmt.Errorf("(job.Init) invalid taskid (%s), may not contain '_'", task_id)
+	//	return
+	//}
+	//	_, err = job.Tasks[i].Init(job)
+	//	if err != nil {
+	//		err = errors.New("error in InitTask: " + err.Error())
+	//		return
+	//	}
+	//}
 
-	job.RemainTasks = len(job.Tasks)
+	//job.RemainTasks = len(job.Tasks)
 
 	return
 }
+
+// DEPRECATED in favor of job.Init()
+//func (job *Job) InitTasks() (err error) {
+//
+//return
+//}
 
 func (job *Job) RLockRecursive() {
 	for _, task := range job.Tasks {
@@ -278,6 +295,22 @@ func (job *Job) UpdateFile(files FormFiles, field string) (err error) {
 		}
 		delete(files, field)
 	}
+	return
+}
+
+func (job *Job) IncrementResumed(inc int, writelock bool) (err error) {
+	if writelock {
+		err = job.LockNamed("IncrementResumed")
+		if err != nil {
+			return
+		}
+		defer job.Unlock()
+	}
+	err = dbIncrementJobField(job.Id, "resumed", inc)
+	if err != nil {
+		return
+	}
+	job.Resumed += 1
 	return
 }
 
@@ -355,6 +388,7 @@ func (job *Job) Mkdir() (err error) {
 	}
 	err = os.MkdirAll(path, 0777)
 	if err != nil {
+		err = fmt.Errorf("Could not run os.MkdirAll (path: %s) %s", path, err.Error())
 		return
 	}
 	return
@@ -397,10 +431,39 @@ func (job *Job) FilePath() (path string, err error) {
 
 func getPathByJobId(id string) (path string, err error) {
 	if len(id) < 6 {
-		err = fmt.Errorf("Job-Id format wrong: %s", id)
+		err = fmt.Errorf("Job-Id format wrong: \"%s\"", id)
 		return
 	}
 	path = fmt.Sprintf("%s/%s/%s/%s/%s", conf.DATA_PATH, id[0:2], id[2:4], id[4:6], id)
+	return
+}
+
+func (job *Job) GetTasks() (tasks []*Task, err error) {
+	tasks = []*Task{}
+
+	read_lock, err := job.RLockNamed("GetTasks")
+	if err != nil {
+		return
+	}
+	defer job.RUnlockNamed(read_lock)
+
+	for _, task := range job.Tasks {
+		tasks = append(tasks, task)
+	}
+
+	return
+}
+
+func (job *Job) GetState() (state string, err error) {
+
+	read_lock, err := job.RLockNamed("GetState")
+	if err != nil {
+		return
+	}
+	defer job.RUnlockNamed(read_lock)
+
+	state = job.State
+
 	return
 }
 
@@ -414,7 +477,14 @@ func (job *Job) NumTask() int {
 }
 
 //---Field update functions
+
 func (job *Job) SetState(newState string, notes string) (err error) {
+
+	err = job.LockNamed("SetState")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
 
 	if job.State == newState {
 		return
@@ -436,6 +506,17 @@ func (job *Job) SetState(newState string, notes string) (err error) {
 	return
 }
 
+func (job *Job) GetRemainTasks() (remain_tasks int, err error) {
+	read_lock, err := job.RLockNamed("GetRemainTasks")
+	if err != nil {
+		return
+	}
+	defer job.RUnlockNamed(read_lock)
+
+	remain_tasks = job.RemainTasks
+	return
+}
+
 func (job *Job) SetRemainTasks(remain_tasks int) (err error) {
 
 	if remain_tasks == job.RemainTasks {
@@ -448,6 +529,22 @@ func (job *Job) SetRemainTasks(remain_tasks int) (err error) {
 	}
 	job.RemainTasks = remain_tasks
 
+	return
+}
+
+func (job *Job) IncrementRemainTasks(inc int, writelock bool) (err error) {
+	if writelock {
+		err = job.LockNamed("IncrementRemainTasks")
+		if err != nil {
+			return
+		}
+		defer job.Unlock()
+	}
+	err = dbIncrementJobField(job.Id, "remaintasks", inc)
+	if err != nil {
+		return
+	}
+	job.Resumed += 1
 	return
 }
 
@@ -469,7 +566,11 @@ func (job *Job) UpdateTaskDEPRECATED(task *Task) (remainTasks int, err error) {
 			}
 		}
 
-		job.SetRemainTasks(remain_tasks)
+		err = job.SetRemainTasks(remain_tasks)
+		if err != nil {
+			return
+		}
+
 		if remain_tasks == 0 {
 			job.SetState(JOB_STAT_COMPLETED, "")
 
@@ -482,91 +583,50 @@ func (job *Job) UpdateTaskDEPRECATED(task *Task) (remainTasks int, err error) {
 
 func (job *Job) SetClientgroups(clientgroups string) (err error) {
 	job.Info.ClientGroups = clientgroups
-	for _, task := range job.Tasks {
-		if task.Info != nil {
-			task.Info.ClientGroups = clientgroups
-		}
-	}
-	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
-		return
-	}
-	err = job.Save()
+	dbUpdateJobFieldString(job.Id, "info.clientgroups", clientgroups)
+
+	//for _, task := range job.Tasks {
+	//	if task.Info != nil {
+	//		task.Info.ClientGroups = clientgroups
+	//	}
+	//}
+	err = QMgr.UpdateQueueJobInfo(job)
+
+	//err = job.Save()
 	return
 }
 
 func (job *Job) SetPriority(priority int) (err error) {
+
 	job.Info.Priority = priority
-	for _, task := range job.Tasks {
-		if task.Info != nil {
-			task.Info.Priority = priority
-		}
-	}
-	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
-		return
-	}
-	err = job.Save()
+	dbUpdateJobFieldInt(job.Id, "info.priority", priority)
+
+	err = QMgr.UpdateQueueJobInfo(job)
+
 	return
 }
 
 func (job *Job) SetPipeline(pipeline string) (err error) {
 	job.Info.Pipeline = pipeline
-	for _, task := range job.Tasks {
-		if task.Info != nil {
-			task.Info.Pipeline = pipeline
-		}
-	}
-	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
-		return
-	}
-	err = job.Save()
+	dbUpdateJobFieldString(job.Id, "info.pipeline", pipeline)
+
+	err = QMgr.UpdateQueueJobInfo(job)
+
 	return
 }
 
 func (job *Job) SetDataToken(token string) (err error) {
+
 	job.Info.DataToken = token
 	job.Info.Auth = true
-	for _, task := range job.Tasks {
-		if task.Info != nil {
-			task.Info.DataToken = token
-			task.Info.Auth = true
-			task.setTokenForIO()
-		}
-	}
-	if err = QMgr.UpdateQueueJobInfo(job); err != nil {
-		return
-	}
+	dbUpdateJobFieldString(job.Id, "info.token", token)
+	dbUpdateJobFieldBoolean(job.Id, "info.auth", true)
+
+	err = QMgr.UpdateQueueJobInfo(job)
 
 	return
 }
 
-func SetExpiration2(job_id string, expire string) (err error) {
-	parts := ExpireRegex.FindStringSubmatch(expire)
-	if len(parts) == 0 {
-		return errors.New("expiration format '" + expire + "' is invalid")
-	}
-	var expireTime time.Duration
-	expireNum, _ := strconv.Atoi(parts[1])
-	currTime := time.Now()
-
-	switch parts[2] {
-	case "M":
-		expireTime = time.Duration(expireNum) * time.Minute
-	case "H":
-		expireTime = time.Duration(expireNum) * time.Hour
-	case "D":
-		expireTime = time.Duration(expireNum*24) * time.Hour
-	}
-
-	//job.Expiration = currTime.Add(expireTime)
-	//err = job.Save()
-
-	update_value := bson.M{"expiration": currTime.Add(expireTime)}
-	err = dbUpdateJobFields(job_id, update_value)
-
-	return
-}
-
-// TODO deprecated
 func (job *Job) SetExpiration(expire string) (err error) {
 	parts := ExpireRegex.FindStringSubmatch(expire)
 	if len(parts) == 0 {
@@ -586,7 +646,10 @@ func (job *Job) SetExpiration(expire string) (err error) {
 	}
 
 	job.Expiration = currTime.Add(expireTime)
-	err = job.Save()
+	//err = job.Save()
+
+	update_value := bson.M{"expiration": job.Expiration}
+	err = dbUpdateJobFields(job.Id, update_value)
 
 	return
 }

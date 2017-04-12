@@ -1,3 +1,14 @@
+
+# v0.9.33
+
+- fix mongo reading
+- added metadata options for client
+
+# v0.9.32
+
+- fine-grained mongo updates instead of complete job writes
+- completed fix of locking mechanism
+
 # v0.9.31
 
 - golang 1.7.3

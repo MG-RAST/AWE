@@ -240,28 +240,82 @@ func dbGetJobTasks(job_id string) (tasks []*Task, err error) {
 	return
 }
 
-func dbGetJobTaskField(job_id string, task_id string, fieldname string) (result string, err error) {
+func dbGetJobTaskString(job_id string, task_id string, fieldname string) (result string, err error) {
+
+	err = dbGetJobTaskField(job_id, task_id, fieldname, result)
+
+	if err != nil {
+		return
+	}
+
+	//result, ok := myresult.(string)
+	//if !ok {
+	//	err = fmt.Errorf("(dbGetJobTaskString) Could not read field %s", fieldname)
+	//}
+
+	return
+}
+
+func dbGetJobTaskInt(job_id string, task_id string, fieldname string) (result int, err error) {
+
+	err = dbGetJobTaskField(job_id, task_id, fieldname, result)
+
+	if err != nil {
+		return
+	}
+
+	//result, ok := myresult.(int)
+	//if !ok {
+	//	err = fmt.Errorf("(dbGetJobTaskInt) Could not read field %s", fieldname)
+	//}
+	return
+}
+
+func dbGetJobTaskField(job_id string, task_id string, fieldname string, result interface{}) (err error) {
+
+	// shell example to get task field "remainwork"
+	// db.Jobs.find({"id":"e05f1310-ca29-42cc-a765-2dafecf345d4"}, {"tasks" : {"$elemMatch" : {"taskid":"e05f1310-ca29-42cc-a765-2dafecf345d4_0"} }, "tasks.remainwork" : 1}).pretty()
+
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 
-	selector := bson.M{"id": job_id, "tasks.taskid": task_id}
+	selector := bson.M{"id": job_id}
 
-	myresult := bson.M{}
+	projection := bson.M{"tasks": bson.M{"$elemMatch": bson.M{"taskid": task_id}}, "tasks." + fieldname: 1}
 
-	err = c.Find(selector).Select(bson.M{fieldname: 1}).One(&myresult)
+	temp_result := bson.M{}
+
+	err = c.Find(selector).Select(projection).One(&temp_result)
 	if err != nil {
 		err = fmt.Errorf("(dbGetJobTaskField) Error getting field from job_id %s , task_id %s and fieldname %s: %s", job_id, task_id, fieldname, err.Error())
 		return
 	}
 
-	result, ok := myresult[fieldname].(string)
+	tasks_unknown := temp_result["tasks"]
+	tasks, ok := tasks_unknown.([]interface{})
+
 	if !ok {
-		err = fmt.Errorf("Could not read field %s", fieldname)
+		err = fmt.Errorf("Array expected, but not found")
+		return
 	}
 
-	logger.Debug(3, "(dbGetJobTaskField) %s=%s", fieldname, result)
+	if len(tasks) == 0 {
+		err = fmt.Errorf("result task array empty")
+		return
+	}
+
+	first_task := tasks[0].(bson.M)
+
+	result, ok = first_task[fieldname]
+
+	if !ok {
+		err = fmt.Errorf("Field %s not in task object", fieldname)
+		return
+	}
+
+	logger.Debug(3, "(dbGetJobTaskField) %s got something", fieldname)
 
 	return
 }
@@ -312,43 +366,33 @@ func dbGetPrivateEnv(job_id string, task_id string) (result map[string]string, e
 	return
 }
 
-func dbGetJobFieldString(job_id string, fieldname string) (result string, err error) {
-
-	bson_result, err := dbGetJobField(job_id, fieldname)
-	if err != nil {
-		return
-	}
-
-	result, ok := bson_result[fieldname].(string)
-	if !ok {
-		err = fmt.Errorf("Could not read field %s", fieldname)
-	}
-	return
-}
-
 func dbGetJobFieldInt(job_id string, fieldname string) (result int, err error) {
 
-	bson_result, err := dbGetJobField(job_id, fieldname)
+	err = dbGetJobField(job_id, fieldname, &result)
 	if err != nil {
 		return
 	}
 
-	result, ok := bson_result[fieldname].(int)
-	if !ok {
-		err = fmt.Errorf("Could not read field %s", fieldname)
-	}
 	return
 }
 
-func dbGetJobField(job_id string, fieldname string) (result bson.M, err error) {
+func dbGetJobFieldString(job_id string, fieldname string) (result string, err error) {
+
+	err = dbGetJobField(job_id, fieldname, &result)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func dbGetJobField(job_id string, fieldname string, result interface{}) (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 
 	selector := bson.M{"id": job_id}
-
-	result = bson.M{}
 
 	err = c.Find(selector).Select(bson.M{fieldname: 1}).One(&result)
 	if err != nil {
@@ -413,6 +457,13 @@ func dbUpdateJobFields(job_id string, update_value bson.M) (err error) {
 	return
 }
 
+func dbUpdateJobFieldBoolean(job_id string, fieldname string, value bool) (err error) {
+
+	update_value := bson.M{fieldname: value}
+
+	return dbUpdateJobFields(job_id, update_value)
+}
+
 func dbUpdateJobFieldString(job_id string, fieldname string, value string) (err error) {
 
 	update_value := bson.M{fieldname: value}
@@ -440,7 +491,7 @@ func dbIncrementJobField(job_id string, fieldname string, increment_value int) (
 
 	err = c.Update(selector, bson.M{"$inc": update_value})
 	if err != nil {
-		err = fmt.Errorf("Error incrementing %s %s by %d: %s", job_id, fieldname, increment_value, err.Error())
+		err = fmt.Errorf("Error incrementing job_id=%s fieldname=%s by %d: %s", job_id, fieldname, increment_value, err.Error())
 		return
 	}
 
@@ -455,8 +506,6 @@ func dbUpdateJobTaskFields(job_id string, task_id string, update_value bson.M) (
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 
 	selector := bson.M{"id": job_id, "tasks.taskid": task_id}
-
-	//update_value := bson.M{"tasks.$." + fieldname: value}
 
 	err = c.Update(selector, bson.M{"$set": update_value})
 	if err != nil {
@@ -475,6 +524,15 @@ func dbUpdateJobTaskField(job_id string, task_id string, fieldname string, value
 
 }
 
+func dbUpdateJobTaskTime(job_id string, task_id string, fieldname string, value time.Time) (err error) {
+
+	update_value := bson.M{"tasks.$." + fieldname: value}
+
+	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+
+}
+
+// deprecated, replaced by more fine-grained modifications
 func dbUpdateTask(job_id string, task *Task) (err error) {
 	task_id, err := task.GetId()
 	if err != nil {
@@ -495,6 +553,26 @@ func dbUpdateTask(job_id string, task *Task) (err error) {
 	err = c.Update(selector, bson.M{"$set": update_value})
 	if err != nil {
 		err = fmt.Errorf("(dbUpdateTask) Error updating task: " + err.Error())
+		return
+	}
+
+	return
+}
+
+func dbIncrementJobTaskField(job_id string, task_id string, fieldname string, increment_value int) (err error) {
+
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+
+	selector := bson.M{"id": job_id, "tasks.taskid": task_id}
+
+	update_value := bson.M{"tasks.$." + fieldname: increment_value}
+
+	err = c.Update(selector, bson.M{"$inc": update_value})
+	if err != nil {
+		err = fmt.Errorf("Error incrementing job_id=%s fieldname=%s by %d: %s", job_id, fieldname, increment_value, err.Error())
 		return
 	}
 
@@ -534,7 +612,7 @@ func LoadJob(id string) (job *Job, err error) {
 			return
 		}
 
-		// To fix incomplete opr inconsistent database entries
+		// To fix incomplete or inconsistent database entries
 		if changed {
 			job.Save()
 		}

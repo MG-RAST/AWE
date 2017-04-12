@@ -26,6 +26,7 @@ var (
 	Self          *Client
 	ProxyWorkChan chan bool
 	Server_UUID   string
+	JM            *JobMap
 )
 
 type StandardResponse struct {
@@ -41,6 +42,7 @@ func InitResMgr(service string) {
 		QMgr = NewProxyMgr()
 	}
 	Service = service
+
 }
 
 func SetClientProfile(profile *Client) {
@@ -110,17 +112,25 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 
 	if has_upload {
 		upload_file_path := upload_file.Path
-		job, err = ParseJobTasks(upload_file_path)
+		job, err = ReadJobFile(upload_file_path)
 		if err != nil {
+			//logger.Debug(3, "Parsing: Failed using default format")
 			logger.Warning("(CreateJobUpload/ParseJobTasks) %s", err.Error())
 			//errDep := errors.New("")
-			err = nil                                         // TODO we are loosing error messages. User needs them to figure out why something failed.
-			job, err = ParseJobTasksDep(files["upload"].Path) // TODO can we get rid of that ?
-			if err != nil {
-				//err = nil
-				return
-			}
+			//err = nil                                         // TODO we are loosing error messages. User needs them to figure out why something failed.
+			//job, err = ParseJobTasksDep(files["upload"].Path) // TODO can we get rid of that ?
+			//if err != nil {
+			//	//err = nil
+			//	logger.Error("Parsing: failed finally: %s", err.Error())
+			//	return
+			//}
+			//logger.Debug(3, "Parsing: Success using deprecated format")
+			logger.Debug(3, "Parsing: Failed (default and deprecated format)")
+			return
+		} else {
+			logger.Debug(3, "Parsing: Success (default or deprecated format)")
 		}
+
 	} else {
 		err = errors.New("(CreateJobUpload) has_upload is missing")
 		return
@@ -142,7 +152,7 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 
 	err = job.Mkdir()
 	if err != nil {
-		err = errors.New("error creating job directory, error=" + err.Error())
+		err = errors.New("(CreateJobUpload) error creating job directory, error=" + err.Error())
 		return
 	}
 
@@ -223,7 +233,7 @@ func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
 
 	err = job.Mkdir()
 	if err != nil {
-		err = errors.New("error creating job directory, error=" + err.Error())
+		err = errors.New("(CreateJobImport) error creating job directory, error=" + err.Error())
 		return
 	}
 
@@ -340,13 +350,39 @@ func ReadJobFile(filename string) (job *Job, err error) {
 
 	err = json.Unmarshal(jsonstream, job)
 	if err != nil {
-		err = fmt.Errorf("(ReadJobFile) error in unmarshaling job json file: %s ", err.Error())
-		return
-	}
+		//err = fmt.Errorf("(ReadJobFile) error in unmarshaling job json file: %s ", err.Error())
+		logger.Error("(ReadJobFile) error in unmarshaling job json file using normal job struct: %s ", err.Error())
+		err = nil
 
-	_, err = job.Init()
-	if err != nil {
+		jobDep := NewJobDep()
+
+		jsonstream, err = ioutil.ReadFile(filename)
+		if err != nil {
+			err = fmt.Errorf("(ReadJobFile) error in reading job json file: %s", err.Error())
+			return
+		}
+
+		err = json.Unmarshal(jsonstream, jobDep)
+		if err != nil {
+			err = fmt.Errorf("(ReadJobFile) error in unmarshaling job json file using deprecated job struct: %s ", err.Error())
+			return
+		} else {
+			logger.Debug(3, "(ReadJobFile) Success unmarshaling job json file using deprecated job struct.")
+		}
+
+		job, err = JobDepToJob(jobDep)
+		if err != nil {
+			err = fmt.Errorf("JobDepToJob failed: %s", err.Error())
+			return
+		}
+
 		return
+	} else {
+		// jobDep had been initialized already
+		_, err = job.Init()
+		if err != nil {
+			return
+		}
 	}
 
 	//parse private fields task.Cmd.Environ.Private
@@ -366,27 +402,27 @@ func ReadJobFile(filename string) (job *Job, err error) {
 		}
 	}
 
+	//err = job.InitTasks()
+	//if err != nil {
+	//	return
+	//}
+
 	return
 }
 
 // Parses job by job script.
-func ParseJobTasks(filename string) (job *Job, err error) {
+//func ParseJobTasks(filename string) (job *Job, err error) {
+//
+//job, err = ReadJobFile(filename)
+//if err != nil {
+//		return
+//	}
 
-	job, err = ReadJobFile(filename)
-	if err != nil {
-		return
-	}
-
-	err = job.InitTasks()
-	if err != nil {
-		return
-	}
-
-	return
-}
+//	return
+//}
 
 // Parses job by job script using the deprecated Job struct. Maintained for backwards compatibility. (=deprecated=)
-func ParseJobTasksDep(filename string) (job *Job, err error) {
+func ParseJobTasksDep_DEPRECATED(filename string) (job *Job, err error) {
 	jobDep := NewJobDep()
 
 	jsonstream, err := ioutil.ReadFile(filename)
@@ -419,7 +455,6 @@ func ParseJobTasksDep(filename string) (job *Job, err error) {
 		job.Info.Priority = conf.BasePriority
 	}
 
-	job.setId() //uuid for the job
 	job.State = JOB_STAT_INIT
 	job.Registered = true
 
@@ -441,10 +476,12 @@ func ParseJobTasksDep(filename string) (job *Job, err error) {
 	for i := 0; i < len(job.Tasks); i++ {
 		if strings.Contains(job.Tasks[i].Id, "_") {
 			// no "_" allowed in inital taskid
-			return nil, errors.New("invalid taskid, may not contain '_'")
+			return nil, errors.New("(ParseJobTasksDep) invalid taskid, may not contain '_'")
 		}
-		if err := job.Tasks[i].InitTask(job); err != nil {
-			return nil, errors.New("error in InitTask: " + err.Error())
+		_, err = job.Tasks[i].Init(job)
+		if err != nil {
+			err = errors.New("error in InitTask: " + err.Error())
+			return
 		}
 	}
 
@@ -456,11 +493,20 @@ func ParseJobTasksDep(filename string) (job *Job, err error) {
 // Takes the deprecated (version 1) Job struct and returns the version 2 Job struct or an error
 func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 	job = NewJob()
-	_, err = job.Init()
-	if err != nil {
+
+	if jobDep.Id != "" {
+		job.Id = jobDep.Id
+	}
+
+	if job.Id == "" {
+		job.setId()
+	}
+
+	if len(jobDep.Tasks) == 0 {
+		err = fmt.Errorf("(JobDepToJob) jobDep.Tasks empty")
 		return
 	}
-	job.Id = jobDep.Id
+
 	job.Acl = jobDep.Acl
 	job.Info = jobDep.Info
 	job.Script = jobDep.Script
@@ -474,11 +520,23 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 	job.ShockHost = jobDep.ShockHost
 
 	for _, taskDep := range jobDep.Tasks {
-		task := new(Task)
-		task.Id = taskDep.Id
-		task.Init()
+		//task := new(Task)
+		if taskDep.Id == "" {
+			err = fmt.Errorf("(JobDepToJob) taskDep.Id empty")
+			return
+		}
 
-		task.Info = taskDep.Info
+		task, xerr := NewTask(job, taskDep.Id)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		_, err = task.Init(job)
+		if err != nil {
+			return
+		}
+
 		task.Cmd = taskDep.Cmd
 		//task.App = taskDep.App
 		//task.AppVariablesArray = taskDep.AppVariablesArray
@@ -488,7 +546,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 		task.MaxWorkSize = taskDep.MaxWorkSize
 		task.RemainWork = taskDep.RemainWork
 		task.WorkStatus = taskDep.WorkStatus
-		task.SetState(taskDep.State)
+		task.State = taskDep.State
 		//task.Skip = taskDep.Skip
 		task.CreatedDate = taskDep.CreatedDate
 		task.StartedDate = taskDep.StartedDate
@@ -516,6 +574,17 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 		}
 		job.Tasks = append(job.Tasks, task)
 	}
+
+	_, err = job.Init()
+	if err != nil {
+		return
+	}
+
+	if len(job.Tasks) == 0 {
+		err = fmt.Errorf("(JobDepToJob) job.Tasks empty")
+		return
+	}
+
 	return
 }
 
@@ -651,7 +720,7 @@ func IsFirstTask(taskid string) bool {
 
 //update job state to "newstate" only if the current state is in one of the "oldstates"
 func UpdateJobState(jobid string, newstate string, oldstates []string) (err error) {
-	job, err := LoadJob(jobid)
+	job, err := GetJob(jobid)
 	if err != nil {
 		return
 	}
@@ -1088,5 +1157,31 @@ func ShockPutIndex(host string, nodeid string, indexname string, token string) (
 	opts["upload_type"] = "index"
 	opts["index_type"] = indexname
 	createOrUpdate(opts, host, nodeid, token, nil)
+	return
+}
+
+func GetJob(id string) (job *Job, err error) {
+
+	job, ok, err := JM.Get(id, true)
+
+	if err != nil {
+		return
+	}
+
+	if !ok {
+
+		// load job if not already in memory
+
+		job, err = LoadJob(id)
+		if err != nil {
+			return
+		}
+
+		err = JM.Add(job)
+		if err != nil {
+			return
+		}
+	}
+
 	return
 }

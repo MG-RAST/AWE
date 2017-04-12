@@ -928,13 +928,15 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err error) {
 
 	if client == nil {
-		panic("(filterWorkByClient) client == nil")
+		err = fmt.Errorf("(filterWorkByClient) client == nil")
+		return
 	}
 
 	clientid := client.Id
 
 	if clientid == "" {
-		panic("(filterWorkByClient) clientid empty")
+		err = fmt.Errorf("(filterWorkByClient) clientid empty")
+		return
 	}
 
 	logger.Debug(3, "(filterWorkByClient) starting for client: %s", clientid)
@@ -1021,7 +1023,7 @@ func (qm *CQMgr) ShowWorkunitsByUser(status string, u *user.User) (workunits []*
 			}
 		} else {
 			if jobid, err := GetJobIdByWorkId(work.Id); err == nil {
-				if job, err := LoadJob(jobid); err == nil {
+				if job, err := GetJob(jobid); err == nil {
 					rights := job.Acl.Check(u.Uuid)
 					if job.Acl.Owner == u.Uuid || rights["read"] == true {
 						if work.State == status || status == "" {

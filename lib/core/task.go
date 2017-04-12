@@ -69,12 +69,11 @@ type TaskLog struct {
 	Workunits     []*WorkLog `bson:"workunits" json:"workunits"`
 }
 
-func NewTaskRaw(job_id string, task_id string, info *Info) TaskRaw {
+func NewTaskRaw(task_id string, info *Info) TaskRaw {
 
-	logger.Debug(0, "Task.Id: %s_%s", job_id, task_id)
+	logger.Debug(3, "task_id: %s", task_id)
 
 	return TaskRaw{
-		//Id:         fmt.Sprintf("%s_%s", job_id, task_id),
 		Id:         task_id,
 		Info:       info,
 		Cmd:        &Command{},
@@ -88,24 +87,213 @@ func NewTaskRaw(job_id string, task_id string, info *Info) TaskRaw {
 	}
 }
 
-func (task *TaskRaw) Init() {
-	task.RWMutex.Init("task_" + task.Id)
-}
+func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
+	changed = false
 
-func NewTask(job *Job, task_id string) (t *Task, err error) {
+	if len(task.Id) == 0 {
+		err = errors.New("(TaskRaw.InitRaw) empty taskid")
+		return
+	}
+
+	task.RWMutex.Init("task_" + task.Id)
 
 	job_id := job.Id
+
 	if job_id == "" {
 		err = fmt.Errorf("(NewTask) job_id empty")
 		return
 	}
+	task.JobId = job_id
+
+	if task.State == "" {
+		task.State = TASK_STAT_INIT
+	}
+
+	if !strings.Contains(task.Id, "_") {
+		// is not standard taskid, convert it
+		task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
+		changed = true
+	}
+
+	fix_DependsOn := false
+	for _, dependency := range task.DependsOn {
+		if !strings.Contains(dependency, "_") {
+			fix_DependsOn = true
+
+		}
+
+	}
+
+	if fix_DependsOn {
+		changed = true
+		new_DependsOn := []string{}
+		for _, dependency := range task.DependsOn {
+			if strings.Contains(dependency, "_") {
+				new_DependsOn = append(new_DependsOn, dependency)
+			} else {
+				new_DependsOn = append(new_DependsOn, fmt.Sprintf("%s_%s", job.Id, dependency))
+			}
+		}
+		task.DependsOn = new_DependsOn
+	}
+
+	if job.Info == nil {
+		err = fmt.Errorf("(NewTask) job.Info empty")
+		return
+	}
+	task.Info = job.Info
+
+	if task.TotalWork <= 0 {
+		task.TotalWork = 1
+	}
+
+	if len(task.WorkStatus) == 0 {
+		task.WorkStatus = make([]string, task.TotalWork)
+	}
+	task.RemainWork = task.TotalWork
+
+	logger.Debug(3, "%s, task.RemainWork: %d", task.Id, task.RemainWork)
+
+	if task.State != TASK_STAT_COMPLETED {
+		if task.RemainWork != task.TotalWork {
+			task.RemainWork = task.TotalWork
+			changed = true
+		}
+
+	}
+
+	if len(task.Cmd.Environ.Private) > 0 {
+		task.Cmd.HasPrivateEnv = true
+	}
+
+	return
+}
+
+func (task *Task) Init(job *Job) (changed bool, err error) {
+	changed, err = task.InitRaw(job)
+	if err != nil {
+		return
+	}
+
+	// populate DependsOn
+	for _, dependency := range task.DependsOn {
+		deps := make(map[string]bool)
+
+		// collect explicit dependencies
+		for _, deptask := range task.DependsOn {
+			if !strings.Contains(deptask, "_") {
+				err = fmt.Errorf("deptask \"%s\" is missing _", dependency)
+				return
+			}
+			deps[deptask] = true
+		}
+
+		for _, input := range task.Inputs {
+
+			if input.Origin != "" {
+
+				origin := input.Origin
+				if !strings.Contains(origin, "_") {
+					origin = fmt.Sprintf("%s_%s", job.Id, origin)
+				}
+
+				value, ok := deps[origin]
+				if ok {
+					if value == false {
+						changed = true
+						deps[origin] = true
+					}
+				} else {
+					deps[origin] = true
+					changed = true
+				}
+
+			}
+		}
+
+		// write all dependencies
+		task.DependsOn = []string{}
+		previous_length := len(task.DependsOn)
+		for deptask, _ := range deps {
+			task.DependsOn = append(task.DependsOn, deptask)
+		}
+		if previous_length == len(task.DependsOn) {
+			changed = true
+		}
+	}
+
+	// set node / host / url for files
+	for _, io := range task.Inputs {
+		if io.Node == "" {
+			io.Node = "-"
+		}
+		_, err = io.DataUrl()
+		if err != nil {
+			return
+		}
+		logger.Debug(2, "inittask input: host="+io.Host+", node="+io.Node+", url="+io.Url)
+	}
+	for _, io := range task.Outputs {
+		if io.Node == "" {
+			io.Node = "-"
+		}
+		_, err = io.DataUrl()
+		if err != nil {
+			return
+		}
+		logger.Debug(2, "inittask output: host="+io.Host+", node="+io.Node+", url="+io.Url)
+	}
+	for _, io := range task.Predata {
+		if io.Node == "" {
+			io.Node = "-"
+		}
+		_, err = io.DataUrl()
+		if err != nil {
+			return
+		}
+		// predata IO can not be empty
+		if (io.Url == "") && (io.Node == "-") {
+			err = errors.New("Invalid IO, required fields url or host / node missing")
+			return
+		}
+		logger.Debug(2, "inittask predata: host="+io.Host+", node="+io.Node+", url="+io.Url)
+	}
+
+	err = task.setTokenForIO()
+	if err != nil {
+		return
+	}
+
+	//err = task.SetState(TASK_STAT_INIT)
+
+	return
+}
+
+func NewTask(job *Job, task_id string) (t *Task, err error) {
 
 	t = &Task{
-		TaskRaw: NewTaskRaw(job_id, task_id, job.Info),
+		TaskRaw: NewTaskRaw(task_id, job.Info),
 		Inputs:  []*IO{},
 		Outputs: []*IO{},
 		Predata: []*IO{},
 	}
+	return
+}
+
+func (task *Task) GetOutputs() (outputs []*IO, err error) {
+
+	outputs = []*IO{}
+
+	lock, err := task.RLockNamed("GetOutputs")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+
+	for _, output := range task.Outputs {
+		outputs = append(outputs, output)
+	}
+
 	return
 }
 
@@ -116,6 +304,38 @@ func (task *TaskRaw) GetState() (state string, err error) {
 	}
 	defer task.RUnlockNamed(lock)
 	state = task.State
+	return
+}
+
+func (task *TaskRaw) SetCreatedDate(t time.Time) (err error) {
+	err = task.LockNamed("SetCreatedDate")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	err = dbUpdateJobTaskTime(task.JobId, task.Id, "createddate", t)
+	if err != nil {
+		return
+	}
+	task.CreatedDate = t
+
+	return
+}
+
+func (task *TaskRaw) SetStartedDate(t time.Time) (err error) {
+	err = task.LockNamed("SetStartedDate")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	err = dbUpdateJobTaskTime(task.JobId, task.Id, "starteddate", t)
+	if err != nil {
+		return
+	}
+	task.StartedDate = t
+
 	return
 }
 
@@ -140,6 +360,16 @@ func (task *TaskRaw) GetId() (id string, err error) {
 	return
 }
 
+func (task *TaskRaw) GetJobId() (id string, err error) {
+	lock, err := task.RLockNamed("GetJobId")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	id = task.JobId
+	return
+}
+
 func (task *TaskRaw) SetState(new_state string) (err error) {
 	err = task.LockNamed("SetState")
 	if err != nil {
@@ -147,35 +377,46 @@ func (task *TaskRaw) SetState(new_state string) (err error) {
 	}
 	defer task.Unlock()
 
-	if task.State == new_state {
+	old_state := task.State
+	taskid := task.Id
+	jobid := task.JobId
+
+	if jobid == "" {
+		err = fmt.Errorf("task %s has no job id", taskid)
+		return
+	}
+
+	if old_state == new_state {
 		return
 	}
 	if new_state == TASK_STAT_COMPLETED {
-		if task.State != TASK_STAT_COMPLETED {
+		if old_state != TASK_STAT_COMPLETED {
 
 			// state TASK_STAT_COMPLETED is new!
-			err = dbIncrementJobField(task.JobId, "remaintasks", -1)
+			err = dbIncrementJobField(jobid, "remaintasks", -1)
 			if err != nil {
 				return
 			}
 
 			this_time := time.Now()
 			task.CompletedDate = this_time
-			dbUpdateJobTaskField(task.JobId, task.Id, "completeddate", this_time)
+			dbUpdateJobTaskField(jobid, taskid, "completeddate", this_time)
 		}
 
 	} else {
 		// in case a completed teask is marked as something different
-		if task.State == TASK_STAT_COMPLETED {
-			err = dbIncrementJobField(task.JobId, "remaintasks", 1)
+		if old_state == TASK_STAT_COMPLETED {
+			err = dbIncrementJobField(jobid, "remaintasks", 1)
 			if err != nil {
 				return
 			}
 		}
 
 	}
-	dbUpdateJobTaskField(task.JobId, task.Id, "state", new_state)
+
+	dbUpdateJobTaskField(jobid, taskid, "state", new_state)
 	task.State = new_state
+
 	return
 }
 
@@ -206,74 +447,6 @@ func (task *TaskRaw) GetDependsOn() (dep []string, err error) {
 	}
 	defer task.RUnlockNamed(lock)
 	dep = task.DependsOn
-	return
-}
-
-// fill some info (lacked in input json) for a task
-func (task *Task) InitTask(job *Job) (err error) {
-	//validate taskid
-	if len(task.Id) == 0 {
-		return errors.New("invalid taskid:" + task.Id)
-	}
-
-	parts := strings.Split(task.Id, "_")
-	if len(parts) == 1 {
-		// is not standard taskid, convert it
-		task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
-		for j := 0; j < len(task.DependsOn); j++ {
-			depend := task.DependsOn[j]
-			task.DependsOn[j] = fmt.Sprintf("%s_%s", job.Id, depend)
-		}
-	}
-
-	task.Info = job.Info
-
-	if task.TotalWork <= 0 {
-		task.setTotalWork(1)
-	}
-	task.WorkStatus = make([]string, task.TotalWork)
-	task.RemainWork = task.TotalWork
-
-	// set node / host / url for files
-	for _, io := range task.Inputs {
-		if io.Node == "" {
-			io.Node = "-"
-		}
-		if _, err = io.DataUrl(); err != nil {
-			return err
-		}
-		logger.Debug(2, "inittask input: host="+io.Host+", node="+io.Node+", url="+io.Url)
-	}
-	for _, io := range task.Outputs {
-		if io.Node == "" {
-			io.Node = "-"
-		}
-		if _, err = io.DataUrl(); err != nil {
-			return err
-		}
-		logger.Debug(2, "inittask output: host="+io.Host+", node="+io.Node+", url="+io.Url)
-	}
-	for _, io := range task.Predata {
-		if io.Node == "" {
-			io.Node = "-"
-		}
-		if _, err = io.DataUrl(); err != nil {
-			return err
-		}
-		// predata IO can not be empty
-		if (io.Url == "") && (io.Node == "-") {
-			return errors.New("Invalid IO, required fields url or host / node missing")
-		}
-		logger.Debug(2, "inittask predata: host="+io.Host+", node="+io.Node+", url="+io.Url)
-	}
-
-	if len(task.Cmd.Environ.Private) > 0 {
-		task.Cmd.HasPrivateEnv = true
-	}
-
-	task.setTokenForIO()
-	err = task.SetState(TASK_STAT_INIT)
-
 	return
 }
 
@@ -399,31 +572,39 @@ func (task *Task) InitPartIndex() (err error) {
 	return
 }
 
+// TODO lock !
 func (task *Task) setTotalWork(num int) {
 	task.TotalWork = num
-	task.RemainWork = num
+	_ = task.SetRemainWork(num, false)
 	task.WorkStatus = make([]string, num)
 }
 
-func (task *Task) SetRemainWork(num int) (err error) {
-	err = task.LockNamed("SetRemainWork")
-	if err != nil {
-		return
+func (task *Task) SetRemainWork(num int, writelock bool) (err error) {
+	if writelock {
+		err = task.LockNamed("SetRemainWork")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
 	}
-	defer task.Unlock()
 	task.RemainWork = num
 
 	return
 }
 
-func (task *Task) IncrementRemainWork(inc int) (remainwork int, err error) {
-	err = task.LockNamed("IncrementRemainWork")
+func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, err error) {
+	if writelock {
+		err = task.LockNamed("IncrementRemainWork")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
+	task.RemainWork += inc
+	err = dbIncrementJobTaskField(task.JobId, task.Id, "remainwork", inc)
 	if err != nil {
 		return
 	}
-	defer task.Unlock()
-
-	task.RemainWork += inc
 
 	remainwork = task.RemainWork
 
@@ -437,12 +618,22 @@ func (task *Task) IncrementComputeTime(inc_time int) (err error) {
 	}
 	defer task.Unlock()
 
+	err = dbIncrementJobTaskField(task.JobId, task.Id, "computetime", inc_time)
+	if err != nil {
+		return
+	}
 	task.ComputeTime += inc_time
 
 	return
 }
 
-func (task *Task) setTokenForIO() {
+func (task *Task) setTokenForIO() (err error) {
+
+	if task.Info == nil {
+		err = fmt.Errorf("(setTokenForIO) task.Info empty")
+		return
+	}
+
 	if !task.Info.Auth || task.Info.DataToken == "" {
 		return
 	}
@@ -452,6 +643,7 @@ func (task *Task) setTokenForIO() {
 	for _, io := range task.Outputs {
 		io.DataToken = task.Info.DataToken
 	}
+	return
 }
 
 func (task *Task) CreateWorkunits() (wus []*Workunit, err error) {

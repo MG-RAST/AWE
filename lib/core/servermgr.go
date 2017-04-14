@@ -1120,6 +1120,10 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 	for _, io := range task.Inputs {
 		filename := io.FileName
 
+		if io.Origin == "" {
+			continue
+		}
+
 		preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
 		preTask, ok, xerr := qm.TaskMap.Get(preId, true)
 		if xerr != nil {

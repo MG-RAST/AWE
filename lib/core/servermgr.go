@@ -544,6 +544,38 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		logger.Debug(3, "(handleWorkStatusChange) remain_work: %d (%s)", remain_work, workid)
 
 		if remain_work == 0 {
+
+			// check file sizes of all outputs
+			outputs_modified := false
+			outputs := task.Outputs
+			for _, io := range outputs {
+				size, modified, xerr := io.GetFileSize()
+				if xerr != nil {
+					err = xerr
+					logger.Error("task %s, err: %s", task_id, err.Error())
+					yerr := task.SetState(TASK_STAT_SUSPEND)
+					if yerr != nil {
+						err = yerr
+						return
+					}
+					return
+				}
+
+				if !modified {
+					continue
+				}
+				outputs_modified = true
+				logger.Debug(3, "New output file %s has size %d", io.FileName, size)
+
+			}
+
+			if outputs_modified {
+				err = task.UpdateOutputs()
+				if err != nil {
+					return
+				}
+			}
+
 			err = task.SetState(TASK_STAT_COMPLETED)
 			if err != nil {
 				return
@@ -1026,13 +1058,11 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 		return
 	}
 
-	logger.Debug(3, "(isTaskReady) got state")
+	logger.Debug(3, "(isTaskReady) task state is %s", task_state)
 
 	if task_state != TASK_STAT_PENDING {
 		return
 	}
-
-	logger.Debug(3, "(isTaskReady) state==TASK_STAT_PENDING")
 
 	task_id, err := task.GetId()
 	if err != nil {
@@ -1041,7 +1071,11 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 	logger.Debug(3, "(isTaskReady) task_id: %s", task_id)
 
 	//skip if the belonging job is suspended
-	jobid, _ := GetJobIdByTaskId(task_id)
+	jobid, err := task.GetJobId()
+	if err != nil {
+		return
+	}
+
 	if qm.isSusJob(jobid) {
 		return
 	}
@@ -1061,41 +1095,83 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 
 			return
 		}
-		if ok {
-			pretask_state, zerr := pretask.GetState()
-			if zerr != nil {
-				err = zerr
 
-				return
-			}
-			if pretask_state != TASK_STAT_COMPLETED &&
-				pretask_state != TASK_STAT_PASSED &&
-				pretask_state != TASK_STAT_SKIPPED &&
-				pretask_state != TASK_STAT_FAIL_SKIP {
-
-				return
-			}
-		} else {
+		if !ok {
 			logger.Error("predecessor %s of task %s is unknown", predecessor, task_id)
 			ready = false
 			return
 		}
+
+		pretask_state, zerr := pretask.GetState()
+		if zerr != nil {
+			err = zerr
+
+			return
+		}
+
+		if pretask_state != TASK_STAT_COMPLETED {
+			return
+		}
+
 	}
 	logger.Debug(3, "(isTaskReady) task %s is ready", task_id)
+
+	modified := false
+	for _, io := range task.Inputs {
+		filename := io.FileName
+
+		preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
+		preTask, ok, xerr := qm.TaskMap.Get(preId, true)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		if !ok {
+			err = fmt.Errorf("Task %s not found", preId)
+			return
+		}
+
+		pretask_state, zerr := preTask.GetState()
+		if zerr != nil {
+			err = zerr
+
+			return
+		}
+
+		if pretask_state != TASK_STAT_COMPLETED {
+			err = fmt.Errorf("pretask_state != TASK_STAT_COMPLETED  state: %s preId: %s", pretask_state, preId)
+			return
+		}
+
+		// find matching output
+		pretask_output, xerr := preTask.GetOutput(filename)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		logger.Debug(3, "pretask_output size = %d, state = %s", pretask_output.Size, preTask.State)
+
+		if io.Size != pretask_output.Size {
+			io.Size = pretask_output.Size
+			modified = true
+		}
+
+	}
+
+	if modified {
+		err = task.UpdateInputs()
+		if err != nil {
+			return
+		}
+	}
+
 	ready = true
 
-	//skip, err := task.GetSkip()
-	//if err != nil {
-	//	ready = false
-	//	return
-	//}
-	//if skip == 1 && task.Skippable() {
-	//	qm.skipTask(task)
-	//	ready = false
-	//}
 	return
 }
 
+// happens when task is ready
 func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 
 	task_id, err := task.GetId()
@@ -1159,13 +1235,20 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 }
 
 func (qm *ServerMgr) locateInputs(task *Task) (err error) {
-	task_id := task.Id
+	task_id, err := task.GetId()
+	if err != nil {
+		return
+	}
 	logger.Debug(2, "trying to locate Inputs of task "+task_id)
-	jobid, _ := GetJobIdByTaskId(task_id)
+
+	jobid, err := task.GetJobId()
+	if err != nil {
+		return
+	}
 
 	inputs_modified := false
 	for _, io := range task.Inputs {
-		name := io.FileName
+		filename := io.FileName
 		if io.Url == "" {
 			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
 			preTask, ok, xerr := qm.TaskMap.Get(preId, true)
@@ -1183,36 +1266,40 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 					// may change in the future)
 					//locateSkippedInput(qm, preTask, io)
 				} else {
-					outputs := preTask.Outputs
-					for _, outio := range outputs {
-						if outio.FileName == name {
-							if io.Node != outio.Node {
-								io.Node = outio.Node
-								inputs_modified = true
-							}
-						}
+
+					output, xerr := preTask.GetOutput(filename)
+					if xerr != nil {
+						err = xerr
+						return
 					}
+
+					if io.Node != output.Node {
+						io.Node = output.Node
+						inputs_modified = true
+					}
+
 				}
 			}
 		}
-		logger.Debug(2, "processing input %s, %s", name, io.Node)
+		logger.Debug(2, "(locateInputs) processing input %s, %s", filename, io.Node)
 		if io.Node == "-" {
-			err = fmt.Errorf("error in locate input for task, no node id found. task_id: %s, input name: %s", task_id, name)
+			err = fmt.Errorf("(locateInputs) error in locate input for task, no node id found. task_id: %s, input name: %s", task_id, filename)
 			return
 		}
 		//need time out!
 		_, modified, xerr := io.GetFileSize()
 		if xerr != nil {
-			err = fmt.Errorf("task %s: input file %s GetFileSize returns: %s (DataToken len: %d)", task_id, name, xerr.Error(), len(io.DataToken))
+			err = fmt.Errorf("(locateInputs) task %s: input file %s GetFileSize returns: %s (DataToken len: %d)", task_id, filename, xerr.Error(), len(io.DataToken))
 			return
 		}
 		if modified {
 			inputs_modified = true
 		}
-		logger.Debug(2, "inputs located %s, %s", name, io.Node)
+		logger.Debug(3, "(locateInputs) (task=%s) input %s located, node=%s size=%d", task_id, filename, io.Node, io.Size)
+
 	}
 	if inputs_modified {
-		err = dbUpdateJobTaskInputs(jobid, task_id, task.Inputs)
+		err = task.UpdateInputs()
 		if err != nil {
 			return
 		}
@@ -1238,7 +1325,7 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 	}
 
 	if predata_modified {
-		err = dbUpdateJobTaskPredata(jobid, task_id, task.Predata)
+		err = task.UpdatePredata()
 		if err != nil {
 			return
 		}
@@ -1300,10 +1387,8 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 	}
 
 	if modified {
-		task_id := task.Id
-		job_id := task.JobId
 
-		err = dbUpdateJobTaskOutputs(job_id, task_id, outputs)
+		err = task.UpdateOutputs()
 	}
 
 	return

@@ -175,50 +175,43 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 	}
 
 	// populate DependsOn
-	for _, dependency := range task.DependsOn {
-		deps := make(map[string]bool)
-
-		// collect explicit dependencies
-		for _, deptask := range task.DependsOn {
-			if !strings.Contains(deptask, "_") {
-				err = fmt.Errorf("deptask \"%s\" is missing _", dependency)
-				return
-			}
-			deps[deptask] = true
+	deps := make(map[string]bool)
+	deps_changed := false
+	// collect explicit dependencies
+	for _, deptask := range task.DependsOn {
+		if !strings.Contains(deptask, "_") {
+			err = fmt.Errorf("deptask \"%s\" is missing _", deptask)
+			return
 		}
+		deps[deptask] = true
+	}
 
-		for _, input := range task.Inputs {
+	for _, input := range task.Inputs {
 
-			if input.Origin != "" {
+		if input.Origin != "" {
 
-				origin := input.Origin
-				if !strings.Contains(origin, "_") {
-					origin = fmt.Sprintf("%s_%s", job.Id, origin)
-				}
-
-				value, ok := deps[origin]
-				if ok {
-					if value == false {
-						changed = true
-						deps[origin] = true
-					}
-				} else {
-					deps[origin] = true
-					changed = true
-				}
-
+			origin := input.Origin
+			if !strings.Contains(origin, "_") {
+				origin = fmt.Sprintf("%s_%s", job.Id, origin)
 			}
-		}
 
-		// write all dependencies
+			_, ok := deps[origin]
+			if !ok {
+				// this was not yet in deps
+				deps[origin] = true
+				deps_changed = true
+			}
+
+		}
+	}
+
+	// write all dependencies if different from before
+	if deps_changed {
 		task.DependsOn = []string{}
-		previous_length := len(task.DependsOn)
 		for deptask, _ := range deps {
 			task.DependsOn = append(task.DependsOn, deptask)
 		}
-		if previous_length == len(task.DependsOn) {
-			changed = true
-		}
+		changed = true
 	}
 
 	// set node / host / url for files
@@ -293,6 +286,24 @@ func (task *Task) GetOutputs() (outputs []*IO, err error) {
 		outputs = append(outputs, output)
 	}
 
+	return
+}
+
+func (task *Task) GetOutput(filename string) (output *IO, err error) {
+	lock, err := task.RLockNamed("GetOutput")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+
+	for _, io := range task.Outputs {
+		if io.FileName == filename {
+			output = io
+			return
+		}
+	}
+
+	err = fmt.Errorf("Output %s not found", filename)
 	return
 }
 
@@ -449,7 +460,7 @@ func (task *TaskRaw) GetDependsOn() (dep []string, err error) {
 	return
 }
 
-func (task *Task) UpdateState(newState string) string {
+func (task *Task) UpdateState_DEPRECATED(newState string) string {
 	task.LockNamed("UpdateState")
 	defer task.Unlock()
 	task.State = newState
@@ -773,6 +784,42 @@ func (task *Task) DeleteInput() (modified int) {
 			}
 		}
 	}
+	return
+}
+
+func (task *Task) UpdateInputs() (err error) {
+	lock, err := task.RLockNamed("UpdateInputs")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+
+	err = dbUpdateJobTaskInputs(task.JobId, task.Id, task.Inputs)
+
+	return
+}
+
+func (task *Task) UpdateOutputs() (err error) {
+	lock, err := task.RLockNamed("UpdateOutputs")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+
+	err = dbUpdateJobTaskOutputs(task.JobId, task.Id, task.Outputs)
+
+	return
+}
+
+func (task *Task) UpdatePredata() (err error) {
+	lock, err := task.RLockNamed("UpdatePredata")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+
+	err = dbUpdateJobTaskPredata(task.JobId, task.Id, task.Predata)
+
 	return
 }
 

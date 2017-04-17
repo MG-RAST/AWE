@@ -181,12 +181,21 @@ func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
 	if err != nil {
 		return
 	}
-	if _, ok := shocknode.Indexes[indextype]; ok {
-		if shocknode.Indexes[indextype].TotalUnits > 0 {
-			return int(shocknode.Indexes[indextype].TotalUnits), nil
-		}
+	index, ok := shocknode.Indexes[indextype]
+
+	if !ok {
+		err = fmt.Errorf("Shock node %s has no indextype %s", io.Node, indextype)
+		return
 	}
-	return 0, errors.New("invalid totalunits for shock node:" + io.Node)
+
+	if index.TotalUnits > 0 {
+		totalunits = int(index.TotalUnits)
+		//return int(shocknode.Indexes[indextype].TotalUnits), nil
+		return
+	}
+
+	err = fmt.Errorf("invalid totalunits for shock node: %s", io.Node)
+	return
 }
 
 func (io *IO) DeleteNode() (err error) {

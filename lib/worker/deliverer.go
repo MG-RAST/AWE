@@ -46,7 +46,7 @@ func deliverer_run(control chan int) {
 	}
 
 	if work_state == ID_DISCARDED {
-		work.State = core.WORK_STAT_DISCARDED
+		work.SetState(core.WORK_STAT_DISCARDED)
 		logger.Event(event.WORK_DISCARD, "workid="+work_id)
 	}
 
@@ -60,11 +60,11 @@ func deliverer_run(control chan int) {
 	if work.State == core.WORK_STAT_COMPUTED {
 		data_moved, err := cache.UploadOutputData(work)
 		if err != nil {
-			work.State = core.WORK_STAT_FAIL
+			work.SetState(core.WORK_STAT_FAIL)
 			logger.Error("[deliverer#UploadOutputData]workid=" + work_id + ", err=" + err.Error())
 			work.Notes = work.Notes + "###[deliverer#UploadOutputData]" + err.Error()
 		} else {
-			work.State = core.WORK_STAT_DONE
+			work.SetState(core.WORK_STAT_DONE)
 			perfstat.OutFileSize = data_moved
 		}
 	}

@@ -131,7 +131,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return
 	}
 	if ok {
-		work.State = notice.Status
+		work.SetState(notice.Status)
 		if err = proxy_relay_workunit(work, perf); err != nil {
 			return
 		}
@@ -170,7 +170,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 				client.Unlock()
 			}
 		}
-		qm.workQueue.Put(work)
+		//qm.workQueue.Put(work)
 	}
 	return
 }

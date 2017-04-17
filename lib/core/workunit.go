@@ -147,6 +147,16 @@ func (work *Workunit) RemoveDir() (err error) {
 	return
 }
 
+func (work *Workunit) SetState(new_state string) {
+
+	work.State = new_state
+
+	if new_state != WORK_STAT_CHECKOUT {
+		work.Client = ""
+	}
+
+}
+
 func (work *Workunit) Path() string {
 	id := work.Id
 	return fmt.Sprintf("%s/%s/%s/%s/%s", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id)

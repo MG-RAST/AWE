@@ -612,7 +612,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		logger.Event(event.WORK_FAIL, "workid="+workid+";clientid="+clientid)
 		logger.Debug(3, "work failed workid=%s clientid=%s", workid, clientid)
 		work.Failed += 1
-		qm.workQueue.Put(work)
+		//qm.workQueue.Put(work)
 
 		if work.Failed < MAX_FAILURE {
 			qm.workQueue.StatusChange(workid, work, WORK_STAT_QUEUED)
@@ -2129,7 +2129,7 @@ func (qm *ServerMgr) UpdateQueueJobInfo(job *Job) (err error) {
 	}
 	for _, work := range work_list {
 		work.Info = job.Info // TODO pointer update should not be needed, as this is a pointer. (verify this, then remove)
-		qm.workQueue.Put(work)
+		//qm.workQueue.Put(work)
 	}
 	for _, task := range job.Tasks {
 		mtask, ok, xerr := qm.TaskMap.Get(task.Id, true)

@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	WORK_STAT_QUEUED      = "queued"   // initial state. also: after requeue ; after failures below max ; on WorkQueue.Add()
+	WORK_STAT_INIT        = "init"     //initial state
+	WORK_STAT_QUEUED      = "queued"   // . also: after requeue ; after failures below max ; on WorkQueue.Add()
 	WORK_STAT_CHECKOUT    = "checkout" // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
 	WORK_STAT_SUSPEND     = "suspend"  // on MAX_FAILURE ; on SuspendJob
 	WORK_STAT_DONE        = "done"     // client-side, done.
@@ -120,7 +121,7 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 		Rank:      rank,
 		TotalWork: task.TotalWork, //keep this info in workunit for load balancing
 		Partition: task.Partition,
-		State:     WORK_STAT_QUEUED,
+		State:     WORK_STAT_INIT,
 		Failed:    0,
 		UserAttr:  task.UserAttr,
 
@@ -145,6 +146,16 @@ func (work *Workunit) RemoveDir() (err error) {
 		return
 	}
 	return
+}
+
+func (work *Workunit) SetState(new_state string) {
+
+	work.State = new_state
+
+	if new_state != WORK_STAT_CHECKOUT {
+		work.Client = ""
+	}
+
 }
 
 func (work *Workunit) Path() string {

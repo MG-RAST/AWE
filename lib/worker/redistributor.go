@@ -24,9 +24,9 @@ func redistributor(control chan int) {
 		if err := SubmitWorkProxy(work); err != nil {
 			fmt.Printf("SubmitWorkProxy() returned error: %s\n", err.Error())
 			logger.Error("SubmitWorkProxy(): workid=" + work.Id + ", " + err.Error())
-			queued.workunit.State = core.WORK_STAT_FAIL
+			queued.workunit.SetState(core.WORK_STAT_FAIL)
 		} else {
-			queued.workunit.State = core.WORK_STAT_PROXYQUEUED
+			queued.workunit.SetState(core.WORK_STAT_PROXYQUEUED)
 			logger.Event(event.WORK_QUEUED, "workid="+work.Id)
 		}
 	}

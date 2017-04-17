@@ -337,7 +337,37 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		return nil, errors.New(e.ClientGroupBadName)
 	}
 
-	qm.AddClient(client, true) // locks clientMap
+	// remove old client
+	old_client, ok, err := qm.GetClient(client_id, true)
+	if err != nil {
+		return
+	}
+	if ok {
+		// old client exists, do a nice clean-up
+
+		old_client_current_work, xerr := old_client.Get_current_work(true)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		for _, work_id := range old_client_current_work {
+			work, ok, xerr := qm.workQueue.Get(work_id)
+			if xerr != nil {
+				continue
+			}
+			if !ok {
+				continue
+			}
+
+			if work.Client == client_id {
+				qm.workQueue.StatusChange(work_id, work, WORK_STAT_QUEUED)
+			}
+
+		}
+
+		qm.RemoveClient(client_id, true)
+	}
 
 	// move already checked-out workunit from waiting queue (all) to checked-out list (coWorkMap)
 
@@ -351,6 +381,7 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 	}
 
 	remove_work := []string{}
+
 	for _, workid := range current_work {
 		work, ok, xerr := qm.workQueue.Get(workid) // TODO what if another client also has this workunit ? Delete workunit from client?
 		if xerr != nil {
@@ -366,13 +397,15 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 
 		if work.Client == client_id {
 			// all ok
+
 			continue
 		}
 
 		if work.Client == "" {
 			// reclaim work unit
 			work.Client = client_id
-			qm.workQueue.StatusChange(workid, WORK_STAT_CHECKOUT)
+			qm.workQueue.StatusChange(workid, work, WORK_STAT_CHECKOUT)
+
 			continue
 		}
 
@@ -387,6 +420,8 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 	for _, workid := range remove_work {
 		client.Current_work_delete(workid, true)
 	}
+
+	qm.AddClient(client, true) // locks clientMap
 
 	return
 }
@@ -787,7 +822,7 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	client.Unlock()
 
 	if work_length > 0 {
-		logger.Error("Client %s wants to checkout work, but still has work", client_id)
+		logger.Error("Client %s wants to checkout work, but still has work: work_length=%d", client_id, work_length)
 		return nil, errors.New(e.ClientBusy)
 	}
 
@@ -917,7 +952,7 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 		work.Client = client_id
 		work.CheckoutTime = time.Now()
 		//qm.workQueue.Put(work) TODO isn't that already in the queue ?
-		qm.workQueue.StatusChange(work.Id, WORK_STAT_CHECKOUT)
+		qm.workQueue.StatusChange(work.Id, work, WORK_STAT_CHECKOUT)
 	}
 
 	logger.Debug(3, "done with popWorks() for client: %s ", client_id)
@@ -1064,7 +1099,7 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 
 			if contains(JOB_STATS_ACTIVE, job_state) { //only requeue workunits belonging to active jobs (rule out suspended jobs)
 				if work.Client == client.Id {
-					qm.workQueue.StatusChange(workid, WORK_STAT_QUEUED)
+					qm.workQueue.StatusChange(workid, work, WORK_STAT_QUEUED)
 					logger.Event(event.WORK_REQUEUE, "workid="+workid)
 				}
 			}

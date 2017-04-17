@@ -114,18 +114,7 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 		upload_file_path := upload_file.Path
 		job, err = ReadJobFile(upload_file_path)
 		if err != nil {
-			//logger.Debug(3, "Parsing: Failed using default format")
-			logger.Warning("(CreateJobUpload/ParseJobTasks) %s", err.Error())
-			//errDep := errors.New("")
-			//err = nil                                         // TODO we are loosing error messages. User needs them to figure out why something failed.
-			//job, err = ParseJobTasksDep(files["upload"].Path) // TODO can we get rid of that ?
-			//if err != nil {
-			//	//err = nil
-			//	logger.Error("Parsing: failed finally: %s", err.Error())
-			//	return
-			//}
-			//logger.Debug(3, "Parsing: Success using deprecated format")
-			logger.Debug(3, "Parsing: Failed (default and deprecated format)")
+			logger.Debug(3, "Parsing: Failed (default and deprecated format) %s", err.Error())
 			return
 		} else {
 			logger.Debug(3, "Parsing: Success (default or deprecated format)")
@@ -147,34 +136,19 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 		return
 	}
 
+	logger.Debug(3, "OWNER1: %s", u.Uuid)
+
 	job.Acl.SetOwner(u.Uuid)
+	logger.Debug(3, "OWNER2: %s", job.Acl.Owner)
 	job.Acl.Set(u.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
+
+	logger.Debug(3, "OWNER3: %s", job.Acl.Owner)
 
 	err = job.Mkdir()
 	if err != nil {
 		err = errors.New("(CreateJobUpload) error creating job directory, error=" + err.Error())
 		return
 	}
-
-	// TODO move app definitions from git into something faster ?
-
-	//var MyAppRegistry AppRegistry // this will be populated with latest version every time a workflow is submitted
-
-	//if MyAppRegistry == nil && conf.USE_APP_DEFS != "no" {
-	//	MyAppRegistry, err = MakeAppRegistry()
-	//	if err != nil {
-	//		return job, errors.New("error creating app registry, error=" + err.Error())
-	//	}
-	//	//logger.Debug(1, "app defintions read")
-	//}
-
-	//if conf.USE_APP_DEFS != "no" {
-	//	err = MyAppRegistry.createIOnodes(job)
-	//	if err != nil {
-	//		err = errors.New(fmt.Sprintf("error in createIOnodes, error=%s", err.Error()))
-	//		return
-	//	}
-	//}
 
 	err = job.UpdateFile(files, "upload")
 	if err != nil {
@@ -187,6 +161,9 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 		err = errors.New("error in job.Save(), error=" + err.Error())
 		return
 	}
+
+	logger.Debug(3, "OWNER4: %s", job.Acl.Owner)
+
 	return
 }
 
@@ -356,11 +333,11 @@ func ReadJobFile(filename string) (job *Job, err error) {
 
 		jobDep := NewJobDep()
 
-		jsonstream, err = ioutil.ReadFile(filename)
-		if err != nil {
-			err = fmt.Errorf("(ReadJobFile) error in reading job json file: %s", err.Error())
-			return
-		}
+		//jsonstream, err = ioutil.ReadFile(filename)
+		//if err != nil {
+		//	err = fmt.Errorf("(ReadJobFile) error in reading job json file: %s", err.Error())
+		//	return
+		//}
 
 		err = json.Unmarshal(jsonstream, jobDep)
 		if err != nil {
@@ -376,7 +353,6 @@ func ReadJobFile(filename string) (job *Job, err error) {
 			return
 		}
 
-		return
 	} else {
 		// jobDep had been initialized already
 		_, err = job.Init()
@@ -392,20 +368,17 @@ func ReadJobFile(filename string) (job *Job, err error) {
 		return
 	}
 
-	for idx, task := range job_p.Tasks {
-		if task.Cmd.Environ == nil || task.Cmd.Environ.Private == nil {
+	for idx, task_p := range job_p.Tasks {
+
+		task := job.Tasks[idx]
+		if task_p.Cmd.Environ == nil || task_p.Cmd.Environ.Private == nil {
 			continue
 		}
-		job.Tasks[idx].Cmd.Environ.Private = make(map[string]string)
-		for key, val := range task.Cmd.Environ.Private {
-			job.Tasks[idx].Cmd.Environ.Private[key] = val
+		task.Cmd.Environ.Private = make(map[string]string)
+		for key, val := range task_p.Cmd.Environ.Private {
+			task.Cmd.Environ.Private[key] = val
 		}
 	}
-
-	//err = job.InitTasks()
-	//if err != nil {
-	//	return
-	//}
 
 	return
 }
@@ -545,8 +518,8 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 		task.TotalWork = taskDep.TotalWork
 		task.MaxWorkSize = taskDep.MaxWorkSize
 		task.RemainWork = taskDep.RemainWork
-		task.WorkStatus = taskDep.WorkStatus
-		task.State = taskDep.State
+		//task.WorkStatus = taskDep.WorkStatus
+		//task.State = taskDep.State
 		//task.Skip = taskDep.Skip
 		task.CreatedDate = taskDep.CreatedDate
 		task.StartedDate = taskDep.StartedDate
@@ -724,9 +697,15 @@ func UpdateJobState(jobid string, newstate string, oldstates []string) (err erro
 	if err != nil {
 		return
 	}
+
+	job_state, err := job.GetState(true)
+	if err != nil {
+		return
+	}
+
 	matched := false
 	for _, oldstate := range oldstates {
-		if oldstate == job.State {
+		if oldstate == job_state {
 			matched = true
 			break
 		}

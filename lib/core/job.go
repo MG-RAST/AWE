@@ -68,6 +68,7 @@ type JobMin struct {
 	Size          int64             `bson:"size" json:"size"`
 	SubmitTime    time.Time         `bson:"submittime" json:"submittime"`
 	CompletedTime time.Time         `bson:"completedtime" json:"completedtime"`
+	ComputeTime   int               `bson:"computetime" json:"computetime"`
 	Task          []int             `bson:"task" json:"task"`
 	State         []string          `bson:"state" json:"state"`
 	UserAttr      map[string]string `bson:"userattr" json:"userattr"`

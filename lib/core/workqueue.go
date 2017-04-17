@@ -43,7 +43,7 @@ func (wq *WorkQueue) Add(workunit *Workunit) (err error) {
 	if workunit.Id == "" {
 		return errors.New("try to push a workunit with an empty id")
 	}
-
+	logger.Debug(3, "(WorkQueue/Add)")
 	//id := workunit.Id
 
 	err = wq.all.Set(workunit)

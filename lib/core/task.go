@@ -324,7 +324,7 @@ func (task *TaskRaw) SetCreatedDate(t time.Time) (err error) {
 	}
 	defer task.Unlock()
 
-	err = dbUpdateJobTaskTime(task.JobId, task.Id, "createddate", t)
+	err = dbUpdateJobTaskTime(task.JobId, task.Id, "createdDate", t)
 	if err != nil {
 		return
 	}
@@ -340,11 +340,29 @@ func (task *TaskRaw) SetStartedDate(t time.Time) (err error) {
 	}
 	defer task.Unlock()
 
-	err = dbUpdateJobTaskTime(task.JobId, task.Id, "starteddate", t)
+	err = dbUpdateJobTaskTime(task.JobId, task.Id, "startedDate", t)
 	if err != nil {
 		return
 	}
 	task.StartedDate = t
+
+	return
+}
+
+func (task *TaskRaw) SetCompletedDate(t time.Time, lock bool) (err error) {
+	if lock {
+		err = task.LockNamed("SetCompletedDate")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
+
+	err = dbUpdateJobTaskTime(task.JobId, task.Id, "completedDate", t)
+	if err != nil {
+		return
+	}
+	task.CompletedDate = t
 
 	return
 }
@@ -399,24 +417,33 @@ func (task *TaskRaw) SetState(new_state string) (err error) {
 	if old_state == new_state {
 		return
 	}
+
+	job, err := GetJob(jobid)
+	if err != nil {
+		return
+	}
+
 	if new_state == TASK_STAT_COMPLETED {
 		if old_state != TASK_STAT_COMPLETED {
 
 			// state TASK_STAT_COMPLETED is new!
-			err = dbIncrementJobField(jobid, "remaintasks", -1)
+			err = job.IncrementRemainTasks(-1, true)
+			//err = dbIncrementJobField(jobid, "remaintasks", -1)
 			if err != nil {
 				return
 			}
 
-			this_time := time.Now()
-			task.CompletedDate = this_time
-			dbUpdateJobTaskField(jobid, taskid, "completeddate", this_time)
+			err = task.SetCompletedDate(time.Now(), false)
+			if err != nil {
+				return
+			}
 		}
 
 	} else {
 		// in case a completed teask is marked as something different
 		if old_state == TASK_STAT_COMPLETED {
-			err = dbIncrementJobField(jobid, "remaintasks", 1)
+			err = job.IncrementRemainTasks(1, true)
+			//err = dbIncrementJobField(jobid, "remaintasks", 1)
 			if err != nil {
 				return
 			}
@@ -424,7 +451,7 @@ func (task *TaskRaw) SetState(new_state string) (err error) {
 
 	}
 
-	dbUpdateJobTaskField(jobid, taskid, "state", new_state)
+	dbUpdateJobTaskString(jobid, taskid, "state", new_state)
 	task.State = new_state
 
 	return

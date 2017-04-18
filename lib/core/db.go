@@ -18,6 +18,10 @@ var DocumentMaxByte = 16777216
 // indexed info fields for search
 var JobInfoIndexes = []string{"name", "submittime", "completedtime", "pipeline", "clientgroups", "project", "service", "user", "priority", "userattr.submission"}
 
+type StructContainer struct {
+	Data interface{} `json:"data"`
+}
+
 func HasInfoField(a string) bool {
 	for _, b := range JobInfoIndexes {
 		if b == a {
@@ -242,11 +246,39 @@ func dbGetJobTasks(job_id string) (tasks []*Task, err error) {
 
 func dbGetJobTaskString(job_id string, task_id string, fieldname string) (result string, err error) {
 
-	err = dbGetJobTaskField(job_id, task_id, fieldname, result)
+	var cont StructContainer
+
+	err = dbGetJobTaskField(job_id, task_id, fieldname, &cont)
 
 	if err != nil {
 		return
 	}
+
+	result = cont.Data.(string)
+
+	logger.Debug(3, "GOT dbGetJobTaskString: %s", result)
+
+	//result, ok := myresult.(string)
+	//if !ok {
+	//	err = fmt.Errorf("(dbGetJobTaskString) Could not read field %s", fieldname)
+	//}
+
+	return
+}
+
+func dbGetJobTaskTime(job_id string, task_id string, fieldname string) (result time.Time, err error) {
+
+	var cont StructContainer
+
+	err = dbGetJobTaskField(job_id, task_id, fieldname, &cont)
+
+	if err != nil {
+		return
+	}
+
+	result = cont.Data.(time.Time)
+
+	logger.Debug(3, "GOT dbGetJobTaskTime: %v", result)
 
 	//result, ok := myresult.(string)
 	//if !ok {
@@ -258,11 +290,15 @@ func dbGetJobTaskString(job_id string, task_id string, fieldname string) (result
 
 func dbGetJobTaskInt(job_id string, task_id string, fieldname string) (result int, err error) {
 
-	err = dbGetJobTaskField(job_id, task_id, fieldname, result)
+	var cont StructContainer
+
+	err = dbGetJobTaskField(job_id, task_id, fieldname, &cont)
 
 	if err != nil {
 		return
 	}
+
+	result = cont.Data.(int)
 
 	//result, ok := myresult.(int)
 	//if !ok {
@@ -271,7 +307,7 @@ func dbGetJobTaskInt(job_id string, task_id string, fieldname string) (result in
 	return
 }
 
-func dbGetJobTaskField(job_id string, task_id string, fieldname string, result interface{}) (err error) {
+func dbGetJobTaskField(job_id string, task_id string, fieldname string, result *StructContainer) (err error) {
 
 	// shell example to get task field "remainwork"
 	// db.Jobs.find({"id":"e05f1310-ca29-42cc-a765-2dafecf345d4"}, {"tasks" : {"$elemMatch" : {"taskid":"e05f1310-ca29-42cc-a765-2dafecf345d4_0"} }, "tasks.remainwork" : 1}).pretty()
@@ -293,6 +329,8 @@ func dbGetJobTaskField(job_id string, task_id string, fieldname string, result i
 		return
 	}
 
+	logger.Debug(3, "GOT: %v", temp_result)
+
 	tasks_unknown := temp_result["tasks"]
 	tasks, ok := tasks_unknown.([]interface{})
 
@@ -308,12 +346,17 @@ func dbGetJobTaskField(job_id string, task_id string, fieldname string, result i
 
 	first_task := tasks[0].(bson.M)
 
-	result, ok = first_task[fieldname]
+	//result, ok = first_task[fieldname]
+
+	test_result, ok := first_task[fieldname]
 
 	if !ok {
 		err = fmt.Errorf("Field %s not in task object", fieldname)
 		return
 	}
+	result.Data = test_result
+
+	logger.Debug(3, "GOT2: %v", result)
 
 	logger.Debug(3, "(dbGetJobTaskField) %s got something", fieldname)
 
@@ -552,7 +595,22 @@ func dbUpdateJobTaskString(job_id string, task_id string, fieldname string, valu
 
 	update_value := bson.M{"tasks.$." + fieldname: value}
 
-	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+	err = dbUpdateJobTaskFields(job_id, task_id, update_value)
+	if err != nil {
+		return
+	}
+
+	var got_string string
+
+	got_string, err = dbGetJobTaskString(job_id, task_id, fieldname)
+
+	if err != nil {
+		return
+	}
+
+	logger.Debug(3, "GOT STRING: %s %s %s %s (wrote %s)", job_id, task_id, fieldname, got_string, value)
+
+	return
 
 }
 
@@ -560,7 +618,24 @@ func dbUpdateJobTaskTime(job_id string, task_id string, fieldname string, value 
 
 	update_value := bson.M{"tasks.$." + fieldname: value}
 
-	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+	//logger.Debug(3, "SET TIME: %s %s %s %v", job_id, task_id, fieldname, update_value)
+
+	err = dbUpdateJobTaskFields(job_id, task_id, update_value)
+	if err != nil {
+		return
+	}
+
+	//var got_time time.Time
+
+	//got_time, err = dbGetJobTaskTime(job_id, task_id, fieldname)
+
+	//if err != nil {
+	//	return
+	//}
+
+	//logger.Debug(3, "GOT TIME: %s %s %s %v", job_id, task_id, fieldname, got_time)
+
+	return
 
 }
 
@@ -669,21 +744,26 @@ func LoadJob(id string) (job *Job, err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
-	if err = c.Find(bson.M{"id": id}).One(&job); err == nil {
-		changed, xerr := job.Init()
-		if xerr != nil {
-			err = xerr
-			return
-		}
 
-		// To fix incomplete or inconsistent database entries
-		if changed {
-			job.Save()
-		}
-
-		return job, nil
+	err = c.Find(bson.M{"id": id}).One(&job)
+	if err != nil {
+		job = nil
+		return
 	}
-	return nil, err
+
+	changed, xerr := job.Init()
+	if xerr != nil {
+		err = xerr
+		return
+	}
+
+	// To fix incomplete or inconsistent database entries
+	if changed {
+		job.Save()
+	}
+
+	return
+
 }
 
 func LoadJobPerf(id string) (perf *JobPerf, err error) {

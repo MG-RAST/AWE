@@ -256,7 +256,7 @@ func dbGetJobTaskString(job_id string, task_id string, fieldname string) (result
 
 	result = cont.Data.(string)
 
-	logger.Debug(3, "GOT dbGetJobTaskString: %s", result)
+	//logger.Debug(3, "GOT dbGetJobTaskString: %s", result)
 
 	//result, ok := myresult.(string)
 	//if !ok {
@@ -307,6 +307,7 @@ func dbGetJobTaskInt(job_id string, task_id string, fieldname string) (result in
 	return
 }
 
+// TODO: warning: this does not cope with subfields such as "partinfo.index"
 func dbGetJobTaskField(job_id string, task_id string, fieldname string, result *StructContainer) (err error) {
 
 	// shell example to get task field "remainwork"
@@ -599,16 +600,6 @@ func dbUpdateJobTaskString(job_id string, task_id string, fieldname string, valu
 	if err != nil {
 		return
 	}
-
-	var got_string string
-
-	got_string, err = dbGetJobTaskString(job_id, task_id, fieldname)
-
-	if err != nil {
-		return
-	}
-
-	logger.Debug(3, "GOT STRING: %s %s %s %s (wrote %s)", job_id, task_id, fieldname, got_string, value)
 
 	return
 

@@ -74,8 +74,9 @@ func (qm *CQMgr) GetClientMap() *ClientMap {
 	return &qm.clientMap
 }
 
-func (qm *CQMgr) AddClient(client *Client, lock bool) {
-	qm.clientMap.Add(client, lock)
+func (qm *CQMgr) AddClient(client *Client, lock bool) (err error) {
+	err = qm.clientMap.Add(client, lock)
+	return
 }
 
 func (qm *CQMgr) GetClient(id string, lock_clientmap bool) (client *Client, ok bool, err error) {
@@ -83,8 +84,9 @@ func (qm *CQMgr) GetClient(id string, lock_clientmap bool) (client *Client, ok b
 }
 
 // lock is for clientmap
-func (qm *CQMgr) RemoveClient(id string, lock bool) {
-	qm.clientMap.Delete(id, lock)
+func (qm *CQMgr) RemoveClient(id string, lock bool) (err error) {
+	err = qm.clientMap.Delete(id, lock)
+	return
 }
 
 func (qm *CQMgr) DeleteClient(client *Client) (err error) {
@@ -366,7 +368,10 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 
 		}
 
-		qm.RemoveClient(client_id, true)
+		err = qm.RemoveClient(client_id, true)
+		if err != nil {
+			return
+		}
 	}
 
 	// move already checked-out workunit from waiting queue (all) to checked-out list (coWorkMap)
@@ -378,6 +383,8 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 
 	if len(current_work) > 1 {
 		logger.Error("Client %s reports %d elements in Current_work", client_id, len(current_work))
+		err = fmt.Errorf("Client reports too many current workunits")
+		return
 	}
 
 	remove_work := []string{}
@@ -421,7 +428,10 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		client.Current_work_delete(workid, true)
 	}
 
-	qm.AddClient(client, true) // locks clientMap
+	err = qm.AddClient(client, true) // locks clientMap
+	if err != nil {
+		return
+	}
 
 	return
 }

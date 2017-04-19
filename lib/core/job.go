@@ -509,8 +509,14 @@ func (job *Job) SetState(newState string, notes string) (err error) {
 	}
 
 	job.State = newState
+
+	if newState == JOB_STAT_SUSPEND && len(notes) == 0 {
+		notes = "unknown"
+	}
+
 	if len(notes) > 0 {
 		job.Notes = notes
+		dbUpdateJobFieldString(job.Id, "notes", notes)
 	}
 
 	dbUpdateJobFieldString(job.Id, "state", newState)

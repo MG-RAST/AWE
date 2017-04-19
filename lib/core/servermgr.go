@@ -640,24 +640,35 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 				logger.Error("error returned by SuspendJOb()" + err.Error())
 			}
 		}
+
+		// Suspend client if needed
 		client, ok, err := qm.GetClient(clientid, true)
 		if err != nil {
 			return err
 		}
-		if ok {
-			xerr := client.LockNamed("ServerMgr/handleWorkStatusChange C")
-			if xerr != nil {
-				err = xerr
-				return err
-			}
-			client.Append_Skip_work(workid, false)
-			client.Increment_total_failed(false)
-			client.Last_failed += 1 //last consecutive failures
-			if client.Last_failed == conf.MAX_CLIENT_FAILURE {
-				qm.SuspendClient(client.Id, client, false)
-			}
-			client.Unlock()
+		if !ok {
+			err = fmt.Errorf(e.ClientNotFound)
+			return err
 		}
+
+		xerr := client.Append_Skip_work(workid, true)
+		if xerr != nil {
+			return xerr
+		}
+		xerr = client.Increment_total_failed(true)
+		if xerr != nil {
+			return xerr
+		}
+		var last_failed int
+		last_failed, xerr = client.Increment_last_failed(true) //last consecutive failures
+		if xerr != nil {
+			return xerr
+		}
+
+		if last_failed >= conf.MAX_CLIENT_FAILURE {
+			qm.SuspendClient(clientid, client, false)
+		}
+
 	}
 	return
 }

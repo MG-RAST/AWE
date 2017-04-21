@@ -181,7 +181,7 @@ func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
 	if err != nil {
 		return
 	}
-	index, ok := shocknode.Indexes[indextype]
+	index, ok := shocknode.Indexes[indextype] // index is an IdxInfo object
 
 	if !ok {
 		err = fmt.Errorf("Shock node %s has no indextype %s", io.Node, indextype)

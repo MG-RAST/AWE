@@ -316,11 +316,12 @@ func (job *Job) IncrementResumed(inc int, writelock bool) (err error) {
 		}
 		defer job.Unlock()
 	}
-	err = dbIncrementJobField(job.Id, "resumed", inc)
+	job.Resumed += 1
+	err = dbUpdateJobFieldInt(job.Id, "resumed", job.Resumed)
 	if err != nil {
 		return
 	}
-	job.Resumed += 1
+
 	return
 }
 
@@ -509,8 +510,14 @@ func (job *Job) SetState(newState string, notes string) (err error) {
 	}
 
 	job.State = newState
+
+	if newState == JOB_STAT_SUSPEND && len(notes) == 0 {
+		notes = "unknown"
+	}
+
 	if len(notes) > 0 {
 		job.Notes = notes
+		dbUpdateJobFieldString(job.Id, "notes", notes)
 	}
 
 	dbUpdateJobFieldString(job.Id, "state", newState)
@@ -552,11 +559,12 @@ func (job *Job) IncrementRemainTasks(inc int, writelock bool) (err error) {
 		}
 		defer job.Unlock()
 	}
-	err = dbIncrementJobField(job.Id, "remaintasks", inc)
+	job.RemainTasks += 1
+	err = dbUpdateJobFieldInt(job.Id, "remaintasks", job.RemainTasks)
 	if err != nil {
 		return
 	}
-	job.Resumed += 1
+
 	return
 }
 

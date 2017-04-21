@@ -507,13 +507,13 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 		client.Increment_total_completed()
 
-		test_remain_work, xerr := dbGetJobTaskInt(job_id, task_id, "remainwork")
-		if xerr != nil {
-			err = fmt.Errorf("A dbGetJobTaskInt error: %s", xerr.Error())
-			return
-		}
+		//test_remain_work, xerr := dbGetJobTaskInt(job_id, task_id, "remainwork")
+		//if xerr != nil {
+		//	err = fmt.Errorf("A dbGetJobTaskInt error: %s", xerr.Error())
+		//	return
+		//}
 
-		logger.Debug(3, " A test_remain_work: %d", test_remain_work)
+		//logger.Debug(3, " A test_remain_work: %d", test_remain_work)
 
 		remain_work, xerr := task.IncrementRemainWork(-1, true)
 		if xerr != nil {
@@ -521,18 +521,18 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			return
 		}
 
-		test_remain_work, xerr = dbGetJobTaskInt(job_id, task_id, "remainwork")
-		if xerr != nil {
-			err = fmt.Errorf("B dbGetJobTaskInt error: %s", xerr.Error())
-			return
-		}
+		//test_remain_work, xerr = dbGetJobTaskInt(job_id, task_id, "remainwork")
+		//if xerr != nil {
+		//	err = fmt.Errorf("B dbGetJobTaskInt error: %s", xerr.Error())
+		//	return
+		//}
 
-		logger.Debug(3, " B test_remain_work: %d", test_remain_work)
+		//logger.Debug(3, " B test_remain_work: %d", test_remain_work)
 
-		if remain_work != test_remain_work {
-			err = fmt.Errorf("(%s) remain_work %d != test_remain_work %d", task_id, remain_work, test_remain_work)
-			return
-		}
+		//if remain_work != test_remain_work {
+		//	err = fmt.Errorf("(%s) remain_work %d != test_remain_work %d", task_id, remain_work, test_remain_work)
+		//	return
+		//}
 
 		//task.ComputeTime += computetime
 		err = task.IncrementComputeTime(computetime)
@@ -606,7 +606,10 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			err = qm.updateJobTask(task) //task state QUEUED -> COMPLETED
 		}
 		//done, remove from the workQueue
-		qm.workQueue.Delete(workid)
+		err = qm.workQueue.Delete(workid)
+		if err != nil {
+			return
+		}
 
 	} else if status == WORK_STAT_FAIL { //workunit failed, requeue or put it to suspend list
 		logger.Event(event.WORK_FAIL, "workid="+workid+";clientid="+clientid)
@@ -640,24 +643,35 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 				logger.Error("error returned by SuspendJOb()" + err.Error())
 			}
 		}
+
+		// Suspend client if needed
 		client, ok, err := qm.GetClient(clientid, true)
 		if err != nil {
 			return err
 		}
-		if ok {
-			xerr := client.LockNamed("ServerMgr/handleWorkStatusChange C")
-			if xerr != nil {
-				err = xerr
-				return err
-			}
-			client.Append_Skip_work(workid, false)
-			client.Increment_total_failed(false)
-			client.Last_failed += 1 //last consecutive failures
-			if client.Last_failed == conf.MAX_CLIENT_FAILURE {
-				qm.SuspendClient(client.Id, client, false)
-			}
-			client.Unlock()
+		if !ok {
+			err = fmt.Errorf(e.ClientNotFound)
+			return err
 		}
+
+		xerr := client.Append_Skip_work(workid, true)
+		if xerr != nil {
+			return xerr
+		}
+		xerr = client.Increment_total_failed(true)
+		if xerr != nil {
+			return xerr
+		}
+		var last_failed int
+		last_failed, xerr = client.Increment_last_failed(true) //last consecutive failures
+		if xerr != nil {
+			return xerr
+		}
+
+		if last_failed >= conf.MAX_CLIENT_FAILURE {
+			qm.SuspendClient(clientid, client, false)
+		}
+
 	}
 	return
 }
@@ -1957,8 +1971,19 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	from_task_id := fmt.Sprintf("%s_%s", jobid, stage)
 	remaintasks := 0
 	found := false
-	for _, task := range dbjob.Tasks {
-		if task.Id == from_task_id {
+
+	tasks, err := dbjob.GetTasks()
+	if err != nil {
+		return
+	}
+
+	for _, task := range tasks {
+		task_id, xerr := task.GetId()
+		if xerr != nil {
+			return xerr
+		}
+
+		if task_id == from_task_id {
 			resetTask(task, dbjob.Info)
 			remaintasks += 1
 			found = true
@@ -1967,8 +1992,12 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	if !found {
 		return errors.New("task not found:" + from_task_id)
 	}
-	for _, task := range dbjob.Tasks {
-		if isAncestor(dbjob, task.Id, from_task_id) {
+	for _, task := range tasks {
+		task_id, xerr := task.GetId()
+		if xerr != nil {
+			return xerr
+		}
+		if isAncestor(dbjob, task_id, from_task_id) {
 			resetTask(task, dbjob.Info)
 			remaintasks += 1
 		}
@@ -1984,16 +2013,18 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 		return
 	}
 
-	if remaintasks < len(dbjob.Tasks) {
-		dbjob.SetState(JOB_STAT_INPROGRESS, "recomputed from task "+from_task_id)
+	var new_state = ""
+	if remaintasks < len(tasks) {
+		new_state = JOB_STAT_INPROGRESS
 	} else {
-		dbjob.SetState(JOB_STAT_QUEUED, "recomputed from task "+from_task_id)
+		new_state = JOB_STAT_QUEUED
 	}
+	dbjob.SetState(new_state, "recomputed from task "+from_task_id)
 
 	if was_suspend {
-		qm.removeSusJob(dbjob.Id)
+		qm.removeSusJob(jobid)
 	}
-	qm.EnqueueTasksByJobId(dbjob.Id)
+	qm.EnqueueTasksByJobId(jobid)
 
 	logger.Debug(2, "Recomputed job %s from task %d", jobid, stage)
 	return
@@ -2005,12 +2036,12 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 		return errors.New("job " + jobid + " is already active")
 	}
 	//Load job by id
-	//dbjob, err := GetJob(jobid)
-	//if err != nil {
-	//	return errors.New("failed to load job " + err.Error())
-	//}
+	job, err := GetJob(jobid)
+	if err != nil {
+		return errors.New("failed to load job " + err.Error())
+	}
 
-	job_state, err := dbGetJobFieldString(jobid, "state")
+	job_state, err := job.GetState(true)
 	if err != nil {
 		return
 	}
@@ -2032,14 +2063,19 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 	//	remaintasks += 1
 	//}
 
-	err = dbIncrementJobField(jobid, "resumed", 1)
+	err = job.IncrementResumed(1, true)
+	//err = dbIncrementJobField(jobid, "resumed", 1)
 	if err != nil {
 		return
 	}
 
 	//dbjob.Resumed += 1
 	//dbjob.RemainTasks = remaintasks
-	dbUpdateJobState(jobid, JOB_STAT_QUEUED, "restarted from the beginning")
+	err = job.SetState(JOB_STAT_QUEUED, "restarted from the beginning")
+	if err != nil {
+		return
+	}
+
 	//dbjob.UpdateState(JOB_STAT_QUEUED, "restarted from the beginning")
 
 	if was_suspend {
@@ -2047,7 +2083,10 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 	}
 
 	//qm.EnqueueTasksByJobId(dbjob.Id, dbjob.TaskList())
-	qm.EnqueueTasksByJobId(jobid)
+	err = qm.EnqueueTasksByJobId(jobid)
+	if err != nil {
+		return
+	}
 
 	logger.Debug(2, "Restarted job %s from beginning", jobid)
 	return

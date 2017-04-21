@@ -248,6 +248,19 @@ func (cl *Client) Increment_total_failed(write_lock bool) (err error) {
 	return
 }
 
+func (cl *Client) Increment_last_failed(write_lock bool) (value int, err error) {
+	if write_lock {
+		err = cl.LockNamed("Increment_last_failed")
+		if err != nil {
+			return
+		}
+		defer cl.Unlock()
+	}
+	cl.Last_failed += 1
+	value = cl.Last_failed
+	return
+}
+
 func (cl *Client) Get_Last_failed() (count int, err error) {
 	read_lock, err := cl.RLockNamed("Get_Last_failed")
 	if err != nil {
@@ -255,14 +268,6 @@ func (cl *Client) Get_Last_failed() (count int, err error) {
 	}
 	defer cl.RUnlockNamed(read_lock)
 	count = cl.Last_failed
-
-	return
-}
-
-func (cl *Client) Increment_last_failed(err error) {
-	err = cl.LockNamed("Increment_last_failed")
-	defer cl.Unlock()
-	cl.Last_failed += 1
 
 	return
 }

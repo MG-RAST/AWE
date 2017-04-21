@@ -110,13 +110,26 @@ func (wq *WorkQueue) Clean() (workids []string) {
 
 func (wq *WorkQueue) Delete(id string) (err error) {
 
-	_ = wq.Queue.Delete(id)
+	err = wq.Queue.Delete(id)
+	if err != nil {
+		return
+	}
 
-	_ = wq.Checkout.Delete(id)
+	err = wq.Checkout.Delete(id)
 
-	_ = wq.Suspend.Delete(id)
+	if err != nil {
+		return
+	}
 
-	_ = wq.all.Delete(id)
+	err = wq.Suspend.Delete(id)
+	if err != nil {
+		return
+	}
+
+	err = wq.all.Delete(id)
+	if err != nil {
+		return
+	}
 
 	return
 

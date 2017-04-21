@@ -688,7 +688,9 @@ func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, 
 		defer task.Unlock()
 	}
 	task.RemainWork += inc
-	err = dbIncrementJobTaskField(task.JobId, task.Id, "remainwork", inc)
+
+	err = dbUpdateJobTaskInt(task.JobId, task.Id, "remainwork", task.RemainWork)
+
 	if err != nil {
 		return
 	}
@@ -705,11 +707,13 @@ func (task *Task) IncrementComputeTime(inc_time int) (err error) {
 	}
 	defer task.Unlock()
 
-	err = dbIncrementJobTaskField(task.JobId, task.Id, "computetime", inc_time)
+	task.ComputeTime += inc_time
+
+	err = dbUpdateJobTaskInt(task.JobId, task.Id, "computetime", task.ComputeTime)
+	//err = dbIncrementJobTaskField(task.JobId, task.Id, "computetime", inc_time)
 	if err != nil {
 		return
 	}
-	task.ComputeTime += inc_time
 
 	return
 }

@@ -463,7 +463,10 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return
 	}
 
-	qm.workQueue.StatusChange("", work, status)
+	err = qm.workQueue.StatusChange("", work, status)
+	if err != nil {
+		return
+	}
 
 	err = task.LockNamed("handleWorkStatusChange/noretry")
 	if err != nil {

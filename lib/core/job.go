@@ -126,10 +126,10 @@ func (job *Job) Init() (changed bool, err error) {
 
 	if job.Id == "" {
 		job.setId() //uuid for the job
-		logger.Debug(3, "XXX Set JobID: %s", job.Id)
+		logger.Debug(3, "(Job.Init) Set JobID: %s", job.Id)
 		changed = true
 	} else {
-		logger.Debug(3, "XXX Already have JobID: %s", job.Id)
+		logger.Debug(3, "(Job.Init)  Already have JobID: %s", job.Id)
 	}
 
 	if job.Info == nil {

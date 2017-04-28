@@ -182,7 +182,11 @@ func (wq *WorkQueue) StatusChange(id string, workunit *Workunit, new_status stri
 		wq.Suspend.Set(workunit)
 
 	default:
-		return errors.New("WorkQueue.statusChange: invalid new status:" + new_status)
+		wq.Checkout.Delete(id)
+		wq.Queue.Delete(id)
+		wq.Suspend.Delete(id)
+		workunit.SetState(new_status)
+
 	}
 
 	return

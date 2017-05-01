@@ -550,13 +550,6 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 	}
 	logger.Debug(1, "Requirements checked")
 
-	_, err = job.Init()
-	if err != nil {
-		err = fmt.Errorf("job.Init() failed: %v", err)
-		return
-	}
-	logger.Debug(1, "Init called")
-
 	// Once, job has been created, set job owner and add owner to all ACL's
 	job.Acl.SetOwner(_user.Uuid)
 	job.Acl.Set(_user.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
@@ -606,6 +599,13 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 	//	return
 	//}
 	//logger.Debug(1, "job.InitTasks done")
+
+	_, err = job.Init()
+	if err != nil {
+		err = fmt.Errorf("job.Init() failed: %v", err)
+		return
+	}
+	logger.Debug(1, "Init called")
 
 	err = job.Mkdir()
 	if err != nil {

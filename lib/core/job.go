@@ -245,23 +245,6 @@ func (job *Job) Init() (changed bool, err error) {
 		}
 	}
 
-	// InitTask
-	//for i := 0; i < len(job.Tasks); i++ {
-	//task_id := job.Tasks[i].Id
-	//if strings.Contains(task_id, "_") {
-	// no "_" allowed in inital taskid
-	//	err = fmt.Errorf("(job.Init) invalid taskid (%s), may not contain '_'", task_id)
-	//	return
-	//}
-	//	_, err = job.Tasks[i].Init(job)
-	//	if err != nil {
-	//		err = errors.New("error in InitTask: " + err.Error())
-	//		return
-	//	}
-	//}
-
-	//job.RemainTasks = len(job.Tasks)
-
 	return
 }
 

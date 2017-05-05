@@ -116,7 +116,7 @@ func (sc *ShockClient) Do_request(method string, resource string, query url.Valu
 
 	shockurl := myurl.String()
 
-	//logger.Debug(1, fmt.Sprint("shock request url: ", shockurl))
+	logger.Debug(1, fmt.Sprint("shock request url: ", shockurl))
 	if sc.Debug {
 		fmt.Fprintf(os.Stdout, "Get_request url: %s\n", shockurl)
 	}

@@ -3,6 +3,7 @@ package cwl
 import (
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
@@ -69,34 +70,72 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 	return
 }
 
-// []Requirement
-func CreateRequirementArray(original interface{}) (err error, new_array []Requirement) {
-	// here the keynames are actually class names
-	for k, v := range original.(map[interface{}]interface{}) {
+// create Requirement object from interface type
+func CreateRequirement(class string, v interface{}) (requirement Requirement, err error) {
+	switch v.(type) {
+	case map[interface{}]interface{}: // the Requirement is a struct itself
+		logger.Debug(1, "(CreateRequirementArray) type is map[interface{}]interface{}")
+		vmap := v.(map[interface{}]interface{})
 
-		var requirement Requirement
-		class := k.(string)
+		vmap["class"] = class
 
-		switch v.(type) {
-		case map[interface{}]interface{}: // the Requirement is a struct itself
-			vmap := v.(map[interface{}]interface{})
-
-			vmap["class"] = class
-
-			requirement, err = NewRequirement(class, v)
-			if err != nil {
-				return
-			}
-
-		default:
-			requirement, err = NewRequirement(class, nil)
-			if err != nil {
-				return
-			}
-
+		requirement, err = NewRequirement(class, v)
+		if err != nil {
+			return
 		}
 
-		new_array = append(new_array, requirement)
+	case interface{}:
+		logger.Debug(1, "(CreateRequirementArray) type is something else")
+		requirement, err = NewRequirement(class, nil)
+		if err != nil {
+			return
+		}
+	default:
+		err = fmt.Errorf("(CreateRequirement) type is unknown")
+
+	}
+	return
+}
+
+func CreateRequirementArray(original interface{}) (new_array []Requirement, err error) {
+	// here the keynames are actually class names
+
+	switch original.(type) {
+	case map[interface{}]interface{}:
+		for k, v := range original.(map[interface{}]interface{}) {
+
+			//var requirement Requirement
+			class := k.(string)
+
+			requirement, xerr := CreateRequirement(class, v)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+
+			new_array = append(new_array, requirement)
+		}
+	case []interface{}:
+		for _, v := range original.([]interface{}) {
+
+			empty, xerr := NewEmpty(v)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			class := empty.GetClass()
+
+			requirement, xerr := CreateRequirement(class, v)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+
+			new_array = append(new_array, requirement)
+		}
+
+	default:
+		err = fmt.Errorf("(CreateRequirementArray) type unknown")
 	}
 	return
 }

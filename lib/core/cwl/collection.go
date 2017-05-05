@@ -15,6 +15,7 @@ type CWL_collection struct {
 	Files              map[string]*File
 	Strings            map[string]*String
 	Ints               map[string]*Int
+	Booleans           map[string]*Boolean
 	All                map[string]*CWL_object
 }
 
@@ -74,6 +75,8 @@ func (c CWL_collection) Add(obj CWL_object) (err error) {
 		c.Files[id] = obj.(*File)
 	case "String":
 		c.Strings[id] = obj.(*String)
+	case "Boolean":
+		c.Booleans[id] = obj.(*Boolean)
 	case "Int":
 		obj_int, ok := obj.(*Int)
 		if !ok {
@@ -136,6 +139,7 @@ func NewCWL_collection() (collection CWL_collection) {
 	collection.Files = make(map[string]*File)
 	collection.Strings = make(map[string]*String)
 	collection.Ints = make(map[string]*Int)
+	collection.Booleans = make(map[string]*Boolean)
 	collection.All = make(map[string]*CWL_object)
 	return
 }

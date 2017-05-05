@@ -25,8 +25,20 @@ func ParseJob(collection *CWL_collection, job_file string) (err error) {
 	for key, value := range job {
 
 		switch value.(type) {
+		case bool:
+
+			value_bool := value.(bool)
+
+			err = collection.Add(&Boolean{Id: key, Value: value_bool})
+			if err != nil {
+				return
+			}
+
 		case string:
-			err = collection.Add(&String{Id: key, Value: value.(string)})
+
+			value_str := value.(string)
+
+			err = collection.Add(&String{Id: key, Value: value_str})
 			if err != nil {
 				return
 			}

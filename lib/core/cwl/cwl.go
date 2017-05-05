@@ -55,10 +55,10 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 	// TODO screen for "$import": // this might break the YAML parser !
 
 	// this yaml parser (gopkg.in/yaml.v2) has problems with the CWL yaml format. We skip the header aand jump directly to "$graph" because of that.
-	graph_pos := strings.Index(yaml_str, "$graph:")
+	graph_pos := strings.Index(yaml_str, "$graph")
 
 	if graph_pos == -1 {
-		err = errors.New("yaml parisng error. keyword $graph missing")
+		err = errors.New("yaml parisng error. keyword $graph missing: ")
 		return
 	}
 
@@ -92,21 +92,26 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 			return
 		}
 		_ = cwl_object_id
-		switch elem["hints"].(type) {
-		case map[interface{}]interface{}:
-			// Convert map of outputs into array of outputs
-			err, elem["hints"] = CreateRequirementArray(elem["hints"])
-			if err != nil {
-				return
-			}
-		}
+		//switch elem["hints"].(type) {
+		//case map[interface{}]interface{}:
+		//logger.Debug(1, "hints is map[interface{}]interface{}")
+		// Convert map of outputs into array of outputs
+		//err, elem["hints"] = CreateRequirementArray(elem["hints"])
+		//if err != nil {
+		//	return
+		//}
+		//case interface{}[]:
+		//	logger.Debug(1, "hints is interface{}[]")
+		//default:
+		//	logger.Debug(1, "hints is something else")
+		//}
 
 		switch cwl_object_type {
 		case "CommandLineTool":
-
+			logger.Debug(1, "parse CommandLineTool")
 			result, xerr := getCommandLineTool(elem)
 			if xerr != nil {
-				err = xerr
+				err = fmt.Errorf("getCommandLineTool returned: %s", xerr)
 				return
 			}
 			//*** check if "inputs"" is an array or a map"
@@ -118,7 +123,7 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 			}
 			//collection = append(collection, result)
 		case "Workflow":
-
+			logger.Debug(1, "parse Workflow")
 			workflow, xerr := getWorkflow(elem)
 			if xerr != nil {
 				err = xerr
@@ -152,6 +157,7 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 			//collection.Workflows = append(collection.Workflows, workflow)
 			//collection = append(collection, result)
 		case "File":
+			logger.Debug(1, "parse File")
 			var cwl_file File
 			err = mapstructure.Decode(elem, &cwl_file)
 			if err != nil {

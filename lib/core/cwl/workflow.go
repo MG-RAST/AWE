@@ -270,7 +270,7 @@ func CreateWorkflowStepsArray(original interface{}) (err error, new_array []Work
 		switch v_map["hints"].(type) {
 		case map[interface{}]interface{}:
 			// Convert map of outputs into array of outputs
-			err, v_map["hints"] = CreateRequirementArray(v_map["hints"])
+			v_map["hints"], err = CreateRequirementArray(v_map["hints"])
 			if err != nil {
 				return
 			}
@@ -279,7 +279,7 @@ func CreateWorkflowStepsArray(original interface{}) (err error, new_array []Work
 		switch v_map["requirements"].(type) {
 		case map[interface{}]interface{}:
 			// Convert map of outputs into array of outputs
-			err, v_map["requirements"] = CreateRequirementArray(v_map["requirements"])
+			v_map["requirements"], err = CreateRequirementArray(v_map["requirements"])
 			if err != nil {
 				return
 			}
@@ -469,7 +469,7 @@ func getWorkflow(object CWL_object_generic) (workflow Workflow, err error) {
 	switch object["requirements"].(type) {
 	case map[interface{}]interface{}:
 		// Convert map of outputs into array of outputs
-		err, object["requirements"] = CreateRequirementArray(object["requirements"])
+		object["requirements"], err = CreateRequirementArray(object["requirements"])
 		if err != nil {
 			return
 		}

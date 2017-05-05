@@ -45,13 +45,20 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 		return
 	}
 
-	// example shock://shock.metagenomics.anl.gov/node/92a76f64-d221-4947-9fd0-7106c3b9163a
-	file_url, errx := url.Parse(file.Location)
-	if errx != nil {
-		err = fmt.Errorf("Erroro parisng url %s %s", file.Location, errx.Error())
+	if file.Location == "" {
+		err = fmt.Errorf("Error file.Location is empty, id=%s", id)
 
 		return
 	}
+
+	// example shock://shock.metagenomics.anl.gov/node/92a76f64-d221-4947-9fd0-7106c3b9163a
+	file_url, errx := url.Parse(file.Location)
+	if errx != nil {
+		err = fmt.Errorf("Error parsing url %s %s", file.Location, errx.Error())
+
+		return
+	}
+
 	scheme := strings.ToLower(file_url.Scheme)
 
 	switch scheme {

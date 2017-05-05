@@ -51,19 +51,76 @@ type CommandOutputParameter struct {
 	OutputBinding  CommandOutputBinding `yaml:"outputBinding"`
 }
 
+func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParameter, err error) {
+
+	v_map := v.(map[interface{}]interface{})
+
+	default_value, ok := v_map["default"]
+	if ok {
+		v_map["default"] = NewAny(default_value) // TODO return Int or similar
+	}
+
+	input_parameter = &CommandInputParameter{}
+	err = mapstructure.Decode(v, input_parameter)
+	return
+}
+
+func NewCommandOutputParameter(v interface{}) (output_parameter *CommandOutputParameter, err error) {
+	output_parameter = &CommandOutputParameter{}
+	err = mapstructure.Decode(v, output_parameter)
+	return
+}
+
 // keyname will be converted into 'Id'-field
-func CreateCommandInputArray(original interface{}) (err error, new_array []CommandInputParameter) {
+func CreateCommandInputArray(original interface{}) (err error, new_array []*CommandInputParameter) {
 
-	for k, v := range original.(map[interface{}]interface{}) {
+	switch original.(type) {
+	case map[interface{}]interface{}:
+		for k, v := range original.(map[interface{}]interface{}) {
 
-		var input_parameter CommandInputParameter
-		mapstructure.Decode(v, &input_parameter)
-		input_parameter.Id = k.(string)
+			//var input_parameter CommandInputParameter
+			//mapstructure.Decode(v, &input_parameter)
+			input_parameter, xerr := NewCommandInputParameter(v)
+			if xerr != nil {
+				err = xerr
+				return
+			}
 
-		//fmt.Printf("C")
-		new_array = append(new_array, input_parameter)
-		//fmt.Printf("D")
+			input_parameter.Id = k.(string)
 
+			//fmt.Printf("C")
+			new_array = append(new_array, input_parameter)
+			//fmt.Printf("D")
+
+		}
+	case []interface{}:
+		for _, v := range original.([]interface{}) {
+
+			input_parameter, xerr := NewCommandInputParameter(v)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			//var input_parameter CommandInputParameter
+			//mapstructure.Decode(v, &input_parameter)
+
+			//empty, err := NewEmpty(v)
+			//if err != nil {
+			//	return
+			//}
+
+			if input_parameter.Id == "" {
+				err = fmt.Errorf("(CreateCommandInputArray) no id found")
+				return
+			}
+
+			//fmt.Printf("C")
+			new_array = append(new_array, input_parameter)
+			//fmt.Printf("D")
+
+		}
+	default:
+		err = fmt.Errorf("(CreateCommandInputArray) type unknown")
 	}
 	//spew.Dump(new_array)
 	return
@@ -120,14 +177,19 @@ func getCommandOutputBinding(object interface{}) (outputBinding CommandOutputBin
 }
 
 // keyname will be converted into 'Id'-field
-func CreateCommandOutputArray(original interface{}) (err error, new_array []CommandOutputParameter) {
+func CreateCommandOutputArray(original interface{}) (new_array []*CommandOutputParameter, err error) {
 
 	for id_if, output_parameter_if := range original.(map[interface{}]interface{}) {
-		fmt.Printf("AAAAAAAAA")
+
 		spew.Dump(output_parameter_if)
 
-		var output_parameter CommandOutputParameter
-		mapstructure.Decode(output_parameter_if, &output_parameter)
+		//var output_parameter CommandOutputParameter
+		//mapstructure.Decode(output_parameter_if, &output_parameter)
+		output_parameter, xerr := NewCommandOutputParameter(output_parameter_if)
+		if xerr != nil {
+			err = xerr
+			return
+		}
 
 		outputBinding, xerr := getCommandOutputBinding(output_parameter_if)
 		if xerr != nil {
@@ -151,23 +213,36 @@ func getCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLine
 
 	commandLineTool = &CommandLineTool{}
 
-	switch object["inputs"].(type) {
-	case map[interface{}]interface{}:
+	inputs, ok := object["inputs"]
+	if ok {
 		// Convert map of inputs into array of inputs
-		err, object["inputs"] = CreateCommandInputArray(object["inputs"])
+		err, object["inputs"] = CreateCommandInputArray(inputs)
 		if err != nil {
+			err = fmt.Errorf("error in CreateCommandInputArray: %s", err.Error())
+			return
+		}
+	}
+	outputs, ok := object["outputs"]
+	if ok {
+		// Convert map of outputs into array of outputs
+		object["outputs"], err = CreateCommandOutputArray(outputs)
+		if err != nil {
+			err = fmt.Errorf("error in CreateCommandOutputArray: %s", err.Error())
 			return
 		}
 	}
 
-	switch object["outputs"].(type) {
-	case map[interface{}]interface{}:
-		// Convert map of outputs into array of outputs
-		err, object["outputs"] = CreateCommandOutputArray(object["outputs"])
+	//switch object["hints"].(type) {
+	//case map[interface{}]interface{}:
+	hints, ok := object["hints"]
+	if ok {
+		object["hints"], err = CreateRequirementArray(hints)
 		if err != nil {
+			err = fmt.Errorf("error in CreateRequirementArray: %s", err.Error())
 			return
 		}
 	}
+	//}
 
 	err = mapstructure.Decode(object, commandLineTool)
 	if err != nil {

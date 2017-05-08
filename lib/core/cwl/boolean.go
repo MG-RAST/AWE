@@ -1,6 +1,7 @@
 package cwl
 
 type Boolean struct {
+	CWLType_Impl
 	Id    string `yaml:"id"`
 	Value bool   `yaml:"value"`
 }
@@ -14,4 +15,5 @@ func (s *Boolean) String() string {
 	}
 	return "False"
 }
-func (s *Boolean) is_CWLType() {} // for CWLType
+
+func (s *Boolean) is_CommandInputParameterType() {} // for CommandInputParameterType

@@ -21,7 +21,7 @@ func NewEmpty(value interface{}) (obj_empty *Empty, err error) {
 
 	err = mapstructure.Decode(value, &obj_empty)
 	if err != nil {
-		err = fmt.Errorf("Could not convert into CWL object object")
+		err = fmt.Errorf("Could not convert into CWL object")
 		return
 	}
 

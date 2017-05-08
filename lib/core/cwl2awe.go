@@ -218,10 +218,17 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 
 		id := expected_input.Id
 		_ = id
-		input_optional := strings.HasSuffix(expected_input.Type, "?")
-		expected_input_type := strings.ToLower(strings.TrimSuffix(expected_input.Type, "?"))
-		_ = input_optional
-		_ = expected_input_type
+
+		if len(expected_input.Type) > 1 {
+			err = fmt.Errorf("Not yet supported: len(expected_input.Type) > 1")
+			return
+		}
+		expected_input_parameter_type_0 := expected_input.Type[0]
+		_ = expected_input_parameter_type_0
+		//input_optional := strings.HasSuffix(expected_input_type_0, "?") TODO
+		//expected_input_type := strings.ToLower(strings.TrimSuffix(expected_input_type_0, "?"))TODO
+		//_ = input_optional
+		//_ = expected_input_type
 
 		// TODO lookup id in workflow step input
 

@@ -14,26 +14,21 @@ import (
 	"strings"
 )
 
+type CWL_minimal_interface interface {
+	is_CWL_minimal()
+}
+
+type CWL_minimal struct{}
+
+func (c *CWL_minimal) is_CWL_minimal() {}
+
 // this is used by YAML or JSON library for inital parsing
 type CWL_document_generic struct {
 	CwlVersion string               `yaml:"cwlVersion"`
 	Graph      []CWL_object_generic `yaml:"graph"`
 }
 
-type CWL_object interface {
-	GetClass() string
-	GetId() string
-	SetId(string)
-}
-
 type CWL_object_generic map[string]interface{}
-
-// CWLType
-// httpCWL_objectmonwl.org/v1.0/CommandLineTool.html#CWLType
-// null, boolean, int, long, float, double, string, File, Directory
-type CWLType interface {
-	is_CWLType()
-}
 
 type CWLVersion interface{} // TODO
 
@@ -104,9 +99,9 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 		switch cwl_object_type {
 		case "CommandLineTool":
 			logger.Debug(1, "parse CommandLineTool")
-			result, xerr := getCommandLineTool(elem)
+			result, xerr := NewCommandLineTool(elem)
 			if xerr != nil {
-				err = fmt.Errorf("getCommandLineTool returned: %s", xerr)
+				err = fmt.Errorf("NewCommandLineTool returned: %s", xerr)
 				return
 			}
 			//*** check if "inputs"" is an array or a map"

@@ -6,6 +6,7 @@ import (
 )
 
 type Int struct {
+	CWLType_Impl
 	Id    string `yaml:"id"`
 	Value int    `yaml:"value"`
 }

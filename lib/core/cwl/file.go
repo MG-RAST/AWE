@@ -12,6 +12,7 @@ import (
 
 // http://www.commonwl.org/v1.0/Workflow.html#File
 type File struct {
+	CWLType_Impl
 	Id             string         `yaml:"id"`
 	Location       string         `yaml:"location"` // An IRI that identifies the file resource.
 	Path           string         `yaml:"path"`     // dirname + '/' + basename == path This field must be set by the implementation.
@@ -36,6 +37,8 @@ func (f *File) GetId() string       { return f.Id }
 func (f *File) SetId(id string)     { f.Id = id }
 func (f *File) String() string      { return f.Path }
 func (f *File) GetLocation() string { return f.Location } // for CWL_location
+
+func (s *File) is_CommandInputParameterType() {} // for CommandInputParameterType
 
 func MakeFile(id string, obj interface{}) (file File, err error) {
 	file = File{}

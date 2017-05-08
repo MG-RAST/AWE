@@ -25,6 +25,8 @@ type Workflow struct {
 func (w *Workflow) GetClass() string { return "Workflow" }
 func (w *Workflow) GetId() string    { return w.Id }
 func (w *Workflow) SetId(id string)  { w.Id = id }
+func (w *Workflow) is_CWL_minimal()  {}
+func (w *Workflow) is_Any()          {}
 
 type WorkflowStep struct {
 	Id            string               `yaml:"id"`
@@ -63,6 +65,8 @@ type WorkflowStepInput struct {
 func (w WorkflowStepInput) GetClass() string { return "WorkflowStepInput" }
 func (w WorkflowStepInput) GetId() string    { return w.Id }
 func (w WorkflowStepInput) SetId(id string)  { w.Id = id }
+
+func (w WorkflowStepInput) is_CWL_minimal() {}
 
 //func (input WorkflowStepInput) GetString() (value string, err error) {
 //	if len(input.Source) > 0 {
@@ -116,6 +120,7 @@ type InputParameter struct {
 func (i InputParameter) GetClass() string { return "InputParameter" }
 func (i InputParameter) GetId() string    { return i.Id }
 func (i InputParameter) SetId(id string)  { i.Id = id }
+func (i InputParameter) is_CWL_minimal()  {}
 
 type WorkflowOutputParameter struct {
 	Id             string               `yaml:"id"`

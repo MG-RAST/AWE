@@ -42,11 +42,6 @@ type CWL_location interface {
 	GetLocation() string
 }
 
-type Any interface {
-	CWL_object
-	String() string
-}
-
 type LinkMergeMethod string // merge_nested or merge_flattened
 
 func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error) {

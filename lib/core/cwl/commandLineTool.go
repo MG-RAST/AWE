@@ -57,7 +57,10 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 	default_value, ok := v_map["default"]
 	if ok {
-		v_map["default"] = NewAny(default_value) // TODO return Int or similar
+		v_map["default"], err = NewAny(default_value) // TODO return Int or similar
+		if err != nil {
+			return
+		}
 	}
 
 	input_parameter = &CommandInputParameter{}

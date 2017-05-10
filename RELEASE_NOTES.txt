@@ -1,3 +1,8 @@
+# v0.9.43
+
+- lots of bug fixes
+- lots of locking
+- globus auth fix
 
 # v0.9.33
 

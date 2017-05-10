@@ -22,15 +22,22 @@ type CommandInputParameterType interface {
 	is_CommandInputParameterType()
 }
 
+type CommandInputParameterType_Impl struct{}
+
+func (c *CommandInputParameterType_Impl) is_CommandInputParameterType() {}
+
 func NewCommandInputParameterType(unparsed interface{}) (cipt *CommandInputParameterType, err error) {
 
 	// Try CWL_Type
-	something, err := NewCWLType(unparsed)
+
+	var some_cwl_type interface{}             // CWLType
+	some_cwl_type, err = NewCWLType(unparsed) // returns *CWLType_Impl
 
 	if err == nil {
 
-		something_cipt := something.(CommandInputParameterType)
-		cipt = &something_cipt
+		hello := some_cwl_type.(*CommandInputParameterType)
+		cipt = hello
+
 		return
 	}
 
@@ -73,27 +80,35 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 	return
 }
 
-func CreateCommandInputParameterTypeArray(v interface{}) (cipt_array *[]CommandInputParameterType, err error) {
+func CreateCommandInputParameterTypeArray(v interface{}) (cipt_array_ptr *[]*CommandInputParameterType, err error) {
 
-	cipt_array_nptr := []CommandInputParameterType{}
+	cipt_array := []*CommandInputParameterType{}
 
 	array, ok := v.([]interface{})
 
 	if ok {
-
+		//handle array case
 		for _, v := range array {
 
-		}
+			cipt, xerr := NewCommandInputParameterType(v)
+			if xerr != nil {
+				err = xerr
+				return
+			}
 
+			cipt_array = append(cipt_array, cipt)
+		}
+		cipt_array_ptr = &cipt_array
+		return
 	}
 
 	// handle non-arrary case
 
-	cipt, ok := v.(CommandInputParameterType)
-	if ok {
+	cipt, err := NewCommandInputParameterType(v)
+	if err != nil {
 
-		cipt_array_nptr = append(cipt_array_nptr, cipt)
-		cipt_array = &cipt_array_nptr
+		cipt_array = append(cipt_array, cipt)
+		cipt_array_ptr = &cipt_array
 		return
 	}
 

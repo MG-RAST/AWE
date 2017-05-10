@@ -123,7 +123,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
-			cx.RespondWithErrorMessage("job not found: "+jobid, http.StatusBadRequest)
+			cx.RespondWithErrorMessage("job not found: "+jobid+" "+err.Error(), http.StatusBadRequest)
 		}
 		return
 	}

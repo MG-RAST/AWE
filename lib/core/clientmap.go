@@ -15,10 +15,13 @@ func NewClientMap() *ClientMap {
 	return cm
 }
 
-func (cl *ClientMap) Add(client *Client, lock bool) {
+func (cl *ClientMap) Add(client *Client, lock bool) (err error) {
 
 	if lock {
-		cl.LockNamed("(ClientMap) Add")
+		err = cl.LockNamed("(ClientMap) Add")
+		if err != nil {
+			return
+		}
 		defer cl.Unlock()
 	}
 

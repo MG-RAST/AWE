@@ -133,7 +133,8 @@ func (io *IO) HasFile() bool {
 	return true
 }
 
-func (io *IO) GetFileSize() (size int64, err error) {
+func (io *IO) GetFileSize() (size int64, modified bool, err error) {
+	modified = false
 	if io.Size > 0 {
 		size = io.Size
 		return
@@ -143,8 +144,13 @@ func (io *IO) GetFileSize() (size int64, err error) {
 		err = fmt.Errorf("GetFileSize error: %s, node: %s", err.Error(), io.Node)
 		return
 	}
-	io.Size = shocknode.File.Size
-	size = io.Size
+	size = shocknode.File.Size
+
+	if size != io.Size {
+		io.Size = size
+		modified = true
+	}
+
 	return
 }
 
@@ -175,12 +181,21 @@ func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
 	if err != nil {
 		return
 	}
-	if _, ok := shocknode.Indexes[indextype]; ok {
-		if shocknode.Indexes[indextype].TotalUnits > 0 {
-			return int(shocknode.Indexes[indextype].TotalUnits), nil
-		}
+	index, ok := shocknode.Indexes[indextype] // index is an IdxInfo object
+
+	if !ok {
+		err = fmt.Errorf("Shock node %s has no indextype %s", io.Node, indextype)
+		return
 	}
-	return 0, errors.New("invalid totalunits for shock node:" + io.Node)
+
+	if index.TotalUnits > 0 {
+		totalunits = int(index.TotalUnits)
+		//return int(shocknode.Indexes[indextype].TotalUnits), nil
+		return
+	}
+
+	err = fmt.Errorf("invalid totalunits for shock node: %s", io.Node)
+	return
 }
 
 func (io *IO) DeleteNode() (err error) {

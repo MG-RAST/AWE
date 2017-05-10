@@ -33,8 +33,8 @@ type TaskRaw struct {
 	TotalWork   int       `bson:"totalwork" json:"totalwork"`
 	MaxWorkSize int       `bson:"maxworksize"   json:"maxworksize"`
 	RemainWork  int       `bson:"remainwork" json:"remainwork"`
-	WorkStatus  []string  `bson:"workstatus" json:"-"`
-	State       string    `bson:"state" json:"state"`
+	//WorkStatus  []string  `bson:"workstatus" json:"-"`
+	State string `bson:"state" json:"state"`
 	//Skip          int               `bson:"skip" json:"-"`
 	CreatedDate   time.Time         `bson:"createdDate" json:"createddate"`
 	StartedDate   time.Time         `bson:"startedDate" json:"starteddate"`
@@ -81,8 +81,8 @@ func NewTaskRaw(task_id string, info *Info) TaskRaw {
 		DependsOn:  []string{},
 		TotalWork:  1,
 		RemainWork: 1,
-		WorkStatus: []string{},
-		State:      TASK_STAT_INIT,
+		//WorkStatus: []string{},
+		State: TASK_STAT_INIT,
 		//Skip:       0,
 	}
 }
@@ -147,12 +147,11 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		task.TotalWork = 1
 	}
 
-	if len(task.WorkStatus) == 0 {
-		task.WorkStatus = make([]string, task.TotalWork)
-	}
-	task.RemainWork = task.TotalWork
+	//if len(task.WorkStatus) == 0 {
+	//	task.WorkStatus = make([]string, task.TotalWork)
+	//}
 
-	logger.Debug(3, "%s, task.RemainWork: %d", task.Id, task.RemainWork)
+	//logger.Debug(3, "%s, task.RemainWork: %d", task.Id, task.RemainWork)
 
 	if task.State != TASK_STAT_COMPLETED {
 		if task.RemainWork != task.TotalWork {
@@ -176,50 +175,43 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 	}
 
 	// populate DependsOn
-	for _, dependency := range task.DependsOn {
-		deps := make(map[string]bool)
-
-		// collect explicit dependencies
-		for _, deptask := range task.DependsOn {
-			if !strings.Contains(deptask, "_") {
-				err = fmt.Errorf("deptask \"%s\" is missing _", dependency)
-				return
-			}
-			deps[deptask] = true
+	deps := make(map[string]bool)
+	deps_changed := false
+	// collect explicit dependencies
+	for _, deptask := range task.DependsOn {
+		if !strings.Contains(deptask, "_") {
+			err = fmt.Errorf("deptask \"%s\" is missing _", deptask)
+			return
 		}
+		deps[deptask] = true
+	}
 
-		for _, input := range task.Inputs {
+	for _, input := range task.Inputs {
 
-			if input.Origin != "" {
+		if input.Origin != "" {
 
-				origin := input.Origin
-				if !strings.Contains(origin, "_") {
-					origin = fmt.Sprintf("%s_%s", job.Id, origin)
-				}
-
-				value, ok := deps[origin]
-				if ok {
-					if value == false {
-						changed = true
-						deps[origin] = true
-					}
-				} else {
-					deps[origin] = true
-					changed = true
-				}
-
+			origin := input.Origin
+			if !strings.Contains(origin, "_") {
+				origin = fmt.Sprintf("%s_%s", job.Id, origin)
 			}
-		}
 
-		// write all dependencies
+			_, ok := deps[origin]
+			if !ok {
+				// this was not yet in deps
+				deps[origin] = true
+				deps_changed = true
+			}
+
+		}
+	}
+
+	// write all dependencies if different from before
+	if deps_changed {
 		task.DependsOn = []string{}
-		previous_length := len(task.DependsOn)
 		for deptask, _ := range deps {
 			task.DependsOn = append(task.DependsOn, deptask)
 		}
-		if previous_length == len(task.DependsOn) {
-			changed = true
-		}
+		changed = true
 	}
 
 	// set node / host / url for files
@@ -297,6 +289,24 @@ func (task *Task) GetOutputs() (outputs []*IO, err error) {
 	return
 }
 
+func (task *Task) GetOutput(filename string) (output *IO, err error) {
+	lock, err := task.RLockNamed("GetOutput")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+
+	for _, io := range task.Outputs {
+		if io.FileName == filename {
+			output = io
+			return
+		}
+	}
+
+	err = fmt.Errorf("Output %s not found", filename)
+	return
+}
+
 func (task *TaskRaw) GetState() (state string, err error) {
 	lock, err := task.RLockNamed("GetState")
 	if err != nil {
@@ -314,7 +324,7 @@ func (task *TaskRaw) SetCreatedDate(t time.Time) (err error) {
 	}
 	defer task.Unlock()
 
-	err = dbUpdateJobTaskTime(task.JobId, task.Id, "createddate", t)
+	err = dbUpdateJobTaskTime(task.JobId, task.Id, "createdDate", t)
 	if err != nil {
 		return
 	}
@@ -330,11 +340,29 @@ func (task *TaskRaw) SetStartedDate(t time.Time) (err error) {
 	}
 	defer task.Unlock()
 
-	err = dbUpdateJobTaskTime(task.JobId, task.Id, "starteddate", t)
+	err = dbUpdateJobTaskTime(task.JobId, task.Id, "startedDate", t)
 	if err != nil {
 		return
 	}
 	task.StartedDate = t
+
+	return
+}
+
+func (task *TaskRaw) SetCompletedDate(t time.Time, lock bool) (err error) {
+	if lock {
+		err = task.LockNamed("SetCompletedDate")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
+
+	err = dbUpdateJobTaskTime(task.JobId, task.Id, "completedDate", t)
+	if err != nil {
+		return
+	}
+	task.CompletedDate = t
 
 	return
 }
@@ -389,24 +417,33 @@ func (task *TaskRaw) SetState(new_state string) (err error) {
 	if old_state == new_state {
 		return
 	}
+
+	job, err := GetJob(jobid)
+	if err != nil {
+		return
+	}
+
 	if new_state == TASK_STAT_COMPLETED {
 		if old_state != TASK_STAT_COMPLETED {
 
 			// state TASK_STAT_COMPLETED is new!
-			err = dbIncrementJobField(jobid, "remaintasks", -1)
+			err = job.IncrementRemainTasks(-1, true)
+			//err = dbIncrementJobField(jobid, "remaintasks", -1)
 			if err != nil {
 				return
 			}
 
-			this_time := time.Now()
-			task.CompletedDate = this_time
-			dbUpdateJobTaskField(jobid, taskid, "completeddate", this_time)
+			err = task.SetCompletedDate(time.Now(), false)
+			if err != nil {
+				return
+			}
 		}
 
 	} else {
 		// in case a completed teask is marked as something different
 		if old_state == TASK_STAT_COMPLETED {
-			err = dbIncrementJobField(jobid, "remaintasks", 1)
+			err = job.IncrementRemainTasks(1, true)
+			//err = dbIncrementJobField(jobid, "remaintasks", 1)
 			if err != nil {
 				return
 			}
@@ -414,7 +451,7 @@ func (task *TaskRaw) SetState(new_state string) (err error) {
 
 	}
 
-	dbUpdateJobTaskField(jobid, taskid, "state", new_state)
+	dbUpdateJobTaskString(jobid, taskid, "state", new_state)
 	task.State = new_state
 
 	return
@@ -450,30 +487,38 @@ func (task *TaskRaw) GetDependsOn() (dep []string, err error) {
 	return
 }
 
-func (task *Task) UpdateState(newState string) string {
+func (task *Task) UpdateState_DEPRECATED(newState string) string {
 	task.LockNamed("UpdateState")
 	defer task.Unlock()
 	task.State = newState
 	return task.State
 }
 
+// checks and creates indices on shock node if needed
 func (task *Task) CreateIndex() (err error) {
 	for _, io := range task.Inputs {
 		if len(io.ShockIndex) > 0 {
 			idxinfo, err := io.GetIndexInfo()
 			if err != nil {
 				errMsg := "could not retrieve index info from input shock node, taskid=" + task.Id + ", error=" + err.Error()
+				logger.Error(errMsg)
+				return errors.New(errMsg)
+			}
+
+			// check if index exists
+			_, ok := idxinfo[io.ShockIndex]
+			if ok {
+				continue
+			}
+
+			// create missing index
+			err = ShockPutIndex(io.Host, io.Node, io.ShockIndex, task.Info.DataToken)
+			if err != nil {
+				errMsg := "failed to create index on shock node for taskid=" + task.Id + ", error=" + err.Error()
 				logger.Error("error: " + errMsg)
 				return errors.New(errMsg)
 			}
 
-			if _, ok := idxinfo[io.ShockIndex]; !ok {
-				if err := ShockPutIndex(io.Host, io.Node, io.ShockIndex, task.Info.DataToken); err != nil {
-					errMsg := "failed to create index on shock node for taskid=" + task.Id + ", error=" + err.Error()
-					logger.Error("error: " + errMsg)
-					return errors.New(errMsg)
-				}
-			}
 		}
 	}
 	return
@@ -485,27 +530,45 @@ func (task *Task) InitPartIndex() (err error) {
 	if task.TotalWork == 1 && task.MaxWorkSize == 0 {
 		return
 	}
+	task_id := task.Id
+	job_id := task.JobId
+
 	var input_io *IO
 	if task.Partition == nil {
 		if len(task.Inputs) == 1 {
-			for _, io := range task.Inputs {
-				input_io = io
-				task.Partition = new(PartInfo)
-				task.Partition.Input = io.FileName
-				task.Partition.MaxPartSizeMB = task.MaxWorkSize
-				break
+			input_io = task.Inputs[0]
+
+			task.Partition = new(PartInfo)
+			task.Partition.Input = input_io.FileName
+			task.Partition.MaxPartSizeMB = task.MaxWorkSize
+
+			err = dbUpdateJobTaskPartition(job_id, task_id, task.Partition)
+			if err != nil {
+				return
 			}
 		} else {
-			task.setTotalWork(1)
-			logger.Error("warning: lacking parition info while multiple inputs are specified, taskid=" + task.Id)
+			err = task.setTotalWork(1, true)
+			if err != nil {
+				return
+			}
+			logger.Error("warning: lacking partition info while multiple inputs are specified, taskid=" + task.Id)
 			return
 		}
 	} else {
 		if task.MaxWorkSize > 0 {
-			task.Partition.MaxPartSizeMB = task.MaxWorkSize
+			if task.Partition.MaxPartSizeMB != task.MaxWorkSize {
+				task.Partition.MaxPartSizeMB = task.MaxWorkSize
+				err = dbUpdateJobTaskInt(job_id, task_id, "partinfo.maxpartsize_mb", task.MaxWorkSize)
+				if err != nil {
+					return
+				}
+			}
 		}
 		if task.Partition.MaxPartSizeMB == 0 && task.TotalWork <= 1 {
-			task.setTotalWork(1)
+			err = task.setTotalWork(1, true)
+			if err != nil {
+				return
+			}
 			return
 		}
 		found := false
@@ -516,7 +579,10 @@ func (task *Task) InitPartIndex() (err error) {
 			}
 		}
 		if !found {
-			task.setTotalWork(1)
+			err = task.setTotalWork(1, true)
+			if err != nil {
+				return
+			}
 			logger.Error("warning: invalid partition info, taskid=" + task.Id)
 			return
 		}
@@ -526,21 +592,22 @@ func (task *Task) InitPartIndex() (err error) {
 
 	idxinfo, err := input_io.GetIndexInfo()
 	if err != nil {
-		task.setTotalWork(1)
-		logger.Error("warning: invalid file info, taskid=" + task.Id + ", error=" + err.Error())
+		_ = task.setTotalWork(1, true)
+		logger.Error("warning: invalid file info, taskid=%s, error=%s", task.Id, err.Error())
 		return nil
 	}
 
 	idxtype := conf.DEFAULT_INDEX
 	if _, ok := idxinfo[idxtype]; !ok { //if index not available, create index
-		if err := ShockPutIndex(input_io.Host, input_io.Node, idxtype, task.Info.DataToken); err != nil {
-			task.setTotalWork(1)
+		err := ShockPutIndex(input_io.Host, input_io.Node, idxtype, task.Info.DataToken)
+		if err != nil {
+			_ = task.setTotalWork(1, true)
 			logger.Error("warning: fail to create index on shock for taskid=" + task.Id + ", error=" + err.Error())
 			return nil
 		}
 		totalunits, err = input_io.TotalUnits(idxtype) //get index info again
 		if err != nil {
-			task.setTotalWork(1)
+			_ = task.setTotalWork(1, true)
 			logger.Error("warning: fail to get index units, taskid=" + task.Id + ", error=" + err.Error())
 			return nil
 		}
@@ -561,22 +628,42 @@ func (task *Task) InitPartIndex() (err error) {
 		if totalwork < task.TotalWork { //use bigger splits (specified by size or totalwork)
 			totalwork = task.TotalWork
 		}
-		task.setTotalWork(totalwork)
+		task.setTotalWork(totalwork, true)
+		if err != nil {
+			return
+		}
 	}
 	if totalunits < task.TotalWork {
-		task.setTotalWork(totalunits)
+		task.setTotalWork(totalunits, true)
 	}
 
 	task.Partition.Index = idxtype
 	task.Partition.TotalIndex = totalunits
+
+	err = dbUpdateJobTaskString(job_id, task_id, "partinfo.index", idxtype)
+	if err != nil {
+		return
+	}
+	err = dbUpdateJobTaskInt(job_id, task_id, "partinfo.totalunits", totalunits)
+	if err != nil {
+		return
+	}
+
 	return
 }
 
-// TODO lock !
-func (task *Task) setTotalWork(num int) {
+func (task *Task) setTotalWork(num int, writelock bool) (err error) {
+	if writelock {
+		err = task.LockNamed("setTotalWork")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
 	task.TotalWork = num
 	_ = task.SetRemainWork(num, false)
-	task.WorkStatus = make([]string, num)
+	//task.WorkStatus = make([]string, num)
+	return
 }
 
 func (task *Task) SetRemainWork(num int, writelock bool) (err error) {
@@ -601,7 +688,9 @@ func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, 
 		defer task.Unlock()
 	}
 	task.RemainWork += inc
-	err = dbIncrementJobTaskField(task.JobId, task.Id, "remainwork", inc)
+
+	err = dbUpdateJobTaskInt(task.JobId, task.Id, "remainwork", task.RemainWork)
+
 	if err != nil {
 		return
 	}
@@ -618,11 +707,13 @@ func (task *Task) IncrementComputeTime(inc_time int) (err error) {
 	}
 	defer task.Unlock()
 
-	err = dbIncrementJobTaskField(task.JobId, task.Id, "computetime", inc_time)
+	task.ComputeTime += inc_time
+
+	err = dbUpdateJobTaskInt(task.JobId, task.Id, "computetime", task.ComputeTime)
+	//err = dbIncrementJobTaskField(task.JobId, task.Id, "computetime", inc_time)
 	if err != nil {
 		return
 	}
-	task.ComputeTime += inc_time
 
 	return
 }
@@ -724,6 +815,42 @@ func (task *Task) DeleteInput() (modified int) {
 			}
 		}
 	}
+	return
+}
+
+func (task *Task) UpdateInputs() (err error) {
+	lock, err := task.RLockNamed("UpdateInputs")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+
+	err = dbUpdateJobTaskInputs(task.JobId, task.Id, task.Inputs)
+
+	return
+}
+
+func (task *Task) UpdateOutputs() (err error) {
+	lock, err := task.RLockNamed("UpdateOutputs")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+
+	err = dbUpdateJobTaskOutputs(task.JobId, task.Id, task.Outputs)
+
+	return
+}
+
+func (task *Task) UpdatePredata() (err error) {
+	lock, err := task.RLockNamed("UpdatePredata")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+
+	err = dbUpdateJobTaskPredata(task.JobId, task.Id, task.Predata)
+
 	return
 }
 

@@ -66,7 +66,7 @@ func SendHeartBeat() {
 			} else {
 				if core.Server_UUID != val {
 					// server has been restarted, stop work on client (TODO in future we will try to recover work)
-					logger.Warning("(SendHeartBeat) Server UUID has changed. Will stop all work units.")
+					logger.Warning("(SendHeartBeat) Server UUID has changed (%s -> %s). Will stop all work units.", core.Server_UUID, val)
 					all_work, _ := workmap.GetKeys()
 
 					for _, work := range all_work {

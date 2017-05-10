@@ -126,10 +126,10 @@ func (job *Job) Init() (changed bool, err error) {
 
 	if job.Id == "" {
 		job.setId() //uuid for the job
-		logger.Debug(3, "XXX Set JobID: %s", job.Id)
+		logger.Debug(3, "(Job.Init) Set JobID: %s", job.Id)
 		changed = true
 	} else {
-		logger.Debug(3, "XXX Already have JobID: %s", job.Id)
+		logger.Debug(3, "(Job.Init)  Already have JobID: %s", job.Id)
 	}
 
 	if job.Info == nil {
@@ -156,8 +156,11 @@ func (job *Job) Init() (changed bool, err error) {
 		if task.Id == "" {
 			logger.Error("(job.Init) task.Id empty, job %s broken?", job.Id)
 			task.Id = job.Id + "_" + uuid.New()
-			job.State = JOB_STAT_SUSPEND
-			job.Notes = "task.Id was empty"
+			if job.State != JOB_STAT_SUSPEND {
+				job.State = JOB_STAT_SUSPEND
+				job.Notes = "task.Id was empty"
+				changed = true
+			}
 
 		}
 
@@ -208,6 +211,13 @@ func (job *Job) Init() (changed bool, err error) {
 	if job.RemainTasks == 0 && job.State != JOB_STAT_COMPLETED {
 		job.State = JOB_STAT_COMPLETED
 		logger.Debug(3, "fixing state to JOB_STAT_COMPLETED")
+		changed = true
+	}
+
+	// fix job.Info.CompletedTime
+	if job.State == JOB_STAT_COMPLETED && job.Info.CompletedTime.IsZero() {
+		// better now, than never:
+		job.Info.CompletedTime = time.Now()
 		changed = true
 	}
 
@@ -306,11 +316,12 @@ func (job *Job) IncrementResumed(inc int, writelock bool) (err error) {
 		}
 		defer job.Unlock()
 	}
-	err = dbIncrementJobField(job.Id, "resumed", inc)
+	job.Resumed += 1
+	err = dbUpdateJobFieldInt(job.Id, "resumed", job.Resumed)
 	if err != nil {
 		return
 	}
-	job.Resumed += 1
+
 	return
 }
 
@@ -454,14 +465,16 @@ func (job *Job) GetTasks() (tasks []*Task, err error) {
 	return
 }
 
-func (job *Job) GetState() (state string, err error) {
+func (job *Job) GetState(do_lock bool) (state string, err error) {
 
-	read_lock, err := job.RLockNamed("GetState")
-	if err != nil {
-		return
+	if do_lock {
+		read_lock, xerr := job.RLockNamed("GetState")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer job.RUnlockNamed(read_lock)
 	}
-	defer job.RUnlockNamed(read_lock)
-
 	state = job.State
 
 	return
@@ -497,8 +510,14 @@ func (job *Job) SetState(newState string, notes string) (err error) {
 	}
 
 	job.State = newState
+
+	if newState == JOB_STAT_SUSPEND && len(notes) == 0 {
+		notes = "unknown"
+	}
+
 	if len(notes) > 0 {
 		job.Notes = notes
+		dbUpdateJobFieldString(job.Id, "notes", notes)
 	}
 
 	dbUpdateJobFieldString(job.Id, "state", newState)
@@ -540,11 +559,12 @@ func (job *Job) IncrementRemainTasks(inc int, writelock bool) (err error) {
 		}
 		defer job.Unlock()
 	}
-	err = dbIncrementJobField(job.Id, "remaintasks", inc)
+	job.RemainTasks += 1
+	err = dbUpdateJobFieldInt(job.Id, "remaintasks", job.RemainTasks)
 	if err != nil {
 		return
 	}
-	job.Resumed += 1
+
 	return
 }
 
@@ -664,6 +684,23 @@ func (job *Job) GetPrivateEnv(taskid string) (env map[string]string) {
 			return task.Cmd.Environ.Private
 		}
 	}
+	return
+}
+
+func (job *Job) SetLastFailed(lastfailed string) (err error) {
+	err = job.LockNamed("SetLastFailed")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	err = dbUpdateJobFieldString(job.Id, "lastfailed", lastfailed)
+	if err != nil {
+		return
+	}
+
+	job.LastFailed = lastfailed
+
 	return
 }
 

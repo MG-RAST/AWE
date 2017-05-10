@@ -43,35 +43,20 @@ func (wq *WorkQueue) Add(workunit *Workunit) (err error) {
 	if workunit.Id == "" {
 		return errors.New("try to push a workunit with an empty id")
 	}
-
-	id := workunit.Id
+	logger.Debug(3, "(WorkQueue/Add)")
+	//id := workunit.Id
 
 	err = wq.all.Set(workunit)
 	if err != nil {
 		return
 	}
-	err = wq.Queue.Set(workunit)
-	if err != nil {
-		return
-	}
-	err = wq.Checkout.Delete(id)
-	if err != nil {
-		return
-	}
-	err = wq.Suspend.Delete(id)
-	if err != nil {
-		return
-	}
-	//wq.workMap[id].State = WORK_STAT_QUEUED
-	workunit.State = WORK_STAT_QUEUED
-	return nil
-}
 
-func (wq *WorkQueue) Put(workunit *Workunit) {
-	//wq.Lock()
-	//wq.workMap[workunit.Id] = workunit
-	//wq.Unlock()
-	wq.all.Set(workunit)
+	err = wq.StatusChange("", workunit, WORK_STAT_QUEUED)
+	if err != nil {
+		return
+	}
+
+	return
 }
 
 func (wq *WorkQueue) Get(id string) (w *Workunit, ok bool, err error) {
@@ -125,13 +110,26 @@ func (wq *WorkQueue) Clean() (workids []string) {
 
 func (wq *WorkQueue) Delete(id string) (err error) {
 
-	_ = wq.Queue.Delete(id)
+	err = wq.Queue.Delete(id)
+	if err != nil {
+		return
+	}
 
-	_ = wq.Checkout.Delete(id)
+	err = wq.Checkout.Delete(id)
 
-	_ = wq.Suspend.Delete(id)
+	if err != nil {
+		return
+	}
 
-	_ = wq.all.Delete(id)
+	err = wq.Suspend.Delete(id)
+	if err != nil {
+		return
+	}
+
+	err = wq.all.Delete(id)
+	if err != nil {
+		return
+	}
 
 	return
 
@@ -146,36 +144,51 @@ func (wq *WorkQueue) Has(id string) (has bool, err error) {
 
 //--------end of accessors-------
 
-func (wq *WorkQueue) StatusChange(id string, new_status string) (err error) {
+func (wq *WorkQueue) StatusChange(id string, workunit *Workunit, new_status string) (err error) {
 	//move workunit id between maps. no need to care about the old status because
 	//delete function will do nothing if the operated map has no such key.
 
-	workunit, ok, err := wq.all.Get(id)
-	if err != nil {
+	if workunit == nil {
+		var ok bool
+		workunit, ok, err = wq.all.Get(id)
+		if err != nil {
+			return
+		}
+		if !ok {
+			return errors.New("WQueue.statusChange: invalid workunit id:" + id)
+		}
+	}
+
+	if workunit.State == new_status {
 		return
 	}
-	if !ok {
-		return errors.New("WQueue.statusChange: invalid workunit id:" + id)
-	}
+
 	switch new_status {
 	case WORK_STAT_CHECKOUT:
 		wq.Queue.Delete(id)
 		wq.Suspend.Delete(id)
+		workunit.SetState(new_status)
 		wq.Checkout.Set(workunit)
 	case WORK_STAT_QUEUED:
 		wq.Checkout.Delete(id)
 		wq.Suspend.Delete(id)
+		workunit.SetState(new_status)
 		wq.Queue.Set(workunit)
-		workunit.Client = ""
+
 	case WORK_STAT_SUSPEND:
 		wq.Checkout.Delete(id)
 		wq.Queue.Delete(id)
+		workunit.SetState(new_status)
 		wq.Suspend.Set(workunit)
-		workunit.Client = ""
+
 	default:
-		return errors.New("WorkQueue.statusChange: invalid new status:" + new_status)
+		wq.Checkout.Delete(id)
+		wq.Queue.Delete(id)
+		wq.Suspend.Delete(id)
+		workunit.SetState(new_status)
+
 	}
-	workunit.State = new_status
+
 	return
 }
 

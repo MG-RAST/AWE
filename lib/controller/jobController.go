@@ -237,6 +237,12 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	job, err := core.GetJob(id)
 	//job, err := core.LoadJob(id)
 
+	job_state, err := job.GetState(true)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if err != nil {
 		cx.RespondWithErrorMessage("job not found:"+id+" "+err.Error(), http.StatusBadRequest)
 		return
@@ -272,8 +278,8 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	}
 
 	if query.Has("position") {
-		if job.State != "queued" && job.State != "in-progress" {
-			cx.RespondWithErrorMessage("job is not queued or in-progress, job state:"+job.State, http.StatusBadRequest)
+		if job_state != "queued" && job_state != "in-progress" {
+			cx.RespondWithErrorMessage("job is not queued or in-progress, job state:"+job_state, http.StatusBadRequest)
 			return
 		}
 
@@ -587,6 +593,12 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		length := jobs.Length()
 		for i := 0; i < length; i++ {
 			job := jobs.GetJobAt(i)
+			job_state, err := job.GetState(true)
+			if err != nil {
+				logger.Error(err.Error())
+				continue
+			}
+
 			// create and populate minimal job
 			mjob := core.JobMin{}
 			mjob.Id = job.Id
@@ -608,15 +620,17 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 					}
 				}
 			}
+
 			// get current total computetime
 			for j := 0; j < len(job.Tasks); j++ {
-			    task := job.Tasks[j]
-			    mjob.ComputeTime += task.ComputeTime
-            }
-			if (job.State == "completed") || (job.State == "deleted") {
+				task := job.Tasks[j]
+				mjob.ComputeTime += task.ComputeTime
+			}
+			if (job_state == "completed") || (job_state == "deleted") {
+
 				// if completed or deleted move on, empty task array
-				mjob.State = append(mjob.State, job.State)
-			} else if job.State == "suspend" {
+				mjob.State = append(mjob.State, job_state)
+			} else if job_state == "suspend" {
 				// get failed task if info available, otherwise empty task array
 				mjob.State = append(mjob.State, "suspend")
 				parts := strings.Split(job.LastFailed, "_")
@@ -766,7 +780,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 				// In theory the db connection could be lost between
 				// checking user and load but seems unlikely.
 				// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
-				cx.RespondWithErrorMessage("job not found:"+id, http.StatusBadRequest)
+				cx.RespondWithErrorMessage("job not found:"+id+" "+err.Error(), http.StatusBadRequest)
 			}
 			return
 		}
@@ -779,7 +793,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
-			cx.RespondWithErrorMessage("job not found: "+id, http.StatusBadRequest)
+			cx.RespondWithErrorMessage("job not found: "+id+" "+err.Error(), http.StatusBadRequest)
 		}
 		return
 	}
@@ -905,11 +919,11 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 			cx.RespondWithErrorMessage("failed to set the token for job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		err = job.Save()
-		if err != nil {
-			cx.RespondWithErrorMessage("failed to save job: "+id+" "+err.Error(), http.StatusBadRequest)
-			return
-		}
+		//err = job.Save()
+		//if err != nil {
+		//	cx.RespondWithErrorMessage("failed to save job: "+id+" "+err.Error(), http.StatusBadRequest)
+		//	return
+		//}
 
 		cx.RespondWithData("data token set for job: " + id)
 		return

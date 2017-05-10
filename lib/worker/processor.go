@@ -62,9 +62,9 @@ func processor(control chan int) {
 		if work.State == core.WORK_STAT_FAIL || work_state == ID_DISCARDED {
 
 			if work_state == ID_DISCARDED {
-				processed.workunit.State = core.WORK_STAT_DISCARDED
+				processed.workunit.SetState(core.WORK_STAT_DISCARDED)
 			} else {
-				processed.workunit.State = core.WORK_STAT_FAIL
+				processed.workunit.SetState(core.WORK_STAT_FAIL)
 			}
 			fromProcessor <- processed
 			//release the permit lock, for work overlap inhibitted mode only
@@ -90,7 +90,7 @@ func processor(control chan int) {
 			if err != nil {
 				logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
 				processed.workunit.Notes = processed.workunit.Notes + "###[processor#SetEnv]" + err.Error()
-				processed.workunit.State = core.WORK_STAT_FAIL
+				processed.workunit.SetState(core.WORK_STAT_FAIL)
 				//release the permit lock, for work overlap inhibitted mode only
 				//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
 				//	<-chanPermit
@@ -105,10 +105,10 @@ func processor(control chan int) {
 		if err != nil {
 			logger.Error("RunWorkunit(): returned error , workid=" + work.Id + ", " + err.Error())
 			processed.workunit.Notes = processed.workunit.Notes + "###[processor#RunWorkunit]" + err.Error()
-			processed.workunit.State = core.WORK_STAT_FAIL
+			processed.workunit.SetState(core.WORK_STAT_FAIL)
 		} else {
 			logger.Debug(1, "RunWorkunit() returned without error, workid="+work.Id)
-			processed.workunit.State = core.WORK_STAT_COMPUTED
+			processed.workunit.SetState(core.WORK_STAT_COMPUTED)
 			processed.perfstat.MaxMemUsage = pstat.MaxMemUsage
 			processed.perfstat.MaxMemoryTotalRss = pstat.MaxMemoryTotalRss
 			processed.perfstat.MaxMemoryTotalSwap = pstat.MaxMemoryTotalSwap

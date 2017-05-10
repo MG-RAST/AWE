@@ -6,14 +6,15 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"net/http"
+	"strings"
+
 	"github.com/MG-RAST/AWE/lib/auth/basic"
 	"github.com/MG-RAST/AWE/lib/conf"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/user"
-	"io/ioutil"
-	"net/http"
-	"strings"
 )
 
 // Token response struct
@@ -125,9 +126,31 @@ func fetchProfile(t string) (u *user.User, err error) {
 }
 
 func clientId(t string) string {
-	for _, part := range strings.Split(t, "|") {
-		if kv := strings.Split(part, "="); kv[0] == "client_id" {
-			return kv[1]
+	client := &http.Client{
+		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
+	}
+	req, err := http.NewRequest("GET", conf.GLOBUS_TOKEN_URL, nil)
+	if err != nil {
+		errStr := "Error creating token request: " + err.Error()
+		logger.Error(errStr)
+		return ""
+	}
+	req.Header.Add("X-Globus-Goauthtoken", t)
+	if resp, err := client.Do(req); err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusOK {
+			if body, err := ioutil.ReadAll(resp.Body); err == nil {
+				var dat map[string]interface{}
+				if err = json.Unmarshal(body, &dat); err != nil {
+					errStr := "Error unmarshalling JSON body: " + err.Error()
+					logger.Error(errStr)
+				} else {
+					return dat["client_id"].(string)
+				}
+			}
+		} else {
+			errStr := "Authentication failed: " + resp.Status
+			logger.Error(errStr)
 		}
 	}
 	return ""

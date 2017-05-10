@@ -55,7 +55,7 @@ var JobAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
-			cx.RespondWithErrorMessage("job not found: "+jid, http.StatusBadRequest)
+			cx.RespondWithErrorMessage("job not found: "+jid+" "+err.Error(), http.StatusBadRequest)
 		}
 		return
 	}
@@ -122,7 +122,7 @@ var JobAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context) {
 		} else {
 			// In theory the db connection could be lost between
 			// checking user and load but seems unlikely.
-			cx.RespondWithErrorMessage("job not found: "+jid, http.StatusBadRequest)
+			cx.RespondWithErrorMessage("job not found: "+jid+" "+err.Error(), http.StatusBadRequest)
 		}
 		return
 	}

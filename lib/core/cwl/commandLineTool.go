@@ -99,31 +99,37 @@ func getCommandOutputBinding(object interface{}) (outputBinding CommandOutputBin
 // keyname will be converted into 'Id'-field
 func CreateCommandOutputArray(original interface{}) (new_array []*CommandOutputParameter, err error) {
 
-	for id_if, output_parameter_if := range original.(map[interface{}]interface{}) {
+	switch original.(type) {
+	case map[interface{}]interface{}:
+		for id_if, output_parameter_if := range original.(map[interface{}]interface{}) {
 
-		spew.Dump(output_parameter_if)
+			spew.Dump(output_parameter_if)
 
-		//var output_parameter CommandOutputParameter
-		//mapstructure.Decode(output_parameter_if, &output_parameter)
-		output_parameter, xerr := NewCommandOutputParameter(output_parameter_if)
-		if xerr != nil {
-			err = xerr
-			return
+			//var output_parameter CommandOutputParameter
+			//mapstructure.Decode(output_parameter_if, &output_parameter)
+			output_parameter, xerr := NewCommandOutputParameter(output_parameter_if)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+
+			outputBinding, xerr := getCommandOutputBinding(output_parameter_if)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			output_parameter.OutputBinding = outputBinding
+
+			output_parameter.Id = id_if.(string)
+			spew.Dump(output_parameter)
+
+			new_array = append(new_array, output_parameter)
+			//fmt.Printf("D")
+
 		}
-
-		outputBinding, xerr := getCommandOutputBinding(output_parameter_if)
-		if xerr != nil {
-			err = xerr
-			return
-		}
-		output_parameter.OutputBinding = outputBinding
-
-		output_parameter.Id = id_if.(string)
-		spew.Dump(output_parameter)
-
-		new_array = append(new_array, output_parameter)
-		//fmt.Printf("D")
-
+	default:
+		spew.Dump(original)
+		panic("xxx")
 	}
 	//spew.Dump(new_array)
 	return

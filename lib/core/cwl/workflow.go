@@ -146,12 +146,6 @@ type CommandLineBinding struct {
 	ShellQuote    bool   `yaml:"shellQuote"`
 }
 
-type CommandOutputBinding struct {
-	Glob         []Expression `yaml:"glob"`
-	LoadContents bool         `yaml:"loadContents"`
-	OutputEval   Expression   `yaml:"outputEval"`
-}
-
 // InputParameter
 func CreateInputParameterArray(original interface{}) (err error, new_array []InputParameter) {
 

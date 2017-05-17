@@ -119,6 +119,9 @@ type CommandLineBinding struct {
 // CreateWorkflowStepsArray
 func CreateWorkflowStepsArray(original interface{}) (err error, new_array []WorkflowStep) {
 
+
+	switch original.(type)  HERE
+
 	// iterate over workflow steps
 	for k, v := range original.(map[interface{}]interface{}) {
 		fmt.Printf("A step\n")

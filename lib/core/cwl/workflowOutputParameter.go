@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
+	"reflect"
 )
 
 type WorkflowOutputParameter struct {
@@ -39,16 +40,21 @@ func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParame
 	wop_type, ok := original_map["type"]
 	if ok {
 
-		original_map["type"], err = NewWorkflowOutputParameterType(wop_type)
-		if err != nil {
+		wop_type_array, xerr := NewWorkflowOutputParameterTypeArray(wop_type)
+		if xerr != nil {
+			err = fmt.Errorf("from NewWorkflowOutputParameterTypeArray: %s", xerr.Error())
 			return
 		}
+		fmt.Println("wop_type_array: \n")
+		fmt.Println(reflect.TypeOf(wop_type_array))
+
+		original_map["type"] = *wop_type_array
 
 	}
 
 	err = mapstructure.Decode(original, &output_parameter)
 	if err != nil {
-		err = fmt.Errorf("(NewWorkflowOutputParameter) %s", err.Error())
+		err = fmt.Errorf("(NewWorkflowOutputParameter) decode error: %s", err.Error())
 		return
 	}
 	wop = &output_parameter

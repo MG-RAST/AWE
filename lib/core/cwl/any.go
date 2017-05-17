@@ -24,7 +24,9 @@ func NewAny(native interface{}) (any Any, err error) {
 		return
 	}
 
-	// TODO File, Directory
+	err = fmt.Errorf("(NewAny) type unknown")
+
+	//TODO File, Directory
 
 	return
 

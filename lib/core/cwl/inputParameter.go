@@ -63,6 +63,14 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 
 		original_map := original.(map[interface{}]interface{})
 
+		input_parameter_default, ok := original_map["default"]
+		if ok {
+			original_map["default"], err = NewAny(input_parameter_default)
+			if err != nil {
+				return
+			}
+		}
+
 		inputParameter_type, ok := original_map["type"]
 		if ok {
 			original_map["type"], err = NewInputParameterTypeArray(inputParameter_type)
@@ -108,7 +116,7 @@ func NewInputParameterArray(original interface{}) (err error, new_array []InputP
 			input_parameter.Id = id
 
 			if input_parameter.Id == "" {
-				err = fmt.Errorf("ID is missing", id)
+				err = fmt.Errorf("ID is missing")
 				return
 			}
 
@@ -117,7 +125,27 @@ func NewInputParameterArray(original interface{}) (err error, new_array []InputP
 			//fmt.Printf("D")
 
 		}
+	case []interface{}:
+		original_array := original.([]interface{})
+		for _, v := range original_array {
+			//fmt.Printf("A")
 
+			input_parameter, xerr := NewInputParameter(v)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+
+			if input_parameter.Id == "" {
+				err = fmt.Errorf("ID is missing")
+				return
+			}
+
+			//fmt.Printf("C")
+			new_array = append(new_array, *input_parameter)
+			//fmt.Printf("D")
+
+		}
 	default:
 		spew.Dump(original)
 		err = fmt.Errorf("(NewInputParameterArray) type unknown")

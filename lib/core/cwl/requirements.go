@@ -97,8 +97,11 @@ func CreateRequirement(class string, v interface{}) (requirement Requirement, er
 	return
 }
 
-func CreateRequirementArray(original interface{}) (new_array []Requirement, err error) {
+func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement, err error) {
 	// here the keynames are actually class names
+
+	new_array := []Requirement{}
+	new_array_ptr = &new_array
 
 	switch original.(type) {
 	case map[interface{}]interface{}:

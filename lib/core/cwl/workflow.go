@@ -105,19 +105,6 @@ type WorkflowStepOutput struct {
 	Id string `yaml:"id"`
 }
 
-type WorkflowOutputParameter struct {
-	Id             string               `yaml:"id"`
-	Label          string               `yaml:"label"`
-	SecondaryFiles []Expression         `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         []Expression         `yaml:"format"`
-	Streamable     bool                 `yaml:"streamable"`
-	Doc            string               `yaml:"doc"`
-	OutputBinding  CommandOutputBinding `yaml:"outputBinding"` //TODO
-	OutputSource   []string             `yaml:"outputSource"`
-	LinkMerge      LinkMergeMethod      `yaml:"linkMerge"`
-	Type           string               `yaml:"type"` // TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
-}
-
 //http://www.commonwl.org/v1.0/Workflow.html#CommandLineBinding
 type CommandLineBinding struct {
 	LoadContents  bool   `yaml:"loadContents"`
@@ -127,28 +114,6 @@ type CommandLineBinding struct {
 	ItemSeparator string `yaml:"itemSeparator"`
 	ValueFrom     string `yaml:"valueFrom"`
 	ShellQuote    bool   `yaml:"shellQuote"`
-}
-
-// WorkflowOutputParameter
-func CreateWorkflowOutputParameterArray(original interface{}) (err error, new_array []WorkflowOutputParameter) {
-
-	for k, v := range original.(map[interface{}]interface{}) {
-		//fmt.Printf("A")
-
-		var output_parameter WorkflowOutputParameter
-		err = mapstructure.Decode(v, &output_parameter)
-		if err != nil {
-			err = fmt.Errorf("(CreateWorkflowOutputParameterArray) %s", err.Error())
-			return
-		}
-		output_parameter.Id = k.(string)
-		//fmt.Printf("C")
-		new_array = append(new_array, output_parameter)
-		//fmt.Printf("D")
-
-	}
-	//spew.Dump(new_array)
-	return
 }
 
 // CreateWorkflowStepsArray
@@ -377,80 +342,87 @@ func CreateWorkflowStepOutputArray(original interface{}) (err error, new_array [
 func NewWorkflow(object CWL_object_generic) (workflow Workflow, err error) {
 
 	// convert input map into input array
-	switch object["inputs"].(type) {
-	case map[interface{}]interface{}:
-		// Convert map of inputs into array of inputs
-		err, object["inputs"] = NewInputParameterArray(object["inputs"])
+
+	inputs, ok := object["inputs"]
+	if ok {
+		err, object["inputs"] = NewInputParameterArray(inputs)
 		if err != nil {
 			return
 		}
 	}
 
-	switch object["outputs"].(type) {
-	case map[interface{}]interface{}:
-		// Convert map of outputs into array of outputs
-		err, object["outputs"] = CreateWorkflowOutputParameterArray(object["outputs"])
+	outputs, ok := object["outputs"]
+	if ok {
+		object["outputs"], err = NewWorkflowOutputParameterArray(outputs)
 		if err != nil {
 			return
 		}
 	}
 
 	// convert steps to array if it is a map
-	switch object["steps"].(type) {
-	case map[interface{}]interface{}:
-		err, object["steps"] = CreateWorkflowStepsArray(object["steps"])
+	steps, ok := object["steps"]
+	if ok {
+		err, object["steps"] = CreateWorkflowStepsArray(steps)
 		if err != nil {
 			return
 		}
 	}
 
-	switch object["requirements"].(type) {
-	case map[interface{}]interface{}:
-		// Convert map of outputs into array of outputs
-		object["requirements"], err = CreateRequirementArray(object["requirements"])
+	requirements, ok := object["requirements"]
+	if ok {
+		object["requirements"], err = CreateRequirementArray(requirements)
 		if err != nil {
 			return
 		}
-	case []interface{}:
-		req_array := []Requirement{}
-
-		for _, requirement_if := range object["requirements"].([]interface{}) {
-			switch requirement_if.(type) {
-
-			case map[interface{}]interface{}:
-
-				requirement_map_if := requirement_if.(map[interface{}]interface{})
-				requirement_data_if, xerr := GetMapElement(requirement_map_if, "class")
-
-				if xerr != nil {
-					err = fmt.Errorf("Not sure how to parse Requirements, class not found")
-					return
-				}
-
-				switch requirement_data_if.(type) {
-				case string:
-					requirement_name := requirement_data_if.(string)
-					requirement, xerr := NewRequirement(requirement_name, requirement_data_if)
-					if xerr != nil {
-						err = fmt.Errorf("error creating Requirement %s: %s", requirement_name, xerr.Error())
-						return
-					}
-					req_array = append(req_array, requirement)
-				default:
-					err = fmt.Errorf("Not sure how to parse Requirements, not a string")
-					return
-
-				}
-			default:
-				err = fmt.Errorf("Not sure how to parse Requirements, map expected")
-				return
-
-			} // end switch
-
-		} // end for
-
-		object["requirements"] = req_array
 	}
+
+	//switch object["requirements"].(type) {
+	//case map[interface{}]interface{}:
+	// Convert map of outputs into array of outputs
+	//	object["requirements"], err = CreateRequirementArray(object["requirements"])
+	//	if err != nil {
+	//		return
+	//	}
+	//case []interface{}:
+	//	req_array := []Requirement{}
+
+	//	for _, requirement_if := range object["requirements"].([]interface{}) {
+	//		switch requirement_if.(type) {
+
+	//		case map[interface{}]interface{}:
+
+	//			requirement_map_if := requirement_if.(map[interface{}]interface{})
+	//			requirement_data_if, xerr := GetMapElement(requirement_map_if, "class")
+
+	//			if xerr != nil {
+	///				err = fmt.Errorf("Not sure how to parse Requirements, class not found")
+	//				return
+	//			}
+
+	//			switch requirement_data_if.(type) {
+	//			case string:
+	//				requirement_name := requirement_data_if.(string)
+	//				requirement, xerr := NewRequirement(requirement_name, requirement_data_if)
+	//				if xerr != nil {
+	//					err = fmt.Errorf("error creating Requirement %s: %s", requirement_name, xerr.Error())
+	//					return
+	//				}
+	//				req_array = append(req_array, requirement)
+	//			default:
+	//				err = fmt.Errorf("Not sure how to parse Requirements, not a string")
+	//				return
+
+	//			}
+	//		default:
+	//			err = fmt.Errorf("Not sure how to parse Requirements, map expected")
+	//			return
+
+	//		} // end switch
+
+	//	} // end for
+	//
+	//object["requirements"] = req_array
+	//}
 	fmt.Printf("......WORKFLOW raw")
 	spew.Dump(object)
 	//fmt.Printf("-- Steps found ------------") // WorkflowStep

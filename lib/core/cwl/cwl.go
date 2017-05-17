@@ -114,7 +114,7 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 			//collection = append(collection, result)
 		case "Workflow":
 			logger.Debug(1, "parse Workflow")
-			workflow, xerr := getWorkflow(elem)
+			workflow, xerr := NewWorkflow(elem)
 			if xerr != nil {
 				err = xerr
 				return
@@ -151,6 +151,7 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 			var cwl_file File
 			err = mapstructure.Decode(elem, &cwl_file)
 			if err != nil {
+				err = fmt.Errorf("(Parse_cwl_document/File) %s", err.Error())
 				return
 			}
 			if cwl_file.Id == "" {

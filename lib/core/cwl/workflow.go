@@ -6,7 +6,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	//"os"
 	"reflect"
-	"strings"
+	//"strings"
 )
 
 type Workflow struct {
@@ -105,23 +105,6 @@ type WorkflowStepOutput struct {
 	Id string `yaml:"id"`
 }
 
-type InputParameter struct {
-	Id             string             `yaml:"id"`
-	Label          string             `yaml:"label"`
-	SecondaryFiles []string           `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         string             `yaml:"format"`
-	Streamable     bool               `yaml:"streamable"`
-	Doc            string             `yaml:"doc"`
-	InputBinding   CommandLineBinding `yaml:"inputBinding"` //TODO
-	Default        Any                `yaml:"default"`
-	Type           string             `yaml:"type"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
-}
-
-func (i InputParameter) GetClass() string { return "InputParameter" }
-func (i InputParameter) GetId() string    { return i.Id }
-func (i InputParameter) SetId(id string)  { i.Id = id }
-func (i InputParameter) is_CWL_minimal()  {}
-
 type WorkflowOutputParameter struct {
 	Id             string               `yaml:"id"`
 	Label          string               `yaml:"label"`
@@ -146,66 +129,6 @@ type CommandLineBinding struct {
 	ShellQuote    bool   `yaml:"shellQuote"`
 }
 
-// InputParameter
-func CreateInputParameterArray(original interface{}) (err error, new_array []InputParameter) {
-
-	for k, v := range original.(map[interface{}]interface{}) {
-		//fmt.Printf("A")
-
-		var input_parameter InputParameter
-		id, ok := k.(string)
-		if !ok {
-			err = fmt.Errorf("Cannot parse id of input")
-			return
-		}
-		switch v.(type) {
-		case string:
-			type_string := v.(string)
-			switch strings.ToLower(type_string) {
-			case "string":
-				input_parameter = InputParameter{Id: id, Type: "string"}
-			case "int":
-				input_parameter = InputParameter{Id: id, Type: "int"}
-			case "file":
-				input_parameter = InputParameter{Id: id, Type: "file"}
-			default:
-				err = fmt.Errorf("unknown type: \"%s\"", type_string)
-				return
-			}
-		case int:
-			input_parameter = InputParameter{Id: id, Type: "int"}
-		case map[interface{}]interface{}:
-			mapstructure.Decode(v, &input_parameter)
-		default:
-			err = fmt.Errorf("cannot parse input \"%s\"", id)
-			return
-		}
-
-		if input_parameter.Id == "" {
-			input_parameter.Id = id
-		}
-
-		if input_parameter.Id == "" {
-			err = fmt.Errorf("ID is missing", id)
-			return
-		}
-
-		if input_parameter.Type == "" {
-			spew.Dump(v)
-			err = fmt.Errorf("Type not known \"%s\"", id)
-			return
-		}
-
-		//fmt.Printf("C")
-		new_array = append(new_array, input_parameter)
-		//fmt.Printf("D")
-
-	}
-	//spew.Dump(new_array)
-	//os.Exit(0)
-	return
-}
-
 // WorkflowOutputParameter
 func CreateWorkflowOutputParameterArray(original interface{}) (err error, new_array []WorkflowOutputParameter) {
 
@@ -213,7 +136,11 @@ func CreateWorkflowOutputParameterArray(original interface{}) (err error, new_ar
 		//fmt.Printf("A")
 
 		var output_parameter WorkflowOutputParameter
-		mapstructure.Decode(v, &output_parameter)
+		err = mapstructure.Decode(v, &output_parameter)
+		if err != nil {
+			err = fmt.Errorf("(CreateWorkflowOutputParameterArray) %s", err.Error())
+			return
+		}
 		output_parameter.Id = k.(string)
 		//fmt.Printf("C")
 		new_array = append(new_array, output_parameter)
@@ -285,7 +212,11 @@ func CreateWorkflowStepsArray(original interface{}) (err error, new_array []Work
 		}
 
 		var step WorkflowStep
-		mapstructure.Decode(v, &step)
+		err = mapstructure.Decode(v, &step)
+		if err != nil {
+			err = fmt.Errorf("(CreateWorkflowStepsArray) %s", err.Error())
+			return
+		}
 		step.Id = k.(string)
 
 		fmt.Printf("Last step\n")
@@ -344,7 +275,11 @@ func CreateWorkflowStepInputArray(original interface{}) (err error, new_array []
 			input_parameter.Default = &Int{Id: input_parameter.Id, Value: v.(int)}
 		case map[interface{}]interface{}:
 			fmt.Println("case map[interface{}]interface{}")
-			mapstructure.Decode(v, &input_parameter)
+			err = mapstructure.Decode(v, &input_parameter)
+			if err != nil {
+				err = fmt.Errorf("(CreateWorkflowStepInputArray) %s", err.Error())
+				return
+			}
 
 			// set Default field
 			default_value, errx := GetMapElement(v.(map[interface{}]interface{}), "default")
@@ -403,7 +338,11 @@ func CreateWorkflowStepOutputArray(original interface{}) (err error, new_array [
 			//fmt.Printf("A")
 
 			var output_parameter WorkflowStepOutput
-			mapstructure.Decode(v, &output_parameter)
+			err = mapstructure.Decode(v, &output_parameter)
+			if err != nil {
+				err = fmt.Errorf("(CreateWorkflowStepOutputArray) %s", err.Error())
+				return
+			}
 
 			output_parameter.Id = k.(string)
 			//fmt.Printf("C")
@@ -435,13 +374,13 @@ func CreateWorkflowStepOutputArray(original interface{}) (err error, new_array [
 	return
 }
 
-func getWorkflow(object CWL_object_generic) (workflow Workflow, err error) {
+func NewWorkflow(object CWL_object_generic) (workflow Workflow, err error) {
 
 	// convert input map into input array
 	switch object["inputs"].(type) {
 	case map[interface{}]interface{}:
 		// Convert map of inputs into array of inputs
-		err, object["inputs"] = CreateInputParameterArray(object["inputs"])
+		err, object["inputs"] = NewInputParameterArray(object["inputs"])
 		if err != nil {
 			return
 		}

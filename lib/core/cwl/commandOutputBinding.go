@@ -37,7 +37,11 @@ func NewCommandOutputBinding(original interface{}) (commandOutputBinding *Comman
 	}
 
 	commandOutputBinding = &CommandOutputBinding{}
-	mapstructure.Decode(original, &commandOutputBinding)
+	err = mapstructure.Decode(original, &commandOutputBinding)
+	if err != nil {
+		err = fmt.Errorf("(NewCommandOutputBinding) %s", err.Error())
+		return
+	}
 	//output_parameter.OutputBinding = outputBinding
 
 	return

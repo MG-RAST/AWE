@@ -40,16 +40,22 @@ func (f *File) GetLocation() string { return f.Location } // for CWL_location
 
 func (s *File) is_CommandInputParameterType() {} // for CommandInputParameterType
 
+func NewFile(obj interface{}) (file File, err error) {
+
+	file, err = MakeFile("unknown", obj)
+	return
+}
+
 func MakeFile(id string, obj interface{}) (file File, err error) {
 	file = File{}
 	err = mapstructure.Decode(obj, &file)
 	if err != nil {
-		err = fmt.Errorf("Could not convert File object %s", id)
+		err = fmt.Errorf("(MakeFile) Could not convert File object %s", id)
 		return
 	}
 
 	if file.Location == "" {
-		err = fmt.Errorf("Error file.Location is empty, id=%s", id)
+		err = fmt.Errorf("(MakeFile) Error file.Location is empty, id=%s", id)
 
 		return
 	}

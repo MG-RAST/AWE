@@ -10,15 +10,17 @@ import (
 type CWLType interface {
 	CWL_object
 	is_CommandInputParameterType()
+	is_CommandOutputParameterType()
 	is_CWLType()
 	//is_CWL_minimal()
 }
 
 type CWLType_Impl struct{}
 
-func (c *CWLType_Impl) is_CWL_minimal()               {}
-func (c *CWLType_Impl) is_CWLType()                   {}
-func (c *CWLType_Impl) is_CommandInputParameterType() {}
+func (c *CWLType_Impl) is_CWL_minimal()                {}
+func (c *CWLType_Impl) is_CWLType()                    {}
+func (c *CWLType_Impl) is_CommandInputParameterType()  {}
+func (c *CWLType_Impl) is_CommandOutputParameterType() {}
 
 func NewCWLType(native interface{}) (cwl_type CWLType, err error) {
 
@@ -44,9 +46,29 @@ func NewCWLType(native interface{}) (cwl_type CWLType, err error) {
 
 		cwl_type = &Boolean{Value: native_bool}
 
-	default:
-		err = fmt.Errorf("(NewAny) Type unknown")
+	case map[interface{}]interface{}:
+		empty, xerr := NewEmpty(native)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		switch empty.GetClass() {
+		case "File":
+			file, yerr := NewFile(native)
+			cwl_type = &file
+			if yerr != nil {
+				err = yerr
+				return
+			}
+		default:
+			err = fmt.Errorf("(NewCWLType) Map type unknown")
+			return
+		}
 
+	default:
+
+		err = fmt.Errorf("(NewCWLType) Type unknown")
+		return
 	}
 	//cwl_type_ptr = &cwl_type
 

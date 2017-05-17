@@ -506,7 +506,7 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 		spew.Dump(input)
 
 		id := input.Id
-		expected_type := input.Type
+		expected_types := input.Type
 		obj_ref, errx := collection.Get(id)
 		if errx != nil {
 
@@ -520,10 +520,11 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 		obj := *obj_ref
 		obj_type := obj.GetClass()
 
-		if strings.ToLower(obj_type) != strings.ToLower(expected_type) {
+		if !cwl.HasInputParameterType(expected_types, obj_type) {
+			//if strings.ToLower(obj_type) != strings.ToLower(expected_types) {
 			fmt.Printf("object found: ")
 			spew.Dump(obj)
-			err = fmt.Errorf("Expected type \"%s\", but got \"%s\" (id=%s)", expected_type, obj_type, id)
+			err = fmt.Errorf("Input.type array does not accept \"%s\" (id=%s)", obj_type, id)
 			return
 		}
 

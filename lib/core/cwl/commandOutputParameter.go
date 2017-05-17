@@ -32,7 +32,7 @@ func NewCommandOutputParameter(original interface{}) (output_parameter *CommandO
 
 		COPtype, ok := original_map["type"]
 		if ok {
-			original_map["type"], err = NewCommandOutputParameterType(COPtype)
+			original_map["type"], err = NewCommandOutputParameterTypeArray(COPtype)
 			if err != nil {
 				return
 			}
@@ -41,6 +41,7 @@ func NewCommandOutputParameter(original interface{}) (output_parameter *CommandO
 		output_parameter = &CommandOutputParameter{}
 		err = mapstructure.Decode(original, output_parameter)
 		if err != nil {
+			err = fmt.Errorf("(NewCommandOutputParameter) %s", err.Error())
 			return
 		}
 	default:

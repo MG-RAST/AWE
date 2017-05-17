@@ -41,6 +41,10 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 		input_parameter = &CommandInputParameter{}
 		err = mapstructure.Decode(v, input_parameter)
+		if err != nil {
+			err = fmt.Errorf("(NewCommandInputParameter) decode error: %s", err.Error())
+			return
+		}
 
 	default:
 		err = fmt.Errorf("(NewCommandInputParameter) type unknown")

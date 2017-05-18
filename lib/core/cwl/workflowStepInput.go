@@ -3,16 +3,17 @@ package cwl
 import (
 	"fmt"
 	//"github.com/davecgh/go-spew/spew"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/mitchellh/mapstructure"
 )
 
 //http://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
 type WorkflowStepInput struct {
-	Id        string          `yaml:"id"`
-	Source    []string        `yaml:"source"` // MultipleInputFeatureRequirement
-	LinkMerge LinkMergeMethod `yaml:"linkMerge"`
-	Default   Any             `yaml:"default"`   // type Any does not make sense
-	ValueFrom Expression      `yaml:"valueFrom"` // StepInputExpressionRequirement
+	Id        string               `yaml:"id"`
+	Source    []string             `yaml:"source"` // MultipleInputFeatureRequirement
+	LinkMerge LinkMergeMethod      `yaml:"linkMerge"`
+	Default   Any                  `yaml:"default"`   // type Any does not make sense
+	ValueFrom cwl_types.Expression `yaml:"valueFrom"` // StepInputExpressionRequirement
 }
 
 func (w WorkflowStepInput) GetClass() string { return "WorkflowStepInput" }
@@ -95,7 +96,7 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 				err = fmt.Errorf("(NewWorkflowStepInput) cannot convert valueFrom")
 				return
 			}
-			input_parameter.ValueFrom = Expression(valueFrom_str)
+			input_parameter.ValueFrom = cwl_types.Expression(valueFrom_str)
 		}
 		return
 

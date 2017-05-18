@@ -2,13 +2,14 @@ package cwl
 
 import (
 	"fmt"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/mitchellh/mapstructure"
 )
 
 type CommandOutputBinding struct {
-	Glob         []Expression `yaml:"glob"`
-	LoadContents bool         `yaml:"loadContents"`
-	OutputEval   Expression   `yaml:"outputEval"`
+	Glob         []cwl_types.Expression `yaml:"glob"`
+	LoadContents bool                   `yaml:"loadContents"`
+	OutputEval   cwl_types.Expression   `yaml:"outputEval"`
 }
 
 func NewCommandOutputBinding(original interface{}) (commandOutputBinding *CommandOutputBinding, err error) {
@@ -19,14 +20,14 @@ func NewCommandOutputBinding(original interface{}) (commandOutputBinding *Comman
 
 		glob, ok := original_map["glob"]
 		if ok {
-			original_map["glob"], err = NewExpressionArray(glob)
+			original_map["glob"], err = cwl_types.NewExpressionArray(glob)
 			if err != nil {
 				return
 			}
 		}
 		outputEval, ok := original_map["outputEval"]
 		if ok {
-			original_map["outputEval"], err = NewExpression(outputEval)
+			original_map["outputEval"], err = cwl_types.NewExpression(outputEval)
 			if err != nil {
 				return
 			}

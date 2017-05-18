@@ -2,12 +2,13 @@ package cwl
 
 import (
 	"fmt"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/mitchellh/mapstructure"
 )
 
 type CommandOutputParameter struct {
 	Id             string                       `yaml:"id"`
-	SecondaryFiles []Expression                 `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
+	SecondaryFiles []cwl_types.Expression       `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
 	Format         string                       `yaml:"format"`
 	Streamable     bool                         `yaml:"streamable"`
 	Type           []CommandOutputParameterType `yaml:"type"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>

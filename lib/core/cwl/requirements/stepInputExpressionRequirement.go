@@ -4,6 +4,9 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+// Indicate that the workflow platform must support the valueFrom field of WorkflowStepInput.
+
+//http://www.commonwl.org/v1.0/Workflow.html#StepInputExpressionRequirement
 type StepInputExpressionRequirement struct {
 	//Class         string `yaml:"class"`
 }

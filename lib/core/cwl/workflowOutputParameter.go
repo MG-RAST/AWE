@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"reflect"
@@ -10,8 +11,8 @@ import (
 type WorkflowOutputParameter struct {
 	Id             string                        `yaml:"id"`
 	Label          string                        `yaml:"label"`
-	SecondaryFiles []Expression                  `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         []Expression                  `yaml:"format"`
+	SecondaryFiles []cwl_types.Expression        `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
+	Format         []cwl_types.Expression        `yaml:"format"`
 	Streamable     bool                          `yaml:"streamable"`
 	Doc            string                        `yaml:"doc"`
 	OutputBinding  CommandOutputBinding          `yaml:"outputBinding"` //TODO

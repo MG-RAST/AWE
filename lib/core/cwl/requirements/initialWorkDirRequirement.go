@@ -4,8 +4,10 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+// http://www.commonwl.org/v1.0/CommandLineTool.html#InitialWorkDirRequirement
 type InitialWorkDirRequirement struct {
 	//Class         string `yaml:"class"`
+	listing string `yaml:"listing"` // TODO: array<File | Directory | Dirent | string | Expression> | string | Expression
 }
 
 func (c InitialWorkDirRequirement) GetClass() string { return "InitialWorkDirRequirement" }

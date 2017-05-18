@@ -9,6 +9,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/davecgh/go-spew/spew"
 	//aw_sequences"os"
+	requirements "github.com/MG-RAST/AWE/lib/core/cwl/requirements"
 	"strconv"
 	"strings"
 )
@@ -343,7 +344,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 		class := requirement.GetClass()
 		switch class {
 		case "DockerRequirement":
-			dr := requirement.(cwl.DockerRequirement)
+			dr := requirement.(requirements.DockerRequirement)
 			if dr.DockerPull != "" {
 				awe_task.Cmd.Dockerimage = dr.DockerPull
 			}
@@ -540,7 +541,7 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 	for _, r := range cwl_workflow.Requirements { // TODO put ShockRequirement in Hints
 		switch r.GetClass() {
 		case "ShockRequirement":
-			sr, ok := r.(cwl.ShockRequirement)
+			sr, ok := r.(requirements.ShockRequirement)
 			if !ok {
 				err = fmt.Errorf("Could not assert ShockRequirement")
 				return

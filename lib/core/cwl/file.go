@@ -32,7 +32,7 @@ type File struct {
 	Token  string
 }
 
-func (f *File) GetClass() string    { return "File" }
+func (f *File) GetClass() string    { return CWL_File }
 func (f *File) GetId() string       { return f.Id }
 func (f *File) SetId(id string)     { f.Id = id }
 func (f *File) String() string      { return f.Path }

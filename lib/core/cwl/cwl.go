@@ -14,6 +14,18 @@ import (
 	"strings"
 )
 
+// http://www.commonwl.org/draft-3/CommandLineTool.html#CWLType
+const (
+	CWL_null    = "null"    //no value
+	CWL_boolean = "boolean" //a binary value
+	CWL_int     = "int"     //32-bit signed integer
+	CWL_long    = "long"    //64-bit signed integer
+	CWL_float   = "float"   //single precision (32-bit) IEEE 754 floating-point number
+	CWL_double  = "double"  //double precision (64-bit) IEEE 754 floating-point number
+	CWL_string  = "string"  //Unicode character sequence
+	CWL_File    = "File"    //A File object
+)
+
 type CWL_minimal_interface interface {
 	is_CWL_minimal()
 }
@@ -114,7 +126,7 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 			//collection = append(collection, result)
 		case "Workflow":
 			logger.Debug(1, "parse Workflow")
-			workflow, xerr := NewWorkflow(elem)
+			workflow, xerr := NewWorkflow(elem, collection)
 			if xerr != nil {
 				err = xerr
 				return
@@ -128,9 +140,12 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 					err = fmt.Errorf("input has no ID")
 					return
 				}
-				if !strings.HasPrefix(input.Id, "inputs.") {
-					input.Id = "inputs." + input.Id
-				}
+
+				//if !strings.HasPrefix(input.Id, "#") {
+				//	if !strings.HasPrefix(input.Id, "inputs.") {
+				//		input.Id = "inputs." + input.Id
+				//	}
+				//}
 				err = collection.Add(input)
 				if err != nil {
 					return

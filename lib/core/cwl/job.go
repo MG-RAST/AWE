@@ -7,85 +7,70 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"io/ioutil"
 	//"os"
-	"strings"
+	//"strings"
 )
 
-type Job_document map[string]interface{}
+//type Job_document map[string]interface{}
 
-func ParseJob(collection *CWL_collection, job_file string) (err error) {
+type Job_document map[string]CWLType
+
+func NewJob_document(original interface{}) (job *Job_document, err error) {
+
+	job = &Job_document{}
+
+	switch original.(type) {
+	case map[interface{}]interface{}:
+		original_map := original.(map[interface{}]interface{})
+
+		keys := []string{}
+		for key, _ := range original_map {
+			key_str, ok := key.(string)
+			if !ok {
+				err = fmt.Errorf("key is not string")
+				return
+			}
+			keys = append(keys, key_str)
+
+		}
+
+		for _, key := range keys {
+			value := original_map[key]
+			cwl_obj, xerr := NewCWLType(value)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			original_map[key] = cwl_obj
+		}
+
+		err = mapstructure.Decode(original, &job)
+		if err != nil {
+			err = fmt.Errorf("(NewCommandOutputBinding) %s", err.Error())
+			return
+		}
+	case []interface{}:
+		err = fmt.Errorf("(NewJob_document) type array not supported yet")
+		return
+	default:
+		err = fmt.Errorf("(NewJob_document) type unknown")
+	}
+	return
+}
+
+func ParseJob(collection *CWL_collection, job_file string) (job_input *Job_document, err error) {
 
 	job_stream, err := ioutil.ReadFile(job_file)
 	if err != nil {
 		return
 	}
 
-	job := Job_document{}
-	Unmarshal(job_stream, &job)
+	job_gen := map[interface{}]interface{}{}
+	Unmarshal(job_stream, &job_gen)
 
-	for key, value := range job {
+	job_input, err = NewJob_document(job_gen)
 
-		switch value.(type) {
-		case bool:
-
-			value_bool := value.(bool)
-
-			err = collection.Add(&Boolean{Id: key, Value: value_bool})
-			if err != nil {
-				return
-			}
-
-		case string:
-
-			value_str := value.(string)
-
-			err = collection.Add(&String{Id: key, Value: value_str})
-			if err != nil {
-				return
-			}
-		case int:
-			err = collection.Add(&Int{Id: key, Value: value.(int)})
-			if err != nil {
-				return
-			}
-		case map[interface{}]interface{}:
-
-			obj_empty := &Empty{}
-
-			err = mapstructure.Decode(value, &obj_empty)
-			if err != nil {
-				err = fmt.Errorf("Could not convert into CWL object object")
-				return
-			}
-			spew.Dump(obj_empty)
-
-			class := strings.ToLower(obj_empty.Class)
-
-			if class == "" {
-				err = fmt.Errorf("CWL object \"%s\" has unknown class", key)
-				return
-			}
-
-			switch class {
-			case "file":
-				f, xerr := MakeFile(key, value)
-				if xerr != nil {
-					err = xerr
-					return
-				}
-				err = collection.Add(&f)
-				if err != nil {
-					return
-				}
-			default:
-				err = fmt.Errorf("Object class %s in %s unknown ", class, key)
-				return
-			}
-
-		default:
-			err = fmt.Errorf("Object \"%s\" unknown.", key)
-			return
-		}
-
+	if err != nil {
+		return
 	}
 
 	fmt.Printf("-------MyCollection")

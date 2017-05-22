@@ -11,7 +11,7 @@ type WorkflowStep struct {
 	Id            string               `yaml:"id"`
 	In            []WorkflowStepInput  `yaml:"in"` // array<WorkflowStepInput> | map<WorkflowStepInput.id, WorkflowStepInput.source> | map<WorkflowStepInput.id, WorkflowStepInput>
 	Out           []WorkflowStepOutput `yaml:"out"`
-	Run           string               `yaml:"run"` // Specification unclear: string | CommandLineTool | ExpressionTool | Workflow
+	Run           *Process             `yaml:"run"` // Specification unclear: string | CommandLineTool | ExpressionTool | Workflow
 	Requirements  []Requirement        `yaml:"requirements"`
 	Hints         []Requirement        `yaml:"hints"`
 	Label         string               `yaml:"label"`
@@ -20,7 +20,7 @@ type WorkflowStep struct {
 	ScatterMethod string               `yaml:"scatterMethod"` // ScatterFeatureRequirement
 }
 
-func NewWorkflowStep(original interface{}) (w *WorkflowStep, err error) {
+func NewWorkflowStep(original interface{}, collection *CWL_collection) (w *WorkflowStep, err error) {
 	var step WorkflowStep
 
 	switch original.(type) {
@@ -41,6 +41,15 @@ func NewWorkflowStep(original interface{}) (w *WorkflowStep, err error) {
 			v_map["out"], err = CreateWorkflowStepOutputArray(step_out)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) CreateWorkflowStepOutputArray %s", err.Error())
+				return
+			}
+		}
+
+		run, ok := v_map["run"]
+		if ok {
+			v_map["run"], err = NewProcess(run, collection)
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflowStep) run %s", err.Error())
 				return
 			}
 		}
@@ -102,7 +111,7 @@ type CommandLineBinding struct {
 }
 
 // CreateWorkflowStepsArray
-func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]WorkflowStep) {
+func CreateWorkflowStepsArray(original interface{}, collection *CWL_collection) (err error, array_ptr *[]WorkflowStep) {
 
 	array := []WorkflowStep{}
 
@@ -118,7 +127,7 @@ func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]Wor
 			fmt.Println("type: ")
 			fmt.Println(reflect.TypeOf(v))
 
-			step, xerr := NewWorkflowStep(v)
+			step, xerr := NewWorkflowStep(v, collection)
 			if xerr != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", xerr.Error())
 				return
@@ -146,7 +155,7 @@ func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]Wor
 			fmt.Println("type: ")
 			fmt.Println(reflect.TypeOf(v))
 
-			step, xerr := NewWorkflowStep(v)
+			step, xerr := NewWorkflowStep(v, collection)
 			if xerr != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", xerr.Error())
 				return

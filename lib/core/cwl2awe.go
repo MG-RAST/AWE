@@ -10,6 +10,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	//aw_sequences"os"
 	requirements "github.com/MG-RAST/AWE/lib/core/cwl/requirements"
+	"path"
 	"strconv"
 	"strings"
 )
@@ -74,7 +75,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 		id := workflow_step_input.Id
 
 		if id == "" {
-			err = fmt.Errorf("id is empty")
+			err = fmt.Errorf("(createAweTask) id is empty")
 			return
 		}
 
@@ -101,13 +102,13 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 						// recurse into depending step
 						err = cwl_step_2_awe_task(helper, linked_step_name)
 						if err != nil {
-							err = fmt.Errorf("source empty (%s) (%s)", id, err.Error())
+							err = fmt.Errorf("(createAweTask) source empty (%s) (%s)", id, err.Error())
 							return
 						}
 
 						this2_linked_step, ok := (*processed_ws)[linked_step_name]
 						if !ok {
-							err = fmt.Errorf("linked_step %s not found after processing", linked_step_name)
+							err = fmt.Errorf("(createAweTask) linked_step %s not found after processing", linked_step_name)
 							return
 						}
 						linked_step = *this2_linked_step
@@ -121,7 +122,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 
 					linked_awe_task, ok := (*helper.AWE_tasks)[linked_step_name]
 					if !ok {
-						err = fmt.Errorf("Could not find AWE task for linked step %s", linked_step_name)
+						err = fmt.Errorf("(createAweTask) Could not find AWE task for linked step %s", linked_step_name)
 						return
 					}
 					linked_task_id := linked_awe_task.Id
@@ -136,7 +137,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 					}
 
 					if linked_filename == "" {
-						err = fmt.Errorf("Output %s not found", fieldname)
+						err = fmt.Errorf("(createAweTask) Output %s not found", fieldname)
 						return
 					}
 					//linked_output, err = linked_step.GetOutput(fieldname)
@@ -158,8 +159,8 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 
 					obj_local := *obj
 					obj_local.SetId(id)
-					fmt.Printf("ADDEDb %s\n", id)
-					fmt.Printf("ADDED2b %s\n", obj_local.GetId())
+					fmt.Printf("(createAweTask) ADDEDb %s\n", id)
+					fmt.Printf("(createAweTask) ADDED2b %s\n", obj_local.GetId())
 					err = local_collection.Add(obj_local)
 					if err != nil {
 						return
@@ -429,7 +430,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 }
 
 func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
-	logger.Debug(1, "cwl_step_2_awe_task, step_id: "+step_id)
+	logger.Debug(1, "(cwl_step_2_awe_task) step_id: "+step_id)
 
 	processed_ws := helper.processed_ws
 	job := helper.job
@@ -442,19 +443,22 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 	delete(*helper.unprocessed_ws, step_id) // will be added at the end of this function to processed_ws
 
 	spew.Dump(step)
-	fmt.Println("run: " + step.Run)
+	process := step.Run
+	_ = process
+	//fmt.Println("run: " + step.Run)
 	cmdlinetool_str := ""
-	if strings.HasPrefix(step.Run, "#") {
-		// '#' it is a URI relative fragment identifier
-		cmdlinetool_str = strings.TrimPrefix(step.Run, "#")
 
-	}
+	//if strings.HasPrefix(step.Run, "#") {
+	// '#' it is a URI relative fragment identifier
+	//	cmdlinetool_str = strings.TrimPrefix(step.Run, "#")
+
+	//}
 
 	// TODO detect identifier URI (http://www.commonwl.org/v1.0/SchemaSalad.html#Identifier_resolution)
 	// TODO: strings.Contains(step.Run, ":") or use split
 
 	if cmdlinetool_str == "" {
-		err = errors.New("Run string empty")
+		err = errors.New("(cwl_step_2_awe_task) Run string empty")
 		return
 	}
 
@@ -463,7 +467,8 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 	cmdlinetool, ok := CommandLineTools[cmdlinetool_str]
 
 	if !ok {
-		err = errors.New("CommandLineTool not found: " + cmdlinetool_str)
+		err = errors.New("(cwl_step_2_awe_task) CommandLineTool not found: " + cmdlinetool_str)
+		return
 	}
 
 	pos := len(*helper.processed_ws)
@@ -474,11 +479,11 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 	var awe_task *Task
 	awe_task, err = NewTask(job, pos_str)
 	if err != nil {
-		err = fmt.Errorf("Task creation failed: %v", err)
+		err = fmt.Errorf("(cwl_step_2_awe_task) Task creation failed: %v", err)
 		return
 	}
 	awe_task.Init(job)
-	logger.Debug(1, "Task created: %s", awe_task.Id)
+	logger.Debug(1, "(cwl_step_2_awe_task) Task created: %s", awe_task.Id)
 
 	(*helper.AWE_tasks)[job.Id] = awe_task
 	awe_task.JobId = job.Id
@@ -491,7 +496,7 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 	job.Tasks = append(job.Tasks, awe_task)
 
 	(*processed_ws)[step.Id] = step
-	logger.Debug(1, "LEAVING cwl_step_2_awe_task, step_id: "+step_id)
+	logger.Debug(1, "(cwl_step_2_awe_task) LEAVING , step_id: "+step_id)
 	return
 }
 
@@ -507,9 +512,28 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 		spew.Dump(input)
 
 		id := input.Id
+		logger.Debug(3, "Parsing workflow input %s", id)
+		//if strings.HasPrefix(id, "#") {
+		//	workflow_prefix := cwl_workflow.Id + "/"
+		//	if strings.HasPrefix(id, workflow_prefix) {
+		//		id = strings.TrimPrefix(id, workflow_prefix)
+		//		logger.Debug(3, "using new id : %s", id)
+		//	} else {
+		//		err = fmt.Errorf("prefix of id %s does not match workflow id %s with workflow_prefix: %s", id, cwl_workflow.Id, workflow_prefix)
+		//		return
+		//	}
+		//}
+
+		id_base := path.Base(id)
 		expected_types := input.Type
-		obj_ref, errx := collection.Get(id)
-		if errx != nil {
+
+		job_input := *(collection.Job_input)
+		obj_ref, ok := job_input[id_base]
+		if !ok {
+
+			if cwl.HasInputParameterType(expected_types, cwl.CWL_null) { // null type means parameter is optional
+				continue
+			}
 
 			fmt.Printf("-------Collection")
 			spew.Dump(collection.All)
@@ -517,20 +541,28 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 			fmt.Printf("-------")
 			err = fmt.Errorf("value for workflow input \"%s\" not found", id)
 			return
-		}
-		obj := *obj_ref
-		obj_type := obj.GetClass()
 
-		if !cwl.HasInputParameterType(expected_types, obj_type) {
+		}
+
+		//obj := *obj_ref
+		obj_type := obj_ref.GetClass()
+		logger.Debug(1, "obj_type: %s", obj_type)
+		found_type := cwl.HasInputParameterType(expected_types, obj_type)
+
+		if !found_type {
 			//if strings.ToLower(obj_type) != strings.ToLower(expected_types) {
 			fmt.Printf("object found: ")
-			spew.Dump(obj)
-			err = fmt.Errorf("Input.type array does not accept \"%s\" (id=%s)", obj_type, id)
+			spew.Dump(obj_ref)
+			expected_types_str := ""
+
+			for _, elem := range *expected_types {
+				expected_types_str += "," + elem.Type
+			}
+			fmt.Printf("cwl_workflow.Inputs")
+			spew.Dump(cwl_workflow.Inputs)
+			err = fmt.Errorf("Input %s expects types %s, but got %s)", id, expected_types_str, obj_type)
 			return
 		}
-
-		_ = obj
-		_ = obj_ref
 
 	}
 	//os.Exit(0)
@@ -554,8 +586,10 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 	}
 
 	if !found_ShockRequirement {
-		err = fmt.Errorf("ShockRequirement has to be provided in the workflow object")
-		return
+		//err = fmt.Errorf("ShockRequirement has to be provided in the workflow object")
+		//return
+		job.ShockHost = "http://shock:7445"
+
 	}
 	logger.Debug(1, "Requirements checked")
 

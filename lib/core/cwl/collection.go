@@ -17,6 +17,7 @@ type CWL_collection struct {
 	Ints               map[string]*Int
 	Booleans           map[string]*Boolean
 	All                map[string]*CWL_object
+	Job_input          *Job_document
 }
 
 func (c CWL_collection) Evaluate(raw string) (parsed string) {
@@ -64,6 +65,15 @@ func (c CWL_collection) Add(obj CWL_object) (err error) {
 		return
 	}
 
+	logger.Debug(3, "Adding object %s to collection", id)
+
+	_, ok := c.All[id]
+	if ok {
+		err = fmt.Errorf("Object %s already in collection", id)
+		return
+	}
+	//id = strings.TrimPrefix(id, "#")
+
 	switch obj.GetClass() {
 	case "Workflow":
 		c.Workflows[id] = obj.(*Workflow)
@@ -93,6 +103,9 @@ func (c CWL_collection) Add(obj CWL_object) (err error) {
 func (c CWL_collection) Get(id string) (obj *CWL_object, err error) {
 	obj, ok := c.All[id]
 	if !ok {
+		for k, _ := range c.All {
+			logger.Debug(3, "collection: %s", k)
+		}
 		err = fmt.Errorf("item %s not found in collection", id)
 	}
 	return

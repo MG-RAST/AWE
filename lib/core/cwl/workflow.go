@@ -27,6 +27,7 @@ func (w *Workflow) GetId() string    { return w.Id }
 func (w *Workflow) SetId(id string)  { w.Id = id }
 func (w *Workflow) is_CWL_minimal()  {}
 func (w *Workflow) is_Any()          {}
+func (w *Workflow) is_process()      {}
 
 func GetMapElement(m map[interface{}]interface{}, key string) (value interface{}, err error) {
 
@@ -43,7 +44,7 @@ func GetMapElement(m map[interface{}]interface{}, key string) (value interface{}
 	return
 }
 
-func NewWorkflow(object CWL_object_generic) (workflow Workflow, err error) {
+func NewWorkflow(object CWL_object_generic, collection *CWL_collection) (workflow Workflow, err error) {
 
 	// convert input map into input array
 
@@ -66,7 +67,7 @@ func NewWorkflow(object CWL_object_generic) (workflow Workflow, err error) {
 	// convert steps to array if it is a map
 	steps, ok := object["steps"]
 	if ok {
-		err, object["steps"] = CreateWorkflowStepsArray(steps)
+		err, object["steps"] = CreateWorkflowStepsArray(steps, collection)
 		if err != nil {
 			return
 		}

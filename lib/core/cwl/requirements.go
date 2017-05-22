@@ -18,6 +18,9 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 	case "DockerRequirement":
 		r, err = requirements.NewDockerRequirement(obj)
 		return
+	case "EnvVarRequirement":
+		r, err = requirements.NewEnvVarRequirement(obj)
+		return
 	case "StepInputExpressionRequirement":
 		r, err = requirements.NewStepInputExpressionRequirement(obj)
 		return

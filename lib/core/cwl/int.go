@@ -11,7 +11,7 @@ type Int struct {
 	Value int    `yaml:"value"`
 }
 
-func (i *Int) GetClass() string { return "Int" }
+func (i *Int) GetClass() string { return CWL_int }
 func (i *Int) GetId() string {
 	fmt.Printf("GetId id=%s\n", i.Id)
 	return i.Id

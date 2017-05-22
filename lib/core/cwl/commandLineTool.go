@@ -28,6 +28,7 @@ func (c *CommandLineTool) GetClass() string { return "CommandLineTool" }
 func (c *CommandLineTool) GetId() string    { return c.Id }
 func (c *CommandLineTool) SetId(id string)  { c.Id = id }
 func (c *CommandLineTool) is_CWL_minimal()  {}
+func (c *CommandLineTool) is_process()      {}
 
 // keyname will be converted into 'Id'-field
 

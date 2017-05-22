@@ -6,8 +6,8 @@ type Boolean struct {
 	Value bool   `yaml:"value"`
 }
 
-func (s *Boolean) GetClass() string { return "Boolean" } // for CWL_object
-func (s *Boolean) GetId() string    { return s.Id }      // for CWL_object
+func (s *Boolean) GetClass() string { return CWL_boolean } // for CWL_object
+func (s *Boolean) GetId() string    { return s.Id }        // for CWL_object
 func (s *Boolean) SetId(id string)  { s.Id = id }
 func (s *Boolean) String() string {
 	if s.Value {

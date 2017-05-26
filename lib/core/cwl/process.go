@@ -13,7 +13,7 @@ type Process interface {
 }
 
 // returns CommandLineTool, ExpressionTool or Workflow
-func NewProcess(original interface{}, collection *CWL_collection) (process_ptr *Process, err error) {
+func NewProcess(original interface{}, collection *CWL_collection) (process Process, err error) {
 
 	switch original.(type) {
 	case string:
@@ -28,12 +28,12 @@ func NewProcess(original interface{}, collection *CWL_collection) (process_ptr *
 
 		something := *something_ptr
 
-		process, ok := something.(Process)
+		var ok bool
+		process, ok = something.(Process)
 		if !ok {
 			err = fmt.Errorf("%s does not seem to be a process: %s", original_str)
 			return
 		}
-		process_ptr = &process
 
 	default:
 		err = fmt.Errorf("(NewProcess) type unknown")

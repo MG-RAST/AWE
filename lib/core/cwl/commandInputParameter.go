@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -14,7 +15,7 @@ type CommandInputParameter struct {
 	Label          string                      `yaml:"label"`
 	Description    string                      `yaml:"description"`
 	InputBinding   CommandLineBinding          `yaml:"inputBinding"`
-	Default        Any                         `yaml:"default"`
+	Default        *Any                        `yaml:"default"`
 }
 
 func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParameter, err error) {
@@ -25,10 +26,16 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 		default_value, ok := v_map["default"]
 		if ok {
-			v_map["default"], err = NewAny(default_value) // TODO return Int or similar
-			if err != nil {
+			fmt.Println("FOUND default key")
+			default_input, xerr := NewAny(default_value) // TODO return Int or similar
+			if xerr != nil {
+				err = xerr
 				return
 			}
+			spew.Dump(default_input)
+			v_map["default"] = default_input
+		} else {
+			fmt.Println("FOUND NOT default key")
 		}
 
 		type_value, ok := v_map["type"]

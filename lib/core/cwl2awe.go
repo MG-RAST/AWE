@@ -261,16 +261,19 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 	fmt.Println("=============================================== expected inputs")
 	for _, expected_input := range cwl_tool.Inputs {
 		// input is a cwl.CommandInputParameter
+		fmt.Println("expected_input:")
+		spew.Dump(expected_input)
 
 		id := expected_input.Id
 		_ = id
+		expected_types := expected_input.Type
+		//if len(expected_input.Type) > 1 {
+		//	err = fmt.Errorf("Not yet supported: len(expected_input.Type) > 1")
+		//	return
+		//}
 
-		if len(expected_input.Type) > 1 {
-			err = fmt.Errorf("Not yet supported: len(expected_input.Type) > 1")
-			return
-		}
-		expected_input_parameter_type_0 := expected_input.Type[0]
-		_ = expected_input_parameter_type_0
+		//expected_input_parameter_type_0 := expected_input.Type[0]
+		//_ = expected_input_parameter_type_0
 		//input_optional := strings.HasSuffix(expected_input_type_0, "?") TODO
 		//expected_input_type := strings.ToLower(strings.TrimSuffix(expected_input_type_0, "?"))TODO
 		//_ = input_optional
@@ -292,72 +295,85 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 		var obj *cwl.CWL_object
 		obj, err = local_collection.Get(id)
 		if err != nil {
-
+			// TODO compare type
 			io_struct, ok := linked_IO[id]
-			if !ok {
-				err = fmt.Errorf("%s not found in local_collection or linked_IO", id)
+			if ok {
+				awe_task.Inputs = append(awe_task.Inputs, io_struct)
+				// TODO
+				// io_struct.DataToken = ..
 
-				fmt.Println("-------------------------------------------------")
-				spew.Dump(local_collection)
-				spew.Dump(linked_IO)
+			} else {
 
+				default_input := expected_input.Default
+				if default_input != nil {
+
+					// probably not a file, but some argument
+
+					obj_nptr := (*default_input).(cwl.CWL_object)
+					obj = &obj_nptr
+
+				} else {
+
+					if !cwl.HasCommandInputParameterType(&expected_types, cwl.CWL_null) {
+						err = fmt.Errorf("%s not found in local_collection or linked_IO, and no default found", id)
+
+						fmt.Println("-------------------------------------------------")
+						spew.Dump(local_collection)
+						spew.Dump(linked_IO)
+						return
+					}
+					continue
+				}
+
+			}
+
+		}
+
+		obj_class := (*obj).GetClass()
+		switch obj_class {
+
+		case "File":
+
+			var file_obj *cwl.File
+			file_obj, err = local_collection.GetFile(id)
+			if err != nil {
+				err = fmt.Errorf("%s not found in local_collection ", id)
 				return
 			}
 
-			// TODO
-			// io_struct.DataToken = ..
+			// TODO HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE
+			input_string = file_obj.Basename
 
-			awe_task.Inputs = append(awe_task.Inputs, io_struct)
+			awe_input := NewIO()
+			awe_input.FileName = file_obj.Basename
+			awe_input.Name = file_obj.Id
+			awe_input.Host = file_obj.Host
+			awe_input.Node = file_obj.Node
+			//awe_input.Url=input_file.
+			awe_input.DataToken = file_obj.Token
 
-		} else {
+			awe_task.Inputs = append(awe_task.Inputs, awe_input)
+		case "String":
 
-			obj_class := (*obj).GetClass()
-			switch obj_class {
-
-			case "File":
-
-				var file_obj *cwl.File
-				file_obj, err = local_collection.GetFile(id)
-				if err != nil {
-					err = fmt.Errorf("%s not found in local_collection ", id)
-					return
-				}
-
-				// TODO HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE HERE
-				input_string = file_obj.Basename
-
-				awe_input := NewIO()
-				awe_input.FileName = file_obj.Basename
-				awe_input.Name = file_obj.Id
-				awe_input.Host = file_obj.Host
-				awe_input.Node = file_obj.Node
-				//awe_input.Url=input_file.
-				awe_input.DataToken = file_obj.Token
-
-				awe_task.Inputs = append(awe_task.Inputs, awe_input)
-			case "String":
-
-				var string_obj *cwl.String
-				string_obj, err = local_collection.GetString(id)
-				if err != nil {
-					err = fmt.Errorf("%s not found in local_collection ", id)
-					return
-				}
-				input_string = string_obj.String()
-			case "Int":
-
-				var int_obj *cwl.Int
-				int_obj, err = local_collection.GetInt(id)
-				if err != nil {
-					err = fmt.Errorf("%s not found in local_collection ", id)
-					return
-				}
-				input_string = int_obj.String()
-			default:
-
-				err = fmt.Errorf("not implemented yet (%s)", obj_class)
-
+			var string_obj *cwl.String
+			string_obj, err = local_collection.GetString(id)
+			if err != nil {
+				err = fmt.Errorf("%s not found in local_collection ", id)
+				return
 			}
+			input_string = string_obj.String()
+		case "Int":
+
+			var int_obj *cwl.Int
+			int_obj, err = local_collection.GetInt(id)
+			if err != nil {
+				err = fmt.Errorf("%s not found in local_collection ", id)
+				return
+			}
+			input_string = int_obj.String()
+		default:
+
+			err = fmt.Errorf("not implemented yet (%s)", obj_class)
 
 		}
 

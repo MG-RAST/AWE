@@ -87,3 +87,12 @@ func CreateCommandInputParameterTypeArray(v interface{}) (cipt_array_ptr *[]Comm
 
 	return
 }
+
+func HasCommandInputParameterType(array *[]CommandInputParameterType, search_type string) (ok bool) {
+	for _, v := range *array {
+		if v.Type == search_type {
+			return true
+		}
+	}
+	return false
+}

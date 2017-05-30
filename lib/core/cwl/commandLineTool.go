@@ -3,7 +3,7 @@ package cwl
 import (
 	//"errors"
 	"fmt"
-	//"github.com/davecgh/go-spew/spew"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -33,6 +33,9 @@ func (c *CommandLineTool) is_process()      {}
 // keyname will be converted into 'Id'-field
 
 func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
+
+	fmt.Println("NewCommandLineTool:")
+	spew.Dump(object)
 
 	commandLineTool = &CommandLineTool{}
 
@@ -72,7 +75,7 @@ func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLine
 		err = fmt.Errorf("error parsing CommandLineTool class: %s", err.Error())
 		return
 	}
-	//spew.Dump(commandLineTool)
+	spew.Dump(commandLineTool)
 
 	return
 }

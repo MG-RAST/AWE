@@ -126,6 +126,18 @@ func fetchProfile(t string) (u *user.User, err error) {
 }
 
 func clientId(t string) string {
+	// test for old format first
+	var cid string
+	for _, part := range strings.Split(t, "|") {
+		if kv := strings.Split(part, "="); kv[0] == "client_id" {
+			cid = kv[1]
+			break
+		}
+	}
+	if cid != "" {
+		return cid
+	}
+	// now use new format
 	client := &http.Client{
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	}

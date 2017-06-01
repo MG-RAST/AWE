@@ -12,6 +12,18 @@ type Process interface {
 	is_process()
 }
 
+type ProcessPointer struct {
+	Id    string
+	Value string
+}
+
+func (p *ProcessPointer) is_process() {}
+func (p *ProcessPointer) GetClass() string {
+	return "ProcessPointer"
+}
+func (p *ProcessPointer) GetId() string { return p.Id }
+func (p *ProcessPointer) SetId(string)  {}
+
 // returns CommandLineTool, ExpressionTool or Workflow
 func NewProcess(original interface{}, collection *CWL_collection) (process Process, err error) {
 
@@ -19,21 +31,10 @@ func NewProcess(original interface{}, collection *CWL_collection) (process Proce
 	case string:
 		original_str := original.(string)
 
-		something_ptr, xerr := collection.Get(original_str)
+		pp := ProcessPointer{Value: original_str}
 
-		if xerr != nil {
-			err = fmt.Errorf("%s not found", original_str, xerr.Error())
-			return
-		}
-
-		something := *something_ptr
-
-		var ok bool
-		process, ok = something.(Process)
-		if !ok {
-			err = fmt.Errorf("%s does not seem to be a process: %s", original_str)
-			return
-		}
+		process = pp
+		return
 
 	default:
 		err = fmt.Errorf("(NewProcess) type unknown")

@@ -43,7 +43,7 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 			original_map[key] = cwl_obj
 		}
 
-		err = mapstructure.Decode(original, &job)
+		err = mapstructure.Decode(original, job)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandOutputBinding) %s", err.Error())
 			return
@@ -65,7 +65,10 @@ func ParseJob(collection *CWL_collection, job_file string) (job_input *Job_docum
 	}
 
 	job_gen := map[interface{}]interface{}{}
-	Unmarshal(job_stream, &job_gen)
+	err = Unmarshal(job_stream, &job_gen)
+	if err != nil {
+		return
+	}
 
 	job_input, err = NewJob_document(job_gen)
 

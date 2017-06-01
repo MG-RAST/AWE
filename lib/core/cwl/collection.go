@@ -106,7 +106,7 @@ func (c CWL_collection) Get(id string) (obj *CWL_object, err error) {
 		for k, _ := range c.All {
 			logger.Debug(3, "collection: %s", k)
 		}
-		err = fmt.Errorf("item %s not found in collection", id)
+		err = fmt.Errorf("(All) item %s not found in collection", id)
 	}
 	return
 }
@@ -114,7 +114,7 @@ func (c CWL_collection) Get(id string) (obj *CWL_object, err error) {
 func (c CWL_collection) GetFile(id string) (obj *File, err error) {
 	obj, ok := c.Files[id]
 	if !ok {
-		err = fmt.Errorf("item %s not found in collection", id)
+		err = fmt.Errorf("(GetFile) item %s not found in collection", id)
 	}
 	return
 }
@@ -122,7 +122,7 @@ func (c CWL_collection) GetFile(id string) (obj *File, err error) {
 func (c CWL_collection) GetString(id string) (obj *String, err error) {
 	obj, ok := c.Strings[id]
 	if !ok {
-		err = fmt.Errorf("item %s not found in collection", id)
+		err = fmt.Errorf("(GetString) item %s not found in collection", id)
 	}
 	return
 }
@@ -130,7 +130,7 @@ func (c CWL_collection) GetString(id string) (obj *String, err error) {
 func (c CWL_collection) GetInt(id string) (obj *Int, err error) {
 	obj, ok := c.Ints[id]
 	if !ok {
-		err = fmt.Errorf("item %s not found in collection", id)
+		err = fmt.Errorf("(GetInt) item %s not found in collection", id)
 	}
 	return
 }
@@ -138,7 +138,7 @@ func (c CWL_collection) GetInt(id string) (obj *Int, err error) {
 func (c CWL_collection) GetWorkflowStepInput(id string) (obj *WorkflowStepInput, err error) {
 	obj, ok := c.WorkflowStepInputs[id]
 	if !ok {
-		err = fmt.Errorf("item %s not found in collection", id)
+		err = fmt.Errorf("(GetWorkflowStepInput) item %s not found in collection", id)
 	}
 	return
 }

@@ -21,8 +21,9 @@ func (p *ProcessPointer) is_process() {}
 func (p *ProcessPointer) GetClass() string {
 	return "ProcessPointer"
 }
-func (p *ProcessPointer) GetId() string { return p.Id }
-func (p *ProcessPointer) SetId(string)  {}
+func (p *ProcessPointer) GetId() string   { return p.Id }
+func (p *ProcessPointer) SetId(string)    {}
+func (p *ProcessPointer) is_CWL_minimal() {}
 
 // returns CommandLineTool, ExpressionTool or Workflow
 func NewProcess(original interface{}, collection *CWL_collection) (process Process, err error) {
@@ -31,7 +32,7 @@ func NewProcess(original interface{}, collection *CWL_collection) (process Proce
 	case string:
 		original_str := original.(string)
 
-		pp := ProcessPointer{Value: original_str}
+		pp := &ProcessPointer{Value: original_str}
 
 		process = pp
 		return

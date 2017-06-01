@@ -502,12 +502,12 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 		output_id_base := output_id_array[len(output_id_array)-1]
 
 		output_source_id := ""
-
+		_ = output_source_id
 		process := cwl_step.Run
-		switch process.GetClass() {
+		switch (*process).GetClass() {
 		case "ProcessPointer":
-
-			pp := process.(ProcessPointer)
+			process_nptr := *process
+			pp := process_nptr.(*cwl.ProcessPointer)
 
 			output_source_id = pp.Value + "/" + output_id_base
 
@@ -635,7 +635,8 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 
 		(*processed_ws)[step.Id] = step
 		logger.Debug(1, "(cwl_step_2_awe_task) LEAVING , step_id: "+step_id)
-
+	case "ProcessPointer":
+		panic("do something here")
 	default:
 		err = fmt.Errorf("process type %s unknown", process_type)
 		return

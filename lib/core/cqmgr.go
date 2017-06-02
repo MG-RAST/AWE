@@ -546,7 +546,7 @@ func (qm *CQMgr) SuspendClient(id string, client *Client, client_write_lock bool
 		//if err = qm.ClientStatusChange(id, CLIENT_STAT_SUSPEND); err != nil {
 		//	return
 		//}
-		qm.ReQueueWorkunitByClient(client, client_write_lock)
+		qm.ReQueueWorkunitByClient(client, false)
 		return
 	}
 	return errors.New(e.ClientNotActive)

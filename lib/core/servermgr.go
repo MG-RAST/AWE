@@ -369,34 +369,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	return
 }
 
-//handle feedback from a client about the execution of a workunit
-func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
-	workid := notice.WorkId
-	status := notice.Status
-	clientid := notice.ClientId
-
-	logger.Debug(3, "(handleWorkStatusChange) workid: %s status: %s client: %s", workid, status, clientid)
-
-	computetime := notice.ComputeTime
-	parts := strings.Split(workid, "_")
-	task_id := fmt.Sprintf("%s_%s", parts[0], parts[1])
-	job_id := parts[0]
-	//rank, err := strconv.Atoi(parts[2])
-	//if err != nil {
-	//	err = fmt.Errorf("(handleWorkStatusChange) invalid workid %s", workid)
-	//	return
-	//}
-
-	client, ok, err := qm.GetClient(clientid, true)
-	if err != nil {
-		return
-	}
-	if !ok {
-		//delete(client.Current_work, workid)
-		err = fmt.Errorf("(handleWorkStatusChange) client not found")
-		return
-	}
-
+func RemoveWorkFromClient(client *Client, clientid string, workid string) (err error) {
 	err = client.Current_work_delete(workid, true)
 	if err != nil {
 		return
@@ -418,7 +391,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		}
 
 		for _, work_id := range current_work_ids {
-			client.Current_work_delete(work_id, true)
+			_ = client.Current_work_delete(work_id, true)
 		}
 
 		work_length, xerr = client.Current_work_length(true)
@@ -434,7 +407,136 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		}
 
 	}
+	return
+}
 
+func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *Task, task_id string, workid string, computetime int) (err error) {
+	//log event about work done (WD)
+	logger.Event(event.WORK_DONE, "workid="+workid+";clientid="+clientid)
+	//update client status
+
+	defer func() {
+		//done, remove from the workQueue
+		err = qm.workQueue.Delete(workid)
+		if err != nil {
+			return
+		}
+
+	}()
+
+	client.Increment_total_completed()
+
+	remain_work, xerr := task.IncrementRemainWork(-1, true)
+	if xerr != nil {
+		err = fmt.Errorf("(handleWorkStatusChange/IncrementRemainWork) client=%s work=%s %s", clientid, workid, xerr.Error())
+		return
+	}
+
+	err = task.IncrementComputeTime(computetime)
+	if xerr != nil {
+		err = fmt.Errorf("(handleWorkStatusChange/IncrementComputeTime) client=%s work=%s %s", clientid, workid, xerr.Error())
+		return
+	}
+
+	logger.Debug(3, "(handleWorkStatusChange) remain_work: %d (%s)", remain_work, workid)
+
+	if remain_work > 0 {
+		return
+	}
+
+	// ******* LAST WORKUNIT ******
+
+	// check file sizes of all outputs
+	outputs_modified := false
+	outputs := task.Outputs
+	for _, io := range outputs {
+		size, modified, xerr := io.GetFileSize()
+		if xerr != nil {
+			err = xerr
+			logger.Error("task %s, err: %s", task_id, err.Error())
+			yerr := task.SetState(TASK_STAT_SUSPEND)
+			if yerr != nil {
+				err = yerr
+				return
+			}
+			return
+		}
+
+		if !modified {
+			continue
+		}
+		outputs_modified = true
+		logger.Debug(3, "New output file %s has size %d", io.FileName, size)
+
+	}
+
+	if outputs_modified {
+		err = task.UpdateOutputs()
+		if err != nil {
+			return
+		}
+	}
+
+	err = task.SetState(TASK_STAT_COMPLETED)
+	if err != nil {
+		return
+	}
+
+	outputs, xerr = task.GetOutputs()
+	if xerr != nil {
+		err = xerr
+		return
+	}
+
+	for _, output := range outputs {
+		if _, err = output.DataUrl(); err != nil {
+			return
+		}
+		hasFile := output.HasFile()
+		if !hasFile {
+			err = fmt.Errorf("(handleWorkStatusChange) task %s, output %s missing shock file", task_id, output.FileName)
+			return
+		}
+	}
+
+	//log event about task done (TD)
+	qm.FinalizeTaskPerf(task)
+	logger.Event(event.TASK_DONE, "task_id="+task_id)
+	//update the info of the job which the task is belong to, could result in deletion of the
+	//task in the task map when the task is the final task of the job to be done.
+	err = qm.updateJobTask(task) //task state QUEUED -> COMPLETED
+
+	return
+}
+
+//handle feedback from a client about the execution of a workunit
+func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
+	workid := notice.WorkId
+	status := notice.Status
+	clientid := notice.ClientId
+	computetime := notice.ComputeTime
+	notes := notice.Notes
+
+	logger.Debug(3, "(handleWorkStatusChange) workid: %s status: %s client: %s", workid, status, clientid)
+
+	parts := strings.Split(workid, "_")
+	task_id := fmt.Sprintf("%s_%s", parts[0], parts[1])
+	job_id := parts[0]
+
+	// *** Get Client
+	client, ok, err := qm.GetClient(clientid, true)
+	if err != nil {
+		return
+	}
+	if !ok {
+		//delete(client.Current_work, workid)
+		err = fmt.Errorf("(handleWorkStatusChange) client not found")
+		return
+	}
+
+	defer RemoveWorkFromClient(client, clientid, workid)
+
+	// *** Get Task
 	task, tok, err := qm.TaskMap.Get(task_id, true)
 	if err != nil {
 		return
@@ -445,9 +547,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		qm.workQueue.Delete(workid)
 		return
 	}
-	//task.LockNamed("handleWorkStatusChange")
-	//defer task.Unlock()
 
+	// *** Get workunit
 	work, wok, err := qm.workQueue.Get(workid)
 	if err != nil {
 		return
@@ -463,9 +564,13 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return
 	}
 
+	// *** update state of workunit
 	err = qm.workQueue.StatusChange("", work, status)
 	if err != nil {
 		return
+	}
+	if len(notes) > 0 {
+		work.Notes = "msg from client: " + notes
 	}
 
 	err = task.LockNamed("handleWorkStatusChange/noretry")
@@ -504,112 +609,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	//}
 
 	if status == WORK_STAT_DONE {
-		//log event about work done (WD)
-		logger.Event(event.WORK_DONE, "workid="+workid+";clientid="+clientid)
-		//update client status
-
-		client.Increment_total_completed()
-
-		//test_remain_work, xerr := dbGetJobTaskInt(job_id, task_id, "remainwork")
-		//if xerr != nil {
-		//	err = fmt.Errorf("A dbGetJobTaskInt error: %s", xerr.Error())
-		//	return
-		//}
-
-		//logger.Debug(3, " A test_remain_work: %d", test_remain_work)
-
-		remain_work, xerr := task.IncrementRemainWork(-1, true)
-		if xerr != nil {
-			err = fmt.Errorf("(handleWorkStatusChange/IncrementRemainWork) client=%s work=%s %s", clientid, workid, xerr.Error())
-			return
-		}
-
-		//test_remain_work, xerr = dbGetJobTaskInt(job_id, task_id, "remainwork")
-		//if xerr != nil {
-		//	err = fmt.Errorf("B dbGetJobTaskInt error: %s", xerr.Error())
-		//	return
-		//}
-
-		//logger.Debug(3, " B test_remain_work: %d", test_remain_work)
-
-		//if remain_work != test_remain_work {
-		//	err = fmt.Errorf("(%s) remain_work %d != test_remain_work %d", task_id, remain_work, test_remain_work)
-		//	return
-		//}
-
-		//task.ComputeTime += computetime
-		err = task.IncrementComputeTime(computetime)
-		if xerr != nil {
-			err = fmt.Errorf("(handleWorkStatusChange/IncrementComputeTime) client=%s work=%s %s", clientid, workid, xerr.Error())
-			return
-		}
-
-		logger.Debug(3, "(handleWorkStatusChange) remain_work: %d (%s)", remain_work, workid)
-
-		if remain_work == 0 {
-
-			// check file sizes of all outputs
-			outputs_modified := false
-			outputs := task.Outputs
-			for _, io := range outputs {
-				size, modified, xerr := io.GetFileSize()
-				if xerr != nil {
-					err = xerr
-					logger.Error("task %s, err: %s", task_id, err.Error())
-					yerr := task.SetState(TASK_STAT_SUSPEND)
-					if yerr != nil {
-						err = yerr
-						return
-					}
-					return
-				}
-
-				if !modified {
-					continue
-				}
-				outputs_modified = true
-				logger.Debug(3, "New output file %s has size %d", io.FileName, size)
-
-			}
-
-			if outputs_modified {
-				err = task.UpdateOutputs()
-				if err != nil {
-					return
-				}
-			}
-
-			err = task.SetState(TASK_STAT_COMPLETED)
-			if err != nil {
-				return
-			}
-
-			outputs, xerr := task.GetOutputs()
-			if xerr != nil {
-				err = xerr
-				return
-			}
-
-			for _, output := range outputs {
-				if _, err = output.DataUrl(); err != nil {
-					return
-				}
-				hasFile := output.HasFile()
-				if !hasFile {
-					err = fmt.Errorf("(handleWorkStatusChange) task %s, output %s missing shock file", task_id, output.FileName)
-					return
-				}
-			}
-
-			//log event about task done (TD)
-			qm.FinalizeTaskPerf(task)
-			logger.Event(event.TASK_DONE, "task_id="+task_id)
-			//update the info of the job which the task is belong to, could result in deletion of the
-			//task in the task map when the task is the final task of the job to be done.
-			err = qm.updateJobTask(task) //task state QUEUED -> COMPLETED
-		}
-		//done, remove from the workQueue
-		err = qm.workQueue.Delete(workid)
+		err = qm.handleWorkStatDone(client, clientid, task, task_id, workid, computetime)
 		if err != nil {
 			return
 		}
@@ -639,8 +639,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			}
 
 			reason := fmt.Sprintf("workunit %s failed %d time(s).", workid, MAX_FAILURE)
-			if len(notice.Notes) > 0 {
-				reason = reason + " msg from client:" + notice.Notes
+			if len(notes) > 0 {
+				reason = reason + " msg from client:" + notes
 			}
 			if err := qm.SuspendJob(job_id, reason, workid); err != nil {
 				logger.Error("error returned by SuspendJOb()" + err.Error())
@@ -672,9 +672,12 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		}
 
 		if last_failed >= conf.MAX_CLIENT_FAILURE {
-			qm.SuspendClient(clientid, client, false)
+			qm.SuspendClient(clientid, client, true)
 		}
 
+	} else {
+		err = fmt.Errorf("No handler for workunit status '%s' implemented", status)
+		return
 	}
 	return
 }

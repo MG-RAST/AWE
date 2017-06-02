@@ -162,6 +162,9 @@ func (wq *WorkQueue) StatusChange(id string, workunit *Workunit, new_status stri
 	if workunit.State == new_status {
 		return
 	}
+	if workunit.State != WORK_STAT_CHECKOUT {
+		workunit.Client = ""
+	}
 
 	switch new_status {
 	case WORK_STAT_CHECKOUT:

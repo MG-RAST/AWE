@@ -85,6 +85,24 @@ func (qm *CQMgr) GetClient(id string, lock_clientmap bool) (client *Client, ok b
 
 // lock is for clientmap
 func (qm *CQMgr) RemoveClient(id string, lock bool) (err error) {
+
+	client, ok, err := qm.clientMap.Get(id, true)
+	if err != nil {
+		return
+	}
+	if !ok {
+		err = fmt.Errorf("Client %s not found", id)
+		return
+	}
+
+	//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
+	logger.Event(event.CLIENT_UNREGISTER, "clientid="+client.Id+";name="+client.Name)
+	//requeue unfinished workunits associated with the failed client
+	err = qm.ReQueueWorkunitByClient(client, true)
+	if err != nil {
+		logger.Error("(CheckClient) %s", err.Error())
+	}
+
 	err = qm.clientMap.Delete(id, lock)
 	return
 }
@@ -150,38 +168,17 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 	defer client.Unlock()
 
 	if client.Tag == true {
+		// *** Client is active
+
 		client.Tag = false
 		total_minutes := int(time.Now().Sub(client.RegTime).Minutes())
 		hours := total_minutes / 60
 		minutes := total_minutes % 60
 		client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
-		var cl_length int
-		cl_length, err = client.Current_work_length(false)
-		if err != nil {
-			return
-		}
-		if cl_length > 0 {
-			client.Idle_time = 0
-		} else {
-			client.Idle_time += 30 // TODO fix this !!!!!!
-		}
 
 	} else {
-		var has_client bool
-		has_client, err = qm.HasClient(client.Id, false)
-		if err != nil {
-			return
-		}
-		if !has_client { // no need to lock clientmap again
-			return
-		}
-		//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
-		logger.Event(event.CLIENT_UNREGISTER, "clientid="+client.Id+";name="+client.Name)
-		//requeue unfinished workunits associated with the failed client
-		err = qm.ReQueueWorkunitByClient(client, false)
-		if err != nil {
-			logger.Error("(CheckClient) %s", err.Error())
-		}
+		// *** Client is NOT active
+
 		//delete the client from client map
 		//qm.RemoveClient(client.Id)
 		ok = false
@@ -1097,24 +1094,60 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 		logger.Debug(3, "(ReQueueWorkunitByClient) try to requeue work %s", workid)
 		work, has_work, xerr := qm.workQueue.Get(workid)
 		if xerr != nil {
+			logger.Error("(ReQueueWorkunitByClient) error checking workunit %s", workid)
 			continue
 		}
-		if has_work {
-			jobid, _ := GetJobIdByWorkId(workid)
-			job_state, err := dbGetJobFieldString(jobid, "state")
-			if err != nil {
-				logger.Error("(ReQueueWorkunitByClient) dbGetJobField: %s", err.Error())
-				continue
-			}
 
-			if contains(JOB_STATS_ACTIVE, job_state) { //only requeue workunits belonging to active jobs (rule out suspended jobs)
-				if work.Client == client.Id {
-					qm.workQueue.StatusChange(workid, work, WORK_STAT_QUEUED)
-					logger.Event(event.WORK_REQUEUE, "workid="+workid)
-				}
-			}
-
+		if !has_work {
+			logger.Error("(ReQueueWorkunitByClient) Workunit %s not found", workid)
+			continue
 		}
+
+		jobid, err := GetJobIdByWorkId(workid)
+		if err != nil {
+			logger.Error("(ReQueueWorkunitByClient) GetJobIdByWorkId: %s", err.Error())
+			continue
+		}
+		job_state, err := dbGetJobFieldString(jobid, "state")
+		if err != nil {
+			logger.Error("(ReQueueWorkunitByClient) dbGetJobField: %s", err.Error())
+			continue
+		}
+
+		if contains(JOB_STATS_ACTIVE, job_state) { //only requeue workunits belonging to active jobs (rule out suspended jobs)
+			if work.Client == client.Id {
+				qm.workQueue.StatusChange(workid, work, WORK_STAT_QUEUED)
+				logger.Event(event.WORK_REQUEUE, "workid="+workid)
+			} else {
+
+				other_client_id := work.Client
+
+				other_client, ok, xerr := qm.GetClient(other_client_id, true)
+				if xerr != nil {
+					logger.Error("(ReQueueWorkunitByClient) other_client: %s ", xerr)
+					continue
+				}
+				if ok {
+					// other_client exists (if otherclient does not exist, that is ok....)
+					oc_has_work, err := other_client.Current_work_has(workid)
+					if err != nil {
+						logger.Error("(ReQueueWorkunitByClient) Current_work_has: %s ", err)
+						continue
+					}
+					if !oc_has_work {
+						// other client has not this workunit,
+						qm.workQueue.StatusChange(workid, work, WORK_STAT_SUSPEND)
+						continue
+					}
+				}
+				// client does not exists of has different workunit
+				// no status change
+
+			}
+		} else {
+			qm.workQueue.StatusChange(workid, work, WORK_STAT_SUSPEND)
+		}
+
 	}
 	return
 }

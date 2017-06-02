@@ -559,8 +559,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return
 	}
 
-	if work.State != WORK_STAT_CHECKOUT {
-		err = fmt.Errorf("(handleWorkStatusChange) workunit %s did not have state WORK_STAT_CHECKOUT (state is %s)", workid, work.State)
+	if work.State != WORK_STAT_CHECKOUT && work.State != WORK_STAT_RESERVED {
+		err = fmt.Errorf("(handleWorkStatusChange) workunit %s did not have state WORK_STAT_CHECKOUT or WORK_STAT_RESERVED (state is %s)", workid, work.State)
 		return
 	}
 

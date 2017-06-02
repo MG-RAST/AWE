@@ -176,6 +176,24 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 		minutes := total_minutes % 60
 		client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
 
+		current_work, xerr := client.Get_current_work(false)
+		if xerr != nil {
+			logger.Error("(CheckClient) Get_current_work: %s", xerr.Error())
+			return
+		}
+		for _, work_id := range current_work {
+			work, ok, zerr := qm.workQueue.all.Get(work_id)
+			if zerr != nil {
+				continue
+			}
+			if !ok {
+				continue
+			}
+			if work.State == WORK_STAT_RESERVED {
+				qm.workQueue.StatusChange(work_id, work, WORK_STAT_CHECKOUT)
+			}
+		}
+
 	} else {
 		// *** Client is NOT active
 

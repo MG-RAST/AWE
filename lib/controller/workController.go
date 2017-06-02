@@ -317,7 +317,10 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	logger.Event(event.WORK_CHECKOUT, fmt.Sprintf("workids=%s;clientid=%s;available=%d", strings.Join(workids, ","), clientid, availableBytes))
 
 	// Base case respond with node in json
-	cx.RespondWithData(workunits[0])
+	workunit := workunits[0]
+	workunit.State = core.WORK_STAT_RESERVED
+	workunit.Client = clientid
+	cx.RespondWithData(workunit)
 	return
 }
 

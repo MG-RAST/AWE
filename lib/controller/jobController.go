@@ -100,19 +100,22 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		collection := cwl.NewCWL_collection()
 
 		// 1) parse job
-		err = cwl.ParseJob(&collection, files["job"].Path)
+		job_input, err := cwl.ParseJob(&collection, files["job"].Path)
 		if err != nil {
-			logger.Debug(1, "ParseJob: "+err.Error())
+			logger.Error("ParseJob: " + err.Error())
 			cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
 			return
 		}
+
+		collection.Job_input = job_input
+
 		// 2) parse cwl
 		logger.Debug(1, "got CWL")
 
 		// get CWL as byte[]
 		yamlstream, err := ioutil.ReadFile(files["cwl"].Path)
 		if err != nil {
-			logger.Debug(1, "CWL error: "+err.Error())
+			logger.Error("CWL error: " + err.Error())
 			cx.RespondWithErrorMessage("error in reading workflow file: "+err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -122,13 +125,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		err = cwl.Parse_cwl_document(&collection, yaml_str)
 		if err != nil {
-			logger.Debug(1, "CWL error"+err.Error())
-			cx.RespondWithErrorMessage("error in parsing job yaml file: "+err.Error(), http.StatusBadRequest)
+			logger.Error("Parse_cwl_document error: " + err.Error())
+			cx.RespondWithErrorMessage("error in parsing cwl workflow yaml file: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		logger.Debug(1, "Parse_cwl_document done")
 
-		cwl_workflow, ok := collection.Workflows["main"]
+		cwl_workflow, ok := collection.Workflows["#main"]
 		if !ok {
 
 			cx.RespondWithErrorMessage("Workflow main not found", http.StatusBadRequest)

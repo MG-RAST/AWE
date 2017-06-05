@@ -158,6 +158,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 			}
 		}
 		logger.Debug(3, fmt.Sprintf("client %s got a workunit", core.Self.Id))
+		workunit.State = core.WORK_STAT_CHECKOUT
 		return workunit, nil
 	}
 	return

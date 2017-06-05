@@ -19,19 +19,20 @@ const (
 type Client struct {
 	coAckChannel chan CoAck `bson:"-" json:"-"` //workunit checkout item including data and err (qmgr.Handler -> WorkController)
 	RWMutex
-	Id              string          `bson:"id" json:"id"`
-	Name            string          `bson:"name" json:"name"`
-	Group           string          `bson:"group" json:"group"`
-	User            string          `bson:"user" json:"user"`
-	Domain          string          `bson:"domain" json:"domain"`
-	InstanceId      string          `bson:"instance_id" json:"instance_id"`
-	InstanceType    string          `bson:"instance_type" json:"instance_type"`
-	Host            string          `bson:"host" json:"host"`
-	CPUs            int             `bson:"cores" json:"cores"`
-	Apps            []string        `bson:"apps" json:"apps"`
-	RegTime         time.Time       `bson:"regtime" json:"regtime"`
-	Serve_time      string          `bson:"serve_time" json:"serve_time"`
-	Idle_time       int             `bson:"idle_time" json:"idle_time"`
+	Id            string    `bson:"id" json:"id"`
+	Name          string    `bson:"name" json:"name"`
+	Group         string    `bson:"group" json:"group"`
+	User          string    `bson:"user" json:"user"`
+	Domain        string    `bson:"domain" json:"domain"`
+	InstanceId    string    `bson:"instance_id" json:"instance_id"`
+	InstanceType  string    `bson:"instance_type" json:"instance_type"`
+	Host          string    `bson:"host" json:"host"`
+	CPUs          int       `bson:"cores" json:"cores"`
+	Apps          []string  `bson:"apps" json:"apps"`
+	RegTime       time.Time `bson:"regtime" json:"regtime"`
+	LastCompleted time.Time `bson:"lastcompleted" json:"lastcompleted"` // time of last time a job was completed (can be used to compute idle time)
+	Serve_time    string    `bson:"serve_time" json:"serve_time"`
+	//Idle_time       int             `bson:"idle_time" json:"idle_time"`
 	Status          string          `bson:"Status" json:"Status"`
 	Total_checkout  int             `bson:"total_checkout" json:"total_checkout"`
 	Total_completed int             `bson:"total_completed" json:"total_completed"`
@@ -219,6 +220,7 @@ func (cl *Client) Increment_total_completed() (err error) {
 		return
 	}
 	defer cl.Unlock()
+	cl.LastCompleted = time.Now()
 	cl.Total_completed += 1
 	cl.Last_failed = 0 //reset last consecutive failures
 	return
@@ -286,6 +288,16 @@ func (cl *Client) Current_work_delete(workid string, write_lock bool) (err error
 	if cw_length == 0 && cl.Status == CLIENT_STAT_ACTIVE_BUSY {
 		cl.Status = CLIENT_STAT_ACTIVE_IDLE
 	}
+	return
+}
+
+func (cl *Client) Current_work_has(workid string) (ok bool, err error) {
+
+	err = cl.LockNamed("Current_work_has")
+	defer cl.Unlock()
+
+	_, ok = cl.Current_work[workid]
+
 	return
 }
 

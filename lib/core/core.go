@@ -668,9 +668,11 @@ func GetJobIdByTaskId(taskid string) (jobid string, err error) {
 func GetJobIdByWorkId(workid string) (jobid string, err error) {
 	parts := strings.Split(workid, "_")
 	if len(parts) == 3 {
-		return parts[0], nil
+		jobid = parts[0]
+		return
 	}
-	return "", errors.New("invalid work id: " + workid)
+	err = errors.New("invalid work id: " + workid)
+	return
 }
 
 func GetTaskIdByWorkId(workid string) (taskid string, err error) {

@@ -8,8 +8,9 @@ import (
 )
 
 const (
-	WORK_STAT_INIT        = "init"     //initial state
-	WORK_STAT_QUEUED      = "queued"   // . also: after requeue ; after failures below max ; on WorkQueue.Add()
+	WORK_STAT_INIT        = "init"   //initial state
+	WORK_STAT_QUEUED      = "queued" // . also: after requeue ; after failures below max ; on WorkQueue.Add()
+	WORK_STAT_RESERVED    = "reserved"
 	WORK_STAT_CHECKOUT    = "checkout" // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
 	WORK_STAT_SUSPEND     = "suspend"  // on MAX_FAILURE ; on SuspendJob
 	WORK_STAT_DONE        = "done"     // client-side, done.

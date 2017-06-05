@@ -1,9 +1,10 @@
 package cwl
 
-type Expression string
+import (
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+)
 
-func (e Expression) String() string { return string(e) }
-func (e Expression) Evaluate(collection *CWL_collection) string {
+func EvaluateExpression(collection *CWL_collection, e cwl_types.Expression) string {
 	result_str := (*collection).Evaluate(string(e))
 	return result_str
 }

@@ -12,6 +12,7 @@ import (
 
 // http://www.commonwl.org/v1.0/Workflow.html#File
 type File struct {
+	CWLType_Impl
 	Id             string         `yaml:"id"`
 	Location       string         `yaml:"location"` // An IRI that identifies the file resource.
 	Path           string         `yaml:"path"`     // dirname + '/' + basename == path This field must be set by the implementation.
@@ -31,27 +32,42 @@ type File struct {
 	Token  string
 }
 
-func (f *File) GetClass() string    { return "File" }
+func (f *File) GetClass() string    { return CWL_File }
 func (f *File) GetId() string       { return f.Id }
 func (f *File) SetId(id string)     { f.Id = id }
 func (f *File) String() string      { return f.Path }
 func (f *File) GetLocation() string { return f.Location } // for CWL_location
 
+func (s *File) is_CommandInputParameterType() {} // for CommandInputParameterType
+
+func NewFile(obj interface{}) (file File, err error) {
+
+	file, err = MakeFile("unknown", obj)
+	return
+}
+
 func MakeFile(id string, obj interface{}) (file File, err error) {
 	file = File{}
 	err = mapstructure.Decode(obj, &file)
 	if err != nil {
-		err = fmt.Errorf("Could not convert File object %s", id)
+		err = fmt.Errorf("(MakeFile) Could not convert File object %s", id)
+		return
+	}
+
+	if file.Location == "" {
+		err = fmt.Errorf("(MakeFile) Error file.Location is empty, id=%s", id)
+
 		return
 	}
 
 	// example shock://shock.metagenomics.anl.gov/node/92a76f64-d221-4947-9fd0-7106c3b9163a
 	file_url, errx := url.Parse(file.Location)
 	if errx != nil {
-		err = fmt.Errorf("Erroro parisng url %s %s", file.Location, errx.Error())
+		err = fmt.Errorf("Error parsing url %s %s", file.Location, errx.Error())
 
 		return
 	}
+
 	scheme := strings.ToLower(file_url.Scheme)
 
 	switch scheme {

@@ -15,7 +15,9 @@ type CWL_collection struct {
 	Files              map[string]*File
 	Strings            map[string]*String
 	Ints               map[string]*Int
+	Booleans           map[string]*Boolean
 	All                map[string]*CWL_object
+	Job_input          *Job_document
 }
 
 func (c CWL_collection) Evaluate(raw string) (parsed string) {
@@ -63,6 +65,15 @@ func (c CWL_collection) Add(obj CWL_object) (err error) {
 		return
 	}
 
+	logger.Debug(3, "Adding object %s to collection", id)
+
+	_, ok := c.All[id]
+	if ok {
+		err = fmt.Errorf("Object %s already in collection", id)
+		return
+	}
+	//id = strings.TrimPrefix(id, "#")
+
 	switch obj.GetClass() {
 	case "Workflow":
 		c.Workflows[id] = obj.(*Workflow)
@@ -74,6 +85,8 @@ func (c CWL_collection) Add(obj CWL_object) (err error) {
 		c.Files[id] = obj.(*File)
 	case "String":
 		c.Strings[id] = obj.(*String)
+	case "Boolean":
+		c.Booleans[id] = obj.(*Boolean)
 	case "Int":
 		obj_int, ok := obj.(*Int)
 		if !ok {
@@ -90,7 +103,10 @@ func (c CWL_collection) Add(obj CWL_object) (err error) {
 func (c CWL_collection) Get(id string) (obj *CWL_object, err error) {
 	obj, ok := c.All[id]
 	if !ok {
-		err = fmt.Errorf("item %s not found in collection", id)
+		for k, _ := range c.All {
+			logger.Debug(3, "collection: %s", k)
+		}
+		err = fmt.Errorf("(All) item %s not found in collection", id)
 	}
 	return
 }
@@ -98,7 +114,7 @@ func (c CWL_collection) Get(id string) (obj *CWL_object, err error) {
 func (c CWL_collection) GetFile(id string) (obj *File, err error) {
 	obj, ok := c.Files[id]
 	if !ok {
-		err = fmt.Errorf("item %s not found in collection", id)
+		err = fmt.Errorf("(GetFile) item %s not found in collection", id)
 	}
 	return
 }
@@ -106,7 +122,7 @@ func (c CWL_collection) GetFile(id string) (obj *File, err error) {
 func (c CWL_collection) GetString(id string) (obj *String, err error) {
 	obj, ok := c.Strings[id]
 	if !ok {
-		err = fmt.Errorf("item %s not found in collection", id)
+		err = fmt.Errorf("(GetString) item %s not found in collection", id)
 	}
 	return
 }
@@ -114,7 +130,7 @@ func (c CWL_collection) GetString(id string) (obj *String, err error) {
 func (c CWL_collection) GetInt(id string) (obj *Int, err error) {
 	obj, ok := c.Ints[id]
 	if !ok {
-		err = fmt.Errorf("item %s not found in collection", id)
+		err = fmt.Errorf("(GetInt) item %s not found in collection", id)
 	}
 	return
 }
@@ -122,7 +138,7 @@ func (c CWL_collection) GetInt(id string) (obj *Int, err error) {
 func (c CWL_collection) GetWorkflowStepInput(id string) (obj *WorkflowStepInput, err error) {
 	obj, ok := c.WorkflowStepInputs[id]
 	if !ok {
-		err = fmt.Errorf("item %s not found in collection", id)
+		err = fmt.Errorf("(GetWorkflowStepInput) item %s not found in collection", id)
 	}
 	return
 }
@@ -136,6 +152,7 @@ func NewCWL_collection() (collection CWL_collection) {
 	collection.Files = make(map[string]*File)
 	collection.Strings = make(map[string]*String)
 	collection.Ints = make(map[string]*Int)
+	collection.Booleans = make(map[string]*Boolean)
 	collection.All = make(map[string]*CWL_object)
 	return
 }

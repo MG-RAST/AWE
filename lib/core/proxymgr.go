@@ -250,15 +250,12 @@ func (qm *ProxyMgr) ClientChecker() {
 				hours := total_minutes / 60
 				minutes := total_minutes % 60
 				client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
-				cw_length, err := client.Current_work_length(false)
-				if err != nil {
-					return
-				}
-				if cw_length > 0 {
-					client.Idle_time = 0
-				} else {
-					client.Idle_time += 30
-				}
+
+				//if cw_length > 0 {
+				//	client.Idle_time = 0
+				//} else {
+				//	client.Idle_time += 30
+				//}
 
 			} else {
 				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter

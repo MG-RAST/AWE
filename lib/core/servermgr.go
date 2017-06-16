@@ -114,6 +114,7 @@ func (qm *ServerMgr) ClientHandle() {
 		if qm.suspendQueue {
 			// queue is suspended, return suspend error
 			ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
+			logger.Debug(0, "(ServerMgr ClientHandle %s) nowworkunit: e.QueueSuspend", coReq.fromclient)
 		} else {
 			//logger.Debug(3, "(ServerMgr ClientHandle %s) updateQueue\n", coReq.fromclient)
 
@@ -137,6 +138,8 @@ func (qm *ServerMgr) ClientHandle() {
 				wu := works[0]
 
 				logger.Debug(0, "(ServerMgr ClientHandle %s) workunit: %s", coReq.fromclient, wu.Id)
+			} else {
+				logger.Debug(0, "(ServerMgr ClientHandle %s) works is empty", coReq.fromclient)
 			}
 		}
 		logger.Debug(0, "(ServerMgr ClientHandle %s) send response now", coReq.fromclient)

@@ -964,7 +964,7 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 	if err != nil {
 		return
 	}
-	logger.Debug(2, "(popWorks) filterWorkByClient returned: %d (0 meansNoEligibleWorkunitFound)", len(filtered))
+	logger.Debug(0, "(popWorks) filterWorkByClient returned: %d (0 meansNoEligibleWorkunitFound)", len(filtered))
 	if len(filtered) == 0 {
 		err = errors.New(e.NoEligibleWorkunitFound)
 		return
@@ -981,7 +981,7 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 		qm.workQueue.StatusChange(work.Id, work, WORK_STAT_CHECKOUT)
 	}
 
-	logger.Debug(3, "done with popWorks() for client: %s ", client_id)
+	logger.Debug(0, "done with popWorks() for client: %s ", client_id)
 	return
 }
 

@@ -123,7 +123,9 @@ func (qm *ServerMgr) ClientHandle() {
 			logger.Debug(0, "(ServerMgr ClientHandle %s) popWorks", coReq.fromclient)
 
 			works, err := qm.popWorks(coReq)
-
+			if err != nil {
+				logger.Debug(0, "(ServerMgr ClientHandle) popWorks returned error: %s", err.Error())
+			}
 			logger.Debug(0, "(ServerMgr ClientHandle %s) popWorks done", coReq.fromclient)
 			if err == nil {
 				logger.Debug(0, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress", coReq.fromclient)

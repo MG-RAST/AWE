@@ -1008,7 +1008,7 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err err
 	}
 
 	if len(workunit_list) == 0 {
-		err = e.QueueEmpty
+		err = errors.New(e.QueueEmpty)
 		return
 	}
 
@@ -1041,7 +1041,7 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err err
 	logger.Debug(3, fmt.Sprintf("done with filterWorkByClient() for client: %s", clientid))
 
 	if len(workunits) == 0 {
-		err = e.NoEligibleWorkunitFound
+		err = errors.New(e.NoEligibleWorkunitFound)
 		return
 	}
 

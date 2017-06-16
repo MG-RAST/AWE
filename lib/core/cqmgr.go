@@ -966,7 +966,8 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 	}
 	logger.Debug(2, "(popWorks) filterWorkByClient returned: %d (0 meansNoEligibleWorkunitFound)", len(filtered))
 	if len(filtered) == 0 {
-		return nil, errors.New(e.NoEligibleWorkunitFound)
+		err = errors.New(e.NoEligibleWorkunitFound)
+		return
 	}
 	client_specific_workunits, err = qm.workQueue.selectWorkunits(filtered, req.policy, req.available, req.count)
 	if err != nil {
@@ -1005,6 +1006,12 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err err
 	if err != nil {
 		return
 	}
+
+	if len(workunit_list) == 0 {
+		err = e.QueueEmpty
+		return
+	}
+
 	logger.Debug(3, "(filterWorkByClient) GetWorkunits() returned: %d", len(workunit_list))
 	for _, workunit := range workunit_list {
 		id := workunit.Id
@@ -1032,6 +1039,11 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err err
 		}
 	}
 	logger.Debug(3, fmt.Sprintf("done with filterWorkByClient() for client: %s", clientid))
+
+	if len(workunits) == 0 {
+		err = e.NoEligibleWorkunitFound
+		return
+	}
 
 	return
 }

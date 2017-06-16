@@ -220,6 +220,12 @@ func (wq *WorkQueue) selectWorkunits(workunits WorkList, policy string, availabl
 		}
 
 	}
+
+	if len(selected) == 0 {
+		err = errors.New(e.NoEligibleWorkunitFound)
+		return
+	}
+
 	logger.Debug(3, "done with selectWorkunits")
 	return
 }

@@ -133,6 +133,11 @@ func (qm *ServerMgr) ClientHandle() {
 			}
 			ack = CoAck{workunits: works, err: err}
 
+			if len(works) > 0 {
+				wu := works[0]
+
+				logger.Debug(0, "(ServerMgr ClientHandle %s) workunit: %s", coReq.fromclient, wu.Id)
+			}
 		}
 		logger.Debug(0, "(ServerMgr ClientHandle %s) send response now", coReq.fromclient)
 

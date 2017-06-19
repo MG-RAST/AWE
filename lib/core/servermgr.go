@@ -98,7 +98,7 @@ func (qm *ServerMgr) ClientHandle() {
 		//select {
 		//case coReq := <-qm.coReq
 		coReq := <-qm.coReq
-		logger.Debug(0, "(ServerMgr ClientHandle) workunit checkout request received from client %s, Req=%v", coReq.fromclient, coReq)
+		logger.Debug(3, "(ServerMgr ClientHandle) workunit checkout request received from client %s, Req=%v", coReq.fromclient, coReq)
 
 		ok, err := qm.CQMgr.clientMap.Has(coReq.fromclient, true)
 		if err != nil {
@@ -114,37 +114,37 @@ func (qm *ServerMgr) ClientHandle() {
 		if qm.suspendQueue {
 			// queue is suspended, return suspend error
 			ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
-			logger.Debug(0, "(ServerMgr ClientHandle %s) nowworkunit: e.QueueSuspend", coReq.fromclient)
+			logger.Debug(3, "(ServerMgr ClientHandle %s) nowworkunit: e.QueueSuspend", coReq.fromclient)
 		} else {
 			//logger.Debug(3, "(ServerMgr ClientHandle %s) updateQueue\n", coReq.fromclient)
 
 			//qm.updateQueue()
 
-			logger.Debug(0, "(ServerMgr ClientHandle %s) popWorks", coReq.fromclient)
+			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks", coReq.fromclient)
 
 			works, err := qm.popWorks(coReq)
 			if err != nil {
-				logger.Debug(0, "(ServerMgr ClientHandle) popWorks returned error: %s", err.Error())
+				logger.Debug(3, "(ServerMgr ClientHandle) popWorks returned error: %s", err.Error())
 			}
-			logger.Debug(0, "(ServerMgr ClientHandle %s) popWorks done", coReq.fromclient)
+			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks done", coReq.fromclient)
 			if err == nil {
-				logger.Debug(0, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress", coReq.fromclient)
+				logger.Debug(3, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress", coReq.fromclient)
 
 				qm.UpdateJobTaskToInProgress(works)
 
-				logger.Debug(0, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress done", coReq.fromclient)
+				logger.Debug(3, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress done", coReq.fromclient)
 			}
 			ack = CoAck{workunits: works, err: err}
 
 			if len(works) > 0 {
 				wu := works[0]
 
-				logger.Debug(0, "(ServerMgr ClientHandle %s) workunit: %s", coReq.fromclient, wu.Id)
+				logger.Debug(3, "(ServerMgr ClientHandle %s) workunit: %s", coReq.fromclient, wu.Id)
 			} else {
-				logger.Debug(0, "(ServerMgr ClientHandle %s) works is empty", coReq.fromclient)
+				logger.Debug(3, "(ServerMgr ClientHandle %s) works is empty", coReq.fromclient)
 			}
 		}
-		logger.Debug(0, "(ServerMgr ClientHandle %s) send response now", coReq.fromclient)
+		logger.Debug(3, "(ServerMgr ClientHandle %s) send response now", coReq.fromclient)
 
 		start_time := time.Now()
 
@@ -152,13 +152,13 @@ func (qm *ServerMgr) ClientHandle() {
 
 		select {
 		case coReq.response <- ack:
-			logger.Debug(0, "(ServerMgr ClientHandle %s) send workunit to client via response channel", coReq.fromclient)
+			logger.Debug(3, "(ServerMgr ClientHandle %s) send workunit to client via response channel", coReq.fromclient)
 		case <-timer.C:
 			elapsed_time := time.Since(start_time)
 			logger.Error("(ServerMgr ClientHandle %s) timed out after %s ", coReq.fromclient, elapsed_time)
 			continue
 		}
-		logger.Debug(0, "(ServerMgr ClientHandle %s) done", coReq.fromclient)
+		logger.Debug(3, "(ServerMgr ClientHandle %s) done", coReq.fromclient)
 
 	}
 }

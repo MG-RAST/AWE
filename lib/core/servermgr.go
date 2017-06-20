@@ -98,7 +98,7 @@ func (qm *ServerMgr) ClientHandle() {
 		//select {
 		//case coReq := <-qm.coReq
 		coReq := <-qm.coReq
-		logger.Debug(2, "(ServerMgr ClientHandle) workunit checkout request received from client %s, Req=%v", coReq.fromclient, coReq)
+		logger.Debug(3, "(ServerMgr ClientHandle) workunit checkout request received from client %s, Req=%v", coReq.fromclient, coReq)
 
 		ok, err := qm.CQMgr.clientMap.Has(coReq.fromclient, true)
 		if err != nil {
@@ -114,6 +114,7 @@ func (qm *ServerMgr) ClientHandle() {
 		if qm.suspendQueue {
 			// queue is suspended, return suspend error
 			ack = CoAck{workunits: nil, err: errors.New(e.QueueSuspend)}
+			logger.Debug(3, "(ServerMgr ClientHandle %s) nowworkunit: e.QueueSuspend", coReq.fromclient)
 		} else {
 			//logger.Debug(3, "(ServerMgr ClientHandle %s) updateQueue\n", coReq.fromclient)
 
@@ -122,7 +123,9 @@ func (qm *ServerMgr) ClientHandle() {
 			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks", coReq.fromclient)
 
 			works, err := qm.popWorks(coReq)
-
+			if err != nil {
+				logger.Debug(3, "(ServerMgr ClientHandle) popWorks returned error: %s", err.Error())
+			}
 			logger.Debug(3, "(ServerMgr ClientHandle %s) popWorks done", coReq.fromclient)
 			if err == nil {
 				logger.Debug(3, "(ServerMgr ClientHandle %s) UpdateJobTaskToInProgress", coReq.fromclient)
@@ -133,6 +136,13 @@ func (qm *ServerMgr) ClientHandle() {
 			}
 			ack = CoAck{workunits: works, err: err}
 
+			if len(works) > 0 {
+				wu := works[0]
+
+				logger.Debug(3, "(ServerMgr ClientHandle %s) workunit: %s", coReq.fromclient, wu.Id)
+			} else {
+				logger.Debug(3, "(ServerMgr ClientHandle %s) works is empty", coReq.fromclient)
+			}
 		}
 		logger.Debug(3, "(ServerMgr ClientHandle %s) send response now", coReq.fromclient)
 

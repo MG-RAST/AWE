@@ -567,10 +567,54 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 	return
 }
 
+func CommandLineTool2awe_task(helper *Helper, step *cwl.WorkflowStep, cmdlinetool *cwl.CommandLineTool) (awe_task *Task, err error) {
+
+	//processed_ws := helper.processed_ws
+	//collection := helper.collection
+	job := helper.job
+
+	cmdlinetool_str := cmdlinetool.BaseCommand
+
+	logger.Debug(3, "cmdlinetool_str: %s", cmdlinetool_str)
+
+	// TODO detect identifier URI (http://www.commonwl.org/v1.0/SchemaSalad.html#Identifier_resolution)
+	// TODO: strings.Contains(step.Run, ":") or use split
+
+	if cmdlinetool_str == "" {
+		err = errors.New("(cwl_step_2_awe_task) Run string empty")
+		return
+	}
+
+	pos := len(*helper.processed_ws)
+	logger.Debug(1, "pos: %d", pos)
+
+	pos_str := strconv.Itoa(pos)
+	logger.Debug(1, "pos_str: %s", pos_str)
+
+	awe_task, err = NewTask(job, pos_str)
+	if err != nil {
+		err = fmt.Errorf("(cwl_step_2_awe_task) Task creation failed: %v", err)
+		return
+	}
+	awe_task.Init(job)
+	logger.Debug(1, "(cwl_step_2_awe_task) Task created: %s", awe_task.Id)
+
+	(*helper.AWE_tasks)[job.Id] = awe_task
+	awe_task.JobId = job.Id
+
+	err = createAweTask(helper, cmdlinetool, step, awe_task)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 	logger.Debug(1, "(cwl_step_2_awe_task) step_id: "+step_id)
 
 	processed_ws := helper.processed_ws
+	collection := helper.collection
 	job := helper.job
 
 	step, ok := (*helper.unprocessed_ws)[step_id]
@@ -584,7 +628,6 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 	process_ptr := step.Run
 	process := *process_ptr
 	//fmt.Println("run: " + step.Run)
-	cmdlinetool_str := ""
 
 	process_type := process.GetClass()
 
@@ -597,46 +640,66 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 			return
 		}
 
-		cmdlinetool_str = cmdlinetool.BaseCommand
-
-		logger.Debug(3, "cmdlinetool_str: %s", cmdlinetool_str)
-
-		// TODO detect identifier URI (http://www.commonwl.org/v1.0/SchemaSalad.html#Identifier_resolution)
-		// TODO: strings.Contains(step.Run, ":") or use split
-
-		if cmdlinetool_str == "" {
-			err = errors.New("(cwl_step_2_awe_task) Run string empty")
+		awe_task, xerr := CommandLineTool2awe_task(helper, step, cmdlinetool)
+		if xerr != nil {
+			err = xerr
 			return
 		}
-
-		pos := len(*helper.processed_ws)
-		logger.Debug(1, "pos: %d", pos)
-
-		pos_str := strconv.Itoa(pos)
-		logger.Debug(1, "pos_str: %s", pos_str)
-		var awe_task *Task
-		awe_task, err = NewTask(job, pos_str)
-		if err != nil {
-			err = fmt.Errorf("(cwl_step_2_awe_task) Task creation failed: %v", err)
-			return
-		}
-		awe_task.Init(job)
-		logger.Debug(1, "(cwl_step_2_awe_task) Task created: %s", awe_task.Id)
-
-		(*helper.AWE_tasks)[job.Id] = awe_task
-		awe_task.JobId = job.Id
-
-		err = createAweTask(helper, cmdlinetool, step, awe_task)
-		if err != nil {
-			return
-		}
-
 		job.Tasks = append(job.Tasks, awe_task)
 
 		(*processed_ws)[step.Id] = step
 		logger.Debug(1, "(cwl_step_2_awe_task) LEAVING , step_id: "+step_id)
 	case "ProcessPointer":
-		panic("do something here")
+
+		pp, ok := process.(*cwl.ProcessPointer)
+		if !ok {
+			err = fmt.Errorf("ProcessPointer error")
+			return
+		}
+
+		pp_value := pp.Value
+
+		the_process_ptr, xerr := collection.Get(pp_value)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		the_process := *the_process_ptr
+
+		the_process_class := the_process.GetClass()
+
+		// CommandLineTool | ExpressionTool | Workflow
+		switch the_process_class {
+		case "CommandLineTool":
+			logger.Debug(1, "(cwl_step_2_awe_task) got CommandLineTool")
+
+			cmdlinetool, ok := the_process.(*cwl.CommandLineTool)
+
+			if !ok {
+				err = fmt.Errorf("(cwl_step_2_awe_task) casting error")
+				return
+			}
+
+			awe_task, xerr := CommandLineTool2awe_task(helper, step, cmdlinetool)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			job.Tasks = append(job.Tasks, awe_task)
+
+			(*processed_ws)[step.Id] = step
+
+			//case cwl.ExpressionTool:
+			//logger.Debug(1, "(cwl_step_2_awe_task) got ExpressionTool")
+		case "Workflow":
+			logger.Debug(1, "(cwl_step_2_awe_task) got Workflow")
+		default:
+			err = fmt.Errorf("ProcessPointer error")
+			return
+		}
+
+		panic("do something here: " + pp_value)
+
 	default:
 		err = fmt.Errorf("process type %s unknown", process_type)
 		return

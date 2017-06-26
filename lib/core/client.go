@@ -19,7 +19,7 @@ const (
 type Client struct {
 	coAckChannel chan CoAck `bson:"-" json:"-"` //workunit checkout item including data and err (qmgr.Handler -> WorkController)
 	RWMutex
-	Id            string    `bson:"id" json:"id"`
+	Id            string    `bson:"id" json:"id"` // this is a uuid
 	Name          string    `bson:"name" json:"name"`
 	Group         string    `bson:"group" json:"group"`
 	User          string    `bson:"user" json:"user"`
@@ -153,6 +153,19 @@ func (cl *Client) Append_Skip_work(workid string, write_lock bool) (err error) {
 
 func (cl *Client) Contains_Skip_work_nolock(workid string) (c bool) {
 	c = contains(cl.Skip_work, workid)
+	return
+}
+
+func (cl *Client) Get_Id(do_read_lock bool) (s string, err error) {
+	if do_read_lock {
+		read_lock, xerr := cl.RLockNamed("Get_Id")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer cl.RUnlockNamed(read_lock)
+	}
+	s = cl.Id
 	return
 }
 
@@ -314,6 +327,24 @@ func (cl *Client) Get_current_work(do_read_lock bool) (current_work_ids []string
 	for id := range cl.Current_work {
 		current_work_ids = append(current_work_ids, id)
 	}
+	return
+}
+
+func (cl *Client) Set_current_work(current_work_ids []string, do_write_lock bool) (err error) {
+	current_work_ids = []string{}
+	if do_write_lock {
+		err = cl.LockNamed("Set_current_work")
+		if err != nil {
+			return
+		}
+		defer cl.Unlock()
+	}
+
+	cl.Current_work = make(map[string]bool)
+	for _, workid := range current_work_ids {
+		cl.Current_work[workid] = true
+	}
+
 	return
 }
 

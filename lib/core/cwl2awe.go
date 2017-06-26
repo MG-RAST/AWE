@@ -495,7 +495,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 	}
 
 	for _, output := range cwl_step.Out {
-		// output is a WorkflowStepOutput
+		// output is a WorkflowStepOutput, example: "#main/qc/assembly" convert to run_id + basename(output.Id)
 		output_id := output.Id
 
 		output_id_array := strings.Split(output_id, "/")

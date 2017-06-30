@@ -282,11 +282,14 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err e
 			err = zerr
 			return
 		}
-		if ok {
-			if work.State == WORK_STAT_SUSPEND {
-				suspended = append(suspended, work.Id)
-			}
+		if !ok {
+			continue
 		}
+
+		if work.State == WORK_STAT_SUSPEND {
+			suspended = append(suspended, work.Id)
+		}
+
 	}
 	if len(suspended) > 0 {
 		hbmsg["discard"] = strings.Join(suspended, ",")
@@ -374,11 +377,11 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 	}
 
 	// check if client is already known
-	old_client, ok, err := qm.GetClient(client_id, true)
+	old_client, old_client_exists, err := qm.GetClient(client_id, true)
 	if err != nil {
 		return
 	}
-	if ok {
+	if old_client_exists {
 
 		// client is already known. Check current_work, then remove old client object
 
@@ -403,7 +406,7 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 				continue
 			}
 			if !ok {
-				// workunit not foung, that is ok...
+				// workunit not found, that is ok...
 				continue
 			}
 
@@ -419,10 +422,11 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 
 		}
 
-		err = qm.RemoveClient(client_id, true)
-		if err != nil {
-			return
-		}
+		// keep old client, copy relevant values
+		//err = qm.RemoveClient(client_id, true)
+		//if err != nil {
+		//	return
+		//}
 	}
 
 	keep_work := []string{}
@@ -465,13 +469,20 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		continue
 	}
 
-	client.Set_current_work(keep_work, true)
+	if old_client_exists {
+		// copy values from new client to old client
 
-	err = qm.AddClient(client, true) // locks clientMap
-	if err != nil {
-		return
+		old_client.Set_current_work(keep_work, true)
+		old_client.Tag = true
+		// new client struct will be deleted afterwards
+	} else {
+		client.Set_current_work(keep_work, true)
+		client.Tag = true
+		err = qm.AddClient(client, true) // locks clientMap
+		if err != nil {
+			return
+		}
 	}
-
 	return
 }
 

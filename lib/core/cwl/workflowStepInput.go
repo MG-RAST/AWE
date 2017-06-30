@@ -48,7 +48,7 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 		return
 
 	case int:
-		fmt.Println("int")
+		fmt.Println(CWL_int)
 		input_parameter.Default = &Int{Id: input_parameter.Id, Value: original.(int)}
 		return
 

@@ -316,7 +316,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 
 		if err == nil {
 			found_input = true
-			logger.Debug(3, "FOUND key %s", id_base)
+			logger.Debug(3, "FOUND key %s in local_collection", id_base)
 		} else {
 			logger.Debug(3, "DID NOT FIND key %s", id_base)
 		}
@@ -331,6 +331,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 				// TODO
 				// io_struct.DataToken = ..
 				found_input = true
+				logger.Debug(3, "FOUND found_input %s in linked_IO", id)
 			}
 		}
 
@@ -343,6 +344,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 
 				obj = &obj_nptr
 				found_input = true
+				logger.Debug(3, "FOUND found_input %s in Job_input", id_base)
 			} else {
 				fmt.Println("was searching for: " + id_base)
 				fmt.Println("collection.Job_input:")
@@ -357,11 +359,16 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 			if default_input != nil {
 
 				// probably not a file, but some argument
-
+				logger.Debug(3, "expected_input.Default found something")
 				obj_nptr := (*default_input).(cwl.CWL_object)
 				obj = &obj_nptr
 				found_input = true
+				logger.Debug(3, "FOUND found_input %s in expected_input.Default", id_base)
+			} else {
+				logger.Debug(3, "expected_input.Default found nothing")
 			}
+		} else {
+			logger.Debug(3, "skipping expected_input.Default")
 		}
 
 		if !found_input {
@@ -374,6 +381,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 				spew.Dump(linked_IO)
 				return
 			}
+			// this argument is optional, continue....
 			continue
 
 		}
@@ -381,11 +389,11 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 		obj_class := (*obj).GetClass()
 		switch obj_class {
 
-		case "File":
+		case cwl.CWL_File:
 
 			var file_obj *cwl.File
-			file_obj, err = local_collection.GetFile(id_base)
-			if err != nil {
+			file_obj, ok := (*obj).(*cwl.File) //local_collection.GetFile(id_base)
+			if !ok {
 				err = fmt.Errorf("File %s not found in local_collection ", id_base)
 				return
 			}
@@ -402,28 +410,46 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 			awe_input.DataToken = file_obj.Token
 
 			awe_task.Inputs = append(awe_task.Inputs, awe_input)
-		case "String":
+
+			if input_string == "" {
+				err = fmt.Errorf("input_string File is empty")
+				return
+			}
+
+		case cwl.CWL_string:
 
 			var string_obj *cwl.String
-			string_obj, err = local_collection.GetString(id_base)
-			if err != nil {
+			string_obj, ok := (*obj).(*cwl.String) //local_collection.GetString(id_base)
+			if !ok {
 				err = fmt.Errorf("String %s not found in local_collection ", id_base)
 				return
 			}
 			input_string = string_obj.String()
-		case "Int":
+
+			if input_string == "" {
+				err = fmt.Errorf("input_string String is empty")
+				return
+			}
+
+		case cwl.CWL_int:
 
 			var int_obj *cwl.Int
-			int_obj, err = local_collection.GetInt(id_base)
-			if err != nil {
+			int_obj, ok := (*obj).(*cwl.Int) //local_collection.GetInt(id_base)
+			if !ok {
 				err = fmt.Errorf("Int %s not found in local_collection ", id_base)
 				return
 			}
 			input_string = int_obj.String()
+
+			if input_string == "" {
+				err = fmt.Errorf("input_string Int is empty")
+				return
+			}
+
 		default:
 
 			err = fmt.Errorf("not implemented yet (%s) id=%s", obj_class, id_base)
-
+			return
 		}
 
 		input_binding := expected_input.InputBinding
@@ -447,7 +473,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 		fmt.Println("command_line: ", command_line)
 	}
 
-	awe_task.Cmd.Args = command_line
+	awe_task.Cmd.Args = local_collection.Evaluate(command_line)
 	awe_task.Cmd.Name = cwl_tool.BaseCommand
 
 	for _, requirement := range cwl_tool.Hints {
@@ -463,7 +489,7 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 			//	return
 			//}
 			if dr.DockerPull != "" {
-				awe_task.Cmd.Dockerimage = dr.DockerPull
+				awe_task.Cmd.DockerPull = dr.DockerPull
 			}
 
 			if dr.DockerLoad != "" {
@@ -494,6 +520,23 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 		tool_outputs[output.Id] = &output
 	}
 
+	process := cwl_step.Run
+	process_class := (*process).GetClass()
+
+	process_prefix := ""
+
+	switch process_class {
+	case "ProcessPointer":
+		process_nptr := *process
+		pp := process_nptr.(*cwl.ProcessPointer)
+
+		process_prefix = pp.Value
+
+	default:
+		err = fmt.Errorf("Process type %s not supported yet", process_class)
+		return
+	}
+
 	for _, output := range cwl_step.Out {
 		// output is a WorkflowStepOutput, example: "#main/qc/assembly" convert to run_id + basename(output.Id)
 		output_id := output.Id
@@ -501,22 +544,10 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 		output_id_array := strings.Split(output_id, "/")
 		output_id_base := output_id_array[len(output_id_array)-1]
 
-		output_source_id := ""
-		_ = output_source_id
-		process := cwl_step.Run
-		switch (*process).GetClass() {
-		case "ProcessPointer":
-			process_nptr := *process
-			pp := process_nptr.(*cwl.ProcessPointer)
+		output_source_id := process_prefix + "/" + output_id_base
 
-			output_source_id = pp.Value + "/" + output_id_base
-
-		default:
-			err = fmt.Errorf("Process type not supoorted yet")
-			return
-		}
 		// lookup glob of CommandLine tool
-		cmd_out_param, ok := tool_outputs[output_id]
+		cmd_out_param, ok := tool_outputs[output_source_id]
 		if !ok {
 
 			for key, _ := range tool_outputs {
@@ -697,8 +728,6 @@ func cwl_step_2_awe_task(helper *Helper, step_id string) (err error) {
 			err = fmt.Errorf("ProcessPointer error")
 			return
 		}
-
-		panic("do something here: " + pp_value)
 
 	default:
 		err = fmt.Errorf("process type %s unknown", process_type)

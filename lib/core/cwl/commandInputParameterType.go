@@ -3,7 +3,7 @@ package cwl
 import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
-	"strings"
+	//"strings"
 	//"github.com/mitchellh/mapstructure"
 )
 
@@ -21,20 +21,19 @@ func NewCommandInputParameterType(original interface{}) (cipt_ptr *CommandInputP
 	case string:
 		original_str := original.(string)
 
-		original_str_lower := strings.ToLower(original_str)
-		switch original_str_lower {
+		switch original_str {
 
 		case "null":
 		case "boolean":
-		case "int":
+		case CWL_int:
 		case "long":
 		case "float":
 		case "double":
-		case "string":
-		case "file":
+		case CWL_string:
+		case CWL_File:
 		case "directory":
 		default:
-			err = fmt.Errorf("type %s is unknown", original_str_lower)
+			err = fmt.Errorf("type %s is unknown", original_str)
 			return
 		}
 
@@ -78,7 +77,7 @@ func CreateCommandInputParameterTypeArray(v interface{}) (cipt_array_ptr *[]Comm
 
 	cipt, err := NewCommandInputParameterType(v)
 	if err != nil {
-
+		err = fmt.Errorf("(CreateCommandInputParameterTypeArray) NewCommandInputParameterType returns %s", err.Error())
 		return
 	}
 

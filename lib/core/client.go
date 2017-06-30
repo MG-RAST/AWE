@@ -16,6 +16,7 @@ const (
 	CLIENT_STAT_DELETED     = "deleted"
 )
 
+// this is the Worker
 type Client struct {
 	coAckChannel chan CoAck `bson:"-" json:"-"` //workunit checkout item including data and err (qmgr.Handler -> WorkController)
 	RWMutex

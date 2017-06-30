@@ -397,16 +397,17 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	} else if work.Cmd.DockerPull != "" {
 
-		logger.Debug(1, "Pulling image %s from Docker Hub", Dockerimage_normalized)
-		var buf bytes.Buffer
-		pio := docker.PullImageOptions{Repository: Dockerimage_normalized, OutputStream: &buf}
-		err = client.PullImage(pio, docker.AuthConfiguration{})
-		logger.Debug(3, "docker pull response: ", buf.String())
-		if err != nil {
-			err = fmt.Errorf("Docker image was not correctly pulled, err=%s", err.Error())
-			return
+		if false {
+			logger.Debug(1, "Pulling image %s from Docker Hub", Dockerimage_normalized)
+			var buf bytes.Buffer
+			pio := docker.PullImageOptions{Repository: Dockerimage_normalized, OutputStream: &buf}
+			err = client.PullImage(pio, docker.AuthConfiguration{})
+			logger.Debug(3, "docker pull response: ", buf.String())
+			if err != nil {
+				err = fmt.Errorf("Docker image was not correctly pulled, err=%s", err.Error())
+				return
+			}
 		}
-
 		dockerimage_id = work.Cmd.DockerPull
 	}
 

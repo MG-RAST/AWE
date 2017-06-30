@@ -775,7 +775,7 @@ func PrintClientCfg() {
 }
 
 func PrintClientUsage() {
-	fmt.Printf("Usage: awe-client -conf </path/to/cfg> [-debuglevel 0-3]\n")
+	fmt.Printf("Usage: awe-worker -conf </path/to/cfg> [-debuglevel 0-3]\n")
 }
 
 func PrintServerUsage() {

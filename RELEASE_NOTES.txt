@@ -1,3 +1,8 @@
+# v0.9.46
+
+- update shock struct
+- fix missing output file check
+
 # v0.9.45
 
 - golang 1.7.4

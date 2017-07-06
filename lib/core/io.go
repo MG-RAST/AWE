@@ -144,13 +144,19 @@ func (io *IO) GetFileSize() (size int64, modified bool, err error) {
 		err = fmt.Errorf("GetFileSize error: %s, node: %s", err.Error(), io.Node)
 		return
 	}
+	if (shocknode.File.Size == 0) && shocknode.File.CreatedOn.IsZero() {
+		msg := "Node has no file"
+		if (shocknode.Type == "parts") && (shocknode.Parts != nil) {
+			msg += fmt.Sprintf(", %d of %d parts completed", shocknode.Parts.Length, shocknode.Parts.Count)
+		}
+		err = fmt.Errorf("GetFileSize error: %s, node: %s", msg, io.Node)
+		return
+	}
 	size = shocknode.File.Size
-
 	if size != io.Size {
 		io.Size = size
 		modified = true
 	}
-
 	return
 }
 

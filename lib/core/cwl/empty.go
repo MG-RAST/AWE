@@ -7,6 +7,7 @@ import (
 
 // this is a generic CWL_object. Its only purpose is to retrieve the value of "class"
 type Empty struct {
+	CWLType_Impl
 	Id    string `yaml:"id"`
 	Class string `yaml:"class"`
 }
@@ -21,7 +22,7 @@ func NewEmpty(value interface{}) (obj_empty *Empty, err error) {
 
 	err = mapstructure.Decode(value, &obj_empty)
 	if err != nil {
-		err = fmt.Errorf("(NewEmpty) Could not convert into CWL object")
+		err = fmt.Errorf("(NewEmpty) Could not convert into CWL object: %s", err.Error())
 		return
 	}
 

@@ -20,9 +20,17 @@ type CommandInputParameter struct {
 
 func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParameter, err error) {
 
+	fmt.Println("NewCommandInputParameter:\n")
+	spew.Dump(v)
+
 	switch v.(type) {
 	case map[interface{}]interface{}:
-		v_map := v.(map[interface{}]interface{})
+		v_map, ok := v.(map[interface{}]interface{})
+
+		if !ok {
+			err = fmt.Errorf("casting problem")
+			return
+		}
 
 		default_value, ok := v_map["default"]
 		if ok {
@@ -40,10 +48,12 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 		type_value, ok := v_map["type"]
 		if ok {
-			v_map["type"], err = CreateCommandInputParameterTypeArray(type_value)
+			type_value, err = CreateCommandInputParameterTypeArray(type_value)
 			if err != nil {
+				err = fmt.Errorf("(NewCommandInputParameter) CreateCommandInputParameterTypeArray error: %s", err.Error())
 				return
 			}
+			v_map["type"] = type_value
 		}
 
 		input_parameter = &CommandInputParameter{}
@@ -54,6 +64,7 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 		}
 
 	default:
+
 		err = fmt.Errorf("(NewCommandInputParameter) type unknown")
 		return
 	}
@@ -63,6 +74,9 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 // keyname will be converted into 'Id'-field
 func CreateCommandInputArray(original interface{}) (err error, new_array []*CommandInputParameter) {
+
+	fmt.Println("CreateCommandInputArray:\n")
+	spew.Dump(original)
 
 	switch original.(type) {
 	case map[interface{}]interface{}:

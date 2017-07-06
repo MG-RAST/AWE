@@ -14,7 +14,7 @@ import (
 	"github.com/MG-RAST/golib/goconfig/config"
 )
 
-const VERSION string = "0.9.44"
+const VERSION string = "0.9.45"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -775,7 +775,7 @@ func PrintClientCfg() {
 }
 
 func PrintClientUsage() {
-	fmt.Printf("Usage: awe-client -conf </path/to/cfg> [-debuglevel 0-3]\n")
+	fmt.Printf("Usage: awe-worker -conf </path/to/cfg> [-debuglevel 0-3]\n")
 }
 
 func PrintServerUsage() {

@@ -47,6 +47,24 @@ func heartBeater(control chan int) {
 	control <- 2 //we are ending
 }
 
+// curl http://169.254.169.254/openstack/2015-10-15/meta_data.json | jq '.'
+// documentation: https://docs.openstack.org/admin-guide/compute-networking-nova.html
+// TODO use this!
+type Openstack_Metadata struct {
+	Random_seed       string                   `bson:"random_seed" json:"random_seed"`
+	Uuid              string                   `bson:"uuid" json:"uuid"`
+	Availability_zone string                   `bson:"availability_zone" json:"availability_zone"`
+	Hostname          string                   `bson:"hostname" json:"hostname"`
+	Project_id        string                   `bson:"project_id" json:"project_id"`
+	Meta              *Openstack_Metadata_meta `bson:"meta" json:"meta"`
+}
+
+type Openstack_Metadata_meta struct {
+	Priority string `bson:"priority" json:"priority"`
+	Role     string `bson:"role" json:"role"`
+	Name     string `bson:"name" json:"name"`
+}
+
 //client sends heartbeat to server to maintain active status and re-register when needed
 func SendHeartBeat() {
 	hbmsg, err := heartbeating(conf.SERVER_URL, core.Self.Id)
@@ -278,8 +296,9 @@ func Set_Metadata(profile *core.Client) {
 			// read all values: for i in `curl http://169.254.169.254/1.0/meta-data/` ; do echo ${i}: `curl -s http://169.254.169.254/1.0/meta-data/${i}` ; done
 			instance_hostname, err := getMetaDataField(metadata_url, "hostname")
 			if err == nil {
-				instance_hostname = strings.TrimSuffix(instance_hostname, ".novalocal")
+				//instance_hostname = strings.TrimSuffix(instance_hostname, ".novalocal")
 				profile.Name = instance_hostname
+				profile.Hostname = instance_hostname
 			}
 			instance_id, err := getMetaDataField(metadata_url, "instance-id")
 			if err == nil {
@@ -291,7 +310,8 @@ func Set_Metadata(profile *core.Client) {
 			}
 			local_ipv4, err := getMetaDataField(metadata_url, "local-ipv4")
 			if err == nil {
-				profile.Host = local_ipv4
+				profile.Host = local_ipv4 + " (deprecated)"
+				profile.Host_ip = local_ipv4
 			}
 
 		} else {

@@ -73,7 +73,7 @@ func NewCommandOutputParameterType(original interface{}) (copt_ptr *CommandOutpu
 
 		case "null":
 		case "boolean":
-		case "int":
+		case CWL_int:
 		case "long":
 		case "float":
 		case "double":

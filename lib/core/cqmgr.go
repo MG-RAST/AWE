@@ -282,11 +282,14 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err e
 			err = zerr
 			return
 		}
-		if ok {
-			if work.State == WORK_STAT_SUSPEND {
-				suspended = append(suspended, work.Id)
-			}
+		if !ok {
+			continue
 		}
+
+		if work.State == WORK_STAT_SUSPEND {
+			suspended = append(suspended, work.Id)
+		}
+
 	}
 	if len(suspended) > 0 {
 		hbmsg["discard"] = strings.Join(suspended, ",")
@@ -301,6 +304,7 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err e
 
 }
 
+// This can be a new client or an old client that re-registers
 func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Client, err error) {
 	logger.Debug(3, "RegisterNewClient called")
 	if _, ok := files["profile"]; ok {
@@ -323,7 +327,7 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		return
 	}
 	client_group := client.Group
-	client_id := client.Id
+	client_id, _ := client.Get_Id(false)
 	client.Unlock()
 
 	// If clientgroup is nil at this point, create a publicly owned clientgroup, with the provided group name (if one doesn't exist with the same name)
@@ -354,13 +358,32 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		return nil, errors.New(e.ClientGroupBadName)
 	}
 
-	// remove old client
-	old_client, ok, err := qm.GetClient(client_id, true)
+	all_workunits_map := make(map[string]bool)
+
+	// collect current_work from new client object
+	current_work, err := client.Get_current_work(true)
 	if err != nil {
 		return
 	}
-	if ok {
-		// old client exists, do a nice clean-up
+
+	if len(current_work) > 1 {
+		logger.Error("Client %s reports %d elements in Current_work", client_id, len(current_work)) // TODO this is a temprorary check. Remove this if you want to support multiple workunits per client.
+		err = fmt.Errorf("Client reports too many current workunits")
+		return
+	}
+
+	for _, workid := range current_work {
+		all_workunits_map[workid] = true
+	}
+
+	// check if client is already known
+	old_client, old_client_exists, err := qm.GetClient(client_id, true)
+	if err != nil {
+		return
+	}
+	if old_client_exists {
+
+		// client is already known. Check current_work, then remove old client object
 
 		old_client_current_work, xerr := old_client.Get_current_work(true)
 		if xerr != nil {
@@ -369,57 +392,67 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 		}
 
 		for _, work_id := range old_client_current_work {
+
+			_, ok := all_workunits_map[work_id]
+			if ok {
+				// all good, new client is still working on the same workunit the old client did work on.
+				continue
+			}
+
+			// the client does not know about this workunit anymore, make sure the workunit also knows that
 			work, ok, xerr := qm.workQueue.Get(work_id)
 			if xerr != nil {
+				logger.Error("(RegisterNewClient) %s", xerr.Error())
 				continue
 			}
 			if !ok {
+				// workunit not found, that is ok...
 				continue
 			}
 
 			if work.Client == client_id {
-				qm.workQueue.StatusChange(work_id, work, WORK_STAT_QUEUED)
+				work.Client = ""
+				work_state := work.State
+				if (work_state != WORK_STAT_SUSPEND) && (work_state != WORK_STAT_QUEUED) {
+					qm.workQueue.StatusChange(work_id, work, WORK_STAT_QUEUED)
+				}
 			}
 
+			continue
+
 		}
 
-		err = qm.RemoveClient(client_id, true)
-		if err != nil {
-			return
-		}
+		// keep old client, copy relevant values
+		//err = qm.RemoveClient(client_id, true)
+		//if err != nil {
+		//	return
+		//}
 	}
 
-	// move already checked-out workunit from waiting queue (all) to checked-out list (coWorkMap)
+	keep_work := []string{}
 
-	current_work, err := client.Get_current_work(true)
-	if err != nil {
-		return
-	}
-
-	if len(current_work) > 1 {
-		logger.Error("Client %s reports %d elements in Current_work", client_id, len(current_work))
-		err = fmt.Errorf("Client reports too many current workunits")
-		return
-	}
-
-	remove_work := []string{}
-
-	for _, workid := range current_work {
-		work, ok, xerr := qm.workQueue.Get(workid) // TODO what if another client also has this workunit ? Delete workunit from client?
+	for workid, _ := range all_workunits_map {
+		work, ok, xerr := qm.workQueue.Get(workid)
 		if xerr != nil {
 			logger.Error("(RegisterNewClient) %s", xerr.Error())
 			continue
 		}
 
 		if !ok {
-			// TODO client has workunit the server does not know about !? (e.g. after reboot)
-			remove_work = append(remove_work, workid)
+			// client has workunit the server does not know about !? (e.g. after reboot)
 			continue
 		}
 
 		if work.Client == client_id {
-			// all ok
+			// ok: workunits exists and knows where it belongs to
+			work_state := work.State
 
+			// fix state if needed
+			if (work_state != WORK_STAT_SUSPEND) && (work_state != WORK_STAT_CHECKOUT) {
+				qm.workQueue.StatusChange(workid, work, WORK_STAT_CHECKOUT)
+			}
+
+			keep_work = append(keep_work, workid)
 			continue
 		}
 
@@ -427,27 +460,29 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 			// reclaim work unit
 			work.Client = client_id
 			qm.workQueue.StatusChange(workid, work, WORK_STAT_CHECKOUT)
-
+			keep_work = append(keep_work, workid)
 			continue
 		}
 
-		// work.Client != client.Id
-		// TODO client claims workunit that another client already has (it seems)
-		// TODO tell client to discard workunit
-		remove_work = append(remove_work, workid)
+		// work.Client != client.Id (workunit seems to be owned by another client, leave it alone)
+
 		continue
-
 	}
 
-	for _, workid := range remove_work {
-		client.Current_work_delete(workid, true)
-	}
+	if old_client_exists {
+		// copy values from new client to old client
 
-	err = qm.AddClient(client, true) // locks clientMap
-	if err != nil {
-		return
+		old_client.Set_current_work(keep_work, true)
+		old_client.Tag = true
+		// new client struct will be deleted afterwards
+	} else {
+		client.Set_current_work(keep_work, true)
+		client.Tag = true
+		err = qm.AddClient(client, true) // locks clientMap
+		if err != nil {
+			return
+		}
 	}
-
 	return
 }
 

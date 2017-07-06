@@ -81,13 +81,13 @@ func (c CWL_collection) Add(obj CWL_object) (err error) {
 		c.WorkflowStepInputs[id] = obj.(*WorkflowStepInput)
 	case "CommandLineTool":
 		c.CommandLineTools[id] = obj.(*CommandLineTool)
-	case "File":
+	case CWL_File:
 		c.Files[id] = obj.(*File)
-	case "String":
+	case CWL_string:
 		c.Strings[id] = obj.(*String)
-	case "Boolean":
+	case CWL_boolean:
 		c.Booleans[id] = obj.(*Boolean)
-	case "Int":
+	case CWL_int:
 		obj_int, ok := obj.(*Int)
 		if !ok {
 			err = fmt.Errorf("could not make Int type assertion")

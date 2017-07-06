@@ -23,7 +23,7 @@ func NewInputParameterType(original interface{}) (ipt_ptr *InputParameterType, e
 
 		case "null":
 		case "boolean":
-		case "int":
+		case CWL_int:
 		case "long":
 		case "float":
 		case "double":

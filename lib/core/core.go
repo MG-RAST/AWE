@@ -102,7 +102,7 @@ func (o *Opts) Value(key string) string {
 	return val
 }
 
-//heartbeat response from awe-server to awe-client
+//heartbeat response from awe-server to awe-worker
 //used for issue operation request to client, e.g. discard suspended workunits
 type HBmsg map[string]string //map[op]obj1,obj2 e.g. map[discard]=work1,work2
 

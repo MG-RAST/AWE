@@ -36,7 +36,7 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 
 		switch type_string_lower {
 		case "string":
-		case "int":
+		case CWL_int:
 		case "file":
 		default:
 			err = fmt.Errorf("unknown type: \"%s\"", type_string)

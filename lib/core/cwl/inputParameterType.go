@@ -22,7 +22,7 @@ func NewInputParameterType(original interface{}) (ipt_ptr *InputParameterType, e
 		switch original_str_lower {
 
 		case "null":
-		case "boolean":
+		case CWL_boolean:
 		case CWL_int:
 		case "long":
 		case "float":
@@ -31,7 +31,7 @@ func NewInputParameterType(original interface{}) (ipt_ptr *InputParameterType, e
 		case "file":
 		case "directory":
 		default:
-			err = fmt.Errorf("type %s is unknown", original_str_lower)
+			err = fmt.Errorf("(NewInputParameterType) type %s is unknown", original_str_lower)
 			return
 		}
 

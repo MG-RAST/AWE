@@ -2,9 +2,9 @@ package cwl
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
-	"reflect"
+	//"reflect"
 )
 
 //http://www.commonwl.org/v1.0/Workflow.html#CommandLineBinding
@@ -30,7 +30,7 @@ func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err e
 			err = fmt.Errorf("(NewCommandLineBinding) %s", err.Error())
 			return
 		}
-		w = &commandlinebinding
+		clb = &commandlinebinding
 
 	case string:
 
@@ -46,7 +46,7 @@ func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err e
 	return
 }
 
-func NewCommandLineBindingArray(original interface{}) (err error, new_array []*NewCommandLineBinding) {
+func NewCommandLineBindingArray(original interface{}) (new_array []*CommandLineBinding, err error) {
 	switch original.(type) {
 	case []interface{}:
 		for _, v := range original.([]interface{}) {
@@ -65,7 +65,7 @@ func NewCommandLineBindingArray(original interface{}) (err error, new_array []*N
 		return
 	case string:
 
-		clb, xerr := NewCommandLineBinding(v)
+		clb, xerr := NewCommandLineBinding(original)
 		if xerr != nil {
 			err = fmt.Errorf("(NewCommandLineBindingArray) string NewCommandLineBinding returned: %s", xerr)
 			return

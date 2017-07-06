@@ -1,3 +1,10 @@
+# v0.9.45
+
+- golang 1.7.4
+- more bug fixes
+- now: awe-worker
+- alpha cwl support
+
 # v0.9.43
 
 - lots of bug fixes

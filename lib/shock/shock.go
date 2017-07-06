@@ -45,42 +45,56 @@ type ShockResponseGeneric struct {
 type ShockNode struct {
 	Id         string             `bson:"id" json:"id"`
 	Version    string             `bson:"version" json:"version"`
-	File       shockfile          `bson:"file" json:"file"`
+	File       shockFile          `bson:"file" json:"file"`
 	Attributes interface{}        `bson:"attributes" json:"attributes"`
-	Public     bool               `bson:"public" json:"public"`
 	Indexes    map[string]IdxInfo `bson:"indexes" json:"indexes"`
-	//Acl          Acl               `bson:"acl" json:"-"`
-	//VersionParts map[string]string `bson:"version_parts" json:"-"`
-	Tags []string `bson:"tags" json:"tags"`
-	//Revisions    []ShockNode       `bson:"revisions" json:"-"`
-	Linkages []linkage `bson:"linkage" json:"linkages"`
-	//CreatedOn    time.Time `bson:"created_on" json:"created_on"`
-	//LastModified time.Time `bson:"last_modified" json:"last_modified"`
-	Type string `bson:"type" json:"type"`
-	//Subset       Subset            `bson:"subset" json:"-"`
+	//Acl      Acl                `bson:"acl" json:"-"`
+	VersionParts map[string]string `bson:"version_parts" json:"version_parts"`
+	Tags         []string          `bson:"tags" json:"tags"`
+	//Revisions  []ShockNode       `bson:"revisions" json:"-"`
+	Linkages     []linkage `bson:"linkage" json:"linkage"`
+	Priority     int       `bson:"priority" json:"priority"`
+	CreatedOn    time.Time `bson:"created_on" json:"created_on"`
+	LastModified time.Time `bson:"last_modified" json:"last_modified"`
+	Expiration   time.Time `bson:"expiration" json:"expiration"`
+	Type         string    `bson:"type" json:"type"`
+	//Subset     Subset    `bson:"subset" json:"-"`
+	Parts *partsList `bson:"parts" json:"parts"`
 }
 
-type shockfile struct {
-	Name         string            `bson:"name" json:"name"`
-	Size         int64             `bson:"size" json:"size"`
-	Checksum     map[string]string `bson:"checksum" json:"checksum"`
-	Format       string            `bson:"format" json:"format"`
-	Path         string            `bson:"path" json:"-"`
-	Virtual      bool              `bson:"virtual" json:"virtual"`
-	VirtualParts []string          `bson:"virtual_parts" json:"virtual_parts"`
+type shockFile struct {
+	Name     string            `bson:"name" json:"name"`
+	Size     int64             `bson:"size" json:"size"`
+	Checksum map[string]string `bson:"checksum" json:"checksum"`
+	Format   string            `bson:"format" json:"format"`
+	//Path       string        `bson:"path" json:"-"`
+	Virtual      bool      `bson:"virtual" json:"virtual"`
+	VirtualParts []string  `bson:"virtual_parts" json:"virtual_parts"`
+	CreatedOn    time.Time `bson:"created_on" json:"created_on"`
 }
 
 type IdxInfo struct {
-	Type        string `bson:"index_type" json:"-"`
-	TotalUnits  int64  `bson:"total_units" json:"total_units"`
-	AvgUnitSize int64  `bson:"average_unit_size" json:"average_unit_size"`
-	Format      string `bson:"format" json:"-"`
+	Type        string    `bson:"index_type" json:"-"`
+	TotalUnits  int64     `bson:"total_units" json:"total_units"`
+	AvgUnitSize int64     `bson:"average_unit_size" json:"average_unit_size"`
+	Format      string    `bson:"format" json:"-"`
+	CreatedOn   time.Time `bson:"created_on" json:"created_on"`
 }
 
 type linkage struct {
 	Type      string   `bson: "relation" json:"relation"`
 	Ids       []string `bson:"ids" json:"ids"`
 	Operation string   `bson:"operation" json:"operation"`
+}
+
+type partsFile []string
+
+type partsList struct {
+	Count       int         `bson:"count" json:"count"`
+	Length      int         `bson:"length" json:"length"`
+	VarLen      bool        `bson:"varlen" json:"varlen"`
+	Parts       []partsFile `bson:"parts" json:"parts"`
+	Compression string      `bson:"compression" json:"compression"`
 }
 
 type ShockQueryResponse struct {

@@ -20,13 +20,11 @@ RUN mkdir -p ${AWE} && \
   go get -d ./awe-worker/ && \
   ./compile.sh
 
-COPY awe-worker .
-
 
 
 FROM scratch
 
-COPY --from=builder /go/bin/awe-worker .
+COPY --from=builder /go/bin/awe-worker /
 
-CMD ["/awe-worker"]
+ENTRYPOINT ["/awe-worker"]
 

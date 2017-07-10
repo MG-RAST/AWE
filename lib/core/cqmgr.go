@@ -954,14 +954,6 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	return ack.workunits, ack.err
 }
 
-//func (qm *CQMgr) LockSemaphore() {
-//	qm.coSem <- 1
-//}
-
-//func (qm *CQMgr) UnlockSemaphore() {
-//	<-qm.coSem
-//}
-
 func (qm *CQMgr) GetWorkById(id string) (workunit *Workunit, err error) {
 	workunit, ok, err := qm.workQueue.Get(id)
 	if err != nil {
@@ -974,7 +966,6 @@ func (qm *CQMgr) GetWorkById(id string) (workunit *Workunit, err error) {
 }
 
 func (qm *CQMgr) NotifyWorkStatus(notice Notice) {
-
 	qm.feedback <- notice
 	return
 }

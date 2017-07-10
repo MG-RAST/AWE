@@ -196,7 +196,6 @@ func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
 
 	if index.TotalUnits > 0 {
 		totalunits = int(index.TotalUnits)
-		//return int(shocknode.Indexes[indextype].TotalUnits), nil
 		return
 	}
 
@@ -205,7 +204,6 @@ func (io *IO) GetIndexUnits(indextype string) (totalunits int, err error) {
 }
 
 func (io *IO) DeleteNode() (err error) {
-
 	err = shock.ShockDelete(io.Host, io.Node, io.DataToken)
 	return
 

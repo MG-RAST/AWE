@@ -44,27 +44,21 @@ func (wq *WorkQueue) Add(workunit *Workunit) (err error) {
 		return errors.New("try to push a workunit with an empty id")
 	}
 	logger.Debug(3, "(WorkQueue/Add)")
-	//id := workunit.Id
 
 	err = wq.all.Set(workunit)
 	if err != nil {
 		return
 	}
-
 	err = wq.StatusChange("", workunit, WORK_STAT_QUEUED)
 	if err != nil {
 		return
 	}
-
 	return
 }
 
 func (wq *WorkQueue) Get(id string) (w *Workunit, ok bool, err error) {
-
 	w, ok, err = wq.all.Get(id)
-
 	return
-
 }
 
 func (wq *WorkQueue) GetForJob(jobid string) (worklist []*Workunit, err error) {
@@ -74,8 +68,8 @@ func (wq *WorkQueue) GetForJob(jobid string) (worklist []*Workunit, err error) {
 		return
 	}
 	for _, work := range workunits {
-
-		if jobid == getParentJobId(work.Id) {
+		parentid, _ := GetJobIdByWorkId(work.Id)
+		if jobid == parentid {
 			worklist = append(worklist, work)
 		}
 	}
@@ -83,13 +77,10 @@ func (wq *WorkQueue) GetForJob(jobid string) (worklist []*Workunit, err error) {
 }
 
 func (wq *WorkQueue) GetAll() (worklist []*Workunit, err error) {
-
 	return wq.all.GetWorkunits()
 }
 
 func (wq *WorkQueue) Clean() (workids []string) {
-	//wq.Lock()
-	//defer wq.Unlock()
 	workunt_list, err := wq.all.GetWorkunits()
 	if err != nil {
 		return
@@ -109,36 +100,28 @@ func (wq *WorkQueue) Clean() (workids []string) {
 }
 
 func (wq *WorkQueue) Delete(id string) (err error) {
-
 	err = wq.Queue.Delete(id)
 	if err != nil {
 		return
 	}
-
 	err = wq.Checkout.Delete(id)
-
 	if err != nil {
 		return
 	}
-
 	err = wq.Suspend.Delete(id)
 	if err != nil {
 		return
 	}
-
 	err = wq.all.Delete(id)
 	if err != nil {
 		return
 	}
-
 	return
 
 }
 
 func (wq *WorkQueue) Has(id string) (has bool, err error) {
-
 	_, has, err = wq.all.Get(id)
-
 	return
 }
 

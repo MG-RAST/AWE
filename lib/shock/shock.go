@@ -147,7 +147,6 @@ func (sc *ShockClient) Do_request(method string, resource string, query url.Valu
 	var res *http.Response
 
 	res, err = httpclient.Do(method, shockurl, httpclient.Header{}, nil, user)
-	//res, err = httpclient.Get(shockurl, httpclient.Header{}, nil, user)
 
 	if err != nil {
 		return
@@ -169,13 +168,6 @@ func (sc *ShockClient) Do_request(method string, resource string, query url.Valu
 	if err := json.Unmarshal(jsonstream, response); err != nil {
 		return err
 	}
-	//if len(response.Errs) > 0 {
-	//	return errors.New(strings.Join(response.Errs, ","))
-	//}
-	//node = &response.Data
-	//if node == nil {
-	//	err = errors.New("empty node got from Shock")
-	//}
 	return
 }
 
@@ -329,80 +321,6 @@ func ShockDelete(host string, nodeid string, token string) (err error) {
 	if len(response.Errs) > 0 {
 		return errors.New(strings.Join(response.Errs, ","))
 	}
-	return
-}
-
-// deprecated, this is with explicit timeout
-func (sc *ShockClient) Do_request_DEPRECATED(method string, resource string, query url.Values, response interface{}) (err error) {
-
-	//logger.Debug(1, fmt.Sprint("string_url: ", sc.Host))
-
-	myurl, err := url.ParseRequestURI(sc.Host)
-	if err != nil {
-		return err
-	}
-
-	(*myurl).Path = resource
-	(*myurl).RawQuery = query.Encode()
-
-	shockurl := myurl.String()
-
-	//logger.Debug(1, fmt.Sprint("shock request url: ", shockurl))
-	if sc.Debug {
-		fmt.Fprintf(os.Stdout, "Get_request url: %s\n", shockurl)
-	}
-
-	if len(shockurl) < 5 {
-		return errors.New("could not parse shockurl: " + shockurl)
-	}
-
-	var user *httpclient.Auth
-	if sc.Token != "" {
-		user = httpclient.GetUserByTokenAuth(sc.Token)
-	}
-
-	var res *http.Response
-
-	c := make(chan int, 1)
-	go func() {
-
-		res, err = httpclient.Do(method, shockurl, httpclient.Header{}, nil, user)
-		//res, err = httpclient.Get(shockurl, httpclient.Header{}, nil, user)
-		c <- 1 //we are ending
-	}()
-	select {
-	case <-c:
-	//go ahead
-	case <-time.After(SHOCK_TIMEOUT):
-		return errors.New("timeout when getting node from shock, url=" + shockurl)
-	}
-	if err != nil {
-		return
-	}
-	defer res.Body.Close()
-
-	jsonstream, err := ioutil.ReadAll(res.Body)
-
-	if sc.Debug {
-		fmt.Fprintf(os.Stdout, "json response:\n %s\n", string(jsonstream))
-	}
-
-	//logger.Debug(1, string(jsonstream))
-	if err != nil {
-		return err
-	}
-
-	//response := new(result)
-	if err := json.Unmarshal(jsonstream, response); err != nil {
-		return err
-	}
-	//if len(response.Errs) > 0 {
-	//	return errors.New(strings.Join(response.Errs, ","))
-	//}
-	//node = &response.Data
-	//if node == nil {
-	//	err = errors.New("empty node got from Shock")
-	//}
 	return
 }
 

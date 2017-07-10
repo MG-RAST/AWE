@@ -1,9 +1,5 @@
 package core
 
-import (
-	"fmt"
-)
-
 type TaskMap struct {
 	RWMutex
 	_map map[string]*Task
@@ -72,19 +68,5 @@ func (tm *TaskMap) Add(task *Task) {
 	tm.LockNamed("Add")
 	defer tm.Unlock()
 	tm._map[task.Id] = task // TODO prevent overwriting
-	return
-}
-
-// TODO remove ?
-func (tm *TaskMap) SetStateDEPRECATED(id string, new_state string) (err error) {
-	task, ok, err := tm.Get(id, true)
-	if err != nil {
-		return
-	}
-	if !ok {
-		err = fmt.Errorf("(SetState) Task not found")
-		return
-	}
-	err = task.SetState(new_state)
 	return
 }

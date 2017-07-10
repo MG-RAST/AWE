@@ -317,7 +317,7 @@ func (qm *ProxyMgr) GetSuspendJobs() map[string]bool {
 	return nil
 }
 
-func (qm *ProxyMgr) SuspendJob(jobid string, reason string, id string) (err error) {
+func (qm *ProxyMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 	return
 }
 
@@ -363,7 +363,7 @@ func (qm *ProxyMgr) RecomputeJob(jobid string, stage string) (err error) {
 	return
 }
 
-func (qm *ProxyMgr) UpdateQueueJobInfo(job *Job) (err error) {
+func (qm *ProxyMgr) UpdateQueueToken(job *Job) (err error) {
 	return
 }
 

@@ -99,17 +99,6 @@ func (w WorkflowStep) GetOutput(id string) (output *WorkflowStepOutput, err erro
 	return
 }
 
-//http://www.commonwl.org/v1.0/Workflow.html#CommandLineBinding
-type CommandLineBinding struct {
-	LoadContents  bool   `yaml:"loadContents"`
-	Position      int    `yaml:"position"`
-	Prefix        string `yaml:"prefix"`
-	Separate      string `yaml:"separate"`
-	ItemSeparator string `yaml:"itemSeparator"`
-	ValueFrom     string `yaml:"valueFrom"`
-	ShellQuote    bool   `yaml:"shellQuote"`
-}
-
 // CreateWorkflowStepsArray
 func CreateWorkflowStepsArray(original interface{}, collection *CWL_collection) (err error, array_ptr *[]WorkflowStep) {
 

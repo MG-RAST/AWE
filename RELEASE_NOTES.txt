@@ -1,3 +1,10 @@
+# v0.9.47
+
+- remove deprecated code
+- cleanup and optimize job and task set functions
+- add job.Error struct
+- fix job suspension logic
+
 # v0.9.46
 
 - update shock struct

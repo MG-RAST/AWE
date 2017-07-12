@@ -60,7 +60,7 @@ func deliverer_run(control chan int) {
 	if work.State == core.WORK_STAT_COMPUTED {
 		data_moved, err := cache.UploadOutputData(work)
 		if err != nil {
-			work.SetState(core.WORK_STAT_FAIL)
+			work.SetState(core.WORK_STAT_ERROR)
 			logger.Error("[deliverer#UploadOutputData]workid=" + work_id + ", err=" + err.Error())
 			work.Notes = work.Notes + "###[deliverer#UploadOutputData]" + err.Error()
 		} else {

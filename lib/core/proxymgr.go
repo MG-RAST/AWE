@@ -146,7 +146,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 				client.Last_failed = 0 //reset last consecutive failures
 				qm.AddClient(client, true)
 			}
-		} else if work.State == WORK_STAT_FAIL {
+		} else if work.State == WORK_STAT_ERROR {
 			client, ok, xerr := qm.GetClient(clientid, true)
 			if xerr != nil {
 				err = xerr

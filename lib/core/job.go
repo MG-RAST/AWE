@@ -24,6 +24,7 @@ const (
 	JOB_STAT_INPROGRESS = "in-progress"
 	JOB_STAT_COMPLETED  = "completed"
 	JOB_STAT_SUSPEND    = "suspend"
+	JOB_STAT_FAILED     = "failed" // this sepcific error state can be trigger by the workflow software
 	JOB_STAT_DELETED    = "deleted"
 )
 

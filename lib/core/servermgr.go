@@ -624,7 +624,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			return
 		}
 
-	} else if status == WORK_STAT_FAIL { //workunit failed, requeue or put it to suspend list
+	} else if status == WORK_STAT_ERROR { //workunit failed, requeue or put it to suspend list
 		logger.Event(event.WORK_FAIL, "workid="+workid+";clientid="+clientid)
 		logger.Debug(3, "work failed workid=%s clientid=%s", workid, clientid)
 		work.Failed += 1

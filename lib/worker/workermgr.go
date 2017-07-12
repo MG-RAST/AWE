@@ -1,7 +1,7 @@
 package worker
 
 import (
-	"errors"
+	//"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -32,11 +32,9 @@ const (
 	ID_DISCARDED     = 6 // flag acts as a message
 )
 
-func InitWorkers(client *core.Client) (err error) {
+func InitWorkers() (err error) {
 	fmt.Printf("InitWorkers()\n")
-	if client == nil {
-		return errors.New("InitClientWorkers(): empty client")
-	}
+
 	fromStealer = make(chan *mediumwork)   // workStealer -> dataMover
 	fromMover = make(chan *mediumwork)     // dataMover -> processor
 	fromProcessor = make(chan *mediumwork) // processor -> deliverer
@@ -47,14 +45,19 @@ func InitWorkers(client *core.Client) (err error) {
 	return
 }
 
-func StartClientWorkers() {
+func StartClientWorkers(mode string) {
 	control := make(chan int)
 	fmt.Printf("start ClientWorkers, client=%s\n", core.Self.Id)
-	go heartBeater(control)
-	go workStealer(control)
+
+	if mode == "online" {
+		go heartBeater(control)
+		go workStealer(control)
+	}
 	go dataMover(control)
 	go processor(control)
-	go deliverer(control)
+	if mode == "online" {
+		go deliverer(control)
+	}
 	for {
 		who := <-control //block till someone dies and then restart it
 		switch who {

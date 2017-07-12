@@ -570,6 +570,10 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 
 		awe_output := NewIO()
 		awe_output.Name = output_id
+
+		// need to switch, but I do no know what type to expect. CommandOutputBinding.Type is []CommandOutputParameterType
+		//switch cmd_out_param
+
 		glob_array := cmd_out_param.OutputBinding.Glob
 		switch len(glob_array) {
 		case 0:

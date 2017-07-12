@@ -14,7 +14,8 @@ const (
 	WORK_STAT_CHECKOUT    = "checkout" // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
 	WORK_STAT_SUSPEND     = "suspend"  // on MAX_FAILURE ; on SuspendJob
 	WORK_STAT_DONE        = "done"     // client-side, done.
-	WORK_STAT_FAIL        = "fail"     // client-side, workunit computation or IO error
+	WORK_STAT_FAILED      = "failed"
+	WORK_STAT_ERROR       = "fail"     // client-side, workunit computation or IO error (variable was renamed to ERROR but not the string fail, to maintain backwards compability)
 	WORK_STAT_PREPARED    = "prepared" // client-side, after argument parsing
 	WORK_STAT_COMPUTED    = "computed" // client-side, after computation is done, before upload
 	WORK_STAT_DISCARDED   = "discarded"
@@ -37,6 +38,7 @@ type Workunit struct {
 	CheckoutTime time.Time         `bson:"checkout_time" json:"checkout_time"`
 	Client       string            `bson:"client" json:"client"`
 	ComputeTime  int               `bson:"computetime" json:"computetime"`
+	ExitStatus   int               `bson:"exitstatus" json:"exitstatus"` // Linux Exit Status Code (0 is success)
 	Notes        string            `bson:"notes" json:"notes"`
 	UserAttr     map[string]string `bson:"userattr" json:"userattr"`
 }
@@ -115,16 +117,17 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 		Id:  fmt.Sprintf("%s_%d", task.Id, rank),
 		Cmd: task.Cmd,
 		//App:       task.App,
-		Info:      task.Info,
-		Inputs:    task.Inputs,
-		Outputs:   task.Outputs,
-		Predata:   task.Predata,
-		Rank:      rank,
-		TotalWork: task.TotalWork, //keep this info in workunit for load balancing
-		Partition: task.Partition,
-		State:     WORK_STAT_INIT,
-		Failed:    0,
-		UserAttr:  task.UserAttr,
+		Info:       task.Info,
+		Inputs:     task.Inputs,
+		Outputs:    task.Outputs,
+		Predata:    task.Predata,
+		Rank:       rank,
+		TotalWork:  task.TotalWork, //keep this info in workunit for load balancing
+		Partition:  task.Partition,
+		State:      WORK_STAT_INIT,
+		Failed:     0,
+		UserAttr:   task.UserAttr,
+		ExitStatus: -1,
 
 		//AppVariables: task.AppVariables // not needed yet
 	}

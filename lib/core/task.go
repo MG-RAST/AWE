@@ -16,6 +16,7 @@ const (
 	TASK_STAT_INPROGRESS = "in-progress"
 	TASK_STAT_PENDING    = "pending"
 	TASK_STAT_SUSPEND    = "suspend"
+	TASK_STAT_FAILED     = "failed"
 	TASK_STAT_COMPLETED  = "completed"
 	TASK_STAT_SKIPPED    = "user_skipped"
 	TASK_STAT_FAIL_SKIP  = "skipped"

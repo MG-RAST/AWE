@@ -59,12 +59,12 @@ func processor(control chan int) {
 			logger.Error("(processor) work.id %s not found", work.Id)
 			continue
 		}
-		if work.State == core.WORK_STAT_FAIL || work_state == ID_DISCARDED {
+		if work.State == core.WORK_STAT_ERROR || work_state == ID_DISCARDED {
 
 			if work_state == ID_DISCARDED {
 				processed.workunit.SetState(core.WORK_STAT_DISCARDED)
 			} else {
-				processed.workunit.SetState(core.WORK_STAT_FAIL)
+				processed.workunit.SetState(core.WORK_STAT_ERROR)
 			}
 			fromProcessor <- processed
 			//release the permit lock, for work overlap inhibitted mode only
@@ -90,7 +90,7 @@ func processor(control chan int) {
 			if err != nil {
 				logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
 				processed.workunit.Notes = processed.workunit.Notes + "###[processor#SetEnv]" + err.Error()
-				processed.workunit.SetState(core.WORK_STAT_FAIL)
+				processed.workunit.SetState(core.WORK_STAT_ERROR)
 				//release the permit lock, for work overlap inhibitted mode only
 				//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
 				//	<-chanPermit
@@ -101,11 +101,17 @@ func processor(control chan int) {
 		run_start := time.Now().Unix()
 
 		pstat, err := RunWorkunit(work)
-
+		exit_status := processed.workunit.ExitStatus
+		logger.Debug(1, "ExitStatus of process: %d", exit_status)
 		if err != nil {
 			logger.Error("RunWorkunit(): returned error , workid=" + work.Id + ", " + err.Error())
 			processed.workunit.Notes = processed.workunit.Notes + "###[processor#RunWorkunit]" + err.Error()
-			processed.workunit.SetState(core.WORK_STAT_FAIL)
+
+			if exit_status == 42 {
+				processed.workunit.SetState(core.WORK_STAT_FAILED) // process told us that is an error where resubmission does not make sense.
+			} else {
+				processed.workunit.SetState(core.WORK_STAT_ERROR)
+			}
 		} else {
 			logger.Debug(1, "RunWorkunit() returned without error, workid="+work.Id)
 			processed.workunit.SetState(core.WORK_STAT_COMPUTED)
@@ -674,6 +680,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 				select {
 				case cresult := <-done:
+					work.ExitStatus = cresult.Status
 					if cresult.Error != nil {
 						logger.Error("channel done returned error: " + cresult.Error.Error())
 					}

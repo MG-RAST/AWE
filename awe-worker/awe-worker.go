@@ -28,6 +28,11 @@ func main() {
 	//	os.Exit(1)
 	//}
 
+	client_mode := "online"
+	if conf.CWL_TOOL != "" || conf.CWL_JOB != "" {
+		client_mode = "offline"
+	}
+
 	if _, err = os.Stat(conf.WORK_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.WORK_PATH, 0777); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR in creating work_path \"%s\" : %s\n", conf.WORK_PATH, err.Error())
@@ -66,6 +71,7 @@ func main() {
 	logger.Initialize("client")
 
 	logger.Debug(1, "PATH="+os.Getenv("PATH"))
+	logger.Debug(3, "client_mode="+client_mode)
 
 	profile, err := worker.ComposeProfile()
 	if err != nil {
@@ -73,28 +79,36 @@ func main() {
 		os.Exit(1)
 	}
 
-	if conf.SERVER_URL == "" {
-		fmt.Fprintf(os.Stderr, "AWE server url not configured or is empty. Please check the [Client]serverurl field in the configuration file.\n")
-		os.Exit(1)
-	}
-	if strings.HasPrefix(conf.SERVER_URL, "http") == false {
-		fmt.Fprintf(os.Stderr, "serverurl not valid (require http://): %s \n", conf.SERVER_URL)
-		os.Exit(1)
+	var self *core.Client
+	if client_mode == "online" {
+		if conf.SERVER_URL == "" {
+			fmt.Fprintf(os.Stderr, "AWE server url not configured or is empty. Please check the [Client]serverurl field in the configuration file.\n")
+			os.Exit(1)
+		}
+		if strings.HasPrefix(conf.SERVER_URL, "http") == false {
+			fmt.Fprintf(os.Stderr, "serverurl not valid (require http://): %s \n", conf.SERVER_URL)
+			os.Exit(1)
+		}
+
+		self, err = worker.RegisterWithAuth(conf.SERVER_URL, profile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "fail to register: %s\n", err.Error())
+			logger.Error("fail to register: %s\n", err.Error())
+			os.Exit(1)
+		}
+
+	} else {
+		self = core.NewClient()
 	}
 
-	self, err := worker.RegisterWithAuth(conf.SERVER_URL, profile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "fail to register: %s\n", err.Error())
-		logger.Error("fail to register: %s\n", err.Error())
-		os.Exit(1)
-	}
 	core.SetClientProfile(self)
+	if client_mode == "online" {
+		fmt.Printf("Client registered, name=%s, id=%s\n", self.Name, self.Id)
+		logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)
+	}
 
-	fmt.Printf("Client registered, name=%s, id=%s\n", self.Name, self.Id)
-	logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)
-
-	if err := worker.InitWorkers(self); err == nil {
-		worker.StartClientWorkers()
+	if err := worker.InitWorkers(); err == nil {
+		worker.StartClientWorkers(client_mode)
 	} else {
 		fmt.Printf("failed to initialize and start workers:" + err.Error())
 	}

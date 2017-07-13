@@ -40,11 +40,18 @@ type WaitContainerResult struct {
 func processor(control chan int) {
 	fmt.Printf("processor launched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("processor exiting...\n")
+	count := 0
 	for {
+		count += 1
+		if Client_mode == "offline" && count > 1 {
+			control <- ID_WORKER
+			return
+		}
+
 		parsedwork := <-fromMover
 		work := parsedwork.workunit
 
-		processed := &mediumwork{
+		processed := &Mediumwork{
 			workunit: work,
 			perfstat: parsedwork.perfstat,
 		}

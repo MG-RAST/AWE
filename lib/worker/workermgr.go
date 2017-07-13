@@ -4,22 +4,26 @@ import (
 	//"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 )
 
 var (
-	fromStealer   chan *mediumwork // workStealer -> dataMover
-	fromMover     chan *mediumwork // dataMover -> processor
-	fromProcessor chan *mediumwork // processor -> deliverer
+	FromStealer   chan *Mediumwork // workStealer -> dataMover
+	fromMover     chan *Mediumwork // dataMover -> processor
+	fromProcessor chan *Mediumwork // processor -> deliverer
 	chanPermit    chan bool
 	chankill      chan bool //heartbeater -> worker
 	workmap       *WorkMap
 	//workmap       map[string]int //workunit map [work_id]stage_id}
+	Client_mode string
 )
 
-type mediumwork struct {
+type Mediumwork struct {
 	workunit *core.Workunit
 	perfstat *core.WorkPerf
+	CWL_job  *cwl.Job_document
+	CWL_tool *cwl.CommandLineTool
 }
 
 const (
@@ -35,9 +39,9 @@ const (
 func InitWorkers() (err error) {
 	fmt.Printf("InitWorkers()\n")
 
-	fromStealer = make(chan *mediumwork)   // workStealer -> dataMover
-	fromMover = make(chan *mediumwork)     // dataMover -> processor
-	fromProcessor = make(chan *mediumwork) // processor -> deliverer
+	FromStealer = make(chan *Mediumwork)   // workStealer -> dataMover
+	fromMover = make(chan *Mediumwork)     // dataMover -> processor
+	fromProcessor = make(chan *Mediumwork) // processor -> deliverer
 	chankill = make(chan bool)             //heartbeater -> processor
 	chanPermit = make(chan bool)
 	//workmap = map[string]int{} //workunit map [work_id]stage_idgit
@@ -45,10 +49,11 @@ func InitWorkers() (err error) {
 	return
 }
 
-func StartClientWorkers(mode string) {
+func StartClientWorkers() {
 	control := make(chan int)
 	fmt.Printf("start ClientWorkers, client=%s\n", core.Self.Id)
 
+	mode := Client_mode
 	if mode == "online" {
 		go heartBeater(control)
 		go workStealer(control)
@@ -60,6 +65,12 @@ func StartClientWorkers(mode string) {
 	}
 	for {
 		who := <-control //block till someone dies and then restart it
+
+		if mode == "offline" {
+			fmt.Println("Done.")
+			return
+		}
+
 		switch who {
 		case ID_HEARTBEATER:
 			go heartBeater(control)

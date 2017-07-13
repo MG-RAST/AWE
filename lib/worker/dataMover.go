@@ -71,7 +71,7 @@ func replace_filepath_with_full_filepath(inputs []*core.IO, workpath string, cmd
 	return
 }
 
-func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
+func prepareAppTask(parsed *Mediumwork, work *core.Workunit) (err error) {
 
 	// get app definition
 	//app_cmd_mode_object, err := core.MyAppRegistry.Get_cmd_mode_object(app_array[0], app_array[1], app_array[2])
@@ -178,8 +178,8 @@ func dataMover(control chan int) {
 
 	defer fmt.Printf("dataMover exiting...\n")
 	for {
-		raw := <-fromStealer
-		parsed := &mediumwork{
+		raw := <-FromStealer
+		parsed := &Mediumwork{
 			workunit: raw.workunit,
 			perfstat: raw.perfstat,
 		}
@@ -274,8 +274,8 @@ func proxyDataMover(control chan int) {
 	defer fmt.Printf("proxyDataMover exiting...\n")
 
 	for {
-		raw := <-fromStealer
-		parsed := &mediumwork{
+		raw := <-FromStealer
+		parsed := &Mediumwork{
 			workunit: raw.workunit,
 			perfstat: raw.perfstat,
 		}

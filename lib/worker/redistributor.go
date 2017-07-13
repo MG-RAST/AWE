@@ -11,12 +11,12 @@ func redistributor(control chan int) {
 	fmt.Printf("redistributor launched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("redistributor exiting...\n")
 	for {
-		parsed := <-fromStealer
+		parsed := <-FromStealer
 		work := parsed.workunit
 
 		workmap.Set(work.Id, ID_REDISTRIBUTOR, "redistributor")
 
-		queued := &mediumwork{
+		queued := &Mediumwork{
 			workunit: parsed.workunit,
 			perfstat: parsed.perfstat,
 		}

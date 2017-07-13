@@ -96,11 +96,11 @@ func workStealer(control chan int) {
 		//hand the work to the next step handler: dataMover
 		workstat := core.NewWorkPerf(wu.Id)
 		workstat.Checkout = time.Now().Unix()
-		rawWork := &mediumwork{
+		rawWork := &Mediumwork{
 			workunit: wu,
 			perfstat: workstat,
 		}
-		fromStealer <- rawWork // sends to dataMover
+		FromStealer <- rawWork // sends to dataMover
 
 		//if worker overlap is inhibited, wait until deliverer finishes processing the workunit
 		if conf.WORKER_OVERLAP == false && core.Service != "proxy" {

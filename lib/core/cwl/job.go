@@ -3,7 +3,7 @@ package cwl
 import (
 	//"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"io/ioutil"
 	//"os"
@@ -57,7 +57,7 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 	return
 }
 
-func ParseJob(collection *CWL_collection, job_file string) (job_input *Job_document, err error) {
+func ParseJob(job_file string) (job_input *Job_document, err error) {
 
 	job_stream, err := ioutil.ReadFile(job_file)
 	if err != nil {
@@ -76,10 +76,10 @@ func ParseJob(collection *CWL_collection, job_file string) (job_input *Job_docum
 		return
 	}
 
-	fmt.Printf("-------MyCollection")
-	spew.Dump(collection.All)
+	//fmt.Printf("-------MyCollection")
+	//spew.Dump(collection.All)
 
-	fmt.Printf("-------")
+	//fmt.Printf("-------")
 	//os.Exit(0)
 
 	return

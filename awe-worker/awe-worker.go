@@ -2,14 +2,16 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"strings"
-
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/worker"
+	"github.com/davecgh/go-spew/spew"
+	"os"
+	"strings"
+	"time"
 )
 
 func main() {
@@ -28,9 +30,10 @@ func main() {
 	//	os.Exit(1)
 	//}
 
-	client_mode := "online"
+	worker.Client_mode = "online"
 	if conf.CWL_TOOL != "" || conf.CWL_JOB != "" {
-		client_mode = "offline"
+		worker.Client_mode = "offline"
+		conf.LOG_OUTPUT = "console"
 	}
 
 	if _, err = os.Stat(conf.WORK_PATH); err != nil && os.IsNotExist(err) {
@@ -71,7 +74,7 @@ func main() {
 	logger.Initialize("client")
 
 	logger.Debug(1, "PATH="+os.Getenv("PATH"))
-	logger.Debug(3, "client_mode="+client_mode)
+	logger.Debug(3, "worker.Client_mode="+worker.Client_mode)
 
 	profile, err := worker.ComposeProfile()
 	if err != nil {
@@ -80,7 +83,7 @@ func main() {
 	}
 
 	var self *core.Client
-	if client_mode == "online" {
+	if worker.Client_mode == "online" {
 		if conf.SERVER_URL == "" {
 			fmt.Fprintf(os.Stderr, "AWE server url not configured or is empty. Please check the [Client]serverurl field in the configuration file.\n")
 			os.Exit(1)
@@ -102,14 +105,52 @@ func main() {
 	}
 
 	core.SetClientProfile(self)
-	if client_mode == "online" {
+	if worker.Client_mode == "online" {
 		fmt.Printf("Client registered, name=%s, id=%s\n", self.Name, self.Id)
 		logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)
 	}
 
 	if err := worker.InitWorkers(); err == nil {
-		worker.StartClientWorkers(client_mode)
+
+		if worker.Client_mode == "offline" {
+			if conf.CWL_JOB == "" {
+				logger.Error("cwl job file missing")
+				time.Sleep(time.Second)
+				os.Exit(1)
+			}
+			job_doc, err := cwl.ParseJob(conf.CWL_JOB)
+			if err != nil {
+				logger.Error("error parsing cwl job: %v", err)
+				time.Sleep(time.Second)
+				os.Exit(1)
+			}
+
+			spew.Dump(*job_doc)
+
+			for key, value := range *job_doc {
+				fmt.Println(key)
+
+				switch value.(type) {
+				case *cwl.File:
+					file, ok := value.(*cwl.File)
+					if !ok {
+						panic("not file")
+					}
+					fmt.Printf("%+v\n", *file)
+
+				default:
+					spew.Dump(value)
+				}
+			}
+			mediumwork := worker.Mediumwork{}
+			mediumwork.CWL_job = job_doc
+			worker.FromStealer <- &mediumwork
+
+		}
+
+		worker.StartClientWorkers()
 	} else {
 		fmt.Printf("failed to initialize and start workers:" + err.Error())
 	}
+
 }

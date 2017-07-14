@@ -97,7 +97,7 @@ func workStealer(control chan int) {
 		workstat := core.NewWorkPerf(wu.Id)
 		workstat.Checkout = time.Now().Unix()
 		rawWork := &Mediumwork{
-			workunit: wu,
+			Workunit: wu,
 			perfstat: workstat,
 		}
 		FromStealer <- rawWork // sends to dataMover

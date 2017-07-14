@@ -110,47 +110,54 @@ func main() {
 		logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)
 	}
 
-	if err := worker.InitWorkers(); err == nil {
+	worker.InitWorkers()
 
-		if worker.Client_mode == "offline" {
-			if conf.CWL_JOB == "" {
-				logger.Error("cwl job file missing")
-				time.Sleep(time.Second)
-				os.Exit(1)
-			}
-			job_doc, err := cwl.ParseJob(conf.CWL_JOB)
-			if err != nil {
-				logger.Error("error parsing cwl job: %v", err)
-				time.Sleep(time.Second)
-				os.Exit(1)
-			}
-
-			spew.Dump(*job_doc)
-
-			for key, value := range *job_doc {
-				fmt.Println(key)
-
-				switch value.(type) {
-				case *cwl.File:
-					file, ok := value.(*cwl.File)
-					if !ok {
-						panic("not file")
-					}
-					fmt.Printf("%+v\n", *file)
-
-				default:
-					spew.Dump(value)
-				}
-			}
-			mediumwork := worker.Mediumwork{}
-			mediumwork.CWL_job = job_doc
-			worker.FromStealer <- &mediumwork
-
+	if worker.Client_mode == "offline" {
+		if conf.CWL_JOB == "" {
+			logger.Error("cwl job file missing")
+			time.Sleep(time.Second)
+			os.Exit(1)
+		}
+		job_doc, err := cwl.ParseJob(conf.CWL_JOB)
+		if err != nil {
+			logger.Error("error parsing cwl job: %v", err)
+			time.Sleep(time.Second)
+			os.Exit(1)
 		}
 
-		worker.StartClientWorkers()
-	} else {
-		fmt.Printf("failed to initialize and start workers:" + err.Error())
+		spew.Dump(*job_doc)
+
+		for key, value := range *job_doc {
+			fmt.Println(key)
+
+			switch value.(type) {
+			case *cwl.File:
+				file, ok := value.(*cwl.File)
+				if !ok {
+					panic("not file")
+				}
+				fmt.Printf("%+v\n", *file)
+
+			default:
+				spew.Dump(value)
+			}
+		}
+		mediumwork := worker.Mediumwork{}
+		mediumwork.CWL_job = job_doc
+
+		mediumwork.CWL_tool_filename = conf.CWL_TOOL
+		mediumwork.CWL_tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
+
+		mediumwork.Workunit = &core.Workunit{Id: "00000000-0000-0000-0000-000000000000_0_0"}
+		logger.Debug(1, "injecting cwl job into worker...")
+		go func() {
+			worker.FromStealer <- &mediumwork
+		}()
+
 	}
+
+	time.Sleep(time.Second)
+
+	worker.StartClientWorkers()
 
 }

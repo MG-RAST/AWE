@@ -49,10 +49,10 @@ func processor(control chan int) {
 		}
 
 		parsedwork := <-fromMover
-		work := parsedwork.workunit
+		work := parsedwork.Workunit
 
 		processed := &Mediumwork{
-			workunit: work,
+			Workunit: work,
 			perfstat: parsedwork.perfstat,
 		}
 
@@ -69,9 +69,9 @@ func processor(control chan int) {
 		if work.State == core.WORK_STAT_ERROR || work_state == ID_DISCARDED {
 
 			if work_state == ID_DISCARDED {
-				processed.workunit.SetState(core.WORK_STAT_DISCARDED)
+				processed.Workunit.SetState(core.WORK_STAT_DISCARDED)
 			} else {
-				processed.workunit.SetState(core.WORK_STAT_ERROR)
+				processed.Workunit.SetState(core.WORK_STAT_ERROR)
 			}
 			fromProcessor <- processed
 			//release the permit lock, for work overlap inhibitted mode only
@@ -96,8 +96,8 @@ func processor(control chan int) {
 			envkeys, err = SetEnv(work)
 			if err != nil {
 				logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
-				processed.workunit.Notes = processed.workunit.Notes + "###[processor#SetEnv]" + err.Error()
-				processed.workunit.SetState(core.WORK_STAT_ERROR)
+				processed.Workunit.Notes = processed.Workunit.Notes + "###[processor#SetEnv]" + err.Error()
+				processed.Workunit.SetState(core.WORK_STAT_ERROR)
 				//release the permit lock, for work overlap inhibitted mode only
 				//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
 				//	<-chanPermit
@@ -108,20 +108,20 @@ func processor(control chan int) {
 		run_start := time.Now().Unix()
 
 		pstat, err := RunWorkunit(work)
-		exit_status := processed.workunit.ExitStatus
+		exit_status := processed.Workunit.ExitStatus
 		logger.Debug(1, "ExitStatus of process: %d", exit_status)
 		if err != nil {
 			logger.Error("RunWorkunit(): returned error , workid=" + work.Id + ", " + err.Error())
-			processed.workunit.Notes = processed.workunit.Notes + "###[processor#RunWorkunit]" + err.Error()
+			processed.Workunit.Notes = processed.Workunit.Notes + "###[processor#RunWorkunit]" + err.Error()
 
 			if exit_status == 42 {
-				processed.workunit.SetState(core.WORK_STAT_FAILED) // process told us that is an error where resubmission does not make sense.
+				processed.Workunit.SetState(core.WORK_STAT_FAILED) // process told us that is an error where resubmission does not make sense.
 			} else {
-				processed.workunit.SetState(core.WORK_STAT_ERROR)
+				processed.Workunit.SetState(core.WORK_STAT_ERROR)
 			}
 		} else {
 			logger.Debug(1, "RunWorkunit() returned without error, workid="+work.Id)
-			processed.workunit.SetState(core.WORK_STAT_COMPUTED)
+			processed.Workunit.SetState(core.WORK_STAT_COMPUTED)
 			processed.perfstat.MaxMemUsage = pstat.MaxMemUsage
 			processed.perfstat.MaxMemoryTotalRss = pstat.MaxMemoryTotalRss
 			processed.perfstat.MaxMemoryTotalSwap = pstat.MaxMemoryTotalSwap
@@ -131,7 +131,7 @@ func processor(control chan int) {
 		run_end := time.Now().Unix()
 		computetime := run_end - run_start
 		processed.perfstat.Runtime = computetime
-		processed.workunit.ComputeTime = int(computetime)
+		processed.Workunit.ComputeTime = int(computetime)
 
 		if !wants_docker {
 			if len(envkeys) > 0 {

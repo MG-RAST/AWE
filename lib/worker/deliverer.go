@@ -31,7 +31,7 @@ func deliverer_run(control chan int) {
 	defer func() { <-chanPermit }()
 
 	processed := <-fromProcessor
-	work := processed.workunit
+	work := processed.Workunit
 
 	work_id := work.Id
 

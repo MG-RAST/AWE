@@ -20,10 +20,11 @@ var (
 )
 
 type Mediumwork struct {
-	workunit *core.Workunit
-	perfstat *core.WorkPerf
-	CWL_job  *cwl.Job_document
-	CWL_tool *cwl.CommandLineTool
+	Workunit          *core.Workunit
+	perfstat          *core.WorkPerf
+	CWL_job           *cwl.Job_document
+	CWL_tool          *cwl.CommandLineTool
+	CWL_tool_filename string
 }
 
 const (
@@ -36,7 +37,7 @@ const (
 	ID_DISCARDED     = 6 // flag acts as a message
 )
 
-func InitWorkers() (err error) {
+func InitWorkers() {
 	fmt.Printf("InitWorkers()\n")
 
 	FromStealer = make(chan *Mediumwork)   // workStealer -> dataMover

@@ -1168,8 +1168,10 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 		return
 	}
 
-	//jobid, _ := GetJobIdByTaskId(task_id)
-	job_id := task.JobId
+	job_id, err := task.GetJobId()
+	if err != nil {
+		return
+	}
 
 	logger.Debug(2, "qmgr.taskEnQueue trying to enqueue task %s", task_id)
 

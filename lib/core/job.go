@@ -149,7 +149,6 @@ func (job *Job) Init() (changed bool, err error) {
 	old_remaintasks := job.RemainTasks
 	job.RemainTasks = 0
 
-	create_new_tasks_array := false
 	for _, task := range job.Tasks {
 		if task.Id == "" {
 			// suspend and create error
@@ -173,20 +172,6 @@ func (job *Job) Init() (changed bool, err error) {
 		if task.State != TASK_STAT_COMPLETED {
 			job.RemainTasks += 1
 		}
-		if task.Id == "" {
-			create_new_tasks_array = true
-		}
-	}
-
-	if create_new_tasks_array {
-		new_tasks := []*Task{}
-		for _, task := range job.Tasks {
-			if task.Id != "" {
-				new_tasks = append(new_tasks, task)
-			}
-		}
-		job.Tasks = new_tasks
-		changed = true
 	}
 
 	// try to fix inconsistent state

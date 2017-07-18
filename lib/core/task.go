@@ -73,14 +73,11 @@ func NewTaskRaw(task_id string, info *Info) TaskRaw {
 	logger.Debug(3, "task_id: %s", task_id)
 
 	return TaskRaw{
-		Id:         task_id,
-		Info:       info,
-		Cmd:        &Command{},
-		Partition:  nil,
-		DependsOn:  []string{},
-		TotalWork:  1,
-		RemainWork: 1,
-		State:      TASK_STAT_INIT,
+		Id:        task_id,
+		Info:      info,
+		Cmd:       &Command{},
+		Partition: nil,
+		DependsOn: []string{},
 	}
 }
 
@@ -242,6 +239,7 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 	return
 }
 
+// currently this is only used to make a new task from a depricated task
 func NewTask(job *Job, task_id string) (t *Task, err error) {
 	t = &Task{
 		TaskRaw: NewTaskRaw(task_id, job.Info),
@@ -464,116 +462,158 @@ func (task *Task) CreateIndex() (err error) {
 	return
 }
 
-//get part size based on partition/index info
-//if fail to get index info, task.TotalWork fall back to 1 and return nil
+// get part size based on partition/index info
+// this resets task.Partition when called
+// only 1 task.Inputs allowed unless 'partinfo.input' specified on POST
+// if fail to get index info, task.TotalWork set to 1 and task.Partition set to nil
 func (task *Task) InitPartIndex() (err error) {
 	if task.TotalWork == 1 && task.MaxWorkSize == 0 {
+		// only 1 workunit requested
 		return
 	}
 
-	var input_io *IO
-	if task.Partition == nil {
-		if len(task.Inputs) == 1 {
-			input_io = task.Inputs[0]
-			newPartition := &PartInfo{
-				Input:         input_io.FileName,
-				MaxPartSizeMB: task.MaxWorkSize,
-			}
-			err = task.setPartition(newPartition, true)
-			if err != nil {
-				return
-			}
-		} else {
-			logger.Error("warning: lacking partition info while multiple inputs are specified, taskid=" + task.Id)
-			err = task.setTotalWork(1, true)
-			return
-		}
-	} else {
-		if task.MaxWorkSize > 0 {
-			if task.Partition.MaxPartSizeMB != task.MaxWorkSize {
-				err = task.setMaxPartSize(task.MaxWorkSize, true)
-				if err != nil {
-					return
+	err = task.LockNamed("InitPartIndex")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	inputIO := task.Inputs[0]
+	newPartition := &PartInfo{
+		Input:         inputIO.FileName,
+		MaxPartSizeMB: task.MaxWorkSize,
+	}
+
+	if len(task.Inputs) > 1 {
+		found := false
+		if (task.Partition != nil) && (task.Partition.Input != "") {
+			// task submitted with partition input specified, use that
+			for _, io := range task.Inputs {
+				if io.FileName == task.Partition.Input {
+					found = true
+					inputIO = io
+					newPartition.Input = io.FileName
 				}
 			}
 		}
-		if task.Partition.MaxPartSizeMB == 0 && task.TotalWork <= 1 {
-			logger.Error("warning: lacking partition size while multiple inputs are specified, taskid=" + task.Id)
-			err = task.setTotalWork(1, true)
-			return
-		}
-		found := false
-		for _, io := range task.Inputs {
-			if io.FileName == task.Partition.Input {
-				found = true
-				input_io = io
-			}
-		}
 		if !found {
-			logger.Error("warning: invalid partition info, taskid=" + task.Id)
-			err = task.setTotalWork(1, true)
+			// bad state - set as not multi-workunit
+			logger.Error("warning: lacking partition info while multiple inputs are specified, taskid=" + task.Id)
+			err = task.setSingleWorkunit(false)
 			return
 		}
+	}
+
+	idxinfo, err := inputIO.GetIndexInfo()
+	if err != nil {
+		// bad state - set as not multi-workunit
+		logger.Error("warning: invalid file info, taskid=%s, error=%s", task.Id, err.Error())
+		err = task.setSingleWorkunit(false)
+		return
 	}
 
 	var totalunits int
-	idxinfo, err := input_io.GetIndexInfo()
-	if err != nil {
-		_ = task.setTotalWork(1, true)
-		logger.Error("warning: invalid file info, taskid=%s, error=%s", task.Id, err.Error())
-		return nil
-	}
-
 	idxtype := conf.DEFAULT_INDEX
-	if _, ok := idxinfo[idxtype]; !ok { //if index not available, create index
-		err = ShockPutIndex(input_io.Host, input_io.Node, idxtype, task.Info.DataToken)
+	if _, ok := idxinfo[idxtype]; !ok {
+		// if index not available, create index
+		err = ShockPutIndex(inputIO.Host, inputIO.Node, idxtype, task.Info.DataToken)
 		if err != nil {
-			_ = task.setTotalWork(1, true)
-			logger.Error("warning: fail to create index on shock for taskid=" + task.Id + ", error=" + err.Error())
-			return nil
+			// bad state - set as not multi-workunit
+			logger.Error("warning: failed to create index on shock for taskid=" + task.Id + ", error=" + err.Error())
+			err = task.setSingleWorkunit(false)
+			return
 		}
-		totalunits, err = input_io.TotalUnits(idxtype) //get index info again
+		totalunits, err = inputIO.TotalUnits(idxtype) // get index info again
 		if err != nil {
-			_ = task.setTotalWork(1, true)
-			logger.Error("warning: fail to get index units, taskid=" + task.Id + ", error=" + err.Error())
-			return nil
+			// bad state - set as not multi-workunit
+			logger.Error("warning: failed to get index units, taskid=" + task.Id + ", error=" + err.Error())
+			err = task.setSingleWorkunit(false)
+			return
 		}
-	} else { //index existing, use it directly
+	} else {
+		// index existing, use it directly
 		totalunits = int(idxinfo[idxtype].TotalUnits)
 	}
 
-	//adjust total work based on needs
-	if task.Partition.MaxPartSizeMB > 0 { // fixed max part size
-		//this implementation for chunkrecord indexer only
+	// adjust total work based on needs
+	if newPartition.MaxPartSizeMB > 0 {
+		// this implementation for chunkrecord indexer only
 		chunkmb := int(conf.DEFAULT_CHUNK_SIZE / 1048576)
 		var totalwork int
-		if totalunits*chunkmb%task.Partition.MaxPartSizeMB == 0 {
-			totalwork = totalunits * chunkmb / task.Partition.MaxPartSizeMB
+		if totalunits*chunkmb%newPartition.MaxPartSizeMB == 0 {
+			totalwork = totalunits * chunkmb / newPartition.MaxPartSizeMB
 		} else {
-			totalwork = totalunits*chunkmb/task.Partition.MaxPartSizeMB + 1
+			totalwork = totalunits*chunkmb/newPartition.MaxPartSizeMB + 1
 		}
-		if totalwork < task.TotalWork { //use bigger splits (specified by size or totalwork)
+		if totalwork < task.TotalWork {
+			// use bigger splits (specified by size or totalwork)
 			totalwork = task.TotalWork
 		}
-		err = task.setTotalWork(totalwork, true)
-		if err != nil {
-			return
+		if totalwork != task.TotalWork {
+			err = task.setTotalWork(totalwork, false)
+			if err != nil {
+				return
+			}
 		}
 	}
+
 	if totalunits < task.TotalWork {
-		err = task.setTotalWork(totalunits, true)
+		err = task.setTotalWork(totalunits, false)
 		if err != nil {
 			return
 		}
 	}
 
-	copyPartition := *task.Partition
-	copyPartition.Index = idxtype
-	copyPartition.TotalIndex = totalunits
-	err = task.setPartition(&copyPartition, true)
+	// need only 1 workunit
+	if task.TotalWork == 1 {
+		err = task.setSingleWorkunit(false)
+		return
+	}
+
+	newPartition.Index = idxtype
+	newPartition.TotalIndex = totalunits
+	err = task.setPartition(newPartition, false)
+	return
+}
+
+// wrapper functions to set: totalwork=1, partition=nil, maxworksize=0
+func (task *Task) setSingleWorkunit(writelock bool) (err error) {
+	if task.TotalWork != 1 {
+		err = task.setTotalWork(1, writelock)
+		if err != nil {
+			return
+		}
+	}
+	if task.Partition != nil {
+		err = task.setPartition(nil, writelock)
+		if err != nil {
+			return
+		}
+	}
+	if task.MaxWorkSize != 0 {
+		err = task.setMaxWorkSize(0, writelock)
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+func (task *Task) setTotalWork(num int, writelock bool) (err error) {
+	if writelock {
+		err = task.LockNamed("setTotalWork")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
+	err = dbUpdateJobTaskInt(task.JobId, task.Id, "totalwork", num)
 	if err != nil {
 		return
 	}
+	task.TotalWork = num
+	// reset remaining work whenever total work reset
+	err = task.SetRemainWork(num, false)
 	return
 }
 
@@ -593,36 +633,19 @@ func (task *Task) setPartition(partition *PartInfo, writelock bool) (err error) 
 	return
 }
 
-func (task *Task) setMaxPartSize(num int, writelock bool) (err error) {
+func (task *Task) setMaxWorkSize(num int, writelock bool) (err error) {
 	if writelock {
-		err = task.LockNamed("setMaxPartSize")
+		err = task.LockNamed("setMaxWorkSize")
 		if err != nil {
 			return
 		}
 		defer task.Unlock()
 	}
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "partinfo.maxpartsize_mb", num)
+	err = dbUpdateJobTaskInt(task.JobId, task.Id, "maxworksize", num)
 	if err != nil {
 		return
 	}
-	task.Partition.MaxPartSizeMB = num
-	return
-}
-
-func (task *Task) setTotalWork(num int, writelock bool) (err error) {
-	if writelock {
-		err = task.LockNamed("setTotalWork")
-		if err != nil {
-			return
-		}
-		defer task.Unlock()
-	}
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "totalwork", num)
-	if err != nil {
-		return
-	}
-	task.TotalWork = num
-	err = task.SetRemainWork(num, false)
+	task.MaxWorkSize = num
 	return
 }
 

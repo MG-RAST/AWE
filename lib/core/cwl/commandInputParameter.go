@@ -9,7 +9,7 @@ import (
 type CommandInputParameter struct {
 	Id             string                      `yaml:"id"`
 	SecondaryFiles []string                    `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         string                      `yaml:"format"`
+	Format         []string                    `yaml:"format"`
 	Streamable     bool                        `yaml:"streamable"`
 	Type           []CommandInputParameterType `yaml:"type"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
 	Label          string                      `yaml:"label"`
@@ -54,6 +54,15 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 				return
 			}
 			v_map["type"] = type_value
+		}
+
+		format_value, ok := v_map["format_value"]
+		if ok {
+			format_str, is_string := format_value.(string)
+			if is_string {
+				v_map["format_value"] = []string{format_str}
+			}
+
 		}
 
 		input_parameter = &CommandInputParameter{}

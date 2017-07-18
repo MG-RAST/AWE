@@ -24,7 +24,22 @@ const (
 	CWL_double  = "double"  //double precision (64-bit) IEEE 754 floating-point number
 	CWL_string  = "string"  //Unicode character sequence
 	CWL_File    = "File"    //A File object
+	CWL_stdout  = "stdout"
+	CWL_stderr  = "stderr"
 )
+
+var valid_cwltypes = map[string]bool{
+	CWL_null:    true,
+	CWL_boolean: true,
+	CWL_int:     true,
+	CWL_long:    true,
+	CWL_float:   true,
+	CWL_double:  true,
+	CWL_string:  true,
+	CWL_File:    true,
+	CWL_stdout:  true,
+	CWL_stderr:  true,
+}
 
 type CWL_minimal_interface interface {
 	is_CWL_minimal()

@@ -446,9 +446,12 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 				return
 			}
 
+		case cwl.CWL_boolean:
+			input_string = ""
+
 		default:
 
-			err = fmt.Errorf("not implemented yet (%s) id=%s", obj_class, id_base)
+			err = fmt.Errorf("(expected inputs) not implemented yet (%s) id=%s", obj_class, id_base)
 			return
 		}
 
@@ -461,7 +464,11 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 			if command_line != "" {
 				command_line = command_line + " "
 			}
-			command_line = command_line + prefix + " " + input_string
+			command_line = command_line + prefix
+
+			if input_string != "" {
+				command_line = command_line + " " + input_string
+			}
 		}
 
 		//}
@@ -473,8 +480,11 @@ func createAweTask(helper *Helper, cwl_tool *cwl.CommandLineTool, cwl_step *cwl.
 		fmt.Println("command_line: ", command_line)
 	}
 
-	awe_task.Cmd.Args = local_collection.Evaluate(command_line)
-	awe_task.Cmd.Name = cwl_tool.BaseCommand
+	awe_task.Cmd.Name = cwl_tool.BaseCommand[0]
+	if len(cwl_tool.BaseCommand) > 1 {
+		awe_task.Cmd.Args = strings.Join(cwl_tool.BaseCommand[1:], " ")
+	}
+	awe_task.Cmd.Args += local_collection.Evaluate(command_line)
 
 	for _, requirement := range cwl_tool.Hints {
 		class := requirement.GetClass()
@@ -604,14 +614,10 @@ func CommandLineTool2awe_task(helper *Helper, step *cwl.WorkflowStep, cmdlinetoo
 	//collection := helper.collection
 	job := helper.job
 
-	cmdlinetool_str := cmdlinetool.BaseCommand
-
-	logger.Debug(3, "cmdlinetool_str: %s", cmdlinetool_str)
-
 	// TODO detect identifier URI (http://www.commonwl.org/v1.0/SchemaSalad.html#Identifier_resolution)
 	// TODO: strings.Contains(step.Run, ":") or use split
 
-	if cmdlinetool_str == "" {
+	if len(cmdlinetool.BaseCommand) == 0 {
 		err = errors.New("(cwl_step_2_awe_task) Run string empty")
 		return
 	}

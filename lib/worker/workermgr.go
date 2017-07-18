@@ -4,14 +4,14 @@ import (
 	//"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/MG-RAST/AWE/lib/core/cwl"
+	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 )
 
 var (
-	FromStealer   chan *Mediumwork // workStealer -> dataMover
-	fromMover     chan *Mediumwork // dataMover -> processor
-	fromProcessor chan *Mediumwork // processor -> deliverer
+	FromStealer   chan *core.Workunit // workStealer -> dataMover
+	fromMover     chan *core.Workunit // dataMover -> processor
+	fromProcessor chan *core.Workunit // processor -> deliverer
 	chanPermit    chan bool
 	chankill      chan bool //heartbeater -> worker
 	workmap       *WorkMap
@@ -20,11 +20,9 @@ var (
 )
 
 type Mediumwork struct {
-	Workunit          *core.Workunit
-	perfstat          *core.WorkPerf
-	CWL_job           *cwl.Job_document
-	CWL_tool          *cwl.CommandLineTool
-	CWL_tool_filename string
+	Workunit *core.Workunit
+	//Perfstat          *core.WorkPerf
+
 }
 
 const (
@@ -40,10 +38,10 @@ const (
 func InitWorkers() {
 	fmt.Printf("InitWorkers()\n")
 
-	FromStealer = make(chan *Mediumwork)   // workStealer -> dataMover
-	fromMover = make(chan *Mediumwork)     // dataMover -> processor
-	fromProcessor = make(chan *Mediumwork) // processor -> deliverer
-	chankill = make(chan bool)             //heartbeater -> processor
+	FromStealer = make(chan *core.Workunit)   // workStealer -> dataMover
+	fromMover = make(chan *core.Workunit)     // dataMover -> processor
+	fromProcessor = make(chan *core.Workunit) // processor -> deliverer
+	chankill = make(chan bool)                //heartbeater -> processor
 	chanPermit = make(chan bool)
 	//workmap = map[string]int{} //workunit map [work_id]stage_idgit
 	workmap = NewWorkMap()
@@ -61,9 +59,8 @@ func StartClientWorkers() {
 	}
 	go dataMover(control)
 	go processor(control)
-	if mode == "online" {
-		go deliverer(control)
-	}
+	go deliverer(control)
+
 	for {
 		who := <-control //block till someone dies and then restart it
 
@@ -96,7 +93,7 @@ func StartProxyWorkers() {
 	control := make(chan int)
 	go heartBeater(control)
 	go workStealer(control)
-	go redistributor(control)
+	//go redistributor(control)
 	for {
 		who := <-control //block till someone dies and then restart it
 		switch who {
@@ -107,7 +104,7 @@ func StartProxyWorkers() {
 			go workStealer(control)
 			logger.Error("workStealer died and restarted")
 		case ID_REDISTRIBUTOR:
-			go redistributor(control)
+			//go redistributor(control)
 			logger.Error("deliverer died and restarted")
 		}
 	}

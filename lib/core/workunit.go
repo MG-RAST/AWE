@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"os"
 	"time"
 )
@@ -23,13 +24,12 @@ const (
 )
 
 type Workunit struct {
-	Id      string   `bson:"wuid" json:"wuid"`
-	Info    *Info    `bson:"info" json:"info"`
-	Inputs  []*IO    `bson:"inputs" json:"inputs"`
-	Outputs []*IO    `bson:"outputs" json:"outputs"`
-	Predata []*IO    `bson:"predata" json:"predata"`
-	Cmd     *Command `bson:"cmd" json:"cmd"`
-	//	App          *App              `bson:"app" json:"app"`
+	Id           string            `bson:"wuid" json:"wuid"`
+	Info         *Info             `bson:"info" json:"info"`
+	Inputs       []*IO             `bson:"inputs" json:"inputs"`
+	Outputs      []*IO             `bson:"outputs" json:"outputs"`
+	Predata      []*IO             `bson:"predata" json:"predata"`
+	Cmd          *Command          `bson:"cmd" json:"cmd"`
 	Rank         int               `bson:"rank" json:"rank"`
 	TotalWork    int               `bson:"totalwork" json:"totalwork"`
 	Partition    *PartInfo         `bson:"part" json:"part"`
@@ -41,6 +41,16 @@ type Workunit struct {
 	ExitStatus   int               `bson:"exitstatus" json:"exitstatus"` // Linux Exit Status Code (0 is success)
 	Notes        string            `bson:"notes" json:"notes"`
 	UserAttr     map[string]string `bson:"userattr" json:"userattr"`
+	WorkPath     string            // this is the working directory. If empty, it will be computed.
+	WorkPerf     *WorkPerf
+	CWL          *CWL_workunit
+}
+
+type CWL_workunit struct {
+	CWL_job           *cwl.Job_document
+	CWL_tool          *cwl.CommandLineTool
+	CWL_tool_filename string
+	CWL_job_filename  string
 }
 
 type WorkLog struct {
@@ -163,8 +173,13 @@ func (work *Workunit) SetState(new_state string) {
 }
 
 func (work *Workunit) Path() string {
-	id := work.Id
-	return fmt.Sprintf("%s/%s/%s/%s/%s", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id)
+
+	if work.WorkPath == "" {
+		id := work.Id
+		work.WorkPath = fmt.Sprintf("%s/%s/%s/%s/%s", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id)
+	}
+
+	return work.WorkPath
 }
 
 func (work *Workunit) CDworkpath() (err error) {

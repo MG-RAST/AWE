@@ -903,6 +903,7 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	select {
 	case qm.coReq <- req:
 	default:
+		logger.Error("Work request by client %s rejected, request queue is full", client_id)
 		err = fmt.Errorf("Too many work requests - Please try again later")
 		return
 

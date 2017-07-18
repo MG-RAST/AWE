@@ -127,31 +127,55 @@ func main() {
 
 		spew.Dump(*job_doc)
 
-		for key, value := range *job_doc {
-			fmt.Println(key)
+		for name, array := range *job_doc {
 
-			switch value.(type) {
-			case *cwl.File:
-				file, ok := value.(*cwl.File)
-				if !ok {
-					panic("not file")
+			fmt.Println(name)
+
+			for _, element := range array {
+				switch element.(type) {
+				case *cwl.File:
+					file, ok := element.(*cwl.File)
+					if !ok {
+						panic("not file")
+					}
+					fmt.Printf("%+v\n", *file)
+
+				default:
+					spew.Dump(element)
 				}
-				fmt.Printf("%+v\n", *file)
-
-			default:
-				spew.Dump(value)
 			}
 		}
-		mediumwork := worker.Mediumwork{}
-		mediumwork.CWL_job = job_doc
 
-		mediumwork.CWL_tool_filename = conf.CWL_TOOL
-		mediumwork.CWL_tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
+		os.Getwd() //https://golang.org/pkg/os/#Getwd
 
-		mediumwork.Workunit = &core.Workunit{Id: "00000000-0000-0000-0000-000000000000_0_0"}
+		workunit := &core.Workunit{Id: "00000000-0000-0000-0000-000000000000_0_0", CWL: &core.CWL_workunit{}}
+
+		workunit.CWL.CWL_job = job_doc
+		workunit.CWL.CWL_job_filename = conf.CWL_JOB
+
+		workunit.CWL.CWL_tool_filename = conf.CWL_TOOL
+		workunit.CWL.CWL_tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
+
+		current_working_directory, err := os.Getwd()
+		if err != nil {
+			logger.Error("cannot get current_working_directory")
+			time.Sleep(time.Second)
+			os.Exit(1)
+		}
+		workunit.WorkPath = current_working_directory
+
+		workunit.Cmd = &core.Command{}
+		workunit.Cmd.Local = true // this makes sure the working directory is not deleted
+		workunit.Cmd.Name = "/usr/bin/cwl-runner"
+
+		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL.CWL_tool_filename, workunit.CWL.CWL_job_filename}
+
+		workunit.WorkPerf = core.NewWorkPerf(workunit.Id)
+		workunit.WorkPerf.Checkout = time.Now().Unix()
+
 		logger.Debug(1, "injecting cwl job into worker...")
 		go func() {
-			worker.FromStealer <- &mediumwork
+			worker.FromStealer <- workunit
 		}()
 
 	}

@@ -30,10 +30,9 @@ func deliverer_run(control chan int) {
 	// this makes sure new work is only requested when deliverer is done
 	defer func() { <-chanPermit }()
 
-	processed := <-fromProcessor
-	work := processed.Workunit
+	workunit := <-fromProcessor
 
-	work_id := work.Id
+	work_id := workunit.Id
 
 	work_state, ok, err := workmap.Get(work_id)
 	if err != nil {
@@ -46,25 +45,29 @@ func deliverer_run(control chan int) {
 	}
 
 	if work_state == ID_DISCARDED {
-		work.SetState(core.WORK_STAT_DISCARDED)
+		workunit.SetState(core.WORK_STAT_DISCARDED)
 		logger.Event(event.WORK_DISCARD, "workid="+work_id)
 	}
 
 	workmap.Set(work_id, ID_DELIVERER, "deliverer")
 
-	perfstat := processed.perfstat
+	perfstat := workunit.WorkPerf
+
+	if Client_mode == "offline" {
+		return
+	}
 
 	//post-process for works computed successfully: push output data to Shock
 	move_start := time.Now().UnixNano()
-	logger.Debug(3, "(deliverer_run) work.State: %s", work.State)
-	if work.State == core.WORK_STAT_COMPUTED {
-		data_moved, err := cache.UploadOutputData(work)
+	logger.Debug(3, "(deliverer_run) work.State: %s", workunit.State)
+	if workunit.State == core.WORK_STAT_COMPUTED {
+		data_moved, err := cache.UploadOutputData(workunit)
 		if err != nil {
-			work.SetState(core.WORK_STAT_ERROR)
+			workunit.SetState(core.WORK_STAT_ERROR)
 			logger.Error("[deliverer#UploadOutputData]workid=" + work_id + ", err=" + err.Error())
-			work.Notes = work.Notes + "###[deliverer#UploadOutputData]" + err.Error()
+			workunit.Notes += " ###[deliverer#UploadOutputData]" + err.Error()
 		} else {
-			work.SetState(core.WORK_STAT_DONE)
+			workunit.SetState(core.WORK_STAT_DONE)
 			perfstat.OutFileSize = data_moved
 		}
 	}
@@ -79,10 +82,10 @@ func deliverer_run(control chan int) {
 	do_retry := true
 	retry_count := 0
 	for do_retry {
-		response, err := core.NotifyWorkunitProcessedWithLogs(work, perfstat, conf.PRINT_APP_MSG)
+		response, err := core.NotifyWorkunitProcessedWithLogs(workunit, perfstat, conf.PRINT_APP_MSG)
 		if err != nil {
 			logger.Error("[deliverer: workid=" + work_id + ", err=" + err.Error())
-			work.Notes = work.Notes + "###[deliverer:]" + err.Error()
+			workunit.Notes += " ###[deliverer:]" + err.Error()
 			// keep retry
 		} else {
 
@@ -115,17 +118,17 @@ func deliverer_run(control chan int) {
 	}
 
 	//now final status report sent to server, update some local info
-	if work.State == core.WORK_STAT_DONE {
+	if workunit.State == core.WORK_STAT_DONE {
 		logger.Event(event.WORK_DONE, "workid="+work_id)
 		core.Self.Increment_total_completed()
-		if conf.AUTO_CLEAN_DIR {
-			go removeDirLater(work.Path(), conf.CLIEN_DIR_DELAY_DONE)
+		if conf.AUTO_CLEAN_DIR && workunit.Cmd.Local == false {
+			go removeDirLater(workunit.Path(), conf.CLIEN_DIR_DELAY_DONE)
 		}
 	} else {
 		logger.Event(event.WORK_RETURN, "workid="+work_id)
 		core.Self.Increment_total_failed(true)
-		if conf.AUTO_CLEAN_DIR {
-			go removeDirLater(work.Path(), conf.CLIEN_DIR_DELAY_FAIL)
+		if conf.AUTO_CLEAN_DIR && workunit.Cmd.Local == false {
+			go removeDirLater(workunit.Path(), conf.CLIEN_DIR_DELAY_FAIL)
 		}
 	}
 	err = core.Self.Current_work_delete(work_id, true)

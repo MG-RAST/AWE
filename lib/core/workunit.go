@@ -9,18 +9,18 @@ import (
 )
 
 const (
-	WORK_STAT_INIT        = "init"   //initial state
-	WORK_STAT_QUEUED      = "queued" // . also: after requeue ; after failures below max ; on WorkQueue.Add()
-	WORK_STAT_RESERVED    = "reserved"
-	WORK_STAT_CHECKOUT    = "checkout" // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
-	WORK_STAT_SUSPEND     = "suspend"  // on MAX_FAILURE ; on SuspendJob
-	WORK_STAT_DONE        = "done"     // client-side, done.
-	WORK_STAT_FAILED      = "failed"
-	WORK_STAT_ERROR       = "fail"     // client-side, workunit computation or IO error (variable was renamed to ERROR but not the string fail, to maintain backwards compability)
-	WORK_STAT_PREPARED    = "prepared" // client-side, after argument parsing
-	WORK_STAT_COMPUTED    = "computed" // client-side, after computation is done, before upload
-	WORK_STAT_DISCARDED   = "discarded"
-	WORK_STAT_PROXYQUEUED = "proxyqueued"
+	WORK_STAT_INIT             = "init"   //initial state
+	WORK_STAT_QUEUED           = "queued" // . also: after requeue ; after failures below max ; on WorkQueue.Add()
+	WORK_STAT_RESERVED         = "reserved"
+	WORK_STAT_CHECKOUT         = "checkout" // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
+	WORK_STAT_SUSPEND          = "suspend"  // on MAX_FAILURE ; on SuspendJob
+	WORK_STAT_DONE             = "done"     // client-side, done.
+	WORK_STAT_FAILED_PERMANENT = "failed-permanent"
+	WORK_STAT_ERROR            = "fail"     // client-side, workunit computation or IO error (variable was renamed to ERROR but not the string fail, to maintain backwards compability)
+	WORK_STAT_PREPARED         = "prepared" // client-side, after argument parsing
+	WORK_STAT_COMPUTED         = "computed" // client-side, after computation is done, before upload
+	WORK_STAT_DISCARDED        = "discarded"
+	WORK_STAT_PROXYQUEUED      = "proxyqueued"
 )
 
 type Workunit struct {

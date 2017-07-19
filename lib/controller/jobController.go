@@ -100,14 +100,14 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		collection := cwl.NewCWL_collection()
 
 		// 1) parse job
-		job_input, err := cwl.ParseJob(&collection, files["job"].Path)
-		if err != nil {
-			logger.Error("ParseJob: " + err.Error())
-			cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
-			return
-		}
+		//job_input, err := cwl.ParseJob(&collection, files["job"].Path)
+		//if err != nil {
+		//	logger.Error("ParseJob: " + err.Error())
+		//	cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
+		//	return
+		//}
 
-		collection.Job_input = job_input
+		//collection.Job_input = job_input
 
 		// 2) parse cwl
 		logger.Debug(1, "got CWL")
@@ -144,11 +144,11 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 
 		fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
-		job, err = core.CWL2AWE(_user, files, cwl_workflow, &collection)
-		if err != nil {
-			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
-			return
-		}
+		//job, err = core.CWL2AWE(_user, files, cwl_workflow, &collection)
+		//if err != nil {
+		//	cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
+		//	return
+		//}
 		logger.Debug(1, "CWL2AWE done")
 
 		//fmt.Println("\n\n\n--------------------------------- Done... now respond...")
@@ -816,7 +816,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		return
 	}
 	if query.Has("suspend") { // to suspend an in-progress job
-		if err := core.QMgr.SuspendJob(id, "manually suspended", ""); err != nil {
+		if err := core.QMgr.SuspendJob(id, core.JOB_STAT_SUSPEND, "manually suspended", ""); err != nil {
 			cx.RespondWithErrorMessage("fail to suspend job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}

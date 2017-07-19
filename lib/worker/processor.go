@@ -119,7 +119,7 @@ func processor(control chan int) {
 			workunit.Notes += " ###[processor#RunWorkunit]" + err.Error()
 
 			if exit_status == 42 {
-				workunit.SetState(core.WORK_STAT_FAILED) // process told us that is an error where resubmission does not make sense.
+				workunit.SetState(core.WORK_STAT_FAILED_PERMANENT) // process told us that is an error where resubmission does not make sense.
 			} else {
 				workunit.SetState(core.WORK_STAT_ERROR)
 			}

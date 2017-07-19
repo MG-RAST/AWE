@@ -44,7 +44,7 @@ type JobMgr interface {
 	GetActiveJobs() map[string]bool
 	IsJobRegistered(string) bool
 	GetSuspendJobs() map[string]bool
-	SuspendJob(string, string, string) error
+	SuspendJob(string, string, string, string) error
 	ResumeSuspendedJobByUser(string, *user.User) error
 	ResumeSuspendedJobsByUser(*user.User) int
 	ResubmitJob(string) error

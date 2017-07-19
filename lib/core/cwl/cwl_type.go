@@ -75,3 +75,40 @@ func NewCWLType(native interface{}) (cwl_type CWLType, err error) {
 	return
 
 }
+
+func NewCWLTypeArray(native interface{}) (cwl_array_ptr *[]CWLType, err error) {
+
+	switch native.(type) {
+	case []interface{}:
+
+		native_array, ok := native.([]interface{})
+		if !ok {
+			err = fmt.Errorf("(NewCWLTypeArray) could not parse []interface{}")
+			return
+		}
+
+		cwl_array := []CWLType{}
+
+		for _, value := range native_array {
+			value_cwl, xerr := NewCWLType(value)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			cwl_array = append(cwl_array, value_cwl)
+		}
+		cwl_array_ptr = &cwl_array
+	default:
+
+		ct, xerr := NewCWLType(native)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		cwl_array_ptr = &[]CWLType{ct}
+	}
+
+	return
+
+}

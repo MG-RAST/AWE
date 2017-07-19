@@ -14,7 +14,7 @@ import (
 	"github.com/MG-RAST/golib/goconfig/config"
 )
 
-const VERSION string = "0.9.46"
+const VERSION string = "0.9.47"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -142,6 +142,9 @@ var (
 	AUTO_CLEAN_DIR bool
 	NO_SYMLINK     bool
 	CACHE_ENABLED  bool
+
+	CWL_TOOL string
+	CWL_JOB  string
 
 	// Docker
 	USE_DOCKER                    string
@@ -498,6 +501,9 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddBool(&AUTO_CLEAN_DIR, true, "Client", "auto_clean_dir", "delete workunit directory to save space after completion, turn of for debugging", "")
 		c_store.AddBool(&CACHE_ENABLED, false, "Client", "cache_enabled", "", "")
 		c_store.AddBool(&NO_SYMLINK, false, "Client", "no_symlink", "copy files from predata to work dir, default is to create symlink", "")
+
+		c_store.AddString(&CWL_TOOL, "", "Client", "cwl_tool", "CWL CommandLineTool file", "")
+		c_store.AddString(&CWL_JOB, "", "Client", "cwl_job", "CWL job file", "")
 	}
 
 	// Docker

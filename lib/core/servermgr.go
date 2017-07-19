@@ -94,10 +94,14 @@ func (qm *ServerMgr) UpdateQueueLoop() {
 
 func (qm *ServerMgr) ClientHandle() {
 	logger.Info("(ServerMgr ClientHandle) starting")
+	count := 0
+
 	for {
 		//select {
 		//case coReq := <-qm.coReq
 		coReq := <-qm.coReq
+		count += 1
+		request_start_time := time.Now()
 		logger.Debug(3, "(ServerMgr ClientHandle) workunit checkout request received from client %s, Req=%v", coReq.fromclient, coReq)
 
 		ok, err := qm.CQMgr.clientMap.Has(coReq.fromclient, true)
@@ -160,6 +164,11 @@ func (qm *ServerMgr) ClientHandle() {
 		}
 		logger.Debug(3, "(ServerMgr ClientHandle %s) done", coReq.fromclient)
 
+		if count%10 == 0 { // use modulo to reduce number of log messages
+			request_time_elapsed := time.Since(request_start_time)
+
+			logger.Info("(ServerMgr ClientHandle) Responding to work request took %s", request_time_elapsed)
+		}
 	}
 }
 
@@ -353,7 +362,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 			if err != nil {
 				_ = task.SetState(TASK_STAT_SUSPEND)
 				jobid := getParentJobId(task_id)
-				qm.SuspendJob(jobid, fmt.Sprintf("failed enqueuing task %s, err=%s", task_id, err.Error()), task_id)
+				qm.SuspendJob(jobid, JOB_STAT_SUSPEND, fmt.Sprintf("failed enqueuing task %s, err=%s", task_id, err.Error()), task_id)
 				continue
 			}
 			logger.Debug(3, "(updateQueue) task enqueued: %s", task_id)
@@ -370,7 +379,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 			logger.Error("error: in updateQueue() workunit %s is nil, cannot get job id", id)
 			continue
 		}
-		qm.SuspendJob(jid, fmt.Sprintf("workunit %s is nil", id), id)
+		qm.SuspendJob(jid, JOB_STAT_SUSPEND, fmt.Sprintf("workunit %s is nil", id), id)
 		logger.Error("error: workunit %s is nil, suspending job %s", id, jid)
 	}
 
@@ -618,15 +627,32 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	//	return
 	//}
 
+	logger.Debug(3, "(handleWorkStatusChange) handling status %s", status)
 	if status == WORK_STAT_DONE {
 		err = qm.handleWorkStatDone(client, clientid, task, task_id, workid, computetime)
 		if err != nil {
 			return
 		}
 
-	} else if status == WORK_STAT_FAIL { //workunit failed, requeue or put it to suspend list
+	} else if status == WORK_STAT_FAILED_PERMANENT { // (special case !) failed and cannot be recovered
+		logger.Event(event.WORK_FAILED, "workid="+workid+";clientid="+clientid)
+		logger.Debug(3, "(handleWorkStatusChange) work failed (status=%s) workid=%s clientid=%s", status, workid, clientid)
+		work.Failed += 1
+
+		qm.workQueue.StatusChange(workid, work, WORK_STAT_FAILED_PERMANENT)
+
+		err = task.SetState(TASK_STAT_FAILED_PERMANENT)
+		if err != nil {
+			return
+		}
+
+		if err := qm.SuspendJob(job_id, JOB_STAT_FAILED_PERMANENT, "exit code 42 encountered", workid); err != nil {
+			logger.Error("(handleWorkStatusChange)error returned by SuspendJOb()" + err.Error())
+		}
+
+	} else if status == WORK_STAT_ERROR { //workunit failed, requeue or put it to suspend list
 		logger.Event(event.WORK_FAIL, "workid="+workid+";clientid="+clientid)
-		logger.Debug(3, "work failed workid=%s clientid=%s", workid, clientid)
+		logger.Debug(3, "(handleWorkStatusChange) work failed (status=%s) workid=%s clientid=%s", status, workid, clientid)
 		work.Failed += 1
 		//qm.workQueue.Put(work)
 
@@ -648,11 +674,11 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 				return
 			}
 
-			reason := fmt.Sprintf("workunit %s failed %d time(s).", workid, MAX_FAILURE)
+			reason := fmt.Sprintf("workunit %s (%s) failed %d time(s).", workid, status, MAX_FAILURE)
 			if len(notes) > 0 {
 				reason = reason + " msg from client:" + notes
 			}
-			if err := qm.SuspendJob(job_id, reason, workid); err != nil {
+			if err := qm.SuspendJob(job_id, JOB_STAT_SUSPEND, reason, workid); err != nil {
 				logger.Error("error returned by SuspendJOb()" + err.Error())
 			}
 		}
@@ -686,7 +712,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		}
 
 	} else {
-		err = fmt.Errorf("No handler for workunit status '%s' implemented", status)
+		err = fmt.Errorf("No handler for workunit status '%s' implemented (allowd: %s, %s, %s)", status, WORK_STAT_DONE, WORK_STAT_FAILED_PERMANENT, WORK_STAT_ERROR)
 		return
 	}
 	return
@@ -1056,7 +1082,7 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 			task_id, _ := task.GetId()
 			job_id := getParentJobId(task_id)
 
-			qm.SuspendJob(job_id, fmt.Sprintf("failed in enqueuing task %s, err=%s", task_id, err.Error()), task_id)
+			qm.SuspendJob(job_id, JOB_STAT_SUSPEND, fmt.Sprintf("failed in enqueuing task %s, err=%s", task_id, err.Error()), task_id)
 			return err
 		}
 	}
@@ -1680,7 +1706,8 @@ func (qm *ServerMgr) IsJobRegistered(id string) bool {
 	return false
 }
 
-func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err error) {
+// use for JOB_STAT_SUSPEND and JOB_STAT_FAILED_PERMANENT
+func (qm *ServerMgr) SuspendJob(jobid string, status string, reason string, id string) (err error) {
 	//job, err := GetJob(jobid)
 	//if err != nil {
 	//	return
@@ -1699,24 +1726,37 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 		return
 	}
 
-	err = job.SetState(JOB_STAT_SUSPEND, reason)
+	err = job.SetState(status, reason)
 	if err != nil {
 		return
 	}
 	//if err := job.UpdateState(JOB_STAT_SUSPEND, reason); err != nil {
 	//	return err
 	//}
-	qm.putSusJob(jobid)
+	if status == JOB_STAT_SUSPEND {
+		qm.putSusJob(jobid)
+	}
 
 	//suspend queueing workunits
 	workunit_list, err := qm.workQueue.GetAll()
 	if err != nil {
 		return
 	}
+
+	new_work_state := WORK_STAT_SUSPEND
+	new_task_state := TASK_STAT_SUSPEND
+	this_event := event.JOB_SUSPEND
+	if status == JOB_STAT_FAILED_PERMANENT {
+		new_work_state = WORK_STAT_FAILED_PERMANENT
+		new_task_state = TASK_STAT_FAILED_PERMANENT
+		this_event = event.JOB_FAILED_PERMANENT
+	}
+
+	// update all workunits
 	for _, workunit := range workunit_list {
 		workid := workunit.Id
 		if jobid == getParentJobId(workid) {
-			qm.workQueue.StatusChange(workid, nil, WORK_STAT_SUSPEND)
+			qm.workQueue.StatusChange(workid, nil, new_work_state)
 		}
 	}
 
@@ -1728,7 +1768,7 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 			continue
 		}
 		if task_state == TASK_STAT_QUEUED || task_state == TASK_STAT_INIT || task_state == TASK_STAT_INPROGRESS {
-			err = task.SetState(TASK_STAT_SUSPEND)
+			err = task.SetState(new_task_state)
 			if err != nil {
 				logger.Error("(SuspendJob) : %s", err.Error())
 				continue
@@ -1738,7 +1778,7 @@ func (qm *ServerMgr) SuspendJob(jobid string, reason string, id string) (err err
 	}
 	qm.LogJobPerf(jobid)
 	qm.removeActJob(jobid)
-	logger.Event(event.JOB_SUSPEND, "jobid="+jobid+";reason="+reason)
+	logger.Event(this_event, "jobid="+jobid+";reason="+reason)
 	return
 }
 

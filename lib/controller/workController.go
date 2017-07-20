@@ -387,7 +387,13 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 						} else if log == "stderr" {
 							// add stderr to notice
 							if text, err := ioutil.ReadFile(files[log].Path); err == nil {
-								notice.Stderr = string(text) // TODO save tail of stderr
+								// only save last 5000 chars of string
+								err_str := string(text)
+								if len(err_str) > 5000 {
+									notice.Stderr = string(err_str[len(err_str)-5000:])
+								} else {
+									notice.Stderr = err_str
+								}
 							}
 						}
 						// move / save log file

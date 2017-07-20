@@ -634,7 +634,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			ClientFailed: clientid,
 			WorkFailed:   workid,
 			TaskFailed:   task_id,
-			ServerNotes:  fmt.Sprintf("workunit failed %d time(s)", MAX_FAILURE),
+			ServerNotes:  "exit code 42 encountered",
 			WorkNotes:    notes,
 			AppError:     notice.Stderr,
 			Status:       JOB_STAT_FAILED_PERMANENT,

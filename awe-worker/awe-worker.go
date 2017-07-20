@@ -148,10 +148,10 @@ func main() {
 
 		os.Getwd() //https://golang.org/pkg/os/#Getwd
 
-		workunit := &core.Workunit{Id: "00000000-0000-0000-0000-000000000000_0_0", CWL: &core.CWL_workunit{}}
+		workunit := &core.Workunit{Id: "00000000-0000-0000-0000-000000000000_0_0", CWL: core.NewCWL_workunit()}
 
-		workunit.CWL.CWL_job = job_doc
-		workunit.CWL.CWL_job_filename = conf.CWL_JOB
+		workunit.CWL.Job_input = job_doc
+		workunit.CWL.Job_input_filename = conf.CWL_JOB
 
 		workunit.CWL.CWL_tool_filename = conf.CWL_TOOL
 		workunit.CWL.CWL_tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
@@ -168,7 +168,7 @@ func main() {
 		workunit.Cmd.Local = true // this makes sure the working directory is not deleted
 		workunit.Cmd.Name = "/usr/bin/cwl-runner"
 
-		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL.CWL_tool_filename, workunit.CWL.CWL_job_filename}
+		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL.CWL_tool_filename, workunit.CWL.Job_input_filename}
 
 		workunit.WorkPerf = core.NewWorkPerf(workunit.Id)
 		workunit.WorkPerf.Checkout = time.Now().Unix()

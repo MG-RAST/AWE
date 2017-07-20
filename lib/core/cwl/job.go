@@ -3,7 +3,7 @@ package cwl
 import (
 	//"errors"
 	"fmt"
-	//"github.com/davecgh/go-spew/spew"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"io/ioutil"
 	//"os"
@@ -48,10 +48,38 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 			err = fmt.Errorf("(NewCommandOutputBinding) %s", err.Error())
 			return
 		}
+	case map[string]interface{}:
+
+		original_map := original.(map[string]interface{})
+
+		keys := []string{}
+		for key_str, _ := range original_map {
+
+			keys = append(keys, key_str)
+
+		}
+
+		for _, key := range keys {
+			value := original_map[key]
+			cwl_obj, xerr := NewCWLTypeArray(value)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			original_map[key] = cwl_obj
+		}
+
+		err = mapstructure.Decode(original, job)
+		if err != nil {
+			err = fmt.Errorf("(NewCommandOutputBinding) %s", err.Error())
+			return
+		}
+
 	case []interface{}:
 		err = fmt.Errorf("(NewJob_document) type array not supported yet")
 		return
 	default:
+		spew.Dump(original)
 		err = fmt.Errorf("(NewJob_document) type unknown")
 	}
 	return

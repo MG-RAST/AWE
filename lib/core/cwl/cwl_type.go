@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // CWLType - CWL basic types: int, string, boolean, .. etc
@@ -61,12 +62,32 @@ func NewCWLType(native interface{}) (cwl_type CWLType, err error) {
 				return
 			}
 		default:
+			spew.Dump(native)
+			err = fmt.Errorf("(NewCWLType) Map type unknown")
+			return
+		}
+	case map[string]interface{}:
+		empty, xerr := NewEmpty(native)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		switch empty.GetClass() {
+		case "File":
+			file, yerr := NewFile(native)
+			cwl_type = &file
+			if yerr != nil {
+				err = yerr
+				return
+			}
+		default:
+			spew.Dump(native)
 			err = fmt.Errorf("(NewCWLType) Map type unknown")
 			return
 		}
 
 	default:
-
+		spew.Dump(native)
 		err = fmt.Errorf("(NewCWLType) Type unknown")
 		return
 	}

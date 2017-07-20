@@ -24,8 +24,19 @@ const (
 	CWL_double  = "double"  //double precision (64-bit) IEEE 754 floating-point number
 	CWL_string  = "string"  //Unicode character sequence
 	CWL_File    = "File"    //A File object
-	CWL_stdout  = "stdout"
-	CWL_stderr  = "stderr"
+
+	CWL_stdout = "stdout"
+	CWL_stderr = "stderr"
+
+	CWL_null_array    = "null_array"    //no value
+	CWL_boolean_array = "boolean_array" //a binary value
+	CWL_int_array     = "int_array"     //32-bit signed integer
+	CWL_long_array    = "long_array"    //64-bit signed integer
+	CWL_float_array   = "float_array"   //single precision (32-bit) IEEE 754 floating-point number
+	CWL_double_array  = "double_array"  //double precision (64-bit) IEEE 754 floating-point number
+	CWL_string_array  = "string_array"  //Unicode character sequence
+	CWL_File_array    = "File_array"    //A File object
+
 )
 
 var valid_cwltypes = map[string]bool{

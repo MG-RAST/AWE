@@ -264,7 +264,7 @@ func dataMover(control chan int) {
 			}
 		} else {
 			// download required remote files (local files are ok, mostly for commandline execution)
-			job_doc := workunit.CWL.CWL_job
+			job_doc := workunit.CWL.Job_input
 			for name, array := range *job_doc {
 				fmt.Println(name)
 

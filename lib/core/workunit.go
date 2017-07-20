@@ -47,10 +47,22 @@ type Workunit struct {
 }
 
 type CWL_workunit struct {
-	CWL_job           *cwl.Job_document
-	CWL_tool          *cwl.CommandLineTool
-	CWL_tool_filename string
-	CWL_job_filename  string
+	Job_input          *cwl.Job_document
+	Job_input_filename string
+	CWL_tool           *cwl.CommandLineTool
+	CWL_tool_filename  string
+	Tool_results       *cwl.Job_document
+	OutputsExpected    *cwl.WorkflowStepOutput // this is the subset of outputs that are needed by the workflow
+}
+
+func NewCWL_workunit() *CWL_workunit {
+	return &CWL_workunit{
+		Job_input:       nil,
+		CWL_tool:        nil,
+		Tool_results:    nil,
+		OutputsExpected: nil,
+	}
+
 }
 
 type WorkLog struct {

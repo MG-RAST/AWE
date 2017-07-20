@@ -113,24 +113,7 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 					}
 
 				}
-			} else {
-				err = fmt.Errorf("Location scheme not supported yet, %s", id) // TODO
-				return
 			}
-		case "https":
-			//extract filename ?
-			err = fmt.Errorf("Location scheme not supported yet, %s", id) // TODO
-			return
-		case "ftp":
-			//extract filename ?
-			err = fmt.Errorf("Location scheme not supported yet, %s", id) // TODO
-			return
-		case "":
-			err = fmt.Errorf("Location scheme missing, %s", id)
-			return
-		default:
-			err = fmt.Errorf("Location scheme \"%s\" unknown, %s", scheme, id)
-			return
 		}
 	}
 	if file.Id == "" {
@@ -151,3 +134,17 @@ func (d Directory) GetClass() string    { return "Directory" }
 func (d Directory) GetId() string       { return d.Id }
 func (d Directory) String() string      { return d.Path }
 func (d Directory) GetLocation() string { return d.Location } // for CWL_location
+
+type FileArray struct {
+	CWLType_Impl
+	Id   string `yaml:"id" json:"id"`
+	Data []File
+}
+
+func (f *FileArray) GetClass() string    { return CWL_File_array }
+func (f *FileArray) GetId() string       { return f.Id }
+func (f *FileArray) SetId(id string)     { f.Id = id }
+func (f *FileArray) String() string      { return f.Path }
+func (f *FileArray) GetLocation() string { return f.Location } // for CWL_location
+
+func (s *FileArray) is_CommandInputParameterType() {} // for CommandInputParameterType

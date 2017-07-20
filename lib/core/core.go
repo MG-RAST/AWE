@@ -874,6 +874,7 @@ func ShockPutIndex(host string, nodeid string, indexname string, token string) (
 	opts := Opts{}
 	opts["upload_type"] = "index"
 	opts["index_type"] = indexname
+	logger.Debug(2, fmt.Sprintf("(ShockPutIndex) node=%s/node/%s index=%s", host, nodeid, indexname))
 	_, err = createOrUpdate(opts, host, nodeid, token, nil)
 	return
 }

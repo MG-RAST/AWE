@@ -238,7 +238,7 @@ func dataMover(control chan int) {
 		//parse the args, replacing @input_name to local file path (file not downloaded yet)
 
 		if err := ParseWorkunitArgs(workunit); err != nil {
-			logger.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + workunit.Id + " error=" + err.Error())
+			logger.Error("err@dataMover.ParseWorkunitArgs, workid=" + workunit.Id + " error=" + err.Error())
 			workunit.Notes += " ###[dataMover#ParseWorkunitArgs]" + err.Error()
 			workunit.SetState(core.WORK_STAT_ERROR)
 			//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -251,7 +251,7 @@ func dataMover(control chan int) {
 
 			datamove_start := time.Now().UnixNano()
 			if moved_data, err := cache.MoveInputData(workunit); err != nil {
-				logger.Error("err@dataMover_work.moveInputData, workid=" + workunit.Id + " error=" + err.Error())
+				logger.Error("err@dataMover.MoveInputData, workid=" + workunit.Id + " error=" + err.Error())
 				workunit.Notes += " ###[dataMover#MoveInputData]" + err.Error()
 				workunit.SetState(core.WORK_STAT_ERROR)
 				//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -566,53 +566,6 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		}
 
 		logger.Event(event.PRE_READY, "workid="+workunit.Id+";url="+dataUrl)
-	}
-	return
-}
-
-//fetch input data // TODO Is this deprecated ?
-func moveInputData(work *core.Workunit) (size int64, err error) {
-	logger.Debug(3, "(moveInputData) starting")
-	for _, io := range work.Inputs {
-		inputname := io.FileName
-		logger.Debug(3, "(moveInputData) inputname: %s", inputname)
-		dataUrl, uerr := io.DataUrl()
-		if uerr != nil {
-			return 0, uerr
-		}
-		if work.Rank > 0 {
-			dataUrl = fmt.Sprintf("%s&index=%s&part=%s", dataUrl, work.IndexType(), work.Part())
-		}
-
-		inputFilePath := path.Join(work.Path(), inputname)
-
-		logger.Debug(2, "mover: fetching input from url:"+dataUrl)
-		logger.Event(event.FILE_IN, "workid="+work.Id+" url="+dataUrl)
-
-		// this gets file from any downloadable url, not just shock
-		retry := 1
-		for true {
-			datamoved, _, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false)
-			if err != nil {
-				if !strings.Contains(err.Error(), "Node has no file") {
-					logger.Debug(3, "(moveInputData) got: err.Error()")
-					return size, err
-				}
-				logger.Debug(3, "(moveInputData) got: Node has no file")
-				if retry >= 3 {
-					return size, err
-				}
-				logger.Warning("Will retry download, got this error: %s", err.Error())
-				time.Sleep(time.Second * 20)
-				retry += 1
-				continue
-			}
-
-			size += datamoved
-			break
-
-		}
-		logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
 	}
 	return
 }

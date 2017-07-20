@@ -19,12 +19,13 @@ import (
 )
 
 const (
-	JOB_STAT_INIT       = "init"
-	JOB_STAT_QUEUED     = "queued"
-	JOB_STAT_INPROGRESS = "in-progress"
-	JOB_STAT_COMPLETED  = "completed"
-	JOB_STAT_SUSPEND    = "suspend"
-	JOB_STAT_DELETED    = "deleted"
+	JOB_STAT_INIT             = "init"
+	JOB_STAT_QUEUED           = "queued"
+	JOB_STAT_INPROGRESS       = "in-progress"
+	JOB_STAT_COMPLETED        = "completed"
+	JOB_STAT_SUSPEND          = "suspend"
+	JOB_STAT_FAILED_PERMANENT = "failed-permanent" // this sepcific error state can be trigger by the workflow software
+	JOB_STAT_DELETED          = "deleted"
 )
 
 var JOB_STATS_ACTIVE = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS}
@@ -38,6 +39,7 @@ type JobError struct {
 	ServerNotes  string `bson:"servernotes" json:"servernotes"`
 	WorkNotes    string `bson:"worknotes" json:"worknotes"`
 	AppError     string `bson:"apperror" json:"apperror"`
+	Status       string `bson:"status" json:"status"`
 }
 
 type JobRaw struct {

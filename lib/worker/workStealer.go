@@ -40,7 +40,7 @@ func workStealer(control chan int) {
 		if core.Service == "proxy" {
 			<-core.ProxyWorkChan
 		}
-		wu, err := CheckoutWorkunitRemote()
+		workunit, err := CheckoutWorkunitRemote()
 		if err != nil {
 			if err.Error() == e.QueueEmpty || err.Error() == e.QueueSuspend || err.Error() == e.NoEligibleWorkunitFound {
 				//normal, do nothing
@@ -81,26 +81,29 @@ func workStealer(control chan int) {
 		} else {
 			retry = 0
 		}
-		logger.Debug(1, "(workStealer) checked out workunit, id="+wu.Id)
+		logger.Debug(1, "(workStealer) checked out workunit, id="+workunit.Id)
 		//log event about work checktout (WC)
-		logger.Event(event.WORK_CHECKOUT, "workid="+wu.Id)
+		logger.Event(event.WORK_CHECKOUT, "workid="+workunit.Id)
 
-		err = core.Self.Add_work(wu.Id)
+		err = core.Self.Add_work(workunit.Id)
 		if err != nil {
 			logger.Error("(workStealer) error: %s", err.Error())
 			return
 		}
 
-		workmap.Set(wu.Id, ID_WORKSTEALER, "workStealer")
+		workmap.Set(workunit.Id, ID_WORKSTEALER, "workStealer")
 
 		//hand the work to the next step handler: dataMover
-		workstat := core.NewWorkPerf(wu.Id)
+		workstat := core.NewWorkPerf(workunit.Id)
 		workstat.Checkout = time.Now().Unix()
-		rawWork := &mediumwork{
-			workunit: wu,
-			perfstat: workstat,
-		}
-		fromStealer <- rawWork // sends to dataMover
+		//rawWork := &Mediumwork{
+		//	Workunit: wu,
+		//	Perfstat: workstat,
+		//}
+		workunit.WorkPerf = workstat
+
+		//FromStealer <- rawWork // sends to dataMover
+		FromStealer <- workunit // sends to dataMover
 
 		//if worker overlap is inhibited, wait until deliverer finishes processing the workunit
 		if conf.WORKER_OVERLAP == false && core.Service != "proxy" {

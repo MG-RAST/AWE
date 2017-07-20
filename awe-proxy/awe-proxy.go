@@ -124,7 +124,7 @@ func main() {
 	fmt.Printf("Proxy registered, name=%s, id=%s\n", self.Name, self.Id)
 	logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)
 
-	if err := worker.InitWorkers(self); err == nil {
+	if err := worker.InitWorkers(); err == nil {
 		worker.StartProxyWorkers()
 	} else {
 		fmt.Printf("failed to initialize and start workers:" + err.Error())

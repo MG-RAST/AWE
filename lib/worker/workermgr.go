@@ -1,25 +1,28 @@
 package worker
 
 import (
-	"errors"
+	//"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/core"
+	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 )
 
 var (
-	fromStealer   chan *mediumwork // workStealer -> dataMover
-	fromMover     chan *mediumwork // dataMover -> processor
-	fromProcessor chan *mediumwork // processor -> deliverer
+	FromStealer   chan *core.Workunit // workStealer -> dataMover
+	fromMover     chan *core.Workunit // dataMover -> processor
+	fromProcessor chan *core.Workunit // processor -> deliverer
 	chanPermit    chan bool
 	chankill      chan bool //heartbeater -> worker
 	workmap       *WorkMap
 	//workmap       map[string]int //workunit map [work_id]stage_id}
+	Client_mode string
 )
 
-type mediumwork struct {
-	workunit *core.Workunit
-	perfstat *core.WorkPerf
+type Mediumwork struct {
+	Workunit *core.Workunit
+	//Perfstat          *core.WorkPerf
+
 }
 
 const (
@@ -32,15 +35,13 @@ const (
 	ID_DISCARDED     = 6 // flag acts as a message
 )
 
-func InitWorkers(client *core.Client) (err error) {
+func InitWorkers() {
 	fmt.Printf("InitWorkers()\n")
-	if client == nil {
-		return errors.New("InitClientWorkers(): empty client")
-	}
-	fromStealer = make(chan *mediumwork)   // workStealer -> dataMover
-	fromMover = make(chan *mediumwork)     // dataMover -> processor
-	fromProcessor = make(chan *mediumwork) // processor -> deliverer
-	chankill = make(chan bool)             //heartbeater -> processor
+
+	FromStealer = make(chan *core.Workunit)   // workStealer -> dataMover
+	fromMover = make(chan *core.Workunit)     // dataMover -> processor
+	fromProcessor = make(chan *core.Workunit) // processor -> deliverer
+	chankill = make(chan bool)                //heartbeater -> processor
 	chanPermit = make(chan bool)
 	//workmap = map[string]int{} //workunit map [work_id]stage_idgit
 	workmap = NewWorkMap()
@@ -50,13 +51,24 @@ func InitWorkers(client *core.Client) (err error) {
 func StartClientWorkers() {
 	control := make(chan int)
 	fmt.Printf("start ClientWorkers, client=%s\n", core.Self.Id)
-	go heartBeater(control)
-	go workStealer(control)
+
+	mode := Client_mode
+	if mode == "online" {
+		go heartBeater(control)
+		go workStealer(control)
+	}
 	go dataMover(control)
 	go processor(control)
 	go deliverer(control)
+
 	for {
 		who := <-control //block till someone dies and then restart it
+
+		if mode == "offline" {
+			fmt.Println("Done.")
+			return
+		}
+
 		switch who {
 		case ID_HEARTBEATER:
 			go heartBeater(control)
@@ -81,7 +93,7 @@ func StartProxyWorkers() {
 	control := make(chan int)
 	go heartBeater(control)
 	go workStealer(control)
-	go redistributor(control)
+	//go redistributor(control)
 	for {
 		who := <-control //block till someone dies and then restart it
 		switch who {
@@ -92,7 +104,7 @@ func StartProxyWorkers() {
 			go workStealer(control)
 			logger.Error("workStealer died and restarted")
 		case ID_REDISTRIBUTOR:
-			go redistributor(control)
+			//go redistributor(control)
 			logger.Error("deliverer died and restarted")
 		}
 	}

@@ -8,10 +8,12 @@ import (
 	"github.com/MG-RAST/AWE/lib/cache"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/golib/httpclient"
+	"github.com/davecgh/go-spew/spew"
 	"io"
 	"io/ioutil"
 	"os"
@@ -71,7 +73,7 @@ func replace_filepath_with_full_filepath(inputs []*core.IO, workpath string, cmd
 	return
 }
 
-func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
+func prepareAppTask(parsed *Mediumwork, work *core.Workunit) (err error) {
 
 	// get app definition
 	//app_cmd_mode_object, err := core.MyAppRegistry.Get_cmd_mode_object(app_array[0], app_array[1], app_array[2])
@@ -84,15 +86,15 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 	//	return errors.New("error reading app registry, workid=" + work.Id + " error=" + err.Error())
 	//}
 
-	//parsed.workunit.Cmd.Dockerimage = app_cmd_mode_object.Dockerimage
+	// parsed.Workunit.Cmd.Dockerimage = app_cmd_mode_object.Dockerimage
 
 	//var cmd_interpreter = app_cmd_mode_object.Cmd_interpreter
 
 	//logger.Debug(1, fmt.Sprintf("cmd_interpreter: %s", cmd_interpreter))
-	var cmd_script = parsed.workunit.Cmd.Cmd_script
+	var cmd_script = parsed.Workunit.Cmd.Cmd_script
 
 	//if len(app_cmd_mode_object.Cmd_script) > 0 {
-	//	parsed.workunit.Cmd.Cmd_script = app_cmd_mode_object.Cmd_script
+	//	 parsed.Workunit.Cmd.Cmd_script = app_cmd_mode_object.Cmd_script
 	//	logger.Debug(2, fmt.Sprintf("cmd_script: %s", strings.Join(cmd_script, ", ")))
 	//}
 
@@ -157,12 +159,12 @@ func prepareAppTask(parsed *mediumwork, work *core.Workunit) (err error) {
 
 	// get arguments
 	//args_array := strings.Split(args_string_space_removed, ",")
-	//args_array := parsed.workunit.Cmd.App_args
+	//args_array :=  parsed.Workunit.Cmd.App_args
 
 	logger.Debug(1, "+++ replace_filepath_with_full_filepath")
 	logger.Debug(1, "conf.DOCKER_WORK_DIR: %s", conf.DOCKER_WORK_DIR)
 	// expand filenames
-	err = replace_filepath_with_full_filepath(parsed.workunit.Inputs, conf.DOCKER_WORK_DIR, cmd_script)
+	err = replace_filepath_with_full_filepath(parsed.Workunit.Inputs, conf.DOCKER_WORK_DIR, cmd_script)
 	if err != nil {
 		err = fmt.Errorf("error: replace_filepath_with_full_filepath, %s", err.Error())
 		return
@@ -178,93 +180,147 @@ func dataMover(control chan int) {
 
 	defer fmt.Printf("dataMover exiting...\n")
 	for {
-		raw := <-fromStealer
-		parsed := &mediumwork{
-			workunit: raw.workunit,
-			perfstat: raw.perfstat,
+		workunit := <-FromStealer
+
+		logger.Debug(3, "(dataMover) received some work")
+		//parsed := &Mediumwork{
+		//	Workunit: raw.Workunit,
+		//	Perfstat: raw.Perfstat,
+		//	CWL_job:  raw.CWL_job,
+		//	CWL_tool: raw.CWL_tool,
+		//}
+		//work := raw.Workunit
+
+		workmap.Set(workunit.Id, ID_DATAMOVER, "dataMover")
+
+		if conf.CWL_TOOL == "" {
+			//make a working directory for the workunit (not for commandline execution !!!!!!)
+			if err := workunit.Mkdir(); err != nil {
+				logger.Error("[dataMover#workunit.Mkdir], workid=" + workunit.Id + " error=" + err.Error())
+				workunit.Notes += " ###[dataMover#work.Mkdir]" + err.Error()
+				workunit.SetState(core.WORK_STAT_ERROR)
+				//hand the parsed workunit to next stage and continue to get new workunit to process
+				fromMover <- workunit
+				continue
+			}
 		}
-		work := raw.workunit
-
-		workmap.Set(work.Id, ID_DATAMOVER, "dataMover")
-
-		//make a working directory for the workunit
-		if err := work.Mkdir(); err != nil {
-			logger.Error("[dataMover#work.Mkdir], workid=" + work.Id + " error=" + err.Error())
-			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#work.Mkdir]" + err.Error()
-			parsed.workunit.SetState(core.WORK_STAT_FAIL)
-			//hand the parsed workunit to next stage and continue to get new workunit to process
-			fromMover <- parsed
-			continue
+		if conf.CWL_TOOL == "" {
+			//run the PreWorkExecutionScript
+			if err := runPreWorkExecutionScript(workunit); err != nil {
+				logger.Error("[dataMover#runPreWorkExecutionScript], workid=" + workunit.Id + " error=" + err.Error())
+				workunit.Notes += " ###[dataMover#runPreWorkExecutionScript]" + err.Error()
+				workunit.SetState(core.WORK_STAT_ERROR)
+				//hand the parsed workunit to next stage and continue to get new workunit to process
+				fromMover <- workunit
+				continue
+			}
 		}
 
-		//run the PreWorkExecutionScript
-		if err := runPreWorkExecutionScript(parsed.workunit); err != nil {
-			logger.Error("[dataMover#runPreWorkExecutionScript], workid=" + work.Id + " error=" + err.Error())
-			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#runPreWorkExecutionScript]" + err.Error()
-			parsed.workunit.SetState(core.WORK_STAT_FAIL)
-			//hand the parsed workunit to next stage and continue to get new workunit to process
-			fromMover <- parsed
-			continue
-		}
-
-		//check the availability prerequisite data and download if needed
-		predatamove_start := time.Now().UnixNano()
-		if moved_data, err := movePreData(parsed.workunit); err != nil {
-			logger.Error("[dataMover#movePreData], workid=" + work.Id + " error=" + err.Error())
-			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#movePreData]" + err.Error()
-			parsed.workunit.SetState(core.WORK_STAT_FAIL)
-			//hand the parsed workunit to next stage and continue to get new workunit to process
-			fromMover <- parsed
-			continue
-		} else {
-			if moved_data > 0 {
-				parsed.perfstat.PreDataSize = moved_data
-				predatamove_end := time.Now().UnixNano()
-				parsed.perfstat.PreDataIn = float64(predatamove_end-predatamove_start) / 1e9
+		if conf.CWL_TOOL == "" {
+			//check the availability prerequisite data and download if needed
+			predatamove_start := time.Now().UnixNano()
+			if moved_data, err := movePreData(workunit); err != nil {
+				logger.Error("[dataMover#movePreData], workid=" + workunit.Id + " error=" + err.Error())
+				workunit.Notes += " ###[dataMover#movePreData]" + err.Error()
+				workunit.SetState(core.WORK_STAT_ERROR)
+				//hand the parsed workunit to next stage and continue to get new workunit to process
+				fromMover <- workunit
+				continue
+			} else {
+				if moved_data > 0 {
+					workunit.WorkPerf.PreDataSize = moved_data
+					predatamove_end := time.Now().UnixNano()
+					workunit.WorkPerf.PreDataIn = float64(predatamove_end-predatamove_start) / 1e9
+				}
 			}
 		}
 
 		//parse the args, replacing @input_name to local file path (file not downloaded yet)
 
-		if err := ParseWorkunitArgs(parsed.workunit); err != nil {
-			logger.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + work.Id + " error=" + err.Error())
-			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#ParseWorkunitArgs]" + err.Error()
-			parsed.workunit.SetState(core.WORK_STAT_FAIL)
+		if err := ParseWorkunitArgs(workunit); err != nil {
+			logger.Error("err@dataMover_work.ParseWorkunitArgs, workid=" + workunit.Id + " error=" + err.Error())
+			workunit.Notes += " ###[dataMover#ParseWorkunitArgs]" + err.Error()
+			workunit.SetState(core.WORK_STAT_ERROR)
 			//hand the parsed workunit to next stage and continue to get new workunit to process
-			fromMover <- parsed
+			fromMover <- workunit
 			continue
 		}
 
 		//download input data
-		datamove_start := time.Now().UnixNano()
-		if moved_data, err := cache.MoveInputData(parsed.workunit); err != nil {
-			logger.Error("err@dataMover_work.moveInputData, workid=" + work.Id + " error=" + err.Error())
-			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#MoveInputData]" + err.Error()
-			parsed.workunit.SetState(core.WORK_STAT_FAIL)
-			//hand the parsed workunit to next stage and continue to get new workunit to process
-			fromMover <- parsed
-			continue
-		} else {
-			parsed.perfstat.InFileSize = moved_data
-			datamove_end := time.Now().UnixNano()
-			parsed.perfstat.DataIn = float64(datamove_end-datamove_start) / 1e9
-		}
+		if conf.CWL_TOOL == "" {
 
-		//create userattr.json
-		user_attr := getUserAttr(parsed.workunit)
-		if len(user_attr) > 0 {
-			attr_json, _ := json.Marshal(user_attr)
-			if err := ioutil.WriteFile(fmt.Sprintf("%s/userattr.json", parsed.workunit.Path()), attr_json, 0644); err != nil {
-				logger.Error("err@dataMover_work.getUserAttr, workid=" + work.Id + " error=" + err.Error())
-				parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#getUserAttr]" + err.Error()
-				parsed.workunit.SetState(core.WORK_STAT_FAIL)
+			datamove_start := time.Now().UnixNano()
+			if moved_data, err := cache.MoveInputData(workunit); err != nil {
+				logger.Error("err@dataMover_work.moveInputData, workid=" + workunit.Id + " error=" + err.Error())
+				workunit.Notes += " ###[dataMover#MoveInputData]" + err.Error()
+				workunit.SetState(core.WORK_STAT_ERROR)
 				//hand the parsed workunit to next stage and continue to get new workunit to process
-				fromMover <- parsed
+				fromMover <- workunit
 				continue
+			} else {
+				workunit.WorkPerf.InFileSize = moved_data
+				datamove_end := time.Now().UnixNano()
+				workunit.WorkPerf.DataIn = float64(datamove_end-datamove_start) / 1e9
+			}
+		} else {
+			// download required remote files (local files are ok, mostly for commandline execution)
+			job_doc := workunit.CWL.CWL_job
+			for name, array := range *job_doc {
+				fmt.Println(name)
+
+				for _, element := range array {
+					switch element.(type) {
+					case *cwl.File:
+						file, ok := element.(*cwl.File)
+						if !ok {
+							panic("not file")
+						}
+						fmt.Printf("%+v\n", *file)
+
+						if file.Location != "" { // this is an IRI (URI)
+							// TODO: do something !!! download
+
+						}
+
+						if file.Path != "" {
+
+							logger.Debug(1, "(dataMover) checking file %s=%s...", name, file.Path)
+
+							if _, err := os.Stat(file.Path); os.IsNotExist(err) {
+								logger.Error("(dataMover) file %s=%s not found", name, file.Path)
+								workunit.SetState(core.WORK_STAT_ERROR)
+								//hand the parsed workunit to next stage and continue to get new workunit to process
+								fromMover <- workunit
+								continue
+							} else {
+								logger.Debug(1, "(dataMover) ok, found file %s=%s...", name, file.Path)
+							}
+						}
+					default:
+						spew.Dump(element)
+					}
+				}
 			}
 		}
 
-		fromMover <- parsed
+		if conf.CWL_TOOL == "" {
+
+			//create userattr.json
+			user_attr := getUserAttr(workunit)
+			if len(user_attr) > 0 {
+				attr_json, _ := json.Marshal(user_attr)
+				if err := ioutil.WriteFile(fmt.Sprintf("%s/userattr.json", workunit.Path()), attr_json, 0644); err != nil {
+					logger.Error("err@dataMover_work.getUserAttr, workid=" + workunit.Id + " error=" + err.Error())
+					workunit.Notes += " ###[dataMover#getUserAttr]" + err.Error()
+					workunit.SetState(core.WORK_STAT_ERROR)
+					//hand the parsed workunit to next stage and continue to get new workunit to process
+					fromMover <- workunit
+					continue
+				}
+			}
+		}
+
+		fromMover <- workunit
 	}
 	control <- ID_DATAMOVER //we are ending
 }
@@ -274,20 +330,16 @@ func proxyDataMover(control chan int) {
 	defer fmt.Printf("proxyDataMover exiting...\n")
 
 	for {
-		raw := <-fromStealer
-		parsed := &mediumwork{
-			workunit: raw.workunit,
-			perfstat: raw.perfstat,
-		}
-		work := raw.workunit
-		workmap.Set(work.Id, ID_DATAMOVER, "proxyDataMover")
+		workunit := <-FromStealer
+
+		workmap.Set(workunit.Id, ID_DATAMOVER, "proxyDataMover")
 		//check the availability prerequisite data and download if needed
-		if err := proxyMovePreData(parsed.workunit); err != nil {
-			logger.Error("err@dataMover_work.movePreData, workid=" + work.Id + " error=" + err.Error())
-			parsed.workunit.Notes = parsed.workunit.Notes + "###[dataMover#proxyMovePreData]" + err.Error()
-			parsed.workunit.SetState(core.WORK_STAT_FAIL)
+		if err := proxyMovePreData(workunit); err != nil {
+			logger.Error("err@dataMover_work.movePreData, workid=" + workunit.Id + " error=" + err.Error())
+			workunit.Notes += " ###[dataMover#proxyMovePreData]" + err.Error()
+			workunit.SetState(core.WORK_STAT_ERROR)
 		}
-		fromMover <- parsed
+		fromMover <- workunit
 	}
 	control <- ID_DATAMOVER
 }
@@ -295,26 +347,37 @@ func proxyDataMover(control chan int) {
 //parse workunit, fetch input data, compose command arguments
 func ParseWorkunitArgs(work *core.Workunit) (err error) {
 
-	args := []string{}
-
-	argstr := work.Cmd.Args
-	if argstr == "" {
-		return
-	}
-
-	logger.Debug(3, "argstr: %s", argstr)
-
 	workpath := work.Path()
 	if work.Cmd.Dockerimage != "" || work.Cmd.DockerPull != "" {
 		workpath = conf.DOCKER_WORK_DIR
 	}
 
-	// use better file name replacement technique
-	var virtual_cmd_script = []string{argstr}
-	replace_filepath_with_full_filepath(work.Inputs, workpath, virtual_cmd_script)
-	argstr = virtual_cmd_script[0]
+	args := []string{}
+	var argList []string
 
-	argList := parse_arg_string(argstr)
+	argstr := work.Cmd.Args
+	if argstr != "" {
+		logger.Debug(3, "argstr: %s", argstr)
+
+		// use better file name replacement technique
+		virtual_cmd_script := []string{argstr}
+		replace_filepath_with_full_filepath(work.Inputs, workpath, virtual_cmd_script)
+		argstr = virtual_cmd_script[0]
+
+		argList = parse_arg_string(argstr)
+	} else {
+
+		if len(work.Cmd.ArgsArray) == 0 {
+			return
+		}
+
+		logger.Debug(1, "work.Cmd.ArgsArray: %v (%d)", work.Cmd.ArgsArray, len(work.Cmd.ArgsArray))
+
+		replace_filepath_with_full_filepath(work.Inputs, workpath, work.Cmd.ArgsArray)
+
+		argList = work.Cmd.ArgsArray
+
+	}
 
 	for _, arg := range argList {
 		match, err := regexp.Match(`\$\{\w+\}`, []byte(arg))
@@ -354,6 +417,7 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 	}
 
 	work.Cmd.ParsedArgs = args
+	logger.Debug(1, "work.Cmd.ParsedArgs: %v (%d)", work.Cmd.ParsedArgs, len(work.Cmd.ParsedArgs))
 	work.SetState(core.WORK_STAT_PREPARED)
 	return nil
 }

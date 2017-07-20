@@ -3,32 +3,33 @@ package core
 import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"os"
 	"time"
 )
 
 const (
-	WORK_STAT_INIT        = "init"   //initial state
-	WORK_STAT_QUEUED      = "queued" // . also: after requeue ; after failures below max ; on WorkQueue.Add()
-	WORK_STAT_RESERVED    = "reserved"
-	WORK_STAT_CHECKOUT    = "checkout" // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
-	WORK_STAT_SUSPEND     = "suspend"  // on MAX_FAILURE ; on SuspendJob
-	WORK_STAT_DONE        = "done"     // client-side, done.
-	WORK_STAT_FAIL        = "fail"     // client-side, workunit computation or IO error
-	WORK_STAT_PREPARED    = "prepared" // client-side, after argument parsing
-	WORK_STAT_COMPUTED    = "computed" // client-side, after computation is done, before upload
-	WORK_STAT_DISCARDED   = "discarded"
-	WORK_STAT_PROXYQUEUED = "proxyqueued"
+	WORK_STAT_INIT             = "init"   //initial state
+	WORK_STAT_QUEUED           = "queued" // . also: after requeue ; after failures below max ; on WorkQueue.Add()
+	WORK_STAT_RESERVED         = "reserved"
+	WORK_STAT_CHECKOUT         = "checkout" // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
+	WORK_STAT_SUSPEND          = "suspend"  // on MAX_FAILURE ; on SuspendJob
+	WORK_STAT_DONE             = "done"     // client-side, done.
+	WORK_STAT_FAILED_PERMANENT = "failed-permanent"
+	WORK_STAT_ERROR            = "fail"     // client-side, workunit computation or IO error (variable was renamed to ERROR but not the string fail, to maintain backwards compability)
+	WORK_STAT_PREPARED         = "prepared" // client-side, after argument parsing
+	WORK_STAT_COMPUTED         = "computed" // client-side, after computation is done, before upload
+	WORK_STAT_DISCARDED        = "discarded"
+	WORK_STAT_PROXYQUEUED      = "proxyqueued"
 )
 
 type Workunit struct {
-	Id      string   `bson:"wuid" json:"wuid"`
-	Info    *Info    `bson:"info" json:"info"`
-	Inputs  []*IO    `bson:"inputs" json:"inputs"`
-	Outputs []*IO    `bson:"outputs" json:"outputs"`
-	Predata []*IO    `bson:"predata" json:"predata"`
-	Cmd     *Command `bson:"cmd" json:"cmd"`
-	//	App          *App              `bson:"app" json:"app"`
+	Id           string            `bson:"wuid" json:"wuid"`
+	Info         *Info             `bson:"info" json:"info"`
+	Inputs       []*IO             `bson:"inputs" json:"inputs"`
+	Outputs      []*IO             `bson:"outputs" json:"outputs"`
+	Predata      []*IO             `bson:"predata" json:"predata"`
+	Cmd          *Command          `bson:"cmd" json:"cmd"`
 	Rank         int               `bson:"rank" json:"rank"`
 	TotalWork    int               `bson:"totalwork" json:"totalwork"`
 	Partition    *PartInfo         `bson:"part" json:"part"`
@@ -37,8 +38,19 @@ type Workunit struct {
 	CheckoutTime time.Time         `bson:"checkout_time" json:"checkout_time"`
 	Client       string            `bson:"client" json:"client"`
 	ComputeTime  int               `bson:"computetime" json:"computetime"`
+	ExitStatus   int               `bson:"exitstatus" json:"exitstatus"` // Linux Exit Status Code (0 is success)
 	Notes        string            `bson:"notes" json:"notes"`
 	UserAttr     map[string]string `bson:"userattr" json:"userattr"`
+	WorkPath     string            // this is the working directory. If empty, it will be computed.
+	WorkPerf     *WorkPerf
+	CWL          *CWL_workunit
+}
+
+type CWL_workunit struct {
+	CWL_job           *cwl.Job_document
+	CWL_tool          *cwl.CommandLineTool
+	CWL_tool_filename string
+	CWL_job_filename  string
 }
 
 type WorkLog struct {
@@ -115,16 +127,17 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 		Id:  fmt.Sprintf("%s_%d", task.Id, rank),
 		Cmd: task.Cmd,
 		//App:       task.App,
-		Info:      task.Info,
-		Inputs:    task.Inputs,
-		Outputs:   task.Outputs,
-		Predata:   task.Predata,
-		Rank:      rank,
-		TotalWork: task.TotalWork, //keep this info in workunit for load balancing
-		Partition: task.Partition,
-		State:     WORK_STAT_INIT,
-		Failed:    0,
-		UserAttr:  task.UserAttr,
+		Info:       task.Info,
+		Inputs:     task.Inputs,
+		Outputs:    task.Outputs,
+		Predata:    task.Predata,
+		Rank:       rank,
+		TotalWork:  task.TotalWork, //keep this info in workunit for load balancing
+		Partition:  task.Partition,
+		State:      WORK_STAT_INIT,
+		Failed:     0,
+		UserAttr:   task.UserAttr,
+		ExitStatus: -1,
 
 		//AppVariables: task.AppVariables // not needed yet
 	}
@@ -160,8 +173,13 @@ func (work *Workunit) SetState(new_state string) {
 }
 
 func (work *Workunit) Path() string {
-	id := work.Id
-	return fmt.Sprintf("%s/%s/%s/%s/%s", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id)
+
+	if work.WorkPath == "" {
+		id := work.Id
+		work.WorkPath = fmt.Sprintf("%s/%s/%s/%s/%s", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id)
+	}
+
+	return work.WorkPath
 }
 
 func (work *Workunit) CDworkpath() (err error) {

@@ -94,10 +94,14 @@ func (qm *ServerMgr) UpdateQueueLoop() {
 
 func (qm *ServerMgr) ClientHandle() {
 	logger.Info("(ServerMgr ClientHandle) starting")
+	count := 0
+
 	for {
 		//select {
 		//case coReq := <-qm.coReq
 		coReq := <-qm.coReq
+		count += 1
+		request_start_time := time.Now()
 		logger.Debug(3, "(ServerMgr ClientHandle) workunit checkout request received from client %s, Req=%v", coReq.fromclient, coReq)
 
 		ok, err := qm.CQMgr.clientMap.Has(coReq.fromclient, true)
@@ -155,6 +159,12 @@ func (qm *ServerMgr) ClientHandle() {
 			continue
 		}
 		logger.Debug(3, "(ServerMgr ClientHandle %s) done", coReq.fromclient)
+
+		if count%10 == 0 { // use modulo to reduce number of log messages
+			request_time_elapsed := time.Since(request_start_time)
+
+			logger.Info("(ServerMgr ClientHandle) Responding to work request took %s", request_time_elapsed)
+		}
 	}
 }
 
@@ -341,15 +351,18 @@ func (qm *ServerMgr) updateQueue() (err error) {
 
 		if task_ready {
 			logger.Debug(3, "(updateQueue) task ready: %s", task_id)
-			err := qm.taskEnQueue(task)
+			err = qm.taskEnQueue(task)
 			if err != nil {
 				_ = task.SetState(TASK_STAT_SUSPEND)
 				job_id, _ := GetJobIdByTaskId(task_id)
 				jerror := &JobError{
 					TaskFailed:  task_id,
 					ServerNotes: "failed enqueuing task, err=" + err.Error(),
+					Status:      JOB_STAT_SUSPEND,
 				}
-				qm.SuspendJob(job_id, jerror)
+				if err = qm.SuspendJob(job_id, jerror); err != nil {
+					logger.Error("(updateQueue:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
+				}
 				continue
 			}
 			logger.Debug(3, "(updateQueue) task enqueued: %s", task_id)
@@ -362,21 +375,24 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	for _, id := range qm.workQueue.Clean() {
 		job_id, err := GetJobIdByWorkId(id)
 		if err != nil {
-			logger.Error("error: in updateQueue() workunit %s is nil, cannot get job id", id)
+			logger.Error("(updateQueue) workunit %s is nil, cannot get job id", id)
 			continue
 		}
 		task_id, err := GetTaskIdByWorkId(id)
 		if err != nil {
-			logger.Error("error: in updateQueue() workunit %s is nil, cannot get task id", id)
+			logger.Error("(updateQueue) workunit %s is nil, cannot get task id", id)
 			continue
 		}
 		jerror := &JobError{
 			WorkFailed:  id,
 			TaskFailed:  task_id,
 			ServerNotes: "workunit is nil",
+			Status:      JOB_STAT_SUSPEND,
 		}
-		qm.SuspendJob(job_id, jerror)
-		logger.Error("error: workunit %s is nil, suspending job %s", id, job_id)
+		if err = qm.SuspendJob(job_id, jerror); err != nil {
+			logger.Error("(updateQueue:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
+		}
+		logger.Error("(updateQueue) workunit %s is nil, suspending job %s", id, job_id)
 	}
 
 	logger.Debug(3, "(updateQueue) ending")
@@ -598,15 +614,37 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return fmt.Errorf("(handleWorkStatusChange) workunit %s failed due to skip", workid)
 	}
 
+	logger.Debug(3, "(handleWorkStatusChange) handling status %s", status)
 	if status == WORK_STAT_DONE {
 		if err = qm.handleWorkStatDone(client, clientid, task, task_id, workid, computetime); err != nil {
 			return err
 		}
+	} else if status == WORK_STAT_FAILED_PERMANENT { // (special case !) failed and cannot be recovered
+		logger.Event(event.WORK_FAILED, "workid="+workid+";clientid="+clientid)
+		logger.Debug(3, "(handleWorkStatusChange) work failed (status=%s) workid=%s clientid=%s", status, workid, clientid)
+		work.Failed += 1
 
-	} else if status == WORK_STAT_FAIL {
-		//workunit failed, requeue or put it to suspend list
+		qm.workQueue.StatusChange(workid, work, WORK_STAT_FAILED_PERMANENT)
+
+		if err = task.SetState(TASK_STAT_FAILED_PERMANENT); err != nil {
+			return err
+		}
+
+		jerror := &JobError{
+			ClientFailed: clientid,
+			WorkFailed:   workid,
+			TaskFailed:   task_id,
+			ServerNotes:  fmt.Sprintf("workunit failed %d time(s)", MAX_FAILURE),
+			WorkNotes:    notes,
+			AppError:     notice.Stderr,
+			Status:       JOB_STAT_FAILED_PERMANENT,
+		}
+		if err = qm.SuspendJob(job_id, jerror); err != nil {
+			logger.Error("(handleWorkStatusChange:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
+		}
+	} else if status == WORK_STAT_ERROR { //workunit failed, requeue or put it to suspend list
 		logger.Event(event.WORK_FAIL, "workid="+workid+";clientid="+clientid)
-		logger.Debug(3, "work failed workid=%s clientid=%s", workid, clientid)
+		logger.Debug(3, "(handleWorkStatusChange) work failed (status=%s) workid=%s clientid=%s", status, workid, clientid)
 		work.Failed += 1
 
 		if work.Failed < MAX_FAILURE {
@@ -628,9 +666,10 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 				ServerNotes:  fmt.Sprintf("workunit failed %d time(s)", MAX_FAILURE),
 				WorkNotes:    notes,
 				AppError:     notice.Stderr,
+				Status:       JOB_STAT_SUSPEND,
 			}
 			if err = qm.SuspendJob(job_id, jerror); err != nil {
-				logger.Error("error returned by SuspendJob(): " + err.Error())
+				logger.Error("(handleWorkStatusChange:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
 			}
 		}
 
@@ -655,9 +694,8 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		if last_failed >= conf.MAX_CLIENT_FAILURE {
 			qm.SuspendClient(clientid, client, true)
 		}
-
 	} else {
-		return fmt.Errorf("No handler for workunit status '%s' implemented", status)
+		return fmt.Errorf("No handler for workunit status '%s' implemented (allowd: %s, %s, %s)", status, WORK_STAT_DONE, WORK_STAT_FAILED_PERMANENT, WORK_STAT_ERROR)
 	}
 	return
 }
@@ -1022,8 +1060,11 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 			jerror := &JobError{
 				TaskFailed:  task_id,
 				ServerNotes: "failed in enqueuing task, err=" + err.Error(),
+				Status:      JOB_STAT_SUSPEND,
 			}
-			qm.SuspendJob(job_id, jerror)
+			if serr := qm.SuspendJob(job_id, jerror); serr != nil {
+				logger.Error("(updateQueue:SuspendJob) job_id=%s; err=%s", job_id, serr.Error())
+			}
 			return err
 		}
 	}
@@ -1568,18 +1609,20 @@ func (qm *ServerMgr) IsJobRegistered(id string) bool {
 	return false
 }
 
+// use for JOB_STAT_SUSPEND and JOB_STAT_FAILED_PERMANENT
 func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 	job, err := GetJob(jobid)
 	if err != nil {
 		return
 	}
 
-	// set suspend state
-	err = job.SetState(JOB_STAT_SUSPEND)
+	err = job.SetState(jerror.Status)
 	if err != nil {
 		return
 	}
-	qm.putSusJob(jobid)
+	if jerror.Status == JOB_STAT_SUSPEND {
+		qm.putSusJob(jobid)
+	}
 
 	// set error struct
 	err = job.SetError(jerror)
@@ -1590,13 +1633,24 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 	//suspend queueing workunits
 	workunit_list, err := qm.workQueue.GetAll()
 	if err != nil {
-		return
+		return err
 	}
+
+	new_work_state := WORK_STAT_SUSPEND
+	new_task_state := TASK_STAT_SUSPEND
+	this_event := event.JOB_SUSPEND
+	if jerror.Status == JOB_STAT_FAILED_PERMANENT {
+		new_work_state = WORK_STAT_FAILED_PERMANENT
+		new_task_state = TASK_STAT_FAILED_PERMANENT
+		this_event = event.JOB_FAILED_PERMANENT
+	}
+
+	// update all workunits
 	for _, workunit := range workunit_list {
 		workid := workunit.Id
 		parentid, _ := GetJobIdByWorkId(workid)
 		if jobid == parentid {
-			qm.workQueue.StatusChange(workid, nil, WORK_STAT_SUSPEND)
+			qm.workQueue.StatusChange(workid, nil, new_work_state)
 		}
 	}
 
@@ -1607,14 +1661,13 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 			continue
 		}
 		if task_state == TASK_STAT_QUEUED || task_state == TASK_STAT_INIT || task_state == TASK_STAT_INPROGRESS {
-			err = task.SetState(TASK_STAT_SUSPEND)
+			err = task.SetState(new_task_state)
 			if err != nil {
 				logger.Error("(SuspendJob) : %s", err.Error())
 				continue
 			}
 		}
 	}
-
 	qm.LogJobPerf(jobid)
 	qm.removeActJob(jobid)
 
@@ -1625,7 +1678,7 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 	} else if jerror.WorkNotes != "" {
 		reason = jerror.WorkNotes
 	}
-	logger.Event(event.JOB_SUSPEND, "jobid="+jobid+";reason="+reason)
+	logger.Event(this_event, "jobid="+jobid+";reason="+reason)
 	return
 }
 

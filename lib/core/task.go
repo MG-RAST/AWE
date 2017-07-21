@@ -514,27 +514,33 @@ func (task *Task) InitPartIndex() (err error) {
 		return
 	}
 
+	// if submitted with partition index use that, otherwise default
+	if (task.Partition != nil) && (task.Partition.Index != "") {
+		newPartition.Index = task.Partition.Index
+	} else {
+		newPartition.Index = conf.DEFAULT_INDEX
+	}
+
 	var totalunits int
-	idxtype := conf.DEFAULT_INDEX
-	if _, ok := idxinfo[idxtype]; !ok {
+	if _, ok := idxinfo[newPartition.Index]; !ok {
 		// if index not available, create index
-		err = ShockPutIndex(inputIO.Host, inputIO.Node, idxtype, task.Info.DataToken)
+		err = ShockPutIndex(inputIO.Host, inputIO.Node, newPartition.Index, task.Info.DataToken)
 		if err != nil {
 			// bad state - set as not multi-workunit
-			logger.Error("warning: failed to create index on shock for taskid=" + task.Id + ", error=" + err.Error())
+			logger.Error("warning: failed to create index %s on shock for taskid=%s, error=%s", newPartition.Index, task.Id, err.Error())
 			err = task.setSingleWorkunit(false)
 			return
 		}
-		totalunits, err = inputIO.TotalUnits(idxtype) // get index info again
+		totalunits, err = inputIO.TotalUnits(newPartition.Index) // get index info again
 		if err != nil {
 			// bad state - set as not multi-workunit
-			logger.Error("warning: failed to get index units, taskid=" + task.Id + ", error=" + err.Error())
+			logger.Error("warning: failed to get index %s units, taskid=%s, error=%s", newPartition.Index, task.Id, err.Error())
 			err = task.setSingleWorkunit(false)
 			return
 		}
 	} else {
 		// index existing, use it directly
-		totalunits = int(idxinfo[idxtype].TotalUnits)
+		totalunits = int(idxinfo[newPartition.Index].TotalUnits)
 	}
 
 	// adjust total work based on needs
@@ -558,7 +564,6 @@ func (task *Task) InitPartIndex() (err error) {
 			}
 		}
 	}
-
 	if totalunits < task.TotalWork {
 		err = task.setTotalWork(totalunits, false)
 		if err != nil {
@@ -572,7 +577,7 @@ func (task *Task) InitPartIndex() (err error) {
 		return
 	}
 
-	newPartition.Index = idxtype
+	// done, set it
 	newPartition.TotalIndex = totalunits
 	err = task.setPartition(newPartition, false)
 	return

@@ -13,6 +13,7 @@ type CWLType interface {
 	is_CommandInputParameterType()
 	is_CommandOutputParameterType()
 	is_CWLType()
+	is_Array() bool
 	//is_CWL_minimal()
 }
 
@@ -22,12 +23,15 @@ func (c *CWLType_Impl) is_CWL_minimal()                {}
 func (c *CWLType_Impl) is_CWLType()                    {}
 func (c *CWLType_Impl) is_CommandInputParameterType()  {}
 func (c *CWLType_Impl) is_CommandOutputParameterType() {}
+func (c *CWLType_Impl) is_Array()                      { return false }
 
 func NewCWLType(native interface{}) (cwl_type CWLType, err error) {
 
 	//var cwl_type CWLType
 
 	switch native.(type) {
+	case []interface{}:
+		panic("found array")
 	case int:
 		native_int := native.(int)
 
@@ -97,7 +101,7 @@ func NewCWLType(native interface{}) (cwl_type CWLType, err error) {
 
 }
 
-func NewCWLTypeArray(native interface{}) (cwl_array_ptr *[]CWLType, err error) {
+func NewCWLTypeArray_deprecated(native interface{}) (cwl_array_ptr *[]CWLType, err error) {
 
 	switch native.(type) {
 	case []interface{}:

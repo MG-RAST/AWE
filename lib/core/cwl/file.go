@@ -37,8 +37,9 @@ func (f *File) GetId() string       { return f.Id }
 func (f *File) SetId(id string)     { f.Id = id }
 func (f *File) String() string      { return f.Path }
 func (f *File) GetLocation() string { return f.Location } // for CWL_location
+func (f *File) is_Array()           { return false }
 
-func (s *File) is_CommandInputParameterType() {} // for CommandInputParameterType
+func (f *File) is_CommandInputParameterType() {} // for CommandInputParameterType
 
 func NewFile(obj interface{}) (file File, err error) {
 
@@ -141,10 +142,12 @@ type FileArray struct {
 	Data []File
 }
 
-func (f *FileArray) GetClass() string    { return CWL_File_array }
-func (f *FileArray) GetId() string       { return f.Id }
-func (f *FileArray) SetId(id string)     { f.Id = id }
-func (f *FileArray) String() string      { return f.Path }
-func (f *FileArray) GetLocation() string { return f.Location } // for CWL_location
+func (f *FileArray) GetClass() string { return CWL_File_array }
+func (f *FileArray) is_Array()        { return true }
+
+//func (f *FileArray) GetId() string       { return f.Id }
+//func (f *FileArray) SetId(id string)     { f.Id = id }
+//func (f *FileArray) String() string      { return f.Path }
+//func (f *FileArray) GetLocation() string { return f.Location } // for CWL_location
 
 func (s *FileArray) is_CommandInputParameterType() {} // for CommandInputParameterType

@@ -12,7 +12,7 @@ import (
 
 //type Job_document map[string]interface{}
 
-type Job_document map[string][]CWLType
+type Job_document map[string]CWLType
 
 func NewJob_document(original interface{}) (job *Job_document, err error) {
 
@@ -35,7 +35,7 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 
 		for _, key := range keys {
 			value := original_map[key]
-			cwl_obj, xerr := NewCWLTypeArray(value)
+			cwl_obj, xerr := NewCWLType(value)
 			if xerr != nil {
 				err = xerr
 				return
@@ -61,7 +61,7 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 
 		for _, key := range keys {
 			value := original_map[key]
-			cwl_obj, xerr := NewCWLTypeArray(value)
+			cwl_obj, xerr := NewCWLType(value)
 			if xerr != nil {
 				err = xerr
 				return

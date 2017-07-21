@@ -1,3 +1,23 @@
+# v0.9.48
+
+- golang 1.7.6
+- more cleanup and optimize job and task set functions
+- overhaul / locking on initialization of task.Partition (multi-workunits)
+- fix worker download of parts Inputs
+- cache shock node indexinfo with io struct
+- handle slow processing of completed work
+- error handling updates
+
+# v0.9.47
+
+- new state FAILED_PERMANENT introduced
+- awe-worker can execute cwl-runner
+- added test for special exit code 42
+- remove deprecated code
+- cleanup and optimize job and task set functions
+- add job.Error struct
+- fix job suspension logic
+
 # v0.9.46
 
 - update shock struct

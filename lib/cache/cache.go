@@ -142,20 +142,19 @@ func StatCacheFilePath(id string) (file_path string, err error) {
 //fetch input data
 func MoveInputData(work *core.Workunit) (size int64, err error) {
 	for _, io := range work.Inputs {
-		inputname := io.FileName
 		// skip if NoFile == true
 		if !io.NoFile { // is file !
 			dataUrl, uerr := io.DataUrl()
 			if uerr != nil {
 				return 0, uerr
 			}
-			inputFilePath := fmt.Sprintf("%s/%s", work.Path(), inputname)
+			inputFilePath := fmt.Sprintf("%s/%s", work.Path(), io.FileName)
 
 			if work.Rank == 0 {
 				if conf.CACHE_ENABLED && io.Node != "" {
 					if file_path, err := StatCacheFilePath(io.Node); err == nil {
 						//make a link in work dir from cached file
-						linkname := fmt.Sprintf("%s/%s", work.Path(), inputname)
+						linkname := fmt.Sprintf("%s/%s", work.Path(), io.FileName)
 						fmt.Printf("input found in cache, making link: " + file_path + " -> " + linkname + "\n")
 						err = os.Symlink(file_path, linkname)
 						if err == nil {
@@ -164,8 +163,10 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 						return 0, err
 					}
 				}
-			} else {
-				dataUrl = fmt.Sprintf("%s&index=%s&part=%s", dataUrl, work.IndexType(), work.Part())
+			}
+			// only get file Part based on work.Partition
+			if (work.Rank > 0) && (work.Partition != nil) && (work.Partition.Input == io.FileName) {
+				dataUrl = fmt.Sprintf("%s&index=%s&part=%s", dataUrl, work.Partition.Index, work.Part())
 			}
 			logger.Debug(2, "mover: fetching input file from url:"+dataUrl)
 			logger.Event(event.FILE_IN, "workid="+work.Id+";url="+dataUrl)

@@ -44,7 +44,7 @@ type JobMgr interface {
 	GetActiveJobs() map[string]bool
 	IsJobRegistered(string) bool
 	GetSuspendJobs() map[string]bool
-	SuspendJob(string, string, string, string) error
+	SuspendJob(string, *JobError) error
 	ResumeSuspendedJobByUser(string, *user.User) error
 	ResumeSuspendedJobsByUser(*user.User) int
 	ResubmitJob(string) error
@@ -57,7 +57,7 @@ type JobMgr interface {
 	SaveStdLog(string, string, string) error
 	GetReportMsg(string, string) (string, error)
 	RecomputeJob(string, string) error
-	UpdateQueueJobInfo(*Job) error
+	UpdateQueueToken(*Job) error
 }
 
 type ClientWorkMgr interface {

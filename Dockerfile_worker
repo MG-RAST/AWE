@@ -1,7 +1,7 @@
 # docker build -t mgrast/awe-worker -f Dockerfile_worker .
 
 
-FROM golang:1.7.4-alpine as builder
+FROM golang:1.7.6-alpine as builder
 
 # git needed for GIT_COMMIT_HASH
 RUN apk update && apk add git

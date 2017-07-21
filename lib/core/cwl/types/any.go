@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"reflect"
 )
 

@@ -3,7 +3,7 @@
 # docker tag mgrast/awe mgrast/awe:${TAG}
 
 
-FROM golang:1.7.4-alpine
+FROM golang:1.7.6-alpine
 
 #RUN apk update && apk add git gcc libc-dev cyrus-sasl-dev
 

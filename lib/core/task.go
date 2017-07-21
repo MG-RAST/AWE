@@ -29,7 +29,7 @@ type TaskRaw struct {
 	JobId       string    `bson:"jobid" json:"jobid"`
 	Info        *Info     `bson:"-" json:"-"`
 	Cmd         *Command  `bson:"cmd" json:"cmd"`
-	Partition   *PartInfo `bson:"partinfo" json:"partinfo"`
+	Partition   *PartInfo `bson:"partinfo" json:"-"`
 	DependsOn   []string  `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
 	TotalWork   int       `bson:"totalwork" json:"totalwork"`
 	MaxWorkSize int       `bson:"maxworksize"   json:"maxworksize"`

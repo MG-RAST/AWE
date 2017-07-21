@@ -46,9 +46,9 @@ func workStealer(control chan int) {
 				//normal, do nothing
 				logger.Debug(3, "(workStealer) client %s received status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL)
 			} else if err.Error() == e.ClientBusy {
-			    // client asked for work, but server has not finished processing its last delivered work
-			    logger.Error("(workStealer) server responds: last work delivered by client not yet processed, retry=%d", retry)
-			    retry += 1
+				// client asked for work, but server has not finished processing its last delivered work
+				logger.Error("(workStealer) server responds: last work delivered by client not yet processed, retry=%d", retry)
+				retry += 1
 			} else if err.Error() == e.ClientNotFound {
 				logger.Error("(workStealer) server responds: client not found. will wait for heartbeat process to fix this")
 				//server may be restarted, waiting for the hearbeater goroutine to try re-register
@@ -107,7 +107,7 @@ func workStealer(control chan int) {
 		if conf.WORKER_OVERLAP == false && core.Service != "proxy" {
 			chanPermit <- true
 			// sleep short time to allow server to finish processing last delivered work
-			time.Sleep(3 * time.Second)
+			time.Sleep(2 * time.Second)
 		}
 	}
 	control <- ID_WORKSTEALER //we are ending

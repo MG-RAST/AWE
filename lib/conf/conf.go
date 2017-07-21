@@ -14,7 +14,7 @@ import (
 	"github.com/MG-RAST/golib/goconfig/config"
 )
 
-const VERSION string = "0.9.47"
+const VERSION string = "0.9.48"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -160,6 +160,7 @@ var (
 	SHOCK_DOCKER_IMAGE_REPOSITORY string
 
 	// Other
+	ERROR_LENGTH         int
 	DEV_MODE             bool
 	DEBUG_LEVEL          int
 	CONFIG_FILE          string
@@ -528,6 +529,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 	c_store.AddInt(&P_API_PORT, 8002, "Proxy", "p-api-port", "", "")
 
 	//Other
+	c_store.AddInt(&ERROR_LENGTH, 5000, "Other", "errorlength", "amount of App STDERR to save in Job.Error", "")
 	c_store.AddBool(&DEV_MODE, false, "Other", "dev", "dev or demo mode, print some msgs on screen", "")
 	c_store.AddInt(&DEBUG_LEVEL, 0, "Other", "debuglevel", "debug level: 0-3", "")
 	c_store.AddString(&CONFIG_FILE, "", "Other", "conf", "path to config file", "")

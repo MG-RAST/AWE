@@ -151,10 +151,6 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		//}
 		logger.Debug(1, "CWL2AWE done")
 
-		//fmt.Println("\n\n\n--------------------------------- Done... now respond...")
-		//cx.RespondWithData(job)
-		//return
-
 	} else if !has_upload && !has_awf {
 		cx.RespondWithErrorMessage("No job script or awf is submitted", http.StatusBadRequest)
 		return
@@ -181,7 +177,6 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			return
 		}
 		logger.Debug(3, "job %s got token", job.Id)
-
 	}
 
 	err = job.Save()
@@ -634,10 +629,10 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				// if completed or deleted move on, empty task array
 				mjob.State = append(mjob.State, job_state)
 			} else if job_state == "suspend" {
-				// get failed task if info available, otherwise empty task array
 				mjob.State = append(mjob.State, "suspend")
-				parts := strings.Split(job.LastFailed, "_")
-				if (len(parts) == 2) || (len(parts) == 3) {
+				// get failed task if info available, otherwise empty task array
+				if (job.Error != nil) && (job.Error.TaskFailed != "") {
+					parts := strings.Split(job.Error.TaskFailed, "_")
 					if tid, err := strconv.Atoi(parts[1]); err == nil {
 						mjob.Task = append(mjob.Task, tid)
 					}
@@ -816,7 +811,11 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		return
 	}
 	if query.Has("suspend") { // to suspend an in-progress job
-		if err := core.QMgr.SuspendJob(id, core.JOB_STAT_SUSPEND, "manually suspended", ""); err != nil {
+		jerror := &core.JobError{
+			ServerNotes: "manually suspended",
+			Status:      core.JOB_STAT_SUSPEND,
+		}
+		if err := core.QMgr.SuspendJob(id, jerror); err != nil {
 			cx.RespondWithErrorMessage("fail to suspend job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -915,19 +914,11 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 			cx.RespondWithErrorMessage("fail to retrieve token for job, pls set token in header: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
-
 		err = job.SetDataToken(token)
-
 		if err != nil {
 			cx.RespondWithErrorMessage("failed to set the token for job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		//err = job.Save()
-		//if err != nil {
-		//	cx.RespondWithErrorMessage("failed to save job: "+id+" "+err.Error(), http.StatusBadRequest)
-		//	return
-		//}
-
 		cx.RespondWithData("data token set for job: " + id)
 		return
 	}

@@ -28,7 +28,7 @@ const (
 	JOB_DELETED          = "JL" //job deleted
 	JOB_EXPIRED          = "JE" //job expired
 	JOB_FULL_DELETE      = "JR" //job removed form mongodb (deleted fully)
-	JOB_FAILED_PERMANENT = "JF"
+	JOB_FAILED_PERMANENT = "JF" //job failed permanently
 	//client only events
 	WORK_START     = "WS" //workunit command start running
 	WORK_END       = "WE" //workunit command finish running

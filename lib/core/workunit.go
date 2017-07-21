@@ -198,10 +198,6 @@ func (work *Workunit) CDworkpath() (err error) {
 	return os.Chdir(work.Path())
 }
 
-func (work *Workunit) IndexType() (indextype string) {
-	return work.Partition.Index
-}
-
 //calculate the range of data part
 //algorithm: try to evenly distribute indexed parts to workunits
 //e.g. totalWork=4, totalParts=10, then each workunits have parts 3,3,2,2

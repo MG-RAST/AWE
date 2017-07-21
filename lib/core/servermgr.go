@@ -490,7 +490,6 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		}
 		outputs_modified = true
 		logger.Debug(3, "New output file %s has size %d", io.FileName, size)
-
 	}
 
 	if outputs_modified {

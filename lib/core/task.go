@@ -441,16 +441,13 @@ func (task *TaskRaw) GetDependsOn() (dep []string, err error) {
 func (task *Task) CreateIndex() (err error) {
 	for _, io := range task.Inputs {
 		if len(io.ShockIndex) > 0 {
-			idxinfo, err := io.GetIndexInfo()
+			_, hasIndex, err := io.GetIndexInfo(io.ShockIndex)
 			if err != nil {
 				errMsg := "could not retrieve index info from input shock node, taskid=" + task.Id + ", error=" + err.Error()
 				logger.Error(errMsg)
 				return errors.New(errMsg)
 			}
-
-			// check if index exists
-			_, ok := idxinfo[io.ShockIndex]
-			if !ok {
+			if !hasIndex {
 				// create missing index
 				err = ShockPutIndex(io.Host, io.Node, io.ShockIndex, task.Info.DataToken)
 				if err != nil {
@@ -506,14 +503,6 @@ func (task *Task) InitPartIndex() (err error) {
 		}
 	}
 
-	idxinfo, err := inputIO.GetIndexInfo()
-	if err != nil {
-		// bad state - set as not multi-workunit
-		logger.Error("warning: invalid file info, taskid=%s, error=%s", task.Id, err.Error())
-		err = task.setSingleWorkunit(false)
-		return
-	}
-
 	// if submitted with partition index use that, otherwise default
 	if (task.Partition != nil) && (task.Partition.Index != "") {
 		newPartition.Index = task.Partition.Index
@@ -521,8 +510,16 @@ func (task *Task) InitPartIndex() (err error) {
 		newPartition.Index = conf.DEFAULT_INDEX
 	}
 
+	idxInfo, hasIndex, err := inputIO.GetIndexInfo(newPartition.Index)
+	if err != nil {
+		// bad state - set as not multi-workunit
+		logger.Error("warning: invalid file info, taskid=%s, error=%s", task.Id, err.Error())
+		err = task.setSingleWorkunit(false)
+		return
+	}
+
 	var totalunits int
-	if _, ok := idxinfo[newPartition.Index]; !ok {
+	if !hasIndex {
 		// if index not available, create index
 		err = ShockPutIndex(inputIO.Host, inputIO.Node, newPartition.Index, task.Info.DataToken)
 		if err != nil {
@@ -540,7 +537,7 @@ func (task *Task) InitPartIndex() (err error) {
 		}
 	} else {
 		// index existing, use it directly
-		totalunits = int(idxinfo[newPartition.Index].TotalUnits)
+		totalunits = int(idxInfo.TotalUnits)
 	}
 
 	// adjust total work based on needs

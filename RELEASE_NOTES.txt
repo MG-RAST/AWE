@@ -10,6 +10,9 @@
 
 # v0.9.47
 
+- new state FAILED_PERMANENT introduced
+- awe-worker can execute cwl-runner
+- added test for special exit code 42
 - remove deprecated code
 - cleanup and optimize job and task set functions
 - add job.Error struct

@@ -1,3 +1,13 @@
+# v0.9.48
+
+- golang 1.7.6
+- more cleanup and optimize job and task set functions
+- overhaul / locking on initialization of task.Partition (multi-workunits)
+- fix worker download of parts Inputs
+- cache shock node indexinfo with io struct
+- handle slow processing of completed work
+- error handling updates
+
 # v0.9.47
 
 - remove deprecated code

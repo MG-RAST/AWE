@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -24,6 +25,22 @@ func NewEmpty(value interface{}) (obj_empty *Empty, err error) {
 	if err != nil {
 		err = fmt.Errorf("(NewEmpty) Could not convert into CWL object: %s", err.Error())
 		return
+	}
+
+	return
+}
+
+func GetClass(native interface{}) (class string, err error) {
+	empty, xerr := NewEmpty(native)
+	if xerr != nil {
+		err = xerr
+		return
+	}
+	class = empty.GetClass()
+
+	if class == "" {
+		spew.Dump(native)
+		panic("class name empty")
 	}
 
 	return

@@ -5,6 +5,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/worker"
@@ -125,26 +126,36 @@ func main() {
 			os.Exit(1)
 		}
 
+		fmt.Println("Job input:")
 		spew.Dump(*job_doc)
 
-		for name, array := range *job_doc {
-
-			fmt.Println(name)
-
-			for _, element := range array {
-				switch element.(type) {
-				case *cwl.File:
-					file, ok := element.(*cwl.File)
-					if !ok {
-						panic("not file")
-					}
-					fmt.Printf("%+v\n", *file)
-
-				default:
-					spew.Dump(element)
-				}
-			}
-		}
+		// for name, thing := range *job_doc {
+		//
+		// 			array, is_array := thing.(cwl_types.CWL_array_type)
+		//
+		// 			fmt.Println(name)
+		// 			if is_array {
+		//
+		// 				for _, element := range *array.Get_Array() {
+		// 					switch element.(type) {
+		// 					case *cwl_types.File:
+		// 						file, ok := element.(*cwl_types.File)
+		// 						if !ok {
+		// 							panic("not file")
+		// 						}
+		// 						fmt.Printf("%+v\n", *file)
+		//
+		// 						if file.Location != "" { // this is an IRI (URI)
+		// 							// TODO: do something !!! download
+		//
+		// 						}
+		//
+		// 					default:
+		// 						spew.Dump(element)
+		// 					}
+		// 				}
+		// 			}
+		// 		}
 
 		os.Getwd() //https://golang.org/pkg/os/#Getwd
 

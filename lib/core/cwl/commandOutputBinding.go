@@ -15,6 +15,7 @@ type CommandOutputBinding struct {
 func NewCommandOutputBinding(original interface{}) (commandOutputBinding *CommandOutputBinding, err error) {
 
 	switch original.(type) {
+
 	case map[interface{}]interface{}:
 		original_map := original.(map[interface{}]interface{})
 
@@ -33,7 +34,7 @@ func NewCommandOutputBinding(original interface{}) (commandOutputBinding *Comman
 			}
 		}
 	default:
-		err = fmt.Errorf("NewCommandOutputBinding: tyype unknown")
+		err = fmt.Errorf("NewCommandOutputBinding: type unknown")
 		return
 	}
 

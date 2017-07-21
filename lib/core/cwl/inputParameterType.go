@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"strings"
 )
 
@@ -21,15 +22,15 @@ func NewInputParameterType(original interface{}) (ipt_ptr *InputParameterType, e
 		original_str_lower := strings.ToLower(original_str)
 		switch original_str_lower {
 
-		case "null":
-		case CWL_boolean:
-		case CWL_int:
-		case "long":
-		case "float":
-		case "double":
-		case "string":
-		case "file":
-		case "directory":
+		case cwl_types.CWL_null:
+		case cwl_types.CWL_boolean:
+		case cwl_types.CWL_int:
+		case cwl_types.CWL_long:
+		case cwl_types.CWL_float:
+		case cwl_types.CWL_double:
+		case cwl_types.CWL_string:
+		case cwl_types.CWL_File:
+		case cwl_types.CWL_Directory:
 		default:
 			err = fmt.Errorf("(NewInputParameterType) type %s is unknown", original_str_lower)
 			return

@@ -8,12 +8,13 @@ import (
 	"github.com/MG-RAST/AWE/lib/cache"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/MG-RAST/AWE/lib/core/cwl"
+	//"github.com/MG-RAST/AWE/lib/core/cwl"
+	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/golib/httpclient"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"io"
 	"io/ioutil"
 	"os"
@@ -264,43 +265,48 @@ func dataMover(control chan int) {
 			}
 		} else {
 			// download required remote files (local files are ok, mostly for commandline execution)
-			job_doc := workunit.CWL.Job_input
-			for name, array := range *job_doc {
-				fmt.Println(name)
-
-				for _, element := range array {
-					switch element.(type) {
-					case *cwl.File:
-						file, ok := element.(*cwl.File)
-						if !ok {
-							panic("not file")
-						}
-						fmt.Printf("%+v\n", *file)
-
-						if file.Location != "" { // this is an IRI (URI)
-							// TODO: do something !!! download
-
-						}
-
-						if file.Path != "" {
-
-							logger.Debug(1, "(dataMover) checking file %s=%s...", name, file.Path)
-
-							if _, err := os.Stat(file.Path); os.IsNotExist(err) {
-								logger.Error("(dataMover) file %s=%s not found", name, file.Path)
-								workunit.SetState(core.WORK_STAT_ERROR)
-								//hand the parsed workunit to next stage and continue to get new workunit to process
-								fromMover <- workunit
-								continue
-							} else {
-								logger.Debug(1, "(dataMover) ok, found file %s=%s...", name, file.Path)
-							}
-						}
-					default:
-						spew.Dump(element)
-					}
-				}
-			}
+			// job_doc := workunit.CWL.Job_input
+			// 			for name, thing := range *job_doc {
+			//
+			// 				array, is_array := thing.(cwl_types.CWL_array_type)
+			//
+			// 				fmt.Println(name)
+			// 				if is_array {
+			//
+			// 					for _, element := range *array.Get_Array() {
+			// 						switch element.(type) {
+			// 						case *cwl_types.File:
+			// 							file, ok := element.(*cwl_types.File)
+			// 							if !ok {
+			// 								panic("not file")
+			// 							}
+			// 							fmt.Printf("%+v\n", *file)
+			//
+			// 							if file.Location != "" { // this is an IRI (URI)
+			// 								// TODO: do something !!! download
+			//
+			// 							}
+			//
+			// 							if file.Path != "" {
+			//
+			// 								logger.Debug(1, "(dataMover) checking file %s=%s...", name, file.Path)
+			//
+			// 								if _, err := os.Stat(file.Path); os.IsNotExist(err) {
+			// 									logger.Error("(dataMover) file %s=%s not found", name, file.Path)
+			// 									workunit.SetState(core.WORK_STAT_ERROR)
+			// 									//hand the parsed workunit to next stage and continue to get new workunit to process
+			// 									fromMover <- workunit
+			// 									continue
+			// 								} else {
+			// 									logger.Debug(1, "(dataMover) ok, found file %s=%s...", name, file.Path)
+			// 								}
+			// 							}
+			// 						default:
+			// 							spew.Dump(element)
+			// 						}
+			// 					}
+			// 				}
+			// 			}
 		}
 
 		if conf.CWL_TOOL == "" {

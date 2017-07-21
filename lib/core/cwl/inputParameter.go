@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"strings"
@@ -15,14 +16,14 @@ type InputParameter struct {
 	Streamable     bool                  `yaml:"streamable"`
 	Doc            string                `yaml:"doc"`
 	InputBinding   CommandLineBinding    `yaml:"inputBinding"` //TODO
-	Default        Any                   `yaml:"default"`
+	Default        cwl_types.Any         `yaml:"default"`
 	Type           *[]InputParameterType `yaml:"type"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
 }
 
 func (i InputParameter) GetClass() string { return "InputParameter" }
 func (i InputParameter) GetId() string    { return i.Id }
 func (i InputParameter) SetId(id string)  { i.Id = id }
-func (i InputParameter) is_CWL_minimal()  {}
+func (i InputParameter) Is_CWL_minimal()  {}
 
 func NewInputParameter(original interface{}) (input_parameter *InputParameter, err error) {
 
@@ -35,9 +36,9 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 		type_string_lower := strings.ToLower(type_string)
 
 		switch type_string_lower {
-		case "string":
-		case CWL_int:
-		case "file":
+		case cwl_types.CWL_string:
+		case cwl_types.CWL_int:
+		case cwl_types.CWL_File:
 		default:
 			err = fmt.Errorf("unknown type: \"%s\"", type_string)
 			return
@@ -65,7 +66,7 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 
 		input_parameter_default, ok := original_map["default"]
 		if ok {
-			original_map["default"], err = NewAny(input_parameter_default)
+			original_map["default"], err = cwl_types.NewAny(input_parameter_default)
 			if err != nil {
 				return
 			}

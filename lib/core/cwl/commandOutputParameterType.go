@@ -6,6 +6,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	//"strings"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 )
 
 //type of http://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputParameter
@@ -70,7 +71,7 @@ func NewCommandOutputParameterType(original interface{}) (copt_ptr *CommandOutpu
 
 		//original_str_lower := strings.ToLower(original_str)
 
-		_, is_valid := valid_cwltypes[original_str]
+		_, is_valid := cwl_types.Valid_cwltypes[original_str]
 
 		if !is_valid {
 			err = fmt.Errorf("(NewCommandOutputParameterType) type %s is unknown", original_str)

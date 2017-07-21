@@ -207,18 +207,6 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 			return
 		}
 
-		count := 0
-		for key, array := range *result_doc {
-
-			for i, _ := range array {
-				fmt.Printf(key+": _________ %d\n", i)
-
-				count += 1
-				logger.Debug(1, "(RunWorkunit) got output: %s", key)
-			}
-		}
-		logger.Debug(1, "(RunWorkunit) got %s outputs", count)
-
 		workunit.CWL.Tool_results = result_doc
 
 	}

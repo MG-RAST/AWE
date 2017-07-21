@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	//"os"
@@ -25,9 +26,9 @@ type Workflow struct {
 func (w *Workflow) GetClass() string { return "Workflow" }
 func (w *Workflow) GetId() string    { return w.Id }
 func (w *Workflow) SetId(id string)  { w.Id = id }
-func (w *Workflow) is_CWL_minimal()  {}
-func (w *Workflow) is_Any()          {}
-func (w *Workflow) is_process()      {}
+func (w *Workflow) Is_CWL_minimal()  {}
+func (w *Workflow) Is_Any()          {}
+func (w *Workflow) Is_process()      {}
 
 func GetMapElement(m map[interface{}]interface{}, key string) (value interface{}, err error) {
 

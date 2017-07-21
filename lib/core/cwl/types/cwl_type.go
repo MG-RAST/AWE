@@ -5,33 +5,125 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
+// http://www.commonwl.org/draft-3/CommandLineTool.html#CWLType
+const (
+	CWL_null      = "null"      //no value
+	CWL_boolean   = "boolean"   //a binary value
+	CWL_int       = "int"       //32-bit signed integer
+	CWL_long      = "long"      //64-bit signed integer
+	CWL_float     = "float"     //single precision (32-bit) IEEE 754 floating-point number
+	CWL_double    = "double"    //double precision (64-bit) IEEE 754 floating-point number
+	CWL_string    = "string"    //Unicode character sequence
+	CWL_File      = "File"      //A File object
+	CWL_Directory = "Directory" //A Directory object
+
+	CWL_array  = "array"
+	CWL_record = "record"
+	CWL_enum   = "enum"
+
+	CWL_stdout = "stdout"
+	CWL_stderr = "stderr"
+
+	CWL_boolean_array   = "boolean_array"   //a binary value
+	CWL_int_array       = "int_array"       //32-bit signed integer
+	CWL_long_array      = "long_array"      //64-bit signed integer
+	CWL_float_array     = "float_array"     //single precision (32-bit) IEEE 754 floating-point number
+	CWL_double_array    = "double_array"    //double precision (64-bit) IEEE 754 floating-point number
+	CWL_string_array    = "string_array"    //Unicode character sequence
+	CWL_File_array      = "File_array"      //A File object
+	CWL_Directory_array = "Directory_array" //A Directory object
+)
+
+var Valid_cwltypes = map[string]bool{
+	CWL_null:            true,
+	CWL_boolean:         true,
+	CWL_int:             true,
+	CWL_long:            true,
+	CWL_float:           true,
+	CWL_double:          true,
+	CWL_string:          true,
+	CWL_File:            true,
+	CWL_Directory:       true,
+	CWL_stdout:          true,
+	CWL_stderr:          true,
+	CWL_boolean_array:   true,
+	CWL_int_array:       true,
+	CWL_long_array:      true,
+	CWL_float_array:     true,
+	CWL_double_array:    true,
+	CWL_string_array:    true,
+	CWL_File_array:      true,
+	CWL_Directory_array: true,
+}
+
+var Native2Array = map[string]string{
+	CWL_boolean:   CWL_boolean_array,
+	CWL_int:       CWL_int_array,
+	CWL_long:      CWL_long_array,
+	CWL_float:     CWL_float_array,
+	CWL_double:    CWL_double_array,
+	CWL_string:    CWL_string_array,
+	CWL_File:      CWL_File_array,
+	CWL_Directory: CWL_Directory_array,
+}
+
+type CWL_array_type interface {
+	Is_CWL_array_type()
+	Get_Array() *[]CWLType
+}
+
+type CWL_minimal_interface interface {
+	Is_CWL_minimal()
+}
+
+type CWL_minimal struct{}
+
+func (c *CWL_minimal) Is_CWL_minimal() {}
+
+// generic class to represent Files and Directories
+type CWL_location interface {
+	GetLocation() string
+}
+
 // CWLType - CWL basic types: int, string, boolean, .. etc
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CWLType
 // null, boolean, int, long, float, double, string, File, Directory
 type CWLType interface {
-	CWL_object
-	is_CommandInputParameterType()
-	is_CommandOutputParameterType()
-	is_CWLType()
-	is_Array() bool
-	//is_CWL_minimal()
+	CWL_object // is an interface
+	Is_CommandInputParameterType()
+	Is_CommandOutputParameterType()
+	Is_CWLType()
+
+	//Is_Array() bool
+	//Is_CWL_minimal()
 }
 
 type CWLType_Impl struct{}
 
-func (c *CWLType_Impl) is_CWL_minimal()                {}
-func (c *CWLType_Impl) is_CWLType()                    {}
-func (c *CWLType_Impl) is_CommandInputParameterType()  {}
-func (c *CWLType_Impl) is_CommandOutputParameterType() {}
-func (c *CWLType_Impl) is_Array()                      { return false }
+func (c *CWLType_Impl) Is_CWL_minimal()                {}
+func (c *CWLType_Impl) Is_CWLType()                    {}
+func (c *CWLType_Impl) Is_CommandInputParameterType()  {}
+func (c *CWLType_Impl) Is_CommandOutputParameterType() {}
 
-func NewCWLType(native interface{}) (cwl_type CWLType, err error) {
+//func (c *CWLType_Impl) Is_Array() bool                 { return false }
+
+func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 	//var cwl_type CWLType
 
 	switch native.(type) {
 	case []interface{}:
-		panic("found array")
+
+		native_array, _ := native.([]interface{})
+
+		array, xerr := NewArray(id, native_array)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		cwl_type = array
+		return
+
 	case int:
 		native_int := native.(int)
 
@@ -66,17 +158,29 @@ func NewCWLType(native interface{}) (cwl_type CWLType, err error) {
 				return
 			}
 		default:
+			// Map type unknown, maybe a record
 			spew.Dump(native)
-			err = fmt.Errorf("(NewCWLType) Map type unknown")
+
+			record, xerr := NewRecord(native)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			cwl_type = record
 			return
 		}
 	case map[string]interface{}:
-		empty, xerr := NewEmpty(native)
+		//empty, xerr := NewEmpty(native)
+		//if xerr != nil {
+		//	err = xerr
+		//	return
+		//}
+		class, xerr := GetClass(native)
 		if xerr != nil {
 			err = xerr
 			return
 		}
-		switch empty.GetClass() {
+		switch class {
 		case "File":
 			file, yerr := NewFile(native)
 			cwl_type = &file
@@ -115,7 +219,7 @@ func NewCWLTypeArray_deprecated(native interface{}) (cwl_array_ptr *[]CWLType, e
 		cwl_array := []CWLType{}
 
 		for _, value := range native_array {
-			value_cwl, xerr := NewCWLType(value)
+			value_cwl, xerr := NewCWLType("", value)
 			if xerr != nil {
 				err = xerr
 				return
@@ -125,7 +229,7 @@ func NewCWLTypeArray_deprecated(native interface{}) (cwl_array_ptr *[]CWLType, e
 		cwl_array_ptr = &cwl_array
 	default:
 
-		ct, xerr := NewCWLType(native)
+		ct, xerr := NewCWLType("", native)
 		if xerr != nil {
 			err = xerr
 			return
@@ -137,3 +241,103 @@ func NewCWLTypeArray_deprecated(native interface{}) (cwl_array_ptr *[]CWLType, e
 	return
 
 }
+
+type Array struct {
+	CWL_object
+	Id         string
+	Items      []CWLType
+	Items_Type string
+}
+
+func (c *Array) GetClass() string { return CWL_array }
+func (c *Array) GetId() string    { return c.Id }
+func (c *Array) SetId(id string)  { c.Id = id }
+
+func (c *Array) Is_CWL_minimal()                {}
+func (c *Array) Is_CWLType()                    {}
+func (c *Array) Is_CommandInputParameterType()  {}
+func (c *Array) Is_CommandOutputParameterType() {}
+
+func NewArray(id string, native []interface{}) (array *Array, err error) {
+
+	array = &Array{}
+
+	if id != "" {
+		array.Id = id
+	}
+
+	for _, value := range native {
+
+		value_cwl, xerr := NewCWLType("", value)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		array.Items = append(array.Items, value_cwl)
+	}
+	if len(array.Items) > 0 {
+		array.Items_Type = array.Items[0].GetClass()
+	}
+
+	return
+}
+
+type Record struct {
+	CWLType_Impl
+	Id     string
+	Fields []CWLType
+}
+
+func (r *Record) GetClass() string { return CWL_record }
+func (r *Record) GetId() string    { return r.Id }
+func (r *Record) SetId(id string)  { r.Id = id }
+
+func (r *Record) Is_CWL_minimal()                {}
+func (r *Record) Is_CWLType()                    {}
+func (r *Record) Is_CommandInputParameterType()  {}
+func (r *Record) Is_CommandOutputParameterType() {}
+
+func NewRecord(native interface{}) (record *Record, err error) {
+
+	record = &Record{}
+
+	switch native.(type) {
+	case map[interface{}]interface{}:
+		native_map, _ := native.(map[interface{}]interface{})
+		for key, value := range native_map {
+
+			key_str, ok := key.(string)
+			if !ok {
+				err = fmt.Errorf("Could not cast key to string")
+				return
+			}
+
+			value_cwl, xerr := NewCWLType(key_str, value)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			record.Fields = append(record.Fields, value_cwl)
+		}
+		return
+
+	default:
+		fmt.Println("Unknown Record:")
+		spew.Dump(native)
+		err = fmt.Errorf("Unknown Record")
+		return
+	}
+
+	return
+}
+
+type Enum struct {
+	CWLType_Impl
+	Id      string
+	Symbols []string
+}
+
+func (e *Enum) GetClass() string { return CWL_enum }
+func (e *Enum) GetId() string    { return e.Id }
+func (e *Enum) SetId(id string)  { e.Id = id }

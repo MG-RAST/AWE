@@ -1,3 +1,57 @@
+# v0.9.48
+
+- golang 1.7.6
+- more cleanup and optimize job and task set functions
+- overhaul / locking on initialization of task.Partition (multi-workunits)
+- fix worker download of parts Inputs
+- cache shock node indexinfo with io struct
+- handle slow processing of completed work
+- error handling updates
+
+# v0.9.47
+
+- new state FAILED_PERMANENT introduced
+- awe-worker can execute cwl-runner
+- added test for special exit code 42
+- remove deprecated code
+- cleanup and optimize job and task set functions
+- add job.Error struct
+- fix job suspension logic
+
+# v0.9.46
+
+- update shock struct
+- fix missing output file check
+
+# v0.9.45
+
+- golang 1.7.4
+- more bug fixes
+- now: awe-worker
+- alpha cwl support
+
+# v0.9.43
+
+- lots of bug fixes
+- lots of locking
+- globus auth fix
+
+# v0.9.33
+
+- fix mongo reading
+- added metadata options for client
+
+# v0.9.32
+
+- fine-grained mongo updates instead of complete job writes
+- completed fix of locking mechanism
+
+# v0.9.31
+
+- golang 1.7.3
+- UI site update
+- added RWLock to Client
+
 # v0.9.30
 
 - golang 1.7.1

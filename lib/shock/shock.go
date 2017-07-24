@@ -8,8 +8,8 @@ import (
 	"errors"
 	"fmt"
 	//"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/golib/httpclient"
-	//"github.com/MG-RAST/AWE/lib/logger"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -45,42 +45,56 @@ type ShockResponseGeneric struct {
 type ShockNode struct {
 	Id         string             `bson:"id" json:"id"`
 	Version    string             `bson:"version" json:"version"`
-	File       shockfile          `bson:"file" json:"file"`
+	File       shockFile          `bson:"file" json:"file"`
 	Attributes interface{}        `bson:"attributes" json:"attributes"`
-	Public     bool               `bson:"public" json:"public"`
 	Indexes    map[string]IdxInfo `bson:"indexes" json:"indexes"`
-	//Acl          Acl               `bson:"acl" json:"-"`
-	//VersionParts map[string]string `bson:"version_parts" json:"-"`
-	Tags []string `bson:"tags" json:"tags"`
-	//Revisions    []ShockNode       `bson:"revisions" json:"-"`
-	Linkages []linkage `bson:"linkage" json:"linkages"`
-	//CreatedOn    time.Time `bson:"created_on" json:"created_on"`
-	//LastModified time.Time `bson:"last_modified" json:"last_modified"`
-	Type string `bson:"type" json:"type"`
-	//Subset       Subset            `bson:"subset" json:"-"`
+	//Acl      Acl                `bson:"acl" json:"-"`
+	VersionParts map[string]string `bson:"version_parts" json:"version_parts"`
+	Tags         []string          `bson:"tags" json:"tags"`
+	//Revisions  []ShockNode       `bson:"revisions" json:"-"`
+	Linkages     []linkage `bson:"linkage" json:"linkage"`
+	Priority     int       `bson:"priority" json:"priority"`
+	CreatedOn    time.Time `bson:"created_on" json:"created_on"`
+	LastModified time.Time `bson:"last_modified" json:"last_modified"`
+	Expiration   time.Time `bson:"expiration" json:"expiration"`
+	Type         string    `bson:"type" json:"type"`
+	//Subset     Subset    `bson:"subset" json:"-"`
+	Parts *partsList `bson:"parts" json:"parts"`
 }
 
-type shockfile struct {
-	Name         string            `bson:"name" json:"name"`
-	Size         int64             `bson:"size" json:"size"`
-	Checksum     map[string]string `bson:"checksum" json:"checksum"`
-	Format       string            `bson:"format" json:"format"`
-	Path         string            `bson:"path" json:"-"`
-	Virtual      bool              `bson:"virtual" json:"virtual"`
-	VirtualParts []string          `bson:"virtual_parts" json:"virtual_parts"`
+type shockFile struct {
+	Name     string            `bson:"name" json:"name"`
+	Size     int64             `bson:"size" json:"size"`
+	Checksum map[string]string `bson:"checksum" json:"checksum"`
+	Format   string            `bson:"format" json:"format"`
+	//Path       string        `bson:"path" json:"-"`
+	Virtual      bool      `bson:"virtual" json:"virtual"`
+	VirtualParts []string  `bson:"virtual_parts" json:"virtual_parts"`
+	CreatedOn    time.Time `bson:"created_on" json:"created_on"`
 }
 
 type IdxInfo struct {
-	Type        string `bson:"index_type" json:"-"`
-	TotalUnits  int64  `bson:"total_units" json:"total_units"`
-	AvgUnitSize int64  `bson:"average_unit_size" json:"average_unit_size"`
-	Format      string `bson:"format" json:"-"`
+	//Type        string    `bson:"index_type" json:"-"`
+	TotalUnits  int64 `bson:"total_units" json:"total_units"`
+	AvgUnitSize int64 `bson:"average_unit_size" json:"average_unit_size"`
+	//Format      string    `bson:"format" json:"-"`
+	CreatedOn time.Time `bson:"created_on" json:"created_on"`
 }
 
 type linkage struct {
 	Type      string   `bson: "relation" json:"relation"`
 	Ids       []string `bson:"ids" json:"ids"`
 	Operation string   `bson:"operation" json:"operation"`
+}
+
+type partsFile []string
+
+type partsList struct {
+	Count       int         `bson:"count" json:"count"`
+	Length      int         `bson:"length" json:"length"`
+	VarLen      bool        `bson:"varlen" json:"varlen"`
+	Parts       []partsFile `bson:"parts" json:"parts"`
+	Compression string      `bson:"compression" json:"compression"`
 }
 
 type ShockQueryResponse struct {
@@ -116,7 +130,7 @@ func (sc *ShockClient) Do_request(method string, resource string, query url.Valu
 
 	shockurl := myurl.String()
 
-	//logger.Debug(1, fmt.Sprint("shock request url: ", shockurl))
+	logger.Debug(1, fmt.Sprint("shock request url: ", shockurl))
 	if sc.Debug {
 		fmt.Fprintf(os.Stdout, "Get_request url: %s\n", shockurl)
 	}
@@ -133,7 +147,6 @@ func (sc *ShockClient) Do_request(method string, resource string, query url.Valu
 	var res *http.Response
 
 	res, err = httpclient.Do(method, shockurl, httpclient.Header{}, nil, user)
-	//res, err = httpclient.Get(shockurl, httpclient.Header{}, nil, user)
 
 	if err != nil {
 		return
@@ -155,13 +168,6 @@ func (sc *ShockClient) Do_request(method string, resource string, query url.Valu
 	if err := json.Unmarshal(jsonstream, response); err != nil {
 		return err
 	}
-	//if len(response.Errs) > 0 {
-	//	return errors.New(strings.Join(response.Errs, ","))
-	//}
-	//node = &response.Data
-	//if node == nil {
-	//	err = errors.New("empty node got from Shock")
-	//}
 	return
 }
 
@@ -198,10 +204,27 @@ func (sc *ShockClient) Query(query url.Values) (sqr_p *ShockQueryResponse, err e
 	return
 }
 
-func (sc *ShockClient) Get_node(node_id string) (sqr_p *ShockResponse, err error) {
+//func (sc *ShockClient) Get_request(node_id string) (sqr_p *ShockResponse, err error) {
 
-	sqr_p = new(ShockResponse)
+//	sqr_p = new(ShockResponse)
+//	err = sc.Get_request("/node/"+node_id, nil, &sqr_p)
+
+//	return
+//}
+
+func (sc *ShockClient) Get_node(node_id string) (node *ShockNode, err error) {
+
+	sqr_p := new(ShockResponse)
 	err = sc.Get_request("/node/"+node_id, nil, &sqr_p)
+
+	if len(sqr_p.Errs) > 0 {
+		return nil, errors.New(strings.Join(sqr_p.Errs, ","))
+	}
+
+	node = &sqr_p.Data
+	if node == nil {
+		err = errors.New("empty node got from Shock")
+	}
 
 	return
 }
@@ -212,7 +235,8 @@ func ShockGet(host string, nodeid string, token string) (node *ShockNode, err er
 	if host == "" || nodeid == "" {
 		return nil, errors.New("empty shock host or node id")
 	}
-	//logger.Debug(1, fmt.Sprintf("ShockGet: %s %s %s", host, nodeid, token))
+	logger.Debug(3, fmt.Sprintf("ShockGet: %s %s %s", host, nodeid, token))
+
 	var res *http.Response
 	shockurl := fmt.Sprintf("%s/node/%s", host, nodeid)
 
@@ -300,83 +324,9 @@ func ShockDelete(host string, nodeid string, token string) (err error) {
 	return
 }
 
-// deprecated, this is with explicit timeout
-func (sc *ShockClient) Do_request_DEPRECATED(method string, resource string, query url.Values, response interface{}) (err error) {
-
-	//logger.Debug(1, fmt.Sprint("string_url: ", sc.Host))
-
-	myurl, err := url.ParseRequestURI(sc.Host)
-	if err != nil {
-		return err
-	}
-
-	(*myurl).Path = resource
-	(*myurl).RawQuery = query.Encode()
-
-	shockurl := myurl.String()
-
-	//logger.Debug(1, fmt.Sprint("shock request url: ", shockurl))
-	if sc.Debug {
-		fmt.Fprintf(os.Stdout, "Get_request url: %s\n", shockurl)
-	}
-
-	if len(shockurl) < 5 {
-		return errors.New("could not parse shockurl: " + shockurl)
-	}
-
-	var user *httpclient.Auth
-	if sc.Token != "" {
-		user = httpclient.GetUserByTokenAuth(sc.Token)
-	}
-
-	var res *http.Response
-
-	c := make(chan int, 1)
-	go func() {
-
-		res, err = httpclient.Do(method, shockurl, httpclient.Header{}, nil, user)
-		//res, err = httpclient.Get(shockurl, httpclient.Header{}, nil, user)
-		c <- 1 //we are ending
-	}()
-	select {
-	case <-c:
-	//go ahead
-	case <-time.After(SHOCK_TIMEOUT):
-		return errors.New("timeout when getting node from shock, url=" + shockurl)
-	}
-	if err != nil {
-		return
-	}
-	defer res.Body.Close()
-
-	jsonstream, err := ioutil.ReadAll(res.Body)
-
-	if sc.Debug {
-		fmt.Fprintf(os.Stdout, "json response:\n %s\n", string(jsonstream))
-	}
-
-	//logger.Debug(1, string(jsonstream))
-	if err != nil {
-		return err
-	}
-
-	//response := new(result)
-	if err := json.Unmarshal(jsonstream, response); err != nil {
-		return err
-	}
-	//if len(response.Errs) > 0 {
-	//	return errors.New(strings.Join(response.Errs, ","))
-	//}
-	//node = &response.Data
-	//if node == nil {
-	//	err = errors.New("empty node got from Shock")
-	//}
-	return
-}
-
 //fetch file by shock url
 func FetchFile(filename string, url string, token string, uncompress string, computeMD5 bool) (size int64, md5sum string, err error) {
-	fmt.Printf("fetching file name=%s, url=%s\n", filename, url)
+	logger.Debug(1, "(FetchFile) fetching file name=%s, url=%s\n", filename, url)
 
 	localfile, err := os.Create(filename)
 	if err != nil {

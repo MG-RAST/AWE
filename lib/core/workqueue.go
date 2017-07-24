@@ -2,238 +2,196 @@ package core
 
 import (
 	"errors"
-	"fmt"
+	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"sort"
-	"sync"
+	//"sync"
 )
 
-type wQueueShow struct {
-	WorkMap  map[string]*Workunit `bson:"workmap" json:"workmap"`
-	Wait     map[string]bool      `bson:"wait" json:"wait"`
-	Checkout map[string]bool      `bson:"checkout" json:"checkout"`
-	Suspend  map[string]bool      `bson:"suspend" json:"suspend"`
+type WorkQueue struct {
+	//sync.RWMutex
+	//workMap  map[string]*Workunit //all parsed workunits
+	all      WorkunitMap
+	Queue    WorkunitMap // WORK_STAT_QUEUED - waiting workunits
+	Checkout WorkunitMap // WORK_STAT_CHECKOUT - workunits being checked out
+	Suspend  WorkunitMap // WORK_STAT_SUSPEND - suspended workunits
 }
 
-type WQueue struct {
-	sync.RWMutex
-	workMap  map[string]*Workunit //all parsed workunits
-	wait     map[string]bool      //ids of waiting workunits
-	checkout map[string]bool      //ids of workunits being checked out
-	suspend  map[string]bool      //ids of suspended workunits
-}
-
-func NewWQueue() *WQueue {
-	return &WQueue{
-		workMap:  map[string]*Workunit{},
-		wait:     map[string]bool{},
-		checkout: map[string]bool{},
-		suspend:  map[string]bool{},
+func NewWorkQueue() *WorkQueue {
+	wq := &WorkQueue{
+		all:      *NewWorkunitMap(),
+		Queue:    *NewWorkunitMap(),
+		Checkout: *NewWorkunitMap(),
+		Suspend:  *NewWorkunitMap(),
 	}
-}
 
-func (wq *WQueue) Len() (l int) {
-	wq.RLock()
-	l = len(wq.workMap)
-	wq.RUnlock()
-	return
-}
+	wq.all.Init("WorkQueue/workMap")
+	wq.Queue.Init("WorkQueue/Queue")
+	wq.Checkout.Init("WorkQueue/Checkout")
+	wq.Suspend.Init("WorkQueue/Suspend")
 
-func (wq *WQueue) WaitLen() (l int) {
-	wq.RLock()
-	l = len(wq.wait)
-	wq.RUnlock()
-	return
-}
-
-func (wq *WQueue) CheckoutLen() (l int) {
-	wq.RLock()
-	l = len(wq.checkout)
-	wq.RUnlock()
-	return
-}
-
-func (wq *WQueue) SuspendLen() (l int) {
-	wq.RLock()
-	l = len(wq.suspend)
-	wq.RUnlock()
-	return
+	return wq
 }
 
 //--------accessor methods-------
 
-func (wq *WQueue) copyWork(a *Workunit) (b *Workunit) {
-	b = new(Workunit)
-	*b = *a
-	return
+func (wq *WorkQueue) Len() (int, error) {
+	return wq.all.Len()
 }
 
-func (wq *WQueue) Add(workunit *Workunit) (err error) {
+func (wq *WorkQueue) Add(workunit *Workunit) (err error) {
 	if workunit.Id == "" {
 		return errors.New("try to push a workunit with an empty id")
 	}
-	wq.Lock()
-	defer wq.Unlock()
-	id := workunit.Id
-	wq.workMap[id] = workunit
-	wq.wait[id] = true
-	delete(wq.checkout, id)
-	delete(wq.suspend, id)
-	wq.workMap[id].State = WORK_STAT_QUEUED
-	return nil
-}
+	logger.Debug(3, "(WorkQueue/Add)")
 
-func (wq *WQueue) Put(workunit *Workunit) {
-	wq.Lock()
-	wq.workMap[workunit.Id] = workunit
-	wq.Unlock()
-}
-
-func (wq *WQueue) Get(id string) (*Workunit, bool) {
-	wq.RLock()
-	defer wq.RUnlock()
-	if work, ok := wq.workMap[id]; ok {
-		copy := wq.copyWork(work)
-		return copy, true
+	err = wq.all.Set(workunit)
+	if err != nil {
+		return
 	}
-	return nil, false
+	err = wq.StatusChange("", workunit, WORK_STAT_QUEUED)
+	if err != nil {
+		return
+	}
+	return
 }
 
-func (wq *WQueue) GetSet(workids []string) (worklist []*Workunit) {
-	wq.RLock()
-	defer wq.RUnlock()
-	for _, id := range workids {
-		if work, ok := wq.workMap[id]; ok {
-			copy := wq.copyWork(work)
-			worklist = append(worklist, copy)
+func (wq *WorkQueue) Get(id string) (w *Workunit, ok bool, err error) {
+	w, ok, err = wq.all.Get(id)
+	return
+}
+
+func (wq *WorkQueue) GetForJob(jobid string) (worklist []*Workunit, err error) {
+
+	workunits, err := wq.all.GetWorkunits()
+	if err != nil {
+		return
+	}
+	for _, work := range workunits {
+		parentid, _ := GetJobIdByWorkId(work.Id)
+		if jobid == parentid {
+			worklist = append(worklist, work)
 		}
 	}
 	return
 }
 
-func (wq *WQueue) GetForJob(jobid string) (worklist []*Workunit) {
-	wq.RLock()
-	defer wq.RUnlock()
-	for id, work := range wq.workMap {
-		if jobid == getParentJobId(id) {
-			copy := wq.copyWork(work)
-			worklist = append(worklist, copy)
-		}
-	}
-	return
+func (wq *WorkQueue) GetAll() (worklist []*Workunit, err error) {
+	return wq.all.GetWorkunits()
 }
 
-func (wq *WQueue) GetAll() (worklist []*Workunit) {
-	wq.RLock()
-	defer wq.RUnlock()
-	for _, work := range wq.workMap {
-		copy := wq.copyWork(work)
-		worklist = append(worklist, copy)
+func (wq *WorkQueue) Clean() (workids []string) {
+	workunt_list, err := wq.all.GetWorkunits()
+	if err != nil {
+		return
 	}
-	return
-}
-
-func (wq *WQueue) Clean() (workids []string) {
-	wq.Lock()
-	defer wq.Unlock()
-	for id, work := range wq.workMap {
+	for _, work := range workunt_list {
+		id := work.Id
 		if work == nil || work.Info == nil {
 			workids = append(workids, id)
-			delete(wq.wait, id)
-			delete(wq.checkout, id)
-			delete(wq.suspend, id)
-			delete(wq.workMap, id)
-			logger.Error(fmt.Sprintf("error: in WQueue workunit %s is nil, deleted from queue", id))
+			wq.Queue.Delete(id)
+			wq.Checkout.Delete(id)
+			wq.Suspend.Delete(id)
+			wq.all.Delete(id)
+			logger.Error("error: in WorkQueue workunit %s is nil, deleted from queue", id)
 		}
 	}
 	return
 }
 
-func (wq *WQueue) Delete(id string) {
-	wq.Lock()
-	delete(wq.wait, id)
-	delete(wq.checkout, id)
-	delete(wq.suspend, id)
-	delete(wq.workMap, id)
-	wq.Unlock()
-}
-
-func (wq *WQueue) Has(id string) (has bool) {
-	wq.RLock()
-	defer wq.RUnlock()
-	if work, ok := wq.workMap[id]; ok {
-		if work == nil {
-			logger.Error(fmt.Sprintf("error: in WQueue workunit %s is nil", id))
-			has = false
-		} else {
-			has = true
-		}
-	} else {
-		has = false
+func (wq *WorkQueue) Delete(id string) (err error) {
+	err = wq.Queue.Delete(id)
+	if err != nil {
+		return
+	}
+	err = wq.Checkout.Delete(id)
+	if err != nil {
+		return
+	}
+	err = wq.Suspend.Delete(id)
+	if err != nil {
+		return
+	}
+	err = wq.all.Delete(id)
+	if err != nil {
+		return
 	}
 	return
+
 }
 
-func (wq *WQueue) List() (workids []string) {
-	wq.RLock()
-	defer wq.RUnlock()
-	for id, _ := range wq.workMap {
-		workids = append(workids, id)
-	}
-	return
-}
-
-func (wq *WQueue) WaitList() (workids []string) {
-	wq.RLock()
-	defer wq.RUnlock()
-	for id, _ := range wq.wait {
-		workids = append(workids, id)
-	}
+func (wq *WorkQueue) Has(id string) (has bool, err error) {
+	_, has, err = wq.all.Get(id)
 	return
 }
 
 //--------end of accessors-------
 
-func (wq *WQueue) StatusChange(id string, new_status string) (err error) {
+func (wq *WorkQueue) StatusChange(id string, workunit *Workunit, new_status string) (err error) {
 	//move workunit id between maps. no need to care about the old status because
 	//delete function will do nothing if the operated map has no such key.
-	wq.Lock()
-	defer wq.Unlock()
-	if _, ok := wq.workMap[id]; !ok {
-		return errors.New("WQueue.statusChange: invalid workunit id:" + id)
+
+	if workunit == nil {
+		var ok bool
+		workunit, ok, err = wq.all.Get(id)
+		if err != nil {
+			return
+		}
+		if !ok {
+			return errors.New("WQueue.statusChange: invalid workunit id:" + id)
+		}
 	}
-	if new_status == WORK_STAT_CHECKOUT {
-		wq.checkout[id] = true
-		delete(wq.wait, id)
-		delete(wq.suspend, id)
-	} else if new_status == WORK_STAT_QUEUED {
-		wq.wait[id] = true
-		delete(wq.checkout, id)
-		delete(wq.suspend, id)
-	} else if new_status == WORK_STAT_SUSPEND {
-		wq.suspend[id] = true
-		delete(wq.checkout, id)
-		delete(wq.wait, id)
-	} else {
-		return errors.New("WQueue.statusChange: invalid new status:" + new_status)
+
+	if workunit.State == new_status {
+		return
 	}
-	wq.workMap[id].State = new_status
+	if workunit.State != WORK_STAT_CHECKOUT && workunit.State != WORK_STAT_RESERVED {
+		workunit.Client = ""
+	}
+
+	switch new_status {
+	case WORK_STAT_CHECKOUT:
+		wq.Queue.Delete(id)
+		wq.Suspend.Delete(id)
+		workunit.SetState(new_status)
+		wq.Checkout.Set(workunit)
+	case WORK_STAT_QUEUED:
+		wq.Checkout.Delete(id)
+		wq.Suspend.Delete(id)
+		workunit.SetState(new_status)
+		wq.Queue.Set(workunit)
+
+	case WORK_STAT_SUSPEND:
+		wq.Checkout.Delete(id)
+		wq.Queue.Delete(id)
+		workunit.SetState(new_status)
+		wq.Suspend.Set(workunit)
+
+	default:
+		wq.Checkout.Delete(id)
+		wq.Queue.Delete(id)
+		wq.Suspend.Delete(id)
+		workunit.SetState(new_status)
+
+	}
+
 	return
 }
 
 //select workunits, return a slice of ids based on given queuing policy and requested count
 //if available is a positive value, filter by workunit input size
-func (wq *WQueue) selectWorkunits(workid []string, policy string, available int64, count int) (selected []*Workunit, err error) {
-	logger.Debug(3, fmt.Sprintf("starting selectWorkunits"))
-	worklist := wq.GetSet(workid)
+func (wq *WorkQueue) selectWorkunits(workunits WorkList, policy string, available int64, count int) (selected []*Workunit, err error) {
+	logger.Debug(3, "starting selectWorkunits")
+
 	if policy == "FCFS" {
-		sort.Sort(byFCFS{worklist})
+		sort.Sort(byFCFS{workunits})
 	}
 	added := 0
-	for _, work := range worklist {
+	for _, work := range workunits {
 		if added == count {
 			break
 		}
+
 		inputSize := int64(0)
 		for _, input := range work.Inputs {
 			inputSize = inputSize + input.Size
@@ -243,8 +201,15 @@ func (wq *WQueue) selectWorkunits(workid []string, policy string, available int6
 			selected = append(selected, work)
 			added = added + 1
 		}
+
 	}
-	logger.Debug(3, fmt.Sprintf("done with selectWorkunits"))
+
+	if len(selected) == 0 {
+		err = errors.New(e.NoEligibleWorkunitFound)
+		return
+	}
+
+	logger.Debug(3, "done with selectWorkunits")
 	return
 }
 

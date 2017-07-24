@@ -14,6 +14,7 @@ import (
 	"io"
 	"io/ioutil"
 	//"net/url"
+	"bytes"
 	"os"
 	"os/exec"
 	"path"
@@ -31,181 +32,214 @@ type Shock_Dockerimage_attributes struct {
 	BaseImageId string `bson:"base_image_id" json:"base_image_id"` // could used to reference parent image
 }
 
-func processor(control chan int) {
-	fmt.Printf("processor launched, client=%s\n", core.Self.Id)
-	defer fmt.Printf("processor exiting...\n")
-	for {
-		parsedwork := <-fromMover
-		work := parsedwork.workunit
+type WaitContainerResult struct {
+	Error  error
+	Status int
+}
 
-		processed := &mediumwork{
-			workunit: work,
-			perfstat: parsedwork.perfstat,
+func processor(control chan int) {
+	fmt.Printf("(processor) launched, client=%s\n", core.Self.Id)
+	defer fmt.Printf("(processor)  exiting...\n")
+	count := 0
+	for {
+		count += 1
+		logger.Debug(1, "(processor) for loop count=%d", count)
+
+		if Client_mode == "offline" && count > 1 {
+			logger.Debug(1, "(processor) leaving")
+			time.Sleep(time.Second)
+			control <- ID_WORKER
+			return
 		}
 
+		workunit := <-fromMover
+		//work := parsedwork.Workunit
+
+		//processed := &Mediumwork{
+		//	Workunit: work,
+		//	Perfstat: parsedwork.Perfstat,
+		//}
+
 		//if the work is not succesfully parsed in last stage, pass it into the next one immediately
-		if work.State == core.WORK_STAT_FAIL || workmap[work.Id] == ID_DISCARDED {
-			if workmap[work.Id] == ID_DISCARDED {
-				processed.workunit.State = core.WORK_STAT_DISCARDED
+		work_state, ok, xerr := workmap.Get(workunit.Id)
+		if xerr != nil {
+			logger.Error("error: %s", xerr.Error())
+			continue
+		}
+		if !ok {
+			logger.Error("(processor) workunit.id %s not found", workunit.Id)
+			continue
+		}
+		if workunit.State == core.WORK_STAT_ERROR || work_state == ID_DISCARDED {
+
+			if work_state == ID_DISCARDED {
+				workunit.SetState(core.WORK_STAT_DISCARDED)
 			} else {
-				processed.workunit.State = core.WORK_STAT_FAIL
+				workunit.SetState(core.WORK_STAT_ERROR)
 			}
-			fromProcessor <- processed
+			fromProcessor <- workunit
 			//release the permit lock, for work overlap inhibitted mode only
-			if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-				<-chanPermit
-			}
+			//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+			//	<-chanPermit
+			//}
 			continue
 		}
 
-		workmap[work.Id] = ID_WORKER
+		workmap.Set(workunit.Id, ID_WORKER, "processor")
 
 		var err error
 		var envkeys []string
 		_ = envkeys
 
 		wants_docker := false
-		if work.Cmd.Dockerimage != "" || work.App != nil {
+		if workunit.Cmd.Dockerimage != "" || workunit.Cmd.DockerPull != "" {
 			wants_docker = true
 		}
 
 		if !wants_docker {
-			envkeys, err = SetEnv(work)
+			envkeys, err = SetEnv(workunit)
 			if err != nil {
-				logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
-				processed.workunit.Notes = processed.workunit.Notes + "###[processor#SetEnv]" + err.Error()
-				processed.workunit.State = core.WORK_STAT_FAIL
+				logger.Error("(processor) SetEnv(): workid=" + workunit.Id + ", " + err.Error())
+				workunit.Notes += "###[processor#SetEnv]" + err.Error()
+				workunit.SetState(core.WORK_STAT_ERROR)
 				//release the permit lock, for work overlap inhibitted mode only
-				if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-					<-chanPermit
-				}
+				//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+				//	<-chanPermit
+				//}
 				continue
 			}
 		}
 		run_start := time.Now().Unix()
 
-		pstat, err := RunWorkunit(work)
-
+		pstat, err := RunWorkunit(workunit)
+		exit_status := workunit.ExitStatus
+		logger.Debug(1, "(processor) ExitStatus of process: %d", exit_status)
 		if err != nil {
-			logger.Error("RunWorkunit(): returned error , workid=" + work.Id + ", " + err.Error())
-			processed.workunit.Notes = processed.workunit.Notes + "###[processor#RunWorkunit]" + err.Error()
-			processed.workunit.State = core.WORK_STAT_FAIL
-		} else {
-			logger.Debug(1, "RunWorkunit() returned without error, workid="+work.Id)
-			processed.workunit.State = core.WORK_STAT_COMPUTED
-			processed.perfstat.MaxMemUsage = pstat.MaxMemUsage
-			processed.perfstat.MaxMemoryTotalRss = pstat.MaxMemoryTotalRss
-			processed.perfstat.MaxMemoryTotalSwap = pstat.MaxMemoryTotalSwap
+			logger.Error("(processor) returned error , workid=" + workunit.Id + ", " + err.Error())
+			workunit.Notes += " ###[processor#RunWorkunit]" + err.Error()
 
-			processed.perfstat.DockerPrep = pstat.DockerPrep
+			if exit_status == 42 {
+				workunit.SetState(core.WORK_STAT_FAILED_PERMANENT) // process told us that is an error where resubmission does not make sense.
+			} else {
+				workunit.SetState(core.WORK_STAT_ERROR)
+			}
+		} else {
+			logger.Debug(1, "(processor) RunWorkunit() returned without error, workid="+workunit.Id)
+			workunit.SetState(core.WORK_STAT_COMPUTED)
+			workunit.WorkPerf.MaxMemUsage = pstat.MaxMemUsage
+			workunit.WorkPerf.MaxMemoryTotalRss = pstat.MaxMemoryTotalRss
+			workunit.WorkPerf.MaxMemoryTotalSwap = pstat.MaxMemoryTotalSwap
+
+			workunit.WorkPerf.DockerPrep = pstat.DockerPrep
 		}
 		run_end := time.Now().Unix()
 		computetime := run_end - run_start
-		processed.perfstat.Runtime = computetime
-		processed.workunit.ComputeTime = int(computetime)
+		workunit.WorkPerf.Runtime = computetime
+		workunit.ComputeTime = int(computetime)
 
 		if !wants_docker {
 			if len(envkeys) > 0 {
 				UnSetEnv(envkeys)
 			}
 		}
-
-		fromProcessor <- processed
+		logger.Debug(1, "(processor) sending work to datamover")
+		fromProcessor <- workunit
 
 		//release the permit lock, for work overlap inhibitted mode only
-		if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-			<-chanPermit
-		}
+		//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+		//	<-chanPermit
+		//}
+
 	}
 	control <- ID_WORKER //we are ending
 }
 
-func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
+func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 
-	if work.Cmd.Dockerimage != "" || work.App != nil {
-		pstats, err = RunWorkunitDocker(work)
+	if workunit.Cmd.Dockerimage != "" || workunit.Cmd.DockerPull != "" {
+		pstats, err = RunWorkunitDocker(workunit)
 	} else {
-		pstats, err = RunWorkunitDirect(work)
+		pstats, err = RunWorkunitDirect(workunit)
 	}
 
 	return
 }
 
-func getExitStatus(err_inspect error) (status_code int, err error) {
-	exiterr, ok := err_inspect.(*exec.ExitError)
-
-	if ok {
-		// The program has exited with an exit code != 0
-
-		// This works on both Unix and Windows. Although package
-		// syscall is generally platform dependent, WaitStatus is
-		// defined for both Unix and Windows and in both cases has
-		// an ExitStatus() method with the same signature.
-		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-			return status.ExitStatus(), nil
-		}
-	} else {
-		//log.Fatalf("cmd.Wait: %v", err)
-	}
-
-	return 0, nil
-}
-
-func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
+func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 	pstats = new(core.WorkPerf)
 	pstats.MaxMemUsage = -1
 	pstats.MaxMemoryTotalRss = -1
 	pstats.MaxMemoryTotalSwap = -1
-	args := work.Cmd.ParsedArgs
+	args := workunit.Cmd.ParsedArgs
 
 	//change cwd to the workunit's working directory
-	if err := work.CDworkpath(); err != nil {
+	if err := workunit.CDworkpath(); err != nil {
 		return nil, err
 	}
 
 	docker_preparation_start := time.Now().Unix()
 
-	commandName := work.Cmd.Name
+	commandName := workunit.Cmd.Name
 
 	use_wrapper_script := false
 
 	wrapper_script_filename := "awe_workunit_wrapper.sh"
-	wrapper_script_filename_host := path.Join(work.Path(), wrapper_script_filename)
+	wrapper_script_filename_host := path.Join(workunit.Path(), wrapper_script_filename)
 	wrapper_script_filename_docker := path.Join(conf.DOCKER_WORK_DIR, wrapper_script_filename)
 
-	if len(work.Cmd.Cmd_script) > 0 {
+	if len(workunit.Cmd.Cmd_script) > 0 {
 		use_wrapper_script = true
 
 		// create wrapper script
 
 		//conf.DOCKER_WORK_DIR
-		var wrapper_content_string = "#!/bin/bash\n" + strings.Join(work.Cmd.Cmd_script, "\n") + "\n"
+		var wrapper_content_string = "#!/bin/bash\n" + strings.Join(workunit.Cmd.Cmd_script, "\n") + "\n"
 
-		logger.Debug(1, fmt.Sprintf("write wrapper script: %s\n%s", wrapper_script_filename_host, strings.Join(work.Cmd.Cmd_script, ", ")))
+		logger.Debug(1, "write wrapper script: %s\n%s", wrapper_script_filename_host, strings.Join(workunit.Cmd.Cmd_script, ", "))
 
 		var wrapper_content_bytes = []byte(wrapper_content_string)
 
 		err = ioutil.WriteFile(wrapper_script_filename_host, wrapper_content_bytes, 0755) // not executable: 0644
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("error writing wrapper script, err=%s", err.Error()))
+			err = fmt.Errorf("error writing wrapper script, err=%s", err.Error())
+			return
 		}
 
 	}
 
 	//cmd := exec.Command(commandName, args...)
 
-	container_name := "AWE_workunit"
+	container_name := "AWE_workunit_" + DockerizeName(conf.CLIENT_NAME)
 
-	Dockerimage := work.Cmd.Dockerimage
-	if work.App != nil && work.App.Name != "" {
-		Dockerimage = work.App.AppDef.Dockerimage
+	if workunit.Cmd.Dockerimage != "" {
+		logger.Debug(1, "using Dockerimage: %s", workunit.Cmd.Dockerimage)
+	} else if workunit.Cmd.DockerPull != "" {
+		logger.Debug(1, "using DockerPull: %s", workunit.Cmd.DockerPull)
+	} else {
+		err = fmt.Errorf("Error Dockerimage/DockerPull string empty")
+		return
 	}
 
-	if Dockerimage == "" {
-		return nil, errors.New(fmt.Sprintf("Error Dockerimage string empty"))
+	dockerimage_repo := ""
+	dockerimage_tag := ""
+
+	if workunit.Cmd.Dockerimage != "" {
+
+		dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(workunit.Cmd.Dockerimage)
+		if err != nil {
+			return
+		}
+	}
+	if workunit.Cmd.DockerPull != "" {
+
+		dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(workunit.Cmd.DockerPull)
+		if err != nil {
+			return
+		}
 	}
 
-	logger.Debug(1, fmt.Sprintf("Dockerimage: %s", Dockerimage))
+	Dockerimage_normalized := dockerimage_repo + ":" + dockerimage_tag
+	logger.Debug(3, "Dockerimage_normalized: %s", Dockerimage_normalized)
 
 	use_docker_api := true
 	if conf.DOCKER_BINARY != "API" {
@@ -215,13 +249,14 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	var client *docker.Client = nil
 
 	if use_docker_api {
-		logger.Debug(1, fmt.Sprintf("Using docker API..."))
+		logger.Debug(1, "Using docker API...")
 		client, err = docker.NewClient(conf.DOCKER_SOCKET)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("error creating docker client", err.Error()))
+			err = fmt.Errorf("error creating docker client: %s", err.Error())
+			return
 		}
 	} else {
-		logger.Debug(1, fmt.Sprintf("Using docker docker binary..."))
+		logger.Debug(1, "Using docker docker binary...")
 	}
 
 	//imgs, _ := client.ListImages(false)
@@ -237,103 +272,159 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	//var node *core.ShockNode = nil
 	// find image in repo (e.g. extract docker image id)
-	node, dockerimage_download_url, err := findDockerImageInShock(Dockerimage, work.Info.DataToken)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Error getting docker url, err=%s", err.Error()))
-	}
 
-	// TODO attr_json, _ := json.Marshal(node.Attributes) might be better
-	node_attr_map, ok := node.Attributes.(map[string]interface{})
-	if !ok {
-		return nil, errors.New(fmt.Sprintf("(1) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage))
-	}
+	dockerimage_id := ""
 
-	dockerimage_id, ok := node_attr_map["id"].(string)
-	if !ok {
-		return nil, errors.New(fmt.Sprintf("(2) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage))
-	}
+	if workunit.Cmd.Dockerimage != "" {
 
-	if dockerimage_id == "" {
-		return nil, errors.New(fmt.Sprintf("Id of Dockerimage=%s not found", Dockerimage))
-	}
-	logger.Debug(1, fmt.Sprintf("using dockerimage id %s instead of name %s ", dockerimage_id, Dockerimage))
-
-	// *** find/inspect image
-	image, err := InspectImage(client, dockerimage_id)
-
-	if err != nil {
-
-		logger.Debug(1, fmt.Sprintf("docker image %s is not yet in local repository", Dockerimage))
-
-		image_retrieval := "load" // TODO only load is guaraneed to work
-		switch {
-		case image_retrieval == "load":
-			{ // for images that have been saved
-				err = dockerLoadImage(client, dockerimage_download_url, work.Info.DataToken)
-			}
-		case image_retrieval == "import":
-			{ // for containers that have been exported
-				err = dockerImportImage(client, Dockerimage, work.Info.DataToken)
-			}
-		case image_retrieval == "build":
-			{ // to create image from Dockerfile
-				err = dockerBuildImage(client, Dockerimage)
-			}
+		node, dockerimage_download_url, xerr := findDockerImageInShock(Dockerimage_normalized, workunit.Info.DataToken)
+		if xerr != nil {
+			err = fmt.Errorf("Error getting docker url, err=%s", xerr.Error())
+			return
 		}
+
+		// TODO attr_json, _ := json.Marshal(node.Attributes) might be better
+		node_attr_map, ok := node.Attributes.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("(1) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage_normalized)
+			return
+		}
+
+		dockerimage_id, ok = node_attr_map["id"].(string)
+		if !ok {
+			err = fmt.Errorf("(2) could not type assert Shock_Dockerimage_attributes, Dockerimage=%s", Dockerimage_normalized)
+			return
+		}
+		logger.Debug(3, "dockerimage_id: %s", dockerimage_id)
+
+		if dockerimage_id == "" {
+			err = fmt.Errorf("Id of Dockerimage=%s not found", Dockerimage_normalized)
+			return
+		}
+		logger.Debug(1, "using dockerimage id %s instead of name %s ", dockerimage_id, Dockerimage_normalized)
+
+		// *** find/inspect image
+		var image *docker.Image
+		image, err = InspectImage(client, dockerimage_id)
 
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("Docker image was not correctly imported or built, err=%s", err.Error()))
-		}
-		// example urls
-		// find image : http://shock.metagenomics.anl.gov/node/?query&docker=1&tag=wgerlach/bowtie2:2.2.0
-		// view node: http://shock.metagenomics.anl.gov/node/ed0a6b20-c535-40d7-92e8-754bb8b6b48f
-		// download http://shock.metagenomics.anl.gov/node/ed0a6b20-c535-40d7-92e8-754bb8b6b48f?download
 
-		if node != nil {
+			logger.Debug(1, "docker image %s is not yet in local repository", Dockerimage_normalized)
+			err = nil
 
-		}
-		// last test
-		if dockerimage_id != "" {
-			image, err = InspectImage(client, dockerimage_id)
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("(InspectImage) Docker image (%s , %s) was not correctly imported or built, err=%s", Dockerimage, dockerimage_id, err.Error()))
+			image_retrieval := "load" // TODO only load is guaraneed to workunit
+			//image_retrieval := "pull"
+			switch {
+			case image_retrieval == "load":
+				{ // for images that have been saved
+					logger.Debug(1, "Loading image %s", dockerimage_download_url)
+					err = dockerLoadImage(client, dockerimage_download_url, workunit.Info.DataToken)
+					if err != nil {
+						err = fmt.Errorf("Docker image was not correctly loaded, err=%s", err.Error())
+						return
+					}
+				}
+			case image_retrieval == "import":
+				{ // for containers that have been exported
+					logger.Debug(1, "Importing image %s", Dockerimage_normalized)
+					xerr := dockerImportImage(client, Dockerimage_normalized, workunit.Info.DataToken)
+					if xerr != nil {
+						err = fmt.Errorf("Docker image was not correctly imported, err=%s", xerr.Error())
+						return
+					}
+				}
+			case image_retrieval == "build":
+				{ // to create image from Dockerfile
+					logger.Debug(1, "Building image %s", Dockerimage_normalized)
+					xerr := dockerBuildImage(client, Dockerimage_normalized)
+					if xerr != nil {
+						err = fmt.Errorf("Docker image was not correctly built, err=%s", xerr.Error())
+						return
+					}
+				}
+			case image_retrieval == "pull":
+				{ // pull from docker hub
+					logger.Debug(1, "Pulling image %s", Dockerimage_normalized)
+					var buf bytes.Buffer
+					pio := docker.PullImageOptions{Repository: Dockerimage_normalized, OutputStream: &buf}
+					xerr := client.PullImage(pio, docker.AuthConfiguration{})
+					logger.Debug(3, "docker pull response: ", buf.String())
+					if xerr != nil {
+						err = fmt.Errorf("Docker image was not correctly pulled, err=%s", xerr.Error())
+						return
+					}
+				}
 			}
+
+			// example urls
+			// find image : http://shock.metagenomics.anl.gov/node/?query&docker=1&tag=wgerlach/bowtie2:2.2.0
+			// view node: http://shock.metagenomics.anl.gov/node/ed0a6b20-c535-40d7-92e8-754bb8b6b48f
+			// download http://shock.metagenomics.anl.gov/node/ed0a6b20-c535-40d7-92e8-754bb8b6b48f?download
+
+			// last test
+			if dockerimage_id != "" {
+				image, err = InspectImage(client, dockerimage_id)
+				if err != nil {
+					err = fmt.Errorf("(InspectImage) Docker image (%s , %s) was not correctly imported or built, err=%s", Dockerimage_normalized, dockerimage_id, err.Error())
+					return
+				}
+			} else {
+				image, err = InspectImage(client, Dockerimage_normalized)
+				if xerr != nil {
+					err = fmt.Errorf("(InspectImage) Docker image (%s) was not correctly imported or built, err=%s", Dockerimage_normalized, err.Error())
+					return
+				}
+			}
+
 		} else {
-			image, err = InspectImage(client, Dockerimage)
-			if err != nil {
-				return nil, errors.New(fmt.Sprintf("(InspectImage) Docker image (%s) was not correctly imported or built, err=%s", Dockerimage, err.Error()))
-			}
+			logger.Debug(1, "docker image %s is already in local repository", Dockerimage_normalized)
 		}
 
-	} else {
-		logger.Debug(1, fmt.Sprintf("docker image %s is already in local repository", Dockerimage))
-	}
+		if dockerimage_id != image.ID {
+			err = fmt.Errorf("error: dockerimage_id != image.ID, %s != %s (%s)", dockerimage_id, image.ID, Dockerimage_normalized)
+			return
+		}
 
-	if dockerimage_id != image.ID {
-		return nil, errors.New(fmt.Sprintf("error: dockerimage_id != image.ID, %s != %s (%s)", dockerimage_id, image.ID, Dockerimage))
-	}
-
-	// tag image to make debugging easier
-	if Dockerimage != "" {
-		Dockerimage_array := strings.Split(Dockerimage, ":") // TODO split by colon is risky
-		tag_opts := docker.TagImageOptions{Repo: Dockerimage_array[0], Tag: Dockerimage_array[1]}
+		// tag image to make debugging easier
+		tag_opts := docker.TagImageOptions{Repo: dockerimage_repo, Tag: dockerimage_tag}
 
 		err = TagImage(client, dockerimage_id, tag_opts)
 		if err != nil {
-			logger.Error(fmt.Sprintf("warning: tagging of image %s with %s failed, err:", dockerimage_id, Dockerimage, err.Error()))
+			logger.Error("warning: tagging of image %s with %s failed, err:", dockerimage_id, Dockerimage_normalized, err.Error())
 		}
+
+	} else if workunit.Cmd.DockerPull != "" {
+
+		if false {
+			logger.Debug(1, "Pulling image %s from Docker Hub", Dockerimage_normalized)
+			var buf bytes.Buffer
+			pio := docker.PullImageOptions{Repository: Dockerimage_normalized, OutputStream: &buf}
+			err = client.PullImage(pio, docker.AuthConfiguration{})
+			logger.Debug(3, "docker pull response: ", buf.String())
+			if err != nil {
+				err = fmt.Errorf("Docker image was not correctly pulled, err=%s", err.Error())
+				return
+			}
+		}
+		dockerimage_id = workunit.Cmd.DockerPull
+	}
+
+	if dockerimage_id == "" {
+		err = fmt.Errorf("dockerimage_id empty")
+		return
 	}
 
 	// collect environment
 	var docker_environment []string
 	docker_environment_string := "" // this is only for the debug output
-	for key, val := range work.Cmd.Environ.Public {
+	for key, val := range workunit.Cmd.Environ.Public {
 		env_pair := key + "=" + val
 		docker_environment = append(docker_environment, env_pair)
 		docker_environment_string += " --env=" + env_pair
 	}
-	if work.Cmd.HasPrivateEnv {
-		private_envs, err := FetchPrivateEnvByWorkId(work.Id)
+	if workunit.Cmd.HasPrivateEnv {
+		logger.Debug(3, "HasPrivateEnv true")
+		private_envs, err := FetchPrivateEnvByWorkId(workunit.Id)
 		if err != nil {
 			return nil, err
 		}
@@ -343,26 +434,48 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			docker_environment_string += " -e " + env_pair
 
 		}
+	} else {
+		logger.Debug(3, "HasPrivateEnv false")
 	}
 
-	pipe_output := fmt.Sprintf(" 2> %s 1> %s", conf.STDERR_FILENAME, conf.STDOUT_FILENAME)
+	stdout_file := path.Join(conf.DOCKER_WORK_DIR, conf.STDOUT_FILENAME)
+	stderr_file := path.Join(conf.DOCKER_WORK_DIR, conf.STDERR_FILENAME)
+
+	pipe_output := fmt.Sprintf(" 2> %s 1> %s", stderr_file, stdout_file)
+
 	bash_command := ""
 	if use_wrapper_script {
 		//bash_command = fmt.Sprint("/bin/bash", " ", wrapper_script_filename_docker, " ", pipe_output) // bash for wrapper script
 		bash_command = fmt.Sprint(wrapper_script_filename_docker, " ", pipe_output)
 	} else {
-		bash_command = fmt.Sprint(commandName, " ", strings.Join(args, " "), " ", pipe_output)
 
+		bash_command = fmt.Sprintf("%s %s %s", commandName, strings.Join(args, " "), pipe_output)
+		//bash_command = fmt.Sprintf("uname -a %s", pipe_output)
+
+		var wrapper_content_string = "#!/bin/bash\n" + bash_command + "\n"
+
+		logger.Debug(1, "write wrapper script: %s\n%s", wrapper_script_filename_host, bash_command)
+
+		var wrapper_content_bytes = []byte(wrapper_content_string)
+
+		err = ioutil.WriteFile(wrapper_script_filename_host, wrapper_content_bytes, 0755) // not executable: 0644
+		if err != nil {
+			err = fmt.Errorf("error writing wrapper script, err=%s", err.Error())
+			return
+		}
+		//time.Sleep(time.Second * 3000)
+		bash_command = wrapper_script_filename_docker
 	}
-
+	//bash_command = fmt.Sprintf("sleep 3 ; uname -a ; ./awe_qc.pl -format my_file_format.075 -out_prefix my_job_id.075 -assembled 1 -filter_options my_filter_options -proc 8 -input Ebin3.fa; uname -a 2> %s 1> %s", conf.STDERR_FILENAME, conf.STDOUT_FILENAME)
 	logger.Debug(1, fmt.Sprint("bash_command: ", bash_command))
 
 	// example: "/bin/bash", "-c", "bowtie2 -h 2> awe_stderr.txt 1> awe_stdout.txt"
 
-	container_cmd := []string{"/bin/bash", "-c", bash_command} // TODO remove bash if possible, but is needed for piping
+	//container_cmd := []string{"/bin/bash", "-c", bash_command} // TODO remove bash if possible, but is needed for piping
+	container_cmd := []string{bash_command}
 
 	//var empty_struct struct{}
-	bindstr_workdir := work.Path() + "/:" + conf.DOCKER_WORK_DIR
+	bindstr_workdir := workunit.Path() + "/:" + conf.DOCKER_WORK_DIR
 	logger.Debug(1, "bindstr_workdir: "+bindstr_workdir)
 
 	var bindarray = []string{}
@@ -371,7 +484,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	//fake_predata := ""
 	bindstr_predata := ""
 	volume_str := ""
-	if len(work.Predata) > 0 {
+	if len(workunit.Predata) > 0 {
 		predata_directory := path.Join(conf.DATA_PATH, "predata")
 		bindstr_predata = predata_directory + "/:" + conf.DOCKER_WORKUNIT_PREDATA_DIR + ":ro"
 
@@ -403,68 +516,77 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		AttachStderr: true,
 		AttachStdin:  false,
 		Cmd:          container_cmd,
-		//Volumes:      map[string]struct{}{conf.DOCKER_WORK_DIR: struct{}{}}, // old version
-		Volumes: map[string]struct{}{bindstr_workdir: struct{}{}},
-		Env:     docker_environment,
+		Volumes:      map[string]struct{}{conf.DOCKER_WORK_DIR: struct{}{}}, // old version
+		//Volumes: map[string]struct{}{bindstr_workdir: struct{}{}},
+
+		Env: docker_environment,
 	}
 
-	if len(work.Predata) > 0 {
+	if len(workunit.Predata) > 0 {
 		config.Volumes[bindstr_predata] = struct{}{}
 	}
 
 	docker_commandline_create = append(docker_commandline_create, dockerimage_id)   //
 	docker_commandline_create = append(docker_commandline_create, container_cmd...) // argument to the "docker create" command
 
-	opts := docker.CreateContainerOptions{Name: container_name, Config: &config}
+	opts := docker.CreateContainerOptions{Name: container_name, Config: &config, HostConfig: &docker.HostConfig{Binds: bindarray}}
 
 	// note: docker binary mounts on creation, while docker API mounts on start of container
 
 	container_id := ""
 
 	// *** create container
-	logger.Debug(1, fmt.Sprintf("creating docker container from image %s (%s)", Dockerimage, dockerimage_id))
+	logger.Debug(1, "creating docker container %s from image %s (%s)", container_name, Dockerimage_normalized, dockerimage_id)
 
 	if client != nil {
 
-		container_obj, err := client.CreateContainer(opts)
-		if err == nil {
+		container_obj, xerr := client.CreateContainer(opts)
+		if xerr == nil {
 			container_id = container_obj.ID
 		} else {
-			return nil, errors.New(fmt.Sprintf("error creating container, err=%s", err.Error()))
+			err = fmt.Errorf("error creating container, err=%s", xerr.Error())
+			return
 		}
 	} else {
 		container_id, err = CreateContainer(docker_commandline_create)
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("error creating container, err=%s", err.Error()))
+			err = fmt.Errorf("error creating container, err=%s", err.Error())
+			return
 		}
 	}
+	logger.Debug(3, "Container created.")
 
 	if container_id == "" {
-		return nil, errors.New(fmt.Sprintf("error creating container, container_id is empty"))
+		err = fmt.Errorf("error creating container, container_id is empty")
+		return
 	}
 
-	logger.Debug(1, fmt.Sprintf("created docker container with ID: %s", container_id))
+	logger.Debug(1, "created docker container with ID: %s", container_id)
 
 	// *** start container
 
 	fake_docker_cmd := "sudo docker run -t -i --name test " + volume_str + " " + docker_environment_string + " --workdir=" + conf.DOCKER_WORK_DIR + " " + dockerimage_id + " " + strings.Join(container_cmd, " ")
-	logger.Debug(1, "fake_docker_cmd ("+Dockerimage+"): "+fake_docker_cmd)
+	logger.Debug(1, "fake_docker_cmd ("+Dockerimage_normalized+"): "+fake_docker_cmd)
 	logger.Debug(1, "starting docker container...")
 
 	docker_preparation_end := time.Now().Unix()
 	pstats.DockerPrep = docker_preparation_end - docker_preparation_start
-	logger.Debug(1, fmt.Sprintf("DockerPrep time in seconds: %d", pstats.DockerPrep))
+	logger.Debug(1, "DockerPrep time in seconds: %d", pstats.DockerPrep)
 
 	if client != nil {
-		err = client.StartContainer(container_id, &docker.HostConfig{Binds: bindarray}) // weired, seems to be needed
+		//err = client.StartContainer(container_id, &docker.HostConfig{Binds: bindarray}) // weired, seems to be needed
+		err = client.StartContainer(container_id, nil)
 		//err = client.StartContainer(container_id, &docker.HostConfig{})
 
 	} else {
 		err = StartContainer(container_id, volume_str)
 	}
+
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("error starting container, id=%s, err=%s", container_id, err.Error()))
+		err = fmt.Errorf("error starting container, id=%s, err=%s", container_id, err.Error())
+		return
 	}
+	logger.Debug(3, "Container started.")
 
 	defer func(container_id string) {
 		// *** clean up
@@ -476,23 +598,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			err_kill = KillContainer(container_id)
 		}
 		if err_kill != nil {
-			logger.Error(fmt.Sprintf("error killing container id=%s, err=%s", container_id, err_kill.Error()))
-		}
-
-		// *** remove Container
-
-		var err error
-
-		if client != nil {
-			opts_remove := docker.RemoveContainerOptions{ID: container_id}
-			err = client.RemoveContainer(opts_remove)
-		} else {
-			err = RemoveContainer(container_id)
-		}
-		if err != nil {
-			logger.Error(fmt.Sprintf("error removing container id=%s, err=%s", container_id, err.Error()))
-		} else {
-			logger.Debug(1, "(deferred func) removed docker container")
+			logger.Debug(3, "(deferred func) (clean-up after running container) could not kill container id=%s, err=%s", container_id, err_kill.Error())
 		}
 
 	}(container_id)
@@ -500,35 +606,42 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	if client != nil {
 		cont, err := client.InspectContainer(container_id)
 		if err != nil {
-			logger.Error(fmt.Sprintf("error inspecting container=%s, err=%s", container_id, err.Error()))
+			logger.Error("error inspecting container=%s, err=%s", container_id, err.Error())
 		}
 
-		inspect_filename := path.Join(work.Path(), "container_inspect.json")
+		logger.Debug(3, "Container status: %s", cont.State.Status)
+
+		inspect_filename := path.Join(workunit.Path(), "container_inspect.json")
 
 		b_inspect, _ := json.MarshalIndent(cont, "", "    ")
 
 		err = ioutil.WriteFile(inspect_filename, b_inspect, 0666)
 		if err != nil {
-			logger.Error(fmt.Sprintf("error writing inspect file for container=%s, err=%s", container_id, err.Error()))
+			fmt.Errorf("error writing inspect file for container=%s, err=%s", container_id, err.Error())
 		} else {
-			logger.Debug(1, fmt.Sprintf("wrote %s for container %s", inspect_filename, container_id))
+			logger.Debug(1, "wrote %s for container %s", inspect_filename, container_id)
 		}
 	}
 
-	var status int = 0
-
 	// wait for container to finish
-	done := make(chan error)
+	done := make(chan WaitContainerResult)
 	go func() {
+
+		//time.Sleep(300 * time.Second)
+
 		var errwait error
+		var status int = -1
 		if client != nil {
 			status, errwait = client.WaitContainer(container_id)
 		} else {
 			status, errwait = WaitContainer(container_id)
 		}
-		done <- errwait // inform main function
+
+		cresult := WaitContainerResult{errwait, status}
+
+		done <- cresult // inform main function
 		if conf.MEM_CHECK_INTERVAL != 0 {
-			done <- errwait // inform memory checker
+			done <- cresult // inform memory checker
 		}
 	}()
 
@@ -558,9 +671,10 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			for {
 
 				select {
-				case err_mem := <-done:
-					if err_mem != nil {
-						logger.Error("channel done returned error: " + err_mem.Error())
+				case cresult := <-done:
+					workunit.ExitStatus = cresult.Status
+					if cresult.Error != nil {
+						logger.Error("channel done returned error: " + cresult.Error.Error())
 					}
 					return
 				default:
@@ -615,7 +729,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 				// When finished scanning if any error other than io.EOF occured
 				// it will be returned by scanner.Err().
 				if err := memory_stat_file_scanner.Err(); err != nil {
-					logger.Error(fmt.Sprintf("warning: could no read memory usage from cgroups=%s", memory_stat_file_scanner.Err()))
+					logger.Error("warning: could no read memory usage from cgroups=%s", memory_stat_file_scanner.Err())
 					//err = nil
 				} else {
 
@@ -653,9 +767,11 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		logger.Debug(1, "memory checking disabled")
 	}
 
+	cresult := WaitContainerResult{nil, -1}
+
 	select {
 	case <-chankill:
-		logger.Debug(1, fmt.Sprint("chankill, try to kill conatiner %s... ", container_id))
+		logger.Debug(1, "chankill, try to kill container %s... ", container_id)
 
 		if client != nil {
 			err = client.KillContainer(docker.KillContainerOptions{ID: container_id})
@@ -664,22 +780,23 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 
 		if err != nil {
-			return nil, errors.New(fmt.Sprintf("error killing container id=%s, err=%s", container_id, err.Error()))
+			return nil, errors.New(fmt.Sprintf("(chankill) error killing container id=%s, err=%s", container_id, err.Error()))
 		}
 
 		<-done // allow goroutine to exit
 
 		return nil, errors.New("process killed as requested from chankill")
-	case err = <-done:
-		logger.Debug(1, fmt.Sprint("(1)docker wait returned with status ", status))
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("dockerWait=%s, err=%s", commandName, err.Error()))
+	case cresult = <-done:
+		logger.Debug(3, "(1)docker wait returned with status %d", cresult.Status)
+		if cresult.Error != nil {
+			return nil, fmt.Errorf("dockerWait=%s, status=%d, err=%s", commandName, cresult.Status, cresult.Error.Error())
 		}
+
 	}
-	logger.Debug(1, fmt.Sprint("(2)docker wait returned with status ", status))
-	if status != 0 {
-		logger.Debug(1, fmt.Sprint("WaitContainer returned non-zero status ", status))
-		return nil, errors.New(fmt.Sprintf("error WaitContainer returned non-zero status=%d", status))
+
+	if cresult.Status != 0 {
+		logger.Debug(3, "WaitContainer returned non-zero status=%d", cresult.Status)
+		return nil, fmt.Errorf("error WaitContainer returned non-zero status=%d", cresult.Status)
 	}
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 	pstats.MaxMemUsage = MaxMem
@@ -690,28 +807,28 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	return
 }
 
-func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
-	pstats = new(core.WorkPerf)
+func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 
-	args := work.Cmd.ParsedArgs
+	args := workunit.Cmd.ParsedArgs
 
 	//change cwd to the workunit's working directory
-	if err := work.CDworkpath(); err != nil {
+	if err := workunit.CDworkpath(); err != nil {
 		return nil, err
 	}
 
-	commandName := work.Cmd.Name
+	commandName := workunit.Cmd.Name
 
 	if commandName == "" {
-		return nil, errors.New(fmt.Sprintf("error: command name is empty"))
+		err = fmt.Errorf("error: command name is empty")
+		return
 	}
 
 	cmd := exec.Command(commandName, args...)
 
-	msg := fmt.Sprintf("worker: start cmd=%s, args=%v", commandName, args)
-	fmt.Println(msg)
+	msg := fmt.Sprintf("(RunWorkunitDirect) worker: start cmd=%s, args=%v", commandName, args)
+	//fmt.Println(msg)
 	logger.Debug(1, msg)
-	logger.Event(event.WORK_START, "workid="+work.Id,
+	logger.Event(event.WORK_START, "workid="+workunit.Id,
 		"cmd="+commandName,
 		fmt.Sprintf("args=%v", args))
 
@@ -727,8 +844,10 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}
 
-	stdoutFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDOUT_FILENAME)
-	stderrFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDERR_FILENAME)
+	logger.Debug(3, "(RunWorkunitDirect) Using workpath: %s", workunit.Path())
+
+	stdoutFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDOUT_FILENAME)
+	stderrFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDERR_FILENAME)
 	outfile, err := os.Create(stdoutFilePath)
 	defer outfile.Close()
 	errfile, err := os.Create(stderrFilePath)
@@ -743,11 +862,13 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		go io.Copy(err_writer, stderr)
 	}
 
-	if err := cmd.Start(); err != nil {
-		return nil, errors.New(fmt.Sprintf("start_cmd=%s, err=%s", commandName, err.Error()))
+	if err = cmd.Start(); err != nil {
+		err = fmt.Errorf("start_cmd=%s, err=%s", commandName, err.Error())
+		return
 	}
 
 	var MaxMem uint64 = 0
+	MaxMemChan := make(chan uint64)
 	done := make(chan error)
 	memcheck_done := make(chan bool)
 	go func() {
@@ -763,15 +884,16 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	go func() {
 		mstats := new(runtime.MemStats)
 		runtime.ReadMemStats(mstats)
-		MaxMem = mstats.Alloc
+		_MaxMem := mstats.Alloc
+		MaxMemChan <- mstats.Alloc
 		time.Sleep(2 * time.Second)
 		for {
 			select {
 			default:
 				mstats := new(runtime.MemStats)
 				runtime.ReadMemStats(mstats)
-				if mstats.Alloc > MaxMem {
-					MaxMem = mstats.Alloc
+				if mstats.Alloc > _MaxMem {
+					MaxMemChan <- mstats.Alloc
 				}
 				time.Sleep(mem_check_interval_here)
 			case <-memcheck_done:
@@ -780,25 +902,56 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}()
 
-	select {
-	case <-chankill:
-		if err := cmd.Process.Kill(); err != nil {
-			fmt.Println("failed to kill" + err.Error())
-		}
-		<-done // allow goroutine to exit
-		fmt.Println("process killed")
-		return nil, errors.New("process killed")
-	case err := <-done:
-		if err != nil {
-			return nil, errors.New(fmt.Sprintf("wait_cmd=%s, err=%s", commandName, err.Error()))
+	do_loop := true
+	for do_loop {
+		logger.Debug(3, "(RunWorkunitDirect) for-loop")
+		select {
+		case MaxMem_value := <-MaxMemChan:
+			logger.Debug(3, "(RunWorkunitDirect) received MaxMem_value %d", MaxMem_value)
+			MaxMem = MaxMem_value
+		case <-chankill:
+			if err := cmd.Process.Kill(); err != nil {
+				fmt.Println("(RunWorkunitDirect) failed to kill" + err.Error())
+			}
+			<-done // allow goroutine to exit
+			logger.Info("(RunWorkunitDirect) worker process was killed")
+			return nil, errors.New("(RunWorkunitDirect) process killed")
+		case err = <-done:
+			logger.Debug(3, "(RunWorkunitDirect) received done")
+			if err != nil {
+
+				if exiterr, ok := err.(*exec.ExitError); ok {
+					// The program has exited with an exit code != 0
+
+					// This works on both Unix and Windows. Although package
+					// syscall is generally platform dependent, WaitStatus is
+					// defined for both Unix and Windows and in both cases has
+					// an ExitStatus() method with the same signature.
+					status, ok := exiterr.Sys().(syscall.WaitStatus)
+					if ok {
+						workunit.ExitStatus = status.ExitStatus()
+					}
+				} else {
+					// I guess that is some kind of error
+					workunit.ExitStatus = 1
+				}
+
+				err = fmt.Errorf("(RunWorkunitDirect) wait_cmd=%s, err=%s", commandName, err.Error())
+				return
+			} else {
+				// I guess all is ok
+				workunit.ExitStatus = 0
+			}
+			do_loop = false
 		}
 	}
-	logger.Event(event.WORK_END, "workid="+work.Id)
+	logger.Event(event.WORK_END, "workid="+workunit.Id)
+	pstats = new(core.WorkPerf)
 	pstats.MaxMemUsage = int64(MaxMem)
 	return
 }
 
-func runPreWorkExecutionScript(work *core.Workunit) (err error) {
+func runPreWorkExecutionScript(workunit *core.Workunit) (err error) {
 	// conf.PreWorkScript is a string
 	// conf.PreWorkScriptArgs is a string array
 	args := conf.PRE_WORK_SCRIPT_ARGS
@@ -811,9 +964,9 @@ func runPreWorkExecutionScript(work *core.Workunit) (err error) {
 	cmd := exec.Command(commandName, args...)
 
 	msg := fmt.Sprintf("worker: start pre-work cmd=%s, args=%v", commandName, args)
-	fmt.Println(msg)
+
 	logger.Debug(1, msg)
-	logger.Event(event.PRE_WORK_START, "workid="+work.Id,
+	logger.Event(event.PRE_WORK_START, "workid="+workunit.Id,
 		"pre-work cmd="+commandName,
 		fmt.Sprintf("args=%v", args))
 
@@ -830,8 +983,8 @@ func runPreWorkExecutionScript(work *core.Workunit) (err error) {
 		}
 	}
 
-	stdoutFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDOUT_FILENAME)
-	stderrFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDERR_FILENAME)
+	stdoutFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDOUT_FILENAME)
+	stderrFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDERR_FILENAME)
 	outfile, err := os.Create(stdoutFilePath)
 	defer outfile.Close()
 	errfile, err := os.Create(stderrFilePath)
@@ -871,18 +1024,18 @@ func runPreWorkExecutionScript(work *core.Workunit) (err error) {
 			return errors.New(fmt.Sprintf("wait on pre-work cmd=%s, err=%s", commandName, err.Error()))
 		}
 	}
-	logger.Event(event.PRE_WORK_END, "workid="+work.Id)
+	logger.Event(event.PRE_WORK_END, "workid="+workunit.Id)
 	return
 }
 
-func SetEnv(work *core.Workunit) (envkeys []string, err error) {
-	for key, val := range work.Cmd.Environ.Public {
+func SetEnv(workunit *core.Workunit) (envkeys []string, err error) {
+	for key, val := range workunit.Cmd.Environ.Public {
 		if err := os.Setenv(key, val); err == nil {
 			envkeys = append(envkeys, key)
 		}
 	}
-	if work.Cmd.HasPrivateEnv {
-		envs, err := FetchPrivateEnvByWorkId(work.Id)
+	if workunit.Cmd.HasPrivateEnv {
+		envs, err := FetchPrivateEnvByWorkId(workunit.Id)
 		if err != nil {
 			return envkeys, err
 		}

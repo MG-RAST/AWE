@@ -1,10 +1,13 @@
-#export TAG=`date +"%Y%m%d.%H%M"`
-#export NAME=mgrast/awe
-#docker build --force-rm --no-cache --rm -t ${NAME}:${TAG} .
+# export TAG=`date +"%Y%m%d.%H%M"`
+# docker build --force-rm --no-cache --rm -t mgrast/awe .
+# docker tag mgrast/awe mgrast/awe:${TAG}
 
-FROM golang:1.7.4-alpine
 
-# needed for GIT_COMMIT_HASH
+FROM golang:1.7.6-alpine
+
+#RUN apk update && apk add git gcc libc-dev cyrus-sasl-dev
+
+# git needed for GIT_COMMIT_HASH
 RUN apk update && apk add git
 
 ENV AWE=/go/src/github.com/MG-RAST/AWE
@@ -18,8 +21,8 @@ RUN ln -s /go /gopath
 # compile AWE
 RUN mkdir -p ${AWE} && \
   cd ${AWE} && \
-  GITHASH=$(git -C ${AWE} rev-parse HEAD) && \
-  CGO_ENABLED=0 go install -a -installsuffix cgo -v -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH=${GITHASH}" ...
+  go get -d ./awe-worker/ ./awe-server/ && \
+  ./compile.sh
 
-# since this produces three binaries, we just specify (b)ash
+# since this produces two binaries, we just specify (b)ash
 CMD ["/bin/ash"]

@@ -13,6 +13,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/AWE/lib/versions"
+	"github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/MG-RAST/golib/goweb"
 	"io"
 	"io/ioutil"
@@ -20,10 +21,11 @@ import (
 	"path"
 	"runtime"
 	"strings"
+	"time"
 )
 
 func launchSite(control chan int, port int) {
-	goweb.ConfigureDefaultFormatters()
+
 	r := &goweb.RouteManager{}
 
 	site_directory := conf.SITE_PATH
@@ -114,7 +116,7 @@ func launchSite(control chan int, port int) {
 
 func launchAPI(control chan int, port int) {
 	c := controller.NewServerController()
-	goweb.ConfigureDefaultFormatters()
+	//goweb.ConfigureDefaultFormatters()
 	r := &goweb.RouteManager{}
 	r.Map("/job/{jid}/acl/{type}", c.JobAcl["typed"])
 	r.Map("/job/{jid}/acl", c.JobAcl["base"])
@@ -168,10 +170,12 @@ func main() {
 		}
 	}
 
-	if _, err := os.Stat(conf.LOGS_PATH); err != nil && os.IsNotExist(err) {
-		if err := os.MkdirAll(conf.LOGS_PATH, 0777); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR in creating log_path \"%s\" %s\n", conf.LOGS_PATH, err.Error())
-			os.Exit(1)
+	if (conf.LOG_OUTPUT == "file") || (conf.LOG_OUTPUT == "both") {
+		if _, err := os.Stat(conf.LOGS_PATH); err != nil && os.IsNotExist(err) {
+			if err := os.MkdirAll(conf.LOGS_PATH, 0777); err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR in creating log_path \"%s\" %s\n", conf.LOGS_PATH, err.Error())
+				os.Exit(1)
+			}
 		}
 	}
 
@@ -187,9 +191,13 @@ func main() {
 	//init logger
 	logger.Initialize("server")
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("init db...")
-	}
+	time.Sleep(time.Second * 3) // workaround to make sure logger is working correctly ; TODO better fix needed
+
+	core.JM = core.NewJobMap()
+	core.Server_UUID = uuid.New()
+
+	logger.Info("init db...")
+
 	//init db
 	if err := db.Initialize(); err != nil {
 		fmt.Printf("failed to initialize job db: %s\n", err.Error())
@@ -212,23 +220,43 @@ func main() {
 		os.Exit(1)
 	}
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("init resource manager...")
-	}
+	logger.Info("init resource manager...")
+
 	//init resource manager
 	core.InitResMgr("server")
+
+	logger.Info("InitAwfMgr...")
 	core.InitAwfMgr()
+
+	logger.Info("InitJobDB...")
 	core.InitJobDB()
+
+	logger.Info("InitClientGroupDB...")
 	core.InitClientGroupDB()
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("init auth...")
-	}
+	logger.Info("init auth...")
 	//init auth
 	auth.Initialize()
 
 	controller.PrintLogo()
 	conf.Print("server")
+
+	logger.Info("launching server...")
+
+	//launch server
+	control := make(chan int)
+	go core.Ttl.Handle() // deletes expired jobs
+	go core.QMgr.TaskHandle()
+	go core.QMgr.ClientHandle()
+	go core.QMgr.NoticeHandle()
+	go core.QMgr.ClientChecker()
+	go core.QMgr.UpdateQueueLoop()
+
+	goweb.ConfigureDefaultFormatters()
+	go launchSite(control, conf.SITE_PORT)
+	go launchAPI(control, conf.API_PORT)
+
+	logger.Info("API launched...")
 
 	// reload job directory
 	if conf.RELOAD != "" {
@@ -239,21 +267,6 @@ func main() {
 		fmt.Println("Done")
 	}
 
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("launching server...")
-	}
-	//launch server
-	control := make(chan int)
-	go core.Ttl.Handle()
-	go core.QMgr.TaskHandle()
-	go core.QMgr.ClientHandle()
-	go core.QMgr.ClientChecker()
-	go launchSite(control, conf.SITE_PORT)
-	go launchAPI(control, conf.API_PORT)
-
-	if conf.DEBUG_LEVEL > 0 {
-		fmt.Println("API launched...")
-	}
 	if err := core.AwfMgr.LoadWorkflows(); err != nil {
 		logger.Error("LoadWorkflows: " + err.Error())
 	}
@@ -266,14 +279,14 @@ func main() {
 	//recover unfinished jobs before server went down last time
 	if conf.RECOVER {
 		if conf.RECOVER_MAX > 0 {
-			fmt.Println("####### Recovering", conf.RECOVER_MAX, "unfinished jobs #######")
+			logger.Info("####### Recovering %d unfinished jobs #######", conf.RECOVER_MAX)
 		} else {
-			fmt.Println("####### Recovering all unfinished jobs #######")
+			logger.Info("####### Recovering all unfinished jobs #######")
 		}
 		if err := core.QMgr.RecoverJobs(); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+			logger.Error("RecoverJobs error: %v\n", err)
 		}
-		fmt.Println("Done")
+		logger.Info("Recovering done")
 		logger.Event(event.SERVER_RECOVER, "host="+host)
 	} else {
 		logger.Event(event.SERVER_START, "host="+host)

@@ -1,4 +1,4 @@
-// Copyright 2015 go-dockerclient authors. All rights reserved.
+// Copyright 2014 go-dockerclient authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -31,6 +31,7 @@ func TestExecCreate(t *testing.T) {
 		AttachStderr: false,
 		Tty:          false,
 		Cmd:          []string{"touch", "/tmp/file"},
+		User:         "a-user",
 	}
 	execObj, err := client.CreateExec(config)
 	if err != nil {

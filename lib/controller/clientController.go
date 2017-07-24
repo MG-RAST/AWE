@@ -26,6 +26,7 @@ func (cr *ClientController) Options(cx *goweb.Context) {
 
 // POST: /client - register a new client
 func (cr *ClientController) Create(cx *goweb.Context) {
+	logger.Debug(3, "POST /client")
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 
@@ -44,15 +45,17 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	}
 
 	// Parse uploaded form
+
 	_, files, err := ParseMultipartForm(cx.Request)
 	if err != nil {
 		if err.Error() != "request Content-Type isn't multipart/form-data" {
-			logger.Error("Error parsing form: " + err.Error())
+			logger.Error("(ClientController/Create) Error parsing form: " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
 			return
 		}
 	}
 
+	logger.Debug(3, "POST /client, call RegisterNewClient")
 	client, err := core.QMgr.RegisterNewClient(files, cg)
 	if err != nil {
 		msg := "Error in registering new client:" + err.Error()
@@ -64,6 +67,13 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	//log event about client registration (CR)
 	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.Id+";name="+client.Name+";host="+client.Host+";group="+client.Group+";instance_id="+client.InstanceId+";instance_type="+client.InstanceType+";domain="+client.Domain)
 
+	rlock, err := client.RLockNamed("ClientController/Create")
+	if err != nil {
+		msg := "Lock error:" + err.Error()
+		logger.Error(msg)
+		cx.RespondWithErrorMessage(msg, http.StatusBadRequest)
+	}
+	defer client.RUnlockNamed(rlock)
 	cx.RespondWithData(client)
 	return
 }
@@ -126,6 +136,12 @@ func (cr *ClientController) Read(id string, cx *goweb.Context) {
 		}
 		return
 	}
+	rlock, err := client.RLockNamed("ClientController/Create")
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer client.RUnlockNamed(rlock)
 	cx.RespondWithData(client)
 	return
 }
@@ -151,13 +167,23 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 		}
 	}
 
-	clients := core.QMgr.GetAllClientsByUser(u)
+	clients, err := core.QMgr.GetAllClientsByUser(u)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	query := &Query{Li: cx.Request.URL.Query()}
-	filtered := []*core.Client{}
+	//filtered := []*core.Client{}
+	filtered := core.Clients{}
+
 	if query.Has("busy") {
 		for _, client := range clients {
-			if len(client.Current_work) > 0 {
+			work_length, err := client.Current_work_length(true)
+			if err != nil {
+				continue
+			}
+			if work_length > 0 {
 				filtered = append(filtered, client)
 			}
 		}
@@ -169,8 +195,12 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 		}
 	} else if query.Has("status") {
 		for _, client := range clients {
-			stat := strings.Split(client.Status, "-")
-			if client.Status == query.Value("status") {
+			status, xerr := client.Get_Status(false)
+			if xerr != nil {
+				continue
+			}
+			stat := strings.Split(status, "-")
+			if status == query.Value("status") {
 				filtered = append(filtered, client)
 			} else if (len(stat) == 2) && (stat[1] == query.Value("status")) {
 				filtered = append(filtered, client)
@@ -185,8 +215,14 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 			}
 		}
 	} else {
-		filtered = clients
+		for _, client := range clients {
+			filtered = append(filtered, client)
+		}
 	}
+
+	filtered.RLockRecursive()
+	defer filtered.RUnlockRecursive()
+
 	cx.RespondWithData(filtered)
 	return
 }

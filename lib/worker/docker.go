@@ -67,7 +67,7 @@ func (a DockerShockNodeArray) Less(i, j int) bool {
 }
 
 func InspectImage(client *docker.Client, dockerimage_id string) (image *docker.Image, err error) {
-	logger.Debug(1, fmt.Sprintf("(InspectImage) %s:", dockerimage_id))
+	logger.Debug(1, "(InspectImage) %s:", dockerimage_id)
 	if client == nil {
 		// if image does not exists, return status 1 and text on stderr
 
@@ -499,22 +499,42 @@ func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 	return nil
 }
 
+func SplitDockerimageName(Dockerimage string) (repository string, tag string, err error) {
+
+	dockerimage_array := strings.Split(Dockerimage, ":")
+
+	if len(dockerimage_array) > 2 {
+		err = fmt.Errorf("dockerimage name %s contains nore than one colon", Dockerimage)
+	} else if len(dockerimage_array) == 2 {
+		repository = dockerimage_array[0]
+		tag = dockerimage_array[1]
+	} else if len(dockerimage_array) == 1 {
+		repository = dockerimage_array[0]
+		tag = "latest"
+	} else {
+		err = fmt.Errorf("dockerimage empty !?")
+	}
+
+	return
+}
+
 // was getDockerImageUrl(Dockerimage string) (download_url string, err error)
 func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.ShockNode, download_url string, err error) {
 
-	logger.Debug(1, fmt.Sprint("datatoken for dockerimage: ", datatoken[0:15]))
+	if len(datatoken) > 15 {
+		logger.Debug(1, fmt.Sprint("datatoken for dockerimage: ", datatoken[0:15]))
+	}
 	logger.Debug(1, fmt.Sprint("try to import docker image, Dockerimage=", Dockerimage))
 
 	shock_docker_repo := shock.ShockClient{Host: conf.SHOCK_DOCKER_IMAGE_REPOSITORY, Token: datatoken}
 
-	dockerimage_array := strings.Split(Dockerimage, ":")
+	dockerimage_repo := ""
+	dockerimage_tag := ""
 
-	if len(dockerimage_array) != 2 {
-		return nil, "", errors.New(fmt.Sprintf("could not split dockerimage name %s into two pieces", Dockerimage))
+	dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(Dockerimage)
+	if err != nil {
+		return
 	}
-
-	dockerimage_repo := dockerimage_array[0]
-	dockerimage_tag := dockerimage_array[1]
 
 	var version_array = [...]string{"unknown", "dev", "develop", "alpha", "a", "beta", "b", "c", "d", "e"}
 	var version_strings = make(map[string]int)
@@ -752,4 +772,29 @@ func dockerImportImage(client *docker.Client, Dockerimage string, datatoken stri
 	}
 
 	return
+}
+
+func DockerizeName(input string) string {
+
+	// valid according to docker source: [a-zA-Z0-9_-]
+	// source: https://github.com/docker/docker/blob/f63cdf0260cf6287d28a589a79d3f947def6a569/runtime.go#L33
+
+	whitelist_it := func(r rune) rune {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			return r
+		case r >= 'a' && r <= 'z':
+			return r
+		case r >= '0' && r <= '9':
+			return r
+		case r == '_':
+			return r
+		case r == '-':
+			return r
+		default:
+			return '_'
+		}
+		return r
+	}
+	return strings.Map(whitelist_it, input)
 }

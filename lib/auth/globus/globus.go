@@ -81,7 +81,7 @@ func fetchToken(u string, p string) (t *token, err error) {
 				}
 			}
 		} else {
-			return nil, errors.New("Authentication failed: Unexpected response status: " + resp.Status)
+			return nil, errors.New("(globus/fetchToken) Authentication failed: Unexpected response status: " + resp.Status)
 		}
 	} else {
 		return nil, err
@@ -115,7 +115,7 @@ func fetchProfile(t string) (u *user.User, err error) {
 		} else if resp.StatusCode == http.StatusForbidden {
 			return nil, errors.New(e.InvalidAuth)
 		} else {
-			err_str := "Authentication failed: Unexpected response status: " + resp.Status
+			err_str := "(globus/fetchProfile) Authentication failed: Unexpected response status: " + resp.Status
 			logger.Error(err_str)
 			return nil, errors.New(err_str)
 		}
@@ -126,6 +126,18 @@ func fetchProfile(t string) (u *user.User, err error) {
 }
 
 func clientId(t string) string {
+	// test for old format first
+	var cid string
+	for _, part := range strings.Split(t, "|") {
+		if kv := strings.Split(part, "="); kv[0] == "client_id" {
+			cid = kv[1]
+			break
+		}
+	}
+	if cid != "" {
+		return cid
+	}
+	// now use new format
 	client := &http.Client{
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	}

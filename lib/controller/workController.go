@@ -10,6 +10,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+	mgo "gopkg.in/mgo.v2"
 	"io/ioutil"
 	"net/http"
 	"sort"
@@ -50,7 +51,11 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		}
 		// check that clientgroup auth token matches group of client
 		clientid := query.Value("client")
-		client, ok := core.QMgr.GetClient(clientid)
+		client, ok, xerr := core.QMgr.GetClient(clientid, true)
+		if xerr != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
 		if !ok {
 			cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
 			return
@@ -74,7 +79,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		if query.Has("privateenv") { //a client is requesting data token for this job
 			envs, err := core.QMgr.FetchPrivateEnv(id, clientid)
 			if err != nil {
-				cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
+				cx.RespondWithErrorMessage("error in getting token for job "+id+" :"+err.Error(), http.StatusBadRequest)
 				return
 			}
 			//cx.RespondWithData(token)
@@ -106,15 +111,26 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		return
 	}
 
-	job, err := core.LoadJob(jobid)
+	//job, err := core.LoadJob(jobid)
+	//if err != nil {
+	//	cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+	//	return
+	//}
+	acl, err := core.DBGetJobAcl(jobid)
 	if err != nil {
-		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		if err == mgo.ErrNotFound {
+			cx.RespondWithNotFound()
+		} else {
+			// In theory the db connection could be lost between
+			// checking user and load but seems unlikely.
+			cx.RespondWithErrorMessage("job not found: "+jobid+" "+err.Error(), http.StatusBadRequest)
+		}
 		return
 	}
 
 	// User must have read permissions on job or be job owner or be an admin
-	rights := job.Acl.Check(u.Uuid)
-	if job.Acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false {
+	rights := acl.Check(u.Uuid)
+	if acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}
@@ -209,7 +225,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 		// if using query syntax then do pagination and sorting
 		if query.Has("query") {
-			filtered_work := []core.Workunit{}
+			filtered_work := []*core.Workunit{}
 			sorted_work := core.WorkunitsSortby{order, direction, workunits}
 			sort.Sort(sorted_work)
 
@@ -220,7 +236,8 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 					skip += 1
 					continue
 				}
-				filtered_work = append(filtered_work, *w)
+
+				filtered_work = append(filtered_work, w)
 				count += 1
 				if count == limit {
 					break
@@ -250,11 +267,17 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 	// check that clientgroup auth token matches group of client
 	clientid := query.Value("client")
-	client, ok := core.QMgr.GetClient(clientid)
+	client, ok, err := core.QMgr.GetClient(clientid, true)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+		return
+	}
+	logger.Debug(3, "work request with clientid=%s", clientid)
 	if !ok {
 		cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
 		return
 	}
+
 	if cg != nil && client.Group != cg.Name {
 		cx.RespondWithErrorMessage("Clientgroup name in token does not match that in the client configuration.", http.StatusBadRequest)
 		return
@@ -273,14 +296,16 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	}
 
 	//checkout a workunit in FCFS order
-	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, availableBytes, 1)
+	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, client, availableBytes, 1)
 
 	if err != nil {
 		if err.Error() != e.QueueEmpty && err.Error() != e.QueueSuspend && err.Error() != e.NoEligibleWorkunitFound && err.Error() != e.ClientNotFound && err.Error() != e.ClientSuspended {
-			logger.Error("Err@work_ReadMany:core.QMgr.GetWorkByFCFS(): " + err.Error() + ";client=" + clientid)
+			if !strings.Contains(err.Error(), "Too many work requests") {
+				logger.Error("Err@work_ReadMany:core.QMgr.GetWorkByFCFS(): " + err.Error() + ";client=" + clientid)
+			}
 		}
+		logger.Debug(3, fmt.Sprintf("Error in CheckoutWorkunits: clientid=%s;available=%d;error=%s", clientid, availableBytes, err.Error()))
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-		logger.Debug(3, fmt.Sprintf("clientid=%s;available=%d;status=%s", clientid, availableBytes, err.Error()))
 		return
 	}
 
@@ -292,7 +317,10 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	logger.Event(event.WORK_CHECKOUT, fmt.Sprintf("workids=%s;clientid=%s;available=%d", strings.Join(workids, ","), clientid, availableBytes))
 
 	// Base case respond with node in json
-	cx.RespondWithData(workunits[0])
+	workunit := workunits[0]
+	workunit.State = core.WORK_STAT_RESERVED
+	workunit.Client = clientid
+	cx.RespondWithData(workunit)
 	return
 }
 
@@ -323,7 +351,11 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 
 	// check that clientgroup auth token matches group of client
 	clientid := query.Value("client")
-	client, ok := core.QMgr.GetClient(clientid)
+	client, ok, err := core.QMgr.GetClient(clientid, true)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+		return
+	}
 	if !ok {
 		cx.RespondWithErrorMessage(e.ClientNotFound, http.StatusBadRequest)
 		return
@@ -345,13 +377,26 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 				if _, ok := files["perf"]; ok {
 					core.QMgr.FinalizeWorkPerf(id, files["perf"].Path)
 				}
-				if _, ok := files["notes"]; ok {
-					if notes, err := ioutil.ReadFile(files["notes"].Path); err == nil {
-						notice.Notes = string(notes)
-					}
-				}
 				for _, log := range conf.WORKUNIT_LOGS {
 					if _, ok := files[log]; ok {
+						if log == "worknotes" {
+							// add worknotes to notice
+							if text, err := ioutil.ReadFile(files[log].Path); err == nil {
+								notice.Notes = string(text)
+							}
+						} else if log == "stderr" {
+							// add stderr to notice
+							if text, err := ioutil.ReadFile(files[log].Path); err == nil {
+								// only save last 5000 chars of string
+								err_str := string(text)
+								if len(err_str) > 5000 {
+									notice.Stderr = string(err_str[len(err_str)-5000:])
+								} else {
+									notice.Stderr = err_str
+								}
+							}
+						}
+						// move / save log file
 						core.QMgr.SaveStdLog(id, log, files[log].Path)
 					}
 				}

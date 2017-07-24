@@ -31,8 +31,8 @@ func Initialize(name string) {
 }
 
 // Debug is a short cut function that uses package initialized logger and performance log
-func Debug(level int, message string) {
-	Log.Debug(level, message)
+func Debug(level int, format string, a ...interface{}) {
+	Log.Debug(level, format, a...)
 	return
 }
 
@@ -43,14 +43,23 @@ func Event(evttype string, attributes ...string) {
 }
 
 // Error is a short cut function that uses package initialized logger and error log
-func Error(message string) {
-	Log.Error(message)
+func Error(format string, a ...interface{}) {
+	Log.Error(format, a...)
 	return
 }
 
-// Info is a short cut function that uses package initialized logger
-func Info(log string, message string) {
-	Log.Info(log, message)
+func Warning(format string, a ...interface{}) {
+	Log.Warning(format, a...)
+	return
+}
+
+func Info(format string, a ...interface{}) {
+	Log.Info(format, a...)
+	return
+}
+
+func Access(format string, a ...interface{}) {
+	Log.Access(format, a...)
 	return
 }
 
@@ -99,6 +108,20 @@ func NewLogger(name string) *Logger {
 	}
 	if (conf.LOG_OUTPUT == "console") || (conf.LOG_OUTPUT == "both") {
 		l.logs["error"].AddFilter("stderr", l4g.FINEST, l4g.NewConsoleLogWriter())
+	}
+
+	// warning log
+	l.logs["warning"] = make(l4g.Logger)
+	if (conf.LOG_OUTPUT == "file") || (conf.LOG_OUTPUT == "both") {
+		errorf := l4g.NewFileLogWriter(logdir+"/warning.log", false)
+		if errorf == nil {
+			fmt.Fprintln(os.Stderr, "ERROR: error creating warning log file")
+			os.Exit(1)
+		}
+		l.logs["warning"].AddFilter("error", l4g.FINEST, errorf.SetFormat("[%D %T] [%L] %M").SetRotate(true).SetRotateDaily(true))
+	}
+	if (conf.LOG_OUTPUT == "console") || (conf.LOG_OUTPUT == "both") {
+		l.logs["warning"].AddFilter("stderr", l4g.FINEST, l4g.NewConsoleLogWriter())
 	}
 
 	// event log
@@ -158,25 +181,37 @@ func (l *Logger) Log(log string, lvl l4g.Level, message string) {
 	return
 }
 
-func (l *Logger) Debug(level int, message string) {
+//func (l *Logger) Debug(level int, message string) {
+//	if level <= conf.DEBUG_LEVEL {
+//		l.Log("debug", l4g.DEBUG, message)
+//	}
+//	return
+//}
+
+func (l *Logger) Debug(level int, format string, a ...interface{}) {
 	if level <= conf.DEBUG_LEVEL {
-		l.Log("debug", l4g.DEBUG, message)
+		l.Log("debug", l4g.DEBUG, fmt.Sprintf(format, a...))
 	}
 	return
 }
 
-func (l *Logger) Warning(log string, message string) {
-	l.Log(log, l4g.WARNING, message)
+func (l *Logger) Warning(format string, a ...interface{}) {
+	l.Log("warning", l4g.WARNING, fmt.Sprintf(format, a...))
 	return
 }
 
-func (l *Logger) Info(log string, message string) {
-	l.Log(log, l4g.INFO, message)
+func (l *Logger) Info(format string, a ...interface{}) {
+	l.Log("debug", l4g.INFO, fmt.Sprintf(format, a...))
 	return
 }
 
-func (l *Logger) Error(message string) {
-	l.Log("error", l4g.ERROR, message)
+func (l *Logger) Access(format string, a ...interface{}) {
+	l.Log("access", l4g.INFO, fmt.Sprintf(format, a...))
+	return
+}
+
+func (l *Logger) Error(format string, a ...interface{}) {
+	l.Log("error", l4g.ERROR, fmt.Sprintf(format, a...))
 	return
 }
 
@@ -185,8 +220,8 @@ func (l *Logger) Perf(message string) {
 	return
 }
 
-func (l *Logger) Critical(log string, message string) {
-	l.Log(log, l4g.CRITICAL, message)
+func (l *Logger) Critical(log string, format string, a ...interface{}) {
+	l.Log(log, l4g.CRITICAL, fmt.Sprintf(format, a...))
 	return
 }
 

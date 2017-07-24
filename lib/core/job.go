@@ -11,58 +11,65 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
+	//"strings"
 	"time"
 )
 
 const (
-	JOB_STAT_INIT       = "init"
-	JOB_STAT_QUEUED     = "queued"
-	JOB_STAT_INPROGRESS = "in-progress"
-	JOB_STAT_COMPLETED  = "completed"
-	JOB_STAT_SUSPEND    = "suspend"
-	JOB_STAT_DELETED    = "deleted"
+	JOB_STAT_INIT             = "init"
+	JOB_STAT_QUEUED           = "queued"
+	JOB_STAT_INPROGRESS       = "in-progress"
+	JOB_STAT_COMPLETED        = "completed"
+	JOB_STAT_SUSPEND          = "suspend"
+	JOB_STAT_FAILED_PERMANENT = "failed-permanent" // this sepcific error state can be trigger by the workflow software
+	JOB_STAT_DELETED          = "deleted"
 )
 
 var JOB_STATS_ACTIVE = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS}
 var JOB_STATS_REGISTERED = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 var JOB_STATS_TO_RECOVER = []string{JOB_STAT_INIT, JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 
-type Job struct {
-	Id          string    `bson:"id" json:"id"`
+type JobError struct {
+	ClientFailed string `bson:"clientfailed" json:"clientfailed"`
+	WorkFailed   string `bson:"workfailed" json:"workfailed"`
+	TaskFailed   string `bson:"taskfailed" json:"taskfailed"`
+	ServerNotes  string `bson:"servernotes" json:"servernotes"`
+	WorkNotes    string `bson:"worknotes" json:"worknotes"`
+	AppError     string `bson:"apperror" json:"apperror"`
+	Status       string `bson:"status" json:"status"`
+}
+
+type JobRaw struct {
+	RWMutex
+	Id string `bson:"id" json:"id"`
+	//Tasks       []*Task   `bson:"tasks" json:"tasks"`
 	Acl         acl.Acl   `bson:"acl" json:"-"`
 	Info        *Info     `bson:"info" json:"info"`
-	Tasks       []*Task   `bson:"tasks" json:"tasks"`
 	Script      script    `bson:"script" json:"-"`
 	State       string    `bson:"state" json:"state"`
 	Registered  bool      `bson:"registered" json:"registered"`
 	RemainTasks int       `bson:"remaintasks" json:"remaintasks"`
 	Expiration  time.Time `bson:"expiration" json:"expiration"` // 0 means no expiration
 	UpdateTime  time.Time `bson:"updatetime" json:"updatetime"`
-	Notes       string    `bson:"notes" json:"notes"`
-	LastFailed  string    `bson:"lastfailed" json:"lastfailed"`
+	Error       *JobError `bson:"error" json:"error"`         // error struct exists when in suspended state
 	Resumed     int       `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
 	ShockHost   string    `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
+}
+
+type Job struct {
+	JobRaw `bson:",inline"`
+	Tasks  []*Task `bson:"tasks" json:"tasks"`
 }
 
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
 // Jobs that cannot be parsed into the Job struct, but can be parsed into the JobDep struct will be translated to the new Job struct.
 // (=deprecated=)
 type JobDep struct {
-	Id          string     `bson:"id" json:"id"`
-	Acl         acl.Acl    `bson:"acl" json:"-"`
-	Info        *Info      `bson:"info" json:"info"`
-	Tasks       []*TaskDep `bson:"tasks" json:"tasks"`
-	Script      script     `bson:"script" json:"-"`
-	State       string     `bson:"state" json:"state"`
-	Registered  bool       `bson:"registered" json:"registered"`
-	RemainTasks int        `bson:"remaintasks" json:"remaintasks"`
-	UpdateTime  time.Time  `bson:"updatetime" json:"updatetime"`
-	Notes       string     `bson:"notes" json:"notes"`
-	LastFailed  string     `bson:"lastfailed" json:"lastfailed"`
-	Resumed     int        `bson:"resumed" json:"resumed"`     //number of times the job has been resumed from suspension
-	ShockHost   string     `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
+	JobRaw `bson:",inline"`
+	Tasks  []*TaskDep `bson:"tasks" json:"tasks"`
 }
 
 type JobMin struct {
@@ -71,6 +78,7 @@ type JobMin struct {
 	Size          int64             `bson:"size" json:"size"`
 	SubmitTime    time.Time         `bson:"submittime" json:"submittime"`
 	CompletedTime time.Time         `bson:"completedtime" json:"completedtime"`
+	ComputeTime   int               `bson:"computetime" json:"computetime"`
 	Task          []int             `bson:"task" json:"task"`
 	State         []string          `bson:"state" json:"state"`
 	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
@@ -80,10 +88,150 @@ type JobLog struct {
 	Id         string     `bson:"id" json:"id"`
 	State      string     `bson:"state" json:"state"`
 	UpdateTime time.Time  `bson:"updatetime" json:"updatetime"`
-	Notes      string     `bson:"notes" json:"notes"`
-	LastFailed string     `bson:"lastfailed" json:"lastfailed"`
+	Error      *JobError  `bson:"error" json:"error"`
 	Resumed    int        `bson:"resumed" json:"resumed"`
 	Tasks      []*TaskLog `bson:"tasks" json:"tasks"`
+}
+
+func NewJobRaw() (job *JobRaw) {
+	r := &JobRaw{
+		Info: NewInfo(),
+		Acl:  acl.Acl{},
+	}
+	r.RWMutex.Init("Job")
+	return r
+}
+
+func NewJob() (job *Job) {
+	r_job := NewJobRaw()
+	job = &Job{JobRaw: *r_job}
+	return
+}
+
+func NewJobDep() (job *JobDep) {
+	r_job := NewJobRaw()
+	job = &JobDep{JobRaw: *r_job}
+	return
+}
+
+// this has to be called after Unmarshalling from JSON
+func (job *Job) Init() (changed bool, err error) {
+	changed = false
+	job.RWMutex.Init("Job")
+
+	if job.State == "" {
+		job.State = JOB_STAT_INIT
+		changed = true
+	}
+	job.Registered = true
+
+	if job.Id == "" {
+		job.setId() //uuid for the job
+		logger.Debug(3, "(Job.Init) Set JobID: %s", job.Id)
+		changed = true
+	} else {
+		logger.Debug(3, "(Job.Init)  Already have JobID: %s", job.Id)
+	}
+
+	if job.Info == nil {
+		logger.Error("job.Info == nil")
+		job.Info = NewInfo()
+	}
+
+	if job.Info.SubmitTime.IsZero() {
+		job.Info.SubmitTime = time.Now()
+		changed = true
+	}
+
+	if job.Info.Priority < conf.BasePriority {
+		job.Info.Priority = conf.BasePriority
+		changed = true
+	}
+
+	old_remaintasks := job.RemainTasks
+	job.RemainTasks = 0
+
+	for _, task := range job.Tasks {
+		if task.Id == "" {
+			// suspend and create error
+			logger.Error("(job.Init) task.Id empty, job %s broken?", job.Id)
+			task.Id = job.Id + "_" + uuid.New()
+			job.State = JOB_STAT_SUSPEND
+			job.Error = &JobError{
+				ServerNotes: "task.Id was empty",
+				TaskFailed:  task.Id,
+			}
+			changed = true
+		}
+		t_changed, xerr := task.Init(job)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		if t_changed {
+			changed = true
+		}
+		if task.State != TASK_STAT_COMPLETED {
+			job.RemainTasks += 1
+		}
+	}
+
+	// try to fix inconsistent state
+	if job.RemainTasks != old_remaintasks {
+		changed = true
+	}
+
+	// try to fix inconsistent state
+	if job.RemainTasks == 0 && job.State != JOB_STAT_COMPLETED {
+		job.State = JOB_STAT_COMPLETED
+		logger.Debug(3, "fixing state to JOB_STAT_COMPLETED")
+		changed = true
+	}
+
+	// fix job.Info.CompletedTime
+	if job.State == JOB_STAT_COMPLETED && job.Info.CompletedTime.IsZero() {
+		// better now, than never:
+		job.Info.CompletedTime = time.Now()
+		changed = true
+	}
+
+	// try to fix inconsistent state
+	if job.RemainTasks > 0 && job.State == JOB_STAT_COMPLETED {
+		job.State = JOB_STAT_QUEUED
+		logger.Debug(3, "fixing state to JOB_STAT_QUEUED")
+		changed = true
+	}
+
+	if len(job.Tasks) == 0 {
+		err = errors.New("(job.Init) invalid job script: task list empty")
+		return
+	}
+
+	// check that input FileName is not repeated within an individual task
+	for _, task := range job.Tasks {
+		inputFileNames := make(map[string]bool)
+		for _, io := range task.Inputs {
+			if _, exists := inputFileNames[io.FileName]; exists {
+				err = errors.New("invalid inputs: task " + task.Id + " contains multiple inputs with filename=" + io.FileName)
+				return
+			}
+			inputFileNames[io.FileName] = true
+		}
+	}
+
+	return
+}
+
+func (job *Job) RLockRecursive() {
+	for _, task := range job.Tasks {
+		task.RLockAnon()
+	}
+}
+
+func (job *Job) RUnlockRecursive() {
+	for _, task := range job.Tasks {
+		task.RUnlockAnon()
+	}
 }
 
 //set job's uuid
@@ -92,39 +240,34 @@ func (job *Job) setId() {
 	return
 }
 
-func (job *Job) initJob() {
-	if job.Info == nil {
-		job.Info = new(Info)
-	}
-	job.Info.SubmitTime = time.Now()
-	job.Info.Priority = conf.BasePriority
-	job.setId() //uuid for the job
-	job.State = JOB_STAT_INIT
-	job.Registered = true
-}
-
 type script struct {
 	Name string `bson:"name" json:"name"`
 	Type string `bson:"type" json:"type"`
 	Path string `bson:"path" json:"-"`
 }
 
-//---Script upload
-func (job *Job) UpdateFile(files FormFiles) (err error) {
-	_, isRegularUpload := files["upload"]
+//---Script upload (e.g. field="upload")
+func (job *Job) UpdateFile(files FormFiles, field string) (err error) {
+	_, isRegularUpload := files[field]
 	if isRegularUpload {
-		if err = job.SetFile(files["upload"]); err != nil {
+		if err = job.SetFile(files[field]); err != nil {
 			return err
 		}
-		delete(files, "upload")
+		delete(files, field)
 	}
 	return
 }
 
-func (job *Job) Save() (err error) {
-	job.UpdateTime = time.Now()
-	bsonPath := fmt.Sprintf("%s/%s.bson", job.Path(), job.Id)
+func (job *Job) SaveToDisk() (err error) {
+	var job_path string
+	job_path, err = job.Path()
+	if err != nil {
+		err = fmt.Errorf("Save() Path error: %v", err)
+		return
+	}
+	bsonPath := path.Join(job_path, job.Id+".bson")
 	os.Remove(bsonPath)
+	logger.Debug(1, "Save() bson.Marshal next: %s", job.Id)
 	nbson, err := bson.Marshal(job)
 	if err != nil {
 		err = errors.New("error in Marshal in job.Save(), error=" + err.Error())
@@ -141,11 +284,29 @@ func (job *Job) Save() (err error) {
 		err = errors.New("error writing file in job.Save(), error=" + err.Error())
 		return
 	}
-	err = dbUpsert(job)
-	if err != nil {
-		err = errors.New("error in dbUpdate in job.Save(), error=" + err.Error())
+	return
+}
+
+func (job *Job) Save() (err error) {
+	if job.Id == "" {
+		err = fmt.Errorf("job id empty")
 		return
 	}
+	logger.Debug(1, "Save() saving job: %s", job.Id)
+
+	job.UpdateTime = time.Now()
+	err = job.SaveToDisk()
+	if err != nil {
+		return
+	}
+
+	logger.Debug(1, "Save() dbUpsert next: %s", job.Id)
+	err = dbUpsert(job)
+	if err != nil {
+		err = fmt.Errorf("error in dbUpsert in job.Save(), (job_id=%s) error=%v", job.Id, err)
+		return
+	}
+	logger.Debug(1, "Save() job saved: %s", job.Id)
 	return
 }
 
@@ -161,37 +322,89 @@ func (job *Job) Delete() (err error) {
 }
 
 func (job *Job) Mkdir() (err error) {
-	err = os.MkdirAll(job.Path(), 0777)
+	var path string
+	path, err = job.Path()
 	if err != nil {
+		return
+	}
+	err = os.MkdirAll(path, 0777)
+	if err != nil {
+		err = fmt.Errorf("Could not run os.MkdirAll (path: %s) %s", path, err.Error())
 		return
 	}
 	return
 }
 
 func (job *Job) Rmdir() (err error) {
-	return os.RemoveAll(job.Path())
+	var path string
+	path, err = job.Path()
+	if err != nil {
+		return
+	}
+	return os.RemoveAll(path)
 }
 
 func (job *Job) SetFile(file FormFile) (err error) {
-	os.Rename(file.Path, job.FilePath())
+	var path string
+	path, err = job.FilePath()
+	os.Rename(file.Path, path)
 	job.Script.Name = file.Name
 	return
 }
 
 //---Path functions
-func (job *Job) Path() string {
+func (job *Job) Path() (path string, err error) {
 	return getPathByJobId(job.Id)
 }
 
-func (job *Job) FilePath() string {
+func (job *Job) FilePath() (path string, err error) {
 	if job.Script.Path != "" {
-		return job.Script.Path
+		path = job.Script.Path
+		return
 	}
-	return getPathByJobId(job.Id) + "/" + job.Id + ".script"
+	path, err = getPathByJobId(job.Id)
+	if err != nil {
+		return
+	}
+	path = path + "/" + job.Id + ".script"
+	return
 }
 
-func getPathByJobId(id string) string {
-	return fmt.Sprintf("%s/%s/%s/%s/%s", conf.DATA_PATH, id[0:2], id[2:4], id[4:6], id)
+func getPathByJobId(id string) (path string, err error) {
+	if len(id) < 6 {
+		err = fmt.Errorf("Job-Id format wrong: \"%s\"", id)
+		return
+	}
+	path = fmt.Sprintf("%s/%s/%s/%s/%s", conf.DATA_PATH, id[0:2], id[2:4], id[4:6], id)
+	return
+}
+
+func (job *Job) GetTasks() (tasks []*Task, err error) {
+	tasks = []*Task{}
+
+	read_lock, err := job.RLockNamed("GetTasks")
+	if err != nil {
+		return
+	}
+	defer job.RUnlockNamed(read_lock)
+
+	for _, task := range job.Tasks {
+		tasks = append(tasks, task)
+	}
+	return
+}
+
+func (job *Job) GetState(do_lock bool) (state string, err error) {
+	if do_lock {
+		read_lock, xerr := job.RLockNamed("GetState")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer job.RUnlockNamed(read_lock)
+	}
+	state = job.State
+	return
 }
 
 //---Task functions
@@ -204,61 +417,202 @@ func (job *Job) NumTask() int {
 }
 
 //---Field update functions
-func (job *Job) UpdateState(newState string, notes string) (err error) {
-	job.State = newState
-	if len(notes) > 0 {
-		job.Notes = notes
+
+func (job *Job) SetState(newState string) (err error) {
+	err = job.LockNamed("SetState")
+	if err != nil {
+		return
 	}
-	return job.Save()
+	defer job.Unlock()
+
+	if job.State == newState {
+		return
+	}
+
+	err = dbUpdateJobFieldString(job.Id, "state", newState)
+	if err != nil {
+		return
+	}
+	job.State = newState
+
+	// set time if completed
+	if newState == JOB_STAT_COMPLETED {
+		newTime := time.Now()
+		err = dbUpdateJobFieldTime(job.Id, "info.completedtime", newTime)
+		if err != nil {
+			return
+		}
+		job.Info.CompletedTime = newTime
+	}
+
+	// unset error if not suspended
+	if (newState != JOB_STAT_SUSPEND) && (job.Error != nil) {
+		err = dbUpdateJobFieldNull(job.Id, "error")
+		if err != nil {
+			return
+		}
+		job.Error = nil
+	}
+	return
 }
 
-//invoked to modify job info in mongodb when a task in that job changed to the new status
-func (job *Job) UpdateTask(task *Task) (remainTasks int, err error) {
-	idx := -1
-	for i, t := range job.Tasks {
-		if t.Id == task.Id {
-			idx = i
-			break
-		}
+func (job *Job) SetError(newError *JobError) (err error) {
+	err = job.LockNamed("SetError")
+	if err != nil {
+		return
 	}
-	if idx == -1 {
-		return job.RemainTasks, errors.New("job.UpdateTask: no task found with id=" + task.Id)
-	}
-	job.Tasks[idx] = task
+	defer job.Unlock()
 
-	//if this task is complete, count remain tasks for the job
-	if task.State == TASK_STAT_COMPLETED ||
-		task.State == TASK_STAT_SKIPPED ||
-		task.State == TASK_STAT_FAIL_SKIP {
-		remain_tasks := len(job.Tasks)
-		for _, t := range job.Tasks { //double check all task other than the one with state change
-			if t.State == TASK_STAT_COMPLETED ||
-				t.State == TASK_STAT_SKIPPED ||
-				t.State == TASK_STAT_FAIL_SKIP {
-				remain_tasks -= 1
-			}
-		}
-		job.RemainTasks = remain_tasks
-		if job.RemainTasks == 0 {
-			job.State = JOB_STAT_COMPLETED
-			job.Info.CompletedTime = time.Now()
-		}
+	update_value := bson.M{"error": newError}
+	err = dbUpdateJobFields(job.Id, update_value)
+	if err != nil {
+		return
 	}
-	return job.RemainTasks, job.Save()
+	job.Error = newError
+	return
+}
+
+func (job *Job) GetRemainTasks() (remain_tasks int, err error) {
+	remain_tasks = job.RemainTasks
+	return
+}
+
+func (job *Job) SetRemainTasks(remain_tasks int) (err error) {
+	err = job.LockNamed("SetRemainTasks")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	if remain_tasks == job.RemainTasks {
+		return
+	}
+	err = dbUpdateJobFieldInt(job.Id, "remaintasks", remain_tasks)
+	if err != nil {
+		return
+	}
+	job.RemainTasks = remain_tasks
+	return
+}
+
+func (job *Job) IncrementRemainTasks(inc int) (err error) {
+	err = job.LockNamed("IncrementRemainTasks")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	newRemainTask := job.RemainTasks + inc
+	err = dbUpdateJobFieldInt(job.Id, "remaintasks", newRemainTask)
+	if err != nil {
+		return
+	}
+	job.RemainTasks = newRemainTask
+	return
+}
+
+func (job *Job) IncrementResumed(inc int) (err error) {
+	err = job.LockNamed("IncrementResumed")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	newResumed := job.Resumed + inc
+	err = dbUpdateJobFieldInt(job.Id, "resumed", newResumed)
+	if err != nil {
+		return
+	}
+	job.Resumed = newResumed
+	return
+}
+
+func (job *Job) SetClientgroups(clientgroups string) (err error) {
+	err = job.LockNamed("SetClientgroups")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	err = dbUpdateJobFieldString(job.Id, "info.clientgroups", clientgroups)
+	if err != nil {
+		return
+	}
+	job.Info.ClientGroups = clientgroups
+	return
+}
+
+func (job *Job) SetPriority(priority int) (err error) {
+	err = job.LockNamed("SetPriority")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	err = dbUpdateJobFieldInt(job.Id, "info.priority", priority)
+	if err != nil {
+		return
+	}
+	job.Info.Priority = priority
+	return
 }
 
 func (job *Job) SetPipeline(pipeline string) (err error) {
-	job.Info.Pipeline = pipeline
-	for _, task := range job.Tasks {
-		if task.Info != nil {
-			task.Info.Pipeline = pipeline
-		}
+	err = job.LockNamed("SetPipeline")
+	if err != nil {
+		return
 	}
-	err = job.Save()
+	defer job.Unlock()
+
+	err = dbUpdateJobFieldString(job.Id, "info.pipeline", pipeline)
+	if err != nil {
+		return
+	}
+	job.Info.Pipeline = pipeline
+	return
+}
+
+func (job *Job) SetDataToken(token string) (err error) {
+	err = job.LockNamed("SetDataToken")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	if job.Info.DataToken == token {
+		return
+	}
+	// update toekn in info
+	err = dbUpdateJobFieldString(job.Id, "info.token", token)
+	if err != nil {
+		return
+	}
+	job.Info.DataToken = token
+
+	// update token in IO structs
+	err = QMgr.UpdateQueueToken(job)
+	if err != nil {
+		return
+	}
+
+	// set using auth if not before
+	if !job.Info.Auth {
+		err = dbUpdateJobFieldBoolean(job.Id, "info.auth", true)
+		if err != nil {
+			return
+		}
+		job.Info.Auth = true
+	}
 	return
 }
 
 func (job *Job) SetExpiration(expire string) (err error) {
+	err = job.LockNamed("SetExpiration")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
 	parts := ExpireRegex.FindStringSubmatch(expire)
 	if len(parts) == 0 {
 		return errors.New("expiration format '" + expire + "' is invalid")
@@ -276,20 +630,12 @@ func (job *Job) SetExpiration(expire string) (err error) {
 		expireTime = time.Duration(expireNum*24) * time.Hour
 	}
 
-	job.Expiration = currTime.Add(expireTime)
-	err = job.Save()
-	return
-}
-
-//set token
-func (job *Job) SetDataToken(token string) (err error) {
-	job.Info.DataToken = token
-	job.Info.Auth = true
-	for _, task := range job.Tasks {
-		task.Info.DataToken = token
-		task.setTokenForIO()
+	newExpiration := currTime.Add(expireTime)
+	err = dbUpdateJobFieldTime(job.Id, "expiration", newExpiration)
+	if err != nil {
+		return
 	}
-	err = job.Save()
+	job.Expiration = newExpiration
 	return
 }
 
@@ -311,8 +657,7 @@ func (job *Job) GetJobLogs() (jlog *JobLog, err error) {
 	jlog.Id = job.Id
 	jlog.State = job.State
 	jlog.UpdateTime = job.UpdateTime
-	jlog.Notes = job.Notes
-	jlog.LastFailed = job.LastFailed
+	jlog.Error = job.Error
 	jlog.Resumed = job.Resumed
 	for _, task := range job.Tasks {
 		jlog.Tasks = append(jlog.Tasks, task.GetTaskLogs())
@@ -326,7 +671,7 @@ func ReloadFromDisk(path string) (err error) {
 	if err != nil {
 		return
 	}
-	job := new(Job)
+	job := NewJob()
 	err = bson.Unmarshal(jobbson, &job)
 	if err == nil {
 		if err = dbUpsert(job); err != nil {

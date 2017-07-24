@@ -51,7 +51,10 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 		return
 	}
 	if query.Has("json") {
-		statusJson := core.QMgr.GetJsonStatus()
+		statusJson, err := core.QMgr.GetJsonStatus()
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+		}
 		cx.RespondWithData(statusJson)
 		return
 	}
@@ -97,17 +100,35 @@ func (cr *QueueController) ReadMany(cx *goweb.Context) {
 		if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || rights["read"] == true || u.Admin == true || public_rights["read"] == true)) ||
 			(u.Uuid == "public" && conf.ANON_CG_READ == true && public_rights["read"] == true) {
 			// get running jobs for clients for clientgroup
-			jobs := []*core.Job{}
-			for _, client := range core.QMgr.GetAllClients() {
+			jobs := core.Jobs{}
+
+			client_map := core.QMgr.GetClientMap()
+
+			client_list, err := client_map.GetClients()
+			if err != nil {
+				cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+			}
+			for _, client := range client_list {
 				if client.Group == cg.Name {
-					for wid, _ := range client.Current_work {
+
+					current_work_array, err := client.Get_current_work(true)
+					if err != nil {
+						logger.Error("(queue/ReadMany) %s", err.Error())
+						continue
+					}
+
+					for _, wid := range current_work_array {
 						jid, _ := core.GetJobIdByWorkId(wid)
-						if job, err := core.LoadJob(jid); err == nil {
+						if job, err := core.GetJob(jid); err == nil {
 							jobs = append(jobs, job)
 						}
 					}
+
 				}
 			}
+
+			jobs.RLockRecursive()
+			defer jobs.RUnlockRecursive()
 			cx.RespondWithData(jobs)
 			return
 		}

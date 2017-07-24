@@ -4,16 +4,17 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/MG-RAST/golib/goconfig/config"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/MG-RAST/golib/goconfig/config"
 )
 
-const VERSION string = "0.9.30"
+const VERSION string = "0.9.48"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -129,10 +130,11 @@ var (
 	PRE_WORK_SCRIPT             string
 	PRE_WORK_SCRIPT_ARGS_STRING string
 	PRE_WORK_SCRIPT_ARGS        = []string{}
-	OPENSTACK_METADATA_URL      string
+	METADATA                    string
 
 	SERVER_URL     string
 	CLIENT_NAME    string
+	CLIENT_HOST    string
 	CLIENT_GROUP   string
 	CLIENT_DOMAIN  string
 	WORKER_OVERLAP bool
@@ -140,6 +142,9 @@ var (
 	AUTO_CLEAN_DIR bool
 	NO_SYMLINK     bool
 	CACHE_ENABLED  bool
+
+	CWL_TOOL string
+	CWL_JOB  string
 
 	// Docker
 	USE_DOCKER                    string
@@ -155,6 +160,7 @@ var (
 	SHOCK_DOCKER_IMAGE_REPOSITORY string
 
 	// Other
+	ERROR_LENGTH         int
 	DEV_MODE             bool
 	DEBUG_LEVEL          int
 	CONFIG_FILE          string
@@ -250,6 +256,7 @@ type AuthResource struct {
 	Keyword   string `json:"keyword"`
 	Url       string `json:"url"`
 	UseHeader bool   `json:"useHeader"`
+	Bearer    string `json:"bearer"`
 }
 
 func NewCS(c *config.Config) *Config_store {
@@ -408,8 +415,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddInt(&API_PORT, 8001, "Ports", "api-port", "Internal port for API", "")
 
 		// External
-		c_store.AddString(&SITE_URL, "", "External", "site-url", "External URL of AWE monitor, including port", "")
-		c_store.AddString(&API_URL, "", "External", "api-url", "External API URL of AWE server, including port", "")
+		c_store.AddString(&SITE_URL, "http://localhost:8081", "External", "site-url", "External URL of AWE monitor, including port", "")
+		c_store.AddString(&API_URL, "http://localhost:8001", "External", "api-url", "External API URL of AWE server, including port", "")
 
 		// SSL
 		c_store.AddBool(&SSL_ENABLED, false, "SSL", "enable", "", "")
@@ -427,9 +434,9 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddBool(&ANON_CG_DELETE, false, "Anonymous", "cg_delete", "", "")
 
 		// Auth
-		c_store.AddBool(&BASIC_AUTH, true, "Auth", "basic", "", "")
-		c_store.AddString(&GLOBUS_TOKEN_URL, "https://nexus.api.globusonline.org/goauth/token?grant_type=client_credentials", "Auth", "globus_token_url", "", "")
-		c_store.AddString(&GLOBUS_PROFILE_URL, "https://nexus.api.globusonline.org/users", "Auth", "globus_profile_url", "", "")
+		c_store.AddBool(&BASIC_AUTH, false, "Auth", "basic", "", "")
+		c_store.AddString(&GLOBUS_TOKEN_URL, "", "Auth", "globus_token_url", "", "")
+		c_store.AddString(&GLOBUS_PROFILE_URL, "", "Auth", "globus_profile_url", "", "")
 		c_store.AddString(&MGRAST_OAUTH_URL, "", "Auth", "mgrast_oauth_url", "", "")
 		c_store.AddString(&MGRAST_LOGIN_URL, "", "Auth", "mgrast_login_url", "", "")
 		c_store.AddBool(&CLIENT_AUTH_REQ, false, "Auth", "client_auth_required", "", "")
@@ -477,6 +484,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&SERVER_URL, "http://localhost:8001", "Client", "serverurl", "URL of AWE server, including API port", "")
 		c_store.AddString(&CLIENT_GROUP, "default", "Client", "group", "name of client group", "")
 		c_store.AddString(&CLIENT_NAME, "default", "Client", "name", "default determines client name by openstack meta data", "")
+		c_store.AddString(&CLIENT_HOST, "127.0.0.1", "Client", "host", "host or ip address", "host or ip address to help finding machines where the clients runs on")
 		c_store.AddString(&CLIENT_DOMAIN, "default", "Client", "domain", "", "")
 		c_store.AddString(&CLIENT_GROUP_TOKEN, "", "Client", "clientgroup_token", "", "")
 
@@ -484,7 +492,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&APP_PATH, "", "Client", "app_path", "the file path of supported app", "")
 
 		c_store.AddString(&WORK_PATH, "/mnt/data/awe/work", "Client", "workpath", "the root dir for workunit working dirs", "")
-		c_store.AddString(&OPENSTACK_METADATA_URL, "http://169.254.169.254/2009-04-04/meta-data", "Client", "openstack_metadata_url", "", "")
+		c_store.AddString(&METADATA, "", "Client", "metadata", "", "e.g. ec2, openstack...")
 
 		c_store.AddString(&PRE_WORK_SCRIPT, "", "Client", "pre_work_script", "", "")
 		c_store.AddString(&PRE_WORK_SCRIPT_ARGS_STRING, "", "Client", "pre_work_script_args", "", "")
@@ -494,6 +502,9 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddBool(&AUTO_CLEAN_DIR, true, "Client", "auto_clean_dir", "delete workunit directory to save space after completion, turn of for debugging", "")
 		c_store.AddBool(&CACHE_ENABLED, false, "Client", "cache_enabled", "", "")
 		c_store.AddBool(&NO_SYMLINK, false, "Client", "no_symlink", "copy files from predata to work dir, default is to create symlink", "")
+
+		c_store.AddString(&CWL_TOOL, "", "Client", "cwl_tool", "CWL CommandLineTool file", "")
+		c_store.AddString(&CWL_JOB, "", "Client", "cwl_job", "CWL job file", "")
 	}
 
 	// Docker
@@ -518,10 +529,11 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 	c_store.AddInt(&P_API_PORT, 8002, "Proxy", "p-api-port", "", "")
 
 	//Other
+	c_store.AddInt(&ERROR_LENGTH, 5000, "Other", "errorlength", "amount of App STDERR to save in Job.Error", "")
 	c_store.AddBool(&DEV_MODE, false, "Other", "dev", "dev or demo mode, print some msgs on screen", "")
 	c_store.AddInt(&DEBUG_LEVEL, 0, "Other", "debuglevel", "debug level: 0-3", "")
 	c_store.AddString(&CONFIG_FILE, "", "Other", "conf", "path to config file", "")
-	c_store.AddString(&LOG_OUTPUT, "file", "Other", "logoutput", "log output stream, one of: file, console, both", "")
+	c_store.AddString(&LOG_OUTPUT, "console", "Other", "logoutput", "log output stream, one of: file, console, both", "")
 	c_store.AddBool(&SHOW_VERSION, false, "Other", "version", "show version", "")
 	c_store.AddBool(&SHOW_GIT_COMMIT_HASH, false, "Other", "show_git_commit_hash", "", "")
 	c_store.AddBool(&PRINT_HELP, false, "Other", "fullhelp", "show detailed usage without \"--\"-prefixes", "")
@@ -605,6 +617,7 @@ func Init_conf(mode string) (err error) {
 			Keyword:   "auth",
 			Url:       MGRAST_LOGIN_URL,
 			UseHeader: false,
+			Bearer:    "OAuth",
 		}
 	}
 	if MGRAST_OAUTH_URL != "" {
@@ -616,6 +629,7 @@ func Init_conf(mode string) (err error) {
 			Keyword:   "auth",
 			Url:       MGRAST_LOGIN_URL,
 			UseHeader: false,
+			Bearer:    "mgrast",
 		}
 	}
 
@@ -769,7 +783,7 @@ func PrintClientCfg() {
 }
 
 func PrintClientUsage() {
-	fmt.Printf("Usage: awe-client -conf </path/to/cfg> [-debuglevel 0-3]\n")
+	fmt.Printf("Usage: awe-worker -conf </path/to/cfg> [-debuglevel 0-3]\n")
 }
 
 func PrintServerUsage() {

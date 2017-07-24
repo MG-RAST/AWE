@@ -450,12 +450,14 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&AWF_PATH, "", "Directories", "awf", "", "")
 	}
 
-	// Directories
-	c_store.AddString(&DATA_PATH, "/mnt/data/awe/data", "Directories", "data", "a file path for storing system related data (job script, cached data, etc)", "")
-	c_store.AddString(&LOGS_PATH, "/mnt/data/awe/logs", "Directories", "logs", "a path for storing logs", "")
+	if mode == "server" || mode == "worker" {
+		// Directories
+		c_store.AddString(&DATA_PATH, "/mnt/data/awe/data", "Directories", "data", "a file path for storing system related data (job script, cached data, etc)", "")
+		c_store.AddString(&LOGS_PATH, "/mnt/data/awe/logs", "Directories", "logs", "a path for storing logs", "")
 
-	// Paths
-	c_store.AddString(&PID_FILE_PATH, "", "Paths", "pidfile", "", "")
+		// Paths
+		c_store.AddString(&PID_FILE_PATH, "", "Paths", "pidfile", "", "")
+	}
 
 	if mode == "server" {
 		// Mongodb
@@ -479,9 +481,15 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddInt(&RECOVER_MAX, 0, "Server", "recover_max", "max number of jobs to recover, default (0) means recover all", "")
 	}
 
-	if mode == "client" {
-		// Client
+	if mode == "worker" || mode == "submitter" {
 		c_store.AddString(&SERVER_URL, "http://localhost:8001", "Client", "serverurl", "URL of AWE server, including API port", "")
+		c_store.AddString(&CWL_TOOL, "", "Client", "cwl_tool", "CWL CommandLineTool file", "")
+		c_store.AddString(&CWL_JOB, "", "Client", "cwl_job", "CWL job file", "")
+	}
+
+	if mode == "worker" {
+		// Client/worker
+
 		c_store.AddString(&CLIENT_GROUP, "default", "Client", "group", "name of client group", "")
 		c_store.AddString(&CLIENT_NAME, "default", "Client", "name", "default determines client name by openstack meta data", "")
 		c_store.AddString(&CLIENT_HOST, "127.0.0.1", "Client", "host", "host or ip address", "host or ip address to help finding machines where the clients runs on")
@@ -503,14 +511,13 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddBool(&CACHE_ENABLED, false, "Client", "cache_enabled", "", "")
 		c_store.AddBool(&NO_SYMLINK, false, "Client", "no_symlink", "copy files from predata to work dir, default is to create symlink", "")
 
-		c_store.AddString(&CWL_TOOL, "", "Client", "cwl_tool", "CWL CommandLineTool file", "")
-		c_store.AddString(&CWL_JOB, "", "Client", "cwl_job", "CWL job file", "")
 	}
 
 	// Docker
-	c_store.AddString(&USE_DOCKER, "yes", "Docker", "use_docker", "\"yes\", \"no\" or \"only\"", "yes: allow docker tasks, no: do not allow docker tasks, only: allow only docker tasks; if docker is not installed on the clients, choose \"no\"")
-
-	if mode == "client" {
+	if mode == "server" || mode == "worker" {
+		c_store.AddString(&USE_DOCKER, "yes", "Docker", "use_docker", "\"yes\", \"no\" or \"only\"", "yes: allow docker tasks, no: do not allow docker tasks, only: allow only docker tasks; if docker is not installed on the clients, choose \"no\"")
+	}
+	if mode == "worker" {
 		c_store.AddString(&DOCKER_BINARY, "API", "Docker", "docker_binary", "docker binary to use, default is the docker API (API recommended)", "")
 		c_store.AddInt(&MEM_CHECK_INTERVAL_SECONDS, 0, "Docker", "mem_check_interval_seconds", "memory check interval in seconds (kernel needs to support that)", "0 seconds means disabled")
 		c_store.AddString(&CGROUP_MEMORY_DOCKER_DIR, "/sys/fs/cgroup/memory/docker/[ID]/memory.stat", "Docker", "cgroup_memory_docker_dir", "path to cgroup directory for docker", "")
@@ -524,16 +531,20 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&APP_REGISTRY_URL, "https://raw.githubusercontent.com/MG-RAST/Skyport/master/app_definitions/", "Docker", "app_registry_url", "URL for app defintions", "")
 	}
 
-	//Proxy
-	c_store.AddInt(&P_SITE_PORT, 8082, "Proxy", "p-site-port", "", "")
-	c_store.AddInt(&P_API_PORT, 8002, "Proxy", "p-api-port", "", "")
+	if mode == "server" || mode == "worker" {
+		//Proxy
+		c_store.AddInt(&P_SITE_PORT, 8082, "Proxy", "p-site-port", "", "")
+		c_store.AddInt(&P_API_PORT, 8002, "Proxy", "p-api-port", "", "")
 
-	//Other
-	c_store.AddInt(&ERROR_LENGTH, 5000, "Other", "errorlength", "amount of App STDERR to save in Job.Error", "")
-	c_store.AddBool(&DEV_MODE, false, "Other", "dev", "dev or demo mode, print some msgs on screen", "")
+		//Other
+		c_store.AddInt(&ERROR_LENGTH, 5000, "Other", "errorlength", "amount of App STDERR to save in Job.Error", "")
+		c_store.AddBool(&DEV_MODE, false, "Other", "dev", "dev or demo mode, print some msgs on screen", "")
+
+		c_store.AddString(&CONFIG_FILE, "", "Other", "conf", "path to config file", "")
+		c_store.AddString(&LOG_OUTPUT, "console", "Other", "logoutput", "log output stream, one of: file, console, both", "")
+
+	}
 	c_store.AddInt(&DEBUG_LEVEL, 0, "Other", "debuglevel", "debug level: 0-3", "")
-	c_store.AddString(&CONFIG_FILE, "", "Other", "conf", "path to config file", "")
-	c_store.AddString(&LOG_OUTPUT, "console", "Other", "logoutput", "log output stream, one of: file, console, both", "")
 	c_store.AddBool(&SHOW_VERSION, false, "Other", "version", "show version", "")
 	c_store.AddBool(&SHOW_GIT_COMMIT_HASH, false, "Other", "show_git_commit_hash", "", "")
 	c_store.AddBool(&PRINT_HELP, false, "Other", "fullhelp", "show detailed usage without \"--\"-prefixes", "")
@@ -595,7 +606,7 @@ func Init_conf(mode string) (err error) {
 	}
 
 	// configuration post processing
-	if mode == "client" {
+	if mode == "worker" {
 		if CLIENT_NAME == "" || CLIENT_NAME == "default" || CLIENT_NAME == "hostname" {
 			hostname, err := os.Hostname()
 			if err == nil {
@@ -671,7 +682,7 @@ func Init_conf(mode string) (err error) {
 		}
 	}
 	if !vaildLogout {
-		return errors.New("invalid option for logoutput, use one of: file, console, both")
+		return fmt.Errorf("\"%s\" is invalid option for logoutput, use one of: file, console, both", LOG_OUTPUT)
 	}
 
 	WORK_PATH, _ = filepath.Abs(WORK_PATH)

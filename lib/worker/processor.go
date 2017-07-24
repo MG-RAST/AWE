@@ -12,6 +12,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/golib/httpclient"
 	//"github.com/davecgh/go-spew/spew"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/fsouza/go-dockerclient"
 	"io"
 	"io/ioutil"
@@ -206,7 +207,8 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 			err = xerr
 			return
 		}
-
+		fmt.Println("CWL-runner receipt:")
+		spew.Dump(result_doc)
 		workunit.CWL.Tool_results = result_doc
 
 	}

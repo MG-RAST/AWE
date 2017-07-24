@@ -19,7 +19,7 @@ func main() {
 
 	// workstealer -> dataMover (download from Shock) -> processor -> deliverer (upload to Shock)
 
-	err := conf.Init_conf("client")
+	err := conf.Init_conf("worker")
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: error reading conf file: "+err.Error())
@@ -128,34 +128,6 @@ func main() {
 
 		fmt.Println("Job input:")
 		spew.Dump(*job_doc)
-
-		// for name, thing := range *job_doc {
-		//
-		// 			array, is_array := thing.(cwl_types.CWL_array_type)
-		//
-		// 			fmt.Println(name)
-		// 			if is_array {
-		//
-		// 				for _, element := range *array.Get_Array() {
-		// 					switch element.(type) {
-		// 					case *cwl_types.File:
-		// 						file, ok := element.(*cwl_types.File)
-		// 						if !ok {
-		// 							panic("not file")
-		// 						}
-		// 						fmt.Printf("%+v\n", *file)
-		//
-		// 						if file.Location != "" { // this is an IRI (URI)
-		// 							// TODO: do something !!! download
-		//
-		// 						}
-		//
-		// 					default:
-		// 						spew.Dump(element)
-		// 					}
-		// 				}
-		// 			}
-		// 		}
 
 		os.Getwd() //https://golang.org/pkg/os/#Getwd
 

@@ -5,6 +5,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -39,7 +40,7 @@ type Workunit struct {
 	Client       string            `bson:"client" json:"client"`
 	ComputeTime  int               `bson:"computetime" json:"computetime"`
 	ExitStatus   int               `bson:"exitstatus" json:"exitstatus"` // Linux Exit Status Code (0 is success)
-	Notes        string            `bson:"notes" json:"notes"`
+	Notes        []string          `bson:"notes" json:"notes"`
 	UserAttr     map[string]string `bson:"userattr" json:"userattr"`
 	WorkPath     string            // this is the working directory. If empty, it will be computed.
 	WorkPerf     *WorkPerf
@@ -146,7 +147,6 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 func (work *Workunit) Mkdir() (err error) {
 	// delete workdir just in case it exists; will not work if awe-worker is not in docker container AND tasks are in container
 	os.RemoveAll(work.Path())
-
 	err = os.MkdirAll(work.Path(), 0777)
 	if err != nil {
 		return
@@ -163,27 +163,34 @@ func (work *Workunit) RemoveDir() (err error) {
 }
 
 func (work *Workunit) SetState(new_state string) {
-
 	work.State = new_state
-
 	if new_state != WORK_STAT_CHECKOUT {
 		work.Client = ""
 	}
-
 }
 
 func (work *Workunit) Path() string {
-
 	if work.WorkPath == "" {
 		id := work.Id
 		work.WorkPath = fmt.Sprintf("%s/%s/%s/%s/%s", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id)
 	}
-
 	return work.WorkPath
 }
 
 func (work *Workunit) CDworkpath() (err error) {
 	return os.Chdir(work.Path())
+}
+
+func (work *Workunit) GetNotes() string {
+	var seen map[string]bool
+	var uniq []string
+	for _, n := range work.Notes {
+		if _, ok := seen[n]; !ok {
+			uniq = append(uniq, n)
+			seen[n] = true
+		}
+	}
+	return strings.Join(uniq, "###")
 }
 
 //calculate the range of data part

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,8 +14,6 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"io"
 	"io/ioutil"
-	//"net/url"
-	"bytes"
 	"os"
 	"os/exec"
 	"path"
@@ -100,7 +99,7 @@ func processor(control chan int) {
 			envkeys, err = SetEnv(workunit)
 			if err != nil {
 				logger.Error("(processor) SetEnv(): workid=" + workunit.Id + ", " + err.Error())
-				workunit.Notes += "###[processor#SetEnv]" + err.Error()
+				workunit.Notes = append(workunit.Notes, "[processor#SetEnv]"+err.Error())
 				workunit.SetState(core.WORK_STAT_ERROR)
 				//release the permit lock, for work overlap inhibitted mode only
 				//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
@@ -116,7 +115,7 @@ func processor(control chan int) {
 		logger.Debug(1, "(processor) ExitStatus of process: %d", exit_status)
 		if err != nil {
 			logger.Error("(processor) returned error , workid=" + workunit.Id + ", " + err.Error())
-			workunit.Notes += " ###[processor#RunWorkunit]" + err.Error()
+			workunit.Notes = append(workunit.Notes, "[processor#RunWorkunit]"+err.Error())
 
 			if exit_status == 42 {
 				workunit.SetState(core.WORK_STAT_FAILED_PERMANENT) // process told us that is an error where resubmission does not make sense.

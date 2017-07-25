@@ -65,7 +65,7 @@ func deliverer_run(control chan int) {
 		if err != nil {
 			workunit.SetState(core.WORK_STAT_ERROR)
 			logger.Error("[deliverer#UploadOutputData]workid=" + work_id + ", err=" + err.Error())
-			workunit.Notes += " ###[deliverer#UploadOutputData]" + err.Error()
+			workunit.Notes = append(workunit.Notes, "[deliverer#UploadOutputData]"+err.Error())
 		} else {
 			workunit.SetState(core.WORK_STAT_DONE)
 			perfstat.OutFileSize = data_moved
@@ -85,7 +85,7 @@ func deliverer_run(control chan int) {
 		response, err := core.NotifyWorkunitProcessedWithLogs(workunit, perfstat, conf.PRINT_APP_MSG)
 		if err != nil {
 			logger.Error("[deliverer: workid=" + work_id + ", err=" + err.Error())
-			workunit.Notes += " ###[deliverer:]" + err.Error()
+			workunit.Notes = append(workunit.Notes, "[deliverer]"+err.Error())
 			// keep retry
 		} else {
 

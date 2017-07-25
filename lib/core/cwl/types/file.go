@@ -4,7 +4,7 @@ import (
 	"fmt"
 	//"github.com/davecgh/go-spew/spew"
 	"github.com/MG-RAST/AWE/lib/shock"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"net/url"
 	"strings"
@@ -55,10 +55,10 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 		return
 	}
 
-	fmt.Println("MakeFile input:")
-	spew.Dump(obj)
-	fmt.Println("MakeFile output:")
-	fmt.Printf("%+v\n", file)
+	//fmt.Println("MakeFile input:")
+	//spew.Dump(obj)
+	//fmt.Println("MakeFile output:")
+	//fmt.Printf("%+v\n", file)
 
 	if file.Location != "" {
 

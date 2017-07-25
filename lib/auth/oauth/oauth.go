@@ -1,6 +1,6 @@
 // Package globus implements MG-RAST OAuth authentication
 //(code is modified from github.com/MG-RAST/Shock/shock-server/auth/mgrast)
-package mgrast
+package oauth
 
 import (
 	"crypto/tls"
@@ -8,7 +8,6 @@ import (
 	"errors"
 	"github.com/MG-RAST/AWE/lib/conf"
 	e "github.com/MG-RAST/AWE/lib/errors"
-	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/user"
 	"io/ioutil"
 	"net/http"
@@ -21,6 +20,7 @@ type resErr struct {
 
 type credentials struct {
 	Uname string `json:"login"`
+	Name  string `json:"name"`
 	Fname string `json:"firstname"`
 	Lname string `json:"lastname"`
 	Email string `json:"email"`
@@ -34,29 +34,35 @@ func authHeaderType(header string) string {
 	return ""
 }
 
-// Auth takes the request authorization header and returns
-// user
+// Auth takes the request authorization header and returns user
+// bearer token "oauth" returns default url (first item in auth_oauth_url conf value)
 func Auth(header string) (*user.User, error) {
-	switch authHeaderType(header) {
-	case "mgrast", "oauth":
-		return authToken(strings.Split(header, " ")[1])
-	case "basic":
-		return nil, errors.New("This authentication method does not support username/password authentication. Please use MG-RAST your token.")
-	default:
-		return nil, errors.New("Invalid authentication header.")
+	bearer := authHeaderType(header)
+	if bearer == "" {
+		return nil, errors.New("Invalid authentication header, missing bearer token.")
+	}
+	oauth_url, found_url := conf.AUTH_OAUTH[bearer]
+	if bearer == "basic" {
+		return nil, errors.New("This authentication method does not support username/password authentication. Please use your OAuth token.")
+	} else if bearer == "oauth" {
+		return authToken(strings.Split(header, " ")[1], conf.OAUTH_DEFAULT)
+	} else if found_url {
+		return authToken(strings.Split(header, " ")[1], oauth_url)
+	} else {
+		return nil, errors.New("Invalid authentication header, unknown bearer token: " + bearer)
 	}
 }
 
 // authToken validiates token by fetching user information.
-func authToken(t string) (u *user.User, err error) {
+func authToken(token string, url string) (u *user.User, err error) {
 	client := &http.Client{
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	}
-	req, err := http.NewRequest("GET", conf.MGRAST_OAUTH_URL, nil)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("HTTP GET: " + err.Error())
 	}
-	req.Header.Add("Auth", t)
+	req.Header.Add("Auth", token)
 	if resp, err := client.Do(req); err == nil {
 		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
@@ -64,25 +70,27 @@ func authToken(t string) (u *user.User, err error) {
 				u = &user.User{}
 				c := &credentials{}
 				if err = json.Unmarshal(body, &c); err != nil {
-					return nil, err
+					return nil, errors.New("JSON Unmarshal: " + err.Error())
 				} else {
 					if c.Uname == "" {
 						return nil, errors.New(e.InvalidAuth)
 					}
 					u.Username = c.Uname
-					u.Fullname = c.Fname + " " + c.Lname
+					if c.Name != "" {
+						u.Fullname = c.Name
+					} else {
+						u.Fullname = c.Fname + " " + c.Lname
+					}
 					u.Email = c.Email
 					if err = u.SetMongoInfo(); err != nil {
-						return nil, err
+						return nil, errors.New("MongoDB: " + err.Error())
 					}
 				}
 			}
 		} else if resp.StatusCode == http.StatusForbidden {
 			return nil, errors.New(e.InvalidAuth)
 		} else {
-			err_str := "(mgrast/authToken) Authentication failed: Unexpected response status: " + resp.Status
-			logger.Error(err_str)
-			return nil, errors.New(err_str)
+			return nil, errors.New("Authentication failed: Unexpected response status: " + resp.Status)
 		}
 	} else {
 		return nil, err

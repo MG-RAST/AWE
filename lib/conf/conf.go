@@ -4,14 +4,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/MG-RAST/golib/goconfig/config"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/MG-RAST/golib/goconfig/config"
 )
 
 const VERSION string = "0.9.48"
@@ -23,6 +22,9 @@ const DB_COLL_JOBS string = "Jobs"
 const DB_COLL_PERF string = "Perf"
 const DB_COLL_CGS string = "ClientGroups"
 const DB_COLL_USERS string = "Users"
+
+//prefix for site login
+const LOGIN_PREFIX string = "go4711"
 
 //default index type used for intermediate data
 const DEFAULT_INDEX string = "chunkrecord"
@@ -87,12 +89,11 @@ var (
 
 	// Auth
 	BASIC_AUTH         bool
-	GLOBUS_OAUTH       bool
-	MGRAST_OAUTH       bool
 	GLOBUS_TOKEN_URL   string
 	GLOBUS_PROFILE_URL string
-	MGRAST_OAUTH_URL   string
-	MGRAST_LOGIN_URL   string
+	OAUTH_URL_STR      string
+	OAUTH_BEARER_STR   string
+	SITE_LOGIN_URL     string
 	CLIENT_AUTH_REQ    bool
 	CLIENT_GROUP_TOKEN string
 
@@ -176,9 +177,16 @@ var (
 	PIPELINE_EXPIRE_MAP = make(map[string]string)
 
 	// used to track admin users
-	Admin_Users    = make(map[string]bool)
-	AUTH_RESOURCES = make(map[string]AuthResource)
-	AUTH_DEFAULT   string
+	Admin_Users = make(map[string]bool)
+
+	// used for login
+	LOGIN_RESOURCES = make(map[string]LoginResource)
+	LOGIN_DEFAULT   string
+
+	// used to map bearer token to oauth url
+	AUTH_OAUTH    = make(map[string]string)
+	HAS_OAUTH     bool
+	OAUTH_DEFAULT string // first value in OAUTH_URL_STR
 
 	// internal config control
 	FAKE_VAR = false
@@ -250,7 +258,7 @@ type Config_store struct {
 	Con   *config.Config
 }
 
-type AuthResource struct {
+type LoginResource struct {
 	Icon      string `json:"icon"`
 	Prefix    string `json:"prefix"`
 	Keyword   string `json:"keyword"`
@@ -402,12 +410,8 @@ func get_my_config_bool(c *config.Config, f *flag.FlagSet, val *Config_value_boo
 }
 
 // wolfgang: I started to change it such that config values are only written when defined in the config file
-func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err error) {
+func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 	c_store = NewCS(c)
-	// examples:
-	// c_store.AddString(&VARIABLE, "", "section", "key", "", "")
-	// c_store.AddInt(&VARIABLE, 0, "section", "key", "", "")
-	// c_store.AddBool(&VARIABLE, false, "section", "key", "", "")
 
 	if mode == "server" {
 		// Ports
@@ -437,8 +441,9 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddBool(&BASIC_AUTH, false, "Auth", "basic", "", "")
 		c_store.AddString(&GLOBUS_TOKEN_URL, "", "Auth", "globus_token_url", "", "")
 		c_store.AddString(&GLOBUS_PROFILE_URL, "", "Auth", "globus_profile_url", "", "")
-		c_store.AddString(&MGRAST_OAUTH_URL, "", "Auth", "mgrast_oauth_url", "", "")
-		c_store.AddString(&MGRAST_LOGIN_URL, "", "Auth", "mgrast_login_url", "", "")
+		c_store.AddString(&OAUTH_URL_STR, "", "Auth", "oauth_urls", "", "")
+		c_store.AddString(&OAUTH_BEARER_STR, "", "Auth", "oauth_bearers", "", "")
+		c_store.AddString(&SITE_LOGIN_URL, "", "Auth", "login_url", "", "")
 		c_store.AddBool(&CLIENT_AUTH_REQ, false, "Auth", "client_auth_required", "", "")
 
 		// Admin
@@ -540,8 +545,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 	c_store.AddBool(&SHOW_HELP, false, "Other", "help", "show usage", "")
 
 	c_store.Parse()
-
-	return c_store, nil
+	return
 }
 
 func Init_conf(mode string) (err error) {
@@ -556,7 +560,7 @@ func Init_conf(mode string) (err error) {
 			} else if i+1 < len(os.Args) {
 				CONFIG_FILE = os.Args[i+1]
 			} else {
-				return errors.New("ERROR: parsing command options, missing conf file")
+				return errors.New("missing conf file in command options")
 			}
 		}
 	}
@@ -565,21 +569,15 @@ func Init_conf(mode string) (err error) {
 	if CONFIG_FILE != "" {
 		c, err = config.ReadDefault(CONFIG_FILE)
 		if err != nil {
-			return errors.New("ERROR: error reading conf file: " + err.Error())
+			return errors.New("error reading conf file: " + err.Error())
 		}
 	}
-
-	c_store, err := getConfiguration(c, mode) // from config file and command line arguments
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: error reading conf file: %v\n", err)
-		return
-	}
+	c_store := getConfiguration(c, mode)
 
 	// ####### at this point configuration variables are set ########
 
 	if FAKE_VAR == false {
-		fmt.Fprintf(os.Stderr, "ERROR: config was not parsed\n")
-		os.Exit(1)
+		return errors.New("config was not parsed")
 	}
 	if PRINT_HELP || SHOW_HELP {
 		c_store.PrintHelp()
@@ -608,28 +606,29 @@ func Init_conf(mode string) (err error) {
 		}
 	}
 
+	// globus has some hard-coded info
 	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
-		GLOBUS_OAUTH = true
-		AUTH_DEFAULT = "KBase"
-		AUTH_RESOURCES["KBase"] = AuthResource{
-			Icon:      "KBase_favicon.ico",
-			Prefix:    "kbgo4711",
-			Keyword:   "auth",
-			Url:       MGRAST_LOGIN_URL,
-			UseHeader: false,
-			Bearer:    "OAuth",
-		}
+		NAME := "KBase"
+		HAS_OAUTH = true
+		LOGIN_DEFAULT = NAME
+		LOGIN_RESOURCES[NAME] = buildLoginResource(NAME, "globus")
 	}
-	if MGRAST_OAUTH_URL != "" {
-		MGRAST_OAUTH = true
-		AUTH_DEFAULT = "MG-RAST"
-		AUTH_RESOURCES["MG-RAST"] = AuthResource{
-			Icon:      "MGRAST_favicon.ico",
-			Prefix:    "mggo4711",
-			Keyword:   "auth",
-			Url:       MGRAST_LOGIN_URL,
-			UseHeader: false,
-			Bearer:    "mgrast",
+	// parse OAuth settings if used
+	if OAUTH_URL_STR != "" && OAUTH_BEARER_STR != "" {
+		ou := strings.Split(OAUTH_URL_STR, ",")
+		ob := strings.Split(OAUTH_BEARER_STR, ",")
+		if len(ou) != len(ob) {
+			return errors.New("number of items in oauth_urls and oauth_bearers are not the same")
+		}
+		// first entry is default for "oauth" bearer token and login
+		OAUTH_DEFAULT = ou[0]
+		LOGIN_DEFAULT = strings.ToUpper(ob[0])
+		HAS_OAUTH = true
+		// process all entries
+		for i := range ob {
+			AUTH_OAUTH[ob[i]] = ou[i]
+			NAME := strings.ToUpper(ob[i])
+			LOGIN_RESOURCES[NAME] = buildLoginResource(NAME, ob[i])
 		}
 	}
 
@@ -686,6 +685,16 @@ func Init_conf(mode string) (err error) {
 	return
 }
 
+func buildLoginResource(name string, bearer string) (login LoginResource) {
+	login.Icon = name + "_favicon.ico"
+	login.Prefix = strings.ToLower(name[0:2]) + LOGIN_PREFIX
+	login.Keyword = "auth"
+	login.Url = SITE_LOGIN_URL
+	login.UseHeader = false
+	login.Bearer = bearer
+	return
+}
+
 func parseExpiration(expire string) (valid bool, duration int, unit string) {
 	match := checkExpire.FindStringSubmatch(expire)
 	if len(match) == 0 {
@@ -713,13 +722,16 @@ func Print(service string) {
 		fmt.Printf("basic_auth:\ttrue\n")
 	}
 	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
-		fmt.Printf("globus_token_url:\t%s\nglobus_profile_url:\t%s\n", GLOBUS_TOKEN_URL, GLOBUS_PROFILE_URL)
+		fmt.Printf("type:\tglobus\ntoken_url:\t%s\nprofile_url:\t%s\n", GLOBUS_TOKEN_URL, GLOBUS_PROFILE_URL)
 	}
-	if MGRAST_OAUTH_URL != "" {
-		fmt.Printf("mgrast_oauth_url:\t%s\n", MGRAST_OAUTH_URL)
+	if len(AUTH_OAUTH) > 0 {
+		fmt.Printf("type:\toauth\n")
+		for b, u := range AUTH_OAUTH {
+			fmt.Printf("bearer: %s\turl: %s\n", b, u)
+		}
 	}
-	if MGRAST_LOGIN_URL != "" {
-		fmt.Printf("mgrast_login_url:\t%s\n", MGRAST_LOGIN_URL)
+	if SITE_LOGIN_URL != "" {
+		fmt.Printf("login_url:\t%s\n", SITE_LOGIN_URL)
 	}
 	if len(Admin_Users) > 0 {
 		fmt.Printf("admin_auth:\ttrue\nadmin_users:\t")

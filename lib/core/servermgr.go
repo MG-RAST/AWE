@@ -47,7 +47,7 @@ func NewServerMgr() *ServerMgr {
 			clientMap:    *NewClientMap(),
 			workQueue:    NewWorkQueue(),
 			suspendQueue: false,
-			coReq:        make(chan CoReq),
+			coReq:        make(chan CoReq, 10),
 			//coAck:        make(chan CoAck),
 			feedback: make(chan Notice),
 			coSem:    make(chan int, 1), //non-blocking buffered channel

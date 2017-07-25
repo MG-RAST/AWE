@@ -47,10 +47,11 @@ func NewServerMgr() *ServerMgr {
 			clientMap:    *NewClientMap(),
 			workQueue:    NewWorkQueue(),
 			suspendQueue: false,
-			coReq:        make(chan CoReq),
+			coReq:        make(chan CoReq, 10), // number of clients that wait in queue to get a workunit. If queue is full, other client will be rejected and have to come back later again
 			//coAck:        make(chan CoAck),
-			feedback: make(chan Notice),
-			coSem:    make(chan int, 1), //non-blocking buffered channel
+			feedback:     make(chan Notice),
+			coSem:        make(chan int, 1), //non-blocking buffered channel
+			requestQueue: NewRequestQueue(),
 		},
 		//TaskMap: map[string]*Task{},
 		lastUpdate: time.Now().Add(time.Second * -30),
@@ -96,10 +97,22 @@ func (qm *ServerMgr) ClientHandle() {
 	logger.Info("(ServerMgr ClientHandle) starting")
 	count := 0
 
+	time.Sleep(3 * time.Second)
+
 	for {
 		//select {
 		//case coReq := <-qm.coReq
-		coReq := <-qm.coReq
+		//logger.Debug(3, "(ServerMgr ClientHandle) try to pull work request")
+		//coReq, err := qm.requestQueue.Pull()
+		//for err != nil {
+		//	time.Sleep(50 * time.Millisecond) // give clients time to put in requests or get a response
+		//	time.Sleep(3 * time.Second)
+		//	coReq, err = qm.requestQueue.Pull()
+		//	logger.Debug(3, "(ServerMgr ClientHandle) waiting")
+		//}
+		//logger.Debug(3, "(ServerMgr ClientHandle) got work request")
+
+		coReq := <-qm.coReq //written to in cqmgr.go
 		count += 1
 		request_start_time := time.Now()
 		logger.Debug(3, "(ServerMgr ClientHandle) workunit checkout request received from client %s, Req=%v", coReq.fromclient, coReq)

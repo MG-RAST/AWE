@@ -3,6 +3,7 @@ package cwl
 import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
+	"reflect"
 )
 
 // http://www.commonwl.org/draft-3/CommandLineTool.html#CWLType
@@ -196,7 +197,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 	default:
 		spew.Dump(native)
-		err = fmt.Errorf("(NewCWLType) Type unknown")
+		err = fmt.Errorf("(NewCWLType) Type unknown: \"%s\"", reflect.TypeOf(native))
 		return
 	}
 	//cwl_type_ptr = &cwl_type

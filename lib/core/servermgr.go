@@ -1413,7 +1413,9 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 			// POST empty shock node for this output
 			logger.Debug(2, "posting output Shock node for file %s in task %s", name, task.Id)
 			var nodeid string
-			nodeid, err = PostNodeWithToken(io, task.TotalWork, task.Info.DataToken)
+
+			sc := shock.ShockClient{Host: io.Host, Token: task.Info.DataToken}
+			nodeid, err = sc.PostNodeWithToken(io.FileName, task.TotalWork)
 			if err != nil {
 				err = fmt.Errorf("PostNodeWithToken in createOutputNode failed: %v", err)
 				return

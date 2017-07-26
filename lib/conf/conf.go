@@ -177,7 +177,7 @@ var (
 	PIPELINE_EXPIRE_MAP = make(map[string]string)
 
 	// used to track admin users
-	Admin_Users = make(map[string]bool)
+	AdminUsers = []string{}
 
 	// used for login
 	LOGIN_RESOURCES = make(map[string]LoginResource)
@@ -634,7 +634,7 @@ func Init_conf(mode string) (err error) {
 
 	if ADMIN_USERS_VAR != "" {
 		for _, name := range strings.Split(ADMIN_USERS_VAR, ",") {
-			Admin_Users[strings.TrimSpace(name)] = true
+			AdminUsers = append(AdminUsers, strings.TrimSpace(name))
 		}
 	}
 
@@ -673,12 +673,13 @@ func Init_conf(mode string) (err error) {
 		return errors.New("invalid option for logoutput, use one of: file, console, both")
 	}
 
-	WORK_PATH, _ = filepath.Abs(WORK_PATH)
-	APP_PATH, _ = filepath.Abs(APP_PATH)
-	SITE_PATH, _ = filepath.Abs(SITE_PATH)
-	DATA_PATH, _ = filepath.Abs(DATA_PATH)
-	LOGS_PATH, _ = filepath.Abs(LOGS_PATH)
-	AWF_PATH, _ = filepath.Abs(AWF_PATH)
+	SITE_PATH = cleanPath(SITE_PATH)
+	DATA_PATH = cleanPath(DATA_PATH)
+	LOGS_PATH = cleanPath(LOGS_PATH)
+	WORK_PATH = cleanPath(WORK_PATH)
+	APP_PATH = cleanPath(APP_PATH)
+	AWF_PATH = cleanPath(AWF_PATH)
+	PID_FILE_PATH = cleanPath(PID_FILE_PATH)
 
 	VERSIONS["Job"] = 2
 
@@ -714,9 +715,10 @@ func parseExpiration(expire string) (valid bool, duration int, unit string) {
 }
 
 func Print(service string) {
-	fmt.Printf("##### Admin #####\nemail:\t%s\n\n", ADMIN_EMAIL)
+	fmt.Printf("##### Admin #####\nemail:\t%s\nusers:\t%s\n\n", ADMIN_EMAIL, ADMIN_USERS_VAR)
 	fmt.Printf("####### Anonymous ######\nread:\t%t\nwrite:\t%t\ndelete:\t%t\n", ANON_READ, ANON_WRITE, ANON_DELETE)
 	fmt.Printf("clientgroup read:\t%t\nclientgroup write:\t%t\nclientgroup delete:\t%t\n\n", ANON_CG_READ, ANON_CG_WRITE, ANON_CG_DELETE)
+
 	fmt.Printf("##### Auth #####\n")
 	if BASIC_AUTH {
 		fmt.Printf("basic_auth:\ttrue\n")
@@ -733,14 +735,7 @@ func Print(service string) {
 	if SITE_LOGIN_URL != "" {
 		fmt.Printf("login_url:\t%s\n", SITE_LOGIN_URL)
 	}
-	if len(Admin_Users) > 0 {
-		fmt.Printf("admin_auth:\ttrue\nadmin_users:\t")
-		for name, _ := range Admin_Users {
-			fmt.Printf("%s ", name)
-		}
-		fmt.Printf("\n")
-	}
-	fmt.Printf("\n")
+	fmt.Println()
 
 	if service == "server" {
 		fmt.Printf("##### Expiration #####\nexpire_wait:\t%d minutes\n", EXPIRE_WAIT)
@@ -759,10 +754,10 @@ func Print(service string) {
 				_, duration, unit := parseExpiration(expire)
 				fmt.Printf("\n\t%s:\t%d %s", name, duration, unit)
 			}
-			fmt.Printf("\n")
+			fmt.Println()
 		}
+		fmt.Println()
 	}
-	fmt.Printf("\n")
 
 	fmt.Printf("##### Directories #####\nsite:\t%s\ndata:\t%s\nlogs:\t%s\n", SITE_PATH, DATA_PATH, LOGS_PATH)
 	if service == "server" {
@@ -777,14 +772,21 @@ func Print(service string) {
 	}
 
 	if service == "server" {
-		fmt.Printf("##### Mongodb #####\nhost(s):\t%s\ndatabase:\t%s\ntimeout:\t%d\n", MONGODB_HOST, MONGODB_DATABASE, MONGODB_TIMEOUT)
+		fmt.Printf("##### Mongodb #####\nhost(s):\t%s\ndatabase:\t%s\ntimeout:\t%d\n\n", MONGODB_HOST, MONGODB_DATABASE, MONGODB_TIMEOUT)
 	}
-	fmt.Println()
+
 	if service == "server" {
 		fmt.Printf("##### Ports #####\nsite:\t%d\napi:\t%d\n\n", SITE_PORT, API_PORT)
 	} else if service == "proxy" {
 		fmt.Printf("##### Ports #####\nsite:\t%d\napi:\t%d\n\n", P_SITE_PORT, P_API_PORT)
 	}
+}
+
+func cleanPath(p string) string {
+	if p != "" {
+		p, _ = filepath.Abs(p)
+	}
+	return p
 }
 
 func PrintClientCfg() {

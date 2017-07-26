@@ -42,7 +42,7 @@ func authHeaderType(header string) string {
 func Auth(header string) (usr *user.User, err error) {
 	bearer := authHeaderType(header)
 	if bearer == "" {
-		return nil, errors.New("Invalid authentication header, missing bearer token.")
+		return nil, errors.New("(globus) Invalid authentication header, missing bearer token.")
 	}
 	if bearer == "basic" {
 		if username, password, err := basic.DecodeHeader(header); err == nil {
@@ -57,7 +57,7 @@ func Auth(header string) (usr *user.User, err error) {
 	} else if (bearer == "globus-goauthtoken") || (bearer == "globus") || (bearer == "goauth") {
 		return fetchProfile(strings.Split(header, " ")[1])
 	} else {
-		return nil, errors.New("Invalid authentication header, unknown bearer token: " + bearer)
+		return nil, errors.New("(globus) Invalid authentication header, unknown bearer token: " + bearer)
 	}
 }
 
@@ -68,7 +68,7 @@ func fetchToken(u string, p string) (t *token, err error) {
 	}
 	req, err := http.NewRequest("GET", conf.GLOBUS_TOKEN_URL, nil)
 	if err != nil {
-		return nil, errors.New("HTTP GET: " + err.Error())
+		return nil, errors.New("(globus) HTTP GET: " + err.Error())
 	}
 	req.SetBasicAuth(u, p)
 	if resp, err := client.Do(req); err == nil {
@@ -76,14 +76,14 @@ func fetchToken(u string, p string) (t *token, err error) {
 		if resp.StatusCode == http.StatusCreated {
 			if body, err := ioutil.ReadAll(resp.Body); err == nil {
 				if err = json.Unmarshal(body, &t); err != nil {
-					return nil, errors.New("JSON Unmarshal: " + err.Error())
+					return nil, errors.New("(globus) JSON Unmarshal: " + err.Error())
 				}
 			}
 		} else {
-			return nil, errors.New("Authentication failed: Unexpected response status: " + resp.Status)
+			return nil, errors.New("(globus) Authentication failed: Unexpected response status: " + resp.Status)
 		}
 	} else {
-		return nil, err
+		return nil, errors.New("(globus) " + err.Error())
 	}
 	return
 }
@@ -95,11 +95,11 @@ func fetchProfile(t string) (u *user.User, err error) {
 	}
 	cid, err := clientId(t)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("(globus) " + err.Error())
 	}
 	req, err := http.NewRequest("GET", conf.GLOBUS_PROFILE_URL+"/"+cid, nil)
 	if err != nil {
-		return nil, errors.New("HTTP GET: " + err.Error())
+		return nil, errors.New("(globus) HTTP GET: " + err.Error())
 	}
 	req.Header.Add("Authorization", "Globus-Goauthtoken "+t)
 	if resp, err := client.Do(req); err == nil {
@@ -108,23 +108,23 @@ func fetchProfile(t string) (u *user.User, err error) {
 			if body, err := ioutil.ReadAll(resp.Body); err == nil {
 				u = &user.User{}
 				if err = json.Unmarshal(body, &u); err != nil {
-					return nil, errors.New("JSON Unmarshal: " + err.Error())
+					return nil, errors.New("(globus) JSON Unmarshal: " + err.Error())
 				} else {
 					if u.Username == "" {
-						return nil, errors.New(e.InvalidAuth)
+						return nil, errors.New("(globus) " + e.InvalidAuth)
 					}
 					if err = u.SetMongoInfo(); err != nil {
-						return nil, errors.New("MongoDB: " + err.Error())
+						return nil, errors.New("(globus) MongoDB: " + err.Error())
 					}
 				}
 			}
 		} else if resp.StatusCode == http.StatusForbidden {
-			return nil, errors.New(e.InvalidAuth)
+			return nil, errors.New("(globus) " + e.InvalidAuth)
 		} else {
-			return nil, errors.New("Authentication failed: Unexpected response status: " + resp.Status)
+			return nil, errors.New("(globus) Authentication failed: Unexpected response status: " + resp.Status)
 		}
 	} else {
-		return nil, err
+		return nil, errors.New("(globus) " + err.Error())
 	}
 	return
 }
@@ -143,7 +143,7 @@ func clientId(t string) (c string, err error) {
 	}
 	req, err := http.NewRequest("GET", conf.GLOBUS_TOKEN_URL, nil)
 	if err != nil {
-		return "", errors.New("HTTP GET: " + err.Error())
+		return "", errors.New("(globus) HTTP GET: " + err.Error())
 	}
 	req.Header.Add("X-Globus-Goauthtoken", t)
 	if resp, err := client.Do(req); err == nil {
@@ -152,18 +152,18 @@ func clientId(t string) (c string, err error) {
 			if body, err := ioutil.ReadAll(resp.Body); err == nil {
 				var dat map[string]interface{}
 				if err = json.Unmarshal(body, &dat); err != nil {
-					return "", errors.New("JSON Unmarshal: " + err.Error())
+					return "", errors.New("(globus) JSON Unmarshal: " + err.Error())
 				} else {
 					return dat["client_id"].(string), nil
 				}
 			}
 		} else if resp.StatusCode == http.StatusForbidden {
-			return "", errors.New(e.InvalidAuth)
+			return "", errors.New("(globus) " + e.InvalidAuth)
 		} else {
-			return "", errors.New("Authentication failed: Unexpected response status: " + resp.Status)
+			return "", errors.New("(globus) Authentication failed: Unexpected response status: " + resp.Status)
 		}
 	} else {
-		return "", err
+		return "", errors.New("(globus) " + err.Error())
 	}
 	return
 }

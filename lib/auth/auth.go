@@ -9,8 +9,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/user"
-	"github.com/MG-RAST/Shock/shock-server/logger"
 )
 
 // authCache is a
@@ -29,7 +29,6 @@ func Initialize() {
 }
 
 func Authenticate(header string) (u *user.User, err error) {
-	var lastErr error
 	if u = authCache.lookup(header); u != nil {
 		return u, nil
 	} else {
@@ -40,13 +39,10 @@ func Authenticate(header string) (u *user.User, err error) {
 				return u, nil
 			}
 			if err != nil {
-				lastErr = err
+				// log actual error, return consistant invalid auth to user
+				logger.Error("Err@auth.Authenticate: " + err.Error())
 			}
 		}
-	}
-	// log actual error, return consistant invalid auth to user
-	if lastErr != nil {
-		logger.Error("Err@auth.Authenticate: " + lastErr.Error())
 	}
 	return nil, errors.New(e.InvalidAuth)
 }

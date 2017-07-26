@@ -38,15 +38,15 @@ func Initialize() (err error) {
 		return err
 	}
 
-	// This config parameter contains a string that should be a comma-separated list of users that are Admins.
-	for k, _ := range conf.Admin_Users {
-		if k != "" {
-			if info, err := c.UpdateAll(bson.M{"username": k}, bson.M{"$set": bson.M{"admin": true}}); err != nil {
+	// process list of amin users from config, create those that are missing
+	for _, v := range conf.AdminUsers {
+		info, err := c.UpdateAll(bson.M{"username": v}, bson.M{"$set": bson.M{"admin": true}})
+		if err != nil {
+			return err
+		}
+		if info.Updated == 0 {
+			if _, err := New(v, "", true); err != nil {
 				return err
-			} else if info.Updated == 0 {
-				if _, err := New(k, "", true); err != nil {
-					return err
-				}
 			}
 		}
 	}
@@ -101,8 +101,8 @@ func (u *User) SetMongoInfo() (err error) {
 		// this is a new user
 		u.Uuid = uuid.New()
 		// check if user is on admin list, if so set as true
-		for k, _ := range conf.Admin_Users {
-			if k == u.Username {
+		for _, v := range conf.AdminUsers {
+			if v == u.Username {
 				u.Admin = true
 				break
 			}

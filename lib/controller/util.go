@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
-	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/golib/goweb"
 	"io"
 	"math/rand"
@@ -105,23 +103,51 @@ func SiteDir(cx *goweb.Context) {
 	}
 }
 
+const (
+	longDateForm = "2006-01-02T15:04:05-07:00"
+)
+
+type anonymous struct {
+	Read   bool `json:"read"`
+	Write  bool `json:"write"`
+	Delete bool `json:"delete"`
+}
+
 type resource struct {
-	R             []string `json:"resources"`
-	F             []string `json:"info_indexes"`
-	U             string   `json:"url"`
-	D             string   `json:"documentation"`
-	Title         string   `json:"title"` // title to show in AWE monitor
-	C             string   `json:"contact"`
-	I             string   `json:"id"`
-	T             string   `json:"type"`
-	S             string   `json:"queue_status"`
-	V             string   `json:"version"`
-	Time          string   `json:"server_time"`
-	GitCommitHash string   `json:"git_commit_hash"`
+	R             []string  `json:"resources"`
+	F             []string  `json:"info_indexes"`
+	U             string    `json:"url"`
+	D             string    `json:"documentation"`
+	Title         string    `json:"title"` // title to show in AWE monitor
+	C             string    `json:"contact"`
+	I             string    `json:"id"`
+	O             []string  `json:"auth"`
+	P             anonymous `json:"anonymous_permissions"`
+	T             string    `json:"type"`
+	S             string    `json:"queue_status"`
+	V             string    `json:"version"`
+	Time          string    `json:"server_time"`
+	GitCommitHash string    `json:"git_commit_hash"`
 }
 
 func ResourceDescription(cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	anonPerms := new(anonymous)
+	anonPerms.Read = conf.ANON_READ
+	anonPerms.Write = conf.ANON_WRITE
+	anonPerms.Delete = conf.ANON_DELETE
+
+	var auth []string
+	if conf.GLOBUS_TOKEN_URL != "" && conf.GLOBUS_PROFILE_URL != "" {
+		auth = append(auth, "globus")
+	}
+	if len(conf.AUTH_OAUTH) > 0 {
+		for b := range conf.AUTH_OAUTH {
+			auth = append(auth, b)
+		}
+	}
+
 	r := resource{
 		R:             []string{},
 		F:             core.JobInfoIndexes,
@@ -130,12 +156,15 @@ func ResourceDescription(cx *goweb.Context) {
 		Title:         conf.TITLE,
 		C:             conf.ADMIN_EMAIL,
 		I:             "AWE",
+		O:             auth,
+		P:             *anonPerms,
 		T:             core.Service,
 		S:             core.QMgr.QueueStatus(),
 		V:             conf.VERSION,
-		Time:          time.Now().String(),
+		Time:          time.Now().Format(longDateForm),
 		GitCommitHash: conf.GIT_COMMIT_HASH,
 	}
+
 	if core.Service == "server" {
 		r.R = []string{"job", "work", "client", "queue", "awf", "event"}
 	} else if core.Service == "proxy" {
@@ -281,22 +310,4 @@ func RespondPrivateEnvInHeader(cx *goweb.Context, Envs map[string]string) (err e
 	cx.ResponseWriter.Header().Set("Privateenv", string(env_stream[:]))
 	cx.Respond(nil, http.StatusOK, nil, cx)
 	return
-}
-
-func AdminAuthenticated(cx *goweb.Context) bool {
-	user, err := request.Authenticate(cx.Request)
-	if err != nil {
-		if err.Error() == e.NoAuth || err.Error() == e.UnAuth {
-			cx.RespondWithError(http.StatusUnauthorized)
-		} else {
-			request.AuthError(err, cx)
-		}
-		return false
-	}
-	if _, ok := conf.Admin_Users[user.Username]; !ok {
-		msg := fmt.Sprintf("user %s has no admin right", user.Username)
-		cx.RespondWithErrorMessage(msg, http.StatusBadRequest)
-		return false
-	}
-	return true
 }

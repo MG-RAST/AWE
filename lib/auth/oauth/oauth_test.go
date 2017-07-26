@@ -1,8 +1,8 @@
-package mgrast_test
+package oauth_test
 
 import (
 	"fmt"
-	. "github.com/MG-RAST/Shock/shock-server/auth/mgrast"
+	. "github.com/MG-RAST/Shock/shock-server/auth/oauth"
 	"github.com/MG-RAST/Shock/shock-server/conf"
 	"testing"
 )

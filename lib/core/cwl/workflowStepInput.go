@@ -119,7 +119,7 @@ func (input WorkflowStepInput) GetObject(c *CWL_collection) (obj *cwl_types.CWL_
 		new_string := string(input.ValueFrom)
 		evaluated_string := c.Evaluate(new_string)
 
-		cwl_obj = &cwl_types.String{Id: input.Id, Value: evaluated_string} // TODO evaluate here !!!!! get helper
+		cwl_obj = cwl_types.NewString(input.Id, evaluated_string) // TODO evaluate here !!!!! get helper
 	} else if input.Default != nil {
 		cwl_obj = input.Default
 	} else {

@@ -66,12 +66,12 @@ func launchSite(control chan int, port int) {
 	}
 	template_conf_string = strings.Replace(template_conf_string, "[% api_url %]", conf.API_URL, -1)
 
-	// add auth
+	// add login auth
 	auth_on := "false"
 	auth_resources := ""
-	if conf.GLOBUS_OAUTH || conf.MGRAST_OAUTH {
+	if conf.HAS_OAUTH {
 		auth_on = "true"
-		b, _ := json.Marshal(conf.AUTH_RESOURCES)
+		b, _ := json.Marshal(conf.LOGIN_RESOURCES)
 		b = bytes.TrimPrefix(b, []byte("{"))
 		b = bytes.TrimSuffix(b, []byte("}"))
 		auth_resources = "," + string(b)
@@ -79,7 +79,7 @@ func launchSite(control chan int, port int) {
 
 	// replace auth
 	template_conf_string = strings.Replace(template_conf_string, "[% auth_on %]", auth_on, -1)
-	template_conf_string = strings.Replace(template_conf_string, "[% auth_default %]", conf.AUTH_DEFAULT, -1)
+	template_conf_string = strings.Replace(template_conf_string, "[% auth_default %]", conf.LOGIN_DEFAULT, -1)
 	template_conf_string = strings.Replace(template_conf_string, "[% auth_resources %]", auth_resources, -1)
 
 	target_conf_file, err := os.Create(target_conf_filename)
@@ -149,17 +149,11 @@ func launchAPI(control chan int, port int) {
 
 func main() {
 
-	err := conf.Init_conf("server")
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: error reading conf file: "+err.Error())
+	if err := conf.Init_conf("server"); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: "+err.Error())
 		os.Exit(1)
 	}
 
-	//if !conf.INIT_SUCCESS {
-	//	conf.PrintServerUsage()
-	//	os.Exit(1)
-	//}
 	if conf.DEBUG_LEVEL > 0 {
 		fmt.Println("DEBUG_LEVEL > 0")
 	}

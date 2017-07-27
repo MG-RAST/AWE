@@ -5,22 +5,23 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"os"
+	"strings"
 	"time"
 )
 
 const (
-	WORK_STAT_INIT             = "init"   //initial state
-	WORK_STAT_QUEUED           = "queued" // . also: after requeue ; after failures below max ; on WorkQueue.Add()
-	WORK_STAT_RESERVED         = "reserved"
-	WORK_STAT_CHECKOUT         = "checkout" // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
-	WORK_STAT_SUSPEND          = "suspend"  // on MAX_FAILURE ; on SuspendJob
-	WORK_STAT_DONE             = "done"     // client-side, done.
-	WORK_STAT_FAILED_PERMANENT = "failed-permanent"
-	WORK_STAT_ERROR            = "fail"     // client-side, workunit computation or IO error (variable was renamed to ERROR but not the string fail, to maintain backwards compability)
-	WORK_STAT_PREPARED         = "prepared" // client-side, after argument parsing
-	WORK_STAT_COMPUTED         = "computed" // client-side, after computation is done, before upload
-	WORK_STAT_DISCARDED        = "discarded"
-	WORK_STAT_PROXYQUEUED      = "proxyqueued"
+	WORK_STAT_INIT             = "init"             // initial state
+	WORK_STAT_QUEUED           = "queued"           // after requeue ; after failures below max ; on WorkQueue.Add()
+	WORK_STAT_RESERVED         = "reserved"         // short lived state between queued and checkout
+	WORK_STAT_CHECKOUT         = "checkout"         // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
+	WORK_STAT_SUSPEND          = "suspend"          // on MAX_FAILURE ; on SuspendJob
+	WORK_STAT_FAILED_PERMANENT = "failed-permanent" // app had exit code 42
+	WORK_STAT_DONE             = "done"             // client only: done
+	WORK_STAT_ERROR            = "fail"             // client only: workunit computation or IO error (variable was renamed to ERROR but not the string fail, to maintain backwards compability)
+	WORK_STAT_PREPARED         = "prepared"         // client only: after argument parsing
+	WORK_STAT_COMPUTED         = "computed"         // client only: after computation is done, before upload
+	WORK_STAT_DISCARDED        = "discarded"        // client only: job / task suspended or server UUID changes
+	WORK_STAT_PROXYQUEUED      = "proxyqueued"      // proxy only
 )
 
 type Workunit struct {
@@ -39,7 +40,7 @@ type Workunit struct {
 	Client       string            `bson:"client" json:"client"`
 	ComputeTime  int               `bson:"computetime" json:"computetime"`
 	ExitStatus   int               `bson:"exitstatus" json:"exitstatus"` // Linux Exit Status Code (0 is success)
-	Notes        string            `bson:"notes" json:"notes"`
+	Notes        []string          `bson:"notes" json:"notes"`
 	UserAttr     map[string]string `bson:"userattr" json:"userattr"`
 	WorkPath     string            // this is the working directory. If empty, it will be computed.
 	WorkPerf     *WorkPerf
@@ -158,7 +159,6 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 func (work *Workunit) Mkdir() (err error) {
 	// delete workdir just in case it exists; will not work if awe-worker is not in docker container AND tasks are in container
 	os.RemoveAll(work.Path())
-
 	err = os.MkdirAll(work.Path(), 0777)
 	if err != nil {
 		return
@@ -175,27 +175,34 @@ func (work *Workunit) RemoveDir() (err error) {
 }
 
 func (work *Workunit) SetState(new_state string) {
-
 	work.State = new_state
-
 	if new_state != WORK_STAT_CHECKOUT {
 		work.Client = ""
 	}
-
 }
 
 func (work *Workunit) Path() string {
-
 	if work.WorkPath == "" {
 		id := work.Id
 		work.WorkPath = fmt.Sprintf("%s/%s/%s/%s/%s", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id)
 	}
-
 	return work.WorkPath
 }
 
 func (work *Workunit) CDworkpath() (err error) {
 	return os.Chdir(work.Path())
+}
+
+func (work *Workunit) GetNotes() string {
+	seen := map[string]bool{}
+	uniq := []string{}
+	for _, n := range work.Notes {
+		if _, ok := seen[n]; !ok {
+			uniq = append(uniq, n)
+			seen[n] = true
+		}
+	}
+	return strings.Join(uniq, "###")
 }
 
 //calculate the range of data part

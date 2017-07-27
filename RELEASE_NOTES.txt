@@ -1,3 +1,19 @@
+# v0.9.50
+
+- fix workunit.ExitStatus on completion
+- add coReq channel length as a config option, default 100
+- fix work discarded state
+
+# v0.9.49
+
+- support multiple oauth servers
+   - requires config file / cli option change
+   - template config files updated
+   - auth error handling fixes
+- buffer work request channel
+- more bug fixes
+- update base url
+
 # v0.9.48
 
 - golang 1.7.6

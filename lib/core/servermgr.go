@@ -30,15 +30,12 @@ type ServerMgr struct {
 	queueLock      sync.Mutex //only update one at a time
 	lastUpdate     time.Time
 	lastUpdateLock sync.RWMutex
-	//taskLock  sync.RWMutex
-	TaskMap TaskMap
-	ajLock  sync.RWMutex
-	sjLock  sync.RWMutex
-	//taskMap   map[string]*Task
-	actJobs map[string]*JobPerf
-	susJobs map[string]bool
-	taskIn  chan *Task //channel for receiving Task (JobController -> qmgr.Handler)
-	coSem   chan int   //semaphore for checkout (mutual exclusion between different clients)
+	TaskMap        TaskMap
+	taskIn         chan *Task //channel for receiving Task (JobController -> qmgr.Handler)
+	ajLock         sync.RWMutex
+	sjLock         sync.RWMutex
+	actJobs        map[string]*JobPerf
+	susJobs        map[string]bool
 }
 
 func NewServerMgr() *ServerMgr {
@@ -47,13 +44,12 @@ func NewServerMgr() *ServerMgr {
 			clientMap:    *NewClientMap(),
 			workQueue:    NewWorkQueue(),
 			suspendQueue: false,
-			coReq:        make(chan CoReq, 10), // number of clients that wait in queue to get a workunit. If queue is full, other client will be rejected and have to come back later again
-			//coAck:        make(chan CoAck),
+
+			coReq:        make(chan CoReq, conf.COREQ_LENGTH), // number of clients that wait in queue to get a workunit. If queue is full, other client will be rejected and have to come back later again
 			feedback:     make(chan Notice),
 			coSem:        make(chan int, 1), //non-blocking buffered channel
-			requestQueue: NewRequestQueue(),
+			
 		},
-		//TaskMap: map[string]*Task{},
 		lastUpdate: time.Now().Add(time.Second * -30),
 		TaskMap:    *NewTaskMap(),
 		taskIn:     make(chan *Task, 1024),
@@ -187,7 +183,7 @@ func (qm *ServerMgr) NoticeHandle() {
 		notice := <-qm.feedback
 		logger.Debug(3, "(ServerMgr NoticeHandle) got notice: workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId)
 		if err := qm.handleWorkStatusChange(notice); err != nil {
-			logger.Error("(NoticeHandle) handleWorkStatusChange() returned: " + err.Error())
+			logger.Error("(NoticeHandle): " + err.Error())
 		}
 	}
 }
@@ -425,7 +421,7 @@ func RemoveWorkFromClient(client *Client, clientid string, workid string) (err e
 	}
 
 	if work_length > 0 {
-		logger.Error("(handleWorkStatusChange) Client %s still has %d workunits, after delivering one workunit", clientid, work_length)
+		logger.Error("(RemoveWorkFromClient) Client %s still has %d workunits, after delivering one workunit", clientid, work_length)
 
 		current_work_ids, err := client.Get_current_work(true)
 		if err != nil {
@@ -440,8 +436,8 @@ func RemoveWorkFromClient(client *Client, clientid string, workid string) (err e
 			return err
 		}
 		if work_length > 0 {
-			logger.Error("(handleWorkStatusChange) Client still has work, even after everything should have been deleted.")
-			return fmt.Errorf("(handleWorkStatusChange) Client %s still has %d workunits", clientid, work_length)
+			logger.Error("(RemoveWorkFromClient) Client still has work, even after everything should have been deleted.")
+			return fmt.Errorf("(RemoveWorkFromClient) Client %s still has %d workunits", clientid, work_length)
 		}
 	}
 	return
@@ -464,17 +460,17 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 
 	remain_work, xerr := task.IncrementRemainWork(-1, true)
 	if xerr != nil {
-		err = fmt.Errorf("(handleWorkStatusChange/IncrementRemainWork) client=%s work=%s %s", clientid, workid, xerr.Error())
+		err = fmt.Errorf("(RemoveWorkFromClient:IncrementRemainWork) client=%s work=%s %s", clientid, workid, xerr.Error())
 		return
 	}
 
 	err = task.IncrementComputeTime(computetime)
 	if xerr != nil {
-		err = fmt.Errorf("(handleWorkStatusChange/IncrementComputeTime) client=%s work=%s %s", clientid, workid, xerr.Error())
+		err = fmt.Errorf("(RemoveWorkFromClient:IncrementComputeTime) client=%s work=%s %s", clientid, workid, xerr.Error())
 		return
 	}
 
-	logger.Debug(3, "(handleWorkStatusChange) remain_work: %d (%s)", remain_work, workid)
+	logger.Debug(3, "(RemoveWorkFromClient) remain_work: %d (%s)", remain_work, workid)
 
 	if remain_work > 0 {
 		return
@@ -529,7 +525,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		}
 		hasFile := output.HasFile()
 		if !hasFile {
-			err = fmt.Errorf("(handleWorkStatusChange) task %s, output %s missing shock file", task_id, output.FileName)
+			err = fmt.Errorf("(RemoveWorkFromClient) task %s, output %s missing shock file", task_id, output.FileName)
 			return
 		}
 	}
@@ -553,6 +549,12 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	notes := notice.Notes
 
 	logger.Debug(3, "(handleWorkStatusChange) workid: %s status: %s client: %s", workid, status, clientid)
+
+	// we should not get here, but if we do than end
+	if status == WORK_STAT_DISCARDED {
+		logger.Error("(handleWorkStatusChange) [warning] skip status change: workid=%s status=%s", workid, status)
+		return
+	}
 
 	parts := strings.Split(workid, "_")
 	task_id := fmt.Sprintf("%s_%s", parts[0], parts[1])
@@ -595,9 +597,6 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	// *** update state of workunit
 	if err = qm.workQueue.StatusChange("", work, status); err != nil {
 		return err
-	}
-	if len(notes) > 0 {
-		work.Notes = "msg from client: " + notes
 	}
 
 	if err = task.LockNamed("handleWorkStatusChange/noretry"); err != nil {

@@ -686,10 +686,10 @@ func getStdErrPath(work *Workunit) (stderrFilePath string, err error) {
 
 func getWorkNotesPath(work *Workunit) (worknotesFilePath string, err error) {
 	worknotesFilePath = fmt.Sprintf("%s/%s", work.Path(), conf.WORKNOTES_FILENAME)
-	if work.Notes == "" {
+	if len(work.Notes) == 0 {
 		return worknotesFilePath, errors.New("work notes empty")
 	}
-	err = ioutil.WriteFile(worknotesFilePath, []byte(work.Notes), 0644)
+	err = ioutil.WriteFile(worknotesFilePath, []byte(work.GetNotes()), 0644)
 	return
 }
 

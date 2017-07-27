@@ -2,6 +2,7 @@ package worker
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,8 +17,6 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"io"
 	"io/ioutil"
-	//"net/url"
-	"bytes"
 	"os"
 	"os/exec"
 	"path"
@@ -103,7 +102,7 @@ func processor(control chan int) {
 			envkeys, err = SetEnv(workunit)
 			if err != nil {
 				logger.Error("(processor) SetEnv(): workid=" + workunit.Id + ", " + err.Error())
-				workunit.Notes += "###[processor#SetEnv]" + err.Error()
+				workunit.Notes = append(workunit.Notes, "[processor#SetEnv]"+err.Error())
 				workunit.SetState(core.WORK_STAT_ERROR)
 				//release the permit lock, for work overlap inhibitted mode only
 				//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
@@ -119,7 +118,7 @@ func processor(control chan int) {
 		logger.Debug(1, "(processor) ExitStatus of process: %d", exit_status)
 		if err != nil {
 			logger.Error("(processor) returned error , workid=" + workunit.Id + ", " + err.Error())
-			workunit.Notes += " ###[processor#RunWorkunit]" + err.Error()
+			workunit.Notes = append(workunit.Notes, "[processor#RunWorkunit]"+err.Error())
 
 			if exit_status == 42 {
 				workunit.SetState(core.WORK_STAT_FAILED_PERMANENT) // process told us that is an error where resubmission does not make sense.
@@ -838,17 +837,17 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		return nil, errors.New("process killed as requested from chankill")
 	case cresult = <-done:
+		workunit.ExitStatus = cresult.Status
 		logger.Debug(3, "(1)docker wait returned with status %d", cresult.Status)
 		if cresult.Error != nil {
 			return nil, fmt.Errorf("dockerWait=%s, status=%d, err=%s", commandName, cresult.Status, cresult.Error.Error())
 		}
-
+		if cresult.Status != 0 {
+			logger.Debug(3, "WaitContainer returned non-zero status=%d", cresult.Status)
+			return nil, fmt.Errorf("error WaitContainer returned non-zero status=%d", cresult.Status)
+		}
 	}
 
-	if cresult.Status != 0 {
-		logger.Debug(3, "WaitContainer returned non-zero status=%d", cresult.Status)
-		return nil, fmt.Errorf("error WaitContainer returned non-zero status=%d", cresult.Status)
-	}
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 	pstats.MaxMemUsage = MaxMem
 	pstats.MaxMemoryTotalRss = max_memory_total_rss
@@ -971,6 +970,7 @@ func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 			logger.Debug(3, "(RunWorkunitDirect) received done")
 			if err != nil {
 				workunit.ExitStatus = 1 // just in case we cannot figure out the error code
+
 				if exiterr, ok := err.(*exec.ExitError); ok {
 					// The program has exited with an exit code != 0
 

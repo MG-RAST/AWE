@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	requirements "github.com/MG-RAST/AWE/lib/core/cwl/requirements"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	//"github.com/davecgh/go-spew/spew"
 	//"github.com/mitchellh/mapstructure"
@@ -88,7 +89,7 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 	case []interface{}:
 		for _, v := range original.([]interface{}) {
 
-			empty, xerr := NewEmpty(v)
+			empty, xerr := cwl_types.NewEmpty(v)
 			if xerr != nil {
 				err = xerr
 				return

@@ -5,6 +5,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/worker"
@@ -18,8 +19,10 @@ func main() {
 
 	// workstealer -> dataMover (download from Shock) -> processor -> deliverer (upload to Shock)
 
-	if err := conf.Init_conf("client"); err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: "+err.Error())
+	err := conf.Init_conf("worker")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: error reading conf file: "+err.Error())
+
 		os.Exit(1)
 	}
 
@@ -118,33 +121,15 @@ func main() {
 			os.Exit(1)
 		}
 
+		fmt.Println("Job input:")
 		spew.Dump(*job_doc)
-
-		for name, array := range *job_doc {
-
-			fmt.Println(name)
-
-			for _, element := range array {
-				switch element.(type) {
-				case *cwl.File:
-					file, ok := element.(*cwl.File)
-					if !ok {
-						panic("not file")
-					}
-					fmt.Printf("%+v\n", *file)
-
-				default:
-					spew.Dump(element)
-				}
-			}
-		}
 
 		os.Getwd() //https://golang.org/pkg/os/#Getwd
 
-		workunit := &core.Workunit{Id: "00000000-0000-0000-0000-000000000000_0_0", CWL: &core.CWL_workunit{}}
+		workunit := &core.Workunit{Id: "00000000-0000-0000-0000-000000000000_0_0", CWL: core.NewCWL_workunit()}
 
-		workunit.CWL.CWL_job = job_doc
-		workunit.CWL.CWL_job_filename = conf.CWL_JOB
+		workunit.CWL.Job_input = job_doc
+		workunit.CWL.Job_input_filename = conf.CWL_JOB
 
 		workunit.CWL.CWL_tool_filename = conf.CWL_TOOL
 		workunit.CWL.CWL_tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
@@ -161,7 +146,7 @@ func main() {
 		workunit.Cmd.Local = true // this makes sure the working directory is not deleted
 		workunit.Cmd.Name = "/usr/bin/cwl-runner"
 
-		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL.CWL_tool_filename, workunit.CWL.CWL_job_filename}
+		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL.CWL_tool_filename, workunit.CWL.Job_input_filename}
 
 		workunit.WorkPerf = core.NewWorkPerf(workunit.Id)
 		workunit.WorkPerf.Checkout = time.Now().Unix()

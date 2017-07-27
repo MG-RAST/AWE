@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const VERSION string = "0.9.48"
+const VERSION string = "0.9.50"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -116,6 +116,7 @@ var (
 	MONGODB_TIMEOUT  int
 
 	// Server
+	COREQ_LENGTH       int
 	EXPIRE_WAIT        int
 	GLOBAL_EXPIRE      string
 	PIPELINE_EXPIRE    string
@@ -144,8 +145,9 @@ var (
 	NO_SYMLINK     bool
 	CACHE_ENABLED  bool
 
-	CWL_TOOL string
-	CWL_JOB  string
+	CWL_TOOL  string
+	CWL_JOB   string
+	SHOCK_URL string
 
 	// Docker
 	USE_DOCKER                    string
@@ -455,12 +457,14 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&AWF_PATH, "", "Directories", "awf", "", "")
 	}
 
-	// Directories
-	c_store.AddString(&DATA_PATH, "/mnt/data/awe/data", "Directories", "data", "a file path for storing system related data (job script, cached data, etc)", "")
-	c_store.AddString(&LOGS_PATH, "/mnt/data/awe/logs", "Directories", "logs", "a path for storing logs", "")
+	if mode == "server" || mode == "worker" {
+		// Directories
+		c_store.AddString(&DATA_PATH, "/mnt/data/awe/data", "Directories", "data", "a file path for storing system related data (job script, cached data, etc)", "")
+		c_store.AddString(&LOGS_PATH, "/mnt/data/awe/logs", "Directories", "logs", "a path for storing logs", "")
 
-	// Paths
-	c_store.AddString(&PID_FILE_PATH, "", "Paths", "pidfile", "", "")
+		// Paths
+		c_store.AddString(&PID_FILE_PATH, "", "Paths", "pidfile", "", "")
+	}
 
 	if mode == "server" {
 		// Mongodb
@@ -472,10 +476,11 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 
 		// Server
 		c_store.AddString(&TITLE, "AWE Server", "Server", "title", "", "")
-		c_store.AddBool(&PERF_LOG_WORKUNIT, true, "Server", "perf_log_workunit", "collecting performance log per workunit", "")
+		c_store.AddInt(&COREQ_LENGTH, 100, "Server", "coreq_length", "length of checkout request queue", "")
 		c_store.AddInt(&EXPIRE_WAIT, 60, "Server", "expire_wait", "wait time for expiration reaper in minutes", "")
 		c_store.AddString(&GLOBAL_EXPIRE, "", "Server", "global_expire", "default number and unit of time after job completion before it expires", "")
 		c_store.AddString(&PIPELINE_EXPIRE, "", "Server", "pipeline_expire", "comma seperated list of pipeline_name=expire_days_unit, overrides global_expire", "")
+		c_store.AddBool(&PERF_LOG_WORKUNIT, true, "Server", "perf_log_workunit", "collecting performance log per workunit", "")
 		c_store.AddInt(&MAX_WORK_FAILURE, 3, "Server", "max_work_failure", "number of times that one workunit fails before the workunit considered suspend", "")
 		c_store.AddInt(&MAX_CLIENT_FAILURE, 5, "Server", "max_client_failure", "number of times that one client consecutively fails running workunits before the client considered suspend", "")
 		c_store.AddInt(&GOMAXPROCS, 0, "Server", "go_max_procs", "", "")
@@ -484,9 +489,19 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddInt(&RECOVER_MAX, 0, "Server", "recover_max", "max number of jobs to recover, default (0) means recover all", "")
 	}
 
-	if mode == "client" {
-		// Client
+	if mode == "worker" || mode == "submitter" {
 		c_store.AddString(&SERVER_URL, "http://localhost:8001", "Client", "serverurl", "URL of AWE server, including API port", "")
+		c_store.AddString(&CWL_TOOL, "", "Client", "cwl_tool", "CWL CommandLineTool file", "")
+		c_store.AddString(&CWL_JOB, "", "Client", "cwl_job", "CWL job file", "")
+	}
+
+	if mode == "worker" || mode == "submitter" {
+		c_store.AddString(&SHOCK_URL, "http://localhost:8001", "Client", "shockurl", "URL of SHOCK server, including port number", "")
+	}
+
+	if mode == "worker" {
+		// Client/worker
+
 		c_store.AddString(&CLIENT_GROUP, "default", "Client", "group", "name of client group", "")
 		c_store.AddString(&CLIENT_NAME, "default", "Client", "name", "default determines client name by openstack meta data", "")
 		c_store.AddString(&CLIENT_HOST, "127.0.0.1", "Client", "host", "host or ip address", "host or ip address to help finding machines where the clients runs on")
@@ -508,14 +523,13 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddBool(&CACHE_ENABLED, false, "Client", "cache_enabled", "", "")
 		c_store.AddBool(&NO_SYMLINK, false, "Client", "no_symlink", "copy files from predata to work dir, default is to create symlink", "")
 
-		c_store.AddString(&CWL_TOOL, "", "Client", "cwl_tool", "CWL CommandLineTool file", "")
-		c_store.AddString(&CWL_JOB, "", "Client", "cwl_job", "CWL job file", "")
 	}
 
 	// Docker
-	c_store.AddString(&USE_DOCKER, "yes", "Docker", "use_docker", "\"yes\", \"no\" or \"only\"", "yes: allow docker tasks, no: do not allow docker tasks, only: allow only docker tasks; if docker is not installed on the clients, choose \"no\"")
-
-	if mode == "client" {
+	if mode == "server" || mode == "worker" {
+		c_store.AddString(&USE_DOCKER, "yes", "Docker", "use_docker", "\"yes\", \"no\" or \"only\"", "yes: allow docker tasks, no: do not allow docker tasks, only: allow only docker tasks; if docker is not installed on the clients, choose \"no\"")
+	}
+	if mode == "worker" {
 		c_store.AddString(&DOCKER_BINARY, "API", "Docker", "docker_binary", "docker binary to use, default is the docker API (API recommended)", "")
 		c_store.AddInt(&MEM_CHECK_INTERVAL_SECONDS, 0, "Docker", "mem_check_interval_seconds", "memory check interval in seconds (kernel needs to support that)", "0 seconds means disabled")
 		c_store.AddString(&CGROUP_MEMORY_DOCKER_DIR, "/sys/fs/cgroup/memory/docker/[ID]/memory.stat", "Docker", "cgroup_memory_docker_dir", "path to cgroup directory for docker", "")
@@ -529,16 +543,20 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&APP_REGISTRY_URL, "https://raw.githubusercontent.com/MG-RAST/Skyport/master/app_definitions/", "Docker", "app_registry_url", "URL for app defintions", "")
 	}
 
-	//Proxy
-	c_store.AddInt(&P_SITE_PORT, 8082, "Proxy", "p-site-port", "", "")
-	c_store.AddInt(&P_API_PORT, 8002, "Proxy", "p-api-port", "", "")
+	if mode == "server" || mode == "worker" {
+		//Proxy
+		c_store.AddInt(&P_SITE_PORT, 8082, "Proxy", "p-site-port", "", "")
+		c_store.AddInt(&P_API_PORT, 8002, "Proxy", "p-api-port", "", "")
 
-	//Other
-	c_store.AddInt(&ERROR_LENGTH, 5000, "Other", "errorlength", "amount of App STDERR to save in Job.Error", "")
-	c_store.AddBool(&DEV_MODE, false, "Other", "dev", "dev or demo mode, print some msgs on screen", "")
+		//Other
+		c_store.AddInt(&ERROR_LENGTH, 5000, "Other", "errorlength", "amount of App STDERR to save in Job.Error", "")
+		c_store.AddBool(&DEV_MODE, false, "Other", "dev", "dev or demo mode, print some msgs on screen", "")
+
+		c_store.AddString(&CONFIG_FILE, "", "Other", "conf", "path to config file", "")
+		c_store.AddString(&LOG_OUTPUT, "console", "Other", "logoutput", "log output stream, one of: file, console, both", "")
+
+	}
 	c_store.AddInt(&DEBUG_LEVEL, 0, "Other", "debuglevel", "debug level: 0-3", "")
-	c_store.AddString(&CONFIG_FILE, "", "Other", "conf", "path to config file", "")
-	c_store.AddString(&LOG_OUTPUT, "console", "Other", "logoutput", "log output stream, one of: file, console, both", "")
 	c_store.AddBool(&SHOW_VERSION, false, "Other", "version", "show version", "")
 	c_store.AddBool(&SHOW_GIT_COMMIT_HASH, false, "Other", "show_git_commit_hash", "", "")
 	c_store.AddBool(&PRINT_HELP, false, "Other", "fullhelp", "show detailed usage without \"--\"-prefixes", "")
@@ -593,7 +611,7 @@ func Init_conf(mode string) (err error) {
 	}
 
 	// configuration post processing
-	if mode == "client" {
+	if mode == "worker" {
 		if CLIENT_NAME == "" || CLIENT_NAME == "default" || CLIENT_NAME == "hostname" {
 			hostname, err := os.Hostname()
 			if err == nil {
@@ -670,7 +688,7 @@ func Init_conf(mode string) (err error) {
 		}
 	}
 	if !vaildLogout {
-		return errors.New("invalid option for logoutput, use one of: file, console, both")
+		return fmt.Errorf("\"%s\" is invalid option for logoutput, use one of: file, console, both", LOG_OUTPUT)
 	}
 
 	SITE_PATH = cleanPath(SITE_PATH)

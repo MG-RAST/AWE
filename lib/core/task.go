@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/shock"
 	"strings"
 	"time"
 )
@@ -449,7 +450,8 @@ func (task *Task) CreateIndex() (err error) {
 			}
 			if !hasIndex {
 				// create missing index
-				err = ShockPutIndex(io.Host, io.Node, io.ShockIndex, task.Info.DataToken)
+				sc := shock.ShockClient{Host: io.Host, Token: task.Info.DataToken}
+				err = sc.ShockPutIndex(io.Node, io.ShockIndex)
 				if err != nil {
 					errMsg := "failed to create index on shock node for taskid=" + task.Id + ", error=" + err.Error()
 					logger.Error("error: " + errMsg)
@@ -521,7 +523,8 @@ func (task *Task) InitPartIndex() (err error) {
 	var totalunits int
 	if !hasIndex {
 		// if index not available, create index
-		err = ShockPutIndex(inputIO.Host, inputIO.Node, newPartition.Index, task.Info.DataToken)
+		sc := shock.ShockClient{Host: inputIO.Host, Token: task.Info.DataToken}
+		err = sc.ShockPutIndex(inputIO.Node, newPartition.Index)
 		if err != nil {
 			// bad state - set as not multi-workunit
 			logger.Error("warning: failed to create index %s on shock for taskid=%s, error=%s", newPartition.Index, task.Id, err.Error())

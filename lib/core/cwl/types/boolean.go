@@ -16,4 +16,4 @@ func (s *Boolean) String() string {
 	return "False"
 }
 
-func (s *Boolean) is_CommandInputParameterType() {} // for CommandInputParameterType
+func (s *Boolean) Is_CommandInputParameterType() {} // for CommandInputParameterType

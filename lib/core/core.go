@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/acl"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
@@ -86,20 +87,6 @@ type FormFile struct {
 	Name     string
 	Path     string
 	Checksum map[string]string
-}
-
-type Opts map[string]string
-
-func (o *Opts) HasKey(key string) bool {
-	if _, has := (*o)[key]; has {
-		return true
-	}
-	return false
-}
-
-func (o *Opts) Value(key string) string {
-	val, _ := (*o)[key]
-	return val
 }
 
 //heartbeat response from awe-server to awe-worker
@@ -220,29 +207,6 @@ func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
 		return
 	}
 	return
-}
-
-func PostNodeWithToken(io *IO, numParts int, token string) (nodeid string, err error) {
-	opts := Opts{}
-	var node *shock.ShockNode
-	node, err = createOrUpdate(opts, io.Host, "", token, nil)
-	if err != nil {
-		err = fmt.Errorf("(1) createOrUpdate in PostNodeWithToken failed (%s): %v", io.Host, err)
-		return
-	}
-	//create "parts" for output splits
-	if numParts > 1 {
-		opts["upload_type"] = "parts"
-		opts["file_name"] = io.FileName
-		opts["parts"] = strconv.Itoa(numParts)
-		_, err = createOrUpdate(opts, io.Host, node.Id, token, nil)
-		if err != nil {
-			nodeid = node.Id
-			err = fmt.Errorf("(2) createOrUpdate in PostNodeWithToken failed (%s, %s): %v", io.Host, node.Id, err)
-			return
-		}
-	}
-	return node.Id, nil
 }
 
 func ReadJobFile(filename string) (job *Job, err error) {
@@ -638,10 +602,10 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 				}
 			}
 		}
-
-		if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
+		sc := shock.ShockClient{Host: io.Host, Token: work.Info.DataToken}
+		if err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-			if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
+			if err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 				fmt.Errorf("push file error\n")
 				logger.Error("op=pushfile,err=" + err.Error())
 				return size, err
@@ -683,34 +647,6 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 	if err != nil {
 		return
 	}
-	return
-}
-
-func PutFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string, ntype string, formopts map[string]string, nodeattr map[string]interface{}) (err error) {
-	opts := Opts{}
-	fi, _ := os.Stat(filename)
-	if (attrfile != "") && (rank < 2) {
-		opts["attributes"] = attrfile
-	}
-	if filename != "" {
-		opts["file"] = filename
-	}
-	if rank == 0 {
-		opts["upload_type"] = "basic"
-	} else {
-		opts["upload_type"] = "part"
-		opts["part"] = strconv.Itoa(rank)
-	}
-	if (ntype == "subset") && (rank == 0) && (fi.Size() == 0) {
-		opts["upload_type"] = "basic"
-	} else if ((ntype == "copy") || (ntype == "subset")) && (len(formopts) > 0) {
-		opts["upload_type"] = ntype
-		for k, v := range formopts {
-			opts[k] = v
-		}
-	}
-
-	_, err = createOrUpdate(opts, host, nodeid, token, nodeattr)
 	return
 }
 
@@ -758,7 +694,7 @@ func getWorkNotesPath(work *Workunit) (worknotesFilePath string, err error) {
 }
 
 //shock access functions
-func createOrUpdate(opts Opts, host string, nodeid string, token string, nodeattr map[string]interface{}) (node *shock.ShockNode, err error) {
+func createOrUpdate_deprecated(opts shock.Opts, host string, nodeid string, token string, nodeattr map[string]interface{}) (node *shock.ShockNode, err error) {
 	if host == "" {
 		return nil, fmt.Errorf("error: (createOrUpdate) host is not defined in Shock node")
 	}
@@ -867,15 +803,6 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string, nodeatt
 	} else {
 		return nil, err
 	}
-	return
-}
-
-func ShockPutIndex(host string, nodeid string, indexname string, token string) (err error) {
-	opts := Opts{}
-	opts["upload_type"] = "index"
-	opts["index_type"] = indexname
-	logger.Debug(2, fmt.Sprintf("(ShockPutIndex) node=%s/node/%s index=%s", host, nodeid, indexname))
-	_, err = createOrUpdate(opts, host, nodeid, token, nil)
 	return
 }
 

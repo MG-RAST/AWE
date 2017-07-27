@@ -52,7 +52,7 @@ func Auth(header string) (usr *user.User, err error) {
 				return nil, err
 			}
 		} else {
-			return nil, err
+			return nil, errors.New("(basic) " + err.Error())
 		}
 	} else if (bearer == "globus-goauthtoken") || (bearer == "globus") || (bearer == "goauth") {
 		return fetchProfile(strings.Split(header, " ")[1])

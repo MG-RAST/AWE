@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
@@ -15,7 +16,7 @@ type CommandInputParameter struct {
 	Label          string                      `yaml:"label"`
 	Description    string                      `yaml:"description"`
 	InputBinding   CommandLineBinding          `yaml:"inputBinding"`
-	Default        *Any                        `yaml:"default"`
+	Default        *cwl_types.Any              `yaml:"default"`
 }
 
 func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParameter, err error) {
@@ -35,7 +36,7 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 		default_value, ok := v_map["default"]
 		if ok {
 			fmt.Println("FOUND default key")
-			default_input, xerr := NewAny(default_value) // TODO return Int or similar
+			default_input, xerr := cwl_types.NewAny(default_value) // TODO return Int or similar
 			if xerr != nil {
 				err = xerr
 				return

@@ -31,12 +31,11 @@ type ServerMgr struct {
 	lastUpdate     time.Time
 	lastUpdateLock sync.RWMutex
 	TaskMap        TaskMap
+	taskIn         chan *Task //channel for receiving Task (JobController -> qmgr.Handler)
 	ajLock         sync.RWMutex
 	sjLock         sync.RWMutex
 	actJobs        map[string]*JobPerf
 	susJobs        map[string]bool
-	taskIn         chan *Task //channel for receiving Task (JobController -> qmgr.Handler)
-	coSem          chan int   //semaphore for checkout (mutual exclusion between different clients)
 }
 
 func NewServerMgr() *ServerMgr {
@@ -45,9 +44,11 @@ func NewServerMgr() *ServerMgr {
 			clientMap:    *NewClientMap(),
 			workQueue:    NewWorkQueue(),
 			suspendQueue: false,
-			coReq:        make(chan CoReq, 10),
+
+			coReq:        make(chan CoReq, conf.COREQ_LENGTH), // number of clients that wait in queue to get a workunit. If queue is full, other client will be rejected and have to come back later again
 			feedback:     make(chan Notice),
 			coSem:        make(chan int, 1), //non-blocking buffered channel
+			
 		},
 		lastUpdate: time.Now().Add(time.Second * -30),
 		TaskMap:    *NewTaskMap(),
@@ -92,10 +93,22 @@ func (qm *ServerMgr) ClientHandle() {
 	logger.Info("(ServerMgr ClientHandle) starting")
 	count := 0
 
+	time.Sleep(3 * time.Second)
+
 	for {
 		//select {
 		//case coReq := <-qm.coReq
-		coReq := <-qm.coReq
+		//logger.Debug(3, "(ServerMgr ClientHandle) try to pull work request")
+		//coReq, err := qm.requestQueue.Pull()
+		//for err != nil {
+		//	time.Sleep(50 * time.Millisecond) // give clients time to put in requests or get a response
+		//	time.Sleep(3 * time.Second)
+		//	coReq, err = qm.requestQueue.Pull()
+		//	logger.Debug(3, "(ServerMgr ClientHandle) waiting")
+		//}
+		//logger.Debug(3, "(ServerMgr ClientHandle) got work request")
+
+		coReq := <-qm.coReq //written to in cqmgr.go
 		count += 1
 		request_start_time := time.Now()
 		logger.Debug(3, "(ServerMgr ClientHandle) workunit checkout request received from client %s, Req=%v", coReq.fromclient, coReq)
@@ -536,6 +549,12 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	notes := notice.Notes
 
 	logger.Debug(3, "(handleWorkStatusChange) workid: %s status: %s client: %s", workid, status, clientid)
+
+	// we should not get here, but if we do than end
+	if status == WORK_STAT_DISCARDED {
+		logger.Error("(handleWorkStatusChange) [warning] skip status change: workid=%s status=%s", workid, status)
+		return
+	}
 
 	parts := strings.Split(workid, "_")
 	task_id := fmt.Sprintf("%s_%s", parts[0], parts[1])
@@ -1393,7 +1412,9 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 			// POST empty shock node for this output
 			logger.Debug(2, "posting output Shock node for file %s in task %s", name, task.Id)
 			var nodeid string
-			nodeid, err = PostNodeWithToken(io, task.TotalWork, task.Info.DataToken)
+
+			sc := shock.ShockClient{Host: io.Host, Token: task.Info.DataToken}
+			nodeid, err = sc.PostNodeWithToken(io.FileName, task.TotalWork)
 			if err != nil {
 				err = fmt.Errorf("PostNodeWithToken in createOutputNode failed: %v", err)
 				return

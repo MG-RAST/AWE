@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
@@ -14,41 +15,6 @@ import (
 	"strings"
 )
 
-// http://www.commonwl.org/draft-3/CommandLineTool.html#CWLType
-const (
-	CWL_null    = "null"    //no value
-	CWL_boolean = "boolean" //a binary value
-	CWL_int     = "int"     //32-bit signed integer
-	CWL_long    = "long"    //64-bit signed integer
-	CWL_float   = "float"   //single precision (32-bit) IEEE 754 floating-point number
-	CWL_double  = "double"  //double precision (64-bit) IEEE 754 floating-point number
-	CWL_string  = "string"  //Unicode character sequence
-	CWL_File    = "File"    //A File object
-	CWL_stdout  = "stdout"
-	CWL_stderr  = "stderr"
-)
-
-var valid_cwltypes = map[string]bool{
-	CWL_null:    true,
-	CWL_boolean: true,
-	CWL_int:     true,
-	CWL_long:    true,
-	CWL_float:   true,
-	CWL_double:  true,
-	CWL_string:  true,
-	CWL_File:    true,
-	CWL_stdout:  true,
-	CWL_stderr:  true,
-}
-
-type CWL_minimal_interface interface {
-	is_CWL_minimal()
-}
-
-type CWL_minimal struct{}
-
-func (c *CWL_minimal) is_CWL_minimal() {}
-
 // this is used by YAML or JSON library for inital parsing
 type CWL_document_generic struct {
 	CwlVersion string               `yaml:"cwlVersion"`
@@ -58,11 +24,6 @@ type CWL_document_generic struct {
 type CWL_object_generic map[string]interface{}
 
 type CWLVersion interface{} // TODO
-
-// generic class to represent Files and Directories
-type CWL_location interface {
-	GetLocation() string
-}
 
 type LinkMergeMethod string // merge_nested or merge_flattened
 
@@ -178,7 +139,7 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 			//collection = append(collection, result)
 		case "File":
 			logger.Debug(1, "parse File")
-			var cwl_file File
+			var cwl_file cwl_types.File
 			err = mapstructure.Decode(elem, &cwl_file)
 			if err != nil {
 				err = fmt.Errorf("(Parse_cwl_document/File) %s", err.Error())

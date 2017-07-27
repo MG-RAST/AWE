@@ -3,7 +3,8 @@ package cwl
 import (
 	//"errors"
 	"fmt"
-	//"github.com/davecgh/go-spew/spew"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"io/ioutil"
 	//"os"
@@ -12,11 +13,13 @@ import (
 
 //type Job_document map[string]interface{}
 
-type Job_document map[string][]CWLType
+type Job_document map[string]cwl_types.CWLType
 
 func NewJob_document(original interface{}) (job *Job_document, err error) {
 
-	job = &Job_document{}
+	job_nptr := Job_document{}
+
+	job = &job_nptr
 
 	switch original.(type) {
 	case map[interface{}]interface{}:
@@ -35,7 +38,7 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 
 		for _, key := range keys {
 			value := original_map[key]
-			cwl_obj, xerr := NewCWLTypeArray(value)
+			cwl_obj, xerr := cwl_types.NewCWLType(key, value)
 			if xerr != nil {
 				err = xerr
 				return
@@ -45,13 +48,42 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 
 		err = mapstructure.Decode(original, job)
 		if err != nil {
-			err = fmt.Errorf("(NewCommandOutputBinding) %s", err.Error())
+			err = fmt.Errorf("(NewJob_document) %s", err.Error())
 			return
 		}
+	case map[string]interface{}:
+
+		original_map := original.(map[string]interface{})
+
+		keys := []string{}
+		for key_str, _ := range original_map {
+
+			keys = append(keys, key_str)
+
+		}
+
+		for _, key := range keys {
+			value := original_map[key]
+			cwl_obj, xerr := cwl_types.NewCWLType(key, value)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			job_nptr[key] = cwl_obj
+		}
+
+		//err = mapstructure.Decode(original, job)
+		//if err != nil {
+		//	err = fmt.Errorf("(NewJob_document) %s", err.Error())
+		//	return
+		//}
+		return
+
 	case []interface{}:
 		err = fmt.Errorf("(NewJob_document) type array not supported yet")
 		return
 	default:
+		spew.Dump(original)
 		err = fmt.Errorf("(NewJob_document) type unknown")
 	}
 	return

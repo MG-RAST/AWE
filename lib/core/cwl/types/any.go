@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+
 	"reflect"
 )
 
@@ -16,7 +17,7 @@ type Any interface {
 
 func NewAny(native interface{}) (any Any, err error) {
 
-	cwl_type, err := NewCWLType(native)
+	cwl_type, err := NewCWLType("", native)
 	if err != nil {
 		fmt.Println("cwl_type: ")
 		fmt.Println(reflect.TypeOf(cwl_type))

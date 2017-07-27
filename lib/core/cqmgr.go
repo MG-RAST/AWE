@@ -22,26 +22,12 @@ type CQMgr struct {
 	coReq        chan CoReq  //workunit checkout request (WorkController -> qmgr.Handler)
 	feedback     chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
 	coSem        chan int    //semaphore for checkout (mutual exclusion between different clients)
-
 }
-
-// DEPRICATED
-//func NewCQMgr() *CQMgr {
-//	return &CQMgr{
-//		clientMap:    ClientMap{_map: map[string]*Client{}},
-//		workQueue:    NewWorkQueue(),
-//		suspendQueue: false,
-//		coReq:        make(chan CoReq, 10), // number of clients that wait in queue to get a workunit. If queue is full, other client will be rejected and have to come back later again
-//		feedback: make(chan Notice, 10),
-//		coSem:    make(chan int, 1), //non-blocking buffered channel
-//	}
-//}
 
 //--------mgr methods-------
 
 func (qm *CQMgr) ClientHandle() {
 	// this code is not beeing used
-
 }
 
 // show functions used in debug
@@ -895,6 +881,12 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	logger.Debug(3, "(CheckoutWorkunits) %s qm.coReq <- req", client_id)
 	// request workunit
 
+	//err = qm.requestQueue.Push(&req)
+	//if err != nil {
+	//	logger.Error("Work request by client %s rejected, request queue is full", client_id)
+	//	err = fmt.Errorf("Too many work requests - Please try again later")
+	//	return
+	//}
 	select {
 	case qm.coReq <- req:
 	default:

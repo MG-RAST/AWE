@@ -31,12 +31,11 @@ type ServerMgr struct {
 	lastUpdate     time.Time
 	lastUpdateLock sync.RWMutex
 	TaskMap        TaskMap
+	taskIn         chan *Task //channel for receiving Task (JobController -> qmgr.Handler)
 	ajLock         sync.RWMutex
 	sjLock         sync.RWMutex
 	actJobs        map[string]*JobPerf
 	susJobs        map[string]bool
-	taskIn         chan *Task //channel for receiving Task (JobController -> qmgr.Handler)
-	coSem          chan int   //semaphore for checkout (mutual exclusion between different clients)
 }
 
 func NewServerMgr() *ServerMgr {
@@ -45,7 +44,7 @@ func NewServerMgr() *ServerMgr {
 			clientMap:    *NewClientMap(),
 			workQueue:    NewWorkQueue(),
 			suspendQueue: false,
-			coReq:        make(chan CoReq, 10),
+			coReq:        make(chan CoReq, conf.COREQ_LENGTH),
 			feedback:     make(chan Notice),
 			coSem:        make(chan int, 1), //non-blocking buffered channel
 		},

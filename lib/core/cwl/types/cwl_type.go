@@ -138,38 +138,22 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 	case string:
 		native_str := native.(string)
 
-		cwl_type = &String{Value: native_str}
+		cwl_type = NewString("", native_str)
 	case bool:
 		native_bool := native.(bool)
 
 		cwl_type = &Boolean{Value: native_bool}
 
 	case map[interface{}]interface{}:
-		empty, xerr := NewEmpty(native)
+
+		class, xerr := GetClass(native)
 		if xerr != nil {
 			err = xerr
 			return
 		}
-		switch empty.GetClass() {
-		case "File":
-			file, yerr := NewFile(native)
-			cwl_type = &file
-			if yerr != nil {
-				err = yerr
-				return
-			}
-		default:
-			// Map type unknown, maybe a record
-			spew.Dump(native)
+		cwl_type, err = NewCWLTypeByClass(class, native)
+		return
 
-			record, xerr := NewRecord(native)
-			if xerr != nil {
-				err = xerr
-				return
-			}
-			cwl_type = record
-			return
-		}
 	case map[string]interface{}:
 		//empty, xerr := NewEmpty(native)
 		//if xerr != nil {
@@ -181,19 +165,8 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 			err = xerr
 			return
 		}
-		switch class {
-		case "File":
-			file, yerr := NewFile(native)
-			cwl_type = &file
-			if yerr != nil {
-				err = yerr
-				return
-			}
-		default:
-			spew.Dump(native)
-			err = fmt.Errorf("(NewCWLType) Map type unknown")
-			return
-		}
+		cwl_type, err = NewCWLTypeByClass(class, native)
+		return
 
 	default:
 		spew.Dump(native)
@@ -204,6 +177,37 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 	return
 
+}
+
+func NewCWLTypeByClass(class string, native interface{}) (cwl_type CWLType, err error) {
+	switch class {
+	case CWL_File:
+		file, yerr := NewFile(native)
+		cwl_type = &file
+		if yerr != nil {
+			err = yerr
+			return
+		}
+	case CWL_string:
+		mystring, yerr := NewStringFromInterface(native)
+		cwl_type = mystring
+		if yerr != nil {
+			err = yerr
+			return
+		}
+	default:
+		// Map type unknown, maybe a record
+		spew.Dump(native)
+
+		record, xerr := NewRecord(native)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		cwl_type = record
+		return
+	}
+	return
 }
 
 func NewCWLTypeArray_deprecated(native interface{}) (cwl_array_ptr *[]CWLType, err error) {

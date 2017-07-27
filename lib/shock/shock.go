@@ -197,7 +197,10 @@ func (sc *ShockClient) Do_request(method string, resource string, query url.Valu
 // *** high-level functions ***
 
 func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[string]interface{}) (node *ShockNode, err error) {
-
+	if sc.Debug {
+		logger.Debug(1, "(CreateOrUpdate) start")
+		defer logger.Debug(1, "(CreateOrUpdate) start")
+	}
 	host := sc.Host
 	token := sc.Token
 
@@ -227,7 +230,7 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 	if opts.HasKey("upload_type") {
 		switch opts.Value("upload_type") {
 		case "basic":
-			if opts.HasKey("file") {
+			if opts.HasKey("file") { // upload_type: basic , file=...
 				form.AddFile("upload", opts.Value("file"))
 			}
 		case "parts":
@@ -294,6 +297,9 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 	var user *httpclient.Auth
 	if token != "" {
 		user = httpclient.GetUserByTokenAuth(token)
+	}
+	if sc.Debug {
+		fmt.Printf("url: %s %s\n", method, url)
 	}
 	if res, err := httpclient.Do(method, url, headers, form.Reader, user); err == nil {
 		defer res.Body.Close()

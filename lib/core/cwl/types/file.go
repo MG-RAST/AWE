@@ -45,7 +45,7 @@ func (f *File) Is_CommandInputParameterType() {} // for CommandInputParameterTyp
 
 func NewFile(obj interface{}) (file File, err error) {
 
-	file, err = MakeFile("unknown", obj)
+	file, err = MakeFile("", obj)
 
 	return
 }

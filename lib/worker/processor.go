@@ -786,17 +786,17 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		return nil, errors.New("process killed as requested from chankill")
 	case cresult = <-done:
+		workunit.ExitStatus = cresult.Status
 		logger.Debug(3, "(1)docker wait returned with status %d", cresult.Status)
 		if cresult.Error != nil {
 			return nil, fmt.Errorf("dockerWait=%s, status=%d, err=%s", commandName, cresult.Status, cresult.Error.Error())
 		}
-
+		if cresult.Status != 0 {
+			logger.Debug(3, "WaitContainer returned non-zero status=%d", cresult.Status)
+			return nil, fmt.Errorf("error WaitContainer returned non-zero status=%d", cresult.Status)
+		}
 	}
 
-	if cresult.Status != 0 {
-		logger.Debug(3, "WaitContainer returned non-zero status=%d", cresult.Status)
-		return nil, fmt.Errorf("error WaitContainer returned non-zero status=%d", cresult.Status)
-	}
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 	pstats.MaxMemUsage = MaxMem
 	pstats.MaxMemoryTotalRss = max_memory_total_rss
@@ -918,7 +918,6 @@ func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 		case err = <-done:
 			logger.Debug(3, "(RunWorkunitDirect) received done")
 			if err != nil {
-
 				if exiterr, ok := err.(*exec.ExitError); ok {
 					// The program has exited with an exit code != 0
 

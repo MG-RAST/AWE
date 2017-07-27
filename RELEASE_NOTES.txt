@@ -2,6 +2,7 @@
 
 - fix workunit.ExitStatus on completion
 - add coReq channel length as a config option, default 100
+- fix work discarded state
 
 # v0.9.49
 

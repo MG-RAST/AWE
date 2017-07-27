@@ -1,3 +1,8 @@
+# v0.9.50
+
+- fix workunit.ExitStatus on completion
+- add coReq channel length as a config option, default 100
+
 # v0.9.49
 
 - support multiple oauth servers

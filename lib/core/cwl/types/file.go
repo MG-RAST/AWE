@@ -12,24 +12,26 @@ import (
 
 // http://www.commonwl.org/v1.0/Workflow.html#File
 type File struct {
-	CWLType_Impl
-	Id             string         `yaml:"id" json:"id"`
-	Location       string         `yaml:"location" json:"location"` // An IRI that identifies the file resource.
-	Path           string         `yaml:"path" json:"path"`         // dirname + '/' + basename == path This field must be set by the implementation.
-	Basename       string         `yaml:"basename" json:"basename"` // dirname + '/' + basename == path // if not defined, take from location
-	Dirname        string         `yaml:"dirname" json:"dirname"`   // dirname + '/' + basename == path
-	Nameroot       string         `yaml:"nameroot" json:"nameroot"`
-	Nameext        string         `yaml:"nameext" json:"nameext"`
-	Checksum       string         `yaml:"checksum" json:"checksum"`
-	Size           int32          `yaml:"size" json:"size"`
-	SecondaryFiles []CWL_location `yaml:"secondaryFiles" json:"secondaryFiles"`
-	Format         string         `yaml:"format" json:"format"`
-	Contents       string         `yaml:"contents" json:"contents"`
+	CWLType_Impl   `yaml:"-"`
+	Id             string         `yaml:"id,omitempty" json:"id"`
+	Class          string         `yaml:"class,omitempty" json:"class"`
+	Location       string         `yaml:"location,omitempty" json:"location"` // An IRI that identifies the file resource.
+	Location_url   *url.URL       `yaml:"-"`                                  // only for internal purposes
+	Path           string         `yaml:"path,omitempty" json:"path"`         // dirname + '/' + basename == path This field must be set by the implementation.
+	Basename       string         `yaml:"basename,omitempty" json:"basename"` // dirname + '/' + basename == path // if not defined, take from location
+	Dirname        string         `yaml:"dirname,omitempty" json:"dirname"`   // dirname + '/' + basename == path
+	Nameroot       string         `yaml:"nameroot,omitempty" json:"nameroot"`
+	Nameext        string         `yaml:"nameext,omitempty" json:"nameext"`
+	Checksum       string         `yaml:"checksum,omitempty" json:"checksum"`
+	Size           int32          `yaml:"size,omitempty" json:"size"`
+	SecondaryFiles []CWL_location `yaml:"secondaryFiles,omitempty" json:"secondaryFiles"`
+	Format         string         `yaml:"format,omitempty" json:"format"`
+	Contents       string         `yaml:"contents,omitempty" json:"contents"`
 	// Shock node
-	Host   string
-	Node   string
-	Bearer string
-	Token  string
+	Host   string `yaml:"-"`
+	Node   string `yaml:"-"`
+	Bearer string `yaml:"-"`
+	Token  string `yaml:"-"`
 }
 
 func (f *File) GetClass() string    { return CWL_File }
@@ -44,6 +46,7 @@ func (f *File) Is_CommandInputParameterType() {} // for CommandInputParameterTyp
 func NewFile(obj interface{}) (file File, err error) {
 
 	file, err = MakeFile("unknown", obj)
+
 	return
 }
 
@@ -54,7 +57,7 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 		err = fmt.Errorf("(MakeFile) Could not convert File object %s", id)
 		return
 	}
-
+	file.Class = CWL_File
 	//fmt.Println("MakeFile input:")
 	//spew.Dump(obj)
 	//fmt.Println("MakeFile output:")
@@ -63,12 +66,14 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 	if file.Location != "" {
 
 		// example shock://shock.metagenomics.anl.gov/node/92a76f64-d221-4947-9fd0-7106c3b9163a
-		file_url, errx := url.Parse(file.Location)
-		if errx != nil {
-			err = fmt.Errorf("Error parsing url %s %s", file.Location, errx.Error())
+		file_url, xerr := url.Parse(file.Location)
+		if xerr != nil {
+			err = fmt.Errorf("Error parsing url %s %s", file.Location, xerr.Error())
 
 			return
 		}
+
+		file.Location_url = file_url
 		scheme := strings.ToLower(file_url.Scheme)
 		values := file_url.Query()
 
@@ -79,7 +84,7 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 		case "http":
 			_, has_download := values["download"]
 			//extract filename ?
-			if has_download {
+			if has_download && false {
 
 				array := strings.Split(file_url.Path, "/")
 				if len(array) != 3 {
@@ -122,19 +127,6 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 	}
 	return
 }
-
-type Directory struct {
-	Id       string         `yaml:"id"`
-	Location string         `yaml:"location"`
-	Path     string         `yaml:"path"`
-	Basename string         `yaml:"basename"`
-	Listing  []CWL_location `yaml:"basename"`
-}
-
-func (d Directory) GetClass() string    { return "Directory" }
-func (d Directory) GetId() string       { return d.Id }
-func (d Directory) String() string      { return d.Path }
-func (d Directory) GetLocation() string { return d.Location } // for CWL_location
 
 type FileArray struct {
 	CWLType_Impl

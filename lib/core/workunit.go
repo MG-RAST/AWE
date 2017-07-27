@@ -10,18 +10,18 @@ import (
 )
 
 const (
-	WORK_STAT_INIT             = "init"     // initial state
-	WORK_STAT_QUEUED           = "queued"   // after requeue ; after failures below max ; on WorkQueue.Add()
-	WORK_STAT_RESERVED         = "reserved" // short lived state between queued and checkout
-	WORK_STAT_CHECKOUT         = "checkout" // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
-	WORK_STAT_SUSPEND          = "suspend"  // on MAX_FAILURE ; on SuspendJob
-	WORK_STAT_FAILED_PERMANENT = "failed-permanent"  // app had exit code 42
-	WORK_STAT_DONE             = "done"      // client only: done
-	WORK_STAT_ERROR            = "fail"      // client only: workunit computation or IO error (variable was renamed to ERROR but not the string fail, to maintain backwards compability)
-	WORK_STAT_PREPARED         = "prepared"  // client only: after argument parsing
-	WORK_STAT_COMPUTED         = "computed"  // client only: after computation is done, before upload
-	WORK_STAT_DISCARDED        = "discarded" // client only: job / task suspended or server UUID changes
-	WORK_STAT_PROXYQUEUED      = "proxyqueued" // proxy only
+	WORK_STAT_INIT             = "init"             // initial state
+	WORK_STAT_QUEUED           = "queued"           // after requeue ; after failures below max ; on WorkQueue.Add()
+	WORK_STAT_RESERVED         = "reserved"         // short lived state between queued and checkout
+	WORK_STAT_CHECKOUT         = "checkout"         // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
+	WORK_STAT_SUSPEND          = "suspend"          // on MAX_FAILURE ; on SuspendJob
+	WORK_STAT_FAILED_PERMANENT = "failed-permanent" // app had exit code 42
+	WORK_STAT_DONE             = "done"             // client only: done
+	WORK_STAT_ERROR            = "fail"             // client only: workunit computation or IO error (variable was renamed to ERROR but not the string fail, to maintain backwards compability)
+	WORK_STAT_PREPARED         = "prepared"         // client only: after argument parsing
+	WORK_STAT_COMPUTED         = "computed"         // client only: after computation is done, before upload
+	WORK_STAT_DISCARDED        = "discarded"        // client only: job / task suspended or server UUID changes
+	WORK_STAT_PROXYQUEUED      = "proxyqueued"      // proxy only
 )
 
 type Workunit struct {
@@ -182,8 +182,8 @@ func (work *Workunit) CDworkpath() (err error) {
 }
 
 func (work *Workunit) GetNotes() string {
-	var seen map[string]bool
-	var uniq []string
+	seen := map[string]bool{}
+	uniq := []string{}
 	for _, n := range work.Notes {
 		if _, ok := seen[n]; !ok {
 			uniq = append(uniq, n)

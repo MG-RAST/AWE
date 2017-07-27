@@ -536,6 +536,12 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 	logger.Debug(3, "(handleWorkStatusChange) workid: %s status: %s client: %s", workid, status, clientid)
 
+	// we should not get here, but if we do than end
+	if status == WORK_STAT_DISCARDED {
+		logger.Error("(handleWorkStatusChange) [warning] skip status change: workid=%s status=%s", workid, status)
+		return
+	}
+
 	parts := strings.Split(workid, "_")
 	task_id := fmt.Sprintf("%s_%s", parts[0], parts[1])
 	job_id := parts[0]

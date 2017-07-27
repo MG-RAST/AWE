@@ -143,8 +143,9 @@ var (
 	NO_SYMLINK     bool
 	CACHE_ENABLED  bool
 
-	CWL_TOOL string
-	CWL_JOB  string
+	CWL_TOOL  string
+	CWL_JOB   string
+	SHOCK_URL string
 
 	// Docker
 	USE_DOCKER                    string
@@ -485,6 +486,10 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddString(&SERVER_URL, "http://localhost:8001", "Client", "serverurl", "URL of AWE server, including API port", "")
 		c_store.AddString(&CWL_TOOL, "", "Client", "cwl_tool", "CWL CommandLineTool file", "")
 		c_store.AddString(&CWL_JOB, "", "Client", "cwl_job", "CWL job file", "")
+	}
+
+	if mode == "worker" || mode == "submitter" {
+		c_store.AddString(&SHOCK_URL, "http://localhost:8001", "Client", "shockurl", "URL of SHOCK server, including port number", "")
 	}
 
 	if mode == "worker" {

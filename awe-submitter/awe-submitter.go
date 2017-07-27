@@ -172,7 +172,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("json:\n%s\n", string(data[:]))
+	fmt.Printf("yaml:\n%s\n", string(data[:]))
 
 	// process input files
 
@@ -190,6 +190,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("json:\n%s\n", string(data[:]))
+	fmt.Printf("yaml:\n%s\n", string(data[:]))
 
 }

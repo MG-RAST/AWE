@@ -19,6 +19,9 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 	case "DockerRequirement":
 		r, err = requirements.NewDockerRequirement(obj)
 		return
+	case "InlineJavascriptRequirement":
+		r, err = requirements.NewInlineJavascriptRequirement(obj)
+		return
 	case "EnvVarRequirement":
 		r, err = requirements.NewEnvVarRequirement(obj)
 		return
@@ -30,6 +33,9 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 		return
 	case "InitialWorkDirRequirement":
 		r, err = requirements.NewInitialWorkDirRequirement(obj)
+		return
+	case "ScatterFeatureRequirement":
+		r, err = requirements.NewScatterFeatureRequirement(obj)
 		return
 	default:
 		err = errors.New("Requirement class not supported " + class)

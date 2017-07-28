@@ -39,7 +39,7 @@ func InitResMgr(service string) {
 	if service == "server" {
 		QMgr = NewServerMgr()
 	} else if service == "proxy" {
-		QMgr = NewProxyMgr()
+		//QMgr = NewProxyMgr()
 	}
 	Service = service
 
@@ -69,6 +69,8 @@ type CoReq struct {
 
 type Notice struct {
 	WorkId      string
+	TaskId      string
+	JobId       string
 	Status      string
 	ClientId    string
 	ComputeTime int
@@ -306,11 +308,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 			return
 		}
 
-		task, xerr := NewTask(job, taskDep.Id)
-		if xerr != nil {
-			err = xerr
-			return
-		}
+		task := NewTask(job, taskDep.Id)
 
 		_, err = task.Init(job)
 		if err != nil {
@@ -370,7 +368,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 
 //misc
 
-func GetJobIdByTaskId(taskid string) (jobid string, err error) {
+func GetJobIdByTaskId_deprecated(taskid string) (jobid string, err error) { // job_id is embedded in task struct
 	parts := strings.Split(taskid, "_")
 	if len(parts) == 2 {
 		return parts[0], nil
@@ -378,7 +376,7 @@ func GetJobIdByTaskId(taskid string) (jobid string, err error) {
 	return "", errors.New("invalid task id: " + taskid)
 }
 
-func GetJobIdByWorkId(workid string) (jobid string, err error) {
+func GetJobIdByWorkId_deprecated(workid string) (jobid string, err error) {
 	parts := strings.Split(workid, "_")
 	if len(parts) == 3 {
 		jobid = parts[0]
@@ -388,7 +386,7 @@ func GetJobIdByWorkId(workid string) (jobid string, err error) {
 	return
 }
 
-func GetTaskIdByWorkId(workid string) (taskid string, err error) {
+func GetTaskIdByWorkId_deprecated(workid string) (taskid string, err error) {
 	parts := strings.Split(workid, "_")
 	if len(parts) == 3 {
 		return fmt.Sprintf("%s_%s", parts[0], parts[1]), nil
@@ -406,7 +404,7 @@ func IsFirstTask(taskid string) bool {
 	return false
 }
 
-//update job state to "newstate" only if the current state is in one of the "oldstates"
+//update job state to "newstate" only if the current state is in one of the "oldstates" // TODO make this a job.SetState function
 func UpdateJobState(jobid string, newstate string, oldstates []string) (err error) {
 	job, err := GetJob(jobid)
 	if err != nil {
@@ -446,7 +444,7 @@ func contains(list []string, elem string) bool {
 //functions for REST API communication  (=deprecated=)
 //notify AWE server a workunit is finished with status either "failed" or "done", and with perf statistics if "done"
 func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
-	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s", conf.SERVER_URL, work.Id, work.State, Self.Id)
+	target_url := fmt.Sprintf("%s/work/%s?workid=%s&jobid=%s&status=%s&client=%s", conf.SERVER_URL, work.Id, work.TaskId, work.JobId, work.State, Self.Id)
 
 	argv := []string{}
 	argv = append(argv, "-X")
@@ -470,7 +468,7 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 }
 
 func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (response *StandardResponse, err error) {
-	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work.Id, work.State, Self.Id, work.ComputeTime)
+	target_url := fmt.Sprintf("%s/work/%s?workid=%s&jobid=%sstatus=%s&client=%s&computetime=%d", conf.SERVER_URL, work.Id, work.TaskId, work.JobId, work.State, Self.Id, work.ComputeTime)
 	form := httpclient.NewForm()
 	hasreport := false
 	if work.State == WORK_STAT_DONE && perf != nil {

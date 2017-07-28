@@ -25,13 +25,14 @@ const (
 )
 
 type Workunit struct {
-	Id           string            `bson:"wuid" json:"wuid"`
+	Workunit_Unique_Identifier
+	Id string `bson:"id" json:"id"` // global identifier: jobid_taskid_rank
+
 	Info         *Info             `bson:"info" json:"info"`
 	Inputs       []*IO             `bson:"inputs" json:"inputs"`
 	Outputs      []*IO             `bson:"outputs" json:"outputs"`
 	Predata      []*IO             `bson:"predata" json:"predata"`
 	Cmd          *Command          `bson:"cmd" json:"cmd"`
-	Rank         int               `bson:"rank" json:"rank"`
 	TotalWork    int               `bson:"totalwork" json:"totalwork"`
 	Partition    *PartInfo         `bson:"part" json:"part"`
 	State        string            `bson:"state" json:"state"`
@@ -45,6 +46,16 @@ type Workunit struct {
 	WorkPath     string            // this is the working directory. If empty, it will be computed.
 	WorkPerf     *WorkPerf
 	CWL          *CWL_workunit
+}
+
+type Workunit_Unique_Identifier struct {
+	Rank   int    `bson:"rank" json:"rank"` // this is the local identifier
+	TaskId string `bson:"taskid" json:"taskid"`
+	JobId  string `bson:"jobid" json:"jobid"`
+}
+
+func (w Workunit_Unique_Identifier) String() string {
+	return fmt.Sprintf("%s_%s_%d", w.JobId, w.TaskId, w.Rank)
 }
 
 type CWL_workunit struct {
@@ -72,14 +83,15 @@ type WorkLog struct {
 	Logs map[string]string `bson:"logs" json:"logs"`
 }
 
-func NewWorkLog(tid string, rank int) (wlog *WorkLog) {
-	wid := fmt.Sprintf("%s_%d", tid, rank)
+func NewWorkLog(id Workunit_Unique_Identifier) (wlog *WorkLog) {
+	work_id := fmt.Sprintf("%s_%d", id.TaskId, id.Rank)
 	wlog = new(WorkLog)
-	wlog.Id = wid
-	wlog.Rank = rank
+	wlog.Id = work_id
+	wlog.Rank = id.Rank
 	wlog.Logs = map[string]string{}
 	for _, log := range conf.WORKUNIT_LOGS {
-		wlog.Logs[log], _ = QMgr.GetReportMsg(wid, log)
+
+		wlog.Logs[log], _ = QMgr.GetReportMsg(id, log)
 	}
 	return
 }
@@ -90,6 +102,11 @@ type WorkunitsSortby struct {
 	Order     string
 	Direction string
 	Workunits []*Workunit
+}
+
+func (w *Workunit) GetUniqueIdentifier() (id Workunit_Unique_Identifier) {
+	id = Workunit_Unique_Identifier{Rank: w.Rank, TaskId: w.TaskId, JobId: w.JobId}
+	return
 }
 
 func (w WorkunitsSortby) Len() int {
@@ -134,17 +151,22 @@ func (w WorkunitsSortby) Less(i, j int) bool {
 	}
 }
 
-func NewWorkunit(task *Task, rank int) *Workunit {
+func NewWorkunit(task *Task, rank int) (w *Workunit) {
 
-	return &Workunit{
-		Id:  fmt.Sprintf("%s_%d", task.Id, rank),
+	w = &Workunit{
+		Workunit_Unique_Identifier: Workunit_Unique_Identifier{
+			Rank:   rank,
+			TaskId: task.Id,
+			JobId:  task.JobId,
+		},
+		Id:  "defined below",
 		Cmd: task.Cmd,
 		//App:       task.App,
-		Info:       task.Info,
-		Inputs:     task.Inputs,
-		Outputs:    task.Outputs,
-		Predata:    task.Predata,
-		Rank:       rank,
+		Info:    task.Info,
+		Inputs:  task.Inputs,
+		Outputs: task.Outputs,
+		Predata: task.Predata,
+
 		TotalWork:  task.TotalWork, //keep this info in workunit for load balancing
 		Partition:  task.Partition,
 		State:      WORK_STAT_INIT,
@@ -154,6 +176,10 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 
 		//AppVariables: task.AppVariables // not needed yet
 	}
+
+	w.Id = w.String()
+
+	return
 }
 
 func (work *Workunit) Mkdir() (err error) {

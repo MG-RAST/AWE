@@ -175,7 +175,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	return
 }
 
-func (qm *ProxyMgr) FetchDataToken(workid string, clientid string) (token string, err error) {
+func (qm *ProxyMgr) FetchDataToken(workunit *Workunit, clientid string) (token string, err error) {
 	return
 }
 

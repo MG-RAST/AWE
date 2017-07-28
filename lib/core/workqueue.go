@@ -68,7 +68,8 @@ func (wq *WorkQueue) GetForJob(jobid string) (worklist []*Workunit, err error) {
 		return
 	}
 	for _, work := range workunits {
-		parentid, _ := GetJobIdByWorkId(work.Id)
+		parentid := work.JobId
+		//parentid := , _ := GetJobIdByWorkId(work.Id)
 		if jobid == parentid {
 			worklist = append(worklist, work)
 		}
@@ -80,7 +81,7 @@ func (wq *WorkQueue) GetAll() (worklist []*Workunit, err error) {
 	return wq.all.GetWorkunits()
 }
 
-func (wq *WorkQueue) Clean() (workids []string) {
+func (wq *WorkQueue) Clean() (workunits []*Workunit) {
 	workunt_list, err := wq.all.GetWorkunits()
 	if err != nil {
 		return
@@ -88,7 +89,7 @@ func (wq *WorkQueue) Clean() (workids []string) {
 	for _, work := range workunt_list {
 		id := work.Id
 		if work == nil || work.Info == nil {
-			workids = append(workids, id)
+			workunits = append(workunits, work)
 			wq.Queue.Delete(id)
 			wq.Checkout.Delete(id)
 			wq.Suspend.Delete(id)

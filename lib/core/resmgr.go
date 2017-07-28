@@ -35,8 +35,8 @@ type WorkMgr interface {
 	CheckoutWorkunits(string, string, *Client, int64, int) ([]*Workunit, error)
 	NotifyWorkStatus(Notice)
 	EnqueueWorkunit(*Workunit) error
-	FetchDataToken(string, string) (string, error)
-	FetchPrivateEnv(string, string) (map[string]string, error)
+	FetchDataToken(*Workunit, string) (string, error)
+	FetchPrivateEnv(Workunit_Unique_Identifier, string) (map[string]string, error)
 }
 
 type JobMgr interface {
@@ -53,9 +53,9 @@ type JobMgr interface {
 	DeleteZombieJobsByUser(*user.User, bool) int
 	RecoverJob(string) error
 	RecoverJobs() error
-	FinalizeWorkPerf(string, string) error
-	SaveStdLog(string, string, string) error
-	GetReportMsg(string, string) (string, error)
+	FinalizeWorkPerf(Workunit_Unique_Identifier, string) error
+	SaveStdLog(Workunit_Unique_Identifier, string, string) error
+	GetReportMsg(Workunit_Unique_Identifier, string) (string, error)
 	RecomputeJob(string, string) error
 	UpdateQueueToken(*Job) error
 }

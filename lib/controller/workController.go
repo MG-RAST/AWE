@@ -66,7 +66,15 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		}
 
 		if query.Has("datatoken") { //a client is requesting data token for this job
-			token, err := core.QMgr.FetchDataToken(id, clientid)
+			workunit, ok, err = core.QMgr.workQueue.Get(id)
+			if err != nil {
+				cx.RespondWithErrorMessage("error searching for workunit "+id, http.StatusBadRequest)
+			}
+			if !ok {
+				cx.RespondWithErrorMessage("workunit not found "+id, http.StatusBadRequest)
+			}
+
+			token, err := core.QMgr.FetchDataToken(workunit, clientid)
 			if err != nil {
 				cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
 				return
@@ -366,7 +374,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	}
 
 	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
-		notice := core.Notice{WorkId: id, Status: query.Value("status"), ClientId: query.Value("client"), Notes: ""}
+		notice := core.Notice{WorkId: id, TaskId: query.Value("taskid"), JobId: query.Value("jobid"), Status: query.Value("status"), ClientId: query.Value("client"), Notes: ""}
 		if query.Has("computetime") {
 			if comptime, err := strconv.Atoi(query.Value("computetime")); err == nil {
 				notice.ComputeTime = comptime

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
@@ -46,17 +47,18 @@ type JobRaw struct {
 	RWMutex
 	Id string `bson:"id" json:"id"`
 	//Tasks       []*Task   `bson:"tasks" json:"tasks"`
-	Acl         acl.Acl   `bson:"acl" json:"-"`
-	Info        *Info     `bson:"info" json:"info"`
-	Script      script    `bson:"script" json:"-"`
-	State       string    `bson:"state" json:"state"`
-	Registered  bool      `bson:"registered" json:"registered"`
-	RemainTasks int       `bson:"remaintasks" json:"remaintasks"`
-	Expiration  time.Time `bson:"expiration" json:"expiration"` // 0 means no expiration
-	UpdateTime  time.Time `bson:"updatetime" json:"updatetime"`
-	Error       *JobError `bson:"error" json:"error"`         // error struct exists when in suspended state
-	Resumed     int       `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
-	ShockHost   string    `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
+	Acl          acl.Acl   `bson:"acl" json:"-"`
+	Info         *Info     `bson:"info" json:"info"`
+	Script       script    `bson:"script" json:"-"`
+	State        string    `bson:"state" json:"state"`
+	Registered   bool      `bson:"registered" json:"registered"`
+	RemainTasks  int       `bson:"remaintasks" json:"remaintasks"`
+	Expiration   time.Time `bson:"expiration" json:"expiration"` // 0 means no expiration
+	UpdateTime   time.Time `bson:"updatetime" json:"updatetime"`
+	Error        *JobError `bson:"error" json:"error"`         // error struct exists when in suspended state
+	Resumed      int       `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
+	ShockHost    string    `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
+	CWL_workflow *cwl.Workflow
 }
 
 type Job struct {
@@ -155,7 +157,8 @@ func (job *Job) Init() (changed bool, err error) {
 		if task.Id == "" {
 			// suspend and create error
 			logger.Error("(job.Init) task.Id empty, job %s broken?", job.Id)
-			task.Id = job.Id + "_" + uuid.New()
+			//task.Id = job.Id + "_" + uuid.New()
+			task.Id = uuid.New()
 			job.State = JOB_STAT_SUSPEND
 			job.Error = &JobError{
 				ServerNotes: "task.Id was empty",

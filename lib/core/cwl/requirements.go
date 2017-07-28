@@ -37,6 +37,9 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 	case "ScatterFeatureRequirement":
 		r, err = requirements.NewScatterFeatureRequirement(obj)
 		return
+	case "MultipleInputFeatureRequirement":
+		r, err = requirements.NewMultipleInputFeatureRequirement(obj)
+		return
 	default:
 		err = errors.New("Requirement class not supported " + class)
 

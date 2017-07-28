@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/shock"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -26,24 +28,23 @@ const (
 
 type TaskRaw struct {
 	RWMutex
-	Id          string    `bson:"taskid" json:"taskid"`
-	JobId       string    `bson:"jobid" json:"jobid"`
-	Info        *Info     `bson:"-" json:"-"`
-	Cmd         *Command  `bson:"cmd" json:"cmd"`
-	Partition   *PartInfo `bson:"partinfo" json:"-"`
-	DependsOn   []string  `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
-	TotalWork   int       `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize int       `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork  int       `bson:"remainwork" json:"remainwork"`
-	//WorkStatus  []string  `bson:"workstatus" json:"-"`
-	State string `bson:"state" json:"state"`
-	//Skip          int               `bson:"skip" json:"-"`
+	Id            string            `bson:"taskid" json:"taskid"`
+	JobId         string            `bson:"jobid" json:"jobid"`
+	Info          *Info             `bson:"-" json:"-"`
+	Cmd           *Command          `bson:"cmd" json:"cmd"`
+	Partition     *PartInfo         `bson:"partinfo" json:"-"`
+	DependsOn     []string          `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
+	TotalWork     int               `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize   int               `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork    int               `bson:"remainwork" json:"remainwork"`
+	State         string            `bson:"state" json:"state"`
 	CreatedDate   time.Time         `bson:"createdDate" json:"createddate"`
 	StartedDate   time.Time         `bson:"startedDate" json:"starteddate"`
 	CompletedDate time.Time         `bson:"completedDate" json:"completeddate"`
 	ComputeTime   int               `bson:"computetime" json:"computetime"`
 	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
 	ClientGroups  string            `bson:"clientgroups" json:"clientgroups"`
+	workflowStep  *cwl.WorkflowStep `bson:"workflowStep" json:"workflowStep"` // CWL-only
 }
 
 type Task struct {
@@ -106,32 +107,6 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		task.State = TASK_STAT_INIT
 	}
 
-	if !strings.Contains(task.Id, "_") {
-		// is not standard taskid, convert it
-		task.Id = fmt.Sprintf("%s_%s", job.Id, task.Id)
-		changed = true
-	}
-
-	fix_DependsOn := false
-	for _, dependency := range task.DependsOn {
-		if !strings.Contains(dependency, "_") {
-			fix_DependsOn = true
-		}
-	}
-
-	if fix_DependsOn {
-		changed = true
-		new_DependsOn := []string{}
-		for _, dependency := range task.DependsOn {
-			if strings.Contains(dependency, "_") {
-				new_DependsOn = append(new_DependsOn, dependency)
-			} else {
-				new_DependsOn = append(new_DependsOn, fmt.Sprintf("%s_%s", job.Id, dependency))
-			}
-		}
-		task.DependsOn = new_DependsOn
-	}
-
 	if job.Info == nil {
 		err = fmt.Errorf("(NewTask) job.Info empty")
 		return
@@ -156,37 +131,53 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	return
 }
 
-func (task *Task) Init(job *Job) (changed bool, err error) {
-	changed, err = task.InitRaw(job)
-	if err != nil {
-		return
+func IsValidUUID(uuid string) bool {
+	if len(uuid) != 36 {
+		return false
 	}
+	r := regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$")
+	return r.MatchString(uuid)
+}
 
-	// populate DependsOn
+// populate DependsOn
+func (task *Task) CollectDependencies() (changed bool, err error) {
+
 	deps := make(map[string]bool)
 	deps_changed := false
 	// collect explicit dependencies
 	for _, deptask := range task.DependsOn {
-		if !strings.Contains(deptask, "_") {
-			err = fmt.Errorf("deptask \"%s\" is missing _", deptask)
-			return
+
+		deptask_parts := strings.SplitN(deptask, "_", 2)
+		if IsValidUUID(deptask_parts[0]) {
+			deptask = deptask_parts[1]
+			if task.JobId == "" {
+				task.JobId = deptask_parts[0]
+			}
+			deps_changed = true
 		}
+
 		deps[deptask] = true
 	}
 
 	for _, input := range task.Inputs {
-		if input.Origin != "" {
-			origin := input.Origin
-			if !strings.Contains(origin, "_") {
-				origin = fmt.Sprintf("%s_%s", job.Id, origin)
+
+		deptask := input.Origin
+		deptask_parts := strings.SplitN(deptask, "_", 2)
+		if IsValidUUID(deptask_parts[0]) {
+			deptask = deptask_parts[1]
+			if task.JobId == "" {
+				task.JobId = deptask_parts[0]
 			}
-			_, ok := deps[origin]
-			if !ok {
-				// this was not yet in deps
-				deps[origin] = true
-				deps_changed = true
-			}
+			deps_changed = true
 		}
+
+		_, ok := deps[deptask]
+		if !ok {
+			// this was not yet in deps
+			deps[deptask] = true
+			deps_changed = true
+		}
+
 	}
 
 	// write all dependencies if different from before
@@ -195,6 +186,22 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 		for deptask, _ := range deps {
 			task.DependsOn = append(task.DependsOn, deptask)
 		}
+		changed = true
+	}
+	return
+}
+
+func (task *Task) Init(job *Job) (changed bool, err error) {
+	changed, err = task.InitRaw(job)
+	if err != nil {
+		return
+	}
+
+	dep_changes, err := task.CollectDependencies()
+	if err != nil {
+		return
+	}
+	if dep_changes {
 		changed = true
 	}
 
@@ -243,7 +250,7 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 }
 
 // currently this is only used to make a new task from a depricated task
-func NewTask(job *Job, task_id string) (t *Task, err error) {
+func NewTask(job *Job, task_id string) (t *Task) {
 	t = &Task{
 		TaskRaw: NewTaskRaw(task_id, job.Info),
 		Inputs:  []*IO{},
@@ -770,11 +777,16 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog) {
 	tlog.State = task.State
 	tlog.TotalWork = task.TotalWork
 	tlog.CompletedDate = task.CompletedDate
+
+	workunit_id := Workunit_Unique_Identifier{JobId: task.JobId, TaskId: task.Id}
+
 	if task.TotalWork == 1 {
-		tlog.Workunits = append(tlog.Workunits, NewWorkLog(task.Id, 0))
+		workunit_id.Rank = 0
+		tlog.Workunits = append(tlog.Workunits, NewWorkLog(workunit_id))
 	} else {
 		for i := 1; i <= task.TotalWork; i++ {
-			tlog.Workunits = append(tlog.Workunits, NewWorkLog(task.Id, i))
+			workunit_id.Rank = i
+			tlog.Workunits = append(tlog.Workunits, NewWorkLog(workunit_id))
 		}
 	}
 	return

@@ -1108,16 +1108,17 @@ func (qm *CQMgr) ShowWorkunitsByUser(status string, u *user.User) (workunits []*
 				workunits = append(workunits, work)
 			}
 		} else {
-			if jobid, err := GetJobIdByWorkId(work.Id); err == nil {
-				if job, err := GetJob(jobid); err == nil {
-					rights := job.Acl.Check(u.Uuid)
-					if job.Acl.Owner == u.Uuid || rights["read"] == true {
-						if work.State == status || status == "" {
-							workunits = append(workunits, work)
-						}
+			jobid := work.JobId
+
+			if job, err := GetJob(jobid); err == nil {
+				rights := job.Acl.Check(u.Uuid)
+				if job.Acl.Owner == u.Uuid || rights["read"] == true {
+					if work.State == status || status == "" {
+						workunits = append(workunits, work)
 					}
 				}
 			}
+
 		}
 	}
 	return workunits
@@ -1147,11 +1148,8 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 			continue
 		}
 
-		jobid, err := GetJobIdByWorkId(workid)
-		if err != nil {
-			logger.Error("(ReQueueWorkunitByClient) GetJobIdByWorkId: %s", err.Error())
-			continue
-		}
+		jobid := work.JobId
+
 		job_state, err := dbGetJobFieldString(jobid, "state")
 		if err != nil {
 			logger.Error("(ReQueueWorkunitByClient) dbGetJobField: %s", err.Error())

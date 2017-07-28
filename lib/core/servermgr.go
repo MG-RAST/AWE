@@ -45,10 +45,10 @@ func NewServerMgr() *ServerMgr {
 			workQueue:    NewWorkQueue(),
 			suspendQueue: false,
 
-			coReq:        make(chan CoReq, conf.COREQ_LENGTH), // number of clients that wait in queue to get a workunit. If queue is full, other client will be rejected and have to come back later again
-			feedback:     make(chan Notice),
-			coSem:        make(chan int, 1), //non-blocking buffered channel
-			
+			coReq:    make(chan CoReq, conf.COREQ_LENGTH), // number of clients that wait in queue to get a workunit. If queue is full, other client will be rejected and have to come back later again
+			feedback: make(chan Notice),
+			coSem:    make(chan int, 1), //non-blocking buffered channel
+
 		},
 		lastUpdate: time.Now().Add(time.Second * -30),
 		TaskMap:    *NewTaskMap(),
@@ -346,8 +346,9 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	}
 	logger.Debug(3, "(updateQueue) range tasks (%d)", len(tasks))
 	for _, task := range tasks {
-		task_id, err := task.GetId()
-		if err != nil {
+		task_id, yerr := task.GetId()
+		if yerr != nil {
+			err = yerr
 			return err
 		}
 
@@ -363,7 +364,12 @@ func (qm *ServerMgr) updateQueue() (err error) {
 			err = qm.taskEnQueue(task)
 			if err != nil {
 				_ = task.SetState(TASK_STAT_SUSPEND)
-				job_id, _ := GetJobIdByTaskId(task_id)
+				var job_id string
+				job_id, xerr := task.GetJobId()
+				if xerr != nil {
+					err = xerr
+					return err
+				}
 				jerror := &JobError{
 					TaskFailed:  task_id,
 					ServerNotes: "failed enqueuing task, err=" + err.Error(),
@@ -381,17 +387,11 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	}
 
 	logger.Debug(3, "(updateQueue) range qm.workQueue.Clean()")
-	for _, id := range qm.workQueue.Clean() {
-		job_id, err := GetJobIdByWorkId(id)
-		if err != nil {
-			logger.Error("(updateQueue) workunit %s is nil, cannot get job id", id)
-			continue
-		}
-		task_id, err := GetTaskIdByWorkId(id)
-		if err != nil {
-			logger.Error("(updateQueue) workunit %s is nil, cannot get task id", id)
-			continue
-		}
+	for _, workunit := range qm.workQueue.Clean() {
+		id := workunit.Id
+		job_id := workunit.JobId
+		task_id := workunit.TaskId
+
 		jerror := &JobError{
 			WorkFailed:  id,
 			TaskFailed:  task_id,
@@ -883,7 +883,8 @@ func (qm *ServerMgr) GetTextStatus() string {
 //---end of mgr methods
 
 //--workunit methds (servermgr implementation)
-func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token string, err error) {
+func (qm *ServerMgr) FetchDataToken(workunit *Workunit, clientid string) (token string, err error) {
+	workid := workunit.Id
 	//precheck if the client is registered
 	client, ok, err := qm.GetClient(clientid, true)
 	if err != nil {
@@ -899,10 +900,8 @@ func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token strin
 	if client_status == CLIENT_STAT_SUSPEND {
 		return "", errors.New(e.ClientSuspended)
 	}
-	jobid, err := GetJobIdByWorkId(workid)
-	if err != nil {
-		return "", err
-	}
+	jobid := workunit.JobId
+
 	job, err := GetJob(jobid)
 	if err != nil {
 		return "", err
@@ -914,50 +913,50 @@ func (qm *ServerMgr) FetchDataToken(workid string, clientid string) (token strin
 	return token, nil
 }
 
-func (qm *ServerMgr) FetchPrivateEnvs(workid string, clientid string) (envs map[string]string, err error) {
-	//precheck if the client is registered
-	client, ok, err := qm.GetClient(clientid, true)
-	if err != nil {
-		return
-	}
-	if !ok {
-		return nil, errors.New(e.ClientNotFound)
-	}
-	client_status, err := client.Get_Status(true)
-	if err != nil {
-		return
-	}
-	if client_status == CLIENT_STAT_SUSPEND {
-		return nil, errors.New(e.ClientSuspended)
-	}
-	jobid, err := GetJobIdByWorkId(workid)
-	if err != nil {
-		return nil, err
-	}
+// func (qm *ServerMgr) FetchPrivateEnvs_deprecated(workid string, clientid string) (envs map[string]string, err error) {
+// 	//precheck if the client is registered
+// 	client, ok, err := qm.GetClient(clientid, true)
+// 	if err != nil {
+// 		return
+// 	}
+// 	if !ok {
+// 		return nil, errors.New(e.ClientNotFound)
+// 	}
+// 	client_status, err := client.Get_Status(true)
+// 	if err != nil {
+// 		return
+// 	}
+// 	if client_status == CLIENT_STAT_SUSPEND {
+// 		return nil, errors.New(e.ClientSuspended)
+// 	}
+// 	jobid, err := GetJobIdByWorkId(workid)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	job, err := GetJob(jobid)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+//
+// 	taskid, _ := GetTaskIdByWorkId(workid)
+//
+// 	idx := -1
+// 	for i, t := range job.Tasks {
+// 		if t.Id == taskid {
+// 			idx = i
+// 			break
+// 		}
+// 	}
+// 	envs = job.Tasks[idx].Cmd.Environ.Private
+// 	if envs == nil {
+// 		return nil, errors.New("no private envs for workunit " + workid)
+// 	}
+// 	return envs, nil
+// }
 
-	job, err := GetJob(jobid)
-	if err != nil {
-		return nil, err
-	}
-
-	taskid, _ := GetTaskIdByWorkId(workid)
-
-	idx := -1
-	for i, t := range job.Tasks {
-		if t.Id == taskid {
-			idx = i
-			break
-		}
-	}
-	envs = job.Tasks[idx].Cmd.Environ.Private
-	if envs == nil {
-		return nil, errors.New("no private envs for workunit " + workid)
-	}
-	return envs, nil
-}
-
-func (qm *ServerMgr) SaveStdLog(workid string, logname string, tmppath string) (err error) {
-	savedpath, err := getStdLogPathByWorkId(workid, logname)
+func (qm *ServerMgr) SaveStdLog(id Workunit_Unique_Identifier, logname string, tmppath string) (err error) {
+	savedpath, err := getStdLogPathByWorkId(id, logname)
 	if err != nil {
 		return err
 	}
@@ -965,8 +964,8 @@ func (qm *ServerMgr) SaveStdLog(workid string, logname string, tmppath string) (
 	return
 }
 
-func (qm *ServerMgr) GetReportMsg(workid string, logname string) (report string, err error) {
-	logpath, err := getStdLogPathByWorkId(workid, logname)
+func (qm *ServerMgr) GetReportMsg(id Workunit_Unique_Identifier, logname string) (report string, err error) {
+	logpath, err := getStdLogPathByWorkId(id, logname)
 	if err != nil {
 		return "", err
 	}
@@ -981,10 +980,14 @@ func (qm *ServerMgr) GetReportMsg(workid string, logname string) (report string,
 	return string(content), err
 }
 
-func deleteStdLogByTask(taskid string, logname string) (err error) {
-	jobid, err := GetJobIdByTaskId(taskid)
+func deleteStdLogByTask(task *Task, logname string) (err error) {
+	jobid, err := task.GetJobId()
 	if err != nil {
-		return err
+		return
+	}
+	taskid, err := task.GetId()
+	if err != nil {
+		return
 	}
 	var logdir string
 	logdir, err = getPathByJobId(jobid)
@@ -1004,16 +1007,15 @@ func deleteStdLogByTask(taskid string, logname string) (err error) {
 	return
 }
 
-func getStdLogPathByWorkId(workid string, logname string) (savedpath string, err error) {
-	jobid, err := GetJobIdByWorkId(workid)
-	if err != nil {
-		return "", err
-	}
+func getStdLogPathByWorkId(id Workunit_Unique_Identifier, logname string) (savedpath string, err error) {
+	jobid := id.JobId
+
 	var logdir string
 	logdir, err = getPathByJobId(jobid)
 	if err != nil {
 		return
 	}
+	workid := id.String()
 	savedpath = fmt.Sprintf("%s/%s.%s", logdir, workid, logname)
 	return
 }
@@ -1067,7 +1069,11 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 		if err != nil {
 			_ = task.SetState(TASK_STAT_SUSPEND)
 			task_id, _ := task.GetId()
-			job_id, _ := GetJobIdByTaskId(task_id)
+			job_id, xerr := task.GetJobId()
+			if xerr != nil {
+				err = xerr
+				return
+			}
 			jerror := &JobError{
 				TaskFailed:  task_id,
 				ServerNotes: "failed in enqueuing task, err=" + err.Error(),
@@ -1262,11 +1268,11 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 
 	//log event about task enqueue (TQ)
 	logger.Event(event.TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task_id, task.TotalWork))
-	qm.CreateTaskPerf(task_id)
+	qm.CreateTaskPerf(task)
 
-	if IsFirstTask(task_id) {
-		UpdateJobState(job_id, JOB_STAT_QUEUED, []string{JOB_STAT_INIT, JOB_STAT_SUSPEND})
-	}
+	//if IsFirstTask(task_id) {
+	UpdateJobState(job_id, JOB_STAT_QUEUED, []string{JOB_STAT_INIT, JOB_STAT_SUSPEND})
+	//}
 
 	return
 }
@@ -1380,7 +1386,8 @@ func (qm *ServerMgr) CreateAndEnqueueWorkunits(task *Task) (err error) {
 		if err := qm.workQueue.Add(wu); err != nil {
 			return err
 		}
-		qm.CreateWorkPerf(wu.Id)
+		id := wu.GetUniqueIdentifier()
+		qm.CreateWorkPerf(id)
 	}
 	return
 }
@@ -1523,7 +1530,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		// delete nodes that have been flagged to be deleted
 		modified += task.DeleteOutput()
 		modified += task.DeleteInput()
-		qm.TaskMap.Delete(task.Id)
+		combined_id := jobid + "_" + task.Id
+		qm.TaskMap.Delete(combined_id)
 	}
 
 	if modified > 0 {
@@ -1569,8 +1577,8 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 	for _, work := range works {
 		//job_was_inprogress := false
 		//task_was_inprogress := false
-		taskid, _ := GetTaskIdByWorkId(work.Id)
-		jobid, _ := GetJobIdByWorkId(work.Id)
+		taskid := work.TaskId
+		jobid := work.JobId
 
 		// get job state
 		job_state, err := dbGetJobFieldString(jobid, "state")
@@ -1607,7 +1615,7 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 				logger.Error("(UpdateJobTaskToInProgress) could not update task %s", taskid)
 				continue
 			}
-			qm.UpdateTaskPerfStartTime(taskid)
+			qm.UpdateTaskPerfStartTime(task)
 		}
 	}
 }
@@ -1661,7 +1669,8 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 	// update all workunits
 	for _, workunit := range workunit_list {
 		workid := workunit.Id
-		parentid, _ := GetJobIdByWorkId(workid)
+		parentid := workunit.JobId
+		//parentid, _ := GetJobIdByWorkId(workid)
 		if jobid == parentid {
 			qm.workQueue.StatusChange(workid, nil, new_work_state)
 		}
@@ -1715,7 +1724,8 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 	}
 	for _, workunit := range workunit_list {
 		workid := workunit.Id
-		parentid, _ := GetJobIdByWorkId(workid)
+		parentid := workunit.JobId
+		//parentid, _ := GetJobIdByWorkId(workid)
 		if jobid == parentid {
 			qm.workQueue.Delete(workid)
 		}
@@ -2077,7 +2087,7 @@ func resetTask(task *Task, info *Info) {
 	}
 	// delete all workunit logs
 	for _, log := range conf.WORKUNIT_LOGS {
-		deleteStdLogByTask(task.Id, log)
+		deleteStdLogByTask(task, log)
 	}
 }
 
@@ -2112,8 +2122,10 @@ func isAncestor(job *Job, taskId string, testId string) bool {
 
 //update tokens for in-memory data structures
 func (qm *ServerMgr) UpdateQueueToken(job *Job) (err error) {
+	job_id := job.Id
 	for _, task := range job.Tasks {
-		mtask, ok, err := qm.TaskMap.Get(task.Id, true)
+		combined_id := job_id + "_" + task.Id
+		mtask, ok, err := qm.TaskMap.Get(combined_id, true)
 		if err != nil {
 			return err
 		}
@@ -2152,16 +2164,18 @@ func (qm *ServerMgr) FinalizeJobPerf(jobid string) {
 	return
 }
 
-func (qm *ServerMgr) CreateTaskPerf(taskid string) {
-	jobid, _ := GetJobIdByTaskId(taskid)
+func (qm *ServerMgr) CreateTaskPerf(task *Task) {
+	jobid := task.JobId
+	taskid := task.Id
 	if perf, ok := qm.getActJob(jobid); ok {
 		perf.Ptasks[taskid] = NewTaskPerf(taskid)
 		qm.putActJob(perf)
 	}
 }
 
-func (qm *ServerMgr) UpdateTaskPerfStartTime(taskid string) {
-	jobid, _ := GetJobIdByTaskId(taskid)
+func (qm *ServerMgr) UpdateTaskPerfStartTime(task *Task) {
+	jobid := task.JobId
+	taskid := task.Id
 	if jobperf, ok := qm.getActJob(jobid); ok {
 		if taskperf, ok := jobperf.Ptasks[taskid]; ok {
 			now := time.Now().Unix()
@@ -2171,10 +2185,16 @@ func (qm *ServerMgr) UpdateTaskPerfStartTime(taskid string) {
 	}
 }
 
-func (qm *ServerMgr) FinalizeTaskPerf(task *Task) {
-	jobid, _ := GetJobIdByTaskId(task.Id)
+// TODO evaluate err
+func (qm *ServerMgr) FinalizeTaskPerf(task *Task) (err error) {
+	//jobid, _ := GetJobIdByTaskId(task.Id)
+	jobid, err := task.GetJobId()
+	if err != nil {
+		return
+	}
 	if jobperf, ok := qm.getActJob(jobid); ok {
-		if taskperf, ok := jobperf.Ptasks[task.Id]; ok {
+		combined_id := jobid + "_" + task.Id
+		if taskperf, ok := jobperf.Ptasks[combined_id]; ok {
 			now := time.Now().Unix()
 			taskperf.End = now
 			taskperf.Resp = now - taskperf.Queued
@@ -2189,20 +2209,22 @@ func (qm *ServerMgr) FinalizeTaskPerf(task *Task) {
 			return
 		}
 	}
+	return
 }
 
-func (qm *ServerMgr) CreateWorkPerf(workid string) {
+func (qm *ServerMgr) CreateWorkPerf(id Workunit_Unique_Identifier) {
 	if !conf.PERF_LOG_WORKUNIT {
 		return
 	}
-	jobid, _ := GetJobIdByWorkId(workid)
+	workid := id.String()
+	jobid := id.JobId
 	if jobperf, ok := qm.getActJob(jobid); ok {
 		jobperf.Pworks[workid] = NewWorkPerf(workid)
 		qm.putActJob(jobperf)
 	}
 }
 
-func (qm *ServerMgr) FinalizeWorkPerf(workid string, reportfile string) (err error) {
+func (qm *ServerMgr) FinalizeWorkPerf(id Workunit_Unique_Identifier, reportfile string) (err error) {
 	if !conf.PERF_LOG_WORKUNIT {
 		return
 	}
@@ -2214,11 +2236,12 @@ func (qm *ServerMgr) FinalizeWorkPerf(workid string, reportfile string) (err err
 	if err := json.Unmarshal(jsonstream, workperf); err != nil {
 		return err
 	}
-	jobid, _ := GetJobIdByWorkId(workid)
+	jobid := id.JobId
 	jobperf, ok := qm.getActJob(jobid)
 	if !ok {
 		return errors.New("job perf not found:" + jobid)
 	}
+	workid := id.String()
 	if _, ok := jobperf.Pworks[workid]; !ok {
 		return errors.New("work perf not found:" + workid)
 	}
@@ -2242,7 +2265,7 @@ func (qm *ServerMgr) LogJobPerf(jobid string) {
 
 //---end of perf related methods
 
-func (qm *ServerMgr) FetchPrivateEnv(workid string, clientid string) (env map[string]string, err error) {
+func (qm *ServerMgr) FetchPrivateEnv(id Workunit_Unique_Identifier, clientid string) (env map[string]string, err error) {
 	//precheck if the client is registered
 	client, ok, err := qm.GetClient(clientid, true)
 	if err != nil {
@@ -2258,15 +2281,13 @@ func (qm *ServerMgr) FetchPrivateEnv(workid string, clientid string) (env map[st
 	if client_status == CLIENT_STAT_SUSPEND {
 		return env, errors.New(e.ClientSuspended)
 	}
-	jobid, err := GetJobIdByWorkId(workid)
-	if err != nil {
-		return env, err
-	}
+	jobid := id.JobId
+	taskid := id.TaskId
 	//job, err := GetJob(jobid)
 	//if err != nil {
 	//	return env, err
 	//}
-	taskid, err := GetTaskIdByWorkId(workid)
+
 	//env = job.GetPrivateEnv(taskid)
 
 	env, err = dbGetPrivateEnv(jobid, taskid)

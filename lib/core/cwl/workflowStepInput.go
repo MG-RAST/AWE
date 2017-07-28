@@ -14,6 +14,7 @@ type WorkflowStepInput struct {
 	LinkMerge LinkMergeMethod      `yaml:"linkMerge"`
 	Default   cwl_types.Any        `yaml:"default"`   // type Any does not make sense
 	ValueFrom cwl_types.Expression `yaml:"valueFrom"` // StepInputExpressionRequirement
+	Ready     bool                 `yaml:"-"`
 }
 
 func (w WorkflowStepInput) GetClass() string { return "WorkflowStepInput" }

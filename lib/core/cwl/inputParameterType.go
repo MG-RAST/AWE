@@ -29,8 +29,8 @@ func NewInputParameterType(original interface{}) (ipt_ptr *InputParameterType, e
 		case cwl_types.CWL_float:
 		case cwl_types.CWL_double:
 		case cwl_types.CWL_string:
-		case cwl_types.CWL_File:
-		case cwl_types.CWL_Directory:
+		case strings.ToLower(cwl_types.CWL_File):
+		case strings.ToLower(cwl_types.CWL_Directory):
 		default:
 			err = fmt.Errorf("(NewInputParameterType) type %s is unknown", original_str_lower)
 			return

@@ -99,15 +99,15 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		collection := cwl.NewCWL_collection()
 
-		// 1) parse job
-		//job_input, err := cwl.ParseJob(&collection, files["job"].Path)
-		//if err != nil {
-		//	logger.Error("ParseJob: " + err.Error())
-		//	cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
-		//	return
-		//}
+		//1) parse job
+		job_input, err := cwl.ParseJob(files["job"].Path)
+		if err != nil {
+			logger.Error("ParseJob: " + err.Error())
+			cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 
-		//collection.Job_input = job_input
+		collection.Job_input = job_input
 
 		// 2) parse cwl
 		logger.Debug(1, "got CWL")
@@ -144,11 +144,11 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 
 		fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
-		//job, err = core.CWL2AWE(_user, files, cwl_workflow, &collection)
-		//if err != nil {
-		//	cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
-		//	return
-		//}
+		job, err = core.CWL2AWE(_user, files, cwl_workflow, &collection)
+		if err != nil {
+			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 		logger.Debug(1, "CWL2AWE done")
 
 	} else if !has_upload && !has_awf {

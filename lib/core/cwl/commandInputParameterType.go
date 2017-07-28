@@ -4,7 +4,7 @@ import (
 	"fmt"
 	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
-	//"strings"
+	"strings"
 	//"github.com/mitchellh/mapstructure"
 )
 
@@ -22,7 +22,7 @@ func NewCommandInputParameterType(original interface{}) (cipt_ptr *CommandInputP
 	case string:
 		original_str := original.(string)
 
-		switch original_str {
+		switch strings.ToLower(original_str) {
 
 		case cwl_types.CWL_null:
 		case cwl_types.CWL_boolean:
@@ -31,8 +31,8 @@ func NewCommandInputParameterType(original interface{}) (cipt_ptr *CommandInputP
 		case cwl_types.CWL_float:
 		case cwl_types.CWL_double:
 		case cwl_types.CWL_string:
-		case cwl_types.CWL_File:
-		case cwl_types.CWL_Directory:
+		case strings.ToLower(cwl_types.CWL_File):
+		case strings.ToLower(cwl_types.CWL_Directory):
 		default:
 			err = fmt.Errorf("(NewCommandInputParameterType) type %s is unknown", original_str)
 			return

@@ -32,6 +32,12 @@ func (cr *WorkController) Options(cx *goweb.Context) {
 func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 
+	work_id, err := core.New_Workunit_Unique_Identifier(id)
+	if err != nil {
+		cx.RespondWithErrorMessage("error parsing workunit identifier: "+id, http.StatusBadRequest)
+		return
+	}
+
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
 
@@ -66,15 +72,8 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		}
 
 		if query.Has("datatoken") { //a client is requesting data token for this job
-			workunit, ok, err = core.QMgr.workQueue.Get(id)
-			if err != nil {
-				cx.RespondWithErrorMessage("error searching for workunit "+id, http.StatusBadRequest)
-			}
-			if !ok {
-				cx.RespondWithErrorMessage("workunit not found "+id, http.StatusBadRequest)
-			}
 
-			token, err := core.QMgr.FetchDataToken(workunit, clientid)
+			token, err := core.QMgr.FetchDataToken(work_id, clientid)
 			if err != nil {
 				cx.RespondWithErrorMessage("error in getting token for job "+id, http.StatusBadRequest)
 				return
@@ -85,7 +84,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		}
 
 		if query.Has("privateenv") { //a client is requesting data token for this job
-			envs, err := core.QMgr.FetchPrivateEnv(id, clientid)
+			envs, err := core.QMgr.FetchPrivateEnv(work_id, clientid)
 			if err != nil {
 				cx.RespondWithErrorMessage("error in getting token for job "+id+" :"+err.Error(), http.StatusBadRequest)
 				return
@@ -113,11 +112,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		}
 	}
 
-	jobid, err := core.GetJobIdByWorkId(id)
-	if err != nil {
-		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-		return
-	}
+	jobid := work_id.JobId
 
 	//job, err := core.LoadJob(jobid)
 	//if err != nil {
@@ -144,7 +139,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	}
 
 	if query.Has("report") { //retrieve report: stdout or stderr or worknotes
-		reportmsg, err := core.QMgr.GetReportMsg(id, query.Value("report"))
+		reportmsg, err := core.QMgr.GetReportMsg(work_id, query.Value("report"))
 		if err != nil {
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
@@ -342,6 +337,12 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 		return
 	}
 
+	work_id, err := core.New_Workunit_Unique_Identifier(id)
+	if err != nil {
+		cx.RespondWithErrorMessage("error parsing workunit identifier: "+id, http.StatusBadRequest)
+		return
+	}
+
 	// Check auth
 	cg, err := request.AuthenticateClientGroup(cx.Request)
 	if err != nil {
@@ -383,7 +384,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 		if query.Has("report") { // if "report" is specified in query, parse performance statistics or errlog
 			if _, files, err := ParseMultipartForm(cx.Request); err == nil {
 				if _, ok := files["perf"]; ok {
-					core.QMgr.FinalizeWorkPerf(id, files["perf"].Path)
+					core.QMgr.FinalizeWorkPerf(work_id, files["perf"].Path)
 				}
 				for _, log := range conf.WORKUNIT_LOGS {
 					if _, ok := files[log]; ok {
@@ -405,7 +406,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 							}
 						}
 						// move / save log file
-						core.QMgr.SaveStdLog(id, log, files[log].Path)
+						core.QMgr.SaveStdLog(work_id, log, files[log].Path)
 					}
 				}
 			}

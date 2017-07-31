@@ -35,7 +35,7 @@ type WorkMgr interface {
 	CheckoutWorkunits(string, string, *Client, int64, int) ([]*Workunit, error)
 	NotifyWorkStatus(Notice)
 	EnqueueWorkunit(*Workunit) error
-	FetchDataToken(*Workunit, string) (string, error)
+	FetchDataToken(Workunit_Unique_Identifier, string) (string, error)
 	FetchPrivateEnv(Workunit_Unique_Identifier, string) (map[string]string, error)
 }
 

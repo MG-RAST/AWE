@@ -163,7 +163,7 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 			return
 		}
 		for _, work_id := range current_work {
-			work, ok, zerr := qm.workQueue.all.Get(work_id)
+			work, ok, zerr := qm.workQueue.all.Get(work_id.String())
 			if zerr != nil {
 				continue
 			}
@@ -171,7 +171,7 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 				continue
 			}
 			if work.State == WORK_STAT_RESERVED {
-				qm.workQueue.StatusChange(work_id, work, WORK_STAT_CHECKOUT)
+				qm.workQueue.StatusChange(work_id.String(), work, WORK_STAT_CHECKOUT)
 			}
 		}
 
@@ -258,7 +258,7 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err e
 	suspended := []string{}
 
 	for _, work_id := range current_work {
-		work, ok, zerr := qm.workQueue.all.Get(work_id)
+		work, ok, zerr := qm.workQueue.all.Get(work_id.String())
 		if err != nil {
 			err = zerr
 			return
@@ -354,7 +354,7 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 	}
 
 	for _, workid := range current_work {
-		all_workunits_map[workid] = true
+		all_workunits_map[workid.String()] = true
 	}
 
 	// check if client is already known
@@ -374,14 +374,14 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 
 		for _, work_id := range old_client_current_work {
 
-			_, ok := all_workunits_map[work_id]
+			_, ok := all_workunits_map[work_id.String()]
 			if ok {
 				// all good, new client is still working on the same workunit the old client did work on.
 				continue
 			}
 
 			// the client does not know about this workunit anymore, make sure the workunit also knows that
-			work, ok, xerr := qm.workQueue.Get(work_id)
+			work, ok, xerr := qm.workQueue.Get(work_id.String())
 			if xerr != nil {
 				logger.Error("(RegisterNewClient) %s", xerr.Error())
 				continue
@@ -395,7 +395,7 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 				work.Client = ""
 				work_state := work.State
 				if (work_state != WORK_STAT_SUSPEND) && (work_state != WORK_STAT_QUEUED) {
-					qm.workQueue.StatusChange(work_id, work, WORK_STAT_QUEUED)
+					qm.workQueue.StatusChange(work_id.String(), work, WORK_STAT_QUEUED)
 				}
 			}
 
@@ -1137,7 +1137,7 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 	}
 	for _, workid := range worklist {
 		logger.Debug(3, "(ReQueueWorkunitByClient) try to requeue work %s", workid)
-		work, has_work, xerr := qm.workQueue.Get(workid)
+		work, has_work, xerr := qm.workQueue.Get(workid.String())
 		if xerr != nil {
 			logger.Error("(ReQueueWorkunitByClient) error checking workunit %s", workid)
 			continue
@@ -1158,8 +1158,8 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 
 		if contains(JOB_STATS_ACTIVE, job_state) { //only requeue workunits belonging to active jobs (rule out suspended jobs)
 			if work.Client == client.Id {
-				qm.workQueue.StatusChange(workid, work, WORK_STAT_QUEUED)
-				logger.Event(event.WORK_REQUEUE, "workid="+workid)
+				qm.workQueue.StatusChange(workid.String(), work, WORK_STAT_QUEUED)
+				logger.Event(event.WORK_REQUEUE, "workid="+workid.String())
 			} else {
 
 				other_client_id := work.Client
@@ -1171,14 +1171,14 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 				}
 				if ok {
 					// other_client exists (if otherclient does not exist, that is ok....)
-					oc_has_work, err := other_client.Current_work_has(workid)
+					oc_has_work, err := other_client.Current_work_has(workid.String())
 					if err != nil {
 						logger.Error("(ReQueueWorkunitByClient) Current_work_has: %s ", err)
 						continue
 					}
 					if !oc_has_work {
 						// other client has not this workunit,
-						qm.workQueue.StatusChange(workid, work, WORK_STAT_SUSPEND)
+						qm.workQueue.StatusChange(workid.String(), work, WORK_STAT_SUSPEND)
 						continue
 					}
 				}
@@ -1187,7 +1187,7 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 
 			}
 		} else {
-			qm.workQueue.StatusChange(workid, work, WORK_STAT_SUSPEND)
+			qm.workQueue.StatusChange(workid.String(), work, WORK_STAT_SUSPEND)
 		}
 
 	}

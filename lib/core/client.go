@@ -317,8 +317,8 @@ func (cl *Client) Current_work_has(workid string) (ok bool, err error) {
 	return
 }
 
-func (cl *Client) Get_current_work(do_read_lock bool) (current_work_ids []string, err error) {
-	current_work_ids = []string{}
+func (cl *Client) Get_current_work(do_read_lock bool) (current_work_ids []Workunit_Unique_Identifier, err error) {
+	current_work_ids = []Workunit_Unique_Identifier{}
 	if do_read_lock {
 		read_lock, xerr := cl.RLockNamed("Get_current_work")
 		if xerr != nil {
@@ -328,7 +328,14 @@ func (cl *Client) Get_current_work(do_read_lock bool) (current_work_ids []string
 		defer cl.RUnlockNamed(read_lock)
 	}
 	for id := range cl.Current_work {
-		current_work_ids = append(current_work_ids, id)
+
+		correct_id, xerr := New_Workunit_Unique_Identifier(id)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		current_work_ids = append(current_work_ids, correct_id)
 	}
 	return
 }

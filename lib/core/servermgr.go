@@ -428,7 +428,7 @@ func RemoveWorkFromClient(client *Client, clientid string, workid string) (err e
 			return err
 		}
 		for _, work_id := range current_work_ids {
-			_ = client.Current_work_delete(work_id, true)
+			_ = client.Current_work_delete(work_id.String(), true)
 		}
 
 		work_length, err = client.Current_work_length(true)
@@ -883,8 +883,8 @@ func (qm *ServerMgr) GetTextStatus() string {
 //---end of mgr methods
 
 //--workunit methds (servermgr implementation)
-func (qm *ServerMgr) FetchDataToken(workunit *Workunit, clientid string) (token string, err error) {
-	workid := workunit.Id
+func (qm *ServerMgr) FetchDataToken(work_id Workunit_Unique_Identifier, clientid string) (token string, err error) {
+
 	//precheck if the client is registered
 	client, ok, err := qm.GetClient(clientid, true)
 	if err != nil {
@@ -900,7 +900,8 @@ func (qm *ServerMgr) FetchDataToken(workunit *Workunit, clientid string) (token 
 	if client_status == CLIENT_STAT_SUSPEND {
 		return "", errors.New(e.ClientSuspended)
 	}
-	jobid := workunit.JobId
+
+	jobid := work_id.JobId
 
 	job, err := GetJob(jobid)
 	if err != nil {
@@ -908,7 +909,8 @@ func (qm *ServerMgr) FetchDataToken(workunit *Workunit, clientid string) (token 
 	}
 	token = job.GetDataToken()
 	if token == "" {
-		return token, errors.New("no data token set for workunit " + workid)
+		err = errors.New("no data token set for workunit " + work_id.String())
+		return
 	}
 	return token, nil
 }

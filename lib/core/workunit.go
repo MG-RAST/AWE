@@ -26,8 +26,8 @@ const (
 )
 
 type Workunit struct {
-	Workunit_Unique_Identifier
-	Id string `bson:"id" json:"id"` // global identifier: jobid_taskid_rank
+	Workunit_Unique_Identifier `bson:",inline"`
+	Id                         string `bson:"id" json:"id"` // global identifier: jobid_taskid_rank
 
 	Info         *Info             `bson:"info" json:"info"`
 	Inputs       []*IO             `bson:"inputs" json:"inputs"`
@@ -57,6 +57,10 @@ type Workunit_Unique_Identifier struct {
 
 func (w Workunit_Unique_Identifier) String() string {
 	return fmt.Sprintf("%s_%s_%d", w.JobId, w.TaskId, w.Rank)
+}
+
+func (w Workunit_Unique_Identifier) GetTask() Task_Unique_Identifier {
+	return Task_Unique_Identifier{JobId: w.JobId, Id: w.TaskId}
 }
 
 func New_Workunit_Unique_Identifier(old_style_id string) (w Workunit_Unique_Identifier, err error) {

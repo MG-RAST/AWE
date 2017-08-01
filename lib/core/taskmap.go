@@ -26,7 +26,7 @@ func (tm *TaskMap) Len() (length int, err error) {
 	return
 }
 
-func (tm *TaskMap) Get(taskid string, lock bool) (task *Task, ok bool, err error) {
+func (tm *TaskMap) Get(taskid Task_Unique_Identifier, lock bool) (task *Task, ok bool, err error) {
 	if lock {
 		read_lock, xerr := tm.RLockNamed("Get")
 		if xerr != nil {
@@ -36,7 +36,7 @@ func (tm *TaskMap) Get(taskid string, lock bool) (task *Task, ok bool, err error
 		defer tm.RUnlockNamed(read_lock)
 	}
 
-	task, ok = tm._map[taskid]
+	task, ok = tm._map[taskid.String()]
 	return
 }
 
@@ -57,16 +57,17 @@ func (tm *TaskMap) GetTasks() (tasks []*Task, err error) {
 	return
 }
 
-func (tm *TaskMap) Delete(taskid string) (task *Task, ok bool) {
+func (tm *TaskMap) Delete(taskid Task_Unique_Identifier) (task *Task, ok bool) {
 	tm.LockNamed("Delete")
 	defer tm.Unlock()
-	delete(tm._map, taskid) // TODO should get write lock on task first
+	delete(tm._map, taskid.String()) // TODO should get write lock on task first
 	return
 }
 
 func (tm *TaskMap) Add(task *Task) {
 	tm.LockNamed("Add")
 	defer tm.Unlock()
-	tm._map[task.Id] = task // TODO prevent overwriting
+	id, _ := task.String()
+	tm._map[id] = task // TODO prevent overwriting
 	return
 }

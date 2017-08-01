@@ -102,7 +102,7 @@ func (qm *ProxyMgr) GetTextStatus() string {
 func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	//relay the notice to the server
 	perf := new(WorkPerf)
-	workid := notice.WorkId
+	workid := notice.WorkId.String()
 	clientid := notice.ClientId
 	client, ok, err := qm.GetClient(clientid, true)
 	if err != nil {

@@ -68,9 +68,7 @@ type CoReq struct {
 }
 
 type Notice struct {
-	WorkId      string
-	TaskId      string
-	JobId       string
+	WorkId      Workunit_Unique_Identifier
 	Status      string
 	ClientId    string
 	ComputeTime int
@@ -468,7 +466,7 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 }
 
 func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (response *StandardResponse, err error) {
-	target_url := fmt.Sprintf("%s/work/%s?workid=%s&jobid=%sstatus=%s&client=%s&computetime=%d", conf.SERVER_URL, work.Id, work.TaskId, work.JobId, work.State, Self.Id, work.ComputeTime)
+	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work.String(), work.State, Self.Id, work.ComputeTime)
 	form := httpclient.NewForm()
 	hasreport := false
 	if work.State == WORK_STAT_DONE && perf != nil {

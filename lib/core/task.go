@@ -8,12 +8,13 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/shock"
 	"regexp"
+	//"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	TASK_STAT_INIT             = "init"
+	TASK_STAT_INIT             = "init" // first state any task should have
 	TASK_STAT_QUEUED           = "queued"
 	TASK_STAT_INPROGRESS       = "in-progress"
 	TASK_STAT_PENDING          = "pending"
@@ -28,23 +29,41 @@ const (
 
 type TaskRaw struct {
 	RWMutex
-	Id            string            `bson:"taskid" json:"taskid"`
-	JobId         string            `bson:"jobid" json:"jobid"`
-	Info          *Info             `bson:"-" json:"-"`
-	Cmd           *Command          `bson:"cmd" json:"cmd"`
-	Partition     *PartInfo         `bson:"partinfo" json:"-"`
-	DependsOn     []string          `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
-	TotalWork     int               `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize   int               `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork    int               `bson:"remainwork" json:"remainwork"`
-	State         string            `bson:"state" json:"state"`
-	CreatedDate   time.Time         `bson:"createdDate" json:"createddate"`
-	StartedDate   time.Time         `bson:"startedDate" json:"starteddate"`
-	CompletedDate time.Time         `bson:"completedDate" json:"completeddate"`
-	ComputeTime   int               `bson:"computetime" json:"computetime"`
-	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
-	ClientGroups  string            `bson:"clientgroups" json:"clientgroups"`
-	workflowStep  *cwl.WorkflowStep `bson:"workflowStep" json:"workflowStep"` // CWL-only
+	Task_Unique_Identifier `bson:",inline"`
+	Info                   *Info             `bson:"-" json:"-"`
+	Cmd                    *Command          `bson:"cmd" json:"cmd"`
+	Partition              *PartInfo         `bson:"partinfo" json:"-"`
+	DependsOn              []string          `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
+	TotalWork              int               `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize            int               `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork             int               `bson:"remainwork" json:"remainwork"`
+	State                  string            `bson:"state" json:"state"`
+	CreatedDate            time.Time         `bson:"createdDate" json:"createddate"`
+	StartedDate            time.Time         `bson:"startedDate" json:"starteddate"`
+	CompletedDate          time.Time         `bson:"completedDate" json:"completeddate"`
+	ComputeTime            int               `bson:"computetime" json:"computetime"`
+	UserAttr               map[string]string `bson:"userattr" json:"userattr"`
+	ClientGroups           string            `bson:"clientgroups" json:"clientgroups"`
+	workflowStep           *cwl.WorkflowStep `bson:"workflowStep" json:"workflowStep"` // CWL-only
+}
+
+type Task_Unique_Identifier struct {
+	Id    string `bson:"taskid" json:"taskid"` // local identifier
+	JobId string `bson:"jobid" json:"jobid"`
+}
+
+func New_Task_Unique_Identifier(old_style_id string) (t Task_Unique_Identifier, err error) {
+
+	array := strings.Split(old_style_id, "_")
+
+	if len(array) != 2 {
+		err = fmt.Errorf("Cannot parse task identifier: %s", old_style_id)
+		return
+	}
+
+	t = Task_Unique_Identifier{JobId: array[0], Id: array[1]}
+
+	return
 }
 
 type Task struct {
@@ -72,12 +91,12 @@ type TaskLog struct {
 	Workunits     []*WorkLog `bson:"workunits" json:"workunits"`
 }
 
-func NewTaskRaw(task_id string, info *Info) TaskRaw {
+func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) TaskRaw {
 
 	logger.Debug(3, "task_id: %s", task_id)
 
 	return TaskRaw{
-		Id:        task_id,
+		Task_Unique_Identifier: task_id,
 		Info:      info,
 		Cmd:       &Command{},
 		Partition: nil,
@@ -127,6 +146,26 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	if len(task.Cmd.Environ.Private) > 0 {
 		task.Cmd.HasPrivateEnv = true
 	}
+
+	return
+}
+
+func (task Task_Unique_Identifier) String() (s string) {
+
+	id := task.Id
+	jobId := task.JobId
+
+	return fmt.Sprintf("%s_%s", jobId, id)
+}
+
+func (task *TaskRaw) String() (s string, err error) {
+	err = task.LockNamed("String")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	s = task.Task_Unique_Identifier.String()
 
 	return
 }
@@ -251,8 +290,11 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 
 // currently this is only used to make a new task from a depricated task
 func NewTask(job *Job, task_id string) (t *Task) {
+
+	tui := Task_Unique_Identifier{Id: task_id, JobId: job.Id}
+
 	t = &Task{
-		TaskRaw: NewTaskRaw(task_id, job.Info),
+		TaskRaw: NewTaskRaw(tui, job.Info),
 		Inputs:  []*IO{},
 		Outputs: []*IO{},
 		Predata: []*IO{},
@@ -362,13 +404,13 @@ func (task *TaskRaw) GetStateNamed(name string) (state string, err error) {
 	return
 }
 
-func (task *TaskRaw) GetId() (id string, err error) {
+func (task *TaskRaw) GetId() (id Task_Unique_Identifier, err error) {
 	lock, err := task.RLockNamed("GetId")
 	if err != nil {
 		return
 	}
 	defer task.RUnlockNamed(lock)
-	id = task.Id
+	id = task.Task_Unique_Identifier
 	return
 }
 

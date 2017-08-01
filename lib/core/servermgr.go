@@ -14,7 +14,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	//"strconv"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -73,11 +73,14 @@ func (qm *ServerMgr) TaskHandle() {
 		task_id, err := task.GetId()
 		if err != nil {
 			logger.Error("(TaskHandle) %s", err.Error())
-			task_id = "unknown"
+			continue
 		}
 
-		logger.Debug(2, "ServerMgr/TaskHandle received task from channel taskIn, id=%s", task_id)
-		qm.addTask(task)
+		logger.Debug(2, "(ServerMgr/TaskHandle) received task from channel taskIn, id=%s", task_id)
+		err = qm.addTask(task)
+		if err != nil {
+			logger.Error("(ServerMgr/TaskHandle) qm.addTask failed: %s", err.Error())
+		}
 	}
 }
 
@@ -370,8 +373,11 @@ func (qm *ServerMgr) updateQueue() (err error) {
 					err = xerr
 					return err
 				}
+
+				task_string, _ := task.String()
+
 				jerror := &JobError{
-					TaskFailed:  task_id,
+					TaskFailed:  task_string,
 					ServerNotes: "failed enqueuing task, err=" + err.Error(),
 					Status:      JOB_STAT_SUSPEND,
 				}
@@ -443,14 +449,19 @@ func RemoveWorkFromClient(client *Client, clientid string, workid string) (err e
 	return
 }
 
-func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *Task, task_id string, workid string, computetime int) (err error) {
+func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *Task, workid Workunit_Unique_Identifier, computetime int) (err error) {
 	//log event about work done (WD)
-	logger.Event(event.WORK_DONE, "workid="+workid+";clientid="+clientid)
+
+	workid_string := workid.String()
+
+	logger.Event(event.WORK_DONE, "workid="+workid_string+";clientid="+clientid)
 	//update client status
+
+	task_id := task.Id
 
 	defer func() {
 		//done, remove from the workQueue
-		err = qm.workQueue.Delete(workid)
+		err = qm.workQueue.Delete(workid_string)
 		if err != nil {
 			return
 		}
@@ -542,7 +553,12 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 
 //handle feedback from a client about the execution of a workunit
 func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
-	workid := notice.WorkId
+
+	id := notice.WorkId
+	task_id := id.GetTask()
+
+	job_id := id.JobId
+	workid := id.String()
 	status := notice.Status
 	clientid := notice.ClientId
 	computetime := notice.ComputeTime
@@ -556,9 +572,9 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return
 	}
 
-	parts := strings.Split(workid, "_")
-	task_id := fmt.Sprintf("%s_%s", parts[0], parts[1])
-	job_id := parts[0]
+	//parts := strings.Split(workid, "_")
+	//task_id := fmt.Sprintf("%s_%s", parts[0], parts[1])
+	//job_id := parts[0]
 
 	// *** Get Client
 	client, ok, err := qm.GetClient(clientid, true)
@@ -627,7 +643,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 
 	logger.Debug(3, "(handleWorkStatusChange) handling status %s", status)
 	if status == WORK_STAT_DONE {
-		if err = qm.handleWorkStatDone(client, clientid, task, task_id, workid, computetime); err != nil {
+		if err = qm.handleWorkStatDone(client, clientid, task, id, computetime); err != nil {
 			return err
 		}
 	} else if status == WORK_STAT_FAILED_PERMANENT { // (special case !) failed and cannot be recovered
@@ -644,7 +660,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		jerror := &JobError{
 			ClientFailed: clientid,
 			WorkFailed:   workid,
-			TaskFailed:   task_id,
+			TaskFailed:   id.TaskId,
 			ServerNotes:  "exit code 42 encountered",
 			WorkNotes:    notes,
 			AppError:     notice.Stderr,
@@ -673,7 +689,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			jerror := &JobError{
 				ClientFailed: clientid,
 				WorkFailed:   workid,
-				TaskFailed:   task_id,
+				TaskFailed:   id.TaskId,
 				ServerNotes:  fmt.Sprintf("workunit failed %d time(s)", MAX_FAILURE),
 				WorkNotes:    notes,
 				AppError:     notice.Stderr,
@@ -1046,27 +1062,33 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 //---end of task methods
 
 func (qm *ServerMgr) addTask(task *Task) (err error) {
+	logger.Debug(3, "(addTask) got task")
 	task_state, err := task.GetState()
 	if err != nil {
 		return
 	}
+	logger.Debug(3, "(addTask) got state of task")
+	defer qm.TaskMap.Add(task)
 
 	if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
-		qm.TaskMap.Add(task)
+		logger.Debug(3, "(addTask) completed or passed")
 		return
 	}
-
-	defer qm.TaskMap.Add(task)
+	logger.Debug(3, "(addTask) NOT completed or passed")
 	err = task.SetState(TASK_STAT_PENDING)
 	if err != nil {
 		return
 	}
+	logger.Debug(3, "(addTask) made pending")
 
 	task_ready, err := qm.isTaskReady(task)
 	if err != nil {
 		return
 	}
+
 	if task_ready {
+
+		logger.Debug(3, "(addTask) task is ready (to be enqueued)")
 		err = qm.taskEnQueue(task)
 		if err != nil {
 			_ = task.SetState(TASK_STAT_SUSPEND)
@@ -1077,7 +1099,7 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 				return
 			}
 			jerror := &JobError{
-				TaskFailed:  task_id,
+				TaskFailed:  task_id.String(),
 				ServerNotes: "failed in enqueuing task, err=" + err.Error(),
 				Status:      JOB_STAT_SUSPEND,
 			}
@@ -1086,6 +1108,9 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 			}
 			return err
 		}
+	} else {
+
+		logger.Debug(3, "(addTask) task is not ready")
 	}
 	err = qm.updateJobTask(task) //task state INIT->PENDING
 	return
@@ -1132,9 +1157,14 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 		return
 	}
 
-	logger.Debug(3, "(isTaskReady) range deps %s (%d)", task_id, len(deps))
+	logger.Debug(3, "(isTaskReady) range deps %s (%d)", task_id.String(), len(deps))
 	for _, predecessor := range deps {
-		pretask, ok, yerr := qm.TaskMap.Get(predecessor, true)
+		predecessor_id, xerr := New_Task_Unique_Identifier(predecessor)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		pretask, ok, yerr := qm.TaskMap.Get(predecessor_id, true)
 		if yerr != nil {
 			err = yerr
 
@@ -1169,7 +1199,8 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 			continue
 		}
 
-		preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
+		//preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
+		preId := Task_Unique_Identifier{JobId: jobid, Id: io.Origin}
 		preTask, ok, xerr := qm.TaskMap.Get(preId, true)
 		if xerr != nil {
 			err = xerr
@@ -1284,7 +1315,7 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 	if err != nil {
 		return
 	}
-	logger.Debug(2, "trying to locate Inputs of task "+task_id)
+	logger.Debug(2, "trying to locate Inputs of task "+task_id.String())
 
 	jobid, err := task.GetJobId()
 	if err != nil {
@@ -1295,7 +1326,8 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 	for _, io := range task.Inputs {
 		filename := io.FileName
 		if io.Url == "" {
-			preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
+			//preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
+			preId := Task_Unique_Identifier{JobId: jobid, Id: io.Origin}
 			preTask, ok, xerr := qm.TaskMap.Get(preId, true)
 			if xerr != nil {
 				err = xerr
@@ -1443,9 +1475,18 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 
 func (qm *ServerMgr) locateUpdate(task *Task, name string, origin string) (nodeid string, err error) {
 	//jobid, _ := GetJobIdByTaskId(taskid)
-	task_id := task.Id
-	job_id := task.JobId
-	preId := fmt.Sprintf("%s_%s", job_id, origin)
+	task_id, err := task.GetId()
+	if err != nil {
+		return
+	}
+	job_id, err := task.GetJobId()
+	if err != nil {
+		return
+	}
+
+	//preId := fmt.Sprintf("%s_%s", job_id, origin)
+	preId := Task_Unique_Identifier{JobId: job_id, Id: origin}
+
 	logger.Debug(2, "task %s: trying to locate Node of update %s from task %s", task_id, name, preId)
 	// scan outputs in origin task
 	preTask, ok, err := qm.TaskMap.Get(preId, true)
@@ -1532,8 +1573,11 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		// delete nodes that have been flagged to be deleted
 		modified += task.DeleteOutput()
 		modified += task.DeleteInput()
-		combined_id := jobid + "_" + task.Id
-		qm.TaskMap.Delete(combined_id)
+		//combined_id := jobid + "_" + task.Id
+
+		id, _ := task.GetId()
+
+		qm.TaskMap.Delete(id)
 	}
 
 	if modified > 0 {
@@ -1579,7 +1623,7 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 	for _, work := range works {
 		//job_was_inprogress := false
 		//task_was_inprogress := false
-		taskid := work.TaskId
+		taskid := work.GetTask()
 		jobid := work.JobId
 
 		// get job state
@@ -1725,16 +1769,19 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 		return
 	}
 	for _, workunit := range workunit_list {
-		workid := workunit.Id
-		parentid := workunit.JobId
+
+		workid := workunit.Workunit_Unique_Identifier
+		workunit_jobid := workid.JobId
 		//parentid, _ := GetJobIdByWorkId(workid)
-		if jobid == parentid {
-			qm.workQueue.Delete(workid)
+		if jobid == workunit_jobid {
+
+			qm.workQueue.Delete(workid.String())
 		}
 	}
 	//delete parsed tasks
 	for i := 0; i < len(job.TaskList()); i++ {
-		task_id := fmt.Sprintf("%s_%d", jobid, i)
+		//task_id := fmt.Sprintf("%s_%d", jobid, i)
+		task_id := Task_Unique_Identifier{JobId: jobid, Id: strconv.Itoa(i)}
 		qm.TaskMap.Delete(task_id)
 	}
 	qm.removeActJob(jobid)
@@ -1962,7 +2009,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 			return xerr
 		}
 
-		if task_id == from_task_id {
+		if task_id.String() == from_task_id {
 			resetTask(task, dbjob.Info)
 			remaintasks += 1
 			found = true
@@ -1976,7 +2023,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 		if xerr != nil {
 			return xerr
 		}
-		if isAncestor(dbjob, task_id, from_task_id) {
+		if isAncestor(dbjob, task_id.Id, from_task_id) {
 			resetTask(task, dbjob.Info)
 			remaintasks += 1
 		}
@@ -2124,10 +2171,10 @@ func isAncestor(job *Job, taskId string, testId string) bool {
 
 //update tokens for in-memory data structures
 func (qm *ServerMgr) UpdateQueueToken(job *Job) (err error) {
-	job_id := job.Id
+	//job_id := job.Id
 	for _, task := range job.Tasks {
-		combined_id := job_id + "_" + task.Id
-		mtask, ok, err := qm.TaskMap.Get(combined_id, true)
+		task_id, _ := task.GetId()
+		mtask, ok, err := qm.TaskMap.Get(task_id, true)
 		if err != nil {
 			return err
 		}

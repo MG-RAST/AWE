@@ -330,16 +330,17 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 // PUT: /work/{id} -> status update
 func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
-	// Gather query params
-	query := &Query{Li: cx.Request.URL.Query()}
-	if !query.Has("client") {
-		cx.RespondWithErrorMessage("This request type requires the client=clientid parameter.", http.StatusBadRequest)
-		return
-	}
 
 	work_id, err := core.New_Workunit_Unique_Identifier(id)
 	if err != nil {
 		cx.RespondWithErrorMessage("error parsing workunit identifier: "+id, http.StatusBadRequest)
+		return
+	}
+
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
+	if !query.Has("client") {
+		cx.RespondWithErrorMessage("This request type requires the client=clientid parameter.", http.StatusBadRequest)
 		return
 	}
 
@@ -375,7 +376,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	}
 
 	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
-		notice := core.Notice{WorkId: id, TaskId: query.Value("taskid"), JobId: query.Value("jobid"), Status: query.Value("status"), ClientId: query.Value("client"), Notes: ""}
+		notice := core.Notice{WorkId: work_id, Status: query.Value("status"), ClientId: query.Value("client"), Notes: ""}
 		if query.Has("computetime") {
 			if comptime, err := strconv.Atoi(query.Value("computetime")); err == nil {
 				notice.ComputeTime = comptime

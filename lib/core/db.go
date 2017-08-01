@@ -491,7 +491,12 @@ func dbUpdateJobTaskInt(job_id string, task_id string, fieldname string, value i
 
 func dbUpdateJobTaskString(job_id string, task_id string, fieldname string, value string) (err error) {
 	update_value := bson.M{"tasks.$." + fieldname: value}
-	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+	err = dbUpdateJobTaskFields(job_id, task_id, update_value)
+
+	if err != nil {
+		err = fmt.Errorf(" job_id=%s, task_id=%s, fieldname=%s, value=%s error=%s", job_id, task_id, fieldname, value, err.Error())
+	}
+	return
 }
 
 func dbUpdateJobTaskTime(job_id string, task_id string, fieldname string, value time.Time) (err error) {

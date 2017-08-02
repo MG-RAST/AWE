@@ -8,20 +8,20 @@ import (
 )
 
 type CommandLineTool struct {
-	Id                 string                   `yaml:"id"`
-	BaseCommand        []string                 `yaml:"baseCommand"` // TODO also allow []string
-	Inputs             []CommandInputParameter  `yaml:"inputs"`
-	Outputs            []CommandOutputParameter `yaml:"outputs"`
-	Hints              []Requirement            `yaml:"hints"` // TODO Any
-	Label              string                   `yaml:"label"`
-	Description        string                   `yaml:"description"`
-	CwlVersion         CWLVersion               `yaml:"cwlVersion"`
-	Arguments          []CommandLineBinding     `yaml:"arguments"` // TODO support CommandLineBinding
-	Stdin              string                   `yaml:"stdin"`     // TODO support Expression
-	Stdout             string                   `yaml:"stdout"`    // TODO support Expression
-	SuccessCodes       []int                    `yaml:"successCodes"`
-	TemporaryFailCodes []int                    `yaml:"temporaryFailCodes"`
-	PermanentFailCodes []int                    `yaml:"permanentFailCodes"`
+	Id                 string                   `yaml:"id" bson:"id" json:"id"`
+	BaseCommand        []string                 `yaml:"baseCommand" bson:"baseCommand" json:"baseCommand"` // TODO also allow []string
+	Inputs             []CommandInputParameter  `yaml:"inputs" bson:"inputs" json:"inputs"`
+	Outputs            []CommandOutputParameter `yaml:"outputs" bson:"outputs" json:"outputs"`
+	Hints              []Requirement            `yaml:"hints" bson:"hints" json:"hints"` // TODO Any
+	Label              string                   `yaml:"label" bson:"label" json:"label"`
+	Description        string                   `yaml:"description" bson:"description" json:"description"`
+	CwlVersion         CWLVersion               `yaml:"cwlVersion" bson:"cwlVersion" json:"cwlVersion"`
+	Arguments          []CommandLineBinding     `yaml:"arguments" bson:"arguments" json:"arguments"` // TODO support CommandLineBinding
+	Stdin              string                   `yaml:"stdin" bson:"stdin" json:"stdin"`             // TODO support Expression
+	Stdout             string                   `yaml:"stdout" bson:"stdout" json:"stdout"`          // TODO support Expression
+	SuccessCodes       []int                    `yaml:"successCodes" bson:"successCodes" json:"successCodes"`
+	TemporaryFailCodes []int                    `yaml:"temporaryFailCodes" bson:"temporaryFailCodes" json:"temporaryFailCodes"`
+	PermanentFailCodes []int                    `yaml:"permanentFailCodes" bson:"permanentFailCodes" json:"permanentFailCodes"`
 }
 
 func (c *CommandLineTool) GetClass() string { return "CommandLineTool" }

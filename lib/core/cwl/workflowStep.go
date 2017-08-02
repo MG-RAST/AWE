@@ -8,16 +8,16 @@ import (
 )
 
 type WorkflowStep struct {
-	Id            string               `yaml:"id"`
-	In            []WorkflowStepInput  `yaml:"in"` // array<WorkflowStepInput> | map<WorkflowStepInput.id, WorkflowStepInput.source> | map<WorkflowStepInput.id, WorkflowStepInput>
-	Out           []WorkflowStepOutput `yaml:"out"`
-	Run           *Process             `yaml:"run"` // Specification unclear: string | CommandLineTool | ExpressionTool | Workflow
-	Requirements  []Requirement        `yaml:"requirements"`
-	Hints         []Requirement        `yaml:"hints"`
-	Label         string               `yaml:"label"`
-	Doc           string               `yaml:"doc"`
-	Scatter       string               `yaml:"scatter"`       // ScatterFeatureRequirement
-	ScatterMethod string               `yaml:"scatterMethod"` // ScatterFeatureRequirement
+	Id            string               `yaml:"id" bson:"id" json:"id"`
+	In            []WorkflowStepInput  `yaml:"in" bson:"in" json:"in"` // array<WorkflowStepInput> | map<WorkflowStepInput.id, WorkflowStepInput.source> | map<WorkflowStepInput.id, WorkflowStepInput>
+	Out           []WorkflowStepOutput `yaml:"out" bson:"out" json:"out"`
+	Run           interface{}          `yaml:"run" bson:"run" json:"run"`                            // (*Process) Specification unclear: string | CommandLineTool | ExpressionTool | Workflow
+	Requirements  []interface{}        `yaml:"requirements" bson:"requirements" json:"requirements"` //[]Requirement
+	Hints         []interface{}        `yaml:"hints" bson:"hints" json:"hints"`                      //[]Requirement
+	Label         string               `yaml:"label" bson:"label" json:"label"`
+	Doc           string               `yaml:"doc" bson:"doc" json:"doc"`
+	Scatter       string               `yaml:"scatter" bson:"scatter" json:"scatter"`                   // ScatterFeatureRequirement
+	ScatterMethod string               `yaml:"scatterMethod" bson:"scatterMethod" json:"scatterMethod"` // ScatterFeatureRequirement
 }
 
 func NewWorkflowStep(original interface{}, collection *CWL_collection) (w *WorkflowStep, err error) {

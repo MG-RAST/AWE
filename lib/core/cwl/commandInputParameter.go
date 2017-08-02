@@ -8,15 +8,15 @@ import (
 )
 
 type CommandInputParameter struct {
-	Id             string                      `yaml:"id"`
-	SecondaryFiles []string                    `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         []string                    `yaml:"format"`
-	Streamable     bool                        `yaml:"streamable"`
-	Type           []CommandInputParameterType `yaml:"type"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
-	Label          string                      `yaml:"label"`
-	Description    string                      `yaml:"description"`
-	InputBinding   CommandLineBinding          `yaml:"inputBinding"`
-	Default        *cwl_types.Any              `yaml:"default"`
+	Id             string                      `yaml:"id" bson:"id" json:"id"`
+	SecondaryFiles []string                    `yaml:"secondaryFiles" bson:"secondaryFiles" json:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
+	Format         []string                    `yaml:"format" bson:"format" json:"format"`
+	Streamable     bool                        `yaml:"streamable" bson:"streamable" json:"streamable"`
+	Type           []CommandInputParameterType `yaml:"type" bson:"type" json:"type"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
+	Label          string                      `yaml:"label" bson:"label" json:"label"`
+	Description    string                      `yaml:"description" bson:"description" json:"description"`
+	InputBinding   CommandLineBinding          `yaml:"inputBinding" bson:"inputBinding" json:"inputBinding"`
+	Default        *cwl_types.Any              `yaml:"default" bson:"default" json:"default"`
 }
 
 func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParameter, err error) {

@@ -14,17 +14,17 @@ import (
 )
 
 const (
-	TASK_STAT_INIT             = "init" // first state any task should have
-	TASK_STAT_QUEUED           = "queued"
-	TASK_STAT_INPROGRESS       = "in-progress"
-	TASK_STAT_PENDING          = "pending"
+	TASK_STAT_INIT             = "init"        // initial state on creation of a task
+	TASK_STAT_QUEUED           = "queued"      // a task that is in the queue
+	TASK_STAT_INPROGRESS       = "in-progress" // a first workunit has been checkout (this does not guarantee a workunit is running right now)
+	TASK_STAT_PENDING          = "pending"     // a task that is ready (all inputs available) but has not been queued yet
 	TASK_STAT_SUSPEND          = "suspend"
 	TASK_STAT_FAILED           = "failed"
-	TASK_STAT_FAILED_PERMANENT = "failed-permanent"
+	TASK_STAT_FAILED_PERMANENT = "failed-permanent" // on exit code 42
 	TASK_STAT_COMPLETED        = "completed"
-	TASK_STAT_SKIPPED          = "user_skipped"
-	TASK_STAT_FAIL_SKIP        = "skipped"
-	TASK_STAT_PASSED           = "passed"
+	TASK_STAT_SKIPPED          = "user_skipped" // deprecated
+	TASK_STAT_FAIL_SKIP        = "skipped"      // deprecated
+	TASK_STAT_PASSED           = "passed"       // deprecated ?
 )
 
 type TaskRaw struct {

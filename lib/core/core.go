@@ -805,16 +805,19 @@ func createOrUpdate_deprecated(opts shock.Opts, host string, nodeid string, toke
 func GetJob(id string) (job *Job, err error) {
 	job, ok, err := JM.Get(id, true)
 	if err != nil {
+		err = fmt.Errorf("(GetJob) JM.Get failed: %s", err.Error())
 		return
 	}
 	if !ok {
 		// load job if not already in memory
 		job, err = LoadJob(id)
 		if err != nil {
+			err = fmt.Errorf("(GetJob) LoadJob failed: %s", err.Error())
 			return
 		}
 		err = JM.Add(job)
 		if err != nil {
+			err = fmt.Errorf("(GetJob) JM.Add failed: %s", err.Error())
 			return
 		}
 	}

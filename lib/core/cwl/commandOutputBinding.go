@@ -7,9 +7,9 @@ import (
 )
 
 type CommandOutputBinding struct {
-	Glob         []cwl_types.Expression `yaml:"glob"`
-	LoadContents bool                   `yaml:"loadContents"`
-	OutputEval   cwl_types.Expression   `yaml:"outputEval"`
+	Glob         []cwl_types.Expression `yaml:"glob" bson:"glob" json:"glob"`
+	LoadContents bool                   `yaml:"loadContents" bson:"loadContents" json:"loadContents"`
+	OutputEval   cwl_types.Expression   `yaml:"outputEval" bson:"outputEval" json:"outputEval"`
 }
 
 func NewCommandOutputBinding(original interface{}) (commandOutputBinding *CommandOutputBinding, err error) {

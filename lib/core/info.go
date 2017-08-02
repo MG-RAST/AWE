@@ -12,7 +12,7 @@ type Info struct {
 	Service       string            `bson:"service" json:"service"`
 	Project       string            `bson:"project" json:"project"`
 	User          string            `bson:"user" json:"user"`
-	Pipeline      string            `bson:"pipeline" json:"pipeline"`
+	Pipeline      string            `bson:"pipeline" json:"pipeline"` // or workflow
 	ClientGroups  string            `bson:"clientgroups" json:"clientgroups"`
 	SubmitTime    time.Time         `bson:"submittime" json:"submittime"`
 	StartedTme    time.Time         `bson:"startedtime" json:"startedtime"`

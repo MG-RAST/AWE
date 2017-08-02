@@ -9,12 +9,12 @@ import (
 
 //http://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
 type WorkflowStepInput struct {
-	Id        string               `yaml:"id"`
-	Source    []string             `yaml:"source"` // MultipleInputFeatureRequirement
-	LinkMerge LinkMergeMethod      `yaml:"linkMerge"`
-	Default   cwl_types.Any        `yaml:"default"`   // type Any does not make sense
-	ValueFrom cwl_types.Expression `yaml:"valueFrom"` // StepInputExpressionRequirement
-	Ready     bool                 `yaml:"-"`
+	Id        string               `yaml:"id" bson:"id" json:"id"`
+	Source    []string             `yaml:"source" bson:"source" json:"source"` // MultipleInputFeatureRequirement
+	LinkMerge LinkMergeMethod      `yaml:"linkMerge" bson:"linkMerge" json:"linkMerge"`
+	Default   cwl_types.Any        `yaml:"default" bson:"default" json:"default"`       // type Any does not make sense
+	ValueFrom cwl_types.Expression `yaml:"valueFrom" bson:"valueFrom" json:"valueFrom"` // StepInputExpressionRequirement
+	Ready     bool                 `yaml:"-" bson:"-" json:"-"`
 }
 
 func (w WorkflowStepInput) GetClass() string { return "WorkflowStepInput" }

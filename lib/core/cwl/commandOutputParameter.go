@@ -7,14 +7,14 @@ import (
 )
 
 type CommandOutputParameter struct {
-	Id             string                       `yaml:"id"`
-	SecondaryFiles []cwl_types.Expression       `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         string                       `yaml:"format"`
-	Streamable     bool                         `yaml:"streamable"`
-	Type           []CommandOutputParameterType `yaml:"type"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
-	Label          string                       `yaml:"label"`
-	Description    string                       `yaml:"description"`
-	OutputBinding  CommandOutputBinding         `yaml:"outputBinding"`
+	Id             string                       `yaml:"id" bson:"id" json:"id"`
+	SecondaryFiles []cwl_types.Expression       `yaml:"secondaryFiles" bson:"secondaryFiles" json:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
+	Format         string                       `yaml:"format" bson:"format" json:"format"`
+	Streamable     bool                         `yaml:"streamable" bson:"streamable" json:"streamable"`
+	Type           []CommandOutputParameterType `yaml:"type" bson:"type" json:"type"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
+	Label          string                       `yaml:"label" bson:"label" json:"label"`
+	Description    string                       `yaml:"description" bson:"description" json:"description"`
+	OutputBinding  CommandOutputBinding         `yaml:"outputBinding" bson:"outputBinding" json:"outputBinding"`
 }
 
 func NewCommandOutputParameter(original interface{}) (output_parameter *CommandOutputParameter, err error) {

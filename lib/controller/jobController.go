@@ -74,8 +74,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	_, has_import := files["import"]
 	_, has_upload := files["upload"]
 	_, has_awf := files["awf"]
-	_, has_cwl := files["cwl"] // TODO I could overload 'upload'
-	_, has_job := files["job"] // input data for an CWL workflow
+	cwl_file, has_cwl := files["cwl"] // TODO I could overload 'upload'
+	job_file, has_job := files["job"] // input data for an CWL workflow
 
 	var job *core.Job
 	job = nil
@@ -93,14 +93,16 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		if !has_job {
 			logger.Error("job missing")
-			cx.RespondWithErrorMessage("job missing", http.StatusBadRequest)
+			cx.RespondWithErrorMessage("cwl job missing", http.StatusBadRequest)
 			return
 		}
+
+		workflow_filename := cwl_file.Name
 
 		collection := cwl.NewCWL_collection()
 
 		//1) parse job
-		job_input, err := cwl.ParseJob(files["job"].Path)
+		job_input, err := cwl.ParseJob(job_file.Path)
 		if err != nil {
 			logger.Error("ParseJob: " + err.Error())
 			cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
@@ -113,7 +115,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		logger.Debug(1, "got CWL")
 
 		// get CWL as byte[]
-		yamlstream, err := ioutil.ReadFile(files["cwl"].Path)
+		yamlstream, err := ioutil.ReadFile(cwl_file.Path)
 		if err != nil {
 			logger.Error("CWL error: " + err.Error())
 			cx.RespondWithErrorMessage("error in reading workflow file: "+err.Error(), http.StatusBadRequest)
@@ -149,6 +151,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
 			return
 		}
+
+		job.Info.Name = job_file.Name
+		job.Info.Pipeline = workflow_filename
 		logger.Debug(1, "CWL2AWE done")
 
 	} else if !has_upload && !has_awf {
@@ -197,7 +202,11 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	// don't enqueue imports
 	if !has_import {
-		core.QMgr.EnqueueTasksByJobId(job.Id)
+		err = core.QMgr.EnqueueTasksByJobId(job.Id)
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
 	//cx.RespondWithData(job)

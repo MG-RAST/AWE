@@ -18,26 +18,26 @@ type CommandOutputParameterType struct {
 }
 
 type CommandOutputRecordSchema struct {
-	Type   string // Must be record
-	Fields []CommandOutputRecordField
-	Label  string
+	Type   string                     `yaml:"type" bson:"type" json:"type"` // Must be record
+	Fields []CommandOutputRecordField `yaml:"fields" bson:"fields" json:"fields"`
+	Label  string                     `yaml:"label" bson:"label" json:"label"`
 }
 
 type CommandOutputRecordField struct{}
 
 //http://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputEnumSchema
 type CommandOutputEnumSchema struct {
-	Symbols       []string
-	Type          string // must be enum
-	Label         string
-	OutputBinding *CommandOutputBinding
+	Symbols       []string              `yaml:"symbols" bson:"symbols" json:"symbols"`
+	Type          string                `yaml:"type" bson:"type" json:"type"` // must be enum
+	Label         string                `yaml:"label" bson:"label" json:"label"`
+	OutputBinding *CommandOutputBinding `yaml:"outputbinding" bson:"outputbinding" json:"outputbinding"`
 }
 
 type CommandOutputArraySchema struct {
-	Items         []string              `yaml:"items"`
-	Type          string                `yaml:"type"` // must be array
-	Label         string                `yaml:"label"`
-	OutputBinding *CommandOutputBinding `yaml:"outputBinding"`
+	Items         []string              `yaml:"items" bson:"items" json:"items"`
+	Type          string                `yaml:"type" bson:"type" json:"type"` // must be array
+	Label         string                `yaml:"label" bson:"label" json:"label"`
+	OutputBinding *CommandOutputBinding `yaml:"outputBinding" bson:"outputBinding" json:"outputBinding"`
 }
 
 func NewCommandOutputArraySchema(original map[interface{}]interface{}) (coas *CommandOutputArraySchema, err error) {

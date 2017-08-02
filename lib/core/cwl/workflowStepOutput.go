@@ -7,7 +7,7 @@ import (
 )
 
 type WorkflowStepOutput struct {
-	Id string `yaml:"id"`
+	Id string `yaml:"id" bson:"id" json:"id"`
 }
 
 func CreateWorkflowStepOutputArray(original interface{}) (new_array []WorkflowStepOutput, err error) {

@@ -1041,16 +1041,22 @@ func getStdLogPathByWorkId(id Workunit_Unique_Identifier, logname string) (saved
 //---task methods----
 
 func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
-
+	logger.Debug(3, "(EnqueueTasksByJobId) starting")
 	job, err := GetJob(jobid)
 	if err != nil {
+		err = fmt.Errorf("(EnqueueTasksByJobId) GetJob failed: %s", err.Error())
 		return
 	}
 
 	tasks, err := job.GetTasks()
 	if err != nil {
+		err = fmt.Errorf("(EnqueueTasksByJobId) job.GetTasks failed: %s", err.Error())
 		return
 	}
+
+	task_len := len(tasks)
+
+	logger.Debug(3, "(EnqueueTasksByJobId) got %d tasks", task_len)
 
 	for _, task := range tasks {
 		qm.taskIn <- task
@@ -1262,6 +1268,19 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 	job_id, err := task.GetJobId()
 	if err != nil {
 		return
+	}
+
+	if task.workflowStep != nil {
+		// copy inputs into task
+		for _, wsi := range task.workflowStep.In { // WorkflowStepInput
+			if len(wsi.Source) > 0 {
+				for _, src := range wsi.Source {
+					panic("src: " + src)
+				}
+			}
+
+		}
+
 	}
 
 	logger.Debug(2, "qmgr.taskEnQueue trying to enqueue task %s", task_id)

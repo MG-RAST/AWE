@@ -563,12 +563,13 @@ func LoadJob(id string) (job *Job, err error) {
 	err = c.Find(bson.M{"id": id}).One(&job)
 	if err != nil {
 		job = nil
+		err = fmt.Errorf("(LoadJob) c.Find failed: %s", err.Error())
 		return
 	}
 
 	changed, xerr := job.Init()
 	if xerr != nil {
-		err = xerr
+		err = fmt.Errorf("(LoadJob) job.Init failed: %s", xerr.Error())
 		return
 	}
 

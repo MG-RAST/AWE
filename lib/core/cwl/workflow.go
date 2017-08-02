@@ -11,16 +11,16 @@ import (
 )
 
 type Workflow struct {
-	Inputs       []InputParameter          `yaml:"inputs"`
-	Outputs      []WorkflowOutputParameter `yaml:"outputs"`
-	Id           string                    `yaml:"id"`
-	Steps        []WorkflowStep            `yaml:"steps"`
-	Requirements []Requirement             `yaml:"requirements"`
-	Hints        []Requirement             `yaml:"hints"` // TODO Hints may contain non-requirement objects. Give warning in those cases.
-	Label        string                    `yaml:"label"`
-	Doc          string                    `yaml:"doc"`
-	CwlVersion   CWLVersion                `yaml:"cwlVersion"`
-	Metadata     map[string]interface{}    `yaml:"metadata"`
+	Inputs       []InputParameter          `yaml:"inputs" bson:"inputs" json:"inputs"`
+	Outputs      []WorkflowOutputParameter `yaml:"outputs" bson:"outputs" json:"outputs"`
+	Id           string                    `yaml:"id" bson:"id" json:"id"`
+	Steps        []WorkflowStep            `yaml:"steps" bson:"steps" json:"steps"`
+	Requirements []interface{}             `yaml:"requirements" bson:"requirements" json:"requirements"` //[]Requirement
+	Hints        []interface{}             `yaml:"hints" bson:"hints" json:"hints"`                      // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
+	Label        string                    `yaml:"label" bson:"label" json:"label"`
+	Doc          string                    `yaml:"doc" bson:"doc" json:"doc"`
+	CwlVersion   CWLVersion                `yaml:"cwlVersion" bson:"cwlVersion" json:"cwlVersion"`
+	Metadata     map[string]interface{}    `yaml:"metadata" bson:"metadata" json:"metadata"`
 }
 
 func (w *Workflow) GetClass() string { return "Workflow" }

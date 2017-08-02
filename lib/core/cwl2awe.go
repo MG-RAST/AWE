@@ -838,9 +838,14 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 
 	found_ShockRequirement := false
 	for _, r := range cwl_workflow.Requirements { // TODO put ShockRequirement in Hints
-		switch r.GetClass() {
+		req, ok := r.(cwl.Requirement)
+		if !ok {
+			err = fmt.Errorf("not a requirement")
+			return
+		}
+		switch req.GetClass() {
 		case "ShockRequirement":
-			sr, ok := r.(requirements.ShockRequirement)
+			sr, ok := req.(requirements.ShockRequirement)
 			if !ok {
 				err = fmt.Errorf("Could not assert ShockRequirement")
 				return

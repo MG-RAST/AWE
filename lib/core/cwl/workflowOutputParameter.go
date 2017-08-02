@@ -9,16 +9,16 @@ import (
 )
 
 type WorkflowOutputParameter struct {
-	Id             string                        `yaml:"id"`
-	Label          string                        `yaml:"label"`
-	SecondaryFiles []cwl_types.Expression        `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         []cwl_types.Expression        `yaml:"format"`
-	Streamable     bool                          `yaml:"streamable"`
-	Doc            string                        `yaml:"doc"`
-	OutputBinding  CommandOutputBinding          `yaml:"outputBinding"` //TODO
-	OutputSource   []string                      `yaml:"outputSource"`
-	LinkMerge      LinkMergeMethod               `yaml:"linkMerge"`
-	Type           []WorkflowOutputParameterType `yaml:"type"` // TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
+	Id             string                        `yaml:"id" bson:"id" json:"id"`
+	Label          string                        `yaml:"label" bson:"label" json:"label"`
+	SecondaryFiles []cwl_types.Expression        `yaml:"secondaryFiles" bson:"secondaryFiles" json:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
+	Format         []cwl_types.Expression        `yaml:"format" bson:"format" json:"format"`
+	Streamable     bool                          `yaml:"streamable" bson:"streamable" json:"streamable"`
+	Doc            string                        `yaml:"doc" bson:"doc" json:"doc"`
+	OutputBinding  CommandOutputBinding          `yaml:"outputBinding" bson:"outputBinding" json:"outputBinding"` //TODO
+	OutputSource   []string                      `yaml:"outputSource" bson:"outputSource" json:"outputSource"`
+	LinkMerge      LinkMergeMethod               `yaml:"linkMerge" bson:"linkMerge" json:"linkMerge"`
+	Type           []WorkflowOutputParameterType `yaml:"type" bson:"type" json:"type"` // TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
 }
 
 func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParameter, err error) {

@@ -292,24 +292,25 @@ func (job *Job) SaveToDisk() (err error) {
 
 func (job *Job) Save() (err error) {
 	if job.Id == "" {
-		err = fmt.Errorf("job id empty")
+		err = fmt.Errorf("(job.Save()) job id empty")
 		return
 	}
-	logger.Debug(1, "Save() saving job: %s", job.Id)
+	logger.Debug(1, "(job.Save()) saving job: %s", job.Id)
 
 	job.UpdateTime = time.Now()
 	err = job.SaveToDisk()
 	if err != nil {
+		err = fmt.Errorf("(job.Save()) SaveToDisk failed: %s", err.Error())
 		return
 	}
 
-	logger.Debug(1, "Save() dbUpsert next: %s", job.Id)
+	logger.Debug(1, "(job.Save()) dbUpsert next: %s", job.Id)
 	err = dbUpsert(job)
 	if err != nil {
-		err = fmt.Errorf("error in dbUpsert in job.Save(), (job_id=%s) error=%v", job.Id, err)
+		err = fmt.Errorf("(job.Save()) dbUpsert failed (job_id=%s) error=%s", job.Id, err.Error())
 		return
 	}
-	logger.Debug(1, "Save() job saved: %s", job.Id)
+	logger.Debug(1, "(job.Save()) job saved: %s", job.Id)
 	return
 }
 

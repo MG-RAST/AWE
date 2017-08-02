@@ -9,13 +9,13 @@ import (
 
 //http://www.commonwl.org/v1.0/Workflow.html#CommandLineBinding
 type CommandLineBinding struct {
-	LoadContents  bool   `yaml:"loadContents"`
-	Position      int    `yaml:"position"`
-	Prefix        string `yaml:"prefix"`
-	Separate      string `yaml:"separate"`
-	ItemSeparator string `yaml:"itemSeparator"`
-	ValueFrom     string `yaml:"valueFrom"`
-	ShellQuote    bool   `yaml:"shellQuote"`
+	LoadContents  bool   `yaml:"loadContents" bson:"loadContents" json:"loadContents"`
+	Position      int    `yaml:"position" bson:"position" json:"position"`
+	Prefix        string `yaml:"prefix" bson:"prefix" json:"prefix"`
+	Separate      string `yaml:"separate" bson:"separate" json:"separate"`
+	ItemSeparator string `yaml:"itemSeparator" bson:"itemSeparator" json:"itemSeparator"`
+	ValueFrom     string `yaml:"valueFrom" bson:"valueFrom" json:"valueFrom"`
+	ShellQuote    bool   `yaml:"shellQuote" bson:"shellQuote" json:"shellQuote"`
 }
 
 func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err error) {

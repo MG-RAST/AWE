@@ -6,17 +6,19 @@ import (
 )
 
 type EnvVarRequirement struct {
-	//Class         string `yaml:"class"`
-	enfDef []EnvironmentDef `yaml:"enfDef"`
+	BaseRequirement `bson:",inline" yaml:",inline" json:",inline"`
+	enfDef          []EnvironmentDef `yaml:"enfDef" bson:"enfDef" json:"enfDef"`
 }
 
-func (c EnvVarRequirement) GetClass() string { return "EnvVarRequirement" }
-func (c EnvVarRequirement) GetId() string    { return "None" }
+func (c EnvVarRequirement) GetId() string { return "None" }
 
 func NewEnvVarRequirement(original interface{}) (r *EnvVarRequirement, err error) {
 	var requirement EnvVarRequirement
 	r = &requirement
 	err = mapstructure.Decode(original, &requirement)
+
+	requirement.Class = "EnvVarRequirement"
+
 	return
 }
 

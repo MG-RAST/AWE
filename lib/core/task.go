@@ -17,7 +17,7 @@ const (
 	TASK_STAT_INIT             = "init"        // initial state on creation of a task
 	TASK_STAT_QUEUED           = "queued"      // a task that is in the queue
 	TASK_STAT_INPROGRESS       = "in-progress" // a first workunit has been checkout (this does not guarantee a workunit is running right now)
-	TASK_STAT_PENDING          = "pending"     // a task that is ready (all inputs available) but has not been queued yet
+	TASK_STAT_PENDING          = "pending"     // a task right before it is queued
 	TASK_STAT_SUSPEND          = "suspend"
 	TASK_STAT_FAILED           = "failed"
 	TASK_STAT_FAILED_PERMANENT = "failed-permanent" // on exit code 42
@@ -124,6 +124,11 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 
 	if task.State == "" {
 		task.State = TASK_STAT_INIT
+	}
+
+	if task.State == TASK_STAT_QUEUED {
+		task.State = TASK_STAT_PENDING
+		changed = true
 	}
 
 	if job.Info == nil {

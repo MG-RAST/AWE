@@ -403,7 +403,7 @@ func IsFirstTask(taskid string) bool {
 }
 
 //update job state to "newstate" only if the current state is in one of the "oldstates" // TODO make this a job.SetState function
-func UpdateJobState(jobid string, newstate string, oldstates []string) (err error) {
+func UpdateJobState_deprecated(jobid string, newstate string, oldstates []string) (err error) {
 	job, err := GetJob(jobid)
 	if err != nil {
 		return
@@ -422,11 +422,13 @@ func UpdateJobState(jobid string, newstate string, oldstates []string) (err erro
 		}
 	}
 	if !matched {
-		return errors.New("old state not matching one of the required ones")
+		oldstates_str := strings.Join(oldstates, ",")
+		err = fmt.Errorf("(UpdateJobState) old state %s does not match one of the required ones (required: %s)", job_state, oldstates_str)
+		return
 	}
-	if err := job.SetState(newstate); err != nil {
-		return err
-	}
+	//if err := job.SetState(newstate); err != nil {
+	//	return err
+	//}
 	return
 }
 

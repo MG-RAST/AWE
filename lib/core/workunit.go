@@ -27,7 +27,7 @@ const (
 
 type Workunit struct {
 	Workunit_Unique_Identifier `bson:",inline"`
-	Id                         string `bson:"id" json:"id"` // global identifier: jobid_taskid_rank
+	Id                         string `bson:"id" json:"id"` // global identifier: jobid_taskid_rank (for backwards coompatibility only)
 
 	Info         *Info             `bson:"info" json:"info"`
 	Inputs       []*IO             `bson:"inputs" json:"inputs"`
@@ -74,6 +74,11 @@ func New_Workunit_Unique_Identifier(old_style_id string) (w Workunit_Unique_Iden
 
 	rank, err := strconv.Atoi(array[2])
 	if err != nil {
+		return
+	}
+
+	if !IsValidUUID(array[0]) {
+		err = fmt.Errorf("Cannot parse workunit identifier, job id is not valid uuid: %s", old_style_id)
 		return
 	}
 
@@ -128,8 +133,8 @@ type WorkunitsSortby struct {
 	Workunits []*Workunit
 }
 
-func (w *Workunit) GetUniqueIdentifier() (id Workunit_Unique_Identifier) {
-	id = Workunit_Unique_Identifier{Rank: w.Rank, TaskId: w.TaskId, JobId: w.JobId}
+func (w *Workunit) GetId() (id Workunit_Unique_Identifier) {
+	id = w.Workunit_Unique_Identifier
 	return
 }
 

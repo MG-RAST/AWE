@@ -2,12 +2,12 @@ package core
 
 type TaskMap struct {
 	RWMutex
-	_map map[string]*Task
+	_map map[Task_Unique_Identifier]*Task
 }
 
 func NewTaskMap() (t *TaskMap) {
 	t = &TaskMap{
-		_map: make(map[string]*Task),
+		_map: make(map[Task_Unique_Identifier]*Task),
 	}
 	t.RWMutex.Init("TaskMap")
 	return t
@@ -36,7 +36,21 @@ func (tm *TaskMap) Get(taskid Task_Unique_Identifier, lock bool) (task *Task, ok
 		defer tm.RUnlockNamed(read_lock)
 	}
 
-	task, ok = tm._map[taskid.String()]
+	task, ok = tm._map[taskid]
+	return
+}
+
+func (tm *TaskMap) Has(taskid Task_Unique_Identifier, lock bool) (ok bool, err error) {
+	if lock {
+		read_lock, xerr := tm.RLockNamed("Get")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer tm.RUnlockNamed(read_lock)
+	}
+
+	_, ok = tm._map[taskid]
 	return
 }
 
@@ -60,14 +74,17 @@ func (tm *TaskMap) GetTasks() (tasks []*Task, err error) {
 func (tm *TaskMap) Delete(taskid Task_Unique_Identifier) (task *Task, ok bool) {
 	tm.LockNamed("Delete")
 	defer tm.Unlock()
-	delete(tm._map, taskid.String()) // TODO should get write lock on task first
+	delete(tm._map, taskid) // TODO should get write lock on task first
 	return
 }
 
-func (tm *TaskMap) Add(task *Task) {
+func (tm *TaskMap) Add(task *Task) (err error) {
 	tm.LockNamed("Add")
 	defer tm.Unlock()
-	id, _ := task.String()
+	id, err := task.GetId()
+	if err != nil {
+		return
+	}
 	tm._map[id] = task // TODO prevent overwriting
 	return
 }

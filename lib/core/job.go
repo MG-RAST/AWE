@@ -15,7 +15,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
-	//"strings"
+	"strings"
 	"time"
 )
 
@@ -422,15 +422,32 @@ func (job *Job) NumTask() int {
 
 //---Field update functions
 
-func (job *Job) SetState(newState string) (err error) {
+func (job *Job) SetState(newState string, oldstates []string) (err error) {
 	err = job.LockNamed("SetState")
 	if err != nil {
 		return
 	}
 	defer job.Unlock()
 
-	if job.State == newState {
+	job_state := job.State
+
+	if job_state == newState {
 		return
+	}
+
+	if len(oldstates) > 0 {
+		matched := false
+		for _, oldstate := range oldstates {
+			if oldstate == job_state {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			oldstates_str := strings.Join(oldstates, ",")
+			err = fmt.Errorf("(UpdateJobState) old state %s does not match one of the required ones (required: %s)", job_state, oldstates_str)
+			return
+		}
 	}
 
 	err = dbUpdateJobFieldString(job.Id, "state", newState)

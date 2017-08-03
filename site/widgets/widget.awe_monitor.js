@@ -306,7 +306,7 @@
 				       }
 				       result_data.push( [ "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.id+"\")'>"+obj.name+"</a>",
 							   obj.group,
-							   (obj.host_ip == "") ? obj.host : obj.host_ip,
+							   (obj.host_ip == "") ? obj.hostname : obj.host_ip,
 							   obj.cores || "0",
 							   obj.apps.join(", "),
 							   obj.regtime,

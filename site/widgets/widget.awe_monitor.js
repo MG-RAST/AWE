@@ -265,12 +265,12 @@
 	    qwt.settings.disable_sort = {};
 	    qwt.settings.filter_autodetect = false;
 	    qwt.settings.sort_autodetect = false;
-	    qwt.settings.data = { data: [], header: [ "wuid",
+	    qwt.settings.data = { data: [], header: [ "id",
 						      "submission time",
 						      "cmd name",
 						      "cmd args",
 						      "rank",
-						      "tot",
+						      "total",
 						      "state",
 						      "failed",
 						      "priority" ] };

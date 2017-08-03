@@ -16,37 +16,18 @@ import (
 
 // this struct is embedded in ServerMgr
 type CQMgr struct {
-	//clientMapLock sync.RWMutex
-	//clientMap     map[string]*Client
 	clientMap    ClientMap
 	workQueue    *WorkQueue
 	suspendQueue bool
-	coReq        chan CoReq //workunit checkout request (WorkController -> qmgr.Handler)
-	//coAck        chan CoAck  //workunit checkout item including data and err (qmgr.Handler -> WorkController)
-	feedback chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
-	coSem    chan int    //semaphore for checkout (mutual exclusion between different clients)
-
-}
-
-func NewCQMgr() *CQMgr {
-	return &CQMgr{
-		//clientMap:    map[string]*Client{},
-		clientMap:    ClientMap{_map: map[string]*Client{}},
-		workQueue:    NewWorkQueue(),
-		suspendQueue: false,
-		coReq:        make(chan CoReq, 10), // number of clients that wait in queue to get a workunit. If queue is full, other client will be rejected and have to come back later again
-		//coAck:        make(chan CoAck),
-		feedback: make(chan Notice, 10),
-		coSem:    make(chan int, 1), //non-blocking buffered channel
-
-	}
+	coReq        chan CoReq  //workunit checkout request (WorkController -> qmgr.Handler)
+	feedback     chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
+	coSem        chan int    //semaphore for checkout (mutual exclusion between different clients)
 }
 
 //--------mgr methods-------
 
 func (qm *CQMgr) ClientHandle() {
 	// this code is not beeing used
-
 }
 
 // show functions used in debug
@@ -903,6 +884,7 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	select {
 	case qm.coReq <- req:
 	default:
+		logger.Error("Work request by client %s rejected, request queue is full", client_id)
 		err = fmt.Errorf("Too many work requests - Please try again later")
 		return
 
@@ -954,14 +936,6 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	return ack.workunits, ack.err
 }
 
-//func (qm *CQMgr) LockSemaphore() {
-//	qm.coSem <- 1
-//}
-
-//func (qm *CQMgr) UnlockSemaphore() {
-//	<-qm.coSem
-//}
-
 func (qm *CQMgr) GetWorkById(id string) (workunit *Workunit, err error) {
 	workunit, ok, err := qm.workQueue.Get(id)
 	if err != nil {
@@ -974,7 +948,6 @@ func (qm *CQMgr) GetWorkById(id string) (workunit *Workunit, err error) {
 }
 
 func (qm *CQMgr) NotifyWorkStatus(notice Notice) {
-
 	qm.feedback <- notice
 	return
 }

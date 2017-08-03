@@ -2,6 +2,7 @@ package worker
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,8 +14,6 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"io"
 	"io/ioutil"
-	//"net/url"
-	"bytes"
 	"os"
 	"os/exec"
 	"path"
@@ -38,35 +37,46 @@ type WaitContainerResult struct {
 }
 
 func processor(control chan int) {
-	fmt.Printf("processor launched, client=%s\n", core.Self.Id)
-	defer fmt.Printf("processor exiting...\n")
+	fmt.Printf("(processor) launched, client=%s\n", core.Self.Id)
+	defer fmt.Printf("(processor)  exiting...\n")
+	count := 0
 	for {
-		parsedwork := <-fromMover
-		work := parsedwork.workunit
+		count += 1
+		logger.Debug(1, "(processor) for loop count=%d", count)
 
-		processed := &mediumwork{
-			workunit: work,
-			perfstat: parsedwork.perfstat,
+		if Client_mode == "offline" && count > 1 {
+			logger.Debug(1, "(processor) leaving")
+			time.Sleep(time.Second)
+			control <- ID_WORKER
+			return
 		}
 
+		workunit := <-fromMover
+		//work := parsedwork.Workunit
+
+		//processed := &Mediumwork{
+		//	Workunit: work,
+		//	Perfstat: parsedwork.Perfstat,
+		//}
+
 		//if the work is not succesfully parsed in last stage, pass it into the next one immediately
-		work_state, ok, xerr := workmap.Get(work.Id)
+		work_state, ok, xerr := workmap.Get(workunit.Id)
 		if xerr != nil {
 			logger.Error("error: %s", xerr.Error())
 			continue
 		}
 		if !ok {
-			logger.Error("(processor) work.id %s not found", work.Id)
+			logger.Error("(processor) workunit.id %s not found", workunit.Id)
 			continue
 		}
-		if work.State == core.WORK_STAT_FAIL || work_state == ID_DISCARDED {
+		if workunit.State == core.WORK_STAT_ERROR || work_state == ID_DISCARDED {
 
 			if work_state == ID_DISCARDED {
-				processed.workunit.SetState(core.WORK_STAT_DISCARDED)
+				workunit.SetState(core.WORK_STAT_DISCARDED)
 			} else {
-				processed.workunit.SetState(core.WORK_STAT_FAIL)
+				workunit.SetState(core.WORK_STAT_ERROR)
 			}
-			fromProcessor <- processed
+			fromProcessor <- workunit
 			//release the permit lock, for work overlap inhibitted mode only
 			//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
 			//	<-chanPermit
@@ -74,23 +84,23 @@ func processor(control chan int) {
 			continue
 		}
 
-		workmap.Set(work.Id, ID_WORKER, "processor")
+		workmap.Set(workunit.Id, ID_WORKER, "processor")
 
 		var err error
 		var envkeys []string
 		_ = envkeys
 
 		wants_docker := false
-		if work.Cmd.Dockerimage != "" || work.Cmd.DockerPull != "" {
+		if workunit.Cmd.Dockerimage != "" || workunit.Cmd.DockerPull != "" {
 			wants_docker = true
 		}
 
 		if !wants_docker {
-			envkeys, err = SetEnv(work)
+			envkeys, err = SetEnv(workunit)
 			if err != nil {
-				logger.Error("SetEnv(): workid=" + work.Id + ", " + err.Error())
-				processed.workunit.Notes = processed.workunit.Notes + "###[processor#SetEnv]" + err.Error()
-				processed.workunit.SetState(core.WORK_STAT_FAIL)
+				logger.Error("(processor) SetEnv(): workid=" + workunit.Id + ", " + err.Error())
+				workunit.Notes = append(workunit.Notes, "[processor#SetEnv]"+err.Error())
+				workunit.SetState(core.WORK_STAT_ERROR)
 				//release the permit lock, for work overlap inhibitted mode only
 				//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
 				//	<-chanPermit
@@ -100,104 +110,91 @@ func processor(control chan int) {
 		}
 		run_start := time.Now().Unix()
 
-		pstat, err := RunWorkunit(work)
-
+		pstat, err := RunWorkunit(workunit)
+		exit_status := workunit.ExitStatus
+		logger.Debug(1, "(processor) ExitStatus of process: %d", exit_status)
 		if err != nil {
-			logger.Error("RunWorkunit(): returned error , workid=" + work.Id + ", " + err.Error())
-			processed.workunit.Notes = processed.workunit.Notes + "###[processor#RunWorkunit]" + err.Error()
-			processed.workunit.SetState(core.WORK_STAT_FAIL)
-		} else {
-			logger.Debug(1, "RunWorkunit() returned without error, workid="+work.Id)
-			processed.workunit.SetState(core.WORK_STAT_COMPUTED)
-			processed.perfstat.MaxMemUsage = pstat.MaxMemUsage
-			processed.perfstat.MaxMemoryTotalRss = pstat.MaxMemoryTotalRss
-			processed.perfstat.MaxMemoryTotalSwap = pstat.MaxMemoryTotalSwap
+			logger.Error("(processor) returned error , workid=" + workunit.Id + ", " + err.Error())
+			workunit.Notes = append(workunit.Notes, "[processor#RunWorkunit]"+err.Error())
 
-			processed.perfstat.DockerPrep = pstat.DockerPrep
+			if exit_status == 42 {
+				workunit.SetState(core.WORK_STAT_FAILED_PERMANENT) // process told us that is an error where resubmission does not make sense.
+			} else {
+				workunit.SetState(core.WORK_STAT_ERROR)
+			}
+		} else {
+			logger.Debug(1, "(processor) RunWorkunit() returned without error, workid="+workunit.Id)
+			workunit.SetState(core.WORK_STAT_COMPUTED)
+			workunit.WorkPerf.MaxMemUsage = pstat.MaxMemUsage
+			workunit.WorkPerf.MaxMemoryTotalRss = pstat.MaxMemoryTotalRss
+			workunit.WorkPerf.MaxMemoryTotalSwap = pstat.MaxMemoryTotalSwap
+
+			workunit.WorkPerf.DockerPrep = pstat.DockerPrep
 		}
 		run_end := time.Now().Unix()
 		computetime := run_end - run_start
-		processed.perfstat.Runtime = computetime
-		processed.workunit.ComputeTime = int(computetime)
+		workunit.WorkPerf.Runtime = computetime
+		workunit.ComputeTime = int(computetime)
 
 		if !wants_docker {
 			if len(envkeys) > 0 {
 				UnSetEnv(envkeys)
 			}
 		}
-
-		fromProcessor <- processed
+		logger.Debug(1, "(processor) sending work to datamover")
+		fromProcessor <- workunit
 
 		//release the permit lock, for work overlap inhibitted mode only
 		//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
 		//	<-chanPermit
 		//}
+
 	}
 	control <- ID_WORKER //we are ending
 }
 
-func RunWorkunit(work *core.Workunit) (pstats *core.WorkPerf, err error) {
+func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 
-	if work.Cmd.Dockerimage != "" || work.Cmd.DockerPull != "" {
-		pstats, err = RunWorkunitDocker(work)
+	if workunit.Cmd.Dockerimage != "" || workunit.Cmd.DockerPull != "" {
+		pstats, err = RunWorkunitDocker(workunit)
 	} else {
-		pstats, err = RunWorkunitDirect(work)
+		pstats, err = RunWorkunitDirect(workunit)
 	}
 
 	return
 }
 
-func getExitStatus(err_inspect error) (status_code int, err error) {
-	exiterr, ok := err_inspect.(*exec.ExitError)
-
-	if ok {
-		// The program has exited with an exit code != 0
-
-		// This works on both Unix and Windows. Although package
-		// syscall is generally platform dependent, WaitStatus is
-		// defined for both Unix and Windows and in both cases has
-		// an ExitStatus() method with the same signature.
-		if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-			return status.ExitStatus(), nil
-		}
-	} else {
-		//log.Fatalf("cmd.Wait: %v", err)
-	}
-
-	return 0, nil
-}
-
-func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
+func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 	pstats = new(core.WorkPerf)
 	pstats.MaxMemUsage = -1
 	pstats.MaxMemoryTotalRss = -1
 	pstats.MaxMemoryTotalSwap = -1
-	args := work.Cmd.ParsedArgs
+	args := workunit.Cmd.ParsedArgs
 
 	//change cwd to the workunit's working directory
-	if err := work.CDworkpath(); err != nil {
+	if err := workunit.CDworkpath(); err != nil {
 		return nil, err
 	}
 
 	docker_preparation_start := time.Now().Unix()
 
-	commandName := work.Cmd.Name
+	commandName := workunit.Cmd.Name
 
 	use_wrapper_script := false
 
 	wrapper_script_filename := "awe_workunit_wrapper.sh"
-	wrapper_script_filename_host := path.Join(work.Path(), wrapper_script_filename)
+	wrapper_script_filename_host := path.Join(workunit.Path(), wrapper_script_filename)
 	wrapper_script_filename_docker := path.Join(conf.DOCKER_WORK_DIR, wrapper_script_filename)
 
-	if len(work.Cmd.Cmd_script) > 0 {
+	if len(workunit.Cmd.Cmd_script) > 0 {
 		use_wrapper_script = true
 
 		// create wrapper script
 
 		//conf.DOCKER_WORK_DIR
-		var wrapper_content_string = "#!/bin/bash\n" + strings.Join(work.Cmd.Cmd_script, "\n") + "\n"
+		var wrapper_content_string = "#!/bin/bash\n" + strings.Join(workunit.Cmd.Cmd_script, "\n") + "\n"
 
-		logger.Debug(1, "write wrapper script: %s\n%s", wrapper_script_filename_host, strings.Join(work.Cmd.Cmd_script, ", "))
+		logger.Debug(1, "write wrapper script: %s\n%s", wrapper_script_filename_host, strings.Join(workunit.Cmd.Cmd_script, ", "))
 
 		var wrapper_content_bytes = []byte(wrapper_content_string)
 
@@ -213,10 +210,10 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	container_name := "AWE_workunit_" + DockerizeName(conf.CLIENT_NAME)
 
-	if work.Cmd.Dockerimage != "" {
-		logger.Debug(1, "using Dockerimage: %s", work.Cmd.Dockerimage)
-	} else if work.Cmd.DockerPull != "" {
-		logger.Debug(1, "using DockerPull: %s", work.Cmd.DockerPull)
+	if workunit.Cmd.Dockerimage != "" {
+		logger.Debug(1, "using Dockerimage: %s", workunit.Cmd.Dockerimage)
+	} else if workunit.Cmd.DockerPull != "" {
+		logger.Debug(1, "using DockerPull: %s", workunit.Cmd.DockerPull)
 	} else {
 		err = fmt.Errorf("Error Dockerimage/DockerPull string empty")
 		return
@@ -225,16 +222,16 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	dockerimage_repo := ""
 	dockerimage_tag := ""
 
-	if work.Cmd.Dockerimage != "" {
+	if workunit.Cmd.Dockerimage != "" {
 
-		dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(work.Cmd.Dockerimage)
+		dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(workunit.Cmd.Dockerimage)
 		if err != nil {
 			return
 		}
 	}
-	if work.Cmd.DockerPull != "" {
+	if workunit.Cmd.DockerPull != "" {
 
-		dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(work.Cmd.DockerPull)
+		dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(workunit.Cmd.DockerPull)
 		if err != nil {
 			return
 		}
@@ -277,9 +274,9 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	dockerimage_id := ""
 
-	if work.Cmd.Dockerimage != "" {
+	if workunit.Cmd.Dockerimage != "" {
 
-		node, dockerimage_download_url, xerr := findDockerImageInShock(Dockerimage_normalized, work.Info.DataToken)
+		node, dockerimage_download_url, xerr := findDockerImageInShock(Dockerimage_normalized, workunit.Info.DataToken)
 		if xerr != nil {
 			err = fmt.Errorf("Error getting docker url, err=%s", xerr.Error())
 			return
@@ -314,13 +311,13 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			logger.Debug(1, "docker image %s is not yet in local repository", Dockerimage_normalized)
 			err = nil
 
-			image_retrieval := "load" // TODO only load is guaraneed to work
+			image_retrieval := "load" // TODO only load is guaraneed to workunit
 			//image_retrieval := "pull"
 			switch {
 			case image_retrieval == "load":
 				{ // for images that have been saved
 					logger.Debug(1, "Loading image %s", dockerimage_download_url)
-					err = dockerLoadImage(client, dockerimage_download_url, work.Info.DataToken)
+					err = dockerLoadImage(client, dockerimage_download_url, workunit.Info.DataToken)
 					if err != nil {
 						err = fmt.Errorf("Docker image was not correctly loaded, err=%s", err.Error())
 						return
@@ -329,7 +326,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			case image_retrieval == "import":
 				{ // for containers that have been exported
 					logger.Debug(1, "Importing image %s", Dockerimage_normalized)
-					xerr := dockerImportImage(client, Dockerimage_normalized, work.Info.DataToken)
+					xerr := dockerImportImage(client, Dockerimage_normalized, workunit.Info.DataToken)
 					if xerr != nil {
 						err = fmt.Errorf("Docker image was not correctly imported, err=%s", xerr.Error())
 						return
@@ -395,7 +392,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 			logger.Error("warning: tagging of image %s with %s failed, err:", dockerimage_id, Dockerimage_normalized, err.Error())
 		}
 
-	} else if work.Cmd.DockerPull != "" {
+	} else if workunit.Cmd.DockerPull != "" {
 
 		if false {
 			logger.Debug(1, "Pulling image %s from Docker Hub", Dockerimage_normalized)
@@ -408,7 +405,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 				return
 			}
 		}
-		dockerimage_id = work.Cmd.DockerPull
+		dockerimage_id = workunit.Cmd.DockerPull
 	}
 
 	if dockerimage_id == "" {
@@ -419,14 +416,14 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	// collect environment
 	var docker_environment []string
 	docker_environment_string := "" // this is only for the debug output
-	for key, val := range work.Cmd.Environ.Public {
+	for key, val := range workunit.Cmd.Environ.Public {
 		env_pair := key + "=" + val
 		docker_environment = append(docker_environment, env_pair)
 		docker_environment_string += " --env=" + env_pair
 	}
-	if work.Cmd.HasPrivateEnv {
+	if workunit.Cmd.HasPrivateEnv {
 		logger.Debug(3, "HasPrivateEnv true")
-		private_envs, err := FetchPrivateEnvByWorkId(work.Id)
+		private_envs, err := FetchPrivateEnvByWorkId(workunit.Id)
 		if err != nil {
 			return nil, err
 		}
@@ -477,7 +474,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	container_cmd := []string{bash_command}
 
 	//var empty_struct struct{}
-	bindstr_workdir := work.Path() + "/:" + conf.DOCKER_WORK_DIR
+	bindstr_workdir := workunit.Path() + "/:" + conf.DOCKER_WORK_DIR
 	logger.Debug(1, "bindstr_workdir: "+bindstr_workdir)
 
 	var bindarray = []string{}
@@ -486,7 +483,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	//fake_predata := ""
 	bindstr_predata := ""
 	volume_str := ""
-	if len(work.Predata) > 0 {
+	if len(workunit.Predata) > 0 {
 		predata_directory := path.Join(conf.DATA_PATH, "predata")
 		bindstr_predata = predata_directory + "/:" + conf.DOCKER_WORKUNIT_PREDATA_DIR + ":ro"
 
@@ -524,7 +521,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		Env: docker_environment,
 	}
 
-	if len(work.Predata) > 0 {
+	if len(workunit.Predata) > 0 {
 		config.Volumes[bindstr_predata] = struct{}{}
 	}
 
@@ -613,7 +610,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 		logger.Debug(3, "Container status: %s", cont.State.Status)
 
-		inspect_filename := path.Join(work.Path(), "container_inspect.json")
+		inspect_filename := path.Join(workunit.Path(), "container_inspect.json")
 
 		b_inspect, _ := json.MarshalIndent(cont, "", "    ")
 
@@ -674,6 +671,7 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 				select {
 				case cresult := <-done:
+					workunit.ExitStatus = cresult.Status
 					if cresult.Error != nil {
 						logger.Error("channel done returned error: " + cresult.Error.Error())
 					}
@@ -788,17 +786,17 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 		return nil, errors.New("process killed as requested from chankill")
 	case cresult = <-done:
+		workunit.ExitStatus = cresult.Status
 		logger.Debug(3, "(1)docker wait returned with status %d", cresult.Status)
 		if cresult.Error != nil {
 			return nil, fmt.Errorf("dockerWait=%s, status=%d, err=%s", commandName, cresult.Status, cresult.Error.Error())
 		}
-
+		if cresult.Status != 0 {
+			logger.Debug(3, "WaitContainer returned non-zero status=%d", cresult.Status)
+			return nil, fmt.Errorf("error WaitContainer returned non-zero status=%d", cresult.Status)
+		}
 	}
 
-	if cresult.Status != 0 {
-		logger.Debug(3, "WaitContainer returned non-zero status=%d", cresult.Status)
-		return nil, fmt.Errorf("error WaitContainer returned non-zero status=%d", cresult.Status)
-	}
 	logger.Debug(1, fmt.Sprint("pstats.MaxMemUsage: ", pstats.MaxMemUsage))
 	pstats.MaxMemUsage = MaxMem
 	pstats.MaxMemoryTotalRss = max_memory_total_rss
@@ -808,28 +806,28 @@ func RunWorkunitDocker(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 	return
 }
 
-func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
-	pstats = new(core.WorkPerf)
+func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 
-	args := work.Cmd.ParsedArgs
+	args := workunit.Cmd.ParsedArgs
 
 	//change cwd to the workunit's working directory
-	if err := work.CDworkpath(); err != nil {
+	if err := workunit.CDworkpath(); err != nil {
 		return nil, err
 	}
 
-	commandName := work.Cmd.Name
+	commandName := workunit.Cmd.Name
 
 	if commandName == "" {
-		return nil, errors.New(fmt.Sprintf("error: command name is empty"))
+		err = fmt.Errorf("error: command name is empty")
+		return
 	}
 
 	cmd := exec.Command(commandName, args...)
 
-	msg := fmt.Sprintf("worker: start cmd=%s, args=%v", commandName, args)
+	msg := fmt.Sprintf("(RunWorkunitDirect) worker: start cmd=%s, args=%v", commandName, args)
 	//fmt.Println(msg)
 	logger.Debug(1, msg)
-	logger.Event(event.WORK_START, "workid="+work.Id,
+	logger.Event(event.WORK_START, "workid="+workunit.Id,
 		"cmd="+commandName,
 		fmt.Sprintf("args=%v", args))
 
@@ -845,8 +843,10 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}
 
-	stdoutFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDOUT_FILENAME)
-	stderrFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDERR_FILENAME)
+	logger.Debug(3, "(RunWorkunitDirect) Using workpath: %s", workunit.Path())
+
+	stdoutFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDOUT_FILENAME)
+	stderrFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDERR_FILENAME)
 	outfile, err := os.Create(stdoutFilePath)
 	defer outfile.Close()
 	errfile, err := os.Create(stderrFilePath)
@@ -903,33 +903,53 @@ func RunWorkunitDirect(work *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	do_loop := true
 	for do_loop {
-		logger.Debug(3, "processor.go for-loop")
+		logger.Debug(3, "(RunWorkunitDirect) for-loop")
 		select {
 		case MaxMem_value := <-MaxMemChan:
-			logger.Debug(3, "received MaxMem_value %d", MaxMem_value)
+			logger.Debug(3, "(RunWorkunitDirect) received MaxMem_value %d", MaxMem_value)
 			MaxMem = MaxMem_value
 		case <-chankill:
 			if err := cmd.Process.Kill(); err != nil {
-				fmt.Println("failed to kill" + err.Error())
+				fmt.Println("(RunWorkunitDirect) failed to kill" + err.Error())
 			}
 			<-done // allow goroutine to exit
-			logger.Info("worker process was killed")
-			return nil, errors.New("process killed")
+			logger.Info("(RunWorkunitDirect) worker process was killed")
+			return nil, errors.New("(RunWorkunitDirect) process killed")
 		case err = <-done:
-			logger.Debug(3, "received done")
+			logger.Debug(3, "(RunWorkunitDirect) received done")
 			if err != nil {
-				err = fmt.Errorf("wait_cmd=%s, err=%s", commandName, err.Error())
+				if exiterr, ok := err.(*exec.ExitError); ok {
+					// The program has exited with an exit code != 0
+
+					// This works on both Unix and Windows. Although package
+					// syscall is generally platform dependent, WaitStatus is
+					// defined for both Unix and Windows and in both cases has
+					// an ExitStatus() method with the same signature.
+					status, ok := exiterr.Sys().(syscall.WaitStatus)
+					if ok {
+						workunit.ExitStatus = status.ExitStatus()
+					}
+				} else {
+					// I guess that is some kind of error
+					workunit.ExitStatus = 1
+				}
+
+				err = fmt.Errorf("(RunWorkunitDirect) wait_cmd=%s, err=%s", commandName, err.Error())
 				return
+			} else {
+				// I guess all is ok
+				workunit.ExitStatus = 0
 			}
 			do_loop = false
 		}
 	}
-	logger.Event(event.WORK_END, "workid="+work.Id)
+	logger.Event(event.WORK_END, "workid="+workunit.Id)
+	pstats = new(core.WorkPerf)
 	pstats.MaxMemUsage = int64(MaxMem)
 	return
 }
 
-func runPreWorkExecutionScript(work *core.Workunit) (err error) {
+func runPreWorkExecutionScript(workunit *core.Workunit) (err error) {
 	// conf.PreWorkScript is a string
 	// conf.PreWorkScriptArgs is a string array
 	args := conf.PRE_WORK_SCRIPT_ARGS
@@ -944,7 +964,7 @@ func runPreWorkExecutionScript(work *core.Workunit) (err error) {
 	msg := fmt.Sprintf("worker: start pre-work cmd=%s, args=%v", commandName, args)
 
 	logger.Debug(1, msg)
-	logger.Event(event.PRE_WORK_START, "workid="+work.Id,
+	logger.Event(event.PRE_WORK_START, "workid="+workunit.Id,
 		"pre-work cmd="+commandName,
 		fmt.Sprintf("args=%v", args))
 
@@ -961,8 +981,8 @@ func runPreWorkExecutionScript(work *core.Workunit) (err error) {
 		}
 	}
 
-	stdoutFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDOUT_FILENAME)
-	stderrFilePath := fmt.Sprintf("%s/%s", work.Path(), conf.STDERR_FILENAME)
+	stdoutFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDOUT_FILENAME)
+	stderrFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDERR_FILENAME)
 	outfile, err := os.Create(stdoutFilePath)
 	defer outfile.Close()
 	errfile, err := os.Create(stderrFilePath)
@@ -1002,18 +1022,18 @@ func runPreWorkExecutionScript(work *core.Workunit) (err error) {
 			return errors.New(fmt.Sprintf("wait on pre-work cmd=%s, err=%s", commandName, err.Error()))
 		}
 	}
-	logger.Event(event.PRE_WORK_END, "workid="+work.Id)
+	logger.Event(event.PRE_WORK_END, "workid="+workunit.Id)
 	return
 }
 
-func SetEnv(work *core.Workunit) (envkeys []string, err error) {
-	for key, val := range work.Cmd.Environ.Public {
+func SetEnv(workunit *core.Workunit) (envkeys []string, err error) {
+	for key, val := range workunit.Cmd.Environ.Public {
 		if err := os.Setenv(key, val); err == nil {
 			envkeys = append(envkeys, key)
 		}
 	}
-	if work.Cmd.HasPrivateEnv {
-		envs, err := FetchPrivateEnvByWorkId(work.Id)
+	if workunit.Cmd.HasPrivateEnv {
+		envs, err := FetchPrivateEnvByWorkId(workunit.Id)
 		if err != nil {
 			return envkeys, err
 		}

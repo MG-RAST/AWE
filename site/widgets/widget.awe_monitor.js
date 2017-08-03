@@ -205,11 +205,13 @@
 				   4: { type: "premade-select", options: pipelines },
 				   5: { type: "premade-select", options: [
 				       { "text": "show all", "value": "" },
+				       { "text": "init", "value": "init" },
+				       { "text": "queued", "value": "queued" },
+				       { "text": "in-progress", "value": "in-progress" },
 				       { "text": "completed", "value": "completed" },
 				       { "text": "suspend", "value": "suspend" },
-				       { "text": "in-progress", "value": "in-progress" },
-				       { "text": "checkout", "value": "checkout" },
-				       { "text": "queued", "value": "queued" }
+				       { "text": "failed-permanent", "value": "failed-permanent" },
+				       { "text": "deleted", "value": "deleted" }
 				   ] },
 				   6: { type: "text" } };
 	    if (Retina.cgiParam('pipeline')) {
@@ -256,9 +258,11 @@
 				    6: { "type": "premade-select",
 					 "options": [ 
 					     { "text": "show all", "value": "" },
+					     { "text": "init", "value": "init" },
 					     { "text": "queued", "value": "queued" },
+					     { "text": "checkout", "value": "checkout" },
 					     { "text": "suspend", "value": "suspend" },
-					     { "text": "checkout", "value": "checkout" }
+					     { "text": "failed-permanent", "value": "failed-permanent" }
 					 ],
 					 "searchword": "" },
 				    7: { type: "text" },
@@ -302,12 +306,11 @@
 				       }
 				       result_data.push( [ "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.id+"\")'>"+obj.name+"</a>",
 							   obj.group,
-							   obj.host,
+							   (obj.host_ip == "") ? obj.host : obj.host_ip,
 							   obj.cores || "0",
 							   obj.apps.join(", "),
 							   obj.regtime,
 							   obj.serve_time,
-							   obj.subclients || "0",
 							   obj.Status,
 							   obj.total_checkout || "0",
 							   obj.total_completed || "0",
@@ -324,7 +327,6 @@
 							 "apps",
 							 "register time",
 							 "up-time",
-							 "subclients",
 							 "status",
 							 "c/o",
 							 "done",
@@ -345,14 +347,13 @@
 				   4: { type: "text" },
 				   5: { type: "text" },
 				   6: { type: "text" },
-				   7: { type: "text" },
-				   8: { type: "select" },
+				   7: { type: "select" },
+				   8: { type: "text" },
 				   9: { type: "text" },
 				   10: { type: "text" },
 				   11: { type: "text" },
 				   12: { type: "text" },
-				   13: { type: "text" },
-				   14: { type: "text" }
+				   13: { type: "text" }
 			       };
 			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.minwidths = [110,73,70,73,75,115,90,105,85,60,70,75,90,85,110];
 			       Retina.WidgetInstances.awe_monitor[1].tables["clients"].settings.data = return_data;

@@ -1,0 +1,32 @@
+# docker build -t mgrast/awe-worker -f Dockerfile_worker .
+
+
+FROM golang:1.7.6-alpine as builder
+
+# git needed for GIT_COMMIT_HASH
+RUN apk update && apk add git
+
+ENV AWE=/go/src/github.com/MG-RAST/AWE
+WORKDIR /go/bin
+
+COPY . /go/src/github.com/MG-RAST/AWE
+
+# backwards compatible pathing with old dockerfile
+RUN ln -s /go /gopath
+
+# compile AWE
+RUN mkdir -p ${AWE} && \
+  cd ${AWE} && \
+  go get -d ./awe-worker/ && \
+  ./compile.sh
+
+
+
+FROM mgrast/cwl-runner:latest
+
+
+COPY --from=builder /go/bin/awe-worker /
+
+
+ENTRYPOINT ["/awe-worker"]
+

@@ -4,17 +4,16 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/MG-RAST/golib/goconfig/config"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/MG-RAST/golib/goconfig/config"
 )
 
-const VERSION string = "0.9.46"
+const VERSION string = "0.9.50"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -23,6 +22,9 @@ const DB_COLL_JOBS string = "Jobs"
 const DB_COLL_PERF string = "Perf"
 const DB_COLL_CGS string = "ClientGroups"
 const DB_COLL_USERS string = "Users"
+
+//prefix for site login
+const LOGIN_PREFIX string = "go4711"
 
 //default index type used for intermediate data
 const DEFAULT_INDEX string = "chunkrecord"
@@ -87,12 +89,11 @@ var (
 
 	// Auth
 	BASIC_AUTH         bool
-	GLOBUS_OAUTH       bool
-	MGRAST_OAUTH       bool
 	GLOBUS_TOKEN_URL   string
 	GLOBUS_PROFILE_URL string
-	MGRAST_OAUTH_URL   string
-	MGRAST_LOGIN_URL   string
+	OAUTH_URL_STR      string
+	OAUTH_BEARER_STR   string
+	SITE_LOGIN_URL     string
 	CLIENT_AUTH_REQ    bool
 	CLIENT_GROUP_TOKEN string
 
@@ -115,6 +116,7 @@ var (
 	MONGODB_TIMEOUT  int
 
 	// Server
+	COREQ_LENGTH       int
 	EXPIRE_WAIT        int
 	GLOBAL_EXPIRE      string
 	PIPELINE_EXPIRE    string
@@ -143,6 +145,9 @@ var (
 	NO_SYMLINK     bool
 	CACHE_ENABLED  bool
 
+	CWL_TOOL string
+	CWL_JOB  string
+
 	// Docker
 	USE_DOCKER                    string
 	DOCKER_BINARY                 string
@@ -157,6 +162,7 @@ var (
 	SHOCK_DOCKER_IMAGE_REPOSITORY string
 
 	// Other
+	ERROR_LENGTH         int
 	DEV_MODE             bool
 	DEBUG_LEVEL          int
 	CONFIG_FILE          string
@@ -172,9 +178,16 @@ var (
 	PIPELINE_EXPIRE_MAP = make(map[string]string)
 
 	// used to track admin users
-	Admin_Users    = make(map[string]bool)
-	AUTH_RESOURCES = make(map[string]AuthResource)
-	AUTH_DEFAULT   string
+	AdminUsers = []string{}
+
+	// used for login
+	LOGIN_RESOURCES = make(map[string]LoginResource)
+	LOGIN_DEFAULT   string
+
+	// used to map bearer token to oauth url
+	AUTH_OAUTH    = make(map[string]string)
+	HAS_OAUTH     bool
+	OAUTH_DEFAULT string // first value in OAUTH_URL_STR
 
 	// internal config control
 	FAKE_VAR = false
@@ -246,7 +259,7 @@ type Config_store struct {
 	Con   *config.Config
 }
 
-type AuthResource struct {
+type LoginResource struct {
 	Icon      string `json:"icon"`
 	Prefix    string `json:"prefix"`
 	Keyword   string `json:"keyword"`
@@ -398,12 +411,8 @@ func get_my_config_bool(c *config.Config, f *flag.FlagSet, val *Config_value_boo
 }
 
 // wolfgang: I started to change it such that config values are only written when defined in the config file
-func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err error) {
+func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 	c_store = NewCS(c)
-	// examples:
-	// c_store.AddString(&VARIABLE, "", "section", "key", "", "")
-	// c_store.AddInt(&VARIABLE, 0, "section", "key", "", "")
-	// c_store.AddBool(&VARIABLE, false, "section", "key", "", "")
 
 	if mode == "server" {
 		// Ports
@@ -433,8 +442,9 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddBool(&BASIC_AUTH, false, "Auth", "basic", "", "")
 		c_store.AddString(&GLOBUS_TOKEN_URL, "", "Auth", "globus_token_url", "", "")
 		c_store.AddString(&GLOBUS_PROFILE_URL, "", "Auth", "globus_profile_url", "", "")
-		c_store.AddString(&MGRAST_OAUTH_URL, "", "Auth", "mgrast_oauth_url", "", "")
-		c_store.AddString(&MGRAST_LOGIN_URL, "", "Auth", "mgrast_login_url", "", "")
+		c_store.AddString(&OAUTH_URL_STR, "", "Auth", "oauth_urls", "", "")
+		c_store.AddString(&OAUTH_BEARER_STR, "", "Auth", "oauth_bearers", "", "")
+		c_store.AddString(&SITE_LOGIN_URL, "", "Auth", "login_url", "", "")
 		c_store.AddBool(&CLIENT_AUTH_REQ, false, "Auth", "client_auth_required", "", "")
 
 		// Admin
@@ -463,10 +473,11 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 
 		// Server
 		c_store.AddString(&TITLE, "AWE Server", "Server", "title", "", "")
-		c_store.AddBool(&PERF_LOG_WORKUNIT, true, "Server", "perf_log_workunit", "collecting performance log per workunit", "")
+		c_store.AddInt(&COREQ_LENGTH, 100, "Server", "coreq_length", "length of checkout request queue", "")
 		c_store.AddInt(&EXPIRE_WAIT, 60, "Server", "expire_wait", "wait time for expiration reaper in minutes", "")
 		c_store.AddString(&GLOBAL_EXPIRE, "", "Server", "global_expire", "default number and unit of time after job completion before it expires", "")
 		c_store.AddString(&PIPELINE_EXPIRE, "", "Server", "pipeline_expire", "comma seperated list of pipeline_name=expire_days_unit, overrides global_expire", "")
+		c_store.AddBool(&PERF_LOG_WORKUNIT, true, "Server", "perf_log_workunit", "collecting performance log per workunit", "")
 		c_store.AddInt(&MAX_WORK_FAILURE, 3, "Server", "max_work_failure", "number of times that one workunit fails before the workunit considered suspend", "")
 		c_store.AddInt(&MAX_CLIENT_FAILURE, 5, "Server", "max_client_failure", "number of times that one client consecutively fails running workunits before the client considered suspend", "")
 		c_store.AddInt(&GOMAXPROCS, 0, "Server", "go_max_procs", "", "")
@@ -498,6 +509,9 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 		c_store.AddBool(&AUTO_CLEAN_DIR, true, "Client", "auto_clean_dir", "delete workunit directory to save space after completion, turn of for debugging", "")
 		c_store.AddBool(&CACHE_ENABLED, false, "Client", "cache_enabled", "", "")
 		c_store.AddBool(&NO_SYMLINK, false, "Client", "no_symlink", "copy files from predata to work dir, default is to create symlink", "")
+
+		c_store.AddString(&CWL_TOOL, "", "Client", "cwl_tool", "CWL CommandLineTool file", "")
+		c_store.AddString(&CWL_JOB, "", "Client", "cwl_job", "CWL job file", "")
 	}
 
 	// Docker
@@ -522,6 +536,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 	c_store.AddInt(&P_API_PORT, 8002, "Proxy", "p-api-port", "", "")
 
 	//Other
+	c_store.AddInt(&ERROR_LENGTH, 5000, "Other", "errorlength", "amount of App STDERR to save in Job.Error", "")
 	c_store.AddBool(&DEV_MODE, false, "Other", "dev", "dev or demo mode, print some msgs on screen", "")
 	c_store.AddInt(&DEBUG_LEVEL, 0, "Other", "debuglevel", "debug level: 0-3", "")
 	c_store.AddString(&CONFIG_FILE, "", "Other", "conf", "path to config file", "")
@@ -532,8 +547,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store, err
 	c_store.AddBool(&SHOW_HELP, false, "Other", "help", "show usage", "")
 
 	c_store.Parse()
-
-	return c_store, nil
+	return
 }
 
 func Init_conf(mode string) (err error) {
@@ -548,7 +562,7 @@ func Init_conf(mode string) (err error) {
 			} else if i+1 < len(os.Args) {
 				CONFIG_FILE = os.Args[i+1]
 			} else {
-				return errors.New("ERROR: parsing command options, missing conf file")
+				return errors.New("missing conf file in command options")
 			}
 		}
 	}
@@ -557,21 +571,15 @@ func Init_conf(mode string) (err error) {
 	if CONFIG_FILE != "" {
 		c, err = config.ReadDefault(CONFIG_FILE)
 		if err != nil {
-			return errors.New("ERROR: error reading conf file: " + err.Error())
+			return errors.New("error reading conf file: " + err.Error())
 		}
 	}
-
-	c_store, err := getConfiguration(c, mode) // from config file and command line arguments
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: error reading conf file: %v\n", err)
-		return
-	}
+	c_store := getConfiguration(c, mode)
 
 	// ####### at this point configuration variables are set ########
 
 	if FAKE_VAR == false {
-		fmt.Fprintf(os.Stderr, "ERROR: config was not parsed\n")
-		os.Exit(1)
+		return errors.New("config was not parsed")
 	}
 	if PRINT_HELP || SHOW_HELP {
 		c_store.PrintHelp()
@@ -600,34 +608,35 @@ func Init_conf(mode string) (err error) {
 		}
 	}
 
+	// globus has some hard-coded info
 	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
-		GLOBUS_OAUTH = true
-		AUTH_DEFAULT = "KBase"
-		AUTH_RESOURCES["KBase"] = AuthResource{
-			Icon:      "KBase_favicon.ico",
-			Prefix:    "kbgo4711",
-			Keyword:   "auth",
-			Url:       MGRAST_LOGIN_URL,
-			UseHeader: false,
-			Bearer:    "OAuth",
-		}
+		NAME := "KBase"
+		HAS_OAUTH = true
+		LOGIN_DEFAULT = NAME
+		LOGIN_RESOURCES[NAME] = buildLoginResource(NAME, "globus")
 	}
-	if MGRAST_OAUTH_URL != "" {
-		MGRAST_OAUTH = true
-		AUTH_DEFAULT = "MG-RAST"
-		AUTH_RESOURCES["MG-RAST"] = AuthResource{
-			Icon:      "MGRAST_favicon.ico",
-			Prefix:    "mggo4711",
-			Keyword:   "auth",
-			Url:       MGRAST_LOGIN_URL,
-			UseHeader: false,
-			Bearer:    "mgrast",
+	// parse OAuth settings if used
+	if OAUTH_URL_STR != "" && OAUTH_BEARER_STR != "" {
+		ou := strings.Split(OAUTH_URL_STR, ",")
+		ob := strings.Split(OAUTH_BEARER_STR, ",")
+		if len(ou) != len(ob) {
+			return errors.New("number of items in oauth_urls and oauth_bearers are not the same")
+		}
+		// first entry is default for "oauth" bearer token and login
+		OAUTH_DEFAULT = ou[0]
+		LOGIN_DEFAULT = strings.ToUpper(ob[0])
+		HAS_OAUTH = true
+		// process all entries
+		for i := range ob {
+			AUTH_OAUTH[ob[i]] = ou[i]
+			NAME := strings.ToUpper(ob[i])
+			LOGIN_RESOURCES[NAME] = buildLoginResource(NAME, ob[i])
 		}
 	}
 
 	if ADMIN_USERS_VAR != "" {
 		for _, name := range strings.Split(ADMIN_USERS_VAR, ",") {
-			Admin_Users[strings.TrimSpace(name)] = true
+			AdminUsers = append(AdminUsers, strings.TrimSpace(name))
 		}
 	}
 
@@ -666,15 +675,26 @@ func Init_conf(mode string) (err error) {
 		return errors.New("invalid option for logoutput, use one of: file, console, both")
 	}
 
-	WORK_PATH, _ = filepath.Abs(WORK_PATH)
-	APP_PATH, _ = filepath.Abs(APP_PATH)
-	SITE_PATH, _ = filepath.Abs(SITE_PATH)
-	DATA_PATH, _ = filepath.Abs(DATA_PATH)
-	LOGS_PATH, _ = filepath.Abs(LOGS_PATH)
-	AWF_PATH, _ = filepath.Abs(AWF_PATH)
+	SITE_PATH = cleanPath(SITE_PATH)
+	DATA_PATH = cleanPath(DATA_PATH)
+	LOGS_PATH = cleanPath(LOGS_PATH)
+	WORK_PATH = cleanPath(WORK_PATH)
+	APP_PATH = cleanPath(APP_PATH)
+	AWF_PATH = cleanPath(AWF_PATH)
+	PID_FILE_PATH = cleanPath(PID_FILE_PATH)
 
 	VERSIONS["Job"] = 2
 
+	return
+}
+
+func buildLoginResource(name string, bearer string) (login LoginResource) {
+	login.Icon = name + "_favicon.ico"
+	login.Prefix = strings.ToLower(name[0:2]) + LOGIN_PREFIX
+	login.Keyword = "auth"
+	login.Url = SITE_LOGIN_URL
+	login.UseHeader = false
+	login.Bearer = bearer
 	return
 }
 
@@ -697,30 +717,27 @@ func parseExpiration(expire string) (valid bool, duration int, unit string) {
 }
 
 func Print(service string) {
-	fmt.Printf("##### Admin #####\nemail:\t%s\n\n", ADMIN_EMAIL)
+	fmt.Printf("##### Admin #####\nemail:\t%s\nusers:\t%s\n\n", ADMIN_EMAIL, ADMIN_USERS_VAR)
 	fmt.Printf("####### Anonymous ######\nread:\t%t\nwrite:\t%t\ndelete:\t%t\n", ANON_READ, ANON_WRITE, ANON_DELETE)
 	fmt.Printf("clientgroup read:\t%t\nclientgroup write:\t%t\nclientgroup delete:\t%t\n\n", ANON_CG_READ, ANON_CG_WRITE, ANON_CG_DELETE)
+
 	fmt.Printf("##### Auth #####\n")
 	if BASIC_AUTH {
 		fmt.Printf("basic_auth:\ttrue\n")
 	}
 	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
-		fmt.Printf("globus_token_url:\t%s\nglobus_profile_url:\t%s\n", GLOBUS_TOKEN_URL, GLOBUS_PROFILE_URL)
+		fmt.Printf("type:\tglobus\ntoken_url:\t%s\nprofile_url:\t%s\n", GLOBUS_TOKEN_URL, GLOBUS_PROFILE_URL)
 	}
-	if MGRAST_OAUTH_URL != "" {
-		fmt.Printf("mgrast_oauth_url:\t%s\n", MGRAST_OAUTH_URL)
-	}
-	if MGRAST_LOGIN_URL != "" {
-		fmt.Printf("mgrast_login_url:\t%s\n", MGRAST_LOGIN_URL)
-	}
-	if len(Admin_Users) > 0 {
-		fmt.Printf("admin_auth:\ttrue\nadmin_users:\t")
-		for name, _ := range Admin_Users {
-			fmt.Printf("%s ", name)
+	if len(AUTH_OAUTH) > 0 {
+		fmt.Printf("type:\toauth\n")
+		for b, u := range AUTH_OAUTH {
+			fmt.Printf("bearer: %s\turl: %s\n", b, u)
 		}
-		fmt.Printf("\n")
 	}
-	fmt.Printf("\n")
+	if SITE_LOGIN_URL != "" {
+		fmt.Printf("login_url:\t%s\n", SITE_LOGIN_URL)
+	}
+	fmt.Println()
 
 	if service == "server" {
 		fmt.Printf("##### Expiration #####\nexpire_wait:\t%d minutes\n", EXPIRE_WAIT)
@@ -739,10 +756,10 @@ func Print(service string) {
 				_, duration, unit := parseExpiration(expire)
 				fmt.Printf("\n\t%s:\t%d %s", name, duration, unit)
 			}
-			fmt.Printf("\n")
+			fmt.Println()
 		}
+		fmt.Println()
 	}
-	fmt.Printf("\n")
 
 	fmt.Printf("##### Directories #####\nsite:\t%s\ndata:\t%s\nlogs:\t%s\n", SITE_PATH, DATA_PATH, LOGS_PATH)
 	if service == "server" {
@@ -757,14 +774,21 @@ func Print(service string) {
 	}
 
 	if service == "server" {
-		fmt.Printf("##### Mongodb #####\nhost(s):\t%s\ndatabase:\t%s\ntimeout:\t%d\n", MONGODB_HOST, MONGODB_DATABASE, MONGODB_TIMEOUT)
+		fmt.Printf("##### Mongodb #####\nhost(s):\t%s\ndatabase:\t%s\ntimeout:\t%d\n\n", MONGODB_HOST, MONGODB_DATABASE, MONGODB_TIMEOUT)
 	}
-	fmt.Println()
+
 	if service == "server" {
 		fmt.Printf("##### Ports #####\nsite:\t%d\napi:\t%d\n\n", SITE_PORT, API_PORT)
 	} else if service == "proxy" {
 		fmt.Printf("##### Ports #####\nsite:\t%d\napi:\t%d\n\n", P_SITE_PORT, P_API_PORT)
 	}
+}
+
+func cleanPath(p string) string {
+	if p != "" {
+		p, _ = filepath.Abs(p)
+	}
+	return p
 }
 
 func PrintClientCfg() {

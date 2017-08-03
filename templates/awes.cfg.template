@@ -19,29 +19,37 @@ site-port=8081
 api-port=8001
 
 [External]
-site-url=
-api-url=
+site-url=http://localhost:8081
+api-url=http://localhost:8001
+
+[SSL]
+enable=false
+key=
+cert=
 
 [Admin]
 # If you're running AWE with user and clientgroup Auth enabled, you'll want
 # to designate at least one admin user for creation of the clientgroups and
 # managing your AWE server.
 users=
-email=admin@host.com
+email=
 
 [Auth]
-globus_token_url=https://nexus.api.globusonline.org/goauth/token?grant_type=client_credentials
-globus_profile_url=https://nexus.api.globusonline.org/users
-#mgrast_oauth_url=http://api.metagenomics.anl.gov/user/authenticate
-#mgrast_login_url=https://api.metagenomics.anl.gov?verbosity=verbose
+basic=false
+globus_token_url=
+globus_profile_url=
+oauth_urls=
+oauth_bearers=
+login_url=
 client_auth_required=false
 
 [Directories]
 # See documentation for details of deploying Shock
+awf=$GOPATH/src/github.com/MG-RAST/AWE/templates/awf_templates
 site=$GOPATH/src/github.com/MG-RAST/AWE/site
 data=/mnt/data/awe/data
 logs=/mnt/data/awe/logs
-awf=$GOPATH/src/github.com/MG-RAST/AWE/templates/awf_templates
+pidfile=
 
 [Mongodb]
 # Mongodb configuration:
@@ -57,30 +65,24 @@ timeout=1200
 # key=unique:true/false[,dropDups:true/false][,sparse:true/false]
 id=unique:true
 
-[Args]
-debuglevel=0
-
 [Server]
+title="AWE Server"
+perf_log_workunit=true
 expire_wait=60
 global_expire=
 pipeline_expire=
-perf_log_workunit=true
 max_work_failure=3
 max_client_failure=5
+go_max_procs=0
+reload=
+recover=false
+recover_max=0
 
-[Client]
-totalworker=2
-workpath=/mnt/data/awe/work
-supported_apps=
-app_path=/home/ubuntu/apps/bin
-serverurl=http://localhost:8001
-name=default_client
-group=default_group
-auto_clean_dir=false
-worker_overlap=false
-print_app_msg=false
-username=
-password=
-#for openstack client only
-#openstack_metadata_url=http://169.254.169.254/2009-04-04/meta-data
-domain=default-domain #e.g. megallan
+[Docker]
+use_docker=yes
+use_app_defs=no
+app_registry_url=https://raw.githubusercontent.com/MG-RAST/Skyport/master/app_definitions/
+
+[Other]
+logoutput=console
+debuglevel=0

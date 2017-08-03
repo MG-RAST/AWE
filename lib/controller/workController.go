@@ -377,13 +377,26 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 				if _, ok := files["perf"]; ok {
 					core.QMgr.FinalizeWorkPerf(id, files["perf"].Path)
 				}
-				if _, ok := files["notes"]; ok {
-					if notes, err := ioutil.ReadFile(files["notes"].Path); err == nil {
-						notice.Notes = string(notes)
-					}
-				}
 				for _, log := range conf.WORKUNIT_LOGS {
 					if _, ok := files[log]; ok {
+						if log == "worknotes" {
+							// add worknotes to notice
+							if text, err := ioutil.ReadFile(files[log].Path); err == nil {
+								notice.Notes = string(text)
+							}
+						} else if log == "stderr" {
+							// add stderr to notice
+							if text, err := ioutil.ReadFile(files[log].Path); err == nil {
+								// only save last 5000 chars of string
+								err_str := string(text)
+								if len(err_str) > 5000 {
+									notice.Stderr = string(err_str[len(err_str)-5000:])
+								} else {
+									notice.Stderr = err_str
+								}
+							}
+						}
+						// move / save log file
 						core.QMgr.SaveStdLog(id, log, files[log].Path)
 					}
 				}

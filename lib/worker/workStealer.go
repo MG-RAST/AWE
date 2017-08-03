@@ -40,11 +40,15 @@ func workStealer(control chan int) {
 		if core.Service == "proxy" {
 			<-core.ProxyWorkChan
 		}
-		wu, err := CheckoutWorkunitRemote()
+		workunit, err := CheckoutWorkunitRemote()
 		if err != nil {
 			if err.Error() == e.QueueEmpty || err.Error() == e.QueueSuspend || err.Error() == e.NoEligibleWorkunitFound {
 				//normal, do nothing
 				logger.Debug(3, "(workStealer) client %s received status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL)
+			} else if err.Error() == e.ClientBusy {
+				// client asked for work, but server has not finished processing its last delivered work
+				logger.Error("(workStealer) server responds: last work delivered by client not yet processed, retry=%d", retry)
+				retry += 1
 			} else if err.Error() == e.ClientNotFound {
 				logger.Error("(workStealer) server responds: client not found. will wait for heartbeat process to fix this")
 				//server may be restarted, waiting for the hearbeater goroutine to try re-register
@@ -59,15 +63,9 @@ func workStealer(control chan int) {
 				os.Exit(1) // TODO is there a better way of exiting ? E.g. in regard of the logger who wants to flush....
 			} else {
 				//something is wrong, server may be down
-
 				logger.Error("(workStealer) checking out workunit: %s, retry=%d", err.Error(), retry)
 				retry += 1
 			}
-			//if retry == 12 {
-			//	fmt.Printf("failed to checkout workunits for 12 times, exiting...\n")
-			//	logger.Error("failed to checkout workunits for 12 times, exiting...")
-			//	os.Exit(1) // TODO fix !
-			//}
 			if core.Service != "proxy" { //proxy: event driven, client: timer driven
 				if retry <= 10 {
 					logger.Debug(3, "(workStealer) sleep 10 seconds")
@@ -81,30 +79,35 @@ func workStealer(control chan int) {
 		} else {
 			retry = 0
 		}
-		logger.Debug(1, "(workStealer) checked out workunit, id="+wu.Id)
+		logger.Debug(1, "(workStealer) checked out workunit, id="+workunit.Id)
 		//log event about work checktout (WC)
-		logger.Event(event.WORK_CHECKOUT, "workid="+wu.Id)
+		logger.Event(event.WORK_CHECKOUT, "workid="+workunit.Id)
 
-		err = core.Self.Add_work(wu.Id)
+		err = core.Self.Add_work(workunit.Id)
 		if err != nil {
 			logger.Error("(workStealer) error: %s", err.Error())
 			return
 		}
 
-		workmap.Set(wu.Id, ID_WORKSTEALER, "workStealer")
+		workmap.Set(workunit.Id, ID_WORKSTEALER, "workStealer")
 
 		//hand the work to the next step handler: dataMover
-		workstat := core.NewWorkPerf(wu.Id)
+		workstat := core.NewWorkPerf(workunit.Id)
 		workstat.Checkout = time.Now().Unix()
-		rawWork := &mediumwork{
-			workunit: wu,
-			perfstat: workstat,
-		}
-		fromStealer <- rawWork // sends to dataMover
+		//rawWork := &Mediumwork{
+		//	Workunit: wu,
+		//	Perfstat: workstat,
+		//}
+		workunit.WorkPerf = workstat
+
+		//FromStealer <- rawWork // sends to dataMover
+		FromStealer <- workunit // sends to dataMover
 
 		//if worker overlap is inhibited, wait until deliverer finishes processing the workunit
 		if conf.WORKER_OVERLAP == false && core.Service != "proxy" {
 			chanPermit <- true
+			// sleep short time to allow server to finish processing last delivered work
+			time.Sleep(2 * time.Second)
 		}
 	}
 	control <- ID_WORKSTEALER //we are ending

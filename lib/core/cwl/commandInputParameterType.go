@@ -24,7 +24,7 @@ func NewCommandInputParameterType(original interface{}) (cipt_ptr *CommandInputP
 		switch original_str {
 
 		case "null":
-		case "boolean":
+		case CWL_boolean:
 		case CWL_int:
 		case "long":
 		case "float":
@@ -33,7 +33,7 @@ func NewCommandInputParameterType(original interface{}) (cipt_ptr *CommandInputP
 		case CWL_File:
 		case "directory":
 		default:
-			err = fmt.Errorf("type %s is unknown", original_str)
+			err = fmt.Errorf("(NewCommandInputParameterType) type %s is unknown", original_str)
 			return
 		}
 

@@ -5,21 +5,22 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
-	"os/exec"
 	"strings"
 	"time"
 )
 
 const (
-	TASK_STAT_INIT       = "init"
-	TASK_STAT_QUEUED     = "queued"
-	TASK_STAT_INPROGRESS = "in-progress"
-	TASK_STAT_PENDING    = "pending"
-	TASK_STAT_SUSPEND    = "suspend"
-	TASK_STAT_COMPLETED  = "completed"
-	TASK_STAT_SKIPPED    = "user_skipped"
-	TASK_STAT_FAIL_SKIP  = "skipped"
-	TASK_STAT_PASSED     = "passed"
+	TASK_STAT_INIT             = "init"
+	TASK_STAT_QUEUED           = "queued"
+	TASK_STAT_INPROGRESS       = "in-progress"
+	TASK_STAT_PENDING          = "pending"
+	TASK_STAT_SUSPEND          = "suspend"
+	TASK_STAT_FAILED           = "failed"
+	TASK_STAT_FAILED_PERMANENT = "failed-permanent"
+	TASK_STAT_COMPLETED        = "completed"
+	TASK_STAT_SKIPPED          = "user_skipped"
+	TASK_STAT_FAIL_SKIP        = "skipped"
+	TASK_STAT_PASSED           = "passed"
 )
 
 type TaskRaw struct {
@@ -74,16 +75,11 @@ func NewTaskRaw(task_id string, info *Info) TaskRaw {
 	logger.Debug(3, "task_id: %s", task_id)
 
 	return TaskRaw{
-		Id:         task_id,
-		Info:       info,
-		Cmd:        &Command{},
-		Partition:  nil,
-		DependsOn:  []string{},
-		TotalWork:  1,
-		RemainWork: 1,
-		//WorkStatus: []string{},
-		State: TASK_STAT_INIT,
-		//Skip:       0,
+		Id:        task_id,
+		Info:      info,
+		Cmd:       &Command{},
+		Partition: nil,
+		DependsOn: []string{},
 	}
 }
 
@@ -119,9 +115,7 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	for _, dependency := range task.DependsOn {
 		if !strings.Contains(dependency, "_") {
 			fix_DependsOn = true
-
 		}
-
 	}
 
 	if fix_DependsOn {
@@ -147,18 +141,11 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		task.TotalWork = 1
 	}
 
-	//if len(task.WorkStatus) == 0 {
-	//	task.WorkStatus = make([]string, task.TotalWork)
-	//}
-
-	//logger.Debug(3, "%s, task.RemainWork: %d", task.Id, task.RemainWork)
-
 	if task.State != TASK_STAT_COMPLETED {
 		if task.RemainWork != task.TotalWork {
 			task.RemainWork = task.TotalWork
 			changed = true
 		}
-
 	}
 
 	if len(task.Cmd.Environ.Private) > 0 {
@@ -187,21 +174,17 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 	}
 
 	for _, input := range task.Inputs {
-
 		if input.Origin != "" {
-
 			origin := input.Origin
 			if !strings.Contains(origin, "_") {
 				origin = fmt.Sprintf("%s_%s", job.Id, origin)
 			}
-
 			_, ok := deps[origin]
 			if !ok {
 				// this was not yet in deps
 				deps[origin] = true
 				deps_changed = true
 			}
-
 		}
 	}
 
@@ -251,18 +234,15 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 		logger.Debug(2, "inittask predata: host="+io.Host+", node="+io.Node+", url="+io.Url)
 	}
 
-	err = task.setTokenForIO()
+	err = task.setTokenForIO(false)
 	if err != nil {
 		return
 	}
-
-	//err = task.SetState(TASK_STAT_INIT)
-
 	return
 }
 
+// currently this is only used to make a new task from a depricated task
 func NewTask(job *Job, task_id string) (t *Task, err error) {
-
 	t = &Task{
 		TaskRaw: NewTaskRaw(task_id, job.Info),
 		Inputs:  []*IO{},
@@ -273,7 +253,6 @@ func NewTask(job *Job, task_id string) (t *Task, err error) {
 }
 
 func (task *Task) GetOutputs() (outputs []*IO, err error) {
-
 	outputs = []*IO{}
 
 	lock, err := task.RLockNamed("GetOutputs")
@@ -329,7 +308,6 @@ func (task *TaskRaw) SetCreatedDate(t time.Time) (err error) {
 		return
 	}
 	task.CreatedDate = t
-
 	return
 }
 
@@ -345,7 +323,6 @@ func (task *TaskRaw) SetStartedDate(t time.Time) (err error) {
 		return
 	}
 	task.StartedDate = t
-
 	return
 }
 
@@ -363,7 +340,6 @@ func (task *TaskRaw) SetCompletedDate(t time.Time, lock bool) (err error) {
 		return
 	}
 	task.CompletedDate = t
-
 	return
 }
 
@@ -413,69 +389,43 @@ func (task *TaskRaw) SetState(new_state string) (err error) {
 		err = fmt.Errorf("task %s has no job id", taskid)
 		return
 	}
-
 	if old_state == new_state {
 		return
 	}
-
 	job, err := GetJob(jobid)
 	if err != nil {
 		return
 	}
 
-	if new_state == TASK_STAT_COMPLETED {
-		if old_state != TASK_STAT_COMPLETED {
-
-			// state TASK_STAT_COMPLETED is new!
-			err = job.IncrementRemainTasks(-1, true)
-			//err = dbIncrementJobField(jobid, "remaintasks", -1)
-			if err != nil {
-				return
-			}
-
-			err = task.SetCompletedDate(time.Now(), false)
-			if err != nil {
-				return
-			}
-		}
-
-	} else {
-		// in case a completed teask is marked as something different
-		if old_state == TASK_STAT_COMPLETED {
-			err = job.IncrementRemainTasks(1, true)
-			//err = dbIncrementJobField(jobid, "remaintasks", 1)
-			if err != nil {
-				return
-			}
-		}
-
-	}
-
-	dbUpdateJobTaskString(jobid, taskid, "state", new_state)
-	task.State = new_state
-
-	return
-}
-
-func (task *TaskRaw) SetCompletedDate_DEPRECATED(date time.Time) (err error) {
-	err = task.LockNamed("SetCompletedDate")
+	err = dbUpdateJobTaskString(jobid, taskid, "state", new_state)
 	if err != nil {
 		return
 	}
-	defer task.Unlock()
-	task.CompletedDate = date
+	task.State = new_state
+
+	if new_state == TASK_STAT_COMPLETED {
+		err = job.IncrementRemainTasks(-1)
+		if err != nil {
+			return
+		}
+		err = task.SetCompletedDate(time.Now(), false)
+		if err != nil {
+			return
+		}
+	} else if old_state == TASK_STAT_COMPLETED {
+		// in case a completed task is marked as something different
+		err = job.IncrementRemainTasks(1)
+		if err != nil {
+			return
+		}
+		initTime := time.Time{}
+		err = task.SetCompletedDate(initTime, false)
+		if err != nil {
+			return
+		}
+	}
 	return
 }
-
-//func (task *TaskRaw) GetSkip() (skip int, err error) {
-//	lock, err := task.RLockNamed("GetSkip")
-//	if err != nil {
-//		return
-//	}
-//	defer task.RUnlockNamed(lock)
-//	skip = task.Skip
-//	return
-//}
 
 func (task *TaskRaw) GetDependsOn() (dep []string, err error) {
 	lock, err := task.RLockNamed("GetDependsOn")
@@ -487,168 +437,169 @@ func (task *TaskRaw) GetDependsOn() (dep []string, err error) {
 	return
 }
 
-func (task *Task) UpdateState_DEPRECATED(newState string) string {
-	task.LockNamed("UpdateState")
-	defer task.Unlock()
-	task.State = newState
-	return task.State
-}
-
 // checks and creates indices on shock node if needed
 func (task *Task) CreateIndex() (err error) {
 	for _, io := range task.Inputs {
 		if len(io.ShockIndex) > 0 {
-			idxinfo, err := io.GetIndexInfo()
+			_, hasIndex, err := io.GetIndexInfo(io.ShockIndex)
 			if err != nil {
 				errMsg := "could not retrieve index info from input shock node, taskid=" + task.Id + ", error=" + err.Error()
 				logger.Error(errMsg)
 				return errors.New(errMsg)
 			}
-
-			// check if index exists
-			_, ok := idxinfo[io.ShockIndex]
-			if ok {
-				continue
+			if !hasIndex {
+				// create missing index
+				err = ShockPutIndex(io.Host, io.Node, io.ShockIndex, task.Info.DataToken)
+				if err != nil {
+					errMsg := "failed to create index on shock node for taskid=" + task.Id + ", error=" + err.Error()
+					logger.Error("error: " + errMsg)
+					return errors.New(errMsg)
+				}
 			}
-
-			// create missing index
-			err = ShockPutIndex(io.Host, io.Node, io.ShockIndex, task.Info.DataToken)
-			if err != nil {
-				errMsg := "failed to create index on shock node for taskid=" + task.Id + ", error=" + err.Error()
-				logger.Error("error: " + errMsg)
-				return errors.New(errMsg)
-			}
-
 		}
 	}
 	return
 }
 
-//get part size based on partition/index info
-//if fail to get index info, task.TotalWork fall back to 1 and return nil
+// get part size based on partition/index info
+// this resets task.Partition when called
+// only 1 task.Inputs allowed unless 'partinfo.input' specified on POST
+// if fail to get index info, task.TotalWork set to 1 and task.Partition set to nil
 func (task *Task) InitPartIndex() (err error) {
 	if task.TotalWork == 1 && task.MaxWorkSize == 0 {
+		// only 1 workunit requested
 		return
 	}
-	task_id := task.Id
-	job_id := task.JobId
 
-	var input_io *IO
-	if task.Partition == nil {
-		if len(task.Inputs) == 1 {
-			input_io = task.Inputs[0]
+	err = task.LockNamed("InitPartIndex")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
 
-			task.Partition = new(PartInfo)
-			task.Partition.Input = input_io.FileName
-			task.Partition.MaxPartSizeMB = task.MaxWorkSize
+	inputIO := task.Inputs[0]
+	newPartition := &PartInfo{
+		Input:         inputIO.FileName,
+		MaxPartSizeMB: task.MaxWorkSize,
+	}
 
-			err = dbUpdateJobTaskPartition(job_id, task_id, task.Partition)
-			if err != nil {
-				return
-			}
-		} else {
-			err = task.setTotalWork(1, true)
-			if err != nil {
-				return
-			}
-			logger.Error("warning: lacking partition info while multiple inputs are specified, taskid=" + task.Id)
-			return
-		}
-	} else {
-		if task.MaxWorkSize > 0 {
-			if task.Partition.MaxPartSizeMB != task.MaxWorkSize {
-				task.Partition.MaxPartSizeMB = task.MaxWorkSize
-				err = dbUpdateJobTaskInt(job_id, task_id, "partinfo.maxpartsize_mb", task.MaxWorkSize)
-				if err != nil {
-					return
+	if len(task.Inputs) > 1 {
+		found := false
+		if (task.Partition != nil) && (task.Partition.Input != "") {
+			// task submitted with partition input specified, use that
+			for _, io := range task.Inputs {
+				if io.FileName == task.Partition.Input {
+					found = true
+					inputIO = io
+					newPartition.Input = io.FileName
 				}
 			}
 		}
-		if task.Partition.MaxPartSizeMB == 0 && task.TotalWork <= 1 {
-			err = task.setTotalWork(1, true)
-			if err != nil {
-				return
-			}
-			return
-		}
-		found := false
-		for _, io := range task.Inputs {
-			if io.FileName == task.Partition.Input {
-				found = true
-				input_io = io
-			}
-		}
 		if !found {
-			err = task.setTotalWork(1, true)
-			if err != nil {
-				return
-			}
-			logger.Error("warning: invalid partition info, taskid=" + task.Id)
+			// bad state - set as not multi-workunit
+			logger.Error("warning: lacking partition info while multiple inputs are specified, taskid=" + task.Id)
+			err = task.setSingleWorkunit(false)
 			return
 		}
+	}
+
+	// if submitted with partition index use that, otherwise default
+	if (task.Partition != nil) && (task.Partition.Index != "") {
+		newPartition.Index = task.Partition.Index
+	} else {
+		newPartition.Index = conf.DEFAULT_INDEX
+	}
+
+	idxInfo, hasIndex, err := inputIO.GetIndexInfo(newPartition.Index)
+	if err != nil {
+		// bad state - set as not multi-workunit
+		logger.Error("warning: invalid file info, taskid=%s, error=%s", task.Id, err.Error())
+		err = task.setSingleWorkunit(false)
+		return
 	}
 
 	var totalunits int
-
-	idxinfo, err := input_io.GetIndexInfo()
-	if err != nil {
-		_ = task.setTotalWork(1, true)
-		logger.Error("warning: invalid file info, taskid=%s, error=%s", task.Id, err.Error())
-		return nil
+	if !hasIndex {
+		// if index not available, create index
+		err = ShockPutIndex(inputIO.Host, inputIO.Node, newPartition.Index, task.Info.DataToken)
+		if err != nil {
+			// bad state - set as not multi-workunit
+			logger.Error("warning: failed to create index %s on shock for taskid=%s, error=%s", newPartition.Index, task.Id, err.Error())
+			err = task.setSingleWorkunit(false)
+			return
+		}
+		totalunits, err = inputIO.TotalUnits(newPartition.Index) // get index info again
+		if err != nil {
+			// bad state - set as not multi-workunit
+			logger.Error("warning: failed to get index %s units, taskid=%s, error=%s", newPartition.Index, task.Id, err.Error())
+			err = task.setSingleWorkunit(false)
+			return
+		}
+	} else {
+		// index existing, use it directly
+		totalunits = int(idxInfo.TotalUnits)
 	}
 
-	idxtype := conf.DEFAULT_INDEX
-	if _, ok := idxinfo[idxtype]; !ok { //if index not available, create index
-		err := ShockPutIndex(input_io.Host, input_io.Node, idxtype, task.Info.DataToken)
-		if err != nil {
-			_ = task.setTotalWork(1, true)
-			logger.Error("warning: fail to create index on shock for taskid=" + task.Id + ", error=" + err.Error())
-			return nil
-		}
-		totalunits, err = input_io.TotalUnits(idxtype) //get index info again
-		if err != nil {
-			_ = task.setTotalWork(1, true)
-			logger.Error("warning: fail to get index units, taskid=" + task.Id + ", error=" + err.Error())
-			return nil
-		}
-	} else { //index existing, use it directly
-		totalunits = int(idxinfo[idxtype].TotalUnits)
-	}
-
-	//adjust total work based on needs
-	if task.Partition.MaxPartSizeMB > 0 { // fixed max part size
-		//this implementation for chunkrecord indexer only
+	// adjust total work based on needs
+	if newPartition.MaxPartSizeMB > 0 {
+		// this implementation for chunkrecord indexer only
 		chunkmb := int(conf.DEFAULT_CHUNK_SIZE / 1048576)
 		var totalwork int
-		if totalunits*chunkmb%task.Partition.MaxPartSizeMB == 0 {
-			totalwork = totalunits * chunkmb / task.Partition.MaxPartSizeMB
+		if totalunits*chunkmb%newPartition.MaxPartSizeMB == 0 {
+			totalwork = totalunits * chunkmb / newPartition.MaxPartSizeMB
 		} else {
-			totalwork = totalunits*chunkmb/task.Partition.MaxPartSizeMB + 1
+			totalwork = totalunits*chunkmb/newPartition.MaxPartSizeMB + 1
 		}
-		if totalwork < task.TotalWork { //use bigger splits (specified by size or totalwork)
+		if totalwork < task.TotalWork {
+			// use bigger splits (specified by size or totalwork)
 			totalwork = task.TotalWork
 		}
-		task.setTotalWork(totalwork, true)
+		if totalwork != task.TotalWork {
+			err = task.setTotalWork(totalwork, false)
+			if err != nil {
+				return
+			}
+		}
+	}
+	if totalunits < task.TotalWork {
+		err = task.setTotalWork(totalunits, false)
 		if err != nil {
 			return
 		}
 	}
-	if totalunits < task.TotalWork {
-		task.setTotalWork(totalunits, true)
-	}
 
-	task.Partition.Index = idxtype
-	task.Partition.TotalIndex = totalunits
-
-	err = dbUpdateJobTaskString(job_id, task_id, "partinfo.index", idxtype)
-	if err != nil {
-		return
-	}
-	err = dbUpdateJobTaskInt(job_id, task_id, "partinfo.totalunits", totalunits)
-	if err != nil {
+	// need only 1 workunit
+	if task.TotalWork == 1 {
+		err = task.setSingleWorkunit(false)
 		return
 	}
 
+	// done, set it
+	newPartition.TotalIndex = totalunits
+	err = task.setPartition(newPartition, false)
+	return
+}
+
+// wrapper functions to set: totalwork=1, partition=nil, maxworksize=0
+func (task *Task) setSingleWorkunit(writelock bool) (err error) {
+	if task.TotalWork != 1 {
+		err = task.setTotalWork(1, writelock)
+		if err != nil {
+			return
+		}
+	}
+	if task.Partition != nil {
+		err = task.setPartition(nil, writelock)
+		if err != nil {
+			return
+		}
+	}
+	if task.MaxWorkSize != 0 {
+		err = task.setMaxWorkSize(0, writelock)
+		if err != nil {
+			return
+		}
+	}
 	return
 }
 
@@ -660,9 +611,45 @@ func (task *Task) setTotalWork(num int, writelock bool) (err error) {
 		}
 		defer task.Unlock()
 	}
+	err = dbUpdateJobTaskInt(task.JobId, task.Id, "totalwork", num)
+	if err != nil {
+		return
+	}
 	task.TotalWork = num
-	_ = task.SetRemainWork(num, false)
-	//task.WorkStatus = make([]string, num)
+	// reset remaining work whenever total work reset
+	err = task.SetRemainWork(num, false)
+	return
+}
+
+func (task *Task) setPartition(partition *PartInfo, writelock bool) (err error) {
+	if writelock {
+		err = task.LockNamed("setPartition")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
+	err = dbUpdateJobTaskPartition(task.JobId, task.Id, partition)
+	if err != nil {
+		return
+	}
+	task.Partition = partition
+	return
+}
+
+func (task *Task) setMaxWorkSize(num int, writelock bool) (err error) {
+	if writelock {
+		err = task.LockNamed("setMaxWorkSize")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
+	err = dbUpdateJobTaskInt(task.JobId, task.Id, "maxworksize", num)
+	if err != nil {
+		return
+	}
+	task.MaxWorkSize = num
 	return
 }
 
@@ -674,8 +661,11 @@ func (task *Task) SetRemainWork(num int, writelock bool) (err error) {
 		}
 		defer task.Unlock()
 	}
+	err = dbUpdateJobTaskInt(task.JobId, task.Id, "remainwork", num)
+	if err != nil {
+		return
+	}
 	task.RemainWork = num
-
 	return
 }
 
@@ -687,52 +677,71 @@ func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, 
 		}
 		defer task.Unlock()
 	}
-	task.RemainWork += inc
 
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "remainwork", task.RemainWork)
-
+	remainwork = task.RemainWork + inc
+	err = dbUpdateJobTaskInt(task.JobId, task.Id, "remainwork", remainwork)
 	if err != nil {
 		return
 	}
-
-	remainwork = task.RemainWork
-
+	task.RemainWork = remainwork
 	return
 }
 
-func (task *Task) IncrementComputeTime(inc_time int) (err error) {
+func (task *Task) IncrementComputeTime(inc int) (err error) {
 	err = task.LockNamed("IncrementComputeTime")
 	if err != nil {
 		return
 	}
 	defer task.Unlock()
 
-	task.ComputeTime += inc_time
-
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "computetime", task.ComputeTime)
-	//err = dbIncrementJobTaskField(task.JobId, task.Id, "computetime", inc_time)
+	newComputeTime := task.ComputeTime + inc
+	err = dbUpdateJobTaskInt(task.JobId, task.Id, "computetime", newComputeTime)
 	if err != nil {
 		return
 	}
-
+	task.ComputeTime = newComputeTime
 	return
 }
 
-func (task *Task) setTokenForIO() (err error) {
-
+func (task *Task) setTokenForIO(writelock bool) (err error) {
+	if writelock {
+		err = task.LockNamed("setTokenForIO")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
 	if task.Info == nil {
 		err = fmt.Errorf("(setTokenForIO) task.Info empty")
 		return
 	}
-
 	if !task.Info.Auth || task.Info.DataToken == "" {
 		return
 	}
+	// update inputs
+	changed := false
 	for _, io := range task.Inputs {
-		io.DataToken = task.Info.DataToken
+		if io.DataToken != task.Info.DataToken {
+			io.DataToken = task.Info.DataToken
+			changed = true
+		}
 	}
+	if changed {
+		err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
+		if err != nil {
+			return
+		}
+	}
+	// update outputs
+	changed = false
 	for _, io := range task.Outputs {
-		io.DataToken = task.Info.DataToken
+		if io.DataToken != task.Info.DataToken {
+			io.DataToken = task.Info.DataToken
+			changed = true
+		}
+	}
+	if changed {
+		err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
 	}
 	return
 }
@@ -767,20 +776,6 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog) {
 	}
 	return
 }
-
-//func (task *Task) Skippable() bool {
-// For a task to be skippable, it should meet
-// the following requirements (this may change
-// in the future):
-// 1.- It should have exactly one input file
-// and one output file (This way, we can connect tasks
-// Ti-1 and Ti+1 transparently)
-// 2.- It should be a simple pipeline task. That is,
-// it should just have at most one "parent" Ti-1 ---> Ti
-//	return (len(task.Inputs) == 1) &&
-//		(len(task.Outputs) == 1) &&
-//		(len(task.DependsOn) <= 1)
-//}
 
 func (task *Task) DeleteOutput() (modified int) {
 	modified = 0
@@ -824,9 +819,7 @@ func (task *Task) UpdateInputs() (err error) {
 		return
 	}
 	defer task.RUnlockNamed(lock)
-
-	err = dbUpdateJobTaskInputs(task.JobId, task.Id, task.Inputs)
-
+	err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
 	return
 }
 
@@ -836,9 +829,7 @@ func (task *Task) UpdateOutputs() (err error) {
 		return
 	}
 	defer task.RUnlockNamed(lock)
-
-	err = dbUpdateJobTaskOutputs(task.JobId, task.Id, task.Outputs)
-
+	err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
 	return
 }
 
@@ -848,24 +839,6 @@ func (task *Task) UpdatePredata() (err error) {
 		return
 	}
 	defer task.RUnlockNamed(lock)
-
-	err = dbUpdateJobTaskPredata(task.JobId, task.Id, task.Predata)
-
-	return
-}
-
-//creat index (=deprecated=)
-func createIndex(host string, nodeid string, indexname string) (err error) {
-	argv := []string{}
-	argv = append(argv, "-X")
-	argv = append(argv, "PUT")
-	target_url := fmt.Sprintf("%s/node/%s?index=%s", host, nodeid, indexname)
-	argv = append(argv, target_url)
-
-	cmd := exec.Command("curl", argv...)
-	err = cmd.Run()
-	if err != nil {
-		return
-	}
+	err = dbUpdateJobTaskIO(task.JobId, task.Id, "predata", task.Predata)
 	return
 }

@@ -235,7 +235,7 @@
 	    qwt.settings.navigation_url = RetinaConfig["awe_ip"]+"/work?query";
 	    qwt.settings.rows_per_page = 10;
 	    qwt.settings.minwidths = [1,1,1,1,65,78,75,75,83];
-	    qwt.settings.asynch_column_mapping = { "wuid": "wuid",
+	    qwt.settings.asynch_column_mapping = { "id": "id",
 						   "submission time": "info.submittime",
 						   "cmd name": "cmd.name",
 						   "cmd args": "cmd.args",
@@ -270,7 +270,7 @@
 						      "cmd name",
 						      "cmd args",
 						      "rank",
-						      "total",
+						      "tot",
 						      "state",
 						      "failed",
 						      "priority" ] };
@@ -468,7 +468,7 @@
 	var result_data = [];
 	for (var i=0;i<data.length;i++) {
 	    var obj = data[i];
-	    result_data.push( { "wuid": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/work/"+obj.wuid+"\");' style='cursor: pointer;'>"+obj.wuid+"</a>",
+	    result_data.push( { "id": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/work/"+obj.wuid+"\");' style='cursor: pointer;'>"+obj.wuid+"</a>",
 				"client": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/client/"+obj.client+"\");' style='cursor: pointer;'>"+obj.client+"</a>",
 				"checkout time": obj.checkout_time,
 				"cmd name": obj.cmd.name,
@@ -482,7 +482,7 @@
 			      } );
 	}
 	if (! result_data.length) {
-	    result_data.push({"wuid": "-", "client": "-", "checkout time": "-", "cmd name": "-", "cmd args": "-", "rank": "-", "tot": "-", "state": "-", "failed": "-"});
+	    result_data.push({"id": "-", "client": "-", "checkout time": "-", "cmd name": "-", "cmd args": "-", "rank": "-", "tot": "-", "state": "-", "failed": "-"});
 	}
 
 	return result_data;

@@ -27,26 +27,26 @@ const (
 
 type Workunit struct {
 	Workunit_Unique_Identifier `bson:",inline"`
-	Id                         string `bson:"id" json:"id"` // global identifier: jobid_taskid_rank (for backwards coompatibility only)
-
-	Info         *Info             `bson:"info" json:"info"`
-	Inputs       []*IO             `bson:"inputs" json:"inputs"`
-	Outputs      []*IO             `bson:"outputs" json:"outputs"`
-	Predata      []*IO             `bson:"predata" json:"predata"`
-	Cmd          *Command          `bson:"cmd" json:"cmd"`
-	TotalWork    int               `bson:"totalwork" json:"totalwork"`
-	Partition    *PartInfo         `bson:"part" json:"part"`
-	State        string            `bson:"state" json:"state"`
-	Failed       int               `bson:"failed" json:"failed"`
-	CheckoutTime time.Time         `bson:"checkout_time" json:"checkout_time"`
-	Client       string            `bson:"client" json:"client"`
-	ComputeTime  int               `bson:"computetime" json:"computetime"`
-	ExitStatus   int               `bson:"exitstatus" json:"exitstatus"` // Linux Exit Status Code (0 is success)
-	Notes        []string          `bson:"notes" json:"notes"`
-	UserAttr     map[string]string `bson:"userattr" json:"userattr"`
-	WorkPath     string            // this is the working directory. If empty, it will be computed.
-	WorkPerf     *WorkPerf
-	CWL          *CWL_workunit
+	Id                         string            `bson:"id" json:"id"`     // global identifier: jobid_taskid_rank (for backwards coompatibility only)
+	WuId                       string            `bson:"wuid" json:"wuid"` // deprecated !
+	Info                       *Info             `bson:"info" json:"info"`
+	Inputs                     []*IO             `bson:"inputs" json:"inputs"`
+	Outputs                    []*IO             `bson:"outputs" json:"outputs"`
+	Predata                    []*IO             `bson:"predata" json:"predata"`
+	Cmd                        *Command          `bson:"cmd" json:"cmd"`
+	TotalWork                  int               `bson:"totalwork" json:"totalwork"`
+	Partition                  *PartInfo         `bson:"part" json:"part"`
+	State                      string            `bson:"state" json:"state"`
+	Failed                     int               `bson:"failed" json:"failed"`
+	CheckoutTime               time.Time         `bson:"checkout_time" json:"checkout_time"`
+	Client                     string            `bson:"client" json:"client"`
+	ComputeTime                int               `bson:"computetime" json:"computetime"`
+	ExitStatus                 int               `bson:"exitstatus" json:"exitstatus"` // Linux Exit Status Code (0 is success)
+	Notes                      []string          `bson:"notes" json:"notes"`
+	UserAttr                   map[string]string `bson:"userattr" json:"userattr"`
+	WorkPath                   string            // this is the working directory. If empty, it will be computed.
+	WorkPerf                   *WorkPerf
+	CWL                        *CWL_workunit
 }
 
 type Workunit_Unique_Identifier struct {
@@ -107,7 +107,7 @@ func NewCWL_workunit() *CWL_workunit {
 }
 
 type WorkLog struct {
-	Id   string            `bson:"wuid" json:"wuid"`
+	Id   string            `bson:"wuid" json:"wuid"` // TODO change !
 	Rank int               `bson:"rank" json:"rank"`
 	Logs map[string]string `bson:"logs" json:"logs"`
 }
@@ -180,9 +180,9 @@ func (w WorkunitsSortby) Less(i, j int) bool {
 	}
 }
 
-func NewWorkunit(task *Task, rank int) (w *Workunit) {
+func NewWorkunit(task *Task, rank int) (workunit *Workunit) {
 
-	w = &Workunit{
+	workunit = &Workunit{
 		Workunit_Unique_Identifier: Workunit_Unique_Identifier{
 			Rank:   rank,
 			TaskId: task.Id,
@@ -206,7 +206,14 @@ func NewWorkunit(task *Task, rank int) (w *Workunit) {
 		//AppVariables: task.AppVariables // not needed yet
 	}
 
-	w.Id = w.String()
+	workunit.Id = workunit.String()
+	workunit.WuId = workunit.String()
+
+	if task.WorkflowStep != nil {
+		workunit.Cmd.Name = "/usr/bin/cwl-runner"
+
+		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", "./cwl_tool.yaml", "./cwl_job_input.yaml"}
+	}
 
 	return
 }

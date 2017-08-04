@@ -13,7 +13,7 @@ import (
 	requirements "github.com/MG-RAST/AWE/lib/core/cwl/requirements"
 	"path"
 	//"strconv"
-	"regexp/syntax"
+	//"regexp/syntax"
 	"strings"
 )
 
@@ -834,7 +834,8 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 
 	//os.Exit(0)
 	job = NewJob()
-	job.CWL_workflow = cwl_workflow
+	//job.CWL_workflow = cwl_workflow
+
 	logger.Debug(1, "Job created")
 
 	found_ShockRequirement := false
@@ -884,15 +885,17 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 	helper.AWE_tasks = &awe_tasks
 
 	for _, step := range cwl_workflow.Steps {
-		task_name := strings.Map(
-			func(r rune) rune {
-				if IsWordChar(r) {
-					return r
-				}
-				return -1
-			})
-		awe_task := NewTask(job, step.Id)
-		awe_task.workflowStep = &step
+		//task_name := strings.Map(
+		//	func(r rune) rune {
+		//		if syntax.IsWordChar(r) || r == '/' || r == '-' { // word char: [0-9A-Za-z_]
+		//			return r
+		//		}
+		//		return -1
+		//	},
+		//	step.Id)
+		task_name := step.Id
+		awe_task := NewTask(job, task_name)
+		awe_task.WorkflowStep = &step
 		job.Tasks = append(job.Tasks, awe_task)
 	}
 

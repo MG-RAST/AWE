@@ -152,6 +152,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			return
 		}
 
+		job.CWL_collection = &collection
 		job.Info.Name = job_file.Name
 		job.Info.Pipeline = workflow_filename
 		logger.Debug(1, "CWL2AWE done")

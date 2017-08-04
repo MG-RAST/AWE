@@ -65,7 +65,7 @@ func (qm *ServerMgr) Unlock()  {}
 func (qm *ServerMgr) RLock()   {}
 func (qm *ServerMgr) RUnlock() {}
 
-func (qm *ServerMgr) TaskHandle() {
+func (qm *ServerMgr) TaskHandle() { // TODO DEPRECATED
 	logger.Info("TaskHandle is starting")
 	for {
 		task := <-qm.taskIn
@@ -77,7 +77,7 @@ func (qm *ServerMgr) TaskHandle() {
 		}
 
 		logger.Debug(2, "(ServerMgr/TaskHandle) received task from channel taskIn, id=%s", task_id)
-		err = qm.addTask(task)
+		err = qm.addTask(task, nil)
 		if err != nil {
 			logger.Error("(ServerMgr/TaskHandle) qm.addTask failed: %s", err.Error())
 		}
@@ -373,7 +373,18 @@ func (qm *ServerMgr) updateQueue() (err error) {
 
 		if task_ready {
 			logger.Debug(3, "(updateQueue) task ready: %s", task_id)
-			err = qm.taskEnQueue(task)
+
+			job_id, err := task.GetJobId()
+			if err != nil {
+				continue
+			}
+
+			job, err := LoadJob(job_id)
+			if err != nil {
+				continue
+			}
+
+			err = qm.taskEnQueue(task, job)
 			if err != nil {
 				_ = task.SetState(TASK_STAT_SUSPEND)
 				var job_id string
@@ -1068,7 +1079,9 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 	logger.Debug(3, "(EnqueueTasksByJobId) got %d tasks", task_len)
 
 	for _, task := range tasks {
-		qm.taskIn <- task
+		//qm.taskIn <- task
+
+		qm.addTask(task, job)
 	}
 	qm.CreateJobPerf(jobid)
 	return
@@ -1076,7 +1089,7 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 
 //---end of task methods
 
-func (qm *ServerMgr) addTask(task *Task) (err error) {
+func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 	logger.Debug(3, "(addTask) got task")
 
 	task_id, err := task.GetId()
@@ -1125,7 +1138,7 @@ func (qm *ServerMgr) addTask(task *Task) (err error) {
 	if task_ready {
 
 		logger.Debug(3, "(addTask) task is ready (invoking taskEnQueue)")
-		err = qm.taskEnQueue(task)
+		err = qm.taskEnQueue(task, job)
 		if err != nil {
 			logger.Debug(3, "(addTask) taskEnQueue returned error: %s", err.Error())
 			_ = task.SetState(TASK_STAT_SUSPEND)
@@ -1297,7 +1310,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 }
 
 // happens when task is ready (state = pending)
-func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
+func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 	task_id, err := task.GetId()
 	if err != nil {
@@ -1316,12 +1329,35 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 		return
 	}
 
-	if task.workflowStep != nil {
+	if task.WorkflowStep != nil {
+		logger.Debug(3, "(taskEnQueue) have WorkflowStep")
+	} else {
+		logger.Debug(3, "(taskEnQueue) DO NOT have WorkflowStep")
+	}
+
+	if job.CWL_collection != nil {
+		logger.Debug(3, "(taskEnQueue) have job.CWL_collection")
+	} else {
+		logger.Debug(3, "(taskEnQueue) DO NOT have job.CWL_collection")
+	}
+
+	if task.WorkflowStep != nil && job.CWL_collection != nil {
 		// copy inputs into task
-		for _, wsi := range task.workflowStep.In { // WorkflowStepInput
+		for _, wsi := range task.WorkflowStep.In { // WorkflowStepInput
 			if len(wsi.Source) > 0 {
+
+				job_input := *(job.CWL_collection.Job_input)
+
 				for _, src := range wsi.Source {
-					panic("src: " + src)
+					fmt.Println("src: " + src)
+					// search job input
+					obj, ok := job_input[src]
+					if ok {
+						fmt.Println("found in job input: " + src)
+					} else {
+						fmt.Println("NOT found in job input: " + src)
+					}
+					_ = obj
 				}
 			}
 
@@ -1382,18 +1418,18 @@ func (qm *ServerMgr) taskEnQueue(task *Task) (err error) {
 	logger.Event(event.TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task_id, task.TotalWork))
 	qm.CreateTaskPerf(task)
 
-	job_id, err := task.GetJobId()
-	if err != nil {
-		err = fmt.Errorf("(taskEnQueue) Could not get JobId: %s", err.Error())
-		return
-	}
+	//job_id, err := task.GetJobId()
+	//if err != nil {
+	//		err = fmt.Errorf("(taskEnQueue) Could not get JobId: %s", err.Error())
+	//		return
+	//	}
 
 	//if IsFirstTask(task_id) {
 
-	job, err := LoadJob(job_id)
-	if err != nil {
-		return
-	}
+	//job, err := LoadJob(job_id)
+	//if err != nil {
+	//	return
+	//}
 
 	err = job.SetState(JOB_STAT_QUEUED, []string{JOB_STAT_INIT, JOB_STAT_SUSPEND})
 	if err != nil {

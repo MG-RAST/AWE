@@ -1,6 +1,8 @@
 package core
 
 import (
+	b64 "encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/acl"
@@ -43,27 +45,27 @@ type JobError struct {
 	Status       string `bson:"status" json:"status"`
 }
 
-type JobRaw struct {
-	RWMutex
-	Id string `bson:"id" json:"id"`
-	//Tasks       []*Task   `bson:"tasks" json:"tasks"`
-	Acl          acl.Acl   `bson:"acl" json:"-"`
-	Info         *Info     `bson:"info" json:"info"`
-	Script       script    `bson:"script" json:"-"`
-	State        string    `bson:"state" json:"state"`
-	Registered   bool      `bson:"registered" json:"registered"`
-	RemainTasks  int       `bson:"remaintasks" json:"remaintasks"`
-	Expiration   time.Time `bson:"expiration" json:"expiration"` // 0 means no expiration
-	UpdateTime   time.Time `bson:"updatetime" json:"updatetime"`
-	Error        *JobError `bson:"error" json:"error"`         // error struct exists when in suspended state
-	Resumed      int       `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
-	ShockHost    string    `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
-	CWL_workflow *cwl.Workflow
-}
-
 type Job struct {
 	JobRaw `bson:",inline"`
 	Tasks  []*Task `bson:"tasks" json:"tasks"`
+}
+
+type JobRaw struct {
+	RWMutex
+	Id                    string              `bson:"id" json:"id"` // uuid
+	Acl                   acl.Acl             `bson:"acl" json:"-"`
+	Info                  *Info               `bson:"info" json:"info"`
+	Script                script              `bson:"script" json:"-"`
+	State                 string              `bson:"state" json:"state"`
+	Registered            bool                `bson:"registered" json:"registered"`
+	RemainTasks           int                 `bson:"remaintasks" json:"remaintasks"`
+	Expiration            time.Time           `bson:"expiration" json:"expiration"` // 0 means no expiration
+	UpdateTime            time.Time           `bson:"updatetime" json:"updatetime"`
+	Error                 *JobError           `bson:"error" json:"error"`         // error struct exists when in suspended state
+	Resumed               int                 `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
+	ShockHost             string              `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
+	CWL_collection        *cwl.CWL_collection `bson:"-" json:"-"`
+	CWL_collection_string string              `bson:"cwl_collection_string" json:"cwl_collection_string`
 }
 
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
@@ -222,6 +224,14 @@ func (job *Job) Init() (changed bool, err error) {
 		}
 	}
 
+	// read from base64 string
+	if job.CWL_collection == nil && job.CWL_collection_string != "" {
+		err = Deserialize_b64(job.CWL_collection_string, *job.CWL_collection)
+		if err != nil {
+			return
+		}
+	}
+
 	return
 }
 
@@ -290,12 +300,46 @@ func (job *Job) SaveToDisk() (err error) {
 	return
 }
 
+func Deserialize_b64(encoding string, target interface{}) (err error) {
+	byte_array, err := b64.StdEncoding.DecodeString(encoding)
+	if err != nil {
+		err = fmt.Errorf("(Deserialize_b64) DecodeString error: %s", err.Error())
+		return
+	}
+
+	err = json.Unmarshal(byte_array, target)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func Serialize_b64(input interface{}) (serialized string, err error) {
+	json_byte, xerr := json.Marshal(input)
+	if xerr != nil {
+		err = fmt.Errorf("(job.Save) json.Marshal(input) failed: %s", xerr.Error())
+		return
+	}
+	serialized = b64.StdEncoding.EncodeToString(json_byte)
+	return
+}
+
 func (job *Job) Save() (err error) {
 	if job.Id == "" {
 		err = fmt.Errorf("(job.Save()) job id empty")
 		return
 	}
 	logger.Debug(1, "(job.Save()) saving job: %s", job.Id)
+
+	//serialize
+	if job.CWL_collection != nil {
+		job.CWL_collection_string, err = Serialize_b64(job.CWL_collection)
+		if err != nil {
+			return
+		}
+
+	}
 
 	job.UpdateTime = time.Now()
 	err = job.SaveToDisk()

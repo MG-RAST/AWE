@@ -44,7 +44,7 @@ type TaskRaw struct {
 	ComputeTime            int               `bson:"computetime" json:"computetime"`
 	UserAttr               map[string]string `bson:"userattr" json:"userattr"`
 	ClientGroups           string            `bson:"clientgroups" json:"clientgroups"`
-	workflowStep           *cwl.WorkflowStep `bson:"workflowStep" json:"workflowStep"` // CWL-only
+	WorkflowStep           *cwl.WorkflowStep `bson:"workflowStep" json:"workflowStep"` // CWL-only
 }
 
 type Task_Unique_Identifier struct {
@@ -807,6 +807,7 @@ func (task *Task) CreateWorkunits() (wus []*Workunit, err error) {
 	//if a task contains only one workunit, assign rank 0
 	if task.TotalWork == 1 {
 		workunit := NewWorkunit(task, 0)
+
 		wus = append(wus, workunit)
 		return
 	}

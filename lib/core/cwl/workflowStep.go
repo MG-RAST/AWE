@@ -8,19 +8,19 @@ import (
 )
 
 type WorkflowStep struct {
-	Id            string               `yaml:"id" bson:"id" json:"id"`
-	In            []WorkflowStepInput  `yaml:"in" bson:"in" json:"in"` // array<WorkflowStepInput> | map<WorkflowStepInput.id, WorkflowStepInput.source> | map<WorkflowStepInput.id, WorkflowStepInput>
-	Out           []WorkflowStepOutput `yaml:"out" bson:"out" json:"out"`
-	Run           interface{}          `yaml:"run" bson:"run" json:"run"`                            // (*Process) Specification unclear: string | CommandLineTool | ExpressionTool | Workflow
-	Requirements  []interface{}        `yaml:"requirements" bson:"requirements" json:"requirements"` //[]Requirement
-	Hints         []interface{}        `yaml:"hints" bson:"hints" json:"hints"`                      //[]Requirement
-	Label         string               `yaml:"label" bson:"label" json:"label"`
-	Doc           string               `yaml:"doc" bson:"doc" json:"doc"`
-	Scatter       string               `yaml:"scatter" bson:"scatter" json:"scatter"`                   // ScatterFeatureRequirement
-	ScatterMethod string               `yaml:"scatterMethod" bson:"scatterMethod" json:"scatterMethod"` // ScatterFeatureRequirement
+	Id            string               `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	In            []WorkflowStepInput  `yaml:"in,omitempty" bson:"in,omitempty" json:",omitemptyin"` // array<WorkflowStepInput> | map<WorkflowStepInput.id, WorkflowStepInput.source> | map<WorkflowStepInput.id, WorkflowStepInput>
+	Out           []WorkflowStepOutput `yaml:"out,omitempty" bson:"out,omitempty" json:"out,omitempty"`
+	Run           interface{}          `yaml:"run,omitempty" bson:"run,omitempty" json:"run,omitempty"`                            // (*Process) Specification unclear: string | CommandLineTool | ExpressionTool | Workflow
+	Requirements  []interface{}        `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty"` //[]Requirement
+	Hints         []interface{}        `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty"`                      //[]Requirement
+	Label         string               `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	Doc           string               `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
+	Scatter       string               `yaml:"scatter,omitempty" bson:"scatte,omitemptyr" json:"scatter,omitempty"`                   // ScatterFeatureRequirement
+	ScatterMethod string               `yaml:"scatterMethod,omitempty" bson:"scatterMethod,omitempty" json:"scatterMethod,omitempty"` // ScatterFeatureRequirement
 }
 
-func NewWorkflowStep(original interface{}, collection *CWL_collection) (w *WorkflowStep, err error) {
+func NewWorkflowStep(original interface{}) (w *WorkflowStep, err error) {
 	var step WorkflowStep
 
 	switch original.(type) {
@@ -47,7 +47,7 @@ func NewWorkflowStep(original interface{}, collection *CWL_collection) (w *Workf
 
 		run, ok := v_map["run"]
 		if ok {
-			v_map["run"], err = NewProcess(run, collection)
+			v_map["run"], err = NewProcess(run)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) run %s", err.Error())
 				return
@@ -71,13 +71,16 @@ func NewWorkflowStep(original interface{}, collection *CWL_collection) (w *Workf
 				return
 			}
 		}
-
+		spew.Dump(v_map["run"])
 		err = mapstructure.Decode(original, &step)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflowStep) %s", err.Error())
 			return
 		}
 		w = &step
+		spew.Dump(w.Run)
+
+		fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 		return
 	default:
 		err = fmt.Errorf("(NewWorkflowStep) type unknown")
@@ -100,7 +103,7 @@ func (w WorkflowStep) GetOutput(id string) (output *WorkflowStepOutput, err erro
 }
 
 // CreateWorkflowStepsArray
-func CreateWorkflowStepsArray(original interface{}, collection *CWL_collection) (err error, array_ptr *[]WorkflowStep) {
+func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]WorkflowStep) {
 
 	array := []WorkflowStep{}
 
@@ -116,7 +119,7 @@ func CreateWorkflowStepsArray(original interface{}, collection *CWL_collection) 
 			fmt.Println("type: ")
 			fmt.Println(reflect.TypeOf(v))
 
-			step, xerr := NewWorkflowStep(v, collection)
+			step, xerr := NewWorkflowStep(v)
 			if xerr != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", xerr.Error())
 				return
@@ -144,7 +147,7 @@ func CreateWorkflowStepsArray(original interface{}, collection *CWL_collection) 
 			fmt.Println("type: ")
 			fmt.Println(reflect.TypeOf(v))
 
-			step, xerr := NewWorkflowStep(v, collection)
+			step, xerr := NewWorkflowStep(v)
 			if xerr != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", xerr.Error())
 				return

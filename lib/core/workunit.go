@@ -4,7 +4,11 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+	//"github.com/davecgh/go-spew/spew"
+	"gopkg.in/mgo.v2/bson"
 	"os"
+	"reflect"
+	"regexp/syntax"
 	"strconv"
 	"strings"
 	"time"
@@ -27,23 +31,23 @@ const (
 
 type Workunit struct {
 	Workunit_Unique_Identifier `bson:",inline"`
-	Id                         string            `bson:"id" json:"id"`     // global identifier: jobid_taskid_rank (for backwards coompatibility only)
-	WuId                       string            `bson:"wuid" json:"wuid"` // deprecated !
-	Info                       *Info             `bson:"info" json:"info"`
-	Inputs                     []*IO             `bson:"inputs" json:"inputs"`
-	Outputs                    []*IO             `bson:"outputs" json:"outputs"`
-	Predata                    []*IO             `bson:"predata" json:"predata"`
-	Cmd                        *Command          `bson:"cmd" json:"cmd"`
-	TotalWork                  int               `bson:"totalwork" json:"totalwork"`
-	Partition                  *PartInfo         `bson:"part" json:"part"`
-	State                      string            `bson:"state" json:"state"`
-	Failed                     int               `bson:"failed" json:"failed"`
-	CheckoutTime               time.Time         `bson:"checkout_time" json:"checkout_time"`
-	Client                     string            `bson:"client" json:"client"`
-	ComputeTime                int               `bson:"computetime" json:"computetime"`
-	ExitStatus                 int               `bson:"exitstatus" json:"exitstatus"` // Linux Exit Status Code (0 is success)
-	Notes                      []string          `bson:"notes" json:"notes"`
-	UserAttr                   map[string]string `bson:"userattr" json:"userattr"`
+	Id                         string            `bson:"id,omitempty" json:"id,omitempty"`     // global identifier: jobid_taskid_rank (for backwards coompatibility only)
+	WuId                       string            `bson:"wuid,omitempty" json:"wuid,omitempty"` // deprecated !
+	Info                       *Info             `bson:"info,omitempty" json:"info,omitempty"`
+	Inputs                     []*IO             `bson:"inputs,omitempty" json:"inputs,omitempty"`
+	Outputs                    []*IO             `bson:"outputs,omitempty" json:"outputs,omitempty"`
+	Predata                    []*IO             `bson:"predata,omitempty" json:"predata,omitempty"`
+	Cmd                        *Command          `bson:"cmd,omitempty" json:"cmd,omitempty"`
+	TotalWork                  int               `bson:"totalwork,omitempty" json:"totalwork,omitempty"`
+	Partition                  *PartInfo         `bson:"part,omitempty" json:"part,omitempty"`
+	State                      string            `bson:"state,omitempty" json:"state,omitempty"`
+	Failed                     int               `bson:"failed,omitempty" json:"failed,omitempty"`
+	CheckoutTime               time.Time         `bson:"checkout_time,omitempty" json:"checkout_time,omitempty"`
+	Client                     string            `bson:"client,omitempty" json:"client,omitempty"`
+	ComputeTime                int               `bson:"computetime,omitempty" json:"computetime,omitempty"`
+	ExitStatus                 int               `bson:"exitstatus,omitempty" json:"exitstatus,omitempty"` // Linux Exit Status Code (0 is success)
+	Notes                      []string          `bson:"notes,omitempty" json:"notes,omitempty"`
+	UserAttr                   map[string]string `bson:"userattr,omitempty" json:"userattr,omitempty"`
 	WorkPath                   string            // this is the working directory. If empty, it will be computed.
 	WorkPerf                   *WorkPerf
 	CWL                        *CWL_workunit
@@ -180,7 +184,7 @@ func (w WorkunitsSortby) Less(i, j int) bool {
 	}
 }
 
-func NewWorkunit(task *Task, rank int) (workunit *Workunit) {
+func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error) {
 
 	workunit = &Workunit{
 		Workunit_Unique_Identifier: Workunit_Unique_Identifier{
@@ -213,6 +217,58 @@ func NewWorkunit(task *Task, rank int) (workunit *Workunit) {
 		workunit.Cmd.Name = "/usr/bin/cwl-runner"
 
 		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", "./cwl_tool.yaml", "./cwl_job_input.yaml"}
+
+		workunit.CWL = &CWL_workunit{}
+
+		p := task.WorkflowStep.Run
+
+		switch p.(type) {
+		case cwl.ProcessPointer:
+
+			pp, _ := p.(cwl.ProcessPointer)
+
+			tool_name := pp.Value
+
+			clt, xerr := job.CWL_collection.GetCommandLineTool(tool_name)
+			if xerr != nil {
+				err = fmt.Errorf("Object %s not found in collection: %s", xerr.Error())
+				return
+			}
+
+			workunit.CWL.CWL_tool = clt
+			return
+
+		case bson.M: // TODO I have no idea why we get a bson.M here
+
+			p_bson := p.(bson.M)
+
+			tool_name_interface, ok := p_bson["value"]
+			if !ok {
+				err = fmt.Errorf("bson.M did not hold a field named value")
+				return
+			}
+
+			tool_name, ok := tool_name_interface.(string)
+			if !ok {
+				err = fmt.Errorf("bson.M value field is not a string")
+				return
+			}
+
+			clt, xerr := job.CWL_collection.GetCommandLineTool(tool_name)
+			if xerr != nil {
+				err = fmt.Errorf("Object %s not found in collection: %s", xerr.Error())
+				return
+			}
+
+			workunit.CWL.CWL_tool = clt
+			return
+
+		default:
+			err = fmt.Errorf("Process type %s unknown, cannot create Workunit", reflect.TypeOf(p))
+			return
+
+		}
+
 	}
 
 	return
@@ -245,8 +301,26 @@ func (work *Workunit) SetState(new_state string) {
 
 func (work *Workunit) Path() string {
 	if work.WorkPath == "" {
-		id := work.Id
-		work.WorkPath = fmt.Sprintf("%s/%s/%s/%s/%s", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id)
+		id := work.Workunit_Unique_Identifier.JobId
+
+		task_id_array := strings.Split(work.Workunit_Unique_Identifier.TaskId, "/")
+		task_name := ""
+		if len(task_id_array) > 1 {
+			task_name = strings.Join(task_id_array[1:], "/")
+		} else {
+			task_name = work.Workunit_Unique_Identifier.TaskId
+		}
+
+		task_name = strings.Map(
+			func(r rune) rune {
+				if syntax.IsWordChar(r) || r == '-' { // word char: [0-9A-Za-z] and '-'
+					return r
+				}
+				return '_'
+			},
+			task_name)
+
+		work.WorkPath = fmt.Sprintf("%s/%s/%s/%s/%s_%s_%d", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id, task_name, work.Workunit_Unique_Identifier.Rank)
 	}
 	return work.WorkPath
 }

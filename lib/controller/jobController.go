@@ -102,7 +102,16 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		collection := cwl.NewCWL_collection()
 
 		//1) parse job
-		job_input, err := cwl.ParseJob(job_file.Path)
+
+		job_stream, err := ioutil.ReadFile(job_file.Path)
+		if err != nil {
+			cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		job_str := string(job_stream[:])
+
+		job_input, err := cwl.ParseJob(job_str)
 		if err != nil {
 			logger.Error("ParseJob: " + err.Error())
 			cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
@@ -155,6 +164,11 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		job.CWL_collection = &collection
 		job.Info.Name = job_file.Name
 		job.Info.Pipeline = workflow_filename
+
+		job.Set_CWL_workflow_b64(yaml_str)
+
+		job.Set_CWL_job_input_b64(job_str)
+
 		logger.Debug(1, "CWL2AWE done")
 
 	} else if !has_upload && !has_awf {

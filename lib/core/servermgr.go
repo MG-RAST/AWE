@@ -1392,7 +1392,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		err = fmt.Errorf("(qmgr.taskEnQueue) createOutputNode: %s", err.Error())
 		return
 	}
-	err = qm.CreateAndEnqueueWorkunits(task)
+	err = qm.CreateAndEnqueueWorkunits(task, job)
 	if err != nil {
 		err = fmt.Errorf("(qmgr.taskEnQueue) CreateAndEnqueueWorkunits: %s", err.Error())
 		return
@@ -1544,9 +1544,9 @@ func (qm *ServerMgr) locateInputs(task *Task) (err error) {
 	return
 }
 
-func (qm *ServerMgr) CreateAndEnqueueWorkunits(task *Task) (err error) {
+func (qm *ServerMgr) CreateAndEnqueueWorkunits(task *Task, job *Job) (err error) {
 	logger.Debug(3, "(CreateAndEnqueueWorkunits) starting")
-	workunits, err := task.CreateWorkunits()
+	workunits, err := task.CreateWorkunits(job)
 	if err != nil {
 		return err
 	}

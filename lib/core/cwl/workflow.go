@@ -11,16 +11,16 @@ import (
 )
 
 type Workflow struct {
-	Inputs       []InputParameter          `yaml:"inputs" bson:"inputs" json:"inputs"`
-	Outputs      []WorkflowOutputParameter `yaml:"outputs" bson:"outputs" json:"outputs"`
-	Id           string                    `yaml:"id" bson:"id" json:"id"`
-	Steps        []WorkflowStep            `yaml:"steps" bson:"steps" json:"steps"`
-	Requirements []interface{}             `yaml:"requirements" bson:"requirements" json:"requirements"` //[]Requirement
-	Hints        []interface{}             `yaml:"hints" bson:"hints" json:"hints"`                      // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
-	Label        string                    `yaml:"label" bson:"label" json:"label"`
-	Doc          string                    `yaml:"doc" bson:"doc" json:"doc"`
-	CwlVersion   CWLVersion                `yaml:"cwlVersion" bson:"cwlVersion" json:"cwlVersion"`
-	Metadata     map[string]interface{}    `yaml:"metadata" bson:"metadata" json:"metadata"`
+	Inputs       []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty"`
+	Outputs      []WorkflowOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty"`
+	Id           string                    `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	Steps        []WorkflowStep            `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty"`
+	Requirements []interface{}             `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty"` //[]Requirement
+	Hints        []interface{}             `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty"`                      // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
+	Label        string                    `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	Doc          string                    `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
+	CwlVersion   CWLVersion                `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty"`
+	Metadata     map[string]interface{}    `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty"`
 }
 
 func (w *Workflow) GetClass() string { return "Workflow" }
@@ -45,7 +45,7 @@ func GetMapElement(m map[interface{}]interface{}, key string) (value interface{}
 	return
 }
 
-func NewWorkflow(object CWL_object_generic, collection *CWL_collection) (workflow Workflow, err error) {
+func NewWorkflow(object CWL_object_generic) (workflow Workflow, err error) {
 
 	// convert input map into input array
 
@@ -68,7 +68,7 @@ func NewWorkflow(object CWL_object_generic, collection *CWL_collection) (workflo
 	// convert steps to array if it is a map
 	steps, ok := object["steps"]
 	if ok {
-		err, object["steps"] = CreateWorkflowStepsArray(steps, collection)
+		err, object["steps"] = CreateWorkflowStepsArray(steps)
 		if err != nil {
 			return
 		}

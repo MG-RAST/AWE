@@ -27,7 +27,7 @@ func (p *ProcessPointer) SetId(string)    {}
 func (p *ProcessPointer) Is_CWL_minimal() {}
 
 // returns CommandLineTool, ExpressionTool or Workflow
-func NewProcess(original interface{}, collection *CWL_collection) (process Process, err error) {
+func NewProcess(original interface{}) (process Process, err error) {
 
 	switch original.(type) {
 	case string:

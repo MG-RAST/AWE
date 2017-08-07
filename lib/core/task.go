@@ -803,17 +803,25 @@ func (task *Task) setTokenForIO(writelock bool) (err error) {
 	return
 }
 
-func (task *Task) CreateWorkunits() (wus []*Workunit, err error) {
+func (task *Task) CreateWorkunits(job *Job) (wus []*Workunit, err error) {
 	//if a task contains only one workunit, assign rank 0
-	if task.TotalWork == 1 {
-		workunit := NewWorkunit(task, 0)
 
+	if task.TotalWork == 1 {
+		workunit, xerr := NewWorkunit(task, 0, job)
+		if xerr != nil {
+			err = fmt.Errorf("(CreateWorkunits) NewWorkunit failed", xerr.Error())
+			return
+		}
 		wus = append(wus, workunit)
 		return
 	}
 	// if a task contains N (N>1) workunits, assign rank 1..N
 	for i := 1; i <= task.TotalWork; i++ {
-		workunit := NewWorkunit(task, i)
+		workunit, xerr := NewWorkunit(task, i, job)
+		if xerr != nil {
+			err = fmt.Errorf("(CreateWorkunits) NewWorkunit failed", xerr.Error())
+			return
+		}
 		wus = append(wus, workunit)
 	}
 	return

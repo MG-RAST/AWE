@@ -17,7 +17,7 @@ type CWL_collection struct {
 	Strings            map[string]*cwl_types.String
 	Ints               map[string]*cwl_types.Int
 	Booleans           map[string]*cwl_types.Boolean
-	All                map[string]*cwl_types.CWL_object
+	All                map[string]*cwl_types.CWL_object // everything goes in here
 	Job_input          *Job_document
 }
 
@@ -140,6 +140,14 @@ func (c CWL_collection) GetWorkflowStepInput(id string) (obj *WorkflowStepInput,
 	obj, ok := c.WorkflowStepInputs[id]
 	if !ok {
 		err = fmt.Errorf("(GetWorkflowStepInput) item %s not found in collection", id)
+	}
+	return
+}
+
+func (c CWL_collection) GetCommandLineTool(id string) (obj *CommandLineTool, err error) {
+	obj, ok := c.CommandLineTools[id]
+	if !ok {
+		err = fmt.Errorf("(GetCommandLineTool) item %s not found in collection", id)
 	}
 	return
 }

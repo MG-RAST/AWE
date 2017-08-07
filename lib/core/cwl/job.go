@@ -89,7 +89,7 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 	return
 }
 
-func ParseJob(job_file string) (job_input *Job_document, err error) {
+func ParseJobFile(job_file string) (job_input *Job_document, err error) {
 
 	job_stream, err := ioutil.ReadFile(job_file)
 	if err != nil {
@@ -108,11 +108,22 @@ func ParseJob(job_file string) (job_input *Job_document, err error) {
 		return
 	}
 
-	//fmt.Printf("-------MyCollection")
-	//spew.Dump(collection.All)
+	return
+}
 
-	//fmt.Printf("-------")
-	//os.Exit(0)
+func ParseJob(job_str string) (job_input *Job_document, err error) {
+
+	job_gen := map[interface{}]interface{}{}
+	err = Unmarshal([]byte(job_str), &job_gen)
+	if err != nil {
+		return
+	}
+
+	job_input, err = NewJob_document(job_gen)
+
+	if err != nil {
+		return
+	}
 
 	return
 }

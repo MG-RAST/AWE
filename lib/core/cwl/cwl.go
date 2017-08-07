@@ -7,7 +7,7 @@ import (
 	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
+	//"github.com/mitchellh/mapstructure"
 	"gopkg.in/yaml.v2"
 	//"io/ioutil"
 	//"os"
@@ -26,6 +26,52 @@ type CWL_object_generic map[string]interface{}
 type CWLVersion interface{} // TODO
 
 type LinkMergeMethod string // merge_nested or merge_flattened
+
+func New_CWL_object(elem map[string]interface{}) (obj cwl_types.CWL_object, err error) {
+
+	cwl_object_type, ok := elem["class"].(string)
+
+	if !ok {
+		err = errors.New("object has no member class")
+		return
+	}
+
+	cwl_object_id := elem["id"].(string)
+	if !ok {
+		err = errors.New("object has no member id")
+		return
+	}
+
+	switch cwl_object_type {
+	case "CommandLineTool":
+		logger.Debug(1, "parse CommandLineTool")
+		result, xerr := NewCommandLineTool(elem)
+		if xerr != nil {
+			err = fmt.Errorf("NewCommandLineTool returned: %s", xerr)
+			return
+		}
+		obj = result
+		return
+	case "Workflow":
+		logger.Debug(1, "parse Workflow")
+		workflow, xerr := NewWorkflow(elem)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		obj = &workflow
+		return
+	} // end switch
+
+	cwl_type, xerr := cwl_types.NewCWLType(cwl_object_id, elem)
+	if xerr != nil {
+		err = xerr
+		return
+	}
+	obj = cwl_type
+
+	return
+}
 
 func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error) {
 
@@ -56,109 +102,13 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 
 	// iterated over Graph
 	for _, elem := range cwl_gen.Graph {
-
-		cwl_object_type, ok := elem["class"].(string)
-
-		if !ok {
-			err = errors.New("object has no member class")
+		object, xerr := New_CWL_object(elem)
+		if xerr != nil {
+			err = xerr
 			return
 		}
 
-		cwl_object_id := elem["id"].(string)
-		if !ok {
-			err = errors.New("object has no member id")
-			return
-		}
-		_ = cwl_object_id
-		//switch elem["hints"].(type) {
-		//case map[interface{}]interface{}:
-		//logger.Debug(1, "hints is map[interface{}]interface{}")
-		// Convert map of outputs into array of outputs
-		//err, elem["hints"] = CreateRequirementArray(elem["hints"])
-		//if err != nil {
-		//	return
-		//}
-		//case interface{}[]:
-		//	logger.Debug(1, "hints is interface{}[]")
-		//default:
-		//	logger.Debug(1, "hints is something else")
-		//}
-
-		switch cwl_object_type {
-		case "CommandLineTool":
-			logger.Debug(1, "parse CommandLineTool")
-			result, xerr := NewCommandLineTool(elem)
-			if xerr != nil {
-				err = fmt.Errorf("NewCommandLineTool returned: %s", xerr)
-				return
-			}
-			//*** check if "inputs"" is an array or a map"
-
-			//collection.CommandLineTools[result.Id] = result
-			err = collection.Add(result)
-			if err != nil {
-				return
-			}
-			//collection = append(collection, result)
-		case "Workflow":
-			logger.Debug(1, "parse Workflow")
-			workflow, xerr := NewWorkflow(elem, collection)
-			if xerr != nil {
-				err = xerr
-				return
-			}
-
-			// some checks and add inputs to collection
-			for _, input := range workflow.Inputs {
-				// input is InputParameter
-
-				if input.Id == "" {
-					err = fmt.Errorf("input has no ID")
-					return
-				}
-
-				//if !strings.HasPrefix(input.Id, "#") {
-				//	if !strings.HasPrefix(input.Id, "inputs.") {
-				//		input.Id = "inputs." + input.Id
-				//	}
-				//}
-				err = collection.Add(input)
-				if err != nil {
-					return
-				}
-			}
-
-			//fmt.Println("WORKFLOW")
-			//spew.Dump(workflow)
-			err = collection.Add(&workflow)
-			if err != nil {
-				return
-			}
-
-			//collection.Workflows = append(collection.Workflows, workflow)
-			//collection = append(collection, result)
-		case "File":
-			logger.Debug(1, "parse File")
-			var cwl_file cwl_types.File
-			err = mapstructure.Decode(elem, &cwl_file)
-			if err != nil {
-				err = fmt.Errorf("(Parse_cwl_document/File) %s", err.Error())
-				return
-			}
-			if cwl_file.Id == "" {
-				cwl_file.Id = cwl_object_id
-			}
-			//collection.Files[cwl_file.Id] = cwl_file
-			err = collection.Add(&cwl_file)
-			if err != nil {
-				return
-			}
-		default:
-			err = errors.New("object unknown")
-			return
-		} // end switch
-
-		fmt.Printf("----------------------------------------------\n")
+		collection.Add(object)
 
 	} // end for
 

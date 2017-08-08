@@ -18,26 +18,26 @@ type CommandOutputParameterType struct {
 }
 
 type CommandOutputRecordSchema struct {
-	Type   string                     `yaml:"type" bson:"type" json:"type"` // Must be record
-	Fields []CommandOutputRecordField `yaml:"fields" bson:"fields" json:"fields"`
-	Label  string                     `yaml:"label" bson:"label" json:"label"`
+	Type   string                     `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // Must be record
+	Fields []CommandOutputRecordField `yaml:"fields,omitempty" bson:"fields,omitempty" json:"fields,omitempty"`
+	Label  string                     `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
 }
 
 type CommandOutputRecordField struct{}
 
 //http://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputEnumSchema
 type CommandOutputEnumSchema struct {
-	Symbols       []string              `yaml:"symbols" bson:"symbols" json:"symbols"`
-	Type          string                `yaml:"type" bson:"type" json:"type"` // must be enum
-	Label         string                `yaml:"label" bson:"label" json:"label"`
-	OutputBinding *CommandOutputBinding `yaml:"outputbinding" bson:"outputbinding" json:"outputbinding"`
+	Symbols       []string              `yaml:"symbols,omitempty" bson:"symbols,omitempty" json:"symbols,omitempty"`
+	Type          string                `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // must be enum
+	Label         string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	OutputBinding *CommandOutputBinding `yaml:"outputbinding,omitempty" bson:"outputbinding,omitempty" json:"outputbinding,omitempty"`
 }
 
 type CommandOutputArraySchema struct {
-	Items         []string              `yaml:"items" bson:"items" json:"items"`
-	Type          string                `yaml:"type" bson:"type" json:"type"` // must be array
-	Label         string                `yaml:"label" bson:"label" json:"label"`
-	OutputBinding *CommandOutputBinding `yaml:"outputBinding" bson:"outputBinding" json:"outputBinding"`
+	Items         []string              `yaml:"items,omitempty" bson:"items,omitempty" json:"items,omitempty"`
+	Type          string                `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // must be array
+	Label         string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	OutputBinding *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"`
 }
 
 func NewCommandOutputArraySchema(original map[interface{}]interface{}) (coas *CommandOutputArraySchema, err error) {

@@ -8,20 +8,20 @@ import (
 )
 
 type CommandLineTool struct {
-	Id                 string                   `yaml:"id" bson:"id" json:"id"`
-	BaseCommand        []string                 `yaml:"baseCommand" bson:"baseCommand" json:"baseCommand"` // TODO also allow []string
-	Inputs             []CommandInputParameter  `yaml:"inputs" bson:"inputs" json:"inputs"`
-	Outputs            []CommandOutputParameter `yaml:"outputs" bson:"outputs" json:"outputs"`
-	Hints              []Requirement            `yaml:"hints" bson:"hints" json:"hints"` // TODO Any
-	Label              string                   `yaml:"label" bson:"label" json:"label"`
-	Description        string                   `yaml:"description" bson:"description" json:"description"`
-	CwlVersion         CWLVersion               `yaml:"cwlVersion" bson:"cwlVersion" json:"cwlVersion"`
-	Arguments          []CommandLineBinding     `yaml:"arguments" bson:"arguments" json:"arguments"` // TODO support CommandLineBinding
-	Stdin              string                   `yaml:"stdin" bson:"stdin" json:"stdin"`             // TODO support Expression
-	Stdout             string                   `yaml:"stdout" bson:"stdout" json:"stdout"`          // TODO support Expression
-	SuccessCodes       []int                    `yaml:"successCodes" bson:"successCodes" json:"successCodes"`
-	TemporaryFailCodes []int                    `yaml:"temporaryFailCodes" bson:"temporaryFailCodes" json:"temporaryFailCodes"`
-	PermanentFailCodes []int                    `yaml:"permanentFailCodes" bson:"permanentFailCodes" json:"permanentFailCodes"`
+	Id                 string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	BaseCommand        []string                 `yaml:"baseCommand,omitempty" bson:"baseCommand,omitempty" json:"baseCommand,omitempty"` // TODO also allow []string
+	Inputs             []CommandInputParameter  `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty"`
+	Outputs            []CommandOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty"`
+	Hints              []Requirement            `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty"` // TODO Any
+	Label              string                   `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	Description        string                   `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty"`
+	CwlVersion         CWLVersion               `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty"`
+	Arguments          []CommandLineBinding     `yaml:"arguments,omitempty" bson:"arguments,omitempty" json:"arguments,omitempty"` // TODO support CommandLineBinding
+	Stdin              string                   `yaml:"stdin,omitempty" bson:"stdin,omitempty" json:"stdin,omitempty"`             // TODO support Expression
+	Stdout             string                   `yaml:"stdout,omitempty" bson:"stdout,omitempty" json:"stdout,omitempty"`          // TODO support Expression
+	SuccessCodes       []int                    `yaml:"successCodes,omitempty" bson:"successCodes,omitempty" json:"successCodes,omitempty"`
+	TemporaryFailCodes []int                    `yaml:"temporaryFailCodes,omitempty" bson:"temporaryFailCodes,omitempty" json:"temporaryFailCodes,omitempty"`
+	PermanentFailCodes []int                    `yaml:"permanentFailCodes,omitempty" bson:"permanentFailCodes,omitempty" json:"permanentFailCodes,omitempty"`
 }
 
 func (c *CommandLineTool) GetClass() string { return "CommandLineTool" }

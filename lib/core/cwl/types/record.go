@@ -7,8 +7,8 @@ import (
 
 type Record struct {
 	CWLType_Impl
-	Id     string
-	Fields []CWLType
+	Id     string    `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
+	Fields []CWLType `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
 }
 
 func (r *Record) GetClass() string { return CWL_record }

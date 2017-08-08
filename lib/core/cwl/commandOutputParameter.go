@@ -7,14 +7,14 @@ import (
 )
 
 type CommandOutputParameter struct {
-	Id             string                       `yaml:"id" bson:"id" json:"id"`
-	SecondaryFiles []cwl_types.Expression       `yaml:"secondaryFiles" bson:"secondaryFiles" json:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         string                       `yaml:"format" bson:"format" json:"format"`
-	Streamable     bool                         `yaml:"streamable" bson:"streamable" json:"streamable"`
-	Type           []CommandOutputParameterType `yaml:"type" bson:"type" json:"type"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
-	Label          string                       `yaml:"label" bson:"label" json:"label"`
-	Description    string                       `yaml:"description" bson:"description" json:"description"`
-	OutputBinding  CommandOutputBinding         `yaml:"outputBinding" bson:"outputBinding" json:"outputBinding"`
+	Id             string                       `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	SecondaryFiles []cwl_types.Expression       `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
+	Format         string                       `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
+	Streamable     bool                         `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
+	Type           []CommandOutputParameterType `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
+	Label          string                       `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	Description    string                       `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty"`
+	OutputBinding  CommandOutputBinding         `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"`
 }
 
 func NewCommandOutputParameter(original interface{}) (output_parameter *CommandOutputParameter, err error) {

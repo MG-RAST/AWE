@@ -2,8 +2,8 @@ package cwl
 
 type Boolean struct {
 	CWLType_Impl
-	Id    string `yaml:"id"`
-	Value bool   `yaml:"value"`
+	Id    string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
+	Value bool   `yaml:"value,omitempty" json:"value,omitempty" bson:"value,omitempty"`
 }
 
 func (s *Boolean) GetClass() string { return CWL_boolean } // for CWL_object

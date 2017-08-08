@@ -7,9 +7,9 @@ import (
 
 type Array struct {
 	CWL_object
-	Id         string
-	Items      []CWLType
-	Items_Type string
+	Id         string    `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
+	Items      []CWLType `yaml:"items,omitempty" json:"items,omitempty" bson:"items,omitempty"`
+	Items_Type string    `yaml:"items_type,omitempty" json:"items_type,omitempty" bson:"items_type,omitempty"`
 }
 
 func (c *Array) GetClass() string { return CWL_array }

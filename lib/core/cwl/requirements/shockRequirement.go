@@ -6,7 +6,7 @@ import (
 
 type ShockRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline"`
-	Host            string `yaml:"host" bson:"host" json:"host"`
+	Host            string `yaml:"host,omitempty" bson:"host,omitempty" json:"host,omitempty"`
 }
 
 func (s ShockRequirement) GetId() string { return "None" }

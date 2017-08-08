@@ -6,7 +6,7 @@ import (
 
 type InlineJavascriptRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline"`
-	ExpressionLib   []string `yaml:"expressionLib" bson:"expressionLib" json:"expressionLib"`
+	ExpressionLib   []string `yaml:"expressionLib,omitempty" bson:"expressionLib,omitempty" json:"expressionLib,omitempty"`
 }
 
 func (c InlineJavascriptRequirement) GetId() string { return "None" }

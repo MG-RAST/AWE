@@ -7,8 +7,8 @@ import (
 
 type Int struct {
 	CWLType_Impl
-	Id    string `yaml:"id"`
-	Value int    `yaml:"value"`
+	Id    string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
+	Value int    `yaml:"value,omitempty" json:"value,omitempty" bson:"value,omitempty"`
 }
 
 func (i *Int) GetClass() string { return CWL_int }

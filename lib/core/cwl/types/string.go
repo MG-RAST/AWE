@@ -7,9 +7,9 @@ import (
 
 type String struct {
 	CWLType_Impl `yaml:"-"`
-	Id           string `yaml:"id,omitempty"`
-	Class        string `yaml:"class,omitempty" json:"class"`
-	Value        string `yaml:"value,omitempty"`
+	Id           string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
+	Class        string `yaml:"class,omitempty" json:"class,omitempty" bson:"class,omitempty"`
+	Value        string `yaml:"value,omitempty" json:"value,omitempty" bson:"value,omitempty"`
 }
 
 func (s *String) GetClass() string { return CWL_string } // for CWL_object

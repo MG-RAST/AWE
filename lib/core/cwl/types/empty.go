@@ -9,8 +9,8 @@ import (
 // this is a generic CWL_object. Its only purpose is to retrieve the value of "class"
 type Empty struct {
 	CWLType_Impl
-	Id    string `yaml:"id"`
-	Class string `yaml:"class"`
+	Id    string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
+	Class string `yaml:"class,omitempty" json:"class,omitempty" bson:"class,omitempty"`
 }
 
 func (e Empty) GetClass() string { return e.Class }

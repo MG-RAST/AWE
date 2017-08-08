@@ -6,11 +6,11 @@ import (
 
 type DockerRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline"`
-	DockerPull      string `yaml:"dockerPull" bson:"dockerPull" json:"dockerPull"`
-	DockerLoad      string `yaml:"dockerLoad" bson:"dockerLoad" json:"dockerLoad"`
-	DockerFile      string `yaml:"dockerFile" bson:"dockerFile" json:"dockerFile"`
-	DockerImport    string `yaml:"dockerImport" bson:"dockerImport" json:"dockerImport"`
-	DockerImageId   string `yaml:"dockerImageId" bson:"dockerImageId" json:"dockerImageId"`
+	DockerPull      string `yaml:"dockerPull,omitempty" bson:"dockerPull,omitempty" json:"dockerPull,omitempty"`
+	DockerLoad      string `yaml:"dockerLoad,omitempty" bson:"dockerLoad,omitempty" json:"dockerLoad,omitempty"`
+	DockerFile      string `yaml:"dockerFile,omitempty" bson:"dockerFile,omitempty" json:"dockerFile,omitempty"`
+	DockerImport    string `yaml:"dockerImport,omitempty" bson:"dockerImport,omitempty" json:"dockerImport,omitempty"`
+	DockerImageId   string `yaml:"dockerImageId,omitempty" bson:"dockerImageId,omitempty" json:"dockerImageId,omitempty"`
 }
 
 func (c DockerRequirement) GetId() string { return "None" }

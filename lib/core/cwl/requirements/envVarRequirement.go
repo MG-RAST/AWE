@@ -7,7 +7,7 @@ import (
 
 type EnvVarRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline"`
-	enfDef          []EnvironmentDef `yaml:"enfDef" bson:"enfDef" json:"enfDef"`
+	enfDef          []EnvironmentDef `yaml:"enfDef,omitempty" bson:"enfDef,omitempty" json:"enfDef,omitempty"`
 }
 
 func (c EnvVarRequirement) GetId() string { return "None" }

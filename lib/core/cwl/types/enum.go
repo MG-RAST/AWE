@@ -4,8 +4,8 @@ import ()
 
 type Enum struct {
 	CWLType_Impl
-	Id      string
-	Symbols []string
+	Id      string   `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
+	Symbols []string `yaml:"symbols,omitempty" json:"symbols,omitempty" bson:"symbols,omitempty"`
 }
 
 func (e *Enum) GetClass() string { return CWL_enum }

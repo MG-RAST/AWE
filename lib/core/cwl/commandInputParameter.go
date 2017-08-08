@@ -8,15 +8,15 @@ import (
 )
 
 type CommandInputParameter struct {
-	Id             string                      `yaml:"id" bson:"id" json:"id"`
-	SecondaryFiles []string                    `yaml:"secondaryFiles" bson:"secondaryFiles" json:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         []string                    `yaml:"format" bson:"format" json:"format"`
-	Streamable     bool                        `yaml:"streamable" bson:"streamable" json:"streamable"`
-	Type           []CommandInputParameterType `yaml:"type" bson:"type" json:"type"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
-	Label          string                      `yaml:"label" bson:"label" json:"label"`
-	Description    string                      `yaml:"description" bson:"description" json:"description"`
-	InputBinding   CommandLineBinding          `yaml:"inputBinding" bson:"inputBinding" json:"inputBinding"`
-	Default        *cwl_types.Any              `yaml:"default" bson:"default" json:"default"`
+	Id             string                      `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	SecondaryFiles []string                    `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
+	Format         []string                    `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
+	Streamable     bool                        `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
+	Type           []CommandInputParameterType `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
+	Label          string                      `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	Description    string                      `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty"`
+	InputBinding   CommandLineBinding          `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"`
+	Default        *cwl_types.Any              `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
 }
 
 func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParameter, err error) {

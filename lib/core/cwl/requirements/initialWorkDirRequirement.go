@@ -7,7 +7,7 @@ import (
 // http://www.commonwl.org/v1.0/CommandLineTool.html#InitialWorkDirRequirement
 type InitialWorkDirRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline"`
-	listing         string `yaml:"listing" bson:"listing" json:"listing"` // TODO: array<File | Directory | Dirent | string | Expression> | string | Expression
+	listing         string `yaml:"listing,omitempty" bson:"listing,omitempty" json:"listing,omitempty"` // TODO: array<File | Directory | Dirent | string | Expression> | string | Expression
 }
 
 func (c InitialWorkDirRequirement) GetId() string { return "None" }

@@ -9,7 +9,7 @@ import (
 	"os"
 	"reflect"
 	"regexp/syntax"
-	"strconv"
+
 	"strings"
 	"time"
 )
@@ -53,44 +53,6 @@ type Workunit struct {
 	CWL                        *CWL_workunit
 }
 
-type Workunit_Unique_Identifier struct {
-	Rank   int    `bson:"rank" json:"rank"` // this is the local identifier
-	TaskId string `bson:"taskid" json:"taskid"`
-	JobId  string `bson:"jobid" json:"jobid"`
-}
-
-func (w Workunit_Unique_Identifier) String() string {
-	return fmt.Sprintf("%s_%s_%d", w.JobId, w.TaskId, w.Rank)
-}
-
-func (w Workunit_Unique_Identifier) GetTask() Task_Unique_Identifier {
-	return Task_Unique_Identifier{JobId: w.JobId, Id: w.TaskId}
-}
-
-func New_Workunit_Unique_Identifier(old_style_id string) (w Workunit_Unique_Identifier, err error) {
-
-	array := strings.Split(old_style_id, "_")
-
-	if len(array) != 3 {
-		err = fmt.Errorf("Cannot parse workunit identifier: %s", old_style_id)
-		return
-	}
-
-	rank, err := strconv.Atoi(array[2])
-	if err != nil {
-		return
-	}
-
-	if !IsValidUUID(array[0]) {
-		err = fmt.Errorf("Cannot parse workunit identifier, job id is not valid uuid: %s", old_style_id)
-		return
-	}
-
-	w = Workunit_Unique_Identifier{JobId: array[0], TaskId: array[1], Rank: rank}
-
-	return
-}
-
 type CWL_workunit struct {
 	Job_input          *cwl.Job_document
 	Job_input_filename string
@@ -108,80 +70,6 @@ func NewCWL_workunit() *CWL_workunit {
 		OutputsExpected: nil,
 	}
 
-}
-
-type WorkLog struct {
-	Id   string            `bson:"wuid" json:"wuid"` // TODO change !
-	Rank int               `bson:"rank" json:"rank"`
-	Logs map[string]string `bson:"logs" json:"logs"`
-}
-
-func NewWorkLog(id Workunit_Unique_Identifier) (wlog *WorkLog) {
-	work_id := fmt.Sprintf("%s_%d", id.TaskId, id.Rank)
-	wlog = new(WorkLog)
-	wlog.Id = work_id
-	wlog.Rank = id.Rank
-	wlog.Logs = map[string]string{}
-	for _, log := range conf.WORKUNIT_LOGS {
-
-		wlog.Logs[log], _ = QMgr.GetReportMsg(id, log)
-	}
-	return
-}
-
-// create workunit slice type to use for sorting
-
-type WorkunitsSortby struct {
-	Order     string
-	Direction string
-	Workunits []*Workunit
-}
-
-func (w *Workunit) GetId() (id Workunit_Unique_Identifier) {
-	id = w.Workunit_Unique_Identifier
-	return
-}
-
-func (w WorkunitsSortby) Len() int {
-	return len(w.Workunits)
-}
-
-func (w WorkunitsSortby) Swap(i, j int) {
-	w.Workunits[i], w.Workunits[j] = w.Workunits[j], w.Workunits[i]
-}
-
-func (w WorkunitsSortby) Less(i, j int) bool {
-	// default is ascending
-	if w.Direction == "desc" {
-		i, j = j, i
-	}
-	switch w.Order {
-	// default is info.submittime
-	default:
-		return w.Workunits[i].Info.SubmitTime.Before(w.Workunits[j].Info.SubmitTime)
-	case "wuid":
-		return w.Workunits[i].Id < w.Workunits[j].Id
-	case "client":
-		return w.Workunits[i].Client < w.Workunits[j].Client
-	case "info.submittime":
-		return w.Workunits[i].Info.SubmitTime.Before(w.Workunits[j].Info.SubmitTime)
-	case "checkout_time":
-		return w.Workunits[i].CheckoutTime.Before(w.Workunits[j].CheckoutTime)
-	case "info.name":
-		return w.Workunits[i].Info.Name < w.Workunits[j].Info.Name
-	case "cmd.name":
-		return w.Workunits[i].Cmd.Name < w.Workunits[j].Cmd.Name
-	case "rank":
-		return w.Workunits[i].Rank < w.Workunits[j].Rank
-	case "totalwork":
-		return w.Workunits[i].TotalWork < w.Workunits[j].TotalWork
-	case "state":
-		return w.Workunits[i].State < w.Workunits[j].State
-	case "failed":
-		return w.Workunits[i].Failed < w.Workunits[j].Failed
-	case "info.priority":
-		return w.Workunits[i].Info.Priority < w.Workunits[j].Info.Priority
-	}
 }
 
 func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error) {
@@ -271,6 +159,11 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 	}
 
+	return
+}
+
+func (w *Workunit) GetId() (id Workunit_Unique_Identifier) {
+	id = w.Workunit_Unique_Identifier
 	return
 }
 

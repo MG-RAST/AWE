@@ -16,7 +16,7 @@ type WorkflowStep struct {
 	Hints         []interface{}        `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty"`                      //[]Requirement
 	Label         string               `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
 	Doc           string               `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
-	Scatter       string               `yaml:"scatter,omitempty" bson:"scatte,omitemptyr" json:"scatter,omitempty"`                   // ScatterFeatureRequirement
+	Scatter       string               `yaml:"scatter,omitempty" bson:"scatter,omitempty" json:"scatter,omitempty"`                   // ScatterFeatureRequirement
 	ScatterMethod string               `yaml:"scatterMethod,omitempty" bson:"scatterMethod,omitempty" json:"scatterMethod,omitempty"` // ScatterFeatureRequirement
 }
 

@@ -11,7 +11,7 @@ import (
 type WorkflowStepInput struct {
 	Id        string               `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
 	Source    []string             `yaml:"source,omitempty" bson:"source,omitempty" json:"source,omitempty"` // MultipleInputFeatureRequirement
-	LinkMerge LinkMergeMethod      `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
+	LinkMerge *LinkMergeMethod     `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
 	Default   cwl_types.Any        `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`       // type Any does not make sense
 	ValueFrom cwl_types.Expression `yaml:"valueFrom,omitempty" bson:"valueFrom,omitempty" json:"valueFrom,omitempty"` // StepInputExpressionRequirement
 	Ready     bool                 `yaml:"-" bson:"-" json:"-"`

@@ -102,58 +102,99 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 	workunit.WuId = workunit.String()
 
 	if task.WorkflowStep != nil {
+
+		workflow_step := task.WorkflowStep
+
 		workunit.Cmd.Name = "/usr/bin/cwl-runner"
 
 		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", "./cwl_tool.yaml", "./cwl_job_input.yaml"}
 
 		workunit.CWL = &CWL_workunit{}
 
-		p := task.WorkflowStep.Run
+		// get CommandLineTool (or whatever can be executed)
+		p := workflow_step.Run
+
+		tool_name := ""
 
 		switch p.(type) {
 		case cwl.ProcessPointer:
 
 			pp, _ := p.(cwl.ProcessPointer)
 
-			tool_name := pp.Value
+			tool_name = pp.Value
 
-			clt, xerr := job.CWL_collection.GetCommandLineTool(tool_name)
-			if xerr != nil {
-				err = fmt.Errorf("Object %s not found in collection: %s", xerr.Error())
-				return
-			}
-
-			workunit.CWL.CWL_tool = clt
-			return
-
-		case bson.M: // TODO I have no idea why we get a bson.M here
+		case bson.M: // I have no idea why we get a bson.M here
 
 			p_bson := p.(bson.M)
 
 			tool_name_interface, ok := p_bson["value"]
 			if !ok {
-				err = fmt.Errorf("bson.M did not hold a field named value")
+				err = fmt.Errorf("(NewWorkunit) bson.M did not hold a field named value")
 				return
 			}
 
-			tool_name, ok := tool_name_interface.(string)
+			tool_name, ok = tool_name_interface.(string)
 			if !ok {
-				err = fmt.Errorf("bson.M value field is not a string")
+				err = fmt.Errorf("(NewWorkunit) bson.M value field is not a string")
 				return
 			}
-
-			clt, xerr := job.CWL_collection.GetCommandLineTool(tool_name)
-			if xerr != nil {
-				err = fmt.Errorf("Object %s not found in collection: %s", xerr.Error())
-				return
-			}
-
-			workunit.CWL.CWL_tool = clt
-			return
 
 		default:
-			err = fmt.Errorf("Process type %s unknown, cannot create Workunit", reflect.TypeOf(p))
+			err = fmt.Errorf("(NewWorkunit) Process type %s unknown, cannot create Workunit", reflect.TypeOf(p))
 			return
+
+		}
+
+		if tool_name == "" {
+			err = fmt.Errorf("(NewWorkunit) No tool name found")
+			return
+		}
+		clt, xerr := job.CWL_collection.GetCommandLineTool(tool_name)
+		if xerr != nil {
+			err = fmt.Errorf("(NewWorkunit) Object %s not found in collection: %s", xerr.Error())
+			return
+		}
+
+		workunit.CWL.CWL_tool = clt
+
+		// get inputs
+		job_input := *job.CWL_collection.Job_input
+		for _, input := range workflow_step.In {
+			// input is a WorkflowStepInput
+			if input.LinkMerge != nil {
+				err = fmt.Errorf("(NewWorkunit) sorry, LinkMergeMethod not supported yet")
+				return
+			}
+
+			if input.Default != nil {
+				err = fmt.Errorf("(NewWorkunit) sorry, Default not supported yet")
+				return
+			}
+
+			if input.ValueFrom != "" {
+				err = fmt.Errorf("(NewWorkunit) sorry, ValueFrom not supported yet")
+				return
+			}
+
+			for _, src := range input.Source {
+				// src is a string, an id to another cwl object (workflow input of step output)
+
+				job_obj, ok := job_input[src]
+				if !ok {
+					fmt.Printf("%s not found in \n", src)
+				} else {
+					fmt.Printf("%s found in job_input!!!\n", src)
+				}
+				_ = job_obj
+				coll_obj, xerr := job.CWL_collection.Get(src)
+				if xerr != nil {
+					fmt.Printf("%s not found in CWL_collection\n", src)
+				} else {
+					fmt.Printf("%s found in CWL_collection!!!\n", src)
+				}
+				_ = coll_obj
+			}
+			panic("done")
 
 		}
 
@@ -204,6 +245,7 @@ func (work *Workunit) Path() string {
 			task_name = work.Workunit_Unique_Identifier.TaskId
 		}
 
+		// convert name to make it filesystem compatible
 		task_name = strings.Map(
 			func(r rune) rune {
 				if syntax.IsWordChar(r) || r == '-' { // word char: [0-9A-Za-z] and '-'

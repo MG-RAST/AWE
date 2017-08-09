@@ -1457,6 +1457,7 @@ func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
 	} else {
 
 		// old AWE-style
+		// this code will look for the predecessor output io struct and copy it into the current task as an input
 
 		jobid, err := task.GetJobId()
 		if err != nil {
@@ -1489,7 +1490,6 @@ func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
 				}
 
 				// copy if not already done
-
 				if io.Node != output.Node {
 					io.Node = output.Node
 					inputs_modified = true
@@ -1501,7 +1501,8 @@ func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
 				err = fmt.Errorf("(locateInputs) error in locate input for task, no node id found. task_id: %s, input name: %s", task_id, filename)
 				return
 			}
-			//need time out!
+
+			// double-check that node and file exist
 			_, modified, xerr := io.GetFileSize()
 			if xerr != nil {
 				err = fmt.Errorf("(locateInputs) task %s: input file %s GetFileSize returns: %s (DataToken len: %d)", task_id, filename, xerr.Error(), len(io.DataToken))

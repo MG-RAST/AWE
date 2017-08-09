@@ -231,7 +231,9 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 				}
 				fmt.Printf("input.ValueFrom=%s\n", input.ValueFrom)
 
+				// evaluate $(...) ECMAScript expression
 				reg := regexp.MustCompile(`\$\([\w.]+\)`)
+				// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
 
 				parsed := input.ValueFrom.String()
 				for {
@@ -254,7 +256,45 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 							return
 						}
 						fmt.Println(reflect.TypeOf(value))
-						//panic("yeahhhh!")
+
+						value_str, xerr := value.ToString()
+						if xerr != nil {
+							err = fmt.Errorf("Cannot convert value to string: %s", xerr)
+							return
+						}
+						parsed = strings.Replace(parsed, string(match), value_str, 1)
+					}
+
+				}
+
+				fmt.Printf("parsed: %s\n", parsed)
+
+				// evaluate ${...} ECMAScript function body
+				reg = regexp.MustCompile(`\$\{[\w.]+\}`)
+				// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
+
+				parsed = input.ValueFrom.String()
+				for {
+
+					matches := reg.FindAll([]byte(parsed), -1)
+					fmt.Printf("Matches: %d\n", len(matches))
+					if len(matches) == 0 {
+						break
+					}
+					for _, match := range matches {
+						expression_string := bytes.TrimPrefix(match, []byte("${"))
+						expression_string = bytes.TrimSuffix(expression_string, []byte("}"))
+
+						javascript_function := fmt.Sprintf("(function(){\n %s \n})()", expression_string)
+						fmt.Printf("%s\n", javascript_function)
+
+						value, xerr := vm.Run(javascript_function)
+						if xerr != nil {
+							err = fmt.Errorf("Javascript complained: %s", xerr.Error())
+							return
+						}
+						fmt.Println(reflect.TypeOf(value))
+
 						value_str, xerr := value.ToString()
 						if xerr != nil {
 							err = fmt.Errorf("Cannot convert value to string: %s", xerr)
@@ -270,8 +310,6 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 				//err = fmt.Errorf("(NewWorkunit) sorry, ValueFrom not supported yet")
 				return
 			}
-
-			panic("done")
 
 		}
 

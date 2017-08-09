@@ -53,3 +53,7 @@ func NewRecord(native interface{}) (record *Record, err error) {
 
 	return
 }
+
+func (c *Record) String() string {
+	return "an record (TODO implement this)"
+}

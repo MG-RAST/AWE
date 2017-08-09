@@ -94,7 +94,7 @@ type CWLType interface {
 	Is_CommandInputParameterType()
 	Is_CommandOutputParameterType()
 	Is_CWLType()
-
+	String() string
 	//Is_Array() bool
 	//Is_CWL_minimal()
 }

@@ -45,3 +45,7 @@ func NewArray(id string, native []interface{}) (array *Array, err error) {
 
 	return
 }
+
+func (c *Array) String() string {
+	return "an array (TODO implement this)"
+}

@@ -1142,7 +1142,7 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 		logger.Debug(3, "(addTask) task is ready (invoking taskEnQueue)")
 		err = qm.taskEnQueue(task, job)
 		if err != nil {
-			logger.Debug(3, "(addTask) taskEnQueue returned error: %s", err.Error())
+			logger.Error("(addTask) taskEnQueue returned error: %s", err.Error())
 			_ = task.SetState(TASK_STAT_SUSPEND)
 
 			job_id, xerr := task.GetJobId()
@@ -1421,12 +1421,9 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 	return
 }
 
+// invoked by taskEnQueue
+// main purpose is to copy output io struct of predecessor task to create the input io structs
 func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
-	task_id, err := task.GetId()
-	if err != nil {
-		return
-	}
-	logger.Debug(2, "(locateInputs) trying to locate Inputs of task "+task_id.String())
 
 	if task.WorkflowStep != nil && job.CWL_collection != nil {
 		// copy inputs into task
@@ -1443,9 +1440,11 @@ func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
 					// search job input
 					obj, ok := job_input[src_base]
 					if ok {
-						fmt.Println("found in job input: " + src_base)
+						fmt.Println("(locateInputs) found in job input: " + src_base)
 					} else {
-						fmt.Println("NOT found in job input: " + src_base)
+						fmt.Println("(locateInputs) NOT found in job input: " + src_base)
+						err = fmt.Errorf("(locateInputs) did not find %s in job_input (TODO check collection)", src_base) // this should not happen, taskReady makes sure everything is available
+						return
 					}
 					spew.Dump(job_input)
 					_ = obj
@@ -1458,93 +1457,107 @@ func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
 
 		// old AWE-style
 		// this code will look for the predecessor output io struct and copy it into the current task as an input
-
-		jobid, err := task.GetJobId()
+		err = qm.locateAWEInputs(task, job)
 		if err != nil {
 			return
 		}
+	}
+	return
+}
 
-		inputs_modified := false
-		for _, io := range task.Inputs {
-			filename := io.FileName
-			if io.Url == "" {
+// old AWE-style function
+func (qm *ServerMgr) locateAWEInputs(task *Task, job *Job) (err error) {
+	jobid, err := task.GetJobId()
+	if err != nil {
+		return
+	}
 
-				// find predecessor task
+	task_id, err := task.GetId()
+	if err != nil {
+		return
+	}
+	logger.Debug(2, "(locateInputs) trying to locate Inputs of task "+task_id.String())
 
-				preId := Task_Unique_Identifier{JobId: jobid, Id: io.Origin}
-				preTask, ok, xerr := qm.TaskMap.Get(preId, true)
-				if xerr != nil {
-					err = xerr
-					return
-				}
-				if !ok {
-					err = fmt.Errorf("predecessor task %s not found", preId.String())
-					return
-				}
+	inputs_modified := false
+	for _, io := range task.Inputs {
+		filename := io.FileName
+		if io.Url == "" {
 
-				// find predecessor output
-				output, xerr := preTask.GetOutput(filename)
-				if xerr != nil {
-					err = xerr
-					return
-				}
+			// find predecessor task
 
-				// copy if not already done
-				if io.Node != output.Node {
-					io.Node = output.Node
-					inputs_modified = true
-				}
-
+			preId := Task_Unique_Identifier{JobId: jobid, Id: io.Origin}
+			preTask, ok, xerr := qm.TaskMap.Get(preId, true)
+			if xerr != nil {
+				err = xerr
+				return
 			}
-			logger.Debug(2, "(locateInputs) processing input %s, %s", filename, io.Node)
-			if io.Node == "-" {
-				err = fmt.Errorf("(locateInputs) error in locate input for task, no node id found. task_id: %s, input name: %s", task_id, filename)
+			if !ok {
+				err = fmt.Errorf("(locateInputs) predecessor task %s not found", preId.String())
 				return
 			}
 
-			// double-check that node and file exist
+			// find predecessor output
+			output, xerr := preTask.GetOutput(filename)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+
+			// copy if not already done
+			if io.Node != output.Node {
+				io.Node = output.Node
+				inputs_modified = true
+			}
+
+		}
+		logger.Debug(2, "(locateInputs) processing input %s, %s", filename, io.Node)
+		if io.Node == "-" {
+			err = fmt.Errorf("(locateInputs) error in locate input for task, no node id found. task_id: %s, input name: %s", task_id, filename)
+			return
+		}
+
+		// double-check that node and file exist
+		_, modified, xerr := io.GetFileSize()
+		if xerr != nil {
+			err = fmt.Errorf("(locateInputs) task %s: input file %s GetFileSize returns: %s (DataToken len: %d)", task_id, filename, xerr.Error(), len(io.DataToken))
+			return
+		}
+		if modified {
+			inputs_modified = true
+		}
+		logger.Debug(3, "(locateInputs) (task=%s) input %s located, node=%s size=%d", task_id, filename, io.Node, io.Size)
+
+	}
+	if inputs_modified {
+		err = task.UpdateInputs()
+		if err != nil {
+			return
+		}
+	}
+
+	predata_modified := false
+	// locate predata
+	for _, io := range task.Predata {
+		name := io.FileName
+		logger.Debug(2, "processing predata %s, %s", name, io.Node)
+		// only verify predata that is a shock node
+		if (io.Node != "") && (io.Node != "-") {
 			_, modified, xerr := io.GetFileSize()
 			if xerr != nil {
-				err = fmt.Errorf("(locateInputs) task %s: input file %s GetFileSize returns: %s (DataToken len: %d)", task_id, filename, xerr.Error(), len(io.DataToken))
+				err = fmt.Errorf("(locateInputs) task %s: input file %s GetFileSize returns: %s", task_id, name, xerr.Error())
 				return
 			}
 			if modified {
-				inputs_modified = true
+				predata_modified = true
 			}
-			logger.Debug(3, "(locateInputs) (task=%s) input %s located, node=%s size=%d", task_id, filename, io.Node, io.Size)
-
+			logger.Debug(2, "(locateInputs) predata located %s, %s", name, io.Node)
 		}
-		if inputs_modified {
-			err = task.UpdateInputs()
-			if err != nil {
-				return
-			}
-		}
+	}
 
-		predata_modified := false
-		// locate predata
-		for _, io := range task.Predata {
-			name := io.FileName
-			logger.Debug(2, "processing predata %s, %s", name, io.Node)
-			// only verify predata that is a shock node
-			if (io.Node != "") && (io.Node != "-") {
-				_, modified, xerr := io.GetFileSize()
-				if xerr != nil {
-					err = fmt.Errorf("(locateInputs) task %s: input file %s GetFileSize returns: %s", task_id, name, xerr.Error())
-					return
-				}
-				if modified {
-					predata_modified = true
-				}
-				logger.Debug(2, "(locateInputs) predata located %s, %s", name, io.Node)
-			}
-		}
-
-		if predata_modified {
-			err = task.UpdatePredata()
-			if err != nil {
-				return
-			}
+	if predata_modified {
+		err = task.UpdatePredata()
+		if err != nil {
+			return
 		}
 	}
 	return

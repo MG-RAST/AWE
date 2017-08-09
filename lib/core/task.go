@@ -809,7 +809,7 @@ func (task *Task) CreateWorkunits(job *Job) (wus []*Workunit, err error) {
 	if task.TotalWork == 1 {
 		workunit, xerr := NewWorkunit(task, 0, job)
 		if xerr != nil {
-			err = fmt.Errorf("(CreateWorkunits) NewWorkunit failed", xerr.Error())
+			err = fmt.Errorf("(CreateWorkunits) NewWorkunit failed: %s", xerr.Error())
 			return
 		}
 		wus = append(wus, workunit)
@@ -819,7 +819,7 @@ func (task *Task) CreateWorkunits(job *Job) (wus []*Workunit, err error) {
 	for i := 1; i <= task.TotalWork; i++ {
 		workunit, xerr := NewWorkunit(task, i, job)
 		if xerr != nil {
-			err = fmt.Errorf("(CreateWorkunits) NewWorkunit failed", xerr.Error())
+			err = fmt.Errorf("(CreateWorkunits) NewWorkunit failed: %s", xerr.Error())
 			return
 		}
 		wus = append(wus, workunit)

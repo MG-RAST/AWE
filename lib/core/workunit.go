@@ -1,15 +1,20 @@
 package core
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
-	//"github.com/davecgh/go-spew/spew"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/robertkrimen/otto"
 	"gopkg.in/mgo.v2/bson"
 	"os"
+	"path"
 	"reflect"
+	"regexp"
 	"regexp/syntax"
-
 	"strings"
 	"time"
 )
@@ -159,6 +164,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 		// get inputs
 		job_input := *job.CWL_collection.Job_input
+		spew.Dump(workflow_step.In)
 		for _, input := range workflow_step.In {
 			// input is a WorkflowStepInput
 			if input.LinkMerge != nil {
@@ -171,29 +177,100 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 				return
 			}
 
-			if input.ValueFrom != "" {
-				err = fmt.Errorf("(NewWorkunit) sorry, ValueFrom not supported yet")
-				return
-			}
-
+			source_object_array := []cwl_types.CWLType{}
+			//resolve pointers in source
 			for _, src := range input.Source {
 				// src is a string, an id to another cwl object (workflow input of step output)
 
-				job_obj, ok := job_input[src]
+				src_base := path.Base(src)
+
+				job_obj, ok := job_input[src_base]
 				if !ok {
-					fmt.Printf("%s not found in \n", src)
+					fmt.Printf("%s not found in \n", src_base)
 				} else {
-					fmt.Printf("%s found in job_input!!!\n", src)
+					fmt.Printf("%s found in job_input!!!\n", src_base)
+					source_object_array = append(source_object_array, job_obj)
+					continue
 				}
-				_ = job_obj
+
 				coll_obj, xerr := job.CWL_collection.Get(src)
 				if xerr != nil {
 					fmt.Printf("%s not found in CWL_collection\n", src)
 				} else {
 					fmt.Printf("%s found in CWL_collection!!!\n", src)
+					//source_object_array = append(source_object_array, coll_obj)
+					continue
 				}
 				_ = coll_obj
+				err = fmt.Errorf("Source object %s not found", src)
+				return
+
 			}
+
+			if input.ValueFrom != "" {
+
+				// from CWL doc: The self value of in the parameter reference or expression must be the value of the parameter(s) specified in the source field, or null if there is no source field.
+
+				vm := otto.New()
+				//TODO vm.Set("input", 11)
+
+				if len(source_object_array) == 1 {
+					obj := source_object_array[0]
+
+					vm.Set("self", obj.String())
+					fmt.Printf("SET self=%s\n", input.Source[0])
+				} else if len(input.Source) > 1 {
+
+					source_b, xerr := json.Marshal(input.Source)
+					if xerr != nil {
+						err = fmt.Errorf("(NewWorkunit) cannot marshal source: %s", xerr.Error())
+						return
+					}
+					vm.Set("self", string(source_b[:]))
+					fmt.Printf("SET self=%s\n", string(source_b[:]))
+				}
+				fmt.Printf("input.ValueFrom=%s\n", input.ValueFrom)
+
+				reg := regexp.MustCompile(`\$\([\w.]+\)`)
+
+				parsed := input.ValueFrom.String()
+				for {
+
+					matches := reg.FindAll([]byte(parsed), -1)
+					fmt.Printf("Matches: %d\n", len(matches))
+					if len(matches) == 0 {
+						break
+					}
+					for _, match := range matches {
+						expression_string := bytes.TrimPrefix(match, []byte("$("))
+						expression_string = bytes.TrimSuffix(expression_string, []byte(")"))
+
+						javascript_function := fmt.Sprintf("(function(){\n return %s;\n})()", expression_string)
+						fmt.Printf("%s\n", javascript_function)
+
+						value, xerr := vm.Run(javascript_function)
+						if xerr != nil {
+							err = fmt.Errorf("Javascript complained: %s", xerr.Error())
+							return
+						}
+						fmt.Println(reflect.TypeOf(value))
+						//panic("yeahhhh!")
+						value_str, xerr := value.ToString()
+						if xerr != nil {
+							err = fmt.Errorf("Cannot convert value to string: %s", xerr)
+							return
+						}
+						parsed = strings.Replace(parsed, string(match), value_str, 1)
+					}
+
+				}
+
+				fmt.Printf("parsed: %s\n", parsed)
+
+				//err = fmt.Errorf("(NewWorkunit) sorry, ValueFrom not supported yet")
+				return
+			}
+
 			panic("done")
 
 		}

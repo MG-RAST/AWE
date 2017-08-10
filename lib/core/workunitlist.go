@@ -1,0 +1,113 @@
+package core
+
+type WorkunitList struct {
+	RWMutex `bson:"-" json:"-"`
+	_map    map[Workunit_Unique_Identifier]bool `bson:"-" json:"-"`
+	Data    []string                            `bson:"data" json:"data"`
+}
+
+// lock always
+func (cl *WorkunitList) Add(workid Workunit_Unique_Identifier) (err error) {
+
+	err = cl.LockNamed("Add_work")
+	if err != nil {
+		return
+	}
+	defer cl.Unlock()
+
+	cl._map[workid] = true
+	cl.Update_assigned_work(false)
+	cl.Total_checkout += 1
+	return
+}
+
+func (cl *WorkunitList) Length(lock bool) (clength int, err error) {
+	if lock {
+		read_lock, xerr := cl.RLockNamed("Assigned_work_length")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer cl.RUnlockNamed(read_lock)
+	}
+	clength = len(cl.Data)
+
+	return
+}
+
+func (cl *WorkunitList) Delete(workid Workunit_Unique_Identifier, write_lock bool) (err error) {
+	if write_lock {
+		err = cl.LockNamed("Assigned_work_delete")
+		defer cl.Unlock()
+	}
+	delete(cl._map, workid)
+	cl.Update_assigned_work(false)
+	return
+}
+
+func (cl *WorkunitList) Delete_all(workid string, write_lock bool) (err error) {
+	if write_lock {
+		err = cl.LockNamed("Assigned_work_delete_all")
+		defer cl.Unlock()
+	}
+
+	cl._map = make(map[Workunit_Unique_Identifier]bool)
+
+	return
+}
+
+func (cl *WorkunitList) Has(workid Workunit_Unique_Identifier) (ok bool, err error) {
+
+	err = cl.LockNamed("Assigned_work_has")
+	defer cl.Unlock()
+
+	_, ok = cl._assigned_work_map[workid]
+
+	return
+}
+
+func (cl *WorkunitList) Get_list(do_read_lock bool) (assigned_work_ids []Workunit_Unique_Identifier, err error) {
+	assigned_work_ids = []Workunit_Unique_Identifier{}
+	if do_read_lock {
+		read_lock, xerr := cl.RLockNamed("Get_assigned_work")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer cl.RUnlockNamed(read_lock)
+	}
+	for id, _ := range cl._map {
+
+		assigned_work_ids = append(assigned_work_ids, id)
+	}
+	return
+}
+
+func (cl *WorkunitList) Get_string_list(do_read_lock bool) (assigned_work_ids []string, err error) {
+	assigned_work_ids = []Workunit_Unique_Identifier{}
+	if do_read_lock {
+		read_lock, xerr := cl.RLockNamed("Get_assigned_work")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer cl.RUnlockNamed(read_lock)
+	}
+	for id, _ := range cl._map {
+
+		assigned_work_ids = append(assigned_work_ids, id.String)
+	}
+	return
+}
+
+func (cl *WorkunitList) sync() (err error) {
+
+	cl.Data = []string{}
+	for id, _ := range cl._map {
+
+		id_string := id.String()
+
+		cl.Data = append(cl.Data, id_string)
+	}
+	return
+}

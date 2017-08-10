@@ -55,7 +55,15 @@ func Auth(header string) (usr *user.User, err error) {
 			return nil, errors.New("(basic) " + err.Error())
 		}
 	} else if (bearer == "globus-goauthtoken") || (bearer == "globus") || (bearer == "goauth") {
+		// default globus bearer keys
 		return fetchProfile(strings.Split(header, " ")[1])
+	} else if bearer == "oauth" {
+		if conf.OAUTH_DEFAULT == "globus" {
+			// allow 'oauth' bearer key if only using globus auth
+			return fetchProfile(strings.Split(header, " ")[1])
+		} else {
+			return nil, errors.New("(globus) Invalid authentication header, unable to use bearer token 'oauth' with multiple oauth servers")
+		}
 	} else {
 		return nil, errors.New("(globus) Invalid authentication header, unknown bearer token: " + bearer)
 	}

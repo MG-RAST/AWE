@@ -608,13 +608,6 @@ func Init_conf(mode string) (err error) {
 		}
 	}
 
-	// globus has some hard-coded info
-	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
-		NAME := "KBase"
-		HAS_OAUTH = true
-		LOGIN_DEFAULT = NAME
-		LOGIN_RESOURCES[NAME] = buildLoginResource(NAME, "globus")
-	}
 	// parse OAuth settings if used
 	if OAUTH_URL_STR != "" && OAUTH_BEARER_STR != "" {
 		ou := strings.Split(OAUTH_URL_STR, ",")
@@ -631,6 +624,17 @@ func Init_conf(mode string) (err error) {
 			AUTH_OAUTH[ob[i]] = ou[i]
 			NAME := strings.ToUpper(ob[i])
 			LOGIN_RESOURCES[NAME] = buildLoginResource(NAME, ob[i])
+		}
+	}
+	// globus has some hard-coded info
+	if GLOBUS_TOKEN_URL != "" && GLOBUS_PROFILE_URL != "" {
+		NAME := "KBase"
+		HAS_OAUTH = true
+		LOGIN_DEFAULT = NAME
+		LOGIN_RESOURCES[NAME] = buildLoginResource(NAME, "globus")
+		// use globus as defualt if no oauth_url / oauth_bearer
+		if OAUTH_DEFAULT == "" {
+			OAUTH_DEFAULT = "globus"
 		}
 	}
 

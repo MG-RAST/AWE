@@ -12,9 +12,9 @@ type ClientMgr interface {
 	//GetAllClients() []*Client
 	GetClientMap() *ClientMap
 	GetAllClientsByUser(*user.User) ([]*Client, error)
-	DeleteClient(*Client) error
-	DeleteClientById(string) error
-	DeleteClientByUser(string, *user.User) error
+	//DeleteClient(*Client) error
+	//DeleteClientById(string) error
+	//DeleteClientByUser(string, *user.User) error
 	SuspendClient(string, *Client, bool) error
 	SuspendClientByUser(string, *user.User) error
 	ResumeClient(string) error
@@ -22,14 +22,14 @@ type ClientMgr interface {
 	ResumeSuspendedClients() (int, error)
 	ResumeSuspendedClientsByUser(*user.User) int
 	SuspendAllClients() (int, error)
-	SuspendAllClientsByUser(*user.User) int
+	SuspendAllClientsByUser(*user.User) (int, error)
 	ClientChecker()
 	UpdateSubClients(string, int) error
 	UpdateSubClientsByUser(string, int, *user.User)
 }
 
 type WorkMgr interface {
-	GetWorkById(string) (*Workunit, error)
+	GetWorkById(Workunit_Unique_Identifier) (*Workunit, error)
 	ShowWorkunits(string) ([]*Workunit, error)
 	ShowWorkunitsByUser(string, *user.User) []*Workunit
 	CheckoutWorkunits(string, string, *Client, int64, int) ([]*Workunit, error)

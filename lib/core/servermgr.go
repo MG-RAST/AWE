@@ -437,13 +437,13 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	return
 }
 
-func RemoveWorkFromClient(client *Client, clientid string, workid string) (err error) {
-	err = client.Current_work_delete(workid, true)
+func RemoveWorkFromClient(client *Client, clientid string, workid Workunit_Unique_Identifier) (err error) {
+	err = client.Current_work.Delete(workid, true)
 	if err != nil {
 		return
 	}
 
-	work_length, err := client.Current_work_length(true)
+	work_length, err := client.Current_work.Length(true)
 	if err != nil {
 		return
 	}
@@ -451,15 +451,15 @@ func RemoveWorkFromClient(client *Client, clientid string, workid string) (err e
 	if work_length > 0 {
 		logger.Error("(RemoveWorkFromClient) Client %s still has %d workunits, after delivering one workunit", clientid, work_length)
 
-		current_work_ids, err := client.Get_current_work(true)
+		current_work_ids, err := client.Current_work.Get_list(true)
 		if err != nil {
 			return err
 		}
 		for _, work_id := range current_work_ids {
-			_ = client.Current_work_delete(work_id.String(), true)
+			_ = client.Current_work.Delete(work_id, true)
 		}
 
-		work_length, err = client.Current_work_length(true)
+		work_length, err = client.Current_work.Length(true)
 		if err != nil {
 			return err
 		}
@@ -483,7 +483,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 
 	defer func() {
 		//done, remove from the workQueue
-		err = qm.workQueue.Delete(workid_string)
+		err = qm.workQueue.Delete(workid)
 		if err != nil {
 			return
 		}
@@ -606,7 +606,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	if !ok {
 		return fmt.Errorf("(handleNoticeWorkDelivered) client not found")
 	}
-	defer RemoveWorkFromClient(client, clientid, workid)
+	defer RemoveWorkFromClient(client, clientid, id)
 
 	// *** Get Task
 	task, tok, err := qm.TaskMap.Get(task_id, true)
@@ -616,12 +616,12 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	if !tok {
 		//task not existed, possible when job is deleted before the workunit done
 		logger.Error("Task %s for workunit %s not found", task_id, workid)
-		qm.workQueue.Delete(workid)
+		qm.workQueue.Delete(id)
 		return fmt.Errorf("(handleNoticeWorkDelivered) task %s for workunit %s not found", task_id, workid)
 	}
 
 	// *** Get workunit
-	work, wok, err := qm.workQueue.Get(workid)
+	work, wok, err := qm.workQueue.Get(id)
 	if err != nil {
 		return err
 	}
@@ -633,7 +633,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	}
 
 	// *** update state of workunit
-	if err = qm.workQueue.StatusChange("", work, status); err != nil {
+	if err = qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, status); err != nil {
 		return err
 	}
 
@@ -659,7 +659,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		// A work unit for this task failed before this one arrived.
 		// User set Skip=2 so the task was just skipped. Any subsiquent
 		// workunits are just deleted...
-		qm.workQueue.Delete(workid)
+		qm.workQueue.Delete(id)
 		return fmt.Errorf("(handleNoticeWorkDelivered) workunit %s failed due to skip", workid)
 	}
 
@@ -673,7 +673,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s) workid=%s clientid=%s", status, workid, clientid)
 		work.Failed += 1
 
-		qm.workQueue.StatusChange(workid, work, WORK_STAT_FAILED_PERMANENT)
+		qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_FAILED_PERMANENT)
 
 		if err = task.SetState(TASK_STAT_FAILED_PERMANENT); err != nil {
 			return err
@@ -697,11 +697,11 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		work.Failed += 1
 
 		if work.Failed < MAX_FAILURE {
-			qm.workQueue.StatusChange(workid, work, WORK_STAT_QUEUED)
+			qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_QUEUED)
 			logger.Event(event.WORK_REQUEUE, "workid="+workid)
 		} else {
 			//failure time exceeds limit, suspend workunit, task, job
-			qm.workQueue.StatusChange(workid, work, WORK_STAT_SUSPEND)
+			qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_SUSPEND)
 			logger.Event(event.WORK_SUSPEND, "workid="+workid)
 
 			if err = task.SetState(TASK_STAT_SUSPEND); err != nil {
@@ -730,7 +730,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		if !ok {
 			return fmt.Errorf(e.ClientNotFound)
 		}
-		if err = client.Append_Skip_work(workid, true); err != nil {
+		if err = client.Append_Skip_work(id, true); err != nil {
 			return err
 		}
 		if err = client.Increment_total_failed(true); err != nil {
@@ -841,18 +841,16 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 			continue
 		}
 
-		busy, _ := client.IsBusy(false)
-		status := client.Status
-
-		client.RUnlockNamed(rlock)
-
-		if status == CLIENT_STAT_SUSPEND {
+		if client.Suspended {
 			suspend_client += 1
-		} else if busy {
+		}
+		if client.Busy {
 			busy_client += 1
 		} else {
 			idle_client += 1
 		}
+
+		client.RUnlockNamed(rlock)
 
 	}
 	elapsed = time.Since(start)
@@ -931,26 +929,29 @@ func (qm *ServerMgr) FetchDataToken(work_id Workunit_Unique_Identifier, clientid
 	if !ok {
 		return "", errors.New(e.ClientNotFound)
 	}
-	client_status, err := client.Get_Status(true)
+
+	is_suspended, err := client.Get_Suspended(true)
 	if err != nil {
 		return
 	}
-	if client_status == CLIENT_STAT_SUSPEND {
-		return "", errors.New(e.ClientSuspended)
+
+	if is_suspended {
+		err = errors.New(e.ClientSuspended)
+		return
 	}
 
 	jobid := work_id.JobId
 
 	job, err := GetJob(jobid)
 	if err != nil {
-		return "", err
+		return
 	}
 	token = job.GetDataToken()
 	if token == "" {
 		err = errors.New("no data token set for workunit " + work_id.String())
 		return
 	}
-	return token, nil
+	return
 }
 
 // func (qm *ServerMgr) FetchPrivateEnvs_deprecated(workid string, clientid string) (envs map[string]string, err error) {
@@ -1869,7 +1870,7 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 
 	// update all workunits
 	for _, workunit := range workunit_list {
-		workid := workunit.Id
+		workid := workunit.Workunit_Unique_Identifier
 		parentid := workunit.JobId
 		//parentid, _ := GetJobIdByWorkId(workid)
 		if jobid == parentid {
@@ -1930,7 +1931,7 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 		//parentid, _ := GetJobIdByWorkId(workid)
 		if jobid == workunit_jobid {
 
-			qm.workQueue.Delete(workid.String())
+			qm.workQueue.Delete(workid)
 		}
 	}
 	//delete parsed tasks
@@ -2478,26 +2479,22 @@ func (qm *ServerMgr) FetchPrivateEnv(id Workunit_Unique_Identifier, clientid str
 	if !ok {
 		return env, errors.New(e.ClientNotFound)
 	}
-	client_status, err := client.Get_Status(true)
+
+	is_suspended, err := client.Get_Suspended(true)
 	if err != nil {
 		return
 	}
-	if client_status == CLIENT_STAT_SUSPEND {
-		return env, errors.New(e.ClientSuspended)
+	if is_suspended {
+		err = errors.New(e.ClientSuspended)
+		return
 	}
 	jobid := id.JobId
 	taskid := id.TaskId
-	//job, err := GetJob(jobid)
-	//if err != nil {
-	//	return env, err
-	//}
-
-	//env = job.GetPrivateEnv(taskid)
 
 	env, err = dbGetPrivateEnv(jobid, taskid)
 	if err != nil {
 		return
 	}
 
-	return env, nil
+	return
 }

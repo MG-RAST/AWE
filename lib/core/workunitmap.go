@@ -2,11 +2,11 @@ package core
 
 type WorkunitMap struct {
 	RWMutex
-	Map map[string]*Workunit
+	Map map[Workunit_Unique_Identifier]*Workunit
 }
 
 func NewWorkunitMap() *WorkunitMap {
-	return &WorkunitMap{Map: map[string]*Workunit{}}
+	return &WorkunitMap{Map: map[Workunit_Unique_Identifier]*Workunit{}}
 }
 
 func (wm *WorkunitMap) Len() (length int, err error) {
@@ -25,11 +25,11 @@ func (wm *WorkunitMap) Set(workunit *Workunit) (err error) {
 		return
 	}
 	defer wm.Unlock()
-	wm.Map[workunit.Id] = workunit
+	wm.Map[workunit.Workunit_Unique_Identifier] = workunit
 	return
 }
 
-func (wm *WorkunitMap) Get(id string) (workunit *Workunit, ok bool, err error) {
+func (wm *WorkunitMap) Get(id Workunit_Unique_Identifier) (workunit *Workunit, ok bool, err error) {
 	rlock, err := wm.RLockNamed("WorkunitMap/Get")
 	if err != nil {
 		return
@@ -53,7 +53,7 @@ func (wm *WorkunitMap) GetWorkunits() (workunits []*Workunit, err error) {
 	return
 }
 
-func (wm *WorkunitMap) Delete(id string) (err error) {
+func (wm *WorkunitMap) Delete(id Workunit_Unique_Identifier) (err error) {
 	err = wm.LockNamed("WorkunitMap/Delete")
 	if err != nil {
 		return

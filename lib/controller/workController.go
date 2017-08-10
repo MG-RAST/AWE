@@ -157,7 +157,12 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	}
 
 	// Base case respond with workunit in json
-	workunit, err := core.QMgr.GetWorkById(id)
+	id_wui, err := core.New_Workunit_Unique_Identifier(id)
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+	workunit, err := core.QMgr.GetWorkById(id_wui)
 	if err != nil {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return

@@ -49,14 +49,14 @@ func (wq *WorkQueue) Add(workunit *Workunit) (err error) {
 	if err != nil {
 		return
 	}
-	err = wq.StatusChange("", workunit, WORK_STAT_QUEUED)
+	err = wq.StatusChange(Workunit_Unique_Identifier{}, workunit, WORK_STAT_QUEUED)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (wq *WorkQueue) Get(id string) (w *Workunit, ok bool, err error) {
+func (wq *WorkQueue) Get(id Workunit_Unique_Identifier) (w *Workunit, ok bool, err error) {
 	w, ok, err = wq.all.Get(id)
 	return
 }
@@ -87,7 +87,7 @@ func (wq *WorkQueue) Clean() (workunits []*Workunit) {
 		return
 	}
 	for _, work := range workunt_list {
-		id := work.Id
+		id := work.Workunit_Unique_Identifier
 		if work == nil || work.Info == nil {
 			workunits = append(workunits, work)
 			wq.Queue.Delete(id)
@@ -100,7 +100,7 @@ func (wq *WorkQueue) Clean() (workunits []*Workunit) {
 	return
 }
 
-func (wq *WorkQueue) Delete(id string) (err error) {
+func (wq *WorkQueue) Delete(id Workunit_Unique_Identifier) (err error) {
 	err = wq.Queue.Delete(id)
 	if err != nil {
 		return
@@ -121,14 +121,14 @@ func (wq *WorkQueue) Delete(id string) (err error) {
 
 }
 
-func (wq *WorkQueue) Has(id string) (has bool, err error) {
+func (wq *WorkQueue) Has(id Workunit_Unique_Identifier) (has bool, err error) {
 	_, has, err = wq.all.Get(id)
 	return
 }
 
 //--------end of accessors-------
 
-func (wq *WorkQueue) StatusChange(id string, workunit *Workunit, new_status string) (err error) {
+func (wq *WorkQueue) StatusChange(id Workunit_Unique_Identifier, workunit *Workunit, new_status string) (err error) {
 	//move workunit id between maps. no need to care about the old status because
 	//delete function will do nothing if the operated map has no such key.
 
@@ -139,7 +139,7 @@ func (wq *WorkQueue) StatusChange(id string, workunit *Workunit, new_status stri
 			return
 		}
 		if !ok {
-			return errors.New("WQueue.statusChange: invalid workunit id:" + id)
+			return errors.New("WQueue.statusChange: invalid workunit id:" + id.String())
 		}
 	}
 

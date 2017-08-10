@@ -6,6 +6,11 @@ type WorkunitList struct {
 	Data    []string                            `bson:"data" json:"data"`
 }
 
+func NewWorkunitList() *WorkunitList {
+	return &WorkunitList{_map: make(map[Workunit_Unique_Identifier]bool)}
+
+}
+
 // lock always
 func (cl *WorkunitList) Add(workid Workunit_Unique_Identifier) (err error) {
 
@@ -16,8 +21,8 @@ func (cl *WorkunitList) Add(workid Workunit_Unique_Identifier) (err error) {
 	defer cl.Unlock()
 
 	cl._map[workid] = true
-	cl.Update_assigned_work(false)
-	cl.Total_checkout += 1
+	cl.sync()
+	//cl.Total_checkout += 1  TODO ****************************************************************************************************************************************************************************************
 	return
 }
 
@@ -41,7 +46,7 @@ func (cl *WorkunitList) Delete(workid Workunit_Unique_Identifier, write_lock boo
 		defer cl.Unlock()
 	}
 	delete(cl._map, workid)
-	cl.Update_assigned_work(false)
+	cl.sync()
 	return
 }
 
@@ -52,6 +57,7 @@ func (cl *WorkunitList) Delete_all(workid string, write_lock bool) (err error) {
 	}
 
 	cl._map = make(map[Workunit_Unique_Identifier]bool)
+	cl.sync()
 
 	return
 }
@@ -61,7 +67,7 @@ func (cl *WorkunitList) Has(workid Workunit_Unique_Identifier) (ok bool, err err
 	err = cl.LockNamed("Assigned_work_has")
 	defer cl.Unlock()
 
-	_, ok = cl._assigned_work_map[workid]
+	_, ok = cl._map[workid]
 
 	return
 }
@@ -83,8 +89,8 @@ func (cl *WorkunitList) Get_list(do_read_lock bool) (assigned_work_ids []Workuni
 	return
 }
 
-func (cl *WorkunitList) Get_string_list(do_read_lock bool) (assigned_work_ids []string, err error) {
-	assigned_work_ids = []Workunit_Unique_Identifier{}
+func (cl *WorkunitList) Get_string_list(do_read_lock bool) (work_ids []string, err error) {
+	work_ids = []string{}
 	if do_read_lock {
 		read_lock, xerr := cl.RLockNamed("Get_assigned_work")
 		if xerr != nil {
@@ -95,7 +101,7 @@ func (cl *WorkunitList) Get_string_list(do_read_lock bool) (assigned_work_ids []
 	}
 	for id, _ := range cl._map {
 
-		assigned_work_ids = append(assigned_work_ids, id.String)
+		work_ids = append(work_ids, id.String())
 	}
 	return
 }

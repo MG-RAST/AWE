@@ -65,7 +65,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	}
 
 	//log event about client registration (CR)
-	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.Id+";name="+client.Name+";host="+client.Host+";group="+client.Group+";instance_id="+client.InstanceId+";instance_type="+client.InstanceType+";domain="+client.Domain)
+	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.Id+";host="+client.Host+";group="+client.Group+";instance_id="+client.InstanceId+";instance_type="+client.InstanceType+";domain="+client.Domain)
 
 	rlock, err := client.RLockNamed("ClientController/Create")
 	if err != nil {
@@ -179,7 +179,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 
 	if query.Has("busy") {
 		for _, client := range clients {
-			work_length, err := client.Current_work_length(true)
+			work_length, err := client.Current_work.Length(true)
 			if err != nil {
 				continue
 			}
@@ -195,7 +195,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 		}
 	} else if query.Has("status") {
 		for _, client := range clients {
-			status, xerr := client.Get_Status(false)
+			status, xerr := client.Get_New_Status(false)
 			if xerr != nil {
 				continue
 			}
@@ -308,7 +308,10 @@ func (cr *ClientController) UpdateMany(cx *goweb.Context) {
 		return
 	}
 	if query.Has("suspendall") { //resume the suspended client
-		num := core.QMgr.SuspendAllClientsByUser(u)
+		num, err := core.QMgr.SuspendAllClientsByUser(u)
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		}
 		cx.RespondWithData(fmt.Sprintf("%d clients suspended", num))
 		return
 	}
@@ -319,29 +322,30 @@ func (cr *ClientController) UpdateMany(cx *goweb.Context) {
 // DELETE: /client/{id}
 func (cr *ClientController) Delete(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
+	cx.RespondWithErrorMessage("this functionality has been removed from AWE", http.StatusBadRequest)
 
 	// Try to authenticate user.
-	u, err := request.Authenticate(cx.Request)
-	if err != nil && err.Error() != e.NoAuth {
-		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
-		return
-	}
+	//u, err := request.Authenticate(cx.Request)
+	//if err != nil && err.Error() != e.NoAuth {
+	//	cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+	//	return
+	//}
 
 	// If no auth was provided, and anonymous read is allowed, use the public user
-	if u == nil {
-		if conf.ANON_DELETE == true {
-			u = &user.User{Uuid: "public"}
-		} else {
-			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
-			return
-		}
-	}
+	//if u == nil {
+	//	if conf.ANON_DELETE == true {
+	//		u = &user.User{Uuid: "public"}
+	//	} else {
+	//		cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+	//		return
+	//	}
+	//}
 
-	if err := core.QMgr.DeleteClientByUser(id, u); err != nil {
-		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-	} else {
-		cx.RespondWithData("client deleted")
-	}
+	//if err := core.QMgr.DeleteClientByUser(id, u); err != nil {
+	//	cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+	//} else {
+	//	cx.RespondWithData("client deleted")
+	//}
 	return
 }
 

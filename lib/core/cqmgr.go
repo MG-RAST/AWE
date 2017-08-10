@@ -1072,7 +1072,7 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err err
 //}
 
 //handle feedback from a client about the execution of a workunit
-func (qm *CQMgr) handleWorkStatusChange(notice Notice) (err error) {
+func (qm *CQMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	//to be implemented for proxy or server
 	return
 }

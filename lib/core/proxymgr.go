@@ -58,8 +58,8 @@ func (qm *ProxyMgr) ClientHandle() {
 			coReq.response <- ack
 		case notice := <-qm.feedback:
 			logger.Debug(2, fmt.Sprintf("proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
-			if err := qm.handleWorkStatusChange(notice); err != nil {
-				logger.Error("handleWorkStatusChange(): " + err.Error())
+			if err := qm.handleNoticeWorkDelivered(notice); err != nil {
+				logger.Error("handleNoticeWorkDelivered(): " + err.Error())
 			}
 		}
 	}
@@ -99,7 +99,7 @@ func (qm *ProxyMgr) GetTextStatus() string {
 // workunit methods
 
 //handle feedback from a client about the execution of a workunit
-func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
+func (qm *ProxyMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	//relay the notice to the server
 	perf := new(WorkPerf)
 	workid := notice.WorkId.String()
@@ -110,7 +110,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	}
 	if ok {
 		//delete(client.Current_work, workid)
-		client.LockNamed("ProxyMgr/handleWorkStatusChange A2")
+		client.LockNamed("ProxyMgr/handleNoticeWorkDelivered A2")
 		err = client.Current_work_delete(workid, false)
 		if err != nil {
 			return
@@ -153,7 +153,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 				return
 			}
 			if ok {
-				client.LockNamed("ProxyMgr/handleWorkStatusChange B")
+				client.LockNamed("ProxyMgr/handleNoticeWorkDelivered B")
 				err = client.Append_Skip_work(workid, false)
 				if err != nil {
 					return

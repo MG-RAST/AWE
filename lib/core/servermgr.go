@@ -187,7 +187,7 @@ func (qm *ServerMgr) NoticeHandle() {
 	for {
 		notice := <-qm.feedback
 		logger.Debug(3, "(ServerMgr NoticeHandle) got notice: workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId)
-		if err := qm.handleWorkStatusChange(notice); err != nil {
+		if err := qm.handleNoticeWorkDelivered(notice); err != nil {
 			logger.Error("(NoticeHandle): " + err.Error())
 		}
 	}
@@ -574,7 +574,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 }
 
 //handle feedback from a client about the execution of a workunit
-func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
+func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 
 	id := notice.WorkId
 	task_id := id.GetTask()
@@ -586,11 +586,11 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 	computetime := notice.ComputeTime
 	notes := notice.Notes
 
-	logger.Debug(3, "(handleWorkStatusChange) workid: %s status: %s client: %s", workid, status, clientid)
+	logger.Debug(3, "(handleNoticeWorkDelivered) workid: %s status: %s client: %s", workid, status, clientid)
 
 	// we should not get here, but if we do than end
 	if status == WORK_STAT_DISCARDED {
-		logger.Error("(handleWorkStatusChange) [warning] skip status change: workid=%s status=%s", workid, status)
+		logger.Error("(handleNoticeWorkDelivered) [warning] skip status change: workid=%s status=%s", workid, status)
 		return
 	}
 
@@ -604,7 +604,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return
 	}
 	if !ok {
-		return fmt.Errorf("(handleWorkStatusChange) client not found")
+		return fmt.Errorf("(handleNoticeWorkDelivered) client not found")
 	}
 	defer RemoveWorkFromClient(client, clientid, workid)
 
@@ -617,7 +617,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		//task not existed, possible when job is deleted before the workunit done
 		logger.Error("Task %s for workunit %s not found", task_id, workid)
 		qm.workQueue.Delete(workid)
-		return fmt.Errorf("(handleWorkStatusChange) task %s for workunit %s not found", task_id, workid)
+		return fmt.Errorf("(handleNoticeWorkDelivered) task %s for workunit %s not found", task_id, workid)
 	}
 
 	// *** Get workunit
@@ -626,10 +626,10 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return err
 	}
 	if !wok {
-		return fmt.Errorf("(handleWorkStatusChange) workunit %s not found in workQueue", workid)
+		return fmt.Errorf("(handleNoticeWorkDelivered) workunit %s not found in workQueue", workid)
 	}
 	if work.State != WORK_STAT_CHECKOUT && work.State != WORK_STAT_RESERVED {
-		return fmt.Errorf("(handleWorkStatusChange) workunit %s did not have state WORK_STAT_CHECKOUT or WORK_STAT_RESERVED (state is %s)", workid, work.State)
+		return fmt.Errorf("(handleNoticeWorkDelivered) workunit %s did not have state WORK_STAT_CHECKOUT or WORK_STAT_RESERVED (state is %s)", workid, work.State)
 	}
 
 	// *** update state of workunit
@@ -637,7 +637,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return err
 	}
 
-	if err = task.LockNamed("handleWorkStatusChange/noretry"); err != nil {
+	if err = task.LockNamed("handleNoticeWorkDelivered/noretry"); err != nil {
 		return err
 	}
 	noretry := task.Info.NoRetry
@@ -660,17 +660,17 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 		// User set Skip=2 so the task was just skipped. Any subsiquent
 		// workunits are just deleted...
 		qm.workQueue.Delete(workid)
-		return fmt.Errorf("(handleWorkStatusChange) workunit %s failed due to skip", workid)
+		return fmt.Errorf("(handleNoticeWorkDelivered) workunit %s failed due to skip", workid)
 	}
 
-	logger.Debug(3, "(handleWorkStatusChange) handling status %s", status)
+	logger.Debug(3, "(handleNoticeWorkDelivered) handling status %s", status)
 	if status == WORK_STAT_DONE {
 		if err = qm.handleWorkStatDone(client, clientid, task, id, computetime); err != nil {
 			return err
 		}
 	} else if status == WORK_STAT_FAILED_PERMANENT { // (special case !) failed and cannot be recovered
 		logger.Event(event.WORK_FAILED, "workid="+workid+";clientid="+clientid)
-		logger.Debug(3, "(handleWorkStatusChange) work failed (status=%s) workid=%s clientid=%s", status, workid, clientid)
+		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s) workid=%s clientid=%s", status, workid, clientid)
 		work.Failed += 1
 
 		qm.workQueue.StatusChange(workid, work, WORK_STAT_FAILED_PERMANENT)
@@ -689,11 +689,11 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 			Status:       JOB_STAT_FAILED_PERMANENT,
 		}
 		if err = qm.SuspendJob(job_id, jerror); err != nil {
-			logger.Error("(handleWorkStatusChange:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
+			logger.Error("(handleNoticeWorkDelivered:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
 		}
 	} else if status == WORK_STAT_ERROR { //workunit failed, requeue or put it to suspend list
 		logger.Event(event.WORK_FAIL, "workid="+workid+";clientid="+clientid)
-		logger.Debug(3, "(handleWorkStatusChange) work failed (status=%s) workid=%s clientid=%s", status, workid, clientid)
+		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s) workid=%s clientid=%s", status, workid, clientid)
 		work.Failed += 1
 
 		if work.Failed < MAX_FAILURE {
@@ -718,7 +718,7 @@ func (qm *ServerMgr) handleWorkStatusChange(notice Notice) (err error) {
 				Status:       JOB_STAT_SUSPEND,
 			}
 			if err = qm.SuspendJob(job_id, jerror); err != nil {
-				logger.Error("(handleWorkStatusChange:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
+				logger.Error("(handleNoticeWorkDelivered:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
 			}
 		}
 

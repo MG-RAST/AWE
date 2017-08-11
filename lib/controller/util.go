@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/request"
+	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
 	"io"
 	"math/rand"
@@ -309,5 +312,50 @@ func RespondPrivateEnvInHeader(cx *goweb.Context, Envs map[string]string) (err e
 	}
 	cx.ResponseWriter.Header().Set("Privateenv", string(env_stream[:]))
 	cx.Respond(nil, http.StatusOK, nil, cx)
+	return
+}
+
+func GetAuthorizedUser(cx *goweb.Context) (u *user.User, done bool) {
+	// Try to authenticate user.
+
+	done = false
+
+	u, err := request.Authenticate(cx.Request)
+	if err != nil && err.Error() != e.NoAuth {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+		done = true
+		return
+	}
+
+	// If no auth was provided, and anonymous read is allowed, use the public user
+	if u == nil {
+		if conf.ANON_WRITE == true {
+			u = &user.User{Uuid: "public"}
+		} else {
+			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+			done = true
+			return
+		}
+	}
+	return
+}
+
+func GetClientGroup(cx *goweb.Context) (cg *core.ClientGroup, done bool) {
+	done = false
+	cg, err := request.AuthenticateClientGroup(cx.Request)
+	if err != nil {
+		if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
+			if conf.CLIENT_AUTH_REQ == true {
+				cx.RespondWithError(http.StatusUnauthorized)
+				done = true
+				return
+			}
+		} else {
+			logger.Error("Err@AuthenticateClientGroup: " + err.Error())
+			cx.RespondWithError(http.StatusInternalServerError)
+			done = true
+			return
+		}
+	}
 	return
 }

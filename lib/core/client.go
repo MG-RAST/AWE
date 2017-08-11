@@ -18,7 +18,8 @@ import (
 type Client struct {
 	coAckChannel    chan CoAck `bson:"-" json:"-"` //workunit checkout item including data and err (qmgr.Handler -> WorkController)
 	RWMutex         `bson:"-" json:"-"`
-	ClientReports   `bson:",inline" json:",inline"`
+	WorkerRuntime   `bson:",inline" json:",inline"`
+	WorkerState     `bson:",inline" json:",inline"`
 	RegTime         time.Time `bson:"regtime" json:"regtime"`
 	LastCompleted   time.Time `bson:"lastcompleted" json:"lastcompleted"` // time of last time a job was completed (can be used to compute idle time)
 	Serve_time      string    `bson:"serve_time" json:"serve_time"`
@@ -38,23 +39,32 @@ type Client struct {
 	Assigned_work *WorkunitList `bson:"assigned_work" json:"assigned_work"` // this is for exporting into json
 }
 
-type ClientReports struct {
-	Id            string        `bson:"id" json:"id"`     // this is a uuid (the only relevant identifier)
-	Name          string        `bson:"name" json:"name"` // this can be anything you want
-	Group         string        `bson:"group" json:"group"`
-	User          string        `bson:"user" json:"user"`
-	Domain        string        `bson:"domain" json:"domain"`
-	Busy          bool          `bson:"busy" json:"busy"`
-	InstanceId    string        `bson:"instance_id" json:"instance_id"`     // Openstack specific
-	InstanceType  string        `bson:"instance_type" json:"instance_type"` // Openstack specific
-	Host          string        `bson:"host" json:"host"`                   // deprecated
-	Hostname      string        `bson:"hostname" json:"hostname"`
-	Host_ip       string        `bson:"host_ip" json:"host_ip"` // Host can be physical machine or VM, whatever is helpful for management
-	CPUs          int           `bson:"cores" json:"cores"`
-	Apps          []string      `bson:"apps" json:"apps"`
-	Current_work  *WorkunitList `bson:"current_work" json:"current_work"`
-	GitCommitHash string        `bson:"git_commit_hash" json:"git_commit_hash"`
-	Version       string        `bson:"version" json:"version"`
+// worker info that does not change at runtime
+type WorkerRuntime struct {
+	Id            string   `bson:"id" json:"id"`     // this is a uuid (the only relevant identifier)
+	Name          string   `bson:"name" json:"name"` // this can be anything you want
+	Group         string   `bson:"group" json:"group"`
+	User          string   `bson:"user" json:"user"`
+	Domain        string   `bson:"domain" json:"domain"`
+	InstanceId    string   `bson:"instance_id" json:"instance_id"`     // Openstack specific
+	InstanceType  string   `bson:"instance_type" json:"instance_type"` // Openstack specific
+	Host          string   `bson:"host" json:"host"`                   // deprecated
+	Hostname      string   `bson:"hostname" json:"hostname"`
+	Host_ip       string   `bson:"host_ip" json:"host_ip"` // Host can be physical machine or VM, whatever is helpful for management
+	CPUs          int      `bson:"cores" json:"cores"`
+	Apps          []string `bson:"apps" json:"apps"`
+	GitCommitHash string   `bson:"git_commit_hash" json:"git_commit_hash"`
+	Version       string   `bson:"version" json:"version"`
+}
+
+// changes at runtime
+type WorkerState struct {
+	Busy         bool          `bson:"busy" json:"busy"`
+	Current_work *WorkunitList `bson:"current_work" json:"current_work"`
+}
+
+func NewWorkerState() *WorkerState {
+	return &WorkerState{Current_work: NewWorkunitList()}
 }
 
 // invoked by NewClient or manually after unmarshalling
@@ -77,13 +87,10 @@ func (client *Client) Init() {
 	if client.Skip_work == nil {
 		client.Skip_work = []string{}
 	}
-	if client.Assigned_work == nil {
-		client.Assigned_work = NewWorkunitList()
-	}
 
-	if client.Assigned_work == nil {
-		client.Current_work = NewWorkunitList()
-	}
+	client.Assigned_work.Init("Assigned_work")
+
+	client.Current_work.Init("Current_work")
 
 }
 
@@ -92,11 +99,13 @@ func NewClient() (client *Client) {
 		Total_checkout:  0,
 		Total_completed: 0,
 		Total_failed:    0,
+		Serve_time:      "0",
+		Last_failed:     0,
+		Status:          "offline",
+		Assigned_work:   NewWorkunitList(),
 
-		Serve_time:    "0",
-		Last_failed:   0,
-		Status:        "offline",
-		ClientReports: ClientReports{},
+		WorkerRuntime: WorkerRuntime{},
+		WorkerState:   *NewWorkerState(),
 	}
 
 	client.Init()

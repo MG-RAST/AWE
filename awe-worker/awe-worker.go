@@ -78,7 +78,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	var self *core.Client
+	core.SetClientProfile(profile)
+	self := core.Self
+	//var self *core.Client
 	if worker.Client_mode == "online" {
 		if conf.SERVER_URL == "" {
 			fmt.Fprintf(os.Stderr, "AWE server url not configured or is empty. Please check the [Client]serverurl field in the configuration file.\n")
@@ -89,20 +91,17 @@ func main() {
 			os.Exit(1)
 		}
 
-		self, err = worker.RegisterWithAuth(conf.SERVER_URL, profile)
+		err = worker.RegisterWithAuth(conf.SERVER_URL, profile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "fail to register: %s\n", err.Error())
 			logger.Error("fail to register: %s\n", err.Error())
 			os.Exit(1)
 		}
 
-	} else {
-		self = core.NewClient()
 	}
 
-	core.SetClientProfile(self)
 	if worker.Client_mode == "online" {
-		fmt.Printf("Client registered, name=%s, id=%s\n", self.Name, self.Id)
+		fmt.Printf("Client registered, name=%s, id=%s\n", self.WorkerRuntime.Name, self.Id)
 		logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)
 	}
 
@@ -148,7 +147,7 @@ func main() {
 
 		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL.CWL_tool_filename, workunit.CWL.Job_input_filename}
 
-		workunit.WorkPerf = core.NewWorkPerf(workunit.Id)
+		workunit.WorkPerf = core.NewWorkPerf()
 		workunit.WorkPerf.Checkout = time.Now().Unix()
 
 		logger.Debug(1, "injecting cwl job into worker...")

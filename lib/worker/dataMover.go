@@ -192,12 +192,14 @@ func dataMover(control chan int) {
 		//}
 		//work := raw.Workunit
 
-		workmap.Set(workunit.Id, ID_DATAMOVER, "dataMover")
+		work_id := workunit.Workunit_Unique_Identifier
+
+		workmap.Set(work_id, ID_DATAMOVER, "dataMover")
 
 		if conf.CWL_TOOL == "" {
 			//make a working directory for the workunit (not for commandline execution !!!!!!)
 			if err := workunit.Mkdir(); err != nil {
-				logger.Error("[dataMover#workunit.Mkdir], workid=" + workunit.Id + " error=" + err.Error())
+				logger.Error("[dataMover#workunit.Mkdir], workid=" + work_id.String() + " error=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[dataMover#work.Mkdir]"+err.Error())
 				workunit.SetState(core.WORK_STAT_ERROR)
 				//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -208,7 +210,7 @@ func dataMover(control chan int) {
 		if conf.CWL_TOOL == "" {
 			//run the PreWorkExecutionScript
 			if err := runPreWorkExecutionScript(workunit); err != nil {
-				logger.Error("[dataMover#runPreWorkExecutionScript], workid=" + workunit.Id + " error=" + err.Error())
+				logger.Error("[dataMover#runPreWorkExecutionScript], workid=" + work_id.String() + " error=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[dataMover#runPreWorkExecutionScript]"+err.Error())
 				workunit.SetState(core.WORK_STAT_ERROR)
 				//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -221,7 +223,7 @@ func dataMover(control chan int) {
 			//check the availability prerequisite data and download if needed
 			predatamove_start := time.Now().UnixNano()
 			if moved_data, err := movePreData(workunit); err != nil {
-				logger.Error("[dataMover#movePreData], workid=" + workunit.Id + " error=" + err.Error())
+				logger.Error("[dataMover#movePreData], workid=" + work_id.String() + " error=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[dataMover#movePreData]"+err.Error())
 				workunit.SetState(core.WORK_STAT_ERROR)
 				//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -239,7 +241,7 @@ func dataMover(control chan int) {
 		//parse the args, replacing @input_name to local file path (file not downloaded yet)
 
 		if err := ParseWorkunitArgs(workunit); err != nil {
-			logger.Error("err@dataMover.ParseWorkunitArgs, workid=" + workunit.Id + " error=" + err.Error())
+			logger.Error("err@dataMover.ParseWorkunitArgs, workid=" + work_id.String() + " error=" + err.Error())
 			workunit.Notes = append(workunit.Notes, "[dataMover#ParseWorkunitArgs]"+err.Error())
 			workunit.SetState(core.WORK_STAT_ERROR)
 			//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -252,7 +254,7 @@ func dataMover(control chan int) {
 
 			datamove_start := time.Now().UnixNano()
 			if moved_data, err := cache.MoveInputData(workunit); err != nil {
-				logger.Error("err@dataMover.MoveInputData, workid=" + workunit.Id + " error=" + err.Error())
+				logger.Error("err@dataMover.MoveInputData, workid=" + work_id.String() + " error=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[dataMover#MoveInputData]"+err.Error())
 				workunit.SetState(core.WORK_STAT_ERROR)
 				//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -316,7 +318,7 @@ func dataMover(control chan int) {
 			if len(user_attr) > 0 {
 				attr_json, _ := json.Marshal(user_attr)
 				if err := ioutil.WriteFile(fmt.Sprintf("%s/userattr.json", workunit.Path()), attr_json, 0644); err != nil {
-					logger.Error("err@dataMover_work.getUserAttr, workid=" + workunit.Id + " error=" + err.Error())
+					logger.Error("err@dataMover_work.getUserAttr, workid=" + work_id.String() + " error=" + err.Error())
 					workunit.Notes = append(workunit.Notes, "[dataMover#getUserAttr]"+err.Error())
 					workunit.SetState(core.WORK_STAT_ERROR)
 					//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -337,11 +339,11 @@ func proxyDataMover(control chan int) {
 
 	for {
 		workunit := <-FromStealer
-
-		workmap.Set(workunit.Id, ID_DATAMOVER, "proxyDataMover")
+		work_id := workunit.Workunit_Unique_Identifier
+		workmap.Set(work_id, ID_DATAMOVER, "proxyDataMover")
 		//check the availability prerequisite data and download if needed
 		if err := proxyMovePreData(workunit); err != nil {
-			logger.Error("err@dataMover_work.movePreData, workid=" + workunit.Id + " error=" + err.Error())
+			logger.Error("err@dataMover_work.movePreData, workid=" + work_id.String() + " error=" + err.Error())
 			workunit.Notes = append(workunit.Notes, "[dataMover#proxyMovePreData]"+err.Error())
 			workunit.SetState(core.WORK_STAT_ERROR)
 		}

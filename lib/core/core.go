@@ -91,7 +91,7 @@ type FormFile struct {
 
 //heartbeat response from awe-server to awe-worker
 //used for issue operation request to client, e.g. discard suspended workunits
-type HBmsg map[string]string //map[op]obj1,obj2 e.g. map[discard]=work1,work2
+type HeartbeatInstructions map[string]string //map[op]obj1,obj2 e.g. map[discard]=work1,work2
 
 func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 

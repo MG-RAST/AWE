@@ -79,20 +79,23 @@ func workStealer(control chan int) {
 		} else {
 			retry = 0
 		}
-		logger.Debug(1, "(workStealer) checked out workunit, id="+workunit.Id)
-		//log event about work checktout (WC)
-		logger.Event(event.WORK_CHECKOUT, "workid="+workunit.Id)
 
-		err = core.Self.Add_work(workunit.Id)
+		work_id := workunit.Workunit_Unique_Identifier
+
+		logger.Debug(1, "(workStealer) checked out workunit, id="+work_id.String())
+		//log event about work checktout (WC)
+		logger.Event(event.WORK_CHECKOUT, "workid="+work_id.String())
+
+		err = core.Self.Current_work.Add(work_id)
 		if err != nil {
 			logger.Error("(workStealer) error: %s", err.Error())
 			return
 		}
 
-		workmap.Set(workunit.Id, ID_WORKSTEALER, "workStealer")
+		workmap.Set(work_id, ID_WORKSTEALER, "workStealer")
 
 		//hand the work to the next step handler: dataMover
-		workstat := core.NewWorkPerf(workunit.Id)
+		workstat := core.NewWorkPerf()
 		workstat.Checkout = time.Now().Unix()
 		//rawWork := &Mediumwork{
 		//	Workunit: wu,

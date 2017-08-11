@@ -6,7 +6,7 @@ import (
 
 type ClientMgr interface {
 	RegisterNewClient(FormFiles, *ClientGroup) (*Client, error)
-	ClientHeartBeat(string, *ClientGroup) (HBmsg, error)
+	ClientHeartBeat(string, *ClientGroup, WorkerState) (HeartbeatInstructions, error)
 	GetClient(string, bool) (*Client, bool, error)
 	GetClientByUser(string, *user.User) (*Client, error)
 	//GetAllClients() []*Client

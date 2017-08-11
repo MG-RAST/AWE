@@ -2,8 +2,8 @@ package core
 
 type WorkunitList struct {
 	RWMutex `bson:"-" json:"-"`
-	_map    map[Workunit_Unique_Identifier]bool `bson:"-" json:"-"`
-	Data    []string                            `bson:"data" json:"data"`
+	_map    map[Workunit_Unique_Identifier]bool `json:"-"`
+	Data    []string                            `json:"data"`
 }
 
 func NewWorkunitList() *WorkunitList {
@@ -73,7 +73,6 @@ func (cl *WorkunitList) Has(workid Workunit_Unique_Identifier) (ok bool, err err
 }
 
 func (cl *WorkunitList) Get_list(do_read_lock bool) (assigned_work_ids []Workunit_Unique_Identifier, err error) {
-	assigned_work_ids = []Workunit_Unique_Identifier{}
 	if do_read_lock {
 		read_lock, xerr := cl.RLockNamed("Get_assigned_work")
 		if xerr != nil {
@@ -82,6 +81,7 @@ func (cl *WorkunitList) Get_list(do_read_lock bool) (assigned_work_ids []Workuni
 		}
 		defer cl.RUnlockNamed(read_lock)
 	}
+	assigned_work_ids = []Workunit_Unique_Identifier{}
 	for id, _ := range cl._map {
 
 		assigned_work_ids = append(assigned_work_ids, id)

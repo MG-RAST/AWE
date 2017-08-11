@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
@@ -30,20 +31,10 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 
-	cg, err := request.AuthenticateClientGroup(cx.Request)
-	if err != nil {
-		if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
-			if conf.CLIENT_AUTH_REQ == true {
-				cx.RespondWithError(http.StatusUnauthorized)
-				return
-			}
-		} else {
-			logger.Error("Err@AuthenticateClientGroup: " + err.Error())
-			cx.RespondWithError(http.StatusInternalServerError)
-			return
-		}
+	cg, done := GetClientGroup(cx)
+	if done {
+		return
 	}
-
 	// Parse uploaded form
 
 	_, files, err := ParseMultipartForm(cx.Request)
@@ -75,37 +66,13 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	}
 	defer client.RUnlockNamed(rlock)
 	cx.RespondWithData(client)
+
 	return
 }
 
 // GET: /client/{id}
 func (cr *ClientController) Read(id string, cx *goweb.Context) {
 	// Gather query params
-	query := &Query{Li: cx.Request.URL.Query()}
-
-	if query.Has("heartbeat") { //handle heartbeat
-		cg, err := request.AuthenticateClientGroup(cx.Request)
-		if err != nil {
-			if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
-				if conf.CLIENT_AUTH_REQ == true {
-					cx.RespondWithError(http.StatusUnauthorized)
-					return
-				}
-			} else {
-				logger.Error("Err@AuthenticateClientGroup: " + err.Error())
-				cx.RespondWithError(http.StatusInternalServerError)
-				return
-			}
-		}
-
-		hbmsg, err := core.QMgr.ClientHeartBeat(id, cg)
-		if err != nil {
-			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-		} else {
-			cx.RespondWithData(hbmsg)
-		}
-		return
-	}
 
 	LogRequest(cx.Request) //skip heartbeat in access log
 
@@ -231,25 +198,48 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 func (cr *ClientController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 
-	// Try to authenticate user.
-	u, err := request.Authenticate(cx.Request)
-	if err != nil && err.Error() != e.NoAuth {
-		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
+
+	if query.Has("heartbeat") { //handle heartbeat
+
+		cg, done := GetClientGroup(cx)
+		if done {
+			return
+		}
+
+		const MAX_MEMORY = 1024
+
+		err := cx.Request.ParseMultipartForm(MAX_MEMORY)
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		worker_status_json := cx.Request.FormValue("worker_status")
+
+		worker_status := core.WorkerState{}
+		err = json.Unmarshal([]byte(worker_status_json), &worker_status)
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		hbmsg, err := core.QMgr.ClientHeartBeat(id, cg, worker_status)
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		} else {
+			cx.RespondWithData(hbmsg)
+		}
+		return
+
+	}
+
+	u, done := GetAuthorizedUser(cx)
+	if done {
 		return
 	}
 
-	// If no auth was provided, and anonymous read is allowed, use the public user
-	if u == nil {
-		if conf.ANON_WRITE == true {
-			u = &user.User{Uuid: "public"}
-		} else {
-			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
-			return
-		}
-	}
-
-	// Gather query params
-	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("subclients") { //update the number of subclients for a proxy
 		if count, err := strconv.Atoi(query.Value("subclients")); err != nil {
 			cx.RespondWithError(http.StatusNotImplemented)

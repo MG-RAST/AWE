@@ -63,13 +63,16 @@ func processor(control chan int) {
 		//}
 
 		//if the work is not succesfully parsed in last stage, pass it into the next one immediately
-		work_state, ok, xerr := workmap.Get(workunit.Id)
+
+		work_id := workunit.Workunit_Unique_Identifier
+
+		work_state, ok, xerr := workmap.Get(work_id)
 		if xerr != nil {
 			logger.Error("error: %s", xerr.Error())
 			continue
 		}
 		if !ok {
-			logger.Error("(processor) workunit.id %s not found", workunit.Id)
+			logger.Error("(processor) workunit.id %s not found", work_id.String())
 			continue
 		}
 		if workunit.State == core.WORK_STAT_ERROR || work_state == ID_DISCARDED {
@@ -87,7 +90,7 @@ func processor(control chan int) {
 			continue
 		}
 
-		workmap.Set(workunit.Id, ID_WORKER, "processor")
+		workmap.Set(work_id, ID_WORKER, "processor")
 
 		var err error
 		var envkeys []string
@@ -101,7 +104,7 @@ func processor(control chan int) {
 		if !wants_docker {
 			envkeys, err = SetEnv(workunit)
 			if err != nil {
-				logger.Error("(processor) SetEnv(): workid=" + workunit.Id + ", " + err.Error())
+				logger.Error("(processor) SetEnv(): workid=" + work_id.String() + ", " + err.Error())
 				workunit.Notes = append(workunit.Notes, "[processor#SetEnv]"+err.Error())
 				workunit.SetState(core.WORK_STAT_ERROR)
 				//release the permit lock, for work overlap inhibitted mode only
@@ -117,7 +120,7 @@ func processor(control chan int) {
 		exit_status := workunit.ExitStatus
 		logger.Debug(1, "(processor) ExitStatus of process: %d", exit_status)
 		if err != nil {
-			logger.Error("(processor) returned error , workid=" + workunit.Id + ", " + err.Error())
+			logger.Error("(processor) returned error , workid=" + work_id.String() + ", " + err.Error())
 			workunit.Notes = append(workunit.Notes, "[processor#RunWorkunit]"+err.Error())
 
 			if exit_status == 42 {
@@ -126,7 +129,7 @@ func processor(control chan int) {
 				workunit.SetState(core.WORK_STAT_ERROR)
 			}
 		} else {
-			logger.Debug(1, "(processor) RunWorkunit() returned without error, workid="+workunit.Id)
+			logger.Debug(1, "(processor) RunWorkunit() returned without error, workid="+work_id.String())
 			workunit.SetState(core.WORK_STAT_COMPUTED)
 			workunit.WorkPerf.MaxMemUsage = pstat.MaxMemUsage
 			workunit.WorkPerf.MaxMemoryTotalRss = pstat.MaxMemoryTotalRss

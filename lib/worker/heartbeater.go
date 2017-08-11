@@ -24,9 +24,9 @@ import (
 )
 
 type HeartbeatResponse struct {
-	Code int        `bson:"status" json:"status"`
-	Data core.HBmsg `bson:"data" json:"data"`
-	Errs []string   `bson:"error" json:"error"`
+	Code int                        `bson:"status" json:"status"`
+	Data core.HeartbeatInstructions `bson:"data" json:"data"`
+	Errs []string                   `bson:"error" json:"error"`
 }
 
 type ClientResponse struct {
@@ -42,7 +42,10 @@ func heartBeater(control chan int) {
 
 	for {
 		time.Sleep(10 * time.Second)
-		SendHeartBeat()
+		err := SendHeartBeat()
+		if err != nil {
+			logger.Error("SendHeartBeat returned: %s", err.Error())
+		}
 	}
 	control <- 2 //we are ending
 }
@@ -66,13 +69,19 @@ type Openstack_Metadata_meta struct {
 }
 
 //client sends heartbeat to server to maintain active status and re-register when needed
-func SendHeartBeat() {
+func SendHeartBeat() (err error) {
 	hbmsg, err := heartbeating(conf.SERVER_URL, core.Self.Id)
 	if err != nil {
-		if err.Error() == e.ClientNotFound {
-			ReRegisterWithSelf(conf.SERVER_URL)
-		}
 		logger.Debug(3, "(SendHeartBeat) heartbeat returned error: "+err.Error())
+		if err.Error() == e.ClientNotFound {
+			logger.Debug(3, "(SendHeartBeat) invoke ReRegisterWithSelf: ")
+			xerr := ReRegisterWithSelf(conf.SERVER_URL)
+			if xerr != nil {
+				err = fmt.Errorf("(SendHeartBeat) needed to register, but that failed: %s", xerr.Error())
+				return
+			}
+		}
+
 	}
 
 	val, ok := hbmsg["server-uuid"]
@@ -99,12 +108,17 @@ func SendHeartBeat() {
 		}
 	}
 
-	//handle requested ops from the server
+	//handle requested ops from the server (HeartbeatInstructions)
 	for op, objs := range hbmsg {
 		if op == "discard" { //discard suspended workunits
 			suspendedworks := strings.Split(objs, ",")
 			for _, work := range suspendedworks {
-				DiscardWorkunit(work)
+				work_id, xerr := core.New_Workunit_Unique_Identifier(work)
+				if xerr != nil {
+					err = xerr
+					return
+				}
+				DiscardWorkunit(work_id)
 			}
 		} else if op == "restart" {
 			RestartClient()
@@ -114,34 +128,63 @@ func SendHeartBeat() {
 			CleanDisk()
 		}
 	}
+	return
 }
 
-func heartbeating(host string, clientid string) (msg core.HBmsg, err error) {
+func heartbeating(host string, clientid string) (msg core.HeartbeatInstructions, err error) {
 	response := new(HeartbeatResponse)
 	targeturl := fmt.Sprintf("%s/client/%s?heartbeat", host, clientid)
 	//res, err := http.Get(targeturl)
-	var headers httpclient.Header
+
+	worker_state_b, err := json.Marshal(core.Self.WorkerState)
+	if err != nil {
+		err = fmt.Errorf("(heartbeating) json.Marshal failed: %s", err.Error())
+		return
+	}
+
+	form := httpclient.NewForm()
+
+	form.AddParam("worker_state", string(worker_state_b[:]))
+
+	form.Create()
+
+	//var headers httpclient.Header
+
+	headers := httpclient.Header{
+		"Content-Type":   []string{form.ContentType},
+		"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
+	}
+
 	if conf.CLIENT_GROUP_TOKEN != "" {
 		headers = httpclient.Header{
 			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
 		}
 	}
-	res, err := httpclient.Get(targeturl, headers, nil, nil)
-	logger.Debug(3, fmt.Sprintf("client %s sent a heartbeat to %s", host, clientid))
+
+	res, err := httpclient.Put(targeturl, headers, form.Reader, nil)
 	if err != nil {
+		err = fmt.Errorf("(heartbeating) httpclient.Put failed: %s", err.Error())
 		return
 	}
+	logger.Debug(3, fmt.Sprintf("client %s sent a heartbeat to %s", host, clientid))
+
 	defer res.Body.Close()
 	jsonstream, err := ioutil.ReadAll(res.Body)
 	if err != nil {
+		err = fmt.Errorf("(heartbeating) ioutil.ReadAll failed: %s", err.Error())
 		return
 	}
-	if err = json.Unmarshal(jsonstream, response); err == nil {
-		if len(response.Errs) > 0 {
-			return msg, errors.New(strings.Join(response.Errs, ","))
-		}
-		return response.Data, nil
+	err = json.Unmarshal(jsonstream, response)
+	if err != nil {
+		err = fmt.Errorf("(heartbeating) json.Unmarshal response failed: %s", err.Error())
+		return
 	}
+
+	if len(response.Errs) > 0 {
+		err = fmt.Errorf("(heartbeating) errors in response: %s ", strings.Join(response.Errs, ","))
+		return
+	}
+	msg = response.Data
 	return
 }
 
@@ -192,10 +235,10 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 }
 
 // invoked on start of AWE worker AND on ReRegisterWithSelf
-func RegisterWithAuth(host string, pclient *core.Client) (client *core.Client, err error) {
+func RegisterWithAuth(host string, pclient *core.Client) (err error) {
 	logger.Debug(3, "Try to register client")
 	if conf.CLIENT_GROUP_TOKEN == "" {
-		fmt.Println("clientgroup token not set, register as a public client (can only access public data)")
+		logger.Info("(RegisterWithAuth) clientgroup token not set, register as a public client (can only access public data)")
 	}
 
 	//serialize profile
@@ -207,9 +250,9 @@ func RegisterWithAuth(host string, pclient *core.Client) (client *core.Client, e
 	}
 
 	// write profile to file
-	logger.Debug(3, "client_jsonstream: %s ", string(client_jsonstream))
+	logger.Debug(3, "(RegisterWithAuth) client_jsonstream: %s ", string(client_jsonstream))
 	profile_path := conf.DATA_PATH + "/clientprofile.json"
-	logger.Debug(3, "profile_path: %s", profile_path)
+	logger.Debug(3, "(RegisterWithAuth) profile_path: %s", profile_path)
 	err = ioutil.WriteFile(profile_path, []byte(client_jsonstream), 0644)
 	if err != nil {
 		err = fmt.Errorf("(RegisterWithAuth) error in ioutil.WriteFile: %s", err.Error())
@@ -220,7 +263,7 @@ func RegisterWithAuth(host string, pclient *core.Client) (client *core.Client, e
 	form := httpclient.NewForm()
 	form.AddFile("profile", profile_path)
 	if err = form.Create(); err != nil {
-		err = fmt.Errorf("form.Create() error: %s", err.Error())
+		err = fmt.Errorf("(RegisterWithAuth) form.Create() error: %s", err.Error())
 		return
 	}
 	var headers httpclient.Header
@@ -243,36 +286,36 @@ func RegisterWithAuth(host string, pclient *core.Client) (client *core.Client, e
 
 	resp, err := httpclient.DoTimeout("POST", targetUrl, headers, form.Reader, nil, time.Second*10)
 	if err != nil {
-		err = fmt.Errorf("POST %s error: %s", targetUrl, err.Error())
+		err = fmt.Errorf("(RegisterWithAuth) POST %s error: %s", targetUrl, err.Error())
 		return
 	}
 	defer resp.Body.Close()
 
 	// evaluate response
 	response := new(ClientResponse)
-	logger.Debug(3, "client registration: got response")
+	logger.Debug(3, "(RegisterWithAuth) client registration: got response")
 	jsonstream, err := ioutil.ReadAll(resp.Body)
 	if err = json.Unmarshal(jsonstream, response); err != nil {
-		err = errors.New("fail to unmashal response:" + string(jsonstream))
+		err = errors.New("(RegisterWithAuth) fail to unmashal response:" + string(jsonstream))
 		return
 	}
 	if len(response.Errs) > 0 {
-		err = fmt.Errorf("Server returned: %s", strings.Join(response.Errs, ","))
+		err = fmt.Errorf("(RegisterWithAuth) Server returned: %s", strings.Join(response.Errs, ","))
 		return
 	}
 
-	client = &response.Data
+	//client = &response.Data
 
-	client.Init()
-	core.SetClientProfile(client)
+	//client.Init()
+	//core.SetClientProfile(client)
 
-	logger.Debug(3, "Client registered")
+	logger.Debug(3, "(RegisterWithAuth) Client registered")
 	return
 }
 
-func ReRegisterWithSelf(host string) (client *core.Client, err error) {
+func ReRegisterWithSelf(host string) (err error) {
 	fmt.Printf("lost contact with server, try to re-register\n")
-	client, err = RegisterWithAuth(host, core.Self)
+	err = RegisterWithAuth(host, core.Self)
 	if err != nil {
 		logger.Error("Error: fail to re-register, clientid=" + core.Self.Id)
 		fmt.Printf("failed to re-register\n")
@@ -297,7 +340,7 @@ func Set_Metadata(profile *core.Client) {
 			instance_hostname, err := getMetaDataField(metadata_url, "hostname")
 			if err == nil {
 				//instance_hostname = strings.TrimSuffix(instance_hostname, ".novalocal")
-				profile.Name = instance_hostname
+				profile.WorkerRuntime.Name = instance_hostname
 				profile.Hostname = instance_hostname
 			}
 			instance_id, err := getMetaDataField(metadata_url, "instance-id")
@@ -339,7 +382,7 @@ func ComposeProfile() (profile *core.Client, err error) {
 	//profile = new(core.Client)
 	profile = core.NewClient() // includes init
 
-	profile.Name = conf.CLIENT_NAME
+	profile.WorkerRuntime.Name = conf.CLIENT_NAME
 	profile.Host = conf.CLIENT_HOST
 	profile.Group = conf.CLIENT_GROUP
 	profile.CPUs = runtime.NumCPU()
@@ -373,7 +416,7 @@ func ComposeProfile() (profile *core.Client, err error) {
 	return
 }
 
-func DiscardWorkunit(id string) (err error) {
+func DiscardWorkunit(id core.Workunit_Unique_Identifier) (err error) {
 	//fmt.Printf("try to discard workunit %s\n", id)
 	logger.Info("trying to discard workunit %s", id)
 	stage, ok, err := workmap.Get(id)
@@ -386,7 +429,7 @@ func DiscardWorkunit(id string) (err error) {
 		}
 
 		workmap.Set(id, ID_DISCARDED, "DiscardWorkunit")
-		err = core.Self.Current_work_delete(id, true)
+		err = core.Self.Current_work.Delete(id, true)
 		if err != nil {
 			logger.Error("(DiscardWorkunit) Could not remove workunit %s from client", id)
 			err = nil

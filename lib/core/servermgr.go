@@ -437,34 +437,37 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	return
 }
 
-func RemoveWorkFromClient(client *Client, clientid string, workid Workunit_Unique_Identifier) (err error) {
-	err = client.Current_work.Delete(workid, true)
+func RemoveWorkFromClient(client *Client, workid Workunit_Unique_Identifier) (err error) {
+	err = client.Assigned_work.Delete(workid, true)
 	if err != nil {
 		return
 	}
 
-	work_length, err := client.Current_work.Length(true)
+	work_length, err := client.Assigned_work.Length(true)
 	if err != nil {
 		return
 	}
 
 	if work_length > 0 {
-		logger.Error("(RemoveWorkFromClient) Client %s still has %d workunits, after delivering one workunit", clientid, work_length)
 
-		current_work_ids, err := client.Current_work.Get_list(true)
+		clientid, _ := client.Get_Id(true)
+
+		logger.Error("(RemoveWorkFromClient) Client %s still has %d workunits assigned, after delivering one workunit", clientid, work_length)
+
+		assigned_work_ids, err := client.Assigned_work.Get_list(true)
 		if err != nil {
 			return err
 		}
-		for _, work_id := range current_work_ids {
-			_ = client.Current_work.Delete(work_id, true)
+		for _, work_id := range assigned_work_ids {
+			_ = client.Assigned_work.Delete(work_id, true)
 		}
 
-		work_length, err = client.Current_work.Length(true)
+		work_length, err = client.Assigned_work.Length(true)
 		if err != nil {
 			return err
 		}
 		if work_length > 0 {
-			logger.Error("(RemoveWorkFromClient) Client still has work, even after everything should have been deleted.")
+			logger.Error("(RemoveWorkFromClient) Client still has work assigned, even after everything should have been deleted.")
 			return fmt.Errorf("(RemoveWorkFromClient) Client %s still has %d workunits", clientid, work_length)
 		}
 	}
@@ -606,7 +609,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	if !ok {
 		return fmt.Errorf("(handleNoticeWorkDelivered) client not found")
 	}
-	defer RemoveWorkFromClient(client, clientid, id)
+	defer RemoveWorkFromClient(client, id)
 
 	// *** Get Task
 	task, tok, err := qm.TaskMap.Get(task_id, true)
@@ -2424,7 +2427,7 @@ func (qm *ServerMgr) CreateWorkPerf(id Workunit_Unique_Identifier) {
 	workid := id.String()
 	jobid := id.JobId
 	if jobperf, ok := qm.getActJob(jobid); ok {
-		jobperf.Pworks[workid] = NewWorkPerf(workid)
+		jobperf.Pworks[workid] = NewWorkPerf()
 		qm.putActJob(jobperf)
 	}
 }

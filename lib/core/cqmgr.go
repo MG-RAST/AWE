@@ -227,7 +227,7 @@ func (qm *CQMgr) DeleteClients(delete_clients []string) {
 
 }
 
-func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err error) {
+func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerState) (hbmsg HeartbeatInstructions, err error) {
 	hbmsg = make(map[string]string, 1)
 	client, ok, xerr := qm.GetClient(id, true)
 	if xerr != nil {
@@ -252,6 +252,7 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup) (hbmsg HBmsg, err e
 	}
 	client.Tag = true
 
+	client.WorkerState = workerstate // TODO could do a comparsion with assigned state here
 	logger.Debug(3, "HeartBeatFrom:"+"clientid="+id)
 
 	//get suspended workunit that need the client to discard

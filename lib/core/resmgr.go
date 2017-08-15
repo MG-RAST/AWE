@@ -15,14 +15,14 @@ type ClientMgr interface {
 	//DeleteClient(*Client) error
 	//DeleteClientById(string) error
 	//DeleteClientByUser(string, *user.User) error
-	SuspendClient(string, *Client, bool) error
-	SuspendClientByUser(string, *user.User) error
+	SuspendClient(string, *Client, string, bool) error
+	SuspendClientByUser(string, *user.User, string) error
 	ResumeClient(string) error
 	ResumeClientByUser(string, *user.User) error
 	ResumeSuspendedClients() (int, error)
 	ResumeSuspendedClientsByUser(*user.User) int
-	SuspendAllClients() (int, error)
-	SuspendAllClientsByUser(*user.User) (int, error)
+	SuspendAllClients(string) (int, error)
+	SuspendAllClientsByUser(*user.User, string) (int, error)
 	ClientChecker()
 	UpdateSubClients(string, int) error
 	UpdateSubClientsByUser(string, int, *user.User)

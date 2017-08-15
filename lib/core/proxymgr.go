@@ -157,7 +157,7 @@ func (qm *ProxyMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 				}
 				client.Last_failed += 1 //last consecutive failures
 				if client.Last_failed == conf.MAX_CLIENT_FAILURE {
-					client.Suspend(false)
+					client.Suspend("MAX_CLIENT_FAILURE reached", false)
 				}
 				qm.AddClient(client, false)
 				client.Unlock()

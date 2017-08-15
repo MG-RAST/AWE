@@ -11,10 +11,20 @@ func NewWorkunitList() *WorkunitList {
 
 }
 
+func (this *WorkunitList) Init(name string) {
+	this.RWMutex.Init(name)
+	if this._map == nil {
+		this._map = make(map[Workunit_Unique_Identifier]bool)
+	}
+	if this.Data == nil {
+		this.Data = []string{}
+	}
+}
+
 // lock always
 func (cl *WorkunitList) Add(workid Workunit_Unique_Identifier) (err error) {
 
-	err = cl.LockNamed("Add_work")
+	err = cl.LockNamed("Add")
 	if err != nil {
 		return
 	}
@@ -22,13 +32,13 @@ func (cl *WorkunitList) Add(workid Workunit_Unique_Identifier) (err error) {
 
 	cl._map[workid] = true
 	cl.sync()
-	//cl.Total_checkout += 1  TODO ****************************************************************************************************************************************************************************************
+
 	return
 }
 
 func (cl *WorkunitList) Length(lock bool) (clength int, err error) {
 	if lock {
-		read_lock, xerr := cl.RLockNamed("Assigned_work_length")
+		read_lock, xerr := cl.RLockNamed("Length")
 		if xerr != nil {
 			err = xerr
 			return
@@ -42,7 +52,7 @@ func (cl *WorkunitList) Length(lock bool) (clength int, err error) {
 
 func (cl *WorkunitList) Delete(workid Workunit_Unique_Identifier, write_lock bool) (err error) {
 	if write_lock {
-		err = cl.LockNamed("Assigned_work_delete")
+		err = cl.LockNamed("Delete")
 		defer cl.Unlock()
 	}
 	delete(cl._map, workid)
@@ -52,7 +62,7 @@ func (cl *WorkunitList) Delete(workid Workunit_Unique_Identifier, write_lock boo
 
 func (cl *WorkunitList) Delete_all(workid string, write_lock bool) (err error) {
 	if write_lock {
-		err = cl.LockNamed("Assigned_work_delete_all")
+		err = cl.LockNamed("Delete_all")
 		defer cl.Unlock()
 	}
 
@@ -64,7 +74,7 @@ func (cl *WorkunitList) Delete_all(workid string, write_lock bool) (err error) {
 
 func (cl *WorkunitList) Has(workid Workunit_Unique_Identifier) (ok bool, err error) {
 
-	err = cl.LockNamed("Assigned_work_has")
+	err = cl.LockNamed("Has")
 	defer cl.Unlock()
 
 	_, ok = cl._map[workid]
@@ -74,7 +84,7 @@ func (cl *WorkunitList) Has(workid Workunit_Unique_Identifier) (ok bool, err err
 
 func (cl *WorkunitList) Get_list(do_read_lock bool) (assigned_work_ids []Workunit_Unique_Identifier, err error) {
 	if do_read_lock {
-		read_lock, xerr := cl.RLockNamed("Get_assigned_work")
+		read_lock, xerr := cl.RLockNamed("Get_list")
 		if xerr != nil {
 			err = xerr
 			return
@@ -92,7 +102,7 @@ func (cl *WorkunitList) Get_list(do_read_lock bool) (assigned_work_ids []Workuni
 func (cl *WorkunitList) Get_string_list(do_read_lock bool) (work_ids []string, err error) {
 	work_ids = []string{}
 	if do_read_lock {
-		read_lock, xerr := cl.RLockNamed("Get_assigned_work")
+		read_lock, xerr := cl.RLockNamed("Get_string_list")
 		if xerr != nil {
 			err = xerr
 			return

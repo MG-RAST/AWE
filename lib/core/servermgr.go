@@ -744,7 +744,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 			return err
 		}
 		if last_failed >= conf.MAX_CLIENT_FAILURE {
-			qm.SuspendClient(clientid, client, true)
+			qm.SuspendClient(clientid, client, "MAX_CLIENT_FAILURE on client reached", true)
 		}
 	} else {
 		return fmt.Errorf("No handler for workunit status '%s' implemented (allowd: %s, %s, %s)", status, WORK_STAT_DONE, WORK_STAT_FAILED_PERMANENT, WORK_STAT_ERROR)
@@ -1143,7 +1143,7 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 
 	if task_ready {
 
-		logger.Debug(3, "(addTask) task is ready (invoking taskEnQueue)")
+		logger.Debug(3, "(addTask) task %s is ready (invoking taskEnQueue)", task.String())
 		err = qm.taskEnQueue(task, job)
 		if err != nil {
 			logger.Error("(addTask) taskEnQueue returned error: %s", err.Error())
@@ -1198,6 +1198,8 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 		return
 	}
 	logger.Debug(3, "(isTaskReady) task_id: %s", task_id)
+
+	defer func() { logger.Debug(3, "(isTaskReady) %s ready=%t", task_id, ready) }()
 
 	//skip if the belonging job is suspended
 	jobid, err := task.GetJobId()

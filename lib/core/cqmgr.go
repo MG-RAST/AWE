@@ -177,10 +177,8 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 		}
 
 	} else {
-		// *** Client is NOT active
+		client.Online = false
 
-		//delete the client from client map
-		//qm.RemoveClient(client.Id)
 		ok = false
 	}
 	return
@@ -251,6 +249,7 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerS
 		return nil, errors.New(e.ClientGroupBadName)
 	}
 	client.Tag = true
+	client.Set_Online(true, false)
 
 	client.WorkerState = workerstate // TODO could do a comparsion with assigned state here
 	logger.Debug(3, "HeartBeatFrom:"+"clientid="+id)
@@ -446,7 +445,7 @@ func (qm *CQMgr) GetAllClientsByUser(u *user.User) (clients []*Client, err error
 // }
 
 // use id OR client
-func (qm *CQMgr) SuspendClient(id string, client *Client, client_write_lock bool) (err error) {
+func (qm *CQMgr) SuspendClient(id string, client *Client, reason string, client_write_lock bool) (err error) {
 
 	if client == nil {
 		var ok bool
@@ -478,7 +477,7 @@ func (qm *CQMgr) SuspendClient(id string, client *Client, client_write_lock bool
 		return
 	}
 
-	client.Suspend(false)
+	client.Suspend(reason, false)
 
 	err = qm.ReQueueWorkunitByClient(client, false)
 	if err != nil {
@@ -489,20 +488,20 @@ func (qm *CQMgr) SuspendClient(id string, client *Client, client_write_lock bool
 
 }
 
-func (qm *CQMgr) SuspendAllClients() (count int, err error) {
+func (qm *CQMgr) SuspendAllClients(reason string) (count int, err error) {
 	clients, err := qm.ListClients()
 	if err != nil {
 		return
 	}
 	for _, id := range clients {
-		if err := qm.SuspendClient(id, nil, true); err == nil {
+		if err := qm.SuspendClient(id, nil, reason, true); err == nil {
 			count += 1
 		}
 	}
 	return
 }
 
-func (qm *CQMgr) SuspendClientByUser(id string, u *user.User) (err error) {
+func (qm *CQMgr) SuspendClientByUser(id string, u *user.User, reason string) (err error) {
 	// Get all clientgroups that user owns or that are publicly owned, or all if user is admin
 	q := bson.M{}
 	clientgroups := new(ClientGroups)
@@ -527,7 +526,7 @@ func (qm *CQMgr) SuspendClientByUser(id string, u *user.User) (err error) {
 	val, exists := filtered_clientgroups[client.Group]
 	if exists == true && val == true {
 
-		err = qm.SuspendClient("", client, true)
+		err = qm.SuspendClient("", client, reason, true)
 		if err != nil {
 			return
 		}
@@ -537,7 +536,7 @@ func (qm *CQMgr) SuspendClientByUser(id string, u *user.User) (err error) {
 
 }
 
-func (qm *CQMgr) SuspendAllClientsByUser(u *user.User) (count int, err error) {
+func (qm *CQMgr) SuspendAllClientsByUser(u *user.User, reason string) (count int, err error) {
 	// Get all clientgroups that user owns or that are publicly owned, or all if user is admin
 	q := bson.M{}
 	clientgroups := new(ClientGroups)
@@ -568,7 +567,7 @@ func (qm *CQMgr) SuspendAllClientsByUser(u *user.User) (count int, err error) {
 		}
 
 		if val, exists := filtered_clientgroups[group]; exists == true && val == true && is_suspended {
-			err = qm.SuspendClient("", client, true)
+			err = qm.SuspendClient("", client, reason, true)
 			if err != nil {
 				return
 			}

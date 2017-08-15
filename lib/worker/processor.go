@@ -120,7 +120,7 @@ func processor(control chan int) {
 		exit_status := workunit.ExitStatus
 		logger.Debug(1, "(processor) ExitStatus of process: %d", exit_status)
 		if err != nil {
-			logger.Error("(processor) returned error , workid=" + work_id.String() + ", " + err.Error())
+			logger.Error("(processor) RunWorkunit returned error , workid=%s, %s", work_id.String(), err.Error())
 			workunit.Notes = append(workunit.Notes, "[processor#RunWorkunit]"+err.Error())
 
 			if exit_status == 42 {
@@ -129,7 +129,7 @@ func processor(control chan int) {
 				workunit.SetState(core.WORK_STAT_ERROR)
 			}
 		} else {
-			logger.Debug(1, "(processor) RunWorkunit() returned without error, workid="+work_id.String())
+			logger.Debug(1, "(processor) RunWorkunit() returned without error, workid=%s", work_id.String())
 			workunit.SetState(core.WORK_STAT_COMPUTED)
 			workunit.WorkPerf.MaxMemUsage = pstat.MaxMemUsage
 			workunit.WorkPerf.MaxMemoryTotalRss = pstat.MaxMemoryTotalRss
@@ -163,12 +163,16 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	if workunit.Cmd.Dockerimage != "" || workunit.Cmd.DockerPull != "" {
 		pstats, err = RunWorkunitDocker(workunit)
+		if err != nil {
+			err = fmt.Errorf("(RunWorkunit) RunWorkunitDocker returned: %s", err.Error())
+			return
+		}
 	} else {
 		pstats, err = RunWorkunitDirect(workunit)
-	}
-
-	if err != nil {
-		return
+		if err != nil {
+			err = fmt.Errorf("(RunWorkunit) RunWorkunitDirect returned: %s", err.Error())
+			return
+		}
 	}
 
 	if workunit.CWL != nil {

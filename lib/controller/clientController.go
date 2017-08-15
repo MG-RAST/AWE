@@ -11,6 +11,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -210,18 +211,21 @@ func (cr *ClientController) Update(id string, cx *goweb.Context) {
 
 		const MAX_MEMORY = 1024
 
-		err := cx.Request.ParseMultipartForm(MAX_MEMORY)
+		r := cx.Request
+		worker_status_bytes, err := ioutil.ReadAll(r.Body)
+		defer r.Body.Close()
+
 		if err != nil {
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		worker_status_json := cx.Request.FormValue("worker_status")
-
 		worker_status := core.WorkerState{}
-		err = json.Unmarshal([]byte(worker_status_json), &worker_status)
+		err = json.Unmarshal(worker_status_bytes, &worker_status)
 		if err != nil {
+			err = fmt.Errorf("%s, worker_status_bytes: %s", err, string(worker_status_bytes[:]))
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			//cx.Respond(data interface{}, statusCode int, []string{err.Error()}, cx)
 			return
 		}
 
@@ -250,7 +254,7 @@ func (cr *ClientController) Update(id string, cx *goweb.Context) {
 		return
 	}
 	if query.Has("suspend") { //resume the suspended client
-		if err := core.QMgr.SuspendClientByUser(id, u); err != nil {
+		if err := core.QMgr.SuspendClientByUser(id, u, "request by api call"); err != nil {
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		} else {
 			cx.RespondWithData("client suspended")
@@ -298,7 +302,7 @@ func (cr *ClientController) UpdateMany(cx *goweb.Context) {
 		return
 	}
 	if query.Has("suspendall") { //resume the suspended client
-		num, err := core.QMgr.SuspendAllClientsByUser(u)
+		num, err := core.QMgr.SuspendAllClientsByUser(u, "request by api call")
 		if err != nil {
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		}

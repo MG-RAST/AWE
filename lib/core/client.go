@@ -20,23 +20,22 @@ type Client struct {
 	RWMutex         `bson:"-" json:"-"`
 	WorkerRuntime   `bson:",inline" json:",inline"`
 	WorkerState     `bson:",inline" json:",inline"`
-	RegTime         time.Time `bson:"regtime" json:"regtime"`
-	LastCompleted   time.Time `bson:"lastcompleted" json:"lastcompleted"` // time of last time a job was completed (can be used to compute idle time)
-	Serve_time      string    `bson:"serve_time" json:"serve_time"`
-	Total_checkout  int       `bson:"total_checkout" json:"total_checkout"`
-	Total_completed int       `bson:"total_completed" json:"total_completed"`
-	Total_failed    int       `bson:"total_failed" json:"total_failed"`
-	Skip_work       []string  `bson:"skip_work" json:"skip_work"`
-	Last_failed     int       `bson:"-" json:"-"`
-	Tag             bool      `bson:"-" json:"-"`
-	Proxy           bool      `bson:"proxy" json:"proxy"`
-	SubClients      int       `bson:"subclients" json:"subclients"`
-	Online          bool      `bson:"online" json:"online"`
-	Suspended       bool      `bson:"suspended" json:"suspended"`
-	Status          string    `bson:"Status" json:"Status"` // 1) suspended? 2) busy ? 3) online (call is idle) 4) offline
-	//Assigned_work      []string                            `bson:"assigned_work" json:"assigned_work"` // this is for exporting into json
-	//_assigned_work_map map[Workunit_Unique_Identifier]bool `bson:"-" json:"-"`                         // this if for internal handling
-	Assigned_work *WorkunitList `bson:"assigned_work" json:"assigned_work"` // this is for exporting into json
+	RegTime         time.Time     `bson:"regtime" json:"regtime"`
+	LastCompleted   time.Time     `bson:"lastcompleted" json:"lastcompleted"` // time of last time a job was completed (can be used to compute idle time)
+	Serve_time      string        `bson:"serve_time" json:"serve_time"`
+	Total_checkout  int           `bson:"total_checkout" json:"total_checkout"`
+	Total_completed int           `bson:"total_completed" json:"total_completed"`
+	Total_failed    int           `bson:"total_failed" json:"total_failed"`
+	Skip_work       []string      `bson:"skip_work" json:"skip_work"`
+	Last_failed     int           `bson:"-" json:"-"`
+	Tag             bool          `bson:"-" json:"-"`
+	Proxy           bool          `bson:"proxy" json:"proxy"`
+	SubClients      int           `bson:"subclients" json:"subclients"`
+	Online          bool          `bson:"online" json:"online"`                 // a state
+	Suspended       bool          `bson:"suspended" json:"suspended"`           // a state
+	Suspend_reason  string        `bson:"suspend_reason" json:"suspend_reason"` // a state
+	Status          string        `bson:"Status" json:"Status"`                 // 1) suspended? 2) busy ? 3) online (call is idle) 4) offline
+	Assigned_work   *WorkunitList `bson:"assigned_work" json:"assigned_work"`   // this is for exporting into json
 }
 
 // worker info that does not change at runtime
@@ -59,12 +58,14 @@ type WorkerRuntime struct {
 
 // changes at runtime
 type WorkerState struct {
-	Busy         bool          `bson:"busy" json:"busy"`
+	Busy         bool          `bson:"busy" json:"busy"` // a state
 	Current_work *WorkunitList `bson:"current_work" json:"current_work"`
 }
 
-func NewWorkerState() *WorkerState {
-	return &WorkerState{Current_work: NewWorkunitList()}
+func NewWorkerState() (ws *WorkerState) {
+	ws = &WorkerState{}
+	ws.Current_work = NewWorkunitList()
+	return
 }
 
 // invoked by NewClient or manually after unmarshalling
@@ -101,6 +102,7 @@ func NewClient() (client *Client) {
 		Total_failed:    0,
 		Serve_time:      "0",
 		Last_failed:     0,
+		Suspended:       false,
 		Status:          "offline",
 		Assigned_work:   NewWorkunitList(),
 
@@ -136,6 +138,16 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 
 	client.Init()
 
+	return
+}
+
+func (this *Client) Add(workid Workunit_Unique_Identifier) (err error) {
+	err = this.Assigned_work.Add(workid)
+	if err != nil {
+		return
+	}
+
+	this.Total_checkout += 1 // TODO add lock ????
 	return
 }
 
@@ -263,36 +275,34 @@ func (cl *Client) Update_Status(write_lock bool) (err error) {
 	return
 }
 
-func (cl *Client) Suspend(write_lock bool) (err error) {
+func (cl *Client) Set_Suspended(s bool, reason string, write_lock bool) (err error) {
 	if write_lock {
-		err = cl.LockNamed("Suspend")
+		err = cl.LockNamed("Set_Suspended")
 		if err != nil {
 			return
 		}
 		defer cl.Unlock()
 	}
 
-	if cl.Suspended != true {
-		cl.Suspended = true
+	if cl.Suspended != s {
+		cl.Suspended = s
+		if s {
+			if reason == "" {
+				panic("suspending without providing eason not allowed !")
+			}
+		}
+		cl.Suspend_reason = reason
 		cl.Update_Status(false)
 	}
 	return
 }
 
-func (cl *Client) Resume(write_lock bool) (err error) {
-	if write_lock {
-		err = cl.LockNamed("Resume")
-		if err != nil {
-			return
-		}
-		defer cl.Unlock()
-	}
+func (cl *Client) Suspend(reason string, write_lock bool) (err error) {
+	return cl.Set_Suspended(true, reason, write_lock)
+}
 
-	if cl.Suspended != false {
-		cl.Suspended = false
-		cl.Update_Status(false)
-	}
-	return
+func (cl *Client) Resume(write_lock bool) (err error) {
+	return cl.Set_Suspended(false, "", write_lock)
 }
 
 func (cl *Client) Get_Suspended(do_read_lock bool) (s bool, err error) {
@@ -307,16 +317,20 @@ func (cl *Client) Get_Suspended(do_read_lock bool) (s bool, err error) {
 	s = cl.Suspended
 	return
 }
-func (cl *Client) Get_Busy(do_read_lock bool) (b bool, err error) {
-	if do_read_lock {
-		read_lock, xerr := cl.RLockNamed("Get_Busy")
-		if xerr != nil {
-			err = xerr
+
+func (cl *Client) Set_Online(o bool, write_lock bool) (err error) {
+	if write_lock {
+		err = cl.LockNamed("Set_Online")
+		if err != nil {
 			return
 		}
-		defer cl.RUnlockNamed(read_lock)
+		defer cl.Unlock()
 	}
-	b = cl.Busy
+
+	if cl.Online != o {
+		cl.Online = o
+		cl.Update_Status(false)
+	}
 	return
 }
 
@@ -328,8 +342,23 @@ func (cl *Client) Set_Busy(b bool, do_write_lock bool) (err error) {
 		}
 		defer cl.Unlock()
 	}
-	cl.Busy = b
+	if cl.Busy != b {
+		cl.Busy = b
+		cl.Update_Status(false)
+	}
+	return
+}
 
+func (cl *Client) Get_Busy(do_read_lock bool) (b bool, err error) {
+	if do_read_lock {
+		read_lock, xerr := cl.RLockNamed("Get_Busy")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer cl.RUnlockNamed(read_lock)
+	}
+	b = cl.Busy
 	return
 }
 

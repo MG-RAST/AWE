@@ -73,7 +73,7 @@ func SendHeartBeat() (err error) {
 	hbmsg, err := heartbeating(conf.SERVER_URL, core.Self.Id)
 	if err != nil {
 		logger.Debug(3, "(SendHeartBeat) heartbeat returned error: "+err.Error())
-		if err.Error() == e.ClientNotFound {
+		if strings.Contains(err.Error(), e.ClientNotFound) {
 			logger.Debug(3, "(SendHeartBeat) invoke ReRegisterWithSelf: ")
 			xerr := ReRegisterWithSelf(conf.SERVER_URL)
 			if xerr != nil {
@@ -142,26 +142,13 @@ func heartbeating(host string, clientid string) (msg core.HeartbeatInstructions,
 		return
 	}
 
-	form := httpclient.NewForm()
-
-	form.AddParam("worker_state", string(worker_state_b[:]))
-
-	form.Create()
-
-	//var headers httpclient.Header
-
-	headers := httpclient.Header{
-		"Content-Type":   []string{form.ContentType},
-		"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
-	}
+	headers := httpclient.Header{"Content-Type": []string{"application/json"}}
 
 	if conf.CLIENT_GROUP_TOKEN != "" {
-		headers = httpclient.Header{
-			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
-		}
+		headers["Authorization"] = []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN}
 	}
 
-	res, err := httpclient.Put(targeturl, headers, form.Reader, nil)
+	res, err := httpclient.Put(targeturl, headers, bytes.NewBuffer(worker_state_b), nil)
 	if err != nil {
 		err = fmt.Errorf("(heartbeating) httpclient.Put failed: %s", err.Error())
 		return
@@ -295,6 +282,7 @@ func RegisterWithAuth(host string, pclient *core.Client) (err error) {
 	response := new(ClientResponse)
 	logger.Debug(3, "(RegisterWithAuth) client registration: got response")
 	jsonstream, err := ioutil.ReadAll(resp.Body)
+	logger.Debug(3, "(RegisterWithAuth) client registration: got response: %s", string(jsonstream[:]))
 	if err = json.Unmarshal(jsonstream, response); err != nil {
 		err = errors.New("(RegisterWithAuth) fail to unmashal response:" + string(jsonstream))
 		return

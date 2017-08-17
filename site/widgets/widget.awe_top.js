@@ -1,7 +1,7 @@
 (function () {
     var widget = Retina.Widget.extend({
         about: {
-            title: "AWE TOP",
+            title: "AWE top",
             name: "awe_top",
             author: "Tobias Paczian",
             requires: [ "rgbcolor.js" ]
@@ -37,7 +37,7 @@
 	}
     };
     
-    widget.showAWEDetails = function (gp) {
+    widget.showAWEDetails = function (gp, type) {
 	var widget = Retina.WidgetInstances.awe_top[1];
 	
 	var target = widget.target;
@@ -49,9 +49,23 @@
 	    gp = widget.gp || "job";
 	}
 
-	var html = ["<h3>jobs</h3>"];
-	html.push('<p>group by <select style="margin-bottom: 0px;" onchange="Retina.WidgetInstances.awe_top[1].showAWEDetails(this.options[this.selectedIndex].value);" id="grouping"><option'+(gp == 'job' ? ' selected=selected' : '')+'>job</option><option'+(gp == 'project' ? ' selected=selected' : '')+'>project</option><option'+(gp == 'user' ? ' selected=selected' : '')+'>user</option></select></p>');
-	var cols = ['job', 'size', 'cores', 'machines', 'project', 'user', 'usage', 'submission', 'processing'];
+	if (type) {
+	    widget.tabletype = type;
+	} else {
+	    type = widget.tabletype || "job";
+	}
+
+	var html = ["<div style='margin-bottom: 10px;'><div class='btn-group' data-toggle='buttons-radio'><button type='button' class='btn btn-large"+(type=='job'? " active" : '')+"' onclick='Retina.WidgetInstances.awe_top[1].sortattribute=\"job\";Retina.WidgetInstances.awe_top[1].showAWEDetails(null,\"job\");'>job</button><button type='button' class='btn btn-large"+(type=='task'? " active" : '')+"' onclick='Retina.WidgetInstances.awe_top[1].sortattribute=\"task\";Retina.WidgetInstances.awe_top[1].showAWEDetails(null,\"task\");'>task</button><button type='button' class='btn btn-large"+(type=='workunit'? " active" : '')+"' onclick='Retina.WidgetInstances.awe_top[1].sortattribute=\"workunit\";Retina.WidgetInstances.awe_top[1].showAWEDetails(null,\"workunit\");'>workunit</button></div></div>"];
+	html.push('<p id="groupby">group by <select style="margin-bottom: 0px;" onchange="Retina.WidgetInstances.awe_top[1].showAWEDetails(this.options[this.selectedIndex].value);" id="grouping"><option'+(gp == 'job' ? ' selected=selected' : '')+'>job</option><option'+(gp == 'project' ? ' selected=selected' : '')+'>project</option><option'+(gp == 'user' ? ' selected=selected' : '')+'>user</option></select></p>');
+
+	var cols = [];
+	if (type == 'task') {
+	    cols = ['task','pipeline','size','cores','machines','usage'];
+	}  else if (type == 'workunit') {
+	    cols = ['workunit','task','pipeline','size','cores','machines','usage'];
+	} else if (type == 'job') {
+	    cols = ['job', 'project', 'user', 'pipeline', 'size', 'cores', 'machines', 'usage', 'submission', 'processing'];
+	}
 
 	html.push('<table class="table" style="margin-left: 10%; width: 80%;"><tr>');
 	for (var i=0; i<cols.length; i++) {
@@ -64,41 +78,48 @@
 	    clients[widget.aweClientData[i].id] = widget.aweClientData[i];
 	    totalCores += widget.aweClientData[i].cores;
 	}
-	window.clients = clients;
 	
 	var jdata = {};
 	var grouping = document.getElementById('grouping') ? document.getElementById('grouping').options[document.getElementById('grouping').selectedIndex].value : "job";
 	for (var i=0; i<widget.aweWorkData.length; i++) {
 	    var d = widget.aweWorkData[i];
-	    if (d.info.pipeline.match(/^mgrast-prod/)) {
-		var row = {};
-		row.submission = d.info.submittime;
-		row.processing = d.info.startedtime;
-		row.project = d.info.project;
-		row.user = d.info.user;
-		row.job = d.info.name;
-		row.size = parseInt(d.info.userattr.bp_count);
-
-		if (! d.client) {
-		    continue;
-		}
-
-		var g = d.info.name;
-		if (grouping == 'project') {
-		    g = d.info.project;
-		} else if (grouping == 'user') {
-		    g = d.info.user;
-		}
-		if (jdata.hasOwnProperty(g)) {
-		    jdata[g].machines++;
-		    jdata[g].cores += clients[d.client].cores;
-		    jdata[g].usage = jdata[g].cores / totalCores * 100;
-		} else {
-		    row.cores = clients[d.client].cores;
-		    row.usage = row.cores / totalCores * 100;
-		    row.machines = 1;
-		    jdata[g] = row;
-		}
+	    var row = {};
+	    row.workunit = d.wuid;
+	    row.task = d.cmd.name;
+	    row.pipeline = d.info.pipeline;
+	    row.submission = d.info.submittime;
+	    row.processing = d.info.startedtime;
+	    row.project = d.info.project;
+	    row.user = d.info.user;
+	    row.job = d.info.name;
+	    row.size = 0;
+	    for (var h=0; h<d.inputs.length; h++) {
+		row.size += d.inputs[h].size;
+	    }
+	    
+	    if (! d.client) {
+		continue;
+	    }
+	    
+	    var g = d.info.name;
+	    if (grouping == 'project') {
+		g = d.info.project;
+	    } else if (grouping == 'user') {
+		g = d.info.user;
+	    }
+	    if (type == 'task') {
+		g = row.task;
+	    }
+	    if (jdata.hasOwnProperty(g)) {
+		jdata[g].machines++;
+		jdata[g].cores += clients[d.client].cores;
+		jdata[g].usage = jdata[g].cores / totalCores * 100;
+		jdata[g].size += row.size;
+	    } else {
+		row.cores = clients[d.client].cores;
+		row.usage = row.cores / totalCores * 100;
+		row.machines = 1;
+		jdata[g] = row;
 	    }
 	}
 	var jtable = [];
@@ -106,7 +127,7 @@
 	for (var i=0; i<jobs.length; i++) {
 	    jtable.push(jdata[jobs[i]]);
 	}
-
+	
 	var sortattr = widget.sortattribute;
 	jtable.sort(Retina.propSort(sortattr, widget.sortdir == 'asc' ? true : false));
 
@@ -114,7 +135,7 @@
 	    var row = ['<tr>'];
 	    for (var h=0; h<cols.length; h++) {
 		if (cols[h] == 'size') {
-		    jtable[i][cols[h]] = jtable[i][cols[h]].baseSize();
+		    jtable[i][cols[h]] = jtable[i][cols[h]].byteSize();
 		}
 		if (cols[h] == 'usage') {
 		    jtable[i][cols[h]] = jtable[i][cols[h]].formatString(3) + "%";
@@ -128,6 +149,14 @@
 	html.push('</table>');
 		
 	target.innerHTML = html.join("");
+
+	if (type == 'task') {
+	    document.getElementById('groupby').style.display = 'none';
+	}  else if (type == 'workunit') {
+	    document.getElementById('groupby').style.display = 'none';
+	} else if (type == 'job') {
+	    document.getElementById('groupby').style.display = '';
+	}
     };
 
     widget.setSort = function (field) {

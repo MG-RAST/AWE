@@ -98,6 +98,11 @@
 	   
 	    if (views[i] != "overview") {
 		if (views[i] == "jobs") {
+		    var rc = document.createElement('div');
+		    rc.setAttribute('class', "input-prepend");
+		    rc.setAttribute('style', 'margin-left: 15px; margin-bottom: 0px; float: right; position: relative; bottom: 6px;');
+		    rc.innerHTML = '<button class="btn btn-small" onclick="Retina.WidgetInstances.awe_monitor[1].getCurrentIds(this.nextSibling.value);">recompute at stage</button><input type="text" value="0" style="height: 16px; width: 40px;">';
+		    view.appendChild(rc);
 		    var btn = document.createElement('button');
 		    btn.innerHTML = "resume selected jobs";
 		    btn.setAttribute('class', 'btn btn-success btn-small');
@@ -301,7 +306,7 @@
 				       }
 				       result_data.push( [ "<a style='cursor: pointer;' onclick='Retina.WidgetInstances.awe_monitor[1].clientTooltip(jQuery(this), \""+obj.id+"\")'>"+obj.name+"</a>",
 							   obj.group,
-							   (obj.host_ip == "") ? obj.host : obj.host_ip,
+							   (obj.host_ip == "") ? obj.hostname : obj.host_ip,
 							   obj.cores || "0",
 							   obj.apps.join(", "),
 							   obj.regtime,
@@ -576,26 +581,26 @@
 
     widget.recomputeJob = function (jobid, stage) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
-	jQuery.ajax({
-	    method: "PUT",
-	    dataType: "json",
-	    headers: widget.authHeader, 
-	    url: RetinaConfig["awe_ip"]+"/job/"+jobid+"?recompute="+stage,
-	    success: function (data) {
-		jQuery.ajax({
-		    method: "PUT",
-		    dataType: "json",
-		    headers: widget.authHeader, 
-		    url: RetinaConfig["awe_ip"]+"/job/"+jobid+"?resume",
-		    success: function (data) {
-			Retina.WidgetInstances.awe_monitor[1].display();
-			alert('job recomputation started');
-		    }}).fail(function(xhr, error) {
-			alert('failed to resume job after recompute');
-		    });
-	    }}).fail(function(xhr, error) {
-		alert('failed to start recomputation');
-	    });
+	var jobids;
+	if (typeof jobid == 'object') {
+	    jobids = jobid;
+	} else {
+	    jobids = [ jobid ];
+	}
+	for (var i=0; i<jobids.length; i++) {
+	    jobid = jobids[i];
+	    jQuery.ajax({
+		method: "PUT",
+		dataType: "json",
+		jobid: jobid,
+		headers: widget.authHeader, 
+		url: RetinaConfig["awe_ip"]+"/job/"+jobid+"?recompute="+stage,
+		success: function (data) {
+
+		}}).fail(function(xhr, error) {
+		    alert('failed to start recomputation');
+		});
+	}
     };
 
     widget.resumeJobs = function (jobids) {
@@ -997,7 +1002,7 @@
 	return html;
     };
 
-    widget.getCurrentIds = function () {
+    widget.getCurrentIds = function (stage) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];
 
 	var renderer = Retina.WidgetInstances.awe_monitor[1].tables["jobs"]
@@ -1022,12 +1027,16 @@
 	url += (url.match(/\?/) ? "&" : "?") + "limit=1000&offset=0&state=suspend";
 	var headers = renderer.settings.hasOwnProperty('headers') ? renderer.settings.headers : (stm.Authentication ? {'AUTH': stm.Authentication} : {});
 	
-	jQuery.ajax({ url: url, headers: headers, dataType: "json", success: function(data) {
+	jQuery.ajax({ stage: stage, url: url, headers: headers, dataType: "json", success: function(data) {
 	    var ids = [];
 	    for (var i=0; i<data.data.length; i++) {
 		ids.push(data.data[i].id);
 	    }
-	    Retina.WidgetInstances.awe_monitor[1].resumeJobs(ids);
+	    if (this.stage !== null) {
+		Retina.WidgetInstances.awe_monitor[1].recomputeJob(ids, this.stage);
+	    } else {
+		Retina.WidgetInstances.awe_monitor[1].resumeJobs(ids);
+	    }
 	}});
     };
 

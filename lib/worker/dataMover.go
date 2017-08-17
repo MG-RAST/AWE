@@ -201,7 +201,7 @@ func dataMover(control chan int) {
 			if err := workunit.Mkdir(); err != nil {
 				logger.Error("[dataMover#workunit.Mkdir], workid=" + work_id.String() + " error=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[dataMover#work.Mkdir]"+err.Error())
-				workunit.SetState(core.WORK_STAT_ERROR)
+				workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 				//hand the parsed workunit to next stage and continue to get new workunit to process
 				fromMover <- workunit
 				continue
@@ -212,7 +212,7 @@ func dataMover(control chan int) {
 			if err := runPreWorkExecutionScript(workunit); err != nil {
 				logger.Error("[dataMover#runPreWorkExecutionScript], workid=" + work_id.String() + " error=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[dataMover#runPreWorkExecutionScript]"+err.Error())
-				workunit.SetState(core.WORK_STAT_ERROR)
+				workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 				//hand the parsed workunit to next stage and continue to get new workunit to process
 				fromMover <- workunit
 				continue
@@ -225,7 +225,7 @@ func dataMover(control chan int) {
 			if moved_data, err := movePreData(workunit); err != nil {
 				logger.Error("[dataMover#movePreData], workid=" + work_id.String() + " error=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[dataMover#movePreData]"+err.Error())
-				workunit.SetState(core.WORK_STAT_ERROR)
+				workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 				//hand the parsed workunit to next stage and continue to get new workunit to process
 				fromMover <- workunit
 				continue
@@ -243,7 +243,7 @@ func dataMover(control chan int) {
 		if err := ParseWorkunitArgs(workunit); err != nil {
 			logger.Error("err@dataMover.ParseWorkunitArgs, workid=" + work_id.String() + " error=" + err.Error())
 			workunit.Notes = append(workunit.Notes, "[dataMover#ParseWorkunitArgs]"+err.Error())
-			workunit.SetState(core.WORK_STAT_ERROR)
+			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 			//hand the parsed workunit to next stage and continue to get new workunit to process
 			fromMover <- workunit
 			continue
@@ -256,7 +256,7 @@ func dataMover(control chan int) {
 			if moved_data, err := cache.MoveInputData(workunit); err != nil {
 				logger.Error("err@dataMover.MoveInputData, workid=" + work_id.String() + " error=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[dataMover#MoveInputData]"+err.Error())
-				workunit.SetState(core.WORK_STAT_ERROR)
+				workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 				//hand the parsed workunit to next stage and continue to get new workunit to process
 				fromMover <- workunit
 				continue
@@ -320,7 +320,7 @@ func dataMover(control chan int) {
 				if err := ioutil.WriteFile(fmt.Sprintf("%s/userattr.json", workunit.Path()), attr_json, 0644); err != nil {
 					logger.Error("err@dataMover_work.getUserAttr, workid=" + work_id.String() + " error=" + err.Error())
 					workunit.Notes = append(workunit.Notes, "[dataMover#getUserAttr]"+err.Error())
-					workunit.SetState(core.WORK_STAT_ERROR)
+					workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 					//hand the parsed workunit to next stage and continue to get new workunit to process
 					fromMover <- workunit
 					continue
@@ -345,7 +345,7 @@ func proxyDataMover(control chan int) {
 		if err := proxyMovePreData(workunit); err != nil {
 			logger.Error("err@dataMover_work.movePreData, workid=" + work_id.String() + " error=" + err.Error())
 			workunit.Notes = append(workunit.Notes, "[dataMover#proxyMovePreData]"+err.Error())
-			workunit.SetState(core.WORK_STAT_ERROR)
+			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 		}
 		fromMover <- workunit
 	}
@@ -426,7 +426,7 @@ func ParseWorkunitArgs(work *core.Workunit) (err error) {
 
 	work.Cmd.ParsedArgs = args
 	logger.Debug(1, "work.Cmd.ParsedArgs: %v (%d)", work.Cmd.ParsedArgs, len(work.Cmd.ParsedArgs))
-	work.SetState(core.WORK_STAT_PREPARED)
+	work.SetState(core.WORK_STAT_PREPARED, "")
 	return nil
 }
 

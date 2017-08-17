@@ -9,15 +9,17 @@ import (
 	"github.com/MG-RAST/AWE/lib/shock"
 	"regexp"
 	//"strconv"
+	//"github.com/davecgh/go-spew/spew"
 	"strings"
 	"time"
 )
 
 const (
 	TASK_STAT_INIT             = "init"        // initial state on creation of a task
-	TASK_STAT_QUEUED           = "queued"      // a task that is in the queue
+	TASK_STAT_PENDING          = "pending"     // a task that wants to be enqueued
+	TASK_STAT_READY            = "ready"       // a task ready to be enqueued
+	TASK_STAT_QUEUED           = "queued"      // a task for which workunits have been created/queued
 	TASK_STAT_INPROGRESS       = "in-progress" // a first workunit has been checkout (this does not guarantee a workunit is running right now)
-	TASK_STAT_PENDING          = "pending"     // a task right before it is queued
 	TASK_STAT_SUSPEND          = "suspend"
 	TASK_STAT_FAILED           = "failed"
 	TASK_STAT_FAILED_PERMANENT = "failed-permanent" // on exit code 42
@@ -57,7 +59,7 @@ func New_Task_Unique_Identifier(old_style_id string) (t Task_Unique_Identifier, 
 	array := strings.Split(old_style_id, "_")
 
 	if len(array) != 2 {
-		err = fmt.Errorf("Cannot parse task identifier: %s", old_style_id)
+		err = fmt.Errorf("(New_Task_Unique_Identifier) Cannot parse task identifier: %s", old_style_id)
 		return
 	}
 
@@ -124,10 +126,6 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 
 	if task.State == "" {
 		task.State = TASK_STAT_INIT
-	}
-
-	if task.State == TASK_STAT_QUEUED {
-		task.State = TASK_STAT_PENDING
 		changed = true
 	}
 
@@ -163,17 +161,17 @@ func (task Task_Unique_Identifier) String() (s string) {
 	return fmt.Sprintf("%s_%s", jobId, id)
 }
 
-func (task *TaskRaw) String() (s string, err error) {
-	err = task.LockNamed("String")
-	if err != nil {
-		return
-	}
-	defer task.Unlock()
-
-	s = task.Task_Unique_Identifier.String()
-
-	return
-}
+// func (task *TaskRaw) String() (s string, err error) {
+// 	err = task.LockNamed("String")
+// 	if err != nil {
+// 		return
+// 	}
+// 	defer task.Unlock()
+//
+// 	s = task.Task_Unique_Identifier.String()
+//
+// 	return
+// }
 
 func IsValidUUID(uuid string) bool {
 	if len(uuid) != 36 {
@@ -186,39 +184,47 @@ func IsValidUUID(uuid string) bool {
 // populate DependsOn
 func (task *Task) CollectDependencies() (changed bool, err error) {
 
-	deps := make(map[string]bool)
+	deps := make(map[Task_Unique_Identifier]bool)
 	deps_changed := false
 	// collect explicit dependencies
 	for _, deptask := range task.DependsOn {
 
-		deptask_parts := strings.SplitN(deptask, "_", 2)
-		if IsValidUUID(deptask_parts[0]) {
-			deptask = deptask_parts[1]
-			if task.JobId == "" {
-				task.JobId = deptask_parts[0]
+		t, yerr := New_Task_Unique_Identifier(deptask)
+		if yerr != nil {
+			fixed_deptask := task.JobId + "_" + deptask
+
+			var xerr error
+			t, xerr = New_Task_Unique_Identifier(fixed_deptask)
+			if xerr != nil {
+				err = fmt.Errorf("Cannot parse entry in DependsOn: %s", xerr.Error())
+				return
 			}
 			deps_changed = true
 		}
 
-		deps[deptask] = true
+		deps[t] = true
 	}
 
 	for _, input := range task.Inputs {
 
 		deptask := input.Origin
-		deptask_parts := strings.SplitN(deptask, "_", 2)
-		if IsValidUUID(deptask_parts[0]) {
-			deptask = deptask_parts[1]
-			if task.JobId == "" {
-				task.JobId = deptask_parts[0]
+		t, yerr := New_Task_Unique_Identifier(deptask)
+		if yerr != nil {
+			fixed_deptask := task.JobId + "_" + deptask
+
+			t, err = New_Task_Unique_Identifier(fixed_deptask)
+			if err != nil {
+				err = fmt.Errorf("Cannot parse entry in DependsOn: %s", err.Error())
+				return
+
 			}
-			deps_changed = true
+
 		}
 
-		_, ok := deps[deptask]
+		_, ok := deps[t]
 		if !ok {
 			// this was not yet in deps
-			deps[deptask] = true
+			deps[t] = true
 			deps_changed = true
 		}
 
@@ -228,7 +234,7 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 	if deps_changed {
 		task.DependsOn = []string{}
 		for deptask, _ := range deps {
-			task.DependsOn = append(task.DependsOn, deptask)
+			task.DependsOn = append(task.DependsOn, deptask.String())
 		}
 		changed = true
 	}
@@ -429,12 +435,14 @@ func (task *TaskRaw) GetJobId() (id string, err error) {
 	return
 }
 
-func (task *TaskRaw) SetState(new_state string) (err error) {
-	err = task.LockNamed("SetState")
-	if err != nil {
-		return
+func (task *TaskRaw) SetState(new_state string, write_lock bool) (err error) {
+	if write_lock {
+		err = task.LockNamed("SetState")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
 	}
-	defer task.Unlock()
 
 	old_state := task.State
 	taskid := task.Id
@@ -456,6 +464,8 @@ func (task *TaskRaw) SetState(new_state string) (err error) {
 	if err != nil {
 		return
 	}
+
+	logger.Debug(3, "(Task/SetState) %s new state: \"%s\" (old state \"%s\")", taskid, new_state, old_state)
 	task.State = new_state
 
 	if new_state == TASK_STAT_COMPLETED {
@@ -479,6 +489,22 @@ func (task *TaskRaw) SetState(new_state string) (err error) {
 			return
 		}
 	}
+
+	//r, err := dbGetJobTaskString(jobid, taskid, "state")
+	//if err != nil {
+	//	panic(err.Error())
+	//}
+	//if r != new_state {
+	//	text := fmt.Sprintf("did set: \"%s\" got: \"%s\"", new_state, r)
+	//	panic(text)
+	//}
+
+	//result_test, err := dbGetJobTask(jobid, taskid)
+
+	//spew_config := spew.NewDefaultConfig()
+	//spew_config.DisableMethods = true
+	//spew_config.Dump(*result_test)
+
 	return
 }
 

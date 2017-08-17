@@ -172,7 +172,7 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 				continue
 			}
 			if work.State == WORK_STAT_RESERVED {
-				qm.workQueue.StatusChange(work_id, work, WORK_STAT_CHECKOUT)
+				qm.workQueue.StatusChange(work_id, work, WORK_STAT_CHECKOUT, "")
 			}
 		}
 
@@ -902,7 +902,7 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 		work.Client = client_id
 		work.CheckoutTime = time.Now()
 		//qm.workQueue.Put(work) TODO isn't that already in the queue ?
-		qm.workQueue.StatusChange(work.Workunit_Unique_Identifier, work, WORK_STAT_CHECKOUT)
+		qm.workQueue.StatusChange(work.Workunit_Unique_Identifier, work, WORK_STAT_CHECKOUT, "")
 	}
 
 	logger.Debug(3, "done with popWorks() for client: %s ", client_id)
@@ -1060,7 +1060,12 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 
 		jobid := work.JobId
 
-		job_state, err := dbGetJobFieldString(jobid, "state")
+		job, xerr := GetJob(jobid)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		job_state, err := job.GetState(true)
 		if err != nil {
 			logger.Error("(ReQueueWorkunitByClient) dbGetJobField: %s", err.Error())
 			continue
@@ -1068,7 +1073,7 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 
 		if contains(JOB_STATS_ACTIVE, job_state) { //only requeue workunits belonging to active jobs (rule out suspended jobs)
 			if work.Client == client.Id {
-				qm.workQueue.StatusChange(workid, work, WORK_STAT_QUEUED)
+				qm.workQueue.StatusChange(workid, work, WORK_STAT_QUEUED, "")
 				logger.Event(event.WORK_REQUEUE, "workid="+workid.String())
 			} else {
 
@@ -1088,7 +1093,7 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 					}
 					if !oc_has_work {
 						// other client has not this workunit,
-						qm.workQueue.StatusChange(workid, work, WORK_STAT_SUSPEND)
+						qm.workQueue.StatusChange(workid, work, WORK_STAT_SUSPEND, "workunit has wrong client info")
 						continue
 					}
 				}
@@ -1097,7 +1102,7 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 
 			}
 		} else {
-			qm.workQueue.StatusChange(workid, work, WORK_STAT_SUSPEND)
+			qm.workQueue.StatusChange(workid, work, WORK_STAT_SUSPEND, "workunit does not belong to an actove job")
 		}
 
 	}

@@ -124,7 +124,10 @@ func (qm *ProxyMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		return
 	}
 	if ok {
-		work.SetState(notice.Status)
+		err = work.SetState(notice.Status, "")
+		if err != nil {
+			return
+		}
 		if err = proxy_relay_workunit(work, perf); err != nil {
 			return
 		}
@@ -214,7 +217,7 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 				continue
 			}
 			if has_work {
-				qm.workQueue.StatusChange(workid, nil, WORK_STAT_CHECKOUT)
+				qm.workQueue.StatusChange(workid, nil, WORK_STAT_CHECKOUT, "")
 			}
 		}
 

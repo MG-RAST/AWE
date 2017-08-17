@@ -78,9 +78,9 @@ func processor(control chan int) {
 		if workunit.State == core.WORK_STAT_ERROR || work_state == ID_DISCARDED {
 
 			if work_state == ID_DISCARDED {
-				workunit.SetState(core.WORK_STAT_DISCARDED)
+				workunit.SetState(core.WORK_STAT_DISCARDED, "workmap indicates that workunit has been discarded")
 			} else {
-				workunit.SetState(core.WORK_STAT_ERROR)
+				workunit.SetState(core.WORK_STAT_ERROR, "workmap indicates WORK_STAT_ERROR")
 			}
 			fromProcessor <- workunit
 			//release the permit lock, for work overlap inhibitted mode only
@@ -106,7 +106,7 @@ func processor(control chan int) {
 			if err != nil {
 				logger.Error("(processor) SetEnv(): workid=" + work_id.String() + ", " + err.Error())
 				workunit.Notes = append(workunit.Notes, "[processor#SetEnv]"+err.Error())
-				workunit.SetState(core.WORK_STAT_ERROR)
+				workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 				//release the permit lock, for work overlap inhibitted mode only
 				//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
 				//	<-chanPermit
@@ -124,13 +124,13 @@ func processor(control chan int) {
 			workunit.Notes = append(workunit.Notes, "[processor#RunWorkunit]"+err.Error())
 
 			if exit_status == 42 {
-				workunit.SetState(core.WORK_STAT_FAILED_PERMANENT) // process told us that is an error where resubmission does not make sense.
+				workunit.SetState(core.WORK_STAT_FAILED_PERMANENT, "exit_status == 42") // process told us that is an error where resubmission does not make sense.
 			} else {
-				workunit.SetState(core.WORK_STAT_ERROR)
+				workunit.SetState(core.WORK_STAT_ERROR, "RunWorkunit failed")
 			}
 		} else {
 			logger.Debug(1, "(processor) RunWorkunit() returned without error, workid=%s", work_id.String())
-			workunit.SetState(core.WORK_STAT_COMPUTED)
+			workunit.SetState(core.WORK_STAT_COMPUTED, "")
 			workunit.WorkPerf.MaxMemUsage = pstat.MaxMemUsage
 			workunit.WorkPerf.MaxMemoryTotalRss = pstat.MaxMemoryTotalRss
 			workunit.WorkPerf.MaxMemoryTotalSwap = pstat.MaxMemoryTotalSwap

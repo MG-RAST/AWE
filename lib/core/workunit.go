@@ -341,11 +341,25 @@ func (work *Workunit) RemoveDir() (err error) {
 	return
 }
 
-func (work *Workunit) SetState(new_state string) {
+func (work *Workunit) SetState(new_state string, reason string) (err error) {
+
+	if new_state == WORK_STAT_SUSPEND && reason == "" {
+		err = fmt.Errorf("To suspend you need to provide a reason")
+		return
+	}
+
 	work.State = new_state
 	if new_state != WORK_STAT_CHECKOUT {
 		work.Client = ""
 	}
+
+	if reason != "" {
+		if len(work.Notes) == 0 {
+			work.Notes = append(work.Notes, reason)
+		}
+	}
+
+	return
 }
 
 func (work *Workunit) Path() string {

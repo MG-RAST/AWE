@@ -15,7 +15,7 @@ type Info struct {
 	Pipeline      string            `bson:"pipeline" json:"pipeline"` // or workflow
 	ClientGroups  string            `bson:"clientgroups" json:"clientgroups"`
 	SubmitTime    time.Time         `bson:"submittime" json:"submittime"`
-	StartedTme    time.Time         `bson:"startedtime" json:"startedtime"`
+	StartedTime   time.Time         `bson:"startedtime" json:"startedtime"`
 	CompletedTime time.Time         `bson:"completedtime" json:"completedtime"`
 	Priority      int               `bson:"priority" json:"priority"`
 	Auth          bool              `bson:"auth" json:"auth"`
@@ -31,4 +31,14 @@ func NewInfo() *Info {
 		SubmitTime: time.Now(),
 		Priority:   conf.BasePriority,
 	}
+}
+
+func (this *Info) SetStartedTime(jobid string, t time.Time) (err error) {
+
+	err = DbUpdateJobField(jobid, "info.startedtime", t)
+	if err != nil {
+		return
+	}
+	this.StartedTime = t
+	return
 }

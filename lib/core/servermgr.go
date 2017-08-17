@@ -362,14 +362,15 @@ func (qm *ServerMgr) updateQueue() (err error) {
 			continue
 		}
 
-		if task_state == TASK_STAT_INPROGRESS || task_state == TASK_STAT_COMPLETED {
+		if !(task_state == TASK_STAT_INIT || task_state == TASK_STAT_PENDING) { // == TASK_STAT_INPROGRESS || task_state == TASK_STAT_COMPLETED
+			logger.Debug(3, "(updateQueue) skipping task %s , it has state %s", task_id, task_state)
 			continue
 		}
 
 		logger.Debug(3, "(updateQueue) task: %s", task_id)
 		task_ready, err := qm.isTaskReady(task)
 		if err != nil {
-			logger.Error("(updateQueue) isTaskReady=%s error: %s", task_id, err.Error())
+			logger.Error("(updateQueue) %s isTaskReady returns error: %s", task_id, err.Error())
 			continue
 		}
 
@@ -388,7 +389,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 
 			err = qm.taskEnQueue(task, job)
 			if err != nil {
-				_ = task.SetState(TASK_STAT_SUSPEND)
+				_ = task.SetState(TASK_STAT_SUSPEND, true)
 				var job_id string
 				job_id, xerr := task.GetJobId()
 				if xerr != nil {
@@ -396,7 +397,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 					return err
 				}
 
-				task_string, _ := task.String()
+				task_string := task.String()
 
 				jerror := &JobError{
 					TaskFailed:  task_string,
@@ -522,7 +523,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		if xerr != nil {
 			err = xerr
 			logger.Error("task %s, err: %s", task_id, err.Error())
-			yerr := task.SetState(TASK_STAT_SUSPEND)
+			yerr := task.SetState(TASK_STAT_SUSPEND, true)
 			if yerr != nil {
 				err = yerr
 				return
@@ -544,7 +545,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		}
 	}
 
-	err = task.SetState(TASK_STAT_COMPLETED)
+	err = task.SetState(TASK_STAT_COMPLETED, true)
 	if err != nil {
 		return
 	}
@@ -635,8 +636,14 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		return fmt.Errorf("(handleNoticeWorkDelivered) workunit %s did not have state WORK_STAT_CHECKOUT or WORK_STAT_RESERVED (state is %s)", workid, work.State)
 	}
 
+	reason := ""
+
+	if status == WORK_STAT_SUSPEND {
+		reason = "workunit suspended by worker" // TODO add more info from worker
+	}
+
 	// *** update state of workunit
-	if err = qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, status); err != nil {
+	if err = qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, status, reason); err != nil {
 		return err
 	}
 
@@ -676,9 +683,9 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s) workid=%s clientid=%s", status, workid, clientid)
 		work.Failed += 1
 
-		qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_FAILED_PERMANENT)
+		qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_FAILED_PERMANENT, "")
 
-		if err = task.SetState(TASK_STAT_FAILED_PERMANENT); err != nil {
+		if err = task.SetState(TASK_STAT_FAILED_PERMANENT, true); err != nil {
 			return err
 		}
 
@@ -700,14 +707,14 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		work.Failed += 1
 
 		if work.Failed < MAX_FAILURE {
-			qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_QUEUED)
+			qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_QUEUED, "")
 			logger.Event(event.WORK_REQUEUE, "workid="+workid)
 		} else {
 			//failure time exceeds limit, suspend workunit, task, job
-			qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_SUSPEND)
+			qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_SUSPEND, "work.Failed >= MAX_FAILURE")
 			logger.Event(event.WORK_SUSPEND, "workid="+workid)
 
-			if err = task.SetState(TASK_STAT_SUSPEND); err != nil {
+			if err = task.SetState(TASK_STAT_SUSPEND, true); err != nil {
 				return err
 			}
 
@@ -1089,6 +1096,12 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 
 		qm.addTask(task, job)
 	}
+
+	err = job.SetState(JOB_STAT_QUEUED, []string{JOB_STAT_INIT, JOB_STAT_SUSPEND, JOB_STAT_QUEUING})
+	if err != nil {
+		return
+	}
+
 	qm.CreateJobPerf(jobid)
 	return
 }
@@ -1118,57 +1131,54 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 	}
 	logger.Debug(3, "(addTask) state of task: %s", task_state)
 
-	defer func() {
-		err = qm.TaskMap.Add(task)
-		if err != nil {
-			logger.Error("(qm.TaskMap.Add): %s", err.Error())
-		}
-	}()
-
 	if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
-		logger.Debug(3, "(addTask) completed or passed")
+		logger.Debug(3, "(addTask) already completed or passed")
 		return
 	}
 	logger.Debug(3, "(addTask) NOT completed or passed")
-	err = task.SetState(TASK_STAT_PENDING)
+
+	err = qm.TaskMap.Add(task) // makes it a pending task
+	if err != nil {
+		logger.Error("(qm.TaskMap.Add): %s", err.Error())
+	}
+
+	task_state, err = task.GetState()
 	if err != nil {
 		return
 	}
-	logger.Debug(3, "(addTask) made pending")
 
-	task_ready, err := qm.isTaskReady(task)
+	task_ready, err := qm.isTaskReady(task) //makes the task ready
 	if err != nil {
 		return
 	}
 
-	if task_ready {
+	if !task_ready {
+		return
+	}
 
-		logger.Debug(3, "(addTask) task %s is ready (invoking taskEnQueue)", task.String())
-		err = qm.taskEnQueue(task, job)
-		if err != nil {
-			logger.Error("(addTask) taskEnQueue returned error: %s", err.Error())
-			_ = task.SetState(TASK_STAT_SUSPEND)
+	//task_id := task.String()
+	logger.Debug(3, "(addTask) task %s is ready (invoking taskEnQueue)", task_id)
+	err = qm.taskEnQueue(task, job)
+	if err != nil {
+		logger.Error("(addTask) taskEnQueue returned error: %s", err.Error())
+		_ = task.SetState(TASK_STAT_SUSPEND, true)
 
-			job_id, xerr := task.GetJobId()
-			if xerr != nil {
-				err = xerr
-				return
-			}
-			jerror := &JobError{
-				TaskFailed:  task_id.String(),
-				ServerNotes: "failed in enqueuing task, err=" + err.Error(),
-				Status:      JOB_STAT_SUSPEND,
-			}
-			if serr := qm.SuspendJob(job_id, jerror); serr != nil {
-				logger.Error("(updateQueue:SuspendJob) job_id=%s; err=%s", job_id, serr.Error())
-			}
-			return err
+		job_id, xerr := task.GetJobId()
+		if xerr != nil {
+			err = xerr
+			return
 		}
-		logger.Debug(3, "(addTask) taskEnQueue returned without error")
-	} else {
-
-		logger.Debug(3, "(addTask) task is not ready")
+		jerror := &JobError{
+			TaskFailed:  task_id.String(),
+			ServerNotes: "failed in enqueuing task, err=" + err.Error(),
+			Status:      JOB_STAT_SUSPEND,
+		}
+		if serr := qm.SuspendJob(job_id, jerror); serr != nil {
+			logger.Error("(updateQueue:SuspendJob) job_id=%s; err=%s", job_id, serr.Error())
+		}
+		return err
 	}
+
 	err = qm.updateJobTask(task) //task state INIT->PENDING
 	logger.Debug(3, "(addTask) leaving...")
 	return
@@ -1188,8 +1198,15 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 
 	logger.Debug(3, "(isTaskReady) task state is %s", task_state)
 
-	if task_state == TASK_STAT_PENDING {
+	if task_state == TASK_STAT_READY {
 		ready = true
+		return
+	}
+
+	if task_state == TASK_STAT_INIT || task_state == TASK_STAT_PENDING {
+		logger.Debug(3, "(isTaskReady) task state is %s", task_state)
+	} else {
+		err = fmt.Errorf("(isTaskReady) task has state %s, it does not make sense to test if it is ready", task_state)
 		return
 	}
 
@@ -1197,9 +1214,12 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 	if err != nil {
 		return
 	}
-	logger.Debug(3, "(isTaskReady) task_id: %s", task_id)
+	logger.Debug(3, "(isTaskReady %s)", task_id)
 
-	defer func() { logger.Debug(3, "(isTaskReady) %s ready=%t", task_id, ready) }()
+	defer func() {
+		logger.Debug(3, "(isTaskReady %s) ready=%t", task_id, ready)
+		fmt.Printf("(isTaskReady %s) ready=%t\n", task_id, ready)
+	}()
 
 	//skip if the belonging job is suspended
 	jobid, err := task.GetJobId()
@@ -1211,14 +1231,14 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 		return
 	}
 
-	logger.Debug(3, "(isTaskReady) GetDependsOn %s", task_id)
+	logger.Debug(3, "(isTaskReady %s) GetDependsOn", task_id)
 	deps, xerr := task.GetDependsOn()
 	if xerr != nil {
 		err = xerr
 		return
 	}
 
-	logger.Debug(3, "(isTaskReady) range deps %s (%d)", task_id.String(), len(deps))
+	logger.Debug(3, "(isTaskReady %s) range deps (%d)", task_id, len(deps))
 	for _, predecessor := range deps {
 		predecessor_id, xerr := New_Task_Unique_Identifier(predecessor)
 		if xerr != nil {
@@ -1228,20 +1248,16 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 		pretask, ok, yerr := qm.TaskMap.Get(predecessor_id, true)
 		if yerr != nil {
 			err = yerr
-
 			return
 		}
-
 		if !ok {
-			logger.Error("predecessor %s of task %s is unknown", predecessor, task_id)
-			ready = false
+			logger.Error("(isTaskReady %s) predecessor %s is unknown", task_id, predecessor)
 			return
 		}
 
 		pretask_state, zerr := pretask.GetState()
 		if zerr != nil {
 			err = zerr
-
 			return
 		}
 
@@ -1250,7 +1266,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 		}
 
 	}
-	logger.Debug(3, "(isTaskReady) task %s is ready", task_id)
+	logger.Debug(3, "(isTaskReady %s) task seems to be ready", task_id)
 
 	modified := false
 	for _, io := range task.Inputs {
@@ -1268,7 +1284,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("Task %s not found", preId)
+			err = fmt.Errorf("(isTaskReady %s) Task %s not found", task_id, preId)
 			return
 		}
 
@@ -1280,7 +1296,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 		}
 
 		if pretask_state != TASK_STAT_COMPLETED {
-			err = fmt.Errorf("pretask_state != TASK_STAT_COMPLETED  state: %s preId: %s", pretask_state, preId)
+			err = fmt.Errorf("(isTaskReady %s) pretask_state != TASK_STAT_COMPLETED  state: %s preId: %s", task_id, pretask_state, preId)
 			return
 		}
 
@@ -1291,7 +1307,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 			return
 		}
 
-		logger.Debug(3, "pretask_output size = %d, state = %s", pretask_output.Size, preTask.State)
+		logger.Debug(3, "(isTaskReady %s) pretask_output size = %d, state = %s", task_id, pretask_output.Size, preTask.State)
 
 		if io.Size != pretask_output.Size {
 			io.Size = pretask_output.Size
@@ -1307,17 +1323,20 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 		}
 	}
 
-	ready = true
-
-	err = task.SetState(TASK_STAT_PENDING)
-	if err != nil {
-		return
+	if task_state == TASK_STAT_PENDING {
+		err = task.SetState(TASK_STAT_READY, true)
+		if err != nil {
+			return
+		}
 	}
 
+	ready = true
+	logger.Debug(3, "(isTaskReady %s) finished, task is ready", task_id)
 	return
 }
 
-// happens when task is ready (state = pending)
+// happens when task is ready
+// prepares task and creates workunits
 func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 	task_id, err := task.GetId()
@@ -1332,8 +1351,8 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		return
 	}
 
-	if state != TASK_STAT_PENDING {
-		err = fmt.Errorf("(taskEnQueue) Task state should be TASK_STAT_PENDING, got state %s", state)
+	if state != TASK_STAT_READY {
+		err = fmt.Errorf("(taskEnQueue) Task state should be TASK_STAT_READY, got state %s", state)
 		return
 	}
 
@@ -1381,7 +1400,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		err = fmt.Errorf("(qmgr.taskEnQueue) CreateAndEnqueueWorkunits: %s", err.Error())
 		return
 	}
-	err = task.SetState(TASK_STAT_QUEUED)
+	err = task.SetState(TASK_STAT_QUEUED, true)
 	if err != nil {
 		return
 	}
@@ -1415,7 +1434,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 	//	return
 	//}
 
-	err = job.SetState(JOB_STAT_QUEUED, []string{JOB_STAT_INIT, JOB_STAT_SUSPEND})
+	err = job.SetState(JOB_STAT_QUEUING, nil)
 	if err != nil {
 		err = fmt.Errorf("(qmgr.taskEnQueue) UpdateJobState: %s", err.Error())
 		return
@@ -1705,7 +1724,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	}
 	logger.Debug(2, "remaining tasks for job %s: %d", task.Id, remainTasks)
 
-	if remainTasks > 0 {
+	if remainTasks > 0 { //#####################################################################
 		return
 	}
 
@@ -1780,7 +1799,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 }
 
 //update job/task states from "queued" to "in-progress" once the first workunit is checked out
-func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
+func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) (err error) {
 	for _, work := range works {
 		//job_was_inprogress := false
 		//task_was_inprogress := false
@@ -1788,15 +1807,24 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 		jobid := work.JobId
 
 		// get job state
-		job_state, err := dbGetJobFieldString(jobid, "state")
+		job, xerr := GetJob(jobid)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		job_state, xerr := job.GetState(true)
+		if xerr != nil {
+			err = xerr
+			return
+		}
 
 		//update job status
 		if job_state != JOB_STAT_INPROGRESS {
-
-			dbUpdateJobState(jobid, JOB_STAT_INPROGRESS, "")
-
-			DbUpdateJobField(jobid, "info.startedtime", time.Now())
-
+			err = job.SetState(JOB_STAT_INPROGRESS, nil)
+			if err != nil {
+				return
+			}
 			qm.UpdateJobPerfStartTime(jobid)
 		}
 
@@ -1817,7 +1845,7 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 		}
 
 		if task_state != TASK_STAT_INPROGRESS {
-			err := task.SetState(TASK_STAT_INPROGRESS)
+			err := task.SetState(TASK_STAT_INPROGRESS, true)
 			if err != nil {
 				logger.Error("(UpdateJobTaskToInProgress) could not update task %s", taskid)
 				continue
@@ -1825,6 +1853,7 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) {
 			qm.UpdateTaskPerfStartTime(task)
 		}
 	}
+	return
 }
 
 func (qm *ServerMgr) IsJobRegistered(id string) bool {
@@ -1879,7 +1908,7 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 		parentid := workunit.JobId
 		//parentid, _ := GetJobIdByWorkId(workid)
 		if jobid == parentid {
-			qm.workQueue.StatusChange(workid, nil, new_work_state)
+			qm.workQueue.StatusChange(workid, nil, new_work_state, "see job error")
 		}
 	}
 
@@ -1890,7 +1919,7 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 			continue
 		}
 		if task_state == TASK_STAT_QUEUED || task_state == TASK_STAT_INIT || task_state == TASK_STAT_INPROGRESS {
-			err = task.SetState(new_task_state)
+			err = task.SetState(new_task_state, true)
 			if err != nil {
 				logger.Error("(SuspendJob) : %s", err.Error())
 				continue
@@ -2107,11 +2136,11 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 
 		// Directly after AWE server restart no job can be in progress. (Unless we add this as a feature))
 		if job_state == JOB_STAT_INPROGRESS {
-			err = DbUpdateJobField(dbjob.Id, "state", JOB_STAT_QUEUED)
-			if err != nil {
-				logger.Error("error while recover: " + err.Error())
-				continue
-			}
+			//err = DbUpdateJobField(dbjob.Id, "state", JOB_STAT_QUEUED) // SetState is already doing that for us
+			//if err != nil {
+			//	logger.Error("error while recover: " + err.Error())
+			//	continue
+			//}
 			err = dbjob.SetState(JOB_STAT_QUEUED, nil)
 			if err != nil {
 				logger.Error(err.Error())
@@ -2171,7 +2200,10 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 		}
 
 		if task_id.String() == from_task_id {
-			resetTask(task, dbjob.Info)
+			err = resetTask(task, dbjob.Info)
+			if err != nil {
+				return
+			}
 			remaintasks += 1
 			found = true
 		}
@@ -2185,7 +2217,10 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 			return xerr
 		}
 		if isAncestor(dbjob, task_id.Id, from_task_id) {
-			resetTask(task, dbjob.Info)
+			err = resetTask(task, dbjob.Info)
+			if err != nil {
+				return
+			}
 			remaintasks += 1
 		}
 	}
@@ -2264,10 +2299,16 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 }
 
 // TODO Lock !!!!
-func resetTask(task *Task, info *Info) {
+func resetTask(task *Task, info *Info) (err error) {
 	task.Info = info
-	_ = task.SetState(TASK_STAT_PENDING)
-	_ = task.SetRemainWork(task.TotalWork, false) // TODO err
+	err = task.SetState(TASK_STAT_PENDING, true)
+	if err != nil {
+		return
+	}
+	err = task.SetRemainWork(task.TotalWork, false) // TODO err
+	if err != nil {
+		return
+	}
 
 	task.ComputeTime = 0
 	task.CompletedDate = time.Time{}
@@ -2284,7 +2325,9 @@ func resetTask(task *Task, info *Info) {
 		if dataUrl, _ := output.DataUrl(); dataUrl != "" {
 			// delete dataUrl if is shock node
 			if strings.HasSuffix(dataUrl, shock.DATA_SUFFIX) {
-				if err := shock.ShockDelete(output.Host, output.Node, output.DataToken); err == nil {
+
+				err = shock.ShockDelete(output.Host, output.Node, output.DataToken)
+				if err == nil {
 					logger.Debug(2, "Deleted node %s from shock", output.Node)
 				} else {
 					logger.Error("resetTask: unable to deleted node %s from shock: %s", output.Node, err.Error())
@@ -2299,6 +2342,7 @@ func resetTask(task *Task, info *Info) {
 	for _, log := range conf.WORKUNIT_LOGS {
 		deleteStdLogByTask(task, log)
 	}
+	return
 }
 
 func isAncestor(job *Job, taskId string, testId string) bool {

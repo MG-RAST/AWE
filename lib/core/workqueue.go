@@ -6,6 +6,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"sort"
 	//"sync"
+	"fmt"
 )
 
 type WorkQueue struct {
@@ -49,7 +50,7 @@ func (wq *WorkQueue) Add(workunit *Workunit) (err error) {
 	if err != nil {
 		return
 	}
-	err = wq.StatusChange(Workunit_Unique_Identifier{}, workunit, WORK_STAT_QUEUED)
+	err = wq.StatusChange(Workunit_Unique_Identifier{}, workunit, WORK_STAT_QUEUED, "")
 	if err != nil {
 		return
 	}
@@ -128,7 +129,7 @@ func (wq *WorkQueue) Has(id Workunit_Unique_Identifier) (has bool, err error) {
 
 //--------end of accessors-------
 
-func (wq *WorkQueue) StatusChange(id Workunit_Unique_Identifier, workunit *Workunit, new_status string) (err error) {
+func (wq *WorkQueue) StatusChange(id Workunit_Unique_Identifier, workunit *Workunit, new_status string, reason string) (err error) {
 	//move workunit id between maps. no need to care about the old status because
 	//delete function will do nothing if the operated map has no such key.
 
@@ -154,26 +155,44 @@ func (wq *WorkQueue) StatusChange(id Workunit_Unique_Identifier, workunit *Worku
 	case WORK_STAT_CHECKOUT:
 		wq.Queue.Delete(id)
 		wq.Suspend.Delete(id)
-		workunit.SetState(new_status)
+		err = workunit.SetState(new_status, reason)
+		if err != nil {
+			return
+		}
+
 		wq.Checkout.Set(workunit)
 	case WORK_STAT_QUEUED:
 		wq.Checkout.Delete(id)
 		wq.Suspend.Delete(id)
-		workunit.SetState(new_status)
+		err = workunit.SetState(new_status, reason)
+		if err != nil {
+			return
+		}
 		wq.Queue.Set(workunit)
 
 	case WORK_STAT_SUSPEND:
+
+		if reason == "" {
+			err = fmt.Errorf("suspend workunit only with reason!")
+			return
+		}
+
 		wq.Checkout.Delete(id)
 		wq.Queue.Delete(id)
-		workunit.SetState(new_status)
+		err = workunit.SetState(new_status, reason)
+		if err != nil {
+			return
+		}
 		wq.Suspend.Set(workunit)
 
 	default:
 		wq.Checkout.Delete(id)
 		wq.Queue.Delete(id)
 		wq.Suspend.Delete(id)
-		workunit.SetState(new_status)
-
+		err = workunit.SetState(new_status, reason)
+		if err != nil {
+			return
+		}
 	}
 
 	return

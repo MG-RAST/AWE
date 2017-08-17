@@ -11,6 +11,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/davecgh/go-spew/spew"
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"os"
@@ -22,9 +23,10 @@ import (
 )
 
 const (
-	JOB_STAT_INIT             = "init"
-	JOB_STAT_QUEUED           = "queued"
-	JOB_STAT_INPROGRESS       = "in-progress"
+	JOB_STAT_INIT             = "init"        // inital state
+	JOB_STAT_QUEUING          = "queuing"     // transition from "init" to "queued"
+	JOB_STAT_QUEUED           = "queued"      // all tasks have been added to taskmap
+	JOB_STAT_INPROGRESS       = "in-progress" // a first task went into state in-progress
 	JOB_STAT_COMPLETED        = "completed"
 	JOB_STAT_SUSPEND          = "suspend"
 	JOB_STAT_FAILED_PERMANENT = "failed-permanent" // this sepcific error state can be trigger by the workflow software
@@ -32,7 +34,7 @@ const (
 )
 
 var JOB_STATS_ACTIVE = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS}
-var JOB_STATS_REGISTERED = []string{JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
+var JOB_STATS_REGISTERED = []string{JOB_STAT_QUEUING, JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 var JOB_STATS_TO_RECOVER = []string{JOB_STAT_INIT, JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 
 type JobError struct {
@@ -540,13 +542,22 @@ func (job *Job) SetState(newState string, oldstates []string) (err error) {
 	job.State = newState
 
 	// set time if completed
-	if newState == JOB_STAT_COMPLETED {
+	switch newState {
+	case JOB_STAT_COMPLETED:
 		newTime := time.Now()
 		err = dbUpdateJobFieldTime(job.Id, "info.completedtime", newTime)
 		if err != nil {
 			return
 		}
 		job.Info.CompletedTime = newTime
+	case JOB_STAT_INPROGRESS:
+		time_now := time.Now()
+		jobid := job.Id
+		err = job.Info.SetStartedTime(jobid, time_now)
+		if err != nil {
+			return
+		}
+
 	}
 
 	// unset error if not suspended
@@ -566,6 +577,7 @@ func (job *Job) SetError(newError *JobError) (err error) {
 		return
 	}
 	defer job.Unlock()
+	spew.Dump(newError)
 
 	update_value := bson.M{"error": newError}
 	err = dbUpdateJobFields(job.Id, update_value)

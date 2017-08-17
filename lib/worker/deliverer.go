@@ -47,7 +47,7 @@ func deliverer_run(control chan int) {
 	}
 
 	if work_state == ID_DISCARDED {
-		workunit.SetState(core.WORK_STAT_DISCARDED)
+		workunit.SetState(core.WORK_STAT_DISCARDED, "workmap indicated discarded")
 		logger.Event(event.WORK_DISCARD, "workid="+work_id.String())
 	} else {
 		workmap.Set(work_id, ID_DELIVERER, "deliverer")
@@ -59,11 +59,11 @@ func deliverer_run(control chan int) {
 		if workunit.State == core.WORK_STAT_COMPUTED {
 			data_moved, err := cache.UploadOutputData(workunit)
 			if err != nil {
-				workunit.SetState(core.WORK_STAT_ERROR)
+				workunit.SetState(core.WORK_STAT_ERROR, "UploadOutputData failed")
 				logger.Error("[deliverer#UploadOutputData]workid=" + work_id.String() + ", err=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[deliverer#UploadOutputData]"+err.Error())
 			} else {
-				workunit.SetState(core.WORK_STAT_DONE)
+				workunit.SetState(core.WORK_STAT_DONE, "")
 				perfstat.OutFileSize = data_moved
 			}
 		}

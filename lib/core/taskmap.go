@@ -1,5 +1,9 @@
 package core
 
+import (
+	"fmt"
+)
+
 type TaskMap struct {
 	RWMutex
 	_map map[Task_Unique_Identifier]*Task
@@ -85,6 +89,20 @@ func (tm *TaskMap) Add(task *Task) (err error) {
 	if err != nil {
 		return
 	}
-	tm._map[id] = task // TODO prevent overwriting
+	_, has_task := tm._map[id]
+	if has_task {
+		err = fmt.Errorf("(TaskMap/Add) task is already in TaskMap")
+		return
+	}
+
+	task_state, _ := task.GetState()
+	if task_state == TASK_STAT_INIT {
+		err = task.SetState(TASK_STAT_PENDING, false)
+		if err != nil {
+			return
+		}
+	}
+
+	tm._map[id] = task
 	return
 }

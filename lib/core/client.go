@@ -178,12 +178,11 @@ func (cl *Client) Append_Skip_work(workid Workunit_Unique_Identifier, write_lock
 		if err != nil {
 			return
 		}
+		defer cl.Unlock()
 	}
 
 	cl.Skip_work = append(cl.Skip_work, workid.String())
-	if write_lock {
-		cl.Unlock()
-	}
+
 	return
 }
 

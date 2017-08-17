@@ -286,7 +286,7 @@ func dbGetJobTaskField(job_id string, task_id string, fieldname string, result *
 		return
 	}
 
-	logger.Debug(3, "GOT: %v", temp_result)
+	//logger.Debug(3, "GOT: %v", temp_result)
 
 	tasks_unknown := temp_result["tasks"]
 	tasks, ok := tasks_unknown.([]interface{})
@@ -309,7 +309,7 @@ func dbGetJobTaskField(job_id string, task_id string, fieldname string, result *
 	}
 	result.Data = test_result
 
-	logger.Debug(3, "GOT2: %v", result)
+	//logger.Debug(3, "GOT2: %v", result)
 	logger.Debug(3, "(dbGetJobTaskField) %s got something", fieldname)
 	return
 }
@@ -362,6 +362,7 @@ func dbGetJobFieldInt(job_id string, fieldname string) (result int, err error) {
 
 func dbGetJobFieldString(job_id string, fieldname string) (result string, err error) {
 	err = dbGetJobField(job_id, fieldname, &result)
+	logger.Debug(3, "(dbGetJobFieldString) result: %s", result)
 	if err != nil {
 		return
 	}

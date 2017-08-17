@@ -1231,42 +1231,109 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 		return
 	}
 
-	logger.Debug(3, "(isTaskReady %s) GetDependsOn", task_id)
-	deps, xerr := task.GetDependsOn()
-	if xerr != nil {
-		err = xerr
-		return
-	}
+	if task.WorkflowStep == nil {
 
-	logger.Debug(3, "(isTaskReady %s) range deps (%d)", task_id, len(deps))
-	for _, predecessor := range deps {
-		predecessor_id, xerr := New_Task_Unique_Identifier(predecessor)
+		// check if AWE-style predecessors are all TASK_STAT_COMPLETED
+
+		logger.Debug(3, "(isTaskReady %s) GetDependsOn", task_id)
+		deps, xerr := task.GetDependsOn()
 		if xerr != nil {
 			err = xerr
 			return
 		}
-		pretask, ok, yerr := qm.TaskMap.Get(predecessor_id, true)
-		if yerr != nil {
-			err = yerr
-			return
-		}
-		if !ok {
-			logger.Error("(isTaskReady %s) predecessor %s is unknown", task_id, predecessor)
-			return
-		}
 
-		pretask_state, zerr := pretask.GetState()
-		if zerr != nil {
-			err = zerr
-			return
-		}
+		logger.Debug(3, "(isTaskReady %s) range deps (%d)", task_id, len(deps))
+		for _, predecessor := range deps {
+			predecessor_id, xerr := New_Task_Unique_Identifier(predecessor)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			predecessor_task, ok, yerr := qm.TaskMap.Get(predecessor_id, true)
+			if yerr != nil {
+				err = yerr
+				return
+			}
+			if !ok {
+				logger.Error("(isTaskReady %s) predecessor %s is unknown", task_id, predecessor)
+				return
+			}
 
-		if pretask_state != TASK_STAT_COMPLETED {
-			return
+			predecessor_task_state, zerr := predecessor_task.GetState()
+			if zerr != nil {
+				err = zerr
+				return
+			}
+
+			if predecessor_task_state != TASK_STAT_COMPLETED {
+				return
+			}
+
+		}
+		logger.Debug(3, "(isTaskReady %s) task seems to be ready", task_id)
+	}
+
+	if task.WorkflowStep != nil {
+		// check if CWL-style predecessors are all TASK_STAT_COMPLETED
+		for _, wsi := range task.WorkflowStep.In { // WorkflowStepInput
+
+			//job_input := *(job.CWL_collection.Job_input)
+
+			for _, src := range wsi.Source {
+				fmt.Println("src: " + src)
+
+				source_task := ""
+				source_name := ""
+				source_array := strings.Split(src, "/")
+				if len(source_array) == 0 {
+					err = fmt.Errorf("len(source_array) == 0")
+					return
+				} else if len(source_array) == 1 {
+					source_name = source_array[0]
+				} else if len(source_array) == 2 {
+					source_task = strings.TrimPrefix(source_array[0], "#")
+					source_name = source_array[1]
+					if source_task == "main" {
+						// worflow input, can continue
+						continue
+					}
+				} else {
+					err = fmt.Errorf("len(source_array) > 2  %s", src)
+					return
+				}
+
+				fmt.Println("source_task: " + source_task)
+				fmt.Println("source_name: " + source_name)
+
+				predecessor_task_id := task.Task_Unique_Identifier
+				predecessor_task_id.Id = source_task
+
+				predecessor_task, ok, yerr := qm.TaskMap.Get(predecessor_task_id, true)
+				if !ok {
+					err = fmt.Errorf("predecessor_task_id not found %s", predecessor_task_id.String())
+					return
+				}
+				if yerr != nil {
+					err = yerr
+					return
+				}
+
+				predecessor_task_state, zerr := predecessor_task.GetState()
+				if zerr != nil {
+					err = zerr
+					return
+				}
+
+				if predecessor_task_state != TASK_STAT_COMPLETED {
+					return
+				}
+
+			}
+
 		}
 
 	}
-	logger.Debug(3, "(isTaskReady %s) task seems to be ready", task_id)
+	panic("done")
 
 	modified := false
 	for _, io := range task.Inputs {

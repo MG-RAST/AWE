@@ -228,6 +228,7 @@ func (cr *ClientController) Update(id string, cx *goweb.Context) {
 			//cx.Respond(data interface{}, statusCode int, []string{err.Error()}, cx)
 			return
 		}
+		worker_status.Current_work.Init("Current_work")
 
 		hbmsg, err := core.QMgr.ClientHeartBeat(id, cg, worker_status)
 		if err != nil {

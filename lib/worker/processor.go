@@ -176,8 +176,13 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}
 
 	if workunit.CWL != nil {
+		work_path, xerr := workunit.Path()
+		if xerr != nil {
+			err = xerr
+			return
+		}
 
-		stdout_file := workunit.Path() + "/" + conf.STDOUT_FILENAME
+		stdout_file := work_path + "/" + conf.STDOUT_FILENAME
 
 		// wait for awe_stdout to be available
 		//for true {
@@ -240,8 +245,13 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 	use_wrapper_script := false
 
+	work_path, err := workunit.Path()
+	if err != nil {
+		return
+	}
+
 	wrapper_script_filename := "awe_workunit_wrapper.sh"
-	wrapper_script_filename_host := path.Join(workunit.Path(), wrapper_script_filename)
+	wrapper_script_filename_host := path.Join(work_path, wrapper_script_filename)
 	wrapper_script_filename_docker := path.Join(conf.DOCKER_WORK_DIR, wrapper_script_filename)
 
 	if len(workunit.Cmd.Cmd_script) > 0 {
@@ -532,7 +542,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	container_cmd := []string{bash_command}
 
 	//var empty_struct struct{}
-	bindstr_workdir := workunit.Path() + "/:" + conf.DOCKER_WORK_DIR
+	bindstr_workdir := work_path + "/:" + conf.DOCKER_WORK_DIR
 	logger.Debug(1, "bindstr_workdir: "+bindstr_workdir)
 
 	var bindarray = []string{}
@@ -668,7 +678,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		logger.Debug(3, "Container status: %s", cont.State.Status)
 
-		inspect_filename := path.Join(workunit.Path(), "container_inspect.json")
+		inspect_filename := path.Join(work_path, "container_inspect.json")
 
 		b_inspect, _ := json.MarshalIndent(cont, "", "    ")
 
@@ -901,10 +911,15 @@ func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 		}
 	}
 
-	logger.Debug(3, "(RunWorkunitDirect) Using workpath: %s", workunit.Path())
+	work_path, xerr := workunit.Path()
+	if xerr != nil {
+		err = xerr
+		return
+	}
+	logger.Debug(3, "(RunWorkunitDirect) Using workpath: %s", work_path)
 
-	stdoutFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDOUT_FILENAME)
-	stderrFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDERR_FILENAME)
+	stdoutFilePath := fmt.Sprintf("%s/%s", work_path, conf.STDOUT_FILENAME)
+	stderrFilePath := fmt.Sprintf("%s/%s", work_path, conf.STDERR_FILENAME)
 	outfile, err := os.Create(stdoutFilePath)
 	defer outfile.Close()
 	errfile, err := os.Create(stderrFilePath)
@@ -1042,8 +1057,13 @@ func runPreWorkExecutionScript(workunit *core.Workunit) (err error) {
 		}
 	}
 
-	stdoutFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDOUT_FILENAME)
-	stderrFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDERR_FILENAME)
+	work_path, xerr := workunit.Path()
+	if xerr != nil {
+		err = xerr
+		return
+	}
+	stdoutFilePath := fmt.Sprintf("%s/%s", work_path, conf.STDOUT_FILENAME)
+	stderrFilePath := fmt.Sprintf("%s/%s", work_path, conf.STDERR_FILENAME)
 	outfile, err := os.Create(stdoutFilePath)
 	defer outfile.Close()
 	errfile, err := os.Create(stderrFilePath)

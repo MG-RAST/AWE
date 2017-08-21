@@ -5,6 +5,7 @@ import (
 	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
+	"reflect"
 )
 
 type CommandInputParameter struct {
@@ -26,10 +27,19 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 	switch v.(type) {
 	case map[interface{}]interface{}:
-		v_map, ok := v.(map[interface{}]interface{})
+		v_map, ok := v.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("casting problem (b)")
+			return
+		}
+
+		return NewCommandInputParameter(v_map)
+
+	case map[string]interface{}:
+		v_map, ok := v.(map[string]interface{})
 
 		if !ok {
-			err = fmt.Errorf("casting problem")
+			err = fmt.Errorf("casting problem (a)")
 			return
 		}
 
@@ -75,7 +85,7 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 	default:
 
-		err = fmt.Errorf("(NewCommandInputParameter) type unknown")
+		err = fmt.Errorf("(NewCommandInputParameter) type %s unknown", reflect.TypeOf(v))
 		return
 	}
 

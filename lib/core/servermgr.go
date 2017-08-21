@@ -1266,6 +1266,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 			}
 
 			if predecessor_task_state != TASK_STAT_COMPLETED {
+				logger.Debug(3, "(isTaskReady %s) (AWE-style) not ready because predecessor is not ready", task_id)
 				return
 			}
 
@@ -1293,10 +1294,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 				} else if len(source_array) == 2 {
 					source_task = strings.TrimPrefix(source_array[0], "#")
 					source_name = source_array[1]
-					if source_task == "main" {
-						// worflow input, can continue
-						continue
-					}
+
 				} else {
 					err = fmt.Errorf("len(source_array) > 2  %s", src)
 					return
@@ -1304,6 +1302,11 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 
 				fmt.Println("source_task: " + source_task)
 				fmt.Println("source_name: " + source_name)
+
+				if source_task == "main" {
+					// wokflow input, can continue
+					continue
+				}
 
 				predecessor_task_id := task.Task_Unique_Identifier
 				predecessor_task_id.Id = source_task
@@ -1325,6 +1328,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 				}
 
 				if predecessor_task_state != TASK_STAT_COMPLETED {
+					logger.Debug(3, "(isTaskReady %s) (CWL-style) not ready because predecessor is not ready", task_id)
 					return
 				}
 
@@ -1333,7 +1337,6 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 		}
 
 	}
-	panic("done")
 
 	modified := false
 	for _, io := range task.Inputs {
@@ -1363,7 +1366,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 		}
 
 		if pretask_state != TASK_STAT_COMPLETED {
-			err = fmt.Errorf("(isTaskReady %s) pretask_state != TASK_STAT_COMPLETED  state: %s preId: %s", task_id, pretask_state, preId)
+			logger.Debug(3, "(isTaskReady %s) pretask_state != TASK_STAT_COMPLETED  state: %s preId: %s", task_id, pretask_state, preId)
 			return
 		}
 

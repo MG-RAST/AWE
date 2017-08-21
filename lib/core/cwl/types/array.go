@@ -49,3 +49,7 @@ func NewArray(id string, native []interface{}) (array *Array, err error) {
 func (c *Array) String() string {
 	return "an array (TODO implement this)"
 }
+
+func (c *Array) Add(ct CWLType) {
+	c.Items = append(c.Items, ct)
+}

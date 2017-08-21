@@ -32,10 +32,18 @@ func (c *CommandLineTool) Is_process()      {}
 
 // keyname will be converted into 'Id'-field
 
-func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
+//func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
+func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, err error) {
 
 	fmt.Println("NewCommandLineTool:")
-	spew.Dump(object)
+	spew.Dump(generic)
+
+	//switch type()
+	object, ok := generic.(map[string]interface{})
+	if !ok {
+		err = fmt.Errorf("other types than map[string]interface{} not supported yet")
+		return
+	}
 
 	commandLineTool = &CommandLineTool{}
 

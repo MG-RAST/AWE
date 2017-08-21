@@ -10,6 +10,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/golib/httpclient"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/mitchellh/mapstructure"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -18,9 +20,8 @@ import (
 )
 
 type WorkResponse struct {
-	Code int            `bson:"status" json:"status"`
-	Data *core.Workunit `bson:"data" json:"data"`
-	Errs []string       `bson:"error" json:"error"`
+	core.BaseResponse `bson:",inline"" json:",inline"" mapstructure:",inline""`
+	Data              *core.Workunit `bson:"data" json:"data" mapstructure:"data"`
 }
 
 type TokenResponse struct {
@@ -61,6 +62,9 @@ func workStealer(control chan int) {
 			} else if err.Error() == e.ClientDeleted {
 				fmt.Printf("(workStealer) client deleted, exiting...\n")
 				os.Exit(1) // TODO is there a better way of exiting ? E.g. in regard of the logger who wants to flush....
+			} else if err.Error() == e.ServerNotFound {
+				logger.Error("(workStealer) ServerNotFound...\n")
+				retry += 1
 			} else {
 				//something is wrong, server may be down
 				logger.Error("(workStealer) checking out workunit: %s, retry=%d", err.Error(), retry)
@@ -117,15 +121,14 @@ func workStealer(control chan int) {
 }
 
 func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
-	logger.Debug(3, "CheckoutWorkunitRemote()")
+	logger.Debug(3, "(CheckoutWorkunitRemote) start")
 	// get available work dir disk space
 	var stat syscall.Statfs_t
 	syscall.Statfs(conf.WORK_PATH, &stat)
 	availableBytes := stat.Bavail * uint64(stat.Bsize)
 
-	response := new(WorkResponse)
 	if core.Self == nil {
-		err = fmt.Errorf("core.Self == nil")
+		err = fmt.Errorf("(CheckoutWorkunitRemote) core.Self == nil")
 		return
 	}
 	targeturl := fmt.Sprintf("%s/work?client=%s&available=%d", conf.SERVER_URL, core.Self.Id, availableBytes)
@@ -136,37 +139,119 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
 		}
 	}
-	logger.Debug(3, fmt.Sprintf("client %s sends a checkout request to %s with available %d", core.Self.Id, conf.SERVER_URL, availableBytes))
+	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s sends a checkout request to %s with available %d", core.Self.Id, conf.SERVER_URL, availableBytes))
 	res, err := httpclient.DoTimeout("GET", targeturl, headers, nil, nil, time.Second*0)
-	logger.Debug(3, fmt.Sprintf("client %s sent a checkout request to %s with available %d", core.Self.Id, conf.SERVER_URL, availableBytes))
+	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s sent a checkout request to %s with available %d", core.Self.Id, conf.SERVER_URL, availableBytes))
 	if err != nil {
-		err = fmt.Errorf("error sending checkout request: %s", err.Error())
+		err = fmt.Errorf("(CheckoutWorkunitRemote) error sending checkout request: %s", err.Error())
 		return
 	}
 	defer res.Body.Close()
 	jsonstream, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
-	}
-	if err = json.Unmarshal(jsonstream, response); err != nil {
 		return
 	}
-	if len(response.Errs) > 0 {
-		return nil, errors.New(strings.Join(response.Errs, ","))
+
+	var response core.StandardResponse
+	response.Status = -1
+
+	if err = json.Unmarshal(jsonstream, &response); err != nil { // response
+		fmt.Printf("jsonstream:\n%s\n", jsonstream)
+		err = fmt.Errorf("(CheckoutWorkunitRemote) json.Unmarshal error: %s", err.Error())
+		return
 	}
-	if response.Code == 200 {
-		workunit = response.Data
-		if workunit.Info.Auth == true {
-			if token, err := FetchDataTokenByWorkId(workunit.Id); err == nil && token != "" {
-				workunit.Info.DataToken = token
-			} else {
-				return workunit, errors.New("need data token but failed to fetch one")
-			}
+
+	spew.Dump(response)
+
+	if response.Status == -1 {
+		err = fmt.Errorf(e.ServerNotFound)
+		return
+	}
+
+	data_generic := response.Data
+	if data_generic == nil {
+		err = fmt.Errorf("(CheckoutWorkunitRemote) Data field missing")
+		return
+	}
+
+	// remove CWL
+	data_map, ok := data_generic.(map[string]interface{})
+	if !ok {
+		err = fmt.Errorf("(CheckoutWorkunitRemote) Could not make data field map[string]interface{}")
+		return
+	}
+	var cwl_object *core.CWL_workunit
+
+	cwl_generic, has_cwl := data_map["CWL"]
+	if has_cwl {
+
+		var xerr error
+		cwl_object, xerr = core.NewCWL_workunit_from_interface(cwl_generic)
+		if xerr != nil {
+			err = fmt.Errorf("(CheckoutWorkunitRemote) NewCWL_workunit_from_interface failed: %s", xerr.Error())
+			return
 		}
-		logger.Debug(3, fmt.Sprintf("client %s got a workunit", core.Self.Id))
-		workunit.State = core.WORK_STAT_CHECKOUT
-		return workunit, nil
+
+		//response_generic["CWL"] = nil
+		delete(data_map, "CWL")
 	}
+
+	_, has_info := data_map["info"]
+	if has_info {
+		delete(data_map, "info")
+
+	}
+
+	//delete(data_map, "info")
+
+	workunit = &core.Workunit{}
+	workunit.Info = &core.Info{}
+	workunit.Workunit_Unique_Identifier = core.Workunit_Unique_Identifier{}
+
+	err = mapstructure.Decode(data_map, workunit)
+	if err != nil {
+		err = fmt.Errorf("(CheckoutWorkunitRemote) mapstructure.Decode error: %s", err.Error())
+		return
+	}
+	if has_cwl {
+		workunit.CWL = cwl_object
+	}
+	//spew.Dump(response)
+
+	if len(response.Error) > 0 {
+		err = errors.New(strings.Join(response.Error, ","))
+		return
+	}
+
+	if response.Status == 0 { // this is ugly
+		err = fmt.Errorf(e.ServerNotFound)
+		return
+	}
+
+	if response.Status != 200 {
+		err = fmt.Errorf("(CheckoutWorkunitRemote) response_generic.Status != 200 : %d", response.Status)
+		return
+	}
+
+	//workunit = response.Data
+
+	if workunit.Info.Auth == true {
+		token, xerr := FetchDataTokenByWorkId(workunit.Id)
+		if xerr == nil && token != "" {
+			workunit.Info.DataToken = token
+		} else {
+			err = fmt.Errorf("(CheckoutWorkunitRemote) need data token but failed to fetch one %s", xerr.Error())
+			return
+		}
+	}
+
+	logger.Debug(3, "(CheckoutWorkunitRemote) workunit id: %s %s", workunit.Id, workunit.Workunit_Unique_Identifier.String())
+
+	logger.Debug(3, "(CheckoutWorkunitRemote) workunit Rank:%d TaskId:%s JobId:%s", workunit.Rank, workunit.TaskId, workunit.JobId)
+
+	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s got a workunit", core.Self.Id))
+	workunit.State = core.WORK_STAT_CHECKOUT
+
 	return
 }
 

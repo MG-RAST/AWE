@@ -4,65 +4,31 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
+	//"github.com/mitchellh/mapstructure"
 	//"strings"
 	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+	"reflect"
 )
 
 //type of http://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputParameter
 
-type CommandOutputParameterType struct {
-	Type                      string
-	CommandOutputArraySchema  *CommandOutputArraySchema
-	CommandOutputRecordSchema *CommandOutputRecordSchema
+// CWLType | stdout | stderr | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string |
+// array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
+
+type CommandOutputParameterType interface {
+	Is_CommandOutputParameterType()
 }
 
-type CommandOutputRecordSchema struct {
-	Type   string                     `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // Must be record
-	Fields []CommandOutputRecordField `yaml:"fields,omitempty" bson:"fields,omitempty" json:"fields,omitempty"`
-	Label  string                     `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+type CommandOutputParameterTypeImpl struct {
+	Type string
 }
 
-type CommandOutputRecordField struct{}
-
-//http://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputEnumSchema
-type CommandOutputEnumSchema struct {
-	Symbols       []string              `yaml:"symbols,omitempty" bson:"symbols,omitempty" json:"symbols,omitempty"`
-	Type          string                `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // must be enum
-	Label         string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	OutputBinding *CommandOutputBinding `yaml:"outputbinding,omitempty" bson:"outputbinding,omitempty" json:"outputbinding,omitempty"`
-}
-
-type CommandOutputArraySchema struct {
-	Items         []string              `yaml:"items,omitempty" bson:"items,omitempty" json:"items,omitempty"`
-	Type          string                `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // must be array
-	Label         string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	OutputBinding *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"`
-}
-
-func NewCommandOutputArraySchema(original map[interface{}]interface{}) (coas *CommandOutputArraySchema, err error) {
-	coas = &CommandOutputArraySchema{}
-
-	items, ok := original["items"]
-	if ok {
-		items_string, ok := items.(string)
-		if ok {
-			original["items"] = []string{items_string}
-		}
-	}
-
-	err = mapstructure.Decode(original, coas)
-	if err != nil {
-		err = fmt.Errorf("(NewCommandOutputArraySchema) %s", err.Error())
-		return
-	}
-	return
-}
+func (c *CommandOutputParameterTypeImpl) Is_CommandOutputParameterType() {}
 
 func NewCommandOutputParameterType(original interface{}) (copt_ptr *CommandOutputParameterType, err error) {
 
 	// Try CWL_Type
-	var copt CommandOutputParameterType
+	var copt CommandOutputParameterTypeImpl
 
 	switch original.(type) {
 
@@ -81,16 +47,28 @@ func NewCommandOutputParameterType(original interface{}) (copt_ptr *CommandOutpu
 		copt.Type = original_str
 		copt_ptr = &copt
 		return
-	case map[interface{}]interface{}:
-		// CommandOutputArraySchema www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputArraySchema
-		original_map := original.(map[interface{}]interface{})
 
+	case map[interface{}]interface{}:
+		original_map, ok := original.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("type error")
+			return
+		}
+		return NewCommandOutputParameterType(original_map)
+	case map[string]interface{}:
+		// CommandOutputArraySchema www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputArraySchema
+		original_map, ok := original.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("type error")
+			return
+		}
 		output_type, ok := original_map["type"]
 
 		if !ok {
 			fmt.Printf("unknown type")
 			spew.Dump(original)
-			err = fmt.Errorf("(NewCommandOutputParameterType) Map-Type unknown")
+			err = fmt.Errorf("(NewCommandOutputParameterType) map[string]interface{} has no type field")
+			return
 		}
 
 		switch output_type {
@@ -101,15 +79,14 @@ func NewCommandOutputParameterType(original interface{}) (copt_ptr *CommandOutpu
 		default:
 			fmt.Printf("unknown type %s:", output_type)
 			spew.Dump(original)
-			err = fmt.Errorf("(NewCommandOutputParameterType) Map-Type %s unknown", output_type)
+			err = fmt.Errorf("(NewCommandOutputParameterType) Map-Type %s unknown", reflect.TypeOf(output_type))
 			return
 		}
 
 	}
 
-	fmt.Printf("unknown type")
 	spew.Dump(original)
-	err = fmt.Errorf("(NewCommandOutputParameterType) Type unknown")
+	err = fmt.Errorf("(NewCommandOutputParameterType) Type %s unknown", reflect.TypeOf(original))
 
 	return
 

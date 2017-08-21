@@ -15,10 +15,20 @@ type CommandOutputBinding struct {
 func NewCommandOutputBinding(original interface{}) (commandOutputBinding *CommandOutputBinding, err error) {
 
 	switch original.(type) {
-
 	case map[interface{}]interface{}:
-		original_map := original.(map[interface{}]interface{})
+		original_map, ok := original.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("type error")
+			return
+		}
+		return NewCommandOutputBinding(original_map)
 
+	case map[string]interface{}:
+		original_map, ok := original.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("type error")
+			return
+		}
 		glob, ok := original_map["glob"]
 		if ok {
 			original_map["glob"], err = cwl_types.NewExpressionArray(glob)

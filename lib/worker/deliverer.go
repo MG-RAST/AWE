@@ -84,14 +84,14 @@ func deliverer_run(control chan int) {
 				workunit.Notes = append(workunit.Notes, "[deliverer]"+err.Error())
 				// keep retry
 			} else {
-				error_message := strings.Join(response.E, ",")
+				error_message := strings.Join(response.Error, ",")
 				if strings.Contains(error_message, e.ClientNotFound) { // TODO need better method than string search. Maybe a field awe_status.
 					//mark this work in Current_work map as false, something needs to be done in the future
 					//to clean this kind of work that has been proccessed but its result can't be sent to server!
 					//core.Self.Current_work_false(work.Id) //server doesn't know this yet
 					do_retry = false
 				}
-				if response.S == http.StatusOK {
+				if response.Status == http.StatusOK {
 					// success, work delivered
 					logger.Debug(1, "work delivered successfully")
 					do_retry = false
@@ -112,12 +112,17 @@ func deliverer_run(control chan int) {
 		}
 	}
 
+	work_path, err := workunit.Path()
+	if err != nil {
+		return
+	}
+
 	// now final status report sent to server, update some local info
 	if workunit.State == core.WORK_STAT_DONE {
 		logger.Event(event.WORK_DONE, "workid="+work_id.String())
 		core.Self.Increment_total_completed()
 		if conf.AUTO_CLEAN_DIR && workunit.Cmd.Local == false {
-			go removeDirLater(workunit.Path(), conf.CLIEN_DIR_DELAY_DONE)
+			go removeDirLater(work_path, conf.CLIEN_DIR_DELAY_DONE)
 		}
 	} else {
 		if workunit.State == core.WORK_STAT_DISCARDED {
@@ -127,7 +132,7 @@ func deliverer_run(control chan int) {
 		}
 		core.Self.Increment_total_failed(true)
 		if conf.AUTO_CLEAN_DIR && workunit.Cmd.Local == false {
-			go removeDirLater(workunit.Path(), conf.CLIEN_DIR_DELAY_FAIL)
+			go removeDirLater(work_path, conf.CLIEN_DIR_DELAY_FAIL)
 		}
 	}
 

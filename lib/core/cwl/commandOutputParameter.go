@@ -4,6 +4,7 @@ import (
 	"fmt"
 	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/mitchellh/mapstructure"
+	"reflect"
 )
 
 type CommandOutputParameter struct {
@@ -19,9 +20,22 @@ type CommandOutputParameter struct {
 
 func NewCommandOutputParameter(original interface{}) (output_parameter *CommandOutputParameter, err error) {
 	switch original.(type) {
-	case map[interface{}]interface{}:
 
-		original_map := original.(map[interface{}]interface{})
+	case map[interface{}]interface{}:
+		original_map, ok := original.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("type error")
+			return
+		}
+		return NewCommandOutputParameter(original_map)
+
+	case map[string]interface{}:
+
+		original_map, ok := original.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("type error")
+			return
+		}
 
 		outputBinding, ok := original_map["outputBinding"]
 		if ok {
@@ -47,7 +61,7 @@ func NewCommandOutputParameter(original interface{}) (output_parameter *CommandO
 		}
 	default:
 		//spew.Dump(original)
-		err = fmt.Errorf("NewCommandOutputParameter, unknown type")
+		err = fmt.Errorf("NewCommandOutputParameter, unknown type %s", reflect.TypeOf(original))
 	}
 	//spew.Dump(new_array)
 	return

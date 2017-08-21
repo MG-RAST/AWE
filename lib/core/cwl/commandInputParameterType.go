@@ -6,6 +6,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"strings"
 	//"github.com/mitchellh/mapstructure"
+	"reflect"
 )
 
 type CommandInputParameterType struct {
@@ -18,6 +19,26 @@ func NewCommandInputParameterType(original interface{}) (cipt_ptr *CommandInputP
 	var cipt CommandInputParameterType
 
 	switch original.(type) {
+
+	case map[string]interface{}:
+
+		original_map, ok := original.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("type error")
+			return
+		}
+
+		type_str, ok := original_map["Type"]
+		if !ok {
+			type_str, ok = original_map["type"]
+		}
+
+		if !ok {
+			err = fmt.Errorf("type error, field type not found")
+			return
+		}
+
+		return NewCommandInputParameterType(type_str)
 
 	case string:
 		original_str := original.(string)
@@ -46,7 +67,7 @@ func NewCommandInputParameterType(original interface{}) (cipt_ptr *CommandInputP
 
 	fmt.Printf("unknown type")
 	spew.Dump(original)
-	err = fmt.Errorf("(NewCommandInputParameterType) Type unknown")
+	err = fmt.Errorf("(NewCommandInputParameterType) Type %s unknown", reflect.TypeOf(original))
 
 	return
 

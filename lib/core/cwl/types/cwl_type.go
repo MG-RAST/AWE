@@ -86,6 +86,10 @@ type CWL_location interface {
 	GetLocation() string
 }
 
+type CWLType_Type string
+
+func (s CWLType_Type) Is_CommandOutputParameterType() {}
+
 // CWLType - CWL basic types: int, string, boolean, .. etc
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CWLType
 // null, boolean, int, long, float, double, string, File, Directory

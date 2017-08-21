@@ -133,7 +133,8 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 	err = json.Unmarshal(jsonstream, client)
 	if err != nil {
 		err = fmt.Errorf("failed to unmashal json stream for client profile (error: %s) (file: %s) json: %s", err.Error(), filepath, string(jsonstream[:]))
-		return nil, err
+		client = nil
+		return
 	}
 
 	client.Init()

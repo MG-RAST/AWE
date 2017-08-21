@@ -35,7 +35,7 @@ const (
 )
 
 type Workunit struct {
-	Workunit_Unique_Identifier `bson:",inline"`
+	Workunit_Unique_Identifier `bson:",inline" json:",inline" mapstructure:",inline"`
 	Id                         string            `bson:"id,omitempty" json:"id,omitempty"`     // global identifier: jobid_taskid_rank (for backwards coompatibility only)
 	WuId                       string            `bson:"wuid,omitempty" json:"wuid,omitempty"` // deprecated !
 	Info                       *Info             `bson:"info,omitempty" json:"info,omitempty"`
@@ -56,25 +56,6 @@ type Workunit struct {
 	WorkPath                   string            // this is the working directory. If empty, it will be computed.
 	WorkPerf                   *WorkPerf
 	CWL                        *CWL_workunit
-}
-
-type CWL_workunit struct {
-	Job_input          *cwl.Job_document
-	Job_input_filename string
-	CWL_tool           *cwl.CommandLineTool
-	CWL_tool_filename  string
-	Tool_results       *cwl.Job_document
-	OutputsExpected    *cwl.WorkflowStepOutput // this is the subset of outputs that are needed by the workflow
-}
-
-func NewCWL_workunit() *CWL_workunit {
-	return &CWL_workunit{
-		Job_input:       nil,
-		CWL_tool:        nil,
-		Tool_results:    nil,
-		OutputsExpected: nil,
-	}
-
 }
 
 func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error) {
@@ -116,7 +97,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 		workunit.CWL = &CWL_workunit{}
 
-		// get CommandLineTool (or whatever can be executed)
+		// ****** get CommandLineTool (or whatever can be executed)
 		p := workflow_step.Run
 
 		tool_name := ""
@@ -162,18 +143,20 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 		workunit.CWL.CWL_tool = clt
 
-		// get inputs
+		// ****** get inputs
 		job_input := *job.CWL_collection.Job_input
 		spew.Dump(workflow_step.In)
 		for _, input := range workflow_step.In {
 			// input is a WorkflowStepInput
+
+			id := input.Id
+
+			cmd_id := path.Base(id)
+
+			// get data from Source, Default or valueFrom
+
 			if input.LinkMerge != nil {
 				err = fmt.Errorf("(NewWorkunit) sorry, LinkMergeMethod not supported yet")
-				return
-			}
-
-			if input.Default != nil {
-				err = fmt.Errorf("(NewWorkunit) sorry, Default not supported yet")
 				return
 			}
 
@@ -205,6 +188,23 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 				err = fmt.Errorf("Source object %s not found", src)
 				return
 
+			}
+
+			// input.Default  The default value for this parameter to use if either there is no source field, or the value produced by the source is null. The default must be applied prior to scattering or evaluating valueFrom.
+
+			if len(input.Source) == 1 {
+				job_input[cmd_id] = source_object_array[0]
+			} else if len(input.Source) > 1 {
+				cwl_array := cwl_types.Array{}
+				for _, obj := range source_object_array {
+					cwl_array.Add(obj)
+				}
+				job_input[cmd_id] = &cwl_array
+			} else {
+				if input.Default != nil {
+					err = fmt.Errorf("(NewWorkunit) sorry, Default not supported yet")
+					return
+				}
 			}
 
 			if input.ValueFrom != "" {
@@ -273,7 +273,8 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 				reg = regexp.MustCompile(`\$\{[\w.]+\}`)
 				// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
 
-				parsed = input.ValueFrom.String()
+				//parsed = input.ValueFrom.String()
+
 				for {
 
 					matches := reg.FindAll([]byte(parsed), -1)
@@ -307,9 +308,12 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 				fmt.Printf("parsed: %s\n", parsed)
 
+				job_input[cmd_id] = cwl_types.NewString(id, parsed)
 				//err = fmt.Errorf("(NewWorkunit) sorry, ValueFrom not supported yet")
-				return
+
 			}
+			workunit.CWL.Job_input = &job_input
+			spew.Dump(job_input)
 
 		}
 
@@ -325,8 +329,12 @@ func (w *Workunit) GetId() (id Workunit_Unique_Identifier) {
 
 func (work *Workunit) Mkdir() (err error) {
 	// delete workdir just in case it exists; will not work if awe-worker is not in docker container AND tasks are in container
-	os.RemoveAll(work.Path())
-	err = os.MkdirAll(work.Path(), 0777)
+	work_path, err := work.Path()
+	if err != nil {
+		return
+	}
+	os.RemoveAll(work_path)
+	err = os.MkdirAll(work_path, 0777)
 	if err != nil {
 		return
 	}
@@ -334,7 +342,11 @@ func (work *Workunit) Mkdir() (err error) {
 }
 
 func (work *Workunit) RemoveDir() (err error) {
-	err = os.RemoveAll(work.Path())
+	work_path, err := work.Path()
+	if err != nil {
+		return
+	}
+	err = os.RemoveAll(work_path)
 	if err != nil {
 		return
 	}
@@ -362,9 +374,14 @@ func (work *Workunit) SetState(new_state string, reason string) (err error) {
 	return
 }
 
-func (work *Workunit) Path() string {
+func (work *Workunit) Path() (path string, err error) {
 	if work.WorkPath == "" {
 		id := work.Workunit_Unique_Identifier.JobId
+
+		if id == "" {
+			err = fmt.Errorf("(Workunit/Path) JobId is missing")
+			return
+		}
 
 		task_id_array := strings.Split(work.Workunit_Unique_Identifier.TaskId, "/")
 		task_name := ""
@@ -386,11 +403,16 @@ func (work *Workunit) Path() string {
 
 		work.WorkPath = fmt.Sprintf("%s/%s/%s/%s/%s_%s_%d", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id, task_name, work.Workunit_Unique_Identifier.Rank)
 	}
-	return work.WorkPath
+	path = work.WorkPath
+	return
 }
 
 func (work *Workunit) CDworkpath() (err error) {
-	return os.Chdir(work.Path())
+	work_path, err := work.Path()
+	if err != nil {
+		return
+	}
+	return os.Chdir(work_path)
 }
 
 func (work *Workunit) GetNotes() string {

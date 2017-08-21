@@ -10,6 +10,17 @@ type WorkflowStepOutput struct {
 	Id string `yaml:"id" bson:"id" json:"id"`
 }
 
+func NewWorkflowStepOutput(original interface{}) (wso_ptr *WorkflowStepOutput, err error) {
+
+	var wso WorkflowStepOutput
+	err = mapstructure.Decode(original, &wso)
+	if err != nil {
+		err = fmt.Errorf("(CreateWorkflowStepOutputArray) %s", err.Error())
+		return
+	}
+	return
+}
+
 func CreateWorkflowStepOutputArray(original interface{}) (new_array []WorkflowStepOutput, err error) {
 
 	switch original.(type) {
@@ -18,16 +29,17 @@ func CreateWorkflowStepOutputArray(original interface{}) (new_array []WorkflowSt
 		for k, v := range original.(map[interface{}]interface{}) {
 			//fmt.Printf("A")
 
-			var output_parameter WorkflowStepOutput
-			err = mapstructure.Decode(v, &output_parameter)
-			if err != nil {
-				err = fmt.Errorf("(CreateWorkflowStepOutputArray) %s", err.Error())
+			wso, xerr := NewWorkflowStepOutput(v)
+			//var output_parameter WorkflowStepOutput
+			//err = mapstructure.Decode(v, &output_parameter)
+			if xerr != nil {
+				err = fmt.Errorf("(CreateWorkflowStepOutputArray) %s", xerr.Error())
 				return
 			}
 
-			output_parameter.Id = k.(string)
+			wso.Id = k.(string)
 			//fmt.Printf("C")
-			new_array = append(new_array, output_parameter)
+			new_array = append(new_array, *wso)
 			//fmt.Printf("D")
 
 		}

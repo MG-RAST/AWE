@@ -314,10 +314,14 @@ func dataMover(control chan int) {
 		if conf.CWL_TOOL == "" {
 
 			//create userattr.json
+			work_path, err := workunit.Path()
+			if err != nil {
+				return
+			}
 			user_attr := getUserAttr(workunit)
 			if len(user_attr) > 0 {
 				attr_json, _ := json.Marshal(user_attr)
-				if err := ioutil.WriteFile(fmt.Sprintf("%s/userattr.json", workunit.Path()), attr_json, 0644); err != nil {
+				if err := ioutil.WriteFile(fmt.Sprintf("%s/userattr.json", work_path), attr_json, 0644); err != nil {
 					logger.Error("err@dataMover_work.getUserAttr, workid=" + work_id.String() + " error=" + err.Error())
 					workunit.Notes = append(workunit.Notes, "[dataMover#getUserAttr]"+err.Error())
 					workunit.SetState(core.WORK_STAT_ERROR, "see notes")
@@ -355,7 +359,11 @@ func proxyDataMover(control chan int) {
 //parse workunit, fetch input data, compose command arguments
 func ParseWorkunitArgs(work *core.Workunit) (err error) {
 
-	workpath := work.Path()
+	workpath, err := work.Path()
+	if err != nil {
+		return
+	}
+
 	if work.Cmd.Dockerimage != "" || work.Cmd.DockerPull != "" {
 		workpath = conf.DOCKER_WORK_DIR
 	}
@@ -544,7 +552,13 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		}
 
 		// copy or create symlink in work dir
-		linkname := path.Join(workunit.Path(), name)
+		work_path, xerr := workunit.Path()
+		if xerr != nil {
+
+			return 0, xerr
+		}
+
+		linkname := path.Join(work_path, name)
 		if conf.NO_SYMLINK {
 			// some programs do not accept symlinks (e.g. emirge), need to copy the file into the work directory
 			logger.Debug(1, "copy predata: "+file_path+" -> "+linkname)

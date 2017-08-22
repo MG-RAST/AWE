@@ -6,6 +6,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+// http://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputBinding
 type CommandOutputBinding struct {
 	Glob         []cwl_types.Expression `yaml:"glob,omitempty" bson:"glob,omitempty" json:"glob,omitempty"`
 	LoadContents bool                   `yaml:"loadContents,omitempty" bson:"loadContents,omitempty" json:"loadContents,omitempty"`
@@ -16,25 +17,35 @@ func NewCommandOutputBinding(original interface{}) (commandOutputBinding *Comman
 
 	switch original.(type) {
 	case map[interface{}]interface{}:
-		original_map, ok := original.(map[string]interface{})
+
+		v_map, ok := original.(map[interface{}]interface{})
 		if !ok {
-			err = fmt.Errorf("type error")
+			err = fmt.Errorf("(NewCommandOutputBinding) casting problem (b)")
 			return
 		}
-		return NewCommandOutputBinding(original_map)
+		v_string_map := make(map[string]interface{})
+
+		for key, value := range v_map {
+			key_string := key.(string)
+			v_string_map[key_string] = value
+		}
+
+		return NewCommandOutputBinding(v_string_map)
 
 	case map[string]interface{}:
 		original_map, ok := original.(map[string]interface{})
 		if !ok {
-			err = fmt.Errorf("type error")
+			err = fmt.Errorf("(NewCommandOutputBinding) type error b")
 			return
 		}
 		glob, ok := original_map["glob"]
 		if ok {
-			original_map["glob"], err = cwl_types.NewExpressionArray(glob)
-			if err != nil {
+			glob_object, xerr := cwl_types.NewExpressionArray(glob)
+			if xerr != nil {
+				err = fmt.Errorf("(NewCommandOutputBinding/glob) NewExpressionArray returned: %s", xerr.Error())
 				return
 			}
+			original_map["glob"] = glob_object
 		}
 		outputEval, ok := original_map["outputEval"]
 		if ok {
@@ -44,14 +55,14 @@ func NewCommandOutputBinding(original interface{}) (commandOutputBinding *Comman
 			}
 		}
 	default:
-		err = fmt.Errorf("NewCommandOutputBinding: type unknown")
+		err = fmt.Errorf("(NewCommandOutputBinding) type unknown")
 		return
 	}
 
 	commandOutputBinding = &CommandOutputBinding{}
 	err = mapstructure.Decode(original, &commandOutputBinding)
 	if err != nil {
-		err = fmt.Errorf("(NewCommandOutputBinding) %s", err.Error())
+		err = fmt.Errorf("(NewCommandOutputBinding) mapstructure:  %s", err.Error())
 		return
 	}
 	//output_parameter.OutputBinding = outputBinding

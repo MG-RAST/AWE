@@ -9,15 +9,15 @@ import (
 )
 
 type CommandInputParameter struct {
-	Id             string                      `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	SecondaryFiles []string                    `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	Format         []string                    `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
-	Streamable     bool                        `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
-	Type           []CommandInputParameterType `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
-	Label          string                      `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	Description    string                      `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty"`
-	InputBinding   CommandLineBinding          `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"`
-	Default        *cwl_types.Any              `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
+	Id             string             `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	SecondaryFiles []string           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
+	Format         []string           `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
+	Streamable     bool               `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
+	Type           interface{}        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // []CommandInputParameterType  TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
+	Label          string             `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	Description    string             `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty"`
+	InputBinding   CommandLineBinding `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"`
+	Default        *cwl_types.Any     `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
 }
 
 func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParameter, err error) {
@@ -27,13 +27,20 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 	switch v.(type) {
 	case map[interface{}]interface{}:
-		v_map, ok := v.(map[string]interface{})
+
+		v_map, ok := v.(map[interface{}]interface{})
 		if !ok {
 			err = fmt.Errorf("casting problem (b)")
 			return
 		}
+		v_string_map := make(map[string]interface{})
 
-		return NewCommandInputParameter(v_map)
+		for key, value := range v_map {
+			key_string := key.(string)
+			v_string_map[key_string] = value
+		}
+
+		return NewCommandInputParameter(v_string_map)
 
 	case map[string]interface{}:
 		v_map, ok := v.(map[string]interface{})

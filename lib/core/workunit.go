@@ -35,7 +35,7 @@ const (
 )
 
 type Workunit struct {
-	Workunit_Unique_Identifier `bson:",inline" json:",inline" mapstructure:",inline"`
+	Workunit_Unique_Identifier `bson:",inline" json:",inline" mapstructure:",squash"`
 	Id                         string            `bson:"id,omitempty" json:"id,omitempty"`     // global identifier: jobid_taskid_rank (for backwards coompatibility only)
 	WuId                       string            `bson:"wuid,omitempty" json:"wuid,omitempty"` // deprecated !
 	Info                       *Info             `bson:"info,omitempty" json:"info,omitempty"`

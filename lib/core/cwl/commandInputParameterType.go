@@ -24,7 +24,7 @@ func NewCommandInputParameterType(original interface{}) (cipt_ptr *CommandInputP
 
 		original_map, ok := original.(map[string]interface{})
 		if !ok {
-			err = fmt.Errorf("type error")
+			err = fmt.Errorf("(NewCommandInputParameterType) type error")
 			return
 		}
 
@@ -34,7 +34,7 @@ func NewCommandInputParameterType(original interface{}) (cipt_ptr *CommandInputP
 		}
 
 		if !ok {
-			err = fmt.Errorf("type error, field type not found")
+			err = fmt.Errorf("(NewCommandInputParameterType) type error, field type not found")
 			return
 		}
 

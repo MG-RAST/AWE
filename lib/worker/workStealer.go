@@ -20,7 +20,7 @@ import (
 )
 
 type WorkResponse struct {
-	core.BaseResponse `bson:",inline"" json:",inline"" mapstructure:",inline""`
+	core.BaseResponse `bson:",inline" json:",inline" mapstructure:",squash"`
 	Data              *core.Workunit `bson:"data" json:"data" mapstructure:"data"`
 }
 
@@ -168,6 +168,12 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		return
 	}
 
+	if len(response.Error) > 0 {
+		message := strings.Join(response.Error, ",")
+		err = fmt.Errorf("%s", message)
+		return
+	}
+
 	data_generic := response.Data
 	if data_generic == nil {
 		err = fmt.Errorf("(CheckoutWorkunitRemote) Data field missing")
@@ -218,11 +224,6 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	}
 	//spew.Dump(response)
 
-	if len(response.Error) > 0 {
-		err = errors.New(strings.Join(response.Error, ","))
-		return
-	}
-
 	if response.Status == 0 { // this is ugly
 		err = fmt.Errorf(e.ServerNotFound)
 		return
@@ -245,7 +246,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		}
 	}
 
-	logger.Debug(3, "(CheckoutWorkunitRemote) workunit id: %s %s", workunit.Id, workunit.Workunit_Unique_Identifier.String())
+	logger.Debug(3, "(CheckoutWorkunitRemote) workunit id: %s", workunit.Id)
 
 	logger.Debug(3, "(CheckoutWorkunitRemote) workunit Rank:%d TaskId:%s JobId:%s", workunit.Rank, workunit.TaskId, workunit.JobId)
 

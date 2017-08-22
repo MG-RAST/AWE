@@ -2,7 +2,7 @@ package worker
 
 import (
 	"encoding/json"
-	"errors"
+	//"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"

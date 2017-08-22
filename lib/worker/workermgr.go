@@ -57,7 +57,7 @@ func StartClientWorkers() {
 		go heartBeater(control)
 		go workStealer(control)
 	}
-	go dataMover(control)
+	go dataDownloader(control)
 	go processor(control)
 	go deliverer(control)
 
@@ -77,7 +77,7 @@ func StartClientWorkers() {
 			go workStealer(control)
 			logger.Error("workStealer died and restarted")
 		case ID_DATAMOVER:
-			go dataMover(control)
+			go dataDownloader(control)
 			logger.Error("dataMover died and restarted")
 		case ID_WORKER:
 			go processor(control)

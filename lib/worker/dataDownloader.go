@@ -174,16 +174,16 @@ func prepareAppTask(parsed *Mediumwork, work *core.Workunit) (err error) {
 	return
 }
 
-func dataMover(control chan int) {
+func dataDownloader(control chan int) {
 	//var err error
-	fmt.Printf("dataMover launched, client=%s\n", core.Self.Id)
-	logger.Debug(1, "dataMover launched, client=%s\n", core.Self.Id)
+	fmt.Printf("dataDownloader launched, client=%s\n", core.Self.Id)
+	logger.Debug(1, "dataDownloader launched, client=%s\n", core.Self.Id)
 
-	defer fmt.Printf("dataMover exiting...\n")
+	defer fmt.Printf("dataDownloader exiting...\n")
 	for {
 		workunit := <-FromStealer
 
-		logger.Debug(3, "(dataMover) received some work")
+		logger.Debug(3, "(dataDownloader) received some work")
 		//parsed := &Mediumwork{
 		//	Workunit: raw.Workunit,
 		//	Perfstat: raw.Perfstat,
@@ -194,13 +194,13 @@ func dataMover(control chan int) {
 
 		work_id := workunit.Workunit_Unique_Identifier
 
-		workmap.Set(work_id, ID_DATAMOVER, "dataMover")
+		workmap.Set(work_id, ID_DATAMOVER, "dataDownloader")
 
 		if conf.CWL_TOOL == "" {
 			//make a working directory for the workunit (not for commandline execution !!!!!!)
 			if err := workunit.Mkdir(); err != nil {
-				logger.Error("[dataMover#workunit.Mkdir], workid=" + work_id.String() + " error=" + err.Error())
-				workunit.Notes = append(workunit.Notes, "[dataMover#work.Mkdir]"+err.Error())
+				logger.Error("[dataDownloader#workunit.Mkdir], workid=" + work_id.String() + " error=" + err.Error())
+				workunit.Notes = append(workunit.Notes, "[dataDownloader#work.Mkdir]"+err.Error())
 				workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 				//hand the parsed workunit to next stage and continue to get new workunit to process
 				fromMover <- workunit
@@ -210,8 +210,8 @@ func dataMover(control chan int) {
 		if conf.CWL_TOOL == "" {
 			//run the PreWorkExecutionScript
 			if err := runPreWorkExecutionScript(workunit); err != nil {
-				logger.Error("[dataMover#runPreWorkExecutionScript], workid=" + work_id.String() + " error=" + err.Error())
-				workunit.Notes = append(workunit.Notes, "[dataMover#runPreWorkExecutionScript]"+err.Error())
+				logger.Error("[dataDownloader#runPreWorkExecutionScript], workid=" + work_id.String() + " error=" + err.Error())
+				workunit.Notes = append(workunit.Notes, "[dataDownloader#runPreWorkExecutionScript]"+err.Error())
 				workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 				//hand the parsed workunit to next stage and continue to get new workunit to process
 				fromMover <- workunit
@@ -223,8 +223,8 @@ func dataMover(control chan int) {
 			//check the availability prerequisite data and download if needed
 			predatamove_start := time.Now().UnixNano()
 			if moved_data, err := movePreData(workunit); err != nil {
-				logger.Error("[dataMover#movePreData], workid=" + work_id.String() + " error=" + err.Error())
-				workunit.Notes = append(workunit.Notes, "[dataMover#movePreData]"+err.Error())
+				logger.Error("[dataDownloader#movePreData], workid=" + work_id.String() + " error=" + err.Error())
+				workunit.Notes = append(workunit.Notes, "[dataDownloader#movePreData]"+err.Error())
 				workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 				//hand the parsed workunit to next stage and continue to get new workunit to process
 				fromMover <- workunit
@@ -241,8 +241,8 @@ func dataMover(control chan int) {
 		//parse the args, replacing @input_name to local file path (file not downloaded yet)
 
 		if err := ParseWorkunitArgs(workunit); err != nil {
-			logger.Error("err@dataMover.ParseWorkunitArgs, workid=" + work_id.String() + " error=" + err.Error())
-			workunit.Notes = append(workunit.Notes, "[dataMover#ParseWorkunitArgs]"+err.Error())
+			logger.Error("err@dataDownloader.ParseWorkunitArgs, workid=" + work_id.String() + " error=" + err.Error())
+			workunit.Notes = append(workunit.Notes, "[dataDownloader#ParseWorkunitArgs]"+err.Error())
 			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 			//hand the parsed workunit to next stage and continue to get new workunit to process
 			fromMover <- workunit
@@ -254,8 +254,8 @@ func dataMover(control chan int) {
 
 			datamove_start := time.Now().UnixNano()
 			if moved_data, err := cache.MoveInputData(workunit); err != nil {
-				logger.Error("err@dataMover.MoveInputData, workid=" + work_id.String() + " error=" + err.Error())
-				workunit.Notes = append(workunit.Notes, "[dataMover#MoveInputData]"+err.Error())
+				logger.Error("err@dataDownloader.MoveInputData, workid=" + work_id.String() + " error=" + err.Error())
+				workunit.Notes = append(workunit.Notes, "[dataDownloader#MoveInputData]"+err.Error())
 				workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 				//hand the parsed workunit to next stage and continue to get new workunit to process
 				fromMover <- workunit
@@ -291,16 +291,16 @@ func dataMover(control chan int) {
 			//
 			// 							if file.Path != "" {
 			//
-			// 								logger.Debug(1, "(dataMover) checking file %s=%s...", name, file.Path)
+			// 								logger.Debug(1, "(dataDownloader) checking file %s=%s...", name, file.Path)
 			//
 			// 								if _, err := os.Stat(file.Path); os.IsNotExist(err) {
-			// 									logger.Error("(dataMover) file %s=%s not found", name, file.Path)
+			// 									logger.Error("(dataDownloader) file %s=%s not found", name, file.Path)
 			// 									workunit.SetState(core.WORK_STAT_ERROR)
 			// 									//hand the parsed workunit to next stage and continue to get new workunit to process
 			// 									fromMover <- workunit
 			// 									continue
 			// 								} else {
-			// 									logger.Debug(1, "(dataMover) ok, found file %s=%s...", name, file.Path)
+			// 									logger.Debug(1, "(dataDownloader) ok, found file %s=%s...", name, file.Path)
 			// 								}
 			// 							}
 			// 						default:
@@ -322,8 +322,8 @@ func dataMover(control chan int) {
 			if len(user_attr) > 0 {
 				attr_json, _ := json.Marshal(user_attr)
 				if err := ioutil.WriteFile(fmt.Sprintf("%s/userattr.json", work_path), attr_json, 0644); err != nil {
-					logger.Error("err@dataMover_work.getUserAttr, workid=" + work_id.String() + " error=" + err.Error())
-					workunit.Notes = append(workunit.Notes, "[dataMover#getUserAttr]"+err.Error())
+					logger.Error("err@dataDownloader_work.getUserAttr, workid=" + work_id.String() + " error=" + err.Error())
+					workunit.Notes = append(workunit.Notes, "[dataDownloader#getUserAttr]"+err.Error())
 					workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 					//hand the parsed workunit to next stage and continue to get new workunit to process
 					fromMover <- workunit
@@ -347,8 +347,8 @@ func proxyDataMover(control chan int) {
 		workmap.Set(work_id, ID_DATAMOVER, "proxyDataMover")
 		//check the availability prerequisite data and download if needed
 		if err := proxyMovePreData(workunit); err != nil {
-			logger.Error("err@dataMover_work.movePreData, workid=" + work_id.String() + " error=" + err.Error())
-			workunit.Notes = append(workunit.Notes, "[dataMover#proxyMovePreData]"+err.Error())
+			logger.Error("err@dataDownloader_work.movePreData, workid=" + work_id.String() + " error=" + err.Error())
+			workunit.Notes = append(workunit.Notes, "[dataDownloader#proxyMovePreData]"+err.Error())
 			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 		}
 		fromMover <- workunit

@@ -8,13 +8,14 @@ import (
 	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	//"github.com/MG-RAST/AWE/lib/logger/event"
+	"bytes"
 	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/davecgh/go-spew/spew"
 	"gopkg.in/yaml.v2"
-	"mime/multipart"
-	//"net/http"
-	"bytes"
 	"io"
+	"io/ioutil"
+	"mime/multipart"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
@@ -142,10 +143,19 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 }
 
 func main() {
+	err := main_wrapper()
+	if err != nil {
+		println(err.Error())
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+func main_wrapper() (err error) {
 
 	conf.LOG_OUTPUT = "console"
 
-	err := conf.Init_conf("submitter")
+	err = conf.Init_conf("submitter")
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: error reading conf file: "+err.Error())
@@ -157,18 +167,14 @@ func main() {
 	for _, value := range conf.ARGS {
 		println(value)
 	}
-	panic("done")
 
-	if conf.CWL_JOB == "" {
-		logger.Error("cwl job file missing")
-		time.Sleep(time.Second)
-		os.Exit(1)
-	}
+	job_file := conf.ARGS[0]
+	workflow_file := conf.ARGS[1]
 
-	inputfile_path := path.Dir(conf.CWL_JOB)
+	inputfile_path := path.Dir(job_file)
 	fmt.Printf("job path: %s\n", inputfile_path) // needed to resolve relative paths
 
-	job_doc, err := cwl.ParseJobFile(conf.CWL_JOB)
+	job_doc, err := cwl.ParseJobFile(job_file)
 	if err != nil {
 		logger.Error("error parsing cwl job: %v", err)
 		time.Sleep(time.Second)
@@ -215,26 +221,99 @@ func main() {
 	// job submission example:
 	// curl -X POST -F job=@test.yaml -F cwl=@/Users/wolfganggerlach/awe_data/pipeline/CWL/PackedWorkflow/preprocess-fasta.workflow.cwl http://localhost:8001/job
 
-	var b bytes.Buffer
-	w := multipart.NewWriter(&b)
+	//var b bytes.Buffer
+	//w := multipart.NewWriter(&b)
 
-	multipartWriter_AddFile(w, "cwl", "/Users/wolfganggerlach/awe_data/pipeline/CWL/PackedWorkflow/preprocess-fasta.workflow.cwl")
+	multipart := NewMultipartWriter()
+	err = multipart.AddFile("cwl", workflow_file)
+	if err != nil {
+		return
+	}
+	err = multipart.AddDataAsFile("job", job_file, &data)
+	if err != nil {
+		return
+	}
+	response, err := multipart.Send("POST", conf.SERVER_URL+"/job")
+	if err != nil {
+		return
+	}
+	responseData, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return
+	}
+	responseString := string(responseData)
+
+	fmt.Println(responseString)
+	return
+}
+
+type MultipartWriter struct {
+	b bytes.Buffer
+	w *multipart.Writer
+}
+
+func NewMultipartWriter() *MultipartWriter {
+	m := &MultipartWriter{}
+	m.w = multipart.NewWriter(&m.b)
+	return m
+}
+
+func (m *MultipartWriter) Send(method string, url string) (response *http.Response, err error) {
+	m.w.Close()
+	fmt.Println("------------")
+	spew.Dump(m.w)
+	fmt.Println("------------")
+
+	req, err := http.NewRequest(method, url, &m.b)
+	if err != nil {
+		return
+	}
+	// Don't forget to set the content type, this will contain the boundary.
+	req.Header.Set("Content-Type", m.w.FormDataContentType())
+
+	// Submit the request
+	client := &http.Client{}
+	fmt.Printf("%s %s\n\n", method, url)
+	response, err = client.Do(req)
+	if err != nil {
+		return
+	}
+
+	// Check the response
+	//if response.StatusCode != http.StatusOK {
+	//	err = fmt.Errorf("bad status: %s", response.Status)
+	//}
+	return
 
 }
 
-func multipartWriter_AddFile(w *multipart.Writer, fieldname string, filepath string) (err error) {
+func (m *MultipartWriter) AddDataAsFile(fieldname string, filepath string, data *[]byte) (err error) {
+
+	fw, err := m.w.CreateFormFile(fieldname, filepath)
+	if err != nil {
+		return
+	}
+	_, err = fw.Write(*data)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (m *MultipartWriter) AddFile(fieldname string, filepath string) (err error) {
 
 	f, err := os.Open(filepath)
 	if err != nil {
 		return
 	}
 	defer f.Close()
-	fw, err := w.CreateFormFile(fieldname, filepath)
+	fw, err := m.w.CreateFormFile(fieldname, filepath)
 	if err != nil {
 		return
 	}
 	if _, err = io.Copy(fw, f); err != nil {
 		return
 	}
+
 	return
 }

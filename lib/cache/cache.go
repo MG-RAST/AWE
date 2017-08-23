@@ -206,7 +206,6 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 			}
 		}
 
-		panic("YOYHOOOHOO")
 		return
 	}
 

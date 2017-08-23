@@ -26,13 +26,13 @@ type Mediumwork struct {
 }
 
 const (
-	ID_HEARTBEATER   = 0
-	ID_WORKSTEALER   = 1
-	ID_DATAMOVER     = 2
-	ID_WORKER        = 3
-	ID_DELIVERER     = 4
-	ID_REDISTRIBUTOR = 5
-	ID_DISCARDED     = 6 // flag acts as a message
+	ID_HEARTBEATER    = 0
+	ID_WORKSTEALER    = 1
+	ID_DATADOWNLOADER = 2
+	ID_WORKER         = 3
+	ID_DELIVERER      = 4
+	ID_REDISTRIBUTOR  = 5
+	ID_DISCARDED      = 6 // flag acts as a message
 )
 
 func InitWorkers() {
@@ -76,7 +76,7 @@ func StartClientWorkers() {
 		case ID_WORKSTEALER:
 			go workStealer(control)
 			logger.Error("workStealer died and restarted")
-		case ID_DATAMOVER:
+		case ID_DATADOWNLOADER:
 			go dataDownloader(control)
 			logger.Error("dataMover died and restarted")
 		case ID_WORKER:

@@ -194,9 +194,9 @@ func dataDownloader(control chan int) {
 
 		work_id := workunit.Workunit_Unique_Identifier
 
-		workmap.Set(work_id, ID_DATAMOVER, "dataDownloader")
+		workmap.Set(work_id, ID_DATADOWNLOADER, "dataDownloader")
 
-		if conf.CWL_TOOL == "" {
+		if Client_mode == "online" {
 			//make a working directory for the workunit (not for commandline execution !!!!!!)
 			if err := workunit.Mkdir(); err != nil {
 				logger.Error("[dataDownloader#workunit.Mkdir], workid=" + work_id.String() + " error=" + err.Error())
@@ -206,8 +206,7 @@ func dataDownloader(control chan int) {
 				fromMover <- workunit
 				continue
 			}
-		}
-		if conf.CWL_TOOL == "" {
+
 			//run the PreWorkExecutionScript
 			if err := runPreWorkExecutionScript(workunit); err != nil {
 				logger.Error("[dataDownloader#runPreWorkExecutionScript], workid=" + work_id.String() + " error=" + err.Error())
@@ -217,9 +216,7 @@ func dataDownloader(control chan int) {
 				fromMover <- workunit
 				continue
 			}
-		}
 
-		if conf.CWL_TOOL == "" {
 			//check the availability prerequisite data and download if needed
 			predatamove_start := time.Now().UnixNano()
 			if moved_data, err := movePreData(workunit); err != nil {
@@ -250,11 +247,12 @@ func dataDownloader(control chan int) {
 		}
 
 		//download input data
-		if conf.CWL_TOOL == "" {
+		if Client_mode == "online" {
 
 			datamove_start := time.Now().UnixNano()
-			if moved_data, err := cache.MoveInputData(workunit); err != nil {
-				logger.Error("err@dataDownloader.MoveInputData, workid=" + work_id.String() + " error=" + err.Error())
+			moved_data, err := cache.MoveInputData(workunit)
+			if err != nil {
+				logger.Error("(dataDownloader) workid=" + work_id.String() + " error=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[dataDownloader#MoveInputData]"+err.Error())
 				workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 				//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -311,7 +309,7 @@ func dataDownloader(control chan int) {
 			// 			}
 		}
 
-		if conf.CWL_TOOL == "" {
+		if Client_mode == "online" {
 
 			//create userattr.json
 			work_path, err := workunit.Path()
@@ -334,7 +332,7 @@ func dataDownloader(control chan int) {
 
 		fromMover <- workunit
 	}
-	control <- ID_DATAMOVER //we are ending
+	control <- ID_DATADOWNLOADER //we are ending
 }
 
 func proxyDataMover(control chan int) {
@@ -344,7 +342,7 @@ func proxyDataMover(control chan int) {
 	for {
 		workunit := <-FromStealer
 		work_id := workunit.Workunit_Unique_Identifier
-		workmap.Set(work_id, ID_DATAMOVER, "proxyDataMover")
+		workmap.Set(work_id, ID_DATADOWNLOADER, "proxyDataMover")
 		//check the availability prerequisite data and download if needed
 		if err := proxyMovePreData(workunit); err != nil {
 			logger.Error("err@dataDownloader_work.movePreData, workid=" + work_id.String() + " error=" + err.Error())
@@ -353,7 +351,7 @@ func proxyDataMover(control chan int) {
 		}
 		fromMover <- workunit
 	}
-	control <- ID_DATAMOVER
+	control <- ID_DATADOWNLOADER
 }
 
 //parse workunit, fetch input data, compose command arguments

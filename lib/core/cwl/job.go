@@ -9,6 +9,8 @@ import (
 	"io/ioutil"
 	//"os"
 	//"strings"
+	"github.com/MG-RAST/AWE/lib/logger"
+	//"github.com/MG-RAST/AWE/lib/logger/event"
 )
 
 //type Job_document map[string]interface{}
@@ -16,6 +18,8 @@ import (
 type Job_document map[string]cwl_types.CWLType
 
 func NewJob_document(original interface{}) (job *Job_document, err error) {
+
+	logger.Debug(3, "(NewJob_document) starting")
 
 	job_nptr := Job_document{}
 

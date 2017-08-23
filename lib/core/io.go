@@ -84,22 +84,31 @@ func NewIO() *IO {
 	return &IO{}
 }
 
+func (io *IO) Url2Shock() (err error) {
+	u, _ := url.Parse(io.Url)
+	if (u.Scheme == "") || (u.Host == "") || (u.Path == "") {
+		err = fmt.Errorf("Not a valid url: %s", io.Url)
+		return
+	}
+	// get shock info from url
+	if (io.Host == "") || (io.Node == "") || (io.Node == "-") {
+		trimPath := strings.Trim(u.Path, "/")
+		cleanUuid := strings.Trim(strings.TrimPrefix(trimPath, "node"), "/")
+		// appears to be a shock url
+		if (cleanUuid != trimPath) && (uuid.Parse(cleanUuid) != nil) {
+			io.Host = u.Scheme + "://" + u.Host
+			io.Node = cleanUuid
+		}
+	}
+	return
+}
+
 func (io *IO) DataUrl() (dataurl string, err error) {
 	if io.Url != "" {
 		// parse and test url
-		u, _ := url.Parse(io.Url)
-		if (u.Scheme == "") || (u.Host == "") || (u.Path == "") {
-			return "", errors.New("Not a valid url: " + io.Url)
-		}
-		// get shock info from url
-		if (io.Host == "") || (io.Node == "") || (io.Node == "-") {
-			trimPath := strings.Trim(u.Path, "/")
-			cleanUuid := strings.Trim(strings.TrimPrefix(trimPath, "node"), "/")
-			// appears to be a shock url
-			if (cleanUuid != trimPath) && (uuid.Parse(cleanUuid) != nil) {
-				io.Host = u.Scheme + "://" + u.Host
-				io.Node = cleanUuid
-			}
+		err = io.Url2Shock()
+		if err != nil {
+			return
 		}
 		return io.Url, nil
 	} else if (io.Host != "") && (io.Node != "") && (io.Node != "-") {

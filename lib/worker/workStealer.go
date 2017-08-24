@@ -107,6 +107,11 @@ func workStealer(control chan int) {
 		//}
 		workunit.WorkPerf = workstat
 
+		// make sure cwl-runner is invoked
+		if workunit.CWL != nil {
+			workunit.Cmd.Name = "/usr/bin/cwl-runner"
+			workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", "./cwl_tool.yaml", "./cwl_job_input.yaml"}
+		}
 		//FromStealer <- rawWork // sends to dataMover
 		FromStealer <- workunit // sends to dataMover
 

@@ -17,17 +17,17 @@ import (
 
 // this is used by YAML or JSON library for inital parsing
 type CWL_document_generic struct {
-	CwlVersion string               `yaml:"cwlVersion"`
+	CwlVersion CWLVersion           `yaml:"cwlVersion"`
 	Graph      []CWL_object_generic `yaml:"graph"`
 }
 
 type CWL_object_generic map[string]interface{}
 
-type CWLVersion interface{} // TODO
+type CWLVersion string
 
 type LinkMergeMethod string // merge_nested or merge_flattened
 
-func New_CWL_object(elem map[string]interface{}) (obj cwl_types.CWL_object, err error) {
+func New_CWL_object(elem map[string]interface{}, cwl_version CWLVersion) (obj cwl_types.CWL_object, err error) {
 
 	cwl_object_type, ok := elem["class"].(string)
 
@@ -50,6 +50,9 @@ func New_CWL_object(elem map[string]interface{}) (obj cwl_types.CWL_object, err 
 			err = fmt.Errorf("NewCommandLineTool returned: %s", xerr)
 			return
 		}
+
+		result.CwlVersion = cwl_version
+
 		obj = result
 		return
 	case "Workflow":
@@ -100,9 +103,11 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 	spew.Dump(cwl_gen)
 	fmt.Println("-------------- Start real parsing")
 
+	cwl_version := cwl_gen.CwlVersion
+
 	// iterated over Graph
 	for _, elem := range cwl_gen.Graph {
-		object, xerr := New_CWL_object(elem)
+		object, xerr := New_CWL_object(elem, cwl_version)
 		if xerr != nil {
 			err = xerr
 			return

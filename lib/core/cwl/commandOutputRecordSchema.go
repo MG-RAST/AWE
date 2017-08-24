@@ -1,6 +1,9 @@
 package cwl
 
-import ()
+import (
+	"fmt"
+	"github.com/mitchellh/mapstructure"
+)
 
 type CommandOutputRecordSchema struct {
 	Type   string                     `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // Must be record
@@ -11,3 +14,15 @@ type CommandOutputRecordSchema struct {
 func (c *CommandOutputRecordSchema) Is_CommandOutputParameterType() {}
 
 type CommandOutputRecordField struct{}
+
+func NewCommandOutputRecordSchema(v interface{}) (schema *CommandOutputRecordSchema, err error) {
+
+	schema = &CommandOutputRecordSchema{}
+	err = mapstructure.Decode(v, schema)
+	if err != nil {
+		err = fmt.Errorf("(NewCommandOutputRecordSchema) decode error: %s", err.Error())
+		return
+	}
+
+	return
+}

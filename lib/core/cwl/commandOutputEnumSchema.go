@@ -1,6 +1,9 @@
 package cwl
 
-import ()
+import (
+	"fmt"
+	"github.com/mitchellh/mapstructure"
+)
 
 //http://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputEnumSchema
 type CommandOutputEnumSchema struct {
@@ -11,3 +14,15 @@ type CommandOutputEnumSchema struct {
 }
 
 func (c *CommandOutputEnumSchema) Is_CommandOutputParameterType() {}
+
+func NewCommandOutputEnumSchema(v map[string]interface{}) (schema *CommandOutputEnumSchema, err error) {
+
+	schema = &CommandOutputEnumSchema{}
+	err = mapstructure.Decode(v, schema)
+	if err != nil {
+		err = fmt.Errorf("(NewCommandOutputEnumSchema) decode error: %s", err.Error())
+		return
+	}
+
+	return
+}

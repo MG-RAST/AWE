@@ -876,7 +876,13 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 
-	args := workunit.Cmd.ParsedArgs
+	var args []string
+
+	if len(workunit.Cmd.ArgsArray) > 0 {
+		args = workunit.Cmd.ArgsArray
+	} else {
+		args = workunit.Cmd.ParsedArgs
+	}
 
 	//change cwd to the workunit's working directory
 	if err := workunit.CDworkpath(); err != nil {

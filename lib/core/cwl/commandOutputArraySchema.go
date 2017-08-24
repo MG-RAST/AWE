@@ -17,7 +17,7 @@ func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}
 
 func NewCommandOutputArraySchema(original interface{}) (coas *CommandOutputArraySchema, err error) {
 	coas = &CommandOutputArraySchema{}
-
+	coas.Type = "array"
 	switch original.(type) {
 	case map[interface{}]interface{}:
 		original_map, ok := original.(map[string]interface{})

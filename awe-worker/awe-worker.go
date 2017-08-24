@@ -141,11 +141,13 @@ func main() {
 		}
 		workunit.WorkPath = current_working_directory
 
-		workunit.Cmd = &core.Command{}
-		workunit.Cmd.Local = true // this makes sure the working directory is not deleted
-		workunit.Cmd.Name = "/usr/bin/cwl-runner"
+		cmd := &core.Command{}
+		cmd.Local = true // this makes sure the working directory is not deleted
+		cmd.Name = "/usr/bin/cwl-runner"
 
-		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL.CWL_tool_filename, workunit.CWL.Job_input_filename}
+		cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL.CWL_tool_filename, workunit.CWL.Job_input_filename}
+
+		workunit.Cmd = cmd
 
 		workunit.WorkPerf = core.NewWorkPerf()
 		workunit.WorkPerf.Checkout = time.Now().Unix()

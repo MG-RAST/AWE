@@ -8,12 +8,14 @@ import (
 	"reflect"
 )
 
+// http://www.commonwl.org/v1.0/CommandLineTool.html#CommandInputParameter
+
 type CommandInputParameter struct {
 	Id             string             `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
 	SecondaryFiles []string           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
 	Format         []string           `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
 	Streamable     bool               `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
-	Type           interface{}        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // []CommandInputParameterType  TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
+	Type           interface{}        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // []CommandInputParameterType  CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
 	Label          string             `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
 	Description    string             `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty"`
 	InputBinding   CommandLineBinding `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"`
@@ -66,11 +68,13 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 		type_value, ok := v_map["type"]
 		if ok {
-			type_value, err = CreateCommandInputParameterTypeArray(type_value)
+
+			type_value, err = NewCommandInputParameterType(type_value)
 			if err != nil {
-				err = fmt.Errorf("(NewCommandInputParameter) CreateCommandInputParameterTypeArray error: %s", err.Error())
+				err = fmt.Errorf("(NewCommandInputParameter) NewCommandInputParameter error: %s", err.Error())
 				return
 			}
+
 			v_map["type"] = type_value
 		}
 
@@ -90,6 +94,10 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 			return
 		}
 
+	case string:
+		v_string := v.(string)
+		err = fmt.Errorf("(NewCommandInputParameter) got string %s", v_string)
+		return
 	default:
 
 		err = fmt.Errorf("(NewCommandInputParameter) type %s unknown", reflect.TypeOf(v))
@@ -100,12 +108,14 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 }
 
 // keyname will be converted into 'Id'-field
+// array<CommandInputParameter> | map<CommandInputParameter.id, CommandInputParameter.type> | map<CommandInputParameter.id, CommandInputParameter>
 func CreateCommandInputArray(original interface{}) (err error, new_array []*CommandInputParameter) {
 
 	fmt.Println("CreateCommandInputArray:\n")
 	spew.Dump(original)
 
 	switch original.(type) {
+
 	case map[interface{}]interface{}:
 		for k, v := range original.(map[interface{}]interface{}) {
 

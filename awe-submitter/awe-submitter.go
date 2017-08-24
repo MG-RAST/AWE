@@ -60,6 +60,8 @@ func uploadFile(file *cwl_types.File, inputfile_path string) (err error) {
 
 	file_path := file.Path
 
+	basename := path.Base(file_path)
+
 	if file_path == "" {
 		return
 	}
@@ -88,6 +90,7 @@ func uploadFile(file *cwl_types.File, inputfile_path string) (err error) {
 
 	file.Location = file.Location_url.String()
 	file.Path = ""
+	file.Basename = basename
 
 	return
 }
@@ -223,13 +226,21 @@ func main_wrapper() (err error) {
 
 	//var b bytes.Buffer
 	//w := multipart.NewWriter(&b)
+	err = SubmitCWLJobToAWE(workflow_file, job_file, &data)
+	if err != nil {
+		return
+	}
 
+	return
+}
+
+func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (err error) {
 	multipart := NewMultipartWriter()
 	err = multipart.AddFile("cwl", workflow_file)
 	if err != nil {
 		return
 	}
-	err = multipart.AddDataAsFile("job", job_file, &data)
+	err = multipart.AddDataAsFile("job", job_file, data)
 	if err != nil {
 		return
 	}
@@ -245,6 +256,7 @@ func main_wrapper() (err error) {
 
 	fmt.Println(responseString)
 	return
+
 }
 
 type MultipartWriter struct {

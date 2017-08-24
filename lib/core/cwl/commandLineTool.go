@@ -9,6 +9,7 @@ import (
 
 type CommandLineTool struct {
 	Id                 string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	Class              string                   `yaml:"class,omitempty" bson:"class,omitempty" json:"class,omitempty"`
 	BaseCommand        []string                 `yaml:"baseCommand,omitempty" bson:"baseCommand,omitempty" json:"baseCommand,omitempty"` // TODO also allow []string
 	Inputs             []CommandInputParameter  `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty"`
 	Outputs            []CommandOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty"`
@@ -45,7 +46,7 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 		return
 	}
 
-	commandLineTool = &CommandLineTool{}
+	commandLineTool = &CommandLineTool{Class: "CommandLineTool"}
 
 	inputs, ok := object["inputs"]
 	if ok {

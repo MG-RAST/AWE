@@ -91,10 +91,6 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 		workflow_step := task.WorkflowStep
 
-		workunit.Cmd.Name = "/usr/bin/cwl-runner"
-
-		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", "./cwl_tool.yaml", "./cwl_job_input.yaml"}
-
 		workunit.CWL = &CWL_workunit{}
 
 		// ****** get CommandLineTool (or whatever can be executed)
@@ -194,6 +190,17 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 			if len(input.Source) == 1 {
 				job_input[cmd_id] = source_object_array[0]
+				object := source_object_array[0]
+				fmt.Println("WORLD")
+				spew.Dump(object)
+
+				file, ok := object.(*cwl_types.File)
+				if ok {
+					fmt.Println("A FILE")
+					fmt.Printf("%+v\n", *file)
+
+				}
+
 			} else if len(input.Source) > 1 {
 				cwl_array := cwl_types.Array{}
 				for _, obj := range source_object_array {
@@ -318,6 +325,9 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 		}
 
 	}
+	//panic("done")
+	//spew.Dump(workunit.Cmd)
+	//panic("done")
 
 	return
 }

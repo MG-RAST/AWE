@@ -194,8 +194,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	var cwl_object *core.CWL_workunit
 
 	cwl_generic, has_cwl := data_map["CWL"]
-	if has_cwl {
-
+	if has_cwl && cwl_generic != nil {
 		var xerr error
 		cwl_object, xerr = core.NewCWL_workunit_from_interface(cwl_generic)
 		if xerr != nil {

@@ -1094,6 +1094,15 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 	for _, task := range tasks {
 		//qm.taskIn <- task
 
+		task_state, xerr := task.GetState()
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		if task_state == TASK_STAT_INPROGRESS || task_state == TASK_STAT_QUEUED {
+			task.SetState(TASK_STAT_READY, true)
+		}
+
 		qm.addTask(task, job)
 	}
 

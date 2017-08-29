@@ -12,8 +12,7 @@ import (
 
 // http://www.commonwl.org/v1.0/Workflow.html#File
 type File struct {
-	CWLType_Impl   `yaml:"-"`
-	Id             string         `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
+	CWLType_Impl   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	Class          string         `yaml:"class,omitempty" json:"class,omitempty bson:"class,omitempty"`
 	Location       string         `yaml:"location,omitempty" json:"location,omitempty bson:"location,omitempty"` // An IRI that identifies the file resource.
 	Location_url   *url.URL       `yaml:"-" json:"-" bson:"-"`                                                   // only for internal purposes
@@ -34,18 +33,23 @@ type File struct {
 	Token  string `yaml:"-"`
 }
 
-func (f *File) GetClass() string    { return CWL_File }
-func (f *File) GetId() string       { return f.Id }
-func (f *File) SetId(id string)     { f.Id = id }
+func (f *File) GetClass() string { return CWL_File }
+
+//func (f *File) GetId() string       { return f.Id }
+//func (f *File) SetId(id string)     { f.Id = id }
 func (f *File) String() string      { return f.Path }
 func (f *File) GetLocation() string { return f.Location } // for CWL_location
 //func (f *File) Is_Array() bool      { return false }
 
 func (f *File) Is_CommandInputParameterType() {} // for CommandInputParameterType
 
-func NewFile(obj interface{}) (file File, err error) {
+func NewFile(id string, obj interface{}) (file File, err error) {
 
 	file, err = MakeFile("", obj)
+
+	if id != "" {
+		file.Id = id
+	}
 
 	return
 }

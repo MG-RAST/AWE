@@ -23,9 +23,15 @@ type WorkflowStep struct {
 func NewWorkflowStep(original interface{}) (w *WorkflowStep, err error) {
 	var step WorkflowStep
 
+	original, err = makeStringMap(original)
+	if err != nil {
+		return
+	}
+
 	switch original.(type) {
-	case map[interface{}]interface{}:
-		v_map := original.(map[interface{}]interface{})
+
+	case map[string]interface{}:
+		v_map := original.(map[string]interface{})
 		//spew.Dump(v_map)
 
 		step_in, ok := v_map["in"]
@@ -83,7 +89,7 @@ func NewWorkflowStep(original interface{}) (w *WorkflowStep, err error) {
 		fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 		return
 	default:
-		err = fmt.Errorf("(NewWorkflowStep) type unknown")
+		err = fmt.Errorf("(NewWorkflowStep) type %s unknown", reflect.TypeOf(original))
 		return
 	}
 

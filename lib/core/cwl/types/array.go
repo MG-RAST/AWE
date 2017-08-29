@@ -6,15 +6,12 @@ import (
 )
 
 type Array struct {
-	CWL_object
-	Id         string    `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
-	Items      []CWLType `yaml:"items,omitempty" json:"items,omitempty" bson:"items,omitempty"`
-	Items_Type string    `yaml:"items_type,omitempty" json:"items_type,omitempty" bson:"items_type,omitempty"`
+	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	Items        []CWLType `yaml:"items,omitempty" json:"items,omitempty" bson:"items,omitempty"`
+	Items_Type   string    `yaml:"items_type,omitempty" json:"items_type,omitempty" bson:"items_type,omitempty"`
 }
 
 func (c *Array) GetClass() string { return CWL_array }
-func (c *Array) GetId() string    { return c.Id }
-func (c *Array) SetId(id string)  { c.Id = id }
 
 func (c *Array) Is_CWL_minimal()                {}
 func (c *Array) Is_CWLType()                    {}
@@ -23,7 +20,7 @@ func (c *Array) Is_CommandOutputParameterType() {}
 
 func NewArray(id string, native []interface{}) (array *Array, err error) {
 
-	array = &Array{}
+	array = &Array{CWLType_Impl: CWLType_Impl{Id: id}}
 
 	if id != "" {
 		array.Id = id

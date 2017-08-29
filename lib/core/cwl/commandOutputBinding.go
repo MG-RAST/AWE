@@ -15,22 +15,12 @@ type CommandOutputBinding struct {
 
 func NewCommandOutputBinding(original interface{}) (commandOutputBinding *CommandOutputBinding, err error) {
 
+	original, err = makeStringMap(original)
+	if err != nil {
+		return
+	}
+
 	switch original.(type) {
-	case map[interface{}]interface{}:
-
-		v_map, ok := original.(map[interface{}]interface{})
-		if !ok {
-			err = fmt.Errorf("(NewCommandOutputBinding) casting problem (b)")
-			return
-		}
-		v_string_map := make(map[string]interface{})
-
-		for key, value := range v_map {
-			key_string := key.(string)
-			v_string_map[key_string] = value
-		}
-
-		return NewCommandOutputBinding(v_string_map)
 
 	case map[string]interface{}:
 		original_map, ok := original.(map[string]interface{})

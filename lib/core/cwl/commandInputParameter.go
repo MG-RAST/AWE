@@ -5,6 +5,7 @@ import (
 	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
+	"gopkg.in/mgo.v2/bson"
 	"reflect"
 )
 
@@ -22,12 +23,22 @@ type CommandInputParameter struct {
 	Default        *cwl_types.Any     `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
 }
 
-func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParameter, err error) {
-
-	fmt.Println("NewCommandInputParameter:\n")
-	spew.Dump(v)
+func makeStringMap(v interface{}) (result interface{}, err error) {
 
 	switch v.(type) {
+	case bson.M:
+
+		original_map := v.(bson.M)
+
+		new_map := make(map[string]interface{})
+
+		for key_str, value := range original_map {
+
+			new_map[key_str] = value
+		}
+
+		result = new_map
+		return
 	case map[interface{}]interface{}:
 
 		v_map, ok := v.(map[interface{}]interface{})
@@ -42,7 +53,52 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 			v_string_map[key_string] = value
 		}
 
-		return NewCommandInputParameter(v_string_map)
+		result = v_string_map
+		return
+
+	}
+	result = v
+	return
+}
+
+func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParameter, err error) {
+
+	fmt.Println("NewCommandInputParameter:\n")
+	spew.Dump(v)
+
+	v, err = makeStringMap(v)
+	if err != nil {
+		return
+	}
+
+	switch v.(type) {
+	// case bson.M:
+	//
+	// 		original_map := v.(bson.M)
+	//
+	// 		new_map := make(map[string]interface{})
+	//
+	// 		for key_str, value := range original_map {
+	//
+	// 			new_map[key_str] = value
+	// 		}
+	//
+	// 		return NewCommandInputParameter(new_map)
+	// 	case map[interface{}]interface{}:
+	//
+	// 		v_map, ok := v.(map[interface{}]interface{})
+	// 		if !ok {
+	// 			err = fmt.Errorf("casting problem (b)")
+	// 			return
+	// 		}
+	// 		v_string_map := make(map[string]interface{})
+	//
+	// 		for key, value := range v_map {
+	// 			key_string := key.(string)
+	// 			v_string_map[key_string] = value
+	// 		}
+	//
+	// 		return NewCommandInputParameter(v_string_map)
 
 	case map[string]interface{}:
 		v_map, ok := v.(map[string]interface{})

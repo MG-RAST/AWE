@@ -62,7 +62,7 @@ func New_CWL_object(elem map[string]interface{}, cwl_version CWLVersion) (obj cw
 			err = xerr
 			return
 		}
-		obj = &workflow
+		obj = workflow
 		return
 	} // end switch
 
@@ -93,7 +93,8 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 
 	cwl_gen := CWL_document_generic{}
 
-	err = Unmarshal([]byte(yaml_str), &cwl_gen)
+	yaml_byte := []byte(yaml_str)
+	err = Unmarshal(&yaml_byte, &cwl_gen)
 	if err != nil {
 		logger.Debug(1, "CWL unmarshal error")
 		logger.Error("error: " + err.Error())
@@ -120,18 +121,24 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 	return
 }
 
-func Unmarshal(data []byte, v interface{}) (err error) {
-	err_yaml := yaml.Unmarshal(data, v)
-	if err_yaml != nil {
-		logger.Debug(1, "CWL YAML unmarshal error, (try json...) : "+err_yaml.Error())
+func Unmarshal(data_ptr *[]byte, v interface{}) (err error) {
+
+	data := *data_ptr
+
+	if data[0] == '{' {
+
 		err_json := json.Unmarshal(data, v)
 		if err_json != nil {
-			logger.Debug(1, "CWL JSON unmarshal error: "+err_json.Error())
+			logger.Debug(1, "CWL json unmarshal error: "+err_json.Error())
+			return
 		}
-	}
+	} else {
+		err_yaml := yaml.Unmarshal(data, v)
+		if err_yaml != nil {
+			logger.Debug(1, "CWL yaml unmarshal error: "+err_yaml.Error())
+			return
+		}
 
-	if err != nil {
-		err = errors.New("Could not parse document as JSON or YAML")
 	}
 
 	return

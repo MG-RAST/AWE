@@ -23,6 +23,11 @@ func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err e
 
 	var commandlinebinding CommandLineBinding
 
+	original, err = makeStringMap(original)
+	if err != nil {
+		return
+	}
+
 	switch original.(type) {
 	case map[string]interface{}:
 		original_map, ok := original.(map[string]interface{})
@@ -47,21 +52,6 @@ func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err e
 			return
 		}
 		clb = &commandlinebinding
-
-	case map[interface{}]interface{}:
-
-		original_map := original.(map[interface{}]interface{})
-
-		org_string_map := make(map[string]interface{})
-
-		for key, value := range original_map {
-			key_string, ok := key.(string)
-			if !ok {
-				err = fmt.Errorf("(NewCommandLineBinding) type assertion error")
-			}
-			org_string_map[key_string] = value
-		}
-		return NewCommandLineBinding(org_string_map)
 
 	case string:
 

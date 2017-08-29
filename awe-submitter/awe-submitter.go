@@ -106,9 +106,10 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 
 		job_doc := *job_doc_ptr
 
-		for key, value := range job_doc {
+		for _, value := range job_doc {
 
-			fmt.Printf("recurse into key: %s\n", key)
+			id := value.GetId()
+			fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
 			sub_count, err = processInputData(value, inputfile_path)
 			if err != nil {

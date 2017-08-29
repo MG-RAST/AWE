@@ -1,14 +1,11 @@
 package cwl
 
 type Boolean struct {
-	CWLType_Impl
-	Id    string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
-	Value bool   `yaml:"value,omitempty" json:"value,omitempty" bson:"value,omitempty"`
+	CWLType_Impl `bson:",inline" json:",inline" mapstructure:",squash"`
+	Value        bool `yaml:"value,omitempty" json:"value,omitempty" bson:"value,omitempty"`
 }
 
 func (s *Boolean) GetClass() string { return CWL_boolean } // for CWL_object
-func (s *Boolean) GetId() string    { return s.Id }        // for CWL_object
-func (s *Boolean) SetId(id string)  { s.Id = id }
 func (s *Boolean) String() string {
 	if s.Value {
 		return "True"
@@ -17,3 +14,7 @@ func (s *Boolean) String() string {
 }
 
 func (s *Boolean) Is_CommandInputParameterType() {} // for CommandInputParameterType
+
+func NewBoolean(id string, value bool) *Boolean {
+	return &Boolean{CWLType_Impl: CWLType_Impl{Id: id}, Value: value}
+}

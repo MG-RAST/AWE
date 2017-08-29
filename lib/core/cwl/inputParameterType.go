@@ -3,15 +3,21 @@ package cwl
 import (
 	"fmt"
 	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+	"github.com/davecgh/go-spew/spew"
+	"reflect"
 	"strings"
 )
 
-type InputParameterType struct {
-	Type string
-}
+//type InputParameterType struct {
+//	Type string
+//}
+
+type InputParameterType string
 
 func NewInputParameterType(original interface{}) (ipt_ptr *InputParameterType, err error) {
+	fmt.Println("---- NewInputParameterType ----")
 
+	spew.Dump(original)
 	var ipt InputParameterType
 
 	switch original.(type) {
@@ -36,17 +42,21 @@ func NewInputParameterType(original interface{}) (ipt_ptr *InputParameterType, e
 			return
 		}
 
-		ipt.Type = original_str
+		ipt = InputParameterType(original_str)
+
 		ipt_ptr = &ipt
 		return
 	default:
+		err = fmt.Errorf("(NewInputParameterType) type is not string: %s", reflect.TypeOf(original))
+		return
 	}
 
 	return
 }
 
 func NewInputParameterTypeArray(original interface{}) (array_ptr *[]InputParameterType, err error) {
-
+	fmt.Println("---- NewInputParameterTypeArray ----")
+	spew.Dump(original)
 	array := []InputParameterType{}
 
 	switch original.(type) {
@@ -79,11 +89,59 @@ func NewInputParameterTypeArray(original interface{}) (array_ptr *[]InputParamet
 	}
 }
 
-func HasInputParameterType(array *[]InputParameterType, search_type string) (ok bool) {
-	for _, v := range *array {
-		if v.Type == search_type {
-			return true
+func HasInputParameterType(array interface{}, search_type string) (ok bool, err error) {
+
+	var array_of []interface{}
+
+	switch array.(type) {
+	case *[]InputParameterType:
+		array_ipt_ptr, a_ok := array.(*[]InputParameterType)
+		if !a_ok {
+			err = fmt.Errorf("(HasInputParameterType) expected array A")
+			return
+		}
+		array_ipt := *array_ipt_ptr
+		for _, v := range array_ipt {
+			v_str := string(v)
+
+			if v_str == search_type {
+				ok = true
+				return
+			}
+		}
+
+	case *[]interface{}:
+		array_of_ptr, a_ok := array.(*[]interface{})
+		if !a_ok {
+			err = fmt.Errorf("(HasInputParameterType) expected array A")
+			return
+		}
+		array_of = *array_of_ptr
+	case []interface{}:
+		var a_ok bool
+		array_of, a_ok = array.([]interface{})
+		if !a_ok {
+			err = fmt.Errorf("(HasInputParameterType) expected array A")
+			return
+		}
+
+	default:
+		err = fmt.Errorf("(HasInputParameterType) expected array B, got %s", reflect.TypeOf(array))
+		return
+	}
+
+	for _, v := range array_of {
+		v_str, s_ok := v.(string)
+		if !s_ok {
+			err = fmt.Errorf("(HasInputParameterType) array element is not string")
+			return
+		}
+		if v_str == search_type {
+			ok = true
+			return
 		}
 	}
-	return false
+
+	ok = false
+	return
 }

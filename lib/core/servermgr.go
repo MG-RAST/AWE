@@ -166,7 +166,7 @@ func (qm *ServerMgr) ClientHandle() {
 
 		select {
 		case coReq.response <- ack:
-			logger.Debug(3, "(ServerMgr ClientHandle %s) send workunit to client via response channel", coReq.fromclient)
+			logger.Debug(3, "(ServerMgr ClientHandle %s) send response (maybe workunit) to client via response channel", coReq.fromclient)
 		case <-timer.C:
 			elapsed_time := time.Since(start_time)
 			logger.Error("(ServerMgr ClientHandle %s) timed out after %s ", coReq.fromclient, elapsed_time)
@@ -1521,11 +1521,17 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
 
 	if task.WorkflowStep != nil && job.CWL_collection != nil {
+
+		if job.CWL_collection.Job_input_map == nil {
+			err = fmt.Errorf("job.CWL_collection.Job_input_map is empty")
+			return
+		}
+
+		job_input_map := *(job.CWL_collection.Job_input_map)
+
 		// copy inputs into task
 		for _, wsi := range task.WorkflowStep.In { // WorkflowStepInput
 			if len(wsi.Source) > 0 {
-
-				job_input := *(job.CWL_collection.Job_input)
 
 				for _, src := range wsi.Source {
 					fmt.Println("src: " + src)
@@ -1533,7 +1539,7 @@ func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
 					src_base := path.Base(src)
 					fmt.Println("src_base: " + src_base)
 					// search job input
-					obj, ok := job_input[src_base]
+					obj, ok := job_input_map[src_base]
 					if ok {
 						fmt.Println("(locateInputs) found in job input: " + src_base)
 					} else {
@@ -1541,7 +1547,7 @@ func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
 						err = fmt.Errorf("(locateInputs) did not find %s in job_input (TODO check collection)", src_base) // this should not happen, taskReady makes sure everything is available
 						return
 					}
-					spew.Dump(job_input)
+					spew.Dump(job_input_map)
 					_ = obj
 				}
 			}

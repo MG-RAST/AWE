@@ -16,16 +16,16 @@ type CommandOutputArraySchema struct {
 func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}
 
 func NewCommandOutputArraySchema(original interface{}) (coas *CommandOutputArraySchema, err error) {
+
+	original, err = makeStringMap(original)
+	if err != nil {
+		return
+	}
+
 	coas = &CommandOutputArraySchema{}
 	coas.Type = "array"
 	switch original.(type) {
-	case map[interface{}]interface{}:
-		original_map, ok := original.(map[string]interface{})
-		if !ok {
-			err = fmt.Errorf("(NewCommandOutputArraySchema) type error a")
-			return
-		}
-		return NewCommandOutputArraySchema(original_map)
+
 	case map[string]interface{}:
 		original_map, ok := original.(map[string]interface{})
 		if !ok {

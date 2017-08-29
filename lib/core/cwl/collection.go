@@ -19,6 +19,7 @@ type CWL_collection struct {
 	Booleans           map[string]*cwl_types.Boolean
 	All                map[string]*cwl_types.CWL_object // everything goes in here
 	Job_input          *Job_document
+	Job_input_map      *map[string]cwl_types.CWLType
 }
 
 func (c CWL_collection) Evaluate(raw string) (parsed string) {

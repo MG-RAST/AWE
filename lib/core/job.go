@@ -54,21 +54,23 @@ type Job struct {
 
 type JobRaw struct {
 	RWMutex
-	Id                string              `bson:"id" json:"id"` // uuid
-	Acl               acl.Acl             `bson:"acl" json:"-"`
-	Info              *Info               `bson:"info" json:"info"`
-	Script            script              `bson:"script" json:"-"`
-	State             string              `bson:"state" json:"state"`
-	Registered        bool                `bson:"registered" json:"registered"`
-	RemainTasks       int                 `bson:"remaintasks" json:"remaintasks"`
-	Expiration        time.Time           `bson:"expiration" json:"expiration"` // 0 means no expiration
-	UpdateTime        time.Time           `bson:"updatetime" json:"updatetime"`
-	Error             *JobError           `bson:"error" json:"error"`         // error struct exists when in suspended state
-	Resumed           int                 `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
-	ShockHost         string              `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
-	CWL_collection    *cwl.CWL_collection `bson:"-" json:"-"`
-	CWL_job_input_b64 string              `bson:"cwl_job_input_b64" json:"cwl_job_input_b64`
-	CWL_workflow_b64  string              `bson:"cwl_workflow_b64" json:"cwl_workflow_b64`
+	Id                      string              `bson:"id" json:"id"` // uuid
+	Acl                     acl.Acl             `bson:"acl" json:"-"`
+	Info                    *Info               `bson:"info" json:"info"`
+	Script                  script              `bson:"script" json:"-"`
+	State                   string              `bson:"state" json:"state"`
+	Registered              bool                `bson:"registered" json:"registered"`
+	RemainTasks             int                 `bson:"remaintasks" json:"remaintasks"`
+	Expiration              time.Time           `bson:"expiration" json:"expiration"` // 0 means no expiration
+	UpdateTime              time.Time           `bson:"updatetime" json:"updatetime"`
+	Error                   *JobError           `bson:"error" json:"error"`         // error struct exists when in suspended state
+	Resumed                 int                 `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
+	ShockHost               string              `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
+	CWL_job_input_interface interface{}         `bson:"cwl_job_input" json:"cwl_job_input`
+	CWL_workflow_interface  interface{}         `bson:"cwl_workflow" json:"cwl_workflow`
+	CWL_collection          *cwl.CWL_collection `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
+	CWL_job_input           *cwl.Job_document   `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
+	CWL_workflow            *cwl.Workflow       `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 }
 
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
@@ -227,45 +229,64 @@ func (job *Job) Init() (changed bool, err error) {
 		}
 	}
 
-	// read from base64 string
-	if job.CWL_collection == nil && job.CWL_job_input_b64 != "" {
-		new_collection := cwl.NewCWL_collection()
+	var workflow *cwl.Workflow
 
-		//1) parse job
-		job_input_byte_array, xerr := b64.StdEncoding.DecodeString(job.CWL_job_input_b64)
-		if xerr != nil {
-			err = fmt.Errorf("(job.Init) error decoding CWL_job_input_b64: %s", xerr.Error())
-			return
-		}
-
-		job_input, xerr := cwl.ParseJob(string(job_input_byte_array[:]))
-		if xerr != nil {
-			err = fmt.Errorf("(job.Init) error in reading job yaml/json file: " + xerr.Error())
-			return
-		}
-		new_collection.Job_input = job_input
-
-		// 2) parse workflow document
-
-		workflow_byte_array, xerr := b64.StdEncoding.DecodeString(job.CWL_workflow_b64)
-
-		err = cwl.Parse_cwl_document(&new_collection, string(workflow_byte_array[:]))
+	if job.CWL_workflow_interface != nil {
+		workflow, err = cwl.NewWorkflow(job.CWL_workflow_interface)
 		if err != nil {
-			err = fmt.Errorf("(job.Init) Parse_cwl_document error: " + err.Error())
-
 			return
 		}
-
-		cwl_workflow, ok := new_collection.Workflows["#main"]
-		if !ok {
-
-			err = fmt.Errorf("(job.Init) Workflow main not found")
-			return
-		}
-
-		job.CWL_collection = &new_collection
-		_ = cwl_workflow
+		job.CWL_workflow = workflow
 	}
+
+	var job_input *cwl.Job_document
+	if job.CWL_job_input_interface != nil {
+		job_input, err = cwl.NewJob_document(job.CWL_job_input_interface)
+		if err != nil {
+			return
+		}
+		job.CWL_job_input = job_input
+	}
+
+	// read from base64 string
+	// if job.CWL_collection == nil && job.CWL_job_input_b64 != "" {
+	// 		new_collection := cwl.NewCWL_collection()
+	//
+	// 		//1) parse job
+	// 		job_input_byte_array, xerr := b64.StdEncoding.DecodeString(job.CWL_job_input_b64)
+	// 		if xerr != nil {
+	// 			err = fmt.Errorf("(job.Init) error decoding CWL_job_input_b64: %s", xerr.Error())
+	// 			return
+	// 		}
+	//
+	// 		job_input, xerr := cwl.ParseJob(&job_input_byte_array)
+	// 		if xerr != nil {
+	// 			err = fmt.Errorf("(job.Init) error in reading job yaml/json file: " + xerr.Error())
+	// 			return
+	// 		}
+	// 		new_collection.Job_input = job_input
+	//
+	// 		// 2) parse workflow document
+	//
+	// 		workflow_byte_array, xerr := b64.StdEncoding.DecodeString(job.CWL_workflow_b64)
+	//
+	// 		err = cwl.Parse_cwl_document(&new_collection, string(workflow_byte_array[:]))
+	// 		if err != nil {
+	// 			err = fmt.Errorf("(job.Init) Parse_cwl_document error: " + err.Error())
+	//
+	// 			return
+	// 		}
+	//
+	// 		cwl_workflow, ok := new_collection.Workflows["#main"]
+	// 		if !ok {
+	//
+	// 			err = fmt.Errorf("(job.Init) Workflow main not found")
+	// 			return
+	// 		}
+	//
+	// 		job.CWL_collection = &new_collection
+	// 		_ = cwl_workflow
+	// 	}
 
 	return
 }
@@ -351,29 +372,29 @@ func Deserialize_b64(encoding string, target interface{}) (err error) {
 }
 
 // takes a yaml string as input, may change that later
-func (job *Job) Set_CWL_workflow_b64(yaml_str string) {
+// func (job *Job) Set_CWL_workflow_b64(yaml_str string) {
+//
+// 	job.CWL_workflow_b64 = b64.StdEncoding.EncodeToString([]byte(yaml_str))
+//
+// 	return
+// }
 
-	job.CWL_workflow_b64 = b64.StdEncoding.EncodeToString([]byte(yaml_str))
+// func (job *Job) Set_CWL_job_input_b64(yaml_str string) {
+//
+// 	job.CWL_job_input_b64 = b64.StdEncoding.EncodeToString([]byte(yaml_str))
+//
+// 	return
+// }
 
-	return
-}
-
-func (job *Job) Set_CWL_job_input_b64(yaml_str string) {
-
-	job.CWL_job_input_b64 = b64.StdEncoding.EncodeToString([]byte(yaml_str))
-
-	return
-}
-
-func Serialize_b64(input interface{}) (serialized string, err error) {
-	json_byte, xerr := json.Marshal(input)
-	if xerr != nil {
-		err = fmt.Errorf("(job.Save) json.Marshal(input) failed: %s", xerr.Error())
-		return
-	}
-	serialized = b64.StdEncoding.EncodeToString(json_byte)
-	return
-}
+// func Serialize_b64(input interface{}) (serialized string, err error) {
+// 	json_byte, xerr := json.Marshal(input)
+// 	if xerr != nil {
+// 		err = fmt.Errorf("(job.Save) json.Marshal(input) failed: %s", xerr.Error())
+// 		return
+// 	}
+// 	serialized = b64.StdEncoding.EncodeToString(json_byte)
+// 	return
+// }
 
 func (job *Job) Save() (err error) {
 	if job.Id == "" {
@@ -390,6 +411,8 @@ func (job *Job) Save() (err error) {
 	}
 
 	logger.Debug(1, "(job.Save()) dbUpsert next: %s", job.Id)
+	//spew.Dump(job)
+
 	err = dbUpsert(job)
 	if err != nil {
 		err = fmt.Errorf("(job.Save()) dbUpsert failed (job_id=%s) error=%s", job.Id, err.Error())

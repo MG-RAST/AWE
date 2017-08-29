@@ -6,8 +6,9 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	//"os"
-	//"reflect"
+	"reflect"
 	//"strings"
+	//"gopkg.in/mgo.v2/bson"
 )
 
 type Workflow struct {
@@ -45,43 +46,77 @@ func GetMapElement(m map[interface{}]interface{}, key string) (value interface{}
 	return
 }
 
-func NewWorkflow(object CWL_object_generic) (workflow Workflow, err error) {
+func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 
 	// convert input map into input array
 
-	inputs, ok := object["inputs"]
-	if ok {
-		err, object["inputs"] = NewInputParameterArray(inputs)
-		if err != nil {
-			return
-		}
+	original, err = makeStringMap(original)
+	if err != nil {
+		return
 	}
 
-	outputs, ok := object["outputs"]
-	if ok {
-		object["outputs"], err = NewWorkflowOutputParameterArray(outputs)
+	workflow := Workflow{}
+	workflow_ptr = &workflow
+
+	switch original.(type) {
+	case map[string]interface{}:
+		object := original.(map[string]interface{})
+		inputs, ok := object["inputs"]
+		if ok {
+			err, object["inputs"] = NewInputParameterArray(inputs)
+			if err != nil {
+				return
+			}
+		}
+
+		outputs, ok := object["outputs"]
+		if ok {
+			object["outputs"], err = NewWorkflowOutputParameterArray(outputs)
+			if err != nil {
+				return
+			}
+		}
+
+		// convert steps to array if it is a map
+		steps, ok := object["steps"]
+		if ok {
+			err, object["steps"] = CreateWorkflowStepsArray(steps)
+			if err != nil {
+				return
+			}
+		}
+
+		requirements, ok := object["requirements"]
+		if ok {
+			object["requirements"], err = CreateRequirementArray(requirements)
+			if err != nil {
+				return
+			}
+		}
+
+		fmt.Printf("......WORKFLOW raw")
+		spew.Dump(object)
+		//fmt.Printf("-- Steps found ------------") // WorkflowStep
+		//for _, step := range elem["steps"].([]interface{}) {
+
+		//	spew.Dump(step)
+
+		//}
+
+		err = mapstructure.Decode(object, &workflow)
 		if err != nil {
+			err = fmt.Errorf("error parsing workflow class: %s", err.Error())
 			return
 		}
-	}
+		fmt.Printf(".....WORKFLOW")
+		spew.Dump(workflow)
+		return
 
-	// convert steps to array if it is a map
-	steps, ok := object["steps"]
-	if ok {
-		err, object["steps"] = CreateWorkflowStepsArray(steps)
-		if err != nil {
-			return
-		}
-	}
+	default:
 
-	requirements, ok := object["requirements"]
-	if ok {
-		object["requirements"], err = CreateRequirementArray(requirements)
-		if err != nil {
-			return
-		}
+		err = fmt.Errorf("(NewWorkflow) Input type %s can not be parsed", reflect.TypeOf(original))
+		return
 	}
-
 	//switch object["requirements"].(type) {
 	//case map[interface{}]interface{}:
 	// Convert map of outputs into array of outputs
@@ -129,21 +164,5 @@ func NewWorkflow(object CWL_object_generic) (workflow Workflow, err error) {
 	//
 	//object["requirements"] = req_array
 	//}
-	fmt.Printf("......WORKFLOW raw")
-	spew.Dump(object)
-	//fmt.Printf("-- Steps found ------------") // WorkflowStep
-	//for _, step := range elem["steps"].([]interface{}) {
-
-	//	spew.Dump(step)
-
-	//}
-
-	err = mapstructure.Decode(object, &workflow)
-	if err != nil {
-		err = fmt.Errorf("error parsing workflow class: %s", err.Error())
-		return
-	}
-	fmt.Printf(".....WORKFLOW")
-	spew.Dump(workflow)
 	return
 }

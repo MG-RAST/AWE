@@ -53,6 +53,21 @@ func parseSourceString(source string, id string) (linked_step_name string, field
 
 func CWL_input_check(cwl_workflow *cwl.Workflow, collection *cwl.CWL_collection) (err error) {
 
+	job_input := *(collection.Job_input)
+
+	var job_input_map map[string]cwl_types.CWLType
+	if collection.Job_input_map == nil {
+		job_input_map = make(map[string]cwl_types.CWLType)
+
+		for _, value := range job_input {
+			id := value.GetId()
+			job_input_map[id] = value
+		}
+		collection.Job_input_map = &job_input_map
+	} else {
+		job_input_map = *collection.Job_input_map
+	}
+
 	for _, input := range cwl_workflow.Inputs {
 		// input is a cwl.InputParameter object
 
@@ -74,18 +89,27 @@ func CWL_input_check(cwl_workflow *cwl.Workflow, collection *cwl.CWL_collection)
 		id_base := path.Base(id)
 		expected_types := input.Type
 
-		job_input := *(collection.Job_input)
-		obj_ref, ok := job_input[id_base]
+		obj_ref, ok := job_input_map[id_base]
 		if !ok {
 
-			if cwl.HasInputParameterType(expected_types, cwl_types.CWL_null) { // null type means parameter is optional
+			has_type, xerr := cwl.HasInputParameterType(expected_types, cwl_types.CWL_null)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			if has_type { // null type means parameter is optional
 				continue
 			}
 
 			fmt.Printf("-------Collection")
 			spew.Dump(collection.All)
 
-			fmt.Printf("-------")
+			fmt.Printf("-------job_input:")
+			spew.Dump(job_input)
+
+			fmt.Printf("-------job_input_map:")
+			spew.Dump(job_input_map)
+			panic("uhoh")
 			err = fmt.Errorf("value for workflow input \"%s\" not found", id)
 			return
 
@@ -94,20 +118,22 @@ func CWL_input_check(cwl_workflow *cwl.Workflow, collection *cwl.CWL_collection)
 		//obj := *obj_ref
 		obj_type := obj_ref.GetClass()
 		logger.Debug(1, "obj_type: %s", obj_type)
-		found_type := cwl.HasInputParameterType(expected_types, obj_type)
-
-		if !found_type {
+		has_type, xerr := cwl.HasInputParameterType(expected_types, obj_type)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		if !has_type {
 			//if strings.ToLower(obj_type) != strings.ToLower(expected_types) {
 			fmt.Printf("object found: ")
 			spew.Dump(obj_ref)
-			expected_types_str := ""
 
-			for _, elem := range *expected_types {
-				expected_types_str += "," + elem.Type
-			}
+			//for _, elem := range *expected_types {
+			//	expected_types_str += "," + string(elem)
+			//}
 			fmt.Printf("cwl_workflow.Inputs")
 			spew.Dump(cwl_workflow.Inputs)
-			err = fmt.Errorf("Input %s expects types %s, but got %s)", id, expected_types_str, obj_type)
+			err = fmt.Errorf("Input %s got %s)", id, obj_type)
 			return
 		}
 

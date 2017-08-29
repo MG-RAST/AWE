@@ -886,6 +886,7 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 
 	filtered, err := qm.filterWorkByClient(client)
 	if err != nil {
+		err = fmt.Errorf("(popWorks) filterWorkByClient returned: %s", err.Error())
 		return
 	}
 	logger.Debug(3, "(popWorks) filterWorkByClient returned: %d (0 meansNoEligibleWorkunitFound)", len(filtered))
@@ -895,6 +896,7 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 	}
 	client_specific_workunits, err = qm.workQueue.selectWorkunits(filtered, req.policy, req.available, req.count)
 	if err != nil {
+		err = fmt.Errorf("(popWorks) selectWorkunits returned: %s", err.Error())
 		return
 	}
 	//get workunits successfully, put them into coWorkMap
@@ -905,7 +907,7 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 		qm.workQueue.StatusChange(work.Workunit_Unique_Identifier, work, WORK_STAT_CHECKOUT, "")
 	}
 
-	logger.Debug(3, "done with popWorks() for client: %s ", client_id)
+	logger.Debug(3, "(popWorks) done with client: %s ", client_id)
 	return
 }
 
@@ -928,6 +930,7 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err err
 
 	workunit_list, err := qm.workQueue.Queue.GetWorkunits()
 	if err != nil {
+		err = fmt.Errorf("(filterWorkByClient) qm.workQueue.Queue.GetWorkunits retruns: %s", err.Error())
 		return
 	}
 

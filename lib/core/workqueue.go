@@ -21,8 +21,8 @@ type WorkQueue struct {
 func NewWorkQueue() *WorkQueue {
 	wq := &WorkQueue{
 		all:      *NewWorkunitMap(),
-		Queue:    *NewWorkunitMap(),
-		Checkout: *NewWorkunitMap(),
+		Queue:    *NewWorkunitMap(), // these workunits that are ready to be checked out
+		Checkout: *NewWorkunitMap(), // workunits that are checked out right now
 		Suspend:  *NewWorkunitMap(),
 	}
 

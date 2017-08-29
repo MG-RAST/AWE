@@ -131,6 +131,12 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 			err = fmt.Errorf("(NewWorkunit) No tool name found")
 			return
 		}
+
+		if job.CWL_collection == nil {
+			err = fmt.Errorf("(NewWorkunit) job.CWL_collection == nil ")
+			return
+		}
+
 		clt, xerr := job.CWL_collection.GetCommandLineTool(tool_name)
 		if xerr != nil {
 			err = fmt.Errorf("(NewWorkunit) Object %s not found in collection: %s", xerr.Error())
@@ -141,6 +147,12 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 		// ****** get inputs
 		job_input := *job.CWL_collection.Job_input
+		if job.CWL_collection.Job_input_map == nil {
+			err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
+			return
+		}
+		job_input_map := *job.CWL_collection.Job_input_map
+
 		spew.Dump(workflow_step.In)
 		for _, input := range workflow_step.In {
 			// input is a WorkflowStepInput
@@ -163,7 +175,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 				src_base := path.Base(src)
 
-				job_obj, ok := job_input[src_base]
+				job_obj, ok := job_input_map[src_base]
 				if !ok {
 					fmt.Printf("%s not found in \n", src_base)
 				} else {
@@ -189,7 +201,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 			// input.Default  The default value for this parameter to use if either there is no source field, or the value produced by the source is null. The default must be applied prior to scattering or evaluating valueFrom.
 
 			if len(input.Source) == 1 {
-				job_input[cmd_id] = source_object_array[0]
+				job_input_map[cmd_id] = source_object_array[0]
 				object := source_object_array[0]
 				fmt.Println("WORLD")
 				spew.Dump(object)
@@ -206,7 +218,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 				for _, obj := range source_object_array {
 					cwl_array.Add(obj)
 				}
-				job_input[cmd_id] = &cwl_array
+				job_input_map[cmd_id] = &cwl_array
 			} else {
 				if input.Default != nil {
 					err = fmt.Errorf("(NewWorkunit) sorry, Default not supported yet")
@@ -315,7 +327,10 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 				fmt.Printf("parsed: %s\n", parsed)
 
-				job_input[cmd_id] = cwl_types.NewString(id, parsed)
+				new_string := cwl_types.NewString(id, parsed)
+				job_input_map[cmd_id] = new_string
+				// TODO does this have to be storted in job_input ???
+
 				//err = fmt.Errorf("(NewWorkunit) sorry, ValueFrom not supported yet")
 
 			}

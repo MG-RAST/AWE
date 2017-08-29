@@ -113,7 +113,7 @@ func main() {
 			time.Sleep(time.Second)
 			os.Exit(1)
 		}
-		job_doc, err := cwl.ParseJob(conf.CWL_JOB)
+		job_doc, err := cwl.ParseJobFile(conf.CWL_JOB)
 		if err != nil {
 			logger.Error("error parsing cwl job: %v", err)
 			time.Sleep(time.Second)

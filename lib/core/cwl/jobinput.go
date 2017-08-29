@@ -5,17 +5,19 @@ import (
 	"fmt"
 	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
+	//"github.com/mitchellh/mapstructure"
 	"io/ioutil"
 	//"os"
 	//"strings"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"gopkg.in/yaml.v2"
+	"reflect"
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 )
 
 //type Job_document map[string]interface{}
 
-type Job_document map[string]cwl_types.CWLType
+type Job_document []cwl_types.CWLType
 
 func NewJob_document(original interface{}) (job *Job_document, err error) {
 
@@ -29,66 +31,55 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 	case map[interface{}]interface{}:
 		original_map := original.(map[interface{}]interface{})
 
-		keys := []string{}
-		for key, _ := range original_map {
+		for key, value := range original_map {
 			key_str, ok := key.(string)
 			if !ok {
 				err = fmt.Errorf("key is not string")
 				return
 			}
-			keys = append(keys, key_str)
-
-		}
-
-		for _, key := range keys {
-			value := original_map[key]
-			cwl_obj, xerr := cwl_types.NewCWLType(key, value)
+			cwl_obj, xerr := cwl_types.NewCWLType(key_str, value)
 			if xerr != nil {
 				err = xerr
 				return
 			}
-			original_map[key] = cwl_obj
-		}
+			job_nptr = append(job_nptr, cwl_obj)
 
-		err = mapstructure.Decode(original, job)
-		if err != nil {
-			err = fmt.Errorf("(NewJob_document) %s", err.Error())
-			return
 		}
+		return
 	case map[string]interface{}:
 
 		original_map := original.(map[string]interface{})
 
-		keys := []string{}
-		for key_str, _ := range original_map {
+		for key_str, value := range original_map {
 
-			keys = append(keys, key_str)
-
-		}
-
-		for _, key := range keys {
-			value := original_map[key]
-			cwl_obj, xerr := cwl_types.NewCWLType(key, value)
+			cwl_obj, xerr := cwl_types.NewCWLType(key_str, value)
 			if xerr != nil {
 				err = xerr
 				return
 			}
-			job_nptr[key] = cwl_obj
-		}
+			job_nptr = append(job_nptr, cwl_obj)
 
-		//err = mapstructure.Decode(original, job)
-		//if err != nil {
-		//	err = fmt.Errorf("(NewJob_document) %s", err.Error())
-		//	return
-		//}
+		}
 		return
 
 	case []interface{}:
-		err = fmt.Errorf("(NewJob_document) type array not supported yet")
+		original_array := original.([]interface{})
+
+		for _, value := range original_array {
+
+			cwl_obj, xerr := cwl_types.NewCWLType("", value)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			job_nptr = append(job_nptr, cwl_obj)
+
+		}
+
 		return
 	default:
 		spew.Dump(original)
-		err = fmt.Errorf("(NewJob_document) type unknown")
+		err = fmt.Errorf("(NewJob_document) type %s unknown", reflect.TypeOf(original))
 	}
 	return
 }
@@ -101,7 +92,7 @@ func ParseJobFile(job_file string) (job_input *Job_document, err error) {
 	}
 
 	job_gen := map[interface{}]interface{}{}
-	err = Unmarshal(job_stream, &job_gen)
+	err = Unmarshal(&job_stream, &job_gen)
 	if err != nil {
 		return
 	}
@@ -115,15 +106,36 @@ func ParseJobFile(job_file string) (job_input *Job_document, err error) {
 	return
 }
 
-func ParseJob(job_str string) (job_input *Job_document, err error) {
+func ParseJob(job_byte_ptr *[]byte) (job_input *Job_document, err error) {
 
-	job_gen := map[interface{}]interface{}{}
-	err = Unmarshal([]byte(job_str), &job_gen)
-	if err != nil {
-		return
+	// since Unmarshal (json and yaml) cannot unmarshal into interface{}, we try array and map
+
+	job_byte := *job_byte_ptr
+	if job_byte[0] == '-' {
+		fmt.Println("yaml list")
+		// I guess this is a yaml list
+		//job_array := []cwl_types.CWLType{}
+		//job_array := []map[string]interface{}{}
+		job_array := []interface{}{}
+		err = yaml.Unmarshal(job_byte, &job_array)
+
+		if err != nil {
+			err = fmt.Errorf("Could, not parse job input as yaml list: %s", err.Error())
+			return
+		}
+		job_input, err = NewJob_document(job_array)
+	} else {
+		fmt.Println("yaml map")
+
+		job_map := make(map[string]cwl_types.CWLType)
+
+		err = yaml.Unmarshal(job_byte, &job_map)
+		if err != nil {
+			err = fmt.Errorf("Could, not parse job input as yaml map: %s", err.Error())
+			return
+		}
+		job_input, err = NewJob_document(job_map)
 	}
-
-	job_input, err = NewJob_document(job_gen)
 
 	if err != nil {
 		return

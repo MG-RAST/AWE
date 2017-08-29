@@ -5,6 +5,7 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/mitchellh/mapstructure"
+	"reflect"
 )
 
 //http://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
@@ -41,6 +42,11 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 	input_parameter := WorkflowStepInput{}
 	input_parameter_ptr = &input_parameter
 
+	original, err = makeStringMap(original)
+	if err != nil {
+		return
+	}
+
 	switch original.(type) {
 	case string:
 
@@ -50,13 +56,14 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 
 	case int:
 		fmt.Println(cwl_types.CWL_int)
-		input_parameter.Default = &cwl_types.Int{Id: input_parameter.Id, Value: original.(int)}
+		original_int := original.(int)
+		input_parameter.Default = cwl_types.NewInt(input_parameter.Id, original_int)
 		return
 
-	case map[interface{}]interface{}:
-		fmt.Println("case map[interface{}]interface{}")
+	case map[string]interface{}:
+		fmt.Println("case map[string]interface{}")
 
-		original_map := original.(map[interface{}]interface{})
+		original_map := original.(map[string]interface{})
 
 		source, ok := original_map["source"]
 
@@ -76,22 +83,24 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 		// TODO would it be better to do it later?
 
 		// set Default field
-		default_value, errx := GetMapElement(original.(map[interface{}]interface{}), "default")
-		if errx == nil {
+		default_value, ok := original_map["default"]
+		//default_value, ok := , errx := GetMapElement(original_map, "default")
+		if ok {
 			switch default_value.(type) {
 			case string:
-				input_parameter.Default = &cwl_types.String{Id: input_parameter.Id, Value: default_value.(string)}
+				input_parameter.Default = cwl_types.NewString(input_parameter.Id, default_value.(string))
 			case int:
-				input_parameter.Default = &cwl_types.Int{Id: input_parameter.Id, Value: default_value.(int)}
+				input_parameter.Default = cwl_types.NewInt(input_parameter.Id, default_value.(int))
 			default:
-				err = fmt.Errorf("(NewWorkflowStepInput) string or int expected for key \"default\"")
+				err = fmt.Errorf("(NewWorkflowStepInput) string or int expected for key \"default\", got %s ", reflect.TypeOf(default_value))
 				return
 			}
 		}
 
 		// set ValueFrom field
-		valueFrom_if, errx := GetMapElement(original.(map[interface{}]interface{}), "valueFrom")
-		if errx == nil {
+		//valueFrom_if, errx := GetMapElement(original.(map[interface{}]interface{}), "valueFrom")
+		valueFrom_if, ok := original_map["valueFrom"]
+		if ok {
 			valueFrom_str, ok := valueFrom_if.(string)
 			if !ok {
 				err = fmt.Errorf("(NewWorkflowStepInput) cannot convert valueFrom")
@@ -103,7 +112,7 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 
 	default:
 
-		err = fmt.Errorf("(NewWorkflowStepInput) Input type for %s can not be parsed", input_parameter.Id)
+		err = fmt.Errorf("(NewWorkflowStepInput) Input type %s can not be parsed", reflect.TypeOf(original))
 		return
 	}
 

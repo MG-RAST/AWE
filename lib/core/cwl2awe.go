@@ -51,22 +51,11 @@ func parseSourceString(source string, id string) (linked_step_name string, field
 	return
 }
 
-func CWL_input_check(cwl_workflow *cwl.Workflow, collection *cwl.CWL_collection) (err error) {
+func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (err error) {
 
-	job_input := *(collection.Job_input)
+	//job_input := *(collection.Job_input)
 
-	var job_input_map map[string]cwl_types.CWLType
-	if collection.Job_input_map == nil {
-		job_input_map = make(map[string]cwl_types.CWLType)
-
-		for _, value := range job_input {
-			id := value.GetId()
-			job_input_map[id] = value
-		}
-		collection.Job_input_map = &job_input_map
-	} else {
-		job_input_map = *collection.Job_input_map
-	}
+	job_input_map := job_input.GetMap()
 
 	for _, input := range cwl_workflow.Inputs {
 		// input is a cwl.InputParameter object
@@ -101,11 +90,8 @@ func CWL_input_check(cwl_workflow *cwl.Workflow, collection *cwl.CWL_collection)
 				continue
 			}
 
-			fmt.Printf("-------Collection")
-			spew.Dump(collection.All)
-
 			fmt.Printf("-------job_input:")
-			spew.Dump(job_input)
+			//spew.Dump(job_input)
 
 			fmt.Printf("-------job_input_map:")
 			spew.Dump(job_input_map)
@@ -141,14 +127,14 @@ func CWL_input_check(cwl_workflow *cwl.Workflow, collection *cwl.CWL_collection)
 	return
 }
 
-func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, collection *cwl.CWL_collection) (job *Job, err error) {
+func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, collection *cwl.CWL_collection) (job *Job, err error) {
 
 	//CommandLineTools := collection.CommandLineTools
 
 	// check that all expected workflow inputs exist and that they have the correct type
 	logger.Debug(1, "CWL2AWE starting")
 
-	err = CWL_input_check(cwl_workflow, collection)
+	err = CWL_input_check(job_input, cwl_workflow)
 	if err != nil {
 		return
 	}
@@ -228,7 +214,7 @@ func CWL2AWE(_user *user.User, files FormFiles, cwl_workflow *cwl.Workflow, coll
 
 	_, err = job.Init()
 	if err != nil {
-		err = fmt.Errorf("job.Init() failed: %v", err)
+		err = fmt.Errorf("job.Init() failed: %s", err.Error())
 		return
 	}
 	logger.Debug(1, "Init called")

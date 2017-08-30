@@ -19,6 +19,16 @@ import (
 
 type Job_document []cwl_types.CWLType
 
+func (job_input *Job_document) GetMap() (job_input_map map[string]cwl_types.CWLType) {
+	job_input_map = make(map[string]cwl_types.CWLType)
+
+	for _, value := range *job_input {
+		id := value.GetId()
+		job_input_map[id] = value
+	}
+	return
+}
+
 func NewJob_document(original interface{}) (job *Job_document, err error) {
 
 	logger.Debug(3, "(NewJob_document) starting")

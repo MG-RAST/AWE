@@ -7,9 +7,9 @@ import (
 )
 
 type Workunit_Unique_Identifier struct {
-	Rank   int    `bson:"rank" json:"rank"` // this is the local identifier
-	TaskId string `bson:"taskid" json:"taskid"`
-	JobId  string `bson:"jobid" json:"jobid"`
+	Rank   int    `bson:"rank" json:"rank" mapstructure:"rank"` // this is the local identifier
+	TaskId string `bson:"taskid" json:"taskid" mapstructure:"taskid"`
+	JobId  string `bson:"jobid" json:"jobid" mapstructure:"jobid"`
 }
 
 func (w Workunit_Unique_Identifier) String() string {

@@ -168,9 +168,9 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 		return
 	}
 
-	if work.CWL != nil {
+	if work.CWL_workunit != nil {
 
-		job_input := work.CWL.Job_input
+		job_input := work.CWL_workunit.Job_input
 		spew.Dump(job_input)
 
 		for input_name, input := range *job_input {

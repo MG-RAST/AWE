@@ -8,6 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
@@ -54,23 +55,26 @@ type Job struct {
 
 type JobRaw struct {
 	RWMutex
-	Id                      string              `bson:"id" json:"id"` // uuid
-	Acl                     acl.Acl             `bson:"acl" json:"-"`
-	Info                    *Info               `bson:"info" json:"info"`
-	Script                  script              `bson:"script" json:"-"`
-	State                   string              `bson:"state" json:"state"`
-	Registered              bool                `bson:"registered" json:"registered"`
-	RemainTasks             int                 `bson:"remaintasks" json:"remaintasks"`
-	Expiration              time.Time           `bson:"expiration" json:"expiration"` // 0 means no expiration
-	UpdateTime              time.Time           `bson:"updatetime" json:"updatetime"`
-	Error                   *JobError           `bson:"error" json:"error"`         // error struct exists when in suspended state
-	Resumed                 int                 `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
-	ShockHost               string              `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
-	CWL_job_input_interface interface{}         `bson:"cwl_job_input" json:"cwl_job_input`
-	CWL_workflow_interface  interface{}         `bson:"cwl_workflow" json:"cwl_workflow`
-	CWL_collection          *cwl.CWL_collection `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
-	CWL_job_input           *cwl.Job_document   `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
-	CWL_workflow            *cwl.Workflow       `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
+	Id            string         `bson:"id" json:"id"` // uuid
+	Acl           acl.Acl        `bson:"acl" json:"-"`
+	Info          *Info          `bson:"info" json:"info"`
+	Script        script         `bson:"script" json:"-"`
+	State         string         `bson:"state" json:"state"`
+	Registered    bool           `bson:"registered" json:"registered"`
+	RemainTasks   int            `bson:"remaintasks" json:"remaintasks"`
+	Expiration    time.Time      `bson:"expiration" json:"expiration"` // 0 means no expiration
+	UpdateTime    time.Time      `bson:"updatetime" json:"updatetime"`
+	Error         *JobError      `bson:"error" json:"error"`         // error struct exists when in suspended state
+	Resumed       int            `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
+	ShockHost     string         `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
+	IsCWL         bool           `bson:"is_cwl" json:"is_cwl`
+	CwlVersion    cwl.CWLVersion `bson:"cwl_version" json:"cwl_version"`
+	CWL_objects   interface{}    `bson:"cwl_objects" json:"cwl_objects`
+	CWL_job_input interface{}    `bson:"cwl_job_input" json:"cwl_job_input`
+
+	CWL_collection *cwl.CWL_collection `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
+	//CWL_job_input          *cwl.Job_document   `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
+	CWL_workflow *cwl.Workflow `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 }
 
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
@@ -229,23 +233,66 @@ func (job *Job) Init() (changed bool, err error) {
 		}
 	}
 
-	var workflow *cwl.Workflow
+	//var workflow *cwl.Workflow
 
-	if job.CWL_workflow_interface != nil {
-		workflow, err = cwl.NewWorkflow(job.CWL_workflow_interface)
+	if job.IsCWL {
+
+		//if job.CWL_workflow_interface != nil {
+		//	workflow, err = cwl.NewWorkflow(job.CWL_workflow_interface)
+		//	if err != nil {
+		//		return
+		//	}
+		//	job.CWL_workflow = workflow
+		//}
+
+		//var job_input *cwl.Job_document
+		//if job.CWL_job_input != nil {
+		//	job_input, err = cwl.NewJob_document(job.CWL_job_input)
+		//	if err != nil {
+		//		return
+		//	}
+		//	job.CWL_job_input = job_input
+		//}
+		collection := cwl.NewCWL_collection()
+
+		object_array, xerr := cwl.NewCWL_object_array(job.CWL_objects)
+		if xerr != nil {
+			err = fmt.Errorf("(job.Init) cannot type assert CWL_objects: %s", xerr.Error())
+			return
+		}
+		//object_array, ok := job.CWL_objects.(cwl_types.CWL_object_array)
+		//if !ok {
+		//	spew.Dump(job.CWL_objects)
+		//	err = fmt.Errorf("(job.Init) cannot type assert CWL_objects")
+		//	return
+		//}
+		err = cwl.Add_to_collection(&collection, object_array)
 		if err != nil {
 			return
 		}
-		job.CWL_workflow = workflow
-	}
 
-	var job_input *cwl.Job_document
-	if job.CWL_job_input_interface != nil {
-		job_input, err = cwl.NewJob_document(job.CWL_job_input_interface)
-		if err != nil {
+		//job_input, ok := job.CWL_job_input.([]cwl_types.CWLType)
+
+		job_input, xerr := cwl.NewJob_document(job.CWL_job_input)
+		//job_input, ok := job.CWL_job_input.(cwl.Job_document)
+		if xerr != nil {
+			err = fmt.Errorf("(job.Init) cannot create CWL_job_input: %s", xerr.Error)
 			return
 		}
-		job.CWL_job_input = job_input
+
+		job_input_map := job_input.GetMap()
+
+		collection.Job_input_map = &job_input_map
+
+		cwl_workflow, ok := collection.Workflows["#main"]
+		if !ok {
+			err = fmt.Errorf("(job.Init) Workflow \"main\" not found")
+			return
+		}
+
+		job.CWL_collection = &collection
+		job.CWL_workflow = cwl_workflow
+
 	}
 
 	// read from base64 string

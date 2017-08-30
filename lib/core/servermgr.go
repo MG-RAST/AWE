@@ -1072,7 +1072,7 @@ func getStdLogPathByWorkId(id Workunit_Unique_Identifier, logname string) (saved
 }
 
 //---task methods----
-
+// this is invoked after a job is uploaded and saved in mongo
 func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 	logger.Debug(3, "(EnqueueTasksByJobId) starting")
 	job, err := GetJob(jobid)

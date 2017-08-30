@@ -27,6 +27,7 @@ var (
 	ProxyWorkChan chan bool
 	Server_UUID   string
 	JM            *JobMap
+	Start_time    time.Time
 )
 
 type BaseResponse struct {
@@ -47,7 +48,7 @@ func InitResMgr(service string) {
 		//QMgr = NewProxyMgr()
 	}
 	Service = service
-
+	Start_time = time.Now()
 }
 
 func SetClientProfile(profile *Client) {

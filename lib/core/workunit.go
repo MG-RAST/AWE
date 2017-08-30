@@ -36,26 +36,26 @@ const (
 
 type Workunit struct {
 	Workunit_Unique_Identifier `bson:",inline" json:",inline" mapstructure:",squash"`
-	Id                         string            `bson:"id,omitempty" json:"id,omitempty"`     // global identifier: jobid_taskid_rank (for backwards coompatibility only)
-	WuId                       string            `bson:"wuid,omitempty" json:"wuid,omitempty"` // deprecated !
-	Info                       *Info             `bson:"info,omitempty" json:"info,omitempty"`
-	Inputs                     []*IO             `bson:"inputs,omitempty" json:"inputs,omitempty"`
-	Outputs                    []*IO             `bson:"outputs,omitempty" json:"outputs,omitempty"`
-	Predata                    []*IO             `bson:"predata,omitempty" json:"predata,omitempty"`
-	Cmd                        *Command          `bson:"cmd,omitempty" json:"cmd,omitempty"`
-	TotalWork                  int               `bson:"totalwork,omitempty" json:"totalwork,omitempty"`
-	Partition                  *PartInfo         `bson:"part,omitempty" json:"part,omitempty"`
-	State                      string            `bson:"state,omitempty" json:"state,omitempty"`
-	Failed                     int               `bson:"failed,omitempty" json:"failed,omitempty"`
-	CheckoutTime               time.Time         `bson:"checkout_time,omitempty" json:"checkout_time,omitempty"`
-	Client                     string            `bson:"client,omitempty" json:"client,omitempty"`
-	ComputeTime                int               `bson:"computetime,omitempty" json:"computetime,omitempty"`
-	ExitStatus                 int               `bson:"exitstatus,omitempty" json:"exitstatus,omitempty"` // Linux Exit Status Code (0 is success)
-	Notes                      []string          `bson:"notes,omitempty" json:"notes,omitempty"`
-	UserAttr                   map[string]string `bson:"userattr,omitempty" json:"userattr,omitempty"`
+	Id                         string            `bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`       // global identifier: jobid_taskid_rank (for backwards coompatibility only)
+	WuId                       string            `bson:"wuid,omitempty" json:"wuid,omitempty" mapstructure:"wuid,omitempty"` // deprecated !
+	Info                       *Info             `bson:"info,omitempty" json:"info,omitempty" mapstructure:"info,omitempty"`
+	Inputs                     []*IO             `bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
+	Outputs                    []*IO             `bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
+	Predata                    []*IO             `bson:"predata,omitempty" json:"predata,omitempty" mapstructure:"predata,omitempty"`
+	Cmd                        *Command          `bson:"cmd,omitempty" json:"cmd,omitempty" mapstructure:"cmd,omitempty"`
+	TotalWork                  int               `bson:"totalwork,omitempty" json:"totalwork,omitempty" mapstructure:"totalwork,omitempty"`
+	Partition                  *PartInfo         `bson:"part,omitempty" json:"part,omitempty" mapstructure:"part,omitempty"`
+	State                      string            `bson:"state,omitempty" json:"state,omitempty" mapstructure:"state,omitempty"`
+	Failed                     int               `bson:"failed,omitempty" json:"failed,omitempty" mapstructure:"failed,omitempty"`
+	CheckoutTime               time.Time         `bson:"checkout_time,omitempty" json:"checkout_time,omitempty" mapstructure:"checkout_time,omitempty"`
+	Client                     string            `bson:"client,omitempty" json:"client,omitempty" mapstructure:"client,omitempty"`
+	ComputeTime                int               `bson:"computetime,omitempty" json:"computetime,omitempty" mapstructure:"computetime,omitempty"`
+	ExitStatus                 int               `bson:"exitstatus,omitempty" json:"exitstatus,omitempty" mapstructure:"exitstatus,omitempty"` // Linux Exit Status Code (0 is success)
+	Notes                      []string          `bson:"notes,omitempty" json:"notes,omitempty" mapstructure:"notes,omitempty"`
+	UserAttr                   map[string]string `bson:"userattr,omitempty" json:"userattr,omitempty" mapstructure:"userattr,omitempty"`
+	CWL_workunit               *CWL_workunit     `bson:"cwl,omitempty" json:"cwl,omitempty" mapstructure:"cwl,omitempty"`
 	WorkPath                   string            // this is the working directory. If empty, it will be computed.
 	WorkPerf                   *WorkPerf
-	CWL                        *CWL_workunit
 }
 
 func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error) {
@@ -91,7 +91,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 		workflow_step := task.WorkflowStep
 
-		workunit.CWL = &CWL_workunit{}
+		workunit.CWL_workunit = &CWL_workunit{}
 
 		// ****** get CommandLineTool (or whatever can be executed)
 		p := workflow_step.Run
@@ -142,16 +142,24 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 			err = fmt.Errorf("(NewWorkunit) Object %s not found in collection: %s", xerr.Error())
 			return
 		}
+		clt.CwlVersion = job.CwlVersion
 
-		workunit.CWL.CWL_tool = clt
+		if clt.CwlVersion == "" {
+			err = fmt.Errorf("(NewWorkunit) CommandLineTool misses CwlVersion")
+			return
+		}
+		workunit.CWL_workunit.CWL_tool = clt
 
 		// ****** get inputs
-		job_input := *job.CWL_collection.Job_input
-		if job.CWL_collection.Job_input_map == nil {
+		job_input_map := *job.CWL_collection.Job_input_map
+		if job_input_map == nil {
 			err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
 			return
 		}
-		job_input_map := *job.CWL_collection.Job_input_map
+		//job_input_map := *job.CWL_collection.Job_input_map
+
+		//job_input := *job.CWL_collection.Job_input
+		workunit_input_map := make(map[string]cwl_types.CWLType)
 
 		spew.Dump(workflow_step.In)
 		for _, input := range workflow_step.In {
@@ -184,15 +192,16 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 					continue
 				}
 
-				coll_obj, xerr := job.CWL_collection.Get(src)
+				coll_obj, xerr := job.CWL_collection.GetType(src)
 				if xerr != nil {
 					fmt.Printf("%s not found in CWL_collection\n", src)
 				} else {
 					fmt.Printf("%s found in CWL_collection!!!\n", src)
-					//source_object_array = append(source_object_array, coll_obj)
+					source_object_array = append(source_object_array, coll_obj)
 					continue
 				}
-				_ = coll_obj
+				//_ = coll_obj
+
 				err = fmt.Errorf("Source object %s not found", src)
 				return
 
@@ -201,24 +210,31 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 			// input.Default  The default value for this parameter to use if either there is no source field, or the value produced by the source is null. The default must be applied prior to scattering or evaluating valueFrom.
 
 			if len(input.Source) == 1 {
-				job_input_map[cmd_id] = source_object_array[0]
-				object := source_object_array[0]
-				fmt.Println("WORLD")
-				spew.Dump(object)
+				workunit_input_map[cmd_id] = source_object_array[0]
+				continue
+				//object := source_object_array[0]
+				//fmt.Println("WORLD")
+				//spew.Dump(object)
 
-				file, ok := object.(*cwl_types.File)
-				if ok {
-					fmt.Println("A FILE")
-					fmt.Printf("%+v\n", *file)
+				//file, ok := object.(*cwl_types.File)
+				//if ok {
+				//	fmt.Println("A FILE")
+				//	fmt.Printf("%+v\n", *file)
+				//file_id := file.GetId()
 
-				}
+				//} else {
+
+				//err = fmt.Errorf("(NewWorkunit) not implemented")
+				//return
+				//	}
 
 			} else if len(input.Source) > 1 {
 				cwl_array := cwl_types.Array{}
 				for _, obj := range source_object_array {
 					cwl_array.Add(obj)
 				}
-				job_input_map[cmd_id] = &cwl_array
+				workunit_input_map[cmd_id] = &cwl_array
+				continue
 			} else {
 				if input.Default != nil {
 					err = fmt.Errorf("(NewWorkunit) sorry, Default not supported yet")
@@ -328,14 +344,23 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 				fmt.Printf("parsed: %s\n", parsed)
 
 				new_string := cwl_types.NewString(id, parsed)
-				job_input_map[cmd_id] = new_string
+				workunit_input_map[cmd_id] = new_string
+				continue
+				//job_input = append(job_input, new_string)
 				// TODO does this have to be storted in job_input ???
 
 				//err = fmt.Errorf("(NewWorkunit) sorry, ValueFrom not supported yet")
 
 			}
-			workunit.CWL.Job_input = &job_input
-			spew.Dump(job_input)
+
+			job_input := cwl.Job_document{}
+
+			for _, elem := range workunit_input_map {
+				job_input = append(job_input, elem)
+			}
+
+			workunit.CWL_workunit.Job_input = &job_input
+			//spew.Dump(job_input)
 
 		}
 

@@ -118,7 +118,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			return
 		}
 
-		collection.Job_input = job_input
+		//collection.Job_input = job_input
 
 		// 2) parse cwl
 		logger.Debug(1, "got CWL")
@@ -134,10 +134,16 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		// convert CWL to string
 		yaml_str := string(yamlstream[:])
 
-		err = cwl.Parse_cwl_document(&collection, yaml_str)
+		object_array, cwl_version, err := cwl.Parse_cwl_document(yaml_str)
+		if err != nil {
+			cx.RespondWithErrorMessage("error in parsing cwl workflow yaml file: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		err = cwl.Add_to_collection(&collection, object_array)
 		if err != nil {
 			logger.Error("Parse_cwl_document error: " + err.Error())
-			cx.RespondWithErrorMessage("error in parsing cwl workflow yaml file: "+err.Error(), http.StatusBadRequest)
+			cx.RespondWithErrorMessage("error in adding cwl objects to collection: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		logger.Debug(1, "Parse_cwl_document done")
@@ -155,20 +161,23 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 
 		fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
-		job, err = core.CWL2AWE(_user, files, cwl_workflow, &collection)
+		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, &collection)
 		if err != nil {
 			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		job.CWL_collection = &collection
+		job.IsCWL = true
+		job.CWL_objects = object_array
+		job.CwlVersion = cwl_version
+		//job.CWL_collection = &collection
 		job.Info.Name = job_file.Name
 		job.Info.Pipeline = workflow_filename
 
-		job.CWL_workflow_interface = cwl_workflow
-		job.CWL_job_input_interface = job_input
+		//job.CWL_workflow_interface = cwl_workflow
+		//job.CWL_job_input_interface = job_input
 
-		job.CWL_workflow = cwl_workflow
+		//job.CWL_workflow = cwl_workflow
 		job.CWL_job_input = job_input
 		//job.Set_CWL_workflow_b64(yaml_str)
 
@@ -204,7 +213,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		logger.Debug(3, "job %s got token", job.Id)
 	}
 
-	err = job.Save()
+	err = job.Save() // note that the job only goes into mongo, not into memory yet (EnqueueTasksByJobId is dowing that)
 	if err != nil {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return

@@ -18,8 +18,8 @@ type CWL_collection struct {
 	Ints               map[string]*cwl_types.Int
 	Booleans           map[string]*cwl_types.Boolean
 	All                map[string]*cwl_types.CWL_object // everything goes in here
-	Job_input          *Job_document
-	Job_input_map      *map[string]cwl_types.CWLType
+	//Job_input          *Job_document
+	Job_input_map *map[string]cwl_types.CWLType
 }
 
 func (c CWL_collection) Evaluate(raw string) (parsed string) {
@@ -111,6 +111,31 @@ func (c CWL_collection) Get(id string) (obj *cwl_types.CWL_object, err error) {
 		err = fmt.Errorf("(All) item %s not found in collection", id)
 	}
 	return
+}
+
+func (c CWL_collection) GetType(id string) (obj cwl_types.CWLType, err error) {
+	var ok bool
+	obj, ok = c.Files[id]
+	if ok {
+		return
+	}
+	obj, ok = c.Strings[id]
+	if ok {
+		return
+	}
+
+	obj, ok = c.Ints[id]
+	if ok {
+		return
+	}
+	obj, ok = c.Booleans[id]
+	if ok {
+		return
+	}
+
+	err = fmt.Errorf("(GetType) %s not found", id)
+	return
+
 }
 
 func (c CWL_collection) GetFile(id string) (obj *cwl_types.File, err error) {

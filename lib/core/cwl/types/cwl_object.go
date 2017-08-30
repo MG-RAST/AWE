@@ -1,5 +1,10 @@
 package cwl
 
+import (
+//"fmt"
+//"reflect"
+)
+
 type CWL_object interface {
 	CWL_minimal_interface
 	GetClass() string
@@ -9,8 +14,11 @@ type CWL_object interface {
 }
 
 type CWL_object_Impl struct {
-	Id string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
+	Id    string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
+	Class string `yaml:"class,omitempty" json:"class,omitempty" bson:"class,omitempty"`
 }
 
 func (c *CWL_object_Impl) GetId() string   { return c.Id }
 func (c *CWL_object_Impl) SetId(id string) { c.Id = id }
+
+type CWL_object_array []CWL_object

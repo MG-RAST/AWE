@@ -175,7 +175,7 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}
 
-	if workunit.CWL != nil {
+	if workunit.CWL_workunit != nil {
 		work_path, xerr := workunit.Path()
 		if xerr != nil {
 			err = xerr
@@ -220,7 +220,7 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 		fmt.Println("CWL-runner receipt:")
 		spew.Dump(result_doc)
-		workunit.CWL.Tool_results = result_doc
+		workunit.CWL_workunit.Tool_results = result_doc
 
 	}
 

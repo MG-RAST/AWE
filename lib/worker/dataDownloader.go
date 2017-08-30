@@ -223,10 +223,10 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 			}
 		}
 
-		if workunit.CWL != nil {
+		if workunit.CWL_workunit != nil {
 
-			job_input := workunit.CWL.Job_input
-			cwl_tool := workunit.CWL.CWL_tool
+			job_input := workunit.CWL_workunit.Job_input
+			cwl_tool := workunit.CWL_workunit.CWL_tool
 			job_input_filename := path.Join(work_path, "cwl_job_input.yaml")
 			cwl_tool_filename := path.Join(work_path, "cwl_tool.yaml")
 

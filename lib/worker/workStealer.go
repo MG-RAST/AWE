@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
@@ -108,10 +109,12 @@ func workStealer(control chan int) {
 		workunit.WorkPerf = workstat
 
 		// make sure cwl-runner is invoked
-		if workunit.CWL != nil {
+		if workunit.CWL_workunit != nil {
 			workunit.Cmd.Name = "/usr/bin/cwl-runner"
 			workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", "./cwl_tool.yaml", "./cwl_job_input.yaml"}
+
 		}
+
 		//FromStealer <- rawWork // sends to dataMover
 		FromStealer <- workunit // sends to dataMover
 
@@ -193,17 +196,21 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	}
 	var cwl_object *core.CWL_workunit
 
-	cwl_generic, has_cwl := data_map["CWL"]
-	if has_cwl && cwl_generic != nil {
-		var xerr error
-		cwl_object, xerr = core.NewCWL_workunit_from_interface(cwl_generic)
-		if xerr != nil {
-			err = fmt.Errorf("(CheckoutWorkunitRemote) NewCWL_workunit_from_interface failed: %s", xerr.Error())
-			return
+	cwl_generic, has_cwl := data_map["cwl"]
+	if has_cwl {
+		if cwl_generic != nil {
+			var xerr error
+			cwl_object, xerr = core.NewCWL_workunit_from_interface(cwl_generic)
+			if xerr != nil {
+				err = fmt.Errorf("(CheckoutWorkunitRemote) NewCWL_workunit_from_interface failed: %s", xerr.Error())
+				return
+			}
+			//response_generic["CWL"] = nil
+		} else {
+			has_cwl = false
 		}
+		delete(data_map, "cwl")
 
-		//response_generic["CWL"] = nil
-		delete(data_map, "CWL")
 	}
 
 	_, has_info := data_map["info"]
@@ -212,11 +219,25 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 	}
 
+	_, has_checkout_time := data_map["checkout_time"]
+	if has_checkout_time {
+		delete(data_map, "checkout_time") // TODO add checkout_time as time.Time
+
+	}
+
 	//delete(data_map, "info")
 
 	workunit = &core.Workunit{}
 	workunit.Info = &core.Info{}
 	workunit.Workunit_Unique_Identifier = core.Workunit_Unique_Identifier{}
+	//if has_checkout_time {
+	//	workunit_checkout_time_str, ok := workunit_checkout_time_if.(string)
+	//	if !ok {
+	//		err = fmt.Errorf("(CheckoutWorkunitRemote) cannot type assert checkout_time")
+	//		return
+	//	}
+	//	workunit.CheckoutTime = workunit_checkout_time
+	//}
 
 	err = mapstructure.Decode(data_map, workunit)
 	if err != nil {
@@ -224,7 +245,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		return
 	}
 	if has_cwl {
-		workunit.CWL = cwl_object
+		workunit.CWL_workunit = cwl_object
 	}
 	//spew.Dump(response)
 

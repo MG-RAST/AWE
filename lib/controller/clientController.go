@@ -75,6 +75,12 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 func (cr *ClientController) Read(id string, cx *goweb.Context) {
 	// Gather query params
 
+	query := &Query{Li: cx.Request.URL.Query()}
+	if query.Has("heartbeat") { // OLD heartbeat
+		cx.RespondWithErrorMessage("Please update to newer version of awe-worker. Old heartbeat mechanism not supported anymore.", http.StatusBadRequest)
+		return
+	}
+
 	LogRequest(cx.Request) //skip heartbeat in access log
 
 	// Try to authenticate user.

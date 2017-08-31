@@ -1,3 +1,7 @@
+# v0.9.51
+
+- add backwords compatible use of 'oauth' bearer key when using single auth
+
 # v0.9.50
 
 - fix workunit.ExitStatus on completion

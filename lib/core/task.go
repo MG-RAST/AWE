@@ -150,8 +150,8 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		task.Cmd.HasPrivateEnv = true
 	}
 
-	if strings.HasPrefix(task.Id, task.JobId) {
-		task.Id = strings.TrimPrefix(task.Id, task.JobId)
+	if strings.HasPrefix(task.Id, task.JobId+"_") {
+		task.Id = strings.TrimPrefix(task.Id, task.JobId+"_")
 		changed = true
 	}
 

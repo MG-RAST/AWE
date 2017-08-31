@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const VERSION string = "0.9.51"
+const VERSION string = "0.9.52testing"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1

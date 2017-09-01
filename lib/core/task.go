@@ -196,20 +196,30 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 
 	deps := make(map[Task_Unique_Identifier]bool)
 	deps_changed := false
+
+	jobid, err := task.GetJobId()
+	if err != nil {
+		return
+	}
+	job_prefix := jobid + "_"
+
 	// collect explicit dependencies
 	for _, deptask := range task.DependsOn {
 
+		if deptask == "" {
+			deps_changed = true
+			continue
+		}
+
+		if !strings.HasPrefix(deptask, job_prefix) {
+			deptask = job_prefix + deptask
+			deps_changed = true
+		}
+
 		t, yerr := New_Task_Unique_Identifier(deptask)
 		if yerr != nil {
-			fixed_deptask := task.JobId + "_" + deptask
-
-			var xerr error
-			t, xerr = New_Task_Unique_Identifier(fixed_deptask)
-			if xerr != nil {
-				err = fmt.Errorf("Cannot parse entry in DependsOn: %s", xerr.Error())
-				return
-			}
-			deps_changed = true
+			err = fmt.Errorf("Cannot parse entry in DependsOn: %s", yerr.Error())
+			return
 		}
 
 		deps[t] = true
@@ -218,16 +228,21 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 	for _, input := range task.Inputs {
 
 		deptask := input.Origin
+		if deptask == "" {
+			deps_changed = true
+			continue
+		}
+
+		if !strings.HasPrefix(deptask, job_prefix) {
+			deptask = job_prefix + deptask
+			deps_changed = true
+		}
+
 		t, yerr := New_Task_Unique_Identifier(deptask)
 		if yerr != nil {
-			fixed_deptask := task.JobId + "_" + deptask
 
-			t, err = New_Task_Unique_Identifier(fixed_deptask)
-			if err != nil {
-				err = fmt.Errorf("Cannot parse entry in DependsOn: %s", err.Error())
-				return
-
-			}
+			err = fmt.Errorf("Cannot parse Origin entry in Input: %s", yerr.Error())
+			return
 
 		}
 

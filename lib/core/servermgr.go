@@ -1149,15 +1149,20 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 	}
 	logger.Debug(3, "(addTask) state of task: %s", task_state)
 
-	if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
-		logger.Debug(3, "(addTask) already completed or passed")
-		return
-	}
-	logger.Debug(3, "(addTask) NOT completed or passed")
+	//if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
+	//	logger.Debug(3, "(addTask) already completed or passed")
+	//	return
+	//}
+	//logger.Debug(3, "(addTask) NOT completed or passed")
 
-	err = qm.TaskMap.Add(task) // makes it a pending task
+	err = qm.TaskMap.Add(task) // makes it a pending task if init
 	if err != nil {
 		logger.Error("(qm.TaskMap.Add): %s", err.Error())
+	}
+
+	if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
+		//	logger.Debug(3, "(addTask) already completed or passed")
+		return
 	}
 
 	task_state, err = task.GetState()

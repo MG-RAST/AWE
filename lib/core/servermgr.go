@@ -174,7 +174,7 @@ func (qm *ServerMgr) ClientHandle() {
 		}
 		logger.Debug(3, "(ServerMgr ClientHandle %s) done", coReq.fromclient)
 
-		if count%10 == 0 { // use modulo to reduce number of log messages
+		if count%100 == 0 { // use modulo to reduce number of log messages
 			request_time_elapsed := time.Since(request_start_time)
 
 			logger.Info("(ServerMgr ClientHandle) Responding to work request took %s", request_time_elapsed)

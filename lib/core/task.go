@@ -155,6 +155,11 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		changed = true
 	}
 
+	if strings.HasPrefix(task.Id, "_") {
+		task.Id = strings.TrimPrefix(task.Id, "_")
+		changed = true
+	}
+
 	return
 }
 

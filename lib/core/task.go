@@ -222,6 +222,12 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 			return
 		}
 
+		if t.Id == "" {
+			// this is to fix a bug
+			deps_changed = true
+			continue
+		}
+
 		deps[t] = true
 	}
 

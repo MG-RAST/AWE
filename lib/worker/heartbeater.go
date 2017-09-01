@@ -99,6 +99,7 @@ func SendHeartBeat() (err error) {
 					for _, work := range all_work {
 						DiscardWorkunit(work)
 					}
+					core.Self.Busy = false
 					core.Server_UUID = val
 				}
 			}

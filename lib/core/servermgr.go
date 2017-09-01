@@ -1091,6 +1091,12 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 
 	logger.Debug(3, "(EnqueueTasksByJobId) got %d tasks", task_len)
 
+	err = job.SetState(JOB_STAT_QUEUING, nil)
+	if err != nil {
+		err = fmt.Errorf("(qmgr.taskEnQueue) UpdateJobState: %s", err.Error())
+		return
+	}
+
 	for _, task := range tasks {
 		//qm.taskIn <- task
 
@@ -1516,11 +1522,6 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 	//	return
 	//}
 
-	err = job.SetState(JOB_STAT_QUEUING, nil)
-	if err != nil {
-		err = fmt.Errorf("(qmgr.taskEnQueue) UpdateJobState: %s", err.Error())
-		return
-	}
 	//}
 
 	logger.Debug(2, "(qmgr.taskEnQueue) leaving (task=%s)", task_id)

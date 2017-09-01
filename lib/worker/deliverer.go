@@ -142,6 +142,7 @@ func deliverer_run(control chan int) {
 		logger.Error("Could not remove work_id %s", work_id)
 	}
 	workmap.Delete(work_id)
+	core.Self.Busy = false
 }
 
 func removeDirLater(path string, duration time.Duration) (err error) {

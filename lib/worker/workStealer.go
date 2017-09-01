@@ -44,6 +44,7 @@ func workStealer(control chan int) {
 		}
 		workunit, err := CheckoutWorkunitRemote()
 		if err != nil {
+			core.Self.Busy = false
 			if err.Error() == e.QueueEmpty || err.Error() == e.QueueSuspend || err.Error() == e.NoEligibleWorkunitFound {
 				//normal, do nothing
 				logger.Debug(3, "(workStealer) client %s received status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL)
@@ -213,9 +214,60 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 	}
 
-	_, has_info := data_map["info"]
-	if has_info {
+	info := &core.Info{}
+	info_if, has_info := data_map["info"]
+	if has_info { // interface -> json -> struct  // this is a bit ugly
+
+		info_byte, xerr := json.Marshal(info_if)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		yerr := json.Unmarshal(info_byte, info)
+		if yerr != nil {
+			err = yerr
+			return
+		}
 		delete(data_map, "info")
+
+	}
+
+	command := &core.Command{}
+	command_if, has_command := data_map["command"]
+	if has_command { // interface -> json -> struct  // this is a bit ugly
+
+		command_byte, xerr := json.Marshal(command_if)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		yerr := json.Unmarshal(command_byte, command)
+		if yerr != nil {
+			err = yerr
+			return
+		}
+		delete(data_map, "command")
+
+	}
+
+	partinfo := &core.PartInfo{}
+	partinfo_if, has_partinfo := data_map["partinfo"]
+	if has_partinfo { // interface -> json -> struct  // this is a bit ugly
+
+		partinfo_byte, xerr := json.Marshal(partinfo_if)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		yerr := json.Unmarshal(partinfo_byte, partinfo)
+		if yerr != nil {
+			err = yerr
+			return
+		}
+		delete(data_map, "partinfo")
 
 	}
 
@@ -228,7 +280,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	//delete(data_map, "info")
 
 	workunit = &core.Workunit{}
-	workunit.Info = &core.Info{}
+	workunit.Info = info
 	workunit.Workunit_Unique_Identifier = core.Workunit_Unique_Identifier{}
 	//if has_checkout_time {
 	//	workunit_checkout_time_str, ok := workunit_checkout_time_if.(string)
@@ -277,7 +329,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s got a workunit", core.Self.Id))
 	workunit.State = core.WORK_STAT_CHECKOUT
-
+	core.Self.Busy = true
 	return
 }
 

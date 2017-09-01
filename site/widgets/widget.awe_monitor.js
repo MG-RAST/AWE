@@ -317,7 +317,7 @@
 							   obj.total_failed || "0",
 							   skipwork.join(", "),
 							   obj.version,
-							   Retina.keys(obj.current_work).length ? Retina.keys(obj.current_work)[0] : '- none -' ]);
+							   Retina.keys(obj.current_work.data).length ? Retina.keys(obj.current_work.data)[0] : '- none -' ]);
 				   }
 			       }
 			       return_data = { header: [ "name",

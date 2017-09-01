@@ -78,11 +78,11 @@
 	    if (! pipelines.hasOwnProperty(wdata[i].info.pipeline)) {
 		pipelines[wdata[i].info.pipeline] = [];
 	    }
-	    wdata[i].client = wdata[i].client.replace(/^<[^>]+>([^<]+)<\/.+$/, '$1');
+	    wdata[i].client = wdata[i].client ? wdata[i].client.replace(/^<[^>]+>([^<]+)<\/.+$/, '$1') : null;
 	    apps[wdata[i].cmd.name].push(wdata[i].client);
 	    pipelines[wdata[i].info.pipeline].push(wdata[i].client);
-	    if (clientIndex[wdata[i].client] && data[clientIndex[wdata[i].client]]) {
-		data[clientIndex[wdata[i].client]].current_work[wdata[i].wuid] = "<span class='href' onclick='Retina.WidgetInstances.awe_panel[1].aweWorkunitDetail("+i+");'>"+wdata[i].cmd.name+"</span>";
+	    if (wdata[i].client && clientIndex[wdata[i].client] && data[clientIndex[wdata[i].client]]) {
+		data[clientIndex[wdata[i].client]].current_work.data[wdata[i].wuid] = "<span class='href' onclick='Retina.WidgetInstances.awe_panel[1].aweWorkunitDetail("+i+");'>"+wdata[i].cmd.name+"</span>";
 		
 		if (widget.currentApp && (widget.currentApp == wdata[i].cmd.name || widget.currentApp == wdata[i].info.pipeline) ) {
 		    data[clientIndex[wdata[i].client]].highlight = true;
@@ -96,7 +96,7 @@
 	// client counts
 	var numIdle = 0;
 	var numBusy = 0;
-	var numDeleted = 0;
+	var numOffline = 0;
 	var numError = 0;
 
 	// box-display
@@ -104,25 +104,25 @@
 	for (var h=0; h<groupOrder.length; h++) {
 	    boxDisplay += "<h5 style='clear: both;'>"+grouping+": "+groupOrder[h]+"</h5>";
 	    for (var i=0; i<groups[groupOrder[h]].length; i++) {
-		if (groups[groupOrder[h]][i].Status == "active-idle") {
+		if (groups[groupOrder[h]][i].online && ! groups[groupOrder[h]][i].suspended && ! groups[groupOrder[h]][i].busy) {
 		    boxDisplay += widget.aweNode('info', groups[groupOrder[h]][i]);
 		    numIdle++;
-		} else if (groups[groupOrder[h]][i].Status == "active-busy") {
+		} else if (groups[groupOrder[h]][i].busy) {
 		    boxDisplay += widget.aweNode('success', groups[groupOrder[h]][i]);
 		    numBusy++;
-		} else if (groups[groupOrder[h]][i].Status == "suspend") {
+		} else if (groups[groupOrder[h]][i].suspended) {
 		    boxDisplay += widget.aweNode('danger', groups[groupOrder[h]][i]);
 		    numError++;
-		} else if (groups[groupOrder[h]][i].Status == "deleted") {
+		} else if (! groups[groupOrder[h]][i].online) {
 		    boxDisplay += widget.aweNode('warning', groups[groupOrder[h]][i]);
-		    numDeleted++;
+		    numOffline++;
 		}
 	    }
 	}
 	boxDisplay += "</div><div style='clear: both;'></div>";
 	
 	// clients
-	var html = ["<div style='float: left;'><table style='font-size: 30px; font-weight: bold; text-align: center;'><tr><td style='color: black; width: 120px;' title='total number of clients'>"+data.length+"</td><td style='color: blue; width: 120px;' title='number of idle clients'>"+numIdle+"</td><td style='color: green; width: 120px;' title='number of busy clients'>"+numBusy+"</td><td style='color: orange; width: 120px;' title='number of deleted clients'>"+numDeleted+"</td><td style='color: red; width: 120px;' title='number of error clients'>"+numError+"</td></tr></table>"];
+	var html = ["<div style='float: left;'><table style='font-size: 30px; font-weight: bold; text-align: center;'><tr><td style='color: black; width: 120px;' title='total number of clients'>"+data.length+"</td><td style='color: blue; width: 120px;' title='number of idle clients'>"+numIdle+"</td><td style='color: green; width: 120px;' title='number of busy clients'>"+numBusy+"</td><td style='color: orange; width: 120px;' title='number of offline clients'>"+numOffline+"</td><td style='color: red; width: 120px;' title='number of error clients'>"+numError+"</td></tr></table>"];
 	html.push( boxDisplay );
 	html.push("</div>");
 
@@ -165,7 +165,7 @@
     };
 
     widget.aweNode = function (status, data) {
-	return "<div class='box alert alert-"+status+"' "+(data.highlight ? " style='box-shadow: 0 0 1em blue;'" : "")+"onclick='Retina.WidgetInstances.awe_panel[1].aweNodeDetail("+data.index+");'>"+Retina.keys(data.current_work).length+"</div>";
+	return "<div class='box alert alert-"+status+"' "+(data.highlight ? " style='box-shadow: 0 0 1em blue;'" : "")+"onclick='Retina.WidgetInstances.awe_panel[1].aweNodeDetail("+data.index+");'>"+Retina.keys(data.current_work.data).length+"</div>";
     };
 
     widget.aweNodeDetail = function (nodeIndex) {

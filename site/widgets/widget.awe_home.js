@@ -47,6 +47,7 @@
 			  if (Retina.WidgetInstances.login && Retina.WidgetInstances.login[1].user && Retina.WidgetInstances.login[1].user.admin) {
 			      var html = [ '<h4>Admin Info</h4><table class="table" style="width: 600px;">' ];
 			      html.push('<tr><td style="width: 200px;"><b>server time</b></td><td>'+data.server_time+'</td></tr>');
+			      html.push('<tr><td style="width: 200px;"><b>uptime</b></td><td>'+data.uptime+'</td></tr>');
 			      html.push('<tr><td><b>queue status</b></td><td>'+(data.queue_status == 'running' ? '<span class="label label-success">running</span>' : '<span class="label label-important">suspended</span>')+'</td></tr>');
 			      html.push('<tr><td><b>queue action</b></td><td>'+(data.queue_status == 'running' ? '<button class="btn btn-small btn-danger" onclick="if(confirm(\'Really suspend the queue?\')){Retina.WidgetInstances.awe_home[1].queue(\'suspend\');}">suspend</button>' : '<button class="btn btn-small btn-info" onclick="Retina.WidgetInstances.awe_home[1].queue(\'resume\');">resume</button>')+'</td></tr>');
 			      html.push('</table>');

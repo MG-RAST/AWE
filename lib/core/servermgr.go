@@ -1099,8 +1099,11 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 			err = xerr
 			return
 		}
+
 		if task_state == TASK_STAT_INPROGRESS || task_state == TASK_STAT_QUEUED {
 			task.SetState(TASK_STAT_READY, true)
+		} else if task_state == TASK_STAT_SUSPEND {
+			task.SetState(TASK_STAT_PENDING, true)
 		}
 
 		qm.addTask(task, job)

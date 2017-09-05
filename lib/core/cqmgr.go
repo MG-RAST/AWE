@@ -8,6 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/user"
+	//"github.com/davecgh/go-spew/spew"
 	"gopkg.in/mgo.v2/bson"
 	"os"
 	"strings"
@@ -148,9 +149,12 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 	}
 	defer client.Unlock()
 
+	logger.Debug(3, "(CheckClient) client: %s", client.Id)
+
 	if client.Tag == true {
 		// *** Client is active
 		client.Online = true
+		logger.Debug(3, "(CheckClient) client %s active", client.Id)
 
 		client.Tag = false
 		total_minutes := int(time.Now().Sub(client.RegTime).Minutes())
@@ -158,19 +162,28 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 		minutes := total_minutes % 60
 		client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
 
-		current_work, xerr := client.Current_work.Get_list(false)
+		//spew.Dump(client)
+
+		current_work, xerr := client.WorkerState.Current_work.Get_list(false)
 		if xerr != nil {
 			logger.Error("(CheckClient) Get_current_work: %s", xerr.Error())
 			return
 		}
+
+		logger.Debug(3, "(CheckClient) client %s has %d workunits", client.Id, len(current_work))
+
 		for _, work_id := range current_work {
+			logger.Debug(3, "(CheckClient) client %s has work %s", client.Id, work_id)
 			work, ok, zerr := qm.workQueue.all.Get(work_id)
 			if zerr != nil {
+				logger.Warning("(CheckClient) failed getting work %s from workQueue: %s", work_id, zerr.Error())
 				continue
 			}
 			if !ok {
+				logger.Error("(CheckClient) work %s not in workQueue", work_id) // this could happen wehen server was restarted but worker does not know yet
 				continue
 			}
+			logger.Debug(3, "(CheckClient) work.State: %s", work.State)
 			if work.State == WORK_STAT_RESERVED {
 				qm.workQueue.StatusChange(work_id, work, WORK_STAT_CHECKOUT, "")
 			}
@@ -185,7 +198,7 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 }
 
 func (qm *CQMgr) ClientChecker() {
-	logger.Info("ClientChecker starting")
+	logger.Info("(ClientChecker) starting")
 	for {
 		time.Sleep(30 * time.Second)
 		logger.Debug(3, "(ClientChecker) time to update client list....")
@@ -194,14 +207,14 @@ func (qm *CQMgr) ClientChecker() {
 
 		client_list, xerr := qm.clientMap.GetClients() // this uses a list of pointers to prevent long locking of the CLientMap
 		if xerr != nil {
-			logger.Error("ClientChecker/GetClients: %s", xerr.Error())
+			logger.Error("(ClientChecker) GetClients: %s", xerr.Error())
 			continue
 		}
 		logger.Debug(3, "(ClientChecker) check %d clients", len(client_list))
 		for _, client := range client_list {
 			ok, xerr := qm.CheckClient(client)
 			if xerr != nil {
-				logger.Error("ClientChecker/CheckClient: %s", xerr.Error())
+				logger.Error("(ClientChecker) CheckClient: %s", xerr.Error())
 				continue
 			}
 			if !ok {
@@ -251,7 +264,10 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerS
 	client.Tag = true
 	client.Set_Online(true, false)
 
+	workerstate.Current_work.FillMap() // fix struct by moving values from Data array into internal map (was not exported)
+
 	client.WorkerState = workerstate // TODO could do a comparsion with assigned state here
+
 	logger.Debug(3, "HeartBeatFrom:"+"clientid="+id)
 
 	//get suspended workunit that need the client to discard

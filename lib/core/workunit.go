@@ -22,7 +22,7 @@ import (
 const (
 	WORK_STAT_INIT             = "init"             // initial state
 	WORK_STAT_QUEUED           = "queued"           // after requeue ; after failures below max ; on WorkQueue.Add()
-	WORK_STAT_RESERVED         = "reserved"         // short lived state between queued and checkout
+	WORK_STAT_RESERVED         = "reserved"         // short lived state between queued and checkout. when a worker checks the workunit out, the state is reserved.
 	WORK_STAT_CHECKOUT         = "checkout"         // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
 	WORK_STAT_SUSPEND          = "suspend"          // on MAX_FAILURE ; on SuspendJob
 	WORK_STAT_FAILED_PERMANENT = "failed-permanent" // app had exit code 42

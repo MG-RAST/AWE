@@ -127,3 +127,20 @@ func (cl *WorkunitList) sync() (err error) {
 	}
 	return
 }
+
+// opposite of sync; take Data entries and copy them into map
+func (cl *WorkunitList) FillMap() (err error) {
+
+	for _, id_str := range cl.Data {
+
+		id, xerr := New_Workunit_Unique_Identifier(id_str)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		cl._map[id] = true
+	}
+
+	return
+}

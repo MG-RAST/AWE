@@ -24,6 +24,7 @@ type Info struct {
 	UserAttr      map[string]string `bson:"userattr" json:"userattr" mapstructure:"userattr"`
 	Description   string            `bson:"description" json:"description" mapstructure:"description"`
 	Tracking      bool              `bson:"tracking" json:"tracking" mapstructure:"tracking"`
+	StartAt       time.Time         `bson:"start_at" json:"start_at" mapstructure:"start_at"` // will start tasks at this timepoint or shortly after
 }
 
 func NewInfo() *Info {

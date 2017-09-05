@@ -32,7 +32,7 @@ const (
 type TaskRaw struct {
 	RWMutex
 	Task_Unique_Identifier `bson:",inline"`
-	Info                   *Info             `bson:"-" json:"-"`
+	Info                   *Info             `bson:"-" json:"-"` // this is just a pointer to the job.Info
 	Cmd                    *Command          `bson:"cmd" json:"cmd"`
 	Partition              *PartInfo         `bson:"partinfo" json:"-"`
 	DependsOn              []string          `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin

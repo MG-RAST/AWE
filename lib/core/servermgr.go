@@ -1239,10 +1239,10 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 	}
 	logger.Debug(3, "(isTaskReady %s)", task_id)
 
-	defer func() {
-		logger.Debug(3, "(isTaskReady %s) ready=%t", task_id, ready)
-		fmt.Printf("(isTaskReady %s) ready=%t\n", task_id, ready)
-	}()
+	//defer func() {
+	//	logger.Debug(3, "(isTaskReady %s) ready=%t", task_id, ready)
+	//	//fmt.Printf("(isTaskReady %s) ready=%t\n", task_id, ready)
+	//}()
 
 	//skip if the belonging job is suspended
 	jobid, err := task.GetJobId()
@@ -1252,6 +1252,21 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 
 	if qm.isSusJob(jobid) {
 		return
+	}
+
+	if task.Info != nil {
+		info := task.Info
+		if !info.StartAt.IsZero() {
+
+			if info.StartAt.After(time.Now()) {
+				// too early
+				logger.Debug(3, "(isTaskReady %s) too early to execute (now: %s, StartAt: %s)", task_id, time.Now(), info.StartAt)
+				return
+			} else {
+				logger.Debug(3, "(isTaskReady %s) StartAt field is in the past, can execute now (now: %s, StartAt: %s)", task_id, time.Now(), info.StartAt)
+
+			}
+		}
 	}
 
 	if task.WorkflowStep == nil {

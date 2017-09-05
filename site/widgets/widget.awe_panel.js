@@ -152,7 +152,7 @@
 		      success: function(data) {
 			  var widget = Retina.WidgetInstances.awe_panel[1];
 			  widget.aweClientData = data.data;
-			  jQuery.ajax({ url: RetinaConfig.awe_ip+"/work?query&state=checkout&limit=1000",
+			  jQuery.ajax({ url: RetinaConfig.awe_ip+"/work?query&state=reserved&limit=1000",
 					headers: widget.authHeader,
 					dataType: "json",
 					success: function(data) {

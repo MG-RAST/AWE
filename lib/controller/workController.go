@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
@@ -31,6 +32,8 @@ func (cr *WorkController) Options(cx *goweb.Context) {
 // get a workunit by id, read-only
 func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	id = DecodeBase64(id)
 
 	work_id, err := core.New_Workunit_Unique_Identifier(id)
 	if err != nil {
@@ -336,6 +339,8 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 // PUT: /work/{id} -> status update
 func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	id = DecodeBase64(id)
 
 	work_id, err := core.New_Workunit_Unique_Identifier(id)
 	if err != nil {

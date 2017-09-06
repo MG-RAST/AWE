@@ -161,6 +161,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 		//job_input := *job.CWL_collection.Job_input
 		workunit_input_map := make(map[string]cwl_types.CWLType)
 
+		fmt.Println("workflow_step.In:")
 		spew.Dump(workflow_step.In)
 		for _, input := range workflow_step.In {
 			// input is a WorkflowStepInput
@@ -351,18 +352,18 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 				//err = fmt.Errorf("(NewWorkunit) sorry, ValueFrom not supported yet")
 
-			}
-
-			job_input := cwl.Job_document{}
-
-			for _, elem := range workunit_input_map {
-				job_input = append(job_input, elem)
-			}
-
-			workunit.CWL_workunit.Job_input = &job_input
-			//spew.Dump(job_input)
+			} // end of input.ValueFrom
 
 		}
+		job_input := cwl.Job_document{}
+
+		for _, elem := range workunit_input_map {
+			job_input = append(job_input, elem)
+		}
+
+		workunit.CWL_workunit.Job_input = &job_input
+		spew.Dump(job_input)
+		//panic("done")
 
 	}
 	//panic("done")

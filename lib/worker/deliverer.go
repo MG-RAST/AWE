@@ -36,6 +36,7 @@ func deliverer_run(control chan int) {
 	}
 
 	work_id := workunit.Workunit_Unique_Identifier
+	logger.Debug(3, "(deliverer_run) work_id: %s", work_id.String())
 	work_state, ok, err := workmap.Get(work_id)
 	if err != nil {
 		logger.Error("error: %s", err.Error())
@@ -60,7 +61,7 @@ func deliverer_run(control chan int) {
 			data_moved, err := cache.UploadOutputData(workunit)
 			if err != nil {
 				workunit.SetState(core.WORK_STAT_ERROR, "UploadOutputData failed")
-				logger.Error("[deliverer#UploadOutputData]workid=" + work_id.String() + ", err=" + err.Error())
+				logger.Error("(deliverer_run) UploadOutputData returns workid=" + work_id.String() + ", err=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[deliverer#UploadOutputData]"+err.Error())
 			} else {
 				workunit.SetState(core.WORK_STAT_DONE, "")
@@ -80,7 +81,7 @@ func deliverer_run(control chan int) {
 		for do_retry {
 			response, err := core.NotifyWorkunitProcessedWithLogs(workunit, perfstat, conf.PRINT_APP_MSG)
 			if err != nil {
-				logger.Error("[deliverer: workid=" + work_id.String() + ", err=" + err.Error())
+				logger.Error("(deliverer_run) workid=" + work_id.String() + ", err=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[deliverer]"+err.Error())
 				// keep retry
 			} else {
@@ -96,7 +97,7 @@ func deliverer_run(control chan int) {
 					logger.Debug(1, "work delivered successfully")
 					do_retry = false
 				} else {
-					logger.Error("deliverer: workid=%s, err=%s", work_id.String(), error_message)
+					logger.Error("(deliverer) response.Status not ok,  workid=%s, err=%s", work_id.String(), error_message)
 				}
 			}
 

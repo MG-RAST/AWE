@@ -14,7 +14,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/golib/httpclient"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
@@ -334,7 +334,10 @@ func dataDownloader(control chan int) {
 
 		err := downloadWorkunitData(workunit)
 		if err != nil {
-			logger.Error("(dataDownloader) downloadWorkunitData returned: %s", err.Error())
+			err = fmt.Errorf("(dataDownloader) downloadWorkunitData returned: %s", err.Error())
+			logger.Error(err.Error())
+			workunit.State = core.WORK_STAT_ERROR
+			workunit.Notes = append(workunit.Notes, err.Error())
 		}
 		//parsed := &Mediumwork{
 		//	Workunit: raw.Workunit,
@@ -343,7 +346,7 @@ func dataDownloader(control chan int) {
 		//	CWL_tool: raw.CWL_tool,
 		//}
 		//work := raw.Workunit
-		spew.Dump(workunit.Cmd)
+		//spew.Dump(workunit.Cmd)
 		//panic("done")
 		fromMover <- workunit
 	}

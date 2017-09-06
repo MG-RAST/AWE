@@ -361,3 +361,17 @@ func GetClientGroup(cx *goweb.Context) (cg *core.ClientGroup, done bool) {
 	}
 	return
 }
+
+func DecodeBase64(id string) string {
+	if strings.HasPrefix(id, "base64:") {
+		id_b64 := strings.TrimPrefix(id, "base64:")
+		id_bytes, err := base64.StdEncoding.DecodeString(id_b64)
+		if err != nil {
+			cx.RespondWithErrorMessage("error decoding base64 workunit identifier: "+id, http.StatusBadRequest)
+			return
+		}
+
+		id = string(id_bytes[:])
+	}
+	return id
+}

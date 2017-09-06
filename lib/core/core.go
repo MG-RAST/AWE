@@ -13,6 +13,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/httpclient"
 	"io/ioutil"
+	//"net/url"
+	"encoding/base64"
 	"os"
 	"os/exec"
 	"strconv"
@@ -474,7 +476,10 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 }
 
 func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (response *StandardResponse, err error) {
-	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work.String(), work.State, Self.Id, work.ComputeTime)
+
+	work_id_b64 := "base64:" + base64.StdEncoding.EncodeToString([]byte(work.String()))
+
+	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work_id_b64, work.State, Self.Id, work.ComputeTime)
 	form := httpclient.NewForm()
 	hasreport := false
 	if work.State == WORK_STAT_DONE && perf != nil {
@@ -521,6 +526,7 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 			"Authorization":  []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
 		}
 	}
+	logger.Debug(3, "PUT %s", target_url)
 	res, err := httpclient.Put(target_url, headers, form.Reader, nil)
 	if err != nil {
 		return

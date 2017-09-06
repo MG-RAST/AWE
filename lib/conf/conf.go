@@ -171,6 +171,8 @@ var (
 	PRINT_HELP           bool // full usage
 	SHOW_HELP            bool // simple usage
 	SHOW_GIT_COMMIT_HASH bool
+	CPUPROFILE           string
+	MEMPROFILE           string
 
 	// used to track changes in data structures
 	VERSIONS = make(map[string]int)
@@ -383,6 +385,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 	c_store.AddBool(&SHOW_GIT_COMMIT_HASH, false, "Other", "show_git_commit_hash", "", "")
 	c_store.AddBool(&PRINT_HELP, false, "Other", "fullhelp", "show detailed usage without \"--\"-prefixes", "")
 	c_store.AddBool(&SHOW_HELP, false, "Other", "help", "show usage", "")
+	c_store.AddString(&CPUPROFILE, "", "Other", "cpuprofile", "e.g. create cpuprofile.prof", "")
+	c_store.AddString(&MEMPROFILE, "", "Other", "memprofile", "e.g. create memprofile.prof", "")
 
 	c_store.Parse()
 	return

@@ -11,6 +11,8 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	"gopkg.in/mgo.v2/bson"
 	"os"
+	"runtime"
+	"runtime/pprof"
 	"strings"
 	"time"
 )
@@ -199,8 +201,30 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 
 func (qm *CQMgr) ClientChecker() {
 	logger.Info("(ClientChecker) starting")
+	if conf.CPUPROFILE != "" {
+		f, err := os.Create(conf.CPUPROFILE)
+		if err != nil {
+			logger.Error(err.Error())
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
 	for {
 		time.Sleep(30 * time.Second)
+
+		if conf.MEMPROFILE != "" {
+			f, err := os.Create(conf.MEMPROFILE)
+			if err != nil {
+				logger.Error("could not create memory profile: ", err)
+			}
+			runtime.GC() // get up-to-date statistics
+			if err := pprof.WriteHeapProfile(f); err != nil {
+				logger.Error("could not write memory profile: ", err)
+			}
+			f.Close()
+		}
+
 		logger.Debug(3, "(ClientChecker) time to update client list....")
 
 		delete_clients := []string{}

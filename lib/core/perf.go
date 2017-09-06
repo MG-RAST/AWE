@@ -61,7 +61,7 @@ func NewTaskPerf(id string) *TaskPerf {
 	}
 }
 
-func NewWorkPerf(id string) *WorkPerf {
+func NewWorkPerf() *WorkPerf {
 	return &WorkPerf{
 		Queued: time.Now().Unix(),
 	}

@@ -3,6 +3,7 @@ package cwl
 import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
+	"gopkg.in/mgo.v2/bson"
 	"reflect"
 )
 
@@ -86,6 +87,10 @@ type CWL_location interface {
 	GetLocation() string
 }
 
+type CWLType_Type string
+
+func (s CWLType_Type) Is_CommandOutputParameterType() {}
+
 // CWLType - CWL basic types: int, string, boolean, .. etc
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CWLType
 // null, boolean, int, long, float, double, string, File, Directory
@@ -94,12 +99,17 @@ type CWLType interface {
 	Is_CommandInputParameterType()
 	Is_CommandOutputParameterType()
 	Is_CWLType()
-
+	String() string
 	//Is_Array() bool
 	//Is_CWL_minimal()
 }
 
-type CWLType_Impl struct{}
+type CWLType_Impl struct {
+	Id string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
+}
+
+func (c *CWLType_Impl) GetId() string   { return c.Id }
+func (c *CWLType_Impl) SetId(id string) { c.Id = id }
 
 func (c *CWLType_Impl) Is_CWL_minimal()                {}
 func (c *CWLType_Impl) Is_CWLType()                    {}
@@ -111,6 +121,11 @@ func (c *CWLType_Impl) Is_CommandOutputParameterType() {}
 func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 	//var cwl_type CWLType
+
+	native, err = makeStringMap(native)
+	if err != nil {
+		return
+	}
 
 	switch native.(type) {
 	case []interface{}:
@@ -128,7 +143,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 	case int:
 		native_int := native.(int)
 
-		cwl_type = &Int{Value: native_int}
+		cwl_type = NewInt(id, native_int)
 
 		//cwl_type = int_type.(*CWLType)
 
@@ -138,21 +153,11 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 	case string:
 		native_str := native.(string)
 
-		cwl_type = NewString("", native_str)
+		cwl_type = NewString(id, native_str)
 	case bool:
 		native_bool := native.(bool)
 
-		cwl_type = &Boolean{Value: native_bool}
-
-	case map[interface{}]interface{}:
-
-		class, xerr := GetClass(native)
-		if xerr != nil {
-			err = xerr
-			return
-		}
-		cwl_type, err = NewCWLTypeByClass(class, native)
-		return
+		cwl_type = NewBoolean(id, native_bool)
 
 	case map[string]interface{}:
 		//empty, xerr := NewEmpty(native)
@@ -165,9 +170,21 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 			err = xerr
 			return
 		}
-		cwl_type, err = NewCWLTypeByClass(class, native)
+		cwl_type, err = NewCWLTypeByClass(class, id, native)
 		return
-
+	case map[interface{}]interface{}:
+		//empty, xerr := NewEmpty(native)
+		//if xerr != nil {
+		//	err = xerr
+		//	return
+		//}
+		class, xerr := GetClass(native)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		cwl_type, err = NewCWLTypeByClass(class, id, native)
+		return
 	default:
 		spew.Dump(native)
 		err = fmt.Errorf("(NewCWLType) Type unknown: \"%s\"", reflect.TypeOf(native))
@@ -179,17 +196,17 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 }
 
-func NewCWLTypeByClass(class string, native interface{}) (cwl_type CWLType, err error) {
+func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CWLType, err error) {
 	switch class {
 	case CWL_File:
-		file, yerr := NewFile(native)
+		file, yerr := NewFile(id, native)
 		cwl_type = &file
 		if yerr != nil {
 			err = yerr
 			return
 		}
 	case CWL_string:
-		mystring, yerr := NewStringFromInterface(native)
+		mystring, yerr := NewStringFromInterface(id, native)
 		cwl_type = mystring
 		if yerr != nil {
 			err = yerr
@@ -199,7 +216,7 @@ func NewCWLTypeByClass(class string, native interface{}) (cwl_type CWLType, err 
 		// Map type unknown, maybe a record
 		spew.Dump(native)
 
-		record, xerr := NewRecord(native)
+		record, xerr := NewRecord(id, native)
 		if xerr != nil {
 			err = xerr
 			return
@@ -207,6 +224,44 @@ func NewCWLTypeByClass(class string, native interface{}) (cwl_type CWLType, err 
 		cwl_type = record
 		return
 	}
+	return
+}
+
+func makeStringMap(v interface{}) (result interface{}, err error) {
+
+	switch v.(type) {
+	case bson.M:
+
+		original_map := v.(bson.M)
+
+		new_map := make(map[string]interface{})
+
+		for key_str, value := range original_map {
+
+			new_map[key_str] = value
+		}
+
+		result = new_map
+		return
+	case map[interface{}]interface{}:
+
+		v_map, ok := v.(map[interface{}]interface{})
+		if !ok {
+			err = fmt.Errorf("casting problem (b)")
+			return
+		}
+		v_string_map := make(map[string]interface{})
+
+		for key, value := range v_map {
+			key_string := key.(string)
+			v_string_map[key_string] = value
+		}
+
+		result = v_string_map
+		return
+
+	}
+	result = v
 	return
 }
 

@@ -6,6 +6,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"sort"
 	//"sync"
+	"fmt"
 )
 
 type WorkQueue struct {
@@ -20,8 +21,8 @@ type WorkQueue struct {
 func NewWorkQueue() *WorkQueue {
 	wq := &WorkQueue{
 		all:      *NewWorkunitMap(),
-		Queue:    *NewWorkunitMap(),
-		Checkout: *NewWorkunitMap(),
+		Queue:    *NewWorkunitMap(), // these workunits that are ready to be checked out
+		Checkout: *NewWorkunitMap(), // workunits that are checked out right now
 		Suspend:  *NewWorkunitMap(),
 	}
 
@@ -49,14 +50,14 @@ func (wq *WorkQueue) Add(workunit *Workunit) (err error) {
 	if err != nil {
 		return
 	}
-	err = wq.StatusChange("", workunit, WORK_STAT_QUEUED)
+	err = wq.StatusChange(Workunit_Unique_Identifier{}, workunit, WORK_STAT_QUEUED, "")
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (wq *WorkQueue) Get(id string) (w *Workunit, ok bool, err error) {
+func (wq *WorkQueue) Get(id Workunit_Unique_Identifier) (w *Workunit, ok bool, err error) {
 	w, ok, err = wq.all.Get(id)
 	return
 }
@@ -68,7 +69,8 @@ func (wq *WorkQueue) GetForJob(jobid string) (worklist []*Workunit, err error) {
 		return
 	}
 	for _, work := range workunits {
-		parentid, _ := GetJobIdByWorkId(work.Id)
+		parentid := work.JobId
+		//parentid := , _ := GetJobIdByWorkId(work.Id)
 		if jobid == parentid {
 			worklist = append(worklist, work)
 		}
@@ -80,15 +82,15 @@ func (wq *WorkQueue) GetAll() (worklist []*Workunit, err error) {
 	return wq.all.GetWorkunits()
 }
 
-func (wq *WorkQueue) Clean() (workids []string) {
+func (wq *WorkQueue) Clean() (workunits []*Workunit) {
 	workunt_list, err := wq.all.GetWorkunits()
 	if err != nil {
 		return
 	}
 	for _, work := range workunt_list {
-		id := work.Id
+		id := work.Workunit_Unique_Identifier
 		if work == nil || work.Info == nil {
-			workids = append(workids, id)
+			workunits = append(workunits, work)
 			wq.Queue.Delete(id)
 			wq.Checkout.Delete(id)
 			wq.Suspend.Delete(id)
@@ -99,7 +101,7 @@ func (wq *WorkQueue) Clean() (workids []string) {
 	return
 }
 
-func (wq *WorkQueue) Delete(id string) (err error) {
+func (wq *WorkQueue) Delete(id Workunit_Unique_Identifier) (err error) {
 	err = wq.Queue.Delete(id)
 	if err != nil {
 		return
@@ -120,14 +122,14 @@ func (wq *WorkQueue) Delete(id string) (err error) {
 
 }
 
-func (wq *WorkQueue) Has(id string) (has bool, err error) {
+func (wq *WorkQueue) Has(id Workunit_Unique_Identifier) (has bool, err error) {
 	_, has, err = wq.all.Get(id)
 	return
 }
 
 //--------end of accessors-------
 
-func (wq *WorkQueue) StatusChange(id string, workunit *Workunit, new_status string) (err error) {
+func (wq *WorkQueue) StatusChange(id Workunit_Unique_Identifier, workunit *Workunit, new_status string, reason string) (err error) {
 	//move workunit id between maps. no need to care about the old status because
 	//delete function will do nothing if the operated map has no such key.
 
@@ -138,7 +140,7 @@ func (wq *WorkQueue) StatusChange(id string, workunit *Workunit, new_status stri
 			return
 		}
 		if !ok {
-			return errors.New("WQueue.statusChange: invalid workunit id:" + id)
+			return errors.New("WQueue.statusChange: invalid workunit id:" + id.String())
 		}
 	}
 
@@ -153,26 +155,44 @@ func (wq *WorkQueue) StatusChange(id string, workunit *Workunit, new_status stri
 	case WORK_STAT_CHECKOUT:
 		wq.Queue.Delete(id)
 		wq.Suspend.Delete(id)
-		workunit.SetState(new_status)
+		err = workunit.SetState(new_status, reason)
+		if err != nil {
+			return
+		}
+
 		wq.Checkout.Set(workunit)
 	case WORK_STAT_QUEUED:
 		wq.Checkout.Delete(id)
 		wq.Suspend.Delete(id)
-		workunit.SetState(new_status)
+		err = workunit.SetState(new_status, reason)
+		if err != nil {
+			return
+		}
 		wq.Queue.Set(workunit)
 
 	case WORK_STAT_SUSPEND:
+
+		if reason == "" {
+			err = fmt.Errorf("suspend workunit only with reason!")
+			return
+		}
+
 		wq.Checkout.Delete(id)
 		wq.Queue.Delete(id)
-		workunit.SetState(new_status)
+		err = workunit.SetState(new_status, reason)
+		if err != nil {
+			return
+		}
 		wq.Suspend.Set(workunit)
 
 	default:
 		wq.Checkout.Delete(id)
 		wq.Queue.Delete(id)
 		wq.Suspend.Delete(id)
-		workunit.SetState(new_status)
-
+		err = workunit.SetState(new_status, reason)
+		if err != nil {
+			return
+		}
 	}
 
 	return

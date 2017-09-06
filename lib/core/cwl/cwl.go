@@ -7,32 +7,137 @@ import (
 	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
+	//"github.com/mitchellh/mapstructure"
 	"gopkg.in/yaml.v2"
 	//"io/ioutil"
 	//"os"
-	_ "reflect"
+	"reflect"
 	"strings"
 )
 
 // this is used by YAML or JSON library for inital parsing
 type CWL_document_generic struct {
-	CwlVersion string               `yaml:"cwlVersion"`
-	Graph      []CWL_object_generic `yaml:"graph"`
+	CwlVersion CWLVersion    `yaml:"cwlVersion"`
+	Graph      []interface{} `yaml:"graph"`
+	//Graph      []CWL_object_generic `yaml:"graph"`
 }
 
 type CWL_object_generic map[string]interface{}
 
-type CWLVersion interface{} // TODO
+type CWLVersion string
 
 type LinkMergeMethod string // merge_nested or merge_flattened
 
-func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error) {
+func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj cwl_types.CWL_object, err error) {
+	fmt.Println("New_CWL_object")
 
-	// TODO check cwlVersion
-	// TODO screen for "$import": // this might break the YAML parser !
+	if original == nil {
+		err = fmt.Errorf("(New_CWL_object) original is nil!")
+		return
+	}
 
-	// this yaml parser (gopkg.in/yaml.v2) has problems with the CWL yaml format. We skip the header aand jump directly to "$graph" because of that.
+	original, err = makeStringMap(original)
+	if err != nil {
+		return
+	}
+	fmt.Println("New_CWL_object 2")
+	switch original.(type) {
+	case map[string]interface{}:
+		elem := original.(map[string]interface{})
+		fmt.Println("New_CWL_object B")
+		cwl_object_type, ok := elem["class"].(string)
+
+		if !ok {
+			fmt.Println("------------------")
+			spew.Dump(original)
+			err = errors.New("object has no field \"class\"")
+			return
+		}
+
+		cwl_object_id := elem["id"].(string)
+		if !ok {
+			err = errors.New("object has no member id")
+			return
+		}
+		fmt.Println("New_CWL_object C")
+		switch cwl_object_type {
+		case "CommandLineTool":
+			fmt.Println("New_CWL_object CommandLineTool")
+			logger.Debug(1, "parse CommandLineTool")
+			result, xerr := NewCommandLineTool(elem)
+			if xerr != nil {
+				err = fmt.Errorf("NewCommandLineTool returned: %s", xerr)
+				return
+			}
+
+			result.CwlVersion = cwl_version
+
+			obj = result
+			return
+		case "Workflow":
+			fmt.Println("New_CWL_object Workflow")
+			logger.Debug(1, "parse Workflow")
+			workflow, xerr := NewWorkflow(elem)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			obj = workflow
+			return
+		} // end switch
+
+		cwl_type, xerr := cwl_types.NewCWLType(cwl_object_id, elem)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		obj = cwl_type
+	default:
+		fmt.Printf("(New_CWL_object), unknown type %s\n", reflect.TypeOf(original))
+		err = fmt.Errorf("(New_CWL_object), unknown type %s", reflect.TypeOf(original))
+		return
+	}
+	fmt.Println("New_CWL_object leaving")
+	return
+}
+
+func NewCWL_object_array(original interface{}) (array cwl_types.CWL_object_array, err error) {
+
+	//original, err = makeStringMap(original)
+	//if err != nil {
+	//	return
+	//}
+
+	array = cwl_types.CWL_object_array{}
+
+	switch original.(type) {
+
+	case []interface{}:
+
+		org_a := original.([]interface{})
+
+		for _, element := range org_a {
+
+			cwl_object, xerr := New_CWL_object(element, "")
+			if xerr != nil {
+				err = fmt.Errorf("(NewCWL_object_array) New_CWL_object returned %s", xerr.Error())
+				return
+			}
+
+			array = append(array, cwl_object)
+		}
+
+		return
+
+	default:
+		err = fmt.Errorf("(NewCWL_object_array), unknown type %s", reflect.TypeOf(original))
+	}
+	return
+
+}
+
+func Parse_cwl_document(yaml_str string) (object_array cwl_types.CWL_object_array, cwl_version CWLVersion, err error) {
+
 	graph_pos := strings.Index(yaml_str, "$graph")
 
 	if graph_pos == -1 {
@@ -44,7 +149,8 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 
 	cwl_gen := CWL_document_generic{}
 
-	err = Unmarshal([]byte(yaml_str), &cwl_gen)
+	yaml_byte := []byte(yaml_str)
+	err = Unmarshal(&yaml_byte, &cwl_gen)
 	if err != nil {
 		logger.Debug(1, "CWL unmarshal error")
 		logger.Error("error: " + err.Error())
@@ -52,131 +158,63 @@ func Parse_cwl_document(collection *CWL_collection, yaml_str string) (err error)
 
 	fmt.Println("-------------- raw CWL")
 	spew.Dump(cwl_gen)
-	fmt.Println("-------------- Start real parsing")
+	fmt.Println("-------------- Start parsing")
+
+	cwl_version = cwl_gen.CwlVersion
 
 	// iterated over Graph
-	for _, elem := range cwl_gen.Graph {
 
-		cwl_object_type, ok := elem["class"].(string)
+	fmt.Println("-------------- A Parse_cwl_document")
+	for count, elem := range cwl_gen.Graph {
+		fmt.Println("-------------- B Parse_cwl_document")
 
-		if !ok {
-			err = errors.New("object has no member class")
+		object, xerr := New_CWL_object(elem, cwl_version)
+		if xerr != nil {
+			err = fmt.Errorf("(Parse_cwl_document) New_CWL_object returns %s", xerr.Error())
 			return
 		}
-
-		cwl_object_id := elem["id"].(string)
-		if !ok {
-			err = errors.New("object has no member id")
-			return
-		}
-		_ = cwl_object_id
-		//switch elem["hints"].(type) {
-		//case map[interface{}]interface{}:
-		//logger.Debug(1, "hints is map[interface{}]interface{}")
-		// Convert map of outputs into array of outputs
-		//err, elem["hints"] = CreateRequirementArray(elem["hints"])
-		//if err != nil {
-		//	return
-		//}
-		//case interface{}[]:
-		//	logger.Debug(1, "hints is interface{}[]")
-		//default:
-		//	logger.Debug(1, "hints is something else")
-		//}
-
-		switch cwl_object_type {
-		case "CommandLineTool":
-			logger.Debug(1, "parse CommandLineTool")
-			result, xerr := NewCommandLineTool(elem)
-			if xerr != nil {
-				err = fmt.Errorf("NewCommandLineTool returned: %s", xerr)
-				return
-			}
-			//*** check if "inputs"" is an array or a map"
-
-			//collection.CommandLineTools[result.Id] = result
-			err = collection.Add(result)
-			if err != nil {
-				return
-			}
-			//collection = append(collection, result)
-		case "Workflow":
-			logger.Debug(1, "parse Workflow")
-			workflow, xerr := NewWorkflow(elem, collection)
-			if xerr != nil {
-				err = xerr
-				return
-			}
-
-			// some checks and add inputs to collection
-			for _, input := range workflow.Inputs {
-				// input is InputParameter
-
-				if input.Id == "" {
-					err = fmt.Errorf("input has no ID")
-					return
-				}
-
-				//if !strings.HasPrefix(input.Id, "#") {
-				//	if !strings.HasPrefix(input.Id, "inputs.") {
-				//		input.Id = "inputs." + input.Id
-				//	}
-				//}
-				err = collection.Add(input)
-				if err != nil {
-					return
-				}
-			}
-
-			//fmt.Println("WORKFLOW")
-			//spew.Dump(workflow)
-			err = collection.Add(&workflow)
-			if err != nil {
-				return
-			}
-
-			//collection.Workflows = append(collection.Workflows, workflow)
-			//collection = append(collection, result)
-		case "File":
-			logger.Debug(1, "parse File")
-			var cwl_file cwl_types.File
-			err = mapstructure.Decode(elem, &cwl_file)
-			if err != nil {
-				err = fmt.Errorf("(Parse_cwl_document/File) %s", err.Error())
-				return
-			}
-			if cwl_file.Id == "" {
-				cwl_file.Id = cwl_object_id
-			}
-			//collection.Files[cwl_file.Id] = cwl_file
-			err = collection.Add(&cwl_file)
-			if err != nil {
-				return
-			}
-		default:
-			err = errors.New("object unknown")
-			return
-		} // end switch
-
-		fmt.Printf("----------------------------------------------\n")
-
+		fmt.Println("-------------- C Parse_cwl_document")
+		object_array = append(object_array, object)
+		logger.Debug(3, "Added %d cwl objects...", count)
+		fmt.Println("-------------- loop Parse_cwl_document")
 	} // end for
+
+	fmt.Println("-------------- finished Parse_cwl_document")
+	return
+}
+
+func Add_to_collection(collection *CWL_collection, object_array cwl_types.CWL_object_array) (err error) {
+
+	for _, object := range object_array {
+		err = collection.Add(object)
+		if err != nil {
+			return
+		}
+	}
 
 	return
 }
 
-func Unmarshal(data []byte, v interface{}) (err error) {
-	err_yaml := yaml.Unmarshal(data, v)
-	if err_yaml != nil {
-		logger.Debug(1, "CWL YAML unmarshal error, (try json...) : "+err_yaml.Error())
+func Unmarshal(data_ptr *[]byte, v interface{}) (err error) {
+
+	data := *data_ptr
+
+	if data[0] == '{' {
+
 		err_json := json.Unmarshal(data, v)
 		if err_json != nil {
-			logger.Debug(1, "CWL JSON unmarshal error: "+err_json.Error())
+			logger.Debug(1, "CWL json unmarshal error: "+err_json.Error())
+			err = err_json
+			return
 		}
-	}
+	} else {
+		err_yaml := yaml.Unmarshal(data, v)
+		if err_yaml != nil {
+			logger.Debug(1, "CWL yaml unmarshal error: "+err_yaml.Error())
+			err = err_yaml
+			return
+		}
 
-	if err != nil {
-		err = errors.New("Could not parse document as JSON or YAML")
 	}
 
 	return

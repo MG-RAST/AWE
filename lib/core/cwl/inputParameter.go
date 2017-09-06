@@ -5,19 +5,21 @@ import (
 	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
+
+	"reflect"
 	"strings"
 )
 
 type InputParameter struct {
-	Id             string                `yaml:"id"`
-	Label          string                `yaml:"label"`
-	SecondaryFiles []string              `yaml:"secondaryFiles"` // TODO string | Expression | array<string | Expression>
-	Format         string                `yaml:"format"`
-	Streamable     bool                  `yaml:"streamable"`
-	Doc            string                `yaml:"doc"`
-	InputBinding   CommandLineBinding    `yaml:"inputBinding"` //TODO
-	Default        cwl_types.Any         `yaml:"default"`
-	Type           *[]InputParameterType `yaml:"type"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
+	Id             string             `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	Label          string             `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	SecondaryFiles []string           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
+	Format         string             `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
+	Streamable     bool               `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
+	Doc            string             `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
+	InputBinding   CommandLineBinding `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"` //TODO
+	Default        cwl_types.Any      `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
+	Type           interface{}        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
 }
 
 func (i InputParameter) GetClass() string { return "InputParameter" }
@@ -26,6 +28,14 @@ func (i InputParameter) SetId(id string)  { i.Id = id }
 func (i InputParameter) Is_CWL_minimal()  {}
 
 func NewInputParameter(original interface{}) (input_parameter *InputParameter, err error) {
+
+	fmt.Println("---- NewInputParameter ----")
+	spew.Dump(original)
+	original, err = makeStringMap(original)
+	if err != nil {
+		return
+	}
+	spew.Dump(original)
 
 	input_parameter = &InputParameter{}
 
@@ -60,9 +70,10 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 		//}
 
 		//input_parameter.Type = input_parameter_type
-	case map[interface{}]interface{}:
 
-		original_map := original.(map[interface{}]interface{})
+	case map[string]interface{}:
+
+		original_map := original.(map[string]interface{})
 
 		input_parameter_default, ok := original_map["default"]
 		if ok {
@@ -86,7 +97,8 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 			return
 		}
 	default:
-		err = fmt.Errorf("(NewInputParameter) cannot parse input")
+		spew.Dump(original)
+		err = fmt.Errorf("(NewInputParameter) cannot parse input type %s", reflect.TypeOf(original))
 		return
 	}
 

@@ -286,7 +286,7 @@ func dbGetJobTaskField(job_id string, task_id string, fieldname string, result *
 		return
 	}
 
-	logger.Debug(3, "GOT: %v", temp_result)
+	//logger.Debug(3, "GOT: %v", temp_result)
 
 	tasks_unknown := temp_result["tasks"]
 	tasks, ok := tasks_unknown.([]interface{})
@@ -309,7 +309,7 @@ func dbGetJobTaskField(job_id string, task_id string, fieldname string, result *
 	}
 	result.Data = test_result
 
-	logger.Debug(3, "GOT2: %v", result)
+	//logger.Debug(3, "GOT2: %v", result)
 	logger.Debug(3, "(dbGetJobTaskField) %s got something", fieldname)
 	return
 }
@@ -362,6 +362,7 @@ func dbGetJobFieldInt(job_id string, fieldname string) (result int, err error) {
 
 func dbGetJobFieldString(job_id string, fieldname string) (result string, err error) {
 	err = dbGetJobField(job_id, fieldname, &result)
+	logger.Debug(3, "(dbGetJobFieldString) result: %s", result)
 	if err != nil {
 		return
 	}
@@ -491,7 +492,12 @@ func dbUpdateJobTaskInt(job_id string, task_id string, fieldname string, value i
 
 func dbUpdateJobTaskString(job_id string, task_id string, fieldname string, value string) (err error) {
 	update_value := bson.M{"tasks.$." + fieldname: value}
-	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+	err = dbUpdateJobTaskFields(job_id, task_id, update_value)
+
+	if err != nil {
+		err = fmt.Errorf(" job_id=%s, task_id=%s, fieldname=%s, value=%s error=%s", job_id, task_id, fieldname, value, err.Error())
+	}
+	return
 }
 
 func dbUpdateJobTaskTime(job_id string, task_id string, fieldname string, value time.Time) (err error) {
@@ -558,12 +564,13 @@ func LoadJob(id string) (job *Job, err error) {
 	err = c.Find(bson.M{"id": id}).One(&job)
 	if err != nil {
 		job = nil
+		err = fmt.Errorf("(LoadJob) c.Find failed: %s", err.Error())
 		return
 	}
 
 	changed, xerr := job.Init()
 	if xerr != nil {
-		err = xerr
+		err = fmt.Errorf("(LoadJob) job.Init failed: %s", xerr.Error())
 		return
 	}
 

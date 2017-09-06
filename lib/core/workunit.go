@@ -1,10 +1,20 @@
 package core
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/robertkrimen/otto"
+	"gopkg.in/mgo.v2/bson"
 	"os"
+	"path"
+	"reflect"
+	"regexp"
+	"regexp/syntax"
 	"strings"
 	"time"
 )
@@ -12,7 +22,7 @@ import (
 const (
 	WORK_STAT_INIT             = "init"             // initial state
 	WORK_STAT_QUEUED           = "queued"           // after requeue ; after failures below max ; on WorkQueue.Add()
-	WORK_STAT_RESERVED         = "reserved"         // short lived state between queued and checkout
+	WORK_STAT_RESERVED         = "reserved"         // short lived state between queued and checkout. when a worker checks the workunit out, the state is reserved.
 	WORK_STAT_CHECKOUT         = "checkout"         // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
 	WORK_STAT_SUSPEND          = "suspend"          // on MAX_FAILURE ; on SuspendJob
 	WORK_STAT_FAILED_PERMANENT = "failed-permanent" // app had exit code 42
@@ -25,126 +35,45 @@ const (
 )
 
 type Workunit struct {
-	Id           string            `bson:"wuid" json:"wuid"`
-	Info         *Info             `bson:"info" json:"info"`
-	Inputs       []*IO             `bson:"inputs" json:"inputs"`
-	Outputs      []*IO             `bson:"outputs" json:"outputs"`
-	Predata      []*IO             `bson:"predata" json:"predata"`
-	Cmd          *Command          `bson:"cmd" json:"cmd"`
-	Rank         int               `bson:"rank" json:"rank"`
-	TotalWork    int               `bson:"totalwork" json:"totalwork"`
-	Partition    *PartInfo         `bson:"part" json:"part"`
-	State        string            `bson:"state" json:"state"`
-	Failed       int               `bson:"failed" json:"failed"`
-	CheckoutTime time.Time         `bson:"checkout_time" json:"checkout_time"`
-	Client       string            `bson:"client" json:"client"`
-	ComputeTime  int               `bson:"computetime" json:"computetime"`
-	ExitStatus   int               `bson:"exitstatus" json:"exitstatus"` // Linux Exit Status Code (0 is success)
-	Notes        []string          `bson:"notes" json:"notes"`
-	UserAttr     map[string]string `bson:"userattr" json:"userattr"`
-	WorkPath     string            // this is the working directory. If empty, it will be computed.
-	WorkPerf     *WorkPerf
-	CWL          *CWL_workunit
+	Workunit_Unique_Identifier `bson:",inline" json:",inline" mapstructure:",squash"`
+	Id                         string            `bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`       // global identifier: jobid_taskid_rank (for backwards coompatibility only)
+	WuId                       string            `bson:"wuid,omitempty" json:"wuid,omitempty" mapstructure:"wuid,omitempty"` // deprecated !
+	Info                       *Info             `bson:"info,omitempty" json:"info,omitempty" mapstructure:"info,omitempty"`
+	Inputs                     []*IO             `bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
+	Outputs                    []*IO             `bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
+	Predata                    []*IO             `bson:"predata,omitempty" json:"predata,omitempty" mapstructure:"predata,omitempty"`
+	Cmd                        *Command          `bson:"cmd,omitempty" json:"cmd,omitempty" mapstructure:"cmd,omitempty"`
+	TotalWork                  int               `bson:"totalwork,omitempty" json:"totalwork,omitempty" mapstructure:"totalwork,omitempty"`
+	Partition                  *PartInfo         `bson:"part,omitempty" json:"part,omitempty" mapstructure:"part,omitempty"`
+	State                      string            `bson:"state,omitempty" json:"state,omitempty" mapstructure:"state,omitempty"`
+	Failed                     int               `bson:"failed,omitempty" json:"failed,omitempty" mapstructure:"failed,omitempty"`
+	CheckoutTime               time.Time         `bson:"checkout_time,omitempty" json:"checkout_time,omitempty" mapstructure:"checkout_time,omitempty"`
+	Client                     string            `bson:"client,omitempty" json:"client,omitempty" mapstructure:"client,omitempty"`
+	ComputeTime                int               `bson:"computetime,omitempty" json:"computetime,omitempty" mapstructure:"computetime,omitempty"`
+	ExitStatus                 int               `bson:"exitstatus,omitempty" json:"exitstatus,omitempty" mapstructure:"exitstatus,omitempty"` // Linux Exit Status Code (0 is success)
+	Notes                      []string          `bson:"notes,omitempty" json:"notes,omitempty" mapstructure:"notes,omitempty"`
+	UserAttr                   map[string]string `bson:"userattr,omitempty" json:"userattr,omitempty" mapstructure:"userattr,omitempty"`
+	CWL_workunit               *CWL_workunit     `bson:"cwl,omitempty" json:"cwl,omitempty" mapstructure:"cwl,omitempty"`
+	WorkPath                   string            // this is the working directory. If empty, it will be computed.
+	WorkPerf                   *WorkPerf
 }
 
-type CWL_workunit struct {
-	Job_input          *cwl.Job_document
-	Job_input_filename string
-	CWL_tool           *cwl.CommandLineTool
-	CWL_tool_filename  string
-	Tool_results       *cwl.Job_document
-	OutputsExpected    *cwl.WorkflowStepOutput // this is the subset of outputs that are needed by the workflow
-}
+func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error) {
 
-func NewCWL_workunit() *CWL_workunit {
-	return &CWL_workunit{
-		Job_input:       nil,
-		CWL_tool:        nil,
-		Tool_results:    nil,
-		OutputsExpected: nil,
-	}
-
-}
-
-type WorkLog struct {
-	Id   string            `bson:"wuid" json:"wuid"`
-	Rank int               `bson:"rank" json:"rank"`
-	Logs map[string]string `bson:"logs" json:"logs"`
-}
-
-func NewWorkLog(tid string, rank int) (wlog *WorkLog) {
-	wid := fmt.Sprintf("%s_%d", tid, rank)
-	wlog = new(WorkLog)
-	wlog.Id = wid
-	wlog.Rank = rank
-	wlog.Logs = map[string]string{}
-	for _, log := range conf.WORKUNIT_LOGS {
-		wlog.Logs[log], _ = QMgr.GetReportMsg(wid, log)
-	}
-	return
-}
-
-// create workunit slice type to use for sorting
-
-type WorkunitsSortby struct {
-	Order     string
-	Direction string
-	Workunits []*Workunit
-}
-
-func (w WorkunitsSortby) Len() int {
-	return len(w.Workunits)
-}
-
-func (w WorkunitsSortby) Swap(i, j int) {
-	w.Workunits[i], w.Workunits[j] = w.Workunits[j], w.Workunits[i]
-}
-
-func (w WorkunitsSortby) Less(i, j int) bool {
-	// default is ascending
-	if w.Direction == "desc" {
-		i, j = j, i
-	}
-	switch w.Order {
-	// default is info.submittime
-	default:
-		return w.Workunits[i].Info.SubmitTime.Before(w.Workunits[j].Info.SubmitTime)
-	case "wuid":
-		return w.Workunits[i].Id < w.Workunits[j].Id
-	case "client":
-		return w.Workunits[i].Client < w.Workunits[j].Client
-	case "info.submittime":
-		return w.Workunits[i].Info.SubmitTime.Before(w.Workunits[j].Info.SubmitTime)
-	case "checkout_time":
-		return w.Workunits[i].CheckoutTime.Before(w.Workunits[j].CheckoutTime)
-	case "info.name":
-		return w.Workunits[i].Info.Name < w.Workunits[j].Info.Name
-	case "cmd.name":
-		return w.Workunits[i].Cmd.Name < w.Workunits[j].Cmd.Name
-	case "rank":
-		return w.Workunits[i].Rank < w.Workunits[j].Rank
-	case "totalwork":
-		return w.Workunits[i].TotalWork < w.Workunits[j].TotalWork
-	case "state":
-		return w.Workunits[i].State < w.Workunits[j].State
-	case "failed":
-		return w.Workunits[i].Failed < w.Workunits[j].Failed
-	case "info.priority":
-		return w.Workunits[i].Info.Priority < w.Workunits[j].Info.Priority
-	}
-}
-
-func NewWorkunit(task *Task, rank int) *Workunit {
-
-	return &Workunit{
-		Id:  fmt.Sprintf("%s_%d", task.Id, rank),
+	workunit = &Workunit{
+		Workunit_Unique_Identifier: Workunit_Unique_Identifier{
+			Rank:   rank,
+			TaskId: task.Id,
+			JobId:  task.JobId,
+		},
+		Id:  "defined below",
 		Cmd: task.Cmd,
 		//App:       task.App,
-		Info:       task.Info,
-		Inputs:     task.Inputs,
-		Outputs:    task.Outputs,
-		Predata:    task.Predata,
-		Rank:       rank,
+		Info:    task.Info,
+		Inputs:  task.Inputs,
+		Outputs: task.Outputs,
+		Predata: task.Predata,
+
 		TotalWork:  task.TotalWork, //keep this info in workunit for load balancing
 		Partition:  task.Partition,
 		State:      WORK_STAT_INIT,
@@ -154,12 +83,308 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 
 		//AppVariables: task.AppVariables // not needed yet
 	}
+
+	workunit.Id = workunit.String()
+	workunit.WuId = workunit.String()
+
+	if task.WorkflowStep != nil {
+
+		workflow_step := task.WorkflowStep
+
+		workunit.CWL_workunit = &CWL_workunit{}
+
+		// ****** get CommandLineTool (or whatever can be executed)
+		p := workflow_step.Run
+
+		tool_name := ""
+
+		switch p.(type) {
+		case cwl.ProcessPointer:
+
+			pp, _ := p.(cwl.ProcessPointer)
+
+			tool_name = pp.Value
+
+		case bson.M: // I have no idea why we get a bson.M here
+
+			p_bson := p.(bson.M)
+
+			tool_name_interface, ok := p_bson["value"]
+			if !ok {
+				err = fmt.Errorf("(NewWorkunit) bson.M did not hold a field named value")
+				return
+			}
+
+			tool_name, ok = tool_name_interface.(string)
+			if !ok {
+				err = fmt.Errorf("(NewWorkunit) bson.M value field is not a string")
+				return
+			}
+
+		default:
+			err = fmt.Errorf("(NewWorkunit) Process type %s unknown, cannot create Workunit", reflect.TypeOf(p))
+			return
+
+		}
+
+		if tool_name == "" {
+			err = fmt.Errorf("(NewWorkunit) No tool name found")
+			return
+		}
+
+		if job.CWL_collection == nil {
+			err = fmt.Errorf("(NewWorkunit) job.CWL_collection == nil ")
+			return
+		}
+
+		clt, xerr := job.CWL_collection.GetCommandLineTool(tool_name)
+		if xerr != nil {
+			err = fmt.Errorf("(NewWorkunit) Object %s not found in collection: %s", xerr.Error())
+			return
+		}
+		clt.CwlVersion = job.CwlVersion
+
+		if clt.CwlVersion == "" {
+			err = fmt.Errorf("(NewWorkunit) CommandLineTool misses CwlVersion")
+			return
+		}
+		workunit.CWL_workunit.CWL_tool = clt
+
+		// ****** get inputs
+		job_input_map := *job.CWL_collection.Job_input_map
+		if job_input_map == nil {
+			err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
+			return
+		}
+		//job_input_map := *job.CWL_collection.Job_input_map
+
+		//job_input := *job.CWL_collection.Job_input
+		workunit_input_map := make(map[string]cwl_types.CWLType)
+
+		spew.Dump(workflow_step.In)
+		for _, input := range workflow_step.In {
+			// input is a WorkflowStepInput
+
+			id := input.Id
+
+			cmd_id := path.Base(id)
+
+			// get data from Source, Default or valueFrom
+
+			if input.LinkMerge != nil {
+				err = fmt.Errorf("(NewWorkunit) sorry, LinkMergeMethod not supported yet")
+				return
+			}
+
+			source_object_array := []cwl_types.CWLType{}
+			//resolve pointers in source
+			for _, src := range input.Source {
+				// src is a string, an id to another cwl object (workflow input of step output)
+
+				src_base := path.Base(src)
+
+				job_obj, ok := job_input_map[src_base]
+				if !ok {
+					fmt.Printf("%s not found in \n", src_base)
+				} else {
+					fmt.Printf("%s found in job_input!!!\n", src_base)
+					source_object_array = append(source_object_array, job_obj)
+					continue
+				}
+
+				coll_obj, xerr := job.CWL_collection.GetType(src)
+				if xerr != nil {
+					fmt.Printf("%s not found in CWL_collection\n", src)
+				} else {
+					fmt.Printf("%s found in CWL_collection!!!\n", src)
+					source_object_array = append(source_object_array, coll_obj)
+					continue
+				}
+				//_ = coll_obj
+
+				err = fmt.Errorf("Source object %s not found", src)
+				return
+
+			}
+
+			// input.Default  The default value for this parameter to use if either there is no source field, or the value produced by the source is null. The default must be applied prior to scattering or evaluating valueFrom.
+
+			if len(input.Source) == 1 {
+				workunit_input_map[cmd_id] = source_object_array[0]
+				continue
+				//object := source_object_array[0]
+				//fmt.Println("WORLD")
+				//spew.Dump(object)
+
+				//file, ok := object.(*cwl_types.File)
+				//if ok {
+				//	fmt.Println("A FILE")
+				//	fmt.Printf("%+v\n", *file)
+				//file_id := file.GetId()
+
+				//} else {
+
+				//err = fmt.Errorf("(NewWorkunit) not implemented")
+				//return
+				//	}
+
+			} else if len(input.Source) > 1 {
+				cwl_array := cwl_types.Array{}
+				for _, obj := range source_object_array {
+					cwl_array.Add(obj)
+				}
+				workunit_input_map[cmd_id] = &cwl_array
+				continue
+			} else {
+				if input.Default != nil {
+					err = fmt.Errorf("(NewWorkunit) sorry, Default not supported yet")
+					return
+				}
+			}
+
+			if input.ValueFrom != "" {
+
+				// from CWL doc: The self value of in the parameter reference or expression must be the value of the parameter(s) specified in the source field, or null if there is no source field.
+
+				vm := otto.New()
+				//TODO vm.Set("input", 11)
+
+				if len(source_object_array) == 1 {
+					obj := source_object_array[0]
+
+					vm.Set("self", obj.String())
+					fmt.Printf("SET self=%s\n", input.Source[0])
+				} else if len(input.Source) > 1 {
+
+					source_b, xerr := json.Marshal(input.Source)
+					if xerr != nil {
+						err = fmt.Errorf("(NewWorkunit) cannot marshal source: %s", xerr.Error())
+						return
+					}
+					vm.Set("self", string(source_b[:]))
+					fmt.Printf("SET self=%s\n", string(source_b[:]))
+				}
+				fmt.Printf("input.ValueFrom=%s\n", input.ValueFrom)
+
+				// evaluate $(...) ECMAScript expression
+				reg := regexp.MustCompile(`\$\([\w.]+\)`)
+				// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
+
+				parsed := input.ValueFrom.String()
+				for {
+
+					matches := reg.FindAll([]byte(parsed), -1)
+					fmt.Printf("Matches: %d\n", len(matches))
+					if len(matches) == 0 {
+						break
+					}
+					for _, match := range matches {
+						expression_string := bytes.TrimPrefix(match, []byte("$("))
+						expression_string = bytes.TrimSuffix(expression_string, []byte(")"))
+
+						javascript_function := fmt.Sprintf("(function(){\n return %s;\n})()", expression_string)
+						fmt.Printf("%s\n", javascript_function)
+
+						value, xerr := vm.Run(javascript_function)
+						if xerr != nil {
+							err = fmt.Errorf("Javascript complained: %s", xerr.Error())
+							return
+						}
+						fmt.Println(reflect.TypeOf(value))
+
+						value_str, xerr := value.ToString()
+						if xerr != nil {
+							err = fmt.Errorf("Cannot convert value to string: %s", xerr)
+							return
+						}
+						parsed = strings.Replace(parsed, string(match), value_str, 1)
+					}
+
+				}
+
+				fmt.Printf("parsed: %s\n", parsed)
+
+				// evaluate ${...} ECMAScript function body
+				reg = regexp.MustCompile(`\$\{[\w.]+\}`)
+				// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
+
+				//parsed = input.ValueFrom.String()
+
+				for {
+
+					matches := reg.FindAll([]byte(parsed), -1)
+					fmt.Printf("Matches: %d\n", len(matches))
+					if len(matches) == 0 {
+						break
+					}
+					for _, match := range matches {
+						expression_string := bytes.TrimPrefix(match, []byte("${"))
+						expression_string = bytes.TrimSuffix(expression_string, []byte("}"))
+
+						javascript_function := fmt.Sprintf("(function(){\n %s \n})()", expression_string)
+						fmt.Printf("%s\n", javascript_function)
+
+						value, xerr := vm.Run(javascript_function)
+						if xerr != nil {
+							err = fmt.Errorf("Javascript complained: %s", xerr.Error())
+							return
+						}
+						fmt.Println(reflect.TypeOf(value))
+
+						value_str, xerr := value.ToString()
+						if xerr != nil {
+							err = fmt.Errorf("Cannot convert value to string: %s", xerr)
+							return
+						}
+						parsed = strings.Replace(parsed, string(match), value_str, 1)
+					}
+
+				}
+
+				fmt.Printf("parsed: %s\n", parsed)
+
+				new_string := cwl_types.NewString(id, parsed)
+				workunit_input_map[cmd_id] = new_string
+				continue
+				//job_input = append(job_input, new_string)
+				// TODO does this have to be storted in job_input ???
+
+				//err = fmt.Errorf("(NewWorkunit) sorry, ValueFrom not supported yet")
+
+			}
+
+			job_input := cwl.Job_document{}
+
+			for _, elem := range workunit_input_map {
+				job_input = append(job_input, elem)
+			}
+
+			workunit.CWL_workunit.Job_input = &job_input
+			//spew.Dump(job_input)
+
+		}
+
+	}
+	//panic("done")
+	//spew.Dump(workunit.Cmd)
+	//panic("done")
+
+	return
+}
+
+func (w *Workunit) GetId() (id Workunit_Unique_Identifier) {
+	id = w.Workunit_Unique_Identifier
+	return
 }
 
 func (work *Workunit) Mkdir() (err error) {
 	// delete workdir just in case it exists; will not work if awe-worker is not in docker container AND tasks are in container
-	os.RemoveAll(work.Path())
-	err = os.MkdirAll(work.Path(), 0777)
+	work_path, err := work.Path()
+	if err != nil {
+		return
+	}
+	os.RemoveAll(work_path)
+	err = os.MkdirAll(work_path, 0777)
 	if err != nil {
 		return
 	}
@@ -167,30 +392,77 @@ func (work *Workunit) Mkdir() (err error) {
 }
 
 func (work *Workunit) RemoveDir() (err error) {
-	err = os.RemoveAll(work.Path())
+	work_path, err := work.Path()
+	if err != nil {
+		return
+	}
+	err = os.RemoveAll(work_path)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (work *Workunit) SetState(new_state string) {
+func (work *Workunit) SetState(new_state string, reason string) (err error) {
+
+	if new_state == WORK_STAT_SUSPEND && reason == "" {
+		err = fmt.Errorf("To suspend you need to provide a reason")
+		return
+	}
+
 	work.State = new_state
 	if new_state != WORK_STAT_CHECKOUT {
 		work.Client = ""
 	}
+
+	if reason != "" {
+		if len(work.Notes) == 0 {
+			work.Notes = append(work.Notes, reason)
+		}
+	}
+
+	return
 }
 
-func (work *Workunit) Path() string {
+func (work *Workunit) Path() (path string, err error) {
 	if work.WorkPath == "" {
-		id := work.Id
-		work.WorkPath = fmt.Sprintf("%s/%s/%s/%s/%s", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id)
+		id := work.Workunit_Unique_Identifier.JobId
+
+		if id == "" {
+			err = fmt.Errorf("(Workunit/Path) JobId is missing")
+			return
+		}
+
+		task_id_array := strings.Split(work.Workunit_Unique_Identifier.TaskId, "/")
+		task_name := ""
+		if len(task_id_array) > 1 {
+			task_name = strings.Join(task_id_array[1:], "/")
+		} else {
+			task_name = work.Workunit_Unique_Identifier.TaskId
+		}
+
+		// convert name to make it filesystem compatible
+		task_name = strings.Map(
+			func(r rune) rune {
+				if syntax.IsWordChar(r) || r == '-' { // word char: [0-9A-Za-z] and '-'
+					return r
+				}
+				return '_'
+			},
+			task_name)
+
+		work.WorkPath = fmt.Sprintf("%s/%s/%s/%s/%s_%s_%d", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id, task_name, work.Workunit_Unique_Identifier.Rank)
 	}
-	return work.WorkPath
+	path = work.WorkPath
+	return
 }
 
 func (work *Workunit) CDworkpath() (err error) {
-	return os.Chdir(work.Path())
+	work_path, err := work.Path()
+	if err != nil {
+		return
+	}
+	return os.Chdir(work_path)
 }
 
 func (work *Workunit) GetNotes() string {

@@ -6,12 +6,12 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-type WorkflowOutputParameterType struct {
-	Type               string
-	OutputRecordSchema *OutputRecordSchema
-	OutputEnumSchema   *OutputEnumSchema
-	OutputArraySchema  *OutputArraySchema
-}
+//type WorkflowOutputParameterType struct {
+//	Type               string
+//	OutputRecordSchema *OutputRecordSchema
+//	OutputEnumSchema   *OutputEnumSchema
+//	OutputArraySchema  *OutputArraySchema
+//}
 
 type OutputRecordSchema struct{}
 
@@ -19,14 +19,16 @@ type OutputEnumSchema struct{}
 
 type OutputArraySchema struct{}
 
-func NewWorkflowOutputParameterType(original interface{}) (wopt_ptr *WorkflowOutputParameterType, err error) {
-	wopt := WorkflowOutputParameterType{}
-	wopt_ptr = &wopt
+// CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
+
+func NewWorkflowOutputParameterType(original interface{}) (result interface{}, err error) {
+	//wopt := WorkflowOutputParameterType{}
+	//wopt_ptr = &wopt
 
 	switch original.(type) {
 	case string:
 
-		wopt.Type = original.(string)
+		result = original.(string)
 
 		return
 	case map[interface{}]interface{}:
@@ -42,11 +44,14 @@ func NewWorkflowOutputParameterType(original interface{}) (wopt_ptr *WorkflowOut
 
 		switch output_type {
 		case "record":
-			wopt.OutputRecordSchema = &OutputRecordSchema{}
+			result = OutputRecordSchema{}
+			return
 		case "enum":
-			wopt.OutputEnumSchema = &OutputEnumSchema{}
+			result = OutputEnumSchema{}
+			return
 		case "array":
-			wopt.OutputArraySchema = &OutputArraySchema{}
+			result = OutputArraySchema{}
+			return
 		default:
 			err = fmt.Errorf("(NewWorkflowOutputParameterType) type %s is unknown", output_type)
 
@@ -60,8 +65,10 @@ func NewWorkflowOutputParameterType(original interface{}) (wopt_ptr *WorkflowOut
 	return
 }
 
-func NewWorkflowOutputParameterTypeArray(original interface{}) (wopta_ptr *[]WorkflowOutputParameterType, err error) {
-	wopta := []WorkflowOutputParameterType{}
+func NewWorkflowOutputParameterTypeArray(original interface{}) (result interface{}, err error) {
+
+	wopta := []interface{}{}
+
 	switch original.(type) {
 	case map[interface{}]interface{}:
 
@@ -70,8 +77,8 @@ func NewWorkflowOutputParameterTypeArray(original interface{}) (wopta_ptr *[]Wor
 			err = xerr
 			return
 		}
-		wopta = append(wopta, *wopt)
-		wopta_ptr = &wopta
+		wopta = append(wopta, wopt)
+		result = wopta
 		return
 	case []interface{}:
 		logger.Debug(3, "[found array]")
@@ -86,10 +93,10 @@ func NewWorkflowOutputParameterTypeArray(original interface{}) (wopta_ptr *[]Wor
 				err = xerr
 				return
 			}
-			wopta = append(wopta, *wopt)
+			wopta = append(wopta, wopt)
 		}
 
-		wopta_ptr = &wopta
+		result = wopta
 		return
 	case string:
 
@@ -98,9 +105,9 @@ func NewWorkflowOutputParameterTypeArray(original interface{}) (wopta_ptr *[]Wor
 			err = xerr
 			return
 		}
-		wopta = append(wopta, *wopt)
+		wopta = append(wopta, wopt)
 
-		wopta_ptr = &wopta
+		result = wopta
 		return
 	default:
 		fmt.Printf("unknown type")

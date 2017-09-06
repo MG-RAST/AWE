@@ -8,20 +8,21 @@ import (
 )
 
 type CommandLineTool struct {
-	Id                 string                   `yaml:"id"`
-	BaseCommand        []string                 `yaml:"baseCommand"` // TODO also allow []string
-	Inputs             []CommandInputParameter  `yaml:"inputs"`
-	Outputs            []CommandOutputParameter `yaml:"outputs"`
-	Hints              []Requirement            `yaml:"hints"` // TODO Any
-	Label              string                   `yaml:"label"`
-	Description        string                   `yaml:"description"`
-	CwlVersion         CWLVersion               `yaml:"cwlVersion"`
-	Arguments          []CommandLineBinding     `yaml:"arguments"` // TODO support CommandLineBinding
-	Stdin              string                   `yaml:"stdin"`     // TODO support Expression
-	Stdout             string                   `yaml:"stdout"`    // TODO support Expression
-	SuccessCodes       []int                    `yaml:"successCodes"`
-	TemporaryFailCodes []int                    `yaml:"temporaryFailCodes"`
-	PermanentFailCodes []int                    `yaml:"permanentFailCodes"`
+	Id                 string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	Class              string                   `yaml:"class,omitempty" bson:"class,omitempty" json:"class,omitempty"`
+	BaseCommand        []string                 `yaml:"baseCommand,omitempty" bson:"baseCommand,omitempty" json:"baseCommand,omitempty"` // TODO also allow []string
+	Inputs             []CommandInputParameter  `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty"`
+	Outputs            []CommandOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty"`
+	Hints              []Requirement            `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty"` // TODO Any
+	Label              string                   `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	Description        string                   `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty"`
+	CwlVersion         CWLVersion               `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty"`
+	Arguments          []CommandLineBinding     `yaml:"arguments,omitempty" bson:"arguments,omitempty" json:"arguments,omitempty"` // TODO support CommandLineBinding
+	Stdin              string                   `yaml:"stdin,omitempty" bson:"stdin,omitempty" json:"stdin,omitempty"`             // TODO support Expression
+	Stdout             string                   `yaml:"stdout,omitempty" bson:"stdout,omitempty" json:"stdout,omitempty"`          // TODO support Expression
+	SuccessCodes       []int                    `yaml:"successCodes,omitempty" bson:"successCodes,omitempty" json:"successCodes,omitempty"`
+	TemporaryFailCodes []int                    `yaml:"temporaryFailCodes,omitempty" bson:"temporaryFailCodes,omitempty" json:"temporaryFailCodes,omitempty"`
+	PermanentFailCodes []int                    `yaml:"permanentFailCodes,omitempty" bson:"permanentFailCodes,omitempty" json:"permanentFailCodes,omitempty"`
 }
 
 func (c *CommandLineTool) GetClass() string { return "CommandLineTool" }
@@ -32,12 +33,20 @@ func (c *CommandLineTool) Is_process()      {}
 
 // keyname will be converted into 'Id'-field
 
-func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
+//func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
+func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, err error) {
 
 	fmt.Println("NewCommandLineTool:")
-	spew.Dump(object)
+	spew.Dump(generic)
 
-	commandLineTool = &CommandLineTool{}
+	//switch type()
+	object, ok := generic.(map[string]interface{})
+	if !ok {
+		err = fmt.Errorf("other types than map[string]interface{} not supported yet")
+		return
+	}
+
+	commandLineTool = &CommandLineTool{Class: "CommandLineTool"}
 
 	inputs, ok := object["inputs"]
 	if ok {

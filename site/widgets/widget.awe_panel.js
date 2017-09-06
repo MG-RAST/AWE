@@ -82,8 +82,11 @@
 	    apps[wdata[i].cmd.name].push(wdata[i].client);
 	    pipelines[wdata[i].info.pipeline].push(wdata[i].client);
 	    if (wdata[i].client && clientIndex[wdata[i].client] && data[clientIndex[wdata[i].client]]) {
-		data[clientIndex[wdata[i].client]].current_work.data[wdata[i].wuid] = "<span class='href' onclick='Retina.WidgetInstances.awe_panel[1].aweWorkunitDetail("+i+");'>"+wdata[i].cmd.name+"</span>";
-		
+		for (var h=0; h<data[clientIndex[wdata[i].client]].current_work.data.length; h++) {
+		    if (data[clientIndex[wdata[i].client]].current_work.data[h] == wdata[i].wuid) {
+			data[clientIndex[wdata[i].client]].current_work.data[h] = "<span class='href' onclick='Retina.WidgetInstances.awe_panel[1].aweWorkunitDetail("+i+");'>"+wdata[i].cmd.name+"</span>";
+		    }
+		}
 		if (widget.currentApp && (widget.currentApp == wdata[i].cmd.name || widget.currentApp == wdata[i].info.pipeline) ) {
 		    data[clientIndex[wdata[i].client]].highlight = true;
 		} else {
@@ -152,7 +155,7 @@
 		      success: function(data) {
 			  var widget = Retina.WidgetInstances.awe_panel[1];
 			  widget.aweClientData = data.data;
-			  jQuery.ajax({ url: RetinaConfig.awe_ip+"/work?query&state=reserved&limit=1000",
+			  jQuery.ajax({ url: RetinaConfig.awe_ip+"/work?query&state=checkout&limit=1000",
 					headers: widget.authHeader,
 					dataType: "json",
 					success: function(data) {

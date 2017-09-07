@@ -28,6 +28,13 @@ type CQMgr struct {
 	coSem        chan int    //semaphore for checkout (mutual exclusion between different clients)
 }
 
+type Filter_work_stats struct {
+	Total             int
+	Skip_work         int
+	Wrong_clientgroup int
+	Wrong_app         int
+}
+
 //--------mgr methods-------
 
 func (qm *CQMgr) ClientHandle() {
@@ -962,13 +969,6 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 
 	logger.Debug(3, "(popWorks) done with client: %s ", client_id)
 	return
-}
-
-type Filter_work_stats struct {
-	Total             int
-	Skip_work         int
-	Wrong_clientgroup int
-	Wrong_app         int
 }
 
 // client has to be read-locked

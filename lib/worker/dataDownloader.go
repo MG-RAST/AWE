@@ -240,9 +240,12 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 				return
 			}
 
+			// convert job_input into a map
+			job_input_map := job_input.GetMap()
+
 			// create job_input file
 			var job_input_bytes []byte
-			job_input_bytes, err = yaml.Marshal(*job_input)
+			job_input_bytes, err = yaml.Marshal(job_input_map)
 			if err != nil {
 				return
 			}

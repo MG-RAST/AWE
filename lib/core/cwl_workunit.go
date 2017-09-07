@@ -8,12 +8,12 @@ import (
 )
 
 type CWL_workunit struct {
-	Job_input          *cwl.Job_document       `bson:"job_input,omitempty" json:"job_input,omitempty"`
-	Job_input_filename string                  `bson:"job_input_filename,omitempty" json:"job_input_filename,omitempty"`
-	CWL_tool           *cwl.CommandLineTool    `bson:"cwl_tool,omitempty" json:"cwl_tool,omitempty"`
-	CWL_tool_filename  string                  `bson:"cwl_tool_filename,omitempty" json:"cwl_tool_filename,omitempty"`
-	Tool_results       *cwl.Job_document       `bson:"tool_results,omitempty" json:"tool_results,omitempty"`
-	OutputsExpected    *cwl.WorkflowStepOutput `bson:"outputs_expected,omitempty" json:"outputs_expected,omitempty"` // this is the subset of outputs that are needed by the workflow
+	Job_input          *cwl.Job_document         `bson:"job_input,omitempty" json:"job_input,omitempty" mapstructure:"job_input,omitempty"`
+	Job_input_filename string                    `bson:"job_input_filename,omitempty" json:"job_input_filename,omitempty" mapstructure:"job_input_filename,omitempty"`
+	CWL_tool           *cwl.CommandLineTool      `bson:"cwl_tool,omitempty" json:"cwl_tool,omitempty" mapstructure:"cwl_tool,omitempty"`
+	CWL_tool_filename  string                    `bson:"cwl_tool_filename,omitempty" json:"cwl_tool_filename,omitempty" mapstructure:"cwl_tool_filename,omitempty"`
+	Tool_results       *cwl.Job_document         `bson:"tool_results,omitempty" json:"tool_results,omitempty" mapstructure:"tool_results,omitempty"`
+	OutputsExpected    *[]cwl.WorkflowStepOutput `bson:"outputs_expected,omitempty" json:"outputs_expected,omitempty" mapstructure:"outputs_expected,omitempty"` // this is the subset of outputs that are needed by the workflow
 }
 
 func NewCWL_workunit() *CWL_workunit {
@@ -58,13 +58,13 @@ func NewCWL_workunit_from_interface(native interface{}) (workunit *CWL_workunit,
 		outputs_expected_generic, has_outputs_expected := native_map["outputs_expected"]
 		if has_outputs_expected {
 
-			outputs_expected, xerr := cwl.NewWorkflowStepOutput(outputs_expected_generic)
+			outputs_expected, xerr := cwl.NewWorkflowStepOutputArray(outputs_expected_generic)
 			if xerr != nil {
 				err = fmt.Errorf("(NewCWL_workunit_from_interface) NewWorkflowStepOutput failed: %s", xerr.Error())
 				return
 			}
 
-			workunit.OutputsExpected = outputs_expected
+			workunit.OutputsExpected = &outputs_expected
 		}
 
 		cwl_tool_generic, has_cwl_tool_generic := native_map["cwl_tool"]

@@ -44,7 +44,7 @@ func NewWorkflowStep(original interface{}) (w *WorkflowStep, err error) {
 
 		step_out, ok := v_map["out"]
 		if ok {
-			v_map["out"], err = CreateWorkflowStepOutputArray(step_out)
+			v_map["out"], err = NewWorkflowStepOutputArray(step_out)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) CreateWorkflowStepOutputArray %s", err.Error())
 				return

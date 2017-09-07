@@ -21,7 +21,7 @@ func NewWorkflowStepOutput(original interface{}) (wso_ptr *WorkflowStepOutput, e
 	return
 }
 
-func CreateWorkflowStepOutputArray(original interface{}) (new_array []WorkflowStepOutput, err error) {
+func NewWorkflowStepOutputArray(original interface{}) (new_array []WorkflowStepOutput, err error) {
 
 	switch original.(type) {
 	case map[interface{}]interface{}:

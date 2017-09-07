@@ -937,7 +937,12 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 		if err != nil {
 			stat_json_byte = []byte("failed")
 		}
-		logger.Error("(popWorks) filterWorkByClient returned no workunits, stats: %s", stat_json_byte)
+		client_group := ""
+		client_group, err = client.Get_Group(true)
+		if err != nil {
+			client_group = ""
+		}
+		logger.Error("(popWorks) filterWorkByClient returned no workunits for client %s (%s), stats: %s", client_id, client_group, stat_json_byte)
 		err = errors.New(e.NoEligibleWorkunitFound)
 
 		return

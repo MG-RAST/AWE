@@ -9,6 +9,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/user"
 	//"github.com/davecgh/go-spew/spew"
+	"encoding/json"
 	"gopkg.in/mgo.v2/bson"
 	"os"
 	"runtime"
@@ -924,14 +925,21 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 
 	logger.Debug(3, "(popWorks) starting for client: %s", client_id)
 
-	filtered, err := qm.filterWorkByClient(client)
+	filtered, stats, err := qm.filterWorkByClient(client)
 	if err != nil {
 		err = fmt.Errorf("(popWorks) filterWorkByClient returned: %s", err.Error())
 		return
 	}
-	logger.Debug(3, "(popWorks) filterWorkByClient returned: %d (0 meansNoEligibleWorkunitFound)", len(filtered))
+
 	if len(filtered) == 0 {
+		var stat_json_byte []byte
+		stat_json_byte, err = json.Marshal(stats)
+		if err != nil {
+			stat_json_byte = []byte("failed")
+		}
+		logger.Error("(popWorks) filterWorkByClient returned no workunits, stats: %s", stat_json_byte)
 		err = errors.New(e.NoEligibleWorkunitFound)
+
 		return
 	}
 	client_specific_workunits, err = qm.workQueue.selectWorkunits(filtered, req.policy, req.available, req.count)
@@ -951,8 +959,17 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 	return
 }
 
+type Filter_work_stats struct {
+	Total             int
+	Skip_work         int
+	Wrong_clientgroup int
+	Wrong_app         int
+}
+
 // client has to be read-locked
-func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err error) {
+func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, s Filter_work_stats, err error) {
+
+	s = Filter_work_stats{0, 0, 0, 0}
 
 	if client == nil {
 		err = fmt.Errorf("(filterWorkByClient) client == nil")
@@ -981,12 +998,14 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err err
 
 	logger.Debug(3, "(filterWorkByClient) GetWorkunits() returned: %d", len(workunit_list))
 	for _, workunit := range workunit_list {
+		s.Total += 1
 		id := workunit.Id
 		logger.Debug(3, "check if job %s would fit client %s", id, clientid)
 
 		//skip works that are in the client's skip-list
 		if client.Contains_Skip_work_nolock(workunit.Id) {
 			logger.Debug(3, "2) workunit %s is in Skip_work list of the client %s)", id, clientid)
+			s.Skip_work += 1
 			continue
 		}
 		//skip works that have dedicate client groups which this client doesn't belong to
@@ -994,6 +1013,7 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err err
 			eligible_groups := strings.Split(workunit.Info.ClientGroups, ",")
 			if !contains(eligible_groups, client.Group) {
 				logger.Debug(3, fmt.Sprintf("3) !contains(eligible_groups, client.Group) %s", id))
+				s.Wrong_clientgroup += 1
 				continue
 			}
 		}
@@ -1002,15 +1022,17 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, err err
 			logger.Debug(3, "append job %s to list of client %s", id, clientid)
 			workunits = append(workunits, workunit)
 		} else {
-			logger.Debug(2, fmt.Sprintf("3) contains(client.Apps, work.Cmd.Name) || contains(client.Apps, conf.ALL_APP) %s", id))
+			s.Wrong_app += 1
+			logger.Debug(2, "3) contains(client.Apps, work.Cmd.Name) || contains(client.Apps, conf.ALL_APP) %s", id)
 		}
 	}
-	logger.Debug(3, fmt.Sprintf("done with filterWorkByClient() for client: %s", clientid))
+	logger.Debug(3, "done with filterWorkByClient() for client: %s", clientid)
 
-	if len(workunits) == 0 {
-		err = errors.New(e.NoEligibleWorkunitFound)
-		return
-	}
+	// error should be created by the caller, not in this function
+	//if len(workunits) == 0 {
+	//	err = errors.New(e.NoEligibleWorkunitFound)
+	//	return
+	//}
 
 	return
 }

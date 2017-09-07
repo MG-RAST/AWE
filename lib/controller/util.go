@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
@@ -362,7 +363,7 @@ func GetClientGroup(cx *goweb.Context) (cg *core.ClientGroup, done bool) {
 	return
 }
 
-func DecodeBase64(id string) string {
+func DecodeBase64(cx *goweb.Context, id string) (return_id string) {
 	if strings.HasPrefix(id, "base64:") {
 		id_b64 := strings.TrimPrefix(id, "base64:")
 		id_bytes, err := base64.StdEncoding.DecodeString(id_b64)
@@ -371,7 +372,10 @@ func DecodeBase64(id string) string {
 			return
 		}
 
-		id = string(id_bytes[:])
+		return_id = string(id_bytes[:])
+	} else {
+		return_id = id
 	}
-	return id
+
+	return
 }

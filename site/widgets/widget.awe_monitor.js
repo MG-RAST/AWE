@@ -473,7 +473,7 @@
 	var result_data = [];
 	for (var i=0;i<data.length;i++) {
 	    var obj = data[i];
-	    result_data.push( { "wuid": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/work/"+obj.wuid+"\");' style='cursor: pointer;'>"+obj.wuid+"</a>",
+	    result_data.push( { "wuid": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/work/base64:"+Retina.Base64.encode(obj.wuid)+"\");' style='cursor: pointer;'>"+obj.wuid+"</a>",
 				"client": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/client/"+obj.client+"\");' style='cursor: pointer;'>"+obj.client+"</a>",
 				"checkout time": obj.checkout_time,
 				"cmd name": obj.cmd.name,

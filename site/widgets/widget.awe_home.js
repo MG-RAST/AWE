@@ -78,15 +78,4 @@
 		      }
 		    });
     };
-    
-    widget.loginAction = function (action) {
-	var widget = Retina.WidgetInstances.awe_home[1];
-	if (action.action == "login" && action.result == "success") {
-	    widget.authHeader = { "Authorization": "OAuth "+action.token };
-	} else {
-	    widget.authHeader = {};
-	}
-	widget.display();
-    };
-
 })();

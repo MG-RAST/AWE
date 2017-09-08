@@ -794,16 +794,6 @@
 		     } );
     };
 
-    widget.loginAction = function (action) {
-	var widget = Retina.WidgetInstances.awe_monitor[1];
-	if (action.action == "login" && action.result == "success") {
-	    widget.authHeader = { "Authorization": "OAuth "+action.token };
-	} else {
-	    widget.authHeader = {};
-	}
-	widget.display();
-    };
-    
     // workflow visualization functions
     widget.stagePills = function (job) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];

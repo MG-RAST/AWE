@@ -22,7 +22,7 @@ type IO struct {
 	MD5           string                   `bson:"md5" json:"-" mapstructure:"-"`
 	Cache         bool                     `bson:"cache" json:"cache" mapstructure:"cache"` // indicates that this files is "predata"" that needs to be cached
 	Origin        string                   `bson:"origin" json:"origin" mapstructure:"origin"`
-	Path          string                   `bson:"path" json:"-" mapstructure:"-"`
+	Path          string                   `bson:"-" json:"-" mapstructure:"-"`
 	Optional      bool                     `bson:"optional" json:"-" mapstructure:"-"`
 	Nonzero       bool                     `bson:"nonzero"  json:"nonzero" mapstructure:"nonzero"`
 	DataToken     string                   `bson:"datatoken"  json:"-" mapstructure:"-"`

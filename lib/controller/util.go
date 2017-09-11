@@ -379,3 +379,12 @@ func DecodeBase64(cx *goweb.Context, id string) (return_id string) {
 
 	return
 }
+
+func contains(list []string, elem string) bool {
+	for _, t := range list {
+		if t == elem {
+			return true
+		}
+	}
+	return false
+}

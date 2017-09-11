@@ -365,7 +365,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 		spew.Dump(job_input)
 
 		workunit.CWL_workunit.OutputsExpected = &workflow_step.Out
-
+		//spew.Dump(workflow_step.Out)
 		//panic("done")
 
 	}

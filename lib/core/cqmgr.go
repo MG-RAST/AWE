@@ -945,7 +945,7 @@ func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err
 			stat_json_byte = []byte("failed")
 		}
 		client_group := ""
-		client_group, err = client.Get_Group(true)
+		client_group, err = client.Get_Group(false)
 		if err != nil {
 			client_group = ""
 		}

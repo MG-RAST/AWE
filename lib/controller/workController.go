@@ -1,6 +1,7 @@
 package controller
 
 import (
+	//"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
@@ -331,6 +332,14 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	workunit := workunits[0]
 	workunit.State = core.WORK_STAT_RESERVED
 	workunit.Client = clientid
+
+	//test, err := json.Marshal(workunit)
+	//if err != nil {
+	//	panic("did not work")
+	//}
+	//fmt.Println("workunit: ")
+	//fmt.Printf("workunit:\n %s\n", test)
+
 	cx.RespondWithData(workunit)
 	return
 }

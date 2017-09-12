@@ -329,7 +329,8 @@ func (sc *ShockClient) ShockPutIndex(nodeid string, indexname string) (err error
 	return
 }
 
-func (sc *ShockClient) PutFileToShock(filename string, nodeid string, rank int, attrfile string, ntype string, formopts map[string]string, nodeattr map[string]interface{}) (err error) {
+// should return node id if you create new node (i.e. do not specify node id)
+func (sc *ShockClient) PutFileToShock(filename string, nodeid string, rank int, attrfile string, ntype string, formopts map[string]string, nodeattr map[string]interface{}) (new_node_id string, err error) {
 
 	opts := Opts{}
 	fi, _ := os.Stat(filename)
@@ -354,7 +355,14 @@ func (sc *ShockClient) PutFileToShock(filename string, nodeid string, rank int, 
 		}
 	}
 
-	_, err = sc.CreateOrUpdate(opts, nodeid, nodeattr)
+	node, err := sc.CreateOrUpdate(opts, nodeid, nodeattr)
+	if err != nil {
+		return
+	}
+	if node != nil {
+		new_node_id = node.Id
+	}
+
 	return
 }
 

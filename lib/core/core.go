@@ -478,8 +478,13 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (response *StandardResponse, err error) {
 
 	work_id_b64 := "base64:" + base64.StdEncoding.EncodeToString([]byte(work.String()))
-
-	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work_id_b64, work.State, Self.Id, work.ComputeTime)
+	target_url := ""
+	if work.CWL_workunit != nil {
+		target_url = fmt.Sprintf("%s/work/%s?client=%s", conf.SERVER_URL, work_id_b64, Self.Id) // client info is needed for authentication
+	} else {
+		// old AWE style result reporting (note that nodes had been created by the AWE server)
+		target_url = fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work_id_b64, work.State, Self.Id, work.ComputeTime)
+	}
 	form := httpclient.NewForm()
 	hasreport := false
 	if work.State == WORK_STAT_DONE && perf != nil {
@@ -506,6 +511,23 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 			hasreport = true
 		}
 	}
+
+	if work.CWL_workunit != nil {
+		cwl_result := work.CWL_workunit.CWL_workunit_result
+		cwl_result.State = work.State
+		cwl_result.ComputeTime = work.ComputeTime
+
+		var result_bytes []byte
+		result_bytes, err = json.Marshal(cwl_result)
+		if err != nil {
+			err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) Could not json marshal results: %s", err.Error())
+			return
+		}
+
+		form.AddParam("cwl", string(result_bytes[:]))
+
+	}
+
 	if hasreport {
 		target_url = target_url + "&report"
 	}
@@ -618,9 +640,9 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 			}
 		}
 		sc := shock.ShockClient{Host: io.Host, Token: work.Info.DataToken}
-		if err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
+		if _, err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-			if err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
+			if _, err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 				fmt.Errorf("push file error\n")
 				logger.Error("op=pushfile,err=" + err.Error())
 				return size, err

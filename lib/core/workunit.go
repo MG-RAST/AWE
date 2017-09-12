@@ -53,6 +53,7 @@ type Workunit struct {
 	ExitStatus                 int               `bson:"exitstatus,omitempty" json:"exitstatus,omitempty" mapstructure:"exitstatus,omitempty"` // Linux Exit Status Code (0 is success)
 	Notes                      []string          `bson:"notes,omitempty" json:"notes,omitempty" mapstructure:"notes,omitempty"`
 	UserAttr                   map[string]string `bson:"userattr,omitempty" json:"userattr,omitempty" mapstructure:"userattr,omitempty"`
+	ShockHost                  string            `bson:"shockhost,omitempty" json:"shockhost,omitempty" mapstructure:"shockhost,omitempty"` // specifies default Shock host for outputs
 	CWL_workunit               *CWL_workunit     `bson:"cwl,omitempty" json:"cwl,omitempty" mapstructure:"cwl,omitempty"`
 	WorkPath                   string            // this is the working directory. If empty, it will be computed.
 	WorkPerf                   *WorkPerf
@@ -92,6 +93,8 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 		workflow_step := task.WorkflowStep
 
 		workunit.CWL_workunit = &CWL_workunit{}
+
+		workunit.ShockHost = job.ShockHost
 
 		// ****** get CommandLineTool (or whatever can be executed)
 		p := workflow_step.Run

@@ -8,12 +8,25 @@ import (
 )
 
 type CWL_workunit struct {
-	Job_input          *cwl.Job_document         `bson:"job_input,omitempty" json:"job_input,omitempty" mapstructure:"job_input,omitempty"`
-	Job_input_filename string                    `bson:"job_input_filename,omitempty" json:"job_input_filename,omitempty" mapstructure:"job_input_filename,omitempty"`
-	CWL_tool           *cwl.CommandLineTool      `bson:"cwl_tool,omitempty" json:"cwl_tool,omitempty" mapstructure:"cwl_tool,omitempty"`
-	CWL_tool_filename  string                    `bson:"cwl_tool_filename,omitempty" json:"cwl_tool_filename,omitempty" mapstructure:"cwl_tool_filename,omitempty"`
-	Tool_results       *cwl.Job_document         `bson:"tool_results,omitempty" json:"tool_results,omitempty" mapstructure:"tool_results,omitempty"`
-	OutputsExpected    *[]cwl.WorkflowStepOutput `bson:"outputs_expected,omitempty" json:"outputs_expected,omitempty" mapstructure:"outputs_expected,omitempty"` // this is the subset of outputs that are needed by the workflow
+	Job_input           *cwl.Job_document         `bson:"job_input,omitempty" json:"job_input,omitempty" mapstructure:"job_input,omitempty"`
+	Job_input_filename  string                    `bson:"job_input_filename,omitempty" json:"job_input_filename,omitempty" mapstructure:"job_input_filename,omitempty"`
+	CWL_tool            *cwl.CommandLineTool      `bson:"cwl_tool,omitempty" json:"cwl_tool,omitempty" mapstructure:"cwl_tool,omitempty"`
+	CWL_tool_filename   string                    `bson:"cwl_tool_filename,omitempty" json:"cwl_tool_filename,omitempty" mapstructure:"cwl_tool_filename,omitempty"`
+	Tool_results        *cwl.Job_document         `bson:"tool_results,omitempty" json:"tool_results,omitempty" mapstructure:"tool_results,omitempty"`
+	OutputsExpected     *[]cwl.WorkflowStepOutput `bson:"outputs_expected,omitempty" json:"outputs_expected,omitempty" mapstructure:"outputs_expected,omitempty"` // this is the subset of outputs that are needed by the workflow
+	CWL_workunit_result `bson:",inline" json:",inline" mapstructure:",squash"`
+}
+
+type CWL_workunit_result struct {
+	Id          string            `bson:"id" json:"id" mapstructure:"id"` // redundant field, for reporting
+	WorkerId    string            `bson:"id" json:"id" mapstructure:"id"`
+	Results     *cwl.Job_document `bson:"results" json:"results" mapstructure:"results"`                         // subset of tool_results with Shock URLs
+	State       string            `bson:"state,omitempty" json:"state,omitempty" mapstructure:"state,omitempty"` // this is redundant as workunit already has state, but this is only used for transfer
+	ComputeTime int               `bson:"computetime,omitempty" json:"computetime,omitempty" mapstructure:"computetime,omitempty"`
+}
+
+func NewCWL_workunit_result(native interface{}) (workunit_result *CWL_workunit_result, err error) {
+	workunit_result = &CWL_workunit_result{}
 }
 
 func NewCWL_workunit() *CWL_workunit {

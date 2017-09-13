@@ -17,18 +17,6 @@ type CWL_workunit struct {
 	CWL_workunit_result `bson:",inline" json:",inline" mapstructure:",squash"`
 }
 
-type CWL_workunit_result struct {
-	Id          string            `bson:"id" json:"id" mapstructure:"id"` // redundant field, for reporting
-	WorkerId    string            `bson:"id" json:"id" mapstructure:"id"`
-	Results     *cwl.Job_document `bson:"results" json:"results" mapstructure:"results"`                         // subset of tool_results with Shock URLs
-	State       string            `bson:"state,omitempty" json:"state,omitempty" mapstructure:"state,omitempty"` // this is redundant as workunit already has state, but this is only used for transfer
-	ComputeTime int               `bson:"computetime,omitempty" json:"computetime,omitempty" mapstructure:"computetime,omitempty"`
-}
-
-func NewCWL_workunit_result(native interface{}) (workunit_result *CWL_workunit_result, err error) {
-	workunit_result = &CWL_workunit_result{}
-}
-
 func NewCWL_workunit() *CWL_workunit {
 	return &CWL_workunit{
 		Job_input:       nil,

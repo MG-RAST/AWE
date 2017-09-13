@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/MG-RAST/AWE/lib/core/cwl"
+	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
@@ -426,8 +426,8 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 			cx.RespondWithErrorMessage("Could not parse cwl form parameter: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		var cwl_result core.CWL_workunit_result
-		cwl_result, err = cwl.NewJob_document(cwl_result_if)
+		var cwl_result *core.CWL_workunit_result
+		cwl_result, err = core.NewCWL_workunit_result(cwl_result_if)
 		if err != nil {
 			cx.RespondWithErrorMessage("NewJob_document failed: "+err.Error(), http.StatusInternalServerError)
 			return

@@ -298,7 +298,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	}
 	if has_cwl {
 		workunit.CWL_workunit = cwl_object
-		workunit.CWL_workunit.CWL_workunit_result = core.CWL_workunit_result{Id: workunit.Id, WorkerId: core.Self.Id}
+		workunit.CWL_workunit.Notice = core.Notice{Id: workunit.Workunit_Unique_Identifier, WorkerId: core.Self.Id}
 	}
 
 	//test, err := json.Marshal(workunit)

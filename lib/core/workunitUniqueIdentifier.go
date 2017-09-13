@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/mitchellh/mapstructure"
 	"strconv"
 	"strings"
 )
@@ -18,6 +19,19 @@ func (w Workunit_Unique_Identifier) String() string {
 
 func (w Workunit_Unique_Identifier) GetTask() Task_Unique_Identifier {
 	return Task_Unique_Identifier{JobId: w.JobId, Id: w.TaskId}
+}
+
+func New_Workunit_Unique_Identifier_from_interface(original interface{}) (wui Workunit_Unique_Identifier, err error) {
+
+	wui = Workunit_Unique_Identifier{}
+
+	err = mapstructure.Decode(original, &wui)
+	if err != nil {
+		err = fmt.Errorf("(New_Workunit_Unique_Identifier_from_interface) mapstructure returs: %s", err.Error())
+		return
+	}
+
+	return
 }
 
 func New_Workunit_Unique_Identifier(old_style_id string) (w Workunit_Unique_Identifier, err error) {

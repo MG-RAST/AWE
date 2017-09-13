@@ -57,7 +57,7 @@ func (qm *ProxyMgr) ClientHandle() {
 			//qm.coAck <- ack
 			coReq.response <- ack
 		case notice := <-qm.feedback:
-			logger.Debug(2, fmt.Sprintf("proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
+			logger.Debug(2, fmt.Sprintf("proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.Id, notice.Status, notice.WorkerId))
 			if err := qm.handleNoticeWorkDelivered(notice); err != nil {
 				logger.Error("handleNoticeWorkDelivered(): " + err.Error())
 			}
@@ -102,8 +102,8 @@ func (qm *ProxyMgr) GetTextStatus() string {
 func (qm *ProxyMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	//relay the notice to the server
 	perf := new(WorkPerf)
-	workid := notice.WorkId
-	clientid := notice.ClientId
+	workid := notice.Id
+	clientid := notice.WorkerId
 	client, ok, err := qm.GetClient(clientid, true)
 	if err != nil {
 		return
@@ -111,7 +111,7 @@ func (qm *ProxyMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	if ok {
 		//delete(client.Current_work, workid)
 		client.LockNamed("ProxyMgr/handleNoticeWorkDelivered A2")
-		err = client.Assigned_work.Delete(notice.WorkId, false)
+		err = client.Assigned_work.Delete(notice.Id, false)
 		if err != nil {
 			return
 		}

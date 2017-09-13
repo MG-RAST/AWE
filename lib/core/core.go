@@ -75,15 +75,6 @@ type CoReq struct {
 	response  chan CoAck
 }
 
-type Notice struct {
-	WorkId      Workunit_Unique_Identifier
-	Status      string
-	ClientId    string
-	ComputeTime int
-	Notes       string
-	Stderr      string
-}
-
 type coInfo struct {
 	workunit *Workunit
 	clientid string
@@ -513,8 +504,8 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 	}
 
 	if work.CWL_workunit != nil {
-		cwl_result := work.CWL_workunit.CWL_workunit_result
-		cwl_result.State = work.State
+		cwl_result := work.CWL_workunit.Notice
+		cwl_result.Status = work.State
 		cwl_result.ComputeTime = work.ComputeTime
 
 		var result_bytes []byte

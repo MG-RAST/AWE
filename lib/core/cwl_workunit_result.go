@@ -7,22 +7,35 @@ import (
 	"fmt"
 )
 
-type CWL_workunit_result struct {
-	Id          string            `bson:"id" json:"id" mapstructure:"id"` // redundant field, for reporting
-	WorkerId    string            `bson:"worker_id" json:"worker_id" mapstructure:"worker_id"`
-	Results     *cwl.Job_document `bson:"results" json:"results" mapstructure:"results"`                         // subset of tool_results with Shock URLs
-	State       string            `bson:"state,omitempty" json:"state,omitempty" mapstructure:"state,omitempty"` // this is redundant as workunit already has state, but this is only used for transfer
-	ComputeTime int               `bson:"computetime,omitempty" json:"computetime,omitempty" mapstructure:"computetime,omitempty"`
+// TODO core.Notice and this should be the same !!!!
+
+type Notice struct {
+	Id          Workunit_Unique_Identifier `bson:"id" json:"id" mapstructure:"id"` // redundant field, for reporting
+	WorkerId    string                     `bson:"worker_id" json:"worker_id" mapstructure:"worker_id"`
+	Results     *cwl.Job_document          `bson:"results" json:"results" mapstructure:"results"`                            // subset of tool_results with Shock URLs
+	Status      string                     `bson:"status,omitempty" json:"status,omitempty" mapstructure:"status,omitempty"` // this is redundant as workunit already has state, but this is only used for transfer
+	ComputeTime int                        `bson:"computetime,omitempty" json:"computetime,omitempty" mapstructure:"computetime,omitempty"`
+	Notes       string
+	Stderr      string
 }
 
-func NewCWL_workunit_result(native interface{}) (workunit_result *CWL_workunit_result, err error) {
-	workunit_result = &CWL_workunit_result{}
+//type Notice struct {
+//	WorkId      Workunit_Unique_Identifier
+//	Status      string
+//	WorkerId    string
+//	ComputeTime int
+//	Notes       string
+//	Stderr      string
+//}
+
+func NewNotice(native interface{}) (workunit_result *Notice, err error) {
+	workunit_result = &Notice{}
 	switch native.(type) {
 
 	case map[string]interface{}:
 		native_map, ok := native.(map[string]interface{})
 		if !ok {
-			err = fmt.Errorf("(NewCWL_workunit_result) type error")
+			err = fmt.Errorf("(NewNotice) type error")
 			return
 		}
 
@@ -38,15 +51,31 @@ func NewCWL_workunit_result(native interface{}) (workunit_result *CWL_workunit_r
 			workunit_result.Results = results_jobdoc
 		}
 
-		workunit_result.Id, _ = native_map["id"].(string)
+		id, ok := native_map["id"]
+		if !ok {
+			err = fmt.Errorf("(NewNotice) id is missing")
+			return
+		}
+
+		workunit_result.Id, err = New_Workunit_Unique_Identifier_from_interface(id)
+		if err != nil {
+			err = fmt.Errorf("(NewNotice) id is missing")
+			return
+		}
+
 		workunit_result.WorkerId, _ = native_map["worker_id"].(string)
-		workunit_result.State, _ = native_map["state"].(string)
+		status, has_status := native_map["status"]
+		if !has_status {
+			err = fmt.Errorf("(NewNotice) status is missing")
+			return
+		}
+		workunit_result.Status, _ = status.(string)
 		workunit_result.ComputeTime, _ = native_map["computetime"].(int)
 
 		return
 
 	default:
-		err = fmt.Errorf("(NewCWL_workunit_result) wrong type, map expected")
+		err = fmt.Errorf("(NewNotice) wrong type, map expected")
 		return
 
 	}

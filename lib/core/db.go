@@ -115,7 +115,7 @@ func dbFind(q bson.M, results *Jobs, options map[string]int) (count int, err err
 		if offset, has := options["offset"]; has {
 			err = query.Limit(limit).Skip(offset).All(results)
 			if results != nil {
-				err = results.Init()
+				_, err = results.Init()
 				if err != nil {
 					return
 				}
@@ -127,7 +127,7 @@ func dbFind(q bson.M, results *Jobs, options map[string]int) (count int, err err
 	}
 	err = query.All(results)
 	if results != nil {
-		err = results.Init()
+		_, err = results.Init()
 		if err != nil {
 			return
 		}
@@ -151,7 +151,7 @@ func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string) 
 		if offset, has := options["offset"]; has {
 			err = query.Sort(sortby).Limit(limit).Skip(offset).All(results)
 			if results != nil {
-				err = results.Init()
+				_, err = results.Init()
 				if err != nil {
 					return
 				}
@@ -160,12 +160,23 @@ func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string) 
 		}
 	}
 	err = query.Sort(sortby).All(results)
-	if results != nil {
-		err = results.Init()
-		if err != nil {
-			return
-		}
+	if err != nil {
+		err = fmt.Errorf("query.Sort(sortby).All(results) failed: %s", err.Error())
+		return
 	}
+	if results == nil {
+		err = fmt.Errorf("(dbFindSort) results == nil")
+		return
+	}
+
+	var count_changed int
+	count_changed, err = results.Init()
+	if err != nil {
+		err = fmt.Errorf("(dbFindSort) results.Init() failed: %s", err.Error())
+		return
+	}
+	logger.Debug(1, "%d jobs haven been updated by Init function", count_changed)
+
 	return
 }
 

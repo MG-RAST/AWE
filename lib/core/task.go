@@ -30,7 +30,7 @@ const (
 )
 
 type TaskRaw struct {
-	RWMutex
+	RWMutex                `bson:"-" json:"-"`
 	Task_Unique_Identifier `bson:",inline"`
 	Info                   *Info             `bson:"-" json:"-"` // this is just a pointer to the job.Info
 	Cmd                    *Command          `bson:"cmd" json:"cmd"`
@@ -47,6 +47,8 @@ type TaskRaw struct {
 	UserAttr               map[string]string `bson:"userattr" json:"userattr"`
 	ClientGroups           string            `bson:"clientgroups" json:"clientgroups"`
 	WorkflowStep           *cwl.WorkflowStep `bson:"workflowStep" json:"workflowStep"` // CWL-only
+	StepOutputInterface    interface{}       `bson:"stepOutput" json:"stepOutput"`     // CWL-only
+	StepOutput             *cwl.Job_document `bson:"-" json:"-"`                       // CWL-only
 }
 
 type Task_Unique_Identifier struct {
@@ -158,6 +160,13 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	if strings.HasPrefix(task.Id, "_") {
 		task.Id = strings.TrimPrefix(task.Id, "_")
 		changed = true
+	}
+
+	if task.StepOutputInterface != nil {
+		task.StepOutput, err = cwl.NewJob_document(task.StepOutputInterface)
+		if err != nil {
+			return
+		}
 	}
 
 	return
@@ -432,6 +441,24 @@ func (task *TaskRaw) SetCompletedDate(t time.Time, lock bool) (err error) {
 		return
 	}
 	task.CompletedDate = t
+	return
+}
+
+func (task *TaskRaw) SetStepOutput(jd *cwl.Job_document, lock bool) (err error) {
+	if lock {
+		err = task.LockNamed("SetStepOutput")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
+
+	err = dbUpdateJobTaskField(task.JobId, task.Id, "stepOutput", *jd)
+	if err != nil {
+		return
+	}
+	task.StepOutput = jd
+	task.StepOutputInterface = jd
 	return
 }
 

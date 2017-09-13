@@ -400,7 +400,13 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	// old-style
 	var notice *core.Notice
 	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
-		notice = &core.Notice{WorkId: work_id, Status: query.Value("status"), ClientId: query.Value("client"), Notes: ""}
+		//work_id_object, err := core.New_Workunit_Unique_Identifier(work_id)
+		//if err != nil {
+		//	cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		//	return
+		//}
+
+		notice = &core.Notice{Id: work_id, Status: query.Value("status"), WorkerId: query.Value("client"), Notes: ""}
 		// old-style
 		if query.Has("computetime") {
 			if comptime, err := strconv.Atoi(query.Value("computetime")); err == nil {
@@ -419,21 +425,28 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	cwl_result_str, ok := params["cwl"]
 	if ok {
 
-		var cwl_result_if []interface{}
-		err = json.Unmarshal([]byte(cwl_result_str), &cwl_result_if)
+		fmt.Printf("cwl_result_str: %s\n", cwl_result_str)
+
+		var notice_if map[string]interface{}
+		err = json.Unmarshal([]byte(cwl_result_str), &notice_if)
 		if err != nil {
 
 			cx.RespondWithErrorMessage("Could not parse cwl form parameter: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		var cwl_result *core.CWL_workunit_result
-		cwl_result, err = core.NewCWL_workunit_result(cwl_result_if)
+
+		notice, err = core.NewNotice(notice_if)
 		if err != nil {
 			cx.RespondWithErrorMessage("NewJob_document failed: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		notice = &core.Notice{WorkId: work_id, Status: cwl_result.State, ClientId: cwl_result.WorkerId, Notes: ""}
+		if notice.Status == "" {
+			cx.RespondWithErrorMessage("Status empty!?"+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		//notice = &core.Notice{Id: work_id, Status: cwl_result.Status, WorkerId: cwl_result.WorkerId, Notes: ""}
 
 	}
 	spew.Dump(params)
@@ -476,6 +489,6 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 
 	core.QMgr.NotifyWorkStatus(*notice)
 	//}
-	//cx.RespondWithData("ok")
+	cx.RespondWithData("ok")
 	return
 }

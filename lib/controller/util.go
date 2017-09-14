@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
@@ -360,4 +361,30 @@ func GetClientGroup(cx *goweb.Context) (cg *core.ClientGroup, done bool) {
 		}
 	}
 	return
+}
+
+func DecodeBase64(cx *goweb.Context, id string) (return_id string) {
+	if strings.HasPrefix(id, "base64:") {
+		id_b64 := strings.TrimPrefix(id, "base64:")
+		id_bytes, err := base64.StdEncoding.DecodeString(id_b64)
+		if err != nil {
+			cx.RespondWithErrorMessage("error decoding base64 workunit identifier: "+id, http.StatusBadRequest)
+			return
+		}
+
+		return_id = string(id_bytes[:])
+	} else {
+		return_id = id
+	}
+
+	return
+}
+
+func contains(list []string, elem string) bool {
+	for _, t := range list {
+		if t == elem {
+			return true
+		}
+	}
+	return false
 }

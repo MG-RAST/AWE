@@ -298,8 +298,17 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	}
 	if has_cwl {
 		workunit.CWL_workunit = cwl_object
+		workunit.CWL_workunit.Notice = core.Notice{Id: workunit.Workunit_Unique_Identifier, WorkerId: core.Self.Id}
 	}
-	//spew.Dump(response)
+
+	//test, err := json.Marshal(workunit)
+	//if err != nil {
+	//	panic("did not work")
+	//}
+	//fmt.Println("workunit: ")
+	//fmt.Printf("workunit:\n %s\n", test)
+
+	//panic("done...")
 
 	if response.Status == 0 { // this is ugly
 		err = fmt.Errorf(e.ServerNotFound)

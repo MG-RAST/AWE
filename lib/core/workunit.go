@@ -53,6 +53,7 @@ type Workunit struct {
 	ExitStatus                 int               `bson:"exitstatus,omitempty" json:"exitstatus,omitempty" mapstructure:"exitstatus,omitempty"` // Linux Exit Status Code (0 is success)
 	Notes                      []string          `bson:"notes,omitempty" json:"notes,omitempty" mapstructure:"notes,omitempty"`
 	UserAttr                   map[string]string `bson:"userattr,omitempty" json:"userattr,omitempty" mapstructure:"userattr,omitempty"`
+	ShockHost                  string            `bson:"shockhost,omitempty" json:"shockhost,omitempty" mapstructure:"shockhost,omitempty"` // specifies default Shock host for outputs
 	CWL_workunit               *CWL_workunit     `bson:"cwl,omitempty" json:"cwl,omitempty" mapstructure:"cwl,omitempty"`
 	WorkPath                   string            // this is the working directory. If empty, it will be computed.
 	WorkPerf                   *WorkPerf
@@ -92,6 +93,8 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 		workflow_step := task.WorkflowStep
 
 		workunit.CWL_workunit = &CWL_workunit{}
+
+		workunit.ShockHost = job.ShockHost
 
 		// ****** get CommandLineTool (or whatever can be executed)
 		p := workflow_step.Run
@@ -161,6 +164,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 		//job_input := *job.CWL_collection.Job_input
 		workunit_input_map := make(map[string]cwl_types.CWLType)
 
+		fmt.Println("workflow_step.In:")
 		spew.Dump(workflow_step.In)
 		for _, input := range workflow_step.In {
 			// input is a WorkflowStepInput
@@ -351,18 +355,21 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 				//err = fmt.Errorf("(NewWorkunit) sorry, ValueFrom not supported yet")
 
-			}
-
-			job_input := cwl.Job_document{}
-
-			for _, elem := range workunit_input_map {
-				job_input = append(job_input, elem)
-			}
-
-			workunit.CWL_workunit.Job_input = &job_input
-			//spew.Dump(job_input)
+			} // end of input.ValueFrom
 
 		}
+		job_input := cwl.Job_document{}
+
+		for _, elem := range workunit_input_map {
+			job_input = append(job_input, elem)
+		}
+
+		workunit.CWL_workunit.Job_input = &job_input
+		spew.Dump(job_input)
+
+		workunit.CWL_workunit.OutputsExpected = &workflow_step.Out
+		//spew.Dump(workflow_step.Out)
+		//panic("done")
 
 	}
 	//panic("done")

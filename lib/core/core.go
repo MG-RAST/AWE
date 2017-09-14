@@ -13,6 +13,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/httpclient"
 	"io/ioutil"
+	//"net/url"
+	"encoding/base64"
 	"os"
 	"os/exec"
 	"strconv"
@@ -71,15 +73,6 @@ type CoReq struct {
 	available int64
 	count     int
 	response  chan CoAck
-}
-
-type Notice struct {
-	WorkId      Workunit_Unique_Identifier
-	Status      string
-	ClientId    string
-	ComputeTime int
-	Notes       string
-	Stderr      string
 }
 
 type coInfo struct {
@@ -474,7 +467,15 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 }
 
 func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (response *StandardResponse, err error) {
-	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work.String(), work.State, Self.Id, work.ComputeTime)
+
+	work_id_b64 := "base64:" + base64.StdEncoding.EncodeToString([]byte(work.String()))
+	target_url := ""
+	if work.CWL_workunit != nil {
+		target_url = fmt.Sprintf("%s/work/%s?client=%s", conf.SERVER_URL, work_id_b64, Self.Id) // client info is needed for authentication
+	} else {
+		// old AWE style result reporting (note that nodes had been created by the AWE server)
+		target_url = fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work_id_b64, work.State, Self.Id, work.ComputeTime)
+	}
 	form := httpclient.NewForm()
 	hasreport := false
 	if work.State == WORK_STAT_DONE && perf != nil {
@@ -501,6 +502,23 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 			hasreport = true
 		}
 	}
+
+	if work.CWL_workunit != nil {
+		cwl_result := work.CWL_workunit.Notice
+		cwl_result.Status = work.State
+		cwl_result.ComputeTime = work.ComputeTime
+
+		var result_bytes []byte
+		result_bytes, err = json.Marshal(cwl_result)
+		if err != nil {
+			err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) Could not json marshal results: %s", err.Error())
+			return
+		}
+
+		form.AddParam("cwl", string(result_bytes[:]))
+
+	}
+
 	if hasreport {
 		target_url = target_url + "&report"
 	}
@@ -521,6 +539,7 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 			"Authorization":  []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
 		}
 	}
+	logger.Debug(3, "PUT %s", target_url)
 	res, err := httpclient.Put(target_url, headers, form.Reader, nil)
 	if err != nil {
 		return
@@ -612,9 +631,9 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 			}
 		}
 		sc := shock.ShockClient{Host: io.Host, Token: work.Info.DataToken}
-		if err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
+		if _, err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-			if err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
+			if _, err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 				fmt.Errorf("push file error\n")
 				logger.Error("op=pushfile,err=" + err.Error())
 				return size, err

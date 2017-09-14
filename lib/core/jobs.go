@@ -7,7 +7,8 @@ import (
 // Job array type
 type Jobs []*Job
 
-func (n *Jobs) Init() (err error) {
+func (n *Jobs) Init() (changed_count int, err error) {
+	changed_count = 0
 	for _, job := range *n {
 		changed, xerr := job.Init()
 		if xerr != nil {
@@ -15,7 +16,11 @@ func (n *Jobs) Init() (err error) {
 			return
 		}
 		if changed {
-			job.Save()
+			changed_count += 1
+			err = job.Save()
+			if err != nil {
+				return
+			}
 		}
 	}
 	return

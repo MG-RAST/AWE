@@ -14,7 +14,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/golib/httpclient"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
@@ -240,9 +240,12 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 				return
 			}
 
+			// convert job_input into a map
+			job_input_map := job_input.GetMap()
+
 			// create job_input file
 			var job_input_bytes []byte
-			job_input_bytes, err = yaml.Marshal(*job_input)
+			job_input_bytes, err = yaml.Marshal(job_input_map)
 			if err != nil {
 				return
 			}
@@ -334,7 +337,10 @@ func dataDownloader(control chan int) {
 
 		err := downloadWorkunitData(workunit)
 		if err != nil {
-			logger.Error("(dataDownloader) downloadWorkunitData returned: %s", err.Error())
+			err = fmt.Errorf("(dataDownloader) downloadWorkunitData returned: %s", err.Error())
+			logger.Error(err.Error())
+			workunit.State = core.WORK_STAT_ERROR
+			workunit.Notes = append(workunit.Notes, err.Error())
 		}
 		//parsed := &Mediumwork{
 		//	Workunit: raw.Workunit,
@@ -343,7 +349,7 @@ func dataDownloader(control chan int) {
 		//	CWL_tool: raw.CWL_tool,
 		//}
 		//work := raw.Workunit
-		spew.Dump(workunit.Cmd)
+		//spew.Dump(workunit.Cmd)
 		//panic("done")
 		fromMover <- workunit
 	}

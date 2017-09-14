@@ -186,7 +186,7 @@ func (qm *ServerMgr) NoticeHandle() {
 	logger.Info("(ServerMgr NoticeHandle) starting")
 	for {
 		notice := <-qm.feedback
-		logger.Debug(3, "(ServerMgr NoticeHandle) got notice: workid=%s, status=%s, clientid=%s", notice.WorkId, notice.Status, notice.ClientId)
+		logger.Debug(3, "(ServerMgr NoticeHandle) got notice: workid=%s, status=%s, clientid=%s", notice.Id, notice.Status, notice.WorkerId)
 		if err := qm.handleNoticeWorkDelivered(notice); err != nil {
 			logger.Error("(NoticeHandle): " + err.Error())
 		}
@@ -580,13 +580,13 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 //handle feedback from a client about the execution of a workunit
 func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 
-	id := notice.WorkId
+	id := notice.Id
 	task_id := id.GetTask()
 
 	job_id := id.JobId
 	workid := id.String()
 	status := notice.Status
-	clientid := notice.ClientId
+	clientid := notice.WorkerId
 	computetime := notice.ComputeTime
 	notes := notice.Notes
 
@@ -622,6 +622,16 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		logger.Error("Task %s for workunit %s not found", task_id, workid)
 		qm.workQueue.Delete(id)
 		return fmt.Errorf("(handleNoticeWorkDelivered) task %s for workunit %s not found", task_id, workid)
+	}
+
+	if notice.Results != nil { // TODO one workunit vs multiple !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+		err = task.SetStepOutput(notice.Results, true)
+		if err != nil {
+
+			return err
+		}
+
 	}
 
 	// *** Get workunit
@@ -2233,6 +2243,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 		}
 	}
 	//Locate the job script and parse tasks for each job
+	fmt.Printf("%d total jobs from mongo\n", dbjobs.Length())
 	jobct := 0
 	for _, dbjob := range *dbjobs {
 		logger.Debug(2, "recovering %d: job=%s, state=%s", jobct, dbjob.Id, dbjob.State)

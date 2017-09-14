@@ -208,7 +208,7 @@ func (cl *Client) Get_Id(do_read_lock bool) (s string, err error) {
 // this function should not be used internally, this is only for backwards-compatibility and human readability
 func (cl *Client) Get_New_Status(do_read_lock bool) (s string, err error) {
 	if do_read_lock {
-		read_lock, xerr := cl.RLockNamed("Get_Status")
+		read_lock, xerr := cl.RLockNamed("Get_New_Status")
 		if xerr != nil {
 			err = xerr
 			return
@@ -221,7 +221,7 @@ func (cl *Client) Get_New_Status(do_read_lock bool) (s string, err error) {
 
 func (cl *Client) Get_Group(do_read_lock bool) (g string, err error) {
 	if do_read_lock {
-		read_lock, xerr := cl.RLockNamed("Get_Status")
+		read_lock, xerr := cl.RLockNamed("Get_Group")
 		if xerr != nil {
 			err = xerr
 			return

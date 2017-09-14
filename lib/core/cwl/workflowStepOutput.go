@@ -4,24 +4,45 @@ import (
 	"fmt"
 	//"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
+	"reflect"
 )
 
 type WorkflowStepOutput struct {
-	Id string `yaml:"id" bson:"id" json:"id"`
+	Id string `yaml:"id" bson:"id" json:"id" mapstructure:"id"`
 }
 
 func NewWorkflowStepOutput(original interface{}) (wso_ptr *WorkflowStepOutput, err error) {
 
-	var wso WorkflowStepOutput
-	err = mapstructure.Decode(original, &wso)
+	original, err = makeStringMap(original)
 	if err != nil {
-		err = fmt.Errorf("(CreateWorkflowStepOutputArray) %s", err.Error())
 		return
 	}
+
+	var wso WorkflowStepOutput
+
+	switch original.(type) {
+	case string:
+		original_str := original.(string)
+		wso = WorkflowStepOutput{Id: original_str}
+		wso_ptr = &wso
+		return
+	case map[string]interface{}:
+		err = mapstructure.Decode(original, &wso)
+		if err != nil {
+			err = fmt.Errorf("(CreateWorkflowStepOutputArray) %s", err.Error())
+			return
+		}
+		wso_ptr = &wso
+		return
+	default:
+		err = fmt.Errorf("(NewWorkflowStepOutput) could not parse NewWorkflowStepOutput, type unknown %s", reflect.TypeOf(original))
+		return
+	}
+
 	return
 }
 
-func CreateWorkflowStepOutputArray(original interface{}) (new_array []WorkflowStepOutput, err error) {
+func NewWorkflowStepOutputArray(original interface{}) (new_array []WorkflowStepOutput, err error) {
 
 	switch original.(type) {
 	case map[interface{}]interface{}:
@@ -47,20 +68,17 @@ func CreateWorkflowStepOutputArray(original interface{}) (new_array []WorkflowSt
 	case []interface{}:
 		for _, v := range original.([]interface{}) {
 
-			switch v.(type) {
-			case string:
-				output_parameter := WorkflowStepOutput{Id: v.(string)}
-				new_array = append(new_array, output_parameter)
-			default:
-				wso, ok := v.(WorkflowStepOutput)
-				if !ok {
-					// TODO some ERROR
-				}
-				new_array = append(new_array, wso)
+			wso, xerr := NewWorkflowStepOutput(v)
+			if xerr != nil {
+				err = xerr
+				return
 			}
+			new_array = append(new_array, *wso)
 
 		}
-
+	default:
+		err = fmt.Errorf("(NewWorkflowStepOutputArray) could not parse NewWorkflowStepOutputArray, type unknown %s", reflect.TypeOf(original))
+		return
 	} // end switch
 
 	//spew.Dump(new_array)

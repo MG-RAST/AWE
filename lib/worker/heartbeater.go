@@ -283,6 +283,10 @@ func RegisterWithAuth(host string, pclient *core.Client) (err error) {
 	response := new(ClientResponse)
 	logger.Debug(3, "(RegisterWithAuth) client registration: got response")
 	jsonstream, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		err = fmt.Errorf("Could not read repsonse body: %s", err.Error())
+		return
+	}
 	logger.Debug(3, "(RegisterWithAuth) client registration: got response: %s", string(jsonstream[:]))
 	if err = json.Unmarshal(jsonstream, response); err != nil {
 		err = errors.New("(RegisterWithAuth) fail to unmashal response:" + string(jsonstream))

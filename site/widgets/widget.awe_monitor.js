@@ -473,7 +473,8 @@
 	var result_data = [];
 	for (var i=0;i<data.length;i++) {
 	    var obj = data[i];
-	    result_data.push( { "id": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/work/"+obj.wuid+"\");' style='cursor: pointer;'>"+obj.wuid+"</a>",
+
+	    result_data.push( { "id": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/work/base64:"+Retina.Base64.encode(obj.wuid)+"\");' style='cursor: pointer;'>"+obj.wuid+"</a>",
 				"client": "<a onclick='Retina.WidgetInstances.awe_monitor[1].authenticatedJSON(\""+RetinaConfig["awe_ip"]+"/client/"+obj.client+"\");' style='cursor: pointer;'>"+obj.client+"</a>",
 				"checkout time": obj.checkout_time,
 				"cmd name": obj.cmd.name,
@@ -794,16 +795,6 @@
 		     } );
     };
 
-    widget.loginAction = function (action) {
-	var widget = Retina.WidgetInstances.awe_monitor[1];
-	if (action.action == "login" && action.result == "success") {
-	    widget.authHeader = { "Authorization": "OAuth "+action.token };
-	} else {
-	    widget.authHeader = {};
-	}
-	widget.display();
-    };
-    
     // workflow visualization functions
     widget.stagePills = function (job) {
 	var widget = Retina.WidgetInstances.awe_monitor[1];

@@ -544,6 +544,38 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		return
 	}
 
+	// This code returns jobs from the in-memory job map, (thus it should be more efficient) but it does not have the same sorting and filtering feature as the mongo code based above.
+	// if query.Has("active") {
+	//
+	// 		jobs, err := core.JM.Get_List(true)
+	// 		if err != nil {
+	// 			cx.RespondWithErrorMessage("could not get job list: "+err.Error(), http.StatusBadRequest)
+	// 			return
+	// 		}
+	//
+	// 		filtered_jobs := core.Jobs{}
+	//
+	// 		for _, job := range jobs {
+	// 			var job_state string
+	// 			job_state, err = job.GetState(true)
+	// 			if err != nil {
+	// 				logger.Error("(JobController/ReadMany/active) Could not get job state")
+	// 				continue
+	// 			}
+	//
+	// 			if contains(core.JOB_STATS_ACTIVE, job_state) {
+	// 				filtered_jobs = append(filtered_jobs, job)
+	// 			}
+	//
+	// 		}
+	//
+	// 		//cx.RespondWithPaginatedData(filtered_jobs, limit, offset, len(act_jobs))
+	// 		filtered_jobs.RLockRecursive()
+	// 		defer filtered_jobs.RUnlockRecursive()
+	// 		cx.RespondWithData(filtered_jobs)
+	// 		return
+	// 	}
+
 	//geting suspended job in the current queue (excluding jobs in db but not in qmgr)
 	if query.Has("suspend") {
 		err := jobs.GetAll(q, order, direction)

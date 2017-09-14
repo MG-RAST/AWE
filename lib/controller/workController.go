@@ -1,15 +1,19 @@
 package controller
 
 import (
+	//"encoding/json"
+	"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"io/ioutil"
 	"net/http"
@@ -31,6 +35,8 @@ func (cr *WorkController) Options(cx *goweb.Context) {
 // get a workunit by id, read-only
 func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	id = DecodeBase64(cx, id)
 
 	work_id, err := core.New_Workunit_Unique_Identifier(id)
 	if err != nil {
@@ -329,6 +335,14 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	workunit := workunits[0]
 	workunit.State = core.WORK_STAT_RESERVED
 	workunit.Client = clientid
+
+	//test, err := json.Marshal(workunit)
+	//if err != nil {
+	//	panic("did not work")
+	//}
+	//fmt.Println("workunit: ")
+	//fmt.Printf("workunit:\n %s\n", test)
+
 	cx.RespondWithData(workunit)
 	return
 }
@@ -336,6 +350,8 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 // PUT: /work/{id} -> status update
 func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
+
+	id = DecodeBase64(cx, id)
 
 	work_id, err := core.New_Workunit_Unique_Identifier(id)
 	if err != nil {
@@ -381,45 +397,98 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 		return
 	}
 
+	// old-style
+	var notice *core.Notice
 	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
-		notice := core.Notice{WorkId: work_id, Status: query.Value("status"), ClientId: query.Value("client"), Notes: ""}
+		//work_id_object, err := core.New_Workunit_Unique_Identifier(work_id)
+		//if err != nil {
+		//	cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		//	return
+		//}
+
+		notice = &core.Notice{Id: work_id, Status: query.Value("status"), WorkerId: query.Value("client"), Notes: ""}
+		// old-style
 		if query.Has("computetime") {
 			if comptime, err := strconv.Atoi(query.Value("computetime")); err == nil {
 				notice.ComputeTime = comptime
 			}
 		}
-		if query.Has("report") { // if "report" is specified in query, parse performance statistics or errlog
-			if _, files, err := ParseMultipartForm(cx.Request); err == nil {
-				if _, ok := files["perf"]; ok {
-					core.QMgr.FinalizeWorkPerf(work_id, files["perf"].Path)
-				}
-				for _, log := range conf.WORKUNIT_LOGS {
-					if _, ok := files[log]; ok {
-						if log == "worknotes" {
-							// add worknotes to notice
-							if text, err := ioutil.ReadFile(files[log].Path); err == nil {
-								notice.Notes = string(text)
-							}
-						} else if log == "stderr" {
-							// add stderr to notice
-							if text, err := ioutil.ReadFile(files[log].Path); err == nil {
-								// only save last 5000 chars of string
-								err_str := string(text)
-								if len(err_str) > 5000 {
-									notice.Stderr = string(err_str[len(err_str)-5000:])
-								} else {
-									notice.Stderr = err_str
-								}
-							}
+	}
+
+	params, files, err := ParseMultipartForm(cx.Request)
+
+	if err != nil {
+		cx.RespondWithErrorMessage("error getting form files: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	cwl_result_str, ok := params["cwl"]
+	if ok {
+
+		fmt.Printf("cwl_result_str: %s\n", cwl_result_str)
+
+		var notice_if map[string]interface{}
+		err = json.Unmarshal([]byte(cwl_result_str), &notice_if)
+		if err != nil {
+
+			cx.RespondWithErrorMessage("Could not parse cwl form parameter: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		notice, err = core.NewNotice(notice_if)
+		if err != nil {
+			cx.RespondWithErrorMessage("NewJob_document failed: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if notice.Status == "" {
+			cx.RespondWithErrorMessage("Status empty!?"+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		//notice = &core.Notice{Id: work_id, Status: cwl_result.Status, WorkerId: cwl_result.WorkerId, Notes: ""}
+
+	}
+	spew.Dump(params)
+	//panic("arrrrgggh")
+
+	if notice == nil {
+		cx.RespondWithErrorMessage("Could not create a notice", http.StatusInternalServerError)
+		return
+	}
+
+	// report may also be added for cwl workunit
+	if query.Has("report") { // if "report" is specified in query, parse performance statistics or errlog
+		if _, ok := files["perf"]; ok {
+			core.QMgr.FinalizeWorkPerf(work_id, files["perf"].Path)
+		}
+		for _, log := range conf.WORKUNIT_LOGS {
+			if _, ok := files[log]; ok {
+				if log == "worknotes" {
+					// add worknotes to notice
+					if text, err := ioutil.ReadFile(files[log].Path); err == nil {
+						notice.Notes = string(text)
+					}
+				} else if log == "stderr" {
+					// add stderr to notice
+					if text, err := ioutil.ReadFile(files[log].Path); err == nil {
+						// only save last 5000 chars of string
+						err_str := string(text)
+						if len(err_str) > 5000 {
+							notice.Stderr = string(err_str[len(err_str)-5000:])
+						} else {
+							notice.Stderr = err_str
 						}
-						// move / save log file
-						core.QMgr.SaveStdLog(work_id, log, files[log].Path)
 					}
 				}
+				// move / save log file
+				core.QMgr.SaveStdLog(work_id, log, files[log].Path)
 			}
 		}
-		core.QMgr.NotifyWorkStatus(notice)
 	}
+
+	core.QMgr.NotifyWorkStatus(*notice)
+	//}
 	cx.RespondWithData("ok")
 	return
 }

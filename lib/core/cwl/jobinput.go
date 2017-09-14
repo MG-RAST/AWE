@@ -137,7 +137,7 @@ func ParseJob(job_byte_ptr *[]byte) (job_input *Job_document, err error) {
 	} else {
 		fmt.Println("yaml map")
 
-		job_map := make(map[string]cwl_types.CWLType)
+		job_map := make(map[string]interface{})
 
 		err = yaml.Unmarshal(job_byte, &job_map)
 		if err != nil {

@@ -5,60 +5,79 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"gopkg.in/mgo.v2/bson"
 	"reflect"
+	"strings"
 )
 
 // http://www.commonwl.org/draft-3/CommandLineTool.html#CWLType
 const (
-	CWL_null      = "null"      //no value
-	CWL_boolean   = "boolean"   //a binary value
-	CWL_int       = "int"       //32-bit signed integer
-	CWL_long      = "long"      //64-bit signed integer
-	CWL_float     = "float"     //single precision (32-bit) IEEE 754 floating-point number
-	CWL_double    = "double"    //double precision (64-bit) IEEE 754 floating-point number
-	CWL_string    = "string"    //Unicode character sequence
-	CWL_File      = "File"      //A File object
-	CWL_Directory = "Directory" //A Directory object
+	CWL_null      CWLType_Type = "null"      //no value
+	CWL_boolean   CWLType_Type = "boolean"   //a binary value
+	CWL_int       CWLType_Type = "int"       //32-bit signed integer
+	CWL_long      CWLType_Type = "long"      //64-bit signed integer
+	CWL_float     CWLType_Type = "float"     //single precision (32-bit) IEEE 754 floating-point number
+	CWL_double    CWLType_Type = "double"    //double precision (64-bit) IEEE 754 floating-point number
+	CWL_string    CWLType_Type = "string"    //Unicode character sequence
+	CWL_File      CWLType_Type = "File"      //A File object
+	CWL_Directory CWLType_Type = "Directory" //A Directory object
 
-	CWL_array  = "array"
-	CWL_record = "record"
-	CWL_enum   = "enum"
+	CWL_array  CWLType_Type = "array"  // unspecific type
+	CWL_record CWLType_Type = "record" // unspecific type
+	CWL_enum   CWLType_Type = "enum"   // unspecific type
 
-	CWL_stdout = "stdout"
-	CWL_stderr = "stderr"
+	CWL_stdout CWLType_Type = "stdout"
+	CWL_stderr CWLType_Type = "stderr"
 
-	CWL_boolean_array   = "boolean_array"   //a binary value
-	CWL_int_array       = "int_array"       //32-bit signed integer
-	CWL_long_array      = "long_array"      //64-bit signed integer
-	CWL_float_array     = "float_array"     //single precision (32-bit) IEEE 754 floating-point number
-	CWL_double_array    = "double_array"    //double precision (64-bit) IEEE 754 floating-point number
-	CWL_string_array    = "string_array"    //Unicode character sequence
-	CWL_File_array      = "File_array"      //A File object
-	CWL_Directory_array = "Directory_array" //A Directory object
+	CWL_boolean_array   CWLType_Type = "boolean_array"   //a binary value
+	CWL_int_array       CWLType_Type = "int_array"       //32-bit signed integer
+	CWL_long_array      CWLType_Type = "long_array"      //64-bit signed integer
+	CWL_float_array     CWLType_Type = "float_array"     //single precision (32-bit) IEEE 754 floating-point number
+	CWL_double_array    CWLType_Type = "double_array"    //double precision (64-bit) IEEE 754 floating-point number
+	CWL_string_array    CWLType_Type = "string_array"    //Unicode character sequence
+	CWL_File_array      CWLType_Type = "File_array"      //A File object
+	CWL_Directory_array CWLType_Type = "Directory_array" //A Directory object
+
+	CWL_Workflow          CWLType_Type = "Workflow"
+	CWL_CommandLineTool   CWLType_Type = "CommandLineTool"
+	CWL_WorkflowStepInput CWLType_Type = "WorkflowStepInput"
 )
 
-var Valid_cwltypes = map[string]bool{
-	CWL_null:            true,
-	CWL_boolean:         true,
-	CWL_int:             true,
-	CWL_long:            true,
-	CWL_float:           true,
-	CWL_double:          true,
-	CWL_string:          true,
-	CWL_File:            true,
-	CWL_Directory:       true,
-	CWL_stdout:          true,
-	CWL_stderr:          true,
-	CWL_boolean_array:   true,
-	CWL_int_array:       true,
-	CWL_long_array:      true,
-	CWL_float_array:     true,
-	CWL_double_array:    true,
-	CWL_string_array:    true,
-	CWL_File_array:      true,
-	CWL_Directory_array: true,
+var Valid_cwltypes = map[CWLType_Type]bool{
+	CWL_null:      true,
+	CWL_boolean:   true,
+	CWL_int:       true,
+	CWL_long:      true,
+	CWL_float:     true,
+	CWL_double:    true,
+	CWL_string:    true,
+	CWL_File:      true,
+	CWL_Directory: true,
+	CWL_stdout:    true,
+	CWL_stderr:    true,
+	//CWL_boolean_array:   true,
+	//CWL_int_array:       true,
+	//CWL_long_array:      true,
+	//CWL_float_array:     true,
+	//CWL_double_array:    true,
+	//CWL_string_array:    true,
+	//CWL_File_array:      true,
+	//CWL_Directory_array: true,
 }
 
-var Native2Array = map[string]string{
+var Valid_class_types = map[CWLType_Type]bool{
+	CWL_Workflow:          true,
+	CWL_CommandLineTool:   true,
+	CWL_WorkflowStepInput: true,
+}
+
+var Lowercase_fix = map[string]CWLType_Type{
+	"file":              CWL_File,
+	"directory":         CWL_Directory,
+	"workflow":          CWL_Workflow,
+	"commandlinetool":   CWL_CommandLineTool,
+	"workflowstepinput": CWL_WorkflowStepInput,
+}
+
+var Native2Array = map[CWLType_Type]CWLType_Type{
 	CWL_boolean:   CWL_boolean_array,
 	CWL_int:       CWL_int_array,
 	CWL_long:      CWL_long_array,
@@ -67,6 +86,104 @@ var Native2Array = map[string]string{
 	CWL_string:    CWL_string_array,
 	CWL_File:      CWL_File_array,
 	CWL_Directory: CWL_Directory_array,
+}
+
+func NewCWLType_TypeFromString(native string) (result CWLType_Type, err error) {
+	native_str_lower := strings.ToLower(native)
+
+	var ok bool
+	result, ok = Lowercase_fix[native_str_lower]
+	if ok {
+		return
+	}
+
+	other := CWLType_Type(native_str_lower)
+
+	_, ok = Valid_cwltypes[other]
+	if !ok {
+
+		_, ok = Valid_class_types[other]
+		if !ok {
+
+			err = fmt.Errorf("(NewCWLType_TypeFromString) type %s unkown", native_str_lower)
+			return
+		}
+
+	}
+	result = other
+
+	return
+}
+
+func NewCWLType_Type(native interface{}) (result CWLType_Type, err error) {
+	switch native.(type) {
+	case string:
+		native_str := native.(string)
+
+		return NewCWLType_TypeFromString(native_str)
+
+	default:
+		err = fmt.Errorf("(NewCWLType_Type) type %s unkown", reflect.TypeOf(native))
+		return
+	}
+}
+
+func NewCWLType_TypeArray(native interface{}) (result []CWLType_Type, err error) {
+
+	switch native.(type) {
+	case map[string]interface{}:
+
+		original_map := native.(map[string]interface{})
+
+		type_value, has_type := original_map["type"]
+		if !has_type {
+			err = fmt.Errorf("(NewCWLType_TypeArray) type not found")
+			return
+		}
+
+		if type_value == "array" {
+			var array_schema *CommandOutputArraySchema
+			array_schema, err = NewCommandOutputArraySchema(original_map)
+			if err != nil {
+				return
+			}
+			result = []CWLType_Type{array_schema}
+			return
+		} else {
+			err = fmt.Errorf("(NewCWLType_TypeArray) type %s unknown", type_value)
+			return
+		}
+
+	case string:
+		native_str := native.(string)
+		var a_type CWLType_Type
+		a_type, err = NewCWLType_TypeFromString(native_str)
+		if err != nil {
+			return
+		}
+		result = []CWLType_Type{a_type}
+
+	case []string:
+
+		native_array := native.([]string)
+		type_array := []CWLType_Type{}
+		for _, element_str := range native_array {
+			var element_type CWLType_Type
+			element_type, err = NewCWLType_TypeFromString(element_str)
+			if err != nil {
+				return
+			}
+			type_array = append(type_array, element_type)
+		}
+
+		result = type_array
+
+	default:
+		spew.Dump(native)
+		err = fmt.Errorf("(NewCWLType_TypeArray) type unknown: %s", reflect.TypeOf(native))
+
+	}
+	return
 }
 
 type CWL_array_type interface {
@@ -89,7 +206,10 @@ type CWL_location interface {
 
 type CWLType_Type string
 
-func (s CWLType_Type) Is_CommandOutputParameterType() {}
+//func (s CWLType_Type) Is_CommandOutputParameterType() {}
+//func (s CWLType_Type) Is_CWLType_Type() {}
+
+const mytest CWLType_Type = "hello"
 
 // CWLType - CWL basic types: int, string, boolean, .. etc
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CWLType
@@ -196,7 +316,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 }
 
-func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CWLType, err error) {
+func NewCWLTypeByClass(class CWLType_Type, id string, native interface{}) (cwl_type CWLType, err error) {
 	switch class {
 	case CWL_File:
 		file, yerr := NewFile(id, native)

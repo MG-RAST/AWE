@@ -5,7 +5,7 @@ type Boolean struct {
 	Value        bool `yaml:"value,omitempty" json:"value,omitempty" bson:"value,omitempty"`
 }
 
-func (s *Boolean) GetClass() string { return CWL_boolean } // for CWL_object
+func (s *Boolean) GetClass() CWLType_Type { return CWL_boolean } // for CWL_object
 func (s *Boolean) String() string {
 	if s.Value {
 		return "True"

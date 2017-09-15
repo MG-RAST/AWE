@@ -29,7 +29,7 @@ type CWLVersion string
 type LinkMergeMethod string // merge_nested or merge_flattened
 
 func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj cwl_types.CWL_object, err error) {
-	fmt.Println("New_CWL_object")
+	fmt.Println("(New_CWL_object) starting")
 
 	if original == nil {
 		err = fmt.Errorf("(New_CWL_object) original is nil!")
@@ -50,23 +50,23 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj cwl_types
 		if !ok {
 			fmt.Println("------------------")
 			spew.Dump(original)
-			err = errors.New("object has no field \"class\"")
+			err = errors.New("(New_CWL_object) object has no field \"class\"")
 			return
 		}
 
 		cwl_object_id := elem["id"].(string)
 		if !ok {
-			err = errors.New("object has no member id")
+			err = errors.New("(New_CWL_object) object has no member id")
 			return
 		}
 		fmt.Println("New_CWL_object C")
 		switch cwl_object_type {
 		case "CommandLineTool":
 			fmt.Println("New_CWL_object CommandLineTool")
-			logger.Debug(1, "parse CommandLineTool")
+			logger.Debug(1, "(New_CWL_object) parse CommandLineTool")
 			result, xerr := NewCommandLineTool(elem)
 			if xerr != nil {
-				err = fmt.Errorf("NewCommandLineTool returned: %s", xerr)
+				err = fmt.Errorf("(New_CWL_object) NewCommandLineTool returned: %s", xerr)
 				return
 			}
 
@@ -97,7 +97,7 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj cwl_types
 		err = fmt.Errorf("(New_CWL_object), unknown type %s", reflect.TypeOf(original))
 		return
 	}
-	fmt.Println("New_CWL_object leaving")
+	fmt.Println("(New_CWL_object) leaving")
 	return
 }
 

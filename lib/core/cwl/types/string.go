@@ -7,11 +7,11 @@ import (
 
 type String struct {
 	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	Class        string `yaml:"class,omitempty" json:"class,omitempty" bson:"class,omitempty"`
-	Value        string `yaml:"value,omitempty" json:"value,omitempty" bson:"value,omitempty"`
+	Class        CWLType_Type `yaml:"class,omitempty" json:"class,omitempty" bson:"class,omitempty"`
+	Value        string       `yaml:"value,omitempty" json:"value,omitempty" bson:"value,omitempty"`
 }
 
-func (s *String) GetClass() string { return CWL_string } // for CWL_object
+func (s *String) GetClass() CWLType_Type { return CWL_string } // for CWL_object
 
 func (s *String) String() string { return s.Value }
 

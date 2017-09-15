@@ -13,7 +13,7 @@ import (
 // http://www.commonwl.org/v1.0/Workflow.html#File
 type File struct {
 	CWLType_Impl   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	Class          string         `yaml:"class,omitempty" json:"class,omitempty bson:"class,omitempty"`
+	Class          CWLType_Type   `yaml:"class,omitempty" json:"class,omitempty bson:"class,omitempty"`
 	Location       string         `yaml:"location,omitempty" json:"location,omitempty bson:"location,omitempty"` // An IRI that identifies the file resource.
 	Location_url   *url.URL       `yaml:"-" json:"-" bson:"-"`                                                   // only for internal purposes
 	Path           string         `yaml:"path,omitempty" json:"path,omitempty bson:"path,omitempty"`             // dirname + '/' + basename == path This field must be set by the implementation.
@@ -33,7 +33,7 @@ type File struct {
 	Token  string `yaml:"-"`
 }
 
-func (f *File) GetClass() string { return CWL_File }
+func (f *File) GetClass() CWLType_Type { return CWL_File }
 
 //func (f *File) GetId() string       { return f.Id }
 //func (f *File) SetId(id string)     { f.Id = id }
@@ -138,7 +138,7 @@ type FileArray struct {
 	Data []File
 }
 
-func (f *FileArray) GetClass() string { return CWL_File_array }
+func (f *FileArray) GetClass() CWLType_Type { return CWL_File_array }
 
 //func (f *FileArray) Is_Array() bool   { return true }
 

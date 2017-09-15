@@ -76,12 +76,21 @@ func (c CWL_collection) Add(obj cwl_types.CWL_object) (err error) {
 	}
 	//id = strings.TrimPrefix(id, "#")
 
-	switch obj.GetClass() {
-	case "Workflow":
+	class := obj.GetClass()
+
+	// fix case in class
+	class, err = cwl_types.NewCWLType_TypeFromString(string(class))
+
+	if err != nil {
+		return
+	}
+
+	switch class {
+	case cwl_types.CWL_Workflow:
 		c.Workflows[id] = obj.(*Workflow)
-	case "WorkflowStepInput":
+	case cwl_types.CWL_WorkflowStepInput:
 		c.WorkflowStepInputs[id] = obj.(*WorkflowStepInput)
-	case "CommandLineTool":
+	case cwl_types.CWL_CommandLineTool:
 		c.CommandLineTools[id] = obj.(*CommandLineTool)
 	case cwl_types.CWL_File:
 		c.Files[id] = obj.(*cwl_types.File)
@@ -96,6 +105,8 @@ func (c CWL_collection) Add(obj cwl_types.CWL_object) (err error) {
 			return
 		}
 		c.Ints[id] = obj_int
+	default:
+		logger.Debug(3, "adding type %s to CWL_collection.All", class)
 	}
 	c.All[id] = &obj
 

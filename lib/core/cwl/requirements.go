@@ -5,7 +5,7 @@ import (
 	"fmt"
 	requirements "github.com/MG-RAST/AWE/lib/core/cwl/requirements"
 	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
-	"github.com/MG-RAST/AWE/lib/logger"
+	//"github.com/MG-RAST/AWE/lib/logger"
 	//"github.com/davecgh/go-spew/spew"
 	//"github.com/mitchellh/mapstructure"
 )
@@ -14,8 +14,8 @@ type Requirement interface {
 	GetClass() string
 }
 
-func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
-	switch class {
+func NewRequirement(class cwl_types.CWLType_Type, obj interface{}) (r Requirement, err error) {
+	switch string(class) {
 	case "DockerRequirement":
 		r, err = requirements.NewDockerRequirement(obj)
 		return
@@ -41,34 +41,7 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 		r, err = requirements.NewMultipleInputFeatureRequirement(obj)
 		return
 	default:
-		err = errors.New("Requirement class not supported " + class)
-
-	}
-	return
-}
-
-// create Requirement object from interface type
-func CreateRequirementDEPRECATED(class string, v interface{}) (requirement Requirement, err error) {
-	switch v.(type) {
-	case map[interface{}]interface{}: // the Requirement is a struct itself
-		logger.Debug(1, "(CreateRequirementArray) type is map[interface{}]interface{}")
-		vmap := v.(map[interface{}]interface{})
-
-		vmap["class"] = class
-
-		requirement, err = NewRequirement(class, v)
-		if err != nil {
-			return
-		}
-
-	case interface{}:
-		logger.Debug(1, "(CreateRequirementArray) type is something else")
-		requirement, err = NewRequirement(class, nil)
-		if err != nil {
-			return
-		}
-	default:
-		err = fmt.Errorf("(CreateRequirement) type is unknown")
+		err = errors.New("Requirement class not supported " + string(class))
 
 	}
 	return
@@ -85,7 +58,9 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 		for k, v := range original.(map[interface{}]interface{}) {
 
 			//var requirement Requirement
-			class := k.(string)
+			class_str := k.(string)
+
+			class := cwl_types.CWLType_Type(class_str)
 
 			requirement, xerr := NewRequirement(class, v)
 			if xerr != nil {
@@ -103,7 +78,8 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 				err = xerr
 				return
 			}
-			class := empty.GetClass()
+			class_str := empty.GetClass()
+			class := cwl_types.CWLType_Type(class_str)
 
 			requirement, xerr := NewRequirement(class, v)
 			if xerr != nil {

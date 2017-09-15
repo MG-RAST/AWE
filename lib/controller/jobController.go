@@ -681,7 +681,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			mjob.Size = size_sum
 			// add userattr fields
 			if query.Has("userattr") {
-				mjob.UserAttr = map[string]string{}
+				mjob.UserAttr = map[string]interface{}{}
 				for _, attr := range query.List("userattr") {
 					if val, ok := job.Info.UserAttr[attr]; ok {
 						mjob.UserAttr[attr] = val

@@ -24,12 +24,14 @@ type Workflow struct {
 	Metadata                  map[string]interface{}                                 `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty"`
 }
 
-func (w *Workflow) GetClass() string { return "Workflow" }
-func (w *Workflow) GetId() string    { return w.Id }
-func (w *Workflow) SetId(id string)  { w.Id = id }
-func (w *Workflow) Is_CWL_minimal()  {}
-func (w *Workflow) Is_Any()          {}
-func (w *Workflow) Is_process()      {}
+var CWL_Workflow cwl_types.CWLType_Type = "workflow"
+
+func (w *Workflow) GetClass() cwl_types.CWLType_Type { return CWL_Workflow }
+func (w *Workflow) GetId() string                    { return w.Id }
+func (w *Workflow) SetId(id string)                  { w.Id = id }
+func (w *Workflow) Is_CWL_minimal()                  {}
+func (w *Workflow) Is_Any()                          {}
+func (w *Workflow) Is_process()                      {}
 
 func GetMapElement(m map[interface{}]interface{}, key string) (value interface{}, err error) {
 

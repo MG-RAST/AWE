@@ -78,25 +78,35 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 		id_base := path.Base(id)
 		expected_types := input.Type
 
+		if len(expected_types) == 0 {
+			err = fmt.Errorf("len(expected_types) == 0 ")
+			return
+		}
+
 		obj_ref, ok := job_input_map[id_base]
 		if !ok {
+			// not found, we can skip it it is optional anyway
 
 			has_type, xerr := cwl.HasInputParameterType(expected_types, cwl_types.CWL_null)
 			if xerr != nil {
-				err = xerr
+				err = fmt.Errorf("(CWL_input_check) (A) HasInputParameterType returns: %s", xerr)
 				return
 			}
 			if has_type { // null type means parameter is optional
 				continue
 			}
 
-			fmt.Printf("-------job_input:")
-			//spew.Dump(job_input)
+			// well, this was not optional and not found
+
+			fmt.Printf("-------expected_types:")
+			spew.Dump(expected_types)
 
 			fmt.Printf("-------job_input_map:")
 			spew.Dump(job_input_map)
 			panic("uhoh")
 			err = fmt.Errorf("value for workflow input \"%s\" not found", id)
+			fmt.Println(err.Error())
+			panic("uhoh")
 			return
 
 		}
@@ -106,7 +116,8 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 		logger.Debug(1, "obj_type: %s", obj_type)
 		has_type, xerr := cwl.HasInputParameterType(expected_types, obj_type)
 		if xerr != nil {
-			err = xerr
+			err = fmt.Errorf("(CWL_input_check) (B) HasInputParameterType returns: %s", xerr)
+
 			return
 		}
 		if !has_type {
@@ -136,6 +147,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	err = CWL_input_check(job_input, cwl_workflow)
 	if err != nil {
+		err = fmt.Errorf("(CWL2AWE) CWL_input_check returned: %s", err.Error())
 		return
 	}
 

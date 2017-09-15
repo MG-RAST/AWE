@@ -137,6 +137,27 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 		}
 		count += 1
 		return
+	case *cwl_types.Array:
+
+		array, ok := native.(*cwl_types.Array)
+		if !ok {
+			err = fmt.Errorf("could not cast to *cwl_types.Array")
+			return
+		}
+
+		for _, value := range array.Items {
+
+			id := value.GetId()
+			fmt.Printf("recurse into key: %s\n", id)
+			var sub_count int
+			sub_count, err = processInputData(value, inputfile_path)
+			if err != nil {
+				return
+			}
+			count += sub_count
+
+		}
+		return
 	default:
 		spew.Dump(native)
 		err = fmt.Errorf("(processInputData) No handler for type \"%s\"\n", reflect.TypeOf(native))

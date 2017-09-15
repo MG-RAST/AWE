@@ -32,23 +32,23 @@ const (
 type TaskRaw struct {
 	RWMutex                `bson:"-" json:"-"`
 	Task_Unique_Identifier `bson:",inline"`
-	Info                   *Info             `bson:"-" json:"-"` // this is just a pointer to the job.Info
-	Cmd                    *Command          `bson:"cmd" json:"cmd"`
-	Partition              *PartInfo         `bson:"partinfo" json:"-"`
-	DependsOn              []string          `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
-	TotalWork              int               `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize            int               `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork             int               `bson:"remainwork" json:"remainwork"`
-	State                  string            `bson:"state" json:"state"`
-	CreatedDate            time.Time         `bson:"createdDate" json:"createddate"`
-	StartedDate            time.Time         `bson:"startedDate" json:"starteddate"`
-	CompletedDate          time.Time         `bson:"completedDate" json:"completeddate"`
-	ComputeTime            int               `bson:"computetime" json:"computetime"`
-	UserAttr               map[string]string `bson:"userattr" json:"userattr"`
-	ClientGroups           string            `bson:"clientgroups" json:"clientgroups"`
-	WorkflowStep           *cwl.WorkflowStep `bson:"workflowStep" json:"workflowStep"` // CWL-only
-	StepOutputInterface    interface{}       `bson:"stepOutput" json:"stepOutput"`     // CWL-only
-	StepOutput             *cwl.Job_document `bson:"-" json:"-"`                       // CWL-only
+	Info                   *Info                  `bson:"-" json:"-"` // this is just a pointer to the job.Info
+	Cmd                    *Command               `bson:"cmd" json:"cmd"`
+	Partition              *PartInfo              `bson:"partinfo" json:"-"`
+	DependsOn              []string               `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
+	TotalWork              int                    `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize            int                    `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork             int                    `bson:"remainwork" json:"remainwork"`
+	State                  string                 `bson:"state" json:"state"`
+	CreatedDate            time.Time              `bson:"createdDate" json:"createddate"`
+	StartedDate            time.Time              `bson:"startedDate" json:"starteddate"`
+	CompletedDate          time.Time              `bson:"completedDate" json:"completeddate"`
+	ComputeTime            int                    `bson:"computetime" json:"computetime"`
+	UserAttr               map[string]interface{} `bson:"userattr" json:"userattr"`
+	ClientGroups           string                 `bson:"clientgroups" json:"clientgroups"`
+	WorkflowStep           *cwl.WorkflowStep      `bson:"workflowStep" json:"workflowStep"` // CWL-only
+	StepOutputInterface    interface{}            `bson:"stepOutput" json:"stepOutput"`     // CWL-only
+	StepOutput             *cwl.Job_document      `bson:"-" json:"-"`                       // CWL-only
 }
 
 type Task_Unique_Identifier struct {

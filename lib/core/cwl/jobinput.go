@@ -130,10 +130,14 @@ func ParseJob(job_byte_ptr *[]byte) (job_input *Job_document, err error) {
 		err = yaml.Unmarshal(job_byte, &job_array)
 
 		if err != nil {
-			err = fmt.Errorf("Could, not parse job input as yaml list: %s", err.Error())
+			err = fmt.Errorf("(ParseJob) Could, not parse job input as yaml list: %s", err.Error())
 			return
 		}
 		job_input, err = NewJob_document(job_array)
+		if err != nil {
+			err = fmt.Errorf("(ParseJob) A NewJob_document returns: %s", err.Error())
+		}
+
 	} else {
 		fmt.Println("yaml map")
 
@@ -145,6 +149,9 @@ func ParseJob(job_byte_ptr *[]byte) (job_input *Job_document, err error) {
 			return
 		}
 		job_input, err = NewJob_document(job_map)
+		if err != nil {
+			err = fmt.Errorf("(ParseJob) B NewJob_document returns: %s", err.Error())
+		}
 	}
 
 	if err != nil {

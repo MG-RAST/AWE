@@ -612,8 +612,8 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 }
 
 //fetch user attr - merged from job.info and task
-func getUserAttr(work *core.Workunit) (userattr map[string]string) {
-	userattr = make(map[string]string)
+func getUserAttr(work *core.Workunit) (userattr map[string]interface{}) {
+	userattr = make(map[string]interface{})
 	if len(work.Info.UserAttr) > 0 {
 		for k, v := range work.Info.UserAttr {
 			userattr[k] = v

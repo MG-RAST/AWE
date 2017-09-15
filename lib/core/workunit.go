@@ -36,26 +36,26 @@ const (
 
 type Workunit struct {
 	Workunit_Unique_Identifier `bson:",inline" json:",inline" mapstructure:",squash"`
-	Id                         string            `bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`       // global identifier: jobid_taskid_rank (for backwards coompatibility only)
-	WuId                       string            `bson:"wuid,omitempty" json:"wuid,omitempty" mapstructure:"wuid,omitempty"` // deprecated !
-	Info                       *Info             `bson:"info,omitempty" json:"info,omitempty" mapstructure:"info,omitempty"`
-	Inputs                     []*IO             `bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
-	Outputs                    []*IO             `bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
-	Predata                    []*IO             `bson:"predata,omitempty" json:"predata,omitempty" mapstructure:"predata,omitempty"`
-	Cmd                        *Command          `bson:"cmd,omitempty" json:"cmd,omitempty" mapstructure:"cmd,omitempty"`
-	TotalWork                  int               `bson:"totalwork,omitempty" json:"totalwork,omitempty" mapstructure:"totalwork,omitempty"`
-	Partition                  *PartInfo         `bson:"part,omitempty" json:"part,omitempty" mapstructure:"part,omitempty"`
-	State                      string            `bson:"state,omitempty" json:"state,omitempty" mapstructure:"state,omitempty"`
-	Failed                     int               `bson:"failed,omitempty" json:"failed,omitempty" mapstructure:"failed,omitempty"`
-	CheckoutTime               time.Time         `bson:"checkout_time,omitempty" json:"checkout_time,omitempty" mapstructure:"checkout_time,omitempty"`
-	Client                     string            `bson:"client,omitempty" json:"client,omitempty" mapstructure:"client,omitempty"`
-	ComputeTime                int               `bson:"computetime,omitempty" json:"computetime,omitempty" mapstructure:"computetime,omitempty"`
-	ExitStatus                 int               `bson:"exitstatus,omitempty" json:"exitstatus,omitempty" mapstructure:"exitstatus,omitempty"` // Linux Exit Status Code (0 is success)
-	Notes                      []string          `bson:"notes,omitempty" json:"notes,omitempty" mapstructure:"notes,omitempty"`
-	UserAttr                   map[string]string `bson:"userattr,omitempty" json:"userattr,omitempty" mapstructure:"userattr,omitempty"`
-	ShockHost                  string            `bson:"shockhost,omitempty" json:"shockhost,omitempty" mapstructure:"shockhost,omitempty"` // specifies default Shock host for outputs
-	CWL_workunit               *CWL_workunit     `bson:"cwl,omitempty" json:"cwl,omitempty" mapstructure:"cwl,omitempty"`
-	WorkPath                   string            // this is the working directory. If empty, it will be computed.
+	Id                         string                 `bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`       // global identifier: jobid_taskid_rank (for backwards coompatibility only)
+	WuId                       string                 `bson:"wuid,omitempty" json:"wuid,omitempty" mapstructure:"wuid,omitempty"` // deprecated !
+	Info                       *Info                  `bson:"info,omitempty" json:"info,omitempty" mapstructure:"info,omitempty"`
+	Inputs                     []*IO                  `bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
+	Outputs                    []*IO                  `bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
+	Predata                    []*IO                  `bson:"predata,omitempty" json:"predata,omitempty" mapstructure:"predata,omitempty"`
+	Cmd                        *Command               `bson:"cmd,omitempty" json:"cmd,omitempty" mapstructure:"cmd,omitempty"`
+	TotalWork                  int                    `bson:"totalwork,omitempty" json:"totalwork,omitempty" mapstructure:"totalwork,omitempty"`
+	Partition                  *PartInfo              `bson:"part,omitempty" json:"part,omitempty" mapstructure:"part,omitempty"`
+	State                      string                 `bson:"state,omitempty" json:"state,omitempty" mapstructure:"state,omitempty"`
+	Failed                     int                    `bson:"failed,omitempty" json:"failed,omitempty" mapstructure:"failed,omitempty"`
+	CheckoutTime               time.Time              `bson:"checkout_time,omitempty" json:"checkout_time,omitempty" mapstructure:"checkout_time,omitempty"`
+	Client                     string                 `bson:"client,omitempty" json:"client,omitempty" mapstructure:"client,omitempty"`
+	ComputeTime                int                    `bson:"computetime,omitempty" json:"computetime,omitempty" mapstructure:"computetime,omitempty"`
+	ExitStatus                 int                    `bson:"exitstatus,omitempty" json:"exitstatus,omitempty" mapstructure:"exitstatus,omitempty"` // Linux Exit Status Code (0 is success)
+	Notes                      []string               `bson:"notes,omitempty" json:"notes,omitempty" mapstructure:"notes,omitempty"`
+	UserAttr                   map[string]interface{} `bson:"userattr,omitempty" json:"userattr,omitempty" mapstructure:"userattr,omitempty"`
+	ShockHost                  string                 `bson:"shockhost,omitempty" json:"shockhost,omitempty" mapstructure:"shockhost,omitempty"` // specifies default Shock host for outputs
+	CWL_workunit               *CWL_workunit          `bson:"cwl,omitempty" json:"cwl,omitempty" mapstructure:"cwl,omitempty"`
+	WorkPath                   string                 // this is the working directory. If empty, it will be computed.
 	WorkPerf                   *WorkPerf
 }
 

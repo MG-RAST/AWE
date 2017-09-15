@@ -7,11 +7,11 @@ import (
 
 type Array struct {
 	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	Items        []CWLType `yaml:"items,omitempty" json:"items,omitempty" bson:"items,omitempty"`
-	Items_Type   string    `yaml:"items_type,omitempty" json:"items_type,omitempty" bson:"items_type,omitempty"`
+	Items        []CWLType    `yaml:"items,omitempty" json:"items,omitempty" bson:"items,omitempty"` // CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
+	Items_Type   CWLType_Type `yaml:"items_type,omitempty" json:"items_type,omitempty" bson:"items_type,omitempty"`
 }
 
-func (c *Array) GetClass() string { return CWL_array }
+func (c *Array) GetClass() CWLType_Type { return CWL_array }
 
 func (c *Array) Is_CWL_minimal()                {}
 func (c *Array) Is_CWLType()                    {}

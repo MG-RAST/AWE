@@ -2,15 +2,16 @@ package cwl
 
 import (
 	"fmt"
+	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/mitchellh/mapstructure"
 	"reflect"
 )
 
 type CommandOutputArraySchema struct {
-	Items         []string              `yaml:"items,omitempty" bson:"items,omitempty" json:"items,omitempty"`
-	Type          string                `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // must be array
-	Label         string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	OutputBinding *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"`
+	Items         []cwl_types.CWLType_Type `yaml:"items,omitempty" bson:"items,omitempty" json:"items,omitempty"` // string or []string ([] speficies which types are possible, e.g ["File" , "null"])
+	Type          string                   `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"`    // must be array
+	Label         string                   `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	OutputBinding *CommandOutputBinding    `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"`
 }
 
 func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}
@@ -35,10 +36,14 @@ func NewCommandOutputArraySchema(original interface{}) (coas *CommandOutputArray
 
 		items, ok := original_map["items"]
 		if ok {
-			items_string, ok := items.(string)
-			if ok {
-				original_map["items"] = []string{items_string}
+			var items_type []cwl_types.CWLType_Type
+			items_type, err = cwl_types.NewCWLType_TypeArray(items)
+			if err != nil {
+				err = fmt.Errorf("(NewCommandOutputArraySchema) NewCWLType_TypeArray returns: %s", err.Error())
+				return
 			}
+			original_map["items"] = items_type
+
 		}
 
 		err = mapstructure.Decode(original, coas)

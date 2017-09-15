@@ -7,19 +7,19 @@ import (
 	"github.com/mitchellh/mapstructure"
 
 	"reflect"
-	"strings"
+	//"strings"
 )
 
 type InputParameter struct {
-	Id             string             `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	Label          string             `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	SecondaryFiles []string           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	Format         string             `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
-	Streamable     bool               `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
-	Doc            string             `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
-	InputBinding   CommandLineBinding `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"` //TODO
-	Default        cwl_types.Any      `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
-	Type           interface{}        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
+	Id             string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	Label          string                   `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	SecondaryFiles []string                 `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
+	Format         string                   `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
+	Streamable     bool                     `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
+	Doc            string                   `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
+	InputBinding   CommandLineBinding       `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"` //TODO
+	Default        cwl_types.Any            `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
+	Type           []cwl_types.CWLType_Type `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
 }
 
 func (i InputParameter) GetClass() string { return "InputParameter" }
@@ -43,24 +43,21 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 	case string:
 
 		type_string := original.(string)
-		type_string_lower := strings.ToLower(type_string)
 
-		switch type_string_lower {
-		case cwl_types.CWL_string:
-		case cwl_types.CWL_int:
-		case cwl_types.CWL_File:
-		default:
-			err = fmt.Errorf("unknown type: \"%s\"", type_string)
+		var original_type cwl_types.CWLType_Type
+		original_type, err = cwl_types.NewCWLType_TypeFromString(type_string)
+		if err != nil {
+			err = fmt.Errorf("(NewInputParameter) NewCWLType_TypeFromString returned: %s", err.Error())
 			return
 		}
 
-		input_parameter_type, xerr := NewInputParameterTypeArray(type_string_lower)
-		if xerr != nil {
-			err = xerr
-			return
-		}
+		//input_parameter_type, xerr := NewInputParameterType(type_string_lower)
+		//if xerr != nil {
+		//	err = xerr
+		//	return
+		//}
 
-		input_parameter.Type = input_parameter_type
+		input_parameter.Type = []cwl_types.CWLType_Type{original_type}
 
 		//case int:
 		//input_parameter_type, xerr := NewInputParameterTypeArray("int")
@@ -85,20 +82,33 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 
 		inputParameter_type, ok := original_map["type"]
 		if ok {
-			original_map["type"], err = NewInputParameterTypeArray(inputParameter_type)
+			var inputParameter_type_array []cwl_types.CWLType_Type
+			inputParameter_type_array, err = cwl_types.NewCWLType_TypeArray(inputParameter_type)
 			if err != nil {
+				fmt.Errorf("(NewInputParameter) cwl_types.NewCWLType_TypeArray returns: %s", err.Error())
 				return
 			}
+			if len(inputParameter_type_array) == 0 {
+				err = fmt.Errorf("(NewInputParameter) len(inputParameter_type_array) == 0")
+				return
+			}
+			original_map["type"] = inputParameter_type_array
 		}
 
 		err = mapstructure.Decode(original, input_parameter)
 		if err != nil {
-			err = fmt.Errorf("(NewInputParameter) %s", err.Error())
+			spew.Dump(original)
+			err = fmt.Errorf("(NewInputParameter) mapstructure.Decode returned: %s", err.Error())
 			return
 		}
 	default:
 		spew.Dump(original)
 		err = fmt.Errorf("(NewInputParameter) cannot parse input type %s", reflect.TypeOf(original))
+		return
+	}
+
+	if len(input_parameter.Type) == 0 {
+		err = fmt.Errorf("(NewInputParameter) len(input_parameter.Type) == 0")
 		return
 	}
 

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	requirements "github.com/MG-RAST/AWE/lib/core/cwl/requirements"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	//"github.com/MG-RAST/AWE/lib/logger"
 	//"github.com/davecgh/go-spew/spew"
 	//"github.com/mitchellh/mapstructure"
@@ -14,7 +13,7 @@ type Requirement interface {
 	GetClass() string
 }
 
-func NewRequirement(class cwl_types.CWLType_Type, obj interface{}) (r Requirement, err error) {
+func NewRequirement(class CWLType_Type, obj interface{}) (r Requirement, err error) {
 	switch string(class) {
 	case "DockerRequirement":
 		r, err = requirements.NewDockerRequirement(obj)
@@ -60,7 +59,7 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 			//var requirement Requirement
 			class_str := k.(string)
 
-			class := cwl_types.CWLType_Type(class_str)
+			class := CWLType_Type(class_str)
 
 			requirement, xerr := NewRequirement(class, v)
 			if xerr != nil {
@@ -73,13 +72,13 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 	case []interface{}:
 		for _, v := range original.([]interface{}) {
 
-			empty, xerr := cwl_types.NewEmpty(v)
+			empty, xerr := NewEmpty(v)
 			if xerr != nil {
 				err = xerr
 				return
 			}
 			class_str := empty.GetClass()
-			class := cwl_types.CWLType_Type(class_str)
+			class := CWLType_Type(class_str)
 
 			requirement, xerr := NewRequirement(class, v)
 			if xerr != nil {

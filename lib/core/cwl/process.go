@@ -2,7 +2,6 @@ package cwl
 
 import (
 	"fmt"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"reflect"
@@ -12,7 +11,7 @@ import (
 // string | CommandLineTool | ExpressionTool | Workflow
 
 type Process interface {
-	cwl_types.CWL_object
+	CWL_object
 	Is_process()
 }
 
@@ -73,10 +72,10 @@ func NewProcess(original interface{}) (process interface{}, err error) {
 			return
 		}
 
-		var class cwl_types.CWLType_Type
-		class, err = cwl_types.GetClass(original_map)
+		var class CWLType_Type
+		class, err = GetClass(original_map)
 		if err != nil {
-			err = fmt.Errorf("(NewProcess) cwl_types.GetClass returned: %s", err.Error())
+			err = fmt.Errorf("(NewProcess) GetClass returned: %s", err.Error())
 			return
 		}
 
@@ -85,8 +84,8 @@ func NewProcess(original interface{}) (process interface{}, err error) {
 		//return NewProcessPointer(original)
 		case CWL_Workflow:
 			return NewWorkflow(original)
-		case cwl_types.CWL_Expression:
-			return cwl_types.NewExpression(original)
+		case CWL_Expression:
+			return NewExpression(original)
 
 		}
 

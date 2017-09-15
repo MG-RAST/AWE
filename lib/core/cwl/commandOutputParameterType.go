@@ -6,7 +6,7 @@ import (
 //"github.com/davecgh/go-spew/spew"
 //"github.com/mitchellh/mapstructure"
 //"strings"
-//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+
 //"reflect"
 )
 

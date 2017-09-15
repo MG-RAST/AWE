@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/robertkrimen/otto"
 	"gopkg.in/mgo.v2/bson"
@@ -162,7 +162,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 		//job_input_map := *job.CWL_collection.Job_input_map
 
 		//job_input := *job.CWL_collection.Job_input
-		workunit_input_map := make(map[string]cwl_types.CWLType)
+		workunit_input_map := make(map[string]cwl.CWLType)
 
 		fmt.Println("workflow_step.In:")
 		spew.Dump(workflow_step.In)
@@ -180,7 +180,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 				return
 			}
 
-			source_object_array := []cwl_types.CWLType{}
+			source_object_array := []cwl.CWLType{}
 			//resolve pointers in source
 			for _, src := range input.Source {
 				// src is a string, an id to another cwl object (workflow input of step output)
@@ -220,7 +220,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 				//fmt.Println("WORLD")
 				//spew.Dump(object)
 
-				//file, ok := object.(*cwl_types.File)
+				//file, ok := object.(*cwl.File)
 				//if ok {
 				//	fmt.Println("A FILE")
 				//	fmt.Printf("%+v\n", *file)
@@ -233,7 +233,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 				//	}
 
 			} else if len(input.Source) > 1 {
-				cwl_array := cwl_types.Array{}
+				cwl_array := cwl.Array{}
 				for _, obj := range source_object_array {
 					cwl_array.Add(obj)
 				}
@@ -347,7 +347,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 				fmt.Printf("parsed: %s\n", parsed)
 
-				new_string := cwl_types.NewString(id, parsed)
+				new_string := cwl.NewString(id, parsed)
 				workunit_input_map[cmd_id] = new_string
 				continue
 				//job_input = append(job_input, new_string)

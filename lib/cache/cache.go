@@ -8,7 +8,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/core"
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/shock"
@@ -134,7 +133,7 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 	return
 }
 
-func CWL_File_2_AWE_IO(file *cwl_types.File) (io *core.IO, err error) {
+func CWL_File_2_AWE_IO(file *cwl.File) (io *core.IO, err error) {
 
 	url_obj := file.Location_url
 
@@ -178,8 +177,8 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 			fmt.Println(input_name)
 			spew.Dump(input)
 			switch input.(type) {
-			case *cwl_types.File:
-				file := input.(*cwl_types.File)
+			case *cwl.File:
+				file := input.(*cwl.File)
 				spew.Dump(*file)
 				fmt.Printf("file: %+v\n", *file)
 
@@ -199,7 +198,7 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 				size += io_size
 
 				continue
-			case *cwl_types.String:
+			case *cwl.String:
 				continue
 			default:
 				err = fmt.Errorf("(MoveInputData) type %s not supoorted yet", reflect.TypeOf(input))
@@ -433,11 +432,11 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 			result_array = append(result_array, tool_result)
 
 			output_class := tool_result.GetClass()
-			if output_class != cwl_types.CWL_File {
+			if output_class != cwl.CWL_File {
 				continue
 			}
 
-			cwl_file, ok := tool_result.(*cwl_types.File)
+			cwl_file, ok := tool_result.(*cwl.File)
 			if !ok {
 				err = fmt.Errorf("(UploadOutputData) Could not type-assert file", expected)
 				return

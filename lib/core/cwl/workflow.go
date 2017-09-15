@@ -2,7 +2,6 @@ package cwl
 
 import (
 	"fmt"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	//"os"
@@ -12,26 +11,26 @@ import (
 )
 
 type Workflow struct {
-	cwl_types.CWL_object_Impl `bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
-	Inputs                    []InputParameter                                       `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty"`
-	Outputs                   []WorkflowOutputParameter                              `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty"`
-	Steps                     []WorkflowStep                                         `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty"`
-	Requirements              []interface{}                                          `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty"` //[]Requirement
-	Hints                     []interface{}                                          `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty"`                      // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
-	Label                     string                                                 `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	Doc                       string                                                 `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
-	CwlVersion                CWLVersion                                             `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty"`
-	Metadata                  map[string]interface{}                                 `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty"`
+	CWL_object_Impl `bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
+	Inputs          []InputParameter                                       `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty"`
+	Outputs         []WorkflowOutputParameter                              `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty"`
+	Steps           []WorkflowStep                                         `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty"`
+	Requirements    []interface{}                                          `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty"` //[]Requirement
+	Hints           []interface{}                                          `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty"`                      // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
+	Label           string                                                 `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	Doc             string                                                 `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
+	CwlVersion      CWLVersion                                             `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty"`
+	Metadata        map[string]interface{}                                 `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty"`
 }
 
-var CWL_Workflow cwl_types.CWLType_Type = "workflow"
+var CWL_Workflow CWLType_Type = "workflow"
 
-func (w *Workflow) GetClass() cwl_types.CWLType_Type { return CWL_Workflow }
-func (w *Workflow) GetId() string                    { return w.Id }
-func (w *Workflow) SetId(id string)                  { w.Id = id }
-func (w *Workflow) Is_CWL_minimal()                  {}
-func (w *Workflow) Is_Any()                          {}
-func (w *Workflow) Is_process()                      {}
+func (w *Workflow) GetClass() CWLType_Type { return CWL_Workflow }
+func (w *Workflow) GetId() string          { return w.Id }
+func (w *Workflow) SetId(id string)        { w.Id = id }
+func (w *Workflow) Is_CWL_minimal()        {}
+func (w *Workflow) Is_Any()                {}
+func (w *Workflow) Is_process()            {}
 
 func GetMapElement(m map[interface{}]interface{}, key string) (value interface{}, err error) {
 

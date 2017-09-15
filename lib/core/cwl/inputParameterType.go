@@ -2,7 +2,7 @@ package cwl
 
 import (
 	"fmt"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+
 	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	//"strings"
@@ -62,8 +62,8 @@ func NewInputParameterType(original interface{}) (ipt_ptr interface{}, err error
 	case string:
 		original_str := original.(string)
 
-		var original_type cwl_types.CWLType_Type
-		original_type, err = cwl_types.NewCWLType_TypeFromString(original_str)
+		var original_type CWLType_Type
+		original_type, err = NewCWLType_TypeFromString(original_str)
 		if err != nil {
 			err = fmt.Errorf("(NewInputParameterType) NewCWLType_TypeFromString returns %s", err.Error())
 			return
@@ -106,7 +106,7 @@ func NewInputParameterType(original interface{}) (ipt_ptr interface{}, err error
 // 	}
 // }
 
-func HasInputParameterType(allowed_types []cwl_types.CWLType_Type, search_type cwl_types.CWLType_Type) (ok bool, err error) {
+func HasInputParameterType(allowed_types []CWLType_Type, search_type CWLType_Type) (ok bool, err error) {
 
 	for _, value := range allowed_types {
 		if value == search_type {

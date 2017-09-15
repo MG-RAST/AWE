@@ -3,20 +3,20 @@ package cwl
 import (
 	"fmt"
 	//"github.com/davecgh/go-spew/spew"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+
 	"github.com/mitchellh/mapstructure"
 	"reflect"
 )
 
 //http://www.commonwl.org/v1.0/Workflow.html#CommandLineBinding
 type CommandLineBinding struct {
-	LoadContents  bool                  `yaml:"loadContents,omitempty" bson:"loadContents,omitempty" json:"loadContents,omitempty"`
-	Position      int                   `yaml:"position,omitempty" bson:"position,omitempty" json:"position,omitempty"`
-	Prefix        string                `yaml:"prefix,omitempty" bson:"prefix,omitempty" json:"prefix,omitempty"`
-	Separate      bool                  `yaml:"separate,omitempty" bson:"separate,omitempty" json:"separate,omitempty"`
-	ItemSeparator string                `yaml:"itemSeparator,omitempty" bson:"itemSeparator,omitempty" json:"itemSeparator,omitempty"`
-	ValueFrom     *cwl_types.Expression `yaml:"valueFrom,omitempty" bson:"valueFrom,omitempty" json:"valueFrom,omitempty"`
-	ShellQuote    bool                  `yaml:"shellQuote,omitempty" bson:"shellQuote,omitempty" json:"shellQuote,omitempty"`
+	LoadContents  bool        `yaml:"loadContents,omitempty" bson:"loadContents,omitempty" json:"loadContents,omitempty"`
+	Position      int         `yaml:"position,omitempty" bson:"position,omitempty" json:"position,omitempty"`
+	Prefix        string      `yaml:"prefix,omitempty" bson:"prefix,omitempty" json:"prefix,omitempty"`
+	Separate      bool        `yaml:"separate,omitempty" bson:"separate,omitempty" json:"separate,omitempty"`
+	ItemSeparator string      `yaml:"itemSeparator,omitempty" bson:"itemSeparator,omitempty" json:"itemSeparator,omitempty"`
+	ValueFrom     *Expression `yaml:"valueFrom,omitempty" bson:"valueFrom,omitempty" json:"valueFrom,omitempty"`
+	ShellQuote    bool        `yaml:"shellQuote,omitempty" bson:"shellQuote,omitempty" json:"shellQuote,omitempty"`
 }
 
 func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err error) {
@@ -38,7 +38,7 @@ func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err e
 
 		value_from, ok := original_map["valueFrom"]
 		if ok {
-			exp, xerr := cwl_types.NewExpression(value_from)
+			exp, xerr := NewExpression(value_from)
 			if xerr != nil {
 				err = fmt.Errorf("(NewCommandLineBinding) NewExpression failed: %s", xerr.Error())
 				return
@@ -57,7 +57,7 @@ func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err e
 
 		org_str, _ := original.(string)
 
-		commandlinebinding.ValueFrom, err = cwl_types.NewExpression(org_str)
+		commandlinebinding.ValueFrom, err = NewExpression(org_str)
 		if err != nil {
 			return
 		}

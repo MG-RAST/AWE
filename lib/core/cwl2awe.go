@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/davecgh/go-spew/spew"
@@ -87,7 +87,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 		if !ok {
 			// not found, we can skip it it is optional anyway
 
-			has_type, xerr := cwl.HasInputParameterType(expected_types, cwl_types.CWL_null)
+			has_type, xerr := cwl.HasInputParameterType(expected_types, cwl.CWL_null)
 			if xerr != nil {
 				err = fmt.Errorf("(CWL_input_check) (A) HasInputParameterType returns: %s", xerr)
 				return

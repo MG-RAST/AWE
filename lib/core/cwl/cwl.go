@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	//"github.com/mitchellh/mapstructure"
@@ -28,7 +27,7 @@ type CWLVersion string
 
 type LinkMergeMethod string // merge_nested or merge_flattened
 
-func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj cwl_types.CWL_object, err error) {
+func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_object, err error) {
 	fmt.Println("(New_CWL_object) starting")
 
 	if original == nil {
@@ -86,7 +85,7 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj cwl_types
 			return
 		} // end switch
 
-		cwl_type, xerr := cwl_types.NewCWLType(cwl_object_id, elem)
+		cwl_type, xerr := NewCWLType(cwl_object_id, elem)
 		if xerr != nil {
 			err = xerr
 			return
@@ -101,14 +100,14 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj cwl_types
 	return
 }
 
-func NewCWL_object_array(original interface{}) (array cwl_types.CWL_object_array, err error) {
+func NewCWL_object_array(original interface{}) (array CWL_object_array, err error) {
 
 	//original, err = makeStringMap(original)
 	//if err != nil {
 	//	return
 	//}
 
-	array = cwl_types.CWL_object_array{}
+	array = CWL_object_array{}
 
 	switch original.(type) {
 
@@ -136,7 +135,7 @@ func NewCWL_object_array(original interface{}) (array cwl_types.CWL_object_array
 
 }
 
-func Parse_cwl_document(yaml_str string) (object_array cwl_types.CWL_object_array, cwl_version CWLVersion, err error) {
+func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_version CWLVersion, err error) {
 
 	graph_pos := strings.Index(yaml_str, "$graph")
 
@@ -183,7 +182,7 @@ func Parse_cwl_document(yaml_str string) (object_array cwl_types.CWL_object_arra
 	return
 }
 
-func Add_to_collection(collection *CWL_collection, object_array cwl_types.CWL_object_array) (err error) {
+func Add_to_collection(collection *CWL_collection, object_array CWL_object_array) (err error) {
 
 	for _, object := range object_array {
 		err = collection.Add(object)

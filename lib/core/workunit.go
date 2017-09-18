@@ -196,11 +196,12 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 					continue
 				}
 
-				coll_obj, xerr := job.CWL_collection.GetType(src)
+				coll_obj, xerr := job.CWL_collection.GetCWLType(src)
 				if xerr != nil {
 					fmt.Printf("%s not found in CWL_collection\n", src)
 				} else {
 					fmt.Printf("%s found in CWL_collection!!!\n", src)
+
 					source_object_array = append(source_object_array, coll_obj)
 					continue
 				}

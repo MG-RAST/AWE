@@ -18,8 +18,8 @@ type WorkflowStepInput struct {
 	Ready     bool             `yaml:"-" bson:"-" json:"-"`
 }
 
-func (w WorkflowStepInput) GetClass() CWLType_Type {
-	return CWLType_Type("WorkflowStepInput")
+func (w WorkflowStepInput) GetClass() string {
+	return "WorkflowStepInput"
 }
 func (w WorkflowStepInput) GetId() string   { return w.Id }
 func (w WorkflowStepInput) SetId(id string) { w.Id = id }

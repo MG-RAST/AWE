@@ -12,10 +12,9 @@ type Record struct {
 	Fields       []CWLType `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
 }
 
-func (r *Record) GetClass() CWLType_Type { return CWL_record }
+func (r *Record) GetClass() string { return "record" }
 
 func (r *Record) Is_CWL_minimal()                {}
-func (r *Record) Is_CWLType()                    {}
 func (r *Record) Is_CommandInputParameterType()  {}
 func (r *Record) Is_CommandOutputParameterType() {}
 

@@ -5,7 +5,8 @@ type Boolean struct {
 	Value        bool `yaml:"value,omitempty" json:"value,omitempty" bson:"value,omitempty"`
 }
 
-func (s *Boolean) GetClass() CWLType_Type { return CWL_boolean } // for CWL_object
+func (s *Boolean) GetClass() string      { return string(CWL_boolean) } // for CWL_object
+func (s *Boolean) GetType() CWLType_Type { return CWL_boolean }
 func (s *Boolean) String() string {
 	if s.Value {
 		return "True"
@@ -16,5 +17,10 @@ func (s *Boolean) String() string {
 func (s *Boolean) Is_CommandInputParameterType() {} // for CommandInputParameterType
 
 func NewBoolean(id string, value bool) *Boolean {
-	return &Boolean{CWLType_Impl: CWLType_Impl{Id: id}, Value: value}
+	b := &Boolean{}
+	b.Class = "boolean"
+	b.Type = CWL_boolean
+	b.Id = id
+	b.Value = value
+	return b
 }

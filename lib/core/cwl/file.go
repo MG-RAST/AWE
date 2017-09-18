@@ -13,7 +13,6 @@ import (
 // http://www.commonwl.org/v1.0/Workflow.html#File
 type File struct {
 	CWLType_Impl   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	Class          CWLType_Type   `yaml:"class,omitempty" json:"class,omitempty bson:"class,omitempty"`
 	Location       string         `yaml:"location,omitempty" json:"location,omitempty bson:"location,omitempty"` // An IRI that identifies the file resource.
 	Location_url   *url.URL       `yaml:"-" json:"-" bson:"-"`                                                   // only for internal purposes
 	Path           string         `yaml:"path,omitempty" json:"path,omitempty bson:"path,omitempty"`             // dirname + '/' + basename == path This field must be set by the implementation.
@@ -33,7 +32,8 @@ type File struct {
 	Token  string `yaml:"-"`
 }
 
-func (f *File) GetClass() CWLType_Type { return CWL_File }
+func (f *File) GetClass() string      { return "File" }
+func (f *File) GetType() CWLType_Type { return CWL_File }
 
 //func (f *File) GetId() string       { return f.Id }
 //func (f *File) SetId(id string)     { f.Id = id }
@@ -58,10 +58,10 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 	file = File{}
 	err = mapstructure.Decode(obj, &file)
 	if err != nil {
-		err = fmt.Errorf("(MakeFile) Could not convert File object %s", id)
+		err = fmt.Errorf("(MakeFile) Could not convert File object %s %s", id, err.Error())
 		return
 	}
-	file.Class = CWL_File
+	file.Class = string(CWL_File)
 	//fmt.Println("MakeFile input:")
 	//spew.Dump(obj)
 	//fmt.Println("MakeFile output:")
@@ -132,25 +132,25 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 	return
 }
 
-type FileArray struct {
-	CWLType_Impl
-	Id   string `yaml:"id" json:"id"`
-	Data []File
-}
+//type FileArray struct {
+//	CWLType_Impl
+//	Id   string `yaml:"id" json:"id"`
+//	Data []File
+//}
 
-func (f *FileArray) GetClass() CWLType_Type { return CWL_File_array }
+//func (f *FileArray) GetClass() string { return "array" }
 
 //func (f *FileArray) Is_Array() bool   { return true }
 
-func (f *FileArray) Is_CWL_array_type() {}
-func (f *FileArray) Get_Array() *[]File {
-	return &f.Data
-}
+//func (f *FileArray) Is_CWL_array_type() {}
+//func (f *FileArray) Get_Array() *[]File {
+//	return &f.Data
+//}
 
-func (f *FileArray) GetId() string   { return f.Id }
-func (f *FileArray) SetId(id string) { f.Id = id }
+//func (f *FileArray) GetId() string   { return f.Id }
+//func (f *FileArray) SetId(id string) { f.Id = id }
 
 //func (f *FileArray) String() string      { return f.Path }
 //func (f *FileArray) GetLocation() string { return f.Location } // for CWL_location
 
-func (s *FileArray) Is_CommandInputParameterType() {} // for CommandInputParameterType
+//func (s *FileArray) Is_CommandInputParameterType() {} // for CommandInputParameterType

@@ -6,24 +6,31 @@ import (
 	"reflect"
 )
 
-type CommandOutputArraySchema struct {
-	Items         []CWLType_Type        `yaml:"items,omitempty" bson:"items,omitempty" json:"items,omitempty"` // string or []string ([] speficies which types are possible, e.g ["File" , "null"])
-	Type          string                `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"`    // must be array
-	Label         string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+type CommandOutputArraySchema struct { // Items, Type , Label
+	ArraySchema   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	OutputBinding *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"`
 }
 
 func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}
+func (c *CommandOutputArraySchema) Is_Type()                       {}
 
-func NewCommandOutputArraySchema(original interface{}) (coas *CommandOutputArraySchema, err error) {
+func NewCommandOutputArraySchema() (coas *CommandOutputArraySchema) {
+
+	coas = &CommandOutputArraySchema{}
+	coas.Type = "array"
+
+	return
+}
+
+func NewCommandOutputArraySchemaFromInterface(original interface{}) (coas *CommandOutputArraySchema, err error) {
 
 	original, err = makeStringMap(original)
 	if err != nil {
 		return
 	}
 
-	coas = &CommandOutputArraySchema{}
-	coas.Type = "array"
+	coas = NewCommandOutputArraySchema()
+
 	switch original.(type) {
 
 	case map[string]interface{}:

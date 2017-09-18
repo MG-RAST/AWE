@@ -12,11 +12,12 @@ type CWL_collection struct {
 	Workflows          map[string]*Workflow
 	WorkflowStepInputs map[string]*WorkflowStepInput
 	CommandLineTools   map[string]*CommandLineTool
-	Files              map[string]*File
-	Strings            map[string]*String
-	Ints               map[string]*Int
-	Booleans           map[string]*Boolean
-	All                map[string]*CWL_object // everything goes in here
+
+	Files    map[string]*File
+	Strings  map[string]*String
+	Ints     map[string]*Int
+	Booleans map[string]*Boolean
+	All      map[string]*CWL_object // everything goes in here
 	//Job_input          *Job_document
 	Job_input_map *map[string]CWLType
 }
@@ -78,26 +79,27 @@ func (c CWL_collection) Add(obj CWL_object) (err error) {
 	class := obj.GetClass()
 
 	// fix case in class
-	class, err = NewCWLType_TypeFromString(string(class))
+	class, ok = IsValidClass(class)
 
-	if err != nil {
+	if !ok {
+		err = fmt.Errorf("Class %s not found", class)
 		return
 	}
 
 	switch class {
-	case CWL_Workflow:
+	case "Workflow":
 		c.Workflows[id] = obj.(*Workflow)
-	case CWL_WorkflowStepInput:
+	case "WorkflowStepInput":
 		c.WorkflowStepInputs[id] = obj.(*WorkflowStepInput)
-	case CWL_CommandLineTool:
+	case "CommandLineTool":
 		c.CommandLineTools[id] = obj.(*CommandLineTool)
-	case CWL_File:
+	case string(CWL_File):
 		c.Files[id] = obj.(*File)
-	case CWL_string:
+	case string(CWL_string):
 		c.Strings[id] = obj.(*String)
-	case CWL_boolean:
+	case string(CWL_boolean):
 		c.Booleans[id] = obj.(*Boolean)
-	case CWL_int:
+	case string(CWL_int):
 		obj_int, ok := obj.(*Int)
 		if !ok {
 			err = fmt.Errorf("could not make Int type assertion")
@@ -123,7 +125,7 @@ func (c CWL_collection) Get(id string) (obj *CWL_object, err error) {
 	return
 }
 
-func (c CWL_collection) GetType(id string) (obj CWLType, err error) {
+func (c CWL_collection) GetCWLType(id string) (obj CWLType, err error) {
 	var ok bool
 	obj, ok = c.Files[id]
 	if ok {

@@ -14,7 +14,7 @@ import (
 
 type InputParameterType string
 
-func NewInputParameterType(original interface{}) (ipt_ptr interface{}, err error) {
+func NewInputParameterType_dep(original interface{}) (ipt_ptr interface{}, err error) {
 	fmt.Println("---- NewInputParameterType ----")
 
 	spew.Dump(original)
@@ -27,7 +27,7 @@ func NewInputParameterType(original interface{}) (ipt_ptr interface{}, err error
 		array := []interface{}{}
 
 		for _, v := range original_array {
-			ipt, xerr := NewInputParameterType(v)
+			ipt, xerr := NewInputParameterType_dep(v)
 			if xerr != nil {
 				err = xerr
 				return
@@ -48,7 +48,7 @@ func NewInputParameterType(original interface{}) (ipt_ptr interface{}, err error
 
 		if type_value == "array" {
 			var array_schema *CommandOutputArraySchema
-			array_schema, err = NewCommandOutputArraySchema(original_map)
+			array_schema, err = NewCommandOutputArraySchemaFromInterface(original_map)
 			if err != nil {
 				return
 			}

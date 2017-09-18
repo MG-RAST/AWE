@@ -72,7 +72,7 @@ func NewProcess(original interface{}) (process interface{}, err error) {
 			return
 		}
 
-		var class CWLType_Type
+		var class string
 		class, err = GetClass(original_map)
 		if err != nil {
 			err = fmt.Errorf("(NewProcess) GetClass returned: %s", err.Error())
@@ -82,9 +82,9 @@ func NewProcess(original interface{}) (process interface{}, err error) {
 		switch class {
 		//case "":
 		//return NewProcessPointer(original)
-		case CWL_Workflow:
+		case "Workflow":
 			return NewWorkflow(original)
-		case CWL_Expression:
+		case "Expression":
 			return NewExpression(original)
 
 		}

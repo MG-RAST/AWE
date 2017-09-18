@@ -432,7 +432,7 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 			result_array = append(result_array, tool_result)
 
 			output_class := tool_result.GetClass()
-			if output_class != cwl.CWL_File {
+			if output_class != string(cwl.CWL_File) {
 				continue
 			}
 

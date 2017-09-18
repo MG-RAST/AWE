@@ -10,7 +10,7 @@ type Expression string
 
 func (e Expression) String() string { return string(e) }
 
-var CWL_Expression CWLType_Type = "expression"
+//var CWL_Expression CWLType_Type = "expression"
 
 func NewExpression(original interface{}) (expression *Expression, err error) {
 	switch original.(type) {

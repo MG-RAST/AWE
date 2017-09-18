@@ -11,9 +11,14 @@ type Int struct {
 }
 
 func NewInt(id string, value int) *Int {
-	return &Int{CWLType_Impl: CWLType_Impl{Id: id}, Value: value}
+	i := &Int{}
+	i.Id = id
+	i.Class = "int"
+	i.Type = CWL_int
+	i.Value = value
+	return i
 }
 
-func (i *Int) GetClass() CWLType_Type { return CWL_int }
+func (i *Int) GetClass() string { return string(CWL_int) }
 
 func (i *Int) String() string { return strconv.Itoa(i.Value) }

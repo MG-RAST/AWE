@@ -135,7 +135,7 @@ func dbFind(q bson.M, results *Jobs, options map[string]int) (count int, err err
 	return
 }
 
-func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string) (count int, err error) {
+func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string, do_init bool) (count int, err error) {
 	if sortby == "" {
 		return 0, errors.New("sortby must be an nonempty string")
 	}
@@ -170,13 +170,15 @@ func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string) 
 	}
 
 	var count_changed int
-	count_changed, err = results.Init()
-	if err != nil {
-		err = fmt.Errorf("(dbFindSort) results.Init() failed: %s", err.Error())
-		return
-	}
-	logger.Debug(1, "%d jobs haven been updated by Init function", count_changed)
 
+	if do_init {
+		count_changed, err = results.Init()
+		if err != nil {
+			err = fmt.Errorf("(dbFindSort) results.Init() failed: %s", err.Error())
+			return
+		}
+		logger.Debug(1, "%d jobs haven been updated by Init function", count_changed)
+	}
 	return
 }
 

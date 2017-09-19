@@ -510,7 +510,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	//getting real active (in-progress) job (some jobs are in "submitted" states but not in the queue,
 	//because they may have failed and not recovered from the mongodb).
 	if query.Has("active") {
-		err := jobs.GetAll(q, order, direction)
+		err := jobs.GetAll(q, order, direction, false)
 		if err != nil {
 			logger.Error("err " + err.Error())
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
@@ -578,7 +578,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 
 	//geting suspended job in the current queue (excluding jobs in db but not in qmgr)
 	if query.Has("suspend") {
-		err := jobs.GetAll(q, order, direction)
+		err := jobs.GetAll(q, order, direction, false)
 		if err != nil {
 			logger.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
@@ -607,15 +607,15 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			}
 		}
 
-		filtered_jobs.RLockRecursive()
-		defer filtered_jobs.RUnlockRecursive()
+		//filtered_jobs.RLockRecursive()
+		//defer filtered_jobs.RUnlockRecursive()
 
 		cx.RespondWithPaginatedData(filtered_jobs, limit, offset, len(suspend_jobs))
 		return
 	}
 
 	if query.Has("registered") {
-		err := jobs.GetAll(q, order, direction)
+		err := jobs.GetAll(q, order, direction, false)
 		if err != nil {
 			logger.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
@@ -643,15 +643,15 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				break
 			}
 		}
-		paged_jobs.RLockRecursive()
-		defer paged_jobs.RUnlockRecursive()
+		//paged_jobs.RLockRecursive()
+		//defer paged_jobs.RUnlockRecursive()
 		cx.RespondWithPaginatedData(paged_jobs, limit, offset, total)
 		return
 	}
 
 	if query.Has("verbosity") && (query.Value("verbosity") == "minimal") {
 		// TODO - have mongo query only return fields needed to populate JobMin struct
-		total, err := jobs.GetPaginated(q, limit, offset, order, direction)
+		total, err := jobs.GetPaginated(q, limit, offset, order, direction, false)
 		if err != nil {
 			logger.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
@@ -759,7 +759,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		return
 	}
 
-	total, err := jobs.GetPaginated(q, limit, offset, order, direction)
+	total, err := jobs.GetPaginated(q, limit, offset, order, direction, false)
 	if err != nil {
 		logger.Error("err " + err.Error())
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)

@@ -12,7 +12,8 @@ type CommandOutputArraySchema struct { // Items, Type , Label
 }
 
 func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}
-func (c *CommandOutputArraySchema) Is_Type()                       {}
+
+func (c *CommandOutputArraySchema) Type2String() string { return "CommandOutputArraySchema" }
 
 func NewCommandOutputArraySchema() (coas *CommandOutputArraySchema) {
 

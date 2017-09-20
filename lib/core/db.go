@@ -151,9 +151,11 @@ func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string, 
 		if offset, has := options["offset"]; has {
 			err = query.Sort(sortby).Limit(limit).Skip(offset).All(results)
 			if results != nil {
-				_, err = results.Init()
-				if err != nil {
-					return
+				if do_init {
+					_, err = results.Init()
+					if err != nil {
+						return
+					}
 				}
 			}
 			return

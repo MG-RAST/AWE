@@ -2,7 +2,7 @@ package cwl
 
 import (
 	"fmt"
-
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	//"strings"
@@ -106,91 +106,52 @@ func NewInputParameterType_dep(original interface{}) (ipt_ptr interface{}, err e
 // 	}
 // }
 
-func HasInputParameterType(allowed_types []CWLType_Type, search_type CWLType_Type) (ok bool, err error) {
+func TypesEqual(schema CWLType_Type, b CWLType_Type) (ok bool) {
 
-	for _, value := range allowed_types {
-		if value == search_type {
+	switch b.(type) {
+	case *ArraySchema:
+
+		switch schema.(type) {
+		case *CommandOutputArraySchema:
 			ok = true
 			return
+		default:
+			panic("array did not match")
+		}
+	default:
+		if schema == b {
+			ok = true
+			return
+		}
+
+		fmt.Println("Comparsion:")
+		fmt.Printf("schema: %s\n", reflect.TypeOf(schema))
+		fmt.Printf("b: %s\n", reflect.TypeOf(b))
+		spew.Dump(schema)
+		spew.Dump(b)
+
+		panic("comparison failed")
+
+	}
+
+	return
+}
+
+func HasInputParameterType(allowed_types []CWLType_Type, search_type CWLType_Type) (ok bool, err error) {
+
+	for _, schema := range allowed_types {
+
+		if TypesEqual(schema, search_type) { //value == search_type {
+			ok = true
+			return
+		} else {
+			logger.Debug(3, "(HasInputParameterType) search_type %s does not macht expetec type %s", search_type.Type2String(), schema.Type2String())
+
 		}
 	}
 
 	ok = false
 	return
 
-	// var array_of []interface{}
-	//
-	// switch array.(type) {
-	// case *InputParameterType:
-	//
-	// 	ipt, tok := array.(*InputParameterType)
-	// 	if !tok {
-	// 		err = fmt.Errorf("(HasInputParameterType) expected *InputParameterType !?")
-	// 		return
-	// 	}
-	//
-	// 	ipt_nptr := *ipt
-	//
-	// 	v_str := string(ipt_nptr)
-	// 	//if !vok {
-	// 	//	err = fmt.Errorf("(HasInputParameterType) expected string !?")
-	// 	//	return
-	// 	//}
-	// 	if v_str == search_type {
-	// 		ok = true
-	// 		return
-	// 	}
-	// 	ok = false
-	// 	return
-	//
-	// case *[]InputParameterType:
-	// 	array_ipt_ptr, a_ok := array.(*[]InputParameterType)
-	// 	if !a_ok {
-	// 		err = fmt.Errorf("(HasInputParameterType) expected array A")
-	// 		return
-	// 	}
-	// 	array_ipt := *array_ipt_ptr
-	// 	for _, v := range array_ipt {
-	// 		v_str := string(v)
-	//
-	// 		if v_str == search_type {
-	// 			ok = true
-	// 			return
-	// 		}
-	// 	}
-	//
-	// case *[]interface{}:
-	// 	array_of_ptr, a_ok := array.(*[]interface{})
-	// 	if !a_ok {
-	// 		err = fmt.Errorf("(HasInputParameterType) expected array A")
-	// 		return
-	// 	}
-	// 	array_of = *array_of_ptr
-	// case []interface{}:
-	// 	var a_ok bool
-	// 	array_of, a_ok = array.([]interface{})
-	// 	if !a_ok {
-	// 		err = fmt.Errorf("(HasInputParameterType) expected array A")
-	// 		return
-	// 	}
-	//
-	// default:
-	// 	err = fmt.Errorf("(HasInputParameterType) expected array B, got %s (search_type: %s)", reflect.TypeOf(array), search_type)
-	// 	return
-	// }
-	//
-	// for _, v := range array_of {
-	// 	v_str, s_ok := v.(string)
-	// 	if !s_ok {
-	// 		err = fmt.Errorf("(HasInputParameterType) array element is not string")
-	// 		return
-	// 	}
-	// 	if v_str == search_type {
-	// 		ok = true
-	// 		return
-	// 	}
-	// }
-	//
-	// ok = false
 	return
 }

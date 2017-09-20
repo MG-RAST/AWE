@@ -10,8 +10,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/davecgh/go-spew/spew"
 	//aw_sequences"os"
-
 	"path"
+	//"reflect"
 	//"strconv"
 	//"regexp/syntax"
 	"strings"
@@ -63,26 +63,17 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 		spew.Dump(input)
 
 		id := input.Id
-		logger.Debug(3, "Parsing workflow input %s", id)
-		//if strings.HasPrefix(id, "#") {
-		//	workflow_prefix := cwl_workflow.Id + "/"
-		//	if strings.HasPrefix(id, workflow_prefix) {
-		//		id = strings.TrimPrefix(id, workflow_prefix)
-		//		logger.Debug(3, "using new id : %s", id)
-		//	} else {
-		//		err = fmt.Errorf("prefix of id %s does not match workflow id %s with workflow_prefix: %s", id, cwl_workflow.Id, workflow_prefix)
-		//		return
-		//	}
-		//}
+		logger.Debug(3, "(CWL_input_check) Parsing workflow input %s", id)
 
 		id_base := path.Base(id)
 		expected_types := input.Type
 
 		if len(expected_types) == 0 {
-			err = fmt.Errorf("len(expected_types) == 0 ")
+			err = fmt.Errorf("(CWL_input_check) (len(expected_types) == 0 ")
 			return
 		}
 
+		// find workflow input in job_input_map
 		input_obj_ref, ok := job_input_map[id_base] // returns CWLType
 		if !ok {
 			// not found, we can skip it it is optional anyway
@@ -98,23 +89,25 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 
 			// well, this was not optional and not found
 
-			fmt.Printf("-------expected_types:")
+			fmt.Printf("(CWL_input_check) -------expected_types:")
 			spew.Dump(expected_types)
 
-			fmt.Printf("-------job_input_map:")
+			fmt.Printf("(CWL_input_check) -------job_input_map:")
 			spew.Dump(job_input_map)
 
-			err = fmt.Errorf("value for workflow input \"%s\" not found", id)
+			err = fmt.Errorf("(CWL_input_check) value for workflow input \"%s\" not found", id)
 			fmt.Println(err.Error())
 			panic("uhoh")
 			return
 
 		}
 
+		// Get type of CWL_Type we found
 		input_type := input_obj_ref.GetType()
-		//obj := *obj_ref
-		//obj_type := obj_ref.GetClass()
-		logger.Debug(1, "input_type: %s", input_type)
+		//input_type_str := "unknown"
+		logger.Debug(1, "(CWL_input_check) input_type: %s (%s)", input_type, input_type.Type2String())
+
+		// Check if type of input we have matches one of the allowed types
 		has_type, xerr := cwl.HasInputParameterType(expected_types, input_type)
 		if xerr != nil {
 			err = fmt.Errorf("(CWL_input_check) (B) HasInputParameterType returns: %s", xerr)
@@ -131,7 +124,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 			//}
 			fmt.Printf("cwl_workflow.Inputs")
 			spew.Dump(cwl_workflow.Inputs)
-			err = fmt.Errorf("Input %s got %s)", id, input_type)
+			err = fmt.Errorf("Input %s has type %s, but this does not match the expected types)", id, input_type)
 			return
 		}
 

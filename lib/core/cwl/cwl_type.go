@@ -146,17 +146,11 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 			return
 		}
 		cwl_type = array
-		return
 
 	case int:
 		native_int := native.(int)
 
 		cwl_type = NewInt(id, native_int)
-
-		//cwl_type = int_type.(*CWLType)
-
-		return
-		//temp = &Int{Value: native_int}
 
 	case string:
 		native_str := native.(string)
@@ -179,11 +173,6 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 		}
 
-		//empty, xerr := NewEmpty(native)
-		//if xerr != nil {
-		//	err = xerr
-		//	return
-		//}
 		class, xerr := GetClass(native)
 		if xerr != nil {
 			err = xerr
@@ -191,25 +180,18 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		}
 
 		cwl_type, err = NewCWLTypeByClass(class, id, native)
-		return
-	case map[interface{}]interface{}:
-		//empty, xerr := NewEmpty(native)
-		//if xerr != nil {
-		//	err = xerr
-		//	return
-		//}
-		class, xerr := GetClass(native)
-		if xerr != nil {
-			err = xerr
-			return
-		}
-		cwl_type, err = NewCWLTypeByClass(class, id, native)
-		return
+
 	default:
 		spew.Dump(native)
 		err = fmt.Errorf("(NewCWLType) Type unknown: \"%s\"", reflect.TypeOf(native))
 		return
 	}
+
+	//if cwl_type.GetId() == "" {
+	//	err = fmt.Errorf("(NewCWLType) Id is missing")
+	//		return
+	//	}
+
 	//cwl_type_ptr = &cwl_type
 
 	return
@@ -285,7 +267,7 @@ func makeStringMap_deprecated(v interface{}) (result interface{}, err error) {
 	return
 }
 
-func NewCWLTypeArray(native interface{}) (cwl_array_ptr *[]CWLType, err error) {
+func NewCWLTypeArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWLType, err error) {
 
 	switch native.(type) {
 	case []interface{}:
@@ -298,8 +280,8 @@ func NewCWLTypeArray(native interface{}) (cwl_array_ptr *[]CWLType, err error) {
 
 		cwl_array := []CWLType{}
 
-		for _, value := range native_array {
-			value_cwl, xerr := NewCWLType("", value)
+		for i, value := range native_array {
+			value_cwl, xerr := NewCWLType(parent_id+"_"+string(i), value)
 			if xerr != nil {
 				err = xerr
 				return
@@ -309,7 +291,7 @@ func NewCWLTypeArray(native interface{}) (cwl_array_ptr *[]CWLType, err error) {
 		cwl_array_ptr = &cwl_array
 	default:
 
-		ct, xerr := NewCWLType("", native)
+		ct, xerr := NewCWLType(parent_id+"_1", native)
 		if xerr != nil {
 			err = xerr
 			return

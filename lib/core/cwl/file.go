@@ -2,7 +2,6 @@ package cwl
 
 import (
 	"fmt"
-	//"github.com/davecgh/go-spew/spew"
 	"github.com/MG-RAST/AWE/lib/shock"
 	//"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"

@@ -10,13 +10,15 @@ import (
 //type CWLType_Type string
 type CWLType_Type interface {
 	Is_Type()
+	Type2String() string
 }
 
 //func (s CWLType_Type) Is_CWLType_Type()
 
 type CWLType_Type_Basic string
 
-func (s CWLType_Type_Basic) Is_Type() {}
+func (s CWLType_Type_Basic) Is_Type()            {}
+func (s CWLType_Type_Basic) Type2String() string { return string(s) }
 
 func NewCWLType_TypeFromString(native string) (result CWLType_Type, err error) {
 
@@ -59,6 +61,12 @@ func NewCWLType_TypeFromString(native string) (result CWLType_Type, err error) {
 }
 
 func NewCWLType_Type(native interface{}) (result CWLType_Type, err error) {
+
+	native, err = makeStringMap(native)
+	if err != nil {
+		return
+	}
+
 	switch native.(type) {
 	case string:
 		native_str := native.(string)
@@ -66,6 +74,7 @@ func NewCWLType_Type(native interface{}) (result CWLType_Type, err error) {
 		return NewCWLType_TypeFromString(native_str)
 
 	default:
+		spew.Dump(native)
 		err = fmt.Errorf("(NewCWLType_Type) type %s unkown", reflect.TypeOf(native))
 		return
 	}

@@ -51,6 +51,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 
 	original, err = makeStringMap(original)
 	if err != nil {
+		err = fmt.Errorf("(NewWorkflow) makeStringMap returned: %s", err.Error())
 		return
 	}
 
@@ -64,6 +65,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 		if ok {
 			err, object["inputs"] = NewInputParameterArray(inputs)
 			if err != nil {
+				err = fmt.Errorf("(NewWorkflow) NewInputParameterArray returned: %s", err.Error())
 				return
 			}
 		}
@@ -72,6 +74,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 		if ok {
 			object["outputs"], err = NewWorkflowOutputParameterArray(outputs)
 			if err != nil {
+				err = fmt.Errorf("(NewWorkflow) NewWorkflowOutputParameterArray returned: %s", err.Error())
 				return
 			}
 		}
@@ -81,6 +84,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 		if ok {
 			err, object["steps"] = CreateWorkflowStepsArray(steps)
 			if err != nil {
+				err = fmt.Errorf("(NewWorkflow) CreateWorkflowStepsArray returned: %s", err.Error())
 				return
 			}
 		}
@@ -89,6 +93,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 		if ok {
 			object["requirements"], err = CreateRequirementArray(requirements)
 			if err != nil {
+				err = fmt.Errorf("(NewWorkflow) CreateRequirementArray returned: %s", err.Error())
 				return
 			}
 		}
@@ -104,7 +109,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 
 		err = mapstructure.Decode(object, &workflow)
 		if err != nil {
-			err = fmt.Errorf("error parsing workflow class: %s", err.Error())
+			err = fmt.Errorf("(NewWorkflow) error parsing workflow class: %s", err.Error())
 			return
 		}
 		fmt.Printf(".....WORKFLOW")

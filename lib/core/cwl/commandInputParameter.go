@@ -124,7 +124,7 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 		type_value, ok := v_map["type"]
 		if ok {
 
-			type_value, err = NewCWLType_TypeArray(type_value)
+			type_value, err = NewCommandInputParameterTypeArray(type_value)
 			if err != nil {
 				err = fmt.Errorf("(NewCommandInputParameter) NewCommandInputParameter error: %s", err.Error())
 				return

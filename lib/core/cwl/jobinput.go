@@ -33,29 +33,17 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 
 	logger.Debug(3, "(NewJob_document) starting")
 
+	original, err = makeStringMap(original)
+	if err != nil {
+		return
+	}
+
 	job_nptr := Job_document{}
 
 	job = &job_nptr
 
 	switch original.(type) {
-	case map[interface{}]interface{}:
-		original_map := original.(map[interface{}]interface{})
 
-		for key, value := range original_map {
-			key_str, ok := key.(string)
-			if !ok {
-				err = fmt.Errorf("key is not string")
-				return
-			}
-			cwl_obj, xerr := NewCWLType(key_str, value)
-			if xerr != nil {
-				err = xerr
-				return
-			}
-			job_nptr = append(job_nptr, cwl_obj)
-
-		}
-		return
 	case map[string]interface{}:
 
 		original_map := original.(map[string]interface{})

@@ -78,7 +78,8 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 			logger.Debug(1, "parse Workflow")
 			workflow, xerr := NewWorkflow(elem)
 			if xerr != nil {
-				err = xerr
+
+				err = fmt.Errorf("(New_CWL_object) NewWorkflow returned: %s", xerr)
 				return
 			}
 			obj = workflow
@@ -87,7 +88,8 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 
 		cwl_type, xerr := NewCWLType(cwl_object_id, elem)
 		if xerr != nil {
-			err = xerr
+
+			err = fmt.Errorf("(New_CWL_object) NewCWLType returns %s", xerr)
 			return
 		}
 		obj = cwl_type

@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	"gopkg.in/mgo.v2/bson"
 	"reflect"
@@ -302,4 +303,63 @@ func NewCWLTypeArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWL
 
 	return
 
+}
+
+func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err error) {
+
+	switch object.(type) {
+	case *Array:
+
+		switch schema.(type) {
+		case *CommandOutputArraySchema:
+			ok = true
+			return
+		default:
+			panic("array did not match")
+		}
+	default:
+
+		object_type := object.GetType()
+
+		if schema == object_type {
+			ok = true
+			return
+		}
+
+		fmt.Println("Comparsion:")
+		fmt.Printf("schema: %s\n", reflect.TypeOf(schema))
+		fmt.Printf("object: %s\n", reflect.TypeOf(object))
+		spew.Dump(schema)
+		spew.Dump(object)
+
+		panic("comparison failed")
+
+	}
+
+	return
+}
+
+func TypeIsCorrect(allowed_types []CWLType_Type, object CWLType) (ok bool, err error) {
+
+	for _, schema := range allowed_types {
+
+		var type_correct bool
+		type_correct, err = TypeIsCorrectSingle(schema, object)
+		if err != nil {
+			return
+		}
+		if type_correct { //value == search_type {
+			ok = true
+			return
+		} else {
+			object_type := object.GetType()
+			logger.Debug(3, "(HasInputParameterType) search_type %s does not macht expected type %s", object_type.Type2String(), schema.Type2String())
+
+		}
+	}
+
+	ok = false
+	return
+
+	return
 }

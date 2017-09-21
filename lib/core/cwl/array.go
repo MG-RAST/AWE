@@ -19,6 +19,8 @@ func (c *Array) Is_CWL_minimal()                {}
 func (c *Array) Is_CommandInputParameterType()  {}
 func (c *Array) Is_CommandOutputParameterType() {}
 
+//func (c *Array) GetClass() string { return c.Class }
+
 func NewArray(id string, native interface{}) (array *Array, err error) {
 
 	//array = &Array{CWLType_Impl: CWLType_Impl{Id: id}}

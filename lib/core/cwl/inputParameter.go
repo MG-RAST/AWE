@@ -32,6 +32,7 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 	spew.Dump(original)
 	original, err = makeStringMap(original)
 	if err != nil {
+		err = fmt.Errorf("(NewInputParameter) makeStringMap returned: %s", err.Error())
 		return
 	}
 	spew.Dump(original)
@@ -82,7 +83,7 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 		inputParameter_type, ok := original_map["type"]
 		if ok {
 			var inputParameter_type_array []CWLType_Type
-			inputParameter_type_array, err = NewCWLType_TypeArray(inputParameter_type)
+			inputParameter_type_array, err = NewCWLType_TypeArray(inputParameter_type, "Input")
 			if err != nil {
 				fmt.Errorf("(NewInputParameter) NewCWLType_TypeArray returns: %s", err.Error())
 				return
@@ -125,20 +126,20 @@ func NewInputParameterArray(original interface{}) (err error, new_array []InputP
 
 			id, ok := k.(string)
 			if !ok {
-				err = fmt.Errorf("Cannot parse id of input")
+				err = fmt.Errorf("(NewInputParameterArray) Cannot parse id of input")
 				return
 			}
 
 			input_parameter, xerr := NewInputParameter(v)
 			if xerr != nil {
-				err = xerr
+				err = fmt.Errorf("(NewInputParameterArray) A NewInputParameter returned: %s", xerr.Error())
 				return
 			}
 
 			input_parameter.Id = id
 
 			if input_parameter.Id == "" {
-				err = fmt.Errorf("ID is missing")
+				err = fmt.Errorf("(NewInputParameterArray) ID is missing")
 				return
 			}
 
@@ -154,12 +155,12 @@ func NewInputParameterArray(original interface{}) (err error, new_array []InputP
 
 			input_parameter, xerr := NewInputParameter(v)
 			if xerr != nil {
-				err = xerr
+				err = fmt.Errorf("(NewInputParameterArray) B NewInputParameter returned: %s", xerr.Error())
 				return
 			}
 
 			if input_parameter.Id == "" {
-				err = fmt.Errorf("ID is missing")
+				err = fmt.Errorf("(NewInputParameterArray) ID is missing")
 				return
 			}
 
@@ -170,7 +171,7 @@ func NewInputParameterArray(original interface{}) (err error, new_array []InputP
 		}
 	default:
 		spew.Dump(original)
-		err = fmt.Errorf("(NewInputParameterArray) type unknown")
+		err = fmt.Errorf("(NewInputParameterArray) type %s unknown", reflect.TypeOf(original))
 		return
 	}
 

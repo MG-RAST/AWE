@@ -2,7 +2,7 @@ package cwl
 
 import (
 	"fmt"
-	//"github.com/davecgh/go-spew/spew"
+	"github.com/davecgh/go-spew/spew"
 
 	"github.com/mitchellh/mapstructure"
 	"reflect"
@@ -78,10 +78,14 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 
 		default_value, has_default := original_map["default"]
 		if has_default {
-			var any Any
-			any, err = NewAny(default_value)
+			var any CWLType
+			fmt.Println("trying:")
+			spew.Dump(original)
+			any, err = NewCWLType("", default_value)
 			if err != nil {
-				err = fmt.Errorf("(NewWorkflowStepInput) NewAny returned: %s", err.Error())
+				fmt.Println("problematic Default:")
+				spew.Dump(original)
+				err = fmt.Errorf("(NewWorkflowStepInput) NewCWLType returned: %s", err.Error())
 				return
 			}
 			original_map["default"] = any
@@ -147,6 +151,7 @@ func (input WorkflowStepInput) GetObject(c *CWL_collection) (obj *CWL_object, er
 		var any Any
 		any, err = NewAny(input.Default)
 		if err != nil {
+			err = fmt.Errorf("(GetObject) NewAny returns", err.Error())
 			return
 		}
 		cwl_obj = any
@@ -171,7 +176,7 @@ func CreateWorkflowStepInputArray(original interface{}) (array_ptr *[]WorkflowSt
 
 			input_parameter, xerr := NewWorkflowStepInput(v)
 			if xerr != nil {
-				err = xerr
+				err = fmt.Errorf("(CreateWorkflowStepInputArray) (map) NewWorkflowStepInput returns: %s", xerr.Error())
 				return
 			}
 
@@ -191,7 +196,7 @@ func CreateWorkflowStepInputArray(original interface{}) (array_ptr *[]WorkflowSt
 
 			input_parameter, xerr := NewWorkflowStepInput(v)
 			if xerr != nil {
-				err = xerr
+				err = fmt.Errorf("(CreateWorkflowStepInputArray) (array) NewWorkflowStepInput returns: %s", xerr.Error())
 				return
 			}
 

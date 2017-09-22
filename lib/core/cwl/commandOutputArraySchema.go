@@ -44,7 +44,7 @@ func NewCommandOutputArraySchemaFromInterface(original interface{}) (coas *Comma
 		items, ok := original_map["items"]
 		if ok {
 			var items_type []CWLType_Type
-			items_type, err = NewCWLType_TypeArray(items)
+			items_type, err = NewCWLType_TypeArray(items, "CommandOutput")
 			if err != nil {
 				err = fmt.Errorf("(NewCommandOutputArraySchema) NewCWLType_TypeArray returns: %s", err.Error())
 				return

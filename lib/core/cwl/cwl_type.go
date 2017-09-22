@@ -130,64 +130,80 @@ func IsValidClass(native_str string) (result string, ok bool) {
 func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 	//var cwl_type CWLType
+	fmt.Printf("(NewCWLType) starting with type %s\n", reflect.TypeOf(native))
 
 	native, err = makeStringMap(native)
 	if err != nil {
 		return
 	}
 
+	fmt.Printf("(NewCWLType) (B) starting with type %s\n", reflect.TypeOf(native))
+
 	switch native.(type) {
 	case []interface{}:
-
+		fmt.Printf("(NewCWLType) C\n")
 		native_array, _ := native.([]interface{})
 
 		array, xerr := NewArray(id, native_array)
 		if xerr != nil {
-			err = xerr
+			err = fmt.Errorf("(NewCWLType) NewArray returned: ", xerr.Error())
 			return
 		}
 		cwl_type = array
 
 	case int:
+		fmt.Printf("(NewCWLType) D\n")
 		native_int := native.(int)
 
 		cwl_type = NewInt(id, native_int)
 
 	case string:
+		fmt.Printf("(NewCWLType) E\n")
 		native_str := native.(string)
 
 		cwl_type = NewString(id, native_str)
 	case bool:
+		fmt.Printf("(NewCWLType) F\n")
 		native_bool := native.(bool)
 
 		cwl_type = NewBoolean(id, native_bool)
 
 	case map[string]interface{}:
-
+		fmt.Printf("(NewCWLType) G\n")
 		native_map := native.(map[string]interface{})
 
 		_, has_items := native_map["items"]
 
 		if has_items {
-			cwl_type, err = NewArray(id, native)
+			cwl_type, err = NewArray(id, native_map)
+			if err != nil {
+				err = fmt.Errorf("(NewCWLType) NewArray returned: %s", err.Error())
+			}
 			return
 
 		}
 
 		class, xerr := GetClass(native)
 		if xerr != nil {
-			err = xerr
+
+			err = fmt.Errorf("(NewCWLType) GetClass returned: %s", xerr.Error())
 			return
 		}
 
 		cwl_type, err = NewCWLTypeByClass(class, id, native)
+		if err != nil {
+
+			err = fmt.Errorf("(NewCWLType) NewCWLTypeByClass returned: %s", err.Error())
+			return
+		}
 
 	default:
+		fmt.Printf("(NewCWLType) H\n")
 		spew.Dump(native)
 		err = fmt.Errorf("(NewCWLType) Type unknown: \"%s\"", reflect.TypeOf(native))
 		return
 	}
-
+	fmt.Printf("(NewCWLType) I\n")
 	//if cwl_type.GetId() == "" {
 	//	err = fmt.Errorf("(NewCWLType) Id is missing")
 	//		return
@@ -205,23 +221,30 @@ func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CW
 		file, yerr := NewFile(id, native)
 		cwl_type = &file
 		if yerr != nil {
-			err = yerr
+			err = fmt.Errorf("(NewCWLTypeByClass) NewFile returned: %s", yerr.Error())
 			return
 		}
 	case string(CWL_string):
 		mystring, yerr := NewStringFromInterface(id, native)
-		cwl_type = mystring
 		if yerr != nil {
-			err = yerr
+			err = fmt.Errorf("(NewCWLTypeByClass) NewStringFromInterface returned: %s", yerr.Error())
 			return
 		}
+		cwl_type = mystring
+	case string(CWL_boolean):
+		myboolean, yerr := NewBooleanFromInterface(id, native)
+		if yerr != nil {
+			err = fmt.Errorf("(NewCWLTypeByClass) NewStringFromInterface returned: %s", yerr.Error())
+			return
+		}
+		cwl_type = myboolean
 	default:
 		// Map type unknown, maybe a record
 		spew.Dump(native)
 
 		record, xerr := NewRecord(id, native)
 		if xerr != nil {
-			err = xerr
+			err = fmt.Errorf("(NewCWLTypeByClass) NewRecord returned: %s", xerr.Error())
 			return
 		}
 		cwl_type = record

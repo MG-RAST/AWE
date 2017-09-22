@@ -178,7 +178,7 @@ func CreateCommandInputArray(original interface{}) (err error, new_array []*Comm
 			//mapstructure.Decode(v, &input_parameter)
 			input_parameter, xerr := NewCommandInputParameter(v)
 			if xerr != nil {
-				err = fmt.Errorf("(CreateCommandInputArray) map[interface{}]interface{} NewCommandInputParameter returned: %s", xerr)
+				err = fmt.Errorf("(CreateCommandInputArray) map[interface{}]interface{} NewCommandInputParameter returned: %s", xerr.Error())
 				return
 			}
 
@@ -194,7 +194,7 @@ func CreateCommandInputArray(original interface{}) (err error, new_array []*Comm
 
 			input_parameter, xerr := NewCommandInputParameter(v)
 			if xerr != nil {
-				err = fmt.Errorf("(CreateCommandInputArray) []interface{} NewCommandInputParameter returned: %s", xerr)
+				err = fmt.Errorf("(CreateCommandInputArray) []interface{} NewCommandInputParameter returned: %s", xerr.Error())
 				return
 			}
 			//var input_parameter CommandInputParameter

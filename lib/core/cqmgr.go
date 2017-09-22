@@ -1153,14 +1153,14 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 
 				other_client, ok, xerr := qm.GetClient(other_client_id, true)
 				if xerr != nil {
-					logger.Error("(ReQueueWorkunitByClient) other_client: %s ", xerr)
+					logger.Error("(ReQueueWorkunitByClient) other_client: %s ", xerr.Error())
 					continue
 				}
 				if ok {
 					// other_client exists (if otherclient does not exist, that is ok....)
 					oc_has_work, err := other_client.Current_work.Has(workid)
 					if err != nil {
-						logger.Error("(ReQueueWorkunitByClient) Current_work_has: %s ", err)
+						logger.Error("(ReQueueWorkunitByClient) Current_work_has: %s ", err.Error())
 						continue
 					}
 					if !oc_has_work {

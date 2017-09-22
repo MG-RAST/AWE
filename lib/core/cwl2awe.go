@@ -89,7 +89,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 		// Check if type of input we have matches one of the allowed types
 		has_type, xerr := cwl.TypeIsCorrect(expected_types, input_obj_ref)
 		if xerr != nil {
-			err = fmt.Errorf("(CWL_input_check) (B) HasInputParameterType returns: %s", xerr)
+			err = fmt.Errorf("(CWL_input_check) (B) HasInputParameterType returns: %s", xerr.Error())
 
 			return
 		}
@@ -191,7 +191,8 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 			return
 		}
 
-		task_name := step.Id
+		task_name := strings.TrimPrefix(step.Id, "#main/")
+		task_name = strings.TrimPrefix(task_name, "#")
 		awe_task := NewTask(job, task_name)
 		awe_task.WorkflowStep = &step
 		job.Tasks = append(job.Tasks, awe_task)

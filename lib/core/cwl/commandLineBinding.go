@@ -77,7 +77,7 @@ func NewCommandLineBindingArray(original interface{}) (new_array []*CommandLineB
 
 			clb, xerr := NewCommandLineBinding(v)
 			if xerr != nil {
-				err = fmt.Errorf("(NewCommandLineBindingArray) []interface{} NewCommandLineBinding returned: %s", xerr)
+				err = fmt.Errorf("(NewCommandLineBindingArray) []interface{} NewCommandLineBinding returned: %s", xerr.Error())
 				return
 			}
 
@@ -91,7 +91,7 @@ func NewCommandLineBindingArray(original interface{}) (new_array []*CommandLineB
 
 		clb, xerr := NewCommandLineBinding(original)
 		if xerr != nil {
-			err = fmt.Errorf("(NewCommandLineBindingArray) string NewCommandLineBinding returned: %s", xerr)
+			err = fmt.Errorf("(NewCommandLineBindingArray) string NewCommandLineBinding returned: %s", xerr.Error())
 			return
 		}
 

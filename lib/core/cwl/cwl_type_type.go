@@ -60,7 +60,7 @@ func NewCWLType_TypeFromString(native string) (result CWLType_Type, err error) {
 	return
 }
 
-func NewCWLType_Type(native interface{}) (result CWLType_Type, err error) {
+func NewCWLType_Type(native interface{}, context string) (result CWLType_Type, err error) {
 
 	native, err = makeStringMap(native)
 	if err != nil {
@@ -72,15 +72,45 @@ func NewCWLType_Type(native interface{}) (result CWLType_Type, err error) {
 		native_str := native.(string)
 
 		return NewCWLType_TypeFromString(native_str)
+	case map[string]interface{}:
+		native_map := native.(map[string]interface{})
+
+		object_type, has_type := native_map["type"]
+		if has_type {
+			if object_type == "array" {
+
+				switch context {
+				case "Input":
+					result, err = NewInputArraySchemaFromInterface(native)
+					if err != nil {
+						err = fmt.Errorf("(NewCWLType_Type) NewInputArraySchemaFromInterface returned: %s", err.Error())
+					}
+					return
+				case "CommandOutput":
+					result, err = NewCommandOutputArraySchemaFromInterface(native)
+					if err != nil {
+						err = fmt.Errorf("(NewCWLType_Type) NewCommandOutputArraySchemaFromInterface returned: %s", err.Error())
+					}
+					return
+				default:
+					err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
+					return
+				}
+
+			}
+
+		}
 
 	default:
 		spew.Dump(native)
 		err = fmt.Errorf("(NewCWLType_Type) type %s unkown", reflect.TypeOf(native))
 		return
 	}
+
+	return
 }
 
-func NewCWLType_TypeArray(native interface{}) (result []CWLType_Type, err error) {
+func NewCWLType_TypeArray(native interface{}, context string) (result []CWLType_Type, err error) {
 
 	switch native.(type) {
 	case map[string]interface{}:
@@ -137,7 +167,7 @@ func NewCWLType_TypeArray(native interface{}) (result []CWLType_Type, err error)
 		type_array := []CWLType_Type{}
 		for _, element_str := range native_array {
 			var element_type CWLType_Type
-			element_type, err = NewCWLType_Type(element_str)
+			element_type, err = NewCWLType_Type(element_str, context)
 			if err != nil {
 				return
 			}

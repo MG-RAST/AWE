@@ -299,7 +299,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 						value_str, xerr := value.ToString()
 						if xerr != nil {
-							err = fmt.Errorf("Cannot convert value to string: %s", xerr)
+							err = fmt.Errorf("Cannot convert value to string: %s", xerr.Error())
 							return
 						}
 						parsed = strings.Replace(parsed, string(match), value_str, 1)
@@ -338,7 +338,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 						value_str, xerr := value.ToString()
 						if xerr != nil {
-							err = fmt.Errorf("Cannot convert value to string: %s", xerr)
+							err = fmt.Errorf("Cannot convert value to string: %s", xerr.Error())
 							return
 						}
 						parsed = strings.Replace(parsed, string(match), value_str, 1)

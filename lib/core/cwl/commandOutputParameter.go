@@ -72,7 +72,7 @@ func NewCommandOutputParameterArray(original interface{}) (copa *[]CommandOutput
 	case map[interface{}]interface{}:
 		cop, xerr := NewCommandOutputParameter(original)
 		if xerr != nil {
-			err = fmt.Errorf("(NewCommandOutputParameterArray) a NewCommandOutputParameter returns: %s", xerr)
+			err = fmt.Errorf("(NewCommandOutputParameterArray) a NewCommandOutputParameter returns: %s", xerr.Error())
 			return
 		}
 		copa = &[]CommandOutputParameter{*cop}
@@ -84,7 +84,7 @@ func NewCommandOutputParameterArray(original interface{}) (copa *[]CommandOutput
 		for _, element := range original_array {
 			cop, xerr := NewCommandOutputParameter(element)
 			if xerr != nil {
-				err = fmt.Errorf("(NewCommandOutputParameterArray) b NewCommandOutputParameter returns: %s", xerr)
+				err = fmt.Errorf("(NewCommandOutputParameterArray) b NewCommandOutputParameter returns: %s", xerr.Error())
 				return
 			}
 			copa_nptr = append(copa_nptr, *cop)

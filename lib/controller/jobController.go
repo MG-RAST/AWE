@@ -699,12 +699,25 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				// get failed task if info available, otherwise empty task array
 				if (job.Error != nil) && (job.Error.TaskFailed != "") {
 					parts := strings.Split(job.Error.TaskFailed, "_")
-					tid, err := strconv.Atoi(parts[1])
-					if err != nil {
-						logger.Error("(job resource) verbosity, job.Error.TaskFailed cannot be parsed")
+					if len(parts) > 1 {
+						tid, err := strconv.Atoi(parts[1])
+						if err != nil {
+							logger.Error("(job resource) verbosity, A job.Error.TaskFailed cannot be parsed (%s)", job.Error.TaskFailed)
+						} else {
+							mjob.Task = append(mjob.Task, tid)
+						}
+					} else if len(parts) == 1 {
+						tid, err := strconv.Atoi(parts[0])
+						if err != nil {
+							logger.Error("(job resource) verbosity, B job.Error.TaskFailed cannot be parsed (%s)", job.Error.TaskFailed)
+						} else {
+							mjob.Task = append(mjob.Task, tid)
+						}
 					} else {
-						mjob.Task = append(mjob.Task, tid)
+
+						logger.Error("(job resource) verbosity, C job.Error.TaskFailed cannot be parsed  (%s)", job.Error.TaskFailed)
 					}
+
 				}
 			} else {
 				// get multiple tasks in state queued or in-progress

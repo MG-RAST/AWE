@@ -653,19 +653,15 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		// TODO - have mongo query only return fields needed to populate JobMin struct
 		total, err := jobs.GetPaginated(q, limit, offset, order, direction, false)
 		if err != nil {
-			logger.Error("err " + err.Error())
-			cx.RespondWithError(http.StatusBadRequest)
+			logger.Error("error: " + err.Error())
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}
 		minimal_jobs := []core.JobMin{}
 		length := jobs.Length()
 		for i := 0; i < length; i++ {
 			job := jobs.GetJobAt(i)
-			job_state, err := job.GetState(true)
-			if err != nil {
-				logger.Error(err.Error())
-				continue
-			}
+			job_state, _ := job.GetState(false) // no lock needed
 
 			// create and populate minimal job
 			mjob := core.JobMin{}
@@ -675,7 +671,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			mjob.CompletedTime = job.Info.CompletedTime
 			// get size of input
 			var size_sum int64 = 0
-			for _, v := range job.Tasks[0].Inputs {
+			for _, v := range job.Tasks[0].Inputs { // TODO this is stupid, this is MG-RAST specific
 				size_sum = size_sum + v.Size
 			}
 			mjob.Size = size_sum
@@ -690,46 +686,44 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			}
 
 			// get current total computetime
-			for j := 0; j < len(job.Tasks); j++ {
-				task := job.Tasks[j]
+			for _, task := range job.Tasks {
 				mjob.ComputeTime += task.ComputeTime
 			}
-			if (job_state == "completed") || (job_state == "deleted") {
+
+			if (job_state == core.JOB_STAT_COMPLETED) || (job_state == core.JOB_STAT_DELETED) {
 
 				// if completed or deleted move on, empty task array
 				mjob.State = append(mjob.State, job_state)
-			} else if job_state == "suspend" {
-				mjob.State = append(mjob.State, "suspend")
+			} else if job_state == core.JOB_STAT_SUSPEND {
+				mjob.State = append(mjob.State, core.JOB_STAT_SUSPEND)
 				// get failed task if info available, otherwise empty task array
 				if (job.Error != nil) && (job.Error.TaskFailed != "") {
 					parts := strings.Split(job.Error.TaskFailed, "_")
-					if tid, err := strconv.Atoi(parts[1]); err == nil {
+					tid, err := strconv.Atoi(parts[1])
+					if err != nil {
+						logger.Error("(job resource) verbosity, job.Error.TaskFailed cannot be parsed")
+					} else {
 						mjob.Task = append(mjob.Task, tid)
 					}
 				}
 			} else {
 				// get multiple tasks in state queued or in-progress
-				for j := 0; j < len(job.Tasks); j++ {
-					task := job.Tasks[j]
-					task_state, xerr := task.GetState()
-					if xerr != nil {
-						continue
-					}
+				for j, task := range job.Tasks {
 
-					if (task_state == "in-progress") || (task_state == "queued") {
+					task_state := task.State // no lock needed
+
+					if (task_state == core.TASK_STAT_INPROGRESS) || (task_state == core.TASK_STAT_QUEUED) {
 						mjob.State = append(mjob.State, task_state)
 						mjob.Task = append(mjob.Task, j)
 					}
 				}
 				// otherwise get oldest pending or init task
 				if len(mjob.State) == 0 {
-					for j := 0; j < len(job.Tasks); j++ {
-						task := job.Tasks[j]
-						task_state, xerr := task.GetState()
-						if xerr != nil {
-							continue
-						}
-						if (task_state == "pending") || (task_state == "init") {
+					for j, task := range job.Tasks {
+
+						task_state := task.State // no lock needed
+
+						if (task_state == core.TASK_STAT_PENDING) || (task_state == core.TASK_STAT_INIT) {
 							mjob.State = append(mjob.State, task_state)
 							mjob.Task = append(mjob.Task, j)
 							break

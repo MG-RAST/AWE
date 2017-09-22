@@ -159,6 +159,57 @@ func CWL_File_2_AWE_IO(file *cwl.File) (io *core.IO, err error) {
 	return
 }
 
+func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (size int64, err error) {
+
+	spew.Dump(input)
+	switch input.(type) {
+	case *cwl.File:
+		file := input.(*cwl.File)
+		spew.Dump(*file)
+		fmt.Printf("file: %+v\n", *file)
+
+		var io *core.IO
+		io, err = CWL_File_2_AWE_IO(file)
+		if err != nil {
+			return
+		}
+
+		var io_size int64
+		io_size, err = MoveInputIO(work, io, work_path)
+		if err != nil {
+			err = fmt.Errorf("(MoveInputData) MoveInputIO returns %s", err.Error())
+			return
+		}
+		size = io_size
+		spew.Dump(io)
+
+		return
+	case *cwl.String:
+		return
+	case *cwl.Int:
+		return
+	case *cwl.Array:
+
+		array := input.(*cwl.Array)
+
+		for _, element := range array.Items {
+
+			var io_size int64
+			io_size, err = MoveInputCWL(work, work_path, element)
+			if err != nil {
+				return
+			}
+			size += io_size
+		}
+		return
+		// TODO ************* Record and Enum
+	default:
+		err = fmt.Errorf("(MoveInputData) type %s not supoorted yet", reflect.TypeOf(input))
+		return
+	}
+	return
+}
+
 //fetch input data
 func MoveInputData(work *core.Workunit) (size int64, err error) {
 
@@ -175,35 +226,12 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 
 		for input_name, input := range *job_input {
 			fmt.Println(input_name)
-			spew.Dump(input)
-			switch input.(type) {
-			case *cwl.File:
-				file := input.(*cwl.File)
-				spew.Dump(*file)
-				fmt.Printf("file: %+v\n", *file)
-
-				var io *core.IO
-				io, err = CWL_File_2_AWE_IO(file)
-				if err != nil {
-					return
-				}
-
-				var io_size int64
-				io_size, err = MoveInputIO(work, io, work_path)
-				if err != nil {
-					err = fmt.Errorf("(MoveInputData) MoveInputIO returns %s", err.Error())
-					return
-				}
-				spew.Dump(io)
-				size += io_size
-
-				continue
-			case *cwl.String:
-				continue
-			default:
-				err = fmt.Errorf("(MoveInputData) type %s not supoorted yet", reflect.TypeOf(input))
+			var io_size int64
+			io_size, err = MoveInputCWL(work, work_path, input)
+			if err != nil {
 				return
 			}
+			size += io_size
 		}
 
 		return

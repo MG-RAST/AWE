@@ -17,14 +17,23 @@ import (
 
 //type Job_document map[string]interface{}
 
-type Job_document []CWLType
+type NamedCWLType struct {
+	Id    string  `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	Value CWLType `yaml:"value,omitempty" value:"inputs,omitempty" value:"inputs,omitempty"`
+}
+
+func NewNamedCWLType(id string, value CWLType) NamedCWLType {
+	return NamedCWLType{Id: id, Value: value}
+}
+
+type Job_document []NamedCWLType
 
 func (job_input *Job_document) GetMap() (job_input_map map[string]CWLType) {
 	job_input_map = make(map[string]CWLType)
 
 	for _, value := range *job_input {
-		id := value.GetId()
-		job_input_map[id] = value
+		//id := value.GetId()
+		job_input_map[value.Id] = value.Value
 	}
 	return
 }
@@ -55,7 +64,7 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 				err = xerr
 				return
 			}
-			job_nptr = append(job_nptr, cwl_obj)
+			job_nptr = append(job_nptr, NewNamedCWLType(key_str, cwl_obj))
 
 		}
 		return
@@ -70,12 +79,13 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 				err = xerr
 				return
 			}
-			job_nptr = append(job_nptr, cwl_obj)
+			job_nptr = append(job_nptr, NewNamedCWLType("not supported", cwl_obj))
 
 		}
 
 		return
 	default:
+
 		spew.Dump(original)
 		err = fmt.Errorf("(NewJob_document) type %s unknown", reflect.TypeOf(original))
 	}

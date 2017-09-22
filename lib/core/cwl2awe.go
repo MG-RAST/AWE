@@ -176,7 +176,12 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	//helper.job = job
 	//helper.AWE_tasks = &awe_tasks
 
-	for _, step := range cwl_workflow.Steps {
+	var tasks []*Task
+
+	for s, _ := range cwl_workflow.Steps {
+
+		step := cwl_workflow.Steps[s] // I could not do "_, step := range", that leas to very strange behaviour ?!??!
+
 		//task_name := strings.Map(
 		//	func(r rune) rune {
 		//		if syntax.IsWordChar(r) || r == '/' || r == '-' { // word char: [0-9A-Za-z_]
@@ -194,11 +199,16 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 		task_name := strings.TrimPrefix(step.Id, "#main/")
 		task_name = strings.TrimPrefix(task_name, "#")
 		awe_task := NewTask(job, task_name)
+
 		awe_task.WorkflowStep = &step
-		job.Tasks = append(job.Tasks, awe_task)
+		//spew.Dump(step)
+		tasks = append(tasks, awe_task)
+
 	}
+	job.Tasks = tasks
 
 	_, err = job.Init()
+
 	if err != nil {
 		err = fmt.Errorf("job.Init() failed: %s", err.Error())
 		return

@@ -31,8 +31,8 @@ type File struct {
 	Token  string `yaml:"-"`
 }
 
-func (f *File) GetClass() string      { return "File" }
-func (f *File) GetType() CWLType_Type { return CWL_File }
+//func (f *File) GetClass() string      { return "File" }
+//func (f *File) GetType() CWLType_Type { return CWL_File }
 
 //func (f *File) GetId() string       { return f.Id }
 //func (f *File) SetId(id string)     { f.Id = id }
@@ -61,6 +61,8 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 		return
 	}
 	file.Class = string(CWL_File)
+	file.Type = CWL_File
+
 	//fmt.Println("MakeFile input:")
 	//spew.Dump(obj)
 	//fmt.Println("MakeFile output:")

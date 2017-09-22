@@ -1,4 +1,4 @@
-package requirements
+package cwl
 
 import (
 	"github.com/mitchellh/mapstructure"

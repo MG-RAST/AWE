@@ -1324,13 +1324,18 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 
 	if task.WorkflowStep != nil {
 		// check if CWL-style predecessors are all TASK_STAT_COMPLETED
+
+		fmt.Println("WorkflowStep.Id: " + task.WorkflowStep.Id)
 		for _, wsi := range task.WorkflowStep.In { // WorkflowStepInput
 
 			//job_input := *(job.CWL_collection.Job_input)
 
-			for _, src := range wsi.Source {
+			for _, src := range wsi.Source { // usually only one
 				fmt.Println("src: " + src)
 
+				if strings.HasPrefix(src, "#main/") {
+					src = strings.TrimPrefix(src, "#main/")
+				}
 				source_task := ""
 				source_name := ""
 				source_array := strings.Split(src, "/")
@@ -1338,12 +1343,21 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 					err = fmt.Errorf("len(source_array) == 0")
 					return
 				} else if len(source_array) == 1 {
+					// job input
 					source_name = source_array[0]
 				} else if len(source_array) == 2 {
-					source_task = strings.TrimPrefix(source_array[0], "#")
+					// tak output
+					source_task = source_array[0]
 					source_name = source_array[1]
 
+					if source_task == "" {
+						err = fmt.Errorf("source_task is empty !?")
+						return
+					}
 				} else {
+
+					fmt.Println("len(source_array) > 2: ")
+					spew.Dump(wsi)
 					err = fmt.Errorf("len(source_array) > 2  %s", src)
 					return
 				}
@@ -1351,7 +1365,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 				fmt.Println("source_task: " + source_task)
 				fmt.Println("source_name: " + source_name)
 
-				if source_task == "main" {
+				if source_task == "" {
 					// wokflow input, can continue
 					continue
 				}
@@ -1376,7 +1390,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 				}
 
 				if predecessor_task_state != TASK_STAT_COMPLETED {
-					logger.Debug(3, "(isTaskReady %s) (CWL-style) not ready because predecessor is not ready", task_id)
+					logger.Debug(3, "(isTaskReady %s) (CWL-style) not ready because predecessor step/task %s is not ready", task_id, predecessor_task_id.String())
 					return
 				}
 
@@ -2128,7 +2142,7 @@ func (qm *ServerMgr) DeleteZombieJobsByUser(u *user.User, full bool) (num int) {
 	dbjobs := new(Jobs)
 	q := bson.M{}
 	q["state"] = bson.M{"in": JOB_STATS_ACTIVE}
-	if err := dbjobs.GetAll(q, "info.submittime", "asc"); err != nil {
+	if err := dbjobs.GetAll(q, "info.submittime", "asc", false); err != nil {
 		logger.Error("DeleteZombieJobs()->GetAllLimitOffset():" + err.Error())
 		return
 	}
@@ -2231,13 +2245,13 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 	q["state"] = bson.M{"$in": JOB_STATS_TO_RECOVER}
 	if conf.RECOVER_MAX > 0 {
 		logger.Info("Recover %d jobs...", conf.RECOVER_MAX)
-		if _, err := dbjobs.GetPaginated(q, conf.RECOVER_MAX, 0, "info.priority", "desc"); err != nil {
+		if _, err := dbjobs.GetPaginated(q, conf.RECOVER_MAX, 0, "info.priority", "desc", true); err != nil {
 			logger.Error("RecoverJobs()->GetPaginated():" + err.Error())
 			return err
 		}
 	} else {
 		logger.Info("Recover all jobs")
-		if err := dbjobs.GetAll(q, "info.submittime", "asc"); err != nil {
+		if err := dbjobs.GetAll(q, "info.submittime", "asc", true); err != nil {
 			logger.Error("RecoverJobs()->GetAll():" + err.Error())
 			return err
 		}

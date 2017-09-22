@@ -1,7 +1,7 @@
 package core
 
 import (
-	"fmt"
+	//"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 )
 
@@ -12,7 +12,7 @@ type WorkLog struct {
 }
 
 func NewWorkLog(id Workunit_Unique_Identifier) (wlog *WorkLog) {
-	work_id := fmt.Sprintf("%s_%d", id.TaskId, id.Rank)
+	work_id := id.String()
 	wlog = new(WorkLog)
 	wlog.Id = work_id
 	wlog.Rank = id.Rank

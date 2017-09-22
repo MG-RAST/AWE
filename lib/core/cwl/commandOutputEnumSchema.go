@@ -14,6 +14,8 @@ type CommandOutputEnumSchema struct {
 }
 
 func (c *CommandOutputEnumSchema) Is_CommandOutputParameterType() {}
+func (c *CommandOutputEnumSchema) Is_Type()                       {}
+func (c *CommandOutputEnumSchema) Type2String() string            { return "CommandOutputEnumSchema" }
 
 func NewCommandOutputEnumSchema(v map[string]interface{}) (schema *CommandOutputEnumSchema, err error) {
 

@@ -1,8 +1,10 @@
 package cwl
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
+	"reflect"
 )
 
 type Record struct {
@@ -10,14 +12,18 @@ type Record struct {
 	Fields       []CWLType `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
 }
 
-func (r *Record) GetClass() string { return CWL_record }
+func (r *Record) GetClass() string { return "record" }
 
 func (r *Record) Is_CWL_minimal()                {}
-func (r *Record) Is_CWLType()                    {}
 func (r *Record) Is_CommandInputParameterType()  {}
 func (r *Record) Is_CommandOutputParameterType() {}
 
 func NewRecord(id string, native interface{}) (record *Record, err error) {
+
+	native, err = makeStringMap(native)
+	if err != nil {
+		return
+	}
 
 	record = &Record{}
 
@@ -27,15 +33,9 @@ func NewRecord(id string, native interface{}) (record *Record, err error) {
 	}
 
 	switch native.(type) {
-	case map[interface{}]interface{}:
-		native_map, _ := native.(map[interface{}]interface{})
-		for key, value := range native_map {
-
-			key_str, ok := key.(string)
-			if !ok {
-				err = fmt.Errorf("Could not cast key to string")
-				return
-			}
+	case map[string]interface{}:
+		native_map, _ := native.(map[string]interface{})
+		for key_str, value := range native_map {
 
 			value_cwl, xerr := NewCWLType(key_str, value)
 			if xerr != nil {
@@ -49,7 +49,7 @@ func NewRecord(id string, native interface{}) (record *Record, err error) {
 	default:
 		fmt.Println("Unknown Record:")
 		spew.Dump(native)
-		err = fmt.Errorf("Unknown Record")
+		err = fmt.Errorf("(NewRecord) Unknown type: %s", reflect.TypeOf(native))
 		return
 	}
 
@@ -57,5 +57,9 @@ func NewRecord(id string, native interface{}) (record *Record, err error) {
 }
 
 func (c *Record) String() string {
-	return "an record (TODO implement this)"
+	bytes, err := json.Marshal(c)
+	if err != nil {
+		return err.Error()
+	}
+	return string(bytes[:])
 }

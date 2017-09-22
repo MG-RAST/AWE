@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/davecgh/go-spew/spew"
 	//aw_sequences"os"
-	requirements "github.com/MG-RAST/AWE/lib/core/cwl/requirements"
 	"path"
+	//"reflect"
 	//"strconv"
 	//"regexp/syntax"
 	"strings"
@@ -55,7 +55,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 
 	//job_input := *(collection.Job_input)
 
-	job_input_map := job_input.GetMap()
+	job_input_map := job_input.GetMap() // map[string]CWLType
 
 	for _, input := range cwl_workflow.Inputs {
 		// input is a cwl.InputParameter object
@@ -63,63 +63,47 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 		spew.Dump(input)
 
 		id := input.Id
-		logger.Debug(3, "Parsing workflow input %s", id)
-		//if strings.HasPrefix(id, "#") {
-		//	workflow_prefix := cwl_workflow.Id + "/"
-		//	if strings.HasPrefix(id, workflow_prefix) {
-		//		id = strings.TrimPrefix(id, workflow_prefix)
-		//		logger.Debug(3, "using new id : %s", id)
-		//	} else {
-		//		err = fmt.Errorf("prefix of id %s does not match workflow id %s with workflow_prefix: %s", id, cwl_workflow.Id, workflow_prefix)
-		//		return
-		//	}
-		//}
+		logger.Debug(3, "(CWL_input_check) Parsing workflow input %s", id)
 
 		id_base := path.Base(id)
 		expected_types := input.Type
 
-		obj_ref, ok := job_input_map[id_base]
-		if !ok {
-
-			has_type, xerr := cwl.HasInputParameterType(expected_types, cwl_types.CWL_null)
-			if xerr != nil {
-				err = xerr
-				return
-			}
-			if has_type { // null type means parameter is optional
-				continue
-			}
-
-			fmt.Printf("-------job_input:")
-			//spew.Dump(job_input)
-
-			fmt.Printf("-------job_input_map:")
-			spew.Dump(job_input_map)
-			panic("uhoh")
-			err = fmt.Errorf("value for workflow input \"%s\" not found", id)
+		if len(expected_types) == 0 {
+			err = fmt.Errorf("(CWL_input_check) (len(expected_types) == 0 ")
 			return
-
 		}
 
-		//obj := *obj_ref
-		obj_type := obj_ref.GetClass()
-		logger.Debug(1, "obj_type: %s", obj_type)
-		has_type, xerr := cwl.HasInputParameterType(expected_types, obj_type)
+		// find workflow input in job_input_map
+		input_obj_ref, ok := job_input_map[id_base] // returns CWLType
+		if !ok {
+			// not found, we can skip it it is optional anyway
+			input_obj_ref = cwl.NewNull(id_base)
+			logger.Debug(3, "input %s not found, replace with Null object")
+		}
+
+		// Get type of CWL_Type we found
+		input_type := input_obj_ref.GetType()
+		//input_type_str := "unknown"
+		logger.Debug(1, "(CWL_input_check) input_type: %s (%s)", input_type, input_type.Type2String())
+
+		// Check if type of input we have matches one of the allowed types
+		has_type, xerr := cwl.TypeIsCorrect(expected_types, input_obj_ref)
 		if xerr != nil {
-			err = xerr
+			err = fmt.Errorf("(CWL_input_check) (B) HasInputParameterType returns: %s", xerr.Error())
+
 			return
 		}
 		if !has_type {
 			//if strings.ToLower(obj_type) != strings.ToLower(expected_types) {
 			fmt.Printf("object found: ")
-			spew.Dump(obj_ref)
+			spew.Dump(input_obj_ref)
 
 			//for _, elem := range *expected_types {
 			//	expected_types_str += "," + string(elem)
 			//}
 			fmt.Printf("cwl_workflow.Inputs")
 			spew.Dump(cwl_workflow.Inputs)
-			err = fmt.Errorf("Input %s got %s)", id, obj_type)
+			err = fmt.Errorf("Input %s has type %s, but this does not match the expected types)", id, input_type)
 			return
 		}
 
@@ -136,6 +120,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	err = CWL_input_check(job_input, cwl_workflow)
 	if err != nil {
+		err = fmt.Errorf("(CWL2AWE) CWL_input_check returned: %s", err.Error())
 		return
 	}
 
@@ -154,7 +139,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 		}
 		switch req.GetClass() {
 		case "ShockRequirement":
-			sr, ok := req.(requirements.ShockRequirement)
+			sr, ok := req.(cwl.ShockRequirement)
 			if !ok {
 				err = fmt.Errorf("Could not assert ShockRequirement")
 				return
@@ -206,7 +191,8 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 			return
 		}
 
-		task_name := step.Id
+		task_name := strings.TrimPrefix(step.Id, "#main/")
+		task_name = strings.TrimPrefix(task_name, "#")
 		awe_task := NewTask(job, task_name)
 		awe_task.WorkflowStep = &step
 		job.Tasks = append(job.Tasks, awe_task)

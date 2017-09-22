@@ -2,7 +2,6 @@ package cwl
 
 import (
 	"fmt"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	//"os"
@@ -12,19 +11,19 @@ import (
 )
 
 type Workflow struct {
-	cwl_types.CWL_object_Impl `bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
-	Inputs                    []InputParameter                                       `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty"`
-	Outputs                   []WorkflowOutputParameter                              `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty"`
-	Steps                     []WorkflowStep                                         `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty"`
-	Requirements              []interface{}                                          `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty"` //[]Requirement
-	Hints                     []interface{}                                          `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty"`                      // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
-	Label                     string                                                 `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	Doc                       string                                                 `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
-	CwlVersion                CWLVersion                                             `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty"`
-	Metadata                  map[string]interface{}                                 `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty"`
+	CWL_object_Impl `bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
+	Inputs          []InputParameter                                       `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty"`
+	Outputs         []WorkflowOutputParameter                              `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty"`
+	Steps           []WorkflowStep                                         `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty"`
+	Requirements    []interface{}                                          `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty"` //[]Requirement
+	Hints           []interface{}                                          `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty"`                      // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
+	Label           string                                                 `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	Doc             string                                                 `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
+	CwlVersion      CWLVersion                                             `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty"`
+	Metadata        map[string]interface{}                                 `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty"`
 }
 
-func (w *Workflow) GetClass() string { return "Workflow" }
+func (w *Workflow) GetClass() string { return string(CWL_Workflow) }
 func (w *Workflow) GetId() string    { return w.Id }
 func (w *Workflow) SetId(id string)  { w.Id = id }
 func (w *Workflow) Is_CWL_minimal()  {}
@@ -52,6 +51,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 
 	original, err = makeStringMap(original)
 	if err != nil {
+		err = fmt.Errorf("(NewWorkflow) makeStringMap returned: %s", err.Error())
 		return
 	}
 
@@ -65,6 +65,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 		if ok {
 			err, object["inputs"] = NewInputParameterArray(inputs)
 			if err != nil {
+				err = fmt.Errorf("(NewWorkflow) NewInputParameterArray returned: %s", err.Error())
 				return
 			}
 		}
@@ -73,6 +74,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 		if ok {
 			object["outputs"], err = NewWorkflowOutputParameterArray(outputs)
 			if err != nil {
+				err = fmt.Errorf("(NewWorkflow) NewWorkflowOutputParameterArray returned: %s", err.Error())
 				return
 			}
 		}
@@ -82,6 +84,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 		if ok {
 			err, object["steps"] = CreateWorkflowStepsArray(steps)
 			if err != nil {
+				err = fmt.Errorf("(NewWorkflow) CreateWorkflowStepsArray returned: %s", err.Error())
 				return
 			}
 		}
@@ -90,6 +93,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 		if ok {
 			object["requirements"], err = CreateRequirementArray(requirements)
 			if err != nil {
+				err = fmt.Errorf("(NewWorkflow) CreateRequirementArray returned: %s", err.Error())
 				return
 			}
 		}
@@ -105,7 +109,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 
 		err = mapstructure.Decode(object, &workflow)
 		if err != nil {
-			err = fmt.Errorf("error parsing workflow class: %s", err.Error())
+			err = fmt.Errorf("(NewWorkflow) error parsing workflow class: %s", err.Error())
 			return
 		}
 		fmt.Printf(".....WORKFLOW")

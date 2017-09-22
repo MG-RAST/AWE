@@ -3,7 +3,6 @@ package cwl
 import (
 	"bytes"
 	"fmt"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"regexp"
 	"strings"
@@ -13,13 +12,14 @@ type CWL_collection struct {
 	Workflows          map[string]*Workflow
 	WorkflowStepInputs map[string]*WorkflowStepInput
 	CommandLineTools   map[string]*CommandLineTool
-	Files              map[string]*cwl_types.File
-	Strings            map[string]*cwl_types.String
-	Ints               map[string]*cwl_types.Int
-	Booleans           map[string]*cwl_types.Boolean
-	All                map[string]*cwl_types.CWL_object // everything goes in here
+
+	Files    map[string]*File
+	Strings  map[string]*String
+	Ints     map[string]*Int
+	Booleans map[string]*Boolean
+	All      map[string]*CWL_object // everything goes in here
 	//Job_input          *Job_document
-	Job_input_map *map[string]cwl_types.CWLType
+	Job_input_map *map[string]CWLType
 }
 
 func (c CWL_collection) Evaluate(raw string) (parsed string) {
@@ -58,7 +58,7 @@ func (c CWL_collection) Evaluate(raw string) (parsed string) {
 
 }
 
-func (c CWL_collection) Add(obj cwl_types.CWL_object) (err error) {
+func (c CWL_collection) Add(obj CWL_object) (err error) {
 
 	id := obj.GetId()
 
@@ -76,33 +76,45 @@ func (c CWL_collection) Add(obj cwl_types.CWL_object) (err error) {
 	}
 	//id = strings.TrimPrefix(id, "#")
 
-	switch obj.GetClass() {
+	class := obj.GetClass()
+
+	// fix case in class
+	class, ok = IsValidClass(class)
+
+	if !ok {
+		err = fmt.Errorf("Class %s not found", class)
+		return
+	}
+
+	switch class {
 	case "Workflow":
 		c.Workflows[id] = obj.(*Workflow)
 	case "WorkflowStepInput":
 		c.WorkflowStepInputs[id] = obj.(*WorkflowStepInput)
 	case "CommandLineTool":
 		c.CommandLineTools[id] = obj.(*CommandLineTool)
-	case cwl_types.CWL_File:
-		c.Files[id] = obj.(*cwl_types.File)
-	case cwl_types.CWL_string:
-		c.Strings[id] = obj.(*cwl_types.String)
-	case cwl_types.CWL_boolean:
-		c.Booleans[id] = obj.(*cwl_types.Boolean)
-	case cwl_types.CWL_int:
-		obj_int, ok := obj.(*cwl_types.Int)
+	case string(CWL_File):
+		c.Files[id] = obj.(*File)
+	case string(CWL_string):
+		c.Strings[id] = obj.(*String)
+	case string(CWL_boolean):
+		c.Booleans[id] = obj.(*Boolean)
+	case string(CWL_int):
+		obj_int, ok := obj.(*Int)
 		if !ok {
 			err = fmt.Errorf("could not make Int type assertion")
 			return
 		}
 		c.Ints[id] = obj_int
+	default:
+		logger.Debug(3, "adding type %s to CWL_collection.All", class)
 	}
 	c.All[id] = &obj
 
 	return
 }
 
-func (c CWL_collection) Get(id string) (obj *cwl_types.CWL_object, err error) {
+func (c CWL_collection) Get(id string) (obj *CWL_object, err error) {
 	obj, ok := c.All[id]
 	if !ok {
 		for k, _ := range c.All {
@@ -113,7 +125,7 @@ func (c CWL_collection) Get(id string) (obj *cwl_types.CWL_object, err error) {
 	return
 }
 
-func (c CWL_collection) GetType(id string) (obj cwl_types.CWLType, err error) {
+func (c CWL_collection) GetCWLType(id string) (obj CWLType, err error) {
 	var ok bool
 	obj, ok = c.Files[id]
 	if ok {
@@ -138,7 +150,7 @@ func (c CWL_collection) GetType(id string) (obj cwl_types.CWLType, err error) {
 
 }
 
-func (c CWL_collection) GetFile(id string) (obj *cwl_types.File, err error) {
+func (c CWL_collection) GetFile(id string) (obj *File, err error) {
 	obj, ok := c.Files[id]
 	if !ok {
 		err = fmt.Errorf("(GetFile) item %s not found in collection", id)
@@ -146,7 +158,7 @@ func (c CWL_collection) GetFile(id string) (obj *cwl_types.File, err error) {
 	return
 }
 
-func (c CWL_collection) GetString(id string) (obj *cwl_types.String, err error) {
+func (c CWL_collection) GetString(id string) (obj *String, err error) {
 	obj, ok := c.Strings[id]
 	if !ok {
 		err = fmt.Errorf("(GetString) item %s not found in collection", id)
@@ -154,7 +166,7 @@ func (c CWL_collection) GetString(id string) (obj *cwl_types.String, err error) 
 	return
 }
 
-func (c CWL_collection) GetInt(id string) (obj *cwl_types.Int, err error) {
+func (c CWL_collection) GetInt(id string) (obj *Int, err error) {
 	obj, ok := c.Ints[id]
 	if !ok {
 		err = fmt.Errorf("(GetInt) item %s not found in collection", id)
@@ -184,10 +196,10 @@ func NewCWL_collection() (collection CWL_collection) {
 	collection.Workflows = make(map[string]*Workflow)
 	collection.WorkflowStepInputs = make(map[string]*WorkflowStepInput)
 	collection.CommandLineTools = make(map[string]*CommandLineTool)
-	collection.Files = make(map[string]*cwl_types.File)
-	collection.Strings = make(map[string]*cwl_types.String)
-	collection.Ints = make(map[string]*cwl_types.Int)
-	collection.Booleans = make(map[string]*cwl_types.Boolean)
-	collection.All = make(map[string]*cwl_types.CWL_object)
+	collection.Files = make(map[string]*File)
+	collection.Strings = make(map[string]*String)
+	collection.Ints = make(map[string]*Int)
+	collection.Booleans = make(map[string]*Boolean)
+	collection.All = make(map[string]*CWL_object)
 	return
 }

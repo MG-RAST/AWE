@@ -2,12 +2,11 @@ package cwl
 
 import (
 	"fmt"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 
 	"reflect"
-	"strings"
+	//"strings"
 )
 
 type InputParameter struct {
@@ -18,8 +17,8 @@ type InputParameter struct {
 	Streamable     bool               `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
 	Doc            string             `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
 	InputBinding   CommandLineBinding `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"` //TODO
-	Default        cwl_types.Any      `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
-	Type           interface{}        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
+	Default        Any                `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
+	Type           []CWLType_Type     `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
 }
 
 func (i InputParameter) GetClass() string { return "InputParameter" }
@@ -33,6 +32,7 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 	spew.Dump(original)
 	original, err = makeStringMap(original)
 	if err != nil {
+		err = fmt.Errorf("(NewInputParameter) makeStringMap returned: %s", err.Error())
 		return
 	}
 	spew.Dump(original)
@@ -43,24 +43,21 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 	case string:
 
 		type_string := original.(string)
-		type_string_lower := strings.ToLower(type_string)
 
-		switch type_string_lower {
-		case cwl_types.CWL_string:
-		case cwl_types.CWL_int:
-		case cwl_types.CWL_File:
-		default:
-			err = fmt.Errorf("unknown type: \"%s\"", type_string)
+		var original_type CWLType_Type
+		original_type, err = NewCWLType_TypeFromString(type_string)
+		if err != nil {
+			err = fmt.Errorf("(NewInputParameter) NewCWLType_TypeFromString returned: %s", err.Error())
 			return
 		}
 
-		input_parameter_type, xerr := NewInputParameterTypeArray(type_string_lower)
-		if xerr != nil {
-			err = xerr
-			return
-		}
+		//input_parameter_type, xerr := NewInputParameterType(type_string_lower)
+		//if xerr != nil {
+		//	err = xerr
+		//	return
+		//}
 
-		input_parameter.Type = input_parameter_type
+		input_parameter.Type = []CWLType_Type{original_type}
 
 		//case int:
 		//input_parameter_type, xerr := NewInputParameterTypeArray("int")
@@ -77,7 +74,7 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 
 		input_parameter_default, ok := original_map["default"]
 		if ok {
-			original_map["default"], err = cwl_types.NewAny(input_parameter_default)
+			original_map["default"], err = NewAny(input_parameter_default)
 			if err != nil {
 				return
 			}
@@ -85,20 +82,33 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 
 		inputParameter_type, ok := original_map["type"]
 		if ok {
-			original_map["type"], err = NewInputParameterTypeArray(inputParameter_type)
+			var inputParameter_type_array []CWLType_Type
+			inputParameter_type_array, err = NewCWLType_TypeArray(inputParameter_type, "Input")
 			if err != nil {
+				fmt.Errorf("(NewInputParameter) NewCWLType_TypeArray returns: %s", err.Error())
 				return
 			}
+			if len(inputParameter_type_array) == 0 {
+				err = fmt.Errorf("(NewInputParameter) len(inputParameter_type_array) == 0")
+				return
+			}
+			original_map["type"] = inputParameter_type_array
 		}
 
 		err = mapstructure.Decode(original, input_parameter)
 		if err != nil {
-			err = fmt.Errorf("(NewInputParameter) %s", err.Error())
+			spew.Dump(original)
+			err = fmt.Errorf("(NewInputParameter) mapstructure.Decode returned: %s", err.Error())
 			return
 		}
 	default:
 		spew.Dump(original)
 		err = fmt.Errorf("(NewInputParameter) cannot parse input type %s", reflect.TypeOf(original))
+		return
+	}
+
+	if len(input_parameter.Type) == 0 {
+		err = fmt.Errorf("(NewInputParameter) len(input_parameter.Type) == 0")
 		return
 	}
 
@@ -116,20 +126,20 @@ func NewInputParameterArray(original interface{}) (err error, new_array []InputP
 
 			id, ok := k.(string)
 			if !ok {
-				err = fmt.Errorf("Cannot parse id of input")
+				err = fmt.Errorf("(NewInputParameterArray) Cannot parse id of input")
 				return
 			}
 
 			input_parameter, xerr := NewInputParameter(v)
 			if xerr != nil {
-				err = xerr
+				err = fmt.Errorf("(NewInputParameterArray) A NewInputParameter returned: %s", xerr.Error())
 				return
 			}
 
 			input_parameter.Id = id
 
 			if input_parameter.Id == "" {
-				err = fmt.Errorf("ID is missing")
+				err = fmt.Errorf("(NewInputParameterArray) ID is missing")
 				return
 			}
 
@@ -145,12 +155,12 @@ func NewInputParameterArray(original interface{}) (err error, new_array []InputP
 
 			input_parameter, xerr := NewInputParameter(v)
 			if xerr != nil {
-				err = xerr
+				err = fmt.Errorf("(NewInputParameterArray) B NewInputParameter returned: %s", xerr.Error())
 				return
 			}
 
 			if input_parameter.Id == "" {
-				err = fmt.Errorf("ID is missing")
+				err = fmt.Errorf("(NewInputParameterArray) ID is missing")
 				return
 			}
 
@@ -161,7 +171,7 @@ func NewInputParameterArray(original interface{}) (err error, new_array []InputP
 		}
 	default:
 		spew.Dump(original)
-		err = fmt.Errorf("(NewInputParameterArray) type unknown")
+		err = fmt.Errorf("(NewInputParameterArray) type %s unknown", reflect.TypeOf(original))
 		return
 	}
 

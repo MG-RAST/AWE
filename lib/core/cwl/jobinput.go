@@ -3,7 +3,7 @@ package cwl
 import (
 	//"errors"
 	"fmt"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+
 	"github.com/davecgh/go-spew/spew"
 	//"github.com/mitchellh/mapstructure"
 	"io/ioutil"
@@ -17,10 +17,10 @@ import (
 
 //type Job_document map[string]interface{}
 
-type Job_document []cwl_types.CWLType
+type Job_document []CWLType
 
-func (job_input *Job_document) GetMap() (job_input_map map[string]cwl_types.CWLType) {
-	job_input_map = make(map[string]cwl_types.CWLType)
+func (job_input *Job_document) GetMap() (job_input_map map[string]CWLType) {
+	job_input_map = make(map[string]CWLType)
 
 	for _, value := range *job_input {
 		id := value.GetId()
@@ -33,36 +33,24 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 
 	logger.Debug(3, "(NewJob_document) starting")
 
+	original, err = makeStringMap(original)
+	if err != nil {
+		return
+	}
+
 	job_nptr := Job_document{}
 
 	job = &job_nptr
 
 	switch original.(type) {
-	case map[interface{}]interface{}:
-		original_map := original.(map[interface{}]interface{})
 
-		for key, value := range original_map {
-			key_str, ok := key.(string)
-			if !ok {
-				err = fmt.Errorf("key is not string")
-				return
-			}
-			cwl_obj, xerr := cwl_types.NewCWLType(key_str, value)
-			if xerr != nil {
-				err = xerr
-				return
-			}
-			job_nptr = append(job_nptr, cwl_obj)
-
-		}
-		return
 	case map[string]interface{}:
 
 		original_map := original.(map[string]interface{})
 
 		for key_str, value := range original_map {
 
-			cwl_obj, xerr := cwl_types.NewCWLType(key_str, value)
+			cwl_obj, xerr := NewCWLType(key_str, value)
 			if xerr != nil {
 				err = xerr
 				return
@@ -77,7 +65,7 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 
 		for _, value := range original_array {
 
-			cwl_obj, xerr := cwl_types.NewCWLType("", value)
+			cwl_obj, xerr := NewCWLType("", value)
 			if xerr != nil {
 				err = xerr
 				return
@@ -124,16 +112,20 @@ func ParseJob(job_byte_ptr *[]byte) (job_input *Job_document, err error) {
 	if job_byte[0] == '-' {
 		fmt.Println("yaml list")
 		// I guess this is a yaml list
-		//job_array := []cwl_types.CWLType{}
+		//job_array := []CWLType{}
 		//job_array := []map[string]interface{}{}
 		job_array := []interface{}{}
 		err = yaml.Unmarshal(job_byte, &job_array)
 
 		if err != nil {
-			err = fmt.Errorf("Could, not parse job input as yaml list: %s", err.Error())
+			err = fmt.Errorf("(ParseJob) Could, not parse job input as yaml list: %s", err.Error())
 			return
 		}
 		job_input, err = NewJob_document(job_array)
+		if err != nil {
+			err = fmt.Errorf("(ParseJob) A NewJob_document returns: %s", err.Error())
+		}
+
 	} else {
 		fmt.Println("yaml map")
 
@@ -145,6 +137,9 @@ func ParseJob(job_byte_ptr *[]byte) (job_input *Job_document, err error) {
 			return
 		}
 		job_input, err = NewJob_document(job_map)
+		if err != nil {
+			err = fmt.Errorf("(ParseJob) B NewJob_document returns: %s", err.Error())
+		}
 	}
 
 	if err != nil {

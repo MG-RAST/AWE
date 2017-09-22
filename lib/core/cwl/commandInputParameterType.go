@@ -2,27 +2,67 @@ package cwl
 
 import (
 	"fmt"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/davecgh/go-spew/spew"
-	"strings"
+	//"strings"
 	//"github.com/mitchellh/mapstructure"
 	"reflect"
 )
 
-type CommandInputParameterType struct {
-	Type string
-}
+//type CommandInputParameterType struct {
+//	Type string
+//}
 
 // CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
 
-func NewCommandInputParameterType(original interface{}) (result interface{}, err error) {
+func NewCommandInputParameterTypeArray(original interface{}) (result []CWLType_Type, err error) {
+
+	//result = []CWLType_Type{}
+	return_array := []CWLType_Type{}
+
+	switch original.(type) {
+	case []interface{}:
+
+		original_array := original.([]interface{})
+
+		for _, element := range original_array {
+
+			var cipt CWLType_Type
+			cipt, err = NewCommandInputParameterType(element)
+			if err != nil {
+				return
+			}
+
+			return_array = append(return_array, cipt)
+		}
+
+		result = return_array
+		return
+
+	default:
+
+		var cipt CWLType_Type
+		cipt, err = NewCommandInputParameterType(original)
+		if err != nil {
+			return
+		}
+		return_array = append(return_array, cipt)
+		result = return_array
+		//err = fmt.Errorf("(NewCommandInputParameterTypeArray) Type %s unknown", reflect.TypeOf(original))
+	}
+	return
+}
+
+func NewCommandInputParameterType(original interface{}) (result CWLType_Type, err error) {
 
 	// Try CWL_Type
 	//var cipt CommandInputParameterType
 
-	switch original.(type) {
+	original, err = makeStringMap(original)
+	if err != nil {
+		return
+	}
 
-	case []interface{}:
+	switch original.(type) {
 
 	case map[string]interface{}:
 
@@ -44,7 +84,7 @@ func NewCommandInputParameterType(original interface{}) (result interface{}, err
 
 		switch type_str {
 		case "array":
-			schema, xerr := NewCommandOutputArraySchema(original_map)
+			schema, xerr := NewCommandOutputArraySchemaFromInterface(original_map)
 			if xerr != nil {
 				err = xerr
 				return
@@ -77,39 +117,44 @@ func NewCommandInputParameterType(original interface{}) (result interface{}, err
 	case string:
 		original_str := original.(string)
 
-		switch strings.ToLower(original_str) {
+		result, err = NewCWLType_TypeFromString(original_str)
 
-		case cwl_types.CWL_null:
-		case cwl_types.CWL_boolean:
-		case cwl_types.CWL_int:
-		case cwl_types.CWL_long:
-		case cwl_types.CWL_float:
-		case cwl_types.CWL_double:
-		case cwl_types.CWL_string:
-		case strings.ToLower(cwl_types.CWL_File):
-		case strings.ToLower(cwl_types.CWL_Directory):
-		default:
-			err = fmt.Errorf("(NewCommandInputParameterType) type %s is unknown", original_str)
-			return
-		}
-		result = original_str
+		// original_type := CWLType_Type_Basic(original_str)
+		//
+		// 		switch original_type {
+		//
+		// 		case CWL_null:
+		// 		case CWL_boolean:
+		// 		case CWL_int:
+		// 		case CWL_long:
+		// 		case CWL_float:
+		// 		case CWL_double:
+		// 		case CWL_string:
+		// 		case CWL_File:
+		// 		case CWL_Directory:
+		// 		default:
+		// 			err = fmt.Errorf("(NewCommandInputParameterType) type %s is unknown", original_str)
+		// 			return
+		// 		}
+		// 		result = original_str
 		return
-
+	default:
+		fmt.Printf("unknown type")
+		spew.Dump(original)
+		err = fmt.Errorf("(NewCommandInputParameterType) Type %s unknown", reflect.TypeOf(original))
+		return
 	}
-
-	fmt.Printf("unknown type")
-	spew.Dump(original)
-	err = fmt.Errorf("(NewCommandInputParameterType) Type %s unknown", reflect.TypeOf(original))
-
+	panic("do not come here")
 	return
 
 }
 
-func HasCommandInputParameterType(array *[]CommandInputParameterType, search_type string) (ok bool) {
-	for _, v := range *array {
-		if v.Type == search_type {
-			return true
-		}
-	}
-	return false
-}
+//
+// func HasCommandInputParameterType(array *[]CommandInputParameterType, search_type string) (ok bool) {
+// 	for _, v := range *array {
+// 		if v.Type == search_type {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }

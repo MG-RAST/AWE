@@ -725,10 +725,6 @@ func (qm *CQMgr) ResumeSuspendedClientsByUser(u *user.User) (count int) {
 		return
 	}
 	for _, client := range clients {
-		err = client.LockNamed("ResumeSuspendedClientsByUser")
-		if err != nil {
-			continue
-		}
 
 		is_suspended, xerr := client.Get_Suspended(true)
 		if xerr != nil {
@@ -736,8 +732,14 @@ func (qm *CQMgr) ResumeSuspendedClientsByUser(u *user.User) (count int) {
 			return
 		}
 
-		if val, exists := filtered_clientgroups[client.Group]; exists == true && val == true && is_suspended {
-			//qm.ClientStatusChange(client.Id, CLIENT_STAT_ACTIVE_IDLE)
+		if !is_suspended {
+			continue
+		}
+
+		group, err := client.Get_Group(true)
+
+		val, exists := filtered_clientgroups[group]
+		if exists == true && val == true {
 
 			err = client.Resume(true)
 			if err != nil {
@@ -745,7 +747,7 @@ func (qm *CQMgr) ResumeSuspendedClientsByUser(u *user.User) (count int) {
 			}
 			count += 1
 		}
-		client.Unlock()
+
 	}
 
 	return count
@@ -1151,14 +1153,14 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 
 				other_client, ok, xerr := qm.GetClient(other_client_id, true)
 				if xerr != nil {
-					logger.Error("(ReQueueWorkunitByClient) other_client: %s ", xerr)
+					logger.Error("(ReQueueWorkunitByClient) other_client: %s ", xerr.Error())
 					continue
 				}
 				if ok {
 					// other_client exists (if otherclient does not exist, that is ok....)
 					oc_has_work, err := other_client.Current_work.Has(workid)
 					if err != nil {
-						logger.Error("(ReQueueWorkunitByClient) Current_work_has: %s ", err)
+						logger.Error("(ReQueueWorkunitByClient) Current_work_has: %s ", err.Error())
 						continue
 					}
 					if !oc_has_work {

@@ -43,19 +43,19 @@ func (n *Jobs) GetAllUnsorted(q bson.M) (err error) {
 	return
 }
 
-func (n *Jobs) GetAll(q bson.M, order string, direction string) (err error) {
+func (n *Jobs) GetAll(q bson.M, order string, direction string, do_init bool) (err error) {
 	if direction == "desc" {
 		order = "-" + order
 	}
-	_, err = dbFindSort(q, n, nil, order)
+	_, err = dbFindSort(q, n, nil, order, do_init)
 	return
 }
 
-func (n *Jobs) GetPaginated(q bson.M, limit int, offset int, order string, direction string) (count int, err error) {
+func (n *Jobs) GetPaginated(q bson.M, limit int, offset int, order string, direction string, do_init bool) (count int, err error) {
 	if direction == "desc" {
 		order = "-" + order
 	}
-	count, err = dbFindSort(q, n, map[string]int{"limit": limit, "offset": offset}, order)
+	count, err = dbFindSort(q, n, map[string]int{"limit": limit, "offset": offset}, order, do_init)
 	return
 }
 
@@ -64,8 +64,8 @@ func (n *Jobs) GetAllLimitOffset(q bson.M, limit int, offset int) (err error) {
 	return
 }
 
-func (n *Jobs) GetAllRecent(q bson.M, recent int) (count int, err error) {
-	count, err = dbFindSort(q, n, map[string]int{"limit": recent}, "-updatetime")
+func (n *Jobs) GetAllRecent(q bson.M, recent int, do_init bool) (count int, err error) {
+	count, err = dbFindSort(q, n, map[string]int{"limit": recent}, "-updatetime", do_init)
 	return
 }
 

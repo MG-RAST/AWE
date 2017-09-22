@@ -86,15 +86,15 @@ type JobDep struct {
 }
 
 type JobMin struct {
-	Id            string            `bson:"id" json:"id"`
-	Name          string            `bson:"name" json:"name"`
-	Size          int64             `bson:"size" json:"size"`
-	SubmitTime    time.Time         `bson:"submittime" json:"submittime"`
-	CompletedTime time.Time         `bson:"completedtime" json:"completedtime"`
-	ComputeTime   int               `bson:"computetime" json:"computetime"`
-	Task          []int             `bson:"task" json:"task"`
-	State         []string          `bson:"state" json:"state"`
-	UserAttr      map[string]string `bson:"userattr" json:"userattr"`
+	Id            string                 `bson:"id" json:"id"`
+	Name          string                 `bson:"name" json:"name"`
+	Size          int64                  `bson:"size" json:"size"`
+	SubmitTime    time.Time              `bson:"submittime" json:"submittime"`
+	CompletedTime time.Time              `bson:"completedtime" json:"completedtime"`
+	ComputeTime   int                    `bson:"computetime" json:"computetime"`
+	Task          []int                  `bson:"task" json:"task"`
+	State         []string               `bson:"state" json:"state"`
+	UserAttr      map[string]interface{} `bson:"userattr" json:"userattr"`
 }
 
 type JobLog struct {

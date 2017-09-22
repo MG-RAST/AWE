@@ -8,8 +8,9 @@ import (
 )
 
 type CommandLineTool struct {
-	Id                 string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	Class              string                   `yaml:"class,omitempty" bson:"class,omitempty" json:"class,omitempty"`
+	//Id                 string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	//Class              string                   `yaml:"class,omitempty" bson:"class,omitempty" json:"class,omitempty"`
+	CWL_object_Impl    `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	BaseCommand        []string                 `yaml:"baseCommand,omitempty" bson:"baseCommand,omitempty" json:"baseCommand,omitempty"` // TODO also allow []string
 	Inputs             []CommandInputParameter  `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty"`
 	Outputs            []CommandOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty"`
@@ -25,11 +26,8 @@ type CommandLineTool struct {
 	PermanentFailCodes []int                    `yaml:"permanentFailCodes,omitempty" bson:"permanentFailCodes,omitempty" json:"permanentFailCodes,omitempty"`
 }
 
-func (c *CommandLineTool) GetClass() string { return "CommandLineTool" }
-func (c *CommandLineTool) GetId() string    { return c.Id }
-func (c *CommandLineTool) SetId(id string)  { c.Id = id }
-func (c *CommandLineTool) Is_CWL_minimal()  {}
-func (c *CommandLineTool) Is_process()      {}
+func (c *CommandLineTool) Is_CWL_minimal() {}
+func (c *CommandLineTool) Is_process()     {}
 
 // keyname will be converted into 'Id'-field
 
@@ -46,8 +44,8 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 		return
 	}
 
-	commandLineTool = &CommandLineTool{Class: "CommandLineTool"}
-
+	commandLineTool = &CommandLineTool{}
+	commandLineTool.Class = "CommandLineTool"
 	inputs, ok := object["inputs"]
 	if ok {
 		// Convert map of inputs into array of inputs

@@ -21,4 +21,6 @@ type CWL_object_Impl struct {
 func (c *CWL_object_Impl) GetId() string   { return c.Id }
 func (c *CWL_object_Impl) SetId(id string) { c.Id = id }
 
+func (c *CWL_object_Impl) GetClass() string { return c.Class }
+
 type CWL_object_array []CWL_object

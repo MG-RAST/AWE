@@ -2,15 +2,15 @@ package cwl
 
 import (
 	"fmt"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+
 	"github.com/mitchellh/mapstructure"
 )
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputBinding
 type CommandOutputBinding struct {
-	Glob         []cwl_types.Expression `yaml:"glob,omitempty" bson:"glob,omitempty" json:"glob,omitempty"`
-	LoadContents bool                   `yaml:"loadContents,omitempty" bson:"loadContents,omitempty" json:"loadContents,omitempty"`
-	OutputEval   cwl_types.Expression   `yaml:"outputEval,omitempty" bson:"outputEval,omitempty" json:"outputEval,omitempty"`
+	Glob         []Expression `yaml:"glob,omitempty" bson:"glob,omitempty" json:"glob,omitempty"`
+	LoadContents bool         `yaml:"loadContents,omitempty" bson:"loadContents,omitempty" json:"loadContents,omitempty"`
+	OutputEval   Expression   `yaml:"outputEval,omitempty" bson:"outputEval,omitempty" json:"outputEval,omitempty"`
 }
 
 func NewCommandOutputBinding(original interface{}) (commandOutputBinding *CommandOutputBinding, err error) {
@@ -30,7 +30,7 @@ func NewCommandOutputBinding(original interface{}) (commandOutputBinding *Comman
 		}
 		glob, ok := original_map["glob"]
 		if ok {
-			glob_object, xerr := cwl_types.NewExpressionArray(glob)
+			glob_object, xerr := NewExpressionArray(glob)
 			if xerr != nil {
 				err = fmt.Errorf("(NewCommandOutputBinding/glob) NewExpressionArray returned: %s", xerr.Error())
 				return
@@ -39,7 +39,7 @@ func NewCommandOutputBinding(original interface{}) (commandOutputBinding *Comman
 		}
 		outputEval, ok := original_map["outputEval"]
 		if ok {
-			original_map["outputEval"], err = cwl_types.NewExpression(outputEval)
+			original_map["outputEval"], err = NewExpression(outputEval)
 			if err != nil {
 				return
 			}

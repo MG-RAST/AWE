@@ -1,7 +1,6 @@
-package requirements
+package cwl
 
 import (
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -23,6 +22,6 @@ func NewEnvVarRequirement(original interface{}) (r *EnvVarRequirement, err error
 }
 
 type EnvironmentDef struct {
-	envName  string               `yaml:"envName"`
-	envValue cwl_types.Expression `yaml:"envValue"`
+	envName  string     `yaml:"envName"`
+	envValue Expression `yaml:"envValue"`
 }

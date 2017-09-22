@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+
 	"github.com/MG-RAST/AWE/lib/logger"
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 	"bytes"
@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-func uploadFile(file *cwl_types.File, inputfile_path string) (err error) {
+func uploadFile(file *cwl.File, inputfile_path string) (err error) {
 	fmt.Printf("(uploadFile) start\n")
 	defer fmt.Printf("(uploadFile) end\n")
 	//if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
@@ -120,15 +120,15 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 
 		return
 
-	case *cwl_types.String:
+	case *cwl.String:
 		fmt.Printf("found string\n")
 		return
-	case *cwl_types.File:
+	case *cwl.File:
 
 		fmt.Printf("found File\n")
-		file, ok := native.(*cwl_types.File)
+		file, ok := native.(*cwl.File)
 		if !ok {
-			err = fmt.Errorf("could not cast to *cwl_types.File")
+			err = fmt.Errorf("could not cast to *cwl.File")
 			return
 		}
 		err = uploadFile(file, inputfile_path)
@@ -136,6 +136,27 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 			return
 		}
 		count += 1
+		return
+	case *cwl.Array:
+
+		array, ok := native.(*cwl.Array)
+		if !ok {
+			err = fmt.Errorf("could not cast to *cwl.Array")
+			return
+		}
+
+		for _, value := range array.Items {
+
+			id := value.GetId()
+			fmt.Printf("recurse into key: %s\n", id)
+			var sub_count int
+			sub_count, err = processInputData(value, inputfile_path)
+			if err != nil {
+				return
+			}
+			count += sub_count
+
+		}
 		return
 	default:
 		spew.Dump(native)

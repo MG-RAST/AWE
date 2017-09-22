@@ -8,6 +8,6 @@ type Directory struct {
 	Listing      []CWL_location `yaml:"listing,omitempty" json:"listing,omitempty" bson:"listing,omitempty"`
 }
 
-func (d Directory) GetClass() string    { return "Directory" }
+func (d Directory) GetClass() string    { return string(CWL_Directory) }
 func (d Directory) String() string      { return d.Path }
 func (d Directory) GetLocation() string { return d.Location } // for CWL_location

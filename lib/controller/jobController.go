@@ -268,10 +268,18 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	}
 
 	// Load job by id
-
-	//job, ok, err := core.QMgr.JobMap.Get(id)
 	job, err := core.GetJob(id)
-	//job, err := core.LoadJob(id)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			cx.RespondWithNotFound()
+		} else {
+			// In theory the db connection could be lost between
+			// checking user and load but seems unlikely.
+			// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
+			cx.RespondWithErrorMessage("job not found:"+id+" "+err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
 
 	job_state, err := job.GetState(true)
 	if err != nil {

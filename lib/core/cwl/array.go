@@ -20,9 +20,10 @@ func (c *Array) GetId() string         { return "foobar" }
 func (c *Array) SetId(string)          {}
 func (c *Array) GetType() CWLType_Type { return CWL_array }
 
-func (c *Array) Is_CWL_minimal()                {}
-func (c *Array) Is_CommandInputParameterType()  {}
-func (c *Array) Is_CommandOutputParameterType() {}
+func (c *Array) Is_CWL_minimal() {}
+
+//func (c *Array) Is_CommandInputParameterType()  {}
+//func (c *Array) Is_CommandOutputParameterType() {}
 
 func NewArray(id string, native interface{}) (array_ptr *Array, err error) {
 

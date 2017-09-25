@@ -159,12 +159,12 @@ func CWL_File_2_AWE_IO(file *cwl.File) (io *core.IO, err error) {
 	return
 }
 
-func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (size int64, err error) {
+func MoveInputCWL(work *core.Workunit, work_path string, input cwl.NamedCWLType) (size int64, err error) {
 
 	spew.Dump(input)
-	switch input.(type) {
+	switch input.Value.(type) {
 	case *cwl.File:
-		file := input.(*cwl.File)
+		file := input.Value.(*cwl.File)
 		spew.Dump(*file)
 		fmt.Printf("file: %+v\n", *file)
 
@@ -190,12 +190,15 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (siz
 		return
 	case *cwl.Array:
 
-		array := input.(*cwl.Array)
+		array := input.Value.(*cwl.Array)
 
-		for _, element := range array.Items {
+		array_instance := *array
 
+		for element_pos := range array_instance {
+
+			element := array_instance[element_pos]
 			var io_size int64
-			io_size, err = MoveInputCWL(work, work_path, element)
+			io_size, err = MoveInputCWL(work, work_path, cwl.NewNamedCWLType("", element))
 			if err != nil {
 				return
 			}
@@ -457,7 +460,7 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 				return
 			}
 
-			result_array = append(result_array, tool_result)
+			result_array = append(result_array, cwl.NewNamedCWLType(expected, tool_result))
 
 			output_class := tool_result.GetClass()
 			if output_class != string(cwl.CWL_File) {

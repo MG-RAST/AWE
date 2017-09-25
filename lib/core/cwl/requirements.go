@@ -16,27 +16,59 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 	switch class {
 	case "DockerRequirement":
 		r, err = NewDockerRequirement(obj)
+		if err != nil {
+			fmt.Errorf("(NewRequirement) NewDockerRequirement returns: %s", err.Error())
+			return
+		}
 		return
 	case "InlineJavascriptRequirement":
 		r, err = NewInlineJavascriptRequirement(obj)
+		if err != nil {
+			fmt.Errorf("(NewRequirement) NewInlineJavascriptRequirement returns: %s", err.Error())
+			return
+		}
 		return
 	case "EnvVarRequirement":
 		r, err = NewEnvVarRequirement(obj)
+		if err != nil {
+			fmt.Errorf("(NewRequirement) NewEnvVarRequirement returns: %s", err.Error())
+			return
+		}
 		return
 	case "StepInputExpressionRequirement":
 		r, err = NewStepInputExpressionRequirement(obj)
+		if err != nil {
+			fmt.Errorf("(NewRequirement) NewStepInputExpressionRequirement returns: %s", err.Error())
+			return
+		}
 		return
 	case "ShockRequirement":
 		r, err = NewShockRequirement(obj)
+		if err != nil {
+			fmt.Errorf("(NewRequirement) NewShockRequirement returns: %s", err.Error())
+			return
+		}
 		return
 	case "InitialWorkDirRequirement":
 		r, err = NewInitialWorkDirRequirement(obj)
+		if err != nil {
+			fmt.Errorf("(NewRequirement) NewInitialWorkDirRequirement returns: %s", err.Error())
+			return
+		}
 		return
 	case "ScatterFeatureRequirement":
 		r, err = NewScatterFeatureRequirement(obj)
+		if err != nil {
+			fmt.Errorf("(NewRequirement) NewScatterFeatureRequirement returns: %s", err.Error())
+			return
+		}
 		return
 	case "MultipleInputFeatureRequirement":
 		r, err = NewMultipleInputFeatureRequirement(obj)
+		if err != nil {
+			fmt.Errorf("(NewRequirement) NewMultipleInputFeatureRequirement returns: %s", err.Error())
+			return
+		}
 		return
 	default:
 		err = errors.New("Requirement class not supported " + class)
@@ -62,7 +94,8 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 
 			requirement, xerr := NewRequirement(class_str, v)
 			if xerr != nil {
-				err = xerr
+
+				err = fmt.Errorf("(CreateRequirementArray) A NewRequirement returns: %s", xerr)
 				return
 			}
 
@@ -81,7 +114,7 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 
 			requirement, xerr := NewRequirement(class_str, v)
 			if xerr != nil {
-				err = xerr
+				err = fmt.Errorf("(CreateRequirementArray) B NewRequirement returns: %s", xerr)
 				return
 			}
 

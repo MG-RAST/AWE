@@ -236,7 +236,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 			} else if len(input.Source) > 1 {
 				cwl_array := cwl.Array{}
 				for _, obj := range source_object_array {
-					cwl_array.Add(obj)
+					cwl_array = append(cwl_array, obj)
 				}
 				workunit_input_map[cmd_id] = &cwl_array
 				continue
@@ -361,8 +361,9 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 		}
 		job_input := cwl.Job_document{}
 
-		for _, elem := range workunit_input_map {
-			job_input = append(job_input, elem)
+		for elem_id, elem := range workunit_input_map {
+			named_type := cwl.NewNamedCWLType(elem_id, elem)
+			job_input = append(job_input, named_type)
 		}
 
 		workunit.CWL_workunit.Job_input = &job_input

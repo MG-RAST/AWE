@@ -12,6 +12,7 @@ import (
 // http://www.commonwl.org/v1.0/Workflow.html#File
 type File struct {
 	CWLType_Impl   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	Type           CWLType_Type   `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 	Location       string         `yaml:"location,omitempty" json:"location,omitempty bson:"location,omitempty"` // An IRI that identifies the file resource.
 	Location_url   *url.URL       `yaml:"-" json:"-" bson:"-"`                                                   // only for internal purposes
 	Path           string         `yaml:"path,omitempty" json:"path,omitempty bson:"path,omitempty"`             // dirname + '/' + basename == path This field must be set by the implementation.
@@ -31,8 +32,11 @@ type File struct {
 	Token  string `yaml:"-"`
 }
 
+func (f *File) Is_CWL_minimal() {}
+func (f *File) Is_CWLType()     {}
+
 //func (f *File) GetClass() string      { return "File" }
-//func (f *File) GetType() CWLType_Type { return CWL_File }
+func (f *File) GetType() CWLType_Type { return CWL_File }
 
 //func (f *File) GetId() string       { return f.Id }
 //func (f *File) SetId(id string)     { f.Id = id }
@@ -40,7 +44,7 @@ func (f *File) String() string      { return f.Path }
 func (f *File) GetLocation() string { return f.Location } // for CWL_location
 //func (f *File) Is_Array() bool      { return false }
 
-func (f *File) Is_CommandInputParameterType() {} // for CommandInputParameterType
+//func (f *File) Is_CommandInputParameterType() {} // for CommandInputParameterType
 
 func NewFile(id string, obj interface{}) (file File, err error) {
 

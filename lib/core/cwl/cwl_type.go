@@ -69,8 +69,8 @@ type CWL_location interface {
 // null, boolean, int, long, float, double, string, File, Directory
 type CWLType interface {
 	CWL_object // is an interface
-	Is_CommandInputParameterType()
-	Is_CommandOutputParameterType()
+	//Is_CommandInputParameterType()
+	//Is_CommandOutputParameterType()
 	GetType() CWLType_Type
 	String() string
 	//Is_Array() bool
@@ -84,10 +84,11 @@ type CWLType_Impl struct {
 
 func (c *CWLType_Impl) GetType() CWLType_Type { return c.Type }
 
-func (c *CWLType_Impl) Is_CWL_minimal()                {}
-func (c *CWLType_Impl) Is_CWLType()                    {}
-func (c *CWLType_Impl) Is_CommandInputParameterType()  {}
-func (c *CWLType_Impl) Is_CommandOutputParameterType() {}
+func (c *CWLType_Impl) Is_CWL_minimal() {}
+func (c *CWLType_Impl) Is_CWLType()     {}
+
+//func (c *CWLType_Impl) Is_CommandInputParameterType()  {}
+//func (c *CWLType_Impl) Is_CommandOutputParameterType() {}
 
 func init() {
 
@@ -240,6 +241,7 @@ func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CW
 		cwl_type = myboolean
 	default:
 		// Map type unknown, maybe a record
+		fmt.Println("This might be a record:")
 		spew.Dump(native)
 
 		record, xerr := NewRecord(id, native)

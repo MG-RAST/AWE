@@ -437,7 +437,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 
 		notice, err = core.NewNotice(notice_if)
 		if err != nil {
-			cx.RespondWithErrorMessage("NewJob_document failed: "+err.Error(), http.StatusInternalServerError)
+			cx.RespondWithErrorMessage("NewNotice returned: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 

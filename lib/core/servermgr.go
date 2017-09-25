@@ -14,7 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"os"
-	"path"
+	//"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -362,7 +362,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 			continue
 		}
 
-		if !(task_state == TASK_STAT_INIT || task_state == TASK_STAT_PENDING) { // == TASK_STAT_INPROGRESS || task_state == TASK_STAT_COMPLETED
+		if !(task_state == TASK_STAT_INIT || task_state == TASK_STAT_PENDING || task_state == TASK_STAT_READY) { // == TASK_STAT_INPROGRESS || task_state == TASK_STAT_COMPLETED
 			logger.Debug(3, "(updateQueue) skipping task %s , it has state %s", task_id, task_state)
 			continue
 		}
@@ -382,7 +382,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 				continue
 			}
 
-			job, err := LoadJob(job_id)
+			job, err := GetJob(job_id)
 			if err != nil {
 				continue
 			}
@@ -1592,20 +1592,55 @@ func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
 
 				for _, src := range wsi.Source {
 					fmt.Println("src: " + src)
+					src_array := strings.Split(src, "/")
+					if len(src_array) == 2 {
+						// must be a workflow input, e.g. #main/jobid (workflow, input)
 
-					src_base := path.Base(src)
-					fmt.Println("src_base: " + src_base)
-					// search job input
-					obj, ok := job_input_map[src_base]
-					if ok {
-						fmt.Println("(locateInputs) found in job input: " + src_base)
+						src_base := src_array[1]
+						fmt.Println("src_base: " + src_base)
+						// search job input
+						obj, ok := job_input_map[src_base]
+						if ok {
+							fmt.Println("(locateInputs) found in job input: " + src_base)
+						} else {
+							fmt.Println("(locateInputs) NOT found in job input: " + src_base)
+							err = fmt.Errorf("(locateInputs) did not find %s in job_input (TODO check collection)", src_base) // this should not happen, taskReady makes sure everything is available
+							return
+						}
+						spew.Dump(job_input_map)
+						_ = obj
+					} else if len(src_array) == 2 {
+						// must be a step output, e.g. #main/filter/rejected (workflow, step, output)
+						step_name := src_array[1]
+						output_name := src_array[2]
+						_ = output_name
+
+						// search task:
+						var task_found *Task
+						for _, task := range job.Tasks {
+
+							var task_id Task_Unique_Identifier
+							task_id, err = task.GetId()
+							if err != nil {
+								return
+							}
+
+							task_local_id := task_id.Id
+							if task_local_id == step_name {
+								task_found = task
+								break
+							}
+
+						}
+
+						if task_found == nil {
+							err = fmt.Errorf("(locateInputs) did not find predecessor task %s ", step_name) // this should not happen, taskReady makes sure everything is available
+							return
+						}
+
 					} else {
-						fmt.Println("(locateInputs) NOT found in job input: " + src_base)
-						err = fmt.Errorf("(locateInputs) did not find %s in job_input (TODO check collection)", src_base) // this should not happen, taskReady makes sure everything is available
-						return
+						err = fmt.Errorf("(locateInputs) could not parse source: %s", src)
 					}
-					spew.Dump(job_input_map)
-					_ = obj
 				}
 			}
 

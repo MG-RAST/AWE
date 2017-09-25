@@ -43,7 +43,7 @@ func NewNotice(native interface{}) (workunit_result *Notice, err error) {
 		if has_results {
 
 			var results_jobdoc *cwl.Job_document
-			results_jobdoc, err = cwl.NewJob_document(results)
+			results_jobdoc, err = cwl.NewJob_documentFromNamedTypes(results)
 			if err != nil {
 				return
 			}

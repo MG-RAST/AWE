@@ -70,7 +70,7 @@ type JobRaw struct {
 	IsCWL         bool           `bson:"is_cwl" json:"is_cwl`
 	CwlVersion    cwl.CWLVersion `bson:"cwl_version" json:"cwl_version"`
 	CWL_objects   interface{}    `bson:"cwl_objects" json:"cwl_objects`
-	CWL_job_input interface{}    `bson:"cwl_job_input" json:"cwl_job_input`
+	CWL_job_input interface{}    `bson:"cwl_job_input" json:"cwl_job_input` // has to be an array for mongo (id as key would not work)
 
 	CWL_collection *cwl.CWL_collection `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	//CWL_job_input          *cwl.Job_document   `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
@@ -273,10 +273,12 @@ func (job *Job) Init() (changed bool, err error) {
 
 		//job_input, ok := job.CWL_job_input.([]cwl_types.CWLType)
 
-		job_input, xerr := cwl.NewJob_document(job.CWL_job_input)
+		job_input, xerr := cwl.NewJob_documentFromNamedTypes(job.CWL_job_input)
 		//job_input, ok := job.CWL_job_input.(cwl.Job_document)
 		if xerr != nil {
-			err = fmt.Errorf("(job.Init) cannot create CWL_job_input: %s", xerr.Error)
+			fmt.Println("\n\njob.CWL_job_input:\n")
+			spew.Dump(job.CWL_job_input)
+			err = fmt.Errorf("(job.Init) cannot create CWL_job_input: %s", xerr.Error())
 			return
 		}
 

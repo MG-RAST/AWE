@@ -19,7 +19,7 @@ func (s *Boolean) String() string {
 	return "False"
 }
 
-func (s *Boolean) Is_CommandInputParameterType() {} // for CommandInputParameterType
+//func (s *Boolean) Is_CommandInputParameterType() {} // for CommandInputParameterType
 
 func NewBoolean(id string, value bool) *Boolean {
 	b := &Boolean{}

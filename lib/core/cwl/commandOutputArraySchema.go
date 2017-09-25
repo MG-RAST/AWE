@@ -11,7 +11,7 @@ type CommandOutputArraySchema struct { // Items, Type , Label
 	OutputBinding *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"`
 }
 
-func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}
+//func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}
 
 func (c *CommandOutputArraySchema) Type2String() string { return "CommandOutputArraySchema" }
 

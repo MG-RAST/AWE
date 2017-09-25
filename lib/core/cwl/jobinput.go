@@ -18,12 +18,63 @@ import (
 //type Job_document map[string]interface{}
 
 type NamedCWLType struct {
-	Id    string  `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	Value CWLType `yaml:"value,omitempty" value:"inputs,omitempty" value:"inputs,omitempty"`
+	Id    string  `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
+	Value CWLType `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
 }
 
 func NewNamedCWLType(id string, value CWLType) NamedCWLType {
 	return NamedCWLType{Id: id, Value: value}
+}
+
+func NewNamedCWLTypeFromInterface(native interface{}) (cwl_obj_named NamedCWLType, err error) {
+
+	native, err = makeStringMap(native)
+	if err != nil {
+		return
+	}
+
+	switch native.(type) {
+	case map[string]interface{}:
+		named_thing_map := native.(map[string]interface{})
+
+		named_thing_value, ok := named_thing_map["value"]
+		if !ok {
+			fmt.Println("Expected NamedCWLType field \"value\" , but not found:")
+			spew.Dump(native)
+			err = fmt.Errorf("(NewJob_documentFromNamedTypes) Expected NamedCWLType field \"value\" , but not found")
+			return
+		}
+
+		var id string
+		var id_interface interface{}
+		id_interface, ok = named_thing_map["id"]
+		if ok {
+			id, ok = id_interface.(string)
+			if !ok {
+				err = fmt.Errorf("(NewJob_documentFromNamedTypes) id has wrong type")
+				return
+			}
+		} else {
+			id = ""
+		}
+
+		var cwl_obj CWLType
+		cwl_obj, err = NewCWLType(id, named_thing_value)
+		if err != nil {
+			err = fmt.Errorf("(NewJob_documentFromNamedTypes) B NewCWLType returns: %s", err.Error())
+			return
+		}
+
+		//var cwl_obj_named NamedCWLType
+		cwl_obj_named = NewNamedCWLType(id, cwl_obj)
+
+	default:
+		fmt.Println("Expected a NamedCWLType, but did not find a map:")
+		spew.Dump(native)
+		err = fmt.Errorf("(NewNamedCWLTypeFromInterface) Expected a NamedCWLType, but did not find a map")
+		return
+	}
+	return
 }
 
 type Job_document []NamedCWLType
@@ -80,6 +131,64 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 				return
 			}
 			job_nptr = append(job_nptr, NewNamedCWLType("not supported", cwl_obj))
+
+		}
+
+		return
+	default:
+
+		spew.Dump(original)
+		err = fmt.Errorf("(NewJob_document) type %s unknown", reflect.TypeOf(original))
+	}
+	return
+}
+
+func NewJob_documentFromNamedTypes(original interface{}) (job *Job_document, err error) {
+
+	logger.Debug(3, "(NewJob_document) starting")
+
+	original, err = makeStringMap(original)
+	if err != nil {
+		return
+	}
+
+	job_nptr := Job_document{}
+
+	job = &job_nptr
+
+	switch original.(type) {
+
+	// case map[string]interface{}:
+	//
+	// 		original_map := original.(map[string]interface{})
+	//
+	// 		for key_str, named_thing := range original_map {
+	//
+	// 			var cwl_obj_named NamedCWLType
+	// 			cwl_obj_named, err = NewNamedCWLTypeFromInterface(named_thing)
+	// 			if err != nil {
+	// 				err = fmt.Errorf("(NewJob_documentFromNamedTypes) A NewNamedCWLTypeFromInterface returns: %s", err.Error())
+	// 				return
+	// 			}
+	//
+	// 			job_nptr = append(job_nptr, cwl_obj_named)
+	//
+	// 		}
+	// 		return
+
+	case []interface{}:
+		original_array := original.([]interface{})
+
+		for _, named_thing := range original_array {
+
+			var cwl_obj_named NamedCWLType
+			cwl_obj_named, err = NewNamedCWLTypeFromInterface(named_thing)
+			if err != nil {
+				err = fmt.Errorf("(NewJob_documentFromNamedTypes) A NewNamedCWLTypeFromInterface returns: %s", err.Error())
+				return
+			}
+
+			job_nptr = append(job_nptr, cwl_obj_named)
 
 		}
 

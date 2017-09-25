@@ -44,7 +44,7 @@ func NewCWL_workunit_from_interface(native interface{}) (workunit *CWL_workunit,
 		job_input_generic, has_job_input_generic := native_map["job_input"]
 		if has_job_input_generic {
 
-			job_input, xerr := cwl.NewJob_document(job_input_generic)
+			job_input, xerr := cwl.NewJob_documentFromNamedTypes(job_input_generic)
 			if xerr != nil {
 				err = fmt.Errorf("(NewCWL_workunit_from_interface) NewJob_document failed: %s", xerr.Error())
 				return

@@ -54,6 +54,18 @@ func (jm *JobMap) Add(job *Job) (err error) {
 	return
 }
 
+func (jm *JobMap) Delete(jobid string, lock bool) (err error) {
+	if lock {
+		err = jm.LockNamed("Delete")
+		if err != nil {
+			return
+		}
+		defer jm.Unlock()
+	}
+	delete(jm._map, jobid)
+	return
+}
+
 func (jm *JobMap) Get_List(lock bool) (jobs []*Job, err error) {
 	if lock {
 		var read_lock ReadLock

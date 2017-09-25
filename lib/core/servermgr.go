@@ -2083,8 +2083,8 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 	if job.Acl.Owner != u.Uuid && rights["delete"] == false && u.Admin == false {
 		return errors.New(e.UnAuth)
 	}
-	if err := job.SetState(JOB_STAT_DELETED, nil); err != nil {
-		return err
+	if err = job.SetState(JOB_STAT_DELETED, nil); err != nil {
+		return
 	}
 	//delete queueing workunits
 	workunit_list, err := qm.workQueue.GetAll()
@@ -2092,12 +2092,10 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 		return
 	}
 	for _, workunit := range workunit_list {
-
 		workid := workunit.Workunit_Unique_Identifier
 		workunit_jobid := workid.JobId
 		//parentid, _ := GetJobIdByWorkId(workid)
 		if jobid == workunit_jobid {
-
 			qm.workQueue.Delete(workid)
 		}
 	}
@@ -2109,7 +2107,10 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 	}
 	qm.removeActJob(jobid)
 	qm.removeSusJob(jobid)
-
+	// delete from job map
+	if err = JM.Delete(jobid, true); err != nil {
+		return
+	}
 	// really delete it !
 	if full {
 		return job.Delete()

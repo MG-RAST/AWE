@@ -93,7 +93,7 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	changed = false
 
 	if len(task.Id) == 0 {
-		err = errors.New("(TaskRaw.InitRaw) empty taskid")
+		err = errors.New("(InitRaw) empty taskid")
 		return
 	}
 
@@ -102,7 +102,7 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	job_id := job.Id
 
 	if job_id == "" {
-		err = fmt.Errorf("(NewTask) job_id empty")
+		err = fmt.Errorf("(InitRaw) job_id empty")
 		return
 	}
 	task.JobId = job_id
@@ -113,7 +113,7 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	}
 
 	if job.Info == nil {
-		err = fmt.Errorf("(NewTask) job.Info empty")
+		err = fmt.Errorf("(InitRaw) job.Info empty")
 		return
 	}
 	task.Info = job.Info
@@ -144,8 +144,9 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	}
 
 	if task.StepOutputInterface != nil {
-		task.StepOutput, err = cwl.NewJob_document(task.StepOutputInterface)
+		task.StepOutput, err = cwl.NewJob_documentFromNamedTypes(task.StepOutputInterface)
 		if err != nil {
+			err = fmt.Errorf("(InitRaw) cwl.NewJob_documentFromNamedTypes returned: %s", err.Error())
 			return
 		}
 	}

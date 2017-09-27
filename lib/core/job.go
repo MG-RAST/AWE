@@ -179,7 +179,7 @@ func (job *Job) Init() (changed bool, err error) {
 		}
 		t_changed, xerr := task.Init(job)
 		if xerr != nil {
-			err = xerr
+			err = fmt.Errorf("(job.Init) task.Init returned: %s", xerr.Error())
 			return
 		}
 		if t_changed {
@@ -268,6 +268,7 @@ func (job *Job) Init() (changed bool, err error) {
 		//}
 		err = cwl.Add_to_collection(&collection, object_array)
 		if err != nil {
+			fmt.Errorf("(job.Init) Add_to_collection returned: %s", err.Error())
 			return
 		}
 

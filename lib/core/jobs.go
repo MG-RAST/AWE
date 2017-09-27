@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -12,13 +13,14 @@ func (n *Jobs) Init() (changed_count int, err error) {
 	for _, job := range *n {
 		changed, xerr := job.Init()
 		if xerr != nil {
-			err = xerr
+			err = fmt.Errorf("(jobs.Init) job.Init() returned %s", xerr.Error())
 			return
 		}
 		if changed {
 			changed_count += 1
 			err = job.Save()
 			if err != nil {
+				err = fmt.Errorf("(jobs.Init) job.Save() returns: %s", err.Error())
 				return
 			}
 		}

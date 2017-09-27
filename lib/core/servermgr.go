@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"os"
 	//"path"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -368,7 +369,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 		}
 
 		logger.Debug(3, "(updateQueue) task: %s", task_id)
-		task_ready, err := qm.isTaskReady(task)
+		task_ready, reason, err := qm.isTaskReady(task)
 		if err != nil {
 			logger.Error("(updateQueue) %s isTaskReady returns error: %s", task_id, err.Error())
 			continue
@@ -411,7 +412,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 			}
 			logger.Debug(3, "(updateQueue) task enqueued: %s", task_id)
 		} else {
-			logger.Debug(3, "(updateQueue) task not ready: %s", task_id)
+			logger.Debug(3, "(updateQueue) task not ready: %s reason: %s", task_id, reason)
 		}
 	}
 
@@ -1180,7 +1181,7 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 		return
 	}
 
-	task_ready, err := qm.isTaskReady(task) //makes the task ready
+	task_ready, _, err := qm.isTaskReady(task) //makes the task ready
 	if err != nil {
 		return
 	}
@@ -1219,7 +1220,7 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 
 //check whether a pending task is ready to enqueue (dependent tasks are all done)
 // task is not locked
-func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
+func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err error) {
 	ready = false
 
 	logger.Debug(3, "(isTaskReady) starting")
@@ -1256,6 +1257,11 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 
 	//skip if the belonging job is suspended
 	jobid, err := task.GetJobId()
+	if err != nil {
+		return
+	}
+
+	job, err := GetJob(jobid)
 	if err != nil {
 		return
 	}
@@ -1325,80 +1331,74 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, err error) {
 	if task.WorkflowStep != nil {
 		// check if CWL-style predecessors are all TASK_STAT_COMPLETED
 
+		// ****** get inputs
+		job_input_map := *job.CWL_collection.Job_input_map
+		if job_input_map == nil {
+			err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
+			return
+		}
+
 		fmt.Println("WorkflowStep.Id: " + task.WorkflowStep.Id)
 		for _, wsi := range task.WorkflowStep.In { // WorkflowStepInput
 
+			if wsi.Source == nil {
+				continue
+			}
 			//job_input := *(job.CWL_collection.Job_input)
 
-			for _, src := range wsi.Source { // usually only one
-				fmt.Println("src: " + src)
+			source_is_array := false
+			//source_object_array := []cwl.CWLType{}
 
-				if strings.HasPrefix(src, "#main/") {
-					src = strings.TrimPrefix(src, "#main/")
-				}
-				source_task := ""
-				source_name := ""
-				source_array := strings.Split(src, "/")
-				if len(source_array) == 0 {
-					err = fmt.Errorf("len(source_array) == 0")
-					return
-				} else if len(source_array) == 1 {
-					// job input
-					source_name = source_array[0]
-				} else if len(source_array) == 2 {
-					// tak output
-					source_task = source_array[0]
-					source_name = source_array[1]
+			source_as_array, source_is_array := wsi.Source.([]interface{})
 
-					if source_task == "" {
-						err = fmt.Errorf("source_task is empty !?")
+			if source_is_array {
+
+				for _, src := range source_as_array { // usually only one
+					fmt.Println("src: " + spew.Sdump(src))
+					var src_str string
+					var ok bool
+					src_str, ok = src.(string)
+					if !ok {
+						err = fmt.Errorf("src is not a string")
 						return
 					}
-				} else {
 
-					fmt.Println("len(source_array) > 2: ")
-					spew.Dump(wsi)
-					err = fmt.Errorf("len(source_array) > 2  %s", src)
-					return
+					_, ok, err = getCWLSource(job_input_map, job, src_str)
+
+					if err != nil {
+						err = fmt.Errorf("(locateInputs) getCWLSource returns: %s", err.Error())
+						return
+					}
+
+					if !ok {
+						reason = src_str + " not found"
+						return
+					}
+
 				}
-
-				fmt.Println("source_task: " + source_task)
-				fmt.Println("source_name: " + source_name)
-
-				if source_task == "" {
-					// wokflow input, can continue
-					continue
-				}
-
-				predecessor_task_id := task.Task_Unique_Identifier
-				predecessor_task_id.Id = source_task
-
-				predecessor_task, ok, yerr := qm.TaskMap.Get(predecessor_task_id, true)
+			} else {
+				var src_str string
+				var ok bool
+				src_str, ok = wsi.Source.(string)
 				if !ok {
-					err = fmt.Errorf("predecessor_task_id not found %s", predecessor_task_id.String())
+					err = fmt.Errorf("(isTaskReady) Cannot parse WorkflowStep source: %s", spew.Sdump(wsi.Source))
 					return
 				}
-				if yerr != nil {
-					err = yerr
+				_, ok, err = getCWLSource(job_input_map, job, src_str)
+
+				if err != nil {
+					err = fmt.Errorf("(locateInputs) getCWLSource returns: %s", err.Error())
 					return
 				}
 
-				predecessor_task_state, zerr := predecessor_task.GetState()
-				if zerr != nil {
-					err = zerr
+				if !ok {
+					reason = src_str + " not found"
 					return
 				}
-
-				if predecessor_task_state != TASK_STAT_COMPLETED {
-					logger.Debug(3, "(isTaskReady %s) (CWL-style) not ready because predecessor step/task %s is not ready", task_id, predecessor_task_id.String())
-					return
-				}
-
 			}
-
 		}
 
-	}
+	} // end task.WorkflowStep != nil
 
 	modified := false
 	for _, io := range task.Inputs {
@@ -1573,6 +1573,89 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 	return
 }
 
+func getCWLSource(job_input_map map[string]cwl.CWLType, job *Job, src string) (obj cwl.CWLType, ok bool, err error) {
+
+	ok = false
+	//src = strings.TrimPrefix(src, "#main/")
+
+	src_array := strings.Split(src, "/")
+	if len(src_array) == 2 {
+		// must be a workflow input, e.g. #main/jobid (workflow, input)
+
+		src_base := src_array[1]
+		fmt.Println("src_base: " + src_base)
+		// search job input
+		var this_ok bool
+		obj, this_ok = job_input_map[src_base]
+		if this_ok {
+			fmt.Println("(getCWLSource) found in job input: " + src_base)
+		} else {
+			// not found
+			return
+		}
+		spew.Dump(job_input_map)
+
+	} else if len(src_array) == 3 {
+		// must be a step output, e.g. #main/filter/rejected (workflow, step, output)
+		step_name := src_array[1]
+		output_name := src_array[2]
+		_ = output_name
+
+		// search task:
+		var task_found *Task
+		for _, task := range job.Tasks {
+
+			var task_id Task_Unique_Identifier
+			task_id, err = task.GetId()
+			if err != nil {
+				return
+			}
+
+			task_local_id := task_id.Id
+			if task_local_id == step_name {
+				task_found = task
+				break
+			}
+
+		}
+
+		if task_found == nil {
+			err = fmt.Errorf("(getCWLSource) did not find predecessor task %s ", step_name) // this should not happen, taskReady makes sure everything is available
+			return
+		}
+
+		if task_found.StepOutput == nil {
+			err = fmt.Errorf("(getCWLSource) predecessor task %s has no StepOutput", step_name)
+			return
+		}
+
+		found_output := false
+		for _, named_step_output := range *task_found.StepOutput {
+
+			fmt.Printf("(getCWLSource) %s vs %s\n", named_step_output.Id, output_name)
+			if named_step_output.Id == output_name {
+				found_output = true
+				obj = named_step_output.Value
+				break
+
+			}
+
+		}
+
+		if !found_output {
+			//err = fmt.Errorf("(getCWLSource) did not find output in predecessor task %s ", step_name) // this should not happen, taskReady makes sure everything is available
+			// not found
+			return
+		}
+
+	} else {
+		err = fmt.Errorf("(getCWLSource) could not parse source: %s", src)
+		return
+	}
+	ok = true
+	return
+}
+
 // invoked by taskEnQueue
 // main purpose is to copy output io struct of predecessor task to create the input io structs
 func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
@@ -1584,67 +1667,23 @@ func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
 			return
 		}
 
-		job_input_map := *(job.CWL_collection.Job_input_map)
+		//job_input_map := *(job.CWL_collection.Job_input_map)
 
 		// copy inputs into task
-		for _, wsi := range task.WorkflowStep.In { // WorkflowStepInput
-			if len(wsi.Source) > 0 {
-
-				for _, src := range wsi.Source {
-					fmt.Println("src: " + src)
-					src_array := strings.Split(src, "/")
-					if len(src_array) == 2 {
-						// must be a workflow input, e.g. #main/jobid (workflow, input)
-
-						src_base := src_array[1]
-						fmt.Println("src_base: " + src_base)
-						// search job input
-						obj, ok := job_input_map[src_base]
-						if ok {
-							fmt.Println("(locateInputs) found in job input: " + src_base)
-						} else {
-							fmt.Println("(locateInputs) NOT found in job input: " + src_base)
-							err = fmt.Errorf("(locateInputs) did not find %s in job_input (TODO check collection)", src_base) // this should not happen, taskReady makes sure everything is available
-							return
-						}
-						spew.Dump(job_input_map)
-						_ = obj
-					} else if len(src_array) == 2 {
-						// must be a step output, e.g. #main/filter/rejected (workflow, step, output)
-						step_name := src_array[1]
-						output_name := src_array[2]
-						_ = output_name
-
-						// search task:
-						var task_found *Task
-						for _, task := range job.Tasks {
-
-							var task_id Task_Unique_Identifier
-							task_id, err = task.GetId()
-							if err != nil {
-								return
-							}
-
-							task_local_id := task_id.Id
-							if task_local_id == step_name {
-								task_found = task
-								break
-							}
-
-						}
-
-						if task_found == nil {
-							err = fmt.Errorf("(locateInputs) did not find predecessor task %s ", step_name) // this should not happen, taskReady makes sure everything is available
-							return
-						}
-
-					} else {
-						err = fmt.Errorf("(locateInputs) could not parse source: %s", src)
-					}
-				}
-			}
-
-		}
+		//for _, wsi := range task.WorkflowStep.In { // WorkflowStepInput
+		// if len(wsi.Source) > 0 {
+		//
+		// 			for _, src := range wsi.Source {
+		// 				fmt.Println("src: " + src)
+		// 				_, err := getCWLSource(job_input_map, job, src)
+		// 				if err != nil {
+		// 					err = fmt.Errorf("(locateInputs) getCWLSource returns: %s", err.Error()) // TODO do we need this check here ? Should we copy results into task?
+		// 					return
+		// 				}
+		// 			}
+		// 		}
+		//
+		// 	}
 
 	} else {
 

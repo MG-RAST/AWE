@@ -189,6 +189,7 @@ func Add_to_collection(collection *CWL_collection, object_array CWL_object_array
 	for _, object := range object_array {
 		err = collection.Add(object)
 		if err != nil {
+			err = fmt.Errorf("(Add_to_collection) collection.Add returned: %s", err.Error())
 			return
 		}
 	}

@@ -161,10 +161,12 @@ func CWL_File_2_AWE_IO(file *cwl.File) (io *core.IO, err error) {
 
 func MoveInputCWL(work *core.Workunit, work_path string, input cwl.NamedCWLType) (size int64, err error) {
 
+	real_object := input.Value
+
 	spew.Dump(input)
-	switch input.Value.(type) {
+	switch real_object.(type) {
 	case *cwl.File:
-		file := input.Value.(*cwl.File)
+		file := real_object.(*cwl.File)
 		spew.Dump(*file)
 		fmt.Printf("file: %+v\n", *file)
 
@@ -188,9 +190,11 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.NamedCWLType)
 		return
 	case *cwl.Int:
 		return
+	case *cwl.Boolean:
+		return
 	case *cwl.Array:
 
-		array := input.Value.(*cwl.Array)
+		array := real_object.(*cwl.Array)
 
 		array_instance := *array
 
@@ -207,7 +211,7 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.NamedCWLType)
 		return
 		// TODO ************* Record and Enum
 	default:
-		err = fmt.Errorf("(MoveInputData) type %s not supoorted yet", reflect.TypeOf(input))
+		err = fmt.Errorf("(MoveInputData) type %s not supoorted yet", reflect.TypeOf(real_object))
 		return
 	}
 	return

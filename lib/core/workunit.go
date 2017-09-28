@@ -351,46 +351,46 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 			//parsed = input.ValueFrom.String()
 
-			for {
+			matches := reg.FindAll([]byte(parsed), -1)
+			fmt.Printf("Matches: %d\n", len(matches))
+			if len(matches) == 0 {
+				workunit_input_map[cmd_id] = cwl.NewStringFromstring(parsed)
+			} else if len(matches) == 1 {
+				match := matches[0]
+				expression_string := bytes.TrimPrefix(match, []byte("${"))
+				expression_string = bytes.TrimSuffix(expression_string, []byte("}"))
 
-				matches := reg.FindAll([]byte(parsed), -1)
-				fmt.Printf("Matches: %d\n", len(matches))
-				if len(matches) == 0 {
-					break
+				javascript_function := fmt.Sprintf("(function(){\n %s \n})()", expression_string)
+				fmt.Printf("%s\n", javascript_function)
+
+				value, xerr := vm.Run(javascript_function)
+				if xerr != nil {
+					err = fmt.Errorf("Javascript complained: %s", xerr.Error())
+					return
 				}
-				for _, match := range matches {
-					expression_string := bytes.TrimPrefix(match, []byte("${"))
-					expression_string = bytes.TrimSuffix(expression_string, []byte("}"))
+				fmt.Printf("reflect.TypeOf(value): %s\n", reflect.TypeOf(value))
 
-					javascript_function := fmt.Sprintf("(function(){\n %s \n})()", expression_string)
-					fmt.Printf("%s\n", javascript_function)
-
-					value, xerr := vm.Run(javascript_function)
-					if xerr != nil {
-						err = fmt.Errorf("Javascript complained: %s", xerr.Error())
-						return
-					}
-					fmt.Println(reflect.TypeOf(value))
-
-					value_str, xerr := value.ToString()
-					if xerr != nil {
-						err = fmt.Errorf("Cannot convert value to string: %s", xerr.Error())
-						return
-					}
-					parsed = strings.Replace(parsed, string(match), value_str, 1)
+				var value_cwl cwl.CWLType
+				value_cwl, err = cwl.NewCWLType("", value)
+				if err != nil {
+					err = fmt.Errorf("(NewWorkunit) Error parsing javascript VM result value: %s", err.Error())
+					return
 				}
+				//value_str, xerr := value.ToString()
+				//if xerr != nil {
+				//	err = fmt.Errorf("Cannot convert value to string: %s", xerr.Error())
+				//	return
+				//}
+				//parsed = strings.Replace(parsed, string(match), value_str, 1)
 
+				//fmt.Printf("parsed: %s\n", parsed)
+
+				//new_string := cwl.NewString(id, parsed)
+				workunit_input_map[cmd_id] = value_cwl
+			} else {
+				err = fmt.Errorf("(NewWorkunit) ValueFrom contains more than one ECMAScript function body")
+				return
 			}
-
-			fmt.Printf("parsed: %s\n", parsed)
-
-			new_string := cwl.NewString(id, parsed)
-			workunit_input_map[cmd_id] = new_string
-			continue
-			//job_input = append(job_input, new_string)
-			// TODO does this have to be storted in job_input ???
-
-			//err = fmt.Errorf("(NewWorkunit) sorry, ValueFrom not supported yet")
 
 		}
 		fmt.Println("workunit_input_map after second round:\n")

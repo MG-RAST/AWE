@@ -79,7 +79,7 @@ type CWLType interface {
 
 type CWLType_Impl struct {
 	CWL_object_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class
-	Type            CWLType_Type                                                          `yaml:"type,omitempty" json:"type,omitempty" bson:"type,omitempty"`
+	Type            CWLType_Type                                                          `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 }
 
 func (c *CWLType_Impl) GetType() CWLType_Type { return c.Type }
@@ -198,6 +198,22 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 			return
 		}
 
+	case *File:
+		cwl_type = native.(*File)
+
+	case *String:
+		cwl_type = native.(*String)
+	case *Int:
+		cwl_type = native.(*Int)
+	case *Boolean:
+		cwl_type = native.(*Boolean)
+
+	case float64:
+		native_float64 := native.(float64)
+		cwl_type, err = NewNumberFromInterface(id, native_float64)
+		if err != nil {
+			return
+		}
 	default:
 		fmt.Printf("(NewCWLType) H\n")
 		spew.Dump(native)
@@ -239,6 +255,13 @@ func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CW
 			return
 		}
 		cwl_type = myboolean
+	case string(CWL_Directory):
+		mydir, yerr := NewDirectoryFromInterface(native)
+		if yerr != nil {
+			err = fmt.Errorf("(NewCWLTypeByClass) NewDirectoryFromInterface returned: %s", yerr.Error())
+			return
+		}
+		cwl_type = mydir
 	default:
 		// Map type unknown, maybe a record
 		fmt.Println("This might be a record:")
@@ -306,8 +329,8 @@ func NewCWLTypeArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWL
 
 		cwl_array := []CWLType{}
 
-		for i, value := range native_array {
-			value_cwl, xerr := NewCWLType(parent_id+"_"+string(i), value)
+		for _, value := range native_array {
+			value_cwl, xerr := NewCWLType("", value)
 			if xerr != nil {
 				err = xerr
 				return
@@ -317,7 +340,7 @@ func NewCWLTypeArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWL
 		cwl_array_ptr = &cwl_array
 	default:
 
-		ct, xerr := NewCWLType(parent_id+"_1", native)
+		ct, xerr := NewCWLType("", native)
 		if xerr != nil {
 			err = xerr
 			return
@@ -357,7 +380,8 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 		spew.Dump(schema)
 		spew.Dump(object)
 
-		panic("comparison failed")
+		ok = false
+		return
 
 	}
 

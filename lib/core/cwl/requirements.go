@@ -12,7 +12,17 @@ type Requirement interface {
 	GetClass() string
 }
 
+type DummyRequirement struct {
+	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
+}
+
 func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
+
+	if class == "" {
+		err = fmt.Errorf("class name empty")
+		return
+	}
+
 	switch class {
 	case "DockerRequirement":
 		r, err = NewDockerRequirement(obj)
@@ -70,6 +80,8 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 			return
 		}
 		return
+	case "SubworkflowFeatureRequirement":
+		r = DummyRequirement{}
 	default:
 		err = errors.New("Requirement class not supported " + class)
 

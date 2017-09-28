@@ -19,7 +19,7 @@ type CommandInputParameter struct {
 	Label          string             `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
 	Description    string             `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty"`
 	InputBinding   CommandLineBinding `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"`
-	Default        *Any               `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
+	Default        CWLType            `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
 }
 
 func makeStringMap(v interface{}) (result interface{}, err error) {
@@ -110,7 +110,7 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 		default_value, ok := v_map["default"]
 		if ok {
 			fmt.Println("FOUND default key")
-			default_input, xerr := NewAny(default_value) // TODO return Int or similar
+			default_input, xerr := NewCWLType("", default_value) // TODO return Int or similar
 			if xerr != nil {
 				err = xerr
 				return

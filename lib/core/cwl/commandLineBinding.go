@@ -51,7 +51,6 @@ func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err e
 			err = fmt.Errorf("(NewCommandLineBinding) mapstructure: %s", err.Error())
 			return
 		}
-		clb = &commandlinebinding
 
 	case string:
 
@@ -67,10 +66,12 @@ func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err e
 		return
 	}
 
+	clb = &commandlinebinding
+
 	return
 }
 
-func NewCommandLineBindingArray(original interface{}) (new_array []*CommandLineBinding, err error) {
+func NewCommandLineBindingArray(original interface{}) (new_array []CommandLineBinding, err error) {
 	switch original.(type) {
 	case []interface{}:
 		for _, v := range original.([]interface{}) {
@@ -82,7 +83,7 @@ func NewCommandLineBindingArray(original interface{}) (new_array []*CommandLineB
 			}
 
 			//fmt.Printf("C")
-			new_array = append(new_array, clb)
+			new_array = append(new_array, *clb)
 			//fmt.Printf("D")
 
 		}
@@ -95,7 +96,7 @@ func NewCommandLineBindingArray(original interface{}) (new_array []*CommandLineB
 			return
 		}
 
-		new_array = append(new_array, clb)
+		new_array = append(new_array, *clb)
 
 	default:
 		err = fmt.Errorf("(NewCommandLineBindingArray) type unknown")

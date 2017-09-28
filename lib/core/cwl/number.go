@@ -3,6 +3,8 @@ package cwl
 import (
 	"fmt"
 	//"github.com/mitchellh/mapstructure"
+	"reflect"
+	"strconv"
 )
 
 //type String struct {
@@ -45,12 +47,23 @@ func NewNumberFromInterface(id string, native interface{}) (s *Number, err error
 
 	_ = id
 
-	real_string, ok := native.(string)
-	if !ok {
-		err = fmt.Errorf("(NewStringFromInterface) Cannot create string")
-		return
-	}
-	s = NewNumberFromstring(real_string)
+	switch native.(type) {
+	case string:
+		real_string, ok := native.(string)
+		if !ok {
+			err = fmt.Errorf("(NewStringFromInterface) Cannot create string")
+			return
+		}
+		s = NewNumberFromstring(real_string)
+	case float64:
+		real_float64, _ := native.(float64)
 
+		real_string := strconv.FormatFloat(real_float64, 'f', 6, 64)
+		s = NewNumberFromstring(real_string)
+
+	default:
+		err = fmt.Errorf("(NewNumberFromInterface) type %s unknown", reflect.TypeOf(native))
+
+	}
 	return
 }

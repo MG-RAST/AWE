@@ -346,7 +346,8 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 			fmt.Printf("parsed: %s\n", parsed)
 
 			// evaluate ${...} ECMAScript function body
-			reg = regexp.MustCompile(`\$\{[\w.]+\}`)
+			reg = regexp.MustCompile(`(?s)\${.+}`) // s-flag is needed to include newlines
+
 			// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
 
 			//parsed = input.ValueFrom.String()
@@ -354,6 +355,10 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 			matches := reg.FindAll([]byte(parsed), -1)
 			fmt.Printf("Matches: %d\n", len(matches))
 			if len(matches) == 0 {
+				if "sequences" == cmd_id {
+
+					panic("nonono")
+				}
 				workunit_input_map[cmd_id] = cwl.NewStringFromstring(parsed)
 			} else if len(matches) == 1 {
 				match := matches[0]
@@ -368,10 +373,13 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 					err = fmt.Errorf("Javascript complained: %s", xerr.Error())
 					return
 				}
-				fmt.Printf("reflect.TypeOf(value): %s\n", reflect.TypeOf(value))
+
+				value_exported, _ := value.Export()
+
+				fmt.Printf("reflect.TypeOf(value_exported): %s\n", reflect.TypeOf(value_exported))
 
 				var value_cwl cwl.CWLType
-				value_cwl, err = cwl.NewCWLType("", value)
+				value_cwl, err = cwl.NewCWLType("", value_exported)
 				if err != nil {
 					err = fmt.Errorf("(NewWorkunit) Error parsing javascript VM result value: %s", err.Error())
 					return

@@ -51,23 +51,6 @@ func NewStringFromInterface(id string, native interface{}) (s *String, err error
 		return
 	}
 	s = NewStringFromstring(real_string)
-	return
-
-	//s = &String{Class: CWL_string}
-	// s = &String{}
-	//
-	// 	err = mapstructure.Decode(native, s)
-	// 	if err != nil {
-	// 		err = fmt.Errorf("(NewStringFromInterface) Could not convert fo string object")
-	// 		return
-	// 	}
-	//
-	// 	s.Class = string(CWL_string)
-	// 	s.Type = CWL_string
-	//
-	// 	if id != "" {
-	// 		s.Id = id
-	// 	}
 
 	return
 }

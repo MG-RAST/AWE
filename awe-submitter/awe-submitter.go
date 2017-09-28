@@ -166,6 +166,31 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 
 		}
 		return
+
+	case *cwl.Directory:
+
+		dir, ok := native.(*cwl.Directory)
+		if !ok {
+			err = fmt.Errorf("could not cast to *cwl.Directory")
+			return
+		}
+
+		if dir.Listing != nil {
+
+			for k, _ := range dir.Listing {
+				value := dir.Listing[k]
+				var sub_count int
+				sub_count, err = processInputData(value, inputfile_path)
+				if err != nil {
+					return
+				}
+				count += sub_count
+
+			}
+
+		}
+		return
+
 	default:
 		spew.Dump(native)
 		err = fmt.Errorf("(processInputData) No handler for type \"%s\"\n", reflect.TypeOf(native))

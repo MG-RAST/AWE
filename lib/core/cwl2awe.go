@@ -81,8 +81,17 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 			logger.Debug(3, "input %s not found, replace with Null object")
 		}
 
+		if input_obj_ref == nil {
+			err = fmt.Errorf("(CWL_input_check) input_obj_ref == nil")
+			return
+		}
 		// Get type of CWL_Type we found
 		input_type := input_obj_ref.GetType()
+		if input_type == nil {
+
+			err = fmt.Errorf("(CWL_input_check) input_type == nil %s", spew.Sdump(input_obj_ref))
+			return
+		}
 		//input_type_str := "unknown"
 		logger.Debug(1, "(CWL_input_check) input_type: %s (%s)", input_type, input_type.Type2String())
 

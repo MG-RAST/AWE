@@ -190,6 +190,14 @@ func (c CWL_collection) GetCommandLineTool(id string) (obj *CommandLineTool, err
 	return
 }
 
+func (c CWL_collection) GetWorkflow(id string) (obj *Workflow, err error) {
+	obj, ok := c.Workflows[id]
+	if !ok {
+		err = fmt.Errorf("(GetWorkflow) item %s not found in collection", id)
+	}
+	return
+}
+
 func NewCWL_collection() (collection CWL_collection) {
 	collection = CWL_collection{}
 

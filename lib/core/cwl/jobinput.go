@@ -138,7 +138,7 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 	default:
 
 		spew.Dump(original)
-		err = fmt.Errorf("(NewJob_document) type %s unknown", reflect.TypeOf(original))
+		err = fmt.Errorf("(NewJob_document) (A) type %s unknown", reflect.TypeOf(original))
 	}
 	return
 }
@@ -196,7 +196,7 @@ func NewJob_documentFromNamedTypes(original interface{}) (job *Job_document, err
 	default:
 
 		spew.Dump(original)
-		err = fmt.Errorf("(NewJob_document) type %s unknown", reflect.TypeOf(original))
+		err = fmt.Errorf("(NewJob_document) (B) type %s unknown", reflect.TypeOf(original))
 	}
 	return
 }

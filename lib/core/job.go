@@ -578,6 +578,23 @@ func (job *Job) NumTask() int {
 	return len(job.Tasks)
 }
 
+func (job *Job) AddTask(task *Task) (err error) {
+	err = job.LockNamed("AddTask")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	id := job.Id
+
+	err = dbPushJobTask(id, task)
+	if err != nil {
+		return
+	}
+	job.Tasks = append(job.Tasks, task)
+	return
+}
+
 //---Field update functions
 
 func (job *Job) SetState(newState string, oldstates []string) (err error) {

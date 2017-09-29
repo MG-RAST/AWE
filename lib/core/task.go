@@ -49,6 +49,8 @@ type TaskRaw struct {
 	WorkflowStep           *cwl.WorkflowStep      `bson:"workflowStep" json:"workflowStep"` // CWL-only
 	StepOutputInterface    interface{}            `bson:"stepOutput" json:"stepOutput"`     // CWL-only
 	StepOutput             *cwl.Job_document      `bson:"-" json:"-"`                       // CWL-only
+	Scatter_task           bool                   `bson:"scatter_task" json:"scatter_task"` // CWL-only
+	Subworkflow            string                 `bson:"subworkflow" json:"subworkflow"`   // CWL-only  // unknown, no, yes
 }
 
 type Task struct {
@@ -789,6 +791,22 @@ func (task *Task) SetRemainWork(num int, writelock bool) (err error) {
 		return
 	}
 	task.RemainWork = num
+	return
+}
+
+func (task *Task) SetSubworkflow(value string) (err error) {
+
+	err = task.LockNamed("SetSubworkflow")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	err = dbUpdateJobTaskString(task.JobId, task.Id, "subworkflow", value)
+	if err != nil {
+		return
+	}
+	task.Subworkflow = value
 	return
 }
 

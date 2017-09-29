@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	//"github.com/MG-RAST/AWE/lib/logger"
-	//"github.com/davecgh/go-spew/spew"
+	"github.com/davecgh/go-spew/spew"
 	//"github.com/mitchellh/mapstructure"
 )
 
@@ -81,7 +81,9 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 		}
 		return
 	case "SubworkflowFeatureRequirement":
-		r = DummyRequirement{}
+		this_r := DummyRequirement{}
+		this_r.Class = "SubworkflowFeatureRequirement"
+		r = this_r
 	default:
 		err = errors.New("Requirement class not supported " + class)
 
@@ -92,17 +94,16 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement, err error) {
 	// here the keynames are actually class names
 
+	original, err = makeStringMap(original)
+	if err != nil {
+		return
+	}
+
 	new_array := []Requirement{}
-	new_array_ptr = &new_array
 
 	switch original.(type) {
-	case map[interface{}]interface{}:
-		for k, v := range original.(map[interface{}]interface{}) {
-
-			//var requirement Requirement
-			class_str := k.(string)
-
-			//class := CWLType_Type(class_str)
+	case map[string]interface{}:
+		for class_str, v := range original.(map[string]interface{}) {
 
 			requirement, xerr := NewRequirement(class_str, v)
 			if xerr != nil {
@@ -114,27 +115,37 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 			new_array = append(new_array, requirement)
 		}
 	case []interface{}:
-		for _, v := range original.([]interface{}) {
+		original_array := original.([]interface{})
 
-			empty, xerr := NewEmpty(v)
-			if xerr != nil {
-				err = xerr
+		for i, _ := range original_array {
+			v := original_array[i]
+
+			var class_str string
+			class_str, err = GetClass(v)
+			if err != nil {
 				return
 			}
-			class_str := empty.GetClass()
+
 			//class := CWLType_Type(class_str)
 
 			requirement, xerr := NewRequirement(class_str, v)
 			if xerr != nil {
-				err = fmt.Errorf("(CreateRequirementArray) B NewRequirement returns: %s", xerr)
+				fmt.Println("CreateRequirementArray:")
+				spew.Dump(original)
+				fmt.Println("CreateRequirementArray done")
+				err = fmt.Errorf("(CreateRequirementArray) B NewRequirement returns: %s (%s)", xerr, spew.Sdump(v))
 				return
 			}
 
 			new_array = append(new_array, requirement)
+
 		}
 
 	default:
 		err = fmt.Errorf("(CreateRequirementArray) type unknown")
 	}
+
+	new_array_ptr = &new_array
+
 	return
 }

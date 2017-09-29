@@ -120,6 +120,39 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 	return
 }
 
+func CreateTasks(job *Job, steps []cwl.WorkflowStep) (tasks []*Task, err error) {
+	tasks = []*Task{}
+
+	for s, _ := range steps {
+
+		step := steps[s] // I could not do "_, step := range", that leas to very strange behaviour ?!??!
+
+		//task_name := strings.Map(
+		//	func(r rune) rune {
+		//		if syntax.IsWordChar(r) || r == '/' || r == '-' { // word char: [0-9A-Za-z_]
+		//			return r
+		//		}
+		//		return -1
+		//	},
+		//	step.Id)
+
+		if !strings.HasPrefix(step.Id, "#") {
+			err = fmt.Errorf("Workflow step name does not start with a #: %s", step.Id)
+			return
+		}
+		task_name := step.Id
+		//task_name := strings.TrimPrefix(step.Id, "#main/")
+		//task_name = strings.TrimPrefix(task_name, "#")
+		awe_task := NewTask(job, task_name)
+
+		awe_task.WorkflowStep = &step
+		//spew.Dump(step)
+		tasks = append(tasks, awe_task)
+
+	}
+	return
+}
+
 func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, collection *cwl.CWL_collection) (job *Job, err error) {
 
 	//CommandLineTools := collection.CommandLineTools
@@ -186,34 +219,11 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	//helper.AWE_tasks = &awe_tasks
 
 	var tasks []*Task
-
-	for s, _ := range cwl_workflow.Steps {
-
-		step := cwl_workflow.Steps[s] // I could not do "_, step := range", that leas to very strange behaviour ?!??!
-
-		//task_name := strings.Map(
-		//	func(r rune) rune {
-		//		if syntax.IsWordChar(r) || r == '/' || r == '-' { // word char: [0-9A-Za-z_]
-		//			return r
-		//		}
-		//		return -1
-		//	},
-		//	step.Id)
-
-		if !strings.HasPrefix(step.Id, "#") {
-			err = fmt.Errorf("Workflow step name does not start with a #: %s", step.Id)
-			return
-		}
-
-		task_name := strings.TrimPrefix(step.Id, "#main/")
-		task_name = strings.TrimPrefix(task_name, "#")
-		awe_task := NewTask(job, task_name)
-
-		awe_task.WorkflowStep = &step
-		//spew.Dump(step)
-		tasks = append(tasks, awe_task)
-
+	tasks, err = CreateTasks(job, cwl_workflow.Steps)
+	if err != nil {
+		return
 	}
+
 	job.Tasks = tasks
 
 	_, err = job.Init()

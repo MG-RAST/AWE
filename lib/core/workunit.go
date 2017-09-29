@@ -9,7 +9,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/robertkrimen/otto"
-	"gopkg.in/mgo.v2/bson"
+	//"gopkg.in/mgo.v2/bson"
 	"os"
 	"path"
 	"reflect"
@@ -98,39 +98,14 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 		// ****** get CommandLineTool (or whatever can be executed)
 		p := workflow_step.Run
-
-		tool_name := ""
-
-		switch p.(type) {
-		case cwl.ProcessPointer:
-
-			pp, _ := p.(cwl.ProcessPointer)
-
-			tool_name = pp.Value
-
-		case bson.M: // I have no idea why we get a bson.M here
-
-			p_bson := p.(bson.M)
-
-			tool_name_interface, ok := p_bson["value"]
-			if !ok {
-				err = fmt.Errorf("(NewWorkunit) bson.M did not hold a field named value")
-				return
-			}
-
-			tool_name, ok = tool_name_interface.(string)
-			if !ok {
-				err = fmt.Errorf("(NewWorkunit) bson.M value field is not a string")
-				return
-			}
-
-		default:
-			err = fmt.Errorf("(NewWorkunit) Process type %s unknown, cannot create Workunit", reflect.TypeOf(p))
+		var process_name string
+		process_name, err = cwl.GetProcessName(p)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkunit) embedded workflow or toll not supported yet: %s", err.Error())
 			return
-
 		}
 
-		if tool_name == "" {
+		if process_name == "" {
 			err = fmt.Errorf("(NewWorkunit) No tool name found")
 			return
 		}
@@ -140,11 +115,30 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 			return
 		}
 
-		clt, xerr := job.CWL_collection.GetCommandLineTool(tool_name)
-		if xerr != nil {
-			err = fmt.Errorf("(NewWorkunit) Object %s not found in collection: %s", xerr.Error())
+		var clt *cwl.CommandLineTool
+		//use_commandLineTool := false
+
+		//var wfl *cwl.Workflow
+		//use_workflow := false
+
+		clt, err = job.CWL_collection.GetCommandLineTool(process_name)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkunit) CommandLineTool %s not found")
 			return
+			//wfl, err = job.CWL_collection.GetWorkflow(process_name)
+			//if err != nil {
+			//	err = fmt.Errorf("(NewWorkunit) Process %s is neither CommandLineTool, nor Workflow.")
+			//	return
+			//} else {
+			//	use_workflow = true
+			//}
+
 		}
+		//else {
+		//	use_commandLineTool = true
+		//}
+
+		//if use_commandLineTool {
 		clt.CwlVersion = job.CwlVersion
 
 		if clt.CwlVersion == "" {
@@ -152,6 +146,12 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 			return
 		}
 		workunit.CWL_workunit.CWL_tool = clt
+
+		//}
+
+		//if use_workflow {
+		//	wfl.CwlVersion = job.CwlVersion
+		//}
 
 		// ****** get inputs
 		job_input_map := *job.CWL_collection.Job_input_map

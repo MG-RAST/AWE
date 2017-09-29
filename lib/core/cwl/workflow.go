@@ -91,8 +91,14 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 
 		requirements, ok := object["requirements"]
 		if ok {
+			fmt.Println("---- Workflow (before CreateRequirementArray) ----")
+			spew.Dump(object)
 			object["requirements"], err = CreateRequirementArray(requirements)
 			if err != nil {
+				fmt.Println("---- Workflow ----")
+				spew.Dump(object)
+				fmt.Println("---- requirements ----")
+				spew.Dump(requirements)
 				err = fmt.Errorf("(NewWorkflow) CreateRequirementArray returned: %s", err.Error())
 				return
 			}

@@ -1469,6 +1469,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 
 // happens when task is ready
 // prepares task and creates workunits
+// scatter task does not create its own workunit, it just creates new tasks
 func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 	task_id, err := task.GetId()
@@ -1494,15 +1495,86 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		logger.Debug(3, "(taskEnQueue) DO NOT have WorkflowStep")
 	}
 
+	skip_workunit := false
+
 	if job.CWL_collection != nil {
 		logger.Debug(3, "(taskEnQueue) have job.CWL_collection")
+
+		cwl_step := task.WorkflowStep
+
+		if len(cwl_step.Scatter) != 0 {
+			err = fmt.Errorf("Not implemented yet")
+			return
+			// generate copies of this task (this new tasks cannot be scatter tasks!)
+			// add tasks to job
+			// add tasks to queue
+
+			err = task.SetState(TASK_STAT_QUEUED, true) // this refers to the fact that its scatter children have been enqueued.
+			if err != nil {
+				return
+			}
+			// TODO: task.Set_Scatter_task()
+			// TODO Can we return here ???
+		} else {
+
+			if task.Subworkflow == "yes" {
+				skip_workunit = true
+			} else if task.Subworkflow == "" {
+				// not sure if this is a subworkflow
+				p := cwl_step.Run
+				// check if this is a workflow
+				var process_name string
+				process_name, err = cwl.GetProcessName(p)
+				if err != nil {
+					err = fmt.Errorf("(taskEnQueue) embedded workflow or toll not supported yet: %s", err.Error())
+					return
+				}
+
+				var wfl *cwl.Workflow
+				wfl, err = job.CWL_collection.GetWorkflow(process_name)
+				if err != nil {
+					err = task.SetSubworkflow("no")
+					if err != nil {
+						return
+					}
+				} else {
+					// we got a Sub-workflow !
+
+					// create tasks
+					var sub_workflow_tasks []*Task
+					sub_workflow_tasks, err = CreateTasks(job, wfl.Steps)
+					for i := range sub_workflow_tasks {
+						sub_task := sub_workflow_tasks[i]
+						_, err = sub_task.Init(job)
+						if err != nil {
+							err = fmt.Errorf("(taskEnQueue) sub_task.Init() returns: %s", err.Error())
+							return
+						}
+						err = job.AddTask(sub_task)
+						if err != nil {
+							err = fmt.Errorf("(taskEnQueue) job.AddTask returns: %s", err.Error())
+							return
+						}
+						qm.addTask(task, job)
+					}
+
+					err = task.SetSubworkflow("yes")
+					if err != nil {
+						return
+					}
+					skip_workunit = true
+				}
+
+			}
+		}
+
 	} else {
 		logger.Debug(3, "(taskEnQueue) DO NOT have job.CWL_collection")
 	}
 
 	logger.Debug(2, "(qmgr.taskEnQueue) trying to enqueue task %s", task_id)
 
-	err = qm.locateInputs(task, job)
+	err = qm.locateInputs(task, job) // only old-style AWE
 	if err != nil {
 		err = fmt.Errorf("(qmgr.taskEnQueue) locateInputs: %s", err.Error())
 		return
@@ -1527,16 +1599,19 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		err = fmt.Errorf("(qmgr.taskEnQueue) createOutputNode: %s", err.Error())
 		return
 	}
-	err = qm.CreateAndEnqueueWorkunits(task, job)
-	if err != nil {
-		err = fmt.Errorf("(qmgr.taskEnQueue) CreateAndEnqueueWorkunits: %s", err.Error())
-		return
+
+	if !skip_workunit {
+		err = qm.CreateAndEnqueueWorkunits(task, job)
+		if err != nil {
+			err = fmt.Errorf("(qmgr.taskEnQueue) CreateAndEnqueueWorkunits: %s", err.Error())
+			return
+		}
 	}
 	err = task.SetState(TASK_STAT_QUEUED, true)
 	if err != nil {
 		return
 	}
-	err = task.SetCreatedDate(time.Now())
+	err = task.SetCreatedDate(time.Now()) // TODO: this is pretty stupid and useless. May want to use EnqueueDate here ?
 	if err != nil {
 		return
 	}
@@ -1597,9 +1672,12 @@ func getCWLSource(job_input_map map[string]cwl.CWLType, job *Job, src string) (o
 
 	} else if len(src_array) == 3 {
 		// must be a step output, e.g. #main/filter/rejected (workflow, step, output)
+		workflow_name := src_array[0]
 		step_name := src_array[1]
 		output_name := src_array[2]
 		_ = output_name
+
+		step_name_abs := workflow_name + "/" + step_name
 
 		// search task:
 		var task_found *Task
@@ -1612,7 +1690,7 @@ func getCWLSource(job_input_map map[string]cwl.CWLType, job *Job, src string) (o
 			}
 
 			task_local_id := task_id.Id
-			if task_local_id == step_name {
+			if task_local_id == step_name_abs {
 				task_found = task
 				break
 			}
@@ -1620,12 +1698,13 @@ func getCWLSource(job_input_map map[string]cwl.CWLType, job *Job, src string) (o
 		}
 
 		if task_found == nil {
-			err = fmt.Errorf("(getCWLSource) did not find predecessor task %s ", step_name) // this should not happen, taskReady makes sure everything is available
+			err = fmt.Errorf("(getCWLSource) did not find predecessor task %s ", step_name_abs) // this should not happen, taskReady makes sure everything is available
 			return
 		}
 
 		if task_found.StepOutput == nil {
-			err = fmt.Errorf("(getCWLSource) predecessor task %s has no StepOutput", step_name)
+			//err = fmt.Errorf("(getCWLSource) Found predecessor task %s, but StepOutput does not exist", step_name_abs)
+			ok = false
 			return
 		}
 

@@ -438,6 +438,23 @@ func dbGetJobFieldTime(job_id string, fieldname string) (result time.Time, err e
 	return
 }
 
+func dbPushJobTask(job_id string, task *Task) (err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	selector := bson.M{"id": job_id}
+
+	change := bson.M{"$push": bson.M{"tasks": task}}
+
+	err = c.Update(selector, change)
+	if err != nil {
+		err = fmt.Errorf("Error adding task: " + err.Error())
+		return
+	}
+	return
+}
+
 func dbUpdateJobFields(job_id string, update_value bson.M) (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
@@ -500,6 +517,11 @@ func dbUpdateJobTaskField(job_id string, task_id string, fieldname string, value
 }
 
 func dbUpdateJobTaskInt(job_id string, task_id string, fieldname string, value int) (err error) {
+	update_value := bson.M{"tasks.$." + fieldname: value}
+	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+
+}
+func dbUpdateJobTaskBoolean(job_id string, task_id string, fieldname string, value bool) (err error) {
 	update_value := bson.M{"tasks.$." + fieldname: value}
 	return dbUpdateJobTaskFields(job_id, task_id, update_value)
 

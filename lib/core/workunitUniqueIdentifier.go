@@ -8,9 +8,11 @@ import (
 )
 
 type Workunit_Unique_Identifier struct {
-	Rank   int    `bson:"rank" json:"rank" mapstructure:"rank"` // this is the local identifier
-	TaskId string `bson:"taskid" json:"taskid" mapstructure:"taskid"`
-	JobId  string `bson:"jobid" json:"jobid" mapstructure:"jobid"`
+	Task_Unique_Identifier `bson:",inline" json:",inline" mapstructure:",squash"` // TaskName, Workflow, JobId
+	Rank                   int                                                    `bson:"rank" json:"rank" mapstructure:"rank"` // this is the local identifier
+
+	//TaskId string `bson:"taskid" json:"taskid" mapstructure:"taskid"`
+	//JobId  string `bson:"jobid" json:"jobid" mapstructure:"jobid"`
 }
 
 func (w Workunit_Unique_Identifier) String() string {

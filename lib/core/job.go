@@ -74,7 +74,47 @@ type JobRaw struct {
 
 	CWL_collection *cwl.CWL_collection `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	//CWL_job_input          *cwl.Job_document   `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
-	CWL_workflow *cwl.Workflow `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
+	CWL_workflow         *cwl.Workflow                `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
+	WorkflowInstances    *[]*WorkflowInstance         `bson:"workflow_instances" json:"workflow_instances" yaml:"workflow_instances" mapstructure:"workflow_instances"`
+	WorkflowInstancesMap map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
+}
+
+type WorkflowInstance struct {
+	Id     string            `bson:"id" json:"id"`
+	Inputs *cwl.Job_document `bson:"inputs" json:"inputs"`
+}
+
+// TODO lock, mongo update
+func (job *Job) AddWorkflowInstance(id string, inputs *cwl.Job_document) (err error) {
+
+	wi := &WorkflowInstance{Id: id, Inputs: inputs}
+
+	wis := *job.WorkflowInstances
+	wis = append(wis, wi)
+	job.WorkflowInstances = &wis
+
+	return
+}
+
+// TODO lock
+func (job *Job) GetWorkflowInstance(id string) (wi *WorkflowInstance, err error) {
+
+	var ok bool
+	wi, ok = job.WorkflowInstancesMap[id]
+	if !ok {
+		for _, wi = range *job.WorkflowInstances {
+			if wi.Id == id {
+				job.WorkflowInstancesMap[id] = wi
+				return
+			}
+
+		}
+
+		err = fmt.Errorf("(GetWorkflowInstance) id %s not found", id)
+		return
+	}
+
+	return
 }
 
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
@@ -237,22 +277,6 @@ func (job *Job) Init() (changed bool, err error) {
 
 	if job.IsCWL {
 
-		//if job.CWL_workflow_interface != nil {
-		//	workflow, err = cwl.NewWorkflow(job.CWL_workflow_interface)
-		//	if err != nil {
-		//		return
-		//	}
-		//	job.CWL_workflow = workflow
-		//}
-
-		//var job_input *cwl.Job_document
-		//if job.CWL_job_input != nil {
-		//	job_input, err = cwl.NewJob_document(job.CWL_job_input)
-		//	if err != nil {
-		//		return
-		//	}
-		//	job.CWL_job_input = job_input
-		//}
 		collection := cwl.NewCWL_collection()
 
 		object_array, xerr := cwl.NewCWL_object_array(job.CWL_objects)
@@ -260,32 +284,27 @@ func (job *Job) Init() (changed bool, err error) {
 			err = fmt.Errorf("(job.Init) cannot type assert CWL_objects: %s", xerr.Error())
 			return
 		}
-		//object_array, ok := job.CWL_objects.(cwl_types.CWL_object_array)
-		//if !ok {
-		//	spew.Dump(job.CWL_objects)
-		//	err = fmt.Errorf("(job.Init) cannot type assert CWL_objects")
-		//	return
-		//}
+
 		err = cwl.Add_to_collection(&collection, object_array)
 		if err != nil {
 			fmt.Errorf("(job.Init) Add_to_collection returned: %s", err.Error())
 			return
 		}
 
-		//job_input, ok := job.CWL_job_input.([]cwl_types.CWLType)
+		main_input := (*job.WorkflowInstances)[0] // TODO risky !
 
-		job_input, xerr := cwl.NewJob_documentFromNamedTypes(job.CWL_job_input)
-		//job_input, ok := job.CWL_job_input.(cwl.Job_document)
+		//main_input, xerr := cwl.NewJob_documentFromNamedTypes(job.CWL_job_input)
+
 		if xerr != nil {
-			fmt.Println("\n\njob.CWL_job_input:\n")
-			spew.Dump(job.CWL_job_input)
-			err = fmt.Errorf("(job.Init) cannot create CWL_job_input: %s", xerr.Error())
+			//fmt.Println("\n\njob.CWL_job_input:\n")
+			//spew.Dump(job.CWL_job_input)
+			err = fmt.Errorf("(job.Init) cannot create main_input: %s", xerr.Error())
 			return
 		}
 
-		job_input_map := job_input.GetMap()
+		main_input_map := main_input.Inputs.GetMap()
 
-		collection.Job_input_map = &job_input_map
+		collection.Job_input_map = &main_input_map
 
 		cwl_workflow, ok := collection.Workflows["#main"]
 		if !ok {
@@ -297,46 +316,6 @@ func (job *Job) Init() (changed bool, err error) {
 		job.CWL_workflow = cwl_workflow
 
 	}
-
-	// read from base64 string
-	// if job.CWL_collection == nil && job.CWL_job_input_b64 != "" {
-	// 		new_collection := cwl.NewCWL_collection()
-	//
-	// 		//1) parse job
-	// 		job_input_byte_array, xerr := b64.StdEncoding.DecodeString(job.CWL_job_input_b64)
-	// 		if xerr != nil {
-	// 			err = fmt.Errorf("(job.Init) error decoding CWL_job_input_b64: %s", xerr.Error())
-	// 			return
-	// 		}
-	//
-	// 		job_input, xerr := cwl.ParseJob(&job_input_byte_array)
-	// 		if xerr != nil {
-	// 			err = fmt.Errorf("(job.Init) error in reading job yaml/json file: " + xerr.Error())
-	// 			return
-	// 		}
-	// 		new_collection.Job_input = job_input
-	//
-	// 		// 2) parse workflow document
-	//
-	// 		workflow_byte_array, xerr := b64.StdEncoding.DecodeString(job.CWL_workflow_b64)
-	//
-	// 		err = cwl.Parse_cwl_document(&new_collection, string(workflow_byte_array[:]))
-	// 		if err != nil {
-	// 			err = fmt.Errorf("(job.Init) Parse_cwl_document error: " + err.Error())
-	//
-	// 			return
-	// 		}
-	//
-	// 		cwl_workflow, ok := new_collection.Workflows["#main"]
-	// 		if !ok {
-	//
-	// 			err = fmt.Errorf("(job.Init) Workflow main not found")
-	// 			return
-	// 		}
-	//
-	// 		job.CWL_collection = &new_collection
-	// 		_ = cwl_workflow
-	// 	}
 
 	return
 }
@@ -420,31 +399,6 @@ func Deserialize_b64(encoding string, target interface{}) (err error) {
 
 	return
 }
-
-// takes a yaml string as input, may change that later
-// func (job *Job) Set_CWL_workflow_b64(yaml_str string) {
-//
-// 	job.CWL_workflow_b64 = b64.StdEncoding.EncodeToString([]byte(yaml_str))
-//
-// 	return
-// }
-
-// func (job *Job) Set_CWL_job_input_b64(yaml_str string) {
-//
-// 	job.CWL_job_input_b64 = b64.StdEncoding.EncodeToString([]byte(yaml_str))
-//
-// 	return
-// }
-
-// func Serialize_b64(input interface{}) (serialized string, err error) {
-// 	json_byte, xerr := json.Marshal(input)
-// 	if xerr != nil {
-// 		err = fmt.Errorf("(job.Save) json.Marshal(input) failed: %s", xerr.Error())
-// 		return
-// 	}
-// 	serialized = b64.StdEncoding.EncodeToString(json_byte)
-// 	return
-// }
 
 func (job *Job) Save() (err error) {
 	if job.Id == "" {

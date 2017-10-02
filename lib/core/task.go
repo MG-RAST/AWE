@@ -32,7 +32,8 @@ const (
 type TaskRaw struct {
 	RWMutex                `bson:"-" json:"-"`
 	Task_Unique_Identifier `bson:",inline"`
-	Info                   *Info                  `bson:"-" json:"-"` // this is just a pointer to the job.Info
+	Id                     string                 `bson:"taskid" json:"taskid"` // old-style
+	Info                   *Info                  `bson:"-" json:"-"`           // this is just a pointer to the job.Info
 	Cmd                    *Command               `bson:"cmd" json:"cmd"`
 	Partition              *PartInfo              `bson:"partinfo" json:"-"`
 	DependsOn              []string               `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
@@ -158,10 +159,11 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 
 func (task Task_Unique_Identifier) String() (s string) {
 
-	id := task.Id
 	jobId := task.JobId
+	workflow := task.Workflow
+	name := task.Name
 
-	return fmt.Sprintf("%s_%s", jobId, id)
+	return fmt.Sprintf("%s_%s/%s", jobId, workflow, name)
 }
 
 // func (task *TaskRaw) String() (s string, err error) {
@@ -215,7 +217,7 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 			return
 		}
 
-		if t.Id == "" {
+		if t.Name == "" {
 			// this is to fix a bug
 			deps_changed = true
 			continue
@@ -324,9 +326,9 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 }
 
 // currently this is only used to make a new task from a depricated task
-func NewTask(job *Job, task_id string) (t *Task) {
+func NewTask(job *Job, workflow string, task_id string) (t *Task) {
 
-	tui := Task_Unique_Identifier{Id: task_id, JobId: job.Id}
+	tui := Task_Unique_Identifier{JobId: job.Id, Workflow: workflow, Name: task_id}
 
 	t = &Task{
 		TaskRaw: NewTaskRaw(tui, job.Info),

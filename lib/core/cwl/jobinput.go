@@ -16,6 +16,7 @@ import (
 )
 
 //type Job_document map[string]interface{}
+type Job_document []NamedCWLType
 
 type NamedCWLType struct {
 	Id    string  `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
@@ -76,8 +77,6 @@ func NewNamedCWLTypeFromInterface(native interface{}) (cwl_obj_named NamedCWLTyp
 	}
 	return
 }
-
-type Job_document []NamedCWLType
 
 func (job_input *Job_document) GetMap() (job_input_map map[string]CWLType) {
 	job_input_map = make(map[string]CWLType)

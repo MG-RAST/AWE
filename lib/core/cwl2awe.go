@@ -143,7 +143,7 @@ func CreateTasks(job *Job, steps []cwl.WorkflowStep) (tasks []*Task, err error) 
 		task_name := step.Id
 		//task_name := strings.TrimPrefix(step.Id, "#main/")
 		//task_name = strings.TrimPrefix(task_name, "#")
-		awe_task := NewTask(job, task_name)
+		awe_task := NewTask(job, "#main", task_name)
 
 		awe_task.WorkflowStep = &step
 		//spew.Dump(step)

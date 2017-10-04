@@ -20,7 +20,7 @@ type CommandOutputParameter struct {
 
 func NewCommandOutputParameter(original interface{}) (output_parameter *CommandOutputParameter, err error) {
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

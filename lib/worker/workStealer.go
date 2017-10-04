@@ -334,7 +334,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 	logger.Debug(3, "(CheckoutWorkunitRemote) workunit id: %s", workunit.Id)
 
-	logger.Debug(3, "(CheckoutWorkunitRemote) workunit Rank:%d TaskId:%s JobId:%s", workunit.Rank, workunit.TaskId, workunit.JobId)
+	logger.Debug(3, "(CheckoutWorkunitRemote) workunit Rank:%d TaskId:%s JobId:%s", workunit.Rank, workunit.TaskName, workunit.JobId)
 
 	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s got a workunit", core.Self.Id))
 	workunit.State = core.WORK_STAT_CHECKOUT

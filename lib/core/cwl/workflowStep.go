@@ -24,7 +24,7 @@ type WorkflowStep struct {
 func NewWorkflowStep(original interface{}) (w *WorkflowStep, err error) {
 	var step WorkflowStep
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

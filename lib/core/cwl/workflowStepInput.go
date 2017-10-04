@@ -44,7 +44,7 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 	input_parameter := WorkflowStepInput{}
 	input_parameter_ptr = &input_parameter
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

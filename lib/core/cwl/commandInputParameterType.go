@@ -57,7 +57,7 @@ func NewCommandInputParameterType(original interface{}) (result CWLType_Type, er
 	// Try CWL_Type
 	//var cipt CommandInputParameterType
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

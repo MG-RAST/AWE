@@ -94,7 +94,7 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement, err error) {
 	// here the keynames are actually class names
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

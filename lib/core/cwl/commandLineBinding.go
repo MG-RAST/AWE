@@ -23,7 +23,7 @@ func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err e
 
 	var commandlinebinding CommandLineBinding
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

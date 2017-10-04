@@ -455,6 +455,23 @@ func dbPushJobTask(job_id string, task *Task) (err error) {
 	return
 }
 
+func dbPushJobWorkflowInstance(job_id string, wi *WorkflowInstance) (err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	selector := bson.M{"id": job_id}
+
+	change := bson.M{"$push": bson.M{"workflow_instances": wi}}
+
+	err = c.Update(selector, change)
+	if err != nil {
+		err = fmt.Errorf("Error adding WorkflowInstance: " + err.Error())
+		return
+	}
+	return
+}
+
 func dbUpdateJobFields(job_id string, update_value bson.M) (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()

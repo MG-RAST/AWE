@@ -19,7 +19,7 @@ func NewInitialWorkDirRequirement(original interface{}) (r *InitialWorkDirRequir
 	var requirement InitialWorkDirRequirement
 	r = &requirement
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

@@ -38,7 +38,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 
 	id = DecodeBase64(cx, id)
 
-	work_id, err := core.New_Workunit_Unique_Identifier(id)
+	work_id, err := core.New_Workunit_Unique_Identifier_FromString(id)
 	if err != nil {
 		cx.RespondWithErrorMessage("error parsing workunit identifier: "+id, http.StatusBadRequest)
 		return
@@ -163,7 +163,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	}
 
 	// Base case respond with workunit in json
-	id_wui, err := core.New_Workunit_Unique_Identifier(id)
+	id_wui, err := core.New_Workunit_Unique_Identifier_FromString(id)
 	if err != nil {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
@@ -353,7 +353,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 
 	id = DecodeBase64(cx, id)
 
-	work_id, err := core.New_Workunit_Unique_Identifier(id)
+	work_id, err := core.New_Workunit_Unique_Identifier_FromString(id)
 	if err != nil {
 		cx.RespondWithErrorMessage("error parsing workunit identifier: "+id, http.StatusBadRequest)
 		return
@@ -400,7 +400,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	// old-style
 	var notice *core.Notice
 	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
-		//work_id_object, err := core.New_Workunit_Unique_Identifier(work_id)
+		//work_id_object, err := core.New_Workunit_Unique_Identifier_FromString(work_id)
 		//if err != nil {
 		//	cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		//	return

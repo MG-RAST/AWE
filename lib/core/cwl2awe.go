@@ -120,7 +120,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 	return
 }
 
-func CreateTasks(job *Job, steps []cwl.WorkflowStep) (tasks []*Task, err error) {
+func CreateTasks(job *Job, workflow string, steps []cwl.WorkflowStep) (tasks []*Task, err error) {
 	tasks = []*Task{}
 
 	for s, _ := range steps {
@@ -141,9 +141,20 @@ func CreateTasks(job *Job, steps []cwl.WorkflowStep) (tasks []*Task, err error) 
 			return
 		}
 		task_name := step.Id
+
+		if task_name == "" {
+			err = fmt.Errorf("(CreateTasks) step_id is empty")
+			return
+		}
+
 		//task_name := strings.TrimPrefix(step.Id, "#main/")
 		//task_name = strings.TrimPrefix(task_name, "#")
-		awe_task := NewTask(job, "#main", task_name)
+		var awe_task *Task
+		awe_task, err = NewTask(job, workflow, task_name)
+		if err != nil {
+			err = fmt.Errorf("(CreateTasks) NewTask returned: %s", err.Error())
+			return
+		}
 
 		awe_task.WorkflowStep = &step
 		//spew.Dump(step)
@@ -168,6 +179,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	//os.Exit(0)
 	job = NewJob()
+	job.setId()
 	//job.CWL_workflow = cwl_workflow
 
 	logger.Debug(1, "Job created")
@@ -207,19 +219,17 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	// TODO first check that all resources are available: local files and remote links
 
-	//helper := Helper{}
+	main_wi := WorkflowInstance{Id: "", Inputs: *job_input}
+	//new_wis := []WorkflowInstance{main_wi} // Not using AddWorkflowInstance to avoid mongo
+	job.WorkflowInstances = make([]interface{}, 1)
+	job.WorkflowInstances[0] = main_wi
 
-	//processed_ws := make(map[string]*cwl.WorkflowStep)
-	//unprocessed_ws := make(map[string]*cwl.WorkflowStep)
-	//awe_tasks := make(map[string]*Task)
-	//helper.processed_ws = &processed_ws
-	//helper.unprocessed_ws = &unprocessed_ws
-	//helper.collection = collection
-	//helper.job = job
-	//helper.AWE_tasks = &awe_tasks
+	//if err != nil {
+	//	return
+	//}
 
 	var tasks []*Task
-	tasks, err = CreateTasks(job, cwl_workflow.Steps)
+	tasks, err = CreateTasks(job, "", cwl_workflow.Steps)
 	if err != nil {
 		return
 	}

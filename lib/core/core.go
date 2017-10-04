@@ -305,7 +305,12 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 			return
 		}
 
-		task := NewTask(job, "#main", taskDep.Id)
+		var task *Task
+		task, err = NewTask(job, "", taskDep.Id)
+		if err != nil {
+			err = fmt.Errorf("(JobDepToJob) NewTask returned: %s", err.Error())
+			return
+		}
 
 		_, err = task.Init(job)
 		if err != nil {

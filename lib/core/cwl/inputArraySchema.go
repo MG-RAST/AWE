@@ -25,7 +25,7 @@ func NewInputArraySchema() (coas *InputArraySchema) {
 
 func NewInputArraySchemaFromInterface(original interface{}) (coas *InputArraySchema, err error) {
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

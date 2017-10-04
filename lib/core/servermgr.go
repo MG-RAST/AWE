@@ -703,7 +703,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		jerror := &JobError{
 			ClientFailed: clientid,
 			WorkFailed:   workid,
-			TaskFailed:   id.TaskId,
+			TaskFailed:   id.TaskName,
 			ServerNotes:  "exit code 42 encountered",
 			WorkNotes:    notes,
 			AppError:     notice.Stderr,
@@ -732,7 +732,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 			jerror := &JobError{
 				ClientFailed: clientid,
 				WorkFailed:   workid,
-				TaskFailed:   id.TaskId,
+				TaskFailed:   id.TaskName,
 				ServerNotes:  fmt.Sprintf("workunit failed %d time(s)", MAX_FAILURE),
 				WorkNotes:    notes,
 				AppError:     notice.Stderr,
@@ -1298,7 +1298,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 
 		logger.Debug(3, "(isTaskReady %s) range deps (%d)", task_id, len(deps))
 		for _, predecessor := range deps {
-			predecessor_id, xerr := New_Task_Unique_Identifier(predecessor)
+			predecessor_id, xerr := New_Task_Unique_Identifier_FromString(predecessor)
 			if xerr != nil {
 				err = xerr
 				return
@@ -1354,7 +1354,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 			if source_is_array {
 
 				for _, src := range source_as_array { // usually only one
-					fmt.Println("src: " + spew.Sdump(src))
+					fmt.Println("(isTaskReady) src: " + spew.Sdump(src))
 					var src_str string
 					var ok bool
 					src_str, ok = src.(string)
@@ -1363,10 +1363,10 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 						return
 					}
 
-					_, ok, err = getCWLSource(job_input_map, job, src_str)
+					_, ok, err = qm.getCWLSource(job_input_map, job, task_id, src_str)
 
 					if err != nil {
-						err = fmt.Errorf("(locateInputs) getCWLSource returns: %s", err.Error())
+						err = fmt.Errorf("(isTaskReady) getCWLSource returns: %s", err.Error())
 						return
 					}
 
@@ -1384,10 +1384,10 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 					err = fmt.Errorf("(isTaskReady) Cannot parse WorkflowStep source: %s", spew.Sdump(wsi.Source))
 					return
 				}
-				_, ok, err = getCWLSource(job_input_map, job, src_str)
+				_, ok, err = qm.getCWLSource(job_input_map, job, task_id, src_str)
 
 				if err != nil {
-					err = fmt.Errorf("(locateInputs) getCWLSource returns: %s", err.Error())
+					err = fmt.Errorf("(isTaskReady) getCWLSource returns: %s", err.Error())
 					return
 				}
 
@@ -1409,7 +1409,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		}
 
 		//preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
-		preId := Task_Unique_Identifier{JobId: jobid, Workflow: "#main", Name: io.Origin}
+		preId := New_Task_Unique_Identifier(jobid, "", io.Origin)
 		preTask, ok, xerr := qm.TaskMap.Get(preId, true)
 		if xerr != nil {
 			err = xerr
@@ -1501,9 +1501,9 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		logger.Debug(3, "(taskEnQueue) have job.CWL_collection")
 
 		var workflow_instance *WorkflowInstance
-		workflow_instance, err = job.GetWorkflowInstance(task.Workflow)
+		workflow_instance, err = job.GetWorkflowInstance(task.Ancestors)
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstancereturned")
+			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
 			return
 		}
 
@@ -1541,6 +1541,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 				var wfl *cwl.Workflow
 				wfl, err = job.CWL_collection.GetWorkflow(process_name)
 				if err != nil {
+					// not a workflow
 					err = task.SetSubworkflow("no")
 					if err != nil {
 						return
@@ -1551,16 +1552,33 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 					// find inputs
 
 					//subworkflow_inputs := cwl.Job_document
-					var workunit_input_map map[string]cwl.CWLType
+					//var workunit_input_map map[string]cwl.CWLType
+					var task_input_array cwl.Job_document
+					var task_input_map cwl.JobDocMap
 
-					workunit_input_map, err = GetInputObjects(job, workflow_input_map, cwl_step)
+					if task.StepInput == nil {
+
+						task_input_map, err = GetInputObjects(job, workflow_input_map, cwl_step) // returns map[string]CWLType
+						if err != nil {
+							return
+						}
+						task_input_array = task_input_map.GetArray()
+						task.StepInput = &task_input_array
+
+					} else {
+						task_input_array = *task.StepInput
+						task_input_map = task_input_array.GetMap()
+					}
+
+					new_sub_workflow := task.Ancestors + "/" + task.Name
+					err = job.AddWorkflowInstance(new_sub_workflow, task_input_array)
 					if err != nil {
 						return
 					}
 
 					// create tasks
 					var sub_workflow_tasks []*Task
-					sub_workflow_tasks, err = CreateTasks(job, wfl.Steps)
+					sub_workflow_tasks, err = CreateTasks(job, new_sub_workflow, wfl.Steps)
 					for i := range sub_workflow_tasks {
 						sub_task := sub_workflow_tasks[i]
 						_, err = sub_task.Init(job)
@@ -1666,7 +1684,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 	return
 }
 
-func getCWLSource(workflow_input_map map[string]cwl.CWLType, job *Job, src string) (obj cwl.CWLType, ok bool, err error) {
+func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job *Job, current_task_id Task_Unique_Identifier, src string) (obj cwl.CWLType, ok bool, err error) {
 
 	ok = false
 	//src = strings.TrimPrefix(src, "#main/")
@@ -1695,39 +1713,57 @@ func getCWLSource(workflow_input_map map[string]cwl.CWLType, job *Job, src strin
 		output_name := src_array[2]
 		_ = output_name
 
-		step_name_abs := workflow_name + "/" + step_name
+		//step_name_abs := workflow_name + "/" + step_name
 
-		// search task:
-		var task_found *Task
-		for _, task := range job.Tasks {
+		ancestor_task_id := current_task_id
 
-			var task_id Task_Unique_Identifier
-			task_id, err = task.GetId()
-			if err != nil {
-				return
-			}
+		ancestor_task_id.TaskName = workflow_name + "/" + step_name
 
-			task_local_id := task_id.Name
-			if task_local_id == step_name_abs {
-				task_found = task
-				break
-			}
-
+		var ancestor_task *Task
+		ancestor_task, ok, err = qm.TaskMap.Get(ancestor_task_id, true)
+		if err != nil {
+			return
 		}
-
-		if task_found == nil {
-			err = fmt.Errorf("(getCWLSource) did not find predecessor task %s ", step_name_abs) // this should not happen, taskReady makes sure everything is available
+		if !ok {
+			err = fmt.Errorf("(getCWLSource) ancestor_task %s not found ", ancestor_task_id)
 			return
 		}
 
-		if task_found.StepOutput == nil {
+		// search task:
+		// var task_found *Task
+		// 		for _, task := range job.Tasks {
+		//
+		// 			var task_id Task_Unique_Identifier
+		// 			task_id, err = task.GetId()
+		// 			if err != nil {
+		// 				return
+		// 			}
+		//
+		// 			if ancestors != task_id.Ancestors {
+		// 				continue
+		// 			}
+		//
+		// 			task_local_id := task_id.Ancestors + "/" + task_id.TaskName
+		// 			if task_local_id == step_name_abs {
+		// 				task_found = task
+		// 				break
+		// 			}
+		//
+		// 		}
+
+		if ancestor_task == nil {
+			err = fmt.Errorf("(getCWLSource) did not find predecessor task %s for task %s", ancestor_task_id, src) // this should not happen, taskReady makes sure everything is available
+			return
+		}
+
+		if ancestor_task.StepOutput == nil {
 			//err = fmt.Errorf("(getCWLSource) Found predecessor task %s, but StepOutput does not exist", step_name_abs)
 			ok = false
 			return
 		}
 
 		found_output := false
-		for _, named_step_output := range *task_found.StepOutput {
+		for _, named_step_output := range *ancestor_task.StepOutput {
 
 			fmt.Printf("(getCWLSource) %s vs %s\n", named_step_output.Id, output_name)
 			if named_step_output.Id == output_name {
@@ -1814,7 +1850,7 @@ func (qm *ServerMgr) locateAWEInputs(task *Task, job *Job) (err error) {
 
 			// find predecessor task
 
-			preId := Task_Unique_Identifier{JobId: jobid, Workflow: "#main", Name: io.Origin}
+			preId := New_Task_Unique_Identifier(jobid, "", io.Origin)
 			preTask, ok, xerr := qm.TaskMap.Get(preId, true)
 			if xerr != nil {
 				err = xerr
@@ -1968,7 +2004,7 @@ func (qm *ServerMgr) locateUpdate(task *Task, name string, origin string) (nodei
 	}
 
 	//preId := fmt.Sprintf("%s_%s", job_id, origin)
-	preId := Task_Unique_Identifier{JobId: job_id, Workflow: "#main", Name: origin}
+	preId := New_Task_Unique_Identifier(job_id, "", origin)
 
 	logger.Debug(2, "task %s: trying to locate Node of update %s from task %s", task_id, name, preId)
 	// scan outputs in origin task
@@ -2273,7 +2309,7 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 	//delete parsed tasks
 	for i := 0; i < len(job.TaskList()); i++ {
 		//task_id := fmt.Sprintf("%s_%d", jobid, i)
-		task_id := Task_Unique_Identifier{JobId: jobid, Workflow: "#main", Name: strconv.Itoa(i)} // TODO that will not work
+		task_id := New_Task_Unique_Identifier(jobid, "", strconv.Itoa(i)) // TODO that will not work
 		qm.TaskMap.Delete(task_id)
 	}
 	qm.removeActJob(jobid)
@@ -2522,7 +2558,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 		if xerr != nil {
 			return xerr
 		}
-		if isAncestor(dbjob, task_id.Name, from_task_id) {
+		if isAncestor(dbjob, task_id.String(), from_task_id) {
 			err = resetTask(task, dbjob.Info)
 			if err != nil {
 				return
@@ -2844,7 +2880,7 @@ func (qm *ServerMgr) FetchPrivateEnv(id Workunit_Unique_Identifier, clientid str
 		return
 	}
 	jobid := id.JobId
-	taskid := id.TaskId
+	taskid := id.TaskName
 
 	env, err = dbGetPrivateEnv(jobid, taskid)
 	if err != nil {

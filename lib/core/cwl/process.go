@@ -52,7 +52,7 @@ func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 // returns CommandLineTool, ExpressionTool or Workflow
 func NewProcess(original interface{}) (process interface{}, err error) {
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

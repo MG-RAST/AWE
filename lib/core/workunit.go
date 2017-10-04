@@ -62,11 +62,7 @@ type Workunit struct {
 func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error) {
 
 	workunit = &Workunit{
-		Workunit_Unique_Identifier: Workunit_Unique_Identifier{
-			Rank:   rank,
-			TaskId: task.Id,
-			JobId:  task.JobId,
-		},
+		Workunit_Unique_Identifier: New_Workunit_Unique_Identifier(task.Task_Unique_Identifier, rank),
 		Id:  "defined below",
 		Cmd: task.Cmd,
 		//App:       task.App,
@@ -163,8 +159,17 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 		//job_input := *job.CWL_collection.Job_input
 
+		var workflow_instance *WorkflowInstance
+		workflow_instance, err = job.GetWorkflowInstance(task.Ancestors)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
+			return
+		}
+
+		workflow_input_map := workflow_instance.Inputs.GetMap()
+
 		var workunit_input_map map[string]cwl.CWLType
-		workunit_input_map, err = GetInputObjects(job, job_input_map, workflow_step)
+		workunit_input_map, err = GetInputObjects(job, workflow_input_map, workflow_step)
 		if err != nil {
 			return
 		}
@@ -195,7 +200,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 	return
 }
 
-func GetInputObjects(job *Job, workflow_input_map map[string]cwl.CWLType, workflow_step *cwl.WorkflowStep) (workunit_input_map map[string]cwl.CWLType, err error) {
+func GetInputObjects(job *Job, workflow_input_map map[string]cwl.CWLType, workflow_step *cwl.WorkflowStep) (workunit_input_map cwl.JobDocMap, err error) {
 
 	workunit_input_map = make(map[string]cwl.CWLType) // also used for json
 
@@ -498,15 +503,11 @@ func (work *Workunit) Path() (path string, err error) {
 			err = fmt.Errorf("(Workunit/Path) JobId is missing")
 			return
 		}
-
-		task_id_array := strings.Split(work.Workunit_Unique_Identifier.TaskId, "/")
 		task_name := ""
-		if len(task_id_array) > 1 {
-			task_name = strings.Join(task_id_array[1:], "/")
-		} else {
-			task_name = work.Workunit_Unique_Identifier.TaskId
+		if work.Workunit_Unique_Identifier.Ancestors != "" {
+			task_name = work.Workunit_Unique_Identifier.Ancestors + "-"
 		}
-
+		task_name += work.Workunit_Unique_Identifier.TaskName
 		// convert name to make it filesystem compatible
 		task_name = strings.Map(
 			func(r rune) rune {

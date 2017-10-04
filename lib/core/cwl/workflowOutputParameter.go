@@ -23,7 +23,7 @@ type WorkflowOutputParameter struct {
 func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParameter, err error) {
 	var output_parameter WorkflowOutputParameter
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

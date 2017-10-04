@@ -35,7 +35,7 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 		return
 	}
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

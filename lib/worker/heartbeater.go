@@ -114,7 +114,7 @@ func SendHeartBeat() (err error) {
 		if op == "discard" { //discard suspended workunits
 			suspendedworks := strings.Split(objs, ",")
 			for _, work := range suspendedworks {
-				work_id, xerr := core.New_Workunit_Unique_Identifier(work)
+				work_id, xerr := core.New_Workunit_Unique_Identifier_FromString(work)
 				if xerr != nil {
 					err = xerr
 					return

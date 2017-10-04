@@ -133,7 +133,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 	//var cwl_type CWLType
 	fmt.Printf("(NewCWLType) starting with type %s\n", reflect.TypeOf(native))
 
-	native, err = makeStringMap(native)
+	native, err = MakeStringMap(native)
 	if err != nil {
 		return
 	}
@@ -217,7 +217,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 	default:
 		fmt.Printf("(NewCWLType) H\n")
 		spew.Dump(native)
-		err = fmt.Errorf("(NewCWLType) Type unknown: \"%s\"", reflect.TypeOf(native))
+		err = fmt.Errorf("(NewCWLType) Type unknown: \"%s\" (%s)", reflect.TypeOf(native), spew.Sdump(native))
 		return
 	}
 	fmt.Printf("(NewCWLType) I\n")

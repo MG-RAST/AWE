@@ -25,7 +25,7 @@ func NewCommandOutputArraySchema() (coas *CommandOutputArraySchema) {
 
 func NewCommandOutputArraySchemaFromInterface(original interface{}) (coas *CommandOutputArraySchema, err error) {
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

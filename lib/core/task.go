@@ -49,6 +49,7 @@ type TaskRaw struct {
 	ClientGroups           string                 `bson:"clientgroups" json:"clientgroups"`
 	WorkflowStep           *cwl.WorkflowStep      `bson:"workflowStep" json:"workflowStep"` // CWL-only
 	StepOutputInterface    interface{}            `bson:"stepOutput" json:"stepOutput"`     // CWL-only
+	StepInput              *cwl.Job_document      `bson:"-" json:"-"`                       // CWL-only
 	StepOutput             *cwl.Job_document      `bson:"-" json:"-"`                       // CWL-only
 	Scatter_task           bool                   `bson:"scatter_task" json:"scatter_task"` // CWL-only
 	Subworkflow            string                 `bson:"subworkflow" json:"subworkflow"`   // CWL-only  // unknown, no, yes
@@ -82,9 +83,13 @@ type TaskLog struct {
 func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) TaskRaw {
 
 	logger.Debug(3, "task_id: %s", task_id)
+	logger.Debug(3, "task_id.JobId: %s", task_id.JobId)
+	logger.Debug(3, "task_id.Ancestors: %s", task_id.Ancestors)
+	logger.Debug(3, "task_id.TaskName: %s", task_id.TaskName)
 
 	return TaskRaw{
 		Task_Unique_Identifier: task_id,
+		Id:        task_id.String(),
 		Info:      info,
 		Cmd:       &Command{},
 		Partition: nil,
@@ -157,15 +162,6 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	return
 }
 
-func (task Task_Unique_Identifier) String() (s string) {
-
-	jobId := task.JobId
-	workflow := task.Workflow
-	name := task.Name
-
-	return fmt.Sprintf("%s_%s/%s", jobId, workflow, name)
-}
-
 // func (task *TaskRaw) String() (s string, err error) {
 // 	err = task.LockNamed("String")
 // 	if err != nil {
@@ -211,13 +207,13 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 			deps_changed = true
 		}
 
-		t, yerr := New_Task_Unique_Identifier(deptask)
+		t, yerr := New_Task_Unique_Identifier_FromString(deptask)
 		if yerr != nil {
 			err = fmt.Errorf("Cannot parse entry in DependsOn: %s", yerr.Error())
 			return
 		}
 
-		if t.Name == "" {
+		if t.TaskName == "" {
 			// this is to fix a bug
 			deps_changed = true
 			continue
@@ -239,7 +235,7 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 			deps_changed = true
 		}
 
-		t, yerr := New_Task_Unique_Identifier(deptask)
+		t, yerr := New_Task_Unique_Identifier_FromString(deptask)
 		if yerr != nil {
 
 			err = fmt.Errorf("Cannot parse Origin entry in Input: %s", yerr.Error())
@@ -326,9 +322,14 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 }
 
 // currently this is only used to make a new task from a depricated task
-func NewTask(job *Job, workflow string, task_id string) (t *Task) {
+func NewTask(job *Job, workflow string, task_id string) (t *Task, err error) {
 
-	tui := Task_Unique_Identifier{JobId: job.Id, Workflow: workflow, Name: task_id}
+	if job.Id == "" {
+		err = fmt.Errorf("(NewTask) jobid is empty!")
+		return
+	}
+
+	tui := New_Task_Unique_Identifier(job.Id, workflow, task_id)
 
 	t = &Task{
 		TaskRaw: NewTaskRaw(tui, job.Info),
@@ -920,10 +921,11 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog) {
 	tlog.TotalWork = task.TotalWork
 	tlog.CompletedDate = task.CompletedDate
 
-	workunit_id := Workunit_Unique_Identifier{JobId: task.JobId, TaskId: task.Id}
+	workunit_id := New_Workunit_Unique_Identifier(task.Task_Unique_Identifier, 0)
+	//workunit_id := Workunit_Unique_Identifier{JobId: task.JobId, TaskName: task.Id}
 
 	if task.TotalWork == 1 {
-		workunit_id.Rank = 0
+		//workunit_id.Rank = 0
 		tlog.Workunits = append(tlog.Workunits, NewWorkLog(workunit_id))
 	} else {
 		for i := 1; i <= task.TotalWork; i++ {

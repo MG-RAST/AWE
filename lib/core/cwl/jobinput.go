@@ -16,7 +16,9 @@ import (
 )
 
 //type Job_document map[string]interface{}
-type Job_document []NamedCWLType
+type Job_document []NamedCWLType // JobDocArray
+
+type JobDocMap map[string]CWLType
 
 type NamedCWLType struct {
 	Id    string  `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
@@ -27,9 +29,20 @@ func NewNamedCWLType(id string, value CWLType) NamedCWLType {
 	return NamedCWLType{Id: id, Value: value}
 }
 
+func (jd_map JobDocMap) GetArray() (result Job_document) {
+	result = Job_document{}
+
+	for key, value := range jd_map {
+		named := NewNamedCWLType(key, value)
+		result = append(result, named)
+	}
+
+	return
+}
+
 func NewNamedCWLTypeFromInterface(native interface{}) (cwl_obj_named NamedCWLType, err error) {
 
-	native, err = makeStringMap(native)
+	native, err = MakeStringMap(native)
 	if err != nil {
 		return
 	}
@@ -92,7 +105,7 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 
 	logger.Debug(3, "(NewJob_document) starting")
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}
@@ -146,7 +159,7 @@ func NewJob_documentFromNamedTypes(original interface{}) (job *Job_document, err
 
 	logger.Debug(3, "(NewJob_document) starting")
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

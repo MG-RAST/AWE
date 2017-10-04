@@ -22,7 +22,7 @@ type CommandInputParameter struct {
 	Default        CWLType            `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
 }
 
-func makeStringMap(v interface{}) (result interface{}, err error) {
+func MakeStringMap(v interface{}) (result interface{}, err error) {
 
 	switch v.(type) {
 	case bson.M:
@@ -65,7 +65,7 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 	fmt.Println("NewCommandInputParameter:\n")
 	spew.Dump(v)
 
-	v, err = makeStringMap(v)
+	v, err = MakeStringMap(v)
 	if err != nil {
 		return
 	}

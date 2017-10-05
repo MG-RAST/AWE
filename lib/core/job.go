@@ -18,6 +18,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -88,39 +89,63 @@ func NewWorkflowInstanceFromInterface(original interface{}) (wi WorkflowInstance
 		return
 	}
 
-	original_map, ok := original.(map[string]interface{})
-	if !ok {
-		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) not a map")
+	switch original.(type) {
+	case map[string]interface{}:
+
+		original_map, ok := original.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) not a map: %s", spew.Sdump(original))
+			return
+		}
+
+		wi = WorkflowInstance{}
+
+		id_if, has_id := original_map["id"]
+		if !has_id {
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) is is missing")
+			return
+		}
+		var id_str string
+		id_str, ok = id_if.(string)
+		if !ok {
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id is not string")
+			return
+		}
+		if id_str == "" {
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id string is empty")
+			return
+		}
+
+		wi.Id = id_str
+
+		inputs_if, has_inputs := original_map["inputs"]
+		if !has_inputs {
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) inputs missing")
+			return
+		}
+
+		var inputs *cwl.Job_document
+		inputs, err = cwl.NewJob_documentFromNamedTypes(inputs_if)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) NewJob_document returned: %s", err.Error())
+			return
+		}
+
+		wi.Inputs = *inputs
+	case *WorkflowInstance:
+
+		wi_ptr, ok := original.(*WorkflowInstance)
+		if !ok {
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) type assertion problem")
+			return
+		}
+
+		wi = *wi_ptr
+
+	default:
+		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) type unknown, %s", reflect.TypeOf(original))
 		return
 	}
-
-	wi = WorkflowInstance{}
-
-	id_if, has_id := original_map["id"]
-	if !has_id {
-		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) is is missing")
-		return
-	}
-	wi.Id, ok = id_if.(string)
-	if !ok {
-		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id is not string")
-		return
-	}
-
-	inputs_if, has_inputs := original_map["inputs"]
-	if !has_inputs {
-		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) inputs missing")
-		return
-	}
-
-	inputs, err := cwl.NewJob_documentFromNamedTypes(inputs_if)
-	if err != nil {
-		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) NewJob_document returned: %s", err.Error())
-		return
-	}
-
-	wi.Inputs = *inputs
-
 	return
 
 }
@@ -131,6 +156,11 @@ func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document) (err err
 		return
 	}
 	defer job.Unlock()
+
+	if id == "" {
+		id = "::main::"
+	}
+
 	wi := &WorkflowInstance{Id: id, Inputs: inputs}
 
 	if job.WorkflowInstances == nil {
@@ -158,6 +188,10 @@ func (job *Job) GetWorkflowInstance(id string) (wi *WorkflowInstance, err error)
 	}
 	defer job.RUnlockNamed(read_lock)
 
+	if id == "" {
+		id = "::main::"
+	}
+
 	var ok bool
 	wi, ok = job.WorkflowInstancesMap[id]
 	if !ok {
@@ -165,7 +199,7 @@ func (job *Job) GetWorkflowInstance(id string) (wi *WorkflowInstance, err error)
 			var element_wi WorkflowInstance
 			element_wi, err = NewWorkflowInstanceFromInterface(wi_int)
 			if err != nil {
-				err = fmt.Errorf("(GetWorkflowInstance) object was not a WorkflowInstance !?")
+				err = fmt.Errorf("(GetWorkflowInstance) object was not a WorkflowInstance !? %s", err.Error())
 				return
 			}
 			if element_wi.Id == id {
@@ -381,9 +415,10 @@ func (job *Job) Init() (changed bool, err error) {
 
 		}
 
-		main_input, ok := job.WorkflowInstancesMap[""]
-		if !ok {
-			err = fmt.Errorf("(job.Init) workflow #main not found")
+		var main_input *WorkflowInstance
+		main_input, err = job.GetWorkflowInstance("::main::") //job.WorkflowInstancesMap["#main"]
+		if err != nil {
+			err = fmt.Errorf("(job.Init) workflow #main not found %s", err.Error())
 			return
 		}
 		//main_input, xerr := cwl.NewJob_documentFromNamedTypes(job.CWL_job_input)

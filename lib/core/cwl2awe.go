@@ -219,7 +219,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	// TODO first check that all resources are available: local files and remote links
 
-	main_wi := WorkflowInstance{Id: "", Inputs: *job_input}
+	main_wi := WorkflowInstance{Id: "::main::", Inputs: *job_input}
 	//new_wis := []WorkflowInstance{main_wi} // Not using AddWorkflowInstance to avoid mongo
 	job.WorkflowInstances = make([]interface{}, 1)
 	job.WorkflowInstances[0] = main_wi

@@ -1,19 +1,19 @@
 package core
 
 import (
-	"bytes"
-	"encoding/json"
+	//"bytes"
+	//"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/robertkrimen/otto"
+
 	//"gopkg.in/mgo.v2/bson"
 	"os"
-	"path"
-	"reflect"
-	"regexp"
+	//"path"
+	//"reflect"
+	//"regexp"
 	"regexp/syntax"
 	"strings"
 	"time"
@@ -59,10 +59,10 @@ type Workunit struct {
 	WorkPerf                   *WorkPerf
 }
 
-func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error) {
-
+func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Workunit, err error) {
+	task_id := task.Task_Unique_Identifier
 	workunit = &Workunit{
-		Workunit_Unique_Identifier: New_Workunit_Unique_Identifier(task.Task_Unique_Identifier, rank),
+		Workunit_Unique_Identifier: New_Workunit_Unique_Identifier(task_id, rank),
 		Id:  "defined below",
 		Cmd: task.Cmd,
 		//App:       task.App,
@@ -94,6 +94,12 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 
 		// ****** get CommandLineTool (or whatever can be executed)
 		p := workflow_step.Run
+
+		if p == nil {
+			err = fmt.Errorf("(NewWorkunit) process is nil !!?")
+			return
+		}
+
 		var process_name string
 		process_name, err = cwl.GetProcessName(p)
 		if err != nil {
@@ -169,7 +175,7 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 		workflow_input_map := workflow_instance.Inputs.GetMap()
 
 		var workunit_input_map map[string]cwl.CWLType
-		workunit_input_map, err = GetInputObjects(job, workflow_input_map, workflow_step)
+		workunit_input_map, err = qm.GetInputObjects(job, task_id, workflow_input_map, workflow_step)
 		if err != nil {
 			return
 		}
@@ -197,249 +203,6 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 	//spew.Dump(workunit.Cmd)
 	//panic("done")
 
-	return
-}
-
-func GetInputObjects(job *Job, workflow_input_map map[string]cwl.CWLType, workflow_step *cwl.WorkflowStep) (workunit_input_map cwl.JobDocMap, err error) {
-
-	workunit_input_map = make(map[string]cwl.CWLType) // also used for json
-
-	fmt.Println("workflow_step.In:")
-	spew.Dump(workflow_step.In)
-
-	// 1. find all object source and Defaut
-	// 2. make a map copy to be used in javaqscript, as "inputs"
-	for _, input := range workflow_step.In {
-		// input is a WorkflowStepInput
-
-		id := input.Id
-
-		cmd_id := path.Base(id)
-
-		// get data from Source, Default or valueFrom
-
-		if input.LinkMerge != nil {
-			err = fmt.Errorf("(NewWorkunit) sorry, LinkMergeMethod not supported yet")
-			return
-		}
-
-		if input.Source != nil {
-			source_object_array := []cwl.CWLType{}
-			//resolve pointers in source
-
-			source_is_array := false
-
-			source_as_string := ""
-			source_as_array, source_is_array := input.Source.([]interface{})
-
-			if source_is_array {
-				fmt.Printf("source is a array: %s", spew.Sdump(input.Source))
-				cwl_array := cwl.Array{}
-				for _, src := range source_as_array { // usually only one
-					fmt.Println("src: " + spew.Sdump(src))
-					var src_str string
-					var ok bool
-					src_str, ok = src.(string)
-					if !ok {
-						err = fmt.Errorf("src is not a string")
-						return
-					}
-					var job_obj cwl.CWLType
-					job_obj, ok, err = getCWLSource(workflow_input_map, job, src_str)
-					if err != nil {
-						err = fmt.Errorf("(NewWorkunit) getCWLSource returns: %s", err.Error())
-						return
-					}
-					if !ok {
-						err = fmt.Errorf("(NewWorkunit) getCWLSource did not find output!!!")
-					}
-					source_object_array = append(source_object_array, job_obj)
-					//cwl_array = append(cwl_array, obj)
-				}
-
-				workunit_input_map[cmd_id] = &cwl_array
-
-			} else {
-				fmt.Printf("source is NOT a array: %s", spew.Sdump(input.Source))
-				var ok bool
-				source_as_string, ok = input.Source.(string)
-				if !ok {
-					err = fmt.Errorf("(NewWorkunit) Cannot parse WorkflowStep source: %s", spew.Sdump(input.Source))
-					return
-				}
-
-				var job_obj cwl.CWLType
-				job_obj, ok, err = getCWLSource(workflow_input_map, job, source_as_string)
-				if err != nil {
-					err = fmt.Errorf("(NewWorkunit) getCWLSource returns: %s", err.Error())
-					return
-				}
-				if !ok {
-					err = fmt.Errorf("(NewWorkunit) getCWLSource did not find output!!!")
-				}
-				workunit_input_map[cmd_id] = job_obj
-
-			}
-
-		} else {
-
-			if input.Default == nil {
-				err = fmt.Errorf("(NewWorkunit) sorry, source and Default are missing")
-				return
-			}
-
-			var default_value cwl.CWLType
-			default_value, err = cwl.NewCWLType(cmd_id, input.Default)
-			if err != nil {
-				err = fmt.Errorf("(NewWorkunit) NewCWLTypeFromInterface(input.Default) returns: %s", err.Error())
-				return
-			}
-
-			workunit_input_map[cmd_id] = default_value
-
-		}
-		// TODO
-
-	}
-	fmt.Println("workunit_input_map after first round:\n")
-	spew.Dump(workunit_input_map)
-	// 3. evaluate each ValueFrom field, update results
-
-	for _, input := range workflow_step.In {
-		if input.ValueFrom == "" {
-			continue
-		}
-
-		id := input.Id
-		cmd_id := path.Base(id)
-
-		// from CWL doc: The self value of in the parameter reference or expression must be the value of the parameter(s) specified in the source field, or null if there is no source field.
-
-		// #### Create VM ####
-		vm := otto.New()
-
-		// set "inputs"
-
-		//func ToValue(value interface{}) (Value, error)
-
-		//var inputs_value otto.Value
-		//inputs_value, err = vm.ToValue(workunit_input_map)
-		//if err != nil {
-		//	return
-		//}
-
-		err = vm.Set("inputs", workunit_input_map)
-		if err != nil {
-			return
-		}
-
-		inputs_json, _ := json.Marshal(workunit_input_map)
-		fmt.Printf("SET inputs=%s\n", inputs_json)
-
-		js_self := workunit_input_map[cmd_id]
-		err = vm.Set("self", js_self)
-		if err != nil {
-			return
-		}
-		self_json, _ := json.Marshal(js_self)
-		fmt.Printf("SET self=%s\n", self_json)
-
-		//fmt.Printf("input.ValueFrom=%s\n", input.ValueFrom)
-
-		// evaluate $(...) ECMAScript expression
-		reg := regexp.MustCompile(`\$\([\w.]+\)`)
-		// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
-
-		parsed := input.ValueFrom.String()
-		for {
-
-			matches := reg.FindAll([]byte(parsed), -1)
-			fmt.Printf("Matches: %d\n", len(matches))
-			if len(matches) == 0 {
-				break
-			}
-			for _, match := range matches {
-				expression_string := bytes.TrimPrefix(match, []byte("$("))
-				expression_string = bytes.TrimSuffix(expression_string, []byte(")"))
-
-				javascript_function := fmt.Sprintf("(function(){\n return %s;\n})()", expression_string)
-				fmt.Printf("%s\n", javascript_function)
-
-				value, xerr := vm.Run(javascript_function)
-				if xerr != nil {
-					err = fmt.Errorf("Javascript complained: %s", xerr.Error())
-					return
-				}
-				fmt.Println(reflect.TypeOf(value))
-
-				value_str, xerr := value.ToString()
-				if xerr != nil {
-					err = fmt.Errorf("Cannot convert value to string: %s", xerr.Error())
-					return
-				}
-				parsed = strings.Replace(parsed, string(match), value_str, 1)
-			}
-
-		}
-
-		fmt.Printf("parsed: %s\n", parsed)
-
-		// evaluate ${...} ECMAScript function body
-		reg = regexp.MustCompile(`(?s)\${.+}`) // s-flag is needed to include newlines
-
-		// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
-
-		//parsed = input.ValueFrom.String()
-
-		matches := reg.FindAll([]byte(parsed), -1)
-		fmt.Printf("Matches: %d\n", len(matches))
-		if len(matches) == 0 {
-			if "sequences" == cmd_id {
-
-				panic("nonono")
-			}
-			workunit_input_map[cmd_id] = cwl.NewStringFromstring(parsed)
-		} else if len(matches) == 1 {
-			match := matches[0]
-			expression_string := bytes.TrimPrefix(match, []byte("${"))
-			expression_string = bytes.TrimSuffix(expression_string, []byte("}"))
-
-			javascript_function := fmt.Sprintf("(function(){\n %s \n})()", expression_string)
-			fmt.Printf("%s\n", javascript_function)
-
-			value, xerr := vm.Run(javascript_function)
-			if xerr != nil {
-				err = fmt.Errorf("Javascript complained: %s", xerr.Error())
-				return
-			}
-
-			value_exported, _ := value.Export()
-
-			fmt.Printf("reflect.TypeOf(value_exported): %s\n", reflect.TypeOf(value_exported))
-
-			var value_cwl cwl.CWLType
-			value_cwl, err = cwl.NewCWLType("", value_exported)
-			if err != nil {
-				err = fmt.Errorf("(NewWorkunit) Error parsing javascript VM result value: %s", err.Error())
-				return
-			}
-			//value_str, xerr := value.ToString()
-			//if xerr != nil {
-			//	err = fmt.Errorf("Cannot convert value to string: %s", xerr.Error())
-			//	return
-			//}
-			//parsed = strings.Replace(parsed, string(match), value_str, 1)
-
-			//fmt.Printf("parsed: %s\n", parsed)
-
-			//new_string := cwl.NewString(id, parsed)
-			workunit_input_map[cmd_id] = value_cwl
-		} else {
-			err = fmt.Errorf("(NewWorkunit) ValueFrom contains more than one ECMAScript function body")
-			return
-		}
-
-	}
 	return
 }
 

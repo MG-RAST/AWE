@@ -890,11 +890,11 @@ func (task *Task) setTokenForIO(writelock bool) (err error) {
 	return
 }
 
-func (task *Task) CreateWorkunits(job *Job) (wus []*Workunit, err error) {
+func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err error) {
 	//if a task contains only one workunit, assign rank 0
 
 	if task.TotalWork == 1 {
-		workunit, xerr := NewWorkunit(task, 0, job)
+		workunit, xerr := NewWorkunit(qm, task, 0, job)
 		if xerr != nil {
 			err = fmt.Errorf("(CreateWorkunits) NewWorkunit failed: %s", xerr.Error())
 			return
@@ -904,7 +904,7 @@ func (task *Task) CreateWorkunits(job *Job) (wus []*Workunit, err error) {
 	}
 	// if a task contains N (N>1) workunits, assign rank 1..N
 	for i := 1; i <= task.TotalWork; i++ {
-		workunit, xerr := NewWorkunit(task, i, job)
+		workunit, xerr := NewWorkunit(qm, task, i, job)
 		if xerr != nil {
 			err = fmt.Errorf("(CreateWorkunits) NewWorkunit failed: %s", xerr.Error())
 			return

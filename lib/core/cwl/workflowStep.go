@@ -183,11 +183,11 @@ func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]Wor
 func GetProcessName(p interface{}) (process_name string, err error) {
 
 	switch p.(type) {
-	case ProcessPointer:
+	case string:
 
-		pp, _ := p.(ProcessPointer)
+		p_str := p.(string)
 
-		process_name = pp.Value
+		process_name = p_str
 
 	case bson.M: // (because of mongo this is bson.M)
 
@@ -195,18 +195,18 @@ func GetProcessName(p interface{}) (process_name string, err error) {
 
 		process_name_interface, ok := p_bson["value"]
 		if !ok {
-			err = fmt.Errorf("(NewWorkunit) bson.M did not hold a field named value")
+			err = fmt.Errorf("(GetProcessName) bson.M did not hold a field named value")
 			return
 		}
 
 		process_name, ok = process_name_interface.(string)
 		if !ok {
-			err = fmt.Errorf("(NewWorkunit) bson.M value field is not a string")
+			err = fmt.Errorf("(GetProcessName) bson.M value field is not a string")
 			return
 		}
 
 	default:
-		err = fmt.Errorf("(NewWorkunit) Process type %s unknown, cannot create Workunit", reflect.TypeOf(p))
+		err = fmt.Errorf("(GetProcessName) Process type %s unknown, cannot create Workunit", reflect.TypeOf(p))
 		return
 
 	}

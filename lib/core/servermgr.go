@@ -1345,7 +1345,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		}
 
 		var workflow_instance *WorkflowInstance
-		workflow_instance, err = job.GetWorkflowInstance(task.Ancestors)
+		workflow_instance, err = job.GetWorkflowInstance(strings.Join(task.Ancestors, ""))
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
 			return
@@ -1424,7 +1424,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		}
 
 		//preId := fmt.Sprintf("%s_%s", jobid, io.Origin)
-		preId := New_Task_Unique_Identifier(jobid, "", io.Origin)
+		preId := New_Task_Unique_Identifier(jobid, []string{}, io.Origin)
 		preTask, ok, xerr := qm.TaskMap.Get(preId, true)
 		if xerr != nil {
 			err = xerr
@@ -1516,7 +1516,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		logger.Debug(3, "(taskEnQueue) have job.CWL_collection")
 
 		var workflow_instance *WorkflowInstance
-		workflow_instance, err = job.GetWorkflowInstance(task.Ancestors)
+		workflow_instance, err = job.GetWorkflowInstance(strings.Join(task.Ancestors, ""))
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
 			return
@@ -1591,8 +1591,8 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 					}
 
 					new_sub_workflow := ""
-					if task.Ancestors != "" {
-						new_sub_workflow = task.Ancestors + "/" + task.TaskName
+					if len(task.Ancestors) > 0 {
+						new_sub_workflow = strings.Join(task.Ancestors, "") + task.TaskName // TaskName starts with #, so we can split later
 					} else {
 						new_sub_workflow = task.TaskName
 					}
@@ -2123,7 +2123,7 @@ func (qm *ServerMgr) locateAWEInputs(task *Task, job *Job) (err error) {
 
 			// find predecessor task
 
-			preId := New_Task_Unique_Identifier(jobid, "", io.Origin)
+			preId := New_Task_Unique_Identifier(jobid, []string{}, io.Origin)
 			preTask, ok, xerr := qm.TaskMap.Get(preId, true)
 			if xerr != nil {
 				err = xerr
@@ -2277,7 +2277,7 @@ func (qm *ServerMgr) locateUpdate(task *Task, name string, origin string) (nodei
 	}
 
 	//preId := fmt.Sprintf("%s_%s", job_id, origin)
-	preId := New_Task_Unique_Identifier(job_id, "", origin)
+	preId := New_Task_Unique_Identifier(job_id, []string{}, origin)
 
 	logger.Debug(2, "task %s: trying to locate Node of update %s from task %s", task_id, name, preId)
 	// scan outputs in origin task
@@ -2582,7 +2582,7 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 	//delete parsed tasks
 	for i := 0; i < len(job.TaskList()); i++ {
 		//task_id := fmt.Sprintf("%s_%d", jobid, i)
-		task_id := New_Task_Unique_Identifier(jobid, "", strconv.Itoa(i)) // TODO that will not work
+		task_id := New_Task_Unique_Identifier(jobid, []string{}, strconv.Itoa(i)) // TODO that will not work
 		qm.TaskMap.Delete(task_id)
 	}
 	qm.removeActJob(jobid)

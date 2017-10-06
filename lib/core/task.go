@@ -329,6 +329,9 @@ func NewTask(job *Job, workflow string, task_id string) (t *Task, err error) {
 		return
 	}
 
+	task_id = strings.TrimSuffix(task_id, "/")
+	workflow = strings.TrimSuffix(workflow, "/")
+
 	tui := New_Task_Unique_Identifier(job.Id, workflow, task_id)
 
 	t = &Task{

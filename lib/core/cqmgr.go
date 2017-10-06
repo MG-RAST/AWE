@@ -883,10 +883,11 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 
 	added_work := 0
 	for _, work := range ack.workunits {
-		work_id, xerr := New_Workunit_Unique_Identifier_FromString(work.Id)
-		if xerr != nil {
-			return
-		}
+		work_id := work.Workunit_Unique_Identifier
+		//work_id, xerr := work.Workunit_Unique_Identifier// New_Workunit_Unique_Identifier_FromString(work.Id)
+		//if xerr != nil {
+		//	return
+		//}
 		err = client.Assigned_work.Add(work_id)
 		if err != nil {
 			return

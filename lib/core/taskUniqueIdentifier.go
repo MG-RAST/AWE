@@ -6,12 +6,12 @@ import (
 )
 
 type Task_Unique_Identifier struct {
-	TaskName  string `bson:"task_name" json:"task_name"` // example: #main/filter
-	Ancestors string `bson:"ancestors" json:"ancestors"`
-	JobId     string `bson:"jobid" json:"jobid"`
+	TaskName  string   `bson:"task_name" json:"task_name"` // example: #main/filter
+	Ancestors []string `bson:"ancestors" json:"ancestors"`
+	JobId     string   `bson:"jobid" json:"jobid"`
 }
 
-func New_Task_Unique_Identifier(jobid string, workflow string, taskname string) (t Task_Unique_Identifier) {
+func New_Task_Unique_Identifier(jobid string, workflow []string, taskname string) (t Task_Unique_Identifier) {
 	return Task_Unique_Identifier{JobId: jobid, Ancestors: workflow, TaskName: taskname}
 }
 
@@ -24,25 +24,37 @@ func New_Task_Unique_Identifier_FromString(old_style_id string) (t Task_Unique_I
 		return
 	}
 
-	name_array := strings.Split(array[1], "/")
-	name := ""
-	workflow := ""
-	s := len(name_array)
-	if s == 0 {
-		name = ""
-	} else if s == 1 {
-		name = name_array[0]
-	} else {
-		name = name_array[s-1]
-		workflow = strings.Join(name_array[0:s-2], "/")
-	}
-
-	if !IsValidUUID(array[0]) {
+	job_id := array[0]
+	if !IsValidUUID(job_id) {
 		err = fmt.Errorf("Cannot parse workunit identifier, job id is not valid uuid: %s", old_style_id)
 		return
 	}
 
-	t = New_Task_Unique_Identifier(array[0], workflow, name)
+	task_string := array[1]
+
+	workflow := []string{}
+	name := ""
+
+	if strings.HasPrefix(task_string, "#") {
+		// CWL job
+
+		cwl_array := strings.Split(task_string, "#")
+
+		for i := 0; i < len(cwl_array)-1; i++ {
+			workflow = append(workflow, cwl_array[i])
+		}
+
+		s := len(cwl_array) // s has length 2 at least
+
+		name = "#" + cwl_array[s-1] // last element
+		workflow = strings.Join(cwl_array[0:s-2], "#")
+
+	} else {
+		// old-style AWE
+		name = task_string
+	}
+
+	t = New_Task_Unique_Identifier(job_id, workflow, name)
 
 	return
 }
@@ -50,7 +62,7 @@ func New_Task_Unique_Identifier_FromString(old_style_id string) (t Task_Unique_I
 func (taskid Task_Unique_Identifier) String() (s string) {
 
 	jobId := taskid.JobId
-	workflow := taskid.Ancestors
+	workflow := strings.Join(taskid.Ancestors, "")
 	name := taskid.TaskName
 
 	if workflow != "" {

@@ -11,8 +11,6 @@ type Workunit_Unique_Identifier struct {
 	Task_Unique_Identifier `bson:",inline" json:",inline" mapstructure:",squash"` // TaskName, Workflow, JobId
 	Rank                   int                                                    `bson:"rank" json:"rank" mapstructure:"rank"` // this is the local identifier
 
-	//TaskId string `bson:"taskid" json:"taskid" mapstructure:"taskid"`
-	//JobId  string `bson:"jobid" json:"jobid" mapstructure:"jobid"`
 }
 
 func New_Workunit_Unique_Identifier(task Task_Unique_Identifier, rank int) (wui Workunit_Unique_Identifier) {
@@ -28,7 +26,7 @@ func (w Workunit_Unique_Identifier) String() string {
 
 	task_string := w.Task_Unique_Identifier.String()
 
-	return fmt.Sprintf("%s_%s_%d", w.JobId, task_string, w.Rank)
+	return fmt.Sprintf("%s_%d", task_string, w.Rank)
 }
 
 func (w Workunit_Unique_Identifier) GetTask() Task_Unique_Identifier {
@@ -57,21 +55,23 @@ func New_Workunit_Unique_Identifier_FromString(old_style_id string) (w Workunit_
 	//	return
 	//}
 
-	rank_string := array[len(array)-1]
-	prefix := ""
-	if len(array) > 1 {
-		prefix = strings.Join(array[0:len(array)-2], "_")
-	}
+	a_len := len(array)
 
+	rank_string := array[a_len-1]
 	rank, err := strconv.Atoi(rank_string)
 	if err != nil {
 		return
 	}
 
+	prefix := ""
+	if len(array) > 1 {
+		prefix = strings.Join(array[0:a_len-1], "_")
+	}
+
 	var t Task_Unique_Identifier
 	t, err = New_Task_Unique_Identifier_FromString(prefix)
 	if err != nil {
-		err = fmt.Errorf("(New_Workunit_Unique_Identifier_FromString) New_Task_Unique_Identifier_FromString returns: %s", err.Error())
+		err = fmt.Errorf("(New_Workunit_Unique_Identifier_FromString) New_Task_Unique_Identifier_FromString returns: %s (prefix=%s, old_style_id=%s)", err.Error(), prefix, old_style_id)
 		return
 	}
 

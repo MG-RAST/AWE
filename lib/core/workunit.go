@@ -166,7 +166,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		//job_input := *job.CWL_collection.Job_input
 
 		var workflow_instance *WorkflowInstance
-		workflow_instance, err = job.GetWorkflowInstance(task.Ancestors)
+		workflow_instance, err = job.GetWorkflowInstance(task.Parent_ids)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
 			return
@@ -175,7 +175,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		workflow_input_map := workflow_instance.Inputs.GetMap()
 
 		var workunit_input_map map[string]cwl.CWLType
-		workunit_input_map, err = qm.GetInputObjects(job, task_id, workflow_input_map, workflow_step)
+		workunit_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, workflow_step)
 		if err != nil {
 			return
 		}
@@ -266,9 +266,9 @@ func (work *Workunit) Path() (path string, err error) {
 			err = fmt.Errorf("(Workunit/Path) JobId is missing")
 			return
 		}
-		task_name := ""
-		if work.Workunit_Unique_Identifier.Ancestors != "" {
-			task_name = work.Workunit_Unique_Identifier.Ancestors + "-"
+		task_name := work.Workunit_Unique_Identifier.Parent_ids
+		if task_name != "" {
+			task_name += "-"
 		}
 		task_name += work.Workunit_Unique_Identifier.TaskName
 		// convert name to make it filesystem compatible

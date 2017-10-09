@@ -8,16 +8,16 @@ import (
 )
 
 type WorkflowOutputParameter struct {
-	Id             string               `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	Label          string               `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	SecondaryFiles []Expression         `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	Format         []Expression         `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
-	Streamable     bool                 `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
-	Doc            string               `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
-	OutputBinding  CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"` //TODO
-	OutputSource   []string             `yaml:"outputSource,omitempty" bson:"outputSource,omitempty" json:"outputSource,omitempty"`
-	LinkMerge      LinkMergeMethod      `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
-	Type           []interface{}        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` //WorkflowOutputParameterType TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
+	Id             string                `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	Label          string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	SecondaryFiles []Expression          `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
+	Format         []Expression          `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
+	Streamable     bool                  `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
+	Doc            string                `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
+	OutputBinding  *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"` //TODO
+	OutputSource   interface{}           `yaml:"outputSource,omitempty" bson:"outputSource,omitempty" json:"outputSource,omitempty"`    //string or []string
+	LinkMerge      LinkMergeMethod       `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
+	Type           []interface{}         `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` //WorkflowOutputParameterType TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
 }
 
 func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParameter, err error) {

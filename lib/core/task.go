@@ -29,30 +29,40 @@ const (
 	TASK_STAT_PASSED           = "passed"       // deprecated ?
 )
 
+const (
+	TASK_TYPE_UNKNOWN  = ""
+	TASK_TYPE_SCATTER  = "scatter"
+	TASK_TYPE_WORKFLOW = "workflow"
+	TASK_TYPE_NORMAL   = "normal"
+)
+
 type TaskRaw struct {
 	RWMutex                `bson:"-" json:"-"`
 	Task_Unique_Identifier `bson:",inline"`
-	Id                     string                 `bson:"taskid" json:"taskid"` // old-style
-	Info                   *Info                  `bson:"-" json:"-"`           // this is just a pointer to the job.Info
-	Cmd                    *Command               `bson:"cmd" json:"cmd"`
-	Partition              *PartInfo              `bson:"partinfo" json:"-"`
-	DependsOn              []string               `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
-	TotalWork              int                    `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize            int                    `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork             int                    `bson:"remainwork" json:"remainwork"`
-	State                  string                 `bson:"state" json:"state"`
-	CreatedDate            time.Time              `bson:"createdDate" json:"createddate"`
-	StartedDate            time.Time              `bson:"startedDate" json:"starteddate"`
-	CompletedDate          time.Time              `bson:"completedDate" json:"completeddate"`
-	ComputeTime            int                    `bson:"computetime" json:"computetime"`
-	UserAttr               map[string]interface{} `bson:"userattr" json:"userattr"`
-	ClientGroups           string                 `bson:"clientgroups" json:"clientgroups"`
-	WorkflowStep           *cwl.WorkflowStep      `bson:"workflowStep" json:"workflowStep"` // CWL-only
-	StepOutputInterface    interface{}            `bson:"stepOutput" json:"stepOutput"`     // CWL-only
-	StepInput              *cwl.Job_document      `bson:"-" json:"-"`                       // CWL-only
-	StepOutput             *cwl.Job_document      `bson:"-" json:"-"`                       // CWL-only
-	Scatter_task           bool                   `bson:"scatter_task" json:"scatter_task"` // CWL-only
-	Subworkflow            string                 `bson:"subworkflow" json:"subworkflow"`   // CWL-only  // unknown, no, yes
+
+	Id                  string                   `bson:"taskid" json:"taskid"` // old-style
+	TaskType            string                   `bson:"task_type" json:"task_type"`
+	Info                *Info                    `bson:"-" json:"-"` // this is just a pointer to the job.Info
+	Cmd                 *Command                 `bson:"cmd" json:"cmd"`
+	Partition           *PartInfo                `bson:"partinfo" json:"-"`
+	DependsOn           []string                 `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
+	TotalWork           int                      `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize         int                      `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork          int                      `bson:"remainwork" json:"remainwork"`
+	State               string                   `bson:"state" json:"state"`
+	CreatedDate         time.Time                `bson:"createdDate" json:"createddate"`
+	StartedDate         time.Time                `bson:"startedDate" json:"starteddate"`
+	CompletedDate       time.Time                `bson:"completedDate" json:"completeddate"`
+	ComputeTime         int                      `bson:"computetime" json:"computetime"`
+	UserAttr            map[string]interface{}   `bson:"userattr" json:"userattr"`
+	ClientGroups        string                   `bson:"clientgroups" json:"clientgroups"`
+	WorkflowStep        *cwl.WorkflowStep        `bson:"workflowStep" json:"workflowStep"` // CWL-only
+	StepOutputInterface interface{}              `bson:"stepOutput" json:"stepOutput"`     // CWL-only
+	StepInput           *cwl.Job_document        `bson:"-" json:"-"`                       // CWL-only
+	StepOutput          *cwl.Job_document        `bson:"-" json:"-"`                       // CWL-only
+	Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task"` // CWL-only
+	Children            []Task_Unique_Identifier `bson:"children" json:"children"`         // CWL-only
+	Children_ptr        []*Task                  `bson:"-" json:"-"`                       // CWL-only
 }
 
 type Task struct {
@@ -84,7 +94,7 @@ func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) TaskRaw {
 
 	logger.Debug(3, "task_id: %s", task_id)
 	logger.Debug(3, "task_id.JobId: %s", task_id.JobId)
-	logger.Debug(3, "task_id.Ancestors: %s", task_id.Ancestors)
+	logger.Debug(3, "task_id.Parent_ids: %s", task_id.Parent_ids)
 	logger.Debug(3, "task_id.TaskName: %s", task_id.TaskName)
 
 	return TaskRaw{
@@ -329,10 +339,24 @@ func NewTask(job *Job, workflow string, task_id string) (t *Task, err error) {
 		return
 	}
 
+	if strings.HasSuffix(workflow, "/") {
+		err = fmt.Errorf("Suffix not in workflow_ids ok %s", task_id)
+		return
+	}
+
+	if strings.HasSuffix(task_id, "/") {
+		err = fmt.Errorf("Suffix in task_id not ok %s", task_id)
+		return
+	}
+
 	task_id = strings.TrimSuffix(task_id, "/")
 	workflow = strings.TrimSuffix(workflow, "/")
 
-	tui := New_Task_Unique_Identifier(job.Id, workflow, task_id)
+	var tui Task_Unique_Identifier
+	tui, err = New_Task_Unique_Identifier(job.Id, workflow, task_id)
+	if err != nil {
+		return
+	}
 
 	t = &Task{
 		TaskRaw: NewTaskRaw(tui, job.Info),
@@ -377,6 +401,36 @@ func (task *Task) GetOutput(filename string) (output *IO, err error) {
 	return
 }
 
+func (task *TaskRaw) GetChildren(qm *ServerMgr) (children []*Task, err error) {
+	lock, err := task.RLockNamed("GetChildren")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+
+	if task.Children_ptr == nil {
+		children = []*Task{}
+		for _, task_id := range task.Children {
+			var child *Task
+			var ok bool
+			child, ok, err = qm.TaskMap.Get(task_id, true)
+			if err != nil {
+				return
+			}
+			if !ok {
+				err = fmt.Errorf("(GetChildren) child task %s not found in TaskMap")
+				return
+			}
+			children = append(children, child)
+		}
+		task.Children_ptr = children
+	} else {
+		children = task.Children_ptr
+	}
+
+	return
+}
+
 func (task *TaskRaw) GetState() (state string, err error) {
 	lock, err := task.RLockNamed("GetState")
 	if err != nil {
@@ -384,6 +438,32 @@ func (task *TaskRaw) GetState() (state string, err error) {
 	}
 	defer task.RUnlockNamed(lock)
 	state = task.State
+	return
+}
+
+func (task *TaskRaw) GetTaskType() (type_str string, err error) {
+	lock, err := task.RLockNamed("GetTaskType")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	type_str = task.TaskType
+	return
+}
+
+func (task *Task) SetTaskType(type_str string, writelock bool) (err error) {
+	if writelock {
+		err = task.LockNamed("SetTaskType")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
+	err = dbUpdateJobTaskString(task.JobId, task.Id, "task_type", type_str)
+	if err != nil {
+		return
+	}
+	task.TaskType = type_str
 	return
 }
 
@@ -800,21 +880,21 @@ func (task *Task) SetRemainWork(num int, writelock bool) (err error) {
 	return
 }
 
-func (task *Task) SetSubworkflow(value string) (err error) {
-
-	err = task.LockNamed("SetSubworkflow")
-	if err != nil {
-		return
-	}
-	defer task.Unlock()
-
-	err = dbUpdateJobTaskString(task.JobId, task.Id, "subworkflow", value)
-	if err != nil {
-		return
-	}
-	task.Subworkflow = value
-	return
-}
+// func (task *Task) SetSubworkflow(value string) (err error) {
+//
+// 	err = task.LockNamed("SetSubworkflow")
+// 	if err != nil {
+// 		return
+// 	}
+// 	defer task.Unlock()
+//
+// 	err = dbUpdateJobTaskString(task.JobId, task.Id, "subworkflow", value)
+// 	if err != nil {
+// 		return
+// 	}
+// 	task.Subworkflow = value
+// 	return
+// }
 
 func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, err error) {
 	if writelock {

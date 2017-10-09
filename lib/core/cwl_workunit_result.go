@@ -60,7 +60,7 @@ func NewNotice(native interface{}) (workunit_result *Notice, err error) {
 
 		workunit_result.Id, err = New_Workunit_Unique_Identifier_from_interface(id)
 		if err != nil {
-			err = fmt.Errorf("(NewNotice) id is missing")
+			err = fmt.Errorf("(NewNotice) New_Workunit_Unique_Identifier_from_interface returned: %s", err.Error())
 			return
 		}
 

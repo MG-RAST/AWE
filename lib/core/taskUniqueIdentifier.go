@@ -6,13 +6,22 @@ import (
 )
 
 type Task_Unique_Identifier struct {
-	TaskName  string   `bson:"task_name" json:"task_name"` // example: #main/filter
-	Ancestors []string `bson:"ancestors" json:"ancestors"`
-	JobId     string   `bson:"jobid" json:"jobid"`
+	TaskName   string `bson:"task_name" json:"task_name" mapstructure:"task_name"` // example: #main/filter
+	Parent_ids string `bson:"parent_ids" json:"parent_ids" mapstructure:"v"`
+	JobId      string `bson:"jobid" json:"jobid" mapstructure:"jobid"`
 }
 
-func New_Task_Unique_Identifier(jobid string, workflow []string, taskname string) (t Task_Unique_Identifier) {
-	return Task_Unique_Identifier{JobId: jobid, Ancestors: workflow, TaskName: taskname}
+func New_Task_Unique_Identifier(jobid string, parent_ids string, taskname string) (t Task_Unique_Identifier, err error) {
+
+	if taskname == "" {
+		err = fmt.Errorf("(New_Task_Unique_Identifier) taskname empty")
+	}
+
+	fixed_taskname := strings.TrimSuffix(taskname, "/")
+
+	t = Task_Unique_Identifier{JobId: jobid, Parent_ids: parent_ids, TaskName: fixed_taskname}
+
+	return
 }
 
 func New_Task_Unique_Identifier_FromString(old_style_id string) (t Task_Unique_Identifier, err error) {
@@ -32,29 +41,35 @@ func New_Task_Unique_Identifier_FromString(old_style_id string) (t Task_Unique_I
 
 	task_string := array[1]
 
-	workflow := []string{}
+	workflow := ""
 	name := ""
 
 	if strings.HasPrefix(task_string, "#") {
 		// CWL job
 
 		cwl_array := strings.Split(task_string, "#")
-
-		for i := 0; i < len(cwl_array)-1; i++ {
-			workflow = append(workflow, cwl_array[i])
-		}
-
 		s := len(cwl_array) // s has length 2 at least
 
-		name = "#" + cwl_array[s-1] // last element
+		// clean-up
+		for i := 0; i < len(cwl_array)-1; i++ {
+			cwl_array[i] = strings.TrimSuffix(cwl_array[i], "/")
+		}
+
 		workflow = strings.Join(cwl_array[0:s-2], "#")
+
+		name = "#" + strings.TrimSuffix(cwl_array[s-1], "/") // last element
 
 	} else {
 		// old-style AWE
 		name = task_string
 	}
 
-	t = New_Task_Unique_Identifier(job_id, workflow, name)
+	t, err = New_Task_Unique_Identifier(job_id, workflow, name)
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("new id: (%s) %s %s %s\n", old_style_id, job_id, workflow, name)
 
 	return
 }
@@ -62,11 +77,15 @@ func New_Task_Unique_Identifier_FromString(old_style_id string) (t Task_Unique_I
 func (taskid Task_Unique_Identifier) String() (s string) {
 
 	jobId := taskid.JobId
-	workflow := strings.Join(taskid.Ancestors, "")
+	parent_ids := taskid.Parent_ids
 	name := taskid.TaskName
 
-	if workflow != "" {
-		s = fmt.Sprintf("%s_%s/%s", jobId, workflow, name)
+	if name == "" {
+		name = "ERROR"
+	}
+
+	if parent_ids != "" {
+		s = fmt.Sprintf("%s_%s/%s", jobId, parent_ids, name)
 	} else {
 		s = fmt.Sprintf("%s_%s", jobId, name)
 	}

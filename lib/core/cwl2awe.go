@@ -140,7 +140,7 @@ func CreateTasks(job *Job, workflow string, steps []cwl.WorkflowStep) (tasks []*
 			err = fmt.Errorf("Workflow step name does not start with a #: %s", step.Id)
 			return
 		}
-		task_name := step.Id
+		task_name := strings.TrimSuffix(step.Id, "/")
 
 		if task_name == "" {
 			err = fmt.Errorf("(CreateTasks) step_id is empty")

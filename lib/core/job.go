@@ -18,7 +18,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
+
 	"strconv"
 	"strings"
 	"time"
@@ -78,79 +78,7 @@ type JobRaw struct {
 	WorkflowInstancesMap map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 }
 
-type WorkflowInstance struct {
-	Id     string           `bson:"id" json:"id"`
-	Inputs cwl.Job_document `bson:"inputs" json:"inputs"`
-}
-
-func NewWorkflowInstanceFromInterface(original interface{}) (wi WorkflowInstance, err error) {
-	original, err = cwl.MakeStringMap(original)
-	if err != nil {
-		return
-	}
-
-	switch original.(type) {
-	case map[string]interface{}:
-
-		original_map, ok := original.(map[string]interface{})
-		if !ok {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) not a map: %s", spew.Sdump(original))
-			return
-		}
-
-		wi = WorkflowInstance{}
-
-		id_if, has_id := original_map["id"]
-		if !has_id {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) is is missing")
-			return
-		}
-		var id_str string
-		id_str, ok = id_if.(string)
-		if !ok {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id is not string")
-			return
-		}
-		if id_str == "" {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id string is empty")
-			return
-		}
-
-		wi.Id = id_str
-
-		inputs_if, has_inputs := original_map["inputs"]
-		if !has_inputs {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) inputs missing")
-			return
-		}
-
-		var inputs *cwl.Job_document
-		inputs, err = cwl.NewJob_documentFromNamedTypes(inputs_if)
-		if err != nil {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) NewJob_document returned: %s", err.Error())
-			return
-		}
-
-		wi.Inputs = *inputs
-	case *WorkflowInstance:
-
-		wi_ptr, ok := original.(*WorkflowInstance)
-		if !ok {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) type assertion problem")
-			return
-		}
-
-		wi = *wi_ptr
-
-	default:
-		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) type unknown, %s", reflect.TypeOf(original))
-		return
-	}
-	return
-
-}
-
-func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document) (err error) {
+func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document, remain_tasks int) (err error) {
 	err = job.LockNamed("AddWorkflowInstance")
 	if err != nil {
 		return
@@ -161,7 +89,7 @@ func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document) (err err
 		id = "::main::"
 	}
 
-	wi := &WorkflowInstance{Id: id, Inputs: inputs}
+	wi := &WorkflowInstance{Id: id, Inputs: inputs, RemainTasks: remain_tasks}
 
 	if job.WorkflowInstances == nil {
 		err = fmt.Errorf("(AddWorkflowInstance) array does not exist")
@@ -171,7 +99,7 @@ func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document) (err err
 
 	err = dbPushJobWorkflowInstance(job.Id, wi)
 	if err != nil {
-		err = fmt.Errorf("(AddWorkflowInstance) dbPushJobWorkflowInstance returtned: %s", err.Error())
+		err = fmt.Errorf("(AddWorkflowInstance) dbPushJobWorkflowInstance returned: %s", err.Error())
 		return
 	}
 	//wis := *job.WorkflowInstances
@@ -181,13 +109,14 @@ func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document) (err err
 	return
 }
 
-func (job *Job) GetWorkflowInstance(id string) (wi *WorkflowInstance, err error) {
-	read_lock, err := job.RLockNamed("GetWorkflowInstance")
-	if err != nil {
-		return
+func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowInstance, err error) {
+	if do_read_lock {
+		read_lock, err := job.RLockNamed("GetWorkflowInstance")
+		if err != nil {
+			return
+		}
+		defer job.RUnlockNamed(read_lock)
 	}
-	defer job.RUnlockNamed(read_lock)
-
 	if id == "" {
 		id = "::main::"
 	}
@@ -213,6 +142,29 @@ func (job *Job) GetWorkflowInstance(id string) (wi *WorkflowInstance, err error)
 		err = fmt.Errorf("(GetWorkflowInstance) id \"%s\" not found", id)
 		return
 	}
+
+	return
+}
+
+func (job *Job) Set_WorkflowInstance_DecreaseRemainTasks(id string) (remain_tasks int, err error) {
+	err = job.LockNamed("Set_WorkflowInstance_RemainTasks")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	var workflow_instance *WorkflowInstance
+	workflow_instance, _ = job.GetWorkflowInstance(id, false)
+
+	remain_tasks = workflow_instance.RemainTasks - 1
+
+	err = dbUpdateJobWorkflow_instancesFieldInt(job.Id, id, remain_tasks)
+	if err != nil {
+		err = fmt.Errorf("(Set_WorkflowInstance_DecreaseRemainTasks) dbUpdateJobWorkflow_instancesFieldInt returned: %s", err.Error())
+		return
+	}
+
+	workflow_instance.RemainTasks = remain_tasks
 
 	return
 }

@@ -63,6 +63,7 @@ type TaskRaw struct {
 	Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task"` // CWL-only
 	Children            []Task_Unique_Identifier `bson:"children" json:"children"`         // CWL-only
 	Children_ptr        []*Task                  `bson:"-" json:"-"`                       // CWL-only
+	Finalizing          bool                     `bson:"-" json:"-"`                       // CWL-only
 }
 
 type Task struct {
@@ -94,7 +95,7 @@ func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) TaskRaw {
 
 	logger.Debug(3, "task_id: %s", task_id)
 	logger.Debug(3, "task_id.JobId: %s", task_id.JobId)
-	logger.Debug(3, "task_id.Parent_ids: %s", task_id.Parent_ids)
+	logger.Debug(3, "task_id.Parent: %s", task_id.Parent)
 	logger.Debug(3, "task_id.TaskName: %s", task_id.TaskName)
 
 	return TaskRaw{
@@ -183,6 +184,27 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 //
 // 	return
 // }
+
+// this function prevents a dead-lock when a sub-workflow task finalizes
+func (task *TaskRaw) Finalize() (ok bool, err error) {
+	err = task.LockNamed("Finalize")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	if task.Finalizing {
+		// somebody else already flipped the bit
+		ok = false
+		return
+	}
+
+	task.Finalizing = true
+	ok = true
+
+	return
+
+}
 
 func IsValidUUID(uuid string) bool {
 	if len(uuid) != 36 {
@@ -428,6 +450,16 @@ func (task *TaskRaw) GetChildren(qm *ServerMgr) (children []*Task, err error) {
 		children = task.Children_ptr
 	}
 
+	return
+}
+
+func (task *TaskRaw) GetParent() (p string, err error) {
+	lock, err := task.RLockNamed("GetParent")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	p = task.Task_Unique_Identifier.Parent
 	return
 }
 

@@ -8,9 +8,10 @@ import (
 )
 
 type WorkflowInstance struct {
-	Id      string           `bson:"id" json:"id"`
-	Inputs  cwl.Job_document `bson:"inputs" json:"inputs"`
-	Outputs cwl.Job_document `bson:"outputs" json:"outputs"`
+	Id          string           `bson:"id" json:"id"`
+	Inputs      cwl.Job_document `bson:"inputs" json:"inputs"`
+	Outputs     cwl.Job_document `bson:"outputs" json:"outputs"`
+	RemainTasks int              `bson:"remaintasks" json:"remaintasks"`
 }
 
 func NewWorkflowInstanceFromInterface(original interface{}) (wi WorkflowInstance, err error) {

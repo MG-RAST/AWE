@@ -37,9 +37,34 @@ func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParame
 			return
 		}
 
-		outputSource, ok := original_map["outputSource"]
+		outputSource_if, ok := original_map["outputSource"]
 		if ok {
-			outputSource_str, ok := outputSource.(string)
+
+			switch outputSource_if.(type) {
+			case string:
+				original_map["outputSource"] = outputSource_if.(string)
+
+			case []string:
+				original_map["outputSource"] = outputSource_if.([]string)
+			case []interface{}:
+				outputSource_if_array := outputSource_if.([]interface{})
+
+				outputSource_string_array := []string{}
+				for _, elem := range outputSource_if_array {
+					elem_str, ok := elem.(string)
+					if !ok {
+						err = fmt.Errorf("(NewWorkflowOutputParameter) not a string ?!")
+						return
+					}
+					outputSource_string_array = append(outputSource_string_array, elem_str)
+				}
+
+				original_map["outputSource"] = outputSource_string_array
+
+			default:
+
+			}
+			outputSource_str, ok := outputSource_if.(string)
 			if ok {
 				original_map["outputSource"] = []string{outputSource_str}
 			}

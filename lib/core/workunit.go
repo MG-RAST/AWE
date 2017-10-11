@@ -125,7 +125,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		clt, err = job.CWL_collection.GetCommandLineTool(process_name)
 		if err != nil {
-			err = fmt.Errorf("(NewWorkunit) CommandLineTool %s not found")
+			err = fmt.Errorf("(NewWorkunit) CommandLineTool %s not found", process_name)
 			return
 			//wfl, err = job.CWL_collection.GetWorkflow(process_name)
 			//if err != nil {
@@ -166,7 +166,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		//job_input := *job.CWL_collection.Job_input
 
 		var workflow_instance *WorkflowInstance
-		workflow_instance, err = job.GetWorkflowInstance(task.Parent_ids)
+		workflow_instance, err = job.GetWorkflowInstance(task.Parent)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
 			return
@@ -266,7 +266,7 @@ func (work *Workunit) Path() (path string, err error) {
 			err = fmt.Errorf("(Workunit/Path) JobId is missing")
 			return
 		}
-		task_name := work.Workunit_Unique_Identifier.Parent_ids
+		task_name := work.Workunit_Unique_Identifier.Parent
 		if task_name != "" {
 			task_name += "-"
 		}

@@ -472,6 +472,31 @@ func dbPushJobWorkflowInstance(job_id string, wi *WorkflowInstance) (err error) 
 	return
 }
 
+func dbUpdateJobWorkflow_instancesFieldInt(job_id string, subworkflow_id string, fieldname string, value int) (err error) {
+	update_value := bson.M{fieldname: value}
+	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
+}
+
+func dbUpdateJobWorkflow_instancesField(job_id string, subworkflow_id string, fieldname string, value interface{}) (err error) {
+	update_value := bson.M{"workflow_instances.$." + fieldname: value}
+	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
+}
+
+func dbUpdateJobWorkflow_instancesFields(job_id string, subworkflow_id string, update_value bson.M) (err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	selector := bson.M{"id": job_id, "workflow_instances.id": subworkflow_id}
+
+	err = c.Update(selector, bson.M{"$set": update_value})
+	if err != nil {
+		err = fmt.Errorf("(dbUpdateJobTaskFields) Error updating workflow_instance: " + err.Error())
+		return
+	}
+	return
+}
+
 func dbUpdateJobFields(job_id string, update_value bson.M) (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()

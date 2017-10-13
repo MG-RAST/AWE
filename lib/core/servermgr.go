@@ -1345,7 +1345,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		}
 
 		var workflow_instance *WorkflowInstance
-		workflow_instance, err = job.GetWorkflowInstance(task.Parent)
+		workflow_instance, err = job.GetWorkflowInstance(task.Parent, true)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
 			return
@@ -1526,7 +1526,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		logger.Debug(3, "(taskEnQueue) have job.CWL_collection")
 
 		var workflow_instance *WorkflowInstance
-		workflow_instance, err = job.GetWorkflowInstance(task.Parent)
+		workflow_instance, err = job.GetWorkflowInstance(task.Parent, true)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
 			return
@@ -2408,11 +2408,17 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		// this task belongs to a subworkflow // TODO every task should belong to a subworkflow
 
 		var remain_tasks int
-		remain_tasks, err = job.WorkflowInstanceDecreaseRemainTasks(parent_id_str)
+		remain_tasks, err = job.Decrease_WorkflowInstance_RemainTasks(parent_id_str)
 		if err != nil {
 			err = fmt.Errorf("(updateJobTask) WorkflowInstanceDecreaseRemainTasks returned: %s", err.Error())
 			return
 		}
+
+		if remain_tasks > 0 {
+			return
+		}
+
+		// subworkflow completed.
 
 		var parent_id Task_Unique_Identifier
 		parent_id, err = New_Task_Unique_Identifier_FromString(jobid + "_" + parent_id_str)
@@ -2519,7 +2525,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		}
 
 		var workflow_instance *WorkflowInstance
-		workflow_instance, err = job.GetWorkflowInstance(parent_id_str)
+		workflow_instance, err = job.GetWorkflowInstance(parent_id_str, true)
 		if err != nil {
 			return
 		}
@@ -2600,11 +2606,34 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		fmt.Println("workflow_outputs_map:")
 		spew.Dump(workflow_outputs_map)
 
+		step_outputs := cwl.Job_document{}
+
+		// get step outputs from subworkflow outputs
 		for _, output := range cwl_step.Out { // output is a WorkflowStepOutput
 			fmt.Println("output: " + output.Id)
+			output_base := path.Base(output.Id)
+
+			real_name := process_name + "/" + output_base
+			fmt.Println("output real: " + real_name)
+
+			var object cwl.CWLType
+			object, ok = workflow_outputs_map[real_name]
+			if !ok {
+				err = fmt.Errorf("(updateJobTask) workflow output %s not found", real_name)
+				return
+			}
+
+			named_obj := cwl.NewNamedCWLType(output_base, object)
+			step_outputs = append(step_outputs, named_obj)
+
 		}
 
-		panic("done")
+		//workflow_instance.Outputs = step_outputs
+		err = job.Set_WorkflowInstance_Outputs(parent_id_str, step_outputs)
+		if err != nil {
+			return
+		}
+		//panic("done")
 
 		err = parent_task.SetState(TASK_STAT_COMPLETED, true)
 		if err != nil {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/db"
 	"github.com/MG-RAST/AWE/lib/logger"
 	mgo "gopkg.in/mgo.v2"
@@ -470,6 +471,11 @@ func dbPushJobWorkflowInstance(job_id string, wi *WorkflowInstance) (err error) 
 		return
 	}
 	return
+}
+
+func dbUpdateJobWorkflow_instancesFieldOutputs(job_id string, subworkflow_id string, jd cwl.Job_document) (err error) {
+	update_value := bson.M{"outputs": jd}
+	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
 }
 
 func dbUpdateJobWorkflow_instancesFieldInt(job_id string, subworkflow_id string, fieldname string, value int) (err error) {

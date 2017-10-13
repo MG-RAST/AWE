@@ -111,8 +111,9 @@ func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document, remain_t
 
 func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowInstance, err error) {
 	if do_read_lock {
-		read_lock, err := job.RLockNamed("GetWorkflowInstance")
-		if err != nil {
+		read_lock, xerr := job.RLockNamed("GetWorkflowInstance")
+		if xerr != nil {
+			err = xerr
 			return
 		}
 		defer job.RUnlockNamed(read_lock)
@@ -146,8 +147,24 @@ func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowI
 	return
 }
 
-func (job *Job) Set_WorkflowInstance_DecreaseRemainTasks(id string) (remain_tasks int, err error) {
-	err = job.LockNamed("Set_WorkflowInstance_RemainTasks")
+func (job *Job) Set_WorkflowInstance_Outputs(id string, jd cwl.Job_document) (err error) {
+	err = job.LockNamed("Decrease_WorkflowInstance_RemainTasks")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	dbUpdateJobWorkflow_instancesFieldOutputs(job.Id, id, jd)
+
+	var workflow_instance *WorkflowInstance
+	workflow_instance, _ = job.GetWorkflowInstance(id, false)
+	workflow_instance.Outputs = jd
+
+	return
+}
+
+func (job *Job) Decrease_WorkflowInstance_RemainTasks(id string) (remain_tasks int, err error) {
+	err = job.LockNamed("Decrease_WorkflowInstance_RemainTasks")
 	if err != nil {
 		return
 	}
@@ -158,7 +175,7 @@ func (job *Job) Set_WorkflowInstance_DecreaseRemainTasks(id string) (remain_task
 
 	remain_tasks = workflow_instance.RemainTasks - 1
 
-	err = dbUpdateJobWorkflow_instancesFieldInt(job.Id, id, remain_tasks)
+	err = dbUpdateJobWorkflow_instancesFieldInt(job.Id, id, "remaintasks", remain_tasks)
 	if err != nil {
 		err = fmt.Errorf("(Set_WorkflowInstance_DecreaseRemainTasks) dbUpdateJobWorkflow_instancesFieldInt returned: %s", err.Error())
 		return
@@ -368,7 +385,7 @@ func (job *Job) Init() (changed bool, err error) {
 		}
 
 		var main_input *WorkflowInstance
-		main_input, err = job.GetWorkflowInstance("::main::") //job.WorkflowInstancesMap["#main"]
+		main_input, err = job.GetWorkflowInstance("::main::", true) //job.WorkflowInstancesMap["#main"]
 		if err != nil {
 			err = fmt.Errorf("(job.Init) workflow #main not found %s", err.Error())
 			return

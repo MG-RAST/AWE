@@ -473,8 +473,8 @@ func dbPushJobWorkflowInstance(job_id string, wi *WorkflowInstance) (err error) 
 	return
 }
 
-func dbUpdateJobWorkflow_instancesFieldOutputs(job_id string, subworkflow_id string, jd cwl.Job_document) (err error) {
-	update_value := bson.M{"outputs": jd}
+func dbUpdateJobWorkflow_instancesFieldOutputs(job_id string, subworkflow_id string, outputs cwl.Job_document) (err error) {
+	update_value := bson.M{"outputs": outputs}
 	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
 }
 
@@ -497,7 +497,7 @@ func dbUpdateJobWorkflow_instancesFields(job_id string, subworkflow_id string, u
 
 	err = c.Update(selector, bson.M{"$set": update_value})
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobTaskFields) Error updating workflow_instance: " + err.Error())
+		err = fmt.Errorf("(dbUpdateJobWorkflow_instancesFields) Error updating workflow_instance: " + err.Error())
 		return
 	}
 	return

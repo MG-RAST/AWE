@@ -435,7 +435,7 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 		//	fmt.Println(result.GetId())
 		//}
 
-		tool_result_map := work.CWL_workunit.Tool_results.GetMap()
+		tool_result_map := work.CWL_workunit.Outputs.GetMap()
 
 		result_array := cwl.Job_document{}
 

@@ -91,8 +91,8 @@ func NewNamedCWLTypeFromInterface(native interface{}) (cwl_obj_named NamedCWLTyp
 	return
 }
 
-func (job_input *Job_document) GetMap() (job_input_map map[string]CWLType) {
-	job_input_map = make(map[string]CWLType)
+func (job_input *Job_document) GetMap() (job_input_map JobDocMap) {
+	job_input_map = make(JobDocMap)
 
 	for _, value := range *job_input {
 		//id := value.GetId()

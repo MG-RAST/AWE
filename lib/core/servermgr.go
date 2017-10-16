@@ -1652,6 +1652,11 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 			var sub_workflow_tasks []*Task
 			sub_workflow_tasks, err = CreateTasks(job, new_sub_workflow, wfl.Steps)
 
+			err = job.IncrementRemainTasks(len(sub_workflow_tasks))
+			if err != nil {
+				return
+			}
+
 			children := []Task_Unique_Identifier{}
 			for i := range sub_workflow_tasks {
 				sub_task := sub_workflow_tasks[i]
@@ -2628,12 +2633,20 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 		}
 
+		workflow_outputs_array := workflow_outputs_map.GetArray()
+
 		//workflow_instance.Outputs = step_outputs
-		err = job.Set_WorkflowInstance_Outputs(parent_id_str, step_outputs)
+		err = job.Set_WorkflowInstance_Outputs(parent_id_str, workflow_outputs_array)
 		if err != nil {
 			return
 		}
-		//panic("done")
+
+		// ##### Step Output #####
+		err = parent_task.SetStepOutput(&workflow_outputs_array, true)
+		if err != nil {
+
+			return err
+		}
 
 		err = parent_task.SetState(TASK_STAT_COMPLETED, true)
 		if err != nil {

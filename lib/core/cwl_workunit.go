@@ -12,7 +12,7 @@ type CWL_workunit struct {
 	Job_input_filename string                    `bson:"job_input_filename,omitempty" json:"job_input_filename,omitempty" mapstructure:"job_input_filename,omitempty"`
 	CWL_tool           *cwl.CommandLineTool      `bson:"cwl_tool,omitempty" json:"cwl_tool,omitempty" mapstructure:"cwl_tool,omitempty"`
 	CWL_tool_filename  string                    `bson:"cwl_tool_filename,omitempty" json:"cwl_tool_filename,omitempty" mapstructure:"cwl_tool_filename,omitempty"`
-	Tool_results       *cwl.Job_document         `bson:"tool_results,omitempty" json:"tool_results,omitempty" mapstructure:"tool_results,omitempty"`
+	Outputs            *cwl.Job_document         `bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
 	OutputsExpected    *[]cwl.WorkflowStepOutput `bson:"outputs_expected,omitempty" json:"outputs_expected,omitempty" mapstructure:"outputs_expected,omitempty"` // this is the subset of outputs that are needed by the workflow
 	Notice             `bson:",inline" json:",inline" mapstructure:",squash"`
 }
@@ -21,7 +21,7 @@ func NewCWL_workunit() *CWL_workunit {
 	return &CWL_workunit{
 		Job_input:       nil,
 		CWL_tool:        nil,
-		Tool_results:    nil,
+		Outputs:         nil, // formerly Tool_results
 		OutputsExpected: nil,
 	}
 

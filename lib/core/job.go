@@ -94,7 +94,6 @@ func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document, remain_t
 	if job.WorkflowInstances == nil {
 		err = fmt.Errorf("(AddWorkflowInstance) array does not exist")
 		return
-		//job.WorkflowInstances = make([]interface{}, 1)
 	}
 
 	err = dbPushJobWorkflowInstance(job.Id, wi)
@@ -102,11 +101,34 @@ func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document, remain_t
 		err = fmt.Errorf("(AddWorkflowInstance) dbPushJobWorkflowInstance returned: %s", err.Error())
 		return
 	}
-	//wis := *job.WorkflowInstances
-	//wis = append(wis, wi)
-	//job.WorkflowInstances = &wis
+
 	job.WorkflowInstances = append(job.WorkflowInstances, wi)
+	job.WorkflowInstancesMap[id] = wi
 	return
+}
+
+func (job *Job) GetWorkflowInstanceIndex(id string, do_read_lock bool) (index int, err error) {
+
+	var wi_int interface{}
+
+	for index, wi_int = range job.WorkflowInstances {
+		var element_wi WorkflowInstance
+		element_wi, err = NewWorkflowInstanceFromInterface(wi_int)
+		if err != nil {
+			err = fmt.Errorf("(GetWorkflowInstance) object was not a WorkflowInstance !? %s", err.Error())
+			return
+		}
+		if element_wi.Id == id {
+			//job.WorkflowInstancesMap[id] = &element_wi
+			//wi = &element_wi
+			return
+		}
+
+	}
+
+	err = fmt.Errorf("(GetWorkflowInstance) WorkflowInstance %s not found", id)
+	return
+
 }
 
 func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowInstance, err error) {
@@ -125,20 +147,20 @@ func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowI
 	var ok bool
 	wi, ok = job.WorkflowInstancesMap[id]
 	if !ok {
-		for _, wi_int := range job.WorkflowInstances {
-			var element_wi WorkflowInstance
-			element_wi, err = NewWorkflowInstanceFromInterface(wi_int)
-			if err != nil {
-				err = fmt.Errorf("(GetWorkflowInstance) object was not a WorkflowInstance !? %s", err.Error())
-				return
-			}
-			if element_wi.Id == id {
-				job.WorkflowInstancesMap[id] = &element_wi
-				wi = &element_wi
-				return
-			}
-
-		}
+		// for _, wi_int := range job.WorkflowInstances {
+		// 			var element_wi WorkflowInstance
+		// 			element_wi, err = NewWorkflowInstanceFromInterface(wi_int)
+		// 			if err != nil {
+		// 				err = fmt.Errorf("(GetWorkflowInstance) object was not a WorkflowInstance !? %s", err.Error())
+		// 				return
+		// 			}
+		// 			if element_wi.Id == id {
+		// 				job.WorkflowInstancesMap[id] = &element_wi
+		// 				wi = &element_wi
+		// 				return
+		// 			}
+		//
+		// 		}
 
 		err = fmt.Errorf("(GetWorkflowInstance) id \"%s\" not found", id)
 		return
@@ -147,18 +169,38 @@ func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowI
 	return
 }
 
-func (job *Job) Set_WorkflowInstance_Outputs(id string, jd cwl.Job_document) (err error) {
-	err = job.LockNamed("Decrease_WorkflowInstance_RemainTasks")
+func (job *Job) Set_WorkflowInstance_Outputs(id string, outputs cwl.Job_document) (err error) {
+	err = job.LockNamed("Set_WorkflowInstance_Outputs")
 	if err != nil {
 		return
 	}
 	defer job.Unlock()
 
-	dbUpdateJobWorkflow_instancesFieldOutputs(job.Id, id, jd)
+	err = dbUpdateJobWorkflow_instancesFieldOutputs(job.Id, id, outputs)
+	if err != nil {
+		err = fmt.Errorf("(Set_WorkflowInstance_Outputs) dbUpdateJobWorkflow_instancesFieldOutputs returned: %s", err.Error())
+		return
+	}
 
-	var workflow_instance *WorkflowInstance
-	workflow_instance, _ = job.GetWorkflowInstance(id, false)
-	workflow_instance.Outputs = jd
+	var index int
+	index, err = job.GetWorkflowInstanceIndex(id, false)
+	if err != nil {
+		err = fmt.Errorf("(Set_WorkflowInstance_Outputs) GetWorkflowInstanceIndex returned: %s", err.Error())
+		return
+	}
+
+	var workflow_instance WorkflowInstance
+	workflow_instance_if := job.WorkflowInstances[index]
+	workflow_instance, err = NewWorkflowInstanceFromInterface(workflow_instance_if)
+	if err != nil {
+		err = fmt.Errorf("(Set_WorkflowInstance_Outputs) NewWorkflowInstanceFromInterface returned: %s", err.Error())
+		return
+	}
+
+	workflow_instance.Outputs = outputs
+
+	job.WorkflowInstances[index] = workflow_instance
+	job.WorkflowInstancesMap[id] = &workflow_instance
 
 	return
 }

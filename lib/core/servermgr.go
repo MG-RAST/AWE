@@ -1148,11 +1148,13 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 
 	task_id, err := task.GetId()
 	if err != nil {
+		err = fmt.Errorf("(addTask) GetId() returns: %s", err.Error())
 		return
 	}
 
 	has_task, err := qm.TaskMap.Has(task_id, true)
 	if err != nil {
+		err = fmt.Errorf("(addTask) qm.TaskMap.Has returns: %s", err.Error())
 		return
 	}
 	if has_task {
@@ -1162,6 +1164,7 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 
 	task_state, err := task.GetState()
 	if err != nil {
+		err = fmt.Errorf("(addTask) task.GetState() returns: %s", err.Error())
 		return
 	}
 	logger.Debug(3, "(addTask) state of task: %s", task_state)
@@ -1174,7 +1177,9 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 
 	err = qm.TaskMap.Add(task) // makes it a pending task if init
 	if err != nil {
-		logger.Error("(qm.TaskMap.Add): %s", err.Error())
+		//logger.Error("(qm.TaskMap.Add): %s", err.Error())
+		err = fmt.Errorf("(addTask) qm.TaskMap.Add() returns: %s", err.Error())
+		return
 	}
 
 	if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
@@ -1184,11 +1189,13 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 
 	task_state, err = task.GetState()
 	if err != nil {
+		err = fmt.Errorf("(addTask) task.GetState() returns: %s", err.Error())
 		return
 	}
 
 	task_ready, _, err := qm.isTaskReady(task) //makes the task ready
 	if err != nil {
+		err = fmt.Errorf("(addTask) qm.isTaskReady(task) returns: %s", err.Error())
 		return
 	}
 
@@ -1273,6 +1280,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 	}
 
 	if qm.isSusJob(jobid) {
+		reason = "job is suspend"
 		return
 	}
 
@@ -1316,6 +1324,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 			}
 			if !ok {
 				logger.Error("(isTaskReady %s) predecessor %s is unknown", task_id, predecessor)
+				reason = fmt.Sprintf("(isTaskReady %s) predecessor %s is unknown", task_id, predecessor)
 				return
 			}
 
@@ -1327,6 +1336,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 
 			if predecessor_task_state != TASK_STAT_COMPLETED {
 				logger.Debug(3, "(isTaskReady %s) (AWE-style) not ready because predecessor is not ready", task_id)
+				reason = fmt.Sprintf("(isTaskReady %s) (AWE-style) not ready because predecessor is not ready", task_id)
 				return
 			}
 
@@ -1340,14 +1350,14 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		// ****** get inputs
 		job_input_map := *job.CWL_collection.Job_input_map
 		if job_input_map == nil {
-			err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
+			err = fmt.Errorf("(isTaskReady) job.CWL_collection.Job_input_map is empty")
 			return
 		}
 
 		var workflow_instance *WorkflowInstance
 		workflow_instance, err = job.GetWorkflowInstance(task.Parent, true)
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
+			err = fmt.Errorf("(isTaskReady) GetWorkflowInstance returned %s", err.Error())
 			return
 		}
 
@@ -1378,10 +1388,10 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 						return
 					}
 
-					_, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str)
+					_, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str, false)
 
 					if err != nil {
-						err = fmt.Errorf("(isTaskReady) getCWLSource returns: %s", err.Error())
+						err = fmt.Errorf("(isTaskReady) (type array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
 						return
 					}
 
@@ -1399,10 +1409,10 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 					err = fmt.Errorf("(isTaskReady) Cannot parse WorkflowStep source: %s", spew.Sdump(wsi.Source))
 					return
 				}
-				_, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str)
+				_, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str, false)
 
 				if err != nil {
-					err = fmt.Errorf("(isTaskReady) getCWLSource returns: %s", err.Error())
+					err = fmt.Errorf("(isTaskReady) (type non-array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
 					return
 				}
 
@@ -1448,6 +1458,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 
 		if pretask_state != TASK_STAT_COMPLETED {
 			logger.Debug(3, "(isTaskReady %s) pretask_state != TASK_STAT_COMPLETED  state: %s preId: %s", task_id, pretask_state, preId)
+			reason = fmt.Sprintf("(isTaskReady %s) pretask_state != TASK_STAT_COMPLETED  state: %s preId: %s", task_id, pretask_state, preId)
 			return
 		}
 
@@ -1616,7 +1627,11 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 				if err != nil {
 					return
 				}
-				task_input_array = task_input_map.GetArray()
+				task_input_array, err = task_input_map.GetArray()
+				if err != nil {
+					err = fmt.Errorf("(taskEnQueue) task_input_map.GetArray returned: %s", err.Error())
+					return
+				}
 				task.StepInput = &task_input_array
 
 			} else {
@@ -1625,12 +1640,12 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 			}
 
 			if strings.HasSuffix(task.TaskName, "/") {
-				err = fmt.Errorf("Slash at the end of TaskName!? %s", task.TaskName)
+				err = fmt.Errorf("(taskEnQueue) Slash at the end of TaskName!? %s", task.TaskName)
 				return
 			}
 
 			if strings.HasSuffix(task.Parent, "/") {
-				err = fmt.Errorf("Slash at the end of Parent!? %s", task.Parent)
+				err = fmt.Errorf("(taskEnQueue) Slash at the end of Parent!? %s", task.Parent)
 				return
 			}
 
@@ -1680,7 +1695,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 				}
 				err = qm.addTask(sub_task, job)
 				if err != nil {
-					err = fmt.Errorf("(taskEnQueue) qm.addTask returned: %s", err.Error())
+					err = fmt.Errorf("(taskEnQueue) (subtask: %s) qm.addTask returned: %s", sub_task_id, err.Error())
 					return
 				}
 
@@ -1777,7 +1792,9 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 }
 
 // this retrieves the input from either the (sub-)workflow input, or from the output of another task in the same (sub-)workflow
-func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job *Job, current_task_id Task_Unique_Identifier, src string) (obj cwl.CWLType, ok bool, err error) {
+// error_on_missing_task: when checking if a task is ready, a missing task is not an error, it just means task is not ready,
+//    but when getting data this is actually an error.
+func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job *Job, current_task_id Task_Unique_Identifier, src string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, err error) {
 
 	ok = false
 	//src = strings.TrimPrefix(src, "#main/")
@@ -1797,6 +1814,7 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 			// not found
 			return
 		}
+		fmt.Println("(getCWLSource) workflow_input_map:")
 		spew.Dump(workflow_input_map)
 
 	} else if len(src_array) == 3 {
@@ -1818,31 +1836,13 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("(getCWLSource) ancestor_task %s not found ", ancestor_task_id)
+			if error_on_missing_task {
+				err = fmt.Errorf("(getCWLSource) ancestor_task %s not found ", ancestor_task_id)
+				return
+			}
+			ok = false
 			return
 		}
-
-		// search task:
-		// var task_found *Task
-		// 		for _, task := range job.Tasks {
-		//
-		// 			var task_id Task_Unique_Identifier
-		// 			task_id, err = task.GetId()
-		// 			if err != nil {
-		// 				return
-		// 			}
-		//
-		// 			if ancestors != task_id.Subworkflow {
-		// 				continue
-		// 			}
-		//
-		// 			task_local_id := task_id.Subworkflow + "/" + task_id.TaskName
-		// 			if task_local_id == step_name_abs {
-		// 				task_found = task
-		// 				break
-		// 			}
-		//
-		// 		}
 
 		if ancestor_task == nil {
 			err = fmt.Errorf("(getCWLSource) did not find predecessor task %s for task %s", ancestor_task_id, src) // this should not happen, taskReady makes sure everything is available
@@ -1855,24 +1855,30 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 			return
 		}
 
-		found_output := false
 		for _, named_step_output := range *ancestor_task.StepOutput {
 
 			fmt.Printf("(getCWLSource) %s vs %s\n", named_step_output.Id, output_name)
 			if named_step_output.Id == output_name {
-				found_output = true
+
 				obj = named_step_output.Value
-				break
+
+				if obj == nil {
+					err = fmt.Errorf("(getCWLSource) found %s , but it is nil", output_name) // this should not happen, taskReady makes sure everything is available
+					return
+				}
+
+				ok = true
+
+				return
 
 			}
 
 		}
 
-		if !found_output {
-			//err = fmt.Errorf("(getCWLSource) did not find output in predecessor task %s ", step_name) // this should not happen, taskReady makes sure everything is available
-			// not found
-			return
-		}
+		//err = fmt.Errorf("(getCWLSource) did not find output in predecessor task %s ", step_name) // this should not happen, taskReady makes sure everything is available
+		// not found
+		ok = false
+		return
 
 	} else {
 		err = fmt.Errorf("(getCWLSource) could not parse source: %s", src)
@@ -1886,7 +1892,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 	workunit_input_map = make(map[string]cwl.CWLType) // also used for json
 
-	fmt.Println("workflow_step.In:")
+	fmt.Println("(GetStepInputObjects) workflow_step.In:")
 	spew.Dump(workflow_step.In)
 
 	// 1. find all object source and Defaut
@@ -1927,13 +1933,14 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 						return
 					}
 					var job_obj cwl.CWLType
-					job_obj, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str)
+					job_obj, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str, true)
 					if err != nil {
-						err = fmt.Errorf("(NewWorkunit) getCWLSource returns: %s", err.Error())
+						err = fmt.Errorf("(GetStepInputObjects) getCWLSource returns: %s", err.Error())
 						return
 					}
 					if !ok {
-						err = fmt.Errorf("(NewWorkunit) getCWLSource did not find output!!!")
+						err = fmt.Errorf("(GetStepInputObjects) getCWLSource did not find output!!!")
+						return // TODO allow optional ??
 					}
 					source_object_array = append(source_object_array, job_obj)
 					//cwl_array = append(cwl_array, obj)
@@ -1946,18 +1953,19 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 				var ok bool
 				source_as_string, ok = input.Source.(string)
 				if !ok {
-					err = fmt.Errorf("(NewWorkunit) Cannot parse WorkflowStep source: %s", spew.Sdump(input.Source))
+					err = fmt.Errorf("(GetStepInputObjects) Cannot parse WorkflowStep source: %s", spew.Sdump(input.Source))
 					return
 				}
 
 				var job_obj cwl.CWLType
-				job_obj, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, source_as_string)
+				job_obj, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, source_as_string, true)
 				if err != nil {
-					err = fmt.Errorf("(NewWorkunit) getCWLSource returns: %s", err.Error())
+					err = fmt.Errorf("(GetStepInputObjects) getCWLSource returns: %s", err.Error())
 					return
 				}
 				if !ok {
-					err = fmt.Errorf("(NewWorkunit) getCWLSource did not find output!!!")
+					err = fmt.Errorf("(GetStepInputObjects) getCWLSource did not find output!!!")
+					return // TODO allow optional ??
 				}
 				workunit_input_map[cmd_id] = job_obj
 
@@ -1966,14 +1974,19 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		} else {
 
 			if input.Default == nil {
-				err = fmt.Errorf("(NewWorkunit) sorry, source and Default are missing")
+				err = fmt.Errorf("(GetStepInputObjects) sorry, source and Default are missing")
 				return
 			}
 
 			var default_value cwl.CWLType
 			default_value, err = cwl.NewCWLType(cmd_id, input.Default)
 			if err != nil {
-				err = fmt.Errorf("(NewWorkunit) NewCWLTypeFromInterface(input.Default) returns: %s", err.Error())
+				err = fmt.Errorf("(GetStepInputObjects) NewCWLTypeFromInterface(input.Default) returns: %s", err.Error())
+				return
+			}
+
+			if default_value == nil {
+				err = fmt.Errorf("(GetStepInputObjects) default_value == nil ")
 				return
 			}
 
@@ -1983,7 +1996,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		// TODO
 
 	}
-	fmt.Println("workunit_input_map after first round:\n")
+	fmt.Println("(GetStepInputObjects) workunit_input_map after first round:\n")
 	spew.Dump(workunit_input_map)
 	// 3. evaluate each ValueFrom field, update results
 
@@ -2018,12 +2031,27 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		inputs_json, _ := json.Marshal(workunit_input_map)
 		fmt.Printf("SET inputs=%s\n", inputs_json)
 
-		js_self := workunit_input_map[cmd_id]
+		js_self, ok := workunit_input_map[cmd_id]
+		if !ok {
+			err = fmt.Errorf("(GetStepInputObjects) workunit_input %s not found", cmd_id)
+			return
+		}
+
+		if js_self == nil {
+			err = fmt.Errorf("(GetStepInputObjects) js_self == nil")
+			return
+		}
+
 		err = vm.Set("self", js_self)
 		if err != nil {
 			return
 		}
-		self_json, _ := json.Marshal(js_self)
+		var self_json []byte
+		self_json, err = json.Marshal(js_self)
+		if err != nil {
+			err = fmt.Errorf("(GetStepInputObjects) json.Marshal returned: %s", err.Error())
+			return
+		}
 		fmt.Printf("SET self=%s\n", self_json)
 
 		//fmt.Printf("input.ValueFrom=%s\n", input.ValueFrom)
@@ -2049,7 +2077,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 				value, xerr := vm.Run(javascript_function)
 				if xerr != nil {
-					err = fmt.Errorf("Javascript complained: %s", xerr.Error())
+					err = fmt.Errorf("Javascript complained: A) %s", xerr.Error())
 					return
 				}
 				fmt.Println(reflect.TypeOf(value))
@@ -2086,7 +2114,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 			value, xerr := vm.Run(javascript_function)
 			if xerr != nil {
-				err = fmt.Errorf("Javascript complained: %s", xerr.Error())
+				err = fmt.Errorf("Javascript complained: B) %s", xerr.Error())
 				return
 			}
 
@@ -2561,7 +2589,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 				var obj cwl.CWLType
 				var ok bool
-				obj, ok, err = qm.getCWLSource(workflow_inputs_map, job, task_id, outputSourceString)
+				obj, ok, err = qm.getCWLSource(workflow_inputs_map, job, task_id, outputSourceString, true)
 				if err != nil {
 					err = fmt.Errorf("(updateJobTask) A getCWLSource returns: %s", err.Error())
 					return
@@ -2579,7 +2607,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				for _, outputSourceString := range outputSourceArrayOfString {
 					var obj cwl.CWLType
 					var ok bool
-					obj, ok, err = qm.getCWLSource(workflow_inputs_map, job, task_id, outputSourceString)
+					obj, ok, err = qm.getCWLSource(workflow_inputs_map, job, task_id, outputSourceString, true)
 					if err != nil {
 						err = fmt.Errorf("(updateJobTask) B getCWLSource returns: %s", err.Error())
 						return
@@ -2594,7 +2622,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				workflow_outputs_map[output_id] = &output_array
 
 			default:
-				err = fmt.Errorf("output.OutputSource has to be string or []string, but I got type %s", spew.Sdump(output_source))
+				err = fmt.Errorf("(updateJobTask) output.OutputSource has to be string or []string, but I got type %s", spew.Sdump(output_source))
 				return
 
 			}
@@ -2608,7 +2636,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			return
 		}
 
-		fmt.Println("workflow_outputs_map:")
+		fmt.Println("(updateJobTask) workflow_outputs_map:")
 		spew.Dump(workflow_outputs_map)
 
 		step_outputs := cwl.Job_document{}
@@ -2619,7 +2647,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			output_base := path.Base(output.Id)
 
 			real_name := process_name + "/" + output_base
-			fmt.Println("output real: " + real_name)
+			fmt.Println("(updateJobTask) output real: " + real_name)
 
 			var object cwl.CWLType
 			object, ok = workflow_outputs_map[real_name]
@@ -2633,7 +2661,12 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 		}
 
-		workflow_outputs_array := workflow_outputs_map.GetArray()
+		var workflow_outputs_array cwl.Job_document
+		workflow_outputs_array, err = workflow_outputs_map.GetArray()
+		if err != nil {
+			err = fmt.Errorf("(updateJobTask) workflow_outputs_map.GetArray returned: %s", err.Error())
+			return
+		}
 
 		//workflow_instance.Outputs = step_outputs
 		err = job.Set_WorkflowInstance_Outputs(parent_id_str, workflow_outputs_array)

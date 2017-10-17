@@ -29,10 +29,14 @@ func NewNamedCWLType(id string, value CWLType) NamedCWLType {
 	return NamedCWLType{Id: id, Value: value}
 }
 
-func (jd_map JobDocMap) GetArray() (result Job_document) {
+func (jd_map JobDocMap) GetArray() (result Job_document, err error) {
 	result = Job_document{}
 
 	for key, value := range jd_map {
+		if value == nil {
+			err = fmt.Errorf("(GetArray) value of key %s is nil", key)
+			return
+		}
 		named := NewNamedCWLType(key, value)
 		result = append(result, named)
 	}
@@ -55,7 +59,7 @@ func NewNamedCWLTypeFromInterface(native interface{}) (cwl_obj_named NamedCWLTyp
 		if !ok {
 			fmt.Println("Expected NamedCWLType field \"value\" , but not found:")
 			spew.Dump(native)
-			err = fmt.Errorf("(NewJob_documentFromNamedTypes) Expected NamedCWLType field \"value\" , but not found")
+			err = fmt.Errorf("(NewJob_documentFromNamedTypes) Expected NamedCWLType field \"value\" , but not found: %s", spew.Sdump(native))
 			return
 		}
 

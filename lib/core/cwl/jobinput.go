@@ -59,7 +59,7 @@ func NewNamedCWLTypeFromInterface(native interface{}) (cwl_obj_named NamedCWLTyp
 		if !ok {
 			fmt.Println("Expected NamedCWLType field \"value\" , but not found:")
 			spew.Dump(native)
-			err = fmt.Errorf("(NewJob_documentFromNamedTypes) Expected NamedCWLType field \"value\" , but not found: %s", spew.Sdump(native))
+			err = fmt.Errorf("(NewNamedCWLTypeFromInterface) Expected NamedCWLType field \"value\" , but not found: %s", spew.Sdump(native))
 			return
 		}
 
@@ -69,7 +69,7 @@ func NewNamedCWLTypeFromInterface(native interface{}) (cwl_obj_named NamedCWLTyp
 		if ok {
 			id, ok = id_interface.(string)
 			if !ok {
-				err = fmt.Errorf("(NewJob_documentFromNamedTypes) id has wrong type")
+				err = fmt.Errorf("(NewNamedCWLTypeFromInterface) id has wrong type")
 				return
 			}
 		} else {
@@ -79,7 +79,7 @@ func NewNamedCWLTypeFromInterface(native interface{}) (cwl_obj_named NamedCWLTyp
 		var cwl_obj CWLType
 		cwl_obj, err = NewCWLType(id, named_thing_value)
 		if err != nil {
-			err = fmt.Errorf("(NewJob_documentFromNamedTypes) B NewCWLType returns: %s", err.Error())
+			err = fmt.Errorf("(NewNamedCWLTypeFromInterface) B NewCWLType returns: %s", err.Error())
 			return
 		}
 
@@ -161,7 +161,12 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 
 func NewJob_documentFromNamedTypes(original interface{}) (job *Job_document, err error) {
 
-	logger.Debug(3, "(NewJob_document) starting")
+	logger.Debug(3, "(NewJob_documentFromNamedTypes) starting")
+
+	if original == nil {
+		err = fmt.Errorf("(NewJob_documentFromNamedTypes) original == nil")
+		return
+	}
 
 	original, err = MakeStringMap(original)
 	if err != nil {
@@ -174,24 +179,6 @@ func NewJob_documentFromNamedTypes(original interface{}) (job *Job_document, err
 
 	switch original.(type) {
 
-	// case map[string]interface{}:
-	//
-	// 		original_map := original.(map[string]interface{})
-	//
-	// 		for key_str, named_thing := range original_map {
-	//
-	// 			var cwl_obj_named NamedCWLType
-	// 			cwl_obj_named, err = NewNamedCWLTypeFromInterface(named_thing)
-	// 			if err != nil {
-	// 				err = fmt.Errorf("(NewJob_documentFromNamedTypes) A NewNamedCWLTypeFromInterface returns: %s", err.Error())
-	// 				return
-	// 			}
-	//
-	// 			job_nptr = append(job_nptr, cwl_obj_named)
-	//
-	// 		}
-	// 		return
-
 	case []interface{}:
 		original_array := original.([]interface{})
 
@@ -200,7 +187,7 @@ func NewJob_documentFromNamedTypes(original interface{}) (job *Job_document, err
 			var cwl_obj_named NamedCWLType
 			cwl_obj_named, err = NewNamedCWLTypeFromInterface(named_thing)
 			if err != nil {
-				err = fmt.Errorf("(NewJob_documentFromNamedTypes) A NewNamedCWLTypeFromInterface returns: %s", err.Error())
+				err = fmt.Errorf("(NewJob_documentFromNamedTypes) A) NewNamedCWLTypeFromInterface returns: %s", err.Error())
 				return
 			}
 
@@ -211,8 +198,7 @@ func NewJob_documentFromNamedTypes(original interface{}) (job *Job_document, err
 		return
 	default:
 
-		spew.Dump(original)
-		err = fmt.Errorf("(NewJob_document) (B) type %s unknown", reflect.TypeOf(original))
+		err = fmt.Errorf("(NewJob_document) (B) type %s unknown: %s", reflect.TypeOf(original), spew.Sdump(original))
 	}
 	return
 }

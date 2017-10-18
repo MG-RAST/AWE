@@ -159,14 +159,14 @@ func CWL_File_2_AWE_IO(file *cwl.File) (io *core.IO, err error) {
 	return
 }
 
-func MoveInputCWL(work *core.Workunit, work_path string, input cwl.NamedCWLType) (size int64, err error) {
+func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (size int64, err error) {
 
-	real_object := input.Value
+	//real_object := input.Value
 
 	spew.Dump(input)
-	switch real_object.(type) {
+	switch input.(type) {
 	case *cwl.File:
-		file := real_object.(*cwl.File)
+		file := input.(*cwl.File)
 		spew.Dump(*file)
 		fmt.Printf("file: %+v\n", *file)
 
@@ -194,7 +194,7 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.NamedCWLType)
 		return
 	case *cwl.Array:
 
-		array := real_object.(*cwl.Array)
+		array := input.(*cwl.Array)
 
 		array_instance := *array
 
@@ -202,16 +202,45 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.NamedCWLType)
 
 			element := array_instance[element_pos]
 			var io_size int64
-			io_size, err = MoveInputCWL(work, work_path, cwl.NewNamedCWLType("", element))
+			io_size, err = MoveInputCWL(work, work_path, element)
 			if err != nil {
 				return
 			}
 			size += io_size
 		}
 		return
+	case *cwl.Directory:
+
+		d := input.(*cwl.Directory)
+
+		listing := d.Listing
+
+		var io_size int64
+		for _, element := range listing {
+
+			var element_cwl cwl.CWLType
+
+			switch element.(type) {
+			case *cwl.File:
+				element_cwl = element.(*cwl.File)
+			case *cwl.Directory:
+				element_cwl = element.(*cwl.Directory)
+			default:
+				err = fmt.Errorf("(MoveInputData) type %s of element in directory listing not supported", reflect.TypeOf(element))
+				return
+			}
+
+			io_size, err = MoveInputCWL(work, work_path, element_cwl)
+			if err != nil {
+				return
+			}
+
+		}
+		size = io_size
+
 		// TODO ************* Record and Enum
 	default:
-		err = fmt.Errorf("(MoveInputData) type %s not supoorted yet", reflect.TypeOf(real_object))
+		err = fmt.Errorf("(MoveInputData) type %s not supoorted yet", reflect.TypeOf(input))
 		return
 	}
 	return
@@ -234,7 +263,7 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 		for input_name, input := range *job_input {
 			fmt.Println(input_name)
 			var io_size int64
-			io_size, err = MoveInputCWL(work, work_path, input)
+			io_size, err = MoveInputCWL(work, work_path, input.Value)
 			if err != nil {
 				return
 			}

@@ -1799,8 +1799,11 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 	ok = false
 	//src = strings.TrimPrefix(src, "#main/")
 
+	logger.Debug(3, "(getCWLSource) searching for %s", src)
+
 	src_array := strings.Split(src, "/")
 	if len(src_array) == 2 {
+		logger.Debug(3, "(getCWLSource) a workflow input")
 		// must be a workflow input, e.g. #main/jobid (workflow, input)
 
 		src_base := src_array[1]
@@ -1818,6 +1821,7 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 		spew.Dump(workflow_input_map)
 
 	} else if len(src_array) == 3 {
+		logger.Debug(3, "(getCWLSource) a step output")
 		// must be a step output, e.g. #main/filter/rejected (workflow, step, output)
 		workflow_name := src_array[0]
 		step_name := src_array[1]
@@ -1840,6 +1844,7 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 				err = fmt.Errorf("(getCWLSource) ancestor_task %s not found ", ancestor_task_id)
 				return
 			}
+			logger.Debug(3, "(getCWLSource) ancestor_task %s not found ", ancestor_task_id)
 			ok = false
 			return
 		}
@@ -1851,14 +1856,19 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 
 		if ancestor_task.StepOutput == nil {
 			//err = fmt.Errorf("(getCWLSource) Found predecessor task %s, but StepOutput does not exist", step_name_abs)
+			logger.Debug(3, "(getCWLSource) ancestor_task.StepOutput == nil")
 			ok = false
 			return
 		}
 
+		logger.Debug(3, "(getCWLSource) len(ancestor_task.StepOutput): %d", len(*ancestor_task.StepOutput))
+
 		for _, named_step_output := range *ancestor_task.StepOutput {
 
-			fmt.Printf("(getCWLSource) %s vs %s\n", named_step_output.Id, output_name)
-			if named_step_output.Id == output_name {
+			named_step_output_base := path.Base(named_step_output.Id)
+
+			logger.Debug(3, "(getCWLSource) %s vs %s\n", named_step_output_base, output_name)
+			if named_step_output_base == output_name {
 
 				obj = named_step_output.Value
 
@@ -1877,6 +1887,7 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 
 		//err = fmt.Errorf("(getCWLSource) did not find output in predecessor task %s ", step_name) // this should not happen, taskReady makes sure everything is available
 		// not found
+		logger.Debug(3, "(getCWLSource) step output not found")
 		ok = false
 		return
 
@@ -2023,13 +2034,20 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		//	return
 		//}
 
-		err = vm.Set("inputs", workunit_input_map)
+		var inputs_json []byte
+		inputs_json, err = json.Marshal(workunit_input_map)
 		if err != nil {
+			err = fmt.Errorf("(GetStepInputObjects) json.Marshal returns: %s", err.Error())
 			return
 		}
+		logger.Debug(3, "SET inputs=%s\n", inputs_json)
 
-		inputs_json, _ := json.Marshal(workunit_input_map)
-		fmt.Printf("SET inputs=%s\n", inputs_json)
+		//err = vm.Set("inputs", workunit_input_map)
+		//err = vm.Set("inputs_str", inputs_json)
+		//if err != nil {
+		//	err = fmt.Errorf("(GetStepInputObjects) vm.Set inputs returns: %s", err.Error())
+		//	return
+		//}
 
 		js_self, ok := workunit_input_map[cmd_id]
 		if !ok {
@@ -2042,17 +2060,21 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 			return
 		}
 
-		err = vm.Set("self", js_self)
-		if err != nil {
-			return
-		}
 		var self_json []byte
 		self_json, err = json.Marshal(js_self)
 		if err != nil {
 			err = fmt.Errorf("(GetStepInputObjects) json.Marshal returned: %s", err.Error())
 			return
 		}
-		fmt.Printf("SET self=%s\n", self_json)
+
+		logger.Debug(3, "SET self=%s\n", self_json)
+
+		//err = vm.Set("self", js_self)
+		//err = vm.Set("self_str", self_json)
+		//if err != nil {
+		//	err = fmt.Errorf("(GetStepInputObjects) vm.Set self returns: %s", err.Error())
+		//	return
+		//}
 
 		//fmt.Printf("input.ValueFrom=%s\n", input.ValueFrom)
 
@@ -2072,7 +2094,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 				expression_string := bytes.TrimPrefix(match, []byte("$("))
 				expression_string = bytes.TrimSuffix(expression_string, []byte(")"))
 
-				javascript_function := fmt.Sprintf("(function(){\n return %s;\n})()", expression_string)
+				javascript_function := fmt.Sprintf("(function(){\n self=%s ; inputs=%s; return %s;\n})()", self_json, inputs_json, expression_string)
 				fmt.Printf("%s\n", javascript_function)
 
 				value, xerr := vm.Run(javascript_function)
@@ -2109,7 +2131,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 			expression_string := bytes.TrimPrefix(match, []byte("${"))
 			expression_string = bytes.TrimSuffix(expression_string, []byte("}"))
 
-			javascript_function := fmt.Sprintf("(function(){\n %s \n})()", expression_string)
+			javascript_function := fmt.Sprintf("(function(){\n self=%s ; inputs=%s; %s \n})()", self_json, inputs_json, expression_string)
 			fmt.Printf("%s\n", javascript_function)
 
 			value, xerr := vm.Run(javascript_function)

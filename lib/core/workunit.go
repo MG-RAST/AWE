@@ -168,7 +168,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		var workflow_instance *WorkflowInstance
 		workflow_instance, err = job.GetWorkflowInstance(task.Parent, true)
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
+			err = fmt.Errorf("(NewWorkunit) GetWorkflowInstance returned %s", err.Error())
 			return
 		}
 
@@ -177,6 +177,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		var workunit_input_map map[string]cwl.CWLType
 		workunit_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, workflow_step)
 		if err != nil {
+			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects returned: %s", err.Error())
 			return
 		}
 

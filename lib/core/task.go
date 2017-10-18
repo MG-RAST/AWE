@@ -1011,7 +1011,7 @@ func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err
 	if task.TotalWork == 1 {
 		workunit, xerr := NewWorkunit(qm, task, 0, job)
 		if xerr != nil {
-			err = fmt.Errorf("(CreateWorkunits) NewWorkunit failed: %s", xerr.Error())
+			err = fmt.Errorf("(CreateWorkunits) (single) NewWorkunit failed: %s", xerr.Error())
 			return
 		}
 		wus = append(wus, workunit)
@@ -1021,7 +1021,7 @@ func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err
 	for i := 1; i <= task.TotalWork; i++ {
 		workunit, xerr := NewWorkunit(qm, task, i, job)
 		if xerr != nil {
-			err = fmt.Errorf("(CreateWorkunits) NewWorkunit failed: %s", xerr.Error())
+			err = fmt.Errorf("(CreateWorkunits) (multi) NewWorkunit failed: %s", xerr.Error())
 			return
 		}
 		wus = append(wus, workunit)

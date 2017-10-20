@@ -157,7 +157,12 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		native_int := native.(int)
 
 		cwl_type = NewInt(id, native_int)
-
+	case float32:
+		native_float32 := native.(float32)
+		cwl_type = NewFloat(native_float32)
+	case float64:
+		native_float64 := native.(float64)
+		cwl_type = NewDouble(native_float64)
 	case string:
 		fmt.Printf("(NewCWLType) E\n")
 		native_str := native.(string)
@@ -208,12 +213,6 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 	case *Boolean:
 		cwl_type = native.(*Boolean)
 
-	case float64:
-		native_float64 := native.(float64)
-		cwl_type, err = NewNumberFromInterface(id, native_float64)
-		if err != nil {
-			return
-		}
 	default:
 		fmt.Printf("(NewCWLType) H\n")
 		spew.Dump(native)

@@ -490,7 +490,11 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 	logger.Event(event.WORK_DONE, "workid="+workid_string+";clientid="+clientid)
 	//update client status
 
-	task_id := task.Id
+	var task_id Task_Unique_Identifier
+	task_id, err = task.GetId()
+	if err != nil {
+		return
+	}
 
 	defer func() {
 		//done, remove from the workQueue
@@ -529,11 +533,29 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		size, modified, xerr := io.GetFileSize()
 		if xerr != nil {
 			err = xerr
-			logger.Error("task %s, err: %s", task_id, err.Error())
+			logger.Error("(handleWorkStatDone) task %s, err: %s", task_id, err.Error())
 			yerr := task.SetState(TASK_STAT_SUSPEND, true)
 			if yerr != nil {
 				err = yerr
 				return
+			}
+
+			jerror := &JobError{
+				ClientFailed: clientid,
+				WorkFailed:   workid.String(),
+				TaskFailed:   task_id.String(),
+				ServerNotes:  fmt.Sprintf("(handleWorkStatDone) io.GetFileSize failed: %s", err.Error()),
+				Status:       JOB_STAT_SUSPEND,
+			}
+
+			var job_id string
+			job_id, err = task.GetJobId()
+			if err != nil {
+				return
+			}
+
+			if err = qm.SuspendJob(job_id, jerror); err != nil {
+				logger.Error("(handleNoticeWorkDelivered:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
 			}
 			return
 		}
@@ -557,26 +579,26 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		return
 	}
 
-	outputs, xerr = task.GetOutputs()
-	if xerr != nil {
-		err = xerr
-		return
-	}
-
-	for _, output := range outputs {
-		if _, err = output.DataUrl(); err != nil {
-			return
-		}
-		hasFile := output.HasFile()
-		if !hasFile {
-			err = fmt.Errorf("(RemoveWorkFromClient) task %s, output %s missing shock file", task_id, output.FileName)
-			return
-		}
-	}
+	// outputs, xerr = task.GetOutputs()
+	// 	if xerr != nil {
+	// 		err = xerr
+	// 		return
+	// 	}
+	//
+	// 	for _, output := range outputs {
+	// 		if _, err = output.DataUrl(); err != nil {
+	// 			return
+	// 		}
+	// 		hasFile := output.HasFile()
+	// 		if !hasFile {
+	// 			err = fmt.Errorf("(RemoveWorkFromClient) task %s, output %s missing shock file", task_id, output.FileName)
+	// 			return
+	// 		}
+	// 	}
 
 	//log event about task done (TD)
 	qm.FinalizeTaskPerf(task)
-	logger.Event(event.TASK_DONE, "task_id="+task_id)
+	logger.Event(event.TASK_DONE, "task_id="+task_id.String())
 	//update the info of the job which the task is belong to, could result in deletion of the
 	//task in the task map when the task is the final task of the job to be done.
 	err = qm.updateJobTask(task) //task state QUEUED -> COMPLETED

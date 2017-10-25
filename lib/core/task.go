@@ -162,6 +162,11 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		changed = true
 	}
 
+	if task.Task_Unique_Identifier.TaskName == "" {
+		task.Task_Unique_Identifier.TaskName = task.Id
+		changed = true
+	}
+
 	if task.StepOutputInterface != nil {
 		task.StepOutput, err = cwl.NewJob_documentFromNamedTypes(task.StepOutputInterface)
 		if err != nil {

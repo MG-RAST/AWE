@@ -78,6 +78,20 @@ type JobRaw struct {
 	WorkflowInstancesMap map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 }
 
+func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
+	if do_read_lock {
+		read_lock, xerr := job.RLockNamed("String")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer job.RUnlockNamed(read_lock)
+	}
+
+	id = job.Id
+	return
+}
+
 func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document, remain_tasks int) (err error) {
 	err = job.LockNamed("AddWorkflowInstance")
 	if err != nil {

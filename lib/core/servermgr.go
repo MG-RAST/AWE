@@ -42,9 +42,9 @@ type ServerMgr struct {
 	TaskMap        TaskMap
 	taskIn         chan *Task //channel for receiving Task (JobController -> qmgr.Handler)
 	ajLock         sync.RWMutex
-	sjLock         sync.RWMutex
-	actJobs        map[string]*JobPerf
-	susJobs        map[string]bool
+	//sjLock         sync.RWMutex
+	actJobs map[string]*JobPerf
+	//susJobs        map[string]bool
 }
 
 func NewServerMgr() *ServerMgr {
@@ -63,7 +63,7 @@ func NewServerMgr() *ServerMgr {
 		TaskMap:    *NewTaskMap(),
 		taskIn:     make(chan *Task, 1024),
 		actJobs:    map[string]*JobPerf{},
-		susJobs:    map[string]bool{},
+		//susJobs:    map[string]bool{},
 	}
 }
 
@@ -220,7 +220,10 @@ func (qm *ServerMgr) QueueStatus() string {
 
 func (qm *ServerMgr) GetQueue(name string) interface{} {
 	if name == "job" {
-		return jQueueShow{qm.actJobs, qm.susJobs}
+
+		suspended_jobs := qm.GetSuspendJobs()
+
+		return jQueueShow{qm.actJobs, suspended_jobs}
 	}
 	if name == "task" {
 		qm.ShowTasks() // only if debug level is set
@@ -245,43 +248,87 @@ func (qm *ServerMgr) GetQueue(name string) interface{} {
 //--------suspend job accessor methods-------
 
 func (qm *ServerMgr) lenSusJobs() (l int) {
-	qm.sjLock.RLock()
-	l = len(qm.susJobs)
-	qm.sjLock.RUnlock()
+
+	l = 0
+	jobs, _ := JM.Get_List(true) // TODO error handling
+
+	for i := range jobs {
+		job := jobs[i]
+		state, _ := job.GetState(true)
+		if state == JOB_STAT_SUSPEND {
+			l += 1
+		}
+
+	}
+
+	//qm.sjLock.RLock()
+	//l = len(qm.susJobs)
+	//qm.sjLock.RUnlock()
 	return
 }
 
-func (qm *ServerMgr) putSusJob(id string) {
-	qm.sjLock.Lock()
-	qm.susJobs[id] = true
-	qm.sjLock.Unlock()
-}
+//func (qm *ServerMgr) putSusJob(id string) {
+//	qm.sjLock.Lock()
+//	qm.susJobs[id] = true
+//	qm.sjLock.Unlock()
+//}
 
 func (qm *ServerMgr) GetSuspendJobs() (sjobs map[string]bool) {
-	qm.sjLock.RLock()
-	defer qm.sjLock.RUnlock()
+
+	jobs, _ := JM.Get_List(true) // TODO error handling
+
 	sjobs = make(map[string]bool)
-	for id, _ := range qm.susJobs {
-		sjobs[id] = true
+
+	for i := range jobs {
+		job := jobs[i]
+		state, _ := job.GetState(true) // TODO error handling
+		if state == JOB_STAT_SUSPEND {
+			id, _ := job.GetId(true)
+			sjobs[id] = true
+		}
+
 	}
+
+	// qm.sjLock.RLock()
+	// 	defer qm.sjLock.RUnlock()
+	// 	sjobs = make(map[string]bool)
+	// 	for id, _ := range qm.susJobs {
+	// 		sjobs[id] = true
+	// 	}
 	return
 }
 
-func (qm *ServerMgr) removeSusJob(id string) {
-	qm.sjLock.Lock()
-	delete(qm.susJobs, id)
-	qm.sjLock.Unlock()
-}
+//func (qm *ServerMgr) removeSusJob(id string) {
+//	qm.sjLock.Lock()
+//	delete(qm.susJobs, id)
+//	qm.sjLock.Unlock()
+//}
 
 func (qm *ServerMgr) isSusJob(id string) (has bool) {
-	qm.sjLock.RLock()
-	defer qm.sjLock.RUnlock()
-	if _, ok := qm.susJobs[id]; ok {
+
+	job, err := GetJob(id)
+	if err != nil {
+		return
+	}
+
+	job_state, err := job.GetState(true)
+	if err != nil {
+		return
+	}
+
+	has = false
+	if job_state == JOB_STAT_COMPLETED {
 		has = true
-	} else {
-		has = false
 	}
 	return
+	//	qm.sjLock.RLock()
+	//	defer qm.sjLock.RUnlock()
+	//	if _, ok := qm.susJobs[id]; ok {
+	//		has = true
+	//	} else {
+	//		has = false
+	//	}
+	//	return
 }
 
 //--------active job accessor methods-------
@@ -1301,7 +1348,12 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		return
 	}
 
-	if qm.isSusJob(jobid) {
+	job_state, err := job.GetState(true)
+	if err != nil {
+		return
+	}
+
+	if job_state == JOB_STAT_SUSPEND {
 		reason = "job is suspend"
 		return
 	}
@@ -2481,7 +2533,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		return
 	}
 
-	if task_state == TASK_STAT_COMPLETED {
+	if task_state == TASK_STAT_COMPLETED && task.WorkflowStep != nil {
 		// this task belongs to a subworkflow // TODO every task should belong to a subworkflow
 
 		var remain_tasks int
@@ -2885,9 +2937,9 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 	if err != nil {
 		return
 	}
-	if jerror.Status == JOB_STAT_SUSPEND {
-		qm.putSusJob(jobid)
-	}
+	//if jerror.Status == JOB_STAT_SUSPEND {
+	//	qm.putSusJob(jobid)
+	//}
 
 	// set error struct
 	err = job.SetError(jerror)
@@ -2985,7 +3037,7 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 		qm.TaskMap.Delete(task_id)
 	}
 	qm.removeActJob(jobid)
-	qm.removeSusJob(jobid)
+	//qm.removeSusJob(jobid)
 	// delete from job map
 	if err = JM.Delete(jobid, true); err != nil {
 		return
@@ -3075,7 +3127,7 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 		return
 	}
 
-	qm.removeSusJob(id)
+	//qm.removeSusJob(id)
 	qm.EnqueueTasksByJobId(dbjob.Id)
 	return
 }
@@ -3096,9 +3148,10 @@ func (qm *ServerMgr) RecoverJob(id string) (err error) {
 	if err != nil {
 		return errors.New("failed to load job " + err.Error())
 	}
-	if job_state == JOB_STAT_SUSPEND {
-		qm.putSusJob(id)
-	} else {
+	//if job_state == JOB_STAT_SUSPEND {
+	//qm.putSusJob(id)
+	//} else {
+	if job_state != JOB_STAT_SUSPEND {
 		if job_state == JOB_STAT_COMPLETED || job_state == JOB_STAT_DELETED {
 			return errors.New("job is in " + job_state + " state thus cannot be recovered")
 		}
@@ -3162,9 +3215,10 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 			}
 		}
 
-		if job_state == JOB_STAT_SUSPEND {
-			qm.putSusJob(dbjob.Id)
-		} else {
+		//if job_state == JOB_STAT_SUSPEND {
+		//	qm.putSusJob(dbjob.Id)
+		//} else {
+		if job_state != JOB_STAT_SUSPEND {
 			qm.EnqueueTasksByJobId(dbjob.Id)
 		}
 		jobct += 1
@@ -3193,10 +3247,10 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 		return errors.New("job " + jobid + " is not in 'completed' or 'suspend' status")
 	}
 
-	was_suspend := false
-	if job_state == JOB_STAT_SUSPEND {
-		was_suspend = true
-	}
+	//was_suspend := false
+	//if job_state == JOB_STAT_SUSPEND {
+	//	was_suspend = true
+	//}
 
 	from_task_id := fmt.Sprintf("%s_%s", jobid, stage)
 	remaintasks := 0
@@ -3256,9 +3310,9 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	}
 	dbjob.SetState(new_state, nil)
 
-	if was_suspend {
-		qm.removeSusJob(jobid)
-	}
+	//if was_suspend {
+	//	qm.removeSusJob(jobid)
+	//}
 	qm.EnqueueTasksByJobId(jobid)
 
 	logger.Debug(2, "Recomputed job %s from task %d", jobid, stage)
@@ -3285,10 +3339,10 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 		return errors.New("job " + jobid + " is not in 'completed' or 'suspend' status")
 	}
 
-	was_suspend := false
-	if job_state == JOB_STAT_SUSPEND {
-		was_suspend = true
-	}
+	//was_suspend := false
+	//if job_state == JOB_STAT_SUSPEND {
+	//	was_suspend = true
+	//}
 
 	err = job.IncrementResumed(1)
 	if err != nil {
@@ -3299,9 +3353,9 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 		return
 	}
 
-	if was_suspend {
-		qm.removeSusJob(jobid)
-	}
+	//if was_suspend {
+	//	qm.removeSusJob(jobid)
+	//}
 
 	err = qm.EnqueueTasksByJobId(jobid)
 	if err != nil {

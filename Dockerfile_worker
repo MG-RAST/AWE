@@ -1,4 +1,4 @@
-# This Dockerfile creates an environment for development purposes (this is not production)
+# AWE worker with CWL runner
 
 # docker build -t mgrast/awe-worker -f Dockerfile_worker .
 

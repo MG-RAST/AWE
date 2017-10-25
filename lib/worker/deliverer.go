@@ -35,7 +35,8 @@ func deliverer_run(control chan int) {
 		return
 	}
 
-	work_id := workunit.Id
+	work_id := workunit.Workunit_Unique_Identifier
+	logger.Debug(3, "(deliverer_run) work_id: %s", work_id.String())
 	work_state, ok, err := workmap.Get(work_id)
 	if err != nil {
 		logger.Error("error: %s", err.Error())
@@ -47,8 +48,8 @@ func deliverer_run(control chan int) {
 	}
 
 	if work_state == ID_DISCARDED {
-		workunit.SetState(core.WORK_STAT_DISCARDED)
-		logger.Event(event.WORK_DISCARD, "workid="+work_id)
+		workunit.SetState(core.WORK_STAT_DISCARDED, "workmap indicated discarded")
+		logger.Event(event.WORK_DISCARD, "workid="+work_id.String())
 	} else {
 		workmap.Set(work_id, ID_DELIVERER, "deliverer")
 		perfstat := workunit.WorkPerf
@@ -59,11 +60,11 @@ func deliverer_run(control chan int) {
 		if workunit.State == core.WORK_STAT_COMPUTED {
 			data_moved, err := cache.UploadOutputData(workunit)
 			if err != nil {
-				workunit.SetState(core.WORK_STAT_ERROR)
-				logger.Error("[deliverer#UploadOutputData]workid=" + work_id + ", err=" + err.Error())
+				workunit.SetState(core.WORK_STAT_ERROR, "UploadOutputData failed")
+				logger.Error("(deliverer_run) UploadOutputData returns workid=" + work_id.String() + ", err=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[deliverer#UploadOutputData]"+err.Error())
 			} else {
-				workunit.SetState(core.WORK_STAT_DONE)
+				workunit.SetState(core.WORK_STAT_DONE, "")
 				perfstat.OutFileSize = data_moved
 			}
 		}
@@ -80,23 +81,23 @@ func deliverer_run(control chan int) {
 		for do_retry {
 			response, err := core.NotifyWorkunitProcessedWithLogs(workunit, perfstat, conf.PRINT_APP_MSG)
 			if err != nil {
-				logger.Error("[deliverer: workid=" + work_id + ", err=" + err.Error())
+				logger.Error("(deliverer_run) workid=" + work_id.String() + ", err=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[deliverer]"+err.Error())
 				// keep retry
 			} else {
-				error_message := strings.Join(response.E, ",")
+				error_message := strings.Join(response.Error, ",")
 				if strings.Contains(error_message, e.ClientNotFound) { // TODO need better method than string search. Maybe a field awe_status.
 					//mark this work in Current_work map as false, something needs to be done in the future
 					//to clean this kind of work that has been proccessed but its result can't be sent to server!
 					//core.Self.Current_work_false(work.Id) //server doesn't know this yet
 					do_retry = false
 				}
-				if response.S == http.StatusOK {
+				if response.Status == http.StatusOK {
 					// success, work delivered
 					logger.Debug(1, "work delivered successfully")
 					do_retry = false
 				} else {
-					logger.Error("deliverer: workid=%s, err=%s", work_id, error_message)
+					logger.Error("(deliverer) response.Status not ok,  workid=%s, err=%s", work_id.String(), error_message)
 				}
 			}
 
@@ -112,31 +113,37 @@ func deliverer_run(control chan int) {
 		}
 	}
 
+	work_path, err := workunit.Path()
+	if err != nil {
+		return
+	}
+
 	// now final status report sent to server, update some local info
 	if workunit.State == core.WORK_STAT_DONE {
-		logger.Event(event.WORK_DONE, "workid="+work_id)
+		logger.Event(event.WORK_DONE, "workid="+work_id.String())
 		core.Self.Increment_total_completed()
 		if conf.AUTO_CLEAN_DIR && workunit.Cmd.Local == false {
-			go removeDirLater(workunit.Path(), conf.CLIEN_DIR_DELAY_DONE)
+			go removeDirLater(work_path, conf.CLIEN_DIR_DELAY_DONE)
 		}
 	} else {
 		if workunit.State == core.WORK_STAT_DISCARDED {
-			logger.Event(event.WORK_DISCARD, "workid="+work_id)
+			logger.Event(event.WORK_DISCARD, "workid="+work_id.String())
 		} else {
-			logger.Event(event.WORK_RETURN, "workid="+work_id)
+			logger.Event(event.WORK_RETURN, "workid="+work_id.String())
 		}
 		core.Self.Increment_total_failed(true)
 		if conf.AUTO_CLEAN_DIR && workunit.Cmd.Local == false {
-			go removeDirLater(workunit.Path(), conf.CLIEN_DIR_DELAY_FAIL)
+			go removeDirLater(work_path, conf.CLIEN_DIR_DELAY_FAIL)
 		}
 	}
 
 	// cleanup
-	err = core.Self.Current_work_delete(work_id, true)
+	err = core.Self.Current_work.Delete(work_id, true)
 	if err != nil {
 		logger.Error("Could not remove work_id %s", work_id)
 	}
 	workmap.Delete(work_id)
+	core.Self.Busy = false
 }
 
 func removeDirLater(path string, duration time.Duration) (err error) {

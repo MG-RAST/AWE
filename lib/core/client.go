@@ -9,45 +9,63 @@ import (
 	"time"
 )
 
-const (
-	CLIENT_STAT_ACTIVE_BUSY = "active-busy"
-	CLIENT_STAT_ACTIVE_IDLE = "active-idle"
-	CLIENT_STAT_SUSPEND     = "suspend"
-	CLIENT_STAT_DELETED     = "deleted"
-)
+// states
+//online bool // server defined
+//suspended bool // server defined
+//busy bool
 
 // this is the Worker
 type Client struct {
-	coAckChannel chan CoAck `bson:"-" json:"-"` //workunit checkout item including data and err (qmgr.Handler -> WorkController)
-	RWMutex
-	Id            string    `bson:"id" json:"id"`     // this is a uuid (the only relevant identifier)
-	Name          string    `bson:"name" json:"name"` // this can be anything you want
-	Group         string    `bson:"group" json:"group"`
-	User          string    `bson:"user" json:"user"`
-	Domain        string    `bson:"domain" json:"domain"`
-	InstanceId    string    `bson:"instance_id" json:"instance_id"`     // Openstack specific
-	InstanceType  string    `bson:"instance_type" json:"instance_type"` // Openstack specific
-	Host          string    `bson:"host" json:"host"`                   // deprecated
-	Hostname      string    `bson:"hostname" json:"hostname"`
-	Host_ip       string    `bson:"host_ip" json:"host_ip"` // Host can be physical machine or VM, whatever is helpful for management
-	CPUs          int       `bson:"cores" json:"cores"`
-	Apps          []string  `bson:"apps" json:"apps"`
-	RegTime       time.Time `bson:"regtime" json:"regtime"`
-	LastCompleted time.Time `bson:"lastcompleted" json:"lastcompleted"` // time of last time a job was completed (can be used to compute idle time)
-	Serve_time    string    `bson:"serve_time" json:"serve_time"`
-	//Idle_time       int             `bson:"idle_time" json:"idle_time"`
-	Status          string          `bson:"Status" json:"Status"`
-	Total_checkout  int             `bson:"total_checkout" json:"total_checkout"`
-	Total_completed int             `bson:"total_completed" json:"total_completed"`
-	Total_failed    int             `bson:"total_failed" json:"total_failed"`
-	Current_work    map[string]bool `bson:"current_work" json:"current_work"` // the bool in the mapping is deprecated. It used to indicate completed work that could not be returned to server
-	Skip_work       []string        `bson:"skip_work" json:"skip_work"`
-	Last_failed     int             `bson:"-" json:"-"`
-	Tag             bool            `bson:"-" json:"-"`
-	Proxy           bool            `bson:"proxy" json:"proxy"`
-	SubClients      int             `bson:"subclients" json:"subclients"`
-	GitCommitHash   string          `bson:"git_commit_hash" json:"git_commit_hash"`
-	Version         string          `bson:"version" json:"version"`
+	coAckChannel    chan CoAck `bson:"-" json:"-"` //workunit checkout item including data and err (qmgr.Handler -> WorkController)
+	RWMutex         `bson:"-" json:"-"`
+	WorkerRuntime   `bson:",inline" json:",inline"`
+	WorkerState     `bson:",inline" json:",inline"`
+	RegTime         time.Time     `bson:"regtime" json:"regtime"`
+	LastCompleted   time.Time     `bson:"lastcompleted" json:"lastcompleted"` // time of last time a job was completed (can be used to compute idle time)
+	Serve_time      string        `bson:"serve_time" json:"serve_time"`
+	Total_checkout  int           `bson:"total_checkout" json:"total_checkout"`
+	Total_completed int           `bson:"total_completed" json:"total_completed"`
+	Total_failed    int           `bson:"total_failed" json:"total_failed"`
+	Skip_work       []string      `bson:"skip_work" json:"skip_work"`
+	Last_failed     int           `bson:"-" json:"-"`
+	Tag             bool          `bson:"-" json:"-"`
+	Proxy           bool          `bson:"proxy" json:"proxy"`
+	SubClients      int           `bson:"subclients" json:"subclients"`
+	Online          bool          `bson:"online" json:"online"`                 // a state
+	Suspended       bool          `bson:"suspended" json:"suspended"`           // a state
+	Suspend_reason  string        `bson:"suspend_reason" json:"suspend_reason"` // a state
+	Status          string        `bson:"Status" json:"Status"`                 // 1) suspended? 2) busy ? 3) online (call is idle) 4) offline
+	Assigned_work   *WorkunitList `bson:"assigned_work" json:"assigned_work"`   // this is for exporting into json
+}
+
+// worker info that does not change at runtime
+type WorkerRuntime struct {
+	Id            string   `bson:"id" json:"id"`     // this is a uuid (the only relevant identifier)
+	Name          string   `bson:"name" json:"name"` // this can be anything you want
+	Group         string   `bson:"group" json:"group"`
+	User          string   `bson:"user" json:"user"`
+	Domain        string   `bson:"domain" json:"domain"`
+	InstanceId    string   `bson:"instance_id" json:"instance_id"`     // Openstack specific
+	InstanceType  string   `bson:"instance_type" json:"instance_type"` // Openstack specific
+	Host          string   `bson:"host" json:"host"`                   // deprecated
+	Hostname      string   `bson:"hostname" json:"hostname"`
+	Host_ip       string   `bson:"host_ip" json:"host_ip"` // Host can be physical machine or VM, whatever is helpful for management
+	CPUs          int      `bson:"cores" json:"cores"`
+	Apps          []string `bson:"apps" json:"apps"`
+	GitCommitHash string   `bson:"git_commit_hash" json:"git_commit_hash"`
+	Version       string   `bson:"version" json:"version"`
+}
+
+// changes at runtime
+type WorkerState struct {
+	Busy         bool          `bson:"busy" json:"busy"` // a state
+	Current_work *WorkunitList `bson:"current_work" json:"current_work"`
+}
+
+func NewWorkerState() (ws *WorkerState) {
+	ws = &WorkerState{}
+	ws.Current_work = NewWorkunitList()
+	return
 }
 
 // invoked by NewClient or manually after unmarshalling
@@ -70,9 +88,10 @@ func (client *Client) Init() {
 	if client.Skip_work == nil {
 		client.Skip_work = []string{}
 	}
-	if client.Current_work == nil {
-		client.Current_work = map[string]bool{}
-	}
+
+	client.Assigned_work.Init("Assigned_work")
+
+	client.Current_work.Init("Current_work")
 
 }
 
@@ -81,10 +100,14 @@ func NewClient() (client *Client) {
 		Total_checkout:  0,
 		Total_completed: 0,
 		Total_failed:    0,
+		Serve_time:      "0",
+		Last_failed:     0,
+		Suspended:       false,
+		Status:          "offline",
+		Assigned_work:   NewWorkunitList(),
 
-		Serve_time:  "0",
-		Last_failed: 0,
-		Status:      CLIENT_STAT_ACTIVE_IDLE,
+		WorkerRuntime: WorkerRuntime{},
+		WorkerState:   *NewWorkerState(),
 	}
 
 	client.Init()
@@ -110,11 +133,22 @@ func NewProfileClient(filepath string) (client *Client, err error) {
 	err = json.Unmarshal(jsonstream, client)
 	if err != nil {
 		err = fmt.Errorf("failed to unmashal json stream for client profile (error: %s) (file: %s) json: %s", err.Error(), filepath, string(jsonstream[:]))
-		return nil, err
+		client = nil
+		return
 	}
 
 	client.Init()
 
+	return
+}
+
+func (this *Client) Add(workid Workunit_Unique_Identifier) (err error) {
+	err = this.Assigned_work.Add(workid)
+	if err != nil {
+		return
+	}
+
+	this.Total_checkout += 1 // TODO add lock ????
 	return
 }
 
@@ -139,18 +173,17 @@ func (cl *Client) Get_Ack() (ack CoAck, err error) {
 	return
 }
 
-func (cl *Client) Append_Skip_work(workid string, write_lock bool) (err error) {
+func (cl *Client) Append_Skip_work(workid Workunit_Unique_Identifier, write_lock bool) (err error) {
 	if write_lock {
 		err = cl.LockNamed("Append_Skip_work")
 		if err != nil {
 			return
 		}
+		defer cl.Unlock()
 	}
 
-	cl.Skip_work = append(cl.Skip_work, workid)
-	if write_lock {
-		cl.Unlock()
-	}
+	cl.Skip_work = append(cl.Skip_work, workid.String())
+
 	return
 }
 
@@ -172,9 +205,10 @@ func (cl *Client) Get_Id(do_read_lock bool) (s string, err error) {
 	return
 }
 
-func (cl *Client) Get_Status(do_read_lock bool) (s string, err error) {
+// this function should not be used internally, this is only for backwards-compatibility and human readability
+func (cl *Client) Get_New_Status(do_read_lock bool) (s string, err error) {
 	if do_read_lock {
-		read_lock, xerr := cl.RLockNamed("Get_Status")
+		read_lock, xerr := cl.RLockNamed("Get_New_Status")
 		if xerr != nil {
 			err = xerr
 			return
@@ -185,7 +219,20 @@ func (cl *Client) Get_Status(do_read_lock bool) (s string, err error) {
 	return
 }
 
-func (cl *Client) Set_Status(s string, write_lock bool) (err error) {
+func (cl *Client) Get_Group(do_read_lock bool) (g string, err error) {
+	if do_read_lock {
+		read_lock, xerr := cl.RLockNamed("Get_Group")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer cl.RUnlockNamed(read_lock)
+	}
+	g = cl.Group
+	return
+}
+
+func (cl *Client) Set_Status_deprecated(s string, write_lock bool) (err error) {
 	if write_lock {
 		err = cl.LockNamed("Set_Status")
 		if err != nil {
@@ -195,6 +242,123 @@ func (cl *Client) Set_Status(s string, write_lock bool) (err error) {
 	}
 	cl.Status = s
 
+	return
+}
+
+func (cl *Client) Update_Status(write_lock bool) (err error) {
+	if write_lock {
+		err = cl.LockNamed("Update_Status")
+		if err != nil {
+			return
+		}
+		defer cl.Unlock()
+	}
+
+	// 1) suspended? 2) busy ? 3) online (call is idle) 4) offline
+
+	if cl.Suspended {
+		cl.Status = "suspended"
+		return
+	}
+
+	if cl.Busy {
+		cl.Status = "busy"
+		return
+	}
+
+	if cl.Online {
+		cl.Status = "online"
+		return
+	}
+
+	cl.Status = "offline"
+	return
+}
+
+func (cl *Client) Set_Suspended(s bool, reason string, write_lock bool) (err error) {
+	if write_lock {
+		err = cl.LockNamed("Set_Suspended")
+		if err != nil {
+			return
+		}
+		defer cl.Unlock()
+	}
+
+	if cl.Suspended != s {
+		cl.Suspended = s
+		if s {
+			if reason == "" {
+				panic("suspending without providing eason not allowed !")
+			}
+		}
+		cl.Suspend_reason = reason
+		cl.Update_Status(false)
+	}
+	return
+}
+
+func (cl *Client) Suspend(reason string, write_lock bool) (err error) {
+	return cl.Set_Suspended(true, reason, write_lock)
+}
+
+func (cl *Client) Resume(write_lock bool) (err error) {
+	return cl.Set_Suspended(false, "", write_lock)
+}
+
+func (cl *Client) Get_Suspended(do_read_lock bool) (s bool, err error) {
+	if do_read_lock {
+		read_lock, xerr := cl.RLockNamed("Get_Suspended")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer cl.RUnlockNamed(read_lock)
+	}
+	s = cl.Suspended
+	return
+}
+
+func (cl *Client) Set_Online(o bool, write_lock bool) (err error) {
+	if write_lock {
+		err = cl.LockNamed("Set_Online")
+		if err != nil {
+			return
+		}
+		defer cl.Unlock()
+	}
+
+	if cl.Online != o {
+		cl.Online = o
+		cl.Update_Status(false)
+	}
+	return
+}
+
+func (cl *Client) Set_Busy(b bool, do_write_lock bool) (err error) {
+	if do_write_lock {
+		err = cl.LockNamed("Set_Busy")
+		if err != nil {
+			return
+		}
+		defer cl.Unlock()
+	}
+	if cl.Busy != b {
+		cl.Busy = b
+		cl.Update_Status(false)
+	}
+	return
+}
+
+func (cl *Client) Get_Busy(do_read_lock bool) (b bool, err error) {
+	if do_read_lock {
+		read_lock, xerr := cl.RLockNamed("Get_Busy")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer cl.RUnlockNamed(read_lock)
+	}
+	b = cl.Busy
 	return
 }
 
@@ -290,118 +454,34 @@ func (cl *Client) Get_Last_failed() (count int, err error) {
 	return
 }
 
-func (cl *Client) Current_work_delete(workid string, write_lock bool) (err error) {
-	if write_lock {
-		err = cl.LockNamed("Current_work_delete")
-		defer cl.Unlock()
-	}
-	delete(cl.Current_work, workid)
-	cw_length, err := cl.Current_work_length(false)
-	if err != nil {
-		return
-	}
-
-	if cw_length == 0 && cl.Status == CLIENT_STAT_ACTIVE_BUSY {
-		cl.Status = CLIENT_STAT_ACTIVE_IDLE
-	}
-	return
-}
-
-func (cl *Client) Current_work_has(workid string) (ok bool, err error) {
-
-	err = cl.LockNamed("Current_work_has")
-	defer cl.Unlock()
-
-	_, ok = cl.Current_work[workid]
-
-	return
-}
-
-func (cl *Client) Get_current_work(do_read_lock bool) (current_work_ids []string, err error) {
-	current_work_ids = []string{}
-	if do_read_lock {
-		read_lock, xerr := cl.RLockNamed("Get_current_work")
-		if xerr != nil {
-			err = xerr
-			return
-		}
-		defer cl.RUnlockNamed(read_lock)
-	}
-	for id := range cl.Current_work {
-		current_work_ids = append(current_work_ids, id)
-	}
-	return
-}
-
-func (cl *Client) Set_current_work(current_work_ids []string, do_write_lock bool) (err error) {
-	current_work_ids = []string{}
-	if do_write_lock {
-		err = cl.LockNamed("Set_current_work")
-		if err != nil {
-			return
-		}
-		defer cl.Unlock()
-	}
-
-	cl.Current_work = make(map[string]bool)
-	for _, workid := range current_work_ids {
-		cl.Current_work[workid] = true
-	}
-
-	return
-}
+//func (cl *Client) Set_current_work(current_work_ids []string, do_write_lock bool) (err error) {
+//	current_work_ids = []string{}
+//	if do_write_lock {
+//		err = cl.LockNamed("Set_current_work")
+//		if err != nil {
+//			return
+//		}
+//		defer cl.Unlock()
+//	}
+//
+//	cl.Assigned_work = make(map[string]bool)
+//	for _, workid := range current_work_ids {
+//		cl.Assigned_work[workid] = true
+//	}
+//
+//	return
+//}
 
 // TODO: Wolfgang: Can we use delete instead ?
-//func (cl *Client) Current_work_false(workid string) (err error) {
-//	err = cl.LockNamed("Current_work_false")
+//func (cl *Client) Assigned_work_false(workid string) (err error) {
+//	err = cl.LockNamed("Assigned_work_false")
 //	if err != nil {
 //		return
 //	}
 //	defer cl.Unlock()
-//	cl.Current_work[workid] = false
+//	cl.Assigned_work[workid] = false
 //	return
 //}
-
-// lock always
-func (cl *Client) Add_work(workid string) (err error) {
-
-	err = cl.LockNamed("Add_work")
-	if err != nil {
-		return
-	}
-	defer cl.Unlock()
-
-	cl.Current_work[workid] = true
-	cl.Total_checkout += 1
-	return
-}
-
-func (cl *Client) Current_work_length(lock bool) (clength int, err error) {
-	if lock {
-		read_lock, xerr := cl.RLockNamed("Current_work_length")
-		if xerr != nil {
-			err = xerr
-			return
-		}
-		defer cl.RUnlockNamed(read_lock)
-	}
-	clength = len(cl.Current_work)
-
-	return
-}
-
-func (cl *Client) IsBusy(lock bool) (busy bool, err error) {
-	cw_length, err := cl.Current_work_length(lock)
-	if err != nil {
-		return
-	}
-	if cw_length > 0 {
-		busy = true
-		return
-	}
-	busy = false
-	return
-}
 
 func (cl *Client) Marshal() (result []byte, err error) {
 	read_lock, err := cl.RLockNamed("Marshal")

@@ -53,3 +53,34 @@ func (jm *JobMap) Add(job *Job) (err error) {
 	jm._map[job.Id] = job // TODO prevent overwriting
 	return
 }
+
+func (jm *JobMap) Delete(jobid string, lock bool) (err error) {
+	if lock {
+		err = jm.LockNamed("Delete")
+		if err != nil {
+			return
+		}
+		defer jm.Unlock()
+	}
+	delete(jm._map, jobid)
+	return
+}
+
+func (jm *JobMap) Get_List(lock bool) (jobs []*Job, err error) {
+	if lock {
+		var read_lock ReadLock
+		read_lock, err = jm.RLockNamed("Get_List")
+		if err != nil {
+			return
+		}
+		defer jm.RUnlockNamed(read_lock)
+	}
+
+	jobs = []*Job{}
+
+	for _, job := range jm._map {
+		jobs = append(jobs, job)
+	}
+
+	return
+}

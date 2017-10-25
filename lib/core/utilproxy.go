@@ -36,7 +36,10 @@ func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 		logger.Event(event.WORK_RETURN, "workid="+work.Id)
 		Self.Increment_total_failed(true)
 	}
-	Self.Current_work_delete(work.Id, true)
+	err = Self.Current_work.Delete(work.Workunit_Unique_Identifier, true)
+	if err != nil {
+		return
+	}
 	//delete(Self.Current_work, work.Id)
 	return
 }

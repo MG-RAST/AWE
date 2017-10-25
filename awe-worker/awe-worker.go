@@ -18,8 +18,10 @@ func main() {
 
 	// workstealer -> dataMover (download from Shock) -> processor -> deliverer (upload to Shock)
 
-	if err := conf.Init_conf("client"); err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: "+err.Error())
+	err := conf.Init_conf("worker")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: error reading conf file: "+err.Error())
+
 		os.Exit(1)
 	}
 
@@ -75,7 +77,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	var self *core.Client
+	core.SetClientProfile(profile)
+	self := core.Self
+	//var self *core.Client
 	if worker.Client_mode == "online" {
 		if conf.SERVER_URL == "" {
 			fmt.Fprintf(os.Stderr, "AWE server url not configured or is empty. Please check the [Client]serverurl field in the configuration file.\n")
@@ -86,20 +90,17 @@ func main() {
 			os.Exit(1)
 		}
 
-		self, err = worker.RegisterWithAuth(conf.SERVER_URL, profile)
+		err = worker.RegisterWithAuth(conf.SERVER_URL, profile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "fail to register: %s\n", err.Error())
 			logger.Error("fail to register: %s\n", err.Error())
 			os.Exit(1)
 		}
 
-	} else {
-		self = core.NewClient()
 	}
 
-	core.SetClientProfile(self)
 	if worker.Client_mode == "online" {
-		fmt.Printf("Client registered, name=%s, id=%s\n", self.Name, self.Id)
+		fmt.Printf("Client registered, name=%s, id=%s\n", self.WorkerRuntime.Name, self.Id)
 		logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)
 	}
 
@@ -111,43 +112,25 @@ func main() {
 			time.Sleep(time.Second)
 			os.Exit(1)
 		}
-		job_doc, err := cwl.ParseJob(conf.CWL_JOB)
+		job_doc, err := cwl.ParseJobFile(conf.CWL_JOB)
 		if err != nil {
 			logger.Error("error parsing cwl job: %v", err)
 			time.Sleep(time.Second)
 			os.Exit(1)
 		}
 
+		fmt.Println("Job input:")
 		spew.Dump(*job_doc)
-
-		for name, array := range *job_doc {
-
-			fmt.Println(name)
-
-			for _, element := range array {
-				switch element.(type) {
-				case *cwl.File:
-					file, ok := element.(*cwl.File)
-					if !ok {
-						panic("not file")
-					}
-					fmt.Printf("%+v\n", *file)
-
-				default:
-					spew.Dump(element)
-				}
-			}
-		}
 
 		os.Getwd() //https://golang.org/pkg/os/#Getwd
 
-		workunit := &core.Workunit{Id: "00000000-0000-0000-0000-000000000000_0_0", CWL: &core.CWL_workunit{}}
+		workunit := &core.Workunit{Id: "00000000-0000-0000-0000-000000000000_0_0", CWL_workunit: core.NewCWL_workunit()}
 
-		workunit.CWL.CWL_job = job_doc
-		workunit.CWL.CWL_job_filename = conf.CWL_JOB
+		workunit.CWL_workunit.Job_input = job_doc
+		workunit.CWL_workunit.Job_input_filename = conf.CWL_JOB
 
-		workunit.CWL.CWL_tool_filename = conf.CWL_TOOL
-		workunit.CWL.CWL_tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
+		workunit.CWL_workunit.CWL_tool_filename = conf.CWL_TOOL
+		workunit.CWL_workunit.CWL_tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
 
 		current_working_directory, err := os.Getwd()
 		if err != nil {
@@ -157,13 +140,15 @@ func main() {
 		}
 		workunit.WorkPath = current_working_directory
 
-		workunit.Cmd = &core.Command{}
-		workunit.Cmd.Local = true // this makes sure the working directory is not deleted
-		workunit.Cmd.Name = "/usr/bin/cwl-runner"
+		cmd := &core.Command{}
+		cmd.Local = true // this makes sure the working directory is not deleted
+		cmd.Name = "/usr/bin/cwl-runner"
 
-		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL.CWL_tool_filename, workunit.CWL.CWL_job_filename}
+		cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL_workunit.CWL_tool_filename, workunit.CWL_workunit.Job_input_filename}
 
-		workunit.WorkPerf = core.NewWorkPerf(workunit.Id)
+		workunit.Cmd = cmd
+
+		workunit.WorkPerf = core.NewWorkPerf()
 		workunit.WorkPerf.Checkout = time.Now().Unix()
 
 		logger.Debug(1, "injecting cwl job into worker...")

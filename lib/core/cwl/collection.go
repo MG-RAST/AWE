@@ -12,12 +12,14 @@ type CWL_collection struct {
 	Workflows          map[string]*Workflow
 	WorkflowStepInputs map[string]*WorkflowStepInput
 	CommandLineTools   map[string]*CommandLineTool
-	Files              map[string]*File
-	Strings            map[string]*String
-	Ints               map[string]*Int
-	Booleans           map[string]*Boolean
-	All                map[string]*CWL_object
-	Job_input          *Job_document
+
+	Files    map[string]*File
+	Strings  map[string]*String
+	Ints     map[string]*Int
+	Booleans map[string]*Boolean
+	All      map[string]*CWL_object // everything goes in here
+	//Job_input          *Job_document
+	Job_input_map *JobDocMap
 }
 
 func (c CWL_collection) Evaluate(raw string) (parsed string) {
@@ -74,26 +76,38 @@ func (c CWL_collection) Add(obj CWL_object) (err error) {
 	}
 	//id = strings.TrimPrefix(id, "#")
 
-	switch obj.GetClass() {
+	class := obj.GetClass()
+
+	// fix case in class
+	class, ok = IsValidClass(class)
+
+	if !ok {
+		err = fmt.Errorf("Class %s not found", class)
+		return
+	}
+
+	switch class {
 	case "Workflow":
 		c.Workflows[id] = obj.(*Workflow)
 	case "WorkflowStepInput":
 		c.WorkflowStepInputs[id] = obj.(*WorkflowStepInput)
 	case "CommandLineTool":
 		c.CommandLineTools[id] = obj.(*CommandLineTool)
-	case CWL_File:
+	case string(CWL_File):
 		c.Files[id] = obj.(*File)
-	case CWL_string:
+	case string(CWL_string):
 		c.Strings[id] = obj.(*String)
-	case CWL_boolean:
+	case string(CWL_boolean):
 		c.Booleans[id] = obj.(*Boolean)
-	case CWL_int:
+	case string(CWL_int):
 		obj_int, ok := obj.(*Int)
 		if !ok {
 			err = fmt.Errorf("could not make Int type assertion")
 			return
 		}
 		c.Ints[id] = obj_int
+	default:
+		logger.Debug(3, "adding type %s to CWL_collection.All", class)
 	}
 	c.All[id] = &obj
 
@@ -109,6 +123,31 @@ func (c CWL_collection) Get(id string) (obj *CWL_object, err error) {
 		err = fmt.Errorf("(All) item %s not found in collection", id)
 	}
 	return
+}
+
+func (c CWL_collection) GetCWLType(id string) (obj CWLType, err error) {
+	var ok bool
+	obj, ok = c.Files[id]
+	if ok {
+		return
+	}
+	obj, ok = c.Strings[id]
+	if ok {
+		return
+	}
+
+	obj, ok = c.Ints[id]
+	if ok {
+		return
+	}
+	obj, ok = c.Booleans[id]
+	if ok {
+		return
+	}
+
+	err = fmt.Errorf("(GetType) %s not found", id)
+	return
+
 }
 
 func (c CWL_collection) GetFile(id string) (obj *File, err error) {
@@ -139,6 +178,22 @@ func (c CWL_collection) GetWorkflowStepInput(id string) (obj *WorkflowStepInput,
 	obj, ok := c.WorkflowStepInputs[id]
 	if !ok {
 		err = fmt.Errorf("(GetWorkflowStepInput) item %s not found in collection", id)
+	}
+	return
+}
+
+func (c CWL_collection) GetCommandLineTool(id string) (obj *CommandLineTool, err error) {
+	obj, ok := c.CommandLineTools[id]
+	if !ok {
+		err = fmt.Errorf("(GetCommandLineTool) item %s not found in collection", id)
+	}
+	return
+}
+
+func (c CWL_collection) GetWorkflow(id string) (obj *Workflow, err error) {
+	obj, ok := c.Workflows[id]
+	if !ok {
+		err = fmt.Errorf("(GetWorkflow) item %s not found in collection", id)
 	}
 	return
 }

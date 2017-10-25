@@ -57,9 +57,9 @@ func (qm *ProxyMgr) ClientHandle() {
 			//qm.coAck <- ack
 			coReq.response <- ack
 		case notice := <-qm.feedback:
-			logger.Debug(2, fmt.Sprintf("proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.WorkId, notice.Status, notice.ClientId))
-			if err := qm.handleWorkStatusChange(notice); err != nil {
-				logger.Error("handleWorkStatusChange(): " + err.Error())
+			logger.Debug(2, fmt.Sprintf("proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.Id, notice.Status, notice.WorkerId))
+			if err := qm.handleNoticeWorkDelivered(notice); err != nil {
+				logger.Error("handleNoticeWorkDelivered(): " + err.Error())
 			}
 		}
 	}
@@ -99,30 +99,23 @@ func (qm *ProxyMgr) GetTextStatus() string {
 // workunit methods
 
 //handle feedback from a client about the execution of a workunit
-func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
+func (qm *ProxyMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	//relay the notice to the server
 	perf := new(WorkPerf)
-	workid := notice.WorkId
-	clientid := notice.ClientId
+	workid := notice.Id
+	clientid := notice.WorkerId
 	client, ok, err := qm.GetClient(clientid, true)
 	if err != nil {
 		return
 	}
 	if ok {
 		//delete(client.Current_work, workid)
-		client.LockNamed("ProxyMgr/handleWorkStatusChange A2")
-		err = client.Current_work_delete(workid, false)
+		client.LockNamed("ProxyMgr/handleNoticeWorkDelivered A2")
+		err = client.Assigned_work.Delete(notice.Id, false)
 		if err != nil {
 			return
 		}
-		cw_length, xerr := client.Current_work_length(false)
-		if xerr != nil {
-			err = xerr
-			return
-		}
-		if cw_length == 0 {
-			client.Status = CLIENT_STAT_ACTIVE_IDLE
-		}
+
 		qm.AddClient(client, true)
 		client.Unlock()
 	}
@@ -131,7 +124,10 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 		return
 	}
 	if ok {
-		work.SetState(notice.Status)
+		err = work.SetState(notice.Status, "")
+		if err != nil {
+			return
+		}
 		if err = proxy_relay_workunit(work, perf); err != nil {
 			return
 		}
@@ -153,7 +149,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 				return
 			}
 			if ok {
-				client.LockNamed("ProxyMgr/handleWorkStatusChange B")
+				client.LockNamed("ProxyMgr/handleNoticeWorkDelivered B")
 				err = client.Append_Skip_work(workid, false)
 				if err != nil {
 					return
@@ -164,7 +160,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 				}
 				client.Last_failed += 1 //last consecutive failures
 				if client.Last_failed == conf.MAX_CLIENT_FAILURE {
-					client.Status = CLIENT_STAT_SUSPEND
+					client.Suspend("MAX_CLIENT_FAILURE reached", false)
 				}
 				qm.AddClient(client, false)
 				client.Unlock()
@@ -175,7 +171,7 @@ func (qm *ProxyMgr) handleWorkStatusChange(notice Notice) (err error) {
 	return
 }
 
-func (qm *ProxyMgr) FetchDataToken(workid string, clientid string) (token string, err error) {
+func (qm *ProxyMgr) FetchDataToken(workunit *Workunit, clientid string) (token string, err error) {
 	return
 }
 
@@ -206,20 +202,22 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 		return nil, errors.New("Clientgroup name in token does not match that in the client configuration.")
 	}
 	qm.AddClient(client, true)
-	cw_length, err := client.Current_work_length(false)
+	cw_length, err := client.Current_work.Length(false)
 	if err != nil {
 		return
 	}
 	if cw_length > 0 { //re-registered client
 		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
 
-		for workid, _ := range client.Current_work {
+		work_list, _ := client.Current_work.Get_list(false)
+
+		for _, workid := range work_list {
 			has_work, err := qm.workQueue.Has(workid)
 			if err != nil {
 				continue
 			}
 			if has_work {
-				qm.workQueue.StatusChange(workid, nil, WORK_STAT_CHECKOUT)
+				qm.workQueue.StatusChange(workid, nil, WORK_STAT_CHECKOUT, "")
 			}
 		}
 
@@ -259,7 +257,7 @@ func (qm *ProxyMgr) ClientChecker() {
 
 			} else {
 				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
-				logger.Event(event.CLIENT_UNREGISTER, "clientid="+client.Id+";name="+client.Name)
+				logger.Event(event.CLIENT_UNREGISTER, "clientid="+client.Id)
 
 				//qm.RemoveClient(client.Id)
 				delete_clients = append(delete_clients, client.Id)

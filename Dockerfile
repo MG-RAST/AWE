@@ -2,6 +2,12 @@
 # docker build --force-rm --no-cache --rm -t mgrast/awe .
 # docker tag mgrast/awe mgrast/awe:${TAG}
 
+# skycore push mgrast/awe:${TAG}
+# docker create --name awe-temporary mgrast/awe:${TAG}
+# docker cp awe-temporary:/go/bin/awe-worker .
+# docker cp awe-temporary:/go/bin/awe-submitter .
+# docker rm awe-temporary
+
 
 FROM golang:1.7.6-alpine
 

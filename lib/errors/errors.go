@@ -22,6 +22,8 @@ const (
 	NoAuth                   = "No Authorization"
 	NoEligibleWorkunitFound  = "No eligible workunit found"
 	QueueEmpty               = "Server queue is empty"
+	QueueFull                = "Server queue is full"
 	QueueSuspend             = "Server queue is suspended"
 	UnAuth                   = "User Unauthorized"
+	ServerNotFound           = "Server not found"
 )

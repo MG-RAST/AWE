@@ -2406,7 +2406,7 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 			// this an update output, it will update an existing shock node and not create a new one (it will update metadata of the shock node)
 			if (io.Node == "") || (io.Node == "-") {
 				if io.Origin == "" {
-					err = fmt.Errorf("(createOutputNode) update output %s in task %s is missing required origin", name, task.Id)
+					err = fmt.Errorf("(createOutputNode) update output %s in task %s is missing required origin", name, task.String())
 					return
 				}
 				var nodeid string
@@ -2417,10 +2417,10 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 				}
 				io.Node = nodeid
 			}
-			logger.Debug(2, "outout %s in task %s is an update of node %s", name, task.Id, io.Node)
+			logger.Debug(2, "outout %s in task %s is an update of node %s", name, task.String(), io.Node)
 		} else {
 			// POST empty shock node for this output
-			logger.Debug(2, "posting output Shock node for file %s in task %s", name, task.Id)
+			logger.Debug(2, "posting output Shock node for file %s in task %s", name, task.String())
 			var nodeid string
 
 			sc := shock.ShockClient{Host: io.Host, Token: task.Info.DataToken}
@@ -2431,7 +2431,7 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 			}
 			io.Node = nodeid
 			modified = true
-			logger.Debug(2, "task %s: output Shock node created, node=%s", task.Id, nodeid)
+			logger.Debug(2, "task %s: output Shock node created, node=%s", task.String(), nodeid)
 		}
 	}
 
@@ -2492,7 +2492,7 @@ func (qm *ServerMgr) ShowTasks() {
 		if err != nil {
 			state = "unknown"
 		}
-		logger.Debug(1, "taskid=%s;status=%s", task.Id, state)
+		logger.Debug(1, "taskid=%s;status=%s", task.String(), state)
 	}
 }
 
@@ -2522,7 +2522,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	if err != nil {
 		return
 	}
-	logger.Debug(2, "remaining tasks for job %s: %d", task.Id, remainTasks)
+	logger.Debug(2, "remaining tasks for job %s: %d", task.String(), remainTasks)
 
 	// check if this was the last task in a subworkflow
 
@@ -3419,7 +3419,7 @@ func isAncestor(job *Job, taskId string, testId string) bool {
 	}
 	idx := -1
 	for i, t := range job.Tasks {
-		if t.Id == taskId {
+		if t.String() == taskId {
 			idx = i
 			break
 		}
@@ -3488,7 +3488,7 @@ func (qm *ServerMgr) FinalizeJobPerf(jobid string) {
 
 func (qm *ServerMgr) CreateTaskPerf(task *Task) {
 	jobid := task.JobId
-	taskid := task.Id
+	taskid := task.String()
 	if perf, ok := qm.getActJob(jobid); ok {
 		perf.Ptasks[taskid] = NewTaskPerf(taskid)
 		qm.putActJob(perf)
@@ -3497,7 +3497,7 @@ func (qm *ServerMgr) CreateTaskPerf(task *Task) {
 
 func (qm *ServerMgr) UpdateTaskPerfStartTime(task *Task) {
 	jobid := task.JobId
-	taskid := task.Id
+	taskid := task.String()
 	if jobperf, ok := qm.getActJob(jobid); ok {
 		if taskperf, ok := jobperf.Ptasks[taskid]; ok {
 			now := time.Now().Unix()
@@ -3515,7 +3515,7 @@ func (qm *ServerMgr) FinalizeTaskPerf(task *Task) (err error) {
 		return
 	}
 	if jobperf, ok := qm.getActJob(jobid); ok {
-		combined_id := jobid + "_" + task.Id
+		combined_id := task.String()
 		if taskperf, ok := jobperf.Ptasks[combined_id]; ok {
 			now := time.Now().Unix()
 			taskperf.End = now
@@ -3605,13 +3605,28 @@ func (qm *ServerMgr) FetchPrivateEnv(id Workunit_Unique_Identifier, clientid str
 		err = errors.New(e.ClientSuspended)
 		return
 	}
-	jobid := id.JobId
-	taskid := id.TaskName
+	//jobid := id.JobId
+	//taskid := id.TaskName
 
-	env, err = dbGetPrivateEnv(jobid, taskid)
+	//job, err := GetJob(jobid)
+
+	task, ok, err := qm.TaskMap.Get(id.Task_Unique_Identifier, true)
 	if err != nil {
+		err = fmt.Errorf("(FetchPrivateEnv) qm.TaskMap.Get returned: %s", err.Error())
 		return
 	}
 
+	if !ok {
+		err = fmt.Errorf("(FetchPrivateEnv) task %s not found in qm.TaskMap", task.String())
+		return
+	}
+
+	env = task.Cmd.Environ.Private
 	return
+	//env, err = dbGetPrivateEnv(jobid, taskid)
+	//if err != nil {
+	//	return
+	//}
+
+	//return
 }

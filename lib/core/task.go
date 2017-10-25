@@ -116,7 +116,7 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		return
 	}
 
-	task.RWMutex.Init("task_" + task.Id)
+	task.RWMutex.Init("task_" + task.String())
 
 	job_id := job.Id
 
@@ -124,7 +124,23 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		err = fmt.Errorf("(InitRaw) job_id empty")
 		return
 	}
-	task.JobId = job_id
+
+	if task.JobId == "" {
+		task.JobId = job_id
+		changed = true
+	}
+
+	// job_id is missing and task_id is only a number (e.g. on submission of old-style AWE)
+	if len(task.Id) < 10 {
+		task.TaskName = task.Id
+		changed = true
+	}
+
+	correct_id_string := task.String()
+	if task.Id != correct_id_string {
+		task.Id = correct_id_string
+		changed = true
+	}
 
 	if task.State == "" {
 		task.State = TASK_STAT_INIT
@@ -152,20 +168,15 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		task.Cmd.HasPrivateEnv = true
 	}
 
-	if strings.HasPrefix(task.Id, task.JobId+"_") {
-		task.Id = strings.TrimPrefix(task.Id, task.JobId+"_")
-		changed = true
-	}
+	//if strings.HasPrefix(task.Id, task.JobId+"_") {
+	//	task.Id = strings.TrimPrefix(task.Id, task.JobId+"_")
+	//	changed = true
+	//}
 
-	if strings.HasPrefix(task.Id, "_") {
-		task.Id = strings.TrimPrefix(task.Id, "_")
-		changed = true
-	}
-
-	if task.Task_Unique_Identifier.TaskName == "" {
-		task.Task_Unique_Identifier.TaskName = task.Id
-		changed = true
-	}
+	//if strings.HasPrefix(task.Id, "_") {
+	//	task.Id = strings.TrimPrefix(task.Id, "_")
+	//	changed = true
+	//}
 
 	if task.StepOutputInterface != nil {
 		task.StepOutput, err = cwl.NewJob_documentFromNamedTypes(task.StepOutputInterface)
@@ -229,6 +240,12 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 	if err != nil {
 		return
 	}
+
+	if jobid == "" {
+		err = fmt.Errorf("(CollectDependencies) jobid is empty")
+		return
+	}
+
 	job_prefix := jobid + "_"
 
 	// collect explicit dependencies

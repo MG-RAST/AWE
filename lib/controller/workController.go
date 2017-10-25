@@ -92,7 +92,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		if query.Has("privateenv") { //a client is requesting data token for this job
 			envs, err := core.QMgr.FetchPrivateEnv(work_id, clientid)
 			if err != nil {
-				cx.RespondWithErrorMessage("error in getting token for job "+id+" :"+err.Error(), http.StatusBadRequest)
+				cx.RespondWithErrorMessage("error in getting private environment for job "+id+" :"+err.Error(), http.StatusBadRequest)
 				return
 			}
 			//cx.RespondWithData(token)

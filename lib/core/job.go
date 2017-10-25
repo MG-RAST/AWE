@@ -330,7 +330,7 @@ func (job *Job) Init() (changed bool, err error) {
 	job.RemainTasks = 0
 
 	for _, task := range job.Tasks {
-		if task.Id == "" {
+		if task.String() == "" {
 			// suspend and create error
 			logger.Error("(job.Init) task.Id empty, job %s broken?", job.Id)
 			//task.Id = job.Id + "_" + uuid.New()
@@ -391,7 +391,7 @@ func (job *Job) Init() (changed bool, err error) {
 		inputFileNames := make(map[string]bool)
 		for _, io := range task.Inputs {
 			if _, exists := inputFileNames[io.FileName]; exists {
-				err = errors.New("(job.Init) invalid inputs: task " + task.Id + " contains multiple inputs with filename=" + io.FileName)
+				err = errors.New("(job.Init) invalid inputs: task " + task.String() + " contains multiple inputs with filename=" + io.FileName)
 				return
 			}
 			inputFileNames[io.FileName] = true
@@ -958,7 +958,7 @@ func (job *Job) GetDataToken() (token string) {
 
 func (job *Job) GetPrivateEnv(taskid string) (env map[string]string) {
 	for _, task := range job.Tasks {
-		if taskid == task.Id {
+		if taskid == task.String() {
 			return task.Cmd.Environ.Private
 		}
 	}

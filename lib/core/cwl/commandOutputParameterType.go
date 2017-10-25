@@ -15,15 +15,15 @@ import (
 // CWLType | stdout | stderr | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string |
 // array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
 
-type CommandOutputParameterType interface {
-	Is_CommandOutputParameterType()
-}
+//type CommandOutputParameterType interface {
+//	Is_CommandOutputParameterType()
+//}
 
 type CommandOutputParameterTypeImpl struct {
 	Type string
 }
 
-func (c *CommandOutputParameterTypeImpl) Is_CommandOutputParameterType() {}
+//func (c *CommandOutputParameterTypeImpl) Is_CommandOutputParameterType() {}
 
 // func NewCommandOutputParameterType(original interface{}) (copt_ptr *CommandOutputParameterType, err error) {
 //

@@ -108,7 +108,7 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 
 		for _, value := range job_doc {
 
-			id := value.GetId()
+			id := value.Id
 			fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
 			sub_count, err = processInputData(value, inputfile_path)
@@ -119,6 +119,14 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 		}
 
 		return
+	case cwl.NamedCWLType:
+		named := native.(cwl.NamedCWLType)
+		var sub_count int
+		sub_count, err = processInputData(named.Value, inputfile_path)
+		if err != nil {
+			return
+		}
+		count += sub_count
 
 	case *cwl.String:
 		fmt.Printf("found string\n")
@@ -145,7 +153,7 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 			return
 		}
 
-		for _, value := range array.Items {
+		for _, value := range *array {
 
 			id := value.GetId()
 			fmt.Printf("recurse into key: %s\n", id)
@@ -158,6 +166,31 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 
 		}
 		return
+
+	case *cwl.Directory:
+
+		dir, ok := native.(*cwl.Directory)
+		if !ok {
+			err = fmt.Errorf("could not cast to *cwl.Directory")
+			return
+		}
+
+		if dir.Listing != nil {
+
+			for k, _ := range dir.Listing {
+				value := dir.Listing[k]
+				var sub_count int
+				sub_count, err = processInputData(value, inputfile_path)
+				if err != nil {
+					return
+				}
+				count += sub_count
+
+			}
+
+		}
+		return
+
 	default:
 		spew.Dump(native)
 		err = fmt.Errorf("(processInputData) No handler for type \"%s\"\n", reflect.TypeOf(native))
@@ -209,14 +242,18 @@ func main_wrapper() (err error) {
 	fmt.Println("Job input after reading from file:")
 	spew.Dump(*job_doc)
 
-	data, err := yaml.Marshal(*job_doc)
+	job_doc_map := job_doc.GetMap()
+	fmt.Println("Job input after reading from file: map !!!!\n")
+	spew.Dump(job_doc_map)
+
+	data, err := yaml.Marshal(job_doc_map)
 	if err != nil {
 		fmt.Printf("error: %s", err.Error())
 		os.Exit(1)
 	}
 
 	job_doc_string := string(data[:])
-	fmt.Printf("job_doc_string: \"%s\"\n", job_doc_string)
+	fmt.Printf("job_doc_string:\n \"%s\"\n", job_doc_string)
 	if job_doc_string == "" {
 		fmt.Println("job_doc_string is empty")
 		os.Exit(1)
@@ -234,8 +271,10 @@ func main_wrapper() (err error) {
 	fmt.Printf("%d files have been uploaded\n", upload_count)
 	time.Sleep(2)
 
+	spew.Dump(*job_doc)
+	job_doc_map = job_doc.GetMap()
 	fmt.Println("------------Job input after parsing:")
-	data, err = yaml.Marshal(*job_doc)
+	data, err = yaml.Marshal(job_doc_map)
 	if err != nil {
 		fmt.Printf("error: %s", err.Error())
 		os.Exit(1)

@@ -81,8 +81,17 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 			logger.Debug(3, "input %s not found, replace with Null object")
 		}
 
+		if input_obj_ref == nil {
+			err = fmt.Errorf("(CWL_input_check) input_obj_ref == nil")
+			return
+		}
 		// Get type of CWL_Type we found
 		input_type := input_obj_ref.GetType()
+		if input_type == nil {
+
+			err = fmt.Errorf("(CWL_input_check) input_type == nil %s", spew.Sdump(input_obj_ref))
+			return
+		}
 		//input_type_str := "unknown"
 		logger.Debug(1, "(CWL_input_check) input_type: %s (%s)", input_type, input_type.Type2String())
 
@@ -111,6 +120,50 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 	return
 }
 
+func CreateTasks(job *Job, workflow string, steps []cwl.WorkflowStep) (tasks []*Task, err error) {
+	tasks = []*Task{}
+
+	for s, _ := range steps {
+
+		step := steps[s] // I could not do "_, step := range", that leas to very strange behaviour ?!??!
+
+		//task_name := strings.Map(
+		//	func(r rune) rune {
+		//		if syntax.IsWordChar(r) || r == '/' || r == '-' { // word char: [0-9A-Za-z_]
+		//			return r
+		//		}
+		//		return -1
+		//	},
+		//	step.Id)
+
+		if !strings.HasPrefix(step.Id, "#") {
+			err = fmt.Errorf("Workflow step name does not start with a #: %s", step.Id)
+			return
+		}
+		task_name := strings.TrimSuffix(step.Id, "/")
+
+		if task_name == "" {
+			err = fmt.Errorf("(CreateTasks) step_id is empty")
+			return
+		}
+
+		//task_name := strings.TrimPrefix(step.Id, "#main/")
+		//task_name = strings.TrimPrefix(task_name, "#")
+		var awe_task *Task
+		awe_task, err = NewTask(job, workflow, task_name)
+		if err != nil {
+			err = fmt.Errorf("(CreateTasks) NewTask returned: %s", err.Error())
+			return
+		}
+
+		awe_task.WorkflowStep = &step
+		//spew.Dump(step)
+		tasks = append(tasks, awe_task)
+
+	}
+	return
+}
+
 func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, collection *cwl.CWL_collection) (job *Job, err error) {
 
 	//CommandLineTools := collection.CommandLineTools
@@ -126,6 +179,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	//os.Exit(0)
 	job = NewJob()
+	job.setId()
 	//job.CWL_workflow = cwl_workflow
 
 	logger.Debug(1, "Job created")
@@ -165,40 +219,25 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	// TODO first check that all resources are available: local files and remote links
 
-	//helper := Helper{}
+	main_wi := WorkflowInstance{Id: "::main::", Inputs: *job_input, RemainTasks: len(cwl_workflow.Steps)}
+	//new_wis := []WorkflowInstance{main_wi} // Not using AddWorkflowInstance to avoid mongo
+	job.WorkflowInstances = make([]interface{}, 1)
+	job.WorkflowInstances[0] = main_wi
 
-	//processed_ws := make(map[string]*cwl.WorkflowStep)
-	//unprocessed_ws := make(map[string]*cwl.WorkflowStep)
-	//awe_tasks := make(map[string]*Task)
-	//helper.processed_ws = &processed_ws
-	//helper.unprocessed_ws = &unprocessed_ws
-	//helper.collection = collection
-	//helper.job = job
-	//helper.AWE_tasks = &awe_tasks
+	//if err != nil {
+	//	return
+	//}
 
-	for _, step := range cwl_workflow.Steps {
-		//task_name := strings.Map(
-		//	func(r rune) rune {
-		//		if syntax.IsWordChar(r) || r == '/' || r == '-' { // word char: [0-9A-Za-z_]
-		//			return r
-		//		}
-		//		return -1
-		//	},
-		//	step.Id)
-
-		if !strings.HasPrefix(step.Id, "#") {
-			err = fmt.Errorf("Workflow step name does not start with a #: %s", step.Id)
-			return
-		}
-
-		task_name := strings.TrimPrefix(step.Id, "#main/")
-		task_name = strings.TrimPrefix(task_name, "#")
-		awe_task := NewTask(job, task_name)
-		awe_task.WorkflowStep = &step
-		job.Tasks = append(job.Tasks, awe_task)
+	var tasks []*Task
+	tasks, err = CreateTasks(job, "", cwl_workflow.Steps)
+	if err != nil {
+		return
 	}
 
+	job.Tasks = tasks
+
 	_, err = job.Init()
+
 	if err != nil {
 		err = fmt.Errorf("job.Init() failed: %s", err.Error())
 		return

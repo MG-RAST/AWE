@@ -133,7 +133,7 @@ func (cl *WorkunitList) FillMap() (err error) {
 
 	for _, id_str := range cl.Data {
 
-		id, xerr := New_Workunit_Unique_Identifier(id_str)
+		id, xerr := New_Workunit_Unique_Identifier_FromString(id_str)
 		if xerr != nil {
 			err = xerr
 			return

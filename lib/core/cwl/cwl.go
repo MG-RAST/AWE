@@ -35,7 +35,7 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 		return
 	}
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}
@@ -189,6 +189,7 @@ func Add_to_collection(collection *CWL_collection, object_array CWL_object_array
 	for _, object := range object_array {
 		err = collection.Add(object)
 		if err != nil {
+			err = fmt.Errorf("(Add_to_collection) collection.Add returned: %s", err.Error())
 			return
 		}
 	}

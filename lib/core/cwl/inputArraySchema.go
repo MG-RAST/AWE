@@ -11,7 +11,7 @@ type InputArraySchema struct { // Items, Type , Label
 	InputBinding *CommandLineBinding `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"`
 }
 
-func (c *InputArraySchema) Is_CommandOutputParameterType() {}
+//func (c *InputArraySchema) Is_CommandOutputParameterType() {}
 
 func (c *InputArraySchema) Type2String() string { return "CommandOutputArraySchema" }
 
@@ -25,7 +25,7 @@ func NewInputArraySchema() (coas *InputArraySchema) {
 
 func NewInputArraySchemaFromInterface(original interface{}) (coas *InputArraySchema, err error) {
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

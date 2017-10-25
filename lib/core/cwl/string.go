@@ -2,47 +2,55 @@ package cwl
 
 import (
 	"fmt"
-	"github.com/mitchellh/mapstructure"
+	//"github.com/mitchellh/mapstructure"
 )
 
-type String struct {
-	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	//Class        CWLType_Type `yaml:"class,omitempty" json:"class,omitempty" bson:"class,omitempty"`
-	Value string `yaml:"value,omitempty" json:"value,omitempty" bson:"value,omitempty"`
-}
+//type String struct {
+//	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+//	//Class        CWLType_Type `yaml:"class,omitempty" json:"class,omitempty" bson:"class,omitempty"`
+//	Value string `yaml:"value,omitempty" json:"value,omitempty" bson:"value,omitempty"`
+//}
 
-func (s *String) GetClass() string { return string(CWL_string) } // for CWL_object
+type String string
 
-func (s *String) String() string { return s.Value }
+func (s *String) GetClass() string      { return string(CWL_string) } // for CWL_object
+func (s *String) GetType() CWLType_Type { return CWL_string }
+func (s *String) String() string        { return string(*s) }
 
-func NewString(id string, value string) (s *String) {
+func (s *String) GetId() string  { return "" }
+func (s *String) SetId(i string) {}
 
-	s = &String{}
-	s.Id = id
-	s.Class = string(CWL_string)
-	s.Type = CWL_string
-	s.Value = value
+func (s *String) Is_CWL_minimal() {}
+
+func NewStringFromstring(value string) (s *String) {
+
+	var s_nptr String
+	s_nptr = String(value)
+
+	s = &s_nptr
 
 	return
 
 }
 
-func NewStringFromInterface(id string, native interface{}) (s *String, err error) {
-	//s = &String{Class: CWL_string}
-	s = &String{}
+func NewString(id string, value string) (s *String) {
 
-	err = mapstructure.Decode(native, s)
-	if err != nil {
-		err = fmt.Errorf("(NewStringFromInterface) Could not convert fo string object")
+	_ = id
+
+	return NewStringFromstring(value)
+
+}
+
+func NewStringFromInterface(id string, native interface{}) (s *String, err error) {
+
+	_ = id
+
+	real_string, ok := native.(string)
+	if !ok {
+		err = fmt.Errorf("(NewStringFromInterface) Cannot create string")
 		return
 	}
-
-	s.Class = string(CWL_string)
-	s.Type = CWL_string
-
-	if id != "" {
-		s.Id = id
-	}
+	s = NewStringFromstring(real_string)
 
 	return
 }

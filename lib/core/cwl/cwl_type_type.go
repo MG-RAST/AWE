@@ -62,7 +62,7 @@ func NewCWLType_TypeFromString(native string) (result CWLType_Type, err error) {
 
 func NewCWLType_Type(native interface{}, context string) (result CWLType_Type, err error) {
 
-	native, err = makeStringMap(native)
+	native, err = MakeStringMap(native)
 	if err != nil {
 		return
 	}

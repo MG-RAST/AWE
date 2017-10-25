@@ -19,7 +19,7 @@ type CWL_collection struct {
 	Booleans map[string]*Boolean
 	All      map[string]*CWL_object // everything goes in here
 	//Job_input          *Job_document
-	Job_input_map *map[string]CWLType
+	Job_input_map *JobDocMap
 }
 
 func (c CWL_collection) Evaluate(raw string) (parsed string) {
@@ -186,6 +186,14 @@ func (c CWL_collection) GetCommandLineTool(id string) (obj *CommandLineTool, err
 	obj, ok := c.CommandLineTools[id]
 	if !ok {
 		err = fmt.Errorf("(GetCommandLineTool) item %s not found in collection", id)
+	}
+	return
+}
+
+func (c CWL_collection) GetWorkflow(id string) (obj *Workflow, err error) {
+	obj, ok := c.Workflows[id]
+	if !ok {
+		err = fmt.Errorf("(GetWorkflow) item %s not found in collection", id)
 	}
 	return
 }

@@ -43,8 +43,9 @@ func NewNotice(native interface{}) (workunit_result *Notice, err error) {
 		if has_results {
 
 			var results_jobdoc *cwl.Job_document
-			results_jobdoc, err = cwl.NewJob_document(results)
+			results_jobdoc, err = cwl.NewJob_documentFromNamedTypes(results)
 			if err != nil {
+				err = fmt.Errorf("(NewNotice) NewJob_documentFromNamedTypes returns %s", err.Error())
 				return
 			}
 
@@ -59,7 +60,7 @@ func NewNotice(native interface{}) (workunit_result *Notice, err error) {
 
 		workunit_result.Id, err = New_Workunit_Unique_Identifier_from_interface(id)
 		if err != nil {
-			err = fmt.Errorf("(NewNotice) id is missing")
+			err = fmt.Errorf("(NewNotice) New_Workunit_Unique_Identifier_from_interface returned: %s", err.Error())
 			return
 		}
 

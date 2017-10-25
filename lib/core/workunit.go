@@ -1,19 +1,19 @@
 package core
 
 import (
-	"bytes"
-	"encoding/json"
+	//"bytes"
+	//"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 
 	"github.com/davecgh/go-spew/spew"
-	"github.com/robertkrimen/otto"
-	"gopkg.in/mgo.v2/bson"
+
+	//"gopkg.in/mgo.v2/bson"
 	"os"
-	"path"
-	"reflect"
-	"regexp"
+	//"path"
+	//"reflect"
+	//"regexp"
 	"regexp/syntax"
 	"strings"
 	"time"
@@ -59,14 +59,10 @@ type Workunit struct {
 	WorkPerf                   *WorkPerf
 }
 
-func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error) {
-
+func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Workunit, err error) {
+	task_id := task.Task_Unique_Identifier
 	workunit = &Workunit{
-		Workunit_Unique_Identifier: Workunit_Unique_Identifier{
-			Rank:   rank,
-			TaskId: task.Id,
-			JobId:  task.JobId,
-		},
+		Workunit_Unique_Identifier: New_Workunit_Unique_Identifier(task_id, rank),
 		Id:  "defined below",
 		Cmd: task.Cmd,
 		//App:       task.App,
@@ -99,38 +95,19 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 		// ****** get CommandLineTool (or whatever can be executed)
 		p := workflow_step.Run
 
-		tool_name := ""
-
-		switch p.(type) {
-		case cwl.ProcessPointer:
-
-			pp, _ := p.(cwl.ProcessPointer)
-
-			tool_name = pp.Value
-
-		case bson.M: // I have no idea why we get a bson.M here
-
-			p_bson := p.(bson.M)
-
-			tool_name_interface, ok := p_bson["value"]
-			if !ok {
-				err = fmt.Errorf("(NewWorkunit) bson.M did not hold a field named value")
-				return
-			}
-
-			tool_name, ok = tool_name_interface.(string)
-			if !ok {
-				err = fmt.Errorf("(NewWorkunit) bson.M value field is not a string")
-				return
-			}
-
-		default:
-			err = fmt.Errorf("(NewWorkunit) Process type %s unknown, cannot create Workunit", reflect.TypeOf(p))
+		if p == nil {
+			err = fmt.Errorf("(NewWorkunit) process is nil !!?")
 			return
-
 		}
 
-		if tool_name == "" {
+		var process_name string
+		process_name, err = cwl.GetProcessName(p)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkunit) embedded workflow or toll not supported yet: %s", err.Error())
+			return
+		}
+
+		if process_name == "" {
 			err = fmt.Errorf("(NewWorkunit) No tool name found")
 			return
 		}
@@ -140,11 +117,30 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 			return
 		}
 
-		clt, xerr := job.CWL_collection.GetCommandLineTool(tool_name)
-		if xerr != nil {
-			err = fmt.Errorf("(NewWorkunit) Object %s not found in collection: %s", xerr.Error())
+		var clt *cwl.CommandLineTool
+		//use_commandLineTool := false
+
+		//var wfl *cwl.Workflow
+		//use_workflow := false
+
+		clt, err = job.CWL_collection.GetCommandLineTool(process_name)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkunit) CommandLineTool %s not found", process_name)
 			return
+			//wfl, err = job.CWL_collection.GetWorkflow(process_name)
+			//if err != nil {
+			//	err = fmt.Errorf("(NewWorkunit) Process %s is neither CommandLineTool, nor Workflow.")
+			//	return
+			//} else {
+			//	use_workflow = true
+			//}
+
 		}
+		//else {
+		//	use_commandLineTool = true
+		//}
+
+		//if use_commandLineTool {
 		clt.CwlVersion = job.CwlVersion
 
 		if clt.CwlVersion == "" {
@@ -152,6 +148,12 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 			return
 		}
 		workunit.CWL_workunit.CWL_tool = clt
+
+		//}
+
+		//if use_workflow {
+		//	wfl.CwlVersion = job.CwlVersion
+		//}
 
 		// ****** get inputs
 		job_input_map := *job.CWL_collection.Job_input_map
@@ -162,210 +164,35 @@ func NewWorkunit(task *Task, rank int, job *Job) (workunit *Workunit, err error)
 		//job_input_map := *job.CWL_collection.Job_input_map
 
 		//job_input := *job.CWL_collection.Job_input
-		workunit_input_map := make(map[string]cwl.CWLType)
 
-		fmt.Println("workflow_step.In:")
-		spew.Dump(workflow_step.In)
-		for _, input := range workflow_step.In {
-			// input is a WorkflowStepInput
-
-			id := input.Id
-
-			cmd_id := path.Base(id)
-
-			// get data from Source, Default or valueFrom
-
-			if input.LinkMerge != nil {
-				err = fmt.Errorf("(NewWorkunit) sorry, LinkMergeMethod not supported yet")
-				return
-			}
-
-			source_object_array := []cwl.CWLType{}
-			//resolve pointers in source
-			for _, src := range input.Source {
-				// src is a string, an id to another cwl object (workflow input of step output)
-
-				src_base := path.Base(src)
-
-				job_obj, ok := job_input_map[src_base]
-				if !ok {
-					fmt.Printf("%s not found in \n", src_base)
-				} else {
-					fmt.Printf("%s found in job_input!!!\n", src_base)
-					source_object_array = append(source_object_array, job_obj)
-					continue
-				}
-
-				coll_obj, xerr := job.CWL_collection.GetCWLType(src)
-				if xerr != nil {
-					fmt.Printf("%s not found in CWL_collection\n", src)
-				} else {
-					fmt.Printf("%s found in CWL_collection!!!\n", src)
-
-					source_object_array = append(source_object_array, coll_obj)
-					continue
-				}
-				//_ = coll_obj
-
-				err = fmt.Errorf("Source object %s not found", src)
-				return
-
-			}
-
-			// input.Default  The default value for this parameter to use if either there is no source field, or the value produced by the source is null. The default must be applied prior to scattering or evaluating valueFrom.
-
-			if len(input.Source) == 1 {
-				workunit_input_map[cmd_id] = source_object_array[0]
-				continue
-				//object := source_object_array[0]
-				//fmt.Println("WORLD")
-				//spew.Dump(object)
-
-				//file, ok := object.(*cwl.File)
-				//if ok {
-				//	fmt.Println("A FILE")
-				//	fmt.Printf("%+v\n", *file)
-				//file_id := file.GetId()
-
-				//} else {
-
-				//err = fmt.Errorf("(NewWorkunit) not implemented")
-				//return
-				//	}
-
-			} else if len(input.Source) > 1 {
-				cwl_array := cwl.Array{}
-				for _, obj := range source_object_array {
-					cwl_array.Add(obj)
-				}
-				workunit_input_map[cmd_id] = &cwl_array
-				continue
-			} else {
-				if input.Default != nil {
-					err = fmt.Errorf("(NewWorkunit) sorry, Default not supported yet")
-					return
-				}
-			}
-
-			if input.ValueFrom != "" {
-
-				// from CWL doc: The self value of in the parameter reference or expression must be the value of the parameter(s) specified in the source field, or null if there is no source field.
-
-				vm := otto.New()
-				//TODO vm.Set("input", 11)
-
-				if len(source_object_array) == 1 {
-					obj := source_object_array[0]
-
-					vm.Set("self", obj.String())
-					fmt.Printf("SET self=%s\n", input.Source[0])
-				} else if len(input.Source) > 1 {
-
-					source_b, xerr := json.Marshal(input.Source)
-					if xerr != nil {
-						err = fmt.Errorf("(NewWorkunit) cannot marshal source: %s", xerr.Error())
-						return
-					}
-					vm.Set("self", string(source_b[:]))
-					fmt.Printf("SET self=%s\n", string(source_b[:]))
-				}
-				fmt.Printf("input.ValueFrom=%s\n", input.ValueFrom)
-
-				// evaluate $(...) ECMAScript expression
-				reg := regexp.MustCompile(`\$\([\w.]+\)`)
-				// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
-
-				parsed := input.ValueFrom.String()
-				for {
-
-					matches := reg.FindAll([]byte(parsed), -1)
-					fmt.Printf("Matches: %d\n", len(matches))
-					if len(matches) == 0 {
-						break
-					}
-					for _, match := range matches {
-						expression_string := bytes.TrimPrefix(match, []byte("$("))
-						expression_string = bytes.TrimSuffix(expression_string, []byte(")"))
-
-						javascript_function := fmt.Sprintf("(function(){\n return %s;\n})()", expression_string)
-						fmt.Printf("%s\n", javascript_function)
-
-						value, xerr := vm.Run(javascript_function)
-						if xerr != nil {
-							err = fmt.Errorf("Javascript complained: %s", xerr.Error())
-							return
-						}
-						fmt.Println(reflect.TypeOf(value))
-
-						value_str, xerr := value.ToString()
-						if xerr != nil {
-							err = fmt.Errorf("Cannot convert value to string: %s", xerr.Error())
-							return
-						}
-						parsed = strings.Replace(parsed, string(match), value_str, 1)
-					}
-
-				}
-
-				fmt.Printf("parsed: %s\n", parsed)
-
-				// evaluate ${...} ECMAScript function body
-				reg = regexp.MustCompile(`\$\{[\w.]+\}`)
-				// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
-
-				//parsed = input.ValueFrom.String()
-
-				for {
-
-					matches := reg.FindAll([]byte(parsed), -1)
-					fmt.Printf("Matches: %d\n", len(matches))
-					if len(matches) == 0 {
-						break
-					}
-					for _, match := range matches {
-						expression_string := bytes.TrimPrefix(match, []byte("${"))
-						expression_string = bytes.TrimSuffix(expression_string, []byte("}"))
-
-						javascript_function := fmt.Sprintf("(function(){\n %s \n})()", expression_string)
-						fmt.Printf("%s\n", javascript_function)
-
-						value, xerr := vm.Run(javascript_function)
-						if xerr != nil {
-							err = fmt.Errorf("Javascript complained: %s", xerr.Error())
-							return
-						}
-						fmt.Println(reflect.TypeOf(value))
-
-						value_str, xerr := value.ToString()
-						if xerr != nil {
-							err = fmt.Errorf("Cannot convert value to string: %s", xerr.Error())
-							return
-						}
-						parsed = strings.Replace(parsed, string(match), value_str, 1)
-					}
-
-				}
-
-				fmt.Printf("parsed: %s\n", parsed)
-
-				new_string := cwl.NewString(id, parsed)
-				workunit_input_map[cmd_id] = new_string
-				continue
-				//job_input = append(job_input, new_string)
-				// TODO does this have to be storted in job_input ???
-
-				//err = fmt.Errorf("(NewWorkunit) sorry, ValueFrom not supported yet")
-
-			} // end of input.ValueFrom
-
+		var workflow_instance *WorkflowInstance
+		workflow_instance, err = job.GetWorkflowInstance(task.Parent, true)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkunit) GetWorkflowInstance returned %s", err.Error())
+			return
 		}
+
+		workflow_input_map := workflow_instance.Inputs.GetMap()
+
+		var workunit_input_map map[string]cwl.CWLType
+		workunit_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, workflow_step)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects returned: %s", err.Error())
+			return
+		}
+
+		fmt.Println("workunit_input_map after second round:\n")
+		spew.Dump(workunit_input_map)
+
 		job_input := cwl.Job_document{}
 
-		for _, elem := range workunit_input_map {
-			job_input = append(job_input, elem)
+		for elem_id, elem := range workunit_input_map {
+			named_type := cwl.NewNamedCWLType(elem_id, elem)
+			job_input = append(job_input, named_type)
 		}
 
 		workunit.CWL_workunit.Job_input = &job_input
+
 		spew.Dump(job_input)
 
 		workunit.CWL_workunit.OutputsExpected = &workflow_step.Out
@@ -440,15 +267,11 @@ func (work *Workunit) Path() (path string, err error) {
 			err = fmt.Errorf("(Workunit/Path) JobId is missing")
 			return
 		}
-
-		task_id_array := strings.Split(work.Workunit_Unique_Identifier.TaskId, "/")
-		task_name := ""
-		if len(task_id_array) > 1 {
-			task_name = strings.Join(task_id_array[1:], "/")
-		} else {
-			task_name = work.Workunit_Unique_Identifier.TaskId
+		task_name := work.Workunit_Unique_Identifier.Parent
+		if task_name != "" {
+			task_name += "-"
 		}
-
+		task_name += work.Workunit_Unique_Identifier.TaskName
 		// convert name to make it filesystem compatible
 		task_name = strings.Map(
 			func(r rune) rune {

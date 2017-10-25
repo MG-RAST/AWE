@@ -14,13 +14,14 @@ type Record struct {
 
 func (r *Record) GetClass() string { return "record" }
 
-func (r *Record) Is_CWL_minimal()                {}
-func (r *Record) Is_CommandInputParameterType()  {}
-func (r *Record) Is_CommandOutputParameterType() {}
+func (r *Record) Is_CWL_minimal() {}
+
+//func (r *Record) Is_CommandInputParameterType()  {}
+//func (r *Record) Is_CommandOutputParameterType() {}
 
 func NewRecord(id string, native interface{}) (record *Record, err error) {
 
-	native, err = makeStringMap(native)
+	native, err = MakeStringMap(native)
 	if err != nil {
 		return
 	}
@@ -34,6 +35,10 @@ func NewRecord(id string, native interface{}) (record *Record, err error) {
 
 	switch native.(type) {
 	case map[string]interface{}:
+
+		fmt.Println("Got a record:")
+		spew.Dump(native)
+
 		native_map, _ := native.(map[string]interface{})
 		for key_str, value := range native_map {
 
@@ -49,7 +54,7 @@ func NewRecord(id string, native interface{}) (record *Record, err error) {
 	default:
 		fmt.Println("Unknown Record:")
 		spew.Dump(native)
-		err = fmt.Errorf("(NewRecord) Unknown type: %s", reflect.TypeOf(native))
+		err = fmt.Errorf("(NewRecord) Unknown type: %s (%s)", reflect.TypeOf(native), spew.Sdump(native))
 		return
 	}
 

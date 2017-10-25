@@ -159,6 +159,93 @@ func CWL_File_2_AWE_IO(file *cwl.File) (io *core.IO, err error) {
 	return
 }
 
+func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (size int64, err error) {
+
+	//real_object := input.Value
+
+	spew.Dump(input)
+	switch input.(type) {
+	case *cwl.File:
+		file := input.(*cwl.File)
+		spew.Dump(*file)
+		fmt.Printf("file: %+v\n", *file)
+
+		var io *core.IO
+		io, err = CWL_File_2_AWE_IO(file)
+		if err != nil {
+			return
+		}
+
+		var io_size int64
+		io_size, err = MoveInputIO(work, io, work_path)
+		if err != nil {
+			err = fmt.Errorf("(MoveInputData) MoveInputIO returns %s", err.Error())
+			return
+		}
+		size = io_size
+		spew.Dump(io)
+
+		return
+	case *cwl.String:
+		return
+	case *cwl.Int:
+		return
+	case *cwl.Boolean:
+		return
+	case *cwl.Array:
+
+		array := input.(*cwl.Array)
+
+		array_instance := *array
+
+		for element_pos := range array_instance {
+
+			element := array_instance[element_pos]
+			var io_size int64
+			io_size, err = MoveInputCWL(work, work_path, element)
+			if err != nil {
+				return
+			}
+			size += io_size
+		}
+		return
+	case *cwl.Directory:
+
+		d := input.(*cwl.Directory)
+
+		listing := d.Listing
+
+		var io_size int64
+		for _, element := range listing {
+
+			var element_cwl cwl.CWLType
+
+			switch element.(type) {
+			case *cwl.File:
+				element_cwl = element.(*cwl.File)
+			case *cwl.Directory:
+				element_cwl = element.(*cwl.Directory)
+			default:
+				err = fmt.Errorf("(MoveInputData) type %s of element in directory listing not supported", reflect.TypeOf(element))
+				return
+			}
+
+			io_size, err = MoveInputCWL(work, work_path, element_cwl)
+			if err != nil {
+				return
+			}
+
+		}
+		size = io_size
+
+		// TODO ************* Record and Enum
+	default:
+		err = fmt.Errorf("(MoveInputData) type %s not supoorted yet", reflect.TypeOf(input))
+		return
+	}
+	return
+}
+
 //fetch input data
 func MoveInputData(work *core.Workunit) (size int64, err error) {
 
@@ -175,35 +262,12 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 
 		for input_name, input := range *job_input {
 			fmt.Println(input_name)
-			spew.Dump(input)
-			switch input.(type) {
-			case *cwl.File:
-				file := input.(*cwl.File)
-				spew.Dump(*file)
-				fmt.Printf("file: %+v\n", *file)
-
-				var io *core.IO
-				io, err = CWL_File_2_AWE_IO(file)
-				if err != nil {
-					return
-				}
-
-				var io_size int64
-				io_size, err = MoveInputIO(work, io, work_path)
-				if err != nil {
-					err = fmt.Errorf("(MoveInputData) MoveInputIO returns %s", err.Error())
-					return
-				}
-				spew.Dump(io)
-				size += io_size
-
-				continue
-			case *cwl.String:
-				continue
-			default:
-				err = fmt.Errorf("(MoveInputData) type %s not supoorted yet", reflect.TypeOf(input))
+			var io_size int64
+			io_size, err = MoveInputCWL(work, work_path, input.Value)
+			if err != nil {
 				return
 			}
+			size += io_size
 		}
 
 		return
@@ -400,7 +464,7 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 		//	fmt.Println(result.GetId())
 		//}
 
-		tool_result_map := work.CWL_workunit.Tool_results.GetMap()
+		tool_result_map := work.CWL_workunit.Outputs.GetMap()
 
 		result_array := cwl.Job_document{}
 
@@ -429,7 +493,7 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 				return
 			}
 
-			result_array = append(result_array, tool_result)
+			result_array = append(result_array, cwl.NewNamedCWLType(expected, tool_result))
 
 			output_class := tool_result.GetClass()
 			if output_class != string(cwl.CWL_File) {

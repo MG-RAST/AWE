@@ -29,45 +29,41 @@ const (
 	TASK_STAT_PASSED           = "passed"       // deprecated ?
 )
 
+const (
+	TASK_TYPE_UNKNOWN  = ""
+	TASK_TYPE_SCATTER  = "scatter"
+	TASK_TYPE_WORKFLOW = "workflow"
+	TASK_TYPE_NORMAL   = "normal"
+)
+
 type TaskRaw struct {
 	RWMutex                `bson:"-" json:"-"`
 	Task_Unique_Identifier `bson:",inline"`
-	Info                   *Info                  `bson:"-" json:"-"` // this is just a pointer to the job.Info
-	Cmd                    *Command               `bson:"cmd" json:"cmd"`
-	Partition              *PartInfo              `bson:"partinfo" json:"-"`
-	DependsOn              []string               `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
-	TotalWork              int                    `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize            int                    `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork             int                    `bson:"remainwork" json:"remainwork"`
-	State                  string                 `bson:"state" json:"state"`
-	CreatedDate            time.Time              `bson:"createdDate" json:"createddate"`
-	StartedDate            time.Time              `bson:"startedDate" json:"starteddate"`
-	CompletedDate          time.Time              `bson:"completedDate" json:"completeddate"`
-	ComputeTime            int                    `bson:"computetime" json:"computetime"`
-	UserAttr               map[string]interface{} `bson:"userattr" json:"userattr"`
-	ClientGroups           string                 `bson:"clientgroups" json:"clientgroups"`
-	WorkflowStep           *cwl.WorkflowStep      `bson:"workflowStep" json:"workflowStep"` // CWL-only
-	StepOutputInterface    interface{}            `bson:"stepOutput" json:"stepOutput"`     // CWL-only
-	StepOutput             *cwl.Job_document      `bson:"-" json:"-"`                       // CWL-only
-}
 
-type Task_Unique_Identifier struct {
-	Id    string `bson:"taskid" json:"taskid"` // local identifier
-	JobId string `bson:"jobid" json:"jobid"`
-}
-
-func New_Task_Unique_Identifier(old_style_id string) (t Task_Unique_Identifier, err error) {
-
-	array := strings.Split(old_style_id, "_")
-
-	if len(array) != 2 {
-		err = fmt.Errorf("(New_Task_Unique_Identifier) Cannot parse task identifier: %s", old_style_id)
-		return
-	}
-
-	t = Task_Unique_Identifier{JobId: array[0], Id: array[1]}
-
-	return
+	Id                  string                   `bson:"taskid" json:"taskid"` // old-style
+	TaskType            string                   `bson:"task_type" json:"task_type"`
+	Info                *Info                    `bson:"-" json:"-"` // this is just a pointer to the job.Info
+	Cmd                 *Command                 `bson:"cmd" json:"cmd"`
+	Partition           *PartInfo                `bson:"partinfo" json:"-"`
+	DependsOn           []string                 `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
+	TotalWork           int                      `bson:"totalwork" json:"totalwork"`
+	MaxWorkSize         int                      `bson:"maxworksize"   json:"maxworksize"`
+	RemainWork          int                      `bson:"remainwork" json:"remainwork"`
+	State               string                   `bson:"state" json:"state"`
+	CreatedDate         time.Time                `bson:"createdDate" json:"createddate"`
+	StartedDate         time.Time                `bson:"startedDate" json:"starteddate"`
+	CompletedDate       time.Time                `bson:"completedDate" json:"completeddate"`
+	ComputeTime         int                      `bson:"computetime" json:"computetime"`
+	UserAttr            map[string]interface{}   `bson:"userattr" json:"userattr"`
+	ClientGroups        string                   `bson:"clientgroups" json:"clientgroups"`
+	WorkflowStep        *cwl.WorkflowStep        `bson:"workflowStep" json:"workflowStep"` // CWL-only
+	StepOutputInterface interface{}              `bson:"stepOutput" json:"stepOutput"`     // CWL-only
+	StepInput           *cwl.Job_document        `bson:"-" json:"-"`                       // CWL-only
+	StepOutput          *cwl.Job_document        `bson:"-" json:"-"`                       // CWL-only
+	Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task"` // CWL-only
+	Children            []Task_Unique_Identifier `bson:"children" json:"children"`         // CWL-only
+	Children_ptr        []*Task                  `bson:"-" json:"-"`                       // CWL-only
+	Finalizing          bool                     `bson:"-" json:"-"`                       // CWL-only
 }
 
 type Task struct {
@@ -98,9 +94,13 @@ type TaskLog struct {
 func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) TaskRaw {
 
 	logger.Debug(3, "task_id: %s", task_id)
+	logger.Debug(3, "task_id.JobId: %s", task_id.JobId)
+	logger.Debug(3, "task_id.Parent: %s", task_id.Parent)
+	logger.Debug(3, "task_id.TaskName: %s", task_id.TaskName)
 
 	return TaskRaw{
 		Task_Unique_Identifier: task_id,
+		Id:        task_id.String(),
 		Info:      info,
 		Cmd:       &Command{},
 		Partition: nil,
@@ -112,7 +112,7 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	changed = false
 
 	if len(task.Id) == 0 {
-		err = errors.New("(TaskRaw.InitRaw) empty taskid")
+		err = errors.New("(InitRaw) empty taskid")
 		return
 	}
 
@@ -121,7 +121,7 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	job_id := job.Id
 
 	if job_id == "" {
-		err = fmt.Errorf("(NewTask) job_id empty")
+		err = fmt.Errorf("(InitRaw) job_id empty")
 		return
 	}
 	task.JobId = job_id
@@ -132,7 +132,7 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	}
 
 	if job.Info == nil {
-		err = fmt.Errorf("(NewTask) job.Info empty")
+		err = fmt.Errorf("(InitRaw) job.Info empty")
 		return
 	}
 	task.Info = job.Info
@@ -162,22 +162,20 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		changed = true
 	}
 
+	if task.Task_Unique_Identifier.TaskName == "" {
+		task.Task_Unique_Identifier.TaskName = task.Id
+		changed = true
+	}
+
 	if task.StepOutputInterface != nil {
-		task.StepOutput, err = cwl.NewJob_document(task.StepOutputInterface)
+		task.StepOutput, err = cwl.NewJob_documentFromNamedTypes(task.StepOutputInterface)
 		if err != nil {
+			err = fmt.Errorf("(InitRaw) cwl.NewJob_documentFromNamedTypes returned: %s", err.Error())
 			return
 		}
 	}
 
 	return
-}
-
-func (task Task_Unique_Identifier) String() (s string) {
-
-	id := task.Id
-	jobId := task.JobId
-
-	return fmt.Sprintf("%s_%s", jobId, id)
 }
 
 // func (task *TaskRaw) String() (s string, err error) {
@@ -191,6 +189,27 @@ func (task Task_Unique_Identifier) String() (s string) {
 //
 // 	return
 // }
+
+// this function prevents a dead-lock when a sub-workflow task finalizes
+func (task *TaskRaw) Finalize() (ok bool, err error) {
+	err = task.LockNamed("Finalize")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	if task.Finalizing {
+		// somebody else already flipped the bit
+		ok = false
+		return
+	}
+
+	task.Finalizing = true
+	ok = true
+
+	return
+
+}
 
 func IsValidUUID(uuid string) bool {
 	if len(uuid) != 36 {
@@ -225,13 +244,13 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 			deps_changed = true
 		}
 
-		t, yerr := New_Task_Unique_Identifier(deptask)
+		t, yerr := New_Task_Unique_Identifier_FromString(deptask)
 		if yerr != nil {
 			err = fmt.Errorf("Cannot parse entry in DependsOn: %s", yerr.Error())
 			return
 		}
 
-		if t.Id == "" {
+		if t.TaskName == "" {
 			// this is to fix a bug
 			deps_changed = true
 			continue
@@ -253,7 +272,7 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 			deps_changed = true
 		}
 
-		t, yerr := New_Task_Unique_Identifier(deptask)
+		t, yerr := New_Task_Unique_Identifier_FromString(deptask)
 		if yerr != nil {
 
 			err = fmt.Errorf("Cannot parse Origin entry in Input: %s", yerr.Error())
@@ -340,9 +359,31 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 }
 
 // currently this is only used to make a new task from a depricated task
-func NewTask(job *Job, task_id string) (t *Task) {
+func NewTask(job *Job, workflow string, task_id string) (t *Task, err error) {
 
-	tui := Task_Unique_Identifier{Id: task_id, JobId: job.Id}
+	if job.Id == "" {
+		err = fmt.Errorf("(NewTask) jobid is empty!")
+		return
+	}
+
+	if strings.HasSuffix(workflow, "/") {
+		err = fmt.Errorf("Suffix not in workflow_ids ok %s", task_id)
+		return
+	}
+
+	if strings.HasSuffix(task_id, "/") {
+		err = fmt.Errorf("Suffix in task_id not ok %s", task_id)
+		return
+	}
+
+	task_id = strings.TrimSuffix(task_id, "/")
+	workflow = strings.TrimSuffix(workflow, "/")
+
+	var tui Task_Unique_Identifier
+	tui, err = New_Task_Unique_Identifier(job.Id, workflow, task_id)
+	if err != nil {
+		return
+	}
 
 	t = &Task{
 		TaskRaw: NewTaskRaw(tui, job.Info),
@@ -387,6 +428,46 @@ func (task *Task) GetOutput(filename string) (output *IO, err error) {
 	return
 }
 
+func (task *TaskRaw) GetChildren(qm *ServerMgr) (children []*Task, err error) {
+	lock, err := task.RLockNamed("GetChildren")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+
+	if task.Children_ptr == nil {
+		children = []*Task{}
+		for _, task_id := range task.Children {
+			var child *Task
+			var ok bool
+			child, ok, err = qm.TaskMap.Get(task_id, true)
+			if err != nil {
+				return
+			}
+			if !ok {
+				err = fmt.Errorf("(GetChildren) child task %s not found in TaskMap")
+				return
+			}
+			children = append(children, child)
+		}
+		task.Children_ptr = children
+	} else {
+		children = task.Children_ptr
+	}
+
+	return
+}
+
+func (task *TaskRaw) GetParent() (p string, err error) {
+	lock, err := task.RLockNamed("GetParent")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	p = task.Task_Unique_Identifier.Parent
+	return
+}
+
 func (task *TaskRaw) GetState() (state string, err error) {
 	lock, err := task.RLockNamed("GetState")
 	if err != nil {
@@ -394,6 +475,32 @@ func (task *TaskRaw) GetState() (state string, err error) {
 	}
 	defer task.RUnlockNamed(lock)
 	state = task.State
+	return
+}
+
+func (task *TaskRaw) GetTaskType() (type_str string, err error) {
+	lock, err := task.RLockNamed("GetTaskType")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	type_str = task.TaskType
+	return
+}
+
+func (task *Task) SetTaskType(type_str string, writelock bool) (err error) {
+	if writelock {
+		err = task.LockNamed("SetTaskType")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
+	err = dbUpdateJobTaskString(task.JobId, task.Id, "task_type", type_str)
+	if err != nil {
+		return
+	}
+	task.TaskType = type_str
 	return
 }
 
@@ -810,6 +917,22 @@ func (task *Task) SetRemainWork(num int, writelock bool) (err error) {
 	return
 }
 
+// func (task *Task) SetSubworkflow(value string) (err error) {
+//
+// 	err = task.LockNamed("SetSubworkflow")
+// 	if err != nil {
+// 		return
+// 	}
+// 	defer task.Unlock()
+//
+// 	err = dbUpdateJobTaskString(task.JobId, task.Id, "subworkflow", value)
+// 	if err != nil {
+// 		return
+// 	}
+// 	task.Subworkflow = value
+// 	return
+// }
+
 func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, err error) {
 	if writelock {
 		err = task.LockNamed("IncrementRemainWork")
@@ -887,13 +1010,13 @@ func (task *Task) setTokenForIO(writelock bool) (err error) {
 	return
 }
 
-func (task *Task) CreateWorkunits(job *Job) (wus []*Workunit, err error) {
+func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err error) {
 	//if a task contains only one workunit, assign rank 0
 
 	if task.TotalWork == 1 {
-		workunit, xerr := NewWorkunit(task, 0, job)
+		workunit, xerr := NewWorkunit(qm, task, 0, job)
 		if xerr != nil {
-			err = fmt.Errorf("(CreateWorkunits) NewWorkunit failed: %s", xerr.Error())
+			err = fmt.Errorf("(CreateWorkunits) (single) NewWorkunit failed: %s", xerr.Error())
 			return
 		}
 		wus = append(wus, workunit)
@@ -901,9 +1024,9 @@ func (task *Task) CreateWorkunits(job *Job) (wus []*Workunit, err error) {
 	}
 	// if a task contains N (N>1) workunits, assign rank 1..N
 	for i := 1; i <= task.TotalWork; i++ {
-		workunit, xerr := NewWorkunit(task, i, job)
+		workunit, xerr := NewWorkunit(qm, task, i, job)
 		if xerr != nil {
-			err = fmt.Errorf("(CreateWorkunits) NewWorkunit failed: %s", xerr.Error())
+			err = fmt.Errorf("(CreateWorkunits) (multi) NewWorkunit failed: %s", xerr.Error())
 			return
 		}
 		wus = append(wus, workunit)
@@ -918,10 +1041,11 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog) {
 	tlog.TotalWork = task.TotalWork
 	tlog.CompletedDate = task.CompletedDate
 
-	workunit_id := Workunit_Unique_Identifier{JobId: task.JobId, TaskId: task.Id}
+	workunit_id := New_Workunit_Unique_Identifier(task.Task_Unique_Identifier, 0)
+	//workunit_id := Workunit_Unique_Identifier{JobId: task.JobId, TaskName: task.Id}
 
 	if task.TotalWork == 1 {
-		workunit_id.Rank = 0
+		//workunit_id.Rank = 0
 		tlog.Workunits = append(tlog.Workunits, NewWorkLog(workunit_id))
 	} else {
 		for i := 1; i <= task.TotalWork; i++ {

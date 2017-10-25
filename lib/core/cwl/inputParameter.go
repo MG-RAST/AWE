@@ -30,9 +30,9 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 
 	fmt.Println("---- NewInputParameter ----")
 	spew.Dump(original)
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
-		err = fmt.Errorf("(NewInputParameter) makeStringMap returned: %s", err.Error())
+		err = fmt.Errorf("(NewInputParameter) MakeStringMap returned: %s", err.Error())
 		return
 	}
 	spew.Dump(original)

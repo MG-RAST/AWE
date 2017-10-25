@@ -220,7 +220,7 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 		fmt.Println("CWL-runner receipt:")
 		spew.Dump(result_doc)
-		workunit.CWL_workunit.Tool_results = result_doc
+		workunit.CWL_workunit.Outputs = result_doc
 
 	}
 

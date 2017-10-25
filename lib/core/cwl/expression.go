@@ -34,7 +34,7 @@ func NewExpressionArray(original interface{}) (expressions *[]Expression, err er
 	case string:
 		expression, xerr := NewExpression(original)
 		if xerr != nil {
-			err = fmt.Errorf("(NewExpressionArray) NewExpression returns: %s", xerr.Error)
+			err = fmt.Errorf("(NewExpressionArray) NewExpression returns: %s", xerr.Error())
 			return
 		}
 		expressions_nptr := []Expression{*expression}

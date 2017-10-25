@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
+	"gopkg.in/mgo.v2/bson"
 	"reflect"
 )
 
@@ -16,14 +17,14 @@ type WorkflowStep struct {
 	Hints         []interface{}        `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             //[]Requirement
 	Label         string               `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
 	Doc           string               `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
-	Scatter       string               `yaml:"scatter,omitempty" bson:"scatter,omitempty" json:"scatter,omitempty" mapstructure:"scatter,omitempty"`                         // ScatterFeatureRequirement
+	Scatter       []string             `yaml:"scatter,omitempty" bson:"scatter,omitempty" json:"scatter,omitempty" mapstructure:"scatter,omitempty"`                         // ScatterFeatureRequirement
 	ScatterMethod string               `yaml:"scatterMethod,omitempty" bson:"scatterMethod,omitempty" json:"scatterMethod,omitempty" mapstructure:"scatterMethod,omitempty"` // ScatterFeatureRequirement
 }
 
 func NewWorkflowStep(original interface{}) (w *WorkflowStep, err error) {
 	var step WorkflowStep
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}
@@ -176,5 +177,39 @@ func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]Wor
 		return
 	}
 	//spew.Dump(new_array)
+	return
+}
+
+func GetProcessName(p interface{}) (process_name string, err error) {
+
+	switch p.(type) {
+	case string:
+
+		p_str := p.(string)
+
+		process_name = p_str
+
+	case bson.M: // (because of mongo this is bson.M)
+
+		p_bson := p.(bson.M)
+
+		process_name_interface, ok := p_bson["value"]
+		if !ok {
+			err = fmt.Errorf("(GetProcessName) bson.M did not hold a field named value")
+			return
+		}
+
+		process_name, ok = process_name_interface.(string)
+		if !ok {
+			err = fmt.Errorf("(GetProcessName) bson.M value field is not a string")
+			return
+		}
+
+	default:
+		err = fmt.Errorf("(GetProcessName) Process type %s unknown, cannot create Workunit", reflect.TypeOf(p))
+		return
+
+	}
+
 	return
 }

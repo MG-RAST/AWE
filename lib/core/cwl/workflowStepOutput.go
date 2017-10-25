@@ -13,7 +13,7 @@ type WorkflowStepOutput struct {
 
 func NewWorkflowStepOutput(original interface{}) (wso_ptr *WorkflowStepOutput, err error) {
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

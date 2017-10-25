@@ -69,8 +69,8 @@ type CWL_location interface {
 // null, boolean, int, long, float, double, string, File, Directory
 type CWLType interface {
 	CWL_object // is an interface
-	Is_CommandInputParameterType()
-	Is_CommandOutputParameterType()
+	//Is_CommandInputParameterType()
+	//Is_CommandOutputParameterType()
 	GetType() CWLType_Type
 	String() string
 	//Is_Array() bool
@@ -79,15 +79,16 @@ type CWLType interface {
 
 type CWLType_Impl struct {
 	CWL_object_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class
-	Type            CWLType_Type                                                          `yaml:"type,omitempty" json:"type,omitempty" bson:"type,omitempty"`
+	Type            CWLType_Type                                                          `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 }
 
 func (c *CWLType_Impl) GetType() CWLType_Type { return c.Type }
 
-func (c *CWLType_Impl) Is_CWL_minimal()                {}
-func (c *CWLType_Impl) Is_CWLType()                    {}
-func (c *CWLType_Impl) Is_CommandInputParameterType()  {}
-func (c *CWLType_Impl) Is_CommandOutputParameterType() {}
+func (c *CWLType_Impl) Is_CWL_minimal() {}
+func (c *CWLType_Impl) Is_CWLType()     {}
+
+//func (c *CWLType_Impl) Is_CommandInputParameterType()  {}
+//func (c *CWLType_Impl) Is_CommandOutputParameterType() {}
 
 func init() {
 
@@ -132,7 +133,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 	//var cwl_type CWLType
 	fmt.Printf("(NewCWLType) starting with type %s\n", reflect.TypeOf(native))
 
-	native, err = makeStringMap(native)
+	native, err = MakeStringMap(native)
 	if err != nil {
 		return
 	}
@@ -156,7 +157,12 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		native_int := native.(int)
 
 		cwl_type = NewInt(id, native_int)
-
+	case float32:
+		native_float32 := native.(float32)
+		cwl_type = NewFloat(native_float32)
+	case float64:
+		native_float64 := native.(float64)
+		cwl_type = NewDouble(native_float64)
 	case string:
 		fmt.Printf("(NewCWLType) E\n")
 		native_str := native.(string)
@@ -197,10 +203,20 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 			return
 		}
 
+	case *File:
+		cwl_type = native.(*File)
+
+	case *String:
+		cwl_type = native.(*String)
+	case *Int:
+		cwl_type = native.(*Int)
+	case *Boolean:
+		cwl_type = native.(*Boolean)
+
 	default:
 		fmt.Printf("(NewCWLType) H\n")
 		spew.Dump(native)
-		err = fmt.Errorf("(NewCWLType) Type unknown: \"%s\"", reflect.TypeOf(native))
+		err = fmt.Errorf("(NewCWLType) Type unknown: \"%s\" (%s)", reflect.TypeOf(native), spew.Sdump(native))
 		return
 	}
 	fmt.Printf("(NewCWLType) I\n")
@@ -238,8 +254,16 @@ func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CW
 			return
 		}
 		cwl_type = myboolean
+	case string(CWL_Directory):
+		mydir, yerr := NewDirectoryFromInterface(native)
+		if yerr != nil {
+			err = fmt.Errorf("(NewCWLTypeByClass) NewDirectoryFromInterface returned: %s", yerr.Error())
+			return
+		}
+		cwl_type = mydir
 	default:
 		// Map type unknown, maybe a record
+		fmt.Println("This might be a record:")
 		spew.Dump(native)
 
 		record, xerr := NewRecord(id, native)
@@ -304,8 +328,8 @@ func NewCWLTypeArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWL
 
 		cwl_array := []CWLType{}
 
-		for i, value := range native_array {
-			value_cwl, xerr := NewCWLType(parent_id+"_"+string(i), value)
+		for _, value := range native_array {
+			value_cwl, xerr := NewCWLType("", value)
 			if xerr != nil {
 				err = xerr
 				return
@@ -315,7 +339,7 @@ func NewCWLTypeArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWL
 		cwl_array_ptr = &cwl_array
 	default:
 
-		ct, xerr := NewCWLType(parent_id+"_1", native)
+		ct, xerr := NewCWLType("", native)
 		if xerr != nil {
 			err = xerr
 			return
@@ -355,7 +379,8 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 		spew.Dump(schema)
 		spew.Dump(object)
 
-		panic("comparison failed")
+		ok = false
+		return
 
 	}
 

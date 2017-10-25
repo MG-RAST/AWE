@@ -11,19 +11,21 @@ type CommandLineTool struct {
 	//Id                 string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
 	//Class              string                   `yaml:"class,omitempty" bson:"class,omitempty" json:"class,omitempty"`
 	CWL_object_Impl    `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	BaseCommand        []string                 `yaml:"baseCommand,omitempty" bson:"baseCommand,omitempty" json:"baseCommand,omitempty"` // TODO also allow []string
-	Inputs             []CommandInputParameter  `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty"`
-	Outputs            []CommandOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty"`
-	Hints              []Requirement            `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty"` // TODO Any
-	Label              string                   `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	Description        string                   `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty"`
-	CwlVersion         CWLVersion               `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty"`
-	Arguments          []CommandLineBinding     `yaml:"arguments,omitempty" bson:"arguments,omitempty" json:"arguments,omitempty"` // TODO support CommandLineBinding
-	Stdin              string                   `yaml:"stdin,omitempty" bson:"stdin,omitempty" json:"stdin,omitempty"`             // TODO support Expression
-	Stdout             string                   `yaml:"stdout,omitempty" bson:"stdout,omitempty" json:"stdout,omitempty"`          // TODO support Expression
-	SuccessCodes       []int                    `yaml:"successCodes,omitempty" bson:"successCodes,omitempty" json:"successCodes,omitempty"`
-	TemporaryFailCodes []int                    `yaml:"temporaryFailCodes,omitempty" bson:"temporaryFailCodes,omitempty" json:"temporaryFailCodes,omitempty"`
-	PermanentFailCodes []int                    `yaml:"permanentFailCodes,omitempty" bson:"permanentFailCodes,omitempty" json:"permanentFailCodes,omitempty"`
+	BaseCommand        []string                 `yaml:"baseCommand,omitempty" bson:"baseCommand,omitempty" json:"baseCommand,omitempty" mapstructure:"baseCommand,omitempty"`
+	Inputs             []CommandInputParameter  `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
+	Outputs            []CommandOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
+	Hints              []Requirement            `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty mapstructure:"hints,omitempty""`
+	Requirements       []Requirement            `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"`
+	Doc                string                   `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
+	Label              string                   `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
+	Description        string                   `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty" mapstructure:"description,omitempty"`
+	CwlVersion         CWLVersion               `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
+	Arguments          []CommandLineBinding     `yaml:"arguments,omitempty" bson:"arguments,omitempty" json:"arguments,omitempty" mapstructure:"arguments,omitempty"`
+	Stdin              string                   `yaml:"stdin,omitempty" bson:"stdin,omitempty" json:"stdin,omitempty" mapstructure:"stdin,omitempty"`     // TODO support Expression
+	Stdout             string                   `yaml:"stdout,omitempty" bson:"stdout,omitempty" json:"stdout,omitempty" mapstructure:"stdout,omitempty"` // TODO support Expression
+	SuccessCodes       []int                    `yaml:"successCodes,omitempty" bson:"successCodes,omitempty" json:"successCodes,omitempty" mapstructure:"successCodes,omitempty"`
+	TemporaryFailCodes []int                    `yaml:"temporaryFailCodes,omitempty" bson:"temporaryFailCodes,omitempty" json:"temporaryFailCodes,omitempty" mapstructure:"temporaryFailCodes,omitempty"`
+	PermanentFailCodes []int                    `yaml:"permanentFailCodes,omitempty" bson:"permanentFailCodes,omitempty" json:"permanentFailCodes,omitempty" mapstructure:"permanentFailCodes,omitempty"`
 }
 
 func (c *CommandLineTool) Is_CWL_minimal() {}
@@ -74,14 +76,17 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 		}
 	}
 
-	arguments, ok := object["arguments"]
-	if ok {
+	arguments, has_arguments := object["arguments"]
+	if has_arguments {
 		// Convert map of outputs into array of outputs
-		object["arguments"], err = NewCommandLineBindingArray(arguments)
+		var arguments_object []CommandLineBinding
+		arguments_object, err = NewCommandLineBindingArray(arguments)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in NewCommandLineBindingArray: %s", err.Error())
 			return
 		}
+		//delete(object, "arguments")
+		object["arguments"] = arguments_object
 	}
 
 	//switch object["hints"].(type) {
@@ -90,10 +95,31 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 	if ok {
 		object["hints"], err = CreateRequirementArray(hints)
 		if err != nil {
-			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray: %s", err.Error())
+			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 			return
 		}
 	}
+
+	requirements, ok := object["requirements"]
+	if ok {
+		object["requirements"], err = CreateRequirementArray(requirements)
+		if err != nil {
+			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (requirements): %s", err.Error())
+			return
+		}
+	}
+
+	//}
+	//id, _ := object["id"]
+	//if id == "#blat.tool.cwl" {
+	//delete(object, "inputs")
+	//delete(object, "outputs")
+	//delete(object, "baseCommand")
+	//delete(object, "arguments")
+	//delete(object, "hints")
+	//delete(object, "requirements")
+	//	fmt.Println("after thinning out")
+	//	spew.Dump(object)
 	//}
 
 	err = mapstructure.Decode(object, commandLineTool)
@@ -101,8 +127,13 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 		err = fmt.Errorf("(NewCommandLineTool) error parsing CommandLineTool class: %s", err.Error())
 		return
 	}
+	//if has_arguments {
+	//	object["arguments"] = arguments_object // mapstructure.Decode has some issues, no idea why
+	//}
 	spew.Dump(commandLineTool)
-
+	//if id == "#blat.tool.cwl" {
+	//	panic("done")
+	//}
 	return
 }
 

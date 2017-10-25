@@ -1,24 +1,48 @@
 package cwl
 
 import (
-	//"fmt"
+	"fmt"
 	"strconv"
 )
 
-type Int struct {
-	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	Value        int `yaml:"value,omitempty" json:"value,omitempty" bson:"value,omitempty"`
-}
+type Int int
 
+func (i *Int) GetClass() string      { return string(CWL_int) } // for CWL_object
+func (i *Int) GetType() CWLType_Type { return CWL_int }
+func (i *Int) String() string        { return strconv.Itoa(int(*i)) }
+
+func (i *Int) GetId() string  { return "" }
+func (i *Int) SetId(x string) {}
+
+func (i *Int) Is_CWL_minimal() {}
+
+func NewIntFromint(value int) (i *Int) {
+
+	var i_nptr Int
+	i_nptr = Int(value)
+
+	i = &i_nptr
+
+	return
+
+}
 func NewInt(id string, value int) *Int {
-	i := &Int{}
-	i.Id = id
-	i.Class = "int"
-	i.Type = CWL_int
-	i.Value = value
-	return i
+
+	_ = id
+
+	return NewIntFromint(value)
+
 }
 
-func (i *Int) GetClass() string { return string(CWL_int) }
+func NewIntFromInterface(id string, native interface{}) (i *Int, err error) {
 
-func (i *Int) String() string { return strconv.Itoa(i.Value) }
+	_ = id
+
+	real_int, ok := native.(int)
+	if !ok {
+		err = fmt.Errorf("(NewIntFromInterface) Cannot create int")
+		return
+	}
+	i = NewIntFromint(real_int)
+	return
+}

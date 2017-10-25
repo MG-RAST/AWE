@@ -5,7 +5,7 @@ import (
 )
 
 type DockerRequirement struct {
-	BaseRequirement `bson:",inline" yaml:",inline" json:",inline"`
+	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 	DockerPull      string `yaml:"dockerPull,omitempty" bson:"dockerPull,omitempty" json:"dockerPull,omitempty"`
 	DockerLoad      string `yaml:"dockerLoad,omitempty" bson:"dockerLoad,omitempty" json:"dockerLoad,omitempty"`
 	DockerFile      string `yaml:"dockerFile,omitempty" bson:"dockerFile,omitempty" json:"dockerFile,omitempty"`

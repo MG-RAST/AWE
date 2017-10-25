@@ -38,9 +38,9 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 
 	id = DecodeBase64(cx, id)
 
-	work_id, err := core.New_Workunit_Unique_Identifier(id)
+	work_id, err := core.New_Workunit_Unique_Identifier_FromString(id)
 	if err != nil {
-		cx.RespondWithErrorMessage("error parsing workunit identifier: "+id, http.StatusBadRequest)
+		cx.RespondWithErrorMessage("error parsing workunit identifier: "+id+" ("+err.Error()+")", http.StatusBadRequest)
 		return
 	}
 
@@ -163,7 +163,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	}
 
 	// Base case respond with workunit in json
-	id_wui, err := core.New_Workunit_Unique_Identifier(id)
+	id_wui, err := core.New_Workunit_Unique_Identifier_FromString(id)
 	if err != nil {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
@@ -332,6 +332,14 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	logger.Event(event.WORK_CHECKOUT, fmt.Sprintf("workids=%s;clientid=%s;available=%d", strings.Join(workids, ","), clientid, availableBytes))
 
 	// Base case respond with node in json
+
+	if len(workunits) == 0 {
+		err = fmt.Errorf("(ReadMany GET /work) No workunits found, clientid=%s", clientid)
+		logger.Error(err.Error())
+		cx.RespondWithErrorMessage("(ReadMany GET /work) No workunits found", http.StatusBadRequest)
+		return
+	}
+
 	workunit := workunits[0]
 	workunit.State = core.WORK_STAT_RESERVED
 	workunit.Client = clientid
@@ -353,9 +361,9 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 
 	id = DecodeBase64(cx, id)
 
-	work_id, err := core.New_Workunit_Unique_Identifier(id)
+	work_id, err := core.New_Workunit_Unique_Identifier_FromString(id)
 	if err != nil {
-		cx.RespondWithErrorMessage("error parsing workunit identifier: "+id, http.StatusBadRequest)
+		cx.RespondWithErrorMessage("error parsing workunit identifier: "+id+" ("+err.Error()+")", http.StatusBadRequest)
 		return
 	}
 
@@ -400,7 +408,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	// old-style
 	var notice *core.Notice
 	if query.Has("status") && query.Has("client") { //notify execution result: "done" or "fail"
-		//work_id_object, err := core.New_Workunit_Unique_Identifier(work_id)
+		//work_id_object, err := core.New_Workunit_Unique_Identifier_FromString(work_id)
 		//if err != nil {
 		//	cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		//	return
@@ -437,7 +445,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 
 		notice, err = core.NewNotice(notice_if)
 		if err != nil {
-			cx.RespondWithErrorMessage("NewJob_document failed: "+err.Error(), http.StatusInternalServerError)
+			cx.RespondWithErrorMessage("NewNotice returned: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 

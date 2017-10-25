@@ -8,22 +8,22 @@ import (
 )
 
 type WorkflowOutputParameter struct {
-	Id             string               `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	Label          string               `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	SecondaryFiles []Expression         `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	Format         []Expression         `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
-	Streamable     bool                 `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
-	Doc            string               `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
-	OutputBinding  CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"` //TODO
-	OutputSource   []string             `yaml:"outputSource,omitempty" bson:"outputSource,omitempty" json:"outputSource,omitempty"`
-	LinkMerge      LinkMergeMethod      `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
-	Type           []interface{}        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` //WorkflowOutputParameterType TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
+	Id             string                `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	Label          string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	SecondaryFiles []Expression          `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
+	Format         []Expression          `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
+	Streamable     bool                  `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
+	Doc            string                `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
+	OutputBinding  *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"` //TODO
+	OutputSource   interface{}           `yaml:"outputSource,omitempty" bson:"outputSource,omitempty" json:"outputSource,omitempty"`    //string or []string
+	LinkMerge      LinkMergeMethod       `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
+	Type           []interface{}         `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` //WorkflowOutputParameterType TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
 }
 
 func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParameter, err error) {
 	var output_parameter WorkflowOutputParameter
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}
@@ -37,9 +37,34 @@ func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParame
 			return
 		}
 
-		outputSource, ok := original_map["outputSource"]
+		outputSource_if, ok := original_map["outputSource"]
 		if ok {
-			outputSource_str, ok := outputSource.(string)
+
+			switch outputSource_if.(type) {
+			case string:
+				original_map["outputSource"] = outputSource_if.(string)
+
+			case []string:
+				original_map["outputSource"] = outputSource_if.([]string)
+			case []interface{}:
+				outputSource_if_array := outputSource_if.([]interface{})
+
+				outputSource_string_array := []string{}
+				for _, elem := range outputSource_if_array {
+					elem_str, ok := elem.(string)
+					if !ok {
+						err = fmt.Errorf("(NewWorkflowOutputParameter) not a string ?!")
+						return
+					}
+					outputSource_string_array = append(outputSource_string_array, elem_str)
+				}
+
+				original_map["outputSource"] = outputSource_string_array
+
+			default:
+
+			}
+			outputSource_str, ok := outputSource_if.(string)
 			if ok {
 				original_map["outputSource"] = []string{outputSource_str}
 			}

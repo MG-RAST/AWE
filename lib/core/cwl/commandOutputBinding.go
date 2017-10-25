@@ -15,7 +15,7 @@ type CommandOutputBinding struct {
 
 func NewCommandOutputBinding(original interface{}) (commandOutputBinding *CommandOutputBinding, err error) {
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
 		return
 	}

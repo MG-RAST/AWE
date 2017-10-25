@@ -49,9 +49,9 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 
 	// convert input map into input array
 
-	original, err = makeStringMap(original)
+	original, err = MakeStringMap(original)
 	if err != nil {
-		err = fmt.Errorf("(NewWorkflow) makeStringMap returned: %s", err.Error())
+		err = fmt.Errorf("(NewWorkflow) MakeStringMap returned: %s", err.Error())
 		return
 	}
 
@@ -91,8 +91,14 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 
 		requirements, ok := object["requirements"]
 		if ok {
+			fmt.Println("---- Workflow (before CreateRequirementArray) ----")
+			spew.Dump(object)
 			object["requirements"], err = CreateRequirementArray(requirements)
 			if err != nil {
+				fmt.Println("---- Workflow ----")
+				spew.Dump(object)
+				fmt.Println("---- requirements ----")
+				spew.Dump(requirements)
 				err = fmt.Errorf("(NewWorkflow) CreateRequirementArray returned: %s", err.Error())
 				return
 			}

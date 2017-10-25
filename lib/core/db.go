@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/db"
 	"github.com/MG-RAST/AWE/lib/logger"
 	mgo "gopkg.in/mgo.v2"
@@ -438,6 +439,70 @@ func dbGetJobFieldTime(job_id string, fieldname string) (result time.Time, err e
 	return
 }
 
+func dbPushJobTask(job_id string, task *Task) (err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	selector := bson.M{"id": job_id}
+
+	change := bson.M{"$push": bson.M{"tasks": task}}
+
+	err = c.Update(selector, change)
+	if err != nil {
+		err = fmt.Errorf("Error adding task: " + err.Error())
+		return
+	}
+	return
+}
+
+func dbPushJobWorkflowInstance(job_id string, wi *WorkflowInstance) (err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	selector := bson.M{"id": job_id}
+
+	change := bson.M{"$push": bson.M{"workflow_instances": wi}}
+
+	err = c.Update(selector, change)
+	if err != nil {
+		err = fmt.Errorf("Error adding WorkflowInstance: " + err.Error())
+		return
+	}
+	return
+}
+
+func dbUpdateJobWorkflow_instancesFieldOutputs(job_id string, subworkflow_id string, outputs cwl.Job_document) (err error) {
+	update_value := bson.M{"outputs": outputs}
+	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
+}
+
+func dbUpdateJobWorkflow_instancesFieldInt(job_id string, subworkflow_id string, fieldname string, value int) (err error) {
+	update_value := bson.M{fieldname: value}
+	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
+}
+
+func dbUpdateJobWorkflow_instancesField(job_id string, subworkflow_id string, fieldname string, value interface{}) (err error) {
+	update_value := bson.M{"workflow_instances.$." + fieldname: value}
+	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
+}
+
+func dbUpdateJobWorkflow_instancesFields(job_id string, subworkflow_id string, update_value bson.M) (err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	selector := bson.M{"id": job_id, "workflow_instances.id": subworkflow_id}
+
+	err = c.Update(selector, bson.M{"$set": update_value})
+	if err != nil {
+		err = fmt.Errorf("(dbUpdateJobWorkflow_instancesFields) Error updating workflow_instance: " + err.Error())
+		return
+	}
+	return
+}
+
 func dbUpdateJobFields(job_id string, update_value bson.M) (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
@@ -500,6 +565,11 @@ func dbUpdateJobTaskField(job_id string, task_id string, fieldname string, value
 }
 
 func dbUpdateJobTaskInt(job_id string, task_id string, fieldname string, value int) (err error) {
+	update_value := bson.M{"tasks.$." + fieldname: value}
+	return dbUpdateJobTaskFields(job_id, task_id, update_value)
+
+}
+func dbUpdateJobTaskBoolean(job_id string, task_id string, fieldname string, value bool) (err error) {
 	update_value := bson.M{"tasks.$." + fieldname: value}
 	return dbUpdateJobTaskFields(job_id, task_id, update_value)
 

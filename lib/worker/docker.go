@@ -75,15 +75,18 @@ func InspectImage(client *docker.Client, dockerimage_id string) (image *docker.I
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
+			err = fmt.Errorf("(InspectImage) cmd.StdoutPipe returned: %s", err.Error())
 			return nil, err
 		}
 
 		stderr, err := cmd.StderrPipe()
 		if err != nil {
+			err = fmt.Errorf("(InspectImage) cmd.StderrPipe returned: %s", err.Error())
 			return nil, err
 		}
 
 		if err = cmd.Start(); err != nil {
+			err = fmt.Errorf("(InspectImage) cmd.Start returned: %s", err.Error())
 			return nil, err
 		}
 
@@ -105,6 +108,7 @@ func InspectImage(client *docker.Client, dockerimage_id string) (image *docker.I
 				return nil, err_read
 			}
 			logger.Debug(1, fmt.Sprintf("(InspectImage) STDERR: %s", stderr_bytearray))
+			err = fmt.Errorf("(InspectImage) cmd.Wait returned: %s", err.Error())
 			return nil, err
 		} else {
 			err = err_json // in case that failed...
@@ -113,14 +117,16 @@ func InspectImage(client *docker.Client, dockerimage_id string) (image *docker.I
 		if len(image_array) == 1 {
 			image = &image_array[0]
 		} else {
-			err = errors.New("error: inspect returned zero (or more than one) images")
+			err = errors.New("(InspectImage) inspect returned zero (or more than one) images")
 		}
 
 		return image, err
 	} else {
 
 		image, err = client.InspectImage(dockerimage_id)
-
+		if err != nil {
+			err = fmt.Errorf("(InspectImage) client.InspectImage returned: %s", err.Error())
+		}
 	}
 	return image, err
 }
@@ -213,10 +219,12 @@ func TagImage(client *docker.Client, dockerimage_id string, tag_opts docker.TagI
 
 		stderr, err := cmd.StderrPipe()
 		if err != nil {
+			err = fmt.Errorf("(TagImage) cmd.StderrPipe() returned: %s", err.Error())
 			return err
 		}
 
 		if err = cmd.Start(); err != nil {
+			err = fmt.Errorf("(TagImage) cmd.Start() returned: %s", err.Error())
 			return err
 		}
 
@@ -230,13 +238,16 @@ func TagImage(client *docker.Client, dockerimage_id string, tag_opts docker.TagI
 			} else {
 				logger.Debug(1, fmt.Sprintf("(InspectImage) could not read from STDERR."))
 			}
-
+			err = fmt.Errorf("(TagImage) cmd.Wait returned: %s", err.Error())
 		}
 
 		return err
 
 	} else {
 		err = client.TagImage(dockerimage_id, tag_opts)
+		if err != nil {
+			err = fmt.Errorf("(TagImage) client.TagImage returned: %s", err.Error())
+		}
 	}
 	return err
 }
@@ -245,7 +256,9 @@ func KillContainer(container_id string) (err error) {
 	logger.Debug(1, fmt.Sprintf("(KillContainer) %s:", container_id))
 	cmd := exec.Command(conf.DOCKER_BINARY, "kill", container_id)
 
-	if err = cmd.Start(); err != nil {
+	err = cmd.Start()
+	if err != nil {
+		err = fmt.Errorf("(KillContainer) cmd.Start returned: %s", err.Error())
 		return err
 	}
 
@@ -287,6 +300,9 @@ func RunCommand(name string, arg ...string) (stdo []byte, stde []byte, err error
 	}
 
 	err = cmd.Wait()
+	if err != nil {
+		err = fmt.Errorf("(RunCommand) cmd.Wait returned: %s", err.Error())
+	}
 
 	return stdo, stde, err
 
@@ -306,7 +322,9 @@ func CreateContainer(create_args []string) (container_id string, err error) {
 	stdo, _, err := RunCommand(conf.DOCKER_BINARY, create_args...)
 
 	if err != nil {
+
 		logger.Debug(1, fmt.Sprintf("(CreateContainer) cmd.Wait returned error: %s", err.Error()))
+		err = fmt.Errorf("(CreateContainer) RunCommand returned: %s", err.Error())
 
 		return "", err
 	}
@@ -341,6 +359,7 @@ func RunContainer(run_args []string) (container_id string, err error) {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		err = fmt.Errorf("(RunContainer) StdoutPipe returned: %s", err.Error())
 		return "", err
 	}
 
@@ -351,6 +370,7 @@ func RunContainer(run_args []string) (container_id string, err error) {
 	//}
 
 	if err = cmd.Start(); err != nil {
+		err = fmt.Errorf("(RunContainer) cmd.Start returned: %s", err.Error())
 		return "", err
 	}
 
@@ -378,6 +398,7 @@ func RemoveContainer(container_id string) (err error) {
 	logger.Debug(1, fmt.Sprintf("(RemoveContainer) %s:", container_id))
 	cmd := exec.Command(conf.DOCKER_BINARY, "rm", "-f", container_id)
 	if err = cmd.Start(); err != nil {
+		err = fmt.Errorf("(RemoveContainer) cmd.Start returned: %s", err.Error())
 		return err
 	}
 	err = cmd.Wait()
@@ -398,7 +419,7 @@ func StartContainer(container_id string, args string) (err error) {
 
 		logger.Debug(1, fmt.Sprintf("(StartContainer) cmd.Wait stdout: %s", stdo))
 		logger.Debug(1, fmt.Sprintf("(StartContainer) cmd.Wait stderr: %s", stde))
-
+		err = fmt.Errorf("(StartContainer) cmd.Start returned: %s", err.Error())
 	}
 
 	return err
@@ -417,7 +438,7 @@ func WaitContainer(container_id string) (status int, err error) {
 
 		logger.Debug(1, fmt.Sprintf("(WaitContainer) cmd.Wait stdout: %s", stdo))
 		logger.Debug(1, fmt.Sprintf("(WaitContainer) cmd.Wait stderr: %s", stde))
-
+		err = fmt.Errorf("(WaitContainer) RunCommand returned: %s", err.Error())
 		return 0, err
 	}
 
@@ -428,7 +449,7 @@ func WaitContainer(container_id string) (status int, err error) {
 	if endofline > 0 {
 		stdout_line = string(stdo[0:endofline])
 	} else {
-		err = errors.New("docker create returned empty string")
+		err = errors.New("(WaitContainer) docker create returned empty string")
 		return 0, err
 	}
 
@@ -443,6 +464,7 @@ func WaitContainer(container_id string) (status int, err error) {
 	if err != nil {
 		logger.Debug(1, fmt.Sprintf("(WaitContainer) could not interpret status code: \"%s\"", stdout_line))
 		// handle error
+		err = fmt.Errorf("(WaitContainer) strconv.Atoi( returned: %s", err.Error())
 		return 0, err
 	}
 
@@ -480,7 +502,8 @@ func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 
 	download_url, err := shock_docker_repo.Get_node_download_url(node)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Could not create download url, err=%s", err.Error()))
+		err = fmt.Errorf("(dockerBuildImage) Could not create download url, err=%s", err.Error())
+		return
 	}
 
 	// get and build Dockerfile
@@ -533,6 +556,7 @@ func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.S
 
 	dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(Dockerimage)
 	if err != nil {
+		err = fmt.Errorf("(findDockerImageInShock) SplitDockerimageName( returned: %s", err.Error())
 		return
 	}
 
@@ -724,6 +748,7 @@ func dockerLoadImage(client *docker.Client, download_url string, datatoken strin
 		//}
 
 		if err = cmd.Start(); err != nil {
+			err = fmt.Errorf("(dockerLoadImage) cmd.Start returned: %s", err.Error())
 			return err
 		}
 
@@ -746,6 +771,7 @@ func dockerImportImage(client *docker.Client, Dockerimage string, datatoken stri
 	_, download_url, err := findDockerImageInShock(Dockerimage, datatoken) // TODO get node
 
 	if err != nil {
+		err = fmt.Errorf("(dockerImportImage) findDockerImageInShock returned: %s", err.Error())
 		return err
 	}
 

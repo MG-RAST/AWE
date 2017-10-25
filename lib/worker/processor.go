@@ -236,6 +236,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 	//change cwd to the workunit's working directory
 	if err := workunit.CDworkpath(); err != nil {
+		err = fmt.Errorf("(RunWorkunitDocker) CDworkpath returned: %s", err.Error())
 		return nil, err
 	}
 
@@ -247,6 +248,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 	work_path, err := workunit.Path()
 	if err != nil {
+		err = fmt.Errorf("(RunWorkunitDocker) workunit.Path() returned: %s", err.Error())
 		return
 	}
 
@@ -268,7 +270,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		err = ioutil.WriteFile(wrapper_script_filename_host, wrapper_content_bytes, 0755) // not executable: 0644
 		if err != nil {
-			err = fmt.Errorf("error writing wrapper script, err=%s", err.Error())
+			err = fmt.Errorf("(RunWorkunitDocker) error writing wrapper script, err=%s", err.Error())
 			return
 		}
 
@@ -283,7 +285,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	} else if workunit.Cmd.DockerPull != "" {
 		logger.Debug(1, "using DockerPull: %s", workunit.Cmd.DockerPull)
 	} else {
-		err = fmt.Errorf("Error Dockerimage/DockerPull string empty")
+		err = fmt.Errorf("(RunWorkunitDocker) Error Dockerimage/DockerPull string empty")
 		return
 	}
 
@@ -294,6 +296,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(workunit.Cmd.Dockerimage)
 		if err != nil {
+			err = fmt.Errorf("(RunWorkunitDocker) A SplitDockerimageName returned: %s", err.Error())
 			return
 		}
 	}
@@ -301,6 +304,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(workunit.Cmd.DockerPull)
 		if err != nil {
+			err = fmt.Errorf("(RunWorkunitDocker) B SplitDockerimageName returned: %s", err.Error())
 			return
 		}
 	}
@@ -319,7 +323,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 		logger.Debug(1, "Using docker API...")
 		client, err = docker.NewClient(conf.DOCKER_SOCKET)
 		if err != nil {
-			err = fmt.Errorf("error creating docker client: %s", err.Error())
+			err = fmt.Errorf("(RunWorkunitDocker) error creating docker client: %s", err.Error())
 			return
 		}
 	} else {
@@ -334,6 +338,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	// delete any old AWE_container
 	err = RemoveOldAWEContainers(client, container_name)
 	if err != nil {
+		err = fmt.Errorf("(RunWorkunitDocker) RemoveOldAWEContainers returned: %s", err.Error())
 		return nil, err
 	}
 
@@ -1161,6 +1166,7 @@ func FetchPrivateEnvByWorkId(workid string) (envs map[string]string, err error) 
 	tmp_map := new(map[string]string)
 
 	if err := json.Unmarshal([]byte(jsonstream), tmp_map); err != nil {
+		err = fmt.Errorf("(FetchPrivateEnvByWorkId) json.Unmarshal returned: %s", err.Error())
 		return nil, err
 	}
 

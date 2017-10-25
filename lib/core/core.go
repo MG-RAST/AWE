@@ -184,7 +184,7 @@ func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
 		inputFileNames := make(map[string]bool)
 		for _, io := range task.Inputs {
 			if _, exists := inputFileNames[io.FileName]; exists {
-				return nil, errors.New("invalid inputs: task " + task.Id + " contains multiple inputs with filename=" + io.FileName)
+				return nil, errors.New("invalid inputs: task " + task.String() + " contains multiple inputs with filename=" + io.FileName)
 			}
 			inputFileNames[io.FileName] = true
 		}
@@ -300,13 +300,13 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 
 	for _, taskDep := range jobDep.Tasks {
 		//task := new(Task)
-		if taskDep.Id == "" {
-			err = fmt.Errorf("(JobDepToJob) taskDep.Id empty")
-			return
-		}
+		//if taskDep.Id == "" {
+		//	err = fmt.Errorf("(JobDepToJob) taskDep.Id empty")
+		//	return
+		//}
 
 		var task *Task
-		task, err = NewTask(job, "", taskDep.Id)
+		task, err = NewTask(job, "", taskDep.String())
 		if err != nil {
 			err = fmt.Errorf("(JobDepToJob) NewTask returned: %s", err.Error())
 			return

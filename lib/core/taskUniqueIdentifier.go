@@ -69,7 +69,7 @@ func New_Task_Unique_Identifier_FromString(old_style_id string) (t Task_Unique_I
 		return
 	}
 
-	fmt.Printf("(New_Task_Unique_Identifier_FromString) new id: (%s) %s %s %s\n", old_style_id, job_id, workflow, name)
+	//fmt.Printf("(New_Task_Unique_Identifier_FromString) new id: (%s) %s %s %s\n", old_style_id, job_id, workflow, name)
 
 	return
 }

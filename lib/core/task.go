@@ -116,8 +116,6 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		return
 	}
 
-	task.RWMutex.Init("task_" + task.String())
-
 	job_id := job.Id
 
 	if job_id == "" {
@@ -125,15 +123,30 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		return
 	}
 
+	//logger.Debug(3, "task.TaskName A: %s", task.TaskName)
+	job_prefix := job_id + "_"
+	if len(task.Id) > 0 && (!strings.HasPrefix(task.Id, job_prefix)) {
+		task.TaskName = task.Id
+		changed = true
+	}
+	//logger.Debug(3, "task.TaskName B: %s", task.TaskName)
+	//if strings.HasSuffix(task.TaskName, "ERROR") {
+	//	err = fmt.Errorf("(InitRaw) taskname is error")
+	//	return
+	//}
+
+	task.RWMutex.Init("task_" + task.String())
+
 	if task.JobId == "" {
 		task.JobId = job_id
 		changed = true
 	}
 
 	// job_id is missing and task_id is only a number (e.g. on submission of old-style AWE)
-	if len(task.Id) < 10 {
-		task.TaskName = task.Id
-		changed = true
+
+	if task.TaskName == "" {
+		err = fmt.Errorf("(InitRaw) task.TaskName empty")
+		return
 	}
 
 	correct_id_string := task.String()

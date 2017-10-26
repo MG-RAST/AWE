@@ -40,7 +40,7 @@ func NewNotice(native interface{}) (workunit_result *Notice, err error) {
 		}
 
 		results, has_results := native_map["results"]
-		if has_results {
+		if has_results && results != nil {
 
 			var results_jobdoc *cwl.Job_document
 			results_jobdoc, err = cwl.NewJob_documentFromNamedTypes(results)

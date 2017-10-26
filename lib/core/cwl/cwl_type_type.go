@@ -92,6 +92,12 @@ func NewCWLType_Type(native interface{}, context string) (result CWLType_Type, e
 						err = fmt.Errorf("(NewCWLType_Type) NewCommandOutputArraySchemaFromInterface returned: %s", err.Error())
 					}
 					return
+					//case "WorkflowOutput":
+					//result, err = NewOutputArraySchemaFromInterface(native)
+					//if err != nil {
+					//	err = fmt.Errorf("(NewCWLType_Type) NewWorkflowOutputOutputArraySchemaFromInterface returned: %s", err.Error())
+				//	}
+				//	return
 				default:
 					err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
 					return

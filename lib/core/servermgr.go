@@ -551,8 +551,11 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		}
 	}()
 
-	client.Increment_total_completed()
-
+	err = client.Increment_total_completed()
+	if err != nil {
+		err = fmt.Errorf("(RemoveWorkFromClient:IncrementRemainWork) client.Increment_total_completed returned: %s", err.Error())
+		return
+	}
 	remain_work, xerr := task.IncrementRemainWork(-1, true)
 	if xerr != nil {
 		err = fmt.Errorf("(RemoveWorkFromClient:IncrementRemainWork) client=%s work=%s %s", clientid, workid, xerr.Error())
@@ -2674,6 +2677,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				return
 			}
 
+			expected_types := output.Type
+			_ = expected_types
 			//XXXXXXXX
 
 			output_source := output.OutputSource
@@ -2694,6 +2699,17 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 					err = fmt.Errorf("(updateJobTask) A source %s not found", outputSourceString)
 					return
 				}
+
+				//has_type, xerr := cwl.TypeIsCorrect(expected_types, obj)
+				//if xerr != nil {
+				//	err = fmt.Errorf("(updateJobTask) TypeIsCorrect: %s", xerr.Error())
+				//	return
+				//}
+				//if !has_type {
+				//	err = fmt.Errorf("(updateJobTask) workflow_ouput %s, does not match expected types %s", output_id, expected_types) # TODO
+				//	return
+				//}
+
 				workflow_outputs_map[output_id] = obj
 			case []string:
 				outputSourceArrayOfString := output_source.([]string)

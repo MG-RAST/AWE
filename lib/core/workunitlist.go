@@ -1,5 +1,9 @@
 package core
 
+import (
+	"fmt"
+)
+
 type WorkunitList struct {
 	RWMutex `bson:"-" json:"-"`
 	_map    map[Workunit_Unique_Identifier]bool `json:"-"`
@@ -110,8 +114,13 @@ func (cl *WorkunitList) Get_string_list(do_read_lock bool) (work_ids []string, e
 		defer cl.RUnlockNamed(read_lock)
 	}
 	for id, _ := range cl._map {
-
-		work_ids = append(work_ids, id.String())
+		var work_str string
+		work_str, err = id.String()
+		if err != nil {
+			err = fmt.Errorf("(Get_string_list) id.String() returned: %s", err.Error())
+			return
+		}
+		work_ids = append(work_ids, work_str)
 	}
 	return
 }
@@ -120,10 +129,15 @@ func (cl *WorkunitList) sync() (err error) {
 
 	cl.Data = []string{}
 	for id, _ := range cl._map {
+		var work_str string
+		work_str, err = id.String()
+		if err != nil {
+			err = fmt.Errorf("(sync) workid.String() returned: %s", err.Error())
+			return
+		}
+		//id_string := id.String()
 
-		id_string := id.String()
-
-		cl.Data = append(cl.Data, id_string)
+		cl.Data = append(cl.Data, work_str)
 	}
 	return
 }

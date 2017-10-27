@@ -80,9 +80,15 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		//AppVariables: task.AppVariables // not needed yet
 	}
+	var work_str string
+	work_str, err = workunit.String()
+	if err != nil {
+		err = fmt.Errorf("(NewWorkunit) workunit.String() returned: %s", err.Error())
+		return
+	}
 
-	workunit.Id = workunit.String()
-	workunit.WuId = workunit.String()
+	workunit.Id = work_str
+	workunit.WuId = work_str
 
 	if task.WorkflowStep != nil {
 

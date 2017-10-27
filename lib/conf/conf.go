@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const VERSION string = "0.9.58"
+const VERSION string = "0.9.62"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -304,7 +304,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddInt(&EXPIRE_WAIT, 60, "Server", "expire_wait", "wait time for expiration reaper in minutes", "")
 		c_store.AddString(&GLOBAL_EXPIRE, "", "Server", "global_expire", "default number and unit of time after job completion before it expires", "")
 		c_store.AddString(&PIPELINE_EXPIRE, "", "Server", "pipeline_expire", "comma seperated list of pipeline_name=expire_days_unit, overrides global_expire", "")
-		c_store.AddBool(&PERF_LOG_WORKUNIT, true, "Server", "perf_log_workunit", "collecting performance log per workunit", "")
+		c_store.AddBool(&PERF_LOG_WORKUNIT, false, "Server", "perf_log_workunit", "collecting performance log per workunit (not working)", "")
 		c_store.AddInt(&MAX_WORK_FAILURE, 3, "Server", "max_work_failure", "number of times that one workunit fails before the workunit considered suspend", "")
 		c_store.AddInt(&MAX_CLIENT_FAILURE, 5, "Server", "max_client_failure", "number of times that one client consecutively fails running workunits before the client considered suspend", "")
 		c_store.AddInt(&GOMAXPROCS, 0, "Server", "go_max_procs", "", "")

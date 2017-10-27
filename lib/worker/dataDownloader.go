@@ -184,11 +184,18 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 	}
 	workmap.Set(work_id, ID_DATADOWNLOADER, "dataDownloader")
 
+	var work_str string
+	work_str, err = work_id.String()
+	if err != nil {
+		err = fmt.Errorf("(dataDownloader) work_id.String returned: %s", err.Error())
+		return
+	}
+
 	if Client_mode == "online" {
 		//make a working directory for the workunit (not for commandline execution !!!!!!)
 		err = workunit.Mkdir()
 		if err != nil {
-			logger.Error("[dataDownloader#workunit.Mkdir], workid=" + work_id.String() + " error=" + err.Error())
+			logger.Error("[dataDownloader#workunit.Mkdir], workid=" + work_str + " error=" + err.Error())
 			workunit.Notes = append(workunit.Notes, "[dataDownloader#work.Mkdir]"+err.Error())
 			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 			//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -198,7 +205,7 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 		//run the PreWorkExecutionScript
 		err = runPreWorkExecutionScript(workunit)
 		if err != nil {
-			logger.Error("[dataDownloader#runPreWorkExecutionScript], workid=" + work_id.String() + " error=" + err.Error())
+			logger.Error("[dataDownloader#runPreWorkExecutionScript], workid=" + work_str + " error=" + err.Error())
 			workunit.Notes = append(workunit.Notes, "[dataDownloader#runPreWorkExecutionScript]"+err.Error())
 			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 			//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -210,7 +217,7 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 		moved_data, xerr := movePreData(workunit)
 		if xerr != nil {
 			err = xerr
-			logger.Error("[dataDownloader#movePreData], workid=" + work_id.String() + " error=" + err.Error())
+			logger.Error("[dataDownloader#movePreData], workid=" + work_str + " error=" + err.Error())
 			workunit.Notes = append(workunit.Notes, "[dataDownloader#movePreData]"+err.Error())
 			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 			//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -275,7 +282,7 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 
 	err = ParseWorkunitArgs(workunit)
 	if err != nil {
-		err = fmt.Errorf("err@dataDownloader.ParseWorkunitArgs, workid=%s error=%s", work_id.String(), err.Error())
+		err = fmt.Errorf("err@dataDownloader.ParseWorkunitArgs, workid=%s error=%s", work_str, err.Error())
 		workunit.Notes = append(workunit.Notes, "[dataDownloader#ParseWorkunitArgs]"+err.Error())
 		workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 		//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -288,7 +295,8 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 		datamove_start := time.Now().UnixNano()
 		moved_data, xerr := cache.MoveInputData(workunit)
 		if xerr != nil {
-			err = fmt.Errorf("(dataDownloader) workid=%s error=%s", work_id.String(), xerr.Error())
+
+			err = fmt.Errorf("(dataDownloader) workid=%s error=%s", work_str, xerr.Error())
 			workunit.Notes = append(workunit.Notes, "[dataDownloader#MoveInputData]"+err.Error())
 			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 			//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -313,7 +321,7 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 			attr_json, _ := json.Marshal(user_attr)
 			err = ioutil.WriteFile(fmt.Sprintf("%s/userattr.json", work_path), attr_json, 0644)
 			if err != nil {
-				err = fmt.Errorf("err@dataDownloader_work.getUserAttr, workid=%s error=%s", work_id.String(), err.Error())
+				err = fmt.Errorf("err@dataDownloader_work.getUserAttr, workid=%s error=%s", work_str, err.Error())
 				workunit.Notes = append(workunit.Notes, "[dataDownloader#getUserAttr]"+err.Error())
 				workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 				//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -366,7 +374,13 @@ func proxyDataMover(control chan int) {
 		workmap.Set(work_id, ID_DATADOWNLOADER, "proxyDataMover")
 		//check the availability prerequisite data and download if needed
 		if err := proxyMovePreData(workunit); err != nil {
-			logger.Error("err@dataDownloader_work.movePreData, workid=" + work_id.String() + " error=" + err.Error())
+			var work_str string
+			work_str, err = work_id.String()
+			if err != nil {
+				err = fmt.Errorf("() workid.String() returned: %s", err.Error())
+				return
+			}
+			logger.Error("err@dataDownloader_work.movePreData, workid=%s error=%s", work_str, err.Error())
 			workunit.Notes = append(workunit.Notes, "[dataDownloader#proxyMovePreData]"+err.Error())
 			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 		}

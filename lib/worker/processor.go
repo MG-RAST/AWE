@@ -39,6 +39,119 @@ type WaitContainerResult struct {
 	Status int
 }
 
+func processor_run(control chan int) (err error) {
+
+	workunit := <-fromMover
+	//work := parsedwork.Workunit
+
+	//processed := &Mediumwork{
+	//	Workunit: work,
+	//	Perfstat: parsedwork.Perfstat,
+	//}
+
+	//if the work is not succesfully parsed in last stage, pass it into the next one immediately
+
+	work_id := workunit.Workunit_Unique_Identifier
+
+	var work_str string
+	work_str, err = work_id.String()
+	if err != nil {
+		err = fmt.Errorf("() workid.String() returned: %s", err.Error())
+		return
+	}
+
+	work_state, ok, err := workmap.Get(work_id)
+	if err != nil {
+		err = fmt.Errorf("(processor_run) workmap.Get returned: %s", err.Error())
+		return
+	}
+	if !ok {
+		logger.Error("(processor) workunit.id %s not found", work_str)
+		return
+	}
+	if workunit.State == core.WORK_STAT_ERROR || work_state == ID_DISCARDED {
+
+		if work_state == ID_DISCARDED {
+			workunit.SetState(core.WORK_STAT_DISCARDED, "workmap indicates that workunit has been discarded")
+		} else {
+			workunit.SetState(core.WORK_STAT_ERROR, "workmap indicates WORK_STAT_ERROR")
+		}
+		fromProcessor <- workunit
+		//release the permit lock, for work overlap inhibitted mode only
+		//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+		//	<-chanPermit
+		//}
+		return
+	}
+
+	workmap.Set(work_id, ID_WORKER, "processor")
+
+	var envkeys []string
+	_ = envkeys
+
+	wants_docker := false
+	if workunit.Cmd.Dockerimage != "" || workunit.Cmd.DockerPull != "" {
+		wants_docker = true
+	}
+
+	if !wants_docker {
+		envkeys, err = SetEnv(workunit)
+		if err != nil {
+			logger.Error("(processor) SetEnv(): workid=" + work_str + ", " + err.Error())
+			workunit.Notes = append(workunit.Notes, "[processor#SetEnv]"+err.Error())
+			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
+			//release the permit lock, for work overlap inhibitted mode only
+			//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+			//	<-chanPermit
+			//}
+			return
+		}
+	}
+	run_start := time.Now().Unix()
+
+	var pstat *core.WorkPerf
+	pstat, err = RunWorkunit(workunit)
+	exit_status := workunit.ExitStatus
+	logger.Debug(1, "(processor) ExitStatus of process: %d", exit_status)
+	if err != nil {
+		logger.Error("(processor) RunWorkunit returned error , workid=%s, %s", work_str, err.Error())
+		workunit.Notes = append(workunit.Notes, "[processor#RunWorkunit]"+err.Error())
+
+		if exit_status == 42 {
+			workunit.SetState(core.WORK_STAT_FAILED_PERMANENT, "exit_status == 42") // process told us that is an error where resubmission does not make sense.
+		} else {
+			workunit.SetState(core.WORK_STAT_ERROR, "RunWorkunit failed")
+		}
+		err = nil
+	} else {
+		logger.Debug(1, "(processor) RunWorkunit() returned without error, workid=%s", work_str)
+		workunit.SetState(core.WORK_STAT_COMPUTED, "")
+		workunit.WorkPerf.MaxMemUsage = pstat.MaxMemUsage
+		workunit.WorkPerf.MaxMemoryTotalRss = pstat.MaxMemoryTotalRss
+		workunit.WorkPerf.MaxMemoryTotalSwap = pstat.MaxMemoryTotalSwap
+
+		workunit.WorkPerf.DockerPrep = pstat.DockerPrep
+	}
+	run_end := time.Now().Unix()
+	computetime := run_end - run_start
+	workunit.WorkPerf.Runtime = computetime
+	workunit.ComputeTime = int(computetime)
+
+	if !wants_docker {
+		if len(envkeys) > 0 {
+			UnSetEnv(envkeys)
+		}
+	}
+	logger.Debug(1, "(processor) sending work to datamover")
+	fromProcessor <- workunit
+
+	//release the permit lock, for work overlap inhibitted mode only
+	//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+	//	<-chanPermit
+	//}
+	return
+}
+
 func processor(control chan int) {
 	fmt.Printf("(processor) launched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("(processor)  exiting...\n")
@@ -53,108 +166,10 @@ func processor(control chan int) {
 			control <- ID_WORKER
 			return
 		}
-
-		workunit := <-fromMover
-		//work := parsedwork.Workunit
-
-		//processed := &Mediumwork{
-		//	Workunit: work,
-		//	Perfstat: parsedwork.Perfstat,
-		//}
-
-		//if the work is not succesfully parsed in last stage, pass it into the next one immediately
-
-		work_id := workunit.Workunit_Unique_Identifier
-
-		work_state, ok, xerr := workmap.Get(work_id)
-		if xerr != nil {
-			logger.Error("error: %s", xerr.Error())
-			continue
-		}
-		if !ok {
-			logger.Error("(processor) workunit.id %s not found", work_id.String())
-			continue
-		}
-		if workunit.State == core.WORK_STAT_ERROR || work_state == ID_DISCARDED {
-
-			if work_state == ID_DISCARDED {
-				workunit.SetState(core.WORK_STAT_DISCARDED, "workmap indicates that workunit has been discarded")
-			} else {
-				workunit.SetState(core.WORK_STAT_ERROR, "workmap indicates WORK_STAT_ERROR")
-			}
-			fromProcessor <- workunit
-			//release the permit lock, for work overlap inhibitted mode only
-			//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-			//	<-chanPermit
-			//}
-			continue
-		}
-
-		workmap.Set(work_id, ID_WORKER, "processor")
-
-		var err error
-		var envkeys []string
-		_ = envkeys
-
-		wants_docker := false
-		if workunit.Cmd.Dockerimage != "" || workunit.Cmd.DockerPull != "" {
-			wants_docker = true
-		}
-
-		if !wants_docker {
-			envkeys, err = SetEnv(workunit)
-			if err != nil {
-				logger.Error("(processor) SetEnv(): workid=" + work_id.String() + ", " + err.Error())
-				workunit.Notes = append(workunit.Notes, "[processor#SetEnv]"+err.Error())
-				workunit.SetState(core.WORK_STAT_ERROR, "see notes")
-				//release the permit lock, for work overlap inhibitted mode only
-				//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-				//	<-chanPermit
-				//}
-				continue
-			}
-		}
-		run_start := time.Now().Unix()
-
-		pstat, err := RunWorkunit(workunit)
-		exit_status := workunit.ExitStatus
-		logger.Debug(1, "(processor) ExitStatus of process: %d", exit_status)
+		err := processor_run(control)
 		if err != nil {
-			logger.Error("(processor) RunWorkunit returned error , workid=%s, %s", work_id.String(), err.Error())
-			workunit.Notes = append(workunit.Notes, "[processor#RunWorkunit]"+err.Error())
-
-			if exit_status == 42 {
-				workunit.SetState(core.WORK_STAT_FAILED_PERMANENT, "exit_status == 42") // process told us that is an error where resubmission does not make sense.
-			} else {
-				workunit.SetState(core.WORK_STAT_ERROR, "RunWorkunit failed")
-			}
-		} else {
-			logger.Debug(1, "(processor) RunWorkunit() returned without error, workid=%s", work_id.String())
-			workunit.SetState(core.WORK_STAT_COMPUTED, "")
-			workunit.WorkPerf.MaxMemUsage = pstat.MaxMemUsage
-			workunit.WorkPerf.MaxMemoryTotalRss = pstat.MaxMemoryTotalRss
-			workunit.WorkPerf.MaxMemoryTotalSwap = pstat.MaxMemoryTotalSwap
-
-			workunit.WorkPerf.DockerPrep = pstat.DockerPrep
+			logger.Error("(processor) processor_run returns: %s", err.Error())
 		}
-		run_end := time.Now().Unix()
-		computetime := run_end - run_start
-		workunit.WorkPerf.Runtime = computetime
-		workunit.ComputeTime = int(computetime)
-
-		if !wants_docker {
-			if len(envkeys) > 0 {
-				UnSetEnv(envkeys)
-			}
-		}
-		logger.Debug(1, "(processor) sending work to datamover")
-		fromProcessor <- workunit
-
-		//release the permit lock, for work overlap inhibitted mode only
-		//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-		//	<-chanPermit
-		//}
-
 	}
 	control <- ID_WORKER //we are ending
 }

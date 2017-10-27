@@ -22,11 +22,13 @@ func New_Workunit_Unique_Identifier(task Task_Unique_Identifier, rank int) (wui 
 	return
 }
 
-func (w Workunit_Unique_Identifier) String() string {
+func (w Workunit_Unique_Identifier) String() (work_str string, err error) {
 
-	task_string := w.Task_Unique_Identifier.String()
+	var task_string string
+	task_string, err = w.Task_Unique_Identifier.String()
 
-	return fmt.Sprintf("%s_%d", task_string, w.Rank)
+	work_str = fmt.Sprintf("%s_%d", task_string, w.Rank)
+	return
 }
 
 func (w Workunit_Unique_Identifier) GetTask() Task_Unique_Identifier {

@@ -330,7 +330,7 @@ func (job *Job) Init() (changed bool, err error) {
 	job.RemainTasks = 0
 
 	for _, task := range job.Tasks {
-		if task.String() == "" {
+		if task.Id == "" {
 			// suspend and create error
 			logger.Error("(job.Init) task.Id empty, job %s broken?", job.Id)
 			//task.Id = job.Id + "_" + uuid.New()
@@ -391,7 +391,12 @@ func (job *Job) Init() (changed bool, err error) {
 		inputFileNames := make(map[string]bool)
 		for _, io := range task.Inputs {
 			if _, exists := inputFileNames[io.FileName]; exists {
-				err = errors.New("(job.Init) invalid inputs: task " + task.String() + " contains multiple inputs with filename=" + io.FileName)
+				var task_str string
+				task_str, err = task.String()
+				if err != nil {
+					return
+				}
+				err = fmt.Errorf("(job.Init) invalid inputs: task %s contains multiple inputs with filename=%s", task_str, io.FileName)
 				return
 			}
 			inputFileNames[io.FileName] = true
@@ -956,10 +961,16 @@ func (job *Job) GetDataToken() (token string) {
 	return job.Info.DataToken
 }
 
-func (job *Job) GetPrivateEnv(taskid string) (env map[string]string) {
+func (job *Job) GetPrivateEnv(taskid string) (env map[string]string, err error) {
 	for _, task := range job.Tasks {
-		if taskid == task.String() {
-			return task.Cmd.Environ.Private
+		var task_str string
+		task_str, err = task.String()
+		if err != nil {
+			return
+		}
+		if taskid == task_str {
+			env = task.Cmd.Environ.Private
+			return
 		}
 	}
 	return
@@ -973,7 +984,12 @@ func (job *Job) GetJobLogs() (jlog *JobLog, err error) {
 	jlog.Error = job.Error
 	jlog.Resumed = job.Resumed
 	for _, task := range job.Tasks {
-		jlog.Tasks = append(jlog.Tasks, task.GetTaskLogs())
+		var tl *TaskLog
+		tl, err = task.GetTaskLogs()
+		if err != nil {
+			return
+		}
+		jlog.Tasks = append(jlog.Tasks, tl)
 	}
 	return
 }

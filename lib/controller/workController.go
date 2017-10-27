@@ -468,7 +468,11 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	// report may also be added for cwl workunit
 	if query.Has("report") { // if "report" is specified in query, parse performance statistics or errlog
 		if _, ok := files["perf"]; ok {
-			core.QMgr.FinalizeWorkPerf(work_id, files["perf"].Path)
+			err = core.QMgr.FinalizeWorkPerf(work_id, files["perf"].Path)
+			if err != nil {
+				cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
 		for _, log := range conf.WORKUNIT_LOGS {
 			if _, ok := files[log]; ok {

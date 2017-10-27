@@ -31,6 +31,103 @@ type TokenResponse struct {
 	Errs []string `bson:"error" json:"error"`
 }
 
+func workStealerRun(control chan int, retry_previous int) (retry int, err error) {
+	retry = retry_previous
+
+	if core.Service == "proxy" {
+		<-core.ProxyWorkChan
+	}
+	workunit, err := CheckoutWorkunitRemote()
+	if err != nil {
+		core.Self.Busy = false
+		if err.Error() == e.QueueEmpty || err.Error() == e.QueueSuspend || err.Error() == e.NoEligibleWorkunitFound {
+			//normal, do nothing
+			logger.Debug(3, "(workStealer) client %s received status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL)
+		} else if err.Error() == e.ClientBusy {
+			// client asked for work, but server has not finished processing its last delivered work
+			logger.Error("(workStealer) server responds: last work delivered by client not yet processed, retry=%d", retry)
+			retry += 1
+		} else if err.Error() == e.ClientNotFound {
+			logger.Error("(workStealer) server responds: client not found. will wait for heartbeat process to fix this")
+			//server may be restarted, waiting for the hearbeater goroutine to try re-register
+			//ReRegisterWithSelf(conf.SERVER_URL)
+			// this has to be done by the heartbeat
+		} else if err.Error() == e.ClientSuspended {
+			logger.Error("(workStealer) client suspended, waiting for repair or resume request...")
+			//TODO: send out email notice that this client has problem and been suspended
+			time.Sleep(2 * time.Minute)
+		} else if err.Error() == e.ClientDeleted {
+			fmt.Printf("(workStealer) client deleted, exiting...\n")
+			os.Exit(1) // TODO is there a better way of exiting ? E.g. in regard of the logger who wants to flush....
+		} else if err.Error() == e.ServerNotFound {
+			logger.Error("(workStealer) ServerNotFound...\n")
+			retry += 1
+		} else {
+			//something is wrong, server may be down
+			logger.Error("(workStealer) checking out workunit: %s, retry=%d", err.Error(), retry)
+			retry += 1
+		}
+		if core.Service != "proxy" { //proxy: event driven, client: timer driven
+			if retry <= 10 {
+				logger.Debug(3, "(workStealer) sleep 10 seconds")
+				time.Sleep(10 * time.Second)
+			} else {
+				logger.Debug(3, "(workStealer) sleep 30 seconds")
+				time.Sleep(30 * time.Second)
+			}
+		}
+		return
+	} else {
+		retry = 0
+	}
+
+	work_id := workunit.Workunit_Unique_Identifier
+	var work_str string
+	work_str, err = work_id.String()
+	if err != nil {
+		err = fmt.Errorf("(workStealer) work_id.String() returned: %s", err.Error())
+		return
+	}
+	logger.Debug(1, "(workStealer) checked out workunit, id="+work_str)
+	//log event about work checktout (WC)
+	logger.Event(event.WORK_CHECKOUT, "workid="+work_str)
+
+	err = core.Self.Current_work.Add(work_id)
+	if err != nil {
+		logger.Error("(workStealer) error: %s", err.Error())
+		return
+	}
+
+	workmap.Set(work_id, ID_WORKSTEALER, "workStealer")
+
+	//hand the work to the next step handler: dataMover
+	workstat := core.NewWorkPerf()
+	workstat.Checkout = time.Now().Unix()
+	//rawWork := &Mediumwork{
+	//	Workunit: wu,
+	//	Perfstat: workstat,
+	//}
+	workunit.WorkPerf = workstat
+
+	// make sure cwl-runner is invoked
+	if workunit.CWL_workunit != nil {
+		workunit.Cmd.Name = "/usr/bin/cwl-runner"
+		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", "./cwl_tool.yaml", "./cwl_job_input.yaml"}
+
+	}
+
+	//FromStealer <- rawWork // sends to dataMover
+	FromStealer <- workunit // sends to dataMover
+
+	//if worker overlap is inhibited, wait until deliverer finishes processing the workunit
+	if conf.WORKER_OVERLAP == false && core.Service != "proxy" {
+		chanPermit <- true
+		// sleep short time to allow server to finish processing last delivered work
+		time.Sleep(2 * time.Second)
+	}
+	return
+}
+
 func workStealer(control chan int) {
 
 	fmt.Printf("workStealer launched, client=%s\n", core.Self.Id)
@@ -38,92 +135,11 @@ func workStealer(control chan int) {
 
 	defer fmt.Printf("workStealer exiting...\n")
 	retry := 0
+	var err error
 	for {
-		if core.Service == "proxy" {
-			<-core.ProxyWorkChan
-		}
-		workunit, err := CheckoutWorkunitRemote()
+		retry, err = workStealerRun(control, retry)
 		if err != nil {
-			core.Self.Busy = false
-			if err.Error() == e.QueueEmpty || err.Error() == e.QueueSuspend || err.Error() == e.NoEligibleWorkunitFound {
-				//normal, do nothing
-				logger.Debug(3, "(workStealer) client %s received status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL)
-			} else if err.Error() == e.ClientBusy {
-				// client asked for work, but server has not finished processing its last delivered work
-				logger.Error("(workStealer) server responds: last work delivered by client not yet processed, retry=%d", retry)
-				retry += 1
-			} else if err.Error() == e.ClientNotFound {
-				logger.Error("(workStealer) server responds: client not found. will wait for heartbeat process to fix this")
-				//server may be restarted, waiting for the hearbeater goroutine to try re-register
-				//ReRegisterWithSelf(conf.SERVER_URL)
-				// this has to be done by the heartbeat
-			} else if err.Error() == e.ClientSuspended {
-				logger.Error("(workStealer) client suspended, waiting for repair or resume request...")
-				//TODO: send out email notice that this client has problem and been suspended
-				time.Sleep(2 * time.Minute)
-			} else if err.Error() == e.ClientDeleted {
-				fmt.Printf("(workStealer) client deleted, exiting...\n")
-				os.Exit(1) // TODO is there a better way of exiting ? E.g. in regard of the logger who wants to flush....
-			} else if err.Error() == e.ServerNotFound {
-				logger.Error("(workStealer) ServerNotFound...\n")
-				retry += 1
-			} else {
-				//something is wrong, server may be down
-				logger.Error("(workStealer) checking out workunit: %s, retry=%d", err.Error(), retry)
-				retry += 1
-			}
-			if core.Service != "proxy" { //proxy: event driven, client: timer driven
-				if retry <= 10 {
-					logger.Debug(3, "(workStealer) sleep 10 seconds")
-					time.Sleep(10 * time.Second)
-				} else {
-					logger.Debug(3, "(workStealer) sleep 30 seconds")
-					time.Sleep(30 * time.Second)
-				}
-			}
-			continue
-		} else {
-			retry = 0
-		}
-
-		work_id := workunit.Workunit_Unique_Identifier
-
-		logger.Debug(1, "(workStealer) checked out workunit, id="+work_id.String())
-		//log event about work checktout (WC)
-		logger.Event(event.WORK_CHECKOUT, "workid="+work_id.String())
-
-		err = core.Self.Current_work.Add(work_id)
-		if err != nil {
-			logger.Error("(workStealer) error: %s", err.Error())
-			return
-		}
-
-		workmap.Set(work_id, ID_WORKSTEALER, "workStealer")
-
-		//hand the work to the next step handler: dataMover
-		workstat := core.NewWorkPerf()
-		workstat.Checkout = time.Now().Unix()
-		//rawWork := &Mediumwork{
-		//	Workunit: wu,
-		//	Perfstat: workstat,
-		//}
-		workunit.WorkPerf = workstat
-
-		// make sure cwl-runner is invoked
-		if workunit.CWL_workunit != nil {
-			workunit.Cmd.Name = "/usr/bin/cwl-runner"
-			workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", "./cwl_tool.yaml", "./cwl_job_input.yaml"}
-
-		}
-
-		//FromStealer <- rawWork // sends to dataMover
-		FromStealer <- workunit // sends to dataMover
-
-		//if worker overlap is inhibited, wait until deliverer finishes processing the workunit
-		if conf.WORKER_OVERLAP == false && core.Service != "proxy" {
-			chanPermit <- true
-			// sleep short time to allow server to finish processing last delivered work
-			time.Sleep(2 * time.Second)
+			logger.Error("(workStealer) workStealerRun returns: %s", err.Error())
 		}
 	}
 	control <- ID_WORKSTEALER //we are ending

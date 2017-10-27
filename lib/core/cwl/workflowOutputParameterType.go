@@ -17,7 +17,7 @@ type OutputRecordSchema struct{}
 
 type OutputEnumSchema struct{}
 
-type OutputArraySchema struct{}
+//type OutputArraySchema struct{}
 
 // CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
 

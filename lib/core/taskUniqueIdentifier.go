@@ -69,19 +69,25 @@ func New_Task_Unique_Identifier_FromString(old_style_id string) (t Task_Unique_I
 		return
 	}
 
-	fmt.Printf("new id: (%s) %s %s %s\n", old_style_id, job_id, workflow, name)
+	//fmt.Printf("(New_Task_Unique_Identifier_FromString) new id: (%s) %s %s %s\n", old_style_id, job_id, workflow, name)
 
 	return
 }
 
-func (taskid Task_Unique_Identifier) String() (s string) {
+func (taskid Task_Unique_Identifier) String() (s string, err error) {
 
 	jobId := taskid.JobId
 	parent := taskid.Parent
 	name := taskid.TaskName
 
 	if name == "" {
-		name = "ERROR"
+		err = fmt.Errorf("(Task_Unique_Identifier/String) TaskName is empty!")
+		return
+	}
+
+	if jobId == "" {
+		err = fmt.Errorf("(Task_Unique_Identifier/String) JobId is empty!")
+		return
 	}
 
 	if parent != "" {

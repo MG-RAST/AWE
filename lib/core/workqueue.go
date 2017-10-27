@@ -140,7 +140,14 @@ func (wq *WorkQueue) StatusChange(id Workunit_Unique_Identifier, workunit *Worku
 			return
 		}
 		if !ok {
-			return errors.New("WQueue.statusChange: invalid workunit id:" + id.String())
+			var work_str string
+			work_str, err = id.String()
+			if err != nil {
+				err = fmt.Errorf("() workid.String() returned: %s", err.Error())
+				return
+			}
+			err = fmt.Errorf("WQueue.statusChange: invalid workunit id:" + work_str)
+			return
 		}
 	}
 

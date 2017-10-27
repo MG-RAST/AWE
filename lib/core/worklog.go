@@ -1,7 +1,7 @@
 package core
 
 import (
-	//"fmt"
+	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 )
 
@@ -11,10 +11,16 @@ type WorkLog struct {
 	Logs map[string]string `bson:"logs" json:"logs"`
 }
 
-func NewWorkLog(id Workunit_Unique_Identifier) (wlog *WorkLog) {
-	work_id := id.String()
+func NewWorkLog(id Workunit_Unique_Identifier) (wlog *WorkLog, err error) {
+	//work_id := id.String()
+	var work_str string
+	work_str, err = id.String()
+	if err != nil {
+		err = fmt.Errorf("(NewWorkLog) id.String() returned: %s", err.Error())
+		return
+	}
 	wlog = new(WorkLog)
-	wlog.Id = work_id
+	wlog.Id = work_str
 	wlog.Rank = id.Rank
 	wlog.Logs = map[string]string{}
 	for _, log := range conf.WORKUNIT_LOGS {

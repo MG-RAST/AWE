@@ -909,7 +909,13 @@ func (qm *CQMgr) GetWorkById(id Workunit_Unique_Identifier) (workunit *Workunit,
 		return
 	}
 	if !ok {
-		err = errors.New(fmt.Sprintf("no workunit found with id %s", id.String()))
+		var work_str string
+		work_str, err = id.String()
+		if err != nil {
+			err = fmt.Errorf("() workid.String() returned: %s", err.Error())
+			return
+		}
+		err = errors.New(fmt.Sprintf("no workunit found with id %s", work_str))
 	}
 	return
 }
@@ -1147,7 +1153,13 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 		if contains(JOB_STATS_ACTIVE, job_state) { //only requeue workunits belonging to active jobs (rule out suspended jobs)
 			if work.Client == client.Id {
 				qm.workQueue.StatusChange(workid, work, WORK_STAT_QUEUED, "")
-				logger.Event(event.WORK_REQUEUE, "workid="+workid.String())
+				var work_str string
+				work_str, err = workid.String()
+				if err != nil {
+					err = fmt.Errorf("(ReQueueWorkunitByClient) workid.String() returned: %s", err.Error())
+					return err
+				}
+				logger.Event(event.WORK_REQUEUE, "workid="+work_str)
 			} else {
 
 				other_client_id := work.Client

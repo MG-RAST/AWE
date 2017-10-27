@@ -91,21 +91,29 @@ type TaskLog struct {
 	Workunits     []*WorkLog `bson:"workunits" json:"workunits"`
 }
 
-func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) TaskRaw {
+func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) (tr TaskRaw, err error) {
 
 	logger.Debug(3, "task_id: %s", task_id)
 	logger.Debug(3, "task_id.JobId: %s", task_id.JobId)
 	logger.Debug(3, "task_id.Parent: %s", task_id.Parent)
 	logger.Debug(3, "task_id.TaskName: %s", task_id.TaskName)
 
-	return TaskRaw{
+	var task_str string
+	task_str, err = task_id.String()
+	if err != nil {
+		err = fmt.Errorf("() task.String returned: %s", err.Error())
+		return
+	}
+
+	tr = TaskRaw{
 		Task_Unique_Identifier: task_id,
-		Id:        task_id.String(),
+		Id:        task_str,
 		Info:      info,
 		Cmd:       &Command{},
 		Partition: nil,
 		DependsOn: []string{},
 	}
+	return
 }
 
 func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
@@ -123,6 +131,11 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		return
 	}
 
+	if task.JobId == "" {
+		task.JobId = job_id
+		changed = true
+	}
+
 	//logger.Debug(3, "task.TaskName A: %s", task.TaskName)
 	job_prefix := job_id + "_"
 	if len(task.Id) > 0 && (!strings.HasPrefix(task.Id, job_prefix)) {
@@ -135,12 +148,13 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	//	return
 	//}
 
-	task.RWMutex.Init("task_" + task.String())
-
-	if task.JobId == "" {
-		task.JobId = job_id
-		changed = true
+	var task_str string
+	task_str, err = task.String()
+	if err != nil {
+		err = fmt.Errorf("(InitRaw) task.String returned: %s", err.Error())
+		return
 	}
+	task.RWMutex.Init("task_" + task_str)
 
 	// job_id is missing and task_id is only a number (e.g. on submission of old-style AWE)
 
@@ -149,9 +163,8 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		return
 	}
 
-	correct_id_string := task.String()
-	if task.Id != correct_id_string {
-		task.Id = correct_id_string
+	if task.Id != task_str {
+		task.Id = task_str
 		changed = true
 	}
 
@@ -276,7 +289,7 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 
 		t, yerr := New_Task_Unique_Identifier_FromString(deptask)
 		if yerr != nil {
-			err = fmt.Errorf("Cannot parse entry in DependsOn: %s", yerr.Error())
+			err = fmt.Errorf("(CollectDependencies) Cannot parse entry in DependsOn: %s", yerr.Error())
 			return
 		}
 
@@ -305,7 +318,7 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 		t, yerr := New_Task_Unique_Identifier_FromString(deptask)
 		if yerr != nil {
 
-			err = fmt.Errorf("Cannot parse Origin entry in Input: %s", yerr.Error())
+			err = fmt.Errorf("(CollectDependencies) Cannot parse Origin entry in Input: %s", yerr.Error())
 			return
 
 		}
@@ -323,7 +336,13 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 	if deps_changed {
 		task.DependsOn = []string{}
 		for deptask, _ := range deps {
-			task.DependsOn = append(task.DependsOn, deptask.String())
+			var dep_task_str string
+			dep_task_str, err = deptask.String()
+			if err != nil {
+				err = fmt.Errorf("(CollectDependencies) dep_task.String returned: %s", err.Error())
+				return
+			}
+			task.DependsOn = append(task.DependsOn, dep_task_str)
 		}
 		changed = true
 	}
@@ -415,8 +434,14 @@ func NewTask(job *Job, workflow string, task_id string) (t *Task, err error) {
 		return
 	}
 
+	var tr TaskRaw
+	tr, err = NewTaskRaw(tui, job.Info)
+	if err != nil {
+		err = fmt.Errorf("(NewTask) NewTaskRaw returns: %s", err.Error())
+		return
+	}
 	t = &Task{
-		TaskRaw: NewTaskRaw(tui, job.Info),
+		TaskRaw: tr,
 		Inputs:  []*IO{},
 		Outputs: []*IO{},
 		Predata: []*IO{},
@@ -1064,7 +1089,7 @@ func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err
 	return
 }
 
-func (task *Task) GetTaskLogs() (tlog *TaskLog) {
+func (task *Task) GetTaskLogs() (tlog *TaskLog, err error) {
 	tlog = new(TaskLog)
 	tlog.Id = task.Id
 	tlog.State = task.State
@@ -1076,11 +1101,21 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog) {
 
 	if task.TotalWork == 1 {
 		//workunit_id.Rank = 0
-		tlog.Workunits = append(tlog.Workunits, NewWorkLog(workunit_id))
+		var wl *WorkLog
+		wl, err = NewWorkLog(workunit_id)
+		if err != nil {
+			return
+		}
+		tlog.Workunits = append(tlog.Workunits, wl)
 	} else {
 		for i := 1; i <= task.TotalWork; i++ {
 			workunit_id.Rank = i
-			tlog.Workunits = append(tlog.Workunits, NewWorkLog(workunit_id))
+			var wl *WorkLog
+			wl, err = NewWorkLog(workunit_id)
+			if err != nil {
+				return
+			}
+			tlog.Workunits = append(tlog.Workunits, wl)
 		}
 	}
 	return

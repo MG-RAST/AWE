@@ -184,7 +184,12 @@ func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
 		inputFileNames := make(map[string]bool)
 		for _, io := range task.Inputs {
 			if _, exists := inputFileNames[io.FileName]; exists {
-				return nil, errors.New("invalid inputs: task " + task.String() + " contains multiple inputs with filename=" + io.FileName)
+				var task_str string
+				task_str, err = task.String()
+				if err != nil {
+					return
+				}
+				return nil, errors.New("invalid inputs: task " + task_str + " contains multiple inputs with filename=" + io.FileName)
 			}
 			inputFileNames[io.FileName] = true
 		}
@@ -306,7 +311,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 		//}
 
 		var task *Task
-		task, err = NewTask(job, "", taskDep.String())
+		task, err = NewTask(job, "", taskDep.Id)
 		if err != nil {
 			err = fmt.Errorf("(JobDepToJob) NewTask returned: %s", err.Error())
 			return
@@ -473,7 +478,14 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 
 func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (response *StandardResponse, err error) {
 
-	work_id_b64 := "base64:" + base64.StdEncoding.EncodeToString([]byte(work.String()))
+	var work_str string
+	work_str, err = work.String()
+	if err != nil {
+		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) workid.String() returned: %s", err.Error())
+		return
+	}
+
+	work_id_b64 := "base64:" + base64.StdEncoding.EncodeToString([]byte(work_str))
 	target_url := ""
 	if work.CWL_workunit != nil {
 		target_url = fmt.Sprintf("%s/work/%s?client=%s", conf.SERVER_URL, work_id_b64, Self.Id) // client info is needed for authentication

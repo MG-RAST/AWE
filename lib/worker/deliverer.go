@@ -18,12 +18,15 @@ func deliverer(control chan int) {
 	fmt.Printf("deliverer launched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("deliverer exiting...\n")
 	for {
-		deliverer_run(control)
+		err := deliverer_run(control)
+		if err != nil {
+			logger.Error("(deliverer) deliverer_run returned: %s", err.Error())
+		}
 	}
 	control <- ID_DELIVERER //we are ending
 }
 
-func deliverer_run(control chan int) {
+func deliverer_run(control chan int) (err error) { // TODO return all errors
 
 	logger.Debug(3, "deliverer_run")
 
@@ -36,7 +39,13 @@ func deliverer_run(control chan int) {
 	}
 
 	work_id := workunit.Workunit_Unique_Identifier
-	logger.Debug(3, "(deliverer_run) work_id: %s", work_id.String())
+
+	var work_str string
+	work_str, err = work_id.String()
+	if err != nil {
+		return
+	}
+	logger.Debug(3, "(deliverer_run) work_id: %s", work_str)
 	work_state, ok, err := workmap.Get(work_id)
 	if err != nil {
 		logger.Error("error: %s", err.Error())
@@ -49,7 +58,7 @@ func deliverer_run(control chan int) {
 
 	if work_state == ID_DISCARDED {
 		workunit.SetState(core.WORK_STAT_DISCARDED, "workmap indicated discarded")
-		logger.Event(event.WORK_DISCARD, "workid="+work_id.String())
+		logger.Event(event.WORK_DISCARD, "workid="+work_str)
 	} else {
 		workmap.Set(work_id, ID_DELIVERER, "deliverer")
 		perfstat := workunit.WorkPerf
@@ -61,7 +70,7 @@ func deliverer_run(control chan int) {
 			data_moved, err := cache.UploadOutputData(workunit)
 			if err != nil {
 				workunit.SetState(core.WORK_STAT_ERROR, "UploadOutputData failed")
-				logger.Error("(deliverer_run) UploadOutputData returns workid=" + work_id.String() + ", err=" + err.Error())
+				logger.Error("(deliverer_run) UploadOutputData returns workid=" + work_str + ", err=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[deliverer#UploadOutputData]"+err.Error())
 			} else {
 				workunit.SetState(core.WORK_STAT_DONE, "")
@@ -81,7 +90,7 @@ func deliverer_run(control chan int) {
 		for do_retry {
 			response, err := core.NotifyWorkunitProcessedWithLogs(workunit, perfstat, conf.PRINT_APP_MSG)
 			if err != nil {
-				logger.Error("(deliverer_run) workid=" + work_id.String() + ", err=" + err.Error())
+				logger.Error("(deliverer_run) workid=" + work_str + ", err=" + err.Error())
 				workunit.Notes = append(workunit.Notes, "[deliverer]"+err.Error())
 				// keep retry
 			} else {
@@ -97,7 +106,7 @@ func deliverer_run(control chan int) {
 					logger.Debug(1, "work delivered successfully")
 					do_retry = false
 				} else {
-					logger.Error("(deliverer) response.Status not ok,  workid=%s, err=%s", work_id.String(), error_message)
+					logger.Error("(deliverer) response.Status not ok,  workid=%s, err=%s", work_str, error_message)
 				}
 			}
 
@@ -120,16 +129,16 @@ func deliverer_run(control chan int) {
 
 	// now final status report sent to server, update some local info
 	if workunit.State == core.WORK_STAT_DONE {
-		logger.Event(event.WORK_DONE, "workid="+work_id.String())
+		logger.Event(event.WORK_DONE, "workid="+work_str)
 		core.Self.Increment_total_completed()
 		if conf.AUTO_CLEAN_DIR && workunit.Cmd.Local == false {
 			go removeDirLater(work_path, conf.CLIEN_DIR_DELAY_DONE)
 		}
 	} else {
 		if workunit.State == core.WORK_STAT_DISCARDED {
-			logger.Event(event.WORK_DISCARD, "workid="+work_id.String())
+			logger.Event(event.WORK_DISCARD, "workid="+work_str)
 		} else {
-			logger.Event(event.WORK_RETURN, "workid="+work_id.String())
+			logger.Event(event.WORK_RETURN, "workid="+work_str)
 		}
 		core.Self.Increment_total_failed(true)
 		if conf.AUTO_CLEAN_DIR && workunit.Cmd.Local == false {
@@ -144,6 +153,7 @@ func deliverer_run(control chan int) {
 	}
 	workmap.Delete(work_id)
 	core.Self.Busy = false
+	return
 }
 
 func removeDirLater(path string, duration time.Duration) (err error) {

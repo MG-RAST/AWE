@@ -182,7 +182,14 @@ func (cl *Client) Append_Skip_work(workid Workunit_Unique_Identifier, write_lock
 		defer cl.Unlock()
 	}
 
-	cl.Skip_work = append(cl.Skip_work, workid.String())
+	var work_str string
+	work_str, err = workid.String()
+	if err != nil {
+		err = fmt.Errorf("() workid.String() returned: %s", err.Error())
+		return
+	}
+
+	cl.Skip_work = append(cl.Skip_work, work_str)
 
 	return
 }

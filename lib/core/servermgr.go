@@ -378,14 +378,10 @@ func (qm *ServerMgr) removeActJob(id string) {
 	qm.ajLock.Unlock()
 }
 
-func (qm *ServerMgr) isActJob(id string) (has bool) {
+func (qm *ServerMgr) isActJob(id string) (ok bool) {
 	qm.ajLock.RLock()
 	defer qm.ajLock.RUnlock()
-	if _, ok := qm.actJobs[id]; ok {
-		has = true
-	} else {
-		has = false
-	}
+	_, ok = qm.actJobs[id]
 	return
 }
 
@@ -1358,9 +1354,9 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 		}
 
 		var task_str string
-		task_str, err = task.String()
-		if err != nil {
-			err = fmt.Errorf("(addTask) task.String returned: %s", err.Error())
+		task_str, xerr = task.String()
+		if xerr != nil {
+			err = fmt.Errorf("(addTask) task.String returned: %s", xerr.Error())
 			return
 		}
 		jerror := &JobError{
@@ -2475,6 +2471,7 @@ func (qm *ServerMgr) CreateAndEnqueueWorkunits(task *Task, job *Job) (err error)
 	logger.Debug(3, "(CreateAndEnqueueWorkunits) starting")
 	workunits, err := task.CreateWorkunits(qm, job)
 	if err != nil {
+		err = fmt.Errorf("(CreateAndEnqueueWorkunits) error in CreateWorkunits: %s", err.Error())
 		return err
 	}
 	for _, wu := range workunits {
@@ -2483,7 +2480,11 @@ func (qm *ServerMgr) CreateAndEnqueueWorkunits(task *Task, job *Job) (err error)
 			return err
 		}
 		id := wu.GetId()
-		qm.CreateWorkPerf(id)
+		err = qm.CreateWorkPerf(id)
+		if err != nil {
+			err = fmt.Errorf("(CreateAndEnqueueWorkunits) error in CreateWorkPerf: %s", err.Error())
+			return
+		}
 	}
 	return
 }
@@ -3731,16 +3732,21 @@ func (qm *ServerMgr) CreateWorkPerf(id Workunit_Unique_Identifier) (err error) {
 	}
 	//workid := id.String()
 	jobid := id.JobId
-	if jobperf, ok := qm.getActJob(jobid); ok {
-		var work_str string
-		work_str, err = id.String()
-		if err != nil {
-			err = fmt.Errorf("(CreateWorkPerf) id.String() returned: %s", err.Error())
-			return
-		}
-		jobperf.Pworks[work_str] = NewWorkPerf()
-		qm.putActJob(jobperf)
+	jobperf, ok := qm.getActJob(jobid)
+	if !ok {
+		err = fmt.Errorf("(CreateWorkPerf) job perf not found: %s", jobid)
+		return
 	}
+	var work_str string
+	work_str, err = id.String()
+	if err != nil {
+		err = fmt.Errorf("(CreateWorkPerf) id.String() returned: %s", err.Error())
+		return
+	}
+	jobperf.Pworks[work_str] = NewWorkPerf()
+	fmt.Println("write jobperf.Pworks: " + work_str)
+	qm.putActJob(jobperf)
+
 	return
 }
 
@@ -3759,7 +3765,7 @@ func (qm *ServerMgr) FinalizeWorkPerf(id Workunit_Unique_Identifier, reportfile 
 	jobid := id.JobId
 	jobperf, ok := qm.getActJob(jobid)
 	if !ok {
-		return errors.New("job perf not found:" + jobid)
+		return errors.New("(FinalizeWorkPerf) job perf not found:" + jobid)
 	}
 	//workid := id.String()
 	var work_str string
@@ -3769,7 +3775,10 @@ func (qm *ServerMgr) FinalizeWorkPerf(id Workunit_Unique_Identifier, reportfile 
 		return
 	}
 	if _, ok := jobperf.Pworks[work_str]; !ok {
-		return errors.New("work perf not found:" + work_str)
+		for key, _ := range jobperf.Pworks {
+			fmt.Println("FinalizeWorkPerf jobperf.Pworks: " + key)
+		}
+		return errors.New("(FinalizeWorkPerf) work perf not found:" + work_str)
 	}
 
 	workperf.Queued = jobperf.Pworks[work_str].Queued

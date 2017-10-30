@@ -441,15 +441,17 @@ func (qm *ServerMgr) updateQueue() (err error) {
 			if err != nil {
 				_ = task.SetState(TASK_STAT_SUSPEND, true)
 				var job_id string
-				job_id, err = task.GetJobId()
-				if err != nil {
+				var xerr error
+				job_id, xerr = task.GetJobId()
+				if xerr != nil {
+					err = xerr
 					return err
 				}
 
 				var task_str string
-				task_str, err = task.String()
-				if err != nil {
-					err = fmt.Errorf("(updateQueue) task.String returned: %s", err.Error())
+				task_str, xerr = task.String()
+				if xerr != nil {
+					err = fmt.Errorf("(updateQueue) task.String returned: %s", xerr.Error())
 					return err
 				}
 

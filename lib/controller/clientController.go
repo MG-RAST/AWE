@@ -57,7 +57,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	}
 
 	//log event about client registration (CR)
-	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.Id+";host="+client.Host+";group="+client.Group+";instance_id="+client.InstanceId+";instance_type="+client.InstanceType+";domain="+client.Domain)
+	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.Id+";hostname="+client.Hostname+";hostip="+client.Host_ip+";group="+client.Group+";instance_id="+client.InstanceId+";instance_type="+client.InstanceType+";domain="+client.Domain)
 
 	rlock, err := client.RLockNamed("ClientController/Create")
 	if err != nil {

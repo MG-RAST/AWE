@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const VERSION string = "0.9.64"
+const VERSION string = "0.9.65"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -134,9 +134,12 @@ var (
 	PRE_WORK_SCRIPT_ARGS        = []string{}
 	METADATA                    string
 
-	SERVER_URL     string
-	CLIENT_NAME    string
-	CLIENT_HOST    string
+	SERVER_URL             string
+	CLIENT_NAME            string
+	CLIENT_HOSTNAME        string
+	CLIENT_HOST_IP         string
+	CLIENT_HOST_deprecated string
+
 	CLIENT_GROUP   string
 	CLIENT_DOMAIN  string
 	WORKER_OVERLAP bool
@@ -328,7 +331,9 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 
 		c_store.AddString(&CLIENT_GROUP, "default", "Client", "group", "name of client group", "")
 		c_store.AddString(&CLIENT_NAME, "default", "Client", "name", "default determines client name by openstack meta data", "")
-		c_store.AddString(&CLIENT_HOST, "127.0.0.1", "Client", "host", "host or ip address", "host or ip address to help finding machines where the clients runs on")
+		c_store.AddString(&CLIENT_HOSTNAME, "localhost", "Client", "hostname", "host name", "host name to help finding machines where the clients runs on")
+		c_store.AddString(&CLIENT_HOST_IP, "127.0.0.1", "Client", "host_ip", "ip address", "ip address to help finding machines where the clients runs on")
+		c_store.AddString(&CLIENT_HOST_deprecated, "", "Client", "host", "deprecated", "deprecated")
 		c_store.AddString(&CLIENT_DOMAIN, "default", "Client", "domain", "", "")
 		c_store.AddString(&CLIENT_GROUP_TOKEN, "", "Client", "clientgroup_token", "", "")
 
@@ -440,6 +445,11 @@ func Init_conf(mode string) (err error) {
 
 	// configuration post processing
 	if mode == "worker" {
+
+		if CLIENT_HOST_deprecated != "" {
+			CLIENT_HOST_IP = CLIENT_HOST_deprecated
+		}
+
 		if CLIENT_NAME == "" || CLIENT_NAME == "default" || CLIENT_NAME == "hostname" {
 			hostname, err := os.Hostname()
 			if err == nil {

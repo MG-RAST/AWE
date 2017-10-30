@@ -90,7 +90,7 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 		for do_retry {
 			response, err := core.NotifyWorkunitProcessedWithLogs(workunit, perfstat, conf.PRINT_APP_MSG)
 			if err != nil {
-				logger.Error("(deliverer_run) workid=" + work_str + ", err=" + err.Error())
+				logger.Error("(deliverer_run) workid=%s NotifyWorkunitProcessedWithLogs returned: %s", work_str, err.Error())
 				workunit.Notes = append(workunit.Notes, "[deliverer]"+err.Error())
 				// keep retry
 			} else {

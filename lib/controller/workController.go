@@ -13,7 +13,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"io/ioutil"
 	"net/http"
@@ -457,7 +457,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 		//notice = &core.Notice{Id: work_id, Status: cwl_result.Status, WorkerId: cwl_result.WorkerId, Notes: ""}
 
 	}
-	spew.Dump(params)
+	//spew.Dump(params)
 	//panic("arrrrgggh")
 
 	if notice == nil {

@@ -1528,7 +1528,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 			if source_is_array {
 
 				for _, src := range source_as_array { // usually only one
-					fmt.Println("(isTaskReady) src: " + spew.Sdump(src))
+					//fmt.Println("(isTaskReady) src: " + spew.Sdump(src))
 					var src_str string
 					var ok bool
 					src_str, ok = src.(string)
@@ -2081,7 +2081,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 			source_as_array, source_is_array := input.Source.([]interface{})
 
 			if source_is_array {
-				fmt.Printf("source is a array: %s", spew.Sdump(input.Source))
+				//fmt.Printf("source is a array: %s", spew.Sdump(input.Source))
 				cwl_array := cwl.Array{}
 				for _, src := range source_as_array { // usually only one
 					fmt.Println("src: " + spew.Sdump(src))
@@ -2109,7 +2109,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 				workunit_input_map[cmd_id] = &cwl_array
 
 			} else {
-				fmt.Printf("source is NOT a array: %s", spew.Sdump(input.Source))
+				//fmt.Printf("source is NOT a array: %s", spew.Sdump(input.Source))
 				var ok bool
 				source_as_string, ok = input.Source.(string)
 				if !ok {
@@ -2798,8 +2798,19 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				return
 			}
 
-			expected_types := output.Type
-			_ = expected_types
+			expected_types_raw := output.Type
+
+			expected_types := []cwl.CWLType_Type{}
+
+			for _, raw_type := range expected_types_raw {
+				type_correct, ok := raw_type.(cwl.CWLType_Type)
+				if !ok {
+					err = fmt.Errorf("(updateJobTask) could not convert element of output.Type into cwl.CWLType_Type")
+					return
+				}
+				expected_types = append(expected_types, type_correct)
+			}
+
 			//XXXXXXXX
 
 			output_source := output.OutputSource
@@ -2821,15 +2832,15 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 					return
 				}
 
-				//has_type, xerr := cwl.TypeIsCorrect(expected_types, obj)
-				//if xerr != nil {
-				//	err = fmt.Errorf("(updateJobTask) TypeIsCorrect: %s", xerr.Error())
-				//	return
-				//}
-				//if !has_type {
-				//	err = fmt.Errorf("(updateJobTask) workflow_ouput %s, does not match expected types %s", output_id, expected_types) # TODO
-				//	return
-				//}
+				has_type, xerr := cwl.TypeIsCorrect(expected_types, obj)
+				if xerr != nil {
+					err = fmt.Errorf("(updateJobTask) TypeIsCorrect: %s", xerr.Error())
+					return
+				}
+				if !has_type {
+					err = fmt.Errorf("(updateJobTask) A) workflow_ouput %s, does not match expected types %s", output_id, expected_types)
+					return
+				}
 
 				workflow_outputs_map[output_id] = obj
 			case []string:
@@ -2849,6 +2860,17 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 						err = fmt.Errorf("(updateJobTask) B source %s not found", outputSourceString)
 						return
 					}
+
+					has_type, xerr := cwl.TypeIsCorrect(expected_types, obj)
+					if xerr != nil {
+						err = fmt.Errorf("(updateJobTask) TypeIsCorrect: %s", xerr.Error())
+						return
+					}
+					if !has_type {
+						err = fmt.Errorf("(updateJobTask) B) workflow_ouput %s, does not match expected types %s", output_id, expected_types)
+						return
+					}
+
 					output_array = append(output_array, obj)
 				}
 

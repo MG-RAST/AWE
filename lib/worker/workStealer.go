@@ -297,7 +297,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 	workunit = &core.Workunit{}
 	workunit.Info = info
-	workunit.Workunit_Unique_Identifier = core.Workunit_Unique_Identifier{}
+	//workunit.Workunit_Unique_Identifier = core.Workunit_Unique_Identifier{}
 	//if has_checkout_time {
 	//	workunit_checkout_time_str, ok := workunit_checkout_time_if.(string)
 	//	if !ok {
@@ -335,6 +335,12 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		err = fmt.Errorf("(CheckoutWorkunitRemote) response_generic.Status != 200 : %d", response.Status)
 		return
 	}
+
+	if workunit.TaskName == "" {
+		err = fmt.Errorf("(CheckoutWorkunitRemote) TaskName empty !")
+		return
+	}
+	logger.Debug(3, "(CheckoutWorkunitRemote) TaskName: %s", workunit.TaskName)
 
 	//workunit = response.Data
 

@@ -6,16 +6,16 @@ import (
 
 type WorkMap struct {
 	core.RWMutex
-	_map map[string]int
+	_map map[core.Workunit_Unique_Identifier]int
 }
 
 func NewWorkMap() *WorkMap {
-	wm := &WorkMap{_map: make(map[string]int)}
+	wm := &WorkMap{_map: make(map[core.Workunit_Unique_Identifier]int)}
 	wm.RWMutex.Init("WorkMap")
 	return wm
 }
 
-func (this *WorkMap) Get(id string) (value int, ok bool, err error) {
+func (this *WorkMap) Get(id core.Workunit_Unique_Identifier) (value int, ok bool, err error) {
 	rlock, err := this.RLockNamed("Get")
 	if err != nil {
 		return
@@ -25,7 +25,7 @@ func (this *WorkMap) Get(id string) (value int, ok bool, err error) {
 	return
 }
 
-func (this *WorkMap) GetKeys() (value []string, err error) {
+func (this *WorkMap) GetKeys() (value []core.Workunit_Unique_Identifier, err error) {
 	rlock, err := this.RLockNamed("Get")
 	if err != nil {
 		return
@@ -37,7 +37,7 @@ func (this *WorkMap) GetKeys() (value []string, err error) {
 	return
 }
 
-func (this *WorkMap) Set(id string, value int, name string) (err error) {
+func (this *WorkMap) Set(id core.Workunit_Unique_Identifier, value int, name string) (err error) {
 	err = this.LockNamed("Set_" + name)
 	if err != nil {
 		return
@@ -49,7 +49,7 @@ func (this *WorkMap) Set(id string, value int, name string) (err error) {
 	return
 }
 
-func (this *WorkMap) Delete(id string) (err error) {
+func (this *WorkMap) Delete(id core.Workunit_Unique_Identifier) (err error) {
 	rlock, err := this.RLockNamed("Get")
 	if err != nil {
 		return

@@ -6,37 +6,37 @@ import (
 
 type ClientMgr interface {
 	RegisterNewClient(FormFiles, *ClientGroup) (*Client, error)
-	ClientHeartBeat(string, *ClientGroup) (HBmsg, error)
+	ClientHeartBeat(string, *ClientGroup, WorkerState) (HeartbeatInstructions, error)
 	GetClient(string, bool) (*Client, bool, error)
 	GetClientByUser(string, *user.User) (*Client, error)
 	//GetAllClients() []*Client
 	GetClientMap() *ClientMap
 	GetAllClientsByUser(*user.User) ([]*Client, error)
-	DeleteClient(*Client) error
-	DeleteClientById(string) error
-	DeleteClientByUser(string, *user.User) error
-	SuspendClient(string, *Client, bool) error
-	SuspendClientByUser(string, *user.User) error
+	//DeleteClient(*Client) error
+	//DeleteClientById(string) error
+	//DeleteClientByUser(string, *user.User) error
+	SuspendClient(string, *Client, string, bool) error
+	SuspendClientByUser(string, *user.User, string) error
 	ResumeClient(string) error
 	ResumeClientByUser(string, *user.User) error
 	ResumeSuspendedClients() (int, error)
 	ResumeSuspendedClientsByUser(*user.User) int
-	SuspendAllClients() (int, error)
-	SuspendAllClientsByUser(*user.User) int
+	SuspendAllClients(string) (int, error)
+	SuspendAllClientsByUser(*user.User, string) (int, error)
 	ClientChecker()
 	UpdateSubClients(string, int) error
 	UpdateSubClientsByUser(string, int, *user.User)
 }
 
 type WorkMgr interface {
-	GetWorkById(string) (*Workunit, error)
+	GetWorkById(Workunit_Unique_Identifier) (*Workunit, error)
 	ShowWorkunits(string) ([]*Workunit, error)
 	ShowWorkunitsByUser(string, *user.User) []*Workunit
 	CheckoutWorkunits(string, string, *Client, int64, int) ([]*Workunit, error)
 	NotifyWorkStatus(Notice)
 	EnqueueWorkunit(*Workunit) error
-	FetchDataToken(string, string) (string, error)
-	FetchPrivateEnv(string, string) (map[string]string, error)
+	FetchDataToken(Workunit_Unique_Identifier, string) (string, error)
+	FetchPrivateEnv(Workunit_Unique_Identifier, string) (map[string]string, error)
 }
 
 type JobMgr interface {
@@ -53,9 +53,9 @@ type JobMgr interface {
 	DeleteZombieJobsByUser(*user.User, bool) int
 	RecoverJob(string) error
 	RecoverJobs() error
-	FinalizeWorkPerf(string, string) error
-	SaveStdLog(string, string, string) error
-	GetReportMsg(string, string) (string, error)
+	FinalizeWorkPerf(Workunit_Unique_Identifier, string) error
+	SaveStdLog(Workunit_Unique_Identifier, string, string) error
+	GetReportMsg(Workunit_Unique_Identifier, string) (string, error)
 	RecomputeJob(string, string) error
 	UpdateQueueToken(*Job) error
 }

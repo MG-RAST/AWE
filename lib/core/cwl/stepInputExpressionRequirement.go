@@ -1,4 +1,4 @@
-package requirements
+package cwl
 
 import (
 	"github.com/mitchellh/mapstructure"
@@ -8,15 +8,18 @@ import (
 
 //http://www.commonwl.org/v1.0/Workflow.html#StepInputExpressionRequirement
 type StepInputExpressionRequirement struct {
-	//Class         string `yaml:"class"`
+	BaseRequirement `bson:",inline" yaml:",inline" json:",inline"`
 }
 
-func (c StepInputExpressionRequirement) GetClass() string { return "StepInputExpressionRequirement" }
-func (c StepInputExpressionRequirement) GetId() string    { return "None" }
+func (c StepInputExpressionRequirement) GetId() string { return "None" }
 
 func NewStepInputExpressionRequirement(original interface{}) (r *StepInputExpressionRequirement, err error) {
+
 	var requirement StepInputExpressionRequirement
 	r = &requirement
 	err = mapstructure.Decode(original, &requirement)
+
+	requirement.Class = "StepInputExpressionRequirement"
+
 	return
 }

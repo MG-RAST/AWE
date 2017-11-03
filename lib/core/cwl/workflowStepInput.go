@@ -2,25 +2,29 @@ package cwl
 
 import (
 	"fmt"
-	//"github.com/davecgh/go-spew/spew"
-	cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/mitchellh/mapstructure"
+	"reflect"
 )
 
 //http://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
 type WorkflowStepInput struct {
-	Id        string               `yaml:"id"`
-	Source    []string             `yaml:"source"` // MultipleInputFeatureRequirement
-	LinkMerge LinkMergeMethod      `yaml:"linkMerge"`
-	Default   Any                  `yaml:"default"`   // type Any does not make sense
-	ValueFrom cwl_types.Expression `yaml:"valueFrom"` // StepInputExpressionRequirement
+	Id        string           `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	Source    interface{}      `yaml:"source,omitempty" bson:"source,omitempty" json:"source,omitempty"` // MultipleInputFeatureRequirement
+	LinkMerge *LinkMergeMethod `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
+	Default   interface{}      `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`       // type Any does not make sense
+	ValueFrom Expression       `yaml:"valueFrom,omitempty" bson:"valueFrom,omitempty" json:"valueFrom,omitempty"` // StepInputExpressionRequirement
+	Ready     bool             `yaml:"-" bson:"-" json:"-"`
 }
 
-func (w WorkflowStepInput) GetClass() string { return "WorkflowStepInput" }
-func (w WorkflowStepInput) GetId() string    { return w.Id }
-func (w WorkflowStepInput) SetId(id string)  { w.Id = id }
+func (w WorkflowStepInput) GetClass() string {
+	return "WorkflowStepInput"
+}
+func (w WorkflowStepInput) GetId() string   { return w.Id }
+func (w WorkflowStepInput) SetId(id string) { w.Id = id }
 
-func (w WorkflowStepInput) is_CWL_minimal() {}
+func (w WorkflowStepInput) Is_CWL_minimal() {}
 
 //func (input WorkflowStepInput) GetString() (value string, err error) {
 //	if len(input.Source) > 0 {
@@ -40,6 +44,11 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 	input_parameter := WorkflowStepInput{}
 	input_parameter_ptr = &input_parameter
 
+	original, err = MakeStringMap(original)
+	if err != nil {
+		return
+	}
+
 	switch original.(type) {
 	case string:
 
@@ -49,21 +58,37 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 
 	case int:
 		fmt.Println(CWL_int)
-		input_parameter.Default = &Int{Id: input_parameter.Id, Value: original.(int)}
+		original_int := original.(int)
+		input_parameter.Default = NewInt(input_parameter.Id, original_int)
 		return
 
-	case map[interface{}]interface{}:
-		fmt.Println("case map[interface{}]interface{}")
+	case map[string]interface{}:
+		fmt.Println("case map[string]interface{}")
 
-		original_map := original.(map[interface{}]interface{})
+		original_map := original.(map[string]interface{})
 
-		source, ok := original_map["source"]
+		//source, ok := original_map["source"]
 
-		if ok {
-			source_str, ok := source.(string)
-			if ok {
-				original_map["source"] = []string{source_str}
+		//if ok {
+		//	source_str, ok := source.(string)
+		//	if ok {
+		//		original_map["source"] = []string{source_str}
+		//	}
+		//}
+
+		default_value, has_default := original_map["default"]
+		if has_default {
+			var any CWLType
+			fmt.Println("trying:")
+			spew.Dump(original)
+			any, err = NewCWLType("", default_value)
+			if err != nil {
+				fmt.Println("problematic Default:")
+				spew.Dump(original)
+				err = fmt.Errorf("(NewWorkflowStepInput) NewCWLType returned: %s", err.Error())
+				return
 			}
+			original_map["default"] = any
 		}
 
 		err = mapstructure.Decode(original, input_parameter_ptr)
@@ -75,59 +100,67 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 		// TODO would it be better to do it later?
 
 		// set Default field
-		default_value, errx := GetMapElement(original.(map[interface{}]interface{}), "default")
-		if errx == nil {
-			switch default_value.(type) {
-			case string:
-				input_parameter.Default = &String{Id: input_parameter.Id, Value: default_value.(string)}
-			case int:
-				input_parameter.Default = &Int{Id: input_parameter.Id, Value: default_value.(int)}
-			default:
-				err = fmt.Errorf("(NewWorkflowStepInput) string or int expected for key \"default\"")
-				return
-			}
-		}
+		// default_value, ok := original_map["default"]
+		// 	//default_value, ok := , errx := GetMapElement(original_map, "default")
+		// 	if ok {
+		// 		switch default_value.(type) {
+		// 		case string:
+		// 			input_parameter.Default = NewString(input_parameter.Id, default_value.(string))
+		// 		case int:
+		// 			input_parameter.Default = NewInt(input_parameter.Id, default_value.(int))
+		// 		default:
+		// 			err = fmt.Errorf("(NewWorkflowStepInput) string or int expected for key \"default\", got %s ", reflect.TypeOf(default_value))
+		// 			return
+		// 		}
+		// 	}
 
 		// set ValueFrom field
-		valueFrom_if, errx := GetMapElement(original.(map[interface{}]interface{}), "valueFrom")
-		if errx == nil {
+		//valueFrom_if, errx := GetMapElement(original.(map[interface{}]interface{}), "valueFrom")
+		valueFrom_if, ok := original_map["valueFrom"]
+		if ok {
 			valueFrom_str, ok := valueFrom_if.(string)
 			if !ok {
 				err = fmt.Errorf("(NewWorkflowStepInput) cannot convert valueFrom")
 				return
 			}
-			input_parameter.ValueFrom = cwl_types.Expression(valueFrom_str)
+			input_parameter.ValueFrom = Expression(valueFrom_str)
 		}
 		return
 
 	default:
 
-		err = fmt.Errorf("(NewWorkflowStepInput) Input type for %s can not be parsed", input_parameter.Id)
+		err = fmt.Errorf("(NewWorkflowStepInput) Input type %s can not be parsed", reflect.TypeOf(original))
 		return
 	}
 
 	return
 }
 
-func (input WorkflowStepInput) GetObject(c *CWL_collection) (obj *CWL_object, err error) {
-
-	var cwl_obj CWL_object
-
-	if len(input.Source) > 0 {
-		err = fmt.Errorf("Source is defined and should be used")
-	} else if string(input.ValueFrom) != "" {
-		new_string := string(input.ValueFrom)
-		evaluated_string := c.Evaluate(new_string)
-
-		cwl_obj = &String{Id: input.Id, Value: evaluated_string} // TODO evaluate here !!!!! get helper
-	} else if input.Default != nil {
-		cwl_obj = input.Default
-	} else {
-		err = fmt.Errorf("no input (source, default or valueFrom) defined for %s", input.Id)
-	}
-	obj = &cwl_obj
-	return
-}
+// func (input WorkflowStepInput) GetObject(c *CWL_collection) (obj *CWL_object, err error) {
+//
+// 	var cwl_obj CWL_object
+//
+// 	if len(input.Source) > 0 {
+// 		err = fmt.Errorf("Source is defined and should be used")
+// 	} else if string(input.ValueFrom) != "" {
+// 		new_string := string(input.ValueFrom)
+// 		evaluated_string := c.Evaluate(new_string)
+//
+// 		cwl_obj = NewString(input.Id, evaluated_string) // TODO evaluate here !!!!! get helper
+// 	} else if input.Default != nil {
+// 		var any Any
+// 		any, err = NewAny(input.Default)
+// 		if err != nil {
+// 			err = fmt.Errorf("(GetObject) NewAny returns", err.Error())
+// 			return
+// 		}
+// 		cwl_obj = any
+// 	} else {
+// 		err = fmt.Errorf("no input (source, default or valueFrom) defined for %s", input.Id)
+// 	}
+// 	obj = &cwl_obj
+// 	return
+// }
 
 func CreateWorkflowStepInputArray(original interface{}) (array_ptr *[]WorkflowStepInput, err error) {
 
@@ -143,7 +176,7 @@ func CreateWorkflowStepInputArray(original interface{}) (array_ptr *[]WorkflowSt
 
 			input_parameter, xerr := NewWorkflowStepInput(v)
 			if xerr != nil {
-				err = xerr
+				err = fmt.Errorf("(CreateWorkflowStepInputArray) (map) NewWorkflowStepInput returns: %s", xerr.Error())
 				return
 			}
 
@@ -163,7 +196,7 @@ func CreateWorkflowStepInputArray(original interface{}) (array_ptr *[]WorkflowSt
 
 			input_parameter, xerr := NewWorkflowStepInput(v)
 			if xerr != nil {
-				err = xerr
+				err = fmt.Errorf("(CreateWorkflowStepInputArray) (array) NewWorkflowStepInput returns: %s", xerr.Error())
 				return
 			}
 

@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const VERSION string = "0.9.51"
+const VERSION string = "0.9.62"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -145,8 +145,9 @@ var (
 	NO_SYMLINK     bool
 	CACHE_ENABLED  bool
 
-	CWL_TOOL string
-	CWL_JOB  string
+	CWL_TOOL  string
+	CWL_JOB   string
+	SHOCK_URL string
 
 	// Docker
 	USE_DOCKER                    string
@@ -170,6 +171,8 @@ var (
 	PRINT_HELP           bool // full usage
 	SHOW_HELP            bool // simple usage
 	SHOW_GIT_COMMIT_HASH bool
+	CPUPROFILE           string
+	MEMPROFILE           string
 
 	// used to track changes in data structures
 	VERSIONS = make(map[string]int)
@@ -191,73 +194,10 @@ var (
 
 	// internal config control
 	FAKE_VAR = false
+
+	//
+	ARGS []string
 )
-
-// writes to target only if has been defined in config
-// avoids overwriting of default values if config is not defined
-func getDefinedValueInt(c *config.Config, section string, key string, target *int) {
-	if c.HasOption(section, key) {
-		if int_value, err := c.Int(section, key); err == nil {
-			*target = int_value
-		}
-	}
-}
-
-func getDefinedValueBool(c *config.Config, section string, key string, target *bool) {
-	if c.HasOption(section, key) {
-		if bool_value, err := c.Bool(section, key); err == nil {
-			*target = bool_value
-		}
-	}
-}
-
-func getDefinedValueString(c *config.Config, section string, key string, target *string) {
-	if string_value, err := c.String(section, key); err == nil {
-		string_value = os.ExpandEnv(string_value)
-		*target = string_value
-	}
-
-}
-
-type Config_value struct {
-	Conf_type string
-	Conf_str  *Config_value_string
-	Conf_int  *Config_value_int
-	Conf_bool *Config_value_bool
-}
-
-type Config_value_string struct {
-	Target        *string
-	Default_value string
-	Section       string
-	Key           string
-	Descr_short   string
-	Descr_long    string
-}
-
-type Config_value_int struct {
-	Target        *int
-	Default_value int
-	Section       string
-	Key           string
-	Descr_short   string
-	Descr_long    string
-}
-
-type Config_value_bool struct {
-	Target        *bool
-	Default_value bool
-	Section       string
-	Key           string
-	Descr_short   string
-	Descr_long    string
-}
-
-type Config_store struct {
-	Store []*Config_value
-	Fs    *flag.FlagSet
-	Con   *config.Config
-}
 
 type LoginResource struct {
 	Icon      string `json:"icon"`
@@ -266,121 +206,6 @@ type LoginResource struct {
 	Url       string `json:"url"`
 	UseHeader bool   `json:"useHeader"`
 	Bearer    string `json:"bearer"`
-}
-
-func NewCS(c *config.Config) *Config_store {
-	cs := &Config_store{Store: make([]*Config_value, 0, 100), Con: c} // length 0, capacity 100
-	cs.Fs = flag.NewFlagSet("name", flag.ContinueOnError)
-	cs.Fs.BoolVar(&FAKE_VAR, "fake_var", true, "ignore this")
-	cs.Fs.BoolVar(&SHOW_HELP, "h", false, "ignore this") // for help: -h
-	return cs
-}
-
-func (this *Config_store) AddString(target *string,
-	default_value string,
-	section string,
-	key string,
-	descr_short string,
-	descr_long string) {
-
-	*target = default_value
-	new_val := &Config_value{Conf_type: "string"}
-	new_val.Conf_str = &Config_value_string{target, default_value, section, key, descr_short, descr_long}
-
-	this.Store = append(this.Store, new_val)
-}
-
-func (this *Config_store) AddInt(target *int,
-	default_value int,
-	section string,
-	key string,
-	descr_short string,
-	descr_long string) {
-
-	*target = default_value
-	new_val := &Config_value{Conf_type: "int"}
-	new_val.Conf_int = &Config_value_int{target, default_value, section, key, descr_short, descr_long}
-
-	this.Store = append(this.Store, new_val)
-}
-
-func (this *Config_store) AddBool(target *bool,
-	default_value bool,
-	section string,
-	key string,
-	descr_short string,
-	descr_long string) {
-
-	*target = default_value
-	new_val := &Config_value{Conf_type: "bool"}
-	new_val.Conf_bool = &Config_value_bool{target, default_value, section, key, descr_short, descr_long}
-
-	this.Store = append(this.Store, new_val)
-}
-
-func (this Config_store) Parse() {
-	c := this.Con
-	f := this.Fs
-	for _, val := range this.Store {
-		if val.Conf_type == "string" {
-			get_my_config_string(c, f, val.Conf_str)
-		} else if val.Conf_type == "int" {
-			get_my_config_int(c, f, val.Conf_int)
-		} else if val.Conf_type == "bool" {
-			get_my_config_bool(c, f, val.Conf_bool)
-		}
-	}
-	err := this.Fs.Parse(os.Args[1:])
-	if err != nil {
-		this.PrintHelp()
-		fmt.Fprintf(os.Stderr, "error parsing command line args: "+err.Error()+"\n")
-		os.Exit(1)
-	}
-}
-
-func (this Config_store) PrintHelp() {
-	current_section := ""
-	prefix := "--"
-	if PRINT_HELP {
-		prefix = ""
-	}
-	for _, val := range this.Store {
-		if val.Conf_type == "string" {
-			d := val.Conf_str
-			if current_section != d.Section {
-				current_section = d.Section
-				fmt.Printf("\n[%s]\n", current_section)
-			}
-			fmt.Printf("%s%-27s %s (default: \"%s\")\n", prefix, d.Key+"=<string>", d.Descr_short, d.Default_value)
-
-			if PRINT_HELP && d.Descr_long != "" {
-				fmt.Printf("     %s\n", d.Descr_long)
-			}
-		} else if val.Conf_type == "int" {
-			d := val.Conf_int
-			if current_section != d.Section {
-				current_section = d.Section
-				fmt.Printf("\n[%s]\n", current_section)
-			}
-			fmt.Printf("%s%-27s %s (default: %d)\n", prefix, d.Key+"=<int>", d.Descr_short, d.Default_value)
-
-			if PRINT_HELP && d.Descr_long != "" {
-				fmt.Printf("     %s\n", d.Descr_long)
-			}
-		} else if val.Conf_type == "bool" {
-			d := val.Conf_bool
-			if current_section != d.Section {
-				current_section = d.Section
-				fmt.Printf("\n[%s]\n", current_section)
-			}
-			fmt.Printf("%s%-27s %s (default: %t)\n", prefix, d.Key+"=<bool>", d.Descr_short, d.Default_value)
-
-			if PRINT_HELP && d.Descr_long != "" {
-				fmt.Printf("     %s\n", d.Descr_long)
-			}
-		}
-	}
-
 }
 
 func get_my_config_string(c *config.Config, f *flag.FlagSet, val *Config_value_string) {
@@ -456,12 +281,14 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&AWF_PATH, "", "Directories", "awf", "", "")
 	}
 
-	// Directories
-	c_store.AddString(&DATA_PATH, "/mnt/data/awe/data", "Directories", "data", "a file path for storing system related data (job script, cached data, etc)", "")
-	c_store.AddString(&LOGS_PATH, "/mnt/data/awe/logs", "Directories", "logs", "a path for storing logs", "")
+	if mode == "server" || mode == "worker" {
+		// Directories
+		c_store.AddString(&DATA_PATH, "/mnt/data/awe/data", "Directories", "data", "a file path for storing system related data (job script, cached data, etc)", "")
+		c_store.AddString(&LOGS_PATH, "/mnt/data/awe/logs", "Directories", "logs", "a path for storing logs", "")
 
-	// Paths
-	c_store.AddString(&PID_FILE_PATH, "", "Paths", "pidfile", "", "")
+		// Paths
+		c_store.AddString(&PID_FILE_PATH, "", "Paths", "pidfile", "", "")
+	}
 
 	if mode == "server" {
 		// Mongodb
@@ -477,7 +304,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddInt(&EXPIRE_WAIT, 60, "Server", "expire_wait", "wait time for expiration reaper in minutes", "")
 		c_store.AddString(&GLOBAL_EXPIRE, "", "Server", "global_expire", "default number and unit of time after job completion before it expires", "")
 		c_store.AddString(&PIPELINE_EXPIRE, "", "Server", "pipeline_expire", "comma seperated list of pipeline_name=expire_days_unit, overrides global_expire", "")
-		c_store.AddBool(&PERF_LOG_WORKUNIT, true, "Server", "perf_log_workunit", "collecting performance log per workunit", "")
+		c_store.AddBool(&PERF_LOG_WORKUNIT, false, "Server", "perf_log_workunit", "collecting performance log per workunit (not working)", "")
 		c_store.AddInt(&MAX_WORK_FAILURE, 3, "Server", "max_work_failure", "number of times that one workunit fails before the workunit considered suspend", "")
 		c_store.AddInt(&MAX_CLIENT_FAILURE, 5, "Server", "max_client_failure", "number of times that one client consecutively fails running workunits before the client considered suspend", "")
 		c_store.AddInt(&GOMAXPROCS, 0, "Server", "go_max_procs", "", "")
@@ -486,9 +313,19 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddInt(&RECOVER_MAX, 0, "Server", "recover_max", "max number of jobs to recover, default (0) means recover all", "")
 	}
 
-	if mode == "client" {
-		// Client
+	if mode == "worker" || mode == "submitter" {
 		c_store.AddString(&SERVER_URL, "http://localhost:8001", "Client", "serverurl", "URL of AWE server, including API port", "")
+		c_store.AddString(&CWL_TOOL, "", "Client", "cwl_tool", "CWL CommandLineTool file", "")
+		c_store.AddString(&CWL_JOB, "", "Client", "cwl_job", "CWL job file", "")
+	}
+
+	if mode == "worker" || mode == "submitter" {
+		c_store.AddString(&SHOCK_URL, "http://localhost:8001", "Client", "shockurl", "URL of SHOCK server, including port number", "")
+	}
+
+	if mode == "worker" {
+		// Client/worker
+
 		c_store.AddString(&CLIENT_GROUP, "default", "Client", "group", "name of client group", "")
 		c_store.AddString(&CLIENT_NAME, "default", "Client", "name", "default determines client name by openstack meta data", "")
 		c_store.AddString(&CLIENT_HOST, "127.0.0.1", "Client", "host", "host or ip address", "host or ip address to help finding machines where the clients runs on")
@@ -510,14 +347,13 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddBool(&CACHE_ENABLED, false, "Client", "cache_enabled", "", "")
 		c_store.AddBool(&NO_SYMLINK, false, "Client", "no_symlink", "copy files from predata to work dir, default is to create symlink", "")
 
-		c_store.AddString(&CWL_TOOL, "", "Client", "cwl_tool", "CWL CommandLineTool file", "")
-		c_store.AddString(&CWL_JOB, "", "Client", "cwl_job", "CWL job file", "")
 	}
 
 	// Docker
-	c_store.AddString(&USE_DOCKER, "yes", "Docker", "use_docker", "\"yes\", \"no\" or \"only\"", "yes: allow docker tasks, no: do not allow docker tasks, only: allow only docker tasks; if docker is not installed on the clients, choose \"no\"")
-
-	if mode == "client" {
+	if mode == "server" || mode == "worker" {
+		c_store.AddString(&USE_DOCKER, "yes", "Docker", "use_docker", "\"yes\", \"no\" or \"only\"", "yes: allow docker tasks, no: do not allow docker tasks, only: allow only docker tasks; if docker is not installed on the clients, choose \"no\"")
+	}
+	if mode == "worker" {
 		c_store.AddString(&DOCKER_BINARY, "API", "Docker", "docker_binary", "docker binary to use, default is the docker API (API recommended)", "")
 		c_store.AddInt(&MEM_CHECK_INTERVAL_SECONDS, 0, "Docker", "mem_check_interval_seconds", "memory check interval in seconds (kernel needs to support that)", "0 seconds means disabled")
 		c_store.AddString(&CGROUP_MEMORY_DOCKER_DIR, "/sys/fs/cgroup/memory/docker/[ID]/memory.stat", "Docker", "cgroup_memory_docker_dir", "path to cgroup directory for docker", "")
@@ -531,20 +367,26 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&APP_REGISTRY_URL, "https://raw.githubusercontent.com/MG-RAST/Skyport/master/app_definitions/", "Docker", "app_registry_url", "URL for app defintions", "")
 	}
 
-	//Proxy
-	c_store.AddInt(&P_SITE_PORT, 8082, "Proxy", "p-site-port", "", "")
-	c_store.AddInt(&P_API_PORT, 8002, "Proxy", "p-api-port", "", "")
+	if mode == "server" || mode == "worker" {
+		//Proxy
+		c_store.AddInt(&P_SITE_PORT, 8082, "Proxy", "p-site-port", "", "")
+		c_store.AddInt(&P_API_PORT, 8002, "Proxy", "p-api-port", "", "")
 
-	//Other
-	c_store.AddInt(&ERROR_LENGTH, 5000, "Other", "errorlength", "amount of App STDERR to save in Job.Error", "")
-	c_store.AddBool(&DEV_MODE, false, "Other", "dev", "dev or demo mode, print some msgs on screen", "")
+		//Other
+		c_store.AddInt(&ERROR_LENGTH, 5000, "Other", "errorlength", "amount of App STDERR to save in Job.Error", "")
+		c_store.AddBool(&DEV_MODE, false, "Other", "dev", "dev or demo mode, print some msgs on screen", "")
+
+		c_store.AddString(&CONFIG_FILE, "", "Other", "conf", "path to config file", "")
+		c_store.AddString(&LOG_OUTPUT, "console", "Other", "logoutput", "log output stream, one of: file, console, both", "")
+
+	}
 	c_store.AddInt(&DEBUG_LEVEL, 0, "Other", "debuglevel", "debug level: 0-3", "")
-	c_store.AddString(&CONFIG_FILE, "", "Other", "conf", "path to config file", "")
-	c_store.AddString(&LOG_OUTPUT, "console", "Other", "logoutput", "log output stream, one of: file, console, both", "")
 	c_store.AddBool(&SHOW_VERSION, false, "Other", "version", "show version", "")
 	c_store.AddBool(&SHOW_GIT_COMMIT_HASH, false, "Other", "show_git_commit_hash", "", "")
 	c_store.AddBool(&PRINT_HELP, false, "Other", "fullhelp", "show detailed usage without \"--\"-prefixes", "")
 	c_store.AddBool(&SHOW_HELP, false, "Other", "help", "show usage", "")
+	c_store.AddString(&CPUPROFILE, "", "Other", "cpuprofile", "e.g. create cpuprofile.prof", "")
+	c_store.AddString(&MEMPROFILE, "", "Other", "memprofile", "e.g. create memprofile.prof", "")
 
 	c_store.Parse()
 	return
@@ -578,6 +420,8 @@ func Init_conf(mode string) (err error) {
 
 	// ####### at this point configuration variables are set ########
 
+	ARGS = c_store.Fs.Args()
+
 	if FAKE_VAR == false {
 		return errors.New("config was not parsed")
 	}
@@ -595,7 +439,7 @@ func Init_conf(mode string) (err error) {
 	}
 
 	// configuration post processing
-	if mode == "client" {
+	if mode == "worker" {
 		if CLIENT_NAME == "" || CLIENT_NAME == "default" || CLIENT_NAME == "hostname" {
 			hostname, err := os.Hostname()
 			if err == nil {
@@ -676,7 +520,7 @@ func Init_conf(mode string) (err error) {
 		}
 	}
 	if !vaildLogout {
-		return errors.New("invalid option for logoutput, use one of: file, console, both")
+		return fmt.Errorf("\"%s\" is invalid option for logoutput, use one of: file, console, both", LOG_OUTPUT)
 	}
 
 	SITE_PATH = cleanPath(SITE_PATH)

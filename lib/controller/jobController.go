@@ -74,8 +74,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	_, has_import := files["import"]
 	_, has_upload := files["upload"]
 	_, has_awf := files["awf"]
-	_, has_cwl := files["cwl"] // TODO I could overload 'upload'
-	_, has_job := files["job"] // input data for an CWL workflow
+	cwl_file, has_cwl := files["cwl"] // TODO I could overload 'upload'
+	job_file, has_job := files["job"] // input data for an CWL workflow
 
 	var job *core.Job
 	job = nil
@@ -93,19 +93,30 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		if !has_job {
 			logger.Error("job missing")
-			cx.RespondWithErrorMessage("job missing", http.StatusBadRequest)
+			cx.RespondWithErrorMessage("cwl job missing", http.StatusBadRequest)
 			return
 		}
 
+		workflow_filename := cwl_file.Name
+
 		collection := cwl.NewCWL_collection()
 
-		// 1) parse job
-		//job_input, err := cwl.ParseJob(&collection, files["job"].Path)
-		//if err != nil {
-		//	logger.Error("ParseJob: " + err.Error())
-		//	cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
-		//	return
-		//}
+		//1) parse job
+
+		job_stream, err := ioutil.ReadFile(job_file.Path)
+		if err != nil {
+			cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		//job_str := string(job_stream[:])
+
+		job_input, err := cwl.ParseJob(&job_stream)
+		if err != nil {
+			logger.Error("ParseJob: " + err.Error())
+			cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 
 		//collection.Job_input = job_input
 
@@ -113,7 +124,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		logger.Debug(1, "got CWL")
 
 		// get CWL as byte[]
-		yamlstream, err := ioutil.ReadFile(files["cwl"].Path)
+		yamlstream, err := ioutil.ReadFile(cwl_file.Path)
 		if err != nil {
 			logger.Error("CWL error: " + err.Error())
 			cx.RespondWithErrorMessage("error in reading workflow file: "+err.Error(), http.StatusBadRequest)
@@ -123,10 +134,16 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		// convert CWL to string
 		yaml_str := string(yamlstream[:])
 
-		err = cwl.Parse_cwl_document(&collection, yaml_str)
+		object_array, cwl_version, err := cwl.Parse_cwl_document(yaml_str)
+		if err != nil {
+			cx.RespondWithErrorMessage("error in parsing cwl workflow yaml file: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		err = cwl.Add_to_collection(&collection, object_array)
 		if err != nil {
 			logger.Error("Parse_cwl_document error: " + err.Error())
-			cx.RespondWithErrorMessage("error in parsing cwl workflow yaml file: "+err.Error(), http.StatusBadRequest)
+			cx.RespondWithErrorMessage("error in adding cwl objects to collection: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		logger.Debug(1, "Parse_cwl_document done")
@@ -144,11 +161,31 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 
 		fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
-		//job, err = core.CWL2AWE(_user, files, cwl_workflow, &collection)
-		//if err != nil {
-		//	cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
-		//	return
-		//}
+		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, &collection)
+		if err != nil {
+			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		job.IsCWL = true
+		job.CWL_objects = object_array
+		job.CwlVersion = cwl_version
+		//job.CWL_collection = &collection
+		job.Info.Name = job_file.Name
+		job.Info.Pipeline = workflow_filename
+
+		//job.CWL_workflow_interface = cwl_workflow
+		//job.CWL_job_input_interface = job_input
+
+		//job.CWL_workflow = cwl_workflow
+		//job.CWL_job_input = job_input
+
+		//job.AddWorkflowInstance("<main>", *job_input)
+
+		//job.Set_CWL_workflow_b64(yaml_str)
+
+		//job.Set_CWL_job_input_b64(job_str)
+
 		logger.Debug(1, "CWL2AWE done")
 
 	} else if !has_upload && !has_awf {
@@ -179,7 +216,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		logger.Debug(3, "job %s got token", job.Id)
 	}
 
-	err = job.Save()
+	err = job.Save() // note that the job only goes into mongo, not into memory yet (EnqueueTasksByJobId is dowing that)
 	if err != nil {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
@@ -197,7 +234,11 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	// don't enqueue imports
 	if !has_import {
-		core.QMgr.EnqueueTasksByJobId(job.Id)
+		err = core.QMgr.EnqueueTasksByJobId(job.Id)
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 
 	//cx.RespondWithData(job)
@@ -230,10 +271,18 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	}
 
 	// Load job by id
-
-	//job, ok, err := core.QMgr.JobMap.Get(id)
 	job, err := core.GetJob(id)
-	//job, err := core.LoadJob(id)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			cx.RespondWithNotFound()
+		} else {
+			// In theory the db connection could be lost between
+			// checking user and load but seems unlikely.
+			// logger.Error("Err@job_Read:LoadJob: " + id + ":" + err.Error())
+			cx.RespondWithErrorMessage("job not found:"+id+" "+err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
 
 	job_state, err := job.GetState(true)
 	if err != nil {
@@ -512,7 +561,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	//getting real active (in-progress) job (some jobs are in "submitted" states but not in the queue,
 	//because they may have failed and not recovered from the mongodb).
 	if query.Has("active") {
-		err := jobs.GetAll(q, order, direction)
+		err := jobs.GetAll(q, order, direction, false)
 		if err != nil {
 			logger.Error("err " + err.Error())
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
@@ -546,9 +595,41 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		return
 	}
 
+	// This code returns jobs from the in-memory job map, (thus it should be more efficient) but it does not have the same sorting and filtering feature as the mongo code based above.
+	// if query.Has("active") {
+	//
+	// 		jobs, err := core.JM.Get_List(true)
+	// 		if err != nil {
+	// 			cx.RespondWithErrorMessage("could not get job list: "+err.Error(), http.StatusBadRequest)
+	// 			return
+	// 		}
+	//
+	// 		filtered_jobs := core.Jobs{}
+	//
+	// 		for _, job := range jobs {
+	// 			var job_state string
+	// 			job_state, err = job.GetState(true)
+	// 			if err != nil {
+	// 				logger.Error("(JobController/ReadMany/active) Could not get job state")
+	// 				continue
+	// 			}
+	//
+	// 			if contains(core.JOB_STATS_ACTIVE, job_state) {
+	// 				filtered_jobs = append(filtered_jobs, job)
+	// 			}
+	//
+	// 		}
+	//
+	// 		//cx.RespondWithPaginatedData(filtered_jobs, limit, offset, len(act_jobs))
+	// 		filtered_jobs.RLockRecursive()
+	// 		defer filtered_jobs.RUnlockRecursive()
+	// 		cx.RespondWithData(filtered_jobs)
+	// 		return
+	// 	}
+
 	//geting suspended job in the current queue (excluding jobs in db but not in qmgr)
 	if query.Has("suspend") {
-		err := jobs.GetAll(q, order, direction)
+		err := jobs.GetAll(q, order, direction, false)
 		if err != nil {
 			logger.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
@@ -577,15 +658,15 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			}
 		}
 
-		filtered_jobs.RLockRecursive()
-		defer filtered_jobs.RUnlockRecursive()
+		//filtered_jobs.RLockRecursive()
+		//defer filtered_jobs.RUnlockRecursive()
 
 		cx.RespondWithPaginatedData(filtered_jobs, limit, offset, len(suspend_jobs))
 		return
 	}
 
 	if query.Has("registered") {
-		err := jobs.GetAll(q, order, direction)
+		err := jobs.GetAll(q, order, direction, false)
 		if err != nil {
 			logger.Error("err " + err.Error())
 			cx.RespondWithError(http.StatusBadRequest)
@@ -613,29 +694,25 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 				break
 			}
 		}
-		paged_jobs.RLockRecursive()
-		defer paged_jobs.RUnlockRecursive()
+		//paged_jobs.RLockRecursive()
+		//defer paged_jobs.RUnlockRecursive()
 		cx.RespondWithPaginatedData(paged_jobs, limit, offset, total)
 		return
 	}
 
 	if query.Has("verbosity") && (query.Value("verbosity") == "minimal") {
 		// TODO - have mongo query only return fields needed to populate JobMin struct
-		total, err := jobs.GetPaginated(q, limit, offset, order, direction)
+		total, err := jobs.GetPaginated(q, limit, offset, order, direction, false)
 		if err != nil {
-			logger.Error("err " + err.Error())
-			cx.RespondWithError(http.StatusBadRequest)
+			logger.Error("error: " + err.Error())
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}
 		minimal_jobs := []core.JobMin{}
 		length := jobs.Length()
 		for i := 0; i < length; i++ {
 			job := jobs.GetJobAt(i)
-			job_state, err := job.GetState(true)
-			if err != nil {
-				logger.Error(err.Error())
-				continue
-			}
+			job_state, _ := job.GetState(false) // no lock needed
 
 			// create and populate minimal job
 			mjob := core.JobMin{}
@@ -645,13 +722,13 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			mjob.CompletedTime = job.Info.CompletedTime
 			// get size of input
 			var size_sum int64 = 0
-			for _, v := range job.Tasks[0].Inputs {
+			for _, v := range job.Tasks[0].Inputs { // TODO this is stupid, this is MG-RAST specific
 				size_sum = size_sum + v.Size
 			}
 			mjob.Size = size_sum
 			// add userattr fields
 			if query.Has("userattr") {
-				mjob.UserAttr = map[string]string{}
+				mjob.UserAttr = map[string]interface{}{}
 				for _, attr := range query.List("userattr") {
 					if val, ok := job.Info.UserAttr[attr]; ok {
 						mjob.UserAttr[attr] = val
@@ -660,46 +737,57 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			}
 
 			// get current total computetime
-			for j := 0; j < len(job.Tasks); j++ {
-				task := job.Tasks[j]
+			for _, task := range job.Tasks {
 				mjob.ComputeTime += task.ComputeTime
 			}
-			if (job_state == "completed") || (job_state == "deleted") {
+
+			if (job_state == core.JOB_STAT_COMPLETED) || (job_state == core.JOB_STAT_DELETED) {
 
 				// if completed or deleted move on, empty task array
 				mjob.State = append(mjob.State, job_state)
-			} else if job_state == "suspend" {
-				mjob.State = append(mjob.State, "suspend")
+			} else if job_state == core.JOB_STAT_SUSPEND {
+				mjob.State = append(mjob.State, core.JOB_STAT_SUSPEND)
 				// get failed task if info available, otherwise empty task array
 				if (job.Error != nil) && (job.Error.TaskFailed != "") {
 					parts := strings.Split(job.Error.TaskFailed, "_")
-					if tid, err := strconv.Atoi(parts[1]); err == nil {
-						mjob.Task = append(mjob.Task, tid)
+					if len(parts) > 1 {
+						tid, err := strconv.Atoi(parts[1])
+						if err != nil {
+							logger.Error("(job resource) verbosity, A job.Error.TaskFailed cannot be parsed (%s)", job.Error.TaskFailed)
+						} else {
+							mjob.Task = append(mjob.Task, tid)
+						}
+					} else if len(parts) == 1 {
+						tid, err := strconv.Atoi(parts[0])
+						if err != nil {
+							logger.Error("(job resource) verbosity, B job.Error.TaskFailed cannot be parsed (%s)", job.Error.TaskFailed)
+						} else {
+							mjob.Task = append(mjob.Task, tid)
+						}
+					} else {
+
+						logger.Error("(job resource) verbosity, C job.Error.TaskFailed cannot be parsed  (%s)", job.Error.TaskFailed)
 					}
+
 				}
 			} else {
 				// get multiple tasks in state queued or in-progress
-				for j := 0; j < len(job.Tasks); j++ {
-					task := job.Tasks[j]
-					task_state, xerr := task.GetState()
-					if xerr != nil {
-						continue
-					}
+				for j, task := range job.Tasks {
 
-					if (task_state == "in-progress") || (task_state == "queued") {
+					task_state := task.State // no lock needed
+
+					if (task_state == core.TASK_STAT_INPROGRESS) || (task_state == core.TASK_STAT_QUEUED) {
 						mjob.State = append(mjob.State, task_state)
 						mjob.Task = append(mjob.Task, j)
 					}
 				}
 				// otherwise get oldest pending or init task
 				if len(mjob.State) == 0 {
-					for j := 0; j < len(job.Tasks); j++ {
-						task := job.Tasks[j]
-						task_state, xerr := task.GetState()
-						if xerr != nil {
-							continue
-						}
-						if (task_state == "pending") || (task_state == "init") {
+					for j, task := range job.Tasks {
+
+						task_state := task.State // no lock needed
+
+						if (task_state == core.TASK_STAT_PENDING) || (task_state == core.TASK_STAT_INIT) {
 							mjob.State = append(mjob.State, task_state)
 							mjob.Task = append(mjob.Task, j)
 							break
@@ -729,7 +817,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		return
 	}
 
-	total, err := jobs.GetPaginated(q, limit, offset, order, direction)
+	total, err := jobs.GetPaginated(q, limit, offset, order, direction, false)
 	if err != nil {
 		logger.Error("err " + err.Error())
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)

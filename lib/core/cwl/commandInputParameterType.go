@@ -5,93 +5,156 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	//"strings"
 	//"github.com/mitchellh/mapstructure"
+	"reflect"
 )
 
-type CommandInputParameterType struct {
-	Type string
+//type CommandInputParameterType struct {
+//	Type string
+//}
+
+// CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
+
+func NewCommandInputParameterTypeArray(original interface{}) (result []CWLType_Type, err error) {
+
+	//result = []CWLType_Type{}
+	return_array := []CWLType_Type{}
+
+	switch original.(type) {
+	case []interface{}:
+
+		original_array := original.([]interface{})
+
+		for _, element := range original_array {
+
+			var cipt CWLType_Type
+			cipt, err = NewCommandInputParameterType(element)
+			if err != nil {
+				return
+			}
+
+			return_array = append(return_array, cipt)
+		}
+
+		result = return_array
+		return
+
+	default:
+
+		var cipt CWLType_Type
+		cipt, err = NewCommandInputParameterType(original)
+		if err != nil {
+			return
+		}
+		return_array = append(return_array, cipt)
+		result = return_array
+		//err = fmt.Errorf("(NewCommandInputParameterTypeArray) Type %s unknown", reflect.TypeOf(original))
+	}
+	return
 }
 
-func NewCommandInputParameterType(original interface{}) (cipt_ptr *CommandInputParameterType, err error) {
+func NewCommandInputParameterType(original interface{}) (result CWLType_Type, err error) {
 
 	// Try CWL_Type
-	var cipt CommandInputParameterType
+	//var cipt CommandInputParameterType
+
+	original, err = MakeStringMap(original)
+	if err != nil {
+		return
+	}
 
 	switch original.(type) {
 
-	case string:
-		original_str := original.(string)
+	case map[string]interface{}:
 
-		switch original_str {
-
-		case "null":
-		case CWL_boolean:
-		case CWL_int:
-		case "long":
-		case "float":
-		case "double":
-		case CWL_string:
-		case CWL_File:
-		case "directory":
-		default:
-			err = fmt.Errorf("(NewCommandInputParameterType) type %s is unknown", original_str)
+		original_map, ok := original.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("(NewCommandInputParameterType) type error")
 			return
 		}
 
-		cipt.Type = original_str
-		cipt_ptr = &cipt
-		return
+		type_str, ok := original_map["Type"]
+		if !ok {
+			type_str, ok = original_map["type"]
+		}
 
-	}
+		if !ok {
+			err = fmt.Errorf("(NewCommandInputParameterType) type error, field type not found")
+			return
+		}
 
-	fmt.Printf("unknown type")
-	spew.Dump(original)
-	err = fmt.Errorf("(NewCommandInputParameterType) Type unknown")
-
-	return
-
-}
-
-func CreateCommandInputParameterTypeArray(v interface{}) (cipt_array_ptr *[]CommandInputParameterType, err error) {
-
-	cipt_array := []CommandInputParameterType{}
-
-	array, ok := v.([]interface{})
-
-	if ok {
-		//handle array case
-		for _, v := range array {
-
-			cipt, xerr := NewCommandInputParameterType(v)
+		switch type_str {
+		case "array":
+			schema, xerr := NewCommandOutputArraySchemaFromInterface(original_map)
 			if xerr != nil {
 				err = xerr
 				return
 			}
+			result = schema
+			return
+		case "enum":
 
-			cipt_array = append(cipt_array, *cipt)
+			schema, xerr := NewCommandOutputEnumSchema(original_map)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			result = schema
+			return
+
+		case "record":
+			schema, xerr := NewCommandOutputRecordSchema(original_map)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+			result = schema
+			return
+
 		}
-		cipt_array_ptr = &cipt_array
+		err = fmt.Errorf("(NewCommandInputParameterType) type %s unknown", type_str)
+		return
+
+	case string:
+		original_str := original.(string)
+
+		result, err = NewCWLType_TypeFromString(original_str)
+
+		// original_type := CWLType_Type_Basic(original_str)
+		//
+		// 		switch original_type {
+		//
+		// 		case CWL_null:
+		// 		case CWL_boolean:
+		// 		case CWL_int:
+		// 		case CWL_long:
+		// 		case CWL_float:
+		// 		case CWL_double:
+		// 		case CWL_string:
+		// 		case CWL_File:
+		// 		case CWL_Directory:
+		// 		default:
+		// 			err = fmt.Errorf("(NewCommandInputParameterType) type %s is unknown", original_str)
+		// 			return
+		// 		}
+		// 		result = original_str
+		return
+	default:
+		fmt.Printf("unknown type")
+		spew.Dump(original)
+		err = fmt.Errorf("(NewCommandInputParameterType) Type %s unknown", reflect.TypeOf(original))
 		return
 	}
-
-	// handle non-arrary case
-
-	cipt, err := NewCommandInputParameterType(v)
-	if err != nil {
-		err = fmt.Errorf("(CreateCommandInputParameterTypeArray) NewCommandInputParameterType returns %s", err.Error())
-		return
-	}
-
-	cipt_array = append(cipt_array, *cipt)
-	cipt_array_ptr = &cipt_array
-
+	panic("do not come here")
 	return
+
 }
 
-func HasCommandInputParameterType(array *[]CommandInputParameterType, search_type string) (ok bool) {
-	for _, v := range *array {
-		if v.Type == search_type {
-			return true
-		}
-	}
-	return false
-}
+//
+// func HasCommandInputParameterType(array *[]CommandInputParameterType, search_type string) (ok bool) {
+// 	for _, v := range *array {
+// 		if v.Type == search_type {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }

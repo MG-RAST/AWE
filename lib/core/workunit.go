@@ -1,10 +1,20 @@
 package core
 
 import (
+	//"bytes"
+	//"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+
+	"github.com/davecgh/go-spew/spew"
+
+	//"gopkg.in/mgo.v2/bson"
 	"os"
+	//"path"
+	//"reflect"
+	//"regexp"
+	"regexp/syntax"
 	"strings"
 	"time"
 )
@@ -12,7 +22,7 @@ import (
 const (
 	WORK_STAT_INIT             = "init"             // initial state
 	WORK_STAT_QUEUED           = "queued"           // after requeue ; after failures below max ; on WorkQueue.Add()
-	WORK_STAT_RESERVED         = "reserved"         // short lived state between queued and checkout
+	WORK_STAT_RESERVED         = "reserved"         // short lived state between queued and checkout. when a worker checks the workunit out, the state is reserved.
 	WORK_STAT_CHECKOUT         = "checkout"         // normal work checkout ; client registers that already has a workunit (e.g. after reboot of server)
 	WORK_STAT_SUSPEND          = "suspend"          // on MAX_FAILURE ; on SuspendJob
 	WORK_STAT_FAILED_PERMANENT = "failed-permanent" // app had exit code 42
@@ -25,114 +35,42 @@ const (
 )
 
 type Workunit struct {
-	Id           string            `bson:"wuid" json:"wuid"`
-	Info         *Info             `bson:"info" json:"info"`
-	Inputs       []*IO             `bson:"inputs" json:"inputs"`
-	Outputs      []*IO             `bson:"outputs" json:"outputs"`
-	Predata      []*IO             `bson:"predata" json:"predata"`
-	Cmd          *Command          `bson:"cmd" json:"cmd"`
-	Rank         int               `bson:"rank" json:"rank"`
-	TotalWork    int               `bson:"totalwork" json:"totalwork"`
-	Partition    *PartInfo         `bson:"part" json:"part"`
-	State        string            `bson:"state" json:"state"`
-	Failed       int               `bson:"failed" json:"failed"`
-	CheckoutTime time.Time         `bson:"checkout_time" json:"checkout_time"`
-	Client       string            `bson:"client" json:"client"`
-	ComputeTime  int               `bson:"computetime" json:"computetime"`
-	ExitStatus   int               `bson:"exitstatus" json:"exitstatus"` // Linux Exit Status Code (0 is success)
-	Notes        []string          `bson:"notes" json:"notes"`
-	UserAttr     map[string]string `bson:"userattr" json:"userattr"`
-	WorkPath     string            // this is the working directory. If empty, it will be computed.
-	WorkPerf     *WorkPerf
-	CWL          *CWL_workunit
+	Workunit_Unique_Identifier `bson:",inline" json:",inline" mapstructure:",squash"`
+	Id                         string                 `bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`       // global identifier: jobid_taskid_rank (for backwards coompatibility only)
+	WuId                       string                 `bson:"wuid,omitempty" json:"wuid,omitempty" mapstructure:"wuid,omitempty"` // deprecated !
+	Info                       *Info                  `bson:"info,omitempty" json:"info,omitempty" mapstructure:"info,omitempty"`
+	Inputs                     []*IO                  `bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
+	Outputs                    []*IO                  `bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
+	Predata                    []*IO                  `bson:"predata,omitempty" json:"predata,omitempty" mapstructure:"predata,omitempty"`
+	Cmd                        *Command               `bson:"cmd,omitempty" json:"cmd,omitempty" mapstructure:"cmd,omitempty"`
+	TotalWork                  int                    `bson:"totalwork,omitempty" json:"totalwork,omitempty" mapstructure:"totalwork,omitempty"`
+	Partition                  *PartInfo              `bson:"part,omitempty" json:"part,omitempty" mapstructure:"part,omitempty"`
+	State                      string                 `bson:"state,omitempty" json:"state,omitempty" mapstructure:"state,omitempty"`
+	Failed                     int                    `bson:"failed,omitempty" json:"failed,omitempty" mapstructure:"failed,omitempty"`
+	CheckoutTime               time.Time              `bson:"checkout_time,omitempty" json:"checkout_time,omitempty" mapstructure:"checkout_time,omitempty"`
+	Client                     string                 `bson:"client,omitempty" json:"client,omitempty" mapstructure:"client,omitempty"`
+	ComputeTime                int                    `bson:"computetime,omitempty" json:"computetime,omitempty" mapstructure:"computetime,omitempty"`
+	ExitStatus                 int                    `bson:"exitstatus,omitempty" json:"exitstatus,omitempty" mapstructure:"exitstatus,omitempty"` // Linux Exit Status Code (0 is success)
+	Notes                      []string               `bson:"notes,omitempty" json:"notes,omitempty" mapstructure:"notes,omitempty"`
+	UserAttr                   map[string]interface{} `bson:"userattr,omitempty" json:"userattr,omitempty" mapstructure:"userattr,omitempty"`
+	ShockHost                  string                 `bson:"shockhost,omitempty" json:"shockhost,omitempty" mapstructure:"shockhost,omitempty"` // specifies default Shock host for outputs
+	CWL_workunit               *CWL_workunit          `bson:"cwl,omitempty" json:"cwl,omitempty" mapstructure:"cwl,omitempty"`
+	WorkPath                   string                 // this is the working directory. If empty, it will be computed.
+	WorkPerf                   *WorkPerf
 }
 
-type CWL_workunit struct {
-	CWL_job           *cwl.Job_document
-	CWL_tool          *cwl.CommandLineTool
-	CWL_tool_filename string
-	CWL_job_filename  string
-}
-
-type WorkLog struct {
-	Id   string            `bson:"wuid" json:"wuid"`
-	Rank int               `bson:"rank" json:"rank"`
-	Logs map[string]string `bson:"logs" json:"logs"`
-}
-
-func NewWorkLog(tid string, rank int) (wlog *WorkLog) {
-	wid := fmt.Sprintf("%s_%d", tid, rank)
-	wlog = new(WorkLog)
-	wlog.Id = wid
-	wlog.Rank = rank
-	wlog.Logs = map[string]string{}
-	for _, log := range conf.WORKUNIT_LOGS {
-		wlog.Logs[log], _ = QMgr.GetReportMsg(wid, log)
-	}
-	return
-}
-
-// create workunit slice type to use for sorting
-
-type WorkunitsSortby struct {
-	Order     string
-	Direction string
-	Workunits []*Workunit
-}
-
-func (w WorkunitsSortby) Len() int {
-	return len(w.Workunits)
-}
-
-func (w WorkunitsSortby) Swap(i, j int) {
-	w.Workunits[i], w.Workunits[j] = w.Workunits[j], w.Workunits[i]
-}
-
-func (w WorkunitsSortby) Less(i, j int) bool {
-	// default is ascending
-	if w.Direction == "desc" {
-		i, j = j, i
-	}
-	switch w.Order {
-	// default is info.submittime
-	default:
-		return w.Workunits[i].Info.SubmitTime.Before(w.Workunits[j].Info.SubmitTime)
-	case "wuid":
-		return w.Workunits[i].Id < w.Workunits[j].Id
-	case "client":
-		return w.Workunits[i].Client < w.Workunits[j].Client
-	case "info.submittime":
-		return w.Workunits[i].Info.SubmitTime.Before(w.Workunits[j].Info.SubmitTime)
-	case "checkout_time":
-		return w.Workunits[i].CheckoutTime.Before(w.Workunits[j].CheckoutTime)
-	case "info.name":
-		return w.Workunits[i].Info.Name < w.Workunits[j].Info.Name
-	case "cmd.name":
-		return w.Workunits[i].Cmd.Name < w.Workunits[j].Cmd.Name
-	case "rank":
-		return w.Workunits[i].Rank < w.Workunits[j].Rank
-	case "totalwork":
-		return w.Workunits[i].TotalWork < w.Workunits[j].TotalWork
-	case "state":
-		return w.Workunits[i].State < w.Workunits[j].State
-	case "failed":
-		return w.Workunits[i].Failed < w.Workunits[j].Failed
-	case "info.priority":
-		return w.Workunits[i].Info.Priority < w.Workunits[j].Info.Priority
-	}
-}
-
-func NewWorkunit(task *Task, rank int) *Workunit {
-
-	return &Workunit{
-		Id:  fmt.Sprintf("%s_%d", task.Id, rank),
+func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Workunit, err error) {
+	task_id := task.Task_Unique_Identifier
+	workunit = &Workunit{
+		Workunit_Unique_Identifier: New_Workunit_Unique_Identifier(task_id, rank),
+		Id:  "defined below",
 		Cmd: task.Cmd,
 		//App:       task.App,
-		Info:       task.Info,
-		Inputs:     task.Inputs,
-		Outputs:    task.Outputs,
-		Predata:    task.Predata,
-		Rank:       rank,
+		Info:    task.Info,
+		Inputs:  task.Inputs,
+		Outputs: task.Outputs,
+		Predata: task.Predata,
+
 		TotalWork:  task.TotalWork, //keep this info in workunit for load balancing
 		Partition:  task.Partition,
 		State:      WORK_STAT_INIT,
@@ -142,12 +80,152 @@ func NewWorkunit(task *Task, rank int) *Workunit {
 
 		//AppVariables: task.AppVariables // not needed yet
 	}
+	var work_str string
+	work_str, err = workunit.String()
+	if err != nil {
+		err = fmt.Errorf("(NewWorkunit) workunit.String() returned: %s", err.Error())
+		return
+	}
+
+	workunit.Id = work_str
+	workunit.WuId = work_str
+
+	if task.WorkflowStep != nil {
+
+		workflow_step := task.WorkflowStep
+
+		workunit.CWL_workunit = &CWL_workunit{}
+
+		workunit.ShockHost = job.ShockHost
+
+		// ****** get CommandLineTool (or whatever can be executed)
+		p := workflow_step.Run
+
+		if p == nil {
+			err = fmt.Errorf("(NewWorkunit) process is nil !!?")
+			return
+		}
+
+		var process_name string
+		process_name, err = cwl.GetProcessName(p)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkunit) embedded workflow or toll not supported yet: %s", err.Error())
+			return
+		}
+
+		if process_name == "" {
+			err = fmt.Errorf("(NewWorkunit) No tool name found")
+			return
+		}
+
+		if job.CWL_collection == nil {
+			err = fmt.Errorf("(NewWorkunit) job.CWL_collection == nil ")
+			return
+		}
+
+		var clt *cwl.CommandLineTool
+		//use_commandLineTool := false
+
+		//var wfl *cwl.Workflow
+		//use_workflow := false
+
+		clt, err = job.CWL_collection.GetCommandLineTool(process_name)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkunit) CommandLineTool %s not found", process_name)
+			return
+			//wfl, err = job.CWL_collection.GetWorkflow(process_name)
+			//if err != nil {
+			//	err = fmt.Errorf("(NewWorkunit) Process %s is neither CommandLineTool, nor Workflow.")
+			//	return
+			//} else {
+			//	use_workflow = true
+			//}
+
+		}
+		//else {
+		//	use_commandLineTool = true
+		//}
+
+		//if use_commandLineTool {
+		clt.CwlVersion = job.CwlVersion
+
+		if clt.CwlVersion == "" {
+			err = fmt.Errorf("(NewWorkunit) CommandLineTool misses CwlVersion")
+			return
+		}
+		workunit.CWL_workunit.CWL_tool = clt
+
+		//}
+
+		//if use_workflow {
+		//	wfl.CwlVersion = job.CwlVersion
+		//}
+
+		// ****** get inputs
+		job_input_map := *job.CWL_collection.Job_input_map
+		if job_input_map == nil {
+			err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
+			return
+		}
+		//job_input_map := *job.CWL_collection.Job_input_map
+
+		//job_input := *job.CWL_collection.Job_input
+
+		var workflow_instance *WorkflowInstance
+		workflow_instance, err = job.GetWorkflowInstance(task.Parent, true)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkunit) GetWorkflowInstance returned %s", err.Error())
+			return
+		}
+
+		workflow_input_map := workflow_instance.Inputs.GetMap()
+
+		var workunit_input_map map[string]cwl.CWLType
+		workunit_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, workflow_step)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects returned: %s", err.Error())
+			return
+		}
+
+		fmt.Println("workunit_input_map after second round:\n")
+		spew.Dump(workunit_input_map)
+
+		job_input := cwl.Job_document{}
+
+		for elem_id, elem := range workunit_input_map {
+			named_type := cwl.NewNamedCWLType(elem_id, elem)
+			job_input = append(job_input, named_type)
+		}
+
+		workunit.CWL_workunit.Job_input = &job_input
+
+		spew.Dump(job_input)
+
+		workunit.CWL_workunit.OutputsExpected = &workflow_step.Out
+		//spew.Dump(workflow_step.Out)
+		//panic("done")
+
+	}
+	//panic("done")
+	//spew.Dump(workunit.Cmd)
+	//panic("done")
+
+	return
+}
+
+func (w *Workunit) GetId() (id Workunit_Unique_Identifier) {
+	id = w.Workunit_Unique_Identifier
+	return
 }
 
 func (work *Workunit) Mkdir() (err error) {
 	// delete workdir just in case it exists; will not work if awe-worker is not in docker container AND tasks are in container
-	os.RemoveAll(work.Path())
-	err = os.MkdirAll(work.Path(), 0777)
+	work_path, err := work.Path()
+	if err != nil {
+		return
+	}
+	os.RemoveAll(work_path)
+	err = os.MkdirAll(work_path, 0777)
 	if err != nil {
 		return
 	}
@@ -155,30 +233,73 @@ func (work *Workunit) Mkdir() (err error) {
 }
 
 func (work *Workunit) RemoveDir() (err error) {
-	err = os.RemoveAll(work.Path())
+	work_path, err := work.Path()
+	if err != nil {
+		return
+	}
+	err = os.RemoveAll(work_path)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (work *Workunit) SetState(new_state string) {
+func (work *Workunit) SetState(new_state string, reason string) (err error) {
+
+	if new_state == WORK_STAT_SUSPEND && reason == "" {
+		err = fmt.Errorf("To suspend you need to provide a reason")
+		return
+	}
+
 	work.State = new_state
 	if new_state != WORK_STAT_CHECKOUT {
 		work.Client = ""
 	}
+
+	if reason != "" {
+		if len(work.Notes) == 0 {
+			work.Notes = append(work.Notes, reason)
+		}
+	}
+
+	return
 }
 
-func (work *Workunit) Path() string {
+func (work *Workunit) Path() (path string, err error) {
 	if work.WorkPath == "" {
-		id := work.Id
-		work.WorkPath = fmt.Sprintf("%s/%s/%s/%s/%s", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id)
+		id := work.Workunit_Unique_Identifier.JobId
+
+		if id == "" {
+			err = fmt.Errorf("(Workunit/Path) JobId is missing")
+			return
+		}
+		task_name := work.Workunit_Unique_Identifier.Parent
+		if task_name != "" {
+			task_name += "-"
+		}
+		task_name += work.Workunit_Unique_Identifier.TaskName
+		// convert name to make it filesystem compatible
+		task_name = strings.Map(
+			func(r rune) rune {
+				if syntax.IsWordChar(r) || r == '-' { // word char: [0-9A-Za-z] and '-'
+					return r
+				}
+				return '_'
+			},
+			task_name)
+
+		work.WorkPath = fmt.Sprintf("%s/%s/%s/%s/%s_%s_%d", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id, task_name, work.Workunit_Unique_Identifier.Rank)
 	}
-	return work.WorkPath
+	path = work.WorkPath
+	return
 }
 
 func (work *Workunit) CDworkpath() (err error) {
-	return os.Chdir(work.Path())
+	work_path, err := work.Path()
+	if err != nil {
+		return
+	}
+	return os.Chdir(work_path)
 }
 
 func (work *Workunit) GetNotes() string {

@@ -8,9 +8,12 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/golib/httpclient"
+	//"github.com/davecgh/go-spew/spew"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/fsouza/go-dockerclient"
 	"io"
 	"io/ioutil"
@@ -36,6 +39,119 @@ type WaitContainerResult struct {
 	Status int
 }
 
+func processor_run(control chan int) (err error) {
+
+	workunit := <-fromMover
+	//work := parsedwork.Workunit
+
+	//processed := &Mediumwork{
+	//	Workunit: work,
+	//	Perfstat: parsedwork.Perfstat,
+	//}
+
+	//if the work is not succesfully parsed in last stage, pass it into the next one immediately
+
+	work_id := workunit.Workunit_Unique_Identifier
+
+	var work_str string
+	work_str, err = work_id.String()
+	if err != nil {
+		err = fmt.Errorf("() workid.String() returned: %s", err.Error())
+		return
+	}
+
+	work_state, ok, err := workmap.Get(work_id)
+	if err != nil {
+		err = fmt.Errorf("(processor_run) workmap.Get returned: %s", err.Error())
+		return
+	}
+	if !ok {
+		logger.Error("(processor) workunit.id %s not found", work_str)
+		return
+	}
+	if workunit.State == core.WORK_STAT_ERROR || work_state == ID_DISCARDED {
+
+		if work_state == ID_DISCARDED {
+			workunit.SetState(core.WORK_STAT_DISCARDED, "workmap indicates that workunit has been discarded")
+		} else {
+			workunit.SetState(core.WORK_STAT_ERROR, "workmap indicates WORK_STAT_ERROR")
+		}
+		fromProcessor <- workunit
+		//release the permit lock, for work overlap inhibitted mode only
+		//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+		//	<-chanPermit
+		//}
+		return
+	}
+
+	workmap.Set(work_id, ID_WORKER, "processor")
+
+	var envkeys []string
+	_ = envkeys
+
+	wants_docker := false
+	if workunit.Cmd.Dockerimage != "" || workunit.Cmd.DockerPull != "" {
+		wants_docker = true
+	}
+
+	if !wants_docker {
+		envkeys, err = SetEnv(workunit)
+		if err != nil {
+			logger.Error("(processor) SetEnv(): workid=" + work_str + ", " + err.Error())
+			workunit.Notes = append(workunit.Notes, "[processor#SetEnv]"+err.Error())
+			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
+			//release the permit lock, for work overlap inhibitted mode only
+			//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+			//	<-chanPermit
+			//}
+			return
+		}
+	}
+	run_start := time.Now().Unix()
+
+	var pstat *core.WorkPerf
+	pstat, err = RunWorkunit(workunit)
+	exit_status := workunit.ExitStatus
+	logger.Debug(1, "(processor) ExitStatus of process: %d", exit_status)
+	if err != nil {
+		logger.Error("(processor) RunWorkunit returned error , workid=%s, %s", work_str, err.Error())
+		workunit.Notes = append(workunit.Notes, "[processor#RunWorkunit]"+err.Error())
+
+		if exit_status == 42 {
+			workunit.SetState(core.WORK_STAT_FAILED_PERMANENT, "exit_status == 42") // process told us that is an error where resubmission does not make sense.
+		} else {
+			workunit.SetState(core.WORK_STAT_ERROR, "RunWorkunit failed")
+		}
+		err = nil
+	} else {
+		logger.Debug(1, "(processor) RunWorkunit() returned without error, workid=%s", work_str)
+		workunit.SetState(core.WORK_STAT_COMPUTED, "")
+		workunit.WorkPerf.MaxMemUsage = pstat.MaxMemUsage
+		workunit.WorkPerf.MaxMemoryTotalRss = pstat.MaxMemoryTotalRss
+		workunit.WorkPerf.MaxMemoryTotalSwap = pstat.MaxMemoryTotalSwap
+
+		workunit.WorkPerf.DockerPrep = pstat.DockerPrep
+	}
+	run_end := time.Now().Unix()
+	computetime := run_end - run_start
+	workunit.WorkPerf.Runtime = computetime
+	workunit.ComputeTime = int(computetime)
+
+	if !wants_docker {
+		if len(envkeys) > 0 {
+			UnSetEnv(envkeys)
+		}
+	}
+	logger.Debug(1, "(processor) sending work to datamover")
+	fromProcessor <- workunit
+
+	//release the permit lock, for work overlap inhibitted mode only
+	//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
+	//	<-chanPermit
+	//}
+	return
+}
+
 func processor(control chan int) {
 	fmt.Printf("(processor) launched, client=%s\n", core.Self.Id)
 	defer fmt.Printf("(processor)  exiting...\n")
@@ -50,105 +166,10 @@ func processor(control chan int) {
 			control <- ID_WORKER
 			return
 		}
-
-		workunit := <-fromMover
-		//work := parsedwork.Workunit
-
-		//processed := &Mediumwork{
-		//	Workunit: work,
-		//	Perfstat: parsedwork.Perfstat,
-		//}
-
-		//if the work is not succesfully parsed in last stage, pass it into the next one immediately
-		work_state, ok, xerr := workmap.Get(workunit.Id)
-		if xerr != nil {
-			logger.Error("error: %s", xerr.Error())
-			continue
-		}
-		if !ok {
-			logger.Error("(processor) workunit.id %s not found", workunit.Id)
-			continue
-		}
-		if workunit.State == core.WORK_STAT_ERROR || work_state == ID_DISCARDED {
-
-			if work_state == ID_DISCARDED {
-				workunit.SetState(core.WORK_STAT_DISCARDED)
-			} else {
-				workunit.SetState(core.WORK_STAT_ERROR)
-			}
-			fromProcessor <- workunit
-			//release the permit lock, for work overlap inhibitted mode only
-			//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-			//	<-chanPermit
-			//}
-			continue
-		}
-
-		workmap.Set(workunit.Id, ID_WORKER, "processor")
-
-		var err error
-		var envkeys []string
-		_ = envkeys
-
-		wants_docker := false
-		if workunit.Cmd.Dockerimage != "" || workunit.Cmd.DockerPull != "" {
-			wants_docker = true
-		}
-
-		if !wants_docker {
-			envkeys, err = SetEnv(workunit)
-			if err != nil {
-				logger.Error("(processor) SetEnv(): workid=" + workunit.Id + ", " + err.Error())
-				workunit.Notes = append(workunit.Notes, "[processor#SetEnv]"+err.Error())
-				workunit.SetState(core.WORK_STAT_ERROR)
-				//release the permit lock, for work overlap inhibitted mode only
-				//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-				//	<-chanPermit
-				//}
-				continue
-			}
-		}
-		run_start := time.Now().Unix()
-
-		pstat, err := RunWorkunit(workunit)
-		exit_status := workunit.ExitStatus
-		logger.Debug(1, "(processor) ExitStatus of process: %d", exit_status)
+		err := processor_run(control)
 		if err != nil {
-			logger.Error("(processor) returned error , workid=" + workunit.Id + ", " + err.Error())
-			workunit.Notes = append(workunit.Notes, "[processor#RunWorkunit]"+err.Error())
-
-			if exit_status == 42 {
-				workunit.SetState(core.WORK_STAT_FAILED_PERMANENT) // process told us that is an error where resubmission does not make sense.
-			} else {
-				workunit.SetState(core.WORK_STAT_ERROR)
-			}
-		} else {
-			logger.Debug(1, "(processor) RunWorkunit() returned without error, workid="+workunit.Id)
-			workunit.SetState(core.WORK_STAT_COMPUTED)
-			workunit.WorkPerf.MaxMemUsage = pstat.MaxMemUsage
-			workunit.WorkPerf.MaxMemoryTotalRss = pstat.MaxMemoryTotalRss
-			workunit.WorkPerf.MaxMemoryTotalSwap = pstat.MaxMemoryTotalSwap
-
-			workunit.WorkPerf.DockerPrep = pstat.DockerPrep
+			logger.Error("(processor) processor_run returns: %s", err.Error())
 		}
-		run_end := time.Now().Unix()
-		computetime := run_end - run_start
-		workunit.WorkPerf.Runtime = computetime
-		workunit.ComputeTime = int(computetime)
-
-		if !wants_docker {
-			if len(envkeys) > 0 {
-				UnSetEnv(envkeys)
-			}
-		}
-		logger.Debug(1, "(processor) sending work to datamover")
-		fromProcessor <- workunit
-
-		//release the permit lock, for work overlap inhibitted mode only
-		//if !conf.WORKER_OVERLAP && core.Service != "proxy" {
-		//	<-chanPermit
-		//}
-
 	}
 	control <- ID_WORKER //we are ending
 }
@@ -157,8 +178,65 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 	if workunit.Cmd.Dockerimage != "" || workunit.Cmd.DockerPull != "" {
 		pstats, err = RunWorkunitDocker(workunit)
+		if err != nil {
+			err = fmt.Errorf("(RunWorkunit) RunWorkunitDocker returned: %s", err.Error())
+			return
+		}
 	} else {
 		pstats, err = RunWorkunitDirect(workunit)
+		if err != nil {
+			err = fmt.Errorf("(RunWorkunit) RunWorkunitDirect returned: %s", err.Error())
+			return
+		}
+	}
+
+	if workunit.CWL_workunit != nil {
+		work_path, xerr := workunit.Path()
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		stdout_file := work_path + "/" + conf.STDOUT_FILENAME
+
+		// wait for awe_stdout to be available
+		//for true {
+
+		//	f, file_err := os.OpenFile(stdout_file, syscall.O_RDWR, 0660) // For write access.
+		//	if file_err != nil {
+		//		f.Close()
+		//		break
+		//	}
+		//	time.Sleep(time.Second)
+
+		//	fmt.Printf("waiting for %s ...\n", stdout_file)
+
+		//}
+
+		file, e := ioutil.ReadFile(stdout_file)
+		if e != nil {
+			err = fmt.Errorf("(RunWorkunit) Could read output of cwl-runner: %s", e.Error())
+			return
+		}
+
+		var tool_results interface{}
+
+		err = json.Unmarshal(file, &tool_results)
+		if err != nil {
+			err = fmt.Errorf("(RunWorkunit) Could not parse json output of cwl-runner: %s", err.Error())
+			fmt.Println(string(file[:]))
+			return
+		}
+
+		result_doc, xerr := cwl.NewJob_document(tool_results)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		fmt.Println("CWL-runner receipt:")
+		spew.Dump(result_doc)
+		workunit.CWL_workunit.Outputs = result_doc
+
 	}
 
 	return
@@ -173,6 +251,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 	//change cwd to the workunit's working directory
 	if err := workunit.CDworkpath(); err != nil {
+		err = fmt.Errorf("(RunWorkunitDocker) CDworkpath returned: %s", err.Error())
 		return nil, err
 	}
 
@@ -182,8 +261,14 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 	use_wrapper_script := false
 
+	work_path, err := workunit.Path()
+	if err != nil {
+		err = fmt.Errorf("(RunWorkunitDocker) workunit.Path() returned: %s", err.Error())
+		return
+	}
+
 	wrapper_script_filename := "awe_workunit_wrapper.sh"
-	wrapper_script_filename_host := path.Join(workunit.Path(), wrapper_script_filename)
+	wrapper_script_filename_host := path.Join(work_path, wrapper_script_filename)
 	wrapper_script_filename_docker := path.Join(conf.DOCKER_WORK_DIR, wrapper_script_filename)
 
 	if len(workunit.Cmd.Cmd_script) > 0 {
@@ -200,7 +285,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		err = ioutil.WriteFile(wrapper_script_filename_host, wrapper_content_bytes, 0755) // not executable: 0644
 		if err != nil {
-			err = fmt.Errorf("error writing wrapper script, err=%s", err.Error())
+			err = fmt.Errorf("(RunWorkunitDocker) error writing wrapper script, err=%s", err.Error())
 			return
 		}
 
@@ -215,7 +300,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	} else if workunit.Cmd.DockerPull != "" {
 		logger.Debug(1, "using DockerPull: %s", workunit.Cmd.DockerPull)
 	} else {
-		err = fmt.Errorf("Error Dockerimage/DockerPull string empty")
+		err = fmt.Errorf("(RunWorkunitDocker) Error Dockerimage/DockerPull string empty")
 		return
 	}
 
@@ -226,6 +311,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(workunit.Cmd.Dockerimage)
 		if err != nil {
+			err = fmt.Errorf("(RunWorkunitDocker) A SplitDockerimageName returned: %s", err.Error())
 			return
 		}
 	}
@@ -233,6 +319,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		dockerimage_repo, dockerimage_tag, err = SplitDockerimageName(workunit.Cmd.DockerPull)
 		if err != nil {
+			err = fmt.Errorf("(RunWorkunitDocker) B SplitDockerimageName returned: %s", err.Error())
 			return
 		}
 	}
@@ -251,7 +338,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 		logger.Debug(1, "Using docker API...")
 		client, err = docker.NewClient(conf.DOCKER_SOCKET)
 		if err != nil {
-			err = fmt.Errorf("error creating docker client: %s", err.Error())
+			err = fmt.Errorf("(RunWorkunitDocker) error creating docker client: %s", err.Error())
 			return
 		}
 	} else {
@@ -266,6 +353,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	// delete any old AWE_container
 	err = RemoveOldAWEContainers(client, container_name)
 	if err != nil {
+		err = fmt.Errorf("(RunWorkunitDocker) RemoveOldAWEContainers returned: %s", err.Error())
 		return nil, err
 	}
 
@@ -474,7 +562,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	container_cmd := []string{bash_command}
 
 	//var empty_struct struct{}
-	bindstr_workdir := workunit.Path() + "/:" + conf.DOCKER_WORK_DIR
+	bindstr_workdir := work_path + "/:" + conf.DOCKER_WORK_DIR
 	logger.Debug(1, "bindstr_workdir: "+bindstr_workdir)
 
 	var bindarray = []string{}
@@ -610,7 +698,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		logger.Debug(3, "Container status: %s", cont.State.Status)
 
-		inspect_filename := path.Join(workunit.Path(), "container_inspect.json")
+		inspect_filename := path.Join(work_path, "container_inspect.json")
 
 		b_inspect, _ := json.MarshalIndent(cont, "", "    ")
 
@@ -808,7 +896,13 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 
-	args := workunit.Cmd.ParsedArgs
+	var args []string
+
+	if len(workunit.Cmd.ArgsArray) > 0 {
+		args = workunit.Cmd.ArgsArray
+	} else {
+		args = workunit.Cmd.ParsedArgs
+	}
 
 	//change cwd to the workunit's working directory
 	if err := workunit.CDworkpath(); err != nil {
@@ -843,10 +937,15 @@ func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 		}
 	}
 
-	logger.Debug(3, "(RunWorkunitDirect) Using workpath: %s", workunit.Path())
+	work_path, xerr := workunit.Path()
+	if xerr != nil {
+		err = xerr
+		return
+	}
+	logger.Debug(3, "(RunWorkunitDirect) Using workpath: %s", work_path)
 
-	stdoutFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDOUT_FILENAME)
-	stderrFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDERR_FILENAME)
+	stdoutFilePath := fmt.Sprintf("%s/%s", work_path, conf.STDOUT_FILENAME)
+	stderrFilePath := fmt.Sprintf("%s/%s", work_path, conf.STDERR_FILENAME)
 	outfile, err := os.Create(stdoutFilePath)
 	defer outfile.Close()
 	errfile, err := os.Create(stderrFilePath)
@@ -918,6 +1017,8 @@ func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 		case err = <-done:
 			logger.Debug(3, "(RunWorkunitDirect) received done")
 			if err != nil {
+				workunit.ExitStatus = 1 // just in case we cannot figure out the error code
+
 				if exiterr, ok := err.(*exec.ExitError); ok {
 					// The program has exited with an exit code != 0
 
@@ -929,9 +1030,6 @@ func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 					if ok {
 						workunit.ExitStatus = status.ExitStatus()
 					}
-				} else {
-					// I guess that is some kind of error
-					workunit.ExitStatus = 1
 				}
 
 				err = fmt.Errorf("(RunWorkunitDirect) wait_cmd=%s, err=%s", commandName, err.Error())
@@ -939,11 +1037,15 @@ func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 			} else {
 				// I guess all is ok
 				workunit.ExitStatus = 0
+
 			}
+			logger.Debug(3, "(RunWorkunitDirect) workunit.ExitStatus: %d", workunit.ExitStatus)
 			do_loop = false
 		}
 	}
+
 	logger.Event(event.WORK_END, "workid="+workunit.Id)
+
 	pstats = new(core.WorkPerf)
 	pstats.MaxMemUsage = int64(MaxMem)
 	return
@@ -981,8 +1083,13 @@ func runPreWorkExecutionScript(workunit *core.Workunit) (err error) {
 		}
 	}
 
-	stdoutFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDOUT_FILENAME)
-	stderrFilePath := fmt.Sprintf("%s/%s", workunit.Path(), conf.STDERR_FILENAME)
+	work_path, xerr := workunit.Path()
+	if xerr != nil {
+		err = xerr
+		return
+	}
+	stdoutFilePath := fmt.Sprintf("%s/%s", work_path, conf.STDOUT_FILENAME)
+	stderrFilePath := fmt.Sprintf("%s/%s", work_path, conf.STDERR_FILENAME)
 	outfile, err := os.Create(stdoutFilePath)
 	defer outfile.Close()
 	errfile, err := os.Create(stderrFilePath)
@@ -1074,6 +1181,7 @@ func FetchPrivateEnvByWorkId(workid string) (envs map[string]string, err error) 
 	tmp_map := new(map[string]string)
 
 	if err := json.Unmarshal([]byte(jsonstream), tmp_map); err != nil {
+		err = fmt.Errorf("(FetchPrivateEnvByWorkId) json.Unmarshal returned: %s", err.Error())
 		return nil, err
 	}
 

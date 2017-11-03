@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/acl"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
@@ -12,6 +13,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/httpclient"
 	"io/ioutil"
+	//"net/url"
+	"encoding/base64"
 	"os"
 	"os/exec"
 	"strconv"
@@ -26,22 +29,28 @@ var (
 	ProxyWorkChan chan bool
 	Server_UUID   string
 	JM            *JobMap
+	Start_time    time.Time
 )
 
+type BaseResponse struct {
+	Status int      `json:"status"`
+	Error  []string `json:"error"`
+}
+
 type StandardResponse struct {
-	S int         `json:"status"`
-	D interface{} `json:"data"`
-	E []string    `json:"error"`
+	Status int         `json:"status"`
+	Data   interface{} `json:"data"`
+	Error  []string    `json:"error"`
 }
 
 func InitResMgr(service string) {
 	if service == "server" {
 		QMgr = NewServerMgr()
 	} else if service == "proxy" {
-		QMgr = NewProxyMgr()
+		//QMgr = NewProxyMgr()
 	}
 	Service = service
-
+	Start_time = time.Now()
 }
 
 func SetClientProfile(profile *Client) {
@@ -66,15 +75,6 @@ type CoReq struct {
 	response  chan CoAck
 }
 
-type Notice struct {
-	WorkId      string
-	Status      string
-	ClientId    string
-	ComputeTime int
-	Notes       string
-	Stderr      string
-}
-
 type coInfo struct {
 	workunit *Workunit
 	clientid string
@@ -88,23 +88,9 @@ type FormFile struct {
 	Checksum map[string]string
 }
 
-type Opts map[string]string
-
-func (o *Opts) HasKey(key string) bool {
-	if _, has := (*o)[key]; has {
-		return true
-	}
-	return false
-}
-
-func (o *Opts) Value(key string) string {
-	val, _ := (*o)[key]
-	return val
-}
-
 //heartbeat response from awe-server to awe-worker
 //used for issue operation request to client, e.g. discard suspended workunits
-type HBmsg map[string]string //map[op]obj1,obj2 e.g. map[discard]=work1,work2
+type HeartbeatInstructions map[string]string //map[op]obj1,obj2 e.g. map[discard]=work1,work2
 
 func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 
@@ -198,7 +184,12 @@ func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
 		inputFileNames := make(map[string]bool)
 		for _, io := range task.Inputs {
 			if _, exists := inputFileNames[io.FileName]; exists {
-				return nil, errors.New("invalid inputs: task " + task.Id + " contains multiple inputs with filename=" + io.FileName)
+				var task_str string
+				task_str, err = task.String()
+				if err != nil {
+					return
+				}
+				return nil, errors.New("invalid inputs: task " + task_str + " contains multiple inputs with filename=" + io.FileName)
 			}
 			inputFileNames[io.FileName] = true
 		}
@@ -220,29 +211,6 @@ func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
 		return
 	}
 	return
-}
-
-func PostNodeWithToken(io *IO, numParts int, token string) (nodeid string, err error) {
-	opts := Opts{}
-	var node *shock.ShockNode
-	node, err = createOrUpdate(opts, io.Host, "", token, nil)
-	if err != nil {
-		err = fmt.Errorf("(1) createOrUpdate in PostNodeWithToken failed (%s): %v", io.Host, err)
-		return
-	}
-	//create "parts" for output splits
-	if numParts > 1 {
-		opts["upload_type"] = "parts"
-		opts["file_name"] = io.FileName
-		opts["parts"] = strconv.Itoa(numParts)
-		_, err = createOrUpdate(opts, io.Host, node.Id, token, nil)
-		if err != nil {
-			nodeid = node.Id
-			err = fmt.Errorf("(2) createOrUpdate in PostNodeWithToken failed (%s, %s): %v", io.Host, node.Id, err)
-			return
-		}
-	}
-	return node.Id, nil
 }
 
 func ReadJobFile(filename string) (job *Job, err error) {
@@ -337,14 +305,15 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 
 	for _, taskDep := range jobDep.Tasks {
 		//task := new(Task)
-		if taskDep.Id == "" {
-			err = fmt.Errorf("(JobDepToJob) taskDep.Id empty")
-			return
-		}
+		//if taskDep.Id == "" {
+		//	err = fmt.Errorf("(JobDepToJob) taskDep.Id empty")
+		//	return
+		//}
 
-		task, xerr := NewTask(job, taskDep.Id)
-		if xerr != nil {
-			err = xerr
+		var task *Task
+		task, err = NewTask(job, "", taskDep.Id)
+		if err != nil {
+			err = fmt.Errorf("(JobDepToJob) NewTask returned: %s", err.Error())
 			return
 		}
 
@@ -406,7 +375,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 
 //misc
 
-func GetJobIdByTaskId(taskid string) (jobid string, err error) {
+func GetJobIdByTaskId_deprecated(taskid string) (jobid string, err error) { // job_id is embedded in task struct
 	parts := strings.Split(taskid, "_")
 	if len(parts) == 2 {
 		return parts[0], nil
@@ -414,7 +383,7 @@ func GetJobIdByTaskId(taskid string) (jobid string, err error) {
 	return "", errors.New("invalid task id: " + taskid)
 }
 
-func GetJobIdByWorkId(workid string) (jobid string, err error) {
+func GetJobIdByWorkId_deprecated(workid string) (jobid string, err error) {
 	parts := strings.Split(workid, "_")
 	if len(parts) == 3 {
 		jobid = parts[0]
@@ -424,7 +393,7 @@ func GetJobIdByWorkId(workid string) (jobid string, err error) {
 	return
 }
 
-func GetTaskIdByWorkId(workid string) (taskid string, err error) {
+func GetTaskIdByWorkId_deprecated(workid string) (taskid string, err error) {
 	parts := strings.Split(workid, "_")
 	if len(parts) == 3 {
 		return fmt.Sprintf("%s_%s", parts[0], parts[1]), nil
@@ -442,8 +411,8 @@ func IsFirstTask(taskid string) bool {
 	return false
 }
 
-//update job state to "newstate" only if the current state is in one of the "oldstates"
-func UpdateJobState(jobid string, newstate string, oldstates []string) (err error) {
+//update job state to "newstate" only if the current state is in one of the "oldstates" // TODO make this a job.SetState function
+func UpdateJobState_deprecated(jobid string, newstate string, oldstates []string) (err error) {
 	job, err := GetJob(jobid)
 	if err != nil {
 		return
@@ -462,11 +431,13 @@ func UpdateJobState(jobid string, newstate string, oldstates []string) (err erro
 		}
 	}
 	if !matched {
-		return errors.New("old state not matching one of the required ones")
+		oldstates_str := strings.Join(oldstates, ",")
+		err = fmt.Errorf("(UpdateJobState) old state %s does not match one of the required ones (required: %s)", job_state, oldstates_str)
+		return
 	}
-	if err := job.SetState(newstate); err != nil {
-		return err
-	}
+	//if err := job.SetState(newstate); err != nil {
+	//	return err
+	//}
 	return
 }
 
@@ -482,7 +453,7 @@ func contains(list []string, elem string) bool {
 //functions for REST API communication  (=deprecated=)
 //notify AWE server a workunit is finished with status either "failed" or "done", and with perf statistics if "done"
 func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
-	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s", conf.SERVER_URL, work.Id, work.State, Self.Id)
+	target_url := fmt.Sprintf("%s/work/%s?workid=%s&jobid=%s&status=%s&client=%s", conf.SERVER_URL, work.Id, work.TaskName, work.JobId, work.State, Self.Id)
 
 	argv := []string{}
 	argv = append(argv, "-X")
@@ -506,7 +477,22 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 }
 
 func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (response *StandardResponse, err error) {
-	target_url := fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work.Id, work.State, Self.Id, work.ComputeTime)
+
+	var work_str string
+	work_str, err = work.String()
+	if err != nil {
+		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) workid.String() returned: %s", err.Error())
+		return
+	}
+
+	work_id_b64 := "base64:" + base64.StdEncoding.EncodeToString([]byte(work_str))
+	target_url := ""
+	if work.CWL_workunit != nil {
+		target_url = fmt.Sprintf("%s/work/%s?client=%s", conf.SERVER_URL, work_id_b64, Self.Id) // client info is needed for authentication
+	} else {
+		// old AWE style result reporting (note that nodes had been created by the AWE server)
+		target_url = fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work_id_b64, work.State, Self.Id, work.ComputeTime)
+	}
 	form := httpclient.NewForm()
 	hasreport := false
 	if work.State == WORK_STAT_DONE && perf != nil {
@@ -533,6 +519,23 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 			hasreport = true
 		}
 	}
+
+	if work.CWL_workunit != nil {
+		cwl_result := work.CWL_workunit.Notice
+		cwl_result.Status = work.State
+		cwl_result.ComputeTime = work.ComputeTime
+
+		var result_bytes []byte
+		result_bytes, err = json.Marshal(cwl_result)
+		if err != nil {
+			err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) Could not json marshal results: %s", err.Error())
+			return
+		}
+
+		form.AddParam("cwl", string(result_bytes[:]))
+
+	}
+
 	if hasreport {
 		target_url = target_url + "&report"
 	}
@@ -553,6 +556,7 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 			"Authorization":  []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
 		}
 	}
+	logger.Debug(3, "PUT %s", target_url)
 	res, err := httpclient.Put(target_url, headers, form.Reader, nil)
 	if err != nil {
 		return
@@ -566,8 +570,8 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) failed to marshal response:\"%s\"", jsonstream)
 		return
 	}
-	if len(response.E) > 0 {
-		err = errors.New(strings.Join(response.E, ","))
+	if len(response.Error) > 0 {
+		err = errors.New(strings.Join(response.Error, ","))
 		return
 	}
 
@@ -581,20 +585,25 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 		var local_filepath string //local file name generated by the cmd
 		var file_path string      //file name to be uploaded to shock
 
+		work_path, xerr := work.Path()
+		if xerr != nil {
+			err = xerr
+			return
+		}
 		if io.Directory != "" {
-			local_filepath = fmt.Sprintf("%s/%s/%s", work.Path(), io.Directory, name)
+			local_filepath = fmt.Sprintf("%s/%s/%s", work_path, io.Directory, name)
 			//if specified, rename the local file name to the specified shock node file name
 			//otherwise use the local name as shock file name
 			file_path = local_filepath
 			if io.ShockFilename != "" {
-				file_path = fmt.Sprintf("%s/%s/%s", work.Path(), io.Directory, io.ShockFilename)
+				file_path = fmt.Sprintf("%s/%s/%s", work_path, io.Directory, io.ShockFilename)
 				os.Rename(local_filepath, file_path)
 			}
 		} else {
-			local_filepath = fmt.Sprintf("%s/%s", work.Path(), name)
+			local_filepath = fmt.Sprintf("%s/%s", work_path, name)
 			file_path = local_filepath
 			if io.ShockFilename != "" {
-				file_path = fmt.Sprintf("%s/%s", work.Path(), io.ShockFilename)
+				file_path = fmt.Sprintf("%s/%s", work_path, io.ShockFilename)
 				os.Rename(local_filepath, file_path)
 			}
 		}
@@ -624,7 +633,7 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 		//upload attribute file to shock IF attribute file is specified in outputs AND it is found in local directory.
 		var attrfile_path string = ""
 		if io.AttrFile != "" {
-			attrfile_path = fmt.Sprintf("%s/%s", work.Path(), io.AttrFile)
+			attrfile_path = fmt.Sprintf("%s/%s", work_path, io.AttrFile)
 			if fi, err := os.Stat(attrfile_path); err != nil || fi.Size() == 0 {
 				attrfile_path = ""
 			}
@@ -638,10 +647,10 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 				}
 			}
 		}
-
-		if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
+		sc := shock.ShockClient{Host: io.Host, Token: work.Info.DataToken}
+		if _, err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-			if err := PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
+			if _, err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 				fmt.Errorf("push file error\n")
 				logger.Error("op=pushfile,err=" + err.Error())
 				return size, err
@@ -686,46 +695,26 @@ func putFileByCurl(filename string, target_url string, rank int) (err error) {
 	return
 }
 
-func PutFileToShock(filename string, host string, nodeid string, rank int, token string, attrfile string, ntype string, formopts map[string]string, nodeattr map[string]interface{}) (err error) {
-	opts := Opts{}
-	fi, _ := os.Stat(filename)
-	if (attrfile != "") && (rank < 2) {
-		opts["attributes"] = attrfile
-	}
-	if filename != "" {
-		opts["file"] = filename
-	}
-	if rank == 0 {
-		opts["upload_type"] = "basic"
-	} else {
-		opts["upload_type"] = "part"
-		opts["part"] = strconv.Itoa(rank)
-	}
-	if (ntype == "subset") && (rank == 0) && (fi.Size() == 0) {
-		opts["upload_type"] = "basic"
-	} else if ((ntype == "copy") || (ntype == "subset")) && (len(formopts) > 0) {
-		opts["upload_type"] = ntype
-		for k, v := range formopts {
-			opts[k] = v
-		}
-	}
-
-	_, err = createOrUpdate(opts, host, nodeid, token, nodeattr)
-	return
-}
-
 func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err error) {
 	perfJsonstream, err := json.Marshal(perfstat)
 	if err != nil {
 		return reportPath, err
 	}
-	reportPath = fmt.Sprintf("%s/%s.perf", work.Path(), work.Id)
+	work_path, err := work.Path()
+	if err != nil {
+		return
+	}
+	reportPath = fmt.Sprintf("%s/%s.perf", work_path, work.Id)
 	err = ioutil.WriteFile(reportPath, []byte(perfJsonstream), 0644)
 	return
 }
 
 func getStdOutPath(work *Workunit) (stdoutFilePath string, err error) {
-	stdoutFilePath = fmt.Sprintf("%s/%s", work.Path(), conf.STDOUT_FILENAME)
+	work_path, err := work.Path()
+	if err != nil {
+		return
+	}
+	stdoutFilePath = fmt.Sprintf("%s/%s", work_path, conf.STDOUT_FILENAME)
 	fi, err := os.Stat(stdoutFilePath)
 	if err != nil {
 		return stdoutFilePath, err
@@ -737,7 +726,11 @@ func getStdOutPath(work *Workunit) (stdoutFilePath string, err error) {
 }
 
 func getStdErrPath(work *Workunit) (stderrFilePath string, err error) {
-	stderrFilePath = fmt.Sprintf("%s/%s", work.Path(), conf.STDERR_FILENAME)
+	work_path, err := work.Path()
+	if err != nil {
+		return
+	}
+	stderrFilePath = fmt.Sprintf("%s/%s", work_path, conf.STDERR_FILENAME)
 	fi, err := os.Stat(stderrFilePath)
 	if err != nil {
 		return stderrFilePath, err
@@ -749,7 +742,11 @@ func getStdErrPath(work *Workunit) (stderrFilePath string, err error) {
 }
 
 func getWorkNotesPath(work *Workunit) (worknotesFilePath string, err error) {
-	worknotesFilePath = fmt.Sprintf("%s/%s", work.Path(), conf.WORKNOTES_FILENAME)
+	work_path, err := work.Path()
+	if err != nil {
+		return
+	}
+	worknotesFilePath = fmt.Sprintf("%s/%s", work_path, conf.WORKNOTES_FILENAME)
 	if len(work.Notes) == 0 {
 		return worknotesFilePath, errors.New("work notes empty")
 	}
@@ -758,7 +755,7 @@ func getWorkNotesPath(work *Workunit) (worknotesFilePath string, err error) {
 }
 
 //shock access functions
-func createOrUpdate(opts Opts, host string, nodeid string, token string, nodeattr map[string]interface{}) (node *shock.ShockNode, err error) {
+func createOrUpdate_deprecated(opts shock.Opts, host string, nodeid string, token string, nodeattr map[string]interface{}) (node *shock.ShockNode, err error) {
 	if host == "" {
 		return nil, fmt.Errorf("error: (createOrUpdate) host is not defined in Shock node")
 	}
@@ -870,28 +867,22 @@ func createOrUpdate(opts Opts, host string, nodeid string, token string, nodeatt
 	return
 }
 
-func ShockPutIndex(host string, nodeid string, indexname string, token string) (err error) {
-	opts := Opts{}
-	opts["upload_type"] = "index"
-	opts["index_type"] = indexname
-	logger.Debug(2, fmt.Sprintf("(ShockPutIndex) node=%s/node/%s index=%s", host, nodeid, indexname))
-	_, err = createOrUpdate(opts, host, nodeid, token, nil)
-	return
-}
-
 func GetJob(id string) (job *Job, err error) {
 	job, ok, err := JM.Get(id, true)
 	if err != nil {
+		err = fmt.Errorf("(GetJob) JM.Get failed: %s", err.Error())
 		return
 	}
 	if !ok {
 		// load job if not already in memory
 		job, err = LoadJob(id)
 		if err != nil {
+			err = fmt.Errorf("(GetJob) LoadJob failed: %s", err.Error())
 			return
 		}
 		err = JM.Add(job)
 		if err != nil {
+			err = fmt.Errorf("(GetJob) JM.Add failed: %s", err.Error())
 			return
 		}
 	}

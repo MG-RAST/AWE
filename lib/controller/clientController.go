@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
@@ -10,6 +11,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -30,27 +32,17 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	// Log Request and check for Auth
 	LogRequest(cx.Request)
 
-	cg, err := request.AuthenticateClientGroup(cx.Request)
-	if err != nil {
-		if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
-			if conf.CLIENT_AUTH_REQ == true {
-				cx.RespondWithError(http.StatusUnauthorized)
-				return
-			}
-		} else {
-			logger.Error("Err@AuthenticateClientGroup: " + err.Error())
-			cx.RespondWithError(http.StatusInternalServerError)
-			return
-		}
+	cg, done := GetClientGroup(cx)
+	if done {
+		return
 	}
-
 	// Parse uploaded form
 
 	_, files, err := ParseMultipartForm(cx.Request)
 	if err != nil {
 		if err.Error() != "request Content-Type isn't multipart/form-data" {
 			logger.Error("(ClientController/Create) Error parsing form: " + err.Error())
-			cx.RespondWithError(http.StatusBadRequest)
+			cx.RespondWithErrorMessage("(ClientController/Create) Error parsing form: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
@@ -65,7 +57,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	}
 
 	//log event about client registration (CR)
-	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.Id+";name="+client.Name+";host="+client.Host+";group="+client.Group+";instance_id="+client.InstanceId+";instance_type="+client.InstanceType+";domain="+client.Domain)
+	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.Id+";host="+client.Host+";group="+client.Group+";instance_id="+client.InstanceId+";instance_type="+client.InstanceType+";domain="+client.Domain)
 
 	rlock, err := client.RLockNamed("ClientController/Create")
 	if err != nil {
@@ -75,35 +67,17 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	}
 	defer client.RUnlockNamed(rlock)
 	cx.RespondWithData(client)
+
 	return
 }
 
 // GET: /client/{id}
 func (cr *ClientController) Read(id string, cx *goweb.Context) {
 	// Gather query params
+
 	query := &Query{Li: cx.Request.URL.Query()}
-
-	if query.Has("heartbeat") { //handle heartbeat
-		cg, err := request.AuthenticateClientGroup(cx.Request)
-		if err != nil {
-			if err.Error() == e.NoAuth || err.Error() == e.UnAuth || err.Error() == e.InvalidAuth {
-				if conf.CLIENT_AUTH_REQ == true {
-					cx.RespondWithError(http.StatusUnauthorized)
-					return
-				}
-			} else {
-				logger.Error("Err@AuthenticateClientGroup: " + err.Error())
-				cx.RespondWithError(http.StatusInternalServerError)
-				return
-			}
-		}
-
-		hbmsg, err := core.QMgr.ClientHeartBeat(id, cg)
-		if err != nil {
-			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-		} else {
-			cx.RespondWithData(hbmsg)
-		}
+	if query.Has("heartbeat") { // OLD heartbeat
+		cx.RespondWithErrorMessage("Please update to newer version of awe-worker. Old heartbeat mechanism not supported anymore.", http.StatusBadRequest)
 		return
 	}
 
@@ -179,7 +153,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 
 	if query.Has("busy") {
 		for _, client := range clients {
-			work_length, err := client.Current_work_length(true)
+			work_length, err := client.Current_work.Length(true)
 			if err != nil {
 				continue
 			}
@@ -195,7 +169,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 		}
 	} else if query.Has("status") {
 		for _, client := range clients {
-			status, xerr := client.Get_Status(false)
+			status, xerr := client.Get_New_Status(false)
 			if xerr != nil {
 				continue
 			}
@@ -231,25 +205,52 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 func (cr *ClientController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 
-	// Try to authenticate user.
-	u, err := request.Authenticate(cx.Request)
-	if err != nil && err.Error() != e.NoAuth {
-		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+	// Gather query params
+	query := &Query{Li: cx.Request.URL.Query()}
+
+	if query.Has("heartbeat") { //handle heartbeat
+
+		cg, done := GetClientGroup(cx)
+		if done {
+			return
+		}
+
+		const MAX_MEMORY = 1024
+
+		r := cx.Request
+		worker_status_bytes, err := ioutil.ReadAll(r.Body)
+		defer r.Body.Close()
+
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		worker_status := core.WorkerState{}
+		err = json.Unmarshal(worker_status_bytes, &worker_status)
+		if err != nil {
+			err = fmt.Errorf("%s, worker_status_bytes: %s", err, string(worker_status_bytes[:]))
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			//cx.Respond(data interface{}, statusCode int, []string{err.Error()}, cx)
+			return
+		}
+		worker_status.Current_work.Init("Current_work")
+
+		hbmsg, err := core.QMgr.ClientHeartBeat(id, cg, worker_status)
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		} else {
+			cx.RespondWithData(hbmsg)
+		}
+		return
+
+	}
+
+	u, done := GetAuthorizedUser(cx)
+	if done {
 		return
 	}
 
-	// If no auth was provided, and anonymous read is allowed, use the public user
-	if u == nil {
-		if conf.ANON_WRITE == true {
-			u = &user.User{Uuid: "public"}
-		} else {
-			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
-			return
-		}
-	}
-
-	// Gather query params
-	query := &Query{Li: cx.Request.URL.Query()}
 	if query.Has("subclients") { //update the number of subclients for a proxy
 		if count, err := strconv.Atoi(query.Value("subclients")); err != nil {
 			cx.RespondWithError(http.StatusNotImplemented)
@@ -260,7 +261,7 @@ func (cr *ClientController) Update(id string, cx *goweb.Context) {
 		return
 	}
 	if query.Has("suspend") { //resume the suspended client
-		if err := core.QMgr.SuspendClientByUser(id, u); err != nil {
+		if err := core.QMgr.SuspendClientByUser(id, u, "request by api call"); err != nil {
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		} else {
 			cx.RespondWithData("client suspended")
@@ -308,7 +309,10 @@ func (cr *ClientController) UpdateMany(cx *goweb.Context) {
 		return
 	}
 	if query.Has("suspendall") { //resume the suspended client
-		num := core.QMgr.SuspendAllClientsByUser(u)
+		num, err := core.QMgr.SuspendAllClientsByUser(u, "request by api call")
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		}
 		cx.RespondWithData(fmt.Sprintf("%d clients suspended", num))
 		return
 	}
@@ -319,29 +323,30 @@ func (cr *ClientController) UpdateMany(cx *goweb.Context) {
 // DELETE: /client/{id}
 func (cr *ClientController) Delete(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
+	cx.RespondWithErrorMessage("this functionality has been removed from AWE", http.StatusBadRequest)
 
 	// Try to authenticate user.
-	u, err := request.Authenticate(cx.Request)
-	if err != nil && err.Error() != e.NoAuth {
-		cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
-		return
-	}
+	//u, err := request.Authenticate(cx.Request)
+	//if err != nil && err.Error() != e.NoAuth {
+	//	cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+	//	return
+	//}
 
 	// If no auth was provided, and anonymous read is allowed, use the public user
-	if u == nil {
-		if conf.ANON_DELETE == true {
-			u = &user.User{Uuid: "public"}
-		} else {
-			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
-			return
-		}
-	}
+	//if u == nil {
+	//	if conf.ANON_DELETE == true {
+	//		u = &user.User{Uuid: "public"}
+	//	} else {
+	//		cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+	//		return
+	//	}
+	//}
 
-	if err := core.QMgr.DeleteClientByUser(id, u); err != nil {
-		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-	} else {
-		cx.RespondWithData("client deleted")
-	}
+	//if err := core.QMgr.DeleteClientByUser(id, u); err != nil {
+	//	cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+	//} else {
+	//	cx.RespondWithData("client deleted")
+	//}
 	return
 }
 

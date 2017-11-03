@@ -351,7 +351,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 // To do:
 // - Iterate job queries
 func (cr *JobController) ReadMany(cx *goweb.Context) {
-	LogRequest(cx.Request)
+    LogRequest(cx.Request)
 
 	// Try to authenticate user.
 	u, err := request.Authenticate(cx.Request)
@@ -381,6 +381,46 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
 			return
 		}
+	}
+
+	// check if an adminview is being requested
+        if query.Has("adminview") {
+
+	    // adminview requires a user
+            if u != nil {
+
+		// adminview requires the user to be an admin
+		if u.Admin {
+
+		    // special is an attribute from the job document chosen via the cgi-param "special"
+		    // this attribute can be a path in the document, separated by .
+		    // special attributes do not have to be present in all job documents for this function to work
+		    special := "info.userattr.bp_count"
+		    if query.Has("special") {
+			special = query.Value("special")
+		    }
+
+		    // call the GetAdminView function, passing along the special attribute
+		    results, err := core.GetAdminView(special)
+
+		    // if there is an error, return it
+		    if err != nil {
+	    		logger.Error("err " + err.Error())
+	    		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+	    		return
+		    }
+
+		    // if there is no error, return the data
+		    cx.RespondWithData(results)
+		    return
+		} else {
+		    cx.RespondWithErrorMessage("you need to be an administrator to access this function", http.StatusUnauthorized)
+	    	    return
+		}
+	    } else {
+		cx.RespondWithErrorMessage("you need to be logged in to access this function", http.StatusUnauthorized)
+	    	return
+	    }
 	}
 
 	limit := conf.DEFAULT_PAGE_SIZE

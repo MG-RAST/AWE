@@ -135,6 +135,33 @@ func dbFind(q bson.M, results *Jobs, options map[string]int) (count int, err err
 	return
 }
 
+// get a minimal subset of the job documents required for an admin overview
+// for all completed jobs younger than a month and all running jobs
+func dbAdminData(special string) (data []interface{}, err error) {
+    // get a DB connection
+    session := db.Connection.Session.Copy()
+
+    // close the connection when the function completes
+    defer session.Close()
+
+    // set the database and collection
+    c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+
+    // get the completed jobs that have a completed time not older than one month
+    var completedjobs = bson.M{ "state": "completed", "info.completedtime": bson.M{ "$gt": time.Now().AddDate(0, -1, 0) } }
+
+    // get all runnning jobs (those not deleted and not completed)
+    var runningjobs = bson.M{ "state": bson.M{ "$nin": []string{"completed","deleted"} } }
+
+    // select only those fields required for the output
+    var resultfields = bson.M{"_id":0,"state":1,"info.name":1,"info.submittime":1,"info.startedtime":1,"info.completedtime":1,"info.pipeline":1,"tasks.createdDate":1,"tasks.startedDate":1,"tasks.completedDate":1,"tasks.state":1,"tasks.inputs.size":1,"tasks.outputs.size":1,special: 1}
+
+    // return all data without iterating
+    err = c.Find(bson.M{ "$or": []bson.M{ completedjobs, runningjobs}}).Select(resultfields).All(&data)
+    
+    return
+}
+
 func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string) (count int, err error) {
 	if sortby == "" {
 		return 0, errors.New("sortby must be an nonempty string")

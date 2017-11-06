@@ -9,11 +9,16 @@ type Null struct {
 	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 }
 
-func NewNull(id string) *Null {
+func NewNull() *Null {
 	n := &Null{}
-	n.Id = id
 	n.Class = "null"
 	n.Type = CWL_null
+	return n
+}
+
+func NewNullWithId(id string) *Null {
+	n := NewNull()
+	n.Id = id
 	return n
 }
 

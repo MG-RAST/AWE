@@ -77,7 +77,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 		input_obj_ref, ok := job_input_map[id_base] // returns CWLType
 		if !ok {
 			// not found, we can skip it it is optional anyway
-			input_obj_ref = cwl.NewNull(id_base)
+			input_obj_ref = cwl.NewNullWithId(id_base)
 			logger.Debug(3, "input %s not found, replace with Null object")
 		}
 

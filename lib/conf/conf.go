@@ -177,6 +177,10 @@ var (
 	CPUPROFILE           string
 	MEMPROFILE           string
 
+	// submitter (CWL)
+	SUBMITTER_OUTDIR string
+	SUBMITTER_QUIET  bool
+
 	// used to track changes in data structures
 	VERSIONS = make(map[string]int)
 
@@ -324,6 +328,11 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 
 	if mode == "worker" || mode == "submitter" {
 		c_store.AddString(&SHOCK_URL, "http://localhost:8001", "Client", "shockurl", "URL of SHOCK server, including port number", "")
+	}
+
+	if mode == "submitter" {
+		c_store.AddString(&SUBMITTER_OUTDIR, "", "Client", "outdir", "location of output files", "")
+		c_store.AddBool(&SUBMITTER_QUIET, true, "Client", "quiet", "useless flag for CWL compliance test", "")
 	}
 
 	if mode == "worker" {

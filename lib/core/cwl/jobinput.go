@@ -210,15 +210,16 @@ func ParseJobFile(job_file string) (job_input *Job_document, err error) {
 		return
 	}
 
-	job_gen := map[interface{}]interface{}{}
+	job_gen := map[string]interface{}{}
 	err = Unmarshal(&job_stream, &job_gen)
 	if err != nil {
+		err = fmt.Errorf("(ParseJobFile) Unmarshal returned: %s (json: %s)", err.Error(), string(job_stream[:]))
 		return
 	}
 
 	job_input, err = NewJob_document(job_gen)
-
 	if err != nil {
+		err = fmt.Errorf("(ParseJobFile) NewJob_document returned: %s", err.Error())
 		return
 	}
 

@@ -190,7 +190,9 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 
 		}
 		return
-
+	case *cwl.Null:
+		fmt.Printf("found Null\n")
+		return
 	default:
 		spew.Dump(native)
 		err = fmt.Errorf("(processInputData) No handler for type \"%s\"\n", reflect.TypeOf(native))
@@ -226,15 +228,15 @@ func main_wrapper() (err error) {
 		println(value)
 	}
 
-	job_file := conf.ARGS[0]
-	workflow_file := conf.ARGS[1]
+	workflow_file := conf.ARGS[0]
+	job_file := conf.ARGS[1]
 
 	inputfile_path := path.Dir(job_file)
 	fmt.Printf("job path: %s\n", inputfile_path) // needed to resolve relative paths
 
 	job_doc, err := cwl.ParseJobFile(job_file)
 	if err != nil {
-		logger.Error("error parsing cwl job: %v", err)
+		logger.Error("error parsing cwl job: %s", err.Error())
 		time.Sleep(time.Second)
 		os.Exit(1)
 	}

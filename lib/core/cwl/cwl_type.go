@@ -140,6 +140,11 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 	fmt.Printf("(NewCWLType) (B) starting with type %s\n", reflect.TypeOf(native))
 
+	if native == nil {
+		cwl_type = NewNull()
+		return
+	}
+
 	switch native.(type) {
 	case []interface{}:
 		fmt.Printf("(NewCWLType) C\n")

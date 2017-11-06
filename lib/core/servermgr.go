@@ -598,8 +598,8 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 				return
 			}
 			var task_str string
-			task_str, err = task.String()
-			if err != nil {
+			task_str, yerr = task.String()
+			if yerr != nil {
 				err = fmt.Errorf("(handleWorkStatDone) task.String returned: %s", err.Error())
 				return
 			}

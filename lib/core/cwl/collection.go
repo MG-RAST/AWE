@@ -63,7 +63,7 @@ func (c CWL_collection) Add(obj CWL_object) (err error) {
 	id := obj.GetId()
 
 	if id == "" {
-		err = fmt.Errorf("key is empty")
+		err = fmt.Errorf("(CWL_collection/Add) id is empty")
 		return
 	}
 

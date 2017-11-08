@@ -76,35 +76,39 @@ func NewCWLType_Type(native interface{}, context string) (result CWLType_Type, e
 		native_map := native.(map[string]interface{})
 
 		object_type, has_type := native_map["type"]
-		if has_type {
-			if object_type == "array" {
+		if !has_type {
+			err = fmt.Errorf("(NewCWLType_Type) map object has not field \"type\"")
+			return
+		}
+		if object_type == "array" {
 
-				switch context {
-				case "Input":
-					result, err = NewInputArraySchemaFromInterface(native)
-					if err != nil {
-						err = fmt.Errorf("(NewCWLType_Type) NewInputArraySchemaFromInterface returned: %s", err.Error())
-					}
-					return
-				case "CommandOutput":
-					result, err = NewCommandOutputArraySchemaFromInterface(native)
-					if err != nil {
-						err = fmt.Errorf("(NewCWLType_Type) NewCommandOutputArraySchemaFromInterface returned: %s", err.Error())
-					}
-					return
-					//case "WorkflowOutput":
-					//result, err = NewOutputArraySchemaFromInterface(native)
-					//if err != nil {
-					//	err = fmt.Errorf("(NewCWLType_Type) NewWorkflowOutputOutputArraySchemaFromInterface returned: %s", err.Error())
-				//	}
-				//	return
-				default:
-					err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
-					return
+			switch context {
+			case "Input":
+				result, err = NewInputArraySchemaFromInterface(native)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType_Type) NewInputArraySchemaFromInterface returned: %s", err.Error())
 				}
-
+				return
+			case "CommandOutput": // CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema
+				result, err = NewCommandOutputArraySchemaFromInterface(native)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType_Type) NewCommandOutputArraySchemaFromInterface returned: %s", err.Error())
+				}
+				return
+				//case "WorkflowOutput":
+				//result, err = NewOutputArraySchemaFromInterface(native)
+				//if err != nil {
+				//	err = fmt.Errorf("(NewCWLType_Type) NewWorkflowOutputOutputArraySchemaFromInterface returned: %s", err.Error())
+			//	}
+			//	return
+			default:
+				err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
+				return
 			}
 
+		} else {
+			err = fmt.Errorf("(NewCWLType_Type) object_type %s not supported yet", object_type)
+			return
 		}
 
 	default:

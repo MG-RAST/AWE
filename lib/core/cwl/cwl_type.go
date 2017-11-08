@@ -22,6 +22,7 @@ const (
 	CWL_File      CWLType_Type_Basic = "File"      //A File object
 	CWL_Directory CWLType_Type_Basic = "Directory" //A Directory object
 
+	CWL_stdin  CWLType_Type_Basic = "stdin"
 	CWL_stdout CWLType_Type_Basic = "stdout"
 	CWL_stderr CWLType_Type_Basic = "stderr"
 
@@ -39,7 +40,7 @@ const (
 
 var Valid_Classes = []string{"Workflow", "CommandLineTool", "WorkflowStepInput"}
 
-var Valid_Types = []CWLType_Type_Basic{CWL_null, CWL_boolean, CWL_int, CWL_long, CWL_float, CWL_double, CWL_string, CWL_File, CWL_Directory, CWL_stdout, CWL_stderr}
+var Valid_Types = []CWLType_Type_Basic{CWL_null, CWL_boolean, CWL_int, CWL_long, CWL_float, CWL_double, CWL_string, CWL_File, CWL_Directory, CWL_stdin, CWL_stdout, CWL_stderr}
 
 var ValidClassMap = map[string]string{}                        // lower-case to correct case mapping
 var ValidTypeMap = map[CWLType_Type_Basic]CWLType_Type_Basic{} // lower-case to correct case mapping

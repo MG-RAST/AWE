@@ -180,6 +180,7 @@ var (
 	// submitter (CWL)
 	SUBMITTER_OUTDIR string
 	SUBMITTER_QUIET  bool
+	SUBMITTER_PACK   bool
 
 	// used to track changes in data structures
 	VERSIONS = make(map[string]int)
@@ -332,7 +333,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 
 	if mode == "submitter" {
 		c_store.AddString(&SUBMITTER_OUTDIR, "", "Client", "outdir", "location of output files", "")
-		c_store.AddBool(&SUBMITTER_QUIET, true, "Client", "quiet", "useless flag for CWL compliance test", "")
+		c_store.AddBool(&SUBMITTER_QUIET, false, "Client", "quiet", "useless flag for CWL compliance test", "")
+		c_store.AddBool(&SUBMITTER_PACK, false, "Client", "pack", "invoke cwl-runner --pack first", "")
 	}
 
 	if mode == "worker" {

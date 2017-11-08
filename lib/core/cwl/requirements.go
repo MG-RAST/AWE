@@ -31,6 +31,13 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 			return
 		}
 		return
+	case "ResourceRequirement":
+		r, err = NewResourceRequirement(obj)
+		if err != nil {
+			fmt.Errorf("(NewRequirement) NewResourceRequirement returns: %s", err.Error())
+			return
+		}
+		return
 	case "InlineJavascriptRequirement":
 		r, err = NewInlineJavascriptRequirement(obj)
 		if err != nil {

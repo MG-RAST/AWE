@@ -141,46 +141,68 @@ func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_ver
 
 	graph_pos := strings.Index(yaml_str, "$graph")
 
-	if graph_pos == -1 {
-		err = errors.New("yaml parisng error. keyword $graph missing: ")
-		return
-	}
+	if graph_pos != -1 {
 
-	yaml_str = strings.Replace(yaml_str, "$graph", "graph", -1) // remove dollar sign
+		yaml_str = strings.Replace(yaml_str, "$graph", "graph", -1) // remove dollar sign
 
-	cwl_gen := CWL_document_generic{}
+		cwl_gen := CWL_document_generic{}
 
-	yaml_byte := []byte(yaml_str)
-	err = Unmarshal(&yaml_byte, &cwl_gen)
-	if err != nil {
-		logger.Debug(1, "CWL unmarshal error")
-		logger.Error("error: " + err.Error())
-	}
+		yaml_byte := []byte(yaml_str)
+		err = Unmarshal(&yaml_byte, &cwl_gen)
+		if err != nil {
+			logger.Debug(1, "CWL unmarshal error")
+			logger.Error("error: " + err.Error())
+		}
 
-	fmt.Println("-------------- raw CWL")
-	spew.Dump(cwl_gen)
-	fmt.Println("-------------- Start parsing")
+		fmt.Println("-------------- raw CWL")
+		spew.Dump(cwl_gen)
+		fmt.Println("-------------- Start parsing")
 
-	cwl_version = cwl_gen.CwlVersion
+		cwl_version = cwl_gen.CwlVersion
 
-	// iterated over Graph
+		// iterated over Graph
 
-	fmt.Println("-------------- A Parse_cwl_document")
-	for count, elem := range cwl_gen.Graph {
-		fmt.Println("-------------- B Parse_cwl_document")
+		fmt.Println("-------------- A Parse_cwl_document")
+		for count, elem := range cwl_gen.Graph {
+			fmt.Println("-------------- B Parse_cwl_document")
 
-		object, xerr := New_CWL_object(elem, cwl_version)
-		if xerr != nil {
-			err = fmt.Errorf("(Parse_cwl_document) New_CWL_object returns %s", xerr.Error())
+			object, xerr := New_CWL_object(elem, cwl_version)
+			if xerr != nil {
+				err = fmt.Errorf("(Parse_cwl_document) New_CWL_object returns %s", xerr.Error())
+				return
+			}
+			fmt.Println("-------------- C Parse_cwl_document")
+			object_array = append(object_array, object)
+			logger.Debug(3, "Added %d cwl objects...", count)
+			fmt.Println("-------------- loop Parse_cwl_document")
+		} // end for
+
+		fmt.Println("-------------- finished Parse_cwl_document")
+
+	} else {
+
+		var commandlinetool_if map[string]interface{}
+		yaml_byte := []byte(yaml_str)
+		err = Unmarshal(&yaml_byte, &commandlinetool_if)
+		if err != nil {
+			logger.Debug(1, "CWL unmarshal error")
+			logger.Error("error: " + err.Error())
+		}
+
+		fmt.Println("-------------- raw CWL")
+		spew.Dump(commandlinetool_if)
+		fmt.Println("-------------- Start parsing")
+
+		var commandlinetool *CommandLineTool
+		commandlinetool, err = NewCommandLineTool(commandlinetool_if)
+		if err != nil {
+			err = fmt.Errorf("(Parse_cwl_document) NewCommandLineTool returned: %s", err.Error())
 			return
 		}
-		fmt.Println("-------------- C Parse_cwl_document")
-		object_array = append(object_array, object)
-		logger.Debug(3, "Added %d cwl objects...", count)
-		fmt.Println("-------------- loop Parse_cwl_document")
-	} // end for
+		cwl_version = commandlinetool.CwlVersion
+		object_array = append(object_array, commandlinetool)
+	}
 
-	fmt.Println("-------------- finished Parse_cwl_document")
 	return
 }
 

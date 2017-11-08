@@ -11,7 +11,7 @@ type WorkflowOutputParameter struct {
 	Id             string                `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
 	Label          string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
 	SecondaryFiles []Expression          `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	Format         []Expression          `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
+	Format         Expression            `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
 	Streamable     bool                  `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
 	Doc            string                `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
 	OutputBinding  *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"` //TODO

@@ -13,7 +13,7 @@ type InputParameter struct {
 	Id             string             `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
 	Label          string             `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
 	SecondaryFiles []string           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	Format         string             `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
+	Format         []string           `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
 	Streamable     bool               `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
 	Doc            string             `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
 	InputBinding   CommandLineBinding `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"` //TODO

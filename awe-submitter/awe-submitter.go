@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"reflect"
 	"time"
@@ -130,6 +131,9 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 
 	case *cwl.String:
 		fmt.Printf("found string\n")
+		return
+	case *cwl.Double:
+		fmt.Printf("found double\n")
 		return
 	case *cwl.File:
 
@@ -299,10 +303,30 @@ func main_wrapper() (err error) {
 
 func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (err error) {
 	multipart := NewMultipartWriter()
-	err = multipart.AddFile("cwl", workflow_file)
-	if err != nil {
-		return
+
+	if conf.SUBMITTER_PACK {
+
+		var packed_bytes []byte
+		packed_bytes, err = exec.Command("cwl-runner", "--pack", workflow_file).Output()
+		if err != nil {
+			err = fmt.Errorf("(SubmitCWLJobToAWE) exec.Command returned: %s", err.Error())
+			return
+		}
+		//packed_string := string(packed_bytes)
+
+		err = multipart.AddDataAsFile("cwl", workflow_file, &packed_bytes)
+		if err != nil {
+			return
+		}
+
+	} else {
+
+		err = multipart.AddFile("cwl", workflow_file)
+		if err != nil {
+			return
+		}
 	}
+
 	err = multipart.AddDataAsFile("job", job_file, data)
 	if err != nil {
 		return

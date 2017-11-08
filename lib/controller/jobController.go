@@ -148,11 +148,76 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 		logger.Debug(1, "Parse_cwl_document done")
 
-		cwl_workflow, ok := collection.Workflows["#main"]
-		if !ok {
+		var cwl_workflow *cwl.Workflow
+		if len(object_array) == 1 {
+			// This probably is a CommandlineTool submission (without workflow)
+			// create new Workflow to wrap around the CommandLineTool
 
-			cx.RespondWithErrorMessage("Workflow main not found", http.StatusBadRequest)
-			return
+			commandlinetool_if := object_array[0]
+			commandlinetool, ok := commandlinetool_if.(*cwl.CommandLineTool)
+			if !ok {
+				cx.RespondWithErrorMessage("expected a single CommandLineTool but got something different", http.StatusBadRequest)
+				return
+			}
+
+			cwl_workflow = &cwl.Workflow{}
+			cwl_workflow.Id = "#main"
+			new_step := cwl.WorkflowStep{}
+			step_id := "#main/wrapper_step"
+			new_step.Id = step_id
+			for _, input := range commandlinetool.Inputs { // input is CommandInputParameter
+
+				workflow_input_name := "#main/" + input.Id
+
+				var workflow_step_input cwl.WorkflowStepInput
+				workflow_step_input.Id = step_id + "/" + input.Id
+				workflow_step_input.Source = workflow_input_name
+				new_step.In = append(new_step.In, workflow_step_input)
+
+				var workflow_input_parameter cwl.InputParameter
+				workflow_input_parameter.Id = workflow_input_name
+				workflow_input_parameter.SecondaryFiles = input.SecondaryFiles
+				workflow_input_parameter.Format = input.Format
+				workflow_input_parameter.Streamable = input.Streamable
+				workflow_input_parameter.InputBinding = input.InputBinding
+				workflow_input_parameter.Type = input.Type
+
+				cwl_workflow.Inputs = append(cwl_workflow.Inputs, workflow_input_parameter)
+			}
+
+			for _, output := range commandlinetool.Outputs {
+				var workflow_step_output cwl.WorkflowStepOutput
+				workflow_step_output.Id = step_id + "/" + output.Id
+
+				new_step.Out = append(new_step.Out, workflow_step_output)
+
+				var workflow_output_parameter cwl.WorkflowOutputParameter
+
+				workflow_output_parameter.SecondaryFiles = output.SecondaryFiles
+				workflow_output_parameter.Format = output.Format
+				workflow_output_parameter.Streamable = output.Streamable
+				workflow_output_parameter.OutputBinding = output.OutputBinding
+				//workflow_output_parameter.OutputSource = output.OutputSource
+				//workflow_output_parameter.LinkMerge = output.LinkMerge
+				workflow_output_parameter.Type = output.Type
+				cwl_workflow.Outputs = append(cwl_workflow.Outputs, workflow_output_parameter)
+			}
+
+			cwl_workflow.Steps = []cwl.WorkflowStep{new_step}
+
+			err = collection.Add(cwl_workflow)
+			if err != nil {
+				cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+
+		} else {
+			var ok bool
+			cwl_workflow, ok = collection.Workflows["#main"]
+			if !ok {
+				cx.RespondWithErrorMessage("Workflow main not found", http.StatusBadRequest)
+				return
+			}
 		}
 
 		fmt.Println("\n\n\n--------------------------------- Steps:\n")
@@ -400,7 +465,7 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 // To do:
 // - Iterate job queries
 func (cr *JobController) ReadMany(cx *goweb.Context) {
-    LogRequest(cx.Request)
+	LogRequest(cx.Request)
 
 	// Try to authenticate user.
 	u, err := request.Authenticate(cx.Request)
@@ -433,43 +498,43 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	}
 
 	// check if an adminview is being requested
-        if query.Has("adminview") {
+	if query.Has("adminview") {
 
-	    // adminview requires a user
-            if u != nil {
+		// adminview requires a user
+		if u != nil {
 
-		// adminview requires the user to be an admin
-		if u.Admin {
+			// adminview requires the user to be an admin
+			if u.Admin {
 
-		    // special is an attribute from the job document chosen via the cgi-param "special"
-		    // this attribute can be a path in the document, separated by .
-		    // special attributes do not have to be present in all job documents for this function to work
-		    special := "info.userattr.bp_count"
-		    if query.Has("special") {
-			special = query.Value("special")
-		    }
+				// special is an attribute from the job document chosen via the cgi-param "special"
+				// this attribute can be a path in the document, separated by .
+				// special attributes do not have to be present in all job documents for this function to work
+				special := "info.userattr.bp_count"
+				if query.Has("special") {
+					special = query.Value("special")
+				}
 
-		    // call the GetAdminView function, passing along the special attribute
-		    results, err := core.GetAdminView(special)
+				// call the GetAdminView function, passing along the special attribute
+				results, err := core.GetAdminView(special)
 
-		    // if there is an error, return it
-		    if err != nil {
-	    		logger.Error("err " + err.Error())
-	    		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-	    		return
-		    }
+				// if there is an error, return it
+				if err != nil {
+					logger.Error("err " + err.Error())
+					cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+					return
+				}
 
-		    // if there is no error, return the data
-		    cx.RespondWithData(results)
-		    return
+				// if there is no error, return the data
+				cx.RespondWithData(results)
+				return
+			} else {
+				cx.RespondWithErrorMessage("you need to be an administrator to access this function", http.StatusUnauthorized)
+				return
+			}
 		} else {
-		    cx.RespondWithErrorMessage("you need to be an administrator to access this function", http.StatusUnauthorized)
-	    	    return
+			cx.RespondWithErrorMessage("you need to be logged in to access this function", http.StatusUnauthorized)
+			return
 		}
-	    } else {
-		cx.RespondWithErrorMessage("you need to be logged in to access this function", http.StatusUnauthorized)
-	    	return
-	    }
 	}
 
 	limit := conf.DEFAULT_PAGE_SIZE

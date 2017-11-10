@@ -19,6 +19,7 @@ import (
 	"net/http"
 	//"os"
 	"encoding/json"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -148,10 +149,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 		logger.Debug(1, "Parse_cwl_document done")
 
+		entrypoint := ""
+
 		var cwl_workflow *cwl.Workflow
 		if len(object_array) == 1 {
 			// This probably is a CommandlineTool submission (without workflow)
 			// create new Workflow to wrap around the CommandLineTool
+			entrypoint = "#entrypoint"
 
 			commandlinetool_if := object_array[0]
 			commandlinetool, ok := commandlinetool_if.(*cwl.CommandLineTool)
@@ -160,14 +164,15 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				return
 			}
 
-			cwl_workflow = &cwl.Workflow{}
-			cwl_workflow.Id = "#main"
+			cwl_workflow_instance := cwl.NewWorkflowEmpty()
+			cwl_workflow = &cwl_workflow_instance
+			cwl_workflow.Id = entrypoint
 			new_step := cwl.WorkflowStep{}
-			step_id := "#main/wrapper_step"
+			step_id := entrypoint + "/wrapper_step"
 			new_step.Id = step_id
 			for _, input := range commandlinetool.Inputs { // input is CommandInputParameter
 
-				workflow_input_name := "#main/" + input.Id
+				workflow_input_name := entrypoint + "/" + path.Base(input.Id)
 
 				var workflow_step_input cwl.WorkflowStepInput
 				workflow_step_input.Id = step_id + "/" + input.Id
@@ -182,17 +187,30 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				workflow_input_parameter.InputBinding = input.InputBinding
 				workflow_input_parameter.Type = input.Type
 
+				has_null := false
+				for _, t := range workflow_input_parameter.Type {
+					if t == cwl.CWL_null {
+						has_null = true
+						break
+					}
+				}
+				if !has_null {
+					workflow_input_parameter.Type = append(workflow_input_parameter.Type, cwl.CWL_null)
+				}
+
 				cwl_workflow.Inputs = append(cwl_workflow.Inputs, workflow_input_parameter)
 			}
 
 			for _, output := range commandlinetool.Outputs {
 				var workflow_step_output cwl.WorkflowStepOutput
-				workflow_step_output.Id = step_id + "/" + output.Id
+				workflow_step_output.Id = step_id + "/" + strings.TrimPrefix(output.Id, "#")
 
 				new_step.Out = append(new_step.Out, workflow_step_output)
 
 				var workflow_output_parameter cwl.WorkflowOutputParameter
 
+				workflow_output_parameter.Id = entrypoint + "/" + path.Base(output.Id)
+				workflow_output_parameter.OutputSource = output.Id
 				workflow_output_parameter.SecondaryFiles = output.SecondaryFiles
 				workflow_output_parameter.Format = output.Format
 				workflow_output_parameter.Streamable = output.Streamable
@@ -211,9 +229,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				return
 			}
 
+			//spew.Dump(cwl_workflow)
+
 		} else {
+			entrypoint = "#main"
+
 			var ok bool
-			cwl_workflow, ok = collection.Workflows["#main"]
+			cwl_workflow, ok = collection.Workflows[entrypoint]
 			if !ok {
 				cx.RespondWithErrorMessage("Workflow main not found", http.StatusBadRequest)
 				return
@@ -232,6 +254,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			return
 		}
 
+		job.Entrypoint = entrypoint
 		job.IsCWL = true
 		job.CWL_objects = object_array
 		job.CwlVersion = cwl_version

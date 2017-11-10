@@ -45,6 +45,12 @@ func GetMapElement(m map[interface{}]interface{}, key string) (value interface{}
 	return
 }
 
+func NewWorkflowEmpty() (w Workflow) {
+	w = Workflow{}
+	w.Class = string(CWL_Workflow)
+	return w
+}
+
 func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 
 	// convert input map into input array
@@ -55,7 +61,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 		return
 	}
 
-	workflow := Workflow{}
+	workflow := NewWorkflowEmpty()
 	workflow_ptr = &workflow
 
 	switch original.(type) {

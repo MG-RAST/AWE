@@ -7,6 +7,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+// http://www.commonwl.org/v1.0/CommandLineTool.html#CommandLineTool
 type CommandLineTool struct {
 	//Id                 string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
 	//Class              string                   `yaml:"class,omitempty" bson:"class,omitempty" json:"class,omitempty"`

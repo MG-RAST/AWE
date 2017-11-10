@@ -21,6 +21,7 @@ import (
 	"os/exec"
 	"path"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -42,7 +43,16 @@ func uploadFile(file *cwl.File, inputfile_path string) (err error) {
 		scheme = file.Location_url.Scheme
 		host := file.Location_url.Host
 		path := file.Location_url.Path
-		fmt.Printf("scheme: %s", scheme)
+		fmt.Printf("Location: '%s' '%s' '%s'\n", scheme, host, path)
+
+		if scheme == "" {
+			if host == "" {
+				scheme = "file"
+			} else {
+				scheme = "http"
+			}
+			fmt.Printf("Location (updated): '%s' '%s' '%s'\n", scheme, host, path)
+		}
 
 		if scheme == "file" {
 			if host == "" || host == "localhost" {
@@ -148,6 +158,7 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 			return
 		}
 		count += 1
+
 		return
 	case *cwl.Array:
 
@@ -238,6 +249,7 @@ func main_wrapper() (err error) {
 	inputfile_path := path.Dir(job_file)
 	fmt.Printf("job path: %s\n", inputfile_path) // needed to resolve relative paths
 
+	// ### parse job file
 	job_doc, err := cwl.ParseJobFile(job_file)
 	if err != nil {
 		logger.Error("error parsing cwl job: %s", err.Error())
@@ -267,7 +279,7 @@ func main_wrapper() (err error) {
 
 	fmt.Printf("yaml:\n%s\n", job_doc_string)
 
-	// process input files
+	// ### process input files
 
 	upload_count, err := processInputData(job_doc, inputfile_path)
 	if err != nil {
@@ -288,13 +300,133 @@ func main_wrapper() (err error) {
 
 	fmt.Printf("yaml:\n%s\n", string(data[:]))
 
+	var yamlstream []byte
+	// read and pack workfow
+	if conf.SUBMITTER_PACK {
+
+		yamlstream, err = exec.Command("cwl-runner", "--pack", workflow_file).Output()
+		if err != nil {
+			err = fmt.Errorf("(SubmitCWLJobToAWE) exec.Command returned: %s (%s %s %s)", err.Error(), "cwl-runner", "--pack", workflow_file)
+			return
+		}
+
+	} else {
+
+		yamlstream, err = ioutil.ReadFile(workflow_file)
+		if err != nil {
+			fmt.Errorf("error in reading workflow file: " + err.Error())
+			return
+		}
+	}
+	// ### PARSE WORKFLOW DOCUMENT, in case default files have to be uploaded
+
+	// convert CWL to string
+	yaml_str := string(yamlstream[:])
+
+	object_array, cwl_version, err := cwl.Parse_cwl_document(yaml_str)
+
+	if err != nil {
+		fmt.Errorf("error in parsing cwl workflow yaml file: " + err.Error())
+		return
+	}
+
+	// search for File objects in Document, e.g. in CommandLineTools
+	for j, object := range object_array {
+		var cmd_line_tool *cwl.CommandLineTool
+		var ok bool
+
+		cmd_line_tool, ok = object.(*cwl.CommandLineTool)
+		if !ok {
+			fmt.Println("nope.")
+			err = nil
+			continue
+		}
+
+		update := false
+		for i, _ := range cmd_line_tool.Inputs {
+			command_input_parameter := &cmd_line_tool.Inputs[i]
+			if command_input_parameter.Default == nil {
+				continue
+			}
+
+			var default_file *cwl.File
+			default_file, ok = command_input_parameter.Default.(*cwl.File)
+			if !ok {
+				continue
+			}
+
+			err = uploadFile(default_file, inputfile_path)
+			if err != nil {
+				return
+			}
+			command_input_parameter.Default = default_file
+			cmd_line_tool.Inputs[i] = *command_input_parameter
+			update = true
+			spew.Dump(command_input_parameter)
+			fmt.Printf("File: %+v\n", *default_file)
+
+		}
+		if update {
+			object_array[j] = cmd_line_tool
+		}
+	}
+
+	// create temporary workflow document file
+
+	new_document := cwl.CWL_document_generic{}
+	new_document.CwlVersion = cwl_version
+	for _, object := range object_array {
+
+		new_document.Graph = append(new_document.Graph, object)
+	}
+
+	var new_document_bytes []byte
+	new_document_bytes, err = yaml.Marshal(new_document)
+	if err != nil {
+		err = fmt.Errorf("yaml.Marshal returned: %s", err.Error())
+		return
+	}
+	new_document_str := string(new_document_bytes[:])
+	graph_pos := strings.Index(new_document_str, "\ngraph:")
+
+	if graph_pos != -1 {
+		new_document_str = strings.Replace(new_document_str, "\ngraph", "\n$graph", -1) // remove dollar sign
+	} else {
+		err = fmt.Errorf("keyword graph not found")
+		return
+	}
+	new_document_bytes = []byte(new_document_str)
+
+	// this needs to be a file so we can run "cwl-runner --pack""
+	var tmpfile *os.File
+	tmpfile, err = ioutil.TempFile(os.TempDir(), "awe-submitter_")
+	if err != nil {
+		err = fmt.Errorf("ioutil.TempFile returned: %s", err.Error())
+		return
+	}
+	tempfile_name := tmpfile.Name()
+	//defer os.Remove(tempfile_name)
+
+	_, err = tmpfile.Write(new_document_bytes)
+	if err != nil {
+		err = fmt.Errorf("tmpfile.Write returned: %s", err.Error())
+		return
+	}
+
+	err = tmpfile.Close()
+	if err != nil {
+		err = fmt.Errorf("tmpfile.Close returned: %s", err.Error())
+		return
+	}
+
 	// job submission example:
 	// curl -X POST -F job=@test.yaml -F cwl=@/Users/wolfganggerlach/awe_data/pipeline/CWL/PackedWorkflow/preprocess-fasta.workflow.cwl http://localhost:8001/job
 
 	//var b bytes.Buffer
 	//w := multipart.NewWriter(&b)
-	err = SubmitCWLJobToAWE(workflow_file, job_file, &data)
+	err = SubmitCWLJobToAWE(tempfile_name, job_file, &data)
 	if err != nil {
+		err = fmt.Errorf("SubmitCWLJobToAWE returned: %s", err.Error())
 		return
 	}
 
@@ -304,27 +436,9 @@ func main_wrapper() (err error) {
 func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (err error) {
 	multipart := NewMultipartWriter()
 
-	if conf.SUBMITTER_PACK {
-
-		var packed_bytes []byte
-		packed_bytes, err = exec.Command("cwl-runner", "--pack", workflow_file).Output()
-		if err != nil {
-			err = fmt.Errorf("(SubmitCWLJobToAWE) exec.Command returned: %s", err.Error())
-			return
-		}
-		//packed_string := string(packed_bytes)
-
-		err = multipart.AddDataAsFile("cwl", workflow_file, &packed_bytes)
-		if err != nil {
-			return
-		}
-
-	} else {
-
-		err = multipart.AddFile("cwl", workflow_file)
-		if err != nil {
-			return
-		}
+	err = multipart.AddFile("cwl", workflow_file)
+	if err != nil {
+		return
 	}
 
 	err = multipart.AddDataAsFile("job", job_file, data)

@@ -199,6 +199,7 @@ func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_ver
 			err = fmt.Errorf("(Parse_cwl_document) NewCommandLineTool returned: %s", err.Error())
 			return
 		}
+
 		cwl_version = commandlinetool.CwlVersion
 		object_array = append(object_array, commandlinetool)
 	}

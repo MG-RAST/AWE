@@ -76,6 +76,7 @@ type JobRaw struct {
 	CWL_workflow         *cwl.Workflow                `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	WorkflowInstances    []interface{}                `bson:"workflow_instances" json:"workflow_instances" yaml:"workflow_instances" mapstructure:"workflow_instances"`
 	WorkflowInstancesMap map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
+	Entrypoint           string                       `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
 }
 
 func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
@@ -464,9 +465,10 @@ func (job *Job) Init() (changed bool, err error) {
 
 		collection.Job_input_map = &main_input_map
 
-		cwl_workflow, ok := collection.Workflows["#main"]
+		entrypoint := job.Entrypoint
+		cwl_workflow, ok := collection.Workflows[entrypoint]
 		if !ok {
-			err = fmt.Errorf("(job.Init) Workflow \"main\" not found")
+			err = fmt.Errorf("(job.Init) Workflow \"%s\" not found", entrypoint)
 			return
 		}
 

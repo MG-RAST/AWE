@@ -313,13 +313,22 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, client, availableBytes, 1)
 
 	if err != nil {
-		if err.Error() != e.QueueEmpty && err.Error() != e.QueueSuspend && err.Error() != e.NoEligibleWorkunitFound && err.Error() != e.ClientNotFound && err.Error() != e.ClientSuspended {
-			if !strings.Contains(err.Error(), "Too many work requests") {
-				logger.Error("Err@work_ReadMany:core.QMgr.GetWorkByFCFS(): %s;client=%s", err.Error(), clientid)
-			}
-		}
+
+		err_str := err.Error()
+
 		err = fmt.Errorf("(ReadMany GET /work) CheckoutWorkunits returns: clientid=%s;available=%d;error=%s", clientid, availableBytes, err.Error())
-		logger.Error(err.Error())
+
+		if strings.Contains(err_str, e.QueueEmpty) ||
+			strings.Contains(err_str, e.QueueSuspend) ||
+			strings.Contains(err_str, e.NoEligibleWorkunitFound) ||
+			strings.Contains(err_str, e.ClientNotFound) ||
+			strings.Contains(err_str, e.ClientSuspended) {
+
+			logger.Debug(3, err.Error())
+		} else {
+			logger.Error(err.Error())
+		}
+
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}

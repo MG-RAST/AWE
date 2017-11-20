@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
+	"reflect"
 )
 
 //type WorkflowOutputParameterType struct {
@@ -25,15 +26,25 @@ func NewWorkflowOutputParameterType(original interface{}) (result interface{}, e
 	//wopt := WorkflowOutputParameterType{}
 	//wopt_ptr = &wopt
 
+	original, err = MakeStringMap(original)
+	if err != nil {
+		return
+	}
+
 	switch original.(type) {
 	case string:
 
-		result = original.(string)
+		result_str := original.(string)
+
+		result, err = NewCWLType_TypeFromString(result_str)
+		if err != nil {
+			return
+		}
 
 		return
-	case map[interface{}]interface{}:
+	case map[string]interface{}:
 
-		original_map := original.(map[interface{}]interface{})
+		original_map := original.(map[string]interface{})
 		output_type, ok := original_map["type"]
 
 		if !ok {
@@ -58,7 +69,7 @@ func NewWorkflowOutputParameterType(original interface{}) (result interface{}, e
 		}
 
 	default:
-		err = fmt.Errorf("(NewWorkflowOutputParameterType) unknown type")
+		err = fmt.Errorf("(NewWorkflowOutputParameterType) unknown type: %s", reflect.TypeOf(original))
 		return
 	}
 

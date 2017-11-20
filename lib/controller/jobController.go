@@ -177,6 +177,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				var workflow_step_input cwl.WorkflowStepInput
 				workflow_step_input.Id = step_id + "/" + input.Id
 				workflow_step_input.Source = workflow_input_name
+				workflow_step_input.Default = input.Default
 				new_step.In = append(new_step.In, workflow_step_input)
 
 				var workflow_input_parameter cwl.InputParameter
@@ -187,15 +188,22 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				workflow_input_parameter.InputBinding = input.InputBinding
 				workflow_input_parameter.Type = input.Type
 
-				has_null := false
-				for _, t := range workflow_input_parameter.Type {
-					if t == cwl.CWL_null {
-						has_null = true
-						break
-					}
+				add_null := false
+				if input.Default != nil { // check if this is an optional argument
+					add_null = true
 				}
-				if !has_null {
-					workflow_input_parameter.Type = append(workflow_input_parameter.Type, cwl.CWL_null)
+
+				if add_null {
+					has_null := false
+					for _, t := range workflow_input_parameter.Type {
+						if t == cwl.CWL_null {
+							has_null = true
+							break
+						}
+					}
+					if !has_null {
+						workflow_input_parameter.Type = append(workflow_input_parameter.Type, cwl.CWL_null)
+					}
 				}
 
 				cwl_workflow.Inputs = append(cwl_workflow.Inputs, workflow_input_parameter)
@@ -214,15 +222,18 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				workflow_output_parameter.SecondaryFiles = output.SecondaryFiles
 				workflow_output_parameter.Format = output.Format
 				workflow_output_parameter.Streamable = output.Streamable
-				workflow_output_parameter.OutputBinding = output.OutputBinding
+				//workflow_output_parameter.OutputBinding = output.OutputBinding
 				//workflow_output_parameter.OutputSource = output.OutputSource
 				//workflow_output_parameter.LinkMerge = output.LinkMerge
 				workflow_output_parameter.Type = output.Type
 				cwl_workflow.Outputs = append(cwl_workflow.Outputs, workflow_output_parameter)
 			}
 
+			new_step.Run = commandlinetool.Id
+
 			cwl_workflow.Steps = []cwl.WorkflowStep{new_step}
 
+			object_array = append(object_array, cwl_workflow)
 			err = collection.Add(cwl_workflow)
 			if err != nil {
 				cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
@@ -261,6 +272,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		//job.CWL_collection = &collection
 		job.Info.Name = job_file.Name
 		job.Info.Pipeline = workflow_filename
+		job.Info.ClientGroups = "docker" // TODO this needs to be configured
 
 		//job.CWL_workflow_interface = cwl_workflow
 		//job.CWL_job_input_interface = job_input

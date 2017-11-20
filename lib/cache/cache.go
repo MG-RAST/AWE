@@ -190,6 +190,8 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (siz
 		return
 	case *cwl.Int:
 		return
+	case *cwl.Double:
+		return
 	case *cwl.Boolean:
 		return
 	case *cwl.Array:
@@ -240,7 +242,7 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (siz
 
 		// TODO ************* Record and Enum
 	default:
-		err = fmt.Errorf("(MoveInputData) type %s not supoorted yet", reflect.TypeOf(input))
+		err = fmt.Errorf("(MoveInputData) type %s not supported yet", reflect.TypeOf(input))
 		return
 	}
 	return
@@ -468,19 +470,25 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 
 		result_array := cwl.Job_document{}
 
-		// first check if expected output exists
-		for _, expected_output := range *work.CWL_workunit.OutputsExpected {
-
-			expected_full := expected_output.Id
-			logger.Debug(3, " (A) expected_full: %s", expected_full)
-			expected := path.Base(expected_full)
-
-			_, ok := tool_result_map[expected]
-			if !ok {
-				err = fmt.Errorf("Expected output %s is missing", expected)
-				return
-			}
-		}
+		// first check if expected output exists (pretty useless)
+		// for _, expected_output := range *work.CWL_workunit.OutputsExpected {
+		//
+		// 			expected_full := expected_output.Id
+		// 			logger.Debug(3, " (A) expected_full: %s", expected_full)
+		// 			expected := path.Base(expected_full)
+		//
+		// 			_, ok := tool_result_map[expected]
+		// 			if !ok {
+		//
+		// 				resultlist := ""
+		// 				for key, _ := range tool_result_map {
+		// 					resultlist = resultlist + " " + key
+		// 				}
+		//
+		// 				logger.Debug(3, "(UploadOutputData) Expected output %s is missing, might be optional (available: %s)", expected, resultlist)
+		// 				continue
+		// 			}
+		// 		}
 
 		for _, expected_output := range *work.CWL_workunit.OutputsExpected {
 			expected_full := expected_output.Id
@@ -489,8 +497,14 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 
 			tool_result, ok := tool_result_map[expected] // cwl.File
 			if !ok {
-				err = fmt.Errorf("Expected output %s is missing", expected)
-				return
+				resultlist := ""
+				for key, _ := range tool_result_map {
+					resultlist = resultlist + " " + key
+				}
+
+				// TODO check CommandLineOutput if output is optional
+				logger.Debug(3, "(UploadOutputData) Expected output %s is missing, might be optional (available: %s)", expected, resultlist)
+				continue
 			}
 
 			result_array = append(result_array, cwl.NewNamedCWLType(expected, tool_result))

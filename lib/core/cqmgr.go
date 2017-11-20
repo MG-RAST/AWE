@@ -305,6 +305,8 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerS
 
 	client.WorkerState = workerstate // TODO could do a comparsion with assigned state here
 
+	_ = client.Update_Status(false)
+
 	logger.Debug(3, "HeartBeatFrom:"+"clientid="+id)
 
 	//get suspended workunit that need the client to discard

@@ -139,28 +139,28 @@ func dbFind(q bson.M, results *Jobs, options map[string]int) (count int, err err
 // get a minimal subset of the job documents required for an admin overview
 // for all completed jobs younger than a month and all running jobs
 func dbAdminData(special string) (data []interface{}, err error) {
-    // get a DB connection
-    session := db.Connection.Session.Copy()
+	// get a DB connection
+	session := db.Connection.Session.Copy()
 
-    // close the connection when the function completes
-    defer session.Close()
+	// close the connection when the function completes
+	defer session.Close()
 
-    // set the database and collection
-    c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	// set the database and collection
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 
-    // get the completed jobs that have a completed time not older than one month
-    var completedjobs = bson.M{ "state": "completed", "info.completedtime": bson.M{ "$gt": time.Now().AddDate(0, -1, 0) } }
+	// get the completed jobs that have a completed time not older than one month
+	var completedjobs = bson.M{"state": "completed", "info.completedtime": bson.M{"$gt": time.Now().AddDate(0, -1, 0)}}
 
-    // get all runnning jobs (those not deleted and not completed)
-    var runningjobs = bson.M{ "state": bson.M{ "$nin": []string{"completed","deleted"} } }
+	// get all runnning jobs (those not deleted and not completed)
+	var runningjobs = bson.M{"state": bson.M{"$nin": []string{"completed", "deleted"}}}
 
-    // select only those fields required for the output
-    var resultfields = bson.M{"_id":0,"state":1,"info.name":1,"info.submittime":1,"info.startedtime":1,"info.completedtime":1,"info.pipeline":1,"tasks.createdDate":1,"tasks.startedDate":1,"tasks.completedDate":1,"tasks.state":1,"tasks.inputs.size":1,"tasks.outputs.size":1,special: 1}
+	// select only those fields required for the output
+	var resultfields = bson.M{"_id": 0, "state": 1, "info.name": 1, "info.submittime": 1, "info.startedtime": 1, "info.completedtime": 1, "info.pipeline": 1, "tasks.createdDate": 1, "tasks.startedDate": 1, "tasks.completedDate": 1, "tasks.state": 1, "tasks.inputs.size": 1, "tasks.outputs.size": 1, special: 1}
 
-    // return all data without iterating
-    err = c.Find(bson.M{ "$or": []bson.M{ completedjobs, runningjobs}}).Select(resultfields).All(&data)
-    
-    return
+	// return all data without iterating
+	err = c.Find(bson.M{"$or": []bson.M{completedjobs, runningjobs}}).Select(resultfields).All(&data)
+
+	return
 }
 
 func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string, do_init bool) (count int, err error) {
@@ -312,34 +312,58 @@ func dbGetJobTaskInt(job_id string, task_id string, fieldname string) (result in
 	return
 }
 
-// TODO: warning: this does not cope with subfields such as "partinfo.index"
+func dbGetJobWorkflow_InstanceInt(job_id string, task_id string, fieldname string) (result int, err error) {
+	var cont StructContainer
+	err = dbGetJobWorkflow_InstanceField(job_id, task_id, fieldname, &cont)
+	if err != nil {
+		return
+	}
+	result = cont.Data.(int)
+	return
+}
+
+func dbGetJobWorkflow_InstanceField(job_id string, task_id string, fieldname string, result *StructContainer) (err error) {
+
+	array_name := "workflow_instances"
+	id_field := "id"
+	return dbGetJobArrayField(job_id, task_id, array_name, id_field, fieldname, result)
+}
+
 func dbGetJobTaskField(job_id string, task_id string, fieldname string, result *StructContainer) (err error) {
+
+	array_name := "tasks"
+	id_field := "taskid"
+	return dbGetJobArrayField(job_id, task_id, array_name, id_field, fieldname, result)
+}
+
+// TODO: warning: this does not cope with subfields such as "partinfo.index"
+func dbGetJobArrayField(job_id string, task_id string, array_name string, id_field string, fieldname string, result *StructContainer) (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 	selector := bson.M{"id": job_id}
 
-	projection := bson.M{"tasks": bson.M{"$elemMatch": bson.M{"taskid": task_id}}, "tasks." + fieldname: 1}
+	projection := bson.M{array_name: bson.M{"$elemMatch": bson.M{id_field: task_id}}, array_name + "." + fieldname: 1}
 	temp_result := bson.M{}
 
 	err = c.Find(selector).Select(projection).One(&temp_result)
 	if err != nil {
-		err = fmt.Errorf("(dbGetJobTaskField) Error getting field from job_id %s , task_id %s and fieldname %s: %s", job_id, task_id, fieldname, err.Error())
+		err = fmt.Errorf("(dbGetJobArrayField) Error getting field from job_id %s , %s=%s and fieldname %s: %s", job_id, id_field, task_id, fieldname, err.Error())
 		return
 	}
 
 	//logger.Debug(3, "GOT: %v", temp_result)
 
-	tasks_unknown := temp_result["tasks"]
+	tasks_unknown := temp_result[array_name]
 	tasks, ok := tasks_unknown.([]interface{})
 
 	if !ok {
-		err = fmt.Errorf("Array expected, but not found")
+		err = fmt.Errorf("(dbGetJobArrayField) Array expected, but not found")
 		return
 	}
 	if len(tasks) == 0 {
-		err = fmt.Errorf("result task array empty")
+		err = fmt.Errorf("(dbGetJobArrayField) result task array empty")
 		return
 	}
 
@@ -347,13 +371,13 @@ func dbGetJobTaskField(job_id string, task_id string, fieldname string, result *
 	test_result, ok := first_task[fieldname]
 
 	if !ok {
-		err = fmt.Errorf("Field %s not in task object", fieldname)
+		err = fmt.Errorf("(dbGetJobArrayField) Field %s not in task object", fieldname)
 		return
 	}
 	result.Data = test_result
 
 	//logger.Debug(3, "GOT2: %v", result)
-	logger.Debug(3, "(dbGetJobTaskField) %s got something", fieldname)
+	logger.Debug(3, "(dbGetJobArrayField) %s got something", fieldname)
 	return
 }
 
@@ -501,13 +525,18 @@ func dbPushJobWorkflowInstance(job_id string, wi *WorkflowInstance) (err error) 
 }
 
 func dbUpdateJobWorkflow_instancesFieldOutputs(job_id string, subworkflow_id string, outputs cwl.Job_document) (err error) {
-	update_value := bson.M{"outputs": outputs}
+	update_value := bson.M{"workflow_instances.$.outputs": outputs}
 	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
 }
 
 func dbUpdateJobWorkflow_instancesFieldInt(job_id string, subworkflow_id string, fieldname string, value int) (err error) {
-	update_value := bson.M{fieldname: value}
-	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
+	update_value := bson.M{"workflow_instances.$." + fieldname: value}
+	err = dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
+	if err != nil {
+		err = fmt.Errorf("(dbUpdateJobWorkflow_instancesFieldInt) (subworkflow_id: %s, fieldname: %s, value: %d) %s", subworkflow_id, fieldname, value, err.Error())
+		return
+	}
+	return
 }
 
 func dbUpdateJobWorkflow_instancesField(job_id string, subworkflow_id string, fieldname string, value interface{}) (err error) {

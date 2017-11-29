@@ -2768,9 +2768,11 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 		var wfl *cwl.Workflow
 		var cwl_step *cwl.WorkflowStep
-		var process_name string
+
 		var parent_task *Task
 		var ok bool
+
+		process_name := job.Entrypoint
 
 		var parent_id Task_Unique_Identifier
 		if parent_id_str != "" { // a real explicit subworkflow
@@ -2898,7 +2900,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 		// collect sub-workflow outputs, put results in workflow_outputs_map
 
-		for _, output := range wfl.Outputs { // WorkflowOutputParameter
+		for _, output := range wfl.Outputs { // WorkflowOutputParameter http://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
 
 			output_id := output.Id
 
@@ -2932,11 +2934,16 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			is_optional := false
 
 			for _, raw_type := range expected_types_raw {
-				type_correct, ok := raw_type.(cwl.CWLType_Type)
-				if !ok {
+				var type_correct cwl.CWLType_Type
+				type_correct, err = cwl.NewCWLType_Type(raw_type, "WorkflowOutput")
+				if err != nil {
+					spew.Dump(expected_types_raw)
+					fmt.Println("---")
 					spew.Dump(raw_type)
+
+					err = fmt.Errorf("(updateJobTask) could not convert element of output.Type into cwl.CWLType_Type: %s", err.Error())
+					fmt.Printf(err.Error())
 					panic("raw_type problem")
-					err = fmt.Errorf("(updateJobTask) could not convert element of output.Type into cwl.CWLType_Type")
 					return
 				}
 				expected_types = append(expected_types, type_correct)
@@ -2980,6 +2987,13 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			case []string:
 				outputSourceArrayOfString := output_source.([]string)
 
+				if len(outputSourceArrayOfString) == 0 {
+					if !is_optional {
+						err = fmt.Errorf("(updateJobTask) output_source array (%s) is empty, but a required output", output_id)
+						return
+					}
+				}
+
 				output_array := cwl.Array{}
 
 				for _, outputSourceString := range outputSourceArrayOfString {
@@ -2987,7 +3001,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 					var ok bool
 					obj, ok, err = qm.getCWLSource(workflow_inputs_map, job, task_id, outputSourceString, true)
 					if err != nil {
-						err = fmt.Errorf("(updateJobTask) B getCWLSource returns: %s", err.Error())
+						err = fmt.Errorf("(updateJobTask) B (%s) getCWLSource returns: %s", parent_id_str, err.Error())
 						return
 					}
 
@@ -2998,7 +3012,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 							skip = true
 						} else {
 
-							err = fmt.Errorf("(updateJobTask) B source %s not found", outputSourceString)
+							err = fmt.Errorf("(updateJobTask) B (%s) source %s not found", parent_id_str, outputSourceString)
 							return
 						}
 					}
@@ -3018,7 +3032,14 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 					}
 				}
 
-				workflow_outputs_map[output_id] = &output_array
+				if len(output_array) > 0 {
+					workflow_outputs_map[output_id] = &output_array
+				} else {
+					if !is_optional {
+						err = fmt.Errorf("(updateJobTask) array with output_id %s is empty, but a required output", output_id)
+						return
+					}
+				}
 
 			default:
 				err = fmt.Errorf("(updateJobTask) output.OutputSource has to be string or []string, but I got type %s", spew.Sdump(output_source))
@@ -3052,8 +3073,15 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				var object cwl.CWLType
 				object, ok = workflow_outputs_map[real_name]
 				if !ok {
-					err = fmt.Errorf("(updateJobTask) workflow output %s not found", real_name)
-					return
+
+					//out_list := ""
+					//for key := range workflow_outputs_map {
+					//	out_list += "," + key
+					//}
+
+					//err = fmt.Errorf("(updateJobTask) workflow output %s not found (available: %s)", real_name, out_list)
+					//return
+					object = cwl.NewNull()
 				}
 
 				named_obj := cwl.NewNamedCWLType(output_base, object)
@@ -3073,8 +3101,14 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				var object cwl.CWLType
 				object, ok = workflow_outputs_map[real_name]
 				if !ok {
-					err = fmt.Errorf("(updateJobTask) workflow output %s not found", real_name)
-					return
+					//out_list := ""
+					//for key := range workflow_outputs_map {
+					//	out_list += "," + key
+					//}
+					//err = fmt.Errorf("(updateJobTask) workflow output %s not found (available: %s)", real_name, out_list)
+					//return
+
+					object = cwl.NewNull()
 				}
 
 				named_obj := cwl.NewNamedCWLType(output_base, object)
@@ -3120,7 +3154,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		return
 	}
 	if job_state == JOB_STAT_COMPLETED {
-		err = fmt.Errorf("job state is already JOB_STAT_COMPLETED")
+		err = fmt.Errorf("(updateJobTask) job state is already JOB_STAT_COMPLETED")
 		return
 	}
 

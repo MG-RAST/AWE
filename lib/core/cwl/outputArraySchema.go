@@ -13,7 +13,8 @@ type OutputArraySchema struct { // Items, Type , Label
 
 //func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}
 
-func (c *OutputArraySchema) Type2String() string { return "OutputArraySchema" }
+func (c OutputArraySchema) Type2String() string { return "OutputArraySchema" }
+func (c OutputArraySchema) Is_Type()            {}
 
 func NewOutputArraySchema() (coas *OutputArraySchema) {
 

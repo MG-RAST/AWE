@@ -218,7 +218,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				var workflow_output_parameter cwl.WorkflowOutputParameter
 
 				workflow_output_parameter.Id = entrypoint + "/" + path.Base(output.Id)
-				workflow_output_parameter.OutputSource = output.Id
+				workflow_output_parameter.OutputSource = step_id + "/" + path.Base(output.Id)
 				workflow_output_parameter.SecondaryFiles = output.SecondaryFiles
 				workflow_output_parameter.Format = output.Format
 				workflow_output_parameter.Streamable = output.Streamable

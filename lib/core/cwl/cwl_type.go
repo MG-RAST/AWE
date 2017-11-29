@@ -367,7 +367,20 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 		case *CommandOutputArraySchema:
 			ok = true
 			return
+		case OutputArraySchema:
+			ok = true
+			return
+		case *OutputArraySchema:
+			ok = true
+			return
+		case *ArraySchema:
+			ok = true
+			return
 		default:
+			fmt.Println("schema:")
+			spew.Dump(schema)
+			fmt.Println("object:")
+			spew.Dump(object)
 			panic("array did not match")
 		}
 	default:

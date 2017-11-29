@@ -72,6 +72,14 @@ func NewCWLType_Type(native interface{}, context string) (result CWLType_Type, e
 		native_str := native.(string)
 
 		return NewCWLType_TypeFromString(native_str)
+
+	case CWLType_Type_Basic:
+
+		native_tt := native.(CWLType_Type_Basic)
+		native_str := string(native_tt)
+
+		return NewCWLType_TypeFromString(native_str)
+
 	case map[string]interface{}:
 		native_map := native.(map[string]interface{})
 
@@ -95,12 +103,12 @@ func NewCWLType_Type(native interface{}, context string) (result CWLType_Type, e
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandOutputArraySchemaFromInterface returned: %s", err.Error())
 				}
 				return
-				//case "WorkflowOutput":
-				//result, err = NewOutputArraySchemaFromInterface(native)
-				//if err != nil {
-				//	err = fmt.Errorf("(NewCWLType_Type) NewWorkflowOutputOutputArraySchemaFromInterface returned: %s", err.Error())
-			//	}
-			//	return
+			case "WorkflowOutput":
+				result, err = NewOutputArraySchemaFromInterface(native)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType_Type) NewWorkflowOutputOutputArraySchemaFromInterface returned: %s", err.Error())
+				}
+				return
 			default:
 				err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
 				return
@@ -110,7 +118,9 @@ func NewCWLType_Type(native interface{}, context string) (result CWLType_Type, e
 			err = fmt.Errorf("(NewCWLType_Type) object_type %s not supported yet", object_type)
 			return
 		}
-
+	case OutputArraySchema:
+		result = native.(OutputArraySchema)
+		return
 	default:
 		spew.Dump(native)
 		err = fmt.Errorf("(NewCWLType_Type) type %s unkown", reflect.TypeOf(native))

@@ -28,14 +28,14 @@ func (i InputParameter) Is_CWL_minimal()  {}
 
 func NewInputParameter(original interface{}) (input_parameter *InputParameter, err error) {
 
-	fmt.Println("---- NewInputParameter ----")
-	spew.Dump(original)
+	//fmt.Println("---- NewInputParameter ----")
+	//spew.Dump(original)
 	original, err = MakeStringMap(original)
 	if err != nil {
 		err = fmt.Errorf("(NewInputParameter) MakeStringMap returned: %s", err.Error())
 		return
 	}
-	spew.Dump(original)
+	//spew.Dump(original)
 
 	input_parameter = &InputParameter{}
 

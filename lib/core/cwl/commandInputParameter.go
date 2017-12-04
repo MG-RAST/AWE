@@ -2,7 +2,7 @@ package cwl
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"gopkg.in/mgo.v2/bson"
 	"reflect"
@@ -62,8 +62,8 @@ func MakeStringMap(v interface{}) (result interface{}, err error) {
 
 func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParameter, err error) {
 
-	fmt.Println("NewCommandInputParameter:\n")
-	spew.Dump(v)
+	//fmt.Println("NewCommandInputParameter:\n")
+	//spew.Dump(v)
 
 	v, err = MakeStringMap(v)
 	if err != nil {
@@ -71,33 +71,6 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 	}
 
 	switch v.(type) {
-	// case bson.M:
-	//
-	// 		original_map := v.(bson.M)
-	//
-	// 		new_map := make(map[string]interface{})
-	//
-	// 		for key_str, value := range original_map {
-	//
-	// 			new_map[key_str] = value
-	// 		}
-	//
-	// 		return NewCommandInputParameter(new_map)
-	// 	case map[interface{}]interface{}:
-	//
-	// 		v_map, ok := v.(map[interface{}]interface{})
-	// 		if !ok {
-	// 			err = fmt.Errorf("casting problem (b)")
-	// 			return
-	// 		}
-	// 		v_string_map := make(map[string]interface{})
-	//
-	// 		for key, value := range v_map {
-	// 			key_string := key.(string)
-	// 			v_string_map[key_string] = value
-	// 		}
-	//
-	// 		return NewCommandInputParameter(v_string_map)
 
 	case map[string]interface{}:
 		v_map, ok := v.(map[string]interface{})
@@ -109,16 +82,14 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 		default_value, ok := v_map["default"]
 		if ok {
-			fmt.Println("FOUND default key")
+			//fmt.Println("FOUND default key")
 			default_input, xerr := NewCWLType("", default_value) // TODO return Int or similar
 			if xerr != nil {
 				err = xerr
 				return
 			}
-			spew.Dump(default_input)
+			//spew.Dump(default_input)
 			v_map["default"] = default_input
-		} else {
-			fmt.Println("FOUND NOT default key")
 		}
 
 		type_value, ok := v_map["type"]
@@ -166,8 +137,8 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 // array<CommandInputParameter> | map<CommandInputParameter.id, CommandInputParameter.type> | map<CommandInputParameter.id, CommandInputParameter>
 func CreateCommandInputArray(original interface{}) (err error, new_array []*CommandInputParameter) {
 
-	fmt.Println("CreateCommandInputArray:\n")
-	spew.Dump(original)
+	//fmt.Println("CreateCommandInputArray:\n")
+	//spew.Dump(original)
 
 	switch original.(type) {
 

@@ -57,13 +57,13 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 		return
 
 	case int:
-		fmt.Println(CWL_int)
+		//fmt.Println(CWL_int)
 		original_int := original.(int)
 		input_parameter.Default = NewInt(input_parameter.Id, original_int)
 		return
 
 	case map[string]interface{}:
-		fmt.Println("case map[string]interface{}")
+		//fmt.Println("case map[string]interface{}")
 
 		original_map := original.(map[string]interface{})
 
@@ -79,8 +79,8 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 		default_value, has_default := original_map["default"]
 		if has_default {
 			var any CWLType
-			fmt.Println("trying:")
-			spew.Dump(original)
+			//fmt.Println("trying:")
+			//spew.Dump(original)
 			any, err = NewCWLType("", default_value)
 			if err != nil {
 				fmt.Println("problematic Default:")

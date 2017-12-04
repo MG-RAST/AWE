@@ -132,14 +132,14 @@ func IsValidClass(native_str string) (result string, ok bool) {
 func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 	//var cwl_type CWLType
-	fmt.Printf("(NewCWLType) starting with type %s\n", reflect.TypeOf(native))
+	//fmt.Printf("(NewCWLType) starting with type %s\n", reflect.TypeOf(native))
 
 	native, err = MakeStringMap(native)
 	if err != nil {
 		return
 	}
 
-	fmt.Printf("(NewCWLType) (B) starting with type %s\n", reflect.TypeOf(native))
+	//fmt.Printf("(NewCWLType) (B) starting with type %s\n", reflect.TypeOf(native))
 
 	if native == nil {
 		cwl_type = NewNull()
@@ -148,7 +148,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 	switch native.(type) {
 	case []interface{}:
-		fmt.Printf("(NewCWLType) C\n")
+		//fmt.Printf("(NewCWLType) C\n")
 		native_array, _ := native.([]interface{})
 
 		array, xerr := NewArray(id, native_array)
@@ -159,7 +159,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		cwl_type = array
 
 	case int:
-		fmt.Printf("(NewCWLType) D\n")
+		//fmt.Printf("(NewCWLType) D\n")
 		native_int := native.(int)
 
 		cwl_type = NewInt(id, native_int)
@@ -170,18 +170,18 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		native_float64 := native.(float64)
 		cwl_type = NewDouble(native_float64)
 	case string:
-		fmt.Printf("(NewCWLType) E\n")
+		//fmt.Printf("(NewCWLType) E\n")
 		native_str := native.(string)
 
 		cwl_type = NewString(id, native_str)
 	case bool:
-		fmt.Printf("(NewCWLType) F\n")
+		//fmt.Printf("(NewCWLType) F\n")
 		native_bool := native.(bool)
 
 		cwl_type = NewBoolean(id, native_bool)
 
 	case map[string]interface{}:
-		fmt.Printf("(NewCWLType) G\n")
+		//fmt.Printf("(NewCWLType) G\n")
 		native_map := native.(map[string]interface{})
 
 		_, has_items := native_map["items"]
@@ -220,12 +220,12 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		cwl_type = native.(*Boolean)
 
 	default:
-		fmt.Printf("(NewCWLType) H\n")
+		//fmt.Printf("(NewCWLType) H\n")
 		spew.Dump(native)
 		err = fmt.Errorf("(NewCWLType) Type unknown: \"%s\" (%s)", reflect.TypeOf(native), spew.Sdump(native))
 		return
 	}
-	fmt.Printf("(NewCWLType) I\n")
+	//fmt.Printf("(NewCWLType) I\n")
 	//if cwl_type.GetId() == "" {
 	//	err = fmt.Errorf("(NewCWLType) Id is missing")
 	//		return

@@ -40,8 +40,16 @@ func NewWorkflowInstanceFromInterface(original interface{}) (wi WorkflowInstance
 		var remaintasks_int int
 		remaintasks_int, ok = remaintasks_if.(int)
 		if !ok {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) remaintasks is not int")
-			return
+
+			var remaintasks_float64 float64
+			remaintasks_float64, ok = remaintasks_if.(float64)
+			if ok {
+				remaintasks_int = int(remaintasks_float64)
+
+			} else {
+				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) remaintasks is not int (%s)", reflect.TypeOf(remaintasks_if))
+				return
+			}
 		}
 
 		wi.RemainTasks = remaintasks_int

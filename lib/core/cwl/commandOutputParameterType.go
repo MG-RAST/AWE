@@ -109,7 +109,7 @@ func NewCommandOutputParameterTypeArray(original interface{}) (result_array []in
 
 		for _, element := range original_array {
 
-			spew.Dump(original)
+			//spew.Dump(original)
 			copt, xerr := NewCommandOutputParameterType(element)
 			if xerr != nil {
 				err = xerr

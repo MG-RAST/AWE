@@ -36,8 +36,8 @@ func NewRecord(id string, native interface{}) (record *Record, err error) {
 	switch native.(type) {
 	case map[string]interface{}:
 
-		fmt.Println("Got a record:")
-		spew.Dump(native)
+		//fmt.Println("Got a record:")
+		//spew.Dump(native)
 
 		native_map, _ := native.(map[string]interface{})
 		for key_str, value := range native_map {

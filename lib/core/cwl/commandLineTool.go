@@ -3,7 +3,7 @@ package cwl
 import (
 	//"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -37,8 +37,8 @@ func (c *CommandLineTool) Is_process()     {}
 //func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
 func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, err error) {
 
-	fmt.Println("NewCommandLineTool:")
-	spew.Dump(generic)
+	//fmt.Println("NewCommandLineTool:")
+	//spew.Dump(generic)
 
 	//switch type()
 	object, ok := generic.(map[string]interface{})
@@ -131,7 +131,7 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 	//if has_arguments {
 	//	object["arguments"] = arguments_object // mapstructure.Decode has some issues, no idea why
 	//}
-	spew.Dump(commandLineTool)
+	//spew.Dump(commandLineTool)
 	//if id == "#blat.tool.cwl" {
 	//	panic("done")
 	//}

@@ -28,7 +28,7 @@ type CWLVersion string
 type LinkMergeMethod string // merge_nested or merge_flattened
 
 func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_object, err error) {
-	fmt.Println("(New_CWL_object) starting")
+	//fmt.Println("(New_CWL_object) starting")
 
 	if original == nil {
 		err = fmt.Errorf("(New_CWL_object) original is nil!")
@@ -39,11 +39,11 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 	if err != nil {
 		return
 	}
-	fmt.Println("New_CWL_object 2")
+	//fmt.Println("New_CWL_object 2")
 	switch original.(type) {
 	case map[string]interface{}:
 		elem := original.(map[string]interface{})
-		fmt.Println("New_CWL_object B")
+		//fmt.Println("New_CWL_object B")
 		cwl_object_type, ok := elem["class"].(string)
 
 		if !ok {
@@ -58,10 +58,10 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 			err = errors.New("(New_CWL_object) object has no member id")
 			return
 		}
-		fmt.Println("New_CWL_object C")
+		//fmt.Println("New_CWL_object C")
 		switch cwl_object_type {
 		case "CommandLineTool":
-			fmt.Println("New_CWL_object CommandLineTool")
+			//fmt.Println("New_CWL_object CommandLineTool")
 			logger.Debug(1, "(New_CWL_object) parse CommandLineTool")
 			result, xerr := NewCommandLineTool(elem)
 			if xerr != nil {
@@ -74,7 +74,7 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 			obj = result
 			return
 		case "Workflow":
-			fmt.Println("New_CWL_object Workflow")
+			//fmt.Println("New_CWL_object Workflow")
 			logger.Debug(1, "parse Workflow")
 			workflow, xerr := NewWorkflow(elem)
 			if xerr != nil {
@@ -94,11 +94,11 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 		}
 		obj = cwl_type
 	default:
-		fmt.Printf("(New_CWL_object), unknown type %s\n", reflect.TypeOf(original))
+		//fmt.Printf("(New_CWL_object), unknown type %s\n", reflect.TypeOf(original))
 		err = fmt.Errorf("(New_CWL_object), unknown type %s", reflect.TypeOf(original))
 		return
 	}
-	fmt.Println("(New_CWL_object) leaving")
+	//fmt.Println("(New_CWL_object) leaving")
 	return
 }
 
@@ -154,30 +154,30 @@ func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_ver
 			logger.Error("error: " + err.Error())
 		}
 
-		fmt.Println("-------------- raw CWL")
-		spew.Dump(cwl_gen)
-		fmt.Println("-------------- Start parsing")
+		//fmt.Println("-------------- raw CWL")
+		//spew.Dump(cwl_gen)
+		//fmt.Println("-------------- Start parsing")
 
 		cwl_version = cwl_gen.CwlVersion
 
 		// iterated over Graph
 
-		fmt.Println("-------------- A Parse_cwl_document")
+		//fmt.Println("-------------- A Parse_cwl_document")
 		for count, elem := range cwl_gen.Graph {
-			fmt.Println("-------------- B Parse_cwl_document")
+			//fmt.Println("-------------- B Parse_cwl_document")
 
 			object, xerr := New_CWL_object(elem, cwl_version)
 			if xerr != nil {
 				err = fmt.Errorf("(Parse_cwl_document) New_CWL_object returns %s", xerr.Error())
 				return
 			}
-			fmt.Println("-------------- C Parse_cwl_document")
+			//fmt.Println("-------------- C Parse_cwl_document")
 			object_array = append(object_array, object)
 			logger.Debug(3, "Added %d cwl objects...", count)
-			fmt.Println("-------------- loop Parse_cwl_document")
+			//fmt.Println("-------------- loop Parse_cwl_document")
 		} // end for
 
-		fmt.Println("-------------- finished Parse_cwl_document")
+		//fmt.Println("-------------- finished Parse_cwl_document")
 
 	} else {
 
@@ -189,9 +189,9 @@ func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_ver
 			logger.Error("error: " + err.Error())
 		}
 
-		fmt.Println("-------------- raw CWL")
-		spew.Dump(commandlinetool_if)
-		fmt.Println("-------------- Start parsing")
+		//fmt.Println("-------------- raw CWL")
+		//spew.Dump(commandlinetool_if)
+		//fmt.Println("-------------- Start parsing")
 
 		var commandlinetool *CommandLineTool
 		commandlinetool, err = NewCommandLineTool(commandlinetool_if)

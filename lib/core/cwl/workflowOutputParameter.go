@@ -81,11 +81,17 @@ func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParame
 
 			default:
 
+				outputSource_str, ok := outputSource_if.(string)
+				if ok {
+					original_map["outputSource"] = []string{outputSource_str}
+				} else {
+
+					spew.Dump(outputSource_if)
+					err = fmt.Errorf("(NewWorkflowOutputParameter) type %s unknown", reflect.TypeOf(original))
+					return
+				}
 			}
-			outputSource_str, ok := outputSource_if.(string)
-			if ok {
-				original_map["outputSource"] = []string{outputSource_str}
-			}
+
 		}
 
 		err = mapstructure.Decode(original, &output_parameter)

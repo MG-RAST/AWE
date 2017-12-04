@@ -103,6 +103,12 @@ func NewCWLType_Type(native interface{}, context string) (result CWLType_Type, e
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandOutputArraySchemaFromInterface returned: %s", err.Error())
 				}
 				return
+			case "CommandInput":
+				result, err = NewCommandInputArraySchemaFromInterface(native)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputArraySchemaFromInterface returned: %s", err.Error())
+				}
+				return
 			case "WorkflowOutput":
 				result, err = NewOutputArraySchemaFromInterface(native)
 				if err != nil {

@@ -3,7 +3,7 @@ package cwl
 import (
 	"fmt"
 
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 	//"strings"
 )
@@ -17,7 +17,7 @@ type InputParameterType string
 func NewInputParameterType_dep(original interface{}) (ipt_ptr interface{}, err error) {
 	fmt.Println("---- NewInputParameterType ----")
 
-	spew.Dump(original)
+	//spew.Dump(original)
 	//var ipt InputParameterType
 
 	switch original.(type) {

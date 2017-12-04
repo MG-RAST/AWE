@@ -97,8 +97,8 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 
 		requirements, ok := object["requirements"]
 		if ok {
-			fmt.Println("---- Workflow (before CreateRequirementArray) ----")
-			spew.Dump(object)
+			//fmt.Println("---- Workflow (before CreateRequirementArray) ----")
+			//spew.Dump(object)
 			object["requirements"], err = CreateRequirementArray(requirements)
 			if err != nil {
 				fmt.Println("---- Workflow ----")
@@ -110,8 +110,8 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 			}
 		}
 
-		fmt.Printf("......WORKFLOW raw")
-		spew.Dump(object)
+		//fmt.Printf("......WORKFLOW raw")
+		//spew.Dump(object)
 		//fmt.Printf("-- Steps found ------------") // WorkflowStep
 		//for _, step := range elem["steps"].([]interface{}) {
 
@@ -124,8 +124,8 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 			err = fmt.Errorf("(NewWorkflow) error parsing workflow class: %s", err.Error())
 			return
 		}
-		fmt.Printf(".....WORKFLOW")
-		spew.Dump(workflow)
+		//fmt.Printf(".....WORKFLOW")
+		//spew.Dump(workflow)
 		return
 
 	default:

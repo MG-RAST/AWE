@@ -60,7 +60,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 	for _, input := range cwl_workflow.Inputs {
 		// input is a cwl.InputParameter object
 
-		spew.Dump(input)
+		//spew.Dump(input)
 
 		id := input.Id
 		logger.Debug(3, "(CWL_input_check) Parsing workflow input %s", id)
@@ -110,8 +110,8 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 			//for _, elem := range *expected_types {
 			//	expected_types_str += "," + string(elem)
 			//}
-			fmt.Printf("cwl_workflow.Inputs")
-			spew.Dump(cwl_workflow.Inputs)
+			//fmt.Printf("cwl_workflow.Inputs")
+			//spew.Dump(cwl_workflow.Inputs)
 			err = fmt.Errorf("Input %s has type %s, but this does not match the expected types)", id, input_type)
 			return
 		}

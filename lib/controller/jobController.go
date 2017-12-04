@@ -12,7 +12,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
@@ -253,12 +253,12 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			}
 		}
 
-		fmt.Println("\n\n\n--------------------------------- Steps:\n")
-		for _, step := range cwl_workflow.Steps {
-			spew.Dump(step)
-		}
+		//fmt.Println("\n\n\n--------------------------------- Steps:\n")
+		//for _, step := range cwl_workflow.Steps {
+		//	spew.Dump(step)
+		//}
 
-		fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
+		//fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
 		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, &collection)
 		if err != nil {
 			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)

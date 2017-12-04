@@ -12,7 +12,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/golib/httpclient"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"io"
 	"io/ioutil"
 	"os"
@@ -62,7 +62,7 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 			if err == nil {
 				//make a link in work dir from cached file
 				linkname := fmt.Sprintf("%s/%s", work_path, io.FileName)
-				fmt.Printf("input found in cache, making link: " + file_path + " -> " + linkname + "\n")
+				//fmt.Printf("input found in cache, making link: " + file_path + " -> " + linkname + "\n")
 				err = os.Symlink(file_path, linkname)
 				if err != nil {
 					return
@@ -163,11 +163,11 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (siz
 
 	//real_object := input.Value
 
-	spew.Dump(input)
+	//spew.Dump(input)
 	switch input.(type) {
 	case *cwl.File:
 		file := input.(*cwl.File)
-		spew.Dump(*file)
+		//spew.Dump(*file)
 		fmt.Printf("file: %+v\n", *file)
 
 		var io *core.IO
@@ -183,7 +183,7 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (siz
 			return
 		}
 		size = io_size
-		spew.Dump(io)
+		//spew.Dump(io)
 
 		return
 	case *cwl.String:
@@ -260,10 +260,10 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 	if work.CWL_workunit != nil {
 
 		job_input := work.CWL_workunit.Job_input
-		spew.Dump(job_input)
+		//spew.Dump(job_input)
 
-		for input_name, input := range *job_input {
-			fmt.Println(input_name)
+		for _, input := range *job_input {
+			//fmt.Println(input_name)
 			var io_size int64
 			io_size, err = MoveInputCWL(work, work_path, input.Value)
 			if err != nil {
@@ -460,8 +460,8 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 
 		//workunit.CWL_workunit.Tool_results
 		// workunit.CWL_workunit.OutputsExpected
-		fmt.Println("work.CWL_workunit.OutputsExpected:\n")
-		spew.Dump(*work.CWL_workunit.OutputsExpected)
+		//fmt.Println("work.CWL_workunit.OutputsExpected:\n")
+		//spew.Dump(*work.CWL_workunit.OutputsExpected)
 		//for _, result := range *work.CWL_workunit.Tool_results {
 		//	fmt.Println(result.GetId())
 		//}

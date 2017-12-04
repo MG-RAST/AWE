@@ -7,7 +7,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 
 	//"gopkg.in/mgo.v2/bson"
 	"os"
@@ -187,8 +187,8 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			return
 		}
 
-		fmt.Println("workunit_input_map after second round:\n")
-		spew.Dump(workunit_input_map)
+		//fmt.Println("workunit_input_map after second round:\n")
+		//spew.Dump(workunit_input_map)
 
 		job_input := cwl.Job_document{}
 
@@ -199,7 +199,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		workunit.CWL_workunit.Job_input = &job_input
 
-		spew.Dump(job_input)
+		//spew.Dump(job_input)
 
 		workunit.CWL_workunit.OutputsExpected = &workflow_step.Out
 		//spew.Dump(workflow_step.Out)

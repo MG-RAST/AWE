@@ -2,7 +2,7 @@ package cwl
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"gopkg.in/mgo.v2/bson"
 	"reflect"
@@ -78,16 +78,16 @@ func NewWorkflowStep(original interface{}) (w *WorkflowStep, err error) {
 				return
 			}
 		}
-		spew.Dump(v_map["run"])
+		//spew.Dump(v_map["run"])
 		err = mapstructure.Decode(original, &step)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflowStep) %s", err.Error())
 			return
 		}
 		w = &step
-		spew.Dump(w.Run)
+		//spew.Dump(w.Run)
 
-		fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+		//fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 		return
 	default:
 		err = fmt.Errorf("(NewWorkflowStep) type %s unknown", reflect.TypeOf(original))
@@ -120,11 +120,11 @@ func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]Wor
 
 		// iterate over workflow steps
 		for k, v := range original.(map[interface{}]interface{}) {
-			fmt.Printf("A step\n")
-			spew.Dump(v)
+			//fmt.Printf("A step\n")
+			//spew.Dump(v)
 
-			fmt.Println("type: ")
-			fmt.Println(reflect.TypeOf(v))
+			//fmt.Println("type: ")
+			//fmt.Println(reflect.TypeOf(v))
 
 			step, xerr := NewWorkflowStep(v)
 			if xerr != nil {
@@ -134,8 +134,8 @@ func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]Wor
 
 			step.Id = k.(string)
 
-			fmt.Printf("Last step\n")
-			spew.Dump(step)
+			//fmt.Printf("Last step\n")
+			//spew.Dump(step)
 			//fmt.Printf("C")
 			array = append(array, *step)
 			//fmt.Printf("D")
@@ -148,11 +148,11 @@ func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]Wor
 
 		// iterate over workflow steps
 		for _, v := range original.([]interface{}) {
-			fmt.Printf("A step\n")
-			spew.Dump(v)
+			//fmt.Printf("A step\n")
+			//spew.Dump(v)
 
-			fmt.Println("type: ")
-			fmt.Println(reflect.TypeOf(v))
+			//fmt.Println("type: ")
+			//fmt.Println(reflect.TypeOf(v))
 
 			step, xerr := NewWorkflowStep(v)
 			if xerr != nil {
@@ -162,8 +162,8 @@ func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]Wor
 
 			//step.Id = k.(string)
 
-			fmt.Printf("Last step\n")
-			spew.Dump(step)
+			//fmt.Printf("Last step\n")
+			//spew.Dump(step)
 			//fmt.Printf("C")
 			array = append(array, *step)
 			//fmt.Printf("D")

@@ -11,7 +11,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/golib/httpclient"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"io/ioutil"
 	"os"
@@ -186,7 +186,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		return
 	}
 
-	spew.Dump(response)
+	//spew.Dump(response)
 
 	if response.Status == -1 {
 		err = fmt.Errorf(e.ServerNotFound)

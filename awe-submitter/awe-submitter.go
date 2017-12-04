@@ -4,13 +4,14 @@ import (
 	//"encoding/json"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
-
 	"github.com/MG-RAST/AWE/lib/logger"
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 	"bytes"
+	"encoding/json"
 	"github.com/MG-RAST/AWE/lib/shock"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
@@ -25,9 +26,15 @@ import (
 	"time"
 )
 
+type standardResponse struct {
+	Status int         `json:"status"`
+	Data   interface{} `json:"data"`
+	Error  []string    `json:"error"`
+}
+
 func uploadFile(file *cwl.File, inputfile_path string) (err error) {
-	fmt.Printf("(uploadFile) start\n")
-	defer fmt.Printf("(uploadFile) end\n")
+	//fmt.Printf("(uploadFile) start\n")
+	//defer fmt.Printf("(uploadFile) end\n")
 	//if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 
 	//	time.Sleep(3 * time.Second) //wait for 3 seconds and try again
@@ -43,7 +50,7 @@ func uploadFile(file *cwl.File, inputfile_path string) (err error) {
 		scheme = file.Location_url.Scheme
 		host := file.Location_url.Host
 		path := file.Location_url.Path
-		fmt.Printf("Location: '%s' '%s' '%s'\n", scheme, host, path)
+		//fmt.Printf("Location: '%s' '%s' '%s'\n", scheme, host, path)
 
 		if scheme == "" {
 			if host == "" {
@@ -51,7 +58,7 @@ func uploadFile(file *cwl.File, inputfile_path string) (err error) {
 			} else {
 				scheme = "http"
 			}
-			fmt.Printf("Location (updated): '%s' '%s' '%s'\n", scheme, host, path)
+			//fmt.Printf("Location (updated): '%s' '%s' '%s'\n", scheme, host, path)
 		}
 
 		if scheme == "file" {
@@ -77,22 +84,22 @@ func uploadFile(file *cwl.File, inputfile_path string) (err error) {
 		return
 	}
 
-	fmt.Printf("file.Path: %s\n", file_path)
+	//fmt.Printf("file.Path: %s\n", file_path)
 
 	if !path.IsAbs(file_path) {
 		file_path = path.Join(inputfile_path, file_path)
 	}
 
-	fmt.Printf("Using path %s\n", file_path)
+	//fmt.Printf("Using path %s\n", file_path)
 
-	sc := shock.ShockClient{Host: conf.SHOCK_URL, Token: "", Debug: true} // "shock:7445"
+	sc := shock.ShockClient{Host: conf.SHOCK_URL, Token: "", Debug: false} // "shock:7445"
 
 	opts := shock.Opts{"upload_type": "basic", "file": file_path}
 	node, err := sc.CreateOrUpdate(opts, "", nil)
 	if err != nil {
 		return
 	}
-	spew.Dump(node)
+	//spew.Dump(node)
 
 	file.Location_url, err = url.Parse(conf.SHOCK_URL + "/node/" + node.Id + "?download")
 	if err != nil {
@@ -108,19 +115,19 @@ func uploadFile(file *cwl.File, inputfile_path string) (err error) {
 
 func processInputData(native interface{}, inputfile_path string) (count int, err error) {
 
-	fmt.Printf("(processInputData) start\n")
-	defer fmt.Printf("(processInputData) end\n")
+	//fmt.Printf("(processInputData) start\n")
+	//defer fmt.Printf("(processInputData) end\n")
 	switch native.(type) {
 	case *cwl.Job_document:
-		fmt.Printf("found Job_document\n")
+		//fmt.Printf("found Job_document\n")
 		job_doc_ptr := native.(*cwl.Job_document)
 
 		job_doc := *job_doc_ptr
 
 		for _, value := range job_doc {
 
-			id := value.Id
-			fmt.Printf("recurse into key: %s\n", id)
+			//id := value.Id
+			//fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
 			sub_count, err = processInputData(value, inputfile_path)
 			if err != nil {
@@ -140,14 +147,14 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 		count += sub_count
 
 	case *cwl.String:
-		fmt.Printf("found string\n")
+		//fmt.Printf("found string\n")
 		return
 	case *cwl.Double:
-		fmt.Printf("found double\n")
+		//fmt.Printf("found double\n")
 		return
 	case *cwl.File:
 
-		fmt.Printf("found File\n")
+		//fmt.Printf("found File\n")
 		file, ok := native.(*cwl.File)
 		if !ok {
 			err = fmt.Errorf("could not cast to *cwl.File")
@@ -170,8 +177,8 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 
 		for _, value := range *array {
 
-			id := value.GetId()
-			fmt.Printf("recurse into key: %s\n", id)
+			//id := value.GetId()
+			//fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
 			sub_count, err = processInputData(value, inputfile_path)
 			if err != nil {
@@ -206,10 +213,10 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 		}
 		return
 	case *cwl.Null:
-		fmt.Printf("found Null\n")
+		//fmt.Printf("found Null\n")
 		return
 	default:
-		spew.Dump(native)
+		//spew.Dump(native)
 		err = fmt.Errorf("(processInputData) No handler for type \"%s\"\n", reflect.TypeOf(native))
 		return
 	}
@@ -220,9 +227,11 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 func main() {
 	err := main_wrapper()
 	if err != nil {
-		println(err.Error())
+		fmt.Printf("error: %s", err.Error())
+		time.Sleep(time.Second)
 		os.Exit(1)
 	}
+	time.Sleep(time.Second)
 	os.Exit(0)
 }
 
@@ -233,72 +242,68 @@ func main_wrapper() (err error) {
 	err = conf.Init_conf("submitter")
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: error reading conf file: "+err.Error())
-		os.Exit(1)
+		err = fmt.Errorf("ERROR: error reading conf file: %s", err.Error())
+		return
 	}
 
 	logger.Initialize("client")
 
-	for _, value := range conf.ARGS {
-		println(value)
-	}
+	//for _, value := range conf.ARGS {
+	//	println(value)
+	//}
 
 	workflow_file := conf.ARGS[0]
 	job_file := conf.ARGS[1]
 
 	inputfile_path := path.Dir(job_file)
-	fmt.Printf("job path: %s\n", inputfile_path) // needed to resolve relative paths
+	//fmt.Printf("job path: %s\n", inputfile_path) // needed to resolve relative paths
 
 	// ### parse job file
 	job_doc, err := cwl.ParseJobFile(job_file)
 	if err != nil {
 		logger.Error("error parsing cwl job: %s", err.Error())
-		time.Sleep(time.Second)
-		os.Exit(1)
+		return
 	}
 
-	fmt.Println("Job input after reading from file:")
-	spew.Dump(*job_doc)
+	//fmt.Println("Job input after reading from file:")
+	//spew.Dump(*job_doc)
 
 	job_doc_map := job_doc.GetMap()
-	fmt.Println("Job input after reading from file: map !!!!\n")
-	spew.Dump(job_doc_map)
+	//fmt.Println("Job input after reading from file: map !!!!\n")
+	//spew.Dump(job_doc_map)
 
 	data, err := yaml.Marshal(job_doc_map)
 	if err != nil {
-		fmt.Printf("error: %s", err.Error())
-		os.Exit(1)
+		return
 	}
 
 	job_doc_string := string(data[:])
-	fmt.Printf("job_doc_string:\n \"%s\"\n", job_doc_string)
+	//fmt.Printf("job_doc_string:\n \"%s\"\n", job_doc_string)
 	if job_doc_string == "" {
-		fmt.Println("job_doc_string is empty")
-		os.Exit(1)
+		err = fmt.Errorf("job_doc_string is empty")
+		return
 	}
 
-	fmt.Printf("yaml:\n%s\n", job_doc_string)
+	//fmt.Printf("yaml:\n%s\n", job_doc_string)
 
 	// ### process input files
 
 	upload_count, err := processInputData(job_doc, inputfile_path)
 	if err != nil {
-		fmt.Printf("error: %s", err.Error())
-		os.Exit(1)
+		return
 	}
-	fmt.Printf("%d files have been uploaded\n", upload_count)
+	logger.Debug(3, "%d files have been uploaded\n", upload_count)
 	time.Sleep(2)
 
-	spew.Dump(*job_doc)
+	//spew.Dump(*job_doc)
 	job_doc_map = job_doc.GetMap()
-	fmt.Println("------------Job input after parsing:")
+	//fmt.Println("------------Job input after parsing:")
 	data, err = yaml.Marshal(job_doc_map)
 	if err != nil {
-		fmt.Printf("error: %s", err.Error())
-		os.Exit(1)
+		return
 	}
 
-	fmt.Printf("yaml:\n%s\n", string(data[:]))
+	//fmt.Printf("yaml:\n%s\n", string(data[:]))
 
 	var yamlstream []byte
 	// read and pack workfow
@@ -306,7 +311,7 @@ func main_wrapper() (err error) {
 
 		yamlstream, err = exec.Command("cwl-runner", "--pack", workflow_file).Output()
 		if err != nil {
-			err = fmt.Errorf("(SubmitCWLJobToAWE) exec.Command returned: %s (%s %s %s)", err.Error(), "cwl-runner", "--pack", workflow_file)
+			err = fmt.Errorf("(main_wrapper) exec.Command returned: %s (%s %s %s)", err.Error(), "cwl-runner", "--pack", workflow_file)
 			return
 		}
 
@@ -326,7 +331,7 @@ func main_wrapper() (err error) {
 	object_array, cwl_version, err := cwl.Parse_cwl_document(yaml_str)
 
 	if err != nil {
-		fmt.Errorf("error in parsing cwl workflow yaml file: " + err.Error())
+		fmt.Errorf("(main_wrapper) error in parsing cwl workflow yaml file: " + err.Error())
 		return
 	}
 
@@ -337,7 +342,7 @@ func main_wrapper() (err error) {
 
 		cmd_line_tool, ok = object.(*cwl.CommandLineTool)
 		if !ok {
-			fmt.Println("nope.")
+			//fmt.Println("nope.")
 			err = nil
 			continue
 		}
@@ -362,8 +367,8 @@ func main_wrapper() (err error) {
 			command_input_parameter.Default = default_file
 			cmd_line_tool.Inputs[i] = *command_input_parameter
 			update = true
-			spew.Dump(command_input_parameter)
-			fmt.Printf("File: %+v\n", *default_file)
+			//spew.Dump(command_input_parameter)
+			//fmt.Printf("File: %+v\n", *default_file)
 
 		}
 		if update {
@@ -383,7 +388,7 @@ func main_wrapper() (err error) {
 	var new_document_bytes []byte
 	new_document_bytes, err = yaml.Marshal(new_document)
 	if err != nil {
-		err = fmt.Errorf("yaml.Marshal returned: %s", err.Error())
+		err = fmt.Errorf("(main_wrapper) yaml.Marshal returned: %s", err.Error())
 		return
 	}
 	new_document_str := string(new_document_bytes[:])
@@ -392,7 +397,7 @@ func main_wrapper() (err error) {
 	if graph_pos != -1 {
 		new_document_str = strings.Replace(new_document_str, "\ngraph", "\n$graph", -1) // remove dollar sign
 	} else {
-		err = fmt.Errorf("keyword graph not found")
+		err = fmt.Errorf("(main_wrapper) keyword graph not found")
 		return
 	}
 	new_document_bytes = []byte(new_document_str)
@@ -401,7 +406,7 @@ func main_wrapper() (err error) {
 	var tmpfile *os.File
 	tmpfile, err = ioutil.TempFile(os.TempDir(), "awe-submitter_")
 	if err != nil {
-		err = fmt.Errorf("ioutil.TempFile returned: %s", err.Error())
+		err = fmt.Errorf("(main_wrapper) ioutil.TempFile returned: %s", err.Error())
 		return
 	}
 	tempfile_name := tmpfile.Name()
@@ -409,13 +414,13 @@ func main_wrapper() (err error) {
 
 	_, err = tmpfile.Write(new_document_bytes)
 	if err != nil {
-		err = fmt.Errorf("tmpfile.Write returned: %s", err.Error())
+		err = fmt.Errorf("(main_wrapper) tmpfile.Write returned: %s", err.Error())
 		return
 	}
 
 	err = tmpfile.Close()
 	if err != nil {
-		err = fmt.Errorf("tmpfile.Close returned: %s", err.Error())
+		err = fmt.Errorf("(main_wrapper) tmpfile.Close returned: %s", err.Error())
 		return
 	}
 
@@ -424,16 +429,67 @@ func main_wrapper() (err error) {
 
 	//var b bytes.Buffer
 	//w := multipart.NewWriter(&b)
-	err = SubmitCWLJobToAWE(tempfile_name, job_file, &data)
+	var jobid string
+	jobid, err = SubmitCWLJobToAWE(tempfile_name, job_file, &data)
 	if err != nil {
-		err = fmt.Errorf("SubmitCWLJobToAWE returned: %s", err.Error())
+		err = fmt.Errorf("(main_wrapper) SubmitCWLJobToAWE returned: %s", err.Error())
 		return
 	}
 
+	//fmt.Printf("Job id: %s\n", jobid)
+
+	var job *core.Job
+
+	for true {
+		time.Sleep(5 * time.Second)
+		job = nil
+
+		job, err = GetAWEJob(jobid)
+		if err != nil {
+			return
+		}
+
+		//fmt.Printf("job state: %s\n", job.State)
+
+		if job.State == core.JOB_STAT_COMPLETED {
+
+			break
+		}
+
+	}
+	//spew.Dump(job)
+
+	_, err = job.Init()
+	if err != nil {
+		return
+	}
+	var wi *core.WorkflowInstance
+	wi, err = job.GetWorkflowInstance("", false)
+	if err != nil {
+		err = fmt.Errorf("(main_wrapper) GetWorkflowInstance returned: %s", err.Error())
+		return
+	}
+	//spew.Dump(wi.Outputs)
+
+	output_receipt := map[string]interface{}{}
+	for _, out := range wi.Outputs {
+
+		out_id := strings.TrimPrefix(out.Id, job.Entrypoint+"/")
+
+		output_receipt[out_id] = out.Value
+	}
+
+	var output_receipt_bytes []byte
+	output_receipt_bytes, err = json.MarshalIndent(output_receipt, "", "    ")
+	if err != nil {
+		return
+	}
+	logger.Debug(3, string(output_receipt_bytes[:]))
+	fmt.Println(string(output_receipt_bytes[:]))
 	return
 }
 
-func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (err error) {
+func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (jobid string, err error) {
 	multipart := NewMultipartWriter()
 
 	err = multipart.AddFile("cwl", workflow_file)
@@ -453,11 +509,83 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (err
 	if err != nil {
 		return
 	}
-	responseString := string(responseData)
 
-	fmt.Println(responseString)
+	//responseString := string(responseData)
+	//fmt.Println(responseString)
+
+	var sr standardResponse
+	err = json.Unmarshal(responseData, &sr)
+	if err != nil {
+		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s", err.Error())
+		return
+	}
+
+	if len(sr.Error) > 0 {
+		err = fmt.Errorf("%s", sr.Error[0])
+		return
+	}
+
+	var job_bytes []byte
+	job_bytes, err = json.Marshal(sr.Data)
+	if err != nil {
+		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Marshal returned: %s", err.Error())
+		return
+	}
+
+	var job core.Job
+	err = json.Unmarshal(job_bytes, &job)
+	if err != nil {
+		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s", err.Error())
+		return
+	}
+	jobid = job.Id
+
 	return
 
+}
+
+func GetAWEJob(jobid string) (job *core.Job, err error) {
+
+	multipart := NewMultipartWriter()
+
+	response, err := multipart.Send("GET", conf.SERVER_URL+"/job/"+jobid)
+	if err != nil {
+		return
+	}
+	responseData, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return
+	}
+
+	//responseString := string(responseData)
+
+	//fmt.Println(responseString)
+
+	var sr standardResponse
+	err = json.Unmarshal(responseData, &sr)
+	if err != nil {
+		return
+	}
+
+	if len(sr.Error) > 0 {
+		err = fmt.Errorf("%s", sr.Error[0])
+		return
+	}
+
+	var job_bytes []byte
+	job_bytes, err = json.Marshal(sr.Data)
+	if err != nil {
+		return
+	}
+
+	//var job core.Job
+	job = &core.Job{}
+	err = json.Unmarshal(job_bytes, job)
+	if err != nil {
+		return
+	}
+
+	return
 }
 
 type MultipartWriter struct {
@@ -473,9 +601,9 @@ func NewMultipartWriter() *MultipartWriter {
 
 func (m *MultipartWriter) Send(method string, url string) (response *http.Response, err error) {
 	m.w.Close()
-	fmt.Println("------------")
-	spew.Dump(m.w)
-	fmt.Println("------------")
+	//fmt.Println("------------")
+	//spew.Dump(m.w)
+	//fmt.Println("------------")
 
 	req, err := http.NewRequest(method, url, &m.b)
 	if err != nil {
@@ -486,7 +614,7 @@ func (m *MultipartWriter) Send(method string, url string) (response *http.Respon
 
 	// Submit the request
 	client := &http.Client{}
-	fmt.Printf("%s %s\n\n", method, url)
+	//fmt.Printf("%s %s\n\n", method, url)
 	response, err = client.Do(req)
 	if err != nil {
 		return

@@ -442,7 +442,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	cwl_result_str, ok := params["cwl"]
 	if ok {
 
-		fmt.Printf("cwl_result_str: %s\n", cwl_result_str)
+		//fmt.Printf("cwl_result_str: %s\n", cwl_result_str)
 
 		var notice_if map[string]interface{}
 		err = json.Unmarshal([]byte(cwl_result_str), &notice_if)

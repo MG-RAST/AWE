@@ -2025,7 +2025,7 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 		// must be a workflow input, e.g. #main/jobid (workflow, input)
 
 		src_base := src_array[1]
-		fmt.Println("src_base: " + src_base)
+		//fmt.Println("src_base: " + src_base)
 		// search job input
 		var this_ok bool
 		obj, this_ok = workflow_input_map[src_base]
@@ -2038,8 +2038,8 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 			// not found
 			return
 		}
-		fmt.Println("(getCWLSource) workflow_input_map:")
-		spew.Dump(workflow_input_map)
+		//fmt.Println("(getCWLSource) workflow_input_map:")
+		//spew.Dump(workflow_input_map)
 
 	} else if len(src_array) == 3 {
 		logger.Debug(3, "(getCWLSource) a step output")
@@ -2124,8 +2124,8 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 	workunit_input_map = make(map[string]cwl.CWLType) // also used for json
 
-	fmt.Println("(GetStepInputObjects) workflow_step.In:")
-	spew.Dump(workflow_step.In)
+	//fmt.Println("(GetStepInputObjects) workflow_step.In:")
+	//spew.Dump(workflow_step.In)
 
 	// 1. find all object source and Defaut
 	// 2. make a map copy to be used in javaqscript, as "inputs"
@@ -2236,8 +2236,8 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		// TODO
 
 	}
-	fmt.Println("(GetStepInputObjects) workunit_input_map after first round:\n")
-	spew.Dump(workunit_input_map)
+	//fmt.Println("(GetStepInputObjects) workunit_input_map after first round:\n")
+	//spew.Dump(workunit_input_map)
 	// 3. evaluate each ValueFrom field, update results
 
 	for _, input := range workflow_step.In {
@@ -2746,6 +2746,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		logger.Debug(3, "(updateJobTask) task.WorkflowStep != nil ")
 	}
 
+	// CWL Task completes
 	if task_state == TASK_STAT_COMPLETED && task.WorkflowStep != nil {
 		// this task belongs to a subworkflow // TODO every task should belong to a subworkflow
 		logger.Debug(3, "(updateJobTask) task_state == TASK_STAT_COMPLETED && task.WorkflowStep != nil")
@@ -2753,7 +2754,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		var subworkflow_remain_tasks int
 		subworkflow_remain_tasks, err = job.Decrease_WorkflowInstance_RemainTasks(parent_id_str)
 		if err != nil {
-			fmt.Printf("ERROR: (updateJobTask) Decrease_WorkflowInstance_RemainTasks returned: %s\n", err.Error())
+			//fmt.Printf("ERROR: (updateJobTask) Decrease_WorkflowInstance_RemainTasks returned: %s\n", err.Error())
 			err = fmt.Errorf("(updateJobTask) WorkflowInstanceDecreaseRemainTasks returned: %s", err.Error())
 			return
 		}
@@ -2871,6 +2872,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			}
 		} else {
 
+			// the job completes !
+
 			// implicit subworkflow (there is no parent)
 			wfl, err = job.CWL_collection.GetWorkflow(job.Entrypoint) // TODO: use locked function
 			if err != nil {
@@ -2906,19 +2909,19 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 			if output.OutputBinding != nil {
 				// see http://www.commonwl.org/v1.0/Workflow.html#CommandOutputBinding
-				spew.Dump(output.OutputBinding)
+				//spew.Dump(output.OutputBinding)
 				// import path
 				// use https://golang.org/pkg/path/#Match
 				// iterate over output files
-				for key, value := range workflow_inputs_map {
-					fmt.Println("key: " + key)
+				for _, value := range workflow_inputs_map {
+					//fmt.Println("key: " + key)
 
-					file, ok := value.(*cwl.File)
+					_, ok := value.(*cwl.File)
 					if !ok {
 						continue
 					}
 
-					fmt.Println("base: " + file.Basename)
+					//fmt.Println("base: " + file.Basename)
 
 				}
 
@@ -2968,22 +2971,29 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 					err = fmt.Errorf("(updateJobTask) A getCWLSource returns: %s", err.Error())
 					return
 				}
+				skip := false
 				if !ok {
-					err = fmt.Errorf("(updateJobTask) A source %s not found", outputSourceString)
-					return
+					if is_optional {
+						skip = true
+					} else {
+						err = fmt.Errorf("(updateJobTask) A source %s not found", outputSourceString)
+						return
+					}
 				}
 
-				has_type, xerr := cwl.TypeIsCorrect(expected_types, obj)
-				if xerr != nil {
-					err = fmt.Errorf("(updateJobTask) TypeIsCorrect: %s", xerr.Error())
-					return
-				}
-				if !has_type {
-					err = fmt.Errorf("(updateJobTask) A) workflow_ouput %s, does not match expected types %s", output_id, expected_types)
-					return
-				}
+				if !skip {
+					has_type, xerr := cwl.TypeIsCorrect(expected_types, obj)
+					if xerr != nil {
+						err = fmt.Errorf("(updateJobTask) TypeIsCorrect: %s", xerr.Error())
+						return
+					}
+					if !has_type {
+						err = fmt.Errorf("(updateJobTask) A) workflow_ouput %s, does not match expected types %s", output_id, expected_types)
+						return
+					}
 
-				workflow_outputs_map[output_id] = obj
+					workflow_outputs_map[output_id] = obj
+				}
 			case []string:
 				outputSourceArrayOfString := output_source.([]string)
 
@@ -3027,7 +3037,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 							err = fmt.Errorf("(updateJobTask) B) workflow_ouput %s, does not match expected types %s", output_id, expected_types)
 							return
 						}
-
+						fmt.Println("obj:")
+						spew.Dump(obj)
 						output_array = append(output_array, obj)
 					}
 				}
@@ -3040,6 +3051,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 						return
 					}
 				}
+				fmt.Println("workflow_outputs_map:")
+				spew.Dump(workflow_outputs_map)
 
 			default:
 				err = fmt.Errorf("(updateJobTask) output.OutputSource has to be string or []string, but I got type %s", spew.Sdump(output_source))
@@ -3049,8 +3062,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 		}
 
-		fmt.Println("(updateJobTask) workflow_outputs_map:")
-		spew.Dump(workflow_outputs_map)
+		//fmt.Println("(updateJobTask) workflow_outputs_map:")
+		//spew.Dump(workflow_outputs_map)
 		step_outputs := cwl.Job_document{}
 
 		if parent_id_str != "" {
@@ -3064,11 +3077,11 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 			// get step outputs from subworkflow outputs
 			for _, output := range cwl_step.Out { // output is a WorkflowStepOutput
-				fmt.Println("output: " + output.Id)
+				//fmt.Println("output: " + output.Id)
 				output_base := path.Base(output.Id)
 
 				real_name := process_name + "/" + output_base
-				fmt.Println("(updateJobTask) output real: " + real_name)
+				//fmt.Println("(updateJobTask) output real: " + real_name)
 
 				var object cwl.CWLType
 				object, ok = workflow_outputs_map[real_name]
@@ -3092,11 +3105,11 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			// the main workflow, a implicit subworkflow
 			// get outputs from subworkflow outputs
 			for _, output := range wfl.Outputs { // output is a WorkflowOutputParameter
-				fmt.Println("output: " + output.Id)
+				//fmt.Println("output: " + output.Id)
 				output_base := path.Base(output.Id)
 
 				real_name := process_name + "/" + output_base
-				fmt.Println("(updateJobTask) output real: " + real_name)
+				//fmt.Println("(updateJobTask) output real: " + real_name)
 
 				var object cwl.CWLType
 				object, ok = workflow_outputs_map[real_name]
@@ -3124,6 +3137,15 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			return
 		}
 
+		//fmt.Println("wfl.Outputs:")
+		//spew.Dump(wfl.Outputs)
+		//fmt.Println("workflow_outputs_map:")
+		//spew.Dump(workflow_outputs_map)
+		//fmt.Println("workflow_outputs_array:")
+		//spew.Dump(workflow_outputs_array)
+
+		//panic("xxxxxxx")
+
 		//workflow_instance.Outputs = step_outputs
 		err = job.Set_WorkflowInstance_Outputs(parent_id_str, workflow_outputs_array)
 		if err != nil {
@@ -3142,6 +3164,13 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			if err != nil {
 				return
 			}
+		} else {
+
+			if job_remainTasks > 0 {
+				err = fmt.Errorf("(updateJobTask) Something is wrong, last subworkflow completes, but job_remainTasks > 0 , does not make sense")
+				return
+			}
+
 		}
 	}
 

@@ -232,7 +232,7 @@ func ParseJob(job_byte_ptr *[]byte) (job_input *Job_document, err error) {
 
 	job_byte := *job_byte_ptr
 	if job_byte[0] == '-' {
-		fmt.Println("yaml list")
+		//fmt.Println("yaml list")
 		// I guess this is a yaml list
 		//job_array := []CWLType{}
 		//job_array := []map[string]interface{}{}
@@ -249,7 +249,7 @@ func ParseJob(job_byte_ptr *[]byte) (job_input *Job_document, err error) {
 		}
 
 	} else {
-		fmt.Println("yaml map")
+		//fmt.Println("yaml map")
 
 		job_map := make(map[string]interface{})
 

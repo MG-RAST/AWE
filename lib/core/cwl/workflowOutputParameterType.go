@@ -98,7 +98,7 @@ func NewWorkflowOutputParameterTypeArray(original interface{}) (result interface
 
 		for _, element := range original_array {
 
-			spew.Dump(original)
+			//spew.Dump(original)
 			wopt, xerr := NewWorkflowOutputParameterType(element)
 			if xerr != nil {
 				err = xerr

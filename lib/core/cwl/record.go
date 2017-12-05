@@ -41,10 +41,12 @@ func NewRecord(id string, native interface{}) (record *Record, err error) {
 
 		native_map, _ := native.(map[string]interface{})
 		for key_str, value := range native_map {
-
-			value_cwl, xerr := NewCWLType(key_str, value)
-			if xerr != nil {
-				err = xerr
+			var value_cwl CWLType
+			value_cwl, err = NewCWLType(key_str, value)
+			if err != nil {
+				fmt.Println("Got a record:")
+				spew.Dump(native)
+				err = fmt.Errorf("(NewRecord) %s NewCWLType returned: %s", key_str, err.Error())
 				return
 			}
 			record.Fields = append(record.Fields, value_cwl)

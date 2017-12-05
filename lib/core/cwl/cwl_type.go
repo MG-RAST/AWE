@@ -153,7 +153,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 		array, xerr := NewArray(id, native_array)
 		if xerr != nil {
-			err = fmt.Errorf("(NewCWLType) NewArray returned: ", xerr.Error())
+			err = fmt.Errorf("(NewCWLType) NewArray returned: %s", xerr.Error())
 			return
 		}
 		cwl_type = array
@@ -365,6 +365,9 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 
 		switch schema.(type) {
 		case *CommandOutputArraySchema:
+			ok = true
+			return
+		case *CommandInputArraySchema:
 			ok = true
 			return
 		case OutputArraySchema:

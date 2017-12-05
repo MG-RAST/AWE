@@ -19,10 +19,10 @@ func (e Empty) String() string { return "Empty" }
 func NewEmpty(value interface{}) (obj_empty *Empty, err error) {
 	obj_empty = &Empty{}
 
-	value_map, is_map := value.(map[string]interface{})
-	if is_map {
-		value_map["type"] = CWL_null
-	}
+	//value_map, is_map := value.(map[string]interface{})
+	//if is_map {
+	//	value_map["type"] = CWL_null
+	//}
 
 	err = mapstructure.Decode(value, &obj_empty)
 	if err != nil {

@@ -87,6 +87,14 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 			return
 		}
 		return
+	case "SchemaDefRequirement":
+		r, err = NewSchemaDefRequirement(obj)
+		if err != nil {
+			fmt.Errorf("(NewRequirement) NewSchemaDefRequirement returns: %s", err.Error())
+			return
+		}
+		return
+
 	case "SubworkflowFeatureRequirement":
 		this_r := DummyRequirement{}
 		this_r.Class = "SubworkflowFeatureRequirement"

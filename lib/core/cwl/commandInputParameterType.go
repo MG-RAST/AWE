@@ -1,11 +1,11 @@
 package cwl
 
 import (
-	"fmt"
-	"github.com/davecgh/go-spew/spew"
-	//"strings"
-	//"github.com/mitchellh/mapstructure"
-	"reflect"
+//"fmt"
+//"github.com/davecgh/go-spew/spew"
+//"strings"
+//"github.com/mitchellh/mapstructure"
+//"reflect"
 )
 
 //type CommandInputParameterType struct {
@@ -27,7 +27,7 @@ func NewCommandInputParameterTypeArray(original interface{}) (result []CWLType_T
 		for _, element := range original_array {
 
 			var cipt CWLType_Type
-			cipt, err = NewCommandInputParameterType(element)
+			cipt, err = NewCWLType_Type(element, "CommandInput")
 			if err != nil {
 				return
 			}
@@ -41,7 +41,7 @@ func NewCommandInputParameterTypeArray(original interface{}) (result []CWLType_T
 	default:
 
 		var cipt CWLType_Type
-		cipt, err = NewCommandInputParameterType(original)
+		cipt, err = NewCWLType_Type(original, "CommandInput")
 		if err != nil {
 			return
 		}
@@ -52,102 +52,102 @@ func NewCommandInputParameterTypeArray(original interface{}) (result []CWLType_T
 	return
 }
 
-func NewCommandInputParameterType(original interface{}) (result CWLType_Type, err error) {
-
-	// Try CWL_Type
-	//var cipt CommandInputParameterType
-
-	original, err = MakeStringMap(original)
-	if err != nil {
-		return
-	}
-
-	switch original.(type) {
-
-	case map[string]interface{}:
-
-		original_map, ok := original.(map[string]interface{})
-		if !ok {
-			err = fmt.Errorf("(NewCommandInputParameterType) type error")
-			return
-		}
-
-		type_str, ok := original_map["Type"]
-		if !ok {
-			type_str, ok = original_map["type"]
-		}
-
-		if !ok {
-			err = fmt.Errorf("(NewCommandInputParameterType) type error, field type not found")
-			return
-		}
-
-		switch type_str {
-		case "array":
-			schema, xerr := NewCommandOutputArraySchemaFromInterface(original_map)
-			if xerr != nil {
-				err = xerr
-				return
-			}
-			result = schema
-			return
-		case "enum":
-
-			schema, xerr := NewCommandOutputEnumSchema(original_map)
-			if xerr != nil {
-				err = xerr
-				return
-			}
-			result = schema
-			return
-
-		case "record":
-			schema, xerr := NewCommandOutputRecordSchema(original_map)
-			if xerr != nil {
-				err = xerr
-				return
-			}
-			result = schema
-			return
-
-		}
-		err = fmt.Errorf("(NewCommandInputParameterType) type %s unknown", type_str)
-		return
-
-	case string:
-		original_str := original.(string)
-
-		result, err = NewCWLType_TypeFromString(original_str)
-
-		// original_type := CWLType_Type_Basic(original_str)
-		//
-		// 		switch original_type {
-		//
-		// 		case CWL_null:
-		// 		case CWL_boolean:
-		// 		case CWL_int:
-		// 		case CWL_long:
-		// 		case CWL_float:
-		// 		case CWL_double:
-		// 		case CWL_string:
-		// 		case CWL_File:
-		// 		case CWL_Directory:
-		// 		default:
-		// 			err = fmt.Errorf("(NewCommandInputParameterType) type %s is unknown", original_str)
-		// 			return
-		// 		}
-		// 		result = original_str
-		return
-	default:
-		fmt.Printf("unknown type")
-		spew.Dump(original)
-		err = fmt.Errorf("(NewCommandInputParameterType) Type %s unknown", reflect.TypeOf(original))
-		return
-	}
-	panic("do not come here")
-	return
-
-}
+// func NewCommandInputParameterType(original interface{}) (result CWLType_Type, err error) {
+//
+// 	// Try CWL_Type
+// 	//var cipt CommandInputParameterType
+//
+// 	original, err = MakeStringMap(original)
+// 	if err != nil {
+// 		return
+// 	}
+//
+// 	switch original.(type) {
+//
+// 	case map[string]interface{}:
+//
+// 		original_map, ok := original.(map[string]interface{})
+// 		if !ok {
+// 			err = fmt.Errorf("(NewCommandInputParameterType) type error")
+// 			return
+// 		}
+//
+// 		type_str, ok := original_map["Type"]
+// 		if !ok {
+// 			type_str, ok = original_map["type"]
+// 		}
+//
+// 		if !ok {
+// 			err = fmt.Errorf("(NewCommandInputParameterType) type error, field type not found")
+// 			return
+// 		}
+//
+// 		switch type_str {
+// 		case "array":
+// 			schema, xerr := NewCommandInputArraySchemaFromInterface(original_map)
+// 			if xerr != nil {
+// 				err = xerr
+// 				return
+// 			}
+// 			result = schema
+// 			return
+// 		case "enum":
+//
+// 			schema, xerr := NewCommandInputEnumSchema(original_map)
+// 			if xerr != nil {
+// 				err = xerr
+// 				return
+// 			}
+// 			result = schema
+// 			return
+//
+// 		case "record":
+// 			schema, xerr := NewCommandInputRecordSchema(original_map)
+// 			if xerr != nil {
+// 				err = xerr
+// 				return
+// 			}
+// 			result = schema
+// 			return
+//
+// 		}
+// 		err = fmt.Errorf("(NewCommandInputParameterType) type %s unknown", type_str)
+// 		return
+//
+// 	case string:
+// 		original_str := original.(string)
+//
+// 		result, err = NewCWLType_TypeFromString(original_str)
+//
+// 		// original_type := CWLType_Type_Basic(original_str)
+// 		//
+// 		// 		switch original_type {
+// 		//
+// 		// 		case CWL_null:
+// 		// 		case CWL_boolean:
+// 		// 		case CWL_int:
+// 		// 		case CWL_long:
+// 		// 		case CWL_float:
+// 		// 		case CWL_double:
+// 		// 		case CWL_string:
+// 		// 		case CWL_File:
+// 		// 		case CWL_Directory:
+// 		// 		default:
+// 		// 			err = fmt.Errorf("(NewCommandInputParameterType) type %s is unknown", original_str)
+// 		// 			return
+// 		// 		}
+// 		// 		result = original_str
+// 		return
+// 	default:
+// 		fmt.Printf("unknown type")
+// 		spew.Dump(original)
+// 		err = fmt.Errorf("(NewCommandInputParameterType) Type %s unknown", reflect.TypeOf(original))
+// 		return
+// 	}
+// 	panic("do not come here")
+// 	return
+//
+// }
 
 //
 // func HasCommandInputParameterType(array *[]CommandInputParameterType, search_type string) (ok bool) {

@@ -9,7 +9,7 @@ type Null int
 
 func (i *Null) GetClass() string      { return string(CWL_null) } // for CWL_object
 func (i *Null) GetType() CWLType_Type { return CWL_null }
-func (i *Null) String() string        { return "null" }
+func (i *Null) String() string        { return string(CWL_null) }
 
 func (i *Null) GetId() string  { return "" } // TODO deprecated functions
 func (i *Null) SetId(x string) {}

@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -13,7 +14,7 @@ type SchemaDefRequirement struct {
 
 func (c SchemaDefRequirement) GetId() string { return "None" }
 
-func NewSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, err error) {
+func NewSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, schemata []CWLType_Type, err error) {
 
 	original_map, ok := original.(map[string]interface{})
 	if !ok {
@@ -24,12 +25,12 @@ func NewSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, err
 	types, has_types := original_map["types"]
 	if has_types {
 
-		var array []CWLType_Type
-		array, err = NewCWLType_TypeArray(types, "SchemaDefRequirement") // TODO fix context
+		//var array []CWLType_Type
+		schemata, err = NewCWLType_TypeArray(types, "SchemaDefRequirement") // TODO fix context
 		if err != nil {
 			return
 		}
-		original_map["types"] = array
+		original_map["types"] = schemata
 	}
 
 	var requirement SchemaDefRequirement
@@ -41,6 +42,8 @@ func NewSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, err
 	}
 
 	requirement.Class = "SchemaDefRequirement"
+
+	//spew.Dump(requirement)
 
 	return
 }

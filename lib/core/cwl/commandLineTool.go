@@ -35,7 +35,7 @@ func (c *CommandLineTool) Is_process()     {}
 // keyname will be converted into 'Id'-field
 
 //func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
-func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, err error) {
+func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
 
 	//fmt.Println("NewCommandLineTool:")
 	//spew.Dump(generic)
@@ -49,6 +49,19 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 
 	commandLineTool = &CommandLineTool{}
 	commandLineTool.Class = "CommandLineTool"
+
+	requirements, ok := object["requirements"]
+	if ok {
+		object["requirements"], schemata, err = CreateRequirementArray(requirements)
+		if err != nil {
+			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (requirements): %s", err.Error())
+			return
+		}
+	}
+	//scs := spew.ConfigState{Indent: "\t"}
+	//scs.Dump(object["requirements"])
+	//panic("done")
+
 	inputs, ok := object["inputs"]
 	if ok {
 		// Convert map of inputs into array of inputs
@@ -94,18 +107,9 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 	//case map[interface{}]interface{}:
 	hints, ok := object["hints"]
 	if ok {
-		object["hints"], err = CreateRequirementArray(hints)
+		object["hints"], schemata, err = CreateRequirementArray(hints)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
-			return
-		}
-	}
-
-	requirements, ok := object["requirements"]
-	if ok {
-		object["requirements"], err = CreateRequirementArray(requirements)
-		if err != nil {
-			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (requirements): %s", err.Error())
 			return
 		}
 	}

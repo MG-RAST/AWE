@@ -2,7 +2,7 @@ package cwl
 
 import (
 	"fmt"
-	//"github.com/davecgh/go-spew/spew"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"gopkg.in/mgo.v2/bson"
 	"reflect"
@@ -97,7 +97,7 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 			type_value, err = NewCommandInputParameterTypeArray(type_value)
 			if err != nil {
-				err = fmt.Errorf("(NewCommandInputParameter) NewCommandInputParameter error: %s", err.Error())
+				err = fmt.Errorf("(NewCommandInputParameter) NewCommandInputParameterTypeArray returns: %s", err.Error())
 				return
 			}
 
@@ -165,6 +165,10 @@ func CreateCommandInputArray(original interface{}) (err error, new_array []*Comm
 
 			input_parameter, xerr := NewCommandInputParameter(v)
 			if xerr != nil {
+
+				fmt.Println("CommandInputArray:")
+				spew.Dump(original)
+
 				err = fmt.Errorf("(CreateCommandInputArray) []interface{} NewCommandInputParameter returned: %s", xerr.Error())
 				return
 			}

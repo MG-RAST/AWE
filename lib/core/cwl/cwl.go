@@ -27,7 +27,7 @@ type CWLVersion string
 
 type LinkMergeMethod string // merge_nested or merge_flattened
 
-func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_object, err error) {
+func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_object, schemata []CWLType_Type, err error) {
 	//fmt.Println("(New_CWL_object) starting")
 
 	if original == nil {
@@ -63,26 +63,27 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 		case "CommandLineTool":
 			//fmt.Println("New_CWL_object CommandLineTool")
 			logger.Debug(1, "(New_CWL_object) parse CommandLineTool")
-			result, xerr := NewCommandLineTool(elem)
-			if xerr != nil {
-				err = fmt.Errorf("(New_CWL_object) NewCommandLineTool returned: %s", xerr.Error())
+			var clt *CommandLineTool
+			obj, schemata, err = NewCommandLineTool(elem)
+			if err != nil {
+				err = fmt.Errorf("(New_CWL_object) NewCommandLineTool returned: %s", err.Error())
 				return
 			}
 
-			result.CwlVersion = cwl_version
+			clt.CwlVersion = cwl_version
+			obj = clt
 
-			obj = result
 			return
 		case "Workflow":
 			//fmt.Println("New_CWL_object Workflow")
 			logger.Debug(1, "parse Workflow")
-			workflow, xerr := NewWorkflow(elem)
-			if xerr != nil {
+			obj, schemata, err = NewWorkflow(elem)
+			if err != nil {
 
-				err = fmt.Errorf("(New_CWL_object) NewWorkflow returned: %s", xerr.Error())
+				err = fmt.Errorf("(New_CWL_object) NewWorkflow returned: %s", err.Error())
 				return
 			}
-			obj = workflow
+
 			return
 		} // end switch
 
@@ -102,7 +103,7 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 	return
 }
 
-func NewCWL_object_array(original interface{}) (array CWL_object_array, err error) {
+func NewCWL_object_array(original interface{}) (array CWL_object_array, schemata []CWLType_Type, err error) {
 
 	//original, err = makeStringMap(original)
 	//if err != nil {
@@ -118,14 +119,19 @@ func NewCWL_object_array(original interface{}) (array CWL_object_array, err erro
 		org_a := original.([]interface{})
 
 		for _, element := range org_a {
-
-			cwl_object, xerr := New_CWL_object(element, "")
-			if xerr != nil {
-				err = fmt.Errorf("(NewCWL_object_array) New_CWL_object returned %s", xerr.Error())
+			var schemata_new []CWLType_Type
+			var cwl_object CWL_object
+			cwl_object, schemata_new, err = New_CWL_object(element, "")
+			if err != nil {
+				err = fmt.Errorf("(NewCWL_object_array) New_CWL_object returned %s", err.Error())
 				return
 			}
 
 			array = append(array, cwl_object)
+
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
+			}
 		}
 
 		return
@@ -137,7 +143,7 @@ func NewCWL_object_array(original interface{}) (array CWL_object_array, err erro
 
 }
 
-func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_version CWLVersion, err error) {
+func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_version CWLVersion, schemata []CWLType_Type, err error) {
 
 	graph_pos := strings.Index(yaml_str, "$graph")
 
@@ -166,13 +172,20 @@ func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_ver
 		for count, elem := range cwl_gen.Graph {
 			//fmt.Println("-------------- B Parse_cwl_document")
 
-			object, xerr := New_CWL_object(elem, cwl_version)
-			if xerr != nil {
-				err = fmt.Errorf("(Parse_cwl_document) New_CWL_object returns %s", xerr.Error())
+			var object CWL_object
+			var schemata_new []CWLType_Type
+			object, schemata_new, err = New_CWL_object(elem, cwl_version)
+			if err != nil {
+				err = fmt.Errorf("(Parse_cwl_document) New_CWL_object returns %s", err.Error())
 				return
 			}
 			//fmt.Println("-------------- C Parse_cwl_document")
 			object_array = append(object_array, object)
+
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
+			}
+
 			logger.Debug(3, "Added %d cwl objects...", count)
 			//fmt.Println("-------------- loop Parse_cwl_document")
 		} // end for
@@ -194,7 +207,8 @@ func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_ver
 		//fmt.Println("-------------- Start parsing")
 
 		var commandlinetool *CommandLineTool
-		commandlinetool, err = NewCommandLineTool(commandlinetool_if)
+		var schemata_new []CWLType_Type
+		commandlinetool, schemata_new, err = NewCommandLineTool(commandlinetool_if)
 		if err != nil {
 			err = fmt.Errorf("(Parse_cwl_document) NewCommandLineTool returned: %s", err.Error())
 			return
@@ -202,6 +216,10 @@ func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_ver
 
 		cwl_version = commandlinetool.CwlVersion
 		object_array = append(object_array, commandlinetool)
+		for i, _ := range schemata_new {
+			schemata = append(schemata, schemata_new[i])
+		}
+
 	}
 
 	return

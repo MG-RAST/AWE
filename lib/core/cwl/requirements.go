@@ -16,7 +16,7 @@ type DummyRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 }
 
-func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
+func NewRequirement(class string, obj interface{}) (r Requirement, schemata []CWLType_Type, err error) {
 
 	if class == "" {
 		err = fmt.Errorf("class name empty")
@@ -88,7 +88,7 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 		}
 		return
 	case "SchemaDefRequirement":
-		r, err = NewSchemaDefRequirement(obj)
+		r, schemata, err = NewSchemaDefRequirement(obj)
 		if err != nil {
 			fmt.Errorf("(NewRequirement) NewSchemaDefRequirement returns: %s", err.Error())
 			return
@@ -106,7 +106,7 @@ func NewRequirement(class string, obj interface{}) (r Requirement, err error) {
 	return
 }
 
-func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement, err error) {
+func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement, schemata []CWLType_Type, err error) {
 	// here the keynames are actually class names
 
 	original, err = MakeStringMap(original)
@@ -120,11 +120,15 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 	case map[string]interface{}:
 		for class_str, v := range original.(map[string]interface{}) {
 
-			requirement, xerr := NewRequirement(class_str, v)
-			if xerr != nil {
-
-				err = fmt.Errorf("(CreateRequirementArray) A NewRequirement returns: %s", xerr)
+			var schemata_new []CWLType_Type
+			var requirement Requirement
+			requirement, schemata_new, err = NewRequirement(class_str, v)
+			if err != nil {
+				err = fmt.Errorf("(CreateRequirementArray) A NewRequirement returns: %s", err)
 				return
+			}
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
 			}
 
 			new_array = append(new_array, requirement)
@@ -142,16 +146,19 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 			}
 
 			//class := CWLType_Type(class_str)
-
-			requirement, xerr := NewRequirement(class_str, v)
-			if xerr != nil {
+			var schemata_new []CWLType_Type
+			var requirement Requirement
+			requirement, schemata_new, err = NewRequirement(class_str, v)
+			if err != nil {
 				fmt.Println("CreateRequirementArray:")
 				spew.Dump(original)
 				fmt.Println("CreateRequirementArray done")
-				err = fmt.Errorf("(CreateRequirementArray) B NewRequirement returns: %s (%s)", xerr, spew.Sdump(v))
+				err = fmt.Errorf("(CreateRequirementArray) B NewRequirement returns: %s (%s)", err, spew.Sdump(v))
 				return
 			}
-
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
+			}
 			new_array = append(new_array, requirement)
 
 		}

@@ -14,12 +14,14 @@ type Record struct {
 
 func (r *Record) GetClass() string { return "record" }
 
-func (r *Record) Is_CWL_minimal() {}
+func (r *Record) Is_CWL_minimal()     {}
+func (r *Record) Is_Type()            {}
+func (r *Record) Type2String() string { return "record" }
 
 //func (r *Record) Is_CommandInputParameterType()  {}
 //func (r *Record) Is_CommandOutputParameterType() {}
 
-func NewRecord(id string, native interface{}) (record *Record, err error) {
+func NewRecord(native interface{}) (record *Record, err error) {
 
 	native, err = MakeStringMap(native)
 	if err != nil {
@@ -27,11 +29,6 @@ func NewRecord(id string, native interface{}) (record *Record, err error) {
 	}
 
 	record = &Record{}
-
-	if id != "" {
-		err = fmt.Errorf("not sure what to do with id here")
-		return
-	}
 
 	switch native.(type) {
 	case map[string]interface{}:

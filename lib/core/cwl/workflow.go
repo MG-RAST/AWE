@@ -51,7 +51,7 @@ func NewWorkflowEmpty() (w Workflow) {
 	return w
 }
 
-func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
+func NewWorkflow(original interface{}) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
 
 	// convert input map into input array
 
@@ -88,18 +88,23 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 		// convert steps to array if it is a map
 		steps, ok := object["steps"]
 		if ok {
-			err, object["steps"] = CreateWorkflowStepsArray(steps)
+			var schemata_new []CWLType_Type
+			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) CreateWorkflowStepsArray returned: %s", err.Error())
 				return
+			}
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
 			}
 		}
 
 		requirements, ok := object["requirements"]
 		if ok {
+			var schemata_new []CWLType_Type
 			//fmt.Println("---- Workflow (before CreateRequirementArray) ----")
 			//spew.Dump(object)
-			object["requirements"], err = CreateRequirementArray(requirements)
+			object["requirements"], schemata_new, err = CreateRequirementArray(requirements)
 			if err != nil {
 				fmt.Println("---- Workflow ----")
 				spew.Dump(object)
@@ -107,6 +112,9 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, err error) {
 				spew.Dump(requirements)
 				err = fmt.Errorf("(NewWorkflow) CreateRequirementArray returned: %s", err.Error())
 				return
+			}
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
 			}
 		}
 

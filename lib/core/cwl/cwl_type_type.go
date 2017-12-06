@@ -7,13 +7,10 @@ import (
 	"strings"
 )
 
-//type CWLType_Type string
 type CWLType_Type interface {
 	Is_Type()
 	Type2String() string
 }
-
-//func (s CWLType_Type) Is_CWLType_Type()
 
 type CWLType_Type_Basic string
 
@@ -120,7 +117,18 @@ func NewCWLType_Type(native interface{}, context string) (result CWLType_Type, e
 				return
 			}
 
+		} else if object_type == "record" {
+
+			result, err = NewRecord(native)
+			if err != nil {
+				err = fmt.Errorf("(NewCWLType_Type) NewRecord returned: %s", err.Error())
+			}
+			return
+
 		} else {
+
+			fmt.Println("(NewCWLType_Type) native_map:")
+			spew.Dump(native_map)
 			err = fmt.Errorf("(NewCWLType_Type) object_type %s not supported yet", object_type)
 			return
 		}

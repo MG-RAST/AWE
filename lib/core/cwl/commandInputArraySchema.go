@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"reflect"
 )
@@ -47,6 +48,8 @@ func NewCommandInputArraySchemaFromInterface(original interface{}) (coas *Comman
 			var items_type []CWLType_Type
 			items_type, err = NewCWLType_TypeArray(items, "CommandInput")
 			if err != nil {
+				fmt.Println("a CommandInputArraySchema:")
+				spew.Dump(original)
 				err = fmt.Errorf("(NewCommandInputArraySchemaFromInterface) NewCWLType_TypeArray returns: %s", err.Error())
 				return
 			}

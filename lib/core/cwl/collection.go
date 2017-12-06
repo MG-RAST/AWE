@@ -20,6 +20,8 @@ type CWL_collection struct {
 	All      map[string]*CWL_object // everything goes in here
 	//Job_input          *Job_document
 	Job_input_map *JobDocMap
+
+	Schemata map[string]CWLType_Type
 }
 
 func (c CWL_collection) Evaluate(raw string) (parsed string) {
@@ -56,6 +58,23 @@ func (c CWL_collection) Evaluate(raw string) (parsed string) {
 
 	}
 
+}
+
+func (c CWL_collection) AddSchemata(obj []CWLType_Type) (err error) {
+	for i, _ := range obj {
+		id := obj[i].GetId()
+		if id == "" {
+			err = fmt.Errorf("id empty")
+			return
+		}
+
+		_, ok := c.Schemata[id]
+		if ok {
+			return
+		}
+
+		c.Schemata[id] = obj[i]
+	}
 }
 
 func (c CWL_collection) Add(obj CWL_object) (err error) {

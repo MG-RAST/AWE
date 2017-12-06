@@ -21,7 +21,7 @@ type WorkflowStep struct {
 	ScatterMethod string               `yaml:"scatterMethod,omitempty" bson:"scatterMethod,omitempty" json:"scatterMethod,omitempty" mapstructure:"scatterMethod,omitempty"` // ScatterFeatureRequirement
 }
 
-func NewWorkflowStep(original interface{}) (w *WorkflowStep, err error) {
+func NewWorkflowStep(original interface{}) (w *WorkflowStep, schemata []CWLType_Type, err error) {
 	var step WorkflowStep
 
 	original, err = MakeStringMap(original)
@@ -54,16 +54,20 @@ func NewWorkflowStep(original interface{}) (w *WorkflowStep, err error) {
 
 		run, ok := v_map["run"]
 		if ok {
-			v_map["run"], err = NewProcess(run)
+			var schemata_new []CWLType_Type
+			v_map["run"], schemata_new, err = NewProcess(run)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) run %s", err.Error())
 				return
+			}
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
 			}
 		}
 
 		hints, ok := v_map["hints"]
 		if ok {
-			v_map["hints"], err = CreateRequirementArray(hints)
+			v_map["hints"], schemata, err = CreateRequirementArray(hints)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) CreateRequirementArray %s", err.Error())
 				return
@@ -72,7 +76,7 @@ func NewWorkflowStep(original interface{}) (w *WorkflowStep, err error) {
 
 		requirements, ok := v_map["requirements"]
 		if ok {
-			v_map["requirements"], err = CreateRequirementArray(requirements)
+			v_map["requirements"], schemata, err = CreateRequirementArray(requirements)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) CreateRequirementArray %s", err.Error())
 				return
@@ -110,7 +114,7 @@ func (w WorkflowStep) GetOutput(id string) (output *WorkflowStepOutput, err erro
 }
 
 // CreateWorkflowStepsArray
-func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]WorkflowStep) {
+func CreateWorkflowStepsArray(original interface{}) (schemata []CWLType_Type, array_ptr *[]WorkflowStep, err error) {
 
 	array := []WorkflowStep{}
 
@@ -126,9 +130,11 @@ func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]Wor
 			//fmt.Println("type: ")
 			//fmt.Println(reflect.TypeOf(v))
 
-			step, xerr := NewWorkflowStep(v)
-			if xerr != nil {
-				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", xerr.Error())
+			var schemata_new []CWLType_Type
+			var step *WorkflowStep
+			step, schemata_new, err = NewWorkflowStep(v)
+			if err != nil {
+				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
 			}
 
@@ -138,6 +144,9 @@ func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]Wor
 			//spew.Dump(step)
 			//fmt.Printf("C")
 			array = append(array, *step)
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
+			}
 			//fmt.Printf("D")
 
 		}
@@ -153,13 +162,16 @@ func CreateWorkflowStepsArray(original interface{}) (err error, array_ptr *[]Wor
 
 			//fmt.Println("type: ")
 			//fmt.Println(reflect.TypeOf(v))
-
-			step, xerr := NewWorkflowStep(v)
-			if xerr != nil {
-				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", xerr.Error())
+			var schemata_new []CWLType_Type
+			var step *WorkflowStep
+			step, schemata_new, err = NewWorkflowStep(v)
+			if err != nil {
+				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
 			}
-
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
+			}
 			//step.Id = k.(string)
 
 			//fmt.Printf("Last step\n")

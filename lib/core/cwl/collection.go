@@ -75,6 +75,7 @@ func (c CWL_collection) AddSchemata(obj []CWLType_Type) (err error) {
 
 		c.Schemata[id] = obj[i]
 	}
+	return
 }
 
 func (c CWL_collection) Add(obj CWL_object) (err error) {

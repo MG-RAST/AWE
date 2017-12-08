@@ -26,7 +26,7 @@ func (i InputParameter) GetId() string    { return i.Id }
 func (i InputParameter) SetId(id string)  { i.Id = id }
 func (i InputParameter) Is_CWL_minimal()  {}
 
-func NewInputParameter(original interface{}) (input_parameter *InputParameter, err error) {
+func NewInputParameter(original interface{}, schemata []CWLType_Type) (input_parameter *InputParameter, err error) {
 
 	//fmt.Println("---- NewInputParameter ----")
 	//spew.Dump(original)
@@ -83,7 +83,7 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 		inputParameter_type, ok := original_map["type"]
 		if ok {
 			var inputParameter_type_array []CWLType_Type
-			inputParameter_type_array, err = NewCWLType_TypeArray(inputParameter_type, "Input")
+			inputParameter_type_array, err = NewCWLType_TypeArray(inputParameter_type, schemata, "Input")
 			if err != nil {
 				fmt.Errorf("(NewInputParameter) NewCWLType_TypeArray returns: %s", err.Error())
 				return

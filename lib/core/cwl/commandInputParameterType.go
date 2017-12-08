@@ -14,7 +14,7 @@ import (
 
 // CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
 
-func NewCommandInputParameterTypeArray(original interface{}) (result []CWLType_Type, err error) {
+func NewCommandInputParameterTypeArray(original interface{}, schemata []CWLType_Type) (result []CWLType_Type, err error) {
 
 	//result = []CWLType_Type{}
 	return_array := []CWLType_Type{}
@@ -27,7 +27,7 @@ func NewCommandInputParameterTypeArray(original interface{}) (result []CWLType_T
 		for _, element := range original_array {
 
 			var cipt CWLType_Type
-			cipt, err = NewCWLType_Type(element, "CommandInput")
+			cipt, err = NewCWLType_Type(schemata, element, "CommandInput")
 			if err != nil {
 				return
 			}
@@ -41,7 +41,7 @@ func NewCommandInputParameterTypeArray(original interface{}) (result []CWLType_T
 	default:
 
 		var cipt CWLType_Type
-		cipt, err = NewCWLType_Type(original, "CommandInput")
+		cipt, err = NewCWLType_Type(schemata, original, "CommandInput")
 		if err != nil {
 			return
 		}

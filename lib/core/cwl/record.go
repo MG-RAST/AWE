@@ -10,9 +10,11 @@ import (
 type Record struct {
 	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	Fields       []CWLType `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
+	Id           string    `yaml:"-" json:"-" bson:"-"` // implements interface  CWLType_Type
 }
 
 func (r *Record) GetClass() string { return "record" }
+func (r *Record) GetId() string    { return r.Id }
 
 func (r *Record) Is_CWL_minimal()     {}
 func (r *Record) Is_Type()            {}
@@ -21,7 +23,7 @@ func (r *Record) Type2String() string { return "record" }
 //func (r *Record) Is_CommandInputParameterType()  {}
 //func (r *Record) Is_CommandOutputParameterType() {}
 
-func NewRecord(native interface{}) (record *Record, err error) {
+func NewRecord(id string, native interface{}) (record *Record, err error) {
 
 	native, err = MakeStringMap(native)
 	if err != nil {
@@ -29,7 +31,7 @@ func NewRecord(native interface{}) (record *Record, err error) {
 	}
 
 	record = &Record{}
-
+	record.Id = id
 	switch native.(type) {
 	case map[string]interface{}:
 

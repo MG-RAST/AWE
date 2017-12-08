@@ -272,7 +272,7 @@ func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CW
 		fmt.Println("This might be a record:")
 		spew.Dump(native)
 
-		record, xerr := NewRecord(native)
+		record, xerr := NewRecord(id, native)
 		if xerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewRecord returned: %s", xerr.Error())
 			return

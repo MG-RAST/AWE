@@ -65,7 +65,7 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 	inputs, ok := object["inputs"]
 	if ok {
 		// Convert map of inputs into array of inputs
-		err, object["inputs"] = CreateCommandInputArray(inputs)
+		err, object["inputs"] = CreateCommandInputArray(inputs, schemata)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateCommandInputArray: %s", err.Error())
 			return
@@ -74,7 +74,7 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 	outputs, ok := object["outputs"]
 	if ok {
 		// Convert map of outputs into array of outputs
-		object["outputs"], err = NewCommandOutputParameterArray(outputs)
+		object["outputs"], err = NewCommandOutputParameterArray(outputs, schemata)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in NewCommandOutputParameterArray: %s", err.Error())
 			return

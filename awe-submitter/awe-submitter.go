@@ -342,12 +342,14 @@ func main_wrapper() (err error) {
 	// convert CWL to string
 	yaml_str := string(yamlstream[:])
 
-	object_array, cwl_version, err := cwl.Parse_cwl_document(yaml_str)
+	object_array, cwl_version, schemata, err := cwl.Parse_cwl_document(yaml_str)
 
 	if err != nil {
 		fmt.Errorf("(main_wrapper) error in parsing cwl workflow yaml file: " + err.Error())
 		return
 	}
+
+	_ = schemata // TODO put into a collection!
 
 	// search for File objects in Document, e.g. in CommandLineTools
 	for j, object := range object_array {

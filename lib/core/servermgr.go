@@ -2938,7 +2938,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 			for _, raw_type := range expected_types_raw {
 				var type_correct cwl.CWLType_Type
-				type_correct, err = cwl.NewCWLType_Type(raw_type, "WorkflowOutput")
+				type_correct, err = cwl.NewCWLType_Type("", raw_type, "WorkflowOutput")
 				if err != nil {
 					spew.Dump(expected_types_raw)
 					fmt.Println("---")

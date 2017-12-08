@@ -60,7 +60,7 @@ func MakeStringMap(v interface{}) (result interface{}, err error) {
 	return
 }
 
-func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParameter, err error) {
+func NewCommandInputParameter(v interface{}, schemata []CWLType_Type) (input_parameter *CommandInputParameter, err error) {
 
 	//fmt.Println("NewCommandInputParameter:\n")
 	//spew.Dump(v)
@@ -95,7 +95,7 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 		type_value, ok := v_map["type"]
 		if ok {
 
-			type_value, err = NewCommandInputParameterTypeArray(type_value)
+			type_value, err = NewCommandInputParameterTypeArray(type_value, schemata)
 			if err != nil {
 				err = fmt.Errorf("(NewCommandInputParameter) NewCommandInputParameterTypeArray returns: %s", err.Error())
 				return
@@ -135,7 +135,7 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 // keyname will be converted into 'Id'-field
 // array<CommandInputParameter> | map<CommandInputParameter.id, CommandInputParameter.type> | map<CommandInputParameter.id, CommandInputParameter>
-func CreateCommandInputArray(original interface{}) (err error, new_array []*CommandInputParameter) {
+func CreateCommandInputArray(original interface{}, schemata []CWLType_Type) (err error, new_array []*CommandInputParameter) {
 
 	//fmt.Println("CreateCommandInputArray:\n")
 	//spew.Dump(original)
@@ -147,7 +147,7 @@ func CreateCommandInputArray(original interface{}) (err error, new_array []*Comm
 
 			//var input_parameter CommandInputParameter
 			//mapstructure.Decode(v, &input_parameter)
-			input_parameter, xerr := NewCommandInputParameter(v)
+			input_parameter, xerr := NewCommandInputParameter(v, schemata)
 			if xerr != nil {
 				err = fmt.Errorf("(CreateCommandInputArray) map[interface{}]interface{} NewCommandInputParameter returned: %s", xerr.Error())
 				return
@@ -163,7 +163,7 @@ func CreateCommandInputArray(original interface{}) (err error, new_array []*Comm
 	case []interface{}:
 		for _, v := range original.([]interface{}) {
 
-			input_parameter, xerr := NewCommandInputParameter(v)
+			input_parameter, xerr := NewCommandInputParameter(v, schemata)
 			if xerr != nil {
 
 				fmt.Println("CommandInputArray:")

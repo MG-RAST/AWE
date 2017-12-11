@@ -2936,9 +2936,16 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 			is_optional := false
 
+			var schemata []cwl.CWLType_Type
+			schemata, err = job.CWL_collection.GetSchemata()
+			if err != nil {
+				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata returned: ", err.Error())
+				return
+			}
+
 			for _, raw_type := range expected_types_raw {
 				var type_correct cwl.CWLType_Type
-				type_correct, err = cwl.NewCWLType_Type("", raw_type, "WorkflowOutput")
+				type_correct, err = cwl.NewCWLType_Type(schemata, raw_type, "WorkflowOutput")
 				if err != nil {
 					spew.Dump(expected_types_raw)
 					fmt.Println("---")

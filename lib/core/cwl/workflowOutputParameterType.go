@@ -22,7 +22,7 @@ type OutputEnumSchema struct{}
 
 // CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
 
-func NewWorkflowOutputParameterType(original interface{}) (result interface{}, err error) {
+func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Type) (result interface{}, err error) {
 	//wopt := WorkflowOutputParameterType{}
 	//wopt_ptr = &wopt
 
@@ -36,7 +36,7 @@ func NewWorkflowOutputParameterType(original interface{}) (result interface{}, e
 
 		result_str := original.(string)
 
-		result, err = NewCWLType_TypeFromString(result_str)
+		result, err = NewCWLType_TypeFromString(schemata, result_str, "WorkflowOutput")
 		if err != nil {
 			return
 		}
@@ -76,14 +76,14 @@ func NewWorkflowOutputParameterType(original interface{}) (result interface{}, e
 	return
 }
 
-func NewWorkflowOutputParameterTypeArray(original interface{}) (result interface{}, err error) {
+func NewWorkflowOutputParameterTypeArray(original interface{}, schemata []CWLType_Type) (result interface{}, err error) {
 
 	wopta := []interface{}{}
 
 	switch original.(type) {
 	case map[interface{}]interface{}:
 
-		wopt, xerr := NewWorkflowOutputParameterType(original)
+		wopt, xerr := NewWorkflowOutputParameterType(original, schemata)
 		if xerr != nil {
 			err = xerr
 			return
@@ -99,7 +99,7 @@ func NewWorkflowOutputParameterTypeArray(original interface{}) (result interface
 		for _, element := range original_array {
 
 			//spew.Dump(original)
-			wopt, xerr := NewWorkflowOutputParameterType(element)
+			wopt, xerr := NewWorkflowOutputParameterType(element, schemata)
 			if xerr != nil {
 				err = xerr
 				return
@@ -111,7 +111,7 @@ func NewWorkflowOutputParameterTypeArray(original interface{}) (result interface
 		return
 	case string:
 
-		wopt, xerr := NewWorkflowOutputParameterType(original)
+		wopt, xerr := NewWorkflowOutputParameterType(original, schemata)
 		if xerr != nil {
 			err = xerr
 			return

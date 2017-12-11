@@ -135,7 +135,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		// convert CWL to string
 		yaml_str := string(yamlstream[:])
 
-		object_array, cwl_version, err := cwl.Parse_cwl_document(yaml_str)
+		var schemata []cwl.CWLType_Type
+		object_array, cwl_version, schemata, err := cwl.Parse_cwl_document(yaml_str)
 		if err != nil {
 			cx.RespondWithErrorMessage("error in parsing cwl workflow yaml file: "+err.Error(), http.StatusBadRequest)
 			return
@@ -148,6 +149,12 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			return
 		}
 		logger.Debug(1, "Parse_cwl_document done")
+
+		err = collection.AddSchemata(schemata)
+		if err != nil {
+			cx.RespondWithErrorMessage("error in adding schemata: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 
 		entrypoint := ""
 

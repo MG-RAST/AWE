@@ -20,7 +20,7 @@ type WorkflowOutputParameter struct {
 	Type           []interface{}         `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` //WorkflowOutputParameterType TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
 }
 
-func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParameter, err error) {
+func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type) (wop *WorkflowOutputParameter, err error) {
 	var output_parameter WorkflowOutputParameter
 
 	original, err = MakeStringMap(original)
@@ -33,14 +33,14 @@ func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParame
 	case map[string]interface{}:
 		original_map, ok := original.(map[string]interface{})
 		if !ok {
-			err = fmt.Errorf("(NewWorkflowOutputParameter) type switch error %s", err.Error())
+			err = fmt.Errorf("(NewWorkflowOutputParameter) type switch error")
 			return
 		}
 
 		wop_type, ok := original_map["type"]
 		if ok {
 
-			wop_type_array, xerr := NewWorkflowOutputParameterTypeArray(wop_type)
+			wop_type_array, xerr := NewWorkflowOutputParameterTypeArray(wop_type, schemata)
 			if xerr != nil {
 				err = fmt.Errorf("from NewWorkflowOutputParameterTypeArray: %s", xerr.Error())
 				return
@@ -110,7 +110,7 @@ func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParame
 }
 
 // WorkflowOutputParameter
-func NewWorkflowOutputParameterArray(original interface{}) (new_array_ptr *[]WorkflowOutputParameter, err error) {
+func NewWorkflowOutputParameterArray(original interface{}, schemata []CWLType_Type) (new_array_ptr *[]WorkflowOutputParameter, err error) {
 
 	new_array := []WorkflowOutputParameter{}
 	switch original.(type) {
@@ -118,7 +118,7 @@ func NewWorkflowOutputParameterArray(original interface{}) (new_array_ptr *[]Wor
 		for k, v := range original.(map[interface{}]interface{}) {
 			//fmt.Printf("A")
 
-			output_parameter, xerr := NewWorkflowOutputParameter(v)
+			output_parameter, xerr := NewWorkflowOutputParameter(v, schemata)
 			if xerr != nil {
 				err = xerr
 				return
@@ -136,7 +136,7 @@ func NewWorkflowOutputParameterArray(original interface{}) (new_array_ptr *[]Wor
 		for _, v := range original.([]interface{}) {
 			//fmt.Printf("A")
 
-			output_parameter, xerr := NewWorkflowOutputParameter(v)
+			output_parameter, xerr := NewWorkflowOutputParameter(v, schemata)
 			if xerr != nil {
 				err = xerr
 				return

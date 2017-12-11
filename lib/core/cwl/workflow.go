@@ -69,7 +69,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, schemata []CWLTy
 		object := original.(map[string]interface{})
 		inputs, ok := object["inputs"]
 		if ok {
-			err, object["inputs"] = NewInputParameterArray(inputs)
+			err, object["inputs"] = NewInputParameterArray(inputs, schemata)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) NewInputParameterArray returned: %s", err.Error())
 				return
@@ -78,7 +78,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, schemata []CWLTy
 
 		outputs, ok := object["outputs"]
 		if ok {
-			object["outputs"], err = NewWorkflowOutputParameterArray(outputs)
+			object["outputs"], err = NewWorkflowOutputParameterArray(outputs, schemata)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) NewWorkflowOutputParameterArray returned: %s", err.Error())
 				return

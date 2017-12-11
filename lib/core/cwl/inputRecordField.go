@@ -1,0 +1,67 @@
+package cwl
+
+import ()
+
+// http://www.commonwl.org/v1.0/CommandLineTool.html#InputRecordField
+type InputRecordField struct {
+	Name         string              `yaml:"name,omitempty" json:"name,omitempty" bson:"name,omitempty"`
+	Type         interface{}         `yaml:"type,omitempty" json:"type,omitempty" bson:"type,omitempty"` // CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
+	Doc          string              `yaml:"doc,omitempty" json:"doc,omitempty" bson:"doc,omitempty"`
+	InputBinding *CommandLineBinding `yaml:"inputBinding,omitempty" json:"inputBinding,omitempty" bson:"inputBinding,omitempty"`
+	Label        string              `yaml:"label,omitempty" json:"label,omitempty" bson:"label,omitempty"`
+}
+
+func NewInputRecordFieldFromInterface(native interface{}) (irf *InputRecordField, err error) {
+
+	native, err = MakeStringMap(native)
+	if err != nil {
+		return
+	}
+
+	switch native.(type) {
+	case map[string]interface{}:
+		native_map, ok := native.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("(NewInputRecordFieldFromInterface) type switch error")
+			return
+		}
+
+		irf = &InputRecordField{}
+
+		name, has_name := native_map["name"]
+		if has_name {
+			var ok bool
+			irs.Name, ok = name.(string)
+			if !ok {
+				err = fmt.Errorf("(NewInputRecordFieldFromInterface) type error for name")
+				return
+			}
+		}
+
+		label, has_label := native_map["label"]
+		if has_label {
+			var ok bool
+			irs.Label, ok = label.(string)
+			if !ok {
+				err = fmt.Errorf("(NewInputRecordFieldFromInterface) type error for label")
+				return
+			}
+		}
+
+		the_type, has_type := native_map["type"]
+		if has_label {
+			var ok bool
+			irs.Type, err = NewCWLTypeArray()
+			if !ok {
+				err = fmt.Errorf("(NewInputRecordFieldFromInterface) type error for label")
+				return
+			}
+		}
+
+	default:
+		err = fmt.Errorf("(NewInputRecordFieldFromInterface) unknown type")
+		return
+	}
+
+	return
+}

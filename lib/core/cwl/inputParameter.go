@@ -45,7 +45,7 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type) (input_par
 		type_string := original.(string)
 
 		var original_type CWLType_Type
-		original_type, err = NewCWLType_TypeFromString(type_string)
+		original_type, err = NewCWLType_TypeFromString(schemata, type_string, "Input")
 		if err != nil {
 			err = fmt.Errorf("(NewInputParameter) NewCWLType_TypeFromString returned: %s", err.Error())
 			return
@@ -116,7 +116,7 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type) (input_par
 }
 
 // InputParameter
-func NewInputParameterArray(original interface{}) (err error, new_array []InputParameter) {
+func NewInputParameterArray(original interface{}, schemata []CWLType_Type) (err error, new_array []InputParameter) {
 
 	switch original.(type) {
 	case map[interface{}]interface{}:
@@ -130,7 +130,7 @@ func NewInputParameterArray(original interface{}) (err error, new_array []InputP
 				return
 			}
 
-			input_parameter, xerr := NewInputParameter(v)
+			input_parameter, xerr := NewInputParameter(v, schemata)
 			if xerr != nil {
 				err = fmt.Errorf("(NewInputParameterArray) A NewInputParameter returned: %s", xerr.Error())
 				return
@@ -153,7 +153,7 @@ func NewInputParameterArray(original interface{}) (err error, new_array []InputP
 		for _, v := range original_array {
 			//fmt.Printf("A")
 
-			input_parameter, xerr := NewInputParameter(v)
+			input_parameter, xerr := NewInputParameter(v, schemata)
 			if xerr != nil {
 				err = fmt.Errorf("(NewInputParameterArray) B NewInputParameter returned: %s", xerr.Error())
 				return

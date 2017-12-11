@@ -61,6 +61,7 @@ func (c CWL_collection) Evaluate(raw string) (parsed string) {
 }
 
 func (c CWL_collection) AddSchemata(obj []CWLType_Type) (err error) {
+	fmt.Printf("(AddSchemata)\n")
 	for i, _ := range obj {
 		id := obj[i].GetId()
 		if id == "" {
@@ -68,12 +69,22 @@ func (c CWL_collection) AddSchemata(obj []CWLType_Type) (err error) {
 			return
 		}
 
+		fmt.Printf("Adding %s\n", id)
+
 		_, ok := c.Schemata[id]
 		if ok {
 			return
 		}
 
 		c.Schemata[id] = obj[i]
+	}
+	return
+}
+
+func (c CWL_collection) GetSchemata() (obj []CWLType_Type, err error) {
+	obj = []CWLType_Type{}
+	for _, schema := range c.Schemata {
+		obj = append(obj, schema)
 	}
 	return
 }

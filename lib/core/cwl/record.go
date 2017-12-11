@@ -10,7 +10,7 @@ import (
 type Record struct {
 	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	Fields       []CWLType `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
-	Id           string    `yaml:"-" json:"-" bson:"-"` // implements interface  CWLType_Type
+	Id           string    `yaml:"-" json:"-" bson:"id"` // implements interface  CWLType_Type
 }
 
 func (r *Record) GetClass() string { return "record" }

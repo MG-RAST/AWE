@@ -21,6 +21,11 @@ func (s CWLType_Type_Basic) GetId() string       { return "" }
 
 func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context string) (result CWLType_Type, err error) {
 
+	if native == "" {
+		err = fmt.Errorf("(NewCWLType_TypeFromString) string is empty")
+		return
+	}
+
 	if strings.HasSuffix(native, "[]") {
 
 		// is array
@@ -52,6 +57,17 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 	result, ok := IsValidType(native)
 
 	if !ok {
+
+		for _, schema := range schemata {
+			id := schema.GetId()
+			fmt.Printf("found id: \"%s\"\n", id)
+			if id == native {
+				result = schema
+				return
+			}
+
+		}
+
 		err = fmt.Errorf("(NewCWLType_TypeFromString) type %s unkown", native)
 		return
 	}
@@ -121,11 +137,21 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 
 		} else if object_type == "record" {
 
-			result, err = NewRecord("", native)
-			if err != nil {
-				err = fmt.Errorf("(NewCWLType_Type) NewRecord returned: %s", err.Error())
+			switch context {
+			case "Input": // InputRecordSchema
+				result, err = NewInputRecordSchemaFromInterface(native, schemata)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType_Type) NewInputRecordSchemaFromInterface returned: %s", err.Error())
+				}
+				return
+			case "CommandInput":
+
+			case "CommandOutput":
+
+			default:
+				err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
+				return
 			}
-			return
 
 		} else {
 
@@ -161,7 +187,7 @@ func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, context s
 
 		if type_value == "array" {
 			var array_schema *CommandOutputArraySchema
-			array_schema, err = NewCommandOutputArraySchemaFromInterface(original_map)
+			array_schema, err = NewCommandOutputArraySchemaFromInterface(original_map, schemata)
 			if err != nil {
 				return
 			}
@@ -188,7 +214,7 @@ func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, context s
 		type_array := []CWLType_Type{}
 		for _, element_str := range native_array {
 			var element_type CWLType_Type
-			element_type, err = NewCWLType_TypeFromString(schemata, native_str, context)
+			element_type, err = NewCWLType_TypeFromString(schemata, element_str, context)
 			if err != nil {
 				return
 			}

@@ -469,7 +469,7 @@ func (job *Job) Init() (changed bool, err error) {
 
 		err = collection.AddSchemata(schemata_new)
 		if err != nil {
-			fmt.Errorf("(job.Init) AddSchemata returned: %s", err.Error())
+			err = fmt.Errorf("(job.Init) AddSchemata returned: %s", err.Error())
 			return
 		}
 

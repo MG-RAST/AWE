@@ -216,8 +216,8 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 
 		rec := native.(*cwl.Record)
 
-		for k, _ := range rec.Fields {
-			value := rec.Fields[k]
+		for _, value := range *rec {
+			//value := rec.Fields[k]
 			var sub_count int
 			sub_count, err = processInputData(value, inputfile_path)
 			if err != nil {
@@ -225,6 +225,23 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 			}
 			count += sub_count
 		}
+
+	case cwl.Record:
+
+		rec := native.(cwl.Record)
+
+		for _, value := range rec {
+			//value := rec.Fields[k]
+			var sub_count int
+			sub_count, err = processInputData(value, inputfile_path)
+			if err != nil {
+				return
+			}
+			count += sub_count
+		}
+	case string:
+		//fmt.Printf("found Null\n")
+		return
 
 	case *cwl.Null:
 		//fmt.Printf("found Null\n")

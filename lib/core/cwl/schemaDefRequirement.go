@@ -4,6 +4,7 @@ import (
 	"fmt"
 	//"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
+	"reflect"
 )
 
 // http://www.commonwl.org/v1.0/Workflow.html#SchemaDefRequirement
@@ -16,9 +17,14 @@ func (c SchemaDefRequirement) GetId() string { return "None" }
 
 func NewSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, schemata []CWLType_Type, err error) {
 
+	original, err = MakeStringMap(original)
+	if err != nil {
+		return
+	}
+
 	original_map, ok := original.(map[string]interface{})
 	if !ok {
-		err = fmt.Errorf("(NewSchemaDefRequirement) type error")
+		err = fmt.Errorf("(NewSchemaDefRequirement) type error, got: %s", reflect.TypeOf(original))
 		return
 	}
 

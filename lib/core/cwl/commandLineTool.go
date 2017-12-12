@@ -60,7 +60,6 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 	}
 	scs := spew.ConfigState{Indent: "\t"}
 	scs.Dump(object["requirements"])
-	panic("done")
 
 	inputs, ok := object["inputs"]
 	if ok {

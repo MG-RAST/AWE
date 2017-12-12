@@ -1,10 +1,10 @@
 package cwl
 
 import (
-	//"fmt"
+	"fmt"
 	//"reflect"
-	//"github.com/davecgh/go-spew/spew"
 	"encoding/json"
+	"github.com/davecgh/go-spew/spew"
 )
 
 type Array []CWLType
@@ -34,9 +34,13 @@ func NewArray(id string, native interface{}) (array_ptr *Array, err error) {
 		array := Array{}
 		for _, value := range native_array {
 
-			value_cwl, xerr := NewCWLType("", value)
-			if xerr != nil {
-				err = xerr
+			var value_cwl CWLType
+			value_cwl, err = NewCWLType("", value)
+			if err != nil {
+				fmt.Println("NewArray element:")
+				spew.Dump(value)
+
+				err = fmt.Errorf("(NewArray) NewCWLType returned: %s", err.Error())
 				return
 			}
 

@@ -1,6 +1,9 @@
 package cwl
 
-import ()
+import (
+	"fmt"
+	"reflect"
+)
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#InputRecordField
 type InputRecordField struct {
@@ -31,9 +34,9 @@ func NewInputRecordFieldFromInterface(native interface{}) (irf *InputRecordField
 		name, has_name := native_map["name"]
 		if has_name {
 			var ok bool
-			irs.Name, ok = name.(string)
+			irf.Name, ok = name.(string)
 			if !ok {
-				err = fmt.Errorf("(NewInputRecordFieldFromInterface) type error for name")
+				err = fmt.Errorf("(NewInputRecordFieldFromInterface) type error for name (%s)", reflect.TypeOf(name))
 				return
 			}
 		}
@@ -41,26 +44,66 @@ func NewInputRecordFieldFromInterface(native interface{}) (irf *InputRecordField
 		label, has_label := native_map["label"]
 		if has_label {
 			var ok bool
-			irs.Label, ok = label.(string)
+			irf.Label, ok = label.(string)
 			if !ok {
-				err = fmt.Errorf("(NewInputRecordFieldFromInterface) type error for label")
+				err = fmt.Errorf("(NewInputRecordFieldFromInterface) type error for label (%s)", reflect.TypeOf(label))
+				return
+			}
+		}
+
+		doc, has_doc := native_map["doc"]
+		if has_doc {
+			var ok bool
+			irf.Doc, ok = doc.(string)
+			if !ok {
+				err = fmt.Errorf("(NewInputRecordFieldFromInterface) type error for doc (%s)", reflect.TypeOf(doc))
 				return
 			}
 		}
 
 		the_type, has_type := native_map["type"]
-		if has_label {
-			var ok bool
-			irs.Type, err = NewCWLTypeArray()
-			if !ok {
-				err = fmt.Errorf("(NewInputRecordFieldFromInterface) type error for label")
+		if has_type {
+
+			irf.Type, err = NewCWLTypeArray(the_type, "")
+			if err != nil {
+				err = fmt.Errorf("(NewInputRecordFieldFromInterface) NewCWLTypeArray returned: %s", err.Error())
 				return
 			}
 		}
 
+		inputBinding, has_inputBinding := native_map["inputBinding"]
+		if has_type {
+
+			irf.InputBinding, err = NewIinputBinding(the_type, "")
+			if err != nil {
+				err = fmt.Errorf("(NewInputRecordFieldFromInterface) NewCWLTypeArray returned: %s", err.Error())
+				return
+			}
+		}
+
+		return
+
 	default:
 		err = fmt.Errorf("(NewInputRecordFieldFromInterface) unknown type")
 		return
+	}
+
+	return
+}
+
+func CreateInputRecordFieldArray(native []interface{}) (irfa []InputRecordField, err error) {
+
+	for _, elem := range native {
+
+		var irf *InputRecordField
+		irf, err = NewInputRecordFieldFromInterface(elem)
+		if err != nil {
+			err = fmt.Errorf("(CreateInputRecordFieldArray) returned: %s", err.Error())
+			return
+
+		}
+
+		irfa = append(irfa, *irf)
 	}
 
 	return

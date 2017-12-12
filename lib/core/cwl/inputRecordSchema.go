@@ -2,7 +2,8 @@ package cwl
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
+	"reflect"
 )
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#InputRecordSchema
@@ -10,11 +11,12 @@ type InputRecordSchema struct {
 	Type   string
 	Fields []InputRecordField `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
 	Label  string             `yaml:"label,omitempty" json:"label,omitempty" bson:"label,omitempty"`
-	Id     string             `yaml:"-" json:"-" bson:"id,omitempty"`
+	Name   string             `yaml:"name,omitempty" json:"name,omitempty" bson:"name,omitempty"`
+	//Id     string             `yaml:"-" json:"-" bson:"id,omitempty"`
 }
 
 //func (r *InputRecordSchema) GetClass() string { return "record" }
-func (r *InputRecordSchema) GetId() string { return r.Id }
+func (r *InputRecordSchema) GetId() string { return r.Name }
 
 //func (r *InputRecordSchema) Is_CWL_minimal()     {}
 func (r *InputRecordSchema) Is_Type() {}
@@ -43,7 +45,7 @@ func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Ty
 			var ok bool
 			irs.Type, ok = the_type.(string)
 			if !ok {
-				err = fmt.Errorf("(NewInputRecordSchemaFromInterface) type error")
+				err = fmt.Errorf("(NewInputRecordSchemaFromInterface) type error ()%s)", reflect.TypeOf(the_type))
 				return
 			}
 		}
@@ -53,28 +55,44 @@ func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Ty
 			var ok bool
 			irs.Label, ok = label.(string)
 			if !ok {
-				err = fmt.Errorf("(NewInputRecordSchemaFromInterface) type error for label")
+				err = fmt.Errorf("(NewInputRecordSchemaFromInterface) type error for label (%s)", reflect.TypeOf(label))
 				return
 			}
 		}
 
-		id, has_id := native_map["id"]
-		if has_id {
+		name, has_name := native_map["name"]
+		if has_name {
 			var ok bool
-			irs.Id, ok = id.(string)
+			irs.Name, ok = name.(string)
 			if !ok {
-				err = fmt.Errorf("(NewInputRecordSchemaFromInterface) type error for id")
+				err = fmt.Errorf("(NewInputRecordSchemaFromInterface) type error for name (%s)", reflect.TypeOf(name))
 				return
 			}
 		}
+
+		fields, has_fields := native_map["fields"]
+		if !has_fields {
+			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) no fields")
+			return
+		}
+
+		var fields_array []interface{}
+		fields_array, ok = fields.([]interface{})
+		if !ok {
+			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) fields is not array")
+			return
+		}
+
+		irs.Fields, err = CreateInputRecordFieldArray(fields_array)
+		if err != nil {
+			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) CreateInputRecordFieldArray returns: %s", err.Error())
+			return
+		}
+		return
 	default:
 		err = fmt.Errorf("(NewInputRecordSchemaFromInterface) error")
 		return
 	}
-
-	spew.Dump(native)
-
-	panic("blubb")
 
 	return
 

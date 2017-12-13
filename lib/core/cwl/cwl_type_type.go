@@ -156,17 +156,16 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 		} else if object_type == "enum" {
 
 			switch context {
-				case "Input":
-					result, err = NewInputEnumSchemaFromInterface(native, schemata)
-					if err != nil {
-						err = fmt.Errorf("(NewCWLType_Type) NewInputEnumSchemaFromInterface returned: %s", err.Error())
-					}
-					return
-					
-					
-				default:
-					err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
-					return
+			case "Input":
+				result, err = NewInputEnumSchemaFromInterface(native)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType_Type) NewInputEnumSchemaFromInterface returned: %s", err.Error())
+				}
+				return
+
+			default:
+				err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
+				return
 			}
 		} else {
 
@@ -189,29 +188,26 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 
 func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, context string) (result []CWLType_Type, err error) {
 
+	native, err = MakeStringMap(native)
+	if err != nil {
+		return
+	}
+
 	switch native.(type) {
 	case map[string]interface{}:
 
 		original_map := native.(map[string]interface{})
 
-		type_value, has_type := original_map["type"]
-		if !has_type {
-			err = fmt.Errorf("(NewCWLType_TypeArray) type not found")
+		var new_type CWLType_Type
+		new_type, err = NewCWLType_Type(schemata, original_map, context)
+
+		if err != nil {
+			err = fmt.Errorf("(NewCWLType_TypeArray) NewCWLType_Type returns: %s", err.Error())
 			return
 		}
 
-		if type_value == "array" {
-			var array_schema *CommandOutputArraySchema
-			array_schema, err = NewCommandOutputArraySchemaFromInterface(original_map, schemata)
-			if err != nil {
-				return
-			}
-			result = []CWLType_Type{array_schema}
-			return
-		} else {
-			err = fmt.Errorf("(NewCWLType_TypeArray) type %s unknown", type_value)
-			return
-		}
+		result = []CWLType_Type{new_type}
+		return
 
 	case string:
 		native_str := native.(string)

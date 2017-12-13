@@ -2,19 +2,20 @@ package cwl
 
 import (
 	"fmt"
+	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 )
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#InputRecordField
 type InputRecordField struct {
 	Name         string              `yaml:"name,omitempty" json:"name,omitempty" bson:"name,omitempty"`
-	Type         interface{}         `yaml:"type,omitempty" json:"type,omitempty" bson:"type,omitempty"` // CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
+	Type         []CWLType_Type      `yaml:"type,omitempty" json:"type,omitempty" bson:"type,omitempty"` // CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
 	Doc          string              `yaml:"doc,omitempty" json:"doc,omitempty" bson:"doc,omitempty"`
 	InputBinding *CommandLineBinding `yaml:"inputBinding,omitempty" json:"inputBinding,omitempty" bson:"inputBinding,omitempty"`
 	Label        string              `yaml:"label,omitempty" json:"label,omitempty" bson:"label,omitempty"`
 }
 
-func NewInputRecordFieldFromInterface(native interface{}) (irf *InputRecordField, err error) {
+func NewInputRecordFieldFromInterface(native interface{}, schemata []CWLType_Type) (irf *InputRecordField, err error) {
 
 	native, err = MakeStringMap(native)
 	if err != nil {
@@ -64,11 +65,12 @@ func NewInputRecordFieldFromInterface(native interface{}) (irf *InputRecordField
 		the_type, has_type := native_map["type"]
 		if has_type {
 
-			irf.Type, err = NewCWLTypeArray(the_type, "")
+			irf.Type, err = NewCWLType_TypeArray(the_type, schemata, "Input")
 			if err != nil {
 				err = fmt.Errorf("(NewInputRecordFieldFromInterface) NewCWLTypeArray returned: %s", err.Error())
 				return
 			}
+
 		}
 
 		inputBinding, has_inputBinding := native_map["inputBinding"]
@@ -91,12 +93,12 @@ func NewInputRecordFieldFromInterface(native interface{}) (irf *InputRecordField
 	return
 }
 
-func CreateInputRecordFieldArray(native []interface{}) (irfa []InputRecordField, err error) {
+func CreateInputRecordFieldArray(native []interface{}, schemata []CWLType_Type) (irfa []InputRecordField, err error) {
 
 	for _, elem := range native {
 
 		var irf *InputRecordField
-		irf, err = NewInputRecordFieldFromInterface(elem)
+		irf, err = NewInputRecordFieldFromInterface(elem, schemata)
 		if err != nil {
 			err = fmt.Errorf("(CreateInputRecordFieldArray) returned: %s", err.Error())
 			return

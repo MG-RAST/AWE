@@ -89,6 +89,6 @@ func GetJobCount(q bson.M) (count int, err error) {
 
 // patch the admin view data function from the job controller through to the db.go
 func GetAdminView(special string) (data []interface{}, err error) {
-    data, err = dbAdminData(special)
-    return
+	data, err = dbAdminData(special)
+	return
 }

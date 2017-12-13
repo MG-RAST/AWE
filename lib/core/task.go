@@ -147,6 +147,16 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	//	err = fmt.Errorf("(InitRaw) taskname is error")
 	//	return
 	//}
+    
+    if task.TaskName == "" && strings.HasPrefix(task.Id, job_prefix) {
+        var tid Task_Unique_Identifier
+        tid, err = task.New_Task_Unique_Identifier_FromString(task.Id)
+		if err != nil {
+			err = fmt.Errorf("(InitRaw) New_Task_Unique_Identifier_FromString returned: %s", err.Error())
+			return
+		}
+        task.Task_Unique_Identifier = tid
+    }
 
 	var task_str string
 	task_str, err = task.String()

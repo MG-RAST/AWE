@@ -72,9 +72,9 @@ func NewInputRecordFieldFromInterface(native interface{}) (irf *InputRecordField
 		}
 
 		inputBinding, has_inputBinding := native_map["inputBinding"]
-		if has_type {
+		if has_inputBinding {
 
-			irf.InputBinding, err = NewIinputBinding(the_type, "")
+			irf.InputBinding, err = NewCommandLineBinding(inputBinding)
 			if err != nil {
 				err = fmt.Errorf("(NewInputRecordFieldFromInterface) NewCWLTypeArray returned: %s", err.Error())
 				return

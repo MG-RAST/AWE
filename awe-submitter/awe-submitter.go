@@ -433,6 +433,9 @@ func main_wrapper() (err error) {
 		err = fmt.Errorf("(main_wrapper) keyword graph not found")
 		return
 	}
+
+	fmt.Println(new_document_str)
+	panic("hhhh")
 	new_document_bytes = []byte(new_document_str)
 
 	// this needs to be a file so we can run "cwl-runner --pack""

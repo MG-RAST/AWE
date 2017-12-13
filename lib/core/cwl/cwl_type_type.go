@@ -153,6 +153,21 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 				return
 			}
 
+		} else if object_type == "enum" {
+
+			switch context {
+				case "Input":
+					result, err = NewInputEnumSchemaFromInterface(native, schemata)
+					if err != nil {
+						err = fmt.Errorf("(NewCWLType_Type) NewInputEnumSchemaFromInterface returned: %s", err.Error())
+					}
+					return
+					
+					
+				default:
+					err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
+					return
+			}
 		} else {
 
 			fmt.Println("(NewCWLType_Type) native_map:")

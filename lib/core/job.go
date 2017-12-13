@@ -789,7 +789,7 @@ func (job *Job) SetState(newState string, oldstates []string) (err error) {
 		}
 		if !matched {
 			oldstates_str := strings.Join(oldstates, ",")
-			err = fmt.Errorf("(SetState) old state %s does not match one of the required ones (required: %s)", job_state, oldstates_str)
+			err = fmt.Errorf("(SetState) newState: %s, old state %s does not match one of the required ones (required: %s)", newState, job_state, oldstates_str)
 			return
 		}
 	}

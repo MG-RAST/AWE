@@ -304,7 +304,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		job, err = core.CreateJobUpload(_user, files)
 
 		if err != nil {
-			logger.Error("Err@job_Create:CreateJobUpload: " + err.Error())
+			err = fmt.Errorf("(JobController/Create) CreateJobUpload returned: %s", err.Error())
+			logger.Error(err.Error())
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -317,6 +318,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	} else {
 		err = job.SetDataToken(token)
 		if err != nil {
+			err = fmt.Errorf("(JobController/Create) SetDataToken returned: %s", err.Error())
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -325,6 +327,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	err = job.Save() // note that the job only goes into mongo, not into memory yet (EnqueueTasksByJobId is dowing that)
 	if err != nil {
+		err = fmt.Errorf("(JobController/Create) job.Save returned: %s", err.Error())
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -343,6 +346,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	if !has_import {
 		err = core.QMgr.EnqueueTasksByJobId(job.Id)
 		if err != nil {
+			err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}

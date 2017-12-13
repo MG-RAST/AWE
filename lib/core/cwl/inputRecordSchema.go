@@ -65,7 +65,7 @@ func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Ty
 			var ok bool
 			irs.Name, ok = name.(string)
 			if !ok {
-				err = fmt.Errorf("(NewInputRecordSchemaFromInterface) type error for name (%s)", reflect.TypeOf(name))
+				err = fmt.Errorf("(NewInputRecordSchemaFromInterface) type error for name (%s)", reflect.TypeOf(namex))
 				return
 			}
 		}

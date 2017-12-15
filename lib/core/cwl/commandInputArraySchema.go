@@ -51,7 +51,7 @@ func NewCommandInputArraySchemaFromInterface(original interface{}, schemata []CW
 			fmt.Println("items: ")
 			spew.Dump(items)
 
-			items_type, err = NewCWLType_TypeArray(items, schemata, "CommandInput")
+			items_type, err = NewCWLType_TypeArray(items, schemata, "CommandInput", false)
 			if err != nil {
 				fmt.Println("a CommandInputArraySchema:")
 				spew.Dump(original)

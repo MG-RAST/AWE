@@ -121,6 +121,10 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 			case "CommandInput":
 				result, err = NewCommandInputArraySchemaFromInterface(native, schemata)
 				if err != nil {
+
+					spew.Dump(native)
+					panic("done")
+
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputArraySchemaFromInterface returned: %s", err.Error())
 				}
 				return
@@ -145,9 +149,12 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 				}
 				return
 			case "CommandInput":
-
+				result, err = NewCommandInputRecordSchemaFromInterface(native, schemata)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputRecordSchemaFromInterface returned: %s", err.Error())
+				}
 			case "CommandOutput":
-
+				panic("CommandOutput not implemented yet")
 			default:
 				err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
 				return
@@ -186,7 +193,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 	return
 }
 
-func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, context string) (result []CWLType_Type, err error) {
+func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, context string, pass_schemata_along bool) (result []CWLType_Type, err error) {
 
 	native, err = MakeStringMap(native)
 	if err != nil {
@@ -245,6 +252,9 @@ func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, context s
 				return
 			}
 			type_array = append(type_array, element_type)
+			if pass_schemata_along {
+				schemata = append(schemata, element_type)
+			}
 		}
 
 		result = type_array

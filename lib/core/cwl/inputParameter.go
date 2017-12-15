@@ -83,7 +83,7 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type) (input_par
 		inputParameter_type, ok := original_map["type"]
 		if ok {
 			var inputParameter_type_array []CWLType_Type
-			inputParameter_type_array, err = NewCWLType_TypeArray(inputParameter_type, schemata, "Input")
+			inputParameter_type_array, err = NewCWLType_TypeArray(inputParameter_type, schemata, "Input", false)
 			if err != nil {
 				fmt.Errorf("(NewInputParameter) NewCWLType_TypeArray returns: %s", err.Error())
 				return

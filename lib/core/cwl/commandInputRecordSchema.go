@@ -6,16 +6,16 @@ import (
 	//"reflect"
 )
 
-// http://www.commonwl.org/v1.0/CommandLineTool.html#InputRecordSchema
-type InputRecordSchema struct {
+// http://www.commonwl.org/v1.0/CommandLineTool.html#CommandInputRecordSchema
+type CommandInputRecordSchema struct {
 	RecordSchema `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Type, Label, Name
-	Fields       []InputRecordField                                                    `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
+	Fields       []CommandInputRecordField                                             `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
 }
 
-func NewInputRecordSchema(rs map[string]interface{}) (irs *InputRecordSchema, err error) {
+func NewCommandInputRecordSchema(rs map[string]interface{}) (cirs *CommandInputRecordSchema, err error) {
 
-	irs = &InputRecordSchema{Type: CWL_record}
-	irs.RecordSchema, err = NewRecordSchema(rs)
+	cirs = &CommandInputRecordSchema{Type: CWL_record}
+	cirs.RecordSchema, err = NewRecordSchema(rs)
 	if err != nil {
 		return
 	}
@@ -23,7 +23,7 @@ func NewInputRecordSchema(rs map[string]interface{}) (irs *InputRecordSchema, er
 	return
 }
 
-func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Type) (irs *InputRecordSchema, err error) {
+func NewCommandInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Type) (cirs *CommandInputRecordSchema, err error) {
 
 	native, err = MakeStringMap(native)
 	if err != nil {
@@ -56,7 +56,7 @@ func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Ty
 			return
 		}
 
-		irs.Fields, err = CreateInputRecordFieldArray(fields_array, schemata)
+		cirs.Fields, err = CreateInputRecordFieldArray(fields_array, schemata)
 		if err != nil {
 			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) CreateInputRecordFieldArray returns: %s", err.Error())
 			return

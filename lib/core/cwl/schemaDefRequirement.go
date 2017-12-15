@@ -32,7 +32,7 @@ func NewSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, sch
 	if has_types {
 
 		//var array []CWLType_Type
-		schemata, err = NewCWLType_TypeArray(types, []CWLType_Type{}, "Input")
+		schemata, err = NewCWLType_TypeArray(types, []CWLType_Type{}, "Input", true)
 		if err != nil {
 			return
 		}

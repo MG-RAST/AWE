@@ -45,7 +45,7 @@ func NewInputArraySchemaFromInterface(original interface{}, schemata []CWLType_T
 		items, ok := original_map["items"]
 		if ok {
 			var items_type []CWLType_Type
-			items_type, err = NewCWLType_TypeArray(items, schemata, "Input")
+			items_type, err = NewCWLType_TypeArray(items, schemata, "Input", false)
 			if err != nil {
 				err = fmt.Errorf("(NewInputArraySchema) NewCWLType_TypeArray returns: %s", err.Error())
 				return

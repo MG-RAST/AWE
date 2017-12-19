@@ -26,9 +26,10 @@ const (
 	CWL_stdout CWLType_Type_Basic = "stdout"
 	CWL_stderr CWLType_Type_Basic = "stderr"
 
-	CWL_array  CWLType_Type_Basic = "array"  // unspecific type, only useful as a struct with items
-	CWL_record CWLType_Type_Basic = "record" // unspecific type
-	CWL_enum   CWLType_Type_Basic = "enum"   // unspecific type
+	CWL_array   CWLType_Type_Basic = "array"   // unspecific type, only useful as a struct with items
+	CWL_record  CWLType_Type_Basic = "record"  // unspecific type
+	CWL_enum    CWLType_Type_Basic = "enum"    // unspecific type
+	CWL_pointer CWLType_Type_Basic = "pointer" // unspecific type
 )
 
 // CWL Classes (note that type names also are class names)
@@ -277,7 +278,7 @@ func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CW
 			err = fmt.Errorf("(NewCWLTypeByClass) NewRecord returned: %s", xerr.Error())
 			return
 		}
-		cwl_type = record
+		cwl_type = &record
 		return
 	}
 	return

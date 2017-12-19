@@ -26,6 +26,12 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 		return
 	}
 
+	if strings.HasPrefix(native, "#") {
+		result = NewPointerFromstring(native)
+
+		return
+	}
+
 	if strings.HasSuffix(native, "[]") {
 
 		// is array
@@ -58,15 +64,15 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 
 	if !ok {
 
-		for _, schema := range schemata {
-			id := schema.GetId()
-			fmt.Printf("found id: \"%s\"\n", id)
-			if id == native {
-				result = schema
-				return
-			}
+		//for _, schema := range schemata {
+		//	id := schema.GetId()
+		//	fmt.Printf("found id: \"%s\"\n", id)
+		//	if id == native {
+		//		result = schema
+		//		return
+		//	}
 
-		}
+		//}
 
 		err = fmt.Errorf("(NewCWLType_TypeFromString) type %s unkown", native)
 		return

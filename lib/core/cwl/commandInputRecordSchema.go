@@ -12,13 +12,16 @@ type CommandInputRecordSchema struct {
 	Fields       []CommandInputRecordField                                             `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
 }
 
-func NewCommandInputRecordSchema(rs map[string]interface{}) (cirs *CommandInputRecordSchema, err error) {
+func NewCommandInputRecordSchema(native_map map[string]interface{}) (cirs *CommandInputRecordSchema, err error) {
 
-	cirs = &CommandInputRecordSchema{Type: CWL_record}
-	cirs.RecordSchema, err = NewRecordSchema(rs)
+	cirs = &CommandInputRecordSchema{}
+	var rs *RecordSchema
+	rs, err = NewRecordSchema(native_map)
 	if err != nil {
 		return
 	}
+
+	cirs.RecordSchema = *rs
 
 	return
 }
@@ -56,7 +59,7 @@ func NewCommandInputRecordSchemaFromInterface(native interface{}, schemata []CWL
 			return
 		}
 
-		cirs.Fields, err = CreateInputRecordFieldArray(fields_array, schemata)
+		cirs.Fields, err = CreateCommandInputRecordFieldArray(fields_array, schemata)
 		if err != nil {
 			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) CreateInputRecordFieldArray returns: %s", err.Error())
 			return

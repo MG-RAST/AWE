@@ -1,6 +1,9 @@
 package cwl
 
-import ()
+import (
+	"fmt"
+	"reflect"
+)
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#InputRecordField
 type RecordField struct {
@@ -26,7 +29,7 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type) (r
 			return
 		}
 
-		rf = &InputRecordField{}
+		rf = &RecordField{}
 
 		name, has_name := native_map["name"]
 		if has_name {

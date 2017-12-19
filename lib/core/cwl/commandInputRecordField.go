@@ -29,7 +29,7 @@ func CreateCommandInputRecordFieldArray(native []interface{}, schemata []CWLType
 	for _, elem := range native {
 
 		var irf *CommandInputRecordField
-		irf, err = NewCommandInputRecordFieldFromInterface(elem, schemata)
+		irf, err = NewCommandInputRecordField(elem, schemata)
 		if err != nil {
 			err = fmt.Errorf("(CreateInputRecordFieldArray) returned: %s", err.Error())
 			return

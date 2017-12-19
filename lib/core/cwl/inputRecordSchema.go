@@ -12,13 +12,16 @@ type InputRecordSchema struct {
 	Fields       []InputRecordField                                                    `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
 }
 
-func NewInputRecordSchema(rs map[string]interface{}) (irs *InputRecordSchema, err error) {
+func NewInputRecordSchema(irs_map map[string]interface{}) (irs *InputRecordSchema, err error) {
 
-	irs = &InputRecordSchema{Type: CWL_record}
-	irs.RecordSchema, err = NewRecordSchema(rs)
+	var ir *RecordSchema
+	ir, err = NewRecordSchema(irs_map)
 	if err != nil {
 		return
 	}
+
+	irs = &InputRecordSchema{}
+	irs.RecordSchema = *ir
 
 	return
 }
@@ -38,7 +41,7 @@ func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Ty
 			return
 		}
 
-		cirs, err = NewCommandInputRecordSchema(native_map)
+		irs, err = NewInputRecordSchema(native_map)
 		if err != nil {
 			return
 		}

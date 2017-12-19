@@ -1,6 +1,9 @@
 package cwl
 
-import ()
+import (
+	"fmt"
+	"reflect"
+)
 
 type RecordSchema struct {
 	Type  CWLType_Type `yaml:"type,omitempty" json:"type,omitempty" bson:"type,omitempty"`
@@ -36,6 +39,8 @@ func NewRecordSchema(native_map map[string]interface{}) (rs *RecordSchema, err e
 			return
 		}
 	}
+
+	rs.Type = CWL_record
 
 	return
 }

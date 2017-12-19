@@ -7,37 +7,38 @@ import (
 	"reflect"
 )
 
-type Record map[string]interface{}
+type Record map[string]CWLType
 
 //type Record struct {
 //	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 //	Fields       []CWLType `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
 //}
 
-func (r Record) GetClass() string { return "record" }
+func (r *Record) GetClass() string { return "record" }
 
-func (r Record) GetId() string {
+func (r *Record) GetId() string {
 
-	id, ok := r["id"]
+	id, ok := (*r)["id"]
 	if ok {
 
-		id_str, ok := id.(string)
+		id_str, ok := id.(*String)
 		if ok {
-			return id_str
+			return string(*id_str)
 		}
 	}
 	return ""
 }
 
-func (r Record) SetId(id string) {
-	r["id"] = id
+func (r *Record) SetId(id string) {
+	ids := NewStringFromstring(id)
+	(*r)["id"] = ids
 }
 
-func (r Record) GetType() CWLType_Type { return CWL_record }
+func (r *Record) GetType() CWLType_Type { return CWL_record }
 
-func (r Record) Is_CWL_minimal()     {}
-func (r Record) Is_Type()            {}
-func (r Record) Type2String() string { return "record" }
+func (r *Record) Is_CWL_minimal()     {}
+func (r *Record) Is_Type()            {}
+func (r *Record) Type2String() string { return "record" }
 
 //func (r *Record) Is_CommandInputParameterType()  {}
 //func (r *Record) Is_CommandOutputParameterType() {}
@@ -87,7 +88,7 @@ func NewRecord(id string, native interface{}) (record Record, err error) {
 
 		_, has_id := native_map["id"]
 		if !has_id {
-			record["id"] = id
+			record["id"] = NewStringFromstring(id)
 		}
 
 		return

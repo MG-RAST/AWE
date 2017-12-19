@@ -217,7 +217,8 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	if has_cwl {
 		if cwl_generic != nil {
 			var xerr error
-			cwl_object, xerr = core.NewCWL_workunit_from_interface(cwl_generic)
+			//var schemata []cwl.CWLType_Type
+			cwl_object, _, xerr = core.NewCWL_workunit_from_interface(cwl_generic)
 			if xerr != nil {
 				err = fmt.Errorf("(CheckoutWorkunitRemote) NewCWL_workunit_from_interface failed: %s", xerr.Error())
 				return

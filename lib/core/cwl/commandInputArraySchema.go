@@ -21,7 +21,7 @@ func (c *CommandInputArraySchema) GetId() string       { return "" }
 func NewCommandInputArraySchema() (coas *CommandInputArraySchema) {
 
 	coas = &CommandInputArraySchema{}
-	coas.Type = "array"
+	coas.ArraySchema = *NewArraySchema()
 
 	return
 }

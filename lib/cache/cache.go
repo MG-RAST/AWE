@@ -236,11 +236,55 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (siz
 			if err != nil {
 				return
 			}
-
+			size += io_size
 		}
-		size = io_size
 
-		// TODO ************* Record and Enum
+	case *cwl.Record:
+
+		r := input.(*cwl.Record)
+		var io_size int64
+
+		for _, element := range *r {
+			//var element_cwl cwl.CWLType
+			//element_cwl, err = cwl.NewCWLType(id, element)
+			//if err != nil {
+			//	return
+			//}
+			var element_cwl cwl.CWLType
+
+			switch element.(type) {
+			case *cwl.File:
+				element_cwl = element.(*cwl.File)
+			case *cwl.Directory:
+				element_cwl = element.(*cwl.Directory)
+			case *cwl.Array:
+				element_cwl = element.(*cwl.Array)
+			case *cwl.String:
+				continue
+			case *cwl.Int:
+				continue
+			case *cwl.Boolean:
+				continue
+			case *cwl.Float:
+				continue
+			case *cwl.Double:
+				continue
+			default:
+				err = fmt.Errorf("(MoveInputData) element type %s  in record not supported", reflect.TypeOf(element))
+				return
+			}
+
+			io_size, err = MoveInputCWL(work, work_path, element_cwl)
+			if err != nil {
+				return
+			}
+			size += io_size
+		}
+
+	case *cwl.Enum:
+		err = fmt.Errorf("(MoveInputData) type %s not supported yet", reflect.TypeOf(input))
+		return
+
 	default:
 		err = fmt.Errorf("(MoveInputData) type %s not supported yet", reflect.TypeOf(input))
 		return

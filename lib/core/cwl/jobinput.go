@@ -21,12 +21,17 @@ type Job_document []NamedCWLType // JobDocArray
 type JobDocMap map[string]CWLType
 
 type NamedCWLType struct {
-	Id    string  `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
-	Value CWLType `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
+	CWL_id_Impl         // provides id
+	Value       CWLType `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
 }
 
 func NewNamedCWLType(id string, value CWLType) NamedCWLType {
-	return NamedCWLType{Id: id, Value: value}
+
+	x := NamedCWLType{Value: value}
+
+	x.Id = id
+
+	return x
 }
 
 func (jd_map JobDocMap) GetArray() (result Job_document, err error) {

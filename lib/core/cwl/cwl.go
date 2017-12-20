@@ -144,7 +144,7 @@ func NewCWL_object_array(original interface{}) (array CWL_object_array, schemata
 
 }
 
-func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_version CWLVersion, schemata []CWLType_Type, err error) {
+func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, cwl_version CWLVersion, schemata []CWLType_Type, err error) {
 
 	graph_pos := strings.Index(yaml_str, "$graph")
 
@@ -173,6 +173,12 @@ func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_ver
 		for count, elem := range cwl_gen.Graph {
 			//fmt.Println("-------------- B Parse_cwl_document")
 
+			var id string
+			id, err = GetId(elem)
+			if err != nil {
+				return
+			}
+
 			var object CWL_object
 			var schemata_new []CWLType_Type
 			object, schemata_new, err = New_CWL_object(elem, cwl_version)
@@ -180,8 +186,10 @@ func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_ver
 				err = fmt.Errorf("(Parse_cwl_document) New_CWL_object returns %s", err.Error())
 				return
 			}
+
+			named_obj := NewNamed_CWL_object(id, object)
 			//fmt.Println("-------------- C Parse_cwl_document")
-			object_array = append(object_array, object)
+			object_array = append(object_array, named_obj)
 
 			for i, _ := range schemata_new {
 				schemata = append(schemata, schemata_new[i])
@@ -215,8 +223,10 @@ func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_ver
 			return
 		}
 
+		named_obj := NewNamed_CWL_object(commandlinetool.Id, commandlinetool)
+
 		cwl_version = commandlinetool.CwlVersion
-		object_array = append(object_array, commandlinetool)
+		object_array = append(object_array, named_obj)
 		for i, _ := range schemata_new {
 			schemata = append(schemata, schemata_new[i])
 		}
@@ -226,7 +236,7 @@ func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_ver
 	return
 }
 
-func Add_to_collection(collection *CWL_collection, object_array CWL_object_array) (err error) {
+func Add_to_collection_deprecated(collection *CWL_collection, object_array CWL_object_array) (err error) {
 
 	for i, object := range object_array {
 		err = collection.Add(strconv.Itoa(i), object) // TODO fix id

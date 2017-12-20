@@ -17,7 +17,7 @@ type InputParameter struct {
 	Streamable     bool               `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
 	Doc            string             `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
 	InputBinding   CommandLineBinding `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"` //TODO
-	Default        Any                `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
+	Default        interface{}        `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
 	Type           []CWLType_Type     `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
 }
 
@@ -74,7 +74,7 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type) (input_par
 
 		input_parameter_default, ok := original_map["default"]
 		if ok {
-			original_map["default"], err = NewAny(input_parameter_default)
+			original_map["default"], err = NewCWLType("", input_parameter_default)
 			if err != nil {
 				return
 			}

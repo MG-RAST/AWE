@@ -241,7 +241,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			cwl_workflow.Steps = []cwl.WorkflowStep{new_step}
 
 			object_array = append(object_array, cwl_workflow)
-			err = collection.Add(cwl_workflow)
+			err = collection.Add(entrypoint, cwl_workflow)
 			if err != nil {
 				cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
 				return

@@ -2354,7 +2354,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		fmt.Printf("Matches: %d\n", len(matches))
 		if len(matches) == 0 {
 
-			workunit_input_map[cmd_id] = cwl.NewStringFromstring(parsed)
+			workunit_input_map[cmd_id] = cwl.NewString(parsed)
 		} else if len(matches) == 1 {
 			match := matches[0]
 			expression_string := bytes.TrimPrefix(match, []byte("${"))

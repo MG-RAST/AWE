@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/logger"
+	//"github.com/davecgh/go-spew/spew"
+	"reflect"
 	"regexp"
 	"strings"
 )
@@ -17,7 +19,7 @@ type CWL_collection struct {
 	Strings  map[string]*String
 	Ints     map[string]*Int
 	Booleans map[string]*Boolean
-	All      map[string]*CWL_object // everything goes in here
+	All      map[string]CWL_object // everything goes in here
 	//Job_input          *Job_document
 	Job_input_map *JobDocMap
 
@@ -89,9 +91,7 @@ func (c CWL_collection) GetSchemata() (obj []CWLType_Type, err error) {
 	return
 }
 
-func (c CWL_collection) Add(obj CWL_object) (err error) {
-
-	id := obj.GetId()
+func (c CWL_collection) Add(id string, obj CWL_object) (err error) {
 
 	if id == "" {
 		err = fmt.Errorf("(CWL_collection/Add) id is empty")
@@ -107,30 +107,37 @@ func (c CWL_collection) Add(obj CWL_object) (err error) {
 	}
 	//id = strings.TrimPrefix(id, "#")
 
-	class := obj.GetClass()
+	//var class string
+	//class, err = GetClass(obj)
 
-	// fix case in class
-	class, ok = IsValidClass(class)
+	//spew.Dump(obj)
+	//fmt.Printf("type is: %s\n", reflect.TypeOf(obj))
+	//panic("dump")
 
-	if !ok {
-		err = fmt.Errorf("Class %s not found", class)
-		return
-	}
+	// class := obj.GetClass()
+	//
+	// 	// fix case in class
+	// 	class, ok = IsValidClass(class)
+	//
+	// 	if !ok {
+	// 		err = fmt.Errorf("Class %s not found", class)
+	// 		return
+	// 	}
 
-	switch class {
-	case "Workflow":
+	switch obj.(type) {
+	case *Workflow:
 		c.Workflows[id] = obj.(*Workflow)
-	case "WorkflowStepInput":
+	case *WorkflowStepInput:
 		c.WorkflowStepInputs[id] = obj.(*WorkflowStepInput)
-	case "CommandLineTool":
+	case *CommandLineTool:
 		c.CommandLineTools[id] = obj.(*CommandLineTool)
-	case string(CWL_File):
+	case *File:
 		c.Files[id] = obj.(*File)
-	case string(CWL_string):
+	case *String:
 		c.Strings[id] = obj.(*String)
-	case string(CWL_boolean):
+	case *Boolean:
 		c.Booleans[id] = obj.(*Boolean)
-	case string(CWL_int):
+	case *Int:
 		obj_int, ok := obj.(*Int)
 		if !ok {
 			err = fmt.Errorf("could not make Int type assertion")
@@ -138,14 +145,14 @@ func (c CWL_collection) Add(obj CWL_object) (err error) {
 		}
 		c.Ints[id] = obj_int
 	default:
-		logger.Debug(3, "adding type %s to CWL_collection.All", class)
+		logger.Debug(3, "adding type %s to CWL_collection.All", reflect.TypeOf(obj))
 	}
-	c.All[id] = &obj
+	c.All[id] = obj
 
 	return
 }
 
-func (c CWL_collection) Get(id string) (obj *CWL_object, err error) {
+func (c CWL_collection) Get(id string) (obj CWL_object, err error) {
 	obj, ok := c.All[id]
 	if !ok {
 		for k, _ := range c.All {
@@ -239,6 +246,6 @@ func NewCWL_collection() (collection CWL_collection) {
 	collection.Strings = make(map[string]*String)
 	collection.Ints = make(map[string]*Int)
 	collection.Booleans = make(map[string]*Boolean)
-	collection.All = make(map[string]*CWL_object)
+	collection.All = make(map[string]CWL_object)
 	return
 }

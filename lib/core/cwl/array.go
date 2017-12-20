@@ -15,6 +15,8 @@ type Array []CWLType
 //Items_Type   CWLType_Type                                                          `yaml:"items_type,omitempty" json:"items_type,omitempty" bson:"items_type,omitempty"`
 //}
 
+func (c *Array) Is_CWL_object() {}
+
 func (c *Array) GetClass() string      { return "array" }
 func (c *Array) GetId() string         { return "foobar" }
 func (c *Array) SetId(string)          {}

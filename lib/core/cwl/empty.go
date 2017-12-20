@@ -9,10 +9,13 @@ import (
 // this is a generic CWL_object. Its only purpose is to retrieve the value of "class"
 type Empty struct {
 	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	Id           string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
 	Class        string `yaml:"class,omitempty" json:"class,omitempty" bson:"class,omitempty"`
 }
 
 func (e Empty) GetClass() string { return e.Class }
+
+func (e Empty) GetId() string { return e.Id }
 
 func (e Empty) String() string { return "Empty" }
 
@@ -51,6 +54,7 @@ func GetId(native interface{}) (id string, err error) {
 		err = fmt.Errorf("(GetId) NewEmpty returned: %s", xerr.Error())
 		return
 	}
+
 	id = empty.GetId()
 
 	if id == "" {

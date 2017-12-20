@@ -10,12 +10,13 @@ import (
 
 //http://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
 type WorkflowStepInput struct {
-	Id        string           `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	Source    interface{}      `yaml:"source,omitempty" bson:"source,omitempty" json:"source,omitempty"` // MultipleInputFeatureRequirement
-	LinkMerge *LinkMergeMethod `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
-	Default   interface{}      `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`       // type Any does not make sense
-	ValueFrom Expression       `yaml:"valueFrom,omitempty" bson:"valueFrom,omitempty" json:"valueFrom,omitempty"` // StepInputExpressionRequirement
-	Ready     bool             `yaml:"-" bson:"-" json:"-"`
+	CWL_object_Impl `bson:",inline" json:",inline" mapstructure:",squash"`
+	Id              string           `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
+	Source          interface{}      `yaml:"source,omitempty" bson:"source,omitempty" json:"source,omitempty"` // MultipleInputFeatureRequirement
+	LinkMerge       *LinkMergeMethod `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
+	Default         interface{}      `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`       // type Any does not make sense
+	ValueFrom       Expression       `yaml:"valueFrom,omitempty" bson:"valueFrom,omitempty" json:"valueFrom,omitempty"` // StepInputExpressionRequirement
+	Ready           bool             `yaml:"-" bson:"-" json:"-"`
 }
 
 func (w WorkflowStepInput) GetClass() string {
@@ -59,7 +60,7 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 	case int:
 		//fmt.Println(CWL_int)
 		original_int := original.(int)
-		input_parameter.Default = NewInt(input_parameter.Id, original_int)
+		input_parameter.Default = NewInt(original_int) // input_parameter.Id
 		return
 
 	case map[string]interface{}:

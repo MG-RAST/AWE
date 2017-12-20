@@ -46,22 +46,18 @@ func (f *File) GetLocation() string { return f.Location } // for CWL_location
 
 //func (f *File) Is_CommandInputParameterType() {} // for CommandInputParameterType
 
-func NewFile(id string, obj interface{}) (file File, err error) {
+func NewFile(obj interface{}) (file File, err error) {
 
-	file, err = MakeFile("", obj)
-
-	if id != "" {
-		file.Id = id
-	}
+	file, err = MakeFile(obj)
 
 	return
 }
 
-func MakeFile(id string, obj interface{}) (file File, err error) {
+func MakeFile(obj interface{}) (file File, err error) {
 	file = File{}
 	err = mapstructure.Decode(obj, &file)
 	if err != nil {
-		err = fmt.Errorf("(MakeFile) Could not convert File object %s %s", id, err.Error())
+		err = fmt.Errorf("(MakeFile) Could not convert File object: %s", err.Error())
 		return
 	}
 	file.Class = string(CWL_File)
@@ -131,9 +127,7 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 			}
 		}
 	}
-	if file.Id == "" {
-		file.Id = id
-	}
+
 	return
 }
 

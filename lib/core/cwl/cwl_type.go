@@ -51,14 +51,6 @@ type CWL_array_type interface {
 	Get_Array() *[]CWLType
 }
 
-type CWL_minimal_interface interface {
-	Is_CWL_minimal()
-}
-
-type CWL_minimal struct{}
-
-func (c *CWL_minimal) Is_CWL_minimal() {}
-
 // generic class to represent Files and Directories
 type CWL_location interface {
 	GetLocation() string
@@ -70,7 +62,8 @@ type CWL_location interface {
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CWLType
 // null, boolean, int, long, float, double, string, File, Directory
 type CWLType interface {
-	CWL_object // is an interface
+	CWL_object
+	CWL_class // is an interface
 	//Is_CommandInputParameterType()
 	//Is_CommandOutputParameterType()
 	GetType() CWLType_Type
@@ -80,7 +73,8 @@ type CWLType interface {
 }
 
 type CWLType_Impl struct {
-	CWL_object_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class
+	CWL_object_Impl `bson:",inline" json:",inline" mapstructure:",squash"`
+	CWL_class_Impl  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class
 	Type            CWLType_Type                                                          `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 }
 
@@ -163,7 +157,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		//fmt.Printf("(NewCWLType) D\n")
 		native_int := native.(int)
 
-		cwl_type = NewInt(id, native_int)
+		cwl_type = NewInt(native_int)
 	case float32:
 		native_float32 := native.(float32)
 		cwl_type = NewFloat(native_float32)
@@ -174,7 +168,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		//fmt.Printf("(NewCWLType) E\n")
 		native_str := native.(string)
 
-		cwl_type = NewString(id, native_str)
+		cwl_type = NewString(native_str)
 	case bool:
 		//fmt.Printf("(NewCWLType) F\n")
 		native_bool := native.(bool)
@@ -241,14 +235,14 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CWLType, err error) {
 	switch class {
 	case string(CWL_File):
-		file, yerr := NewFile(id, native)
+		file, yerr := NewFile(native)
 		cwl_type = &file
 		if yerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewFile returned: %s", yerr.Error())
 			return
 		}
 	case string(CWL_string):
-		mystring, yerr := NewStringFromInterface(id, native)
+		mystring, yerr := NewStringFromInterface(native)
 		if yerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewStringFromInterface returned: %s", yerr.Error())
 			return

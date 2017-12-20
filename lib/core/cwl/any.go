@@ -6,13 +6,17 @@ import (
 	"reflect"
 )
 
+//
+// *** not used ***
+//
+
 //type Any interface {
 //	CWL_object
 //	String() string
 //}
 
 type Any interface {
-	CWL_object
+	CWL_class
 }
 
 func NewAny(native interface{}) (any Any, err error) {

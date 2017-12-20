@@ -9,10 +9,7 @@ import (
 
 type Record map[string]CWLType
 
-//type Record struct {
-//	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-//	Fields       []CWLType `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
-//}
+func (r *Record) Is_CWL_object() {}
 
 func (r *Record) GetClass() string { return "record" }
 
@@ -30,7 +27,7 @@ func (r *Record) GetId() string {
 }
 
 func (r *Record) SetId(id string) {
-	ids := NewStringFromstring(id)
+	ids := NewString(id)
 	(*r)["id"] = ids
 }
 
@@ -88,7 +85,7 @@ func NewRecord(id string, native interface{}) (record Record, err error) {
 
 		_, has_id := native_map["id"]
 		if !has_id {
-			record["id"] = NewStringFromstring(id)
+			record["id"] = NewString(id)
 		}
 
 		return

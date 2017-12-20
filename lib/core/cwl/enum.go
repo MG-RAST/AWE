@@ -11,6 +11,8 @@ type Enum string
 //	Symbols      []string `yaml:"symbols,omitempty" json:"symbols,omitempty" bson:"symbols,omitempty"`
 //}
 
+func (s *Enum) Is_CWL_object() {}
+
 func (s *Enum) GetClass() string      { return string(CWL_enum) } // for CWL_object
 func (s *Enum) GetType() CWLType_Type { return CWL_enum }
 func (s *Enum) String() string        { return string(*s) }

@@ -11,6 +11,7 @@ import (
 	//"io/ioutil"
 	//"os"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -227,8 +228,8 @@ func Parse_cwl_document(yaml_str string) (object_array CWL_object_array, cwl_ver
 
 func Add_to_collection(collection *CWL_collection, object_array CWL_object_array) (err error) {
 
-	for _, object := range object_array {
-		err = collection.Add(object)
+	for i, object := range object_array {
+		err = collection.Add(strconv.Itoa(i), object) // TODO fix id
 		if err != nil {
 			err = fmt.Errorf("(Add_to_collection) collection.Add returned: %s", err.Error())
 			return

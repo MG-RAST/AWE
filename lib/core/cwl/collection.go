@@ -91,6 +91,22 @@ func (c CWL_collection) GetSchemata() (obj []CWLType_Type, err error) {
 	return
 }
 
+func (c CWL_collection) AddArray(object_array Named_CWL_object_array) (err error) {
+
+	for i, _ := range object_array {
+		pair := object_array[i]
+
+		err = c.Add(pair.Id, pair.Value)
+		if err != nil {
+			return
+		}
+
+	}
+
+	return
+
+}
+
 func (c CWL_collection) Add(id string, obj CWL_object) (err error) {
 
 	if id == "" {
@@ -105,24 +121,6 @@ func (c CWL_collection) Add(id string, obj CWL_object) (err error) {
 		err = fmt.Errorf("Object %s already in collection", id)
 		return
 	}
-	//id = strings.TrimPrefix(id, "#")
-
-	//var class string
-	//class, err = GetClass(obj)
-
-	//spew.Dump(obj)
-	//fmt.Printf("type is: %s\n", reflect.TypeOf(obj))
-	//panic("dump")
-
-	// class := obj.GetClass()
-	//
-	// 	// fix case in class
-	// 	class, ok = IsValidClass(class)
-	//
-	// 	if !ok {
-	// 		err = fmt.Errorf("Class %s not found", class)
-	// 		return
-	// 	}
 
 	switch obj.(type) {
 	case *Workflow:

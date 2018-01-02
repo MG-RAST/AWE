@@ -455,15 +455,16 @@ func (job *Job) Init() (changed bool, err error) {
 		collection := cwl.NewCWL_collection()
 
 		//var schemata_new []CWLType_Type
-		object_array, schemata_new, xerr := cwl.NewCWL_object_array(job.CWL_objects)
+		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.CWL_objects)
 		if xerr != nil {
 			err = fmt.Errorf("(job.Init) cannot type assert CWL_objects: %s", xerr.Error())
 			return
 		}
 
-		err = cwl.Add_to_collection(&collection, object_array)
+		err = collection.AddArray(named_object_array)
+		//err = cwl.Add_to_collection(&collection, object_array)
 		if err != nil {
-			fmt.Errorf("(job.Init) Add_to_collection returned: %s", err.Error())
+			fmt.Errorf("(job.Init) collection.AddArray returned: %s", err.Error())
 			return
 		}
 

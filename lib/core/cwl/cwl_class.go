@@ -16,5 +16,3 @@ type CWL_class_Impl struct {
 }
 
 func (c *CWL_class_Impl) GetClass() string { return c.Class }
-
-type CWL_object_array []CWL_object

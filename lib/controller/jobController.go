@@ -142,7 +142,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			return
 		}
 
-		err = cwl.Add_to_collection(&collection, object_array)
+		err = collection.AddArray(object_array)
 		if err != nil {
 			logger.Error("Parse_cwl_document error: " + err.Error())
 			cx.RespondWithErrorMessage("error in adding cwl objects to collection: "+err.Error(), http.StatusBadRequest)
@@ -165,9 +165,10 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			entrypoint = "#entrypoint"
 
 			commandlinetool_if := object_array[0]
-			commandlinetool, ok := commandlinetool_if.(*cwl.CommandLineTool)
-			if !ok {
-				cx.RespondWithErrorMessage("expected a single CommandLineTool but got something different", http.StatusBadRequest)
+			var commandlinetool *cwl.CommandLineTool
+			commandlinetool, _, err = cwl.NewCommandLineTool(commandlinetool_if) // TODO handle return value schemata
+			if err != nil {
+				cx.RespondWithErrorMessage("Error parsing CommandLineTool: "+err.Error(), http.StatusBadRequest)
 				return
 			}
 
@@ -240,7 +241,11 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 			cwl_workflow.Steps = []cwl.WorkflowStep{new_step}
 
-			object_array = append(object_array, cwl_workflow)
+			cwl_workflow_named := cwl.Named_CWL_object{}
+			cwl_workflow_named.Id = cwl_workflow.Id
+			cwl_workflow_named.Value = cwl_workflow
+
+			object_array = append(object_array, cwl_workflow_named)
 			err = collection.Add(entrypoint, cwl_workflow)
 			if err != nil {
 				cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)

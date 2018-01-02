@@ -1,14 +1,135 @@
 package cwl
 
 import (
-//"fmt"
-//"reflect"
+	"errors"
+	"fmt"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/davecgh/go-spew/spew"
+	"reflect"
 )
 
 type CWL_object interface {
 	Is_CWL_object()
 }
 
+type CWL_object_array []CWL_object
+
 type CWL_object_Impl struct{}
 
 func (c *CWL_object_Impl) Is_CWL_object() {}
+
+func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_object, schemata []CWLType_Type, err error) {
+	//fmt.Println("(New_CWL_object) starting")
+
+	if original == nil {
+		err = fmt.Errorf("(New_CWL_object) original is nil!")
+		return
+	}
+
+	original, err = MakeStringMap(original)
+	if err != nil {
+		return
+	}
+	//fmt.Println("New_CWL_object 2")
+	switch original.(type) {
+	case map[string]interface{}:
+		elem := original.(map[string]interface{})
+		//fmt.Println("New_CWL_object B")
+		cwl_object_type, ok := elem["class"].(string)
+
+		if !ok {
+			fmt.Println("------------------")
+			spew.Dump(original)
+			err = errors.New("(New_CWL_object) object has no field \"class\"")
+			return
+		}
+
+		cwl_object_id := elem["id"].(string)
+		if !ok {
+			err = errors.New("(New_CWL_object) object has no member id")
+			return
+		}
+		//fmt.Println("New_CWL_object C")
+		switch cwl_object_type {
+		case "CommandLineTool":
+			//fmt.Println("New_CWL_object CommandLineTool")
+			logger.Debug(1, "(New_CWL_object) parse CommandLineTool")
+			var clt *CommandLineTool
+			clt, schemata, err = NewCommandLineTool(elem)
+			if err != nil {
+				err = fmt.Errorf("(New_CWL_object) NewCommandLineTool returned: %s", err.Error())
+				return
+			}
+
+			clt.CwlVersion = cwl_version
+			obj = clt
+
+			return
+		case "Workflow":
+			//fmt.Println("New_CWL_object Workflow")
+			logger.Debug(1, "parse Workflow")
+			obj, schemata, err = NewWorkflow(elem)
+			if err != nil {
+
+				err = fmt.Errorf("(New_CWL_object) NewWorkflow returned: %s", err.Error())
+				return
+			}
+
+			return
+		} // end switch
+
+		cwl_type, xerr := NewCWLType(cwl_object_id, elem)
+		if xerr != nil {
+
+			err = fmt.Errorf("(New_CWL_object) NewCWLType returns %s", xerr.Error())
+			return
+		}
+		obj = cwl_type
+	default:
+		//fmt.Printf("(New_CWL_object), unknown type %s\n", reflect.TypeOf(original))
+		err = fmt.Errorf("(New_CWL_object), unknown type %s", reflect.TypeOf(original))
+		return
+	}
+	//fmt.Println("(New_CWL_object) leaving")
+	return
+}
+
+func NewCWL_object_array(original interface{}) (array CWL_object_array, schemata []CWLType_Type, err error) {
+
+	//original, err = makeStringMap(original)
+	//if err != nil {
+	//	return
+	//}
+
+	array = CWL_object_array{}
+
+	switch original.(type) {
+
+	case []interface{}:
+
+		org_a := original.([]interface{})
+
+		for _, element := range org_a {
+			var schemata_new []CWLType_Type
+			var cwl_object CWL_object
+			cwl_object, schemata_new, err = New_CWL_object(element, "")
+			if err != nil {
+				err = fmt.Errorf("(NewCWL_object_array) New_CWL_object returned %s", err.Error())
+				return
+			}
+
+			array = append(array, cwl_object)
+
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
+			}
+		}
+
+		return
+
+	default:
+		err = fmt.Errorf("(NewCWL_object_array), unknown type %s", reflect.TypeOf(original))
+	}
+	return
+
+}

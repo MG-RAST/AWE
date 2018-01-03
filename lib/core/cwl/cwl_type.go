@@ -264,8 +264,8 @@ func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CW
 		cwl_type = mydir
 	default:
 		// Map type unknown, maybe a record
-		fmt.Println("This might be a record:")
-		spew.Dump(native)
+		//fmt.Println("This might be a record:")
+		//spew.Dump(native)
 
 		record, xerr := NewRecord(id, native)
 		if xerr != nil {

@@ -5,7 +5,7 @@ import (
 
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/logger"
-
+	"github.com/davecgh/go-spew/spew"
 	//"github.com/mitchellh/mapstructure"
 	"gopkg.in/yaml.v2"
 	//"io/ioutil"
@@ -60,6 +60,9 @@ func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, c
 			var id string
 			id, err = GetId(elem)
 			if err != nil {
+				fmt.Println("object without id:")
+				spew.Dump(elem)
+				panic("no id")
 				return
 			}
 

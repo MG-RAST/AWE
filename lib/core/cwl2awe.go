@@ -256,7 +256,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 		return
 	}
 
-	spew.Dump(job)
+	//spew.Dump(job)
 
 	logger.Debug(1, "job.Id: %s", job.Id)
 	err = job.Save()

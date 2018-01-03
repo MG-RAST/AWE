@@ -11,9 +11,9 @@ import (
 )
 
 type Workflow struct {
-	CWL_object_Impl `bson:",inline" json:",inline" mapstructure:",squash"`
-	CWL_class_Impl  `bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
-	CWL_id_Impl     `bson:",inline" json:",inline" mapstructure:",squash"`
+	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	CWL_class_Impl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
+	CWL_id_Impl     `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
 	Inputs          []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty"`
 	Outputs         []WorkflowOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty"`
 	Steps           []WorkflowStep            `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty"`

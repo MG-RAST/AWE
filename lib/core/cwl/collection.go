@@ -63,7 +63,7 @@ func (c CWL_collection) Evaluate(raw string) (parsed string) {
 }
 
 func (c CWL_collection) AddSchemata(obj []CWLType_Type) (err error) {
-	fmt.Printf("(AddSchemata)\n")
+	//fmt.Printf("(AddSchemata)\n")
 	for i, _ := range obj {
 		id := obj[i].GetId()
 		if id == "" {

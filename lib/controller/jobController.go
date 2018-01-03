@@ -164,11 +164,17 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			// create new Workflow to wrap around the CommandLineTool
 			entrypoint = "#entrypoint"
 
-			commandlinetool_if := object_array[0]
-			var commandlinetool *cwl.CommandLineTool
-			commandlinetool, _, err = cwl.NewCommandLineTool(commandlinetool_if) // TODO handle return value schemata
-			if err != nil {
-				cx.RespondWithErrorMessage("Error parsing CommandLineTool: "+err.Error(), http.StatusBadRequest)
+			pair := object_array[0]
+			commandlinetool_if := pair.Value
+			//var commandlinetool *cwl.CommandLineTool
+			//commandlinetool, _, err = cwl.NewCommandLineTool(commandlinetool_if) // TODO handle return value schemata
+			//if err != nil {
+			//	cx.RespondWithErrorMessage("Error parsing CommandLineTool: "+err.Error(), http.StatusBadRequest)
+			//	return
+			//}
+			commandlinetool, ok := commandlinetool_if.(*cwl.CommandLineTool)
+			if !ok {
+				cx.RespondWithErrorMessage("(job/create) Error casting CommandLineTool", http.StatusBadRequest)
 				return
 			}
 

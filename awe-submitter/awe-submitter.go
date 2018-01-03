@@ -359,7 +359,7 @@ func main_wrapper() (err error) {
 	// convert CWL to string
 	yaml_str := string(yamlstream[:])
 
-	object_array, cwl_version, schemata, err := cwl.Parse_cwl_document(yaml_str)
+	named_object_array, cwl_version, schemata, err := cwl.Parse_cwl_document(yaml_str)
 
 	if err != nil {
 		fmt.Errorf("(main_wrapper) error in parsing cwl workflow yaml file: " + err.Error())
@@ -369,7 +369,11 @@ func main_wrapper() (err error) {
 	_ = schemata // TODO put into a collection!
 
 	// search for File objects in Document, e.g. in CommandLineTools
-	for j, object := range object_array {
+	for j, _ := range named_object_array {
+
+		pair := named_object_array[j]
+		object := pair.Value
+
 		var cmd_line_tool *cwl.CommandLineTool
 		var ok bool
 
@@ -405,7 +409,7 @@ func main_wrapper() (err error) {
 
 		}
 		if update {
-			object_array[j] = cmd_line_tool
+			named_object_array[j].Value = cmd_line_tool
 		}
 	}
 
@@ -413,8 +417,9 @@ func main_wrapper() (err error) {
 
 	new_document := cwl.CWL_document_generic{}
 	new_document.CwlVersion = cwl_version
-	for _, object := range object_array {
-
+	for i, _ := range named_object_array {
+		pair := named_object_array[i]
+		object := pair.Value
 		new_document.Graph = append(new_document.Graph, object)
 	}
 
@@ -434,7 +439,9 @@ func main_wrapper() (err error) {
 		return
 	}
 
-	fmt.Println(new_document_str)
+	//fmt.Println("------------")
+	//fmt.Println(new_document_str)
+	//fmt.Println("------------")
 	//panic("hhhh")
 	new_document_bytes = []byte(new_document_str)
 

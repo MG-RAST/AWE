@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
+	"reflect"
 )
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CommandLineTool
@@ -45,7 +46,7 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 	//switch type()
 	object, ok := generic.(map[string]interface{})
 	if !ok {
-		err = fmt.Errorf("other types than map[string]interface{} not supported yet")
+		err = fmt.Errorf("other types than map[string]interface{} not supported yet (got %s)", reflect.TypeOf(generic))
 		return
 	}
 

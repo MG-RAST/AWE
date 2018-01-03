@@ -35,12 +35,21 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 	case map[string]interface{}:
 		elem := original.(map[string]interface{})
 		//fmt.Println("New_CWL_object B")
-		cwl_object_type, ok := elem["class"].(string)
 
+		class_thing, ok := elem["class"]
 		if !ok {
 			fmt.Println("------------------")
 			spew.Dump(original)
 			err = errors.New("(New_CWL_object) object has no field \"class\"")
+			return
+		}
+
+		cwl_object_type, xok := class_thing.(string)
+
+		if !xok {
+			fmt.Println("------------------")
+			spew.Dump(original)
+			err = errors.New("(New_CWL_object) class is not astring")
 			return
 		}
 

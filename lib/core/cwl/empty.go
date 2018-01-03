@@ -59,7 +59,8 @@ func GetId(native interface{}) (id string, err error) {
 
 	if id == "" {
 		spew.Dump(native)
-		panic("class name empty")
+		err = fmt.Errorf("(empty/GetId) no id found")
+		return
 	}
 
 	return

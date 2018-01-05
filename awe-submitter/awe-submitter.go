@@ -439,9 +439,9 @@ func main_wrapper() (err error) {
 		return
 	}
 
-	//fmt.Println("------------")
-	//fmt.Println(new_document_str)
-	//fmt.Println("------------")
+	fmt.Println("------------")
+	fmt.Println(new_document_str)
+	fmt.Println("------------")
 	//panic("hhhh")
 	new_document_bytes = []byte(new_document_str)
 

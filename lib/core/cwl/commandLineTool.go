@@ -3,7 +3,7 @@ package cwl
 import (
 	//"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"reflect"
 )
@@ -61,8 +61,8 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 			return
 		}
 	}
-	scs := spew.ConfigState{Indent: "\t"}
-	scs.Dump(object["requirements"])
+	//scs := spew.ConfigState{Indent: "\t"}
+	//scs.Dump(object["requirements"])
 
 	inputs, ok := object["inputs"]
 	if ok {

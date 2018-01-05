@@ -10,6 +10,7 @@ import (
 type InputRecordSchema struct {
 	RecordSchema `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Type, Label, Name
 	Fields       []InputRecordField                                                    `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
+	InputBinding *CommandLineBinding                                                   `yaml:"inputBinding,omitempty" json:"inputBinding,omitempty" bson:"inputBinding,omitempty"`
 }
 
 func NewInputRecordSchema(irs_map map[string]interface{}) (irs *InputRecordSchema, err error) {
@@ -43,7 +44,22 @@ func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Ty
 
 		irs, err = NewInputRecordSchema(native_map)
 		if err != nil {
+			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) NewInputRecordSchema returns: %s", err.Error())
 			return
+		}
+
+		inputBinding_if, has_inputBinding := native_map["inputBinding"]
+		if has_inputBinding {
+
+			var inputBinding *CommandLineBinding
+			inputBinding, err = NewCommandLineBinding(inputBinding_if)
+			if err != nil {
+				err = fmt.Errorf("(NewInputRecordSchemaFromInterface) NewCommandLineBinding returns: %s", err.Error())
+				return
+			}
+
+			irs.InputBinding = inputBinding
+
 		}
 
 		fields, has_fields := native_map["fields"]

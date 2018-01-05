@@ -73,7 +73,7 @@ type CWLType interface {
 }
 
 type CWLType_Impl struct {
-	CWL_object_Impl `bson:",inline" json:",inline" mapstructure:",squash"`
+	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
 	CWL_class_Impl  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class
 	Type            CWLType_Type                                                          `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 }

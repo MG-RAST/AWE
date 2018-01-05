@@ -12,7 +12,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
-	//"github.com/davecgh/go-spew/spew"
+	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
@@ -192,6 +192,10 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				workflow_step_input.Id = step_id + "/" + input.Id
 				workflow_step_input.Source = workflow_input_name
 				workflow_step_input.Default = input.Default
+
+				fmt.Println("CommandInputParameter and WorkflowStepInput:")
+				spew.Dump(input)
+				spew.Dump(workflow_step_input)
 				new_step.In = append(new_step.In, workflow_step_input)
 
 				var workflow_input_parameter cwl.InputParameter
@@ -201,6 +205,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				workflow_input_parameter.Streamable = input.Streamable
 				workflow_input_parameter.InputBinding = input.InputBinding
 				workflow_input_parameter.Type = input.Type
+
+				workflow_input_parameter.Default = input.Default
 
 				add_null := false
 				if input.Default != nil { // check if this is an optional argument

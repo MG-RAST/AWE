@@ -1572,11 +1572,11 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		for _, wsi := range task.WorkflowStep.In { // WorkflowStepInput
 
 			if wsi.Source == nil {
-				continue
+				panic("WorkflowStepInput.Source evaluation not implemented")
 			}
 
 			if wsi.Default != nil { // input is optional, anyway....
-				continue
+				panic("WorkflowStepInput.Default evaluation not implemented")
 			}
 
 			//job_input := *(job.CWL_collection.Job_input)
@@ -1633,6 +1633,8 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 					}
 
 					reason = fmt.Sprintf("Source CWL object (type non-array) %s not found", src_str)
+					spew.Dump(wsi)
+					panic("object not found")
 					return
 				}
 			}

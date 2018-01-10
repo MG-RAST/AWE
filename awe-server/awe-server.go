@@ -79,7 +79,7 @@ func launchSite(control chan int, port int) {
 		auth_resources = "," + string(b)
 	}
 	if conf.USE_OAUTH_SERVER {
-	   	auth_oauthserver = "true"
+		auth_oauthserver = "true"
 		auth_url = conf.AUTH_URL
 	}
 

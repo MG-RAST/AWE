@@ -44,16 +44,18 @@ func NewOutputArraySchemaFromInterface(original interface{}, schemata []CWLType_
 		}
 
 		items, ok := original_map["items"]
-		if ok {
-			var items_type []CWLType_Type
-			items_type, err = NewCWLType_TypeArray(items, schemata, "Output", false)
-			if err != nil {
-				err = fmt.Errorf("(NewOutputArraySchema) NewCWLType_TypeArray returns: %s", err.Error())
-				return
-			}
-			original_map["items"] = items_type
+		if !ok {
 
+			err = fmt.Errorf("(NewOutputArraySchema) items are missing")
+			return
 		}
+		var items_type []CWLType_Type
+		items_type, err = NewCWLType_TypeArray(items, schemata, "Output", false)
+		if err != nil {
+			err = fmt.Errorf("(NewOutputArraySchema) NewCWLType_TypeArray returns: %s", err.Error())
+			return
+		}
+		original_map["items"] = items_type
 
 		err = mapstructure.Decode(original, coas)
 		if err != nil {

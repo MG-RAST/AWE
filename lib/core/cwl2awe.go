@@ -214,7 +214,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	if !found_ShockRequirement {
 		//err = fmt.Errorf("ShockRequirement has to be provided in the workflow object")
 		//return
-		job.ShockHost = "http://shock:7445"
+		job.ShockHost = "http://shock.local:7445" // TODO make this different
 
 	}
 	logger.Debug(1, "Requirements checked")

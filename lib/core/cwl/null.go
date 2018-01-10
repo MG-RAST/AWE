@@ -5,22 +5,25 @@ import (
 //"strconv"
 )
 
-type Null int
+type Null string
 
 func (i *Null) Is_CWL_object() {}
 
 func (i *Null) GetClass() string      { return string(CWL_null) } // for CWL_object
 func (i *Null) GetType() CWLType_Type { return CWL_null }
-func (i *Null) String() string        { return string(CWL_null) }
+func (i *Null) String() string        { return "Null" }
 
 func (i *Null) GetId() string  { return "" } // TODO deprecated functions
 func (i *Null) SetId(x string) {}
 
 func (i *Null) Is_CWL_minimal() {}
 
-func NewNull() *Null {
+func NewNull() (n *Null) {
 
-	var something Null
+	var null_nptr Null
+	null_nptr = Null("Null")
 
-	return &something
+	n = &null_nptr
+
+	return
 }

@@ -1572,70 +1572,71 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		for _, wsi := range task.WorkflowStep.In { // WorkflowStepInput
 
 			if wsi.Source == nil {
-				panic("WorkflowStepInput.Source evaluation not implemented")
-			}
 
-			if wsi.Default != nil { // input is optional, anyway....
-				panic("WorkflowStepInput.Default evaluation not implemented")
-			}
+				if wsi.Default != nil { // input is optional, anyway....
+					continue
+				}
+				reason = fmt.Sprintf("(isTaskReady) No Source and no default found")
 
-			//job_input := *(job.CWL_collection.Job_input)
+			} else {
 
-			source_is_array := false
-			//source_object_array := []cwl.CWLType{}
+				//job_input := *(job.CWL_collection.Job_input)
 
-			source_as_array, source_is_array := wsi.Source.([]interface{})
+				source_is_array := false
+				//source_object_array := []cwl.CWLType{}
 
-			if source_is_array {
+				source_as_array, source_is_array := wsi.Source.([]interface{})
 
-				for _, src := range source_as_array { // usually only one
-					//fmt.Println("(isTaskReady) src: " + spew.Sdump(src))
+				if source_is_array {
+
+					for _, src := range source_as_array { // usually only one
+						//fmt.Println("(isTaskReady) src: " + spew.Sdump(src))
+						var src_str string
+						var ok bool
+						src_str, ok = src.(string)
+						if !ok {
+							err = fmt.Errorf("src is not a string")
+							return
+						}
+
+						_, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str, false)
+
+						if err != nil {
+							err = fmt.Errorf("(isTaskReady) (type array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
+							return
+						}
+
+						if !ok {
+							reason = fmt.Sprintf("Source CWL object (type array) %s not found", src_str)
+							return
+						}
+
+					}
+				} else {
 					var src_str string
 					var ok bool
-					src_str, ok = src.(string)
+					src_str, ok = wsi.Source.(string)
 					if !ok {
-						err = fmt.Errorf("src is not a string")
+						err = fmt.Errorf("(isTaskReady) Cannot parse WorkflowStep source: %s", spew.Sdump(wsi.Source))
 						return
 					}
-
 					_, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str, false)
 
 					if err != nil {
-						err = fmt.Errorf("(isTaskReady) (type array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
+						err = fmt.Errorf("(isTaskReady) (type non-array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
 						return
 					}
 
 					if !ok {
-						reason = fmt.Sprintf("Source CWL object (type array) %s not found", src_str)
+
+						//for key, _ := range workflow_input_map {
+						//	fmt.Println("workflow_input_map key: " + key)
+						//}
+
+						reason = fmt.Sprintf("Source CWL object (type non-array) %s not found", src_str)
+						//spew.Dump(wsi)
 						return
 					}
-
-				}
-			} else {
-				var src_str string
-				var ok bool
-				src_str, ok = wsi.Source.(string)
-				if !ok {
-					err = fmt.Errorf("(isTaskReady) Cannot parse WorkflowStep source: %s", spew.Sdump(wsi.Source))
-					return
-				}
-				_, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str, false)
-
-				if err != nil {
-					err = fmt.Errorf("(isTaskReady) (type non-array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
-					return
-				}
-
-				if !ok {
-
-					for key, _ := range workflow_input_map {
-						fmt.Println("workflow_input_map key: " + key)
-					}
-
-					reason = fmt.Sprintf("Source CWL object (type non-array) %s not found", src_str)
-					spew.Dump(wsi)
-					panic("object not found")
-					return
 				}
 			}
 		}
@@ -1768,7 +1769,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		// scatter
 		if task_type == "" {
 			if len(cwl_step.Scatter) != 0 {
-				err = fmt.Errorf("Not implemented yet")
+				err = fmt.Errorf("Scatter not implemented yet")
 				return // TODO
 
 				task_type = TASK_TYPE_SCATTER
@@ -2037,6 +2038,10 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 			return
 
 		} else {
+
+			// workflow inputs that are missing might be optional, thus Null is returned
+			obj = cwl.NewNull()
+			ok = true
 			// not found
 			return
 		}

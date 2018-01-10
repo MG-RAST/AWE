@@ -20,6 +20,7 @@ type OutputEnumSchema struct{}
 
 //type OutputArraySchema struct{}
 
+// field type in http://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
 // CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
 
 func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Type) (result interface{}, err error) {
@@ -45,27 +46,44 @@ func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Typ
 	case map[string]interface{}:
 
 		original_map := original.(map[string]interface{})
-		output_type, ok := original_map["type"]
+		output_type_if, ok := original_map["type"]
 
 		if !ok {
 			fmt.Printf("unknown type")
 			spew.Dump(original)
 			err = fmt.Errorf("(NewWorkflowOutputParameterType) Map-Type unknown")
+			return
 		}
+		var output_type string
+		output_type, ok = output_type_if.(string)
+		if !ok {
+			err = fmt.Errorf("(NewWorkflowOutputParameterType) value of field type is not string")
+			return
+		}
+
+		if output_type == "" {
+			err = fmt.Errorf("(NewWorkflowOutputParameterType) field \"type\" is empty")
+			return
+		}
+
+		fmt.Println("output_type: " + output_type)
 
 		switch output_type {
 		case "record":
 			result = OutputRecordSchema{}
+			panic("record not correctly implemented")
 			return
 		case "enum":
 			result = OutputEnumSchema{}
+			panic("enum not correctly implemented")
 			return
 		case "array":
-			result = OutputArraySchema{}
+			result = NewOutputArraySchema()
 			return
 		default:
+			spew.Dump(original)
 			err = fmt.Errorf("(NewWorkflowOutputParameterType) type %s is unknown", output_type)
-
+			return
 		}
 
 	default:
@@ -78,16 +96,22 @@ func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Typ
 
 func NewWorkflowOutputParameterTypeArray(original interface{}, schemata []CWLType_Type) (result interface{}, err error) {
 
+	original, err = MakeStringMap(original)
+	if err != nil {
+		return
+	}
+
 	wopta := []interface{}{}
 
 	switch original.(type) {
-	case map[interface{}]interface{}:
+	case map[string]interface{}:
 
 		wopt, xerr := NewWorkflowOutputParameterType(original, schemata)
 		if xerr != nil {
 			err = xerr
 			return
 		}
+
 		wopta = append(wopta, wopt)
 		result = wopta
 		return
@@ -104,6 +128,7 @@ func NewWorkflowOutputParameterTypeArray(original interface{}, schemata []CWLTyp
 				err = xerr
 				return
 			}
+
 			wopta = append(wopta, wopt)
 		}
 
@@ -116,6 +141,7 @@ func NewWorkflowOutputParameterTypeArray(original interface{}, schemata []CWLTyp
 			err = xerr
 			return
 		}
+
 		wopta = append(wopta, wopt)
 
 		result = wopta

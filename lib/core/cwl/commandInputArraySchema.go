@@ -13,8 +13,6 @@ type CommandInputArraySchema struct { // Items, Type , Label
 	InputBinding *CommandLineBinding `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"`
 }
 
-//func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}
-
 func (c *CommandInputArraySchema) Type2String() string { return "CommandInputArraySchema" }
 func (c *CommandInputArraySchema) GetId() string       { return "" }
 

@@ -59,6 +59,9 @@ func NewCommandOutputArraySchemaFromInterface(original interface{}, schemata []C
 			err = fmt.Errorf("(NewCommandOutputArraySchema) %s", err.Error())
 			return
 		}
+		if coas.Type == "" {
+			panic("nononono")
+		}
 	default:
 		err = fmt.Errorf("NewCommandOutputArraySchema, unknown type %s", reflect.TypeOf(original))
 	}

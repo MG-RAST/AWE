@@ -36,27 +36,39 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 
 		// is array
 
-		an_array_schema := make(map[string]interface{})
-		an_array_schema["type"] = "array"
+		//an_array_schema := make(map[string]interface{})
+		//an_array_schema["type"] = "array"
 
 		base_type := strings.TrimSuffix(native, "[]")
 
-		var ok bool
-		result, ok = IsValidType(base_type)
+		switch context {
 
-		if !ok {
-			err = fmt.Errorf("(NewCWLType_TypeFromString) base_type %s unkown", native)
+		case "WorkflowOutput":
+
+			oas := NewOutputArraySchema()
+			oas.Items = []CWLType_Type{CWLType_Type_Basic(base_type)}
+			result = oas
 			return
+		default:
+			err = fmt.Errorf("(NewCWLType_TypeFromString) context %s not supported yet", context)
 		}
 
-		an_array_schema["items"] = []CWLType_Type{CWLType_Type_Basic(base_type)}
+		//var ok bool
+		//result, ok = IsValidType(base_type)
 
-		result, err = NewCWLType_Type(schemata, an_array_schema, context)
-		if err != nil {
-			return
-		}
+		//if !ok {
+		//	err = fmt.Errorf("(NewCWLType_TypeFromString) base_type %s unkown", native)
+		//	return
+		//}
 
-		return
+		//an_array_schema["items"] = []CWLType_Type{CWLType_Type_Basic(base_type)}
+
+		//result, err = NewCWLType_Type(schemata, an_array_schema, context)
+		//if err != nil {
+		//	return
+		//}
+
+		//return
 
 	}
 

@@ -104,11 +104,11 @@ func NewCommandInputParameter(v interface{}, schemata []CWLType_Type) (input_par
 			v_map["type"] = type_value
 		}
 
-		format_value, ok := v_map["format_value"]
+		format_value, ok := v_map["format"]
 		if ok {
 			format_str, is_string := format_value.(string)
 			if is_string {
-				v_map["format_value"] = []string{format_str}
+				v_map["format"] = []string{format_str}
 			}
 
 		}

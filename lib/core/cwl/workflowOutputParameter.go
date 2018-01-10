@@ -37,20 +37,20 @@ func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type) (
 			return
 		}
 
-		wop_type, ok := original_map["type"]
-		if ok {
+		wop_type, has_type := original_map["type"]
+		if has_type {
 
 			wop_type_array, xerr := NewWorkflowOutputParameterTypeArray(wop_type, schemata)
 			if xerr != nil {
 				err = fmt.Errorf("from NewWorkflowOutputParameterTypeArray: %s", xerr.Error())
 				return
 			}
-			//fmt.Println("type of wop_type_array")
-			//fmt.Println(reflect.TypeOf(wop_type_array))
-			//fmt.Println("original:")
-			//spew.Dump(original)
-			//fmt.Println("wop_type_array:")
-			//spew.Dump(wop_type_array)
+			fmt.Println("type of wop_type_array")
+			fmt.Println(reflect.TypeOf(wop_type_array))
+			fmt.Println("original:")
+			spew.Dump(original)
+			fmt.Println("wop_type_array:")
+			spew.Dump(wop_type_array)
 			original_map["type"] = wop_type_array
 
 		}

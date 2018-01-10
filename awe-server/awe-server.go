@@ -68,7 +68,9 @@ func launchSite(control chan int, port int) {
 
 	// add login auth
 	auth_on := "false"
+	auth_oauthserver := "false"
 	auth_resources := ""
+	auth_url := ""
 	if conf.HAS_OAUTH {
 		auth_on = "true"
 		b, _ := json.Marshal(conf.LOGIN_RESOURCES)
@@ -76,9 +78,15 @@ func launchSite(control chan int, port int) {
 		b = bytes.TrimSuffix(b, []byte("}"))
 		auth_resources = "," + string(b)
 	}
+	if conf.USE_OAUTH_SERVER {
+	   	auth_oauthserver = "true"
+		auth_url = conf.AUTH_URL
+	}
 
 	// replace auth
 	template_conf_string = strings.Replace(template_conf_string, "[% auth_on %]", auth_on, -1)
+	template_conf_string = strings.Replace(template_conf_string, "[% auth_oauthserver %]", auth_oauthserver, -1)
+	template_conf_string = strings.Replace(template_conf_string, "[% auth_url %]", auth_url, -1)
 	template_conf_string = strings.Replace(template_conf_string, "[% auth_default %]", conf.LOGIN_DEFAULT, -1)
 	template_conf_string = strings.Replace(template_conf_string, "[% auth_resources %]", auth_resources, -1)
 

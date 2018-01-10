@@ -192,6 +192,10 @@ var (
 	HAS_OAUTH     bool
 	OAUTH_DEFAULT string // first value in OAUTH_URL_STR
 
+	// authServer variables
+	AUTH_URL	 string
+	USE_OAUTH_SERVER bool
+
 	// internal config control
 	FAKE_VAR = false
 
@@ -269,6 +273,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&GLOBUS_PROFILE_URL, "", "Auth", "globus_profile_url", "", "")
 		c_store.AddString(&OAUTH_URL_STR, "", "Auth", "oauth_urls", "", "")
 		c_store.AddString(&OAUTH_BEARER_STR, "", "Auth", "oauth_bearers", "", "")
+		c_store.AddString(&USE_OAUTH_SERVER, false, "Auth", "auth_oauthserver", "", "")
+		c_store.AddString(&AUTH_URL, "", "Auth", "auth_url", "", "")
 		c_store.AddString(&SITE_LOGIN_URL, "", "Auth", "login_url", "", "")
 		c_store.AddBool(&CLIENT_AUTH_REQ, false, "Auth", "client_auth_required", "", "")
 

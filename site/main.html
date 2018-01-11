@@ -37,7 +37,8 @@ jQuery( document ).ready(function(){
 	    stm.user = JSON.parse(user);
 	    stm.user.firstname = stm.user.name;
 	    stm.user.lastname = "";
-	    stm.authHeader = { "Authorization": "oauth "+stm.user.token };
+	    awep.loggedIn = true;
+	    awep.authHeader = stm.authHeader = { "Authorization": "oauth "+stm.user.token };
 	    document.getElementById('login_space').innerHTML = '<button class="btn btn-inverse" onclick="logout();" id="logoutButton" style="display: none; float: right; margin-right: 50px; margin-top: 12px;"></button>';
 	    $('#logoutButton').css('display', '');
 	    document.getElementById('logoutButton').innerHTML = stm.user.name;

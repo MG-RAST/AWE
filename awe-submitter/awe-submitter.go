@@ -283,6 +283,11 @@ func main_wrapper() (err error) {
 	//	println(value)
 	//}
 
+	if len(conf.ARGS) < 2 {
+		err = fmt.Errorf("ERROR: not enough arguments, workflow file and job file are required")
+		return
+	}
+
 	workflow_file := conf.ARGS[0]
 	job_file := conf.ARGS[1]
 

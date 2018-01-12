@@ -44,7 +44,15 @@ func (wq *WorkQueue) Add(workunit *Workunit) (err error) {
 	if workunit.Id == "" {
 		return errors.New("try to push a workunit with an empty id")
 	}
-	logger.Debug(3, "(WorkQueue/Add)")
+
+	var work_str string
+	work_str, err = workunit.String()
+	if err != nil {
+		err = fmt.Errorf("(WorkQueue/Add) will not add workunit, it has broken id")
+		return
+	}
+
+	logger.Debug(3, "(WorkQueue/Add) Adding workunit %s to WorkQueue", work_str)
 
 	err = wq.all.Set(workunit)
 	if err != nil {

@@ -9,19 +9,41 @@
     <script src="Retina/js/bootstrap.min.js"></script>
     <script src="Retina/js/retina.js"></script>
     <script src="Retina/js/stm.js"></script>
+    <script type="text/javascript" src="Retina/js/jquery.cookie.js"></script>
     <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="css/awe.css">
     <script>
-    jQuery( document ).ready(function(){
-	stm.init({});
-	Retina.init({});
+    window.logout = function () {
+	jQuery.removeCookie('AuthWebSession', { path: '/' });
+	window.location.reload();
+    }
+var user = jQuery.cookie('AuthWebSession');
+if (RetinaConfig.useOAuthServer) {
+    if (! user ) {
+	window.location = RetinaConfig.auth_url+'/clientAWE.cgi';
+    }
+}
+jQuery( document ).ready(function(){
+    stm.init({});
+    Retina.init({});
 	    
-	var page = Retina.cgiParam("page") || "home";	
-	document.title = "AWE - "+page.charAt(0).toUpperCase()+page.substr(1);
-	document.getElementById('pageTitle').innerHTML = page.charAt(0).toUpperCase()+page.substr(1);
-
-	Retina.load_widget("awe_"+page).then( function() {
-	    window.awep = Retina.Widget.create('awe_'+page, { target: document.getElementById('mainview') });
+    var page = Retina.cgiParam("page") || "home";	
+    document.title = "AWE - "+page.charAt(0).toUpperCase()+page.substr(1);
+    document.getElementById('pageTitle').innerHTML = page.charAt(0).toUpperCase()+page.substr(1);
+    
+    Retina.load_widget("awe_"+page).then( function() {
+	window.awep = Retina.Widget.create('awe_'+page, { target: document.getElementById('mainview') });
+	if (RetinaConfig.useOAuthServer) {
+	    stm.user = JSON.parse(user);
+	    stm.user.firstname = stm.user.name;
+	    stm.user.lastname = "";
+	    awep.loggedIn = true;
+	    awep.authHeader = stm.authHeader = { "Authorization": "oauth "+stm.user.token };
+	    document.getElementById('login_space').innerHTML = '<button class="btn btn-inverse" onclick="logout();" id="logoutButton" style="display: none; float: right; margin-right: 50px; margin-top: 12px;"></button>';
+	    $('#logoutButton').css('display', '');
+	    document.getElementById('logoutButton').innerHTML = stm.user.name;
+	    awep.display();
+	} else {
 	    awep.loginAction = function (action) {
 		var widget = awep;
 		if (action.action == "login" && action.result == "success") {
@@ -34,14 +56,15 @@
 		widget.display();
 	    };
 	    if (RetinaConfig.authentication) {
-		     Retina.load_widget({"name": "login", "resource": "Retina/widgets/"}).then( function() {
-			 Retina.Widget.create('login', { "target": document.getElementById("login_space"),
-							 "callback": typeof Retina.WidgetInstances["awe_"+page][1].loginAction == "function" ?  Retina.WidgetInstances["awe_"+page][1].loginAction : null });
-		     });
+		Retina.load_widget({"name": "login", "resource": "Retina/widgets/"}).then( function() {
+		    Retina.Widget.create('login', { "target": document.getElementById("login_space"),
+						    "callback": typeof Retina.WidgetInstances["awe_"+page][1].loginAction == "function" ?  Retina.WidgetInstances["awe_"+page][1].loginAction : null });
+		});
 	    }
-	});
+	}
     });
-    </script>
+});
+</script>
   </head>
 
   <body style="margin-top: 60px; margin-bottom: 100px;">

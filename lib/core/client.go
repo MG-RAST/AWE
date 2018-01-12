@@ -40,14 +40,14 @@ type Client struct {
 
 // worker info that does not change at runtime
 type WorkerRuntime struct {
-	Id            string   `bson:"id" json:"id"`     // this is a uuid (the only relevant identifier)
-	Name          string   `bson:"name" json:"name"` // this can be anything you want
-	Group         string   `bson:"group" json:"group"`
-	User          string   `bson:"user" json:"user"`
-	Domain        string   `bson:"domain" json:"domain"`
-	InstanceId    string   `bson:"instance_id" json:"instance_id"`     // Openstack specific
-	InstanceType  string   `bson:"instance_type" json:"instance_type"` // Openstack specific
-	Host          string   `bson:"host" json:"host"`                   // deprecated
+	Id           string `bson:"id" json:"id"`     // this is a uuid (the only relevant identifier)
+	Name         string `bson:"name" json:"name"` // this can be anything you want
+	Group        string `bson:"group" json:"group"`
+	User         string `bson:"user" json:"user"`
+	Domain       string `bson:"domain" json:"domain"`
+	InstanceId   string `bson:"instance_id" json:"instance_id"`     // Openstack specific
+	InstanceType string `bson:"instance_type" json:"instance_type"` // Openstack specific
+	//Host          string   `bson:"host" json:"host"`                   // deprecated
 	Hostname      string   `bson:"hostname" json:"hostname"`
 	Host_ip       string   `bson:"host_ip" json:"host_ip"` // Host can be physical machine or VM, whatever is helpful for management
 	CPUs          int      `bson:"cores" json:"cores"`

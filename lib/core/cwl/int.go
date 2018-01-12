@@ -7,6 +7,8 @@ import (
 
 type Int int
 
+func (i *Int) Is_CWL_object() {}
+
 func (i *Int) GetClass() string      { return string(CWL_int) } // for CWL_object
 func (i *Int) GetType() CWLType_Type { return CWL_int }
 func (i *Int) String() string        { return strconv.Itoa(int(*i)) }
@@ -16,7 +18,7 @@ func (i *Int) SetId(x string) {}
 
 func (i *Int) Is_CWL_minimal() {}
 
-func NewIntFromint(value int) (i *Int) {
+func NewInt(value int) (i *Int) {
 
 	var i_nptr Int
 	i_nptr = Int(value)
@@ -24,13 +26,6 @@ func NewIntFromint(value int) (i *Int) {
 	i = &i_nptr
 
 	return
-
-}
-func NewInt(id string, value int) *Int {
-
-	_ = id
-
-	return NewIntFromint(value)
 
 }
 
@@ -43,6 +38,6 @@ func NewIntFromInterface(id string, native interface{}) (i *Int, err error) {
 		err = fmt.Errorf("(NewIntFromInterface) Cannot create int")
 		return
 	}
-	i = NewIntFromint(real_int)
+	i = NewInt(real_int)
 	return
 }

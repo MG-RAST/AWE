@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const VERSION string = "0.9.62"
+const VERSION string = "0.9.65"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -134,9 +134,12 @@ var (
 	PRE_WORK_SCRIPT_ARGS        = []string{}
 	METADATA                    string
 
-	SERVER_URL     string
-	CLIENT_NAME    string
-	CLIENT_HOST    string
+	SERVER_URL             string
+	CLIENT_NAME            string
+	CLIENT_HOSTNAME        string
+	CLIENT_HOST_IP         string
+	CLIENT_HOST_deprecated string
+
 	CLIENT_GROUP   string
 	CLIENT_DOMAIN  string
 	WORKER_OVERLAP bool
@@ -174,6 +177,11 @@ var (
 	CPUPROFILE           string
 	MEMPROFILE           string
 
+	// submitter (CWL)
+	SUBMITTER_OUTDIR string
+	SUBMITTER_QUIET  bool
+	SUBMITTER_PACK   bool
+
 	// used to track changes in data structures
 	VERSIONS = make(map[string]int)
 
@@ -191,6 +199,10 @@ var (
 	AUTH_OAUTH    = make(map[string]string)
 	HAS_OAUTH     bool
 	OAUTH_DEFAULT string // first value in OAUTH_URL_STR
+
+	// authServer variables
+	AUTH_URL         string
+	USE_OAUTH_SERVER bool
 
 	// internal config control
 	FAKE_VAR = false
@@ -269,6 +281,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&GLOBUS_PROFILE_URL, "", "Auth", "globus_profile_url", "", "")
 		c_store.AddString(&OAUTH_URL_STR, "", "Auth", "oauth_urls", "", "")
 		c_store.AddString(&OAUTH_BEARER_STR, "", "Auth", "oauth_bearers", "", "")
+		c_store.AddBool(&USE_OAUTH_SERVER, false, "Auth", "auth_oauthserver", "", "")
+		c_store.AddString(&AUTH_URL, "", "Auth", "auth_url", "", "")
 		c_store.AddString(&SITE_LOGIN_URL, "", "Auth", "login_url", "", "")
 		c_store.AddBool(&CLIENT_AUTH_REQ, false, "Auth", "client_auth_required", "", "")
 
@@ -323,12 +337,20 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&SHOCK_URL, "http://localhost:8001", "Client", "shockurl", "URL of SHOCK server, including port number", "")
 	}
 
+	if mode == "submitter" {
+		c_store.AddString(&SUBMITTER_OUTDIR, "", "Client", "outdir", "location of output files", "")
+		c_store.AddBool(&SUBMITTER_QUIET, false, "Client", "quiet", "useless flag for CWL compliance test", "")
+		c_store.AddBool(&SUBMITTER_PACK, false, "Client", "pack", "invoke cwl-runner --pack first", "")
+	}
+
 	if mode == "worker" {
 		// Client/worker
 
 		c_store.AddString(&CLIENT_GROUP, "default", "Client", "group", "name of client group", "")
 		c_store.AddString(&CLIENT_NAME, "default", "Client", "name", "default determines client name by openstack meta data", "")
-		c_store.AddString(&CLIENT_HOST, "127.0.0.1", "Client", "host", "host or ip address", "host or ip address to help finding machines where the clients runs on")
+		c_store.AddString(&CLIENT_HOSTNAME, "localhost", "Client", "hostname", "host name", "host name to help finding machines where the clients runs on")
+		c_store.AddString(&CLIENT_HOST_IP, "127.0.0.1", "Client", "host_ip", "ip address", "ip address to help finding machines where the clients runs on")
+		c_store.AddString(&CLIENT_HOST_deprecated, "", "Client", "host", "deprecated", "deprecated")
 		c_store.AddString(&CLIENT_DOMAIN, "default", "Client", "domain", "", "")
 		c_store.AddString(&CLIENT_GROUP_TOKEN, "", "Client", "clientgroup_token", "", "")
 
@@ -440,6 +462,11 @@ func Init_conf(mode string) (err error) {
 
 	// configuration post processing
 	if mode == "worker" {
+
+		if CLIENT_HOST_deprecated != "" {
+			CLIENT_HOST_IP = CLIENT_HOST_deprecated
+		}
+
 		if CLIENT_NAME == "" || CLIENT_NAME == "default" || CLIENT_NAME == "hostname" {
 			hostname, err := os.Hostname()
 			if err == nil {

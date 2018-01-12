@@ -7,15 +7,14 @@ import (
 
 //http://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputEnumSchema
 type CommandOutputEnumSchema struct {
-	Symbols       []string              `yaml:"symbols,omitempty" bson:"symbols,omitempty" json:"symbols,omitempty"`
-	Type          string                `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // must be enum
-	Label         string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	OutputBinding *CommandOutputBinding `yaml:"outputbinding,omitempty" bson:"outputbinding,omitempty" json:"outputbinding,omitempty"`
+	EnumSchema    `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Symbols, Type, Label
+	OutputBinding *CommandOutputBinding                                                 `yaml:"outputbinding,omitempty" bson:"outputbinding,omitempty" json:"outputbinding,omitempty"`
 }
 
 //func (c *CommandOutputEnumSchema) Is_CommandOutputParameterType() {}
 func (c *CommandOutputEnumSchema) Is_Type()            {}
 func (c *CommandOutputEnumSchema) Type2String() string { return "CommandOutputEnumSchema" }
+func (c *CommandOutputEnumSchema) GetId() string       { return "" }
 
 func NewCommandOutputEnumSchema(v map[string]interface{}) (schema *CommandOutputEnumSchema, err error) {
 

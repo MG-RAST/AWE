@@ -22,12 +22,14 @@ const (
 	CWL_File      CWLType_Type_Basic = "File"      //A File object
 	CWL_Directory CWLType_Type_Basic = "Directory" //A Directory object
 
+	CWL_stdin  CWLType_Type_Basic = "stdin"
 	CWL_stdout CWLType_Type_Basic = "stdout"
 	CWL_stderr CWLType_Type_Basic = "stderr"
 
-	CWL_array  CWLType_Type_Basic = "array"  // unspecific type, only useful as a struct with items
-	CWL_record CWLType_Type_Basic = "record" // unspecific type
-	CWL_enum   CWLType_Type_Basic = "enum"   // unspecific type
+	CWL_array   CWLType_Type_Basic = "array"   // unspecific type, only useful as a struct with items
+	CWL_record  CWLType_Type_Basic = "record"  // unspecific type
+	CWL_enum    CWLType_Type_Basic = "enum"    // unspecific type
+	CWL_pointer CWLType_Type_Basic = "pointer" // unspecific type
 )
 
 // CWL Classes (note that type names also are class names)
@@ -39,7 +41,7 @@ const (
 
 var Valid_Classes = []string{"Workflow", "CommandLineTool", "WorkflowStepInput"}
 
-var Valid_Types = []CWLType_Type_Basic{CWL_null, CWL_boolean, CWL_int, CWL_long, CWL_float, CWL_double, CWL_string, CWL_File, CWL_Directory, CWL_stdout, CWL_stderr}
+var Valid_Types = []CWLType_Type_Basic{CWL_null, CWL_boolean, CWL_int, CWL_long, CWL_float, CWL_double, CWL_string, CWL_File, CWL_Directory, CWL_stdin, CWL_stdout, CWL_stderr}
 
 var ValidClassMap = map[string]string{}                        // lower-case to correct case mapping
 var ValidTypeMap = map[CWLType_Type_Basic]CWLType_Type_Basic{} // lower-case to correct case mapping
@@ -48,14 +50,6 @@ type CWL_array_type interface {
 	Is_CWL_array_type()
 	Get_Array() *[]CWLType
 }
-
-type CWL_minimal_interface interface {
-	Is_CWL_minimal()
-}
-
-type CWL_minimal struct{}
-
-func (c *CWL_minimal) Is_CWL_minimal() {}
 
 // generic class to represent Files and Directories
 type CWL_location interface {
@@ -68,7 +62,8 @@ type CWL_location interface {
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CWLType
 // null, boolean, int, long, float, double, string, File, Directory
 type CWLType interface {
-	CWL_object // is an interface
+	CWL_object
+	CWL_class // is an interface
 	//Is_CommandInputParameterType()
 	//Is_CommandOutputParameterType()
 	GetType() CWLType_Type
@@ -78,7 +73,8 @@ type CWLType interface {
 }
 
 type CWLType_Impl struct {
-	CWL_object_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class
+	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	CWL_class_Impl  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class
 	Type            CWLType_Type                                                          `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 }
 
@@ -131,32 +127,37 @@ func IsValidClass(native_str string) (result string, ok bool) {
 func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 	//var cwl_type CWLType
-	fmt.Printf("(NewCWLType) starting with type %s\n", reflect.TypeOf(native))
+	//fmt.Printf("(NewCWLType) starting with type %s\n", reflect.TypeOf(native))
 
 	native, err = MakeStringMap(native)
 	if err != nil {
 		return
 	}
 
-	fmt.Printf("(NewCWLType) (B) starting with type %s\n", reflect.TypeOf(native))
+	//fmt.Printf("(NewCWLType) (B) starting with type %s\n", reflect.TypeOf(native))
+
+	if native == nil {
+		cwl_type = NewNull()
+		return
+	}
 
 	switch native.(type) {
 	case []interface{}:
-		fmt.Printf("(NewCWLType) C\n")
+		//fmt.Printf("(NewCWLType) C\n")
 		native_array, _ := native.([]interface{})
 
 		array, xerr := NewArray(id, native_array)
 		if xerr != nil {
-			err = fmt.Errorf("(NewCWLType) NewArray returned: ", xerr.Error())
+			err = fmt.Errorf("(NewCWLType) NewArray returned: %s", xerr.Error())
 			return
 		}
 		cwl_type = array
 
 	case int:
-		fmt.Printf("(NewCWLType) D\n")
+		//fmt.Printf("(NewCWLType) D\n")
 		native_int := native.(int)
 
-		cwl_type = NewInt(id, native_int)
+		cwl_type = NewInt(native_int)
 	case float32:
 		native_float32 := native.(float32)
 		cwl_type = NewFloat(native_float32)
@@ -164,18 +165,18 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		native_float64 := native.(float64)
 		cwl_type = NewDouble(native_float64)
 	case string:
-		fmt.Printf("(NewCWLType) E\n")
+		//fmt.Printf("(NewCWLType) E\n")
 		native_str := native.(string)
 
-		cwl_type = NewString(id, native_str)
+		cwl_type = NewString(native_str)
 	case bool:
-		fmt.Printf("(NewCWLType) F\n")
+		//fmt.Printf("(NewCWLType) F\n")
 		native_bool := native.(bool)
 
 		cwl_type = NewBoolean(id, native_bool)
 
 	case map[string]interface{}:
-		fmt.Printf("(NewCWLType) G\n")
+		//fmt.Printf("(NewCWLType) G\n")
 		native_map := native.(map[string]interface{})
 
 		_, has_items := native_map["items"]
@@ -214,12 +215,12 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		cwl_type = native.(*Boolean)
 
 	default:
-		fmt.Printf("(NewCWLType) H\n")
+		//fmt.Printf("(NewCWLType) H\n")
 		spew.Dump(native)
 		err = fmt.Errorf("(NewCWLType) Type unknown: \"%s\" (%s)", reflect.TypeOf(native), spew.Sdump(native))
 		return
 	}
-	fmt.Printf("(NewCWLType) I\n")
+	//fmt.Printf("(NewCWLType) I\n")
 	//if cwl_type.GetId() == "" {
 	//	err = fmt.Errorf("(NewCWLType) Id is missing")
 	//		return
@@ -234,14 +235,14 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CWLType, err error) {
 	switch class {
 	case string(CWL_File):
-		file, yerr := NewFile(id, native)
+		file, yerr := NewFile(native)
 		cwl_type = &file
 		if yerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewFile returned: %s", yerr.Error())
 			return
 		}
 	case string(CWL_string):
-		mystring, yerr := NewStringFromInterface(id, native)
+		mystring, yerr := NewStringFromInterface(native)
 		if yerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewStringFromInterface returned: %s", yerr.Error())
 			return
@@ -263,15 +264,15 @@ func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CW
 		cwl_type = mydir
 	default:
 		// Map type unknown, maybe a record
-		fmt.Println("This might be a record:")
-		spew.Dump(native)
+		//fmt.Println("This might be a record:")
+		//spew.Dump(native)
 
 		record, xerr := NewRecord(id, native)
 		if xerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewRecord returned: %s", xerr.Error())
 			return
 		}
-		cwl_type = record
+		cwl_type = &record
 		return
 	}
 	return
@@ -361,7 +362,26 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 		case *CommandOutputArraySchema:
 			ok = true
 			return
+		case *CommandInputArraySchema:
+			ok = true
+			return
+		case OutputArraySchema:
+			ok = true
+			return
+		case *OutputArraySchema:
+			ok = true
+			return
+		case *ArraySchema:
+			ok = true
+			return
+		case *InputArraySchema:
+			ok = true
+			return
 		default:
+			fmt.Println("schema:")
+			spew.Dump(schema)
+			fmt.Println("object:")
+			spew.Dump(object)
 			panic("array did not match")
 		}
 	default:

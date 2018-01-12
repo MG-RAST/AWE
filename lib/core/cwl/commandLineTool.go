@@ -3,14 +3,18 @@ package cwl
 import (
 	//"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
+	"reflect"
 )
 
+// http://www.commonwl.org/v1.0/CommandLineTool.html#CommandLineTool
 type CommandLineTool struct {
 	//Id                 string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
 	//Class              string                   `yaml:"class,omitempty" bson:"class,omitempty" json:"class,omitempty"`
 	CWL_object_Impl    `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	CWL_class_Impl     `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	CWL_id_Impl        `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	BaseCommand        []string                 `yaml:"baseCommand,omitempty" bson:"baseCommand,omitempty" json:"baseCommand,omitempty" mapstructure:"baseCommand,omitempty"`
 	Inputs             []CommandInputParameter  `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
 	Outputs            []CommandOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
@@ -34,24 +38,36 @@ func (c *CommandLineTool) Is_process()     {}
 // keyname will be converted into 'Id'-field
 
 //func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
-func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, err error) {
+func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
 
-	fmt.Println("NewCommandLineTool:")
-	spew.Dump(generic)
+	//fmt.Println("NewCommandLineTool:")
+	//spew.Dump(generic)
 
 	//switch type()
 	object, ok := generic.(map[string]interface{})
 	if !ok {
-		err = fmt.Errorf("other types than map[string]interface{} not supported yet")
+		err = fmt.Errorf("other types than map[string]interface{} not supported yet (got %s)", reflect.TypeOf(generic))
 		return
 	}
 
 	commandLineTool = &CommandLineTool{}
 	commandLineTool.Class = "CommandLineTool"
+
+	requirements, ok := object["requirements"]
+	if ok {
+		object["requirements"], schemata, err = CreateRequirementArray(requirements)
+		if err != nil {
+			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (requirements): %s", err.Error())
+			return
+		}
+	}
+	//scs := spew.ConfigState{Indent: "\t"}
+	//scs.Dump(object["requirements"])
+
 	inputs, ok := object["inputs"]
 	if ok {
 		// Convert map of inputs into array of inputs
-		err, object["inputs"] = CreateCommandInputArray(inputs)
+		err, object["inputs"] = CreateCommandInputArray(inputs, schemata)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateCommandInputArray: %s", err.Error())
 			return
@@ -60,7 +76,7 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 	outputs, ok := object["outputs"]
 	if ok {
 		// Convert map of outputs into array of outputs
-		object["outputs"], err = NewCommandOutputParameterArray(outputs)
+		object["outputs"], err = NewCommandOutputParameterArray(outputs, schemata)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in NewCommandOutputParameterArray: %s", err.Error())
 			return
@@ -93,18 +109,9 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 	//case map[interface{}]interface{}:
 	hints, ok := object["hints"]
 	if ok {
-		object["hints"], err = CreateRequirementArray(hints)
+		object["hints"], schemata, err = CreateRequirementArray(hints)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
-			return
-		}
-	}
-
-	requirements, ok := object["requirements"]
-	if ok {
-		object["requirements"], err = CreateRequirementArray(requirements)
-		if err != nil {
-			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (requirements): %s", err.Error())
 			return
 		}
 	}
@@ -130,7 +137,7 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 	//if has_arguments {
 	//	object["arguments"] = arguments_object // mapstructure.Decode has some issues, no idea why
 	//}
-	spew.Dump(commandLineTool)
+	//spew.Dump(commandLineTool)
 	//if id == "#blat.tool.cwl" {
 	//	panic("done")
 	//}

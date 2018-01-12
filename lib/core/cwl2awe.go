@@ -60,7 +60,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 	for _, input := range cwl_workflow.Inputs {
 		// input is a cwl.InputParameter object
 
-		spew.Dump(input)
+		//spew.Dump(input)
 
 		id := input.Id
 		logger.Debug(3, "(CWL_input_check) Parsing workflow input %s", id)
@@ -77,8 +77,14 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 		input_obj_ref, ok := job_input_map[id_base] // returns CWLType
 		if !ok {
 			// not found, we can skip it it is optional anyway
-			input_obj_ref = cwl.NewNull(id_base)
-			logger.Debug(3, "input %s not found, replace with Null object")
+
+			if input.Default != nil {
+				logger.Debug(3, "input %s not found, replace with Default object", id_base)
+				input_obj_ref = input.Default
+			} else {
+				input_obj_ref = cwl.NewNull()
+				logger.Debug(3, "input %s not found, replace with Null object (no Default found)", id_base)
+			}
 		}
 
 		if input_obj_ref == nil {
@@ -110,8 +116,8 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 			//for _, elem := range *expected_types {
 			//	expected_types_str += "," + string(elem)
 			//}
-			fmt.Printf("cwl_workflow.Inputs")
-			spew.Dump(cwl_workflow.Inputs)
+			//fmt.Printf("cwl_workflow.Inputs")
+			//spew.Dump(cwl_workflow.Inputs)
 			err = fmt.Errorf("Input %s has type %s, but this does not match the expected types)", id, input_type)
 			return
 		}
@@ -208,7 +214,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	if !found_ShockRequirement {
 		//err = fmt.Errorf("ShockRequirement has to be provided in the workflow object")
 		//return
-		job.ShockHost = "http://shock:7445"
+		job.ShockHost = "http://shock.local:7445" // TODO make this different
 
 	}
 	logger.Debug(1, "Requirements checked")
@@ -256,7 +262,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 		return
 	}
 
-	spew.Dump(job)
+	//spew.Dump(job)
 
 	logger.Debug(1, "job.Id: %s", job.Id)
 	err = job.Save()

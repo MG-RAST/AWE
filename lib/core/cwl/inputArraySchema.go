@@ -14,6 +14,7 @@ type InputArraySchema struct { // Items, Type , Label
 //func (c *InputArraySchema) Is_CommandOutputParameterType() {}
 
 func (c *InputArraySchema) Type2String() string { return "CommandOutputArraySchema" }
+func (c *InputArraySchema) GetId() string       { return "" }
 
 func NewInputArraySchema() (coas *InputArraySchema) {
 
@@ -23,7 +24,7 @@ func NewInputArraySchema() (coas *InputArraySchema) {
 	return
 }
 
-func NewInputArraySchemaFromInterface(original interface{}) (coas *InputArraySchema, err error) {
+func NewInputArraySchemaFromInterface(original interface{}, schemata []CWLType_Type) (coas *InputArraySchema, err error) {
 
 	original, err = MakeStringMap(original)
 	if err != nil {
@@ -44,7 +45,7 @@ func NewInputArraySchemaFromInterface(original interface{}) (coas *InputArraySch
 		items, ok := original_map["items"]
 		if ok {
 			var items_type []CWLType_Type
-			items_type, err = NewCWLType_TypeArray(items, "Input")
+			items_type, err = NewCWLType_TypeArray(items, schemata, "Input", false)
 			if err != nil {
 				err = fmt.Errorf("(NewInputArraySchema) NewCWLType_TypeArray returns: %s", err.Error())
 				return

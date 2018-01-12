@@ -5,17 +5,25 @@ import (
 //"strconv"
 )
 
-type Null struct {
-	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-}
+type Null string
 
-func NewNull(id string) *Null {
-	n := &Null{}
-	n.Id = id
-	n.Class = "null"
-	n.Type = CWL_null
-	return n
-}
+func (i *Null) Is_CWL_object() {}
 
-func (n *Null) GetClass() string { return string(CWL_null) }
-func (n *Null) String() string   { return "null" }
+func (i *Null) GetClass() string      { return string(CWL_null) } // for CWL_object
+func (i *Null) GetType() CWLType_Type { return CWL_null }
+func (i *Null) String() string        { return "Null" }
+
+func (i *Null) GetId() string  { return "" } // TODO deprecated functions
+func (i *Null) SetId(x string) {}
+
+func (i *Null) Is_CWL_minimal() {}
+
+func NewNull() (n *Null) {
+
+	var null_nptr Null
+	null_nptr = Null("Null")
+
+	n = &null_nptr
+
+	return
+}

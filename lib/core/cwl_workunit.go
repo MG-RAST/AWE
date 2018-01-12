@@ -27,7 +27,7 @@ func NewCWL_workunit() *CWL_workunit {
 
 }
 
-func NewCWL_workunit_from_interface(native interface{}) (workunit *CWL_workunit, err error) {
+func NewCWL_workunit_from_interface(native interface{}) (workunit *CWL_workunit, schemata []cwl.CWLType_Type, err error) {
 
 	workunit = &CWL_workunit{}
 
@@ -71,12 +71,17 @@ func NewCWL_workunit_from_interface(native interface{}) (workunit *CWL_workunit,
 		cwl_tool_generic, has_cwl_tool_generic := native_map["cwl_tool"]
 		if has_cwl_tool_generic {
 
-			cwl_tool, xerr := cwl.NewCommandLineTool(cwl_tool_generic)
-			if xerr != nil {
-				err = fmt.Errorf("(NewCWL_workunit_from_interface) NewCommandLineTool failed: %s", xerr.Error())
+			var cwl_tool *cwl.CommandLineTool
+			var schemata_new []cwl.CWLType_Type
+			cwl_tool, schemata_new, err = cwl.NewCommandLineTool(cwl_tool_generic)
+			if err != nil {
+				err = fmt.Errorf("(NewCWL_workunit_from_interface) NewCommandLineTool failed: %s", err.Error())
 				return
 			}
 			workunit.CWL_tool = cwl_tool
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
+			}
 
 		}
 

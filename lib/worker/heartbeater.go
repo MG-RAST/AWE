@@ -346,7 +346,7 @@ func Set_Metadata(profile *core.Client) {
 			}
 			local_ipv4, err := getMetaDataField(metadata_url, "local-ipv4")
 			if err == nil {
-				profile.Host = local_ipv4 + " (deprecated)"
+				//profile.Host = local_ipv4 + " (deprecated)"
 				profile.Host_ip = local_ipv4
 			}
 
@@ -357,11 +357,11 @@ func Set_Metadata(profile *core.Client) {
 	}
 
 	// fall-back
-	if profile.Host == "" {
+	if profile.Host_ip == "" {
 		if addrs, err := net.InterfaceAddrs(); err == nil {
 			for _, a := range addrs {
 				if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && len(strings.Split(ipnet.IP.String(), ".")) == 4 {
-					profile.Host = ipnet.IP.String()
+					profile.Host_ip = ipnet.IP.String()
 					break
 				}
 			}
@@ -376,7 +376,10 @@ func ComposeProfile() (profile *core.Client, err error) {
 	profile = core.NewClient() // includes init
 
 	profile.WorkerRuntime.Name = conf.CLIENT_NAME
-	profile.Host = conf.CLIENT_HOST
+	//profile.Host = conf.CLIENT_HOST
+	profile.Hostname = conf.CLIENT_HOSTNAME
+	profile.Host_ip = conf.CLIENT_HOST_IP
+
 	profile.Group = conf.CLIENT_GROUP
 	profile.CPUs = runtime.NumCPU()
 	profile.Domain = conf.CLIENT_DOMAIN

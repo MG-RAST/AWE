@@ -183,14 +183,19 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 		logger.Debug(3, "(CheckClient) client %s has %d workunits", client.Id, len(current_work))
 
 		for _, work_id := range current_work {
-			logger.Debug(3, "(CheckClient) client %s has work %s", client.Id, work_id)
+			var workid_str string
+			workid_str, err = work_id.String()
+			if err != nil {
+				return
+			}
+			logger.Debug(3, "(CheckClient) client %s has work %s", client.Id, workid_str)
 			work, ok, zerr := qm.workQueue.all.Get(work_id)
 			if zerr != nil {
-				logger.Warning("(CheckClient) failed getting work %s from workQueue: %s", work_id, zerr.Error())
+				logger.Warning("(CheckClient) failed getting work %s from workQueue: %s", workid_str, zerr.Error())
 				continue
 			}
 			if !ok {
-				logger.Error("(CheckClient) work %s not in workQueue", work_id) // this could happen wehen server was restarted but worker does not know yet
+				logger.Error("(CheckClient) work %s not in workQueue", workid_str) // this could happen wehen server was restarted but worker does not know yet
 				continue
 			}
 			logger.Debug(3, "(CheckClient) work.State: %s", work.State)
@@ -299,6 +304,8 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerS
 	workerstate.Current_work.FillMap() // fix struct by moving values from Data array into internal map (was not exported)
 
 	client.WorkerState = workerstate // TODO could do a comparsion with assigned state here
+
+	_ = client.Update_Status(false)
 
 	logger.Debug(3, "HeartBeatFrom:"+"clientid="+id)
 

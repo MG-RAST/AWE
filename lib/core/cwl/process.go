@@ -50,7 +50,7 @@ func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 }
 
 // returns CommandLineTool, ExpressionTool or Workflow
-func NewProcess(original interface{}) (process interface{}, err error) {
+func NewProcess(original interface{}) (process interface{}, schemata []CWLType_Type, err error) {
 
 	original, err = MakeStringMap(original)
 	if err != nil {
@@ -85,7 +85,8 @@ func NewProcess(original interface{}) (process interface{}, err error) {
 		case "Workflow":
 			return NewWorkflow(original)
 		case "Expression":
-			return NewExpression(original)
+			process, err = NewExpression(original)
+			return
 
 		}
 

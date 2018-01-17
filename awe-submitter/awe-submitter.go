@@ -542,19 +542,23 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (job
 
 	err = multipart.AddFile("cwl", workflow_file)
 	if err != nil {
+		err = fmt.Errorf("(SubmitCWLJobToAWE) multipart.AddFile returned: %s", err.Error())
 		return
 	}
 
 	err = multipart.AddDataAsFile("job", job_file, data)
 	if err != nil {
+		err = fmt.Errorf("(SubmitCWLJobToAWE) AddDataAsFile returned: %s", err.Error())
 		return
 	}
 	response, err := multipart.Send("POST", conf.SERVER_URL+"/job")
 	if err != nil {
+		err = fmt.Errorf("(SubmitCWLJobToAWE) multipart.Send returned: %s", err.Error())
 		return
 	}
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
+		err = fmt.Errorf("(SubmitCWLJobToAWE) ioutil.ReadAll returned: %s", err.Error())
 		return
 	}
 
@@ -569,7 +573,7 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (job
 	}
 
 	if len(sr.Error) > 0 {
-		err = fmt.Errorf("Response from AWE server contained error: %s", sr.Error[0])
+		err = fmt.Errorf("(SubmitCWLJobToAWE) Response from AWE server contained error: %s", sr.Error[0])
 		return
 	}
 

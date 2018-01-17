@@ -1291,6 +1291,8 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 		return
 	}
 
+	qm.CreateJobPerf(jobid)
+
 	for _, task := range tasks {
 		//qm.taskIn <- task
 
@@ -1318,7 +1320,6 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 		return
 	}
 
-	qm.CreateJobPerf(jobid)
 	return
 }
 

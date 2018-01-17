@@ -569,7 +569,7 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (job
 	}
 
 	if len(sr.Error) > 0 {
-		err = fmt.Errorf("%s", sr.Error[0])
+		err = fmt.Errorf("Response from AWE server contained error: %s", sr.Error[0])
 		return
 	}
 

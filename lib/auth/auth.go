@@ -40,7 +40,7 @@ func Authenticate(header string) (u *user.User, err error) {
 			}
 			if err != nil {
 				// log actual error, return consistant invalid auth to user
-				logger.Error("Err@auth.Authenticate: " + err.Error())
+				logger.Error("(auth.Authenticate) err=%s (header=%s)", err.Error(), header)
 			}
 		}
 	}

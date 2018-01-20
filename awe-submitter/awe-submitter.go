@@ -444,9 +444,9 @@ func main_wrapper() (err error) {
 		return
 	}
 
-	fmt.Println("------------")
-	fmt.Println(new_document_str)
-	fmt.Println("------------")
+	//fmt.Println("------------")
+	//fmt.Println(new_document_str)
+	//fmt.Println("------------")
 	//panic("hhhh")
 	new_document_bytes = []byte(new_document_str)
 
@@ -530,10 +530,22 @@ func main_wrapper() (err error) {
 	var output_receipt_bytes []byte
 	output_receipt_bytes, err = json.MarshalIndent(output_receipt, "", "    ")
 	if err != nil {
-		return
+		if err != nil {
+			err = fmt.Errorf("(main_wrapper) json.MarshalIndent returned: %s", err.Error())
+			return
+		}
 	}
 	logger.Debug(3, string(output_receipt_bytes[:]))
-	fmt.Println(string(output_receipt_bytes[:]))
+
+	if conf.SUBMITTER_OUTPUT != "" {
+		err = ioutil.WriteFile(conf.SUBMITTER_OUTPUT, output_receipt_bytes, 0644)
+		if err != nil {
+			err = fmt.Errorf("(main_wrapper) ioutil.WriteFile returned: %s", err.Error())
+			return
+		}
+	} else {
+		fmt.Println(string(output_receipt_bytes[:]))
+	}
 	return
 }
 

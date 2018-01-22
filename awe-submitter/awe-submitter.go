@@ -486,65 +486,69 @@ func main_wrapper() (err error) {
 
 	//fmt.Printf("Job id: %s\n", jobid)
 
-	var job *core.Job
+	if conf.SUBMITTER_WAIT {
+		var job *core.Job
 
-	for true {
-		time.Sleep(5 * time.Second)
-		job = nil
+		for true {
+			time.Sleep(5 * time.Second)
+			job = nil
 
-		job, err = GetAWEJob(jobid)
+			job, err = GetAWEJob(jobid)
+			if err != nil {
+				return
+			}
+
+			//fmt.Printf("job state: %s\n", job.State)
+
+			if job.State == core.JOB_STAT_COMPLETED {
+
+				break
+			}
+
+		}
+		//spew.Dump(job)
+
+		_, err = job.Init()
 		if err != nil {
 			return
 		}
-
-		//fmt.Printf("job state: %s\n", job.State)
-
-		if job.State == core.JOB_STAT_COMPLETED {
-
-			break
-		}
-
-	}
-	//spew.Dump(job)
-
-	_, err = job.Init()
-	if err != nil {
-		return
-	}
-	var wi *core.WorkflowInstance
-	wi, err = job.GetWorkflowInstance("", false)
-	if err != nil {
-		err = fmt.Errorf("(main_wrapper) GetWorkflowInstance returned: %s", err.Error())
-		return
-	}
-	//spew.Dump(wi.Outputs)
-
-	output_receipt := map[string]interface{}{}
-	for _, out := range wi.Outputs {
-
-		out_id := strings.TrimPrefix(out.Id, job.Entrypoint+"/")
-
-		output_receipt[out_id] = out.Value
-	}
-
-	var output_receipt_bytes []byte
-	output_receipt_bytes, err = json.MarshalIndent(output_receipt, "", "    ")
-	if err != nil {
+		var wi *core.WorkflowInstance
+		wi, err = job.GetWorkflowInstance("", false)
 		if err != nil {
-			err = fmt.Errorf("(main_wrapper) json.MarshalIndent returned: %s", err.Error())
+			err = fmt.Errorf("(main_wrapper) GetWorkflowInstance returned: %s", err.Error())
 			return
 		}
-	}
-	logger.Debug(3, string(output_receipt_bytes[:]))
+		//spew.Dump(wi.Outputs)
 
-	if conf.SUBMITTER_OUTPUT != "" {
-		err = ioutil.WriteFile(conf.SUBMITTER_OUTPUT, output_receipt_bytes, 0644)
+		output_receipt := map[string]interface{}{}
+		for _, out := range wi.Outputs {
+
+			out_id := strings.TrimPrefix(out.Id, job.Entrypoint+"/")
+
+			output_receipt[out_id] = out.Value
+		}
+
+		var output_receipt_bytes []byte
+		output_receipt_bytes, err = json.MarshalIndent(output_receipt, "", "    ")
 		if err != nil {
-			err = fmt.Errorf("(main_wrapper) ioutil.WriteFile returned: %s", err.Error())
-			return
+			if err != nil {
+				err = fmt.Errorf("(main_wrapper) json.MarshalIndent returned: %s", err.Error())
+				return
+			}
+		}
+		logger.Debug(3, string(output_receipt_bytes[:]))
+
+		if conf.SUBMITTER_OUTPUT != "" {
+			err = ioutil.WriteFile(conf.SUBMITTER_OUTPUT, output_receipt_bytes, 0644)
+			if err != nil {
+				err = fmt.Errorf("(main_wrapper) ioutil.WriteFile returned: %s", err.Error())
+				return
+			}
+		} else {
+			fmt.Println(string(output_receipt_bytes[:]))
 		}
 	} else {
-		fmt.Println(string(output_receipt_bytes[:]))
+		fmt.Printf("JobID=%s\n", jobid)
 	}
 	return
 }

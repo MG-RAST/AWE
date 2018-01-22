@@ -584,6 +584,7 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (job
 	var sr standardResponse
 	err = json.Unmarshal(responseData, &sr)
 	if err != nil {
+		fmt.Println(responseData)
 		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s", err.Error())
 		return
 	}

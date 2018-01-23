@@ -85,9 +85,15 @@ func NewIO() *IO {
 }
 
 func (io *IO) Url2Shock() (err error) {
+
+	if io.Url == "" {
+		err = fmt.Errorf("(Url2Shock) url empty")
+		return
+	}
+
 	u, _ := url.Parse(io.Url)
 	if (u.Scheme == "") || (u.Host == "") || (u.Path == "") {
-		err = fmt.Errorf("Not a valid url: %s", io.Url)
+		err = fmt.Errorf("(Url2Shock) Not a valid url: %s", io.Url)
 		return
 	}
 	// get shock info from url

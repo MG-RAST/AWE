@@ -155,7 +155,7 @@ func CWL_File_2_AWE_IO(file *cwl.File) (io *core.IO, err error) {
 	io.Url = url_string
 	err = io.Url2Shock() // populates Host and Node
 	if err != nil {
-		err = fmt.Errorf("(CWL_File2AWE_IO) %s", err.Error())
+		err = fmt.Errorf("(CWL_File2AWE_IO) io.Url2Shock returned: %s", err.Error())
 		return
 	}
 

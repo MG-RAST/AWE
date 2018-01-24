@@ -33,14 +33,19 @@ func Authenticate(header string) (u *user.User, err error) {
 		return u, nil
 	} else {
 		for _, auth := range authMethods {
-			u, err := auth(header)
-			if u != nil && err == nil {
-				authCache.add(header, u)
-				return u, nil
-			}
+			u, err = auth(header)
 			if err != nil {
 				// log actual error, return consistant invalid auth to user
-				logger.Error("(auth.Authenticate) err=%s (header=%s)", err.Error(), header)
+				last_position := len(header)
+				if last_position > 10 {
+					last_position = 10
+				}
+				logger.Error("(auth.Authenticate) err=%s (header=%s)", err.Error(), header[0:last_position]+"...")
+				err = nil
+			}
+			if u != nil {
+				authCache.add(header, u)
+				return
 			}
 		}
 	}

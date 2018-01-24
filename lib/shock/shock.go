@@ -205,7 +205,8 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 	token := sc.Token
 
 	if host == "" {
-		return nil, fmt.Errorf("error: (createOrUpdate) host is not defined in Shock node")
+		err = fmt.Errorf("(createOrUpdate) host is not defined in Shock node")
+		return
 	}
 
 	url := host + "/node"

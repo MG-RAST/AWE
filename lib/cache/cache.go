@@ -15,6 +15,7 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path"
 	"reflect"
@@ -137,6 +138,14 @@ func CWL_File_2_AWE_IO(file *cwl.File) (io *core.IO, err error) {
 
 	url_obj := file.Location_url
 
+	if url_obj == nil {
+		url_obj, err = url.Parse(file.Location)
+		if err != nil {
+			err = fmt.Errorf("(CWL_File2AWE_IO) url.Parse returned: %s", err.Error())
+			return
+		}
+		file.Location_url = url_obj
+	}
 	// example: http://localhost:8001/node/429a47aa-85e4-4575-9347-a78cfacb6979?download
 
 	io = core.NewIO()
@@ -146,7 +155,8 @@ func CWL_File_2_AWE_IO(file *cwl.File) (io *core.IO, err error) {
 	io.Url = url_string
 	err = io.Url2Shock() // populates Host and Node
 	if err != nil {
-		err = fmt.Errorf("(CWL_File2AWE_IO) %s", err.Error())
+		err = fmt.Errorf("(CWL_File2AWE_IO) io.Url2Shock returned: %s", err.Error())
+		return
 	}
 
 	if file.Basename == "" {

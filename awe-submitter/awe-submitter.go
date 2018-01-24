@@ -258,7 +258,7 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 func main() {
 	err := main_wrapper()
 	if err != nil {
-		fmt.Printf("error: %s", err.Error())
+		fmt.Printf("\nerror: %s\n\n", err.Error())
 		time.Sleep(time.Second)
 		os.Exit(1)
 	}
@@ -273,18 +273,35 @@ func main_wrapper() (err error) {
 	err = conf.Init_conf("submitter")
 
 	if err != nil {
-		err = fmt.Errorf("ERROR: error reading conf file: %s", err.Error())
+		err = fmt.Errorf("error reading conf file: %s", err.Error())
 		return
 	}
 
 	logger.Initialize("client")
+
+	awe_auth := os.Getenv("AWE_AUTH")
+	shock_auth := os.Getenv("SHOCK_AUTH")
+
+	if awe_auth != "" {
+		awe_auth_array := strings.SplitN(awe_auth, " ", 2)
+		if len(awe_auth_array) != 2 {
+			err = fmt.Errorf("error parsing AWE_AUTH (expected format \"bearer token\")")
+			return
+		}
+		fmt.Fprintf(os.Stderr, "Using AWE authentication\n")
+	} else {
+		fmt.Fprintf(os.Stderr, "No AWE authentication. (Example: AWE_AUTH=\"bearer token\")\n")
+	}
+
+	//fmt.Printf("AWE_AUTH=%s\n", awe_auth) // TODO needs to have bearer embedded
+	//fmt.Printf("SHOCK_AUTH=%s\n", shock_auth)
 
 	//for _, value := range conf.ARGS {
 	//	println(value)
 	//}
 
 	if len(conf.ARGS) < 2 {
-		err = fmt.Errorf("ERROR: not enough arguments, workflow file and job file are required")
+		err = fmt.Errorf("not enough arguments, workflow file and job file are required")
 		return
 	}
 
@@ -295,9 +312,10 @@ func main_wrapper() (err error) {
 	//fmt.Printf("job path: %s\n", inputfile_path) // needed to resolve relative paths
 
 	// ### parse job file
-	job_doc, err := cwl.ParseJobFile(job_file)
+	var job_doc *cwl.Job_document
+	job_doc, err = cwl.ParseJobFile(job_file)
 	if err != nil {
-		logger.Error("error parsing cwl job: %s", err.Error())
+		err = fmt.Errorf("error parsing cwl job: %s", err.Error())
 		return
 	}
 
@@ -308,7 +326,8 @@ func main_wrapper() (err error) {
 	//fmt.Println("Job input after reading from file: map !!!!\n")
 	//spew.Dump(job_doc_map)
 
-	data, err := yaml.Marshal(job_doc_map)
+	var data []byte
+	data, err = yaml.Marshal(job_doc_map)
 	if err != nil {
 		return
 	}
@@ -324,7 +343,8 @@ func main_wrapper() (err error) {
 
 	// ### process input files
 
-	upload_count, err := processInputData(job_doc, inputfile_path)
+	var upload_count int
+	upload_count, err = processInputData(job_doc, inputfile_path)
 	if err != nil {
 		return
 	}
@@ -364,10 +384,13 @@ func main_wrapper() (err error) {
 	// convert CWL to string
 	yaml_str := string(yamlstream[:])
 
-	named_object_array, cwl_version, schemata, err := cwl.Parse_cwl_document(yaml_str)
+	var named_object_array cwl.Named_CWL_object_array
+	var cwl_version cwl.CWLVersion
+	var schemata []cwl.CWLType_Type
+	named_object_array, cwl_version, schemata, err = cwl.Parse_cwl_document(yaml_str)
 
 	if err != nil {
-		fmt.Errorf("(main_wrapper) error in parsing cwl workflow yaml file: " + err.Error())
+		err = fmt.Errorf("(main_wrapper) error in parsing cwl workflow yaml file: " + err.Error())
 		return
 	}
 
@@ -478,7 +501,7 @@ func main_wrapper() (err error) {
 	//var b bytes.Buffer
 	//w := multipart.NewWriter(&b)
 	var jobid string
-	jobid, err = SubmitCWLJobToAWE(tempfile_name, job_file, &data)
+	jobid, err = SubmitCWLJobToAWE(tempfile_name, job_file, &data, awe_auth, shock_auth)
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) SubmitCWLJobToAWE returned: %s", err.Error())
 		return
@@ -486,70 +509,74 @@ func main_wrapper() (err error) {
 
 	//fmt.Printf("Job id: %s\n", jobid)
 
-	var job *core.Job
+	if conf.SUBMITTER_WAIT {
+		var job *core.Job
 
-	for true {
-		time.Sleep(5 * time.Second)
-		job = nil
+		for true {
+			time.Sleep(5 * time.Second)
+			job = nil
 
-		job, err = GetAWEJob(jobid)
+			job, err = GetAWEJob(jobid, awe_auth)
+			if err != nil {
+				return
+			}
+
+			//fmt.Printf("job state: %s\n", job.State)
+
+			if job.State == core.JOB_STAT_COMPLETED {
+
+				break
+			}
+
+		}
+		//spew.Dump(job)
+
+		_, err = job.Init()
 		if err != nil {
 			return
 		}
-
-		//fmt.Printf("job state: %s\n", job.State)
-
-		if job.State == core.JOB_STAT_COMPLETED {
-
-			break
-		}
-
-	}
-	//spew.Dump(job)
-
-	_, err = job.Init()
-	if err != nil {
-		return
-	}
-	var wi *core.WorkflowInstance
-	wi, err = job.GetWorkflowInstance("", false)
-	if err != nil {
-		err = fmt.Errorf("(main_wrapper) GetWorkflowInstance returned: %s", err.Error())
-		return
-	}
-	//spew.Dump(wi.Outputs)
-
-	output_receipt := map[string]interface{}{}
-	for _, out := range wi.Outputs {
-
-		out_id := strings.TrimPrefix(out.Id, job.Entrypoint+"/")
-
-		output_receipt[out_id] = out.Value
-	}
-
-	var output_receipt_bytes []byte
-	output_receipt_bytes, err = json.MarshalIndent(output_receipt, "", "    ")
-	if err != nil {
+		var wi *core.WorkflowInstance
+		wi, err = job.GetWorkflowInstance("", false)
 		if err != nil {
-			err = fmt.Errorf("(main_wrapper) json.MarshalIndent returned: %s", err.Error())
+			err = fmt.Errorf("(main_wrapper) GetWorkflowInstance returned: %s", err.Error())
 			return
 		}
-	}
-	logger.Debug(3, string(output_receipt_bytes[:]))
+		//spew.Dump(wi.Outputs)
 
-	if conf.SUBMITTER_OUTPUT != "" {
-		err = ioutil.WriteFile(conf.SUBMITTER_OUTPUT, output_receipt_bytes, 0644)
+		output_receipt := map[string]interface{}{}
+		for _, out := range wi.Outputs {
+
+			out_id := strings.TrimPrefix(out.Id, job.Entrypoint+"/")
+
+			output_receipt[out_id] = out.Value
+		}
+
+		var output_receipt_bytes []byte
+		output_receipt_bytes, err = json.MarshalIndent(output_receipt, "", "    ")
 		if err != nil {
-			err = fmt.Errorf("(main_wrapper) ioutil.WriteFile returned: %s", err.Error())
-			return
+			if err != nil {
+				err = fmt.Errorf("(main_wrapper) json.MarshalIndent returned: %s", err.Error())
+				return
+			}
+		}
+		logger.Debug(3, string(output_receipt_bytes[:]))
+
+		if conf.SUBMITTER_OUTPUT != "" {
+			err = ioutil.WriteFile(conf.SUBMITTER_OUTPUT, output_receipt_bytes, 0644)
+			if err != nil {
+				err = fmt.Errorf("(main_wrapper) ioutil.WriteFile returned: %s", err.Error())
+				return
+			}
+		} else {
+			fmt.Println(string(output_receipt_bytes[:]))
 		}
 	} else {
-		fmt.Println(string(output_receipt_bytes[:]))
+		fmt.Printf("JobID=%s\n", jobid)
 	}
 	return
 }
 
-func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (jobid string, err error) {
+func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_auth string, shock_auth string) (jobid string, err error) {
 	multipart := NewMultipartWriter()
 
 	err = multipart.AddFile("cwl", workflow_file)
@@ -563,7 +590,16 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (job
 		err = fmt.Errorf("(SubmitCWLJobToAWE) AddDataAsFile returned: %s", err.Error())
 		return
 	}
-	response, err := multipart.Send("POST", conf.SERVER_URL+"/job")
+
+	header := make(map[string][]string)
+	if awe_auth != "" {
+		header["Authorization"] = []string{awe_auth}
+	}
+	if shock_auth != "" {
+		header["Datatoken"] = []string{shock_auth}
+	}
+
+	response, err := multipart.Send("POST", conf.SERVER_URL+"/job", header)
 	if err != nil {
 		err = fmt.Errorf("(SubmitCWLJobToAWE) multipart.Send returned: %s", err.Error())
 		return
@@ -580,6 +616,7 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (job
 	var sr standardResponse
 	err = json.Unmarshal(responseData, &sr)
 	if err != nil {
+		fmt.Println(string(responseData[:]))
 		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s", err.Error())
 		return
 	}
@@ -608,11 +645,16 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte) (job
 
 }
 
-func GetAWEJob(jobid string) (job *core.Job, err error) {
+func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 
 	multipart := NewMultipartWriter()
 
-	response, err := multipart.Send("GET", conf.SERVER_URL+"/job/"+jobid)
+	header := make(map[string][]string)
+	if awe_auth != "" {
+		header["Authorization"] = []string{awe_auth}
+	}
+
+	response, err := multipart.Send("GET", conf.SERVER_URL+"/job/"+jobid, header)
 	if err != nil {
 		return
 	}
@@ -663,7 +705,7 @@ func NewMultipartWriter() *MultipartWriter {
 	return m
 }
 
-func (m *MultipartWriter) Send(method string, url string) (response *http.Response, err error) {
+func (m *MultipartWriter) Send(method string, url string, header map[string][]string) (response *http.Response, err error) {
 	m.w.Close()
 	//fmt.Println("------------")
 	//spew.Dump(m.w)
@@ -675,6 +717,14 @@ func (m *MultipartWriter) Send(method string, url string) (response *http.Respon
 	}
 	// Don't forget to set the content type, this will contain the boundary.
 	req.Header.Set("Content-Type", m.w.FormDataContentType())
+
+	for key := range header {
+		header_array := header[key]
+		for _, value := range header_array {
+			req.Header.Add(key, value)
+		}
+
+	}
 
 	// Submit the request
 	client := &http.Client{}

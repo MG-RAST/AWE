@@ -182,6 +182,7 @@ var (
 	SUBMITTER_QUIET  bool
 	SUBMITTER_PACK   bool
 	SUBMITTER_OUTPUT string
+	SUBMITTER_WAIT   bool
 
 	// used to track changes in data structures
 	VERSIONS = make(map[string]int)
@@ -342,6 +343,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&SUBMITTER_OUTDIR, "", "Client", "outdir", "location of output files", "")
 		c_store.AddBool(&SUBMITTER_QUIET, false, "Client", "quiet", "useless flag for CWL compliance test", "")
 		c_store.AddBool(&SUBMITTER_PACK, false, "Client", "pack", "invoke cwl-runner --pack first", "")
+		c_store.AddBool(&SUBMITTER_WAIT, false, "Client", "wait", "wait fopr job completion", "")
 		c_store.AddString(&SUBMITTER_OUTPUT, "", "Client", "output", "cwl output file", "")
 	}
 

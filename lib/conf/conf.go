@@ -283,10 +283,12 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&GLOBUS_PROFILE_URL, "", "Auth", "globus_profile_url", "", "")
 		c_store.AddString(&OAUTH_URL_STR, "", "Auth", "oauth_urls", "", "")
 		c_store.AddString(&OAUTH_BEARER_STR, "", "Auth", "oauth_bearers", "", "")
-		c_store.AddBool(&USE_OAUTH_SERVER, false, "Auth", "auth_oauthserver", "", "")
-		c_store.AddString(&AUTH_URL, "", "Auth", "auth_url", "", "")
-		c_store.AddString(&SITE_LOGIN_URL, "", "Auth", "login_url", "", "")
-		c_store.AddBool(&CLIENT_AUTH_REQ, false, "Auth", "client_auth_required", "", "")
+
+		// WebApp
+		c_store.AddString(&SITE_LOGIN_URL, "", "WebApp", "login_url", "", "")
+		c_store.AddBool(&CLIENT_AUTH_REQ, false, "WebApp", "client_auth_required", "", "")
+		c_store.AddBool(&USE_OAUTH_SERVER, false, "WebApp", "auth_oauthserver", "", "")
+		c_store.AddString(&AUTH_URL, "", "WebApp", "auth_url", "", "")
 
 		// Admin
 		c_store.AddString(&ADMIN_USERS_VAR, "", "Admin", "users", "", "")

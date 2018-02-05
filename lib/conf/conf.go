@@ -538,6 +538,10 @@ func Init_conf(mode string) (err error) {
 		}
 	}
 
+	if SERVER_URL != "" {
+		SERVER_URL = strings.TrimSuffix(SERVER_URL, "/")
+	}
+
 	if PID_FILE_PATH == "" {
 		PID_FILE_PATH = DATA_PATH + "/pidfile"
 	}

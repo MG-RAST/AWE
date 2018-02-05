@@ -92,8 +92,9 @@ func main() {
 
 		err = worker.RegisterWithAuth(conf.SERVER_URL, profile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "fail to register: %s\n", err.Error())
-			logger.Error("fail to register: %s\n", err.Error())
+			message := fmt.Sprintf("fail to register: %s (SERVER_URL=%s)\n", err.Error(), conf.SERVER_URL)
+			fmt.Fprintf(os.Stderr, message)
+			logger.Error(message)
 			os.Exit(1)
 		}
 

@@ -224,7 +224,7 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 
 // invoked on start of AWE worker AND on ReRegisterWithSelf
 func RegisterWithAuth(host string, pclient *core.Client) (err error) {
-	logger.Debug(3, "Try to register client")
+	logger.Debug(3, "Try to register client at %s", host)
 	if conf.CLIENT_GROUP_TOKEN == "" {
 		logger.Info("(RegisterWithAuth) clientgroup token not set, register as a public client (can only access public data)")
 	}

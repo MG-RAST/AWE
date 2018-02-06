@@ -617,7 +617,7 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 	err = json.Unmarshal(responseData, &sr)
 	if err != nil {
 		fmt.Println(string(responseData[:]))
-		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s", err.Error())
+		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job")
 		return
 	}
 
@@ -636,7 +636,7 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 	var job core.Job
 	err = json.Unmarshal(job_bytes, &job)
 	if err != nil {
-		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s", err.Error())
+		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job")
 		return
 	}
 	jobid = job.Id

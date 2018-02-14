@@ -13,6 +13,16 @@
     <link rel="stylesheet" type="text/css" href="css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="css/awe.css">
     <script>
+        (function () {
+	var k = Retina.keys(RetinaConfig);
+	Retina.traverse(RetinaConfig, function (str) {
+	    if (str.match(/^http\:/) && window.location.toString().substr(0, 5) == 'https') {
+		str = str.replace(/^http\:/, 'https\:');
+	    }
+	    return str;
+	});
+    }).call(this);
+
     window.logout = function () {
 	jQuery.removeCookie('AuthWebSession', { path: '/' });
 	window.location.reload();

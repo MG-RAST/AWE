@@ -201,7 +201,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 	data_generic := response.Data
 	if data_generic == nil {
-		err = fmt.Errorf("(CheckoutWorkunitRemote) Data field missing")
+		err = fmt.Errorf("(CheckoutWorkunitRemote) Data field missing (jsonstream:\n%s\n)", jsonstream)
 		return
 	}
 

@@ -184,6 +184,9 @@ var (
 	SUBMITTER_OUTPUT string
 	SUBMITTER_WAIT   bool
 
+	// WORKER (CWL)
+	CWL_RUNNER_ARGS string
+
 	// used to track changes in data structures
 	VERSIONS = make(map[string]int)
 
@@ -283,10 +286,12 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&GLOBUS_PROFILE_URL, "", "Auth", "globus_profile_url", "", "")
 		c_store.AddString(&OAUTH_URL_STR, "", "Auth", "oauth_urls", "", "")
 		c_store.AddString(&OAUTH_BEARER_STR, "", "Auth", "oauth_bearers", "", "")
-		c_store.AddBool(&USE_OAUTH_SERVER, false, "Auth", "auth_oauthserver", "", "")
-		c_store.AddString(&AUTH_URL, "", "Auth", "auth_url", "", "")
-		c_store.AddString(&SITE_LOGIN_URL, "", "Auth", "login_url", "", "")
-		c_store.AddBool(&CLIENT_AUTH_REQ, false, "Auth", "client_auth_required", "", "")
+
+		// WebApp
+		c_store.AddString(&SITE_LOGIN_URL, "", "WebApp", "login_url", "", "")
+		c_store.AddBool(&CLIENT_AUTH_REQ, false, "WebApp", "client_auth_required", "", "")
+		c_store.AddBool(&USE_OAUTH_SERVER, false, "WebApp", "auth_oauthserver", "", "")
+		c_store.AddString(&AUTH_URL, "", "WebApp", "auth_url", "", "")
 
 		// Admin
 		c_store.AddString(&ADMIN_USERS_VAR, "", "Admin", "users", "", "")
@@ -372,6 +377,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddBool(&AUTO_CLEAN_DIR, true, "Client", "auto_clean_dir", "delete workunit directory to save space after completion, turn of for debugging", "")
 		c_store.AddBool(&CACHE_ENABLED, false, "Client", "cache_enabled", "", "")
 		c_store.AddBool(&NO_SYMLINK, false, "Client", "no_symlink", "copy files from predata to work dir, default is to create symlink", "")
+
+		c_store.AddString(&CWL_RUNNER_ARGS, "", "Client", "cwl_runner_args", "arguments to pass", "")
 
 	}
 
@@ -534,6 +541,10 @@ func Init_conf(mode string) (err error) {
 				return errors.New("expiration format in global_expire is invalid")
 			}
 		}
+	}
+
+	if SERVER_URL != "" {
+		SERVER_URL = strings.TrimSuffix(SERVER_URL, "/")
 	}
 
 	if PID_FILE_PATH == "" {

@@ -146,6 +146,10 @@ func main() {
 		cmd.Name = "/usr/bin/cwl-runner"
 
 		cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL_workunit.CWL_tool_filename, workunit.CWL_workunit.Job_input_filename}
+		if conf.CWL_RUNNER_ARGS != "" {
+			cwl_runner_args_array := strings.Split(conf.CWL_RUNNER_ARGS, " ")
+			cmd.ArgsArray = append(cwl_runner_args_array, cmd.ArgsArray...)
+		}
 
 		workunit.Cmd = cmd
 

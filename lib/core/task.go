@@ -773,24 +773,17 @@ func (task *Task) CreateIndex() (err error) {
 	return
 }
 
-// get part size based on partition/index info
-// this resets task.Partition when called
-// only 1 task.Inputs allowed unless 'partinfo.input' specified on POST
-// if fail to get index info, task.TotalWork set to 1 and task.Partition set to nil
-func (task *Task) InitPartIndex() (err error) {
-	if task.TotalWork == 1 && task.MaxWorkSize == 0 {
-		// only 1 workunit requested
-		return
-	}
-
-	err = task.LockNamed("InitPartIndex")
+// check that part index is valid before initalizing it
+// refactored out of InitPartIndex deal with potentailly long write lock
+func (task *Task) checkPartIndex() (newPartition *PartInfo, totalunits int, isSingle bool, err error) {
+	lock, err := task.RLockNamed("checkPartIndex")
 	if err != nil {
 		return
 	}
-	defer task.Unlock()
+	defer task.RUnlockNamed(lock)
 
 	inputIO := task.Inputs[0]
-	newPartition := &PartInfo{
+	newPartition = &PartInfo{
 		Input:         inputIO.FileName,
 		MaxPartSizeMB: task.MaxWorkSize,
 	}
@@ -810,7 +803,7 @@ func (task *Task) InitPartIndex() (err error) {
 		if !found {
 			// bad state - set as not multi-workunit
 			logger.Error("warning: lacking partition info while multiple inputs are specified, taskid=" + task.Id)
-			err = task.setSingleWorkunit(false)
+			isSingle = true
 			return
 		}
 	}
@@ -826,11 +819,10 @@ func (task *Task) InitPartIndex() (err error) {
 	if err != nil {
 		// bad state - set as not multi-workunit
 		logger.Error("warning: invalid file info, taskid=%s, error=%s", task.Id, err.Error())
-		err = task.setSingleWorkunit(false)
+		isSingle = true
 		return
 	}
 
-	var totalunits int
 	if !hasIndex {
 		// if index not available, create index
 		sc := shock.ShockClient{Host: inputIO.Host, Token: task.Info.DataToken}
@@ -838,20 +830,49 @@ func (task *Task) InitPartIndex() (err error) {
 		if err != nil {
 			// bad state - set as not multi-workunit
 			logger.Error("warning: failed to create index %s on shock for taskid=%s, error=%s", newPartition.Index, task.Id, err.Error())
-			err = task.setSingleWorkunit(false)
+			isSingle = true
 			return
 		}
 		totalunits, err = inputIO.TotalUnits(newPartition.Index) // get index info again
 		if err != nil {
 			// bad state - set as not multi-workunit
 			logger.Error("warning: failed to get index %s units, taskid=%s, error=%s", newPartition.Index, task.Id, err.Error())
-			err = task.setSingleWorkunit(false)
+			isSingle = true
 			return
 		}
 	} else {
 		// index existing, use it directly
 		totalunits = int(idxInfo.TotalUnits)
 	}
+
+	return
+}
+
+// get part size based on partition/index info
+// this resets task.Partition when called
+// only 1 task.Inputs allowed unless 'partinfo.input' specified on POST
+// if fail to get index info, task.TotalWork set to 1 and task.Partition set to nil
+func (task *Task) InitPartIndex() (err error) {
+	if task.TotalWork == 1 && task.MaxWorkSize == 0 {
+		// only 1 workunit requested
+		return
+	}
+
+	newPartition, totalunits, isSingle, err := task.checkPartIndex()
+	if err != nil {
+		return
+	}
+	if isSingle {
+		// its a single workunit, skip init
+		err = task.setSingleWorkunit(true)
+		return
+	}
+
+	err = task.LockNamed("InitPartIndex")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
 
 	// adjust total work based on needs
 	if newPartition.MaxPartSizeMB > 0 {

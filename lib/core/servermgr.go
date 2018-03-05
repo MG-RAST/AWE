@@ -3345,11 +3345,6 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 
 		// Directly after AWE server restart no job can be in progress. (Unless we add this as a feature))
 		if job_state == JOB_STAT_INPROGRESS {
-			//err = DbUpdateJobField(dbjob.Id, "state", JOB_STAT_QUEUED) // SetState is already doing that for us
-			//if err != nil {
-			//	logger.Error("error while recover: " + err.Error())
-			//	continue
-			//}
 			err = dbjob.SetState(JOB_STAT_QUEUED, nil)
 			if err != nil {
 				logger.Error(err.Error())
@@ -3357,10 +3352,14 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 			}
 		}
 
-		//if job_state == JOB_STAT_SUSPEND {
-		//	qm.putSusJob(dbjob.Id)
-		//} else {
-		if job_state != JOB_STAT_SUSPEND {
+		if job_state == JOB_STAT_SUSPEND {
+			// just add suspended jobs to in-memory map
+			err = JM.Add(dbjob)
+			if err != nil {
+				return fmt.Errorf("(RecoverJobs) JM.Add failed: %s", err.Error())
+			}
+		} else {
+			// enqueue all non-suspended jobs
 			qm.EnqueueTasksByJobId(dbjob.Id)
 		}
 		jobct += 1

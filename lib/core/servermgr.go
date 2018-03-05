@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -12,15 +15,14 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/davecgh/go-spew/spew"
 	"gopkg.in/mgo.v2/bson"
-	"io/ioutil"
-	"os"
 	//"path"
-	"github.com/MG-RAST/AWE/lib/core/cwl"
-	"github.com/robertkrimen/otto"
 	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
+
+	"github.com/MG-RAST/AWE/lib/core/cwl"
+	"github.com/robertkrimen/otto"
 	//"regexp/syntax"
 	"bytes"
 	"strconv"
@@ -2124,7 +2126,7 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 		err = fmt.Errorf("(getCWLSource) could not parse source: %s", src)
 		return
 	}
-	ok = true
+
 	return
 }
 
@@ -2947,7 +2949,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			var schemata []cwl.CWLType_Type
 			schemata, err = job.CWL_collection.GetSchemata()
 			if err != nil {
-				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata returned: ", err.Error())
+				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata returned: %s", err.Error())
 				return
 			}
 
@@ -3613,11 +3615,6 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 
 		// Directly after AWE server restart no job can be in progress. (Unless we add this as a feature))
 		if job_state == JOB_STAT_INPROGRESS {
-			//err = DbUpdateJobField(dbjob.Id, "state", JOB_STAT_QUEUED) // SetState is already doing that for us
-			//if err != nil {
-			//	logger.Error("error while recover: " + err.Error())
-			//	continue
-			//}
 			err = dbjob.SetState(JOB_STAT_QUEUED, nil)
 			if err != nil {
 				logger.Error(err.Error())
@@ -3625,10 +3622,14 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 			}
 		}
 
-		//if job_state == JOB_STAT_SUSPEND { // TODO load suspended jobs into map (otherwise they can not be resumed)
-		//	qm.putSusJob(dbjob.Id)
-		//} else {
-		if job_state != JOB_STAT_SUSPEND {
+		if job_state == JOB_STAT_SUSPEND {
+			// just add suspended jobs to in-memory map
+			err = JM.Add(dbjob)
+			if err != nil {
+				return fmt.Errorf("(RecoverJobs) JM.Add failed: %s", err.Error())
+			}
+		} else {
+			// enqueue all non-suspended jobs
 			qm.EnqueueTasksByJobId(dbjob.Id)
 		}
 		jobct += 1

@@ -48,6 +48,7 @@ func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type) (o
 		if ok {
 			original_map["type"], err = NewCommandOutputParameterTypeArray(COPtype, schemata)
 			if err != nil {
+				err = fmt.Errorf("(NewCommandOutputParameter) NewCommandOutputParameterTypeArray returns %s", err.Error())
 				return
 			}
 		}

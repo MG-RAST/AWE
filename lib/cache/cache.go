@@ -204,6 +204,8 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (siz
 		return
 	case *cwl.Boolean:
 		return
+	case *cwl.Null:
+		return
 	case *cwl.Array:
 
 		array := input.(*cwl.Array)

@@ -66,7 +66,7 @@ func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Typ
 			return
 		}
 
-		fmt.Println("output_type: " + output_type)
+		//fmt.Println("output_type: " + output_type)
 
 		switch output_type {
 		case "record":

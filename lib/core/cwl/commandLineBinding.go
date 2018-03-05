@@ -10,13 +10,13 @@ import (
 
 //http://www.commonwl.org/v1.0/Workflow.html#CommandLineBinding
 type CommandLineBinding struct {
-	LoadContents  bool        `yaml:"loadContents,omitempty" bson:"loadContents,omitempty" json:"loadContents,omitempty"`
-	Position      int         `yaml:"position,omitempty" bson:"position,omitempty" json:"position,omitempty"`
-	Prefix        string      `yaml:"prefix,omitempty" bson:"prefix,omitempty" json:"prefix,omitempty"`
-	Separate      bool        `yaml:"separate,omitempty" bson:"separate,omitempty" json:"separate,omitempty"`
-	ItemSeparator string      `yaml:"itemSeparator,omitempty" bson:"itemSeparator,omitempty" json:"itemSeparator,omitempty"`
-	ValueFrom     *Expression `yaml:"valueFrom,omitempty" bson:"valueFrom,omitempty" json:"valueFrom,omitempty"`
-	ShellQuote    bool        `yaml:"shellQuote,omitempty" bson:"shellQuote,omitempty" json:"shellQuote,omitempty"`
+	LoadContents  bool        `yaml:"loadContents,omitempty" bson:"loadContents,omitempty" json:"loadContents,omitempty" mapstructure:loadContents,omitempty"`
+	Position      int         `yaml:"position,omitempty" bson:"position,omitempty" json:"position,omitempty" mapstructure:"position,omitempty"`
+	Prefix        string      `yaml:"prefix,omitempty" bson:"prefix,omitempty" json:"prefix,omitempty" mapstructure:"prefix,omitempty"`
+	Separate      bool        `yaml:"separate,omitempty" bson:"separate,omitempty" json:"separate,omitempty" mapstructure:"separate,omitempty"`
+	ItemSeparator string      `yaml:"itemSeparator,omitempty" bson:"itemSeparator,omitempty" json:"itemSeparator,omitempty" mapstructure:"itemSeparator,omitempty"`
+	ValueFrom     *Expression `yaml:"valueFrom,omitempty" bson:"valueFrom,omitempty" json:"valueFrom,omitempty" mapstructure:"valueFrom,omitempty"`
+	ShellQuote    bool        `yaml:"shellQuote,omitempty" bson:"shellQuote,omitempty" json:"shellQuote,omitempty" mapstructure:"shellQuote,omitempty"`
 }
 
 func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err error) {

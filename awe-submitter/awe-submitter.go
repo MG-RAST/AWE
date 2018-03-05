@@ -152,6 +152,8 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 	case *cwl.Double:
 		//fmt.Printf("found double\n")
 		return
+	case *cwl.Boolean:
+		return
 	case *cwl.File:
 
 		//fmt.Printf("found File\n")
@@ -323,6 +325,8 @@ func main_wrapper() (err error) {
 	//spew.Dump(*job_doc)
 
 	job_doc_map := job_doc.GetMap()
+	//job_doc_map["test"] = cwl.NewNull()
+
 	//fmt.Println("Job input after reading from file: map !!!!\n")
 	//spew.Dump(job_doc_map)
 
@@ -338,7 +342,7 @@ func main_wrapper() (err error) {
 		err = fmt.Errorf("job_doc_string is empty")
 		return
 	}
-
+	//os.Exit(0)
 	//fmt.Printf("yaml:\n%s\n", job_doc_string)
 
 	// ### process input files
@@ -670,6 +674,7 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 	var sr standardResponse
 	err = json.Unmarshal(responseData, &sr)
 	if err != nil {
+		err = fmt.Errorf("(GetAWEJob) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job/"+jobid)
 		return
 	}
 
@@ -688,6 +693,7 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 	job = &core.Job{}
 	err = json.Unmarshal(job_bytes, job)
 	if err != nil {
+		err = fmt.Errorf("(GetAWEJob) (second call) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job/"+jobid)
 		return
 	}
 

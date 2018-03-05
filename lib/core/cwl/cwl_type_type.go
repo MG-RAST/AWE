@@ -201,6 +201,9 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 	case OutputArraySchema:
 		result = native.(OutputArraySchema)
 		return
+	case *OutputArraySchema:
+		oas_p := native.(*OutputArraySchema)
+		result = *oas_p
 	default:
 		spew.Dump(native)
 		err = fmt.Errorf("(NewCWLType_Type) type %s unkown", reflect.TypeOf(native))

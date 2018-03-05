@@ -3625,7 +3625,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 			}
 		}
 
-		//if job_state == JOB_STAT_SUSPEND {
+		//if job_state == JOB_STAT_SUSPEND { // TODO load suspended jobs into map (otherwise they can not be resumed)
 		//	qm.putSusJob(dbjob.Id)
 		//} else {
 		if job_state != JOB_STAT_SUSPEND {

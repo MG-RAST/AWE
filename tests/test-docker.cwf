@@ -11,7 +11,7 @@
                 "name": "cp",
                 "args": "/etc/hosts myhosts.txt",
                 "description": "copy",
-                "dockerimage": "mgrast/pipeline:latest",
+                "dockerimage": "ubuntu:latest",
                 "environ" : {
                     "private" : {
                         "foo":"bar"

@@ -732,7 +732,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	}
 	if !tok {
 		//task not existed, possible when job is deleted before the workunit done
-        err = fmt.Errorf("(handleNoticeWorkDelivered) task %s for workunit %s not found", task_id, work_str)
+		err = fmt.Errorf("(handleNoticeWorkDelivered) task %s for workunit %s not found", task_id, work_str)
 		logger.Error(err.Error())
 		qm.workQueue.Delete(work_id)
 		return

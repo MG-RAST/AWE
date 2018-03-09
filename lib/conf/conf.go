@@ -366,7 +366,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&DOCKER_SOCKET, "unix:///var/run/docker.sock", "Docker", "docker_socket", "docker socket path", "")
 		c_store.AddString(&DOCKER_WORK_DIR, "/workdir/", "Docker", "docker_workpath", "work dir in docker container started by client", "")
 		c_store.AddString(&DOCKER_WORKUNIT_PREDATA_DIR, "/db/", "Docker", "docker_data", "predata dir in docker container started by client", "")
-		c_store.AddString(&SHOCK_DOCKER_IMAGE_REPOSITORY, "http://shock.metagenomics.anl.gov", "Docker", "image_url", "url of shock server hosting docker images", "")
+		c_store.AddString(&SHOCK_DOCKER_IMAGE_REPOSITORY, "http://shock-internal.metagenomics.anl.gov", "Docker", "image_url", "url of shock server hosting docker images", "")
 	}
 	if mode == "server" {
 		c_store.AddString(&USE_APP_DEFS, "no", "Docker", "use_app_defs", "\"yes\", \"no\" or \"only\"", "yes: allow app defs, no: do not allow app defs, only: allow only app defs")

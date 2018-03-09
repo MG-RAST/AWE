@@ -729,10 +729,6 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		return
 	}
 
-	//parts := strings.Split(workid, "_")
-	//task_id := fmt.Sprintf("%s_%s", parts[0], parts[1])
-	//job_id := parts[0]
-
 	// *** Get Client
 	var client *Client
 	var ok bool
@@ -762,12 +758,10 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	}
 
 	if notice.Results != nil { // TODO one workunit vs multiple !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 		err = task.SetStepOutput(notice.Results, true)
 		if err != nil {
 			return
 		}
-
 	}
 
 	// *** Get workunit

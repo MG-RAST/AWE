@@ -698,17 +698,20 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	computetime := notice.ComputeTime
 	notes := notice.Notes
 
-	logger.Debug(3, "(handleNoticeWorkDelivered) workid: %s status: %s client: %s", work_id, status, clientid)
-
-	// we should not get here, but if we do than end
-	if status == WORK_STAT_DISCARDED {
-		logger.Error("(handleNoticeWorkDelivered) [warning] skip status change: workid=%s status=%s", work_id, status)
+	var work_str string
+	work_str, err = work_id.String()
+	if err != nil {
+		err = fmt.Errorf("(handleNoticeWorkDelivered) work_id.String() returned: %s", err.Error())
 		return
 	}
 
-	//parts := strings.Split(workid, "_")
-	//task_id := fmt.Sprintf("%s_%s", parts[0], parts[1])
-	//job_id := parts[0]
+	logger.Debug(3, "(handleNoticeWorkDelivered) workid: %s status: %s client: %s", work_str, status, clientid)
+
+	// we should not get here, but if we do than end
+	if status == WORK_STAT_DISCARDED {
+		logger.Error("(handleNoticeWorkDelivered) [warning] skip status change: workid=%s status=%s", work_str, status)
+		return
+	}
 
 	// *** Get Client
 	client, ok, err := qm.GetClient(clientid, true)
@@ -721,37 +724,42 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	defer RemoveWorkFromClient(client, work_id)
 
 	// *** Get Task
-	task, tok, err := qm.TaskMap.Get(task_id, true)
+	var task *Task
+	var tok bool
+	task, tok, err = qm.TaskMap.Get(task_id, true)
 	if err != nil {
 		return err
 	}
 	if !tok {
 		//task not existed, possible when job is deleted before the workunit done
-		logger.Error("(handleNoticeWorkDelivered) Task %s for workunit %s not found", task_id, work_id)
+		logger.Error("(handleNoticeWorkDelivered) Task %s for workunit %s not found", task_id, work_str)
 		qm.workQueue.Delete(work_id)
-		return fmt.Errorf("(handleNoticeWorkDelivered) task %s for workunit %s not found", task_id, work_id)
+		err = fmt.Errorf("(handleNoticeWorkDelivered) task %s for workunit %s not found", task_id, work_str)
+		return
 	}
 
 	if notice.Results != nil { // TODO one workunit vs multiple !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 		err = task.SetStepOutput(notice.Results, true)
 		if err != nil {
-
 			return err
 		}
-
 	}
 
 	// *** Get workunit
-	work, wok, err := qm.workQueue.Get(work_id)
+	var work *Workunit
+	var wok bool
+	work, wok, err = qm.workQueue.Get(work_id)
 	if err != nil {
 		return err
 	}
 	if !wok {
-		return fmt.Errorf("(handleNoticeWorkDelivered) workunit %s not found in workQueue", work_id)
+		err = fmt.Errorf("(handleNoticeWorkDelivered) workunit %s not found in workQueue", work_str)
+		return
 	}
 	if work.State != WORK_STAT_CHECKOUT && work.State != WORK_STAT_RESERVED {
-		return fmt.Errorf("(handleNoticeWorkDelivered) workunit %s did not have state WORK_STAT_CHECKOUT or WORK_STAT_RESERVED (state is %s)", work_id, work.State)
+		err = fmt.Errorf("(handleNoticeWorkDelivered) workunit %s did not have state WORK_STAT_CHECKOUT or WORK_STAT_RESERVED (state is %s)", work_str, work.State)
+		return
 	}
 
 	reason := ""
@@ -789,19 +797,15 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		// User set Skip=2 so the task was just skipped. Any subsiquent
 		// workunits are just deleted...
 		qm.workQueue.Delete(work_id)
-		err = fmt.Errorf("(handleNoticeWorkDelivered) workunit %s failed due to skip", work_id)
-		return
-	}
-	var work_str string
-	work_str, err = work_id.String()
-	if err != nil {
-		err = fmt.Errorf("(handleNoticeWorkDelivered) work_id.String() returned: %s", err.Error())
+		err = fmt.Errorf("(handleNoticeWorkDelivered) workunit %s failed due to skip", work_str)
 		return
 	}
 
 	logger.Debug(3, "(handleNoticeWorkDelivered) handling status %s", status)
 	if status == WORK_STAT_DONE {
-		if err = qm.handleWorkStatDone(client, clientid, task, work_id, computetime); err != nil {
+		err = qm.handleWorkStatDone(client, clientid, task, work_id, computetime)
+		if err != nil {
+			err = fmt.Errorf("(handleNoticeWorkDelivered) handleWorkStatDone returned: %s", err.Error())
 			return
 		}
 	} else if status == WORK_STAT_FAILED_PERMANENT { // (special case !) failed and cannot be recovered

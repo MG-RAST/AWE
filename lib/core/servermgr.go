@@ -732,17 +732,16 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	}
 	if !tok {
 		//task not existed, possible when job is deleted before the workunit done
-		logger.Error("(handleNoticeWorkDelivered) Task %s for workunit %s not found", task_id, work_str)
+        err = fmt.Errorf("(handleNoticeWorkDelivered) task %s for workunit %s not found", task_id, work_str)
+		logger.Error(err.Error())
 		qm.workQueue.Delete(work_id)
-		err = fmt.Errorf("(handleNoticeWorkDelivered) task %s for workunit %s not found", task_id, work_str)
 		return
 	}
 
 	if notice.Results != nil { // TODO one workunit vs multiple !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 		err = task.SetStepOutput(notice.Results, true)
 		if err != nil {
-			return err
+			return
 		}
 	}
 

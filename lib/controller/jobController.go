@@ -2,6 +2,10 @@ package controller
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"reflect"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -15,8 +19,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"io/ioutil"
-	"net/http"
 	//"os"
 	"encoding/json"
 	"path"
@@ -174,7 +176,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			//}
 			commandlinetool, ok := commandlinetool_if.(*cwl.CommandLineTool)
 			if !ok {
-				cx.RespondWithErrorMessage("(job/create) Error casting CommandLineTool", http.StatusBadRequest)
+
+				cx.RespondWithErrorMessage(fmt.Sprintf("(job/create) Error casting CommandLineTool (type: %s)", reflect.TypeOf(commandlinetool_if)), http.StatusBadRequest)
 				return
 			}
 

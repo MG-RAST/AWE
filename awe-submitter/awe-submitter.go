@@ -3,6 +3,7 @@ package main
 import (
 	//"encoding/json"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -10,9 +11,9 @@ import (
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 	"bytes"
 	"encoding/json"
+
 	"github.com/MG-RAST/AWE/lib/shock"
 	//"github.com/davecgh/go-spew/spew"
-	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -24,6 +25,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 type standardResponse struct {
@@ -113,11 +116,88 @@ func uploadFile(file *cwl.File, inputfile_path string) (err error) {
 	return
 }
 
-func processInputData(native interface{}, inputfile_path string) (count int, err error) {
+func downloadFile(file *cwl.File, download_path string) (err error) {
 
-	//fmt.Printf("(processInputData) start\n")
-	//defer fmt.Printf("(processInputData) end\n")
+	if file.Location == "" {
+		err = fmt.Errorf("Location is empty")
+		return
+	}
+
+	//file_path := file.Path
+
+	basename := file.Basename
+
+	if basename == "" {
+		err = fmt.Errorf("Basename is empty") // TODO infer basename if not found
+		return
+	}
+
+	//if file_path == "" {
+	//	return
+	//}
+
+	//if !path.IsAbs(file_path) {
+	//	file_path = path.Join(path, basename)
+	//}
+	file_path := path.Join(download_path, basename)
+	logger.Debug(3, "file.Path, downloading to: %s\n", file_path)
+
+	//fmt.Printf("Using path %s\n", file_path)
+
+	sc := shock.ShockClient{Host: conf.SHOCK_URL, Token: "", Debug: false}
+
+	var size int64
+	var md5sum string
+	size, md5sum, err = sc.FetchFile(file_path, file.Location, "", false)
+	if err != nil {
+		return
+	}
+	file.Location = "file://" + file_path
+	file.Path = file_path
+
+	_ = size
+	_ = md5sum
+	return
+}
+
+func processIOData(native interface{}, path string, io_type string) (count int, err error) {
+
+	//fmt.Printf("(processIOData) start\n")
+	//defer fmt.Printf("(processIOData) end\n")
 	switch native.(type) {
+
+	case map[string]interface{}:
+		native_map := native.(map[string]interface{})
+
+		keys := make([]string, len(native_map))
+
+		i := 0
+		for key := range native_map {
+			keys[i] = key
+			i++
+		}
+
+		for _, key := range keys {
+			value := native_map[key]
+			var sub_count int
+
+			//value_file, ok := value.(*cwl.File)
+			//if ok {
+			//	spew.Dump(*value_file)
+			//	fmt.Printf("location: %s\n", value_file.Location)
+			//}
+
+			sub_count, err = processIOData(value, path, io_type)
+			if err != nil {
+				return
+			}
+			//if ok {
+			//	spew.Dump(*value_file)
+			//	fmt.Printf("location: %s\n", value_file.Location)
+			//}
+			count += sub_count
+		}
+
 	case *cwl.Job_document:
 		//fmt.Printf("found Job_document\n")
 		job_doc_ptr := native.(*cwl.Job_document)
@@ -129,7 +209,7 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 			//id := value.Id
 			//fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
-			sub_count, err = processInputData(value, inputfile_path)
+			sub_count, err = processIOData(value, path, io_type)
 			if err != nil {
 				return
 			}
@@ -140,7 +220,7 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 	case cwl.NamedCWLType:
 		named := native.(cwl.NamedCWLType)
 		var sub_count int
-		sub_count, err = processInputData(named.Value, inputfile_path)
+		sub_count, err = processIOData(named.Value, path, io_type)
 		if err != nil {
 			return
 		}
@@ -162,11 +242,21 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 			err = fmt.Errorf("could not cast to *cwl.File")
 			return
 		}
-		err = uploadFile(file, inputfile_path)
-		if err != nil {
-			return
+
+		if io_type == "upload" {
+			err = uploadFile(file, path)
+			if err != nil {
+				return
+			}
+			count += 1
+		} else {
+
+			// download
+			err = downloadFile(file, path)
+			if err != nil {
+				return
+			}
 		}
-		count += 1
 
 		return
 	case *cwl.Array:
@@ -182,7 +272,7 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 			//id := value.GetId()
 			//fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
-			sub_count, err = processInputData(value, inputfile_path)
+			sub_count, err = processIOData(value, path, io_type)
 			if err != nil {
 				return
 			}
@@ -204,7 +294,7 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 			for k, _ := range dir.Listing {
 				value := dir.Listing[k]
 				var sub_count int
-				sub_count, err = processInputData(value, inputfile_path)
+				sub_count, err = processIOData(value, path, io_type)
 				if err != nil {
 					return
 				}
@@ -221,7 +311,7 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 		for _, value := range *rec {
 			//value := rec.Fields[k]
 			var sub_count int
-			sub_count, err = processInputData(value, inputfile_path)
+			sub_count, err = processIOData(value, path, io_type)
 			if err != nil {
 				return
 			}
@@ -235,7 +325,7 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 		for _, value := range rec {
 			//value := rec.Fields[k]
 			var sub_count int
-			sub_count, err = processInputData(value, inputfile_path)
+			sub_count, err = processIOData(value, path, io_type)
 			if err != nil {
 				return
 			}
@@ -250,7 +340,7 @@ func processInputData(native interface{}, inputfile_path string) (count int, err
 		return
 	default:
 		//spew.Dump(native)
-		err = fmt.Errorf("(processInputData) No handler for type \"%s\"\n", reflect.TypeOf(native))
+		err = fmt.Errorf("(processIOData) No handler for type \"%s\"\n", reflect.TypeOf(native))
 		return
 	}
 
@@ -348,7 +438,7 @@ func main_wrapper() (err error) {
 	// ### process input files
 
 	var upload_count int
-	upload_count, err = processInputData(job_doc, inputfile_path)
+	upload_count, err = processIOData(job_doc, inputfile_path, "upload")
 	if err != nil {
 		return
 	}
@@ -379,7 +469,7 @@ func main_wrapper() (err error) {
 
 		yamlstream, err = ioutil.ReadFile(workflow_file)
 		if err != nil {
-			fmt.Errorf("error in reading workflow file: " + err.Error())
+			err = fmt.Errorf("error in reading workflow file: " + err.Error())
 			return
 		}
 	}
@@ -471,9 +561,9 @@ func main_wrapper() (err error) {
 		return
 	}
 
-	//fmt.Println("------------")
-	//fmt.Println(new_document_str)
-	//fmt.Println("------------")
+	fmt.Println("------------")
+	fmt.Println(new_document_str)
+	fmt.Println("------------")
 	//panic("hhhh")
 	new_document_bytes = []byte(new_document_str)
 
@@ -555,6 +645,17 @@ func main_wrapper() (err error) {
 			output_receipt[out_id] = out.Value
 		}
 
+		if conf.SUBMITTER_DOWNLOAD_FILES { // TODO
+			var output_file_path string
+			output_file_path, err = os.Getwd()
+
+			_, err = processIOData(output_receipt, output_file_path, "download")
+			if err != nil {
+				err = fmt.Errorf("(main_wrapper) processIOData(for download) returned: %s", err.Error())
+				return
+			}
+		}
+
 		var output_receipt_bytes []byte
 		output_receipt_bytes, err = json.MarshalIndent(output_receipt, "", "    ")
 		if err != nil {
@@ -574,6 +675,7 @@ func main_wrapper() (err error) {
 		} else {
 			fmt.Println(string(output_receipt_bytes[:]))
 		}
+
 	} else {
 		fmt.Printf("JobID=%s\n", jobid)
 	}
@@ -620,8 +722,8 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 	var sr standardResponse
 	err = json.Unmarshal(responseData, &sr)
 	if err != nil {
-		fmt.Println(string(responseData[:]))
-		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job")
+		//fmt.Println(string(responseData[:]))
+		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s (%s) response: %s", err.Error(), conf.SERVER_URL+"/job", responseData)
 		return
 	}
 

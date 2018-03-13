@@ -3,9 +3,12 @@ package cwl
 import (
 	"fmt"
 	//"github.com/davecgh/go-spew/spew"
+	"reflect"
+
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"gopkg.in/mgo.v2/bson"
-	"reflect"
 )
 
 type WorkflowStep struct {
@@ -24,6 +27,7 @@ type WorkflowStep struct {
 func NewWorkflowStep(original interface{}) (w *WorkflowStep, schemata []CWLType_Type, err error) {
 	var step WorkflowStep
 
+	logger.Debug(3, "NewWorkflowStep starting")
 	original, err = MakeStringMap(original)
 	if err != nil {
 		return
@@ -92,10 +96,10 @@ func NewWorkflowStep(original interface{}) (w *WorkflowStep, schemata []CWLType_
 		//spew.Dump(w.Run)
 
 		//fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-		return
+
 	default:
 		err = fmt.Errorf("(NewWorkflowStep) type %s unknown", reflect.TypeOf(original))
-		return
+
 	}
 
 	return
@@ -124,8 +128,8 @@ func CreateWorkflowStepsArray(original interface{}) (schemata []CWLType_Type, ar
 
 		// iterate over workflow steps
 		for k, v := range original.(map[interface{}]interface{}) {
-			//fmt.Printf("A step\n")
-			//spew.Dump(v)
+			fmt.Printf("A step\n")
+			spew.Dump(v)
 
 			//fmt.Println("type: ")
 			//fmt.Println(reflect.TypeOf(v))
@@ -157,8 +161,8 @@ func CreateWorkflowStepsArray(original interface{}) (schemata []CWLType_Type, ar
 
 		// iterate over workflow steps
 		for _, v := range original.([]interface{}) {
-			//fmt.Printf("A step\n")
-			//spew.Dump(v)
+			fmt.Printf("A(2) step\n")
+			spew.Dump(v)
 
 			//fmt.Println("type: ")
 			//fmt.Println(reflect.TypeOf(v))
@@ -183,10 +187,10 @@ func CreateWorkflowStepsArray(original interface{}) (schemata []CWLType_Type, ar
 		}
 
 		array_ptr = &array
-		return
+
 	default:
 		err = fmt.Errorf("(CreateWorkflowStepsArray) Type unknown")
-		return
+
 	}
 	//spew.Dump(new_array)
 	return

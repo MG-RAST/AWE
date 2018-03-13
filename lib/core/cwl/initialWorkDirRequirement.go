@@ -29,11 +29,11 @@ func NewInitialWorkDirRequirement(original interface{}) (r *InitialWorkDirRequir
 
 	case map[string]interface{}:
 
-		original_map, ok := original.(map[string]interface{})
-		if !ok {
-			err = fmt.Errorf("(NewInitialWorkDirRequirement) type error")
-			return
-		}
+		//original_map, ok := original.(map[string]interface{})
+		//if !ok {
+		//	err = fmt.Errorf("(NewInitialWorkDirRequirement) type error")
+		//	return
+		//}
 
 		//listing, has_listing := original_map["listing"]
 		//if has_listing {

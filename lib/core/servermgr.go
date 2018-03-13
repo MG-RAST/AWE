@@ -415,6 +415,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	}
 	logger.Debug(3, "(updateQueue) range tasks (%d)", len(tasks))
 	for _, task := range tasks {
+
 		var task_id Task_Unique_Identifier
 		task_id, err = task.GetId()
 		if err != nil {
@@ -428,15 +429,18 @@ func (qm *ServerMgr) updateQueue() (err error) {
 			continue
 		}
 
-		if !(task_state == TASK_STAT_INIT || task_state == TASK_STAT_PENDING || task_state == TASK_STAT_READY) { // == TASK_STAT_INPROGRESS || task_state == TASK_STAT_COMPLETED
+		if !(task_state == TASK_STAT_INIT || task_state == TASK_STAT_PENDING || task_state == TASK_STAT_READY) {
 			logger.Debug(3, "(updateQueue) skipping task %s , it has state %s", task_id, task_state)
 			continue
 		}
 
 		logger.Debug(3, "(updateQueue) task: %s", task_id)
-		task_ready, reason, err := qm.isTaskReady(task)
+		var task_ready bool
+		var reason string
+		task_ready, reason, err = qm.isTaskReady(task)
 		if err != nil {
 			logger.Error("(updateQueue) %s isTaskReady returns error: %s", task_id, err.Error())
+			err = nil
 			continue
 		}
 
@@ -457,29 +461,27 @@ func (qm *ServerMgr) updateQueue() (err error) {
 				continue
 			}
 
-			err = qm.taskEnQueue(task, job)
-			if err != nil {
-				logger.Error("(updateQueue) taskEnQueue returned: %s", err.Error())
-
+			xerr := qm.taskEnQueue(task, job)
+			if xerr != nil {
+				logger.Error("(updateQueue) taskEnQueue returned: %s", xerr.Error())
 				_ = task.SetState(TASK_STAT_SUSPEND, true)
-				var job_id string
-				var xerr error
-				job_id, xerr = task.GetJobId()
-				if xerr != nil {
-					err = xerr
-					return err
+
+				job_id, err = task.GetJobId()
+				if err != nil {
+					return
 				}
 
 				var task_str string
-				task_str, xerr = task.String()
-				if xerr != nil {
-					err = fmt.Errorf("(updateQueue) task.String returned: %s", xerr.Error())
-					return err
+				task_str, err = task.String()
+				if err != nil {
+					err = fmt.Errorf("(updateQueue) task.String returned: %s", err.Error())
+					return
+
 				}
 
 				jerror := &JobError{
 					TaskFailed:  task_str,
-					ServerNotes: "failed enqueuing task, err=" + err.Error(),
+					ServerNotes: "failed enqueuing task, err=" + xerr.Error(),
 					Status:      JOB_STAT_SUSPEND,
 				}
 				if err = qm.SuspendJob(job_id, jerror); err != nil {
@@ -608,16 +610,13 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 	outputs_modified := false
 	outputs := task.Outputs
 	for _, io := range outputs {
-		var size int64
-		var modified bool
-		size, modified, err = io.GetFileSize()
-		if err != nil {
-			logger.Error("(handleWorkStatDone) task %s, err: %s", task_id, err.Error())
 
-			var xerr error
-			xerr = task.SetState(TASK_STAT_SUSPEND, true)
-			if xerr != nil {
-				err = xerr
+		size, modified, xerr := io.GetFileSize()
+		if xerr != nil {
+			logger.Error("(handleWorkStatDone) task %s, err: %s", task_id, xerr.Error())
+			err = task.SetState(TASK_STAT_SUSPEND, true)
+			if err != nil {
+
 				return
 			}
 			var task_str string
@@ -631,7 +630,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 				ClientFailed: clientid,
 				WorkFailed:   work_str,
 				TaskFailed:   task_str,
-				ServerNotes:  fmt.Sprintf("(handleWorkStatDone) io.GetFileSize failed: %s", err.Error()),
+				ServerNotes:  fmt.Sprintf("(handleWorkStatDone) io.GetFileSize failed: %s", xerr.Error()),
 				Status:       JOB_STAT_SUSPEND,
 			}
 			err = nil
@@ -646,6 +645,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 			if err != nil {
 				logger.Error("(handleNoticeWorkDelivered:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
 			}
+			err = xerr
 			return
 		}
 
@@ -734,10 +734,6 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		return
 	}
 
-	//parts := strings.Split(workid, "_")
-	//task_id := fmt.Sprintf("%s_%s", parts[0], parts[1])
-	//job_id := parts[0]
-
 	// *** Get Client
 	var client *Client
 	var ok bool
@@ -767,12 +763,10 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	}
 
 	if notice.Results != nil { // TODO one workunit vs multiple !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 		err = task.SetStepOutput(notice.Results, true)
 		if err != nil {
 			return
 		}
-
 	}
 
 	// *** Get workunit
@@ -837,7 +831,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		err = qm.handleWorkStatDone(client, clientid, task, work_id, computetime)
 		if err != nil {
 			err = fmt.Errorf("(handleNoticeWorkDelivered) handleWorkStatDone returned: %s", err.Error())
-			//fmt.Println(err.Error())
+
 			return
 		}
 	} else if status == WORK_STAT_FAILED_PERMANENT { // (special case !) failed and cannot be recovered
@@ -849,7 +843,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_FAILED_PERMANENT, "")
 
 		if err = task.SetState(TASK_STAT_FAILED_PERMANENT, true); err != nil {
-			return err
+			return
 		}
 
 		var task_str string
@@ -885,8 +879,9 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 			logger.Event(event.WORK_SUSPEND, "workid="+work_str)
 
 			if err = task.SetState(TASK_STAT_SUSPEND, true); err != nil {
-				return err
+				return
 			}
+
 			var task_str string
 			task_str, err = task.String()
 			if err != nil {
@@ -918,6 +913,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 			err = fmt.Errorf(e.ClientNotFound)
 			return
 		}
+
 		err = client.Append_Skip_work(work_id, true)
 		if err != nil {
 			return
@@ -926,6 +922,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		if err != nil {
 			return
 		}
+
 		var last_failed int
 		last_failed, err = client.Increment_last_failed(true)
 		if err != nil {
@@ -982,11 +979,13 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 	start = time.Now()
 	for _, task := range task_list {
 		total_task += 1
-		task_state, xerr := task.GetState()
-		if xerr != nil {
-			err = xerr
+
+		var task_state string
+		task_state, err = task.GetState()
+		if err != nil {
 			return
 		}
+
 		switch task_state {
 		case TASK_STAT_COMPLETED:
 			completed_task += 1
@@ -1330,13 +1329,15 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 	logger.Debug(3, "(addTask) got task")
 
-	task_id, err := task.GetId()
+	var task_id Task_Unique_Identifier
+	task_id, err = task.GetId()
 	if err != nil {
 		err = fmt.Errorf("(addTask) GetId() returns: %s", err.Error())
 		return
 	}
 
-	has_task, err := qm.TaskMap.Has(task_id, true)
+	var has_task bool
+	has_task, err = qm.TaskMap.Has(task_id, true)
 	if err != nil {
 		err = fmt.Errorf("(addTask) qm.TaskMap.Has returns: %s", err.Error())
 		return
@@ -1353,7 +1354,8 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 		return
 	}
 
-	task_state, err := task.GetState()
+	var task_state string
+	task_state, err = task.GetState()
 	if err != nil {
 		err = fmt.Errorf("(addTask) task.GetState() returns: %s", err.Error())
 		return
@@ -1384,7 +1386,8 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 		return
 	}
 
-	task_ready, _, err := qm.isTaskReady(task) //makes the task ready
+	var task_ready bool
+	task_ready, _, err = qm.isTaskReady(task) //makes the task ready
 	if err != nil {
 		err = fmt.Errorf("(addTask) qm.isTaskReady(task) returns: %s", err.Error())
 		return
@@ -1396,32 +1399,34 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 
 	//task_id := task.String()
 	logger.Debug(3, "(addTask) task %s is ready (invoking taskEnQueue)", task_id)
-	err = qm.taskEnQueue(task, job)
-	if err != nil {
-		logger.Error("(addTask) taskEnQueue returned error: %s", err.Error())
+	xerr := qm.taskEnQueue(task, job)
+	if xerr != nil {
+		logger.Error("(addTask) taskEnQueue returned error: %s", xerr.Error())
 		_ = task.SetState(TASK_STAT_SUSPEND, true)
 
-		job_id, xerr := task.GetJobId()
-		if xerr != nil {
-			err = xerr
+		var job_id string
+		job_id, err = task.GetJobId()
+		if err != nil {
 			return
 		}
 
 		var task_str string
-		task_str, xerr = task.String()
-		if xerr != nil {
-			err = fmt.Errorf("(addTask) task.String returned: %s", xerr.Error())
+		task_str, err = task.String()
+		if err != nil {
+			err = fmt.Errorf("(addTask) task.String returned: %s", err.Error())
 			return
 		}
 		jerror := &JobError{
 			TaskFailed:  task_str,
-			ServerNotes: "failed in enqueuing task, err=" + err.Error(),
+			ServerNotes: "failed in enqueuing task, err=" + xerr.Error(),
 			Status:      JOB_STAT_SUSPEND,
 		}
-		if serr := qm.SuspendJob(job_id, jerror); serr != nil {
-			logger.Error("(addTask:SuspendJob) job_id=%s; err=%s", job_id, serr.Error())
+
+		if err = qm.SuspendJob(job_id, jerror); err != nil {
+			logger.Error("(updateQueue:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
 		}
-		return err
+		err = xerr
+		return
 	}
 
 	err = qm.updateJobTask(task) //task state INIT->PENDING
@@ -2120,11 +2125,10 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 		// not found
 		logger.Debug(3, "(getCWLSource) step output not found")
 		ok = false
-		return
 
 	} else {
 		err = fmt.Errorf("(getCWLSource) could not parse source: %s", src)
-		return
+
 	}
 
 	return
@@ -2962,8 +2966,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 					spew.Dump(raw_type)
 
 					err = fmt.Errorf("(updateJobTask) could not convert element of output.Type into cwl.CWLType_Type: %s", err.Error())
-					fmt.Printf(err.Error())
-					panic("raw_type problem")
+					//fmt.Printf(err.Error())
+					//panic("raw_type problem")
 					return
 				}
 				expected_types = append(expected_types, type_correct)
@@ -3349,9 +3353,6 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 	if err != nil {
 		return
 	}
-	//if jerror.Status == JOB_STAT_SUSPEND {
-	//	qm.putSusJob(jobid)
-	//}
 
 	// set error struct
 	err = job.SetError(jerror)
@@ -3360,9 +3361,10 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 	}
 
 	//suspend queueing workunits
-	workunit_list, err := qm.workQueue.GetAll()
+	var workunit_list []*Workunit
+	workunit_list, err = qm.workQueue.GetAll()
 	if err != nil {
-		return err
+		return
 	}
 
 	new_work_state := WORK_STAT_SUSPEND
@@ -3386,7 +3388,8 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 
 	//suspend parsed tasks
 	for _, task := range job.Tasks {
-		task_state, err := task.GetState()
+		var task_state string
+		task_state, err = task.GetState()
 		if err != nil {
 			continue
 		}
@@ -3413,7 +3416,8 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 }
 
 func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err error) {
-	job, err := GetJob(jobid)
+	var job *Job
+	job, err = GetJob(jobid)
 	if err != nil {
 		return
 	}
@@ -3426,7 +3430,8 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 		return
 	}
 	//delete queueing workunits
-	workunit_list, err := qm.workQueue.GetAll()
+	var workunit_list []*Workunit
+	workunit_list, err = qm.workQueue.GetAll()
 	if err != nil {
 		return
 	}

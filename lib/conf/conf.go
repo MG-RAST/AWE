@@ -4,13 +4,14 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/MG-RAST/golib/goconfig/config"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/MG-RAST/golib/goconfig/config"
 )
 
 const VERSION string = "0.9.66"
@@ -178,11 +179,12 @@ var (
 	MEMPROFILE           string
 
 	// submitter (CWL)
-	SUBMITTER_OUTDIR string
-	SUBMITTER_QUIET  bool
-	SUBMITTER_PACK   bool
-	SUBMITTER_OUTPUT string
-	SUBMITTER_WAIT   bool
+	SUBMITTER_OUTDIR         string
+	SUBMITTER_QUIET          bool
+	SUBMITTER_PACK           bool
+	SUBMITTER_OUTPUT         string
+	SUBMITTER_WAIT           bool
+	SUBMITTER_DOWNLOAD_FILES bool
 
 	// WORKER (CWL)
 	CWL_RUNNER_ARGS string
@@ -350,6 +352,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddBool(&SUBMITTER_PACK, false, "Client", "pack", "invoke cwl-runner --pack first", "")
 		c_store.AddBool(&SUBMITTER_WAIT, false, "Client", "wait", "wait fopr job completion", "")
 		c_store.AddString(&SUBMITTER_OUTPUT, "", "Client", "output", "cwl output file", "")
+		c_store.AddBool(&SUBMITTER_DOWNLOAD_FILES, false, "Client", "download_files", "download output files from shock", "")
+
 	}
 
 	if mode == "worker" {

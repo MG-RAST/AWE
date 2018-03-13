@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	//"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/golib/httpclient"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -18,6 +16,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/golib/httpclient"
 )
 
 // TODO use Token
@@ -195,6 +196,10 @@ func (sc *ShockClient) Do_request(method string, resource string, query url.Valu
 }
 
 // *** high-level functions ***
+
+func (sc *ShockClient) FetchFile(filename string, url string, uncompress string, computeMD5 bool) (size int64, md5sum string, err error) {
+	return FetchFile(filename, url, sc.Token, uncompress, computeMD5)
+}
 
 func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[string]interface{}) (node *ShockNode, err error) {
 	if sc.Debug {

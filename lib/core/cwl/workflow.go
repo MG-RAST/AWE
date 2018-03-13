@@ -2,6 +2,8 @@ package cwl
 
 import (
 	"fmt"
+
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	//"os"
@@ -91,6 +93,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, schemata []CWLTy
 		// convert steps to array if it is a map
 		steps, ok := object["steps"]
 		if ok {
+			logger.Debug(3, "(NewWorkflow) Parsing steps in Workflow")
 			var schemata_new []CWLType_Type
 			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps)
 			if err != nil {
@@ -100,6 +103,10 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, schemata []CWLTy
 			for i, _ := range schemata_new {
 				schemata = append(schemata, schemata_new[i])
 			}
+		} else {
+			err = fmt.Errorf("(NewWorkflow) Workflow has no steps ")
+			spew.Dump(object)
+			return
 		}
 
 		requirements, ok := object["requirements"]

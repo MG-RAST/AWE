@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -473,7 +474,7 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 		time.Sleep(3 * time.Second) //wait for 3 seconds and try again
 		new_node_id, err = sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr)
 		if err != nil {
-			fmt.Errorf("push file error\n")
+			err = fmt.Errorf("push file error: %s", err.Error())
 			logger.Error("op=pushfile,err=" + err.Error())
 			return
 		}
@@ -572,7 +573,7 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 
 			cwl_file, ok := tool_result.(*cwl.File)
 			if !ok {
-				err = fmt.Errorf("(UploadOutputData) Could not type-assert file", expected)
+				err = fmt.Errorf("(UploadOutputData) Could not type-assert file (expected: %s)", expected)
 				return
 			}
 
@@ -596,7 +597,9 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 				return
 			}
 			size += io_size
+
 			cwl_file.Location = work.ShockHost + "/node/" + new_node_id + "?download"
+			cwl_file.Path = ""
 
 		}
 		//spew.Dump(work.CWL_workunit.OutputsExpected)

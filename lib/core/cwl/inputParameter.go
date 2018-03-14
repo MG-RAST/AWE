@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 
@@ -116,7 +117,7 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type) (input_par
 }
 
 // InputParameter
-func NewInputParameterArray(original interface{}, schemata []CWLType_Type) (err error, new_array []InputParameter) {
+func NewInputParameterArray(original interface{}, schemata []CWLType_Type) (new_array []InputParameter, err error) {
 
 	switch original.(type) {
 	case map[interface{}]interface{}:

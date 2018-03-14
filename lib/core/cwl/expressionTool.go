@@ -1,5 +1,12 @@
 package cwl
 
+import (
+	"fmt"
+	"reflect"
+
+	"github.com/mitchellh/mapstructure"
+)
+
 //"fmt"
 //"github.com/davecgh/go-spew/spew"
 //"reflect"
@@ -17,4 +24,59 @@ type ExpressionTool struct {
 	Label           string                          `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
 	Doc             string                          `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
 	CwlVersion      CWLVersion                      `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
+}
+
+func NewExpressionTool(original interface{}, schemata []CWLType_Type) (et *ExpressionTool, err error) {
+
+	object, ok := original.(map[string]interface{})
+	if !ok {
+		err = fmt.Errorf("other types than map[string]interface{} not supported yet (got %s)", reflect.TypeOf(original))
+		return
+	}
+
+	et = &ExpressionTool{}
+
+	inputs, has_inputs := object["inputs"]
+	if has_inputs {
+		object["inputs"], err = NewInputParameterArray(inputs, schemata)
+		if err != nil {
+			err = fmt.Errorf("(NewExpressionTool) error in NewInputParameterArray: %s", err.Error())
+			return
+		}
+	}
+
+	outputs, has_outputs := object["outputs"]
+	if has_outputs {
+		object["outputs"], err = NewExpressionToolOutputParameterArray(outputs, schemata)
+		if err != nil {
+			err = fmt.Errorf("(NewExpressionTool) error in NewExpressionToolOutputParameterArray: %s", err.Error())
+			return
+		}
+	}
+
+	requirements, ok := object["requirements"]
+	if ok {
+		object["requirements"], schemata, err = CreateRequirementArray(requirements)
+		if err != nil {
+			err = fmt.Errorf("(NewExpressionTool) error in CreateRequirementArray (requirements): %s", err.Error())
+			return
+		}
+	}
+
+	hints, ok := object["hints"]
+	if ok {
+		object["hints"], schemata, err = CreateRequirementArray(hints)
+		if err != nil {
+			err = fmt.Errorf("(NewExpressionTool) error in CreateRequirementArray (hints): %s", err.Error())
+			return
+		}
+	}
+
+	err = mapstructure.Decode(object, et)
+	if err != nil {
+		err = fmt.Errorf("(NewExpressionTool) error parsing ExpressionTool class: %s", err.Error())
+		return
+	}
+
+	return
 }

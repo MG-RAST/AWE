@@ -1821,7 +1821,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 			var process_name string
 			process_name, err = cwl.GetProcessName(p)
 			if err != nil {
-				err = fmt.Errorf("(taskEnQueue) embedded workflow or toll not supported yet: %s", err.Error())
+				err = fmt.Errorf("(taskEnQueue) embedded workflow or toll not supported yet: %s (task_type=%s)", err.Error(), task_type)
 				return
 			}
 

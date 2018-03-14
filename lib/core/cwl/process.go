@@ -92,10 +92,10 @@ func NewProcess(original interface{}) (process interface{}, schemata []CWLType_T
 			process, err = NewExpression(original)
 			return
 		case "CommandLineTool":
-			process, schemata, err = NewCommandLineTool(original)
+			process, schemata, err = NewCommandLineTool(original) // TODO merge schemata correctly !
 			return
 		case "ExpressionTool":
-			err = fmt.Errorf("(NewProcess) ExpressionTool not implemented yet")
+			process, err = NewExpressionTool(original, schemata)
 			return
 		default:
 			err = fmt.Errorf("(NewProcess) class %s not supported", class)

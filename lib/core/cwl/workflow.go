@@ -74,7 +74,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, schemata []CWLTy
 		object := original.(map[string]interface{})
 		inputs, ok := object["inputs"]
 		if ok {
-			err, object["inputs"] = NewInputParameterArray(inputs, schemata)
+			object["inputs"], err = NewInputParameterArray(inputs, schemata)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) NewInputParameterArray returned: %s", err.Error())
 				return

@@ -161,7 +161,11 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		entrypoint := ""
 
 		var cwl_workflow *cwl.Workflow
-		if len(object_array) == 1 {
+		if len(collection.Workflows) == 0 {
+			if len(object_array) != 1 {
+				cx.RespondWithErrorMessage(fmt.Sprintf("Expected exactly one element in object_array, got %d", len(collection.Workflows)), http.StatusBadRequest)
+				return
+			}
 			// This probably is a CommandlineTool submission (without workflow)
 			// create new Workflow to wrap around the CommandLineTool
 			entrypoint = "#entrypoint"

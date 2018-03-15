@@ -8,7 +8,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
-	"gopkg.in/mgo.v2/bson"
 )
 
 type WorkflowStep struct {
@@ -196,7 +195,13 @@ func CreateWorkflowStepsArray(original interface{}) (schemata []CWLType_Type, ar
 	return
 }
 
-func GetProcessName(p interface{}) (process_name string, err error) {
+func GetProcessName(original interface{}) (process_name string, a_command_line_tool *CommandLineTool, a_workflow *Workflow, schemata []CWLType_Type, err error) {
+
+	var p interface{}
+	p, err = MakeStringMap(original)
+	if err != nil {
+		return
+	}
 
 	switch p.(type) {
 	case string:
@@ -205,19 +210,43 @@ func GetProcessName(p interface{}) (process_name string, err error) {
 
 		process_name = p_str
 
-	case bson.M: // (because of mongo this is bson.M)
+	case map[string]interface{}:
 
-		p_bson := p.(bson.M)
+		fmt.Println("GetProcessName got:")
+		spew.Dump(p)
 
-		process_name_interface, ok := p_bson["value"]
+		p_map := p.(map[string]interface{})
+
+		class_name_if, ok := p_map["class"]
+		if ok {
+			var class_name string
+			class_name, ok = class_name_if.(string)
+			if ok {
+				switch class_name {
+				case "CommandLineTool":
+					a_command_line_tool, schemata, err = NewCommandLineTool(p)
+					return
+				case "Workflow":
+					a_workflow, schemata, err = NewWorkflow(p)
+					return
+				default:
+					err = fmt.Errorf("(GetProcessName) class \"%s\" not a supported process", class_name)
+					return
+				}
+
+			}
+		}
+
+		// in case of bson, check field "value"
+		process_name_interface, ok := p_map["value"]
 		if !ok {
-			err = fmt.Errorf("(GetProcessName) bson.M did not hold a field named value")
+			err = fmt.Errorf("(GetProcessName) map did not hold a field named value")
 			return
 		}
 
 		process_name, ok = process_name_interface.(string)
 		if !ok {
-			err = fmt.Errorf("(GetProcessName) bson.M value field is not a string")
+			err = fmt.Errorf("(GetProcessName) map value field is not a string")
 			return
 		}
 

@@ -4,6 +4,7 @@ import (
 	//"bytes"
 	//"encoding/json"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 
@@ -107,41 +108,34 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		}
 
 		var process_name string
-		process_name, err = cwl.GetProcessName(p)
+		var clt *cwl.CommandLineTool
+		var a_workflow *cwl.Workflow
+		process_name, clt, a_workflow, _, err = cwl.GetProcessName(p)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) embedded workflow or toll not supported yet: %s", err.Error())
 			return
 		}
-
-		if process_name == "" {
-			err = fmt.Errorf("(NewWorkunit) No tool name found")
-			return
-		}
-
+		_ = a_workflow
 		if job.CWL_collection == nil {
 			err = fmt.Errorf("(NewWorkunit) job.CWL_collection == nil ")
 			return
 		}
 
-		var clt *cwl.CommandLineTool
 		//use_commandLineTool := false
 
 		//var wfl *cwl.Workflow
 		//use_workflow := false
 
-		clt, err = job.CWL_collection.GetCommandLineTool(process_name)
-		if err != nil {
-			err = fmt.Errorf("(NewWorkunit) CommandLineTool %s not found", process_name)
-			return
-			//wfl, err = job.CWL_collection.GetWorkflow(process_name)
-			//if err != nil {
-			//	err = fmt.Errorf("(NewWorkunit) Process %s is neither CommandLineTool, nor Workflow.")
-			//	return
-			//} else {
-			//	use_workflow = true
-			//}
+		if process_name != "" {
+			clt, err = job.CWL_collection.GetCommandLineTool(process_name)
+			if err != nil {
+				err = fmt.Errorf("(NewWorkunit) CommandLineTool %s not found", process_name)
+				return
 
+			}
+			return
 		}
+
 		//else {
 		//	use_commandLineTool = true
 		//}

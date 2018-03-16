@@ -204,7 +204,7 @@ func (sc *ShockClient) FetchFile(filename string, url string, uncompress string,
 func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[string]interface{}) (node *ShockNode, err error) {
 	if sc.Debug {
 		logger.Debug(1, "(CreateOrUpdate) start")
-		defer logger.Debug(1, "(CreateOrUpdate) start")
+		defer logger.Debug(1, "(CreateOrUpdate) stop")
 	}
 	host := sc.Host
 	token := sc.Token
@@ -305,7 +305,7 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 		user = httpclient.GetUserByTokenAuth(token)
 	}
 	if sc.Debug {
-		fmt.Printf("url: %s %s\n", method, url)
+		fmt.Printf("(CreateOrUpdate) url: %s %s\n", method, url)
 	}
 	if res, err := httpclient.Do(method, url, headers, form.Reader, user); err == nil {
 		defer res.Body.Close()

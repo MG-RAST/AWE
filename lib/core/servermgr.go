@@ -1817,12 +1817,20 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 				err = fmt.Errorf("(taskEnQueue) process is nil !?")
 				return
 			}
+
+			var schemata []cwl.CWLType_Type
+			schemata, err = job.CWL_collection.GetSchemata()
+			if err != nil {
+				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
+				return
+			}
+
 			// check if this is a workflow
 			var process_name string
 			var a_command_line_tool *cwl.CommandLineTool
 			var wfl *cwl.Workflow
 			wfl = nil
-			process_name, a_command_line_tool, wfl, _, err = cwl.GetProcessName(p)
+			process_name, a_command_line_tool, wfl, _, _, err = cwl.GetProcessName(p, schemata)
 			if err != nil {
 				err = fmt.Errorf("(taskEnQueue) embedded workflow or toll not supported yet: %s (task_type=%s)", err.Error(), task_type)
 				return
@@ -2880,8 +2888,14 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			}
 			// check if this is a workflow
 
+			var schemata []cwl.CWLType_Type
+			schemata, err = job.CWL_collection.GetSchemata()
+			if err != nil {
+				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
+				return
+			}
 			var a_workflow *cwl.Workflow
-			process_name, _, a_workflow, _, err = cwl.GetProcessName(p)
+			process_name, _, a_workflow, _, _, err = cwl.GetProcessName(p, schemata)
 			if err != nil {
 				err = fmt.Errorf("(updateJobTask) embedded workflow or toll not supported yet: %s", err.Error())
 				return

@@ -3,6 +3,7 @@ package cwl
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	//"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	//"github.com/mitchellh/mapstructure"
@@ -114,6 +115,10 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 		return
 	}
 
+	if original == nil {
+		err = fmt.Errorf("(CreateRequirementArray) original == nil")
+	}
+
 	new_array := []Requirement{}
 
 	switch original.(type) {
@@ -164,7 +169,7 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 		}
 
 	default:
-		err = fmt.Errorf("(CreateRequirementArray) type unknown")
+		err = fmt.Errorf("(CreateRequirementArray) type %s unknown", reflect.TypeOf(original))
 	}
 
 	new_array_ptr = &new_array

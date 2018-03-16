@@ -107,10 +107,17 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			return
 		}
 
+		var schemata []cwl.CWLType_Type
+		schemata, err = job.CWL_collection.GetSchemata()
+		if err != nil {
+			err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
+			return
+		}
+
 		var process_name string
 		var clt *cwl.CommandLineTool
 		var a_workflow *cwl.Workflow
-		process_name, clt, a_workflow, _, err = cwl.GetProcessName(p)
+		process_name, clt, a_workflow, _, _, err = cwl.GetProcessName(p, schemata)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) embedded workflow or toll not supported yet: %s", err.Error())
 			return
@@ -141,13 +148,16 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		//}
 
 		//if use_commandLineTool {
-		clt.CwlVersion = job.CwlVersion
-
-		if clt.CwlVersion == "" {
-			err = fmt.Errorf("(NewWorkunit) CommandLineTool misses CwlVersion")
-			return
+		if clt != nil {
+			if clt.CwlVersion == "" {
+				clt.CwlVersion = job.CwlVersion
+			}
+			if clt.CwlVersion == "" {
+				err = fmt.Errorf("(NewWorkunit) CommandLineTool misses CwlVersion")
+				return
+			}
+			workunit.CWL_workunit.CWL_tool = clt
 		}
-		workunit.CWL_workunit.CWL_tool = clt
 
 		//}
 

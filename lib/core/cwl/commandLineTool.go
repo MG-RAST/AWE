@@ -4,8 +4,9 @@ import (
 	//"errors"
 	"fmt"
 	//"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
 	"reflect"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CommandLineTool
@@ -108,7 +109,7 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 	//switch object["hints"].(type) {
 	//case map[interface{}]interface{}:
 	hints, ok := object["hints"]
-	if ok {
+	if ok && (hints != nil) {
 		object["hints"], schemata, err = CreateRequirementArray(hints)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())

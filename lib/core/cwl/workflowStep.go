@@ -195,7 +195,7 @@ func CreateWorkflowStepsArray(original interface{}) (schemata []CWLType_Type, ar
 	return
 }
 
-func GetProcessName(original interface{}) (process_name string, a_command_line_tool *CommandLineTool, a_workflow *Workflow, schemata []CWLType_Type, err error) {
+func GetProcessName(original interface{}, input_schemata []CWLType_Type) (process_name string, a_command_line_tool *CommandLineTool, a_workflow *Workflow, a_expression_tool *ExpressionTool, schemata []CWLType_Type, err error) {
 
 	var p interface{}
 	p, err = MakeStringMap(original)
@@ -228,6 +228,9 @@ func GetProcessName(original interface{}) (process_name string, a_command_line_t
 					return
 				case "Workflow":
 					a_workflow, schemata, err = NewWorkflow(p)
+					return
+				case "ExpressionTool":
+					a_expression_tool, err = NewExpressionTool(p, input_schemata)
 					return
 				default:
 					err = fmt.Errorf("(GetProcessName) class \"%s\" not a supported process", class_name)

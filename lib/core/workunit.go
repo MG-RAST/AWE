@@ -4,6 +4,7 @@ import (
 	//"bytes"
 	//"encoding/json"
 	"fmt"
+	"reflect"
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -114,41 +115,19 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			return
 		}
 
-		var process_name string
+		//var process_name string
 		var clt *cwl.CommandLineTool
-		var a_workflow *cwl.Workflow
-		process_name, clt, a_workflow, _, _, err = cwl.GetProcessName(p, schemata)
+		//var a_workflow *cwl.Workflow
+		var process interface{}
+		process, _, err = cwl.GetProcess(p, job.CWL_collection, schemata) // TODO add new schemata
 		if err != nil {
-			err = fmt.Errorf("(NewWorkunit) embedded workflow or toll not supported yet: %s", err.Error())
-			return
-		}
-		_ = a_workflow
-		if job.CWL_collection == nil {
-			err = fmt.Errorf("(NewWorkunit) job.CWL_collection == nil ")
+			err = fmt.Errorf("(NewWorkunit) GetProcess returned: %s", err.Error())
 			return
 		}
 
-		//use_commandLineTool := false
-
-		//var wfl *cwl.Workflow
-		//use_workflow := false
-
-		if process_name != "" {
-			clt, err = job.CWL_collection.GetCommandLineTool(process_name)
-			if err != nil {
-				err = fmt.Errorf("(NewWorkunit) CommandLineTool %s not found", process_name)
-				return
-
-			}
-			return
-		}
-
-		//else {
-		//	use_commandLineTool = true
-		//}
-
-		//if use_commandLineTool {
-		if clt != nil {
+		switch process.(type) {
+		case *cwl.CommandLineTool:
+			clt, _ = process.(*cwl.CommandLineTool)
 			if clt.CwlVersion == "" {
 				clt.CwlVersion = job.CwlVersion
 			}
@@ -156,8 +135,22 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 				err = fmt.Errorf("(NewWorkunit) CommandLineTool misses CwlVersion")
 				return
 			}
-			workunit.CWL_workunit.CWL_tool = clt
+		case *cwl.ExpressionTool:
+			var et *cwl.ExpressionTool
+			et, _ = process.(*cwl.ExpressionTool)
+			if et.CwlVersion == "" {
+				et.CwlVersion = job.CwlVersion
+			}
+			if et.CwlVersion == "" {
+				err = fmt.Errorf("(NewWorkunit) ExpressionTool misses CwlVersion")
+				return
+			}
+		default:
+			err = fmt.Errorf("(NewWorkunit) Tool %s not supported", reflect.TypeOf(process))
+			return
 		}
+
+		workunit.CWL_workunit.Tool = process
 
 		//}
 

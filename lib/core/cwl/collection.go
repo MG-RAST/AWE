@@ -3,6 +3,7 @@ package cwl
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/logger"
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
@@ -14,6 +15,7 @@ type CWL_collection struct {
 	Workflows          map[string]*Workflow
 	WorkflowStepInputs map[string]*WorkflowStepInput
 	CommandLineTools   map[string]*CommandLineTool
+	ExpressionTools    map[string]*ExpressionTool
 
 	Files    map[string]*File
 	Strings  map[string]*String
@@ -222,6 +224,14 @@ func (c CWL_collection) GetCommandLineTool(id string) (obj *CommandLineTool, err
 	obj, ok := c.CommandLineTools[id]
 	if !ok {
 		err = fmt.Errorf("(GetCommandLineTool) item %s not found in collection", id)
+	}
+	return
+}
+
+func (c CWL_collection) GetExpressionTool(id string) (obj *ExpressionTool, err error) {
+	obj, ok := c.ExpressionTools[id]
+	if !ok {
+		err = fmt.Errorf("(GetExpressionTool) item %s not found in collection", id)
 	}
 	return
 }

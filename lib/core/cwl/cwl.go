@@ -149,6 +149,9 @@ func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, c
 		case *CommandLineTool:
 			this_clt, _ := object.(*CommandLineTool)
 			cwl_version = this_clt.CwlVersion
+		case *ExpressionTool:
+			this_et, _ := object.(*ExpressionTool)
+			cwl_version = this_et.CwlVersion
 		default:
 
 			err = fmt.Errorf("(Parse_cwl_document) type unkown: %s", reflect.TypeOf(object))

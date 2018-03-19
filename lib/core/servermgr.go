@@ -1826,25 +1826,23 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 			}
 
 			// check if this is a workflow
-			var process_name string
-			var a_command_line_tool *cwl.CommandLineTool
-			var wfl *cwl.Workflow
-			wfl = nil
-			process_name, a_command_line_tool, wfl, _, _, err = cwl.GetProcessName(p, schemata)
+			//var process_name string
+			//var a_command_line_tool *cwl.CommandLineTool
+
+			//wfl = nil
+			var process interface{}
+			process, _, err = cwl.GetProcess(p, job.CWL_collection, schemata) // TODO add new_schemata
 			if err != nil {
-				err = fmt.Errorf("(taskEnQueue) embedded workflow or toll not supported yet: %s (task_type=%s)", err.Error(), task_type)
+				err = fmt.Errorf("(taskEnQueue) cwl.GetProcess returned: %s (task_type=%s)", err.Error(), task_type)
 				return
 			}
-			_ = a_command_line_tool
-			if process_name != "" {
-				wfl, err = job.CWL_collection.GetWorkflow(process_name)
-				if err != nil {
-					// not a workflow
-					wfl = nil
-				}
-			}
 
-			if wfl == nil {
+			var wfl *cwl.Workflow
+			var ok bool
+			wfl, ok = process.(*cwl.Workflow)
+
+			if !ok {
+				// this must CommandLineTool or ExpressionTool
 				task_type = TASK_TYPE_NORMAL
 				err = task.SetTaskType(task_type, true)
 				if err != nil {
@@ -2894,25 +2892,21 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
 				return
 			}
-			var a_workflow *cwl.Workflow
-			process_name, _, a_workflow, _, _, err = cwl.GetProcessName(p, schemata)
-			if err != nil {
-				err = fmt.Errorf("(updateJobTask) embedded workflow or toll not supported yet: %s", err.Error())
-				return
-			}
+			//var a_workflow *cwl.Workflow
+			//process_name, _, a_workflow, _, _, err = cwl.GetProcess(p, job.CWL_collection, schemata)
+			//if err != nil {
+			//	err = fmt.Errorf("(updateJobTask) embedded workflow or toll not supported yet: %s", err.Error())
+			//	return
+			//}
 
-			if process_name != "" {
-				wfl, err = job.CWL_collection.GetWorkflow(process_name)
-				if err != nil {
-					// not a workflow
-					err = fmt.Errorf("(updateJobTask) %s is not a workflow ????", process_name)
-					return
-				}
-			}
+			var process interface{}
+			process, _, err = cwl.GetProcess(p, job.CWL_collection, schemata) // TODO add schemata
 
 			// get embedded workflow
-			if a_workflow != nil {
-				wfl = a_workflow
+			var ok bool
+			wfl, ok = process.(*cwl.Workflow)
+			if !ok {
+				wfl = nil
 			}
 
 		} else {

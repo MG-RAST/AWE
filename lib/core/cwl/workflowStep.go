@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 
@@ -195,7 +196,102 @@ func CreateWorkflowStepsArray(original interface{}) (schemata []CWLType_Type, ar
 	return
 }
 
-func GetProcessName(original interface{}, input_schemata []CWLType_Type) (process_name string, a_command_line_tool *CommandLineTool, a_workflow *Workflow, a_expression_tool *ExpressionTool, schemata []CWLType_Type, err error) {
+func GetProcess(original interface{}, collection *CWL_collection, input_schemata []CWLType_Type) (process interface{}, schemata []CWLType_Type, err error) {
+
+	var p interface{}
+	p, err = MakeStringMap(original)
+	if err != nil {
+		return
+	}
+
+	var clt *CommandLineTool
+	var et *ExpressionTool
+	var wfl *Workflow
+
+	switch p.(type) {
+	case string:
+
+		process_name := p.(string)
+
+		clt, err = collection.GetCommandLineTool(process_name)
+		if err == nil {
+			process = clt
+			return
+		}
+		err = nil
+
+		et, err = collection.GetExpressionTool(process_name)
+		if err == nil {
+			process = et
+			return
+		}
+		err = nil
+
+		wfl, err = collection.GetWorkflow(process_name)
+		if err == nil {
+			process = wfl
+			return
+		}
+		err = nil
+
+		err = fmt.Errorf("(GetProcess) Process %s not found ", process_name)
+
+	case map[string]interface{}:
+
+		fmt.Println("GetProcess got:")
+		spew.Dump(p)
+
+		p_map := p.(map[string]interface{})
+
+		class_name_if, ok := p_map["class"]
+		if ok {
+			var class_name string
+			class_name, ok = class_name_if.(string)
+			if ok {
+				switch class_name {
+				case "CommandLineTool":
+
+					clt, schemata, err = NewCommandLineTool(p)
+					process = clt
+					return
+				case "Workflow":
+					wfl, schemata, err = NewWorkflow(p)
+					process = wfl
+					return
+				case "ExpressionTool":
+					et, err = NewExpressionTool(p, input_schemata)
+					process = et
+					return
+				default:
+					err = fmt.Errorf("(GetProcess) class \"%s\" not a supported process", class_name)
+					return
+				}
+
+			}
+		}
+
+		// in case of bson, check field "value"
+		//process_name_interface, ok := p_map["value"]
+		//if !ok {
+		//	err = fmt.Errorf("(GetProcess) map did not hold a field named value")
+		//	return
+		//}
+		//
+		//process_name, ok = process_name_interface.(string)
+		//if !ok {
+		//	err = fmt.Errorf("(GetProcess) map value field is not a string")
+		//	return
+		//}
+
+	default:
+		err = fmt.Errorf("(GetProcess) Process type %s unknown", reflect.TypeOf(p))
+
+	}
+
+	return
+}
+
+func GetProcess_deprecated(original interface{}, input_schemata []CWLType_Type) (process_name string, a_command_line_tool *CommandLineTool, a_workflow *Workflow, a_expression_tool *ExpressionTool, schemata []CWLType_Type, err error) {
 
 	var p interface{}
 	p, err = MakeStringMap(original)
@@ -212,7 +308,7 @@ func GetProcessName(original interface{}, input_schemata []CWLType_Type) (proces
 
 	case map[string]interface{}:
 
-		fmt.Println("GetProcessName got:")
+		fmt.Println("GetProcess got:")
 		spew.Dump(p)
 
 		p_map := p.(map[string]interface{})
@@ -233,7 +329,7 @@ func GetProcessName(original interface{}, input_schemata []CWLType_Type) (proces
 					a_expression_tool, err = NewExpressionTool(p, input_schemata)
 					return
 				default:
-					err = fmt.Errorf("(GetProcessName) class \"%s\" not a supported process", class_name)
+					err = fmt.Errorf("(GetProcess) class \"%s\" not a supported process", class_name)
 					return
 				}
 
@@ -243,18 +339,18 @@ func GetProcessName(original interface{}, input_schemata []CWLType_Type) (proces
 		// in case of bson, check field "value"
 		process_name_interface, ok := p_map["value"]
 		if !ok {
-			err = fmt.Errorf("(GetProcessName) map did not hold a field named value")
+			err = fmt.Errorf("(GetProcess) map did not hold a field named value")
 			return
 		}
 
 		process_name, ok = process_name_interface.(string)
 		if !ok {
-			err = fmt.Errorf("(GetProcessName) map value field is not a string")
+			err = fmt.Errorf("(GetProcess) map value field is not a string")
 			return
 		}
 
 	default:
-		err = fmt.Errorf("(GetProcessName) Process type %s unknown, cannot create Workunit", reflect.TypeOf(p))
+		err = fmt.Errorf("(GetProcess) Process type %s unknown, cannot create Workunit", reflect.TypeOf(p))
 		return
 
 	}

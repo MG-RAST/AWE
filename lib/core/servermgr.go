@@ -1561,6 +1561,16 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		// check if CWL-style predecessors are all TASK_STAT_COMPLETED
 
 		// ****** get inputs
+		if job == nil {
+			err = fmt.Errorf("(isTaskReady) job == nil")
+			return
+		}
+
+		if job.CWL_collection == nil {
+			err = fmt.Errorf("(isTaskReady) job.CWL_collection == nil")
+			return
+		}
+
 		job_input_map := *job.CWL_collection.Job_input_map
 		if job_input_map == nil {
 			err = fmt.Errorf("(isTaskReady) job.CWL_collection.Job_input_map is empty")

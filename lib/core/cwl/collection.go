@@ -131,6 +131,8 @@ func (c CWL_collection) Add(id string, obj CWL_object) (err error) {
 		c.WorkflowStepInputs[id] = obj.(*WorkflowStepInput)
 	case *CommandLineTool:
 		c.CommandLineTools[id] = obj.(*CommandLineTool)
+	case *ExpressionTool:
+		c.ExpressionTools[id] = obj.(*ExpressionTool)
 	case *File:
 		c.Files[id] = obj.(*File)
 	case *String:
@@ -250,6 +252,7 @@ func NewCWL_collection() (collection CWL_collection) {
 	collection.Workflows = make(map[string]*Workflow)
 	collection.WorkflowStepInputs = make(map[string]*WorkflowStepInput)
 	collection.CommandLineTools = make(map[string]*CommandLineTool)
+	collection.ExpressionTools = make(map[string]*ExpressionTool)
 	collection.Files = make(map[string]*File)
 	collection.Strings = make(map[string]*String)
 	collection.Ints = make(map[string]*Int)

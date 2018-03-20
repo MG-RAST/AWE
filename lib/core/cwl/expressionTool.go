@@ -78,5 +78,10 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type) (et *Expre
 		return
 	}
 
+	if et.CwlVersion == "" {
+		err = fmt.Errorf("(NewExpressionTool) CwlVersion is empty !!!")
+		return
+	}
+
 	return
 }

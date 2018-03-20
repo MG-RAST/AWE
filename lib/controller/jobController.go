@@ -405,6 +405,11 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		job.Info.Pipeline = workflow_filename
 		job.Info.ClientGroups = "docker" // TODO this needs to be configured
 
+		if job.CwlVersion == "" {
+			cx.RespondWithErrorMessage("Error: cwlVersion is empty", http.StatusBadRequest)
+			return
+		}
+
 		//job.CWL_workflow_interface = cwl_workflow
 		//job.CWL_job_input_interface = job_input
 

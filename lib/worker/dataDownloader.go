@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/cache"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
@@ -15,7 +16,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/golib/httpclient"
 	//"github.com/davecgh/go-spew/spew"
-	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"os"
@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 // this functions replaces filename if they match regular expression and they match the filename reported in IOmap
@@ -233,7 +235,7 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 		if workunit.CWL_workunit != nil {
 
 			job_input := workunit.CWL_workunit.Job_input
-			cwl_tool := workunit.CWL_workunit.CWL_tool
+			cwl_tool := workunit.CWL_workunit.Tool
 			job_input_filename := path.Join(work_path, "cwl_job_input.yaml")
 			cwl_tool_filename := path.Join(work_path, "cwl_tool.yaml")
 
@@ -264,7 +266,7 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 
 			// create cwt_tool file
 			var cwl_tool_bytes []byte
-			cwl_tool_bytes, err = yaml.Marshal(*cwl_tool)
+			cwl_tool_bytes, err = yaml.Marshal(cwl_tool)
 			if err != nil {
 				return
 			}

@@ -233,7 +233,7 @@ func GetProcess(original interface{}, collection *CWL_collection, input_schemata
 			return
 		}
 		err = nil
-
+		spew.Dump(collection)
 		err = fmt.Errorf("(GetProcess) Process %s not found ", process_name)
 
 	case map[string]interface{}:

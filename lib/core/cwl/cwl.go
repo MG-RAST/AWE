@@ -75,6 +75,18 @@ func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, c
 				return
 			}
 
+			switch object.(type) {
+			case *Workflow:
+				this_workflow, _ := object.(*Workflow)
+				cwl_version = this_workflow.CwlVersion
+			case *CommandLineTool:
+				this_clt, _ := object.(*CommandLineTool)
+				cwl_version = this_clt.CwlVersion
+			case *ExpressionTool:
+				this_et, _ := object.(*ExpressionTool)
+				cwl_version = this_et.CwlVersion
+			}
+
 			named_obj := NewNamed_CWL_object(id, object)
 			//fmt.Println("-------------- C Parse_cwl_document")
 			object_array = append(object_array, named_obj)
@@ -168,6 +180,13 @@ func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, c
 			schemata = append(schemata, schemata_new[i])
 		}
 
+	}
+
+	logger.Debug(3, "(Parse_cwl_document) cwl_version: %s", cwl_version)
+
+	if cwl_version == "" {
+		err = fmt.Errorf("(Parse_cwl_document) cwl_version is empty!?")
+		return
 	}
 
 	return

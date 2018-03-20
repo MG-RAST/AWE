@@ -2,6 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -9,9 +13,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/worker"
 	"github.com/davecgh/go-spew/spew"
-	"os"
-	"strings"
-	"time"
 )
 
 func main() {
@@ -130,8 +131,8 @@ func main() {
 		workunit.CWL_workunit.Job_input = job_doc
 		workunit.CWL_workunit.Job_input_filename = conf.CWL_JOB
 
-		workunit.CWL_workunit.CWL_tool_filename = conf.CWL_TOOL
-		workunit.CWL_workunit.CWL_tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
+		workunit.CWL_workunit.Tool_filename = conf.CWL_TOOL
+		workunit.CWL_workunit.Tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
 
 		current_working_directory, err := os.Getwd()
 		if err != nil {
@@ -145,7 +146,7 @@ func main() {
 		cmd.Local = true // this makes sure the working directory is not deleted
 		cmd.Name = "/usr/bin/cwl-runner"
 
-		cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL_workunit.CWL_tool_filename, workunit.CWL_workunit.Job_input_filename}
+		cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL_workunit.Tool_filename, workunit.CWL_workunit.Job_input_filename}
 		if conf.CWL_RUNNER_ARGS != "" {
 			cwl_runner_args_array := strings.Split(conf.CWL_RUNNER_ARGS, " ")
 			cmd.ArgsArray = append(cwl_runner_args_array, cmd.ArgsArray...)

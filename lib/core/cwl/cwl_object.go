@@ -71,7 +71,9 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 				return
 			}
 
-			clt.CwlVersion = cwl_version
+			if cwl_version != "" {
+				clt.CwlVersion = cwl_version
+			}
 			obj = clt
 
 			return
@@ -85,7 +87,9 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 				return
 			}
 
-			et.CwlVersion = cwl_version
+			if cwl_version != "" {
+				et.CwlVersion = cwl_version
+			}
 			obj = et
 
 			return

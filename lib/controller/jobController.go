@@ -16,7 +16,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
-	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	//"os"
@@ -201,9 +200,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					workflow_step_input.Source = workflow_input_name
 					workflow_step_input.Default = input.Default
 
-					fmt.Println("CommandInputParameter and WorkflowStepInput:")
-					spew.Dump(input)
-					spew.Dump(workflow_step_input)
+					//fmt.Println("CommandInputParameter and WorkflowStepInput:")
+					//spew.Dump(input)
+					//spew.Dump(workflow_step_input)
 					new_step.In = append(new_step.In, workflow_step_input)
 
 					var workflow_input_parameter cwl.InputParameter
@@ -297,9 +296,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					workflow_step_input.Source = workflow_input_name
 					workflow_step_input.Default = input.Default
 
-					fmt.Println("InputParameter and WorkflowStepInput:")
-					spew.Dump(input)
-					spew.Dump(workflow_step_input)
+					//fmt.Println("InputParameter and WorkflowStepInput:")
+					//spew.Dump(input)
+					//spew.Dump(workflow_step_input)
 					new_step.In = append(new_step.In, workflow_step_input)
 
 					var workflow_input_parameter cwl.InputParameter

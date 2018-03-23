@@ -582,23 +582,23 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 
 	err = client.Increment_total_completed()
 	if err != nil {
-		err = fmt.Errorf("(RemoveWorkFromClient:IncrementRemainWork) client.Increment_total_completed returned: %s", err.Error())
+		err = fmt.Errorf("(handleWorkStatDone) client.Increment_total_completed returned: %s", err.Error())
 		return
 	}
 	var remain_work int
 	remain_work, err = task.IncrementRemainWork(-1, true)
 	if err != nil {
-		err = fmt.Errorf("(RemoveWorkFromClient:IncrementRemainWork) client=%s work=%s %s", clientid, work_str, err.Error())
+		err = fmt.Errorf("(handleWorkStatDone) client=%s work=%s %s", clientid, work_str, err.Error())
 		return
 	}
 
 	err = task.IncrementComputeTime(computetime)
 	if err != nil {
-		err = fmt.Errorf("(RemoveWorkFromClient:IncrementComputeTime) client=%s work=%s %s", clientid, work_str, err.Error())
+		err = fmt.Errorf("(handleWorkStatDone) client=%s work=%s %s", clientid, work_str, err.Error())
 		return
 	}
 
-	logger.Debug(3, "(RemoveWorkFromClient) remain_work: %d (%s)", remain_work, work_str)
+	logger.Debug(3, "(handleWorkStatDone) remain_work: %d (%s)", remain_work, work_str)
 
 	if remain_work > 0 {
 		return
@@ -643,7 +643,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 
 			err = qm.SuspendJob(job_id, jerror)
 			if err != nil {
-				logger.Error("(handleNoticeWorkDelivered:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
+				logger.Error("(handleWorkStatDone) job_id=%s; SuspendJob returned: %s", job_id, err.Error())
 			}
 			err = xerr
 			return
@@ -3044,7 +3044,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 						return
 					}
 					if !has_type {
-						err = fmt.Errorf("(updateJobTask) A) workflow_ouput %s, does not match expected types %s", output_id, expected_types)
+						err = fmt.Errorf("(updateJobTask) A) workflow_ouput %s (type: %s), does not match expected types %s", output_id, reflect.TypeOf(obj), expected_types)
 						return
 					}
 

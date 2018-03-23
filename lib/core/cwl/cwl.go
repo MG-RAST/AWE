@@ -31,7 +31,7 @@ type CWLVersion string
 type LinkMergeMethod string // merge_nested or merge_flattened
 
 func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, cwl_version CWLVersion, schemata []CWLType_Type, err error) {
-	fmt.Printf("(Parse_cwl_document) staring\n")
+	//fmt.Printf("(Parse_cwl_document) starting\n")
 	graph_pos := strings.Index(yaml_str, "$graph")
 
 	if graph_pos != -1 {
@@ -104,7 +104,7 @@ func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, c
 	} else {
 
 		// Here I expect a single object, Workflow or CommandLIneTool
-		fmt.Printf("-------------- yaml_str: %s\n", yaml_str)
+		//fmt.Printf("-------------- yaml_str: %s\n", yaml_str)
 
 		var object_if map[string]interface{}
 
@@ -115,16 +115,16 @@ func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, c
 			err = fmt.Errorf("(Parse_cwl_document) Unmarshal returns: %s", err.Error())
 			return
 		}
-		fmt.Println("object_if:")
-		spew.Dump(object_if)
+		//fmt.Println("object_if:")
+		//spew.Dump(object_if)
 
-		var this_class string
-		this_class, err = GetClass(object_if)
-		if err != nil {
-			err = fmt.Errorf("(Parse_cwl_document) GetClass returns %s", err.Error())
-			return
-		}
-		fmt.Printf("this_class: %s\n", this_class)
+		//var this_class string
+		//this_class, err = GetClass(object_if)
+		//if err != nil {
+		//	err = fmt.Errorf("(Parse_cwl_document) GetClass returns %s", err.Error())
+		//	return
+		//}
+		//fmt.Printf("this_class: %s\n", this_class)
 
 		var this_id string
 		this_id, err = GetId(object_if)
@@ -132,7 +132,7 @@ func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, c
 			err = fmt.Errorf("(Parse_cwl_document) GetId returns %s", err.Error())
 			return
 		}
-		fmt.Printf("this_id: %s\n", this_id)
+		//fmt.Printf("this_id: %s\n", this_id)
 
 		var object CWL_object
 		var schemata_new []CWLType_Type
@@ -180,13 +180,6 @@ func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, c
 			schemata = append(schemata, schemata_new[i])
 		}
 
-	}
-
-	logger.Debug(3, "(Parse_cwl_document) cwl_version: %s", cwl_version)
-
-	if cwl_version == "" {
-		err = fmt.Errorf("(Parse_cwl_document) cwl_version is empty!?")
-		return
 	}
 
 	return

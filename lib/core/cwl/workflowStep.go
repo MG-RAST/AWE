@@ -161,8 +161,8 @@ func CreateWorkflowStepsArray(original interface{}) (schemata []CWLType_Type, ar
 
 		// iterate over workflow steps
 		for _, v := range original.([]interface{}) {
-			fmt.Printf("A(2) step\n")
-			spew.Dump(v)
+			//fmt.Printf("A(2) step\n")
+			//spew.Dump(v)
 
 			//fmt.Println("type: ")
 			//fmt.Println(reflect.TypeOf(v))

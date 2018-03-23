@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 
@@ -393,6 +394,23 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 		if schema == object_type {
 			ok = true
 			return
+		}
+
+		// check if provided double can be excepted as int:
+		if schema == CWL_int && object_type == CWL_double {
+			// now check if object is int anyway
+			var d *Double
+			d, ok = object.(*Double)
+			if !ok {
+				err = fmt.Errorf("(TypeIsCorrectSingle) Could not cast *Double")
+				return
+			}
+			f := float64(*d)
+			if f == math.Trunc(f) {
+				ok = true
+				return
+			}
+
 		}
 
 		fmt.Println("Comparsion:")

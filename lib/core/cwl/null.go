@@ -1,9 +1,7 @@
 package cwl
 
-import (
 //"fmt"
 //"strconv"
-)
 
 // YAML: null | Null | NULL | ~
 
@@ -43,5 +41,10 @@ func (n *Null) MarshalYAML() (i interface{}, err error) {
 func (n *Null) MarshalJSON() (b []byte, err error) {
 
 	b = []byte("null")
+	return
+}
+
+func (n *Null) GetBSON() (result interface{}, err error) {
+	result = nil
 	return
 }

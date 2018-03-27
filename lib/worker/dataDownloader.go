@@ -232,6 +232,37 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 			}
 		}
 
+	}
+
+	//parse the args, replacing @input_name to local file path (file not downloaded yet)
+
+	err = ParseWorkunitArgs(workunit)
+	if err != nil {
+		err = fmt.Errorf("err@dataDownloader.ParseWorkunitArgs, workid=%s error=%s", work_str, err.Error())
+		workunit.Notes = append(workunit.Notes, "[dataDownloader#ParseWorkunitArgs]"+err.Error())
+		workunit.SetState(core.WORK_STAT_ERROR, "see notes")
+		//hand the parsed workunit to next stage and continue to get new workunit to process
+		return
+	}
+
+	//download input data
+	if Client_mode == "online" {
+
+		datamove_start := time.Now().UnixNano()
+		moved_data, xerr := cache.MoveInputData(workunit)
+		if xerr != nil {
+
+			err = fmt.Errorf("(dataDownloader) workid=%s error=%s", work_str, xerr.Error())
+			workunit.Notes = append(workunit.Notes, "[dataDownloader#MoveInputData]"+err.Error())
+			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
+			//hand the parsed workunit to next stage and continue to get new workunit to process
+			return
+		} else {
+			workunit.WorkPerf.InFileSize = moved_data
+			datamove_end := time.Now().UnixNano()
+			workunit.WorkPerf.DataIn = float64(datamove_end-datamove_start) / 1e9
+		}
+
 		if workunit.CWL_workunit != nil {
 
 			job_input := workunit.CWL_workunit.Job_input
@@ -276,37 +307,6 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 				return
 			}
 
-		}
-
-	}
-
-	//parse the args, replacing @input_name to local file path (file not downloaded yet)
-
-	err = ParseWorkunitArgs(workunit)
-	if err != nil {
-		err = fmt.Errorf("err@dataDownloader.ParseWorkunitArgs, workid=%s error=%s", work_str, err.Error())
-		workunit.Notes = append(workunit.Notes, "[dataDownloader#ParseWorkunitArgs]"+err.Error())
-		workunit.SetState(core.WORK_STAT_ERROR, "see notes")
-		//hand the parsed workunit to next stage and continue to get new workunit to process
-		return
-	}
-
-	//download input data
-	if Client_mode == "online" {
-
-		datamove_start := time.Now().UnixNano()
-		moved_data, xerr := cache.MoveInputData(workunit)
-		if xerr != nil {
-
-			err = fmt.Errorf("(dataDownloader) workid=%s error=%s", work_str, xerr.Error())
-			workunit.Notes = append(workunit.Notes, "[dataDownloader#MoveInputData]"+err.Error())
-			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
-			//hand the parsed workunit to next stage and continue to get new workunit to process
-			return
-		} else {
-			workunit.WorkPerf.InFileSize = moved_data
-			datamove_end := time.Now().UnixNano()
-			workunit.WorkPerf.DataIn = float64(datamove_end-datamove_start) / 1e9
 		}
 	}
 
@@ -515,7 +515,9 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		predata_directory := path.Join(conf.DATA_PATH, "predata")
 		err = os.MkdirAll(predata_directory, 755)
 		if err != nil {
-			return 0, errors.New("error creating predata_directory: " + err.Error())
+			err = errors.New("error creating predata_directory: " + err.Error())
+			size = 0
+			return
 		}
 
 		file_path := path.Join(predata_directory, name)
@@ -597,9 +599,11 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		if conf.NO_SYMLINK {
 			// some programs do not accept symlinks (e.g. emirge), need to copy the file into the work directory
 			logger.Debug(1, "copy predata: "+file_path+" -> "+linkname)
-			_, err := shock.CopyFile(file_path, linkname)
+			_, err = shock.CopyFile(file_path, linkname)
 			if err != nil {
-				return 0, fmt.Errorf("error copying file from %s to % s: ", file_path, linkname, err.Error())
+				xerr := fmt.Errorf("error copying file from %s to %s: %s", file_path, linkname, err.Error())
+				size = 0
+				return size, xerr
 			}
 		} else {
 			if wants_docker {

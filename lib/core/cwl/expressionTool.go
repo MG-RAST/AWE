@@ -26,7 +26,8 @@ type ExpressionTool struct {
 	CwlVersion      CWLVersion                      `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
 }
 
-func NewExpressionTool(original interface{}, schemata []CWLType_Type) (et *ExpressionTool, err error) {
+// TODO pass along workflow InlineJavascriptRequirement
+func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []CWLType_Type) (et *ExpressionTool, err error) {
 
 	object, ok := original.(map[string]interface{})
 	if !ok {
@@ -79,8 +80,18 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type) (et *Expre
 	}
 
 	if et.CwlVersion == "" {
+		et.CwlVersion = CwlVersion
+	}
+
+	if et.CwlVersion == "" {
 		err = fmt.Errorf("(NewExpressionTool) CwlVersion is empty !!!")
 		return
+	}
+
+	var new_requirements *[]Requirement
+	new_requirements, err = AddRequirement(NewInlineJavascriptRequirement(), &et.Requirements)
+	if err == nil {
+		et.Requirements = *new_requirements
 	}
 
 	return

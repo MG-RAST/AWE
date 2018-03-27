@@ -40,7 +40,7 @@ func NewRequirement(class string, obj interface{}) (r Requirement, schemata []CW
 		}
 		return
 	case "InlineJavascriptRequirement":
-		r, err = NewInlineJavascriptRequirement(obj)
+		r, err = NewInlineJavascriptRequirementFromInterface(obj)
 		if err != nil {
 			fmt.Errorf("(NewRequirement) NewInlineJavascriptRequirement returns: %s", err.Error())
 			return
@@ -104,6 +104,22 @@ func NewRequirement(class string, obj interface{}) (r Requirement, schemata []CW
 		err = errors.New("Requirement class not supported " + class)
 
 	}
+	return
+}
+
+func AddRequirement(new_r Requirement, old_array_ptr *[]Requirement) (new_array_ptr *[]Requirement, err error) {
+	new_r_class := new_r.GetClass()
+	for i, _ := range *old_array_ptr {
+		r := (*old_array_ptr)[i]
+		if r.GetClass() == new_r_class {
+			new_array_ptr = old_array_ptr
+			return
+		}
+	}
+
+	new_array := append(*old_array_ptr, new_r)
+	new_array_ptr = &new_array
+
 	return
 }
 

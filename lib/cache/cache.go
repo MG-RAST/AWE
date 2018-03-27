@@ -255,6 +255,9 @@ func DownloadFile(file *cwl.File, download_path string) (err error) {
 	file.Location = "file://" + file_path
 	file.Path = file_path
 
+	//fmt.Println("file:")
+	//spew.Dump(file)
+
 	_ = size
 	_ = md5sum
 	return
@@ -482,7 +485,7 @@ func CWL_File_2_AWE_IO(file *cwl.File) (io *core.IO, err error) { // TODO deprec
 	return
 }
 
-func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (size int64, err error) {
+func MoveInputCWL_deprecated(work *core.Workunit, work_path string, input cwl.CWLType) (size int64, err error) {
 
 	//real_object := input.Value
 
@@ -529,7 +532,7 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (siz
 
 			element := array_instance[element_pos]
 			var io_size int64
-			io_size, err = MoveInputCWL(work, work_path, element)
+			io_size, err = MoveInputCWL_deprecated(work, work_path, element)
 			if err != nil {
 				return
 			}
@@ -557,7 +560,7 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (siz
 				return
 			}
 
-			io_size, err = MoveInputCWL(work, work_path, element_cwl)
+			io_size, err = MoveInputCWL_deprecated(work, work_path, element_cwl)
 			if err != nil {
 				return
 			}
@@ -599,7 +602,7 @@ func MoveInputCWL(work *core.Workunit, work_path string, input cwl.CWLType) (siz
 				return
 			}
 
-			io_size, err = MoveInputCWL(work, work_path, element_cwl)
+			io_size, err = MoveInputCWL_deprecated(work, work_path, element_cwl)
 			if err != nil {
 				return
 			}
@@ -629,17 +632,27 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 	if work.CWL_workunit != nil {
 
 		job_input := work.CWL_workunit.Job_input
+		//fmt.Printf("job_input1:\n")
 		//spew.Dump(job_input)
 
-		for _, input := range *job_input {
-			//fmt.Println(input_name)
-			var io_size int64
-			io_size, err = MoveInputCWL(work, work_path, input.Value)
-			if err != nil {
-				return
-			}
-			size += io_size
+		_, err = ProcessIOData(job_input, work_path, "download")
+		if err != nil {
+			err = fmt.Errorf("(MoveInputData) ProcessIOData(for download) returned: %s", err.Error())
+			return
 		}
+		//fmt.Printf("job_input2:\n")
+		//spew.Dump(job_input)
+
+		//for _, input := range *job_input {
+		//fmt.Println(input_name)
+		//	var io_size int64
+
+		//io_size, err = MoveInputCWL(work, work_path, input.Value)
+		//	if err != nil {
+		//		return
+		//	}
+		//	size += io_size
+		//}
 
 		return
 	}

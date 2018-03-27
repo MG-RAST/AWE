@@ -11,7 +11,13 @@ type InlineJavascriptRequirement struct {
 
 func (c InlineJavascriptRequirement) GetId() string { return "None" }
 
-func NewInlineJavascriptRequirement(original interface{}) (r *InlineJavascriptRequirement, err error) {
+func NewInlineJavascriptRequirement() InlineJavascriptRequirement {
+	var requirement InlineJavascriptRequirement
+	requirement.Class = "InlineJavascriptRequirement"
+	return requirement
+}
+
+func NewInlineJavascriptRequirementFromInterface(original interface{}) (r *InlineJavascriptRequirement, err error) {
 	var requirement InlineJavascriptRequirement
 	r = &requirement
 	err = mapstructure.Decode(original, &requirement)

@@ -52,9 +52,14 @@ func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 }
 
 // returns CommandLineTool, ExpressionTool or Workflow
-func NewProcess(original interface{}) (process interface{}, schemata []CWLType_Type, err error) {
+func NewProcess(original interface{}, CwlVersion CWLVersion) (process interface{}, schemata []CWLType_Type, err error) {
 
 	logger.Debug(3, "NewProcess starting")
+
+	if CwlVersion == "" {
+		err = fmt.Errorf("(NewProcess) CwlVersion empty")
+		return
+	}
 
 	original, err = MakeStringMap(original)
 	if err != nil {
@@ -95,7 +100,7 @@ func NewProcess(original interface{}) (process interface{}, schemata []CWLType_T
 			process, schemata, err = NewCommandLineTool(original) // TODO merge schemata correctly !
 			return
 		case "ExpressionTool":
-			process, err = NewExpressionTool(original, schemata)
+			process, err = NewExpressionTool(original, CwlVersion, schemata)
 			return
 		default:
 			err = fmt.Errorf("(NewProcess) class %s not supported", class)

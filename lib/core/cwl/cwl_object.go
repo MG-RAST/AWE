@@ -81,7 +81,7 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 			//fmt.Println("New_CWL_object CommandLineTool")
 			logger.Debug(1, "(New_CWL_object) parse ExpressionTool")
 			var et *ExpressionTool
-			et, err = NewExpressionTool(elem, nil) // TODO provide schemata
+			et, err = NewExpressionTool(elem, cwl_version, nil) // TODO provide schemata
 			if err != nil {
 				err = fmt.Errorf("(New_CWL_object) ExpressionTool returned: %s", err.Error())
 				return

@@ -126,6 +126,7 @@ func main_wrapper() (err error) {
 	var upload_count int
 	upload_count, err = cache.ProcessIOData(job_doc, inputfile_path, "upload")
 	if err != nil {
+		err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
 		return
 	}
 	logger.Debug(3, "%d files have been uploaded\n", upload_count)

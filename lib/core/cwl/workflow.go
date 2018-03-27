@@ -72,6 +72,21 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, schemata []CWLTy
 	switch original.(type) {
 	case map[string]interface{}:
 		object := original.(map[string]interface{})
+
+		var CwlVersion CWLVersion
+
+		cwl_version_if, ok := object["cwlVersion"]
+		if ok {
+			//CwlVersion = cwl_version_if.(string)
+			var cwl_version_str string
+			cwl_version_str, ok = cwl_version_if.(string)
+			if !ok {
+				err = fmt.Errorf("(NewWorkflow) Could not read CWLVersion (%s)", reflect.TypeOf(cwl_version_if))
+				return
+			}
+			CwlVersion = CWLVersion(cwl_version_str)
+		}
+
 		inputs, ok := object["inputs"]
 		if ok {
 			object["inputs"], err = NewInputParameterArray(inputs, schemata)
@@ -95,7 +110,7 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, schemata []CWLTy
 		if ok {
 			logger.Debug(3, "(NewWorkflow) Parsing steps in Workflow")
 			var schemata_new []CWLType_Type
-			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps)
+			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps, CwlVersion)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) CreateWorkflowStepsArray returned: %s", err.Error())
 				return

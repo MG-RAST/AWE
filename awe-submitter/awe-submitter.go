@@ -12,17 +12,15 @@ import (
 	"bytes"
 	"encoding/json"
 
-	"github.com/MG-RAST/AWE/lib/shock"
+	"github.com/MG-RAST/AWE/lib/cache"
 	//"github.com/davecgh/go-spew/spew"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path"
-	"reflect"
 	"strings"
 	"time"
 
@@ -33,318 +31,6 @@ type standardResponse struct {
 	Status int         `json:"status"`
 	Data   interface{} `json:"data"`
 	Error  []string    `json:"error"`
-}
-
-func uploadFile(file *cwl.File, inputfile_path string) (err error) {
-	//fmt.Printf("(uploadFile) start\n")
-	//defer fmt.Printf("(uploadFile) end\n")
-	//if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
-
-	//	time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-	//	if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
-	//		fmt.Errorf("push file error\n")
-	//		logger.Error("op=pushfile,err=" + err.Error())
-	//		return size, err
-	//	}
-	//}
-
-	scheme := ""
-	if file.Location_url != nil {
-		scheme = file.Location_url.Scheme
-		host := file.Location_url.Host
-		path := file.Location_url.Path
-		//fmt.Printf("Location: '%s' '%s' '%s'\n", scheme, host, path)
-
-		if scheme == "" {
-			if host == "" {
-				scheme = "file"
-			} else {
-				scheme = "http"
-			}
-			//fmt.Printf("Location (updated): '%s' '%s' '%s'\n", scheme, host, path)
-		}
-
-		if scheme == "file" {
-			if host == "" || host == "localhost" {
-				file.Path = path
-			}
-		} else {
-			return
-		}
-
-	}
-
-	if file.Location_url == nil && file.Location != "" {
-		err = fmt.Errorf("URL has not been parsed correctly")
-		return
-	}
-
-	file_path := file.Path
-
-	basename := path.Base(file_path)
-
-	if file_path == "" {
-		return
-	}
-
-	//fmt.Printf("file.Path: %s\n", file_path)
-
-	if !path.IsAbs(file_path) {
-		file_path = path.Join(inputfile_path, file_path)
-	}
-
-	//fmt.Printf("Using path %s\n", file_path)
-
-	sc := shock.ShockClient{Host: conf.SHOCK_URL, Token: "", Debug: false} // "shock:7445"
-
-	opts := shock.Opts{"upload_type": "basic", "file": file_path}
-	node, err := sc.CreateOrUpdate(opts, "", nil)
-	if err != nil {
-		return
-	}
-	//spew.Dump(node)
-
-	file.Location_url, err = url.Parse(conf.SHOCK_URL + "/node/" + node.Id + "?download")
-	if err != nil {
-		return
-	}
-
-	file.Location = file.Location_url.String()
-	file.Path = ""
-	file.Basename = basename
-
-	return
-}
-
-func downloadFile(file *cwl.File, download_path string) (err error) {
-
-	if file.Location == "" {
-		err = fmt.Errorf("Location is empty")
-		return
-	}
-
-	//file_path := file.Path
-
-	basename := file.Basename
-
-	if basename == "" {
-		err = fmt.Errorf("Basename is empty") // TODO infer basename if not found
-		return
-	}
-
-	//if file_path == "" {
-	//	return
-	//}
-
-	//if !path.IsAbs(file_path) {
-	//	file_path = path.Join(path, basename)
-	//}
-	file_path := path.Join(download_path, basename)
-	logger.Debug(3, "file.Path, downloading to: %s\n", file_path)
-
-	//fmt.Printf("Using path %s\n", file_path)
-
-	sc := shock.ShockClient{Host: conf.SHOCK_URL, Token: "", Debug: false}
-
-	var size int64
-	var md5sum string
-	size, md5sum, err = sc.FetchFile(file_path, file.Location, "", false)
-	if err != nil {
-		return
-	}
-	file.Location = "file://" + file_path
-	file.Path = file_path
-
-	_ = size
-	_ = md5sum
-	return
-}
-
-func processIOData(native interface{}, path string, io_type string) (count int, err error) {
-
-	//fmt.Printf("(processIOData) start\n")
-	//defer fmt.Printf("(processIOData) end\n")
-	switch native.(type) {
-
-	case map[string]interface{}:
-		native_map := native.(map[string]interface{})
-
-		keys := make([]string, len(native_map))
-
-		i := 0
-		for key := range native_map {
-			keys[i] = key
-			i++
-		}
-
-		for _, key := range keys {
-			value := native_map[key]
-			var sub_count int
-
-			//value_file, ok := value.(*cwl.File)
-			//if ok {
-			//	spew.Dump(*value_file)
-			//	fmt.Printf("location: %s\n", value_file.Location)
-			//}
-
-			sub_count, err = processIOData(value, path, io_type)
-			if err != nil {
-				return
-			}
-			//if ok {
-			//	spew.Dump(*value_file)
-			//	fmt.Printf("location: %s\n", value_file.Location)
-			//}
-			count += sub_count
-		}
-
-	case *cwl.Job_document:
-		//fmt.Printf("found Job_document\n")
-		job_doc_ptr := native.(*cwl.Job_document)
-
-		job_doc := *job_doc_ptr
-
-		for _, value := range job_doc {
-
-			//id := value.Id
-			//fmt.Printf("recurse into key: %s\n", id)
-			var sub_count int
-			sub_count, err = processIOData(value, path, io_type)
-			if err != nil {
-				return
-			}
-			count += sub_count
-		}
-
-		return
-	case cwl.NamedCWLType:
-		named := native.(cwl.NamedCWLType)
-		var sub_count int
-		sub_count, err = processIOData(named.Value, path, io_type)
-		if err != nil {
-			return
-		}
-		count += sub_count
-
-	case *cwl.String:
-		//fmt.Printf("found string\n")
-		return
-	case *cwl.Double:
-		//fmt.Printf("found double\n")
-		return
-	case *cwl.Boolean:
-		return
-	case *cwl.File:
-
-		//fmt.Printf("found File\n")
-		file, ok := native.(*cwl.File)
-		if !ok {
-			err = fmt.Errorf("could not cast to *cwl.File")
-			return
-		}
-
-		if io_type == "upload" {
-			err = uploadFile(file, path)
-			if err != nil {
-				return
-			}
-			count += 1
-		} else {
-
-			// download
-			err = downloadFile(file, path)
-			if err != nil {
-				return
-			}
-		}
-
-		return
-	case *cwl.Array:
-
-		array, ok := native.(*cwl.Array)
-		if !ok {
-			err = fmt.Errorf("could not cast to *cwl.Array")
-			return
-		}
-
-		for _, value := range *array {
-
-			//id := value.GetId()
-			//fmt.Printf("recurse into key: %s\n", id)
-			var sub_count int
-			sub_count, err = processIOData(value, path, io_type)
-			if err != nil {
-				return
-			}
-			count += sub_count
-
-		}
-		return
-
-	case *cwl.Directory:
-
-		dir, ok := native.(*cwl.Directory)
-		if !ok {
-			err = fmt.Errorf("could not cast to *cwl.Directory")
-			return
-		}
-
-		if dir.Listing != nil {
-
-			for k, _ := range dir.Listing {
-				value := dir.Listing[k]
-				var sub_count int
-				sub_count, err = processIOData(value, path, io_type)
-				if err != nil {
-					return
-				}
-				count += sub_count
-
-			}
-
-		}
-		return
-	case *cwl.Record:
-
-		rec := native.(*cwl.Record)
-
-		for _, value := range *rec {
-			//value := rec.Fields[k]
-			var sub_count int
-			sub_count, err = processIOData(value, path, io_type)
-			if err != nil {
-				return
-			}
-			count += sub_count
-		}
-
-	case cwl.Record:
-
-		rec := native.(cwl.Record)
-
-		for _, value := range rec {
-			//value := rec.Fields[k]
-			var sub_count int
-			sub_count, err = processIOData(value, path, io_type)
-			if err != nil {
-				return
-			}
-			count += sub_count
-		}
-	case string:
-		//fmt.Printf("found Null\n")
-		return
-
-	case *cwl.Null:
-		//fmt.Printf("found Null\n")
-		return
-	default:
-		//spew.Dump(native)
-		err = fmt.Errorf("(processIOData) No handler for type \"%s\"\n", reflect.TypeOf(native))
-		return
-	}
-
-	return
 }
 
 func main() {
@@ -438,7 +124,7 @@ func main_wrapper() (err error) {
 	// ### process input files
 
 	var upload_count int
-	upload_count, err = processIOData(job_doc, inputfile_path, "upload")
+	upload_count, err = cache.ProcessIOData(job_doc, inputfile_path, "upload")
 	if err != nil {
 		return
 	}
@@ -519,7 +205,7 @@ func main_wrapper() (err error) {
 				continue
 			}
 
-			err = uploadFile(default_file, inputfile_path)
+			err = cache.UploadFile(default_file, inputfile_path)
 			if err != nil {
 				return
 			}
@@ -606,6 +292,7 @@ func main_wrapper() (err error) {
 	if conf.SUBMITTER_WAIT {
 		var job *core.Job
 
+	FORLOOP:
 		for true {
 			time.Sleep(5 * time.Second)
 			job = nil
@@ -617,11 +304,19 @@ func main_wrapper() (err error) {
 
 			//fmt.Printf("job state: %s\n", job.State)
 
-			if job.State == core.JOB_STAT_COMPLETED {
-
-				break
+			switch job.State {
+			case core.JOB_STAT_COMPLETED:
+				break FORLOOP
+			case core.JOB_STAT_SUSPEND:
+				err = fmt.Errorf("(main_wrapper) job is in state \"%s\"", job.State)
+				return
+			case core.JOB_STAT_FAILED_PERMANENT:
+				err = fmt.Errorf("(main_wrapper) job is in state \"%s\"", job.State)
+				return
+			case core.JOB_STAT_DELETED:
+				err = fmt.Errorf("(main_wrapper) job is in state \"%s\"", job.State)
+				return
 			}
-
 		}
 		//spew.Dump(job)
 
@@ -649,9 +344,9 @@ func main_wrapper() (err error) {
 			var output_file_path string
 			output_file_path, err = os.Getwd()
 
-			_, err = processIOData(output_receipt, output_file_path, "download")
+			_, err = cache.ProcessIOData(output_receipt, output_file_path, "download")
 			if err != nil {
-				err = fmt.Errorf("(main_wrapper) processIOData(for download) returned: %s", err.Error())
+				err = fmt.Errorf("(main_wrapper) ProcessIOData(for download) returned: %s", err.Error())
 				return
 			}
 		}

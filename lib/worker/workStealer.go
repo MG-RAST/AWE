@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	//"errors"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -12,12 +13,13 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/golib/httpclient"
 	//"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
 	"io/ioutil"
 	"os"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type WorkResponse struct {
@@ -316,6 +318,11 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	if has_cwl {
 		workunit.CWL_workunit = cwl_object
 		workunit.CWL_workunit.Notice = core.Notice{Id: workunit.Workunit_Unique_Identifier, WorkerId: core.Self.Id}
+
+		if workunit.CWL_workunit.Tool == nil {
+			err = fmt.Errorf("(CheckoutWorkunitRemote) Tool == nil")
+			return
+		}
 	}
 
 	//test, err := json.Marshal(workunit)

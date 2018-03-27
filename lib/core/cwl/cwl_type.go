@@ -358,6 +358,18 @@ func NewCWLTypeArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWL
 
 func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err error) {
 
+	if schema == CWL_Any {
+		object_type := object.GetType()
+		if object_type == CWL_null {
+			ok = false
+			err = fmt.Errorf("(TypeIsCorrectSingle) Any type does not accept Null")
+			return
+		}
+		ok = true
+		return
+
+	}
+
 	switch object.(type) {
 	case *Array:
 

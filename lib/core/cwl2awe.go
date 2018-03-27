@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 
@@ -118,7 +119,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 			//}
 			//fmt.Printf("cwl_workflow.Inputs")
 			//spew.Dump(cwl_workflow.Inputs)
-			err = fmt.Errorf("Input %s has type %s, but this does not match the expected types)", id, input_type)
+			err = fmt.Errorf("(CWL_input_check) Input %s has type %s, but this does not match the expected types)", id, input_type)
 			return
 		}
 

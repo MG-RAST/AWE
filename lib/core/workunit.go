@@ -125,6 +125,11 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			return
 		}
 
+		if process == nil {
+			err = fmt.Errorf("(NewWorkunit) process == nil")
+			return
+		}
+
 		switch process.(type) {
 		case *cwl.CommandLineTool:
 			clt, _ = process.(*cwl.CommandLineTool)

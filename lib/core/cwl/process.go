@@ -97,7 +97,7 @@ func NewProcess(original interface{}, CwlVersion CWLVersion) (process interface{
 			process, err = NewExpression(original)
 			return
 		case "CommandLineTool":
-			process, schemata, err = NewCommandLineTool(original) // TODO merge schemata correctly !
+			process, schemata, err = NewCommandLineTool(original, CwlVersion) // TODO merge schemata correctly !
 			return
 		case "ExpressionTool":
 			process, err = NewExpressionTool(original, CwlVersion, schemata)

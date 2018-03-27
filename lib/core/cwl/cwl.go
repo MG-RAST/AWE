@@ -53,7 +53,36 @@ func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, c
 
 		cwl_version = cwl_gen.CwlVersion
 
-		// iterated over Graph
+		// iterate over Graph
+
+		// try to find CWL version!
+		if cwl_version == "" {
+			for _, elem := range cwl_gen.Graph {
+				elem_map, ok := elem.(map[string]interface{})
+				if ok {
+					cwl_version_if, has_version := elem_map["cwlVersion"]
+					if has_version {
+
+						var cwl_version_str string
+						cwl_version_str, ok = cwl_version_if.(string)
+						if !ok {
+							err = fmt.Errorf("(Parse_cwl_document) Could not read CWLVersion (%s)", reflect.TypeOf(cwl_version_if))
+							return
+						}
+						cwl_version = CWLVersion(cwl_version_str)
+						break
+					}
+
+				}
+			}
+
+		}
+
+		if cwl_version == "" {
+			// see raw
+			err = fmt.Errorf("(Parse_cwl_document) cwl_version empty")
+			return
+		}
 
 		//fmt.Println("-------------- A Parse_cwl_document")
 		for count, elem := range cwl_gen.Graph {
@@ -71,21 +100,21 @@ func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, c
 			var schemata_new []CWLType_Type
 			object, schemata_new, err = New_CWL_object(elem, cwl_version)
 			if err != nil {
-				err = fmt.Errorf("(Parse_cwl_document) New_CWL_object returns %s", err.Error())
+				err = fmt.Errorf("(Parse_cwl_document) A New_CWL_object returns %s", err.Error())
 				return
 			}
 
-			switch object.(type) {
-			case *Workflow:
-				this_workflow, _ := object.(*Workflow)
-				cwl_version = this_workflow.CwlVersion
-			case *CommandLineTool:
-				this_clt, _ := object.(*CommandLineTool)
-				cwl_version = this_clt.CwlVersion
-			case *ExpressionTool:
-				this_et, _ := object.(*ExpressionTool)
-				cwl_version = this_et.CwlVersion
-			}
+			//switch object.(type) {
+			//case *Workflow:
+			//	this_workflow, _ := object.(*Workflow)
+			//	cwl_version = this_workflow.CwlVersion
+			//case *CommandLineTool:
+			//	this_clt, _ := object.(*CommandLineTool)
+			//	cwl_version = this_clt.CwlVersion
+			//case *ExpressionTool:
+			//	this_et, _ := object.(*ExpressionTool)
+			//	cwl_version = this_et.CwlVersion
+			//}
 
 			named_obj := NewNamed_CWL_object(id, object)
 			//fmt.Println("-------------- C Parse_cwl_document")
@@ -138,7 +167,7 @@ func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, c
 		var schemata_new []CWLType_Type
 		object, schemata_new, err = New_CWL_object(object_if, cwl_version)
 		if err != nil {
-			err = fmt.Errorf("(Parse_cwl_document) New_CWL_object returns %s", err.Error())
+			err = fmt.Errorf("(Parse_cwl_document) B New_CWL_object returns %s", err.Error())
 			return
 		}
 

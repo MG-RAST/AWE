@@ -7,6 +7,7 @@ import (
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/davecgh/go-spew/spew"
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -632,16 +633,16 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 	if work.CWL_workunit != nil {
 
 		job_input := work.CWL_workunit.Job_input
-		//fmt.Printf("job_input1:\n")
-		//spew.Dump(job_input)
+		fmt.Printf("job_input1:\n")
+		spew.Dump(job_input)
 
 		_, err = ProcessIOData(job_input, work_path, "download")
 		if err != nil {
 			err = fmt.Errorf("(MoveInputData) ProcessIOData(for download) returned: %s", err.Error())
 			return
 		}
-		//fmt.Printf("job_input2:\n")
-		//spew.Dump(job_input)
+		fmt.Printf("job_input2:\n")
+		spew.Dump(job_input)
 
 		//for _, input := range *job_input {
 		//fmt.Println(input_name)

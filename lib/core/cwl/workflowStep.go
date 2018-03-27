@@ -200,7 +200,7 @@ func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion) (sche
 	return
 }
 
-func GetProcess(original interface{}, collection *CWL_collection, input_schemata []CWLType_Type) (process interface{}, schemata []CWLType_Type, err error) {
+func GetProcess(original interface{}, collection *CWL_collection, CwlVersion CWLVersion, input_schemata []CWLType_Type) (process interface{}, schemata []CWLType_Type, err error) {
 
 	var p interface{}
 	p, err = MakeStringMap(original)

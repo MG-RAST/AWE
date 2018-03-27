@@ -39,7 +39,7 @@ func (c *CommandLineTool) Is_process()     {}
 // keyname will be converted into 'Id'-field
 
 //func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
-func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
+func NewCommandLineTool(generic interface{}, cwl_version CWLVersion) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
 
 	//fmt.Println("NewCommandLineTool:")
 	//spew.Dump(generic)
@@ -135,6 +135,11 @@ func NewCommandLineTool(generic interface{}) (commandLineTool *CommandLineTool, 
 		err = fmt.Errorf("(NewCommandLineTool) error parsing CommandLineTool class: %s", err.Error())
 		return
 	}
+
+	if commandLineTool.CwlVersion == "" {
+		commandLineTool.CwlVersion = cwl_version
+	}
+
 	//if has_arguments {
 	//	object["arguments"] = arguments_object // mapstructure.Decode has some issues, no idea why
 	//}

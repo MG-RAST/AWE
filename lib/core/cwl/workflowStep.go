@@ -255,11 +255,11 @@ func GetProcess(original interface{}, collection *CWL_collection, CwlVersion CWL
 				switch class_name {
 				case "CommandLineTool":
 
-					clt, schemata, err = NewCommandLineTool(p)
+					clt, schemata, err = NewCommandLineTool(p, CwlVersion)
 					process = clt
 					return
 				case "Workflow":
-					wfl, schemata, err = NewWorkflow(p)
+					wfl, schemata, err = NewWorkflow(p, CwlVersion)
 					process = wfl
 					return
 				case "ExpressionTool":

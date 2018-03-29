@@ -119,7 +119,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		var clt *cwl.CommandLineTool
 		//var a_workflow *cwl.Workflow
 		var process interface{}
-		process, _, err = cwl.GetProcess(p, job.CWL_collection, schemata) // TODO add new schemata
+		process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add new schemata
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetProcess returned: %s", err.Error())
 			return

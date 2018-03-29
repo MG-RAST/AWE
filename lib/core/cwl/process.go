@@ -92,7 +92,7 @@ func NewProcess(original interface{}, CwlVersion CWLVersion) (process interface{
 		//case "":
 		//return NewProcessPointer(original)
 		case "Workflow":
-			return NewWorkflow(original)
+			return NewWorkflow(original, CwlVersion)
 		case "Expression":
 			process, err = NewExpression(original)
 			return

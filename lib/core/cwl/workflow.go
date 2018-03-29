@@ -56,7 +56,7 @@ func NewWorkflowEmpty() (w Workflow) {
 	return w
 }
 
-func NewWorkflow(original interface{}) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
+func NewWorkflow(original interface{}, cwl_version CWLVersion) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
 
 	// convert input map into input array
 
@@ -85,6 +85,8 @@ func NewWorkflow(original interface{}) (workflow_ptr *Workflow, schemata []CWLTy
 				return
 			}
 			CwlVersion = CWLVersion(cwl_version_str)
+		} else {
+			CwlVersion = cwl_version
 		}
 
 		if CwlVersion == "" {

@@ -1842,7 +1842,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 			//wfl = nil
 			var process interface{}
-			process, _, err = cwl.GetProcess(p, job.CWL_collection, schemata) // TODO add new_schemata
+			process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add new_schemata
 			if err != nil {
 				err = fmt.Errorf("(taskEnQueue) cwl.GetProcess returned: %s (task_type=%s)", err.Error(), task_type)
 				return
@@ -2911,7 +2911,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			//}
 
 			var process interface{}
-			process, _, err = cwl.GetProcess(p, job.CWL_collection, schemata) // TODO add schemata
+			process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add schemata
 
 			// get embedded workflow
 			var ok bool

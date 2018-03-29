@@ -90,7 +90,7 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 		case "Workflow":
 			//fmt.Println("New_CWL_object Workflow")
 			logger.Debug(1, "parse Workflow")
-			obj, schemata, err = NewWorkflow(elem)
+			obj, schemata, err = NewWorkflow(elem, cwl_version)
 			if err != nil {
 
 				err = fmt.Errorf("(New_CWL_object) NewWorkflow returned: %s", err.Error())

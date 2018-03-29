@@ -5,19 +5,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
+	"io/ioutil"
+	"os"
+	"path"
+	"path/filepath"
+
 	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/davecgh/go-spew/spew"
 	"gopkg.in/mgo.v2/bson"
-	"io/ioutil"
-	"os"
-	"path"
-	"path/filepath"
 
 	"strconv"
 	"strings"
@@ -455,7 +457,7 @@ func (job *Job) Init() (changed bool, err error) {
 		collection := cwl.NewCWL_collection()
 
 		//var schemata_new []CWLType_Type
-		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.CWL_objects)
+		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.CWL_objects, job.CwlVersion)
 		if xerr != nil {
 			err = fmt.Errorf("(job.Init) cannot type assert CWL_objects: %s", xerr.Error())
 			return

@@ -820,6 +820,7 @@ func (task *Task) checkPartIndex() (newPartition *PartInfo, totalunits int, isSi
 		// bad state - set as not multi-workunit
 		logger.Error("warning: invalid file info, taskid=%s, error=%s", task.Id, err.Error())
 		isSingle = true
+		err = nil
 		return
 	}
 
@@ -831,6 +832,7 @@ func (task *Task) checkPartIndex() (newPartition *PartInfo, totalunits int, isSi
 			// bad state - set as not multi-workunit
 			logger.Error("warning: failed to create index %s on shock for taskid=%s, error=%s", newPartition.Index, task.Id, err.Error())
 			isSingle = true
+			err = nil
 			return
 		}
 		totalunits, err = inputIO.TotalUnits(newPartition.Index) // get index info again
@@ -838,6 +840,7 @@ func (task *Task) checkPartIndex() (newPartition *PartInfo, totalunits int, isSi
 			// bad state - set as not multi-workunit
 			logger.Error("warning: failed to get index %s units, taskid=%s, error=%s", newPartition.Index, task.Id, err.Error())
 			isSingle = true
+			err = nil
 			return
 		}
 	} else {

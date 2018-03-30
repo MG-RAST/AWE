@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -14,7 +15,6 @@ import (
 	"github.com/MG-RAST/golib/httpclient"
 	//"github.com/davecgh/go-spew/spew"
 	//"github.com/davecgh/go-spew/spew"
-	"github.com/fsouza/go-dockerclient"
 	"io"
 	"io/ioutil"
 	"os"
@@ -25,6 +25,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/fsouza/go-dockerclient"
 )
 
 type Shock_Dockerimage_attributes struct {
@@ -42,14 +44,13 @@ type WaitContainerResult struct {
 func processor_run(control chan int) (err error) {
 
 	workunit := <-fromMover
-	//work := parsedwork.Workunit
-
-	//processed := &Mediumwork{
-	//	Workunit: work,
-	//	Perfstat: parsedwork.Perfstat,
-	//}
 
 	//if the work is not succesfully parsed in last stage, pass it into the next one immediately
+
+	if workunit.State == core.WORK_STAT_ERROR || workunit.State == core.WORK_STAT_DISCARDED {
+		fromProcessor <- workunit
+		return
+	}
 
 	work_id := workunit.Workunit_Unique_Identifier
 
@@ -69,13 +70,11 @@ func processor_run(control chan int) (err error) {
 		logger.Error("(processor) workunit.id %s not found", work_str)
 		return
 	}
-	if workunit.State == core.WORK_STAT_ERROR || work_state == ID_DISCARDED {
 
-		if work_state == ID_DISCARDED {
-			workunit.SetState(core.WORK_STAT_DISCARDED, "workmap indicates that workunit has been discarded")
-		} else {
-			workunit.SetState(core.WORK_STAT_ERROR, "workmap indicates WORK_STAT_ERROR")
-		}
+	if work_state == ID_DISCARDED {
+
+		workunit.SetState(core.WORK_STAT_DISCARDED, "workmap indicates that workunit has been discarded")
+
 		fromProcessor <- workunit
 		//release the permit lock, for work overlap inhibitted mode only
 		//if !conf.WORKER_OVERLAP && core.Service != "proxy" {

@@ -32,6 +32,13 @@ func NewRequirement(class string, obj interface{}) (r Requirement, schemata []CW
 			return
 		}
 		return
+	case "ShellCommandRequirement":
+		r, err = NewShellCommandRequirement(obj)
+		if err != nil {
+			fmt.Errorf("(NewRequirement) NewShellCommandRequirement returns: %s", err.Error())
+			return
+		}
+		return
 	case "ResourceRequirement":
 		r, err = NewResourceRequirement(obj)
 		if err != nil {

@@ -406,6 +406,7 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 		err = fmt.Errorf("(SubmitCWLJobToAWE) multipart.Send returned: %s", err.Error())
 		return
 	}
+
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		err = fmt.Errorf("(SubmitCWLJobToAWE) ioutil.ReadAll returned: %s", err.Error())
@@ -419,7 +420,7 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 	err = json.Unmarshal(responseData, &sr)
 	if err != nil {
 		//fmt.Println(string(responseData[:]))
-		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s (%s) response: %s", err.Error(), conf.SERVER_URL+"/job", responseData)
+		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s (%s) response: %s (response.StatusCode: %d)", err.Error(), conf.SERVER_URL+"/job", responseData, response.StatusCode)
 		return
 	}
 
@@ -460,6 +461,7 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 	if err != nil {
 		return
 	}
+
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return
@@ -472,12 +474,17 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 	var sr standardResponse
 	err = json.Unmarshal(responseData, &sr)
 	if err != nil {
-		err = fmt.Errorf("(GetAWEJob) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job/"+jobid)
+		err = fmt.Errorf("(GetAWEJob) json.Unmarshal returned: %s (%s) (response.StatusCode: %d)", err.Error(), conf.SERVER_URL+"/job/"+jobid, response.StatusCode)
 		return
 	}
 
 	if len(sr.Error) > 0 {
 		err = fmt.Errorf("%s", sr.Error[0])
+		return
+	}
+
+	if response.StatusCode != 200 {
+		err = fmt.Errorf("(GetAWEJob) response.StatusCode: %d", response.StatusCode)
 		return
 	}
 

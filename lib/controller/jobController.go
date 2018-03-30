@@ -16,6 +16,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	//"os"
@@ -367,7 +368,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					return
 				}
 			default:
-				err = fmt.Errorf("Runner type %s not supported", reflect.TypeOf(runner))
+				cx.RespondWithErrorMessage(fmt.Sprintf("Runner type %s not supported", reflect.TypeOf(runner)), http.StatusBadRequest)
+
 				return
 			}
 			//spew.Dump(cwl_workflow)
@@ -446,8 +448,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	} else {
 		err = job.SetDataToken(token)
 		if err != nil {
-			err = fmt.Errorf("(JobController/Create) SetDataToken returned: %s", err.Error())
-			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			cx.RespondWithErrorMessage(fmt.Sprintf("(JobController/Create) SetDataToken returned: %s", err.Error()), http.StatusBadRequest)
 			return
 		}
 		logger.Debug(3, "job %s got token", job.Id)
@@ -455,8 +456,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	err = job.Save() // note that the job only goes into mongo, not into memory yet (EnqueueTasksByJobId is dowing that)
 	if err != nil {
-		err = fmt.Errorf("(JobController/Create) job.Save returned: %s", err.Error())
-		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		cx.RespondWithErrorMessage(fmt.Sprintf("(JobController/Create) job.Save returned: %s", err.Error()), http.StatusBadRequest)
 		return
 	}
 
@@ -469,6 +469,11 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	var response_bytes []byte
 	response_bytes, err = json.Marshal(SR)
+	if err != nil {
+		spew.Dump(SR)
+		cx.RespondWithErrorMessage("Could not marshal response: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	// don't enqueue imports
 	if !has_import {

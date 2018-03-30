@@ -161,6 +161,11 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		native_int := native.(int)
 
 		cwl_type = NewInt(native_int)
+	case int64:
+		//fmt.Printf("(NewCWLType) D\n")
+		native_int64 := native.(int64)
+
+		cwl_type = NewLong(native_int64)
 	case float32:
 		native_float32 := native.(float32)
 		cwl_type = NewFloat(native_float32)

@@ -2253,7 +2253,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		} else {
 
 			if input.Default == nil {
-				err = fmt.Errorf("(GetStepInputObjects) sorry, source and Default are missing")
+				err = fmt.Errorf("(GetStepInputObjects) sorry, source and Default are missing") // TODO StepInputExpressionRequirement
 				return
 			}
 
@@ -2415,7 +2415,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 			var value_cwl cwl.CWLType
 			value_cwl, err = cwl.NewCWLType("", value_exported)
 			if err != nil {
-				err = fmt.Errorf("(NewWorkunit) Error parsing javascript VM result value: %s", err.Error())
+				err = fmt.Errorf("(NewWorkunit) Error parsing javascript VM result value, cwl.NewCWLType returns: %s", err.Error())
 				return
 			}
 

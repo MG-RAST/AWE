@@ -173,54 +173,8 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion) (workflow_ptr *Wo
 	default:
 
 		err = fmt.Errorf("(NewWorkflow) Input type %s can not be parsed", reflect.TypeOf(original))
-		return
+
 	}
-	//switch object["requirements"].(type) {
-	//case map[interface{}]interface{}:
-	// Convert map of outputs into array of outputs
-	//	object["requirements"], err = CreateRequirementArray(object["requirements"])
-	//	if err != nil {
-	//		return
-	//	}
-	//case []interface{}:
-	//	req_array := []Requirement{}
 
-	//	for _, requirement_if := range object["requirements"].([]interface{}) {
-	//		switch requirement_if.(type) {
-
-	//		case map[interface{}]interface{}:
-
-	//			requirement_map_if := requirement_if.(map[interface{}]interface{})
-	//			requirement_data_if, xerr := GetMapElement(requirement_map_if, "class")
-
-	//			if xerr != nil {
-	///				err = fmt.Errorf("Not sure how to parse Requirements, class not found")
-	//				return
-	//			}
-
-	//			switch requirement_data_if.(type) {
-	//			case string:
-	//				requirement_name := requirement_data_if.(string)
-	//				requirement, xerr := NewRequirement(requirement_name, requirement_data_if)
-	//				if xerr != nil {
-	//					err = fmt.Errorf("error creating Requirement %s: %s", requirement_name, xerr.Error())
-	//					return
-	//				}
-	//				req_array = append(req_array, requirement)
-	//			default:
-	//				err = fmt.Errorf("Not sure how to parse Requirements, not a string")
-	//				return
-
-	//			}
-	//		default:
-	//			err = fmt.Errorf("Not sure how to parse Requirements, map expected")
-	//			return
-
-	//		} // end switch
-
-	//	} // end for
-	//
-	//object["requirements"] = req_array
-	//}
 	return
 }

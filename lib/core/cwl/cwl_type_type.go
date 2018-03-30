@@ -2,9 +2,10 @@ package cwl
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strings"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 type CWLType_Type interface {
@@ -139,8 +140,8 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 				result, err = NewCommandInputArraySchemaFromInterface(native, schemata)
 				if err != nil {
 
-					spew.Dump(native)
-					panic("done")
+					//spew.Dump(native)
+					//panic("done")
 
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputArraySchemaFromInterface returned: %s", err.Error())
 				}

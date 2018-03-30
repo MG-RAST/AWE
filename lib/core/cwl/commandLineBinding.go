@@ -4,13 +4,14 @@ import (
 	"fmt"
 	//"github.com/davecgh/go-spew/spew"
 
-	"github.com/mitchellh/mapstructure"
 	"reflect"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 //http://www.commonwl.org/v1.0/Workflow.html#CommandLineBinding
 type CommandLineBinding struct {
-	LoadContents  bool        `yaml:"loadContents,omitempty" bson:"loadContents,omitempty" json:"loadContents,omitempty" mapstructure:loadContents,omitempty"`
+	LoadContents  bool        `yaml:"loadContents,omitempty" bson:"loadContents,omitempty" json:"loadContents,omitempty" mapstructure:"loadContents,omitempty"`
 	Position      int         `yaml:"position,omitempty" bson:"position,omitempty" json:"position,omitempty" mapstructure:"position,omitempty"`
 	Prefix        string      `yaml:"prefix,omitempty" bson:"prefix,omitempty" json:"prefix,omitempty" mapstructure:"prefix,omitempty"`
 	Separate      bool        `yaml:"separate,omitempty" bson:"separate,omitempty" json:"separate,omitempty" mapstructure:"separate,omitempty"`

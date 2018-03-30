@@ -3,8 +3,9 @@ package cwl
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"reflect"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 type Record map[string]CWLType
@@ -94,7 +95,6 @@ func NewRecord(id string, native interface{}) (record Record, err error) {
 		fmt.Println("Unknown Record:")
 		spew.Dump(native)
 		err = fmt.Errorf("(NewRecord) Unknown type: %s (%s)", reflect.TypeOf(native), spew.Sdump(native))
-		return
 	}
 
 	return

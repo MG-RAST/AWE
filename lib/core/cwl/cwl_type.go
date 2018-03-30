@@ -437,7 +437,6 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 		spew.Dump(object)
 
 		ok = false
-		return
 
 	}
 
@@ -464,7 +463,6 @@ func TypeIsCorrect(allowed_types []CWLType_Type, object CWLType) (ok bool, err e
 	}
 
 	ok = false
-	return
 
 	return
 }

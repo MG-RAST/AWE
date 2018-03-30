@@ -28,77 +28,77 @@ func NewRequirement(class string, obj interface{}) (r Requirement, schemata []CW
 	case "DockerRequirement":
 		r, err = NewDockerRequirement(obj)
 		if err != nil {
-			fmt.Errorf("(NewRequirement) NewDockerRequirement returns: %s", err.Error())
+			err = fmt.Errorf("(NewRequirement) NewDockerRequirement returns: %s", err.Error())
 			return
 		}
 		return
 	case "ShellCommandRequirement":
 		r, err = NewShellCommandRequirement(obj)
 		if err != nil {
-			fmt.Errorf("(NewRequirement) NewShellCommandRequirement returns: %s", err.Error())
+			err = fmt.Errorf("(NewRequirement) NewShellCommandRequirement returns: %s", err.Error())
 			return
 		}
 		return
 	case "ResourceRequirement":
 		r, err = NewResourceRequirement(obj)
 		if err != nil {
-			fmt.Errorf("(NewRequirement) NewResourceRequirement returns: %s", err.Error())
+			err = fmt.Errorf("(NewRequirement) NewResourceRequirement returns: %s", err.Error())
 			return
 		}
 		return
 	case "InlineJavascriptRequirement":
 		r, err = NewInlineJavascriptRequirementFromInterface(obj)
 		if err != nil {
-			fmt.Errorf("(NewRequirement) NewInlineJavascriptRequirement returns: %s", err.Error())
+			err = fmt.Errorf("(NewRequirement) NewInlineJavascriptRequirement returns: %s", err.Error())
 			return
 		}
 		return
 	case "EnvVarRequirement":
 		r, err = NewEnvVarRequirement(obj)
 		if err != nil {
-			fmt.Errorf("(NewRequirement) NewEnvVarRequirement returns: %s", err.Error())
+			err = fmt.Errorf("(NewRequirement) NewEnvVarRequirement returns: %s", err.Error())
 			return
 		}
 		return
 	case "StepInputExpressionRequirement":
 		r, err = NewStepInputExpressionRequirement(obj)
 		if err != nil {
-			fmt.Errorf("(NewRequirement) NewStepInputExpressionRequirement returns: %s", err.Error())
+			err = fmt.Errorf("(NewRequirement) NewStepInputExpressionRequirement returns: %s", err.Error())
 			return
 		}
 		return
 	case "ShockRequirement":
 		r, err = NewShockRequirement(obj)
 		if err != nil {
-			fmt.Errorf("(NewRequirement) NewShockRequirement returns: %s", err.Error())
+			err = fmt.Errorf("(NewRequirement) NewShockRequirement returns: %s", err.Error())
 			return
 		}
 		return
 	case "InitialWorkDirRequirement":
 		r, err = NewInitialWorkDirRequirement(obj)
 		if err != nil {
-			fmt.Errorf("(NewRequirement) NewInitialWorkDirRequirement returns: %s", err.Error())
+			err = fmt.Errorf("(NewRequirement) NewInitialWorkDirRequirement returns: %s", err.Error())
 			return
 		}
 		return
 	case "ScatterFeatureRequirement":
 		r, err = NewScatterFeatureRequirement(obj)
 		if err != nil {
-			fmt.Errorf("(NewRequirement) NewScatterFeatureRequirement returns: %s", err.Error())
+			err = fmt.Errorf("(NewRequirement) NewScatterFeatureRequirement returns: %s", err.Error())
 			return
 		}
 		return
 	case "MultipleInputFeatureRequirement":
 		r, err = NewMultipleInputFeatureRequirement(obj)
 		if err != nil {
-			fmt.Errorf("(NewRequirement) NewMultipleInputFeatureRequirement returns: %s", err.Error())
+			err = fmt.Errorf("(NewRequirement) NewMultipleInputFeatureRequirement returns: %s", err.Error())
 			return
 		}
 		return
 	case "SchemaDefRequirement":
 		r, schemata, err = NewSchemaDefRequirement(obj)
 		if err != nil {
-			fmt.Errorf("(NewRequirement) NewSchemaDefRequirement returns: %s", err.Error())
+			err = fmt.Errorf("(NewRequirement) NewSchemaDefRequirement returns: %s", err.Error())
 			return
 		}
 		return

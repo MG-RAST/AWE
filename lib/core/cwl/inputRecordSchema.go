@@ -83,7 +83,6 @@ func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Ty
 		return
 	default:
 		err = fmt.Errorf("(NewInputRecordSchemaFromInterface) error")
-		return
 	}
 
 	return

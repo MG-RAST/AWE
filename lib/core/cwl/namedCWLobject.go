@@ -67,7 +67,6 @@ func NewNamed_CWL_object_from_interface(original interface{}, cwl_version CWLVer
 		return
 	default:
 		err = fmt.Errorf("(NewNamed_CWL_object_from_interface) not a map (%s)", reflect.TypeOf(original))
-		return
 	}
 	return
 }

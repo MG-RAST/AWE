@@ -2,29 +2,31 @@ package cwl
 
 import (
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/shock"
 	//"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
 	"net/url"
 	"strings"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 // http://www.commonwl.org/v1.0/Workflow.html#File
 type File struct {
 	CWLType_Impl   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	Type           CWLType_Type   `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
-	Location       string         `yaml:"location,omitempty" json:"location,omitempty bson:"location,omitempty" mapstructure:"location,omitempty"` // An IRI that identifies the file resource.
-	Location_url   *url.URL       `yaml:"-" json:"-" bson:"-" mapstructure:"-"`                                                                    // only for internal purposes
-	Path           string         `yaml:"path,omitempty" json:"path,omitempty bson:"path,omitempty" mapstructure:"path,omitempty"`                 // dirname + '/' + basename == path This field must be set by the implementation.
-	Basename       string         `yaml:"basename,omitempty" json:"basename,omitempty bson:"basename,omitempty" mapstructure:"basename,omitempty"` // dirname + '/' + basename == path // if not defined, take from location
-	Dirname        string         `yaml:"dirname,omitempty" json:"dirname,omitempty bson:"dirname,omitempty" mapstructure:"dirname,omitempty"`     // dirname + '/' + basename == path
-	Nameroot       string         `yaml:"nameroot,omitempty" json:"nameroot,omitempty bson:"nameroot,omitempty" mapstructure:"nameroot,omitempty"`
-	Nameext        string         `yaml:"nameext,omitempty" json:"nameext,omitempty bson:"nameext,omitempty" mapstructure:"nameext,omitempty"`
-	Checksum       string         `yaml:"checksum,omitempty" json:"checksum,omitempty bson:"checksum,omitempty" mapstructure:"checksum,omitempty"`
-	Size           int32          `yaml:"size,omitempty" json:"size,omitempty bson:"size,omitempty" mapstructure:"size,omitempty"`
-	SecondaryFiles []CWL_location `yaml:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty bson:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"`
-	Format         string         `yaml:"format,omitempty" json:"format,omitempty bson:"format,omitempty" mapstructure:"format,omitempty"`
-	Contents       string         `yaml:"contents,omitempty" json:"contents,omitempty bson:"contents,omitempty" mapstructure:"contents,omitempty"`
+	Location       string         `yaml:"location,omitempty" json:"location,omitempty" bson:"location,omitempty" mapstructure:"location,omitempty"` // An IRI that identifies the file resource.
+	Location_url   *url.URL       `yaml:"-" json:"-" bson:"-" mapstructure:"-"`                                                                     // only for internal purposes
+	Path           string         `yaml:"path,omitempty" json:"path,omitempty" bson:"path,omitempty" mapstructure:"path,omitempty"`                 // dirname + '/' + basename == path This field must be set by the implementation.
+	Basename       string         `yaml:"basename,omitempty" json:"basename,omitempty" bson:"basename,omitempty" mapstructure:"basename,omitempty"` // dirname + '/' + basename == path // if not defined, take from location
+	Dirname        string         `yaml:"dirname,omitempty" json:"dirname,omitempty" bson:"dirname,omitempty" mapstructure:"dirname,omitempty"`     // dirname + '/' + basename == path
+	Nameroot       string         `yaml:"nameroot,omitempty" json:"nameroot,omitempty" bson:"nameroot,omitempty" mapstructure:"nameroot,omitempty"`
+	Nameext        string         `yaml:"nameext,omitempty" json:"nameext,omitempty" bson:"nameext,omitempty" mapstructure:"nameext,omitempty"`
+	Checksum       string         `yaml:"checksum,omitempty" json:"checksum,omitempty" bson:"checksum,omitempty" mapstructure:"checksum,omitempty"`
+	Size           int32          `yaml:"size,omitempty" json:"size,omitempty" bson:"size,omitempty" mapstructure:"size,omitempty"`
+	SecondaryFiles []CWL_location `yaml:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"`
+	Format         string         `yaml:"format,omitempty" json:"format,omitempty" bson:"format,omitempty" mapstructure:"format,omitempty"`
+	Contents       string         `yaml:"contents,omitempty" json:"contents,omitempty" bson:"contents,omitempty" mapstructure:"contents,omitempty"`
 	// Shock node
 	Host   string `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 	Node   string `yaml:"-" json:"-" bson:"-" mapstructure:"-"`

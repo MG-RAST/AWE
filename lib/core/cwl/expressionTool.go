@@ -16,8 +16,8 @@ type ExpressionTool struct {
 	CWL_object_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	CWL_class_Impl  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	CWL_id_Impl     `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	Inputs          []InputParameter                `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
-	Outputs         []ExpressionToolOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
+	Inputs          []InputParameter                `yaml:"inputs" bson:"inputs" json:"inputs" mapstructure:"inputs"`
+	Outputs         []ExpressionToolOutputParameter `yaml:"outputs" bson:"outputs" json:"outputs" mapstructure:"outputs"`
 	Expression      Expression                      `yaml:"expression,omitempty" bson:"expression,omitempty" json:"expression,omitempty" mapstructure:"expression,omitempty"`
 	Requirements    []Requirement                   `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"`
 	Hints           []Requirement                   `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`

@@ -54,11 +54,6 @@ type CWL_array_type interface {
 	Get_Array() *[]CWLType
 }
 
-// generic class to represent Files and Directories
-type CWL_location interface {
-	GetLocation() string
-}
-
 //func (s CWLType_Type) Is_CommandOutputParameterType() {}
 
 // CWLType - CWL basic types: int, string, boolean, .. etc

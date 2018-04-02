@@ -362,6 +362,19 @@ func ProcessIOData(native interface{}, path string, io_type string) (count int, 
 			}
 		}
 
+		if file.SecondaryFiles != nil {
+			for i, _ := range file.SecondaryFiles {
+				value := file.SecondaryFiles[i]
+				var sub_count int
+				sub_count, err = ProcessIOData(value, path, io_type)
+				if err != nil {
+					return
+				}
+				count += sub_count
+			}
+
+		}
+
 		return
 	case *cwl.Array:
 

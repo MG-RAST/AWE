@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -13,9 +14,8 @@ type Directory struct {
 	Listing      []interface{} `yaml:"listing,omitempty" json:"listing,omitempty" bson:"listing,omitempty" mapstructure:"listing,omitempty"`
 }
 
-func (d Directory) GetClass() string    { return string(CWL_Directory) }
-func (d Directory) String() string      { return d.Path }
-func (d Directory) GetLocation() string { return d.Location } // for CWL_location
+func (d Directory) GetClass() string { return string(CWL_Directory) }
+func (d Directory) String() string   { return d.Path }
 
 func NewDirectory() (d *Directory) {
 

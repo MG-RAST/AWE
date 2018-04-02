@@ -47,9 +47,9 @@ func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, c
 			logger.Error("error: " + err.Error())
 		}
 
-		fmt.Println("-------------- raw CWL")
-		spew.Dump(cwl_gen)
-		fmt.Println("-------------- Start parsing")
+		//fmt.Println("-------------- raw CWL")
+		//spew.Dump(cwl_gen)
+		//fmt.Println("-------------- Start parsing")
 
 		cwl_version = cwl_gen.CwlVersion
 

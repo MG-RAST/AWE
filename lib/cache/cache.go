@@ -763,22 +763,31 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 	}
 	if (io.Type == "copy") || (io.Type == "update") || io.NoFile {
 		file_path = ""
-	} else if fi, xerr := os.Stat(file_path); err != nil {
-		//skip this output if missing file and optional
-		if io.Optional {
-			return
-		} else {
-			err = fmt.Errorf("output %s not generated for workunit %s %s()", name, work.Id, xerr.Error())
+	} else {
+
+		var fi os.FileInfo
+		fi, err = os.Stat(file_path)
+		if err != nil {
+			//skip this output if missing file and optional
+			if !io.Optional {
+				err = fmt.Errorf("output %s not generated for workunit %s %s()", name, work.Id, err.Error())
+				return
+			}
+
 			return
 		}
-	} else {
+		if fi == nil {
+			err = fmt.Errorf("(UploadOutputIO) fi is nil !?")
+			return
+		}
+
 		if io.Nonzero && fi.Size() == 0 {
 			err = fmt.Errorf("workunit %s generated zero-sized output %s while non-zero-sized file required", work.Id, name)
 			return
 		}
 		size += fi.Size()
-	}
 
+	}
 	logger.Debug(1, "deliverer: push output to shock, filename="+name)
 	logger.Event(event.FILE_OUT,
 		"workid="+work.Id,

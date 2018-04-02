@@ -62,14 +62,15 @@ func NewCWL_workunit_from_interface(native interface{}) (workunit *CWL_workunit,
 
 		outputs_expected_generic, has_outputs_expected := native_map["outputs_expected"]
 		if has_outputs_expected {
+			if outputs_expected_generic != nil {
+				outputs_expected, xerr := cwl.NewWorkflowStepOutputArray(outputs_expected_generic)
+				if xerr != nil {
+					err = fmt.Errorf("(NewCWL_workunit_from_interface) NewWorkflowStepOutput failed: %s", xerr.Error())
+					return
+				}
 
-			outputs_expected, xerr := cwl.NewWorkflowStepOutputArray(outputs_expected_generic)
-			if xerr != nil {
-				err = fmt.Errorf("(NewCWL_workunit_from_interface) NewWorkflowStepOutput failed: %s", xerr.Error())
-				return
+				workunit.OutputsExpected = &outputs_expected
 			}
-
-			workunit.OutputsExpected = &outputs_expected
 		}
 
 		tool_generic, has_tool_generic := native_map["tool"]

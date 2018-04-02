@@ -78,7 +78,7 @@ func NewWorkflowStepOutputArray(original interface{}) (new_array []WorkflowStepO
 
 		}
 	default:
-		err = fmt.Errorf("(NewWorkflowStepOutputArray) could not parse NewWorkflowStepOutputArray, type unknown %s", reflect.TypeOf(original))
+		err = fmt.Errorf("(NewWorkflowStepOutputArray) type unknown %s", reflect.TypeOf(original))
 		return
 	} // end switch
 

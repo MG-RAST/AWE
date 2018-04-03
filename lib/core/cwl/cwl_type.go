@@ -193,15 +193,6 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 		}
 
-		_, has_entry := native_map["entry"]
-		if has_entry {
-			cwl_type, err = NewDirent(id, native_map)
-			if err != nil {
-				err = fmt.Errorf("(NewCWLType) NewDirent returned: %s", err.Error())
-			}
-			return
-		}
-
 		class, xerr := GetClass(native)
 		if xerr != nil {
 

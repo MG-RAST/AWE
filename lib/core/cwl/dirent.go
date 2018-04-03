@@ -16,10 +16,10 @@ type Dirent struct {
 	Writable     bool       `yaml:"writable" json:"writable" bson:"writable" mapstructure:"writable"`
 }
 
-func NewDirentFromInterface(id string, original interface{}) (dirent Dirent, err error) {
+func NewDirentFromInterface(id string, original interface{}) (dirent *Dirent, err error) {
 
-	dirent = Dirent{}
-	err = mapstructure.Decode(original, &dirent)
+	dirent = &Dirent{}
+	err = mapstructure.Decode(original, dirent)
 	if err != nil {
 		err = fmt.Errorf("(NewDirentFromInterface) Could not convert Dirent object: %s", err.Error())
 		return

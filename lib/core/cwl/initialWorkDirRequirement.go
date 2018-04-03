@@ -59,8 +59,25 @@ func NewInitialWorkDirRequirement(original interface{}) (r *InitialWorkDirRequir
 	return
 }
 
-func NewListingFromInterface(original interface{}) (x CWLType, err error) {
+func NewListingFromInterface(original interface{}) (obj CWL_object, err error) {
 
+	original, err = MakeStringMap(original)
+	if err != nil {
+		return
+	}
+
+	native_map, ok := original.(map[string]interface{})
+	if ok {
+		_, has_entry := native_map["entry"]
+		if has_entry {
+			obj, err = NewDirentFromInterface("", native_map)
+			if err != nil {
+				err = fmt.Errorf("(NewCWLType) NewDirent returned: %s", err.Error())
+			}
+			return
+		}
+	}
+	var x CWLType
 	x, err = NewCWLType("", original)
 	if err != nil {
 		err = fmt.Errorf("(NewListingFromInterface) NewCWLType returns: %s", err.Error())
@@ -69,24 +86,22 @@ func NewListingFromInterface(original interface{}) (x CWLType, err error) {
 	x_class := x.GetClass()
 	switch x_class {
 	case "File":
-		return
 	case "Directory":
-		return
 	case "Dirent":
-		return
 	case "String":
-		return
 	case "Expression":
+	default:
+		err = fmt.Errorf("(NewListingFromInterface) type %s is not a valid Listing (original_type: %s)", x_class, reflect.TypeOf(original))
 		return
 	}
-
-	err = fmt.Errorf("(NewListingFromInterface) type %s is not a valid Listing", x_class)
+	obj = x
 	return
+
 }
 
-func CreateListingArray(original interface{}) (array []CWLType, err error) {
+func CreateListingArray(original interface{}) (array []CWL_object, err error) {
 
-	array = []CWLType{}
+	array = []CWL_object{}
 
 	switch original.(type) {
 	case []interface{}:
@@ -94,7 +109,7 @@ func CreateListingArray(original interface{}) (array []CWLType, err error) {
 
 		for i, _ := range original_array {
 
-			var new_listing CWLType
+			var new_listing CWL_object
 			new_listing, err = NewListingFromInterface(original_array[i])
 			if err != nil {
 				err = fmt.Errorf("(CreateListingArray) NewListingFromInterface returns: %s", err.Error())
@@ -106,7 +121,7 @@ func CreateListingArray(original interface{}) (array []CWLType, err error) {
 
 	}
 
-	var new_listing CWLType
+	var new_listing CWL_object
 	new_listing, err = NewListingFromInterface(original)
 	if err != nil {
 		err = fmt.Errorf("(CreateListingArray) NewListingFromInterface returns: %s", err.Error())

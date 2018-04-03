@@ -156,6 +156,7 @@ func NewCommandLineTool(generic interface{}, cwl_version CWLVersion) (commandLin
 }
 
 func NewBaseCommandArray(original interface{}) (new_array []string, err error) {
+	new_array = []string{}
 	switch original.(type) {
 	case []interface{}:
 		for _, v := range original.([]interface{}) {

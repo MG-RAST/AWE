@@ -11,7 +11,7 @@ import (
 // http://www.commonwl.org/v1.0/CommandLineTool.html#InitialWorkDirRequirement
 type InitialWorkDirRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
-	Listing         interface{} `yaml:"listing,omitempty" bson:"listing,omitempty" json:"listing,omitempty" mapstructure:"listing,omitempty"` // TODO: array<File | Directory | Dirent | string | Expression> | string | Expression
+	Listing         []interface{} `yaml:"listing,omitempty" bson:"listing,omitempty" json:"listing,omitempty" mapstructure:"listing,omitempty"` // TODO: array<File | Directory | Dirent | string | Expression> | string | Expression
 }
 
 func (c InitialWorkDirRequirement) GetId() string { return "" }
@@ -36,13 +36,15 @@ func NewInitialWorkDirRequirement(original interface{}) (r *InitialWorkDirRequir
 		}
 
 		listing, has_listing := original_map["listing"]
-		if has_listing {
+		if !has_listing {
+			err = fmt.Errorf("(NewInitialWorkDirRequirement) Listing is missing")
+			return
+		}
 
-			original_map["listing"], err = CreateListingArray(listing)
-			if err != nil {
-				err = fmt.Errorf("(NewInitialWorkDirRequirement) NewCWLType returned: %s", err.Error())
-			}
-
+		original_map["listing"], err = CreateListingArray(listing)
+		if err != nil {
+			err = fmt.Errorf("(NewInitialWorkDirRequirement) NewCWLType returned: %s", err.Error())
+			return
 		}
 
 		err = mapstructure.Decode(original, &requirement)

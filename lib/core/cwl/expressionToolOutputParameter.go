@@ -32,7 +32,11 @@ func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_T
 			return
 		}
 
-		NormalizeOutputParameter(original_map)
+		err = NormalizeOutputParameter(original_map)
+		if err != nil {
+			err = fmt.Errorf("(NewExpressionToolOutputParameter) NormalizeOutputParameter returns %s", err.Error())
+			return
+		}
 
 		wop_type, has_type := original_map["type"]
 		if has_type {

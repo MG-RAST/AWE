@@ -16,7 +16,7 @@ type CommandOutputParameter struct {
 	//Streamable bool          `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
 	//Type []interface{} `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // []CommandOutputParameterType TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
 	//Label          string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	Description string `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty"`
+	Description string `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty" mapstructure:"description,omitempty"`
 }
 
 func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type) (output_parameter *CommandOutputParameter, err error) {
@@ -36,7 +36,11 @@ func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type) (o
 			return
 		}
 
-		NormalizeOutputParameter(original_map)
+		err = NormalizeOutputParameter(original_map)
+		if err != nil {
+			err = fmt.Errorf("(NewCommandOutputParameter) NormalizeOutputParameter returns %s", err.Error())
+			return
+		}
 
 		COPtype, ok := original_map["type"]
 		if ok {

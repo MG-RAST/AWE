@@ -2177,13 +2177,18 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 		// get data from Source, Default or valueFrom
 
+		link_merge_method := ""
 		if input.LinkMerge != nil {
-			err = fmt.Errorf("(NewWorkunit) sorry, LinkMergeMethod not supported yet")
-			return
+			link_merge_method = string(*input.LinkMerge)
+			if link_merge_method != "merge_flattened" {
+				err = fmt.Errorf("(NewWorkunit) sorry, LinkMergeMethod \"%s\" not supported yet", link_merge_method) // merge_nested merge_flattened
+				return
+			}
+
 		}
 
 		if input.Source != nil {
-			source_object_array := []cwl.CWLType{}
+			//source_object_array := []cwl.CWLType{}
 			//resolve pointers in source
 
 			source_is_array := false
@@ -2213,7 +2218,32 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 						err = fmt.Errorf("(GetStepInputObjects) (array) getCWLSource did not find output \"%s\"", src_str)
 						return // TODO allow optional ??
 					}
-					source_object_array = append(source_object_array, job_obj)
+
+					if link_merge_method == "merge_flattened" {
+
+						job_obj_type := job_obj.GetType()
+
+						if job_obj_type != cwl.CWL_array {
+							err = fmt.Errorf("(GetStepInputObjects) merge_flattened, expected array as input, but got %s", job_obj_type)
+							return
+						}
+
+						var an_array *cwl.Array
+						an_array, ok = job_obj.(*cwl.Array)
+						if !ok {
+							err = fmt.Errorf("got type: %s", reflect.TypeOf(job_obj))
+							return
+						}
+
+						for i, _ := range *an_array {
+							//source_object_array = append(source_object_array, (*an_array)[i])
+							cwl_array = append(cwl_array, (*an_array)[i])
+						}
+
+					} else {
+						//source_object_array = append(source_object_array, job_obj)
+						cwl_array = append(cwl_array, job_obj)
+					}
 					//cwl_array = append(cwl_array, obj)
 				}
 

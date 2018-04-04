@@ -35,7 +35,11 @@ func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type) (
 			return
 		}
 
-		NormalizeOutputParameter(original_map)
+		err = NormalizeOutputParameter(original_map)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkflowOutputParameter) NormalizeOutputParameter returns %s", err.Error())
+			return
+		}
 
 		outputSource_if, ok := original_map["outputSource"]
 		if ok {

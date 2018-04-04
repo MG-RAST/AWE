@@ -2,13 +2,14 @@ package cwl
 
 import (
 	"fmt"
+
 	"github.com/mitchellh/mapstructure"
 )
 
 //http://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputEnumSchema
 type CommandOutputEnumSchema struct {
 	EnumSchema    `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Symbols, Type, Label
-	OutputBinding *CommandOutputBinding                                                 `yaml:"outputbinding,omitempty" bson:"outputbinding,omitempty" json:"outputbinding,omitempty"`
+	OutputBinding *CommandOutputBinding                                                 `yaml:"outputbinding,omitempty" bson:"outputbinding,omitempty" json:"outputbinding,omitempty" mapstructure:"outputbinding,omitempty"`
 }
 
 //func (c *CommandOutputEnumSchema) Is_CommandOutputParameterType() {}

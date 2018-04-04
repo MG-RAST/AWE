@@ -2,13 +2,14 @@ package cwl
 
 import (
 	"fmt"
-	"github.com/mitchellh/mapstructure"
 	"reflect"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type CommandOutputArraySchema struct { // Items, Type , Label
 	ArraySchema   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	OutputBinding *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"`
+	OutputBinding *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty" mapstructure:"outputBinding,omitempty"`
 }
 
 //func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}

@@ -49,26 +49,25 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 			return
 		}
 
+		// recurse:
+		var base_type CWLType_Type
+		base_type, err = NewCWLType_TypeFromString(schemata, base_type_str, context)
+		if err != nil {
+			err = fmt.Errorf("(NewCWLType_TypeFromString) recurisve call of NewCWLType_TypeFromString returned: %s", err.Error())
+			return
+		}
+
 		switch context {
 
 		case "WorkflowOutput":
 
 			oas := NewOutputArraySchema()
-			oas.Items = []CWLType_Type{CWLType_Type_Basic(base_type_str)}
+			oas.Items = []CWLType_Type{base_type}
 			result = oas
 			return
 		default:
 			err = fmt.Errorf("(NewCWLType_TypeFromString) context %s not supported yet", context)
 		}
-
-		//an_array_schema["items"] = []CWLType_Type{CWLType_Type_Basic(base_type)}
-
-		//result, err = NewCWLType_Type(schemata, an_array_schema, context)
-		//if err != nil {
-		//	return
-		//}
-
-		//return
 
 	}
 

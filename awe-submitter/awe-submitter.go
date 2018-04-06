@@ -8,6 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/davecgh/go-spew/spew"
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 	"bytes"
 	"encoding/json"
@@ -177,48 +178,71 @@ func main_wrapper() (err error) {
 
 	_ = schemata // TODO put into a collection!
 
-	// search for File objects in Document, e.g. in CommandLineTools
+	var shock_requirement *cwl.ShockRequirement
+	shock_requirement, err = cwl.NewShockRequirement(conf.SHOCK_URL)
+	if err != nil {
+		err = fmt.Errorf("(main_wrapper) NewShockRequirement returned: %s", err.Error())
+		return
+	}
+	// A) search for File objects in Document, e.g. in CommandLineTools
+	// B) inject ShockRequirement into CommandLineTools, ExpressionTools and Workflow
 	for j, _ := range named_object_array {
 
 		pair := named_object_array[j]
 		object := pair.Value
 
-		var cmd_line_tool *cwl.CommandLineTool
 		var ok bool
 
-		cmd_line_tool, ok = object.(*cwl.CommandLineTool)
-		if !ok {
-			//fmt.Println("nope.")
-			err = nil
-			continue
-		}
+		switch object.(type) {
+		case *cwl.Workflow:
+			workflow := object.(*cwl.Workflow)
 
-		update := false
-		for i, _ := range cmd_line_tool.Inputs {
-			command_input_parameter := &cmd_line_tool.Inputs[i]
-			if command_input_parameter.Default == nil {
-				continue
-			}
+			test := &workflow.Requirements
 
-			var default_file *cwl.File
-			default_file, ok = command_input_parameter.Default.(*cwl.File)
-			if !ok {
-				continue
-			}
-
-			err = cache.UploadFile(default_file, inputfile_path)
+			var test2 *[]cwl.Requirement
+			test2, err = cwl.AddRequirement(*shock_requirement, test)
 			if err != nil {
-				return
+				err = fmt.Errorf("(main_wrapper) AddRequirement returned: %s", err.Error())
 			}
-			command_input_parameter.Default = default_file
-			cmd_line_tool.Inputs[i] = *command_input_parameter
-			update = true
-			//spew.Dump(command_input_parameter)
-			//fmt.Printf("File: %+v\n", *default_file)
 
-		}
-		if update {
-			named_object_array[j].Value = cmd_line_tool
+			workflow.Requirements = *test2
+
+		case *cwl.CommandLineTool:
+			var cmd_line_tool *cwl.CommandLineTool
+			cmd_line_tool, ok = object.(*cwl.CommandLineTool) // TODO this misses embedded CommandLineTools !
+			if !ok {
+				//fmt.Println("nope.")
+				err = nil
+				continue
+			}
+
+			update := false
+			for i, _ := range cmd_line_tool.Inputs {
+				command_input_parameter := &cmd_line_tool.Inputs[i]
+				if command_input_parameter.Default == nil {
+					continue
+				}
+
+				var default_file *cwl.File
+				default_file, ok = command_input_parameter.Default.(*cwl.File)
+				if !ok {
+					continue
+				}
+
+				err = cache.UploadFile(default_file, inputfile_path)
+				if err != nil {
+					return
+				}
+				command_input_parameter.Default = default_file
+				cmd_line_tool.Inputs[i] = *command_input_parameter
+				update = true
+				//spew.Dump(command_input_parameter)
+				//fmt.Printf("File: %+v\n", *default_file)
+
+			}
+			if update {
+				named_object_array[j].Value = cmd_line_tool
+			}
 		}
 	}
 
@@ -347,6 +371,7 @@ func main_wrapper() (err error) {
 
 			_, err = cache.ProcessIOData(output_receipt, output_file_path, "download")
 			if err != nil {
+				spew.Dump(output_receipt)
 				err = fmt.Errorf("(main_wrapper) ProcessIOData(for download) returned: %s", err.Error())
 				return
 			}

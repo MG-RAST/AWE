@@ -13,9 +13,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/shock"
-	"github.com/MG-RAST/golib/httpclient"
 	//"github.com/davecgh/go-spew/spew"
-	"io"
+
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -137,8 +136,8 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 }
 
 func UploadFile(file *cwl.File, inputfile_path string) (err error) {
-	//fmt.Printf("(uploadFile) start\n")
-	//defer fmt.Printf("(uploadFile) end\n")
+	fmt.Printf("(uploadFile) start\n")
+	defer fmt.Printf("(uploadFile) end\n")
 	//if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 
 	//	time.Sleep(3 * time.Second) //wait for 3 seconds and try again
@@ -176,7 +175,7 @@ func UploadFile(file *cwl.File, inputfile_path string) (err error) {
 	}
 
 	if file.Location_url == nil && file.Location != "" {
-		err = fmt.Errorf("URL has not been parsed correctly")
+		err = fmt.Errorf("(UploadFile) URL has not been parsed correctly")
 		return
 	}
 
@@ -185,6 +184,7 @@ func UploadFile(file *cwl.File, inputfile_path string) (err error) {
 	basename := path.Base(file_path)
 
 	if file_path == "" {
+		err = fmt.Errorf("(UploadFile) file.Path is empty")
 		return
 	}
 
@@ -201,17 +201,25 @@ func UploadFile(file *cwl.File, inputfile_path string) (err error) {
 	opts := shock.Opts{"upload_type": "basic", "file": file_path}
 	node, err := sc.CreateOrUpdate(opts, "", nil)
 	if err != nil {
+		err = fmt.Errorf("(UploadFile) CreateOrUpdate returned: %s", err.Error())
 		return
 	}
 	//spew.Dump(node)
 
 	file.Location_url, err = url.Parse(conf.SHOCK_URL + "/node/" + node.Id + "?download")
 	if err != nil {
+		err = fmt.Errorf("(UploadFile) url.Parse returned: %s", err.Error())
 		return
 	}
 
 	file.Location = file.Location_url.String()
-	file.Path = ""
+
+	fmt.Printf("file.Path A: %s", file.Path)
+
+	file.Path = strings.TrimPrefix(file.Path, inputfile_path)
+	file.Path = strings.TrimPrefix(file.Path, "/")
+
+	fmt.Printf("file.Path B: %s", file.Path)
 	file.Basename = basename
 
 	return
@@ -308,12 +316,12 @@ func ProcessIOData(native interface{}, path string, io_type string) (count int, 
 
 		job_doc := *job_doc_ptr
 
-		for _, value := range job_doc {
+		for i, _ := range job_doc {
 
 			//id := value.Id
 			//fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
-			sub_count, err = ProcessIOData(value, path, io_type)
+			sub_count, err = ProcessIOData(job_doc[i], path, io_type)
 			if err != nil {
 				return
 			}
@@ -350,6 +358,7 @@ func ProcessIOData(native interface{}, path string, io_type string) (count int, 
 		if io_type == "upload" {
 			err = UploadFile(file, path)
 			if err != nil {
+				err = fmt.Errorf("(ProcessIOData) UploadFile returned: %s", err.Error())
 				return
 			}
 			count += 1
@@ -358,6 +367,7 @@ func ProcessIOData(native interface{}, path string, io_type string) (count int, 
 			// download
 			err = DownloadFile(file, path)
 			if err != nil {
+				err = fmt.Errorf("(ProcessIOData) DownloadFile returned: %s", err.Error())
 				return
 			}
 		}
@@ -368,6 +378,7 @@ func ProcessIOData(native interface{}, path string, io_type string) (count int, 
 				var sub_count int
 				sub_count, err = ProcessIOData(value, path, io_type)
 				if err != nil {
+					err = fmt.Errorf("(ProcessIOData) (for SecondaryFiles) ProcessIOData returned: %s", err.Error())
 					return
 				}
 				count += sub_count
@@ -384,13 +395,14 @@ func ProcessIOData(native interface{}, path string, io_type string) (count int, 
 			return
 		}
 
-		for _, value := range *array {
+		for i, _ := range *array {
 
 			//id := value.GetId()
 			//fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
-			sub_count, err = ProcessIOData(value, path, io_type)
+			sub_count, err = ProcessIOData((*array)[i], path, io_type)
 			if err != nil {
+				err = fmt.Errorf("(ProcessIOData) (for *cwl.Array) ProcessIOData returned: %s", err.Error())
 				return
 			}
 			count += sub_count
@@ -400,19 +412,23 @@ func ProcessIOData(native interface{}, path string, io_type string) (count int, 
 
 	case *cwl.Directory:
 
+		fmt.Printf("XXX *cwl.Directory\n")
 		dir, ok := native.(*cwl.Directory)
 		if !ok {
-			err = fmt.Errorf("could not cast to *cwl.Directory")
+			err = fmt.Errorf("(ProcessIOData) could not cast to *cwl.Directory")
 			return
 		}
 
 		if dir.Listing != nil {
 
 			for k, _ := range dir.Listing {
+
 				value := dir.Listing[k]
+				fmt.Printf("XXX *cwl.Directory, Listing %d (%s)\n", k, reflect.TypeOf(value))
 				var sub_count int
 				sub_count, err = ProcessIOData(value, path, io_type)
 				if err != nil {
+					err = fmt.Errorf("(ProcessIOData) ProcessIOData for Directory.Listing returned (value: %s): %s", value, err.Error())
 					return
 				}
 				count += sub_count
@@ -420,6 +436,13 @@ func ProcessIOData(native interface{}, path string, io_type string) (count int, 
 			}
 
 		}
+		logger.Debug(3, "dir.Path: %s", dir.Path)
+		if io_type == "upload" {
+			dir.Path = strings.TrimPrefix(dir.Path, path)
+			dir.Path = strings.TrimPrefix(dir.Path, "/")
+		}
+		logger.Debug(3, "dir.Path: %s", dir.Path)
+
 		return
 	case *cwl.Record:
 
@@ -464,7 +487,7 @@ func ProcessIOData(native interface{}, path string, io_type string) (count int, 
 	return
 }
 
-func CWL_File_2_AWE_IO(file *cwl.File) (io *core.IO, err error) { // TODO deprecate this !
+func CWL_File_2_AWE_IO_deprecated(file *cwl.File) (io *core.IO, err error) { // TODO deprecate this !
 
 	url_obj := file.Location_url
 
@@ -499,141 +522,6 @@ func CWL_File_2_AWE_IO(file *cwl.File) (io *core.IO, err error) { // TODO deprec
 	return
 }
 
-func MoveInputCWL_deprecated(work *core.Workunit, work_path string, input cwl.CWLType) (size int64, err error) {
-
-	//real_object := input.Value
-
-	//spew.Dump(input)
-	switch input.(type) {
-	case *cwl.File:
-		file := input.(*cwl.File)
-		//spew.Dump(*file)
-		fmt.Printf("file: %+v\n", *file)
-
-		var io *core.IO
-		io, err = CWL_File_2_AWE_IO(file)
-		if err != nil {
-			return
-		}
-
-		var io_size int64
-		io_size, err = MoveInputIO(work, io, work_path)
-		if err != nil {
-			err = fmt.Errorf("(MoveInputData) MoveInputIO returns %s", err.Error())
-			return
-		}
-		size = io_size
-		//spew.Dump(io)
-
-		return
-	case *cwl.String:
-		return
-	case *cwl.Int:
-		return
-	case *cwl.Double:
-		return
-	case *cwl.Boolean:
-		return
-	case *cwl.Null:
-		return
-	case *cwl.Array:
-
-		array := input.(*cwl.Array)
-
-		array_instance := *array
-
-		for element_pos := range array_instance {
-
-			element := array_instance[element_pos]
-			var io_size int64
-			io_size, err = MoveInputCWL_deprecated(work, work_path, element)
-			if err != nil {
-				return
-			}
-			size += io_size
-		}
-		return
-	case *cwl.Directory:
-
-		d := input.(*cwl.Directory)
-
-		listing := d.Listing
-
-		var io_size int64
-		for _, element := range listing {
-
-			var element_cwl cwl.CWLType
-
-			switch element.(type) {
-			case *cwl.File:
-				element_cwl = element.(*cwl.File)
-			case *cwl.Directory:
-				element_cwl = element.(*cwl.Directory)
-			default:
-				err = fmt.Errorf("(MoveInputData) type %s of element in directory listing not supported", reflect.TypeOf(element))
-				return
-			}
-
-			io_size, err = MoveInputCWL_deprecated(work, work_path, element_cwl)
-			if err != nil {
-				return
-			}
-			size += io_size
-		}
-
-	case *cwl.Record:
-
-		r := input.(*cwl.Record)
-		var io_size int64
-
-		for _, element := range *r {
-			//var element_cwl cwl.CWLType
-			//element_cwl, err = cwl.NewCWLType(id, element)
-			//if err != nil {
-			//	return
-			//}
-			var element_cwl cwl.CWLType
-
-			switch element.(type) {
-			case *cwl.File:
-				element_cwl = element.(*cwl.File)
-			case *cwl.Directory:
-				element_cwl = element.(*cwl.Directory)
-			case *cwl.Array:
-				element_cwl = element.(*cwl.Array)
-			case *cwl.String:
-				continue
-			case *cwl.Int:
-				continue
-			case *cwl.Boolean:
-				continue
-			case *cwl.Float:
-				continue
-			case *cwl.Double:
-				continue
-			default:
-				err = fmt.Errorf("(MoveInputData) element type %s  in record not supported", reflect.TypeOf(element))
-				return
-			}
-
-			io_size, err = MoveInputCWL_deprecated(work, work_path, element_cwl)
-			if err != nil {
-				return
-			}
-			size += io_size
-		}
-
-	case *cwl.Enum:
-		err = fmt.Errorf("(MoveInputData) type %s not supported yet", reflect.TypeOf(input))
-		return
-
-	default:
-		err = fmt.Errorf("(MoveInputData) type %s not supported yet", reflect.TypeOf(input))
-		return
-	}
-	return
-}
-
 //fetch input data
 func MoveInputData(work *core.Workunit) (size int64, err error) {
 
@@ -646,7 +534,7 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 	if work.CWL_workunit != nil {
 
 		job_input := work.CWL_workunit.Job_input
-		fmt.Printf("job_input1:\n")
+		//fmt.Printf("job_input1:\n")
 		spew.Dump(job_input)
 
 		_, err = ProcessIOData(job_input, work_path, "download")
@@ -654,8 +542,8 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 			err = fmt.Errorf("(MoveInputData) ProcessIOData(for download) returned: %s", err.Error())
 			return
 		}
-		fmt.Printf("job_input2:\n")
-		spew.Dump(job_input)
+		//fmt.Printf("job_input2:\n")
+		//spew.Dump(job_input)
 
 		//for _, input := range *job_input {
 		//fmt.Println(input_name)
@@ -691,41 +579,6 @@ func isFileExistingInCache(id string) bool {
 		return true
 	}
 	return false
-}
-
-//fetch file by shock url TODO deprecated
-func fetchFile_deprecated(filename string, url string, token string) (size int64, err error) {
-	fmt.Printf("(fetchFile_deprecated) fetching file name=%s, url=%s\n", filename, url)
-	localfile, err := os.Create(filename)
-	if err != nil {
-		return 0, err
-	}
-	defer localfile.Close()
-
-	var user *httpclient.Auth
-	if token != "" {
-		user = httpclient.GetUserByTokenAuth(token)
-	}
-
-	//download file from Shock
-	res, err := httpclient.Get(url, httpclient.Header{}, nil, user)
-	if err != nil {
-		return 0, err
-	}
-
-	defer res.Body.Close()
-
-	if res.StatusCode != 200 { //err in fetching data
-		resbody, _ := ioutil.ReadAll(res.Body)
-		msg := fmt.Sprintf("op=fetchFile, url=%s, res=%s", url, resbody)
-		return 0, errors.New(msg)
-	}
-
-	size, err = io.Copy(localfile, res.Body)
-	if err != nil {
-		return 0, err
-	}
-	return
 }
 
 func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id string, err error) {
@@ -863,96 +716,84 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 
 	if work.CWL_workunit != nil {
 
-		//workunit.CWL_workunit.Tool_results
-		// workunit.CWL_workunit.OutputsExpected
-		//fmt.Println("work.CWL_workunit.OutputsExpected:\n")
-		//spew.Dump(*work.CWL_workunit.OutputsExpected)
-		//for _, result := range *work.CWL_workunit.Tool_results {
-		//	fmt.Println(result.GetId())
-		//}
+		if work.CWL_workunit.Outputs != nil {
+			fmt.Println("Outputs 1")
+			scs := spew.Config
+			scs.DisableMethods = true
 
-		tool_result_map := work.CWL_workunit.Outputs.GetMap()
+			scs.Dump(work.CWL_workunit.Outputs)
+			var upload_count int
+			upload_count, err = ProcessIOData(work.CWL_workunit.Outputs, "", "upload")
+			if err != nil {
+				err = fmt.Errorf("(UploadOutputData) ProcessIOData returned: %s", err.Error())
+			}
+			logger.Debug(3, "(UploadOutputData) %d files uploaded to shock", upload_count)
+			fmt.Println("Outputs 2")
+			scs.Dump(work.CWL_workunit.Outputs)
+		}
 
-		result_array := cwl.Job_document{}
+		// tool_result_map := work.CWL_workunit.Outputs.GetMap()
 
-		// first check if expected output exists (pretty useless)
+		// result_array := cwl.Job_document{}
+
 		// for _, expected_output := range *work.CWL_workunit.OutputsExpected {
-		//
-		// 			expected_full := expected_output.Id
-		// 			logger.Debug(3, " (A) expected_full: %s", expected_full)
-		// 			expected := path.Base(expected_full)
-		//
-		// 			_, ok := tool_result_map[expected]
-		// 			if !ok {
-		//
-		// 				resultlist := ""
-		// 				for key, _ := range tool_result_map {
-		// 					resultlist = resultlist + " " + key
-		// 				}
-		//
-		// 				logger.Debug(3, "(UploadOutputData) Expected output %s is missing, might be optional (available: %s)", expected, resultlist)
-		// 				continue
-		// 			}
+		// 	expected_full := expected_output.Id
+		// 	logger.Debug(3, "(B) expected_full: %s", expected_full)
+		// 	expected := path.Base(expected_full)
+
+		// 	tool_result, ok := tool_result_map[expected] // cwl.File
+		// 	if !ok {
+		// 		resultlist := ""
+		// 		for key, _ := range tool_result_map {
+		// 			resultlist = resultlist + " " + key
 		// 		}
 
-		for _, expected_output := range *work.CWL_workunit.OutputsExpected {
-			expected_full := expected_output.Id
-			logger.Debug(3, "(B) expected_full: %s", expected_full)
-			expected := path.Base(expected_full)
+		// 		// TODO check CommandLineOutput if output is optional
+		// 		logger.Debug(3, "(UploadOutputData) Expected output %s is missing, might be optional (available: %s)", expected, resultlist)
+		// 		continue
+		// 	}
 
-			tool_result, ok := tool_result_map[expected] // cwl.File
-			if !ok {
-				resultlist := ""
-				for key, _ := range tool_result_map {
-					resultlist = resultlist + " " + key
-				}
+		// 	result_array = append(result_array, cwl.NewNamedCWLType(expected, tool_result))
 
-				// TODO check CommandLineOutput if output is optional
-				logger.Debug(3, "(UploadOutputData) Expected output %s is missing, might be optional (available: %s)", expected, resultlist)
-				continue
-			}
+		// 	output_class := tool_result.GetClass()
+		// 	if output_class != string(cwl.CWL_File) {
+		// 		continue
+		// 	}
 
-			result_array = append(result_array, cwl.NewNamedCWLType(expected, tool_result))
+		// 	cwl_file, ok := tool_result.(*cwl.File)
+		// 	if !ok {
+		// 		err = fmt.Errorf("(UploadOutputData) Could not type-assert file (expected: %s)", expected)
+		// 		return
+		// 	}
 
-			output_class := tool_result.GetClass()
-			if output_class != string(cwl.CWL_File) {
-				continue
-			}
+		// 	if work.ShockHost == "" {
+		// 		err = fmt.Errorf("No default Shock host defined !")
+		// 		return
+		// 	}
 
-			cwl_file, ok := tool_result.(*cwl.File)
-			if !ok {
-				err = fmt.Errorf("(UploadOutputData) Could not type-assert file (expected: %s)", expected)
-				return
-			}
+		// 	new_io := &core.IO{Name: expected}
+		// 	new_io.FileName = cwl_file.Basename
+		// 	new_io.Path = cwl_file.Path
 
-			if work.ShockHost == "" {
-				err = fmt.Errorf("No default Shock host defined !")
-				return
-			}
+		// 	new_io.Host = work.ShockHost
 
-			new_io := &core.IO{Name: expected}
-			new_io.FileName = cwl_file.Basename
-			new_io.Path = cwl_file.Path
+		// 	//outputs = append(outputs, new_io)
 
-			new_io.Host = work.ShockHost
+		// 	var io_size int64
+		// 	var new_node_id string
+		// 	io_size, new_node_id, err = UploadOutputIO(work, new_io)
+		// 	if err != nil {
+		// 		return
+		// 	}
+		// 	size += io_size
 
-			//outputs = append(outputs, new_io)
+		// 	cwl_file.Location = work.ShockHost + "/node/" + new_node_id + "?download"
+		// 	cwl_file.Path = ""
 
-			var io_size int64
-			var new_node_id string
-			io_size, new_node_id, err = UploadOutputIO(work, new_io)
-			if err != nil {
-				return
-			}
-			size += io_size
-
-			cwl_file.Location = work.ShockHost + "/node/" + new_node_id + "?download"
-			cwl_file.Path = ""
-
-		}
-		//spew.Dump(work.CWL_workunit.OutputsExpected)
-		//panic("uga")
-		work.CWL_workunit.Results = &result_array
+		// }
+		// //spew.Dump(work.CWL_workunit.OutputsExpected)
+		// //panic("uga")
+		// work.CWL_workunit.Results = &result_array
 
 	} else {
 

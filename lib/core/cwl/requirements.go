@@ -68,9 +68,9 @@ func NewRequirement(class string, obj interface{}) (r Requirement, schemata []CW
 		}
 		return
 	case "ShockRequirement":
-		r, err = NewShockRequirement(obj)
+		r, err = NewShockRequirementFromInterface(obj)
 		if err != nil {
-			err = fmt.Errorf("(NewRequirement) NewShockRequirement returns: %s", err.Error())
+			err = fmt.Errorf("(NewRequirement) NewShockRequirementFromInterface returns: %s", err.Error())
 			return
 		}
 		return

@@ -3,11 +3,12 @@ package core
 import (
 	"errors"
 	"fmt"
+	"regexp"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/shock"
-	"regexp"
 	//"strconv"
 	//"github.com/davecgh/go-spew/spew"
 	"strings"
@@ -1101,6 +1102,10 @@ func (task *Task) setTokenForIO(writelock bool) (err error) {
 
 func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err error) {
 	//if a task contains only one workunit, assign rank 0
+
+	//if task.WorkflowStep != nil {
+	//	step :=
+	//}
 
 	if task.TotalWork == 1 {
 		workunit, xerr := NewWorkunit(qm, task, 0, job)

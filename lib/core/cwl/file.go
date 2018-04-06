@@ -14,8 +14,8 @@ import (
 
 // http://www.commonwl.org/v1.0/Workflow.html#File
 type File struct {
-	CWLType_Impl   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	Type           CWLType_Type  `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
+	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class, Type
+	//Type           CWLType_Type  `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 	Location       string        `yaml:"location,omitempty" json:"location,omitempty" bson:"location,omitempty" mapstructure:"location,omitempty"` // An IRI that identifies the file resource.
 	Location_url   *url.URL      `yaml:"-" json:"-" bson:"-" mapstructure:"-"`                                                                     // only for internal purposes
 	Path           string        `yaml:"path,omitempty" json:"path,omitempty" bson:"path,omitempty" mapstructure:"path,omitempty"`                 // dirname + '/' + basename == path This field must be set by the implementation.

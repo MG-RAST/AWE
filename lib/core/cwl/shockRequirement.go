@@ -11,7 +11,13 @@ type ShockRequirement struct {
 
 func (s ShockRequirement) GetId() string { return "None" }
 
-func NewShockRequirement(original interface{}) (r *ShockRequirement, err error) {
+func NewShockRequirement(host string) (r *ShockRequirement, err error) {
+	var requirement ShockRequirement
+	requirement.Class = "ShockRequirement"
+	return
+}
+
+func NewShockRequirementFromInterface(original interface{}) (r *ShockRequirement, err error) {
 	var requirement ShockRequirement
 	r = &requirement
 	err = mapstructure.Decode(original, &requirement)

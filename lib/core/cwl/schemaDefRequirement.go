@@ -3,13 +3,14 @@ package cwl
 import (
 	"fmt"
 	//"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
 	"reflect"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 // http://www.commonwl.org/v1.0/Workflow.html#SchemaDefRequirement
 type SchemaDefRequirement struct {
-	BaseRequirement `bson:",inline" yaml:",inline" json:",inline"`
+	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 	Types           []interface{} `yaml:"types,omitempty" json:"types,omitempty" bson:"types,omitempty"` // array<InputRecordSchema | InputEnumSchema | InputArraySchema>
 }
 

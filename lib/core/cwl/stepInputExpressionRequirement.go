@@ -8,7 +8,7 @@ import (
 
 //http://www.commonwl.org/v1.0/Workflow.html#StepInputExpressionRequirement
 type StepInputExpressionRequirement struct {
-	BaseRequirement `bson:",inline" yaml:",inline" json:",inline"`
+	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 }
 
 func (c StepInputExpressionRequirement) GetId() string { return "None" }

@@ -9,7 +9,7 @@ import (
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#EnvVarRequirement
 type EnvVarRequirement struct {
-	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",inline"`
+	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 	EnvDef          []EnvironmentDef `yaml:"envDef,omitempty" bson:"envDef,omitempty" json:"envDef,omitempty" mapstructure:"envDef,omitempty"`
 }
 

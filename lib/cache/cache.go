@@ -623,10 +623,10 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 		if err != nil {
 			//skip this output if missing file and optional
 			if !io.Optional {
-				err = fmt.Errorf("output %s not generated for workunit %s %s()", name, work.Id, err.Error())
+				err = fmt.Errorf("(UploadOutputIO) output %s not generated for workunit %s err=%s", name, work.Id, err.Error())
 				return
 			}
-
+			err = nil
 			return
 		}
 		if fi == nil {
@@ -635,13 +635,13 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 		}
 
 		if io.Nonzero && fi.Size() == 0 {
-			err = fmt.Errorf("workunit %s generated zero-sized output %s while non-zero-sized file required", work.Id, name)
+			err = fmt.Errorf("(UploadOutputIO) workunit %s generated zero-sized output %s while non-zero-sized file required", work.Id, name)
 			return
 		}
 		size += fi.Size()
 
 	}
-	logger.Debug(1, "deliverer: push output to shock, filename="+name)
+	logger.Debug(1, "(UploadOutputIO) deliverer: push output to shock, filename="+name)
 	logger.Event(event.FILE_OUT,
 		"workid="+work.Id,
 		"filename="+name,
@@ -804,6 +804,9 @@ func UploadOutputData(work *core.Workunit) (size int64, err error) {
 		for _, io := range outputs {
 			var io_size int64
 			io_size, _, err = UploadOutputIO(work, io)
+			if err != nil {
+				err = fmt.Errorf("(UploadOutputData) UploadOutputIO returned: %s", err.Error())
+			}
 			size += io_size
 		}
 

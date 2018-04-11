@@ -178,12 +178,14 @@ func main_wrapper() (err error) {
 
 	_ = schemata // TODO put into a collection!
 
-	var shock_requirement *cwl.ShockRequirement
-	shock_requirement, err = cwl.NewShockRequirement(conf.SHOCK_URL)
+	var shock_requirement cwl.ShockRequirement
+	var shock_requirement_ptr *cwl.ShockRequirement
+	shock_requirement_ptr, err = cwl.NewShockRequirement(conf.SHOCK_URL)
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) NewShockRequirement returned: %s", err.Error())
 		return
 	}
+	shock_requirement = *shock_requirement_ptr
 	// A) search for File objects in Document, e.g. in CommandLineTools
 	// B) inject ShockRequirement into CommandLineTools, ExpressionTools and Workflow
 	for j, _ := range named_object_array {
@@ -197,15 +199,11 @@ func main_wrapper() (err error) {
 		case *cwl.Workflow:
 			workflow := object.(*cwl.Workflow)
 
-			test := &workflow.Requirements
-
-			var test2 *[]cwl.Requirement
-			test2, err = cwl.AddRequirement(*shock_requirement, test)
+			workflow.Requirements, err = cwl.AddRequirement(shock_requirement, workflow.Requirements)
 			if err != nil {
 				err = fmt.Errorf("(main_wrapper) AddRequirement returned: %s", err.Error())
+				return
 			}
-
-			workflow.Requirements = *test2
 
 		case *cwl.CommandLineTool:
 			var cmd_line_tool *cwl.CommandLineTool
@@ -214,6 +212,16 @@ func main_wrapper() (err error) {
 				//fmt.Println("nope.")
 				err = nil
 				continue
+			}
+
+			if cmd_line_tool == nil {
+				err = fmt.Errorf("(main_wrapper) cmd_line_tool==nil")
+				return
+			}
+
+			cmd_line_tool.Requirements, err = cwl.AddRequirement(shock_requirement, cmd_line_tool.Requirements)
+			if err != nil {
+				err = fmt.Errorf("(main_wrapper) AddRequirement returned: %s", err.Error())
 			}
 
 			update := false
@@ -272,9 +280,9 @@ func main_wrapper() (err error) {
 		return
 	}
 
-	//fmt.Println("------------")
-	//fmt.Println(new_document_str)
-	//fmt.Println("------------")
+	fmt.Println("------------")
+	fmt.Println(new_document_str)
+	fmt.Println("------------")
 	//panic("hhhh")
 	new_document_bytes = []byte(new_document_str)
 

@@ -192,30 +192,32 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	logger.Debug(1, "Job created")
 
 	found_ShockRequirement := false
-	for _, r := range cwl_workflow.Requirements { // TODO put ShockRequirement in Hints
-		req, ok := r.(cwl.Requirement)
-		if !ok {
-			err = fmt.Errorf("not a requirement")
-			return
-		}
-		switch req.GetClass() {
-		case "ShockRequirement":
-			sr, ok := req.(cwl.ShockRequirement)
+	if cwl_workflow.Requirements != nil {
+		for _, r := range *cwl_workflow.Requirements { // TODO put ShockRequirement in Hints
+			req, ok := r.(cwl.Requirement)
 			if !ok {
-				err = fmt.Errorf("Could not assert ShockRequirement")
+				err = fmt.Errorf("not a requirement")
 				return
 			}
+			switch req.GetClass() {
+			case "ShockRequirement":
+				sr, ok := req.(cwl.ShockRequirement)
+				if !ok {
+					err = fmt.Errorf("Could not assert ShockRequirement")
+					return
+				}
 
-			job.ShockHost = sr.Host
-			found_ShockRequirement = true
+				job.ShockHost = sr.Shock_api_url
+				found_ShockRequirement = true
 
+			}
 		}
 	}
 
 	if !found_ShockRequirement {
-		//err = fmt.Errorf("ShockRequirement has to be provided in the workflow object")
-		//return
-		job.ShockHost = "http://shock:7445" // TODO make this different
+		err = fmt.Errorf("ShockRequirement has to be provided in the workflow object")
+		return
+		//job.ShockHost = "http://shock:7445" // TODO make this different
 
 	}
 	logger.Debug(1, "Requirements checked")

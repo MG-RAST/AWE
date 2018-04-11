@@ -5,7 +5,7 @@ import (
 )
 
 type InlineJavascriptRequirement struct {
-	BaseRequirement `bson:",inline" yaml:",inline" json:",inline"`
+	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 	ExpressionLib   []string `yaml:"expressionLib,omitempty" bson:"expressionLib,omitempty" json:"expressionLib,omitempty"`
 }
 

@@ -115,16 +115,23 @@ func NewRequirement(class string, obj interface{}) (r Requirement, schemata []CW
 }
 
 func AddRequirement(new_r Requirement, old_array_ptr *[]Requirement) (new_array_ptr *[]Requirement, err error) {
+
+	var new_array []Requirement
+
 	new_r_class := new_r.GetClass()
-	for i, _ := range *old_array_ptr {
-		r := (*old_array_ptr)[i]
-		if r.GetClass() == new_r_class {
-			new_array_ptr = old_array_ptr
-			return
+	if old_array_ptr != nil {
+		for i, _ := range *old_array_ptr {
+			r := (*old_array_ptr)[i]
+			if r.GetClass() == new_r_class {
+				new_array_ptr = old_array_ptr
+				return
+			}
 		}
+		new_array = append(*old_array_ptr, new_r)
+	} else {
+		new_array = []Requirement{new_r}
 	}
 
-	new_array := append(*old_array_ptr, new_r)
 	new_array_ptr = &new_array
 
 	return

@@ -5,12 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/core"
-	e "github.com/MG-RAST/AWE/lib/errors"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/golib/httpclient"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -21,6 +15,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core"
+	e "github.com/MG-RAST/AWE/lib/errors"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/golib/httpclient"
 )
 
 type HeartbeatResponse struct {
@@ -274,7 +275,7 @@ func RegisterWithAuth(host string, pclient *core.Client) (err error) {
 
 	resp, err := httpclient.DoTimeout("POST", targetUrl, headers, form.Reader, nil, time.Second*10)
 	if err != nil {
-		err = fmt.Errorf("(RegisterWithAuth) POST %s error: %s", targetUrl, err.Error())
+		err = fmt.Errorf("(RegisterWithAuth) POST %s, httpclient.DoTimeout returns: %s", targetUrl, err.Error())
 		return
 	}
 	defer resp.Body.Close()

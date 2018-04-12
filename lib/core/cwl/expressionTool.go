@@ -19,7 +19,7 @@ type ExpressionTool struct {
 	Inputs          []InputParameter                `yaml:"inputs" bson:"inputs" json:"inputs" mapstructure:"inputs"`
 	Outputs         []ExpressionToolOutputParameter `yaml:"outputs" bson:"outputs" json:"outputs" mapstructure:"outputs"`
 	Expression      Expression                      `yaml:"expression,omitempty" bson:"expression,omitempty" json:"expression,omitempty" mapstructure:"expression,omitempty"`
-	Requirements    []Requirement                   `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"`
+	Requirements    *[]Requirement                  `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"`
 	Hints           []Requirement                   `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`
 	Label           string                          `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
 	Doc             string                          `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
@@ -89,9 +89,9 @@ func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []C
 	}
 
 	var new_requirements *[]Requirement
-	new_requirements, err = AddRequirement(NewInlineJavascriptRequirement(), &et.Requirements)
+	new_requirements, err = AddRequirement(NewInlineJavascriptRequirement(), et.Requirements)
 	if err == nil {
-		et.Requirements = *new_requirements
+		et.Requirements = new_requirements
 	}
 
 	return

@@ -165,7 +165,7 @@ func main_wrapper() (err error) {
 
 	// convert CWL to string
 	yaml_str := string(yamlstream[:])
-
+	fmt.Printf("after cwl-runner --pack: \n%s\n", yaml_str)
 	var named_object_array cwl.Named_CWL_object_array
 	var cwl_version cwl.CWLVersion
 	var schemata []cwl.CWLType_Type
@@ -185,6 +185,7 @@ func main_wrapper() (err error) {
 		err = fmt.Errorf("(main_wrapper) NewShockRequirement returned: %s", err.Error())
 		return
 	}
+
 	shock_requirement = *shock_requirement_ptr
 	// A) search for File objects in Document, e.g. in CommandLineTools
 	// B) inject ShockRequirement into CommandLineTools, ExpressionTools and Workflow

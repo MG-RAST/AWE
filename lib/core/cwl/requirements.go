@@ -137,6 +137,28 @@ func AddRequirement(new_r Requirement, old_array_ptr *[]Requirement) (new_array_
 	return
 }
 
+func DeleteRequirement(requirement_class string, old_array_ptr *[]Requirement) (new_array_ptr *[]Requirement, err error) {
+
+	// if old array is empty anyway, there is nothing to delete
+	if old_array_ptr == nil {
+		new_array_ptr = nil
+		return
+	}
+
+	var new_array []Requirement
+
+	for i, _ := range *old_array_ptr {
+		r := (*old_array_ptr)[i]
+		if r.GetClass() != requirement_class {
+			new_array = append(new_array, r)
+		}
+	}
+
+	new_array_ptr = &new_array
+
+	return
+}
+
 func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement, schemata []CWLType_Type, err error) {
 	// here the keynames are actually class names
 

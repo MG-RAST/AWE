@@ -8,9 +8,9 @@ import (
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputBinding
 type CommandOutputBinding struct {
-	Glob         []Expression `yaml:"glob,omitempty" bson:"glob,omitempty" json:"glob,omitempty"`
-	LoadContents bool         `yaml:"loadContents,omitempty" bson:"loadContents,omitempty" json:"loadContents,omitempty"  mapstructure:"loadContents,omitempty"`
-	OutputEval   *Expression  `yaml:"outputEval,omitempty" bson:"outputEval,omitempty" json:"outputEval,omitempty" mapstructure:"outputEval,omitempty"`
+	Glob         *[]Expression `yaml:"glob,omitempty" bson:"glob,omitempty" json:"glob,omitempty"`
+	LoadContents bool          `yaml:"loadContents,omitempty" bson:"loadContents,omitempty" json:"loadContents,omitempty"  mapstructure:"loadContents,omitempty"`
+	OutputEval   *Expression   `yaml:"outputEval,omitempty" bson:"outputEval,omitempty" json:"outputEval,omitempty" mapstructure:"outputEval,omitempty"`
 }
 
 func NewCommandOutputBinding(original interface{}) (commandOutputBinding *CommandOutputBinding, err error) {
@@ -36,9 +36,11 @@ func NewCommandOutputBinding(original interface{}) (commandOutputBinding *Comman
 		var glob interface{}
 		glob, ok = original_map["glob"]
 		if ok {
-			glob_object, xerr := NewExpressionArray(glob)
-			if xerr != nil {
-				err = fmt.Errorf("(NewCommandOutputBinding/glob) NewExpressionArray returned: %s", xerr.Error())
+
+			var glob_object *[]Expression
+			glob_object, err = NewExpressionArray(glob)
+			if err != nil {
+				err = fmt.Errorf("(NewCommandOutputBinding/glob) NewExpressionArray returned: %s", err.Error())
 				return
 			}
 			original_map["glob"] = glob_object

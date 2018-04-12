@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -201,9 +202,9 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 			}
 			switch req.GetClass() {
 			case "ShockRequirement":
-				sr, ok := req.(cwl.ShockRequirement)
+				sr, ok := r.(*cwl.ShockRequirement)
 				if !ok {
-					err = fmt.Errorf("Could not assert ShockRequirement")
+					err = fmt.Errorf("(CWL2AWE) Could not assert ShockRequirement (type: %s)", reflect.TypeOf(r))
 					return
 				}
 

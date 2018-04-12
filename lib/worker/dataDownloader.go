@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/MG-RAST/AWE/lib/cache"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -252,7 +254,7 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 		moved_data, xerr := cache.MoveInputData(workunit)
 		if xerr != nil {
 
-			err = fmt.Errorf("(dataDownloader) workid=%s error=%s", work_str, xerr.Error())
+			err = fmt.Errorf("(downloadWorkunitData) workid=%s error=%s", work_str, xerr.Error())
 			workunit.Notes = append(workunit.Notes, "[dataDownloader#MoveInputData]"+err.Error())
 			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 			//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -271,12 +273,44 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 			cwl_tool_filename := path.Join(work_path, "cwl_tool.yaml")
 
 			if job_input == nil {
-				err = fmt.Errorf("Job_input is empty")
+				err = fmt.Errorf("(downloadWorkunitData) Job_input is empty")
 				return
 			}
 
 			if cwl_tool == nil {
-				err = fmt.Errorf("CWL_tool is empty")
+				err = fmt.Errorf("(downloadWorkunitData) CWL_tool is empty")
+				return
+			}
+
+			// create cwt_tool file
+			var cwl_tool_bytes []byte
+
+			switch cwl_tool.(type) {
+			case *cwl.CommandLineTool:
+				cwl_tool_clt := cwl_tool.(*cwl.CommandLineTool)
+				// remove ShockRequirement (CWL-Runner does not know it)
+				cwl_tool_clt.Requirements, err = cwl.DeleteRequirement("ShockRequirement", cwl_tool_clt.Requirements)
+				if err != nil {
+					err = fmt.Errorf("(downloadWorkunitData) DeleteRequirement/CommandLineTool returned: %s", err.Error())
+					return
+				}
+				cwl_tool_bytes, err = yaml.Marshal(cwl_tool_clt)
+				if err != nil {
+					return
+				}
+			case *cwl.ExpressionTool:
+				cwl_tool_et := cwl_tool.(*cwl.ExpressionTool)
+				cwl_tool_et.Requirements, err = cwl.DeleteRequirement("ShockRequirement", cwl_tool_et.Requirements)
+				if err != nil {
+					err = fmt.Errorf("(downloadWorkunitData) DeleteRequirement/ExpressionTool returned: %s", err.Error())
+					return
+				}
+				cwl_tool_bytes, err = yaml.Marshal(cwl_tool_et)
+				if err != nil {
+					return
+				}
+			default:
+				err = fmt.Errorf("(downloadWorkunitData) tool type %s not supported", reflect.TypeOf(cwl_tool))
 				return
 			}
 
@@ -291,13 +325,6 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 			}
 
 			err = ioutil.WriteFile(job_input_filename, job_input_bytes, 0644)
-			if err != nil {
-				return
-			}
-
-			// create cwt_tool file
-			var cwl_tool_bytes []byte
-			cwl_tool_bytes, err = yaml.Marshal(cwl_tool)
 			if err != nil {
 				return
 			}

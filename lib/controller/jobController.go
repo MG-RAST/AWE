@@ -257,6 +257,22 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					cwl_workflow.Outputs = append(cwl_workflow.Outputs, workflow_output_parameter)
 				}
 
+				if commandlinetool.Requirements != nil {
+					requirements := commandlinetool.Requirements
+					for i, _ := range *requirements {
+						require_type := (*requirements)[i].GetClass()
+						if require_type == "ShockRequirement" {
+							shock_requirement := (*requirements)[i]
+
+							cwl_workflow.Requirements, err = cwl.AddRequirement(shock_requirement, requirements)
+							if err != nil {
+								err = fmt.Errorf("(job/create) AddRequirement returned: %s", err.Error())
+								return
+							}
+						}
+					}
+				}
+
 				new_step.Run = commandlinetool.Id
 
 				cwl_workflow.Steps = []cwl.WorkflowStep{new_step}
@@ -351,6 +367,22 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					//workflow_output_parameter.LinkMerge = output.LinkMerge
 					workflow_output_parameter.Type = output.Type
 					cwl_workflow.Outputs = append(cwl_workflow.Outputs, workflow_output_parameter)
+				}
+
+				if expressiontool.Requirements != nil {
+					requirements := expressiontool.Requirements
+					for i, _ := range *requirements {
+						require_type := (*requirements)[i].GetClass()
+						if require_type == "ShockRequirement" {
+							shock_requirement := (*requirements)[i]
+
+							cwl_workflow.Requirements, err = cwl.AddRequirement(shock_requirement, requirements)
+							if err != nil {
+								err = fmt.Errorf("(job/create) AddRequirement returned: %s", err.Error())
+								return
+							}
+						}
+					}
 				}
 
 				new_step.Run = expressiontool.Id

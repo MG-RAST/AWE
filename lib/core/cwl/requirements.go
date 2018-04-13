@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	//"github.com/MG-RAST/AWE/lib/logger"
+
 	"github.com/davecgh/go-spew/spew"
 	//"github.com/mitchellh/mapstructure"
 )
@@ -111,6 +112,47 @@ func NewRequirement(class string, obj interface{}) (r Requirement, schemata []CW
 		err = errors.New("Requirement class not supported " + class)
 
 	}
+	return
+}
+
+func GetRequirement(r_name string, array_ptr *[]Requirement) (requirement *Requirement, err error) {
+
+	if array_ptr == nil {
+		err = fmt.Errorf("(GetRequirement) requirement array is empty, %s not found", r_name)
+		return
+	}
+
+	for i, _ := range *array_ptr {
+
+		if (*array_ptr)[i].GetClass() == r_name {
+			requirement = &(*array_ptr)[i]
+			return
+		}
+	}
+	fmt.Println("Requirement array:")
+	spew.Dump(array_ptr)
+	err = fmt.Errorf("(GetRequirement) requirement %s not found", r_name)
+
+	return
+}
+
+func GetShockRequirement(array_ptr *[]Requirement) (shock_requirement *ShockRequirement, err error) {
+	var requirement_ptr *Requirement
+	requirement_ptr, err = GetRequirement("ShockRequirement", array_ptr)
+	if err != nil {
+		return
+	}
+
+	requirement := *requirement_ptr
+
+	var ok bool
+	shock_requirement, ok = requirement.(*ShockRequirement)
+	if !ok {
+		err = fmt.Errorf("(GetShockRequirement) could not convert ShockRequirement (type: %s)", reflect.TypeOf(requirement))
+		return
+	}
+	//shock_requirement = &shock_requirement_nptr
+
 	return
 }
 

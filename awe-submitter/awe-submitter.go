@@ -8,6 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/davecgh/go-spew/spew"
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 	"bytes"
@@ -124,8 +125,10 @@ func main_wrapper() (err error) {
 
 	// ### process input files
 
+	shock_client := shock.NewShockClient(conf.SHOCK_URL, shock_auth, false)
+
 	var upload_count int
-	upload_count, err = cache.ProcessIOData(job_doc, inputfile_path, "upload")
+	upload_count, err = cache.ProcessIOData(job_doc, inputfile_path, "upload", shock_client)
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
 		return
@@ -180,7 +183,7 @@ func main_wrapper() (err error) {
 
 	var shock_requirement cwl.ShockRequirement
 	var shock_requirement_ptr *cwl.ShockRequirement
-	shock_requirement_ptr, err = cwl.NewShockRequirement(conf.SHOCK_URL)
+	shock_requirement_ptr, err = cwl.NewShockRequirement(shock_client.Host)
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) NewShockRequirement returned: %s", err.Error())
 		return
@@ -238,7 +241,7 @@ func main_wrapper() (err error) {
 					continue
 				}
 
-				err = cache.UploadFile(default_file, inputfile_path)
+				err = cache.UploadFile(default_file, inputfile_path, shock_client)
 				if err != nil {
 					return
 				}
@@ -378,7 +381,7 @@ func main_wrapper() (err error) {
 			var output_file_path string
 			output_file_path, err = os.Getwd()
 
-			_, err = cache.ProcessIOData(output_receipt, output_file_path, "download")
+			_, err = cache.ProcessIOData(output_receipt, output_file_path, "download", nil)
 			if err != nil {
 				spew.Dump(output_receipt)
 				err = fmt.Errorf("(main_wrapper) ProcessIOData(for download) returned: %s", err.Error())

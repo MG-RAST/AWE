@@ -2,16 +2,18 @@ package worker
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/MG-RAST/AWE/lib/cache"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"net/http"
-	"os"
-	"strings"
-	"time"
+	"github.com/MG-RAST/AWE/lib/shock"
 )
 
 func deliverer(control chan int) {
@@ -67,7 +69,9 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 		move_start := time.Now().UnixNano()
 		logger.Debug(3, "(deliverer_run) work.State: %s", workunit.State)
 		if workunit.State == core.WORK_STAT_COMPUTED {
-			data_moved, err := cache.UploadOutputData(workunit)
+
+			shock_client := shock.NewShockClient(workunit.ShockHost, workunit.Info.DataToken, false)
+			data_moved, err := cache.UploadOutputData(workunit, shock_client)
 			if err != nil {
 				workunit.SetState(core.WORK_STAT_ERROR, "UploadOutputData failed")
 				logger.Error("(deliverer_run) UploadOutputData returns workid=" + work_str + ", err=" + err.Error())

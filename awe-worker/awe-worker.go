@@ -113,6 +113,8 @@ func main() {
 				logger.Error(message)
 
 				time.Sleep(time.Second * time.Duration(retry_sleep))
+			} else {
+				break
 			}
 		}
 

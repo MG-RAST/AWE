@@ -122,6 +122,10 @@ func (o *Opts) Value(key string) string {
 	return val
 }
 
+func NewShockClient(host string, token string, debug bool) *ShockClient {
+	return &ShockClient{Host: host, Token: token, Debug: debug}
+}
+
 // *** low-level functions ***
 
 func (sc *ShockClient) Post_request(resource string, query url.Values, header *httpclient.Header, response interface{}) (err error) {

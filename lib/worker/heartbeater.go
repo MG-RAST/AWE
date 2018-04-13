@@ -280,6 +280,11 @@ func RegisterWithAuth(host string, pclient *core.Client) (err error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == 404 {
+		err = fmt.Errorf("(RegisterWithAuth) got response: 404 Not Found")
+		return
+	}
+
 	// evaluate response
 	response := new(ClientResponse)
 	logger.Debug(3, "(RegisterWithAuth) client registration: got response")

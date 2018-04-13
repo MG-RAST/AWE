@@ -83,20 +83,37 @@ func main() {
 	//var self *core.Client
 	if worker.Client_mode == "online" {
 		if conf.SERVER_URL == "" {
-			fmt.Fprintf(os.Stderr, "AWE server url not configured or is empty. Please check the [Client]serverurl field in the configuration file.\n")
+			fmt.Fprintf(os.Stderr, "(worker.main) AWE server url not configured or is empty. Please check the [Client]serverurl field in the configuration file.\n")
 			os.Exit(1)
 		}
 		if strings.HasPrefix(conf.SERVER_URL, "http") == false {
-			fmt.Fprintf(os.Stderr, "serverurl not valid (require http://): %s \n", conf.SERVER_URL)
+			fmt.Fprintf(os.Stderr, "(worker.main) serverurl not valid (require http://): %s \n", conf.SERVER_URL)
 			os.Exit(1)
 		}
 
-		err = worker.RegisterWithAuth(conf.SERVER_URL, profile)
-		if err != nil {
-			message := fmt.Sprintf("fail to register: %s (SERVER_URL=%s)\n", err.Error(), conf.SERVER_URL)
-			fmt.Fprintf(os.Stderr, message)
-			logger.Error(message)
-			os.Exit(1)
+		count := 0
+
+		retry_sleep := 5
+
+		for true {
+			count += 1
+			err = worker.RegisterWithAuth(conf.SERVER_URL, profile)
+			if err != nil {
+
+				if count >= 10 {
+					message := fmt.Sprintf("(worker.main) failed to register: %s (SERVER_URL=%s) exiting!\n", err.Error(), conf.SERVER_URL)
+					fmt.Fprintf(os.Stderr, message)
+					logger.Error(message)
+
+					os.Exit(1)
+				}
+
+				message := fmt.Sprintf("(worker.main) failed to register: %s (SERVER_URL=%s) (%d), next retry in %d seconds...\n", err.Error(), conf.SERVER_URL, count, retry_sleep)
+				fmt.Fprintf(os.Stderr, message)
+				logger.Error(message)
+
+				time.Sleep(time.Second * time.Duration(retry_sleep))
+			}
 		}
 
 	}

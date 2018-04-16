@@ -610,13 +610,19 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 	outputs_modified := false
 	outputs := task.Outputs
 	for _, io := range outputs {
+<<<<<<< HEAD
 
+=======
+>>>>>>> 059d6024801b7323df1956806c48ba2204bff295
 		size, modified, xerr := io.GetFileSize()
 		if xerr != nil {
 			logger.Error("(handleWorkStatDone) task %s, err: %s", task_id, xerr.Error())
 			err = task.SetState(TASK_STAT_SUSPEND, true)
 			if err != nil {
+<<<<<<< HEAD
 
+=======
+>>>>>>> 059d6024801b7323df1956806c48ba2204bff295
 				return
 			}
 			var task_str string
@@ -831,7 +837,10 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		err = qm.handleWorkStatDone(client, clientid, task, work_id, computetime)
 		if err != nil {
 			err = fmt.Errorf("(handleNoticeWorkDelivered) handleWorkStatDone returned: %s", err.Error())
+<<<<<<< HEAD
 
+=======
+>>>>>>> 059d6024801b7323df1956806c48ba2204bff295
 			return
 		}
 	} else if status == WORK_STAT_FAILED_PERMANENT { // (special case !) failed and cannot be recovered
@@ -914,7 +923,10 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 			err = fmt.Errorf(e.ClientNotFound)
 			return
 		}
+<<<<<<< HEAD
 
+=======
+>>>>>>> 059d6024801b7323df1956806c48ba2204bff295
 		err = client.Append_Skip_work(work_id, true)
 		if err != nil {
 			return
@@ -923,7 +935,10 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		if err != nil {
 			return
 		}
+<<<<<<< HEAD
 
+=======
+>>>>>>> 059d6024801b7323df1956806c48ba2204bff295
 		var last_failed int
 		last_failed, err = client.Increment_last_failed(true)
 		if err != nil {
@@ -1422,7 +1437,10 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 			ServerNotes: "failed in enqueuing task, err=" + xerr.Error(),
 			Status:      JOB_STAT_SUSPEND,
 		}
+<<<<<<< HEAD
 
+=======
+>>>>>>> 059d6024801b7323df1956806c48ba2204bff295
 		if err = qm.SuspendJob(job_id, jerror); err != nil {
 			logger.Error("(updateQueue:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
 		}

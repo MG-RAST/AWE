@@ -2,9 +2,10 @@ package cwl
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
-	"reflect"
 )
 
 //type WorkflowOutputParameterType struct {
@@ -66,16 +67,16 @@ func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Typ
 			return
 		}
 
-		fmt.Println("output_type: " + output_type)
+		//fmt.Println("output_type: " + output_type)
 
 		switch output_type {
 		case "record":
 			result = OutputRecordSchema{}
-			panic("record not correctly implemented")
+			err = fmt.Errorf("record not correctly implemented")
 			return
 		case "enum":
 			result = OutputEnumSchema{}
-			panic("enum not correctly implemented")
+			err = fmt.Errorf("enum not correctly implemented")
 			return
 		case "array":
 			result = NewOutputArraySchema()
@@ -88,7 +89,7 @@ func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Typ
 
 	default:
 		err = fmt.Errorf("(NewWorkflowOutputParameterType) unknown type: %s", reflect.TypeOf(original))
-		return
+
 	}
 
 	return

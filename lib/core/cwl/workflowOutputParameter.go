@@ -2,22 +2,20 @@ package cwl
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
-	"reflect"
 )
 
 type WorkflowOutputParameter struct {
-	Id             string                `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	Label          string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	SecondaryFiles []Expression          `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	Format         Expression            `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
-	Streamable     bool                  `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
-	Doc            string                `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
-	OutputBinding  *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"` //TODO
-	OutputSource   interface{}           `yaml:"outputSource,omitempty" bson:"outputSource,omitempty" json:"outputSource,omitempty"`    //string or []string
-	LinkMerge      LinkMergeMethod       `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
-	Type           []interface{}         `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` //WorkflowOutputParameterType TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
+	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+
+	Doc string `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
+	//OutputBinding  *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"` //TODO
+	OutputSource interface{}     `yaml:"outputSource,omitempty" bson:"outputSource,omitempty" json:"outputSource,omitempty"` //string or []string
+	LinkMerge    LinkMergeMethod `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
+	//Type         []interface{}   `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` //WorkflowOutputParameterType TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
 }
 
 func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type) (wop *WorkflowOutputParameter, err error) {
@@ -37,22 +35,10 @@ func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type) (
 			return
 		}
 
-		wop_type, has_type := original_map["type"]
-		if has_type {
-
-			wop_type_array, xerr := NewWorkflowOutputParameterTypeArray(wop_type, schemata)
-			if xerr != nil {
-				err = fmt.Errorf("from NewWorkflowOutputParameterTypeArray: %s", xerr.Error())
-				return
-			}
-			//fmt.Println("type of wop_type_array")
-			//fmt.Println(reflect.TypeOf(wop_type_array))
-			//fmt.Println("original:")
-			//spew.Dump(original)
-			//fmt.Println("wop_type_array:")
-			//spew.Dump(wop_type_array)
-			original_map["type"] = wop_type_array
-
+		err = NormalizeOutputParameter(original_map)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkflowOutputParameter) NormalizeOutputParameter returns %s", err.Error())
+			return
 		}
 
 		outputSource_if, ok := original_map["outputSource"]
@@ -87,10 +73,28 @@ func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type) (
 				} else {
 
 					spew.Dump(outputSource_if)
-					err = fmt.Errorf("(NewWorkflowOutputParameter) type %s unknown", reflect.TypeOf(original))
+					err = fmt.Errorf("(NewWorkflowOutputParameter) type of outputSource_if unknown: %s", reflect.TypeOf(outputSource_if))
 					return
 				}
 			}
+
+		}
+
+		wop_type, has_type := original_map["type"]
+		if has_type {
+
+			wop_type_array, xerr := NewWorkflowOutputParameterTypeArray(wop_type, schemata)
+			if xerr != nil {
+				err = fmt.Errorf("from NewWorkflowOutputParameterTypeArray: %s", xerr.Error())
+				return
+			}
+			//fmt.Println("type of wop_type_array")
+			//fmt.Println(reflect.TypeOf(wop_type_array))
+			//fmt.Println("original:")
+			//spew.Dump(original)
+			//fmt.Println("wop_type_array:")
+			//spew.Dump(wop_type_array)
+			original_map["type"] = wop_type_array
 
 		}
 

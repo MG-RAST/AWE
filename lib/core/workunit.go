@@ -4,6 +4,8 @@ import (
 	//"bytes"
 	//"encoding/json"
 	"fmt"
+	"reflect"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 
@@ -106,54 +108,74 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			return
 		}
 
-		var process_name string
-		process_name, err = cwl.GetProcessName(p)
+		var schemata []cwl.CWLType_Type
+		schemata, err = job.CWL_collection.GetSchemata()
 		if err != nil {
-			err = fmt.Errorf("(NewWorkunit) embedded workflow or toll not supported yet: %s", err.Error())
+			err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
 			return
 		}
 
-		if process_name == "" {
-			err = fmt.Errorf("(NewWorkunit) No tool name found")
-			return
-		}
-
-		if job.CWL_collection == nil {
-			err = fmt.Errorf("(NewWorkunit) job.CWL_collection == nil ")
-			return
-		}
-
+		//var process_name string
 		var clt *cwl.CommandLineTool
-		//use_commandLineTool := false
-
-		//var wfl *cwl.Workflow
-		//use_workflow := false
-
-		clt, err = job.CWL_collection.GetCommandLineTool(process_name)
+		//var a_workflow *cwl.Workflow
+		var process interface{}
+		process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add new schemata
 		if err != nil {
-			err = fmt.Errorf("(NewWorkunit) CommandLineTool %s not found", process_name)
-			return
-			//wfl, err = job.CWL_collection.GetWorkflow(process_name)
-			//if err != nil {
-			//	err = fmt.Errorf("(NewWorkunit) Process %s is neither CommandLineTool, nor Workflow.")
-			//	return
-			//} else {
-			//	use_workflow = true
-			//}
-
-		}
-		//else {
-		//	use_commandLineTool = true
-		//}
-
-		//if use_commandLineTool {
-		clt.CwlVersion = job.CwlVersion
-
-		if clt.CwlVersion == "" {
-			err = fmt.Errorf("(NewWorkunit) CommandLineTool misses CwlVersion")
+			err = fmt.Errorf("(NewWorkunit) GetProcess returned: %s", err.Error())
 			return
 		}
-		workunit.CWL_workunit.CWL_tool = clt
+
+		if process == nil {
+			err = fmt.Errorf("(NewWorkunit) process == nil")
+			return
+		}
+
+		var requirements *[]cwl.Requirement
+
+		switch process.(type) {
+		case *cwl.CommandLineTool:
+			clt, _ = process.(*cwl.CommandLineTool)
+			if clt.CwlVersion == "" {
+				clt.CwlVersion = job.CwlVersion
+			}
+			if clt.CwlVersion == "" {
+				err = fmt.Errorf("(NewWorkunit) CommandLineTool misses CwlVersion")
+				return
+			}
+			requirements = clt.Requirements
+		case *cwl.ExpressionTool:
+			var et *cwl.ExpressionTool
+			et, _ = process.(*cwl.ExpressionTool)
+			if et.CwlVersion == "" {
+				et.CwlVersion = job.CwlVersion
+			}
+			if et.CwlVersion == "" {
+				err = fmt.Errorf("(NewWorkunit) ExpressionTool misses CwlVersion")
+				return
+			}
+			requirements = et.Requirements
+		default:
+			err = fmt.Errorf("(NewWorkunit) Tool %s not supported", reflect.TypeOf(process))
+			return
+		}
+
+		var shock_requirement *cwl.ShockRequirement
+		shock_requirement, err = cwl.GetShockRequirement(requirements)
+		if err != nil {
+			//fmt.Println("process:")
+			//spew.Dump(process)
+			err = fmt.Errorf("(NewWorkunit) ShockRequirement not found , err: %s", err.Error())
+			return
+		}
+
+		if shock_requirement.Shock_api_url == "" {
+			err = fmt.Errorf("(NewWorkunit) Shock_api_url in ShockRequirement is empty")
+			return
+		}
+
+		workunit.ShockHost = shock_requirement.Shock_api_url
+
+		workunit.CWL_workunit.Tool = process
 
 		//}
 

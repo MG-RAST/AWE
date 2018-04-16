@@ -3,6 +3,8 @@ package core
 import (
 	"errors"
 	"fmt"
+	"reflect"
+
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 
@@ -118,7 +120,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 			//}
 			//fmt.Printf("cwl_workflow.Inputs")
 			//spew.Dump(cwl_workflow.Inputs)
-			err = fmt.Errorf("Input %s has type %s, but this does not match the expected types)", id, input_type)
+			err = fmt.Errorf("(CWL_input_check) Input %s has type %s, but this does not match the expected types)", id, input_type)
 			return
 		}
 
@@ -191,30 +193,32 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	logger.Debug(1, "Job created")
 
 	found_ShockRequirement := false
-	for _, r := range cwl_workflow.Requirements { // TODO put ShockRequirement in Hints
-		req, ok := r.(cwl.Requirement)
-		if !ok {
-			err = fmt.Errorf("not a requirement")
-			return
-		}
-		switch req.GetClass() {
-		case "ShockRequirement":
-			sr, ok := req.(cwl.ShockRequirement)
+	if cwl_workflow.Requirements != nil {
+		for _, r := range *cwl_workflow.Requirements { // TODO put ShockRequirement in Hints
+			req, ok := r.(cwl.Requirement)
 			if !ok {
-				err = fmt.Errorf("Could not assert ShockRequirement")
+				err = fmt.Errorf("not a requirement")
 				return
 			}
+			switch req.GetClass() {
+			case "ShockRequirement":
+				sr, ok := r.(*cwl.ShockRequirement)
+				if !ok {
+					err = fmt.Errorf("(CWL2AWE) Could not assert ShockRequirement (type: %s)", reflect.TypeOf(r))
+					return
+				}
 
-			job.ShockHost = sr.Host
-			found_ShockRequirement = true
+				job.ShockHost = sr.Shock_api_url
+				found_ShockRequirement = true
 
+			}
 		}
 	}
 
 	if !found_ShockRequirement {
-		//err = fmt.Errorf("ShockRequirement has to be provided in the workflow object")
-		//return
-		job.ShockHost = "http://shock:7445" // TODO make this different
+		err = fmt.Errorf("ShockRequirement has to be provided in the workflow object")
+		return
+		//job.ShockHost = "http://shock:7445" // TODO make this different
 
 	}
 	logger.Debug(1, "Requirements checked")

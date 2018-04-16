@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	//"errors"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -12,12 +13,13 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/golib/httpclient"
 	//"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
 	"io/ioutil"
 	"os"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type WorkResponse struct {
@@ -215,16 +217,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 	cwl_generic, has_cwl := data_map["cwl"]
 	if has_cwl {
-		if cwl_generic != nil {
-			var xerr error
-			//var schemata []cwl.CWLType_Type
-			cwl_object, _, xerr = core.NewCWL_workunit_from_interface(cwl_generic)
-			if xerr != nil {
-				err = fmt.Errorf("(CheckoutWorkunitRemote) NewCWL_workunit_from_interface failed: %s", xerr.Error())
-				return
-			}
-			//response_generic["CWL"] = nil
-		} else {
+		if cwl_generic == nil {
 			has_cwl = false
 		}
 		delete(data_map, "cwl")
@@ -314,8 +307,26 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		return
 	}
 	if has_cwl {
+
+		var xerr error
+		//var schemata []cwl.CWLType_Type
+		cwl_object, _, xerr = core.NewCWL_workunit_from_interface(cwl_generic)
+		if xerr != nil {
+			err = fmt.Errorf("(CheckoutWorkunitRemote) NewCWL_workunit_from_interface failed: %s", xerr.Error())
+			logger.Debug(1, err.Error())
+			workunit.State = core.WORK_STAT_ERROR
+			workunit.Notes = append(workunit.Notes, err.Error())
+			err = nil // Pass error-workunit along to maintain error message
+			return
+		}
+
 		workunit.CWL_workunit = cwl_object
 		workunit.CWL_workunit.Notice = core.Notice{Id: workunit.Workunit_Unique_Identifier, WorkerId: core.Self.Id}
+
+		if workunit.CWL_workunit.Tool == nil {
+			err = fmt.Errorf("(CheckoutWorkunitRemote) Tool == nil")
+			return
+		}
 	}
 
 	//test, err := json.Marshal(workunit)

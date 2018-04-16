@@ -86,7 +86,6 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type) (r
 
 	default:
 		err = fmt.Errorf("(NewInputRecordFieldFromInterface) unknown type")
-		return
 	}
 
 	return

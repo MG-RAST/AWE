@@ -30,7 +30,7 @@
 var user = jQuery.cookie('AuthWebSession');
 if (RetinaConfig.useOAuthServer) {
     if (! user ) {
-	window.location = RetinaConfig.auth_url+'/clientAWE.cgi';
+	window.location = RetinaConfig.auth_url+'/authclient.cgi';
     }
 }
 jQuery( document ).ready(function(){

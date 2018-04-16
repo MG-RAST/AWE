@@ -1,9 +1,9 @@
 package cwl
 
-import (
 //"fmt"
 //"strconv"
-)
+
+// YAML: null | Null | NULL | ~
 
 type Null string
 
@@ -25,5 +25,26 @@ func NewNull() (n *Null) {
 
 	n = &null_nptr
 
+	return
+}
+
+// https://mlafeldt.github.io/blog/decoding-yaml-in-go/
+
+// No, use this: https://godoc.org/gopkg.in/yaml.v2#Marshaler
+func (n *Null) MarshalYAML() (i interface{}, err error) {
+
+	i = nil
+
+	return
+}
+
+func (n *Null) MarshalJSON() (b []byte, err error) {
+
+	b = []byte("null")
+	return
+}
+
+func (n *Null) GetBSON() (result interface{}, err error) {
+	result = nil
 	return
 }

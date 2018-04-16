@@ -6,7 +6,7 @@ import (
 
 // Indicates that the workflow platform must support multiple inbound data links listed in the source field of WorkflowStepInput.
 type MultipleInputFeatureRequirement struct {
-	BaseRequirement `bson:",inline" yaml:",inline" json:",inline"`
+	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 }
 
 func (c MultipleInputFeatureRequirement) GetId() string { return "None" }

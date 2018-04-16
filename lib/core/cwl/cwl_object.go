@@ -3,9 +3,10 @@ package cwl
 import (
 	"errors"
 	"fmt"
+	"reflect"
+
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
-	"reflect"
 )
 
 type CWL_object interface {
@@ -64,20 +65,32 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 			//fmt.Println("New_CWL_object CommandLineTool")
 			logger.Debug(1, "(New_CWL_object) parse CommandLineTool")
 			var clt *CommandLineTool
-			clt, schemata, err = NewCommandLineTool(elem)
+			clt, schemata, err = NewCommandLineTool(elem, cwl_version)
 			if err != nil {
 				err = fmt.Errorf("(New_CWL_object) NewCommandLineTool returned: %s", err.Error())
 				return
 			}
 
-			clt.CwlVersion = cwl_version
 			obj = clt
+
+			return
+		case "ExpressionTool":
+			//fmt.Println("New_CWL_object CommandLineTool")
+			logger.Debug(1, "(New_CWL_object) parse ExpressionTool")
+			var et *ExpressionTool
+			et, err = NewExpressionTool(elem, cwl_version, nil) // TODO provide schemata
+			if err != nil {
+				err = fmt.Errorf("(New_CWL_object) ExpressionTool returned: %s", err.Error())
+				return
+			}
+
+			obj = et
 
 			return
 		case "Workflow":
 			//fmt.Println("New_CWL_object Workflow")
 			logger.Debug(1, "parse Workflow")
-			obj, schemata, err = NewWorkflow(elem)
+			obj, schemata, err = NewWorkflow(elem, cwl_version)
 			if err != nil {
 
 				err = fmt.Errorf("(New_CWL_object) NewWorkflow returned: %s", err.Error())

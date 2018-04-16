@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -12,15 +15,14 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/davecgh/go-spew/spew"
 	"gopkg.in/mgo.v2/bson"
-	"io/ioutil"
-	"os"
 	//"path"
-	"github.com/MG-RAST/AWE/lib/core/cwl"
-	"github.com/robertkrimen/otto"
 	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
+
+	"github.com/MG-RAST/AWE/lib/core/cwl"
+	"github.com/robertkrimen/otto"
 	//"regexp/syntax"
 	"bytes"
 	"strconv"
@@ -474,6 +476,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 				if err != nil {
 					err = fmt.Errorf("(updateQueue) task.String returned: %s", err.Error())
 					return
+
 				}
 
 				jerror := &JobError{
@@ -579,23 +582,23 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 
 	err = client.Increment_total_completed()
 	if err != nil {
-		err = fmt.Errorf("(RemoveWorkFromClient:IncrementRemainWork) client.Increment_total_completed returned: %s", err.Error())
+		err = fmt.Errorf("(handleWorkStatDone) client.Increment_total_completed returned: %s", err.Error())
 		return
 	}
 	var remain_work int
 	remain_work, err = task.IncrementRemainWork(-1, true)
 	if err != nil {
-		err = fmt.Errorf("(RemoveWorkFromClient:IncrementRemainWork) client=%s work=%s %s", clientid, work_str, err.Error())
+		err = fmt.Errorf("(handleWorkStatDone) client=%s work=%s %s", clientid, work_str, err.Error())
 		return
 	}
 
 	err = task.IncrementComputeTime(computetime)
 	if err != nil {
-		err = fmt.Errorf("(RemoveWorkFromClient:IncrementComputeTime) client=%s work=%s %s", clientid, work_str, err.Error())
+		err = fmt.Errorf("(handleWorkStatDone) client=%s work=%s %s", clientid, work_str, err.Error())
 		return
 	}
 
-	logger.Debug(3, "(RemoveWorkFromClient) remain_work: %d (%s)", remain_work, work_str)
+	logger.Debug(3, "(handleWorkStatDone) remain_work: %d (%s)", remain_work, work_str)
 
 	if remain_work > 0 {
 		return
@@ -607,11 +610,19 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 	outputs_modified := false
 	outputs := task.Outputs
 	for _, io := range outputs {
+<<<<<<< HEAD
+
+=======
+>>>>>>> 059d6024801b7323df1956806c48ba2204bff295
 		size, modified, xerr := io.GetFileSize()
 		if xerr != nil {
 			logger.Error("(handleWorkStatDone) task %s, err: %s", task_id, xerr.Error())
 			err = task.SetState(TASK_STAT_SUSPEND, true)
 			if err != nil {
+<<<<<<< HEAD
+
+=======
+>>>>>>> 059d6024801b7323df1956806c48ba2204bff295
 				return
 			}
 			var task_str string
@@ -638,7 +649,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 
 			err = qm.SuspendJob(job_id, jerror)
 			if err != nil {
-				logger.Error("(handleNoticeWorkDelivered:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
+				logger.Error("(handleWorkStatDone) job_id=%s; SuspendJob returned: %s", job_id, err.Error())
 			}
 			err = xerr
 			return
@@ -826,6 +837,10 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		err = qm.handleWorkStatDone(client, clientid, task, work_id, computetime)
 		if err != nil {
 			err = fmt.Errorf("(handleNoticeWorkDelivered) handleWorkStatDone returned: %s", err.Error())
+<<<<<<< HEAD
+
+=======
+>>>>>>> 059d6024801b7323df1956806c48ba2204bff295
 			return
 		}
 	} else if status == WORK_STAT_FAILED_PERMANENT { // (special case !) failed and cannot be recovered
@@ -861,7 +876,8 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		}
 	} else if status == WORK_STAT_ERROR { //workunit failed, requeue or put it to suspend list
 		logger.Event(event.WORK_FAIL, "workid="+work_str+";clientid="+clientid)
-		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s) workid=%s clientid=%s", status, work_str, clientid)
+		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s, notes: %s) workid=%s clientid=%s", status, notes, work_str, clientid)
+
 		work.Failed += 1
 
 		if work.Failed < MAX_FAILURE {
@@ -907,6 +923,10 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 			err = fmt.Errorf(e.ClientNotFound)
 			return
 		}
+<<<<<<< HEAD
+
+=======
+>>>>>>> 059d6024801b7323df1956806c48ba2204bff295
 		err = client.Append_Skip_work(work_id, true)
 		if err != nil {
 			return
@@ -915,6 +935,10 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		if err != nil {
 			return
 		}
+<<<<<<< HEAD
+
+=======
+>>>>>>> 059d6024801b7323df1956806c48ba2204bff295
 		var last_failed int
 		last_failed, err = client.Increment_last_failed(true)
 		if err != nil {
@@ -1413,6 +1437,10 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 			ServerNotes: "failed in enqueuing task, err=" + xerr.Error(),
 			Status:      JOB_STAT_SUSPEND,
 		}
+<<<<<<< HEAD
+
+=======
+>>>>>>> 059d6024801b7323df1956806c48ba2204bff295
 		if err = qm.SuspendJob(job_id, jerror); err != nil {
 			logger.Error("(updateQueue:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
 		}
@@ -1552,6 +1580,16 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		// check if CWL-style predecessors are all TASK_STAT_COMPLETED
 
 		// ****** get inputs
+		if job == nil {
+			err = fmt.Errorf("(isTaskReady) job == nil")
+			return
+		}
+
+		if job.CWL_collection == nil {
+			err = fmt.Errorf("(isTaskReady) job.CWL_collection == nil")
+			return
+		}
+
 		job_input_map := *job.CWL_collection.Job_input_map
 		if job_input_map == nil {
 			err = fmt.Errorf("(isTaskReady) job.CWL_collection.Job_input_map is empty")
@@ -1808,18 +1846,32 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 				err = fmt.Errorf("(taskEnQueue) process is nil !?")
 				return
 			}
-			// check if this is a workflow
-			var process_name string
-			process_name, err = cwl.GetProcessName(p)
+
+			var schemata []cwl.CWLType_Type
+			schemata, err = job.CWL_collection.GetSchemata()
 			if err != nil {
-				err = fmt.Errorf("(taskEnQueue) embedded workflow or toll not supported yet: %s", err.Error())
+				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
+				return
+			}
+
+			// check if this is a workflow
+			//var process_name string
+			//var a_command_line_tool *cwl.CommandLineTool
+
+			//wfl = nil
+			var process interface{}
+			process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add new_schemata
+			if err != nil {
+				err = fmt.Errorf("(taskEnQueue) cwl.GetProcess returned: %s (task_type=%s)", err.Error(), task_type)
 				return
 			}
 
 			var wfl *cwl.Workflow
-			wfl, err = job.CWL_collection.GetWorkflow(process_name)
-			if err != nil {
-				// not a workflow
+			var ok bool
+			wfl, ok = process.(*cwl.Workflow)
+
+			if !ok {
+				// this must CommandLineTool or ExpressionTool
 				task_type = TASK_TYPE_NORMAL
 				err = task.SetTaskType(task_type, true)
 				if err != nil {
@@ -2062,11 +2114,13 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 		ancestor_task_id.TaskName = workflow_name + "/" + step_name
 
 		var ancestor_task *Task
-		ancestor_task, ok, err = qm.TaskMap.Get(ancestor_task_id, true)
+		var local_ok bool
+		ancestor_task, local_ok, err = qm.TaskMap.Get(ancestor_task_id, true)
 		if err != nil {
+			err = fmt.Errorf("(getCWLSource) qm.TaskMap.Get returned: %s", err.Error())
 			return
 		}
-		if !ok {
+		if !local_ok {
 			if error_on_missing_task {
 				err = fmt.Errorf("(getCWLSource) ancestor_task %s not found ", ancestor_task_id)
 				return
@@ -2116,13 +2170,12 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 		// not found
 		logger.Debug(3, "(getCWLSource) step output not found")
 		ok = false
-		return
 
 	} else {
 		err = fmt.Errorf("(getCWLSource) could not parse source: %s", src)
-		return
+
 	}
-	ok = true
+
 	return
 }
 
@@ -2144,13 +2197,18 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 		// get data from Source, Default or valueFrom
 
+		link_merge_method := ""
 		if input.LinkMerge != nil {
-			err = fmt.Errorf("(NewWorkunit) sorry, LinkMergeMethod not supported yet")
-			return
+			link_merge_method = string(*input.LinkMerge)
+			if link_merge_method != "merge_flattened" {
+				err = fmt.Errorf("(NewWorkunit) sorry, LinkMergeMethod \"%s\" not supported yet", link_merge_method) // merge_nested merge_flattened
+				return
+			}
+
 		}
 
 		if input.Source != nil {
-			source_object_array := []cwl.CWLType{}
+			//source_object_array := []cwl.CWLType{}
 			//resolve pointers in source
 
 			source_is_array := false
@@ -2180,7 +2238,32 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 						err = fmt.Errorf("(GetStepInputObjects) (array) getCWLSource did not find output \"%s\"", src_str)
 						return // TODO allow optional ??
 					}
-					source_object_array = append(source_object_array, job_obj)
+
+					if link_merge_method == "merge_flattened" {
+
+						job_obj_type := job_obj.GetType()
+
+						if job_obj_type != cwl.CWL_array {
+							err = fmt.Errorf("(GetStepInputObjects) merge_flattened, expected array as input, but got %s", job_obj_type)
+							return
+						}
+
+						var an_array *cwl.Array
+						an_array, ok = job_obj.(*cwl.Array)
+						if !ok {
+							err = fmt.Errorf("got type: %s", reflect.TypeOf(job_obj))
+							return
+						}
+
+						for i, _ := range *an_array {
+							//source_object_array = append(source_object_array, (*an_array)[i])
+							cwl_array = append(cwl_array, (*an_array)[i])
+						}
+
+					} else {
+						//source_object_array = append(source_object_array, job_obj)
+						cwl_array = append(cwl_array, job_obj)
+					}
 					//cwl_array = append(cwl_array, obj)
 				}
 
@@ -2220,7 +2303,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		} else {
 
 			if input.Default == nil {
-				err = fmt.Errorf("(GetStepInputObjects) sorry, source and Default are missing")
+				err = fmt.Errorf("(GetStepInputObjects) sorry, source and Default are missing") // TODO StepInputExpressionRequirement
 				return
 			}
 
@@ -2382,7 +2465,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 			var value_cwl cwl.CWLType
 			value_cwl, err = cwl.NewCWLType("", value_exported)
 			if err != nil {
-				err = fmt.Errorf("(NewWorkunit) Error parsing javascript VM result value: %s", err.Error())
+				err = fmt.Errorf("(NewWorkunit) Error parsing javascript VM result value, cwl.NewCWLType returns: %s", err.Error())
 				return
 			}
 
@@ -2864,18 +2947,29 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			}
 			// check if this is a workflow
 
-			process_name, err = cwl.GetProcessName(p)
+			var schemata []cwl.CWLType_Type
+			schemata, err = job.CWL_collection.GetSchemata()
 			if err != nil {
-				err = fmt.Errorf("(updateJobTask) embedded workflow or toll not supported yet: %s", err.Error())
+				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
 				return
+			}
+			//var a_workflow *cwl.Workflow
+			//process_name, _, a_workflow, _, _, err = cwl.GetProcess(p, job.CWL_collection, schemata)
+			//if err != nil {
+			//	err = fmt.Errorf("(updateJobTask) embedded workflow or toll not supported yet: %s", err.Error())
+			//	return
+			//}
+
+			var process interface{}
+			process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add schemata
+
+			// get embedded workflow
+			var ok bool
+			wfl, ok = process.(*cwl.Workflow)
+			if !ok {
+				wfl = nil
 			}
 
-			wfl, err = job.CWL_collection.GetWorkflow(process_name)
-			if err != nil {
-				// not a workflow
-				err = fmt.Errorf("(updateJobTask) %s is not a workflow ????", process_name)
-				return
-			}
 		} else {
 
 			// the job completes !
@@ -2945,7 +3039,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			var schemata []cwl.CWLType_Type
 			schemata, err = job.CWL_collection.GetSchemata()
 			if err != nil {
-				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata returned: ", err.Error())
+				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata returned: %s", err.Error())
 				return
 			}
 
@@ -2958,8 +3052,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 					spew.Dump(raw_type)
 
 					err = fmt.Errorf("(updateJobTask) could not convert element of output.Type into cwl.CWLType_Type: %s", err.Error())
-					fmt.Printf(err.Error())
-					panic("raw_type problem")
+					//fmt.Printf(err.Error())
+					//panic("raw_type problem")
 					return
 				}
 				expected_types = append(expected_types, type_correct)
@@ -3001,7 +3095,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 						return
 					}
 					if !has_type {
-						err = fmt.Errorf("(updateJobTask) A) workflow_ouput %s, does not match expected types %s", output_id, expected_types)
+						err = fmt.Errorf("(updateJobTask) A) workflow_ouput %s (type: %s), does not match expected types %s", output_id, reflect.TypeOf(obj), expected_types)
 						return
 					}
 

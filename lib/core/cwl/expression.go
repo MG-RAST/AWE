@@ -2,8 +2,9 @@ package cwl
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"reflect"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 type Expression string
@@ -11,18 +12,27 @@ type Expression string
 func (e Expression) String() string { return string(e) }
 
 //var CWL_Expression CWLType_Type = "expression"
+func NewExpressionFromString(original string) (expression *Expression, err error) {
+
+	expression_npr := Expression(original)
+	expression = &expression_npr
+
+	return
+}
 
 func NewExpression(original interface{}) (expression *Expression, err error) {
 	switch original.(type) {
 	case string:
 		expression_str := original.(string)
-
-		expression_nptr := Expression(expression_str)
-
-		expression = &expression_nptr
+		fmt.Printf("--------------------------------- expression_str: %s\n", expression_str)
+		expression, err = NewExpressionFromString(expression_str)
+		if err != nil {
+			err = fmt.Errorf("(NewExpression)  NewExpressionFromString returned: %s", err.Error())
+			return
+		}
 
 	default:
-		err = fmt.Errorf("cannot parse Expression, wrong type")
+		err = fmt.Errorf("cannot parse Expression, unkown type %s", reflect.TypeOf(original))
 	}
 	return
 
@@ -32,7 +42,9 @@ func NewExpressionArray(original interface{}) (expressions *[]Expression, err er
 
 	switch original.(type) {
 	case string:
-		expression, xerr := NewExpression(original)
+		original_str := original.(string)
+
+		expression, xerr := NewExpression(original_str)
 		if xerr != nil {
 			err = fmt.Errorf("(NewExpressionArray) NewExpression returns: %s", xerr.Error())
 			return
@@ -50,9 +62,10 @@ func NewExpressionArray(original interface{}) (expressions *[]Expression, err er
 
 		for _, value := range original_array {
 
-			exp, xerr := NewExpression(value)
-			if xerr != nil {
-				err = fmt.Errorf("(NewExpressionArray) NewExpression returns: %s", xerr.Error())
+			var exp *Expression
+			exp, err = NewExpression(value)
+			if err != nil {
+				err = fmt.Errorf("(NewExpressionArray) NewExpression returns: %s", err.Error())
 				return
 			}
 

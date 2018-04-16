@@ -2,11 +2,13 @@ package cwl
 
 import (
 	"fmt"
+	"math"
+	"reflect"
+	"strings"
+
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	"gopkg.in/mgo.v2/bson"
-	"reflect"
-	"strings"
 )
 
 // CWL Types
@@ -21,6 +23,7 @@ const (
 	CWL_string    CWLType_Type_Basic = "string"    //Unicode character sequence
 	CWL_File      CWLType_Type_Basic = "File"      //A File object
 	CWL_Directory CWLType_Type_Basic = "Directory" //A Directory object
+	CWL_Any       CWLType_Type_Basic = "Any"       //A Any object
 
 	CWL_stdin  CWLType_Type_Basic = "stdin"
 	CWL_stdout CWLType_Type_Basic = "stdout"
@@ -41,7 +44,7 @@ const (
 
 var Valid_Classes = []string{"Workflow", "CommandLineTool", "WorkflowStepInput"}
 
-var Valid_Types = []CWLType_Type_Basic{CWL_null, CWL_boolean, CWL_int, CWL_long, CWL_float, CWL_double, CWL_string, CWL_File, CWL_Directory, CWL_stdin, CWL_stdout, CWL_stderr}
+var Valid_Types = []CWLType_Type_Basic{CWL_null, CWL_boolean, CWL_int, CWL_long, CWL_float, CWL_double, CWL_string, CWL_File, CWL_Directory, CWL_Any, CWL_stdin, CWL_stdout, CWL_stderr}
 
 var ValidClassMap = map[string]string{}                        // lower-case to correct case mapping
 var ValidTypeMap = map[CWLType_Type_Basic]CWLType_Type_Basic{} // lower-case to correct case mapping
@@ -49,11 +52,6 @@ var ValidTypeMap = map[CWLType_Type_Basic]CWLType_Type_Basic{} // lower-case to 
 type CWL_array_type interface {
 	Is_CWL_array_type()
 	Get_Array() *[]CWLType
-}
-
-// generic class to represent Files and Directories
-type CWL_location interface {
-	GetLocation() string
 }
 
 //func (s CWLType_Type) Is_CommandOutputParameterType() {}
@@ -158,6 +156,11 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		native_int := native.(int)
 
 		cwl_type = NewInt(native_int)
+	case int64:
+		//fmt.Printf("(NewCWLType) D\n")
+		native_int64 := native.(int64)
+
+		cwl_type = NewLong(native_int64)
 	case float32:
 		native_float32 := native.(float32)
 		cwl_type = NewFloat(native_float32)
@@ -355,6 +358,18 @@ func NewCWLTypeArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWL
 
 func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err error) {
 
+	if schema == CWL_Any {
+		object_type := object.GetType()
+		if object_type == CWL_null {
+			ok = false
+			err = fmt.Errorf("(TypeIsCorrectSingle) Any type does not accept Null")
+			return
+		}
+		ok = true
+		return
+
+	}
+
 	switch object.(type) {
 	case *Array:
 
@@ -393,6 +408,23 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 			return
 		}
 
+		// check if provided double can be excepted as int:
+		if schema == CWL_int && object_type == CWL_double {
+			// now check if object is int anyway
+			var d *Double
+			d, ok = object.(*Double)
+			if !ok {
+				err = fmt.Errorf("(TypeIsCorrectSingle) Could not cast *Double")
+				return
+			}
+			f := float64(*d)
+			if f == math.Trunc(f) {
+				ok = true
+				return
+			}
+
+		}
+
 		fmt.Println("Comparsion:")
 		fmt.Printf("schema: %s\n", reflect.TypeOf(schema))
 		fmt.Printf("object: %s\n", reflect.TypeOf(object))
@@ -400,7 +432,6 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 		spew.Dump(object)
 
 		ok = false
-		return
 
 	}
 
@@ -427,7 +458,6 @@ func TypeIsCorrect(allowed_types []CWLType_Type, object CWLType) (ok bool, err e
 	}
 
 	ok = false
-	return
 
 	return
 }

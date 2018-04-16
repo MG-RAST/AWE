@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	//"github.com/mitchellh/mapstructure"

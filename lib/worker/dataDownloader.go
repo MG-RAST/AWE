@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
+
 	"github.com/MG-RAST/AWE/lib/cache"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -15,7 +18,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/golib/httpclient"
 	//"github.com/davecgh/go-spew/spew"
-	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"os"
@@ -25,6 +27,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 // this functions replaces filename if they match regular expression and they match the filename reported in IOmap
@@ -230,52 +234,6 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 			}
 		}
 
-		if workunit.CWL_workunit != nil {
-
-			job_input := workunit.CWL_workunit.Job_input
-			cwl_tool := workunit.CWL_workunit.CWL_tool
-			job_input_filename := path.Join(work_path, "cwl_job_input.yaml")
-			cwl_tool_filename := path.Join(work_path, "cwl_tool.yaml")
-
-			if job_input == nil {
-				err = fmt.Errorf("Job_input is empty")
-				return
-			}
-
-			if cwl_tool == nil {
-				err = fmt.Errorf("CWL_tool is empty")
-				return
-			}
-
-			// convert job_input into a map
-			job_input_map := job_input.GetMap()
-
-			// create job_input file
-			var job_input_bytes []byte
-			job_input_bytes, err = yaml.Marshal(job_input_map)
-			if err != nil {
-				return
-			}
-
-			err = ioutil.WriteFile(job_input_filename, job_input_bytes, 0644)
-			if err != nil {
-				return
-			}
-
-			// create cwt_tool file
-			var cwl_tool_bytes []byte
-			cwl_tool_bytes, err = yaml.Marshal(*cwl_tool)
-			if err != nil {
-				return
-			}
-
-			err = ioutil.WriteFile(cwl_tool_filename, cwl_tool_bytes, 0644)
-			if err != nil {
-				return
-			}
-
-		}
-
 	}
 
 	//parse the args, replacing @input_name to local file path (file not downloaded yet)
@@ -296,7 +254,7 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 		moved_data, xerr := cache.MoveInputData(workunit)
 		if xerr != nil {
 
-			err = fmt.Errorf("(dataDownloader) workid=%s error=%s", work_str, xerr.Error())
+			err = fmt.Errorf("(downloadWorkunitData) workid=%s error=%s", work_str, xerr.Error())
 			workunit.Notes = append(workunit.Notes, "[dataDownloader#MoveInputData]"+err.Error())
 			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 			//hand the parsed workunit to next stage and continue to get new workunit to process
@@ -305,6 +263,77 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 			workunit.WorkPerf.InFileSize = moved_data
 			datamove_end := time.Now().UnixNano()
 			workunit.WorkPerf.DataIn = float64(datamove_end-datamove_start) / 1e9
+		}
+
+		if workunit.CWL_workunit != nil {
+
+			job_input := workunit.CWL_workunit.Job_input
+			cwl_tool := workunit.CWL_workunit.Tool
+			job_input_filename := path.Join(work_path, "cwl_job_input.yaml")
+			cwl_tool_filename := path.Join(work_path, "cwl_tool.yaml")
+
+			if job_input == nil {
+				err = fmt.Errorf("(downloadWorkunitData) Job_input is empty")
+				return
+			}
+
+			if cwl_tool == nil {
+				err = fmt.Errorf("(downloadWorkunitData) CWL_tool is empty")
+				return
+			}
+
+			// create cwt_tool file
+			var cwl_tool_bytes []byte
+
+			switch cwl_tool.(type) {
+			case *cwl.CommandLineTool:
+				cwl_tool_clt := cwl_tool.(*cwl.CommandLineTool)
+				// remove ShockRequirement (CWL-Runner does not know it)
+				cwl_tool_clt.Requirements, err = cwl.DeleteRequirement("ShockRequirement", cwl_tool_clt.Requirements)
+				if err != nil {
+					err = fmt.Errorf("(downloadWorkunitData) DeleteRequirement/CommandLineTool returned: %s", err.Error())
+					return
+				}
+				cwl_tool_bytes, err = yaml.Marshal(cwl_tool_clt)
+				if err != nil {
+					return
+				}
+			case *cwl.ExpressionTool:
+				cwl_tool_et := cwl_tool.(*cwl.ExpressionTool)
+				cwl_tool_et.Requirements, err = cwl.DeleteRequirement("ShockRequirement", cwl_tool_et.Requirements)
+				if err != nil {
+					err = fmt.Errorf("(downloadWorkunitData) DeleteRequirement/ExpressionTool returned: %s", err.Error())
+					return
+				}
+				cwl_tool_bytes, err = yaml.Marshal(cwl_tool_et)
+				if err != nil {
+					return
+				}
+			default:
+				err = fmt.Errorf("(downloadWorkunitData) tool type %s not supported", reflect.TypeOf(cwl_tool))
+				return
+			}
+
+			// convert job_input into a map
+			job_input_map := job_input.GetMap()
+
+			// create job_input file
+			var job_input_bytes []byte
+			job_input_bytes, err = yaml.Marshal(job_input_map)
+			if err != nil {
+				return
+			}
+
+			err = ioutil.WriteFile(job_input_filename, job_input_bytes, 0644)
+			if err != nil {
+				return
+			}
+
+			err = ioutil.WriteFile(cwl_tool_filename, cwl_tool_bytes, 0644)
+			if err != nil {
+				return
+			}
+
 		}
 	}
 
@@ -513,7 +542,9 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		predata_directory := path.Join(conf.DATA_PATH, "predata")
 		err = os.MkdirAll(predata_directory, 755)
 		if err != nil {
-			return 0, errors.New("error creating predata_directory: " + err.Error())
+			err = errors.New("error creating predata_directory: " + err.Error())
+			size = 0
+			return
 		}
 
 		file_path := path.Join(predata_directory, name)
@@ -595,9 +626,11 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		if conf.NO_SYMLINK {
 			// some programs do not accept symlinks (e.g. emirge), need to copy the file into the work directory
 			logger.Debug(1, "copy predata: "+file_path+" -> "+linkname)
-			_, err := shock.CopyFile(file_path, linkname)
+			_, err = shock.CopyFile(file_path, linkname)
 			if err != nil {
-				return 0, fmt.Errorf("error copying file from %s to % s: ", file_path, linkname, err.Error())
+				xerr := fmt.Errorf("error copying file from %s to %s: %s", file_path, linkname, err.Error())
+				size = 0
+				return size, xerr
 			}
 		} else {
 			if wants_docker {

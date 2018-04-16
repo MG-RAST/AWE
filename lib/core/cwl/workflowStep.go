@@ -2,10 +2,13 @@ package cwl
 
 import (
 	"fmt"
+
 	//"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
-	"gopkg.in/mgo.v2/bson"
 	"reflect"
+
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/mitchellh/mapstructure"
 )
 
 type WorkflowStep struct {
@@ -21,9 +24,10 @@ type WorkflowStep struct {
 	ScatterMethod string               `yaml:"scatterMethod,omitempty" bson:"scatterMethod,omitempty" json:"scatterMethod,omitempty" mapstructure:"scatterMethod,omitempty"` // ScatterFeatureRequirement
 }
 
-func NewWorkflowStep(original interface{}) (w *WorkflowStep, schemata []CWLType_Type, err error) {
+func NewWorkflowStep(original interface{}, CwlVersion CWLVersion) (w *WorkflowStep, schemata []CWLType_Type, err error) {
 	var step WorkflowStep
 
+	logger.Debug(3, "NewWorkflowStep starting")
 	original, err = MakeStringMap(original)
 	if err != nil {
 		return
@@ -55,7 +59,7 @@ func NewWorkflowStep(original interface{}) (w *WorkflowStep, schemata []CWLType_
 		run, ok := v_map["run"]
 		if ok {
 			var schemata_new []CWLType_Type
-			v_map["run"], schemata_new, err = NewProcess(run)
+			v_map["run"], schemata_new, err = NewProcess(run, CwlVersion)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) run %s", err.Error())
 				return
@@ -92,10 +96,10 @@ func NewWorkflowStep(original interface{}) (w *WorkflowStep, schemata []CWLType_
 		//spew.Dump(w.Run)
 
 		//fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-		return
+
 	default:
 		err = fmt.Errorf("(NewWorkflowStep) type %s unknown", reflect.TypeOf(original))
-		return
+
 	}
 
 	return
@@ -114,25 +118,29 @@ func (w WorkflowStep) GetOutput(id string) (output *WorkflowStepOutput, err erro
 }
 
 // CreateWorkflowStepsArray
-func CreateWorkflowStepsArray(original interface{}) (schemata []CWLType_Type, array_ptr *[]WorkflowStep, err error) {
+func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion) (schemata []CWLType_Type, array_ptr *[]WorkflowStep, err error) {
 
 	array := []WorkflowStep{}
 
+	if CwlVersion == "" {
+		err = fmt.Errorf("(CreateWorkflowStepsArray) CwlVersion empty")
+		return
+	}
 	switch original.(type) {
 
 	case map[interface{}]interface{}:
 
 		// iterate over workflow steps
 		for k, v := range original.(map[interface{}]interface{}) {
-			//fmt.Printf("A step\n")
-			//spew.Dump(v)
+			fmt.Printf("A step\n")
+			spew.Dump(v)
 
 			//fmt.Println("type: ")
 			//fmt.Println(reflect.TypeOf(v))
 
 			var schemata_new []CWLType_Type
 			var step *WorkflowStep
-			step, schemata_new, err = NewWorkflowStep(v)
+			step, schemata_new, err = NewWorkflowStep(v, CwlVersion)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
@@ -157,14 +165,14 @@ func CreateWorkflowStepsArray(original interface{}) (schemata []CWLType_Type, ar
 
 		// iterate over workflow steps
 		for _, v := range original.([]interface{}) {
-			//fmt.Printf("A step\n")
+			//fmt.Printf("A(2) step\n")
 			//spew.Dump(v)
 
 			//fmt.Println("type: ")
 			//fmt.Println(reflect.TypeOf(v))
 			var schemata_new []CWLType_Type
 			var step *WorkflowStep
-			step, schemata_new, err = NewWorkflowStep(v)
+			step, schemata_new, err = NewWorkflowStep(v, CwlVersion)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
@@ -183,43 +191,104 @@ func CreateWorkflowStepsArray(original interface{}) (schemata []CWLType_Type, ar
 		}
 
 		array_ptr = &array
-		return
+
 	default:
 		err = fmt.Errorf("(CreateWorkflowStepsArray) Type unknown")
-		return
+
 	}
 	//spew.Dump(new_array)
 	return
 }
 
-func GetProcessName(p interface{}) (process_name string, err error) {
+func GetProcess(original interface{}, collection *CWL_collection, CwlVersion CWLVersion, input_schemata []CWLType_Type) (process interface{}, schemata []CWLType_Type, err error) {
+
+	var p interface{}
+	p, err = MakeStringMap(original)
+	if err != nil {
+		return
+	}
+
+	var clt *CommandLineTool
+	var et *ExpressionTool
+	var wfl *Workflow
 
 	switch p.(type) {
 	case string:
 
-		p_str := p.(string)
+		process_name := p.(string)
 
-		process_name = p_str
-
-	case bson.M: // (because of mongo this is bson.M)
-
-		p_bson := p.(bson.M)
-
-		process_name_interface, ok := p_bson["value"]
-		if !ok {
-			err = fmt.Errorf("(GetProcessName) bson.M did not hold a field named value")
+		clt, err = collection.GetCommandLineTool(process_name)
+		if err == nil {
+			process = clt
 			return
 		}
+		err = nil
 
-		process_name, ok = process_name_interface.(string)
-		if !ok {
-			err = fmt.Errorf("(GetProcessName) bson.M value field is not a string")
+		et, err = collection.GetExpressionTool(process_name)
+		if err == nil {
+			process = et
 			return
 		}
+		err = nil
+
+		wfl, err = collection.GetWorkflow(process_name)
+		if err == nil {
+			process = wfl
+			return
+		}
+		err = nil
+		spew.Dump(collection)
+		err = fmt.Errorf("(GetProcess) Process %s not found ", process_name)
+
+	case map[string]interface{}:
+
+		fmt.Println("GetProcess got:")
+		spew.Dump(p)
+
+		p_map := p.(map[string]interface{})
+
+		class_name_if, ok := p_map["class"]
+		if ok {
+			var class_name string
+			class_name, ok = class_name_if.(string)
+			if ok {
+				switch class_name {
+				case "CommandLineTool":
+
+					clt, schemata, err = NewCommandLineTool(p, CwlVersion)
+					process = clt
+					return
+				case "Workflow":
+					wfl, schemata, err = NewWorkflow(p, CwlVersion)
+					process = wfl
+					return
+				case "ExpressionTool":
+					et, err = NewExpressionTool(p, "", input_schemata)
+					process = et
+					return
+				default:
+					err = fmt.Errorf("(GetProcess) class \"%s\" not a supported process", class_name)
+					return
+				}
+
+			}
+		}
+
+		// in case of bson, check field "value"
+		//process_name_interface, ok := p_map["value"]
+		//if !ok {
+		//	err = fmt.Errorf("(GetProcess) map did not hold a field named value")
+		//	return
+		//}
+		//
+		//process_name, ok = process_name_interface.(string)
+		//if !ok {
+		//	err = fmt.Errorf("(GetProcess) map value field is not a string")
+		//	return
+		//}
 
 	default:
-		err = fmt.Errorf("(GetProcessName) Process type %s unknown, cannot create Workunit", reflect.TypeOf(p))
-		return
+		err = fmt.Errorf("(GetProcess) Process type %s unknown", reflect.TypeOf(p))
 
 	}
 

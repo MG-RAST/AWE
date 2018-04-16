@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	//"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/golib/httpclient"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -18,6 +16,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/golib/httpclient"
 )
 
 // TODO use Token
@@ -121,6 +122,10 @@ func (o *Opts) Value(key string) string {
 	return val
 }
 
+func NewShockClient(host string, token string, debug bool) *ShockClient {
+	return &ShockClient{Host: host, Token: token, Debug: debug}
+}
+
 // *** low-level functions ***
 
 func (sc *ShockClient) Post_request(resource string, query url.Values, header *httpclient.Header, response interface{}) (err error) {
@@ -196,10 +201,14 @@ func (sc *ShockClient) Do_request(method string, resource string, query url.Valu
 
 // *** high-level functions ***
 
+func (sc *ShockClient) FetchFile(filename string, url string, uncompress string, computeMD5 bool) (size int64, md5sum string, err error) {
+	return FetchFile(filename, url, sc.Token, uncompress, computeMD5)
+}
+
 func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[string]interface{}) (node *ShockNode, err error) {
 	if sc.Debug {
 		logger.Debug(1, "(CreateOrUpdate) start")
-		defer logger.Debug(1, "(CreateOrUpdate) start")
+		defer logger.Debug(1, "(CreateOrUpdate) stop")
 	}
 	host := sc.Host
 	token := sc.Token
@@ -300,7 +309,7 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 		user = httpclient.GetUserByTokenAuth(token)
 	}
 	if sc.Debug {
-		fmt.Printf("url: %s %s\n", method, url)
+		fmt.Printf("(CreateOrUpdate) url: %s %s\n", method, url)
 	}
 	if res, err := httpclient.Do(method, url, headers, form.Reader, user); err == nil {
 		defer res.Body.Close()

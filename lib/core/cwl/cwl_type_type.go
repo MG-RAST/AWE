@@ -2,9 +2,10 @@ package cwl
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strings"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 type CWLType_Type interface {
@@ -48,26 +49,25 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 			return
 		}
 
+		// recurse:
+		var base_type CWLType_Type
+		base_type, err = NewCWLType_TypeFromString(schemata, base_type_str, context)
+		if err != nil {
+			err = fmt.Errorf("(NewCWLType_TypeFromString) recurisve call of NewCWLType_TypeFromString returned: %s", err.Error())
+			return
+		}
+
 		switch context {
 
 		case "WorkflowOutput":
 
 			oas := NewOutputArraySchema()
-			oas.Items = []CWLType_Type{CWLType_Type_Basic(base_type_str)}
+			oas.Items = []CWLType_Type{base_type}
 			result = oas
 			return
 		default:
 			err = fmt.Errorf("(NewCWLType_TypeFromString) context %s not supported yet", context)
 		}
-
-		//an_array_schema["items"] = []CWLType_Type{CWLType_Type_Basic(base_type)}
-
-		//result, err = NewCWLType_Type(schemata, an_array_schema, context)
-		//if err != nil {
-		//	return
-		//}
-
-		//return
 
 	}
 
@@ -139,8 +139,8 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 				result, err = NewCommandInputArraySchemaFromInterface(native, schemata)
 				if err != nil {
 
-					spew.Dump(native)
-					panic("done")
+					//spew.Dump(native)
+					//panic("done")
 
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputArraySchemaFromInterface returned: %s", err.Error())
 				}
@@ -201,6 +201,9 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 	case OutputArraySchema:
 		result = native.(OutputArraySchema)
 		return
+	case *OutputArraySchema:
+		oas_p := native.(*OutputArraySchema)
+		result = *oas_p
 	default:
 		spew.Dump(native)
 		err = fmt.Errorf("(NewCWLType_Type) type %s unkown", reflect.TypeOf(native))

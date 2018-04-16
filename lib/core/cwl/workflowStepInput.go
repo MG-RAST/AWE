@@ -2,10 +2,12 @@ package cwl
 
 import (
 	"fmt"
+
 	"github.com/davecgh/go-spew/spew"
 
-	"github.com/mitchellh/mapstructure"
 	"reflect"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 //http://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
@@ -131,7 +133,7 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 	default:
 
 		err = fmt.Errorf("(NewWorkflowStepInput) Input type %s can not be parsed", reflect.TypeOf(original))
-		return
+
 	}
 
 	return
@@ -208,7 +210,6 @@ func CreateWorkflowStepInputArray(original interface{}) (array_ptr *[]WorkflowSt
 
 	default:
 		err = fmt.Errorf("(CreateWorkflowStepInputArray) type unknown")
-		return
 
 	}
 	//spew.Dump(new_array)

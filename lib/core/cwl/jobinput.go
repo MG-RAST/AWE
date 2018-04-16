@@ -9,9 +9,10 @@ import (
 	"io/ioutil"
 	//"os"
 	//"strings"
+	"reflect"
+
 	"github.com/MG-RAST/AWE/lib/logger"
 	"gopkg.in/yaml.v2"
-	"reflect"
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 )
 
@@ -133,7 +134,7 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 
 			cwl_obj, xerr := NewCWLType(key_str, value)
 			if xerr != nil {
-				err = xerr
+				err = fmt.Errorf("(NewJob_document) NewCWLType returned: %s", xerr.Error())
 				return
 			}
 			job_nptr = append(job_nptr, NewNamedCWLType(key_str, cwl_obj))
@@ -148,7 +149,7 @@ func NewJob_document(original interface{}) (job *Job_document, err error) {
 
 			cwl_obj, xerr := NewCWLType("", value)
 			if xerr != nil {
-				err = xerr
+				err = fmt.Errorf("(NewJob_document) NewCWLType returned: %s", xerr.Error())
 				return
 			}
 			job_nptr = append(job_nptr, NewNamedCWLType("not supported", cwl_obj))
@@ -175,6 +176,7 @@ func NewJob_documentFromNamedTypes(original interface{}) (job *Job_document, err
 
 	original, err = MakeStringMap(original)
 	if err != nil {
+		err = fmt.Errorf("(NewJob_documentFromNamedTypes) MakeStringMap returned: %s", err.Error())
 		return
 	}
 

@@ -3,256 +3,36 @@ package main
 import (
 	//"encoding/json"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/shock"
+	"github.com/davecgh/go-spew/spew"
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 	"bytes"
 	"encoding/json"
-	"github.com/MG-RAST/AWE/lib/shock"
+
+	"github.com/MG-RAST/AWE/lib/cache"
 	//"github.com/davecgh/go-spew/spew"
-	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path"
-	"reflect"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 type standardResponse struct {
 	Status int         `json:"status"`
 	Data   interface{} `json:"data"`
 	Error  []string    `json:"error"`
-}
-
-func uploadFile(file *cwl.File, inputfile_path string) (err error) {
-	//fmt.Printf("(uploadFile) start\n")
-	//defer fmt.Printf("(uploadFile) end\n")
-	//if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
-
-	//	time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-	//	if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
-	//		fmt.Errorf("push file error\n")
-	//		logger.Error("op=pushfile,err=" + err.Error())
-	//		return size, err
-	//	}
-	//}
-
-	scheme := ""
-	if file.Location_url != nil {
-		scheme = file.Location_url.Scheme
-		host := file.Location_url.Host
-		path := file.Location_url.Path
-		//fmt.Printf("Location: '%s' '%s' '%s'\n", scheme, host, path)
-
-		if scheme == "" {
-			if host == "" {
-				scheme = "file"
-			} else {
-				scheme = "http"
-			}
-			//fmt.Printf("Location (updated): '%s' '%s' '%s'\n", scheme, host, path)
-		}
-
-		if scheme == "file" {
-			if host == "" || host == "localhost" {
-				file.Path = path
-			}
-		} else {
-			return
-		}
-
-	}
-
-	if file.Location_url == nil && file.Location != "" {
-		err = fmt.Errorf("URL has not been parsed correctly")
-		return
-	}
-
-	file_path := file.Path
-
-	basename := path.Base(file_path)
-
-	if file_path == "" {
-		return
-	}
-
-	//fmt.Printf("file.Path: %s\n", file_path)
-
-	if !path.IsAbs(file_path) {
-		file_path = path.Join(inputfile_path, file_path)
-	}
-
-	//fmt.Printf("Using path %s\n", file_path)
-
-	sc := shock.ShockClient{Host: conf.SHOCK_URL, Token: "", Debug: false} // "shock:7445"
-
-	opts := shock.Opts{"upload_type": "basic", "file": file_path}
-	node, err := sc.CreateOrUpdate(opts, "", nil)
-	if err != nil {
-		return
-	}
-	//spew.Dump(node)
-
-	file.Location_url, err = url.Parse(conf.SHOCK_URL + "/node/" + node.Id + "?download")
-	if err != nil {
-		return
-	}
-
-	file.Location = file.Location_url.String()
-	file.Path = ""
-	file.Basename = basename
-
-	return
-}
-
-func processInputData(native interface{}, inputfile_path string) (count int, err error) {
-
-	//fmt.Printf("(processInputData) start\n")
-	//defer fmt.Printf("(processInputData) end\n")
-	switch native.(type) {
-	case *cwl.Job_document:
-		//fmt.Printf("found Job_document\n")
-		job_doc_ptr := native.(*cwl.Job_document)
-
-		job_doc := *job_doc_ptr
-
-		for _, value := range job_doc {
-
-			//id := value.Id
-			//fmt.Printf("recurse into key: %s\n", id)
-			var sub_count int
-			sub_count, err = processInputData(value, inputfile_path)
-			if err != nil {
-				return
-			}
-			count += sub_count
-		}
-
-		return
-	case cwl.NamedCWLType:
-		named := native.(cwl.NamedCWLType)
-		var sub_count int
-		sub_count, err = processInputData(named.Value, inputfile_path)
-		if err != nil {
-			return
-		}
-		count += sub_count
-
-	case *cwl.String:
-		//fmt.Printf("found string\n")
-		return
-	case *cwl.Double:
-		//fmt.Printf("found double\n")
-		return
-	case *cwl.File:
-
-		//fmt.Printf("found File\n")
-		file, ok := native.(*cwl.File)
-		if !ok {
-			err = fmt.Errorf("could not cast to *cwl.File")
-			return
-		}
-		err = uploadFile(file, inputfile_path)
-		if err != nil {
-			return
-		}
-		count += 1
-
-		return
-	case *cwl.Array:
-
-		array, ok := native.(*cwl.Array)
-		if !ok {
-			err = fmt.Errorf("could not cast to *cwl.Array")
-			return
-		}
-
-		for _, value := range *array {
-
-			//id := value.GetId()
-			//fmt.Printf("recurse into key: %s\n", id)
-			var sub_count int
-			sub_count, err = processInputData(value, inputfile_path)
-			if err != nil {
-				return
-			}
-			count += sub_count
-
-		}
-		return
-
-	case *cwl.Directory:
-
-		dir, ok := native.(*cwl.Directory)
-		if !ok {
-			err = fmt.Errorf("could not cast to *cwl.Directory")
-			return
-		}
-
-		if dir.Listing != nil {
-
-			for k, _ := range dir.Listing {
-				value := dir.Listing[k]
-				var sub_count int
-				sub_count, err = processInputData(value, inputfile_path)
-				if err != nil {
-					return
-				}
-				count += sub_count
-
-			}
-
-		}
-		return
-	case *cwl.Record:
-
-		rec := native.(*cwl.Record)
-
-		for _, value := range *rec {
-			//value := rec.Fields[k]
-			var sub_count int
-			sub_count, err = processInputData(value, inputfile_path)
-			if err != nil {
-				return
-			}
-			count += sub_count
-		}
-
-	case cwl.Record:
-
-		rec := native.(cwl.Record)
-
-		for _, value := range rec {
-			//value := rec.Fields[k]
-			var sub_count int
-			sub_count, err = processInputData(value, inputfile_path)
-			if err != nil {
-				return
-			}
-			count += sub_count
-		}
-	case string:
-		//fmt.Printf("found Null\n")
-		return
-
-	case *cwl.Null:
-		//fmt.Printf("found Null\n")
-		return
-	default:
-		//spew.Dump(native)
-		err = fmt.Errorf("(processInputData) No handler for type \"%s\"\n", reflect.TypeOf(native))
-		return
-	}
-
-	return
 }
 
 func main() {
@@ -323,6 +103,8 @@ func main_wrapper() (err error) {
 	//spew.Dump(*job_doc)
 
 	job_doc_map := job_doc.GetMap()
+	//job_doc_map["test"] = cwl.NewNull()
+
 	//fmt.Println("Job input after reading from file: map !!!!\n")
 	//spew.Dump(job_doc_map)
 
@@ -338,14 +120,17 @@ func main_wrapper() (err error) {
 		err = fmt.Errorf("job_doc_string is empty")
 		return
 	}
-
+	//os.Exit(0)
 	//fmt.Printf("yaml:\n%s\n", job_doc_string)
 
 	// ### process input files
 
+	shock_client := shock.NewShockClient(conf.SHOCK_URL, shock_auth, false)
+
 	var upload_count int
-	upload_count, err = processInputData(job_doc, inputfile_path)
+	upload_count, err = cache.ProcessIOData(job_doc, inputfile_path, "upload", shock_client)
 	if err != nil {
+		err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
 		return
 	}
 	logger.Debug(3, "%d files have been uploaded\n", upload_count)
@@ -375,7 +160,7 @@ func main_wrapper() (err error) {
 
 		yamlstream, err = ioutil.ReadFile(workflow_file)
 		if err != nil {
-			fmt.Errorf("error in reading workflow file: " + err.Error())
+			err = fmt.Errorf("error in reading workflow file: " + err.Error())
 			return
 		}
 	}
@@ -383,7 +168,7 @@ func main_wrapper() (err error) {
 
 	// convert CWL to string
 	yaml_str := string(yamlstream[:])
-
+	fmt.Printf("after cwl-runner --pack: \n%s\n", yaml_str)
 	var named_object_array cwl.Named_CWL_object_array
 	var cwl_version cwl.CWLVersion
 	var schemata []cwl.CWLType_Type
@@ -396,48 +181,80 @@ func main_wrapper() (err error) {
 
 	_ = schemata // TODO put into a collection!
 
-	// search for File objects in Document, e.g. in CommandLineTools
+	var shock_requirement cwl.ShockRequirement
+	var shock_requirement_ptr *cwl.ShockRequirement
+	shock_requirement_ptr, err = cwl.NewShockRequirement(shock_client.Host)
+	if err != nil {
+		err = fmt.Errorf("(main_wrapper) NewShockRequirement returned: %s", err.Error())
+		return
+	}
+
+	shock_requirement = *shock_requirement_ptr
+	// A) search for File objects in Document, e.g. in CommandLineTools
+	// B) inject ShockRequirement into CommandLineTools, ExpressionTools and Workflow
 	for j, _ := range named_object_array {
 
 		pair := named_object_array[j]
 		object := pair.Value
 
-		var cmd_line_tool *cwl.CommandLineTool
 		var ok bool
 
-		cmd_line_tool, ok = object.(*cwl.CommandLineTool)
-		if !ok {
-			//fmt.Println("nope.")
-			err = nil
-			continue
-		}
+		switch object.(type) {
+		case *cwl.Workflow:
+			workflow := object.(*cwl.Workflow)
 
-		update := false
-		for i, _ := range cmd_line_tool.Inputs {
-			command_input_parameter := &cmd_line_tool.Inputs[i]
-			if command_input_parameter.Default == nil {
-				continue
-			}
-
-			var default_file *cwl.File
-			default_file, ok = command_input_parameter.Default.(*cwl.File)
-			if !ok {
-				continue
-			}
-
-			err = uploadFile(default_file, inputfile_path)
+			workflow.Requirements, err = cwl.AddRequirement(shock_requirement, workflow.Requirements)
 			if err != nil {
+				err = fmt.Errorf("(main_wrapper) AddRequirement returned: %s", err.Error())
 				return
 			}
-			command_input_parameter.Default = default_file
-			cmd_line_tool.Inputs[i] = *command_input_parameter
-			update = true
-			//spew.Dump(command_input_parameter)
-			//fmt.Printf("File: %+v\n", *default_file)
 
-		}
-		if update {
-			named_object_array[j].Value = cmd_line_tool
+		case *cwl.CommandLineTool:
+			var cmd_line_tool *cwl.CommandLineTool
+			cmd_line_tool, ok = object.(*cwl.CommandLineTool) // TODO this misses embedded CommandLineTools !
+			if !ok {
+				//fmt.Println("nope.")
+				err = nil
+				continue
+			}
+
+			if cmd_line_tool == nil {
+				err = fmt.Errorf("(main_wrapper) cmd_line_tool==nil")
+				return
+			}
+
+			cmd_line_tool.Requirements, err = cwl.AddRequirement(shock_requirement, cmd_line_tool.Requirements)
+			if err != nil {
+				err = fmt.Errorf("(main_wrapper) AddRequirement returned: %s", err.Error())
+			}
+
+			update := false
+			for i, _ := range cmd_line_tool.Inputs {
+				command_input_parameter := &cmd_line_tool.Inputs[i]
+				if command_input_parameter.Default == nil {
+					continue
+				}
+
+				var default_file *cwl.File
+				default_file, ok = command_input_parameter.Default.(*cwl.File)
+				if !ok {
+					continue
+				}
+
+				err = cache.UploadFile(default_file, inputfile_path, shock_client)
+				if err != nil {
+					return
+				}
+				command_input_parameter.Default = default_file
+				cmd_line_tool.Inputs[i] = *command_input_parameter
+				update = true
+				//spew.Dump(command_input_parameter)
+				//fmt.Printf("File: %+v\n", *default_file)
+
+			}
+			if update {
+				named_object_array[j].Value = cmd_line_tool
+			}
 		}
 	}
 
@@ -467,9 +284,9 @@ func main_wrapper() (err error) {
 		return
 	}
 
-	//fmt.Println("------------")
-	//fmt.Println(new_document_str)
-	//fmt.Println("------------")
+	fmt.Println("------------")
+	fmt.Println(new_document_str)
+	fmt.Println("------------")
 	//panic("hhhh")
 	new_document_bytes = []byte(new_document_str)
 
@@ -512,6 +329,7 @@ func main_wrapper() (err error) {
 	if conf.SUBMITTER_WAIT {
 		var job *core.Job
 
+	FORLOOP:
 		for true {
 			time.Sleep(5 * time.Second)
 			job = nil
@@ -523,11 +341,19 @@ func main_wrapper() (err error) {
 
 			//fmt.Printf("job state: %s\n", job.State)
 
-			if job.State == core.JOB_STAT_COMPLETED {
-
-				break
+			switch job.State {
+			case core.JOB_STAT_COMPLETED:
+				break FORLOOP
+			case core.JOB_STAT_SUSPEND:
+				err = fmt.Errorf("(main_wrapper) job is in state \"%s\"", job.State)
+				return
+			case core.JOB_STAT_FAILED_PERMANENT:
+				err = fmt.Errorf("(main_wrapper) job is in state \"%s\"", job.State)
+				return
+			case core.JOB_STAT_DELETED:
+				err = fmt.Errorf("(main_wrapper) job is in state \"%s\"", job.State)
+				return
 			}
-
 		}
 		//spew.Dump(job)
 
@@ -551,6 +377,18 @@ func main_wrapper() (err error) {
 			output_receipt[out_id] = out.Value
 		}
 
+		if conf.SUBMITTER_DOWNLOAD_FILES { // TODO
+			var output_file_path string
+			output_file_path, err = os.Getwd()
+
+			_, err = cache.ProcessIOData(output_receipt, output_file_path, "download", nil)
+			if err != nil {
+				spew.Dump(output_receipt)
+				err = fmt.Errorf("(main_wrapper) ProcessIOData(for download) returned: %s", err.Error())
+				return
+			}
+		}
+
 		var output_receipt_bytes []byte
 		output_receipt_bytes, err = json.MarshalIndent(output_receipt, "", "    ")
 		if err != nil {
@@ -570,6 +408,7 @@ func main_wrapper() (err error) {
 		} else {
 			fmt.Println(string(output_receipt_bytes[:]))
 		}
+
 	} else {
 		fmt.Printf("JobID=%s\n", jobid)
 	}
@@ -604,6 +443,7 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 		err = fmt.Errorf("(SubmitCWLJobToAWE) multipart.Send returned: %s", err.Error())
 		return
 	}
+
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		err = fmt.Errorf("(SubmitCWLJobToAWE) ioutil.ReadAll returned: %s", err.Error())
@@ -616,8 +456,8 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 	var sr standardResponse
 	err = json.Unmarshal(responseData, &sr)
 	if err != nil {
-		fmt.Println(string(responseData[:]))
-		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job")
+		//fmt.Println(string(responseData[:]))
+		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s (%s) response: %s (response.StatusCode: %d)", err.Error(), conf.SERVER_URL+"/job", responseData, response.StatusCode)
 		return
 	}
 
@@ -658,6 +498,7 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 	if err != nil {
 		return
 	}
+
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return
@@ -670,11 +511,17 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 	var sr standardResponse
 	err = json.Unmarshal(responseData, &sr)
 	if err != nil {
+		err = fmt.Errorf("(GetAWEJob) json.Unmarshal returned: %s (%s) (response.StatusCode: %d)", err.Error(), conf.SERVER_URL+"/job/"+jobid, response.StatusCode)
 		return
 	}
 
 	if len(sr.Error) > 0 {
 		err = fmt.Errorf("%s", sr.Error[0])
+		return
+	}
+
+	if response.StatusCode != 200 {
+		err = fmt.Errorf("(GetAWEJob) response.StatusCode: %d", response.StatusCode)
 		return
 	}
 
@@ -688,6 +535,7 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 	job = &core.Job{}
 	err = json.Unmarshal(job_bytes, job)
 	if err != nil {
+		err = fmt.Errorf("(GetAWEJob) (second call) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job/"+jobid)
 		return
 	}
 

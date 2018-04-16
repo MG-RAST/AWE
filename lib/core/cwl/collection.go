@@ -3,6 +3,7 @@ package cwl
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/logger"
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
@@ -14,6 +15,7 @@ type CWL_collection struct {
 	Workflows          map[string]*Workflow
 	WorkflowStepInputs map[string]*WorkflowStepInput
 	CommandLineTools   map[string]*CommandLineTool
+	ExpressionTools    map[string]*ExpressionTool
 
 	Files    map[string]*File
 	Strings  map[string]*String
@@ -129,6 +131,8 @@ func (c CWL_collection) Add(id string, obj CWL_object) (err error) {
 		c.WorkflowStepInputs[id] = obj.(*WorkflowStepInput)
 	case *CommandLineTool:
 		c.CommandLineTools[id] = obj.(*CommandLineTool)
+	case *ExpressionTool:
+		c.ExpressionTools[id] = obj.(*ExpressionTool)
 	case *File:
 		c.Files[id] = obj.(*File)
 	case *String:
@@ -226,6 +230,14 @@ func (c CWL_collection) GetCommandLineTool(id string) (obj *CommandLineTool, err
 	return
 }
 
+func (c CWL_collection) GetExpressionTool(id string) (obj *ExpressionTool, err error) {
+	obj, ok := c.ExpressionTools[id]
+	if !ok {
+		err = fmt.Errorf("(GetExpressionTool) item %s not found in collection", id)
+	}
+	return
+}
+
 func (c CWL_collection) GetWorkflow(id string) (obj *Workflow, err error) {
 	obj, ok := c.Workflows[id]
 	if !ok {
@@ -240,6 +252,7 @@ func NewCWL_collection() (collection CWL_collection) {
 	collection.Workflows = make(map[string]*Workflow)
 	collection.WorkflowStepInputs = make(map[string]*WorkflowStepInput)
 	collection.CommandLineTools = make(map[string]*CommandLineTool)
+	collection.ExpressionTools = make(map[string]*ExpressionTool)
 	collection.Files = make(map[string]*File)
 	collection.Strings = make(map[string]*String)
 	collection.Ints = make(map[string]*Int)

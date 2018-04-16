@@ -2,6 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -9,9 +13,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/worker"
 	"github.com/davecgh/go-spew/spew"
-	"os"
-	"strings"
-	"time"
 )
 
 func main() {
@@ -82,20 +83,39 @@ func main() {
 	//var self *core.Client
 	if worker.Client_mode == "online" {
 		if conf.SERVER_URL == "" {
-			fmt.Fprintf(os.Stderr, "AWE server url not configured or is empty. Please check the [Client]serverurl field in the configuration file.\n")
+			fmt.Fprintf(os.Stderr, "(worker.main) AWE server url not configured or is empty. Please check the [Client]serverurl field in the configuration file.\n")
 			os.Exit(1)
 		}
 		if strings.HasPrefix(conf.SERVER_URL, "http") == false {
-			fmt.Fprintf(os.Stderr, "serverurl not valid (require http://): %s \n", conf.SERVER_URL)
+			fmt.Fprintf(os.Stderr, "(worker.main) serverurl not valid (require http://): %s \n", conf.SERVER_URL)
 			os.Exit(1)
 		}
 
-		err = worker.RegisterWithAuth(conf.SERVER_URL, profile)
-		if err != nil {
-			message := fmt.Sprintf("fail to register: %s (SERVER_URL=%s)\n", err.Error(), conf.SERVER_URL)
-			fmt.Fprintf(os.Stderr, message)
-			logger.Error(message)
-			os.Exit(1)
+		count := 0
+
+		retry_sleep := 5
+
+		for true {
+			count += 1
+			err = worker.RegisterWithAuth(conf.SERVER_URL, profile)
+			if err != nil {
+
+				if count >= 10 {
+					message := fmt.Sprintf("(worker.main) failed to register: %s (SERVER_URL=%s) exiting!\n", err.Error(), conf.SERVER_URL)
+					fmt.Fprintf(os.Stderr, message)
+					logger.Error(message)
+
+					os.Exit(1)
+				}
+
+				message := fmt.Sprintf("(worker.main) failed to register: %s (SERVER_URL=%s) (%d), next retry in %d seconds...\n", err.Error(), conf.SERVER_URL, count, retry_sleep)
+				fmt.Fprintf(os.Stderr, message)
+				logger.Error(message)
+
+				time.Sleep(time.Second * time.Duration(retry_sleep))
+			} else {
+				break
+			}
 		}
 
 	}
@@ -130,8 +150,8 @@ func main() {
 		workunit.CWL_workunit.Job_input = job_doc
 		workunit.CWL_workunit.Job_input_filename = conf.CWL_JOB
 
-		workunit.CWL_workunit.CWL_tool_filename = conf.CWL_TOOL
-		workunit.CWL_workunit.CWL_tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
+		workunit.CWL_workunit.Tool_filename = conf.CWL_TOOL
+		workunit.CWL_workunit.Tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
 
 		current_working_directory, err := os.Getwd()
 		if err != nil {
@@ -145,7 +165,7 @@ func main() {
 		cmd.Local = true // this makes sure the working directory is not deleted
 		cmd.Name = "/usr/bin/cwl-runner"
 
-		cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL_workunit.CWL_tool_filename, workunit.CWL_workunit.Job_input_filename}
+		cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL_workunit.Tool_filename, workunit.CWL_workunit.Job_input_filename}
 		if conf.CWL_RUNNER_ARGS != "" {
 			cwl_runner_args_array := strings.Split(conf.CWL_RUNNER_ARGS, " ")
 			cmd.ArgsArray = append(cwl_runner_args_array, cmd.ArgsArray...)

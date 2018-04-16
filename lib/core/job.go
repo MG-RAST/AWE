@@ -18,7 +18,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/davecgh/go-spew/spew"
 	"gopkg.in/mgo.v2/bson"
 
 	"strconv"
@@ -839,7 +838,7 @@ func (job *Job) SetError(newError *JobError) (err error) {
 		return
 	}
 	defer job.Unlock()
-	spew.Dump(newError)
+	//spew.Dump(newError)
 
 	update_value := bson.M{"error": newError}
 	err = dbUpdateJobFields(job.Id, update_value)

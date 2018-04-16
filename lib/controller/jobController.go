@@ -16,7 +16,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
-	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	//"os"
@@ -502,7 +501,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	var response_bytes []byte
 	response_bytes, err = json.Marshal(SR)
 	if err != nil {
-		spew.Dump(SR)
+		//spew.Dump(SR)
 		cx.RespondWithErrorMessage("Could not marshal response: "+err.Error(), http.StatusBadRequest)
 		return
 	}

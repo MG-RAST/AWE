@@ -2096,11 +2096,13 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 		ancestor_task_id.TaskName = workflow_name + "/" + step_name
 
 		var ancestor_task *Task
-		ancestor_task, ok, err = qm.TaskMap.Get(ancestor_task_id, true)
+		var local_ok bool
+		ancestor_task, local_ok, err = qm.TaskMap.Get(ancestor_task_id, true)
 		if err != nil {
+			err = fmt.Errorf("(getCWLSource) qm.TaskMap.Get returned: %s", err.Error())
 			return
 		}
-		if !ok {
+		if !local_ok {
 			if error_on_missing_task {
 				err = fmt.Errorf("(getCWLSource) ancestor_task %s not found ", ancestor_task_id)
 				return

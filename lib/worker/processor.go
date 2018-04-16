@@ -13,7 +13,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/golib/httpclient"
-	"github.com/davecgh/go-spew/spew"
 	//"github.com/davecgh/go-spew/spew"
 	//"github.com/davecgh/go-spew/spew"
 	"io"
@@ -230,7 +229,7 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 		result_doc, xerr := cwl.NewJob_document(tool_results)
 		if xerr != nil {
-			spew.Dump(tool_results)
+			//spew.Dump(tool_results)
 			err = fmt.Errorf("(RunWorkunit) NewJob_document returned: %s", xerr.Error())
 			return
 		}

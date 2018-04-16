@@ -91,7 +91,7 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion) (workflow_ptr *Wo
 
 		if CwlVersion == "" {
 			fmt.Println("workflow without version:")
-			spew.Dump(object)
+			//spew.Dump(object)
 			err = fmt.Errorf("(NewWorkflow) CwlVersion empty")
 			return
 		}
@@ -129,7 +129,7 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion) (workflow_ptr *Wo
 			}
 		} else {
 			err = fmt.Errorf("(NewWorkflow) Workflow has no steps ")
-			spew.Dump(object)
+			//spew.Dump(object)
 			return
 		}
 

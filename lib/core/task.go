@@ -749,13 +749,13 @@ func (task *TaskRaw) GetDependsOn() (dep []string, err error) {
 	return
 }
 
-// checks and creates indices on shock node if needed
-func (task *Task) CreateIndex() (err error) {
+// checks and creates indices on input shock nodes if needed
+func (task *Task) CreateInputIndexes() (err error) {
 	for _, io := range task.Inputs {
 		if len(io.ShockIndex) > 0 {
 			_, hasIndex, err := io.GetIndexInfo(io.ShockIndex)
 			if err != nil {
-				errMsg := "could not retrieve index info from input shock node, taskid=" + task.Id + ", error=" + err.Error()
+				errMsg := "(GetIndexInfo) could not retrieve shock index info: node=" + io.Node + ", taskid=" + task.Id + ", error=" + err.Error()
 				logger.Error(errMsg)
 				return errors.New(errMsg)
 			}
@@ -764,8 +764,34 @@ func (task *Task) CreateIndex() (err error) {
 				sc := shock.ShockClient{Host: io.Host, Token: task.Info.DataToken}
 				err = sc.ShockPutIndex(io.Node, io.ShockIndex)
 				if err != nil {
-					errMsg := "failed to create index on shock node for taskid=" + task.Id + ", error=" + err.Error()
-					logger.Error("error: " + errMsg)
+					errMsg := "(ShockPutIndex) failed to create shock index: node=" + io.Node + ", taskid=" + task.Id + ", error=" + err.Error()
+					logger.Error(errMsg)
+					return errors.New(errMsg)
+				}
+			}
+		}
+	}
+	return
+}
+
+// checks and creates indices on output shock nodes if needed
+// if worker failed to do so, this will catch it
+func (task *Task) CreateOutputIndexes() (err error) {
+	for _, io := range task.Outputs {
+		if len(io.ShockIndex) > 0 {
+			_, hasIndex, err := io.GetIndexInfo(io.ShockIndex)
+			if err != nil {
+				errMsg := "(GetIndexInfo) could not retrieve shock index info: node=" + io.Node + ", taskid=" + task.Id + ", error=" + err.Error()
+				logger.Error(errMsg)
+				return errors.New(errMsg)
+			}
+			if !hasIndex {
+				// create missing index
+				sc := shock.ShockClient{Host: io.Host, Token: task.Info.DataToken}
+				err = sc.ShockPutIndex(io.Node, io.ShockIndex)
+				if err != nil {
+					errMsg := "(ShockPutIndex) failed to create shock index: node=" + io.Node + ", taskid=" + task.Id + ", error=" + err.Error()
+					logger.Error(errMsg)
 					return errors.New(errMsg)
 				}
 			}

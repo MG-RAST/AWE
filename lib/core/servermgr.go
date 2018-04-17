@@ -654,6 +654,13 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		logger.Debug(3, "(handleWorkStatDone) New output file %s has size %d", io.FileName, size)
 	}
 
+	// create shock index on output nodes (if set in workflow document and worker did not do it)
+	err = task.CreateOutputIndexes()
+	if err != nil {
+		err = fmt.Errorf("(handleWorkStatDone) CreateOutputIndexes: %s", err.Error())
+		return
+	}
+
 	if outputs_modified {
 		err = task.UpdateOutputs()
 		if err != nil {
@@ -1974,9 +1981,9 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 	}
 
 	//create shock index on input nodes (if set in workflow document)
-	err = task.CreateIndex()
+	err = task.CreateInputIndexes()
 	if err != nil {
-		err = fmt.Errorf("(taskEnQueue) CreateIndex: %s", err.Error())
+		err = fmt.Errorf("(taskEnQueue) CreateInputIndexes: %s", err.Error())
 		return
 	}
 

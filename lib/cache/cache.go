@@ -225,7 +225,7 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	return
 }
 
-func DownloadFile(file *cwl.File, download_path string, shock_client *shock.ShockClient) (err error) {
+func DownloadFile(file *cwl.File, download_path string) (err error) {
 
 	if file.Location == "" {
 		err = fmt.Errorf("Location is empty")
@@ -253,9 +253,7 @@ func DownloadFile(file *cwl.File, download_path string, shock_client *shock.Shoc
 
 	//fmt.Printf("Using path %s\n", file_path)
 
-	var size int64
-	var md5sum string
-	size, md5sum, err = shock_client.FetchFile(file_path, file.Location, "", false)
+	_, _, err = shock.FetchFile(file_path, file.Location, "", "", false)
 	if err != nil {
 		return
 	}
@@ -265,8 +263,6 @@ func DownloadFile(file *cwl.File, download_path string, shock_client *shock.Shoc
 	//fmt.Println("file:")
 	//spew.Dump(file)
 
-	_ = size
-	_ = md5sum
 	return
 }
 
@@ -363,7 +359,7 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 		} else {
 
 			// download
-			err = DownloadFile(file, path, shock_client)
+			err = DownloadFile(file, path)
 			if err != nil {
 				err = fmt.Errorf("(ProcessIOData) DownloadFile returned: %s (file: %s)", err.Error(), file)
 				return
@@ -683,17 +679,18 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 		io.Node = new_node_id
 	}
 
-	logger.Event(event.FILE_DONE,
-		"workid="+work.Id,
-		"filename="+name,
-		fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
-
-	if io.ShockIndex != "" {
+	// worker only index if not parts node, otherwise server is responsible
+	if (io.ShockIndex != "") && (work.Rank == 0) {
 		sc := shock.ShockClient{Host: io.Host, Token: work.Info.DataToken}
 		if err := sc.ShockPutIndex(io.Node, io.ShockIndex); err != nil {
 			logger.Error("warning: fail to create index on shock for shock node: " + io.Node)
 		}
 	}
+
+	logger.Event(event.FILE_DONE,
+		"workid="+work.Id,
+		"filename="+name,
+		fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
 
 	if conf.CACHE_ENABLED {
 		//move output files to cache
@@ -804,10 +801,10 @@ func UploadOutputData(work *core.Workunit, shock_client *shock.ShockClient) (siz
 			io_size, _, err = UploadOutputIO(work, io)
 			if err != nil {
 				err = fmt.Errorf("(UploadOutputData) UploadOutputIO returned: %s", err.Error())
+				break
 			}
 			size += io_size
 		}
-
 	}
 
 	return

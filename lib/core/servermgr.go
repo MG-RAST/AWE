@@ -204,6 +204,9 @@ func (qm *ServerMgr) NoticeHandle() {
 		}
 
 		logger.Debug(3, "(ServerMgr NoticeHandle) got notice: workid=%s, status=%s, clientid=%s", id, notice.Status, notice.WorkerId)
+
+		//fmt.Printf("Notice:")
+		//spew.Dump(notice)
 		err = qm.handleNoticeWorkDelivered(notice)
 		if err != nil {
 			err = fmt.Errorf("(NoticeHandle): %s", err.Error())
@@ -763,8 +766,12 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	if notice.Results != nil { // TODO one workunit vs multiple !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		err = task.SetStepOutput(notice.Results, true)
 		if err != nil {
+			err = fmt.Errorf("(handleNoticeWorkDelivered) task.SetStepOutput returned: %s", err.Error())
 			return
 		}
+	} else {
+		err = fmt.Errorf("(handleNoticeWorkDelivered) notice.Results is empty !?")
+		return
 	}
 
 	// *** Get workunit
@@ -2116,6 +2123,9 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 
 		if ancestor_task.StepOutput == nil {
 			//err = fmt.Errorf("(getCWLSource) Found predecessor task %s, but StepOutput does not exist", step_name_abs)
+
+			fmt.Println("ancestor_task: ")
+			spew.Dump(ancestor_task)
 			logger.Debug(3, "(getCWLSource) ancestor_task.StepOutput == nil")
 			ok = false
 			return
@@ -3054,7 +3064,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				var ok bool
 				obj, ok, err = qm.getCWLSource(workflow_inputs_map, job, task_id, outputSourceString, true)
 				if err != nil {
-					err = fmt.Errorf("(updateJobTask) A getCWLSource returns: %s", err.Error())
+					err = fmt.Errorf("(updateJobTask) A) getCWLSource returns: %s", err.Error())
 					return
 				}
 				skip := false
@@ -3062,7 +3072,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 					if is_optional {
 						skip = true
 					} else {
-						err = fmt.Errorf("(updateJobTask) A source %s not found", outputSourceString)
+						err = fmt.Errorf("(updateJobTask) A) source %s not found by getCWLSource", outputSourceString)
 						return
 					}
 				}
@@ -3097,7 +3107,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 					var ok bool
 					obj, ok, err = qm.getCWLSource(workflow_inputs_map, job, task_id, outputSourceString, true)
 					if err != nil {
-						err = fmt.Errorf("(updateJobTask) B (%s) getCWLSource returns: %s", parent_id_str, err.Error())
+						err = fmt.Errorf("(updateJobTask) B) (%s) getCWLSource returns: %s", parent_id_str, err.Error())
 						return
 					}
 
@@ -3108,7 +3118,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 							skip = true
 						} else {
 
-							err = fmt.Errorf("(updateJobTask) B (%s) source %s not found", parent_id_str, outputSourceString)
+							err = fmt.Errorf("(updateJobTask) B) (%s) source %s not found", parent_id_str, outputSourceString)
 							return
 						}
 					}

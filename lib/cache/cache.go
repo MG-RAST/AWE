@@ -136,7 +136,7 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 }
 
 func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.ShockClient) (err error) {
-	fmt.Printf("(uploadFile) start\n")
+	//fmt.Printf("(uploadFile) start\n")
 	defer fmt.Printf("(uploadFile) end\n")
 	//if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 
@@ -214,12 +214,12 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 
 	file.Location = file.Location_url.String()
 
-	fmt.Printf("file.Path A: %s", file.Path)
+	//fmt.Printf("file.Path A: %s", file.Path)
 
 	file.Path = strings.TrimPrefix(file.Path, inputfile_path)
 	file.Path = strings.TrimPrefix(file.Path, "/")
 
-	fmt.Printf("file.Path B: %s", file.Path)
+	//fmt.Printf("file.Path B: %s", file.Path)
 	file.Basename = basename
 
 	return
@@ -410,7 +410,7 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 
 	case *cwl.Directory:
 
-		fmt.Printf("XXX *cwl.Directory\n")
+		//fmt.Printf("XXX *cwl.Directory\n")
 		dir, ok := native.(*cwl.Directory)
 		if !ok {
 			err = fmt.Errorf("(ProcessIOData) could not cast to *cwl.Directory")
@@ -422,7 +422,7 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 			for k, _ := range dir.Listing {
 
 				value := dir.Listing[k]
-				fmt.Printf("XXX *cwl.Directory, Listing %d (%s)\n", k, reflect.TypeOf(value))
+				//fmt.Printf("XXX *cwl.Directory, Listing %d (%s)\n", k, reflect.TypeOf(value))
 				var sub_count int
 				sub_count, err = ProcessIOData(value, path, io_type, shock_client)
 				if err != nil {

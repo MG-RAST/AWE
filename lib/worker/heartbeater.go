@@ -158,6 +158,12 @@ func heartbeating(host string, clientid string) (msg core.HeartbeatInstructions,
 	logger.Debug(3, fmt.Sprintf("client %s sent a heartbeat to %s", host, clientid))
 
 	defer res.Body.Close()
+
+	if res.StatusCode == 404 {
+		err = fmt.Errorf("(heartbeating) response: 404 Not Found")
+		return
+	}
+
 	jsonstream, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		err = fmt.Errorf("(heartbeating) ioutil.ReadAll failed: %s", err.Error())
@@ -281,7 +287,7 @@ func RegisterWithAuth(host string, pclient *core.Client) (err error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 404 {
-		err = fmt.Errorf("(RegisterWithAuth) got response: 404 Not Found")
+		err = fmt.Errorf("(RegisterWithAuth) response: 404 Not Found")
 		return
 	}
 

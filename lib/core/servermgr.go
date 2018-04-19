@@ -2396,6 +2396,7 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 						err = fmt.Errorf("update output %s in task %s is missing required origin", io.FileName, task.Id)
 						return
 					}
+					continue
 				}
 
 				// find predecessor task

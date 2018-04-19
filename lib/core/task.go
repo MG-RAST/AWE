@@ -3,14 +3,13 @@ package core
 import (
 	"errors"
 	"fmt"
-	"regexp"
-
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/shock"
-	//"strconv"
-	//"github.com/davecgh/go-spew/spew"
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -50,6 +49,7 @@ type TaskRaw struct {
 	TotalWork           int                      `bson:"totalwork" json:"totalwork"`
 	MaxWorkSize         int                      `bson:"maxworksize"   json:"maxworksize"`
 	RemainWork          int                      `bson:"remainwork" json:"remainwork"`
+	ResetTask           bool                     `bson:"resettask" json:"-"` // trigged by function - resume, recompute, resubmit
 	State               string                   `bson:"state" json:"state"`
 	CreatedDate         time.Time                `bson:"createdDate" json:"createddate"`
 	StartedDate         time.Time                `bson:"startedDate" json:"starteddate"`
@@ -225,18 +225,6 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 
 	return
 }
-
-// func (task *TaskRaw) String() (s string, err error) {
-// 	err = task.LockNamed("String")
-// 	if err != nil {
-// 		return
-// 	}
-// 	defer task.Unlock()
-//
-// 	s = task.Task_Unique_Identifier.String()
-//
-// 	return
-// }
 
 // this function prevents a dead-lock when a sub-workflow task finalizes
 func (task *TaskRaw) Finalize() (ok bool, err error) {
@@ -721,21 +709,6 @@ func (task *TaskRaw) SetState(new_state string, write_lock bool) (err error) {
 		}
 	}
 
-	//r, err := dbGetJobTaskString(jobid, taskid, "state")
-	//if err != nil {
-	//	panic(err.Error())
-	//}
-	//if r != new_state {
-	//	text := fmt.Sprintf("did set: \"%s\" got: \"%s\"", new_state, r)
-	//	panic(text)
-	//}
-
-	//result_test, err := dbGetJobTask(jobid, taskid)
-
-	//spew_config := spew.NewDefaultConfig()
-	//spew_config.DisableMethods = true
-	//spew_config.Dump(*result_test)
-
 	return
 }
 
@@ -1033,22 +1006,6 @@ func (task *Task) SetRemainWork(num int, writelock bool) (err error) {
 	return
 }
 
-// func (task *Task) SetSubworkflow(value string) (err error) {
-//
-// 	err = task.LockNamed("SetSubworkflow")
-// 	if err != nil {
-// 		return
-// 	}
-// 	defer task.Unlock()
-//
-// 	err = dbUpdateJobTaskString(task.JobId, task.Id, "subworkflow", value)
-// 	if err != nil {
-// 		return
-// 	}
-// 	task.Subworkflow = value
-// 	return
-// }
-
 func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, err error) {
 	if writelock {
 		err = task.LockNamed("IncrementRemainWork")
@@ -1080,6 +1037,91 @@ func (task *Task) IncrementComputeTime(inc int) (err error) {
 		return
 	}
 	task.ComputeTime = newComputeTime
+	return
+}
+
+func (task *Task) ResetTaskTrue(name string) (err error) {
+	err = task.LockNamed("ResetTaskTrue:" + name)
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	err = task.SetState(TASK_STAT_PENDING, false)
+	if err != nil {
+		return
+	}
+	err = dbUpdateJobTaskBoolean(task.JobId, task.Id, "resettask", true)
+	if err != nil {
+		return
+	}
+	task.ResetTask = true
+	return
+}
+
+func (task *Task) SetResetTask(info *Info) (err error) {
+	// called when enqueing a task that previously ran
+	err = task.LockNamed("SetResetTask")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	// in memory pointer
+	task.Info = info
+
+	// reset remainwork
+	err = task.SetRemainWork(task.TotalWork, false)
+	if err != nil {
+		return
+	}
+
+	// reset computetime
+	err = dbUpdateJobTaskInt(task.JobId, task.Id, "computetime", 0)
+	if err != nil {
+		return
+	}
+	task.ComputeTime = 0
+
+	// reset completedate
+	err = task.SetCompletedDate(time.Time{}, false)
+
+	// reset / delete all outputs
+	for _, io := range task.Outputs {
+		if dataUrl, _ := io.DataUrl(); dataUrl != "" {
+			// delete dataUrl if is shock node
+			if strings.HasSuffix(dataUrl, shock.DATA_SUFFIX) {
+				err = shock.ShockDelete(io.Host, io.Node, io.DataToken)
+				if err == nil {
+					logger.Debug(2, "Deleted node %s from shock", io.Node)
+				} else {
+					logger.Error("(SetResetTask) unable to deleted node %s from shock: %s", io.Node, err.Error())
+				}
+			}
+		}
+		io.Node = "-"
+		io.Size = 0
+		io.Url = ""
+	}
+	err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
+	if err != nil {
+		return
+	}
+
+	// delete all workunit logs
+	for _, log := range conf.WORKUNIT_LOGS {
+		err = task.DeleteLogs(log, false)
+		if err != nil {
+			return
+		}
+	}
+
+	// reset the reset
+	err = dbUpdateJobTaskBoolean(task.JobId, task.Id, "resettask", false)
+	if err != nil {
+		return
+	}
+	task.ResetTask = false
 	return
 }
 
@@ -1186,6 +1228,158 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog, err error) {
 	return
 }
 
+func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
+	err = task.LockNamed("ValidateInputs")
+	if err != nil {
+		err = fmt.Errorf("(ValidateInputs) unable to lock task %s: %s", task.Id, err.Error())
+		return
+	}
+	defer task.Unlock()
+
+	var modified bool
+	for _, io := range task.Inputs {
+		if io.Origin == "" {
+			// no predecessor
+			continue
+		}
+
+		if io.Url == "" {
+			// find predecessor task
+			var preId Task_Unique_Identifier
+			preId, err = New_Task_Unique_Identifier(task.JobId, "", io.Origin)
+			if err != nil {
+				err = fmt.Errorf("(ValidateInputs) New_Task_Unique_Identifier returned: %s", err.Error())
+				return
+			}
+			var preTaskStr string
+			preTaskStr, err = preId.String()
+			if err != nil {
+				err = fmt.Errorf("(ValidateInputs) task.String returned: %s", err.Error())
+				return
+			}
+			preTask, ok, xerr := qm.TaskMap.Get(preId, true)
+			if xerr != nil {
+				err = fmt.Errorf("(ValidateInputs) predecessor task %s not found for task %s: %s", preTaskStr, task.Id, xerr.Error())
+				return
+			}
+			if !ok {
+				err = fmt.Errorf("(ValidateInputs) predecessor task %s not found for task %s", preTaskStr, task.Id)
+				return
+			}
+
+			// find predecessor state
+			preTaskState, xerr := preTask.GetState()
+			if xerr != nil {
+				err = fmt.Errorf("(ValidateInputs) unable to get state for predecessor task %s: %s", preTaskStr, err.Error())
+				return
+			}
+			if preTaskState != TASK_STAT_COMPLETED {
+				reason = fmt.Sprintf("(ValidateInputs) predecessor task state is not completed: task=%s, pretask=%s, pretask.state=%s", task.Id, preTaskStr, preTaskState)
+				logger.Debug(3, reason)
+				return
+			}
+
+			// find predecessor output
+			preTaskIO, xerr := preTask.GetOutput(io.FileName)
+			if xerr != nil {
+				err = fmt.Errorf("(ValidateInputs) unable to get IO for predecessor task %s, file %s: %s", preTaskStr, io.FileName, err.Error())
+				return
+			}
+
+			// copy if not already done
+			if io.Node != preTaskIO.Node {
+				io.Node = preTaskIO.Node
+				modified = true
+			}
+			if io.Size != preTaskIO.Size {
+				io.Size = preTaskIO.Size
+				modified = true
+			}
+		}
+
+		// make sure we have node id
+		if io.Node == "-" {
+			err = fmt.Errorf("(ValidateInputs) error in locate input for task, no node id found: task=%s, file=%s", task.Id, io.FileName)
+			return
+		}
+
+		// double-check that node and file exist
+		_, mod, xerr := io.GetFileSize()
+		if xerr != nil {
+			err = fmt.Errorf("(ValidateInputs) task %s: input file %s GetFileSize returns: %s (DataToken len: %d)", task.Id, io.FileName, xerr.Error(), len(io.DataToken))
+			return
+		}
+		if mod {
+			modified = true
+		}
+
+		logger.Debug(3, "(ValidateInputs) input located: task=%s, file=%s, node=%s, size=%d", task.Id, io.FileName, io.Node, io.Size)
+	}
+
+	if modified {
+		err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
+		if err != nil {
+			err = fmt.Errorf("(ValidateInputs) unable to save task inputs to mongodb, task=%s: ", task.Id, err.Error())
+			return
+		}
+	}
+	return
+}
+
+func (task *Task) ValidateOutputs() (err error) {
+	err = task.LockNamed("ValidateOutputs")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	// check file sizes of all outputs
+	var modified bool
+	for _, io := range task.Outputs {
+		_, modified, err = io.GetFileSize()
+		if err != nil {
+			return
+		}
+	}
+
+	// create shock index on output nodes (if set in workflow document and worker did not do it)
+	err = task.CreateOutputIndexes()
+	if err != nil {
+		return
+	}
+
+	if modified {
+		err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
+	}
+	return
+}
+
+func (task *Task) ValidatePredata() (err error) {
+	err = task.LockNamed("ValidatePreData")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	// locate predata
+	var modified bool
+	for _, io := range task.Predata {
+		logger.Debug(2, "processing predata %s, %s", io.FileName, io.Node)
+		// only verify predata that is a shock node
+		if (io.Node != "") && (io.Node != "-") {
+			_, modified, err = io.GetFileSize()
+			if err != nil {
+				return
+			}
+		}
+	}
+
+	if modified {
+		err = dbUpdateJobTaskIO(task.JobId, task.Id, "predata", task.Predata)
+	}
+	return
+}
+
 func (task *Task) DeleteOutput() (modified int) {
 	modified = 0
 	task_state := task.State
@@ -1222,32 +1416,32 @@ func (task *Task) DeleteInput() (modified int) {
 	return
 }
 
-func (task *Task) UpdateInputs() (err error) {
-	lock, err := task.RLockNamed("UpdateInputs")
-	if err != nil {
-		return
+func (task *Task) DeleteLogs(logname string, writelock bool) (err error) {
+	if writelock {
+		err = task.LockNamed("setTotalWork")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
 	}
-	defer task.RUnlockNamed(lock)
-	err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
-	return
-}
 
-func (task *Task) UpdateOutputs() (err error) {
-	lock, err := task.RLockNamed("UpdateOutputs")
+	var logdir string
+	logdir, err = getPathByJobId(task.JobId)
 	if err != nil {
 		return
 	}
-	defer task.RUnlockNamed(lock)
-	err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
-	return
-}
+	globpath := fmt.Sprintf("%s/%s_*.%s", logdir, task.Id, logname)
 
-func (task *Task) UpdatePredata() (err error) {
-	lock, err := task.RLockNamed("UpdatePredata")
+	var logfiles []string
+	logfiles, err = filepath.Glob(globpath)
 	if err != nil {
 		return
 	}
-	defer task.RUnlockNamed(lock)
-	err = dbUpdateJobTaskIO(task.JobId, task.Id, "predata", task.Predata)
+
+	for _, logfile := range logfiles {
+		workid := strings.Split(filepath.Base(logfile), ".")[0]
+		logger.Debug(2, "Deleted %s log for workunit %s", logname, workid)
+		os.Remove(logfile)
+	}
 	return
 }

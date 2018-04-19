@@ -2382,43 +2382,63 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 			// this an update output, it will update an existing shock node and not create a new one (it will update metadata of the shock node)
 			if (io.Node == "") || (io.Node == "-") {
 				if io.Origin == "" {
-					err = fmt.Errorf("(createOutputNode) update output %s in task %s is missing required origin", io.FileName, task.Id)
-					return
+					// it may be in inputs
+					for _, input := range task.Inputs {
+						if io.FileName == input.FileName {
+							io.Node = input.Node
+							io.Size = input.Size
+							io.Url = input.Url
+							modified = true
+						}
+					}
+					if (io.Node == "") || (io.Node == "-") {
+						// still missing
+						err = fmt.Errorf("update output %s in task %s is missing required origin", io.FileName, task.Id)
+						return
+					}
 				}
 
 				// find predecessor task
 				var preId Task_Unique_Identifier
 				preId, err = New_Task_Unique_Identifier(task.JobId, "", io.Origin)
 				if err != nil {
-					err = fmt.Errorf("(createOutputNode) New_Task_Unique_Identifier returned: %s", err.Error())
+					err = fmt.Errorf("New_Task_Unique_Identifier returned: %s", err.Error())
 					return
 				}
 				var preTaskStr string
 				preTaskStr, err = preId.String()
 				if err != nil {
-					err = fmt.Errorf("(createOutputNode) task.String returned: %s", err.Error())
+					err = fmt.Errorf("task.String returned: %s", err.Error())
 					return
 				}
 				preTask, ok, xerr := qm.TaskMap.Get(preId, true)
 				if xerr != nil {
-					err = fmt.Errorf("(createOutputNode) predecessor task %s not found for task %s: %s", preTaskStr, task.Id, xerr.Error())
+					err = fmt.Errorf("predecessor task %s not found for task %s: %s", preTaskStr, task.Id, xerr.Error())
 					return
 				}
 				if !ok {
-					err = fmt.Errorf("(createOutputNode) predecessor task %s not found for task %s", preTaskStr, task.Id)
+					err = fmt.Errorf("predecessor task %s not found for task %s", preTaskStr, task.Id)
 					return
 				}
 
 				// find predecessor output
 				preTaskIO, xerr := preTask.GetOutput(io.FileName)
 				if xerr != nil {
-					err = fmt.Errorf("(createOutputNode) unable to get IO for predecessor task %s, file %s: %s", preTask.Id, io.FileName, err.Error())
+					err = fmt.Errorf("unable to get IO for predecessor task %s, file %s: %s", preTask.Id, io.FileName, err.Error())
 					return
 				}
 
 				// copy if not already done
 				if io.Node != preTaskIO.Node {
 					io.Node = preTaskIO.Node
+					modified = true
+				}
+				if io.Size != preTaskIO.Size {
+					io.Size = preTaskIO.Size
+					modified = true
+				}
+				if io.Url != preTaskIO.Url {
+					io.Url = preTaskIO.Url
 					modified = true
 				}
 				logger.Debug(2, "(createOutputNode) outout %s in task %s is an update of node %s", io.FileName, task.Id, io.Node)
@@ -2430,10 +2450,15 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 			sc := shock.ShockClient{Host: io.Host, Token: task.Info.DataToken}
 			nodeid, nerr := sc.PostNodeWithToken(io.FileName, task.TotalWork)
 			if nerr != nil {
-				err = fmt.Errorf("(createOutputNode) PostNodeWithToken failed: %S", nerr.Error())
+				err = fmt.Errorf("PostNodeWithToken failed: %s", nerr.Error())
 				return
 			}
 			io.Node = nodeid
+			_, err = io.DataUrl()
+			if err != nil {
+				err = fmt.Errorf("DataUrl failed: %s", err.Error())
+				return
+			}
 			modified = true
 			logger.Debug(2, "(createOutputNode) task %s: output Shock node created, node=%s", task.Id, nodeid)
 		}

@@ -1238,12 +1238,7 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
 
 	var modified bool
 	for _, io := range task.Inputs {
-		if io.Origin == "" {
-			// no predecessor
-			continue
-		}
-
-		if io.Url == "" {
+		if (io.Origin != "") && ((io.Url == "") || (io.Node == "") || (io.Node == "-")) {
 			// find predecessor task
 			var preId Task_Unique_Identifier
 			preId, err = New_Task_Unique_Identifier(task.JobId, "", io.Origin)
@@ -1295,6 +1290,10 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
 				io.Size = preTaskIO.Size
 				modified = true
 			}
+			if io.Url != preTaskIO.Url {
+				io.Url = preTaskIO.Url
+				modified = true
+			}
 		}
 
 		// make sure we have node id
@@ -1303,7 +1302,16 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
 			return
 		}
 
-		// double-check that node and file exist
+		// build url if missing
+		if io.Url == "" {
+			_, err = io.DataUrl()
+			if err != nil {
+				err = fmt.Errorf("(ValidateInputs) error in creating url for task %s: ", task.Id, err.Error())
+			}
+			modified = true
+		}
+
+		// double-check that node and file exist - get size if zero
 		_, mod, xerr := io.GetFileSize()
 		if xerr != nil {
 			err = fmt.Errorf("(ValidateInputs) task %s: input file %s GetFileSize returns: %s (DataToken len: %d)", task.Id, io.FileName, xerr.Error(), len(io.DataToken))

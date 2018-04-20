@@ -1297,7 +1297,7 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
 		}
 
 		// make sure we have node id
-		if io.Node == "-" {
+		if (io.Node == "") || (io.Node == "-") {
 			err = fmt.Errorf("(ValidateInputs) error in locate input for task, no node id found: task=%s, file=%s", task.Id, io.FileName)
 			return
 		}
@@ -1306,7 +1306,7 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
 		if io.Url == "" {
 			_, err = io.DataUrl()
 			if err != nil {
-				err = fmt.Errorf("(ValidateInputs) error in creating url for task %s: ", task.Id, err.Error())
+				err = fmt.Errorf("(ValidateInputs) DataUrl returns: %s", err.Error())
 			}
 			modified = true
 		}
@@ -1314,7 +1314,7 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
 		// double-check that node and file exist - get size if zero
 		_, mod, xerr := io.GetFileSize()
 		if xerr != nil {
-			err = fmt.Errorf("(ValidateInputs) task %s: input file %s GetFileSize returns: %s (DataToken len: %d)", task.Id, io.FileName, xerr.Error(), len(io.DataToken))
+			err = fmt.Errorf("(ValidateInputs) input file %s GetFileSize returns: %s", io.FileName, xerr.Error())
 			return
 		}
 		if mod {
@@ -1327,7 +1327,7 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
 	if modified {
 		err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
 		if err != nil {
-			err = fmt.Errorf("(ValidateInputs) unable to save task inputs to mongodb, task=%s: ", task.Id, err.Error())
+			err = fmt.Errorf("(ValidateInputs) unable to save task inputs to mongodb, task=%s: %s", task.Id, err.Error())
 			return
 		}
 	}
@@ -1337,27 +1337,44 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
 func (task *Task) ValidateOutputs() (err error) {
 	err = task.LockNamed("ValidateOutputs")
 	if err != nil {
+		err = fmt.Errorf("unable to lock task %s: %s", task.Id, err.Error())
 		return
 	}
 	defer task.Unlock()
 
-	// check file sizes of all outputs
 	var modified bool
 	for _, io := range task.Outputs {
-		_, modified, err = io.GetFileSize()
-		if err != nil {
+		// check file size
+		_, mod, xerr := io.GetFileSize()
+		if xerr != nil {
+			err = fmt.Errorf("input file %s GetFileSize returns: %s", io.FileName, xerr.Error())
 			return
+		}
+		if mod {
+			modified = true
+		}
+		// build url if missing
+		if io.Url == "" {
+			_, err = io.DataUrl()
+			if err != nil {
+				err = fmt.Errorf("DataUrl returns: %s", err.Error())
+			}
+			modified = true
 		}
 	}
 
 	// create shock index on output nodes (if set in workflow document and worker did not do it)
 	err = task.CreateOutputIndexes()
 	if err != nil {
+		err = fmt.Errorf("CreateOutputIndexes returns: %s", err.Error())
 		return
 	}
 
 	if modified {
 		err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
+		if err != nil {
+			err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
+		}
 	}
 	return
 }
@@ -1365,6 +1382,7 @@ func (task *Task) ValidateOutputs() (err error) {
 func (task *Task) ValidatePredata() (err error) {
 	err = task.LockNamed("ValidatePreData")
 	if err != nil {
+		err = fmt.Errorf("unable to lock task %s: %s", task.Id, err.Error())
 		return
 	}
 	defer task.Unlock()
@@ -1372,18 +1390,33 @@ func (task *Task) ValidatePredata() (err error) {
 	// locate predata
 	var modified bool
 	for _, io := range task.Predata {
-		logger.Debug(2, "processing predata %s, %s", io.FileName, io.Node)
 		// only verify predata that is a shock node
 		if (io.Node != "") && (io.Node != "-") {
-			_, modified, err = io.GetFileSize()
-			if err != nil {
+			// check file size
+			_, mod, xerr := io.GetFileSize()
+			if xerr != nil {
+				err = fmt.Errorf("input file %s GetFileSize returns: %s", io.FileName, xerr.Error())
 				return
+			}
+			if mod {
+				modified = true
+			}
+			// build url if missing
+			if io.Url == "" {
+				_, err = io.DataUrl()
+				if err != nil {
+					err = fmt.Errorf("DataUrl returns: %s", err.Error())
+				}
+				modified = true
 			}
 		}
 	}
 
 	if modified {
 		err = dbUpdateJobTaskIO(task.JobId, task.Id, "predata", task.Predata)
+		if err != nil {
+			err = fmt.Errorf("unable to save task predata to mongodb, task=%s: %s", task.Id, err.Error())
+		}
 	}
 	return
 }

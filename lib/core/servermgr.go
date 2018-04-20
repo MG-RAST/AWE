@@ -623,7 +623,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 	verr := task.ValidateOutputs()
 	if verr != nil {
 		// we create job error object and suspend job
-		err_msg := fmt.Sprintf("(handleWorkStatDone) io.GetFileSize failed: %s", verr.Error())
+		err_msg := fmt.Sprintf("(handleWorkStatDone) ValidateOutputs failed: %s", verr.Error())
 		jerror := &JobError{
 			ClientFailed: clientid,
 			WorkFailed:   work_str,
@@ -1602,7 +1602,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 	}
 
 	ready = true
-	logger.Debug(3, "(isTaskReady %s) finished, task is ready", task_id)
+	logger.Debug(3, "(isTaskReady) finished, task %s is ready", task_id)
 	return
 }
 
@@ -2396,51 +2396,50 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 						err = fmt.Errorf("update output %s in task %s is missing required origin", io.FileName, task.Id)
 						return
 					}
-					continue
-				}
+				} else {
+					// find predecessor task
+					var preId Task_Unique_Identifier
+					preId, err = New_Task_Unique_Identifier(task.JobId, "", io.Origin)
+					if err != nil {
+						err = fmt.Errorf("New_Task_Unique_Identifier returned: %s", err.Error())
+						return
+					}
+					var preTaskStr string
+					preTaskStr, err = preId.String()
+					if err != nil {
+						err = fmt.Errorf("task.String returned: %s", err.Error())
+						return
+					}
+					preTask, ok, xerr := qm.TaskMap.Get(preId, true)
+					if xerr != nil {
+						err = fmt.Errorf("predecessor task %s not found for task %s: %s", preTaskStr, task.Id, xerr.Error())
+						return
+					}
+					if !ok {
+						err = fmt.Errorf("predecessor task %s not found for task %s", preTaskStr, task.Id)
+						return
+					}
 
-				// find predecessor task
-				var preId Task_Unique_Identifier
-				preId, err = New_Task_Unique_Identifier(task.JobId, "", io.Origin)
-				if err != nil {
-					err = fmt.Errorf("New_Task_Unique_Identifier returned: %s", err.Error())
-					return
-				}
-				var preTaskStr string
-				preTaskStr, err = preId.String()
-				if err != nil {
-					err = fmt.Errorf("task.String returned: %s", err.Error())
-					return
-				}
-				preTask, ok, xerr := qm.TaskMap.Get(preId, true)
-				if xerr != nil {
-					err = fmt.Errorf("predecessor task %s not found for task %s: %s", preTaskStr, task.Id, xerr.Error())
-					return
-				}
-				if !ok {
-					err = fmt.Errorf("predecessor task %s not found for task %s", preTaskStr, task.Id)
-					return
-				}
+					// find predecessor output
+					preTaskIO, xerr := preTask.GetOutput(io.FileName)
+					if xerr != nil {
+						err = fmt.Errorf("unable to get IO for predecessor task %s, file %s: %s", preTask.Id, io.FileName, err.Error())
+						return
+					}
 
-				// find predecessor output
-				preTaskIO, xerr := preTask.GetOutput(io.FileName)
-				if xerr != nil {
-					err = fmt.Errorf("unable to get IO for predecessor task %s, file %s: %s", preTask.Id, io.FileName, err.Error())
-					return
-				}
-
-				// copy if not already done
-				if io.Node != preTaskIO.Node {
-					io.Node = preTaskIO.Node
-					modified = true
-				}
-				if io.Size != preTaskIO.Size {
-					io.Size = preTaskIO.Size
-					modified = true
-				}
-				if io.Url != preTaskIO.Url {
-					io.Url = preTaskIO.Url
-					modified = true
+					// copy if not already done
+					if io.Node != preTaskIO.Node {
+						io.Node = preTaskIO.Node
+						modified = true
+					}
+					if io.Size != preTaskIO.Size {
+						io.Size = preTaskIO.Size
+						modified = true
+					}
+					if io.Url != preTaskIO.Url {
+						io.Url = preTaskIO.Url
+						modified = true
+					}
 				}
 				logger.Debug(2, "(createOutputNode) outout %s in task %s is an update of node %s", io.FileName, task.Id, io.Node)
 			}
@@ -2467,6 +2466,9 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 
 	if modified {
 		err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
+		if err != nil {
+			err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
+		}
 	}
 	return
 }

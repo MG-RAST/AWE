@@ -82,16 +82,17 @@ func (tm *TaskMap) Delete(taskid Task_Unique_Identifier) (task *Task, ok bool) {
 	return
 }
 
-func (tm *TaskMap) Add(task *Task) (err error) {
+func (tm *TaskMap) Add(task *Task) (modified bool, err error) {
 	tm.LockNamed("Add")
 	defer tm.Unlock()
 	id, err := task.GetId()
 	if err != nil {
 		return
 	}
-	_, has_task := tm._map[id]
-	if has_task {
-		err = fmt.Errorf("(TaskMap/Add) task is already in TaskMap")
+
+	task_in_map, has_task := tm._map[id]
+	if has_task && (task_in_map != task) {
+		err = fmt.Errorf("(TaskMap/Add) task %s is already in TaskMap with a different pointer", id)
 		return
 	}
 
@@ -101,6 +102,7 @@ func (tm *TaskMap) Add(task *Task) (err error) {
 		if err != nil {
 			return
 		}
+		modified = true
 	}
 
 	tm._map[id] = task

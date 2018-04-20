@@ -1267,24 +1267,6 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 		return
 	}
 
-	var has_task bool
-	has_task, err = qm.TaskMap.Has(task_id, true)
-	if err != nil {
-		err = fmt.Errorf("(addTask) qm.TaskMap.Has returns: %s", err.Error())
-		return
-	}
-	if has_task {
-		var task_str string
-		task_str, err = task.String()
-		if err != nil {
-			err = fmt.Errorf("(addTask) task.String returned: %s", err.Error())
-			return
-		}
-
-		err = fmt.Errorf("(addTask) task %s is already in taskmap", task_str)
-		return
-	}
-
 	var task_state string
 	task_state, err = task.GetState()
 	if err != nil {
@@ -1293,42 +1275,37 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 	}
 	logger.Debug(3, "(addTask) state of task: %s", task_state)
 
-	//if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
-	//	logger.Debug(3, "(addTask) already completed or passed")
-	//	return
-	//}
-	//logger.Debug(3, "(addTask) NOT completed or passed")
-
-	err = qm.TaskMap.Add(task) // makes it a pending task if init
+	// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
+	var modified bool
+	modified, err = qm.TaskMap.Add(task)
 	if err != nil {
-		//logger.Error("(qm.TaskMap.Add): %s", err.Error())
 		err = fmt.Errorf("(addTask) qm.TaskMap.Add() returns: %s", err.Error())
 		return
 	}
 
+	// don't enqueue completed or passed
 	if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
-		//	logger.Debug(3, "(addTask) already completed or passed")
 		return
 	}
 
-	task_state, err = task.GetState()
-	if err != nil {
-		err = fmt.Errorf("(addTask) task.GetState() returns: %s", err.Error())
-		return
+	if modified {
+		task_state, err = task.GetState()
+		if err != nil {
+			err = fmt.Errorf("(addTask) task.GetState() returns: %s", err.Error())
+			return
+		}
 	}
 
 	var task_ready bool
-	task_ready, _, err = qm.isTaskReady(task) //makes the task ready
+	task_ready, _, err = qm.isTaskReady(task) // makes the task ready
 	if err != nil {
 		err = fmt.Errorf("(addTask) qm.isTaskReady(task) returns: %s", err.Error())
 		return
 	}
-
 	if !task_ready {
 		return
 	}
 
-	//task_id := task.String()
 	logger.Debug(3, "(addTask) task %s is ready (invoking taskEnQueue)", task_id)
 	xerr := qm.taskEnQueue(task, job)
 	if xerr != nil {

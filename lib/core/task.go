@@ -284,6 +284,12 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 		if !strings.HasPrefix(deptask, job_prefix) {
 			deptask = job_prefix + deptask
 			deps_changed = true
+		} else {
+			deptask_suffix := strings.TrimPrefix(deptask, job_prefix)
+			if deptask_suffix == "" {
+				deps_changed = true
+				continue
+			}
 		}
 
 		t, yerr := New_Task_Unique_Identifier_FromString(deptask)

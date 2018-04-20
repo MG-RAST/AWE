@@ -1067,6 +1067,11 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 	}
 	defer task.Unlock()
 
+	// only run if true
+	if task.ResetTask == false {
+		return
+	}
+
 	// in memory pointer
 	task.Info = info
 
@@ -1088,6 +1093,10 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 
 	// reset / delete all outputs
 	for _, io := range task.Outputs {
+		// do not delete update IO
+		if io.Type == "update" {
+			continue
+		}
 		if dataUrl, _ := io.DataUrl(); dataUrl != "" {
 			// delete dataUrl if is shock node
 			if strings.HasSuffix(dataUrl, shock.DATA_SUFFIX) {

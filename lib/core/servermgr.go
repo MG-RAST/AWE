@@ -3249,18 +3249,6 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 		return
 	}
 
-	remain_tasks, err := dbjob.GetRemainTasks()
-	if err != nil {
-		err = errors.New("(ResumeSuspendedJobByUser) failed to get job remain_tasks " + err.Error())
-		return
-	}
-
-	if remain_tasks < len(tasks) {
-		dbjob.SetState(JOB_STAT_INPROGRESS, nil)
-	} else {
-		dbjob.SetState(JOB_STAT_QUEUED, nil)
-	}
-
 	for _, task := range tasks {
 		state, serr := task.GetState()
 		if serr != nil {
@@ -3282,6 +3270,11 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 		return
 	}
 
+	err = dbjob.SetState(JOB_STAT_QUEUING, nil)
+	if err != nil {
+		err = fmt.Errorf("(ResumeSuspendedJobByUser) UpdateJobState: %s", err.Error())
+		return
+	}
 	err = qm.EnqueueTasksByJobId(id)
 	if err != nil {
 		err = errors.New("(ResumeSuspendedJobByUser) failed to enqueue job " + err.Error())
@@ -3322,6 +3315,11 @@ func (qm *ServerMgr) RecoverJob(id string) (err error) {
 		}
 		for _, task := range tasks {
 			task.Info = dbjob.Info // in-memory only
+		}
+		err = dbjob.SetState(JOB_STAT_QUEUING, nil)
+		if err != nil {
+			err = fmt.Errorf("(RecoverJob) UpdateJobState: %s", err.Error())
+			return
 		}
 		err = qm.EnqueueTasksByJobId(id)
 		if err != nil {
@@ -3372,9 +3370,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 				logger.Error("(RecoverJobs) failed to set job state " + xerr.Error())
 				continue
 			}
-		}
-
-		if job_state == JOB_STAT_SUSPEND {
+		} else if job_state == JOB_STAT_SUSPEND {
 			// just add suspended jobs to in-memory map
 			jerr := JM.Add(dbjob)
 			if jerr != nil {
@@ -3383,6 +3379,11 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 			}
 		} else {
 			// enqueue all non-suspended jobs
+			xerr := dbjob.SetState(JOB_STAT_QUEUING, nil)
+			if xerr != nil {
+				logger.Error("(RecoverJobs) failed to set job state " + xerr.Error())
+				continue
+			}
 			qerr := qm.EnqueueTasksByJobId(dbjob.Id)
 			if qerr != nil {
 				logger.Error("(RecoverJobs) enqueue job failed " + qerr.Error())
@@ -3480,14 +3481,11 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 		return
 	}
 
-	var new_state = ""
-	if remaintasks < len(tasks) {
-		new_state = JOB_STAT_INPROGRESS
-	} else {
-		new_state = JOB_STAT_QUEUED
+	err = dbjob.SetState(JOB_STAT_QUEUING, nil)
+	if err != nil {
+		err = fmt.Errorf("(RecomputeJob) UpdateJobState: %s", err.Error())
+		return
 	}
-	dbjob.SetState(new_state, nil)
-
 	err = qm.EnqueueTasksByJobId(jobid)
 	if err != nil {
 		err = errors.New("(RecomputeJob) failed to enqueue job " + err.Error())
@@ -3521,6 +3519,7 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 		return
 	}
 
+	remaintasks := 0
 	tasks, err := job.GetTasks()
 	if err != nil {
 		err = errors.New("(ResubmitJob) failed to get job tasks " + err.Error())
@@ -3533,6 +3532,7 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 			err = errors.New("(ResubmitJob) failed to reset task " + err.Error())
 			return
 		}
+		remaintasks += 1
 	}
 
 	err = job.IncrementResumed(1)
@@ -3540,12 +3540,17 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 		err = errors.New("(ResubmitJob) failed to incremenet job resumed " + err.Error())
 		return
 	}
-	err = job.SetState(JOB_STAT_QUEUED, nil)
+	err = job.SetRemainTasks(remaintasks)
 	if err != nil {
-		err = errors.New("(ResubmitJob) failed to set job state " + err.Error())
+		err = errors.New("(ResubmitJob) failed to set job remain_tasks " + err.Error())
 		return
 	}
 
+	err = job.SetState(JOB_STAT_QUEUING, nil)
+	if err != nil {
+		err = fmt.Errorf("(ResubmitJob) UpdateJobState: %s", err.Error())
+		return
+	}
 	err = qm.EnqueueTasksByJobId(jobid)
 	if err != nil {
 		err = errors.New("(ResubmitJob) failed to enqueue job " + err.Error())

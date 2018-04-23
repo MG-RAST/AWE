@@ -1226,11 +1226,9 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 	qm.CreateJobPerf(jobid)
 
 	for _, task := range tasks {
-		//qm.taskIn <- task
-
-		task_state, xerr := task.GetState()
-		if xerr != nil {
-			err = xerr
+		var task_state string
+		task_state, err = task.GetState()
+		if err != nil {
 			return
 		}
 
@@ -1247,9 +1245,16 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 		}
 	}
 
-	err = job.SetState(JOB_STAT_QUEUED, []string{JOB_STAT_INIT, JOB_STAT_SUSPEND, JOB_STAT_QUEUING})
+	var job_state string
+	job_state, err = job.GetState(true)
 	if err != nil {
 		return
+	}
+	if job_state != JOB_STAT_INPROGRESS {
+		err = job.SetState(JOB_STAT_QUEUED, []string{JOB_STAT_INIT, JOB_STAT_SUSPEND, JOB_STAT_QUEUING})
+		if err != nil {
+			return
+		}
 	}
 
 	return
@@ -3364,6 +3369,7 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 		}
 
 		// Directly after AWE server restart no job can be in progress. (Unless we add this as a feature))
+		// will be one of: JOB_STAT_INIT, JOB_STAT_QUEUING, JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND
 		if job_state == JOB_STAT_INPROGRESS {
 			xerr := dbjob.SetState(JOB_STAT_QUEUED, nil)
 			if xerr != nil {

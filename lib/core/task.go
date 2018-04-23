@@ -1097,6 +1097,21 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 	// reset completedate
 	err = task.SetCompletedDate(time.Time{}, false)
 
+	// reset inputs
+	for _, io := range task.Inputs {
+		// skip inputs with no origin (predecessor task)
+		if io.Origin == "" {
+			continue
+		}
+		io.Node = "-"
+		io.Size = 0
+		io.Url = ""
+	}
+	err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
+	if err != nil {
+		return
+	}
+
 	// reset / delete all outputs
 	for _, io := range task.Outputs {
 		// do not delete update IO
@@ -1243,7 +1258,84 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog, err error) {
 	return
 }
 
-func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
+func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
+	lock, err := task.RLockNamed("ValidateDependants")
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+
+	// validate task states in depends on list
+	for _, preTaskStr := range task.DependsOn {
+		var preId Task_Unique_Identifier
+		preId, err = New_Task_Unique_Identifier_FromString(preTaskStr)
+		if err != nil {
+			err = fmt.Errorf("(ValidateDependants) New_Task_Unique_Identifier_FromString returns: %s", err.Error())
+			return
+		}
+		preTask, ok, xerr := qm.TaskMap.Get(preId, true)
+		if xerr != nil {
+			err = fmt.Errorf("(ValidateDependants) predecessor task %s not found for task %s: %s", preTaskStr, task.Id, xerr.Error())
+			return
+		}
+		if !ok {
+			logger.Error("(ValidateDependants) predecessor task %s not found for task %s", preTaskStr, task.Id)
+			err = fmt.Errorf("(ValidateDependants) predecessor task %s not found for task %s", preTaskStr, task.Id)
+			return
+		}
+		preTaskState, xerr := preTask.GetState()
+		if xerr != nil {
+			err = fmt.Errorf("(ValidateDependants) unable to get state for predecessor task %s: %s", preTaskStr, xerr.Error())
+			return
+		}
+		if preTaskState != TASK_STAT_COMPLETED {
+			reason = fmt.Sprintf("(ValidateDependants) predecessor task state is not completed: task=%s, pretask=%s, pretask.state=%s", task.Id, preTaskStr, preTaskState)
+			logger.Debug(3, reason)
+			return
+		}
+	}
+
+	// validate task states in input IO origins
+	for _, io := range task.Inputs {
+		if io.Origin == "" {
+			continue
+		}
+		var preId Task_Unique_Identifier
+		preId, err = New_Task_Unique_Identifier(task.JobId, "", io.Origin)
+		if err != nil {
+			err = fmt.Errorf("(ValidateDependants) New_Task_Unique_Identifier returns: %s", err.Error())
+			return
+		}
+		var preTaskStr string
+		preTaskStr, err = preId.String()
+		if err != nil {
+			err = fmt.Errorf("(ValidateDependants) task.String returned: %s", err.Error())
+			return
+		}
+		preTask, ok, xerr := qm.TaskMap.Get(preId, true)
+		if xerr != nil {
+			err = fmt.Errorf("(ValidateDependants) predecessor task %s not found for task %s: %s", preTaskStr, task.Id, xerr.Error())
+			return
+		}
+		if !ok {
+			err = fmt.Errorf("(ValidateDependants) predecessor task %s not found for task %s", preTaskStr, task.Id)
+			return
+		}
+		preTaskState, xerr := preTask.GetState()
+		if xerr != nil {
+			err = fmt.Errorf("(ValidateDependants) unable to get state for predecessor task %s: %s", preTaskStr, xerr.Error())
+			return
+		}
+		if preTaskState != TASK_STAT_COMPLETED {
+			reason = fmt.Sprintf("(ValidateDependants) predecessor task state is not completed: task=%s, pretask=%s, pretask.state=%s", task.Id, preTaskStr, preTaskState)
+			logger.Debug(3, reason)
+			return
+		}
+	}
+	return
+}
+
+func (task *Task) ValidateInputs(qm *ServerMgr) (err error) {
 	err = task.LockNamed("ValidateInputs")
 	if err != nil {
 		err = fmt.Errorf("(ValidateInputs) unable to lock task %s: %s", task.Id, err.Error())
@@ -1251,9 +1343,8 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
 	}
 	defer task.Unlock()
 
-	var modified bool
 	for _, io := range task.Inputs {
-		if (io.Origin != "") && ((io.Url == "") || (io.Node == "") || (io.Node == "-")) {
+		if io.Origin != "" {
 			// find predecessor task
 			var preId Task_Unique_Identifier
 			preId, err = New_Task_Unique_Identifier(task.JobId, "", io.Origin)
@@ -1277,15 +1368,14 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
 				return
 			}
 
-			// find predecessor state
+			// test predecessor state
 			preTaskState, xerr := preTask.GetState()
 			if xerr != nil {
-				err = fmt.Errorf("(ValidateInputs) unable to get state for predecessor task %s: %s", preTaskStr, err.Error())
+				err = fmt.Errorf("(ValidateInputs) unable to get state for predecessor task %s: %s", preTaskStr, xerr.Error())
 				return
 			}
 			if preTaskState != TASK_STAT_COMPLETED {
-				reason = fmt.Sprintf("(ValidateInputs) predecessor task state is not completed: task=%s, pretask=%s, pretask.state=%s", task.Id, preTaskStr, preTaskState)
-				logger.Debug(3, reason)
+				err = fmt.Errorf("(ValidateInputs) predecessor task state is not completed: task=%s, pretask=%s, pretask.state=%s", task.Id, preTaskStr, preTaskState)
 				return
 			}
 
@@ -1296,19 +1386,7 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
 				return
 			}
 
-			// copy if not already done
-			if io.Node != preTaskIO.Node {
-				io.Node = preTaskIO.Node
-				modified = true
-			}
-			if io.Size != preTaskIO.Size {
-				io.Size = preTaskIO.Size
-				modified = true
-			}
-			if io.Url != preTaskIO.Url {
-				io.Url = preTaskIO.Url
-				modified = true
-			}
+			io.Node = preTaskIO.Node
 		}
 
 		// make sure we have node id
@@ -1317,34 +1395,29 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (reason string, err error) {
 			return
 		}
 
-		// build url if missing
-		if io.Url == "" {
-			_, err = io.DataUrl()
-			if err != nil {
-				err = fmt.Errorf("(ValidateInputs) DataUrl returns: %s", err.Error())
-			}
-			modified = true
-		}
-
-		// double-check that node and file exist - get size if zero
-		_, mod, xerr := io.GetFileSize()
-		if xerr != nil {
-			err = fmt.Errorf("(ValidateInputs) input file %s GetFileSize returns: %s", io.FileName, xerr.Error())
+		// force build data url
+		io.Url = ""
+		_, err = io.DataUrl()
+		if err != nil {
+			err = fmt.Errorf("(ValidateInputs) DataUrl returns: %s", err.Error())
 			return
 		}
-		if mod {
-			modified = true
+
+		// forece check file exists and get size
+		io.Size = 0
+		_, _, err = io.GetFileSize()
+		if err != nil {
+			err = fmt.Errorf("(ValidateInputs) input file %s GetFileSize returns: %s", io.FileName, err.Error())
+			return
 		}
 
 		logger.Debug(3, "(ValidateInputs) input located: task=%s, file=%s, node=%s, size=%d", task.Id, io.FileName, io.Node, io.Size)
 	}
 
-	if modified {
-		err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
-		if err != nil {
-			err = fmt.Errorf("(ValidateInputs) unable to save task inputs to mongodb, task=%s: %s", task.Id, err.Error())
-			return
-		}
+	err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
+	if err != nil {
+		err = fmt.Errorf("(ValidateInputs) unable to save task inputs to mongodb, task=%s: %s", task.Id, err.Error())
+		return
 	}
 	return
 }
@@ -1357,24 +1430,22 @@ func (task *Task) ValidateOutputs() (err error) {
 	}
 	defer task.Unlock()
 
-	var modified bool
 	for _, io := range task.Outputs {
-		// check file size
-		_, mod, xerr := io.GetFileSize()
-		if xerr != nil {
-			err = fmt.Errorf("input file %s GetFileSize returns: %s", io.FileName, xerr.Error())
+
+		// force build data url
+		io.Url = ""
+		_, err = io.DataUrl()
+		if err != nil {
+			err = fmt.Errorf("DataUrl returns: %s", err.Error())
 			return
 		}
-		if mod {
-			modified = true
-		}
-		// build url if missing
-		if io.Url == "" {
-			_, err = io.DataUrl()
-			if err != nil {
-				err = fmt.Errorf("DataUrl returns: %s", err.Error())
-			}
-			modified = true
+
+		// forece check file exists and get size
+		io.Size = 0
+		_, _, err = io.GetFileSize()
+		if err != nil {
+			err = fmt.Errorf("input file %s GetFileSize returns: %s", io.FileName, err.Error())
+			return
 		}
 	}
 
@@ -1385,11 +1456,9 @@ func (task *Task) ValidateOutputs() (err error) {
 		return
 	}
 
-	if modified {
-		err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
-		if err != nil {
-			err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
-		}
+	err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
+	if err != nil {
+		err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
 	}
 	return
 }

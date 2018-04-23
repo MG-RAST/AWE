@@ -1379,11 +1379,6 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 	}
 	logger.Debug(3, "(isTaskReady %s)", task_id)
 
-	//defer func() {
-	//	logger.Debug(3, "(isTaskReady %s) ready=%t", task_id, ready)
-	//	//fmt.Printf("(isTaskReady %s) ready=%t\n", task_id, ready)
-	//}()
-
 	//skip if the belonging job is suspended
 	jobid, err := task.GetJobId()
 	if err != nil {
@@ -1394,12 +1389,10 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 	if err != nil {
 		return
 	}
-
 	job_state, err := job.GetState(true)
 	if err != nil {
 		return
 	}
-
 	if job_state == JOB_STAT_SUSPEND {
 		reason = "job is suspend"
 		return
@@ -1415,59 +1408,12 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 				return
 			} else {
 				logger.Debug(3, "(isTaskReady %s) StartAt field is in the past, can execute now (now: %s, StartAt: %s)", task_id, time.Now(), info.StartAt)
-
 			}
 		}
-	}
-
-	if task.WorkflowStep == nil {
-
-		// check if AWE-style predecessors are all TASK_STAT_COMPLETED
-
-		logger.Debug(3, "(isTaskReady %s) GetDependsOn", task_id)
-		deps, xerr := task.GetDependsOn()
-		if xerr != nil {
-			err = xerr
-			return
-		}
-
-		logger.Debug(3, "(isTaskReady %s) range deps (%d)", task_id, len(deps))
-		for _, predecessor := range deps {
-			predecessor_id, xerr := New_Task_Unique_Identifier_FromString(predecessor)
-			if xerr != nil {
-				err = xerr
-				return
-			}
-			predecessor_task, ok, yerr := qm.TaskMap.Get(predecessor_id, true)
-			if yerr != nil {
-				err = yerr
-				return
-			}
-			if !ok {
-				logger.Error("(isTaskReady %s) predecessor %s is unknown", task_id, predecessor)
-				reason = fmt.Sprintf("(isTaskReady %s) predecessor %s is unknown", task_id, predecessor)
-				return
-			}
-
-			predecessor_task_state, zerr := predecessor_task.GetState()
-			if zerr != nil {
-				err = zerr
-				return
-			}
-
-			if predecessor_task_state != TASK_STAT_COMPLETED {
-				logger.Debug(3, "(isTaskReady %s) (AWE-style) not ready because predecessor is not ready", task_id)
-				reason = fmt.Sprintf("(isTaskReady %s) (AWE-style) not ready because predecessor is not ready", task_id)
-				return
-			}
-
-		}
-		logger.Debug(3, "(isTaskReady %s) task seems to be ready", task_id)
 	}
 
 	if task.WorkflowStep != nil {
 		// check if CWL-style predecessors are all TASK_STAT_COMPLETED
-
 		// ****** get inputs
 		if job == nil {
 			err = fmt.Errorf("(isTaskReady) job == nil")
@@ -1491,34 +1437,24 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 			err = fmt.Errorf("(isTaskReady) GetWorkflowInstance returned %s", err.Error())
 			return
 		}
-
 		workflow_input_map := workflow_instance.Inputs.GetMap()
 
 		fmt.Println("WorkflowStep.Id: " + task.WorkflowStep.Id)
 		for _, wsi := range task.WorkflowStep.In { // WorkflowStepInput
-
 			if wsi.Source == nil {
-
 				if wsi.Default != nil { // input is optional, anyway....
 					continue
 				}
 				reason = fmt.Sprintf("(isTaskReady) No Source and no default found")
-
 			} else {
-
-				//job_input := *(job.CWL_collection.Job_input)
-
 				source_is_array := false
-				//source_object_array := []cwl.CWLType{}
-
 				source_as_array, source_is_array := wsi.Source.([]interface{})
 
 				if source_is_array {
-
 					for _, src := range source_as_array { // usually only one
-						//fmt.Println("(isTaskReady) src: " + spew.Sdump(src))
 						var src_str string
 						var ok bool
+
 						src_str, ok = src.(string)
 						if !ok {
 							err = fmt.Errorf("src is not a string")
@@ -1526,33 +1462,30 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 						}
 
 						_, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str, false)
-
 						if err != nil {
 							err = fmt.Errorf("(isTaskReady) (type array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
 							return
 						}
-
 						if !ok {
 							reason = fmt.Sprintf("Source CWL object (type array) %s not found", src_str)
 							return
 						}
-
 					}
 				} else {
 					var src_str string
 					var ok bool
+
 					src_str, ok = wsi.Source.(string)
 					if !ok {
 						err = fmt.Errorf("(isTaskReady) Cannot parse WorkflowStep source: %s", spew.Sdump(wsi.Source))
 						return
 					}
-					_, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str, false)
 
+					_, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str, false)
 					if err != nil {
 						err = fmt.Errorf("(isTaskReady) (type non-array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
 						return
 					}
-
 					if !ok {
 						reason = fmt.Sprintf("Source CWL object (type non-array) %s not found", src_str)
 						return
@@ -1562,13 +1495,16 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		}
 	}
 
-	reason, err = task.ValidateInputs(qm)
-	if err != nil {
-		err = fmt.Errorf("(isTaskReady) %s", err.Error())
-		return
-	}
-	if reason != "" {
-		return
+	if task.WorkflowStep == nil {
+		// task read lock, check DependsOn list and IO.Origin list
+		reason, err = task.ValidateDependants(qm)
+		if err != nil {
+			err = fmt.Errorf("(isTaskReady) %s", err.Error())
+			return
+		}
+		if reason != "" {
+			return
+		}
 	}
 
 	if task_state == TASK_STAT_PENDING {
@@ -1672,7 +1608,6 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 			// not sure if this is a subworkflow
 			p := cwl_step.Run
-
 			if p == nil {
 				err = fmt.Errorf("(taskEnQueue) process is nil !?")
 				return
@@ -1688,7 +1623,6 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 			// check if this is a workflow
 			//var process_name string
 			//var a_command_line_tool *cwl.CommandLineTool
-
 			//wfl = nil
 			var process interface{}
 			process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add new_schemata
@@ -1712,7 +1646,6 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 			}
 
 			// we got a Sub-workflow !
-
 			task_type = TASK_TYPE_WORKFLOW
 			err = task.SetTaskType(task_type, true)
 			if err != nil {
@@ -1724,7 +1657,6 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 			var task_input_map cwl.JobDocMap
 
 			if task.StepInput == nil {
-
 				task_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, cwl_step) // returns map[string]CWLType
 				if err != nil {
 					return
@@ -1802,9 +1734,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 				}
 
 			}
-
 			task.Children = children // TODO lock
-
 			// break (trivial for loop)
 		}
 
@@ -1883,6 +1813,28 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 	logger.Debug(2, "(taskEnQueue) leaving (task=%s)", task_id)
 
+	return
+}
+
+// invoked by taskEnQueue
+// main purpose is to copy output io struct of predecessor task to create the input io structs
+func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
+	if task.WorkflowStep != nil && job.CWL_collection != nil {
+		if job.CWL_collection.Job_input_map == nil {
+			err = fmt.Errorf("job.CWL_collection.Job_input_map is empty")
+			return
+		}
+	} else {
+		// old AWE-style
+		err = task.ValidateInputs(qm)
+		if err != nil {
+			return
+		}
+		err = task.ValidatePredata()
+		if err != nil {
+			err = fmt.Errorf("ValidatePredata failed: %s", err.Error())
+		}
+	}
 	return
 }
 
@@ -2298,28 +2250,6 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 			return
 		}
 
-	}
-	return
-}
-
-// invoked by taskEnQueue
-// main purpose is to copy output io struct of predecessor task to create the input io structs
-func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
-	if task.WorkflowStep != nil && job.CWL_collection != nil {
-		if job.CWL_collection.Job_input_map == nil {
-			err = fmt.Errorf("job.CWL_collection.Job_input_map is empty")
-			return
-		}
-	} else {
-		// old AWE-style
-		_, err = task.ValidateInputs(qm)
-		if err != nil {
-			return
-		}
-		err = task.ValidatePredata()
-		if err != nil {
-			err = fmt.Errorf("ValidatePredata failed: %s", err.Error())
-		}
 	}
 	return
 }

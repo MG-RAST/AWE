@@ -5,19 +5,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
-	"github.com/MG-RAST/AWE/lib/core/uuid"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/davecgh/go-spew/spew"
-	"gopkg.in/mgo.v2/bson"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+
+	"github.com/MG-RAST/AWE/lib/core/uuid"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
+	"gopkg.in/mgo.v2/bson"
 
 	"strconv"
 	"strings"
@@ -76,6 +77,7 @@ type JobRaw struct {
 	CWL_workflow         *cwl.Workflow                `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	WorkflowInstances    []interface{}                `bson:"workflow_instances" json:"workflow_instances" yaml:"workflow_instances" mapstructure:"workflow_instances"`
 	WorkflowInstancesMap map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
+	Entrypoint           string                       `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
 }
 
 func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
@@ -122,6 +124,17 @@ func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document, remain_t
 }
 
 func (job *Job) GetWorkflowInstanceIndex(id string, do_read_lock bool) (index int, err error) {
+	if do_read_lock {
+		read_lock, xerr := job.RLockNamed("GetWorkflowInstanceIndex")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer job.RUnlockNamed(read_lock)
+	}
+	if id == "" {
+		id = "::main::"
+	}
 
 	var wi_int interface{}
 
@@ -190,6 +203,10 @@ func (job *Job) Set_WorkflowInstance_Outputs(id string, outputs cwl.Job_document
 	}
 	defer job.Unlock()
 
+	if id == "" {
+		id = "::main::"
+	}
+
 	err = dbUpdateJobWorkflow_instancesFieldOutputs(job.Id, id, outputs)
 	if err != nil {
 		err = fmt.Errorf("(Set_WorkflowInstance_Outputs) dbUpdateJobWorkflow_instancesFieldOutputs returned: %s", err.Error())
@@ -226,14 +243,43 @@ func (job *Job) Decrease_WorkflowInstance_RemainTasks(id string) (remain_tasks i
 	}
 	defer job.Unlock()
 
+	if id == "" {
+		id = "::main::"
+	}
+
 	var workflow_instance *WorkflowInstance
-	workflow_instance, _ = job.GetWorkflowInstance(id, false)
+	workflow_instance, err = job.GetWorkflowInstance(id, false)
+	if err != nil {
+		fmt.Printf("ERROR: (Decrease_WorkflowInstance_RemainTasks) job.GetWorkflowInstance returned: %s\n", err.Error())
+		err = fmt.Errorf("(Decrease_WorkflowInstance_RemainTasks) job.GetWorkflowInstance returned: %s", err.Error())
+		return
+	}
 
 	remain_tasks = workflow_instance.RemainTasks - 1
+	if remain_tasks < 0 {
+		err = fmt.Errorf("(Decrease_WorkflowInstance_RemainTasks) new remain_tasks has invalid value (workflow_instance.RemainTasks: %d, new remain_tasks: %d)", workflow_instance.RemainTasks, remain_tasks)
+		return
+	}
+	logger.Debug(3, "(Decrease_WorkflowInstance_RemainTasks) remain_tasks: %d", remain_tasks)
 
 	err = dbUpdateJobWorkflow_instancesFieldInt(job.Id, id, "remaintasks", remain_tasks)
 	if err != nil {
-		err = fmt.Errorf("(Set_WorkflowInstance_DecreaseRemainTasks) dbUpdateJobWorkflow_instancesFieldInt returned: %s", err.Error())
+		fmt.Printf("ERROR: (Decrease_WorkflowInstance_RemainTasks) dbUpdateJobWorkflow_instancesFieldInt returned: %s\n", err.Error())
+		err = fmt.Errorf("(Decrease_WorkflowInstance_RemainTasks) dbUpdateJobWorkflow_instancesFieldInt returned: %s", err.Error())
+		return
+	}
+
+	// this is just to confirm the value was written TODO remove this
+	var remain_tasks_mongo int
+	remain_tasks_mongo, err = dbGetJobWorkflow_InstanceInt(job.Id, id, "remaintasks")
+	if err != nil {
+		err = fmt.Errorf("(Decrease_WorkflowInstance_RemainTasks) dbGetJobWorkflow_InstanceInt returned: %s", err.Error())
+		return
+	}
+
+	if remain_tasks_mongo != remain_tasks {
+		err = fmt.Errorf("(Decrease_WorkflowInstance_RemainTasks) mongo value wrong: remain_tasks_mongo: %d  , remain_tasks: %d", remain_tasks_mongo, remain_tasks)
+		panic(err.Error())
 		return
 	}
 
@@ -409,15 +455,23 @@ func (job *Job) Init() (changed bool, err error) {
 
 		collection := cwl.NewCWL_collection()
 
-		object_array, xerr := cwl.NewCWL_object_array(job.CWL_objects)
+		//var schemata_new []CWLType_Type
+		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.CWL_objects, job.CwlVersion)
 		if xerr != nil {
 			err = fmt.Errorf("(job.Init) cannot type assert CWL_objects: %s", xerr.Error())
 			return
 		}
 
-		err = cwl.Add_to_collection(&collection, object_array)
+		err = collection.AddArray(named_object_array)
+		//err = cwl.Add_to_collection(&collection, object_array)
 		if err != nil {
-			fmt.Errorf("(job.Init) Add_to_collection returned: %s", err.Error())
+			fmt.Errorf("(job.Init) collection.AddArray returned: %s", err.Error())
+			return
+		}
+
+		err = collection.AddSchemata(schemata_new)
+		if err != nil {
+			err = fmt.Errorf("(job.Init) AddSchemata returned: %s", err.Error())
 			return
 		}
 
@@ -464,9 +518,14 @@ func (job *Job) Init() (changed bool, err error) {
 
 		collection.Job_input_map = &main_input_map
 
-		cwl_workflow, ok := collection.Workflows["#main"]
+		entrypoint := job.Entrypoint
+		cwl_workflow, ok := collection.Workflows[entrypoint]
 		if !ok {
-			err = fmt.Errorf("(job.Init) Workflow \"main\" not found")
+			err = fmt.Errorf("(job.Init) Workflow \"%s\" not found", entrypoint)
+
+			for key, _ := range collection.All {
+				fmt.Printf("key: " + key)
+			}
 			return
 		}
 
@@ -732,7 +791,7 @@ func (job *Job) SetState(newState string, oldstates []string) (err error) {
 		}
 		if !matched {
 			oldstates_str := strings.Join(oldstates, ",")
-			err = fmt.Errorf("(UpdateJobState) old state %s does not match one of the required ones (required: %s)", job_state, oldstates_str)
+			err = fmt.Errorf("(SetState) newState: %s, old state %s does not match one of the required ones (required: %s)", newState, job_state, oldstates_str)
 			return
 		}
 	}
@@ -779,7 +838,7 @@ func (job *Job) SetError(newError *JobError) (err error) {
 		return
 	}
 	defer job.Unlock()
-	spew.Dump(newError)
+	//spew.Dump(newError)
 
 	update_value := bson.M{"error": newError}
 	err = dbUpdateJobFields(job.Id, update_value)
@@ -820,7 +879,10 @@ func (job *Job) IncrementRemainTasks(inc int) (err error) {
 	}
 	defer job.Unlock()
 
+	logger.Debug(3, "(IncrementRemainTasks) called with inc=%d", inc)
+
 	newRemainTask := job.RemainTasks + inc
+	logger.Debug(3, "(IncrementRemainTasks) new value of RemainTasks: %d", newRemainTask)
 	err = dbUpdateJobFieldInt(job.Id, "remaintasks", newRemainTask)
 	if err != nil {
 		return

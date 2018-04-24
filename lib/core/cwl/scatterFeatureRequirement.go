@@ -6,7 +6,7 @@ import (
 
 //Indicates that the workflow platform must support the scatter and scatterMethod fields of WorkflowStep.
 type ScatterFeatureRequirement struct {
-	BaseRequirement `bson:",inline" yaml:",inline" json:",inline"`
+	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 }
 
 func (c ScatterFeatureRequirement) GetId() string { return "None" }

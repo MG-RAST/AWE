@@ -139,9 +139,10 @@ func (sc *ShockClient) Do_request(method string, resource string, query url.Valu
 
 	//logger.Debug(1, fmt.Sprint("string_url: ", sc.Host))
 
-	myurl, err := url.ParseRequestURI(sc.Host)
+	var myurl *url.URL
+	myurl, err = url.ParseRequestURI(sc.Host)
 	if err != nil {
-		return err
+		return
 	}
 
 	(*myurl).Path = resource
@@ -155,7 +156,8 @@ func (sc *ShockClient) Do_request(method string, resource string, query url.Valu
 	}
 
 	if len(shockurl) < 5 {
-		return errors.New("could not parse shockurl: " + shockurl)
+		err = errors.New("(Do_request) could not parse shockurl: " + shockurl)
+		return
 	}
 
 	var user *httpclient.Auth
@@ -163,34 +165,29 @@ func (sc *ShockClient) Do_request(method string, resource string, query url.Valu
 		user = httpclient.GetUserByTokenAuth(sc.Token)
 	}
 
-	var res *http.Response
-
 	if header == nil {
 		header = &httpclient.Header{}
 	}
 
+	var res *http.Response
 	res, err = httpclient.Do(method, shockurl, *header, nil, user)
-
 	if err != nil {
 		return
 	}
 	defer res.Body.Close()
 
-	jsonstream, err := ioutil.ReadAll(res.Body)
+	var jsonstream []byte
+	jsonstream, err = ioutil.ReadAll(res.Body)
+	if err != nil {
+		return
+	}
 
 	if sc.Debug {
 		fmt.Fprintf(os.Stdout, "json response:\n %s\n", string(jsonstream))
 	}
 
-	//logger.Debug(1, string(jsonstream))
-	if err != nil {
-		return err
-	}
+	err = json.Unmarshal(jsonstream, response)
 
-	//response := new(result)
-	if err := json.Unmarshal(jsonstream, response); err != nil {
-		return err
-	}
 	return
 }
 
@@ -205,7 +202,8 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 	token := sc.Token
 
 	if host == "" {
-		return nil, fmt.Errorf("error: (createOrUpdate) host is not defined in Shock node")
+		err = errors.New("(createOrUpdate) host is not defined in Shock node")
+		return
 	}
 
 	url := host + "/node"
@@ -220,9 +218,10 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 	}
 
 	if len(nodeattr) != 0 {
-		nodeattr_json, err := json.Marshal(nodeattr)
-		if err != nil {
-			return nil, errors.New("error marshalling NodeAttr")
+		nodeattr_json, jerr := json.Marshal(nodeattr)
+		if jerr != nil {
+			err = errors.New("(CreateOrUpdate) error marshalling NodeAttr")
+			return
 		}
 		form.AddParam("attributes_str", string(nodeattr_json[:]))
 	}
@@ -237,7 +236,8 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 			if opts.HasKey("parts") {
 				form.AddParam("parts", opts.Value("parts"))
 			} else {
-				return nil, errors.New("missing partial upload parameter: parts")
+				err = errors.New("(CreateOrUpdate) (case:parts) missing partial upload parameter: parts")
+				return
 			}
 			if opts.HasKey("file_name") {
 				form.AddParam("file_name", opts.Value("file_name"))
@@ -246,32 +246,37 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 			if opts.HasKey("part") && opts.HasKey("file") {
 				form.AddFile(opts.Value("part"), opts.Value("file"))
 			} else {
-				return nil, errors.New("missing partial upload parameter: part or file")
+				err = errors.New("(CreateOrUpdate) (case:part) missing partial upload parameter: part or file")
+				return
 			}
 		case "remote_path":
 			if opts.HasKey("remote_path") {
 				form.AddParam("path", opts.Value("remote_path"))
 			} else {
-				return nil, errors.New("missing remote path parameter: path")
+				err = errors.New("(CreateOrUpdate) (case:remote_path) missing remote path parameter: path")
+				return
 			}
 		case "virtual_file":
 			if opts.HasKey("virtual_file") {
 				form.AddParam("type", "virtual")
 				form.AddParam("source", opts.Value("virtual_file"))
 			} else {
-				return nil, errors.New("missing virtual node parameter: source")
+				err = errors.New("(CreateOrUpdate) (case:virtual_file) missing virtual node parameter: source")
+				return
 			}
 		case "index":
 			if opts.HasKey("index_type") {
 				url += "/index/" + opts.Value("index_type")
 			} else {
-				return nil, errors.New("missing index type when creating index")
+				err = errors.New("(CreateOrUpdate) (case:index) missing index type when creating index")
+				return
 			}
 		case "copy":
 			if opts.HasKey("parent_node") {
 				form.AddParam("copy_data", opts.Value("parent_node"))
 			} else {
-				return nil, errors.New("missing copy node parameter: parent_node")
+				err = errors.New("(CreateOrUpdate) (case:copy) missing copy node parameter: parent_node")
+				return
 			}
 			if opts.HasKey("copy_indexes") {
 				form.AddParam("copy_indexes", "1")
@@ -282,7 +287,8 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 				form.AddParam("parent_index", opts.Value("parent_index"))
 				form.AddFile("subset_indices", opts.Value("file"))
 			} else {
-				return nil, errors.New("missing subset node parameter: parent_node or parent_index or file")
+				err = errors.New("(CreateOrUpdate) (case:subset) missing subset node parameter: parent_node or parent_index or file")
+				return
 			}
 		}
 	}
@@ -301,20 +307,25 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 	if sc.Debug {
 		fmt.Printf("url: %s %s\n", method, url)
 	}
-	if res, err := httpclient.Do(method, url, headers, form.Reader, user); err == nil {
-		defer res.Body.Close()
-		jsonstream, _ := ioutil.ReadAll(res.Body)
-		response := new(ShockResponse)
-		if err := json.Unmarshal(jsonstream, response); err != nil {
-			return nil, errors.New(fmt.Sprintf("failed to marshal response:\"%s\"", jsonstream))
-		}
-		if len(response.Errs) > 0 {
-			return nil, errors.New(strings.Join(response.Errs, ","))
-		}
-		node = &response.Data
-	} else {
-		return nil, err
+	var res *http.Response
+	res, err = httpclient.Do(method, url, headers, form.Reader, user)
+	if err != nil {
+		return
 	}
+
+	defer res.Body.Close()
+	jsonstream, _ := ioutil.ReadAll(res.Body)
+	response := new(ShockResponse)
+	if err = json.Unmarshal(jsonstream, response); err != nil {
+		err = fmt.Errorf("(CreateOrUpdate) (httpclient.Do) failed to marshal response:\"%s\"", jsonstream)
+		return
+	}
+	if len(response.Errs) > 0 {
+		err = fmt.Errorf("(CreateOrUpdate) (response) %s", strings.Join(response.Errs, ","))
+		return
+	}
+	node = &response.Data
+
 	return
 }
 
@@ -355,8 +366,10 @@ func (sc *ShockClient) PutFileToShock(filename string, nodeid string, rank int, 
 		}
 	}
 
-	node, err := sc.CreateOrUpdate(opts, nodeid, nodeattr)
+	var node *ShockNode
+	node, err = sc.CreateOrUpdate(opts, nodeid, nodeattr)
 	if err != nil {
+		err = fmt.Errorf("(PutFileToShock) (CreateOrUpdate) failed (%s): %v", sc.Host, err)
 		return
 	}
 	if node != nil {
@@ -372,7 +385,7 @@ func (sc *ShockClient) PostNodeWithToken(filename string, numParts int) (nodeid 
 
 	node, err = sc.CreateOrUpdate(opts, "", nil)
 	if err != nil {
-		err = fmt.Errorf("(1) createOrUpdate in PostNodeWithToken failed (%s): %v", sc.Host, err)
+		err = fmt.Errorf("(PostNodeWithToken) (CreateOrUpdate) failed (%s): %v", sc.Host, err)
 		return
 	}
 	//create "parts" for output splits
@@ -383,7 +396,7 @@ func (sc *ShockClient) PostNodeWithToken(filename string, numParts int) (nodeid 
 		_, err = sc.CreateOrUpdate(opts, node.Id, nil)
 		if err != nil {
 			nodeid = node.Id
-			err = fmt.Errorf("(2) createOrUpdate in PostNodeWithToken failed (%s, %s): %v", sc.Host, node.Id, err)
+			err = fmt.Errorf("(PostNodeWithToken) (CreateOrUpdate) failed (%s, %s): %v", sc.Host, node.Id, err)
 			return
 		}
 	}
@@ -391,9 +404,11 @@ func (sc *ShockClient) PostNodeWithToken(filename string, numParts int) (nodeid 
 }
 
 func (sc *ShockClient) Get_node_download_url(node ShockNode) (download_url string, err error) {
-	myurl, err := url.ParseRequestURI(sc.Host)
+
+	var myurl *url.URL
+	myurl, err = url.ParseRequestURI(sc.Host)
 	if err != nil {
-		return "", err
+		return
 	}
 	(*myurl).Path = fmt.Sprint("node/", node.Id)
 	(*myurl).RawQuery = "download"
@@ -403,31 +418,18 @@ func (sc *ShockClient) Get_node_download_url(node ShockNode) (download_url strin
 }
 
 func (sc *ShockClient) Make_public(node_id string) (sqr_p *ShockResponseGeneric, err error) {
-
 	sqr_p = new(ShockResponseGeneric)
 	err = sc.Put_request("/node/"+node_id+"/acl/public_read", nil, &sqr_p)
-
 	return
 }
 
 // example: query_response_p, err := sc.Shock_query(host, url.Values{"docker": {"1"}, "docker_image_name" : {"wgerlach/bowtie2:2.2.0"}});
 func (sc *ShockClient) Query(query url.Values) (sqr_p *ShockQueryResponse, err error) {
-
 	query.Add("query", "")
-
 	sqr_p = new(ShockQueryResponse)
 	err = sc.Get_request("/node/", query, &sqr_p)
-
 	return
 }
-
-//func (sc *ShockClient) Get_request(node_id string) (sqr_p *ShockResponse, err error) {
-
-//	sqr_p = new(ShockResponse)
-//	err = sc.Get_request("/node/"+node_id, nil, &sqr_p)
-
-//	return
-//}
 
 func (sc *ShockClient) Get_node(node_id string) (node *ShockNode, err error) {
 
@@ -435,12 +437,13 @@ func (sc *ShockClient) Get_node(node_id string) (node *ShockNode, err error) {
 	err = sc.Get_request("/node/"+node_id, nil, &sqr_p)
 
 	if len(sqr_p.Errs) > 0 {
-		return nil, errors.New(strings.Join(sqr_p.Errs, ","))
+		err = fmt.Errorf("(Get_node) (Get_request) %s", strings.Join(sqr_p.Errs, ","))
+		return
 	}
 
 	node = &sqr_p.Data
 	if node == nil {
-		err = errors.New("empty node got from Shock")
+		err = errors.New("(Get_node) (Get_request) empty node got from Shock")
 	}
 
 	return
@@ -450,9 +453,10 @@ func (sc *ShockClient) Get_node(node_id string) (node *ShockNode, err error) {
 
 func ShockGet(host string, nodeid string, token string) (node *ShockNode, err error) {
 	if host == "" || nodeid == "" {
-		return nil, errors.New("empty shock host or node id")
+		err = errors.New("(ShockGet) empty shock host or node id")
+		return
 	}
-	logger.Debug(3, fmt.Sprintf("ShockGet: %s %s %s", host, nodeid, token))
+	logger.Debug(3, fmt.Sprintf("(ShockGet) %s %s %s", host, nodeid, token))
 
 	var res *http.Response
 	shockurl := fmt.Sprintf("%s/node/%s", host, nodeid)
@@ -471,35 +475,40 @@ func ShockGet(host string, nodeid string, token string) (node *ShockNode, err er
 	case <-c:
 	//go ahead
 	case <-time.After(SHOCK_TIMEOUT):
-		return nil, errors.New("timeout when getting node from shock, url=" + shockurl)
+		err = errors.New("(ShockGet) timeout when getting node from shock, url=" + shockurl)
+		return
 	}
+
 	if err != nil {
 		return
 	}
 	defer res.Body.Close()
 
-	jsonstream, err := ioutil.ReadAll(res.Body)
+	var jsonstream []byte
+	jsonstream, err = ioutil.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	response := new(ShockResponse)
-	if err := json.Unmarshal(jsonstream, response); err != nil {
-		return nil, err
+	if err = json.Unmarshal(jsonstream, response); err != nil {
+		return
 	}
 	if len(response.Errs) > 0 {
-		return nil, errors.New(strings.Join(response.Errs, ","))
+		err = fmt.Errorf("(ShockGet) (response) %s", strings.Join(response.Errs, ","))
+		return
 	}
 	node = &response.Data
 	if node == nil {
-		err = errors.New("empty node got from Shock")
+		err = errors.New("(ShockGet) (response) empty node got from Shock")
 	}
 	return
 }
 
 func ShockDelete(host string, nodeid string, token string) (err error) {
 	if host == "" || nodeid == "" {
-		return errors.New("empty shock host or node id")
+		err = errors.New("(ShockDelete) empty shock host or node id")
+		return
 	}
 
 	var res *http.Response
@@ -519,24 +528,27 @@ func ShockDelete(host string, nodeid string, token string) (err error) {
 	case <-c:
 	//go ahead
 	case <-time.After(SHOCK_TIMEOUT):
-		return errors.New("timeout when getting node from shock, url=" + shockurl)
+		err = errors.New("(ShockDelete) timeout when getting node from shock, url=" + shockurl)
+		return
 	}
 	if err != nil {
-		return err
+		return
 	}
 	defer res.Body.Close()
 
-	jsonstream, err := ioutil.ReadAll(res.Body)
+	var jsonstream []byte
+	jsonstream, err = ioutil.ReadAll(res.Body)
 	if err != nil {
-		return err
+		return
 	}
 
 	response := new(ShockResponse)
-	if err := json.Unmarshal(jsonstream, response); err != nil {
-		return err
+	if err = json.Unmarshal(jsonstream, response); err != nil {
+		return
 	}
 	if len(response.Errs) > 0 {
-		return errors.New(strings.Join(response.Errs, ","))
+		err = fmt.Errorf("(ShockDelete) (response) %s", strings.Join(response.Errs, ","))
+		return
 	}
 	return
 }
@@ -545,15 +557,18 @@ func ShockDelete(host string, nodeid string, token string) (err error) {
 func FetchFile(filename string, url string, token string, uncompress string, computeMD5 bool) (size int64, md5sum string, err error) {
 	logger.Debug(1, "(FetchFile) fetching file name=%s, url=%s\n", filename, url)
 
-	localfile, err := os.Create(filename)
+	var localfile *os.File
+	localfile, err = os.Create(filename)
 	if err != nil {
-		return 0, "", err
+		return
 	}
 	defer localfile.Close()
 
-	body, err := FetchShockStream(url, token)
+	var body io.ReadCloser
+	body, err = FetchShockStream(url, token)
 	if err != nil {
-		return 0, "", errors.New("FetchShockStream returned: " + err.Error())
+		err = errors.New("(FetchFile) " + err.Error())
+		return
 	}
 	defer body.Close()
 
@@ -571,7 +586,7 @@ func FetchFile(filename string, url string, token string, uncompress string, com
 		}
 		size, err = io.Copy(dst, body)
 		if err != nil {
-			return 0, "", err
+			return
 		}
 	} else if uncompress == "gzip" {
 		//logger.Debug(1, fmt.Sprintf("downloading and unzipping file %s from %s", filename, url))
@@ -590,17 +605,19 @@ func FetchFile(filename string, url string, token string, uncompress string, com
 			input = body
 		}
 
-		gr, err := gzip.NewReader(input)
-		if err != nil {
-			return 0, "", err
+		gr, gerr := gzip.NewReader(input)
+		if gerr != nil {
+			err = gerr
+			return
 		}
 		defer gr.Close()
 		size, err = io.Copy(localfile, gr)
 		if err != nil {
-			return 0, "", err
+			return
 		}
 	} else {
-		return 0, "", errors.New("uncompress method unknown: " + uncompress)
+		err = errors.New("(FetchFile) uncompress method unknown: " + uncompress)
+		return
 	}
 
 	if computeMD5 {
@@ -617,15 +634,17 @@ func FetchShockStream(url string, token string) (r io.ReadCloser, err error) {
 	}
 
 	//download file from Shock
-	res, err := httpclient.Get(url, httpclient.Header{}, nil, user)
+	var res *http.Response
+	res, err = httpclient.Get(url, httpclient.Header{}, nil, user)
 	if err != nil {
-		//return nil, err
-		return nil, errors.New("httpclient.Get returned: " + err.Error())
+		err = errors.New("(FetchShockStream) httpclient.Get returned: " + err.Error())
+		return
 	}
 
 	if res.StatusCode != 200 { //err in fetching data
 		resbody, _ := ioutil.ReadAll(res.Body)
-		return nil, errors.New(fmt.Sprintf("op=fetchFile, url=%s, res=%s", url, resbody))
+		err = errors.New(fmt.Sprintf("(FetchShockStream) url=%s, res=%s", url, resbody))
+		return
 	}
 
 	return res.Body, err
@@ -633,26 +652,31 @@ func FetchShockStream(url string, token string) (r io.ReadCloser, err error) {
 
 // source:  http://stackoverflow.com/a/22259280
 // TODO this is not shock related, need another package
-func CopyFile(src, dst string) (int64, error) {
-	src_file, err := os.Open(src)
+func CopyFile(src, dst string) (size int64, err error) {
+	var src_file *os.File
+	src_file, err = os.Open(src)
 	if err != nil {
-		return 0, err
+		return
 	}
 	defer src_file.Close()
 
-	src_file_stat, err := src_file.Stat()
+	var src_file_stat os.FileInfo
+	src_file_stat, err = src_file.Stat()
 	if err != nil {
-		return 0, err
+		return
 	}
 
 	if !src_file_stat.Mode().IsRegular() {
-		return 0, fmt.Errorf("%s is not a regular file", src)
+		err = fmt.Errorf("%s is not a regular file", src)
+		return
 	}
 
-	dst_file, err := os.Create(dst)
+	var dst_file *os.File
+	dst_file, err = os.Create(dst)
 	if err != nil {
-		return 0, err
+		return
 	}
 	defer dst_file.Close()
-	return io.Copy(dst_file, src_file)
+	size, err = io.Copy(dst_file, src_file)
+	return
 }

@@ -1,10 +1,10 @@
 package cwl
 
 import (
-	//"fmt"
+	"fmt"
 	//"reflect"
-	//"github.com/davecgh/go-spew/spew"
 	"encoding/json"
+	"github.com/davecgh/go-spew/spew"
 )
 
 type Array []CWLType
@@ -14,6 +14,8 @@ type Array []CWLType
 //	Items []CWLType `yaml:"items,omitempty" json:"items,omitempty" bson:"items,omitempty"` // CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
 //Items_Type   CWLType_Type                                                          `yaml:"items_type,omitempty" json:"items_type,omitempty" bson:"items_type,omitempty"`
 //}
+
+func (c *Array) Is_CWL_object() {}
 
 func (c *Array) GetClass() string      { return "array" }
 func (c *Array) GetId() string         { return "foobar" }
@@ -34,9 +36,13 @@ func NewArray(id string, native interface{}) (array_ptr *Array, err error) {
 		array := Array{}
 		for _, value := range native_array {
 
-			value_cwl, xerr := NewCWLType("", value)
-			if xerr != nil {
-				err = xerr
+			var value_cwl CWLType
+			value_cwl, err = NewCWLType("", value)
+			if err != nil {
+				fmt.Println("NewArray element:")
+				spew.Dump(value)
+
+				err = fmt.Errorf("(NewArray) NewCWLType returned: %s", err.Error())
 				return
 			}
 

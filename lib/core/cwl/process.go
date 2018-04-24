@@ -2,9 +2,11 @@ package cwl
 
 import (
 	"fmt"
+	"reflect"
+
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
-	"reflect"
 )
 
 // needed for run in http://www.commonwl.org/v1.0/Workflow.html#WorkflowStep
@@ -50,7 +52,14 @@ func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 }
 
 // returns CommandLineTool, ExpressionTool or Workflow
-func NewProcess(original interface{}) (process interface{}, err error) {
+func NewProcess(original interface{}, CwlVersion CWLVersion) (process interface{}, schemata []CWLType_Type, err error) {
+
+	logger.Debug(3, "NewProcess starting")
+
+	if CwlVersion == "" {
+		err = fmt.Errorf("(NewProcess) CwlVersion empty")
+		return
+	}
 
 	original, err = MakeStringMap(original)
 	if err != nil {
@@ -83,10 +92,19 @@ func NewProcess(original interface{}) (process interface{}, err error) {
 		//case "":
 		//return NewProcessPointer(original)
 		case "Workflow":
-			return NewWorkflow(original)
+			return NewWorkflow(original, CwlVersion)
 		case "Expression":
-			return NewExpression(original)
-
+			process, err = NewExpression(original)
+			return
+		case "CommandLineTool":
+			process, schemata, err = NewCommandLineTool(original, CwlVersion) // TODO merge schemata correctly !
+			return
+		case "ExpressionTool":
+			process, err = NewExpressionTool(original, CwlVersion, schemata)
+			return
+		default:
+			err = fmt.Errorf("(NewProcess) class %s not supported", class)
+			return
 		}
 
 	default:

@@ -100,7 +100,8 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 		upload_file_path := upload_file.Path
 		job, err = ReadJobFile(upload_file_path)
 		if err != nil {
-			logger.Debug(3, "Parsing: Failed (default and deprecated format) %s", err.Error())
+			err = fmt.Errorf("(CreateJobUpload) Parsing: Failed (default and deprecated format) %s", err.Error())
+			logger.Debug(3, err.Error())
 			return
 		} else {
 			logger.Debug(3, "Parsing: Success (default or deprecated format)")
@@ -249,6 +250,7 @@ func ReadJobFile(filename string) (job *Job, err error) {
 		// jobDep had been initialized already
 		_, err = job.Init()
 		if err != nil {
+			err = fmt.Errorf("(ReadJobFile) job.Init returned error: %s", err.Error())
 			return
 		}
 	}
@@ -257,6 +259,7 @@ func ReadJobFile(filename string) (job *Job, err error) {
 	job_p := new(Job_p)
 	err = json.Unmarshal(jsonstream, job_p)
 	if err != nil {
+		err = fmt.Errorf("(ReadJobFile) json.Unmarshal (private fields) returned error: %s", err.Error())
 		return
 	}
 

@@ -31,11 +31,35 @@ func NewWorkflowInstanceFromInterface(original interface{}) (wi WorkflowInstance
 
 		wi = WorkflowInstance{}
 
-		id_if, has_id := original_map["id"]
-		if !has_id {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) is is missing")
+		remaintasks_if, has_remaintasks := original_map["remaintasks"]
+		if !has_remaintasks {
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) remaintasks is missing")
 			return
 		}
+
+		var remaintasks_int int
+		remaintasks_int, ok = remaintasks_if.(int)
+		if !ok {
+
+			var remaintasks_float64 float64
+			remaintasks_float64, ok = remaintasks_if.(float64)
+			if ok {
+				remaintasks_int = int(remaintasks_float64)
+
+			} else {
+				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) remaintasks is not int (%s)", reflect.TypeOf(remaintasks_if))
+				return
+			}
+		}
+
+		wi.RemainTasks = remaintasks_int
+
+		id_if, has_id := original_map["id"]
+		if !has_id {
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id is missing")
+			return
+		}
+
 		var id_str string
 		id_str, ok = id_if.(string)
 		if !ok {

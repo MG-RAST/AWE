@@ -2,6 +2,10 @@ package controller
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"reflect"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -12,13 +16,11 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
-	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"io/ioutil"
-	"net/http"
 	//"os"
 	"encoding/json"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -134,13 +136,14 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		// convert CWL to string
 		yaml_str := string(yamlstream[:])
 
-		object_array, cwl_version, err := cwl.Parse_cwl_document(yaml_str)
+		var schemata []cwl.CWLType_Type
+		object_array, cwl_version, schemata, err := cwl.Parse_cwl_document(yaml_str)
 		if err != nil {
 			cx.RespondWithErrorMessage("error in parsing cwl workflow yaml file: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		err = cwl.Add_to_collection(&collection, object_array)
+		err = collection.AddArray(object_array)
 		if err != nil {
 			logger.Error("Parse_cwl_document error: " + err.Error())
 			cx.RespondWithErrorMessage("error in adding cwl objects to collection: "+err.Error(), http.StatusBadRequest)
@@ -148,31 +151,296 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 		logger.Debug(1, "Parse_cwl_document done")
 
-		cwl_workflow, ok := collection.Workflows["#main"]
-		if !ok {
-
-			cx.RespondWithErrorMessage("Workflow main not found", http.StatusBadRequest)
+		err = collection.AddSchemata(schemata)
+		if err != nil {
+			cx.RespondWithErrorMessage("error in adding schemata: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		fmt.Println("\n\n\n--------------------------------- Steps:\n")
-		for _, step := range cwl_workflow.Steps {
-			spew.Dump(step)
+		entrypoint := ""
+
+		var cwl_workflow *cwl.Workflow
+		if len(collection.Workflows) == 0 {
+			if len(object_array) != 1 {
+				cx.RespondWithErrorMessage(fmt.Sprintf("Expected exactly one element in object_array, got %d", len(collection.Workflows)), http.StatusBadRequest)
+				return
+			}
+			// This probably is a CommandlineTool or ExpressionTool submission (without workflow)
+			// create new Workflow to wrap around the CommandLineTool/ExpressionTool
+			entrypoint = "#entrypoint"
+
+			pair := object_array[0]
+
+			runner := pair.Value
+
+			switch runner.(type) {
+
+			case *cwl.CommandLineTool:
+				commandlinetool_if := pair.Value
+
+				commandlinetool, ok := commandlinetool_if.(*cwl.CommandLineTool)
+				if !ok {
+
+					cx.RespondWithErrorMessage(fmt.Sprintf("(job/create) Error casting CommandLineTool (type: %s)", reflect.TypeOf(commandlinetool_if)), http.StatusBadRequest)
+					return
+				}
+
+				cwl_workflow_instance := cwl.NewWorkflowEmpty()
+				cwl_workflow = &cwl_workflow_instance
+				cwl_workflow.Id = entrypoint
+				new_step := cwl.WorkflowStep{}
+				step_id := entrypoint + "/wrapper_step"
+				new_step.Id = step_id
+				for _, input := range commandlinetool.Inputs { // input is CommandInputParameter
+
+					workflow_input_name := entrypoint + "/" + path.Base(input.Id)
+
+					var workflow_step_input cwl.WorkflowStepInput
+					workflow_step_input.Id = step_id + "/" + input.Id
+					workflow_step_input.Source = workflow_input_name
+					workflow_step_input.Default = input.Default
+
+					//fmt.Println("CommandInputParameter and WorkflowStepInput:")
+					//spew.Dump(input)
+					//spew.Dump(workflow_step_input)
+					new_step.In = append(new_step.In, workflow_step_input)
+
+					var workflow_input_parameter cwl.InputParameter
+					workflow_input_parameter.Id = workflow_input_name
+					workflow_input_parameter.SecondaryFiles = input.SecondaryFiles
+					workflow_input_parameter.Format = input.Format
+					workflow_input_parameter.Streamable = input.Streamable
+					workflow_input_parameter.InputBinding = input.InputBinding
+					workflow_input_parameter.Type = input.Type
+
+					workflow_input_parameter.Default = input.Default
+
+					add_null := false
+					if input.Default != nil { // check if this is an optional argument
+						add_null = true
+					}
+
+					if add_null {
+						has_null := false
+						for _, t := range workflow_input_parameter.Type {
+							if t == cwl.CWL_null {
+								has_null = true
+								break
+							}
+						}
+						if !has_null {
+							workflow_input_parameter.Type = append(workflow_input_parameter.Type, cwl.CWL_null)
+						}
+					}
+
+					cwl_workflow.Inputs = append(cwl_workflow.Inputs, workflow_input_parameter)
+				}
+
+				for _, output := range commandlinetool.Outputs {
+					var workflow_step_output cwl.WorkflowStepOutput
+					workflow_step_output.Id = step_id + "/" + strings.TrimPrefix(output.Id, "#")
+
+					new_step.Out = append(new_step.Out, workflow_step_output)
+
+					var workflow_output_parameter cwl.WorkflowOutputParameter
+
+					workflow_output_parameter.Id = entrypoint + "/" + path.Base(output.Id)
+					workflow_output_parameter.OutputSource = step_id + "/" + path.Base(output.Id)
+					workflow_output_parameter.SecondaryFiles = output.SecondaryFiles
+					workflow_output_parameter.Format = output.Format
+					workflow_output_parameter.Streamable = output.Streamable
+					//workflow_output_parameter.OutputBinding = output.OutputBinding
+					//workflow_output_parameter.OutputSource = output.OutputSource
+					//workflow_output_parameter.LinkMerge = output.LinkMerge
+					workflow_output_parameter.Type = output.Type
+					cwl_workflow.Outputs = append(cwl_workflow.Outputs, workflow_output_parameter)
+				}
+
+				if commandlinetool.Requirements != nil {
+					requirements := commandlinetool.Requirements
+					for i, _ := range *requirements {
+						require_type := (*requirements)[i].GetClass()
+						if require_type == "ShockRequirement" {
+							shock_requirement := (*requirements)[i]
+
+							cwl_workflow.Requirements, err = cwl.AddRequirement(shock_requirement, requirements)
+							if err != nil {
+								err = fmt.Errorf("(job/create) AddRequirement returned: %s", err.Error())
+								return
+							}
+						}
+					}
+				}
+
+				new_step.Run = commandlinetool.Id
+
+				cwl_workflow.Steps = []cwl.WorkflowStep{new_step}
+
+				cwl_workflow_named := cwl.Named_CWL_object{}
+				cwl_workflow_named.Id = cwl_workflow.Id
+				cwl_workflow_named.Value = cwl_workflow
+
+				object_array = append(object_array, cwl_workflow_named)
+				err = collection.Add(entrypoint, cwl_workflow)
+				if err != nil {
+					cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
+					return
+				}
+
+			case *cwl.ExpressionTool:
+				expressiontool_if := pair.Value
+
+				expressiontool, ok := expressiontool_if.(*cwl.ExpressionTool)
+				if !ok {
+
+					cx.RespondWithErrorMessage(fmt.Sprintf("(job/create) Error casting ExpressionTool (type: %s)", reflect.TypeOf(expressiontool_if)), http.StatusBadRequest)
+					return
+				}
+
+				cwl_workflow_instance := cwl.NewWorkflowEmpty()
+				cwl_workflow = &cwl_workflow_instance
+				cwl_workflow.Id = entrypoint
+				new_step := cwl.WorkflowStep{}
+				step_id := entrypoint + "/wrapper_step"
+				new_step.Id = step_id
+				for _, input := range expressiontool.Inputs { // input is InputParameter
+
+					workflow_input_name := entrypoint + "/" + path.Base(input.Id)
+
+					var workflow_step_input cwl.WorkflowStepInput
+					workflow_step_input.Id = step_id + "/" + input.Id
+					workflow_step_input.Source = workflow_input_name
+					workflow_step_input.Default = input.Default
+
+					//fmt.Println("InputParameter and WorkflowStepInput:")
+					//spew.Dump(input)
+					//spew.Dump(workflow_step_input)
+					new_step.In = append(new_step.In, workflow_step_input)
+
+					var workflow_input_parameter cwl.InputParameter
+					workflow_input_parameter.Id = workflow_input_name
+					workflow_input_parameter.SecondaryFiles = input.SecondaryFiles
+					workflow_input_parameter.Format = input.Format
+					workflow_input_parameter.Streamable = input.Streamable
+					workflow_input_parameter.InputBinding = input.InputBinding
+					workflow_input_parameter.Type = input.Type
+
+					workflow_input_parameter.Default = input.Default
+
+					add_null := false
+					if input.Default != nil { // check if this is an optional argument
+						add_null = true
+					}
+
+					if add_null {
+						has_null := false
+						for _, t := range workflow_input_parameter.Type {
+							if t == cwl.CWL_null {
+								has_null = true
+								break
+							}
+						}
+						if !has_null {
+							workflow_input_parameter.Type = append(workflow_input_parameter.Type, cwl.CWL_null)
+						}
+					}
+
+					cwl_workflow.Inputs = append(cwl_workflow.Inputs, workflow_input_parameter)
+				}
+
+				for _, output := range expressiontool.Outputs { // type: ExpressionToolOutputParameter
+					var workflow_step_output cwl.WorkflowStepOutput
+					workflow_step_output.Id = step_id + "/" + strings.TrimPrefix(output.Id, "#")
+
+					new_step.Out = append(new_step.Out, workflow_step_output)
+
+					var workflow_output_parameter cwl.WorkflowOutputParameter
+
+					workflow_output_parameter.Id = entrypoint + "/" + path.Base(output.Id)
+					workflow_output_parameter.OutputSource = step_id + "/" + path.Base(output.Id)
+					workflow_output_parameter.SecondaryFiles = output.SecondaryFiles
+					workflow_output_parameter.Format = output.Format
+					workflow_output_parameter.Streamable = output.Streamable
+					//workflow_output_parameter.OutputBinding = output.OutputBinding
+					//workflow_output_parameter.OutputSource = output.OutputSource
+					//workflow_output_parameter.LinkMerge = output.LinkMerge
+					workflow_output_parameter.Type = output.Type
+					cwl_workflow.Outputs = append(cwl_workflow.Outputs, workflow_output_parameter)
+				}
+
+				if expressiontool.Requirements != nil {
+					requirements := expressiontool.Requirements
+					for i, _ := range *requirements {
+						require_type := (*requirements)[i].GetClass()
+						if require_type == "ShockRequirement" {
+							shock_requirement := (*requirements)[i]
+
+							cwl_workflow.Requirements, err = cwl.AddRequirement(shock_requirement, requirements)
+							if err != nil {
+								err = fmt.Errorf("(job/create) AddRequirement returned: %s", err.Error())
+								return
+							}
+						}
+					}
+				}
+
+				new_step.Run = expressiontool.Id
+
+				cwl_workflow.Steps = []cwl.WorkflowStep{new_step}
+
+				cwl_workflow_named := cwl.Named_CWL_object{}
+				cwl_workflow_named.Id = cwl_workflow.Id
+				cwl_workflow_named.Value = cwl_workflow
+
+				object_array = append(object_array, cwl_workflow_named)
+				err = collection.Add(entrypoint, cwl_workflow)
+				if err != nil {
+					cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
+					return
+				}
+			default:
+				cx.RespondWithErrorMessage(fmt.Sprintf("Runner type %s not supported", reflect.TypeOf(runner)), http.StatusBadRequest)
+
+				return
+			}
+			//spew.Dump(cwl_workflow)
+
+		} else {
+			entrypoint = "#main"
+
+			var ok bool
+			cwl_workflow, ok = collection.Workflows[entrypoint]
+			if !ok {
+				cx.RespondWithErrorMessage("Workflow main not found", http.StatusBadRequest)
+				return
+			}
 		}
 
-		fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
+		//fmt.Println("\n\n\n--------------------------------- Steps:\n")
+		//for _, step := range cwl_workflow.Steps {
+		//	spew.Dump(step)
+		//}
+
+		//fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
 		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, &collection)
 		if err != nil {
 			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
+		job.Entrypoint = entrypoint
 		job.IsCWL = true
 		job.CWL_objects = object_array
 		job.CwlVersion = cwl_version
 		//job.CWL_collection = &collection
 		job.Info.Name = job_file.Name
 		job.Info.Pipeline = workflow_filename
+		job.Info.ClientGroups = "docker" // TODO this needs to be configured
+
+		if job.CwlVersion == "" {
+			cx.RespondWithErrorMessage("Error: cwlVersion is empty", http.StatusBadRequest)
+			return
+		}
 
 		//job.CWL_workflow_interface = cwl_workflow
 		//job.CWL_job_input_interface = job_input
@@ -197,7 +465,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		job, err = core.CreateJobUpload(_user, files)
 
 		if err != nil {
-			logger.Error("Err@job_Create:CreateJobUpload: " + err.Error())
+			err = fmt.Errorf("(JobController/Create) CreateJobUpload returned: %s", err.Error())
+			logger.Error(err.Error())
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -210,7 +479,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	} else {
 		err = job.SetDataToken(token)
 		if err != nil {
-			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			cx.RespondWithErrorMessage(fmt.Sprintf("(JobController/Create) SetDataToken returned: %s", err.Error()), http.StatusBadRequest)
 			return
 		}
 		logger.Debug(3, "job %s got token", job.Id)
@@ -218,7 +487,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	err = job.Save() // note that the job only goes into mongo, not into memory yet (EnqueueTasksByJobId is dowing that)
 	if err != nil {
-		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		cx.RespondWithErrorMessage(fmt.Sprintf("(JobController/Create) job.Save returned: %s", err.Error()), http.StatusBadRequest)
 		return
 	}
 
@@ -231,11 +500,17 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	var response_bytes []byte
 	response_bytes, err = json.Marshal(SR)
+	if err != nil {
+		//spew.Dump(SR)
+		cx.RespondWithErrorMessage("Could not marshal response: "+err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	// don't enqueue imports
 	if !has_import {
 		err = core.QMgr.EnqueueTasksByJobId(job.Id)
 		if err != nil {
+			err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}

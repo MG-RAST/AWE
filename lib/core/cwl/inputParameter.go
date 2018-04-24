@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 
@@ -13,11 +14,11 @@ type InputParameter struct {
 	Id             string             `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
 	Label          string             `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
 	SecondaryFiles []string           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	Format         string             `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
+	Format         []string           `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
 	Streamable     bool               `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
 	Doc            string             `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
 	InputBinding   CommandLineBinding `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"` //TODO
-	Default        Any                `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
+	Default        CWLType            `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
 	Type           []CWLType_Type     `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
 }
 
@@ -26,16 +27,16 @@ func (i InputParameter) GetId() string    { return i.Id }
 func (i InputParameter) SetId(id string)  { i.Id = id }
 func (i InputParameter) Is_CWL_minimal()  {}
 
-func NewInputParameter(original interface{}) (input_parameter *InputParameter, err error) {
+func NewInputParameter(original interface{}, schemata []CWLType_Type) (input_parameter *InputParameter, err error) {
 
-	fmt.Println("---- NewInputParameter ----")
-	spew.Dump(original)
+	//fmt.Println("---- NewInputParameter ----")
+	//spew.Dump(original)
 	original, err = MakeStringMap(original)
 	if err != nil {
 		err = fmt.Errorf("(NewInputParameter) MakeStringMap returned: %s", err.Error())
 		return
 	}
-	spew.Dump(original)
+	//spew.Dump(original)
 
 	input_parameter = &InputParameter{}
 
@@ -45,7 +46,7 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 		type_string := original.(string)
 
 		var original_type CWLType_Type
-		original_type, err = NewCWLType_TypeFromString(type_string)
+		original_type, err = NewCWLType_TypeFromString(schemata, type_string, "Input")
 		if err != nil {
 			err = fmt.Errorf("(NewInputParameter) NewCWLType_TypeFromString returned: %s", err.Error())
 			return
@@ -74,8 +75,9 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 
 		input_parameter_default, ok := original_map["default"]
 		if ok {
-			original_map["default"], err = NewAny(input_parameter_default)
+			original_map["default"], err = NewCWLType("", input_parameter_default)
 			if err != nil {
+				err = fmt.Errorf("(NewInputParameter) NewCWLType returned: %s", err.Error())
 				return
 			}
 		}
@@ -83,9 +85,9 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 		inputParameter_type, ok := original_map["type"]
 		if ok {
 			var inputParameter_type_array []CWLType_Type
-			inputParameter_type_array, err = NewCWLType_TypeArray(inputParameter_type, "Input")
+			inputParameter_type_array, err = NewCWLType_TypeArray(inputParameter_type, schemata, "Input", false)
 			if err != nil {
-				fmt.Errorf("(NewInputParameter) NewCWLType_TypeArray returns: %s", err.Error())
+				err = fmt.Errorf("(NewInputParameter) NewCWLType_TypeArray returns: %s", err.Error())
 				return
 			}
 			if len(inputParameter_type_array) == 0 {
@@ -116,7 +118,7 @@ func NewInputParameter(original interface{}) (input_parameter *InputParameter, e
 }
 
 // InputParameter
-func NewInputParameterArray(original interface{}) (err error, new_array []InputParameter) {
+func NewInputParameterArray(original interface{}, schemata []CWLType_Type) (new_array []InputParameter, err error) {
 
 	switch original.(type) {
 	case map[interface{}]interface{}:
@@ -130,7 +132,7 @@ func NewInputParameterArray(original interface{}) (err error, new_array []InputP
 				return
 			}
 
-			input_parameter, xerr := NewInputParameter(v)
+			input_parameter, xerr := NewInputParameter(v, schemata)
 			if xerr != nil {
 				err = fmt.Errorf("(NewInputParameterArray) A NewInputParameter returned: %s", xerr.Error())
 				return
@@ -153,7 +155,7 @@ func NewInputParameterArray(original interface{}) (err error, new_array []InputP
 		for _, v := range original_array {
 			//fmt.Printf("A")
 
-			input_parameter, xerr := NewInputParameter(v)
+			input_parameter, xerr := NewInputParameter(v, schemata)
 			if xerr != nil {
 				err = fmt.Errorf("(NewInputParameterArray) B NewInputParameter returned: %s", xerr.Error())
 				return

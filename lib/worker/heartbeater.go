@@ -5,12 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/core"
-	e "github.com/MG-RAST/AWE/lib/errors"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/golib/httpclient"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -21,6 +15,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core"
+	e "github.com/MG-RAST/AWE/lib/errors"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/golib/httpclient"
 )
 
 type HeartbeatResponse struct {
@@ -224,7 +225,7 @@ func RegisterWithProfile(host string, profile *core.Client) (client *core.Client
 
 // invoked on start of AWE worker AND on ReRegisterWithSelf
 func RegisterWithAuth(host string, pclient *core.Client) (err error) {
-	logger.Debug(3, "Try to register client")
+	logger.Debug(3, "Try to register client at %s", host)
 	if conf.CLIENT_GROUP_TOKEN == "" {
 		logger.Info("(RegisterWithAuth) clientgroup token not set, register as a public client (can only access public data)")
 	}
@@ -274,10 +275,15 @@ func RegisterWithAuth(host string, pclient *core.Client) (err error) {
 
 	resp, err := httpclient.DoTimeout("POST", targetUrl, headers, form.Reader, nil, time.Second*10)
 	if err != nil {
-		err = fmt.Errorf("(RegisterWithAuth) POST %s error: %s", targetUrl, err.Error())
+		err = fmt.Errorf("(RegisterWithAuth) POST %s, httpclient.DoTimeout returns: %s", targetUrl, err.Error())
 		return
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		err = fmt.Errorf("(RegisterWithAuth) got response: 404 Not Found")
+		return
+	}
 
 	// evaluate response
 	response := new(ClientResponse)
@@ -346,7 +352,7 @@ func Set_Metadata(profile *core.Client) {
 			}
 			local_ipv4, err := getMetaDataField(metadata_url, "local-ipv4")
 			if err == nil {
-				profile.Host = local_ipv4 + " (deprecated)"
+				//profile.Host = local_ipv4 + " (deprecated)"
 				profile.Host_ip = local_ipv4
 			}
 
@@ -357,11 +363,11 @@ func Set_Metadata(profile *core.Client) {
 	}
 
 	// fall-back
-	if profile.Host == "" {
+	if profile.Host_ip == "" {
 		if addrs, err := net.InterfaceAddrs(); err == nil {
 			for _, a := range addrs {
 				if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && len(strings.Split(ipnet.IP.String(), ".")) == 4 {
-					profile.Host = ipnet.IP.String()
+					profile.Host_ip = ipnet.IP.String()
 					break
 				}
 			}
@@ -376,7 +382,10 @@ func ComposeProfile() (profile *core.Client, err error) {
 	profile = core.NewClient() // includes init
 
 	profile.WorkerRuntime.Name = conf.CLIENT_NAME
-	profile.Host = conf.CLIENT_HOST
+	//profile.Host = conf.CLIENT_HOST
+	profile.Hostname = conf.CLIENT_HOSTNAME
+	profile.Host_ip = conf.CLIENT_HOST_IP
+
 	profile.Group = conf.CLIENT_GROUP
 	profile.CPUs = runtime.NumCPU()
 	profile.Domain = conf.CLIENT_DOMAIN

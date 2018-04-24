@@ -8,6 +8,7 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	"github.com/MG-RAST/AWE/lib/shock"
 	"net/http"
 	"os"
 	"strings"
@@ -67,7 +68,9 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 		move_start := time.Now().UnixNano()
 		logger.Debug(3, "(deliverer_run) work.State: %s", workunit.State)
 		if workunit.State == core.WORK_STAT_COMPUTED {
-			data_moved, err := cache.UploadOutputData(workunit)
+
+			shock_client := &shock.ShockClient{Host: workunit.ShockHost, Token: workunit.Info.DataToken, Debug: false}
+			data_moved, err := cache.UploadOutputData(workunit, shock_client)
 			if err != nil {
 				workunit.SetState(core.WORK_STAT_ERROR, "UploadOutputData failed")
 				logger.Error("(deliverer_run) UploadOutputData returns workid=" + work_str + ", err=" + err.Error())
@@ -90,7 +93,7 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 		for do_retry {
 			response, err := core.NotifyWorkunitProcessedWithLogs(workunit, perfstat, conf.PRINT_APP_MSG)
 			if err != nil {
-				logger.Error("(deliverer_run) workid=" + work_str + ", err=" + err.Error())
+				logger.Error("(deliverer_run) workid=%s NotifyWorkunitProcessedWithLogs returned: %s", work_str, err.Error())
 				workunit.Notes = append(workunit.Notes, "[deliverer]"+err.Error())
 				// keep retry
 			} else {

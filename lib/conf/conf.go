@@ -4,16 +4,17 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/MG-RAST/golib/goconfig/config"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/MG-RAST/golib/goconfig/config"
 )
 
-const VERSION string = "0.9.62"
+const VERSION string = "0.9.67"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -134,9 +135,12 @@ var (
 	PRE_WORK_SCRIPT_ARGS        = []string{}
 	METADATA                    string
 
-	SERVER_URL     string
-	CLIENT_NAME    string
-	CLIENT_HOST    string
+	SERVER_URL             string
+	CLIENT_NAME            string
+	CLIENT_HOSTNAME        string
+	CLIENT_HOST_IP         string
+	CLIENT_HOST_deprecated string
+
 	CLIENT_GROUP   string
 	CLIENT_DOMAIN  string
 	WORKER_OVERLAP bool
@@ -173,6 +177,17 @@ var (
 	SHOW_GIT_COMMIT_HASH bool
 	CPUPROFILE           string
 	MEMPROFILE           string
+
+	// submitter (CWL)
+	SUBMITTER_OUTDIR         string
+	SUBMITTER_QUIET          bool
+	SUBMITTER_PACK           bool
+	SUBMITTER_OUTPUT         string
+	SUBMITTER_WAIT           bool
+	SUBMITTER_DOWNLOAD_FILES bool
+
+	// WORKER (CWL)
+	CWL_RUNNER_ARGS string
 
 	// used to track changes in data structures
 	VERSIONS = make(map[string]int)
@@ -273,10 +288,12 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&GLOBUS_PROFILE_URL, "", "Auth", "globus_profile_url", "", "")
 		c_store.AddString(&OAUTH_URL_STR, "", "Auth", "oauth_urls", "", "")
 		c_store.AddString(&OAUTH_BEARER_STR, "", "Auth", "oauth_bearers", "", "")
-		c_store.AddBool(&USE_OAUTH_SERVER, false, "Auth", "auth_oauthserver", "", "")
-		c_store.AddString(&AUTH_URL, "", "Auth", "auth_url", "", "")
-		c_store.AddString(&SITE_LOGIN_URL, "", "Auth", "login_url", "", "")
-		c_store.AddBool(&CLIENT_AUTH_REQ, false, "Auth", "client_auth_required", "", "")
+
+		// WebApp
+		c_store.AddString(&SITE_LOGIN_URL, "", "WebApp", "login_url", "", "")
+		c_store.AddBool(&CLIENT_AUTH_REQ, false, "WebApp", "client_auth_required", "", "")
+		c_store.AddBool(&USE_OAUTH_SERVER, false, "WebApp", "auth_oauthserver", "", "")
+		c_store.AddString(&AUTH_URL, "", "WebApp", "auth_url", "", "")
 
 		// Admin
 		c_store.AddString(&ADMIN_USERS_VAR, "", "Admin", "users", "", "")
@@ -329,12 +346,24 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&SHOCK_URL, "http://localhost:8001", "Client", "shockurl", "URL of SHOCK server, including port number", "")
 	}
 
+	if mode == "submitter" {
+		c_store.AddString(&SUBMITTER_OUTDIR, "", "Client", "outdir", "location of output files", "")
+		c_store.AddBool(&SUBMITTER_QUIET, false, "Client", "quiet", "useless flag for CWL compliance test", "")
+		c_store.AddBool(&SUBMITTER_PACK, false, "Client", "pack", "invoke cwl-runner --pack first", "")
+		c_store.AddBool(&SUBMITTER_WAIT, false, "Client", "wait", "wait fopr job completion", "")
+		c_store.AddString(&SUBMITTER_OUTPUT, "", "Client", "output", "cwl output file", "")
+		c_store.AddBool(&SUBMITTER_DOWNLOAD_FILES, false, "Client", "download_files", "download output files from shock", "")
+
+	}
+
 	if mode == "worker" {
 		// Client/worker
 
 		c_store.AddString(&CLIENT_GROUP, "default", "Client", "group", "name of client group", "")
 		c_store.AddString(&CLIENT_NAME, "default", "Client", "name", "default determines client name by openstack meta data", "")
-		c_store.AddString(&CLIENT_HOST, "127.0.0.1", "Client", "host", "host or ip address", "host or ip address to help finding machines where the clients runs on")
+		c_store.AddString(&CLIENT_HOSTNAME, "localhost", "Client", "hostname", "host name", "host name to help finding machines where the clients runs on")
+		c_store.AddString(&CLIENT_HOST_IP, "127.0.0.1", "Client", "host_ip", "ip address", "ip address to help finding machines where the clients runs on")
+		c_store.AddString(&CLIENT_HOST_deprecated, "", "Client", "host", "deprecated", "deprecated")
 		c_store.AddString(&CLIENT_DOMAIN, "default", "Client", "domain", "", "")
 		c_store.AddString(&CLIENT_GROUP_TOKEN, "", "Client", "clientgroup_token", "", "")
 
@@ -352,6 +381,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddBool(&AUTO_CLEAN_DIR, true, "Client", "auto_clean_dir", "delete workunit directory to save space after completion, turn of for debugging", "")
 		c_store.AddBool(&CACHE_ENABLED, false, "Client", "cache_enabled", "", "")
 		c_store.AddBool(&NO_SYMLINK, false, "Client", "no_symlink", "copy files from predata to work dir, default is to create symlink", "")
+
+		c_store.AddString(&CWL_RUNNER_ARGS, "", "Client", "cwl_runner_args", "arguments to pass", "")
 
 	}
 
@@ -446,6 +477,11 @@ func Init_conf(mode string) (err error) {
 
 	// configuration post processing
 	if mode == "worker" {
+
+		if CLIENT_HOST_deprecated != "" {
+			CLIENT_HOST_IP = CLIENT_HOST_deprecated
+		}
+
 		if CLIENT_NAME == "" || CLIENT_NAME == "default" || CLIENT_NAME == "hostname" {
 			hostname, err := os.Hostname()
 			if err == nil {
@@ -509,6 +545,10 @@ func Init_conf(mode string) (err error) {
 				return errors.New("expiration format in global_expire is invalid")
 			}
 		}
+	}
+
+	if SERVER_URL != "" {
+		SERVER_URL = strings.TrimSuffix(SERVER_URL, "/")
 	}
 
 	if PID_FILE_PATH == "" {

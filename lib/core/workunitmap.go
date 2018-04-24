@@ -1,5 +1,10 @@
 package core
 
+import (
+//"fmt"
+//"github.com/MG-RAST/AWE/lib/logger"
+)
+
 type WorkunitMap struct {
 	RWMutex
 	Map map[Workunit_Unique_Identifier]*Workunit
@@ -25,6 +30,7 @@ func (wm *WorkunitMap) Set(workunit *Workunit) (err error) {
 		return
 	}
 	defer wm.Unlock()
+
 	wm.Map[workunit.Workunit_Unique_Identifier] = workunit
 	return
 }

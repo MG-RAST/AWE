@@ -2,24 +2,25 @@ package cwl
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"gopkg.in/mgo.v2/bson"
-	"reflect"
 )
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CommandInputParameter
 
 type CommandInputParameter struct {
-	Id             string             `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	SecondaryFiles []string           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	Format         []string           `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
-	Streamable     bool               `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
-	Type           []CWLType_Type     `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // []CommandInputParameterType  CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
-	Label          string             `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	Description    string             `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty"`
-	InputBinding   CommandLineBinding `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"`
-	Default        CWLType            `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty"`
+	Id             string             `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
+	SecondaryFiles []string           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
+	Format         []string           `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty" mapstructure:"format,omitempty"`
+	Streamable     bool               `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty" mapstructure:"streamable,omitempty"`
+	Type           []CWLType_Type     `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty" mapstructure:"type,omitempty"` // []CommandInputParameterType  CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
+	Label          string             `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
+	Description    string             `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty" mapstructure:"description,omitempty"`
+	InputBinding   CommandLineBinding `yaml:"inputBinding" bson:"inputBinding" json:"inputBinding" mapstructure:"inputBinding"`
+	Default        CWLType            `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty" mapstructure:"default,omitempty"`
 }
 
 func MakeStringMap(v interface{}) (result interface{}, err error) {
@@ -60,10 +61,10 @@ func MakeStringMap(v interface{}) (result interface{}, err error) {
 	return
 }
 
-func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParameter, err error) {
+func NewCommandInputParameter(v interface{}, schemata []CWLType_Type) (input_parameter *CommandInputParameter, err error) {
 
-	fmt.Println("NewCommandInputParameter:\n")
-	spew.Dump(v)
+	//fmt.Println("NewCommandInputParameter:\n")
+	//spew.Dump(v)
 
 	v, err = MakeStringMap(v)
 	if err != nil {
@@ -71,33 +72,6 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 	}
 
 	switch v.(type) {
-	// case bson.M:
-	//
-	// 		original_map := v.(bson.M)
-	//
-	// 		new_map := make(map[string]interface{})
-	//
-	// 		for key_str, value := range original_map {
-	//
-	// 			new_map[key_str] = value
-	// 		}
-	//
-	// 		return NewCommandInputParameter(new_map)
-	// 	case map[interface{}]interface{}:
-	//
-	// 		v_map, ok := v.(map[interface{}]interface{})
-	// 		if !ok {
-	// 			err = fmt.Errorf("casting problem (b)")
-	// 			return
-	// 		}
-	// 		v_string_map := make(map[string]interface{})
-	//
-	// 		for key, value := range v_map {
-	// 			key_string := key.(string)
-	// 			v_string_map[key_string] = value
-	// 		}
-	//
-	// 		return NewCommandInputParameter(v_string_map)
 
 	case map[string]interface{}:
 		v_map, ok := v.(map[string]interface{})
@@ -109,35 +83,33 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 		default_value, ok := v_map["default"]
 		if ok {
-			fmt.Println("FOUND default key")
+			//fmt.Println("FOUND default key")
 			default_input, xerr := NewCWLType("", default_value) // TODO return Int or similar
 			if xerr != nil {
 				err = xerr
 				return
 			}
-			spew.Dump(default_input)
+			//spew.Dump(default_input)
 			v_map["default"] = default_input
-		} else {
-			fmt.Println("FOUND NOT default key")
 		}
 
 		type_value, ok := v_map["type"]
 		if ok {
 
-			type_value, err = NewCommandInputParameterTypeArray(type_value)
+			type_value, err = NewCommandInputParameterTypeArray(type_value, schemata)
 			if err != nil {
-				err = fmt.Errorf("(NewCommandInputParameter) NewCommandInputParameter error: %s", err.Error())
+				err = fmt.Errorf("(NewCommandInputParameter) NewCommandInputParameterTypeArray returns: %s", err.Error())
 				return
 			}
 
 			v_map["type"] = type_value
 		}
 
-		format_value, ok := v_map["format_value"]
+		format_value, ok := v_map["format"]
 		if ok {
 			format_str, is_string := format_value.(string)
 			if is_string {
-				v_map["format_value"] = []string{format_str}
+				v_map["format"] = []string{format_str}
 			}
 
 		}
@@ -164,10 +136,10 @@ func NewCommandInputParameter(v interface{}) (input_parameter *CommandInputParam
 
 // keyname will be converted into 'Id'-field
 // array<CommandInputParameter> | map<CommandInputParameter.id, CommandInputParameter.type> | map<CommandInputParameter.id, CommandInputParameter>
-func CreateCommandInputArray(original interface{}) (err error, new_array []*CommandInputParameter) {
+func CreateCommandInputArray(original interface{}, schemata []CWLType_Type) (err error, new_array []*CommandInputParameter) {
 
-	fmt.Println("CreateCommandInputArray:\n")
-	spew.Dump(original)
+	//fmt.Println("CreateCommandInputArray:\n")
+	//spew.Dump(original)
 
 	switch original.(type) {
 
@@ -176,7 +148,7 @@ func CreateCommandInputArray(original interface{}) (err error, new_array []*Comm
 
 			//var input_parameter CommandInputParameter
 			//mapstructure.Decode(v, &input_parameter)
-			input_parameter, xerr := NewCommandInputParameter(v)
+			input_parameter, xerr := NewCommandInputParameter(v, schemata)
 			if xerr != nil {
 				err = fmt.Errorf("(CreateCommandInputArray) map[interface{}]interface{} NewCommandInputParameter returned: %s", xerr.Error())
 				return
@@ -192,8 +164,12 @@ func CreateCommandInputArray(original interface{}) (err error, new_array []*Comm
 	case []interface{}:
 		for _, v := range original.([]interface{}) {
 
-			input_parameter, xerr := NewCommandInputParameter(v)
+			input_parameter, xerr := NewCommandInputParameter(v, schemata)
 			if xerr != nil {
+
+				fmt.Println("CommandInputArray:")
+				spew.Dump(original)
+
 				err = fmt.Errorf("(CreateCommandInputArray) []interface{} NewCommandInputParameter returned: %s", xerr.Error())
 				return
 			}

@@ -3,8 +3,9 @@ package cwl
 import (
 	"fmt"
 	//"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
 	"reflect"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type WorkflowStepOutput struct {
@@ -36,7 +37,7 @@ func NewWorkflowStepOutput(original interface{}) (wso_ptr *WorkflowStepOutput, e
 		return
 	default:
 		err = fmt.Errorf("(NewWorkflowStepOutput) could not parse NewWorkflowStepOutput, type unknown %s", reflect.TypeOf(original))
-		return
+
 	}
 
 	return
@@ -77,7 +78,7 @@ func NewWorkflowStepOutputArray(original interface{}) (new_array []WorkflowStepO
 
 		}
 	default:
-		err = fmt.Errorf("(NewWorkflowStepOutputArray) could not parse NewWorkflowStepOutputArray, type unknown %s", reflect.TypeOf(original))
+		err = fmt.Errorf("(NewWorkflowStepOutputArray) type unknown %s", reflect.TypeOf(original))
 		return
 	} // end switch
 

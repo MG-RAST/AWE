@@ -13,7 +13,9 @@ type OutputArraySchema struct { // Items, Type , Label
 
 //func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}
 
-func (c *OutputArraySchema) Type2String() string { return "OutputArraySchema" }
+func (c OutputArraySchema) Type2String() string { return "OutputArraySchema" }
+func (c OutputArraySchema) GetId() string       { return "" }
+func (c OutputArraySchema) Is_Type()            {}
 
 func NewOutputArraySchema() (coas *OutputArraySchema) {
 
@@ -23,7 +25,7 @@ func NewOutputArraySchema() (coas *OutputArraySchema) {
 	return
 }
 
-func NewOutputArraySchemaFromInterface(original interface{}) (coas *OutputArraySchema, err error) {
+func NewOutputArraySchemaFromInterface(original interface{}, schemata []CWLType_Type) (coas *OutputArraySchema, err error) {
 
 	original, err = MakeStringMap(original)
 	if err != nil {
@@ -42,16 +44,18 @@ func NewOutputArraySchemaFromInterface(original interface{}) (coas *OutputArrayS
 		}
 
 		items, ok := original_map["items"]
-		if ok {
-			var items_type []CWLType_Type
-			items_type, err = NewCWLType_TypeArray(items, "Output")
-			if err != nil {
-				err = fmt.Errorf("(NewOutputArraySchema) NewCWLType_TypeArray returns: %s", err.Error())
-				return
-			}
-			original_map["items"] = items_type
+		if !ok {
 
+			err = fmt.Errorf("(NewOutputArraySchema) items are missing")
+			return
 		}
+		var items_type []CWLType_Type
+		items_type, err = NewCWLType_TypeArray(items, schemata, "Output", false)
+		if err != nil {
+			err = fmt.Errorf("(NewOutputArraySchema) NewCWLType_TypeArray returns: %s", err.Error())
+			return
+		}
+		original_map["items"] = items_type
 
 		err = mapstructure.Decode(original, coas)
 		if err != nil {

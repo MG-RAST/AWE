@@ -2,25 +2,23 @@ package cwl
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
-	"reflect"
 )
 
 type WorkflowOutputParameter struct {
-	Id             string                `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	Label          string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
-	SecondaryFiles []Expression          `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	Format         []Expression          `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
-	Streamable     bool                  `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
-	Doc            string                `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
-	OutputBinding  *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"` //TODO
-	OutputSource   interface{}           `yaml:"outputSource,omitempty" bson:"outputSource,omitempty" json:"outputSource,omitempty"`    //string or []string
-	LinkMerge      LinkMergeMethod       `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
-	Type           []interface{}         `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` //WorkflowOutputParameterType TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
+	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+
+	Doc string `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
+	//OutputBinding  *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"` //TODO
+	OutputSource interface{}     `yaml:"outputSource,omitempty" bson:"outputSource,omitempty" json:"outputSource,omitempty"` //string or []string
+	LinkMerge    LinkMergeMethod `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
+	//Type         []interface{}   `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` //WorkflowOutputParameterType TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
 }
 
-func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParameter, err error) {
+func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type) (wop *WorkflowOutputParameter, err error) {
 	var output_parameter WorkflowOutputParameter
 
 	original, err = MakeStringMap(original)
@@ -33,7 +31,13 @@ func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParame
 	case map[string]interface{}:
 		original_map, ok := original.(map[string]interface{})
 		if !ok {
-			err = fmt.Errorf("(NewWorkflowOutputParameter) type switch error %s", err.Error())
+			err = fmt.Errorf("(NewWorkflowOutputParameter) type switch error")
+			return
+		}
+
+		err = NormalizeOutputParameter(original_map)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkflowOutputParameter) NormalizeOutputParameter returns %s", err.Error())
 			return
 		}
 
@@ -63,24 +67,33 @@ func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParame
 
 			default:
 
+				outputSource_str, ok := outputSource_if.(string)
+				if ok {
+					original_map["outputSource"] = []string{outputSource_str}
+				} else {
+
+					spew.Dump(outputSource_if)
+					err = fmt.Errorf("(NewWorkflowOutputParameter) type of outputSource_if unknown: %s", reflect.TypeOf(outputSource_if))
+					return
+				}
 			}
-			outputSource_str, ok := outputSource_if.(string)
-			if ok {
-				original_map["outputSource"] = []string{outputSource_str}
-			}
+
 		}
 
-		wop_type, ok := original_map["type"]
-		if ok {
+		wop_type, has_type := original_map["type"]
+		if has_type {
 
-			wop_type_array, xerr := NewWorkflowOutputParameterTypeArray(wop_type)
+			wop_type_array, xerr := NewWorkflowOutputParameterTypeArray(wop_type, schemata)
 			if xerr != nil {
 				err = fmt.Errorf("from NewWorkflowOutputParameterTypeArray: %s", xerr.Error())
 				return
 			}
-			fmt.Println("wop_type_array: \n")
-			fmt.Println(reflect.TypeOf(wop_type_array))
-
+			//fmt.Println("type of wop_type_array")
+			//fmt.Println(reflect.TypeOf(wop_type_array))
+			//fmt.Println("original:")
+			//spew.Dump(original)
+			//fmt.Println("wop_type_array:")
+			//spew.Dump(wop_type_array)
 			original_map["type"] = wop_type_array
 
 		}
@@ -101,7 +114,7 @@ func NewWorkflowOutputParameter(original interface{}) (wop *WorkflowOutputParame
 }
 
 // WorkflowOutputParameter
-func NewWorkflowOutputParameterArray(original interface{}) (new_array_ptr *[]WorkflowOutputParameter, err error) {
+func NewWorkflowOutputParameterArray(original interface{}, schemata []CWLType_Type) (new_array_ptr *[]WorkflowOutputParameter, err error) {
 
 	new_array := []WorkflowOutputParameter{}
 	switch original.(type) {
@@ -109,7 +122,7 @@ func NewWorkflowOutputParameterArray(original interface{}) (new_array_ptr *[]Wor
 		for k, v := range original.(map[interface{}]interface{}) {
 			//fmt.Printf("A")
 
-			output_parameter, xerr := NewWorkflowOutputParameter(v)
+			output_parameter, xerr := NewWorkflowOutputParameter(v, schemata)
 			if xerr != nil {
 				err = xerr
 				return
@@ -127,7 +140,7 @@ func NewWorkflowOutputParameterArray(original interface{}) (new_array_ptr *[]Wor
 		for _, v := range original.([]interface{}) {
 			//fmt.Printf("A")
 
-			output_parameter, xerr := NewWorkflowOutputParameter(v)
+			output_parameter, xerr := NewWorkflowOutputParameter(v, schemata)
 			if xerr != nil {
 				err = xerr
 				return

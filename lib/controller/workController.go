@@ -13,7 +13,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
-	"github.com/davecgh/go-spew/spew"
+	//"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"io/ioutil"
 	"net/http"
@@ -313,13 +313,22 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	workunits, err := core.QMgr.CheckoutWorkunits("FCFS", clientid, client, availableBytes, 1)
 
 	if err != nil {
-		if err.Error() != e.QueueEmpty && err.Error() != e.QueueSuspend && err.Error() != e.NoEligibleWorkunitFound && err.Error() != e.ClientNotFound && err.Error() != e.ClientSuspended {
-			if !strings.Contains(err.Error(), "Too many work requests") {
-				logger.Error("Err@work_ReadMany:core.QMgr.GetWorkByFCFS(): %s;client=%s", err.Error(), clientid)
-			}
-		}
+
+		err_str := err.Error()
+
 		err = fmt.Errorf("(ReadMany GET /work) CheckoutWorkunits returns: clientid=%s;available=%d;error=%s", clientid, availableBytes, err.Error())
-		logger.Error(err.Error())
+
+		if strings.Contains(err_str, e.QueueEmpty) ||
+			strings.Contains(err_str, e.QueueSuspend) ||
+			strings.Contains(err_str, e.NoEligibleWorkunitFound) ||
+			strings.Contains(err_str, e.ClientNotFound) ||
+			strings.Contains(err_str, e.ClientSuspended) {
+
+			logger.Debug(3, err.Error())
+		} else {
+			logger.Error(err.Error())
+		}
+
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -433,7 +442,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	cwl_result_str, ok := params["cwl"]
 	if ok {
 
-		fmt.Printf("cwl_result_str: %s\n", cwl_result_str)
+		//fmt.Printf("cwl_result_str: %s\n", cwl_result_str)
 
 		var notice_if map[string]interface{}
 		err = json.Unmarshal([]byte(cwl_result_str), &notice_if)
@@ -457,7 +466,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 		//notice = &core.Notice{Id: work_id, Status: cwl_result.Status, WorkerId: cwl_result.WorkerId, Notes: ""}
 
 	}
-	spew.Dump(params)
+	//spew.Dump(params)
 	//panic("arrrrgggh")
 
 	if notice == nil {

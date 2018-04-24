@@ -2,29 +2,32 @@ package cwl
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/MG-RAST/AWE/lib/shock"
 	//"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
 	"net/url"
 	"strings"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 // http://www.commonwl.org/v1.0/Workflow.html#File
 type File struct {
-	CWLType_Impl   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	Type           CWLType_Type   `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
-	Location       string         `yaml:"location,omitempty" json:"location,omitempty bson:"location,omitempty" mapstructure:"location,omitempty"` // An IRI that identifies the file resource.
-	Location_url   *url.URL       `yaml:"-" json:"-" bson:"-" mapstructure:"-"`                                                                    // only for internal purposes
-	Path           string         `yaml:"path,omitempty" json:"path,omitempty bson:"path,omitempty" mapstructure:"path,omitempty"`                 // dirname + '/' + basename == path This field must be set by the implementation.
-	Basename       string         `yaml:"basename,omitempty" json:"basename,omitempty bson:"basename,omitempty" mapstructure:"basename,omitempty"` // dirname + '/' + basename == path // if not defined, take from location
-	Dirname        string         `yaml:"dirname,omitempty" json:"dirname,omitempty bson:"dirname,omitempty" mapstructure:"dirname,omitempty"`     // dirname + '/' + basename == path
-	Nameroot       string         `yaml:"nameroot,omitempty" json:"nameroot,omitempty bson:"nameroot,omitempty" mapstructure:"nameroot,omitempty"`
-	Nameext        string         `yaml:"nameext,omitempty" json:"nameext,omitempty bson:"nameext,omitempty" mapstructure:"nameext,omitempty"`
-	Checksum       string         `yaml:"checksum,omitempty" json:"checksum,omitempty bson:"checksum,omitempty" mapstructure:"checksum,omitempty"`
-	Size           int32          `yaml:"size,omitempty" json:"size,omitempty bson:"size,omitempty" mapstructure:"size,omitempty"`
-	SecondaryFiles []CWL_location `yaml:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty bson:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"`
-	Format         string         `yaml:"format,omitempty" json:"format,omitempty bson:"format,omitempty" mapstructure:"format,omitempty"`
-	Contents       string         `yaml:"contents,omitempty" json:"contents,omitempty bson:"contents,omitempty" mapstructure:"contents,omitempty"`
+	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class, Type
+	//Type           CWLType_Type  `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
+	Location       string        `yaml:"location,omitempty" json:"location,omitempty" bson:"location,omitempty" mapstructure:"location,omitempty"` // An IRI that identifies the file resource.
+	Location_url   *url.URL      `yaml:"-" json:"-" bson:"-" mapstructure:"-"`                                                                     // only for internal purposes
+	Path           string        `yaml:"path,omitempty" json:"path,omitempty" bson:"path,omitempty" mapstructure:"path,omitempty"`                 // dirname + '/' + basename == path This field must be set by the implementation.
+	Basename       string        `yaml:"basename,omitempty" json:"basename,omitempty" bson:"basename,omitempty" mapstructure:"basename,omitempty"` // dirname + '/' + basename == path // if not defined, take from location
+	Dirname        string        `yaml:"dirname,omitempty" json:"dirname,omitempty" bson:"dirname,omitempty" mapstructure:"dirname,omitempty"`     // dirname + '/' + basename == path
+	Nameroot       string        `yaml:"nameroot,omitempty" json:"nameroot,omitempty" bson:"nameroot,omitempty" mapstructure:"nameroot,omitempty"`
+	Nameext        string        `yaml:"nameext,omitempty" json:"nameext,omitempty" bson:"nameext,omitempty" mapstructure:"nameext,omitempty"`
+	Checksum       string        `yaml:"checksum,omitempty" json:"checksum,omitempty" bson:"checksum,omitempty" mapstructure:"checksum,omitempty"`
+	Size           int32         `yaml:"size,omitempty" json:"size,omitempty" bson:"size,omitempty" mapstructure:"size,omitempty"`
+	SecondaryFiles []interface{} `yaml:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"`
+	Format         string        `yaml:"format,omitempty" json:"format,omitempty" bson:"format,omitempty" mapstructure:"format,omitempty"`
+	Contents       string        `yaml:"contents,omitempty" json:"contents,omitempty" bson:"contents,omitempty" mapstructure:"contents,omitempty"`
 	// Shock node
 	Host   string `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 	Node   string `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
@@ -40,28 +43,42 @@ func (f *File) GetType() CWLType_Type { return CWL_File }
 
 //func (f *File) GetId() string       { return f.Id }
 //func (f *File) SetId(id string)     { f.Id = id }
-func (f *File) String() string      { return f.Path }
-func (f *File) GetLocation() string { return f.Location } // for CWL_location
+func (f *File) String() string { return f.Path }
+
 //func (f *File) Is_Array() bool      { return false }
 
 //func (f *File) Is_CommandInputParameterType() {} // for CommandInputParameterType
 
-func NewFile(id string, obj interface{}) (file File, err error) {
+func NewFile(obj interface{}) (file File, err error) {
 
-	file, err = MakeFile("", obj)
-
-	if id != "" {
-		file.Id = id
-	}
+	file, err = MakeFile(obj)
 
 	return
 }
 
-func MakeFile(id string, obj interface{}) (file File, err error) {
+func MakeFile(obj interface{}) (file File, err error) {
+
+	obj_map, ok := obj.(map[string]interface{})
+
+	if !ok {
+		err = fmt.Errorf("(MakeFile) File is not a map[string]interface{} (File is %s)", reflect.TypeOf(obj))
+		return
+	}
+
+	secondaryFiles, has_secondaryFiles := obj_map["secondaryFiles"]
+	if has_secondaryFiles {
+		obj_map["secondaryFiles"], err = GetSecondaryFilesArray(secondaryFiles)
+		if err != nil {
+			err = fmt.Errorf("(MakeFile) GetSecondaryFilesArray returned: %s", err.Error())
+			return
+		}
+
+	}
+
 	file = File{}
-	err = mapstructure.Decode(obj, &file)
+	err = mapstructure.Decode(obj_map, &file)
 	if err != nil {
-		err = fmt.Errorf("(MakeFile) Could not convert File object %s %s", id, err.Error())
+		err = fmt.Errorf("(MakeFile) Could not convert File object: %s", err.Error())
 		return
 	}
 	file.Class = string(CWL_File)
@@ -131,9 +148,40 @@ func MakeFile(id string, obj interface{}) (file File, err error) {
 			}
 		}
 	}
-	if file.Id == "" {
-		file.Id = id
+
+	return
+}
+
+// returns array<File | Directory>
+func GetSecondaryFilesArray(original interface{}) (array []interface{}, err error) {
+
+	array = []interface{}{}
+
+	switch original.(type) {
+	case []interface{}:
+		original_array := original.([]interface{})
+		for i, _ := range original_array {
+			var obj CWLType
+			obj, err = NewCWLType("", original_array[i])
+			if err != nil {
+				err = fmt.Errorf("(GetSecondaryFilesArray) NewCWLType returned: %s", err.Error())
+				return
+			}
+
+			obj_class := obj.GetClass()
+
+			if obj_class != "File" && obj_class != "Directory" {
+				err = fmt.Errorf("(GetSecondaryFilesArray) Object class %s not supported", obj_class)
+				return
+			}
+			array = append(array, obj)
+
+		}
+		return
 	}
+
+	err = fmt.Errorf("(GetSecondaryFilesArray) type %s not supported", reflect.TypeOf(original))
+
 	return
 }
 

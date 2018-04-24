@@ -1,3 +1,14 @@
+# v0.9.67
+
+- more CWL support
+- bug fixes
+- improved error handling / messages
+- fix worker errors being ignored
+- parts node index triggered by server and not worker
+- reset task on: resume, recompute, resubmit
+- locking when reading / modifying task.IO
+- bookkeeping / sync: job state, taskmap, node url, task dependants
+
 # v0.9.51
 
 - add backwords compatible use of 'oauth' bearer key when using single auth

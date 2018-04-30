@@ -3109,7 +3109,7 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 		if err != nil {
 			continue
 		}
-		if task_state == TASK_STAT_QUEUED || task_state == TASK_STAT_INIT || task_state == TASK_STAT_INPROGRESS {
+		if task_state == TASK_STAT_QUEUED || task_state == TASK_STAT_READY || task_state == TASK_STAT_INPROGRESS {
 			err = task.SetState(new_task_state, true)
 			if err != nil {
 				logger.Error("(SuspendJob) : %s", err.Error())

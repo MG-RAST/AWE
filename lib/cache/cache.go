@@ -480,41 +480,6 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 	return
 }
 
-func CWL_File_2_AWE_IO_deprecated(file *cwl.File) (io *core.IO, err error) { // TODO deprecate this !
-
-	url_obj := file.Location_url
-
-	if url_obj == nil {
-		url_obj, err = url.Parse(file.Location)
-		if err != nil {
-			err = fmt.Errorf("(CWL_File2AWE_IO) url.Parse returned: %s", err.Error())
-			return
-		}
-		file.Location_url = url_obj
-	}
-	// example: http://localhost:8001/node/429a47aa-85e4-4575-9347-a78cfacb6979?download
-
-	io = core.NewIO()
-
-	url_string := url_obj.String()
-
-	io.Url = url_string
-	err = io.Url2Shock() // populates Host and Node
-	if err != nil {
-		err = fmt.Errorf("(CWL_File2AWE_IO) io.Url2Shock returned: %s", err.Error())
-		return
-	}
-
-	if file.Basename == "" {
-		basename := path.Base(url_string)
-		io.FileName = basename
-	} else {
-		io.FileName = file.Basename
-	}
-
-	return
-}
-
 //fetch input data
 func MoveInputData(work *core.Workunit) (size int64, err error) {
 
@@ -725,69 +690,6 @@ func UploadOutputData(work *core.Workunit, shock_client *shock.ShockClient) (siz
 			//fmt.Println("Outputs 2")
 			//scs.Dump(work.CWL_workunit.Outputs)
 		}
-
-		// tool_result_map := work.CWL_workunit.Outputs.GetMap()
-
-		// result_array := cwl.Job_document{}
-
-		// for _, expected_output := range *work.CWL_workunit.OutputsExpected {
-		// 	expected_full := expected_output.Id
-		// 	logger.Debug(3, "(B) expected_full: %s", expected_full)
-		// 	expected := path.Base(expected_full)
-
-		// 	tool_result, ok := tool_result_map[expected] // cwl.File
-		// 	if !ok {
-		// 		resultlist := ""
-		// 		for key, _ := range tool_result_map {
-		// 			resultlist = resultlist + " " + key
-		// 		}
-
-		// 		// TODO check CommandLineOutput if output is optional
-		// 		logger.Debug(3, "(UploadOutputData) Expected output %s is missing, might be optional (available: %s)", expected, resultlist)
-		// 		continue
-		// 	}
-
-		// 	result_array = append(result_array, cwl.NewNamedCWLType(expected, tool_result))
-
-		// 	output_class := tool_result.GetClass()
-		// 	if output_class != string(cwl.CWL_File) {
-		// 		continue
-		// 	}
-
-		// 	cwl_file, ok := tool_result.(*cwl.File)
-		// 	if !ok {
-		// 		err = fmt.Errorf("(UploadOutputData) Could not type-assert file (expected: %s)", expected)
-		// 		return
-		// 	}
-
-		// 	if work.ShockHost == "" {
-		// 		err = fmt.Errorf("No default Shock host defined !")
-		// 		return
-		// 	}
-
-		// 	new_io := &core.IO{Name: expected}
-		// 	new_io.FileName = cwl_file.Basename
-		// 	new_io.Path = cwl_file.Path
-
-		// 	new_io.Host = work.ShockHost
-
-		// 	//outputs = append(outputs, new_io)
-
-		// 	var io_size int64
-		// 	var new_node_id string
-		// 	io_size, new_node_id, err = UploadOutputIO(work, new_io)
-		// 	if err != nil {
-		// 		return
-		// 	}
-		// 	size += io_size
-
-		// 	cwl_file.Location = work.ShockHost + "/node/" + new_node_id + "?download"
-		// 	cwl_file.Path = ""
-
-		// }
-		// //spew.Dump(work.CWL_workunit.OutputsExpected)
-		// //panic("uga")
-		// work.CWL_workunit.Results = &result_array
 
 	} else {
 

@@ -7,7 +7,6 @@ import (
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/davecgh/go-spew/spew"
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -137,7 +136,7 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 
 func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.ShockClient) (err error) {
 	//fmt.Printf("(uploadFile) start\n")
-	defer fmt.Printf("(uploadFile) end\n")
+	//defer fmt.Printf("(uploadFile) end\n")
 	//if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 
 	//	time.Sleep(3 * time.Second) //wait for 3 seconds and try again
@@ -529,7 +528,7 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 
 		job_input := work.CWL_workunit.Job_input
 		//fmt.Printf("job_input1:\n")
-		spew.Dump(job_input)
+		//spew.Dump(job_input)
 
 		_, err = ProcessIOData(job_input, work_path, "download", nil)
 		if err != nil {
@@ -712,19 +711,19 @@ func UploadOutputData(work *core.Workunit, shock_client *shock.ShockClient) (siz
 	if work.CWL_workunit != nil {
 
 		if work.CWL_workunit.Outputs != nil {
-			fmt.Println("Outputs 1")
-			scs := spew.Config
-			scs.DisableMethods = true
+			//fmt.Println("Outputs 1")
+			//scs := spew.Config
+			//scs.DisableMethods = true
 
-			scs.Dump(work.CWL_workunit.Outputs)
+			//scs.Dump(work.CWL_workunit.Outputs)
 			var upload_count int
 			upload_count, err = ProcessIOData(work.CWL_workunit.Outputs, "", "upload", shock_client)
 			if err != nil {
 				err = fmt.Errorf("(UploadOutputData) ProcessIOData returned: %s", err.Error())
 			}
 			logger.Debug(3, "(UploadOutputData) %d files uploaded to shock", upload_count)
-			fmt.Println("Outputs 2")
-			scs.Dump(work.CWL_workunit.Outputs)
+			//fmt.Println("Outputs 2")
+			//scs.Dump(work.CWL_workunit.Outputs)
 		}
 
 		// tool_result_map := work.CWL_workunit.Outputs.GetMap()

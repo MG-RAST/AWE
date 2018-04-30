@@ -159,6 +159,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		entrypoint := ""
 
+		var shock_requirement *cwl.ShockRequirement
+		shock_requirement = nil
+
 		var cwl_workflow *cwl.Workflow
 		if len(collection.Workflows) == 0 {
 			if len(object_array) != 1 {
@@ -183,6 +186,14 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 					cx.RespondWithErrorMessage(fmt.Sprintf("(job/create) Error casting CommandLineTool (type: %s)", reflect.TypeOf(commandlinetool_if)), http.StatusBadRequest)
 					return
+				}
+
+				if shock_requirement == nil {
+					shock_requirement, err = cwl.GetShockRequirement(commandlinetool.Requirements)
+					if err != nil {
+						logger.Debug(1, "(job/create) GetShockRequirement returned: %s", err.Error())
+						shock_requirement = nil
+					}
 				}
 
 				cwl_workflow_instance := cwl.NewWorkflowEmpty()
@@ -296,6 +307,14 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 					cx.RespondWithErrorMessage(fmt.Sprintf("(job/create) Error casting ExpressionTool (type: %s)", reflect.TypeOf(expressiontool_if)), http.StatusBadRequest)
 					return
+				}
+
+				if shock_requirement == nil {
+					shock_requirement, err = cwl.GetShockRequirement(expressiontool.Requirements)
+					if err != nil {
+						logger.Debug(1, "(job/create) GetShockRequirement returned: %s", err.Error())
+						shock_requirement = nil
+					}
 				}
 
 				cwl_workflow_instance := cwl.NewWorkflowEmpty()
@@ -415,6 +434,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cx.RespondWithErrorMessage("Workflow main not found", http.StatusBadRequest)
 				return
 			}
+
+			shock_requirement, err = cwl.GetShockRequirement(cwl_workflow.Requirements)
+			if err != nil {
+				logger.Debug(1, "(job/create) GetShockRequirement returned: %s", err.Error())
+				shock_requirement = nil
+			}
+
 		}
 
 		//fmt.Println("\n\n\n--------------------------------- Steps:\n")
@@ -437,6 +463,10 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		job.Info.Name = job_file.Name
 		job.Info.Pipeline = workflow_filename
 		job.Info.ClientGroups = "docker" // TODO this needs to be configured
+
+		if shock_requirement != nil {
+			job.CWL_ShockRequirement = shock_requirement
+		}
 
 		if job.CwlVersion == "" {
 			cx.RespondWithErrorMessage("Error: cwlVersion is empty", http.StatusBadRequest)

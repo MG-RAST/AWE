@@ -4,6 +4,7 @@ import (
 	//"encoding/json"
 	"encoding/json"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -14,12 +15,13 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
 	//"github.com/davecgh/go-spew/spew"
-	mgo "gopkg.in/mgo.v2"
 	"io/ioutil"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+
+	mgo "gopkg.in/mgo.v2"
 )
 
 type WorkController struct{}
@@ -240,7 +242,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		// if using query syntax then do pagination and sorting
 		if query.Has("query") {
 			filtered_work := []*core.Workunit{}
-			sorted_work := core.WorkunitsSortby{order, direction, workunits}
+			sorted_work := core.WorkunitsSortby{Order: order, Direction: direction, Workunits: workunits}
 			sort.Sort(sorted_work)
 
 			skip := 0

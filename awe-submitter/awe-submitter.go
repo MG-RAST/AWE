@@ -168,7 +168,7 @@ func main_wrapper() (err error) {
 
 	// convert CWL to string
 	yaml_str := string(yamlstream[:])
-	fmt.Printf("after cwl-runner --pack: \n%s\n", yaml_str)
+	//fmt.Printf("after cwl-runner --pack: \n%s\n", yaml_str)
 	var named_object_array cwl.Named_CWL_object_array
 	var cwl_version cwl.CWLVersion
 	var schemata []cwl.CWLType_Type
@@ -255,6 +255,52 @@ func main_wrapper() (err error) {
 			if update {
 				named_object_array[j].Value = cmd_line_tool
 			}
+		case *cwl.ExpressionTool:
+			var express_tool *cwl.ExpressionTool
+			express_tool, ok = object.(*cwl.ExpressionTool) // TODO this misses embedded ExpressionTools !
+			if !ok {
+				//fmt.Println("nope.")
+				err = nil
+				continue
+			}
+
+			if express_tool == nil {
+				err = fmt.Errorf("(main_wrapper) express_tool==nil")
+				return
+			}
+
+			express_tool.Requirements, err = cwl.AddRequirement(shock_requirement, express_tool.Requirements)
+			if err != nil {
+				err = fmt.Errorf("(main_wrapper) AddRequirement returned: %s", err.Error())
+			}
+
+			update := false
+			for i, _ := range express_tool.Inputs {
+				input_parameter := &express_tool.Inputs[i]
+				if input_parameter.Default == nil {
+					continue
+				}
+
+				var default_file *cwl.File
+				default_file, ok = input_parameter.Default.(*cwl.File)
+				if !ok {
+					continue
+				}
+
+				err = cache.UploadFile(default_file, inputfile_path, shock_client)
+				if err != nil {
+					return
+				}
+				input_parameter.Default = default_file
+				express_tool.Inputs[i] = *input_parameter
+				update = true
+				//spew.Dump(input_parameter)
+				//fmt.Printf("File: %+v\n", *default_file)
+
+			}
+			if update {
+				named_object_array[j].Value = express_tool
+			}
 		}
 	}
 
@@ -284,9 +330,9 @@ func main_wrapper() (err error) {
 		return
 	}
 
-	fmt.Println("------------")
-	fmt.Println(new_document_str)
-	fmt.Println("------------")
+	//fmt.Println("------------")
+	//fmt.Println(new_document_str)
+	//fmt.Println("------------")
 	//panic("hhhh")
 	new_document_bytes = []byte(new_document_str)
 
@@ -328,6 +374,8 @@ func main_wrapper() (err error) {
 
 	if conf.SUBMITTER_WAIT {
 		var job *core.Job
+
+		// ***** Wait for job to complete
 
 	FORLOOP:
 		for true {

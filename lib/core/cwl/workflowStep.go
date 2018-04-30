@@ -132,8 +132,8 @@ func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion) (sche
 
 		// iterate over workflow steps
 		for k, v := range original.(map[interface{}]interface{}) {
-			fmt.Printf("A step\n")
-			spew.Dump(v)
+			//fmt.Printf("A step\n")
+			//spew.Dump(v)
 
 			//fmt.Println("type: ")
 			//fmt.Println(reflect.TypeOf(v))
@@ -242,8 +242,8 @@ func GetProcess(original interface{}, collection *CWL_collection, CwlVersion CWL
 
 	case map[string]interface{}:
 
-		fmt.Println("GetProcess got:")
-		spew.Dump(p)
+		//fmt.Println("GetProcess got:")
+		//spew.Dump(p)
 
 		p_map := p.(map[string]interface{})
 

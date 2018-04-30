@@ -1608,6 +1608,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 				}
 				reason = fmt.Sprintf("(isTaskReady) No Source and no default found")
 
+				return
 			} else {
 
 				//job_input := *(job.CWL_collection.Job_input)
@@ -2188,7 +2189,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		// input is a WorkflowStepInput
 
 		id := input.Id
-
+		//	fmt.Println("(GetStepInputObjects) id: %s", id)
 		cmd_id := path.Base(id)
 
 		// get data from Source, Default or valueFrom
@@ -2204,6 +2205,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		}
 
 		if input.Source != nil {
+			//fmt.Println("(GetStepInputObjects) input.Source != nil")
 			//source_object_array := []cwl.CWLType{}
 			//resolve pointers in source
 
@@ -2280,23 +2282,35 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 					err = fmt.Errorf("(GetStepInputObjects) (string) getCWLSource returns: %s", err.Error())
 					return
 				}
+				if ok {
+
+					if job_obj.GetType() == cwl.CWL_null {
+						//fmt.Println("(GetStepInputObjects) job_obj is cwl.CWL_null")
+						ok = false
+					} else {
+						//fmt.Println("(GetStepInputObjects) job_obj is not cwl.CWL_null")
+					}
+				}
+
 				if !ok {
+					fmt.Println("(GetStepInputObjects) check input.Default")
 					if input.Default == nil {
-						err = fmt.Errorf("(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", source_as_string)
-						return
+						logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", source_as_string)
+						continue
 					}
 					job_obj, err = cwl.NewCWLType("", input.Default)
 					if err != nil {
 						err = fmt.Errorf("(GetStepInputObjects) could not use default: %s", err.Error())
 						return
 					}
-
+					fmt.Println("(GetStepInputObjects) got a input.Default")
+					spew.Dump(job_obj)
 				}
 				workunit_input_map[cmd_id] = job_obj
 
 			}
 
-		} else {
+		} else { //input.Source == nil
 
 			if input.Default == nil {
 				err = fmt.Errorf("(GetStepInputObjects) sorry, source and Default are missing") // TODO StepInputExpressionRequirement
@@ -2321,8 +2335,8 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		// TODO
 
 	}
-	//fmt.Println("(GetStepInputObjects) workunit_input_map after first round:\n")
-	//spew.Dump(workunit_input_map)
+	fmt.Println("(GetStepInputObjects) workunit_input_map after first round:\n")
+	spew.Dump(workunit_input_map)
 	// 3. evaluate each ValueFrom field, update results
 
 	for _, input := range workflow_step.In {

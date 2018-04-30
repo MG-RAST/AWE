@@ -8,8 +8,6 @@ import (
 	"errors"
 	"fmt"
 	//"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/golib/httpclient"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -18,6 +16,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/golib/httpclient"
 )
 
 // TODO use Token
@@ -119,6 +120,11 @@ func (o *Opts) HasKey(key string) bool {
 func (o *Opts) Value(key string) string {
 	val, _ := (*o)[key]
 	return val
+}
+
+func NewShockClient(shock_url string, shock_auth string, debug bool) (sc *ShockClient) {
+	sc = &ShockClient{Host: shock_url, Token: shock_auth, Debug: debug}
+	return
 }
 
 // *** low-level functions ***

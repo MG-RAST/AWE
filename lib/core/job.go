@@ -73,6 +73,7 @@ type JobRaw struct {
 	CwlVersion           cwl.CWLVersion               `bson:"cwl_version" json:"cwl_version"`
 	CWL_objects          interface{}                  `bson:"cwl_objects" json:"cwl_objects`
 	CWL_job_input        interface{}                  `bson:"cwl_job_input" json:"cwl_job_input` // has to be an array for mongo (id as key would not work)
+	CWL_ShockRequirement *cwl.ShockRequirement        `bson:"cwl_shock_requirement" json:"cwl_shock_requirement`
 	CWL_collection       *cwl.CWL_collection          `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	CWL_workflow         *cwl.Workflow                `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	WorkflowInstances    []interface{}                `bson:"workflow_instances" json:"workflow_instances" yaml:"workflow_instances" mapstructure:"workflow_instances"`

@@ -471,6 +471,25 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 	case *cwl.Null:
 		//fmt.Printf("found Null\n")
 		return
+
+	case *cwl.Workflow:
+		workflow := native.(*cwl.Workflow)
+
+		for input_pos, _ := range workflow.Inputs {
+			input := workflow.Inputs[input_pos]
+			if input.Default != nil {
+
+				var sub_count int
+				sub_count, err = ProcessIOData(input.Default, path, io_type, shock_client)
+				if err != nil {
+					return
+				}
+				count += sub_count
+
+			}
+
+		}
+
 	default:
 		//spew.Dump(native)
 		err = fmt.Errorf("(processIOData) No handler for type \"%s\"\n", reflect.TypeOf(native))

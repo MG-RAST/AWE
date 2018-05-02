@@ -1585,11 +1585,16 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		workflow_input_map := workflow_instance.Inputs.GetMap()
 		cwl_step := task.WorkflowStep
 
-		// scatter
-		if task_type == "" {
+		workflow_with_children := false
+		var wfl *cwl.Workflow
+
+		// Detect task_type
+		for task_type == "" {
+
+			// check scatter
 			if len(cwl_step.Scatter) != 0 {
-				err = fmt.Errorf("Scatter not implemented yet")
-				return // TODO
+				//err = fmt.Errorf("Scatter not implemented yet")
+				//return // TODO
 
 				task_type = TASK_TYPE_SCATTER
 				err = task.SetTaskType(task_type, true)
@@ -1601,27 +1606,22 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 				if err != nil {
 					return
 				}
-			}
-
-		}
-
-		// Sub-workflow
-		for task_type == "" || task_type == TASK_TYPE_WORKFLOW {
-
-			// sub workflow tasks have already been created.
-			if task.Children != nil && len(task.Children) != 0 {
-				// fix type
-				if task_type == "" {
-					task_type = TASK_TYPE_WORKFLOW
-					err = task.SetTaskType(task_type, true)
-					if err != nil {
-						return
-					}
-				}
 				break
 			}
 
-			// not sure if this is a subworkflow
+			// check if it is TASK_TYPE_WORKFLOW WITH children
+			if task.Children != nil && len(task.Children) != 0 {
+				// this task is a TASK_TYPE_WORKFLOW, but children have already been created
+				task_type = TASK_TYPE_WORKFLOW
+				err = task.SetTaskType(task_type, true)
+				if err != nil {
+					return
+				}
+				workflow_with_children = true
+				break
+			}
+
+			// get process to determine task_type
 			p := cwl_step.Run
 			if p == nil {
 				err = fmt.Errorf("(taskEnQueue) process is nil !?")
@@ -1635,10 +1635,6 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 				return
 			}
 
-			// check if this is a workflow
-			//var process_name string
-			//var a_command_line_tool *cwl.CommandLineTool
-			//wfl = nil
 			var process interface{}
 			process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add new_schemata
 			if err != nil {
@@ -1646,12 +1642,13 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 				return
 			}
 
-			var wfl *cwl.Workflow
+			// check if process is a workflow
+
 			var ok bool
 			wfl, ok = process.(*cwl.Workflow)
 
 			if !ok {
-				// this must CommandLineTool or ExpressionTool
+				// this must be CommandLineTool or ExpressionTool (Scatter has already been excluded)
 				task_type = TASK_TYPE_NORMAL
 				err = task.SetTaskType(task_type, true)
 				if err != nil {
@@ -1660,10 +1657,19 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 				break
 			}
 
-			// we got a Sub-workflow !
+			// this must be a Sub-workflow !
 			task_type = TASK_TYPE_WORKFLOW
 			err = task.SetTaskType(task_type, true)
 			if err != nil {
+				return
+			}
+			break
+		} // end for
+
+		if task_type == TASK_TYPE_WORKFLOW && (!workflow_with_children) {
+
+			if wfl == nil {
+				err = fmt.Errorf("(taskEnQueue) wfl == nil !?")
 				return
 			}
 
@@ -1707,6 +1713,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 			fmt.Printf("New Subworkflow: %s %s\n", task.Parent, task.TaskName)
 
+			// New WorkflowInstance defined input nd ouput of this subworkflow
 			err = job.AddWorkflowInstance(new_sub_workflow, task_input_array, len(wfl.Steps))
 			if err != nil {
 				return

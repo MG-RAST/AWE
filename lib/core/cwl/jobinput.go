@@ -35,6 +35,19 @@ func NewNamedCWLType(id string, value CWLType) NamedCWLType {
 	return x
 }
 
+func (j *Job_document) Add(id string, value CWLType) (new_doc *Job_document) {
+	x := NewNamedCWLType(id, value)
+
+	j_npt := *j
+
+	array := []NamedCWLType(j_npt)
+
+	new_array_nptr := Job_document(append(array, x))
+
+	new_doc = &new_array_nptr
+	return
+}
+
 func (jd_map JobDocMap) GetArray() (result Job_document, err error) {
 	result = Job_document{}
 

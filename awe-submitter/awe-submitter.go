@@ -209,6 +209,15 @@ func main_wrapper() (err error) {
 				return
 			}
 
+			upload_count = 0
+			upload_count, err = cache.ProcessIOData(workflow, inputfile_path, "upload", shock_client)
+			if err != nil {
+				err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
+				return
+			}
+			logger.Debug(3, "%d files have been uploaded\n", upload_count)
+			time.Sleep(2)
+
 		case *cwl.CommandLineTool:
 			var cmd_line_tool *cwl.CommandLineTool
 			cmd_line_tool, ok = object.(*cwl.CommandLineTool) // TODO this misses embedded CommandLineTools !

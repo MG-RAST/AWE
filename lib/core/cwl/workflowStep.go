@@ -69,6 +69,41 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion) (w *WorkflowSt
 			}
 		}
 
+		scatter, ok := v_map["scatter"]
+		if ok {
+			switch scatter.(type) {
+			case string:
+				var scatter_str string
+
+				scatter_str, ok = scatter.(string)
+				if !ok {
+					err = fmt.Errorf("(NewWorkflowStep) expected string")
+					return
+				}
+				v_map["scatter"] = []string{scatter_str}
+
+			case []string:
+				// all ok
+			case []interface{}:
+				scatter_array := scatter.([]interface{})
+				scatter_string_array := []string{}
+				for _, element := range scatter_array {
+					var element_str string
+					element_str, ok = element.(string)
+					if !ok {
+						err = fmt.Errorf("(NewWorkflowStep) Element of scatter array is not string (%s)", reflect.TypeOf(element))
+						return
+					}
+					scatter_string_array = append(scatter_string_array, element_str)
+				}
+				v_map["scatter"] = scatter_string_array
+
+			default:
+				err = fmt.Errorf("(NewWorkflowStep) scatter has unsopported type: %s", reflect.TypeOf(scatter))
+				return
+			}
+		}
+
 		hints, ok := v_map["hints"]
 		if ok {
 			v_map["hints"], schemata, err = CreateRequirementArray(hints)

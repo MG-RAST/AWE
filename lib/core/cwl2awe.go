@@ -53,7 +53,7 @@ func parseSourceString(source string, id string) (linked_step_name string, field
 	return
 }
 
-func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (err error) {
+func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (job_input_new *cwl.Job_document, err error) {
 
 	//job_input := *(collection.Job_input)
 
@@ -83,6 +83,10 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 			if input.Default != nil {
 				logger.Debug(3, "input %s not found, replace with Default object", id_base)
 				input_obj_ref = input.Default
+
+				//input_obj_ref_file, ok := input_obj_ref.(*cwl.File)
+
+				job_input = job_input.Add(id_base, input_obj_ref)
 			} else {
 				input_obj_ref = cwl.NewNull()
 				logger.Debug(3, "input %s not found, replace with Null object (no Default found)", id_base)
@@ -125,6 +129,9 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (e
 		}
 
 	}
+
+	job_input_new = job_input
+
 	return
 }
 
@@ -179,7 +186,8 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	// check that all expected workflow inputs exist and that they have the correct type
 	logger.Debug(1, "CWL2AWE starting")
 
-	err = CWL_input_check(job_input, cwl_workflow)
+	var job_input_new *cwl.Job_document
+	job_input_new, err = CWL_input_check(job_input, cwl_workflow)
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) CWL_input_check returned: %s", err.Error())
 		return
@@ -229,7 +237,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	// TODO first check that all resources are available: local files and remote links
 
-	main_wi := WorkflowInstance{Id: "::main::", Inputs: *job_input, RemainTasks: len(cwl_workflow.Steps)}
+	main_wi := WorkflowInstance{Id: "::main::", Inputs: *job_input_new, RemainTasks: len(cwl_workflow.Steps)}
 	//new_wis := []WorkflowInstance{main_wi} // Not using AddWorkflowInstance to avoid mongo
 	job.WorkflowInstances = make([]interface{}, 1)
 	job.WorkflowInstances[0] = main_wi

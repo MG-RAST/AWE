@@ -58,7 +58,7 @@ func (wq *WorkQueue) Add(workunit *Workunit) (err error) {
 	if err != nil {
 		return
 	}
-	if !ok {
+	if ok && oldWorkunit != nil {
 		logger.Debug(3, "(WorkQueue/Add) workunit %s already in WorkQueue with state %s, deleting old pointer", work_str, oldWorkunit.State)
 		err = wq.Delete(workunit.Workunit_Unique_Identifier)
 		if err != nil {

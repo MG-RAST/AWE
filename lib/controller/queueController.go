@@ -13,7 +13,7 @@ import (
 
 type QueueController struct{}
 
-var queueTypes = []string{"job", "task", "work", "client"}
+var queueTypes = []string{"job", "task", "workall", "workqueue", "workcheckout", "worksuspend", "client"}
 
 // OPTIONS: /queue
 func (cr *QueueController) Options(cx *goweb.Context) {

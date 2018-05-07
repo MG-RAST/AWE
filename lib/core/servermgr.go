@@ -228,24 +228,27 @@ func (qm *ServerMgr) QueueStatus() string {
 
 func (qm *ServerMgr) GetQueue(name string) interface{} {
 	if name == "job" {
-
 		suspended_jobs := qm.GetSuspendJobs()
-
 		return jQueueShow{qm.actJobs, suspended_jobs}
 	}
 	if name == "task" {
-		qm.ShowTasks() // only if debug level is set
-		//return qm.TaskMap.Map
 		tasks, err := qm.TaskMap.GetTasks()
 		if err != nil {
 			return err
 		}
 		return tasks
 	}
-	if name == "work" {
-		qm.ShowWorkQueue() // only if debug level is set
+	if name == "workall" {
 		return qm.workQueue.all.Map
-
+	}
+	if name == "workqueue" {
+		return qm.workQueue.Queue.Map
+	}
+	if name == "workcheckout" {
+		return qm.workQueue.Checkout.Map
+	}
+	if name == "worksuspend" {
+		return qm.workQueue.Suspend.Map
 	}
 	if name == "client" {
 		return qm.clientMap
@@ -2383,32 +2386,6 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 		}
 	}
 	return
-}
-
-// show functions used in debug
-func (qm *ServerMgr) ShowTasks() {
-	length, _ := qm.TaskMap.Len()
-
-	logger.Debug(1, "current active tasks (%d)", length)
-	tasks, err := qm.TaskMap.GetTasks()
-	if err != nil {
-		logger.Error("error: %s", err.Error())
-	}
-	for _, task := range tasks {
-		state, err := task.GetState()
-		if err != nil {
-			state = "unknown"
-		}
-
-		var task_str string
-		task_str, err = task.String()
-		if err != nil {
-			err = fmt.Errorf("(ShowTasks) task.String returned: %s", err.Error())
-			return
-		}
-
-		logger.Debug(1, "taskid=%s;status=%s", task_str, state)
-	}
 }
 
 //---end of task methods---

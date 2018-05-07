@@ -41,25 +41,6 @@ func (qm *CQMgr) ClientHandle() {
 	// this code is not beeing used
 }
 
-// show functions used in debug
-func (qm *CQMgr) ShowWorkQueue() {
-	length, err := qm.workQueue.Len()
-	if err != nil {
-		logger.Error("error: %s", err.Error())
-		return
-	}
-	logger.Debug(1, fmt.Sprintf("current queuing workunits (%d)", length))
-	workunits, err := qm.workQueue.GetAll()
-	if err != nil {
-		return
-	}
-	for _, workunit := range workunits {
-		id := workunit.Id
-		logger.Debug(1, fmt.Sprintf("workid=%s", id))
-	}
-	return
-}
-
 //--------accessor methods-------
 
 func (qm *CQMgr) GetClientMap() *ClientMap {

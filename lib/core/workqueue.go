@@ -52,8 +52,21 @@ func (wq *WorkQueue) Add(workunit *Workunit) (err error) {
 		return
 	}
 
-	logger.Debug(3, "(WorkQueue/Add) Adding workunit %s to WorkQueue", work_str)
+	var ok bool
+	var oldWorkunit *Workunit
+	oldWorkunit, ok, err = wq.all.Get(workunit.Workunit_Unique_Identifier)
+	if err != nil {
+		return
+	}
+	if !ok {
+		logger.Debug(3, "(WorkQueue/Add) workunit %s already in WorkQueue with state %s, deleting old pointer", work_str, oldWorkunit.State)
+		err = wq.Delete(workunit.Workunit_Unique_Identifier)
+		if err != nil {
+			return
+		}
+	}
 
+	logger.Debug(3, "(WorkQueue/Add) Adding workunit %s to WorkQueue", work_str)
 	err = wq.all.Set(workunit)
 	if err != nil {
 		return
@@ -78,7 +91,6 @@ func (wq *WorkQueue) GetForJob(jobid string) (worklist []*Workunit, err error) {
 	}
 	for _, work := range workunits {
 		parentid := work.JobId
-		//parentid := , _ := GetJobIdByWorkId(work.Id)
 		if jobid == parentid {
 			worklist = append(worklist, work)
 		}
@@ -157,6 +169,8 @@ func (wq *WorkQueue) StatusChange(id Workunit_Unique_Identifier, workunit *Worku
 			err = fmt.Errorf("WQueue.statusChange: invalid workunit id:" + work_str)
 			return
 		}
+	} else {
+		id = workunit.Workunit_Unique_Identifier
 	}
 
 	if workunit.State == new_status {
@@ -174,8 +188,8 @@ func (wq *WorkQueue) StatusChange(id Workunit_Unique_Identifier, workunit *Worku
 		if err != nil {
 			return
 		}
-
 		wq.Checkout.Set(workunit)
+
 	case WORK_STAT_QUEUED:
 		wq.Checkout.Delete(id)
 		wq.Suspend.Delete(id)
@@ -186,12 +200,10 @@ func (wq *WorkQueue) StatusChange(id Workunit_Unique_Identifier, workunit *Worku
 		wq.Queue.Set(workunit)
 
 	case WORK_STAT_SUSPEND:
-
 		if reason == "" {
 			err = fmt.Errorf("suspend workunit only with reason!")
 			return
 		}
-
 		wq.Checkout.Delete(id)
 		wq.Queue.Delete(id)
 		err = workunit.SetState(new_status, reason)

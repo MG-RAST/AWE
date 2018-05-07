@@ -239,16 +239,32 @@ func (qm *ServerMgr) GetQueue(name string) interface{} {
 		return tasks
 	}
 	if name == "workall" {
-		return qm.workQueue.all.Map
+		workunits, err := qm.workQueue.all.GetWorkunits()
+		if err != nil {
+			return err
+		}
+		return workunits
 	}
 	if name == "workqueue" {
-		return qm.workQueue.Queue.Map
+		workunits, err := qm.workQueue.Queue.GetWorkunits()
+		if err != nil {
+			return err
+		}
+		return workunits
 	}
 	if name == "workcheckout" {
-		return qm.workQueue.Checkout.Map
+		workunits, err := qm.workQueue.Checkout.GetWorkunits()
+		if err != nil {
+			return err
+		}
+		return workunits
 	}
 	if name == "worksuspend" {
-		return qm.workQueue.Suspend.Map
+		workunits, err := qm.workQueue.Suspend.GetWorkunits()
+		if err != nil {
+			return err
+		}
+		return workunits
 	}
 	if name == "client" {
 		return qm.clientMap

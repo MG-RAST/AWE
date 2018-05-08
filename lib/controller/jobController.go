@@ -1226,7 +1226,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		return
 	}
 	if query.Has("recover") || query.Has("register") { // to recover a job from mongodb missing from queue
-		if err := core.QMgr.RecoverJob(id); err != nil {
+		if err := core.QMgr.RecoverJob(id, nil); err != nil {
 			cx.RespondWithErrorMessage("fail to recover job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}

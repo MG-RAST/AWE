@@ -29,6 +29,8 @@ const (
 	TASK_STAT_PASSED           = "passed"       // deprecated ?
 )
 
+var TASK_STATS_RESET = []string{TASK_STAT_QUEUED, TASK_STAT_INPROGRESS, TASK_STAT_SUSPEND}
+
 const (
 	TASK_TYPE_UNKNOWN  = ""
 	TASK_TYPE_SCATTER  = "scatter"
@@ -1047,6 +1049,9 @@ func (task *Task) IncrementComputeTime(inc int) (err error) {
 }
 
 func (task *Task) ResetTaskTrue(name string) (err error) {
+	if task.ResetTask == true {
+		return
+	}
 	err = task.LockNamed("ResetTaskTrue:" + name)
 	if err != nil {
 		return

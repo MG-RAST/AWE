@@ -347,7 +347,7 @@ func (qm *ProxyMgr) ResubmitJob(id string) (err error) {
 }
 
 //recover job not in queue
-func (qm *ProxyMgr) RecoverJob(id string) (err error) {
+func (qm *ProxyMgr) RecoverJob(id string, job *Job) (err error) {
 	return
 }
 

@@ -1,13 +1,11 @@
 package shock
 
 import (
-	//"github.com/MG-RAST/AWE/lib/httpclient"
 	"compress/gzip"
 	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
-	//"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/golib/httpclient"
 	"io"
@@ -22,6 +20,8 @@ import (
 
 // TODO use Token
 
+var WAIT_SLEEP = 30 * time.Second
+var WAIT_TIMEOUT = time.Duration(-1) * time.Hour
 var SHOCK_TIMEOUT = 60 * time.Second
 var DATA_SUFFIX = "?download"
 
@@ -49,7 +49,7 @@ type ShockNode struct {
 	File       shockFile          `bson:"file" json:"file"`
 	Attributes interface{}        `bson:"attributes" json:"attributes"`
 	Indexes    map[string]IdxInfo `bson:"indexes" json:"indexes"`
-	//Acl      Acl                `bson:"acl" json:"-"`
+	//Acl      Acl                 `bson:"acl" json:"-"`
 	VersionParts map[string]string `bson:"version_parts" json:"version_parts"`
 	Tags         []string          `bson:"tags" json:"tags"`
 	//Revisions  []ShockNode       `bson:"revisions" json:"-"`
@@ -72,20 +72,27 @@ type shockFile struct {
 	Virtual      bool      `bson:"virtual" json:"virtual"`
 	VirtualParts []string  `bson:"virtual_parts" json:"virtual_parts"`
 	CreatedOn    time.Time `bson:"created_on" json:"created_on"`
+	Locked       *lockInfo `bson:"-" json:"locked"`
 }
 
 type IdxInfo struct {
-	//Type        string    `bson:"index_type" json:"-"`
+	//Type      string `bson:"index_type" json:"-"`
 	TotalUnits  int64 `bson:"total_units" json:"total_units" mapstructure:"total_units"`
 	AvgUnitSize int64 `bson:"average_unit_size" json:"average_unit_size" mapstructure:"average_unit_size"`
-	//Format      string    `bson:"format" json:"-"`
+	//Format  string    `bson:"format" json:"-"`
 	CreatedOn time.Time `bson:"created_on" json:"created_on" mapstructure:"created_on"`
+	Locked    *lockInfo `bson:"-" json:"locked"`
 }
 
 type linkage struct {
 	Type      string   `bson: "relation" json:"relation"`
 	Ids       []string `bson:"ids" json:"ids"`
 	Operation string   `bson:"operation" json:"operation"`
+}
+
+type lockInfo struct {
+	CreatedOn time.Time `bson:"-" json:"created_on"`
+	Error     string    `bson:"-" json:"error"`
 }
 
 type partsFile []string
@@ -330,13 +337,74 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 }
 
 func (sc *ShockClient) ShockPutIndex(nodeid string, indexname string) (err error) {
-	host := sc.Host
-
 	opts := Opts{}
 	opts["upload_type"] = "index"
 	opts["index_type"] = indexname
-	logger.Debug(2, fmt.Sprintf("(ShockPutIndex) node=%s/node/%s index=%s", host, nodeid, indexname))
+	logger.Debug(2, fmt.Sprintf("(ShockPutIndex) node=%s/node/%s index=%s", sc.Host, nodeid, indexname))
 	_, err = sc.CreateOrUpdate(opts, nodeid, nil)
+	return
+}
+
+func (sc *ShockClient) WaitIndex(nodeid string, indexname string) (index IdxInfo, err error) {
+	var node *ShockNode
+	var has bool
+	startTime := time.Now()
+	for {
+		node, err = sc.Get_node(nodeid)
+		if err != nil {
+			return
+		}
+		index, has = node.Indexes[indexname]
+		if !has {
+			err = fmt.Errorf("(shock.WaitIndex) index does not exist: node=%s, index=%s", nodeid, indexname)
+			return
+		}
+		if (index.Locked != nil) && (index.Locked.Error != "") {
+			// we have an error, return it
+			err = fmt.Errorf("(shock.WaitIndex) error creating index: node=%s, index=%s, error=%s", nodeid, indexname, index.Locked.Error)
+			return
+		}
+		if index.Locked == nil {
+			// no longer locked
+			return
+		}
+		// need a resonable timeout
+		currTime := time.Now()
+		expireTime := currTime.Add(WAIT_TIMEOUT) // adding negative time to current time, because no subtraction function
+		if startTime.Before(expireTime) {
+			err = fmt.Errorf("(shock.WaitIndex) timeout waiting on index lock: node=%s, index=%s", nodeid, indexname)
+			return
+		}
+		time.Sleep(WAIT_SLEEP)
+	}
+	return
+}
+
+func (sc *ShockClient) WaitFile(nodeid string) (node *ShockNode, err error) {
+	startTime := time.Now()
+	for {
+		node, err = sc.Get_node(nodeid)
+		if err != nil {
+			return
+		}
+		if (node.File.Locked != nil) && (node.File.Locked.Error != "") {
+			// we have an error, return it
+			err = fmt.Errorf("(shock.WaitFile) error waiting on file lock: node=%s, error=%s", nodeid, node.File.Locked.Error)
+			return
+		}
+		if node.File.Locked == nil {
+			// no longer locked
+			return
+		}
+		// need a resonable timeout
+		currTime := time.Now()
+		expireTime := currTime.Add(WAIT_TIMEOUT) // adding negative time to current time, because no subtraction function
+		if startTime.Before(expireTime) {
+			err = fmt.Errorf("(shock.WaitFile) timeout waiting on file lock: node=%s", nodeid)
+			return
+		}
+		time.Sleep(WAIT_SLEEP)
+	}
 	return
 }
 
@@ -432,20 +500,18 @@ func (sc *ShockClient) Query(query url.Values) (sqr_p *ShockQueryResponse, err e
 }
 
 func (sc *ShockClient) Get_node(node_id string) (node *ShockNode, err error) {
-
 	sqr_p := new(ShockResponse)
 	err = sc.Get_request("/node/"+node_id, nil, &sqr_p)
 
 	if len(sqr_p.Errs) > 0 {
-		err = fmt.Errorf("(Get_node) (Get_request) %s", strings.Join(sqr_p.Errs, ","))
+		err = fmt.Errorf("(Get_node) node=%s: %s", node_id, strings.Join(sqr_p.Errs, ","))
 		return
 	}
 
 	node = &sqr_p.Data
 	if node == nil {
-		err = errors.New("(Get_node) (Get_request) empty node got from Shock")
+		err = fmt.Errorf("(Get_node) node=%s: empty node returned from Shock", node_id)
 	}
-
 	return
 }
 

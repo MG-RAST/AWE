@@ -642,8 +642,8 @@ func (task *TaskRaw) GetStateNamed(name string) (state string, err error) {
 	return
 }
 
-func (task *TaskRaw) GetId() (id Task_Unique_Identifier, err error) {
-	lock, err := task.RLockNamed("GetId")
+func (task *TaskRaw) GetId(me string) (id Task_Unique_Identifier, err error) {
+	lock, err := task.RLockNamed("GetId:" + me)
 	if err != nil {
 		return
 	}
@@ -733,23 +733,11 @@ func (task *TaskRaw) GetDependsOn() (dep []string, err error) {
 // checks and creates indices on input shock nodes if needed
 func (task *Task) CreateInputIndexes() (err error) {
 	for _, io := range task.Inputs {
-		if len(io.ShockIndex) > 0 {
-			_, hasIndex, err := io.GetIndexInfo(io.ShockIndex)
-			if err != nil {
-				errMsg := "(GetIndexInfo) could not retrieve shock index info: node=" + io.Node + ", taskid=" + task.Id + ", error=" + err.Error()
-				logger.Error(errMsg)
-				return errors.New(errMsg)
-			}
-			if !hasIndex {
-				// create missing index
-				sc := shock.ShockClient{Host: io.Host, Token: task.Info.DataToken}
-				err = sc.ShockPutIndex(io.Node, io.ShockIndex)
-				if err != nil {
-					errMsg := "(ShockPutIndex) failed to create shock index: node=" + io.Node + ", taskid=" + task.Id + ", error=" + err.Error()
-					logger.Error(errMsg)
-					return errors.New(errMsg)
-				}
-			}
+		_, err = io.IndexFile(io.ShockIndex)
+		if err != nil {
+			err = fmt.Errorf("(CreateInputIndexes) failed to create shock index: node=%s, taskid=%s, error=%s", io.Node, task.Id, err.Error())
+			logger.Error(err.Error())
+			return
 		}
 	}
 	return
@@ -759,23 +747,11 @@ func (task *Task) CreateInputIndexes() (err error) {
 // if worker failed to do so, this will catch it
 func (task *Task) CreateOutputIndexes() (err error) {
 	for _, io := range task.Outputs {
-		if len(io.ShockIndex) > 0 {
-			_, hasIndex, err := io.GetIndexInfo(io.ShockIndex)
-			if err != nil {
-				errMsg := "(GetIndexInfo) could not retrieve shock index info: node=" + io.Node + ", taskid=" + task.Id + ", error=" + err.Error()
-				logger.Error(errMsg)
-				return errors.New(errMsg)
-			}
-			if !hasIndex {
-				// create missing index
-				sc := shock.ShockClient{Host: io.Host, Token: task.Info.DataToken}
-				err = sc.ShockPutIndex(io.Node, io.ShockIndex)
-				if err != nil {
-					errMsg := "(ShockPutIndex) failed to create shock index: node=" + io.Node + ", taskid=" + task.Id + ", error=" + err.Error()
-					logger.Error(errMsg)
-					return errors.New(errMsg)
-				}
-			}
+		_, err = io.IndexFile(io.ShockIndex)
+		if err != nil {
+			err = fmt.Errorf("(CreateOutputIndexes) failed to create shock index: node=%s, taskid=%s, error=%s", io.Node, task.Id, err.Error())
+			logger.Error(err.Error())
+			return
 		}
 	}
 	return
@@ -823,39 +799,16 @@ func (task *Task) checkPartIndex() (newPartition *PartInfo, totalunits int, isSi
 		newPartition.Index = conf.DEFAULT_INDEX
 	}
 
-	idxInfo, hasIndex, err := inputIO.GetIndexInfo(newPartition.Index)
+	idxInfo, err := inputIO.IndexFile(newPartition.Index)
 	if err != nil {
 		// bad state - set as not multi-workunit
-		logger.Error("warning: invalid file info, taskid=%s, error=%s", task.Id, err.Error())
+		logger.Error("warning: failed to create / retrieve index=%s, taskid=%s, error=%s", newPartition.Index, task.Id, err.Error())
 		isSingle = true
 		err = nil
 		return
 	}
 
-	if !hasIndex {
-		// if index not available, create index
-		sc := shock.ShockClient{Host: inputIO.Host, Token: task.Info.DataToken}
-		err = sc.ShockPutIndex(inputIO.Node, newPartition.Index)
-		if err != nil {
-			// bad state - set as not multi-workunit
-			logger.Error("warning: failed to create index %s on shock for taskid=%s, error=%s", newPartition.Index, task.Id, err.Error())
-			isSingle = true
-			err = nil
-			return
-		}
-		totalunits, err = inputIO.TotalUnits(newPartition.Index) // get index info again
-		if err != nil {
-			// bad state - set as not multi-workunit
-			logger.Error("warning: failed to get index %s units, taskid=%s, error=%s", newPartition.Index, task.Id, err.Error())
-			isSingle = true
-			err = nil
-			return
-		}
-	} else {
-		// index existing, use it directly
-		totalunits = int(idxInfo.TotalUnits)
-	}
-
+	totalunits = int(idxInfo.TotalUnits)
 	return
 }
 
@@ -1410,9 +1363,16 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (err error) {
 
 		// forece check file exists and get size
 		io.Size = 0
-		_, _, err = io.GetFileSize()
+		_, err = io.UpdateFileSize()
 		if err != nil {
-			err = fmt.Errorf("(ValidateInputs) input file %s GetFileSize returns: %s", io.FileName, err.Error())
+			err = fmt.Errorf("(ValidateInputs) input file %s UpdateFileSize returns: %s", io.FileName, err.Error())
+			return
+		}
+
+		// create or wait on shock index on input node (if set in workflow document)
+		_, err = io.IndexFile(io.ShockIndex)
+		if err != nil {
+			err = fmt.Errorf("(ValidateInputs) failed to create shock index: task=%s, node=%s: %s", task.Id, io.Node, err.Error())
 			return
 		}
 
@@ -1445,20 +1405,20 @@ func (task *Task) ValidateOutputs() (err error) {
 			return
 		}
 
-		// forece check file exists and get size
+		// force check file exists and get size
 		io.Size = 0
-		_, _, err = io.GetFileSize()
+		_, err = io.UpdateFileSize()
 		if err != nil {
 			err = fmt.Errorf("input file %s GetFileSize returns: %s", io.FileName, err.Error())
 			return
 		}
-	}
 
-	// create shock index on output nodes (if set in workflow document and worker did not do it)
-	err = task.CreateOutputIndexes()
-	if err != nil {
-		err = fmt.Errorf("CreateOutputIndexes returns: %s", err.Error())
-		return
+		// create or wait on shock index on output node (if set in workflow document)
+		_, err = io.IndexFile(io.ShockIndex)
+		if err != nil {
+			err = fmt.Errorf("failed to create shock index: task=%s, node=%s: %s", task.Id, io.Node, err.Error())
+			return
+		}
 	}
 
 	err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
@@ -1482,7 +1442,7 @@ func (task *Task) ValidatePredata() (err error) {
 		// only verify predata that is a shock node
 		if (io.Node != "") && (io.Node != "-") {
 			// check file size
-			_, mod, xerr := io.GetFileSize()
+			mod, xerr := io.UpdateFileSize()
 			if xerr != nil {
 				err = fmt.Errorf("input file %s GetFileSize returns: %s", io.FileName, xerr.Error())
 				return

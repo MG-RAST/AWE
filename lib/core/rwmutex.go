@@ -15,6 +15,8 @@ import (
 // Because channels are used for the locking mechanism, you can use locks with timeouts.
 // Each reader gets a ReadLock object that has to be used to unlock after reading is done.
 
+var WAIT_TIMEOUT = time.Minute * 3
+
 type ReadLock struct {
 	id string
 }
@@ -80,30 +82,22 @@ func (m *RWMutex) LockNamed(name string) (err error) {
 	if m.Name == "" {
 		panic("LockNamed: object has no name")
 	}
-	//m.RWMutex.Lock()
 	initial_owner := m.lockOwner.Get()
-	//timer := time.NewTimer(time.Second * 100)
 
 	select {
 	case <-m.writeLock: // Grab the ticket
 		logger.Debug(3, "(RWMutex/LockNamed %s) got lock", name)
-	case <-time.After(time.Second * 20): //1800
-		//elapsed_time := time.Since(start_time)
+	case <-time.After(WAIT_TIMEOUT):
 		reader_list := strings.Join(m.RList(), ",")
 		message := fmt.Sprintf("(%s) %s requests Lock. TIMEOUT!!! current owner: %s (reader list :%s), initial owner: %s", m.Name, name, m.lockOwner.Get(), reader_list, initial_owner)
 		logger.Error(message)
 		err = fmt.Errorf(message)
 		return
 	}
-	//if !timer.Stop() {
-	//	<-timer.C
-	//}
 
-	//<-m.writeLock // Grab the ticket
 	m.lockOwner.Set(name)
 
 	// wait for Readers to leave....
-
 	for m.RCount() > 0 {
 		time.Sleep(100)
 	}
@@ -116,7 +110,6 @@ func (m *RWMutex) Unlock() {
 	//logger.Debug(3, "Unlock")
 	old_owner := m.lockOwner.Get()
 	m.lockOwner.Set("nobody_anymore")
-	//m.RWMutex.Unlock()
 	m.writeLock <- 1 // Give it back
 	logger.Debug(3, "(%s) UNLOCKED by %s **********************", m.Name, old_owner)
 }

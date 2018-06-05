@@ -233,8 +233,13 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 		form.AddParam("attributes_str", string(nodeattr_json[:]))
 	}
 
+	var uploadType string
 	if opts.HasKey("upload_type") {
-		switch opts.Value("upload_type") {
+		uploadType = opts.Value("upload_type")
+	}
+
+	if uploadType != "" {
+		switch uploadType {
 		case "basic":
 			if opts.HasKey("file") { // upload_type: basic , file=...
 				form.AddFile("upload", opts.Value("file"))
@@ -299,10 +304,12 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 			}
 		}
 	}
+
 	err = form.Create()
 	if err != nil {
 		return
 	}
+
 	headers := httpclient.Header{
 		"Content-Type":   []string{form.ContentType},
 		"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
@@ -328,7 +335,7 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 		return
 	}
 	if len(response.Errs) > 0 {
-		err = fmt.Errorf("(CreateOrUpdate) (response) %s", strings.Join(response.Errs, ","))
+		err = fmt.Errorf("(CreateOrUpdate) type=%s, method=%s, url=%s, error=%s", uploadType, method, url, strings.Join(response.Errs, ","))
 		return
 	}
 	node = &response.Data

@@ -129,7 +129,7 @@ func (io *IO) getShockNode() (node *shock.ShockNode, err error) {
 		err = errors.New("empty shock host")
 		return
 	}
-	if io.Node == "-" {
+	if (io.Node == "") || (io.Node == "-") {
 		err = errors.New("empty node id")
 		return
 	}

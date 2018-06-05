@@ -344,6 +344,9 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 }
 
 func (sc *ShockClient) ShockPutIndex(nodeid string, indexname string) (err error) {
+	if indexname == "" {
+		return
+	}
 	opts := Opts{}
 	opts["upload_type"] = "index"
 	opts["index_type"] = indexname
@@ -353,6 +356,9 @@ func (sc *ShockClient) ShockPutIndex(nodeid string, indexname string) (err error
 }
 
 func (sc *ShockClient) WaitIndex(nodeid string, indexname string) (index IdxInfo, err error) {
+	if indexname == "" {
+		return
+	}
 	var node *ShockNode
 	var has bool
 	startTime := time.Now()

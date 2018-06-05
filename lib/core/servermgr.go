@@ -76,7 +76,7 @@ func (qm *ServerMgr) TaskHandle() { // TODO DEPRECATED
 	for {
 		task := <-qm.taskIn
 
-		task_id, err := task.GetId()
+		task_id, err := task.GetId("TaskHandle")
 		if err != nil {
 			logger.Error("(TaskHandle) %s", err.Error())
 			continue
@@ -431,7 +431,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	for _, task := range tasks {
 
 		var task_id Task_Unique_Identifier
-		task_id, err = task.GetId()
+		task_id, err = task.GetId("updateQueue")
 		if err != nil {
 			return
 		}
@@ -1285,7 +1285,7 @@ func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
 	logger.Debug(3, "(addTask) got task")
 
 	var task_id Task_Unique_Identifier
-	task_id, err = task.GetId()
+	task_id, err = task.GetId("addTask")
 	if err != nil {
 		err = fmt.Errorf("(addTask) GetId() returns: %s", err.Error())
 		return
@@ -1397,7 +1397,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		return
 	}
 
-	task_id, err := task.GetId()
+	task_id, err := task.GetId("isTaskReady")
 	if err != nil {
 		return
 	}
@@ -1549,7 +1549,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 	var task_id Task_Unique_Identifier
-	task_id, err = task.GetId()
+	task_id, err = task.GetId("taskEnQueue")
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueue) Could not get Id: %s", err.Error())
 		return
@@ -1740,7 +1740,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 				}
 
 				var sub_task_id Task_Unique_Identifier
-				sub_task_id, err = sub_task.GetId()
+				sub_task_id, err = sub_task.GetId("taskEnQueue." + strconv.Itoa(i))
 				if err != nil {
 					return
 				}
@@ -1786,14 +1786,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		return
 	}
 
-	//create shock index on input nodes (if set in workflow document)
-	err = task.CreateInputIndexes()
-	if err != nil {
-		err = fmt.Errorf("(taskEnQueue) CreateInputIndexes: %s", err.Error())
-		return
-	}
-
-	//init partition
+	// init partition
 	err = task.InitPartIndex()
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueue) InitPartitionIndex: %s", err.Error())
@@ -1828,10 +1821,9 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 	err = qm.updateJobTask(task) //task status PENDING->QUEUED
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueue) qm.updateJobTask: %s", err.Error())
-		//fmt.Println(err.Error())
 		return
 	}
-	//log event about task enqueue (TQ)
+	// log event about task enqueue (TQ)
 	logger.Event(event.TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task_id, task.TotalWork))
 	qm.CreateTaskPerf(task)
 
@@ -2608,7 +2600,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		}
 
 		var task_id Task_Unique_Identifier
-		task_id, err = task.GetId()
+		task_id, err = task.GetId("updateJobTask")
 		if err != nil {
 			return
 		}
@@ -2929,13 +2921,13 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	//delete from shock output flagged for deletion
 
 	modified := 0
-	for _, task := range job.TaskList() {
+	for i, task := range job.TaskList() {
 		// delete nodes that have been flagged to be deleted
 		modified += task.DeleteOutput()
 		modified += task.DeleteInput()
 		//combined_id := jobid + "_" + task.Id
 
-		id, _ := task.GetId()
+		id, _ := task.GetId("updateJobTask." + strconv.Itoa(i))
 
 		qm.TaskMap.Delete(id)
 	}
@@ -3614,7 +3606,7 @@ func isAncestor(job *Job, taskId string, testId string) (result bool, err error)
 func (qm *ServerMgr) UpdateQueueToken(job *Job) (err error) {
 	//job_id := job.Id
 	for _, task := range job.Tasks {
-		task_id, _ := task.GetId()
+		task_id, _ := task.GetId("UpdateQueueToken")
 		mtask, ok, err := qm.TaskMap.Get(task_id, true)
 		if err != nil {
 			return err

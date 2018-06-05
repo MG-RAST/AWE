@@ -178,6 +178,11 @@ func (io *IO) UpdateFileSize() (modified bool, err error) {
 }
 
 func (io *IO) IndexFile(indextype string) (idxInfo shock.IdxInfo, err error) {
+    // make sure we have an index
+    if indextype == "" {
+        return
+    }
+    
 	// see if already exists
 	var hasIndex bool
 	idxInfo, hasIndex = io.Indexes[indextype]

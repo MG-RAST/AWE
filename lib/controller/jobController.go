@@ -1136,11 +1136,27 @@ func (cr *JobController) UpdateMany(cx *goweb.Context) {
 
 	// Gather query params
 	query := &Query{Li: cx.Request.URL.Query()}
-	if query.Has("resumeall") { //resume the suspended job
+	// resume all suspended jobs
+	if query.Has("resumeall") {
 		num := core.QMgr.ResumeSuspendedJobsByUser(u)
 		cx.RespondWithData(fmt.Sprintf("%d suspended jobs resumed", num))
 		return
 	}
+	// recover unfinished jobs in mongodb not in queue, this is for admins only
+	if query.Has("recoverall") {
+		if conf.ANON_WRITE == true || u.Admin {
+			num, _, err := core.QMgr.RecoverJobs()
+			if err != nil {
+				cx.RespondWithErrorMessage("failed to recover jobs: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+			cx.RespondWithData(fmt.Sprintf("%d missing jobs recovered", num))
+		} else {
+			cx.RespondWithErrorMessage(e.NoAuth, http.StatusUnauthorized)
+		}
+		return
+	}
+
 	cx.RespondWithError(http.StatusNotImplemented)
 	return
 }
@@ -1226,7 +1242,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		return
 	}
 	if query.Has("recover") || query.Has("register") { // to recover a job from mongodb missing from queue
-		if err := core.QMgr.RecoverJob(id, nil); err != nil {
+		if _, err := core.QMgr.RecoverJob(id, nil); err != nil {
 			cx.RespondWithErrorMessage("fail to recover job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}

@@ -336,7 +336,7 @@ func (qm *ProxyMgr) DeleteZombieJobsByUser(u *user.User, full bool) (num int) {
 }
 
 //resubmit a suspended job if user has rights
-func (qm *ProxyMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err error) {
+func (qm *ProxyMgr) ResumeSuspendedJobByUser(id string, u *user.User) (recovered bool, err error) {
 	//Load job by id
 	return
 }
@@ -352,7 +352,7 @@ func (qm *ProxyMgr) RecoverJob(id string, job *Job) (err error) {
 }
 
 //recover jobs not completed before awe-server restarts
-func (qm *ProxyMgr) RecoverJobs() (err error) {
+func (qm *ProxyMgr) RecoverJobs() (recovered int, total int, err error) {
 	return
 }
 

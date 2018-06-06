@@ -3277,7 +3277,7 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 }
 
 //recover a job in db that is missing from queue (caused by server restarting)
-func (qm *ServerMgr) RecoverJob(id string, job *Job) (err error) {
+func (qm *ServerMgr) RecoverJob(id string, job *Job) (recovered bool, err error) {
 	// job by id or object
 	if job != nil {
 		id = job.Id
@@ -3290,7 +3290,7 @@ func (qm *ServerMgr) RecoverJob(id string, job *Job) (err error) {
 	}
 
 	if qm.isActJob(id) {
-		err = errors.New("(RecoverJob) job is already active")
+		// already acive, skip
 		return
 	}
 
@@ -3308,8 +3308,8 @@ func (qm *ServerMgr) RecoverJob(id string, job *Job) (err error) {
 			return
 		}
 	} else {
-		if job_state == JOB_STAT_COMPLETED || job_state == JOB_STAT_DELETED {
-			err = errors.New("(RecoverJob) job is in " + job_state + " state thus cannot be recovered")
+		if job_state == JOB_STAT_COMPLETED || job_state == JOB_STAT_DELETED || job_state == JOB_STAT_FAILED_PERMANENT {
+			// unrecoverable, skip
 			return
 		}
 		tasks, terr := job.GetTasks()
@@ -3343,14 +3343,14 @@ func (qm *ServerMgr) RecoverJob(id string, job *Job) (err error) {
 			return
 		}
 	}
-
+	recovered = true
 	logger.Debug(1, "(RecoverJob) done job=%s", id)
 	return
 }
 
 //recover jobs not completed before awe-server restarts
-func (qm *ServerMgr) RecoverJobs() (err error) {
-	//Get jobs to be recovered from db whose states are "submitted"
+func (qm *ServerMgr) RecoverJobs() (recovered int, total int, err error) {
+	//Get jobs to be recovered from db whose states are recoverable
 	dbjobs := new(Jobs)
 	q := bson.M{}
 	q["state"] = bson.M{"$in": JOB_STATS_TO_RECOVER}
@@ -3367,23 +3367,23 @@ func (qm *ServerMgr) RecoverJobs() (err error) {
 			return
 		}
 	}
+	total = dbjobs.Length()
 	//Locate the job script and parse tasks for each job
-	fmt.Printf("%d total jobs from mongo\n", dbjobs.Length())
-	jobct := 0
 	for _, dbjob := range *dbjobs {
 		pipeline := "missing"
 		if dbjob.Info != nil {
 			pipeline = dbjob.Info.Pipeline
 		}
-		logger.Debug(1, "recovering %d: job=%s, state=%s, pipeline=%s", jobct, dbjob.Id, dbjob.State, pipeline)
-		rerr := qm.RecoverJob("", dbjob)
+		logger.Debug(1, "recovering %d: job=%s, state=%s, pipeline=%s", recovered+1, dbjob.Id, dbjob.State, pipeline)
+		isRecovered, rerr := qm.RecoverJob("", dbjob)
 		if rerr != nil {
 			logger.Error(fmt.Sprintf("(RecoverJobs) job=%s failed: %s", dbjob.Id, rerr.Error()))
 			continue
 		}
-		jobct += 1
+		if isRecovered {
+			recovered += 1
+		}
 	}
-	fmt.Printf("%d unfinished jobs recovered\n", jobct)
 	return
 }
 

@@ -85,7 +85,7 @@ func (tm *TaskMap) Delete(taskid Task_Unique_Identifier) (task *Task, ok bool) {
 func (tm *TaskMap) Add(task *Task) (modified bool, err error) {
 	tm.LockNamed("Add")
 	defer tm.Unlock()
-	id, err := task.GetId()
+	id, err := task.GetId("TaskMap/Add")
 	if err != nil {
 		return
 	}

@@ -3,7 +3,6 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/golib/go-uuid/uuid"
 	"net/url"
@@ -37,7 +36,7 @@ type IO struct {
 	NodeAttr      map[string]interface{}   `bson:"nodeattr" json:"nodeattr" mapstructure:"nodeattr"` // specifies attribute data to be stored in shock node (output only)
 	FormOptions   map[string]string        `bson:"formoptions" json:"formoptions" mapstructure:"formoptions"`
 	Uncompress    string                   `bson:"uncompress" json:"uncompress" mapstructure:"uncompress"` // tells AWE client to uncompress this file, e.g. "gzip"
-	Indexes       map[string]shock.IdxInfo `bson:"-" json:"-" mapstructure:"-"`                            // copy of shock node.Indexes
+	Indexes       map[string]shock.IdxInfo `bson:"-" json:"-" mapstructure:"-"`                            // copy of shock node.Indexes, not saved
 }
 
 type PartInfo struct {
@@ -85,12 +84,10 @@ func NewIO() *IO {
 }
 
 func (io *IO) Url2Shock() (err error) {
-
 	if io.Url == "" {
 		err = fmt.Errorf("(Url2Shock) url empty")
 		return
 	}
-
 	u, _ := url.Parse(io.Url)
 	if (u.Scheme == "") || (u.Host == "") || (u.Path == "") {
 		err = fmt.Errorf("(Url2Shock) Not a valid url: %s", io.Url)
@@ -126,101 +123,105 @@ func (io *IO) DataUrl() (dataurl string, err error) {
 	}
 }
 
-func (io *IO) TotalUnits(indextype string) (count int, err error) {
-	count, err = io.getIndexUnits(indextype)
-	return
-}
-
-func (io *IO) HasFile() bool {
-	// set io.Size and io.MD5
-	shocknode, err := io.GetShockNode()
-	if err != nil {
-		logger.Error(fmt.Sprintf("HasFile error: %s, node: %s", err.Error(), io.Node))
-		return false
-	}
-	io.Size = shocknode.File.Size
-	if md5, ok := shocknode.File.Checksum["md5"]; ok {
-		io.MD5 = md5
-	}
-	// both can not be empty
-	if (io.Size == 0) && (io.MD5 == "") {
-		return false
-	}
-	return true
-}
-
-func (io *IO) GetFileSize() (size int64, modified bool, err error) {
-	modified = false
-	if io.Size > 0 {
-		size = io.Size
-		return
-	}
-	shocknode, err := io.GetShockNode()
-	if err != nil {
-		err = fmt.Errorf("GetFileSize error: %s, node: %s", err.Error(), io.Node)
-		return
-	}
-	if (shocknode.File.Size == 0) && shocknode.File.CreatedOn.IsZero() {
-		msg := "Node has no file"
-		if (shocknode.Type == "parts") && (shocknode.Parts != nil) {
-			msg += fmt.Sprintf(", %d of %d parts completed", shocknode.Parts.Length, shocknode.Parts.Count)
-		}
-		err = fmt.Errorf("GetFileSize error: %s, node: %s", msg, io.Node)
-		return
-	}
-	size = shocknode.File.Size
-	if size != io.Size {
-		io.Size = size
-		modified = true
-	}
-	return
-}
-
-func (io *IO) GetIndexInfo(indextype string) (idxInfo shock.IdxInfo, hasIndex bool, err error) {
-	if idxInfo, hasIndex = io.Indexes[indextype]; hasIndex {
-		return
-	}
-	// missing, update io.Indexes from shock
-	_, err = io.GetShockNode()
-	if err != nil {
-		return
-	}
-	idxInfo, hasIndex = io.Indexes[indextype]
-	return
-}
-
-func (io *IO) GetShockNode() (node *shock.ShockNode, err error) {
+// this will update: io.Indexes, io.Size, io.MD5
+func (io *IO) getShockNode() (node *shock.ShockNode, err error) {
 	if io.Host == "" {
 		err = errors.New("empty shock host")
 		return
 	}
-	if io.Node == "-" {
+	if (io.Node == "") || (io.Node == "-") {
 		err = errors.New("empty node id")
 		return
 	}
-	node, err = shock.ShockGet(io.Host, io.Node, io.DataToken)
+	sc := shock.ShockClient{Host: io.Host, Token: io.DataToken}
+	node, err = sc.Get_node(io.Node)
 	if err != nil {
 		return
 	}
-	// always update indexinfo with shock GET
+	// wait on file locked nodes
+	if node.File.Locked != nil {
+		node, err = sc.WaitFile(io.Node)
+		if err != nil {
+			return
+		}
+	}
+	// cache node Indexes in-memory to prevent unnecessary lookup
 	io.Indexes = node.Indexes
 	return
 }
 
-func (io *IO) getIndexUnits(indextype string) (totalunits int, err error) {
-	idxInfo, hasIndex, err := io.GetIndexInfo(indextype)
+func (io *IO) UpdateFileSize() (modified bool, err error) {
+	modified = false
+	if io.Size > 0 {
+		return
+	}
+	var node *shock.ShockNode
+	node, err = io.getShockNode() // this waits on locked file
 	if err != nil {
 		return
 	}
-	if !hasIndex {
-		err = fmt.Errorf("getIndexUnits error: shock node %s has no indextype %s", io.Node, indextype)
+	if (node.File.Size == 0) && node.File.CreatedOn.IsZero() {
+		msg := fmt.Sprintf("node=%s: has no file", io.Node)
+		if (node.Type == "parts") && (node.Parts != nil) {
+			msg += fmt.Sprintf(", %d of %d parts completed", node.Parts.Length, node.Parts.Count)
+		}
+		err = errors.New(msg)
 		return
 	}
-	if idxInfo.TotalUnits > 0 {
-		totalunits = int(idxInfo.TotalUnits)
+	// update, this needs to be saved to mongo
+	io.Size = node.File.Size
+	if md5, ok := node.File.Checksum["md5"]; ok {
+		io.MD5 = md5
+	}
+	modified = true
+	return
+}
+
+func (io *IO) IndexFile(indextype string) (idxInfo shock.IdxInfo, err error) {
+	// make sure we have an index
+	if indextype == "" {
 		return
 	}
-	err = fmt.Errorf("getIndexUnits error: invalid totalunits for shock node %s, indextype %s", io.Node, indextype)
+
+	// see if already exists
+	var hasIndex bool
+	idxInfo, hasIndex = io.Indexes[indextype]
+	if hasIndex && idxInfo.Locked == nil {
+		return
+	}
+
+	// incomplete, update from shock
+	var node *shock.ShockNode
+	node, err = io.getShockNode() // this waits on locked file
+	if err != nil {
+		return
+	}
+	idxInfo, hasIndex = node.Indexes[indextype]
+
+	// create and wait on index
+	if !hasIndex || idxInfo.Locked != nil {
+		sc := shock.ShockClient{Host: io.Host, Token: io.DataToken}
+		// create missing index
+		if !hasIndex {
+			err = sc.ShockPutIndex(io.Node, indextype)
+			if err != nil {
+				return
+			}
+		}
+		// wait on asynch indexing
+		idxInfo, err = sc.WaitIndex(io.Node, indextype)
+		if err != nil {
+			return
+		}
+	}
+	// bad state, unlocked but not complete
+	if idxInfo.TotalUnits == 0 {
+		err = fmt.Errorf("(IndexFile) index in bad state, TotalUnits is zero: node=%s, index=%s", io.Node, indextype)
+		return
+	}
+
+	// update current io, this is in-memory only
+	io.Indexes[indextype] = idxInfo
 	return
 }
 

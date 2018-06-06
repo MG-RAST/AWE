@@ -51,8 +51,8 @@ type JobMgr interface {
 	DeleteJobByUser(string, *user.User, bool) error
 	DeleteSuspendedJobsByUser(*user.User, bool) int
 	DeleteZombieJobsByUser(*user.User, bool) int
-	RecoverJob(string) error
-	RecoverJobs() error
+	RecoverJob(string, *Job) (bool, error)
+	RecoverJobs() (int, int, error)
 	FinalizeWorkPerf(Workunit_Unique_Identifier, string) error
 	SaveStdLog(Workunit_Unique_Identifier, string, string) error
 	GetReportMsg(Workunit_Unique_Identifier, string) (string, error)

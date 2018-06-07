@@ -1237,8 +1237,8 @@ func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
 			return
 		}
 		if !ok {
-			logger.Error("(ValidateDependants) predecessor task %s not found for task %s", preTaskStr, task.Id)
-			err = fmt.Errorf("(ValidateDependants) predecessor task %s not found for task %s", preTaskStr, task.Id)
+			reason = fmt.Sprintf("(ValidateDependants) predecessor task not found: task=%s, pretask=%s", task.Id, preTaskStr)
+			logger.Debug(3, reason)
 			return
 		}
 		preTaskState, xerr := preTask.GetState()
@@ -1276,7 +1276,8 @@ func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("(ValidateDependants) predecessor task %s not found for task %s", preTaskStr, task.Id)
+			reason = fmt.Sprintf("(ValidateDependants) predecessor task not found: task=%s, pretask=%s", task.Id, preTaskStr)
+			logger.Debug(3, reason)
 			return
 		}
 		preTaskState, xerr := preTask.GetState()

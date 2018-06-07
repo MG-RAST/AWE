@@ -37,11 +37,8 @@ type ServerMgr struct {
 	lastUpdate     time.Time
 	lastUpdateLock sync.RWMutex
 	TaskMap        TaskMap
-	taskIn         chan *Task //channel for receiving Task (JobController -> qmgr.Handler)
 	ajLock         sync.RWMutex
-	//sjLock         sync.RWMutex
-	actJobs map[string]*JobPerf
-	//susJobs        map[string]bool
+	actJobs        map[string]*JobPerf
 }
 
 func NewServerMgr() *ServerMgr {
@@ -58,9 +55,7 @@ func NewServerMgr() *ServerMgr {
 		},
 		lastUpdate: time.Now().Add(time.Second * -30),
 		TaskMap:    *NewTaskMap(),
-		taskIn:     make(chan *Task, 1024),
 		actJobs:    map[string]*JobPerf{},
-		//susJobs:    map[string]bool{},
 	}
 }
 
@@ -70,25 +65,6 @@ func (qm *ServerMgr) Lock()    {}
 func (qm *ServerMgr) Unlock()  {}
 func (qm *ServerMgr) RLock()   {}
 func (qm *ServerMgr) RUnlock() {}
-
-func (qm *ServerMgr) TaskHandle() { // TODO DEPRECATED
-	logger.Info("TaskHandle is starting")
-	for {
-		task := <-qm.taskIn
-
-		task_id, err := task.GetId("TaskHandle")
-		if err != nil {
-			logger.Error("(TaskHandle) %s", err.Error())
-			continue
-		}
-
-		logger.Debug(2, "(ServerMgr/TaskHandle) received task from channel taskIn, id=%s", task_id)
-		err = qm.addTask(task, nil)
-		if err != nil {
-			logger.Error("(ServerMgr/TaskHandle) qm.addTask failed: %s", err.Error())
-		}
-	}
-}
 
 func (qm *ServerMgr) UpdateQueueLoop() {
 	// TODO this may not be dynamic enough for small amounts of workunits, as they always have to wait
@@ -1215,8 +1191,7 @@ func getStdLogPathByWorkId(id Workunit_Unique_Identifier, logname string) (saved
 	return
 }
 
-//---task methods----
-// this is invoked after a job is uploaded and saved in mongo
+// this is trigggered by user action, either job POST or job resume / recover / resubmit
 func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 	logger.Debug(3, "(EnqueueTasksByJobId) starting")
 	job, err := GetJob(jobid)
@@ -1233,7 +1208,6 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 	}
 
 	task_len := len(tasks)
-
 	logger.Debug(3, "(EnqueueTasksByJobId) got %d tasks", task_len)
 
 	err = job.SetState(JOB_STAT_QUEUING, nil)
@@ -1257,9 +1231,12 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 			task.SetState(TASK_STAT_PENDING, true)
 		}
 
-		err = qm.addTask(task, job)
+		// add to qm.TaskMap
+		// updateQueue() process will actually enqueue the task
+		// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
+		err = qm.TaskMap.Add(task)
 		if err != nil {
-			err = fmt.Errorf("(EnqueueTasksByJobId) addTask failed: %s", err.Error())
+			err = fmt.Errorf("(EnqueueTasksByJobId) qm.TaskMap.Add() returns: %s", err.Error())
 			return
 		}
 	}
@@ -1279,99 +1256,7 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 	return
 }
 
-//---end of task methods
-
-func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
-	logger.Debug(3, "(addTask) got task")
-
-	var task_id Task_Unique_Identifier
-	task_id, err = task.GetId("addTask")
-	if err != nil {
-		err = fmt.Errorf("(addTask) GetId() returns: %s", err.Error())
-		return
-	}
-
-	var task_state string
-	task_state, err = task.GetState()
-	if err != nil {
-		err = fmt.Errorf("(addTask) task.GetState() returns: %s", err.Error())
-		return
-	}
-	logger.Debug(3, "(addTask) state of task: %s", task_state)
-
-	// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
-	var modified bool
-	modified, err = qm.TaskMap.Add(task)
-	if err != nil {
-		err = fmt.Errorf("(addTask) qm.TaskMap.Add() returns: %s", err.Error())
-		return
-	}
-
-	// don't enqueue completed or passed
-	if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
-		return
-	}
-
-	if modified {
-		task_state, err = task.GetState()
-		if err != nil {
-			err = fmt.Errorf("(addTask) task.GetState() returns: %s", err.Error())
-			return
-		}
-	}
-
-	var task_ready bool
-	task_ready, _, err = qm.isTaskReady(task) // makes the task ready
-	if err != nil {
-		err = fmt.Errorf("(addTask) qm.isTaskReady(task) returns: %s", err.Error())
-		return
-	}
-	if !task_ready {
-		return
-	}
-
-	logger.Debug(3, "(addTask) task %s is ready (invoking taskEnQueue)", task_id)
-	xerr := qm.taskEnQueue(task, job)
-	if xerr != nil {
-		logger.Error("(addTask) taskEnQueue returned error: %s", xerr.Error())
-		_ = task.SetState(TASK_STAT_SUSPEND, true)
-
-		var job_id string
-		job_id, err = task.GetJobId()
-		if err != nil {
-			return
-		}
-
-		var task_str string
-		task_str, err = task.String()
-		if err != nil {
-			err = fmt.Errorf("(addTask) task.String returned: %s", err.Error())
-			return
-		}
-		jerror := &JobError{
-			TaskFailed:  task_str,
-			ServerNotes: "failed in enqueuing task, err=" + xerr.Error(),
-			Status:      JOB_STAT_SUSPEND,
-		}
-
-		if err = qm.SuspendJob(job_id, jerror); err != nil {
-			logger.Error("(updateQueue:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
-		}
-		err = xerr
-		return
-	}
-
-	err = qm.updateJobTask(task) //task state INIT->PENDING
-	if err != nil {
-		err = fmt.Errorf("(addTask) updateJobTask returned: %s", err.Error())
-		//fmt.Println(err.Error())
-		return
-	}
-	logger.Debug(3, "(addTask) leaving...")
-	return
-}
-
-//check whether a pending task is ready to enqueue (dependent tasks are all done)
+// check whether a pending task is ready to enqueue (dependent tasks are all done)
 // task is not locked
 func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err error) {
 	ready = false
@@ -1531,14 +1416,13 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		}
 	}
 
-	if task_state == TASK_STAT_PENDING {
-		err = task.SetState(TASK_STAT_READY, true)
-		if err != nil {
-			return
-		}
+	// now we are ready
+	err = task.SetState(TASK_STAT_READY, true)
+	if err != nil {
+		return
 	}
-
 	ready = true
+
 	logger.Debug(3, "(isTaskReady) finished, task %s is ready", task_id)
 	return
 }
@@ -1751,12 +1635,15 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 					err = fmt.Errorf("(taskEnQueue) job.AddTask returns: %s", err.Error())
 					return
 				}
-				err = qm.addTask(sub_task, job)
+
+				// add to qm.TaskMap
+				// updateQueue() process will actually enqueue the task
+				// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
+				err = qm.TaskMap.Add(sub_task)
 				if err != nil {
-					err = fmt.Errorf("(taskEnQueue) (subtask: %s) qm.addTask returned: %s", sub_task_id, err.Error())
+					err = fmt.Errorf("(taskEnQueue) (subtask: %s) qm.TaskMap.Add() returns: %s", sub_task_id, err.Error())
 					return
 				}
-
 			}
 			task.Children = children // TODO lock
 			// break (trivial for loop)
@@ -2398,7 +2285,7 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 
 //---end of task methods---
 
-//update job info when a task in that job changed to a new state
+// update job info when a task in that job changed to a new state
 // update parent task in a subworkflow
 // this is invoked everytime a task changes state, but only when job_remainTasks==0 and state is not yet JOB_STAT_COMPLETED it will complete the job
 func (qm *ServerMgr) updateJobTask(task *Task) (err error) {

@@ -79,9 +79,11 @@ func main() {
 
 	//launch server
 	control := make(chan int)
-	go core.QMgr.TaskHandle()
+	go core.Ttl.Handle() // deletes expired jobs
 	go core.QMgr.ClientHandle()
+	go core.QMgr.NoticeHandle()
 	go core.QMgr.ClientChecker()
+	go core.QMgr.UpdateQueueLoop()
 	go launchAPI(control, conf.API_PORT)
 
 	var host string

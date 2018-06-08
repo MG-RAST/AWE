@@ -426,7 +426,8 @@ func ComposeProfile() (profile *core.Client, err error) {
 
 func DiscardWorkunit(id core.Workunit_Unique_Identifier) (err error) {
 	//fmt.Printf("try to discard workunit %s\n", id)
-	logger.Info("trying to discard workunit %s", id)
+	id_str, _ := id.String()
+	logger.Info("trying to discard workunit %s", id_str)
 	stage, ok, err := workmap.Get(id)
 	if err != nil {
 		return

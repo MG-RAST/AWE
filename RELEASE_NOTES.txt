@@ -1,3 +1,15 @@
+# v0.9.68
+
+- bug fixes
+- remove some depricated code
+- fix /queue resource
+- fix task reset
+- add recoverall option for admin use
+- update IO functions, reduce unecessary shock GETs
+- handle asynchronous shock actions
+    - node file and index locks
+    - wait on unlock (with timeout) during IO validation
+
 # v0.9.67
 
 - more CWL support

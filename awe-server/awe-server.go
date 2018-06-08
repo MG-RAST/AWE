@@ -248,7 +248,6 @@ func main() {
 	//launch server
 	control := make(chan int)
 	go core.Ttl.Handle() // deletes expired jobs
-	go core.QMgr.TaskHandle()
 	go core.QMgr.ClientHandle()
 	go core.QMgr.NoticeHandle()
 	go core.QMgr.ClientChecker()
@@ -285,9 +284,14 @@ func main() {
 		} else {
 			logger.Info("####### Recovering all unfinished jobs #######")
 		}
-		if err := core.QMgr.RecoverJobs(); err != nil {
+
+		recovered, total, err := core.QMgr.RecoverJobs()
+		if err != nil {
 			logger.Error("RecoverJobs error: %v\n", err)
 		}
+		fmt.Printf("%d total jobs from mongo\n", total)
+		fmt.Printf("%d unfinished jobs recovered\n", recovered)
+
 		logger.Info("Recovering done")
 		logger.Event(event.SERVER_RECOVER, "host="+host)
 	} else {

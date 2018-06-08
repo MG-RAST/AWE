@@ -30,15 +30,10 @@ func NewProxyMgr() *ProxyMgr {
 			workQueue:    NewWorkQueue(),
 			suspendQueue: false,
 			coReq:        make(chan CoReq),
-			//coAck:        make(chan CoAck),
-			feedback: make(chan Notice),
-			coSem:    make(chan int, 1), //non-blocking buffered channel
+			feedback:     make(chan Notice),
+			coSem:        make(chan int, 1), //non-blocking buffered channel
 		},
 	}
-}
-
-func (qm *ProxyMgr) TaskHandle() {
-	return
 }
 
 func (qm *ProxyMgr) ClientHandle() {
@@ -336,7 +331,7 @@ func (qm *ProxyMgr) DeleteZombieJobsByUser(u *user.User, full bool) (num int) {
 }
 
 //resubmit a suspended job if user has rights
-func (qm *ProxyMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err error) {
+func (qm *ProxyMgr) ResumeSuspendedJobByUser(id string, u *user.User) (recovered bool, err error) {
 	//Load job by id
 	return
 }
@@ -347,12 +342,12 @@ func (qm *ProxyMgr) ResubmitJob(id string) (err error) {
 }
 
 //recover job not in queue
-func (qm *ProxyMgr) RecoverJob(id string) (err error) {
+func (qm *ProxyMgr) RecoverJob(id string, job *Job) (err error) {
 	return
 }
 
 //recover jobs not completed before awe-server restarts
-func (qm *ProxyMgr) RecoverJobs() (err error) {
+func (qm *ProxyMgr) RecoverJobs() (recovered int, total int, err error) {
 	return
 }
 

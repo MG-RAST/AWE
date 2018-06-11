@@ -1580,7 +1580,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 					var awe_task *Task
 					awe_task, err = NewTask(job, task.Parent, scatter_task_name)
 					if err != nil {
-						err = fmt.Errorf("(CreateTasks) NewTask returned: %s", err.Error())
+						err = fmt.Errorf("(taskEnQueue) NewTask returned: %s", err.Error())
 						return
 					}
 
@@ -1594,6 +1594,9 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 					new_task_step = *cwl_step // this should make a copy
 					new_task_step.Id = new_task_step.Id + "_scatter" + strconv.Itoa(i)
 					new_task_step.Scatter = nil // []string{}
+
+					// make array into single element
+					// new_task_step.In[input_position] = element_obj
 
 					new_task_step.In[input_position].Source_index = i + 1 // +1 is needed to differentitae between no array and array index 0
 					awe_task.WorkflowStep = &new_task_step
@@ -1616,18 +1619,19 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 						err = fmt.Errorf("(taskEnQueue) job.AddTask returns: %s", err.Error())
 						return
 					}
-					err = qm.addTask(sub_task, job)
+
+					err = qm.TaskMap.Add(sub_task)
 					if err != nil {
-						err = fmt.Errorf("(taskEnQueue) (subtask: %d) qm.addTask returned: %s", i, err.Error())
+						err = fmt.Errorf("(taskEnQueue) qm.TaskMap.Add() returns: %s", err.Error())
 						return
 					}
 
+					err = sub_task.SetState(TASK_STAT_PENDING, true)
+					if err != nil {
+						return
+					}
 				}
 
-				err = task.SetState(TASK_STAT_QUEUED, true) // this refers to the fact that its scatter children have been enqueued.
-				if err != nil {
-					return
-				}
 				break
 			}
 
@@ -2055,10 +2059,12 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 			source_as_array, source_is_array := input.Source.([]interface{})
 
 			if source_is_array {
-				//fmt.Printf("source is a array: %s", spew.Sdump(input.Source))
-				cwl_array := cwl.Array{}
-				for _, src := range source_as_array { // usually only one
-					fmt.Println("src: " + spew.Sdump(src))
+				fmt.Printf("(GetStepInputObjects) source is a array: %s", spew.Sdump(input.Source))
+
+				if input.Source_index != 0 {
+					// from scatter step
+					// fmt.Printf("source is a array with Source_index: %s", spew.Sdump(input.Source))
+					src := source_as_array[input.Source_index]
 					var src_str string
 					var ok bool
 					src_str, ok = src.(string)
@@ -2077,38 +2083,63 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 						return // TODO allow optional ??
 					}
 
-					if link_merge_method == "merge_flattened" {
+					workunit_input_map[cmd_id] = job_obj
+				} else {
 
-						job_obj_type := job_obj.GetType()
-
-						if job_obj_type != cwl.CWL_array {
-							err = fmt.Errorf("(GetStepInputObjects) merge_flattened, expected array as input, but got %s", job_obj_type)
-							return
-						}
-
-						var an_array *cwl.Array
-						an_array, ok = job_obj.(*cwl.Array)
+					cwl_array := cwl.Array{}
+					for _, src := range source_as_array { // usually only one
+						fmt.Println("src: " + spew.Sdump(src))
+						var src_str string
+						var ok bool
+						src_str, ok = src.(string)
 						if !ok {
-							err = fmt.Errorf("got type: %s", reflect.TypeOf(job_obj))
+							err = fmt.Errorf("src is not a string")
 							return
 						}
-
-						for i, _ := range *an_array {
-							//source_object_array = append(source_object_array, (*an_array)[i])
-							cwl_array = append(cwl_array, (*an_array)[i])
+						var job_obj cwl.CWLType
+						job_obj, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str, true)
+						if err != nil {
+							err = fmt.Errorf("(GetStepInputObjects) (array) getCWLSource returns: %s", err.Error())
+							return
+						}
+						if !ok {
+							err = fmt.Errorf("(GetStepInputObjects) (array) getCWLSource did not find output \"%s\"", src_str)
+							return // TODO allow optional ??
 						}
 
-					} else {
-						//source_object_array = append(source_object_array, job_obj)
-						cwl_array = append(cwl_array, job_obj)
+						if link_merge_method == "merge_flattened" {
+
+							job_obj_type := job_obj.GetType()
+
+							if job_obj_type != cwl.CWL_array {
+								err = fmt.Errorf("(GetStepInputObjects) merge_flattened, expected array as input, but got %s", job_obj_type)
+								return
+							}
+
+							var an_array *cwl.Array
+							an_array, ok = job_obj.(*cwl.Array)
+							if !ok {
+								err = fmt.Errorf("got type: %s", reflect.TypeOf(job_obj))
+								return
+							}
+
+							for i, _ := range *an_array {
+								//source_object_array = append(source_object_array, (*an_array)[i])
+								cwl_array = append(cwl_array, (*an_array)[i])
+							}
+
+						} else {
+							//source_object_array = append(source_object_array, job_obj)
+							cwl_array = append(cwl_array, job_obj)
+						}
+						//cwl_array = append(cwl_array, obj)
 					}
-					//cwl_array = append(cwl_array, obj)
+
+					workunit_input_map[cmd_id] = &cwl_array
+
 				}
-
-				workunit_input_map[cmd_id] = &cwl_array
-
 			} else {
-				//fmt.Printf("source is NOT a array: %s", spew.Sdump(input.Source))
+				//fmt.Printf("(GetStepInputObjects) source is NOT a array: %s", spew.Sdump(input.Source))
 				var ok bool
 				source_as_string, ok = input.Source.(string)
 				if !ok {
@@ -2146,8 +2177,31 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 					fmt.Println("(GetStepInputObjects) got a input.Default")
 					spew.Dump(job_obj)
 				}
-				workunit_input_map[cmd_id] = job_obj
+				//workunit_input_map[cmd_id] = job_obj
+				//fmt.Printf("(GetStepInputObjects) Source_index: %d", input.Source_index)
+				if input.Source_index != 0 {
+					real_source_index := input.Source_index - 1
 
+					var job_obj_array_ptr *cwl.Array
+					job_obj_array_ptr, ok = job_obj.(*cwl.Array)
+					if !ok {
+						err = fmt.Errorf("(GetStepInputObjects) Array expected but got: %s", reflect.TypeOf(job_obj))
+						return
+					}
+					var job_obj_array cwl.Array
+					job_obj_array = *job_obj_array_ptr
+
+					if real_source_index >= len(job_obj_array) {
+						err = fmt.Errorf("(GetStepInputObjects) Source_index %d out of bounds, array length: %d", real_source_index, len(job_obj_array))
+						return
+					}
+
+					var element cwl.CWLType
+					element = job_obj_array[real_source_index]
+					workunit_input_map[cmd_id] = element
+				} else {
+					workunit_input_map[cmd_id] = job_obj
+				}
 			}
 
 		} else { //input.Source == nil
@@ -2513,6 +2567,60 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	if task_state == TASK_STAT_COMPLETED && task.WorkflowStep != nil {
 		// this task belongs to a subworkflow // TODO every task should belong to a subworkflow
 		logger.Debug(3, "(updateJobTask) task_state == TASK_STAT_COMPLETED && task.WorkflowStep != nil")
+
+		if task.Scatter_parent != nil {
+			scatter_parent_id := *task.Scatter_parent
+			var scatter_parent_task *Task
+			var ok bool
+			scatter_parent_task, ok, err = qm.TaskMap.Get(scatter_parent_id, true)
+			if err != nil {
+				return
+			}
+			if !ok {
+				err = fmt.Errorf("(updateJobTask) Scatter_Parent task %s not found", scatter_parent_id)
+				return
+			}
+
+			var children []*Task
+			children, err = scatter_parent_task.GetChildren(qm)
+			if err != nil {
+				return
+			}
+
+			scatter_complete := true
+			for _, child_task := range children {
+				var child_state string
+				child_state, err = child_task.GetState()
+				if err != nil {
+					return
+				}
+
+				if child_state != TASK_STAT_COMPLETED {
+					scatter_complete = false
+					break
+				}
+			}
+
+			if !scatter_complete {
+				// nothing to do here, scatter is not complete
+				return
+			}
+
+			// scatter_complete
+			ok, err = parent_task.Finalize() // make sure this is the last scatter task
+			if err != nil {
+				return
+			}
+
+			if !ok {
+				// somebody else is finalizing
+				return
+			}
+
+			// TODO collect output
+			// set TASK_STAT_COMPLETED
+
+		}
 
 		var subworkflow_remain_tasks int
 		subworkflow_remain_tasks, err = job.Decrease_WorkflowInstance_RemainTasks(parent_id_str)

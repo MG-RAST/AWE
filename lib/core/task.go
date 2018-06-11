@@ -3,15 +3,16 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/core/cwl"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/shock"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/shock"
 )
 
 const (
@@ -59,14 +60,15 @@ type TaskRaw struct {
 	ComputeTime         int                      `bson:"computetime" json:"computetime"`
 	UserAttr            map[string]interface{}   `bson:"userattr" json:"userattr"`
 	ClientGroups        string                   `bson:"clientgroups" json:"clientgroups"`
-	WorkflowStep        *cwl.WorkflowStep        `bson:"workflowStep" json:"workflowStep"` // CWL-only
-	StepOutputInterface interface{}              `bson:"stepOutput" json:"stepOutput"`     // CWL-only
-	StepInput           *cwl.Job_document        `bson:"-" json:"-"`                       // CWL-only
-	StepOutput          *cwl.Job_document        `bson:"-" json:"-"`                       // CWL-only
-	Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task"` // CWL-only, indicates if this is a scatter_task TODO: compare with TaskType ?
-	Children            []Task_Unique_Identifier `bson:"children" json:"children"`         // CWL-only, list of all children in a subworkflow task
-	Children_ptr        []*Task                  `bson:"-" json:"-"`                       // CWL-only
-	Finalizing          bool                     `bson:"-" json:"-"`                       // CWL-only, a lock mechanism
+	WorkflowStep        *cwl.WorkflowStep        `bson:"workflowStep" json:"workflowStep"`     // CWL-only
+	StepOutputInterface interface{}              `bson:"stepOutput" json:"stepOutput"`         // CWL-only
+	StepInput           *cwl.Job_document        `bson:"-" json:"-"`                           // CWL-only
+	StepOutput          *cwl.Job_document        `bson:"-" json:"-"`                           // CWL-only
+	Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task"`     // CWL-only, indicates if this is a scatter_task TODO: compare with TaskType ?
+	Scatter_parent      *Task_Unique_Identifier  `bson:"scatter_parent" json:"scatter_parent"` // CWL-only, points to scatter parent
+	Children            []Task_Unique_Identifier `bson:"children" json:"children"`             // CWL-only, list of all children in a subworkflow task
+	Children_ptr        []*Task                  `bson:"-" json:"-"`                           // CWL-only
+	Finalizing          bool                     `bson:"-" json:"-"`                           // CWL-only, a lock mechanism for subworkflows and scatter tasks
 }
 
 type Task struct {

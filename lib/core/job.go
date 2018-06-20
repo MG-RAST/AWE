@@ -237,7 +237,7 @@ func (job *Job) Set_WorkflowInstance_Outputs(id string, outputs cwl.Job_document
 	return
 }
 
-func (job *Job) Decrease_WorkflowInstance_RemainTasks(id string) (remain_tasks int, err error) {
+func (job *Job) Decrease_WorkflowInstance_RemainTasks(id string, task_str string) (remain_tasks int, err error) {
 	err = job.LockNamed("Decrease_WorkflowInstance_RemainTasks")
 	if err != nil {
 		return
@@ -255,6 +255,8 @@ func (job *Job) Decrease_WorkflowInstance_RemainTasks(id string) (remain_tasks i
 		err = fmt.Errorf("(Decrease_WorkflowInstance_RemainTasks) job.GetWorkflowInstance returned: %s", err.Error())
 		return
 	}
+
+	logger.Debug(3, "(Decrease_WorkflowInstance_RemainTasks) old workflow_instance.RemainTasks: %d (%s)", workflow_instance.RemainTasks, task_str)
 
 	remain_tasks = workflow_instance.RemainTasks - 1
 	if remain_tasks < 0 {

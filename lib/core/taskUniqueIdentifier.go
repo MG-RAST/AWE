@@ -35,7 +35,12 @@ func New_Task_Unique_Identifier_FromString(old_style_id string) (t Task_Unique_I
 
 	job_id := array[0]
 	if !IsValidUUID(job_id) {
-		err = fmt.Errorf("Cannot parse workunit identifier, job id is not valid uuid: %s", old_style_id)
+		err = fmt.Errorf("(New_Task_Unique_Identifier_FromString) Cannot parse workunit identifier, job id is not valid uuid: %s", old_style_id)
+		return
+	}
+
+	if IsValidUUID(array[1]) {
+		err = fmt.Errorf("(New_Task_Unique_Identifier_FromString) Cannot parse workunit identifier, second item should not be uuid: %s", old_style_id)
 		return
 	}
 

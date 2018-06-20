@@ -48,6 +48,24 @@ func (j *Job_document) Add(id string, value CWLType) (new_doc *Job_document) {
 	return
 }
 
+func (j *Job_document) Get(id string) (value CWLType, err error) {
+
+	array := []NamedCWLType(*j)
+
+	for i, _ := range array {
+		named_type := array[i]
+		if named_type.Id == id {
+			value = named_type.Value
+			return
+		}
+
+	}
+
+	err = fmt.Errorf("(Job_document/Get) Element %s not found.", id)
+
+	return
+}
+
 func (jd_map JobDocMap) GetArray() (result Job_document, err error) {
 	result = Job_document{}
 

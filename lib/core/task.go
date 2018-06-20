@@ -492,6 +492,26 @@ func (task *Task) GetOutput(filename string) (output *IO, err error) {
 	return
 }
 
+func (task *TaskRaw) SetChildren(qm *ServerMgr, children []Task_Unique_Identifier, writelock bool) (err error) {
+
+	if writelock {
+		err = task.LockNamed("SetChildren")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
+
+	err = dbUpdateJobTaskField(task.JobId, task.Id, "children", children)
+	if err != nil {
+		err = fmt.Errorf("(SetChildren) dbUpdateJobTaskField returned: %s", err.Error())
+		return
+	}
+
+	task.Children = children
+	return
+}
+
 func (task *TaskRaw) GetChildren(qm *ServerMgr) (children []*Task, err error) {
 	lock, err := task.RLockNamed("GetChildren")
 	if err != nil {
@@ -509,7 +529,9 @@ func (task *TaskRaw) GetChildren(qm *ServerMgr) (children []*Task, err error) {
 				return
 			}
 			if !ok {
-				err = fmt.Errorf("(GetChildren) child task %s not found in TaskMap")
+				taskid_str, _ := task_id.String()
+
+				err = fmt.Errorf("(GetChildren) child task %s not found in TaskMap", taskid_str)
 				return
 			}
 			children = append(children, child)

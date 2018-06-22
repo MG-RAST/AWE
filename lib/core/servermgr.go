@@ -2599,12 +2599,13 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		logger.Debug(3, "(updateJobTask) task.WorkflowStep != nil ")
 	}
 
-	// CWL Task completes
+	// (updateJobTask) CWL Task completes
 	if task_state == TASK_STAT_COMPLETED && task.WorkflowStep != nil {
 		// this task belongs to a subworkflow // TODO every task should belong to a subworkflow
 		logger.Debug(3, "(updateJobTask) task_state == TASK_STAT_COMPLETED && task.WorkflowStep != nil (%s)", task_str)
 
 		if task.Scatter_parent != nil {
+			// (updateJobTask) this is a scatter child
 			logger.Debug(3, "(updateJobTask) %s Scatter_parent exists", task_str)
 			scatter_parent_id := *task.Scatter_parent
 			var scatter_parent_task *Task
@@ -2618,6 +2619,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				return
 			}
 
+			// (updateJobTask) get scatter sibblings to see if they are done
 			var children []*Task
 			children, err = scatter_parent_task.GetChildren(qm)
 			if err != nil {
@@ -2655,7 +2657,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				return
 			}
 
-			// scatter_complete
+			// // (updateJobTask) scatter_complete
 			ok, err = scatter_parent_task.Finalize() // make sure this is the last scatter task
 			if err != nil {
 				return
@@ -2705,17 +2707,32 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			fmt.Println("scatter_parent_task.StepOutput:")
 			spew.Dump(scatter_parent_task.StepOutput)
 			//panic("scatter done")
+			count_a, _ := job.GetRemainTasks()
+			fmt.Printf("GetRemainTasks job A1: %d\n", count_a)
 
 			// set TASK_STAT_COMPLETED
-			err = scatter_parent_task.SetState(TASK_STAT_COMPLETED, true)
+			//err = scatter_parent_task.SetState(TASK_STAT_COMPLETED, true)
+			//if err != nil {
+			//		return
+			//	}
+
+			task = scatter_parent_task
+
+			err = task.SetState(TASK_STAT_COMPLETED, true)
 			if err != nil {
 				return
 			}
 
-			return
+			count_a, _ = job.GetRemainTasks()
+			fmt.Printf("GetRemainTasks job A2: %d\n", count_a)
+
 		} else {
 			logger.Debug(3, "(updateJobTask) %s  No Scatter_parent", task_str)
 		}
+
+		count, _ := job.GetRemainTasks()
+
+		fmt.Printf("GetRemainTasks job B: %d\n", count)
 
 		var subworkflow_remain_tasks int
 		subworkflow_remain_tasks, err = job.Decrease_WorkflowInstance_RemainTasks(parent_id_str, task_str)
@@ -2724,6 +2741,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			err = fmt.Errorf("(updateJobTask) WorkflowInstanceDecreaseRemainTasks returned: %s", err.Error())
 			return
 		}
+		fmt.Printf("GetRemainTasks subworkflow C: %d\n", subworkflow_remain_tasks)
 
 		logger.Debug(3, "(updateJobTask) TASK_STAT_COMPLETED  / remaining tasks for subworkflow %s: %d", task_str, subworkflow_remain_tasks)
 
@@ -3149,6 +3167,13 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			}
 		} else {
 
+			job_remainTasks, err = job.GetRemainTasks() // TODO deprecated !?
+			if err != nil {
+				return
+			}
+
+			fmt.Printf("GetRemainTasks job D: %d\n", job_remainTasks)
+
 			if job_remainTasks > 0 {
 				err = fmt.Errorf("(updateJobTask) Something is wrong, last subworkflow completes, but job_remainTasks > 0 , does not make sense")
 				return
@@ -3156,6 +3181,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 		}
 	}
+
+	fmt.Println("(updateJobTask) job_remainTasks: %s", job_remainTasks)
 
 	if job_remainTasks > 0 { //#####################################################################
 		return

@@ -686,6 +686,7 @@ func (task *TaskRaw) GetJobId() (id string, err error) {
 	return
 }
 
+// also updates job.RemainTasks , task.SetCompletedDate
 func (task *TaskRaw) SetState(new_state string, write_lock bool) (err error) {
 	if write_lock {
 		err = task.LockNamed("SetState")

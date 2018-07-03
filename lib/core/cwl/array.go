@@ -63,3 +63,10 @@ func (c *Array) String() string {
 
 	return string(a_byte[:])
 }
+
+func (c *Array) Len() int {
+
+	o := []CWLType(*c)
+
+	return len(o)
+}

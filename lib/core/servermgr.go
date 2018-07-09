@@ -1440,6 +1440,108 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 	return
 }
 
+func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_map cwl.JobDocMap, wfl *cwl.Workflow) (err error) {
+
+	if wfl == nil {
+		err = fmt.Errorf("(taskEnQueue) wfl == nil !?")
+		return
+	}
+
+	cwl_step := task.WorkflowStep
+	task_id := task.Task_Unique_Identifier
+
+	// find inputs
+	var task_input_array cwl.Job_document
+	var task_input_map cwl.JobDocMap
+
+	if task.StepInput == nil {
+		task_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, cwl_step) // returns map[string]CWLType
+		if err != nil {
+			return
+		}
+		task_input_array, err = task_input_map.GetArray()
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) task_input_map.GetArray returned: %s", err.Error())
+			return
+		}
+		task.StepInput = &task_input_array
+
+	} else {
+		task_input_array = *task.StepInput
+		task_input_map = task_input_array.GetMap()
+	}
+
+	if strings.HasSuffix(task.TaskName, "/") {
+		err = fmt.Errorf("(taskEnQueue) Slash at the end of TaskName!? %s", task.TaskName)
+		return
+	}
+
+	if strings.HasSuffix(task.Parent, "/") {
+		err = fmt.Errorf("(taskEnQueue) Slash at the end of Parent!? %s", task.Parent)
+		return
+	}
+
+	new_sub_workflow := ""
+
+	if len(task.Parent) > 0 {
+		new_sub_workflow = task.Parent + task.TaskName // TaskName starts with #, so we can split later
+	} else {
+		new_sub_workflow = task.TaskName
+	}
+
+	fmt.Printf("New Subworkflow: %s %s\n", task.Parent, task.TaskName)
+
+	// New WorkflowInstance defined input nd ouput of this subworkflow
+	err = job.AddWorkflowInstance(new_sub_workflow, task_input_array, len(wfl.Steps))
+	if err != nil {
+		return
+	}
+
+	// create tasks
+	var sub_workflow_tasks []*Task
+	sub_workflow_tasks, err = CreateTasks(job, new_sub_workflow, wfl.Steps)
+
+	err = job.IncrementRemainTasks(len(sub_workflow_tasks))
+	if err != nil {
+		return
+	}
+
+	children := []Task_Unique_Identifier{}
+	for i := range sub_workflow_tasks {
+		sub_task := sub_workflow_tasks[i]
+		_, err = sub_task.Init(job)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) sub_task.Init() returns: %s", err.Error())
+			return
+		}
+
+		var sub_task_id Task_Unique_Identifier
+		sub_task_id, err = sub_task.GetId("taskEnQueue." + strconv.Itoa(i))
+		if err != nil {
+			return
+		}
+		children = append(children, sub_task_id)
+
+		err = job.AddTask(sub_task)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) job.AddTask returns: %s", err.Error())
+			return
+		}
+
+		// add to qm.TaskMap
+		// updateQueue() process will actually enqueue the task
+		// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
+		err = qm.TaskMap.Add(sub_task)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) (subtask: %s) qm.TaskMap.Add() returns: %s", sub_task_id, err.Error())
+			return
+		}
+	}
+	task.SetChildren(qm, children, true)
+
+	return
+}
+
 func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map cwl.JobDocMap) (err error) {
 
 	// TODO store info that this has been evaluated
@@ -1831,7 +1933,6 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 		}
 	}
 
-	//break
 	return
 }
 
@@ -1893,209 +1994,91 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 			return
 		}
 
-		workflow_with_children := false
+		//workflow_with_children := false
 		var wfl *cwl.Workflow
 
 		// Detect task_type
 		for task_type == "" { // using for-loop to be able to break out
 
-			// check for scatter
+			// check for scatter // SCATTER is dominant. Scatter children can be Workflows.
 			if len(cwl_step.Scatter) != 0 {
 				task_type = TASK_TYPE_SCATTER
-				err = task.SetTaskType(task_type, true)
-				if err != nil {
-					return
-				}
 
-				break
-			}
-
-			// SCATTER is dominant. Scatter children can be Workflows.
-
-			// check if it is TASK_TYPE_WORKFLOW WITH children
-			if task.Children != nil && len(task.Children) != 0 {
-				// this task is a TASK_TYPE_WORKFLOW, but children have already been created
-				task_type = TASK_TYPE_WORKFLOW
-				err = task.SetTaskType(task_type, true)
-				if err != nil {
-					return
-				}
-				workflow_with_children = true
 				break
 			}
 
 			// get process to determine task_type
+
+			var process interface{}
 			p := cwl_step.Run
 			if p == nil {
 				err = fmt.Errorf("(taskEnQueue) process is nil !?")
 				return
 			}
 
-			var schemata []cwl.CWLType_Type
-			schemata, err = job.CWL_collection.GetSchemata()
-			if err != nil {
-				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
-				return
-			}
-
-			var process interface{}
-			process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add new_schemata
-			if err != nil {
-				err = fmt.Errorf("(taskEnQueue) cwl.GetProcess returned: %s (task_type=%s)", err.Error(), task_type)
-				return
-			}
-
-			// check if process is a workflow
-
-			var ok bool
-			wfl, ok = process.(*cwl.Workflow)
-
-			if !ok {
-				// this must be CommandLineTool or ExpressionTool (Scatter has already been excluded)
+			switch p.(type) {
+			case *cwl.Workflow:
+				task_type = TASK_TYPE_WORKFLOW
+			case *cwl.CommandLineTool:
 				task_type = TASK_TYPE_NORMAL
-				err = task.SetTaskType(task_type, true)
+			default:
+
+				var schemata []cwl.CWLType_Type
+				schemata, err = job.CWL_collection.GetSchemata()
 				if err != nil {
+					err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
 					return
 				}
-				break
+
+				process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add new_schemata
+				if err != nil {
+					err = fmt.Errorf("(taskEnQueue) cwl.GetProcess returned: %s (task_type=%s)", err.Error(), task_type)
+					return
+				}
+
+				// check if process is a workflow
+				var ok bool
+				wfl, ok = process.(*cwl.Workflow)
+
+				if ok {
+					task_type = TASK_TYPE_WORKFLOW
+				} else {
+					// this must be CommandLineTool or ExpressionTool (Scatter has already been excluded)
+					task_type = TASK_TYPE_NORMAL
+				}
+
 			}
 
-			// this must be a Sub-workflow !
-			task_type = TASK_TYPE_WORKFLOW
-			err = task.SetTaskType(task_type, true)
-			if err != nil {
-				return
-			}
 			break
+
 		} // end for
 
-		if task_type == TASK_TYPE_SCATTER {
+		err = task.SetTaskType(task_type, true)
+		if err != nil {
+			return
+		}
+
+		switch task_type {
+		case TASK_TYPE_SCATTER:
 			err = qm.taskEnQueueScatter(task, job, workflow_input_map)
 			if err != nil {
+				err = fmt.Errorf("(taskEnQueue) taskEnQueueScatter returned: %s", err.Error())
 				return
+			}
+
+		case TASK_TYPE_WORKFLOW:
+			if len(task.Children) == 0 {
+				err = qm.taskEnQueueWorkflow(task, job, workflow_input_map, wfl)
+				if err != nil {
+					err = fmt.Errorf("(taskEnQueue) taskEnQueueWorkflow returned: %s", err.Error())
+					return
+				}
+
 			}
 		}
-
-		new_sub_workflow := ""
-
-		if task_type == TASK_TYPE_WORKFLOW && (!workflow_with_children) {
-
-			if wfl == nil {
-				err = fmt.Errorf("(taskEnQueue) wfl == nil !?")
-				return
-			}
-
-			// find inputs
-			var task_input_array cwl.Job_document
-			var task_input_map cwl.JobDocMap
-
-			if task.StepInput == nil {
-				task_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, cwl_step) // returns map[string]CWLType
-				if err != nil {
-					return
-				}
-				task_input_array, err = task_input_map.GetArray()
-				if err != nil {
-					err = fmt.Errorf("(taskEnQueue) task_input_map.GetArray returned: %s", err.Error())
-					return
-				}
-				task.StepInput = &task_input_array
-
-			} else {
-				task_input_array = *task.StepInput
-				task_input_map = task_input_array.GetMap()
-			}
-
-			if strings.HasSuffix(task.TaskName, "/") {
-				err = fmt.Errorf("(taskEnQueue) Slash at the end of TaskName!? %s", task.TaskName)
-				return
-			}
-
-			if strings.HasSuffix(task.Parent, "/") {
-				err = fmt.Errorf("(taskEnQueue) Slash at the end of Parent!? %s", task.Parent)
-				return
-			}
-
-			if len(task.Parent) > 0 {
-				new_sub_workflow = task.Parent + task.TaskName // TaskName starts with #, so we can split later
-			} else {
-				new_sub_workflow = task.TaskName
-			}
-
-			fmt.Printf("New Subworkflow: %s %s\n", task.Parent, task.TaskName)
-
-			// New WorkflowInstance defined input nd ouput of this subworkflow
-			err = job.AddWorkflowInstance(new_sub_workflow, task_input_array, len(wfl.Steps))
-			if err != nil {
-				return
-			}
-
-			// create tasks
-			var sub_workflow_tasks []*Task
-			sub_workflow_tasks, err = CreateTasks(job, new_sub_workflow, wfl.Steps)
-
-			err = job.IncrementRemainTasks(len(sub_workflow_tasks))
-			if err != nil {
-				return
-			}
-
-			children := []Task_Unique_Identifier{}
-			for i := range sub_workflow_tasks {
-				sub_task := sub_workflow_tasks[i]
-				_, err = sub_task.Init(job)
-				if err != nil {
-					err = fmt.Errorf("(taskEnQueue) sub_task.Init() returns: %s", err.Error())
-					return
-				}
-
-				var sub_task_id Task_Unique_Identifier
-				sub_task_id, err = sub_task.GetId("taskEnQueue." + strconv.Itoa(i))
-				if err != nil {
-					return
-				}
-				children = append(children, sub_task_id)
-
-				err = job.AddTask(sub_task)
-				if err != nil {
-					err = fmt.Errorf("(taskEnQueue) job.AddTask returns: %s", err.Error())
-					return
-				}
-
-				// add to qm.TaskMap
-				// updateQueue() process will actually enqueue the task
-				// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
-				err = qm.TaskMap.Add(sub_task)
-				if err != nil {
-					err = fmt.Errorf("(taskEnQueue) (subtask: %s) qm.TaskMap.Add() returns: %s", sub_task_id, err.Error())
-					return
-				}
-			}
-			task.SetChildren(qm, children, true)
-
-			// break (trivial for loop)
-		}
-
-		// if task_type == TASK_TYPE_SCATTER {
-
-		// 	// scatterMethod: for more than one scattered input
-		// 	// - dotproduct
-		// 	// - nested_crossproduct
-		// 	// - flat_crossproduct
-
-		// 	if job == nil {
-		// 		err = fmt.Errorf("(taskEnQueue) job == nil ")
-		// 		return
-		// 	}
-
-		// 	if wfl == nil {
-		// 		err = fmt.Errorf("(taskEnQueue) wfl == nil ")
-		// 		return
-		// 	}
-
-		// }
 
 	} else {
-		logger.Debug(3, "(taskEnQueue) DO NOT have job.CWL_collection")
+		logger.Debug(3, "(taskEnQueue) DOES NOT have job.CWL_collection")
 	}
 
 	logger.Debug(2, "(taskEnQueue) task %s has type %s", task_id, task_type)

@@ -150,9 +150,9 @@ func main_wrapper() (err error) {
 	// read and pack workfow
 	if conf.SUBMITTER_PACK {
 
-		yamlstream, err = exec.Command("cwl-runner", "--pack", workflow_file).Output()
+		yamlstream, err = exec.Command("cwltool", "--pack", workflow_file).Output()
 		if err != nil {
-			err = fmt.Errorf("(main_wrapper) exec.Command returned: %s (%s %s %s)", err.Error(), "cwl-runner", "--pack", workflow_file)
+			err = fmt.Errorf("(main_wrapper) exec.Command returned: %s (%s %s %s)", err.Error(), "cwltool", "--pack", workflow_file)
 			return
 		}
 
@@ -168,7 +168,7 @@ func main_wrapper() (err error) {
 
 	// convert CWL to string
 	yaml_str := string(yamlstream[:])
-	//fmt.Printf("after cwl-runner --pack: \n%s\n", yaml_str)
+	//fmt.Printf("after cwltool --pack: \n%s\n", yaml_str)
 	var named_object_array cwl.Named_CWL_object_array
 	var cwl_version cwl.CWLVersion
 	var schemata []cwl.CWLType_Type
@@ -345,7 +345,7 @@ func main_wrapper() (err error) {
 	//panic("hhhh")
 	new_document_bytes = []byte(new_document_str)
 
-	// this needs to be a file so we can run "cwl-runner --pack""
+	// this needs to be a file so we can run "cwltool --pack""
 	var tmpfile *os.File
 	tmpfile, err = ioutil.TempFile(os.TempDir(), "awe-submitter_")
 	if err != nil {

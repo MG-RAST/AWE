@@ -1542,8 +1542,8 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 	return
 }
 
-func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map cwl.JobDocMap) (err error) {
-
+func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map cwl.JobDocMap) (task_already_finished bool, err error) {
+	task_already_finished = false
 	// TODO store info that this has been evaluated
 	cwl_step := task.WorkflowStep
 	task_id := task.Task_Unique_Identifier
@@ -1644,6 +1644,7 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 	}
 
 	if empty_array {
+
 		//task_already_finished = true
 
 		// create dummy Workunit
@@ -1659,250 +1660,147 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 			err = fmt.Errorf("(taskEnQueue) workunit.SetState failed: %s", err.Error())
 			return
 		}
+		task_already_finished = true
 
-		//break
+		return
 	}
 
 	// create tasks
 	var children []Task_Unique_Identifier
 	var new_scatter_tasks []*Task
 
-	if count_of_scatter_arrays == 1 {
-		scatter_input_array := cwl_step.Scatter[0]
+	// 1. Create template step with scatter inputs removed
+	//cwl_step := task.WorkflowStep
 
-		//scatter_array
-		for i := range scatter_input_array {
+	template_task_step := *cwl_step // this should make a copy , not nested copy
 
-			element_obj := scatter_input_array[i]
-			fmt.Printf("scatter_input_array: %d\n", i)
-			fmt.Printf("scatter_input_array: %s\n", reflect.TypeOf(element_obj))
+	fmt.Println("template_task_step inital:\n")
+	spew.Dump(template_task_step)
 
-			scatter_task_name := task_id.TaskName + "_scatter" + strconv.Itoa(i)
+	// remove scatter
+	var template_step_in []cwl.WorkflowStepInput
+	template_scatter_step_ins := make(map[string]cwl.WorkflowStepInput, count_of_scatter_arrays)
+	for i, _ := range cwl_step.In {
 
-			// create task
-			var awe_task *Task
-
-			logger.Debug(3, "New Task: %s and %s", task.Parent, scatter_task_name)
-
-			awe_task, err = NewTask(job, task.Parent, scatter_task_name)
-			if err != nil {
-				err = fmt.Errorf("(taskEnQueue) NewTask returned: %s", err.Error())
-				return
-			}
-
-			awe_task.Scatter_parent = &task.Task_Unique_Identifier
-			//awe_task.Scatter_task = true
-			_, err = awe_task.Init(job)
-			if err != nil {
-				err = fmt.Errorf("(taskEnQueue) awe_task.Init() returns: %s", err.Error())
-				return
-			}
-
-			// create step
-			var new_task_step cwl.WorkflowStep
-			var new_task_step_in []cwl.WorkflowStepInput
-			new_task_step = *cwl_step // this should make a copy , not nested copy
-
-			// copy inputs
-			for i, _ := range cwl_step.In {
-
-				i_input := cwl_step.In[i]
-				new_task_step_in = append([]cwl.WorkflowStepInput{i_input}, new_task_step_in...) // preprend i_input
-
-			}
-
-			new_task_step.In = new_task_step_in
-			new_task_step.Id = scatter_task_name
-
-			children = append(children, awe_task.Task_Unique_Identifier)
-
-			new_task_step.Scatter = nil // []string{}
-
-			// make array into single element
-			// new_task_step.In[input_position] = element_obj
-			input_position := scatter_positions[0]
-
-			//fmt.Printf("(taskEnQueue) write input_position=%d value=%d\n", input_position, i+1)
-			//fmt.Printf("(taskEnQueue) A Source_index: %d\n", new_task_step.In[input_position].Source_index)
-			new_task_step.In[input_position].Source_index = i + 1 // +1 is needed to differentitae between no array and array index 0
-			//fmt.Printf("(taskEnQueue) B Source_index: %d", new_task_step.In[input_position].Source_index)
-			awe_task.WorkflowStep = &new_task_step
-			//fmt.Println("---------------------------------")
-			spew.Dump(new_task_step)
-			new_scatter_tasks = append(new_scatter_tasks, awe_task)
-
+		i_input := cwl_step.In[i]
+		i_input_id_base := path.Base(i_input.Id)
+		fmt.Printf("i_input_id_base: %s\n", i_input_id_base)
+		_, ok := scatter_names_map[i_input_id_base] // skip scatter inputs
+		if ok {
+			template_scatter_step_ins[i_input_id_base] = i_input // save scatter inputs in template_scatter_step_ins
+			continue
 		}
+		template_step_in = append([]cwl.WorkflowStepInput{i_input}, template_step_in...) // preprend i_input
+
+	}
+
+	fmt.Println("template_scatter_step_ins:\n")
+	spew.Dump(template_scatter_step_ins)
+	if len(template_scatter_step_ins) == 0 {
+		err = fmt.Errorf("(taskEnQueue) no scatter tasks found")
+		return
+	}
+
+	// overwrite array, keep only non-scatter
+	template_task_step.In = template_step_in
+
+	fmt.Println("template_task_step without scatter:\n")
+	spew.Dump(template_task_step)
+
+	//if count_of_scatter_arrays == 1 {
+	scatter_type := ""
+	// dotproduct with 2 or more arrays
+	if scatter_method == "" || strings.ToLower(scatter_method) == "dotproduct" {
+		// requires that all arrays are the same length
+
+		scatter_type = "dot"
+
+	} else if strings.ToLower(scatter_method) == "nested_crossproduct" || strings.ToLower(scatter_method) == "flat_crossproduct" {
+		// arrays do not have to be the same length
+		// nested_crossproduct and flat_crossproduct differ only in hor results are merged
+
+		// defined counter for iteration over all combinations
+		scatter_type = "cross"
 	} else {
+		err = fmt.Errorf("(taskEnQueue) Scatter type %s unknown", scatter_method)
+		return
+	}
 
-		// dotproduct with 2 or more arrays
-		if scatter_method == "" || strings.ToLower(scatter_method) == "dotproduct" {
-			// requires that all arrays are the same length
+	counter := NewSetCounter(count_of_scatter_arrays, scatter_input_array_ptrs, scatter_type)
 
-			array_length := len(cwl_step.Scatter[0])
-			for i := 1; i < len(cwl_step.Scatter); i++ {
-				if len(cwl_step.Scatter[i]) != array_length {
-					err = fmt.Errorf("(taskEnQueue) dotproduct requires identical array lengths!")
-					return
-				}
-			}
-			err = fmt.Errorf("(taskEnQueue) dotproduct not supported!")
-			return
+	counter_running := true
 
-			for i := 0; i < array_length; i++ {
-				new_array := make([]cwl.CWL_object, count_of_scatter_arrays)
-				_ = new_array // TODO
-				for j := 0; j < count_of_scatter_arrays; j++ {
-					scatter_position := scatter_positions[j]
-					_ = scatter_position // TODO
+	for counter_running {
 
-				}
+		permutation_instance := ""
+		for i := 0; i < counter.NumberOfSets-1; i++ {
+			permutation_instance += strconv.Itoa(counter.Counter[i]) + "_"
+		}
+		permutation_instance += strconv.Itoa(counter.Counter[counter.NumberOfSets-1])
 
-			}
-		} else if strings.ToLower(scatter_method) == "nested_crossproduct" || strings.ToLower(scatter_method) == "flat_crossproduct" {
-			// arrays do not have to be the same length
-			// nested_crossproduct and flat_crossproduct differ only in hor results are merged
+		scatter_task_name := task_id.TaskName + "_scatter" + permutation_instance
 
-			// 1. Create template step with scatter inputs removed
-			cwl_step := task.WorkflowStep
+		// create task
+		var awe_task *Task
 
-			template_task_step := *cwl_step // this should make a copy , not nested copy
+		logger.Debug(3, "(taskEnQueue) New Task: parent: %s and scatter_task_name: %s", task.Parent, scatter_task_name)
 
-			fmt.Println("template_task_step inital:\n")
-			spew.Dump(template_task_step)
-
-			// remove scatter
-			var template_step_in []cwl.WorkflowStepInput
-			template_scatter_step_ins := make(map[string]cwl.WorkflowStepInput, count_of_scatter_arrays)
-			for i, _ := range cwl_step.In {
-
-				i_input := cwl_step.In[i]
-				i_input_id_base := path.Base(i_input.Id)
-				fmt.Printf("i_input_id_base: %s\n", i_input_id_base)
-				_, ok := scatter_names_map[i_input_id_base] // skip scatter inputs
-				if ok {
-					template_scatter_step_ins[i_input_id_base] = i_input // save scatter inputs in template_scatter_step_ins
-					continue
-				}
-				template_step_in = append([]cwl.WorkflowStepInput{i_input}, template_step_in...) // preprend i_input
-
-			}
-
-			fmt.Println("template_scatter_step_ins:\n")
-			spew.Dump(template_scatter_step_ins)
-			if len(template_scatter_step_ins) == 0 {
-				err = fmt.Errorf("(taskEnQueue) no scatter tasks found")
-				return
-			}
-
-			if len(template_scatter_step_ins) != 2 {
-				err = fmt.Errorf("(taskEnQueue) SOMETHING WENT WRONG (test specific to compliance test)") // TODO REMOVE THIS
-				return
-			}
-
-			// overwrite array, keep only non-scatter
-			template_task_step.In = template_step_in
-
-			fmt.Println("template_task_step without scatter:\n")
-			spew.Dump(template_task_step)
-
-			// defined counter for iteration over all combinations
-
-			counter := NewSetCounter(count_of_scatter_arrays, scatter_input_array_ptrs)
-
-			counter_running := true
-
-			for counter_running {
-
-				permutation_instance := ""
-				for i := 0; i < counter.NumberOfSets-1; i++ {
-					permutation_instance += strconv.Itoa(counter.Counter[i]) + "_"
-				}
-				permutation_instance += strconv.Itoa(counter.Counter[counter.NumberOfSets-1])
-
-				scatter_task_name := task_id.TaskName + "_scatter" + permutation_instance
-
-				// create task
-				var awe_task *Task
-
-				logger.Debug(3, "(taskEnQueue) New Task: parent: %s and scatter_task_name: %s", task.Parent, scatter_task_name)
-
-				awe_task, err = NewTask(job, task.Parent, scatter_task_name)
-				if err != nil {
-					err = fmt.Errorf("(taskEnQueue) NewTask returned: %s", err.Error())
-					return
-				}
-
-				awe_task.Scatter_parent = &task.Task_Unique_Identifier
-				//awe_task.Scatter_task = true
-				_, err = awe_task.Init(job)
-				if err != nil {
-					err = fmt.Errorf("(taskEnQueue) awe_task.Init() returns: %s", err.Error())
-					return
-				}
-
-				// create step
-				var new_task_step cwl.WorkflowStep
-				//var new_task_step_in []cwl.WorkflowStepInput
-				new_task_step = template_task_step // this should make a copy from template, (this is not a nested copy)
-
-				fmt.Println("new_task_step initial:\n")
-				spew.Dump(new_task_step)
-				//new_task_step.In = []cwl.WorkflowStepInput{}
-
-				// copy non-scatter inputs from template
-				//for i, _ := range template_task_step.In {
-
-				//	i_input := cwl_step.In[i]
-
-				//new_task_step_in = append([]cwl.WorkflowStepInput{i_input}, new_task_step_in...) // preprend i_input
-				//	new_task_step.In = append(new_task_step.In, i_input)
-
-				//}
-
-				//fmt.Println("new_task_step with non-scatter:\n")
-				//spew.Dump(new_task_step)
-
-				// copy scatter inputs
-
-				for input_name := range template_scatter_step_ins {
-					input_name_base := path.Base(input_name)
-					scatter_input, ok := template_scatter_step_ins[input_name_base]
-					if !ok {
-						err = fmt.Errorf("(taskEnQueue) %s not in template_scatter_step_ins", input_name_base)
-						return
-					}
-
-					input_position, ok := name_to_postiton[input_name_base] // input_position points to an array of inputs
-					if !ok {
-						err = fmt.Errorf("(taskEnQueue) %s not in name_to_postiton map", input_name_base)
-						return
-					}
-
-					//the_array := scatter_input_array_ptrs[input_position]
-
-					the_index := counter.Counter[input_position]
-					scatter_input.Source_index = the_index + 1
-					new_task_step.In = append(new_task_step.In, scatter_input)
-				}
-
-				fmt.Println("new_task_step with everything:\n")
-				spew.Dump(new_task_step)
-
-				new_task_step.Id = scatter_task_name
-				awe_task.WorkflowStep = &new_task_step
-				children = append(children, awe_task.Task_Unique_Identifier)
-
-				new_task_step.Scatter = nil // []string{}
-				new_scatter_tasks = append(new_scatter_tasks, awe_task)
-
-				counter_running = counter.Increment()
-			}
-
-		} else {
-			err = fmt.Errorf("(taskEnQueue) Scatter type %s unknown", scatter_method)
+		awe_task, err = NewTask(job, task.Parent, scatter_task_name)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) NewTask returned: %s", err.Error())
 			return
 		}
 
+		awe_task.Scatter_parent = &task.Task_Unique_Identifier
+		//awe_task.Scatter_task = true
+		_, err = awe_task.Init(job)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) awe_task.Init() returns: %s", err.Error())
+			return
+		}
+
+		// create step
+		var new_task_step cwl.WorkflowStep
+		//var new_task_step_in []cwl.WorkflowStepInput
+		new_task_step = template_task_step // this should make a copy from template, (this is not a nested copy)
+
+		fmt.Println("new_task_step initial:\n")
+		spew.Dump(new_task_step)
+
+		// copy scatter inputs
+
+		for input_name := range template_scatter_step_ins {
+			input_name_base := path.Base(input_name)
+			scatter_input, ok := template_scatter_step_ins[input_name_base]
+			if !ok {
+				err = fmt.Errorf("(taskEnQueue) %s not in template_scatter_step_ins", input_name_base)
+				return
+			}
+
+			input_position, ok := name_to_postiton[input_name_base] // input_position points to an array of inputs
+			if !ok {
+				err = fmt.Errorf("(taskEnQueue) %s not in name_to_postiton map", input_name_base)
+				return
+			}
+
+			//the_array := scatter_input_array_ptrs[input_position]
+
+			the_index := counter.Counter[input_position]
+			scatter_input.Source_index = the_index + 1
+			new_task_step.In = append(new_task_step.In, scatter_input)
+		}
+
+		fmt.Println("new_task_step with everything:\n")
+		spew.Dump(new_task_step)
+
+		new_task_step.Id = scatter_task_name
+		awe_task.WorkflowStep = &new_task_step
+		children = append(children, awe_task.Task_Unique_Identifier)
+
+		new_task_step.Scatter = nil // []string{}
+		new_scatter_tasks = append(new_scatter_tasks, awe_task)
+
+		counter_running = counter.Increment()
 	}
 
 	task.SetChildren(qm, children, true)
@@ -2060,7 +1958,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 		switch task_type {
 		case TASK_TYPE_SCATTER:
-			err = qm.taskEnQueueScatter(task, job, workflow_input_map)
+			task_already_finished, err = qm.taskEnQueueScatter(task, job, workflow_input_map)
 			if err != nil {
 				err = fmt.Errorf("(taskEnQueue) taskEnQueueScatter returned: %s", err.Error())
 				return

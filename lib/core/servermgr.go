@@ -574,10 +574,12 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		qm.workQueue.Delete(workid)
 	}()
 
-	err = client.Increment_total_completed()
-	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) client.Increment_total_completed returned: %s", err.Error())
-		return
+	if client != nil {
+		err = client.Increment_total_completed()
+		if err != nil {
+			err = fmt.Errorf("(handleWorkStatDone) client.Increment_total_completed returned: %s", err.Error())
+			return
+		}
 	}
 	var remain_work int
 	remain_work, err = task.IncrementRemainWork(-1, true)
@@ -693,19 +695,22 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		return
 	}
 
-	// *** Get Client
 	var client *Client
-	var ok bool
-	client, ok, err = qm.GetClient(clientid, true)
-	if err != nil {
-		return
-	}
-	if !ok {
-		err = fmt.Errorf("(handleNoticeWorkDelivered) client not found")
-		return
-	}
-	defer RemoveWorkFromClient(client, work_id)
+	client = nil
+	if clientid != "_internal" {
+		// *** Get Client
 
+		var ok bool
+		client, ok, err = qm.GetClient(clientid, true)
+		if err != nil {
+			return
+		}
+		if !ok {
+			err = fmt.Errorf("(handleNoticeWorkDelivered) client not found")
+			return
+		}
+		defer RemoveWorkFromClient(client, work_id)
+	}
 	// *** Get Task
 	var task *Task
 	var tok bool
@@ -1542,8 +1547,8 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 	return
 }
 
-func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map cwl.JobDocMap) (task_already_finished bool, err error) {
-	task_already_finished = false
+func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map cwl.JobDocMap) (notice *Notice, err error) {
+	notice = nil
 	// TODO store info that this has been evaluated
 	cwl_step := task.WorkflowStep
 	task_id := task.Task_Unique_Identifier
@@ -1642,33 +1647,23 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 
 		scatter_input_array_ptrs[i] = scatter_input_array_ptr
 	}
+	scatter_type := ""
+	// dotproduct with 2 or more arrays
+	if scatter_method == "" || strings.ToLower(scatter_method) == "dotproduct" {
+		// requires that all arrays are the same length
 
-	if empty_array {
+		scatter_type = "dot"
 
-		//task_already_finished = true
+	} else if strings.ToLower(scatter_method) == "nested_crossproduct" || strings.ToLower(scatter_method) == "flat_crossproduct" {
+		// arrays do not have to be the same length
+		// nested_crossproduct and flat_crossproduct differ only in hor results are merged
 
-		// create dummy Workunit
-		var workunit *Workunit
-		workunit, err = NewWorkunit(qm, task, 0, job)
-		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) Creation of fake workunitfailed: %s", err.Error())
-			return
-		}
-		qm.workQueue.Add(workunit)
-		err = workunit.SetState(WORK_STAT_CHECKOUT, "internal processing")
-		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) workunit.SetState failed: %s", err.Error())
-			return
-		}
-		task_already_finished = true
-
+		// defined counter for iteration over all combinations
+		scatter_type = "cross"
+	} else {
+		err = fmt.Errorf("(taskEnQueue) Scatter type %s unknown", scatter_method)
 		return
 	}
-
-	// create tasks
-	var children []Task_Unique_Identifier
-	var new_scatter_tasks []*Task
-
 	// 1. Create template step with scatter inputs removed
 	//cwl_step := task.WorkflowStep
 
@@ -1703,30 +1698,62 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 
 	// overwrite array, keep only non-scatter
 	template_task_step.In = template_step_in
+	counter := NewSetCounter(count_of_scatter_arrays, scatter_input_array_ptrs, scatter_type)
+
+	if empty_array {
+
+		//task_already_finished = true
+
+		// create dummy Workunit
+		var workunit *Workunit
+		workunit, err = NewWorkunit(qm, task, 0, job)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) Creation of fake workunitfailed: %s", err.Error())
+			return
+		}
+		qm.workQueue.Add(workunit)
+		err = workunit.SetState(WORK_STAT_CHECKOUT, "internal processing")
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) workunit.SetState failed: %s", err.Error())
+			return
+		}
+
+		// create empty arrays for output and return notice
+
+		notice = &Notice{}
+		notice.WorkerId = "_internal"
+		notice.Id = New_Workunit_Unique_Identifier(task.Task_Unique_Identifier, 0)
+		notice.Status = WORK_STAT_DONE
+		notice.ComputeTime = 0
+
+		notice.Results = &cwl.Job_document{}
+
+		for _, out := range cwl_step.Out {
+			//
+			out_name := out.Id
+			fmt.Printf("outname: %s\n", out_name)
+
+			new_array := &cwl.Array{}
+
+			//new_out := cwl.NewNamedCWLType(out_name, new_array)
+			spew.Dump(*notice.Results)
+			notice.Results = notice.Results.Add(out_name, new_array)
+			spew.Dump(*notice.Results)
+		}
+
+		fmt.Printf("len(notice.Results): %d\n", len(*notice.Results))
+
+		return
+	}
 
 	fmt.Println("template_task_step without scatter:\n")
 	spew.Dump(template_task_step)
 
 	//if count_of_scatter_arrays == 1 {
-	scatter_type := ""
-	// dotproduct with 2 or more arrays
-	if scatter_method == "" || strings.ToLower(scatter_method) == "dotproduct" {
-		// requires that all arrays are the same length
 
-		scatter_type = "dot"
-
-	} else if strings.ToLower(scatter_method) == "nested_crossproduct" || strings.ToLower(scatter_method) == "flat_crossproduct" {
-		// arrays do not have to be the same length
-		// nested_crossproduct and flat_crossproduct differ only in hor results are merged
-
-		// defined counter for iteration over all combinations
-		scatter_type = "cross"
-	} else {
-		err = fmt.Errorf("(taskEnQueue) Scatter type %s unknown", scatter_method)
-		return
-	}
-
-	counter := NewSetCounter(count_of_scatter_arrays, scatter_input_array_ptrs, scatter_type)
+	// create tasks
+	var children []Task_Unique_Identifier
+	var new_scatter_tasks []*Task
 
 	counter_running := true
 
@@ -1872,7 +1899,8 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		return
 	}
 
-	task_already_finished := false
+	var notice *Notice
+	notice = nil
 
 	if job.CWL_collection != nil {
 		logger.Debug(3, "(taskEnQueue) have job.CWL_collection")
@@ -1958,7 +1986,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 		switch task_type {
 		case TASK_TYPE_SCATTER:
-			task_already_finished, err = qm.taskEnQueueScatter(task, job, workflow_input_map)
+			notice, err = qm.taskEnQueueScatter(task, job, workflow_input_map)
 			if err != nil {
 				err = fmt.Errorf("(taskEnQueue) taskEnQueueScatter returned: %s", err.Error())
 				return
@@ -2042,18 +2070,13 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 	logger.Debug(2, "(taskEnQueue) leaving (task=%s)", task_id)
 
-	if task_already_finished {
+	if notice != nil {
 		// This task is not processed by a worker and thus no notice would be sent. For correct completion the server creates and sends an internal Notice.
 
-		notice := Notice{}
-		notice.WorkerId = "_internal"
-
-		notice.Status = WORK_STAT_COMPUTED
-		notice.ComputeTime = 0
 		//WorkerId    string                     `bson:"worker_id" json:"worker_id" mapstructure:"worker_id"`
 		//Results     *cwl.Job_document          `bson:"results" json:"results" mapstructure:"results"`                            // subset of tool_results with Shock URLs
 
-		qm.feedback <- notice
+		qm.feedback <- *notice
 
 	}
 

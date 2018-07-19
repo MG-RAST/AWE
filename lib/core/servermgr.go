@@ -1576,7 +1576,7 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 	for i, scatter_input_name := range cwl_step.Scatter {
 
 		scatter_input_name_base := path.Base(scatter_input_name)
-		fmt.Println("scatter_input detected: %s", scatter_input_name)
+		fmt.Printf("scatter_input detected: %s\n", scatter_input_name)
 
 		name_to_postiton[scatter_input_name_base] = i
 
@@ -1588,7 +1588,12 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 			if path.Base(workflow_step_input.Id) == scatter_input_name_base {
 				input_position = j
 				scatter_input_source := workflow_step_input.Source // TODO: other method than source might be required
-				scatter_input_source_str = scatter_input_source.(string)
+				var ok bool
+				scatter_input_source_str, ok = scatter_input_source.(string)
+				if !ok {
+					err = fmt.Errorf("(taskEnQueueScatter) scatter_input_source is not string (%s)", reflect.TypeOf(scatter_input_source))
+					return
+				}
 				break
 			}
 

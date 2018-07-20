@@ -726,15 +726,14 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		return
 	}
 
+	reason := ""
+
 	if notice.Results != nil { // TODO one workunit vs multiple !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		err = task.SetStepOutput(notice.Results, true)
 		if err != nil {
 			err = fmt.Errorf("(handleNoticeWorkDelivered) task.SetStepOutput returned: %s", err.Error())
 			return
 		}
-	} else {
-		err = fmt.Errorf("(handleNoticeWorkDelivered) notice.Results is empty !?")
-		return
 	}
 
 	// *** Get workunit
@@ -749,12 +748,11 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		return
 	}
 	work_state := work.State
+
 	if work_state != WORK_STAT_CHECKOUT && work_state != WORK_STAT_RESERVED {
 		err = fmt.Errorf("(handleNoticeWorkDelivered) workunit %s did not have state WORK_STAT_CHECKOUT or WORK_STAT_RESERVED (state is %s)", work_str, work_state)
 		return
 	}
-
-	reason := ""
 
 	if notice_status == WORK_STAT_SUSPEND {
 		reason = "workunit suspended by worker" // TODO add more info from worker

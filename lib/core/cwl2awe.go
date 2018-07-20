@@ -115,17 +115,25 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (j
 			return
 		}
 		if !has_type {
-			//if strings.ToLower(obj_type) != strings.ToLower(expected_types) {
-			fmt.Printf("object found: ")
-			spew.Dump(input_obj_ref)
 
-			//for _, elem := range *expected_types {
-			//	expected_types_str += "," + string(elem)
-			//}
-			//fmt.Printf("cwl_workflow.Inputs")
-			//spew.Dump(cwl_workflow.Inputs)
-			err = fmt.Errorf("(CWL_input_check) Input %s has type %s, but this does not match the expected types)", id, input_type)
-			return
+			if input_obj_ref.GetType() == cwl.CWL_null && input.Default != nil {
+				// work-around to make sure ExpressionTool can use Default if it gets Null
+
+			} else {
+
+				//if strings.ToLower(obj_type) != strings.ToLower(expected_types) {
+				fmt.Printf("object found: ")
+				spew.Dump(input_obj_ref)
+
+				expected_types_str := ""
+				for _, elem := range expected_types {
+					expected_types_str += "," + elem.Type2String()
+				}
+				//fmt.Printf("cwl_workflow.Inputs")
+				//spew.Dump(cwl_workflow.Inputs)
+				err = fmt.Errorf("(CWL_input_check) Input %s has type %s, but this does not match the expected types(%s)", id, input_type, expected_types_str)
+				return
+			}
 		}
 
 	}

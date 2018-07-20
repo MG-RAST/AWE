@@ -362,7 +362,7 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 		object_type := object.GetType()
 		if object_type == CWL_null {
 			ok = false
-			err = fmt.Errorf("(TypeIsCorrectSingle) Any type does not accept Null")
+			//err = fmt.Errorf("(TypeIsCorrectSingle) Any type does not accept Null")
 			return
 		}
 		ok = true

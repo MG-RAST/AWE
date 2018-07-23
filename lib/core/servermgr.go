@@ -2442,6 +2442,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 	}
 	fmt.Println("(GetStepInputObjects) workunit_input_map after first round:\n")
 	spew.Dump(workunit_input_map)
+
 	// 3. evaluate each ValueFrom field, update results
 
 	for _, input := range workflow_step.In {
@@ -2484,9 +2485,14 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 		js_self, ok := workunit_input_map[cmd_id]
 		if !ok {
-			err = fmt.Errorf("(GetStepInputObjects) workunit_input %s not found", cmd_id)
-			return
+			//err = fmt.Errorf("(GetStepInputObjects) workunit_input %s not found", cmd_id)
+			//return
+			logger.Warning("(GetStepInputObjects) workunit_input %s not found", cmd_id)
+			js_self = cwl.NewNull()
 		}
+
+		// TODO check for scatter
+		// https://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
 
 		if js_self == nil {
 			err = fmt.Errorf("(GetStepInputObjects) js_self == nil")
@@ -2512,14 +2518,14 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		//fmt.Printf("input.ValueFrom=%s\n", input.ValueFrom)
 
 		// evaluate $(...) ECMAScript expression
-		reg := regexp.MustCompile(`\$\([\w.]+\)`)
+		reg := regexp.MustCompile(`\$\(.+\)`)
 		// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
 
 		parsed := input.ValueFrom.String()
 		for {
 
 			matches := reg.FindAll([]byte(parsed), -1)
-			fmt.Printf("Matches: %d\n", len(matches))
+			fmt.Printf("()Matches: %d\n", len(matches))
 			if len(matches) == 0 {
 				break
 			}
@@ -2536,6 +2542,11 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 					return
 				}
 				fmt.Println(reflect.TypeOf(value))
+
+
+				if value.IsNumber() 
+
+				
 
 				value_str, xerr := value.ToString()
 				if xerr != nil {
@@ -2555,7 +2566,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
 
 		matches := reg.FindAll([]byte(parsed), -1)
-		fmt.Printf("Matches: %d\n", len(matches))
+		fmt.Printf("{}Matches: %d\n", len(matches))
 		if len(matches) == 0 {
 
 			workunit_input_map[cmd_id] = cwl.NewString(parsed)

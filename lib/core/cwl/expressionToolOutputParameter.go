@@ -10,7 +10,7 @@ import (
 
 // http://www.commonwl.org/v1.0/Workflow.html#ExpressionToolOutputParameter
 type ExpressionToolOutputParameter struct {
-	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Id, Label, SecondaryFiles, Format, Streamable, OutputBinding, Type
 }
 
 // type: CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>

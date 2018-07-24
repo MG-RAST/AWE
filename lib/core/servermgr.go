@@ -1368,7 +1368,10 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 				if wsi.Default != nil { // input is optional, anyway....
 					continue
 				}
-				reason = fmt.Sprintf("(isTaskReady) No Source and no default found")
+				if wsi.ValueFrom != "" { // input is optional, anyway....
+					continue
+				}
+				reason = fmt.Sprintf("(isTaskReady) No Source, Default or ValueFrom found")
 				return
 
 			} else {
@@ -2417,25 +2420,26 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 		} else { //input.Source == nil
 
-			if input.Default == nil {
-				err = fmt.Errorf("(GetStepInputObjects) sorry, source and Default are missing") // TODO StepInputExpressionRequirement
+			if input.Default == nil && input.ValueFrom == "" {
+				err = fmt.Errorf("(GetStepInputObjects) sorry, source, Default and ValueFrom are missing") // TODO StepInputExpressionRequirement
 				return
 			}
 
-			var default_value cwl.CWLType
-			default_value, err = cwl.NewCWLType(cmd_id, input.Default)
-			if err != nil {
-				err = fmt.Errorf("(GetStepInputObjects) NewCWLTypeFromInterface(input.Default) returns: %s", err.Error())
-				return
+			if input.Default != nil {
+				var default_value cwl.CWLType
+				default_value, err = cwl.NewCWLType(cmd_id, input.Default)
+				if err != nil {
+					err = fmt.Errorf("(GetStepInputObjects) NewCWLTypeFromInterface(input.Default) returns: %s", err.Error())
+					return
+				}
+
+				if default_value == nil {
+					err = fmt.Errorf("(GetStepInputObjects) default_value == nil ")
+					return
+				}
+
+				workunit_input_map[cmd_id] = default_value
 			}
-
-			if default_value == nil {
-				err = fmt.Errorf("(GetStepInputObjects) default_value == nil ")
-				return
-			}
-
-			workunit_input_map[cmd_id] = default_value
-
 		}
 		// TODO
 
@@ -2521,14 +2525,18 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		reg := regexp.MustCompile(`\$\(.+\)`)
 		// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
 
-		parsed := input.ValueFrom.String()
-		for {
+		parsed_str := input.ValueFrom.String()
+		//for {
 
-			matches := reg.FindAll([]byte(parsed), -1)
-			fmt.Printf("()Matches: %d\n", len(matches))
-			if len(matches) == 0 {
-				break
+		matches := reg.FindAll([]byte(parsed_str), -1)
+		fmt.Printf("()Matches: %d\n", len(matches))
+		if len(matches) > 0 {
+
+			concatenate := false
+			if len(matches) > 1 {
+				concatenate = true
 			}
+
 			for _, match := range matches {
 				expression_string := bytes.TrimPrefix(match, []byte("$("))
 				expression_string = bytes.TrimSuffix(expression_string, []byte(")"))
@@ -2538,39 +2546,89 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 				value, xerr := vm.Run(javascript_function)
 				if xerr != nil {
-					err = fmt.Errorf("Javascript complained: A) %s", xerr.Error())
+					err = fmt.Errorf("(GetStepInputObjects) Javascript complained: A) %s", xerr.Error())
 					return
 				}
 				fmt.Println(reflect.TypeOf(value))
 
+				//if value.IsNumber()
+				if concatenate {
+					value_str, xerr := value.ToString()
+					if xerr != nil {
+						err = fmt.Errorf("(GetStepInputObjects) Cannot convert value to string: %s", xerr.Error())
+						return
+					}
+					parsed_str = strings.Replace(parsed_str, string(match), value_str, 1)
+				} else {
 
-				if value.IsNumber() 
+					var value_returned cwl.CWLType
+					var exported_value interface{}
+					//https://godoc.org/github.com/robertkrimen/otto#Value.Export
+					exported_value, err = value.Export()
 
-				
+					if err != nil {
+						err = fmt.Errorf("(GetStepInputObjects)  value.Export() returned: %s", err.Error())
+						return
+					}
+					switch exported_value.(type) {
 
-				value_str, xerr := value.ToString()
-				if xerr != nil {
-					err = fmt.Errorf("Cannot convert value to string: %s", xerr.Error())
+					case bool:
+
+						value_returned = cwl.NewBooleanFrombool(exported_value.(bool))
+
+					case int:
+						value_returned = cwl.NewInt(exported_value.(int))
+					case float32:
+						value_returned = cwl.NewFloat(exported_value.(float32))
+					case float64:
+						fmt.Println("got a double")
+						value_returned = cwl.NewDouble(exported_value.(float64))
+					case uint64:
+						value_returned = cwl.NewInt(exported_value.(int))
+
+					case []interface{}: //Array
+						err = fmt.Errorf("(GetStepInputObjects) array not supported yet")
+						return
+					case interface{}: //Object
+
+						fmt.Println("record:")
+						spew.Dump(exported_value)
+						err = fmt.Errorf("(GetStepInputObjects) record not supported yet")
+						return
+					default:
+						err = fmt.Errorf("(GetStepInputObjects) js return type not supoported: (%s)", reflect.TypeOf(exported_value))
+						return
+					}
+
+					fmt.Println("value_returned:")
+					spew.Dump(value_returned)
+					workunit_input_map[cmd_id] = value_returned
 					return
 				}
-				parsed = strings.Replace(parsed, string(match), value_str, 1)
-			}
+			} // for matches
 
-		}
+			//if concatenate
+			workunit_input_map[cmd_id] = cwl.NewString(parsed_str)
 
-		fmt.Printf("parsed: %s\n", parsed)
+			return
+		} // if matches
+		//}
+
+		fmt.Printf("parsed_str: %s\n", parsed_str)
 
 		// evaluate ${...} ECMAScript function body
 		reg = regexp.MustCompile(`(?s)\${.+}`) // s-flag is needed to include newlines
 
 		// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
 
-		matches := reg.FindAll([]byte(parsed), -1)
+		matches = reg.FindAll([]byte(parsed_str), -1)
 		fmt.Printf("{}Matches: %d\n", len(matches))
 		if len(matches) == 0 {
+			workunit_input_map[cmd_id] = cwl.NewString(parsed_str)
+			return
+		}
 
-			workunit_input_map[cmd_id] = cwl.NewString(parsed)
-		} else if len(matches) == 1 {
+		if len(matches) == 1 {
 			match := matches[0]
 			expression_string := bytes.TrimPrefix(match, []byte("${"))
 			expression_string = bytes.TrimSuffix(expression_string, []byte("}"))
@@ -2596,10 +2654,11 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 			}
 
 			workunit_input_map[cmd_id] = value_cwl
-		} else {
-			err = fmt.Errorf("(NewWorkunit) ValueFrom contains more than one ECMAScript function body")
 			return
 		}
+
+		err = fmt.Errorf("(NewWorkunit) ValueFrom contains more than one ECMAScript function body")
+		return
 
 	}
 	return
@@ -3371,7 +3430,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		}
 	}
 
-	fmt.Println("(updateJobTask) job_remainTasks: %s", job_remainTasks)
+	fmt.Println("(updateJobTask) job_remainTasks: %d", job_remainTasks)
 
 	if job_remainTasks > 0 { //#####################################################################
 		return

@@ -171,7 +171,12 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputRecordSchemaFromInterface returned: %s", err.Error())
 				}
 			case "CommandOutput":
-				panic("CommandOutput not implemented yet")
+
+				result, err = NewCommandOutputRecordSchemaFromInterface(native, schemata)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType_Type) NewCommandOutputRecordSchemaFromInterface returned: %s", err.Error())
+				}
+
 			default:
 				err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
 				return

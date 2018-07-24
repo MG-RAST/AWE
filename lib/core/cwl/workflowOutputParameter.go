@@ -9,7 +9,7 @@ import (
 )
 
 type WorkflowOutputParameter struct {
-	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Id, Label, SecondaryFiles, Format, Streamable, OutputBinding, Type
 
 	Doc string `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
 	//OutputBinding  *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"` //TODO

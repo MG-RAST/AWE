@@ -13,6 +13,8 @@ type OutputParameter struct {
 	Type           []interface{}         `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"`
 }
 
+// provides Id, Label, SecondaryFiles, Format, Streamable, OutputBinding, Type
+
 func NormalizeOutputParameter(original_map map[string]interface{}) (err error) {
 
 	outputBinding, ok := original_map["outputBinding"]

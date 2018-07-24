@@ -9,13 +9,8 @@ import (
 )
 
 type CommandOutputParameter struct {
-	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	//Id             string                `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	//SecondaryFiles []Expression          `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	//Format         Expression            `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
-	//Streamable bool          `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
-	//Type []interface{} `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // []CommandOutputParameterType TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
-	//Label          string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Id, Label, SecondaryFiles, Format, Streamable, OutputBinding, Type
+
 	Description string `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty" mapstructure:"description,omitempty"`
 }
 

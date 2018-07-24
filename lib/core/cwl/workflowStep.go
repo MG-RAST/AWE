@@ -235,6 +235,51 @@ func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion) (sche
 	return
 }
 
+// func (ws *WorkflowStep) GetInputType(name string) (result CWLType_Type, err error) {
+
+// 	if ws.Run == nil {
+// 		err = fmt.Errorf("(WorkflowStep/GetInputType) ws.Run == nil ")
+// 		return
+// 	}
+
+// 	switch ws.Run.(type) {
+// 	case *CommandLineTool:
+
+// 		clt, ok := ws.Run.(*CommandLineTool)
+// 		if !ok {
+// 			err = fmt.Errorf("(WorkflowStep/GetInputType) type assertion error (%s)", reflect.TypeOf(ws.Run))
+// 			return
+// 		}
+// 		_ = clt
+
+// 		for _, input := range clt.Inputs {
+// 			if input.Id == name {
+// 				result = input.Type
+// 			}
+
+// 		}
+
+// 	case *ExpressionTool:
+// 		et, ok := ws.Run.(*ExpressionTool)
+// 		if !ok {
+// 			err = fmt.Errorf("(WorkflowStep/GetInputType) type assertion error (%s)", reflect.TypeOf(ws.Run))
+// 			return
+// 		}
+// 		_ = et
+// 	case *Workflow:
+// 		wf, ok := ws.Run.(*Workflow)
+// 		if !ok {
+// 			err = fmt.Errorf("(WorkflowStep/GetInputType) type assertion error (%s)", reflect.TypeOf(ws.Run))
+// 			return
+// 		}
+// 		_ = wf
+// 	default:
+// 		err = fmt.Errorf("(WorkflowStep/GetInputType) process type not supported (%s)", reflect.TypeOf(ws.Run))
+// 		return
+// 	}
+// 	return
+// }
+
 func GetProcess(original interface{}, collection *CWL_collection, CwlVersion CWLVersion, input_schemata []CWLType_Type) (process interface{}, schemata []CWLType_Type, err error) {
 
 	var p interface{}

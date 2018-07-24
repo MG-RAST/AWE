@@ -2,8 +2,6 @@ package cwl
 
 import (
 	"fmt"
-
-	"github.com/mitchellh/mapstructure"
 )
 
 type CommandOutputRecordSchema struct {
@@ -17,16 +15,63 @@ func (c *CommandOutputRecordSchema) Is_Type()            {}
 func (c *CommandOutputRecordSchema) Type2String() string { return "CommandOutputRecordSchema" }
 func (c *CommandOutputRecordSchema) GetId() string       { return "" }
 
-type CommandOutputRecordField struct{}
-
-func NewCommandOutputRecordSchema(v interface{}) (schema *CommandOutputRecordSchema, err error) {
+func NewCommandOutputRecordSchema() (schema *CommandOutputRecordSchema, err error) {
 
 	schema = &CommandOutputRecordSchema{}
-	err = mapstructure.Decode(v, schema)
+	// err = mapstructure.Decode(v, schema)
+	// if err != nil {
+	// 	err = fmt.Errorf("(NewCommandOutputRecordSchema) decode error: %s", err.Error())
+	// 	return
+	// }
+
+	return
+}
+
+func NewCommandOutputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Type) (cirs *CommandOutputRecordSchema, err error) {
+
+	native, err = MakeStringMap(native)
 	if err != nil {
-		err = fmt.Errorf("(NewCommandOutputRecordSchema) decode error: %s", err.Error())
 		return
 	}
 
+	switch native.(type) {
+	case map[string]interface{}:
+		native_map, ok := native.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("(NewCommandoutputRecordSchemaFromInterface) type switch error")
+			return
+		}
+
+		cirs, err = NewCommandOutputRecordSchema()
+		if err != nil {
+			err = fmt.Errorf("(NewCommandoutputRecordSchemaFromInterface) NewCommandOutputRecordSchema returns: %s", err.Error())
+			return
+		}
+
+		fields, has_fields := native_map["fields"]
+		if !has_fields {
+			err = fmt.Errorf("(NewCommandoutputRecordSchemaFromInterface) no fields")
+			return
+		}
+
+		var fields_array []interface{}
+		fields_array, ok = fields.([]interface{})
+		if !ok {
+			err = fmt.Errorf("(NewCommandoutputRecordSchemaFromInterface) fields is not array")
+			return
+		}
+
+		cirs.Fields, err = CreateCommandOutputRecordFieldArray(fields_array, schemata)
+		if err != nil {
+			err = fmt.Errorf("(NewCommandoutputRecordSchemaFromInterface) CreateInputRecordFieldArray returns: %s", err.Error())
+			return
+		}
+		return
+	default:
+		err = fmt.Errorf("(NewCommandoutputRecordSchemaFromInterface) error")
+
+	}
+
 	return
+
 }

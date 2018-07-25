@@ -360,7 +360,7 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 
 	if schema == CWL_Any {
 		object_type := object.GetType()
-		if object_type == CWL_null {
+		if object_type.Type2String() == string(CWL_null) {
 			ok = false
 			//err = fmt.Errorf("(TypeIsCorrectSingle) Any type does not accept Null")
 			return
@@ -403,13 +403,15 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 
 		object_type := object.GetType()
 
-		if schema == object_type {
+		//fmt.Printf("TypeIsCorrectSingle: \"%s\" \"%s\"\n", reflect.TypeOf(schema), reflect.TypeOf(object_type))
+
+		if schema.Type2String() == object_type.Type2String() {
 			ok = true
 			return
 		}
 
 		// check if provided double can be excepted as int:
-		if schema == CWL_int && object_type == CWL_double {
+		if schema.Type2String() == string(CWL_int) && object_type.Type2String() == string(CWL_double) {
 			// now check if object is int anyway
 			var d *Double
 			d, ok = object.(*Double)

@@ -8,6 +8,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+// https://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputParameter
 type CommandOutputParameter struct {
 	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Id, Label, SecondaryFiles, Format, Streamable, OutputBinding, Type
 
@@ -37,10 +38,14 @@ func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type) (o
 			return
 		}
 
+		// type:
+		// any of CWLType | stdout | stderr | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string | array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
 		COPtype, ok := original_map["type"]
 		if ok {
 			original_map["type"], err = NewCommandOutputParameterTypeArray(COPtype, schemata)
 			if err != nil {
+				fmt.Println("NewCommandOutputParameter:")
+				spew.Dump(original_map)
 				err = fmt.Errorf("(NewCommandOutputParameter) NewCommandOutputParameterTypeArray returns %s", err.Error())
 				return
 			}

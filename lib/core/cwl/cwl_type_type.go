@@ -117,7 +117,10 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 
 		object_type, has_type := native_map["type"]
 		if !has_type {
-			err = fmt.Errorf("(NewCWLType_Type) map object has not field \"type\"")
+			fmt.Println("(NewCWLType_Type) native_map:")
+			spew.Dump(native_map)
+
+			err = fmt.Errorf("(NewCWLType_Type) map object has not field \"type\" (context: %s)", context)
 			return
 		}
 		if object_type == "array" {

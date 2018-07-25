@@ -7,14 +7,14 @@ import (
 	//"reflect"
 )
 
-//https://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputRecordField
-type CommandOutputRecordField struct {
+//https://www.commonwl.org/v1.0/Workflow.html#OutputRecordField
+type OutputRecordField struct {
 	RecordField   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // name type, doc , label
 	OutputBinding *CommandOutputBinding                                                 `yaml:"outputBinding,omitempty" json:"outputBinding,omitempty" bson:"outputBinding,omitempty"`
 	//RecordField `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 }
 
-func NewCommandOutputRecordField(native interface{}, schemata []CWLType_Type) (crf *CommandOutputRecordField, err error) {
+func NewOutputRecordField(native interface{}, schemata []CWLType_Type) (crf *OutputRecordField, err error) {
 
 	native, err = MakeStringMap(native)
 	if err != nil {
@@ -27,12 +27,12 @@ func NewCommandOutputRecordField(native interface{}, schemata []CWLType_Type) (c
 		return
 	}
 
-	crf = &CommandOutputRecordField{}
+	crf = &OutputRecordField{}
 	crf.RecordField = *rf
 
 	native_map, ok := native.(map[string]interface{})
 	if !ok {
-		err = fmt.Errorf("(NewCommandOutputRecordField) type assertion error, got %s", reflect.TypeOf(native))
+		err = fmt.Errorf("(NewOutputRecordField) type assertion error, got %s", reflect.TypeOf(native))
 		return
 	}
 
@@ -41,7 +41,7 @@ func NewCommandOutputRecordField(native interface{}, schemata []CWLType_Type) (c
 
 		crf.OutputBinding, err = NewCommandOutputBinding(outputBinding)
 		if err != nil {
-			err = fmt.Errorf("(NewCommandOutputRecordField) NewCWLTypeArray returned: %s", err.Error())
+			err = fmt.Errorf("(NewOutputRecordField) NewCWLTypeArray returned: %s", err.Error())
 			return
 		}
 	}
@@ -49,14 +49,14 @@ func NewCommandOutputRecordField(native interface{}, schemata []CWLType_Type) (c
 	return
 }
 
-func CreateCommandOutputRecordFieldArray(native []interface{}, schemata []CWLType_Type) (irfa []CommandOutputRecordField, err error) {
+func CreateOutputRecordFieldArray(native []interface{}, schemata []CWLType_Type) (irfa []OutputRecordField, err error) {
 
 	for _, elem := range native {
 
-		var irf *CommandOutputRecordField
-		irf, err = NewCommandOutputRecordField(elem, schemata)
+		var irf *OutputRecordField
+		irf, err = NewOutputRecordField(elem, schemata)
 		if err != nil {
-			err = fmt.Errorf("(CreateCommandOutputRecordFieldArray) returned: %s", err.Error())
+			err = fmt.Errorf("(CreateOutputRecordFieldArray) NewOutputRecordField returned: %s", err.Error())
 			return
 
 		}

@@ -15,10 +15,6 @@ import (
 //	OutputArraySchema  *OutputArraySchema
 //}
 
-type OutputRecordSchema struct{}
-
-type OutputEnumSchema struct{}
-
 //type OutputArraySchema struct{}
 
 // field type in http://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
@@ -71,15 +67,25 @@ func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Typ
 
 		switch output_type {
 		case "record":
-			result = OutputRecordSchema{}
-			err = fmt.Errorf("record not correctly implemented")
+			result, err = NewOutputRecordSchemaFromInterface(original_map, schemata)
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflowOutputParameterType) NewOutputRecordSchemaFromInterface returned: %s", err.Error())
+			}
 			return
 		case "enum":
-			result = OutputEnumSchema{}
-			err = fmt.Errorf("enum not correctly implemented")
+			//result = OutputEnumSchema{}
+			//err = fmt.Errorf("enum not correctly implemented")
+
+			result, err = NewOutputEnumSchemaFromInterface(original_map)
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflowOutputParameterType) NewOutputEnumSchemaFromInterface returned: %s", err.Error())
+			}
 			return
 		case "array":
-			result = NewOutputArraySchema()
+			result, err = NewOutputArraySchemaFromInterface(original_map, schemata)
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflowOutputParameterType) NewOutputArraySchemaFromInterface returned: %s", err.Error())
+			}
 			return
 		default:
 			spew.Dump(original)

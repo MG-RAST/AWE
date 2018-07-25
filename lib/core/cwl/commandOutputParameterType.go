@@ -23,6 +23,14 @@ func NewCommandOutputParameterType(original interface{}, schemata []CWLType_Type
 	}
 
 	result, err = NewCWLType_Type(schemata, original, "CommandOutput")
+	if err != nil {
+
+		fmt.Println("NewCommandOutputParameterType:")
+		spew.Dump(original)
+
+		err = fmt.Errorf("(NewCommandOutputParameterType) NewCWLType_Type (context CommandOutput) returned: %s", err.Error())
+		return
+	}
 
 	return
 
@@ -41,9 +49,10 @@ func NewCommandOutputParameterTypeArray(original interface{}, schemata []CWLType
 	case map[string]interface{}:
 		logger.Debug(3, "[found map]")
 
-		copt, xerr := NewCommandOutputParameterType(original, schemata)
-		if xerr != nil {
-			err = xerr
+		var copt interface{}
+		copt, err = NewCommandOutputParameterType(original, schemata)
+		if err != nil {
+			err = fmt.Errorf("(NewCommandOutputParameterTypeArray) A) NewCommandOutputParameterType returned: %s", err.Error())
 			return
 		}
 		result_array = append(result_array, copt)
@@ -57,9 +66,14 @@ func NewCommandOutputParameterTypeArray(original interface{}, schemata []CWLType
 		for _, element := range original_array {
 
 			//spew.Dump(original)
-			copt, xerr := NewCommandOutputParameterType(element, schemata)
-			if xerr != nil {
-				err = xerr
+			var copt interface{}
+			copt, err = NewCommandOutputParameterType(element, schemata)
+			if err != nil {
+
+				fmt.Println("NewCommandOutputParameterTypeArray:")
+				spew.Dump(original_array)
+
+				err = fmt.Errorf("(NewCommandOutputParameterTypeArray) B) NewCommandOutputParameterType returned: %s", err.Error())
 				return
 			}
 			result_array = append(result_array, copt)
@@ -69,9 +83,10 @@ func NewCommandOutputParameterTypeArray(original interface{}, schemata []CWLType
 
 	case string:
 
-		copt, xerr := NewCommandOutputParameterType(original, schemata)
-		if xerr != nil {
-			err = xerr
+		var copt interface{}
+		copt, err = NewCommandOutputParameterType(original, schemata)
+		if err != nil {
+			err = fmt.Errorf("(NewCommandOutputParameterTypeArray) C) NewCommandOutputParameterType returned: %s", err.Error())
 			return
 		}
 		result_array = append(result_array, copt)

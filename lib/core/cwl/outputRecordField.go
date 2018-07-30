@@ -11,7 +11,6 @@ import (
 type OutputRecordField struct {
 	RecordField   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // name type, doc , label
 	OutputBinding *CommandOutputBinding                                                 `yaml:"outputBinding,omitempty" json:"outputBinding,omitempty" bson:"outputBinding,omitempty"`
-	//RecordField `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 }
 
 func NewOutputRecordField(native interface{}, schemata []CWLType_Type) (crf *OutputRecordField, err error) {
@@ -22,8 +21,9 @@ func NewOutputRecordField(native interface{}, schemata []CWLType_Type) (crf *Out
 	}
 
 	var rf *RecordField
-	rf, err = NewRecordFieldFromInterface(native, schemata)
+	rf, err = NewRecordFieldFromInterface(native, schemata, "Output")
 	if err != nil {
+		err = fmt.Errorf("(NewOutputRecordField) NewRecordFieldFromInterface returned: %s", err.Error())
 		return
 	}
 

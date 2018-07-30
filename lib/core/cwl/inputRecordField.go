@@ -13,7 +13,7 @@ type InputRecordField struct {
 
 func NewInputRecordField(native interface{}, schemata []CWLType_Type) (irf *InputRecordField, err error) {
 	var rf *RecordField
-	rf, err = NewRecordFieldFromInterface(native, schemata)
+	rf, err = NewRecordFieldFromInterface(native, schemata, "Input")
 	if err != nil {
 		err = fmt.Errorf("(NewInputRecordField) NewRecordFieldFromInterface returned: %s", err.Error())
 		return

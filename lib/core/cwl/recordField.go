@@ -14,7 +14,18 @@ type RecordField struct {
 	Label string `yaml:"label,omitempty" json:"label,omitempty" bson:"label,omitempty"`
 }
 
-func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type) (rf *RecordField, err error) {
+// used for :
+// InputRecordField
+//     CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
+// OutputRecordField
+//     CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
+
+// CommandInputRecordField
+//     CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
+// CommandOutputRecordField
+//     CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string | array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
+
+func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, context string) (rf *RecordField, err error) {
 
 	native, err = MakeStringMap(native)
 	if err != nil {
@@ -64,7 +75,7 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type) (r
 		the_type, has_type := native_map["type"]
 		if has_type {
 
-			rf.Type, err = NewCWLType_TypeArray(the_type, schemata, "Input", false)
+			rf.Type, err = NewCWLType_TypeArray(the_type, schemata, context, false)
 			if err != nil {
 				err = fmt.Errorf("(NewRecordFieldFromInterface) NewCWLTypeArray returned: %s", err.Error())
 				return

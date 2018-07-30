@@ -28,8 +28,8 @@ func (r *Record) GetId() string {
 }
 
 func (r *Record) SetId(id string) {
-	ids := NewString(id)
-	(*r)["id"] = ids
+	//ids := NewString(id)
+	//(*r)["id"] = ids
 }
 
 func (r *Record) GetType() CWLType_Type { return CWL_record }
@@ -86,7 +86,7 @@ func NewRecord(id string, native interface{}) (record Record, err error) {
 
 		_, has_id := native_map["id"]
 		if !has_id {
-			record["id"] = NewString(id)
+			//record["id"] = NewString(id)
 		}
 
 		return

@@ -104,6 +104,17 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion) (w *WorkflowSt
 			}
 		}
 
+		scatter, ok = v_map["scatter"]
+		if ok {
+			switch scatter.(type) {
+			case []string:
+
+			default:
+				err = fmt.Errorf("(NewWorkflowStep) scatter is not []string: (type: %s)", reflect.TypeOf(scatter))
+				return
+			}
+		}
+
 		hints, ok := v_map["hints"]
 		if ok {
 			v_map["hints"], schemata, err = CreateRequirementArray(hints)

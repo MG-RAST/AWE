@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
@@ -93,9 +94,9 @@ func NewCommandOutputParameterTypeArray(original interface{}, schemata []CWLType
 
 		return
 	default:
-		fmt.Printf("unknown type")
+		fmt.Printf("unknown type:\n")
 		spew.Dump(original)
-		err = fmt.Errorf("(NewCommandOutputParameterTypeArray) unknown type")
+		err = fmt.Errorf("(NewCommandOutputParameterTypeArray) type not supported (%s)", reflect.TypeOf(original))
 	}
 	return
 

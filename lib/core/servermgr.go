@@ -1573,7 +1573,9 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 	scatter_source_strings := make([]string, count_of_scatter_arrays) // an array of strings, where each string is a source pointing to an array
 
 	name_to_postiton := make(map[string]int, count_of_scatter_arrays)
-	// search for scatter source arrays (fill scatter_source_strings)
+
+	// search for scatter source arrays
+	// fill arrays scatter_positions and scatter_source_strings
 	for i, scatter_input_name := range cwl_step.Scatter {
 
 		scatter_input_name_base := path.Base(scatter_input_name)
@@ -1589,6 +1591,7 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 			if path.Base(workflow_step_input.Id) == scatter_input_name_base {
 				input_position = j
 				scatter_input_source := workflow_step_input.Source // TODO: other method than source might be required
+
 				var ok bool
 				scatter_input_source_str, ok = scatter_input_source.(string)
 				if !ok {
@@ -2239,6 +2242,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 	// 1. find all object source and Defaut
 	// 2. make a map copy to be used in javaqscript, as "inputs"
+	// INPUT_LOOP1
 	for input_i, input := range workflow_step.In {
 		// input is a WorkflowStepInput
 
@@ -2387,8 +2391,8 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 						err = fmt.Errorf("(GetStepInputObjects) could not use default: %s", err.Error())
 						return
 					}
-					fmt.Println("(GetStepInputObjects) got a input.Default")
-					spew.Dump(job_obj)
+					//fmt.Println("(GetStepInputObjects) got a input.Default")
+					//spew.Dump(job_obj)
 				}
 				//workunit_input_map[cmd_id] = job_obj
 				fmt.Printf("(GetStepInputObjects) Source_index: %d", input.Source_index)
@@ -2443,15 +2447,15 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		}
 		// TODO
 
-	}
-	fmt.Println("(GetStepInputObjects) workunit_input_map after first round:\n")
-	spew.Dump(workunit_input_map)
+	} // end of INPUT_LOOP1
+	//fmt.Println("(GetStepInputObjects) workunit_input_map after first round:\n")
+	//spew.Dump(workunit_input_map)
 
 	// 3. evaluate each ValueFrom field, update results
-
+VALUE_FROM_LOOP:
 	for _, input := range workflow_step.In {
 		if input.ValueFrom == "" {
-			continue
+			continue VALUE_FROM_LOOP
 		}
 
 		id := input.Id
@@ -2471,6 +2475,9 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		//if err != nil {
 		//	return
 		//}
+
+		fmt.Println("(GetStepInputObjects) workunit_input_map:")
+		spew.Dump(workunit_input_map)
 
 		var inputs_json []byte
 		inputs_json, err = json.Marshal(workunit_input_map)
@@ -2572,6 +2579,9 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 					}
 					switch exported_value.(type) {
 
+					case string:
+						value_returned = cwl.NewString(exported_value.(string))
+
 					case bool:
 
 						value_returned = cwl.NewBooleanFrombool(exported_value.(bool))
@@ -2603,18 +2613,18 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 					fmt.Println("value_returned:")
 					spew.Dump(value_returned)
 					workunit_input_map[cmd_id] = value_returned
-					return
+					continue VALUE_FROM_LOOP
 				}
 			} // for matches
 
 			//if concatenate
 			workunit_input_map[cmd_id] = cwl.NewString(parsed_str)
 
-			return
+			continue VALUE_FROM_LOOP
 		} // if matches
 		//}
 
-		fmt.Printf("parsed_str: %s\n", parsed_str)
+		//fmt.Printf("parsed_str: %s\n", parsed_str)
 
 		// evaluate ${...} ECMAScript function body
 		reg = regexp.MustCompile(`(?s)\${.+}`) // s-flag is needed to include newlines
@@ -2622,10 +2632,10 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
 
 		matches = reg.FindAll([]byte(parsed_str), -1)
-		fmt.Printf("{}Matches: %d\n", len(matches))
+		//fmt.Printf("{}Matches: %d\n", len(matches))
 		if len(matches) == 0 {
 			workunit_input_map[cmd_id] = cwl.NewString(parsed_str)
-			return
+			continue VALUE_FROM_LOOP
 		}
 
 		if len(matches) == 1 {
@@ -2654,13 +2664,22 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 			}
 
 			workunit_input_map[cmd_id] = value_cwl
-			return
+			continue VALUE_FROM_LOOP
 		}
 
 		err = fmt.Errorf("(NewWorkunit) ValueFrom contains more than one ECMAScript function body")
 		return
 
-	}
+	} // end of VALUE_FROM_LOOP
+
+	//fmt.Println("(GetStepInputObjects) workunit_input_map after ValueFrom round:\n")
+	//spew.Dump(workunit_input_map)
+
+	//for key, value := range workunit_input_map {
+	//	fmt.Printf("workunit_input_map: %s -> %s\n", key, value.String())
+
+	//}
+
 	return
 }
 

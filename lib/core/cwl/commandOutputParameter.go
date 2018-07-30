@@ -22,34 +22,35 @@ func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type) (o
 		return
 	}
 
+	var op *OutputParameter
+	op, err = NewOutputParameterFromInterface(original, schemata, "CommandOutput")
+	if err != nil {
+		err = fmt.Errorf("(NewCommandOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
+		return
+	}
+
 	switch original.(type) {
 
 	case map[string]interface{}:
 
-		original_map, ok := original.(map[string]interface{})
-		if !ok {
-			err = fmt.Errorf("(NewCommandOutputParameter) type error")
-			return
-		}
-
-		err = NormalizeOutputParameter(original_map)
-		if err != nil {
-			err = fmt.Errorf("(NewCommandOutputParameter) NormalizeOutputParameter returns %s", err.Error())
-			return
-		}
+		//original_map, ok := original.(map[string]interface{})
+		//if !ok {
+		//	err = fmt.Errorf("(NewCommandOutputParameter) type error")
+		//	return
+		//}
 
 		// type:
 		// any of CWLType | stdout | stderr | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string | array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
-		COPtype, ok := original_map["type"]
-		if ok {
-			original_map["type"], err = NewCommandOutputParameterTypeArray(COPtype, schemata)
-			if err != nil {
-				fmt.Println("NewCommandOutputParameter:")
-				spew.Dump(original_map)
-				err = fmt.Errorf("(NewCommandOutputParameter) NewCommandOutputParameterTypeArray returns %s", err.Error())
-				return
-			}
-		}
+		// COPtype, ok := original_map["type"]
+		// if ok {
+		// 	original_map["type"], err = NewCommandOutputParameterTypeArray(COPtype, schemata)
+		// 	if err != nil {
+		// 		fmt.Println("NewCommandOutputParameter:")
+		// 		spew.Dump(original_map)
+		// 		err = fmt.Errorf("(NewCommandOutputParameter) NewCommandOutputParameterTypeArray returns %s", err.Error())
+		// 		return
+		// 	}
+		// }
 
 		output_parameter = &CommandOutputParameter{}
 		err = mapstructure.Decode(original, output_parameter)
@@ -57,6 +58,8 @@ func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type) (o
 			err = fmt.Errorf("(NewCommandOutputParameter) mapstructure returned: %s", err.Error())
 			return
 		}
+
+		output_parameter.OutputParameter = *op
 	default:
 		spew.Dump(original)
 		err = fmt.Errorf("NewCommandOutputParameter, unknown type %s", reflect.TypeOf(original))

@@ -135,11 +135,11 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 
 		}
 
-		for _, r := range *injectedRequirements {
-			var requirements_array *[]Requirement
-			requirements_array = append(*requirements_array, r)
-
-		}
+		//for _, r := range *injectedRequirements {
+		//		var requirements_array *[]Requirement
+		//		requirements_array = append(*requirements_array, r)
+		//
+		//		}
 		v_map["requirements"] = &requirements_array
 
 		//spew.Dump(v_map["run"])

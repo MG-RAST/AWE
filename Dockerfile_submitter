@@ -23,7 +23,17 @@ RUN mkdir -p ${AWE} && \
   ./compile-submitter.sh
 
 # install cwl-runner with node.js
-RUN apk update ; apk add py-pip nodejs gcc python-dev musl-dev 
-RUN pip install --upgrade pip ; pip install cwl-runner
+RUN apk update ; apk add \
+  gcc \
+  git \
+  libxml2-dev \
+  libxslt-dev \
+  musl-dev \
+  nodejs \
+  python-dev \
+  py-libxml2 \
+  py-pip \
+  py-psutil   
+RUN pip install --upgrade pip ;  pip install lxml ; pip install cwl-runner
 
 

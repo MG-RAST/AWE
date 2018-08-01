@@ -16,7 +16,7 @@ type OutputParameter struct {
 	Format         Expression            `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
 	Streamable     bool                  `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
 	OutputBinding  *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"`
-	Type           []interface{}         `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"`
+	Type           interface{}           `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"`
 }
 
 // provides Id, Label, SecondaryFiles, Format, Streamable, OutputBinding, Type
@@ -82,17 +82,28 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 
 		outputParameter_type, ok := original_map["type"]
 		if ok {
-			var outputParameter_type_array []CWLType_Type
-			outputParameter_type_array, err = NewCWLType_TypeArray(outputParameter_type, schemata, context, false)
-			if err != nil {
-				err = fmt.Errorf("(NewOutputParameter) NewCWLType_TypeArray returns: %s", err.Error())
-				return
+
+			switch outputParameter_type.(type) {
+			case []interface{}:
+				var outputParameter_type_array []CWLType_Type
+				outputParameter_type_array, err = NewCWLType_TypeArray(outputParameter_type, schemata, context, false)
+				if err != nil {
+					err = fmt.Errorf("(NewOutputParameter) NewCWLType_TypeArray returned: %s", err.Error())
+					return
+				}
+				if len(outputParameter_type_array) == 0 {
+					err = fmt.Errorf("(NewOutputParameter) len(outputParameter_type_array) == 0")
+					return
+				}
+				original_map["type"] = outputParameter_type_array
+			default:
+				original_map["type"], err = NewCWLType_Type(schemata, outputParameter_type, context)
+				if err != nil {
+					err = fmt.Errorf("(NewOutputParameter) NewCWLType_Type returned: %s", err.Error())
+					return
+				}
 			}
-			if len(outputParameter_type_array) == 0 {
-				err = fmt.Errorf("(NewOutputParameter) len(outputParameter_type_array) == 0")
-				return
-			}
-			original_map["type"] = outputParameter_type_array
+
 		}
 
 		outputBinding, has_outputBinding := original_map["outputBinding"]
@@ -116,10 +127,10 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 		return
 	}
 
-	if len(output_parameter.Type) == 0 {
-		err = fmt.Errorf("(NewOutputParameter) len(output_parameter.Type) == 0")
-		return
-	}
+	//if len(output_parameter.Type) == 0 {
+	//	err = fmt.Errorf("(NewOutputParameter) len(output_parameter.Type) == 0")
+	//	return
+	//}
 
 	return
 }

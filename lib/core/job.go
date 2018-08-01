@@ -526,9 +526,9 @@ func (job *Job) Init() (changed bool, err error) {
 		if !ok {
 			err = fmt.Errorf("(job.Init) Workflow \"%s\" not found", entrypoint)
 
-			for key, _ := range collection.All {
-				fmt.Printf("key: " + key)
-			}
+			//for key, _ := range collection.All {
+			//	fmt.Printf("key: " + key)
+			//}
 			return
 		}
 

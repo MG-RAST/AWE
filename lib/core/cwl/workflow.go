@@ -96,6 +96,29 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion) (workflow_ptr *Wo
 			return
 		}
 
+		var requirement_array *[]Requirement
+		requirements, ok := object["requirements"]
+		if ok {
+			var schemata_new []CWLType_Type
+			//fmt.Println("---- Workflow (before CreateRequirementArray) ----")
+			//spew.Dump(object)
+			//var requirement_map map[string]interface{}
+			requirement_array, schemata_new, err = CreateRequirementArray(requirements)
+			if err != nil {
+				fmt.Println("---- Workflow ----")
+				spew.Dump(object)
+				fmt.Println("---- requirements ----")
+				spew.Dump(requirements)
+				err = fmt.Errorf("(NewWorkflow) CreateRequirementArray returned: %s", err.Error())
+				return
+			}
+			object["requirements"] = requirement_array
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
+			}
+
+		}
+
 		inputs, ok := object["inputs"]
 		if ok {
 			object["inputs"], err = NewInputParameterArray(inputs, schemata)
@@ -119,7 +142,7 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion) (workflow_ptr *Wo
 		if ok {
 			logger.Debug(3, "(NewWorkflow) Parsing steps in Workflow")
 			var schemata_new []CWLType_Type
-			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps, CwlVersion)
+			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps, CwlVersion, requirement_array)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) CreateWorkflowStepsArray returned: %s", err.Error())
 				return
@@ -131,25 +154,6 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion) (workflow_ptr *Wo
 			err = fmt.Errorf("(NewWorkflow) Workflow has no steps ")
 			//spew.Dump(object)
 			return
-		}
-
-		requirements, ok := object["requirements"]
-		if ok {
-			var schemata_new []CWLType_Type
-			//fmt.Println("---- Workflow (before CreateRequirementArray) ----")
-			//spew.Dump(object)
-			object["requirements"], schemata_new, err = CreateRequirementArray(requirements)
-			if err != nil {
-				fmt.Println("---- Workflow ----")
-				spew.Dump(object)
-				fmt.Println("---- requirements ----")
-				spew.Dump(requirements)
-				err = fmt.Errorf("(NewWorkflow) CreateRequirementArray returned: %s", err.Error())
-				return
-			}
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
-			}
 		}
 
 		//fmt.Printf("......WORKFLOW raw")

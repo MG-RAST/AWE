@@ -128,7 +128,7 @@ func main_wrapper() (err error) {
 	shock_client := shock.NewShockClient(conf.SHOCK_URL, shock_auth, false)
 
 	var upload_count int
-	upload_count, err = cache.ProcessIOData(job_doc, inputfile_path, "upload", shock_client)
+	upload_count, err = cache.ProcessIOData(job_doc, inputfile_path, inputfile_path, "upload", shock_client)
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
 		return
@@ -210,7 +210,7 @@ func main_wrapper() (err error) {
 			}
 
 			upload_count = 0
-			upload_count, err = cache.ProcessIOData(workflow, inputfile_path, "upload", shock_client)
+			upload_count, err = cache.ProcessIOData(workflow, inputfile_path, inputfile_path, "upload", shock_client)
 			if err != nil {
 				err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
 				return
@@ -438,7 +438,7 @@ func main_wrapper() (err error) {
 			var output_file_path string
 			output_file_path, err = os.Getwd()
 
-			_, err = cache.ProcessIOData(output_receipt, output_file_path, "download", nil)
+			_, err = cache.ProcessIOData(output_receipt, output_file_path, output_file_path, "download", nil)
 			if err != nil {
 				spew.Dump(output_receipt)
 				err = fmt.Errorf("(main_wrapper) ProcessIOData(for download) returned: %s", err.Error())

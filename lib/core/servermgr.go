@@ -1362,7 +1362,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		}
 		workflow_input_map := workflow_instance.Inputs.GetMap()
 
-		fmt.Println("WorkflowStep.Id: " + task.WorkflowStep.Id)
+		//fmt.Println("WorkflowStep.Id: " + task.WorkflowStep.Id)
 		for _, wsi := range task.WorkflowStep.In { // WorkflowStepInput
 			if wsi.Source == nil {
 				if wsi.Default != nil { // input is optional, anyway....
@@ -1495,7 +1495,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		new_sub_workflow = task.TaskName
 	}
 
-	fmt.Printf("New Subworkflow: %s %s\n", task.Parent, task.TaskName)
+	//fmt.Printf("New Subworkflow: %s %s\n", task.Parent, task.TaskName)
 
 	// New WorkflowInstance defined input nd ouput of this subworkflow
 	err = job.AddWorkflowInstance(new_sub_workflow, task_input_array, len(wfl.Steps))
@@ -1560,7 +1560,7 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 
 	for i, name := range cwl_step.Scatter {
 		name_base := path.Base(name)
-		fmt.Printf("scatter_names_map, name_base: %s\n", name_base)
+		//fmt.Printf("scatter_names_map, name_base: %s\n", name_base)
 		scatter_names_map[name_base] = i
 	}
 
@@ -1579,7 +1579,7 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 	for i, scatter_input_name := range cwl_step.Scatter {
 
 		scatter_input_name_base := path.Base(scatter_input_name)
-		fmt.Printf("scatter_input detected: %s\n", scatter_input_name)
+		//fmt.Printf("scatter_input detected: %s\n", scatter_input_name)
 
 		name_to_postiton[scatter_input_name_base] = i
 
@@ -1678,8 +1678,8 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 
 	template_task_step := *cwl_step // this should make a copy , not nested copy
 
-	fmt.Println("template_task_step inital:\n")
-	spew.Dump(template_task_step)
+	//fmt.Println("template_task_step inital:\n")
+	//spew.Dump(template_task_step)
 
 	// remove scatter
 	var template_step_in []cwl.WorkflowStepInput
@@ -1688,7 +1688,7 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 
 		i_input := cwl_step.In[i]
 		i_input_id_base := path.Base(i_input.Id)
-		fmt.Printf("i_input_id_base: %s\n", i_input_id_base)
+		//fmt.Printf("i_input_id_base: %s\n", i_input_id_base)
 		_, ok := scatter_names_map[i_input_id_base] // skip scatter inputs
 		if ok {
 			template_scatter_step_ins[i_input_id_base] = i_input // save scatter inputs in template_scatter_step_ins
@@ -3191,8 +3191,15 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				return
 			}
 
-			expected_types_raw := output.Type
+			var expected_types_raw []interface{}
 
+			switch output.Type.(type) {
+			case []interface{}:
+				expected_types_raw = output.Type.([]interface{})
+			default:
+				expected_types_raw = append(expected_types_raw, output.Type)
+				//expected_types_raw = []interface{output.Type}
+			}
 			expected_types := []cwl.CWLType_Type{}
 
 			is_optional := false
@@ -3449,7 +3456,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		}
 	}
 
-	fmt.Println("(updateJobTask) job_remainTasks: %d", job_remainTasks)
+	logger.Debug(3, "(updateJobTask) job_remainTasks: %d", job_remainTasks)
 
 	if job_remainTasks > 0 { //#####################################################################
 		return

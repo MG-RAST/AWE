@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
@@ -224,7 +225,7 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	return
 }
 
-func DownloadFile(file *cwl.File, download_path string) (err error) {
+func DownloadFile(file *cwl.File, download_path string, base_path string) (err error) {
 
 	if file.Location == "" {
 		err = fmt.Errorf("Location is empty")
@@ -256,8 +257,11 @@ func DownloadFile(file *cwl.File, download_path string) (err error) {
 	if err != nil {
 		return
 	}
-	file.Location = "file://" + file_path
-	file.Path = file_path
+
+	base_path = path.Join(strings.TrimSuffix(base_path, "/"), "/")
+
+	file.Location = "file://" + strings.TrimPrefix(strings.TrimPrefix(file_path, base_path), "/")
+	file.Path = ""
 
 	//fmt.Println("file:")
 	//spew.Dump(file)
@@ -265,7 +269,102 @@ func DownloadFile(file *cwl.File, download_path string) (err error) {
 	return
 }
 
-func ProcessIOData(native interface{}, path string, io_type string, shock_client *shock.ShockClient) (count int, err error) {
+func UploadDirectory(dir *cwl.Directory, current_path string, shock_client *shock.ShockClient) (count int, err error) {
+
+	//pwd, _ := os.Getwd()
+	//fmt.Printf("current working directory: %s\n", pwd)
+
+	dir_path_fixed := path.Join(current_path, dir.Path)
+	//fmt.Printf("dir_path_fixed: %s\n", dir_path_fixed)
+
+	current_path = strings.TrimSuffix(current_path, "/") + "/" // make sure it has esxactly one / at the end
+	//fmt.Printf("current_path: %s\n", current_path)
+
+	//current_path_abs := path.Join(pwd, current_path)
+	//fmt.Printf("current_path_abs: %s\n", current_path_abs)
+
+	var fi os.FileInfo
+
+	fi, err = os.Stat(dir_path_fixed)
+	if err != nil {
+		err = fmt.Errorf("(UploadDirectory) directory %s not found: %s", dir_path_fixed, err.Error())
+		return
+	}
+
+	if !fi.IsDir() {
+		err = fmt.Errorf("(UploadDirectory) %s is not a directory", dir_path_fixed)
+		return
+	}
+
+	glob_pattern := path.Join(dir_path_fixed, "*")
+
+	var matches []string
+	matches, err = filepath.Glob(glob_pattern)
+	if err != nil {
+		err = fmt.Errorf("(UploadDirectory) filepath.Glob returned: %s", err.Error())
+		return
+	}
+
+	//fmt.Printf("files matching: %d\n", len(matches))
+	count = 0
+	for _, match := range matches {
+		// match is relative to current working directory
+		//fmt.Printf("match : %s\n", match)
+
+		// match_rel is relative to directory dir
+		match_rel := strings.TrimPrefix(match, current_path)
+
+		//fmt.Printf("match_rel : %s\n", match_rel)
+
+		fi, err = os.Stat(match)
+		if err != nil {
+			err = fmt.Errorf("(UploadDirectory) os.Stat returned: %s", err.Error())
+			return
+		}
+
+		if fi.IsDir() {
+			subdir := cwl.NewDirectory()
+
+			subdir.Path = match_rel
+			subdir.Basename = path.Base(match)
+			var subcount int
+			subcount, err = UploadDirectory(subdir, current_path, shock_client)
+			if err != nil {
+				err = fmt.Errorf("(UploadDirectory) UploadDirectory returned: %s", err.Error())
+				return
+			}
+			subdir.Path = match
+
+			dir.Listing = append(dir.Listing, subdir)
+
+			count += subcount
+
+			continue
+		}
+
+		file := cwl.NewFile()
+		file.Path = match_rel
+		file.Basename = path.Base(match)
+		_, err = ProcessIOData(file, current_path, current_path, "upload", shock_client)
+		if err != nil {
+			err = fmt.Errorf("(UploadDirectory) ProcessIOData returned: %s", err.Error())
+			return
+		}
+		// fix path
+		file.Path = match
+		dir.Listing = append(dir.Listing, file)
+
+		count += 1
+	}
+	//fmt.Println("Listing:")
+	//for _, listing := range dir.Listing {
+	//	spew.Dump(listing.String())
+	//}
+
+	return
+}
+
+func ProcessIOData(native interface{}, current_path string, base_path string, io_type string, shock_client *shock.ShockClient) (count int, err error) {
 
 	//fmt.Printf("(processIOData) start\n")
 	//defer fmt.Printf("(processIOData) end\n")
@@ -292,7 +391,7 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 			//	fmt.Printf("location: %s\n", value_file.Location)
 			//}
 
-			sub_count, err = ProcessIOData(value, path, io_type, shock_client)
+			sub_count, err = ProcessIOData(value, current_path, base_path, io_type, shock_client)
 			if err != nil {
 				return
 			}
@@ -314,7 +413,7 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 			//id := value.Id
 			//fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
-			sub_count, err = ProcessIOData(job_doc[i], path, io_type, shock_client)
+			sub_count, err = ProcessIOData(job_doc[i], current_path, base_path, io_type, shock_client)
 			if err != nil {
 				return
 			}
@@ -325,7 +424,7 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 	case cwl.NamedCWLType:
 		named := native.(cwl.NamedCWLType)
 		var sub_count int
-		sub_count, err = ProcessIOData(named.Value, path, io_type, shock_client)
+		sub_count, err = ProcessIOData(named.Value, current_path, base_path, io_type, shock_client)
 		if err != nil {
 			return
 		}
@@ -340,7 +439,9 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 	case *cwl.Boolean:
 		return
 	case *cwl.File:
-
+		if !conf.SUBMITTER_QUIET {
+			logger.Debug(0, "Uploading file")
+		}
 		//fmt.Printf("found File\n")
 		file, ok := native.(*cwl.File)
 		if !ok {
@@ -349,7 +450,7 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 		}
 
 		if io_type == "upload" {
-			err = UploadFile(file, path, shock_client)
+			err = UploadFile(file, current_path, shock_client)
 			if err != nil {
 				err = fmt.Errorf("(ProcessIOData) UploadFile returned: %s (file: %s)", err.Error(), file)
 				return
@@ -358,7 +459,7 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 		} else {
 
 			// download
-			err = DownloadFile(file, path)
+			err = DownloadFile(file, current_path, base_path)
 			if err != nil {
 				err = fmt.Errorf("(ProcessIOData) DownloadFile returned: %s (file: %s)", err.Error(), file)
 				return
@@ -369,7 +470,7 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 			for i, _ := range file.SecondaryFiles {
 				value := file.SecondaryFiles[i]
 				var sub_count int
-				sub_count, err = ProcessIOData(value, path, io_type, shock_client)
+				sub_count, err = ProcessIOData(value, current_path, base_path, io_type, shock_client)
 				if err != nil {
 					err = fmt.Errorf("(ProcessIOData) (for SecondaryFiles) ProcessIOData returned: %s", err.Error())
 					return
@@ -393,7 +494,7 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 			//id := value.GetId()
 			//fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
-			sub_count, err = ProcessIOData((*array)[i], path, io_type, shock_client)
+			sub_count, err = ProcessIOData((*array)[i], current_path, base_path, io_type, shock_client)
 			if err != nil {
 				err = fmt.Errorf("(ProcessIOData) (for *cwl.Array) ProcessIOData returned: %s", err.Error())
 				return
@@ -404,7 +505,9 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 		return
 
 	case *cwl.Directory:
-
+		if !conf.SUBMITTER_QUIET {
+			logger.Debug(0, "Uploading directory")
+		}
 		//fmt.Printf("XXX *cwl.Directory\n")
 		dir, ok := native.(*cwl.Directory)
 		if !ok {
@@ -412,14 +515,40 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 			return
 		}
 
+		if dir.Listing == nil && dir.Location == "" {
+			err = fmt.Errorf("(ProcessIOData) cwl.Directory needs either Listing or Location")
+			return
+		}
+
 		if dir.Listing != nil {
+
+			path_to_download_to := current_path
+
+			dir_basename := dir.Basename
+			if dir_basename == "" {
+				dir_basename = path.Base(dir.Path)
+
+			}
+
+			if dir_basename == "" {
+				err = fmt.Errorf("(ProcessIOData) basename of subdir is empty")
+				return
+			}
+			path_to_download_to = path.Join(current_path, dir_basename)
+
+			err = os.MkdirAll(path_to_download_to, 0777)
+			if err != nil {
+				err = fmt.Errorf("(ProcessIOData) MkdirAll returned: %s", err.Error())
+				return
+			}
 
 			for k, _ := range dir.Listing {
 
 				value := dir.Listing[k]
 				//fmt.Printf("XXX *cwl.Directory, Listing %d (%s)\n", k, reflect.TypeOf(value))
+
 				var sub_count int
-				sub_count, err = ProcessIOData(value, path, io_type, shock_client)
+				sub_count, err = ProcessIOData(value, path_to_download_to, base_path, io_type, shock_client)
 				if err != nil {
 					err = fmt.Errorf("(ProcessIOData) ProcessIOData for Directory.Listing returned (value: %s): %s", value, err.Error())
 					return
@@ -427,12 +556,88 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 				count += sub_count
 
 			}
-
+			return
 		}
+
+		// case: dir.Listing == nil
+
 		logger.Debug(3, "dir.Path: %s", dir.Path)
 		if io_type == "upload" {
-			dir.Path = strings.TrimPrefix(dir.Path, path)
-			dir.Path = strings.TrimPrefix(dir.Path, "/")
+
+			if dir.Path == "" {
+				if dir.Location == "" {
+					err = fmt.Errorf("(ProcessIOData) Directory does not have Path or Location")
+					return
+				}
+
+				var location_url *url.URL
+				location_url, err = url.Parse(dir.Location)
+				if err != nil {
+					err = fmt.Errorf("(ProcessIOData) url.Parse returned: %s", err.Error())
+					return
+				}
+				//fmt.Println(location_url.Path)
+				//panic(location_url.Path)
+
+				if location_url.Scheme == "" {
+					location_url.Scheme = "file"
+				}
+				if location_url.Scheme == "file" {
+					dir.Path = location_url.Path
+					//spew.Dump(location_url)
+				}
+
+			}
+
+			//dir.Path = strings.TrimPrefix(dir.Path, path)
+			//dir.Path = strings.TrimPrefix(dir.Path, "/")
+
+			if dir.Path == "" {
+				err = fmt.Errorf("(ProcessIOData) Path empty")
+				return
+			}
+
+			//var matches []string
+			//matches, err = filepath.Glob(dir.Path)
+			//if err != nil {
+			//	err = fmt.Errorf("(ProcessIOData) Glob returned: %s", err.Error())
+			//	return
+			//}
+			var sub_count int
+
+			sub_count, err = UploadDirectory(dir, current_path, shock_client)
+			if err != nil {
+				err = fmt.Errorf("(ProcessIOData) UploadDirectory returned: %s", err.Error())
+				return
+			}
+			count += sub_count
+
+			//TODO Use recursive function to convert Location-based Directory into Listing-based one.
+
+			// fmt.Printf("dir_path_fixed: %s\n", dir_path_fixed)
+			// err = filepath.Walk(dir_path_fixed, func(path string, info os.FileInfo, err error) error {
+			// 	if err != nil {
+			// 		fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", dir, err)
+			// 		return err
+			// 	}
+			// 	if info.IsDir() && info.Name() == "skipping" {
+			// 		fmt.Printf("skipping a dir without errors: %+v \n", info.Name())
+			// 		return filepath.SkipDir
+			// 	}
+			// 	if info.IsDir() {
+			// 		fmt.Printf("visited dir: %q\n", path)
+			// 	} else {
+			// 		fmt.Printf("visited file: %q\n", path)
+			// 	}
+
+			// 	return nil
+			// })
+			// if err != nil {
+			// 	err = fmt.Errorf("(ProcessIOData) filepath.Walk returned: %s", err.Error())
+			// 	return
+			// }
+			// panic("done")
+
 		}
 		logger.Debug(3, "dir.Path: %s", dir.Path)
 
@@ -444,7 +649,7 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 		for _, value := range *rec {
 			//value := rec.Fields[k]
 			var sub_count int
-			sub_count, err = ProcessIOData(value, path, io_type, shock_client)
+			sub_count, err = ProcessIOData(value, current_path, base_path, io_type, shock_client)
 			if err != nil {
 				return
 			}
@@ -458,7 +663,7 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 		for _, value := range rec {
 			//value := rec.Fields[k]
 			var sub_count int
-			sub_count, err = ProcessIOData(value, path, io_type, shock_client)
+			sub_count, err = ProcessIOData(value, current_path, base_path, io_type, shock_client)
 			if err != nil {
 				return
 			}
@@ -480,7 +685,7 @@ func ProcessIOData(native interface{}, path string, io_type string, shock_client
 			if input.Default != nil {
 
 				var sub_count int
-				sub_count, err = ProcessIOData(input.Default, path, io_type, shock_client)
+				sub_count, err = ProcessIOData(input.Default, current_path, base_path, io_type, shock_client)
 				if err != nil {
 					return
 				}
@@ -514,7 +719,7 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 		//fmt.Printf("job_input1:\n")
 		//spew.Dump(job_input)
 
-		_, err = ProcessIOData(job_input, work_path, "download", nil)
+		_, err = ProcessIOData(job_input, work_path, work_path, "download", nil)
 		if err != nil {
 			err = fmt.Errorf("(MoveInputData) ProcessIOData(for download) returned: %s", err.Error())
 			return
@@ -701,7 +906,7 @@ func UploadOutputData(work *core.Workunit, shock_client *shock.ShockClient) (siz
 
 			//scs.Dump(work.CWL_workunit.Outputs)
 			var upload_count int
-			upload_count, err = ProcessIOData(work.CWL_workunit.Outputs, "", "upload", shock_client)
+			upload_count, err = ProcessIOData(work.CWL_workunit.Outputs, "", "", "upload", shock_client)
 			if err != nil {
 				err = fmt.Errorf("(UploadOutputData) ProcessIOData returned: %s", err.Error())
 			}

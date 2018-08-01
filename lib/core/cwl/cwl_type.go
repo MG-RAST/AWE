@@ -71,7 +71,7 @@ type CWLType interface {
 }
 
 type CWLType_Impl struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides: Is_CWL_object()
 	CWL_class_Impl  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class
 	Type            CWLType_Type                                                          `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 }
@@ -238,7 +238,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CWLType, err error) {
 	switch class {
 	case string(CWL_File):
-		file, yerr := NewFile(native)
+		file, yerr := NewFileFromInterface(native)
 		cwl_type = &file
 		if yerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewFile returned: %s", yerr.Error())

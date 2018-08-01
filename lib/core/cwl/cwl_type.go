@@ -71,7 +71,7 @@ type CWLType interface {
 }
 
 type CWLType_Impl struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides: Is_CWL_object()
 	CWL_class_Impl  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class
 	Type            CWLType_Type                                                          `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 }
@@ -238,7 +238,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CWLType, err error) {
 	switch class {
 	case string(CWL_File):
-		file, yerr := NewFile(native)
+		file, yerr := NewFileFromInterface(native)
 		cwl_type = &file
 		if yerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewFile returned: %s", yerr.Error())
@@ -360,9 +360,9 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 
 	if schema == CWL_Any {
 		object_type := object.GetType()
-		if object_type == CWL_null {
+		if object_type.Type2String() == string(CWL_null) {
 			ok = false
-			err = fmt.Errorf("(TypeIsCorrectSingle) Any type does not accept Null")
+			//err = fmt.Errorf("(TypeIsCorrectSingle) Any type does not accept Null")
 			return
 		}
 		ok = true
@@ -403,13 +403,15 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 
 		object_type := object.GetType()
 
-		if schema == object_type {
+		//fmt.Printf("TypeIsCorrectSingle: \"%s\" \"%s\"\n", reflect.TypeOf(schema), reflect.TypeOf(object_type))
+
+		if schema.Type2String() == object_type.Type2String() {
 			ok = true
 			return
 		}
 
 		// check if provided double can be excepted as int:
-		if schema == CWL_int && object_type == CWL_double {
+		if schema.Type2String() == string(CWL_int) && object_type.Type2String() == string(CWL_double) {
 			// now check if object is int anyway
 			var d *Double
 			d, ok = object.(*Double)

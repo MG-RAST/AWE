@@ -3,15 +3,16 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/core/cwl"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/shock"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/shock"
 )
 
 const (
@@ -59,14 +60,15 @@ type TaskRaw struct {
 	ComputeTime         int                      `bson:"computetime" json:"computetime"`
 	UserAttr            map[string]interface{}   `bson:"userattr" json:"userattr"`
 	ClientGroups        string                   `bson:"clientgroups" json:"clientgroups"`
-	WorkflowStep        *cwl.WorkflowStep        `bson:"workflowStep" json:"workflowStep"` // CWL-only
-	StepOutputInterface interface{}              `bson:"stepOutput" json:"stepOutput"`     // CWL-only
-	StepInput           *cwl.Job_document        `bson:"-" json:"-"`                       // CWL-only
-	StepOutput          *cwl.Job_document        `bson:"-" json:"-"`                       // CWL-only
-	Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task"` // CWL-only, indicates if this is a scatter_task TODO: compare with TaskType ?
-	Children            []Task_Unique_Identifier `bson:"children" json:"children"`         // CWL-only, list of all children in a subworkflow task
-	Children_ptr        []*Task                  `bson:"-" json:"-"`                       // CWL-only
-	Finalizing          bool                     `bson:"-" json:"-"`                       // CWL-only, a lock mechanism
+	WorkflowStep        *cwl.WorkflowStep        `bson:"workflowStep" json:"workflowStep"`     // CWL-only
+	StepOutputInterface interface{}              `bson:"stepOutput" json:"stepOutput"`         // CWL-only
+	StepInput           *cwl.Job_document        `bson:"-" json:"-"`                           // CWL-only
+	StepOutput          *cwl.Job_document        `bson:"-" json:"-"`                           // CWL-only
+	Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task"`     // CWL-only, indicates if this is a scatter_task TODO: compare with TaskType ?
+	Scatter_parent      *Task_Unique_Identifier  `bson:"scatter_parent" json:"scatter_parent"` // CWL-only, points to scatter parent
+	Children            []Task_Unique_Identifier `bson:"children" json:"children"`             // CWL-only, list of all children in a subworkflow task
+	Children_ptr        []*Task                  `bson:"-" json:"-"`                           // CWL-only
+	Finalizing          bool                     `bson:"-" json:"-"`                           // CWL-only, a lock mechanism for subworkflows and scatter tasks
 }
 
 type Task struct {
@@ -490,6 +492,26 @@ func (task *Task) GetOutput(filename string) (output *IO, err error) {
 	return
 }
 
+func (task *TaskRaw) SetChildren(qm *ServerMgr, children []Task_Unique_Identifier, writelock bool) (err error) {
+
+	if writelock {
+		err = task.LockNamed("SetChildren")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
+
+	err = dbUpdateJobTaskField(task.JobId, task.Id, "children", children)
+	if err != nil {
+		err = fmt.Errorf("(SetChildren) dbUpdateJobTaskField returned: %s", err.Error())
+		return
+	}
+
+	task.Children = children
+	return
+}
+
 func (task *TaskRaw) GetChildren(qm *ServerMgr) (children []*Task, err error) {
 	lock, err := task.RLockNamed("GetChildren")
 	if err != nil {
@@ -507,7 +529,9 @@ func (task *TaskRaw) GetChildren(qm *ServerMgr) (children []*Task, err error) {
 				return
 			}
 			if !ok {
-				err = fmt.Errorf("(GetChildren) child task %s not found in TaskMap")
+				taskid_str, _ := task_id.String()
+
+				err = fmt.Errorf("(GetChildren) child task %s not found in TaskMap", taskid_str)
 				return
 			}
 			children = append(children, child)
@@ -662,6 +686,7 @@ func (task *TaskRaw) GetJobId() (id string, err error) {
 	return
 }
 
+// also updates job.RemainTasks , task.SetCompletedDate
 func (task *TaskRaw) SetState(new_state string, write_lock bool) (err error) {
 	if write_lock {
 		err = task.LockNamed("SetState")
@@ -1237,8 +1262,8 @@ func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
 			return
 		}
 		if !ok {
-			logger.Error("(ValidateDependants) predecessor task %s not found for task %s", preTaskStr, task.Id)
-			err = fmt.Errorf("(ValidateDependants) predecessor task %s not found for task %s", preTaskStr, task.Id)
+			reason = fmt.Sprintf("(ValidateDependants) predecessor task not found: task=%s, pretask=%s", task.Id, preTaskStr)
+			logger.Debug(3, reason)
 			return
 		}
 		preTaskState, xerr := preTask.GetState()
@@ -1276,7 +1301,8 @@ func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("(ValidateDependants) predecessor task %s not found for task %s", preTaskStr, task.Id)
+			reason = fmt.Sprintf("(ValidateDependants) predecessor task not found: task=%s, pretask=%s", task.Id, preTaskStr)
+			logger.Debug(3, reason)
 			return
 		}
 		preTaskState, xerr := preTask.GetState()

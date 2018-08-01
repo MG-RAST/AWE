@@ -7,14 +7,25 @@ import (
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#InputRecordField
 type RecordField struct {
-	Name         string              `yaml:"name,omitempty" json:"name,omitempty" bson:"name,omitempty"`
-	Type         []CWLType_Type      `yaml:"type,omitempty" json:"type,omitempty" bson:"type,omitempty"` // CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
-	Doc          string              `yaml:"doc,omitempty" json:"doc,omitempty" bson:"doc,omitempty"`
-	InputBinding *CommandLineBinding `yaml:"inputBinding,omitempty" json:"inputBinding,omitempty" bson:"inputBinding,omitempty"`
-	Label        string              `yaml:"label,omitempty" json:"label,omitempty" bson:"label,omitempty"`
+	Name string         `yaml:"name,omitempty" json:"name,omitempty" bson:"name,omitempty"`
+	Type []CWLType_Type `yaml:"type,omitempty" json:"type,omitempty" bson:"type,omitempty"` // CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
+	Doc  string         `yaml:"doc,omitempty" json:"doc,omitempty" bson:"doc,omitempty"`
+
+	Label string `yaml:"label,omitempty" json:"label,omitempty" bson:"label,omitempty"`
 }
 
-func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type) (rf *RecordField, err error) {
+// used for :
+// InputRecordField
+//     CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
+// OutputRecordField
+//     CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
+
+// CommandInputRecordField
+//     CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
+// CommandOutputRecordField
+//     CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string | array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
+
+func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, context string) (rf *RecordField, err error) {
 
 	native, err = MakeStringMap(native)
 	if err != nil {
@@ -25,7 +36,7 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type) (r
 	case map[string]interface{}:
 		native_map, ok := native.(map[string]interface{})
 		if !ok {
-			err = fmt.Errorf("(NewInputRecordFieldFromInterface) type switch error")
+			err = fmt.Errorf("(NewRecordFieldFromInterface) type switch error")
 			return
 		}
 
@@ -36,7 +47,7 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type) (r
 			var ok bool
 			rf.Name, ok = name.(string)
 			if !ok {
-				err = fmt.Errorf("(NewInputRecordFieldFromInterface) type error for name (%s)", reflect.TypeOf(name))
+				err = fmt.Errorf("(NewRecordFieldFromInterface) type error for name (%s)", reflect.TypeOf(name))
 				return
 			}
 		}
@@ -46,7 +57,7 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type) (r
 			var ok bool
 			rf.Label, ok = label.(string)
 			if !ok {
-				err = fmt.Errorf("(NewInputRecordFieldFromInterface) type error for label (%s)", reflect.TypeOf(label))
+				err = fmt.Errorf("(NewRecordFieldFromInterface) type error for label (%s)", reflect.TypeOf(label))
 				return
 			}
 		}
@@ -56,7 +67,7 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type) (r
 			var ok bool
 			rf.Doc, ok = doc.(string)
 			if !ok {
-				err = fmt.Errorf("(NewInputRecordFieldFromInterface) type error for doc (%s)", reflect.TypeOf(doc))
+				err = fmt.Errorf("(NewRecordFieldFromInterface) type error for doc (%s)", reflect.TypeOf(doc))
 				return
 			}
 		}
@@ -64,28 +75,18 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type) (r
 		the_type, has_type := native_map["type"]
 		if has_type {
 
-			rf.Type, err = NewCWLType_TypeArray(the_type, schemata, "Input", false)
+			rf.Type, err = NewCWLType_TypeArray(the_type, schemata, context, false)
 			if err != nil {
-				err = fmt.Errorf("(NewInputRecordFieldFromInterface) NewCWLTypeArray returned: %s", err.Error())
+				err = fmt.Errorf("(NewRecordFieldFromInterface) NewCWLTypeArray returned: %s", err.Error())
 				return
 			}
 
-		}
-
-		inputBinding, has_inputBinding := native_map["inputBinding"]
-		if has_inputBinding {
-
-			rf.InputBinding, err = NewCommandLineBinding(inputBinding)
-			if err != nil {
-				err = fmt.Errorf("(NewInputRecordFieldFromInterface) NewCWLTypeArray returned: %s", err.Error())
-				return
-			}
 		}
 
 		return
 
 	default:
-		err = fmt.Errorf("(NewInputRecordFieldFromInterface) unknown type")
+		err = fmt.Errorf("(NewRecordFieldFromInterface) unknown type")
 	}
 
 	return

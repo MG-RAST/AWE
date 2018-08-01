@@ -24,7 +24,7 @@ type WorkflowStep struct {
 	ScatterMethod string               `yaml:"scatterMethod,omitempty" bson:"scatterMethod,omitempty" json:"scatterMethod,omitempty" mapstructure:"scatterMethod,omitempty"` // ScatterFeatureRequirement
 }
 
-func NewWorkflowStep(original interface{}, CwlVersion CWLVersion) (w *WorkflowStep, schemata []CWLType_Type, err error) {
+func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequirements *[]Requirement) (w *WorkflowStep, schemata []CWLType_Type, err error) {
 	var step WorkflowStep
 
 	logger.Debug(3, "NewWorkflowStep starting")
@@ -69,6 +69,52 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion) (w *WorkflowSt
 			}
 		}
 
+		scatter, ok := v_map["scatter"]
+		if ok {
+			switch scatter.(type) {
+			case string:
+				var scatter_str string
+
+				scatter_str, ok = scatter.(string)
+				if !ok {
+					err = fmt.Errorf("(NewWorkflowStep) expected string")
+					return
+				}
+				v_map["scatter"] = []string{scatter_str}
+
+			case []string:
+				// all ok
+			case []interface{}:
+				scatter_array := scatter.([]interface{})
+				scatter_string_array := []string{}
+				for _, element := range scatter_array {
+					var element_str string
+					element_str, ok = element.(string)
+					if !ok {
+						err = fmt.Errorf("(NewWorkflowStep) Element of scatter array is not string (%s)", reflect.TypeOf(element))
+						return
+					}
+					scatter_string_array = append(scatter_string_array, element_str)
+				}
+				v_map["scatter"] = scatter_string_array
+
+			default:
+				err = fmt.Errorf("(NewWorkflowStep) scatter has unsopported type: %s", reflect.TypeOf(scatter))
+				return
+			}
+		}
+
+		scatter, ok = v_map["scatter"]
+		if ok {
+			switch scatter.(type) {
+			case []string:
+
+			default:
+				err = fmt.Errorf("(NewWorkflowStep) scatter is not []string: (type: %s)", reflect.TypeOf(scatter))
+				return
+			}
+		}
+
 		hints, ok := v_map["hints"]
 		if ok {
 			v_map["hints"], schemata, err = CreateRequirementArray(hints)
@@ -78,14 +124,24 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion) (w *WorkflowSt
 			}
 		}
 
+		var requirements_array *[]Requirement
 		requirements, ok := v_map["requirements"]
 		if ok {
-			v_map["requirements"], schemata, err = CreateRequirementArray(requirements)
+			requirements_array, schemata, err = CreateRequirementArray(requirements)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) CreateRequirementArray %s", err.Error())
 				return
 			}
+
 		}
+
+		for _, r := range *injectedRequirements {
+			var requirements_array *[]Requirement
+			requirements_array = append(*requirements_array, r)
+
+		}
+		v_map["requirements"] = &requirements_array
+
 		//spew.Dump(v_map["run"])
 		err = mapstructure.Decode(original, &step)
 		if err != nil {
@@ -118,7 +174,7 @@ func (w WorkflowStep) GetOutput(id string) (output *WorkflowStepOutput, err erro
 }
 
 // CreateWorkflowStepsArray
-func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion) (schemata []CWLType_Type, array_ptr *[]WorkflowStep, err error) {
+func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion, injectedRequirements *[]Requirement) (schemata []CWLType_Type, array_ptr *[]WorkflowStep, err error) {
 
 	array := []WorkflowStep{}
 
@@ -132,15 +188,15 @@ func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion) (sche
 
 		// iterate over workflow steps
 		for k, v := range original.(map[interface{}]interface{}) {
-			fmt.Printf("A step\n")
-			spew.Dump(v)
+			//fmt.Printf("A step\n")
+			//spew.Dump(v)
 
 			//fmt.Println("type: ")
 			//fmt.Println(reflect.TypeOf(v))
 
 			var schemata_new []CWLType_Type
 			var step *WorkflowStep
-			step, schemata_new, err = NewWorkflowStep(v, CwlVersion)
+			step, schemata_new, err = NewWorkflowStep(v, CwlVersion, injectedRequirements)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
@@ -172,7 +228,7 @@ func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion) (sche
 			//fmt.Println(reflect.TypeOf(v))
 			var schemata_new []CWLType_Type
 			var step *WorkflowStep
-			step, schemata_new, err = NewWorkflowStep(v, CwlVersion)
+			step, schemata_new, err = NewWorkflowStep(v, CwlVersion, injectedRequirements)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
@@ -199,6 +255,51 @@ func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion) (sche
 	//spew.Dump(new_array)
 	return
 }
+
+// func (ws *WorkflowStep) GetInputType(name string) (result CWLType_Type, err error) {
+
+// 	if ws.Run == nil {
+// 		err = fmt.Errorf("(WorkflowStep/GetInputType) ws.Run == nil ")
+// 		return
+// 	}
+
+// 	switch ws.Run.(type) {
+// 	case *CommandLineTool:
+
+// 		clt, ok := ws.Run.(*CommandLineTool)
+// 		if !ok {
+// 			err = fmt.Errorf("(WorkflowStep/GetInputType) type assertion error (%s)", reflect.TypeOf(ws.Run))
+// 			return
+// 		}
+// 		_ = clt
+
+// 		for _, input := range clt.Inputs {
+// 			if input.Id == name {
+// 				result = input.Type
+// 			}
+
+// 		}
+
+// 	case *ExpressionTool:
+// 		et, ok := ws.Run.(*ExpressionTool)
+// 		if !ok {
+// 			err = fmt.Errorf("(WorkflowStep/GetInputType) type assertion error (%s)", reflect.TypeOf(ws.Run))
+// 			return
+// 		}
+// 		_ = et
+// 	case *Workflow:
+// 		wf, ok := ws.Run.(*Workflow)
+// 		if !ok {
+// 			err = fmt.Errorf("(WorkflowStep/GetInputType) type assertion error (%s)", reflect.TypeOf(ws.Run))
+// 			return
+// 		}
+// 		_ = wf
+// 	default:
+// 		err = fmt.Errorf("(WorkflowStep/GetInputType) process type not supported (%s)", reflect.TypeOf(ws.Run))
+// 		return
+// 	}
+// 	return
+// }
 
 func GetProcess(original interface{}, collection *CWL_collection, CwlVersion CWLVersion, input_schemata []CWLType_Type) (process interface{}, schemata []CWLType_Type, err error) {
 
@@ -242,8 +343,8 @@ func GetProcess(original interface{}, collection *CWL_collection, CwlVersion CWL
 
 	case map[string]interface{}:
 
-		fmt.Println("GetProcess got:")
-		spew.Dump(p)
+		//fmt.Println("GetProcess got:")
+		//spew.Dump(p)
 
 		p_map := p.(map[string]interface{})
 

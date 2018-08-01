@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+	"github.com/MG-RAST/AWE/lib/logger"
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	//"github.com/davecgh/go-spew/spew"
 	"fmt"
@@ -40,16 +41,22 @@ func NewNotice(native interface{}) (workunit_result *Notice, err error) {
 		}
 
 		results, has_results := native_map["results"]
-		if has_results && results != nil {
+		if has_results {
+			if results != nil {
 
-			var results_jobdoc *cwl.Job_document
-			results_jobdoc, err = cwl.NewJob_documentFromNamedTypes(results)
-			if err != nil {
-				err = fmt.Errorf("(NewNotice) NewJob_documentFromNamedTypes returns %s", err.Error())
-				return
+				var results_jobdoc *cwl.Job_document
+				results_jobdoc, err = cwl.NewJob_documentFromNamedTypes(results)
+				if err != nil {
+					err = fmt.Errorf("(NewNotice) NewJob_documentFromNamedTypes returns %s", err.Error())
+					return
+				}
+
+				workunit_result.Results = results_jobdoc
+			} else {
+				logger.Debug(2, "(NewNotice) results == nil")
 			}
-
-			workunit_result.Results = results_jobdoc
+		} else {
+			logger.Debug(2, "(NewNotice) no results")
 		}
 
 		id, ok := native_map["id"]

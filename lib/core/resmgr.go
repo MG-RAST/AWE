@@ -68,7 +68,6 @@ type ClientWorkMgr interface {
 type ResourceMgr interface {
 	ClientWorkMgr
 	JobMgr
-	TaskHandle()
 	ClientHandle()
 	UpdateQueueLoop()
 	NoticeHandle()

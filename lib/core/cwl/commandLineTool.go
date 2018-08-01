@@ -6,7 +6,6 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -52,7 +51,7 @@ func NewCommandLineTool(generic interface{}, cwl_version CWLVersion) (commandLin
 		err = fmt.Errorf("other types than map[string]interface{} not supported yet (got %s)", reflect.TypeOf(generic))
 		return
 	}
-	spew.Dump(generic)
+	//spew.Dump(generic)
 
 	commandLineTool = &CommandLineTool{}
 	commandLineTool.Class = "CommandLineTool"
@@ -153,7 +152,7 @@ func NewCommandLineTool(generic interface{}, cwl_version CWLVersion) (commandLin
 	//if has_arguments {
 	//	object["arguments"] = arguments_object // mapstructure.Decode has some issues, no idea why
 	//}
-	spew.Dump(commandLineTool)
+	//spew.Dump(commandLineTool)
 	//if id == "#blat.tool.cwl" {
 	//	panic("done")
 	//}

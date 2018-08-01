@@ -24,7 +24,7 @@ func NewExpression(original interface{}) (expression *Expression, err error) {
 	switch original.(type) {
 	case string:
 		expression_str := original.(string)
-		fmt.Printf("--------------------------------- expression_str: %s\n", expression_str)
+		//fmt.Printf("--------------------------------- expression_str: %s\n", expression_str)
 		expression, err = NewExpressionFromString(expression_str)
 		if err != nil {
 			err = fmt.Errorf("(NewExpression)  NewExpressionFromString returned: %s", err.Error())

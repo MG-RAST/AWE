@@ -130,7 +130,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			return
 		}
 
-		var requirements *[]cwl.Requirement
+		//var requirements *[]cwl.Requirement
 
 		switch process.(type) {
 		case *cwl.CommandLineTool:
@@ -142,7 +142,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 				err = fmt.Errorf("(NewWorkunit) CommandLineTool misses CwlVersion")
 				return
 			}
-			requirements = clt.Requirements
+			//requirements = clt.Requirements
 		case *cwl.ExpressionTool:
 			var et *cwl.ExpressionTool
 			et, _ = process.(*cwl.ExpressionTool)
@@ -153,20 +153,25 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 				err = fmt.Errorf("(NewWorkunit) ExpressionTool misses CwlVersion")
 				return
 			}
-			requirements = et.Requirements
+			//requirements = et.Requirements
 		default:
 			err = fmt.Errorf("(NewWorkunit) Tool %s not supported", reflect.TypeOf(process))
 			return
 		}
 
 		var shock_requirement *cwl.ShockRequirement
-		shock_requirement, err = cwl.GetShockRequirement(requirements)
-		if err != nil {
-			//fmt.Println("process:")
-			//spew.Dump(process)
-			err = fmt.Errorf("(NewWorkunit) ShockRequirement not found , err: %s", err.Error())
+		shock_requirement = job.CWL_ShockRequirement
+		if shock_requirement == nil {
+			err = fmt.Errorf("(NewWorkunit) shock_requirement == nil")
 			return
 		}
+		//shock_requirement, err = cwl.GetShockRequirement(requirements)
+		//if err != nil {
+		//fmt.Println("process:")
+		//spew.Dump(process)
+		//	err = fmt.Errorf("(NewWorkunit) ShockRequirement not found , err: %s", err.Error())
+		//	return
+		//}
 
 		if shock_requirement.Shock_api_url == "" {
 			err = fmt.Errorf("(NewWorkunit) Shock_api_url in ShockRequirement is empty")

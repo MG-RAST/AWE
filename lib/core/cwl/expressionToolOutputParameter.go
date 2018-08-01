@@ -10,7 +10,7 @@ import (
 
 // http://www.commonwl.org/v1.0/Workflow.html#ExpressionToolOutputParameter
 type ExpressionToolOutputParameter struct {
-	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Id, Label, SecondaryFiles, Format, Streamable, OutputBinding, Type
 }
 
 // type: CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
@@ -23,38 +23,39 @@ func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_T
 		return
 	}
 
+	var op *OutputParameter
+	op, err = NewOutputParameterFromInterface(original, schemata, "Output")
+	if err != nil {
+		err = fmt.Errorf("(NewExpressionToolOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
+		return
+	}
+
 	switch original.(type) {
 
 	case map[string]interface{}:
-		original_map, ok := original.(map[string]interface{})
-		if !ok {
-			err = fmt.Errorf("(NewExpressionToolOutputParameter) type switch error")
-			return
-		}
+		//original_map, ok := original.(map[string]interface{})
+		//if !ok {
+		//	err = fmt.Errorf("(NewExpressionToolOutputParameter) type switch error")
+		//	return
+		//}
 
-		err = NormalizeOutputParameter(original_map)
-		if err != nil {
-			err = fmt.Errorf("(NewExpressionToolOutputParameter) NormalizeOutputParameter returns %s", err.Error())
-			return
-		}
+		// wop_type, has_type := original_map["type"]
+		// if has_type {
 
-		wop_type, has_type := original_map["type"]
-		if has_type {
+		// 	wop_type_array, xerr := NewWorkflowOutputParameterTypeArray(wop_type, schemata)
+		// 	if xerr != nil {
+		// 		err = fmt.Errorf("from NewWorkflowOutputParameterTypeArray: %s", xerr.Error())
+		// 		return
+		// 	}
+		// 	//fmt.Println("type of wop_type_array")
+		// 	//fmt.Println(reflect.TypeOf(wop_type_array))
+		// 	//fmt.Println("original:")
+		// 	//spew.Dump(original)
+		// 	//fmt.Println("wop_type_array:")
+		// 	//spew.Dump(wop_type_array)
+		// 	original_map["type"] = wop_type_array
 
-			wop_type_array, xerr := NewWorkflowOutputParameterTypeArray(wop_type, schemata)
-			if xerr != nil {
-				err = fmt.Errorf("from NewWorkflowOutputParameterTypeArray: %s", xerr.Error())
-				return
-			}
-			//fmt.Println("type of wop_type_array")
-			//fmt.Println(reflect.TypeOf(wop_type_array))
-			//fmt.Println("original:")
-			//spew.Dump(original)
-			//fmt.Println("wop_type_array:")
-			//spew.Dump(wop_type_array)
-			original_map["type"] = wop_type_array
-
-		}
+		// }
 
 		err = mapstructure.Decode(original, &output_parameter)
 		if err != nil {
@@ -62,6 +63,8 @@ func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_T
 			return
 		}
 		wop = &output_parameter
+
+		wop.OutputParameter = *op
 	default:
 		err = fmt.Errorf("(NewWorkflowOutputParameter) type unknown, %s", reflect.TypeOf(original))
 		return

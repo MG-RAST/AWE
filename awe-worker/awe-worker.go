@@ -12,7 +12,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/worker"
-	"github.com/davecgh/go-spew/spew"
 )
 
 func main() {
@@ -140,8 +139,8 @@ func main() {
 			os.Exit(1)
 		}
 
-		fmt.Println("Job input:")
-		spew.Dump(*job_doc)
+		//fmt.Println("Job input:")
+		//spew.Dump(*job_doc)
 
 		os.Getwd() //https://golang.org/pkg/os/#Getwd
 

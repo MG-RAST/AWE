@@ -8,14 +8,12 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+// https://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
 type WorkflowOutputParameter struct {
-	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-
-	Doc string `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
-	//OutputBinding  *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty"` //TODO
-	OutputSource interface{}     `yaml:"outputSource,omitempty" bson:"outputSource,omitempty" json:"outputSource,omitempty"` //string or []string
-	LinkMerge    LinkMergeMethod `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
-	//Type         []interface{}   `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` //WorkflowOutputParameterType TODO CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
+	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Id, Label, SecondaryFiles, Format, Streamable, OutputBinding, Type
+	Doc             string                                                                `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
+	OutputSource    interface{}                                                           `yaml:"outputSource,omitempty" bson:"outputSource,omitempty" json:"outputSource,omitempty"` //string or []string
+	LinkMerge       LinkMergeMethod                                                       `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
 }
 
 func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type) (wop *WorkflowOutputParameter, err error) {
@@ -26,18 +24,19 @@ func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type) (
 		return
 	}
 
+	var op *OutputParameter
+	op, err = NewOutputParameterFromInterface(original, schemata, "Output")
+	if err != nil {
+		err = fmt.Errorf("(NewWorkflowOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
+		return
+	}
+
 	switch original.(type) {
 
 	case map[string]interface{}:
 		original_map, ok := original.(map[string]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewWorkflowOutputParameter) type switch error")
-			return
-		}
-
-		err = NormalizeOutputParameter(original_map)
-		if err != nil {
-			err = fmt.Errorf("(NewWorkflowOutputParameter) NormalizeOutputParameter returns %s", err.Error())
 			return
 		}
 
@@ -80,23 +79,23 @@ func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type) (
 
 		}
 
-		wop_type, has_type := original_map["type"]
-		if has_type {
+		// wop_type, has_type := original_map["type"]
+		// if has_type {
 
-			wop_type_array, xerr := NewWorkflowOutputParameterTypeArray(wop_type, schemata)
-			if xerr != nil {
-				err = fmt.Errorf("from NewWorkflowOutputParameterTypeArray: %s", xerr.Error())
-				return
-			}
-			//fmt.Println("type of wop_type_array")
-			//fmt.Println(reflect.TypeOf(wop_type_array))
-			//fmt.Println("original:")
-			//spew.Dump(original)
-			//fmt.Println("wop_type_array:")
-			//spew.Dump(wop_type_array)
-			original_map["type"] = wop_type_array
+		// 	wop_type_array, xerr := NewWorkflowOutputParameterTypeArray(wop_type, schemata)
+		// 	if xerr != nil {
+		// 		err = fmt.Errorf("from NewWorkflowOutputParameterTypeArray: %s", xerr.Error())
+		// 		return
+		// 	}
+		// 	//fmt.Println("type of wop_type_array")
+		// 	//fmt.Println(reflect.TypeOf(wop_type_array))
+		// 	//fmt.Println("original:")
+		// 	//spew.Dump(original)
+		// 	//fmt.Println("wop_type_array:")
+		// 	//spew.Dump(wop_type_array)
+		// 	original_map["type"] = wop_type_array
 
-		}
+		// }
 
 		err = mapstructure.Decode(original, &output_parameter)
 		if err != nil {
@@ -104,6 +103,9 @@ func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type) (
 			return
 		}
 		wop = &output_parameter
+
+		wop.OutputParameter = *op
+
 	default:
 		err = fmt.Errorf("(NewWorkflowOutputParameter) type unknown, %s", reflect.TypeOf(original))
 		return

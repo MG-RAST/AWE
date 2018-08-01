@@ -73,7 +73,7 @@ func (c CWL_collection) AddSchemata(obj []CWLType_Type) (err error) {
 			return
 		}
 
-		fmt.Printf("Adding %s\n", id)
+		//fmt.Printf("Adding %s\n", id)
 
 		_, ok := c.Schemata[id]
 		if ok {
@@ -258,5 +258,6 @@ func NewCWL_collection() (collection CWL_collection) {
 	collection.Ints = make(map[string]*Int)
 	collection.Booleans = make(map[string]*Boolean)
 	collection.All = make(map[string]CWL_object)
+	collection.Schemata = make(map[string]CWLType_Type)
 	return
 }

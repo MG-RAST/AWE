@@ -88,7 +88,7 @@ func NewListingFromInterface(original interface{}) (obj CWL_object, err error) {
 	case "File":
 	case "Directory":
 	case "Dirent":
-	case "String":
+	case "string":
 	case "Expression":
 	default:
 		err = fmt.Errorf("(NewListingFromInterface) type %s is not a valid Listing (original_type: %s)", x_class, reflect.TypeOf(original))

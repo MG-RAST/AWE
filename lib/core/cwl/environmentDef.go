@@ -15,6 +15,10 @@ type EnvironmentDef struct {
 func NewEnvironmentDefFromInterface(original interface{}) (enfDev EnvironmentDef, err error) {
 
 	err = mapstructure.Decode(original, &enfDev)
+	if err != nil {
+		err = fmt.Errorf("(NewEnvironmentDefFromInterface) mapstructure.Decode returned: %s", err.Error())
+		return
+	}
 	return
 }
 

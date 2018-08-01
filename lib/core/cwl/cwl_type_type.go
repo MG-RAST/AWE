@@ -117,7 +117,10 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 
 		object_type, has_type := native_map["type"]
 		if !has_type {
-			err = fmt.Errorf("(NewCWLType_Type) map object has not field \"type\"")
+			fmt.Println("(NewCWLType_Type) native_map:")
+			spew.Dump(native_map)
+
+			err = fmt.Errorf("(NewCWLType_Type) map object has not field \"type\" (context: %s)", context)
 			return
 		}
 		if object_type == "array" {
@@ -127,6 +130,12 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 				result, err = NewInputArraySchemaFromInterface(native, schemata)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLType_Type) NewInputArraySchemaFromInterface returned: %s", err.Error())
+				}
+				return
+			case "Output":
+				result, err = NewOutputArraySchemaFromInterface(native, schemata)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType_Type) NewOutputArraySchemaFromInterface returned: %s", err.Error())
 				}
 				return
 			case "CommandOutput": // CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema
@@ -152,7 +161,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 				}
 				return
 			default:
-				err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
+				err = fmt.Errorf("(NewCWLType_Type) array, context %s unknown", context)
 				return
 			}
 
@@ -171,9 +180,21 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputRecordSchemaFromInterface returned: %s", err.Error())
 				}
 			case "CommandOutput":
-				panic("CommandOutput not implemented yet")
+
+				result, err = NewCommandOutputRecordSchemaFromInterface(native, schemata)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType_Type) NewCommandOutputRecordSchemaFromInterface returned: %s", err.Error())
+				}
+
+			case "Output":
+
+				result, err = NewOutputRecordSchemaFromInterface(native, schemata)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType_Type) NewOutputRecordSchemaFromInterface returned: %s", err.Error())
+				}
+
 			default:
-				err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
+				err = fmt.Errorf("(NewCWLType_Type) record, context %s unknown", context)
 				return
 			}
 
@@ -188,7 +209,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 				return
 
 			default:
-				err = fmt.Errorf("(NewCWLType_Type) context %s unknown", context)
+				err = fmt.Errorf("(NewCWLType_Type) enum, context %s unknown", context)
 				return
 			}
 		} else {

@@ -5,6 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"reflect"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	e "github.com/MG-RAST/AWE/lib/errors"
@@ -15,15 +25,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/robertkrimen/otto"
 	"gopkg.in/mgo.v2/bson"
-	"io/ioutil"
-	"os"
-	"path"
-	"reflect"
-	"regexp"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
 
 type jQueueShow struct {
@@ -37,11 +38,8 @@ type ServerMgr struct {
 	lastUpdate     time.Time
 	lastUpdateLock sync.RWMutex
 	TaskMap        TaskMap
-	taskIn         chan *Task //channel for receiving Task (JobController -> qmgr.Handler)
 	ajLock         sync.RWMutex
-	//sjLock         sync.RWMutex
-	actJobs map[string]*JobPerf
-	//susJobs        map[string]bool
+	actJobs        map[string]*JobPerf
 }
 
 func NewServerMgr() *ServerMgr {
@@ -58,9 +56,7 @@ func NewServerMgr() *ServerMgr {
 		},
 		lastUpdate: time.Now().Add(time.Second * -30),
 		TaskMap:    *NewTaskMap(),
-		taskIn:     make(chan *Task, 1024),
 		actJobs:    map[string]*JobPerf{},
-		//susJobs:    map[string]bool{},
 	}
 }
 
@@ -70,25 +66,6 @@ func (qm *ServerMgr) Lock()    {}
 func (qm *ServerMgr) Unlock()  {}
 func (qm *ServerMgr) RLock()   {}
 func (qm *ServerMgr) RUnlock() {}
-
-func (qm *ServerMgr) TaskHandle() { // TODO DEPRECATED
-	logger.Info("TaskHandle is starting")
-	for {
-		task := <-qm.taskIn
-
-		task_id, err := task.GetId("TaskHandle")
-		if err != nil {
-			logger.Error("(TaskHandle) %s", err.Error())
-			continue
-		}
-
-		logger.Debug(2, "(ServerMgr/TaskHandle) received task from channel taskIn, id=%s", task_id)
-		err = qm.addTask(task, nil)
-		if err != nil {
-			logger.Error("(ServerMgr/TaskHandle) qm.addTask failed: %s", err.Error())
-		}
-	}
-}
 
 func (qm *ServerMgr) UpdateQueueLoop() {
 	// TODO this may not be dynamic enough for small amounts of workunits, as they always have to wait
@@ -199,6 +176,9 @@ func (qm *ServerMgr) NoticeHandle() {
 		}
 
 		logger.Debug(3, "(ServerMgr NoticeHandle) got notice: workid=%s, status=%s, clientid=%s", id, notice.Status, notice.WorkerId)
+
+		//fmt.Printf("Notice:")
+		//spew.Dump(notice)
 		err = qm.handleNoticeWorkDelivered(notice)
 		if err != nil {
 			err = fmt.Errorf("(NoticeHandle): %s", err.Error())
@@ -594,10 +574,12 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		qm.workQueue.Delete(workid)
 	}()
 
-	err = client.Increment_total_completed()
-	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) client.Increment_total_completed returned: %s", err.Error())
-		return
+	if client != nil {
+		err = client.Increment_total_completed()
+		if err != nil {
+			err = fmt.Errorf("(handleWorkStatDone) client.Increment_total_completed returned: %s", err.Error())
+			return
+		}
 	}
 	var remain_work int
 	remain_work, err = task.IncrementRemainWork(-1, true)
@@ -686,13 +668,15 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 //handle feedback from a client about the execution of a workunit
 func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 
+	clientid := notice.WorkerId
+
 	work_id := notice.Id
 	task_id := work_id.GetTask()
 
 	job_id := work_id.JobId
 
-	status := notice.Status
-	clientid := notice.WorkerId
+	notice_status := notice.Status
+
 	computetime := notice.ComputeTime
 	notes := notice.Notes
 
@@ -703,27 +687,30 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		return
 	}
 
-	logger.Debug(3, "(handleNoticeWorkDelivered) workid: %s status: %s client: %s", work_str, status, clientid)
+	logger.Debug(3, "(handleNoticeWorkDelivered) workid: %s status: %s client: %s", work_str, notice_status, clientid)
 
 	// we should not get here, but if we do than end
-	if status == WORK_STAT_DISCARDED {
-		logger.Error("(handleNoticeWorkDelivered) [warning] skip status change: workid=%s status=%s", work_str, status)
+	if notice_status == WORK_STAT_DISCARDED {
+		logger.Error("(handleNoticeWorkDelivered) [warning] skip status change: workid=%s status=%s", work_str, notice_status)
 		return
 	}
 
-	// *** Get Client
 	var client *Client
-	var ok bool
-	client, ok, err = qm.GetClient(clientid, true)
-	if err != nil {
-		return
-	}
-	if !ok {
-		err = fmt.Errorf("(handleNoticeWorkDelivered) client not found")
-		return
-	}
-	defer RemoveWorkFromClient(client, work_id)
+	client = nil
+	if clientid != "_internal" {
+		// *** Get Client
 
+		var ok bool
+		client, ok, err = qm.GetClient(clientid, true)
+		if err != nil {
+			return
+		}
+		if !ok {
+			err = fmt.Errorf("(handleNoticeWorkDelivered) client not found")
+			return
+		}
+		defer RemoveWorkFromClient(client, work_id)
+	}
 	// *** Get Task
 	var task *Task
 	var tok bool
@@ -739,9 +726,12 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		return
 	}
 
+	reason := ""
+
 	if notice.Results != nil { // TODO one workunit vs multiple !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 		err = task.SetStepOutput(notice.Results, true)
 		if err != nil {
+			err = fmt.Errorf("(handleNoticeWorkDelivered) task.SetStepOutput returned: %s", err.Error())
 			return
 		}
 	}
@@ -757,19 +747,19 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		err = fmt.Errorf("(handleNoticeWorkDelivered) workunit %s not found in workQueue", work_str)
 		return
 	}
-	if work.State != WORK_STAT_CHECKOUT && work.State != WORK_STAT_RESERVED {
-		err = fmt.Errorf("(handleNoticeWorkDelivered) workunit %s did not have state WORK_STAT_CHECKOUT or WORK_STAT_RESERVED (state is %s)", work_str, work.State)
+	work_state := work.State
+
+	if work_state != WORK_STAT_CHECKOUT && work_state != WORK_STAT_RESERVED {
+		err = fmt.Errorf("(handleNoticeWorkDelivered) workunit %s did not have state WORK_STAT_CHECKOUT or WORK_STAT_RESERVED (state is %s)", work_str, work_state)
 		return
 	}
 
-	reason := ""
-
-	if status == WORK_STAT_SUSPEND {
+	if notice_status == WORK_STAT_SUSPEND {
 		reason = "workunit suspended by worker" // TODO add more info from worker
 	}
 
 	// *** update state of workunit
-	err = qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, status, reason)
+	err = qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, notice_status, reason)
 	if err != nil {
 		return
 	}
@@ -803,17 +793,17 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		return
 	}
 
-	logger.Debug(3, "(handleNoticeWorkDelivered) handling status %s", status)
-	if status == WORK_STAT_DONE {
+	logger.Debug(3, "(handleNoticeWorkDelivered) handling status %s", notice_status)
+	if notice_status == WORK_STAT_DONE {
 		err = qm.handleWorkStatDone(client, clientid, task, work_id, computetime)
 		if err != nil {
 			err = fmt.Errorf("(handleNoticeWorkDelivered) handleWorkStatDone returned: %s", err.Error())
 			return
 		}
-	} else if status == WORK_STAT_FAILED_PERMANENT { // (special case !) failed and cannot be recovered
+	} else if notice_status == WORK_STAT_FAILED_PERMANENT { // (special case !) failed and cannot be recovered
 
 		logger.Event(event.WORK_FAILED, "workid="+work_str+";clientid="+clientid)
-		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s) workid=%s clientid=%s", status, work_str, clientid)
+		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s) workid=%s clientid=%s", notice_status, work_str, clientid)
 		work.Failed += 1
 
 		qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_FAILED_PERMANENT, "")
@@ -841,9 +831,9 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		if err = qm.SuspendJob(job_id, jerror); err != nil {
 			logger.Error("(handleNoticeWorkDelivered:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
 		}
-	} else if status == WORK_STAT_ERROR { //workunit failed, requeue or put it to suspend list
+	} else if notice_status == WORK_STAT_ERROR { //workunit failed, requeue or put it to suspend list
 		logger.Event(event.WORK_FAIL, "workid="+work_str+";clientid="+clientid)
-		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s, notes: %s) workid=%s clientid=%s", status, notes, work_str, clientid)
+		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s, notes: %s) workid=%s clientid=%s", notice_status, notes, work_str, clientid)
 
 		work.Failed += 1
 
@@ -909,7 +899,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 			qm.SuspendClient(clientid, client, "MAX_CLIENT_FAILURE on client reached", true)
 		}
 	} else {
-		err = fmt.Errorf("No handler for workunit status '%s' implemented (allowd: %s, %s, %s)", status, WORK_STAT_DONE, WORK_STAT_FAILED_PERMANENT, WORK_STAT_ERROR)
+		err = fmt.Errorf("No handler for workunit status '%s' implemented (allowd: %s, %s, %s)", notice_status, WORK_STAT_DONE, WORK_STAT_FAILED_PERMANENT, WORK_STAT_ERROR)
 		return
 	}
 	return
@@ -1215,8 +1205,7 @@ func getStdLogPathByWorkId(id Workunit_Unique_Identifier, logname string) (saved
 	return
 }
 
-//---task methods----
-// this is invoked after a job is uploaded and saved in mongo
+// this is trigggered by user action, either job POST or job resume / recover / resubmit
 func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 	logger.Debug(3, "(EnqueueTasksByJobId) starting")
 	job, err := GetJob(jobid)
@@ -1233,7 +1222,6 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 	}
 
 	task_len := len(tasks)
-
 	logger.Debug(3, "(EnqueueTasksByJobId) got %d tasks", task_len)
 
 	err = job.SetState(JOB_STAT_QUEUING, nil)
@@ -1257,9 +1245,12 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 			task.SetState(TASK_STAT_PENDING, true)
 		}
 
-		err = qm.addTask(task, job)
+		// add to qm.TaskMap
+		// updateQueue() process will actually enqueue the task
+		// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
+		err = qm.TaskMap.Add(task)
 		if err != nil {
-			err = fmt.Errorf("(EnqueueTasksByJobId) addTask failed: %s", err.Error())
+			err = fmt.Errorf("(EnqueueTasksByJobId) qm.TaskMap.Add() returns: %s", err.Error())
 			return
 		}
 	}
@@ -1279,99 +1270,7 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 	return
 }
 
-//---end of task methods
-
-func (qm *ServerMgr) addTask(task *Task, job *Job) (err error) {
-	logger.Debug(3, "(addTask) got task")
-
-	var task_id Task_Unique_Identifier
-	task_id, err = task.GetId("addTask")
-	if err != nil {
-		err = fmt.Errorf("(addTask) GetId() returns: %s", err.Error())
-		return
-	}
-
-	var task_state string
-	task_state, err = task.GetState()
-	if err != nil {
-		err = fmt.Errorf("(addTask) task.GetState() returns: %s", err.Error())
-		return
-	}
-	logger.Debug(3, "(addTask) state of task: %s", task_state)
-
-	// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
-	var modified bool
-	modified, err = qm.TaskMap.Add(task)
-	if err != nil {
-		err = fmt.Errorf("(addTask) qm.TaskMap.Add() returns: %s", err.Error())
-		return
-	}
-
-	// don't enqueue completed or passed
-	if (task_state == TASK_STAT_COMPLETED) || (task_state == TASK_STAT_PASSED) {
-		return
-	}
-
-	if modified {
-		task_state, err = task.GetState()
-		if err != nil {
-			err = fmt.Errorf("(addTask) task.GetState() returns: %s", err.Error())
-			return
-		}
-	}
-
-	var task_ready bool
-	task_ready, _, err = qm.isTaskReady(task) // makes the task ready
-	if err != nil {
-		err = fmt.Errorf("(addTask) qm.isTaskReady(task) returns: %s", err.Error())
-		return
-	}
-	if !task_ready {
-		return
-	}
-
-	logger.Debug(3, "(addTask) task %s is ready (invoking taskEnQueue)", task_id)
-	xerr := qm.taskEnQueue(task, job)
-	if xerr != nil {
-		logger.Error("(addTask) taskEnQueue returned error: %s", xerr.Error())
-		_ = task.SetState(TASK_STAT_SUSPEND, true)
-
-		var job_id string
-		job_id, err = task.GetJobId()
-		if err != nil {
-			return
-		}
-
-		var task_str string
-		task_str, err = task.String()
-		if err != nil {
-			err = fmt.Errorf("(addTask) task.String returned: %s", err.Error())
-			return
-		}
-		jerror := &JobError{
-			TaskFailed:  task_str,
-			ServerNotes: "failed in enqueuing task, err=" + xerr.Error(),
-			Status:      JOB_STAT_SUSPEND,
-		}
-
-		if err = qm.SuspendJob(job_id, jerror); err != nil {
-			logger.Error("(updateQueue:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
-		}
-		err = xerr
-		return
-	}
-
-	err = qm.updateJobTask(task) //task state INIT->PENDING
-	if err != nil {
-		err = fmt.Errorf("(addTask) updateJobTask returned: %s", err.Error())
-		//fmt.Println(err.Error())
-		return
-	}
-	logger.Debug(3, "(addTask) leaving...")
-	return
-}
-
-//check whether a pending task is ready to enqueue (dependent tasks are all done)
+// check whether a pending task is ready to enqueue (dependent tasks are all done)
 // task is not locked
 func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err error) {
 	ready = false
@@ -1463,13 +1362,18 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		}
 		workflow_input_map := workflow_instance.Inputs.GetMap()
 
-		fmt.Println("WorkflowStep.Id: " + task.WorkflowStep.Id)
+		//fmt.Println("WorkflowStep.Id: " + task.WorkflowStep.Id)
 		for _, wsi := range task.WorkflowStep.In { // WorkflowStepInput
 			if wsi.Source == nil {
 				if wsi.Default != nil { // input is optional, anyway....
 					continue
 				}
-				reason = fmt.Sprintf("(isTaskReady) No Source and no default found")
+				if wsi.ValueFrom != "" { // input is optional, anyway....
+					continue
+				}
+				reason = fmt.Sprintf("(isTaskReady) No Source, Default or ValueFrom found")
+				return
+
 			} else {
 				source_is_array := false
 				source_as_array, source_is_array := wsi.Source.([]interface{})
@@ -1531,15 +1435,438 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		}
 	}
 
-	if task_state == TASK_STAT_PENDING {
-		err = task.SetState(TASK_STAT_READY, true)
+	// now we are ready
+	err = task.SetState(TASK_STAT_READY, true)
+	if err != nil {
+		return
+	}
+	ready = true
+
+	logger.Debug(3, "(isTaskReady) finished, task %s is ready", task_id)
+	return
+}
+
+func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_map cwl.JobDocMap, wfl *cwl.Workflow) (err error) {
+
+	if wfl == nil {
+		err = fmt.Errorf("(taskEnQueue) wfl == nil !?")
+		return
+	}
+
+	cwl_step := task.WorkflowStep
+	task_id := task.Task_Unique_Identifier
+
+	// find inputs
+	var task_input_array cwl.Job_document
+	var task_input_map cwl.JobDocMap
+
+	if task.StepInput == nil {
+		task_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, cwl_step) // returns map[string]CWLType
+		if err != nil {
+			return
+		}
+		task_input_array, err = task_input_map.GetArray()
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) task_input_map.GetArray returned: %s", err.Error())
+			return
+		}
+		task.StepInput = &task_input_array
+
+	} else {
+		task_input_array = *task.StepInput
+		task_input_map = task_input_array.GetMap()
+	}
+
+	if strings.HasSuffix(task.TaskName, "/") {
+		err = fmt.Errorf("(taskEnQueue) Slash at the end of TaskName!? %s", task.TaskName)
+		return
+	}
+
+	if strings.HasSuffix(task.Parent, "/") {
+		err = fmt.Errorf("(taskEnQueue) Slash at the end of Parent!? %s", task.Parent)
+		return
+	}
+
+	new_sub_workflow := ""
+
+	if len(task.Parent) > 0 {
+		new_sub_workflow = task.Parent + task.TaskName // TaskName starts with #, so we can split later
+	} else {
+		new_sub_workflow = task.TaskName
+	}
+
+	//fmt.Printf("New Subworkflow: %s %s\n", task.Parent, task.TaskName)
+
+	// New WorkflowInstance defined input nd ouput of this subworkflow
+	err = job.AddWorkflowInstance(new_sub_workflow, task_input_array, len(wfl.Steps))
+	if err != nil {
+		return
+	}
+
+	// create tasks
+	var sub_workflow_tasks []*Task
+	sub_workflow_tasks, err = CreateTasks(job, new_sub_workflow, wfl.Steps)
+
+	err = job.IncrementRemainTasks(len(sub_workflow_tasks))
+	if err != nil {
+		return
+	}
+
+	children := []Task_Unique_Identifier{}
+	for i := range sub_workflow_tasks {
+		sub_task := sub_workflow_tasks[i]
+		_, err = sub_task.Init(job)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) sub_task.Init() returns: %s", err.Error())
+			return
+		}
+
+		var sub_task_id Task_Unique_Identifier
+		sub_task_id, err = sub_task.GetId("taskEnQueue." + strconv.Itoa(i))
+		if err != nil {
+			return
+		}
+		children = append(children, sub_task_id)
+
+		err = job.AddTask(sub_task)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) job.AddTask returns: %s", err.Error())
+			return
+		}
+
+		// add to qm.TaskMap
+		// updateQueue() process will actually enqueue the task
+		// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
+		err = qm.TaskMap.Add(sub_task)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) (subtask: %s) qm.TaskMap.Add() returns: %s", sub_task_id, err.Error())
+			return
+		}
+	}
+	task.SetChildren(qm, children, true)
+
+	return
+}
+
+func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map cwl.JobDocMap) (notice *Notice, err error) {
+	notice = nil
+	// TODO store info that this has been evaluated
+	cwl_step := task.WorkflowStep
+	task_id := task.Task_Unique_Identifier
+
+	count_of_scatter_arrays := len(cwl_step.Scatter)
+
+	scatter_names_map := make(map[string]int, count_of_scatter_arrays)
+
+	for i, name := range cwl_step.Scatter {
+		name_base := path.Base(name)
+		//fmt.Printf("scatter_names_map, name_base: %s\n", name_base)
+		scatter_names_map[name_base] = i
+	}
+
+	//  copy
+
+	scatter_method := cwl_step.ScatterMethod
+	_ = scatter_method
+
+	scatter_positions := make([]int, count_of_scatter_arrays)
+	scatter_source_strings := make([]string, count_of_scatter_arrays) // an array of strings, where each string is a source pointing to an array
+
+	name_to_postiton := make(map[string]int, count_of_scatter_arrays)
+
+	// search for scatter source arrays
+	// fill arrays scatter_positions and scatter_source_strings
+	for i, scatter_input_name := range cwl_step.Scatter {
+
+		scatter_input_name_base := path.Base(scatter_input_name)
+		//fmt.Printf("scatter_input detected: %s\n", scatter_input_name)
+
+		name_to_postiton[scatter_input_name_base] = i
+
+		scatter_input_source_str := ""
+		input_position := -1
+		for j, _ := range cwl_step.In {
+			workflow_step_input := cwl_step.In[j]
+
+			if path.Base(workflow_step_input.Id) == scatter_input_name_base {
+				input_position = j
+				scatter_input_source := workflow_step_input.Source // TODO: other method than source might be required
+
+				var ok bool
+				scatter_input_source_str, ok = scatter_input_source.(string)
+				if !ok {
+					err = fmt.Errorf("(taskEnQueueScatter) scatter_input_source is not string (%s)", reflect.TypeOf(scatter_input_source))
+					return
+				}
+				break
+			}
+
+		}
+
+		if input_position == -1 {
+
+			list_of_inputs := ""
+			for j, _ := range cwl_step.In {
+				workflow_step_input := cwl_step.In[j]
+				list_of_inputs += "," + path.Base(workflow_step_input.Id)
+			}
+
+			err = fmt.Errorf("(taskEnQueue) Input %s not found in list of step.Inputs (list: %s)", scatter_input_name_base, list_of_inputs)
+			return
+		}
+
+		scatter_positions[i] = input_position
+		scatter_source_strings[i] = scatter_input_source_str
+
+	}
+
+	// get each scatter array and cast into array
+	scatter_input_array_ptrs := make([]*cwl.Array, count_of_scatter_arrays)
+	empty_array := false // just for compliance tests
+	for i := 0; i < count_of_scatter_arrays; i++ {
+
+		scatter_input := cwl_step.Scatter[i]
+		scatter_input_source_str := scatter_source_strings[i]
+
+		// get array (have to cast into array still)
+		var scatter_input_object cwl.CWL_object
+		var ok bool
+		scatter_input_object, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, scatter_input_source_str, true)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) getCWLSource returned: %s", err.Error())
+			return
+		}
+		if !ok {
+			err = fmt.Errorf("(taskEnQueue) scatter_input %s not found.", scatter_input)
+			return
+		}
+
+		var scatter_input_array_ptr *cwl.Array
+		scatter_input_array_ptr, ok = scatter_input_object.(*cwl.Array)
+		if !ok {
+
+			err = fmt.Errorf("(taskEnQueue) scatter_input_object type is not *cwl.Array: %s", reflect.TypeOf(scatter_input_object))
+			return
+		}
+
+		if scatter_input_array_ptr.Len() == 0 {
+
+			empty_array = true
+		}
+
+		scatter_input_array_ptrs[i] = scatter_input_array_ptr
+	}
+	scatter_type := ""
+	// dotproduct with 2 or more arrays
+	if scatter_method == "" || strings.ToLower(scatter_method) == "dotproduct" {
+		// requires that all arrays are the same length
+
+		scatter_type = "dot"
+
+	} else if strings.ToLower(scatter_method) == "nested_crossproduct" || strings.ToLower(scatter_method) == "flat_crossproduct" {
+		// arrays do not have to be the same length
+		// nested_crossproduct and flat_crossproduct differ only in hor results are merged
+
+		// defined counter for iteration over all combinations
+		scatter_type = "cross"
+	} else {
+		err = fmt.Errorf("(taskEnQueue) Scatter type %s unknown", scatter_method)
+		return
+	}
+	// 1. Create template step with scatter inputs removed
+	//cwl_step := task.WorkflowStep
+
+	template_task_step := *cwl_step // this should make a copy , not nested copy
+
+	//fmt.Println("template_task_step inital:\n")
+	//spew.Dump(template_task_step)
+
+	// remove scatter
+	var template_step_in []cwl.WorkflowStepInput
+	template_scatter_step_ins := make(map[string]cwl.WorkflowStepInput, count_of_scatter_arrays)
+	for i, _ := range cwl_step.In {
+
+		i_input := cwl_step.In[i]
+		i_input_id_base := path.Base(i_input.Id)
+		//fmt.Printf("i_input_id_base: %s\n", i_input_id_base)
+		_, ok := scatter_names_map[i_input_id_base] // skip scatter inputs
+		if ok {
+			template_scatter_step_ins[i_input_id_base] = i_input // save scatter inputs in template_scatter_step_ins
+			continue
+		}
+		template_step_in = append([]cwl.WorkflowStepInput{i_input}, template_step_in...) // preprend i_input
+
+	}
+
+	fmt.Println("template_scatter_step_ins:\n")
+	spew.Dump(template_scatter_step_ins)
+	if len(template_scatter_step_ins) == 0 {
+		err = fmt.Errorf("(taskEnQueue) no scatter tasks found")
+		return
+	}
+
+	// overwrite array, keep only non-scatter
+	template_task_step.In = template_step_in
+	counter := NewSetCounter(count_of_scatter_arrays, scatter_input_array_ptrs, scatter_type)
+
+	if empty_array {
+
+		//task_already_finished = true
+
+		// create dummy Workunit
+		var workunit *Workunit
+		workunit, err = NewWorkunit(qm, task, 0, job)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) Creation of fake workunitfailed: %s", err.Error())
+			return
+		}
+		qm.workQueue.Add(workunit)
+		err = workunit.SetState(WORK_STAT_CHECKOUT, "internal processing")
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) workunit.SetState failed: %s", err.Error())
+			return
+		}
+
+		// create empty arrays for output and return notice
+
+		notice = &Notice{}
+		notice.WorkerId = "_internal"
+		notice.Id = New_Workunit_Unique_Identifier(task.Task_Unique_Identifier, 0)
+		notice.Status = WORK_STAT_DONE
+		notice.ComputeTime = 0
+
+		notice.Results = &cwl.Job_document{}
+
+		for _, out := range cwl_step.Out {
+			//
+			out_name := out.Id
+			fmt.Printf("outname: %s\n", out_name)
+
+			new_array := &cwl.Array{}
+
+			//new_out := cwl.NewNamedCWLType(out_name, new_array)
+			spew.Dump(*notice.Results)
+			notice.Results = notice.Results.Add(out_name, new_array)
+			spew.Dump(*notice.Results)
+		}
+
+		fmt.Printf("len(notice.Results): %d\n", len(*notice.Results))
+
+		return
+	}
+
+	fmt.Println("template_task_step without scatter:\n")
+	spew.Dump(template_task_step)
+
+	//if count_of_scatter_arrays == 1 {
+
+	// create tasks
+	var children []Task_Unique_Identifier
+	var new_scatter_tasks []*Task
+
+	counter_running := true
+
+	for counter_running {
+
+		permutation_instance := ""
+		for i := 0; i < counter.NumberOfSets-1; i++ {
+			permutation_instance += strconv.Itoa(counter.Counter[i]) + "_"
+		}
+		permutation_instance += strconv.Itoa(counter.Counter[counter.NumberOfSets-1])
+
+		scatter_task_name := task_id.TaskName + "_scatter" + permutation_instance
+
+		// create task
+		var awe_task *Task
+
+		logger.Debug(3, "(taskEnQueue) New Task: parent: %s and scatter_task_name: %s", task.Parent, scatter_task_name)
+
+		awe_task, err = NewTask(job, task.Parent, scatter_task_name)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) NewTask returned: %s", err.Error())
+			return
+		}
+
+		awe_task.Scatter_parent = &task.Task_Unique_Identifier
+		//awe_task.Scatter_task = true
+		_, err = awe_task.Init(job)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) awe_task.Init() returns: %s", err.Error())
+			return
+		}
+
+		// create step
+		var new_task_step cwl.WorkflowStep
+		//var new_task_step_in []cwl.WorkflowStepInput
+		new_task_step = template_task_step // this should make a copy from template, (this is not a nested copy)
+
+		fmt.Println("new_task_step initial:\n")
+		spew.Dump(new_task_step)
+
+		// copy scatter inputs
+
+		for input_name := range template_scatter_step_ins {
+			input_name_base := path.Base(input_name)
+			scatter_input, ok := template_scatter_step_ins[input_name_base]
+			if !ok {
+				err = fmt.Errorf("(taskEnQueue) %s not in template_scatter_step_ins", input_name_base)
+				return
+			}
+
+			input_position, ok := name_to_postiton[input_name_base] // input_position points to an array of inputs
+			if !ok {
+				err = fmt.Errorf("(taskEnQueue) %s not in name_to_postiton map", input_name_base)
+				return
+			}
+
+			//the_array := scatter_input_array_ptrs[input_position]
+
+			the_index := counter.Counter[input_position]
+			scatter_input.Source_index = the_index + 1
+			new_task_step.In = append(new_task_step.In, scatter_input)
+		}
+
+		fmt.Println("new_task_step with everything:\n")
+		spew.Dump(new_task_step)
+
+		new_task_step.Id = scatter_task_name
+		awe_task.WorkflowStep = &new_task_step
+		children = append(children, awe_task.Task_Unique_Identifier)
+
+		new_task_step.Scatter = nil // []string{}
+		new_scatter_tasks = append(new_scatter_tasks, awe_task)
+
+		counter_running = counter.Increment()
+	}
+
+	task.SetChildren(qm, children, true)
+	err = job.IncrementRemainTasks(len(new_scatter_tasks))
+	if err != nil {
+		return
+	}
+
+	// add tasks to job and submit
+	for i := range new_scatter_tasks {
+		sub_task := new_scatter_tasks[i]
+
+		err = job.AddTask(sub_task)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) job.AddTask returns: %s", err.Error())
+			return
+		}
+
+		err = qm.TaskMap.Add(sub_task)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) qm.TaskMap.Add() returns: %s", err.Error())
+			return
+		}
+
+		err = sub_task.SetState(TASK_STAT_PENDING, true)
 		if err != nil {
 			return
 		}
 	}
 
-	ready = true
-	logger.Debug(3, "(isTaskReady) finished, task %s is ready", task_id)
 	return
 }
 
@@ -1581,6 +1908,9 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		return
 	}
 
+	var notice *Notice
+	notice = nil
+
 	if job.CWL_collection != nil {
 		logger.Debug(3, "(taskEnQueue) have job.CWL_collection")
 
@@ -1594,176 +1924,96 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		workflow_input_map := workflow_instance.Inputs.GetMap()
 		cwl_step := task.WorkflowStep
 
-		// scatter
-		if task_type == "" {
-			if len(cwl_step.Scatter) != 0 {
-				err = fmt.Errorf("Scatter not implemented yet")
-				return // TODO
-
-				task_type = TASK_TYPE_SCATTER
-				err = task.SetTaskType(task_type, true)
-				if err != nil {
-					return
-				}
-
-				err = task.SetState(TASK_STAT_QUEUED, true) // this refers to the fact that its scatter children have been enqueued.
-				if err != nil {
-					return
-				}
-			}
-
+		if cwl_step == nil {
+			err = fmt.Errorf("(taskEnQueue) task.WorkflowStep is empty")
+			return
 		}
 
-		// Sub-workflow
-		for task_type == "" || task_type == TASK_TYPE_WORKFLOW {
+		//workflow_with_children := false
+		var wfl *cwl.Workflow
 
-			// sub workflow tasks have already been created.
-			if task.Children != nil && len(task.Children) != 0 {
-				// fix type
-				if task_type == "" {
-					task_type = TASK_TYPE_WORKFLOW
-					err = task.SetTaskType(task_type, true)
-					if err != nil {
-						return
-					}
-				}
+		// Detect task_type
+		for task_type == "" { // using for-loop to be able to break out
+
+			// check for scatter // SCATTER is dominant. Scatter children can be Workflows.
+			if len(cwl_step.Scatter) != 0 {
+				task_type = TASK_TYPE_SCATTER
+
 				break
 			}
 
-			// not sure if this is a subworkflow
+			// get process to determine task_type
+
+			var process interface{}
 			p := cwl_step.Run
 			if p == nil {
 				err = fmt.Errorf("(taskEnQueue) process is nil !?")
 				return
 			}
 
-			var schemata []cwl.CWLType_Type
-			schemata, err = job.CWL_collection.GetSchemata()
-			if err != nil {
-				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
-				return
-			}
-
-			// check if this is a workflow
-			//var process_name string
-			//var a_command_line_tool *cwl.CommandLineTool
-			//wfl = nil
-			var process interface{}
-			process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add new_schemata
-			if err != nil {
-				err = fmt.Errorf("(taskEnQueue) cwl.GetProcess returned: %s (task_type=%s)", err.Error(), task_type)
-				return
-			}
-
-			var wfl *cwl.Workflow
-			var ok bool
-			wfl, ok = process.(*cwl.Workflow)
-
-			if !ok {
-				// this must CommandLineTool or ExpressionTool
+			switch p.(type) {
+			case *cwl.Workflow:
+				task_type = TASK_TYPE_WORKFLOW
+			case *cwl.CommandLineTool:
 				task_type = TASK_TYPE_NORMAL
-				err = task.SetTaskType(task_type, true)
+			default:
+
+				var schemata []cwl.CWLType_Type
+				schemata, err = job.CWL_collection.GetSchemata()
 				if err != nil {
+					err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
 					return
 				}
-				break
+
+				process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add new_schemata
+				if err != nil {
+					err = fmt.Errorf("(taskEnQueue) cwl.GetProcess returned: %s (task_type=%s)", err.Error(), task_type)
+					return
+				}
+
+				// check if process is a workflow
+				var ok bool
+				wfl, ok = process.(*cwl.Workflow)
+
+				if ok {
+					task_type = TASK_TYPE_WORKFLOW
+				} else {
+					// this must be CommandLineTool or ExpressionTool (Scatter has already been excluded)
+					task_type = TASK_TYPE_NORMAL
+				}
+
 			}
 
-			// we got a Sub-workflow !
-			task_type = TASK_TYPE_WORKFLOW
-			err = task.SetTaskType(task_type, true)
+			break
+
+		} // end for
+
+		err = task.SetTaskType(task_type, true)
+		if err != nil {
+			return
+		}
+
+		switch task_type {
+		case TASK_TYPE_SCATTER:
+			notice, err = qm.taskEnQueueScatter(task, job, workflow_input_map)
 			if err != nil {
+				err = fmt.Errorf("(taskEnQueue) taskEnQueueScatter returned: %s", err.Error())
 				return
 			}
 
-			// find inputs
-			var task_input_array cwl.Job_document
-			var task_input_map cwl.JobDocMap
-
-			if task.StepInput == nil {
-				task_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, cwl_step) // returns map[string]CWLType
+		case TASK_TYPE_WORKFLOW:
+			if len(task.Children) == 0 {
+				err = qm.taskEnQueueWorkflow(task, job, workflow_input_map, wfl)
 				if err != nil {
-					return
-				}
-				task_input_array, err = task_input_map.GetArray()
-				if err != nil {
-					err = fmt.Errorf("(taskEnQueue) task_input_map.GetArray returned: %s", err.Error())
-					return
-				}
-				task.StepInput = &task_input_array
-
-			} else {
-				task_input_array = *task.StepInput
-				task_input_map = task_input_array.GetMap()
-			}
-
-			if strings.HasSuffix(task.TaskName, "/") {
-				err = fmt.Errorf("(taskEnQueue) Slash at the end of TaskName!? %s", task.TaskName)
-				return
-			}
-
-			if strings.HasSuffix(task.Parent, "/") {
-				err = fmt.Errorf("(taskEnQueue) Slash at the end of Parent!? %s", task.Parent)
-				return
-			}
-
-			new_sub_workflow := ""
-			if len(task.Parent) > 0 {
-				new_sub_workflow = task.Parent + task.TaskName // TaskName starts with #, so we can split later
-			} else {
-				new_sub_workflow = task.TaskName
-			}
-
-			fmt.Printf("New Subworkflow: %s %s\n", task.Parent, task.TaskName)
-
-			err = job.AddWorkflowInstance(new_sub_workflow, task_input_array, len(wfl.Steps))
-			if err != nil {
-				return
-			}
-
-			// create tasks
-			var sub_workflow_tasks []*Task
-			sub_workflow_tasks, err = CreateTasks(job, new_sub_workflow, wfl.Steps)
-
-			err = job.IncrementRemainTasks(len(sub_workflow_tasks))
-			if err != nil {
-				return
-			}
-
-			children := []Task_Unique_Identifier{}
-			for i := range sub_workflow_tasks {
-				sub_task := sub_workflow_tasks[i]
-				_, err = sub_task.Init(job)
-				if err != nil {
-					err = fmt.Errorf("(taskEnQueue) sub_task.Init() returns: %s", err.Error())
-					return
-				}
-
-				var sub_task_id Task_Unique_Identifier
-				sub_task_id, err = sub_task.GetId("taskEnQueue." + strconv.Itoa(i))
-				if err != nil {
-					return
-				}
-				children = append(children, sub_task_id)
-
-				err = job.AddTask(sub_task)
-				if err != nil {
-					err = fmt.Errorf("(taskEnQueue) job.AddTask returns: %s", err.Error())
-					return
-				}
-				err = qm.addTask(sub_task, job)
-				if err != nil {
-					err = fmt.Errorf("(taskEnQueue) (subtask: %s) qm.addTask returned: %s", sub_task_id, err.Error())
+					err = fmt.Errorf("(taskEnQueue) taskEnQueueWorkflow returned: %s", err.Error())
 					return
 				}
 
 			}
-			task.Children = children // TODO lock
-			// break (trivial for loop)
 		}
 
 	} else {
-		logger.Debug(3, "(taskEnQueue) DO NOT have job.CWL_collection")
+		logger.Debug(3, "(taskEnQueue) DOES NOT have job.CWL_collection")
 	}
 
 	logger.Debug(2, "(taskEnQueue) task %s has type %s", task_id, task_type)
@@ -1828,6 +2078,16 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 	qm.CreateTaskPerf(task)
 
 	logger.Debug(2, "(taskEnQueue) leaving (task=%s)", task_id)
+
+	if notice != nil {
+		// This task is not processed by a worker and thus no notice would be sent. For correct completion the server creates and sends an internal Notice.
+
+		//WorkerId    string                     `bson:"worker_id" json:"worker_id" mapstructure:"worker_id"`
+		//Results     *cwl.Job_document          `bson:"results" json:"results" mapstructure:"results"`                            // subset of tool_results with Shock URLs
+
+		qm.feedback <- *notice
+
+	}
 
 	return
 }
@@ -1928,6 +2188,9 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 
 		if ancestor_task.StepOutput == nil {
 			//err = fmt.Errorf("(getCWLSource) Found predecessor task %s, but StepOutput does not exist", step_name_abs)
+
+			fmt.Println("ancestor_task: ")
+			spew.Dump(ancestor_task)
 			logger.Debug(3, "(getCWLSource) ancestor_task.StepOutput == nil")
 			ok = false
 			return
@@ -1979,11 +2242,15 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 	// 1. find all object source and Defaut
 	// 2. make a map copy to be used in javaqscript, as "inputs"
-	for _, input := range workflow_step.In {
+	// INPUT_LOOP1
+	for input_i, input := range workflow_step.In {
 		// input is a WorkflowStepInput
 
-		id := input.Id
+		fmt.Printf("(GetStepInputObjects) workflow_step.In: (%d)\n", input_i)
+		spew.Dump(workflow_step.In)
 
+		id := input.Id
+		//	fmt.Println("(GetStepInputObjects) id: %s", id)
 		cmd_id := path.Base(id)
 
 		// get data from Source, Default or valueFrom
@@ -1999,6 +2266,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		}
 
 		if input.Source != nil {
+			//fmt.Println("(GetStepInputObjects) input.Source != nil")
 			//source_object_array := []cwl.CWLType{}
 			//resolve pointers in source
 
@@ -2008,10 +2276,12 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 			source_as_array, source_is_array := input.Source.([]interface{})
 
 			if source_is_array {
-				//fmt.Printf("source is a array: %s", spew.Sdump(input.Source))
-				cwl_array := cwl.Array{}
-				for _, src := range source_as_array { // usually only one
-					fmt.Println("src: " + spew.Sdump(src))
+				fmt.Printf("(GetStepInputObjects) source is a array: %s", spew.Sdump(input.Source))
+
+				if input.Source_index != 0 {
+					// from scatter step
+					// fmt.Printf("source is a array with Source_index: %s", spew.Sdump(input.Source))
+					src := source_as_array[input.Source_index]
 					var src_str string
 					var ok bool
 					src_str, ok = src.(string)
@@ -2030,38 +2300,63 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 						return // TODO allow optional ??
 					}
 
-					if link_merge_method == "merge_flattened" {
+					workunit_input_map[cmd_id] = job_obj
+				} else {
 
-						job_obj_type := job_obj.GetType()
-
-						if job_obj_type != cwl.CWL_array {
-							err = fmt.Errorf("(GetStepInputObjects) merge_flattened, expected array as input, but got %s", job_obj_type)
-							return
-						}
-
-						var an_array *cwl.Array
-						an_array, ok = job_obj.(*cwl.Array)
+					cwl_array := cwl.Array{}
+					for _, src := range source_as_array { // usually only one
+						fmt.Println("src: " + spew.Sdump(src))
+						var src_str string
+						var ok bool
+						src_str, ok = src.(string)
 						if !ok {
-							err = fmt.Errorf("got type: %s", reflect.TypeOf(job_obj))
+							err = fmt.Errorf("src is not a string")
 							return
 						}
-
-						for i, _ := range *an_array {
-							//source_object_array = append(source_object_array, (*an_array)[i])
-							cwl_array = append(cwl_array, (*an_array)[i])
+						var job_obj cwl.CWLType
+						job_obj, ok, err = qm.getCWLSource(workflow_input_map, job, task_id, src_str, true)
+						if err != nil {
+							err = fmt.Errorf("(GetStepInputObjects) (array) getCWLSource returns: %s", err.Error())
+							return
+						}
+						if !ok {
+							err = fmt.Errorf("(GetStepInputObjects) (array) getCWLSource did not find output \"%s\"", src_str)
+							return // TODO allow optional ??
 						}
 
-					} else {
-						//source_object_array = append(source_object_array, job_obj)
-						cwl_array = append(cwl_array, job_obj)
+						if link_merge_method == "merge_flattened" {
+
+							job_obj_type := job_obj.GetType()
+
+							if job_obj_type != cwl.CWL_array {
+								err = fmt.Errorf("(GetStepInputObjects) merge_flattened, expected array as input, but got %s", job_obj_type)
+								return
+							}
+
+							var an_array *cwl.Array
+							an_array, ok = job_obj.(*cwl.Array)
+							if !ok {
+								err = fmt.Errorf("got type: %s", reflect.TypeOf(job_obj))
+								return
+							}
+
+							for i, _ := range *an_array {
+								//source_object_array = append(source_object_array, (*an_array)[i])
+								cwl_array = append(cwl_array, (*an_array)[i])
+							}
+
+						} else {
+							//source_object_array = append(source_object_array, job_obj)
+							cwl_array = append(cwl_array, job_obj)
+						}
+						//cwl_array = append(cwl_array, obj)
 					}
-					//cwl_array = append(cwl_array, obj)
+
+					workunit_input_map[cmd_id] = &cwl_array
+
 				}
-
-				workunit_input_map[cmd_id] = &cwl_array
-
 			} else {
-				//fmt.Printf("source is NOT a array: %s", spew.Sdump(input.Source))
+				//fmt.Printf("(GetStepInputObjects) source is NOT a array: %s", spew.Sdump(input.Source))
 				var ok bool
 				source_as_string, ok = input.Source.(string)
 				if !ok {
@@ -2075,54 +2370,92 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 					err = fmt.Errorf("(GetStepInputObjects) (string) getCWLSource returns: %s", err.Error())
 					return
 				}
+				if ok {
+
+					if job_obj.GetType() == cwl.CWL_null {
+						//fmt.Println("(GetStepInputObjects) job_obj is cwl.CWL_null")
+						ok = false
+					} else {
+						//fmt.Println("(GetStepInputObjects) job_obj is not cwl.CWL_null")
+					}
+				}
+
 				if !ok {
+					fmt.Println("(GetStepInputObjects) check input.Default")
 					if input.Default == nil {
-						err = fmt.Errorf("(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", source_as_string)
-						return
+						logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", source_as_string)
+						continue
 					}
 					job_obj, err = cwl.NewCWLType("", input.Default)
 					if err != nil {
 						err = fmt.Errorf("(GetStepInputObjects) could not use default: %s", err.Error())
 						return
 					}
-
+					//fmt.Println("(GetStepInputObjects) got a input.Default")
+					//spew.Dump(job_obj)
 				}
-				workunit_input_map[cmd_id] = job_obj
+				//workunit_input_map[cmd_id] = job_obj
+				fmt.Printf("(GetStepInputObjects) Source_index: %d", input.Source_index)
+				if input.Source_index != 0 {
+					real_source_index := input.Source_index - 1
 
+					var job_obj_array_ptr *cwl.Array
+					job_obj_array_ptr, ok = job_obj.(*cwl.Array)
+					if !ok {
+						err = fmt.Errorf("(GetStepInputObjects) Array expected but got: %s", reflect.TypeOf(job_obj))
+						return
+					}
+					var job_obj_array cwl.Array
+					job_obj_array = *job_obj_array_ptr
+
+					if real_source_index >= len(job_obj_array) {
+						err = fmt.Errorf("(GetStepInputObjects) Source_index %d out of bounds, array length: %d", real_source_index, len(job_obj_array))
+						return
+					}
+
+					var element cwl.CWLType
+					element = job_obj_array[real_source_index]
+					fmt.Printf("(GetStepInputObjects) cmd_id=%s element=%s real_source_index=%d\n", cmd_id, element, real_source_index)
+					workunit_input_map[cmd_id] = element
+				} else {
+					workunit_input_map[cmd_id] = job_obj
+				}
 			}
 
-		} else {
+		} else { //input.Source == nil
 
-			if input.Default == nil {
-				err = fmt.Errorf("(GetStepInputObjects) sorry, source and Default are missing") // TODO StepInputExpressionRequirement
+			if input.Default == nil && input.ValueFrom == "" {
+				err = fmt.Errorf("(GetStepInputObjects) sorry, source, Default and ValueFrom are missing") // TODO StepInputExpressionRequirement
 				return
 			}
 
-			var default_value cwl.CWLType
-			default_value, err = cwl.NewCWLType(cmd_id, input.Default)
-			if err != nil {
-				err = fmt.Errorf("(GetStepInputObjects) NewCWLTypeFromInterface(input.Default) returns: %s", err.Error())
-				return
+			if input.Default != nil {
+				var default_value cwl.CWLType
+				default_value, err = cwl.NewCWLType(cmd_id, input.Default)
+				if err != nil {
+					err = fmt.Errorf("(GetStepInputObjects) NewCWLTypeFromInterface(input.Default) returns: %s", err.Error())
+					return
+				}
+
+				if default_value == nil {
+					err = fmt.Errorf("(GetStepInputObjects) default_value == nil ")
+					return
+				}
+
+				workunit_input_map[cmd_id] = default_value
 			}
-
-			if default_value == nil {
-				err = fmt.Errorf("(GetStepInputObjects) default_value == nil ")
-				return
-			}
-
-			workunit_input_map[cmd_id] = default_value
-
 		}
 		// TODO
 
-	}
+	} // end of INPUT_LOOP1
 	//fmt.Println("(GetStepInputObjects) workunit_input_map after first round:\n")
 	//spew.Dump(workunit_input_map)
-	// 3. evaluate each ValueFrom field, update results
 
+	// 3. evaluate each ValueFrom field, update results
+VALUE_FROM_LOOP:
 	for _, input := range workflow_step.In {
 		if input.ValueFrom == "" {
-			continue
+			continue VALUE_FROM_LOOP
 		}
 
 		id := input.Id
@@ -2143,6 +2476,9 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		//	return
 		//}
 
+		fmt.Println("(GetStepInputObjects) workunit_input_map:")
+		spew.Dump(workunit_input_map)
+
 		var inputs_json []byte
 		inputs_json, err = json.Marshal(workunit_input_map)
 		if err != nil {
@@ -2160,9 +2496,14 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 		js_self, ok := workunit_input_map[cmd_id]
 		if !ok {
-			err = fmt.Errorf("(GetStepInputObjects) workunit_input %s not found", cmd_id)
-			return
+			//err = fmt.Errorf("(GetStepInputObjects) workunit_input %s not found", cmd_id)
+			//return
+			logger.Warning("(GetStepInputObjects) workunit_input %s not found", cmd_id)
+			js_self = cwl.NewNull()
 		}
+
+		// TODO check for scatter
+		// https://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
 
 		if js_self == nil {
 			err = fmt.Errorf("(GetStepInputObjects) js_self == nil")
@@ -2188,17 +2529,21 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		//fmt.Printf("input.ValueFrom=%s\n", input.ValueFrom)
 
 		// evaluate $(...) ECMAScript expression
-		reg := regexp.MustCompile(`\$\([\w.]+\)`)
+		reg := regexp.MustCompile(`\$\(.+\)`)
 		// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
 
-		parsed := input.ValueFrom.String()
-		for {
+		parsed_str := input.ValueFrom.String()
+		//for {
 
-			matches := reg.FindAll([]byte(parsed), -1)
-			fmt.Printf("Matches: %d\n", len(matches))
-			if len(matches) == 0 {
-				break
+		matches := reg.FindAll([]byte(parsed_str), -1)
+		fmt.Printf("()Matches: %d\n", len(matches))
+		if len(matches) > 0 {
+
+			concatenate := false
+			if len(matches) > 1 {
+				concatenate = true
 			}
+
 			for _, match := range matches {
 				expression_string := bytes.TrimPrefix(match, []byte("$("))
 				expression_string = bytes.TrimSuffix(expression_string, []byte(")"))
@@ -2208,34 +2553,92 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 				value, xerr := vm.Run(javascript_function)
 				if xerr != nil {
-					err = fmt.Errorf("Javascript complained: A) %s", xerr.Error())
+					err = fmt.Errorf("(GetStepInputObjects) Javascript complained: A) %s", xerr.Error())
 					return
 				}
 				fmt.Println(reflect.TypeOf(value))
 
-				value_str, xerr := value.ToString()
-				if xerr != nil {
-					err = fmt.Errorf("Cannot convert value to string: %s", xerr.Error())
-					return
+				//if value.IsNumber()
+				if concatenate {
+					value_str, xerr := value.ToString()
+					if xerr != nil {
+						err = fmt.Errorf("(GetStepInputObjects) Cannot convert value to string: %s", xerr.Error())
+						return
+					}
+					parsed_str = strings.Replace(parsed_str, string(match), value_str, 1)
+				} else {
+
+					var value_returned cwl.CWLType
+					var exported_value interface{}
+					//https://godoc.org/github.com/robertkrimen/otto#Value.Export
+					exported_value, err = value.Export()
+
+					if err != nil {
+						err = fmt.Errorf("(GetStepInputObjects)  value.Export() returned: %s", err.Error())
+						return
+					}
+					switch exported_value.(type) {
+
+					case string:
+						value_returned = cwl.NewString(exported_value.(string))
+
+					case bool:
+
+						value_returned = cwl.NewBooleanFrombool(exported_value.(bool))
+
+					case int:
+						value_returned = cwl.NewInt(exported_value.(int))
+					case float32:
+						value_returned = cwl.NewFloat(exported_value.(float32))
+					case float64:
+						fmt.Println("got a double")
+						value_returned = cwl.NewDouble(exported_value.(float64))
+					case uint64:
+						value_returned = cwl.NewInt(exported_value.(int))
+
+					case []interface{}: //Array
+						err = fmt.Errorf("(GetStepInputObjects) array not supported yet")
+						return
+					case interface{}: //Object
+
+						fmt.Println("record:")
+						spew.Dump(exported_value)
+						err = fmt.Errorf("(GetStepInputObjects) record not supported yet")
+						return
+					default:
+						err = fmt.Errorf("(GetStepInputObjects) js return type not supoported: (%s)", reflect.TypeOf(exported_value))
+						return
+					}
+
+					fmt.Println("value_returned:")
+					spew.Dump(value_returned)
+					workunit_input_map[cmd_id] = value_returned
+					continue VALUE_FROM_LOOP
 				}
-				parsed = strings.Replace(parsed, string(match), value_str, 1)
-			}
+			} // for matches
 
-		}
+			//if concatenate
+			workunit_input_map[cmd_id] = cwl.NewString(parsed_str)
 
-		fmt.Printf("parsed: %s\n", parsed)
+			continue VALUE_FROM_LOOP
+		} // if matches
+		//}
+
+		//fmt.Printf("parsed_str: %s\n", parsed_str)
 
 		// evaluate ${...} ECMAScript function body
 		reg = regexp.MustCompile(`(?s)\${.+}`) // s-flag is needed to include newlines
 
 		// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
 
-		matches := reg.FindAll([]byte(parsed), -1)
-		fmt.Printf("Matches: %d\n", len(matches))
+		matches = reg.FindAll([]byte(parsed_str), -1)
+		//fmt.Printf("{}Matches: %d\n", len(matches))
 		if len(matches) == 0 {
+			workunit_input_map[cmd_id] = cwl.NewString(parsed_str)
+			continue VALUE_FROM_LOOP
+		}
 
-			workunit_input_map[cmd_id] = cwl.NewString(parsed)
-		} else if len(matches) == 1 {
+		if len(matches) == 1 {
 			match := matches[0]
 			expression_string := bytes.TrimPrefix(match, []byte("${"))
 			expression_string = bytes.TrimSuffix(expression_string, []byte("}"))
@@ -2261,17 +2664,29 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 			}
 
 			workunit_input_map[cmd_id] = value_cwl
-		} else {
-			err = fmt.Errorf("(NewWorkunit) ValueFrom contains more than one ECMAScript function body")
-			return
+			continue VALUE_FROM_LOOP
 		}
 
-	}
+		err = fmt.Errorf("(NewWorkunit) ValueFrom contains more than one ECMAScript function body")
+		return
+
+	} // end of VALUE_FROM_LOOP
+
+	//fmt.Println("(GetStepInputObjects) workunit_input_map after ValueFrom round:\n")
+	//spew.Dump(workunit_input_map)
+
+	//for key, value := range workunit_input_map {
+	//	fmt.Printf("workunit_input_map: %s -> %s\n", key, value.String())
+
+	//}
+
 	return
 }
 
 func (qm *ServerMgr) CreateAndEnqueueWorkunits(task *Task, job *Job) (err error) {
-	logger.Debug(3, "(CreateAndEnqueueWorkunits) starting")
+	//logger.Debug(3, "(CreateAndEnqueueWorkunits) starting")
+	//fmt.Println("--CreateAndEnqueueWorkunits--")
+	//spew.Dump(task)
 	workunits, err := task.CreateWorkunits(qm, job)
 	if err != nil {
 		err = fmt.Errorf("(CreateAndEnqueueWorkunits) error in CreateWorkunits: %s", err.Error())
@@ -2398,7 +2813,8 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 
 //---end of task methods---
 
-//update job info when a task in that job changed to a new state
+// update job info when a task in that job changed to a new state
+// update parent task of a scatter task
 // update parent task in a subworkflow
 // this is invoked everytime a task changes state, but only when job_remainTasks==0 and state is not yet JOB_STAT_COMPLETED it will complete the job
 func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
@@ -2450,18 +2866,149 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		logger.Debug(3, "(updateJobTask) task.WorkflowStep != nil ")
 	}
 
-	// CWL Task completes
+	// (updateJobTask) CWL Task completes
 	if task_state == TASK_STAT_COMPLETED && task.WorkflowStep != nil {
 		// this task belongs to a subworkflow // TODO every task should belong to a subworkflow
-		logger.Debug(3, "(updateJobTask) task_state == TASK_STAT_COMPLETED && task.WorkflowStep != nil")
+		logger.Debug(3, "(updateJobTask) task_state == TASK_STAT_COMPLETED && task.WorkflowStep != nil (%s)", task_str)
+
+		if task.Scatter_parent != nil {
+			// (updateJobTask) this is a scatter child
+			logger.Debug(3, "(updateJobTask) %s Scatter_parent exists", task_str)
+			scatter_parent_id := *task.Scatter_parent
+			var scatter_parent_task *Task
+			var ok bool
+			scatter_parent_task, ok, err = qm.TaskMap.Get(scatter_parent_id, true)
+			if err != nil {
+				return
+			}
+			if !ok {
+				err = fmt.Errorf("(updateJobTask) Scatter_Parent task %s not found", scatter_parent_id)
+				return
+			}
+
+			// (updateJobTask) get scatter sibblings to see if they are done
+			var children []*Task
+			children, err = scatter_parent_task.GetChildren(qm)
+			if err != nil {
+
+				length, _ := qm.TaskMap.Len()
+
+				var tasks []*Task
+				tasks, _ = qm.TaskMap.GetTasks()
+				for _, task := range tasks {
+					fmt.Printf("(got task) %s\n", task.Id)
+				}
+
+				err = fmt.Errorf("(updateJobTask) (scatter) GetChildren returned: %s (total: %d)", err.Error(), length)
+				return
+			}
+
+			fmt.Printf("XXX children: %d\n", len(children))
+
+			scatter_complete := true
+			for _, child_task := range children {
+				var child_state string
+				child_state, err = child_task.GetState()
+				if err != nil {
+					return
+				}
+
+				if child_state != TASK_STAT_COMPLETED {
+					scatter_complete = false
+					break
+				}
+			}
+
+			if !scatter_complete {
+				// nothing to do here, scatter is not complete
+				return
+			}
+
+			// // (updateJobTask) scatter_complete
+			ok, err = scatter_parent_task.Finalize() // make sure this is the last scatter task
+			if err != nil {
+				return
+			}
+
+			if !ok {
+				// somebody else is finalizing
+				return
+			}
+
+			scatter_parent_step := scatter_parent_task.WorkflowStep
+
+			scatter_parent_task.StepOutput = &cwl.Job_document{}
+
+			fmt.Printf("XXX start\n")
+			for i, _ := range scatter_parent_step.Out {
+				fmt.Printf("XXX loop %d\n", i)
+				workflow_step_output := scatter_parent_step.Out[i]
+				workflow_step_output_id := workflow_step_output.Id
+
+				workflow_step_output_id_base := path.Base(workflow_step_output_id)
+
+				output_array := cwl.Array{}
+
+				for _, child_task := range children {
+					fmt.Printf("XXX inner loop %d\n", i)
+					job_doc := child_task.StepOutput
+					var child_output cwl.CWLType
+					child_output, err = job_doc.Get(workflow_step_output_id_base)
+					if err != nil {
+						//fmt.Printf("XXX job_doc.Get failed\n")
+						err = fmt.Errorf("(updateJobTask) job_doc.Get failed: %s ", err.Error())
+						return
+					}
+					fmt.Println("child_output:")
+					spew.Dump(child_output)
+					output_array = append(output_array, child_output)
+					fmt.Println("output_array:")
+					spew.Dump(output_array)
+				}
+				fmt.Println("final output_array:")
+				spew.Dump(output_array)
+				scatter_parent_task.StepOutput = scatter_parent_task.StepOutput.Add(workflow_step_output_id, &output_array)
+
+			}
+
+			fmt.Println("scatter_parent_task.StepOutput:")
+			spew.Dump(scatter_parent_task.StepOutput)
+			//panic("scatter done")
+			count_a, _ := job.GetRemainTasks()
+			fmt.Printf("GetRemainTasks job A1: %d\n", count_a)
+
+			// set TASK_STAT_COMPLETED
+			//err = scatter_parent_task.SetState(TASK_STAT_COMPLETED, true)
+			//if err != nil {
+			//		return
+			//	}
+
+			task = scatter_parent_task
+
+			err = task.SetState(TASK_STAT_COMPLETED, true)
+			if err != nil {
+				return
+			}
+
+			count_a, _ = job.GetRemainTasks()
+			fmt.Printf("GetRemainTasks job A2: %d\n", count_a)
+
+		} else {
+			logger.Debug(3, "(updateJobTask) %s  No Scatter_parent", task_str)
+		}
+
+		count, _ := job.GetRemainTasks()
+
+		fmt.Printf("GetRemainTasks job B: %d\n", count)
 
 		var subworkflow_remain_tasks int
-		subworkflow_remain_tasks, err = job.Decrease_WorkflowInstance_RemainTasks(parent_id_str)
+		subworkflow_remain_tasks, err = job.Decrease_WorkflowInstance_RemainTasks(parent_id_str, task_str)
 		if err != nil {
 			//fmt.Printf("ERROR: (updateJobTask) Decrease_WorkflowInstance_RemainTasks returned: %s\n", err.Error())
 			err = fmt.Errorf("(updateJobTask) WorkflowInstanceDecreaseRemainTasks returned: %s", err.Error())
 			return
 		}
+		fmt.Printf("GetRemainTasks subworkflow C: %d\n", subworkflow_remain_tasks)
 
 		logger.Debug(3, "(updateJobTask) TASK_STAT_COMPLETED  / remaining tasks for subworkflow %s: %d", task_str, subworkflow_remain_tasks)
 
@@ -2513,6 +3060,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			var children []*Task
 			children, err = parent_task.GetChildren(qm)
 			if err != nil {
+				err = fmt.Errorf("(updateJobTask) (subworkflow) GetChildren retuned: %s", err.Error())
 				return
 			}
 
@@ -2587,8 +3135,6 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 		} else {
 
-			// the job completes !
-
 			// implicit subworkflow (there is no parent)
 			wfl, err = job.CWL_collection.GetWorkflow(job.Entrypoint) // TODO: use locked function
 			if err != nil {
@@ -2645,8 +3191,15 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				return
 			}
 
-			expected_types_raw := output.Type
+			var expected_types_raw []interface{}
 
+			switch output.Type.(type) {
+			case []interface{}:
+				expected_types_raw = output.Type.([]interface{})
+			default:
+				expected_types_raw = append(expected_types_raw, output.Type)
+				//expected_types_raw = []interface{output.Type}
+			}
 			expected_types := []cwl.CWLType_Type{}
 
 			is_optional := false
@@ -2690,7 +3243,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				var ok bool
 				obj, ok, err = qm.getCWLSource(workflow_inputs_map, job, task_id, outputSourceString, true)
 				if err != nil {
-					err = fmt.Errorf("(updateJobTask) A getCWLSource returns: %s", err.Error())
+					err = fmt.Errorf("(updateJobTask) A) getCWLSource returns: %s", err.Error())
 					return
 				}
 				skip := false
@@ -2698,7 +3251,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 					if is_optional {
 						skip = true
 					} else {
-						err = fmt.Errorf("(updateJobTask) A source %s not found", outputSourceString)
+						err = fmt.Errorf("(updateJobTask) A) source %s not found by getCWLSource", outputSourceString)
 						return
 					}
 				}
@@ -2733,7 +3286,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 					var ok bool
 					obj, ok, err = qm.getCWLSource(workflow_inputs_map, job, task_id, outputSourceString, true)
 					if err != nil {
-						err = fmt.Errorf("(updateJobTask) B (%s) getCWLSource returns: %s", parent_id_str, err.Error())
+						err = fmt.Errorf("(updateJobTask) B) (%s) getCWLSource returns: %s", parent_id_str, err.Error())
 						return
 					}
 
@@ -2744,7 +3297,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 							skip = true
 						} else {
 
-							err = fmt.Errorf("(updateJobTask) B (%s) source %s not found", parent_id_str, outputSourceString)
+							err = fmt.Errorf("(updateJobTask) B) (%s) source %s not found", parent_id_str, outputSourceString)
 							return
 						}
 					}
@@ -2888,6 +3441,13 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			}
 		} else {
 
+			job_remainTasks, err = job.GetRemainTasks() // TODO deprecated !?
+			if err != nil {
+				return
+			}
+
+			fmt.Printf("GetRemainTasks job D: %d\n", job_remainTasks)
+
 			if job_remainTasks > 0 {
 				err = fmt.Errorf("(updateJobTask) Something is wrong, last subworkflow completes, but job_remainTasks > 0 , does not make sense")
 				return
@@ -2895,6 +3455,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 		}
 	}
+
+	logger.Debug(3, "(updateJobTask) job_remainTasks: %d", job_remainTasks)
 
 	if job_remainTasks > 0 { //#####################################################################
 		return

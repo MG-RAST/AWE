@@ -30,15 +30,10 @@ func NewProxyMgr() *ProxyMgr {
 			workQueue:    NewWorkQueue(),
 			suspendQueue: false,
 			coReq:        make(chan CoReq),
-			//coAck:        make(chan CoAck),
-			feedback: make(chan Notice),
-			coSem:    make(chan int, 1), //non-blocking buffered channel
+			feedback:     make(chan Notice),
+			coSem:        make(chan int, 1), //non-blocking buffered channel
 		},
 	}
-}
-
-func (qm *ProxyMgr) TaskHandle() {
-	return
 }
 
 func (qm *ProxyMgr) ClientHandle() {

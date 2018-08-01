@@ -8,14 +8,10 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+// https://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputParameter
 type CommandOutputParameter struct {
-	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	//Id             string                `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	//SecondaryFiles []Expression          `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	//Format         Expression            `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty"`
-	//Streamable bool          `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty"`
-	//Type []interface{} `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty"` // []CommandOutputParameterType TODO CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
-	//Label          string                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty"`
+	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Id, Label, SecondaryFiles, Format, Streamable, OutputBinding, Type
+
 	Description string `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty" mapstructure:"description,omitempty"`
 }
 
@@ -26,30 +22,35 @@ func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type) (o
 		return
 	}
 
+	var op *OutputParameter
+	op, err = NewOutputParameterFromInterface(original, schemata, "CommandOutput")
+	if err != nil {
+		err = fmt.Errorf("(NewCommandOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
+		return
+	}
+
 	switch original.(type) {
 
 	case map[string]interface{}:
 
-		original_map, ok := original.(map[string]interface{})
-		if !ok {
-			err = fmt.Errorf("(NewCommandOutputParameter) type error")
-			return
-		}
+		//original_map, ok := original.(map[string]interface{})
+		//if !ok {
+		//	err = fmt.Errorf("(NewCommandOutputParameter) type error")
+		//	return
+		//}
 
-		err = NormalizeOutputParameter(original_map)
-		if err != nil {
-			err = fmt.Errorf("(NewCommandOutputParameter) NormalizeOutputParameter returns %s", err.Error())
-			return
-		}
-
-		COPtype, ok := original_map["type"]
-		if ok {
-			original_map["type"], err = NewCommandOutputParameterTypeArray(COPtype, schemata)
-			if err != nil {
-				err = fmt.Errorf("(NewCommandOutputParameter) NewCommandOutputParameterTypeArray returns %s", err.Error())
-				return
-			}
-		}
+		// type:
+		// any of CWLType | stdout | stderr | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string | array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
+		// COPtype, ok := original_map["type"]
+		// if ok {
+		// 	original_map["type"], err = NewCommandOutputParameterTypeArray(COPtype, schemata)
+		// 	if err != nil {
+		// 		fmt.Println("NewCommandOutputParameter:")
+		// 		spew.Dump(original_map)
+		// 		err = fmt.Errorf("(NewCommandOutputParameter) NewCommandOutputParameterTypeArray returns %s", err.Error())
+		// 		return
+		// 	}
+		// }
 
 		output_parameter = &CommandOutputParameter{}
 		err = mapstructure.Decode(original, output_parameter)
@@ -57,6 +58,8 @@ func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type) (o
 			err = fmt.Errorf("(NewCommandOutputParameter) mapstructure returned: %s", err.Error())
 			return
 		}
+
+		output_parameter.OutputParameter = *op
 	default:
 		spew.Dump(original)
 		err = fmt.Errorf("NewCommandOutputParameter, unknown type %s", reflect.TypeOf(original))

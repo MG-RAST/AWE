@@ -73,6 +73,7 @@ type JobRaw struct {
 	CwlVersion           cwl.CWLVersion               `bson:"cwl_version" json:"cwl_version"`
 	CWL_objects          interface{}                  `bson:"cwl_objects" json:"cwl_objects`
 	CWL_job_input        interface{}                  `bson:"cwl_job_input" json:"cwl_job_input` // has to be an array for mongo (id as key would not work)
+	CWL_ShockRequirement *cwl.ShockRequirement        `bson:"cwl_shock_requirement" json:"cwl_shock_requirement`
 	CWL_collection       *cwl.CWL_collection          `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	CWL_workflow         *cwl.Workflow                `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	WorkflowInstances    []interface{}                `bson:"workflow_instances" json:"workflow_instances" yaml:"workflow_instances" mapstructure:"workflow_instances"`
@@ -236,7 +237,7 @@ func (job *Job) Set_WorkflowInstance_Outputs(id string, outputs cwl.Job_document
 	return
 }
 
-func (job *Job) Decrease_WorkflowInstance_RemainTasks(id string) (remain_tasks int, err error) {
+func (job *Job) Decrease_WorkflowInstance_RemainTasks(id string, task_str string) (remain_tasks int, err error) {
 	err = job.LockNamed("Decrease_WorkflowInstance_RemainTasks")
 	if err != nil {
 		return
@@ -254,6 +255,8 @@ func (job *Job) Decrease_WorkflowInstance_RemainTasks(id string) (remain_tasks i
 		err = fmt.Errorf("(Decrease_WorkflowInstance_RemainTasks) job.GetWorkflowInstance returned: %s", err.Error())
 		return
 	}
+
+	logger.Debug(3, "(Decrease_WorkflowInstance_RemainTasks) old workflow_instance.RemainTasks: %d (%s)", workflow_instance.RemainTasks, task_str)
 
 	remain_tasks = workflow_instance.RemainTasks - 1
 	if remain_tasks < 0 {
@@ -523,9 +526,9 @@ func (job *Job) Init() (changed bool, err error) {
 		if !ok {
 			err = fmt.Errorf("(job.Init) Workflow \"%s\" not found", entrypoint)
 
-			for key, _ := range collection.All {
-				fmt.Printf("key: " + key)
-			}
+			//for key, _ := range collection.All {
+			//	fmt.Printf("key: " + key)
+			//}
 			return
 		}
 

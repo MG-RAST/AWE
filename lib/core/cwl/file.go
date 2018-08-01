@@ -49,7 +49,15 @@ func (f *File) String() string { return f.Path }
 
 //func (f *File) Is_CommandInputParameterType() {} // for CommandInputParameterType
 
-func NewFile(obj interface{}) (file File, err error) {
+func NewFile() (f *File) {
+	f = &File{}
+	f.CWLType_Impl = CWLType_Impl{}
+	f.Class = string(CWL_File)
+	f.Type = CWL_File
+	return
+}
+
+func NewFileFromInterface(obj interface{}) (file File, err error) {
 
 	file, err = MakeFile(obj)
 
@@ -75,14 +83,14 @@ func MakeFile(obj interface{}) (file File, err error) {
 
 	}
 
-	file = File{}
+	file = *NewFile()
 	err = mapstructure.Decode(obj_map, &file)
 	if err != nil {
 		err = fmt.Errorf("(MakeFile) Could not convert File object: %s", err.Error())
 		return
 	}
-	file.Class = string(CWL_File)
-	file.Type = CWL_File
+	//file.Class = string(CWL_File)
+	//file.Type = CWL_File
 
 	//fmt.Println("MakeFile input:")
 	//spew.Dump(obj)

@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/acl"
+
+	"io/ioutil"
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -12,7 +15,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/httpclient"
-	"io/ioutil"
 	//"net/url"
 	"encoding/base64"
 	"os"
@@ -525,6 +527,7 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 
 	if work.CWL_workunit != nil {
 		cwl_result := work.CWL_workunit.Notice
+		cwl_result.Results = work.CWL_workunit.Outputs
 		cwl_result.Status = work.State
 		cwl_result.ComputeTime = work.ComputeTime
 
@@ -534,6 +537,8 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 			err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) Could not json marshal results: %s", err.Error())
 			return
 		}
+
+		//fmt.Printf("Notice: %s\n", string(result_bytes[:]))
 
 		form.AddParam("cwl", string(result_bytes[:]))
 

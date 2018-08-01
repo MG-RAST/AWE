@@ -174,6 +174,12 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		return
 	}
 	defer res.Body.Close()
+
+	if res.StatusCode == 404 {
+		err = fmt.Errorf("(404) AWE server not found")
+		return
+	}
+
 	jsonstream, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return

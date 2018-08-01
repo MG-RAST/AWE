@@ -39,6 +39,31 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 		v_map := original.(map[string]interface{})
 		//spew.Dump(v_map)
 
+		var requirements_array []Requirement
+		requirements, ok := v_map["requirements"]
+		if ok {
+			var requirements_array_temp *[]Requirement
+			requirements_array_temp, schemata, err = CreateRequirementArray(requirements)
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflowStep) CreateRequirementArray %s", err.Error())
+				return
+			}
+			for _, r := range *requirements_array_temp {
+
+				requirements_array = append(requirements_array, r)
+
+			}
+		}
+
+		if injectedRequirements != nil {
+			for _, r := range *injectedRequirements {
+
+				requirements_array = append(requirements_array, r)
+
+			}
+		}
+		v_map["requirements"] = requirements_array
+
 		step_in, ok := v_map["in"]
 		if ok {
 			v_map["in"], err = CreateWorkflowStepInputArray(step_in)
@@ -123,24 +148,6 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 				return
 			}
 		}
-
-		var requirements_array *[]Requirement
-		requirements, ok := v_map["requirements"]
-		if ok {
-			requirements_array, schemata, err = CreateRequirementArray(requirements)
-			if err != nil {
-				err = fmt.Errorf("(NewWorkflowStep) CreateRequirementArray %s", err.Error())
-				return
-			}
-
-		}
-
-		//for _, r := range *injectedRequirements {
-		//		var requirements_array *[]Requirement
-		//		requirements_array = append(*requirements_array, r)
-		//
-		//		}
-		v_map["requirements"] = &requirements_array
 
 		//spew.Dump(v_map["run"])
 		err = mapstructure.Decode(original, &step)

@@ -65,7 +65,7 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion) (obj CWL_objec
 			//fmt.Println("New_CWL_object CommandLineTool")
 			logger.Debug(1, "(New_CWL_object) parse CommandLineTool")
 			var clt *CommandLineTool
-			clt, schemata, err = NewCommandLineTool(elem, cwl_version)
+			clt, schemata, err = NewCommandLineTool(elem, cwl_version, nil)
 			if err != nil {
 				err = fmt.Errorf("(New_CWL_object) NewCommandLineTool returned: %s", err.Error())
 				return

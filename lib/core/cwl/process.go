@@ -52,7 +52,7 @@ func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 }
 
 // returns CommandLineTool, ExpressionTool or Workflow
-func NewProcess(original interface{}, CwlVersion CWLVersion) (process interface{}, schemata []CWLType_Type, err error) {
+func NewProcess(original interface{}, CwlVersion CWLVersion, injectedRequirements *[]Requirement) (process interface{}, schemata []CWLType_Type, err error) {
 
 	logger.Debug(3, "NewProcess starting")
 
@@ -97,7 +97,7 @@ func NewProcess(original interface{}, CwlVersion CWLVersion) (process interface{
 			process, err = NewExpression(original)
 			return
 		case "CommandLineTool":
-			process, schemata, err = NewCommandLineTool(original, CwlVersion) // TODO merge schemata correctly !
+			process, schemata, err = NewCommandLineTool(original, CwlVersion, injectedRequirements) // TODO merge schemata correctly !
 			return
 		case "ExpressionTool":
 			process, err = NewExpressionTool(original, CwlVersion, schemata)

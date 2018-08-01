@@ -84,7 +84,7 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 		run, ok := v_map["run"]
 		if ok {
 			var schemata_new []CWLType_Type
-			v_map["run"], schemata_new, err = NewProcess(run, CwlVersion)
+			v_map["run"], schemata_new, err = NewProcess(run, CwlVersion, &requirements_array)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) run %s", err.Error())
 				return
@@ -350,6 +350,9 @@ func GetProcess(original interface{}, collection *CWL_collection, CwlVersion CWL
 
 	case map[string]interface{}:
 
+		err = fmt.Errorf("(GetProcess) Process should have been parsed by now !?") // otherwise we to inject Requirements
+		return
+
 		//fmt.Println("GetProcess got:")
 		//spew.Dump(p)
 
@@ -363,7 +366,7 @@ func GetProcess(original interface{}, collection *CWL_collection, CwlVersion CWL
 				switch class_name {
 				case "CommandLineTool":
 
-					clt, schemata, err = NewCommandLineTool(p, CwlVersion)
+					clt, schemata, err = NewCommandLineTool(p, CwlVersion, nil)
 					process = clt
 					return
 				case "Workflow":

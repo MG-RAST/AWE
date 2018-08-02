@@ -191,6 +191,73 @@ func main_wrapper() (err error) {
 
 	shock_requirement = *shock_requirement_ptr
 	// A) search for File objects in Document, e.g. in CommandLineTools
+	for j, _ := range named_object_array {
+
+		pair := named_object_array[j]
+		object := pair.Value
+
+		var ok bool
+
+		switch object.(type) {
+		case *cwl.Workflow:
+			workflow := object.(*cwl.Workflow)
+
+			sub_upload_count := 0
+			sub_upload_count, err = cache.ProcessIOData(workflow, inputfile_path, inputfile_path, "upload", shock_client)
+			if err != nil {
+				err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
+				return
+			}
+			upload_count += sub_upload_count
+
+		case *cwl.CommandLineTool:
+			var cmd_line_tool *cwl.CommandLineTool
+			cmd_line_tool, ok = object.(*cwl.CommandLineTool) // TODO this misses embedded CommandLineTools !
+			if !ok {
+				//fmt.Println("nope.")
+				err = nil
+				continue
+			}
+
+			if cmd_line_tool == nil {
+				err = fmt.Errorf("(main_wrapper) cmd_line_tool==nil")
+				return
+			}
+			sub_upload_count := 0
+			sub_upload_count, err = cache.ProcessIOData(cmd_line_tool, inputfile_path, inputfile_path, "upload", shock_client)
+			if err != nil {
+				err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
+				return
+			}
+			upload_count += sub_upload_count
+
+		case *cwl.ExpressionTool:
+			var express_tool *cwl.ExpressionTool
+			express_tool, ok = object.(*cwl.ExpressionTool) // TODO this misses embedded ExpressionTools !
+			if !ok {
+				//fmt.Println("nope.")
+				err = nil
+				continue
+			}
+
+			if express_tool == nil {
+				err = fmt.Errorf("(main_wrapper) express_tool==nil")
+				return
+			}
+
+			sub_upload_count := 0
+			sub_upload_count, err = cache.ProcessIOData(express_tool, inputfile_path, inputfile_path, "upload", shock_client)
+			if err != nil {
+				err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
+				return
+			}
+			upload_count += sub_upload_count
+
+		}
+	}
+
+	logger.Debug(3, "%d files have been uploaded\n", upload_count)
+
 	// B) inject ShockRequirement into CommandLineTools, ExpressionTools and Workflow
 	for j, _ := range named_object_array {
 
@@ -209,15 +276,6 @@ func main_wrapper() (err error) {
 				return
 			}
 
-			upload_count = 0
-			upload_count, err = cache.ProcessIOData(workflow, inputfile_path, inputfile_path, "upload", shock_client)
-			if err != nil {
-				err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
-				return
-			}
-			logger.Debug(3, "%d files have been uploaded\n", upload_count)
-			time.Sleep(2)
-
 		case *cwl.CommandLineTool:
 			var cmd_line_tool *cwl.CommandLineTool
 			cmd_line_tool, ok = object.(*cwl.CommandLineTool) // TODO this misses embedded CommandLineTools !
@@ -227,43 +285,11 @@ func main_wrapper() (err error) {
 				continue
 			}
 
-			if cmd_line_tool == nil {
-				err = fmt.Errorf("(main_wrapper) cmd_line_tool==nil")
-				return
-			}
-
 			cmd_line_tool.Requirements, err = cwl.AddRequirement(shock_requirement, cmd_line_tool.Requirements)
 			if err != nil {
 				err = fmt.Errorf("(main_wrapper) AddRequirement returned: %s", err.Error())
 			}
 
-			update := false
-			for i, _ := range cmd_line_tool.Inputs {
-				command_input_parameter := &cmd_line_tool.Inputs[i]
-				if command_input_parameter.Default == nil {
-					continue
-				}
-
-				var default_file *cwl.File
-				default_file, ok = command_input_parameter.Default.(*cwl.File)
-				if !ok {
-					continue
-				}
-
-				err = cache.UploadFile(default_file, inputfile_path, shock_client)
-				if err != nil {
-					return
-				}
-				command_input_parameter.Default = default_file
-				cmd_line_tool.Inputs[i] = *command_input_parameter
-				update = true
-				//spew.Dump(command_input_parameter)
-				//fmt.Printf("File: %+v\n", *default_file)
-
-			}
-			if update {
-				named_object_array[j].Value = cmd_line_tool
-			}
 		case *cwl.ExpressionTool:
 			var express_tool *cwl.ExpressionTool
 			express_tool, ok = object.(*cwl.ExpressionTool) // TODO this misses embedded ExpressionTools !
@@ -283,33 +309,6 @@ func main_wrapper() (err error) {
 				err = fmt.Errorf("(main_wrapper) AddRequirement returned: %s", err.Error())
 			}
 
-			update := false
-			for i, _ := range express_tool.Inputs {
-				input_parameter := &express_tool.Inputs[i]
-				if input_parameter.Default == nil {
-					continue
-				}
-
-				var default_file *cwl.File
-				default_file, ok = input_parameter.Default.(*cwl.File)
-				if !ok {
-					continue
-				}
-
-				err = cache.UploadFile(default_file, inputfile_path, shock_client)
-				if err != nil {
-					return
-				}
-				input_parameter.Default = default_file
-				express_tool.Inputs[i] = *input_parameter
-				update = true
-				//spew.Dump(input_parameter)
-				//fmt.Printf("File: %+v\n", *default_file)
-
-			}
-			if update {
-				named_object_array[j].Value = express_tool
-			}
 		}
 	}
 

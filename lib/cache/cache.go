@@ -216,9 +216,9 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 
 	//fmt.Printf("file.Path A: %s", file.Path)
 
-	file.Path = strings.TrimPrefix(file.Path, inputfile_path)
-	file.Path = strings.TrimPrefix(file.Path, "/")
-
+	//file.Path = strings.TrimPrefix(file.Path, inputfile_path)
+	//file.Path = strings.TrimPrefix(file.Path, "/")
+	file.Path = ""
 	//fmt.Printf("file.Path B: %s", file.Path)
 	file.Basename = basename
 
@@ -260,7 +260,7 @@ func DownloadFile(file *cwl.File, download_path string, base_path string) (err e
 
 	base_path = path.Join(strings.TrimSuffix(base_path, "/"), "/")
 
-	file.Location = "file://" + strings.TrimPrefix(strings.TrimPrefix(file_path, base_path), "/")
+	file.Location = strings.TrimPrefix(strings.TrimPrefix(file_path, base_path), "/") // "file://" +  ?
 	file.Path = ""
 
 	//fmt.Println("file:")
@@ -439,6 +439,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 	case *cwl.Boolean:
 		return
 	case *cwl.File:
+		//fmt.Println("got *cwl.File")
 		if !conf.SUBMITTER_QUIET {
 			logger.Debug(0, "Uploading file")
 		}
@@ -677,6 +678,35 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		//fmt.Printf("found Null\n")
 		return
 
+	case *cwl.CWLType:
+
+		var file *cwl.File
+		var ok bool
+		file, ok = native.(*cwl.File)
+		if ok {
+
+			var sub_count int
+			sub_count, err = ProcessIOData(file, current_path, base_path, io_type, shock_client)
+			if err != nil {
+				return
+			}
+			count += sub_count
+			return
+		}
+
+		var dir *cwl.Directory
+		dir, ok = native.(*cwl.Directory)
+		if ok {
+
+			var sub_count int
+			sub_count, err = ProcessIOData(dir, current_path, base_path, io_type, shock_client)
+			if err != nil {
+				return
+			}
+			count += sub_count
+			return
+		}
+
 	case *cwl.Workflow:
 		workflow := native.(*cwl.Workflow)
 
@@ -694,7 +724,69 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			}
 
 		}
+	case *cwl.CommandLineTool:
 
+		clt := native.(*cwl.CommandLineTool)
+
+		//var sub_count int
+		//sub_count, err = ProcessIOData(clt, current_path, base_path, "download", nil)
+		//if err != nil {
+		//	err = fmt.Errorf("(processIOData) work.Job_input ProcessIOData(for download) returned: %s", err.Error())
+		//		return
+		//	}
+		//count += sub_count
+
+		for i, _ := range clt.Inputs { // CommandInputParameter
+
+			command_input_parameter := &clt.Inputs[i]
+
+			if command_input_parameter.Default != nil {
+
+				var sub_count int
+				sub_count, err = ProcessIOData(command_input_parameter, current_path, base_path, io_type, shock_client)
+				if err != nil {
+					err = fmt.Errorf("(processIOData) CommandInputParameter ProcessIOData(for download) returned: %s", err.Error())
+					return
+				}
+				count += sub_count
+
+			}
+
+		}
+
+	case *cwl.CommandInputParameter:
+
+		cip := native.(*cwl.CommandInputParameter)
+
+		var sub_count int
+		sub_count, err = ProcessIOData(cip.Default, current_path, base_path, io_type, shock_client)
+		if err != nil {
+			err = fmt.Errorf("(processIOData) CommandInputParameter ProcessIOData(for download) returned: %s", err.Error())
+			return
+		}
+		count += sub_count
+
+	case *core.CWL_workunit:
+
+		if io_type == "download" {
+			work := native.(*core.CWL_workunit)
+
+			var sub_count int
+			sub_count, err = ProcessIOData(work.Job_input, current_path, base_path, "download", shock_client)
+			if err != nil {
+				err = fmt.Errorf("(processIOData) work.Job_input ProcessIOData(for download) returned: %s", err.Error())
+				return
+			}
+			count += sub_count
+
+			sub_count = 0
+			sub_count, err = ProcessIOData(work.Tool, current_path, base_path, "download", shock_client)
+			if err != nil {
+				err = fmt.Errorf("(processIOData) work.Tool ProcessIOData(for download) returned: %s", err.Error())
+				return
+			}
+			count += sub_count
+		}
 	default:
 		//spew.Dump(native)
 		err = fmt.Errorf("(processIOData) No handler for type \"%s\"\n", reflect.TypeOf(native))
@@ -715,15 +807,22 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 
 	if work.CWL_workunit != nil {
 
-		job_input := work.CWL_workunit.Job_input
+		//job_input := work.CWL_workunit.Job_input
 		//fmt.Printf("job_input1:\n")
 		//spew.Dump(job_input)
 
-		_, err = ProcessIOData(job_input, work_path, work_path, "download", nil)
+		//_, err = ProcessIOData(job_input, work_path, work_path, "download", nil)
+		//if err != nil {
+		//	err = fmt.Errorf("(MoveInputData) ProcessIOData(for download) returned: %s", err.Error())
+		//	return
+		//}
+
+		_, err = ProcessIOData(work.CWL_workunit, work_path, work_path, "download", nil)
 		if err != nil {
 			err = fmt.Errorf("(MoveInputData) ProcessIOData(for download) returned: %s", err.Error())
 			return
 		}
+
 		//fmt.Printf("job_input2:\n")
 		//spew.Dump(job_input)
 

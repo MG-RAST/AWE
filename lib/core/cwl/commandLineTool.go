@@ -40,7 +40,7 @@ func (c *CommandLineTool) Is_process()     {}
 // keyname will be converted into 'Id'-field
 
 //func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
-func NewCommandLineTool(generic interface{}, cwl_version CWLVersion) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
+func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedRequirements *[]Requirement) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
 
 	//fmt.Println("NewCommandLineTool:")
 	//spew.Dump(generic)
@@ -56,16 +56,30 @@ func NewCommandLineTool(generic interface{}, cwl_version CWLVersion) (commandLin
 	commandLineTool = &CommandLineTool{}
 	commandLineTool.Class = "CommandLineTool"
 
+	var requirements_array []Requirement
 	requirements, ok := object["requirements"]
 	if ok {
-		object["requirements"], schemata, err = CreateRequirementArray(requirements)
+		var requirements_array_temp *[]Requirement
+		requirements_array_temp, schemata, err = CreateRequirementArray(requirements)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (requirements): %s", err.Error())
 			return
 		}
-	} else {
-		object["requirements"] = nil
+		for _, r := range *requirements_array_temp {
+
+			requirements_array = append(requirements_array, r)
+
+		}
 	}
+
+	if injectedRequirements != nil {
+		for _, r := range *injectedRequirements {
+
+			requirements_array = append(requirements_array, r)
+
+		}
+	}
+	object["requirements"] = requirements_array
 	//scs := spew.ConfigState{Indent: "\t"}
 	//scs.Dump(object["requirements"])
 

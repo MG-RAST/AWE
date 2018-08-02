@@ -3196,6 +3196,14 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			switch output.Type.(type) {
 			case []interface{}:
 				expected_types_raw = output.Type.([]interface{})
+			case []cwl.CWLType_Type:
+
+				expected_types_raw_array := output.Type.([]cwl.CWLType_Type)
+				for i, _ := range expected_types_raw_array {
+					expected_types_raw = append(expected_types_raw, expected_types_raw_array[i])
+
+				}
+
 			default:
 				expected_types_raw = append(expected_types_raw, output.Type)
 				//expected_types_raw = []interface{output.Type}

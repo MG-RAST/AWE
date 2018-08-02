@@ -728,14 +728,6 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 		clt := native.(*cwl.CommandLineTool)
 
-		//var sub_count int
-		//sub_count, err = ProcessIOData(clt, current_path, base_path, "download", nil)
-		//if err != nil {
-		//	err = fmt.Errorf("(processIOData) work.Job_input ProcessIOData(for download) returned: %s", err.Error())
-		//		return
-		//	}
-		//count += sub_count
-
 		for i, _ := range clt.Inputs { // CommandInputParameter
 
 			command_input_parameter := &clt.Inputs[i]
@@ -753,7 +745,27 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			}
 
 		}
+	case *cwl.ExpressionTool:
 
+		et := native.(*cwl.ExpressionTool)
+
+		for i, _ := range et.Inputs { // InputParameter
+
+			input_parameter := &et.Inputs[i]
+
+			if input_parameter.Default != nil {
+
+				var sub_count int
+				sub_count, err = ProcessIOData(input_parameter, current_path, base_path, io_type, shock_client)
+				if err != nil {
+					err = fmt.Errorf("(processIOData) InputParameter ProcessIOData(for download) returned: %s", err.Error())
+					return
+				}
+				count += sub_count
+
+			}
+
+		}
 	case *cwl.CommandInputParameter:
 
 		cip := native.(*cwl.CommandInputParameter)
@@ -762,6 +774,17 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		sub_count, err = ProcessIOData(cip.Default, current_path, base_path, io_type, shock_client)
 		if err != nil {
 			err = fmt.Errorf("(processIOData) CommandInputParameter ProcessIOData(for download) returned: %s", err.Error())
+			return
+		}
+		count += sub_count
+	case *cwl.InputParameter:
+
+		ip := native.(*cwl.InputParameter)
+
+		var sub_count int
+		sub_count, err = ProcessIOData(ip.Default, current_path, base_path, io_type, shock_client)
+		if err != nil {
+			err = fmt.Errorf("(processIOData) InputParameter ProcessIOData(for download) returned: %s", err.Error())
 			return
 		}
 		count += sub_count

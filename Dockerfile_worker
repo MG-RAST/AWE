@@ -22,6 +22,18 @@ RUN mkdir -p ${AWE} && \
   go get -d ./awe-worker/ && \
   ./compile-worker.sh
 
+# RUN apk update ; apk add \
+#   gcc \
+#   git \
+#   libxml2-dev \
+#   libxslt-dev \
+#   musl-dev \
+#   nodejs \
+#   python-dev \
+#   py-libxml2 \
+#   py-pip \
+#   py-psutil   
+
 # install cwl-runner with node.js
-RUN apk update ; apk add py-pip nodejs gcc python-dev musl-dev 
+RUN apk update ; apk add py-pip nodejs gcc python-dev musl-dev libxml2-dev libxslt-dev py-libxml2 py-psutil   
 RUN pip install --upgrade pip ; pip install cwltool ; ln -s /usr/bin/cwltool /usr/bin/cwl-runner      # cwl-runner was pointing to old version 

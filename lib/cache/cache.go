@@ -1,9 +1,11 @@
 package cache
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 
 	"github.com/MG-RAST/AWE/lib/conf"
@@ -22,6 +24,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"crypto/sha1"
 )
 
 func getCacheDir(id string) string {
@@ -147,44 +151,66 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	//		return size, err
 	//	}
 	//}
+
 	if file.Contents != "" {
 		return
 	}
 
-	scheme := ""
-	if file.Location_url != nil {
-		scheme = file.Location_url.Scheme
-		host := file.Location_url.Host
-		path := file.Location_url.Path
-		//fmt.Printf("Location: '%s' '%s' '%s'\n", scheme, host, path)
-
-		if scheme == "" {
-			if host == "" {
-				scheme = "file"
-			} else {
-				scheme = "http"
-			}
-			//fmt.Printf("Location (updated): '%s' '%s' '%s'\n", scheme, host, path)
-		}
-
-		if scheme == "file" {
-			if host == "" || host == "localhost" {
-				file.Path = path
-			}
-		} else {
-			return
-		}
-
+	if strings.HasPrefix(inputfile_path, "file:") {
+		err = fmt.Errorf("(UploadFile) prefix file: not allowed in inputfile_path")
+		return
 	}
 
-	if file.Location_url == nil && file.Location != "" {
-		err = fmt.Errorf("(UploadFile) URL has not been parsed correctly")
+	if strings.HasPrefix(file.Path, "file:") {
+		err = fmt.Errorf("(UploadFile) prefix file: not allowed in file.Path")
 		return
 	}
 
 	file_path := file.Path
 
+	if !path.IsAbs(file_path) {
+		file_path = path.Join(inputfile_path, file_path)
+	}
+
+	var file_info os.FileInfo
+	file_info, err = os.Stat(file_path)
+	if err != nil {
+		err = fmt.Errorf("(UploadFile) os.Stat returned: %s (file.Path: %s)", err.Error(), file.Path)
+		return
+	}
+	file_size := file_info.Size()
+
 	basename := path.Base(file_path)
+	//scheme := ""
+	// if file.Location_url != nil {
+	// 	scheme = file.Location_url.Scheme
+	// 	host := file.Location_url.Host
+	// 	path := file.Location_url.Path
+	// 	//fmt.Printf("Location: '%s' '%s' '%s'\n", scheme, host, path)
+
+	// 	if scheme == "" {
+	// 		if host == "" {
+	// 			scheme = "file"
+	// 		} else {
+	// 			scheme = "http"
+	// 		}
+	// 		//fmt.Printf("Location (updated): '%s' '%s' '%s'\n", scheme, host, path)
+	// 	}
+
+	// 	if scheme == "file" {
+	// 		if host == "" || host == "localhost" {
+	// 			file.Path = path
+	// 		}
+	// 	} else {
+	// 		return
+	// 	}
+
+	// }
+
+	if file.Location_url == nil && file.Location != "" {
+		err = fmt.Errorf("(UploadFile) URL has not been parsed correctly")
+		return
+	}
 
 	if file_path == "" {
 		err = fmt.Errorf("(UploadFile) file.Path is empty")
@@ -192,10 +218,6 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	}
 
 	//fmt.Printf("file.Path: %s\n", file_path)
-
-	if !path.IsAbs(file_path) {
-		file_path = path.Join(inputfile_path, file_path)
-	}
 
 	//fmt.Printf("Using path %s\n", file_path)
 
@@ -225,10 +247,37 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	//fmt.Printf("file.Path B: %s", file.Path)
 	file.Basename = basename
 
+	file_size_int32 := int32(file_size)
+	file.Size = &file_size_int32
+
+	file_handle, err := os.Open(file_path)
+	if err != nil {
+		err = fmt.Errorf("(UploadFile) os.Open returned: %s", err.Error())
+		return
+	}
+	defer file_handle.Close()
+
+	h := sha1.New()
+
+	_, err = io.Copy(h, file_handle)
+	if err != nil {
+		err = fmt.Errorf("(UploadFile) io.Copy returned: %s", err.Error())
+		return
+	}
+
+	//fmt.Printf("% x", h.Sum(nil))
+
+	file.Checksum = "sha1$" + hex.EncodeToString(h.Sum(nil))
+
 	return
 }
 
 func DownloadFile(file *cwl.File, download_path string, base_path string) (err error) {
+
+	if file.Contents != "" {
+		err = fmt.Errorf("(DownloadFile) File is a literal")
+		return
+	}
 
 	if file.Location == "" {
 		err = fmt.Errorf("Location is empty")
@@ -446,6 +495,9 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		if !conf.SUBMITTER_QUIET {
 			logger.Debug(0, "Uploading file")
 		}
+
+		//spew.Dump(native)
+
 		//fmt.Printf("found File\n")
 		file, ok := native.(*cwl.File)
 		if !ok {
@@ -460,7 +512,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		if io_type == "upload" {
 			err = UploadFile(file, current_path, shock_client)
 			if err != nil {
-				err = fmt.Errorf("(ProcessIOData) UploadFile returned: %s (file: %s)", err.Error(), file)
+				err = fmt.Errorf("(ProcessIOData) *cwl.File UploadFile returned: %s (file: %s)", err.Error(), file)
 				return
 			}
 			count += 1
@@ -749,7 +801,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 				var sub_count int
 				sub_count, err = ProcessIOData(command_input_parameter, current_path, base_path, io_type, shock_client)
 				if err != nil {
-					err = fmt.Errorf("(processIOData) CommandInputParameter ProcessIOData(for download) returned: %s", err.Error())
+					err = fmt.Errorf("(processIOData) CommandLineTool.Default ProcessIOData(for download) returned: %s", err.Error())
 					return
 				}
 				count += sub_count
@@ -779,8 +831,25 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 		}
 	case *cwl.CommandInputParameter:
+		// https://www.commonwl.org/v1.0/CommandLineTool.html#CommandInputParameter
 
 		cip := native.(*cwl.CommandInputParameter)
+
+		var file *cwl.File
+		var ok bool
+		file, ok = cip.Default.(*cwl.File)
+		if ok {
+			var file_exists bool
+			file_exists, err = file.Exists(current_path)
+			if err != nil {
+				err = fmt.Errorf("(processIOData) cwl.CommandInputParameter file.Exists returned: %s", err.Error())
+				return
+			}
+			if !file_exists {
+				// Defaults are optional, file missing is no error
+				return
+			}
+		}
 
 		var sub_count int
 		sub_count, err = ProcessIOData(cip.Default, current_path, base_path, io_type, shock_client)
@@ -790,9 +859,27 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 		count += sub_count
 
+		// secondaryFiles
+
 	case *cwl.InputParameter:
 
 		ip := native.(*cwl.InputParameter)
+
+		var file *cwl.File
+		var ok bool
+		file, ok = ip.Default.(*cwl.File)
+		if ok {
+			var file_exists bool
+			file_exists, err = file.Exists(current_path)
+			if err != nil {
+				err = fmt.Errorf("(processIOData) InputParameter file.Exists returned: %s", err.Error())
+				return
+			}
+			if !file_exists {
+				// Defaults are optional, file missing is no error
+				return
+			}
+		}
 
 		var sub_count int
 		sub_count, err = ProcessIOData(ip.Default, current_path, base_path, io_type, shock_client)

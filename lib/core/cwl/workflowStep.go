@@ -25,7 +25,7 @@ type WorkflowStep struct {
 	CwlVersion    CWLVersion           `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty"`
 }
 
-func (ws *WorkflowStep) Init() (err error) {
+func (ws *WorkflowStep) Init(CwlVersion CWLVersion) (err error) {
 	if ws.Run == nil {
 		return
 	}
@@ -38,8 +38,8 @@ func (ws *WorkflowStep) Init() (err error) {
 	case *Workflow:
 		return
 	}
-
-	ws.Run, _, err = NewProcess(p, ws.CwlVersion, nil) // cwl_version and requirements should already be injected
+	ws.CwlVersion = CwlVersion
+	ws.Run, _, err = NewProcess(p, CwlVersion, nil) // requirements should already be injected
 	if err != nil {
 		err = fmt.Errorf("(WorkflowStep/Init) NewProcess() returned %s", err.Error())
 		return

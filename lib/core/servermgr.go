@@ -1524,7 +1524,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 	children := []Task_Unique_Identifier{}
 	for i := range sub_workflow_tasks {
 		sub_task := sub_workflow_tasks[i]
-		_, err = sub_task.Init(job)
+		_, err = sub_task.Init(job, job.CwlVersion)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) sub_task.Init() returns: %s", err.Error())
 			return
@@ -1798,7 +1798,7 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 
 		awe_task.Scatter_parent = &task.Task_Unique_Identifier
 		//awe_task.Scatter_task = true
-		_, err = awe_task.Init(job)
+		_, err = awe_task.Init(job, job.CwlVersion)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) awe_task.Init() returns: %s", err.Error())
 			return

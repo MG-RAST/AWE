@@ -413,7 +413,7 @@ func main_wrapper() (err error) {
 		}
 		//spew.Dump(job)
 
-		_, err = job.Init()
+		_, err = job.Init(cwl_version)
 		if err != nil {
 			return
 		}

@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/logger"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -12,7 +13,7 @@ type Jobs []*Job
 func (n *Jobs) Init() (changed_count int, err error) {
 	changed_count = 0
 	for _, job := range *n {
-		changed, xerr := job.Init()
+		changed, xerr := job.Init("")
 		if xerr != nil {
 			err = fmt.Errorf("(jobs.Init) job.Init() returned %s", xerr.Error())
 			logger.Error(err.Error())

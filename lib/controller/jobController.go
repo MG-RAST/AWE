@@ -199,6 +199,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow_instance := cwl.NewWorkflowEmpty()
 				cwl_workflow = &cwl_workflow_instance
 				cwl_workflow.Id = entrypoint
+				cwl_workflow.CwlVersion = cwl_version
 				new_step := cwl.WorkflowStep{}
 				step_id := entrypoint + "/wrapper_step"
 				new_step.Id = step_id
@@ -320,6 +321,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow_instance := cwl.NewWorkflowEmpty()
 				cwl_workflow = &cwl_workflow_instance
 				cwl_workflow.Id = entrypoint
+				cwl_workflow.CwlVersion = cwl_version
 				new_step := cwl.WorkflowStep{}
 				step_id := entrypoint + "/wrapper_step"
 				new_step.Id = step_id

@@ -60,15 +60,16 @@ type TaskRaw struct {
 	ComputeTime         int                      `bson:"computetime" json:"computetime"`
 	UserAttr            map[string]interface{}   `bson:"userattr" json:"userattr"`
 	ClientGroups        string                   `bson:"clientgroups" json:"clientgroups"`
-	WorkflowStep        *cwl.WorkflowStep        `bson:"workflowStep" json:"workflowStep"`     // CWL-only
-	StepOutputInterface interface{}              `bson:"stepOutput" json:"stepOutput"`         // CWL-only
-	StepInput           *cwl.Job_document        `bson:"-" json:"-"`                           // CWL-only
-	StepOutput          *cwl.Job_document        `bson:"-" json:"-"`                           // CWL-only
-	Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task"`     // CWL-only, indicates if this is a scatter_task TODO: compare with TaskType ?
-	Scatter_parent      *Task_Unique_Identifier  `bson:"scatter_parent" json:"scatter_parent"` // CWL-only, points to scatter parent
-	Children            []Task_Unique_Identifier `bson:"children" json:"children"`             // CWL-only, list of all children in a subworkflow task
-	Children_ptr        []*Task                  `bson:"-" json:"-"`                           // CWL-only
-	Finalizing          bool                     `bson:"-" json:"-"`                           // CWL-only, a lock mechanism for subworkflows and scatter tasks
+	WorkflowStep        *cwl.WorkflowStep        `bson:"workflowStep" json:"workflowStep"`                          // CWL-only
+	StepOutputInterface interface{}              `bson:"stepOutput" json:"stepOutput"`                              // CWL-only
+	StepInput           *cwl.Job_document        `bson:"-" json:"-"`                                                // CWL-only
+	StepOutput          *cwl.Job_document        `bson:"-" json:"-"`                                                // CWL-only
+	Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task"`                          // CWL-only, indicates if this is a scatter_task TODO: compare with TaskType ?
+	Scatter_parent      *Task_Unique_Identifier  `bson:"scatter_parent" json:"scatter_parent"`                      // CWL-only, points to scatter parent
+	Children            []Task_Unique_Identifier `bson:"children" json:"children"`                                  // CWL-only, list of all children in a subworkflow task
+	Children_ptr        []*Task                  `bson:"-" json:"-"`                                                // CWL-only
+	Finalizing          bool                     `bson:"-" json:"-"`                                                // CWL-only, a lock mechanism for subworkflows and scatter tasks
+	CwlVersion          cwl.CWLVersion           `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty"` // CWL-only
 }
 
 type Task struct {
@@ -227,6 +228,22 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		}
 	}
 
+	CwlVersion := job.CwlVersion
+
+	if CwlVersion != "" {
+		if task.CwlVersion != CwlVersion {
+			task.CwlVersion = CwlVersion
+		}
+	}
+
+	if task.WorkflowStep != nil {
+		err = task.WorkflowStep.Init(task.CwlVersion)
+		if err != nil {
+			err = fmt.Errorf("(InitRaw) task.WorkflowStep.Init returned: %s", err.Error())
+			return
+		}
+	}
+
 	return
 }
 
@@ -358,7 +375,7 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 	return
 }
 
-func (task *Task) Init(job *Job) (changed bool, err error) {
+func (task *Task) Init(job *Job, CwlVersion cwl.CWLVersion) (changed bool, err error) {
 	changed, err = task.InitRaw(job)
 	if err != nil {
 		return

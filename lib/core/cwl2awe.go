@@ -192,7 +192,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	//CommandLineTools := collection.CommandLineTools
 
 	// check that all expected workflow inputs exist and that they have the correct type
-	logger.Debug(1, "CWL2AWE starting")
+	logger.Debug(1, "(CWL2AWE) CWL2AWE starting")
 
 	var job_input_new *cwl.Job_document
 	job_input_new, err = CWL_input_check(job_input, cwl_workflow)
@@ -206,14 +206,14 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	job.setId()
 	//job.CWL_workflow = cwl_workflow
 
-	logger.Debug(1, "Job created")
+	logger.Debug(1, "(CWL2AWE) Job created")
 
 	found_ShockRequirement := false
 	if cwl_workflow.Requirements != nil {
 		for _, r := range *cwl_workflow.Requirements { // TODO put ShockRequirement in Hints
 			req, ok := r.(cwl.Requirement)
 			if !ok {
-				err = fmt.Errorf("not a requirement")
+				err = fmt.Errorf("(CWL2AWE) not a requirement")
 				return
 			}
 			switch req.GetClass() {
@@ -232,12 +232,12 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	}
 
 	if !found_ShockRequirement {
-		err = fmt.Errorf("ShockRequirement has to be provided in the workflow object")
+		err = fmt.Errorf("(CWL2AWE) ShockRequirement has to be provided in the workflow object")
 		return
 		//job.ShockHost = "http://shock:7445" // TODO make this different
 
 	}
-	logger.Debug(1, "Requirements checked")
+	logger.Debug(1, "(CWL2AWE) Requirements checked")
 
 	// Once, job has been created, set job owner and add owner to all ACL's
 	job.Acl.SetOwner(_user.Uuid)
@@ -262,13 +262,13 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	job.Tasks = tasks
 
-	_, err = job.Init()
+	_, err = job.Init(cwl_workflow.CwlVersion)
 
 	if err != nil {
-		err = fmt.Errorf("job.Init() failed: %s", err.Error())
+		err = fmt.Errorf("(CWL2AWE) job.Init() failed: %s", err.Error())
 		return
 	}
-	logger.Debug(1, "Init called")
+	logger.Debug(1, "(CWL2AWE) Init called")
 
 	err = job.Mkdir()
 	if err != nil {
@@ -278,7 +278,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	err = job.UpdateFile(files, "cwl") // TODO that may not make sense. Check if I should store AWE job.
 	if err != nil {
-		err = errors.New("error in UpdateFile, error=" + err.Error())
+		err = errors.New("(CWL2AWE) error in UpdateFile, error=" + err.Error())
 		return
 	}
 
@@ -287,7 +287,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	logger.Debug(1, "job.Id: %s", job.Id)
 	err = job.Save()
 	if err != nil {
-		err = errors.New("error in job.Save(), error=" + err.Error())
+		err = errors.New("(CWL2AWE) error in job.Save(), error=" + err.Error())
 		return
 	}
 	return

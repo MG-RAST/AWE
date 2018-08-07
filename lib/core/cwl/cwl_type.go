@@ -238,12 +238,14 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CWLType, err error) {
 	switch class {
 	case string(CWL_File):
+		//fmt.Println("NewCWLTypeByClass:")
+		//spew.Dump(native)
 		file, yerr := NewFileFromInterface(native)
-		cwl_type = &file
 		if yerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewFile returned: %s", yerr.Error())
 			return
 		}
+		cwl_type = &file
 	case string(CWL_string):
 		mystring, yerr := NewStringFromInterface(native)
 		if yerr != nil {

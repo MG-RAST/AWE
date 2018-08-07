@@ -3,6 +3,8 @@ package core
 import (
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -10,7 +12,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"time"
 )
 
 // mongodb has hard limit of 16 MB docuemnt size
@@ -383,7 +384,7 @@ func dbGetJobArrayField(job_id string, task_id string, array_name string, id_fie
 
 func dbGetJobTask(job_id string, task_id string) (result *Task, err error) {
 	dummy_job := NewJob()
-	dummy_job.Init()
+	dummy_job.Init("")
 
 	session := db.Connection.Session.Copy()
 	defer session.Close()
@@ -709,7 +710,7 @@ func LoadJob(id string) (job *Job, err error) {
 		return
 	}
 
-	changed, xerr := job.Init()
+	changed, xerr := job.Init("")
 	if xerr != nil {
 		err = fmt.Errorf("(LoadJob) job.Init failed: %s", xerr.Error())
 		return

@@ -2,6 +2,8 @@ package cwl
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"reflect"
 
 	"github.com/MG-RAST/AWE/lib/shock"
@@ -24,7 +26,7 @@ type File struct {
 	Nameroot       string        `yaml:"nameroot,omitempty" json:"nameroot,omitempty" bson:"nameroot,omitempty" mapstructure:"nameroot,omitempty"`
 	Nameext        string        `yaml:"nameext,omitempty" json:"nameext,omitempty" bson:"nameext,omitempty" mapstructure:"nameext,omitempty"`
 	Checksum       string        `yaml:"checksum,omitempty" json:"checksum,omitempty" bson:"checksum,omitempty" mapstructure:"checksum,omitempty"`
-	Size           int32         `yaml:"size,omitempty" json:"size,omitempty" bson:"size,omitempty" mapstructure:"size,omitempty"`
+	Size           *int32        `yaml:"size,omitempty" json:"size,omitempty" bson:"size,omitempty" mapstructure:"size,omitempty"`
 	SecondaryFiles []interface{} `yaml:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"`
 	Format         string        `yaml:"format,omitempty" json:"format,omitempty" bson:"format,omitempty" mapstructure:"format,omitempty"`
 	Contents       string        `yaml:"contents,omitempty" json:"contents,omitempty" bson:"contents,omitempty" mapstructure:"contents,omitempty"`
@@ -65,6 +67,9 @@ func NewFileFromInterface(obj interface{}) (file File, err error) {
 }
 
 func MakeFile(obj interface{}) (file File, err error) {
+
+	//fmt.Println("MakeFile:")
+	//spew.Dump(obj)
 
 	obj_map, ok := obj.(map[string]interface{})
 
@@ -157,6 +162,8 @@ func MakeFile(obj interface{}) (file File, err error) {
 		}
 	}
 
+	file.Path = strings.TrimPrefix(file.Path, "file://")
+
 	return
 }
 
@@ -190,6 +197,38 @@ func GetSecondaryFilesArray(original interface{}) (array []interface{}, err erro
 
 	err = fmt.Errorf("(GetSecondaryFilesArray) type %s not supported", reflect.TypeOf(original))
 
+	return
+}
+
+func (file *File) Exists(inputfile_path string) (ok bool, err error) {
+	if file.Contents != "" {
+		ok = true
+		return
+	}
+
+	if file.Path != "" {
+		file_path := file.Path
+
+		if !path.IsAbs(file_path) {
+			file_path = path.Join(inputfile_path, file_path)
+		}
+
+		//var file_info os.FileInfo
+		_, err = os.Stat(file_path)
+		if err != nil {
+			err = nil
+			ok = false
+			//err = fmt.Errorf("(UploadFile) os.Stat returned: %s (file.Path: %s)", err.Error(), file.Path)
+			return
+		}
+		ok = true
+		return
+	}
+
+	if file.Location != "" {
+		err = fmt.Errorf("(File/Exists) Location not implemented yet")
+		return
+	}
 	return
 }
 

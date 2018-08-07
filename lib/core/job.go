@@ -342,7 +342,7 @@ func NewJobDep() (job *JobDep) {
 }
 
 // this has to be called after Unmarshalling from JSON
-func (job *Job) Init() (changed bool, err error) {
+func (job *Job) Init(CwlVersion cwl.CWLVersion) (changed bool, err error) {
 	changed = false
 	job.RWMutex.Init("Job")
 
@@ -375,6 +375,12 @@ func (job *Job) Init() (changed bool, err error) {
 		changed = true
 	}
 
+	if CwlVersion != "" {
+		if job.CwlVersion != CwlVersion {
+			job.CwlVersion = CwlVersion
+			changed = true
+		}
+	}
 	old_remaintasks := job.RemainTasks
 	job.RemainTasks = 0
 
@@ -391,7 +397,7 @@ func (job *Job) Init() (changed bool, err error) {
 			}
 			changed = true
 		}
-		t_changed, xerr := task.Init(job)
+		t_changed, xerr := task.Init(job, job.CwlVersion)
 		if xerr != nil {
 			err = fmt.Errorf("(job.Init) task.Init returned: %s", xerr.Error())
 			return

@@ -15,13 +15,37 @@ type WorkflowStep struct {
 	Id            string               `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
 	In            []WorkflowStepInput  `yaml:"in,omitempty" bson:"in,omitempty" json:"in,omitempty" mapstructure:"in,omitempty"` // array<WorkflowStepInput> | map<WorkflowStepInput.id, WorkflowStepInput.source> | map<WorkflowStepInput.id, WorkflowStepInput>
 	Out           []WorkflowStepOutput `yaml:"out,omitempty" bson:"out,omitempty" json:"out,omitempty" mapstructure:"out,omitempty"`
-	Run           interface{}          `yaml:"run,omitempty" bson:"run,omitempty" json:"run,omitempty" mapstructure:"run,omitempty"`                                     // (*Process) Specification unclear: string | CommandLineTool | ExpressionTool | Workflow
+	Run           interface{}          `yaml:"run,omitempty" bson:"run,omitempty" json:"run,omitempty" mapstructure:"run,omitempty"`                                     //  string | CommandLineTool | ExpressionTool | Workflow
 	Requirements  []interface{}        `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` //[]Requirement
 	Hints         []interface{}        `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             //[]Requirement
 	Label         string               `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
 	Doc           string               `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
 	Scatter       []string             `yaml:"scatter,omitempty" bson:"scatter,omitempty" json:"scatter,omitempty" mapstructure:"scatter,omitempty"`                         // ScatterFeatureRequirement
 	ScatterMethod string               `yaml:"scatterMethod,omitempty" bson:"scatterMethod,omitempty" json:"scatterMethod,omitempty" mapstructure:"scatterMethod,omitempty"` // ScatterFeatureRequirement
+	CwlVersion    CWLVersion           `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty"`
+}
+
+func (ws *WorkflowStep) Init() (err error) {
+	if ws.Run == nil {
+		return
+	}
+	p := ws.Run
+	switch p.(type) {
+	case *CommandLineTool:
+		return
+	case *ExpressionTool:
+		return
+	case *Workflow:
+		return
+	}
+
+	ws.Run, _, err = NewProcess(p, ws.CwlVersion, nil) // cwl_version and requirements should already be injected
+	if err != nil {
+		err = fmt.Errorf("(WorkflowStep/Init) NewProcess() returned %s", err.Error())
+		return
+	}
+
+	return
 }
 
 func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequirements *[]Requirement) (w *WorkflowStep, schemata []CWLType_Type, err error) {
@@ -55,13 +79,34 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 			}
 		}
 
-		if injectedRequirements != nil {
-			for _, r := range *injectedRequirements {
+		//if injectedRequirements != nil {
+		//	for _, r := range *injectedRequirements {
 
-				requirements_array = append(requirements_array, r)
+		//				requirements_array = append(requirements_array, r)
+		//			}
+		//		}
+
+		if injectedRequirements != nil {
+			for _, ir := range *injectedRequirements {
+
+				ir_class := ir.GetClass()
+				injected := false
+				for j, _ := range requirements_array {
+					if requirements_array[j].GetClass() == ir_class {
+						// overwrite !
+						requirements_array[j] = ir
+						injected = true
+						break
+					}
+
+				}
+				if !injected {
+					requirements_array = append(requirements_array, ir)
+				}
 
 			}
 		}
+
 		v_map["requirements"] = requirements_array
 
 		step_in, ok := v_map["in"]
@@ -156,6 +201,8 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 			return
 		}
 		w = &step
+
+		w.CwlVersion = CwlVersion
 		//spew.Dump(w.Run)
 
 		//fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")

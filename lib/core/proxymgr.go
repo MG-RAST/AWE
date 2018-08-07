@@ -3,13 +3,14 @@ package core
 import (
 	"errors"
 	"fmt"
+	"os"
+	"time"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/user"
-	"os"
-	"time"
 )
 
 type ProxyMgr struct {
@@ -154,8 +155,10 @@ func (qm *ProxyMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 					return
 				}
 				client.Last_failed += 1 //last consecutive failures
-				if client.Last_failed == conf.MAX_CLIENT_FAILURE {
-					client.Suspend("MAX_CLIENT_FAILURE reached", false)
+				if conf.MAX_CLIENT_FAILURE != 0 {
+					if client.Last_failed >= conf.MAX_CLIENT_FAILURE {
+						client.Suspend("MAX_CLIENT_FAILURE reached", false)
+					}
 				}
 				qm.AddClient(client, false)
 				client.Unlock()

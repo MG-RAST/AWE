@@ -73,9 +73,22 @@ func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedReq
 	}
 
 	if injectedRequirements != nil {
-		for _, r := range *injectedRequirements {
+		for _, ir := range *injectedRequirements {
 
-			requirements_array = append(requirements_array, r)
+			ir_class := ir.GetClass()
+			injected := false
+			for j, _ := range requirements_array {
+				if requirements_array[j].GetClass() == ir_class {
+					// overwrite !
+					requirements_array[j] = ir
+					injected = true
+					break
+				}
+
+			}
+			if !injected {
+				requirements_array = append(requirements_array, ir)
+			}
 
 		}
 	}

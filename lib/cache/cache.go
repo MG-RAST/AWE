@@ -147,6 +147,9 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	//		return size, err
 	//	}
 	//}
+	if file.Contents != "" {
+		return
+	}
 
 	scheme := ""
 	if file.Location_url != nil {
@@ -450,6 +453,10 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			return
 		}
 
+		if file.Contents != "" {
+			return
+		}
+
 		if io_type == "upload" {
 			err = UploadFile(file, current_path, shock_client)
 			if err != nil {
@@ -465,6 +472,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 				err = fmt.Errorf("(ProcessIOData) DownloadFile returned: %s (file: %s)", err.Error(), file)
 				return
 			}
+			count += 1
 		}
 
 		if file.SecondaryFiles != nil {
@@ -537,10 +545,14 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			}
 			path_to_download_to = path.Join(current_path, dir_basename)
 
-			err = os.MkdirAll(path_to_download_to, 0777)
-			if err != nil {
-				err = fmt.Errorf("(ProcessIOData) MkdirAll returned: %s", err.Error())
-				return
+			if io_type == "download" {
+				dir.Location = path_to_download_to
+				dir.Path = ""
+				err = os.MkdirAll(path_to_download_to, 0777)
+				if err != nil {
+					err = fmt.Errorf("(ProcessIOData) MkdirAll returned: %s", err.Error())
+					return
+				}
 			}
 
 			for k, _ := range dir.Listing {
@@ -777,6 +789,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			return
 		}
 		count += sub_count
+
 	case *cwl.InputParameter:
 
 		ip := native.(*cwl.InputParameter)

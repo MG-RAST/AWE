@@ -227,6 +227,14 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		}
 	}
 
+	if task.WorkflowStep != nil {
+		err = task.WorkflowStep.Init()
+		if err != nil {
+			err = fmt.Errorf("(InitRaw) task.WorkflowStep.Init returned: %s", err.Error())
+			return
+		}
+	}
+
 	return
 }
 

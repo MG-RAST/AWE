@@ -92,7 +92,9 @@ func NewProcess(original interface{}, CwlVersion CWLVersion, injectedRequirement
 		//case "":
 		//return NewProcessPointer(original)
 		case "Workflow":
-			return NewWorkflow(original, CwlVersion)
+			process, schemata, err = NewWorkflow(original, CwlVersion)
+
+			return
 		case "Expression":
 			process, err = NewExpression(original)
 			return

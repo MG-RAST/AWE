@@ -70,8 +70,17 @@ func (qm *ServerMgr) RUnlock() {}
 func (qm *ServerMgr) UpdateQueueLoop() {
 	// TODO this may not be dynamic enough for small amounts of workunits, as they always have to wait
 	for {
+		start := time.Now()
 		qm.updateQueue()
-		time.Sleep(30 * time.Second)
+		elapsed := time.Since(start)
+
+		if elapsed <= 5 {
+			time.Sleep(5 * time.Second) // wait at least 5 seconds
+		} else if elapsed > 5 && elapsed < 30 {
+			time.Sleep(elapsed * time.Second)
+		} else {
+			time.Sleep(30 * time.Second) // wait at mnost 30 seconds
+		}
 	}
 }
 
@@ -1956,7 +1965,11 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 				task_type = TASK_TYPE_WORKFLOW
 			case *cwl.CommandLineTool:
 				task_type = TASK_TYPE_NORMAL
+			case *cwl.ExpressionTool:
+				task_type = TASK_TYPE_NORMAL
 			default:
+
+				logger.Debug(3, "(updateJobTask) type of process: %s", reflect.TypeOf(p))
 
 				var schemata []cwl.CWLType_Type
 				schemata, err = job.CWL_collection.GetSchemata()
@@ -1977,6 +1990,12 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 				if ok {
 					task_type = TASK_TYPE_WORKFLOW
+
+					if wfl == nil {
+						err = fmt.Errorf("(taskEnQueue) A) wfl == nil ????")
+						return
+					}
+
 				} else {
 					// this must be CommandLineTool or ExpressionTool (Scatter has already been excluded)
 					task_type = TASK_TYPE_NORMAL
@@ -2003,6 +2022,11 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 		case TASK_TYPE_WORKFLOW:
 			if len(task.Children) == 0 {
+				if wfl == nil {
+					err = fmt.Errorf("(taskEnQueue) B) wfl == nil ????")
+					return
+				}
+
 				err = qm.taskEnQueueWorkflow(task, job, workflow_input_map, wfl)
 				if err != nil {
 					err = fmt.Errorf("(taskEnQueue) taskEnQueueWorkflow returned: %s", err.Error())

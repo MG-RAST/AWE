@@ -23,7 +23,7 @@ RUN mkdir -p ${AWE} && \
   ./compile-worker.sh
 
 # install cwl-runner with node.js
-RUN apk update ; apk add py-pip nodejs gcc python-dev musl-dev 
+RUN apk update ; apk add py-pip nodejs gcc python-dev musl-dev libxml2-dev libxslt-dev libc-dev linux-headers
 RUN pip install --upgrade pip ; pip install cwl-runner
 
 

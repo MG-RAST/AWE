@@ -162,9 +162,33 @@ func MakeFile(obj interface{}) (file File, err error) {
 		}
 	}
 
-	file.Path = strings.TrimPrefix(file.Path, "file://")
+	file.SetPath(strings.TrimPrefix(file.Path, "file://"))
 
 	return
+}
+
+func (file *File) SetPath(path_str string) {
+	file.Path = path_str
+
+	if path_str == "" {
+		// on upload to Shock we loose path, but need to keep basename
+
+		//file.Basename = ""
+
+		//file.Nameext = ""
+		//file.Nameroot = ""
+	} else {
+
+		file.Basename = path.Base(file.Path)
+
+		file.Nameext = path.Ext(file.Basename)
+		file.Nameroot = strings.TrimSuffix(file.Basename, file.Nameext)
+	}
+	//fmt.Printf("file.Path: %s\n", file.Path)
+	//fmt.Printf("file.Basename: %s\n", file.Basename)
+	//fmt.Printf("file.Nameext: %s\n", file.Nameext)
+	//fmt.Printf("file.Nameroot: %s\n", file.Nameroot)
+
 }
 
 // returns array<File | Directory>

@@ -167,11 +167,14 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	}
 
 	file_path := file.Path
+	if file_path == "" {
+		file_path = file.Location
+	}
 
 	if !path.IsAbs(file_path) {
 		file_path = path.Join(inputfile_path, file_path)
 	}
-
+	//fmt.Printf("file_path: %s\n", file_path)
 	var file_info os.FileInfo
 	file_info, err = os.Stat(file_path)
 	if err != nil {
@@ -226,7 +229,7 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	opts := shock.Opts{"upload_type": "basic", "file": file_path}
 	node, err := shock_client.CreateOrUpdate(opts, "", nil)
 	if err != nil {
-		err = fmt.Errorf("(UploadFile) CreateOrUpdate returned: %s", err.Error())
+		err = fmt.Errorf("(UploadFile) CreateOrUpdate returned: %s (file_path: %s)", err.Error(), file_path)
 		return
 	}
 	//spew.Dump(node)
@@ -243,7 +246,7 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 
 	//file.Path = strings.TrimPrefix(file.Path, inputfile_path)
 	//file.Path = strings.TrimPrefix(file.Path, "/")
-	file.Path = ""
+	file.SetPath("")
 	//fmt.Printf("file.Path B: %s", file.Path)
 	file.Basename = basename
 
@@ -280,7 +283,7 @@ func DownloadFile(file *cwl.File, download_path string, base_path string) (err e
 	}
 
 	if file.Location == "" {
-		err = fmt.Errorf("Location is empty")
+		err = fmt.Errorf("(DownloadFile) Location is empty")
 		return
 	}
 
@@ -289,7 +292,7 @@ func DownloadFile(file *cwl.File, download_path string, base_path string) (err e
 	basename := file.Basename
 
 	if basename == "" {
-		err = fmt.Errorf("Basename is empty") // TODO infer basename if not found
+		err = fmt.Errorf("(DownloadFile) Basename is empty") // TODO infer basename if not found
 		return
 	}
 
@@ -301,20 +304,22 @@ func DownloadFile(file *cwl.File, download_path string, base_path string) (err e
 	//	file_path = path.Join(path, basename)
 	//}
 	file_path := path.Join(download_path, basename)
-	logger.Debug(3, "file.Path, downloading to: %s\n", file_path)
+
+	logger.Debug(3, "(DownloadFile) file.Path, downloading to: %s\n", file_path)
 
 	//fmt.Printf("Using path %s\n", file_path)
 
 	_, _, err = shock.FetchFile(file_path, file.Location, "", "", false)
 	if err != nil {
+		err = fmt.Errorf("(DownloadFile) shock.FetchFile returned: %s (download_path: %s, basename: %s)", err.Error(), download_path, basename)
 		return
 	}
 
 	base_path = path.Join(strings.TrimSuffix(base_path, "/"), "/")
 
 	file.Location = strings.TrimPrefix(strings.TrimPrefix(file_path, base_path), "/") // "file://" +  ?
-	file.Path = ""
 
+	file.SetPath(file.Location)
 	//fmt.Println("file:")
 	//spew.Dump(file)
 
@@ -395,15 +400,15 @@ func UploadDirectory(dir *cwl.Directory, current_path string, shock_client *shoc
 		}
 
 		file := cwl.NewFile()
-		file.Path = match_rel
-		file.Basename = path.Base(match)
+		file.SetPath(match_rel)
+		//file.Basename = path.Base(match)
 		_, err = ProcessIOData(file, current_path, current_path, "upload", shock_client)
 		if err != nil {
 			err = fmt.Errorf("(UploadDirectory) ProcessIOData returned: %s", err.Error())
 			return
 		}
 		// fix path
-		file.Path = match
+		file.SetPath(match)
 		dir.Listing = append(dir.Listing, file)
 
 		count += 1
@@ -510,8 +515,13 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 
 		if io_type == "upload" {
+			//spew.Dump(*file)
+			//fmt.Println(file.Path)
+			//fmt.Println(file.Location)
+
 			err = UploadFile(file, current_path, shock_client)
 			if err != nil {
+
 				err = fmt.Errorf("(ProcessIOData) *cwl.File UploadFile returned: %s (file: %s)", err.Error(), file)
 				return
 			}

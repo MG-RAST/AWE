@@ -30,7 +30,7 @@ type CWLVersion string
 
 type LinkMergeMethod string // merge_nested or merge_flattened
 
-func Parse_cwl_document(yaml_str string) (object_array Named_CWL_object_array, cwl_version CWLVersion, schemata []CWLType_Type, err error) {
+func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_version CWLVersion, schemata []CWLType_Type, err error) {
 	//fmt.Printf("(Parse_cwl_document) starting\n")
 	graph_pos := strings.Index(yaml_str, "$graph")
 

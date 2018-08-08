@@ -71,7 +71,7 @@ type JobRaw struct {
 	ShockHost            string                       `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
 	IsCWL                bool                         `bson:"is_cwl" json:"is_cwl`
 	CwlVersion           cwl.CWLVersion               `bson:"cwl_version" json:"cwl_version"`
-	CWL_objects          interface{}                  `bson:"cwl_objects" json:"cwl_objects`
+	CWL_objects          []interface{}                `bson:"cwl_objects" json:"cwl_objects`
 	CWL_job_input        interface{}                  `bson:"cwl_job_input" json:"cwl_job_input` // has to be an array for mongo (id as key would not work)
 	CWL_ShockRequirement *cwl.ShockRequirement        `bson:"cwl_shock_requirement" json:"cwl_shock_requirement`
 	CWL_collection       *cwl.CWL_collection          `bson:"-" json:"-" yaml:"-" mapstructure:"-"`

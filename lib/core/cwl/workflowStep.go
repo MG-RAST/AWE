@@ -185,12 +185,45 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 			}
 		}
 
+		//hints, ok := v_map["hints"]
+		//if ok {
+		//	v_map["hints"], schemata, err = CreateRequirementArray(hints)
+		//	if err != nil {
+		//		err = fmt.Errorf("(NewWorkflowStep) CreateRequirementArray %s", err.Error())
+		//		return
+		//	}
+		//}
 		hints, ok := v_map["hints"]
-		if ok {
-			v_map["hints"], schemata, err = CreateRequirementArray(hints)
+		if ok && (hints != nil) {
+			var hints_all *[]Requirement
+			hints_all, schemata, err = CreateRequirementArray(hints)
 			if err != nil {
-				err = fmt.Errorf("(NewWorkflowStep) CreateRequirementArray %s", err.Error())
+				err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 				return
+			}
+
+			// if a hint is also in injectedRequirements, do not keep it ! It is now a real Requirement, with possibly different values.
+			if injectedRequirements != nil {
+				new_hints := []Requirement{}
+				for h, _ := range *hints_all {
+
+					is_injected := false
+					for _, ir := range *injectedRequirements {
+
+						ir_class := ir.GetClass()
+						if (*hints_all)[h].GetClass() == ir_class {
+							is_injected = true
+						}
+
+					}
+					if !is_injected {
+						new_hints = append(new_hints, (*hints_all)[h])
+					}
+				}
+				v_map["hints"] = new_hints
+
+			} else {
+				v_map["hints"] = hints_all
 			}
 		}
 

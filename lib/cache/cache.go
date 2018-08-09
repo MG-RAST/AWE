@@ -168,7 +168,8 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 
 	file_path := file.Path
 	if file_path == "" {
-		file_path = file.Location
+		file_path = strings.TrimPrefix(file.Location, "file://")
+
 	}
 
 	if !path.IsAbs(file_path) {
@@ -178,7 +179,7 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	var file_info os.FileInfo
 	file_info, err = os.Stat(file_path)
 	if err != nil {
-		err = fmt.Errorf("(UploadFile) os.Stat returned: %s (file.Path: %s)", err.Error(), file.Path)
+		err = fmt.Errorf("(UploadFile) os.Stat returned: %s (inputfile_path: %s, file.Path: %s, file.Location: %s)", err.Error(), inputfile_path, file.Path, file.Location)
 		return
 	}
 	file_size := file_info.Size()
@@ -210,11 +211,6 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 
 	// }
 
-	if file.Location_url == nil && file.Location != "" {
-		err = fmt.Errorf("(UploadFile) URL has not been parsed correctly")
-		return
-	}
-
 	if file_path == "" {
 		err = fmt.Errorf("(UploadFile) file.Path is empty")
 		return
@@ -234,13 +230,14 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	}
 	//spew.Dump(node)
 
-	file.Location_url, err = url.Parse(shock_client.Host + "/node/" + node.Id + "?download")
+	var location_url *url.URL
+	location_url, err = url.Parse(shock_client.Host + "/node/" + node.Id + "?download")
 	if err != nil {
 		err = fmt.Errorf("(UploadFile) url.Parse returned: %s", err.Error())
 		return
 	}
 
-	file.Location = file.Location_url.String()
+	file.Location = location_url.String()
 
 	//fmt.Printf("file.Path A: %s", file.Path)
 
@@ -845,22 +842,23 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 		cip := native.(*cwl.CommandInputParameter)
 
-		var file *cwl.File
-		var ok bool
-		file, ok = cip.Default.(*cwl.File)
-		if ok {
-			var file_exists bool
-			file_exists, err = file.Exists(current_path)
-			if err != nil {
-				err = fmt.Errorf("(processIOData) cwl.CommandInputParameter file.Exists returned: %s", err.Error())
-				return
-			}
-			if !file_exists {
-				// Defaults are optional, file missing is no error
-				return
+		if io_type == "upload" {
+			var file *cwl.File
+			var ok bool
+			file, ok = cip.Default.(*cwl.File)
+			if ok {
+				var file_exists bool
+				file_exists, err = file.Exists(current_path)
+				if err != nil {
+					err = fmt.Errorf("(processIOData) cwl.CommandInputParameter file.Exists returned: %s", err.Error())
+					return
+				}
+				if !file_exists {
+					// Defaults are optional, file missing is no error
+					return
+				}
 			}
 		}
-
 		var sub_count int
 		sub_count, err = ProcessIOData(cip.Default, current_path, base_path, io_type, shock_client)
 		if err != nil {

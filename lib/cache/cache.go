@@ -167,15 +167,19 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	}
 
 	file_path := file.Path
+	if file_path == "" {
+		file_path = strings.TrimPrefix(file.Location, "file://")
+
+	}
 
 	if !path.IsAbs(file_path) {
 		file_path = path.Join(inputfile_path, file_path)
 	}
-
+	//fmt.Printf("file_path: %s\n", file_path)
 	var file_info os.FileInfo
 	file_info, err = os.Stat(file_path)
 	if err != nil {
-		err = fmt.Errorf("(UploadFile) os.Stat returned: %s (file.Path: %s)", err.Error(), file.Path)
+		err = fmt.Errorf("(UploadFile) os.Stat returned: %s (inputfile_path: %s, file.Path: %s, file.Location: %s)", err.Error(), inputfile_path, file.Path, file.Location)
 		return
 	}
 	file_size := file_info.Size()
@@ -207,11 +211,6 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 
 	// }
 
-	if file.Location_url == nil && file.Location != "" {
-		err = fmt.Errorf("(UploadFile) URL has not been parsed correctly")
-		return
-	}
-
 	if file_path == "" {
 		err = fmt.Errorf("(UploadFile) file.Path is empty")
 		return
@@ -226,24 +225,25 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	opts := shock.Opts{"upload_type": "basic", "file": file_path}
 	node, err := shock_client.CreateOrUpdate(opts, "", nil)
 	if err != nil {
-		err = fmt.Errorf("(UploadFile) CreateOrUpdate returned: %s", err.Error())
+		err = fmt.Errorf("(UploadFile) CreateOrUpdate returned: %s (file_path: %s)", err.Error(), file_path)
 		return
 	}
 	//spew.Dump(node)
 
-	file.Location_url, err = url.Parse(shock_client.Host + "/node/" + node.Id + "?download")
+	var location_url *url.URL
+	location_url, err = url.Parse(shock_client.Host + "/node/" + node.Id + "?download")
 	if err != nil {
 		err = fmt.Errorf("(UploadFile) url.Parse returned: %s", err.Error())
 		return
 	}
 
-	file.Location = file.Location_url.String()
+	file.Location = location_url.String()
 
 	//fmt.Printf("file.Path A: %s", file.Path)
 
 	//file.Path = strings.TrimPrefix(file.Path, inputfile_path)
 	//file.Path = strings.TrimPrefix(file.Path, "/")
-	file.Path = ""
+	file.SetPath("")
 	//fmt.Printf("file.Path B: %s", file.Path)
 	file.Basename = basename
 
@@ -280,7 +280,7 @@ func DownloadFile(file *cwl.File, download_path string, base_path string) (err e
 	}
 
 	if file.Location == "" {
-		err = fmt.Errorf("Location is empty")
+		err = fmt.Errorf("(DownloadFile) Location is empty")
 		return
 	}
 
@@ -289,7 +289,7 @@ func DownloadFile(file *cwl.File, download_path string, base_path string) (err e
 	basename := file.Basename
 
 	if basename == "" {
-		err = fmt.Errorf("Basename is empty") // TODO infer basename if not found
+		err = fmt.Errorf("(DownloadFile) Basename is empty") // TODO infer basename if not found
 		return
 	}
 
@@ -301,20 +301,22 @@ func DownloadFile(file *cwl.File, download_path string, base_path string) (err e
 	//	file_path = path.Join(path, basename)
 	//}
 	file_path := path.Join(download_path, basename)
-	logger.Debug(3, "file.Path, downloading to: %s\n", file_path)
+
+	logger.Debug(3, "(DownloadFile) file.Path, downloading to: %s\n", file_path)
 
 	//fmt.Printf("Using path %s\n", file_path)
 
 	_, _, err = shock.FetchFile(file_path, file.Location, "", "", false)
 	if err != nil {
+		err = fmt.Errorf("(DownloadFile) shock.FetchFile returned: %s (download_path: %s, basename: %s)", err.Error(), download_path, basename)
 		return
 	}
 
 	base_path = path.Join(strings.TrimSuffix(base_path, "/"), "/")
 
 	file.Location = strings.TrimPrefix(strings.TrimPrefix(file_path, base_path), "/") // "file://" +  ?
-	file.Path = ""
 
+	file.SetPath(file.Location)
 	//fmt.Println("file:")
 	//spew.Dump(file)
 
@@ -395,15 +397,15 @@ func UploadDirectory(dir *cwl.Directory, current_path string, shock_client *shoc
 		}
 
 		file := cwl.NewFile()
-		file.Path = match_rel
-		file.Basename = path.Base(match)
+		file.SetPath(match_rel)
+		//file.Basename = path.Base(match)
 		_, err = ProcessIOData(file, current_path, current_path, "upload", shock_client)
 		if err != nil {
 			err = fmt.Errorf("(UploadDirectory) ProcessIOData returned: %s", err.Error())
 			return
 		}
 		// fix path
-		file.Path = match
+		file.SetPath(match)
 		dir.Listing = append(dir.Listing, file)
 
 		count += 1
@@ -510,8 +512,13 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 
 		if io_type == "upload" {
+			//spew.Dump(*file)
+			//fmt.Println(file.Path)
+			//fmt.Println(file.Location)
+
 			err = UploadFile(file, current_path, shock_client)
 			if err != nil {
+
 				err = fmt.Errorf("(ProcessIOData) *cwl.File UploadFile returned: %s (file: %s)", err.Error(), file)
 				return
 			}
@@ -835,22 +842,23 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 		cip := native.(*cwl.CommandInputParameter)
 
-		var file *cwl.File
-		var ok bool
-		file, ok = cip.Default.(*cwl.File)
-		if ok {
-			var file_exists bool
-			file_exists, err = file.Exists(current_path)
-			if err != nil {
-				err = fmt.Errorf("(processIOData) cwl.CommandInputParameter file.Exists returned: %s", err.Error())
-				return
-			}
-			if !file_exists {
-				// Defaults are optional, file missing is no error
-				return
+		if io_type == "upload" {
+			var file *cwl.File
+			var ok bool
+			file, ok = cip.Default.(*cwl.File)
+			if ok {
+				var file_exists bool
+				file_exists, err = file.Exists(current_path)
+				if err != nil {
+					err = fmt.Errorf("(processIOData) cwl.CommandInputParameter file.Exists returned: %s", err.Error())
+					return
+				}
+				if !file_exists {
+					// Defaults are optional, file missing is no error
+					return
+				}
 			}
 		}
-
 		var sub_count int
 		sub_count, err = ProcessIOData(cip.Default, current_path, base_path, io_type, shock_client)
 		if err != nil {

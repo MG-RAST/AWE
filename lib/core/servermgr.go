@@ -2629,6 +2629,8 @@ VALUE_FROM_LOOP:
 						spew.Dump(exported_value)
 						err = fmt.Errorf("(GetStepInputObjects) record not supported yet")
 						return
+					case nil:
+						value_returned = cwl.NewNull()
 					default:
 						err = fmt.Errorf("(GetStepInputObjects) js return type not supoported: (%s)", reflect.TypeOf(exported_value))
 						return

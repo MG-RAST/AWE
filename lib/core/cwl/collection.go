@@ -93,7 +93,7 @@ func (c CWL_collection) GetSchemata() (obj []CWLType_Type, err error) {
 	return
 }
 
-func (c CWL_collection) AddArray(object_array Named_CWL_object_array) (err error) {
+func (c CWL_collection) AddArray(object_array []Named_CWL_object) (err error) {
 
 	for i, _ := range object_array {
 		pair := object_array[i]

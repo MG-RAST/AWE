@@ -18,8 +18,8 @@ import (
 type File struct {
 	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class, Type
 	//Type           CWLType_Type  `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
-	Location       string        `yaml:"location,omitempty" json:"location,omitempty" bson:"location,omitempty" mapstructure:"location,omitempty"` // An IRI that identifies the file resource.
-	Location_url   *url.URL      `yaml:"-" json:"-" bson:"-" mapstructure:"-"`                                                                     // only for internal purposes
+	Location string `yaml:"location,omitempty" json:"location,omitempty" bson:"location,omitempty" mapstructure:"location,omitempty"` // An IRI that identifies the file resource.
+	//Location_url   *url.URL      `yaml:"-" json:"-" bson:"-" mapstructure:"-"`                                                                     // only for internal purposes
 	Path           string        `yaml:"path,omitempty" json:"path,omitempty" bson:"path,omitempty" mapstructure:"path,omitempty"`                 // dirname + '/' + basename == path This field must be set by the implementation.
 	Basename       string        `yaml:"basename,omitempty" json:"basename,omitempty" bson:"basename,omitempty" mapstructure:"basename,omitempty"` // dirname + '/' + basename == path // if not defined, take from location
 	Dirname        string        `yaml:"dirname,omitempty" json:"dirname,omitempty" bson:"dirname,omitempty" mapstructure:"dirname,omitempty"`     // dirname + '/' + basename == path
@@ -112,7 +112,7 @@ func MakeFile(obj interface{}) (file File, err error) {
 			return
 		}
 
-		file.Location_url = file_url
+		//file.Location_url = file_url
 		scheme := strings.ToLower(file_url.Scheme)
 		values := file_url.Query()
 
@@ -162,9 +162,33 @@ func MakeFile(obj interface{}) (file File, err error) {
 		}
 	}
 
-	file.Path = strings.TrimPrefix(file.Path, "file://")
+	//file.SetPath(strings.TrimPrefix(file.Path, "file://"))
 
 	return
+}
+
+func (file *File) SetPath(path_str string) {
+	file.Path = path_str
+
+	if path_str == "" {
+		// on upload to Shock we loose path, but need to keep basename
+
+		//file.Basename = ""
+
+		//file.Nameext = ""
+		//file.Nameroot = ""
+	} else {
+
+		file.Basename = path.Base(file.Path)
+
+		file.Nameext = path.Ext(file.Basename)
+		file.Nameroot = strings.TrimSuffix(file.Basename, file.Nameext)
+	}
+	//fmt.Printf("file.Path: %s\n", file.Path)
+	//fmt.Printf("file.Basename: %s\n", file.Basename)
+	//fmt.Printf("file.Nameext: %s\n", file.Nameext)
+	//fmt.Printf("file.Nameroot: %s\n", file.Nameroot)
+
 }
 
 // returns array<File | Directory>
@@ -226,7 +250,35 @@ func (file *File) Exists(inputfile_path string) (ok bool, err error) {
 	}
 
 	if file.Location != "" {
-		err = fmt.Errorf("(File/Exists) Location not implemented yet")
+
+		file_path := strings.TrimPrefix(file.Location, "file://")
+
+		if strings.HasPrefix(file.Location, "http:") {
+			err = fmt.Errorf("(File/Exists) schema http not yet supported (%s)", file.Location)
+			return
+		}
+		if strings.HasPrefix(file.Location, "https:") {
+			err = fmt.Errorf("(File/Exists) schema https not yet supported")
+			return
+		}
+		if strings.HasPrefix(file.Location, "ftp:") {
+			err = fmt.Errorf("(File/Exists) schema https not yet supported")
+			return
+		}
+
+		if !path.IsAbs(file_path) {
+			file_path = path.Join(inputfile_path, file_path)
+		}
+
+		//var file_info os.FileInfo
+		_, err = os.Stat(file_path)
+		if err != nil {
+			err = nil
+			ok = false
+			//err = fmt.Errorf("(UploadFile) os.Stat returned: %s (file.Path: %s)", err.Error(), file.Path)
+			return
+		}
+		ok = true
 		return
 	}
 	return

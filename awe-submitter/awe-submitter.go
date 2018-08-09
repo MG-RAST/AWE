@@ -169,7 +169,7 @@ func main_wrapper() (err error) {
 	// convert CWL to string
 	yaml_str := string(yamlstream[:])
 	//fmt.Printf("after cwltool --pack: \n%s\n", yaml_str)
-	var named_object_array cwl.Named_CWL_object_array
+	var named_object_array []cwl.Named_CWL_object
 	var cwl_version cwl.CWLVersion
 	var schemata []cwl.CWLType_Type
 	named_object_array, cwl_version, schemata, err = cwl.Parse_cwl_document(yaml_str)
@@ -201,7 +201,9 @@ func main_wrapper() (err error) {
 		switch object.(type) {
 		case *cwl.Workflow:
 			workflow := object.(*cwl.Workflow)
-
+			//if cwl_version != "" {
+			//	workflow.CwlVersion = cwl_version
+			//}
 			sub_upload_count := 0
 			sub_upload_count, err = cache.ProcessIOData(workflow, inputfile_path, inputfile_path, "upload", shock_client)
 			if err != nil {
@@ -218,7 +220,9 @@ func main_wrapper() (err error) {
 				err = nil
 				continue
 			}
-
+			//if cwl_version != "" {
+			//	cmd_line_tool.CwlVersion = cwl_version
+			//}
 			if cmd_line_tool == nil {
 				err = fmt.Errorf("(main_wrapper) cmd_line_tool==nil")
 				return
@@ -244,6 +248,9 @@ func main_wrapper() (err error) {
 				err = fmt.Errorf("(main_wrapper) express_tool==nil")
 				return
 			}
+			//if cwl_version != "" {
+			//	express_tool.CwlVersion = cwl_version
+			//}
 
 			sub_upload_count := 0
 			sub_upload_count, err = cache.ProcessIOData(express_tool, inputfile_path, inputfile_path, "upload", shock_client)
@@ -532,7 +539,7 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 	var job core.Job
 	err = json.Unmarshal(job_bytes, &job)
 	if err != nil {
-		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job")
+		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s (%s) (job_bytes: %s)", err.Error(), conf.SERVER_URL+"/job", job_bytes)
 		return
 	}
 	jobid = job.Id
@@ -543,6 +550,11 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 
 func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 
+	if jobid == "" {
+		err = fmt.Errorf("(GetAWEJob) jobid empty")
+		return
+	}
+
 	multipart := NewMultipartWriter()
 
 	header := make(map[string][]string)
@@ -552,11 +564,13 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 
 	response, err := multipart.Send("GET", conf.SERVER_URL+"/job/"+jobid, header)
 	if err != nil {
+		err = fmt.Errorf("(GetAWEJob) multipart.Send returned: %s", err.Error())
 		return
 	}
 
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
+		err = fmt.Errorf("(GetAWEJob) ioutil.ReadAll returned: %s", err.Error())
 		return
 	}
 
@@ -591,6 +605,7 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 	job = &core.Job{}
 	err = json.Unmarshal(job_bytes, job)
 	if err != nil {
+		fmt.Printf("job_bytes: %s\n", job_bytes)
 		err = fmt.Errorf("(GetAWEJob) (second call) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job/"+jobid)
 		return
 	}

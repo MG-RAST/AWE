@@ -10,6 +10,8 @@ type Named_CWL_object struct {
 	Value       CWL_object                                                            `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
 }
 
+//type Named_CWL_object_array []Named_CWL_object
+
 func NewNamed_CWL_object(id string, value CWL_object) Named_CWL_object {
 	x := Named_CWL_object{Value: value}
 	x.Id = id
@@ -71,16 +73,14 @@ func NewNamed_CWL_object_from_interface(original interface{}, cwl_version CWLVer
 	return
 }
 
-type Named_CWL_object_array []Named_CWL_object
-
-func NewNamed_CWL_object_array(original interface{}, cwl_version CWLVersion) (array Named_CWL_object_array, schemata []CWLType_Type, err error) {
+func NewNamed_CWL_object_array(original interface{}, cwl_version CWLVersion) (array []Named_CWL_object, schemata []CWLType_Type, err error) {
 
 	//original, err = makeStringMap(original)
 	//if err != nil {
 	//	return
 	//}
 
-	array = Named_CWL_object_array{}
+	array = []Named_CWL_object{}
 
 	switch original.(type) {
 

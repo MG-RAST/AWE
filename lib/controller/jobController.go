@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -19,7 +20,7 @@ import (
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	//"os"
-	"encoding/json"
+
 	"path"
 	"strconv"
 	"strings"
@@ -177,6 +178,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			runner := pair.Value
 
 			switch runner.(type) {
+			case *cwl.Workflow:
+				workflow := runner.(*cwl.Workflow)
+				workflow.CwlVersion = cwl_version
 
 			case *cwl.CommandLineTool:
 				commandlinetool_if := pair.Value
@@ -451,7 +455,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		//}
 
 		//fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
-		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, &collection)
+		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, &collection, cwl_version)
 		if err != nil {
 			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
 			return
@@ -459,7 +463,14 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		job.Entrypoint = entrypoint
 		job.IsCWL = true
-		job.CWL_objects = object_array
+
+		// this ugly conversion is necessary as mongo does not like interface types.
+		object_array_of_interface := []interface{}{}
+		for i, _ := range object_array {
+			object_array_of_interface = append(object_array_of_interface, object_array[i])
+		}
+
+		job.CWL_objects = object_array_of_interface
 		job.CwlVersion = cwl_version
 		//job.CWL_collection = &collection
 		job.Info.Name = job_file.Name
@@ -531,11 +542,18 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		E: nil,
 	}
 
+	//for i, _ := range job.CWL_objects {
+	//	spew.Dump(job.CWL_objects[i])
+	//}
+	//job.CWL_objects = nil
+
 	var response_bytes []byte
 	response_bytes, err = json.Marshal(SR)
 	if err != nil {
-		//spew.Dump(SR)
-		cx.RespondWithErrorMessage("Could not marshal response: "+err.Error(), http.StatusBadRequest)
+		//fmt.Println("Dump:")
+		//spew.Dump(job)
+
+		cx.RespondWithErrorMessage("(JobController/Create) json.Marshal returned: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 

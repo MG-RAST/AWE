@@ -40,7 +40,7 @@ func (c *CommandLineTool) Is_process()     {}
 // keyname will be converted into 'Id'-field
 
 //func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
-func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedRequirements *[]Requirement) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
+func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedRequirements []Requirement) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
 
 	//fmt.Println("NewCommandLineTool:")
 	//spew.Dump(generic)
@@ -56,43 +56,30 @@ func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedReq
 	commandLineTool = &CommandLineTool{}
 	commandLineTool.Class = "CommandLineTool"
 
-	var requirements_array []Requirement
 	requirements, ok := object["requirements"]
-	if ok {
-		var requirements_array_temp *[]Requirement
-		requirements_array_temp, schemata, err = CreateRequirementArray(requirements)
-		if err != nil {
-			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (requirements): %s", err.Error())
-			return
-		}
-		for _, r := range *requirements_array_temp {
-
-			requirements_array = append(requirements_array, r)
-
-		}
+	if !ok {
+		requirements = nil
 	}
 
-	if injectedRequirements != nil {
-		for _, ir := range *injectedRequirements {
-
-			ir_class := ir.GetClass()
-			injected := false
-			for j, _ := range requirements_array {
-				if requirements_array[j].GetClass() == ir_class {
-					// overwrite !
-					requirements_array[j] = ir
-					injected = true
-					break
-				}
-
-			}
-			if !injected {
-				requirements_array = append(requirements_array, ir)
-			}
-
-		}
+	var requirements_array []Requirement
+	//var requirements_array_temp *[]Requirement
+	var schemata_new []CWLType_Type
+	//fmt.Printf("(NewCommandLineTool) Injecting %d\n", len(requirements_array))
+	//spew.Dump(requirements_array)
+	requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements)
+	if err != nil {
+		err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (requirements): %s", err.Error())
+		return
 	}
+
+	for i, _ := range schemata_new {
+		schemata = append(schemata, schemata_new[i])
+	}
+
 	object["requirements"] = requirements_array
+
+	//fmt.Printf("(NewCommandLineTool) requirements %d\n", len(requirements_array))
+	//spew.Dump(requirements_array)
 	//scs := spew.ConfigState{Indent: "\t"}
 	//scs.Dump(object["requirements"])
 
@@ -142,29 +129,21 @@ func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedReq
 		object["arguments"] = arguments_object
 	}
 
-	//switch object["hints"].(type) {
-	//case map[interface{}]interface{}:
 	hints, ok := object["hints"]
 	if ok && (hints != nil) {
-		object["hints"], schemata, err = CreateRequirementArray(hints)
+		var schemata_new []CWLType_Type
+
+		var hints_array []Requirement
+		hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 			return
 		}
+		for i, _ := range schemata_new {
+			schemata = append(schemata, schemata_new[i])
+		}
+		object["hints"] = hints_array
 	}
-
-	//}
-	//id, _ := object["id"]
-	//if id == "#blat.tool.cwl" {
-	//delete(object, "inputs")
-	//delete(object, "outputs")
-	//delete(object, "baseCommand")
-	//delete(object, "arguments")
-	//delete(object, "hints")
-	//delete(object, "requirements")
-	//	fmt.Println("after thinning out")
-	//	spew.Dump(object)
-	//}
 
 	err = mapstructure.Decode(object, commandLineTool)
 	if err != nil {
@@ -176,13 +155,6 @@ func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedReq
 		commandLineTool.CwlVersion = cwl_version
 	}
 
-	//if has_arguments {
-	//	object["arguments"] = arguments_object // mapstructure.Decode has some issues, no idea why
-	//}
-	//spew.Dump(commandLineTool)
-	//if id == "#blat.tool.cwl" {
-	//	panic("done")
-	//}
 	return
 }
 

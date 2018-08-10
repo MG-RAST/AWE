@@ -201,7 +201,77 @@ func DeleteRequirement(requirement_class string, old_array_ptr *[]Requirement) (
 	return
 }
 
-func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement, schemata []CWLType_Type, err error) {
+// , injectedRequirements []Requirement
+
+func CreateHintsArray(original interface{}, injectedRequirements []Requirement) (hints_array []Requirement, schemata []CWLType_Type, err error) {
+	if original != nil {
+		hints_array, schemata, err = CreateRequirementArray(original)
+		if err != nil {
+			err = fmt.Errorf("(CreateRequirementArrayAndInject) CreateRequirementArray returned: %s", err.Error())
+			return
+		}
+	}
+
+	// if a hint is also in injectedRequirements, do not keep it ! It is now a real Requirement, with possibly different values
+	if injectedRequirements != nil && hints_array != nil {
+		filtered_hints := []Requirement{}
+		for h, _ := range hints_array {
+
+			is_injected := false
+			for _, ir := range injectedRequirements {
+
+				ir_class := ir.GetClass()
+				if hints_array[h].GetClass() == ir_class {
+					is_injected = true
+				}
+
+			}
+			if !is_injected {
+				filtered_hints = append(filtered_hints, hints_array[h])
+			}
+		}
+		//	object["hints"] = new_hints
+		hints_array = filtered_hints
+	}
+
+	return
+}
+
+func CreateRequirementArrayAndInject(original interface{}, injectedRequirements []Requirement) (requirements_array []Requirement, schemata []CWLType_Type, err error) {
+
+	if original != nil {
+		requirements_array, schemata, err = CreateRequirementArray(original)
+		if err != nil {
+			err = fmt.Errorf("(CreateRequirementArrayAndInject) CreateRequirementArray returned: %s", err.Error())
+			return
+		}
+	}
+
+	if injectedRequirements != nil {
+		for _, ir := range injectedRequirements {
+
+			ir_class := ir.GetClass()
+			injected := false
+			for j, _ := range requirements_array {
+				if requirements_array[j].GetClass() == ir_class {
+					// overwrite !
+					requirements_array[j] = ir
+					injected = true
+					break
+				}
+
+			}
+			if !injected {
+				requirements_array = append(requirements_array, ir)
+			}
+
+		}
+	}
+
+	return
+}
+
+func CreateRequirementArray(original interface{}) (new_array []Requirement, schemata []CWLType_Type, err error) {
 	// here the keynames are actually class names
 
 	original, err = MakeStringMap(original)
@@ -212,11 +282,11 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 	if original == nil {
 		err = fmt.Errorf("(CreateRequirementArray) original == nil")
 	}
-
-	new_array := []Requirement{}
+	new_array = []Requirement{}
 
 	switch original.(type) {
 	case map[string]interface{}:
+
 		for class_str, v := range original.(map[string]interface{}) {
 
 			var schemata_new []CWLType_Type
@@ -265,8 +335,6 @@ func CreateRequirementArray(original interface{}) (new_array_ptr *[]Requirement,
 	default:
 		err = fmt.Errorf("(CreateRequirementArray) type %s unknown", reflect.TypeOf(original))
 	}
-
-	new_array_ptr = &new_array
 
 	return
 }

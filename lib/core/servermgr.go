@@ -3000,8 +3000,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			fmt.Println("scatter_parent_task.StepOutput:")
 			spew.Dump(scatter_parent_task.StepOutput)
 			//panic("scatter done")
-			count_a, _ := job.GetRemainTasks()
-			fmt.Printf("GetRemainTasks job A1: %d\n", count_a)
+			//count_a, _ := job.GetRemainTasks()
+			//fmt.Printf("GetRemainTasks job A1: %d\n", count_a)
 
 			// set TASK_STAT_COMPLETED
 			//err = scatter_parent_task.SetState(TASK_STAT_COMPLETED, true)
@@ -3016,16 +3016,16 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				return
 			}
 
-			count_a, _ = job.GetRemainTasks()
-			fmt.Printf("GetRemainTasks job A2: %d\n", count_a)
+			//count_a, _ = job.GetRemainTasks()
+			//fmt.Printf("GetRemainTasks job A2: %d\n", count_a)
 
 		} else {
 			logger.Debug(3, "(updateJobTask) %s  No Scatter_parent", task_str)
 		}
 
-		count, _ := job.GetRemainTasks()
+		//count, _ := job.GetRemainTasks()
 
-		fmt.Printf("GetRemainTasks job B: %d\n", count)
+		//fmt.Printf("GetRemainTasks job B: %d\n", count)
 
 		var subworkflow_remain_tasks int
 		subworkflow_remain_tasks, err = job.Decrease_WorkflowInstance_RemainTasks(parent_id_str, task_str)
@@ -3480,7 +3480,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				return
 			}
 
-			fmt.Printf("GetRemainTasks job D: %d\n", job_remainTasks)
+			//fmt.Printf("GetRemainTasks job D: %d\n", job_remainTasks)
 
 			if job_remainTasks > 0 {
 				err = fmt.Errorf("(updateJobTask) Something is wrong, last subworkflow completes, but job_remainTasks > 0 , does not make sense")

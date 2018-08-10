@@ -52,9 +52,9 @@ func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 }
 
 // returns CommandLineTool, ExpressionTool or Workflow
-func NewProcess(original interface{}, CwlVersion CWLVersion, injectedRequirements *[]Requirement) (process interface{}, schemata []CWLType_Type, err error) {
+func NewProcess(original interface{}, CwlVersion CWLVersion, injectedRequirements []Requirement, context *ParsingContext) (process interface{}, schemata []CWLType_Type, err error) {
 
-	logger.Debug(3, "NewProcess starting")
+	//logger.Debug(3, "(NewProcess) starting")
 
 	if CwlVersion == "" {
 		err = fmt.Errorf("(NewProcess) CwlVersion empty")
@@ -68,11 +68,50 @@ func NewProcess(original interface{}, CwlVersion CWLVersion, injectedRequirement
 
 	switch original.(type) {
 	case string:
+		//logger.Debug(3, "(NewProcess) a string")
 		original_str := original.(string)
 
 		//pp := &ProcessPointer{Value: original_str}
-
 		process = original_str
+
+		if context == nil {
+
+			//logger.Debug(3, "(NewProcess) no context")
+			return
+		}
+
+		var ok bool
+		_, ok = context.Objects[original_str]
+		if ok {
+			//logger.Debug(3, "(NewProcess) object %s found", original_str)
+			// refrenced object has already been parsed once
+			// TODO may want to parse a second time and make a new copy
+			return
+		}
+
+		var process_if interface{}
+		process_if, ok = context.If_objects[original_str]
+		if ok {
+			logger.Debug(3, "(NewProcess) %s found in object_if", original_str)
+			var object CWL_object
+
+			object, schemata, err = New_CWL_object(process_if, CwlVersion, injectedRequirements, context)
+			if err != nil {
+				err = fmt.Errorf("(NewProcess) A New_CWL_object returns %s", err.Error())
+				return
+			}
+
+			context.Objects[original_str] = object
+			return
+		}
+
+		//for id, _ := range context.If_objects {
+		//	fmt.Printf("Id: %s\n", id)
+		//}
+		//for id, _ := range context.Objects {
+		//	fmt.Printf("Id: %s\n", id)
+		//}
+		err = fmt.Errorf("(NewProcess) %s not found in context", original_str)
 		return
 	case map[string]interface{}:
 		original_map, ok := original.(map[string]interface{})
@@ -92,7 +131,7 @@ func NewProcess(original interface{}, CwlVersion CWLVersion, injectedRequirement
 		//case "":
 		//return NewProcessPointer(original)
 		case "Workflow":
-			process, schemata, err = NewWorkflow(original, CwlVersion)
+			process, schemata, err = NewWorkflow(original, CwlVersion, injectedRequirements, context)
 
 			return
 		case "Expression":
@@ -102,7 +141,7 @@ func NewProcess(original interface{}, CwlVersion CWLVersion, injectedRequirement
 			process, schemata, err = NewCommandLineTool(original, CwlVersion, injectedRequirements) // TODO merge schemata correctly !
 			return
 		case "ExpressionTool":
-			process, err = NewExpressionTool(original, CwlVersion, schemata)
+			process, err = NewExpressionTool(original, CwlVersion, schemata, injectedRequirements)
 			return
 		default:
 			err = fmt.Errorf("(NewProcess) class %s not supported", class)

@@ -27,7 +27,7 @@ type ExpressionTool struct {
 }
 
 // TODO pass along workflow InlineJavascriptRequirement
-func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []CWLType_Type) (et *ExpressionTool, err error) {
+func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []CWLType_Type, injectedRequirements []Requirement) (et *ExpressionTool, err error) {
 
 	object, ok := original.(map[string]interface{})
 	if !ok {
@@ -56,21 +56,39 @@ func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []C
 	}
 
 	requirements, ok := object["requirements"]
-	if ok {
-		object["requirements"], schemata, err = CreateRequirementArray(requirements)
-		if err != nil {
-			err = fmt.Errorf("(NewExpressionTool) error in CreateRequirementArray (requirements): %s", err.Error())
-			return
-		}
+	if !ok {
+		requirements = nil
 	}
 
+	var requirements_array []Requirement
+	//var requirements_array_temp *[]Requirement
+	var schemata_new []CWLType_Type
+	requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements)
+	if err != nil {
+		err = fmt.Errorf("(NewExpressionTool) error in CreateRequirementArray (requirements): %s", err.Error())
+		return
+	}
+
+	for i, _ := range schemata_new {
+		schemata = append(schemata, schemata_new[i])
+	}
+
+	object["requirements"] = requirements_array
+
 	hints, ok := object["hints"]
-	if ok {
-		object["hints"], schemata, err = CreateRequirementArray(hints)
+	if ok && (hints != nil) {
+		var schemata_new []CWLType_Type
+
+		var hints_array []Requirement
+		hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements)
 		if err != nil {
-			err = fmt.Errorf("(NewExpressionTool) error in CreateRequirementArray (hints): %s", err.Error())
+			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 			return
 		}
+		for i, _ := range schemata_new {
+			schemata = append(schemata, schemata_new[i])
+		}
+		object["hints"] = hints_array
 	}
 
 	err = mapstructure.Decode(object, et)

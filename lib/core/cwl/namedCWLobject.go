@@ -59,7 +59,7 @@ func NewNamed_CWL_object_from_interface(original interface{}, cwl_version CWLVer
 		}
 
 		var obj CWL_object
-		obj, schemata, err = New_CWL_object(value, cwl_version)
+		obj, schemata, err = New_CWL_object(value, cwl_version, nil, nil)
 		if err != nil {
 			err = fmt.Errorf("(NewNamed_CWL_object_from_interface) New_CWL_object returned: %s", err.Error())
 			return

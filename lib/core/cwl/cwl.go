@@ -24,6 +24,11 @@ type CWL_document_generic struct {
 	//Graph      []CWL_object_generic `yaml:"graph"`
 }
 
+type ParsingContext struct {
+	If_objects map[string]interface{}
+	Objects    map[string]CWL_object
+}
+
 type CWL_object_generic map[string]interface{}
 
 type CWLVersion string
@@ -85,8 +90,13 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 		}
 
 		//fmt.Println("-------------- A Parse_cwl_document")
-		for count, elem := range cwl_gen.Graph {
-			//fmt.Println("-------------- B Parse_cwl_document")
+
+		context := &ParsingContext{}
+		context.If_objects = make(map[string]interface{})
+		context.Objects = make(map[string]CWL_object)
+
+		// turn array into map: populate context.If_objects
+		for _, elem := range cwl_gen.Graph {
 
 			var id string
 			id, err = GetId(elem)
@@ -95,41 +105,85 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 				spew.Dump(elem)
 				return
 			}
+			//fmt.Println(id)
 
-			var object CWL_object
-			var schemata_new []CWLType_Type
-			object, schemata_new, err = New_CWL_object(elem, cwl_version)
-			if err != nil {
-				err = fmt.Errorf("(Parse_cwl_document) A New_CWL_object returns %s", err.Error())
-				return
-			}
+			context.If_objects[id] = elem
 
-			//switch object.(type) {
-			//case *Workflow:
-			//	this_workflow, _ := object.(*Workflow)
-			//	cwl_version = this_workflow.CwlVersion
-			//case *CommandLineTool:
-			//	this_clt, _ := object.(*CommandLineTool)
-			//	cwl_version = this_clt.CwlVersion
-			//case *ExpressionTool:
-			//	this_et, _ := object.(*ExpressionTool)
-			//	cwl_version = this_et.CwlVersion
-			//}
+			// var class string
+			// class, err = GetClass(elem)
+			// if err != nil {
+			// 	fmt.Println("object without class:")
+			// 	spew.Dump(elem)
+			// 	return
+			// }
+			// _ = class
+			_ = id
+		}
 
-			named_obj := NewNamed_CWL_object(id, object)
-			//fmt.Println("-------------- C Parse_cwl_document")
-			object_array = append(object_array, named_obj)
+		main_if, has_main := context.If_objects["#main"]
+		if !has_main {
+			err = fmt.Errorf("(Parse_cwl_document) #main not found in graph")
+			return
+		}
 
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
-			}
+		// start with #main
+		var object CWL_object
+		var schemata_new []CWLType_Type
+		object, schemata_new, err = New_CWL_object(main_if, cwl_version, nil, context)
+		if err != nil {
+			err = fmt.Errorf("(Parse_cwl_document) A New_CWL_object returns %s", err.Error())
+			return
+		}
+		context.Objects["#main"] = object
+		// for count, elem := range cwl_gen.Graph {
+		// 	//fmt.Println("-------------- B Parse_cwl_document")
 
-			logger.Debug(3, "Added %d cwl objects...", count)
-			//fmt.Println("-------------- loop Parse_cwl_document")
-		} // end for
+		// 	var id string
+		// 	id, err = GetId(elem)
+		// 	if err != nil {
+		// 		fmt.Println("object without id:")
+		// 		spew.Dump(elem)
+		// 		return
+		// 	}
+
+		// 	var object CWL_object
+		// 	var schemata_new []CWLType_Type
+		// 	object, schemata_new, err = New_CWL_object(elem, cwl_version, nil)
+		// 	if err != nil {
+		// 		err = fmt.Errorf("(Parse_cwl_document) A New_CWL_object returns %s", err.Error())
+		// 		return
+		// 	}
+
+		// 	//switch object.(type) {
+		// 	//case *Workflow:
+		// 	//	this_workflow, _ := object.(*Workflow)
+		// 	//	cwl_version = this_workflow.CwlVersion
+		// 	//case *CommandLineTool:
+		// 	//	this_clt, _ := object.(*CommandLineTool)
+		// 	//	cwl_version = this_clt.CwlVersion
+		// 	//case *ExpressionTool:
+		// 	//	this_et, _ := object.(*ExpressionTool)
+		// 	//	cwl_version = this_et.CwlVersion
+		// 	//}
+
+		// 	named_obj := NewNamed_CWL_object(id, object)
+		// 	//fmt.Println("-------------- C Parse_cwl_document")
+		// 	object_array = append(object_array, named_obj)
+
+		for i, _ := range schemata_new {
+			schemata = append(schemata, schemata_new[i])
+		}
+
+		// 	logger.Debug(3, "Added %d cwl objects...", count)
+		// 	//fmt.Println("-------------- loop Parse_cwl_document")
+		// } // end for
 
 		//fmt.Println("-------------- finished Parse_cwl_document")
 
+		for id, object := range context.Objects {
+			named_obj := NewNamed_CWL_object(id, object)
+			object_array = append(object_array, named_obj)
+		}
 	} else {
 
 		// Here I expect a single object, Workflow or CommandLIneTool
@@ -165,7 +219,7 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 
 		var object CWL_object
 		var schemata_new []CWLType_Type
-		object, schemata_new, err = New_CWL_object(object_if, cwl_version)
+		object, schemata_new, err = New_CWL_object(object_if, cwl_version, nil, nil)
 		if err != nil {
 			err = fmt.Errorf("(Parse_cwl_document) B New_CWL_object returns %s", err.Error())
 			return
@@ -210,7 +264,8 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 		}
 
 	}
-
+	//spew.Dump(object_array)
+	//panic("done")
 	return
 }
 

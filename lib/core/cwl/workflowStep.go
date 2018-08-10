@@ -368,6 +368,16 @@ func GetProcess(original interface{}, collection *CWL_collection, CwlVersion CWL
 	var wfl *Workflow
 
 	switch p.(type) {
+
+	case *CommandLineTool:
+		process = p
+
+	case *ExpressionTool:
+		process = p
+
+	case *Workflow:
+		process = p
+
 	case string:
 
 		process_name := p.(string)

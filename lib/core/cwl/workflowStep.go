@@ -39,7 +39,7 @@ func (ws *WorkflowStep) Init(CwlVersion CWLVersion) (err error) {
 		return
 	}
 	ws.CwlVersion = CwlVersion
-	ws.Run, _, err = NewProcess(p, CwlVersion, nil) // requirements should already be injected
+	ws.Run, _, err = NewProcess(p, CwlVersion, nil, nil) // requirements should already be injected
 	if err != nil {
 		err = fmt.Errorf("(WorkflowStep/Init) NewProcess() returned %s", err.Error())
 		return
@@ -48,7 +48,7 @@ func (ws *WorkflowStep) Init(CwlVersion CWLVersion) (err error) {
 	return
 }
 
-func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequirements *[]Requirement) (w *WorkflowStep, schemata []CWLType_Type, err error) {
+func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequirements []Requirement, context *ParsingContext) (w *WorkflowStep, schemata []CWLType_Type, err error) {
 	var step WorkflowStep
 
 	logger.Debug(3, "NewWorkflowStep starting")
@@ -63,48 +63,24 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 		v_map := original.(map[string]interface{})
 		//spew.Dump(v_map)
 
-		var requirements_array []Requirement
 		requirements, ok := v_map["requirements"]
-		if ok {
-			var requirements_array_temp *[]Requirement
-			requirements_array_temp, schemata, err = CreateRequirementArray(requirements)
-			if err != nil {
-				err = fmt.Errorf("(NewWorkflowStep) CreateRequirementArray %s", err.Error())
-				return
-			}
-			for _, r := range *requirements_array_temp {
-
-				requirements_array = append(requirements_array, r)
-
-			}
+		if !ok {
+			requirements = nil
 		}
 
-		//if injectedRequirements != nil {
-		//	for _, r := range *injectedRequirements {
+		var requirements_array []Requirement
+		//var requirements_array_temp *[]Requirement
+		var schemata_new []CWLType_Type
+		//fmt.Printf("(NewWorkflowStep) Injecting %d \n", len(injectedRequirements))
+		//spew.Dump(injectedRequirements)
+		requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkflowStep) error in CreateRequirementArray (requirements): %s", err.Error())
+			return
+		}
 
-		//				requirements_array = append(requirements_array, r)
-		//			}
-		//		}
-
-		if injectedRequirements != nil {
-			for _, ir := range *injectedRequirements {
-
-				ir_class := ir.GetClass()
-				injected := false
-				for j, _ := range requirements_array {
-					if requirements_array[j].GetClass() == ir_class {
-						// overwrite !
-						requirements_array[j] = ir
-						injected = true
-						break
-					}
-
-				}
-				if !injected {
-					requirements_array = append(requirements_array, ir)
-				}
-
-			}
+		for i, _ := range schemata_new {
+			schemata = append(schemata, schemata_new[i])
 		}
 
 		v_map["requirements"] = requirements_array
@@ -129,7 +105,10 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 		run, ok := v_map["run"]
 		if ok {
 			var schemata_new []CWLType_Type
-			v_map["run"], schemata_new, err = NewProcess(run, CwlVersion, &requirements_array)
+			//fmt.Printf("(NewWorkflowStep) Injecting %d\n", len(requirements_array))
+			//spew.Dump(requirements_array)
+
+			v_map["run"], schemata_new, err = NewProcess(run, CwlVersion, requirements_array, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) run %s", err.Error())
 				return
@@ -185,46 +164,20 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 			}
 		}
 
-		//hints, ok := v_map["hints"]
-		//if ok {
-		//	v_map["hints"], schemata, err = CreateRequirementArray(hints)
-		//	if err != nil {
-		//		err = fmt.Errorf("(NewWorkflowStep) CreateRequirementArray %s", err.Error())
-		//		return
-		//	}
-		//}
 		hints, ok := v_map["hints"]
 		if ok && (hints != nil) {
-			var hints_all *[]Requirement
-			hints_all, schemata, err = CreateRequirementArray(hints)
+			var schemata_new []CWLType_Type
+
+			var hints_array []Requirement
+			hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements)
 			if err != nil {
 				err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 				return
 			}
-
-			// if a hint is also in injectedRequirements, do not keep it ! It is now a real Requirement, with possibly different values.
-			if injectedRequirements != nil {
-				new_hints := []Requirement{}
-				for h, _ := range *hints_all {
-
-					is_injected := false
-					for _, ir := range *injectedRequirements {
-
-						ir_class := ir.GetClass()
-						if (*hints_all)[h].GetClass() == ir_class {
-							is_injected = true
-						}
-
-					}
-					if !is_injected {
-						new_hints = append(new_hints, (*hints_all)[h])
-					}
-				}
-				v_map["hints"] = new_hints
-
-			} else {
-				v_map["hints"] = hints_all
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
 			}
+			v_map["hints"] = hints_array
 		}
 
 		//spew.Dump(v_map["run"])
@@ -261,7 +214,7 @@ func (w WorkflowStep) GetOutput(id string) (output *WorkflowStepOutput, err erro
 }
 
 // CreateWorkflowStepsArray
-func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion, injectedRequirements *[]Requirement) (schemata []CWLType_Type, array_ptr *[]WorkflowStep, err error) {
+func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion, injectedRequirements []Requirement, context *ParsingContext) (schemata []CWLType_Type, array_ptr *[]WorkflowStep, err error) {
 
 	array := []WorkflowStep{}
 
@@ -283,7 +236,9 @@ func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion, injec
 
 			var schemata_new []CWLType_Type
 			var step *WorkflowStep
-			step, schemata_new, err = NewWorkflowStep(v, CwlVersion, injectedRequirements)
+			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
+			//spew.Dump(injectedRequirements)
+			step, schemata_new, err = NewWorkflowStep(v, CwlVersion, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
@@ -315,7 +270,9 @@ func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion, injec
 			//fmt.Println(reflect.TypeOf(v))
 			var schemata_new []CWLType_Type
 			var step *WorkflowStep
-			step, schemata_new, err = NewWorkflowStep(v, CwlVersion, injectedRequirements)
+			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
+			//spew.Dump(injectedRequirements)
+			step, schemata_new, err = NewWorkflowStep(v, CwlVersion, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
@@ -438,55 +395,55 @@ func GetProcess(original interface{}, collection *CWL_collection, CwlVersion CWL
 		spew.Dump(collection)
 		err = fmt.Errorf("(GetProcess) Process %s not found ", process_name)
 
-	case map[string]interface{}:
+	// case map[string]interface{}:
 
-		err = fmt.Errorf("(GetProcess) Process should have been parsed by now !?") // otherwise we to inject Requirements
-		return
+	// 	err = fmt.Errorf("(GetProcess) Process should have been parsed by now !?") // otherwise we to inject Requirements
+	// 	return
 
-		//fmt.Println("GetProcess got:")
-		//spew.Dump(p)
+	// 	//fmt.Println("GetProcess got:")
+	// 	//spew.Dump(p)
 
-		p_map := p.(map[string]interface{})
+	// 	p_map := p.(map[string]interface{})
 
-		class_name_if, ok := p_map["class"]
-		if ok {
-			var class_name string
-			class_name, ok = class_name_if.(string)
-			if ok {
-				switch class_name {
-				case "CommandLineTool":
+	// 	class_name_if, ok := p_map["class"]
+	// 	if ok {
+	// 		var class_name string
+	// 		class_name, ok = class_name_if.(string)
+	// 		if ok {
+	// 			switch class_name {
+	// 			case "CommandLineTool":
 
-					clt, schemata, err = NewCommandLineTool(p, CwlVersion, nil)
-					process = clt
-					return
-				case "Workflow":
-					wfl, schemata, err = NewWorkflow(p, CwlVersion)
-					process = wfl
-					return
-				case "ExpressionTool":
-					et, err = NewExpressionTool(p, "", input_schemata)
-					process = et
-					return
-				default:
-					err = fmt.Errorf("(GetProcess) class \"%s\" not a supported process", class_name)
-					return
-				}
+	// 				clt, schemata, err = NewCommandLineTool(p, CwlVersion, nil)
+	// 				process = clt
+	// 				return
+	// 			case "Workflow":
+	// 				wfl, schemata, err = NewWorkflow(p, CwlVersion, nil)
+	// 				process = wfl
+	// 				return
+	// 			case "ExpressionTool":
+	// 				et, err = NewExpressionTool(p, "", input_schemata, nil)
+	// 				process = et
+	// 				return
+	// 			default:
+	// 				err = fmt.Errorf("(GetProcess) class \"%s\" not a supported process", class_name)
+	// 				return
+	// 			}
 
-			}
-		}
+	// 		}
+	// 	}
 
-		// in case of bson, check field "value"
-		//process_name_interface, ok := p_map["value"]
-		//if !ok {
-		//	err = fmt.Errorf("(GetProcess) map did not hold a field named value")
-		//	return
-		//}
-		//
-		//process_name, ok = process_name_interface.(string)
-		//if !ok {
-		//	err = fmt.Errorf("(GetProcess) map value field is not a string")
-		//	return
-		//}
+	// in case of bson, check field "value"
+	//process_name_interface, ok := p_map["value"]
+	//if !ok {
+	//	err = fmt.Errorf("(GetProcess) map did not hold a field named value")
+	//	return
+	//}
+	//
+	//process_name, ok = process_name_interface.(string)
+	//if !ok {
+	//	err = fmt.Errorf("(GetProcess) map value field is not a string")
+	//	return
+	//}
 
 	default:
 		err = fmt.Errorf("(GetProcess) Process type %s unknown", reflect.TypeOf(p))

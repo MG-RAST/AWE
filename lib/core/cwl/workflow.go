@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	//"os"
 	"reflect"
@@ -56,7 +55,7 @@ func NewWorkflowEmpty() (w Workflow) {
 	return w
 }
 
-func NewWorkflow(original interface{}, cwl_version CWLVersion) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
+func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequirements []Requirement, context *ParsingContext) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
 
 	// convert input map into input array
 
@@ -95,29 +94,25 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion) (workflow_ptr *Wo
 			err = fmt.Errorf("(NewWorkflow) CwlVersion empty")
 			return
 		}
-
-		var requirement_array *[]Requirement
 		requirements, ok := object["requirements"]
-		if ok {
-			var schemata_new []CWLType_Type
-			//fmt.Println("---- Workflow (before CreateRequirementArray) ----")
-			//spew.Dump(object)
-			//var requirement_map map[string]interface{}
-			requirement_array, schemata_new, err = CreateRequirementArray(requirements)
-			if err != nil {
-				fmt.Println("---- Workflow ----")
-				spew.Dump(object)
-				fmt.Println("---- requirements ----")
-				spew.Dump(requirements)
-				err = fmt.Errorf("(NewWorkflow) CreateRequirementArray returned: %s", err.Error())
-				return
-			}
-			object["requirements"] = requirement_array
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
-			}
-
+		if !ok {
+			requirements = nil
 		}
+
+		var requirements_array []Requirement
+		//var requirements_array_temp *[]Requirement
+		var schemata_new []CWLType_Type
+		requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkflow) error in CreateRequirementArray (requirements): %s", err.Error())
+			return
+		}
+
+		for i, _ := range schemata_new {
+			schemata = append(schemata, schemata_new[i])
+		}
+
+		object["requirements"] = requirements_array
 
 		inputs, ok := object["inputs"]
 		if ok {
@@ -137,12 +132,31 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion) (workflow_ptr *Wo
 			}
 		}
 
+		hints, ok := object["hints"]
+		if ok && (hints != nil) {
+			var schemata_new []CWLType_Type
+
+			var hints_array []Requirement
+			hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements)
+			if err != nil {
+				err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
+				return
+			}
+			for i, _ := range schemata_new {
+				schemata = append(schemata, schemata_new[i])
+			}
+			object["hints"] = hints_array
+		}
+
 		// convert steps to array if it is a map
 		steps, ok := object["steps"]
 		if ok {
 			logger.Debug(3, "(NewWorkflow) Parsing steps in Workflow")
 			var schemata_new []CWLType_Type
-			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps, CwlVersion, requirement_array)
+
+			//fmt.Printf("(NewWorkflow) Injecting %d\n", len(requirements_array))
+			//spew.Dump(requirements_array)
+			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps, CwlVersion, requirements_array, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) CreateWorkflowStepsArray returned: %s", err.Error())
 				return

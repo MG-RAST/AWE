@@ -96,7 +96,7 @@ func NewCWL_workunit_from_interface(native interface{}) (workunit *CWL_workunit,
 			case "ExpressionTool":
 				var expressiontool *cwl.ExpressionTool
 
-				expressiontool, err = cwl.NewExpressionTool(tool_generic, "", nil) // TODO add schemata
+				expressiontool, err = cwl.NewExpressionTool(tool_generic, "", nil, nil) // TODO add schemata
 				if err != nil {
 					err = fmt.Errorf("(NewCWL_workunit_from_interface) NewExpreassonTool failed: %s", err.Error())
 					return

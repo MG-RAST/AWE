@@ -144,8 +144,9 @@ func main_wrapper() (err error) {
 		return
 	}
 
-	//fmt.Printf("yaml:\n%s\n", string(data[:]))
-
+	if conf.DEBUG_LEVEL >= 3 {
+		fmt.Printf("yaml:\n%s\n", string(data[:]))
+	}
 	var yamlstream []byte
 	// read and pack workfow
 	if conf.SUBMITTER_PACK {
@@ -345,10 +346,12 @@ func main_wrapper() (err error) {
 		return
 	}
 
-	//fmt.Println("------------")
-	//fmt.Println(new_document_str)
-	//fmt.Println("------------")
-	//panic("hhhh")
+	if conf.DEBUG_LEVEL >= 3 {
+		fmt.Println("------------")
+		fmt.Println(new_document_str)
+		fmt.Println("------------")
+		//panic("hhhh")
+	}
 	new_document_bytes = []byte(new_document_str)
 
 	// this needs to be a file so we can run "cwltool --pack""

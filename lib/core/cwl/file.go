@@ -166,6 +166,8 @@ func MakeFile(obj interface{}) (file File, err error) {
 		case "file":
 
 			file.UpdateComponents(file_url.Path)
+		case "":
+
 		default:
 			err = fmt.Errorf("(MakeFile) scheme %s not supported yet", scheme)
 			return

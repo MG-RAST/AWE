@@ -6,6 +6,7 @@ import (
 	"reflect"
 	//"github.com/MG-RAST/AWE/lib/logger"
 
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	//"github.com/mitchellh/mapstructure"
 )
@@ -205,7 +206,7 @@ func DeleteRequirement(requirement_class string, old_array_ptr *[]Requirement) (
 
 func CreateHintsArray(original interface{}, injectedRequirements []Requirement) (hints_array []Requirement, schemata []CWLType_Type, err error) {
 	if original != nil {
-		hints_array, schemata, err = CreateRequirementArray(original)
+		hints_array, schemata, err = CreateRequirementArray(original, true)
 		if err != nil {
 			err = fmt.Errorf("(CreateRequirementArrayAndInject) CreateRequirementArray returned: %s", err.Error())
 			return
@@ -240,7 +241,7 @@ func CreateHintsArray(original interface{}, injectedRequirements []Requirement) 
 func CreateRequirementArrayAndInject(original interface{}, injectedRequirements []Requirement) (requirements_array []Requirement, schemata []CWLType_Type, err error) {
 
 	if original != nil {
-		requirements_array, schemata, err = CreateRequirementArray(original)
+		requirements_array, schemata, err = CreateRequirementArray(original, false)
 		if err != nil {
 			err = fmt.Errorf("(CreateRequirementArrayAndInject) CreateRequirementArray returned: %s", err.Error())
 			return
@@ -271,7 +272,8 @@ func CreateRequirementArrayAndInject(original interface{}, injectedRequirements 
 	return
 }
 
-func CreateRequirementArray(original interface{}) (new_array []Requirement, schemata []CWLType_Type, err error) {
+// hints are optional, requirements are not
+func CreateRequirementArray(original interface{}, optional bool) (new_array []Requirement, schemata []CWLType_Type, err error) {
 	// here the keynames are actually class names
 
 	original, err = MakeStringMap(original)
@@ -293,7 +295,12 @@ func CreateRequirementArray(original interface{}) (new_array []Requirement, sche
 			var requirement Requirement
 			requirement, schemata_new, err = NewRequirement(class_str, v)
 			if err != nil {
-				err = fmt.Errorf("(CreateRequirementArray) A NewRequirement returns: %s", err)
+				if optional {
+					logger.Debug(1, "(CreateRequirementArray) A NewRequirement returns: %s", err.Error())
+					err = nil
+					continue
+				}
+				err = fmt.Errorf("(CreateRequirementArray) A NewRequirement returns: %s", err.Error())
 				return
 			}
 			for i, _ := range schemata_new {
@@ -319,9 +326,14 @@ func CreateRequirementArray(original interface{}) (new_array []Requirement, sche
 			var requirement Requirement
 			requirement, schemata_new, err = NewRequirement(class_str, v)
 			if err != nil {
-				fmt.Println("CreateRequirementArray:")
-				spew.Dump(original)
-				fmt.Println("CreateRequirementArray done")
+				if optional {
+					logger.Debug(1, "(CreateRequirementArray) A NewRequirement returns: %s", err.Error())
+					err = nil
+					continue
+				}
+				//fmt.Println("CreateRequirementArray:")
+				//spew.Dump(original)
+				//fmt.Println("CreateRequirementArray done")
 				err = fmt.Errorf("(CreateRequirementArray) B NewRequirement returns: %s (%s)", err, spew.Sdump(v))
 				return
 			}

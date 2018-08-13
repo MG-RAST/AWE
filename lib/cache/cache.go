@@ -168,16 +168,38 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 
 	file_path := file.Path
 	//fmt.Println("(UploadFile) here")
+	//fmt.Printf("(UploadFile) file_path: %s\n", file_path)
+	//fmt.Printf("(UploadFile) file.Location: %s\n", file.Location)
 	if file_path == "" {
-		//fmt.Println("(UploadFile) path empty")
-		if strings.HasPrefix(file.Location, "file://") {
-			//fmt.Println("(UploadFile) use file://")
-			file_path = strings.TrimPrefix(file.Location, "file://")
+
+		pos := strings.Index(file.Location, "://")
+		//fmt.Printf("(UploadFile) pos: %d\n", pos)
+		if pos > 0 {
+			scheme := file.Location[0:pos]
+			//fmt.Printf("scheme: %s\n", scheme)
+
+			switch scheme {
+
+			case "file":
+				file_path = strings.TrimPrefix(file.Location, "file://")
+
+			case "http":
+				// file already non-local
+			case "https":
+				// file already non-local
+			case "ftp":
+				// file already non-local
+
+			default:
+				err = fmt.Errorf("(UploadFile) unkown scheme \"%s\"", scheme)
+				return
+			}
+
 		} else {
-			//fmt.Println("(UploadFile) nothing to do")
-			// nothing to upload
-			return
+			//file.Location has no scheme, must be local file
+			file_path = file.Location
 		}
+
 	}
 
 	if !path.IsAbs(file_path) {
@@ -276,7 +298,7 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	//fmt.Printf("% x", h.Sum(nil))
 
 	file.Checksum = "sha1$" + hex.EncodeToString(h.Sum(nil))
-
+	//fmt.Println(file.Location)
 	return
 }
 

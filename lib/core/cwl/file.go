@@ -102,12 +102,14 @@ func MakeFile(obj interface{}) (file File, err error) {
 	//fmt.Println("MakeFile output:")
 	//fmt.Printf("%+v\n", file)
 
+	components_updated := false
+
 	if file.Location != "" {
 
 		// example shock://shock.metagenomics.anl.gov/node/92a76f64-d221-4947-9fd0-7106c3b9163a
 		file_url, xerr := url.Parse(file.Location)
 		if xerr != nil {
-			err = fmt.Errorf("Error parsing url %s %s", file.Location, xerr.Error())
+			err = fmt.Errorf("(MakeFile) Error parsing url %s %s", file.Location, xerr.Error())
 
 			return
 		}
@@ -127,11 +129,11 @@ func MakeFile(obj interface{}) (file File, err error) {
 
 				array := strings.Split(file_url.Path, "/")
 				if len(array) != 3 {
-					err = fmt.Errorf("shock url cannot be parsed")
+					err = fmt.Errorf("(MakeFile) shock url cannot be parsed")
 					return
 				}
 				if array[1] != "node" {
-					err = fmt.Errorf("node missing in shock url")
+					err = fmt.Errorf("(MakeFile) node missing in shock url")
 					return
 				}
 				file.Node = array[2]
@@ -141,7 +143,7 @@ func MakeFile(obj interface{}) (file File, err error) {
 				node, xerr := shock_client.Get_node(file.Node)
 
 				if xerr != nil {
-					err = fmt.Errorf("(Get_node) Could not get shock node (%s, %s): %s", file.Host, file.Node, xerr.Error())
+					err = fmt.Errorf("(MakeFile) Could not get shock node (%s, %s): %s", file.Host, file.Node, xerr.Error())
 					return
 				}
 				//fmt.Println("---node:")
@@ -150,21 +152,42 @@ func MakeFile(obj interface{}) (file File, err error) {
 				if file.Basename == "" {
 					// use filename from shocknode
 					if node.File.Name != "" {
-						fmt.Printf("node.File.Name: %s\n", node.File.Name)
-						file.Basename = node.File.Name
+						fmt.Printf("(MakeFile) node.File.Name: %s\n", node.File.Name)
+						//file.Basename = node.File.Name
+						file.UpdateComponents(node.File.Name)
 					} else {
 						// if user does not specify a filename and shock does not, use node_id
-						file.Basename = file.Node
+						//file.Basename =
+						file.UpdateComponents(file.Node)
 					}
-
+					components_updated = true
 				}
 			}
+		case "file":
+
+			file.UpdateComponents(file_url.Path)
+		default:
+			err = fmt.Errorf("(MakeFile) scheme %s not supported yet", scheme)
+			return
 		}
 	}
 
-	//file.SetPath(strings.TrimPrefix(file.Path, "file://"))
-
+	// used to set Basename, Nameroot and Nameext
+	if (!components_updated) && file.Path != "" {
+		file.UpdateComponents(file.Path)
+	}
 	return
+}
+
+func (file *File) UpdateComponents(filename string) {
+	file.Basename = path.Base(filename)
+
+	file.Nameext = path.Ext(filename)
+	file.Nameroot = strings.TrimSuffix(filename, file.Nameext)
+	//fmt.Printf("file.Basename: %s\n", file.Basename)
+	//fmt.Printf("file.Nameext: %s\n", file.Nameext)
+	//fmt.Printf("file.Nameroot: %s\n", file.Nameroot)
+
 }
 
 func (file *File) SetPath(path_str string) {
@@ -178,16 +201,10 @@ func (file *File) SetPath(path_str string) {
 		//file.Nameext = ""
 		//file.Nameroot = ""
 	} else {
+		file.UpdateComponents(path_str)
 
-		file.Basename = path.Base(file.Path)
-
-		file.Nameext = path.Ext(file.Basename)
-		file.Nameroot = strings.TrimSuffix(file.Basename, file.Nameext)
 	}
 	//fmt.Printf("file.Path: %s\n", file.Path)
-	//fmt.Printf("file.Basename: %s\n", file.Basename)
-	//fmt.Printf("file.Nameext: %s\n", file.Nameext)
-	//fmt.Printf("file.Nameroot: %s\n", file.Nameroot)
 
 }
 

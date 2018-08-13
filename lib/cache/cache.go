@@ -10,7 +10,6 @@ import (
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/davecgh/go-spew/spew"
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -141,8 +140,8 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 }
 
 func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.ShockClient) (err error) {
-	fmt.Printf("(UploadFile) start\n")
-	defer fmt.Printf("(UploadFile) end\n")
+	//fmt.Printf("(UploadFile) start\n")
+	//defer fmt.Printf("(UploadFile) end\n")
 	//if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 
 	//	time.Sleep(3 * time.Second) //wait for 3 seconds and try again
@@ -168,14 +167,14 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	}
 
 	file_path := file.Path
-	fmt.Println("(UploadFile) here")
+	//fmt.Println("(UploadFile) here")
 	if file_path == "" {
-		fmt.Println("(UploadFile) path empty")
+		//fmt.Println("(UploadFile) path empty")
 		if strings.HasPrefix(file.Location, "file://") {
-			fmt.Println("(UploadFile) use file://")
+			//fmt.Println("(UploadFile) use file://")
 			file_path = strings.TrimPrefix(file.Location, "file://")
 		} else {
-			fmt.Println("(UploadFile) nothing to do")
+			//fmt.Println("(UploadFile) nothing to do")
 			// nothing to upload
 			return
 		}
@@ -429,7 +428,7 @@ func UploadDirectory(dir *cwl.Directory, current_path string, shock_client *shoc
 
 func ProcessIOData(native interface{}, current_path string, base_path string, io_type string, shock_client *shock.ShockClient) (count int, err error) {
 
-	fmt.Printf("(processIOData) start (type:  %s) \n", reflect.TypeOf(native))
+	//fmt.Printf("(processIOData) start (type:  %s) \n", reflect.TypeOf(native))
 	//defer fmt.Printf("(processIOData) end\n")
 	switch native.(type) {
 
@@ -521,10 +520,10 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 
 		if io_type == "upload" {
-			fmt.Println("XXXXX")
-			spew.Dump(*file)
-			fmt.Println(file.Path)
-			fmt.Println(file.Location)
+			//fmt.Println("XXXXX")
+			//spew.Dump(*file)
+			//fmt.Println(file.Path)
+			//fmt.Println(file.Location)
 
 			err = UploadFile(file, current_path, shock_client)
 			if err != nil {

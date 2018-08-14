@@ -238,6 +238,7 @@ func CreateHintsArray(original interface{}, injectedRequirements []Requirement) 
 	return
 }
 
+// Tools inherit Requirements, but should not overwrite !
 func CreateRequirementArrayAndInject(original interface{}, injectedRequirements []Requirement) (requirements_array []Requirement, schemata []CWLType_Type, err error) {
 
 	if original != nil {
@@ -252,17 +253,17 @@ func CreateRequirementArrayAndInject(original interface{}, injectedRequirements 
 		for _, ir := range injectedRequirements {
 
 			ir_class := ir.GetClass()
-			injected := false
+
+			found := false
 			for j, _ := range requirements_array {
 				if requirements_array[j].GetClass() == ir_class {
-					// overwrite !
-					requirements_array[j] = ir
-					injected = true
+					found = true
+
 					break
 				}
 
 			}
-			if !injected {
+			if !found {
 				requirements_array = append(requirements_array, ir)
 			}
 

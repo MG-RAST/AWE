@@ -28,7 +28,7 @@ type File struct {
 	Checksum       string        `yaml:"checksum,omitempty" json:"checksum,omitempty" bson:"checksum,omitempty" mapstructure:"checksum,omitempty"`
 	Size           *int32        `yaml:"size,omitempty" json:"size,omitempty" bson:"size,omitempty" mapstructure:"size,omitempty"`
 	SecondaryFiles []interface{} `yaml:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"`
-	Format         string        `yaml:"format,omitempty" json:"format,omitempty" bson:"format,omitempty" mapstructure:"format,omitempty"`
+	Format         []Expression  `yaml:"format,omitempty" json:"format,omitempty" bson:"format,omitempty" mapstructure:"format,omitempty"`
 	Contents       string        `yaml:"contents,omitempty" json:"contents,omitempty" bson:"contents,omitempty" mapstructure:"contents,omitempty"`
 	// Shock node
 	Host   string `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
@@ -83,6 +83,21 @@ func MakeFile(obj interface{}) (file File, err error) {
 		obj_map["secondaryFiles"], err = GetSecondaryFilesArray(secondaryFiles)
 		if err != nil {
 			err = fmt.Errorf("(MakeFile) GetSecondaryFilesArray returned: %s", err.Error())
+			return
+		}
+
+	}
+
+	format, has_format := obj_map["format"]
+	if has_format {
+		switch format.(type) {
+		case []interface{}:
+			// ok
+		case interface{}:
+			// put element into array
+			obj_map["format"] = []interface{}{format}
+		default:
+			err = fmt.Errorf("(MakeFile) format type not supported: %s", reflect.TypeOf(format))
 			return
 		}
 

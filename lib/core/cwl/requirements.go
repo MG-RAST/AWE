@@ -19,7 +19,7 @@ type DummyRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 }
 
-func NewRequirement(class string, obj interface{}) (r Requirement, schemata []CWLType_Type, err error) {
+func NewRequirement(class string, obj interface{}, inputs interface{}) (r Requirement, schemata []CWLType_Type, err error) {
 
 	if class == "" {
 		err = fmt.Errorf("class name empty")
@@ -42,7 +42,7 @@ func NewRequirement(class string, obj interface{}) (r Requirement, schemata []CW
 		}
 		return
 	case "ResourceRequirement":
-		r, err = NewResourceRequirement(obj)
+		r, err = NewResourceRequirement(obj, inputs)
 		if err != nil {
 			err = fmt.Errorf("(NewRequirement) NewResourceRequirement returns: %s", err.Error())
 			return
@@ -116,17 +116,17 @@ func NewRequirement(class string, obj interface{}) (r Requirement, schemata []CW
 	return
 }
 
-func GetRequirement(r_name string, array_ptr *[]Requirement) (requirement *Requirement, err error) {
+func GetRequirement(r_name string, array_ptr []Requirement) (requirement *Requirement, err error) {
 
 	if array_ptr == nil {
 		err = fmt.Errorf("(GetRequirement) requirement array is empty, %s not found", r_name)
 		return
 	}
 
-	for i, _ := range *array_ptr {
+	for i, _ := range array_ptr {
 
-		if (*array_ptr)[i].GetClass() == r_name {
-			requirement = &(*array_ptr)[i]
+		if (array_ptr)[i].GetClass() == r_name {
+			requirement = &(array_ptr)[i]
 			return
 		}
 	}
@@ -137,7 +137,7 @@ func GetRequirement(r_name string, array_ptr *[]Requirement) (requirement *Requi
 	return
 }
 
-func GetShockRequirement(array_ptr *[]Requirement) (shock_requirement *ShockRequirement, err error) {
+func GetShockRequirement(array_ptr []Requirement) (shock_requirement *ShockRequirement, err error) {
 	var requirement_ptr *Requirement
 	requirement_ptr, err = GetRequirement("ShockRequirement", array_ptr)
 	if err != nil {
@@ -157,30 +157,30 @@ func GetShockRequirement(array_ptr *[]Requirement) (shock_requirement *ShockRequ
 	return
 }
 
-func AddRequirement(new_r Requirement, old_array_ptr *[]Requirement) (new_array_ptr *[]Requirement, err error) {
+func AddRequirement(new_r Requirement, old_array_ptr []Requirement) (new_array_ptr []Requirement, err error) {
 
 	var new_array []Requirement
 
 	new_r_class := new_r.GetClass()
 	if old_array_ptr != nil {
-		for i, _ := range *old_array_ptr {
-			r := (*old_array_ptr)[i]
+		for i, _ := range old_array_ptr {
+			r := (old_array_ptr)[i]
 			if r.GetClass() == new_r_class {
 				new_array_ptr = old_array_ptr
 				return
 			}
 		}
-		new_array = append(*old_array_ptr, new_r)
+		new_array = append(old_array_ptr, new_r)
 	} else {
 		new_array = []Requirement{new_r}
 	}
 
-	new_array_ptr = &new_array
+	new_array_ptr = new_array
 
 	return
 }
 
-func DeleteRequirement(requirement_class string, old_array_ptr *[]Requirement) (new_array_ptr *[]Requirement, err error) {
+func DeleteRequirement(requirement_class string, old_array_ptr []Requirement) (new_array_ptr []Requirement, err error) {
 
 	// if old array is empty anyway, there is nothing to delete
 	if old_array_ptr == nil {
@@ -190,23 +190,23 @@ func DeleteRequirement(requirement_class string, old_array_ptr *[]Requirement) (
 
 	var new_array []Requirement
 
-	for i, _ := range *old_array_ptr {
-		r := (*old_array_ptr)[i]
+	for i, _ := range old_array_ptr {
+		r := (old_array_ptr)[i]
 		if r.GetClass() != requirement_class {
 			new_array = append(new_array, r)
 		}
 	}
 
-	new_array_ptr = &new_array
+	new_array_ptr = new_array
 
 	return
 }
 
 // , injectedRequirements []Requirement
 
-func CreateHintsArray(original interface{}, injectedRequirements []Requirement) (hints_array []Requirement, schemata []CWLType_Type, err error) {
+func CreateHintsArray(original interface{}, injectedRequirements []Requirement, inputs interface{}) (hints_array []Requirement, schemata []CWLType_Type, err error) {
 	if original != nil {
-		hints_array, schemata, err = CreateRequirementArray(original, true)
+		hints_array, schemata, err = CreateRequirementArray(original, true, inputs)
 		if err != nil {
 			err = fmt.Errorf("(CreateRequirementArrayAndInject) CreateRequirementArray returned: %s", err.Error())
 			return
@@ -239,10 +239,10 @@ func CreateHintsArray(original interface{}, injectedRequirements []Requirement) 
 }
 
 // Tools inherit Requirements, but should not overwrite !
-func CreateRequirementArrayAndInject(original interface{}, injectedRequirements []Requirement) (requirements_array []Requirement, schemata []CWLType_Type, err error) {
+func CreateRequirementArrayAndInject(original interface{}, injectedRequirements []Requirement, inputs interface{}) (requirements_array []Requirement, schemata []CWLType_Type, err error) {
 
 	if original != nil {
-		requirements_array, schemata, err = CreateRequirementArray(original, false)
+		requirements_array, schemata, err = CreateRequirementArray(original, false, inputs)
 		if err != nil {
 			err = fmt.Errorf("(CreateRequirementArrayAndInject) CreateRequirementArray returned: %s", err.Error())
 			return
@@ -274,7 +274,7 @@ func CreateRequirementArrayAndInject(original interface{}, injectedRequirements 
 }
 
 // hints are optional, requirements are not
-func CreateRequirementArray(original interface{}, optional bool) (new_array []Requirement, schemata []CWLType_Type, err error) {
+func CreateRequirementArray(original interface{}, optional bool, inputs interface{}) (new_array []Requirement, schemata []CWLType_Type, err error) {
 	// here the keynames are actually class names
 
 	original, err = MakeStringMap(original)
@@ -294,7 +294,7 @@ func CreateRequirementArray(original interface{}, optional bool) (new_array []Re
 
 			var schemata_new []CWLType_Type
 			var requirement Requirement
-			requirement, schemata_new, err = NewRequirement(class_str, v)
+			requirement, schemata_new, err = NewRequirement(class_str, v, inputs)
 			if err != nil {
 				if optional {
 					logger.Debug(1, "(CreateRequirementArray) A NewRequirement returns: %s", err.Error())
@@ -325,7 +325,7 @@ func CreateRequirementArray(original interface{}, optional bool) (new_array []Re
 			//class := CWLType_Type(class_str)
 			var schemata_new []CWLType_Type
 			var requirement Requirement
-			requirement, schemata_new, err = NewRequirement(class_str, v)
+			requirement, schemata_new, err = NewRequirement(class_str, v, inputs)
 			if err != nil {
 				if optional {
 					logger.Debug(1, "(CreateRequirementArray) A NewRequirement returns: %s", err.Error())

@@ -180,7 +180,6 @@ func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedReq
 
 	return
 
-	return
 }
 
 func NewBaseCommandArray(original interface{}) (new_array []string, err error) {
@@ -206,5 +205,34 @@ func NewBaseCommandArray(original interface{}) (new_array []string, err error) {
 		err = fmt.Errorf("(NewBaseCommandArray) type unknown")
 
 	}
+	return
+}
+
+func (c *CommandLineTool) Evaluate(inputs interface{}) (err error) {
+
+	for i, _ := range c.Requirements {
+
+		r := c.Requirements[i]
+
+		err = r.Evaluate(inputs)
+		if err != nil {
+			err = fmt.Errorf("(CommandLineTool/Evaluate) Requirements r.Evaluate returned")
+
+		}
+
+	}
+
+	for i, _ := range c.Hints {
+
+		r := c.Hints[i]
+
+		err = r.Evaluate(inputs)
+		if err != nil {
+			err = fmt.Errorf("(CommandLineTool/Evaluate) Hints r.Evaluate returned")
+
+		}
+
+	}
+
 	return
 }

@@ -131,3 +131,66 @@ func CreateListingArray(original interface{}) (array []CWL_object, err error) {
 	return
 
 }
+
+// Listing: array<File | Directory | Dirent | string | Expression> | string | Expression
+func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
+
+	if inputs == nil {
+		err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) no inputs")
+		return
+	}
+
+	if r.Listing == nil {
+		return
+	}
+
+	for i, _ := range r.Listing {
+
+		element := r.Listing[i]
+
+		switch element.(type) {
+		case Dirent:
+			element_dirent := element.(Dirent)
+			element_dirent.Evaluate(inputs)
+
+		case File, Directory:
+			// nothing to do
+
+		case string, String:
+			element_str := element.(string)
+
+			var original_expr *Expression
+			original_expr = NewExpressionFromString(element_str)
+
+			var new_value interface{}
+			new_value, err = original_expr.EvaluateExpression(nil, inputs)
+			if err != nil {
+				err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) EvaluateExpression returned: %s", err.Error())
+				return
+			}
+
+			// verify return type:
+			switch new_value.(type) {
+			case File, Directory, Dirent, string, String:
+				// valid returns
+
+			default:
+				err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) EvaluateExpression returned type %s, this is not expected", reflect.TypeOf(r.Listing))
+				return
+
+			}
+
+			// set evaluated avlue
+			r.Listing[i] = new_value
+
+		default:
+			err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) type not supported: %s", reflect.TypeOf(r.Listing))
+			return
+
+		}
+
+	} // end for loop
+
+	return
+
+}

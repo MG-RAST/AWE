@@ -27,6 +27,8 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (re
 	}
 	logger.Debug(3, "SET self=%s\n", self_json)
 
+	spew.Dump("inputs")
+
 	var inputs_json []byte
 	inputs_json, err = json.Marshal(inputs)
 	if err != nil {
@@ -61,7 +63,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (re
 				err = fmt.Errorf("(EvaluateExpression) Javascript complained: A) %s", xerr.Error())
 				return
 			}
-			fmt.Println(reflect.TypeOf(value))
+			fmt.Printf("(EvaluateExpression) reflect.TypeOf(value): %s\n", reflect.TypeOf(value))
 
 			//if value.IsNumber()
 			if concatenate {
@@ -93,6 +95,8 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (re
 
 				case int:
 					value_returned = NewInt(exported_value.(int))
+				case int64:
+					value_returned = NewLong(exported_value.(int64))
 				case float32:
 					value_returned = NewFloat(exported_value.(float32))
 				case float64:

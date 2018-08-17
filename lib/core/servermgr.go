@@ -2421,7 +2421,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 					//spew.Dump(job_obj)
 				}
 				//workunit_input_map[cmd_id] = job_obj
-				fmt.Printf("(GetStepInputObjects) Source_index: %d", input.Source_index)
+				fmt.Printf("(GetStepInputObjects) Source_index: %d\n", input.Source_index)
 				if input.Source_index != 0 {
 					real_source_index := input.Source_index - 1
 

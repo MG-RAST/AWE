@@ -19,7 +19,7 @@ type Workflow struct {
 	Outputs         []WorkflowOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
 	Steps           []WorkflowStep            `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty" mapstructure:"steps,omitempty"`
 	Requirements    []Requirement             `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` //[]Requirement
-	Hints           []interface{}             `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
+	Hints           []Requirement             `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
 	Label           string                    `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
 	Doc             string                    `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
 	CwlVersion      CWLVersion                `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
@@ -191,6 +191,35 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequireme
 	default:
 
 		err = fmt.Errorf("(NewWorkflow) Input type %s can not be parsed", reflect.TypeOf(original))
+
+	}
+
+	return
+}
+
+func (wf *Workflow) Evaluate(inputs interface{}) (err error) {
+
+	for i, _ := range wf.Requirements {
+
+		r := wf.Requirements[i]
+
+		err = r.Evaluate(inputs)
+		if err != nil {
+			err = fmt.Errorf("(CommandLineTool/Evaluate) Requirements r.Evaluate returned")
+
+		}
+
+	}
+
+	for i, _ := range wf.Hints {
+
+		r := wf.Hints[i]
+
+		err = r.Evaluate(inputs)
+		if err != nil {
+			err = fmt.Errorf("(CommandLineTool/Evaluate) Hints r.Evaluate returned")
+
+		}
 
 	}
 

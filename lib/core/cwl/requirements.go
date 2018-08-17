@@ -13,6 +13,7 @@ import (
 
 type Requirement interface {
 	GetClass() string
+	Evaluate(inputs interface{}) error
 }
 
 type DummyRequirement struct {

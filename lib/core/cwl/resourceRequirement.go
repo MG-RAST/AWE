@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -24,8 +25,13 @@ type ResourceRequirement struct {
 
 func (r ResourceRequirement) GetId() string { return "None" }
 
-func (r *ResourceRequirement) Evaluate(original interface{}, inputs interface{}) (err error) {
+func (r *ResourceRequirement) Evaluate(inputs interface{}) (err error) {
 
+	if inputs == nil {
+		err = fmt.Errorf("(ResourceRequirement/Evaluate) no inputs")
+		return
+	}
+	spew.Dump(*r)
 	fields := []string{"coresMin", "coresMax", "ramMin", "ramMax", "tmpdirMin", "tmpdirMax", "outdirMin", "outdirMax"}
 
 	for _, field := range fields {
@@ -38,23 +44,21 @@ func (r *ResourceRequirement) Evaluate(original interface{}, inputs interface{})
 				original_str := value_if.(string)
 
 				var new_value interface{}
-				if inputs != nil {
-					var original_expr *Expression
-					original_expr = NewExpressionFromString(original_str)
 
-					new_value, err = original_expr.EvaluateExpression(nil, inputs)
-				} else {
-					new_value = original
-				}
+				var original_expr *Expression
+				original_expr = NewExpressionFromString(original_str)
 
-				value_if = new_value
+				new_value, err = original_expr.EvaluateExpression(nil, inputs)
+				//value_if = new_value
+				value.Set(reflect.ValueOf(new_value).Elem())
+				//fmt.Printf("(ResourceRequirement/Evaluate)EvaluateExpression returned: %v\n", new_value)
 
 			case int:
 
 			case int64:
 
 			default:
-				err = fmt.Errorf("(NewResourceRequirement) type invalid for field %s", reflect.TypeOf(value_if))
+				err = fmt.Errorf("(ResourceRequirement/Evaluate) type invalid for field %s", reflect.TypeOf(value_if))
 				return
 			}
 			//fmt.Println(reflect.TypeOf(value_if))
@@ -62,7 +66,9 @@ func (r *ResourceRequirement) Evaluate(original interface{}, inputs interface{})
 		}
 
 	}
+	//spew.Dump(*r)
 
+	//panic("done")
 	// value.SetString( )
 
 	// original_str := original.(string)
@@ -98,6 +104,8 @@ func NewResourceRequirement(original interface{}, inputs interface{}) (r *Resour
 			case int:
 
 			case int64:
+
+			case float64:
 
 			default:
 				err = fmt.Errorf("(NewResourceRequirement) type invalid for field %s", reflect.TypeOf(value_if))

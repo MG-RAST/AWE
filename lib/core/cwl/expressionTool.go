@@ -116,3 +116,32 @@ func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []C
 
 	return
 }
+
+func (et *ExpressionTool) Evaluate(inputs interface{}) (err error) {
+
+	for i, _ := range et.Requirements {
+
+		r := et.Requirements[i]
+
+		err = r.Evaluate(inputs)
+		if err != nil {
+			err = fmt.Errorf("(CommandLineTool/Evaluate) Requirements r.Evaluate returned")
+
+		}
+
+	}
+
+	for i, _ := range et.Hints {
+
+		r := et.Hints[i]
+
+		err = r.Evaluate(inputs)
+		if err != nil {
+			err = fmt.Errorf("(CommandLineTool/Evaluate) Hints r.Evaluate returned")
+
+		}
+
+	}
+
+	return
+}

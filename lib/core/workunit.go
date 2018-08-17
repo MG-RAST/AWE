@@ -229,6 +229,12 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		//spew.Dump(job_input)
 
 		workunit.CWL_workunit.OutputsExpected = &workflow_step.Out
+
+		err = workunit.Evaluate(workunit_input_map)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkunit) workunit.Evaluate returned: %s", err.Error())
+			return
+		}
 		//spew.Dump(workflow_step.Out)
 		//panic("done")
 
@@ -237,6 +243,33 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 	//spew.Dump(workunit.Cmd)
 	//panic("done")
 
+	return
+}
+
+func (w *Workunit) Evaluate(inputs interface{}) (err error) {
+
+	if w.CWL_workunit != nil {
+		process := w.CWL_workunit.Tool
+		switch process.(type) {
+		case *cwl.CommandLineTool:
+			clt := process.(*cwl.CommandLineTool)
+
+			clt.Evaluate(inputs)
+
+		case *cwl.ExpressionTool:
+			et := process.(*cwl.ExpressionTool)
+
+			et.Evaluate(inputs)
+
+		case *cwl.Workflow:
+			wf := process.(*cwl.Workflow)
+			wf.Evaluate(inputs)
+
+		default:
+			err = fmt.Errorf("(Workunit/Evaluate) Process type not supported %s", reflect.TypeOf(process))
+			return
+		}
+	}
 	return
 }
 

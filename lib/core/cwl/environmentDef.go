@@ -8,8 +8,8 @@ import (
 )
 
 type EnvironmentDef struct {
-	EnvName  string     `yaml:"envName,omitempty" bson:"envName,omitempty" json:"envName,omitempty" mapstructure:"envName,omitempty"`
-	EnvValue Expression `yaml:"envValue,omitempty" bson:"envValue,omitempty" json:"envValue,omitempty" mapstructure:"envValue,omitempty"`
+	EnvName  string      `yaml:"envName,omitempty" bson:"envName,omitempty" json:"envName,omitempty" mapstructure:"envName,omitempty"`
+	EnvValue interface{} `yaml:"envValue,omitempty" bson:"envValue,omitempty" json:"envValue,omitempty" mapstructure:"envValue,omitempty"`
 }
 
 func NewEnvironmentDefFromInterface(original interface{}) (enfDev EnvironmentDef, err error) {
@@ -46,4 +46,39 @@ func GetEnfDefArray(original interface{}) (array []EnvironmentDef, err error) {
 	err = fmt.Errorf("(GetEnfDefArray) type %s not supported", reflect.TypeOf(original))
 
 	return
+}
+
+func (d *EnvironmentDef) Evaluate(inputs interface{}) (err error) {
+
+	if inputs == nil {
+		err = fmt.Errorf("(Dirent/Evaluate) no inputs")
+		return
+	}
+
+	//*** d.EnvValue
+	var ok bool
+	var entry_expr Expression
+	entry_expr, ok = d.EnvValue.(Expression)
+	if ok {
+		var new_value interface{}
+		new_value, err = entry_expr.EvaluateExpression(nil, inputs)
+		if err != nil {
+			err = fmt.Errorf("(Dirent/Evaluate) EvaluateExpression returned: %s", err.Error())
+			return
+		}
+
+		// verify return type:
+		switch new_value.(type) {
+		case String, string:
+			// valid returns
+			d.EnvValue = new_value
+		default:
+			err = fmt.Errorf("(Dirent/Evaluate) EvaluateExpression returned type %s, this is not expected", reflect.TypeOf(new_value))
+			return
+
+		}
+	}
+
+	return
+
 }

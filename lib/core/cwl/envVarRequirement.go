@@ -56,3 +56,15 @@ func NewEnvVarRequirement(original interface{}) (r *EnvVarRequirement, err error
 
 	return
 }
+
+func (r *EnvVarRequirement) Evaluate(inputs interface{}) (err error) {
+	for i, _ := range r.EnvDef {
+		err = r.EnvDef[i].Evaluate(inputs)
+		if err != nil {
+			err = fmt.Errorf("(EnvVarRequirement/Evaluate) Evaluate returned: %s", err.Error())
+			return
+		}
+
+	}
+	return
+}

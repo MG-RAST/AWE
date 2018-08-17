@@ -210,7 +210,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	found_ShockRequirement := false
 	if cwl_workflow.Requirements != nil {
-		for _, r := range *cwl_workflow.Requirements { // TODO put ShockRequirement in Hints
+		for _, r := range cwl_workflow.Requirements { // TODO put ShockRequirement in Hints
 			req, ok := r.(cwl.Requirement)
 			if !ok {
 				err = fmt.Errorf("(CWL2AWE) not a requirement")

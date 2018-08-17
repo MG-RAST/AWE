@@ -1458,7 +1458,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_map cwl.JobDocMap, wfl *cwl.Workflow) (err error) {
 
 	if wfl == nil {
-		err = fmt.Errorf("(taskEnQueue) wfl == nil !?")
+		err = fmt.Errorf("(taskEnQueueWorkflow) wfl == nil !?")
 		return
 	}
 
@@ -1476,7 +1476,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		}
 		task_input_array, err = task_input_map.GetArray()
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) task_input_map.GetArray returned: %s", err.Error())
+			err = fmt.Errorf("(taskEnQueueWorkflow) task_input_map.GetArray returned: %s", err.Error())
 			return
 		}
 		task.StepInput = &task_input_array
@@ -1487,12 +1487,12 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 	}
 
 	if strings.HasSuffix(task.TaskName, "/") {
-		err = fmt.Errorf("(taskEnQueue) Slash at the end of TaskName!? %s", task.TaskName)
+		err = fmt.Errorf("(taskEnQueueWorkflow) Slash at the end of TaskName!? %s", task.TaskName)
 		return
 	}
 
 	if strings.HasSuffix(task.Parent, "/") {
-		err = fmt.Errorf("(taskEnQueue) Slash at the end of Parent!? %s", task.Parent)
+		err = fmt.Errorf("(taskEnQueueWorkflow) Slash at the end of Parent!? %s", task.Parent)
 		return
 	}
 
@@ -1509,6 +1509,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 	// New WorkflowInstance defined input nd ouput of this subworkflow
 	err = job.AddWorkflowInstance(new_sub_workflow, task_input_array, len(wfl.Steps))
 	if err != nil {
+		err = fmt.Errorf("(taskEnQueueWorkflow) job.AddWorkflowInstance returned: %s", err.Error())
 		return
 	}
 
@@ -1518,6 +1519,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 
 	err = job.IncrementRemainTasks(len(sub_workflow_tasks))
 	if err != nil {
+		err = fmt.Errorf("(taskEnQueueWorkflow) job.IncrementRemainTasks returned: %s", err.Error())
 		return
 	}
 
@@ -1526,12 +1528,12 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		sub_task := sub_workflow_tasks[i]
 		_, err = sub_task.Init(job, job.CwlVersion)
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) sub_task.Init() returns: %s", err.Error())
+			err = fmt.Errorf("(taskEnQueueWorkflow) sub_task.Init() returns: %s", err.Error())
 			return
 		}
 
 		var sub_task_id Task_Unique_Identifier
-		sub_task_id, err = sub_task.GetId("taskEnQueue." + strconv.Itoa(i))
+		sub_task_id, err = sub_task.GetId("task." + strconv.Itoa(i))
 		if err != nil {
 			return
 		}
@@ -1539,7 +1541,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 
 		err = job.AddTask(sub_task)
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) job.AddTask returns: %s", err.Error())
+			err = fmt.Errorf("(taskEnQueueWorkflow) job.AddTask returns: %s", err.Error())
 			return
 		}
 
@@ -1548,7 +1550,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
 		err = qm.TaskMap.Add(sub_task)
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) (subtask: %s) qm.TaskMap.Add() returns: %s", sub_task_id, err.Error())
+			err = fmt.Errorf("(taskEnQueueWorkflow) (subtask: %s) qm.TaskMap.Add() returns: %s", sub_task_id, err.Error())
 			return
 		}
 	}
@@ -2419,7 +2421,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 					//spew.Dump(job_obj)
 				}
 				//workunit_input_map[cmd_id] = job_obj
-				fmt.Printf("(GetStepInputObjects) Source_index: %d", input.Source_index)
+				fmt.Printf("(GetStepInputObjects) Source_index: %d\n", input.Source_index)
 				if input.Source_index != 0 {
 					real_source_index := input.Source_index - 1
 

@@ -54,3 +54,44 @@ func NewSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, sch
 
 	return
 }
+
+func GetSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, schemata []CWLType_Type, ok bool, err error) {
+	original, err = MakeStringMap(original)
+	if err != nil {
+		return
+	}
+
+	switch original.(type) {
+	case []interface{}:
+
+		original_array := original.([]interface{})
+
+		for i, _ := range original_array {
+
+			var class string
+			class, err = GetClass(original_array[i])
+			if err != nil {
+				err = fmt.Errorf("(GetSchemaDefRequirement) GetClass returned: %s", err.Error())
+				return
+			}
+
+			if class != "SchemaDefRequirement" {
+				continue
+			}
+
+			r, schemata, err = NewSchemaDefRequirement(original_array[i])
+			if err != nil {
+				err = fmt.Errorf("(GetSchemaDefRequirement) NewSchemaDefRequirement returned: %s", err.Error())
+				return
+			}
+
+		}
+
+	default:
+		err = fmt.Errorf("(GetSchemaDefRequirement) type %s unknown", reflect.TypeOf(original))
+
+	}
+
+	return
+
+}

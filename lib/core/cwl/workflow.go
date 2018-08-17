@@ -18,8 +18,8 @@ type Workflow struct {
 	Inputs          []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
 	Outputs         []WorkflowOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
 	Steps           []WorkflowStep            `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty" mapstructure:"steps,omitempty"`
-	Requirements    *[]Requirement            `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` //[]Requirement
-	Hints           []interface{}             `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
+	Requirements    []Requirement             `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` //[]Requirement
+	Hints           []Requirement             `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
 	Label           string                    `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
 	Doc             string                    `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
 	CwlVersion      CWLVersion                `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
@@ -99,21 +99,6 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequireme
 			requirements = nil
 		}
 
-		var requirements_array []Requirement
-		//var requirements_array_temp *[]Requirement
-		var schemata_new []CWLType_Type
-		requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements)
-		if err != nil {
-			err = fmt.Errorf("(NewWorkflow) error in CreateRequirementArray (requirements): %s", err.Error())
-			return
-		}
-
-		for i, _ := range schemata_new {
-			schemata = append(schemata, schemata_new[i])
-		}
-
-		object["requirements"] = requirements_array
-
 		inputs, ok := object["inputs"]
 		if ok {
 			object["inputs"], err = NewInputParameterArray(inputs, schemata)
@@ -132,12 +117,27 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequireme
 			}
 		}
 
+		var requirements_array []Requirement
+		//var requirements_array_temp *[]Requirement
+		var schemata_new []CWLType_Type
+		requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, inputs)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkflow) error in CreateRequirementArray (requirements): %s", err.Error())
+			return
+		}
+
+		for i, _ := range schemata_new {
+			schemata = append(schemata, schemata_new[i])
+		}
+
+		object["requirements"] = requirements_array
+
 		hints, ok := object["hints"]
 		if ok && (hints != nil) {
 			var schemata_new []CWLType_Type
 
 			var hints_array []Requirement
-			hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements)
+			hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements, inputs)
 			if err != nil {
 				err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 				return
@@ -191,6 +191,35 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequireme
 	default:
 
 		err = fmt.Errorf("(NewWorkflow) Input type %s can not be parsed", reflect.TypeOf(original))
+
+	}
+
+	return
+}
+
+func (wf *Workflow) Evaluate(inputs interface{}) (err error) {
+
+	for i, _ := range wf.Requirements {
+
+		r := wf.Requirements[i]
+
+		err = r.Evaluate(inputs)
+		if err != nil {
+			err = fmt.Errorf("(CommandLineTool/Evaluate) Requirements r.Evaluate returned")
+
+		}
+
+	}
+
+	for i, _ := range wf.Hints {
+
+		r := wf.Hints[i]
+
+		err = r.Evaluate(inputs)
+		if err != nil {
+			err = fmt.Errorf("(CommandLineTool/Evaluate) Hints r.Evaluate returned")
+
+		}
 
 	}
 

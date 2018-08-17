@@ -275,10 +275,10 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				if commandlinetool.Requirements != nil {
 					requirements := commandlinetool.Requirements
-					for i, _ := range *requirements {
-						require_type := (*requirements)[i].GetClass()
+					for i, _ := range requirements {
+						require_type := (requirements)[i].GetClass()
 						if require_type == "ShockRequirement" {
-							shock_requirement := (*requirements)[i]
+							shock_requirement := (requirements)[i]
 
 							cwl_workflow.Requirements, err = cwl.AddRequirement(shock_requirement, requirements)
 							if err != nil {
@@ -396,10 +396,10 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				if expressiontool.Requirements != nil {
 					requirements := expressiontool.Requirements
-					for i, _ := range *requirements {
-						require_type := (*requirements)[i].GetClass()
+					for i, _ := range requirements {
+						require_type := (requirements)[i].GetClass()
 						if require_type == "ShockRequirement" {
-							shock_requirement := (*requirements)[i]
+							shock_requirement := (requirements)[i]
 
 							cwl_workflow.Requirements, err = cwl.AddRequirement(shock_requirement, requirements)
 							if err != nil {

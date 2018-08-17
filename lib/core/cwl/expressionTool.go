@@ -19,7 +19,7 @@ type ExpressionTool struct {
 	Inputs          []InputParameter                `yaml:"inputs" bson:"inputs" json:"inputs" mapstructure:"inputs"`
 	Outputs         []ExpressionToolOutputParameter `yaml:"outputs" bson:"outputs" json:"outputs" mapstructure:"outputs"`
 	Expression      Expression                      `yaml:"expression,omitempty" bson:"expression,omitempty" json:"expression,omitempty" mapstructure:"expression,omitempty"`
-	Requirements    *[]Requirement                  `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"`
+	Requirements    []Requirement                   `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"`
 	Hints           []Requirement                   `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`
 	Label           string                          `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
 	Doc             string                          `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
@@ -37,13 +37,15 @@ func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []C
 
 	et = &ExpressionTool{}
 
-	inputs, has_inputs := object["inputs"]
+	var inputs []InputParameter
+	inputs_if, has_inputs := object["inputs"]
 	if has_inputs {
-		object["inputs"], err = NewInputParameterArray(inputs, schemata)
+		inputs, err = NewInputParameterArray(inputs_if, schemata)
 		if err != nil {
 			err = fmt.Errorf("(NewExpressionTool) error in NewInputParameterArray: %s", err.Error())
 			return
 		}
+		object["inputs"] = inputs
 	}
 
 	outputs, has_outputs := object["outputs"]
@@ -63,7 +65,7 @@ func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []C
 	var requirements_array []Requirement
 	//var requirements_array_temp *[]Requirement
 	var schemata_new []CWLType_Type
-	requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements)
+	requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, inputs)
 	if err != nil {
 		err = fmt.Errorf("(NewExpressionTool) error in CreateRequirementArray (requirements): %s", err.Error())
 		return
@@ -80,7 +82,7 @@ func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []C
 		var schemata_new []CWLType_Type
 
 		var hints_array []Requirement
-		hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements)
+		hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements, inputs)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 			return
@@ -106,10 +108,39 @@ func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []C
 		return
 	}
 
-	var new_requirements *[]Requirement
+	var new_requirements []Requirement
 	new_requirements, err = AddRequirement(NewInlineJavascriptRequirement(), et.Requirements)
 	if err == nil {
 		et.Requirements = new_requirements
+	}
+
+	return
+}
+
+func (et *ExpressionTool) Evaluate(inputs interface{}) (err error) {
+
+	for i, _ := range et.Requirements {
+
+		r := et.Requirements[i]
+
+		err = r.Evaluate(inputs)
+		if err != nil {
+			err = fmt.Errorf("(CommandLineTool/Evaluate) Requirements r.Evaluate returned")
+
+		}
+
+	}
+
+	for i, _ := range et.Hints {
+
+		r := et.Hints[i]
+
+		err = r.Evaluate(inputs)
+		if err != nil {
+			err = fmt.Errorf("(CommandLineTool/Evaluate) Hints r.Evaluate returned")
+
+		}
+
 	}
 
 	return

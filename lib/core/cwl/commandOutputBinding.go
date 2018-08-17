@@ -8,9 +8,9 @@ import (
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputBinding
 type CommandOutputBinding struct {
-	Glob         *[]Expression `yaml:"glob,omitempty" bson:"glob,omitempty" json:"glob,omitempty"`
-	LoadContents bool          `yaml:"loadContents,omitempty" bson:"loadContents,omitempty" json:"loadContents,omitempty"  mapstructure:"loadContents,omitempty"`
-	OutputEval   *Expression   `yaml:"outputEval,omitempty" bson:"outputEval,omitempty" json:"outputEval,omitempty" mapstructure:"outputEval,omitempty"`
+	Glob         []Expression `yaml:"glob,omitempty" bson:"glob,omitempty" json:"glob,omitempty"`
+	LoadContents bool         `yaml:"loadContents,omitempty" bson:"loadContents,omitempty" json:"loadContents,omitempty"  mapstructure:"loadContents,omitempty"`
+	OutputEval   *Expression  `yaml:"outputEval,omitempty" bson:"outputEval,omitempty" json:"outputEval,omitempty" mapstructure:"outputEval,omitempty"`
 }
 
 func NewCommandOutputBinding(original interface{}) (commandOutputBinding *CommandOutputBinding, err error) {

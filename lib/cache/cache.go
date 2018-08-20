@@ -209,7 +209,11 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	var file_info os.FileInfo
 	file_info, err = os.Stat(file_path)
 	if err != nil {
-		err = fmt.Errorf("(UploadFile) os.Stat returned: %s (inputfile_path: %s, file.Path: %s, file.Location: %s)", err.Error(), inputfile_path, file.Path, file.Location)
+
+		var current_working_dir string
+		current_working_dir, _ = os.Getwd()
+
+		err = fmt.Errorf("(UploadFile) os.Stat returned: %s (inputfile_path: %s, file.Path: %s, file.Location: %s, current_working_dir: %s)", err.Error(), inputfile_path, file.Path, file.Location, current_working_dir)
 		return
 	}
 	file_size := file_info.Size()
@@ -623,19 +627,19 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 			path_to_download_to := current_path
 
-			dir_basename := dir.Basename
-			if dir_basename == "" {
-				dir_basename = path.Base(dir.Path)
-
-			}
-
-			if dir_basename == "" {
-				err = fmt.Errorf("(ProcessIOData) basename of subdir is empty")
-				return
-			}
-			path_to_download_to = path.Join(current_path, dir_basename)
-
 			if io_type == "download" {
+				dir_basename := dir.Basename
+				if dir_basename == "" {
+					dir_basename = path.Base(dir.Path)
+
+				}
+
+				if dir_basename == "" {
+					err = fmt.Errorf("(ProcessIOData) basename of subdir is empty")
+					return
+				}
+				path_to_download_to = path.Join(current_path, dir_basename)
+
 				dir.Location = path_to_download_to
 				dir.Path = ""
 				err = os.MkdirAll(path_to_download_to, 0777)

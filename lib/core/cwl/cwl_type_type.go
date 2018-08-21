@@ -300,6 +300,8 @@ func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, context s
 
 		result = type_array
 
+	case []CWLType_Type:
+		result = native.([]CWLType_Type)
 	default:
 		spew.Dump(native)
 		err = fmt.Errorf("(NewCWLType_TypeArray) type unknown: %s", reflect.TypeOf(native))

@@ -623,32 +623,31 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			return
 		}
 
-		if dir.Listing != nil {
+		path_to_download_to := current_path
 
-			path_to_download_to := current_path
+		if io_type == "download" {
+			dir_basename := dir.Basename
+			if dir_basename == "" {
+				dir_basename = path.Base(dir.Path)
 
-			if io_type == "download" {
-				dir_basename := dir.Basename
-				if dir_basename == "" {
-					dir_basename = path.Base(dir.Path)
-
-				}
-
-				if dir_basename == "" {
-					err = fmt.Errorf("(ProcessIOData) basename of subdir is empty")
-					return
-				}
-				path_to_download_to = path.Join(current_path, dir_basename)
-
-				dir.Location = path_to_download_to
-				dir.Path = ""
-				err = os.MkdirAll(path_to_download_to, 0777)
-				if err != nil {
-					err = fmt.Errorf("(ProcessIOData) MkdirAll returned: %s", err.Error())
-					return
-				}
 			}
 
+			if dir_basename == "" {
+				err = fmt.Errorf("(ProcessIOData) basename of subdir is empty")
+				return
+			}
+			path_to_download_to = path.Join(current_path, dir_basename)
+
+			dir.Location = path_to_download_to
+			dir.Path = ""
+			err = os.MkdirAll(path_to_download_to, 0777)
+			if err != nil {
+				err = fmt.Errorf("(ProcessIOData) MkdirAll returned: %s", err.Error())
+				return
+			}
+		}
+
+		if dir.Listing != nil {
 			for k, _ := range dir.Listing {
 
 				value := dir.Listing[k]

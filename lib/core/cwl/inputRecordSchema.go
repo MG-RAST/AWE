@@ -10,7 +10,6 @@ import (
 type InputRecordSchema struct {
 	RecordSchema `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Type, Label, Name
 	Fields       []InputRecordField                                                    `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
-	InputBinding *CommandLineBinding                                                   `yaml:"inputBinding,omitempty" json:"inputBinding,omitempty" bson:"inputBinding,omitempty"`
 }
 
 func NewInputRecordSchema(irs_map map[string]interface{}) (irs *InputRecordSchema, err error) {
@@ -28,7 +27,8 @@ func NewInputRecordSchema(irs_map map[string]interface{}) (irs *InputRecordSchem
 }
 
 func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Type) (irs *InputRecordSchema, err error) {
-
+	//fmt.Println("native:")
+	//spew.Dump(native)
 	native, err = MakeStringMap(native)
 	if err != nil {
 		return
@@ -48,43 +48,26 @@ func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Ty
 			return
 		}
 
-		inputBinding_if, has_inputBinding := native_map["inputBinding"]
-		if has_inputBinding {
-
-			var inputBinding *CommandLineBinding
-			inputBinding, err = NewCommandLineBinding(inputBinding_if)
-			if err != nil {
-				err = fmt.Errorf("(NewInputRecordSchemaFromInterface) NewCommandLineBinding returns: %s", err.Error())
-				return
-			}
-
-			irs.InputBinding = inputBinding
-
-		}
-
+		
 		fields, has_fields := native_map["fields"]
 		if !has_fields {
 			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) no fields")
 			return
 		}
 
-		var fields_array []interface{}
-		fields_array, ok = fields.([]interface{})
-		if !ok {
-			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) fields is not array")
-			return
-		}
-
-		irs.Fields, err = CreateInputRecordFieldArray(fields_array, schemata)
+		irs.Fields, err = CreateInputRecordFieldArray(fields, schemata)
 		if err != nil {
 			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) CreateInputRecordFieldArray returns: %s", err.Error())
 			return
 		}
-		return
+		
 	default:
 		err = fmt.Errorf("(NewInputRecordSchemaFromInterface) error")
 	}
 
+	//fmt.Println("irs:")
+	//spew.Dump(*irs)
+	//panic("done")
 	return
 
 }

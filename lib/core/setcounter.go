@@ -1,6 +1,8 @@
 package core
 
 import (
+	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 )
 
@@ -12,7 +14,7 @@ type SetCounter struct {
 	//position_in_counter int
 }
 
-func NewSetCounter(numberOfSets int, array []*cwl.Array, scatter_type string) (sc *SetCounter) {
+func NewSetCounter(numberOfSets int, array []cwl.Array, scatter_type string) (sc *SetCounter) {
 
 	sc = &SetCounter{}
 
@@ -24,7 +26,7 @@ func NewSetCounter(numberOfSets int, array []*cwl.Array, scatter_type string) (s
 	sc.Max = make([]int, sc.NumberOfSets)
 	for i := 0; i < sc.NumberOfSets; i++ {
 		sc.Counter[i] = 0
-		sc.Max[i] = array[i].Len() - 1
+		sc.Max[i] = array[i].Len() - 1 // indicates last valid position. Needed for carry-over, e.g. 9+1 = 0
 	}
 
 	sc.Scatter_type = scatter_type
@@ -50,17 +52,21 @@ func (sc *SetCounter) Increment() (ok bool) {
 
 		}
 	} else {
-		//fmt.Printf("(SetCounter/Increment) dot\n")
+		fmt.Printf("(SetCounter/Increment) dot\n")
+
 		// "dot" dotproduct
 		// this is not very efficient but keeps the code simpler, as only one counter is used
+
 		if sc.Counter[0] >= sc.Max[0] {
-			//fmt.Printf("(SetCounter/Increment) done\n")
+			//end of counter
 			ok = false
 			return
 		}
 
+		// increment position in each array
 		for position_in_counter := sc.NumberOfSets - 1; position_in_counter >= 0; position_in_counter-- {
 			sc.Counter[position_in_counter] += 1
+			fmt.Printf("(SetCounter/Increment) sc.Counter[position_in_counter]: %d \n", sc.Counter[position_in_counter])
 		}
 		ok = true
 		return

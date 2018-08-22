@@ -1585,37 +1585,33 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 
 	name_to_postiton := make(map[string]int, count_of_scatter_arrays)
 
+	scatter_input_arrays := make([]cwl.Array, count_of_scatter_arrays)
+
 	// search for scatter source arrays
-	// fill arrays scatter_positions and scatter_source_strings
+	// fill map name_to_postiton and arrays scatter_positions and scatter_source_strings
 	for i, scatter_input_name := range cwl_step.Scatter {
 
 		scatter_input_name_base := path.Base(scatter_input_name)
 		//fmt.Printf("scatter_input detected: %s\n", scatter_input_name)
 
-		name_to_postiton[scatter_input_name_base] = i
+		name_to_postiton[scatter_input_name_base] = i // this just an inverse which is needed later
 
 		scatter_input_source_str := ""
 		input_position := -1
+
+		// search for workflow_step_input
 		for j, _ := range cwl_step.In {
 			workflow_step_input := cwl_step.In[j]
 
 			if path.Base(workflow_step_input.Id) == scatter_input_name_base {
 				input_position = j
-				scatter_input_source := workflow_step_input.Source // TODO: other method than source might be required
-
-				var ok bool
-				scatter_input_source_str, ok = scatter_input_source.(string)
-				if !ok {
-					err = fmt.Errorf("(taskEnQueueScatter) scatter_input_source is not string (%s)", reflect.TypeOf(scatter_input_source))
-					return
-				}
 				break
 			}
-
 		}
 
+		// error if workflow_step_input not found
 		if input_position == -1 {
-
+			// improve error message
 			list_of_inputs := ""
 			for j, _ := range cwl_step.In {
 				workflow_step_input := cwl_step.In[j]
@@ -1626,19 +1622,70 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 			return
 		}
 
+		workflow_step_input := cwl_step.In[input_position]
+		scatter_input_source := workflow_step_input.Source
+
+		switch scatter_input_source.(type) {
+		case string:
+
+			scatter_input_source_str = scatter_input_source.(string)
+		case []string, []interface{}:
+
+			var scatter_input_source_array []string
+
+			scatter_input_source_array_if, ok := scatter_input_source.([]interface{})
+			if ok {
+				scatter_input_source_array = []string{}
+				for k, _ := range scatter_input_source_array_if {
+					var src_str string
+					src_str, ok = scatter_input_source_array_if[k].(string)
+					if !ok {
+						err = fmt.Errorf("(taskEnQueue) element in source array is not a string")
+						return
+					}
+					scatter_input_source_array = append(scatter_input_source_array, src_str)
+				}
+
+			} else {
+
+				scatter_input_source_array = scatter_input_source.([]string)
+			}
+
+			scatter_input_arrays[i], ok, err = qm.getCWLSourceArray(workflow_input_map, job, task_id, scatter_input_source_array, true)
+			if err != nil {
+				err = fmt.Errorf("(taskEnQueueScatter) getCWLSourceArray returned: %s", err.Error())
+				return
+			}
+			if !ok {
+				err = fmt.Errorf("(taskEnQueueScatter) element not found", err.Error()) // should not happen, error would have been thrown
+				return
+			}
+			scatter_input_source_str = "_array_"
+		default:
+			err = fmt.Errorf("(taskEnQueueScatter) scatter_input_source is not string (%s)", reflect.TypeOf(scatter_input_source))
+			return
+		}
+
 		scatter_positions[i] = input_position
 		scatter_source_strings[i] = scatter_input_source_str
 
 	}
 
 	// get each scatter array and cast into array
-	scatter_input_array_ptrs := make([]*cwl.Array, count_of_scatter_arrays)
+
 	empty_array := false // just for compliance tests
 	for i := 0; i < count_of_scatter_arrays; i++ {
 
 		scatter_input := cwl_step.Scatter[i]
 		scatter_input_source_str := scatter_source_strings[i]
 
+		if scatter_input_source_str == "_array_" {
+			if scatter_input_arrays[i].Len() == 0 {
+				empty_array = true
+			}
+
+			continue
+		}
 		// get array (have to cast into array still)
 		var scatter_input_object cwl.CWL_object
 		var ok bool
@@ -1665,7 +1712,8 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 			empty_array = true
 		}
 
-		scatter_input_array_ptrs[i] = scatter_input_array_ptr
+		scatter_input_arrays[i] = *scatter_input_array_ptr
+
 	}
 	scatter_type := ""
 	// dotproduct with 2 or more arrays
@@ -1718,7 +1766,7 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 
 	// overwrite array, keep only non-scatter
 	template_task_step.In = template_step_in
-	counter := NewSetCounter(count_of_scatter_arrays, scatter_input_array_ptrs, scatter_type)
+	counter := NewSetCounter(count_of_scatter_arrays, scatter_input_arrays, scatter_type)
 
 	if empty_array {
 
@@ -2140,6 +2188,37 @@ func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
 	return
 }
 
+func (qm *ServerMgr) getCWLSourceArray(workflow_input_map map[string]cwl.CWLType, job *Job, current_task_id Task_Unique_Identifier, src_array []string, error_on_missing_task bool) (obj cwl.Array, ok bool, err error) {
+
+	obj = cwl.Array{}
+	ok = false
+
+	for _, src := range src_array {
+		var element cwl.CWLType
+		var src_ok bool
+		element, src_ok, err = qm.getCWLSource(workflow_input_map, job, current_task_id, src, error_on_missing_task)
+		if err != nil {
+			err = fmt.Errorf("(getCWLSourceArray) getCWLSource returned: %s", err.Error())
+			return
+		}
+		if !src_ok {
+			if error_on_missing_task {
+				err = fmt.Errorf("(getCWLSourceArray) Source %s not found", src)
+				return
+			}
+
+			// return with ok=false, but do not throw error
+			ok = false
+			return
+		}
+
+		obj = append(obj, element)
+	}
+	ok = true
+	return
+
+}
+
 // this retrieves the input from either the (sub-)workflow input, or from the output of another task in the same (sub-)workflow
 // error_on_missing_task: when checking if a task is ready, a missing task is not an error, it just means task is not ready,
 //    but when getting data this is actually an error.
@@ -2307,7 +2386,11 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 				if input.Source_index != 0 {
 					// from scatter step
 					// fmt.Printf("source is a array with Source_index: %s", spew.Sdump(input.Source))
-					src := source_as_array[input.Source_index]
+					if input.Source_index > len(source_as_array) {
+						err = fmt.Errorf("(GetStepInputObjects) input.Source_index >= len(source_as_array) %d > %d", input.Source_index, len(source_as_array))
+						return
+					}
+					src := source_as_array[input.Source_index-1]
 					var src_str string
 					var ok bool
 					src_str, ok = src.(string)

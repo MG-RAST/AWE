@@ -2345,8 +2345,8 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 	//fmt.Println("(GetStepInputObjects) workflow_step.In:")
 	//spew.Dump(workflow_step.In)
 
-	// 1. find all object source and Defaut
-	// 2. make a map copy to be used in javaqscript, as "inputs"
+	// 1. find all object source and Default
+	// 2. make a map copy to be used in javascript, as "inputs"
 	// INPUT_LOOP1
 	for input_i, input := range workflow_step.In {
 		// input is a WorkflowStepInput
@@ -2363,11 +2363,9 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 		link_merge_method := ""
 		if input.LinkMerge != nil {
 			link_merge_method = string(*input.LinkMerge)
-			if link_merge_method != "merge_flattened" {
-				err = fmt.Errorf("(NewWorkunit) sorry, LinkMergeMethod \"%s\" not supported yet", link_merge_method) // merge_nested merge_flattened
-				return
-			}
-
+		} else {
+			// default: merge_nested
+			link_merge_method = "merge_nested"
 		}
 
 		if input.Source != nil {
@@ -2411,6 +2409,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 					workunit_input_map[cmd_id] = job_obj
 				} else {
+					// case Source_index == 0
 
 					cwl_array := cwl.Array{}
 					for _, src := range source_as_array { // usually only one
@@ -2454,9 +2453,12 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 								cwl_array = append(cwl_array, (*an_array)[i])
 							}
 
-						} else {
+						} else if link_merge_method == "merge_nested" {
 							//source_object_array = append(source_object_array, job_obj)
 							cwl_array = append(cwl_array, job_obj)
+						} else {
+							err = fmt.Errorf("(GetStepInputObjects) link_merge_method %s not supported", link_merge_method)
+							return
 						}
 						//cwl_array = append(cwl_array, obj)
 					}

@@ -2348,7 +2348,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 	// 1. find all object source and Default
 	// 2. make a map copy to be used in javascript, as "inputs"
 	// INPUT_LOOP1
-	for input_i, input := range workflow_step.In {
+	for _, input := range workflow_step.In {
 		// input is a WorkflowStepInput
 
 		//fmt.Printf("(GetStepInputObjects) workflow_step.In: (%d)\n", input_i)

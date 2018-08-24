@@ -148,25 +148,40 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 
 	listing := r.Listing
 	switch listing.(type) {
-	case []interface{}:
-		listing_array := listing.([]interface{})
+	case []CWL_object:
+		fmt.Println("(InitialWorkDirRequirement/Evaluate) array")
+		listing_array := listing.([]CWL_object)
 		for i, _ := range listing_array {
 
-			element := listing_array[i]
+			var element interface{}
+			element = listing_array[i]
+			spew.Dump(element)
+			fmt.Printf("(InitialWorkDirRequirement/Evaluate) type: %s\n", reflect.TypeOf(element))
 
 			switch element.(type) {
-			case Dirent:
-				element_dirent := element.(Dirent)
-				element_dirent.Evaluate(inputs)
+			case *Dirent:
+				// nothing to do
+				return
 
-			case File, Directory:
+				fmt.Println("(InitialWorkDirRequirement/Evaluate) dirent")
+				var element_dirent *Dirent
+				element_dirent = element.(*Dirent)
+				err = element_dirent.Evaluate(inputs)
+				if err != nil {
+					err = fmt.Errorf("(InitialWorkDirRequirement) element_dirent.Evaluate returned: %s", err.Error())
+					return
+				}
+				fmt.Println("(InitialWorkDirRequirement/Evaluate) element_dirent:")
+				spew.Dump(element_dirent)
+				listing_array[i] = element_dirent
+			case *File, *Directory:
 				// nothing to do
 
-			case string, String:
-				element_str := element.(string)
+			case *String:
+				element_str := element.(String)
 
 				var original_expr *Expression
-				original_expr = NewExpressionFromString(element_str)
+				original_expr = NewExpressionFromString(element_str.String())
 
 				var new_value interface{}
 				new_value, err = original_expr.EvaluateExpression(nil, inputs)
@@ -177,17 +192,22 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 
 				// verify return type:
 				switch new_value.(type) {
-				case File, Directory, Dirent, string, String:
-					// valid returns
+				case File:
+					listing_array[i] = new_value.(*File)
 
+				case Directory:
+					listing_array[i] = new_value.(*Directory)
+				case Dirent:
+					listing_array[i] = new_value.(*Dirent)
+				case string:
+					listing_array[i] = NewString(new_value.(string))
+				case String:
+					listing_array[i] = new_value.(*String)
 				default:
 					err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) EvaluateExpression returned type %s, this is not expected", reflect.TypeOf(r.Listing))
 					return
 
 				}
-
-				// set evaluated avlue
-				listing_array[i] = new_value
 
 			default:
 				err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) type not supported: %s", reflect.TypeOf(element))
@@ -196,13 +216,22 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 			}
 		} // end for
 	case Dirent:
-		listing_dirent := listing.(Dirent)
-		listing_dirent.Evaluate(inputs)
+		// nothing to do
+		return
 
+		listing_dirent := listing.(Dirent)
+		err = listing_dirent.Evaluate(inputs)
+		if err != nil {
+			err = fmt.Errorf("(InitialWorkDirRequirement) listing_dirent.Evaluate returned: %s", err.Error())
+			return
+		}
+		r.Listing = listing_dirent
 	case File, Directory:
+
 		// nothing to do
 
 	case string, String:
+
 		listing_str := listing.(string)
 
 		var original_expr *Expression
@@ -230,10 +259,12 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 		r.Listing = new_value
 
 	default:
+
 		err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) type not supported: %s", reflect.TypeOf(listing))
 		return
 
 	}
+	//fmt.Println("(InitialWorkDirRequirement/Evaluate) end")
 	return
 
 }

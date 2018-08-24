@@ -63,7 +63,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (re
 				err = fmt.Errorf("(EvaluateExpression) Javascript complained: A) %s", xerr.Error())
 				return
 			}
-			fmt.Printf("(EvaluateExpression) reflect.TypeOf(value): %s\n", reflect.TypeOf(value))
+			//fmt.Printf("(EvaluateExpression) reflect.TypeOf(value): %s\n", reflect.TypeOf(value))
 
 			//if value.IsNumber()
 			if concatenate {
@@ -110,10 +110,16 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (re
 					return
 				case interface{}: //Object
 
-					fmt.Println("record:")
+					fmt.Println("object:")
 					spew.Dump(exported_value)
-					err = fmt.Errorf("(EvaluateExpression) record not supported yet")
-					return
+					//err = fmt.Errorf("(EvaluateExpression) record not supported yet")
+
+					value_returned, err = NewCWLType("", exported_value)
+					if err != nil {
+						err = fmt.Errorf("(EvaluateExpression) NewCWLType returned: %s", err.Error())
+						return
+					}
+
 				case nil:
 					value_returned = NewNull()
 				default:

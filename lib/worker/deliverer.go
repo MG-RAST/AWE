@@ -2,6 +2,11 @@ package worker
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/MG-RAST/AWE/lib/cache"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
@@ -9,10 +14,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/shock"
-	"net/http"
-	"os"
-	"strings"
-	"time"
 )
 
 func deliverer(control chan int) {

@@ -125,8 +125,8 @@ func (et *ExpressionTool) Evaluate(inputs interface{}) (err error) {
 
 		err = r.Evaluate(inputs)
 		if err != nil {
-			err = fmt.Errorf("(CommandLineTool/Evaluate) Requirements r.Evaluate returned")
-
+			err = fmt.Errorf("(ExpressionTool/Evaluate) Requirements r.Evaluate returned: %s", err.Error())
+			return
 		}
 
 	}
@@ -137,8 +137,8 @@ func (et *ExpressionTool) Evaluate(inputs interface{}) (err error) {
 
 		err = r.Evaluate(inputs)
 		if err != nil {
-			err = fmt.Errorf("(CommandLineTool/Evaluate) Hints r.Evaluate returned")
-
+			err = fmt.Errorf("(ExpressionTool/Evaluate) Hints r.Evaluate returned: %s", err.Error())
+			return
 		}
 
 	}

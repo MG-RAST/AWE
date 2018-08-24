@@ -51,7 +51,7 @@ func GetEnfDefArray(original interface{}) (array []EnvironmentDef, err error) {
 func (d *EnvironmentDef) Evaluate(inputs interface{}) (err error) {
 
 	if inputs == nil {
-		err = fmt.Errorf("(Dirent/Evaluate) no inputs")
+		err = fmt.Errorf("(EnvironmentDef/Evaluate) no inputs")
 		return
 	}
 
@@ -63,7 +63,7 @@ func (d *EnvironmentDef) Evaluate(inputs interface{}) (err error) {
 		var new_value interface{}
 		new_value, err = entry_expr.EvaluateExpression(nil, inputs)
 		if err != nil {
-			err = fmt.Errorf("(Dirent/Evaluate) EvaluateExpression returned: %s", err.Error())
+			err = fmt.Errorf("(EnvironmentDef/Evaluate) EvaluateExpression returned: %s", err.Error())
 			return
 		}
 
@@ -73,7 +73,7 @@ func (d *EnvironmentDef) Evaluate(inputs interface{}) (err error) {
 			// valid returns
 			d.EnvValue = new_value
 		default:
-			err = fmt.Errorf("(Dirent/Evaluate) EvaluateExpression returned type %s, this is not expected", reflect.TypeOf(new_value))
+			err = fmt.Errorf("(EnvironmentDef/Evaluate) EvaluateExpression returned type %s, this is not expected", reflect.TypeOf(new_value))
 			return
 
 		}

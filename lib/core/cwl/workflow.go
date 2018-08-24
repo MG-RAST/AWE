@@ -205,8 +205,8 @@ func (wf *Workflow) Evaluate(inputs interface{}) (err error) {
 
 		err = r.Evaluate(inputs)
 		if err != nil {
-			err = fmt.Errorf("(CommandLineTool/Evaluate) Requirements r.Evaluate returned")
-
+			err = fmt.Errorf("(Workflow/Evaluate) Requirements r.Evaluate returned: %s", err.Error())
+			return
 		}
 
 	}
@@ -217,8 +217,8 @@ func (wf *Workflow) Evaluate(inputs interface{}) (err error) {
 
 		err = r.Evaluate(inputs)
 		if err != nil {
-			err = fmt.Errorf("(CommandLineTool/Evaluate) Hints r.Evaluate returned")
-
+			err = fmt.Errorf("(Workflow/Evaluate) Hints r.Evaluate returned: %s", err.Error())
+			return
 		}
 
 	}

@@ -2240,7 +2240,7 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 		var this_ok bool
 		obj, this_ok = workflow_input_map[src_base]
 		if this_ok {
-			fmt.Println("(getCWLSource) found in workflow_input_map: " + src_base)
+			//fmt.Println("(getCWLSource) found in workflow_input_map: " + src_base)
 			ok = true
 			return
 
@@ -2506,7 +2506,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 					//spew.Dump(job_obj)
 				}
 				//workunit_input_map[cmd_id] = job_obj
-				fmt.Printf("(GetStepInputObjects) Source_index: %d\n", input.Source_index)
+				//fmt.Printf("(GetStepInputObjects) Source_index: %d\n", input.Source_index)
 				if input.Source_index != 0 {
 					real_source_index := input.Source_index - 1
 
@@ -3121,7 +3121,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			err = fmt.Errorf("(updateJobTask) WorkflowInstanceDecreaseRemainTasks returned: %s", err.Error())
 			return
 		}
-		fmt.Printf("GetRemainTasks subworkflow C: %d\n", subworkflow_remain_tasks)
+		//fmt.Printf("GetRemainTasks subworkflow C: %d\n", subworkflow_remain_tasks)
 
 		logger.Debug(3, "(updateJobTask) TASK_STAT_COMPLETED  / remaining tasks for subworkflow %s: %d", task_str, subworkflow_remain_tasks)
 

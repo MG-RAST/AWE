@@ -212,7 +212,7 @@ func (sc *ShockClient) Do_request(method string, resource string, query url.Valu
 func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[string]interface{}) (node *ShockNode, err error) {
 	if sc.Debug {
 		logger.Debug(1, "(CreateOrUpdate) start")
-		defer logger.Debug(1, "(CreateOrUpdate) start")
+		defer logger.Debug(1, "(CreateOrUpdate) end")
 	}
 	host := sc.Host
 	token := sc.Token
@@ -252,6 +252,9 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 		case "basic":
 			if opts.HasKey("file") { // upload_type: basic , file=...
 				form.AddFile("upload", opts.Value("file"))
+			}
+			if opts.HasKey("file_name") {
+				form.AddParam("file_name", opts.Value("file_name"))
 			}
 		case "parts":
 			if opts.HasKey("parts") {
@@ -323,12 +326,21 @@ func (sc *ShockClient) CreateOrUpdate(opts Opts, nodeid string, nodeattr map[str
 		"Content-Type":   []string{form.ContentType},
 		"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
 	}
+
 	var user *httpclient.Auth
 	if token != "" {
 		user = httpclient.GetUserByTokenAuth(token)
 	}
 	if sc.Debug {
-		fmt.Printf("url: %s %s\n", method, url)
+		header_str := ""
+		for k, v := range headers {
+			header_str += " " + k + "="
+			for _, v2 := range v {
+				header_str += v2 + " "
+			}
+		}
+		logger.Debug(1, "(CreateOrUpdate) url: %s %s (header: %s)\n", method, url, header_str)
+
 	}
 	var res *http.Response
 	res, err = httpclient.Do(method, url, headers, form.Reader, user)

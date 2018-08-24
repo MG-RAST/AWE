@@ -254,16 +254,27 @@ func (w *Workunit) Evaluate(inputs interface{}) (err error) {
 		case *cwl.CommandLineTool:
 			clt := process.(*cwl.CommandLineTool)
 
-			clt.Evaluate(inputs)
-
+			err = clt.Evaluate(inputs)
+			if err != nil {
+				err = fmt.Errorf("(Workunit/Evaluate) CommandLineTool.Evaluate returned: %s", err.Error())
+				return
+			}
 		case *cwl.ExpressionTool:
 			et := process.(*cwl.ExpressionTool)
 
-			et.Evaluate(inputs)
+			err = et.Evaluate(inputs)
+			if err != nil {
+				err = fmt.Errorf("(Workunit/Evaluate) ExpressionTool.Evaluate returned: %s", err.Error())
+				return
+			}
 
 		case *cwl.Workflow:
 			wf := process.(*cwl.Workflow)
-			wf.Evaluate(inputs)
+			err = wf.Evaluate(inputs)
+			if err != nil {
+				err = fmt.Errorf("(Workunit/Evaluate) Workflow.Evaluate returned: %s", err.Error())
+				return
+			}
 
 		default:
 			err = fmt.Errorf("(Workunit/Evaluate) Process type not supported %s", reflect.TypeOf(process))

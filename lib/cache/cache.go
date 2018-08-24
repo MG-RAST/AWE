@@ -253,10 +253,16 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	//fmt.Printf("file.Path: %s\n", file_path)
 
 	//fmt.Printf("Using path %s\n", file_path)
+	new_file_name := ""
+	if file.Basename != "" {
+		new_file_name = file.Basename
+	} else {
+		new_file_name = basename
+	}
 
 	//sc := shock.ShockClient{Host: conf.SHOCK_URL, Token: "", Debug: false} // "shock:7445"
-
-	opts := shock.Opts{"upload_type": "basic", "file": file_path}
+	fmt.Printf("(UploadFile) new_file_name: %s\n", new_file_name)
+	opts := shock.Opts{"upload_type": "basic", "file": file_path, "file_name": new_file_name}
 	node, err := shock_client.CreateOrUpdate(opts, "", nil)
 	if err != nil {
 		err = fmt.Errorf("(UploadFile) CreateOrUpdate returned: %s (file_path: %s)", err.Error(), file_path)
@@ -279,7 +285,7 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	//file.Path = strings.TrimPrefix(file.Path, "/")
 	file.SetPath("")
 	//fmt.Printf("file.Path B: %s", file.Path)
-	file.Basename = basename
+	file.Basename = new_file_name
 
 	file_size_int32 := int32(file_size)
 	file.Size = &file_size_int32

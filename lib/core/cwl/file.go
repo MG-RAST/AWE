@@ -167,7 +167,7 @@ func MakeFile(obj interface{}) (file File, err error) {
 				if file.Basename == "" {
 					// use filename from shocknode
 					if node.File.Name != "" {
-						fmt.Printf("(MakeFile) node.File.Name: %s\n", node.File.Name)
+						//fmt.Printf("(MakeFile) node.File.Name: %s\n", node.File.Name)
 						//file.Basename = node.File.Name
 						file.UpdateComponents(node.File.Name)
 					} else {

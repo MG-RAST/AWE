@@ -156,7 +156,7 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 			var element interface{}
 			element = listing_array[i]
 			spew.Dump(element)
-			fmt.Printf("(InitialWorkDirRequirement/Evaluate) type: %s\n", reflect.TypeOf(element))
+			//fmt.Printf("(InitialWorkDirRequirement/Evaluate) type: %s\n", reflect.TypeOf(element))
 
 			switch element.(type) {
 			case *Dirent:

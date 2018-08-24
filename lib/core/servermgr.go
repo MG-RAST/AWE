@@ -1799,7 +1799,7 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 		for _, out := range cwl_step.Out {
 			//
 			out_name := out.Id
-			fmt.Printf("outname: %s\n", out_name)
+			//fmt.Printf("outname: %s\n", out_name)
 
 			new_array := &cwl.Array{}
 
@@ -1809,7 +1809,7 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 			spew.Dump(*notice.Results)
 		}
 
-		fmt.Printf("len(notice.Results): %d\n", len(*notice.Results))
+		//fmt.Printf("len(notice.Results): %d\n", len(*notice.Results))
 
 		return
 	}
@@ -2351,7 +2351,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 	for input_i, input := range workflow_step.In {
 		// input is a WorkflowStepInput
 
-		fmt.Printf("(GetStepInputObjects) workflow_step.In: (%d)\n", input_i)
+		//fmt.Printf("(GetStepInputObjects) workflow_step.In: (%d)\n", input_i)
 		spew.Dump(workflow_step.In)
 
 		id := input.Id
@@ -2379,7 +2379,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 			source_as_array, source_is_array := input.Source.([]interface{})
 
 			if source_is_array {
-				fmt.Printf("(GetStepInputObjects) source is a array: %s", spew.Sdump(input.Source))
+				//fmt.Printf("(GetStepInputObjects) source is a array: %s", spew.Sdump(input.Source))
 
 				if input.Source_index != 0 {
 					// from scatter step
@@ -2526,7 +2526,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, task_id Task_Unique_Identifie
 
 					var element cwl.CWLType
 					element = job_obj_array[real_source_index]
-					fmt.Printf("(GetStepInputObjects) cmd_id=%s element=%s real_source_index=%d\n", cmd_id, element, real_source_index)
+					//fmt.Printf("(GetStepInputObjects) cmd_id=%s element=%s real_source_index=%d\n", cmd_id, element, real_source_index)
 					workunit_input_map[cmd_id] = element
 				} else {
 					workunit_input_map[cmd_id] = job_obj
@@ -3016,7 +3016,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				return
 			}
 
-			fmt.Printf("XXX children: %d\n", len(children))
+			//fmt.Printf("XXX children: %d\n", len(children))
 
 			scatter_complete := true
 			for _, child_task := range children {
@@ -3052,9 +3052,9 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 			scatter_parent_task.StepOutput = &cwl.Job_document{}
 
-			fmt.Printf("XXX start\n")
+			//fmt.Printf("XXX start\n")
 			for i, _ := range scatter_parent_step.Out {
-				fmt.Printf("XXX loop %d\n", i)
+				//fmt.Printf("XXX loop %d\n", i)
 				workflow_step_output := scatter_parent_step.Out[i]
 				workflow_step_output_id := workflow_step_output.Id
 
@@ -3063,7 +3063,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				output_array := cwl.Array{}
 
 				for _, child_task := range children {
-					fmt.Printf("XXX inner loop %d\n", i)
+					//fmt.Printf("XXX inner loop %d\n", i)
 					job_doc := child_task.StepOutput
 					var child_output cwl.CWLType
 					child_output, err = job_doc.Get(workflow_step_output_id_base)

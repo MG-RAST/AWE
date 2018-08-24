@@ -261,7 +261,7 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	}
 
 	//sc := shock.ShockClient{Host: conf.SHOCK_URL, Token: "", Debug: false} // "shock:7445"
-	fmt.Printf("(UploadFile) new_file_name: %s\n", new_file_name)
+	//fmt.Printf("(UploadFile) new_file_name: %s\n", new_file_name)
 	opts := shock.Opts{"upload_type": "basic", "file": file_path, "file_name": new_file_name}
 	node, err := shock_client.CreateOrUpdate(opts, "", nil)
 	if err != nil {

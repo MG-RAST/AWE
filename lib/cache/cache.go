@@ -342,6 +342,23 @@ func DownloadFile(file *cwl.File, download_path string, base_path string) (err e
 	//}
 	file_path := path.Join(download_path, basename)
 
+	os.Stat(file_path)
+	_, err = os.Stat(file_path)
+	if err == nil {
+		// file exists !!
+		// create subfolder
+
+		var newdir string
+		newdir, err = ioutil.TempDir(download_path, "input_")
+		if err != nil {
+			err = fmt.Errorf("(DownloadFile) ioutil.TempDir returned: %s", err.Error())
+			return
+		}
+		file_path = path.Join(newdir, basename)
+
+	} else {
+		err = nil
+	}
 	logger.Debug(3, "(DownloadFile) file.Path, downloading to: %s\n", file_path)
 
 	//fmt.Printf("Using path %s\n", file_path)

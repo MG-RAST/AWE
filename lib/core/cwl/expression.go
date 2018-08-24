@@ -100,7 +100,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (re
 				case float32:
 					value_returned = NewFloat(exported_value.(float32))
 				case float64:
-					fmt.Println("got a double")
+					//fmt.Println("got a double")
 					value_returned = NewDouble(exported_value.(float64))
 				case uint64:
 					value_returned = NewInt(exported_value.(int))
@@ -127,8 +127,8 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (re
 					return
 				}
 
-				fmt.Println("value_returned:")
-				spew.Dump(value_returned)
+				//fmt.Println("value_returned:")
+				//spew.Dump(value_returned)
 				result = value_returned
 				return
 			}

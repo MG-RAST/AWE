@@ -1,8 +1,6 @@
 package core
 
 import (
-	"fmt"
-
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 )
 
@@ -52,7 +50,7 @@ func (sc *SetCounter) Increment() (ok bool) {
 
 		}
 	} else {
-		fmt.Printf("(SetCounter/Increment) dot\n")
+		//fmt.Printf("(SetCounter/Increment) dot\n")
 
 		// "dot" dotproduct
 		// this is not very efficient but keeps the code simpler, as only one counter is used
@@ -66,7 +64,7 @@ func (sc *SetCounter) Increment() (ok bool) {
 		// increment position in each array
 		for position_in_counter := sc.NumberOfSets - 1; position_in_counter >= 0; position_in_counter-- {
 			sc.Counter[position_in_counter] += 1
-			fmt.Printf("(SetCounter/Increment) sc.Counter[position_in_counter]: %d \n", sc.Counter[position_in_counter])
+			//fmt.Printf("(SetCounter/Increment) sc.Counter[position_in_counter]: %d \n", sc.Counter[position_in_counter])
 		}
 		ok = true
 		return

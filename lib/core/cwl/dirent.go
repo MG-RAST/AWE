@@ -57,9 +57,9 @@ func (d *Dirent) Evaluate(inputs interface{}) (err error) {
 			entry_expr = *NewExpressionFromString(entry_str)
 		}
 
-		fmt.Println("(Dirent/Evaluate) Entry")
+		//fmt.Println("(Dirent/Evaluate) Entry")
 		var new_value interface{}
-		fmt.Printf("(Dirent/Evaluate) entry_expr: %s\n", entry_expr.String())
+		//fmt.Printf("(Dirent/Evaluate) entry_expr: %s\n", entry_expr.String())
 		new_value, err = entry_expr.EvaluateExpression(nil, inputs)
 		if err != nil {
 			err = fmt.Errorf("(Dirent/Evaluate) EvaluateExpression returned: %s", err.Error())
@@ -70,7 +70,7 @@ func (d *Dirent) Evaluate(inputs interface{}) (err error) {
 		// verify return type:
 		switch new_value.(type) {
 		case String, string:
-			fmt.Printf("(Dirent/Evaluate) new_value is a string: %s\n", new_value.(string))
+			//fmt.Printf("(Dirent/Evaluate) new_value is a string: %s\n", new_value.(string))
 			// valid returns
 			d.Entry = new_value
 		default:
@@ -110,7 +110,7 @@ func (d *Dirent) Evaluate(inputs interface{}) (err error) {
 
 		fmt.Println("(Dirent/Evaluate) entryname")
 		var new_value interface{}
-		fmt.Printf("(Dirent/Evaluate) entryname_expr: %s\n", entryname_expr.String())
+		//fmt.Printf("(Dirent/Evaluate) entryname_expr: %s\n", entryname_expr.String())
 		new_value, err = entryname_expr.EvaluateExpression(nil, inputs)
 		if err != nil {
 			err = fmt.Errorf("(Dirent/Evaluate) EvaluateExpression returned: %s", err.Error())
@@ -120,7 +120,7 @@ func (d *Dirent) Evaluate(inputs interface{}) (err error) {
 		// verify return type:
 		switch new_value.(type) {
 		case String, string:
-			fmt.Printf("(Dirent/Evaluate) new_value is a string: %s\n", new_value.(string))
+			//fmt.Printf("(Dirent/Evaluate) new_value is a string: %s\n", new_value.(string))
 			// valid returns
 			d.Entryname = new_value
 		default:

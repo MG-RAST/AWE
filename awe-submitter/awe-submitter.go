@@ -38,7 +38,7 @@ type standardResponse struct {
 func main() {
 	err := main_wrapper()
 	if err != nil {
-		fmt.Printf("\nerror: %s\n\n", err.Error())
+		fmt.Fprintf(os.Stderr, "\nerror: %s\n\n", err.Error())
 		time.Sleep(time.Second)
 		os.Exit(1)
 	}
@@ -411,7 +411,15 @@ func main_wrapper() (err error) {
 			case core.JOB_STAT_COMPLETED:
 				break FORLOOP
 			case core.JOB_STAT_SUSPEND:
-				err = fmt.Errorf("(main_wrapper) job is in state \"%s\"", job.State)
+				error_msg_str := ""
+
+				if job.Error != nil {
+
+					error_msg, _ := json.Marshal(job.Error)
+					error_msg_str = string(error_msg[:])
+				}
+
+				err = fmt.Errorf("(main_wrapper) job is in state \"%s\" (error: %s)", job.State, error_msg_str)
 				return
 			case core.JOB_STAT_FAILED_PERMANENT:
 				err = fmt.Errorf("(main_wrapper) job is in state \"%s\"", job.State)

@@ -41,13 +41,13 @@ var JOB_STATS_REGISTERED = []string{JOB_STAT_QUEUING, JOB_STAT_QUEUED, JOB_STAT_
 var JOB_STATS_TO_RECOVER = []string{JOB_STAT_INIT, JOB_STAT_QUEUING, JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 
 type JobError struct {
-	ClientFailed string `bson:"clientfailed" json:"clientfailed"`
-	WorkFailed   string `bson:"workfailed" json:"workfailed"`
-	TaskFailed   string `bson:"taskfailed" json:"taskfailed"`
-	ServerNotes  string `bson:"servernotes" json:"servernotes"`
-	WorkNotes    string `bson:"worknotes" json:"worknotes"`
-	AppError     string `bson:"apperror" json:"apperror"`
-	Status       string `bson:"status" json:"status"`
+	ClientFailed string `bson:"clientfailed" json:"clientfailed,omitempty"`
+	WorkFailed   string `bson:"workfailed" json:"workfailed,omitempty"`
+	TaskFailed   string `bson:"taskfailed" json:"taskfailed,omitempty"`
+	ServerNotes  string `bson:"servernotes" json:"servernotes,omitempty"`
+	WorkNotes    string `bson:"worknotes" json:"worknotes,omitempty"`
+	AppError     string `bson:"apperror" json:"apperror,omitempty"`
+	Status       string `bson:"status" json:"status,omitempty"`
 }
 
 type Job struct {

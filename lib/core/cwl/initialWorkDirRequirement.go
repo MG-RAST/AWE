@@ -230,12 +230,12 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 
 		// nothing to do
 
-	case string, String:
+	case String:
 
-		listing_str := listing.(string)
+		listing_str := listing.(String)
 
 		var original_expr *Expression
-		original_expr = NewExpressionFromString(listing_str)
+		original_expr = NewExpressionFromString(listing_str.String())
 
 		var new_value interface{}
 		new_value, err = original_expr.EvaluateExpression(nil, inputs)
@@ -257,7 +257,33 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 
 		// set evaluated avlue
 		r.Listing = new_value
+	case *String:
 
+		listing_str := listing.(*String)
+
+		var original_expr *Expression
+		original_expr = NewExpressionFromString(listing_str.String())
+
+		var new_value interface{}
+		new_value, err = original_expr.EvaluateExpression(nil, inputs)
+		if err != nil {
+			err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) EvaluateExpression returned: %s", err.Error())
+			return
+		}
+
+		// verify return type:
+		switch new_value.(type) {
+		case File, Directory, Dirent, string, String:
+			// valid returns
+
+		default:
+			err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) (expression mode) EvaluateExpression returned type %s, this is not expected", reflect.TypeOf(listing))
+			return
+
+		}
+
+		// set evaluated avlue
+		r.Listing = new_value
 	default:
 
 		err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) type not supported: %s", reflect.TypeOf(listing))

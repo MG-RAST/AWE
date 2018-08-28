@@ -1122,6 +1122,9 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 						return
 					}
 					count += sub_count
+				case *cwl.String:
+					// continue
+
 				default:
 					err = fmt.Errorf("(processIOData) cwl.Requirement/Listing , unkown type: (%s)", reflect.TypeOf(iwdr.Listing))
 					return

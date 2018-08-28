@@ -178,7 +178,7 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 				// nothing to do
 
 			case *String:
-				element_str := element.(String)
+				element_str := element.(*String)
 
 				var original_expr *Expression
 				original_expr = NewExpressionFromString(element_str.String())
@@ -192,19 +192,19 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 
 				// verify return type:
 				switch new_value.(type) {
-				case File:
+				case *File:
 					listing_array[i] = new_value.(*File)
 
-				case Directory:
+				case *Directory:
 					listing_array[i] = new_value.(*Directory)
-				case Dirent:
+				case *Dirent:
 					listing_array[i] = new_value.(*Dirent)
 				case string:
 					listing_array[i] = NewString(new_value.(string))
-				case String:
+				case *String:
 					listing_array[i] = new_value.(*String)
 				default:
-					err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) EvaluateExpression returned type %s, this is not expected", reflect.TypeOf(r.Listing))
+					err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) (list mode) EvaluateExpression returned type %s, this is not expected", reflect.TypeOf(new_value))
 					return
 
 				}
@@ -250,7 +250,7 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 			// valid returns
 
 		default:
-			err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) EvaluateExpression returned type %s, this is not expected", reflect.TypeOf(listing))
+			err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) (expression mode) EvaluateExpression returned type %s, this is not expected", reflect.TypeOf(listing))
 			return
 
 		}

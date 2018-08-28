@@ -10,8 +10,8 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/AWE/lib/user"
+	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/robertkrimen/otto"
 	"gopkg.in/mgo.v2/bson"
@@ -892,7 +892,6 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 }
 
 func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err error) {
-	start := time.Now()
 	queuing_work, err := qm.workQueue.Queue.Len()
 	if err != nil {
 		return
@@ -909,8 +908,10 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 	if err != nil {
 		return
 	}
-	elapsed := time.Since(start)
-	logger.Debug(3, "time GetJsonStatus/Len: %s", elapsed)
+
+	active_jobs := qm.lenActJobs()
+	suspend_job := qm.lenSusJobs()
+	total_job := active_jobs + suspend_job
 
 	total_task := 0
 	queuing_task := 0
@@ -921,25 +922,15 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 	skipped_task := 0
 	fail_skip_task := 0
 
-	start = time.Now()
 	task_list, err := qm.TaskMap.GetTasks()
 	if err != nil {
 		return
 	}
-	elapsed = time.Since(start)
-	logger.Debug(3, "time GetJsonStatus/GetTasks: %s", elapsed)
 
-	start = time.Now()
 	for _, task := range task_list {
 		total_task += 1
 
-		var task_state string
-		task_state, err = task.GetState()
-		if err != nil {
-			return
-		}
-
-		switch task_state {
+		switch task.State {
 		case TASK_STAT_COMPLETED:
 			completed_task += 1
 		case TASK_STAT_PENDING:
@@ -956,34 +947,20 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 			fail_skip_task += 1
 		}
 	}
-	elapsed = time.Since(start)
-	logger.Debug(3, "time GetJsonStatus/task_list: %s", elapsed)
-
 	total_task -= skipped_task // user doesn't see skipped tasks
-	active_jobs := qm.lenActJobs()
-	suspend_job := qm.lenSusJobs()
-	total_job := active_jobs + suspend_job
+
 	total_client := 0
 	busy_client := 0
 	idle_client := 0
 	suspend_client := 0
 
-	start = time.Now()
 	client_list, err := qm.clientMap.GetClients()
 	if err != nil {
 		return
 	}
-	total_client = len(client_list)
-	elapsed = time.Since(start)
-	logger.Debug(3, "time GetJsonStatus/GetClients: %s", elapsed)
-
-	start = time.Now()
 
 	for _, client := range client_list {
-		rlock, err := client.RLockNamed("GetJsonStatus")
-		if err != nil {
-			continue
-		}
+		total_client += 1
 
 		if client.Suspended {
 			suspend_client += 1
@@ -993,12 +970,7 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 		} else {
 			idle_client += 1
 		}
-
-		client.RUnlockNamed(rlock)
-
 	}
-	elapsed = time.Since(start)
-	logger.Debug(3, "time GetJsonStatus/client_list: %s", elapsed)
 
 	jobs := map[string]int{
 		"total":     total_job,

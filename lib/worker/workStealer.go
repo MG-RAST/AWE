@@ -384,7 +384,7 @@ func FetchDataTokenByWorkId(workid string) (token string, err error) {
 			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
 		}
 	}
-	res, err := httpclient.Get(targeturl, headers, nil, nil)
+	res, err := httpclient.Get(targeturl, headers, nil)
 	if err != nil {
 		return "", err
 	}

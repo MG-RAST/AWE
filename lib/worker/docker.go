@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/shock"
+	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/fsouza/go-dockerclient"
 	"io"
 	"io/ioutil"
@@ -500,7 +500,7 @@ func dockerBuildImage(client *docker.Client, Dockerimage string) (err error) {
 	node := (*query_response_p).Data[0]
 	logger.Debug(1, fmt.Sprintf("found SHOCK node for Dockerfile: %s", node.Id))
 
-	download_url, err := shock_docker_repo.Get_node_download_url(node)
+	download_url, err := shock_docker_repo.GetNodeDownloadUrl(node)
 	if err != nil {
 		err = fmt.Errorf("(dockerBuildImage) Could not create download url, err=%s", err.Error())
 		return
@@ -709,7 +709,7 @@ func findDockerImageInShock(Dockerimage string, datatoken string) (node *shock.S
 
 	logger.Debug(1, fmt.Sprintf("found SHOCK node for docker image: %s", node.Id))
 
-	download_url, err = shock_docker_repo.Get_node_download_url(*node)
+	download_url, err = shock_docker_repo.GetNodeDownloadUrl(*node)
 	if err != nil {
 		return nil, "", errors.New(fmt.Sprintf("Could not create download url, err=%s", err.Error()))
 	}

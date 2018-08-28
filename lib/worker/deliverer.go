@@ -8,7 +8,7 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/lib/shock"
+	shock "github.com/MG-RAST/go-shock-client"
 	"net/http"
 	"os"
 	"strings"

@@ -6,14 +6,17 @@ import (
 	"fmt"
 
 	"github.com/MG-RAST/AWE/lib/acl"
+<<<<<<< HEAD
 
 	"io/ioutil"
 
+=======
+>>>>>>> 0909219b37044372cc566c17ae9fa901bda584bc
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/AWE/lib/user"
+	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/MG-RAST/golib/httpclient"
 	//"net/url"
 	"encoding/base64"

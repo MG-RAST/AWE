@@ -3,11 +3,14 @@ package core
 import (
 	"errors"
 	"fmt"
+
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	shock "github.com/MG-RAST/go-shock-client"
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"

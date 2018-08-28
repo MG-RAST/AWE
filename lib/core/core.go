@@ -5,12 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/MG-RAST/AWE/lib/acl"
-
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/lib/shock"
 	"github.com/MG-RAST/AWE/lib/user"
+	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/MG-RAST/golib/httpclient"
 	"io/ioutil"
 	//"net/url"

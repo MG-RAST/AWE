@@ -913,6 +913,20 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			}
 
 		}
+
+		for i, _ := range clt.Requirements {
+			requirement := &clt.Requirements[i]
+
+			var sub_count int
+			sub_count, err = ProcessIOData(requirement, current_path, base_path, io_type, shock_client)
+			if err != nil {
+				err = fmt.Errorf("(processIOData) CommandLineTool.Default ProcessIOData(for download) returned: %s", err.Error())
+				return
+			}
+			count += sub_count
+
+		}
+
 	case *cwl.ExpressionTool:
 
 		et := native.(*cwl.ExpressionTool)
@@ -964,7 +978,65 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 		count += sub_count
 
-		// secondaryFiles
+		// secondaryFiles (on upload, evaluate Expression)
+		// https://www.commonwl.org/v1.0/CommandLineTool.html#CommandInputParameter
+		// if cip.SecondaryFiles != nil {
+		// 	sub_count = 0
+		// 	switch cip.SecondaryFiles.(type) {
+		// 	case []interface{}:
+		// 		sec_files_array := cip.SecondaryFiles.([]interface{})
+		// 		for i, _ := range sec_files_array {
+		// 			_ = i
+		// 			//do something: sec_files_array[i]
+
+		// 			sub_count++
+		// 		}
+
+		// 	case cwl.Expression:
+
+		// 		expr := cip.SecondaryFiles.(cwl.Expression)
+
+		// 		var expr_result interface{}
+		// 		expr_result, err = expr.EvaluateExpression(nil, nil) // TODO need inputs
+		// 		if err != nil {
+		// 			err = fmt.Errorf("(processIOData) EvaluateExpression returned: %s", err.Error())
+		// 			return
+		// 		}
+
+		// 		// valid only : File or []File
+		// 		switch expr_result.(type) {
+		// 		case cwl.File:
+		// 			file := expr_result.(cwl.File)
+		// 			cip.SecondaryFiles = file
+		// 		case []cwl.File:
+
+		// 			files := expr_result.([]cwl.File)
+		// 			cip.SecondaryFiles = files
+
+		// 		default:
+		// 			err = fmt.Errorf("(processIOData) (expr_result A) unsupported type: %s", reflect.TypeOf(expr_result))
+		// 			return
+		// 		}
+
+		// 	case string:
+		// 		// upload
+		// 		sec_str := cip.SecondaryFiles.(string)
+		// 		for strings.HasPrefix(sec_str, "^") {
+		// 			ext := filepath.Ext(sec_str)
+		// 			sec_str = strings.TrimSuffix(sec_str, ext)
+		// 			sec_str = strings.TrimPrefix(sec_str, "^")
+		// 		}
+
+		// 	case cwl.String:
+
+		// 	default:
+		// 		err = fmt.Errorf("(processIOData) (expr_result B) unsupported type: %s", reflect.TypeOf(cip.SecondaryFiles))
+		// 		return
+
+		// 	}
+
+		// 	count += sub_count
+		//}
 
 	case *cwl.InputParameter:
 
@@ -1015,6 +1087,54 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			}
 			count += sub_count
 		}
+
+	case *cwl.Requirement:
+		requirement := native.(*cwl.Requirement)
+
+		var requirement_if interface{}
+		requirement_if = *requirement
+
+		switch requirement_if.(type) {
+		case *cwl.InitialWorkDirRequirement:
+
+			iwdr := requirement_if.(*cwl.InitialWorkDirRequirement)
+
+			if iwdr.Listing != nil {
+				switch iwdr.Listing.(type) {
+				//case []interface{}:
+				case []cwl.CWL_object:
+					obj_array := iwdr.Listing.([]cwl.CWL_object)
+					for i, _ := range obj_array {
+
+						sub_count := 0
+						sub_count, err = ProcessIOData(obj_array[i], current_path, base_path, "download", shock_client)
+						if err != nil {
+							err = fmt.Errorf("(processIOData) []cwl.CWL_object cwl.Requirement/Listing  returned: %s", err.Error())
+							return
+						}
+						count += sub_count
+					}
+				case cwl.File:
+					sub_count := 0
+					sub_count, err = ProcessIOData(iwdr.Listing, current_path, base_path, "download", shock_client)
+					if err != nil {
+						err = fmt.Errorf("(processIOData) cwl.File cwl.Requirement/Listing  returned: %s", err.Error())
+						return
+					}
+					count += sub_count
+				default:
+					err = fmt.Errorf("(processIOData) cwl.Requirement/Listing , unkown type: (%s)", reflect.TypeOf(iwdr.Listing))
+					return
+				}
+			}
+
+			return
+
+		}
+		//class := (*requirement).GetClass()
+
+		return
+
 	default:
 		//spew.Dump(native)
 		err = fmt.Errorf("(processIOData) No handler for type \"%s\"\n", reflect.TypeOf(native))

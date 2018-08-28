@@ -84,9 +84,11 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (re
 					err = fmt.Errorf("(EvaluateExpression)  value.Export() returned: %s", err.Error())
 					return
 				}
+				logger.Debug(3, "(EvaluateExpression) exported_value type: %s", reflect.TypeOf(exported_value))
 				switch exported_value.(type) {
 
 				case string:
+
 					value_returned = NewString(exported_value.(string))
 
 				case bool:
@@ -127,6 +129,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (re
 					return
 				}
 
+				logger.Debug(3, "(EvaluateExpression) value_returned type: %s", reflect.TypeOf(value_returned))
 				//fmt.Println("value_returned:")
 				//spew.Dump(value_returned)
 				result = value_returned

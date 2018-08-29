@@ -112,7 +112,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (re
 					return
 				case interface{}: //Object
 
-					fmt.Println("object:")
+					fmt.Println("(EvaluateExpression) object:")
 					spew.Dump(exported_value)
 					//err = fmt.Errorf("(EvaluateExpression) record not supported yet")
 

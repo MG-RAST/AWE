@@ -126,6 +126,8 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 	//var cwl_type CWLType
 	//fmt.Printf("(NewCWLType) starting with type %s\n", reflect.TypeOf(native))
+	fmt.Println("(NewCWLType)")
+	spew.Dump(native)
 
 	native, err = MakeStringMap(native)
 	if err != nil {
@@ -140,11 +142,11 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 	}
 
 	switch native.(type) {
-	case []interface{}:
+	case []interface{}, []map[string]interface{}:
 		//fmt.Printf("(NewCWLType) C\n")
-		native_array, _ := native.([]interface{})
+		//native_array, _ := native.([]interface{})
 
-		array, xerr := NewArray(id, native_array)
+		array, xerr := NewArray(id, native)
 		if xerr != nil {
 			err = fmt.Errorf("(NewCWLType) NewArray returned: %s", xerr.Error())
 			return
@@ -397,9 +399,11 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 		default:
 			fmt.Println("schema:")
 			spew.Dump(schema)
-			fmt.Println("object:")
+			fmt.Println("(TypeIsCorrectSingle) object:")
 			spew.Dump(object)
-			panic("array did not match")
+			//panic("array did not match")
+			err = fmt.Errorf("(TypeIsCorrectSingle) array did not match")
+			return
 		}
 	default:
 

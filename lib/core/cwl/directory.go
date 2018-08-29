@@ -2,7 +2,9 @@ package cwl
 
 import (
 	"fmt"
+	"reflect"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -31,7 +33,8 @@ func NewDirectoryFromInterface(obj interface{}) (d *Directory, err error) {
 
 	obj_map, ok := obj.(map[string]interface{})
 
-	//spew.Dump(obj)
+	fmt.Println("(NewDirectoryFromInterface)")
+	spew.Dump(obj)
 	//err = fmt.Errorf("who invoked me ?")
 	//return
 
@@ -43,12 +46,12 @@ func NewDirectoryFromInterface(obj interface{}) (d *Directory, err error) {
 	listing, has_listing := obj_map["listing"]
 	if has_listing {
 		var listing_types *[]CWLType
-		listing_types, err = NewCWLTypeArray(listing, "")
+		listing_types, err = NewFDArray(listing, "")
 		if err != nil {
-			err = fmt.Errorf("(MakeFile) NewCWLTypeArray returns: %s", err.Error())
+			err = fmt.Errorf("(MakeFile) NewFDArray returns: %s", err.Error())
 			return
 		}
-		// TODO check that elements are only File and Directory (make this a feature of NewCWLTypeArray??)
+
 		obj_map["listing"] = listing_types
 
 	}
@@ -62,4 +65,59 @@ func NewDirectoryFromInterface(obj interface{}) (d *Directory, err error) {
 	}
 
 	return
+}
+
+// Array of Files and/or Directories
+func NewFDArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWLType, err error) {
+
+	switch native.(type) {
+	case []interface{}:
+
+		native_array, ok := native.([]interface{})
+		if !ok {
+			err = fmt.Errorf("(NewFDArray) could not parse []interface{}")
+			return
+		}
+
+		cwl_array := []CWLType{}
+
+		for _, value := range native_array {
+			value_cwl, xerr := NewCWLType("", value)
+			if xerr != nil {
+				err = xerr
+				return
+			}
+
+			switch value_cwl.(type) {
+			case *File, *Directory:
+				// ok
+			default:
+				err = fmt.Errorf("(NewFDArray) (A) expected *File or *Directory, got %s ", reflect.TypeOf(value_cwl))
+				return
+			}
+
+			cwl_array = append(cwl_array, value_cwl)
+		}
+		cwl_array_ptr = &cwl_array
+	default:
+
+		ct, xerr := NewCWLType("", native)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+
+		switch ct.(type) {
+		case *File, *Directory:
+			// ok
+		default:
+			err = fmt.Errorf("(NewFDArray) (B) expected *File or *Directory, got %s ", reflect.TypeOf(ct))
+			return
+		}
+
+		cwl_array_ptr = &[]CWLType{ct}
+	}
+
+	return
+
 }

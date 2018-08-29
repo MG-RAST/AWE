@@ -158,11 +158,8 @@ func MakeFile(obj interface{}) (file File, err error) {
 				node, xerr := shock_client.GetNode(file.Node)
 
 				if xerr != nil {
-<<<<<<< HEAD
 					err = fmt.Errorf("(MakeFile) Could not get shock node (%s, %s): %s", file.Host, file.Node, xerr.Error())
-=======
-					err = fmt.Errorf("(GetNode) Could not get shock node (%s, %s): %s", file.Host, file.Node, xerr.Error())
->>>>>>> 0909219b37044372cc566c17ae9fa901bda584bc
+
 					return
 				}
 				//fmt.Println("---node:")

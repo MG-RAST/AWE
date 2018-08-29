@@ -5,13 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/MG-RAST/AWE/lib/acl"
-<<<<<<< HEAD
-
 	"io/ioutil"
 
-=======
->>>>>>> 0909219b37044372cc566c17ae9fa901bda584bc
+	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"

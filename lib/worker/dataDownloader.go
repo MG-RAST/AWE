@@ -15,7 +15,7 @@ import (
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"github.com/MG-RAST/AWE/lib/shock"
+	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/MG-RAST/golib/httpclient"
 	//"github.com/davecgh/go-spew/spew"
 	"io"
@@ -515,7 +515,7 @@ func fetchFile_old(filename string, url string, token string) (size int64, err e
 	}
 
 	//download file from Shock
-	res, err := httpclient.Get(url, httpclient.Header{}, nil, user)
+	res, err := httpclient.Get(url, httpclient.Header{}, user)
 	if err != nil {
 		return 0, err
 	}

@@ -3,7 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/shock"
+	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/MG-RAST/golib/go-uuid/uuid"
 	"net/url"
 	"strings"
@@ -134,7 +134,7 @@ func (io *IO) getShockNode() (node *shock.ShockNode, err error) {
 		return
 	}
 	sc := shock.ShockClient{Host: io.Host, Token: io.DataToken}
-	node, err = sc.Get_node(io.Node)
+	node, err = sc.GetNode(io.Node)
 	if err != nil {
 		return
 	}
@@ -203,7 +203,7 @@ func (io *IO) IndexFile(indextype string) (idxInfo shock.IdxInfo, err error) {
 		sc := shock.ShockClient{Host: io.Host, Token: io.DataToken}
 		// create missing index
 		if !hasIndex {
-			err = sc.ShockPutIndex(io.Node, indextype)
+			err = sc.PutIndex(io.Node, indextype)
 			if err != nil {
 				return
 			}

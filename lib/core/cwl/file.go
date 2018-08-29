@@ -6,7 +6,7 @@ import (
 	"path"
 	"reflect"
 
-	"github.com/MG-RAST/AWE/lib/shock"
+	shock "github.com/MG-RAST/go-shock-client"
 	//"github.com/davecgh/go-spew/spew"
 	"net/url"
 	"strings"
@@ -155,7 +155,7 @@ func MakeFile(obj interface{}) (file File, err error) {
 
 				file.Host = "http://" + file_url.Host
 				shock_client := shock.ShockClient{Host: file.Host} // TODO Token: datatoken
-				node, xerr := shock_client.Get_node(file.Node)
+				node, xerr := shock_client.GetNode(file.Node)
 
 				if xerr != nil {
 					err = fmt.Errorf("(MakeFile) Could not get shock node (%s, %s): %s", file.Host, file.Node, xerr.Error())

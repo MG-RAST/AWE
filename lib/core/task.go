@@ -3,16 +3,15 @@ package core
 import (
 	"errors"
 	"fmt"
+	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
+	"github.com/MG-RAST/AWE/lib/logger"
+	shock "github.com/MG-RAST/go-shock-client"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/core/cwl"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/shock"
 )
 
 const (

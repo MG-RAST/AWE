@@ -46,8 +46,12 @@ func Do(t string, url string, header Header, data io.Reader, user *Auth) (*http.
 	return DoTimeout(t, url, header, data, user, time.Second*0) // TODO decrease to 60 seconds if SHOCK issue withchunks is solved
 }
 
-func Get(url string, header Header, data io.Reader, user *Auth) (resp *http.Response, err error) {
-	return Do("GET", url, header, data, user)
+func Get(url string, header Header, user *Auth) (resp *http.Response, err error) {
+	return Do("GET", url, header, nil, user)
+}
+
+func Delete(url string, header Header, user *Auth) (resp *http.Response, err error) {
+	return Do("DELETE", url, header, nil, user)
 }
 
 func Post(url string, header Header, data io.Reader, user *Auth) (resp *http.Response, err error) {
@@ -58,12 +62,8 @@ func Put(url string, header Header, data io.Reader, user *Auth) (resp *http.Resp
 	return Do("PUT", url, header, data, user)
 }
 
-func Delete(url string, header Header, data io.Reader, user *Auth) (resp *http.Response, err error) {
-	return Do("DELETE", url, header, data, user)
-}
-
-func GetTimeout(url string, header Header, data io.Reader, user *Auth, ReadWriteTimeout time.Duration) (resp *http.Response, err error) {
-	return DoTimeout("GET", url, header, data, user, ReadWriteTimeout)
+func GetTimeout(url string, header Header, user *Auth, ReadWriteTimeout time.Duration) (resp *http.Response, err error) {
+	return DoTimeout("GET", url, header, nil, user, ReadWriteTimeout)
 }
 
 func DoTimeout(t string, url string, header Header, data io.Reader, user *Auth, ReadWriteTimeout time.Duration) (*http.Response, error) {

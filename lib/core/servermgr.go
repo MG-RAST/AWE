@@ -2230,15 +2230,14 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 			logger.Debug(2, "(createOutputNode) posting output Shock node for file %s in task %s", io.FileName, task.Id)
 
 			sc := shock.ShockClient{Host: io.Host, Token: task.Info.DataToken}
-			nodeid, nerr := sc.PostNodeWithToken(io.FileName, task.TotalWork)
-			if nerr != nil {
-				err = fmt.Errorf("PostNodeWithToken failed: %s", nerr.Error())
+			var nodeid string
+			nodeid, err = sc.CreateNode(io.FileName, task.TotalWork)
+			if err != nil {
 				return
 			}
 			io.Node = nodeid
 			_, err = io.DataUrl()
 			if err != nil {
-				err = fmt.Errorf("DataUrl failed: %s", err.Error())
 				return
 			}
 			modified = true

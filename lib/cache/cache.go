@@ -136,15 +136,6 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.ShockClient) (err error) {
 	fmt.Printf("(uploadFile) start\n")
 	defer fmt.Printf("(uploadFile) end\n")
-	//if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
-
-	//	time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-	//	if err := core.PutFileToShock(file_path, io.Host, io.Node, work.Rank, work.Info.DataToken, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
-	//		fmt.Errorf("push file error\n")
-	//		logger.Error("op=pushfile,err=" + err.Error())
-	//		return size, err
-	//	}
-	//}
 
 	scheme := ""
 	if file.Location_url != nil {
@@ -192,19 +183,13 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 		file_path = path.Join(inputfile_path, file_path)
 	}
 
-	//fmt.Printf("Using path %s\n", file_path)
-
-	//sc := shock.ShockClient{Host: conf.SHOCK_URL, Token: "", Debug: false} // "shock:7445"
-
-	opts := shock.Opts{"upload_type": "basic", "file": file_path}
-	node, err := shock_client.CreateOrUpdate(opts, "", nil)
+	nodeid, err := shock_client.PostFile(file_path)
 	if err != nil {
-		err = fmt.Errorf("(UploadFile) CreateOrUpdate returned: %s", err.Error())
+		err = fmt.Errorf("(UploadFile) %s", err.Error())
 		return
 	}
-	//spew.Dump(node)
 
-	file.Location_url, err = url.Parse(shock_client.Host + "/node/" + node.Id + "?download")
+	file.Location_url, err = url.Parse(shock_client.Host + "/node/" + nodeid + "?download")
 	if err != nil {
 		err = fmt.Errorf("(UploadFile) url.Parse returned: %s", err.Error())
 		return
@@ -657,15 +642,14 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 		}
 	}
 
-	logger.Debug(1, "UploadOutputData, core.PutFileToShock: file_path: %s (io.Node: %s)", file_path, io.Node)
 	sc := shock.ShockClient{Host: io.Host, Token: work.Info.DataToken}
 	sc.Debug = true
 
-	new_node_id, err = sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr)
+	new_node_id, err = sc.PutOrPostFile(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr)
 	if err != nil {
 
 		time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-		new_node_id, err = sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr)
+		new_node_id, err = sc.PutOrPostFile(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr)
 		if err != nil {
 			err = fmt.Errorf("push file error: %s", err.Error())
 			logger.Error("op=pushfile,err=" + err.Error())
@@ -680,7 +664,7 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 	// worker only index if not parts node, otherwise server is responsible
 	if (io.ShockIndex != "") && (work.Rank == 0) {
 		sc := shock.ShockClient{Host: io.Host, Token: work.Info.DataToken}
-		if err := sc.ShockPutIndex(io.Node, io.ShockIndex); err != nil {
+		if err := sc.PutIndex(io.Node, io.ShockIndex); err != nil {
 			logger.Error("warning: fail to create index on shock for shock node: " + io.Node)
 		}
 	}

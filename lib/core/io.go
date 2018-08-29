@@ -203,7 +203,7 @@ func (io *IO) IndexFile(indextype string) (idxInfo shock.IdxInfo, err error) {
 		sc := shock.ShockClient{Host: io.Host, Token: io.DataToken}
 		// create missing index
 		if !hasIndex {
-			err = sc.ShockPutIndex(io.Node, indextype)
+			err = sc.PutIndex(io.Node, indextype)
 			if err != nil {
 				return
 			}

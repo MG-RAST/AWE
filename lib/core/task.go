@@ -10,11 +10,10 @@ import (
 	"strings"
 	"time"
 
-	shock "github.com/MG-RAST/go-shock-client"
-
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
+	shock "github.com/MG-RAST/go-shock-client"
 )
 
 const (

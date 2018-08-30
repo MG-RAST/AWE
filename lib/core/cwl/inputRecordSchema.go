@@ -48,7 +48,6 @@ func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Ty
 			return
 		}
 
-		
 		fields, has_fields := native_map["fields"]
 		if !has_fields {
 			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) no fields")
@@ -60,7 +59,7 @@ func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Ty
 			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) CreateInputRecordFieldArray returns: %s", err.Error())
 			return
 		}
-		
+
 	default:
 		err = fmt.Errorf("(NewInputRecordSchemaFromInterface) error")
 	}

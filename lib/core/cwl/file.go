@@ -159,7 +159,6 @@ func MakeFile(obj interface{}) (file File, err error) {
 
 				if xerr != nil {
 					err = fmt.Errorf("(MakeFile) Could not get shock node (%s, %s): %s", file.Host, file.Node, xerr.Error())
-
 					return
 				}
 				//fmt.Println("---node:")

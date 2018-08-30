@@ -1,11 +1,17 @@
 package core
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 
 	"io/ioutil"
+	"os"
+	"os/exec"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
@@ -14,13 +20,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/MG-RAST/golib/httpclient"
-	//"net/url"
-	"encoding/base64"
-	"os"
-	"os/exec"
-	"strconv"
-	"strings"
-	"time"
 )
 
 var (

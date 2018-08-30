@@ -1,0 +1,173 @@
+
+# you need a recent version of Docker compose
+version: '3.1'
+
+
+# these variables are set in init.sh (change storage location there)
+#
+# set TAG to specify docker image version
+# set CONFIGDIR to path to config
+# set SHOCKDIR for persistent Shock data store , e.g. /var/tmp/Shock
+# set DATADIR for persistent data store , e.g. /var/tmp
+# set LOGDIR to path to local log dir
+# set DOCKER_BINARY to the path of the docker client binary (Linux binary, not OSX/Windows)
+# set CWL_DIR for location of demo workflow
+
+services:
+
+    # the SHOCK object store
+    # to make SHOCK data persistent uncomment the lines here and in "mongo" below
+    shock:
+        image: mgrast/shock
+        depends_on:
+          - mongo
+        entrypoint:
+          - /go/bin/shock-server
+          # - --conf
+          # - /shock-config/shock-server.cfg
+        # volumes:
+        #   - ${CONFIGDIR}/Shock/shock-server.container.cfg:/shock-config/shock-server.cfg
+        #   - ${LOGDIR}/shock:/var/log/shock
+          # remove the comment below to make SHOCK data persistent
+          #- ${SHOCKDIR}/data:/usr/local/shock
+        ports:
+          - 7445:7445
+          - 8083:80
+
+    # local Oauth2 server for user, password and tokens
+    # to make Auth data persistent make the MySQL DB persistent
+    # auth:
+    #     image: mgrast/authserver:latest
+    #     extra_hosts:
+    #       - "skyport.local:${SKYPORT_DOCKER_GATEWAY}"
+    #     environment:
+    #         MYSQL_HOST: db
+    #         MYSQL_DATABASE: DemoAppUsers
+    #         MYSQL_USER: authService
+    #         MYSQL_PASSWORD: authServicePassword
+    #     depends_on:
+    #       - db
+    #     volumes:
+    #       - ${CONFIGDIR}/authServer/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
+    #       - ${CONFIGDIR}/authServer/cgi/:/usr/local/apache2/htdocs/cgi-bin/
+    #     ports:
+    #       - 8081:80
+
+    # AWE resource manager
+    # uncomment AWEDIR to make data and logs persistent (also requires AWE-mongo for full persistence)
+    awe-server:
+        image: mgrast/awe:test
+        # extra_hosts:
+        #   - "skyport.local:${SKYPORT_DOCKER_GATEWAY}"
+        entrypoint:
+          - /go/bin/awe-server
+          - --hosts=awe-mongo
+          - --debuglevel=1
+          - --max_work_failure=1
+          - --max_client_failure=1000
+          # - --conf=/awe-config/awe-server.cfg
+        depends_on:
+          - awe-mongo
+          # - auth
+        ports:
+          - 8001:8001
+          - 8081:8081
+        # volumes:
+        #   - ${CONFIGDIR}/AWE/awe-server.conf:/awe-config/awe-server.cfg:ro
+        #   #- ${AWEDIR}:/mnt/data/awe/
+
+
+    # the AWE worker that will execute the workflow steps
+    # the data and logs for the awe worker are persistent in this configuration
+    awe-worker:
+        image: mgrast/awe-worker:test
+        # worker needs to wait for AWE-server to start up
+        extra_hosts:
+          - "skyport.local:${SKYPORT_DOCKER_GATEWAY}"
+        entrypoint:
+          - ash 
+          - -c
+          - 'while [ $$(nc -z awe-server 8001 ; echo $$?) != 0 ] ; do echo "wait..." ; sleep 2 ; done ;
+            /go/bin/awe-worker
+            --name compose_worker-1
+            --data=${DATADIR}/awe-worker/data
+            --logs=/mnt/data/logs
+            --workpath=${DATADIR}/awe-worker/work
+            --serverurl=http://awe-server:8001
+            --shockurl=http://shock-server:7445
+            --group=docker
+            --supported_apps=*
+            --auto_clean_dir=false
+            --debuglevel=3'
+        depends_on:
+          - awe-server
+        restart: on-failure
+        volumes:
+          - ${PWD}/tmp:/tmp
+          # - ${CONFIGDIR}/AWE/awe-worker.cfg:/awe-config/awe-worker.cfg:ro
+          - ${DATADIR}/awe-worker:${DATADIR}/awe-worker
+          # - ${LOGDIR}/awe-worker/:/mnt/data/logs
+          # mount the binary we have downloaded with the init.sh command
+          - ${DOCKER_BINARY}:/usr/local/bin/docker
+          # mount the docker socker to allow container to execute docker commands (for CWL runner)
+          - /var/run/docker.sock:/var/run/docker.sock
+
+    # # nginx integrates various containers and exposes required ports
+    # nginx:
+    #     image: nginx:1.13-alpine
+    #     extra_hosts:
+    #       - "skyport.local:${SKYPORT_DOCKER_GATEWAY}"
+    #     depends_on:
+    #       - shock
+    #       - shock-browser
+    #       - adminer
+    #       - auth
+    #       - awe-server
+    #       - demo-app-api
+    #       - demo-app-web
+    #     ports:
+    #       - ${NGINX_PORT}:80
+    #     volumes:
+    #       - ${CONFIGDIR}/nginx/skyport-demo.conf:/etc/nginx/conf.d/default.conf:ro
+    #       - ${CONFIGDIR}/nginx/:/usr/share/nginx/html/
+    #       # - ${DOCSDIR}:/usr/share/nginx/html/docs/:ro
+    #       - ${LOGDIR}/nginx/:/var/log/nginx/
+
+    # # a graphical front end for MySQL useful for debugging
+    # adminer:
+    #     image: adminer
+    #     extra_hosts:
+    #       - "skyport.local:${SKYPORT_DOCKER_GATEWAY}"
+    #     ports:
+    #         - 8080:8080
+
+    # mongoDB for the SHOCK service, provides metadata storage
+    mongo:
+        image: mongo:3.6
+        ports:
+          - 27017
+        # uncomment the next two lines to make SHOCK mongo data persistent
+        # volumes:
+        #  - ${SHOCKDIR}/db:/data/db
+
+   # the MySQL server is a component of the auth server
+   #
+    db:
+        image: mysql:5.7
+        environment:
+            MYSQL_ROOT_PASSWORD: secret
+            MYSQL_DATABASE: DemoAppUsers
+            MYSQL_USER: authService
+            MYSQL_PASSWORD: authServicePassword
+        volumes:
+          - /var/lib/mysql
+          #- ${AUTHDB}:/var/lib/mysql
+
+    # mount a volume in the mongo server to make data persistent between runs
+    awe-mongo:
+        image: mongo:3.6
+        ports:
+          - 27017
+        # to make the AWE jobs persistent between runs uncomment the lines below
+        #volumes:
+        #  - ${SHOCKDIR}/db:/data/db

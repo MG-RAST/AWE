@@ -142,8 +142,8 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 		return
 	}
 
-	fmt.Println("InitialWorkDirRequirement:")
-	spew.Dump(*r)
+	//fmt.Println("InitialWorkDirRequirement:")
+	//spew.Dump(*r)
 
 	if r.Listing == nil {
 		return
@@ -152,7 +152,7 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 	listing := r.Listing
 	switch listing.(type) {
 	case []CWL_object:
-		fmt.Println("(InitialWorkDirRequirement/Evaluate) array")
+		//fmt.Println("(InitialWorkDirRequirement/Evaluate) array")
 		listing_array := listing.([]CWL_object)
 		for i, _ := range listing_array {
 
@@ -166,7 +166,7 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 				// nothing to do
 				return
 
-				fmt.Println("(InitialWorkDirRequirement/Evaluate) dirent")
+				//fmt.Println("(InitialWorkDirRequirement/Evaluate) dirent")
 				var element_dirent *Dirent
 				element_dirent = element.(*Dirent)
 				err = element_dirent.Evaluate(inputs)
@@ -174,8 +174,8 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 					err = fmt.Errorf("(InitialWorkDirRequirement) element_dirent.Evaluate returned: %s", err.Error())
 					return
 				}
-				fmt.Println("(InitialWorkDirRequirement/Evaluate) element_dirent:")
-				spew.Dump(element_dirent)
+				//fmt.Println("(InitialWorkDirRequirement/Evaluate) element_dirent:")
+				//spew.Dump(element_dirent)
 				listing_array[i] = element_dirent
 			case *File, *Directory:
 				// nothing to do
@@ -288,8 +288,6 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 		// set evaluated avlue
 		r.Listing = new_value
 
-		spew.Dump(r)
-		panic("done here")
 	default:
 
 		err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) type not supported: %s", reflect.TypeOf(listing))

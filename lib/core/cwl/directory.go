@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -33,8 +32,8 @@ func NewDirectoryFromInterface(obj interface{}) (d *Directory, err error) {
 
 	obj_map, ok := obj.(map[string]interface{})
 
-	fmt.Println("(NewDirectoryFromInterface)")
-	spew.Dump(obj)
+	//fmt.Println("(NewDirectoryFromInterface)")
+	//spew.Dump(obj)
 	//err = fmt.Errorf("who invoked me ?")
 	//return
 
@@ -70,7 +69,41 @@ func NewDirectoryFromInterface(obj interface{}) (d *Directory, err error) {
 // Array of Files and/or Directories
 func NewFDArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWLType, err error) {
 
+	//fmt.Println("(NewFDArray)")
+	//spew.Dump(native)
+
 	switch native.(type) {
+	case []map[string]interface{}:
+		native_array, ok := native.([]map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("(NewFDArray) could not parse []map[string]interface{}")
+			return
+		}
+
+		cwl_array := []CWLType{}
+
+		for _, value := range native_array {
+
+			var value_cwl CWLType
+			value_cwl, err = NewCWLType("", value)
+			if err != nil {
+				err = fmt.Errorf("(NewFDArray) in loop, NewCWLType returned: %s", err.Error())
+				return
+			}
+
+			switch value_cwl.(type) {
+			case *File, *Directory:
+
+				// ok
+			default:
+
+				err = fmt.Errorf("(NewFDArray) (A) expected *File or *Directory, got %s ", reflect.TypeOf(value_cwl))
+				return
+			}
+
+			cwl_array = append(cwl_array, value_cwl)
+		}
+		cwl_array_ptr = &cwl_array
 	case []interface{}:
 
 		native_array, ok := native.([]interface{})
@@ -82,16 +115,20 @@ func NewFDArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWLType,
 		cwl_array := []CWLType{}
 
 		for _, value := range native_array {
-			value_cwl, xerr := NewCWLType("", value)
-			if xerr != nil {
-				err = xerr
+
+			var value_cwl CWLType
+			value_cwl, err = NewCWLType("", value)
+			if err != nil {
+				err = fmt.Errorf("(NewFDArray) in loop, NewCWLType returned: %s", err.Error())
 				return
 			}
 
 			switch value_cwl.(type) {
 			case *File, *Directory:
+
 				// ok
 			default:
+
 				err = fmt.Errorf("(NewFDArray) (A) expected *File or *Directory, got %s ", reflect.TypeOf(value_cwl))
 				return
 			}
@@ -100,17 +137,21 @@ func NewFDArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWLType,
 		}
 		cwl_array_ptr = &cwl_array
 	default:
-
+		//fmt.Println("(NewFDArray) array element")
+		//spew.Dump(native)
 		ct, xerr := NewCWLType("", native)
 		if xerr != nil {
 			err = xerr
 			return
 		}
-
+		//fmt.Println("(NewFDArray) array element, after parsing")
+		//spew.Dump(ct)
 		switch ct.(type) {
 		case *File, *Directory:
+			//fmt.Println("(NewFDArray) ok, file or directory")
 			// ok
 		default:
+			//fmt.Println("(NewFDArray) ERROR")
 			err = fmt.Errorf("(NewFDArray) (B) expected *File or *Directory, got %s ", reflect.TypeOf(ct))
 			return
 		}

@@ -204,31 +204,6 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	file_size := file_info.Size()
 
 	basename := path.Base(file_path)
-	//scheme := ""
-	// if file.Location_url != nil {
-	// 	scheme = file.Location_url.Scheme
-	// 	host := file.Location_url.Host
-	// 	path := file.Location_url.Path
-	// 	//fmt.Printf("Location: '%s' '%s' '%s'\n", scheme, host, path)
-
-	// 	if scheme == "" {
-	// 		if host == "" {
-	// 			scheme = "file"
-	// 		} else {
-	// 			scheme = "http"
-	// 		}
-	// 		//fmt.Printf("Location (updated): '%s' '%s' '%s'\n", scheme, host, path)
-	// 	}
-
-	// 	if scheme == "file" {
-	// 		if host == "" || host == "localhost" {
-	// 			file.Path = path
-	// 		}
-	// 	} else {
-	// 		return
-	// 	}
-
-	// }
 
 	if file_path == "" {
 		err = fmt.Errorf("(UploadFile) file.Path is empty")
@@ -242,22 +217,9 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 		new_file_name = basename
 	}
 
-	//sc := shock.ShockClient{Host: conf.SHOCK_URL, Token: "", Debug: false} // "shock:7445"
-	//fmt.Printf("(UploadFile) new_file_name: %s\n", new_file_name)
-	opts := shock.Opts{"upload_type": "basic", "file": file_path, "file_name": new_file_name}
-	node, err := shock_client.CreateOrUpdate(opts, "", nil)
-	if err != nil {
-		err = fmt.Errorf("(UploadFile) CreateOrUpdate returned: %s (file_path: %s)", err.Error(), file_path)
-		return
-	}
-
-	if !path.IsAbs(file_path) {
-		file_path = path.Join(inputfile_path, file_path)
-	}
-
 	nodeid, err := shock_client.PostFile(file_path, new_file_name)
 	if err != nil {
-		err = fmt.Errorf("(UploadFile) %s", err.Error())
+		err = fmt.Errorf("(UploadFile) shock_client.PostFile returned: %s", err.Error())
 		return
 	}
 

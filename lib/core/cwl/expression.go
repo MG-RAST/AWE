@@ -112,8 +112,8 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (re
 					return
 				case interface{}: //Object
 
-					fmt.Println("(EvaluateExpression) object:")
-					spew.Dump(exported_value)
+					//fmt.Println("(EvaluateExpression) object:")
+					//spew.Dump(exported_value)
 					//err = fmt.Errorf("(EvaluateExpression) record not supported yet")
 
 					value_returned, err = NewCWLType("", exported_value)

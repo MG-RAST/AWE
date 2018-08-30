@@ -126,8 +126,8 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 	//var cwl_type CWLType
 	//fmt.Printf("(NewCWLType) starting with type %s\n", reflect.TypeOf(native))
-	fmt.Println("(NewCWLType)")
-	spew.Dump(native)
+	//fmt.Println("(NewCWLType)")
+	//spew.Dump(native)
 
 	native, err = MakeStringMap(native)
 	if err != nil {

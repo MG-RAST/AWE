@@ -66,7 +66,7 @@ func (d *Dirent) Evaluate(inputs interface{}) (err error) {
 			return
 		}
 
-		fmt.Println("(Dirent/Evaluate) new value")
+		//fmt.Println("(Dirent/Evaluate) new value")
 		// verify return type:
 		switch new_value.(type) {
 		case String, string:
@@ -78,7 +78,7 @@ func (d *Dirent) Evaluate(inputs interface{}) (err error) {
 			return
 
 		}
-		fmt.Println("(Dirent/Evaluate) new value, done")
+		//fmt.Println("(Dirent/Evaluate) new value, done")
 	case nil:
 		//ignore
 

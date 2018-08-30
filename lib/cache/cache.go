@@ -6,12 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/MG-RAST/AWE/lib/core/cwl"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/logger/event"
-	shock "github.com/MG-RAST/go-shock-client"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -21,6 +15,13 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/core/cwl"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/logger/event"
+	shock "github.com/MG-RAST/go-shock-client"
 )
 
 func getCacheDir(id string) string {
@@ -135,8 +136,6 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 }
 
 func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.ShockClient) (err error) {
-	fmt.Printf("(uploadFile) start\n")
-	defer fmt.Printf("(uploadFile) end\n")
 
 	if file.Contents != "" {
 		return
@@ -205,31 +204,6 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	file_size := file_info.Size()
 
 	basename := path.Base(file_path)
-	//scheme := ""
-	// if file.Location_url != nil {
-	// 	scheme = file.Location_url.Scheme
-	// 	host := file.Location_url.Host
-	// 	path := file.Location_url.Path
-	// 	//fmt.Printf("Location: '%s' '%s' '%s'\n", scheme, host, path)
-
-	// 	if scheme == "" {
-	// 		if host == "" {
-	// 			scheme = "file"
-	// 		} else {
-	// 			scheme = "http"
-	// 		}
-	// 		//fmt.Printf("Location (updated): '%s' '%s' '%s'\n", scheme, host, path)
-	// 	}
-
-	// 	if scheme == "file" {
-	// 		if host == "" || host == "localhost" {
-	// 			file.Path = path
-	// 		}
-	// 	} else {
-	// 		return
-	// 	}
-
-	// }
 
 	if file_path == "" {
 		err = fmt.Errorf("(UploadFile) file.Path is empty")
@@ -245,12 +219,13 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 
 	nodeid, err := shock_client.PostFile(file_path, new_file_name)
 	if err != nil {
-		err = fmt.Errorf("(UploadFile) %s", err.Error())
+		err = fmt.Errorf("(UploadFile) shock_client.PostFile returned: %s", err.Error())
 		return
 	}
 
 	var location_url *url.URL
 	location_url, err = url.Parse(shock_client.Host + "/node/" + nodeid + shock.DATA_SUFFIX)
+
 	if err != nil {
 		err = fmt.Errorf("(UploadFile) url.Parse returned: %s", err.Error())
 		return
@@ -1101,6 +1076,9 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 						return
 					}
 					count += sub_count
+				case *cwl.String:
+					// continue
+
 				default:
 					err = fmt.Errorf("(processIOData) cwl.Requirement/Listing , unkown type: (%s)", reflect.TypeOf(iwdr.Listing))
 					return

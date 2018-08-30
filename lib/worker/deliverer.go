@@ -13,6 +13,7 @@ import (
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+
 	shock "github.com/MG-RAST/go-shock-client"
 )
 

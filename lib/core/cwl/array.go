@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	"reflect"
 	//"reflect"
 	"encoding/json"
 
@@ -43,12 +44,33 @@ func NewArray(id string, native interface{}) (array_ptr *Array, err error) {
 
 			array = append(array, value_cwl)
 		}
-		//if len(array.Items) > 0 {
-		//	array.Items_Type = array.Items[0].GetType()
-		//}
+
+		array_ptr = &array
+		return
+	case []map[string]interface{}:
+		native_array := native.([]map[string]interface{})
+
+		array := Array{}
+		for _, value := range native_array {
+
+			var value_cwl CWLType
+			value_cwl, err = NewCWLType("", value)
+			if err != nil {
+				fmt.Println("NewArray element:")
+				spew.Dump(value)
+
+				err = fmt.Errorf("(NewArray) NewCWLType returned: %s", err.Error())
+				return
+			}
+
+			array = append(array, value_cwl)
+		}
+
 		array_ptr = &array
 		return
 	default:
+		err = fmt.Errorf("(NewArray) type not supported: %s", reflect.TypeOf(native))
+		return
 	}
 
 	return

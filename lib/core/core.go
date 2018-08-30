@@ -5,6 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -12,12 +20,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/MG-RAST/golib/httpclient"
-	"io/ioutil"
-	"os"
-	"os/exec"
-	"strconv"
-	"strings"
-	"time"
 )
 
 var (

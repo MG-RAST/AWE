@@ -200,7 +200,7 @@ func (file *File) UpdateComponents(filename string) {
 	file.Basename = path.Base(filename)
 
 	file.Nameext = path.Ext(filename)
-	file.Nameroot = strings.TrimSuffix(filename, file.Nameext)
+	file.Nameroot = strings.TrimSuffix(file.Basename, file.Nameext)
 	//fmt.Printf("file.Basename: %s\n", file.Basename)
 	//fmt.Printf("file.Nameext: %s\n", file.Nameext)
 	//fmt.Printf("file.Nameroot: %s\n", file.Nameroot)

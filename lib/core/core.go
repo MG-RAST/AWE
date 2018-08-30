@@ -655,9 +655,9 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 			}
 		}
 		sc := shock.ShockClient{Host: io.Host, Token: work.Info.DataToken}
-		if _, err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
+		if _, err := sc.PutOrPostFile(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
-			if _, err := sc.PutFileToShock(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
+			if _, err := sc.PutOrPostFile(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 				fmt.Errorf("push file error\n")
 				logger.Error("op=pushfile,err=" + err.Error())
 				return size, err
@@ -758,119 +758,6 @@ func getWorkNotesPath(work *Workunit) (worknotesFilePath string, err error) {
 		return worknotesFilePath, errors.New("work notes empty")
 	}
 	err = ioutil.WriteFile(worknotesFilePath, []byte(work.GetNotes()), 0644)
-	return
-}
-
-//shock access functions
-func createOrUpdate_deprecated(opts shock.Opts, host string, nodeid string, token string, nodeattr map[string]interface{}) (node *shock.ShockNode, err error) {
-	if host == "" {
-		return nil, fmt.Errorf("error: (createOrUpdate) host is not defined in Shock node")
-	}
-
-	url := host + "/node"
-	method := "POST"
-	if nodeid != "" {
-		url += "/" + nodeid
-		method = "PUT"
-	}
-	form := httpclient.NewForm()
-	if opts.HasKey("attributes") {
-		form.AddFile("attributes", opts.Value("attributes"))
-	}
-
-	if len(nodeattr) != 0 {
-		nodeattr_json, err := json.Marshal(nodeattr)
-		if err != nil {
-			return nil, errors.New("error marshalling NodeAttr")
-		}
-		form.AddParam("attributes_str", string(nodeattr_json[:]))
-	}
-
-	if opts.HasKey("upload_type") {
-		switch opts.Value("upload_type") {
-		case "basic":
-			if opts.HasKey("file") {
-				form.AddFile("upload", opts.Value("file"))
-			}
-		case "parts":
-			if opts.HasKey("parts") {
-				form.AddParam("parts", opts.Value("parts"))
-			} else {
-				return nil, errors.New("missing partial upload parameter: parts")
-			}
-			if opts.HasKey("file_name") {
-				form.AddParam("file_name", opts.Value("file_name"))
-			}
-		case "part":
-			if opts.HasKey("part") && opts.HasKey("file") {
-				form.AddFile(opts.Value("part"), opts.Value("file"))
-			} else {
-				return nil, errors.New("missing partial upload parameter: part or file")
-			}
-		case "remote_path":
-			if opts.HasKey("remote_path") {
-				form.AddParam("path", opts.Value("remote_path"))
-			} else {
-				return nil, errors.New("missing remote path parameter: path")
-			}
-		case "virtual_file":
-			if opts.HasKey("virtual_file") {
-				form.AddParam("type", "virtual")
-				form.AddParam("source", opts.Value("virtual_file"))
-			} else {
-				return nil, errors.New("missing virtual node parameter: source")
-			}
-		case "index":
-			if opts.HasKey("index_type") {
-				url += "/index/" + opts.Value("index_type")
-			} else {
-				return nil, errors.New("missing index type when creating index")
-			}
-		case "copy":
-			if opts.HasKey("parent_node") {
-				form.AddParam("copy_data", opts.Value("parent_node"))
-			} else {
-				return nil, errors.New("missing copy node parameter: parent_node")
-			}
-			if opts.HasKey("copy_indexes") {
-				form.AddParam("copy_indexes", "1")
-			}
-		case "subset":
-			if opts.HasKey("parent_node") && opts.HasKey("parent_index") && opts.HasKey("file") {
-				form.AddParam("parent_node", opts.Value("parent_node"))
-				form.AddParam("parent_index", opts.Value("parent_index"))
-				form.AddFile("subset_indices", opts.Value("file"))
-			} else {
-				return nil, errors.New("missing subset node parameter: parent_node or parent_index or file")
-			}
-		}
-	}
-	err = form.Create()
-	if err != nil {
-		return
-	}
-	headers := httpclient.Header{
-		"Content-Type":   []string{form.ContentType},
-		"Content-Length": []string{strconv.FormatInt(form.Length, 10)},
-	}
-	var user *httpclient.Auth
-	if token != "" {
-		user = httpclient.GetUserByTokenAuth(token)
-	}
-	if res, err := httpclient.Do(method, url, headers, form.Reader, user); err == nil {
-		defer res.Body.Close()
-		jsonstream, _ := ioutil.ReadAll(res.Body)
-		response := new(shock.ShockResponse)
-		if err := json.Unmarshal(jsonstream, response); err != nil {
-			return nil, errors.New(fmt.Sprintf("failed to marshal response:\"%s\"", jsonstream))
-		}
-		if len(response.Errs) > 0 {
-			return nil, errors.New(strings.Join(response.Errs, ","))
-		}
-		node = &response.Data
-	} else {
-		return nil, err
-	}
 	return
 }
 

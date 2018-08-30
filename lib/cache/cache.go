@@ -183,7 +183,7 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 		file_path = path.Join(inputfile_path, file_path)
 	}
 
-	nodeid, err := shock_client.PostFile(file_path)
+	nodeid, err := shock_client.PostFile(file_path, "")
 	if err != nil {
 		err = fmt.Errorf("(UploadFile) %s", err.Error())
 		return

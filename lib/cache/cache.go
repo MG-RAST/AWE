@@ -1041,6 +1041,48 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			}
 			count += sub_count
 		}
+	case *cwl.Dirent:
+		dirent := native.(*cwl.Dirent)
+
+		if dirent.Entry == nil {
+			return
+		}
+
+		switch dirent.Entry.(type) {
+
+		case []interface{}:
+			entry_array := dirent.Entry.([]interface{})
+			for i, _ := range entry_array {
+				sub_count := 0
+				sub_count, err = ProcessIOData(entry_array[i], current_path, base_path, io_type, shock_client)
+				if err != nil {
+					err = fmt.Errorf("(processIOData) work.Tool ProcessIOData(for download) returned: %s", err.Error())
+					return
+				}
+				count += sub_count
+			}
+
+		case cwl.File:
+			file := dirent.Entry.(cwl.File)
+			sub_count := 0
+			sub_count, err = ProcessIOData(file, current_path, base_path, io_type, shock_client)
+			if err != nil {
+				err = fmt.Errorf("(processIOData) work.Tool ProcessIOData(for download) returned: %s", err.Error())
+				return
+			}
+			count += sub_count
+		case *cwl.File:
+			file := dirent.Entry.(*cwl.File)
+			sub_count := 0
+			sub_count, err = ProcessIOData(file, current_path, base_path, io_type, shock_client)
+			if err != nil {
+				err = fmt.Errorf("(processIOData) work.Tool ProcessIOData(for download) returned: %s", err.Error())
+				return
+			}
+			count += sub_count
+		default:
+
+		}
 
 	case *cwl.Requirement:
 		requirement := native.(*cwl.Requirement)
@@ -1063,7 +1105,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 						sub_count := 0
 						sub_count, err = ProcessIOData(obj_array[i], current_path, base_path, "download", shock_client)
 						if err != nil {
-							err = fmt.Errorf("(processIOData) []cwl.CWL_object cwl.Requirement/Listing  returned: %s", err.Error())
+							err = fmt.Errorf("(processIOData) []cwl.CWL_object cwl.Requirement/Listing returned: %s", err.Error())
 							return
 						}
 						count += sub_count

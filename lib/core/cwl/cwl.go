@@ -21,6 +21,7 @@ import (
 type CWL_document_generic struct {
 	CwlVersion CWLVersion    `yaml:"cwlVersion"`
 	Graph      []interface{} `yaml:"graph"`
+	Namespaces interface{}   `yaml:"$namespaces"`
 	//Graph      []CWL_object_generic `yaml:"graph"`
 }
 
@@ -35,7 +36,7 @@ type CWLVersion string
 
 type LinkMergeMethod string // merge_nested or merge_flattened
 
-func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_version CWLVersion, schemata []CWLType_Type, err error) {
+func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_version CWLVersion, schemata []CWLType_Type, namespaces interface{}, err error) {
 	//fmt.Printf("(Parse_cwl_document) starting\n")
 	graph_pos := strings.Index(yaml_str, "$graph")
 
@@ -200,6 +201,13 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 		}
 		//fmt.Println("object_if:")
 		//spew.Dump(object_if)
+		var ok bool
+		namespaces, ok = object_if["$namespaces"]
+		if ok {
+			fmt.Println("got namespaces")
+		} else {
+			fmt.Println("no namespaces")
+		}
 
 		//var this_class string
 		//this_class, err = GetClass(object_if)

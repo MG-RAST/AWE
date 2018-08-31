@@ -7,6 +7,7 @@ import (
 	"reflect"
 
 	shock "github.com/MG-RAST/go-shock-client"
+	"github.com/davecgh/go-spew/spew"
 	//"github.com/davecgh/go-spew/spew"
 	"net/url"
 	"strings"
@@ -28,7 +29,7 @@ type File struct {
 	Checksum       string        `yaml:"checksum,omitempty" json:"checksum,omitempty" bson:"checksum,omitempty" mapstructure:"checksum,omitempty"`
 	Size           *int32        `yaml:"size,omitempty" json:"size,omitempty" bson:"size,omitempty" mapstructure:"size,omitempty"`
 	SecondaryFiles []interface{} `yaml:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"`
-	Format         []Expression  `yaml:"format,omitempty" json:"format,omitempty" bson:"format,omitempty" mapstructure:"format,omitempty"`
+	Format         string        `yaml:"format,omitempty" json:"format,omitempty" bson:"format,omitempty" mapstructure:"format,omitempty"`
 	Contents       string        `yaml:"contents,omitempty" json:"contents,omitempty" bson:"contents,omitempty" mapstructure:"contents,omitempty"`
 	// Shock node
 	Host   string `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
@@ -88,24 +89,25 @@ func MakeFile(obj interface{}) (file File, err error) {
 
 	}
 
-	format, has_format := obj_map["format"]
-	if has_format {
-		switch format.(type) {
-		case []interface{}:
-			// ok
-		case interface{}:
-			// put element into array
-			obj_map["format"] = []interface{}{format}
-		default:
-			err = fmt.Errorf("(MakeFile) format type not supported: %s", reflect.TypeOf(format))
-			return
-		}
+	// format, has_format := obj_map["format"]
+	// if has_format {
+	// 	switch format.(type) {
+	// 	case []interface{}:
+	// 		// ok
+	// 	case interface{}:
+	// 		// put element into array
+	// 		obj_map["format"] = []interface{}{format}
+	// 	default:
+	// 		err = fmt.Errorf("(MakeFile) format type not supported: %s", reflect.TypeOf(format))
+	// 		return
+	// 	}
 
-	}
+	// }
 
 	file = *NewFile()
 	err = mapstructure.Decode(obj_map, &file)
 	if err != nil {
+		spew.Dump(obj)
 		err = fmt.Errorf("(MakeFile) Could not convert File object: %s", err.Error())
 		return
 	}

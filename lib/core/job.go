@@ -79,6 +79,7 @@ type JobRaw struct {
 	WorkflowInstances    []interface{}                `bson:"workflow_instances" json:"workflow_instances" yaml:"workflow_instances" mapstructure:"workflow_instances"`
 	WorkflowInstancesMap map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	Entrypoint           string                       `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
+	Namespaces           map[string]string            `yaml:"namespaces,omitempty" bson:"namespaces,omitempty" json:"namespaces,omitempty" mapstructure:"namespaces,omitempty"`
 }
 
 func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
@@ -342,7 +343,7 @@ func NewJobDep() (job *JobDep) {
 }
 
 // this has to be called after Unmarshalling from JSON
-func (job *Job) Init(CwlVersion cwl.CWLVersion) (changed bool, err error) {
+func (job *Job) Init(CwlVersion cwl.CWLVersion, namespaces map[string]string) (changed bool, err error) {
 	changed = false
 	job.RWMutex.Init("Job")
 
@@ -465,7 +466,7 @@ func (job *Job) Init(CwlVersion cwl.CWLVersion) (changed bool, err error) {
 		collection := cwl.NewCWL_collection()
 
 		//var schemata_new []CWLType_Type
-		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.CWL_objects, job.CwlVersion)
+		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.CWL_objects, job.CwlVersion, namespaces)
 		if xerr != nil {
 			err = fmt.Errorf("(job.Init) cannot type assert CWL_objects: %s", xerr.Error())
 			return

@@ -32,6 +32,7 @@ type CommandLineTool struct {
 	SuccessCodes       []int                    `yaml:"successCodes,omitempty" bson:"successCodes,omitempty" json:"successCodes,omitempty" mapstructure:"successCodes,omitempty"`
 	TemporaryFailCodes []int                    `yaml:"temporaryFailCodes,omitempty" bson:"temporaryFailCodes,omitempty" json:"temporaryFailCodes,omitempty" mapstructure:"temporaryFailCodes,omitempty"`
 	PermanentFailCodes []int                    `yaml:"permanentFailCodes,omitempty" bson:"permanentFailCodes,omitempty" json:"permanentFailCodes,omitempty" mapstructure:"permanentFailCodes,omitempty"`
+	Namespaces         map[string]string        `yaml:"namespaces,omitempty" bson:"namespaces,omitempty" json:"namespaces,omitempty" mapstructure:"namespaces,omitempty"`
 }
 
 func (c *CommandLineTool) Is_CWL_minimal() {}
@@ -40,7 +41,7 @@ func (c *CommandLineTool) Is_process()     {}
 // keyname will be converted into 'Id'-field
 
 //func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
-func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedRequirements []Requirement) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
+func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedRequirements []Requirement, namespaces map[string]string) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
 
 	//fmt.Println("NewCommandLineTool:")
 	//spew.Dump(generic)
@@ -178,6 +179,9 @@ func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedReq
 		commandLineTool.CwlVersion = cwl_version
 	}
 
+	if namespaces != nil {
+		commandLineTool.Namespaces = namespaces
+	}
 	return
 
 }

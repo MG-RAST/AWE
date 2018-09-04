@@ -173,7 +173,7 @@ func main_wrapper() (err error) {
 	var named_object_array []cwl.Named_CWL_object
 	var cwl_version cwl.CWLVersion
 	var schemata []cwl.CWLType_Type
-	var namespaces interface{}
+	var namespaces map[string]string
 	named_object_array, cwl_version, schemata, namespaces, err = cwl.Parse_cwl_document(yaml_str)
 
 	if err != nil {
@@ -321,6 +321,7 @@ func main_wrapper() (err error) {
 
 	new_document := cwl.CWL_document_generic{}
 	new_document.CwlVersion = cwl_version
+	new_document.Namespaces = namespaces
 	for i, _ := range named_object_array {
 		pair := named_object_array[i]
 		object := pair.Value
@@ -336,6 +337,8 @@ func main_wrapper() (err error) {
 	new_document_str := string(new_document_bytes[:])
 	graph_pos := strings.Index(new_document_str, "\ngraph:")
 
+	new_document_str = strings.Replace(new_document_str, "\nnamespaces", "\n$namespaces", -1) // remove dollar sign
+
 	if graph_pos != -1 {
 		new_document_str = strings.Replace(new_document_str, "\ngraph", "\n$graph", -1) // remove dollar sign
 	} else {
@@ -344,7 +347,7 @@ func main_wrapper() (err error) {
 	}
 
 	if conf.DEBUG_LEVEL >= 3 {
-		fmt.Println("------------")
+		fmt.Println("------------ new_document_str:")
 		fmt.Println(new_document_str)
 		fmt.Println("------------")
 		//panic("hhhh")
@@ -430,7 +433,7 @@ func main_wrapper() (err error) {
 		}
 		//spew.Dump(job)
 
-		_, err = job.Init(cwl_version)
+		_, err = job.Init(cwl_version, namespaces)
 		if err != nil {
 			return
 		}

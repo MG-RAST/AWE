@@ -24,6 +24,7 @@ type Workflow struct {
 	Doc             string                    `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
 	CwlVersion      CWLVersion                `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
 	Metadata        map[string]interface{}    `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty" mapstructure:"metadata,omitempty"`
+	Namespaces      map[string]string         `yaml:"namespaces,omitempty" bson:"namespaces,omitempty" json:"namespaces,omitempty" mapstructure:"namespaces,omitempty"`
 }
 
 func (w *Workflow) GetClass() string { return string(CWL_Workflow) }
@@ -55,7 +56,7 @@ func NewWorkflowEmpty() (w Workflow) {
 	return w
 }
 
-func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequirements []Requirement, context *ParsingContext) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
+func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequirements []Requirement, context *ParsingContext, namespaces map[string]string) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
 
 	// convert input map into input array
 
@@ -156,7 +157,7 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequireme
 
 			//fmt.Printf("(NewWorkflow) Injecting %d\n", len(requirements_array))
 			//spew.Dump(requirements_array)
-			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps, CwlVersion, requirements_array, context)
+			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps, CwlVersion, requirements_array, context, namespaces)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) CreateWorkflowStepsArray returned: %s", err.Error())
 				return
@@ -183,6 +184,9 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequireme
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflow) error parsing workflow class: %s", err.Error())
 			return
+		}
+		if namespaces != nil {
+			workflow.Namespaces = namespaces
 		}
 		//fmt.Printf(".....WORKFLOW")
 		//spew.Dump(workflow)

@@ -203,6 +203,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	//os.Exit(0)
 	job = NewJob()
+	job.Namespaces = namespaces
 	job.setId()
 	//job.CWL_workflow = cwl_workflow
 

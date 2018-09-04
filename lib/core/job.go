@@ -79,7 +79,7 @@ type JobRaw struct {
 	WorkflowInstances    []interface{}                `bson:"workflow_instances" json:"workflow_instances" yaml:"workflow_instances" mapstructure:"workflow_instances"`
 	WorkflowInstancesMap map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	Entrypoint           string                       `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
-	Namespaces           map[string]string            `yaml:"namespaces,omitempty" bson:"namespaces,omitempty" json:"namespaces,omitempty" mapstructure:"namespaces,omitempty"`
+	Namespaces           map[string]string            `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
 func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
@@ -628,6 +628,7 @@ func Deserialize_b64(encoding string, target interface{}) (err error) {
 }
 
 func (job *Job) Save() (err error) {
+
 	if job.Id == "" {
 		err = fmt.Errorf("(job.Save()) job id empty")
 		return

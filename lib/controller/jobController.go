@@ -476,6 +476,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		job.CWL_objects = object_array_of_interface
 		job.CwlVersion = cwl_version
+		job.Namespaces = namespaces
 		//job.CWL_collection = &collection
 		job.Info.Name = job_file.Name
 		job.Info.Pipeline = workflow_filename

@@ -22,7 +22,7 @@ import (
 type CWL_document_generic struct {
 	CwlVersion CWLVersion        `yaml:"cwlVersion"`
 	Graph      []interface{}     `yaml:"graph"`
-	Namespaces map[string]string `yaml:"namespaces"`
+	Namespaces map[string]string `yaml:"$namespaces"`
 	//Graph      []CWL_object_generic `yaml:"graph"`
 }
 
@@ -41,7 +41,7 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 	//fmt.Printf("(Parse_cwl_document) starting\n")
 	graph_pos := strings.Index(yaml_str, "$graph")
 
-	yaml_str = strings.Replace(yaml_str, "$namespaces", "namespaces", -1)
+	//yaml_str = strings.Replace(yaml_str, "$namespaces", "namespaces", -1)
 
 	if graph_pos != -1 {
 		// *** graph file ***
@@ -176,7 +176,7 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 		//spew.Dump(object_if)
 		var ok bool
 		var namespaces_if interface{}
-		namespaces_if, ok = object_if["namespaces"]
+		namespaces_if, ok = object_if["$namespaces"]
 		if ok {
 			var namespaces_map map[string]interface{}
 			namespaces_map, ok = namespaces_if.(map[string]interface{})

@@ -329,6 +329,8 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 				return
 			}
 
+			//cwl_tool_bytes = bytes.Replace(cwl_tool_bytes, []byte("namespaces"), []byte("$namespaces"), 1)
+
 			err = ioutil.WriteFile(cwl_tool_filename, cwl_tool_bytes, 0644)
 			if err != nil {
 				return

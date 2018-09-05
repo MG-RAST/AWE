@@ -120,10 +120,10 @@ func main_wrapper() (err error) {
 		err = fmt.Errorf("job_doc_string is empty")
 		return
 	}
-	//os.Exit(0)
+
 	//fmt.Printf("yaml:\n%s\n", job_doc_string)
 
-	// ### process input files
+	// ### upload input files
 
 	shock_client := shock.NewShockClient(conf.SHOCK_URL, shock_auth, false)
 
@@ -134,7 +134,7 @@ func main_wrapper() (err error) {
 		return
 	}
 	logger.Debug(3, "%d files have been uploaded\n", upload_count)
-	time.Sleep(2)
+	//time.Sleep(2)
 
 	//spew.Dump(*job_doc)
 	job_doc_map = job_doc.GetMap()
@@ -145,7 +145,7 @@ func main_wrapper() (err error) {
 	}
 
 	if conf.DEBUG_LEVEL >= 3 {
-		fmt.Printf("yaml:\n%s\n", string(data[:]))
+		fmt.Printf("job input as yaml:\n%s\n", string(data[:]))
 	}
 	var yamlstream []byte
 	// read and pack workfow
@@ -165,7 +165,7 @@ func main_wrapper() (err error) {
 			return
 		}
 	}
-	// ### PARSE WORKFLOW DOCUMENT, in case default files have to be uploaded
+	// ### PARSE (maybe PACKED) WORKFLOW DOCUMENT, in case default files have to be uploaded
 
 	// convert CWL to string
 	yaml_str := string(yamlstream[:])
@@ -173,7 +173,8 @@ func main_wrapper() (err error) {
 	var named_object_array []cwl.Named_CWL_object
 	var cwl_version cwl.CWLVersion
 	var schemata []cwl.CWLType_Type
-	named_object_array, cwl_version, schemata, err = cwl.Parse_cwl_document(yaml_str)
+	var namespaces map[string]string
+	named_object_array, cwl_version, schemata, namespaces, err = cwl.Parse_cwl_document(yaml_str)
 
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) error in parsing cwl workflow yaml file: " + err.Error())
@@ -215,12 +216,8 @@ func main_wrapper() (err error) {
 
 		case *cwl.CommandLineTool:
 			var cmd_line_tool *cwl.CommandLineTool
-			cmd_line_tool, ok = object.(*cwl.CommandLineTool) // TODO this misses embedded CommandLineTools !
-			if !ok {
-				//fmt.Println("nope.")
-				err = nil
-				continue
-			}
+			cmd_line_tool = object.(*cwl.CommandLineTool)
+
 			//if cwl_version != "" {
 			//	cmd_line_tool.CwlVersion = cwl_version
 			//}
@@ -324,6 +321,7 @@ func main_wrapper() (err error) {
 
 	new_document := cwl.CWL_document_generic{}
 	new_document.CwlVersion = cwl_version
+	new_document.Namespaces = namespaces
 	for i, _ := range named_object_array {
 		pair := named_object_array[i]
 		object := pair.Value
@@ -339,6 +337,8 @@ func main_wrapper() (err error) {
 	new_document_str := string(new_document_bytes[:])
 	graph_pos := strings.Index(new_document_str, "\ngraph:")
 
+	new_document_str = strings.Replace(new_document_str, "\nnamespaces", "\n$namespaces", -1) // remove dollar sign
+
 	if graph_pos != -1 {
 		new_document_str = strings.Replace(new_document_str, "\ngraph", "\n$graph", -1) // remove dollar sign
 	} else {
@@ -347,14 +347,14 @@ func main_wrapper() (err error) {
 	}
 
 	if conf.DEBUG_LEVEL >= 3 {
-		fmt.Println("------------")
+		fmt.Println("------------ new_document_str:")
 		fmt.Println(new_document_str)
 		fmt.Println("------------")
 		//panic("hhhh")
 	}
 	new_document_bytes = []byte(new_document_str)
 
-	// this needs to be a file so we can run "cwltool --pack""
+	// ### Write workflow to file, so we can run "cwltool --pack""
 	var tmpfile *os.File
 	tmpfile, err = ioutil.TempFile(os.TempDir(), "awe-submitter_")
 	if err != nil {
@@ -381,6 +381,8 @@ func main_wrapper() (err error) {
 
 	//var b bytes.Buffer
 	//w := multipart.NewWriter(&b)
+
+	// ### Submit job to AWE
 	var jobid string
 	jobid, err = SubmitCWLJobToAWE(tempfile_name, job_file, &data, awe_auth, shock_auth)
 	if err != nil {
@@ -431,7 +433,7 @@ func main_wrapper() (err error) {
 		}
 		//spew.Dump(job)
 
-		_, err = job.Init(cwl_version)
+		_, err = job.Init(cwl_version, namespaces)
 		if err != nil {
 			return
 		}

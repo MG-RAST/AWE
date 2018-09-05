@@ -138,7 +138,10 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		yaml_str := string(yamlstream[:])
 
 		var schemata []cwl.CWLType_Type
-		object_array, cwl_version, schemata, err := cwl.Parse_cwl_document(yaml_str)
+		var object_array []cwl.Named_CWL_object
+		var cwl_version cwl.CWLVersion
+		var namespaces map[string]string
+		object_array, cwl_version, schemata, namespaces, err = cwl.Parse_cwl_document(yaml_str)
 		if err != nil {
 			cx.RespondWithErrorMessage("error in parsing cwl workflow yaml file: "+err.Error(), http.StatusBadRequest)
 			return
@@ -204,6 +207,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow = &cwl_workflow_instance
 				cwl_workflow.Id = entrypoint
 				cwl_workflow.CwlVersion = cwl_version
+				cwl_workflow.Namespaces = namespaces
 				new_step := cwl.WorkflowStep{}
 				step_id := entrypoint + "/wrapper_step"
 				new_step.Id = step_id
@@ -455,7 +459,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		//}
 
 		//fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
-		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, &collection, cwl_version)
+		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, &collection, cwl_version, namespaces)
 		if err != nil {
 			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
 			return
@@ -472,6 +476,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		job.CWL_objects = object_array_of_interface
 		job.CwlVersion = cwl_version
+		job.Namespaces = namespaces
 		//job.CWL_collection = &collection
 		job.Info.Name = job_file.Name
 		job.Info.Pipeline = workflow_filename

@@ -24,10 +24,11 @@ type ExpressionTool struct {
 	Label           string                          `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
 	Doc             string                          `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
 	CwlVersion      CWLVersion                      `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
+	Namespaces      map[string]string               `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
 // TODO pass along workflow InlineJavascriptRequirement
-func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []CWLType_Type, injectedRequirements []Requirement) (et *ExpressionTool, err error) {
+func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []CWLType_Type, injectedRequirements []Requirement, namespaces map[string]string) (et *ExpressionTool, err error) {
 
 	object, ok := original.(map[string]interface{})
 	if !ok {
@@ -98,7 +99,9 @@ func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []C
 		err = fmt.Errorf("(NewExpressionTool) error parsing ExpressionTool class: %s", err.Error())
 		return
 	}
-
+	if namespaces != nil {
+		et.Namespaces = namespaces
+	}
 	if et.CwlVersion == "" {
 		et.CwlVersion = CwlVersion
 	}

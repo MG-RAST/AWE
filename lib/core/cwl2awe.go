@@ -187,7 +187,7 @@ func CreateTasks(job *Job, workflow string, steps []cwl.WorkflowStep) (tasks []*
 	return
 }
 
-func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, collection *cwl.CWL_collection, cwl_version cwl.CWLVersion) (job *Job, err error) {
+func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, collection *cwl.CWL_collection, cwl_version cwl.CWLVersion, namespaces map[string]string) (job *Job, err error) {
 
 	//CommandLineTools := collection.CommandLineTools
 
@@ -203,6 +203,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	//os.Exit(0)
 	job = NewJob()
+	job.Namespaces = namespaces
 	job.setId()
 	//job.CWL_workflow = cwl_workflow
 
@@ -262,7 +263,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	job.Tasks = tasks
 
-	_, err = job.Init(cwl_version)
+	_, err = job.Init(cwl_version, namespaces)
 
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) job.Init() failed: %s", err.Error())

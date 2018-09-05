@@ -9,6 +9,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	//"github.com/mitchellh/mapstructure"
+
 	"gopkg.in/yaml.v2"
 	//"io/ioutil"
 	//"os"
@@ -19,8 +20,9 @@ import (
 
 // this is used by YAML or JSON library for inital parsing
 type CWL_document_generic struct {
-	CwlVersion CWLVersion    `yaml:"cwlVersion"`
-	Graph      []interface{} `yaml:"graph"`
+	CwlVersion CWLVersion        `yaml:"cwlVersion"`
+	Graph      []interface{}     `yaml:"graph"`
+	Namespaces map[string]string `yaml:"$namespaces"`
 	//Graph      []CWL_object_generic `yaml:"graph"`
 }
 
@@ -35,12 +37,14 @@ type CWLVersion string
 
 type LinkMergeMethod string // merge_nested or merge_flattened
 
-func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_version CWLVersion, schemata []CWLType_Type, err error) {
+func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_version CWLVersion, schemata []CWLType_Type, namespaces map[string]string, err error) {
 	//fmt.Printf("(Parse_cwl_document) starting\n")
 	graph_pos := strings.Index(yaml_str, "$graph")
 
-	if graph_pos != -1 {
+	//yaml_str = strings.Replace(yaml_str, "$namespaces", "namespaces", -1)
 
+	if graph_pos != -1 {
+		// *** graph file ***
 		yaml_str = strings.Replace(yaml_str, "$graph", "graph", -1) // remove dollar sign
 
 		cwl_gen := CWL_document_generic{}
@@ -49,15 +53,20 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 		err = Unmarshal(&yaml_byte, &cwl_gen)
 		if err != nil {
 			logger.Debug(1, "CWL unmarshal error")
-			logger.Error("error: " + err.Error())
+			err = fmt.Errorf("(Parse_cwl_document) Unmarshal returned:" + err.Error())
+			return
 		}
-
+		//fmt.Println("-------------- yaml_str")
+		//fmt.Println(yaml_str)
 		//fmt.Println("-------------- raw CWL")
 		//spew.Dump(cwl_gen)
 		//fmt.Println("-------------- Start parsing")
 
 		cwl_version = cwl_gen.CwlVersion
 
+		if cwl_gen.Namespaces != nil {
+			namespaces = cwl_gen.Namespaces
+		}
 		// iterate over Graph
 
 		// try to find CWL version!
@@ -105,7 +114,7 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 				spew.Dump(elem)
 				return
 			}
-			//fmt.Println(id)
+			//fmt.Printf("id=\"%s\\n", id)
 
 			context.If_objects[id] = elem
 
@@ -122,63 +131,28 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 
 		main_if, has_main := context.If_objects["#main"]
 		if !has_main {
-			err = fmt.Errorf("(Parse_cwl_document) #main not found in graph")
+			var keys string
+			for key, _ := range context.If_objects {
+				keys += "," + key
+			}
+			err = fmt.Errorf("(Parse_cwl_document) #main not found in graph (found %s)", keys)
 			return
 		}
 
 		// start with #main
+		// recursivly add objects to context
 		var object CWL_object
 		var schemata_new []CWLType_Type
-		object, schemata_new, err = New_CWL_object(main_if, cwl_version, nil, context)
+		object, schemata_new, err = New_CWL_object(main_if, cwl_version, nil, namespaces, context)
 		if err != nil {
 			err = fmt.Errorf("(Parse_cwl_document) A New_CWL_object returns %s", err.Error())
 			return
 		}
 		context.Objects["#main"] = object
-		// for count, elem := range cwl_gen.Graph {
-		// 	//fmt.Println("-------------- B Parse_cwl_document")
-
-		// 	var id string
-		// 	id, err = GetId(elem)
-		// 	if err != nil {
-		// 		fmt.Println("object without id:")
-		// 		spew.Dump(elem)
-		// 		return
-		// 	}
-
-		// 	var object CWL_object
-		// 	var schemata_new []CWLType_Type
-		// 	object, schemata_new, err = New_CWL_object(elem, cwl_version, nil)
-		// 	if err != nil {
-		// 		err = fmt.Errorf("(Parse_cwl_document) A New_CWL_object returns %s", err.Error())
-		// 		return
-		// 	}
-
-		// 	//switch object.(type) {
-		// 	//case *Workflow:
-		// 	//	this_workflow, _ := object.(*Workflow)
-		// 	//	cwl_version = this_workflow.CwlVersion
-		// 	//case *CommandLineTool:
-		// 	//	this_clt, _ := object.(*CommandLineTool)
-		// 	//	cwl_version = this_clt.CwlVersion
-		// 	//case *ExpressionTool:
-		// 	//	this_et, _ := object.(*ExpressionTool)
-		// 	//	cwl_version = this_et.CwlVersion
-		// 	//}
-
-		// 	named_obj := NewNamed_CWL_object(id, object)
-		// 	//fmt.Println("-------------- C Parse_cwl_document")
-		// 	object_array = append(object_array, named_obj)
 
 		for i, _ := range schemata_new {
 			schemata = append(schemata, schemata_new[i])
 		}
-
-		// 	logger.Debug(3, "Added %d cwl objects...", count)
-		// 	//fmt.Println("-------------- loop Parse_cwl_document")
-		// } // end for
-
-		//fmt.Println("-------------- finished Parse_cwl_document")
 
 		for id, object := range context.Objects {
 			named_obj := NewNamed_CWL_object(id, object)
@@ -200,6 +174,34 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 		}
 		//fmt.Println("object_if:")
 		//spew.Dump(object_if)
+		var ok bool
+		var namespaces_if interface{}
+		namespaces_if, ok = object_if["$namespaces"]
+		if ok {
+			var namespaces_map map[string]interface{}
+			namespaces_map, ok = namespaces_if.(map[string]interface{})
+			if !ok {
+				err = fmt.Errorf("(Parse_cwl_document) namespaces_if error (type: %s)", reflect.TypeOf(namespaces_if))
+				return
+			}
+			namespaces = make(map[string]string)
+
+			for key, value := range namespaces_map {
+
+				switch value := value.(type) {
+				case string:
+					namespaces[key] = value
+				default:
+					err = fmt.Errorf("(Parse_cwl_document) value is not string (%s)", reflect.TypeOf(value))
+					return
+				}
+
+			}
+
+		} else {
+			namespaces = nil
+			//fmt.Println("no namespaces")
+		}
 
 		//var this_class string
 		//this_class, err = GetClass(object_if)
@@ -219,7 +221,7 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 
 		var object CWL_object
 		var schemata_new []CWLType_Type
-		object, schemata_new, err = New_CWL_object(object_if, cwl_version, nil, nil)
+		object, schemata_new, err = New_CWL_object(object_if, cwl_version, nil, namespaces, nil)
 		if err != nil {
 			err = fmt.Errorf("(Parse_cwl_document) B New_CWL_object returns %s", err.Error())
 			return
@@ -264,6 +266,7 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 		}
 
 	}
+
 	//spew.Dump(object_array)
 	//panic("done")
 	return

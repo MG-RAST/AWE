@@ -52,7 +52,7 @@ func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 }
 
 // returns CommandLineTool, ExpressionTool or Workflow
-func NewProcess(original interface{}, CwlVersion CWLVersion, injectedRequirements []Requirement, context *ParsingContext) (process interface{}, schemata []CWLType_Type, err error) {
+func NewProcess(original interface{}, CwlVersion CWLVersion, injectedRequirements []Requirement, context *ParsingContext, namespaces map[string]string) (process interface{}, schemata []CWLType_Type, err error) {
 
 	//logger.Debug(3, "(NewProcess) starting")
 
@@ -95,7 +95,7 @@ func NewProcess(original interface{}, CwlVersion CWLVersion, injectedRequirement
 			logger.Debug(3, "(NewProcess) %s found in object_if", original_str)
 			var object CWL_object
 
-			object, schemata, err = New_CWL_object(process_if, CwlVersion, injectedRequirements, context)
+			object, schemata, err = New_CWL_object(process_if, CwlVersion, injectedRequirements, namespaces, context)
 			if err != nil {
 				err = fmt.Errorf("(NewProcess) A New_CWL_object returns %s", err.Error())
 				return
@@ -131,17 +131,17 @@ func NewProcess(original interface{}, CwlVersion CWLVersion, injectedRequirement
 		//case "":
 		//return NewProcessPointer(original)
 		case "Workflow":
-			process, schemata, err = NewWorkflow(original, CwlVersion, injectedRequirements, context)
+			process, schemata, err = NewWorkflow(original, CwlVersion, injectedRequirements, context, namespaces)
 
 			return
 		case "Expression":
 			process, err = NewExpression(original)
 			return
 		case "CommandLineTool":
-			process, schemata, err = NewCommandLineTool(original, CwlVersion, injectedRequirements) // TODO merge schemata correctly !
+			process, schemata, err = NewCommandLineTool(original, CwlVersion, injectedRequirements, namespaces) // TODO merge schemata correctly !
 			return
 		case "ExpressionTool":
-			process, err = NewExpressionTool(original, CwlVersion, schemata, injectedRequirements)
+			process, err = NewExpressionTool(original, CwlVersion, schemata, injectedRequirements, namespaces)
 			return
 		default:
 			err = fmt.Errorf("(NewProcess) class %s not supported", class)

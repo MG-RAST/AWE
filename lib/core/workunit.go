@@ -62,6 +62,7 @@ type Workunit struct {
 }
 
 func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Workunit, err error) {
+
 	task_id := task.Task_Unique_Identifier
 	workunit = &Workunit{
 		Workunit_Unique_Identifier: New_Workunit_Unique_Identifier(task_id, rank),
@@ -142,6 +143,10 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 				err = fmt.Errorf("(NewWorkunit) CommandLineTool misses CwlVersion")
 				return
 			}
+
+			if clt.Namespaces == nil {
+				clt.Namespaces = job.Namespaces // not sure why the CommandLineTool does not have the namespaces... :-(
+			}
 			//requirements = clt.Requirements
 		case *cwl.ExpressionTool:
 			var et *cwl.ExpressionTool
@@ -153,7 +158,9 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 				err = fmt.Errorf("(NewWorkunit) ExpressionTool misses CwlVersion")
 				return
 			}
-			//requirements = et.Requirements
+			if et.Namespaces == nil {
+				et.Namespaces = job.Namespaces
+			}
 		default:
 			err = fmt.Errorf("(NewWorkunit) Tool %s not supported", reflect.TypeOf(process))
 			return

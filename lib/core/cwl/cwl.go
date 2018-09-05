@@ -23,6 +23,7 @@ type CWL_document_generic struct {
 	CwlVersion CWLVersion        `yaml:"cwlVersion"`
 	Graph      []interface{}     `yaml:"graph"`
 	Namespaces map[string]string `yaml:"$namespaces"`
+	Schemas    []interface{}     `yaml:"$schemas"`
 	//Graph      []CWL_object_generic `yaml:"graph"`
 }
 
@@ -37,7 +38,7 @@ type CWLVersion string
 
 type LinkMergeMethod string // merge_nested or merge_flattened
 
-func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_version CWLVersion, schemata []CWLType_Type, namespaces map[string]string, err error) {
+func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_version CWLVersion, schemata []CWLType_Type, namespaces map[string]string, schemas []interface{}, err error) {
 	//fmt.Printf("(Parse_cwl_document) starting\n")
 	graph_pos := strings.Index(yaml_str, "$graph")
 
@@ -67,6 +68,11 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 		if cwl_gen.Namespaces != nil {
 			namespaces = cwl_gen.Namespaces
 		}
+
+		if cwl_gen.Schemas != nil {
+			schemas = cwl_gen.Schemas
+		}
+
 		// iterate over Graph
 
 		// try to find CWL version!
@@ -201,6 +207,18 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 		} else {
 			namespaces = nil
 			//fmt.Println("no namespaces")
+		}
+
+		var schemas_if interface{}
+		schemas_if, ok = object_if["$schemas"]
+		if ok {
+
+			schemas, ok = schemas_if.([]interface{})
+			if !ok {
+				err = fmt.Errorf("(Parse_cwl_document) could not parse $schemas (%s)", reflect.TypeOf(schemas_if))
+				return
+			}
+
 		}
 
 		//var this_class string

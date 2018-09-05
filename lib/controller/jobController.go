@@ -141,7 +141,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		var object_array []cwl.Named_CWL_object
 		var cwl_version cwl.CWLVersion
 		var namespaces map[string]string
-		object_array, cwl_version, schemata, namespaces, err = cwl.Parse_cwl_document(yaml_str)
+		//var schemas []interface{}
+		object_array, cwl_version, schemata, namespaces, _, err = cwl.Parse_cwl_document(yaml_str)
 		if err != nil {
 			cx.RespondWithErrorMessage("error in parsing cwl workflow yaml file: "+err.Error(), http.StatusBadRequest)
 			return

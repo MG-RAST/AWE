@@ -494,7 +494,16 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			return
 		}
 		count += sub_count
-
+		return
+	case cwl.Named_CWL_object:
+		named := native.(cwl.Named_CWL_object)
+		var sub_count int
+		sub_count, err = ProcessIOData(named.Value, current_path, base_path, io_type, shock_client)
+		if err != nil {
+			return
+		}
+		count += sub_count
+		return
 	case *cwl.String:
 		//fmt.Printf("found string\n")
 		return
@@ -583,7 +592,22 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 		}
 		return
+	case []cwl.Named_CWL_object:
+		array := native.([]cwl.Named_CWL_object)
+		for i, _ := range array {
 
+			//id := value.GetId()
+			//fmt.Printf("recurse into key: %s\n", id)
+			var sub_count int
+			sub_count, err = ProcessIOData((array)[i], current_path, base_path, io_type, shock_client)
+			if err != nil {
+				err = fmt.Errorf("(ProcessIOData) (for *cwl.Array) ProcessIOData returned: %s", err.Error())
+				return
+			}
+			count += sub_count
+
+		}
+		return
 	case *cwl.Directory:
 		if !conf.SUBMITTER_QUIET {
 			logger.Debug(0, "Uploading directory")
@@ -1133,6 +1157,43 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		//class := (*requirement).GetClass()
 
 		return
+
+	case []interface{}:
+		// that should trigger only for $schemas
+		native_array := native.([]interface{})
+
+		if io_type == "upload" {
+
+			for i, _ := range native_array {
+				switch native_array[i].(type) {
+				case cwl.File:
+					// continue
+				case string:
+
+					schema_str := native_array[i].(string)
+
+					this_file := cwl.NewFile()
+					this_file.Path = schema_str
+					native_array[i] = this_file
+					sub_count := 0
+					sub_count, err = ProcessIOData(this_file, current_path, base_path, "download", shock_client)
+					if err != nil {
+						err = fmt.Errorf("(processIOData) []cwl.CWL_object cwl.Requirement/Listing returned: %s", err.Error())
+						return
+					}
+					count += sub_count
+
+				default:
+					err = fmt.Errorf("(processIOData) schemata , unkown type: (%s)", reflect.TypeOf(native_array[i]))
+					return
+
+				}
+			}
+
+		}
+		if io_type == "download" {
+			panic("not implemented")
+		}
 
 	default:
 		//spew.Dump(native)

@@ -267,10 +267,6 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 
 	}
 
-	if namespaces == nil {
-		panic("no namespaces")
-	}
-
 	//spew.Dump(object_array)
 	//panic("done")
 	return

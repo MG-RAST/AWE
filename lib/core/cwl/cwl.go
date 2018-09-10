@@ -19,11 +19,12 @@ import (
 )
 
 // this is used by YAML or JSON library for inital parsing
-type CWL_document_generic struct {
-	CwlVersion CWLVersion        `yaml:"cwlVersion"`
-	Graph      []interface{}     `yaml:"graph"`
-	Namespaces map[string]string `yaml:"$namespaces"`
-	Schemas    []interface{}     `yaml:"$schemas"`
+type CWL_document_graph struct {
+	CwlVersion CWLVersion        `yaml:"cwlVersion" json:"cwlVersion"`
+	Base       interface{}       `yaml:"$base" json:"$base"`
+	Graph      []interface{}     `yaml:"$graph" json:"$graph"`
+	Namespaces map[string]string `yaml:"$namespaces" json:"$namespaces"`
+	Schemas    []interface{}     `yaml:"$schemas" json:"$schemas"`
 	//Graph      []CWL_object_generic `yaml:"graph"`
 }
 
@@ -38,17 +39,20 @@ type CWLVersion string
 
 type LinkMergeMethod string // merge_nested or merge_flattened
 
-func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_version CWLVersion, schemata []CWLType_Type, namespaces map[string]string, schemas []interface{}, err error) {
+func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_version CWLVersion, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, err error) {
 	//fmt.Printf("(Parse_cwl_document) starting\n")
+
+	context = &WorkflowContext{}
+
 	graph_pos := strings.Index(yaml_str, "$graph")
 
 	//yaml_str = strings.Replace(yaml_str, "$namespaces", "namespaces", -1)
 
 	if graph_pos != -1 {
 		// *** graph file ***
-		yaml_str = strings.Replace(yaml_str, "$graph", "graph", -1) // remove dollar sign
+		//yaml_str = strings.Replace(yaml_str, "$graph", "graph", -1) // remove dollar sign
 
-		cwl_gen := CWL_document_generic{}
+		cwl_gen := CWL_document_graph{}
 
 		yaml_byte := []byte(yaml_str)
 		err = Unmarshal(&yaml_byte, &cwl_gen)
@@ -57,16 +61,16 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 			err = fmt.Errorf("(Parse_cwl_document) Unmarshal returned:" + err.Error())
 			return
 		}
-		//fmt.Println("-------------- yaml_str")
-		//fmt.Println(yaml_str)
-		//fmt.Println("-------------- raw CWL")
-		//spew.Dump(cwl_gen)
-		//fmt.Println("-------------- Start parsing")
+		fmt.Println("-------------- yaml_str")
+		fmt.Println(yaml_str)
+		fmt.Println("-------------- raw CWL")
+		spew.Dump(cwl_gen)
+		fmt.Println("-------------- Start parsing")
 
 		cwl_version = cwl_gen.CwlVersion
 
 		if cwl_gen.Namespaces != nil {
-			namespaces = cwl_gen.Namespaces
+			context.Namespaces = cwl_gen.Namespaces
 		}
 
 		if cwl_gen.Schemas != nil {
@@ -106,7 +110,7 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 
 		//fmt.Println("-------------- A Parse_cwl_document")
 
-		context := &ParsingContext{}
+		//context := &WorkflowContext{}
 		context.If_objects = make(map[string]interface{})
 		context.Objects = make(map[string]CWL_object)
 
@@ -149,7 +153,7 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 		// recursivly add objects to context
 		var object CWL_object
 		var schemata_new []CWLType_Type
-		object, schemata_new, err = New_CWL_object(main_if, cwl_version, nil, namespaces, context)
+		object, schemata_new, err = New_CWL_object(main_if, cwl_version, nil, context)
 		if err != nil {
 			err = fmt.Errorf("(Parse_cwl_document) A New_CWL_object returns %s", err.Error())
 			return
@@ -167,7 +171,7 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 	} else {
 
 		// Here I expect a single object, Workflow or CommandLIneTool
-		//fmt.Printf("-------------- yaml_str: %s\n", yaml_str)
+		fmt.Printf("-------------- yaml_str: %s\n", yaml_str)
 
 		var object_if map[string]interface{}
 
@@ -190,13 +194,13 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 				err = fmt.Errorf("(Parse_cwl_document) namespaces_if error (type: %s)", reflect.TypeOf(namespaces_if))
 				return
 			}
-			namespaces = make(map[string]string)
+			context.Namespaces = make(map[string]string)
 
 			for key, value := range namespaces_map {
 
 				switch value := value.(type) {
 				case string:
-					namespaces[key] = value
+					context.Namespaces[key] = value
 				default:
 					err = fmt.Errorf("(Parse_cwl_document) value is not string (%s)", reflect.TypeOf(value))
 					return
@@ -205,7 +209,7 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 			}
 
 		} else {
-			namespaces = nil
+			context.Namespaces = nil
 			//fmt.Println("no namespaces")
 		}
 
@@ -219,6 +223,9 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 				return
 			}
 
+		} else {
+			spew.Dump(object_if)
+			panic("not found")
 		}
 
 		//var this_class string
@@ -239,7 +246,7 @@ func Parse_cwl_document(yaml_str string) (object_array []Named_CWL_object, cwl_v
 
 		var object CWL_object
 		var schemata_new []CWLType_Type
-		object, schemata_new, err = New_CWL_object(object_if, cwl_version, nil, namespaces, nil)
+		object, schemata_new, err = New_CWL_object(object_if, cwl_version, nil, context)
 		if err != nil {
 			err = fmt.Errorf("(Parse_cwl_document) B New_CWL_object returns %s", err.Error())
 			return

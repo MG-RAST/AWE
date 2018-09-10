@@ -80,6 +80,7 @@ type JobRaw struct {
 	WorkflowInstancesMap map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	Entrypoint           string                       `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
 	Namespaces           map[string]string            `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
+	WorkflowContext      *cwl.WorkflowContext         `bson:"workflowContext,omitempty" json:"workflowContext,omitempty"`
 }
 
 func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
@@ -466,7 +467,7 @@ func (job *Job) Init(CwlVersion cwl.CWLVersion, namespaces map[string]string) (c
 		collection := cwl.NewCWL_collection()
 
 		//var schemata_new []CWLType_Type
-		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.CWL_objects, job.CwlVersion, namespaces)
+		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.CWL_objects, job.CwlVersion, job.WorkflowContext)
 		if xerr != nil {
 			err = fmt.Errorf("(job.Init) cannot type assert CWL_objects: %s", xerr.Error())
 			return

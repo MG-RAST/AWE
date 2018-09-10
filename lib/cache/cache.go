@@ -597,7 +597,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		for i, _ := range array {
 
 			//id := value.GetId()
-			//fmt.Printf("recurse into key: %s\n", id)
+
 			var sub_count int
 			sub_count, err = ProcessIOData((array)[i], current_path, base_path, io_type, shock_client)
 			if err != nil {
@@ -1159,6 +1159,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		return
 
 	case []interface{}:
+		//fmt.Println("(processIOData) []interface{}")
 		// that should trigger only for $schemas
 		native_array := native.([]interface{})
 

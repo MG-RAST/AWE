@@ -175,7 +175,8 @@ func main_wrapper() (err error) {
 	var schemata []cwl.CWLType_Type
 	var namespaces map[string]string
 	var schemas []interface{}
-	named_object_array, cwl_version, schemata, namespaces, schemas, err = cwl.Parse_cwl_document(yaml_str)
+	//var context *cwl.WorkflowContext
+	named_object_array, cwl_version, schemata, _, schemas, err = cwl.Parse_cwl_document(yaml_str)
 
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) error in parsing cwl workflow yaml file: " + err.Error())
@@ -202,7 +203,9 @@ func main_wrapper() (err error) {
 			return
 		}
 		upload_count += sub_upload_count
+		panic(sub_upload_count)
 	}
+	panic("no schemas")
 	// for j, _ := range named_object_array {
 
 	// 	pair := named_object_array[j]
@@ -339,7 +342,7 @@ func main_wrapper() (err error) {
 
 	// create temporary workflow document file
 
-	new_document := cwl.CWL_document_generic{}
+	new_document := cwl.CWL_document_graph{}
 	new_document.CwlVersion = cwl_version
 	new_document.Namespaces = namespaces
 	new_document.Schemas = schemas
@@ -361,7 +364,7 @@ func main_wrapper() (err error) {
 	//new_document_str = strings.Replace(new_document_str, "\nnamespaces", "\n$namespaces", -1) // remove dollar sign
 
 	if graph_pos != -1 {
-		new_document_str = strings.Replace(new_document_str, "\ngraph", "\n$graph", -1) // remove dollar sign
+		//new_document_str = strings.Replace(new_document_str, "\ngraph", "\n$graph", -1) // remove dollar sign
 	} else {
 		err = fmt.Errorf("(main_wrapper) keyword graph not found")
 		return

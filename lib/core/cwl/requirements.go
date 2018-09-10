@@ -3,7 +3,9 @@ package cwl
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"reflect"
+	"strings"
 	//"github.com/MG-RAST/AWE/lib/logger"
 
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -18,6 +20,59 @@ type Requirement interface {
 
 type DummyRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
+}
+
+func NewRequirementFromInterface(obj interface{}, inputs interface{}) (r Requirement, schemata []CWLType_Type, err error) {
+
+	obj, err = MakeStringMap(obj)
+	if err != nil {
+		return
+	}
+	var obj_map map[string]interface{}
+	var ok bool
+
+	obj_map, ok = obj.(map[string]interface{})
+	if !ok {
+		err = fmt.Errorf("(NewRequirementFromInterface) expected map[string]interface{}, got %s", reflect.TypeOf(obj))
+		return
+	}
+
+	import_req, ok := obj_map["$import"]
+	if ok {
+		var import_req_str string
+		import_req_str, ok = import_req.(string)
+		if !ok {
+			err = fmt.Errorf("(NewRequirementFromInterface) found $import, expected string, got %s", reflect.TypeOf(import_req))
+			return
+		}
+		if !strings.HasPrefix(import_req_str, "#") {
+			err = fmt.Errorf("(NewRequirementFromInterface) $import does not start with #")
+			return
+		}
+
+		import_path := strings.TrimPrefix(import_req_str, "#")
+
+		var job_stream []byte
+		job_stream, err = ioutil.ReadFile(import_path)
+		if err != nil {
+			err = fmt.Errorf("(NewRequirementFromInterface) error in reading file %s: %s ", import_path, err.Error())
+			return
+		}
+		_ = job_stream
+		panic("good")
+	}
+
+	var class_str string
+	class_str, err = GetClass(obj)
+	if err != nil {
+		err = fmt.Errorf("(NewRequirementFromInterface) GetClass returned: %s", err.Error())
+		return
+	}
+
+	r, schemata, err = NewRequirement(class_str, obj, inputs)
+
+	return
+
 }
 
 func NewRequirement(class string, obj interface{}, inputs interface{}) (r Requirement, schemata []CWLType_Type, err error) {
@@ -317,16 +372,9 @@ func CreateRequirementArray(original interface{}, optional bool, inputs interfac
 		for i, _ := range original_array {
 			v := original_array[i]
 
-			var class_str string
-			class_str, err = GetClass(v)
-			if err != nil {
-				return
-			}
-
-			//class := CWLType_Type(class_str)
 			var schemata_new []CWLType_Type
 			var requirement Requirement
-			requirement, schemata_new, err = NewRequirement(class_str, v, inputs)
+			requirement, schemata_new, err = NewRequirementFromInterface(v, inputs)
 			if err != nil {
 				if optional {
 					logger.Debug(1, "(CreateRequirementArray) A NewRequirement returns: %s", err.Error())

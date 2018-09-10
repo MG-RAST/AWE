@@ -56,7 +56,7 @@ func NewWorkflowEmpty() (w Workflow) {
 	return w
 }
 
-func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequirements []Requirement, context *ParsingContext, namespaces map[string]string) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
+func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequirements []Requirement, context *WorkflowContext) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
 
 	// convert input map into input array
 
@@ -157,7 +157,7 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequireme
 
 			//fmt.Printf("(NewWorkflow) Injecting %d\n", len(requirements_array))
 			//spew.Dump(requirements_array)
-			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps, CwlVersion, requirements_array, context, namespaces)
+			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps, CwlVersion, requirements_array, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) CreateWorkflowStepsArray returned: %s", err.Error())
 				return
@@ -185,8 +185,8 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequireme
 			err = fmt.Errorf("(NewWorkflow) error parsing workflow class: %s", err.Error())
 			return
 		}
-		if namespaces != nil {
-			workflow.Namespaces = namespaces
+		if context.Namespaces != nil {
+			workflow.Namespaces = context.Namespaces
 		}
 		//fmt.Printf(".....WORKFLOW")
 		//spew.Dump(workflow)

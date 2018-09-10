@@ -19,7 +19,7 @@ type CWL_object_Impl struct{}
 
 func (c *CWL_object_Impl) Is_CWL_object() {}
 
-func New_CWL_object(original interface{}, cwl_version CWLVersion, injectedRequirements []Requirement, namespaces map[string]string, context *ParsingContext) (obj CWL_object, schemata []CWLType_Type, err error) {
+func New_CWL_object(original interface{}, cwl_version CWLVersion, injectedRequirements []Requirement, context *WorkflowContext) (obj CWL_object, schemata []CWLType_Type, err error) {
 	//fmt.Println("(New_CWL_object) starting")
 
 	if original == nil {
@@ -65,7 +65,7 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion, injectedRequir
 			//fmt.Println("New_CWL_object CommandLineTool")
 			logger.Debug(1, "(New_CWL_object) parse CommandLineTool")
 			var clt *CommandLineTool
-			clt, schemata, err = NewCommandLineTool(elem, cwl_version, injectedRequirements, namespaces)
+			clt, schemata, err = NewCommandLineTool(elem, cwl_version, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(New_CWL_object) NewCommandLineTool returned: %s", err.Error())
 				return
@@ -78,7 +78,7 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion, injectedRequir
 			//fmt.Println("New_CWL_object CommandLineTool")
 			logger.Debug(1, "(New_CWL_object) parse ExpressionTool")
 			var et *ExpressionTool
-			et, err = NewExpressionTool(elem, cwl_version, nil, injectedRequirements, namespaces) // TODO provide schemata
+			et, err = NewExpressionTool(elem, cwl_version, nil, injectedRequirements, context) // TODO provide schemata
 			if err != nil {
 				err = fmt.Errorf("(New_CWL_object) ExpressionTool returned: %s", err.Error())
 				return
@@ -90,7 +90,7 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion, injectedRequir
 		case "Workflow":
 			//fmt.Println("New_CWL_object Workflow")
 			logger.Debug(1, "parse Workflow")
-			obj, schemata, err = NewWorkflow(elem, cwl_version, injectedRequirements, context, namespaces)
+			obj, schemata, err = NewWorkflow(elem, cwl_version, injectedRequirements, context)
 			if err != nil {
 
 				err = fmt.Errorf("(New_CWL_object) NewWorkflow returned: %s", err.Error())
@@ -116,7 +116,7 @@ func New_CWL_object(original interface{}, cwl_version CWLVersion, injectedRequir
 	return
 }
 
-func NewCWL_object_array(original interface{}, namespaces map[string]string) (array CWL_object_array, schemata []CWLType_Type, err error) {
+func NewCWL_object_array(original interface{}, context *WorkflowContext) (array CWL_object_array, schemata []CWLType_Type, err error) {
 
 	//original, err = makeStringMap(original)
 	//if err != nil {
@@ -134,7 +134,7 @@ func NewCWL_object_array(original interface{}, namespaces map[string]string) (ar
 		for _, element := range org_a {
 			var schemata_new []CWLType_Type
 			var cwl_object CWL_object
-			cwl_object, schemata_new, err = New_CWL_object(element, "", nil, namespaces, nil)
+			cwl_object, schemata_new, err = New_CWL_object(element, "", nil, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCWL_object_array) New_CWL_object returned %s", err.Error())
 				return

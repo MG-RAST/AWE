@@ -74,7 +74,7 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 		var schemata_new []CWLType_Type
 		//fmt.Printf("(NewWorkflowStep) Injecting %d \n", len(injectedRequirements))
 		//spew.Dump(injectedRequirements)
-		requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, nil) // not sure what input to use
+		requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, nil, context) // not sure what input to use
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflowStep) error in CreateRequirementArray (requirements): %s", err.Error())
 			return
@@ -170,7 +170,7 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 			var schemata_new []CWLType_Type
 
 			var hints_array []Requirement
-			hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements, nil)
+			hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements, nil, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 				return

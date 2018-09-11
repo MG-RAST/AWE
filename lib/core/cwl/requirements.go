@@ -3,9 +3,7 @@ package cwl
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"reflect"
-	"strings"
 	//"github.com/MG-RAST/AWE/lib/logger"
 
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -22,44 +20,24 @@ type DummyRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 }
 
-func NewRequirementFromInterface(obj interface{}, inputs interface{}) (r Requirement, schemata []CWLType_Type, err error) {
+func NewRequirementFromInterface(obj interface{}, inputs interface{}, context *WorkflowContext) (r Requirement, schemata []CWLType_Type, err error) {
 
 	obj, err = MakeStringMap(obj)
 	if err != nil {
 		return
 	}
-	var obj_map map[string]interface{}
-	var ok bool
+	//var obj_map map[string]interface{}
+	//var ok bool
 
-	obj_map, ok = obj.(map[string]interface{})
-	if !ok {
-		err = fmt.Errorf("(NewRequirementFromInterface) expected map[string]interface{}, got %s", reflect.TypeOf(obj))
+	var new_obj interface{}
+	var ok bool
+	new_obj, ok, err = Evaluate_import(obj, context)
+	if err != nil {
+		err = fmt.Errorf("(NewRequirementFromInterface) Evaluate_import returned: %s", err.Error())
 		return
 	}
-
-	import_req, ok := obj_map["$import"]
 	if ok {
-		var import_req_str string
-		import_req_str, ok = import_req.(string)
-		if !ok {
-			err = fmt.Errorf("(NewRequirementFromInterface) found $import, expected string, got %s", reflect.TypeOf(import_req))
-			return
-		}
-		if !strings.HasPrefix(import_req_str, "#") {
-			err = fmt.Errorf("(NewRequirementFromInterface) $import does not start with #")
-			return
-		}
-
-		import_path := strings.TrimPrefix(import_req_str, "#")
-
-		var job_stream []byte
-		job_stream, err = ioutil.ReadFile(import_path)
-		if err != nil {
-			err = fmt.Errorf("(NewRequirementFromInterface) error in reading file %s: %s ", import_path, err.Error())
-			return
-		}
-		_ = job_stream
-		panic("good")
+		obj = new_obj
 	}
 
 	var class_str string
@@ -260,9 +238,9 @@ func DeleteRequirement(requirement_class string, old_array_ptr []Requirement) (n
 
 // , injectedRequirements []Requirement
 
-func CreateHintsArray(original interface{}, injectedRequirements []Requirement, inputs interface{}) (hints_array []Requirement, schemata []CWLType_Type, err error) {
+func CreateHintsArray(original interface{}, injectedRequirements []Requirement, inputs interface{}, context *WorkflowContext) (hints_array []Requirement, schemata []CWLType_Type, err error) {
 	if original != nil {
-		hints_array, schemata, err = CreateRequirementArray(original, true, inputs)
+		hints_array, schemata, err = CreateRequirementArray(original, true, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(CreateRequirementArrayAndInject) CreateRequirementArray returned: %s", err.Error())
 			return
@@ -295,10 +273,10 @@ func CreateHintsArray(original interface{}, injectedRequirements []Requirement, 
 }
 
 // Tools inherit Requirements, but should not overwrite !
-func CreateRequirementArrayAndInject(original interface{}, injectedRequirements []Requirement, inputs interface{}) (requirements_array []Requirement, schemata []CWLType_Type, err error) {
+func CreateRequirementArrayAndInject(original interface{}, injectedRequirements []Requirement, inputs interface{}, context *WorkflowContext) (requirements_array []Requirement, schemata []CWLType_Type, err error) {
 
 	if original != nil {
-		requirements_array, schemata, err = CreateRequirementArray(original, false, inputs)
+		requirements_array, schemata, err = CreateRequirementArray(original, false, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(CreateRequirementArrayAndInject) CreateRequirementArray returned: %s", err.Error())
 			return
@@ -330,7 +308,7 @@ func CreateRequirementArrayAndInject(original interface{}, injectedRequirements 
 }
 
 // hints are optional, requirements are not
-func CreateRequirementArray(original interface{}, optional bool, inputs interface{}) (new_array []Requirement, schemata []CWLType_Type, err error) {
+func CreateRequirementArray(original interface{}, optional bool, inputs interface{}, context *WorkflowContext) (new_array []Requirement, schemata []CWLType_Type, err error) {
 	// here the keynames are actually class names
 
 	original, err = MakeStringMap(original)
@@ -374,7 +352,7 @@ func CreateRequirementArray(original interface{}, optional bool, inputs interfac
 
 			var schemata_new []CWLType_Type
 			var requirement Requirement
-			requirement, schemata_new, err = NewRequirementFromInterface(v, inputs)
+			requirement, schemata_new, err = NewRequirementFromInterface(v, inputs, context)
 			if err != nil {
 				if optional {
 					logger.Debug(1, "(CreateRequirementArray) A NewRequirement returns: %s", err.Error())

@@ -138,7 +138,7 @@ func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedReq
 
 	//fmt.Printf("(NewCommandLineTool) Injecting %d\n", len(requirements_array))
 	//spew.Dump(requirements_array)
-	requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, nil)
+	requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, nil, context)
 	if err != nil {
 		err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (requirements): %s", err.Error())
 		return
@@ -158,7 +158,7 @@ func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedReq
 		var schemata_new []CWLType_Type
 
 		var hints_array []Requirement
-		hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements, inputs)
+		hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 			return

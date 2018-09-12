@@ -2,8 +2,9 @@ package cwl
 
 import (
 	"fmt"
-	"github.com/mitchellh/mapstructure"
 	"reflect"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type OutputArraySchema struct { // Items, Type , Label
@@ -20,7 +21,7 @@ func (c OutputArraySchema) Is_Type()            {}
 func NewOutputArraySchema() (coas *OutputArraySchema) {
 
 	coas = &OutputArraySchema{}
-	coas.Type = "array"
+	coas.Type = CWL_array
 
 	return
 }

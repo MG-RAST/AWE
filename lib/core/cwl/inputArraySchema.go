@@ -2,13 +2,14 @@ package cwl
 
 import (
 	"fmt"
-	"github.com/mitchellh/mapstructure"
 	"reflect"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type InputArraySchema struct { // Items, Type , Label
-	ArraySchema  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	InputBinding *CommandLineBinding `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"`
+	ArraySchema  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Type, Label
+	InputBinding *CommandLineBinding                                                   `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"`
 }
 
 //func (c *InputArraySchema) Is_CommandOutputParameterType() {}
@@ -19,7 +20,7 @@ func (c *InputArraySchema) GetId() string       { return "" }
 func NewInputArraySchema() (coas *InputArraySchema) {
 
 	coas = &InputArraySchema{}
-	coas.Type = "array"
+	coas.Type = CWL_array
 
 	return
 }

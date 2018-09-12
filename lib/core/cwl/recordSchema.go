@@ -6,9 +6,7 @@ import (
 )
 
 type RecordSchema struct {
-	Type  CWLType_Type `yaml:"type,omitempty" json:"type,omitempty" bson:"type,omitempty"`
-	Label string       `yaml:"label,omitempty" json:"label,omitempty" bson:"label,omitempty"`
-	Name  string       `yaml:"name,omitempty" json:"name,omitempty" bson:"name,omitempty"`
+	NamedSchema `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"` // provides Type, Label, Name
 }
 
 func (r *RecordSchema) GetId() string { return r.Name }

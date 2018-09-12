@@ -8,8 +8,8 @@ import (
 )
 
 type CommandOutputArraySchema struct { // Items, Type , Label
-	ArraySchema   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	OutputBinding *CommandOutputBinding `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty" mapstructure:"outputBinding,omitempty"`
+	ArraySchema   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` //provides Type, Label, Items
+	OutputBinding *CommandOutputBinding                                                 `yaml:"outputBinding,omitempty" bson:"outputBinding,omitempty" json:"outputBinding,omitempty" mapstructure:"outputBinding,omitempty"`
 }
 
 //func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}
@@ -20,7 +20,7 @@ func (c *CommandOutputArraySchema) GetId() string       { return "" }
 func NewCommandOutputArraySchema() (coas *CommandOutputArraySchema) {
 
 	coas = &CommandOutputArraySchema{}
-	coas.Type = "array"
+	coas.Type = CWL_array
 
 	return
 }
@@ -60,7 +60,7 @@ func NewCommandOutputArraySchemaFromInterface(original interface{}, schemata []C
 			err = fmt.Errorf("(NewCommandOutputArraySchema) %s", err.Error())
 			return
 		}
-		if coas.Type == "" {
+		if coas.Type == nil {
 			panic("nononono")
 		}
 	default:

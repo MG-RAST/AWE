@@ -10,8 +10,8 @@ import (
 
 // http://www.commonwl.org/v1.0/Workflow.html#SchemaDefRequirement
 type SchemaDefRequirement struct {
-	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
-	Types           []interface{} `yaml:"types,omitempty" json:"types,omitempty" bson:"types,omitempty"` // array<InputRecordSchema | InputEnumSchema | InputArraySchema>
+	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"` // provides class
+	Types           []interface{}                                                         `yaml:"types,omitempty" json:"types,omitempty" bson:"types,omitempty"` // array<InputRecordSchema | InputEnumSchema | InputArraySchema>
 }
 
 func (c SchemaDefRequirement) GetId() string { return "None" }

@@ -59,7 +59,7 @@ func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []
 		err = Unmarshal(&yaml_byte, &cwl_gen)
 		if err != nil {
 			logger.Debug(1, "CWL unmarshal error")
-			err = fmt.Errorf("(Parse_cwl_document) Unmarshal returned:" + err.Error())
+			err = fmt.Errorf("(Parse_cwl_document) Unmarshal returned: " + err.Error())
 			return
 		}
 		fmt.Println("-------------- yaml_str")
@@ -67,6 +67,18 @@ func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []
 		fmt.Println("-------------- raw CWL")
 		spew.Dump(cwl_gen)
 		fmt.Println("-------------- Start parsing")
+
+		// resolve $import
+		var new_obj interface{}
+		new_obj, err = Resolve_Imports(cwl_gen.Graph, context)
+		if err != nil {
+			err = fmt.Errorf("(Parse_cwl_document) Resolve_Imports returned: " + err.Error())
+			return
+		}
+		if new_obj != nil {
+			err = fmt.Errorf("(Parse_cwl_document) $import in $graph not supported yet")
+			return
+		}
 
 		cwl_version = cwl_gen.CwlVersion
 
@@ -298,10 +310,10 @@ func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []
 	return
 }
 
-func Add_to_collection_deprecated(collection *CWL_collection, object_array CWL_object_array) (err error) {
+func Add_to_collection_deprecated(context *WorkflowContext, object_array CWL_object_array) (err error) {
 
 	for i, object := range object_array {
-		err = collection.Add(strconv.Itoa(i), object) // TODO fix id
+		err = context.Add(strconv.Itoa(i), object) // TODO fix id
 		if err != nil {
 			err = fmt.Errorf("(Add_to_collection) collection.Add returned: %s", err.Error())
 			return

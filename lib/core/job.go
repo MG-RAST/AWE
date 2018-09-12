@@ -74,13 +74,12 @@ type JobRaw struct {
 	CWL_objects          []interface{}                `bson:"cwl_objects" json:"cwl_objects`
 	CWL_job_input        interface{}                  `bson:"cwl_job_input" json:"cwl_job_input` // has to be an array for mongo (id as key would not work)
 	CWL_ShockRequirement *cwl.ShockRequirement        `bson:"cwl_shock_requirement" json:"cwl_shock_requirement`
-	CWL_collection       *cwl.CWL_collection          `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	CWL_workflow         *cwl.Workflow                `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	WorkflowInstances    []interface{}                `bson:"workflow_instances" json:"workflow_instances" yaml:"workflow_instances" mapstructure:"workflow_instances"`
 	WorkflowInstancesMap map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	Entrypoint           string                       `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
 	Namespaces           map[string]string            `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
-	WorkflowContext      *cwl.WorkflowContext         `bson:"workflowContext,omitempty" json:"workflowContext,omitempty"`
+	WorkflowContext      *cwl.WorkflowContext         `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 }
 
 func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
@@ -464,8 +463,8 @@ func (job *Job) Init(CwlVersion cwl.CWLVersion, namespaces map[string]string) (c
 
 	if job.IsCWL {
 
-		collection := cwl.NewCWL_collection()
-
+		//collection := cwl.NewCWL_collection()
+		context := &cwl.WorkflowContext{}
 		//var schemata_new []CWLType_Type
 		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.CWL_objects, job.CwlVersion, job.WorkflowContext)
 		if xerr != nil {
@@ -473,14 +472,14 @@ func (job *Job) Init(CwlVersion cwl.CWLVersion, namespaces map[string]string) (c
 			return
 		}
 
-		err = collection.AddArray(named_object_array)
+		err = context.AddArray(named_object_array)
 		//err = cwl.Add_to_collection(&collection, object_array)
 		if err != nil {
 			fmt.Errorf("(job.Init) collection.AddArray returned: %s", err.Error())
 			return
 		}
 
-		err = collection.AddSchemata(schemata_new)
+		err = context.AddSchemata(schemata_new)
 		if err != nil {
 			err = fmt.Errorf("(job.Init) AddSchemata returned: %s", err.Error())
 			return
@@ -527,10 +526,10 @@ func (job *Job) Init(CwlVersion cwl.CWLVersion, namespaces map[string]string) (c
 
 		main_input_map := main_input.Inputs.GetMap()
 
-		collection.Job_input_map = &main_input_map
+		context.Job_input_map = &main_input_map
 
 		entrypoint := job.Entrypoint
-		cwl_workflow, ok := collection.Workflows[entrypoint]
+		cwl_workflow, ok := context.Workflows[entrypoint]
 		if !ok {
 			err = fmt.Errorf("(job.Init) Workflow \"%s\" not found", entrypoint)
 
@@ -540,7 +539,7 @@ func (job *Job) Init(CwlVersion cwl.CWLVersion, namespaces map[string]string) (c
 			return
 		}
 
-		job.CWL_collection = &collection
+		job.WorkflowContext = context
 		job.CWL_workflow = cwl_workflow
 
 	}

@@ -349,7 +349,7 @@ func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion, injec
 // 	return
 // }
 
-func GetProcess(original interface{}, collection *CWL_collection, CwlVersion CWLVersion, input_schemata []CWLType_Type) (process interface{}, schemata []CWLType_Type, err error) {
+func GetProcess(original interface{}, context *WorkflowContext, CwlVersion CWLVersion) (process interface{}, schemata []CWLType_Type, err error) {
 
 	var p interface{}
 	p, err = MakeStringMap(original)
@@ -376,27 +376,27 @@ func GetProcess(original interface{}, collection *CWL_collection, CwlVersion CWL
 
 		process_name := p.(string)
 
-		clt, err = collection.GetCommandLineTool(process_name)
+		clt, err = context.GetCommandLineTool(process_name)
 		if err == nil {
 			process = clt
 			return
 		}
 		err = nil
 
-		et, err = collection.GetExpressionTool(process_name)
+		et, err = context.GetExpressionTool(process_name)
 		if err == nil {
 			process = et
 			return
 		}
 		err = nil
 
-		wfl, err = collection.GetWorkflow(process_name)
+		wfl, err = context.GetWorkflow(process_name)
 		if err == nil {
 			process = wfl
 			return
 		}
 		err = nil
-		spew.Dump(collection)
+		spew.Dump(context)
 		err = fmt.Errorf("(GetProcess) Process %s not found ", process_name)
 
 	// case map[string]interface{}:

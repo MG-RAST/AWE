@@ -1324,12 +1324,12 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 			return
 		}
 
-		if job.CWL_collection == nil {
-			err = fmt.Errorf("(isTaskReady) job.CWL_collection == nil")
+		if job.WorkflowContext == nil {
+			err = fmt.Errorf("(isTaskReady) job.WorkflowContext == nil")
 			return
 		}
 
-		job_input_map := *job.CWL_collection.Job_input_map
+		job_input_map := *job.WorkflowContext.Job_input_map
 		if job_input_map == nil {
 			err = fmt.Errorf("(isTaskReady) job.CWL_collection.Job_input_map is empty")
 			return
@@ -1942,8 +1942,8 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 	var notice *Notice
 	notice = nil
 
-	if job.CWL_collection != nil {
-		logger.Debug(3, "(taskEnQueue) have job.CWL_collection")
+	if job.WorkflowContext != nil {
+		logger.Debug(3, "(taskEnQueue) have job.WorkflowContext")
 
 		var workflow_instance *WorkflowInstance
 		workflow_instance, err = job.GetWorkflowInstance(task.Parent, true)
@@ -1993,14 +1993,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 				logger.Debug(3, "(updateJobTask) type of process: %s", reflect.TypeOf(p))
 
-				var schemata []cwl.CWLType_Type
-				schemata, err = job.CWL_collection.GetSchemata()
-				if err != nil {
-					err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
-					return
-				}
-
-				process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add new_schemata
+				process, _, err = cwl.GetProcess(p, job.WorkflowContext, job.CwlVersion) // TODO add new_schemata
 				if err != nil {
 					err = fmt.Errorf("(taskEnQueue) cwl.GetProcess returned: %s (task_type=%s)", err.Error(), task_type)
 					return
@@ -2141,9 +2134,9 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 // invoked by taskEnQueue
 // main purpose is to copy output io struct of predecessor task to create the input io structs
 func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
-	if task.WorkflowStep != nil && job.CWL_collection != nil {
-		if job.CWL_collection.Job_input_map == nil {
-			err = fmt.Errorf("job.CWL_collection.Job_input_map is empty")
+	if task.WorkflowStep != nil && job.WorkflowContext != nil {
+		if job.WorkflowContext.Job_input_map == nil {
+			err = fmt.Errorf("job.WorkflowContext.Job_input_map is empty")
 			return
 		}
 	} else {
@@ -3194,12 +3187,6 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			}
 			// check if this is a workflow
 
-			var schemata []cwl.CWLType_Type
-			schemata, err = job.CWL_collection.GetSchemata()
-			if err != nil {
-				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
-				return
-			}
 			//var a_workflow *cwl.Workflow
 			//process_name, _, a_workflow, _, _, err = cwl.GetProcess(p, job.CWL_collection, schemata)
 			//if err != nil {
@@ -3208,7 +3195,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			//}
 
 			var process interface{}
-			process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add schemata
+			process, _, err = cwl.GetProcess(p, job.WorkflowContext, job.CwlVersion) // TODO add schemata
 
 			// get embedded workflow
 			var ok bool
@@ -3220,7 +3207,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		} else {
 
 			// implicit subworkflow (there is no parent)
-			wfl, err = job.CWL_collection.GetWorkflow(job.Entrypoint) // TODO: use locked function
+			wfl, err = job.WorkflowContext.GetWorkflow(job.Entrypoint) // TODO: use locked function
 			if err != nil {
 				// not a workflow
 				err = fmt.Errorf("(updateJobTask) %s is not a workflow ????", job.Entrypoint)
@@ -3228,6 +3215,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			}
 
 		}
+
+		context := job.WorkflowContext
 
 		var task_id Task_Unique_Identifier
 		task_id, err = task.GetId("updateJobTask")
@@ -3297,7 +3286,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			is_optional := false
 
 			var schemata []cwl.CWLType_Type
-			schemata, err = job.CWL_collection.GetSchemata()
+			schemata, err = job.WorkflowContext.GetSchemata()
 			if err != nil {
 				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata returned: %s", err.Error())
 				return
@@ -3349,7 +3338,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				}
 
 				if !skip {
-					has_type, xerr := cwl.TypeIsCorrect(expected_types, obj)
+					has_type, xerr := cwl.TypeIsCorrect(expected_types, obj, context)
 					if xerr != nil {
 						err = fmt.Errorf("(updateJobTask) TypeIsCorrect: %s", xerr.Error())
 						return
@@ -3395,7 +3384,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 					}
 
 					if !skip {
-						has_type, xerr := cwl.TypeIsCorrect(expected_types, obj)
+						has_type, xerr := cwl.TypeIsCorrect(expected_types, obj, context)
 						if xerr != nil {
 							err = fmt.Errorf("(updateJobTask) TypeIsCorrect: %s", xerr.Error())
 							return

@@ -109,18 +109,11 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			return
 		}
 
-		var schemata []cwl.CWLType_Type
-		schemata, err = job.CWL_collection.GetSchemata()
-		if err != nil {
-			err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
-			return
-		}
-
 		//var process_name string
 		var clt *cwl.CommandLineTool
 		//var a_workflow *cwl.Workflow
 		var process interface{}
-		process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add new schemata
+		process, _, err = cwl.GetProcess(p, job.WorkflowContext, job.CwlVersion) // TODO add new schemata
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetProcess returned: %s", err.Error())
 			return
@@ -196,7 +189,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		//}
 
 		// ****** get inputs
-		job_input_map := *job.CWL_collection.Job_input_map
+		job_input_map := *job.WorkflowContext.Job_input_map
 		if job_input_map == nil {
 			err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
 			return

@@ -102,8 +102,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		workflow_filename := cwl_file.Name
 
-		collection := cwl.NewCWL_collection()
-
+		//context := &cwl.WorkflowContext{}
 		//1) parse job
 
 		job_stream, err := ioutil.ReadFile(job_file.Path)
@@ -149,7 +148,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			return
 		}
 
-		err = collection.AddArray(object_array)
+		err = context.AddArray(object_array)
 		if err != nil {
 			logger.Error("Parse_cwl_document error: " + err.Error())
 			cx.RespondWithErrorMessage("error in adding cwl objects to collection: "+err.Error(), http.StatusBadRequest)
@@ -157,7 +156,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 		logger.Debug(1, "Parse_cwl_document done")
 
-		err = collection.AddSchemata(schemata)
+		err = context.AddSchemata(schemata)
 		if err != nil {
 			cx.RespondWithErrorMessage("error in adding schemata: "+err.Error(), http.StatusBadRequest)
 			return
@@ -169,9 +168,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		shock_requirement = nil
 
 		var cwl_workflow *cwl.Workflow
-		if len(collection.Workflows) == 0 {
+		if len(context.Workflows) == 0 {
 			if len(object_array) != 1 {
-				cx.RespondWithErrorMessage(fmt.Sprintf("Expected exactly one element in object_array, got %d", len(collection.Workflows)), http.StatusBadRequest)
+				cx.RespondWithErrorMessage(fmt.Sprintf("Expected exactly one element in object_array, got %d", len(context.Workflows)), http.StatusBadRequest)
 				return
 			}
 			// This probably is a CommandlineTool or ExpressionTool submission (without workflow)
@@ -304,7 +303,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow_named.Value = cwl_workflow
 
 				object_array = append(object_array, cwl_workflow_named)
-				err = collection.Add(entrypoint, cwl_workflow)
+				err = context.Add(entrypoint, cwl_workflow)
 				if err != nil {
 					cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
 					return
@@ -425,7 +424,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow_named.Value = cwl_workflow
 
 				object_array = append(object_array, cwl_workflow_named)
-				err = collection.Add(entrypoint, cwl_workflow)
+				err = context.Add(entrypoint, cwl_workflow)
 				if err != nil {
 					cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
 					return
@@ -441,7 +440,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			entrypoint = "#main"
 
 			var ok bool
-			cwl_workflow, ok = collection.Workflows[entrypoint]
+			cwl_workflow, ok = context.Workflows[entrypoint]
 			if !ok {
 				cx.RespondWithErrorMessage("Workflow main not found", http.StatusBadRequest)
 				return
@@ -461,7 +460,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		//}
 
 		//fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
-		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, &collection, cwl_version, context.Namespaces)
+		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, context, cwl_version)
 		if err != nil {
 			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
 			return

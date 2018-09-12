@@ -360,7 +360,7 @@ func NewCWLTypeArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWL
 
 }
 
-func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err error) {
+func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowContext) (ok bool, err error) {
 
 	if schema == CWL_Any {
 		object_type := object.GetType()
@@ -372,6 +372,12 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 		ok = true
 		return
 
+	}
+
+	pointer, is_pointer := schema.(*Pointer)
+	if is_pointer {
+		//resolve pointer / search schema
+		_ = pointer
 	}
 
 	switch object.(type) {
@@ -446,12 +452,12 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType) (ok bool, err erro
 	return
 }
 
-func TypeIsCorrect(allowed_types []CWLType_Type, object CWLType) (ok bool, err error) {
+func TypeIsCorrect(allowed_types []CWLType_Type, object CWLType, context *WorkflowContext) (ok bool, err error) {
 
 	for _, schema := range allowed_types {
 
 		var type_correct bool
-		type_correct, err = TypeIsCorrectSingle(schema, object)
+		type_correct, err = TypeIsCorrectSingle(schema, object, context)
 		if err != nil {
 			return
 		}

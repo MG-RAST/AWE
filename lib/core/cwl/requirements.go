@@ -29,16 +29,16 @@ func NewRequirementFromInterface(obj interface{}, inputs interface{}, context *W
 	//var obj_map map[string]interface{}
 	//var ok bool
 
-	var new_obj interface{}
-	var ok bool
-	new_obj, ok, err = Evaluate_import(obj, context)
-	if err != nil {
-		err = fmt.Errorf("(NewRequirementFromInterface) Evaluate_import returned: %s", err.Error())
-		return
-	}
-	if ok {
-		obj = new_obj
-	}
+	//var new_obj interface{}
+	//var ok bool
+	//new_obj, ok, err = Evaluate_import(obj, context)
+	//if err != nil {
+	//	err = fmt.Errorf("(NewRequirementFromInterface) Evaluate_import returned: %s", err.Error())
+	//	return
+	//}
+	//if ok {
+	//	obj = new_obj
+	//}
 
 	var class_str string
 	class_str, err = GetClass(obj)

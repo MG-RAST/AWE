@@ -743,7 +743,6 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			// 	err = fmt.Errorf("(ProcessIOData) filepath.Walk returned: %s", err.Error())
 			// 	return
 			// }
-			// panic("done")
 
 		}
 		logger.Debug(3, "dir.Path: %s", dir.Path)

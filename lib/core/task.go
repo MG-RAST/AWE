@@ -238,6 +238,12 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	}
 
 	if task.WorkflowStep != nil {
+
+		if job.WorkflowContext == nil {
+			err = fmt.Errorf("(InitRaw) job.WorkflowContext == nil")
+			return
+		}
+
 		err = task.WorkflowStep.Init(task.CwlVersion, job.WorkflowContext)
 		if err != nil {
 			err = fmt.Errorf("(InitRaw) task.WorkflowStep.Init returned: %s", err.Error())

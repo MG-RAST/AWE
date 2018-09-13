@@ -20,7 +20,7 @@ type DummyRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 }
 
-func NewRequirementFromInterface(obj interface{}, inputs interface{}, context *WorkflowContext) (r Requirement, schemata []CWLType_Type, err error) {
+func NewRequirementFromInterface(obj interface{}, inputs interface{}, context *WorkflowContext) (r Requirement, err error) {
 
 	obj, err = MakeStringMap(obj)
 	if err != nil {
@@ -46,8 +46,13 @@ func NewRequirementFromInterface(obj interface{}, inputs interface{}, context *W
 		err = fmt.Errorf("(NewRequirementFromInterface) GetClass returned: %s", err.Error())
 		return
 	}
-
+	var schemata []CWLType_Type
 	r, schemata, err = NewRequirement(class_str, obj, inputs)
+	context.AddSchemata(schemata)
+	//for i, _ := range schemata{
+	//	context.AddSchemata()
+
+	//}
 
 	return
 
@@ -350,9 +355,8 @@ func CreateRequirementArray(original interface{}, optional bool, inputs interfac
 		for i, _ := range original_array {
 			v := original_array[i]
 
-			var schemata_new []CWLType_Type
 			var requirement Requirement
-			requirement, schemata_new, err = NewRequirementFromInterface(v, inputs, context)
+			requirement, err = NewRequirementFromInterface(v, inputs, context)
 			if err != nil {
 				if optional {
 					logger.Debug(1, "(CreateRequirementArray) A NewRequirement returns: %s", err.Error())
@@ -365,9 +369,7 @@ func CreateRequirementArray(original interface{}, optional bool, inputs interfac
 				err = fmt.Errorf("(CreateRequirementArray) B NewRequirement returns: %s (%s)", err, spew.Sdump(v))
 				return
 			}
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
-			}
+
 			new_array = append(new_array, requirement)
 
 		}

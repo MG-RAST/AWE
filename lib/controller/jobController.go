@@ -475,7 +475,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			object_array_of_interface = append(object_array_of_interface, object_array[i])
 		}
 
-		job.CWL_objects = object_array_of_interface
+		job.CWL_graph = object_array_of_interface
 		job.CwlVersion = cwl_version
 		job.Namespaces = context.Namespaces
 		//job.CWL_collection = &collection
@@ -548,10 +548,10 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		E: nil,
 	}
 
-	//for i, _ := range job.CWL_objects {
-	//	spew.Dump(job.CWL_objects[i])
+	//for i, _ := range job.CWL_graph {
+	//	spew.Dump(job.CWL_graph[i])
 	//}
-	//job.CWL_objects = nil
+	//job.CWL_graph = nil
 
 	var response_bytes []byte
 	response_bytes, err = json.Marshal(SR)

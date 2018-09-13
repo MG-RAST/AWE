@@ -56,7 +56,7 @@ func NewWorkflowEmpty() (w Workflow) {
 	return w
 }
 
-func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequirements []Requirement, context *WorkflowContext) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
+func NewWorkflow(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
 
 	// convert input map into input array
 
@@ -86,7 +86,7 @@ func NewWorkflow(original interface{}, cwl_version CWLVersion, injectedRequireme
 			}
 			CwlVersion = CWLVersion(cwl_version_str)
 		} else {
-			CwlVersion = cwl_version
+			CwlVersion = context.CwlVersion
 		}
 
 		if CwlVersion == "" {

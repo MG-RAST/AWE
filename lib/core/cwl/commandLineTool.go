@@ -41,7 +41,7 @@ func (c *CommandLineTool) Is_process()     {}
 // keyname will be converted into 'Id'-field
 
 //func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
-func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedRequirements []Requirement, context *WorkflowContext) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
+func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement, context *WorkflowContext) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
 
 	//fmt.Println("NewCommandLineTool:")
 	//spew.Dump(generic)
@@ -176,7 +176,7 @@ func NewCommandLineTool(generic interface{}, cwl_version CWLVersion, injectedReq
 	}
 
 	if commandLineTool.CwlVersion == "" {
-		commandLineTool.CwlVersion = cwl_version
+		commandLineTool.CwlVersion = context.CwlVersion
 	}
 
 	if context.Namespaces != nil {

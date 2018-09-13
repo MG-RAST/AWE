@@ -64,9 +64,6 @@ func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Ty
 		err = fmt.Errorf("(NewInputRecordSchemaFromInterface) error")
 	}
 
-	//fmt.Println("irs:")
-	//spew.Dump(*irs)
-	//panic("done")
 	return
 
 }

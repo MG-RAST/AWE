@@ -71,7 +71,7 @@ type JobRaw struct {
 	ShockHost            string                       `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
 	IsCWL                bool                         `bson:"is_cwl" json:"is_cwl`
 	CwlVersion           cwl.CWLVersion               `bson:"cwl_version" json:"cwl_version"`
-	CWL_objects          []interface{}                `bson:"cwl_objects" json:"cwl_objects`
+	CWL_graph            []interface{}                `bson:"cwl_graph" json:"cwl_graph`
 	CWL_job_input        interface{}                  `bson:"cwl_job_input" json:"cwl_job_input` // has to be an array for mongo (id as key would not work)
 	CWL_ShockRequirement *cwl.ShockRequirement        `bson:"cwl_shock_requirement" json:"cwl_shock_requirement`
 	CWL_workflow         *cwl.Workflow                `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
@@ -382,6 +382,18 @@ func (job *Job) Init(CwlVersion cwl.CWLVersion, namespaces map[string]string) (c
 			changed = true
 		}
 	}
+
+	if job.WorkflowContext == nil {
+		job.WorkflowContext = cwl.NewWorkflowContext()
+
+		err = job.WorkflowContext.FillMaps(job.CWL_graph)
+		if err != nil {
+			err = fmt.Errorf("(job/Init) job.WorkflowContext.FillMaps returned: %s", err.Error())
+			return
+		}
+	}
+	context := job.WorkflowContext
+
 	old_remaintasks := job.RemainTasks
 	job.RemainTasks = 0
 
@@ -464,11 +476,11 @@ func (job *Job) Init(CwlVersion cwl.CWLVersion, namespaces map[string]string) (c
 	if job.IsCWL {
 
 		//collection := cwl.NewCWL_collection()
-		context := &cwl.WorkflowContext{}
+
 		//var schemata_new []CWLType_Type
-		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.CWL_objects, job.CwlVersion, job.WorkflowContext)
+		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.CWL_graph, job.CwlVersion, job.WorkflowContext)
 		if xerr != nil {
-			err = fmt.Errorf("(job.Init) cannot type assert CWL_objects: %s", xerr.Error())
+			err = fmt.Errorf("(job.Init) cannot type assert CWL_graph: %s", xerr.Error())
 			return
 		}
 

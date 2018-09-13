@@ -28,7 +28,7 @@ type ExpressionTool struct {
 }
 
 // TODO pass along workflow InlineJavascriptRequirement
-func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []CWLType_Type, injectedRequirements []Requirement, context *WorkflowContext) (et *ExpressionTool, err error) {
+func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRequirements []Requirement, context *WorkflowContext) (et *ExpressionTool, err error) {
 
 	object, ok := original.(map[string]interface{})
 	if !ok {
@@ -103,7 +103,7 @@ func NewExpressionTool(original interface{}, CwlVersion CWLVersion, schemata []C
 		et.Namespaces = context.Namespaces
 	}
 	if et.CwlVersion == "" {
-		et.CwlVersion = CwlVersion
+		et.CwlVersion = context.CwlVersion
 	}
 
 	if et.CwlVersion == "" {

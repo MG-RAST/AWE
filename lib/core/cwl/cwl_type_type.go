@@ -148,9 +148,6 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context string
 				result, err = NewCommandInputArraySchemaFromInterface(native, schemata)
 				if err != nil {
 
-					//spew.Dump(native)
-					//panic("done")
-
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputArraySchemaFromInterface returned: %s", err.Error())
 				}
 				return

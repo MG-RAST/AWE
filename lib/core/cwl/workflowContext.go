@@ -8,11 +8,14 @@ import (
 	"strings"
 
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/davecgh/go-spew/spew"
 )
 
 type WorkflowContext struct {
 	Path       string
 	Namespaces map[string]string
+	CWLVersion
+	CwlVersion CWLVersion `bson:"cwl_version" json:"cwl_version"`
 
 	// old ParsingContext
 	If_objects map[string]interface{}
@@ -32,6 +35,61 @@ type WorkflowContext struct {
 	Job_input_map *JobDocMap
 
 	Schemata map[string]CWLType_Type
+}
+
+func (context *WorkflowContext) FillMaps(graph []interface{}) (err error) {
+
+	//context := &WorkflowContext{}
+	context.If_objects = make(map[string]interface{})
+	context.Objects = make(map[string]CWL_object)
+
+	// put interface objetcs into map: populate context.If_objects
+	for _, elem := range graph {
+
+		var id string
+		id, err = GetId(elem)
+		if err != nil {
+			fmt.Println("object without id:")
+			spew.Dump(elem)
+			return
+		}
+		//fmt.Printf("id=\"%s\\n", id)
+
+		context.If_objects[id] = elem
+
+	}
+
+	main_if, has_main := context.If_objects["#main"]
+	if !has_main {
+		var keys string
+		for key, _ := range context.If_objects {
+			keys += "," + key
+		}
+		err = fmt.Errorf("(Parse_cwl_document) #main not found in graph (found %s)", keys)
+		return
+	}
+
+	// start with #main
+	// recursivly add objects to context
+	var object CWL_object
+	var schemata_new []CWLType_Type
+	object, schemata_new, err = New_CWL_object(main_if, nil, context)
+	if err != nil {
+		err = fmt.Errorf("(Parse_cwl_document) A New_CWL_object returned %s", err.Error())
+		return
+	}
+	context.Objects["#main"] = object
+
+	err = context.AddSchemata(schemata_new)
+	if err != nil {
+		err = fmt.Errorf("(Parse_cwl_document) context.AddSchemata returned %s", err.Error())
+		return
+	}
+	//for i, _ := range schemata_new {
+	//	schemata = append(schemata, schemata_new[i])
+	//}
+
+	return
 }
 
 func (c WorkflowContext) Evaluate(raw string) (parsed string) {
@@ -252,18 +310,18 @@ func (c WorkflowContext) GetWorkflow(id string) (obj *Workflow, err error) {
 	return
 }
 
-func NewWorkflowContext() (collection WorkflowContext) {
-	collection = WorkflowContext{}
+func NewWorkflowContext() (context *WorkflowContext) {
+	context = &WorkflowContext{}
 
-	collection.Workflows = make(map[string]*Workflow)
-	collection.WorkflowStepInputs = make(map[string]*WorkflowStepInput)
-	collection.CommandLineTools = make(map[string]*CommandLineTool)
-	collection.ExpressionTools = make(map[string]*ExpressionTool)
-	collection.Files = make(map[string]*File)
-	collection.Strings = make(map[string]*String)
-	collection.Ints = make(map[string]*Int)
-	collection.Booleans = make(map[string]*Boolean)
-	collection.All = make(map[string]CWL_object)
-	collection.Schemata = make(map[string]CWLType_Type)
+	context.Workflows = make(map[string]*Workflow)
+	context.WorkflowStepInputs = make(map[string]*WorkflowStepInput)
+	context.CommandLineTools = make(map[string]*CommandLineTool)
+	context.ExpressionTools = make(map[string]*ExpressionTool)
+	context.Files = make(map[string]*File)
+	context.Strings = make(map[string]*String)
+	context.Ints = make(map[string]*Int)
+	context.Booleans = make(map[string]*Boolean)
+	context.All = make(map[string]CWL_object)
+	context.Schemata = make(map[string]CWLType_Type)
 	return
 }

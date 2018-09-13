@@ -10,6 +10,11 @@ import (
 
 func Resolve_Imports(obj interface{}, context *WorkflowContext) (new_obj interface{}, err error) {
 
+	if context == nil {
+		err = fmt.Errorf("(Resolve_Imports) context == nil")
+		return
+	}
+
 	switch obj.(type) {
 	case []interface{}:
 		obj_array := obj.([]interface{})

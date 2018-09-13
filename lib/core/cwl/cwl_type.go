@@ -374,10 +374,21 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowC
 
 	}
 
+	// resolve pointer
 	pointer, is_pointer := schema.(*Pointer)
 	if is_pointer {
 		//resolve pointer / search schema
+
 		_ = pointer
+		fmt.Printf("schema needed: %s\n", string(*pointer))
+		for i, _ := range context.Schemata {
+			fmt.Println(i)
+			if i == string(*pointer) {
+				ok = true
+				return
+			}
+		}
+
 	}
 
 	switch object.(type) {

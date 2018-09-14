@@ -3,10 +3,11 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/core/uuid"
-	"github.com/MG-RAST/AWE/lib/logger"
 	"io/ioutil"
 	"time"
+
+	"github.com/MG-RAST/AWE/lib/core/uuid"
+	"github.com/MG-RAST/AWE/lib/logger"
 )
 
 // states
@@ -34,7 +35,7 @@ type Client struct {
 	Online          bool          `bson:"online" json:"online"`                 // a state
 	Suspended       bool          `bson:"suspended" json:"suspended"`           // a state
 	Suspend_reason  string        `bson:"suspend_reason" json:"suspend_reason"` // a state
-	Status          string        `bson:"Status" json:"Status"`                 // 1) suspended? 2) busy ? 3) online (call is idle) 4) offline
+	Status          string        `bson:"Status" json:"Status"`                 // 0) unhealthy 1) suspended? 2) busy ? 3) online (call is idle) 4) offline
 	Assigned_work   *WorkunitList `bson:"assigned_work" json:"assigned_work"`   // this is for exporting into json
 }
 
@@ -58,12 +59,15 @@ type WorkerRuntime struct {
 
 // changes at runtime
 type WorkerState struct {
+	Healthy      bool          `bson:"healthy" json:"healthy"`
+	ErrorMessage string        `bson:"error_message" json:"error_message"`
 	Busy         bool          `bson:"busy" json:"busy"` // a state
 	Current_work *WorkunitList `bson:"current_work" json:"current_work"`
 }
 
 func NewWorkerState() (ws *WorkerState) {
 	ws = &WorkerState{}
+	ws.Healthy = true
 	ws.Current_work = NewWorkunitList()
 	return
 }
@@ -103,12 +107,14 @@ func NewClient() (client *Client) {
 		Serve_time:      "0",
 		Last_failed:     0,
 		Suspended:       false,
-		Status:          "offline",
-		Assigned_work:   NewWorkunitList(),
+		//Status:          "online",
+		Online:        true,
+		Assigned_work: NewWorkunitList(),
 
 		WorkerRuntime: WorkerRuntime{},
 		WorkerState:   *NewWorkerState(),
 	}
+	client.Update_Status(false)
 
 	client.Init()
 
@@ -262,6 +268,11 @@ func (cl *Client) Update_Status(write_lock bool) (err error) {
 	}
 
 	// 1) suspended? 2) busy ? 3) online (call is idle) 4) offline
+
+	if !cl.Healthy {
+		cl.Status = "unhealthy"
+		return
+	}
 
 	if cl.Suspended {
 		cl.Status = "suspended"

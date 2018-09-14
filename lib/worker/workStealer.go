@@ -39,6 +39,12 @@ func workStealerRun(control chan int, retry_previous int) (retry int, err error)
 	if core.Service == "proxy" {
 		<-core.ProxyWorkChan
 	}
+
+	// do not check out work if client is in a bad state
+	for core.Self.WorkerState.Healthy == false {
+		time.Sleep(time.Second * 10)
+	}
+
 	workunit, err := CheckoutWorkunitRemote()
 	if err != nil {
 		core.Self.Busy = false

@@ -12,11 +12,12 @@ import (
 )
 
 type WorkflowContext struct {
-	Path       string
-	Namespaces map[string]string
-	CWLVersion
-	CwlVersion CWLVersion `bson:"cwl_version" json:"cwl_version"`
-
+	CWL_document `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // fields: CwlVersion, Base, Graph, Namespaces, Schemas
+	Path         string
+	//Namespaces   map[string]string
+	//CWLVersion
+	//CwlVersion CWLVersion    `yaml:"cwl_version"  json:"cwl_version" bson:"cwl_version" mapstructure:"cwl_version"`
+	//CWL_graph  []interface{} `yaml:"cwl_graph"  json:"cwl_graph" bson:"cwl_graph" mapstructure:"cwl_graph"`
 	// old ParsingContext
 	If_objects map[string]interface{}
 	Objects    map[string]CWL_object
@@ -25,12 +26,11 @@ type WorkflowContext struct {
 	WorkflowStepInputs map[string]*WorkflowStepInput
 	CommandLineTools   map[string]*CommandLineTool
 	ExpressionTools    map[string]*ExpressionTool
-
-	Files    map[string]*File
-	Strings  map[string]*String
-	Ints     map[string]*Int
-	Booleans map[string]*Boolean
-	All      map[string]CWL_object // everything goes in here
+	Files              map[string]*File
+	Strings            map[string]*String
+	Ints               map[string]*Int
+	Booleans           map[string]*Boolean
+	All                map[string]CWL_object // everything goes in here
 	//Job_input          *Job_document
 	Job_input_map *JobDocMap
 
@@ -39,9 +39,19 @@ type WorkflowContext struct {
 
 func (context *WorkflowContext) FillMaps(graph []interface{}) (err error) {
 
+	if context.CwlVersion == "" {
+		err = fmt.Errorf("(FillMaps) context.CwlVersion ==nil")
+		return
+	}
+
 	//context := &WorkflowContext{}
 	context.If_objects = make(map[string]interface{})
 	context.Objects = make(map[string]CWL_object)
+
+	if len(graph) == 0 {
+		err = fmt.Errorf("(FillMaps) len(graph) == 0")
+		return
+	}
 
 	// put interface objetcs into map: populate context.If_objects
 	for _, elem := range graph {
@@ -65,7 +75,7 @@ func (context *WorkflowContext) FillMaps(graph []interface{}) (err error) {
 		for key, _ := range context.If_objects {
 			keys += "," + key
 		}
-		err = fmt.Errorf("(Parse_cwl_document) #main not found in graph (found %s)", keys)
+		err = fmt.Errorf("(FillMaps) #main not found in graph (found %s)", keys)
 		return
 	}
 
@@ -75,14 +85,14 @@ func (context *WorkflowContext) FillMaps(graph []interface{}) (err error) {
 	var schemata_new []CWLType_Type
 	object, schemata_new, err = New_CWL_object(main_if, nil, context)
 	if err != nil {
-		err = fmt.Errorf("(Parse_cwl_document) A New_CWL_object returned %s", err.Error())
+		err = fmt.Errorf("(FillMaps) A New_CWL_object returned %s", err.Error())
 		return
 	}
 	context.Objects["#main"] = object
 
 	err = context.AddSchemata(schemata_new)
 	if err != nil {
-		err = fmt.Errorf("(Parse_cwl_document) context.AddSchemata returned %s", err.Error())
+		err = fmt.Errorf("(FillMaps) context.AddSchemata returned %s", err.Error())
 		return
 	}
 	//for i, _ := range schemata_new {

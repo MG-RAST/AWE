@@ -18,7 +18,7 @@ func NewNamed_CWL_object(id string, value CWL_object) Named_CWL_object {
 	return x
 }
 
-func NewNamed_CWL_object_from_interface(original interface{}, cwl_version CWLVersion, context *WorkflowContext) (x Named_CWL_object, schemata []CWLType_Type, err error) {
+func NewNamed_CWL_object_from_interface(original interface{}, context *WorkflowContext) (x Named_CWL_object, schemata []CWLType_Type, err error) {
 
 	original, err = MakeStringMap(original)
 	if err != nil {
@@ -73,7 +73,7 @@ func NewNamed_CWL_object_from_interface(original interface{}, cwl_version CWLVer
 	return
 }
 
-func NewNamed_CWL_object_array(original interface{}, cwl_version CWLVersion, context *WorkflowContext) (array []Named_CWL_object, schemata []CWLType_Type, err error) {
+func NewNamed_CWL_object_array(original interface{}, context *WorkflowContext) (array []Named_CWL_object, schemata []CWLType_Type, err error) {
 
 	//original, err = makeStringMap(original)
 	//if err != nil {
@@ -91,7 +91,7 @@ func NewNamed_CWL_object_array(original interface{}, cwl_version CWLVersion, con
 		for _, element := range org_a {
 			var schemata_new []CWLType_Type
 			var cwl_object Named_CWL_object
-			cwl_object, schemata_new, err = NewNamed_CWL_object_from_interface(element, cwl_version, context)
+			cwl_object, schemata_new, err = NewNamed_CWL_object_from_interface(element, context)
 			if err != nil {
 				err = fmt.Errorf("(NewNamed_CWL_object_array) New_CWL_object returned %s", err.Error())
 				return

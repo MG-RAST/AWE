@@ -113,7 +113,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		var clt *cwl.CommandLineTool
 		//var a_workflow *cwl.Workflow
 		var process interface{}
-		process, _, err = cwl.GetProcess(p, job.WorkflowContext, job.CwlVersion) // TODO add new schemata
+		process, _, err = cwl.GetProcess(p, job.WorkflowContext) // TODO add new schemata
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetProcess returned: %s", err.Error())
 			return
@@ -130,7 +130,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		case *cwl.CommandLineTool:
 			clt, _ = process.(*cwl.CommandLineTool)
 			if clt.CwlVersion == "" {
-				clt.CwlVersion = job.CwlVersion
+				clt.CwlVersion = job.WorkflowContext.CwlVersion
 			}
 			if clt.CwlVersion == "" {
 				err = fmt.Errorf("(NewWorkunit) CommandLineTool misses CwlVersion")
@@ -138,21 +138,21 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			}
 
 			if clt.Namespaces == nil {
-				clt.Namespaces = job.Namespaces // not sure why the CommandLineTool does not have the namespaces... :-(
+				clt.Namespaces = job.WorkflowContext.Namespaces // not sure why the CommandLineTool does not have the namespaces... :-(
 			}
 			//requirements = clt.Requirements
 		case *cwl.ExpressionTool:
 			var et *cwl.ExpressionTool
 			et, _ = process.(*cwl.ExpressionTool)
 			if et.CwlVersion == "" {
-				et.CwlVersion = job.CwlVersion
+				et.CwlVersion = job.WorkflowContext.CwlVersion
 			}
 			if et.CwlVersion == "" {
 				err = fmt.Errorf("(NewWorkunit) ExpressionTool misses CwlVersion")
 				return
 			}
 			if et.Namespaces == nil {
-				et.Namespaces = job.Namespaces
+				et.Namespaces = job.WorkflowContext.Namespaces
 			}
 		default:
 			err = fmt.Errorf("(NewWorkunit) Tool %s not supported", reflect.TypeOf(process))

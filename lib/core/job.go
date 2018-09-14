@@ -70,16 +70,15 @@ type JobRaw struct {
 	Resumed              int                          `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
 	ShockHost            string                       `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
 	IsCWL                bool                         `bson:"is_cwl" json:"is_cwl`
-	CwlVersion           cwl.CWLVersion               `bson:"cwl_version" json:"cwl_version"`
-	CWL_graph            []interface{}                `bson:"cwl_graph" json:"cwl_graph`
 	CWL_job_input        interface{}                  `bson:"cwl_job_input" json:"cwl_job_input` // has to be an array for mongo (id as key would not work)
 	CWL_ShockRequirement *cwl.ShockRequirement        `bson:"cwl_shock_requirement" json:"cwl_shock_requirement`
 	CWL_workflow         *cwl.Workflow                `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	WorkflowInstances    []interface{}                `bson:"workflow_instances" json:"workflow_instances" yaml:"workflow_instances" mapstructure:"workflow_instances"`
 	WorkflowInstancesMap map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	Entrypoint           string                       `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
-	Namespaces           map[string]string            `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
-	WorkflowContext      *cwl.WorkflowContext         `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
+	WorkflowContext      *cwl.WorkflowContext         `bson:"context" json:"context" yaml:"context" mapstructure:"context"`
+
+	//Namespaces           map[string]string            `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
 func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
@@ -343,7 +342,7 @@ func NewJobDep() (job *JobDep) {
 }
 
 // this has to be called after Unmarshalling from JSON
-func (job *Job) Init(CwlVersion cwl.CWLVersion, namespaces map[string]string) (changed bool, err error) {
+func (job *Job) Init() (changed bool, err error) {
 	changed = false
 	job.RWMutex.Init("Job")
 
@@ -376,19 +375,23 @@ func (job *Job) Init(CwlVersion cwl.CWLVersion, namespaces map[string]string) (c
 		changed = true
 	}
 
-	if CwlVersion != "" {
-		if job.CwlVersion != CwlVersion {
-			job.CwlVersion = CwlVersion
-			changed = true
-		}
-	}
-
 	if job.WorkflowContext == nil {
+
 		job.WorkflowContext = cwl.NewWorkflowContext()
 
-		err = job.WorkflowContext.FillMaps(job.CWL_graph)
+		if job.WorkflowContext.Graph == nil {
+			err = fmt.Errorf("(job.Init) job.WorkflowContext.Graph == nil")
+			return
+		}
+
+		if len(job.WorkflowContext.Graph) == 0 {
+			err = fmt.Errorf("(job.Init) len(job.WorkflowContext.Graph) == 0")
+			return
+		}
+
+		err = job.WorkflowContext.FillMaps(job.WorkflowContext.Graph)
 		if err != nil {
-			err = fmt.Errorf("(job/Init) job.WorkflowContext.FillMaps returned: %s", err.Error())
+			err = fmt.Errorf("(job.Init) job.WorkflowContext.FillMaps returned: %s", err.Error())
 			return
 		}
 	}
@@ -410,7 +413,7 @@ func (job *Job) Init(CwlVersion cwl.CWLVersion, namespaces map[string]string) (c
 			}
 			changed = true
 		}
-		t_changed, xerr := task.Init(job, job.CwlVersion)
+		t_changed, xerr := task.Init(job)
 		if xerr != nil {
 			err = fmt.Errorf("(job.Init) task.Init returned: %s", xerr.Error())
 			return
@@ -478,7 +481,7 @@ func (job *Job) Init(CwlVersion cwl.CWLVersion, namespaces map[string]string) (c
 		//collection := cwl.NewCWL_collection()
 
 		//var schemata_new []CWLType_Type
-		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.CWL_graph, job.CwlVersion, job.WorkflowContext)
+		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.WorkflowContext.Graph, job.WorkflowContext)
 		if xerr != nil {
 			err = fmt.Errorf("(job.Init) cannot type assert CWL_graph: %s", xerr.Error())
 			return

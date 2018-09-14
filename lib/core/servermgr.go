@@ -1498,7 +1498,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 	children := []Task_Unique_Identifier{}
 	for i := range sub_workflow_tasks {
 		sub_task := sub_workflow_tasks[i]
-		_, err = sub_task.Init(job, job.CwlVersion)
+		_, err = sub_task.Init(job)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueWorkflow) sub_task.Init() returns: %s", err.Error())
 			return
@@ -1820,7 +1820,7 @@ func (qm *ServerMgr) taskEnQueueScatter(task *Task, job *Job, workflow_input_map
 
 		awe_task.Scatter_parent = &task.Task_Unique_Identifier
 		//awe_task.Scatter_task = true
-		_, err = awe_task.Init(job, job.CwlVersion)
+		_, err = awe_task.Init(job)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) awe_task.Init() returns: %s", err.Error())
 			return
@@ -1993,7 +1993,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 				logger.Debug(3, "(updateJobTask) type of process: %s", reflect.TypeOf(p))
 
-				process, _, err = cwl.GetProcess(p, job.WorkflowContext, job.CwlVersion) // TODO add new_schemata
+				process, _, err = cwl.GetProcess(p, job.WorkflowContext) // TODO add new_schemata
 				if err != nil {
 					err = fmt.Errorf("(taskEnQueue) cwl.GetProcess returned: %s (task_type=%s)", err.Error(), task_type)
 					return
@@ -3195,7 +3195,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			//}
 
 			var process interface{}
-			process, _, err = cwl.GetProcess(p, job.WorkflowContext, job.CwlVersion) // TODO add schemata
+			process, _, err = cwl.GetProcess(p, job.WorkflowContext) // TODO add schemata
 
 			// get embedded workflow
 			var ok bool

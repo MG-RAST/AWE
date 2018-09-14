@@ -56,9 +56,9 @@ func Resolve_Imports(obj interface{}, context *WorkflowContext) (new_obj interfa
 				err = fmt.Errorf("context.Path empty\n")
 				return
 			}
-
+			//fmt.Printf("context.Path: %s\n", context.Path)
 			import_path = path.Join(context.Path, import_path)
-			fmt.Printf("import_path: %s\n", import_path)
+			//fmt.Printf("import_path: %s\n", import_path)
 			var doc_stream []byte
 			doc_stream, err = ioutil.ReadFile(import_path)
 			if err != nil {

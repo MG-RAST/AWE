@@ -171,12 +171,12 @@ func main_wrapper() (err error) {
 	yaml_str := string(yamlstream[:])
 	//fmt.Printf("after cwltool --pack: \n%s\n", yaml_str)
 	var named_object_array []cwl.Named_CWL_object
-	var cwl_version cwl.CWLVersion
+	//var cwl_version cwl.CWLVersion
 	var schemata []cwl.CWLType_Type
 	var namespaces map[string]string
 	var schemas []interface{}
-	//var context *cwl.WorkflowContext
-	named_object_array, cwl_version, schemata, _, schemas, err = cwl.Parse_cwl_document(yaml_str, inputfile_path)
+	var context *cwl.WorkflowContext
+	named_object_array, schemata, context, schemas, err = cwl.Parse_cwl_document(yaml_str, inputfile_path)
 
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) error in parsing cwl workflow yaml file: " + err.Error())
@@ -342,14 +342,19 @@ func main_wrapper() (err error) {
 
 	// create temporary workflow document file
 
-	new_document := cwl.CWL_document_graph{}
-	new_document.CwlVersion = cwl_version
+	new_document := cwl.CWL_document{}
+	new_document.CwlVersion = context.CwlVersion
 	new_document.Namespaces = namespaces
 	new_document.Schemas = schemas
 	for i, _ := range named_object_array {
 		pair := named_object_array[i]
 		object := pair.Value
 		new_document.Graph = append(new_document.Graph, object)
+	}
+
+	if len(new_document.Graph) == 0 {
+		err = fmt.Errorf("(main_wrapper) len(new_document.Graph) == 0")
+		return
 	}
 
 	var new_document_bytes []byte
@@ -458,7 +463,7 @@ func main_wrapper() (err error) {
 		}
 		//spew.Dump(job)
 
-		_, err = job.Init(cwl_version, namespaces)
+		_, err = job.Init()
 		if err != nil {
 			return
 		}

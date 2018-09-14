@@ -229,7 +229,7 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		}
 	}
 
-	CwlVersion := job.CwlVersion
+	CwlVersion := job.WorkflowContext.CwlVersion
 
 	if CwlVersion != "" {
 		if task.CwlVersion != CwlVersion {
@@ -244,7 +244,7 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 			return
 		}
 
-		err = task.WorkflowStep.Init(task.CwlVersion, job.WorkflowContext)
+		err = task.WorkflowStep.Init(job.WorkflowContext)
 		if err != nil {
 			err = fmt.Errorf("(InitRaw) task.WorkflowStep.Init returned: %s", err.Error())
 			return
@@ -382,7 +382,7 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 	return
 }
 
-func (task *Task) Init(job *Job, CwlVersion cwl.CWLVersion) (changed bool, err error) {
+func (task *Task) Init(job *Job) (changed bool, err error) {
 	changed, err = task.InitRaw(job)
 	if err != nil {
 		return

@@ -52,7 +52,7 @@ func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 }
 
 // returns CommandLineTool, ExpressionTool or Workflow
-func NewProcess(original interface{}, CwlVersion CWLVersion, injectedRequirements []Requirement, context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
+func NewProcess(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
 
 	//logger.Debug(3, "(NewProcess) starting")
 	if context == nil {
@@ -60,7 +60,7 @@ func NewProcess(original interface{}, CwlVersion CWLVersion, injectedRequirement
 		return
 	}
 
-	if CwlVersion == "" {
+	if context.CwlVersion == "" {
 		err = fmt.Errorf("(NewProcess) CwlVersion empty")
 		return
 	}

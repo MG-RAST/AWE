@@ -74,9 +74,9 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 		object := original.(map[string]interface{})
 
 		var CwlVersion CWLVersion
-
-		cwl_version_if, ok := object["cwlVersion"]
-		if ok {
+		var ok bool
+		cwl_version_if, has_cwl_version := object["cwlVersion"]
+		if has_cwl_version {
 			//CwlVersion = cwl_version_if.(string)
 			var cwl_version_str string
 			cwl_version_str, ok = cwl_version_if.(string)
@@ -92,7 +92,7 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 		if CwlVersion == "" {
 			fmt.Println("workflow without version:")
 			//spew.Dump(object)
-			err = fmt.Errorf("(NewWorkflow) CwlVersion empty")
+			err = fmt.Errorf("(NewWorkflow) CwlVersion empty (has_cwl_version: %t, context.CwlVersion: %s)", has_cwl_version, context.CwlVersion)
 			return
 		}
 		requirements, ok := object["requirements"]
@@ -157,7 +157,7 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 
 			//fmt.Printf("(NewWorkflow) Injecting %d\n", len(requirements_array))
 			//spew.Dump(requirements_array)
-			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps, CwlVersion, requirements_array, context)
+			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps, requirements_array, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) CreateWorkflowStepsArray returned: %s", err.Error())
 				return

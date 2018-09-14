@@ -384,7 +384,7 @@ func dbGetJobArrayField(job_id string, task_id string, array_name string, id_fie
 
 func dbGetJobTask(job_id string, task_id string) (result *Task, err error) {
 	dummy_job := NewJob()
-	dummy_job.Init("", nil)
+	dummy_job.Init()
 
 	session := db.Connection.Session.Copy()
 	defer session.Close()
@@ -710,7 +710,7 @@ func LoadJob(id string) (job *Job, err error) {
 		return
 	}
 
-	changed, xerr := job.Init("", nil) // values have already been set at this point...
+	changed, xerr := job.Init() // values have already been set at this point...
 	if xerr != nil {
 		err = fmt.Errorf("(LoadJob) job.Init failed: %s", xerr.Error())
 		return

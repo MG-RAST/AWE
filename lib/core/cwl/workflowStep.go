@@ -22,11 +22,11 @@ type WorkflowStep struct {
 	Doc           string               `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
 	Scatter       []string             `yaml:"scatter,omitempty" bson:"scatter,omitempty" json:"scatter,omitempty" mapstructure:"scatter,omitempty"`                         // ScatterFeatureRequirement
 	ScatterMethod string               `yaml:"scatterMethod,omitempty" bson:"scatterMethod,omitempty" json:"scatterMethod,omitempty" mapstructure:"scatterMethod,omitempty"` // ScatterFeatureRequirement
-	CwlVersion    CWLVersion           `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty"`
-	Namespaces    map[string]string    `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
+	//CwlVersion    CWLVersion           `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty"`
+	//Namespaces    map[string]string    `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
-func (ws *WorkflowStep) Init(CwlVersion CWLVersion, context *WorkflowContext) (err error) {
+func (ws *WorkflowStep) Init(context *WorkflowContext) (err error) {
 	if ws.Run == nil {
 		return
 	}
@@ -39,8 +39,8 @@ func (ws *WorkflowStep) Init(CwlVersion CWLVersion, context *WorkflowContext) (e
 	case *Workflow:
 		return
 	}
-	ws.CwlVersion = CwlVersion
-	ws.Run, _, err = NewProcess(p, CwlVersion, nil, context) // requirements should already be injected
+	//ws.CwlVersion = context.CwlVersion
+	ws.Run, _, err = NewProcess(p, nil, context) // requirements should already be injected
 	if err != nil {
 		err = fmt.Errorf("(WorkflowStep/Init) NewProcess() returned %s", err.Error())
 		return
@@ -49,7 +49,7 @@ func (ws *WorkflowStep) Init(CwlVersion CWLVersion, context *WorkflowContext) (e
 	return
 }
 
-func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequirements []Requirement, context *WorkflowContext) (w *WorkflowStep, schemata []CWLType_Type, err error) {
+func NewWorkflowStep(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (w *WorkflowStep, schemata []CWLType_Type, err error) {
 	var step WorkflowStep
 
 	logger.Debug(3, "NewWorkflowStep starting")
@@ -109,7 +109,7 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 			//fmt.Printf("(NewWorkflowStep) Injecting %d\n", len(requirements_array))
 			//spew.Dump(requirements_array)
 
-			v_map["run"], schemata_new, err = NewProcess(run, CwlVersion, requirements_array, context)
+			v_map["run"], schemata_new, err = NewProcess(run, requirements_array, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) run %s", err.Error())
 				return
@@ -189,10 +189,6 @@ func NewWorkflowStep(original interface{}, CwlVersion CWLVersion, injectedRequir
 		}
 		w = &step
 
-		w.CwlVersion = CwlVersion
-		if context.Namespaces != nil {
-			w.Namespaces = context.Namespaces
-		}
 		//spew.Dump(w.Run)
 
 		//fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
@@ -218,11 +214,11 @@ func (w WorkflowStep) GetOutput(id string) (output *WorkflowStepOutput, err erro
 }
 
 // CreateWorkflowStepsArray
-func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion, injectedRequirements []Requirement, context *WorkflowContext) (schemata []CWLType_Type, array_ptr *[]WorkflowStep, err error) {
+func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (schemata []CWLType_Type, array_ptr *[]WorkflowStep, err error) {
 
 	array := []WorkflowStep{}
 
-	if CwlVersion == "" {
+	if context.CwlVersion == "" {
 		err = fmt.Errorf("(CreateWorkflowStepsArray) CwlVersion empty")
 		return
 	}
@@ -242,7 +238,7 @@ func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion, injec
 			var step *WorkflowStep
 			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
 			//spew.Dump(injectedRequirements)
-			step, schemata_new, err = NewWorkflowStep(v, CwlVersion, injectedRequirements, context)
+			step, schemata_new, err = NewWorkflowStep(v, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
@@ -276,7 +272,7 @@ func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion, injec
 			var step *WorkflowStep
 			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
 			//spew.Dump(injectedRequirements)
-			step, schemata_new, err = NewWorkflowStep(v, CwlVersion, injectedRequirements, context)
+			step, schemata_new, err = NewWorkflowStep(v, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
@@ -349,7 +345,7 @@ func CreateWorkflowStepsArray(original interface{}, CwlVersion CWLVersion, injec
 // 	return
 // }
 
-func GetProcess(original interface{}, context *WorkflowContext, CwlVersion CWLVersion) (process interface{}, schemata []CWLType_Type, err error) {
+func GetProcess(original interface{}, context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
 
 	var p interface{}
 	p, err = MakeStringMap(original)

@@ -16,16 +16,16 @@ type WorkflowOutputParameter struct {
 	LinkMerge       LinkMergeMethod                                                       `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
 }
 
-func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type) (wop *WorkflowOutputParameter, err error) {
+func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (wop *WorkflowOutputParameter, err error) {
 	var output_parameter WorkflowOutputParameter
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
 
 	var op *OutputParameter
-	op, err = NewOutputParameterFromInterface(original, schemata, "Output")
+	op, err = NewOutputParameterFromInterface(original, schemata, "Output", context)
 	if err != nil {
 		err = fmt.Errorf("(NewWorkflowOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
 		return
@@ -116,7 +116,7 @@ func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type) (
 }
 
 // WorkflowOutputParameter
-func NewWorkflowOutputParameterArray(original interface{}, schemata []CWLType_Type) (new_array_ptr *[]WorkflowOutputParameter, err error) {
+func NewWorkflowOutputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (new_array_ptr *[]WorkflowOutputParameter, err error) {
 
 	new_array := []WorkflowOutputParameter{}
 	switch original.(type) {
@@ -124,7 +124,7 @@ func NewWorkflowOutputParameterArray(original interface{}, schemata []CWLType_Ty
 		for k, v := range original.(map[interface{}]interface{}) {
 			//fmt.Printf("A")
 
-			output_parameter, xerr := NewWorkflowOutputParameter(v, schemata)
+			output_parameter, xerr := NewWorkflowOutputParameter(v, schemata, context)
 			if xerr != nil {
 				err = xerr
 				return
@@ -142,7 +142,7 @@ func NewWorkflowOutputParameterArray(original interface{}, schemata []CWLType_Ty
 		for _, v := range original.([]interface{}) {
 			//fmt.Printf("A")
 
-			output_parameter, xerr := NewWorkflowOutputParameter(v, schemata)
+			output_parameter, xerr := NewWorkflowOutputParameter(v, schemata, context)
 			if xerr != nil {
 				err = xerr
 				return

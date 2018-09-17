@@ -13,7 +13,7 @@ import (
 type CWL_document struct {
 	CwlVersion CWLVersion        `yaml:"cwlVersion,omitempty" json:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
 	Base       interface{}       `yaml:"$base,omitempty" json:"$base,omitempty" bson:"base,omitempty" mapstructure:"$base,omitempty"`
-	Graph      []interface{}     `yaml:"$graph" json:"$graph" bson:"-" mapstructure:"-"` //`yaml:"$graph" json:"$graph" bson:"graph" mapstructure:"$graph"`
+	Graph      []interface{}     `yaml:"$graph" json:"$graph" bson:"graph" mapstructure:"$graph"` //`yaml:"$graph" json:"$graph" bson:"graph" mapstructure:"$graph"`
 	Namespaces map[string]string `yaml:"$namespaces,omitempty" json:"$namespaces,omitempty" bson:"namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 	Schemas    []interface{}     `yaml:"$schemas,omitempty" json:"$schemas,omitempty" bson:"schemas,omitempty" mapstructure:"$schemas,omitempty"`
 }
@@ -41,17 +41,22 @@ func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object
 	}
 
 	// resolve $import
-	var new_obj interface{}
-	new_obj, err = Resolve_Imports(cwl_gen.Graph, context)
+	//var new_obj []interface{}
+	err = Resolve_ImportsArray(cwl_gen.Graph, context)
 	if err != nil {
 		err = fmt.Errorf("(Parse_cwl_graph_document) Resolve_Imports returned: " + err.Error())
 		return
 	}
-	if new_obj != nil {
-		err = fmt.Errorf("(Parse_cwl_graph_document) $import in $graph not supported yet")
-		return
-	}
 
+	fmt.Println("############# cwl_gen.Graph:")
+	spew.Dump(cwl_gen.Graph)
+	//panic("done")
+	//if new_obj != nil {
+	//	err = fmt.Errorf("(Parse_cwl_graph_document) $import in $graph not supported yet")
+	//	return
+	//}
+
+	context.Graph = cwl_gen.Graph
 	context.CwlVersion = cwl_gen.CwlVersion
 
 	if cwl_gen.Namespaces != nil {

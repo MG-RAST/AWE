@@ -41,7 +41,7 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRe
 	var inputs []InputParameter
 	inputs_if, has_inputs := object["inputs"]
 	if has_inputs {
-		inputs, err = NewInputParameterArray(inputs_if, schemata)
+		inputs, err = NewInputParameterArray(inputs_if, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(NewExpressionTool) error in NewInputParameterArray: %s", err.Error())
 			return
@@ -51,7 +51,7 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRe
 
 	outputs, has_outputs := object["outputs"]
 	if has_outputs {
-		object["outputs"], err = NewExpressionToolOutputParameterArray(outputs, schemata)
+		object["outputs"], err = NewExpressionToolOutputParameterArray(outputs, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(NewExpressionTool) error in NewExpressionToolOutputParameterArray: %s", err.Error())
 			return

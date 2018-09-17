@@ -17,6 +17,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	//"os"
@@ -145,6 +146,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		if err != nil {
 			cx.RespondWithErrorMessage("error in parsing cwl workflow yaml file: "+err.Error(), http.StatusBadRequest)
 			return
+		}
+		if context.Graph == nil {
+			panic("jobController context.Graph == nil")
 		}
 
 		err = context.AddArray(object_array)
@@ -548,10 +552,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		E: nil,
 	}
 
-	//for i, _ := range job.CWL_graph {
-	//	spew.Dump(job.CWL_graph[i])
-	//}
-	job.WorkflowContext.Graph = nil
+	for i, _ := range job.WorkflowContext.Graph {
+		fmt.Printf("+------- " + string(i))
+		spew.Dump(job.WorkflowContext.Graph[i])
+	}
+	fmt.Printf("WorkflowContext ------- ")
+	spew.Dump(job.WorkflowContext.Graph)
+	//job.WorkflowContext = nil
 
 	var response_bytes []byte
 	response_bytes, err = json.Marshal(SR)

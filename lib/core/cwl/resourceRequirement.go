@@ -25,7 +25,7 @@ type ResourceRequirement struct {
 
 func (r ResourceRequirement) GetId() string { return "None" }
 
-func (r *ResourceRequirement) Evaluate(inputs interface{}) (err error) {
+func (r *ResourceRequirement) Evaluate(inputs interface{}, context *WorkflowContext) (err error) {
 
 	if inputs == nil {
 		err = fmt.Errorf("(ResourceRequirement/Evaluate) no inputs")
@@ -48,7 +48,7 @@ func (r *ResourceRequirement) Evaluate(inputs interface{}) (err error) {
 				var original_expr *Expression
 				original_expr = NewExpressionFromString(original_str)
 
-				new_value, err = original_expr.EvaluateExpression(nil, inputs)
+				new_value, err = original_expr.EvaluateExpression(nil, inputs, context)
 				//value_if = new_value
 				value.Set(reflect.ValueOf(new_value).Elem())
 				//fmt.Printf("(ResourceRequirement/Evaluate)EvaluateExpression returned: %v\n", new_value)

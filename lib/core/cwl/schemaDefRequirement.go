@@ -16,9 +16,9 @@ type SchemaDefRequirement struct {
 
 func (c SchemaDefRequirement) GetId() string { return "None" }
 
-func NewSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, schemata []CWLType_Type, err error) {
+func NewSchemaDefRequirement(original interface{}, context *WorkflowContext) (r *SchemaDefRequirement, schemata []CWLType_Type, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -33,7 +33,7 @@ func NewSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, sch
 	if has_types {
 
 		//var array []CWLType_Type
-		schemata, err = NewCWLType_TypeArray(types, []CWLType_Type{}, "Input", true)
+		schemata, err = NewCWLType_TypeArray(types, []CWLType_Type{}, "Input", true, context)
 		if err != nil {
 			return
 		}
@@ -55,8 +55,8 @@ func NewSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, sch
 	return
 }
 
-func GetSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, schemata []CWLType_Type, ok bool, err error) {
-	original, err = MakeStringMap(original)
+func GetSchemaDefRequirement(original interface{}, context *WorkflowContext) (r *SchemaDefRequirement, schemata []CWLType_Type, ok bool, err error) {
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -79,7 +79,7 @@ func GetSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, sch
 				continue
 			}
 
-			r, schemata, err = NewSchemaDefRequirement(original_array[i])
+			r, schemata, err = NewSchemaDefRequirement(original_array[i], context)
 			if err != nil {
 				err = fmt.Errorf("(GetSchemaDefRequirement) NewSchemaDefRequirement returned: %s", err.Error())
 				return

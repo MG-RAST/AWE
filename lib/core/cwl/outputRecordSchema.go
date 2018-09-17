@@ -27,9 +27,9 @@ func NewOutputRecordSchema(irs_map map[string]interface{}) (ors *OutputRecordSch
 	return
 }
 
-func NewOutputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Type) (ors *OutputRecordSchema, err error) {
+func NewOutputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Type, context *WorkflowContext) (ors *OutputRecordSchema, err error) {
 
-	native, err = MakeStringMap(native)
+	native, err = MakeStringMap(native, context)
 	if err != nil {
 		return
 	}
@@ -61,7 +61,7 @@ func NewOutputRecordSchemaFromInterface(native interface{}, schemata []CWLType_T
 			return
 		}
 
-		ors.Fields, err = CreateOutputRecordFieldArray(fields_array, schemata)
+		ors.Fields, err = CreateOutputRecordFieldArray(fields_array, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(NewOutputRecordSchemaFromInterface) CreateOutputRecordFieldArray returns: %s", err.Error())
 			return

@@ -13,9 +13,9 @@ type CommandOutputBinding struct {
 	OutputEval   *Expression  `yaml:"outputEval,omitempty" bson:"outputEval,omitempty" json:"outputEval,omitempty" mapstructure:"outputEval,omitempty"`
 }
 
-func NewCommandOutputBinding(original interface{}) (commandOutputBinding *CommandOutputBinding, err error) {
+func NewCommandOutputBinding(original interface{}, context *WorkflowContext) (commandOutputBinding *CommandOutputBinding, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}

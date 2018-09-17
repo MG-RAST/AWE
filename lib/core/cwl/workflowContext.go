@@ -19,22 +19,22 @@ type WorkflowContext struct {
 	//CwlVersion CWLVersion    `yaml:"cwl_version"  json:"cwl_version" bson:"cwl_version" mapstructure:"cwl_version"`
 	//CWL_graph  []interface{} `yaml:"cwl_graph"  json:"cwl_graph" bson:"cwl_graph" mapstructure:"cwl_graph"`
 	// old ParsingContext
-	If_objects map[string]interface{}
-	Objects    map[string]CWL_object
+	If_objects map[string]interface{} `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	Objects    map[string]CWL_object  `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 
-	Workflows          map[string]*Workflow
-	WorkflowStepInputs map[string]*WorkflowStepInput
-	CommandLineTools   map[string]*CommandLineTool
-	ExpressionTools    map[string]*ExpressionTool
-	Files              map[string]*File
-	Strings            map[string]*String
-	Ints               map[string]*Int
-	Booleans           map[string]*Boolean
-	All                map[string]CWL_object // everything goes in here
+	Workflows          map[string]*Workflow          `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	WorkflowStepInputs map[string]*WorkflowStepInput `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	CommandLineTools   map[string]*CommandLineTool   `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	ExpressionTools    map[string]*ExpressionTool    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	Files              map[string]*File              `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	Strings            map[string]*String            `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	Ints               map[string]*Int               `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	Booleans           map[string]*Boolean           `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	All                map[string]CWL_object         `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // everything goes in here
 	//Job_input          *Job_document
-	Job_input_map *JobDocMap
+	Job_input_map *JobDocMap `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 
-	Schemata map[string]CWLType_Type
+	Schemata map[string]CWLType_Type `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 }
 
 func (context *WorkflowContext) FillMaps(graph []interface{}) (err error) {
@@ -54,18 +54,25 @@ func (context *WorkflowContext) FillMaps(graph []interface{}) (err error) {
 	}
 
 	// put interface objetcs into map: populate context.If_objects
-	for _, elem := range graph {
+	for i, _ := range graph {
+
+		fmt.Printf("graph element type: %s\n", reflect.TypeOf(graph[i]))
+
+		if graph[i] == nil {
+			err = fmt.Errorf("(FillMaps) graph[i] empty array element")
+			return
+		}
 
 		var id string
-		id, err = GetId(elem)
+		id, err = GetId(graph[i])
 		if err != nil {
 			fmt.Println("object without id:")
-			spew.Dump(elem)
+			spew.Dump(graph[i])
 			return
 		}
 		//fmt.Printf("id=\"%s\\n", id)
 
-		context.If_objects[id] = elem
+		context.If_objects[id] = graph[i]
 
 	}
 

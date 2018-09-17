@@ -29,9 +29,9 @@ func NewCommandOutputRecordSchema() (schema *CommandOutputRecordSchema, err erro
 	return
 }
 
-func NewCommandOutputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Type) (cirs *CommandOutputRecordSchema, err error) {
+func NewCommandOutputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Type, context *WorkflowContext) (cirs *CommandOutputRecordSchema, err error) {
 
-	native, err = MakeStringMap(native)
+	native, err = MakeStringMap(native, context)
 	if err != nil {
 		return
 	}
@@ -69,7 +69,7 @@ func NewCommandOutputRecordSchemaFromInterface(native interface{}, schemata []CW
 			return
 		}
 
-		cirs.Fields, err = CreateCommandOutputRecordFieldArray(fields_array, schemata)
+		cirs.Fields, err = CreateCommandOutputRecordFieldArray(fields_array, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandoutputRecordSchemaFromInterface) CreateInputRecordFieldArray returns: %s", err.Error())
 			return

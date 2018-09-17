@@ -25,9 +25,9 @@ func NewCommandOutputArraySchema() (coas *CommandOutputArraySchema) {
 	return
 }
 
-func NewCommandOutputArraySchemaFromInterface(original interface{}, schemata []CWLType_Type) (coas *CommandOutputArraySchema, err error) {
+func NewCommandOutputArraySchemaFromInterface(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (coas *CommandOutputArraySchema, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -46,7 +46,7 @@ func NewCommandOutputArraySchemaFromInterface(original interface{}, schemata []C
 		items, ok := original_map["items"]
 		if ok {
 			var items_type []CWLType_Type
-			items_type, err = NewCWLType_TypeArray(items, schemata, "CommandOutput", false)
+			items_type, err = NewCWLType_TypeArray(items, schemata, "CommandOutput", false, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCommandOutputArraySchema) NewCWLType_TypeArray returns: %s", err.Error())
 				return

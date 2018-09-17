@@ -27,7 +27,7 @@ func New_CWL_object(original interface{}, injectedRequirements []Requirement, co
 		return
 	}
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -100,7 +100,7 @@ func New_CWL_object(original interface{}, injectedRequirements []Requirement, co
 			return
 		} // end switch
 
-		cwl_type, xerr := NewCWLType(cwl_object_id, elem)
+		cwl_type, xerr := NewCWLType(cwl_object_id, elem, context)
 		if xerr != nil {
 
 			err = fmt.Errorf("(New_CWL_object) NewCWLType returns %s", xerr.Error())

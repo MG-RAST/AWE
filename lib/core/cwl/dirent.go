@@ -29,7 +29,7 @@ func NewDirentFromInterface(id string, original interface{}) (dirent *Dirent, er
 	return
 }
 
-func (d *Dirent) Evaluate(inputs interface{}) (err error) {
+func (d *Dirent) Evaluate(inputs interface{}, context *WorkflowContext) (err error) {
 
 	if inputs == nil {
 		err = fmt.Errorf("(Dirent/Evaluate) no inputs")
@@ -60,7 +60,7 @@ func (d *Dirent) Evaluate(inputs interface{}) (err error) {
 		//fmt.Println("(Dirent/Evaluate) Entry")
 		var new_value interface{}
 		//fmt.Printf("(Dirent/Evaluate) entry_expr: %s\n", entry_expr.String())
-		new_value, err = entry_expr.EvaluateExpression(nil, inputs)
+		new_value, err = entry_expr.EvaluateExpression(nil, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(Dirent/Evaluate) EvaluateExpression returned: %s", err.Error())
 			return
@@ -111,7 +111,7 @@ func (d *Dirent) Evaluate(inputs interface{}) (err error) {
 		fmt.Println("(Dirent/Evaluate) entryname")
 		var new_value interface{}
 		//fmt.Printf("(Dirent/Evaluate) entryname_expr: %s\n", entryname_expr.String())
-		new_value, err = entryname_expr.EvaluateExpression(nil, inputs)
+		new_value, err = entryname_expr.EvaluateExpression(nil, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(Dirent/Evaluate) EvaluateExpression returned: %s", err.Error())
 			return

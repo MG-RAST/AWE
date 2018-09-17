@@ -376,9 +376,11 @@ func (job *Job) Init() (changed bool, err error) {
 	}
 
 	if job.WorkflowContext == nil {
-
+		panic("job.WorkflowContext == nil") // TODO remove
 		job.WorkflowContext = cwl.NewWorkflowContext()
+	}
 
+	if job.WorkflowContext.If_objects == nil {
 		if job.WorkflowContext.Graph == nil {
 			err = fmt.Errorf("(job.Init) job.WorkflowContext.Graph == nil")
 			return

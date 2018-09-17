@@ -17,7 +17,7 @@ type Expression string
 
 func (e Expression) String() string { return string(e) }
 
-func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (result interface{}, err error) {
+func (e Expression) EvaluateExpression(self interface{}, inputs interface{}, context *WorkflowContext) (result interface{}, err error) {
 	vm := otto.New()
 	var self_json []byte
 	self_json, err = json.Marshal(self)
@@ -116,7 +116,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (re
 					//spew.Dump(exported_value)
 					//err = fmt.Errorf("(EvaluateExpression) record not supported yet")
 
-					value_returned, err = NewCWLType("", exported_value)
+					value_returned, err = NewCWLType("", exported_value, context)
 					if err != nil {
 						err = fmt.Errorf("(EvaluateExpression) NewCWLType returned: %s", err.Error())
 						return
@@ -177,7 +177,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}) (re
 		fmt.Printf("reflect.TypeOf(value_exported): %s\n", reflect.TypeOf(value_exported))
 
 		var value_cwl CWLType
-		value_cwl, err = NewCWLType("", value_exported)
+		value_cwl, err = NewCWLType("", value_exported, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) Error parsing javascript VM result value, cwl.NewCWLType returns: %s", err.Error())
 			return

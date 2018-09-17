@@ -28,7 +28,7 @@ func NewDirectory() (d *Directory) {
 	return
 }
 
-func NewDirectoryFromInterface(obj interface{}) (d *Directory, err error) {
+func NewDirectoryFromInterface(obj interface{}, context *WorkflowContext) (d *Directory, err error) {
 
 	obj_map, ok := obj.(map[string]interface{})
 
@@ -45,7 +45,7 @@ func NewDirectoryFromInterface(obj interface{}) (d *Directory, err error) {
 	listing, has_listing := obj_map["listing"]
 	if has_listing {
 		var listing_types *[]CWLType
-		listing_types, err = NewFDArray(listing, "")
+		listing_types, err = NewFDArray(listing, "", context)
 		if err != nil {
 			err = fmt.Errorf("(MakeFile) NewFDArray returns: %s", err.Error())
 			return
@@ -67,7 +67,7 @@ func NewDirectoryFromInterface(obj interface{}) (d *Directory, err error) {
 }
 
 // Array of Files and/or Directories
-func NewFDArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWLType, err error) {
+func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) (cwl_array_ptr *[]CWLType, err error) {
 
 	//fmt.Println("(NewFDArray)")
 	//spew.Dump(native)
@@ -85,7 +85,7 @@ func NewFDArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWLType,
 		for _, value := range native_array {
 
 			var value_cwl CWLType
-			value_cwl, err = NewCWLType("", value)
+			value_cwl, err = NewCWLType("", value, context)
 			if err != nil {
 				err = fmt.Errorf("(NewFDArray) in loop, NewCWLType returned: %s", err.Error())
 				return
@@ -117,7 +117,7 @@ func NewFDArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWLType,
 		for _, value := range native_array {
 
 			var value_cwl CWLType
-			value_cwl, err = NewCWLType("", value)
+			value_cwl, err = NewCWLType("", value, context)
 			if err != nil {
 				err = fmt.Errorf("(NewFDArray) in loop, NewCWLType returned: %s", err.Error())
 				return
@@ -139,7 +139,7 @@ func NewFDArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWLType,
 	default:
 		//fmt.Println("(NewFDArray) array element")
 		//spew.Dump(native)
-		ct, xerr := NewCWLType("", native)
+		ct, xerr := NewCWLType("", native, context)
 		if xerr != nil {
 			err = xerr
 			return

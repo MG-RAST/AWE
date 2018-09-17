@@ -65,7 +65,7 @@ func NewProcess(original interface{}, injectedRequirements []Requirement, contex
 		return
 	}
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}

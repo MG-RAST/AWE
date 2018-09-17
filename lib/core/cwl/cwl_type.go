@@ -122,14 +122,14 @@ func IsValidClass(native_str string) (result string, ok bool) {
 
 //func (c *CWLType_Impl) Is_Array() bool                 { return false }
 
-func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
+func NewCWLType(id string, native interface{}, context *WorkflowContext) (cwl_type CWLType, err error) {
 
 	//var cwl_type CWLType
 	//fmt.Printf("(NewCWLType) starting with type %s\n", reflect.TypeOf(native))
 	//fmt.Println("(NewCWLType)")
 	//spew.Dump(native)
 
-	native, err = MakeStringMap(native)
+	native, err = MakeStringMap(native, context)
 	if err != nil {
 		return
 	}
@@ -146,7 +146,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		//fmt.Printf("(NewCWLType) C\n")
 		//native_array, _ := native.([]interface{})
 
-		array, xerr := NewArray(id, native)
+		array, xerr := NewArray(id, native, context)
 		if xerr != nil {
 			err = fmt.Errorf("(NewCWLType) NewArray returned: %s", xerr.Error())
 			return
@@ -187,7 +187,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 		_, has_items := native_map["items"]
 
 		if has_items {
-			cwl_type, err = NewArray(id, native_map)
+			cwl_type, err = NewArray(id, native_map, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCWLType) NewArray returned: %s", err.Error())
 			}
@@ -202,7 +202,7 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 			return
 		}
 
-		cwl_type, err = NewCWLTypeByClass(class, id, native)
+		cwl_type, err = NewCWLTypeByClass(class, id, native, context)
 		if err != nil {
 
 			err = fmt.Errorf("(NewCWLType) NewCWLTypeByClass returned: %s", err.Error())
@@ -237,12 +237,12 @@ func NewCWLType(id string, native interface{}) (cwl_type CWLType, err error) {
 
 }
 
-func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CWLType, err error) {
+func NewCWLTypeByClass(class string, id string, native interface{}, context *WorkflowContext) (cwl_type CWLType, err error) {
 	switch class {
 	case string(CWL_File):
 		//fmt.Println("NewCWLTypeByClass:")
 		//spew.Dump(native)
-		file, yerr := NewFileFromInterface(native)
+		file, yerr := NewFileFromInterface(native, context)
 		if yerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewFile returned: %s", yerr.Error())
 			return
@@ -263,7 +263,7 @@ func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CW
 		}
 		cwl_type = myboolean
 	case string(CWL_Directory):
-		mydir, yerr := NewDirectoryFromInterface(native)
+		mydir, yerr := NewDirectoryFromInterface(native, context)
 		if yerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewDirectoryFromInterface returned: %s", yerr.Error())
 			return
@@ -274,7 +274,7 @@ func NewCWLTypeByClass(class string, id string, native interface{}) (cwl_type CW
 		//fmt.Println("This might be a record:")
 		//spew.Dump(native)
 
-		record, xerr := NewRecord(id, native)
+		record, xerr := NewRecord(id, native, context)
 		if xerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewRecord returned: %s", xerr.Error())
 			return
@@ -323,7 +323,7 @@ func makeStringMap_deprecated(v interface{}) (result interface{}, err error) {
 	return
 }
 
-func NewCWLTypeArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWLType, err error) {
+func NewCWLTypeArray(native interface{}, parent_id string, context *WorkflowContext) (cwl_array_ptr *[]CWLType, err error) {
 
 	switch native.(type) {
 	case []interface{}:
@@ -337,7 +337,7 @@ func NewCWLTypeArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWL
 		cwl_array := []CWLType{}
 
 		for _, value := range native_array {
-			value_cwl, xerr := NewCWLType("", value)
+			value_cwl, xerr := NewCWLType("", value, context)
 			if xerr != nil {
 				err = xerr
 				return
@@ -347,7 +347,7 @@ func NewCWLTypeArray(native interface{}, parent_id string) (cwl_array_ptr *[]CWL
 		cwl_array_ptr = &cwl_array
 	default:
 
-		ct, xerr := NewCWLType("", native)
+		ct, xerr := NewCWLType("", native, context)
 		if xerr != nil {
 			err = xerr
 			return

@@ -15,9 +15,9 @@ type EnvVarRequirement struct {
 
 func (c EnvVarRequirement) GetId() string { return "None" }
 
-func NewEnvVarRequirement(original interface{}) (r *EnvVarRequirement, err error) {
+func NewEnvVarRequirement(original interface{}, context *WorkflowContext) (r *EnvVarRequirement, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		err = fmt.Errorf("(NewEnvVarRequirement) MakeStringMap returned: %s", err.Error())
 		return
@@ -57,9 +57,9 @@ func NewEnvVarRequirement(original interface{}) (r *EnvVarRequirement, err error
 	return
 }
 
-func (r *EnvVarRequirement) Evaluate(inputs interface{}) (err error) {
+func (r *EnvVarRequirement) Evaluate(inputs interface{}, context *WorkflowContext) (err error) {
 	for i, _ := range r.EnvDef {
-		err = r.EnvDef[i].Evaluate(inputs)
+		err = r.EnvDef[i].Evaluate(inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(EnvVarRequirement/Evaluate) Evaluate returned: %s", err.Error())
 			return

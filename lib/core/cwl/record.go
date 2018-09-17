@@ -41,9 +41,9 @@ func (r *Record) Type2String() string { return "record" }
 //func (r *Record) Is_CommandInputParameterType()  {}
 //func (r *Record) Is_CommandOutputParameterType() {}
 
-func NewRecord(id string, native interface{}) (record Record, err error) {
+func NewRecord(id string, native interface{}, context *WorkflowContext) (record Record, err error) {
 
-	native, err = MakeStringMap(native)
+	native, err = MakeStringMap(native, context)
 	if err != nil {
 		return
 	}
@@ -70,7 +70,7 @@ func NewRecord(id string, native interface{}) (record Record, err error) {
 
 			var value_cwl CWLType
 
-			value_cwl, err = NewCWLType(key_str, value)
+			value_cwl, err = NewCWLType(key_str, value, context)
 			if err != nil {
 				fmt.Println("Got a record:")
 				spew.Dump(native)

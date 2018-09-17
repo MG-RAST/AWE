@@ -91,7 +91,7 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 	inputs_if, ok := object["inputs"]
 	if ok {
 		// Convert map of inputs into array of inputs
-		err, inputs = CreateCommandInputArray(inputs_if, schemata)
+		err, inputs = CreateCommandInputArray(inputs_if, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateCommandInputArray: %s", err.Error())
 			return
@@ -103,7 +103,7 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 	outputs, ok := object["outputs"]
 	if ok {
 		// Convert map of outputs into array of outputs
-		object["outputs"], err = NewCommandOutputParameterArray(outputs, schemata)
+		object["outputs"], err = NewCommandOutputParameterArray(outputs, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in NewCommandOutputParameterArray: %s", err.Error())
 			return
@@ -125,7 +125,7 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 	if has_arguments {
 		// Convert map of outputs into array of outputs
 		var arguments_object []CommandLineBinding
-		arguments_object, err = NewCommandLineBindingArray(arguments)
+		arguments_object, err = NewCommandLineBindingArray(arguments, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in NewCommandLineBindingArray: %s", err.Error())
 			return

@@ -26,10 +26,10 @@ func NewInputRecordSchema(irs_map map[string]interface{}) (irs *InputRecordSchem
 	return
 }
 
-func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Type) (irs *InputRecordSchema, err error) {
+func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Type, context *WorkflowContext) (irs *InputRecordSchema, err error) {
 	//fmt.Println("native:")
 	//spew.Dump(native)
-	native, err = MakeStringMap(native)
+	native, err = MakeStringMap(native, context)
 	if err != nil {
 		return
 	}
@@ -54,7 +54,7 @@ func NewInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Ty
 			return
 		}
 
-		irs.Fields, err = CreateInputRecordFieldArray(fields, schemata)
+		irs.Fields, err = CreateInputRecordFieldArray(fields, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) CreateInputRecordFieldArray returns: %s", err.Error())
 			return

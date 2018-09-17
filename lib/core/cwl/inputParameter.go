@@ -29,11 +29,11 @@ func (i InputParameter) GetId() string    { return i.Id }
 func (i InputParameter) SetId(id string)  { i.Id = id }
 func (i InputParameter) Is_CWL_minimal()  {}
 
-func NewInputParameter(original interface{}, schemata []CWLType_Type) (input_parameter *InputParameter, err error) {
+func NewInputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (input_parameter *InputParameter, err error) {
 
 	//fmt.Println("---- NewInputParameter ----")
 	//spew.Dump(original)
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		err = fmt.Errorf("(NewInputParameter) MakeStringMap returned: %s", err.Error())
 		return
@@ -77,7 +77,7 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type) (input_par
 
 		input_parameter_default, ok := original_map["default"]
 		if ok {
-			original_map["default"], err = NewCWLType("", input_parameter_default)
+			original_map["default"], err = NewCWLType("", input_parameter_default, context)
 			if err != nil {
 				err = fmt.Errorf("(NewInputParameter) NewCWLType returned: %s", err.Error())
 				return
@@ -87,7 +87,7 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type) (input_par
 		inputParameter_type, ok := original_map["type"]
 		if ok {
 			var inputParameter_type_array []CWLType_Type
-			inputParameter_type_array, err = NewCWLType_TypeArray(inputParameter_type, schemata, "Input", false)
+			inputParameter_type_array, err = NewCWLType_TypeArray(inputParameter_type, schemata, "Input", false, context)
 			if err != nil {
 				err = fmt.Errorf("(NewInputParameter) NewCWLType_TypeArray returns: %s", err.Error())
 				return
@@ -120,7 +120,7 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type) (input_par
 }
 
 // InputParameter
-func NewInputParameterArray(original interface{}, schemata []CWLType_Type) (new_array []InputParameter, err error) {
+func NewInputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (new_array []InputParameter, err error) {
 
 	switch original.(type) {
 	case map[interface{}]interface{}:
@@ -134,7 +134,7 @@ func NewInputParameterArray(original interface{}, schemata []CWLType_Type) (new_
 				return
 			}
 
-			input_parameter, xerr := NewInputParameter(v, schemata)
+			input_parameter, xerr := NewInputParameter(v, schemata, context)
 			if xerr != nil {
 				err = fmt.Errorf("(NewInputParameterArray) A NewInputParameter returned: %s", xerr.Error())
 				return
@@ -157,7 +157,7 @@ func NewInputParameterArray(original interface{}, schemata []CWLType_Type) (new_
 		for _, v := range original_array {
 			//fmt.Printf("A")
 
-			input_parameter, xerr := NewInputParameter(v, schemata)
+			input_parameter, xerr := NewInputParameter(v, schemata, context)
 			if xerr != nil {
 				err = fmt.Errorf("(NewInputParameterArray) B NewInputParameter returned: %s", xerr.Error())
 				return

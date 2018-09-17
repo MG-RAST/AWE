@@ -43,12 +43,12 @@ func (w WorkflowStepInput) Is_CWL_minimal() {}
 //	return
 //}
 
-func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowStepInput, err error) {
+func NewWorkflowStepInput(original interface{}, context *WorkflowContext) (input_parameter_ptr *WorkflowStepInput, err error) {
 
 	input_parameter := WorkflowStepInput{}
 	input_parameter_ptr = &input_parameter
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -85,7 +85,7 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 			var any CWLType
 			//fmt.Println("trying:")
 			//spew.Dump(original)
-			any, err = NewCWLType("", default_value)
+			any, err = NewCWLType("", default_value, context)
 			if err != nil {
 				fmt.Println("problematic Default:")
 				spew.Dump(original)
@@ -166,7 +166,7 @@ func NewWorkflowStepInput(original interface{}) (input_parameter_ptr *WorkflowSt
 // 	return
 // }
 
-func CreateWorkflowStepInputArray(original interface{}) (array_ptr *[]WorkflowStepInput, err error) {
+func CreateWorkflowStepInputArray(original interface{}, context *WorkflowContext) (array_ptr *[]WorkflowStepInput, err error) {
 
 	array := []WorkflowStepInput{}
 	array_ptr = &array
@@ -178,7 +178,7 @@ func CreateWorkflowStepInputArray(original interface{}) (array_ptr *[]WorkflowSt
 		for k, v := range original_map {
 			//v is an input
 
-			input_parameter, xerr := NewWorkflowStepInput(v)
+			input_parameter, xerr := NewWorkflowStepInput(v, context)
 			if xerr != nil {
 				err = fmt.Errorf("(CreateWorkflowStepInputArray) (map) NewWorkflowStepInput returns: %s", xerr.Error())
 				return
@@ -198,7 +198,7 @@ func CreateWorkflowStepInputArray(original interface{}) (array_ptr *[]WorkflowSt
 		for _, v := range original.([]interface{}) {
 			//v is an input
 
-			input_parameter, xerr := NewWorkflowStepInput(v)
+			input_parameter, xerr := NewWorkflowStepInput(v, context)
 			if xerr != nil {
 				err = fmt.Errorf("(CreateWorkflowStepInputArray) (array) NewWorkflowStepInput returns: %s", xerr.Error())
 				return

@@ -19,9 +19,9 @@ type Any interface {
 	CWL_class
 }
 
-func NewAny(native interface{}) (any Any, err error) {
+func NewAny(native interface{}, context *WorkflowContext) (any Any, err error) {
 
-	cwl_type, err := NewCWLType("", native)
+	cwl_type, err := NewCWLType("", native, context)
 	if err != nil {
 		fmt.Println("cwl_type: ")
 		fmt.Println(reflect.TypeOf(cwl_type))

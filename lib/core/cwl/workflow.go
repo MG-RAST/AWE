@@ -60,7 +60,7 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 
 	// convert input map into input array
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		err = fmt.Errorf("(NewWorkflow) MakeStringMap returned: %s", err.Error())
 		return
@@ -102,7 +102,7 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 
 		inputs, ok := object["inputs"]
 		if ok {
-			object["inputs"], err = NewInputParameterArray(inputs, schemata)
+			object["inputs"], err = NewInputParameterArray(inputs, schemata, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) NewInputParameterArray returned: %s", err.Error())
 				return

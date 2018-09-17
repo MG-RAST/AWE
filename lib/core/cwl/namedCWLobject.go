@@ -20,7 +20,7 @@ func NewNamed_CWL_object(id string, value CWL_object) Named_CWL_object {
 
 func NewNamed_CWL_object_from_interface(original interface{}, context *WorkflowContext) (x Named_CWL_object, schemata []CWLType_Type, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}

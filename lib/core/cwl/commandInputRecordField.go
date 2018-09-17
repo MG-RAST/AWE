@@ -13,9 +13,9 @@ type CommandInputRecordField struct {
 	InputBinding *CommandLineBinding                                                   `yaml:"inputBinding,omitempty" json:"inputBinding,omitempty" bson:"inputBinding,omitempty"`
 }
 
-func NewCommandInputRecordField(native interface{}, schemata []CWLType_Type) (crf *CommandInputRecordField, err error) {
+func NewCommandInputRecordField(native interface{}, schemata []CWLType_Type, context *WorkflowContext) (crf *CommandInputRecordField, err error) {
 
-	native, err = MakeStringMap(native)
+	native, err = MakeStringMap(native, context)
 	if err != nil {
 		return
 	}
@@ -45,7 +45,7 @@ func NewCommandInputRecordField(native interface{}, schemata []CWLType_Type) (cr
 	inputBinding, has_inputBinding := native_map["inputBinding"]
 	if has_inputBinding {
 
-		crf.InputBinding, err = NewCommandLineBinding(inputBinding)
+		crf.InputBinding, err = NewCommandLineBinding(inputBinding, context)
 		if err != nil {
 			err = fmt.Errorf("(NewInputRecordFieldFromInterface) NewCWLTypeArray returned: %s", err.Error())
 			return
@@ -55,12 +55,12 @@ func NewCommandInputRecordField(native interface{}, schemata []CWLType_Type) (cr
 	return
 }
 
-func CreateCommandInputRecordFieldArray(native []interface{}, schemata []CWLType_Type) (irfa []CommandInputRecordField, err error) {
+func CreateCommandInputRecordFieldArray(native []interface{}, schemata []CWLType_Type, context *WorkflowContext) (irfa []CommandInputRecordField, err error) {
 
 	for _, elem := range native {
 
 		var irf *CommandInputRecordField
-		irf, err = NewCommandInputRecordField(elem, schemata)
+		irf, err = NewCommandInputRecordField(elem, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(CreateInputRecordFieldArray) returned: %s", err.Error())
 			return

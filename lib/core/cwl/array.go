@@ -23,7 +23,7 @@ func (c *Array) Is_CWL_minimal() {}
 //func (c *Array) Is_CommandInputParameterType()  {}
 //func (c *Array) Is_CommandOutputParameterType() {}
 
-func NewArray(id string, native interface{}) (array_ptr *Array, err error) {
+func NewArray(id string, native interface{}, context *WorkflowContext) (array_ptr *Array, err error) {
 
 	switch native.(type) {
 	case []interface{}:
@@ -33,7 +33,7 @@ func NewArray(id string, native interface{}) (array_ptr *Array, err error) {
 		for _, value := range native_array {
 
 			var value_cwl CWLType
-			value_cwl, err = NewCWLType("", value)
+			value_cwl, err = NewCWLType("", value, context)
 			if err != nil {
 				fmt.Println("NewArray element:")
 				spew.Dump(value)
@@ -54,7 +54,7 @@ func NewArray(id string, native interface{}) (array_ptr *Array, err error) {
 		for _, value := range native_array {
 
 			var value_cwl CWLType
-			value_cwl, err = NewCWLType("", value)
+			value_cwl, err = NewCWLType("", value, context)
 			if err != nil {
 				fmt.Println("NewArray element:")
 				spew.Dump(value)

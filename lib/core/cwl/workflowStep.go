@@ -53,7 +53,7 @@ func NewWorkflowStep(original interface{}, injectedRequirements []Requirement, c
 	var step WorkflowStep
 
 	logger.Debug(3, "NewWorkflowStep starting")
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -348,7 +348,7 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 func GetProcess(original interface{}, context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
 
 	var p interface{}
-	p, err = MakeStringMap(original)
+	p, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}

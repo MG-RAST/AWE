@@ -9,9 +9,9 @@ type InputEnumSchema struct {
 	InputBinding *CommandLineBinding                                                   `yaml:"inputBinding,omitempty" json:"inputBinding,omitempty" bson:"inputBinding,omitempty" mapstructure:"inputBinding,omitempty"`
 }
 
-func NewInputEnumSchemaFromInterface(original interface{}) (ies *InputEnumSchema, err error) {
+func NewInputEnumSchemaFromInterface(original interface{}, context *WorkflowContext) (ies *InputEnumSchema, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -22,7 +22,7 @@ func NewInputEnumSchemaFromInterface(original interface{}) (ies *InputEnumSchema
 
 	case map[string]interface{}:
 
-		ies.EnumSchema, err = NewEnumSchemaFromInterface(original)
+		ies.EnumSchema, err = NewEnumSchemaFromInterface(original, context)
 		if err != nil {
 			err = fmt.Errorf("(NewInputEnumSchemaFromInterface) NewEnumSchemaFromInterface returns: %s", err.Error())
 			return
@@ -35,7 +35,7 @@ func NewInputEnumSchemaFromInterface(original interface{}) (ies *InputEnumSchema
 		if has_inputBinding {
 
 			var clb *CommandLineBinding
-			clb, err = NewCommandLineBinding(inputBinding)
+			clb, err = NewCommandLineBinding(inputBinding, context)
 			if err != nil {
 				err = fmt.Errorf("(NewInputEnumSchemaFromInterface) ")
 			}

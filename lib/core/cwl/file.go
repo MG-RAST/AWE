@@ -60,14 +60,14 @@ func NewFile() (f *File) {
 	return
 }
 
-func NewFileFromInterface(obj interface{}) (file File, err error) {
+func NewFileFromInterface(obj interface{}, context *WorkflowContext) (file File, err error) {
 
-	file, err = MakeFile(obj)
+	file, err = MakeFile(obj, context)
 
 	return
 }
 
-func MakeFile(obj interface{}) (file File, err error) {
+func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) {
 
 	//fmt.Println("MakeFile:")
 	//spew.Dump(obj)
@@ -81,7 +81,7 @@ func MakeFile(obj interface{}) (file File, err error) {
 
 	secondaryFiles, has_secondaryFiles := obj_map["secondaryFiles"]
 	if has_secondaryFiles {
-		obj_map["secondaryFiles"], err = GetSecondaryFilesArray(secondaryFiles)
+		obj_map["secondaryFiles"], err = GetSecondaryFilesArray(secondaryFiles, context)
 		if err != nil {
 			err = fmt.Errorf("(MakeFile) GetSecondaryFilesArray returned: %s", err.Error())
 			return
@@ -228,7 +228,7 @@ func (file *File) SetPath(path_str string) {
 }
 
 // returns array<File | Directory>
-func GetSecondaryFilesArray(original interface{}) (array []interface{}, err error) {
+func GetSecondaryFilesArray(original interface{}, context *WorkflowContext) (array []interface{}, err error) {
 
 	array = []interface{}{}
 
@@ -237,7 +237,7 @@ func GetSecondaryFilesArray(original interface{}) (array []interface{}, err erro
 		original_array := original.([]interface{})
 		for i, _ := range original_array {
 			var obj CWLType
-			obj, err = NewCWLType("", original_array[i])
+			obj, err = NewCWLType("", original_array[i], context)
 			if err != nil {
 				err = fmt.Errorf("(GetSecondaryFilesArray) NewCWLType returned: %s", err.Error())
 				return

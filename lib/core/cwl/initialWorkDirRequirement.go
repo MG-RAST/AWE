@@ -16,11 +16,11 @@ type InitialWorkDirRequirement struct {
 
 func (c InitialWorkDirRequirement) GetId() string { return "" }
 
-func NewInitialWorkDirRequirement(original interface{}) (r *InitialWorkDirRequirement, err error) {
+func NewInitialWorkDirRequirement(original interface{}, context *WorkflowContext) (r *InitialWorkDirRequirement, err error) {
 	var requirement InitialWorkDirRequirement
 	r = &requirement
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -41,7 +41,7 @@ func NewInitialWorkDirRequirement(original interface{}) (r *InitialWorkDirRequir
 			return
 		}
 
-		original_map["listing"], err = CreateListing(listing)
+		original_map["listing"], err = CreateListing(listing, context)
 		if err != nil {
 			err = fmt.Errorf("(NewInitialWorkDirRequirement) NewCWLType returned: %s", err.Error())
 			return
@@ -59,9 +59,9 @@ func NewInitialWorkDirRequirement(original interface{}) (r *InitialWorkDirRequir
 	return
 }
 
-func NewListingFromInterface(original interface{}) (obj CWL_object, err error) {
+func NewListingFromInterface(original interface{}, context *WorkflowContext) (obj CWL_object, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -78,7 +78,7 @@ func NewListingFromInterface(original interface{}) (obj CWL_object, err error) {
 		}
 	}
 	var x CWLType
-	x, err = NewCWLType("", original)
+	x, err = NewCWLType("", original, context)
 	if err != nil {
 		err = fmt.Errorf("(NewListingFromInterface) NewCWLType returns: %s", err.Error())
 		return
@@ -99,7 +99,7 @@ func NewListingFromInterface(original interface{}) (obj CWL_object, err error) {
 
 }
 
-func CreateListing(original interface{}) (result interface{}, err error) {
+func CreateListing(original interface{}, context *WorkflowContext) (result interface{}, err error) {
 
 	switch original.(type) {
 	case []interface{}:
@@ -110,7 +110,7 @@ func CreateListing(original interface{}) (result interface{}, err error) {
 		for i, _ := range original_array {
 
 			var new_listing CWL_object
-			new_listing, err = NewListingFromInterface(original_array[i])
+			new_listing, err = NewListingFromInterface(original_array[i], context)
 			if err != nil {
 				err = fmt.Errorf("(CreateListingArray) NewListingFromInterface returns: %s", err.Error())
 				return
@@ -120,7 +120,7 @@ func CreateListing(original interface{}) (result interface{}, err error) {
 		result = array
 	case interface{}:
 		var new_listing CWL_object
-		new_listing, err = NewListingFromInterface(original)
+		new_listing, err = NewListingFromInterface(original, context)
 		if err != nil {
 			err = fmt.Errorf("(CreateListingArray) NewListingFromInterface returns: %s", err.Error())
 			return
@@ -135,7 +135,7 @@ func CreateListing(original interface{}) (result interface{}, err error) {
 }
 
 // Listing: array<File | Directory | Dirent | string | Expression> | string | Expression
-func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
+func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}, context *WorkflowContext) (err error) {
 
 	if inputs == nil {
 		err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) no inputs")
@@ -169,7 +169,7 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 				//fmt.Println("(InitialWorkDirRequirement/Evaluate) dirent")
 				var element_dirent *Dirent
 				element_dirent = element.(*Dirent)
-				err = element_dirent.Evaluate(inputs)
+				err = element_dirent.Evaluate(inputs, context)
 				if err != nil {
 					err = fmt.Errorf("(InitialWorkDirRequirement) element_dirent.Evaluate returned: %s", err.Error())
 					return
@@ -187,7 +187,7 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 				original_expr = NewExpressionFromString(element_str.String())
 
 				var new_value interface{}
-				new_value, err = original_expr.EvaluateExpression(nil, inputs)
+				new_value, err = original_expr.EvaluateExpression(nil, inputs, context)
 				if err != nil {
 					err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) *String in listing_array EvaluateExpression returned: %s", err.Error())
 					return
@@ -241,7 +241,7 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 		original_expr = NewExpressionFromString(listing_str.String())
 
 		var new_value interface{}
-		new_value, err = original_expr.EvaluateExpression(nil, inputs)
+		new_value, err = original_expr.EvaluateExpression(nil, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) String EvaluateExpression returned: %s", err.Error())
 			return
@@ -268,7 +268,7 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}) (err error) {
 		original_expr = NewExpressionFromString(listing_str.String())
 
 		var new_value interface{}
-		new_value, err = original_expr.EvaluateExpression(nil, inputs)
+		new_value, err = original_expr.EvaluateExpression(nil, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(InitialWorkDirRequirement/Evaluate) *String EvaluateExpression returned: %s", err.Error())
 			return

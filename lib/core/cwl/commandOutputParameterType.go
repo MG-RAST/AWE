@@ -16,14 +16,14 @@ import (
 // CWLType | stdout | stderr | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string |
 // array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
 
-func NewCommandOutputParameterType(original interface{}, schemata []CWLType_Type) (result interface{}, err error) {
+func NewCommandOutputParameterType(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (result interface{}, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
 
-	result, err = NewCWLType_Type(schemata, original, "CommandOutput")
+	result, err = NewCWLType_Type(schemata, original, "CommandOutput", context)
 	if err != nil {
 
 		fmt.Println("NewCommandOutputParameterType:")
@@ -37,9 +37,9 @@ func NewCommandOutputParameterType(original interface{}, schemata []CWLType_Type
 
 }
 
-func NewCommandOutputParameterTypeArray(original interface{}, schemata []CWLType_Type) (result_array []interface{}, err error) {
+func NewCommandOutputParameterTypeArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (result_array []interface{}, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -51,7 +51,7 @@ func NewCommandOutputParameterTypeArray(original interface{}, schemata []CWLType
 		logger.Debug(3, "[found map]")
 
 		var copt interface{}
-		copt, err = NewCommandOutputParameterType(original, schemata)
+		copt, err = NewCommandOutputParameterType(original, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandOutputParameterTypeArray) A) NewCommandOutputParameterType returned: %s", err.Error())
 			return
@@ -68,7 +68,7 @@ func NewCommandOutputParameterTypeArray(original interface{}, schemata []CWLType
 
 			//spew.Dump(original)
 			var copt interface{}
-			copt, err = NewCommandOutputParameterType(element, schemata)
+			copt, err = NewCommandOutputParameterType(element, schemata, context)
 			if err != nil {
 
 				fmt.Println("NewCommandOutputParameterTypeArray:")
@@ -85,7 +85,7 @@ func NewCommandOutputParameterTypeArray(original interface{}, schemata []CWLType
 	case string:
 
 		var copt interface{}
-		copt, err = NewCommandOutputParameterType(original, schemata)
+		copt, err = NewCommandOutputParameterType(original, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandOutputParameterTypeArray) C) NewCommandOutputParameterType returned: %s", err.Error())
 			return

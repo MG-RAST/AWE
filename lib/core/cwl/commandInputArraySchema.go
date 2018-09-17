@@ -25,9 +25,9 @@ func NewCommandInputArraySchema() (coas *CommandInputArraySchema) {
 	return
 }
 
-func NewCommandInputArraySchemaFromInterface(original interface{}, schemata []CWLType_Type) (coas *CommandInputArraySchema, err error) {
+func NewCommandInputArraySchemaFromInterface(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (coas *CommandInputArraySchema, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -50,7 +50,7 @@ func NewCommandInputArraySchemaFromInterface(original interface{}, schemata []CW
 			//fmt.Println("items: ")
 			//spew.Dump(items)
 
-			items_type, err = NewCWLType_TypeArray(items, schemata, "CommandInput", false)
+			items_type, err = NewCWLType_TypeArray(items, schemata, "CommandInput", false, context)
 			if err != nil {
 				fmt.Println("a CommandInputArraySchema:")
 				spew.Dump(original)

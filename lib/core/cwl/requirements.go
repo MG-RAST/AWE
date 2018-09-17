@@ -22,7 +22,7 @@ type DummyRequirement struct {
 
 func NewRequirementFromInterface(obj interface{}, inputs interface{}, context *WorkflowContext) (r Requirement, err error) {
 
-	obj, err = MakeStringMap(obj)
+	obj, err = MakeStringMap(obj, context)
 	if err != nil {
 		return
 	}
@@ -316,7 +316,7 @@ func CreateRequirementArrayAndInject(original interface{}, injectedRequirements 
 func CreateRequirementArray(original interface{}, optional bool, inputs interface{}, context *WorkflowContext) (new_array []Requirement, schemata []CWLType_Type, err error) {
 	// here the keynames are actually class names
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}

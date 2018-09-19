@@ -137,6 +137,12 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 		return
 	}
 
+	_, err = job.Init()
+	if err != nil {
+		err = fmt.Errorf("(CreateJobUpload) job.Init returned: %s", err.Error())
+		return
+	}
+
 	err = job.UpdateFile(files, "upload")
 	if err != nil {
 		err = errors.New("error in UpdateFile, error=" + err.Error())

@@ -80,6 +80,8 @@ func Resolve_ImportsArray(obj_array []interface{}, context *WorkflowContext) (er
 
 func Resolve_ImportsMap(obj_map map[string]interface{}, context *WorkflowContext) (new_obj map[string]interface{}, err error) {
 
+	err = fmt.Errorf("deprecated")
+	return
 	if obj_map == nil {
 		return
 	}

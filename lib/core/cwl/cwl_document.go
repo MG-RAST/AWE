@@ -13,7 +13,7 @@ import (
 type CWL_document struct {
 	CwlVersion CWLVersion        `yaml:"cwlVersion,omitempty" json:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
 	Base       interface{}       `yaml:"$base,omitempty" json:"$base,omitempty" bson:"base,omitempty" mapstructure:"$base,omitempty"`
-	Graph      []interface{}     `yaml:"$graph" json:"$graph" bson:"graph" mapstructure:"$graph"` //`yaml:"$graph" json:"$graph" bson:"graph" mapstructure:"$graph"`
+	Graph      []interface{}     `yaml:"$graph" json:"$graph" bson:"graph" mapstructure:"$graph"` // can only be used for reading, yaml has problems writing interface objetcs
 	Namespaces map[string]string `yaml:"$namespaces,omitempty" json:"$namespaces,omitempty" bson:"namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 	Schemas    []interface{}     `yaml:"$schemas,omitempty" json:"$schemas,omitempty" bson:"schemas,omitempty" mapstructure:"$schemas,omitempty"`
 }
@@ -29,11 +29,11 @@ func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object
 		err = fmt.Errorf("(Parse_cwl_graph_document) Unmarshal returned: " + err.Error())
 		return
 	}
-	fmt.Println("-------------- yaml_str")
-	fmt.Println(yaml_str)
-	fmt.Println("-------------- raw CWL")
-	spew.Dump(cwl_gen)
-	fmt.Println("-------------- Start parsing")
+	//fmt.Println("-------------- yaml_str")
+	//fmt.Println(yaml_str)
+	//fmt.Println("-------------- raw CWL")
+	//spew.Dump(cwl_gen)
+	//fmt.Println("-------------- Start parsing")
 
 	if len(cwl_gen.Graph) == 0 {
 		err = fmt.Errorf("(Parse_cwl_graph_document) len(cwl_gen.Graph) == 0")
@@ -42,21 +42,22 @@ func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object
 
 	// resolve $import
 	//var new_obj []interface{}
-	err = Resolve_ImportsArray(cwl_gen.Graph, context)
-	if err != nil {
-		err = fmt.Errorf("(Parse_cwl_graph_document) Resolve_Imports returned: " + err.Error())
-		return
-	}
+	//err = Resolve_ImportsArray(cwl_gen.Graph, context)
+	//if err != nil {
+	//	err = fmt.Errorf("(Parse_cwl_graph_document) Resolve_Imports returned: " + err.Error())
+	//	return
+	//}
 
-	fmt.Println("############# cwl_gen.Graph:")
-	spew.Dump(cwl_gen.Graph)
+	//fmt.Println("############# cwl_gen.Graph:")
+	//spew.Dump(cwl_gen.Graph)
 	//panic("done")
 	//if new_obj != nil {
 	//	err = fmt.Errorf("(Parse_cwl_graph_document) $import in $graph not supported yet")
 	//	return
 	//}
 
-	context.Graph = cwl_gen.Graph
+	//context.Graph = cwl_gen.Graph
+	context.CWL_document = cwl_gen
 	context.CwlVersion = cwl_gen.CwlVersion
 
 	if cwl_gen.Namespaces != nil {
@@ -100,7 +101,7 @@ func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object
 
 	//fmt.Println("-------------- A Parse_cwl_document")
 
-	err = context.FillMaps(cwl_gen.Graph)
+	err = context.Init()
 	if err != nil {
 		err = fmt.Errorf("(Parse_cwl_graph_document) context.FillMaps returned: %s", err.Error())
 		return
@@ -112,6 +113,8 @@ func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object
 	}
 
 	// object_array []Named_CWL_object
+	//fmt.Println("############# object_array:")
+	//spew.Dump(object_array)
 
 	return
 }

@@ -454,7 +454,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 			return
 		}
 
-		notice, err = core.NewNotice(notice_if)
+		notice, err = core.NewNotice(notice_if, nil)
 		if err != nil {
 			cx.RespondWithErrorMessage("NewNotice returned: "+err.Error(), http.StatusInternalServerError)
 			return

@@ -173,10 +173,10 @@ func main_wrapper() (err error) {
 	var named_object_array []cwl.Named_CWL_object
 	//var cwl_version cwl.CWLVersion
 	var schemata []cwl.CWLType_Type
-	var namespaces map[string]string
-	var schemas []interface{}
+	//var namespaces map[string]string
+	//var schemas []interface{}
 	var context *cwl.WorkflowContext
-	named_object_array, schemata, context, schemas, err = cwl.Parse_cwl_document(yaml_str, inputfile_path)
+	named_object_array, schemata, context, _, err = cwl.Parse_cwl_document(yaml_str, inputfile_path)
 
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) error in parsing cwl workflow yaml file: " + err.Error())
@@ -195,9 +195,9 @@ func main_wrapper() (err error) {
 	}
 	upload_count += sub_upload_count
 
-	if schemas != nil {
+	if context.Schemas != nil {
 		sub_upload_count := 0
-		sub_upload_count, err = cache.ProcessIOData(schemas, inputfile_path, inputfile_path, "upload", shock_client)
+		sub_upload_count, err = cache.ProcessIOData(context.Schemas, inputfile_path, inputfile_path, "upload", shock_client)
 		if err != nil {
 			err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
 			return
@@ -342,10 +342,15 @@ func main_wrapper() (err error) {
 
 	// create temporary workflow document file
 
-	new_document := cwl.CWL_document{}
-	new_document.CwlVersion = context.CwlVersion
-	new_document.Namespaces = namespaces
-	new_document.Schemas = schemas
+	new_document := context.CWL_document
+
+	//new_document := cwl.CWL_document{}
+	//new_document.CwlVersion = context.CwlVersion
+	//new_document.Namespaces = namespaces
+	//new_document.Schemas = schemas
+
+	// replace graph
+	new_document.Graph = []interface{}{}
 	for i, _ := range named_object_array {
 		pair := named_object_array[i]
 		object := pair.Value

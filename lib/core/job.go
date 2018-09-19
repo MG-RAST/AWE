@@ -124,7 +124,7 @@ func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document, remain_t
 	return
 }
 
-func (job *Job) GetWorkflowInstanceIndex(id string, do_read_lock bool) (index int, err error) {
+func (job *Job) GetWorkflowInstanceIndex(id string, context *cwl.WorkflowContext, do_read_lock bool) (index int, err error) {
 	if do_read_lock {
 		read_lock, xerr := job.RLockNamed("GetWorkflowInstanceIndex")
 		if xerr != nil {
@@ -141,7 +141,7 @@ func (job *Job) GetWorkflowInstanceIndex(id string, do_read_lock bool) (index in
 
 	for index, wi_int = range job.WorkflowInstances {
 		var element_wi WorkflowInstance
-		element_wi, err = NewWorkflowInstanceFromInterface(wi_int)
+		element_wi, err = NewWorkflowInstanceFromInterface(wi_int, context)
 		if err != nil {
 			err = fmt.Errorf("(GetWorkflowInstance) object was not a WorkflowInstance !? %s", err.Error())
 			return
@@ -197,7 +197,7 @@ func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowI
 	return
 }
 
-func (job *Job) Set_WorkflowInstance_Outputs(id string, outputs cwl.Job_document) (err error) {
+func (job *Job) Set_WorkflowInstance_Outputs(id string, outputs cwl.Job_document, context *cwl.WorkflowContext) (err error) {
 	err = job.LockNamed("Set_WorkflowInstance_Outputs")
 	if err != nil {
 		return
@@ -215,7 +215,7 @@ func (job *Job) Set_WorkflowInstance_Outputs(id string, outputs cwl.Job_document
 	}
 
 	var index int
-	index, err = job.GetWorkflowInstanceIndex(id, false)
+	index, err = job.GetWorkflowInstanceIndex(id, context, false)
 	if err != nil {
 		err = fmt.Errorf("(Set_WorkflowInstance_Outputs) GetWorkflowInstanceIndex returned: %s", err.Error())
 		return
@@ -223,7 +223,7 @@ func (job *Job) Set_WorkflowInstance_Outputs(id string, outputs cwl.Job_document
 
 	var workflow_instance WorkflowInstance
 	workflow_instance_if := job.WorkflowInstances[index]
-	workflow_instance, err = NewWorkflowInstanceFromInterface(workflow_instance_if)
+	workflow_instance, err = NewWorkflowInstanceFromInterface(workflow_instance_if, context)
 	if err != nil {
 		err = fmt.Errorf("(Set_WorkflowInstance_Outputs) NewWorkflowInstanceFromInterface returned: %s", err.Error())
 		return
@@ -375,29 +375,30 @@ func (job *Job) Init() (changed bool, err error) {
 		changed = true
 	}
 
-	if job.WorkflowContext == nil {
-		panic("job.WorkflowContext == nil") // TODO remove
-		job.WorkflowContext = cwl.NewWorkflowContext()
-	}
+	//if job.WorkflowContext == nil {
+	//	panic("job.WorkflowContext == nil") // TODO remove
+	//	job.WorkflowContext = cwl.NewWorkflowContext()
+	//}
 
-	if job.WorkflowContext.If_objects == nil {
-		if job.WorkflowContext.Graph == nil {
+	context := job.WorkflowContext
+
+	if context != nil && context.If_objects == nil {
+		if context.Graph == nil {
 			err = fmt.Errorf("(job.Init) job.WorkflowContext.Graph == nil")
 			return
 		}
 
-		if len(job.WorkflowContext.Graph) == 0 {
+		if len(context.Graph) == 0 {
 			err = fmt.Errorf("(job.Init) len(job.WorkflowContext.Graph) == 0")
 			return
 		}
 
-		err = job.WorkflowContext.FillMaps(job.WorkflowContext.Graph)
+		err = context.Init()
 		if err != nil {
-			err = fmt.Errorf("(job.Init) job.WorkflowContext.FillMaps returned: %s", err.Error())
+			err = fmt.Errorf("(job.Init) context.Init() returned: %s", err.Error())
 			return
 		}
 	}
-	context := job.WorkflowContext
 
 	old_remaintasks := job.RemainTasks
 	job.RemainTasks = 0
@@ -483,24 +484,24 @@ func (job *Job) Init() (changed bool, err error) {
 		//collection := cwl.NewCWL_collection()
 
 		//var schemata_new []CWLType_Type
-		named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.WorkflowContext.Graph, job.WorkflowContext)
-		if xerr != nil {
-			err = fmt.Errorf("(job.Init) cannot type assert CWL_graph: %s", xerr.Error())
-			return
-		}
+		//named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.WorkflowContext.Graph, job.WorkflowContext)
+		//if xerr != nil {
+		//	err = fmt.Errorf("(job.Init) cannot type assert CWL_graph: %s", xerr.Error())
+		//	return
+		//}
 
-		err = context.AddArray(named_object_array)
-		//err = cwl.Add_to_collection(&collection, object_array)
-		if err != nil {
-			fmt.Errorf("(job.Init) collection.AddArray returned: %s", err.Error())
-			return
-		}
+		//err = context.AddArray(named_object_array)
+		////err = cwl.Add_to_collection(&collection, object_array)
+		//if err != nil {
+		//	fmt.Errorf("(job.Init) collection.AddArray returned: %s", err.Error())
+		//	return
+		//}
 
-		err = context.AddSchemata(schemata_new)
-		if err != nil {
-			err = fmt.Errorf("(job.Init) AddSchemata returned: %s", err.Error())
-			return
-		}
+		//err = context.AddSchemata(schemata_new)
+		//if err != nil {
+		//	err = fmt.Errorf("(job.Init) AddSchemata returned: %s", err.Error())
+		//	return
+		//}
 
 		if job.WorkflowInstances != nil {
 
@@ -513,7 +514,7 @@ func (job *Job) Init() (changed bool, err error) {
 				for i, _ := range job.WorkflowInstances {
 					wi_int := job.WorkflowInstances[i]
 					var wi WorkflowInstance
-					wi, err = NewWorkflowInstanceFromInterface(wi_int)
+					wi, err = NewWorkflowInstanceFromInterface(wi_int, context)
 					if err != nil {
 						err = fmt.Errorf("(job.Init) object is not a WorkflowInstance: %s", err.Error())
 						return
@@ -534,12 +535,12 @@ func (job *Job) Init() (changed bool, err error) {
 		}
 		//main_input, xerr := cwl.NewJob_documentFromNamedTypes(job.CWL_job_input)
 
-		if xerr != nil {
-			//fmt.Println("\n\njob.CWL_job_input:\n")
-			//spew.Dump(job.CWL_job_input)
-			err = fmt.Errorf("(job.Init) cannot create main_input: %s", xerr.Error())
-			return
-		}
+		//if xerr != nil {
+		//fmt.Println("\n\njob.CWL_job_input:\n")
+		//spew.Dump(job.CWL_job_input)
+		//	err = fmt.Errorf("(job.Init) cannot create main_input: %s", xerr.Error())
+		//	return
+		//}
 
 		main_input_map := main_input.Inputs.GetMap()
 

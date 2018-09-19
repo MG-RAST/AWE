@@ -2,9 +2,10 @@ package core
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/davecgh/go-spew/spew"
-	"reflect"
 )
 
 type WorkflowInstance struct {
@@ -14,8 +15,8 @@ type WorkflowInstance struct {
 	RemainTasks int              `bson:"remaintasks" json:"remaintasks" mapstructure:"remaintasks"`
 }
 
-func NewWorkflowInstanceFromInterface(original interface{}) (wi WorkflowInstance, err error) {
-	original, err = cwl.MakeStringMap(original)
+func NewWorkflowInstanceFromInterface(original interface{}, context *cwl.WorkflowContext) (wi WorkflowInstance, err error) {
+	original, err = cwl.MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -80,7 +81,7 @@ func NewWorkflowInstanceFromInterface(original interface{}) (wi WorkflowInstance
 		}
 
 		var inputs *cwl.Job_document
-		inputs, err = cwl.NewJob_documentFromNamedTypes(inputs_if)
+		inputs, err = cwl.NewJob_documentFromNamedTypes(inputs_if, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) (for inputs) NewJob_document returned: %s", err.Error())
 			return
@@ -91,7 +92,7 @@ func NewWorkflowInstanceFromInterface(original interface{}) (wi WorkflowInstance
 		outputs_if, has_outputs := original_map["outputs"]
 		if has_outputs {
 			var outputs *cwl.Job_document
-			outputs, err = cwl.NewJob_documentFromNamedTypes(outputs_if)
+			outputs, err = cwl.NewJob_documentFromNamedTypes(outputs_if, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) (for outputs) NewJob_document returned: %s", err.Error())
 				return

@@ -59,6 +59,7 @@ type Workunit struct {
 	CWL_workunit               *CWL_workunit          `bson:"cwl,omitempty" json:"cwl,omitempty" mapstructure:"cwl,omitempty"`
 	WorkPath                   string                 // this is the working directory. If empty, it will be computed.
 	WorkPerf                   *WorkPerf
+	Context                    *cwl.WorkflowContext `bson:"-" json:"-" mapstructure:"-"`
 }
 
 func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Workunit, err error) {
@@ -188,8 +189,9 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		//	wfl.CwlVersion = job.CwlVersion
 		//}
 
+		context := job.WorkflowContext
 		// ****** get inputs
-		job_input_map := *job.WorkflowContext.Job_input_map
+		job_input_map := context.Job_input_map
 		if job_input_map == nil {
 			err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
 			return
@@ -208,7 +210,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		workflow_input_map := workflow_instance.Inputs.GetMap()
 
 		var workunit_input_map map[string]cwl.CWLType
-		workunit_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, workflow_step)
+		workunit_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, workflow_step, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects returned: %s", err.Error())
 			return
@@ -230,7 +232,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		workunit.CWL_workunit.OutputsExpected = &workflow_step.Out
 
-		err = workunit.Evaluate(workunit_input_map)
+		err = workunit.Evaluate(workunit_input_map, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) workunit.Evaluate returned: %s", err.Error())
 			return
@@ -246,7 +248,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 	return
 }
 
-func (w *Workunit) Evaluate(inputs interface{}) (err error) {
+func (w *Workunit) Evaluate(inputs interface{}, context *cwl.WorkflowContext) (err error) {
 
 	if w.CWL_workunit != nil {
 		process := w.CWL_workunit.Tool
@@ -254,7 +256,7 @@ func (w *Workunit) Evaluate(inputs interface{}) (err error) {
 		case *cwl.CommandLineTool:
 			clt := process.(*cwl.CommandLineTool)
 
-			err = clt.Evaluate(inputs)
+			err = clt.Evaluate(inputs, context)
 			if err != nil {
 				err = fmt.Errorf("(Workunit/Evaluate) CommandLineTool.Evaluate returned: %s", err.Error())
 				return
@@ -262,7 +264,7 @@ func (w *Workunit) Evaluate(inputs interface{}) (err error) {
 		case *cwl.ExpressionTool:
 			et := process.(*cwl.ExpressionTool)
 
-			err = et.Evaluate(inputs)
+			err = et.Evaluate(inputs, context)
 			if err != nil {
 				err = fmt.Errorf("(Workunit/Evaluate) ExpressionTool.Evaluate returned: %s", err.Error())
 				return
@@ -270,7 +272,7 @@ func (w *Workunit) Evaluate(inputs interface{}) (err error) {
 
 		case *cwl.Workflow:
 			wf := process.(*cwl.Workflow)
-			err = wf.Evaluate(inputs)
+			err = wf.Evaluate(inputs, context)
 			if err != nil {
 				err = fmt.Errorf("(Workunit/Evaluate) Workflow.Evaluate returned: %s", err.Error())
 				return

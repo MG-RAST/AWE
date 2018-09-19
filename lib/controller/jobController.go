@@ -17,7 +17,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
-	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	//"os"
@@ -147,17 +146,14 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			cx.RespondWithErrorMessage("error in parsing cwl workflow yaml file: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		if context.Graph == nil {
-			panic("jobController context.Graph == nil")
-		}
 
-		err = context.AddArray(object_array)
-		if err != nil {
-			logger.Error("Parse_cwl_document error: " + err.Error())
-			cx.RespondWithErrorMessage("error in adding cwl objects to collection: "+err.Error(), http.StatusBadRequest)
-			return
-		}
-		logger.Debug(1, "Parse_cwl_document done")
+		//err = context.AddArray(object_array)
+		//if err != nil {
+		//	logger.Error("Parse_cwl_document error: " + err.Error())
+		//	cx.RespondWithErrorMessage("error in adding cwl objects to collection: "+err.Error(), http.StatusBadRequest)
+		//	return
+		//}
+		//logger.Debug(1, "Parse_cwl_document done")
 
 		err = context.AddSchemata(schemata)
 		if err != nil {
@@ -552,12 +548,12 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		E: nil,
 	}
 
-	for i, _ := range job.WorkflowContext.Graph {
-		fmt.Printf("+------- " + string(i))
-		spew.Dump(job.WorkflowContext.Graph[i])
-	}
-	fmt.Printf("WorkflowContext ------- ")
-	spew.Dump(job.WorkflowContext.Graph)
+	//for i, _ := range job.WorkflowContext.Graph {
+	//	fmt.Printf("+------- " + string(i))
+	//	spew.Dump(job.WorkflowContext.Graph[i])
+	//}
+	//fmt.Printf("WorkflowContext ------- ")
+	//spew.Dump(job.WorkflowContext.Graph)
 	//job.WorkflowContext = nil
 
 	var response_bytes []byte

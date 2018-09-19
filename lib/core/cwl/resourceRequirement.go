@@ -78,9 +78,9 @@ func (r *ResourceRequirement) Evaluate(inputs interface{}, context *WorkflowCont
 
 }
 
-func NewResourceRequirement(original interface{}, inputs interface{}) (r *ResourceRequirement, err error) {
+func NewResourceRequirement(original interface{}, inputs interface{}, context *WorkflowContext) (r *ResourceRequirement, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}

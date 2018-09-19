@@ -13,7 +13,7 @@ import (
 
 type Requirement interface {
 	GetClass() string
-	Evaluate(inputs interface{}) error
+	Evaluate(inputs interface{}, context *WorkflowContext) error
 }
 
 type DummyRequirement struct {
@@ -46,9 +46,9 @@ func NewRequirementFromInterface(obj interface{}, inputs interface{}, context *W
 		err = fmt.Errorf("(NewRequirementFromInterface) GetClass returned: %s", err.Error())
 		return
 	}
-	var schemata []CWLType_Type
-	r, schemata, err = NewRequirement(class_str, obj, inputs)
-	context.AddSchemata(schemata)
+	//var schemata []CWLType_Type
+	r, err = NewRequirement(class_str, obj, inputs, context)
+	//context.AddSchemata(schemata)
 	//for i, _ := range schemata{
 	//	context.AddSchemata()
 
@@ -58,7 +58,7 @@ func NewRequirementFromInterface(obj interface{}, inputs interface{}, context *W
 
 }
 
-func NewRequirement(class string, obj interface{}, inputs interface{}) (r Requirement, schemata []CWLType_Type, err error) {
+func NewRequirement(class string, obj interface{}, inputs interface{}, context *WorkflowContext) (r Requirement, err error) {
 
 	if class == "" {
 		err = fmt.Errorf("class name empty")
@@ -81,7 +81,7 @@ func NewRequirement(class string, obj interface{}, inputs interface{}) (r Requir
 		}
 		return
 	case "ResourceRequirement":
-		r, err = NewResourceRequirement(obj, inputs)
+		r, err = NewResourceRequirement(obj, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(NewRequirement) NewResourceRequirement returns: %s", err.Error())
 			return
@@ -95,7 +95,7 @@ func NewRequirement(class string, obj interface{}, inputs interface{}) (r Requir
 		}
 		return
 	case "EnvVarRequirement":
-		r, err = NewEnvVarRequirement(obj)
+		r, err = NewEnvVarRequirement(obj, context)
 		if err != nil {
 			err = fmt.Errorf("(NewRequirement) NewEnvVarRequirement returns: %s", err.Error())
 			return
@@ -116,7 +116,7 @@ func NewRequirement(class string, obj interface{}, inputs interface{}) (r Requir
 		}
 		return
 	case "InitialWorkDirRequirement":
-		r, err = NewInitialWorkDirRequirement(obj)
+		r, err = NewInitialWorkDirRequirement(obj, context)
 		if err != nil {
 			err = fmt.Errorf("(NewRequirement) NewInitialWorkDirRequirement returns: %s", err.Error())
 			return
@@ -137,7 +137,7 @@ func NewRequirement(class string, obj interface{}, inputs interface{}) (r Requir
 		}
 		return
 	case "SchemaDefRequirement":
-		r, schemata, err = NewSchemaDefRequirement(obj)
+		r, err = NewSchemaDefRequirement(obj, context)
 		if err != nil {
 			err = fmt.Errorf("(NewRequirement) NewSchemaDefRequirement returns: %s", err.Error())
 			return
@@ -243,9 +243,9 @@ func DeleteRequirement(requirement_class string, old_array_ptr []Requirement) (n
 
 // , injectedRequirements []Requirement
 
-func CreateHintsArray(original interface{}, injectedRequirements []Requirement, inputs interface{}, context *WorkflowContext) (hints_array []Requirement, schemata []CWLType_Type, err error) {
+func CreateHintsArray(original interface{}, injectedRequirements []Requirement, inputs interface{}, context *WorkflowContext) (hints_array []Requirement, err error) {
 	if original != nil {
-		hints_array, schemata, err = CreateRequirementArray(original, true, inputs, context)
+		hints_array, err = CreateRequirementArray(original, true, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(CreateRequirementArrayAndInject) CreateRequirementArray returned: %s", err.Error())
 			return
@@ -278,10 +278,10 @@ func CreateHintsArray(original interface{}, injectedRequirements []Requirement, 
 }
 
 // Tools inherit Requirements, but should not overwrite !
-func CreateRequirementArrayAndInject(original interface{}, injectedRequirements []Requirement, inputs interface{}, context *WorkflowContext) (requirements_array []Requirement, schemata []CWLType_Type, err error) {
+func CreateRequirementArrayAndInject(original interface{}, injectedRequirements []Requirement, inputs interface{}, context *WorkflowContext) (requirements_array []Requirement, err error) {
 
 	if original != nil {
-		requirements_array, schemata, err = CreateRequirementArray(original, false, inputs, context)
+		requirements_array, err = CreateRequirementArray(original, false, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(CreateRequirementArrayAndInject) CreateRequirementArray returned: %s", err.Error())
 			return
@@ -313,7 +313,7 @@ func CreateRequirementArrayAndInject(original interface{}, injectedRequirements 
 }
 
 // hints are optional, requirements are not
-func CreateRequirementArray(original interface{}, optional bool, inputs interface{}, context *WorkflowContext) (new_array []Requirement, schemata []CWLType_Type, err error) {
+func CreateRequirementArray(original interface{}, optional bool, inputs interface{}, context *WorkflowContext) (new_array []Requirement, err error) {
 	// here the keynames are actually class names
 
 	original, err = MakeStringMap(original, context)
@@ -331,9 +331,9 @@ func CreateRequirementArray(original interface{}, optional bool, inputs interfac
 
 		for class_str, v := range original.(map[string]interface{}) {
 
-			var schemata_new []CWLType_Type
+			//var schemata_new []CWLType_Type
 			var requirement Requirement
-			requirement, schemata_new, err = NewRequirement(class_str, v, inputs)
+			requirement, err = NewRequirement(class_str, v, inputs, context)
 			if err != nil {
 				if optional {
 					logger.Debug(1, "(CreateRequirementArray) A NewRequirement returns: %s", err.Error())
@@ -343,9 +343,9 @@ func CreateRequirementArray(original interface{}, optional bool, inputs interfac
 				err = fmt.Errorf("(CreateRequirementArray) A NewRequirement returns: %s", err.Error())
 				return
 			}
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
-			}
+			//for i, _ := range schemata_new {
+			//	schemata = append(schemata, schemata_new[i])
+			//}
 
 			new_array = append(new_array, requirement)
 		}

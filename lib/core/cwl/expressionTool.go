@@ -65,32 +65,32 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRe
 
 	var requirements_array []Requirement
 	//var requirements_array_temp *[]Requirement
-	var schemata_new []CWLType_Type
-	requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, inputs, context)
+	//var schemata_new []CWLType_Type
+	requirements_array, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, inputs, context)
 	if err != nil {
 		err = fmt.Errorf("(NewExpressionTool) error in CreateRequirementArray (requirements): %s", err.Error())
 		return
 	}
 
-	for i, _ := range schemata_new {
-		schemata = append(schemata, schemata_new[i])
-	}
+	//for i, _ := range schemata_new {
+	//	schemata = append(schemata, schemata_new[i])
+	//}
 
 	object["requirements"] = requirements_array
 
 	hints, ok := object["hints"]
 	if ok && (hints != nil) {
-		var schemata_new []CWLType_Type
+		//var schemata_new []CWLType_Type
 
 		var hints_array []Requirement
-		hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
+		hints_array, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 			return
 		}
-		for i, _ := range schemata_new {
-			schemata = append(schemata, schemata_new[i])
-		}
+		//for i, _ := range schemata_new {
+		//	schemata = append(schemata, schemata_new[i])
+		//}
 		object["hints"] = hints_array
 	}
 
@@ -120,13 +120,13 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRe
 	return
 }
 
-func (et *ExpressionTool) Evaluate(inputs interface{}) (err error) {
+func (et *ExpressionTool) Evaluate(inputs interface{}, context *WorkflowContext) (err error) {
 
 	for i, _ := range et.Requirements {
 
 		r := et.Requirements[i]
 
-		err = r.Evaluate(inputs)
+		err = r.Evaluate(inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(ExpressionTool/Evaluate) Requirements r.Evaluate returned: %s", err.Error())
 			return
@@ -138,7 +138,7 @@ func (et *ExpressionTool) Evaluate(inputs interface{}) (err error) {
 
 		r := et.Hints[i]
 
-		err = r.Evaluate(inputs)
+		err = r.Evaluate(inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(ExpressionTool/Evaluate) Hints r.Evaluate returned: %s", err.Error())
 			return

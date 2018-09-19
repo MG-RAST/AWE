@@ -69,22 +69,22 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 
 	// extract SchemaDefRequirement
 	var schema_def_req *SchemaDefRequirement
-	var schemata_new []CWLType_Type
+	//var schemata_new []CWLType_Type
 	has_schema_def_req := false
 
 	if requirements != nil {
-		schema_def_req, schemata_new, has_schema_def_req, err = GetSchemaDefRequirement(requirements)
+		schema_def_req, has_schema_def_req, err = GetSchemaDefRequirement(requirements, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) GetSchemaDefRequirement returned: %s", err.Error())
 			return
 		}
 	}
 
-	if has_schema_def_req {
-		for i, _ := range schemata_new {
-			schemata = append(schemata, schemata_new[i])
-		}
-	}
+	//if has_schema_def_req {
+	//	for i, _ := range schemata_new {
+	//		schemata = append(schemata, schemata_new[i])
+	//	}
+	//}
 
 	inputs := []*CommandInputParameter{}
 
@@ -138,15 +138,15 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 
 	//fmt.Printf("(NewCommandLineTool) Injecting %d\n", len(requirements_array))
 	//spew.Dump(requirements_array)
-	requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, nil, context)
+	requirements_array, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, nil, context)
 	if err != nil {
 		err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (requirements): %s", err.Error())
 		return
 	}
 
-	for i, _ := range schemata_new {
-		schemata = append(schemata, schemata_new[i])
-	}
+	//for i, _ := range schemata_new {
+	//	schemata = append(schemata, schemata_new[i])
+	//}
 
 	if has_schema_def_req {
 		requirements_array = append(requirements_array, schema_def_req)
@@ -155,17 +155,17 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 
 	hints, ok := object["hints"]
 	if ok && (hints != nil) {
-		var schemata_new []CWLType_Type
+		//var schemata_new []CWLType_Type
 
 		var hints_array []Requirement
-		hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
+		hints_array, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 			return
 		}
-		for i, _ := range schemata_new {
-			schemata = append(schemata, schemata_new[i])
-		}
+		//for i, _ := range schemata_new {
+		//	schemata = append(schemata, schemata_new[i])
+		//}
 		object["hints"] = hints_array
 	}
 
@@ -177,6 +177,11 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 
 	if commandLineTool.CwlVersion == "" {
 		commandLineTool.CwlVersion = context.CwlVersion
+	}
+
+	if context == nil {
+		err = fmt.Errorf("(NewCommandLineTool) context == nil")
+		return
 	}
 
 	if context.Namespaces != nil {
@@ -212,13 +217,13 @@ func NewBaseCommandArray(original interface{}) (new_array []string, err error) {
 	return
 }
 
-func (c *CommandLineTool) Evaluate(inputs interface{}) (err error) {
+func (c *CommandLineTool) Evaluate(inputs interface{}, context *WorkflowContext) (err error) {
 
 	for i, _ := range c.Requirements {
 
 		r := c.Requirements[i]
 
-		err = r.Evaluate(inputs)
+		err = r.Evaluate(inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(CommandLineTool/Evaluate) Requirements r.Evaluate returned: %s", err.Error())
 			return
@@ -230,7 +235,7 @@ func (c *CommandLineTool) Evaluate(inputs interface{}) (err error) {
 
 		r := c.Hints[i]
 
-		err = r.Evaluate(inputs)
+		err = r.Evaluate(inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(CommandLineTool/Evaluate) Hints r.Evaluate returned: %s", err.Error())
 			return

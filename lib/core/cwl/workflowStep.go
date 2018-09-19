@@ -71,24 +71,24 @@ func NewWorkflowStep(original interface{}, injectedRequirements []Requirement, c
 
 		var requirements_array []Requirement
 		//var requirements_array_temp *[]Requirement
-		var schemata_new []CWLType_Type
+		//var schemata_new []CWLType_Type
 		//fmt.Printf("(NewWorkflowStep) Injecting %d \n", len(injectedRequirements))
 		//spew.Dump(injectedRequirements)
-		requirements_array, schemata_new, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, nil, context) // not sure what input to use
+		requirements_array, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, nil, context) // not sure what input to use
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflowStep) error in CreateRequirementArray (requirements): %s", err.Error())
 			return
 		}
 
-		for i, _ := range schemata_new {
-			schemata = append(schemata, schemata_new[i])
-		}
+		//for i, _ := range schemata_new {
+		//	schemata = append(schemata, schemata_new[i])
+		//}
 
 		v_map["requirements"] = requirements_array
 
 		step_in, ok := v_map["in"]
 		if ok {
-			v_map["in"], err = CreateWorkflowStepInputArray(step_in)
+			v_map["in"], err = CreateWorkflowStepInputArray(step_in, context)
 			if err != nil {
 				return
 			}
@@ -96,7 +96,7 @@ func NewWorkflowStep(original interface{}, injectedRequirements []Requirement, c
 
 		step_out, ok := v_map["out"]
 		if ok {
-			v_map["out"], err = NewWorkflowStepOutputArray(step_out)
+			v_map["out"], err = NewWorkflowStepOutputArray(step_out, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) CreateWorkflowStepOutputArray %s", err.Error())
 				return
@@ -167,17 +167,17 @@ func NewWorkflowStep(original interface{}, injectedRequirements []Requirement, c
 
 		hints, ok := v_map["hints"]
 		if ok && (hints != nil) {
-			var schemata_new []CWLType_Type
+			//var schemata_new []CWLType_Type
 
 			var hints_array []Requirement
-			hints_array, schemata, err = CreateHintsArray(hints, injectedRequirements, nil, context)
+			hints_array, err = CreateHintsArray(hints, injectedRequirements, nil, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 				return
 			}
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
-			}
+			//for i, _ := range schemata_new {
+			//	schemata = append(schemata, schemata_new[i])
+			//}
 			v_map["hints"] = hints_array
 		}
 

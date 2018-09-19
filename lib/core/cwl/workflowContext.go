@@ -12,7 +12,7 @@ import (
 )
 
 type WorkflowContext struct {
-	CWL_document `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // fields: CwlVersion, Base, Graph, Namespaces, Schemas
+	CWL_document `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // fields: CwlVersion, Base, Graph, Namespaces, Schemas (all interface-based !)
 	Path         string
 	//Namespaces   map[string]string
 	//CWLVersion
@@ -20,7 +20,7 @@ type WorkflowContext struct {
 	//CWL_graph  []interface{} `yaml:"cwl_graph"  json:"cwl_graph" bson:"cwl_graph" mapstructure:"cwl_graph"`
 	// old ParsingContext
 	If_objects map[string]interface{} `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
-	Objects    map[string]CWL_object  `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	Objects    map[string]CWL_object  `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // stores all objects (replaces All ???)
 
 	Workflows          map[string]*Workflow          `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	WorkflowStepInputs map[string]*WorkflowStepInput `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
@@ -34,10 +34,70 @@ type WorkflowContext struct {
 	//Job_input          *Job_document
 	Job_input_map *JobDocMap `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 
-	Schemata map[string]CWLType_Type `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	Schemata    map[string]CWLType_Type `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	Initialized bool                    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 }
 
-func (context *WorkflowContext) FillMaps(graph []interface{}) (err error) {
+func NewWorkflowContext() (context *WorkflowContext) {
+	context = &WorkflowContext{}
+
+	return
+}
+
+// search for #main and create objects recursively
+func (context *WorkflowContext) Init() (err error) {
+
+	if context.Initialized == true {
+		err = fmt.Errorf("(WorkflowContext/Init) already initialized")
+		return
+	}
+
+	if context.If_objects == nil {
+		context.If_objects = make(map[string]interface{})
+	}
+
+	if context.Objects == nil {
+		context.Objects = make(map[string]CWL_object)
+	}
+
+	if context.Workflows == nil {
+		context.Workflows = make(map[string]*Workflow)
+	}
+
+	if context.WorkflowStepInputs == nil {
+		context.WorkflowStepInputs = make(map[string]*WorkflowStepInput)
+	}
+
+	if context.CommandLineTools == nil {
+		context.CommandLineTools = make(map[string]*CommandLineTool)
+	}
+
+	if context.ExpressionTools == nil {
+		context.ExpressionTools = make(map[string]*ExpressionTool)
+	}
+	if context.Files == nil {
+		context.Files = make(map[string]*File)
+	}
+
+	if context.Strings == nil {
+		context.Strings = make(map[string]*String)
+	}
+
+	if context.Ints == nil {
+		context.Ints = make(map[string]*Int)
+	}
+
+	if context.Booleans == nil {
+		context.Booleans = make(map[string]*Boolean)
+	}
+
+	if context.All == nil {
+		context.All = make(map[string]CWL_object)
+	}
+
+	if context.Schemata == nil {
+		context.Schemata = make(map[string]CWLType_Type)
+	}
 
 	if context.CwlVersion == "" {
 		err = fmt.Errorf("(FillMaps) context.CwlVersion ==nil")
@@ -45,11 +105,12 @@ func (context *WorkflowContext) FillMaps(graph []interface{}) (err error) {
 	}
 
 	//context := &WorkflowContext{}
-	context.If_objects = make(map[string]interface{})
-	context.Objects = make(map[string]CWL_object)
+	//var If_objects map[string]interface{}
+
+	graph := context.CWL_document.Graph
 
 	if len(graph) == 0 {
-		err = fmt.Errorf("(FillMaps) len(graph) == 0")
+		err = fmt.Errorf("(WorkflowContext/Init) len(graph) == 0")
 		return
 	}
 
@@ -106,6 +167,14 @@ func (context *WorkflowContext) FillMaps(graph []interface{}) (err error) {
 	//	schemata = append(schemata, schemata_new[i])
 	//}
 
+	context.CWL_document.Graph = nil
+	context.CWL_document.Graph = []interface{}{}
+	for key, value := range context.Objects {
+		context.Add(key, value)
+		context.CWL_document.Graph = append(context.CWL_document.Graph, value)
+	}
+
+	context.Initialized = true
 	return
 }
 
@@ -147,6 +216,11 @@ func (c WorkflowContext) Evaluate(raw string) (parsed string) {
 
 func (c WorkflowContext) AddSchemata(obj []CWLType_Type) (err error) {
 	//fmt.Printf("(AddSchemata)\n")
+
+	if c.Schemata == nil {
+		c.Schemata = make(map[string]CWLType_Type)
+	}
+
 	for i, _ := range obj {
 		id := obj[i].GetId()
 		if id == "" {
@@ -324,21 +398,5 @@ func (c WorkflowContext) GetWorkflow(id string) (obj *Workflow, err error) {
 	if !ok {
 		err = fmt.Errorf("(GetWorkflow) item %s not found in collection", id)
 	}
-	return
-}
-
-func NewWorkflowContext() (context *WorkflowContext) {
-	context = &WorkflowContext{}
-
-	context.Workflows = make(map[string]*Workflow)
-	context.WorkflowStepInputs = make(map[string]*WorkflowStepInput)
-	context.CommandLineTools = make(map[string]*CommandLineTool)
-	context.ExpressionTools = make(map[string]*ExpressionTool)
-	context.Files = make(map[string]*File)
-	context.Strings = make(map[string]*String)
-	context.Ints = make(map[string]*Int)
-	context.Booleans = make(map[string]*Boolean)
-	context.All = make(map[string]CWL_object)
-	context.Schemata = make(map[string]CWLType_Type)
 	return
 }

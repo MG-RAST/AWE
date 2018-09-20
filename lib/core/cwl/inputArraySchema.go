@@ -3,8 +3,6 @@ package cwl
 import (
 	"fmt"
 	"reflect"
-
-	"github.com/mitchellh/mapstructure"
 )
 
 type InputArraySchema struct { // Items, Type , Label
@@ -43,23 +41,26 @@ func NewInputArraySchemaFromInterface(original interface{}, schemata []CWLType_T
 			return
 		}
 
-		items, ok := original_map["items"]
-		if ok {
-			var items_type []CWLType_Type
-			items_type, err = NewCWLType_TypeArray(items, schemata, "Input", false, context)
-			if err != nil {
-				err = fmt.Errorf("(NewInputArraySchema) NewCWLType_TypeArray returns: %s", err.Error())
-				return
-			}
-			original_map["items"] = items_type
-
-		}
-
-		err = mapstructure.Decode(original, coas)
+		var as *ArraySchema
+		as, err = NewArraySchemaFromMap(original_map, schemata, "Input", context)
 		if err != nil {
-			err = fmt.Errorf("(NewCInputArraySchema) %s", err.Error())
+			err = fmt.Errorf("(NewOutputArraySchemaFromInterface) NewArraySchemaFromMap returned: %s", err.Error())
 			return
 		}
+
+		coas = &InputArraySchema{}
+		coas.ArraySchema = *as
+
+		inputBinding, has_inputBinding := original_map["inputBinding"]
+		if has_inputBinding {
+
+			coas.InputBinding, err = NewCommandLineBinding(inputBinding, context)
+			if err != nil {
+				err = fmt.Errorf("(NewOutputArraySchemaFromInterface) NewCommandOutputBinding returned: %s", err.Error())
+				return
+			}
+		}
+
 	default:
 		err = fmt.Errorf("NewInputArraySchema, unknown type %s", reflect.TypeOf(original))
 	}

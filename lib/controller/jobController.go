@@ -167,13 +167,18 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		shock_requirement = nil
 
 		var cwl_workflow *cwl.Workflow
+
+		logger.Debug(3, "(JobController/Create) len(context.Workflows): %d", len(context.Workflows))
+
 		if len(context.Workflows) == 0 {
+			// This probably is a simple CommandlineTool or ExpressionTool submission (without workflow)
+			// create new Workflow to wrap around the CommandLineTool/ExpressionTool
+
 			if len(object_array) != 1 {
 				cx.RespondWithErrorMessage(fmt.Sprintf("Expected exactly one element in object_array, got %d", len(context.Workflows)), http.StatusBadRequest)
 				return
 			}
-			// This probably is a CommandlineTool or ExpressionTool submission (without workflow)
-			// create new Workflow to wrap around the CommandLineTool/ExpressionTool
+
 			entrypoint = "#entrypoint"
 
 			pair := object_array[0]
@@ -453,6 +458,16 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		}
 
+		// replace interfaces with real objects (inlcuding new wrapper workflow if applicable)
+		context.CWL_document.Graph = []interface{}{}
+
+		for i, _ := range object_array {
+			pair := object_array[i]
+			object := pair.Value
+			logger.Debug(3, "(job/create) adding to context.CWL_document.Graph: %s", pair.Id)
+			context.CWL_document.Graph = append(context.CWL_document.Graph, object)
+		}
+
 		//fmt.Println("\n\n\n--------------------------------- Steps:\n")
 		//for _, step := range cwl_workflow.Steps {
 		//	spew.Dump(step)
@@ -470,15 +485,15 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		job.IsCWL = true
 
 		// this ugly conversion is necessary as mongo does not like interface types.
-		object_array_of_interface := []interface{}{}
-		for i, _ := range object_array {
-			object_array_of_interface = append(object_array_of_interface, object_array[i])
-		}
+		//object_array_of_interface := []interface{}{}
+		//for i, _ := range object_array {
+		//	object_array_of_interface = append(object_array_of_interface, object_array[i])
+		//}
 
-		if len(object_array_of_interface) == 0 {
-			cx.RespondWithErrorMessage("Error: len(object_array_of_interface) == 0", http.StatusBadRequest)
-			return
-		}
+		//if len(object_array_of_interface) == 0 {
+		//	cx.RespondWithErrorMessage("Error: len(object_array_of_interface) == 0", http.StatusBadRequest)
+		//	return
+		//}
 
 		//job.CWL_graph = object_array_of_interface
 		//job.CwlVersion = cwl_version
@@ -565,6 +580,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		cx.RespondWithErrorMessage("(JobController/Create) json.Marshal returned: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	//fmt.Println("(JobController/Create) response_bytes:")
+	//fmt.Printf("%s", response_bytes)
 
 	// don't enqueue imports
 	if !has_import {

@@ -450,11 +450,11 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowC
 
 		}
 
-		fmt.Println("Comparsion:")
-		fmt.Printf("schema: %s\n", reflect.TypeOf(schema))
-		fmt.Printf("object: %s\n", reflect.TypeOf(object))
-		spew.Dump(schema)
-		spew.Dump(object)
+		//fmt.Println("Comparsion:")
+		//fmt.Printf("schema: %s\n", reflect.TypeOf(schema))
+		//fmt.Printf("object: %s\n", reflect.TypeOf(object))
+		//spew.Dump(schema)
+		//spew.Dump(object)
 
 		ok = false
 

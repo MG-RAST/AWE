@@ -3,8 +3,6 @@ package cwl
 import (
 	"fmt"
 	"reflect"
-
-	"github.com/mitchellh/mapstructure"
 )
 
 type OutputArraySchema struct { // Items, Type , Label
@@ -33,38 +31,42 @@ func NewOutputArraySchemaFromInterface(original interface{}, schemata []CWLType_
 		return
 	}
 
-	coas = NewOutputArraySchema()
-
 	switch original.(type) {
 
 	case map[string]interface{}:
+
 		original_map, ok := original.(map[string]interface{})
 		if !ok {
-			err = fmt.Errorf("(NewOutputArraySchema) type error b")
+			err = fmt.Errorf("(NewOutputArraySchemaFromInterface) type error b")
 			return
 		}
-
-		items, ok := original_map["items"]
-		if !ok {
-
-			err = fmt.Errorf("(NewOutputArraySchema) items are missing")
-			return
-		}
-		var items_type []CWLType_Type
-		items_type, err = NewCWLType_TypeArray(items, schemata, "Output", false, context)
+		var as *ArraySchema
+		as, err = NewArraySchemaFromMap(original_map, schemata, "Output", context)
 		if err != nil {
-			err = fmt.Errorf("(NewOutputArraySchema) NewCWLType_TypeArray returns: %s", err.Error())
+			err = fmt.Errorf("(NewOutputArraySchemaFromInterface) NewArraySchemaFromInterface returned: %s", err.Error())
 			return
 		}
-		original_map["items"] = items_type
 
-		err = mapstructure.Decode(original, coas)
-		if err != nil {
-			err = fmt.Errorf("(NewOutputArraySchema) %s", err.Error())
-			return
+		coas = &OutputArraySchema{}
+		coas.ArraySchema = *as
+
+		outputBinding, has_outputBinding := original_map["outputBinding"]
+		if has_outputBinding {
+
+			coas.OutputBinding, err = NewCommandOutputBinding(outputBinding, context)
+			if err != nil {
+				err = fmt.Errorf("(NewOutputArraySchemaFromInterface) NewCommandOutputBinding returned: %s", err.Error())
+				return
+			}
 		}
+
+		//err = mapstructure.Decode(original, coas)
+		//if err != nil {
+		//	err = fmt.Errorf("(NewOutputArraySchema) %s", err.Error())
+		//	return
+		//}
 	default:
-		err = fmt.Errorf("NewOutputArraySchema, unknown type %s", reflect.TypeOf(original))
+		err = fmt.Errorf("NewOutputArraySchemaFromInterface, unknown type %s", reflect.TypeOf(original))
 	}
 	return
 }

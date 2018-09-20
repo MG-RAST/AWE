@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/davecgh/go-spew/spew"
 )
 
 // this is used by YAML or JSON library for inital parsing
@@ -101,7 +100,7 @@ func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object
 
 	//fmt.Println("-------------- A Parse_cwl_document")
 
-	err = context.Init()
+	err = context.Init("#main")
 	if err != nil {
 		err = fmt.Errorf("(Parse_cwl_graph_document) context.FillMaps returned: %s", err.Error())
 		return
@@ -121,7 +120,7 @@ func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object
 
 func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (object_array []Named_CWL_object, schemata []CWLType_Type, schemas []interface{}, err error) {
 	// Here I expect a single object, Workflow or CommandLIneTool
-	fmt.Printf("-------------- yaml_str: %s\n", yaml_str)
+	//fmt.Printf("-------------- yaml_str: %s\n", yaml_str)
 
 	var object_if map[string]interface{}
 
@@ -173,11 +172,7 @@ func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (objec
 			return
 		}
 
-	} else {
-		spew.Dump(object_if)
-		panic("not found")
 	}
-
 	//var this_class string
 	//this_class, err = GetClass(object_if)
 	//if err != nil {
@@ -255,10 +250,11 @@ func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []
 	if graph_pos != -1 {
 		// *** graph file ***
 		//yaml_str = strings.Replace(yaml_str, "$graph", "graph", -1) // remove dollar sign
-
+		logger.Debug(3, "(Parse_cwl_document) graph document")
 		object_array, schemata, schemas, err = Parse_cwl_graph_document(yaml_str, context)
 
 	} else {
+		logger.Debug(3, "(Parse_cwl_document) simple document")
 		object_array, schemata, schemas, err = Parse_cwl_simple_document(yaml_str, context)
 	}
 

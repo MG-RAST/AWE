@@ -45,8 +45,9 @@ func NewWorkflowContext() (context *WorkflowContext) {
 }
 
 // search for #main and create objects recursively
-func (context *WorkflowContext) Init() (err error) {
+func (context *WorkflowContext) Init(entrypoint string) (err error) {
 
+	logger.Debug(3, "(WorkflowContext/Init) start")
 	if context.Initialized == true {
 		err = fmt.Errorf("(WorkflowContext/Init) already initialized")
 		return
@@ -100,7 +101,7 @@ func (context *WorkflowContext) Init() (err error) {
 	}
 
 	if context.CwlVersion == "" {
-		err = fmt.Errorf("(FillMaps) context.CwlVersion ==nil")
+		err = fmt.Errorf("(WorkflowContext/Init) context.CwlVersion ==nil")
 		return
 	}
 
@@ -114,20 +115,22 @@ func (context *WorkflowContext) Init() (err error) {
 		return
 	}
 
+	logger.Debug(3, "(WorkflowContext/Init) len(graph): %d", len(graph))
+
 	// put interface objetcs into map: populate context.If_objects
 	for i, _ := range graph {
 
-		fmt.Printf("graph element type: %s\n", reflect.TypeOf(graph[i]))
+		//fmt.Printf("graph element type: %s\n", reflect.TypeOf(graph[i]))
 
 		if graph[i] == nil {
-			err = fmt.Errorf("(FillMaps) graph[i] empty array element")
+			err = fmt.Errorf("(WorkflowContext/Init) graph[i] empty array element")
 			return
 		}
 
 		var id string
 		id, err = GetId(graph[i])
 		if err != nil {
-			fmt.Println("object without id:")
+			fmt.Println("(WorkflowContext/Init) object without id:")
 			spew.Dump(graph[i])
 			return
 		}
@@ -137,13 +140,15 @@ func (context *WorkflowContext) Init() (err error) {
 
 	}
 
-	main_if, has_main := context.If_objects["#main"]
+	logger.Debug(3, "(WorkflowContext/Init) len(context.If_objects): %d", len(context.If_objects))
+
+	main_if, has_main := context.If_objects[entrypoint] // "#main" or enrypoint
 	if !has_main {
 		var keys string
 		for key, _ := range context.If_objects {
 			keys += "," + key
 		}
-		err = fmt.Errorf("(FillMaps) #main not found in graph (found %s)", keys)
+		err = fmt.Errorf("(WorkflowContext/Init) entrypoint %s not found in graph (found %s)", entrypoint, keys)
 		return
 	}
 
@@ -153,14 +158,16 @@ func (context *WorkflowContext) Init() (err error) {
 	var schemata_new []CWLType_Type
 	object, schemata_new, err = New_CWL_object(main_if, nil, context)
 	if err != nil {
-		err = fmt.Errorf("(FillMaps) A New_CWL_object returned %s", err.Error())
+		fmt.Printf("(WorkflowContext/Init) main_if")
+		spew.Dump(main_if)
+		err = fmt.Errorf("(WorkflowContext/Init) A New_CWL_object returned %s", err.Error())
 		return
 	}
-	context.Objects["#main"] = object
+	context.Objects[entrypoint] = object
 
 	err = context.AddSchemata(schemata_new)
 	if err != nil {
-		err = fmt.Errorf("(FillMaps) context.AddSchemata returned %s", err.Error())
+		err = fmt.Errorf("(WorkflowContext/Init) context.AddSchemata returned %s", err.Error())
 		return
 	}
 	//for i, _ := range schemata_new {
@@ -170,9 +177,12 @@ func (context *WorkflowContext) Init() (err error) {
 	context.CWL_document.Graph = nil
 	context.CWL_document.Graph = []interface{}{}
 	for key, value := range context.Objects {
+		logger.Debug(3, "(WorkflowContext/Init) adding %s to context.CWL_document.Graph", key)
 		context.Add(key, value)
 		context.CWL_document.Graph = append(context.CWL_document.Graph, value)
 	}
+	//fmt.Println("(WorkflowContext/Init) context.Objects: ")
+	//spew.Dump(context.Objects)
 
 	context.Initialized = true
 	return
@@ -271,11 +281,11 @@ func (c WorkflowContext) Add(id string, obj CWL_object) (err error) {
 		return
 	}
 
-	logger.Debug(3, "Adding object %s to collection", id)
+	logger.Debug(3, "(WorkflowContext/Add) Adding object %s to collection (type: %s)", id, reflect.TypeOf(obj))
 
 	_, ok := c.All[id]
 	if ok {
-		err = fmt.Errorf("Object %s already in collection", id)
+		err = fmt.Errorf("(WorkflowContext/Add) Object %s already in collection", id)
 		return
 	}
 

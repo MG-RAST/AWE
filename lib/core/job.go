@@ -393,7 +393,7 @@ func (job *Job) Init() (changed bool, err error) {
 			return
 		}
 
-		err = context.Init()
+		err = context.Init(job.Entrypoint)
 		if err != nil {
 			err = fmt.Errorf("(job.Init) context.Init() returned: %s", err.Error())
 			return
@@ -530,7 +530,7 @@ func (job *Job) Init() (changed bool, err error) {
 		var main_input *WorkflowInstance
 		main_input, err = job.GetWorkflowInstance("::main::", true) //job.WorkflowInstancesMap["#main"]
 		if err != nil {
-			err = fmt.Errorf("(job.Init) workflow #main not found %s", err.Error())
+			err = fmt.Errorf("(job.Init) workflow instance ::main:: not found %s", err.Error())
 			return
 		}
 		//main_input, xerr := cwl.NewJob_documentFromNamedTypes(job.CWL_job_input)
@@ -542,6 +542,9 @@ func (job *Job) Init() (changed bool, err error) {
 		//	return
 		//}
 
+		//fmt.Println("(job.Init) job:")
+		//spew.Dump(job)
+
 		main_input_map := main_input.Inputs.GetMap()
 
 		context.Job_input_map = &main_input_map
@@ -551,9 +554,12 @@ func (job *Job) Init() (changed bool, err error) {
 		if !ok {
 			err = fmt.Errorf("(job.Init) Workflow \"%s\" not found", entrypoint)
 
-			//for key, _ := range collection.All {
-			//	fmt.Printf("key: " + key)
-			//}
+			for key, _ := range context.Workflows {
+				fmt.Printf("(job.Init) Workflows key: %s\n", key)
+			}
+			for key, _ := range context.All {
+				fmt.Printf("(job.Init) All key: %s\n", key)
+			}
 			return
 		}
 

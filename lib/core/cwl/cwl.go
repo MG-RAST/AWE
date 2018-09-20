@@ -110,7 +110,7 @@ func MakeStringMap(v interface{}, context *WorkflowContext) (result interface{},
 		import_req, ok := v_map["$import"]
 
 		if ok {
-			fmt.Println("(MakeStringMap) found import")
+			//fmt.Println("(MakeStringMap) found import")
 			var import_req_str string
 			import_req_str, ok = import_req.(string)
 			if !ok {
@@ -123,7 +123,7 @@ func MakeStringMap(v interface{}, context *WorkflowContext) (result interface{},
 			}
 
 			import_path := strings.TrimPrefix(import_req_str, "#")
-			fmt.Printf("import_path: %s\n", import_path)
+			//fmt.Printf("import_path: %s\n", import_path)
 
 			if context.Path == "-" {
 				err = fmt.Errorf("(MakeStringMap) context.Path empty\n")

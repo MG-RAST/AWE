@@ -105,7 +105,7 @@ func Resolve_ImportsMap(obj_map map[string]interface{}, context *WorkflowContext
 		}
 
 		import_path := strings.TrimPrefix(import_req_str, "#")
-		fmt.Printf("import_path: %s\n", import_path)
+		//fmt.Printf("import_path: %s\n", import_path)
 
 		if context.Path == "-" {
 			err = fmt.Errorf("context.Path empty\n")
@@ -307,7 +307,7 @@ func Evaluate_import(obj interface{}, context *WorkflowContext) (new_doc interfa
 	}
 
 	import_path := strings.TrimPrefix(import_req_str, "#")
-	fmt.Printf("import_path: %s\n", import_path)
+	//fmt.Printf("import_path: %s\n", import_path)
 
 	if context.Path == "-" {
 		err = fmt.Errorf("context.Path empty\n")
@@ -315,7 +315,7 @@ func Evaluate_import(obj interface{}, context *WorkflowContext) (new_doc interfa
 	}
 
 	import_path = path.Join(context.Path, import_path)
-	fmt.Printf("import_path: %s\n", import_path)
+	//fmt.Printf("import_path: %s\n", import_path)
 	var doc_stream []byte
 	doc_stream, err = ioutil.ReadFile(import_path)
 	if err != nil {

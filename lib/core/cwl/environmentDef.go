@@ -48,7 +48,7 @@ func GetEnfDefArray(original interface{}) (array []EnvironmentDef, err error) {
 	return
 }
 
-func (d *EnvironmentDef) Evaluate(inputs interface{}) (err error) {
+func (d *EnvironmentDef) Evaluate(inputs interface{}, context *WorkflowContext) (err error) {
 
 	if inputs == nil {
 		err = fmt.Errorf("(EnvironmentDef/Evaluate) no inputs")
@@ -61,7 +61,7 @@ func (d *EnvironmentDef) Evaluate(inputs interface{}) (err error) {
 	entry_expr, ok = d.EnvValue.(Expression)
 	if ok {
 		var new_value interface{}
-		new_value, err = entry_expr.EvaluateExpression(nil, inputs)
+		new_value, err = entry_expr.EvaluateExpression(nil, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(EnvironmentDef/Evaluate) EvaluateExpression returned: %s", err.Error())
 			return

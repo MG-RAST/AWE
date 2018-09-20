@@ -12,15 +12,15 @@ type InputRecordField struct {
 	InputBinding *CommandLineBinding                                                   `yaml:"inputBinding,omitempty" json:"inputBinding,omitempty" bson:"inputBinding,omitempty"`
 }
 
-func NewInputRecordField(native interface{}, schemata []CWLType_Type) (irf *InputRecordField, err error) {
+func NewInputRecordField(native interface{}, schemata []CWLType_Type, context *WorkflowContext) (irf *InputRecordField, err error) {
 
-	native, err = MakeStringMap(native)
+	native, err = MakeStringMap(native, context)
 	if err != nil {
 		return
 	}
 
 	var rf *RecordField
-	rf, err = NewRecordFieldFromInterface(native, schemata, "Input")
+	rf, err = NewRecordFieldFromInterface(native, schemata, "Input", context)
 	if err != nil {
 		err = fmt.Errorf("(NewInputRecordField) NewRecordFieldFromInterface returned: %s", err.Error())
 		return
@@ -39,7 +39,7 @@ func NewInputRecordField(native interface{}, schemata []CWLType_Type) (irf *Inpu
 	if has_inputBinding {
 
 		var inputBinding *CommandLineBinding
-		inputBinding, err = NewCommandLineBinding(inputBinding_if)
+		inputBinding, err = NewCommandLineBinding(inputBinding_if, context)
 		if err != nil {
 			err = fmt.Errorf("(NewInputRecordField) NewCommandLineBinding returns: %s", err.Error())
 			return
@@ -52,7 +52,7 @@ func NewInputRecordField(native interface{}, schemata []CWLType_Type) (irf *Inpu
 	return
 }
 
-func CreateInputRecordFieldArray(native interface{}, schemata []CWLType_Type) (irfa []InputRecordField, err error) {
+func CreateInputRecordFieldArray(native interface{}, schemata []CWLType_Type, context *WorkflowContext) (irfa []InputRecordField, err error) {
 
 	switch native.(type) {
 	case []interface{}:
@@ -60,7 +60,7 @@ func CreateInputRecordFieldArray(native interface{}, schemata []CWLType_Type) (i
 		for _, elem := range native_array {
 
 			var irf *InputRecordField
-			irf, err = NewInputRecordField(elem, schemata)
+			irf, err = NewInputRecordField(elem, schemata, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateInputRecordFieldArray) returned: %s", err.Error())
 				return

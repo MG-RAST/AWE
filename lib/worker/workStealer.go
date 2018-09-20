@@ -2,6 +2,8 @@ package worker
 
 import (
 	"encoding/json"
+
+	"github.com/MG-RAST/AWE/lib/core/cwl"
 	//"errors"
 	"fmt"
 
@@ -39,6 +41,12 @@ func workStealerRun(control chan int, retry_previous int) (retry int, err error)
 	if core.Service == "proxy" {
 		<-core.ProxyWorkChan
 	}
+
+	// do not check out work if client is in a bad state
+	for core.Self.WorkerState.Healthy == false {
+		time.Sleep(time.Second * 10)
+	}
+
 	workunit, err := CheckoutWorkunitRemote()
 	if err != nil {
 		core.Self.Busy = false
@@ -316,7 +324,8 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 		var xerr error
 		//var schemata []cwl.CWLType_Type
-		cwl_object, _, xerr = core.NewCWL_workunit_from_interface(cwl_generic)
+		workunit.Context = cwl.NewWorkflowContext()
+		cwl_object, _, xerr = core.NewCWL_workunit_from_interface(cwl_generic, workunit.Context)
 		if xerr != nil {
 			err = fmt.Errorf("(CheckoutWorkunitRemote) NewCWL_workunit_from_interface failed: %s", xerr.Error())
 			logger.Debug(1, err.Error())

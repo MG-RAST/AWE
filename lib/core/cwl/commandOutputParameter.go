@@ -15,15 +15,15 @@ type CommandOutputParameter struct {
 	Description string `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty" mapstructure:"description,omitempty"`
 }
 
-func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type) (output_parameter *CommandOutputParameter, err error) {
+func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (output_parameter *CommandOutputParameter, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
 
 	var op *OutputParameter
-	op, err = NewOutputParameterFromInterface(original, schemata, "CommandOutput")
+	op, err = NewOutputParameterFromInterface(original, schemata, "CommandOutput", context)
 	if err != nil {
 		err = fmt.Errorf("(NewCommandOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
 		return
@@ -68,11 +68,11 @@ func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type) (o
 	return
 }
 
-func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Type) (copa *[]CommandOutputParameter, err error) {
+func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (copa *[]CommandOutputParameter, err error) {
 
 	switch original.(type) {
 	case map[interface{}]interface{}:
-		cop, xerr := NewCommandOutputParameter(original, schemata)
+		cop, xerr := NewCommandOutputParameter(original, schemata, context)
 		if xerr != nil {
 			err = fmt.Errorf("(NewCommandOutputParameterArray) a NewCommandOutputParameter returns: %s", xerr.Error())
 			return
@@ -84,7 +84,7 @@ func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Typ
 		original_array := original.([]interface{})
 
 		for _, element := range original_array {
-			cop, xerr := NewCommandOutputParameter(element, schemata)
+			cop, xerr := NewCommandOutputParameter(element, schemata, context)
 			if xerr != nil {
 				err = fmt.Errorf("(NewCommandOutputParameterArray) b NewCommandOutputParameter returns: %s", xerr.Error())
 				return

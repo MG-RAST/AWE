@@ -26,9 +26,9 @@ func NewCommandInputRecordSchema(native_map map[string]interface{}) (cirs *Comma
 	return
 }
 
-func NewCommandInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Type) (cirs *CommandInputRecordSchema, err error) {
+func NewCommandInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Type, context *WorkflowContext) (cirs *CommandInputRecordSchema, err error) {
 
-	native, err = MakeStringMap(native)
+	native, err = MakeStringMap(native, context)
 	if err != nil {
 		return
 	}
@@ -59,7 +59,7 @@ func NewCommandInputRecordSchemaFromInterface(native interface{}, schemata []CWL
 			return
 		}
 
-		cirs.Fields, err = CreateCommandInputRecordFieldArray(fields_array, schemata)
+		cirs.Fields, err = CreateCommandInputRecordFieldArray(fields_array, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) CreateInputRecordFieldArray returns: %s", err.Error())
 			return

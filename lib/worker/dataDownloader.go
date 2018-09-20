@@ -199,9 +199,13 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 		//make a working directory for the workunit (not for commandline execution !!!!!!)
 		err = workunit.Mkdir()
 		if err != nil {
-			logger.Error("[dataDownloader#workunit.Mkdir], workid=" + work_str + " error=" + err.Error())
-			workunit.Notes = append(workunit.Notes, "[dataDownloader#work.Mkdir]"+err.Error())
+			error_message := fmt.Sprintf("(dataDownloader) workunit.Mkdir, workid=%s workunit.Mkdir returned: %s", work_str, err.Error())
+			logger.Error(error_message)
+			workunit.Notes = append(workunit.Notes, error_message)
 			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
+
+			core.Self.WorkerState.Healthy = false
+			core.Self.WorkerState.ErrorMessage = err.Error()
 			//hand the parsed workunit to next stage and continue to get new workunit to process
 			return
 		}

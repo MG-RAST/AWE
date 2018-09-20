@@ -1,12 +1,10 @@
 package cwl
 
-import (
 //"fmt"
 //"github.com/davecgh/go-spew/spew"
 //"strings"
 //"github.com/mitchellh/mapstructure"
 //"reflect"
-)
 
 //type CommandInputParameterType struct {
 //	Type string
@@ -14,7 +12,7 @@ import (
 
 // CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
 
-func NewCommandInputParameterTypeArray(original interface{}, schemata []CWLType_Type) (result []CWLType_Type, err error) {
+func NewCommandInputParameterTypeArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (result []CWLType_Type, err error) {
 
 	//result = []CWLType_Type{}
 	return_array := []CWLType_Type{}
@@ -27,7 +25,7 @@ func NewCommandInputParameterTypeArray(original interface{}, schemata []CWLType_
 		for _, element := range original_array {
 
 			var cipt CWLType_Type
-			cipt, err = NewCWLType_Type(schemata, element, "CommandInput")
+			cipt, err = NewCWLType_Type(schemata, element, "CommandInput", context)
 			if err != nil {
 				return
 			}
@@ -41,7 +39,7 @@ func NewCommandInputParameterTypeArray(original interface{}, schemata []CWLType_
 	default:
 
 		var cipt CWLType_Type
-		cipt, err = NewCWLType_Type(schemata, original, "CommandInput")
+		cipt, err = NewCWLType_Type(schemata, original, "CommandInput", context)
 		if err != nil {
 			return
 		}

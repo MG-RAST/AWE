@@ -25,9 +25,9 @@ type RecordField struct {
 // CommandOutputRecordField
 //     CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string | array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
 
-func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, context string) (rf *RecordField, err error) {
+func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, context_p string, context *WorkflowContext) (rf *RecordField, err error) {
 
-	native, err = MakeStringMap(native)
+	native, err = MakeStringMap(native, context)
 	if err != nil {
 		return
 	}
@@ -75,7 +75,7 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, co
 		the_type, has_type := native_map["type"]
 		if has_type {
 
-			rf.Type, err = NewCWLType_TypeArray(the_type, schemata, context, false)
+			rf.Type, err = NewCWLType_TypeArray(the_type, schemata, context_p, false, context)
 			if err != nil {
 				err = fmt.Errorf("(NewRecordFieldFromInterface) NewCWLTypeArray returned: %s", err.Error())
 				return

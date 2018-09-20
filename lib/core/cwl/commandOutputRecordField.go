@@ -14,15 +14,15 @@ type CommandOutputRecordField struct {
 	//RecordField `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 }
 
-func NewCommandOutputRecordField(native interface{}, schemata []CWLType_Type) (crf *CommandOutputRecordField, err error) {
+func NewCommandOutputRecordField(native interface{}, schemata []CWLType_Type, context *WorkflowContext) (crf *CommandOutputRecordField, err error) {
 
-	native, err = MakeStringMap(native)
+	native, err = MakeStringMap(native, context)
 	if err != nil {
 		return
 	}
 
 	var rf *RecordField
-	rf, err = NewRecordFieldFromInterface(native, schemata, "CommandOutput")
+	rf, err = NewRecordFieldFromInterface(native, schemata, "CommandOutput", context)
 	if err != nil {
 		err = fmt.Errorf("(NewCommandOutputRecordField) NewRecordFieldFromInterface returned: %s", err.Error())
 		return
@@ -40,7 +40,7 @@ func NewCommandOutputRecordField(native interface{}, schemata []CWLType_Type) (c
 	outputBinding, has_outputBinding := native_map["outputBinding"]
 	if has_outputBinding {
 
-		crf.OutputBinding, err = NewCommandOutputBinding(outputBinding)
+		crf.OutputBinding, err = NewCommandOutputBinding(outputBinding, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandOutputRecordField) NewCWLTypeArray returned: %s", err.Error())
 			return
@@ -50,12 +50,12 @@ func NewCommandOutputRecordField(native interface{}, schemata []CWLType_Type) (c
 	return
 }
 
-func CreateCommandOutputRecordFieldArray(native []interface{}, schemata []CWLType_Type) (irfa []CommandOutputRecordField, err error) {
+func CreateCommandOutputRecordFieldArray(native []interface{}, schemata []CWLType_Type, context *WorkflowContext) (irfa []CommandOutputRecordField, err error) {
 
 	for _, elem := range native {
 
 		var irf *CommandOutputRecordField
-		irf, err = NewCommandOutputRecordField(elem, schemata)
+		irf, err = NewCommandOutputRecordField(elem, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(CreateCommandOutputRecordFieldArray) returned: %s", err.Error())
 			return

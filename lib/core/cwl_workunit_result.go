@@ -29,7 +29,7 @@ type Notice struct {
 //	Stderr      string
 //}
 
-func NewNotice(native interface{}) (workunit_result *Notice, err error) {
+func NewNotice(native interface{}, context *cwl.WorkflowContext) (workunit_result *Notice, err error) {
 	workunit_result = &Notice{}
 	switch native.(type) {
 
@@ -45,7 +45,7 @@ func NewNotice(native interface{}) (workunit_result *Notice, err error) {
 			if results != nil {
 
 				var results_jobdoc *cwl.Job_document
-				results_jobdoc, err = cwl.NewJob_documentFromNamedTypes(results)
+				results_jobdoc, err = cwl.NewJob_documentFromNamedTypes(results, context)
 				if err != nil {
 					err = fmt.Errorf("(NewNotice) NewJob_documentFromNamedTypes returns %s", err.Error())
 					return

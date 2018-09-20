@@ -137,6 +137,12 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 		return
 	}
 
+	_, err = job.Init()
+	if err != nil {
+		err = fmt.Errorf("(CreateJobUpload) job.Init returned: %s", err.Error())
+		return
+	}
+
 	err = job.UpdateFile(files, "upload")
 	if err != nil {
 		err = errors.New("error in UpdateFile, error=" + err.Error())
@@ -248,7 +254,7 @@ func ReadJobFile(filename string) (job *Job, err error) {
 
 	} else {
 		// jobDep had been initialized already
-		_, err = job.Init("", nil)
+		_, err = job.Init()
 		if err != nil {
 			err = fmt.Errorf("(ReadJobFile) job.Init returned error: %s", err.Error())
 			return
@@ -320,7 +326,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 			return
 		}
 
-		_, err = task.Init(job, job.CwlVersion)
+		_, err = task.Init(job)
 		if err != nil {
 			return
 		}
@@ -363,8 +369,9 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 		job.Tasks = append(job.Tasks, task)
 	}
 
-	_, err = job.Init(job.CwlVersion, job.Namespaces)
+	_, err = job.Init()
 	if err != nil {
+		err = fmt.Errorf("(JobDepToJob) job.Init() returned: %s", err.Error())
 		return
 	}
 

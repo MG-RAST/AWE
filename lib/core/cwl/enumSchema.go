@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -16,9 +17,9 @@ func (s EnumSchema) GetId() string       { return s.Name }
 func (s EnumSchema) Is_Type()            {}
 func (s EnumSchema) Type2String() string { return "EnumSchema" }
 
-func NewEnumSchemaFromInterface(original interface{}) (es EnumSchema, err error) {
+func NewEnumSchemaFromInterface(original interface{}, context *WorkflowContext) (es EnumSchema, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}

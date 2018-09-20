@@ -22,9 +22,9 @@ import (
 type Helper struct {
 	unprocessed_ws *map[string]*cwl.WorkflowStep
 	processed_ws   *map[string]*cwl.WorkflowStep
-	collection     *cwl.CWL_collection
-	job            *Job
-	AWE_tasks      *map[string]*Task
+	//collection     *cwl.CWL_collection
+	job       *Job
+	AWE_tasks *map[string]*Task
 }
 
 func parseSourceString(source string, id string) (linked_step_name string, fieldname string, err error) {
@@ -53,7 +53,7 @@ func parseSourceString(source string, id string) (linked_step_name string, field
 	return
 }
 
-func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (job_input_new *cwl.Job_document, err error) {
+func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, context *cwl.WorkflowContext) (job_input_new *cwl.Job_document, err error) {
 
 	//job_input := *(collection.Job_input)
 
@@ -108,7 +108,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow) (j
 		logger.Debug(1, "(CWL_input_check) input_type: %s (%s)", input_type, input_type.Type2String())
 
 		// Check if type of input we have matches one of the allowed types
-		has_type, xerr := cwl.TypeIsCorrect(expected_types, input_obj_ref)
+		has_type, xerr := cwl.TypeIsCorrect(expected_types, input_obj_ref, context)
 		if xerr != nil {
 			err = fmt.Errorf("(CWL_input_check) (B) HasInputParameterType returns: %s", xerr.Error())
 
@@ -187,15 +187,13 @@ func CreateTasks(job *Job, workflow string, steps []cwl.WorkflowStep) (tasks []*
 	return
 }
 
-func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, collection *cwl.CWL_collection, cwl_version cwl.CWLVersion, namespaces map[string]string) (job *Job, err error) {
-
-	//CommandLineTools := collection.CommandLineTools
+func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, context *cwl.WorkflowContext) (job *Job, err error) {
 
 	// check that all expected workflow inputs exist and that they have the correct type
 	logger.Debug(1, "(CWL2AWE) CWL2AWE starting")
 
 	var job_input_new *cwl.Job_document
-	job_input_new, err = CWL_input_check(job_input, cwl_workflow)
+	job_input_new, err = CWL_input_check(job_input, cwl_workflow, context)
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) CWL_input_check returned: %s", err.Error())
 		return
@@ -203,8 +201,10 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	//os.Exit(0)
 	job = NewJob()
-	job.Namespaces = namespaces
+
 	job.setId()
+
+	job.WorkflowContext = context
 	//job.CWL_workflow = cwl_workflow
 
 	logger.Debug(1, "(CWL2AWE) Job created")
@@ -263,7 +263,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	job.Tasks = tasks
 
-	_, err = job.Init(cwl_version, namespaces)
+	_, err = job.Init()
 
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) job.Init() failed: %s", err.Error())

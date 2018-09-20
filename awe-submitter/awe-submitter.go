@@ -171,10 +171,12 @@ func main_wrapper() (err error) {
 	yaml_str := string(yamlstream[:])
 	//fmt.Printf("after cwltool --pack: \n%s\n", yaml_str)
 	var named_object_array []cwl.Named_CWL_object
-	var cwl_version cwl.CWLVersion
+	//var cwl_version cwl.CWLVersion
 	var schemata []cwl.CWLType_Type
-	var namespaces map[string]string
-	named_object_array, cwl_version, schemata, namespaces, err = cwl.Parse_cwl_document(yaml_str)
+	//var namespaces map[string]string
+	//var schemas []interface{}
+	var context *cwl.WorkflowContext
+	named_object_array, schemata, context, _, err = cwl.Parse_cwl_document(yaml_str, inputfile_path)
 
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) error in parsing cwl workflow yaml file: " + err.Error())
@@ -182,6 +184,97 @@ func main_wrapper() (err error) {
 	}
 
 	_ = schemata // TODO put into a collection!
+
+	// A) search for File objects in Document, e.g. in CommandLineTools
+
+	sub_upload_count := 0
+	sub_upload_count, err = cache.ProcessIOData(named_object_array, inputfile_path, inputfile_path, "upload", shock_client)
+	if err != nil {
+		err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
+		return
+	}
+	upload_count += sub_upload_count
+
+	if context.Schemas != nil {
+		sub_upload_count := 0
+		sub_upload_count, err = cache.ProcessIOData(context.Schemas, inputfile_path, inputfile_path, "upload", shock_client)
+		if err != nil {
+			err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
+			return
+		}
+		upload_count += sub_upload_count
+
+	}
+
+	// for j, _ := range named_object_array {
+
+	// 	pair := named_object_array[j]
+	// 	object := pair.Value
+
+	// 	var ok bool
+
+	// 	switch object.(type) {
+	// 	case *cwl.Workflow:
+	// 		workflow := object.(*cwl.Workflow)
+	// 		//if cwl_version != "" {
+	// 		//	workflow.CwlVersion = cwl_version
+	// 		//}
+	// 		sub_upload_count := 0
+	// 		sub_upload_count, err = cache.ProcessIOData(workflow, inputfile_path, inputfile_path, "upload", shock_client)
+	// 		if err != nil {
+	// 			err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
+	// 			return
+	// 		}
+	// 		upload_count += sub_upload_count
+
+	// 	case *cwl.CommandLineTool:
+	// 		var cmd_line_tool *cwl.CommandLineTool
+	// 		cmd_line_tool = object.(*cwl.CommandLineTool)
+
+	// 		//if cwl_version != "" {
+	// 		//	cmd_line_tool.CwlVersion = cwl_version
+	// 		//}
+	// 		if cmd_line_tool == nil {
+	// 			err = fmt.Errorf("(main_wrapper) cmd_line_tool==nil")
+	// 			return
+	// 		}
+	// 		sub_upload_count := 0
+	// 		sub_upload_count, err = cache.ProcessIOData(cmd_line_tool, inputfile_path, inputfile_path, "upload", shock_client)
+	// 		if err != nil {
+	// 			err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
+	// 			return
+	// 		}
+	// 		upload_count += sub_upload_count
+
+	// 	case *cwl.ExpressionTool:
+	// 		var express_tool *cwl.ExpressionTool
+	// 		express_tool, ok = object.(*cwl.ExpressionTool) // TODO this misses embedded ExpressionTools !
+	// 		if !ok {
+	// 			//fmt.Println("nope.")
+	// 			err = nil
+	// 			continue
+	// 		}
+
+	// 		if express_tool == nil {
+	// 			err = fmt.Errorf("(main_wrapper) express_tool==nil")
+	// 			return
+	// 		}
+	// 		//if cwl_version != "" {
+	// 		//	express_tool.CwlVersion = cwl_version
+	// 		//}
+
+	// 		sub_upload_count := 0
+	// 		sub_upload_count, err = cache.ProcessIOData(express_tool, inputfile_path, inputfile_path, "upload", shock_client)
+	// 		if err != nil {
+	// 			err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
+	// 			return
+	// 		}
+	// 		upload_count += sub_upload_count
+
+	// 	}
+	// }
+
+	logger.Debug(3, "%d files have been uploaded\n", upload_count)
 
 	var shock_requirement cwl.ShockRequirement
 	var shock_requirement_ptr *cwl.ShockRequirement
@@ -192,76 +285,6 @@ func main_wrapper() (err error) {
 	}
 
 	shock_requirement = *shock_requirement_ptr
-	// A) search for File objects in Document, e.g. in CommandLineTools
-	for j, _ := range named_object_array {
-
-		pair := named_object_array[j]
-		object := pair.Value
-
-		var ok bool
-
-		switch object.(type) {
-		case *cwl.Workflow:
-			workflow := object.(*cwl.Workflow)
-			//if cwl_version != "" {
-			//	workflow.CwlVersion = cwl_version
-			//}
-			sub_upload_count := 0
-			sub_upload_count, err = cache.ProcessIOData(workflow, inputfile_path, inputfile_path, "upload", shock_client)
-			if err != nil {
-				err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
-				return
-			}
-			upload_count += sub_upload_count
-
-		case *cwl.CommandLineTool:
-			var cmd_line_tool *cwl.CommandLineTool
-			cmd_line_tool = object.(*cwl.CommandLineTool)
-
-			//if cwl_version != "" {
-			//	cmd_line_tool.CwlVersion = cwl_version
-			//}
-			if cmd_line_tool == nil {
-				err = fmt.Errorf("(main_wrapper) cmd_line_tool==nil")
-				return
-			}
-			sub_upload_count := 0
-			sub_upload_count, err = cache.ProcessIOData(cmd_line_tool, inputfile_path, inputfile_path, "upload", shock_client)
-			if err != nil {
-				err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
-				return
-			}
-			upload_count += sub_upload_count
-
-		case *cwl.ExpressionTool:
-			var express_tool *cwl.ExpressionTool
-			express_tool, ok = object.(*cwl.ExpressionTool) // TODO this misses embedded ExpressionTools !
-			if !ok {
-				//fmt.Println("nope.")
-				err = nil
-				continue
-			}
-
-			if express_tool == nil {
-				err = fmt.Errorf("(main_wrapper) express_tool==nil")
-				return
-			}
-			//if cwl_version != "" {
-			//	express_tool.CwlVersion = cwl_version
-			//}
-
-			sub_upload_count := 0
-			sub_upload_count, err = cache.ProcessIOData(express_tool, inputfile_path, inputfile_path, "upload", shock_client)
-			if err != nil {
-				err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
-				return
-			}
-			upload_count += sub_upload_count
-
-		}
-	}
-
-	logger.Debug(3, "%d files have been uploaded\n", upload_count)
 
 	// B) inject ShockRequirement into CommandLineTools, ExpressionTools and Workflow
 	for j, _ := range named_object_array {
@@ -319,13 +342,24 @@ func main_wrapper() (err error) {
 
 	// create temporary workflow document file
 
-	new_document := cwl.CWL_document_generic{}
-	new_document.CwlVersion = cwl_version
-	new_document.Namespaces = namespaces
+	new_document := context.CWL_document
+
+	//new_document := cwl.CWL_document{}
+	//new_document.CwlVersion = context.CwlVersion
+	//new_document.Namespaces = namespaces
+	//new_document.Schemas = schemas
+
+	// replace graph
+	new_document.Graph = []interface{}{}
 	for i, _ := range named_object_array {
 		pair := named_object_array[i]
 		object := pair.Value
 		new_document.Graph = append(new_document.Graph, object)
+	}
+
+	if len(new_document.Graph) == 0 {
+		err = fmt.Errorf("(main_wrapper) len(new_document.Graph) == 0")
+		return
 	}
 
 	var new_document_bytes []byte
@@ -335,16 +369,17 @@ func main_wrapper() (err error) {
 		return
 	}
 	new_document_str := string(new_document_bytes[:])
-	graph_pos := strings.Index(new_document_str, "\ngraph:")
+	//graph_pos := strings.Index(new_document_str, "\ngraph:")
 
-	new_document_str = strings.Replace(new_document_str, "\nnamespaces", "\n$namespaces", -1) // remove dollar sign
+	//new_document_str = strings.Replace(new_document_str, "\nnamespaces", "\n$namespaces", -1) // remove dollar sign
 
-	if graph_pos != -1 {
-		new_document_str = strings.Replace(new_document_str, "\ngraph", "\n$graph", -1) // remove dollar sign
-	} else {
-		err = fmt.Errorf("(main_wrapper) keyword graph not found")
-		return
-	}
+	//if graph_pos != -1 {
+	//new_document_str = strings.Replace(new_document_str, "\ngraph", "\n$graph", -1) // remove dollar sign
+	//} else {
+
+	//	err = fmt.Errorf("(main_wrapper) keyword graph not found")
+	//	return
+	//}
 
 	if conf.DEBUG_LEVEL >= 3 {
 		fmt.Println("------------ new_document_str:")
@@ -433,7 +468,7 @@ func main_wrapper() (err error) {
 		}
 		//spew.Dump(job)
 
-		_, err = job.Init(cwl_version, namespaces)
+		_, err = job.Init()
 		if err != nil {
 			return
 		}

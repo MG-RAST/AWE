@@ -102,8 +102,6 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		workflow_filename := cwl_file.Name
 
-		collection := cwl.NewCWL_collection()
-
 		//1) parse job
 
 		job_stream, err := ioutil.ReadFile(job_file.Path)
@@ -139,23 +137,25 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		var schemata []cwl.CWLType_Type
 		var object_array []cwl.Named_CWL_object
-		var cwl_version cwl.CWLVersion
-		var namespaces map[string]string
-		object_array, cwl_version, schemata, namespaces, err = cwl.Parse_cwl_document(yaml_str)
+		//var cwl_version cwl.CWLVersion
+		var context *cwl.WorkflowContext
+		//var namespaces map[string]string
+		//var schemas []interface{}
+		object_array, schemata, context, _, err = cwl.Parse_cwl_document(yaml_str, "-")
 		if err != nil {
 			cx.RespondWithErrorMessage("error in parsing cwl workflow yaml file: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		err = collection.AddArray(object_array)
-		if err != nil {
-			logger.Error("Parse_cwl_document error: " + err.Error())
-			cx.RespondWithErrorMessage("error in adding cwl objects to collection: "+err.Error(), http.StatusBadRequest)
-			return
-		}
-		logger.Debug(1, "Parse_cwl_document done")
+		//err = context.AddArray(object_array)
+		//if err != nil {
+		//	logger.Error("Parse_cwl_document error: " + err.Error())
+		//	cx.RespondWithErrorMessage("error in adding cwl objects to collection: "+err.Error(), http.StatusBadRequest)
+		//	return
+		//}
+		//logger.Debug(1, "Parse_cwl_document done")
 
-		err = collection.AddSchemata(schemata)
+		err = context.AddSchemata(schemata)
 		if err != nil {
 			cx.RespondWithErrorMessage("error in adding schemata: "+err.Error(), http.StatusBadRequest)
 			return
@@ -167,13 +167,18 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		shock_requirement = nil
 
 		var cwl_workflow *cwl.Workflow
-		if len(collection.Workflows) == 0 {
+
+		logger.Debug(3, "(JobController/Create) len(context.Workflows): %d", len(context.Workflows))
+
+		if len(context.Workflows) == 0 {
+			// This probably is a simple CommandlineTool or ExpressionTool submission (without workflow)
+			// create new Workflow to wrap around the CommandLineTool/ExpressionTool
+
 			if len(object_array) != 1 {
-				cx.RespondWithErrorMessage(fmt.Sprintf("Expected exactly one element in object_array, got %d", len(collection.Workflows)), http.StatusBadRequest)
+				cx.RespondWithErrorMessage(fmt.Sprintf("Expected exactly one element in object_array, got %d", len(context.Workflows)), http.StatusBadRequest)
 				return
 			}
-			// This probably is a CommandlineTool or ExpressionTool submission (without workflow)
-			// create new Workflow to wrap around the CommandLineTool/ExpressionTool
+
 			entrypoint = "#entrypoint"
 
 			pair := object_array[0]
@@ -183,7 +188,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			switch runner.(type) {
 			case *cwl.Workflow:
 				workflow := runner.(*cwl.Workflow)
-				workflow.CwlVersion = cwl_version
+				workflow.CwlVersion = context.CwlVersion
 
 			case *cwl.CommandLineTool:
 				commandlinetool_if := pair.Value
@@ -206,8 +211,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow_instance := cwl.NewWorkflowEmpty()
 				cwl_workflow = &cwl_workflow_instance
 				cwl_workflow.Id = entrypoint
-				cwl_workflow.CwlVersion = cwl_version
-				cwl_workflow.Namespaces = namespaces
+				cwl_workflow.CwlVersion = context.CwlVersion
+				cwl_workflow.Namespaces = context.Namespaces
 				new_step := cwl.WorkflowStep{}
 				step_id := entrypoint + "/wrapper_step"
 				new_step.Id = step_id
@@ -302,7 +307,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow_named.Value = cwl_workflow
 
 				object_array = append(object_array, cwl_workflow_named)
-				err = collection.Add(entrypoint, cwl_workflow)
+				err = context.Add(entrypoint, cwl_workflow)
 				if err != nil {
 					cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
 					return
@@ -329,7 +334,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow_instance := cwl.NewWorkflowEmpty()
 				cwl_workflow = &cwl_workflow_instance
 				cwl_workflow.Id = entrypoint
-				cwl_workflow.CwlVersion = cwl_version
+				cwl_workflow.CwlVersion = context.CwlVersion
 				new_step := cwl.WorkflowStep{}
 				step_id := entrypoint + "/wrapper_step"
 				new_step.Id = step_id
@@ -423,7 +428,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow_named.Value = cwl_workflow
 
 				object_array = append(object_array, cwl_workflow_named)
-				err = collection.Add(entrypoint, cwl_workflow)
+				err = context.Add(entrypoint, cwl_workflow)
 				if err != nil {
 					cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
 					return
@@ -439,7 +444,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			entrypoint = "#main"
 
 			var ok bool
-			cwl_workflow, ok = collection.Workflows[entrypoint]
+			cwl_workflow, ok = context.Workflows[entrypoint]
 			if !ok {
 				cx.RespondWithErrorMessage("Workflow main not found", http.StatusBadRequest)
 				return
@@ -453,13 +458,24 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		}
 
+		// replace interfaces with real objects (inlcuding new wrapper workflow if applicable)
+		context.CWL_document.Graph = []interface{}{}
+
+		for i, _ := range object_array {
+			pair := object_array[i]
+			object := pair.Value
+			logger.Debug(3, "(job/create) adding to context.CWL_document.Graph: %s", pair.Id)
+			context.CWL_document.Graph = append(context.CWL_document.Graph, object)
+		}
+
 		//fmt.Println("\n\n\n--------------------------------- Steps:\n")
 		//for _, step := range cwl_workflow.Steps {
 		//	spew.Dump(step)
 		//}
 
+		//context.CwlVersion = cwl_version
 		//fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
-		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, &collection, cwl_version, namespaces)
+		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, context)
 		if err != nil {
 			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
 			return
@@ -469,14 +485,19 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		job.IsCWL = true
 
 		// this ugly conversion is necessary as mongo does not like interface types.
-		object_array_of_interface := []interface{}{}
-		for i, _ := range object_array {
-			object_array_of_interface = append(object_array_of_interface, object_array[i])
-		}
+		//object_array_of_interface := []interface{}{}
+		//for i, _ := range object_array {
+		//	object_array_of_interface = append(object_array_of_interface, object_array[i])
+		//}
 
-		job.CWL_objects = object_array_of_interface
-		job.CwlVersion = cwl_version
-		job.Namespaces = namespaces
+		//if len(object_array_of_interface) == 0 {
+		//	cx.RespondWithErrorMessage("Error: len(object_array_of_interface) == 0", http.StatusBadRequest)
+		//	return
+		//}
+
+		//job.CWL_graph = object_array_of_interface
+		//job.CwlVersion = cwl_version
+		//job.Namespaces = context.Namespaces
 		//job.CWL_collection = &collection
 		job.Info.Name = job_file.Name
 		job.Info.Pipeline = workflow_filename
@@ -484,11 +505,6 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		if shock_requirement != nil {
 			job.CWL_ShockRequirement = shock_requirement
-		}
-
-		if job.CwlVersion == "" {
-			cx.RespondWithErrorMessage("Error: cwlVersion is empty", http.StatusBadRequest)
-			return
 		}
 
 		//job.CWL_workflow_interface = cwl_workflow
@@ -547,10 +563,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		E: nil,
 	}
 
-	//for i, _ := range job.CWL_objects {
-	//	spew.Dump(job.CWL_objects[i])
+	//for i, _ := range job.WorkflowContext.Graph {
+	//	fmt.Printf("+------- " + string(i))
+	//	spew.Dump(job.WorkflowContext.Graph[i])
 	//}
-	//job.CWL_objects = nil
+	//fmt.Printf("WorkflowContext ------- ")
+	//spew.Dump(job.WorkflowContext.Graph)
+	//job.WorkflowContext = nil
 
 	var response_bytes []byte
 	response_bytes, err = json.Marshal(SR)
@@ -561,6 +580,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		cx.RespondWithErrorMessage("(JobController/Create) json.Marshal returned: "+err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	//fmt.Println("(JobController/Create) response_bytes:")
+	//fmt.Printf("%s", response_bytes)
 
 	// don't enqueue imports
 	if !has_import {

@@ -220,16 +220,17 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	//	task.Id = strings.TrimPrefix(task.Id, "_")
 	//	changed = true
 	//}
-
+	context := job.WorkflowContext
 	if task.StepOutputInterface != nil {
-		task.StepOutput, err = cwl.NewJob_documentFromNamedTypes(task.StepOutputInterface)
+
+		task.StepOutput, err = cwl.NewJob_documentFromNamedTypes(task.StepOutputInterface, context)
 		if err != nil {
 			err = fmt.Errorf("(InitRaw) cwl.NewJob_documentFromNamedTypes returned: %s", err.Error())
 			return
 		}
 	}
 
-	CwlVersion := job.CwlVersion
+	CwlVersion := context.CwlVersion
 
 	if CwlVersion != "" {
 		if task.CwlVersion != CwlVersion {
@@ -238,7 +239,13 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	}
 
 	if task.WorkflowStep != nil {
-		err = task.WorkflowStep.Init(task.CwlVersion)
+
+		if job.WorkflowContext == nil {
+			err = fmt.Errorf("(InitRaw) job.WorkflowContext == nil")
+			return
+		}
+
+		err = task.WorkflowStep.Init(job.WorkflowContext)
 		if err != nil {
 			err = fmt.Errorf("(InitRaw) task.WorkflowStep.Init returned: %s", err.Error())
 			return
@@ -376,7 +383,7 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 	return
 }
 
-func (task *Task) Init(job *Job, CwlVersion cwl.CWLVersion) (changed bool, err error) {
+func (task *Task) Init(job *Job) (changed bool, err error) {
 	changed, err = task.InitRaw(job)
 	if err != nil {
 		return

@@ -20,11 +20,11 @@ import (
 // field type in http://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
 // CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
 
-func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Type) (result interface{}, err error) {
+func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (result interface{}, err error) {
 	//wopt := WorkflowOutputParameterType{}
 	//wopt_ptr = &wopt
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -67,7 +67,7 @@ func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Typ
 
 		switch output_type {
 		case "record":
-			result, err = NewOutputRecordSchemaFromInterface(original_map, schemata)
+			result, err = NewOutputRecordSchemaFromInterface(original_map, schemata, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowOutputParameterType) NewOutputRecordSchemaFromInterface returned: %s", err.Error())
 			}
@@ -82,7 +82,7 @@ func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Typ
 			}
 			return
 		case "array":
-			result, err = NewOutputArraySchemaFromInterface(original_map, schemata)
+			result, err = NewOutputArraySchemaFromInterface(original_map, schemata, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowOutputParameterType) NewOutputArraySchemaFromInterface returned: %s", err.Error())
 			}
@@ -101,9 +101,9 @@ func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Typ
 	return
 }
 
-func NewWorkflowOutputParameterTypeArray(original interface{}, schemata []CWLType_Type) (result interface{}, err error) {
+func NewWorkflowOutputParameterTypeArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (result interface{}, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -113,7 +113,7 @@ func NewWorkflowOutputParameterTypeArray(original interface{}, schemata []CWLTyp
 	switch original.(type) {
 	case map[string]interface{}:
 
-		wopt, xerr := NewWorkflowOutputParameterType(original, schemata)
+		wopt, xerr := NewWorkflowOutputParameterType(original, schemata, context)
 		if xerr != nil {
 			err = xerr
 			return
@@ -130,7 +130,7 @@ func NewWorkflowOutputParameterTypeArray(original interface{}, schemata []CWLTyp
 		for _, element := range original_array {
 
 			//spew.Dump(original)
-			wopt, xerr := NewWorkflowOutputParameterType(element, schemata)
+			wopt, xerr := NewWorkflowOutputParameterType(element, schemata, context)
 			if xerr != nil {
 				err = xerr
 				return
@@ -143,7 +143,7 @@ func NewWorkflowOutputParameterTypeArray(original interface{}, schemata []CWLTyp
 		return
 	case string:
 
-		wopt, xerr := NewWorkflowOutputParameterType(original, schemata)
+		wopt, xerr := NewWorkflowOutputParameterType(original, schemata, context)
 		if xerr != nil {
 			err = xerr
 			return

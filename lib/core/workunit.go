@@ -59,6 +59,7 @@ type Workunit struct {
 	CWL_workunit               *CWL_workunit          `bson:"cwl,omitempty" json:"cwl,omitempty" mapstructure:"cwl,omitempty"`
 	WorkPath                   string                 // this is the working directory. If empty, it will be computed.
 	WorkPerf                   *WorkPerf
+	Context                    *cwl.WorkflowContext `bson:"-" json:"-" mapstructure:"-"`
 }
 
 func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Workunit, err error) {
@@ -109,18 +110,11 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			return
 		}
 
-		var schemata []cwl.CWLType_Type
-		schemata, err = job.CWL_collection.GetSchemata()
-		if err != nil {
-			err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata() returned: %s", err.Error())
-			return
-		}
-
 		//var process_name string
 		var clt *cwl.CommandLineTool
 		//var a_workflow *cwl.Workflow
 		var process interface{}
-		process, _, err = cwl.GetProcess(p, job.CWL_collection, job.CwlVersion, schemata) // TODO add new schemata
+		process, _, err = cwl.GetProcess(p, job.WorkflowContext) // TODO add new schemata
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetProcess returned: %s", err.Error())
 			return
@@ -137,7 +131,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		case *cwl.CommandLineTool:
 			clt, _ = process.(*cwl.CommandLineTool)
 			if clt.CwlVersion == "" {
-				clt.CwlVersion = job.CwlVersion
+				clt.CwlVersion = job.WorkflowContext.CwlVersion
 			}
 			if clt.CwlVersion == "" {
 				err = fmt.Errorf("(NewWorkunit) CommandLineTool misses CwlVersion")
@@ -145,21 +139,21 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			}
 
 			if clt.Namespaces == nil {
-				clt.Namespaces = job.Namespaces // not sure why the CommandLineTool does not have the namespaces... :-(
+				clt.Namespaces = job.WorkflowContext.Namespaces // not sure why the CommandLineTool does not have the namespaces... :-(
 			}
 			//requirements = clt.Requirements
 		case *cwl.ExpressionTool:
 			var et *cwl.ExpressionTool
 			et, _ = process.(*cwl.ExpressionTool)
 			if et.CwlVersion == "" {
-				et.CwlVersion = job.CwlVersion
+				et.CwlVersion = job.WorkflowContext.CwlVersion
 			}
 			if et.CwlVersion == "" {
 				err = fmt.Errorf("(NewWorkunit) ExpressionTool misses CwlVersion")
 				return
 			}
 			if et.Namespaces == nil {
-				et.Namespaces = job.Namespaces
+				et.Namespaces = job.WorkflowContext.Namespaces
 			}
 		default:
 			err = fmt.Errorf("(NewWorkunit) Tool %s not supported", reflect.TypeOf(process))
@@ -195,8 +189,9 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		//	wfl.CwlVersion = job.CwlVersion
 		//}
 
+		context := job.WorkflowContext
 		// ****** get inputs
-		job_input_map := *job.CWL_collection.Job_input_map
+		job_input_map := context.Job_input_map
 		if job_input_map == nil {
 			err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
 			return
@@ -215,7 +210,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		workflow_input_map := workflow_instance.Inputs.GetMap()
 
 		var workunit_input_map map[string]cwl.CWLType
-		workunit_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, workflow_step)
+		workunit_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, workflow_step, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects returned: %s", err.Error())
 			return
@@ -237,7 +232,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		workunit.CWL_workunit.OutputsExpected = &workflow_step.Out
 
-		err = workunit.Evaluate(workunit_input_map)
+		err = workunit.Evaluate(workunit_input_map, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) workunit.Evaluate returned: %s", err.Error())
 			return
@@ -253,7 +248,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 	return
 }
 
-func (w *Workunit) Evaluate(inputs interface{}) (err error) {
+func (w *Workunit) Evaluate(inputs interface{}, context *cwl.WorkflowContext) (err error) {
 
 	if w.CWL_workunit != nil {
 		process := w.CWL_workunit.Tool
@@ -261,7 +256,7 @@ func (w *Workunit) Evaluate(inputs interface{}) (err error) {
 		case *cwl.CommandLineTool:
 			clt := process.(*cwl.CommandLineTool)
 
-			err = clt.Evaluate(inputs)
+			err = clt.Evaluate(inputs, context)
 			if err != nil {
 				err = fmt.Errorf("(Workunit/Evaluate) CommandLineTool.Evaluate returned: %s", err.Error())
 				return
@@ -269,7 +264,7 @@ func (w *Workunit) Evaluate(inputs interface{}) (err error) {
 		case *cwl.ExpressionTool:
 			et := process.(*cwl.ExpressionTool)
 
-			err = et.Evaluate(inputs)
+			err = et.Evaluate(inputs, context)
 			if err != nil {
 				err = fmt.Errorf("(Workunit/Evaluate) ExpressionTool.Evaluate returned: %s", err.Error())
 				return
@@ -277,7 +272,7 @@ func (w *Workunit) Evaluate(inputs interface{}) (err error) {
 
 		case *cwl.Workflow:
 			wf := process.(*cwl.Workflow)
-			err = wf.Evaluate(inputs)
+			err = wf.Evaluate(inputs, context)
 			if err != nil {
 				err = fmt.Errorf("(Workunit/Evaluate) Workflow.Evaluate returned: %s", err.Error())
 				return
@@ -300,11 +295,17 @@ func (work *Workunit) Mkdir() (err error) {
 	// delete workdir just in case it exists; will not work if awe-worker is not in docker container AND tasks are in container
 	work_path, err := work.Path()
 	if err != nil {
+		err = fmt.Errorf("(Workunit/Mkdir) work.Path() returned: %s", err.Error)
 		return
 	}
-	os.RemoveAll(work_path)
+	err = os.RemoveAll(work_path)
+	if err != nil {
+		err = fmt.Errorf("(Workunit/Mkdir) os.RemoveAll returned: %s", err.Error)
+		return
+	}
 	err = os.MkdirAll(work_path, 0777)
 	if err != nil {
+		err = fmt.Errorf("(Workunit/Mkdir) os.MkdirAll returned: %s", err.Error)
 		return
 	}
 	return

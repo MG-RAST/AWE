@@ -10,15 +10,15 @@ import (
 
 // http://www.commonwl.org/v1.0/Workflow.html#SchemaDefRequirement
 type SchemaDefRequirement struct {
-	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
-	Types           []interface{} `yaml:"types,omitempty" json:"types,omitempty" bson:"types,omitempty"` // array<InputRecordSchema | InputEnumSchema | InputArraySchema>
+	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"` // provides class
+	Types           []interface{}                                                         `yaml:"types,omitempty" json:"types,omitempty" bson:"types,omitempty"` // array<InputRecordSchema | InputEnumSchema | InputArraySchema>
 }
 
 func (c SchemaDefRequirement) GetId() string { return "None" }
 
-func NewSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, schemata []CWLType_Type, err error) {
+func NewSchemaDefRequirement(original interface{}, context *WorkflowContext) (r *SchemaDefRequirement, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -29,15 +29,20 @@ func NewSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, sch
 		return
 	}
 
+	var schemata []CWLType_Type
+
 	types, has_types := original_map["types"]
 	if has_types {
 
 		//var array []CWLType_Type
-		schemata, err = NewCWLType_TypeArray(types, []CWLType_Type{}, "Input", true)
+		schemata, err = NewCWLType_TypeArray(types, []CWLType_Type{}, "Input", true, context)
 		if err != nil {
 			return
 		}
 		original_map["types"] = schemata
+		if context != nil {
+			context.AddSchemata(schemata)
+		}
 	}
 
 	var requirement SchemaDefRequirement
@@ -55,8 +60,8 @@ func NewSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, sch
 	return
 }
 
-func GetSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, schemata []CWLType_Type, ok bool, err error) {
-	original, err = MakeStringMap(original)
+func GetSchemaDefRequirement(original interface{}, context *WorkflowContext) (r *SchemaDefRequirement, ok bool, err error) {
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -79,7 +84,7 @@ func GetSchemaDefRequirement(original interface{}) (r *SchemaDefRequirement, sch
 				continue
 			}
 
-			r, schemata, err = NewSchemaDefRequirement(original_array[i])
+			r, err = NewSchemaDefRequirement(original_array[i], context)
 			if err != nil {
 				err = fmt.Errorf("(GetSchemaDefRequirement) NewSchemaDefRequirement returned: %s", err.Error())
 				return

@@ -12,9 +12,9 @@ type WorkflowStepOutput struct {
 	Id string `yaml:"id" bson:"id" json:"id" mapstructure:"id"`
 }
 
-func NewWorkflowStepOutput(original interface{}) (wso_ptr *WorkflowStepOutput, err error) {
+func NewWorkflowStepOutput(original interface{}, context *WorkflowContext) (wso_ptr *WorkflowStepOutput, err error) {
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -43,7 +43,7 @@ func NewWorkflowStepOutput(original interface{}) (wso_ptr *WorkflowStepOutput, e
 	return
 }
 
-func NewWorkflowStepOutputArray(original interface{}) (new_array []WorkflowStepOutput, err error) {
+func NewWorkflowStepOutputArray(original interface{}, context *WorkflowContext) (new_array []WorkflowStepOutput, err error) {
 
 	switch original.(type) {
 	case map[interface{}]interface{}:
@@ -51,7 +51,7 @@ func NewWorkflowStepOutputArray(original interface{}) (new_array []WorkflowStepO
 		for k, v := range original.(map[interface{}]interface{}) {
 			//fmt.Printf("A")
 
-			wso, xerr := NewWorkflowStepOutput(v)
+			wso, xerr := NewWorkflowStepOutput(v, context)
 			//var output_parameter WorkflowStepOutput
 			//err = mapstructure.Decode(v, &output_parameter)
 			if xerr != nil {
@@ -69,7 +69,7 @@ func NewWorkflowStepOutputArray(original interface{}) (new_array []WorkflowStepO
 	case []interface{}:
 		for _, v := range original.([]interface{}) {
 
-			wso, xerr := NewWorkflowStepOutput(v)
+			wso, xerr := NewWorkflowStepOutput(v, context)
 			if xerr != nil {
 				err = xerr
 				return

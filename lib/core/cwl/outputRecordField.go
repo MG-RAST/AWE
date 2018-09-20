@@ -13,15 +13,15 @@ type OutputRecordField struct {
 	OutputBinding *CommandOutputBinding                                                 `yaml:"outputBinding,omitempty" json:"outputBinding,omitempty" bson:"outputBinding,omitempty"`
 }
 
-func NewOutputRecordField(native interface{}, schemata []CWLType_Type) (crf *OutputRecordField, err error) {
+func NewOutputRecordField(native interface{}, schemata []CWLType_Type, context *WorkflowContext) (crf *OutputRecordField, err error) {
 
-	native, err = MakeStringMap(native)
+	native, err = MakeStringMap(native, context)
 	if err != nil {
 		return
 	}
 
 	var rf *RecordField
-	rf, err = NewRecordFieldFromInterface(native, schemata, "Output")
+	rf, err = NewRecordFieldFromInterface(native, schemata, "Output", context)
 	if err != nil {
 		err = fmt.Errorf("(NewOutputRecordField) NewRecordFieldFromInterface returned: %s", err.Error())
 		return
@@ -39,7 +39,7 @@ func NewOutputRecordField(native interface{}, schemata []CWLType_Type) (crf *Out
 	outputBinding, has_outputBinding := native_map["outputBinding"]
 	if has_outputBinding {
 
-		crf.OutputBinding, err = NewCommandOutputBinding(outputBinding)
+		crf.OutputBinding, err = NewCommandOutputBinding(outputBinding, context)
 		if err != nil {
 			err = fmt.Errorf("(NewOutputRecordField) NewCWLTypeArray returned: %s", err.Error())
 			return
@@ -49,12 +49,12 @@ func NewOutputRecordField(native interface{}, schemata []CWLType_Type) (crf *Out
 	return
 }
 
-func CreateOutputRecordFieldArray(native []interface{}, schemata []CWLType_Type) (irfa []OutputRecordField, err error) {
+func CreateOutputRecordFieldArray(native []interface{}, schemata []CWLType_Type, context *WorkflowContext) (irfa []OutputRecordField, err error) {
 
 	for _, elem := range native {
 
 		var irf *OutputRecordField
-		irf, err = NewOutputRecordField(elem, schemata)
+		irf, err = NewOutputRecordField(elem, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(CreateOutputRecordFieldArray) NewOutputRecordField returned: %s", err.Error())
 			return

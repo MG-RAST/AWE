@@ -15,16 +15,16 @@ type ExpressionToolOutputParameter struct {
 
 // type: CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
 
-func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_Type) (wop *ExpressionToolOutputParameter, err error) {
+func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (wop *ExpressionToolOutputParameter, err error) {
 	var output_parameter ExpressionToolOutputParameter
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
 
 	var op *OutputParameter
-	op, err = NewOutputParameterFromInterface(original, schemata, "Output")
+	op, err = NewOutputParameterFromInterface(original, schemata, "Output", context)
 	if err != nil {
 		err = fmt.Errorf("(NewExpressionToolOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
 		return
@@ -74,7 +74,7 @@ func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_T
 	return
 }
 
-func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLType_Type) (new_array_ptr *[]ExpressionToolOutputParameter, err error) {
+func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (new_array_ptr *[]ExpressionToolOutputParameter, err error) {
 
 	new_array := []ExpressionToolOutputParameter{}
 	switch original.(type) {
@@ -82,7 +82,7 @@ func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLT
 		for k, v := range original.(map[interface{}]interface{}) {
 			//fmt.Printf("A")
 
-			output_parameter, xerr := NewExpressionToolOutputParameter(v, schemata)
+			output_parameter, xerr := NewExpressionToolOutputParameter(v, schemata, context)
 			if xerr != nil {
 				err = xerr
 				return
@@ -100,7 +100,7 @@ func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLT
 		for _, v := range original.([]interface{}) {
 			//fmt.Printf("A")
 
-			output_parameter, xerr := NewExpressionToolOutputParameter(v, schemata)
+			output_parameter, xerr := NewExpressionToolOutputParameter(v, schemata, context)
 			if xerr != nil {
 				err = xerr
 				return

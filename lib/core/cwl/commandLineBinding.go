@@ -20,11 +20,11 @@ type CommandLineBinding struct {
 	ShellQuote    *bool       `yaml:"shellQuote,omitempty" bson:"shellQuote,omitempty" json:"shellQuote,omitempty" mapstructure:"shellQuote,omitempty"`
 }
 
-func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err error) {
+func NewCommandLineBinding(original interface{}, context *WorkflowContext) (clb *CommandLineBinding, err error) {
 
 	var commandlinebinding CommandLineBinding
 
-	original, err = MakeStringMap(original)
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
@@ -72,12 +72,12 @@ func NewCommandLineBinding(original interface{}) (clb *CommandLineBinding, err e
 	return
 }
 
-func NewCommandLineBindingArray(original interface{}) (new_array []CommandLineBinding, err error) {
+func NewCommandLineBindingArray(original interface{}, context *WorkflowContext) (new_array []CommandLineBinding, err error) {
 	switch original.(type) {
 	case []interface{}:
 		for _, v := range original.([]interface{}) {
 
-			clb, xerr := NewCommandLineBinding(v)
+			clb, xerr := NewCommandLineBinding(v, context)
 			if xerr != nil {
 				err = fmt.Errorf("(NewCommandLineBindingArray) []interface{} NewCommandLineBinding returned: %s", xerr.Error())
 				return
@@ -91,7 +91,7 @@ func NewCommandLineBindingArray(original interface{}) (new_array []CommandLineBi
 		return
 	case string:
 
-		clb, xerr := NewCommandLineBinding(original)
+		clb, xerr := NewCommandLineBinding(original, context)
 		if xerr != nil {
 			err = fmt.Errorf("(NewCommandLineBindingArray) string NewCommandLineBinding returned: %s", xerr.Error())
 			return

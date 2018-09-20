@@ -30,7 +30,7 @@ func NewCWL_workunit() *CWL_workunit {
 
 }
 
-func NewCWL_workunit_from_interface(native interface{}) (workunit *CWL_workunit, schemata []cwl.CWLType_Type, err error) {
+func NewCWL_workunit_from_interface(native interface{}, context *cwl.WorkflowContext) (workunit *CWL_workunit, schemata []cwl.CWLType_Type, err error) {
 
 	workunit = &CWL_workunit{}
 
@@ -47,7 +47,7 @@ func NewCWL_workunit_from_interface(native interface{}) (workunit *CWL_workunit,
 		job_input_generic, has_job_input_generic := native_map["job_input"]
 		if has_job_input_generic {
 
-			job_input, xerr := cwl.NewJob_documentFromNamedTypes(job_input_generic)
+			job_input, xerr := cwl.NewJob_documentFromNamedTypes(job_input_generic, context)
 			if xerr != nil {
 				err = fmt.Errorf("(NewCWL_workunit_from_interface) NewJob_document failed: %s", xerr.Error())
 				return
@@ -63,7 +63,7 @@ func NewCWL_workunit_from_interface(native interface{}) (workunit *CWL_workunit,
 		outputs_expected_generic, has_outputs_expected := native_map["outputs_expected"]
 		if has_outputs_expected {
 			if outputs_expected_generic != nil {
-				outputs_expected, xerr := cwl.NewWorkflowStepOutputArray(outputs_expected_generic)
+				outputs_expected, xerr := cwl.NewWorkflowStepOutputArray(outputs_expected_generic, context)
 				if xerr != nil {
 					err = fmt.Errorf("(NewCWL_workunit_from_interface) NewWorkflowStepOutput failed: %s", xerr.Error())
 					return
@@ -86,7 +86,7 @@ func NewCWL_workunit_from_interface(native interface{}) (workunit *CWL_workunit,
 			case "CommandLineTool":
 				var commandlinetool *cwl.CommandLineTool
 
-				commandlinetool, schemata_new, err = cwl.NewCommandLineTool(tool_generic, "", nil, nil)
+				commandlinetool, schemata_new, err = cwl.NewCommandLineTool(tool_generic, nil, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWL_workunit_from_interface) NewCommandLineTool failed: %s", err.Error())
 					return
@@ -96,7 +96,7 @@ func NewCWL_workunit_from_interface(native interface{}) (workunit *CWL_workunit,
 			case "ExpressionTool":
 				var expressiontool *cwl.ExpressionTool
 
-				expressiontool, err = cwl.NewExpressionTool(tool_generic, "", nil, nil, nil) // TODO add schemata
+				expressiontool, err = cwl.NewExpressionTool(tool_generic, nil, nil, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWL_workunit_from_interface) NewExpreassonTool failed: %s", err.Error())
 					return

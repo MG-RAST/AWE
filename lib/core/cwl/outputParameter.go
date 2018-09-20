@@ -30,8 +30,8 @@ type OutputParameter struct {
 // CommandOutputParameter (context CommandOutput)
 // CWLType | stdout | stderr | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string | array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
 
-func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Type, context string) (output_parameter *OutputParameter, err error) {
-	original, err = MakeStringMap(original)
+func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Type, context_p string, context *WorkflowContext) (output_parameter *OutputParameter, err error) {
+	original, err = MakeStringMap(original, context)
 	if err != nil {
 		err = fmt.Errorf("(NewOutputParameterFromInterface) MakeStringMap returned: %s", err.Error())
 		return
@@ -73,7 +73,7 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 
 		output_parameter_default, ok := original_map["default"]
 		if ok {
-			original_map["default"], err = NewCWLType("", output_parameter_default)
+			original_map["default"], err = NewCWLType("", output_parameter_default, context)
 			if err != nil {
 				err = fmt.Errorf("(NewOutputParameter) NewCWLType returned: %s", err.Error())
 				return
@@ -86,7 +86,7 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 			switch outputParameter_type.(type) {
 			case []interface{}:
 				var outputParameter_type_array []CWLType_Type
-				outputParameter_type_array, err = NewCWLType_TypeArray(outputParameter_type, schemata, context, false)
+				outputParameter_type_array, err = NewCWLType_TypeArray(outputParameter_type, schemata, context_p, false, context)
 				if err != nil {
 					err = fmt.Errorf("(NewOutputParameter) NewCWLType_TypeArray returned: %s", err.Error())
 					return
@@ -97,7 +97,7 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 				}
 				original_map["type"] = outputParameter_type_array
 			default:
-				original_map["type"], err = NewCWLType_Type(schemata, outputParameter_type, context)
+				original_map["type"], err = NewCWLType_Type(schemata, outputParameter_type, context_p, context)
 				if err != nil {
 					err = fmt.Errorf("(NewOutputParameter) NewCWLType_Type returned: %s", err.Error())
 					return
@@ -108,7 +108,7 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 
 		outputBinding, has_outputBinding := original_map["outputBinding"]
 		if has_outputBinding {
-			original_map["outputBinding"], err = NewCommandOutputBinding(outputBinding)
+			original_map["outputBinding"], err = NewCommandOutputBinding(outputBinding, context)
 			if err != nil {
 				err = fmt.Errorf("(NewOutputParameter) NewCommandOutputBinding returns: %s", err.Error())
 				return
@@ -135,11 +135,11 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 	return
 }
 
-func NormalizeOutputParameter_deprecated(original_map map[string]interface{}) (err error) {
+func NormalizeOutputParameter_deprecated(original_map map[string]interface{}, context *WorkflowContext) (err error) {
 
 	outputBinding, ok := original_map["outputBinding"]
 	if ok {
-		original_map["outputBinding"], err = NewCommandOutputBinding(outputBinding)
+		original_map["outputBinding"], err = NewCommandOutputBinding(outputBinding, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandOutputParameter) NewCommandOutputBinding returns %s", err.Error())
 			return

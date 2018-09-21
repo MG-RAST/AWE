@@ -27,8 +27,6 @@ type ParsingContext struct {
 
 type CWL_object_generic map[string]interface{}
 
-type CWLVersion string
-
 type LinkMergeMethod string // merge_nested or merge_flattened
 
 func Add_to_collection_deprecated(context *WorkflowContext, object_array CWL_object_array) (err error) {

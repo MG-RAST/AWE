@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
@@ -274,7 +276,7 @@ func DownloadFile(file *cwl.File, download_path string, base_path string) (err e
 	}
 
 	if file.Location == "" {
-		err = fmt.Errorf("(DownloadFile) Location is empty")
+		err = fmt.Errorf("(DownloadFile) Location is empty (%s)", spew.Sdump(file))
 		return
 	}
 
@@ -534,8 +536,8 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		if io_type == "upload" {
 			//fmt.Println("XXXXX")
 			//spew.Dump(*file)
-			//fmt.Println(file.Path)
-			//fmt.Println(file.Location)
+			//fmt.Printf("file.Path: %s\n", file.Path)
+			//fmt.Printf("file.Location: %s\n", file.Location)
 
 			err = UploadFile(file, current_path, shock_client)
 			if err != nil {
@@ -543,6 +545,8 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 				err = fmt.Errorf("(ProcessIOData) *cwl.File UploadFile returned: %s (file: %s)", err.Error(), file)
 				return
 			}
+			//fmt.Printf("file.Path: %s\n", file.Path)
+			//fmt.Printf("file.Location: %s\n", file.Location)
 			count += 1
 		} else {
 
@@ -568,7 +572,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			}
 
 		}
-
+		//spew.Dump(native)
 		return
 	case *cwl.Array:
 
@@ -820,7 +824,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			if input.Default != nil {
 
 				var sub_count int
-				sub_count, err = ProcessIOData(input.Default, current_path, base_path, io_type, shock_client)
+				sub_count, err = ProcessIOData(&input.Default, current_path, base_path, io_type, shock_client)
 				if err != nil {
 					return
 				}
@@ -927,14 +931,19 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 	case *cwl.CommandInputParameter:
 		// https://www.commonwl.org/v1.0/CommandLineTool.html#CommandInputParameter
-
+		//fmt.Println("(processIOData) *cwl.CommandInputParameter")
 		cip := native.(*cwl.CommandInputParameter)
 
-		if io_type == "upload" {
-			var file *cwl.File
-			var ok bool
-			file, ok = cip.Default.(*cwl.File)
-			if ok {
+		if cip.Default == nil {
+			//fmt.Println("(processIOData) *cwl.CommandInputParameter return")
+			return
+		}
+
+		var file *cwl.File
+		var ok bool
+		file, ok = cip.Default.(*cwl.File)
+		if ok {
+			if io_type == "upload" {
 				var file_exists bool
 				file_exists, err = file.Exists(current_path)
 				if err != nil {
@@ -942,11 +951,20 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 					return
 				}
 				if !file_exists {
+
 					// Defaults are optional, file missing is no error
 					return
 				}
 			}
+
+			if io_type == "download" {
+				if file.Location == "" {
+					// Default file with no Location can be ignored
+					return
+				}
+			}
 		}
+
 		var sub_count int
 		sub_count, err = ProcessIOData(cip.Default, current_path, base_path, io_type, shock_client)
 		if err != nil {
@@ -954,66 +972,6 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			return
 		}
 		count += sub_count
-
-		// secondaryFiles (on upload, evaluate Expression)
-		// https://www.commonwl.org/v1.0/CommandLineTool.html#CommandInputParameter
-		// if cip.SecondaryFiles != nil {
-		// 	sub_count = 0
-		// 	switch cip.SecondaryFiles.(type) {
-		// 	case []interface{}:
-		// 		sec_files_array := cip.SecondaryFiles.([]interface{})
-		// 		for i, _ := range sec_files_array {
-		// 			_ = i
-		// 			//do something: sec_files_array[i]
-
-		// 			sub_count++
-		// 		}
-
-		// 	case cwl.Expression:
-
-		// 		expr := cip.SecondaryFiles.(cwl.Expression)
-
-		// 		var expr_result interface{}
-		// 		expr_result, err = expr.EvaluateExpression(nil, nil) // TODO need inputs
-		// 		if err != nil {
-		// 			err = fmt.Errorf("(processIOData) EvaluateExpression returned: %s", err.Error())
-		// 			return
-		// 		}
-
-		// 		// valid only : File or []File
-		// 		switch expr_result.(type) {
-		// 		case cwl.File:
-		// 			file := expr_result.(cwl.File)
-		// 			cip.SecondaryFiles = file
-		// 		case []cwl.File:
-
-		// 			files := expr_result.([]cwl.File)
-		// 			cip.SecondaryFiles = files
-
-		// 		default:
-		// 			err = fmt.Errorf("(processIOData) (expr_result A) unsupported type: %s", reflect.TypeOf(expr_result))
-		// 			return
-		// 		}
-
-		// 	case string:
-		// 		// upload
-		// 		sec_str := cip.SecondaryFiles.(string)
-		// 		for strings.HasPrefix(sec_str, "^") {
-		// 			ext := filepath.Ext(sec_str)
-		// 			sec_str = strings.TrimSuffix(sec_str, ext)
-		// 			sec_str = strings.TrimPrefix(sec_str, "^")
-		// 		}
-
-		// 	case cwl.String:
-
-		// 	default:
-		// 		err = fmt.Errorf("(processIOData) (expr_result B) unsupported type: %s", reflect.TypeOf(cip.SecondaryFiles))
-		// 		return
-
-		// 	}
-
-		// 	count += sub_count
-		//}
 
 	case *cwl.InputParameter:
 

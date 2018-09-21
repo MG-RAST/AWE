@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/davecgh/go-spew/spew"
 )
 
 // this is used by YAML or JSON library for inital parsing
@@ -131,6 +132,24 @@ func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (objec
 		err = fmt.Errorf("(Parse_cwl_simple_document) Unmarshal returns: %s", err.Error())
 		return
 	}
+	if context.CwlVersion == "" {
+
+		cwl_version_if, has_version := object_if["cwlVersion"]
+		if has_version {
+
+			cwl_version_str, ok := cwl_version_if.(string)
+			if ok {
+				context.CwlVersion = NewCWLVersion(cwl_version_str)
+			} else {
+				err = fmt.Errorf("(Parse_cwl_simple_document) version not string (type: %s)", reflect.TypeOf(cwl_version_if))
+				return
+			}
+		} else {
+			spew.Dump(object_if)
+			err = fmt.Errorf("(Parse_cwl_simple_document) no version found")
+			return
+		}
+	}
 	//fmt.Println("object_if:")
 	//spew.Dump(object_if)
 	var ok bool
@@ -252,10 +271,18 @@ func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []
 		//yaml_str = strings.Replace(yaml_str, "$graph", "graph", -1) // remove dollar sign
 		logger.Debug(3, "(Parse_cwl_document) graph document")
 		object_array, schemata, schemas, err = Parse_cwl_graph_document(yaml_str, context)
+		if err != nil {
+			err = fmt.Errorf("(Parse_cwl_document) Parse_cwl_graph_document returned: %s", err.Error())
+			return
+		}
 
 	} else {
 		logger.Debug(3, "(Parse_cwl_document) simple document")
 		object_array, schemata, schemas, err = Parse_cwl_simple_document(yaml_str, context)
+		if err != nil {
+			err = fmt.Errorf("(Parse_cwl_document) Parse_cwl_simple_document returned: %s", err.Error())
+			return
+		}
 	}
 
 	return

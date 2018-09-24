@@ -321,7 +321,7 @@ func DownloadFile(file *cwl.File, download_path string, base_path string) (err e
 
 	_, _, err = shock.FetchFile(file_path, file.Location, "", "", false)
 	if err != nil {
-		err = fmt.Errorf("(DownloadFile) shock.FetchFile returned: %s (download_path: %s, basename: %s)", err.Error(), download_path, basename)
+		err = fmt.Errorf("(DownloadFile) shock.FetchFile returned: %s (download_path: %s, basename: %s, file.Location: %s)", err.Error(), download_path, basename, file.Location)
 		return
 	}
 
@@ -824,7 +824,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			if input.Default != nil {
 
 				var sub_count int
-				sub_count, err = ProcessIOData(&input.Default, current_path, base_path, io_type, shock_client)
+				sub_count, err = ProcessIOData(&input, current_path, base_path, io_type, shock_client)
 				if err != nil {
 					return
 				}
@@ -977,26 +977,41 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 		ip := native.(*cwl.InputParameter)
 
+		if ip.Default == nil {
+			//fmt.Println("(processIOData) *cwl.CommandInputParameter return")
+			return
+		}
+
 		var file *cwl.File
 		var ok bool
 		file, ok = ip.Default.(*cwl.File)
 		if ok {
-			var file_exists bool
-			file_exists, err = file.Exists(current_path)
-			if err != nil {
-				err = fmt.Errorf("(processIOData) InputParameter file.Exists returned: %s", err.Error())
-				return
+			if io_type == "upload" {
+				var file_exists bool
+				file_exists, err = file.Exists(current_path)
+				if err != nil {
+					err = fmt.Errorf("(processIOData) cwl.CommandInputParameter file.Exists returned: %s", err.Error())
+					return
+				}
+				if !file_exists {
+
+					// Defaults are optional, file missing is no error
+					return
+				}
 			}
-			if !file_exists {
-				// Defaults are optional, file missing is no error
-				return
+
+			if io_type == "download" {
+				if file.Location == "" {
+					// Default file with no Location can be ignored
+					return
+				}
 			}
 		}
 
 		var sub_count int
 		sub_count, err = ProcessIOData(ip.Default, current_path, base_path, io_type, shock_client)
 		if err != nil {
-			err = fmt.Errorf("(processIOData) InputParameter ProcessIOData(for download) returned: %s", err.Error())
+			err = fmt.Errorf("(processIOData) CommandInputParameter ProcessIOData(for download) returned: %s", err.Error())
 			return
 		}
 		count += sub_count

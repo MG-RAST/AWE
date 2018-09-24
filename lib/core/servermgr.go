@@ -2679,10 +2679,14 @@ VALUE_FROM_LOOP:
 						return
 					case interface{}: //Object
 
-						fmt.Println("record:")
-						spew.Dump(exported_value)
-						err = fmt.Errorf("(GetStepInputObjects) record not supported yet")
-						return
+						value_returned, err = cwl.NewCWLType("", exported_value, context)
+						if err != nil {
+							fmt.Println("record:")
+							spew.Dump(exported_value)
+							err = fmt.Errorf("(GetStepInputObjects) interface{}, NewCWLType returned: %s", err.Error())
+							return
+						}
+
 					case nil:
 						value_returned = cwl.NewNull()
 					default:

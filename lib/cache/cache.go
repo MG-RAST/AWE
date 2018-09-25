@@ -137,7 +137,7 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 	return
 }
 
-func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.ShockClient) (err error) {
+func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.ShockClient) (count int, err error) {
 
 	if file.Contents != "" {
 		return
@@ -172,10 +172,13 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 
 			case "http":
 				// file already non-local
+				return
 			case "https":
 				// file already non-local
+				return
 			case "ftp":
 				// file already non-local
+				return
 
 			default:
 				err = fmt.Errorf("(UploadFile) unkown scheme \"%s\"", scheme)
@@ -185,6 +188,11 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 		} else {
 			//file.Location has no scheme, must be local file
 			file_path = file.Location
+		}
+
+		if file_path == "" {
+			err = fmt.Errorf("(UploadFile) file_path is empty and could not be derived (Location: %s)", file.Location)
+			return
 		}
 
 	}
@@ -203,6 +211,13 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 		err = fmt.Errorf("(UploadFile) os.Stat returned: %s (inputfile_path: %s, file.Path: %s, file.Location: %s, current_working_dir: %s)", err.Error(), inputfile_path, file.Path, file.Location, current_working_dir)
 		return
 	}
+
+	if file_info.IsDir() {
+
+		err = fmt.Errorf("(UploadFile) file_path is a directory: %s", file_path)
+		return
+	}
+
 	file_size := file_info.Size()
 
 	basename := path.Base(file_path)
@@ -264,6 +279,7 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	//fmt.Printf("% x", h.Sum(nil))
 
 	file.Checksum = "sha1$" + hex.EncodeToString(h.Sum(nil))
+	count = 1
 	//fmt.Println(file.Location)
 	return
 }
@@ -285,7 +301,18 @@ func DownloadFile(file *cwl.File, download_path string, base_path string) (err e
 	basename := file.Basename
 
 	if basename == "" {
-		err = fmt.Errorf("(DownloadFile) Basename is empty") // TODO infer basename if not found
+
+		basename_array := strings.Split(file.Location, "?")
+		basename_array_first := basename_array[0] // remove query string
+
+		new_basename := path.Base(basename_array_first)
+
+		basename = new_basename
+		file.Basename = basename
+	}
+
+	if basename == "" {
+		err = fmt.Errorf("(DownloadFile) Basename is empty (%s)", spew.Sdump(*file)) // TODO infer basename if not found
 		return
 	}
 
@@ -538,13 +565,16 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			//spew.Dump(*file)
 			//fmt.Printf("file.Path: %s\n", file.Path)
 			//fmt.Printf("file.Location: %s\n", file.Location)
+			var sub_count int // sub_count is 0 or 1
 
-			err = UploadFile(file, current_path, shock_client)
+			sub_count, err = UploadFile(file, current_path, shock_client)
 			if err != nil {
 
-				err = fmt.Errorf("(ProcessIOData) *cwl.File UploadFile returned: %s (file: %s)", err.Error(), file)
+				err = fmt.Errorf("(ProcessIOData) *cwl.File UploadFile returned: %s (file: %s)", err.Error(), spew.Sdump(*file))
 				return
 			}
+
+			count += sub_count
 			//fmt.Printf("file.Path: %s\n", file.Path)
 			//fmt.Printf("file.Location: %s\n", file.Location)
 			count += 1

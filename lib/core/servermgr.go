@@ -424,6 +424,7 @@ func (qm *ServerMgr) updateQueue() (err error) {
 		if err != nil {
 			return
 		}
+		task_id_str, _ := task_id.String()
 
 		var task_state string
 		task_state, err = task.GetState()
@@ -437,14 +438,33 @@ func (qm *ServerMgr) updateQueue() (err error) {
 			continue
 		}
 
-		logger.Debug(3, "(updateQueue) task: %s", task_id)
+		logger.Debug(3, "(updateQueue) task: %s", task_id_str)
 		var task_ready bool
 		var reason string
 		task_ready, reason, err = qm.isTaskReady(task)
 		if err != nil {
-			logger.Error("(updateQueue) %s isTaskReady returns error: %s", task_id, err.Error())
+
+			err = fmt.Errorf("(updateQueue) %s isTaskReady returned error: %s", task_id_str, err.Error())
+
+			var task_str string
+			task_str, _ = task.String()
+
+			jerror := &JobError{
+				TaskFailed:  task_str,
+				ServerNotes: err.Error(),
+				Status:      JOB_STAT_SUSPEND,
+			}
 			err = nil
+			job_id := task.Task_Unique_Identifier.JobId
+			err = qm.SuspendJob(job_id, jerror)
+			if err != nil {
+				logger.Error("(updateQueue:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
+				err = nil
+			}
 			continue
+			//logger.Error("(updateQueue) %s isTaskReady returns error: %s", task_id, err.Error())
+			//err = nil
+			//continue
 		}
 
 		if task_ready {
@@ -1966,6 +1986,8 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		var wfl *cwl.Workflow
 
 		// Detect task_type
+
+		fmt.Printf("(taskEnQueue) A task_type: %s\n", task_type)
 		for task_type == "" { // using for-loop to be able to break out
 
 			// check for scatter // SCATTER is dominant. Scatter children can be Workflows.
@@ -1987,6 +2009,9 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 			switch p.(type) {
 			case *cwl.Workflow:
 				task_type = TASK_TYPE_WORKFLOW
+				fmt.Printf("(taskEnQueue) is a workflow object already\n")
+
+				wfl = p.(*cwl.Workflow)
 			case *cwl.CommandLineTool:
 				task_type = TASK_TYPE_NORMAL
 			case *cwl.ExpressionTool:
@@ -2007,7 +2032,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 
 				if ok {
 					task_type = TASK_TYPE_WORKFLOW
-
+					fmt.Printf("(taskEnQueue) casted into workflow object\n")
 					if wfl == nil {
 						err = fmt.Errorf("(taskEnQueue) A) wfl == nil ????")
 						return
@@ -2023,6 +2048,8 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 			break
 
 		} // end for
+
+		fmt.Printf("(taskEnQueue) B task_type: %s\n", task_type)
 
 		err = task.SetTaskType(task_type, true)
 		if err != nil {
@@ -2040,7 +2067,7 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 		case TASK_TYPE_WORKFLOW:
 			if len(task.Children) == 0 {
 				if wfl == nil {
-					err = fmt.Errorf("(taskEnQueue) B) wfl == nil ????")
+					err = fmt.Errorf("(taskEnQueue) B) wfl == nil ???? (task_id: %s)", task_id)
 					return
 				}
 
@@ -2297,8 +2324,21 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 		logger.Debug(3, "(getCWLSource) step output not found")
 		ok = false
 
+	} else if len(src_array) == 4 {
+		logger.Debug(3, "(getCWLSource) a step input?")
+
+		// search context for object
+		// if onject is not in context, use a flag in context object to indicate collection of objects
+
+		// how find task that would generate that object ???
+
+		//workflow_name := src_array[0]
+		//step_name := src_array[1]
+		//output_name := src_array[2]
+		//_ = output_name
+
 	} else {
-		err = fmt.Errorf("(getCWLSource) could not parse source: %s", src)
+		err = fmt.Errorf("(getCWLSource) could not parse source: %s", src) // workflow, step, run
 
 	}
 

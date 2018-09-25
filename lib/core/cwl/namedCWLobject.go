@@ -80,6 +80,11 @@ func NewNamed_CWL_object_array(original interface{}, context *WorkflowContext) (
 	//	return
 	//}
 
+	if original == nil {
+		err = fmt.Errorf("(NewNamed_CWL_object_array) original == nil")
+		return
+	}
+
 	array = []Named_CWL_object{}
 
 	switch original.(type) {

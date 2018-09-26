@@ -1,4 +1,4 @@
-[![Build Status](https://ci.commonwl.org/buildStatus/icon?job=AWE)](https://ci.commonwl.org/job/AWE/)
+![Build Status](https://ci.commonwl.org/buildStatus/icon?job=AWE) [Build](https://ci.commonwl.org/job/AWE/)
 
 https://ci.commonwl.org/buildStatus/icon?job=AWE
 

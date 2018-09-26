@@ -1,4 +1,4 @@
-Status: [![Build Status](http://ci.commonwl.org/buildStatus/icon?job=AWE)](https://ci.commonwl.org/job/AWE/)
+CWL support [![Build Status](http://ci.commonwl.org/buildStatus/icon?job=AWE)](https://ci.commonwl.org/job/AWE/)
 
 
 

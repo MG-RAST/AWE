@@ -3,6 +3,9 @@
 # docker build -t mgrast/awe-submitter-testing .
 
 
+# requires environment variables SHOCK_SERVER and AWE_SERVER, e.g.:
+# -e SHOCK_SERVER="http://skyport.local:8001/shock/api/" -e AWE_SERVER="http://skyport.local:8001/awe/api/"
+
 FROM mgrast/awe-submitter
 
 

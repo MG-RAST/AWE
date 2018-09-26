@@ -106,7 +106,7 @@ func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document, remain_t
 		id = "::main::"
 	}
 
-	wi := &WorkflowInstance{Id: id, Inputs: inputs, RemainTasks: remain_tasks}
+	wi := NewWorkflowInstance(id, inputs, remain_tasks)
 
 	if job.WorkflowInstances == nil {
 		err = fmt.Errorf("(AddWorkflowInstance) array does not exist")

@@ -71,6 +71,11 @@ func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) 
 
 	//fmt.Println("MakeFile:")
 	//spew.Dump(obj)
+	defer func() {
+		if context != nil && context.Initialzing && err == nil {
+			context.Add("", &file)
+		}
+	}()
 
 	obj_map, ok := obj.(map[string]interface{})
 

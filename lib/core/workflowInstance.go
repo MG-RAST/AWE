@@ -15,6 +15,10 @@ type WorkflowInstance struct {
 	RemainTasks int              `bson:"remaintasks" json:"remaintasks" mapstructure:"remaintasks"`
 }
 
+func NewWorkflowInstance(id string, inputs cwl.Job_document, remain_tasks int) *WorkflowInstance {
+	return &WorkflowInstance{Id: id, Inputs: inputs, RemainTasks: remain_tasks}
+}
+
 func NewWorkflowInstanceFromInterface(original interface{}, context *cwl.WorkflowContext) (wi WorkflowInstance, err error) {
 	original, err = cwl.MakeStringMap(original, context)
 	if err != nil {

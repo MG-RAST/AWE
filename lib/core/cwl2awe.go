@@ -148,16 +148,7 @@ func CreateTasks(job *Job, workflow string, steps []cwl.WorkflowStep) (tasks []*
 
 	for s, _ := range steps {
 
-		step := steps[s] // I could not do "_, step := range", that leas to very strange behaviour ?!??!
-
-		//task_name := strings.Map(
-		//	func(r rune) rune {
-		//		if syntax.IsWordChar(r) || r == '/' || r == '-' { // word char: [0-9A-Za-z_]
-		//			return r
-		//		}
-		//		return -1
-		//	},
-		//	step.Id)
+		step := steps[s]
 
 		if !strings.HasPrefix(step.Id, "#") {
 			err = fmt.Errorf("Workflow step name does not start with a #: %s", step.Id)

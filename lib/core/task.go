@@ -441,7 +441,6 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 	return
 }
 
-// currently this is only used to make a new task from a depricated task
 func NewTask(job *Job, workflow string, task_id string) (t *Task, err error) {
 
 	if job.Id == "" {

@@ -2327,6 +2327,35 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 	} else if len(src_array) == 4 {
 		logger.Debug(3, "(getCWLSource) a step input?")
 
+		context := job.WorkflowContext
+
+		var real_obj cwl.CWL_object
+		real_obj, ok = context.All[src]
+
+		if !ok {
+
+			fmt.Printf("(getCWLSource) src: %s\n", src)
+			src_base := path.Base(src)
+			fmt.Printf("(getCWLSource) src_base: %s\n", src_base)
+			src_path := strings.TrimSuffix(src, "/"+src_base)
+			fmt.Printf("(getCWLSource) src_path: %s\n", src_path)
+
+			var wi *WorkflowInstance
+			wi, err = job.GetWorkflowInstance(src_path, true)
+			if err != nil {
+				err = fmt.Errorf("(getCWLSource) GetWorkflowInstance returned: %s", err.Error())
+				return
+			}
+			_ = wi
+			panic("found WorkflowInstance")
+			for key, _ := range context.All {
+				fmt.Printf("context.All: %s\n", key)
+			}
+
+			err = fmt.Errorf("(getCWLSource) could not find source in context: %s", src)
+			return
+		}
+		obj = real_obj.(cwl.CWLType)
 		// search context for object
 		// if onject is not in context, use a flag in context object to indicate collection of objects
 
@@ -2705,14 +2734,14 @@ VALUE_FROM_LOOP:
 						value_returned = cwl.NewBooleanFrombool(exported_value.(bool))
 
 					case int:
-						value_returned = cwl.NewInt(exported_value.(int))
+						value_returned = cwl.NewInt(exported_value.(int), context)
 					case float32:
 						value_returned = cwl.NewFloat(exported_value.(float32))
 					case float64:
 						fmt.Println("got a double")
 						value_returned = cwl.NewDouble(exported_value.(float64))
 					case uint64:
-						value_returned = cwl.NewInt(exported_value.(int))
+						value_returned = cwl.NewInt(exported_value.(int), context)
 
 					case []interface{}: //Array
 						err = fmt.Errorf("(GetStepInputObjects) array not supported yet")

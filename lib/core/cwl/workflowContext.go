@@ -36,6 +36,7 @@ type WorkflowContext struct {
 
 	Schemata    map[string]CWLType_Type `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	Initialized bool                    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	Initialzing bool                    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // collect objects in ths phase
 }
 
 func NewWorkflowContext() (context *WorkflowContext) {
@@ -154,6 +155,7 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 
 	// start with #main
 	// recursivly add objects to context
+	context.Initialzing = true
 	var object CWL_object
 	var schemata_new []CWLType_Type
 	object, schemata_new, err = New_CWL_object(main_if, nil, context)
@@ -163,6 +165,7 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 		err = fmt.Errorf("(WorkflowContext/Init) A New_CWL_object returned %s", err.Error())
 		return
 	}
+	context.Initialzing = false
 	context.Objects[entrypoint] = object
 
 	err = context.AddSchemata(schemata_new)
@@ -173,6 +176,11 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	//for i, _ := range schemata_new {
 	//	schemata = append(schemata, schemata_new[i])
 	//}
+	fmt.Println("context.All")
+	for key, _ := range context.All {
+		fmt.Printf("context.All: %s\n", key)
+	}
+	//panic("done")
 
 	context.CWL_document.Graph = nil
 	context.CWL_document.Graph = []interface{}{}

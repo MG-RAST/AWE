@@ -96,7 +96,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}, con
 					value_returned = NewBooleanFrombool(exported_value.(bool))
 
 				case int:
-					value_returned = NewInt(exported_value.(int))
+					value_returned = NewInt(exported_value.(int), context)
 				case int64:
 					value_returned = NewLong(exported_value.(int64))
 				case float32:
@@ -105,7 +105,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}, con
 					//fmt.Println("got a double")
 					value_returned = NewDouble(exported_value.(float64))
 				case uint64:
-					value_returned = NewInt(exported_value.(int))
+					value_returned = NewInt(exported_value.(int), context)
 
 				case []interface{}: //Array
 					err = fmt.Errorf("(EvaluateExpression) array not supported yet")

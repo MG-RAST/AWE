@@ -157,7 +157,7 @@ func NewCWLType(id string, native interface{}, context *WorkflowContext) (cwl_ty
 		//fmt.Printf("(NewCWLType) D\n")
 		native_int := native.(int)
 
-		cwl_type = NewInt(native_int)
+		cwl_type = NewInt(native_int, context)
 	case int64:
 		//fmt.Printf("(NewCWLType) D\n")
 		native_int64 := native.(int64)

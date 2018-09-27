@@ -473,11 +473,18 @@ func main_wrapper() (err error) {
 			return
 		}
 		var wi *core.WorkflowInstance
-		wi, err = job.GetWorkflowInstance("", false)
+		var ok bool
+		wi, ok, err = job.GetWorkflowInstance("", false)
 		if err != nil {
 			err = fmt.Errorf("(main_wrapper) GetWorkflowInstance returned: %s", err.Error())
 			return
 		}
+
+		if !ok {
+			err = fmt.Errorf("(main_wrapper) WorkflowInstance not found")
+			return
+		}
+
 		//spew.Dump(wi.Outputs)
 
 		output_receipt := map[string]interface{}{}

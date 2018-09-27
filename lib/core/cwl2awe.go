@@ -163,6 +163,9 @@ func CreateTasks(job *Job, workflow string, steps []cwl.WorkflowStep) (tasks []*
 
 		//task_name := strings.TrimPrefix(step.Id, "#main/")
 		//task_name = strings.TrimPrefix(task_name, "#")
+
+		fmt.Printf("(CreateTasks) creating task: %s\n", task_name)
+
 		var awe_task *Task
 		awe_task, err = NewTask(job, workflow, task_name)
 		if err != nil {

@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+	"path"
 
 	"os"
 	"path/filepath"
@@ -442,6 +443,8 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 }
 
 func NewTask(job *Job, workflow string, task_id string) (t *Task, err error) {
+
+	fmt.Printf("(NewTask) task_id: %s\n", task_id)
 
 	if job.Id == "" {
 		err = fmt.Errorf("(NewTask) jobid is empty!")
@@ -1583,5 +1586,38 @@ func (task *Task) DeleteLogs(logname string, writelock bool) (err error) {
 		logger.Debug(2, "Deleted %s log for workunit %s", logname, workid)
 		os.Remove(logfile)
 	}
+	return
+}
+
+func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, err error) {
+
+	if task.StepOutput == nil {
+
+		err = fmt.Errorf("(task/GetStepOutput) task.StepOutput == nil")
+		return
+	}
+
+	for _, named_step_output := range *task.StepOutput {
+
+		named_step_output_base := path.Base(named_step_output.Id)
+
+		logger.Debug(3, "(task/GetStepOutput) %s vs %s\n", named_step_output_base, name)
+		if named_step_output_base == name {
+
+			obj = named_step_output.Value
+
+			if obj == nil {
+				err = fmt.Errorf("(task/GetStepOutput) found %s , but it is nil", name) // this should not happen, taskReady makes sure everything is available
+				return
+			}
+
+			ok = true
+
+			return
+
+		}
+
+	}
+	ok = false
 	return
 }

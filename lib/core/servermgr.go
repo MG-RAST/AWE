@@ -2310,6 +2310,11 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 			return
 		}
 
+		if ancestor_task.StepOutput == nil {
+			err = fmt.Errorf("(getCWLSource) ancestor_task.StepOutput == nil, ancestor_task_id: %s, src: %s", ancestor_task_id, src) // this should not happen, taskReady makes sure everything is available
+			return
+		}
+
 		logger.Debug(3, "(getCWLSource) len(ancestor_task.StepOutput): %d", len(*ancestor_task.StepOutput))
 
 		obj, ok, err = ancestor_task.GetStepOutput(output_name)

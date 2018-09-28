@@ -74,8 +74,8 @@ func (qm *ServerMgr) UpdateQueueLoop() {
 		qm.updateQueue()
 		elapsed := time.Since(start)
 
-		if elapsed <= 5 {
-			time.Sleep(5 * time.Second) // wait at least 5 seconds
+		if elapsed <= 1 {
+			time.Sleep(1 * time.Second) // wait at least 5 seconds
 		} else if elapsed > 5 && elapsed < 30 {
 			time.Sleep(elapsed * time.Second)
 		} else {
@@ -1504,6 +1504,9 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		err = fmt.Errorf("(taskEnQueueWorkflow) Slash at the end of Parent!? %s", task.Parent)
 		return
 	}
+
+	// embedded workflows have a uniqe name relative to the parent workflow: e.g #main/steo0/<uuid>
+	// stand-alone workflows have no unique name, e.g: #sometool
 
 	//new_sub_workflow := ""
 	//fmt.Printf("(taskEnQueueWorkflow) new_sub_workflow: %s - %s\n", task.Parent, task.TaskName)

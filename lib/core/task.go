@@ -1592,7 +1592,6 @@ func (task *Task) DeleteLogs(logname string, writelock bool) (err error) {
 func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, err error) {
 
 	if task.StepOutput == nil {
-
 		err = fmt.Errorf("(task/GetStepOutput) task.StepOutput == nil")
 		return
 	}

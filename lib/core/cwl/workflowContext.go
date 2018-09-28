@@ -176,10 +176,10 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	//for i, _ := range schemata_new {
 	//	schemata = append(schemata, schemata_new[i])
 	//}
-	fmt.Println("context.All")
-	for key, _ := range context.All {
-		fmt.Printf("context.All: %s\n", key)
-	}
+	//fmt.Println("context.All")
+	//for key, _ := range context.All {
+	//	fmt.Printf("context.All: %s\n", key)
+	//}
 	//panic("done")
 
 	context.CWL_document.Graph = nil

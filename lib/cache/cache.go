@@ -241,13 +241,13 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	}
 
 	var location_url *url.URL
-	location_url, err = url.Parse(shock_client.Host + "/node/" + nodeid + shock.DATA_SUFFIX)
-
+	location_url, err = url.Parse(shock_client.Host) // Host includes a path to the API !
 	if err != nil {
 		err = fmt.Errorf("(UploadFile) url.Parse returned: %s", err.Error())
 		return
 	}
-
+	location_url.Path = path.Join(location_url.Path, "node", nodeid)
+	location_url.RawQuery = strings.TrimPrefix(shock.DATA_SUFFIX, "?")
 	file.Location = location_url.String()
 
 	//fmt.Printf("file.Path A: %s", file.Path)
@@ -342,7 +342,7 @@ func DownloadFile(file *cwl.File, download_path string, base_path string) (err e
 	} else {
 		err = nil
 	}
-	logger.Debug(3, "(DownloadFile) file.Path, downloading to: %s\n", file_path)
+	logger.Debug(3, "(DownloadFile) file.Path, downloading to: %s", file_path)
 
 	//fmt.Printf("Using path %s\n", file_path)
 

@@ -45,6 +45,11 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 
 	//fmt.Println("NewCommandLineTool:")
 	//spew.Dump(generic)
+	defer func() {
+		if context != nil && context.Initialzing && err == nil {
+			context.Add("", commandLineTool)
+		}
+	}()
 
 	//switch type()
 	object, ok := generic.(map[string]interface{})

@@ -18,7 +18,13 @@ func (i *Int) SetId(x string) {}
 
 func (i *Int) Is_CWL_minimal() {}
 
-func NewInt(value int) (i *Int) {
+func NewInt(value int, context *WorkflowContext) (i *Int) {
+
+	defer func() {
+		if context != nil && context.Initialzing {
+			context.Add("", i)
+		}
+	}()
 
 	var i_nptr Int
 	i_nptr = Int(value)
@@ -29,7 +35,7 @@ func NewInt(value int) (i *Int) {
 
 }
 
-func NewIntFromInterface(id string, native interface{}) (i *Int, err error) {
+func NewIntFromInterface(id string, native interface{}, context *WorkflowContext) (i *Int, err error) {
 
 	_ = id
 
@@ -38,6 +44,6 @@ func NewIntFromInterface(id string, native interface{}) (i *Int, err error) {
 		err = fmt.Errorf("(NewIntFromInterface) Cannot create int")
 		return
 	}
-	i = NewInt(real_int)
+	i = NewInt(real_int, context)
 	return
 }

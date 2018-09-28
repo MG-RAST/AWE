@@ -507,18 +507,6 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			job.CWL_ShockRequirement = shock_requirement
 		}
 
-		//job.CWL_workflow_interface = cwl_workflow
-		//job.CWL_job_input_interface = job_input
-
-		//job.CWL_workflow = cwl_workflow
-		//job.CWL_job_input = job_input
-
-		//job.AddWorkflowInstance("<main>", *job_input)
-
-		//job.Set_CWL_workflow_b64(yaml_str)
-
-		//job.Set_CWL_job_input_b64(job_str)
-
 		logger.Debug(1, "CWL2AWE done")
 
 	} else if !has_upload && !has_awf {

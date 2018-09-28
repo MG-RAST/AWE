@@ -59,6 +59,11 @@ func NewWorkflowEmpty() (w Workflow) {
 func NewWorkflow(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
 
 	// convert input map into input array
+	defer func() {
+		if context != nil && context.Initialzing && err == nil {
+			context.Add(workflow_ptr.Id, workflow_ptr)
+		}
+	}()
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {

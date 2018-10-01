@@ -196,6 +196,12 @@ func (io *IO) IndexFile(indextype string) (idxInfo shock.IdxInfo, err error) {
 	if err != nil {
 		return
 	}
+
+	// if zero sized file, we silently don't index
+	if node.File.Size == 0 {
+		return
+	}
+
 	idxInfo, hasIndex = node.Indexes[indextype]
 
 	// create and wait on index

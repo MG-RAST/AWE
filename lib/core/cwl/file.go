@@ -144,7 +144,7 @@ func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) 
 
 		switch scheme {
 
-		case "http":
+		case "http", "https":
 			_, has_download := values["download"]
 			//extract filename ?
 			if has_download && false {
@@ -160,7 +160,7 @@ func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) 
 				}
 				file.Node = array[2]
 
-				file.Host = "http://" + file_url.Host
+				file.Host = scheme + "://" + file_url.Host
 				shock_client := shock.ShockClient{Host: file.Host} // TODO Token: datatoken
 				node, xerr := shock_client.GetNode(file.Node)
 

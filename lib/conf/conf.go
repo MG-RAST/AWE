@@ -340,6 +340,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&SERVER_URL, "http://localhost:8001", "Client", "serverurl", "URL of AWE server, including API port", "")
 		c_store.AddString(&CWL_TOOL, "", "Client", "cwl_tool", "CWL CommandLineTool file", "")
 		c_store.AddString(&CWL_JOB, "", "Client", "cwl_job", "CWL job file", "")
+		c_store.AddString(&CLIENT_GROUP, "default", "Client", "group", "name of client group", "")
 	}
 
 	if mode == "worker" || mode == "submitter" {
@@ -359,7 +360,6 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 	if mode == "worker" {
 		// Client/worker
 
-		c_store.AddString(&CLIENT_GROUP, "default", "Client", "group", "name of client group", "")
 		c_store.AddString(&CLIENT_NAME, "default", "Client", "name", "default determines client name by openstack meta data", "")
 		c_store.AddString(&CLIENT_HOSTNAME, "localhost", "Client", "hostname", "host name", "host name to help finding machines where the clients runs on")
 		c_store.AddString(&CLIENT_HOST_IP, "127.0.0.1", "Client", "host_ip", "ip address", "ip address to help finding machines where the clients runs on")

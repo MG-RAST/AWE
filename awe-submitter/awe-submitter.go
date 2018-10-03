@@ -59,8 +59,8 @@ func main_wrapper() (err error) {
 
 	logger.Initialize("client")
 
-	awe_auth := os.Getenv("AWE_AUTH")
-	shock_auth := os.Getenv("SHOCK_AUTH")
+	awe_auth := conf.SUBMITTER_AWE_AUTH
+	shock_auth := conf.SUBMITTER_SHOCK_AUTH
 
 	if awe_auth != "" {
 		awe_auth_array := strings.SplitN(awe_auth, " ", 2)
@@ -419,6 +419,7 @@ func main_wrapper() (err error) {
 
 	// ### Submit job to AWE
 	var jobid string
+
 	jobid, err = SubmitCWLJobToAWE(tempfile_name, job_file, &data, awe_auth, shock_auth)
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) SubmitCWLJobToAWE returned: %s", err.Error())

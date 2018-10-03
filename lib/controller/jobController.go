@@ -501,7 +501,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		//job.CWL_collection = &collection
 		job.Info.Name = job_file.Name
 		job.Info.Pipeline = workflow_filename
-		job.Info.ClientGroups = "docker" // TODO this needs to be configured
+		job.Info.ClientGroups = conf.CLIENT_GROUP
 
 		if shock_requirement != nil {
 			job.CWL_ShockRequirement = shock_requirement

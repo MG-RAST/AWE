@@ -185,6 +185,8 @@ var (
 	SUBMITTER_OUTPUT         string
 	SUBMITTER_WAIT           bool
 	SUBMITTER_DOWNLOAD_FILES bool
+	SUBMITTER_SHOCK_AUTH     string
+	SUBMITTER_AWE_AUTH       string
 
 	// WORKER (CWL)
 	CWL_RUNNER_ARGS string
@@ -354,7 +356,9 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddBool(&SUBMITTER_WAIT, false, "Client", "wait", "wait fopr job completion", "")
 		c_store.AddString(&SUBMITTER_OUTPUT, "", "Client", "output", "cwl output file", "")
 		c_store.AddBool(&SUBMITTER_DOWNLOAD_FILES, false, "Client", "download_files", "download output files from shock", "")
-
+		c_store.AddString(&SUBMITTER_SHOCK_AUTH, "", "Client", "shock_auth", "format: \"<bearer> <token>\"", "")
+		c_store.AddString(&SUBMITTER_AWE_AUTH, "", "Client", "awe_auth", "format: \"<bearer> <token>\"", "")
+		//c_store.AddString(&SUBMITTER_AUTH_DATATOKEN, "", "Client", "shock_auth_bearer", "bearer for shock", "")
 	}
 
 	if mode == "worker" {

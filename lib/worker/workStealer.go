@@ -372,12 +372,14 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	//workunit = response.Data
 
 	if workunit.Info.Auth == true {
-		token, xerr := FetchDataTokenByWorkId(workunit.Id)
-		if xerr == nil && token != "" {
-			workunit.Info.DataToken = token
-		} else {
-			err = fmt.Errorf("(CheckoutWorkunitRemote) need data token but failed to fetch one %s", xerr.Error())
+		var token string
+		token, err = FetchDataTokenByWorkId(workunit.Id)
+		if err != nil {
+			err = fmt.Errorf("(CheckoutWorkunitRemote) need data token but failed to fetch it: %s", err.Error())
 			return
+		}
+		if token != "" {
+			workunit.Info.DataToken = token
 		}
 	}
 

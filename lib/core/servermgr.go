@@ -4539,7 +4539,7 @@ func (qm *ServerMgr) CreateWorkPerf(id Workunit_Unique_Identifier) (err error) {
 		return
 	}
 	jobperf.Pworks[work_str] = NewWorkPerf()
-	fmt.Println("write jobperf.Pworks: " + work_str)
+	//fmt.Println("write jobperf.Pworks: " + work_str)
 	qm.putActJob(jobperf)
 
 	return

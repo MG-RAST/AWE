@@ -14,7 +14,7 @@ import (
 	"github.com/MG-RAST/golib/goconfig/config"
 )
 
-const VERSION string = "0.9.68"
+const VERSION string = "0.9.69dev"
 
 var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
 const BasePriority int = 1
@@ -231,7 +231,11 @@ type LoginResource struct {
 
 func get_my_config_string(c *config.Config, f *flag.FlagSet, val *Config_value_string) {
 	//overwrite variable if defined in config file
+	//fmt.Fprintf(os.Stderr, "val.Key: %s\n", val.Key)
+	//fmt.Fprintf(os.Stderr, "val.Default_value: %s\n", val.Default_value)
+
 	if c != nil {
+		// puts value from ini file in val.Target
 		getDefinedValueString(c, val.Section, val.Key, val.Target)
 	}
 	//overwrite variable if defined on command line (default values are overwritten by config file)

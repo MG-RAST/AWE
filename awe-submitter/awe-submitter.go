@@ -11,15 +11,13 @@ import (
 	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/davecgh/go-spew/spew"
 	//"github.com/MG-RAST/AWE/lib/logger/event"
-	"bytes"
+
 	"encoding/json"
 
 	"github.com/MG-RAST/AWE/lib/cache"
 	//"github.com/davecgh/go-spew/spew"
-	"io"
+
 	"io/ioutil"
-	"mime/multipart"
-	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -535,7 +533,7 @@ func main_wrapper() (err error) {
 }
 
 func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_auth string, shock_auth string) (jobid string, err error) {
-	multipart := NewMultipartWriter()
+	multipart := core.NewMultipartWriter()
 
 	err = multipart.AddFile("cwl", workflow_file)
 	if err != nil {
@@ -546,6 +544,12 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 	err = multipart.AddDataAsFile("job", job_file, data)
 	if err != nil {
 		err = fmt.Errorf("(SubmitCWLJobToAWE) AddDataAsFile returned: %s", err.Error())
+		return
+	}
+
+	err = multipart.AddForm("CLIENT_GROUP", conf.CLIENT_GROUP)
+	if err != nil {
+		err = fmt.Errorf("(SubmitCWLJobToAWE) AddForm returned: %s", err.Error())
 		return
 	}
 
@@ -611,7 +615,7 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 		return
 	}
 
-	multipart := NewMultipartWriter()
+	multipart := core.NewMultipartWriter()
 
 	header := make(map[string][]string)
 	if awe_auth != "" {
@@ -663,85 +667,6 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 	if err != nil {
 		fmt.Printf("job_bytes: %s\n", job_bytes)
 		err = fmt.Errorf("(GetAWEJob) (second call) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job/"+jobid)
-		return
-	}
-
-	return
-}
-
-type MultipartWriter struct {
-	b bytes.Buffer
-	w *multipart.Writer
-}
-
-func NewMultipartWriter() *MultipartWriter {
-	m := &MultipartWriter{}
-	m.w = multipart.NewWriter(&m.b)
-	return m
-}
-
-func (m *MultipartWriter) Send(method string, url string, header map[string][]string) (response *http.Response, err error) {
-	m.w.Close()
-	//fmt.Println("------------")
-	//spew.Dump(m.w)
-	//fmt.Println("------------")
-
-	req, err := http.NewRequest(method, url, &m.b)
-	if err != nil {
-		return
-	}
-	// Don't forget to set the content type, this will contain the boundary.
-	req.Header.Set("Content-Type", m.w.FormDataContentType())
-
-	for key := range header {
-		header_array := header[key]
-		for _, value := range header_array {
-			req.Header.Add(key, value)
-		}
-
-	}
-
-	// Submit the request
-	client := &http.Client{}
-	//fmt.Printf("%s %s\n\n", method, url)
-	response, err = client.Do(req)
-	if err != nil {
-		return
-	}
-
-	// Check the response
-	//if response.StatusCode != http.StatusOK {
-	//	err = fmt.Errorf("bad status: %s", response.Status)
-	//}
-	return
-
-}
-
-func (m *MultipartWriter) AddDataAsFile(fieldname string, filepath string, data *[]byte) (err error) {
-
-	fw, err := m.w.CreateFormFile(fieldname, filepath)
-	if err != nil {
-		return
-	}
-	_, err = fw.Write(*data)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func (m *MultipartWriter) AddFile(fieldname string, filepath string) (err error) {
-
-	f, err := os.Open(filepath)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	fw, err := m.w.CreateFormFile(fieldname, filepath)
-	if err != nil {
-		return
-	}
-	if _, err = io.Copy(fw, f); err != nil {
 		return
 	}
 

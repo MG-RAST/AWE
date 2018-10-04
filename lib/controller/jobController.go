@@ -59,7 +59,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	}
 
 	// Parse uploaded form
-	_, files, err := ParseMultipartForm(cx.Request)
+	params, files, err := ParseMultipartForm(cx.Request)
 
 	if err != nil {
 		if err.Error() == "request Content-Type isn't multipart/form-data" {
@@ -501,7 +501,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		//job.CWL_collection = &collection
 		job.Info.Name = job_file.Name
 		job.Info.Pipeline = workflow_filename
-		job.Info.ClientGroups = conf.CLIENT_GROUP
+
+		client_group, ok := params["CLIENT_GROUP"]
+		if !ok {
+			client_group = "default"
+		}
+
+		job.Info.ClientGroups = client_group
 
 		if shock_requirement != nil {
 			job.CWL_ShockRequirement = shock_requirement

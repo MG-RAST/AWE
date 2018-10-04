@@ -438,6 +438,7 @@ func main_wrapper() (err error) {
 
 			job, err = GetAWEJob(jobid, awe_auth)
 			if err != nil {
+				fmt.Fprintf(os.Stderr, "(main_wrapper) GetAWEJob returned: %s", err.Error())
 				return
 			}
 

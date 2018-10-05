@@ -284,7 +284,7 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	return
 }
 
-func DownloadFile(file *cwl.File, download_path string, base_path string) (err error) {
+func DownloadFile(file *cwl.File, download_path string, base_path string, shock_client *shock.ShockClient) (err error) {
 
 	if file.Contents != "" {
 		err = fmt.Errorf("(DownloadFile) File is a literal")
@@ -346,9 +346,17 @@ func DownloadFile(file *cwl.File, download_path string, base_path string) (err e
 
 	//fmt.Printf("Using path %s\n", file_path)
 
-	_, _, err = shock.FetchFile(file_path, file.Location, "", "", false)
+	token := ""
+
+	if shock_client != nil {
+		if strings.HasPrefix(file.Location, shock_client.Host) {
+			token = shock_client.Token
+		}
+	}
+
+	_, _, err = shock.FetchFile(file_path, file.Location, token, "", false)
 	if err != nil {
-		err = fmt.Errorf("(DownloadFile) shock.FetchFile returned: %s (download_path: %s, basename: %s, file.Location: %s)", err.Error(), download_path, basename, file.Location)
+		err = fmt.Errorf("(DownloadFile) shock.FetchFile returned: %s (download_path: %s, basename: %s, file.Location: %s, TokenLength: %d)", err.Error(), download_path, basename, file.Location, len(token))
 		return
 	}
 
@@ -581,7 +589,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		} else {
 
 			// download
-			err = DownloadFile(file, current_path, base_path)
+			err = DownloadFile(file, current_path, base_path, shock_client)
 			if err != nil {
 				err = fmt.Errorf("(ProcessIOData) DownloadFile returned: %s (file: %s)", err.Error(), file)
 				return
@@ -1218,35 +1226,16 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 
 	if work.CWL_workunit != nil {
 
-		//job_input := work.CWL_workunit.Job_input
-		//fmt.Printf("job_input1:\n")
-		//spew.Dump(job_input)
+		shock_client := shock.NewShockClient(work.ShockHost, work.Info.DataToken, false)
 
-		//_, err = ProcessIOData(job_input, work_path, work_path, "download", nil)
-		//if err != nil {
-		//	err = fmt.Errorf("(MoveInputData) ProcessIOData(for download) returned: %s", err.Error())
-		//	return
-		//}
-
-		_, err = ProcessIOData(work.CWL_workunit, work_path, work_path, "download", nil)
+		var count int
+		count, err = ProcessIOData(work.CWL_workunit, work_path, work_path, "download", shock_client)
 		if err != nil {
 			err = fmt.Errorf("(MoveInputData) ProcessIOData(for download) returned: %s", err.Error())
 			return
 		}
 
-		//fmt.Printf("job_input2:\n")
-		//spew.Dump(job_input)
-
-		//for _, input := range *job_input {
-		//fmt.Println(input_name)
-		//	var io_size int64
-
-		//io_size, err = MoveInputCWL(work, work_path, input.Value)
-		//	if err != nil {
-		//		return
-		//	}
-		//	size += io_size
-		//}
+		logger.Debug(1, "(MoveInputData) %d files downloaded", count)
 
 		return
 	}

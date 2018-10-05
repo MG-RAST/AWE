@@ -258,7 +258,7 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 		moved_data, xerr := cache.MoveInputData(workunit)
 		if xerr != nil {
 
-			err = fmt.Errorf("(downloadWorkunitData) workid=%s error=%s", work_str, xerr.Error())
+			err = fmt.Errorf("(downloadWorkunitData) workid=%s , cache.MoveInputData returned: %s", work_str, xerr.Error())
 			workunit.Notes = append(workunit.Notes, "[dataDownloader#MoveInputData]"+err.Error())
 			workunit.SetState(core.WORK_STAT_ERROR, "see notes")
 			//hand the parsed workunit to next stage and continue to get new workunit to process

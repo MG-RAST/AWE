@@ -320,6 +320,9 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		err = fmt.Errorf("(CheckoutWorkunitRemote) mapstructure.Decode error: %s", err.Error())
 		return
 	}
+
+	logger.Debug(1, "(CheckoutWorkunitRemote) workunit.Id: %s", workunit.Id)
+
 	if has_cwl {
 
 		var xerr error
@@ -371,13 +374,16 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 	//workunit = response.Data
 
+	logger.Debug(3, "(CheckoutWorkunitRemote) workunit.Info.Auth == %t", workunit.Info.Auth)
 	if workunit.Info.Auth == true {
+
 		var token string
-		token, err = FetchDataTokenByWorkId(workunit.Id)
+		token, err = workunit.FetchDataToken()
 		if err != nil {
 			err = fmt.Errorf("(CheckoutWorkunitRemote) need data token but failed to fetch it: %s", err.Error())
 			return
 		}
+		logger.Debug(3, "(CheckoutWorkunitRemote) token length: %d", len(token))
 		if token != "" {
 			workunit.Info.DataToken = token
 		}
@@ -390,27 +396,6 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s got a workunit", core.Self.Id))
 	workunit.State = core.WORK_STAT_CHECKOUT
 	core.Self.Busy = true
-	return
-}
-
-func FetchDataTokenByWorkId(workid string) (token string, err error) {
-	targeturl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, workid, core.Self.Id)
-	var headers httpclient.Header
-	if conf.CLIENT_GROUP_TOKEN != "" {
-		headers = httpclient.Header{
-			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
-		}
-	}
-	res, err := httpclient.Get(targeturl, headers, nil)
-	if err != nil {
-		return "", err
-	}
-	defer res.Body.Close()
-	if res.Header != nil {
-		if _, ok := res.Header["Datatoken"]; ok {
-			token = res.Header["Datatoken"][0]
-		}
-	}
 	return
 }
 

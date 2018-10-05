@@ -3,11 +3,15 @@ package core
 import (
 	//"bytes"
 	//"encoding/json"
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"reflect"
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/golib/httpclient"
 
 	//"github.com/davecgh/go-spew/spew"
 
@@ -420,5 +424,79 @@ func (work *Workunit) Part() (part string) {
 	} else {
 		part = fmt.Sprintf("%d-%d", start, end)
 	}
+	return
+}
+
+func (work *Workunit) GetIdBase64() (work_id_b64 string, err error) {
+	var work_str string
+	work_str, err = work.String()
+	if err != nil {
+		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) workid.String() returned: %s", err.Error())
+		return
+	}
+
+	work_id_b64 = "base64:" + base64.StdEncoding.EncodeToString([]byte(work_str))
+	return
+}
+
+func (work *Workunit) FetchDataToken() (token string, err error) {
+
+	var work_id_b64 string
+	work_id_b64, err = work.GetIdBase64()
+	if err != nil {
+		err = fmt.Errorf("(FetchDataToken) work.GetIdBase64 returned: %s", err.Error())
+		return
+	}
+
+	targeturl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, work_id_b64, Self.Id)
+	logger.Debug(1, "(FetchDataToken) targeturl: %s", targeturl)
+	var headers httpclient.Header
+	logger.Debug(3, "(FetchDataToken) len(conf.CLIENT_GROUP_TOKEN): %d ", len(conf.CLIENT_GROUP_TOKEN))
+	if conf.CLIENT_GROUP_TOKEN != "" {
+
+		headers = httpclient.Header{
+			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
+		}
+	}
+	res, err := httpclient.Get(targeturl, headers, nil)
+	if err != nil {
+		err = fmt.Errorf("(FetchDataToken) httpclient.Get returned: %s", err.Error())
+		return
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+
+		var bodyBytes []byte
+		bodyBytes, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			err = fmt.Errorf("(FetchDataToken) res.Status was %d, but could not read body: %s", res.StatusCode, err.Error())
+			return
+		}
+
+		bodyString := string(bodyBytes)
+
+		err = fmt.Errorf("(FetchDataToken) res.Status was %d, body contained: %s", res.StatusCode, bodyString)
+		return
+	}
+
+	if res.Header == nil {
+		logger.Debug(3, "(FetchDataToken) res.Header empty")
+		return
+	}
+
+	header_array, ok := res.Header["Datatoken"]
+	if !ok {
+		logger.Debug(3, "(FetchDataToken) Datatoken header not found")
+		return
+	}
+
+	if len(header_array) == 0 {
+		logger.Debug(3, "(FetchDataToken) len(header_array) == 0")
+		return
+	}
+
+	token = header_array[0]
+
 	return
 }

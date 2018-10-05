@@ -1,7 +1,6 @@
 package core
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -488,14 +487,13 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 
 func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (response *StandardResponse, err error) {
 
-	var work_str string
-	work_str, err = work.String()
+	var work_id_b64 string
+	work_id_b64, err = work.GetIdBase64()
 	if err != nil {
-		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) workid.String() returned: %s", err.Error())
+		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) work.GetIdBase64 returned: %s", err.Error())
 		return
 	}
 
-	work_id_b64 := "base64:" + base64.StdEncoding.EncodeToString([]byte(work_str))
 	target_url := ""
 	if work.CWL_workunit != nil {
 		target_url = fmt.Sprintf("%s/work/%s?client=%s", conf.SERVER_URL, work_id_b64, Self.Id) // client info is needed for authentication

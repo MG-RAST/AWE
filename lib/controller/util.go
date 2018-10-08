@@ -4,13 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/core"
-	e "github.com/MG-RAST/AWE/lib/errors"
-	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/request"
-	"github.com/MG-RAST/AWE/lib/user"
-	"github.com/MG-RAST/golib/goweb"
 	"io"
 	"math/rand"
 	"mime/multipart"
@@ -19,6 +12,14 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core"
+	e "github.com/MG-RAST/AWE/lib/errors"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/request"
+	"github.com/MG-RAST/AWE/lib/user"
+	"github.com/MG-RAST/golib/goweb"
 )
 
 var (
@@ -154,21 +155,21 @@ func ResourceDescription(cx *goweb.Context) {
 	}
 
 	r := resource{
-		R:             []string{},
-		F:             core.JobInfoIndexes,
-		U:             apiUrl(cx) + "/",
-		D:             siteUrl(cx) + "/",
-		Title:         conf.TITLE,
-		C:             conf.ADMIN_EMAIL,
-		I:             "AWE",
-		O:             auth,
-		P:             *anonPerms,
-		T:             core.Service,
-		S:             core.QMgr.QueueStatus(),
-		V:             conf.VERSION,
-		Time:          time.Now().Format(longDateForm),
-		GitCommitHash: conf.GIT_COMMIT_HASH,
-		Uptime:        time.Since(core.Start_time).String(),
+		R:     []string{},
+		F:     core.JobInfoIndexes,
+		U:     apiUrl(cx) + "/",
+		D:     siteUrl(cx) + "/",
+		Title: conf.TITLE,
+		C:     conf.ADMIN_EMAIL,
+		I:     "AWE",
+		O:     auth,
+		P:     *anonPerms,
+		T:     core.Service,
+		S:     core.QMgr.QueueStatus(),
+		V:     conf.VERSION,
+		Time:  time.Now().Format(longDateForm),
+		//GitCommitHash: conf.GIT_COMMIT_HASH,
+		Uptime: time.Since(core.Start_time).String(),
 	}
 
 	if core.Service == "server" {

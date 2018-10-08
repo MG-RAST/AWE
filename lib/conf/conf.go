@@ -14,9 +14,13 @@ import (
 	"github.com/MG-RAST/golib/goconfig/config"
 )
 
-const VERSION string = "0.9.70dev"
+//const VERSION string = "0.9.70dev"
 
-var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
+//var GIT_COMMIT_HASH string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.GIT_COMMIT_HASH <value>"
+
+// command "git describe" is used to infer version number of AWE
+var VERSION string // use -ldflags "-X github.com/MG-RAST/AWE/lib/conf.VERSION <value>"
+
 const BasePriority int = 1
 
 const DB_COLL_JOBS string = "Jobs"
@@ -167,16 +171,15 @@ var (
 	SHOCK_DOCKER_IMAGE_REPOSITORY string
 
 	// Other
-	ERROR_LENGTH         int
-	DEV_MODE             bool
-	DEBUG_LEVEL          int
-	CONFIG_FILE          string
-	LOG_OUTPUT           string
-	PRINT_HELP           bool // full usage
-	SHOW_HELP            bool // simple usage
-	SHOW_GIT_COMMIT_HASH bool
-	CPUPROFILE           string
-	MEMPROFILE           string
+	ERROR_LENGTH int
+	DEV_MODE     bool
+	DEBUG_LEVEL  int
+	CONFIG_FILE  string
+	LOG_OUTPUT   string
+	PRINT_HELP   bool // full usage
+	SHOW_HELP    bool // simple usage
+	CPUPROFILE   string
+	MEMPROFILE   string
 
 	// submitter (CWL)
 	SUBMITTER_OUTDIR         string
@@ -427,7 +430,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 	}
 	c_store.AddInt(&DEBUG_LEVEL, 0, "Other", "debuglevel", "debug level: 0-3", "")
 	c_store.AddBool(&SHOW_VERSION, false, "Other", "version", "show version", "")
-	c_store.AddBool(&SHOW_GIT_COMMIT_HASH, false, "Other", "show_git_commit_hash", "", "")
+
 	c_store.AddBool(&PRINT_HELP, false, "Other", "fullhelp", "show detailed usage without \"--\"-prefixes", "")
 	c_store.AddBool(&SHOW_HELP, false, "Other", "help", "show usage", "")
 	c_store.AddString(&CPUPROFILE, "", "Other", "cpuprofile", "e.g. create cpuprofile.prof", "")
@@ -476,10 +479,6 @@ func Init_conf(mode string) (err error) {
 	}
 	if SHOW_VERSION {
 		PrintVersionMsg()
-		os.Exit(0)
-	}
-	if SHOW_GIT_COMMIT_HASH {
-		fmt.Fprintf(os.Stdout, "GIT_COMMIT_HASH=%s\n", GIT_COMMIT_HASH)
 		os.Exit(0)
 	}
 

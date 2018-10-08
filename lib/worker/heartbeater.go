@@ -396,7 +396,7 @@ func ComposeProfile() (profile *core.Client, err error) {
 	profile.CPUs = runtime.NumCPU()
 	profile.Domain = conf.CLIENT_DOMAIN
 	profile.Version = conf.VERSION
-	profile.GitCommitHash = conf.GIT_COMMIT_HASH
+	//profile.GitCommitHash = conf.GIT_COMMIT_HASH
 
 	//app list
 	//profile.Apps = []string{}

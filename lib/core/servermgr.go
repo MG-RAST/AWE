@@ -2311,7 +2311,11 @@ func (qm *ServerMgr) getCWLSource(workflow_input_map map[string]cwl.CWLType, job
 		}
 
 		if ancestor_task.StepOutput == nil {
-			err = fmt.Errorf("(getCWLSource) ancestor_task.StepOutput == nil, ancestor_task_id: %s, src: %s", ancestor_task_id, src) // this should not happen, taskReady makes sure everything is available
+			if error_on_missing_task {
+				err = fmt.Errorf("(getCWLSource) ancestor_task.StepOutput == nil, ancestor_task_id: %s, src: %s", ancestor_task_id, src) // this should not happen, taskReady makes sure everything is available
+				return
+			}
+			ok = false
 			return
 		}
 

@@ -27,8 +27,8 @@ RUN ln -s /go /gopath
 # compile AWE
 RUN mkdir -p ${AWE} && \
   cd ${AWE} && \
-  go get -d ./awe-worker/ ./awe-server/ && \
-  ./compile.sh
+  go get -d ./awe-server/ && \
+  ./compile.sh -a
 
-# since this produces two binaries, we just specify (b)ash
+
 CMD ["/bin/ash"]

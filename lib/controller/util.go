@@ -139,6 +139,11 @@ type resource struct {
 func ResourceDescription(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
+	if cx.Request.URL.Path != "/" {
+		cx.RespondWithErrorMessage(fmt.Sprintf("Resource %s unknown", cx.Request.URL.Path), http.StatusBadRequest)
+		return
+	}
+
 	anonPerms := new(anonymous)
 	anonPerms.Read = conf.ANON_READ
 	anonPerms.Write = conf.ANON_WRITE

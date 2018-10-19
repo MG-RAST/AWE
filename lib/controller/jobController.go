@@ -544,7 +544,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		logger.Debug(3, "job %s got token", job.Id)
 	}
 
-	err = job.Save() // note that the job only goes into mongo, not into memory yet (EnqueueTasksByJobId is dowing that)
+	err = job.Save() // note that the job only goes into mongo, not into memory yet (EnqueueTasksByJobId is pulling from mongo, indirectly)
 	if err != nil {
 		cx.RespondWithErrorMessage(fmt.Sprintf("(JobController/Create) job.Save returned: %s", err.Error()), http.StatusBadRequest)
 		return
@@ -562,7 +562,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	//	spew.Dump(job.WorkflowContext.Graph[i])
 	//}
 	//fmt.Printf("WorkflowContext ------- ")
-	//spew.Dump(job.WorkflowContext.Graph)
+	//spew.Dump(job.WorkflowInstances[0])
 	//job.WorkflowContext = nil
 
 	var response_bytes []byte

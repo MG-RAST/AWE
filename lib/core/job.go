@@ -57,23 +57,23 @@ type Job struct {
 
 type JobRaw struct {
 	RWMutex
-	Id                   string                       `bson:"id" json:"id"` // uuid
-	Acl                  acl.Acl                      `bson:"acl" json:"-"`
-	Info                 *Info                        `bson:"info" json:"info"`
-	Script               script                       `bson:"script" json:"-"`
-	State                string                       `bson:"state" json:"state"`
-	Registered           bool                         `bson:"registered" json:"registered"`
-	RemainTasks          int                          `bson:"remaintasks" json:"remaintasks"`
-	Expiration           time.Time                    `bson:"expiration" json:"expiration"` // 0 means no expiration
-	UpdateTime           time.Time                    `bson:"updatetime" json:"updatetime"`
-	Error                *JobError                    `bson:"error" json:"error"`         // error struct exists when in suspended state
-	Resumed              int                          `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
-	ShockHost            string                       `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
-	IsCWL                bool                         `bson:"is_cwl" json:"is_cwl`
-	CWL_job_input        interface{}                  `bson:"cwl_job_input" json:"cwl_job_input` // has to be an array for mongo (id as key would not work)
-	CWL_ShockRequirement *cwl.ShockRequirement        `bson:"cwl_shock_requirement" json:"cwl_shock_requirement`
-	CWL_workflow         *cwl.Workflow                `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
-	WorkflowInstances    []interface{}                `bson:"workflow_instances" json:"workflow_instances" yaml:"workflow_instances" mapstructure:"workflow_instances"`
+	Id                   string                `bson:"id" json:"id"` // uuid
+	Acl                  acl.Acl               `bson:"acl" json:"-"`
+	Info                 *Info                 `bson:"info" json:"info"`
+	Script               script                `bson:"script" json:"-"`
+	State                string                `bson:"state" json:"state"`
+	Registered           bool                  `bson:"registered" json:"registered"`
+	RemainTasks          int                   `bson:"remaintasks" json:"remaintasks"`
+	Expiration           time.Time             `bson:"expiration" json:"expiration"` // 0 means no expiration
+	UpdateTime           time.Time             `bson:"updatetime" json:"updatetime"`
+	Error                *JobError             `bson:"error" json:"error"`         // error struct exists when in suspended state
+	Resumed              int                   `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
+	ShockHost            string                `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
+	IsCWL                bool                  `bson:"is_cwl" json:"is_cwl`
+	CWL_job_input        interface{}           `bson:"cwl_job_input" json:"cwl_job_input` // has to be an array for mongo (id as key would not work)
+	CWL_ShockRequirement *cwl.ShockRequirement `bson:"cwl_shock_requirement" json:"cwl_shock_requirement`
+	CWL_workflow         *cwl.Workflow         `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
+	//WorkflowInstances    []interface{}                `bson:"workflow_instances" json:"workflow_instances" yaml:"workflow_instances" mapstructure:"workflow_instances"`
 	WorkflowInstancesMap map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	Entrypoint           string                       `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
 	WorkflowContext      *cwl.WorkflowContext         `bson:"context" json:"context" yaml:"context" mapstructure:"context"`
@@ -95,7 +95,7 @@ func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
 	return
 }
 
-func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document, remain_tasks int) (err error) {
+func (job *Job) AddWorkflowInstance(id string, workflow_defintion_id string, inputs cwl.Job_document, remain_tasks int) (wi *WorkflowInstance, err error) {
 	fmt.Printf("(AddWorkflowInstance) id: %s\n", id)
 	err = job.LockNamed("AddWorkflowInstance")
 	if err != nil {
@@ -103,62 +103,67 @@ func (job *Job) AddWorkflowInstance(id string, inputs cwl.Job_document, remain_t
 	}
 	defer job.Unlock()
 
-	if id == "" {
-		id = "::main::"
-	}
-
-	wi := NewWorkflowInstance(id, inputs, remain_tasks)
-
-	if job.WorkflowInstances == nil {
-		err = fmt.Errorf("(AddWorkflowInstance) array does not exist")
+	if workflow_defintion_id == "" {
+		err = fmt.Errorf("(AddWorkflowInstance) workflow_defintion_id is empty")
 		return
 	}
 
-	err = dbPushJobWorkflowInstance(job.Id, wi)
+	if id == "" {
+		id = "_main"
+	}
+
+	wi = NewWorkflowInstance(id, workflow_defintion_id, inputs, remain_tasks)
+	err = wi.Save()
 	if err != nil {
-		err = fmt.Errorf("(AddWorkflowInstance) dbPushJobWorkflowInstance returned: %s", err.Error())
+		err = fmt.Errorf("(AddWorkflowInstance) NewWorkflowInstance returned: %s", err.Error())
 		return
 	}
 
-	job.WorkflowInstances = append(job.WorkflowInstances, wi)
 	job.WorkflowInstancesMap[id] = wi
+
+	err = GlobalWorkflowInstanceMap.Add(wi)
+	if err != nil {
+		err = fmt.Errorf("(AddWorkflowInstance) GlobalWorkflowInstanceMap returned: %s", err.Error())
+		return
+	}
+
 	return
 }
 
-func (job *Job) GetWorkflowInstanceIndex(id string, context *cwl.WorkflowContext, do_read_lock bool) (index int, err error) {
-	if do_read_lock {
-		read_lock, xerr := job.RLockNamed("GetWorkflowInstanceIndex")
-		if xerr != nil {
-			err = xerr
-			return
-		}
-		defer job.RUnlockNamed(read_lock)
-	}
-	if id == "" {
-		id = "::main::"
-	}
+// func (job *Job) GetWorkflowInstanceIndex(id string, context *cwl.WorkflowContext, do_read_lock bool) (index int, err error) {
+// 	if do_read_lock {
+// 		read_lock, xerr := job.RLockNamed("GetWorkflowInstanceIndex")
+// 		if xerr != nil {
+// 			err = xerr
+// 			return
+// 		}
+// 		defer job.RUnlockNamed(read_lock)
+// 	}
+// 	if id == "" {
+// 		id = "_main"
+// 	}
 
-	var wi_int interface{}
+// 	var wi_int interface{}
 
-	for index, wi_int = range job.WorkflowInstances {
-		var element_wi WorkflowInstance
-		element_wi, err = NewWorkflowInstanceFromInterface(wi_int, context)
-		if err != nil {
-			err = fmt.Errorf("(GetWorkflowInstance) object was not a WorkflowInstance !? %s", err.Error())
-			return
-		}
-		if element_wi.Id == id {
-			//job.WorkflowInstancesMap[id] = &element_wi
-			//wi = &element_wi
-			return
-		}
+// 	for index, wi_int = range job.WorkflowInstances {
+// 		var element_wi WorkflowInstance
+// 		element_wi, err = NewWorkflowInstanceFromInterface(wi_int, context)
+// 		if err != nil {
+// 			err = fmt.Errorf("(GetWorkflowInstance) object was not a WorkflowInstance !? %s", err.Error())
+// 			return
+// 		}
+// 		if element_wi.Id == id {
+// 			//job.WorkflowInstancesMap[id] = &element_wi
+// 			//wi = &element_wi
+// 			return
+// 		}
 
-	}
+// 	}
 
-	err = fmt.Errorf("(GetWorkflowInstance) WorkflowInstance %s not found", id)
-	return
+// 	err = fmt.Errorf("(GetWorkflowInstance) WorkflowInstance %s not found", id)
+// 	return
 
-}
+// }
 
 func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowInstance, ok bool, err error) {
 	if do_read_lock {
@@ -170,7 +175,7 @@ func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowI
 		defer job.RUnlockNamed(read_lock)
 	}
 	if id == "" {
-		id = "::main::"
+		id = "_main"
 	}
 
 	wi, ok = job.WorkflowInstancesMap[id]
@@ -181,45 +186,45 @@ func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowI
 	return
 }
 
-func (job *Job) Set_WorkflowInstance_Outputs(id string, outputs cwl.Job_document, context *cwl.WorkflowContext) (err error) {
-	err = job.LockNamed("Set_WorkflowInstance_Outputs")
-	if err != nil {
-		return
-	}
-	defer job.Unlock()
+// func (job *Job) Set_WorkflowInstance_Outputs(id string, outputs cwl.Job_document, context *cwl.WorkflowContext) (err error) {
+// 	err = job.LockNamed("Set_WorkflowInstance_Outputs")
+// 	if err != nil {
+// 		return
+// 	}
+// 	defer job.Unlock()
 
-	if id == "" {
-		id = "::main::"
-	}
+// 	if id == "" {
+// 		id = "_main"
+// 	}
 
-	err = dbUpdateJobWorkflow_instancesFieldOutputs(job.Id, id, outputs)
-	if err != nil {
-		err = fmt.Errorf("(Set_WorkflowInstance_Outputs) dbUpdateJobWorkflow_instancesFieldOutputs returned: %s", err.Error())
-		return
-	}
+// 	err = dbUpdateJobWorkflow_instancesFieldOutputs(job.Id, id, outputs)
+// 	if err != nil {
+// 		err = fmt.Errorf("(Set_WorkflowInstance_Outputs) dbUpdateJobWorkflow_instancesFieldOutputs returned: %s", err.Error())
+// 		return
+// 	}
 
-	var index int
-	index, err = job.GetWorkflowInstanceIndex(id, context, false)
-	if err != nil {
-		err = fmt.Errorf("(Set_WorkflowInstance_Outputs) GetWorkflowInstanceIndex returned: %s", err.Error())
-		return
-	}
+// 	var index int
+// 	index, err = job.GetWorkflowInstanceIndex(id, context, false)
+// 	if err != nil {
+// 		err = fmt.Errorf("(Set_WorkflowInstance_Outputs) GetWorkflowInstanceIndex returned: %s", err.Error())
+// 		return
+// 	}
 
-	var workflow_instance WorkflowInstance
-	workflow_instance_if := job.WorkflowInstances[index]
-	workflow_instance, err = NewWorkflowInstanceFromInterface(workflow_instance_if, context)
-	if err != nil {
-		err = fmt.Errorf("(Set_WorkflowInstance_Outputs) NewWorkflowInstanceFromInterface returned: %s", err.Error())
-		return
-	}
+// 	var workflow_instance WorkflowInstance
+// 	workflow_instance_if := job.WorkflowInstances[index]
+// 	workflow_instance, err = NewWorkflowInstanceFromInterface(workflow_instance_if, context)
+// 	if err != nil {
+// 		err = fmt.Errorf("(Set_WorkflowInstance_Outputs) NewWorkflowInstanceFromInterface returned: %s", err.Error())
+// 		return
+// 	}
 
-	workflow_instance.Outputs = outputs
+// 	workflow_instance.Outputs = outputs
 
-	job.WorkflowInstances[index] = workflow_instance
-	job.WorkflowInstancesMap[id] = &workflow_instance
+// 	job.WorkflowInstances[index] = workflow_instance
+// 	job.WorkflowInstancesMap[id] = &workflow_instance
 
-	return
-}
+// 	return
+// }
 
 func (job *Job) Decrease_WorkflowInstance_RemainTasks(id string, task_str string) (remain_tasks int, err error) {
 	err = job.LockNamed("Decrease_WorkflowInstance_RemainTasks")
@@ -229,7 +234,7 @@ func (job *Job) Decrease_WorkflowInstance_RemainTasks(id string, task_str string
 	defer job.Unlock()
 
 	if id == "" {
-		id = "::main::"
+		id = "_main"
 	}
 
 	var workflow_instance *WorkflowInstance
@@ -443,10 +448,10 @@ func (job *Job) Init() (changed bool, err error) {
 		changed = true
 	}
 
-	if len(job.Tasks) == 0 {
-		err = errors.New("(job.Init) invalid job script: task list empty")
-		return
-	}
+	//if len(job.Tasks) == 0 {
+	//	err = errors.New("(job.Init) invalid job script: task list empty")
+	//	return
+	//}
 
 	// check that input FileName is not repeated within an individual task
 	for _, task := range job.Tasks {
@@ -491,40 +496,48 @@ func (job *Job) Init() (changed bool, err error) {
 		//	return
 		//}
 
-		if job.WorkflowInstances != nil {
+		// if job.WorkflowInstances != nil {
 
-			if len(job.WorkflowInstances) != len(job.WorkflowInstancesMap) {
+		// 	if len(job.WorkflowInstances) != len(job.WorkflowInstancesMap) {
 
-				if job.WorkflowInstancesMap == nil {
-					job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
-				}
+		// 		if job.WorkflowInstancesMap == nil {
+		// 			job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
+		// 		}
 
-				for i, _ := range job.WorkflowInstances {
-					wi_int := job.WorkflowInstances[i]
-					var wi WorkflowInstance
-					wi, err = NewWorkflowInstanceFromInterface(wi_int, context)
-					if err != nil {
-						err = fmt.Errorf("(job.Init) object is not a WorkflowInstance: %s", err.Error())
-						return
-					}
-					job.WorkflowInstancesMap[wi.Id] = &wi
-				}
+		// 		for i, _ := range job.WorkflowInstances {
+		// 			wi_int := job.WorkflowInstances[i]
+		// 			var wi WorkflowInstance
+		// 			wi, err = NewWorkflowInstanceFromInterface(wi_int, context)
+		// 			if err != nil {
+		// 				err = fmt.Errorf("(job.Init) NewWorkflowInstanceFromInterface returned: %s", err.Error())
+		// 				return
+		// 			}
+		// 			job.WorkflowInstancesMap[wi.Id] = &wi
+		// 		}
 
-				changed = true
-			}
+		// 		changed = true
+		// 	}
 
-		}
+		// 	var wi_changed bool
+		// 	for _, wi := range job.WorkflowInstancesMap {
+		// 		wi_changed, err = wi.Init(job)
+		// 		if wi_changed {
+		// 			changed = true
+		// 		}
+		// 	}
+
+		// }
 
 		var main_input *WorkflowInstance
 		var ok bool
-		main_input, ok, err = job.GetWorkflowInstance("::main::", true) //job.WorkflowInstancesMap["#main"]
+		main_input, ok, err = job.GetWorkflowInstance("_main", true) //job.WorkflowInstancesMap["#main"]
 		if err != nil {
-			err = fmt.Errorf("(job.Init) workflow instance ::main:: not found %s", err.Error())
+			err = fmt.Errorf("(job.Init) workflow instance _main not found %s", err.Error())
 			return
 		}
 
 		if !ok {
-			err = fmt.Errorf("(job.Init) WorkflowInstance not found: ::main::")
+			err = fmt.Errorf("(job.Init) WorkflowInstance not found: _main")
 			return
 		}
 
@@ -751,8 +764,20 @@ func (job *Job) GetTasks() (tasks []*Task, err error) {
 	}
 	defer job.RUnlockNamed(read_lock)
 
-	for _, task := range job.Tasks {
-		tasks = append(tasks, task)
+	if job.IsCWL {
+		logger.Debug(3, "(GetTasks) iscwl len(job.WorkflowInstancesMap): %d", len(job.WorkflowInstancesMap))
+		for _, wi := range job.WorkflowInstancesMap {
+			logger.Debug(3, "(GetTasks) wi.Tasks: %d", len(wi.Tasks))
+			for _, task := range wi.Tasks {
+				tasks = append(tasks, task)
+			}
+		}
+
+	} else {
+		logger.Debug(3, "(GetTasks) is not cwl")
+		for _, task := range job.Tasks {
+			tasks = append(tasks, task)
+		}
 	}
 	return
 }
@@ -792,6 +817,7 @@ func (job *Job) AddTask(task *Task) (err error) {
 	if err != nil {
 		return
 	}
+
 	job.Tasks = append(job.Tasks, task)
 	return
 }

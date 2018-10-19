@@ -428,7 +428,7 @@ func main_wrapper() (err error) {
 
 	if conf.SUBMITTER_WAIT {
 		var job *core.Job
-
+		var status_code int
 		// ***** Wait for job to complete
 
 	FORLOOP:
@@ -436,11 +436,14 @@ func main_wrapper() (err error) {
 			time.Sleep(5 * time.Second)
 			job = nil
 
-			job, err = GetAWEJob(jobid, awe_auth)
+			job, status_code, err = GetAWEJob(jobid, awe_auth)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "(main_wrapper) GetAWEJob returned: %s", err.Error())
-				err = nil
-				continue
+				fmt.Fprintf(os.Stderr, "(main_wrapper) GetAWEJob returned: (status_code: %d) error: %s  \n", status_code, err.Error())
+				if status_code == -1 {
+					err = nil
+					continue
+				}
+				return
 			}
 
 			//fmt.Printf("job state: %s\n", job.State)
@@ -610,8 +613,8 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 
 }
 
-func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
-
+func GetAWEJob(jobid string, awe_auth string) (job *core.Job, status_code int, err error) {
+	status_code = -1
 	if jobid == "" {
 		err = fmt.Errorf("(GetAWEJob) jobid empty")
 		return
@@ -630,6 +633,8 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 		return
 	}
 
+	status_code = response.StatusCode
+
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		err = fmt.Errorf("(GetAWEJob) ioutil.ReadAll returned: %s", err.Error())
@@ -643,7 +648,19 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 	var sr standardResponse
 	err = json.Unmarshal(responseData, &sr)
 	if err != nil {
-		err = fmt.Errorf("(GetAWEJob) json.Unmarshal returned: %s (%s) (response.StatusCode: %d)", err.Error(), conf.SERVER_URL+"/job/"+jobid, response.StatusCode)
+
+		r := strings.NewReplacer("\n", " ", "\r", " ") // remove newlines
+
+		extension := ""
+		prefixlen := 100
+		if len(responseData) < 100 {
+			prefixlen = len(responseData)
+			extension = "..."
+		}
+
+		body_prefix := r.Replace(string(responseData[0:prefixlen])) + extension // this helps debugging
+
+		err = fmt.Errorf("(GetAWEJob) json.Unmarshal returned: %s (%s) (response.StatusCode: %d) (body: \"%s\")", err.Error(), conf.SERVER_URL+"/job/"+jobid, status_code, body_prefix)
 		return
 	}
 
@@ -652,8 +669,8 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 		return
 	}
 
-	if response.StatusCode != 200 {
-		err = fmt.Errorf("(GetAWEJob) response.StatusCode: %d", response.StatusCode)
+	if status_code != 200 {
+		err = fmt.Errorf("(GetAWEJob) response.StatusCode: %d", status_code)
 		return
 	}
 

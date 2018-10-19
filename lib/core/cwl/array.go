@@ -46,7 +46,7 @@ func NewArray(id string, native interface{}, context *WorkflowContext) (array_pt
 		}
 
 		array_ptr = &array
-		return
+
 	case []map[string]interface{}:
 		native_array := native.([]map[string]interface{})
 
@@ -67,10 +67,10 @@ func NewArray(id string, native interface{}, context *WorkflowContext) (array_pt
 		}
 
 		array_ptr = &array
-		return
+
 	default:
 		err = fmt.Errorf("(NewArray) type not supported: %s", reflect.TypeOf(native))
-		return
+
 	}
 
 	return

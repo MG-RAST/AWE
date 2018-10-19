@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"reflect"
 
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	shock "github.com/MG-RAST/go-shock-client"
+	"github.com/mitchellh/mapstructure"
 )
 
 const (
@@ -42,43 +44,44 @@ const (
 )
 
 type TaskRaw struct {
-	RWMutex                `bson:"-" json:"-"`
-	Task_Unique_Identifier `bson:",inline"`
+	RWMutex                `bson:"-" json:"-" mapstructure:"-"`
+	Task_Unique_Identifier `bson:",inline" mapstructure:",squash"`
 
-	Id                  string                   `bson:"taskid" json:"taskid"` // old-style
-	TaskType            string                   `bson:"task_type" json:"task_type"`
-	Info                *Info                    `bson:"-" json:"-"` // this is just a pointer to the job.Info
-	Cmd                 *Command                 `bson:"cmd" json:"cmd"`
-	Partition           *PartInfo                `bson:"partinfo" json:"-"`
-	DependsOn           []string                 `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
-	TotalWork           int                      `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize         int                      `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork          int                      `bson:"remainwork" json:"remainwork"`
-	ResetTask           bool                     `bson:"resettask" json:"-"` // trigged by function - resume, recompute, resubmit
-	State               string                   `bson:"state" json:"state"`
-	CreatedDate         time.Time                `bson:"createdDate" json:"createddate"`
-	StartedDate         time.Time                `bson:"startedDate" json:"starteddate"`
-	CompletedDate       time.Time                `bson:"completedDate" json:"completeddate"`
-	ComputeTime         int                      `bson:"computetime" json:"computetime"`
-	UserAttr            map[string]interface{}   `bson:"userattr" json:"userattr"`
-	ClientGroups        string                   `bson:"clientgroups" json:"clientgroups"`
-	WorkflowStep        *cwl.WorkflowStep        `bson:"workflowStep" json:"workflowStep"`                          // CWL-only
-	StepOutputInterface interface{}              `bson:"stepOutput" json:"stepOutput"`                              // CWL-only
-	StepInput           *cwl.Job_document        `bson:"-" json:"-"`                                                // CWL-only
-	StepOutput          *cwl.Job_document        `bson:"-" json:"-"`                                                // CWL-only
-	Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task"`                          // CWL-only, indicates if this is a scatter_task TODO: compare with TaskType ?
-	Scatter_parent      *Task_Unique_Identifier  `bson:"scatter_parent" json:"scatter_parent"`                      // CWL-only, points to scatter parent
-	Children            []Task_Unique_Identifier `bson:"children" json:"children"`                                  // CWL-only, list of all children in a subworkflow task
-	Children_ptr        []*Task                  `bson:"-" json:"-"`                                                // CWL-only
-	Finalizing          bool                     `bson:"-" json:"-"`                                                // CWL-only, a lock mechanism for subworkflows and scatter tasks
-	CwlVersion          cwl.CWLVersion           `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty"` // CWL-only
+	Id                  string                   `bson:"taskid" json:"taskid" mapstructure:"taskid"` // old-style
+	TaskType            string                   `bson:"task_type" json:"task_type" mapstructure:"task_type"`
+	Info                *Info                    `bson:"-" json:"-" mapstructure:"-"` // this is just a pointer to the job.Info
+	Cmd                 *Command                 `bson:"cmd" json:"cmd" mapstructure:"cmd"`
+	Partition           *PartInfo                `bson:"partinfo" json:"-" mapstructure:"partinfo"`
+	DependsOn           []string                 `bson:"dependsOn" json:"dependsOn" mapstructure:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
+	TotalWork           int                      `bson:"totalwork" json:"totalwork" mapstructure:"totalwork"`
+	MaxWorkSize         int                      `bson:"maxworksize"   json:"maxworksize" mapstructure:"maxworksize"`
+	RemainWork          int                      `bson:"remainwork" json:"remainwork" mapstructure:"remainwork"`
+	ResetTask           bool                     `bson:"resettask" json:"-" mapstructure:"resettask"` // trigged by function - resume, recompute, resubmit
+	State               string                   `bson:"state" json:"state" mapstructure:"state"`
+	CreatedDate         time.Time                `bson:"createdDate" json:"createddate" mapstructure:"createdDate"`
+	StartedDate         time.Time                `bson:"startedDate" json:"starteddate" mapstructure:"startedDate"`
+	CompletedDate       time.Time                `bson:"completedDate" json:"completeddate" mapstructure:"completedDate"`
+	ComputeTime         int                      `bson:"computetime" json:"computetime" mapstructure:"computetime"`
+	UserAttr            map[string]interface{}   `bson:"userattr" json:"userattr" mapstructure:"userattr"`
+	ClientGroups        string                   `bson:"clientgroups" json:"clientgroups" mapstructure:"clientgroups"`
+	WorkflowStep        *cwl.WorkflowStep        `bson:"workflowStep" json:"workflowStep" mapstructure:"workflowStep"`                                  // CWL-only
+	StepOutputInterface interface{}              `bson:"stepOutput" json:"stepOutput" mapstructure:"stepOutput"`                                        // CWL-only
+	StepInput           *cwl.Job_document        `bson:"-" json:"-" mapstructure:"-"`                                                                   // CWL-only
+	StepOutput          *cwl.Job_document        `bson:"-" json:"-" mapstructure:"-"`                                                                   // CWL-only
+	Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task" mapstructure:"scatter_task"`                                  // CWL-only, indicates if this is a scatter_task TODO: compare with TaskType ?
+	Scatter_parent      *Task_Unique_Identifier  `bson:"scatter_parent" json:"scatter_parent" mapstructure:"scatter_parent"`                            // CWL-only, points to scatter parent
+	Children            []Task_Unique_Identifier `bson:"children" json:"children" mapstructure:"children"`                                              // CWL-only, list of all children in a subworkflow task
+	Children_ptr        []*Task                  `bson:"-" json:"-" mapstructure:"-"`                                                                   // CWL-only
+	Finalizing          bool                     `bson:"-" json:"-" mapstructure:"-"`                                                                   // CWL-only, a lock mechanism for subworkflows and scatter tasks
+	CwlVersion          cwl.CWLVersion           `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"` // CWL-only
+	WorkflowInstanceId  string                   `bson:"workflow_instance_id" json:"workflow_instance_id" mapstructure:"workflow_instance_id"`          // CWL-only
 }
 
 type Task struct {
-	TaskRaw `bson:",inline"`
-	Inputs  []*IO `bson:"inputs" json:"inputs"`
-	Outputs []*IO `bson:"outputs" json:"outputs"`
-	Predata []*IO `bson:"predata" json:"predata"`
+	TaskRaw `bson:",inline" mapstructure:",squash"`
+	Inputs  []*IO `bson:"inputs" json:"inputs" mapstructure:"inputs"`
+	Outputs []*IO `bson:"outputs" json:"outputs" mapstructure:"outputs"`
+	Predata []*IO `bson:"predata" json:"predata" mapstructure:"predata"`
 }
 
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
@@ -442,17 +445,12 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 	return
 }
 
-func NewTask(job *Job, workflow string, task_id string) (t *Task, err error) {
+func NewTask(job *Job, workflow_instance_id string, task_id string) (t *Task, err error) {
 
 	fmt.Printf("(NewTask) task_id: %s\n", task_id)
 
 	if job.Id == "" {
 		err = fmt.Errorf("(NewTask) jobid is empty!")
-		return
-	}
-
-	if strings.HasSuffix(workflow, "/") {
-		err = fmt.Errorf("Suffix not in workflow_ids ok %s", task_id)
 		return
 	}
 
@@ -462,10 +460,10 @@ func NewTask(job *Job, workflow string, task_id string) (t *Task, err error) {
 	}
 
 	task_id = strings.TrimSuffix(task_id, "/")
-	workflow = strings.TrimSuffix(workflow, "/")
+	//workflow = strings.TrimSuffix(workflow, "/")
 
 	var tui Task_Unique_Identifier
-	tui, err = New_Task_Unique_Identifier(job.Id, workflow, task_id)
+	tui, err = New_Task_Unique_Identifier(job.Id, workflow_instance_id, task_id)
 	if err != nil {
 		return
 	}
@@ -482,6 +480,7 @@ func NewTask(job *Job, workflow string, task_id string) (t *Task, err error) {
 		Outputs: []*IO{},
 		Predata: []*IO{},
 	}
+	t.TaskRaw.WorkflowInstanceId = workflow_instance_id
 	return
 }
 
@@ -529,7 +528,7 @@ func (task *TaskRaw) SetChildren(qm *ServerMgr, children []Task_Unique_Identifie
 		defer task.Unlock()
 	}
 
-	err = dbUpdateJobTaskField(task.JobId, task.Id, "children", children)
+	err = dbUpdateJobTaskField(task.JobId, task.WorkflowInstanceId, task.Id, "children", children)
 	if err != nil {
 		err = fmt.Errorf("(SetChildren) dbUpdateJobTaskField returned: %s", err.Error())
 		return
@@ -609,8 +608,9 @@ func (task *Task) SetTaskType(type_str string, writelock bool) (err error) {
 		}
 		defer task.Unlock()
 	}
-	err = dbUpdateJobTaskString(task.JobId, task.Id, "task_type", type_str)
+	err = dbUpdateJobTaskString(task.JobId, task.WorkflowInstanceId, task.Id, "task_type", type_str)
 	if err != nil {
+		err = fmt.Errorf("(task/SetState) dbUpdateJobTaskString returned: %s", err.Error())
 		return
 	}
 	task.TaskType = type_str
@@ -624,7 +624,7 @@ func (task *TaskRaw) SetCreatedDate(t time.Time) (err error) {
 	}
 	defer task.Unlock()
 
-	err = dbUpdateJobTaskTime(task.JobId, task.Id, "createdDate", t)
+	err = dbUpdateJobTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "createdDate", t)
 	if err != nil {
 		return
 	}
@@ -639,7 +639,7 @@ func (task *TaskRaw) SetStartedDate(t time.Time) (err error) {
 	}
 	defer task.Unlock()
 
-	err = dbUpdateJobTaskTime(task.JobId, task.Id, "startedDate", t)
+	err = dbUpdateJobTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "startedDate", t)
 	if err != nil {
 		return
 	}
@@ -656,7 +656,7 @@ func (task *TaskRaw) SetCompletedDate(t time.Time, lock bool) (err error) {
 		defer task.Unlock()
 	}
 
-	err = dbUpdateJobTaskTime(task.JobId, task.Id, "completedDate", t)
+	err = dbUpdateJobTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "completedDate", t)
 	if err != nil {
 		return
 	}
@@ -673,7 +673,7 @@ func (task *TaskRaw) SetStepOutput(jd *cwl.Job_document, lock bool) (err error) 
 		defer task.Unlock()
 	}
 
-	err = dbUpdateJobTaskField(task.JobId, task.Id, "stepOutput", *jd)
+	err = dbUpdateJobTaskField(task.JobId, task.WorkflowInstanceId, task.Id, "stepOutput", *jd)
 	if err != nil {
 		return
 	}
@@ -739,8 +739,9 @@ func (task *TaskRaw) SetState(new_state string, write_lock bool) (err error) {
 		return
 	}
 
-	err = dbUpdateJobTaskString(jobid, taskid, "state", new_state)
+	err = dbUpdateJobTaskString(jobid, task.WorkflowInstanceId, taskid, "state", new_state)
 	if err != nil {
+		err = fmt.Errorf("(TaskRaw/SetState) dbUpdateJobTaskString returned: %s", err.Error())
 		return
 	}
 
@@ -961,7 +962,7 @@ func (task *Task) setTotalWork(num int, writelock bool) (err error) {
 		}
 		defer task.Unlock()
 	}
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "totalwork", num)
+	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "totalwork", num)
 	if err != nil {
 		return
 	}
@@ -979,7 +980,7 @@ func (task *Task) setPartition(partition *PartInfo, writelock bool) (err error) 
 		}
 		defer task.Unlock()
 	}
-	err = dbUpdateJobTaskPartition(task.JobId, task.Id, partition)
+	err = dbUpdateJobTaskPartition(task.JobId, task.WorkflowInstanceId, task.Id, partition)
 	if err != nil {
 		return
 	}
@@ -995,7 +996,7 @@ func (task *Task) setMaxWorkSize(num int, writelock bool) (err error) {
 		}
 		defer task.Unlock()
 	}
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "maxworksize", num)
+	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "maxworksize", num)
 	if err != nil {
 		return
 	}
@@ -1011,7 +1012,7 @@ func (task *Task) SetRemainWork(num int, writelock bool) (err error) {
 		}
 		defer task.Unlock()
 	}
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "remainwork", num)
+	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "remainwork", num)
 	if err != nil {
 		return
 	}
@@ -1029,7 +1030,7 @@ func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, 
 	}
 
 	remainwork = task.RemainWork + inc
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "remainwork", remainwork)
+	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "remainwork", remainwork)
 	if err != nil {
 		return
 	}
@@ -1045,7 +1046,7 @@ func (task *Task) IncrementComputeTime(inc int) (err error) {
 	defer task.Unlock()
 
 	newComputeTime := task.ComputeTime + inc
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "computetime", newComputeTime)
+	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "computetime", newComputeTime)
 	if err != nil {
 		return
 	}
@@ -1067,7 +1068,7 @@ func (task *Task) ResetTaskTrue(name string) (err error) {
 	if err != nil {
 		return
 	}
-	err = dbUpdateJobTaskBoolean(task.JobId, task.Id, "resettask", true)
+	err = dbUpdateJobTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", true)
 	if err != nil {
 		return
 	}
@@ -1098,7 +1099,7 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 	}
 
 	// reset computetime
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "computetime", 0)
+	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "computetime", 0)
 	if err != nil {
 		return
 	}
@@ -1117,7 +1118,7 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 		io.Size = 0
 		io.Url = ""
 	}
-	err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
+	err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
 	if err != nil {
 		return
 	}
@@ -1143,7 +1144,7 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 		io.Size = 0
 		io.Url = ""
 	}
-	err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
+	err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
 	if err != nil {
 		return
 	}
@@ -1157,7 +1158,7 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 	}
 
 	// reset the reset
-	err = dbUpdateJobTaskBoolean(task.JobId, task.Id, "resettask", false)
+	err = dbUpdateJobTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
 	if err != nil {
 		return
 	}
@@ -1189,7 +1190,7 @@ func (task *Task) setTokenForIO(writelock bool) (err error) {
 		}
 	}
 	if changed {
-		err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
+		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
 		if err != nil {
 			return
 		}
@@ -1203,7 +1204,7 @@ func (task *Task) setTokenForIO(writelock bool) (err error) {
 		}
 	}
 	if changed {
-		err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
+		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
 	}
 	return
 }
@@ -1432,7 +1433,7 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (err error) {
 		logger.Debug(3, "(ValidateInputs) input located: task=%s, file=%s, node=%s, size=%d", task.Id, io.FileName, io.Node, io.Size)
 	}
 
-	err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
+	err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
 	if err != nil {
 		err = fmt.Errorf("(ValidateInputs) unable to save task inputs to mongodb, task=%s: %s", task.Id, err.Error())
 		return
@@ -1474,7 +1475,7 @@ func (task *Task) ValidateOutputs() (err error) {
 		}
 	}
 
-	err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
+	err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
 	if err != nil {
 		err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
 	}
@@ -1515,7 +1516,7 @@ func (task *Task) ValidatePredata() (err error) {
 	}
 
 	if modified {
-		err = dbUpdateJobTaskIO(task.JobId, task.Id, "predata", task.Predata)
+		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "predata", task.Predata)
 		if err != nil {
 			err = fmt.Errorf("unable to save task predata to mongodb, task=%s: %s", task.Id, err.Error())
 		}
@@ -1618,5 +1619,52 @@ func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, err erro
 
 	}
 	ok = false
+	return
+}
+
+func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (task *Task, err error) {
+
+	task = &Task{}
+	task.TaskRaw = TaskRaw{}
+
+	err = mapstructure.Decode(original, task)
+	if err != nil {
+		err = fmt.Errorf("(NewTaskFromInterface) %s", err.Error())
+		return
+	}
+
+	if task.WorkflowInstanceId == "" {
+		err = fmt.Errorf("(NewTaskFromInterface) task.WorkflowInstanceId == empty")
+		return
+	}
+
+	return
+}
+
+func NewTasksFromInterface(original interface{}, context *cwl.WorkflowContext) (tasks []*Task, err error) {
+
+	switch original.(type) {
+	case []interface{}:
+		original_array := original.([]interface{})
+
+		tasks = []*Task{}
+
+		for i, _ := range original_array {
+
+			var t *Task
+			t, err = NewTaskFromInterface(original_array[i], context)
+			if err != nil {
+				err = fmt.Errorf("(NewTasksFromInterface) NewTaskFromInterface returned: %s", err.Error())
+				return
+			}
+
+			tasks = append(tasks, t)
+
+		}
+
+	default:
+		err = fmt.Errorf("(NewTasksFromInterface) type not supported: %s", reflect.TypeOf(original))
+	}
+
 	return
 }

@@ -122,6 +122,7 @@ func workStealerRun(control chan int, retry_previous int) (retry int, err error)
 	// make sure cwl-runner is invoked
 	if workunit.CWL_workunit != nil {
 		workunit.Cmd.Name = "/usr/bin/cwl-runner"
+		// "--provenance", "cwl_tool_provenance",
 		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", "./cwl_tool.yaml", "./cwl_job_input.yaml"}
 
 	}

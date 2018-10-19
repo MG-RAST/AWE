@@ -11,6 +11,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
+// global object for each job submission
 type WorkflowContext struct {
 	CWL_document `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // fields: CwlVersion, Base, Graph, Namespaces, Schemas (all interface-based !)
 	Path         string

@@ -155,7 +155,7 @@ func heartbeating(host string, clientid string) (msg core.HeartbeatInstructions,
 		err = fmt.Errorf("(heartbeating) httpclient.Put failed: %s", err.Error())
 		return
 	}
-	logger.Debug(3, fmt.Sprintf("client %s sent a heartbeat to %s", host, clientid))
+	logger.Debug(3, "client %s sent a heartbeat to %s", clientid, host)
 
 	defer res.Body.Close()
 

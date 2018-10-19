@@ -143,7 +143,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, co
 	return
 }
 
-func CreateTasks(job *Job, workflow string, steps []cwl.WorkflowStep) (tasks []*Task, err error) {
+func CreateWorkflowTasks(job *Job, workflow_instance_id string, steps []cwl.WorkflowStep, step_prefix string) (tasks []*Task, err error) {
 	tasks = []*Task{}
 
 	for s, _ := range steps {
@@ -154,20 +154,27 @@ func CreateTasks(job *Job, workflow string, steps []cwl.WorkflowStep) (tasks []*
 			err = fmt.Errorf("Workflow step name does not start with a #: %s", step.Id)
 			return
 		}
-		task_name := strings.TrimSuffix(step.Id, "/")
 
-		if task_name == "" {
-			err = fmt.Errorf("(CreateTasks) step_id is empty")
-			return
-		}
+		fmt.Println("step.Id: " + step.Id)
+
+		// remove prefix
+		task_name := strings.TrimPrefix(step.Id, step_prefix)
+		task_name = strings.TrimSuffix(task_name, "/")
+		task_name = strings.TrimPrefix(task_name, "/")
+
+		fmt.Println("task_name1: " + task_name)
+		fmt.Println("workflow_instance_id: " + workflow_instance_id)
+
+		//task_name = workflow + "/" + task_name // e.g. "_main" / "step1"
+		fmt.Println("new task name will be: " + workflow_instance_id + "/" + task_name)
 
 		//task_name := strings.TrimPrefix(step.Id, "#main/")
 		//task_name = strings.TrimPrefix(task_name, "#")
 
-		fmt.Printf("(CreateTasks) creating task: %s\n", task_name)
+		fmt.Printf("(CreateTasks) creating task: %s %s\n", workflow_instance_id, task_name)
 
 		var awe_task *Task
-		awe_task, err = NewTask(job, workflow, task_name)
+		awe_task, err = NewTask(job, workflow_instance_id, task_name)
 		if err != nil {
 			err = fmt.Errorf("(CreateTasks) NewTask returned: %s", err.Error())
 			return
@@ -240,22 +247,30 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	// TODO first check that all resources are available: local files and remote links
 
-	main_wi := WorkflowInstance{Id: "::main::", Inputs: *job_input_new, RemainTasks: len(cwl_workflow.Steps)}
+	wi := NewWorkflowInstance("_main", cwl_workflow.Id, *job_input_new, len(cwl_workflow.Steps)) // Not using AddWorkflowInstance to avoid mongo
+
 	//new_wis := []WorkflowInstance{main_wi} // Not using AddWorkflowInstance to avoid mongo
-	job.WorkflowInstances = make([]interface{}, 1)
-	job.WorkflowInstances[0] = main_wi
+	//job.WorkflowInstances = make([]interface{}, 1)
+	job.WorkflowInstancesMap["_main"] = wi
 
 	//if err != nil {
 	//	return
 	//}
 
 	var tasks []*Task
-	tasks, err = CreateTasks(job, "", cwl_workflow.Steps)
+	tasks, err = CreateWorkflowTasks(job, "_main", cwl_workflow.Steps, cwl_workflow.Id)
 	if err != nil {
+		err = fmt.Errorf("(CWL2AWE) CreateWorkflowTasks returned: %s", err.Error())
 		return
 	}
 
-	job.Tasks = tasks
+	if len(tasks) == 0 {
+		err = fmt.Errorf("(CWL2AWE) no tasks ?")
+		return
+	}
+
+	//job.Tasks = tasks
+	wi.Tasks = tasks
 
 	_, err = job.Init()
 

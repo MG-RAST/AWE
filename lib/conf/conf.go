@@ -27,6 +27,7 @@ const DB_COLL_JOBS string = "Jobs"
 const DB_COLL_PERF string = "Perf"
 const DB_COLL_CGS string = "ClientGroups"
 const DB_COLL_USERS string = "Users"
+const DB_COLL_SUBWORKFLOWS string = "SubWorkflows"
 
 //prefix for site login
 const LOGIN_PREFIX string = "go4711"

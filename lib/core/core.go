@@ -22,13 +22,14 @@ import (
 )
 
 var (
-	QMgr          ResourceMgr
-	Service       string = "unknown"
-	Self          *Client
-	ProxyWorkChan chan bool
-	Server_UUID   string
-	JM            *JobMap
-	Start_time    time.Time
+	QMgr                      ResourceMgr
+	Service                   string = "unknown"
+	Self                      *Client
+	ProxyWorkChan             chan bool
+	Server_UUID               string
+	JM                        *JobMap
+	GlobalWorkflowInstanceMap *WorkflowInstanceMap
+	Start_time                time.Time
 )
 
 type BaseResponse struct {

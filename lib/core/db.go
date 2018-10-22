@@ -53,7 +53,8 @@ func InitJobDB() {
 	cp.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
 
 	cw := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
-	cw.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true})
+	//cw.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true}) not needed, already got _id
+	cw.EnsureIndex(mgo.Index{Key: []string{"job_id"}, Unique: false})
 }
 
 func InitClientGroupDB() {
@@ -89,7 +90,8 @@ func dbUpsert(t interface{}) (err error) {
 	case *WorkflowInstance:
 		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
 		var info *mgo.ChangeInfo
-		info, err = c.Upsert(bson.M{"id": t.Id}, &t)
+		info, err = c.Upsert(bson.M{"_id": t._Id}, &t)
+		//info, err = c.Upsert(bson.M{"id": t.Id}, &t)
 
 		fmt.Println("dbUpsert: info")
 		spew.Dump(info)
@@ -785,6 +787,7 @@ func LoadJob(id string) (job *Job, err error) {
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 
+	// A) get job document
 	err = c.Find(bson.M{"id": id}).One(&job)
 	if err != nil {
 		job = nil
@@ -792,14 +795,56 @@ func LoadJob(id string) (job *Job, err error) {
 		return
 	}
 
-	changed, xerr := job.Init() // values have already been set at this point...
+	// B) get WorkflowInstances
+	if job.IsCWL {
+		wis := []*WorkflowInstance{}
+
+		err = c.Find(bson.M{"jobid": id}).All(&wis)
+		if err != nil {
+			job = nil
+			err = fmt.Errorf("(LoadJob) c.Find failed: %s", err.Error())
+			return
+		}
+
+		if len(wis) == 0 {
+			err = fmt.Errorf("(LoadJob) no matching WorkflowInstances found")
+			return
+		}
+
+		for i, _ := range wis {
+			var wi_changed bool
+			wi := wis[i]
+			wi_changed, err = wi.Init(job)
+			if err != nil {
+				err = fmt.Errorf("(LoadJob) wis[i].Init returned: %s", err.Error())
+				return
+			}
+			if wi_changed {
+				err = wi.Save()
+				if err != nil {
+					err = fmt.Errorf("(LoadJob) wi.Save() returned: %s", err.Error())
+					return
+				}
+			}
+			// add WorkflowInstance to job
+			job.WorkflowInstancesMap[wi.Id] = wi
+			// add WorkflowInstance to global*
+			err = GlobalWorkflowInstanceMap.Add(wi)
+			if err != nil {
+				err = fmt.Errorf("(LoadJob) GlobalWorkflowInstanceMap returned: %s", err.Error())
+				return
+			}
+		}
+	}
+	// continue A, initialize
+	job_changed, xerr := job.Init() // values have already been set at this point...
 	if xerr != nil {
 		err = fmt.Errorf("(LoadJob) job.Init failed: %s", xerr.Error())
 		return
 	}
 
 	// To fix incomplete or inconsistent database entries
-	if changed {
+	if job_changed {
 		job.Save()
 	}
 

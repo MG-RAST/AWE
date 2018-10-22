@@ -247,15 +247,24 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	// TODO first check that all resources are available: local files and remote links
 
-	wi := NewWorkflowInstance("_main", cwl_workflow.Id, *job_input_new, len(cwl_workflow.Steps)) // Not using AddWorkflowInstance to avoid mongo
+	var wi *WorkflowInstance
+	wi, err = NewWorkflowInstance("_main", job.Id, cwl_workflow.Id, *job_input_new, len(cwl_workflow.Steps), job) // Not using AddWorkflowInstance to avoid mongo
+	if err != nil {
+		err = fmt.Errorf("(CWL2AWE) NewWorkflowInstancereturned: %s", err.Error())
+		return
+	}
 
 	//new_wis := []WorkflowInstance{main_wi} // Not using AddWorkflowInstance to avoid mongo
 	//job.WorkflowInstances = make([]interface{}, 1)
+	if job.WorkflowInstancesMap == nil {
+		job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
+	}
 	job.WorkflowInstancesMap["_main"] = wi
-
-	//if err != nil {
-	//	return
-	//}
+	err = wi.Save()
+	if err != nil {
+		err = fmt.Errorf("(CWL2AWE) wi.Save returned: %s", err.Error())
+		return
+	}
 
 	var tasks []*Task
 	tasks, err = CreateWorkflowTasks(job, "_main", cwl_workflow.Steps, cwl_workflow.Id)

@@ -11,8 +11,10 @@ import (
 
 // Object for each subworkflow
 type WorkflowInstance struct {
-	RWMutex
-	Id                  string           `bson:"id" json:"id" mapstructure:"id"`                                                    // this is unique identifier for the workflow instance
+	RWMutex             `bson:"-" json:"-" mapstructure:"-"`
+	Id                  string           `bson:"id" json:"id" mapstructure:"id"`
+	_Id                 string           `bson:"_id" json:"_id" mapstructure:"_id"`                                                 // unique identifier for mongo, includes jobid !
+	JobId               string           `bson:"job_id" json:"job_id" mapstructure:"job_id"`                                        // this is unique identifier for the workflow instance
 	Workflow_Definition string           `bson:"workflow_definition" json:"workflow_definition" mapstructure:"workflow_definition"` // name of the workflow this instance is derived from
 	Inputs              cwl.Job_document `bson:"inputs" json:"inputs" mapstructure:"inputs"`
 	Outputs             cwl.Job_document `bson:"outputs" json:"outputs" mapstructure:"outputs"`
@@ -20,11 +22,21 @@ type WorkflowInstance struct {
 	RemainTasks         int              `bson:"remaintasks" json:"remaintasks" mapstructure:"remaintasks"`
 }
 
-func NewWorkflowInstance(id string, workflow_definition string, inputs cwl.Job_document, remain_tasks int) *WorkflowInstance {
-	return &WorkflowInstance{Id: id, Workflow_Definition: workflow_definition, Inputs: inputs, RemainTasks: remain_tasks}
+func NewWorkflowInstance(id string, jobid string, workflow_definition string, inputs cwl.Job_document, remain_tasks int, job *Job) (wi *WorkflowInstance, err error) {
+
+	wi = &WorkflowInstance{Id: id, JobId: jobid, Workflow_Definition: workflow_definition, Inputs: inputs, RemainTasks: remain_tasks}
+
+	wi._Id = jobid + id
+	_, err = wi.Init(job)
+	if err != nil {
+		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) wi.Init returned: %s", err.Error())
+		return
+	}
+
+	return
 }
 
-func NewWorkflowInstanceFromInterface(original interface{}, context *cwl.WorkflowContext) (wi WorkflowInstance, err error) {
+func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *cwl.WorkflowContext) (wi WorkflowInstance, err error) {
 	original, err = cwl.MakeStringMap(original, context)
 	if err != nil {
 		return
@@ -40,6 +52,11 @@ func NewWorkflowInstanceFromInterface(original interface{}, context *cwl.Workflo
 		}
 
 		wi = WorkflowInstance{}
+		_, err = wi.Init(job)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) wi.Init returned: %s", err.Error())
+			return
+		}
 
 		remaintasks_if, has_remaintasks := original_map["remaintasks"]
 		if !has_remaintasks {
@@ -154,6 +171,12 @@ func NewWorkflowInstanceFromInterface(original interface{}, context *cwl.Workflo
 		}
 
 		wi = *wi_ptr
+
+		_, err = wi.Init(job)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) wi.Init returned: %s", err.Error())
+			return
+		}
 
 	default:
 		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) type unknown, %s", reflect.TypeOf(original))

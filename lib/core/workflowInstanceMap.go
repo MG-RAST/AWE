@@ -5,6 +5,14 @@ type WorkflowInstanceMap struct {
 	Map map[string]*WorkflowInstance
 }
 
+func NewWorkflowInstancesMap() (wim *WorkflowInstanceMap) {
+
+	wim = &WorkflowInstanceMap{}
+	wim.RWMutex.Init("WorkflowInstancesMap")
+	wim.Map = make(map[string]*WorkflowInstance)
+	return
+}
+
 func (wim *WorkflowInstanceMap) Add(workflow_instance *WorkflowInstance) (err error) {
 	err = wim.LockNamed("WorkflowInstanceMap/Add")
 	if err != nil {
@@ -12,7 +20,7 @@ func (wim *WorkflowInstanceMap) Add(workflow_instance *WorkflowInstance) (err er
 	}
 	defer wim.Unlock()
 
-	wim.Map[workflow_instance.Id] = workflow_instance
+	wim.Map[workflow_instance._Id] = workflow_instance
 	return
 }
 

@@ -112,10 +112,14 @@ func (job *Job) AddWorkflowInstance(id string, workflow_defintion_id string, inp
 		id = "_main"
 	}
 
-	wi = NewWorkflowInstance(id, workflow_defintion_id, inputs, remain_tasks)
-	err = wi.Save()
+	wi, err = NewWorkflowInstance(id, job.Id, workflow_defintion_id, inputs, remain_tasks, job)
 	if err != nil {
 		err = fmt.Errorf("(AddWorkflowInstance) NewWorkflowInstance returned: %s", err.Error())
+		return
+	}
+	err = wi.Save()
+	if err != nil {
+		err = fmt.Errorf("(AddWorkflowInstance) wi.Save returned: %s", err.Error())
 		return
 	}
 
@@ -473,60 +477,6 @@ func (job *Job) Init() (changed bool, err error) {
 	//var workflow *cwl.Workflow
 
 	if job.IsCWL {
-
-		//collection := cwl.NewCWL_collection()
-
-		//var schemata_new []CWLType_Type
-		//named_object_array, schemata_new, xerr := cwl.NewNamed_CWL_object_array(job.WorkflowContext.Graph, job.WorkflowContext)
-		//if xerr != nil {
-		//	err = fmt.Errorf("(job.Init) cannot type assert CWL_graph: %s", xerr.Error())
-		//	return
-		//}
-
-		//err = context.AddArray(named_object_array)
-		////err = cwl.Add_to_collection(&collection, object_array)
-		//if err != nil {
-		//	fmt.Errorf("(job.Init) collection.AddArray returned: %s", err.Error())
-		//	return
-		//}
-
-		//err = context.AddSchemata(schemata_new)
-		//if err != nil {
-		//	err = fmt.Errorf("(job.Init) AddSchemata returned: %s", err.Error())
-		//	return
-		//}
-
-		// if job.WorkflowInstances != nil {
-
-		// 	if len(job.WorkflowInstances) != len(job.WorkflowInstancesMap) {
-
-		// 		if job.WorkflowInstancesMap == nil {
-		// 			job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
-		// 		}
-
-		// 		for i, _ := range job.WorkflowInstances {
-		// 			wi_int := job.WorkflowInstances[i]
-		// 			var wi WorkflowInstance
-		// 			wi, err = NewWorkflowInstanceFromInterface(wi_int, context)
-		// 			if err != nil {
-		// 				err = fmt.Errorf("(job.Init) NewWorkflowInstanceFromInterface returned: %s", err.Error())
-		// 				return
-		// 			}
-		// 			job.WorkflowInstancesMap[wi.Id] = &wi
-		// 		}
-
-		// 		changed = true
-		// 	}
-
-		// 	var wi_changed bool
-		// 	for _, wi := range job.WorkflowInstancesMap {
-		// 		wi_changed, err = wi.Init(job)
-		// 		if wi_changed {
-		// 			changed = true
-		// 		}
-		// 	}
-
-		// }
 
 		var main_input *WorkflowInstance
 		var ok bool

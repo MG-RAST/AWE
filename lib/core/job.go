@@ -95,7 +95,7 @@ func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
 	return
 }
 
-func (job *Job) AddWorkflowInstance(id string, workflow_defintion_id string, inputs cwl.Job_document, remain_tasks int) (wi *WorkflowInstance, err error) {
+func (job *Job) AddWorkflowInstance(id string, workflow_defintion_id string, inputs cwl.Job_document, remain_tasks int, tasks []*Task) (wi *WorkflowInstance, err error) {
 	fmt.Printf("(AddWorkflowInstance) id: %s\n", id)
 	err = job.LockNamed("AddWorkflowInstance")
 	if err != nil {
@@ -117,7 +117,10 @@ func (job *Job) AddWorkflowInstance(id string, workflow_defintion_id string, inp
 		err = fmt.Errorf("(AddWorkflowInstance) NewWorkflowInstance returned: %s", err.Error())
 		return
 	}
-	err = wi.Save()
+
+	wi.Tasks = tasks
+
+	err = wi.Save(true)
 	if err != nil {
 		err = fmt.Errorf("(AddWorkflowInstance) wi.Save returned: %s", err.Error())
 		return
@@ -229,64 +232,6 @@ func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowI
 
 // 	return
 // }
-
-func (job *Job) Decrease_WorkflowInstance_RemainTasks(id string, task_str string) (remain_tasks int, err error) {
-	err = job.LockNamed("Decrease_WorkflowInstance_RemainTasks")
-	if err != nil {
-		return
-	}
-	defer job.Unlock()
-
-	if id == "" {
-		id = "_main"
-	}
-
-	var workflow_instance *WorkflowInstance
-	var ok bool
-	workflow_instance, ok, err = job.GetWorkflowInstance(id, false)
-	if err != nil {
-		fmt.Printf("ERROR: (Decrease_WorkflowInstance_RemainTasks) job.GetWorkflowInstance returned: %s\n", err.Error())
-		err = fmt.Errorf("(Decrease_WorkflowInstance_RemainTasks) job.GetWorkflowInstance returned: %s", err.Error())
-		return
-	}
-	if !ok {
-		err = fmt.Errorf("(Decrease_WorkflowInstance_RemainTasks) WorkflowInstance not found: %s", id)
-		return
-	}
-	logger.Debug(3, "(Decrease_WorkflowInstance_RemainTasks) old workflow_instance.RemainTasks: %d (%s)", workflow_instance.RemainTasks, task_str)
-
-	remain_tasks = workflow_instance.RemainTasks - 1
-	if remain_tasks < 0 {
-		err = fmt.Errorf("(Decrease_WorkflowInstance_RemainTasks) new remain_tasks has invalid value (workflow_instance.RemainTasks: %d, new remain_tasks: %d)", workflow_instance.RemainTasks, remain_tasks)
-		return
-	}
-	logger.Debug(3, "(Decrease_WorkflowInstance_RemainTasks) remain_tasks: %d", remain_tasks)
-
-	err = dbUpdateJobWorkflow_instancesFieldInt(job.Id, id, "remaintasks", remain_tasks)
-	if err != nil {
-		fmt.Printf("ERROR: (Decrease_WorkflowInstance_RemainTasks) dbUpdateJobWorkflow_instancesFieldInt returned: %s\n", err.Error())
-		err = fmt.Errorf("(Decrease_WorkflowInstance_RemainTasks) dbUpdateJobWorkflow_instancesFieldInt returned: %s", err.Error())
-		return
-	}
-
-	// this is just to confirm the value was written TODO remove this
-	var remain_tasks_mongo int
-	remain_tasks_mongo, err = dbGetJobWorkflow_InstanceInt(job.Id, id, "remaintasks")
-	if err != nil {
-		err = fmt.Errorf("(Decrease_WorkflowInstance_RemainTasks) dbGetJobWorkflow_InstanceInt returned: %s", err.Error())
-		return
-	}
-
-	if remain_tasks_mongo != remain_tasks {
-		err = fmt.Errorf("(Decrease_WorkflowInstance_RemainTasks) mongo value wrong: remain_tasks_mongo: %d  , remain_tasks: %d", remain_tasks_mongo, remain_tasks)
-		panic(err.Error())
-		return
-	}
-
-	workflow_instance.RemainTasks = remain_tasks
-
-	return
-}
 
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
 // Jobs that cannot be parsed into the Job struct, but can be parsed into the JobDep struct will be translated to the new Job struct.
@@ -478,18 +423,18 @@ func (job *Job) Init() (changed bool, err error) {
 
 	if job.IsCWL {
 
-		var main_input *WorkflowInstance
-		var ok bool
-		main_input, ok, err = job.GetWorkflowInstance("_main", true) //job.WorkflowInstancesMap["#main"]
-		if err != nil {
-			err = fmt.Errorf("(job.Init) workflow instance _main not found %s", err.Error())
-			return
-		}
+		//var main_input *WorkflowInstance
+		//var ok bool
+		//main_input, ok, err = job.GetWorkflowInstance("_main", true) //job.WorkflowInstancesMap["#main"]
+		//if err != nil {
+		//	err = fmt.Errorf("(job.Init) workflow instance _main not found %s", err.Error())
+		//	return
+		//}
 
-		if !ok {
-			err = fmt.Errorf("(job.Init) WorkflowInstance not found: _main")
-			return
-		}
+		//if !ok {
+		//	err = fmt.Errorf("(job.Init) WorkflowInstance not found: _main")
+		//	return
+		//}
 
 		//main_input, xerr := cwl.NewJob_documentFromNamedTypes(job.CWL_job_input)
 
@@ -503,9 +448,9 @@ func (job *Job) Init() (changed bool, err error) {
 		//fmt.Println("(job.Init) job:")
 		//spew.Dump(job)
 
-		main_input_map := main_input.Inputs.GetMap()
+		//main_input_map := main_input.Inputs.GetMap()
 
-		context.Job_input_map = &main_input_map
+		//context.Job_input_map = &main_input_map
 
 		entrypoint := job.Entrypoint
 		cwl_workflow, ok := context.Workflows[entrypoint]
@@ -755,7 +700,7 @@ func (job *Job) NumTask() int {
 }
 
 func (job *Job) AddTask(task *Task) (err error) {
-	err = job.LockNamed("AddTask")
+	err = job.LockNamed("job/AddTask")
 	if err != nil {
 		return
 	}

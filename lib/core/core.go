@@ -44,8 +44,10 @@ type StandardResponse struct {
 }
 
 func InitResMgr(service string) {
+
 	if service == "server" {
 		QMgr = NewServerMgr()
+		GlobalWorkflowInstanceMap = NewWorkflowInstancesMap()
 	} else if service == "proxy" {
 		//QMgr = NewProxyMgr()
 	}

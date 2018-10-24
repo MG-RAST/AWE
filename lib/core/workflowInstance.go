@@ -7,6 +7,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/mitchellh/mapstructure"
 )
 
 // Object for each subworkflow
@@ -24,19 +25,24 @@ type WorkflowInstance struct {
 
 func NewWorkflowInstance(id string, jobid string, workflow_definition string, inputs cwl.Job_document, remain_tasks int, job *Job) (wi *WorkflowInstance, err error) {
 
+	if jobid == "" {
+		err = fmt.Errorf("(NewWorkflowInstance) jobid == \"\"")
+		return
+	}
+
 	wi = &WorkflowInstance{Id: id, JobId: jobid, Workflow_Definition: workflow_definition, Inputs: inputs, RemainTasks: remain_tasks}
 
 	wi._Id = jobid + id
 	_, err = wi.Init(job)
 	if err != nil {
-		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) wi.Init returned: %s", err.Error())
+		err = fmt.Errorf("(NewWorkflowInstance) wi.Init returned: %s", err.Error())
 		return
 	}
 
 	return
 }
 
-func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *cwl.WorkflowContext) (wi WorkflowInstance, err error) {
+func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *cwl.WorkflowContext) (wi *WorkflowInstance, err error) {
 	original, err = cwl.MakeStringMap(original, context)
 	if err != nil {
 		return
@@ -51,90 +57,80 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 			return
 		}
 
-		wi = WorkflowInstance{}
-		_, err = wi.Init(job)
-		if err != nil {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) wi.Init returned: %s", err.Error())
-			return
-		}
+		// remaintasks_if, has_remaintasks := original_map["remaintasks"]
+		// if !has_remaintasks {
+		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) remaintasks is missing")
+		// 	return
+		// }
 
-		remaintasks_if, has_remaintasks := original_map["remaintasks"]
-		if !has_remaintasks {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) remaintasks is missing")
-			return
-		}
+		// var remaintasks_int int
+		// remaintasks_int, ok = remaintasks_if.(int)
+		// if !ok {
 
-		var remaintasks_int int
-		remaintasks_int, ok = remaintasks_if.(int)
-		if !ok {
+		// 	var remaintasks_float64 float64
+		// 	remaintasks_float64, ok = remaintasks_if.(float64)
+		// 	if ok {
+		// 		remaintasks_int = int(remaintasks_float64)
 
-			var remaintasks_float64 float64
-			remaintasks_float64, ok = remaintasks_if.(float64)
-			if ok {
-				remaintasks_int = int(remaintasks_float64)
+		// 	} else {
+		// 		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) remaintasks is not int (%s)", reflect.TypeOf(remaintasks_if))
+		// 		return
+		// 	}
+		// }
 
-			} else {
-				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) remaintasks is not int (%s)", reflect.TypeOf(remaintasks_if))
-				return
-			}
-		}
+		// wi.RemainTasks = remaintasks_int
 
-		wi.RemainTasks = remaintasks_int
+		// id_if, has_id := original_map["id"]
+		// if !has_id {
+		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id is missing")
+		// 	return
+		// }
 
-		id_if, has_id := original_map["id"]
-		if !has_id {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id is missing")
-			return
-		}
+		// var id_str string
+		// id_str, ok = id_if.(string)
+		// if !ok {
+		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id is not string")
+		// 	return
+		// }
+		// if id_str == "" {
+		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id string is empty")
+		// 	return
+		// }
 
-		var id_str string
-		id_str, ok = id_if.(string)
-		if !ok {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id is not string")
-			return
-		}
-		if id_str == "" {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id string is empty")
-			return
-		}
+		// wi.Id = id_str
 
-		wi.Id = id_str
+		// wd_if, has_wd := original_map["workflow_definition"]
+		// if !has_wd {
+		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) workflow_definition is missing")
+		// 	return
+		// }
 
-		wd_if, has_wd := original_map["workflow_definition"]
-		if !has_wd {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) workflow_definition is missing")
-			return
-		}
+		// var wd_str string
+		// wd_str, ok = wd_if.(string)
+		// if !ok {
+		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) workflow_definition is not string")
+		// 	return
+		// }
+		// if wd_str == "" {
+		// 	spew.Dump(original)
+		// 	panic("done")
+		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) workflow_definition string is empty")
+		// 	return
+		// }
 
-		var wd_str string
-		wd_str, ok = wd_if.(string)
-		if !ok {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) workflow_definition is not string")
-			return
-		}
-		if wd_str == "" {
-			spew.Dump(original)
-			panic("done")
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) workflow_definition string is empty")
-			return
-		}
-
-		wi.Workflow_Definition = wd_str
+		//wi.Workflow_Definition = wd_str
 
 		inputs_if, has_inputs := original_map["inputs"]
-		if !has_inputs {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) inputs missing")
-			return
-		}
+		if has_inputs {
+			var inputs *cwl.Job_document
+			inputs, err = cwl.NewJob_documentFromNamedTypes(inputs_if, context)
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) (for inputs) NewJob_document returned: %s", err.Error())
+				return
+			}
 
-		var inputs *cwl.Job_document
-		inputs, err = cwl.NewJob_documentFromNamedTypes(inputs_if, context)
-		if err != nil {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) (for inputs) NewJob_document returned: %s", err.Error())
-			return
+			original_map["inputs"] = *inputs
 		}
-
-		wi.Inputs = *inputs
 
 		outputs_if, has_outputs := original_map["outputs"]
 		if has_outputs {
@@ -145,7 +141,7 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 				return
 			}
 
-			wi.Outputs = *outputs
+			original_map["outputs"] = *outputs
 
 		}
 
@@ -158,19 +154,34 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 				return
 			}
 
-			wi.Tasks = tasks
+			original_map["tasks"] = tasks
 
+		}
+
+		wi = &WorkflowInstance{}
+
+		err = mapstructure.Decode(original_map, wi)
+		if err != nil {
+			fmt.Println("original_map:")
+			spew.Dump(original_map)
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) mapstructure.Decode returned: %s", err.Error())
+			return
+		}
+
+		_, err = wi.Init(job)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) wi.Init returned: %s", err.Error())
+			return
 		}
 
 	case *WorkflowInstance:
 
-		wi_ptr, ok := original.(*WorkflowInstance)
+		var ok bool
+		wi, ok = original.(*WorkflowInstance)
 		if !ok {
 			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) type assertion problem")
 			return
 		}
-
-		wi = *wi_ptr
 
 		_, err = wi.Init(job)
 		if err != nil {
@@ -186,15 +197,32 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 
 }
 
+func NewWorkflowInstanceArrayFromInterface(original []interface{}, job *Job, context *cwl.WorkflowContext) (wis []*WorkflowInstance, err error) {
+
+	wis = []*WorkflowInstance{}
+
+	for i, _ := range original {
+		var wi *WorkflowInstance
+		wi, err = NewWorkflowInstanceFromInterface(original[i], job, context)
+		if err != nil {
+			err = fmt.Errorf("(NewWorkflowInstanceArrayFromInterface) NewWorkflowInstanceFromInterface returned: %s", err.Error())
+			return
+		}
+		wis = append(wis, wi)
+	}
+
+	return
+}
+
 func (wi *WorkflowInstance) AddTask(task *Task) (err error) {
-	err = wi.LockNamed("AddTask")
+	err = wi.LockNamed("WorkflowInstance/AddTask")
 	if err != nil {
 		return
 	}
 	defer wi.Unlock()
 
 	wi.Tasks = append(wi.Tasks, task)
-	wi.Save()
+	wi.Save(false)
 	return
 }
 
@@ -235,15 +263,21 @@ func (wi *WorkflowInstance) Init(job *Job) (changed bool, err error) {
 	return
 }
 
-func (wi *WorkflowInstance) Save() (err error) {
-	err = wi.LockNamed("WorkflowInstance/Save")
-	if err != nil {
-		return
+func (wi *WorkflowInstance) Save(write_lock bool) (err error) {
+	if write_lock {
+		err = wi.LockNamed("WorkflowInstance/Save")
+		if err != nil {
+			return
+		}
+		defer wi.Unlock()
 	}
-	defer wi.Unlock()
-
 	if wi.Id == "" {
 		err = fmt.Errorf("(WorkflowInstance/Save) job id empty")
+		return
+	}
+
+	if len(wi.Tasks) == 0 {
+		err = fmt.Errorf("(WorkflowInstance/Save) len(wi.Tasks)== 0 you sure ?")
 		return
 	}
 
@@ -267,11 +301,15 @@ func (wi *WorkflowInstance) SetOutputs(outputs cwl.Job_document, context *cwl.Wo
 	defer wi.Unlock()
 
 	wi.Outputs = outputs
-	wi.Save()
+	err = wi.Save(false)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/SetOutputs)  Save() returned: %s", err.Error())
+		return
+	}
 	return
 }
 
-func (wi *WorkflowInstance) DecreaseRemainTasks() (err error) {
+func (wi *WorkflowInstance) DecreaseRemainTasks() (remain int, err error) {
 	err = wi.LockNamed("WorkflowInstance/DecreaseRemainTasks")
 	if err != nil {
 		return
@@ -284,6 +322,20 @@ func (wi *WorkflowInstance) DecreaseRemainTasks() (err error) {
 	}
 
 	wi.RemainTasks -= 1
-	wi.Save()
+
+	//err = dbUpdateJobWorkflow_instancesFieldInt(wi.JobId, wi.Id, "remaintasks", wi.RemainTasks)
+	remain, err = dbIncrementJobWorkflow_instancesField(wi.JobId, wi.Id, "remaintasks", -1)
+
+	//err = wi.Save()
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainTasks)  Save() returned: %s", err.Error())
+		return
+	}
+
+	if remain != wi.RemainTasks {
+		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainTasks) remain != wi.RemainTasks")
+		return
+	}
+
 	return
 }

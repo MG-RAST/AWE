@@ -580,6 +580,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	// don't enqueue imports
 	if !has_import {
+
 		err = core.QMgr.EnqueueTasksByJobId(job.Id)
 		if err != nil {
 			err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())

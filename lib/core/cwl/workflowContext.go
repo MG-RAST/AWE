@@ -33,7 +33,7 @@ type WorkflowContext struct {
 	Booleans           map[string]*Boolean           `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	All                map[string]CWL_object         `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // everything goes in here
 	//Job_input          *Job_document
-	Job_input_map *JobDocMap `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	//Job_input_map *JobDocMap `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 
 	Schemata    map[string]CWLType_Type `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	Initialized bool                    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`

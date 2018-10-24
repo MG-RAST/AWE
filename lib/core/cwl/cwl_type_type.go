@@ -158,7 +158,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 				}
 				return
 			default:
-				err = fmt.Errorf("(NewCWLType_Type) array, context %s unknown", context)
+				err = fmt.Errorf("(NewCWLType_Type) array, context_p %s unknown", context_p)
 				return
 			}
 
@@ -191,7 +191,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 				}
 
 			default:
-				err = fmt.Errorf("(NewCWLType_Type) record, context %s unknown", context)
+				err = fmt.Errorf("(NewCWLType_Type) record, context %s unknown", context_p)
 				return
 			}
 
@@ -206,7 +206,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 				return
 
 			default:
-				err = fmt.Errorf("(NewCWLType_Type) enum, context %s unknown", context)
+				err = fmt.Errorf("(NewCWLType_Type) enum, context_p %s unknown", context_p)
 				return
 			}
 		} else {

@@ -195,11 +195,11 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		context := job.WorkflowContext
 		// ****** get inputs
-		job_input_map := context.Job_input_map
-		if job_input_map == nil {
-			err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
-			return
-		}
+		//job_input_map := context.Job_input_map
+		//if job_input_map == nil {
+		//	err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
+		//	return
+		//}
 		//job_input_map := *job.CWL_collection.Job_input_map
 
 		//job_input := *job.CWL_collection.Job_input

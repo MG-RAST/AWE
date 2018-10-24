@@ -260,11 +260,6 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 		job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
 	}
 	job.WorkflowInstancesMap["_main"] = wi
-	err = wi.Save()
-	if err != nil {
-		err = fmt.Errorf("(CWL2AWE) wi.Save returned: %s", err.Error())
-		return
-	}
 
 	var tasks []*Task
 	tasks, err = CreateWorkflowTasks(job, "_main", cwl_workflow.Steps, cwl_workflow.Id)
@@ -280,6 +275,12 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	//job.Tasks = tasks
 	wi.Tasks = tasks
+
+	err = wi.Save(true)
+	if err != nil {
+		err = fmt.Errorf("(CWL2AWE) wi.Save returned: %s", err.Error())
+		return
+	}
 
 	_, err = job.Init()
 

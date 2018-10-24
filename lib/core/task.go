@@ -528,10 +528,18 @@ func (task *TaskRaw) SetChildren(qm *ServerMgr, children []Task_Unique_Identifie
 		defer task.Unlock()
 	}
 
-	err = dbUpdateJobTaskField(task.JobId, task.WorkflowInstanceId, task.Id, "children", children)
-	if err != nil {
-		err = fmt.Errorf("(SetChildren) dbUpdateJobTaskField returned: %s", err.Error())
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskField(task.JobId, task.WorkflowInstanceId, task.Id, "children", children)
+		if err != nil {
+			err = fmt.Errorf("(SetChildren) dbUpdateJobTaskField returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskField(task.JobId, task.WorkflowInstanceId, task.Id, "children", children)
+		if err != nil {
+			err = fmt.Errorf("(SetChildren) dbUpdateTaskField returned: %s", err.Error())
+			return
+		}
 	}
 
 	task.Children = children
@@ -608,10 +616,18 @@ func (task *Task) SetTaskType(type_str string, writelock bool) (err error) {
 		}
 		defer task.Unlock()
 	}
-	err = dbUpdateJobTaskString(task.JobId, task.WorkflowInstanceId, task.Id, "task_type", type_str)
-	if err != nil {
-		err = fmt.Errorf("(task/SetState) dbUpdateJobTaskString returned: %s", err.Error())
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskString(task.JobId, task.WorkflowInstanceId, task.Id, "task_type", type_str)
+		if err != nil {
+			err = fmt.Errorf("(task/SetState) dbUpdateJobTaskString returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskString(task.JobId, task.WorkflowInstanceId, task.Id, "task_type", type_str)
+		if err != nil {
+			err = fmt.Errorf("(task/SetState) dbUpdateTaskString returned: %s", err.Error())
+			return
+		}
 	}
 	task.TaskType = type_str
 	return
@@ -624,10 +640,20 @@ func (task *TaskRaw) SetCreatedDate(t time.Time) (err error) {
 	}
 	defer task.Unlock()
 
-	err = dbUpdateJobTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "createdDate", t)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "createdDate", t)
+		if err != nil {
+			err = fmt.Errorf("(task/SetCreatedDate) dbUpdateJobTaskTime returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "createdDate", t)
+		if err != nil {
+			err = fmt.Errorf("(task/SetCreatedDate) dbUpdateTaskTime returned: %s", err.Error())
+			return
+		}
 	}
+
 	task.CreatedDate = t
 	return
 }
@@ -639,9 +665,18 @@ func (task *TaskRaw) SetStartedDate(t time.Time) (err error) {
 	}
 	defer task.Unlock()
 
-	err = dbUpdateJobTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "startedDate", t)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "startedDate", t)
+		if err != nil {
+			err = fmt.Errorf("(task/SetStartedDate) dbUpdateJobTaskTime returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "startedDate", t)
+		if err != nil {
+			err = fmt.Errorf("(task/SetStartedDate) dbUpdateTaskTime returned: %s", err.Error())
+			return
+		}
 	}
 	task.StartedDate = t
 	return
@@ -655,10 +690,18 @@ func (task *TaskRaw) SetCompletedDate(t time.Time, lock bool) (err error) {
 		}
 		defer task.Unlock()
 	}
-
-	err = dbUpdateJobTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "completedDate", t)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "completedDate", t)
+		if err != nil {
+			err = fmt.Errorf("(task/SetCompletedDate) dbUpdateJobTaskTime returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "completedDate", t)
+		if err != nil {
+			err = fmt.Errorf("(task/SetCompletedDate) dbUpdateTaskTime returned: %s", err.Error())
+			return
+		}
 	}
 	task.CompletedDate = t
 	return
@@ -672,10 +715,18 @@ func (task *TaskRaw) SetStepOutput(jd *cwl.Job_document, lock bool) (err error) 
 		}
 		defer task.Unlock()
 	}
-
-	err = dbUpdateJobTaskField(task.JobId, task.WorkflowInstanceId, task.Id, "stepOutput", *jd)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskField(task.JobId, task.WorkflowInstanceId, task.Id, "stepOutput", *jd)
+		if err != nil {
+			err = fmt.Errorf("(task/SetStepOutput) dbUpdateJobTaskField returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskField(task.JobId, task.WorkflowInstanceId, task.Id, "stepOutput", *jd)
+		if err != nil {
+			err = fmt.Errorf("(task/SetStepOutput) dbUpdateTaskField returned: %s", err.Error())
+			return
+		}
 	}
 	task.StepOutput = jd
 	task.StepOutputInterface = jd
@@ -739,10 +790,19 @@ func (task *TaskRaw) SetState(new_state string, write_lock bool) (err error) {
 		return
 	}
 
-	err = dbUpdateJobTaskString(jobid, task.WorkflowInstanceId, taskid, "state", new_state)
-	if err != nil {
-		err = fmt.Errorf("(TaskRaw/SetState) dbUpdateJobTaskString returned: %s", err.Error())
-		return
+	if task.WorkflowInstanceId == "" {
+
+		err = dbUpdateJobTaskString(jobid, task.WorkflowInstanceId, taskid, "state", new_state)
+		if err != nil {
+			err = fmt.Errorf("(TaskRaw/SetState) dbUpdateJobTaskString returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskString(jobid, task.WorkflowInstanceId, taskid, "state", new_state)
+		if err != nil {
+			err = fmt.Errorf("(TaskRaw/SetState) dbUpdateTaskString returned: %s", err.Error())
+			return
+		}
 	}
 
 	logger.Debug(3, "(Task/SetState) %s new state: \"%s\" (old state \"%s\")", taskid, new_state, old_state)
@@ -751,21 +811,25 @@ func (task *TaskRaw) SetState(new_state string, write_lock bool) (err error) {
 	if new_state == TASK_STAT_COMPLETED {
 		err = job.IncrementRemainTasks(-1)
 		if err != nil {
+			err = fmt.Errorf("(task/SetState) IncrementRemainTasks returned: %s", err.Error())
 			return
 		}
 		err = task.SetCompletedDate(time.Now(), false)
 		if err != nil {
+			err = fmt.Errorf("(task/SetState) SetCompletedDate returned: %s", err.Error())
 			return
 		}
 	} else if old_state == TASK_STAT_COMPLETED {
 		// in case a completed task is marked as something different
 		err = job.IncrementRemainTasks(1)
 		if err != nil {
+			err = fmt.Errorf("(task/SetState) IncrementRemainTasks returned: %s", err.Error())
 			return
 		}
 		initTime := time.Time{}
 		err = task.SetCompletedDate(initTime, false)
 		if err != nil {
+			err = fmt.Errorf("(task/SetState) SetCompletedDate returned: %s", err.Error())
 			return
 		}
 	}
@@ -936,18 +1000,21 @@ func (task *Task) setSingleWorkunit(writelock bool) (err error) {
 	if task.TotalWork != 1 {
 		err = task.setTotalWork(1, writelock)
 		if err != nil {
+			err = fmt.Errorf("(task/setSingleWorkunit) setTotalWork returned: %s", err.Error())
 			return
 		}
 	}
 	if task.Partition != nil {
 		err = task.setPartition(nil, writelock)
 		if err != nil {
+			err = fmt.Errorf("(task/setSingleWorkunit) setPartition returned: %s", err.Error())
 			return
 		}
 	}
 	if task.MaxWorkSize != 0 {
 		err = task.setMaxWorkSize(0, writelock)
 		if err != nil {
+			err = fmt.Errorf("(task/setSingleWorkunit) setMaxWorkSize returned: %s", err.Error())
 			return
 		}
 	}
@@ -964,6 +1031,7 @@ func (task *Task) setTotalWork(num int, writelock bool) (err error) {
 	}
 	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "totalwork", num)
 	if err != nil {
+		err = fmt.Errorf("(task/setTotalWork) dbUpdateJobTaskInt returned: %s", err.Error())
 		return
 	}
 	task.TotalWork = num
@@ -982,6 +1050,7 @@ func (task *Task) setPartition(partition *PartInfo, writelock bool) (err error) 
 	}
 	err = dbUpdateJobTaskPartition(task.JobId, task.WorkflowInstanceId, task.Id, partition)
 	if err != nil {
+		err = fmt.Errorf("(task/setPartition) dbUpdateJobTaskPartition returned: %s", err.Error())
 		return
 	}
 	task.Partition = partition
@@ -998,6 +1067,7 @@ func (task *Task) setMaxWorkSize(num int, writelock bool) (err error) {
 	}
 	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "maxworksize", num)
 	if err != nil {
+		err = fmt.Errorf("(task/setMaxWorkSize) dbUpdateJobTaskInt returned: %s", err.Error())
 		return
 	}
 	task.MaxWorkSize = num
@@ -1014,6 +1084,7 @@ func (task *Task) SetRemainWork(num int, writelock bool) (err error) {
 	}
 	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "remainwork", num)
 	if err != nil {
+		err = fmt.Errorf("(task/SetRemainWork) dbUpdateJobTaskInt returned: %s", err.Error())
 		return
 	}
 	task.RemainWork = num
@@ -1030,9 +1101,18 @@ func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, 
 	}
 
 	remainwork = task.RemainWork + inc
-	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "remainwork", remainwork)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "remainwork", remainwork)
+		if err != nil {
+			err = fmt.Errorf("(task/IncrementRemainWork) dbUpdateJobTaskInt returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "remainwork", remainwork)
+		if err != nil {
+			err = fmt.Errorf("(task/IncrementRemainWork) dbUpdateTaskInt returned: %s", err.Error())
+			return
+		}
 	}
 	task.RemainWork = remainwork
 	return
@@ -1046,9 +1126,20 @@ func (task *Task) IncrementComputeTime(inc int) (err error) {
 	defer task.Unlock()
 
 	newComputeTime := task.ComputeTime + inc
-	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "computetime", newComputeTime)
-	if err != nil {
-		return
+
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "computetime", newComputeTime)
+		if err != nil {
+			err = fmt.Errorf("(task/IncrementComputeTime) dbUpdateJobTaskInt returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "computetime", newComputeTime)
+		if err != nil {
+			err = fmt.Errorf("(task/IncrementComputeTime) dbUpdateTaskInt returned: %s", err.Error())
+			return
+		}
+
 	}
 	task.ComputeTime = newComputeTime
 	return
@@ -1066,11 +1157,21 @@ func (task *Task) ResetTaskTrue(name string) (err error) {
 
 	err = task.SetState(TASK_STAT_PENDING, false)
 	if err != nil {
+		err = fmt.Errorf("(task/ResetTaskTrue) task.SetState returned: %s", err.Error())
 		return
 	}
-	err = dbUpdateJobTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", true)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", true)
+		if err != nil {
+			err = fmt.Errorf("(task/ResetTaskTrue) dbUpdateJobTaskBoolean returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", true)
+		if err != nil {
+			err = fmt.Errorf("(task/ResetTaskTrue) dbUpdateTaskBoolean returned: %s", err.Error())
+			return
+		}
 	}
 	task.ResetTask = true
 	return
@@ -1095,13 +1196,23 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 	// reset remainwork
 	err = task.SetRemainWork(task.TotalWork, false)
 	if err != nil {
+		err = fmt.Errorf("(task/SetResetTask) task.SetRemainWork returned: %s", err.Error())
 		return
 	}
 
 	// reset computetime
-	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "computetime", 0)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "computetime", 0)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskInt returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "computetime", 0)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskInt returned: %s", err.Error())
+			return
+		}
 	}
 	task.ComputeTime = 0
 
@@ -1118,11 +1229,19 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 		io.Size = 0
 		io.Url = ""
 	}
-	err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskIO returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskIO returned: %s", err.Error())
+			return
+		}
 	}
-
 	// reset / delete all outputs
 	for _, io := range task.Outputs {
 		// do not delete update IO
@@ -1144,11 +1263,19 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 		io.Size = 0
 		io.Url = ""
 	}
-	err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskIO returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskIO returned: %s", err.Error())
+			return
+		}
 	}
-
 	// delete all workunit logs
 	for _, log := range conf.WORKUNIT_LOGS {
 		err = task.DeleteLogs(log, false)
@@ -1158,9 +1285,18 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 	}
 
 	// reset the reset
-	err = dbUpdateJobTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskBoolean returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskBoolean returned: %s", err.Error())
+			return
+		}
 	}
 	task.ResetTask = false
 	return
@@ -1190,9 +1326,18 @@ func (task *Task) setTokenForIO(writelock bool) (err error) {
 		}
 	}
 	if changed {
-		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
-		if err != nil {
-			return
+		if task.WorkflowInstanceId == "" {
+			err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+			if err != nil {
+				err = fmt.Errorf("(task/setTokenForIO) dbUpdateJobTaskIO returned: %s", err.Error())
+				return
+			}
+		} else {
+			err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+			if err != nil {
+				err = fmt.Errorf("(task/setTokenForIO) dbUpdateTaskIO returned: %s", err.Error())
+				return
+			}
 		}
 	}
 	// update outputs
@@ -1204,7 +1349,19 @@ func (task *Task) setTokenForIO(writelock bool) (err error) {
 		}
 	}
 	if changed {
-		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
+		if task.WorkflowInstanceId == "" {
+			err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
+			if err != nil {
+				err = fmt.Errorf("(task/setTokenForIO) dbUpdateJobTaskIO returned: %s", err.Error())
+				return
+			}
+		} else {
+			err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
+			if err != nil {
+				err = fmt.Errorf("(task/setTokenForIO) dbUpdateTaskIO returned: %s", err.Error())
+				return
+			}
+		}
 	}
 	return
 }
@@ -1252,6 +1409,7 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog, err error) {
 		var wl *WorkLog
 		wl, err = NewWorkLog(workunit_id)
 		if err != nil {
+			err = fmt.Errorf("(task/GetTaskLogs) NewWorkLog returned: %s", err.Error())
 			return
 		}
 		tlog.Workunits = append(tlog.Workunits, wl)
@@ -1261,6 +1419,7 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog, err error) {
 			var wl *WorkLog
 			wl, err = NewWorkLog(workunit_id)
 			if err != nil {
+				err = fmt.Errorf("(task/GetTaskLogs) NewWorkLog returned: %s", err.Error())
 				return
 			}
 			tlog.Workunits = append(tlog.Workunits, wl)
@@ -1433,10 +1592,18 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (err error) {
 		logger.Debug(3, "(ValidateInputs) input located: task=%s, file=%s, node=%s, size=%d", task.Id, io.FileName, io.Node, io.Size)
 	}
 
-	err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
-	if err != nil {
-		err = fmt.Errorf("(ValidateInputs) unable to save task inputs to mongodb, task=%s: %s", task.Id, err.Error())
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+		if err != nil {
+			err = fmt.Errorf("(ValidateInputs) unable to save task inputs to mongodb, task=%s: %s", task.Id, err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+		if err != nil {
+			err = fmt.Errorf("(ValidateInputs) unable to save task inputs to mongodb, task=%s: %s", task.Id, err.Error())
+			return
+		}
 	}
 	return
 }
@@ -1475,9 +1642,18 @@ func (task *Task) ValidateOutputs() (err error) {
 		}
 	}
 
-	err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
-	if err != nil {
-		err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
+		if err != nil {
+			err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
+		if err != nil {
+			err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
+			return
+		}
 	}
 	return
 }
@@ -1516,9 +1692,16 @@ func (task *Task) ValidatePredata() (err error) {
 	}
 
 	if modified {
-		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "predata", task.Predata)
-		if err != nil {
-			err = fmt.Errorf("unable to save task predata to mongodb, task=%s: %s", task.Id, err.Error())
+		if task.WorkflowInstanceId == "" {
+			err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "predata", task.Predata)
+			if err != nil {
+				err = fmt.Errorf("unable to save task predata to mongodb, task=%s: %s", task.Id, err.Error())
+			}
+		} else {
+			err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "predata", task.Predata)
+			if err != nil {
+				err = fmt.Errorf("unable to save task predata to mongodb, task=%s: %s", task.Id, err.Error())
+			}
 		}
 	}
 	return
@@ -1572,6 +1755,7 @@ func (task *Task) DeleteLogs(logname string, writelock bool) (err error) {
 	var logdir string
 	logdir, err = getPathByJobId(task.JobId)
 	if err != nil {
+		err = fmt.Errorf("(task/GetTaDeleteLogsskLogs) getPathByJobId returned: %s", err.Error())
 		return
 	}
 	globpath := fmt.Sprintf("%s/%s_*.%s", logdir, task.Id, logname)
@@ -1579,6 +1763,7 @@ func (task *Task) DeleteLogs(logname string, writelock bool) (err error) {
 	var logfiles []string
 	logfiles, err = filepath.Glob(globpath)
 	if err != nil {
+		err = fmt.Errorf("(task/GetTaDeleteLogsskLogs) filepath.Glob returned: %s", err.Error())
 		return
 	}
 

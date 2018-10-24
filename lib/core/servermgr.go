@@ -627,7 +627,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 	var remain_work int
 	remain_work, err = task.IncrementRemainWork(-1, true)
 	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) client=%s work=%s %s", clientid, work_str, err.Error())
+		err = fmt.Errorf("(handleWorkStatDone) client=%s work=%s task.IncrementRemainWork returned: %s", clientid, work_str, err.Error())
 		return
 	}
 
@@ -651,7 +651,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 
 	err = task.IncrementComputeTime(computetime)
 	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) client=%s work=%s %s", clientid, work_str, err.Error())
+		err = fmt.Errorf("(handleWorkStatDone) client=%s work=%s IncrementComputeTime returned: %s", clientid, work_str, err.Error())
 		return
 	}
 

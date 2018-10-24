@@ -12,12 +12,12 @@ import (
 )
 
 func dbUpdateJobWorkflow_instancesFieldOutputs(job_id string, subworkflow_id string, outputs cwl.Job_document) (err error) {
-	update_value := bson.M{"workflow_instances.$.outputs": outputs}
+	update_value := bson.M{"outputs": outputs}
 	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
 }
 
 func dbUpdateJobWorkflow_instancesFieldInt(job_id string, subworkflow_id string, fieldname string, value int) (err error) {
-	update_value := bson.M{"workflow_instances.$." + fieldname: value}
+	update_value := bson.M{fieldname: value}
 	err = dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
 	if err != nil {
 		err = fmt.Errorf("(dbUpdateJobWorkflow_instancesFieldInt) (subworkflow_id: %s, fieldname: %s, value: %d) %s", subworkflow_id, fieldname, value, err.Error())
@@ -27,7 +27,7 @@ func dbUpdateJobWorkflow_instancesFieldInt(job_id string, subworkflow_id string,
 }
 
 func dbUpdateJobWorkflow_instancesField(job_id string, subworkflow_id string, fieldname string, value interface{}) (err error) {
-	update_value := bson.M{"workflow_instances.$." + fieldname: value}
+	update_value := bson.M{fieldname: value}
 	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
 }
 
@@ -36,7 +36,7 @@ func dbUpdateJobWorkflow_instancesFields(job_id string, subworkflow_id string, u
 	defer session.Close()
 
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
-	selector := bson.M{"id": job_id, "workflow_instances.id": subworkflow_id}
+	selector := bson.M{"_id": job_id + subworkflow_id}
 
 	err = c.Update(selector, bson.M{"$set": update_value})
 	if err != nil {

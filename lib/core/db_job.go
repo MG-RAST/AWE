@@ -290,6 +290,9 @@ func dbUpdateJobTaskFields(job_id string, workflow_instance_id string, task_id s
 		selector = bson.M{"id": job_id, "tasks.taskid": task_id}
 		update_op = bson.M{"$set": update_value}
 	} else {
+		err = fmt.Errorf("not supported")
+		return
+
 		unique_id := job_id + workflow_instance_id
 		selector = bson.M{"_id": unique_id, "tasks.taskid": task_id}
 		update_op = bson.M{"$set": update_value}
@@ -349,7 +352,7 @@ func dbUpdateJobTaskTime(job_id string, workflow_instance string, task_id string
 	update_value := bson.M{"tasks.$." + fieldname: value}
 	err = dbUpdateJobTaskFields(job_id, workflow_instance, task_id, update_value)
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobTaskTime) dbUpdateJobTaskFields returned: %s", err.Error())
+		err = fmt.Errorf("(dbUpdateJobTaskTime) (fieldname %s) dbUpdateJobTaskFields returned: %s", fieldname, err.Error())
 	}
 	return
 }
@@ -699,18 +702,18 @@ func dbPushJobTask(job_id string, task *Task) (err error) {
 	return
 }
 
-// CWL: task in WorkflowInstance
-func dbUpdateTaskFields(job_id string, task_id string, update_value bson.M) (err error) {
-	session := db.Connection.Session.Copy()
-	defer session.Close()
+// // CWL: task in WorkflowInstance
+// func dbUpdateTaskFields(job_id string, task_id string, update_value bson.M) (err error) {
+// 	session := db.Connection.Session.Copy()
+// 	defer session.Close()
 
-	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
-	selector := bson.M{"id": job_id, "tasks.taskid": task_id}
+// 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+// 	selector := bson.M{"id": job_id, "tasks.taskid": task_id}
 
-	err = c.Update(selector, bson.M{"$set": update_value})
-	if err != nil {
-		err = fmt.Errorf("(dbUpdateTaskFields) Error updating task: " + err.Error())
-		return
-	}
-	return
-}
+// 	err = c.Update(selector, bson.M{"$set": update_value})
+// 	if err != nil {
+// 		err = fmt.Errorf("(dbUpdateTaskFields) Error updating task: " + err.Error())
+// 		return
+// 	}
+// 	return
+// }

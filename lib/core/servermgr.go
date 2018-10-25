@@ -3389,7 +3389,11 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 		var subworkflow_remain_tasks int
 		subworkflow_remain_tasks, err = workflow_instance.DecreaseRemainTasks()
+		if err != nil {
+			err = fmt.Errorf("(updateJobTask) workflow_instance.DecreaseRemainTasks returned: %s", err.Error())
+			return
 
+		}
 		// var subworkflow_remain_tasks int
 
 		// subworkflow_remain_tasks, err = job.Decrease_WorkflowInstance_RemainTasks(parent_id_str, task_str)
@@ -3425,12 +3429,26 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			}
 			// find parent task
 
+			parent_global_id_str, _ := parent_id.String()
+
 			parent_task, ok, err = qm.TaskMap.Get(parent_id, true)
 			if err != nil {
 				return
 			}
 			if !ok {
-				err = fmt.Errorf("(updateJobTask) Parent task %s not found", parent_id_str)
+
+				fmt.Println("qm.TaskMap._map:")
+				spew.Dump(qm.TaskMap._map)
+
+				for key, _ := range qm.TaskMap._map {
+					//key_str, _ := key.String()
+					fmt.Printf("_map: %s\n", key)
+					fmt.Printf("want: %s\n", parent_id)
+
+				}
+				panic("done")
+
+				err = fmt.Errorf("(updateJobTask) Parent task %s not found", parent_global_id_str)
 				return
 			}
 
@@ -3442,7 +3460,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			}
 
 			if parent_task_type != TASK_TYPE_WORKFLOW {
-				err = fmt.Errorf("(updateJobTask) Uhhh ? Parent task %s has not type workflow???", parent_id_str)
+				err = fmt.Errorf("(updateJobTask) Uhhh ? Parent task %s has not type workflow???", parent_global_id_str)
 				return
 			}
 

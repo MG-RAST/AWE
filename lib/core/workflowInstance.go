@@ -222,6 +222,12 @@ func (wi *WorkflowInstance) AddTask(task *Task) (err error) {
 	defer wi.Unlock()
 
 	wi.Tasks = append(wi.Tasks, task)
+
+	if len(wi.Tasks) > 2 {
+		err = fmt.Errorf("wi.Tasks > 2")
+		return
+	}
+
 	wi.Save(false)
 	return
 }
@@ -324,16 +330,10 @@ func (wi *WorkflowInstance) DecreaseRemainTasks() (remain int, err error) {
 	wi.RemainTasks -= 1
 
 	//err = dbUpdateJobWorkflow_instancesFieldInt(wi.JobId, wi.Id, "remaintasks", wi.RemainTasks)
-	remain, err = dbIncrementJobWorkflow_instancesField(wi.JobId, wi.Id, "remaintasks", -1)
-
+	err = dbIncrementJobWorkflow_instancesField(wi.JobId, wi.Id, "remaintasks", -1)
 	//err = wi.Save()
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainTasks)  Save() returned: %s", err.Error())
-		return
-	}
-
-	if remain != wi.RemainTasks {
-		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainTasks) remain != wi.RemainTasks")
 		return
 	}
 

@@ -111,8 +111,7 @@ func NewProcess(original interface{}, injectedRequirements []Requirement, contex
 		for id, _ := range context.Objects {
 			fmt.Printf("Id: %s\n", id)
 		}
-		spew.Dump(context)
-		panic("arrrrggghhhhhh")
+
 		err = fmt.Errorf("(NewProcess) %s not found in context", original_str)
 		return
 	case map[string]interface{}:

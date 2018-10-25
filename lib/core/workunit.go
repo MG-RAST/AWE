@@ -246,13 +246,8 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			err = fmt.Errorf("(NewWorkunit) workunit.Evaluate returned: %s", err.Error())
 			return
 		}
-		//spew.Dump(workflow_step.Out)
-		//panic("done")
 
 	}
-	//panic("done")
-	//spew.Dump(workunit.Cmd)
-	//panic("done")
 
 	return
 }

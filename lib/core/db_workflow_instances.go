@@ -6,7 +6,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/db"
-	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -35,7 +34,7 @@ func dbUpdateJobWorkflow_instancesFields(job_id string, subworkflow_id string, u
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 
-	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
 	selector := bson.M{"_id": job_id + subworkflow_id}
 
 	err = c.Update(selector, bson.M{"$set": update_value})
@@ -46,33 +45,43 @@ func dbUpdateJobWorkflow_instancesFields(job_id string, subworkflow_id string, u
 	return
 }
 
-func dbIncrementJobWorkflow_instancesField(job_id string, subworkflow_id string, field string, value int) (new_value int, err error) {
+func dbIncrementJobWorkflow_instancesField(job_id string, subworkflow_id string, field string, value int) (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 
-	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
 	//selector := bson.M{"id": job_id, "workflow_instances.id": subworkflow_id}
-	selector := bson.M{"_id": job_id + subworkflow_id}
+	unique_id := job_id + subworkflow_id
+	selector := bson.M{"_id": unique_id}
 	//err = c.Update(selector, bson.M{"$set": update_value})
-
-	var result interface{}
-
-	new_value = -1
 
 	change := mgo.Change{
 		Update:    bson.M{"$inc": bson.M{field: value}},
 		ReturnNew: true,
 	}
 	//var info *mgo.ChangeInfo
-	_, err = c.Find(selector).Apply(change, result)
+
+	_, err = c.Find(selector).Apply(change, nil)
 	if err != nil {
-		err = fmt.Errorf("(dbIncrementJobWorkflow_instancesField) Error updating workflow_instance: " + err.Error())
+		err = fmt.Errorf("(dbIncrementJobWorkflow_instancesField) Error updating workflow_instance %s  (field %s, value: %d): %s", unique_id, field, value, err.Error())
 		return
 	}
 
-	spew.Dump(result)
+	return
+}
 
-	panic("done")
+func dbUpdateWorkflow_instancesFields(job_id string, subworkflow_id string, update_value bson.M) (err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
 
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
+	unique_id := job_id + subworkflow_id
+	selector := bson.M{"_id": unique_id}
+
+	err = c.Update(selector, bson.M{"$set": update_value})
+	if err != nil {
+		err = fmt.Errorf("Error updating job fields: " + err.Error())
+		return
+	}
 	return
 }

@@ -447,7 +447,7 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 
 func NewTask(job *Job, workflow_instance_id string, task_id string) (t *Task, err error) {
 
-	fmt.Printf("(NewTask) task_id: %s\n", task_id)
+	fmt.Printf("(NewTask) new task: %s %s %s\n", job.Id, workflow_instance_id, task_id)
 
 	if job.Id == "" {
 		err = fmt.Errorf("(NewTask) jobid is empty!")
@@ -578,6 +578,7 @@ func (task *TaskRaw) GetChildren(qm *ServerMgr) (children []*Task, err error) {
 	return
 }
 
+// returns name of Parent (without jobid)
 func (task *TaskRaw) GetParent() (p string, err error) {
 	lock, err := task.RLockNamed("GetParent")
 	if err != nil {

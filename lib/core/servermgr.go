@@ -49,7 +49,7 @@ func NewServerMgr() *ServerMgr {
 			workQueue:    NewWorkQueue(),
 			suspendQueue: false,
 
-			coReq:    make(chan CoReq, conf.COREQ_LENGTH), // number of clients that wait in queue to get a workunit. If queue is full, other client will be rejected and have to come back later again
+			coReq:    make(chan CheckoutRequest, conf.COREQ_LENGTH), // number of clients that wait in queue to get a workunit. If queue is full, other client will be rejected and have to come back later again
 			feedback: make(chan Notice),
 			coSem:    make(chan int, 1), //non-blocking buffered channel
 
@@ -1376,9 +1376,11 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		//	return
 		//}
 
+		parent_id_str, _ := task.GetParentStr()
+
 		var workflow_instance *WorkflowInstance
 		var ok bool
-		workflow_instance, ok, err = job.GetWorkflowInstance(task.Parent, true)
+		workflow_instance, ok, err = job.GetWorkflowInstance(parent_id_str, true)
 		if err != nil {
 			err = fmt.Errorf("(isTaskReady) GetWorkflowInstance returned %s", err.Error())
 			return
@@ -1541,12 +1543,9 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 
 	workflow_defintion_id := workflow.Id
 
-	var instance_id string
-	if task_id.Parent == "" {
-		instance_id = task_id.TaskName
-	} else {
-		instance_id = task_id.Parent + "/" + task_id.TaskName
-	}
+	var prefix_name string
+
+	prefix_name = task_id.TaskName
 
 	// find inputs
 	var task_input_array cwl.Job_document
@@ -1590,11 +1589,6 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		return
 	}
 
-	if strings.HasSuffix(task.Parent, "/") {
-		err = fmt.Errorf("(taskEnQueueWorkflow) Slash at the end of Parent!? %s", task.Parent)
-		return
-	}
-
 	// embedded workflows have a uniqe name relative to the parent workflow: e.g #main/steo0/<uuid>
 	// stand-alone workflows have no unique name, e.g: #sometool
 
@@ -1613,14 +1607,14 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 	// New WorkflowInstance defined input nd ouput of this subworkflow
 	// create tasks
 	var sub_workflow_tasks []*Task
-	sub_workflow_tasks, err = CreateWorkflowTasks(job, instance_id, workflow.Steps, workflow.Id)
+	sub_workflow_tasks, err = CreateWorkflowTasks(job, prefix_name, workflow.Steps, workflow.Id)
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueueWorkflow) CreateWorkflowTasks returned: %s", err.Error())
 		return
 	}
 
 	var wi *WorkflowInstance
-	wi, err = job.AddWorkflowInstance(instance_id, workflow_defintion_id, task_input_array, len(workflow.Steps), sub_workflow_tasks)
+	wi, err = job.AddWorkflowInstance(prefix_name, workflow_defintion_id, task_input_array, len(workflow.Steps), sub_workflow_tasks)
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueueWorkflow) job.AddWorkflowInstance returned: %s", err.Error())
 		return
@@ -1948,9 +1942,11 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		// create task
 		var awe_task *Task
 
-		logger.Debug(3, "(taskEnQueue) New Task: parent: %s and scatter_task_name: %s", task.Parent, scatter_task_name)
+		parent_id_str, _ := task.GetParentStr()
 
-		awe_task, err = NewTask(job, task.Parent, scatter_task_name)
+		logger.Debug(3, "(taskEnQueue) New Task: parent: %s and scatter_task_name: %s", parent_id_str, scatter_task_name)
+
+		awe_task, err = NewTask(job, parent_id_str, scatter_task_name)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) NewTask returned: %s", err.Error())
 			return
@@ -2090,15 +2086,17 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 	if job.WorkflowContext != nil {
 		logger.Debug(3, "(taskEnQueue) have job.WorkflowContext")
 
+		parent_id_str, _ := task.GetParentStr()
+
 		var workflow_instance *WorkflowInstance
 		var ok bool
-		workflow_instance, ok, err = job.GetWorkflowInstance(task.Parent, true)
+		workflow_instance, ok, err = job.GetWorkflowInstance(parent_id_str, true)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("(taskEnQueue) WorkflowInstance not found: %s", task.Parent)
+			err = fmt.Errorf("(taskEnQueue) WorkflowInstance not found: %s", parent_id_str)
 			return
 		}
 
@@ -3230,8 +3228,17 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	// check if this was the last task in a subworkflow
 
 	// check if this task has a parent
+
+	var parent_id Task_Unique_Identifier
+	var has_parent bool
+	parent_id, has_parent, err = task.GetParent()
+	if err != nil {
+		err = fmt.Errorf("(updateJobTask) task.GetParent returned: %s", err.Error())
+		return
+	}
+
 	var parent_id_str string
-	parent_id_str, err = task.GetParent()
+	parent_id_str, err = parent_id.String()
 	if err != nil {
 		return
 	}
@@ -3421,12 +3428,12 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		process_name := job.Entrypoint
 
 		var parent_id Task_Unique_Identifier
-		if parent_id_str != "" { // a real explicit subworkflow
-			parent_id, err = New_Task_Unique_Identifier_FromString(jobid + "_" + parent_id_str)
-			if err != nil {
-				err = fmt.Errorf("(updateJobTask) New_Task_Unique_Identifier_FromString returned: %s", err.Error())
-				return
-			}
+		if has_parent { // a real explicit subworkflow
+			//parent_id, err = New_Task_Unique_Identifier_FromString(jobid + "_" + parent_id_str)
+			//if err != nil {
+			//	err = fmt.Errorf("(updateJobTask) New_Task_Unique_Identifier_FromString returned: %s", err.Error())
+			//	return
+			//}
 			// find parent task
 
 			parent_global_id_str, _ := parent_id.String()

@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -10,12 +11,13 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	//"github.com/davecgh/go-spew/spew"
 	"encoding/json"
-	"gopkg.in/mgo.v2/bson"
 	"os"
 	"runtime"
 	"runtime/pprof"
 	"strings"
 	"time"
+
+	"gopkg.in/mgo.v2/bson"
 )
 
 // this struct is embedded in ServerMgr
@@ -23,9 +25,9 @@ type CQMgr struct {
 	clientMap    ClientMap
 	workQueue    *WorkQueue
 	suspendQueue bool
-	coReq        chan CoReq  //workunit checkout request (WorkController -> qmgr.Handler)
-	feedback     chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
-	coSem        chan int    //semaphore for checkout (mutual exclusion between different clients)
+	coReq        chan CheckoutRequest //workunit checkout request (WorkController -> qmgr.Handler)
+	feedback     chan Notice          //workunit execution feedback (WorkController -> qmgr.Handler)
+	coSem        chan int             //semaphore for checkout (mutual exclusion between different clients)
 }
 
 type Filter_work_stats struct {
@@ -825,7 +827,7 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	//}
 
 	//req := CoReq{policy: req_policy, fromclient: client_id, available: available_bytes, count: num, response: client.coAckChannel}
-	req := CoReq{policy: req_policy, fromclient: client_id, available: available_bytes, count: num, response: response_channel}
+	req := CheckoutRequest{policy: req_policy, fromclient: client_id, available: available_bytes, count: num, response: response_channel}
 
 	logger.Debug(3, "(CheckoutWorkunits) %s qm.coReq <- req", client_id)
 	// request workunit
@@ -914,7 +916,7 @@ func (qm *CQMgr) NotifyWorkStatus(notice Notice) {
 }
 
 // when popWorks is called, the client should already be locked
-func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err error) {
+func (qm *CQMgr) popWorks(req CheckoutRequest) (client_specific_workunits []*Workunit, err error) {
 
 	client_id := req.fromclient
 

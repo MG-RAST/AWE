@@ -143,7 +143,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, co
 	return
 }
 
-func CreateWorkflowTasks(job *Job, workflow_instance_id string, steps []cwl.WorkflowStep, step_prefix string) (tasks []*Task, err error) {
+func CreateWorkflowTasks(job *Job, name_prefix string, steps []cwl.WorkflowStep, step_prefix string) (tasks []*Task, err error) {
 	tasks = []*Task{}
 
 	for s, _ := range steps {
@@ -163,18 +163,18 @@ func CreateWorkflowTasks(job *Job, workflow_instance_id string, steps []cwl.Work
 		task_name = strings.TrimPrefix(task_name, "/")
 
 		fmt.Println("task_name1: " + task_name)
-		fmt.Println("workflow_instance_id: " + workflow_instance_id)
+		fmt.Println("name_prefix: " + name_prefix)
 
 		//task_name = workflow + "/" + task_name // e.g. "_main" / "step1"
-		fmt.Println("new task name will be: " + workflow_instance_id + "/" + task_name)
+		fmt.Println("new task name will be: " + name_prefix + "/" + task_name)
 
 		//task_name := strings.TrimPrefix(step.Id, "#main/")
 		//task_name = strings.TrimPrefix(task_name, "#")
 
-		fmt.Printf("(CreateTasks) creating task: %s %s\n", workflow_instance_id, task_name)
+		fmt.Printf("(CreateTasks) creating task: %s %s\n", name_prefix, task_name)
 
 		var awe_task *Task
-		awe_task, err = NewTask(job, workflow_instance_id, task_name)
+		awe_task, err = NewTask(job, name_prefix, task_name)
 		if err != nil {
 			err = fmt.Errorf("(CreateTasks) NewTask returned: %s", err.Error())
 			return

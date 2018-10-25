@@ -30,7 +30,7 @@ func NewProxyMgr() *ProxyMgr {
 			clientMap:    *NewClientMap(),
 			workQueue:    NewWorkQueue(),
 			suspendQueue: false,
-			coReq:        make(chan CoReq),
+			coReq:        make(chan CheckoutRequest),
 			feedback:     make(chan Notice),
 			coSem:        make(chan int, 1), //non-blocking buffered channel
 		},

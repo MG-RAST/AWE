@@ -204,9 +204,11 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		//job_input := *job.CWL_collection.Job_input
 
+		parent_str, _ := task.GetParentStr()
+
 		var workflow_instance *WorkflowInstance
 		var ok bool
-		workflow_instance, ok, err = job.GetWorkflowInstance(task.Parent, true)
+		workflow_instance, ok, err = job.GetWorkflowInstance(parent_str, true)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetWorkflowInstance returned %s", err.Error())
 			return
@@ -356,11 +358,11 @@ func (work *Workunit) Path() (path string, err error) {
 			err = fmt.Errorf("(Workunit/Path) JobId is missing")
 			return
 		}
-		task_name := work.Workunit_Unique_Identifier.Parent
-		if task_name != "" {
-			task_name += "-"
-		}
-		task_name += work.Workunit_Unique_Identifier.TaskName
+		//task_name := work.Workunit_Unique_Identifier.Parent
+		//if task_name != "" {
+		//	task_name += "-"
+		//}
+		task_name := work.Workunit_Unique_Identifier.TaskName
 		// convert name to make it filesystem compatible
 		task_name = strings.Map(
 			func(r rune) rune {

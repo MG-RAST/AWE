@@ -68,15 +68,6 @@ type CoAck struct {
 	err       error
 }
 
-type CoReq struct {
-	policy     string
-	fromclient string
-	//fromclient *Client
-	available int64
-	count     int
-	response  chan CoAck
-}
-
 type coInfo struct {
 	workunit *Workunit
 	clientid string

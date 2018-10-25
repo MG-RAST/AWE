@@ -7,8 +7,8 @@ import (
 
 type Task_Unique_Identifier struct {
 	TaskName string `bson:"task_name" json:"task_name" mapstructure:"task_name"` // example: #main/filter
-	Parent   string `bson:"parent" json:"parent" mapstructure:"parent"`
-	JobId    string `bson:"jobid" json:"jobid" mapstructure:"jobid"`
+	//Parent   string `bson:"parent" json:"parent" mapstructure:"parent"`
+	JobId string `bson:"jobid" json:"jobid" mapstructure:"jobid"`
 }
 
 func New_Task_Unique_Identifier(jobid string, parent string, taskname string) (t Task_Unique_Identifier, err error) {
@@ -19,7 +19,7 @@ func New_Task_Unique_Identifier(jobid string, parent string, taskname string) (t
 
 	fixed_taskname := strings.TrimSuffix(taskname, "/")
 
-	t = Task_Unique_Identifier{JobId: jobid, Parent: parent, TaskName: fixed_taskname}
+	t = Task_Unique_Identifier{JobId: jobid, TaskName: fixed_taskname}
 
 	return
 }
@@ -82,7 +82,7 @@ func New_Task_Unique_Identifier_FromString(old_style_id string) (t Task_Unique_I
 func (taskid Task_Unique_Identifier) String() (s string, err error) {
 
 	jobId := taskid.JobId
-	parent := taskid.Parent
+	//parent := taskid.Parent
 	name := taskid.TaskName
 
 	if name == "" {
@@ -95,11 +95,7 @@ func (taskid Task_Unique_Identifier) String() (s string, err error) {
 		return
 	}
 
-	if parent != "" {
-		s = fmt.Sprintf("%s_%s/%s", jobId, parent, name)
-	} else {
-		s = fmt.Sprintf("%s_%s", jobId, name)
-	}
+	s = fmt.Sprintf("%s_%s", jobId, name)
 
 	return
 }

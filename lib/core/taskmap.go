@@ -85,7 +85,19 @@ func (tm *TaskMap) Delete(taskid Task_Unique_Identifier) (task *Task, ok bool, e
 	return
 }
 
-func (tm *TaskMap) Add(task *Task) (err error) {
+func (tm *TaskMap) Add(task *Task, caller string) (err error) {
+
+	if task.Comment != "" {
+
+		err = fmt.Errorf("task.Comment not empty: %s", task.Comment)
+		return
+	}
+
+	if caller == "" {
+		err = fmt.Errorf("caller empty")
+		return
+	}
+
 	err = tm.LockNamed("Add")
 	if err != nil {
 		return
@@ -98,10 +110,12 @@ func (tm *TaskMap) Add(task *Task) (err error) {
 		err = fmt.Errorf("(TaskMap/Add) task.GetId returned: %s", err.Error())
 		return
 	}
+	id_str, _ := id.String()
 
 	task_in_map, has_task := tm._map[id]
 	if has_task && (task_in_map != task) {
-		err = fmt.Errorf("(TaskMap/Add) task %s is already in TaskMap with a different pointer", id)
+
+		err = fmt.Errorf("(TaskMap/Add) task %s is already in TaskMap with a different pointer (caller: %s, comment: %s)", id_str, caller, task_in_map.Comment)
 		return
 	}
 
@@ -120,6 +134,7 @@ func (tm *TaskMap) Add(task *Task) (err error) {
 		}
 	}
 
+	task.Comment = "added by " + caller
 	tm._map[id] = task
 	return
 }

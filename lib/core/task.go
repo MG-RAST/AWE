@@ -83,6 +83,7 @@ type Task struct {
 	Inputs  []*IO `bson:"inputs" json:"inputs" mapstructure:"inputs"`
 	Outputs []*IO `bson:"outputs" json:"outputs" mapstructure:"outputs"`
 	Predata []*IO `bson:"predata" json:"predata" mapstructure:"predata"`
+	Comment string
 }
 
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
@@ -450,6 +451,17 @@ func NewTask(job *Job, workflow_instance_id string, task_id string) (t *Task, er
 
 	fmt.Printf("(NewTask) new task: %s %s %s\n", job.Id, workflow_instance_id, task_id)
 
+	if task_id == "" {
+		err = fmt.Errorf("(NewTask) task_id is empty")
+		return
+
+	}
+
+	if !strings.HasPrefix(workflow_instance_id, "_main") {
+		err = fmt.Errorf("(NewTask) workflow_instance_id has not6 _main prefix: %s", workflow_instance_id)
+		return
+	}
+
 	if job.Id == "" {
 		err = fmt.Errorf("(NewTask) jobid is empty!")
 		return
@@ -463,8 +475,10 @@ func NewTask(job *Job, workflow_instance_id string, task_id string) (t *Task, er
 	task_id = strings.TrimSuffix(task_id, "/")
 	//workflow = strings.TrimSuffix(workflow, "/")
 
+	job_global_task_id_str := workflow_instance_id + "/" + task_id
+
 	var tui Task_Unique_Identifier
-	tui, err = New_Task_Unique_Identifier(job.Id, workflow_instance_id, task_id)
+	tui, err = New_Task_Unique_Identifier(job.Id, job_global_task_id_str)
 	if err != nil {
 		return
 	}
@@ -587,6 +601,12 @@ func (task *TaskRaw) GetParent() (p Task_Unique_Identifier, ok bool, err error) 
 	}
 	defer task.RUnlockNamed(lock)
 	//p = task.Task_Unique_Identifier.Parent
+
+	if task.Parent == nil {
+		ok = false
+		return
+	}
+
 	p = *task.Parent
 	return
 }
@@ -1491,7 +1511,7 @@ func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
 			continue
 		}
 		var preId Task_Unique_Identifier
-		preId, err = New_Task_Unique_Identifier(task.JobId, "", io.Origin)
+		preId, err = New_Task_Unique_Identifier(task.JobId, io.Origin)
 		if err != nil {
 			err = fmt.Errorf("(ValidateDependants) New_Task_Unique_Identifier returns: %s", err.Error())
 			return
@@ -1538,7 +1558,7 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (err error) {
 		if io.Origin != "" {
 			// find predecessor task
 			var preId Task_Unique_Identifier
-			preId, err = New_Task_Unique_Identifier(task.JobId, "", io.Origin)
+			preId, err = New_Task_Unique_Identifier(task.JobId, io.Origin)
 			if err != nil {
 				err = fmt.Errorf("(ValidateInputs) New_Task_Unique_Identifier returned: %s", err.Error())
 				return

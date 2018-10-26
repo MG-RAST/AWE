@@ -146,6 +146,11 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, co
 func CreateWorkflowTasks(job *Job, name_prefix string, steps []cwl.WorkflowStep, step_prefix string) (tasks []*Task, err error) {
 	tasks = []*Task{}
 
+	if !strings.HasPrefix(name_prefix, "_main") {
+		err = fmt.Errorf("prefix_name does not start with _entrypoint: %s", name_prefix)
+		return
+	}
+
 	for s, _ := range steps {
 
 		step := steps[s]

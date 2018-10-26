@@ -108,9 +108,9 @@ func (job *Job) AddWorkflowInstance(id string, workflow_defintion_id string, inp
 		return
 	}
 
-	if id == "" {
-		id = "_main"
-	}
+	//if id == "" {
+	//	id = "_main"
+	//}
 
 	wi, err = NewWorkflowInstance(id, job.Id, workflow_defintion_id, inputs, remain_tasks, job)
 	if err != nil {
@@ -181,9 +181,9 @@ func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowI
 		}
 		defer job.RUnlockNamed(read_lock)
 	}
-	if id == "" {
-		id = "_main"
-	}
+	//if id == "" {
+	//	id = "_main"
+	//}
 
 	wi, ok = job.WorkflowInstancesMap[id]
 	if !ok {

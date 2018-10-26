@@ -1267,7 +1267,7 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 		// add to qm.TaskMap
 		// updateQueue() process will actually enqueue the task
 		// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
-		err = qm.TaskMap.Add(task)
+		err = qm.TaskMap.Add(task, "EnqueueTasksByJobId")
 		if err != nil {
 			err = fmt.Errorf("(EnqueueTasksByJobId) qm.TaskMap.Add() returns: %s", err.Error())
 			return
@@ -1376,18 +1376,17 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		//	return
 		//}
 
-		parent_id_str, _ := task.GetParentStr()
-
 		var workflow_instance *WorkflowInstance
+
 		var ok bool
-		workflow_instance, ok, err = job.GetWorkflowInstance(parent_id_str, true)
+		workflow_instance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
 		if err != nil {
 			err = fmt.Errorf("(isTaskReady) GetWorkflowInstance returned %s", err.Error())
 			return
 		}
 
 		if !ok {
-			err = fmt.Errorf("(isTaskReady) WorkflowInstance not found: %s", task.Parent)
+			err = fmt.Errorf("(isTaskReady) WorkflowInstance not found: %s", task.WorkflowInstanceId)
 			return
 		}
 
@@ -1441,15 +1440,14 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 						err = fmt.Errorf("(isTaskReady) Cannot parse WorkflowStep source: %s", spew.Sdump(wsi.Source))
 						return
 					}
+					fmt.Println("----------------------------")
+					spew.Dump(workflow_instance)
+					fmt.Println("----------------------------")
 
 					fmt.Println("workflow_def: " + workflow_def)
 					fmt.Println("src_str: " + src_str)
 					fmt.Println("workflow_instance_id: " + workflow_instance_id)
-
-					if !strings.HasPrefix(src_str, workflow_def) {
-						err = fmt.Errorf("(isTaskReady) workflow_def is not prefix !?")
-						return
-					}
+					fmt.Println("task_id: " + task_id_str)
 
 					src_str = strings.TrimPrefix(src_str, workflow_def)
 					src_str = strings.TrimPrefix(src_str, "/")
@@ -1640,6 +1638,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		if err != nil {
 			return
 		}
+		sub_task_id_str, _ := sub_task_id.String()
 		children = append(children, sub_task_id)
 
 		//err = job.AddTask(sub_task)
@@ -1652,9 +1651,9 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		// add to qm.TaskMap
 		// updateQueue() process will actually enqueue the task
 		// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
-		err = qm.TaskMap.Add(sub_task)
+		err = qm.TaskMap.Add(sub_task, "taskEnQueueWorkflow")
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueueWorkflow) (subtask: %s) qm.TaskMap.Add() returns: %s", sub_task_id, err.Error())
+			err = fmt.Errorf("(taskEnQueueWorkflow) (subtask: %s) qm.TaskMap.Add() returns: %s", sub_task_id_str, err.Error())
 			return
 		}
 	}
@@ -2020,7 +2019,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 			return
 		}
 
-		err = qm.TaskMap.Add(sub_task)
+		err = qm.TaskMap.Add(sub_task, "taskEnQueue")
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) qm.TaskMap.Add() returns: %s", err.Error())
 			return
@@ -2086,17 +2085,15 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 	if job.WorkflowContext != nil {
 		logger.Debug(3, "(taskEnQueue) have job.WorkflowContext")
 
-		parent_id_str, _ := task.GetParentStr()
-
 		var workflow_instance *WorkflowInstance
 		var ok bool
-		workflow_instance, ok, err = job.GetWorkflowInstance(parent_id_str, true)
+		workflow_instance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("(taskEnQueue) WorkflowInstance not found: %s", parent_id_str)
+			err = fmt.Errorf("(taskEnQueue) WorkflowInstance not found: \"%s\"", task.WorkflowInstanceId)
 			return
 		}
 
@@ -3112,7 +3109,7 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 				} else {
 					// find predecessor task
 					var preId Task_Unique_Identifier
-					preId, err = New_Task_Unique_Identifier(task.JobId, "", io.Origin)
+					preId, err = New_Task_Unique_Identifier(task.JobId, io.Origin)
 					if err != nil {
 						err = fmt.Errorf("New_Task_Unique_Identifier returned: %s", err.Error())
 						return
@@ -3196,23 +3193,27 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	//jobid := parts[0]
 	jobid, err := task.GetJobId()
 	if err != nil {
+		err = fmt.Errorf("(updateJobTask) task.GetJobId() returned: %s", err.Error())
 		return
 	}
 	var job *Job
 	job, err = GetJob(jobid)
 	if err != nil {
+		err = fmt.Errorf("(updateJobTask) GetJob returned: %s", err.Error())
 		return
 	}
 
 	var task_state string
 	task_state, err = task.GetState()
 	if err != nil {
+		err = fmt.Errorf("(updateJobTask) task.GetState() returned: %s", err.Error())
 		return
 	}
 
 	var job_remainTasks int
 	job_remainTasks, err = job.GetRemainTasks() // TODO deprecated !?
 	if err != nil {
+		err = fmt.Errorf("(updateJobTask) job.GetRemainTasks() returned: %s", err.Error())
 		return
 	}
 
@@ -3238,9 +3239,12 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	}
 
 	var parent_id_str string
-	parent_id_str, err = parent_id.String()
-	if err != nil {
-		return
+	if has_parent {
+		parent_id_str, err = parent_id.String()
+		if err != nil {
+			err = fmt.Errorf("(updateJobTask) parent_id.String() returned: %s", err.Error())
+			return
+		}
 	}
 
 	if task.WorkflowStep == nil {
@@ -3262,6 +3266,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			var ok bool
 			scatter_parent_task, ok, err = qm.TaskMap.Get(scatter_parent_id, true)
 			if err != nil {
+				err = fmt.Errorf("(updateJobTask) qm.TaskMap.Get returned: %s", err.Error())
 				return
 			}
 			if !ok {
@@ -3293,6 +3298,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				var child_state string
 				child_state, err = child_task.GetState()
 				if err != nil {
+					err = fmt.Errorf("(updateJobTask) child_task.GetState returned: %s", err.Error())
 					return
 				}
 
@@ -3310,6 +3316,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			// // (updateJobTask) scatter_complete
 			ok, err = scatter_parent_task.Finalize() // make sure this is the last scatter task
 			if err != nil {
+				err = fmt.Errorf("(updateJobTask) scatter_parent_task.Finalize returned: %s", err.Error())
 				return
 			}
 
@@ -3370,6 +3377,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 			err = task.SetState(TASK_STAT_COMPLETED, true)
 			if err != nil {
+				err = fmt.Errorf("(updateJobTask) task.SetState returned: %s", err.Error())
 				return
 			}
 
@@ -3463,6 +3471,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			var parent_task_type string
 			parent_task_type, err = parent_task.GetTaskType()
 			if err != nil {
+				err = fmt.Errorf("(updateJobTask) parent_task.GetTaskType returned: %s", err.Error())
 				return
 			}
 
@@ -3484,6 +3493,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 				var child_state string
 				child_state, err = child_task.GetState()
 				if err != nil {
+					err = fmt.Errorf("(updateJobTask) child_task.GetState returned: %s", err.Error())
 					return
 				}
 
@@ -3505,6 +3515,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			// this prevents a race condition, in case multiple tasks in the same subworkflow complete at the same time
 			ok, err = parent_task.Finalize()
 			if err != nil {
+				err = fmt.Errorf("(updateJobTask) parent_task.Finalize returned: %s", err.Error())
 				return
 			}
 
@@ -3559,6 +3570,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		var task_id Task_Unique_Identifier
 		task_id, err = task.GetId("updateJobTask")
 		if err != nil {
+			err = fmt.Errorf("(updateJobTask) task.GetId returned: %s", err.Error())
 			return
 		}
 
@@ -3851,6 +3863,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		err = workflow_instance.SetOutputs(workflow_outputs_array, context)
 		//err = job.Set_WorkflowInstance_Outputs(parent_id_str, workflow_outputs_array, context)
 		if err != nil {
+			err = fmt.Errorf("(updateJobTask) workflow_instance.SetOutputs returned: %s", err.Error())
 			return
 		}
 
@@ -3858,18 +3871,20 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			// ##### Step Output #####
 			err = parent_task.SetStepOutput(&workflow_outputs_array, true)
 			if err != nil {
-
+				err = fmt.Errorf("(updateJobTask) parent_task.SetStepOutput returned: %s", err.Error())
 				return err
 			}
 
 			err = parent_task.SetState(TASK_STAT_COMPLETED, true)
 			if err != nil {
+				err = fmt.Errorf("(updateJobTask) parent_task.SetState returned: %s", err.Error())
 				return
 			}
 		} else {
 
 			job_remainTasks, err = job.GetRemainTasks() // TODO deprecated !?
 			if err != nil {
+				err = fmt.Errorf("(updateJobTask) job.GetRemainTasks returned: %s", err.Error())
 				return
 			}
 
@@ -3891,6 +3906,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 	job_state, err := job.GetState(true)
 	if err != nil {
+		err = fmt.Errorf("(updateJobTask) job.GetState returned: %s", err.Error())
 		return
 	}
 	if job_state == JOB_STAT_COMPLETED {
@@ -3900,6 +3916,7 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 	err = job.SetState(JOB_STAT_COMPLETED, nil)
 	if err != nil {
+		err = fmt.Errorf("(updateJobTask) job.SetState returned: %s", err.Error())
 		return
 	}
 
@@ -3918,7 +3935,11 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 		id, _ := task.GetId("updateJobTask." + strconv.Itoa(i))
 
-		qm.TaskMap.Delete(id)
+		_, _, err = qm.TaskMap.Delete(id)
+		if err != nil {
+			err = fmt.Errorf("(updateJobTask) qm.TaskMap.Delete returned: %s", err.Error())
+			return
+		}
 	}
 
 	if modified > 0 {
@@ -3928,19 +3949,20 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 	//set expiration from conf if not set
 	nullTime := time.Time{}
-
-	job_expiration, xerr := dbGetJobFieldTime(jobid, "expiration")
-	if xerr != nil {
-		err = xerr
+	var job_expiration time.Time
+	job_expiration, err = dbGetJobFieldTime(jobid, "expiration")
+	if err != nil {
+		err = fmt.Errorf("(updateJobTask) dbGetJobFieldTime returned: %s", err.Error())
 		return
 	}
 
 	if job_expiration == nullTime {
 		expire := conf.GLOBAL_EXPIRE
 
-		job_info_pipeline, xerr := dbGetJobFieldString(jobid, "info.pipeline")
-		if xerr != nil {
-			err = xerr
+		var job_info_pipeline string
+		job_info_pipeline, err = dbGetJobFieldString(jobid, "info.pipeline")
+		if err != nil {
+			err = fmt.Errorf("(updateJobTask) dbGetJobFieldTime returned: %s", err.Error())
 			return
 		}
 
@@ -3948,8 +3970,10 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			expire = val
 		}
 		if expire != "" {
-			if err := job.SetExpiration(expire); err != nil {
-				return err
+			err = job.SetExpiration(expire)
+			if err != nil {
+				err = fmt.Errorf("(updateJobTask) SetExpiration returned: %s", err.Error())
+				return
 			}
 		}
 	}
@@ -4137,7 +4161,7 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 	for i := 0; i < len(job.TaskList()); i++ {
 		//task_id := fmt.Sprintf("%s_%d", jobid, i)
 		var task_id Task_Unique_Identifier
-		task_id, err = New_Task_Unique_Identifier(jobid, "", strconv.Itoa(i)) // TODO that will not work
+		task_id, err = New_Task_Unique_Identifier(jobid, strconv.Itoa(i)) // TODO that will not work
 		if err != nil {
 			return
 		}

@@ -30,7 +30,9 @@ func NewWorkflowInstance(id string, jobid string, workflow_definition string, in
 		return
 	}
 
-	wi = &WorkflowInstance{Id: id, JobId: jobid, Workflow_Definition: workflow_definition, Inputs: inputs, RemainTasks: remain_tasks}
+	logger.Debug(3, "(NewWorkflowInstance) _id=%s%s, workflow_definition=%s", jobid, id, workflow_definition)
+
+	wi = &WorkflowInstance{Id: id, JobId: jobid, _Id: jobid + id, Workflow_Definition: workflow_definition, Inputs: inputs, RemainTasks: remain_tasks}
 
 	wi._Id = jobid + id
 	_, err = wi.Init(job)

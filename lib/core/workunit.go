@@ -204,17 +204,15 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		//job_input := *job.CWL_collection.Job_input
 
-		parent_str, _ := task.GetParentStr()
-
 		var workflow_instance *WorkflowInstance
 		var ok bool
-		workflow_instance, ok, err = job.GetWorkflowInstance(parent_str, true)
+		workflow_instance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetWorkflowInstance returned %s", err.Error())
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("(NewWorkunit) WorkflowInstance not found: %s", task.Parent)
+			err = fmt.Errorf("(NewWorkunit) WorkflowInstance not found: \"%s\"", task.WorkflowInstanceId)
 			return
 		}
 

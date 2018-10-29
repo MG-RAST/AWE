@@ -133,6 +133,7 @@ func launchAPI(control chan int, port int) {
 	r.Map("/cgroup/{cgid}/acl", c.ClientGroupAcl["base"])
 	r.Map("/cgroup/{cgid}/token", c.ClientGroupToken)
 	r.MapRest("/job", c.Job)
+	r.MapRest("/workflow_instances", c.WorkflowInstances)
 	r.MapRest("/work", c.Work)
 	r.MapRest("/cgroup", c.ClientGroup)
 	r.MapRest("/client", c.Client)

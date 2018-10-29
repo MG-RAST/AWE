@@ -167,16 +167,16 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}, context *Workfl
 				return
 
 				//fmt.Println("(InitialWorkDirRequirement/Evaluate) dirent")
-				var element_dirent *Dirent
-				element_dirent = element.(*Dirent)
-				err = element_dirent.Evaluate(inputs, context)
-				if err != nil {
-					err = fmt.Errorf("(InitialWorkDirRequirement) element_dirent.Evaluate returned: %s", err.Error())
-					return
-				}
-				//fmt.Println("(InitialWorkDirRequirement/Evaluate) element_dirent:")
-				//spew.Dump(element_dirent)
-				listing_array[i] = element_dirent
+				// var element_dirent *Dirent
+				// element_dirent = element.(*Dirent)
+				// err = element_dirent.Evaluate(inputs, context)
+				// if err != nil {
+				// 	err = fmt.Errorf("(InitialWorkDirRequirement) element_dirent.Evaluate returned: %s", err.Error())
+				// 	return
+				// }
+				// //fmt.Println("(InitialWorkDirRequirement/Evaluate) element_dirent:")
+				// //spew.Dump(element_dirent)
+				// listing_array[i] = element_dirent
 			case *File, *Directory:
 				// nothing to do
 

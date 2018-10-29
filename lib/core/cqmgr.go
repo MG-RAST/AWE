@@ -291,7 +291,7 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerS
 
 	_ = client.Update_Status(false)
 
-	logger.Debug(3, "HeartBeatFrom:"+"clientid="+id)
+	logger.Debug(3, "HeartBeatFrom: client %s", id)
 
 	//get suspended workunit that need the client to discard
 	current_work, xerr := client.Current_work.Get_list(false)
@@ -308,6 +308,7 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerS
 		if !ok {
 			work_id_str, _ := work_id.String()
 			// server does not know about the work the client id working on
+			logger.Error("(ClientHeartBeat) Client was working on unknown workunit. Told him to discard.")
 			discard = append(discard, work_id_str)
 			continue
 		}

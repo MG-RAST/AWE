@@ -146,7 +146,7 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, co
 func CreateWorkflowTasks(job *Job, name_prefix string, steps []cwl.WorkflowStep, step_prefix string) (tasks []*Task, err error) {
 	tasks = []*Task{}
 
-	if !strings.HasPrefix(name_prefix, "_main") {
+	if !strings.HasPrefix(name_prefix, "_root") {
 		err = fmt.Errorf("prefix_name does not start with _entrypoint: %s", name_prefix)
 		return
 	}
@@ -170,7 +170,6 @@ func CreateWorkflowTasks(job *Job, name_prefix string, steps []cwl.WorkflowStep,
 		fmt.Println("task_name1: " + task_name)
 		fmt.Println("name_prefix: " + name_prefix)
 
-		//task_name = workflow + "/" + task_name // e.g. "_main" / "step1"
 		fmt.Println("new task name will be: " + name_prefix + "/" + task_name)
 
 		//task_name := strings.TrimPrefix(step.Id, "#main/")
@@ -253,9 +252,9 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	// TODO first check that all resources are available: local files and remote links
 
 	var wi *WorkflowInstance
-	wi, err = NewWorkflowInstance("_main", job.Id, cwl_workflow.Id, *job_input_new, len(cwl_workflow.Steps), job) // Not using AddWorkflowInstance to avoid mongo
+	wi, err = NewWorkflowInstance("_root", job.Id, cwl_workflow.Id, *job_input_new, len(cwl_workflow.Steps), job) // Not using AddWorkflowInstance to avoid mongo
 	if err != nil {
-		err = fmt.Errorf("(CWL2AWE) NewWorkflowInstancereturned: %s", err.Error())
+		err = fmt.Errorf("(CWL2AWE) NewWorkflowInstance returned: %s", err.Error())
 		return
 	}
 
@@ -264,10 +263,10 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	if job.WorkflowInstancesMap == nil {
 		job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
 	}
-	job.WorkflowInstancesMap["_main"] = wi
+	job.WorkflowInstancesMap["_root"] = wi
 
 	var tasks []*Task
-	tasks, err = CreateWorkflowTasks(job, "_main", cwl_workflow.Steps, cwl_workflow.Id)
+	tasks, err = CreateWorkflowTasks(job, "_root", cwl_workflow.Steps, cwl_workflow.Id)
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) CreateWorkflowTasks returned: %s", err.Error())
 		return

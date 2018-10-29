@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
@@ -14,8 +15,9 @@ import (
 type WorkflowInstance struct {
 	RWMutex             `bson:"-" json:"-" mapstructure:"-"`
 	Id                  string           `bson:"id" json:"id" mapstructure:"id"`
-	_Id                 string           `bson:"_id" json:"_id" mapstructure:"_id"`                                                 // unique identifier for mongo, includes jobid !
-	JobId               string           `bson:"job_id" json:"job_id" mapstructure:"job_id"`                                        // this is unique identifier for the workflow instance
+	_Id                 string           `bson:"_id" json:"_id" mapstructure:"_id"` // unique identifier for mongo, includes jobid !
+	JobId               string           `bson:"job_id" json:"job_id" mapstructure:"job_id"`
+	Acl                 *acl.Acl         `bson:"acl" json:"-"`                                                                      // this is unique identifier for the workflow instance
 	Workflow_Definition string           `bson:"workflow_definition" json:"workflow_definition" mapstructure:"workflow_definition"` // name of the workflow this instance is derived from
 	Inputs              cwl.Job_document `bson:"inputs" json:"inputs" mapstructure:"inputs"`
 	Outputs             cwl.Job_document `bson:"outputs" json:"outputs" mapstructure:"outputs"`
@@ -32,12 +34,22 @@ func NewWorkflowInstance(id string, jobid string, workflow_definition string, in
 
 	logger.Debug(3, "(NewWorkflowInstance) _id=%s%s, workflow_definition=%s", jobid, id, workflow_definition)
 
+	if job == nil {
+		err = fmt.Errorf("(NewWorkflowInstance) job==nil ")
+		return
+	}
+
 	wi = &WorkflowInstance{Id: id, JobId: jobid, _Id: jobid + id, Workflow_Definition: workflow_definition, Inputs: inputs, RemainTasks: remain_tasks}
 
 	wi._Id = jobid + id
 	_, err = wi.Init(job)
 	if err != nil {
 		err = fmt.Errorf("(NewWorkflowInstance) wi.Init returned: %s", err.Error())
+		return
+	}
+
+	if wi.Acl == nil {
+		err = fmt.Errorf("(NewWorkflowInstance) wi.Acl == nil , init failed ? ")
 		return
 	}
 
@@ -252,13 +264,25 @@ func (wi *WorkflowInstance) Init(job *Job) (changed bool, err error) {
 
 	wi.RWMutex.Init("WorkflowInstance")
 
-	if wi.Tasks == nil {
+	if wi.Acl == nil {
+
+		if job.Acl.Owner == "" {
+			err = fmt.Errorf("(WorkflowInstance/Init) no job.Acl.Owner")
+			return
+		}
+
+		wi.Acl = &job.Acl
+		changed = true
+	}
+
+	if wi.Acl == nil {
+		err = fmt.Errorf("(WorkflowInstance/Init) still wi.Acl == nil ??? ")
 		return
 	}
 
 	var t_changed bool
 	for i, _ := range wi.Tasks {
-		t_changed, err = wi.Tasks[i].Init(job)
+		t_changed, err = wi.Tasks[i].Init(job, wi.JobId)
 		if err != nil {
 			err = fmt.Errorf("(WorkflowInstance/Init) task.Init returned: %s", err.Error())
 			return
@@ -281,6 +305,11 @@ func (wi *WorkflowInstance) Save(write_lock bool) (err error) {
 	}
 	if wi.Id == "" {
 		err = fmt.Errorf("(WorkflowInstance/Save) job id empty")
+		return
+	}
+
+	if wi.Acl == nil {
+		err = fmt.Errorf("(WorkflowInstance/Save) wi.Acl == nil ")
 		return
 	}
 

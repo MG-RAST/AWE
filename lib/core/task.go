@@ -75,7 +75,7 @@ type TaskRaw struct {
 	Finalizing          bool                     `bson:"-" json:"-" mapstructure:"-"`                                                                   // CWL-only, a lock mechanism for subworkflows and scatter tasks
 	CwlVersion          cwl.CWLVersion           `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"` // CWL-only
 	WorkflowInstanceId  string                   `bson:"workflow_instance_id" json:"workflow_instance_id" mapstructure:"workflow_instance_id"`          // CWL-only
-	Parent              *Task_Unique_Identifier  `bson:"parent" json:"parent" mapstructure:"parent"`                                                    // CWL-only parent that created subworkflow
+	WorkflowParent      *Task_Unique_Identifier  `bson:"workflow_parent" json:"workflow_parent" mapstructure:"workflow_parent"`                         // CWL-only parent that created subworkflow
 }
 
 type Task struct {
@@ -129,7 +129,7 @@ func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) (tr TaskRaw, err err
 	return
 }
 
-func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
+func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) {
 	changed = false
 
 	if len(task.Id) == 0 {
@@ -137,7 +137,7 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		return
 	}
 
-	job_id := job.Id
+	//job_id := job.Id
 
 	if job_id == "" {
 		err = fmt.Errorf("(InitRaw) job_id empty")
@@ -196,12 +196,13 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		changed = true
 	}
 
-	if job.Info == nil {
-		err = fmt.Errorf("(InitRaw) job.Info empty")
-		return
+	if job != nil {
+		if job.Info == nil {
+			err = fmt.Errorf("(InitRaw) job.Info empty")
+			return
+		}
+		task.Info = job.Info
 	}
-	task.Info = job.Info
-
 	if task.TotalWork <= 0 {
 		task.TotalWork = 1
 	}
@@ -246,15 +247,17 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 
 	if task.WorkflowStep != nil {
 
-		if job.WorkflowContext == nil {
-			err = fmt.Errorf("(InitRaw) job.WorkflowContext == nil")
-			return
-		}
+		if job != nil {
+			if job.WorkflowContext == nil {
+				err = fmt.Errorf("(InitRaw) job.WorkflowContext == nil")
+				return
+			}
 
-		err = task.WorkflowStep.Init(job.WorkflowContext)
-		if err != nil {
-			err = fmt.Errorf("(InitRaw) task.WorkflowStep.Init returned: %s", err.Error())
-			return
+			err = task.WorkflowStep.Init(job.WorkflowContext)
+			if err != nil {
+				err = fmt.Errorf("(InitRaw) task.WorkflowStep.Init returned: %s", err.Error())
+				return
+			}
 		}
 	}
 
@@ -389,8 +392,9 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 	return
 }
 
-func (task *Task) Init(job *Job) (changed bool, err error) {
-	changed, err = task.InitRaw(job)
+// argument job is optional, but recommended
+func (task *Task) Init(job *Job, job_id string) (changed bool, err error) {
+	changed, err = task.InitRaw(job, job_id)
 	if err != nil {
 		return
 	}
@@ -449,7 +453,7 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 
 func NewTask(job *Job, workflow_instance_id string, task_id string) (t *Task, err error) {
 
-	fmt.Printf("(NewTask) new task: %s %s %s\n", job.Id, workflow_instance_id, task_id)
+	fmt.Printf("(NewTask) new task: %s %s/%s\n", job.Id, workflow_instance_id, task_id)
 
 	if task_id == "" {
 		err = fmt.Errorf("(NewTask) task_id is empty")
@@ -457,8 +461,8 @@ func NewTask(job *Job, workflow_instance_id string, task_id string) (t *Task, er
 
 	}
 
-	if !strings.HasPrefix(workflow_instance_id, "_main") {
-		err = fmt.Errorf("(NewTask) workflow_instance_id has not6 _main prefix: %s", workflow_instance_id)
+	if !strings.HasPrefix(workflow_instance_id, "_root") {
+		err = fmt.Errorf("(NewTask) workflow_instance_id has not _root prefix: %s", workflow_instance_id)
 		return
 	}
 
@@ -594,20 +598,19 @@ func (task *TaskRaw) GetChildren(qm *ServerMgr) (children []*Task, err error) {
 }
 
 // returns name of Parent (without jobid)
-func (task *TaskRaw) GetParent() (p Task_Unique_Identifier, ok bool, err error) {
+func (task *TaskRaw) GetWorkflowParent() (p Task_Unique_Identifier, ok bool, err error) {
 	lock, err := task.RLockNamed("GetParent")
 	if err != nil {
 		return
 	}
 	defer task.RUnlockNamed(lock)
-	//p = task.Task_Unique_Identifier.Parent
 
-	if task.Parent == nil {
+	if task.WorkflowParent == nil {
 		ok = false
 		return
 	}
 
-	p = *task.Parent
+	p = *task.WorkflowParent
 	return
 }
 
@@ -621,8 +624,8 @@ func (task *TaskRaw) GetParentStr() (parent_id_str string, err error) {
 
 	parent_id_str = ""
 
-	if task.Parent != nil {
-		parent_id_str, _ = task.Parent.String()
+	if task.WorkflowParent != nil {
+		parent_id_str, _ = task.WorkflowParent.String()
 	}
 
 	return

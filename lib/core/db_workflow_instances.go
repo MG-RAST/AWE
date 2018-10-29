@@ -10,6 +10,64 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+func DBGetJobWorkflow_instances(q bson.M, options map[string]int, sortby string, do_init bool) (results []interface{}, count int, err error) {
+
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
+	query := c.Find(q)
+	if count, err = query.Count(); err != nil {
+		return nil, 0, err
+	}
+
+	if sortby != "" {
+		query = query.Sort(sortby)
+	}
+
+	limit, has_limit := options["limit"]
+	if has_limit {
+		query = query.Limit(limit)
+	}
+
+	if offset, has := options["offset"]; has {
+		query = query.Skip(offset)
+	}
+
+	//var results []WorkflowInstance
+	results = []interface{}{}
+
+	err = query.All(&results)
+	if err != nil {
+		err = fmt.Errorf("query.All(results) failed: %s", err.Error())
+		return
+	}
+	if results == nil {
+		err = fmt.Errorf("(dbFindSort) results == nil")
+		return
+	}
+
+	// if do_init {
+	// 	var count_changed int
+
+	// 	for i, _ := range results {
+	// 		var changed bool
+	// 		changed, err = results[i].Init(nil)
+	// 		if err != nil {
+	// 			err = fmt.Errorf("results[i].Init(nil) failed: %s", err.Error())
+	// 			return
+	// 		}
+	// 		if changed {
+	// 			count_changed += 1
+	// 			results[i].Save(true)
+	// 		}
+	// 	}
+	// 	logger.Debug(1, "%d jobs haven been updated by Init function", count_changed)
+
+	// }
+
+	return
+}
+
 func dbUpdateJobWorkflow_instancesFieldOutputs(job_id string, subworkflow_id string, outputs cwl.Job_document) (err error) {
 	update_value := bson.M{"outputs": outputs}
 	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)

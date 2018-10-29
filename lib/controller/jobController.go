@@ -499,7 +499,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		//job.CwlVersion = cwl_version
 		//job.Namespaces = context.Namespaces
 		//job.CWL_collection = &collection
-		job.Info.Name = job_file.Name
+
+		if conf.SUBMITTER_JOB_NAME == "" {
+			job.Info.Name = job_file.Name
+		} else {
+			job.Info.Name = conf.SUBMITTER_JOB_NAME
+		}
+
 		job.Info.Pipeline = workflow_filename
 
 		client_group, ok := params["CLIENT_GROUP"]

@@ -358,7 +358,7 @@ func (job *Job) Init() (changed bool, err error) {
 			}
 			changed = true
 		}
-		t_changed, xerr := task.Init(job)
+		t_changed, xerr := task.Init(job, job.Id)
 		if xerr != nil {
 			err = fmt.Errorf("(job.Init) task.Init returned: %s", xerr.Error())
 			return

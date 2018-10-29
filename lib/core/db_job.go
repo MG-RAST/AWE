@@ -86,14 +86,16 @@ func dbAdminData(special string) (data []interface{}, err error) {
 	return
 }
 
-func dbFindSort(q bson.M, results *Jobs, options map[string]int, sortby string, do_init bool) (count int, err error) {
+func dbFindSort(filter_query bson.M, results *Jobs, options map[string]int, sortby string, do_init bool) (count int, err error) {
 	if sortby == "" {
 		return 0, errors.New("sortby must be an nonempty string")
 	}
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
-	query := c.Find(q)
+
+	query := c.Find(filter_query)
+
 	if count, err = query.Count(); err != nil {
 		return 0, err
 	}

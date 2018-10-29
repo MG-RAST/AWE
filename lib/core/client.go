@@ -17,7 +17,7 @@ import (
 
 // this is the Worker
 type Client struct {
-	coAckChannel    chan CoAck `bson:"-" json:"-"` //workunit checkout item including data and err (qmgr.Handler -> WorkController)
+	coAckChannel    chan CoAck //workunit checkout item including data and err (qmgr.Handler -> WorkController)
 	RWMutex         `bson:"-" json:"-"`
 	WorkerRuntime   `bson:",inline" json:",inline"`
 	WorkerState     `bson:",inline" json:",inline"`

@@ -258,6 +258,7 @@ func (qm *CQMgr) DeleteClients(delete_clients []string) {
 
 }
 
+// this is invoked on server side when clients sends heartbeat
 func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerState) (hbmsg HeartbeatInstructions, err error) {
 	hbmsg = make(map[string]string, 1)
 	client, ok, xerr := qm.GetClient(id, true)
@@ -294,25 +295,30 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerS
 
 	//get suspended workunit that need the client to discard
 	current_work, xerr := client.Current_work.Get_list(false)
-	suspended := []string{}
+	discard := []string{}
 
 	for _, work_id := range current_work {
-		work, ok, zerr := qm.workQueue.all.Get(work_id)
+		var work *Workunit
+
+		work, ok, err = qm.workQueue.all.Get(work_id)
 		if err != nil {
-			err = zerr
 			return
 		}
+
 		if !ok {
+			work_id_str, _ := work_id.String()
+			// server does not know about the work the client id working on
+			discard = append(discard, work_id_str)
 			continue
 		}
 
 		if work.State == WORK_STAT_SUSPEND {
-			suspended = append(suspended, work.Id)
+			discard = append(discard, work.Id)
 		}
 
 	}
-	if len(suspended) > 0 {
-		hbmsg["discard"] = strings.Join(suspended, ",")
+	if len(discard) > 0 {
+		hbmsg["discard"] = strings.Join(discard, ",")
 	}
 	//if client.Status == CLIENT_STAT_DELETED {
 	//	hbmsg["stop"] = id

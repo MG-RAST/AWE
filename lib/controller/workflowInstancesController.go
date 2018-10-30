@@ -9,8 +9,9 @@ import (
 
 type WorkflowInstancesController struct{}
 
-// GET: /workflow_instances
+//  returns all workflow_instances or only those that match job_id, .i.e. /workflow_instances?job_id=<id>
 
+// GET: /workflow_instances
 func (cr *WorkflowInstancesController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 

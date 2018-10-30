@@ -279,6 +279,8 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	//job.Tasks = tasks
 	wi.Tasks = tasks
+	wi.RemainTasks = len(tasks)
+	wi.TotalTasks = len(tasks)
 
 	err = wi.Save(true)
 	if err != nil {
@@ -307,6 +309,8 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	}
 
 	//spew.Dump(job)
+
+	//panic("done")
 
 	logger.Debug(1, "job.Id: %s", job.Id)
 	err = job.Save()

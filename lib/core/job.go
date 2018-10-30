@@ -119,6 +119,8 @@ func (job *Job) AddWorkflowInstance(id string, workflow_defintion_id string, inp
 	}
 
 	wi.Tasks = tasks
+	wi.RemainTasks = len(tasks)
+	wi.TotalTasks = len(tasks)
 
 	err = wi.Save(true)
 	if err != nil {

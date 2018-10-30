@@ -1642,7 +1642,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		children = append(children, sub_task_id)
 
 		//err = job.AddTask(sub_task)
-		wi.AddTask(sub_task)
+		err = wi.AddTask(sub_task)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueWorkflow) job.AddTask returns: %s", err.Error())
 			return
@@ -3440,6 +3440,8 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		//fmt.Printf("GetRemainTasks subworkflow C: %d\n", subworkflow_remain_tasks)
 
 		logger.Debug(3, "(updateJobTask) TASK_STAT_COMPLETED  / remaining tasks for subworkflow %s: %d", task_str, subworkflow_remain_tasks)
+
+		logger.Debug(3, "(updateJobTask) workflow_instance %s remaining tasks: %d (total %d or %d)", workflow_instance_id, subworkflow_remain_tasks, workflow_instance.TaskCount(), workflow_instance.TotalTasks)
 
 		if subworkflow_remain_tasks > 0 {
 			return

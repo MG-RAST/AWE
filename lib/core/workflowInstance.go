@@ -23,6 +23,7 @@ type WorkflowInstance struct {
 	Outputs             cwl.Job_document `bson:"outputs" json:"outputs" mapstructure:"outputs"`
 	Tasks               []*Task          `bson:"tasks" json:"tasks" mapstructure:"tasks"`
 	RemainTasks         int              `bson:"remaintasks" json:"remaintasks" mapstructure:"remaintasks"`
+	TotalTasks          int              `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
 }
 
 func NewWorkflowInstance(id string, jobid string, workflow_definition string, inputs cwl.Job_document, remain_tasks int, job *Job) (wi *WorkflowInstance, err error) {
@@ -237,10 +238,8 @@ func (wi *WorkflowInstance) AddTask(task *Task) (err error) {
 
 	wi.Tasks = append(wi.Tasks, task)
 
-	if len(wi.Tasks) > 2 {
-		err = fmt.Errorf("wi.Tasks > 2")
-		return
-	}
+	wi.RemainTasks += 1
+	wi.TotalTasks = len(wi.Tasks)
 
 	wi.Save(false)
 	return
@@ -255,6 +254,17 @@ func (wi *WorkflowInstance) GetTask(task_id Task_Unique_Identifier) (task *Task,
 			task = t
 		}
 	}
+
+	return
+}
+
+func (wi *WorkflowInstance) TaskCount() (count int) {
+	count = 0
+
+	if wi.Tasks == nil {
+		return
+	}
+	count = len(wi.Tasks)
 
 	return
 }
@@ -361,12 +371,13 @@ func (wi *WorkflowInstance) DecreaseRemainTasks() (remain int, err error) {
 	wi.RemainTasks -= 1
 
 	//err = dbUpdateJobWorkflow_instancesFieldInt(wi.JobId, wi.Id, "remaintasks", wi.RemainTasks)
-	err = dbIncrementJobWorkflow_instancesField(wi.JobId, wi.Id, "remaintasks", -1)
+	err = dbIncrementJobWorkflow_instancesField(wi.JobId, wi.Id, "remaintasks", -1) // TODO return correct value for remain
 	//err = wi.Save()
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainTasks)  Save() returned: %s", err.Error())
 		return
 	}
+	remain = wi.RemainTasks
 
 	return
 }

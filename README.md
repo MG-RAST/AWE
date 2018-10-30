@@ -25,13 +25,12 @@ AWE uses the Shock data management system to handle input and output data (retri
 
 Related Links
 ------
-AWE server:[github.com/MG-RAST/AWE](https://github.com/MG-RAST/AWE)
-
-AWE monitor: [github.com/MG-RAST/awe-monitor](https://github.com/MG-RAST/awe-monitor)
-
-Shock: [github.com/MG-RAST/Shock](https://github.com/MG-RAST/Shock)
-
-Skyport2: [github.com/MG-RAST/Skyport2](https://github.com/MG-RAST/Skyport2)
+|     | link |
+| ----------- | -----------
+| AWE server  | [github.com/MG-RAST/AWE](https://github.com/MG-RAST/AWE) |
+| AWE monitor | [github.com/MG-RAST/awe-monitor](https://github.com/MG-RAST/awe-monitor) |
+| Shock       | [github.com/MG-RAST/Shock](https://github.com/MG-RAST/Shock) |
+| Skyport2    | [github.com/MG-RAST/Skyport2](https://github.com/MG-RAST/Skyport2) |
 
 
 Documentation

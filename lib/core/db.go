@@ -20,6 +20,12 @@ type StructContainer struct {
 	Data interface{} `json:"data"`
 }
 
+type DefaultQueryOptions struct {
+	Limit  int
+	Offset int
+	Sort   []string // Order or sortby
+}
+
 func dbDelete(q bson.M, coll string) (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()

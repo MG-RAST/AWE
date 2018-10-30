@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+	"gopkg.in/mgo.v2/bson"
 )
 
 var (
@@ -393,4 +395,53 @@ func contains(list []string, elem string) bool {
 		}
 	}
 	return false
+}
+
+func GetAclQuery(u *user.User) (query bson.M) {
+
+	query = bson.M{}
+	if u.Uuid == "public" {
+		query["acl.read"] = "public"
+	} else {
+		query["$or"] = []bson.M{bson.M{"acl.read": "public"}, bson.M{"acl.read": u.Uuid}, bson.M{"acl.owner": u.Uuid}, bson.M{"acl": bson.M{"$exists": "false"}}}
+	}
+	return
+}
+
+func QueryParseDefaultOptions(cx *goweb.Context) (opt *core.DefaultQueryOptions, err error) {
+
+	query := &Query{Li: cx.Request.URL.Query()}
+
+	opt = &core.DefaultQueryOptions{}
+
+	opt.Limit = conf.DEFAULT_PAGE_SIZE
+	opt.Offset = 0
+	opt.Sort = make([]string, 0)
+
+	if query.Has("limit") {
+		opt.Limit, err = strconv.Atoi(query.Value("limit"))
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	if query.Has("offset") {
+		opt.Offset, err = strconv.Atoi(query.Value("offset"))
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	if query.Has("order") {
+		var sort_str string
+		sort_str = query.Value("order")
+
+		if sort_str != "" {
+			sort_array := strings.Split(sort_str, ",")
+			opt.Sort = sort_array
+		}
+
+	}
+	return
 }

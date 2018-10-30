@@ -10,28 +10,29 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-func DBGetJobWorkflow_instances(q bson.M, options map[string]int, sortby string, do_init bool) (results []interface{}, count int, err error) {
+func DBGetJobWorkflow_instances(q bson.M, options *DefaultQueryOptions, do_init bool) (results []interface{}, count int, err error) {
 
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
 	query := c.Find(q)
-	if count, err = query.Count(); err != nil {
-		return nil, 0, err
+	count, err = query.Count()
+	if err != nil {
+		results = nil
+		err = fmt.Errorf("(DBGetJobWorkflow_instances) query.Count returned: %s", err.Error())
+		return
 	}
 
-	if sortby != "" {
-		query = query.Sort(sortby)
+	if len(options.Sort) > 0 {
+		// this allows to provide multiple sort fields
+		query = query.Sort(options.Sort...)
 	}
 
-	limit, has_limit := options["limit"]
-	if has_limit {
-		query = query.Limit(limit)
-	}
+	// options.Limit is always defined
+	query = query.Limit(options.Limit)
 
-	if offset, has := options["offset"]; has {
-		query = query.Skip(offset)
-	}
+	// options.Offset is always defined
+	query = query.Skip(options.Offset)
 
 	//var results []WorkflowInstance
 	results = []interface{}{}

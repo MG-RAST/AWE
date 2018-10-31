@@ -1386,7 +1386,14 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		}
 
 		if !ok {
-			err = fmt.Errorf("(isTaskReady) WorkflowInstance not found: %s", task.WorkflowInstanceId)
+			//spew.Dump(job.WorkflowInstancesMap)
+
+			for key, _ := range job.WorkflowInstancesMap {
+				fmt.Printf("WorkflowInstancesMap: %s\n", key)
+			}
+
+			ready = false
+			reason = fmt.Sprintf("(isTaskReady) WorkflowInstance not found: %s", task.WorkflowInstanceId)
 			return
 		}
 
@@ -1541,9 +1548,9 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 
 	workflow_defintion_id := workflow.Id
 
-	var prefix_name string
+	var workflow_instance_id string
 
-	prefix_name = task_id.TaskName
+	workflow_instance_id = task_id.TaskName
 
 	// find inputs
 	var task_input_array cwl.Job_document
@@ -1605,18 +1612,30 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 	// New WorkflowInstance defined input nd ouput of this subworkflow
 	// create tasks
 	var sub_workflow_tasks []*Task
-	sub_workflow_tasks, err = CreateWorkflowTasks(job, prefix_name, workflow.Steps, workflow.Id)
+	sub_workflow_tasks, err = CreateWorkflowTasks(job, workflow_instance_id, workflow.Steps, workflow.Id)
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueueWorkflow) CreateWorkflowTasks returned: %s", err.Error())
 		return
 	}
 
 	var wi *WorkflowInstance
-	wi, err = job.AddWorkflowInstance(prefix_name, workflow_defintion_id, task_input_array, len(workflow.Steps), sub_workflow_tasks)
+
+	wi, err = NewWorkflowInstance(workflow_instance_id, job.Id, workflow_defintion_id, task_input_array, job)
+	if err != nil {
+		err = fmt.Errorf("(AddWorkflowInstance) NewWorkflowInstance returned: %s", err.Error())
+		return
+	}
+
+	err = job.AddWorkflowInstance(wi)
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueueWorkflow) job.AddWorkflowInstance returned: %s", err.Error())
 		return
 	}
+	//wi, err = job.AddWorkflowInstance(workflow_instance_id, workflow_defintion_id, task_input_array, len(workflow.Steps), sub_workflow_tasks)
+	//if err != nil {
+	//	err = fmt.Errorf("(taskEnQueueWorkflow) job.AddWorkflowInstance returned: %s", err.Error())
+	//	return
+	//}
 
 	err = job.IncrementRemainTasks(len(sub_workflow_tasks))
 	if err != nil {
@@ -2407,6 +2426,18 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput(workflow_instance *WorkflowInsta
 
 	if ancestor_task == nil {
 		err = fmt.Errorf("(getCWLSourceFromStepOutput) did not find predecessor task %s for task %s", ancestor_task_id_str, src) // this should not happen, taskReady makes sure everything is available
+		return
+	}
+
+	ancestor_task_state, _ := ancestor_task.GetState()
+
+	if ancestor_task_state != TASK_STAT_COMPLETED {
+		reason = fmt.Sprintf("ancestor_task %s (state: %s)", ancestor_task_id_str, ancestor_task_state)
+		if error_on_missing_task {
+			err = fmt.Errorf("(getCWLSourceFromStepOutput) ancestor_task.State == %s, ancestor_task_id: %s, src: %s", ancestor_task_state, ancestor_task_id_str, src) // this should not happen, taskReady makes sure everything is available
+			return
+		}
+		ok = false
 		return
 	}
 
@@ -3912,14 +3943,26 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 			}
 
 		}
+
+		err = workflow_instance.SetState(WI_STAT_COMPLETED, "db_sync_yes", true)
+		if err != nil {
+			err = fmt.Errorf("(updateJobTask)  workflow_instance.SetState returned: %s", err.Error())
+			return
+		}
 	}
 
-	logger.Debug(3, "(updateJobTask) job_remainTasks: %d", job_remainTasks)
+	if job.IsCWL {
 
-	if job_remainTasks > 0 { //#####################################################################
-		return
+		if job.WorkflowInstancesRemain > 0 {
+		    make sure WorkflowInstancesRemain is correct
+			return
+		}
+	} else {
+		logger.Debug(3, "(updateJobTask) job_remainTasks: %d", job_remainTasks)
+		if job_remainTasks > 0 { //#####################################################################
+			return
+		}
 	}
-
 	job_state, err := job.GetState(true)
 	if err != nil {
 		err = fmt.Errorf("(updateJobTask) job.GetState returned: %s", err.Error())

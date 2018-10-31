@@ -11,13 +11,26 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+const (
+	WI_STAT_OK = "ok" // initial state on creation
+	//TASK_STAT_PENDING          = "pending"     // a task that wants to be enqueued
+	//TASK_STAT_READY            = "ready"       // a task ready to be enqueued
+	//TASK_STAT_QUEUED           = "queued"      // a task for which workunits have been created/queued
+	//WI_STAT_INPROGRESS = "in-progress" // a first workunit has been checkout (this does not guarantee a workunit is running right now)
+	//WI_STAT_SUSPEND          = "suspend"
+	//TASK_STAT_FAILED           = "failed"
+	//TASK_STAT_FAILED_PERMANENT = "failed-permanent" // on exit code 42
+	WI_STAT_COMPLETED = "completed"
+)
+
 // Object for each subworkflow
 type WorkflowInstance struct {
 	RWMutex             `bson:"-" json:"-" mapstructure:"-"`
 	Id                  string           `bson:"id" json:"id" mapstructure:"id"`
 	_Id                 string           `bson:"_id" json:"_id" mapstructure:"_id"` // unique identifier for mongo, includes jobid !
 	JobId               string           `bson:"job_id" json:"job_id" mapstructure:"job_id"`
-	Acl                 *acl.Acl         `bson:"acl" json:"-"`                                                                      // this is unique identifier for the workflow instance
+	Acl                 *acl.Acl         `bson:"acl" json:"-"`
+	State               string           `bson:"state" json:"state" mapstructure:"state"`                                           // this is unique identifier for the workflow instance
 	Workflow_Definition string           `bson:"workflow_definition" json:"workflow_definition" mapstructure:"workflow_definition"` // name of the workflow this instance is derived from
 	Inputs              cwl.Job_document `bson:"inputs" json:"inputs" mapstructure:"inputs"`
 	Outputs             cwl.Job_document `bson:"outputs" json:"outputs" mapstructure:"outputs"`
@@ -26,7 +39,7 @@ type WorkflowInstance struct {
 	TotalTasks          int              `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
 }
 
-func NewWorkflowInstance(id string, jobid string, workflow_definition string, inputs cwl.Job_document, remain_tasks int, job *Job) (wi *WorkflowInstance, err error) {
+func NewWorkflowInstance(id string, jobid string, workflow_definition string, inputs cwl.Job_document, job *Job) (wi *WorkflowInstance, err error) {
 
 	if jobid == "" {
 		err = fmt.Errorf("(NewWorkflowInstance) jobid == \"\"")
@@ -40,9 +53,12 @@ func NewWorkflowInstance(id string, jobid string, workflow_definition string, in
 		return
 	}
 
-	wi = &WorkflowInstance{Id: id, JobId: jobid, _Id: jobid + id, Workflow_Definition: workflow_definition, Inputs: inputs, RemainTasks: remain_tasks}
+	wi = &WorkflowInstance{Id: id, JobId: jobid, _Id: jobid + id, Workflow_Definition: workflow_definition, Inputs: inputs}
 
 	wi._Id = jobid + id
+
+	wi.State = WI_STAT_OK
+
 	_, err = wi.Init(job)
 	if err != nil {
 		err = fmt.Errorf("(NewWorkflowInstance) wi.Init returned: %s", err.Error())
@@ -242,6 +258,42 @@ func (wi *WorkflowInstance) AddTask(task *Task) (err error) {
 	wi.TotalTasks = len(wi.Tasks)
 
 	wi.Save(false)
+	return
+}
+
+func (wi *WorkflowInstance) SetState(state string, db_sync string, write_lock bool) (err error) {
+	if write_lock {
+		err = wi.LockNamed("WorkflowInstance/SetState")
+		if err != nil {
+			return
+		}
+		defer wi.Unlock()
+	}
+	wi.State = state
+
+	if db_sync == "db_sync_yes" {
+		wi.Save(false)
+	}
+	return
+}
+
+// db_sync is a string because a bool would be misunderstood as a lock indicator ("db_sync_no", db_sync_yes
+func (wi *WorkflowInstance) SetTasks(tasks []*Task, db_sync string) (err error) {
+	err = wi.LockNamed("WorkflowInstance/SetTasks")
+	if err != nil {
+		return
+	}
+	defer wi.Unlock()
+
+	wi.Tasks = tasks
+	wi.RemainTasks = len(tasks)
+	wi.TotalTasks = len(tasks)
+	if db_sync == "db_sync_yes" {
+		err = wi.Save(false)
+		if err != nil {
+			return
+		}
+	}
 	return
 }
 

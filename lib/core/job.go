@@ -74,9 +74,10 @@ type JobRaw struct {
 	CWL_ShockRequirement *cwl.ShockRequirement `bson:"cwl_shock_requirement" json:"cwl_shock_requirement`
 	CWL_workflow         *cwl.Workflow         `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	//WorkflowInstances    []interface{}                `bson:"workflow_instances" json:"workflow_instances" yaml:"workflow_instances" mapstructure:"workflow_instances"`
-	WorkflowInstancesMap map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
-	Entrypoint           string                       `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
-	WorkflowContext      *cwl.WorkflowContext         `bson:"context" json:"context" yaml:"context" mapstructure:"context"`
+	WorkflowInstancesMap    map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
+	WorkflowInstancesRemain int
+	Entrypoint              string               `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
+	WorkflowContext         *cwl.WorkflowContext `bson:"context" json:"context" yaml:"context" mapstructure:"context"`
 
 	//Namespaces           map[string]string            `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
@@ -95,47 +96,31 @@ func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
 	return
 }
 
-func (job *Job) AddWorkflowInstance(id string, workflow_defintion_id string, inputs cwl.Job_document, remain_tasks int, tasks []*Task) (wi *WorkflowInstance, err error) {
-	fmt.Printf("(AddWorkflowInstance) id: %s\n", id)
+// this is in-memory only, not db
+func (job *Job) AddWorkflowInstance(wi *WorkflowInstance) (err error) {
+	fmt.Printf("(AddWorkflowInstance) id: %s\n", wi.Id)
 	err = job.LockNamed("AddWorkflowInstance")
 	if err != nil {
 		return
 	}
 	defer job.Unlock()
 
-	if workflow_defintion_id == "" {
-		err = fmt.Errorf("(AddWorkflowInstance) workflow_defintion_id is empty")
-		return
+	if job.WorkflowInstancesMap == nil {
+		job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
 	}
 
-	//if id == "" {
-	//	id = "_main"
-	//}
-
-	wi, err = NewWorkflowInstance(id, job.Id, workflow_defintion_id, inputs, remain_tasks, job)
-	if err != nil {
-		err = fmt.Errorf("(AddWorkflowInstance) NewWorkflowInstance returned: %s", err.Error())
+	_, has_wi := job.WorkflowInstancesMap[wi.Id]
+	if has_wi {
+		err = fmt.Errorf("(AddWorkflowInstance) WorkflowInstance already in map !")
 		return
 	}
-
-	wi.Tasks = tasks
-	wi.RemainTasks = len(tasks)
-	wi.TotalTasks = len(tasks)
-
-	err = wi.Save(true)
-	if err != nil {
-		err = fmt.Errorf("(AddWorkflowInstance) wi.Save returned: %s", err.Error())
-		return
-	}
-
-	job.WorkflowInstancesMap[id] = wi
+	job.WorkflowInstancesMap[wi.Id] = wi
 
 	err = GlobalWorkflowInstanceMap.Add(wi)
 	if err != nil {
 		err = fmt.Errorf("(AddWorkflowInstance) GlobalWorkflowInstanceMap returned: %s", err.Error())
 		return
 	}
-
 	return
 }
 
@@ -424,35 +409,6 @@ func (job *Job) Init() (changed bool, err error) {
 	//var workflow *cwl.Workflow
 
 	if job.IsCWL {
-
-		//var main_input *WorkflowInstance
-		//var ok bool
-		//main_input, ok, err = job.GetWorkflowInstance("_main", true) //job.WorkflowInstancesMap["#main"]
-		//if err != nil {
-		//	err = fmt.Errorf("(job.Init) workflow instance _main not found %s", err.Error())
-		//	return
-		//}
-
-		//if !ok {
-		//	err = fmt.Errorf("(job.Init) WorkflowInstance not found: _main")
-		//	return
-		//}
-
-		//main_input, xerr := cwl.NewJob_documentFromNamedTypes(job.CWL_job_input)
-
-		//if xerr != nil {
-		//fmt.Println("\n\njob.CWL_job_input:\n")
-		//spew.Dump(job.CWL_job_input)
-		//	err = fmt.Errorf("(job.Init) cannot create main_input: %s", xerr.Error())
-		//	return
-		//}
-
-		//fmt.Println("(job.Init) job:")
-		//spew.Dump(job)
-
-		//main_input_map := main_input.Inputs.GetMap()
-
-		//context.Job_input_map = &main_input_map
 
 		entrypoint := job.Entrypoint
 		cwl_workflow, ok := context.Workflows[entrypoint]

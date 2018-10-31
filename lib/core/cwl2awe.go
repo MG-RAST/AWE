@@ -252,18 +252,11 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	// TODO first check that all resources are available: local files and remote links
 
 	var wi *WorkflowInstance
-	wi, err = NewWorkflowInstance("_root", job.Id, cwl_workflow.Id, *job_input_new, len(cwl_workflow.Steps), job) // Not using AddWorkflowInstance to avoid mongo
+	wi, err = NewWorkflowInstance("_root", job.Id, cwl_workflow.Id, *job_input_new, job) // Not using AddWorkflowInstance to avoid mongo
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) NewWorkflowInstance returned: %s", err.Error())
 		return
 	}
-
-	//new_wis := []WorkflowInstance{main_wi} // Not using AddWorkflowInstance to avoid mongo
-	//job.WorkflowInstances = make([]interface{}, 1)
-	if job.WorkflowInstancesMap == nil {
-		job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
-	}
-	job.WorkflowInstancesMap["_root"] = wi
 
 	var tasks []*Task
 	tasks, err = CreateWorkflowTasks(job, "_root", cwl_workflow.Steps, cwl_workflow.Id)
@@ -278,9 +271,17 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	}
 
 	//job.Tasks = tasks
-	wi.Tasks = tasks
-	wi.RemainTasks = len(tasks)
-	wi.TotalTasks = len(tasks)
+	err = wi.SetTasks(tasks, "db_sync_no")
+	if err != nil {
+		err = fmt.Errorf("(CWL2AWE) wi.SetTasks returned: %s", err.Error())
+		return
+	}
+
+	err = job.AddWorkflowInstance(wi) // adding _root
+	if err != nil {
+		err = fmt.Errorf("(CWL2AWE) AddWorkflowInstance returned: %s", err.Error())
+		return
+	}
 
 	err = wi.Save(true)
 	if err != nil {

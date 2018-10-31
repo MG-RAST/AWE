@@ -470,8 +470,6 @@ func LoadJob(id string) (job *Job, err error) {
 			return
 		}
 
-		job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
-
 		for i, _ := range wis {
 			var wi_changed bool
 			wi := wis[i]
@@ -488,13 +486,15 @@ func LoadJob(id string) (job *Job, err error) {
 				}
 			}
 			// add WorkflowInstance to job
-			job.WorkflowInstancesMap[wi.Id] = wi
-			// add WorkflowInstance to global*
-			err = GlobalWorkflowInstanceMap.Add(wi)
+
+			fmt.Printf("(LoadJob) loading: %s\n", wi.Id)
+
+			err = job.AddWorkflowInstance(wi) // load from database
 			if err != nil {
-				err = fmt.Errorf("(LoadJob) GlobalWorkflowInstanceMap returned: %s", err.Error())
+				err = fmt.Errorf("(LoadJob) AddWorkflowInstance returned: %s", err.Error())
 				return
 			}
+
 		}
 	}
 

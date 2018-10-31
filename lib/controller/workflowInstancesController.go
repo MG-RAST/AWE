@@ -11,6 +11,9 @@ type WorkflowInstancesController struct{}
 
 //  returns all workflow_instances or only those that match job_id, .i.e. /workflow_instances?job_id=<id>
 
+// pagination should be efficient if list is sorted by an indexed field
+// multiple sort keys are ok, but maybe should only be allowed when indexed fields are used
+
 // GET: /workflow_instances
 func (cr *WorkflowInstancesController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)

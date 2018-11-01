@@ -108,7 +108,7 @@ func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) (tr TaskRaw, err err
 
 	logger.Debug(3, "task_id: %s", task_id)
 	logger.Debug(3, "task_id.JobId: %s", task_id.JobId)
-	//ogger.Debug(3, "task_id.Parent: %s", task_id.Parent)
+
 	logger.Debug(3, "task_id.TaskName: %s", task_id.TaskName)
 
 	var task_str string
@@ -614,13 +614,12 @@ func (task *TaskRaw) GetWorkflowParent() (p Task_Unique_Identifier, ok bool, err
 	return
 }
 
-func (task *TaskRaw) GetParentStr() (parent_id_str string, err error) {
-	lock, err := task.RLockNamed("GetParent")
+func (task *TaskRaw) GetWorkflowParentStr() (parent_id_str string, err error) {
+	lock, err := task.RLockNamed("GetWorkflowParentStr")
 	if err != nil {
 		return
 	}
 	defer task.RUnlockNamed(lock)
-	//p = task.Task_Unique_Identifier.Parent
 
 	parent_id_str = ""
 

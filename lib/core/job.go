@@ -57,29 +57,26 @@ type Job struct {
 
 type JobRaw struct {
 	RWMutex
-	Id                   string                `bson:"id" json:"id"` // uuid
-	Acl                  acl.Acl               `bson:"acl" json:"-"`
-	Info                 *Info                 `bson:"info" json:"info"`
-	Script               script                `bson:"script" json:"-"`
-	State                string                `bson:"state" json:"state"`
-	Registered           bool                  `bson:"registered" json:"registered"`
-	RemainTasks          int                   `bson:"remaintasks" json:"remaintasks"`
-	Expiration           time.Time             `bson:"expiration" json:"expiration"` // 0 means no expiration
-	UpdateTime           time.Time             `bson:"updatetime" json:"updatetime"`
-	Error                *JobError             `bson:"error" json:"error"`         // error struct exists when in suspended state
-	Resumed              int                   `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
-	ShockHost            string                `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
-	IsCWL                bool                  `bson:"is_cwl" json:"is_cwl`
-	CWL_job_input        interface{}           `bson:"cwl_job_input" json:"cwl_job_input` // has to be an array for mongo (id as key would not work)
-	CWL_ShockRequirement *cwl.ShockRequirement `bson:"cwl_shock_requirement" json:"cwl_shock_requirement`
-	CWL_workflow         *cwl.Workflow         `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
-	//WorkflowInstances    []interface{}                `bson:"workflow_instances" json:"workflow_instances" yaml:"workflow_instances" mapstructure:"workflow_instances"`
+	Id                      string                       `bson:"id" json:"id"` // uuid
+	Acl                     acl.Acl                      `bson:"acl" json:"-"`
+	Info                    *Info                        `bson:"info" json:"info"`
+	Script                  script                       `bson:"script" json:"-"`
+	State                   string                       `bson:"state" json:"state"`
+	Registered              bool                         `bson:"registered" json:"registered"`
+	RemainTasks             int                          `bson:"remaintasks" json:"remaintasks"`
+	Expiration              time.Time                    `bson:"expiration" json:"expiration"` // 0 means no expiration
+	UpdateTime              time.Time                    `bson:"updatetime" json:"updatetime"`
+	Error                   *JobError                    `bson:"error" json:"error"`         // error struct exists when in suspended state
+	Resumed                 int                          `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
+	ShockHost               string                       `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
+	IsCWL                   bool                         `bson:"is_cwl" json:"is_cwl`
+	CWL_job_input           interface{}                  `bson:"cwl_job_input" json:"cwl_job_input` // has to be an array for mongo (id as key would not work)
+	CWL_ShockRequirement    *cwl.ShockRequirement        `bson:"cwl_shock_requirement" json:"cwl_shock_requirement`
+	CWL_workflow            *cwl.Workflow                `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	WorkflowInstancesMap    map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
-	WorkflowInstancesRemain int
-	Entrypoint              string               `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
-	WorkflowContext         *cwl.WorkflowContext `bson:"context" json:"context" yaml:"context" mapstructure:"context"`
-
-	//Namespaces           map[string]string            `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
+	WorkflowInstancesRemain int                          `bson:"workflow_instances_remain" json:"workflow_instances_remain"`
+	Entrypoint              string                       `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
+	WorkflowContext         *cwl.WorkflowContext         `bson:"context" json:"context" yaml:"context" mapstructure:"context"`
 }
 
 func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
@@ -797,6 +794,25 @@ func (job *Job) IncrementRemainTasks(inc int) (err error) {
 		return
 	}
 	job.RemainTasks = newRemainTask
+	return
+}
+
+func (job *Job) IncrementWorkflowInstancesRemain(inc int) (err error) {
+	err = job.LockNamed("IncrementWorkflowInstancesRemain")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	logger.Debug(3, "(IncrementWorkflowInstancesRemain) called with inc=%d", inc)
+
+	newRemainWf := job.WorkflowInstancesRemain + inc
+	logger.Debug(3, "(IncrementWorkflowInstancesRemain) new value of WorkflowInstancesRemain: %d", newRemainWf)
+	err = dbUpdateJobFieldInt(job.Id, "workflow_instances_remain", newRemainWf)
+	if err != nil {
+		return
+	}
+	job.WorkflowInstancesRemain = newRemainWf
 	return
 }
 

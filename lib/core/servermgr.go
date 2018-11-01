@@ -701,7 +701,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 
 	//update the info of the job which the task is belong to, could result in deletion of the
 	//task in the task map when the task is the final task of the job to be done.
-	err = qm.updateJobTask(task) //task state QUEUED -> COMPLETED
+	err = qm.taskCompleted(task) //task state QUEUED -> COMPLETED
 	if err != nil {
 		err = fmt.Errorf("(handleWorkStatDone) updateJobTask failed: %s", err.Error())
 	}
@@ -1612,7 +1612,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 	// New WorkflowInstance defined input nd ouput of this subworkflow
 	// create tasks
 	var sub_workflow_tasks []*Task
-	sub_workflow_tasks, err = CreateWorkflowTasks(job, workflow_instance_id, workflow.Steps, workflow.Id)
+	sub_workflow_tasks, err = CreateWorkflowTasks(job, workflow_instance_id, workflow.Steps, workflow.Id, &task_id)
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueueWorkflow) CreateWorkflowTasks returned: %s", err.Error())
 		return
@@ -1640,6 +1640,12 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 	err = job.IncrementRemainTasks(len(sub_workflow_tasks))
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueueWorkflow) job.IncrementRemainTasks returned: %s", err.Error())
+		return
+	}
+
+	err = job.IncrementWorkflowInstancesRemain(1)
+	if err != nil {
+		err = fmt.Errorf("(taskEnQueueWorkflow) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
 		return
 	}
 
@@ -1960,7 +1966,12 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		// create task
 		var awe_task *Task
 
-		parent_id_str, _ := task.GetParentStr()
+		var parent_id_str string
+		parent_id_str, err = task.GetWorkflowParentStr()
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) task.GetWorkflowParentStr returned: %s", err.Error())
+			return
+		}
 
 		logger.Debug(3, "(taskEnQueue) New Task: parent: %s and scatter_task_name: %s", parent_id_str, scatter_task_name)
 
@@ -2281,11 +2292,11 @@ func (qm *ServerMgr) taskEnQueue(task *Task, job *Job) (err error) {
 	if err != nil {
 		return
 	}
-	err = qm.updateJobTask(task) //task status PENDING->QUEUED
-	if err != nil {
-		err = fmt.Errorf("(taskEnQueue) qm.updateJobTask: %s", err.Error())
-		return
-	}
+	//err = qm.taskCompleted(task) //task status PENDING->QUEUED
+	//if err != nil {
+	//	err = fmt.Errorf("(taskEnQueue) qm.updateJobTask: %s", err.Error())
+	//	return
+	//}
 	// log event about task enqueue (TQ)
 	logger.Event(event.TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task_id_str, task.TotalWork))
 	qm.CreateTaskPerf(task)
@@ -3218,30 +3229,30 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 
 //---end of task methods---
 
-func (qm *ServerMgr) updateJobTask_Scatter(task *Task) (err error) {
+func (qm *ServerMgr) taskCompleted_Scatter(task *Task) (err error) {
 
 	var task_str string
 	task_str, err = task.String()
 	if err != nil {
-		err = fmt.Errorf("(updateJobTask_Scatter) task.String returned: %s", err.Error())
+		err = fmt.Errorf("(taskCompleted_Scatter) task.String returned: %s", err.Error())
 		return
 	}
 
-	logger.Debug(3, "(updateJobTask_Scatter) %s Scatter_parent exists", task_str)
+	logger.Debug(3, "(taskCompleted_Scatter) %s Scatter_parent exists", task_str)
 	scatter_parent_id := *task.Scatter_parent
 	var scatter_parent_task *Task
 	var ok bool
 	scatter_parent_task, ok, err = qm.TaskMap.Get(scatter_parent_id, true)
 	if err != nil {
-		err = fmt.Errorf("(updateJobTask_Scatter) qm.TaskMap.Get returned: %s", err.Error())
+		err = fmt.Errorf("(taskCompleted_Scatter) qm.TaskMap.Get returned: %s", err.Error())
 		return
 	}
 	if !ok {
-		err = fmt.Errorf("(updateJobTask_Scatter) Scatter_Parent task %s not found", scatter_parent_id)
+		err = fmt.Errorf("(taskCompleted_Scatter) Scatter_Parent task %s not found", scatter_parent_id)
 		return
 	}
 
-	// (updateJobTask_Scatter) get scatter sibblings to see if they are done
+	// (taskCompleted_Scatter) get scatter sibblings to see if they are done
 	var children []*Task
 	children, err = scatter_parent_task.GetChildren(qm)
 	if err != nil {
@@ -3251,10 +3262,10 @@ func (qm *ServerMgr) updateJobTask_Scatter(task *Task) (err error) {
 		var tasks []*Task
 		tasks, _ = qm.TaskMap.GetTasks()
 		for _, task := range tasks {
-			fmt.Printf("(updateJobTask_Scatter) got task %s\n", task.Id)
+			fmt.Printf("(taskCompleted_Scatter) got task %s\n", task.Id)
 		}
 
-		err = fmt.Errorf("(updateJobTask_Scatter) (scatter) GetChildren returned: %s (total: %d)", err.Error(), length)
+		err = fmt.Errorf("(taskCompleted_Scatter) (scatter) GetChildren returned: %s (total: %d)", err.Error(), length)
 		return
 	}
 
@@ -3265,7 +3276,7 @@ func (qm *ServerMgr) updateJobTask_Scatter(task *Task) (err error) {
 		var child_state string
 		child_state, err = child_task.GetState()
 		if err != nil {
-			err = fmt.Errorf("(updateJobTask_Scatter) child_task.GetState returned: %s", err.Error())
+			err = fmt.Errorf("(taskCompleted_Scatter) child_task.GetState returned: %s", err.Error())
 			return
 		}
 
@@ -3283,7 +3294,7 @@ func (qm *ServerMgr) updateJobTask_Scatter(task *Task) (err error) {
 	// // (updateJobTask) scatter_complete
 	ok, err = scatter_parent_task.Finalize() // make sure this is the last scatter task
 	if err != nil {
-		err = fmt.Errorf("(updateJobTask_Scatter) scatter_parent_task.Finalize returned: %s", err.Error())
+		err = fmt.Errorf("(taskCompleted_Scatter) scatter_parent_task.Finalize returned: %s", err.Error())
 		return
 	}
 
@@ -3313,7 +3324,7 @@ func (qm *ServerMgr) updateJobTask_Scatter(task *Task) (err error) {
 			child_output, err = job_doc.Get(workflow_step_output_id_base)
 			if err != nil {
 				//fmt.Printf("XXX job_doc.Get failed\n")
-				err = fmt.Errorf("(updateJobTask_Scatter) job_doc.Get failed: %s ", err.Error())
+				err = fmt.Errorf("(taskCompleted_Scatter) job_doc.Get failed: %s ", err.Error())
 				return
 			}
 			fmt.Println("child_output:")
@@ -3344,64 +3355,22 @@ func (qm *ServerMgr) updateJobTask_Scatter(task *Task) (err error) {
 
 	err = task.SetState(TASK_STAT_COMPLETED, true)
 	if err != nil {
-		err = fmt.Errorf("(updateJobTask_Scatter) task.SetState returned: %s", err.Error())
+		err = fmt.Errorf("(taskCompleted_Scatter) task.SetState returned: %s", err.Error())
 		return
 	}
 
 	return
 }
 
-// update job info when a task in that job changed to a new state
-// update parent task of a scatter task
-// update parent task in a subworkflow
-// this is invoked everytime a task changes state, but only when job_remainTasks==0 and state is not yet JOB_STAT_COMPLETED it will complete the job
-func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
-	//parts := strings.Split(task.Id, "_")
-	//jobid := parts[0]
-	jobid, err := task.GetJobId()
-	if err != nil {
-		err = fmt.Errorf("(updateJobTask) task.GetJobId() returned: %s", err.Error())
-		return
-	}
-	var job *Job
-	job, err = GetJob(jobid)
-	if err != nil {
-		err = fmt.Errorf("(updateJobTask) GetJob returned: %s", err.Error())
-		return
-	}
+func (qm *ServerMgr) completeSubworkflow(job *Job, task *Task) (parent_task_to_complete *Task, err error) {
 
-	var task_state string
-	task_state, err = task.GetState()
-	if err != nil {
-		err = fmt.Errorf("(updateJobTask) task.GetState() returned: %s", err.Error())
-		return
-	}
-
-	var job_remainTasks int
-	job_remainTasks, err = job.GetRemainTasks() // TODO deprecated !?
-	if err != nil {
-		err = fmt.Errorf("(updateJobTask) job.GetRemainTasks() returned: %s", err.Error())
-		return
-	}
-
-	var task_str string
-	task_str, err = task.String()
-	if err != nil {
-		err = fmt.Errorf("(updateJobTask) task.String returned: %s", err.Error())
-		return
-	}
-
-	logger.Debug(2, "(updateJobTask) remaining tasks for job %s: %d (task_state: %s)", task_str, job_remainTasks, task_state)
-
-	// check if this was the last task in a subworkflow
-
-	// check if this task has a parent
+	task_str, _ := task.String()
 
 	var workflow_parent_id Task_Unique_Identifier
 	var has_workflow_parent bool
 	workflow_parent_id, has_workflow_parent, err = task.GetWorkflowParent()
 	if err != nil {
-		err = fmt.Errorf("(updateJobTask) task.GetParent returned: %s", err.Error())
+		err = fmt.Errorf("(completeSubworkflow) task.GetParent returned: %s", err.Error())
 		return
 	}
 
@@ -3409,34 +3378,595 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 	if has_workflow_parent {
 		workflow_parent_id_str, err = workflow_parent_id.String()
 		if err != nil {
-			err = fmt.Errorf("(updateJobTask) workflow_parent_id.String() returned: %s", err.Error())
+			err = fmt.Errorf("(completeSubworkflow) workflow_parent_id.String() returned: %s", err.Error())
 			return
 		}
 	}
 
-	if task.WorkflowStep == nil {
-		logger.Debug(3, "(updateJobTask) task.WorkflowStep == nil ")
-	} else {
-		logger.Debug(3, "(updateJobTask) task.WorkflowStep != nil ")
+	var wfl *cwl.Workflow
+	var cwl_step *cwl.WorkflowStep
+
+	var parent_task *Task
+	//var ok bool
+
+	process_name := job.Entrypoint
+
+	// if this is a subworkflow, check if sibblings are complete
+	var context *cwl.WorkflowContext
+
+	workflow_instance_id := task.WorkflowInstanceId
+
+	var workflow_instance *WorkflowInstance
+	var ok bool
+	workflow_instance, ok, err = job.GetWorkflowInstance(workflow_instance_id, true)
+	if err != nil {
+		err = fmt.Errorf("(completeSubworkflow) job.GetWorkflowInstance returned: %s", err.Error())
+		return
 	}
 
-	// (updateJobTask) CWL Task completes
-	if task_state == TASK_STAT_COMPLETED && task.WorkflowInstanceId != "" {
-		// this task belongs to a subworkflow // TODO every task should belong to a subworkflow
-		logger.Debug(3, "(updateJobTask) task_state == TASK_STAT_COMPLETED && task.WorkflowStep != nil (%s)", task_str)
+	var parent_id Task_Unique_Identifier
+	if has_workflow_parent { // a real explicit subworkflow
 
-		if task.Scatter_parent != nil {
-			// process scatter children
-			err = qm.updateJobTask_Scatter(task)
+		parent_global_id_str, _ := parent_id.String()
+
+		// only the parent_task has the info about the workflow
+		// qm.TaskMap is used as
+
+		parent_workflow_instance_id := path.Dir(workflow_instance_id)
+		var parent_workflow_instance *WorkflowInstance
+		parent_workflow_instance, ok, err = job.GetWorkflowInstance(parent_workflow_instance_id, true)
+		if err != nil {
+			err = fmt.Errorf("(completeSubworkflow) job.GetWorkflowInstance returned: %s", err.Error())
+			return
+		}
+		if !ok {
+			err = fmt.Errorf("(completeSubworkflow) parent_workflow_instance not found: %s (workflow_instance_id: %s)", parent_workflow_instance_id, workflow_instance_id)
+			return
+		}
+		parent_task, ok, err = parent_workflow_instance.GetTask(parent_id)
+		//parent_task, ok, err = qm.TaskMap.Get(parent_id, true)
+		if err != nil {
+			err = fmt.Errorf("(completeSubworkflow) parent_workflow_instance.GetTask returned: %s", err.Error())
+			return
+		}
+		if !ok {
+
+			fmt.Println("qm.TaskMap._map:")
+			spew.Dump(qm.TaskMap._map)
+
+			for key, _ := range qm.TaskMap._map {
+				//key_str, _ := key.String()
+				fmt.Printf("_map: %s\n", key)
+				fmt.Printf("want: %s\n", parent_id)
+
+			}
+			//panic("done")
+
+			err = fmt.Errorf("(completeSubworkflow) Workflow parent task %s not found", parent_global_id_str)
+			return
+		}
+
+		// double checking
+		var parent_task_type string
+		parent_task_type, err = parent_task.GetTaskType()
+		if err != nil {
+			err = fmt.Errorf("(completeSubworkflow) parent_task.GetTaskType returned: %s", err.Error())
+			return
+		}
+
+		if parent_task_type != TASK_TYPE_WORKFLOW {
+			err = fmt.Errorf("(completeSubworkflow) Uhhh ? Parent task %s has not type workflow???", parent_global_id_str)
+			return
+		}
+
+		// get all tasks in the sub-workflow to check if subworkflow has completed
+		var children []*Task
+		children, err = parent_task.GetChildren(qm)
+		if err != nil {
+			err = fmt.Errorf("(completeSubworkflow) (subworkflow) GetChildren retuned: %s", err.Error())
+			return
+		}
+
+		subworkflow_complete := true
+		for _, child_task := range children {
+			var child_state string
+			child_state, err = child_task.GetState()
 			if err != nil {
-				err = fmt.Errorf("(updateJobTask) updateJobTask_Scatter returned: %s", err.Error())
+				err = fmt.Errorf("(completeSubworkflow) child_task.GetState returned: %s", err.Error())
 				return
 			}
 
-			// (updateJobTask) this is a scatter child
+			if child_state != TASK_STAT_COMPLETED {
+				subworkflow_complete = false
+				break
+			}
+		}
+
+		if !subworkflow_complete {
+			// nothing to do here, sub-workflow is not complete
+			return
+		}
+
+		// ****************************************************
+		// **** sub workflow is complete, collect outputs *****
+		// ****************************************************
+
+		// this prevents a race condition, in case multiple tasks in the same subworkflow complete at the same time
+		ok, err = parent_task.Finalize()
+		if err != nil {
+			err = fmt.Errorf("(completeSubworkflow) parent_task.Finalize returned: %s", err.Error())
+			return
+		}
+
+		if !ok {
+			// somebody else is finalizing
+			return
+		}
+
+		// Copy outputs (populate parent_task.StepOutput)
+
+		cwl_step = parent_task.WorkflowStep
+
+		p := cwl_step.Run
+
+		if p == nil {
+			err = fmt.Errorf("(completeSubworkflow) process is nil !?")
+			return
+		}
+		// check if this is a workflow
+
+		context = job.WorkflowContext
+
+		//var wfl *cwl.Workflow
+
+		wfl, _, err = cwl.NewWorkflow(p, nil, context)
+		if err != nil {
+			err = fmt.Errorf("(completeSubworkflow) error getting Workflow: %s", err.Error())
+			return
+		}
+
+		// end of: if has_workflow_parent
+	} else {
+
+		// implicit subworkflow (there is no parent)
+		wfl, err = job.WorkflowContext.GetWorkflow(job.Entrypoint) // TODO: use locked function
+		if err != nil {
+			// not a workflow
+			err = fmt.Errorf("(completeSubworkflow) %s is not a workflow ????", job.Entrypoint)
+			return
+		}
+
+	}
+
+	// reminder: at this point all tasks in subworkflow are complete, see above
+
+	if context == nil {
+		context = job.WorkflowContext
+	}
+
+	var task_id Task_Unique_Identifier
+	task_id, err = task.GetId("completeSubworkflow")
+	if err != nil {
+		err = fmt.Errorf("(completeSubworkflow) task.GetId returned: %s", err.Error())
+		return
+	}
+
+	var parent_workflow_instance *WorkflowInstance
+	//var ok bool
+	parent_workflow_instance, ok, err = job.GetWorkflowInstance(workflow_parent_id_str, true)
+	if err != nil {
+		err = fmt.Errorf("(completeSubworkflow) GetWorkflowInstance returned: %s", err.Error())
+		return
+	}
+	if !ok {
+		err = fmt.Errorf("(completeSubworkflow) parent WorkflowInstance not found: \"%s\" (task_str: %s)", workflow_parent_id_str, task_str)
+		return
+	}
+
+	workflow_inputs := parent_workflow_instance.Inputs
+
+	workflow_inputs_map := workflow_inputs.GetMap()
+
+	workflow_outputs_map := make(cwl.JobDocMap)
+
+	// collect sub-workflow outputs, put results in workflow_outputs_map
+
+	for _, output := range wfl.Outputs { // WorkflowOutputParameter http://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
+
+		output_id := output.Id
+
+		if output.OutputBinding != nil {
+			// see http://www.commonwl.org/v1.0/Workflow.html#CommandOutputBinding
+			//spew.Dump(output.OutputBinding)
+			// import path
+			// use https://golang.org/pkg/path/#Match
+			// iterate over output files
+			for _, value := range workflow_inputs_map {
+				//fmt.Println("key: " + key)
+
+				_, ok := value.(*cwl.File)
+				if !ok {
+					continue
+				}
+
+				//fmt.Println("base: " + file.Basename)
+
+			}
+
+			//panic("ok")
+			err = fmt.Errorf("(completeSubworkflow) Workflow output outputbinding not supported yet")
+			return
+		}
+
+		var expected_types_raw []interface{}
+
+		switch output.Type.(type) {
+		case []interface{}:
+			expected_types_raw = output.Type.([]interface{})
+		case []cwl.CWLType_Type:
+
+			expected_types_raw_array := output.Type.([]cwl.CWLType_Type)
+			for i, _ := range expected_types_raw_array {
+				expected_types_raw = append(expected_types_raw, expected_types_raw_array[i])
+
+			}
+
+		default:
+			expected_types_raw = append(expected_types_raw, output.Type)
+			//expected_types_raw = []interface{output.Type}
+		}
+		expected_types := []cwl.CWLType_Type{}
+
+		is_optional := false
+
+		var schemata []cwl.CWLType_Type
+		schemata, err = job.WorkflowContext.GetSchemata()
+		if err != nil {
+			err = fmt.Errorf("(completeSubworkflow) job.CWL_collection.GetSchemata returned: %s", err.Error())
+			return
+		}
+
+		for _, raw_type := range expected_types_raw {
+			var type_correct cwl.CWLType_Type
+			type_correct, err = cwl.NewCWLType_Type(schemata, raw_type, "WorkflowOutput", context)
+			if err != nil {
+				spew.Dump(expected_types_raw)
+				fmt.Println("---")
+				spew.Dump(raw_type)
+
+				err = fmt.Errorf("(completeSubworkflow) could not convert element of output.Type into cwl.CWLType_Type: %s", err.Error())
+				//fmt.Printf(err.Error())
+				//panic("raw_type problem")
+				return
+			}
+			expected_types = append(expected_types, type_correct)
+			if type_correct == cwl.CWL_null {
+				is_optional = true
+			}
+		}
+
+		//XXXXXXXX
+
+		output_source := output.OutputSource
+
+		switch output_source.(type) {
+		case string:
+			outputSourceString := output_source.(string)
+			// example: "#preprocess-fastq.workflow.cwl/rejected2fasta/file"
+
+			var obj cwl.CWLType
+			var ok bool
+			obj, ok, _, err = qm.getCWLSource(workflow_instance, workflow_inputs_map, job, task_id, outputSourceString, true)
+			if err != nil {
+				err = fmt.Errorf("(completeSubworkflow) A) getCWLSource returns: %s", err.Error())
+				return
+			}
+			skip := false
+			if !ok {
+				if is_optional {
+					skip = true
+				} else {
+					err = fmt.Errorf("(completeSubworkflow) A) source %s not found by getCWLSource", outputSourceString)
+					return
+				}
+			}
+
+			if !skip {
+				has_type, xerr := cwl.TypeIsCorrect(expected_types, obj, context)
+				if xerr != nil {
+					err = fmt.Errorf("(completeSubworkflow) TypeIsCorrect: %s", xerr.Error())
+					return
+				}
+				if !has_type {
+					err = fmt.Errorf("(completeSubworkflow) A) workflow_ouput %s (type: %s), does not match expected types %s", output_id, reflect.TypeOf(obj), expected_types)
+					return
+				}
+
+				workflow_outputs_map[output_id] = obj
+			}
+		case []string:
+			outputSourceArrayOfString := output_source.([]string)
+
+			if len(outputSourceArrayOfString) == 0 {
+				if !is_optional {
+					err = fmt.Errorf("(completeSubworkflow) output_source array (%s) is empty, but a required output", output_id)
+					return
+				}
+			}
+
+			output_array := cwl.Array{}
+
+			for _, outputSourceString := range outputSourceArrayOfString {
+				var obj cwl.CWLType
+				var ok bool
+				obj, ok, _, err = qm.getCWLSource(workflow_instance, workflow_inputs_map, job, task_id, outputSourceString, true)
+				if err != nil {
+					err = fmt.Errorf("(completeSubworkflow) B) (%s) getCWLSource returns: %s", workflow_parent_id_str, err.Error())
+					return
+				}
+
+				skip := false
+				if !ok {
+
+					if is_optional {
+						skip = true
+					} else {
+
+						err = fmt.Errorf("(completeSubworkflow) B) (%s) source %s not found", workflow_parent_id_str, outputSourceString)
+						return
+					}
+				}
+
+				if !skip {
+					has_type, xerr := cwl.TypeIsCorrect(expected_types, obj, context)
+					if xerr != nil {
+						err = fmt.Errorf("(completeSubworkflow) TypeIsCorrect: %s", xerr.Error())
+						return
+					}
+					if !has_type {
+						err = fmt.Errorf("(completeSubworkflow) B) workflow_ouput %s, does not match expected types %s", output_id, expected_types)
+						return
+					}
+					fmt.Println("obj:")
+					spew.Dump(obj)
+					output_array = append(output_array, obj)
+				}
+			}
+
+			if len(output_array) > 0 {
+				workflow_outputs_map[output_id] = &output_array
+			} else {
+				if !is_optional {
+					err = fmt.Errorf("(completeSubworkflow) array with output_id %s is empty, but a required output", output_id)
+					return
+				}
+			}
+			fmt.Println("workflow_outputs_map:")
+			spew.Dump(workflow_outputs_map)
+
+		default:
+			err = fmt.Errorf("(completeSubworkflow) output.OutputSource has to be string or []string, but I got type %s", spew.Sdump(output_source))
+			return
+
+		}
+
+	}
+
+	//fmt.Println("(updateJobTask) workflow_outputs_map:")
+	//spew.Dump(workflow_outputs_map)
+	step_outputs := cwl.Job_document{}
+
+	if workflow_parent_id_str != "" {
+		// save outputs in workflow_instance
+		// step_outputs is a subset of the subworkflow outputs
+
+		if cwl_step == nil {
+			err = fmt.Errorf("(completeSubworkflow) step == nil")
+			return
+		}
+
+		// get step outputs from subworkflow outputs
+		for _, output := range cwl_step.Out { // output is a WorkflowStepOutput
+			//fmt.Println("output: " + output.Id)
+			output_base := path.Base(output.Id)
+
+			real_name := process_name + "/" + output_base
+			//fmt.Println("(completeSubworkflow) output real: " + real_name)
+
+			var object cwl.CWLType
+			object, ok = workflow_outputs_map[real_name]
+			if !ok {
+
+				//out_list := ""
+				//for key := range workflow_outputs_map {
+				//	out_list += "," + key
+				//}
+
+				//err = fmt.Errorf("(completeSubworkflow) workflow output %s not found (available: %s)", real_name, out_list)
+				//return
+				object = cwl.NewNull()
+			}
+
+			named_obj := cwl.NewNamedCWLType(output_base, object)
+			step_outputs = append(step_outputs, named_obj)
+
+		}
+	} else {
+		// the main workflow, a implicit subworkflow
+		// get outputs from subworkflow outputs
+		for _, output := range wfl.Outputs { // output is a WorkflowOutputParameter
+			//fmt.Println("output: " + output.Id)
+			output_base := path.Base(output.Id)
+
+			real_name := process_name + "/" + output_base
+			//fmt.Println("(completeSubworkflow) output real: " + real_name)
+
+			var object cwl.CWLType
+			object, ok = workflow_outputs_map[real_name]
+			if !ok {
+				//out_list := ""
+				//for key := range workflow_outputs_map {
+				//	out_list += "," + key
+				//}
+				//err = fmt.Errorf("(completeSubworkflow) workflow output %s not found (available: %s)", real_name, out_list)
+				//return
+
+				object = cwl.NewNull()
+			}
+
+			named_obj := cwl.NewNamedCWLType(output_base, object)
+			step_outputs = append(step_outputs, named_obj)
+
+		}
+
+	}
+	var workflow_outputs_array cwl.Job_document
+	workflow_outputs_array, err = workflow_outputs_map.GetArray()
+	if err != nil {
+		err = fmt.Errorf("(completeSubworkflow) workflow_outputs_map.GetArray returned: %s", err.Error())
+		return
+	}
+
+	//fmt.Println("wfl.Outputs:")
+	//spew.Dump(wfl.Outputs)
+	//fmt.Println("workflow_outputs_map:")
+	//spew.Dump(workflow_outputs_map)
+	//fmt.Println("workflow_outputs_array:")
+	//spew.Dump(workflow_outputs_array)
+
+	//panic("xxxxxxx")
+
+	//workflow_instance.Outputs = step_outputs
+
+	err = workflow_instance.SetOutputs(workflow_outputs_array, context)
+	//err = job.Set_WorkflowInstance_Outputs(parent_id_str, workflow_outputs_array, context)
+	if err != nil {
+		err = fmt.Errorf("(completeSubworkflow) workflow_instance.SetOutputs returned: %s", err.Error())
+		return
+	}
+
+	if parent_task != nil {
+		// ##### Step Output #####
+		err = parent_task.SetStepOutput(&workflow_outputs_array, true)
+		if err != nil {
+			err = fmt.Errorf("(completeSubworkflow) parent_task.SetStepOutput returned: %s", err.Error())
+			return nil, err
+		}
+
+		err = parent_task.SetState(TASK_STAT_COMPLETED, true)
+		if err != nil {
+			err = fmt.Errorf("(completeSubworkflow) parent_task.SetState returned: %s", err.Error())
+			return
+		}
+
+		parent_task_to_complete = parent_task
+
+	} else {
+		var job_remainTasks int
+		job_remainTasks, err = job.GetRemainTasks() // TODO deprecated !?
+		if err != nil {
+			err = fmt.Errorf("(completeSubworkflow) job.GetRemainTasks returned: %s", err.Error())
+			return
+		}
+
+		//fmt.Printf("GetRemainTasks job D: %d\n", job_remainTasks)
+
+		if job_remainTasks > 0 {
+			err = fmt.Errorf("(completeSubworkflow) Something is wrong, last subworkflow completes, but job_remainTasks > 0 , does not make sense")
+			return
+		}
+
+	}
+
+	err = workflow_instance.SetState(WI_STAT_COMPLETED, "db_sync_yes", true)
+	if err != nil {
+		err = fmt.Errorf("(completeSubworkflow) workflow_instance.SetState returned: %s", err.Error())
+		return
+	}
+
+	logger.Debug(3, "(completeSubworkflow) job.WorkflowInstancesRemain: (before) %d", job.WorkflowInstancesRemain)
+	err = job.IncrementWorkflowInstancesRemain(-1)
+	if err != nil {
+		err = fmt.Errorf("(completeSubworkflow) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
+		return
+	}
+	return
+}
+
+// update job info when a task in that job changed to a new state
+// update parent task of a scatter task
+// update parent task in a subworkflow
+// this is invoked everytime a task changes state, but only when job_remainTasks==0 and state is not yet JOB_STAT_COMPLETED it will complete the job
+func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
+
+	// TODO I am not sure why this function is invoked for every state change....
+
+	var task_state string
+	task_state, err = task.GetState()
+	if err != nil {
+		err = fmt.Errorf("(taskCompleted) task.GetState() returned: %s", err.Error())
+		return
+	}
+
+	if task_state != TASK_STAT_COMPLETED {
+		return
+	}
+
+	jobid, err := task.GetJobId()
+	if err != nil {
+		err = fmt.Errorf("(taskCompleted) task.GetJobId() returned: %s", err.Error())
+		return
+	}
+	var job *Job
+	job, err = GetJob(jobid)
+	if err != nil {
+		err = fmt.Errorf("(taskCompleted) GetJob returned: %s", err.Error())
+		return
+	}
+
+	var job_remainTasks int
+	job_remainTasks, err = job.GetRemainTasks() // TODO deprecated !?
+	if err != nil {
+		err = fmt.Errorf("(taskCompleted) job.GetRemainTasks() returned: %s", err.Error())
+		return
+	}
+
+	var task_str string
+	task_str, err = task.String()
+	if err != nil {
+		err = fmt.Errorf("(taskCompleted) task.String returned: %s", err.Error())
+		return
+	}
+
+	logger.Debug(2, "(taskCompleted) remaining tasks for job %s: %d (task_state: %s)", task_str, job_remainTasks, task_state)
+
+	// check if this was the last task in a subworkflow
+
+	// check if this task has a parent
+
+	if task.WorkflowStep == nil {
+		logger.Debug(3, "(taskCompleted) task.WorkflowStep == nil ")
+	} else {
+		logger.Debug(3, "(taskCompleted) task.WorkflowStep != nil ")
+	}
+
+	var parent_task_to_complete *Task
+	parent_task_to_complete = nil
+	// (taskCompleted) CWL Task completes
+	if task.WorkflowStep != nil {
+		// this task belongs to a subworkflow // TODO every task should belong to a subworkflow
+		logger.Debug(3, "(taskCompleted) task.WorkflowStep != nil (%s)", task_str)
+
+		if task.Scatter_parent != nil {
+			// process scatter children
+			err = qm.taskCompleted_Scatter(task)
+			if err != nil {
+				err = fmt.Errorf("(taskCompleted) taskCompleted_Scatter returned: %s", err.Error())
+				return
+			}
 
 		} else { // end task.Scatter_parent != nil
-			logger.Debug(3, "(updateJobTask) %s  No Scatter_parent", task_str)
+			logger.Debug(3, "(taskCompleted) %s  No Scatter_parent", task_str)
 		}
 
 		//count, _ := job.GetRemainTasks()
@@ -3449,14 +3979,19 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 		var ok bool
 		workflow_instance, ok, err = job.GetWorkflowInstance(workflow_instance_id, true)
 		if err != nil {
-			err = fmt.Errorf("(updateJobTask) job.GetWorkflowInstance returned: %s", err.Error())
+			err = fmt.Errorf("(taskCompleted) job.GetWorkflowInstance returned: %s", err.Error())
+			return
+		}
+
+		if !ok {
+			err = fmt.Errorf("(taskCompleted) WorkflowInstance %s not found", err.Error())
 			return
 		}
 
 		var subworkflow_remain_tasks int
 		subworkflow_remain_tasks, err = workflow_instance.DecreaseRemainTasks()
 		if err != nil {
-			err = fmt.Errorf("(updateJobTask) workflow_instance.DecreaseRemainTasks returned: %s", err.Error())
+			err = fmt.Errorf("(taskCompleted) workflow_instance.DecreaseRemainTasks returned: %s", err.Error())
 			return
 
 		}
@@ -3464,15 +3999,15 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 		// subworkflow_remain_tasks, err = job.Decrease_WorkflowInstance_RemainTasks(parent_id_str, task_str)
 		// if err != nil {
-		// 	//fmt.Printf("ERROR: (updateJobTask) Decrease_WorkflowInstance_RemainTasks returned: %s\n", err.Error())
-		// 	err = fmt.Errorf("(updateJobTask) WorkflowInstanceDecreaseRemainTasks returned: %s", err.Error())
+		// 	//fmt.Printf("ERROR: (taskCompleted) Decrease_WorkflowInstance_RemainTasks returned: %s\n", err.Error())
+		// 	err = fmt.Errorf("(taskCompleted) WorkflowInstanceDecreaseRemainTasks returned: %s", err.Error())
 		// 	return
 		// }
 		//fmt.Printf("GetRemainTasks subworkflow C: %d\n", subworkflow_remain_tasks)
 
-		logger.Debug(3, "(updateJobTask) TASK_STAT_COMPLETED  / remaining tasks for subworkflow %s: %d", task_str, subworkflow_remain_tasks)
+		logger.Debug(3, "(taskCompleted) TASK_STAT_COMPLETED  / remaining tasks for subworkflow %s: %d", task_str, subworkflow_remain_tasks)
 
-		logger.Debug(3, "(updateJobTask) workflow_instance %s remaining tasks: %d (total %d or %d)", workflow_instance_id, subworkflow_remain_tasks, workflow_instance.TaskCount(), workflow_instance.TotalTasks)
+		logger.Debug(3, "(taskCompleted) workflow_instance %s remaining tasks: %d (total %d or %d)", workflow_instance_id, subworkflow_remain_tasks, workflow_instance.TaskCount(), workflow_instance.TotalTasks)
 
 		if subworkflow_remain_tasks > 0 {
 			return
@@ -3480,489 +4015,49 @@ func (qm *ServerMgr) updateJobTask(task *Task) (err error) {
 
 		// subworkflow completed.
 
-		var wfl *cwl.Workflow
-		var cwl_step *cwl.WorkflowStep
-
-		var parent_task *Task
-		//var ok bool
-
-		process_name := job.Entrypoint
-
-		// if this is a subworkflow, check if sibblings are complete
-		var context *cwl.WorkflowContext
-
-		var parent_id Task_Unique_Identifier
-		if has_workflow_parent { // a real explicit subworkflow
-
-			parent_global_id_str, _ := parent_id.String()
-
-			parent_task, ok, err = qm.TaskMap.Get(parent_id, true)
-			if err != nil {
-				return
-			}
-			if !ok {
-
-				fmt.Println("qm.TaskMap._map:")
-				spew.Dump(qm.TaskMap._map)
-
-				for key, _ := range qm.TaskMap._map {
-					//key_str, _ := key.String()
-					fmt.Printf("_map: %s\n", key)
-					fmt.Printf("want: %s\n", parent_id)
-
-				}
-				//panic("done")
-
-				err = fmt.Errorf("(updateJobTask) Workflow parent task %s not found", parent_global_id_str)
-				return
-			}
-
-			// double checking
-			var parent_task_type string
-			parent_task_type, err = parent_task.GetTaskType()
-			if err != nil {
-				err = fmt.Errorf("(updateJobTask) parent_task.GetTaskType returned: %s", err.Error())
-				return
-			}
-
-			if parent_task_type != TASK_TYPE_WORKFLOW {
-				err = fmt.Errorf("(updateJobTask) Uhhh ? Parent task %s has not type workflow???", parent_global_id_str)
-				return
-			}
-
-			// get all tasks in the sub-workflow to check if subworkflow has completed
-			var children []*Task
-			children, err = parent_task.GetChildren(qm)
-			if err != nil {
-				err = fmt.Errorf("(updateJobTask) (subworkflow) GetChildren retuned: %s", err.Error())
-				return
-			}
-
-			subworkflow_complete := true
-			for _, child_task := range children {
-				var child_state string
-				child_state, err = child_task.GetState()
-				if err != nil {
-					err = fmt.Errorf("(updateJobTask) child_task.GetState returned: %s", err.Error())
-					return
-				}
-
-				if child_state != TASK_STAT_COMPLETED {
-					subworkflow_complete = false
-					break
-				}
-			}
-
-			if !subworkflow_complete {
-				// nothing to do here, sub-workflow is not complete
-				return
-			}
-
-			// ****************************************************
-			// **** sub workflow is complete, collect outputs *****
-			// ****************************************************
-
-			// this prevents a race condition, in case multiple tasks in the same subworkflow complete at the same time
-			ok, err = parent_task.Finalize()
-			if err != nil {
-				err = fmt.Errorf("(updateJobTask) parent_task.Finalize returned: %s", err.Error())
-				return
-			}
-
-			if !ok {
-				// somebody else is finalizing
-				return
-			}
-
-			// Copy outputs (populate parent_task.StepOutput)
-
-			cwl_step = parent_task.WorkflowStep
-
-			p := cwl_step.Run
-
-			if p == nil {
-				err = fmt.Errorf("(updateJobTask) process is nil !?")
-				return
-			}
-			// check if this is a workflow
-
-			context = job.WorkflowContext
-
-			//var wfl *cwl.Workflow
-
-			wfl, _, err = cwl.NewWorkflow(p, nil, context)
-			if err != nil {
-				err = fmt.Errorf("(updateJobTask) error getting Workflow: %s", err.Error())
-				return
-			}
-
-		} else {
-
-			// implicit subworkflow (there is no parent)
-			wfl, err = job.WorkflowContext.GetWorkflow(job.Entrypoint) // TODO: use locked function
-			if err != nil {
-				// not a workflow
-				err = fmt.Errorf("(updateJobTask) %s is not a workflow ????", job.Entrypoint)
-				return
-			}
-
-		}
-
-		// reminder: at this point all tasks in subworkflow are complete, see above
-
-		if context == nil {
-			context = job.WorkflowContext
-		}
-
-		var task_id Task_Unique_Identifier
-		task_id, err = task.GetId("updateJobTask")
+		parent_task_to_complete, err = qm.completeSubworkflow(job, task)
 		if err != nil {
-			err = fmt.Errorf("(updateJobTask) task.GetId returned: %s", err.Error())
+			err = fmt.Errorf("(taskCompleted) completeSubworkflow returned: %s", err.Error())
 			return
 		}
 
-		var parent_workflow_instance *WorkflowInstance
-		parent_workflow_instance, ok, err = job.GetWorkflowInstance(workflow_parent_id_str, true)
-		if err != nil {
-			err = fmt.Errorf("(updateJobTask) GetWorkflowInstance returned: %s", err.Error())
-			return
-		}
-		if !ok {
-			err = fmt.Errorf("(updateJobTask) parent WorkflowInstance not found: \"%s\"", workflow_parent_id_str)
-			return
-		}
-
-		workflow_inputs := parent_workflow_instance.Inputs
-
-		workflow_inputs_map := workflow_inputs.GetMap()
-
-		workflow_outputs_map := make(cwl.JobDocMap)
-
-		// collect sub-workflow outputs, put results in workflow_outputs_map
-
-		for _, output := range wfl.Outputs { // WorkflowOutputParameter http://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
-
-			output_id := output.Id
-
-			if output.OutputBinding != nil {
-				// see http://www.commonwl.org/v1.0/Workflow.html#CommandOutputBinding
-				//spew.Dump(output.OutputBinding)
-				// import path
-				// use https://golang.org/pkg/path/#Match
-				// iterate over output files
-				for _, value := range workflow_inputs_map {
-					//fmt.Println("key: " + key)
-
-					_, ok := value.(*cwl.File)
-					if !ok {
-						continue
-					}
-
-					//fmt.Println("base: " + file.Basename)
-
-				}
-
-				//panic("ok")
-				err = fmt.Errorf("(updateJobTask) Workflow output outputbinding not supported yet")
-				return
-			}
-
-			var expected_types_raw []interface{}
-
-			switch output.Type.(type) {
-			case []interface{}:
-				expected_types_raw = output.Type.([]interface{})
-			case []cwl.CWLType_Type:
-
-				expected_types_raw_array := output.Type.([]cwl.CWLType_Type)
-				for i, _ := range expected_types_raw_array {
-					expected_types_raw = append(expected_types_raw, expected_types_raw_array[i])
-
-				}
-
-			default:
-				expected_types_raw = append(expected_types_raw, output.Type)
-				//expected_types_raw = []interface{output.Type}
-			}
-			expected_types := []cwl.CWLType_Type{}
-
-			is_optional := false
-
-			var schemata []cwl.CWLType_Type
-			schemata, err = job.WorkflowContext.GetSchemata()
-			if err != nil {
-				err = fmt.Errorf("(updateJobTask) job.CWL_collection.GetSchemata returned: %s", err.Error())
-				return
-			}
-
-			for _, raw_type := range expected_types_raw {
-				var type_correct cwl.CWLType_Type
-				type_correct, err = cwl.NewCWLType_Type(schemata, raw_type, "WorkflowOutput", context)
-				if err != nil {
-					spew.Dump(expected_types_raw)
-					fmt.Println("---")
-					spew.Dump(raw_type)
-
-					err = fmt.Errorf("(updateJobTask) could not convert element of output.Type into cwl.CWLType_Type: %s", err.Error())
-					//fmt.Printf(err.Error())
-					//panic("raw_type problem")
-					return
-				}
-				expected_types = append(expected_types, type_correct)
-				if type_correct == cwl.CWL_null {
-					is_optional = true
-				}
-			}
-
-			//XXXXXXXX
-
-			output_source := output.OutputSource
-
-			switch output_source.(type) {
-			case string:
-				outputSourceString := output_source.(string)
-				// example: "#preprocess-fastq.workflow.cwl/rejected2fasta/file"
-
-				var obj cwl.CWLType
-				var ok bool
-				obj, ok, _, err = qm.getCWLSource(workflow_instance, workflow_inputs_map, job, task_id, outputSourceString, true)
-				if err != nil {
-					err = fmt.Errorf("(updateJobTask) A) getCWLSource returns: %s", err.Error())
-					return
-				}
-				skip := false
-				if !ok {
-					if is_optional {
-						skip = true
-					} else {
-						err = fmt.Errorf("(updateJobTask) A) source %s not found by getCWLSource", outputSourceString)
-						return
-					}
-				}
-
-				if !skip {
-					has_type, xerr := cwl.TypeIsCorrect(expected_types, obj, context)
-					if xerr != nil {
-						err = fmt.Errorf("(updateJobTask) TypeIsCorrect: %s", xerr.Error())
-						return
-					}
-					if !has_type {
-						err = fmt.Errorf("(updateJobTask) A) workflow_ouput %s (type: %s), does not match expected types %s", output_id, reflect.TypeOf(obj), expected_types)
-						return
-					}
-
-					workflow_outputs_map[output_id] = obj
-				}
-			case []string:
-				outputSourceArrayOfString := output_source.([]string)
-
-				if len(outputSourceArrayOfString) == 0 {
-					if !is_optional {
-						err = fmt.Errorf("(updateJobTask) output_source array (%s) is empty, but a required output", output_id)
-						return
-					}
-				}
-
-				output_array := cwl.Array{}
-
-				for _, outputSourceString := range outputSourceArrayOfString {
-					var obj cwl.CWLType
-					var ok bool
-					obj, ok, _, err = qm.getCWLSource(workflow_instance, workflow_inputs_map, job, task_id, outputSourceString, true)
-					if err != nil {
-						err = fmt.Errorf("(updateJobTask) B) (%s) getCWLSource returns: %s", workflow_parent_id_str, err.Error())
-						return
-					}
-
-					skip := false
-					if !ok {
-
-						if is_optional {
-							skip = true
-						} else {
-
-							err = fmt.Errorf("(updateJobTask) B) (%s) source %s not found", workflow_parent_id_str, outputSourceString)
-							return
-						}
-					}
-
-					if !skip {
-						has_type, xerr := cwl.TypeIsCorrect(expected_types, obj, context)
-						if xerr != nil {
-							err = fmt.Errorf("(updateJobTask) TypeIsCorrect: %s", xerr.Error())
-							return
-						}
-						if !has_type {
-							err = fmt.Errorf("(updateJobTask) B) workflow_ouput %s, does not match expected types %s", output_id, expected_types)
-							return
-						}
-						fmt.Println("obj:")
-						spew.Dump(obj)
-						output_array = append(output_array, obj)
-					}
-				}
-
-				if len(output_array) > 0 {
-					workflow_outputs_map[output_id] = &output_array
-				} else {
-					if !is_optional {
-						err = fmt.Errorf("(updateJobTask) array with output_id %s is empty, but a required output", output_id)
-						return
-					}
-				}
-				fmt.Println("workflow_outputs_map:")
-				spew.Dump(workflow_outputs_map)
-
-			default:
-				err = fmt.Errorf("(updateJobTask) output.OutputSource has to be string or []string, but I got type %s", spew.Sdump(output_source))
-				return
-
-			}
-
-		}
-
-		//fmt.Println("(updateJobTask) workflow_outputs_map:")
-		//spew.Dump(workflow_outputs_map)
-		step_outputs := cwl.Job_document{}
-
-		if workflow_parent_id_str != "" {
-			// save outputs in workflow_instance
-			// step_outputs is a subset of the subworkflow outputs
-
-			if cwl_step == nil {
-				err = fmt.Errorf("(updateJobTask) step == nil")
-				return
-			}
-
-			// get step outputs from subworkflow outputs
-			for _, output := range cwl_step.Out { // output is a WorkflowStepOutput
-				//fmt.Println("output: " + output.Id)
-				output_base := path.Base(output.Id)
-
-				real_name := process_name + "/" + output_base
-				//fmt.Println("(updateJobTask) output real: " + real_name)
-
-				var object cwl.CWLType
-				object, ok = workflow_outputs_map[real_name]
-				if !ok {
-
-					//out_list := ""
-					//for key := range workflow_outputs_map {
-					//	out_list += "," + key
-					//}
-
-					//err = fmt.Errorf("(updateJobTask) workflow output %s not found (available: %s)", real_name, out_list)
-					//return
-					object = cwl.NewNull()
-				}
-
-				named_obj := cwl.NewNamedCWLType(output_base, object)
-				step_outputs = append(step_outputs, named_obj)
-
-			}
-		} else {
-			// the main workflow, a implicit subworkflow
-			// get outputs from subworkflow outputs
-			for _, output := range wfl.Outputs { // output is a WorkflowOutputParameter
-				//fmt.Println("output: " + output.Id)
-				output_base := path.Base(output.Id)
-
-				real_name := process_name + "/" + output_base
-				//fmt.Println("(updateJobTask) output real: " + real_name)
-
-				var object cwl.CWLType
-				object, ok = workflow_outputs_map[real_name]
-				if !ok {
-					//out_list := ""
-					//for key := range workflow_outputs_map {
-					//	out_list += "," + key
-					//}
-					//err = fmt.Errorf("(updateJobTask) workflow output %s not found (available: %s)", real_name, out_list)
-					//return
-
-					object = cwl.NewNull()
-				}
-
-				named_obj := cwl.NewNamedCWLType(output_base, object)
-				step_outputs = append(step_outputs, named_obj)
-
-			}
-
-		}
-		var workflow_outputs_array cwl.Job_document
-		workflow_outputs_array, err = workflow_outputs_map.GetArray()
-		if err != nil {
-			err = fmt.Errorf("(updateJobTask) workflow_outputs_map.GetArray returned: %s", err.Error())
-			return
-		}
-
-		//fmt.Println("wfl.Outputs:")
-		//spew.Dump(wfl.Outputs)
-		//fmt.Println("workflow_outputs_map:")
-		//spew.Dump(workflow_outputs_map)
-		//fmt.Println("workflow_outputs_array:")
-		//spew.Dump(workflow_outputs_array)
-
-		//panic("xxxxxxx")
-
-		//workflow_instance.Outputs = step_outputs
-
-		err = workflow_instance.SetOutputs(workflow_outputs_array, context)
-		//err = job.Set_WorkflowInstance_Outputs(parent_id_str, workflow_outputs_array, context)
-		if err != nil {
-			err = fmt.Errorf("(updateJobTask) workflow_instance.SetOutputs returned: %s", err.Error())
-			return
-		}
-
-		if workflow_parent_id_str != "" {
-			// ##### Step Output #####
-			err = parent_task.SetStepOutput(&workflow_outputs_array, true)
-			if err != nil {
-				err = fmt.Errorf("(updateJobTask) parent_task.SetStepOutput returned: %s", err.Error())
-				return err
-			}
-
-			err = parent_task.SetState(TASK_STAT_COMPLETED, true)
-			if err != nil {
-				err = fmt.Errorf("(updateJobTask) parent_task.SetState returned: %s", err.Error())
-				return
-			}
-		} else {
-
-			job_remainTasks, err = job.GetRemainTasks() // TODO deprecated !?
-			if err != nil {
-				err = fmt.Errorf("(updateJobTask) job.GetRemainTasks returned: %s", err.Error())
-				return
-			}
-
-			//fmt.Printf("GetRemainTasks job D: %d\n", job_remainTasks)
-
-			if job_remainTasks > 0 {
-				err = fmt.Errorf("(updateJobTask) Something is wrong, last subworkflow completes, but job_remainTasks > 0 , does not make sense")
-				return
-			}
-
-		}
-
-		err = workflow_instance.SetState(WI_STAT_COMPLETED, "db_sync_yes", true)
-		if err != nil {
-			err = fmt.Errorf("(updateJobTask)  workflow_instance.SetState returned: %s", err.Error())
-			return
-		}
-	}
+	} // end of: if task_state == TASK_STAT_COMPLETED && task.WorkflowInstanceId != ""
 
 	if job.IsCWL {
 
+		logger.Debug(3, "(taskCompleted) job.WorkflowInstancesRemain: %d", job.WorkflowInstancesRemain)
+
 		if job.WorkflowInstancesRemain > 0 {
-		    make sure WorkflowInstancesRemain is correct
 			return
 		}
 	} else {
-		logger.Debug(3, "(updateJobTask) job_remainTasks: %d", job_remainTasks)
+		logger.Debug(3, "(taskCompleted) job_remainTasks: %d", job_remainTasks)
 		if job_remainTasks > 0 { //#####################################################################
 			return
 		}
 	}
+
+	err = qm.finalizeJob(job, jobid)
+
+	if err != nil {
+		err = fmt.Errorf("(taskCompleted) qm.finalizeJob returned: %s", err.Error())
+		return
+	}
+
+	// this is a recursive call !
+	if parent_task_to_complete != nil {
+		err = qm.taskCompleted(parent_task_to_complete)
+		if err != nil {
+			err = fmt.Errorf("(taskCompleted) qm.taskCompleted(parent_task_to_complete) returned: %s", err.Error())
+			return
+		}
+	}
+
+	return
+}
+
+func (qm *ServerMgr) finalizeJob(job *Job, jobid string) (err error) {
+
 	job_state, err := job.GetState(true)
 	if err != nil {
 		err = fmt.Errorf("(updateJobTask) job.GetState returned: %s", err.Error())

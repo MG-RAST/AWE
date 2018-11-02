@@ -94,14 +94,15 @@ func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
 }
 
 // this is in-memory only, not db
-func (job *Job) AddWorkflowInstance(wi *WorkflowInstance) (err error) {
+func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, write_lock bool) (err error) {
 	fmt.Printf("(AddWorkflowInstance) id: %s\n", wi.LocalId)
-	err = job.LockNamed("AddWorkflowInstance")
-	if err != nil {
-		return
+	if write_lock {
+		err = job.LockNamed("AddWorkflowInstance")
+		if err != nil {
+			return
+		}
+		defer job.Unlock()
 	}
-	defer job.Unlock()
-
 	if job.WorkflowInstancesMap == nil {
 		job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
 	}

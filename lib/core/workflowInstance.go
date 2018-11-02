@@ -243,7 +243,7 @@ func NewWorkflowInstanceArrayFromInterface(original []interface{}, job *Job, con
 	return
 }
 
-func (wi *WorkflowInstance) AddTask(task *Task) (err error) {
+func (wi *WorkflowInstance) AddTask(task *Task, db_sync string) (err error) {
 	err = wi.LockNamed("WorkflowInstance/AddTask")
 	if err != nil {
 		return
@@ -255,7 +255,13 @@ func (wi *WorkflowInstance) AddTask(task *Task) (err error) {
 	wi.RemainTasks += 1
 	wi.TotalTasks = len(wi.Tasks)
 
-	wi.Save(false)
+	if db_sync == "db_sync_yes" {
+		err = wi.Save(false)
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/AddTask) wi.Save returned: %s", err.Error())
+			return
+		}
+	}
 	return
 }
 

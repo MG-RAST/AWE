@@ -489,7 +489,7 @@ func LoadJob(id string) (job *Job, err error) {
 
 			fmt.Printf("(LoadJob) loading: %s\n", wi.LocalId)
 
-			err = job.AddWorkflowInstance(wi) // load from database
+			err = job.AddWorkflowInstance(wi, true) // load from database
 			if err != nil {
 				err = fmt.Errorf("(LoadJob) AddWorkflowInstance returned: %s", err.Error())
 				return

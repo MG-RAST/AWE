@@ -298,7 +298,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 		return
 	}
 
-	err = wi.AddTask(task)
+	err = wi.AddTask(task, "db_sync_no")
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) wi.AddTask returned: %s", err.Error())
 		return
@@ -310,7 +310,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 		return
 	}
 
-	err = job.AddWorkflowInstance(wi) // adding _root
+	err = job.AddWorkflowInstance(wi, false) // adding _root
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) AddWorkflowInstance returned: %s", err.Error())
 		return

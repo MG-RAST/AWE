@@ -2,7 +2,7 @@
 #export NAME=mgrast/awe
 #docker build --force-rm --no-cache --rm -t ${NAME}:${TAG} .
 
-FROM golang:1.7.6
+FROM golang:1.11.1
 
 # needed for GIT_COMMIT_HASH
 RUN apt-get update && apt-get install -y libsasl2-dev

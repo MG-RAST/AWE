@@ -26,7 +26,7 @@ func deliverer(control chan int) {
 			logger.Error("(deliverer) deliverer_run returned: %s", err.Error())
 		}
 	}
-	control <- ID_DELIVERER //we are ending
+	//control <- ID_DELIVERER //we are ending
 }
 
 func deliverer_run(control chan int) (err error) { // TODO return all errors
@@ -55,7 +55,7 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 		return
 	}
 	if !ok {
-		logger.Error("(deliverer) work id %s not found", work_id)
+		logger.Error("(deliverer) work id %s not found", work_str)
 		return
 	}
 
@@ -154,7 +154,7 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 	// cleanup
 	err = core.Self.Current_work.Delete(work_id, true)
 	if err != nil {
-		logger.Error("Could not remove work_id %s", work_id)
+		logger.Error("Could not remove work_id %s", work_str)
 	}
 	workmap.Delete(work_id)
 	core.Self.Busy = false

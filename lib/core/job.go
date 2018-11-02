@@ -69,9 +69,9 @@ type JobRaw struct {
 	Error                   *JobError                    `bson:"error" json:"error"`         // error struct exists when in suspended state
 	Resumed                 int                          `bson:"resumed" json:"resumed"`     // number of times the job has been resumed from suspension
 	ShockHost               string                       `bson:"shockhost" json:"shockhost"` // this is a fall-back default if not specified at a lower level
-	IsCWL                   bool                         `bson:"is_cwl" json:"is_cwl`
-	CWL_job_input           interface{}                  `bson:"cwl_job_input" json:"cwl_job_input` // has to be an array for mongo (id as key would not work)
-	CWL_ShockRequirement    *cwl.ShockRequirement        `bson:"cwl_shock_requirement" json:"cwl_shock_requirement`
+	IsCWL                   bool                         `bson:"is_cwl" json:"is_cwl"`
+	CWL_job_input           interface{}                  `bson:"cwl_job_input" json:"cwl_job_input"` // has to be an array for mongo (id as key would not work)
+	CWL_ShockRequirement    *cwl.ShockRequirement        `bson:"cwl_shock_requirement" json:"cwl_shock_requirement"`
 	CWL_workflow            *cwl.Workflow                `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	WorkflowInstancesMap    map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	WorkflowInstancesRemain int                          `bson:"workflow_instances_remain" json:"workflow_instances_remain"`
@@ -95,7 +95,7 @@ func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
 
 // this is in-memory only, not db
 func (job *Job) AddWorkflowInstance(wi *WorkflowInstance) (err error) {
-	fmt.Printf("(AddWorkflowInstance) id: %s\n", wi.Id)
+	fmt.Printf("(AddWorkflowInstance) id: %s\n", wi.LocalId)
 	err = job.LockNamed("AddWorkflowInstance")
 	if err != nil {
 		return
@@ -106,12 +106,12 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance) (err error) {
 		job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
 	}
 
-	_, has_wi := job.WorkflowInstancesMap[wi.Id]
+	_, has_wi := job.WorkflowInstancesMap[wi.LocalId]
 	if has_wi {
 		err = fmt.Errorf("(AddWorkflowInstance) WorkflowInstance already in map !")
 		return
 	}
-	job.WorkflowInstancesMap[wi.Id] = wi
+	job.WorkflowInstancesMap[wi.LocalId] = wi
 
 	err = GlobalWorkflowInstanceMap.Add(wi)
 	if err != nil {
@@ -256,14 +256,18 @@ func NewJobRaw() (job *JobRaw) {
 }
 
 func NewJob() (job *Job) {
-	r_job := NewJobRaw()
-	job = &Job{JobRaw: *r_job}
+	//r_job := NewJobRaw()
+	job = &Job{}
+	//job.JobRaw = *r_job
+	job.JobRaw = *NewJobRaw()
 	return
 }
 
 func NewJobDep() (job *JobDep) {
-	r_job := NewJobRaw()
-	job = &JobDep{JobRaw: *r_job}
+	//r_job := NewJobRaw()
+	//job = &JobDep{JobRaw: *r_job}
+	job = &JobDep{}
+	job.JobRaw = *NewJobRaw()
 	return
 }
 

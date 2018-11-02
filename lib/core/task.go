@@ -79,11 +79,11 @@ type TaskRaw struct {
 }
 
 type Task struct {
-	TaskRaw `bson:",inline" mapstructure:",squash"`
-	Inputs  []*IO `bson:"inputs" json:"inputs" mapstructure:"inputs"`
-	Outputs []*IO `bson:"outputs" json:"outputs" mapstructure:"outputs"`
-	Predata []*IO `bson:"predata" json:"predata" mapstructure:"predata"`
-	Comment string
+	*TaskRaw `bson:",inline" mapstructure:",squash"`
+	Inputs   []*IO `bson:"inputs" json:"inputs" mapstructure:"inputs"`
+	Outputs  []*IO `bson:"outputs" json:"outputs" mapstructure:"outputs"`
+	Predata  []*IO `bson:"predata" json:"predata" mapstructure:"predata"`
+	Comment  string
 }
 
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
@@ -494,12 +494,20 @@ func NewTask(job *Job, workflow_instance_id string, task_id string) (t *Task, er
 		return
 	}
 	t = &Task{
-		TaskRaw: tr,
+		TaskRaw: &tr,
 		Inputs:  []*IO{},
 		Outputs: []*IO{},
 		Predata: []*IO{},
 	}
+
 	t.TaskRaw.WorkflowInstanceId = workflow_instance_id
+
+	if t.WorkflowParent == nil {
+		task_id_str, _ := t.String()
+		err = fmt.Errorf("(NewTaskFromInterface) t.WorkflowParent == nil , (%s)", task_id_str)
+		return
+	}
+
 	return
 }
 
@@ -1852,7 +1860,7 @@ func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, err erro
 func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (task *Task, err error) {
 
 	task = &Task{}
-	task.TaskRaw = TaskRaw{}
+	task.TaskRaw = &TaskRaw{}
 
 	err = mapstructure.Decode(original, task)
 	if err != nil {
@@ -1862,6 +1870,12 @@ func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (t
 
 	if task.WorkflowInstanceId == "" {
 		err = fmt.Errorf("(NewTaskFromInterface) task.WorkflowInstanceId == empty")
+		return
+	}
+
+	if task.WorkflowParent == nil {
+		task_id_str, _ := task.String()
+		err = fmt.Errorf("(NewTaskFromInterface) task.WorkflowParent == nil , (%s)", task_id_str)
 		return
 	}
 

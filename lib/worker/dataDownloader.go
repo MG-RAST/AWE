@@ -396,7 +396,8 @@ func dataDownloader(control chan int) {
 		//panic("done")
 		fromMover <- workunit
 	}
-	control <- ID_DATADOWNLOADER //we are ending
+	//control <- ID_DATADOWNLOADER //we are ending
+
 }
 
 func proxyDataMover(control chan int) {
@@ -421,7 +422,7 @@ func proxyDataMover(control chan int) {
 		}
 		fromMover <- workunit
 	}
-	control <- ID_DATADOWNLOADER
+	//control <- ID_DATADOWNLOADER
 }
 
 //parse workunit, fetch input data, compose command arguments

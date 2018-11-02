@@ -270,7 +270,7 @@ func (qm *ServerMgr) GetQueue(name string) interface{} {
 		return workunits
 	}
 	if name == "client" {
-		return qm.clientMap
+		return &qm.clientMap
 	}
 	return nil
 }
@@ -430,6 +430,27 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	if err != nil {
 		return
 	}
+
+	if len(tasks) > 0 {
+		task := tasks[0]
+		job_id := task.JobId
+		job, _ := GetJob(job_id)
+		fmt.Printf("*** job ***\n")
+		for wi_id, _ := range job.WorkflowInstancesMap {
+			wi := job.WorkflowInstancesMap[wi_id]
+
+			fmt.Printf("WorkflowInstance: %s\n", wi_id)
+
+			for j, _ := range wi.Tasks {
+				task := wi.Tasks[j]
+				fmt.Printf("  Task %d: %s (wf: %s, state %s)\n", j, task.Id, task.WorkflowInstanceId, task.State)
+
+			}
+
+		}
+
+	}
+
 	logger.Debug(3, "(updateQueue) range tasks (%d)", len(tasks))
 	for _, task := range tasks {
 
@@ -664,10 +685,10 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 	// ******* LAST WORKUNIT ******
 
 	// validate file sizes of all outputs
-	verr := task.ValidateOutputs()
-	if verr != nil {
+	err = task.ValidateOutputs()
+	if err != nil {
 		// we create job error object and suspend job
-		err_msg := fmt.Sprintf("(handleWorkStatDone) ValidateOutputs failed: %s", verr.Error())
+		err_msg := fmt.Sprintf("(handleWorkStatDone) ValidateOutputs returned: %s", err.Error())
 		jerror := &JobError{
 			ClientFailed: clientid,
 			WorkFailed:   work_str,
@@ -677,12 +698,12 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		}
 		err = task.SetState(TASK_STAT_SUSPEND, true)
 		if err != nil {
-			err = fmt.Errorf("(handleWorkStatDone) task.SetState failed: %s", err.Error())
+			err = fmt.Errorf("(handleWorkStatDone) task.SetState returned: %s", err.Error())
 			return
 		}
 		err = qm.SuspendJob(task.JobId, jerror)
 		if err != nil {
-			err = fmt.Errorf("(handleWorkStatDone) SuspendJob failed: %s", err.Error())
+			err = fmt.Errorf("(handleWorkStatDone) SuspendJob returned: %s", err.Error())
 			return
 		}
 		err = errors.New(err_msg)
@@ -691,19 +712,24 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 
 	err = task.SetState(TASK_STAT_COMPLETED, true)
 	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) task.SetState failed: %s", err.Error())
+		err = fmt.Errorf("(handleWorkStatDone) task.SetState returned: %s", err.Error())
 		return
 	}
 
 	//log event about task done (TD)
-	qm.FinalizeTaskPerf(task)
+	err = qm.FinalizeTaskPerf(task)
+	if err != nil {
+		err = fmt.Errorf("(handleWorkStatDone) FinalizeTaskPerf returned: %s", err.Error())
+		return
+	}
 	logger.Event(event.TASK_DONE, "task_id="+task_str)
 
 	//update the info of the job which the task is belong to, could result in deletion of the
 	//task in the task map when the task is the final task of the job to be done.
 	err = qm.taskCompleted(task) //task state QUEUED -> COMPLETED
 	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) updateJobTask failed: %s", err.Error())
+		err = fmt.Errorf("(handleWorkStatDone) updateJobTask returned: %s", err.Error())
+		return
 	}
 	return
 }
@@ -1398,7 +1424,7 @@ func (qm *ServerMgr) isTaskReady(task *Task) (ready bool, reason string, err err
 		}
 
 		workflow_input_map := workflow_instance.Inputs.GetMap()
-		workflow_instance_id := workflow_instance.Id
+		workflow_instance_id := workflow_instance.LocalId
 		workflow_def := workflow_instance.Workflow_Definition
 
 		//fmt.Println("WorkflowStep.Id: " + task.WorkflowStep.Id)
@@ -1785,7 +1811,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 				return
 			}
 			if !ok {
-				err = fmt.Errorf("(taskEnQueueScatter) element not found", err.Error()) // should not happen, error would have been thrown
+				err = fmt.Errorf("(taskEnQueueScatter) element not found") // should not happen, error would have been thrown
 				return
 			}
 			scatter_input_source_str = "_array_"
@@ -1885,7 +1911,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 
 	}
 
-	fmt.Println("template_scatter_step_ins:\n")
+	fmt.Println("template_scatter_step_ins:")
 	spew.Dump(template_scatter_step_ins)
 	if len(template_scatter_step_ins) == 0 {
 		err = fmt.Errorf("(taskEnQueue) no scatter tasks found")
@@ -1942,7 +1968,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		return
 	}
 
-	fmt.Println("template_task_step without scatter:\n")
+	fmt.Println("template_task_step without scatter:")
 	spew.Dump(template_task_step)
 
 	//if count_of_scatter_arrays == 1 {
@@ -1994,7 +2020,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		//var new_task_step_in []cwl.WorkflowStepInput
 		new_task_step = template_task_step // this should make a copy from template, (this is not a nested copy)
 
-		fmt.Println("new_task_step initial:\n")
+		fmt.Println("new_task_step initial:")
 		spew.Dump(new_task_step)
 
 		// copy scatter inputs
@@ -2020,7 +2046,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 			new_task_step.In = append(new_task_step.In, scatter_input)
 		}
 
-		fmt.Println("new_task_step with everything:\n")
+		fmt.Println("new_task_step with everything:")
 		spew.Dump(new_task_step)
 
 		new_task_step.Id = scatter_task_name
@@ -3381,6 +3407,9 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, task *Task) (parent_task_to_c
 			err = fmt.Errorf("(completeSubworkflow) workflow_parent_id.String() returned: %s", err.Error())
 			return
 		}
+	} else {
+		panic("no workflow_parent_id  " + task_str)
+
 	}
 
 	var wfl *cwl.Workflow
@@ -4046,6 +4075,11 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 
 	// this is a recursive call !
 	if parent_task_to_complete != nil {
+
+		if parent_task_to_complete.State != TASK_STAT_COMPLETED {
+			err = fmt.Errorf("(taskCompleted) qm.taskCompleted(parent_task_to_complete) parent_task_to_complete.State != TASK_STAT_COMPLETED")
+			return
+		}
 		err = qm.taskCompleted(parent_task_to_complete)
 		if err != nil {
 			err = fmt.Errorf("(taskCompleted) qm.taskCompleted(parent_task_to_complete) returned: %s", err.Error())
@@ -4137,6 +4171,7 @@ func (qm *ServerMgr) finalizeJob(job *Job, jobid string) (err error) {
 	return
 }
 
+// happens when a client checks out a workunit
 //update job/task states from "queued" to "in-progress" once the first workunit is checked out
 func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) (err error) {
 	for _, work := range works {
@@ -4555,7 +4590,7 @@ func (qm *ServerMgr) RecoverJobs() (recovered int, total int, err error) {
 }
 
 //recompute job from specified task stage
-func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
+func (qm *ServerMgr) RecomputeJob(jobid string, task_stage string) (err error) {
 	if qm.isActJob(jobid) {
 		err = errors.New("(RecomputeJob) job " + jobid + " is already active")
 		return
@@ -4579,7 +4614,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 	}
 	logger.Debug(1, "recomputing: job=%s, state=%s", jobid, job_state)
 
-	from_task_id := fmt.Sprintf("%s_%s", jobid, stage)
+	from_task_id := fmt.Sprintf("%s_%s", jobid, task_stage)
 	remaintasks := 0
 	found := false
 
@@ -4658,7 +4693,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, stage string) (err error) {
 		err = errors.New("(RecomputeJob) failed to enqueue job " + err.Error())
 		return
 	}
-	logger.Debug(1, "Recomputed job %s from task %d", jobid, stage)
+	logger.Debug(1, "Recomputed job %s from task %s", jobid, task_stage)
 	return
 }
 

@@ -25,9 +25,9 @@ const (
 
 // Object for each subworkflow
 type WorkflowInstance struct {
-	RWMutex             `bson:"-" json:"-" mapstructure:"-"`
-	Id                  string           `bson:"id" json:"id" mapstructure:"id"`
-	_Id                 string           `bson:"_id" json:"_id" mapstructure:"_id"` // unique identifier for mongo, includes jobid !
+	RWMutex `bson:"-" json:"-" mapstructure:"-"`
+	LocalId string `bson:"local_id" json:"id" mapstructure:"local_id"`
+	//_Id                 string           `bson:"_id" json:"_id" mapstructure:"_id"` // unique identifier for mongo, includes jobid !
 	JobId               string           `bson:"job_id" json:"job_id" mapstructure:"job_id"`
 	Acl                 *acl.Acl         `bson:"acl" json:"-"`
 	State               string           `bson:"state" json:"state" mapstructure:"state"`                                           // this is unique identifier for the workflow instance
@@ -53,9 +53,7 @@ func NewWorkflowInstance(id string, jobid string, workflow_definition string, in
 		return
 	}
 
-	wi = &WorkflowInstance{Id: id, JobId: jobid, _Id: jobid + id, Workflow_Definition: workflow_definition, Inputs: inputs}
-
-	wi._Id = jobid + id
+	wi = &WorkflowInstance{LocalId: id, JobId: jobid, Workflow_Definition: workflow_definition, Inputs: inputs}
 
 	wi.State = WI_STAT_OK
 
@@ -311,12 +309,29 @@ func (wi *WorkflowInstance) GetTask(task_id Task_Unique_Identifier) (task *Task,
 }
 
 func (wi *WorkflowInstance) TaskCount() (count int) {
+	lock, err := wi.RLockNamed("TaskCount")
+	if err != nil {
+		return
+	}
+	defer wi.RUnlockNamed(lock)
 	count = 0
 
 	if wi.Tasks == nil {
 		return
 	}
 	count = len(wi.Tasks)
+
+	return
+}
+
+func (wi *WorkflowInstance) GetId() (id string, err error) {
+	lock, err := wi.RLockNamed("GetId")
+	if err != nil {
+		return
+	}
+	defer wi.RUnlockNamed(lock)
+
+	id = wi.JobId + wi.LocalId
 
 	return
 }
@@ -365,7 +380,7 @@ func (wi *WorkflowInstance) Save(write_lock bool) (err error) {
 		}
 		defer wi.Unlock()
 	}
-	if wi.Id == "" {
+	if wi.LocalId == "" {
 		err = fmt.Errorf("(WorkflowInstance/Save) job id empty")
 		return
 	}
@@ -380,15 +395,15 @@ func (wi *WorkflowInstance) Save(write_lock bool) (err error) {
 		return
 	}
 
-	logger.Debug(1, "(WorkflowInstance/Save)  dbUpsert next: %s", wi.Id)
+	logger.Debug(1, "(WorkflowInstance/Save)  dbUpsert next: %s", wi.LocalId)
 	//spew.Dump(job)
 
 	err = dbUpsert(wi)
 	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/Save)  dbUpsert failed (id=%s) error=%s", wi.Id, err.Error())
+		err = fmt.Errorf("(WorkflowInstance/Save)  dbUpsert failed (id=%s) error=%s", wi.LocalId, err.Error())
 		return
 	}
-	logger.Debug(1, "(WorkflowInstance/Save)  wi saved: %s", wi.Id)
+	logger.Debug(1, "(WorkflowInstance/Save)  wi saved: %s", wi.LocalId)
 	return
 }
 
@@ -423,7 +438,7 @@ func (wi *WorkflowInstance) DecreaseRemainTasks() (remain int, err error) {
 	wi.RemainTasks -= 1
 
 	//err = dbUpdateJobWorkflow_instancesFieldInt(wi.JobId, wi.Id, "remaintasks", wi.RemainTasks)
-	err = dbIncrementJobWorkflow_instancesField(wi.JobId, wi.Id, "remaintasks", -1) // TODO return correct value for remain
+	err = dbIncrementJobWorkflow_instancesField(wi.JobId, wi.LocalId, "remaintasks", -1) // TODO return correct value for remain
 	//err = wi.Save()
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainTasks)  Save() returned: %s", err.Error())

@@ -153,7 +153,7 @@ func workStealer(control chan int) {
 			logger.Error("(workStealer) workStealerRun returns: %s", err.Error())
 		}
 	}
-	control <- ID_WORKSTEALER //we are ending
+	//control <- ID_WORKSTEALER //we are ending
 }
 
 func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {

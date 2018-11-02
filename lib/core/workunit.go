@@ -299,17 +299,17 @@ func (work *Workunit) Mkdir() (err error) {
 	// delete workdir just in case it exists; will not work if awe-worker is not in docker container AND tasks are in container
 	work_path, err := work.Path()
 	if err != nil {
-		err = fmt.Errorf("(Workunit/Mkdir) work.Path() returned: %s", err.Error)
+		err = fmt.Errorf("(Workunit/Mkdir) work.Path() returned: %s", err.Error())
 		return
 	}
 	err = os.RemoveAll(work_path)
 	if err != nil {
-		err = fmt.Errorf("(Workunit/Mkdir) os.RemoveAll returned: %s", err.Error)
+		err = fmt.Errorf("(Workunit/Mkdir) os.RemoveAll returned: %s", err.Error())
 		return
 	}
 	err = os.MkdirAll(work_path, 0777)
 	if err != nil {
-		err = fmt.Errorf("(Workunit/Mkdir) os.MkdirAll returned: %s", err.Error)
+		err = fmt.Errorf("(Workunit/Mkdir) os.MkdirAll returned: %s", err.Error())
 		return
 	}
 	return

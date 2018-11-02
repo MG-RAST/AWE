@@ -212,11 +212,11 @@ func (qm *CQMgr) ClientChecker() {
 		if conf.MEMPROFILE != "" {
 			f, err := os.Create(conf.MEMPROFILE)
 			if err != nil {
-				logger.Error("could not create memory profile: ", err)
+				logger.Error("could not create memory profile: %s", err.Error())
 			}
 			runtime.GC() // get up-to-date statistics
 			if err := pprof.WriteHeapProfile(f); err != nil {
-				logger.Error("could not write memory profile: ", err)
+				logger.Error("could not write memory profile: %s", err.Error())
 			}
 			f.Close()
 		}
@@ -1122,15 +1122,16 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 		return
 	}
 	for _, workid := range worklist {
-		logger.Debug(3, "(ReQueueWorkunitByClient) try to requeue work %s", workid)
+		workid_str, _ := workid.String()
+		logger.Debug(3, "(ReQueueWorkunitByClient) try to requeue work %s", workid_str)
 		work, has_work, xerr := qm.workQueue.Get(workid)
 		if xerr != nil {
-			logger.Error("(ReQueueWorkunitByClient) error checking workunit %s", workid)
+			logger.Error("(ReQueueWorkunitByClient) error checking workunit %s", workid_str)
 			continue
 		}
 
 		if !has_work {
-			logger.Error("(ReQueueWorkunitByClient) Workunit %s not found", workid)
+			logger.Error("(ReQueueWorkunitByClient) Workunit %s not found", workid_str)
 			continue
 		}
 

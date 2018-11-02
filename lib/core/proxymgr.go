@@ -53,7 +53,8 @@ func (qm *ProxyMgr) ClientHandle() {
 			//qm.coAck <- ack
 			coReq.response <- ack
 		case notice := <-qm.feedback:
-			logger.Debug(2, fmt.Sprintf("proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", notice.Id, notice.Status, notice.WorkerId))
+			id_str, _ := notice.Id.String()
+			logger.Debug(2, "proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", id_str, notice.Status, notice.WorkerId)
 			if err := qm.handleNoticeWorkDelivered(notice); err != nil {
 				logger.Error("handleNoticeWorkDelivered(): " + err.Error())
 			}

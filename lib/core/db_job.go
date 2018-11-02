@@ -295,9 +295,9 @@ func dbUpdateJobTaskFields(job_id string, workflow_instance_id string, task_id s
 		err = fmt.Errorf("not supported")
 		return
 
-		unique_id := job_id + workflow_instance_id
-		selector = bson.M{"_id": unique_id, "tasks.taskid": task_id}
-		update_op = bson.M{"$set": update_value}
+		//unique_id := job_id + workflow_instance_id
+		//selector = bson.M{"_id": unique_id, "tasks.taskid": task_id}
+		//update_op = bson.M{"$set": update_value}
 	}
 
 	fmt.Println("(dbUpdateJobTaskFields) update_value:")
@@ -487,7 +487,7 @@ func LoadJob(id string) (job *Job, err error) {
 			}
 			// add WorkflowInstance to job
 
-			fmt.Printf("(LoadJob) loading: %s\n", wi.Id)
+			fmt.Printf("(LoadJob) loading: %s\n", wi.LocalId)
 
 			err = job.AddWorkflowInstance(wi) // load from database
 			if err != nil {

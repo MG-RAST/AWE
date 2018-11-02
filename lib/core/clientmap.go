@@ -27,7 +27,7 @@ func (cl *ClientMap) Add(client *Client, lock bool) (err error) {
 
 	_, found := cl._map[client.Id]
 	if found {
-		logger.Warning("Client Id % already exists.", client.Id)
+		logger.Warning("Client Id %s already exists.", client.Id)
 	}
 
 	cl._map[client.Id] = client

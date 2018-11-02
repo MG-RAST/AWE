@@ -25,7 +25,7 @@ func NewRequestQueue() (q *RequestQueue) {
 	return q
 }
 
-func (q RequestQueue) Push(req *CheckoutRequest) (err error) {
+func (q *RequestQueue) Push(req *CheckoutRequest) (err error) {
 	q.Lock()
 	defer q.Unlock()
 	logger.Debug(3, "(RequestQueue/Push) %d %d", q.pull_element, q.push_element)
@@ -46,7 +46,7 @@ func (q RequestQueue) Push(req *CheckoutRequest) (err error) {
 
 }
 
-func (q RequestQueue) Pull() (req *CheckoutRequest, err error) {
+func (q *RequestQueue) Pull() (req *CheckoutRequest, err error) {
 	q.Lock()
 	defer q.Unlock()
 	logger.Debug(3, "(RequestQueue/Pull) %d %d  (count=%d)", q.pull_element, q.push_element, q.count)

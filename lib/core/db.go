@@ -50,7 +50,8 @@ func dbUpsert(t interface{}) (err error) {
 	case *WorkflowInstance:
 		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
 		var info *mgo.ChangeInfo
-		info, err = c.Upsert(bson.M{"_id": t._Id}, &t)
+		id, _ := t.GetId()
+		info, err = c.Upsert(bson.M{"_id": id}, &t)
 		//info, err = c.Upsert(bson.M{"id": t.Id}, &t)
 
 		fmt.Println("dbUpsert: info")

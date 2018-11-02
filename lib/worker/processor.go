@@ -15,6 +15,7 @@ import (
 	"github.com/MG-RAST/golib/httpclient"
 	//"github.com/davecgh/go-spew/spew"
 	//"github.com/davecgh/go-spew/spew"
+
 	"io"
 	"io/ioutil"
 	"os"
@@ -170,7 +171,7 @@ func processor(control chan int) {
 			logger.Error("(processor) processor_run returns: %s", err.Error())
 		}
 	}
-	control <- ID_WORKER //we are ending
+	//control <- ID_WORKER //we are ending
 }
 
 func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
@@ -282,9 +283,11 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	args := workunit.Cmd.ParsedArgs
 
 	//change cwd to the workunit's working directory
-	if err := workunit.CDworkpath(); err != nil {
+	err = workunit.CDworkpath()
+	if err != nil {
 		err = fmt.Errorf("(RunWorkunitDocker) CDworkpath returned: %s", err.Error())
-		return nil, err
+		pstats = nil
+		return
 	}
 
 	docker_preparation_start := time.Now().Unix()
@@ -467,7 +470,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 					var buf bytes.Buffer
 					pio := docker.PullImageOptions{Repository: Dockerimage_normalized, OutputStream: &buf}
 					xerr := client.PullImage(pio, docker.AuthConfiguration{})
-					logger.Debug(3, "docker pull response: ", buf.String())
+					logger.Debug(3, "docker pull response: %s", buf.String())
 					if xerr != nil {
 						err = fmt.Errorf("Docker image was not correctly pulled, err=%s", xerr.Error())
 						return
@@ -509,7 +512,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		err = TagImage(client, dockerimage_id, tag_opts)
 		if err != nil {
-			logger.Error("warning: tagging of image %s with %s failed, err:", dockerimage_id, Dockerimage_normalized, err.Error())
+			logger.Error("warning: tagging of image %s with %s failed, err: %s", dockerimage_id, Dockerimage_normalized, err.Error())
 		}
 
 	} else if workunit.Cmd.DockerPull != "" {
@@ -519,7 +522,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 			var buf bytes.Buffer
 			pio := docker.PullImageOptions{Repository: Dockerimage_normalized, OutputStream: &buf}
 			err = client.PullImage(pio, docker.AuthConfiguration{})
-			logger.Debug(3, "docker pull response: ", buf.String())
+			logger.Debug(3, "docker pull response: %s", buf.String())
 			if err != nil {
 				err = fmt.Errorf("Docker image was not correctly pulled, err=%s", err.Error())
 				return
@@ -723,9 +726,11 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	}(container_id)
 
 	if client != nil {
-		cont, err := client.InspectContainer(container_id)
+		var cont *docker.Container
+		cont, err = client.InspectContainer(container_id)
 		if err != nil {
 			logger.Error("error inspecting container=%s, err=%s", container_id, err.Error())
+			return
 		}
 
 		logger.Debug(3, "Container status: %s", cont.State.Status)
@@ -736,7 +741,8 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		err = ioutil.WriteFile(inspect_filename, b_inspect, 0666)
 		if err != nil {
-			fmt.Errorf("error writing inspect file for container=%s, err=%s", container_id, err.Error())
+			err = fmt.Errorf("error writing inspect file for container=%s, err=%s", container_id, err.Error())
+			return
 		} else {
 			logger.Debug(1, "wrote %s for container %s", inspect_filename, container_id)
 		}

@@ -146,8 +146,13 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, co
 func CreateWorkflowTasks(job *Job, name_prefix string, steps []cwl.WorkflowStep, step_prefix string, parent_id *Task_Unique_Identifier) (tasks []*Task, err error) {
 	tasks = []*Task{}
 
+	if parent_id == nil {
+		err = fmt.Errorf("(CreateWorkflowTasks) parent_id == nil")
+		return
+	}
+
 	if !strings.HasPrefix(name_prefix, "_root") {
-		err = fmt.Errorf("prefix_name does not start with _entrypoint: %s", name_prefix)
+		err = fmt.Errorf("(CreateWorkflowTasks) prefix_name does not start with _entrypoint: %s", name_prefix)
 		return
 	}
 
@@ -168,14 +173,15 @@ func CreateWorkflowTasks(job *Job, name_prefix string, steps []cwl.WorkflowStep,
 		fmt.Println("(CreateWorkflowTasks) step.Id: " + step.Id)
 
 		// remove prefix
-		task_name := strings.TrimPrefix(step.Id, step_prefix)
-		task_name = strings.TrimSuffix(task_name, "/")
-		task_name = strings.TrimPrefix(task_name, "/")
+		task_name := path.Base(step.Id)
+		//task_name := strings.TrimPrefix(step.Id, step_prefix)
+		//task_name = strings.TrimSuffix(task_name, "/")
+		//task_name = strings.TrimPrefix(task_name, "/")
 
-		fmt.Println("(CreateWorkflowTasks) task_name1: " + task_name)
-		fmt.Println("(CreateWorkflowTasks) name_prefix: " + name_prefix)
+		//fmt.Println("(CreateWorkflowTasks) task_name1: " + task_name)
+		//fmt.Println("(CreateWorkflowTasks) name_prefix: " + name_prefix)
 
-		fmt.Println("(CreateWorkflowTasks) new task name will be: " + name_prefix + "/" + task_name)
+		fmt.Println("(CreateWorkflowTasks) new task name will be: " + name_prefix + " / " + task_name)
 
 		//task_name := strings.TrimPrefix(step.Id, "#main/")
 		//task_name = strings.TrimPrefix(task_name, "#")
@@ -183,13 +189,13 @@ func CreateWorkflowTasks(job *Job, name_prefix string, steps []cwl.WorkflowStep,
 		fmt.Printf("(CreateWorkflowTasks) creating task: %s %s\n", name_prefix, task_name)
 
 		var awe_task *Task
-		awe_task, err = NewTask(job, name_prefix, task_name)
+		awe_task, err = NewTask(job, name_prefix, task_name, parent_id)
 		if err != nil {
 			err = fmt.Errorf("(CreateWorkflowTasks) NewTask returned: %s", err.Error())
 			return
 		}
 
-		awe_task.WorkflowParent = parent_id
+		//awe_task.WorkflowParent = parent_id
 		awe_task.WorkflowStep = &step
 		//spew.Dump(step)
 		tasks = append(tasks, awe_task)
@@ -264,36 +270,49 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 		return
 	}
 
-	job.WorkflowInstancesRemain = 1
+	// job.WorkflowInstancesRemain = 1
 
-	var tasks []*Task
-	tasks, err = CreateWorkflowTasks(job, "_root", cwl_workflow.Steps, cwl_workflow.Id, nil)
+	// var tasks []*Task
+	// tasks, err = CreateWorkflowTasks(job, "_root", cwl_workflow.Steps, cwl_workflow.Id, nil)
+	// if err != nil {
+	// 	err = fmt.Errorf("(CWL2AWE) CreateWorkflowTasks returned: %s", err.Error())
+	// 	return
+	// }
+
+	// if len(tasks) == 0 {
+	// 	err = fmt.Errorf("(CWL2AWE) no tasks ?")
+	// 	return
+	// }
+
+	// //job.Tasks = tasks
+	// err = wi.SetTasks(tasks, "db_sync_no")
+	// if err != nil {
+	// 	err = fmt.Errorf("(CWL2AWE) wi.SetTasks returned: %s", err.Error())
+	// 	return
+	// }
+
+	var task *Task
+	task, err = NewTask(job, "", "_root", nil)
 	if err != nil {
-		err = fmt.Errorf("(CWL2AWE) CreateWorkflowTasks returned: %s", err.Error())
+		err = fmt.Errorf("(CWL2AWE) NewTask returned: %s", err.Error())
 		return
 	}
 
-	if len(tasks) == 0 {
-		err = fmt.Errorf("(CWL2AWE) no tasks ?")
-		return
-	}
-
-	//job.Tasks = tasks
-	err = wi.SetTasks(tasks, "db_sync_no")
+	err = wi.AddTask(task)
 	if err != nil {
-		err = fmt.Errorf("(CWL2AWE) wi.SetTasks returned: %s", err.Error())
-		return
-	}
-
-	err = job.AddWorkflowInstance(wi) // adding _root
-	if err != nil {
-		err = fmt.Errorf("(CWL2AWE) AddWorkflowInstance returned: %s", err.Error())
+		err = fmt.Errorf("(CWL2AWE) wi.AddTask returned: %s", err.Error())
 		return
 	}
 
 	err = wi.Save(true)
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) wi.Save returned: %s", err.Error())
+		return
+	}
+
+	err = job.AddWorkflowInstance(wi) // adding _root
+	if err != nil {
+		err = fmt.Errorf("(CWL2AWE) AddWorkflowInstance returned: %s", err.Error())
 		return
 	}
 

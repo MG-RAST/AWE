@@ -451,7 +451,7 @@ func (task *Task) Init(job *Job, job_id string) (changed bool, err error) {
 	return
 }
 
-func NewTask(job *Job, workflow_instance_id string, task_id string) (t *Task, err error) {
+func NewTask(job *Job, workflow_instance_id string, task_id string, workflow_parent *Task_Unique_Identifier) (t *Task, err error) {
 
 	fmt.Printf("(NewTask) new task: %s %s/%s\n", job.Id, workflow_instance_id, task_id)
 
@@ -461,9 +461,11 @@ func NewTask(job *Job, workflow_instance_id string, task_id string) (t *Task, er
 
 	}
 
-	if !strings.HasPrefix(workflow_instance_id, "_root") {
-		err = fmt.Errorf("(NewTask) workflow_instance_id has not _root prefix: %s", workflow_instance_id)
-		return
+	if task_id != "_root" {
+		if !strings.HasPrefix(workflow_instance_id, "_root") {
+			err = fmt.Errorf("(NewTask) workflow_instance_id has not _root prefix: %s", workflow_instance_id)
+			return
+		}
 	}
 
 	if job.Id == "" {
@@ -502,10 +504,16 @@ func NewTask(job *Job, workflow_instance_id string, task_id string) (t *Task, er
 
 	t.TaskRaw.WorkflowInstanceId = workflow_instance_id
 
-	if t.WorkflowParent == nil {
-		task_id_str, _ := t.String()
-		err = fmt.Errorf("(NewTaskFromInterface) t.WorkflowParent == nil , (%s)", task_id_str)
-		return
+	if workflow_parent != nil {
+		t.WorkflowParent = workflow_parent
+	}
+
+	if task_id != "_root" {
+		if t.WorkflowParent == nil {
+			task_id_str, _ := t.String()
+			err = fmt.Errorf("(NewTaskFromInterface) t.WorkflowParent == nil , (%s)", task_id_str)
+			return
+		}
 	}
 
 	return

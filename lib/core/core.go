@@ -313,7 +313,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 		//}
 
 		var task *Task
-		task, err = NewTask(job, "", taskDep.Id)
+		task, err = NewTask(job, "", taskDep.Id, nil)
 		if err != nil {
 			err = fmt.Errorf("(JobDepToJob) NewTask returned: %s", err.Error())
 			return

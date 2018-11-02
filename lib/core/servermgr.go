@@ -2001,7 +2001,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 
 		logger.Debug(3, "(taskEnQueue) New Task: parent: %s and scatter_task_name: %s", parent_id_str, scatter_task_name)
 
-		awe_task, err = NewTask(job, parent_id_str, scatter_task_name)
+		awe_task, err = NewTask(job, parent_id_str, scatter_task_name, task.WorkflowParent)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) NewTask returned: %s", err.Error())
 			return

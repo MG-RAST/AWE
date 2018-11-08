@@ -69,8 +69,22 @@ func (qm *ServerMgr) RUnlock() {}
 func (qm *ServerMgr) UpdateQueueLoop() {
 	// TODO this may not be dynamic enough for small amounts of workunits, as they always have to wait
 	for {
-		qm.updateQueue()
-		time.Sleep(30 * time.Second)
+		start := time.Now()
+		err := qm.updateQueue()
+		if err != nil {
+			logger.Error("(UpdateQueueLoop) updateQueue returned: %s", err.Error())
+			err = nil
+		}
+		elapsed := time.Since(start)
+
+		if elapsed <= 1 {
+			time.Sleep(1 * time.Second) // wait at least 5 seconds
+		} else if elapsed > 5 && elapsed < 30 {
+			time.Sleep(elapsed * time.Second)
+		} else {
+			time.Sleep(30 * time.Second) // wait at mnost 30 seconds
+		}
+
 	}
 }
 

@@ -21,7 +21,7 @@ const (
 	TASK_STAT_QUEUED           = "queued"      // a task for which workunits have been created/queued
 	TASK_STAT_INPROGRESS       = "in-progress" // a first workunit has been checkout (this does not guarantee a workunit is running right now)
 	TASK_STAT_SUSPEND          = "suspend"
-	TASK_STAT_FAILED           = "failed"      // deprecated ?
+	TASK_STAT_FAILED           = "failed"           // deprecated ?
 	TASK_STAT_FAILED_PERMANENT = "failed-permanent" // on exit code 42
 	TASK_STAT_COMPLETED        = "completed"
 	TASK_STAT_SKIPPED          = "user_skipped" // deprecated

@@ -433,7 +433,7 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	for _, task := range tasks {
 		taskStart := time.Now()
 		total += 1
-		isQueued, timeIsReady, timeEnQueue, terr := qm.updateQueueTask(task)
+		isQueued, times, terr := qm.updateQueueTask(task)
 		if terr != nil {
 			logger.Error("(updateQueue) updateQueueTask task: %s error: %s", task.Id, terr.Error())
 		}
@@ -444,7 +444,7 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 			taskTime := time.Since(taskStart)
 			message := fmt.Sprintf("(updateQueue) processed task: %s, took: %s, is queued %t", task.Id, taskTime, isQueued)
 			if taskTime > taskSlow {
-				message += fmt.Sprintf(", ready time: %s, enqueue time: %s", timeIsReady, timeEnQueue)
+				message += fmt.Sprintf(", times: %+v", times)
 			}
 			logger.Info(message)
 		}
@@ -475,7 +475,7 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	return
 }
 
-func (qm *ServerMgr) updateQueueTask(task *Task) (isQueued bool, timeIsReady time.Duration, timeEnQueue time.Duration, err error) {
+func (qm *ServerMgr) updateQueueTask(task *Task) (isQueued bool, times map[string]time.Duration, err error) {
 	var task_id Task_Unique_Identifier
 	task_id, err = task.GetId("updateQueueTask")
 	if err != nil {
@@ -497,11 +497,13 @@ func (qm *ServerMgr) updateQueueTask(task *Task) (isQueued bool, timeIsReady tim
 	var task_ready bool
 	var reason string
 	startIsReady := time.Now()
+	times = make(map[string]time.Duration)
+
 	task_ready, reason, err = qm.isTaskReady(task_id, task)
+	times["isTaskReady"] = time.Since(startIsReady)
 	if err != nil {
 		return
 	}
-	timeIsReady = time.Since(startIsReady)
 
 	if task_ready {
 		logger.Debug(3, "(updateQueueTask) task ready: %s", task_id)
@@ -519,8 +521,12 @@ func (qm *ServerMgr) updateQueueTask(task *Task) (isQueued bool, timeIsReady tim
 		}
 
 		startEnQueue := time.Now()
-		xerr := qm.taskEnQueue(task_id, task, job)
-		timeEnQueue = time.Since(startEnQueue)
+		teqTimes, xerr := qm.taskEnQueue(task_id, task, job)
+		for k, v := range teqTimes {
+			times[k] = v
+		}
+		times["taskEnQueue"] = time.Since(startEnQueue)
+
 		if xerr != nil {
 			logger.Error("(updateQueueTask) taskEnQueue returned: %s", xerr.Error())
 			_ = task.SetState(TASK_STAT_SUSPEND, true)
@@ -1443,7 +1449,7 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 // happens when task is ready
 // prepares task and creates workunits
 // scatter task does not create its own workunit, it just creates new tasks
-func (qm *ServerMgr) taskEnQueue(task_id Task_Unique_Identifier, task *Task, job *Job) (err error) {
+func (qm *ServerMgr) taskEnQueue(task_id Task_Unique_Identifier, task *Task, job *Job) (times map[string]time.Duration, err error) {
 	var state string
 	state, err = task.GetState()
 	if err != nil {
@@ -1462,6 +1468,7 @@ func (qm *ServerMgr) taskEnQueue(task_id Task_Unique_Identifier, task *Task, job
 		logger.Debug(3, "(taskEnQueue) DO NOT have WorkflowStep")
 	}
 
+	times = make(map[string]time.Duration)
 	skip_workunit := false
 
 	var task_type string
@@ -1672,31 +1679,39 @@ func (qm *ServerMgr) taskEnQueue(task_id Task_Unique_Identifier, task *Task, job
 		return
 	}
 
+	inputeStart := time.Now()
 	err = qm.locateInputs(task, job) // only old-style AWE
+	times["locateInputs"] = time.Since(inputeStart)
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueue) locateInputs: %s", err.Error())
 		return
 	}
 
 	// init partition
+	indexStart := time.Now()
 	err = task.InitPartIndex()
+	times["InitPartIndex"] = time.Since(indexStart)
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueue) InitPartitionIndex: %s", err.Error())
 		return
 	}
 
+	outputStart := time.Now()
 	err = qm.createOutputNode(task)
+	times["createOutputNode"] = time.Since(outputStart)
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueue) createOutputNode: %s", err.Error())
 		return
 	}
 
 	if !skip_workunit {
+		workunitStart := time.Now()
 		err = qm.CreateAndEnqueueWorkunits(task, job)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) CreateAndEnqueueWorkunits: %s", err.Error())
 			return
 		}
+		times["CreateAndEnqueueWorkunits"] = time.Since(workunitStart)
 	}
 	err = task.SetState(TASK_STAT_QUEUED, true)
 	if err != nil {
@@ -1710,11 +1725,14 @@ func (qm *ServerMgr) taskEnQueue(task_id Task_Unique_Identifier, task *Task, job
 	if err != nil {
 		return
 	}
+	updateStart := time.Now()
 	err = qm.updateJobTask(task) //task status PENDING->QUEUED
+	times["updateJobTask"] = time.Since(updateStart)
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueue) qm.updateJobTask: %s", err.Error())
 		return
 	}
+
 	// log event about task enqueue (TQ)
 	logger.Event(event.TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", task_id, task.TotalWork))
 	qm.CreateTaskPerf(task)

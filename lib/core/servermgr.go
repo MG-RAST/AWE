@@ -420,16 +420,17 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	}
 	logger.Debug(3, "(updateQueue) range tasks (%d)", len(tasks))
 
+	threads := 20
 	size, _ := qm.TaskMap.Len()
 	loopStart := time.Now()
 	if logTimes {
-		logger.Info("(updateQueue) starting loop through TaskMap; TaskMap.Len: %d, len(TaskMap.GetTasks): %d", size, len(tasks))
+		logger.Info("(updateQueue) starting loop through TaskMap; threads: %d, TaskMap.Len: %d, len(TaskMap.GetTasks): %d", threads, size, len(tasks))
 	}
 
-	taskChan := make(chan *Task, 1000)
-	queueChan := make(chan bool)
-	for w := 1; w <= 10; w++ {
-		go qm.updateQueueWorker(logTimes, taskChan, queueChan)
+	taskChan := make(chan *Task, size)
+	queueChan := make(chan bool, size)
+	for w := 1; w <= threads; w++ {
+		go qm.updateQueueWorker(w, logTimes, taskChan, queueChan)
 	}
 
 	total := 0
@@ -468,7 +469,7 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	return
 }
 
-func (qm *ServerMgr) updateQueueWorker(logTimes bool, taskChan <-chan *Task, queueChan chan<- bool) {
+func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *Task, queueChan chan<- bool) {
 	var taskSlow time.Duration = 1 * time.Second
 	for task := range taskChan {
 		taskStart := time.Now()
@@ -478,7 +479,7 @@ func (qm *ServerMgr) updateQueueWorker(logTimes bool, taskChan <-chan *Task, que
 		}
 		if logTimes {
 			taskTime := time.Since(taskStart)
-			message := fmt.Sprintf("(updateQueue) processed task: %s, took: %s, is queued %t", task.Id, taskTime, isQueued)
+			message := fmt.Sprintf("(updateQueue) thread %d processed task: %s, took: %s, is queued %t", id, task.Id, taskTime, isQueued)
 			if taskTime > taskSlow {
 				message += fmt.Sprintf(", times: %+v", times)
 			}

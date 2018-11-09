@@ -417,15 +417,21 @@ func (qm *ServerMgr) updateQueue() (err error) {
 	if err != nil {
 		return
 	}
-
 	logger.Debug(3, "(updateQueue) range tasks (%d)", len(tasks))
+
+	count := 0
+	size, _ := qm.TaskMap.Len()
+	logger.Info("(updateQueue) starting loop through TaskMap; TaskMap.Len: %d, len(TaskMap.GetTasks): %d", size, len(tasks))
+
 	for _, task := range tasks {
+		count += 1
 		terr := qm.updateQueueTask(task)
 		if terr != nil {
 			logger.Error("(updateQueue) updateQueueTask task: %s error: %s", task.Id, terr.Error())
 		}
-        terr = nil
+		terr = nil
 	}
+	logger.Info("(updateQueue) completed loop through TaskMap; # processed: %d", count)
 
 	logger.Debug(3, "(updateQueue) range qm.workQueue.Clean()")
 	for _, workunit := range qm.workQueue.Clean() {

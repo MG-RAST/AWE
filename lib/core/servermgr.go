@@ -440,7 +440,13 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	}
 	close(taskChan)
 
-	queue := len(queueChan)
+	queue := 0
+	for i := 1; i <= size; i++ {
+		q := <-queueChan
+		if q {
+			queue += 1
+		}
+	}
 	close(queueChan)
 
 	if logTimes {
@@ -485,9 +491,7 @@ func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *T
 			}
 			logger.Info(message)
 		}
-		if isQueued {
-			queueChan <- isQueued
-		}
+		queueChan <- isQueued
 	}
 }
 

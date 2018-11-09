@@ -69,7 +69,7 @@ func (qm *ServerMgr) RUnlock() {}
 func (qm *ServerMgr) UpdateQueueLoop() {
 	// TODO this may not be dynamic enough for small amounts of workunits, as they always have to wait
 	for {
-        logTimes := true
+		logTimes := true
 		start := time.Now()
 		err := qm.updateQueue(logTimes)
 		if err != nil {
@@ -424,12 +424,12 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	queue := 0
 	size, _ := qm.TaskMap.Len()
 	loopStart := time.Now()
-    var taskSlow time.Duration = 1 * time.Second
-    
-    if logTimes {
-        logger.Info("(updateQueue) starting loop through TaskMap; TaskMap.Len: %d, len(TaskMap.GetTasks): %d", size, len(tasks))
-    }
-    
+	var taskSlow time.Duration = 1 * time.Second
+
+	if logTimes {
+		logger.Info("(updateQueue) starting loop through TaskMap; TaskMap.Len: %d, len(TaskMap.GetTasks): %d", size, len(tasks))
+	}
+
 	for _, task := range tasks {
 		taskStart := time.Now()
 		total += 1
@@ -440,18 +440,18 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 		if isQueued {
 			queue += 1
 		}
-        if logTimes {
-            taskTime := time.Since(taskStart)
-            message := fmt.Sprintf("(updateQueue) processed task: %s, took: %s, is queued %t", task.Id, taskTime, isQueued)
-            if taskTime > taskSlow {
-                message += fmt.Sprintf(", ready time: %s, enqueue time: %s", timeIsReady, timeEnQueue)
-            }
-		    logger.Info(message)
-        }
+		if logTimes {
+			taskTime := time.Since(taskStart)
+			message := fmt.Sprintf("(updateQueue) processed task: %s, took: %s, is queued %t", task.Id, taskTime, isQueued)
+			if taskTime > taskSlow {
+				message += fmt.Sprintf(", ready time: %s, enqueue time: %s", timeIsReady, timeEnQueue)
+			}
+			logger.Info(message)
+		}
 	}
-    if logTimes {
-	    logger.Info("(updateQueue) completed loop through TaskMap; # processed: %d, queued: %d, took %s", total, queue, time.Since(loopStart))
-    }
+	if logTimes {
+		logger.Info("(updateQueue) completed loop through TaskMap; # processed: %d, queued: %d, took %s", total, queue, time.Since(loopStart))
+	}
 
 	logger.Debug(3, "(updateQueue) range qm.workQueue.Clean()")
 	for _, workunit := range qm.workQueue.Clean() {
@@ -496,12 +496,12 @@ func (qm *ServerMgr) updateQueueTask(task *Task) (isQueued bool, timeIsReady tim
 	logger.Debug(3, "(updateQueueTask) task: %s", task_id)
 	var task_ready bool
 	var reason string
-    startIsReady := time.Now()
+	startIsReady := time.Now()
 	task_ready, reason, err = qm.isTaskReady(task_id, task)
 	if err != nil {
 		return
 	}
-    timeIsReady = time.Sice(startIsReady)
+	timeIsReady = time.Since(startIsReady)
 
 	if task_ready {
 		logger.Debug(3, "(updateQueueTask) task ready: %s", task_id)
@@ -518,9 +518,9 @@ func (qm *ServerMgr) updateQueueTask(task *Task) (isQueued bool, timeIsReady tim
 			return
 		}
 
-        startEnQueue := time.Now()
+		startEnQueue := time.Now()
 		xerr := qm.taskEnQueue(task_id, task, job)
-        timeEnQueue = time.Since(startEnQueue)
+		timeEnQueue = time.Since(startEnQueue)
 		if xerr != nil {
 			logger.Error("(updateQueueTask) taskEnQueue returned: %s", xerr.Error())
 			_ = task.SetState(TASK_STAT_SUSPEND, true)

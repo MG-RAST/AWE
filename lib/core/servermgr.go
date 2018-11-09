@@ -420,35 +420,28 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	}
 	logger.Debug(3, "(updateQueue) range tasks (%d)", len(tasks))
 
-	total := 0
-	queue := 0
 	size, _ := qm.TaskMap.Len()
 	loopStart := time.Now()
-	var taskSlow time.Duration = 1 * time.Second
-
 	if logTimes {
 		logger.Info("(updateQueue) starting loop through TaskMap; TaskMap.Len: %d, len(TaskMap.GetTasks): %d", size, len(tasks))
 	}
 
-	for _, task := range tasks {
-		taskStart := time.Now()
-		total += 1
-		isQueued, times, terr := qm.updateQueueTask(task)
-		if terr != nil {
-			logger.Error("(updateQueue) updateQueueTask task: %s error: %s", task.Id, terr.Error())
-		}
-		if isQueued {
-			queue += 1
-		}
-		if logTimes {
-			taskTime := time.Since(taskStart)
-			message := fmt.Sprintf("(updateQueue) processed task: %s, took: %s, is queued %t", task.Id, taskTime, isQueued)
-			if taskTime > taskSlow {
-				message += fmt.Sprintf(", times: %+v", times)
-			}
-			logger.Info(message)
-		}
+	taskChan := make(chan *Task, 1000)
+	queueChan := make(chan bool)
+	for w := 1; w <= 10; w++ {
+		go qm.updateQueueWorker(logTimes, taskChan, queueChan)
 	}
+
+	total := 0
+	for _, task := range tasks {
+		total += 1
+		taskChan <- task
+	}
+	close(taskChan)
+
+	queue := len(queueChan)
+	close(queueChan)
+
 	if logTimes {
 		logger.Info("(updateQueue) completed loop through TaskMap; # processed: %d, queued: %d, took %s", total, queue, time.Since(loopStart))
 	}
@@ -473,6 +466,28 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 
 	logger.Debug(3, "(updateQueue) ending")
 	return
+}
+
+func (qm *ServerMgr) updateQueueWorker(logTimes bool, taskChan <-chan *Task, queueChan chan<- bool) {
+	var taskSlow time.Duration = 1 * time.Second
+	for task := range taskChan {
+		taskStart := time.Now()
+		isQueued, times, err := qm.updateQueueTask(task)
+		if err != nil {
+			logger.Error("(updateQueue) updateQueueTask task: %s error: %s", task.Id, err.Error())
+		}
+		if logTimes {
+			taskTime := time.Since(taskStart)
+			message := fmt.Sprintf("(updateQueue) processed task: %s, took: %s, is queued %t", task.Id, taskTime, isQueued)
+			if taskTime > taskSlow {
+				message += fmt.Sprintf(", times: %+v", times)
+			}
+			logger.Info(message)
+		}
+		if isQueued {
+			queueChan <- isQueued
+		}
+	}
 }
 
 func (qm *ServerMgr) updateQueueTask(task *Task) (isQueued bool, times map[string]time.Duration, err error) {

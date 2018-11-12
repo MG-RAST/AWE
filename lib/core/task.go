@@ -79,11 +79,11 @@ type TaskRaw struct {
 }
 
 type Task struct {
-	*TaskRaw `bson:",inline" mapstructure:",squash"`
-	Inputs   []*IO `bson:"inputs" json:"inputs" mapstructure:"inputs"`
-	Outputs  []*IO `bson:"outputs" json:"outputs" mapstructure:"outputs"`
-	Predata  []*IO `bson:"predata" json:"predata" mapstructure:"predata"`
-	Comment  string
+	TaskRaw `bson:",inline" mapstructure:",squash"`
+	Inputs  []*IO `bson:"inputs" json:"inputs" mapstructure:"inputs"`
+	Outputs []*IO `bson:"outputs" json:"outputs" mapstructure:"outputs"`
+	Predata []*IO `bson:"predata" json:"predata" mapstructure:"predata"`
+	Comment string
 }
 
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
@@ -474,7 +474,7 @@ func NewTask(job *Job, workflow_instance_id string, task_id string, workflow_par
 	}
 
 	if strings.HasSuffix(task_id, "/") {
-		err = fmt.Errorf("Suffix in task_id not ok %s", task_id)
+		err = fmt.Errorf("(NewTask) Suffix in task_id not ok %s", task_id)
 		return
 	}
 
@@ -486,6 +486,7 @@ func NewTask(job *Job, workflow_instance_id string, task_id string, workflow_par
 	var tui Task_Unique_Identifier
 	tui, err = New_Task_Unique_Identifier(job.Id, job_global_task_id_str)
 	if err != nil {
+		err = fmt.Errorf("(NewTask) New_Task_Unique_Identifier returns: %s", err.Error())
 		return
 	}
 
@@ -496,7 +497,7 @@ func NewTask(job *Job, workflow_instance_id string, task_id string, workflow_par
 		return
 	}
 	t = &Task{
-		TaskRaw: &tr,
+		TaskRaw: tr,
 		Inputs:  []*IO{},
 		Outputs: []*IO{},
 		Predata: []*IO{},
@@ -504,14 +505,20 @@ func NewTask(job *Job, workflow_instance_id string, task_id string, workflow_par
 
 	t.TaskRaw.WorkflowInstanceId = workflow_instance_id
 
+	if workflow_instance_id == "" {
+		err = fmt.Errorf("(NewTask) workflow_instance_id empty")
+		return
+
+	}
+
 	if workflow_parent != nil {
 		t.WorkflowParent = workflow_parent
 	}
 
-	if task_id != "_root" {
+	if workflow_instance_id != "_root" {
 		if t.WorkflowParent == nil {
 			task_id_str, _ := t.String()
-			err = fmt.Errorf("(NewTaskFromInterface) t.WorkflowParent == nil , (%s)", task_id_str)
+			err = fmt.Errorf("(NewTask) t.WorkflowParent == nil , (%s)", task_id_str)
 			return
 		}
 	}
@@ -1868,7 +1875,7 @@ func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, err erro
 func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (task *Task, err error) {
 
 	task = &Task{}
-	task.TaskRaw = &TaskRaw{}
+	task.TaskRaw = TaskRaw{}
 
 	err = mapstructure.Decode(original, task)
 	if err != nil {
@@ -1881,12 +1888,13 @@ func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (t
 		return
 	}
 
-	if task.WorkflowParent == nil {
-		task_id_str, _ := task.String()
-		err = fmt.Errorf("(NewTaskFromInterface) task.WorkflowParent == nil , (%s)", task_id_str)
-		return
+	if task.WorkflowInstanceId != "_root" {
+		if task.WorkflowParent == nil {
+			task_id_str, _ := task.String()
+			err = fmt.Errorf("(NewTaskFromInterface) task.WorkflowParent == nil , (%s)", task_id_str)
+			return
+		}
 	}
-
 	return
 }
 

@@ -20,7 +20,7 @@ func (wim *WorkflowInstanceMap) Add(workflow_instance *WorkflowInstance) (err er
 	}
 	defer wim.Unlock()
 
-	id, _ := workflow_instance.GetId()
+	id, _ := workflow_instance.GetId(false)
 	wim.Map[id] = workflow_instance
 	return
 }

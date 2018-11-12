@@ -1693,7 +1693,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		children = append(children, sub_task_id)
 
 		//err = job.AddTask(sub_task)
-		err = wi.AddTask(sub_task, "db_sync_yes")
+		err = wi.AddTask(sub_task, "db_sync_yes", true)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueWorkflow) job.AddTask returns: %s", err.Error())
 			return

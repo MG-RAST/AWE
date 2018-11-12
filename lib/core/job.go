@@ -103,6 +103,7 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, write_lock bool) (err 
 		}
 		defer job.Unlock()
 	}
+
 	if job.WorkflowInstancesMap == nil {
 		job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
 	}

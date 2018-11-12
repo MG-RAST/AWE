@@ -243,12 +243,20 @@ func NewWorkflowInstanceArrayFromInterface(original []interface{}, job *Job, con
 	return
 }
 
-func (wi *WorkflowInstance) AddTask(task *Task, db_sync string) (err error) {
-	err = wi.LockNamed("WorkflowInstance/AddTask")
-	if err != nil {
+func (wi *WorkflowInstance) AddTask(task *Task, db_sync string, write_lock bool) (err error) {
+	if write_lock {
+		err = wi.LockNamed("WorkflowInstance/AddTask")
+		if err != nil {
+			err = fmt.Errorf("(AddTask) wi.LockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.Unlock()
+	}
+
+	if task.WorkflowInstanceId == "" {
+		err = fmt.Errorf("(AddTask) task.WorkflowInstanceId empty")
 		return
 	}
-	defer wi.Unlock()
 
 	wi.Tasks = append(wi.Tasks, task)
 
@@ -269,6 +277,7 @@ func (wi *WorkflowInstance) SetState(state string, db_sync string, write_lock bo
 	if write_lock {
 		err = wi.LockNamed("WorkflowInstance/SetState")
 		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/SetState) wi.LockNamed returned: %s", err.Error())
 			return
 		}
 		defer wi.Unlock()
@@ -285,6 +294,7 @@ func (wi *WorkflowInstance) SetState(state string, db_sync string, write_lock bo
 func (wi *WorkflowInstance) SetTasks(tasks []*Task, db_sync string) (err error) {
 	err = wi.LockNamed("WorkflowInstance/SetTasks")
 	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/SetTasks) wi.LockNamed returned: %s", err.Error())
 		return
 	}
 	defer wi.Unlock()
@@ -330,13 +340,16 @@ func (wi *WorkflowInstance) TaskCount() (count int) {
 	return
 }
 
-func (wi *WorkflowInstance) GetId() (id string, err error) {
-	lock, err := wi.RLockNamed("GetId")
-	if err != nil {
-		return
+func (wi *WorkflowInstance) GetId(read_lock bool) (id string, err error) {
+	if read_lock {
+		var lock ReadLock
+		lock, err = wi.RLockNamed("GetId")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/GetId) RLockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.RUnlockNamed(lock)
 	}
-	defer wi.RUnlockNamed(lock)
-
 	id = wi.JobId + wi.LocalId
 
 	return
@@ -378,14 +391,16 @@ func (wi *WorkflowInstance) Init(job *Job) (changed bool, err error) {
 	return
 }
 
-func (wi *WorkflowInstance) Save(write_lock bool) (err error) {
-	if write_lock {
-		err = wi.LockNamed("WorkflowInstance/Save")
+func (wi *WorkflowInstance) Save(read_lock bool) (err error) {
+	if read_lock {
+		var lock ReadLock
+		lock, err = wi.RLockNamed("WorkflowInstance/Save")
 		if err != nil {
 			return
 		}
-		defer wi.Unlock()
+		defer wi.RUnlockNamed(lock)
 	}
+
 	if wi.LocalId == "" {
 		err = fmt.Errorf("(WorkflowInstance/Save) job id empty")
 		return
@@ -406,6 +421,7 @@ func (wi *WorkflowInstance) Save(write_lock bool) (err error) {
 
 	err = dbUpsert(wi)
 	if err != nil {
+		spew.Dump(wi)
 		err = fmt.Errorf("(WorkflowInstance/Save)  dbUpsert failed (id=%s) error=%s", wi.LocalId, err.Error())
 		return
 	}
@@ -416,6 +432,7 @@ func (wi *WorkflowInstance) Save(write_lock bool) (err error) {
 func (wi *WorkflowInstance) SetOutputs(outputs cwl.Job_document, context *cwl.WorkflowContext) (err error) {
 	err = wi.LockNamed("WorkflowInstance/SetOutputs")
 	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/SetOutputs) wi.LockNamed returned: %s", err.Error())
 		return
 	}
 	defer wi.Unlock()
@@ -432,6 +449,7 @@ func (wi *WorkflowInstance) SetOutputs(outputs cwl.Job_document, context *cwl.Wo
 func (wi *WorkflowInstance) DecreaseRemainTasks() (remain int, err error) {
 	err = wi.LockNamed("WorkflowInstance/DecreaseRemainTasks")
 	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainTasks) wi.LockNamed returned: %s", err.Error())
 		return
 	}
 	defer wi.Unlock()

@@ -27,6 +27,13 @@ type WorkflowStep struct {
 	//Namespaces    map[string]string    `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
+func NewWorkflowStep() (w *WorkflowStep) {
+
+	w = &WorkflowStep{}
+
+	return
+}
+
 func (ws *WorkflowStep) Init(context *WorkflowContext) (err error) {
 	if ws.Run == nil {
 		return
@@ -50,7 +57,7 @@ func (ws *WorkflowStep) Init(context *WorkflowContext) (err error) {
 	return
 }
 
-func NewWorkflowStep(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (w *WorkflowStep, schemata []CWLType_Type, err error) {
+func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (w *WorkflowStep, schemata []CWLType_Type, err error) {
 	var step WorkflowStep
 
 	logger.Debug(3, "NewWorkflowStep starting")
@@ -245,7 +252,7 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 			var step *WorkflowStep
 			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
 			//spew.Dump(injectedRequirements)
-			step, schemata_new, err = NewWorkflowStep(v, injectedRequirements, context)
+			step, schemata_new, err = NewWorkflowStepFromInterface(v, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
@@ -279,7 +286,7 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 			var step *WorkflowStep
 			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
 			//spew.Dump(injectedRequirements)
-			step, schemata_new, err = NewWorkflowStep(v, injectedRequirements, context)
+			step, schemata_new, err = NewWorkflowStepFromInterface(v, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return

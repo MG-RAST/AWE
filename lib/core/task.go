@@ -19,6 +19,14 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+// hierachy (in ideal case without errors):
+// 1. TASK_STAT_INIT
+// 2. TASK_STAT_PENDING
+// 3. TASK_STAT_READY
+// 4. TASK_STAT_QUEUED
+// 5. TASK_STAT_INPROGRESS
+// 6. TASK_STAT_COMPLETED
+
 const (
 	TASK_STAT_INIT             = "init"        // initial state on creation of a task
 	TASK_STAT_PENDING          = "pending"     // a task that wants to be enqueued
@@ -104,7 +112,7 @@ type TaskLog struct {
 	Workunits     []*WorkLog `bson:"workunits" json:"workunits"`
 }
 
-func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) (tr TaskRaw, err error) {
+func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) (tr *TaskRaw, err error) {
 
 	logger.Debug(3, "task_id: %s", task_id)
 	logger.Debug(3, "task_id.JobId: %s", task_id.JobId)
@@ -118,13 +126,13 @@ func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) (tr TaskRaw, err err
 		return
 	}
 
-	tr = TaskRaw{
+	tr = &TaskRaw{
 		Task_Unique_Identifier: task_id,
-		Id:        task_str,
-		Info:      info,
-		Cmd:       &Command{},
-		Partition: nil,
-		DependsOn: []string{},
+		Id:                     task_str,
+		Info:                   info,
+		Cmd:                    &Command{},
+		Partition:              nil,
+		DependsOn:              []string{},
 	}
 	return
 }
@@ -490,14 +498,14 @@ func NewTask(job *Job, workflow_instance_id string, task_id string, workflow_par
 		return
 	}
 
-	var tr TaskRaw
+	var tr *TaskRaw
 	tr, err = NewTaskRaw(tui, job.Info)
 	if err != nil {
 		err = fmt.Errorf("(NewTask) NewTaskRaw returns: %s", err.Error())
 		return
 	}
 	t = &Task{
-		TaskRaw: tr,
+		TaskRaw: *tr,
 		Inputs:  []*IO{},
 		Outputs: []*IO{},
 		Predata: []*IO{},

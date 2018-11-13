@@ -227,30 +227,40 @@ func ParseMultipartForm(r *http.Request) (params map[string]string, files core.F
 			return
 		}
 
+		//fmt.Printf("(ParseMultipartForm) part: \"%s\" \n", part.FileName())
+		//spew.Dump(part)
+
 		if part.FileName() == "" {
+			//fmt.Printf("(ParseMultipartForm) filename empty\n")
 			buffer := make([]byte, 32*1024)
 			n, err := part.Read(buffer)
-			if n == 0 {
-				break
-			}
-			if err != nil {
-				if err == io.EOF {
-					err = nil
-					break
-				}
-				err = fmt.Errorf("(ParseMultipartForm) part.Read(buffer) error: %s", err.Error())
-				return nil, nil, err
-			}
-
-			//buf_len := 50
-			//if n < 50 {
-			//	buf_len = n
+			//fmt.Printf("(ParseMultipartForm) n=%d\n", n)
+			//if n == 0 {
+			//	break
 			//}
-			//logger.Debug(3, "FormName: %s Content: %s", part.FormName(), buffer[0:buf_len])
+			if err != nil {
+				//fmt.Printf("(ParseMultipartForm) error: %s\n", err.Error())
+				if err != io.EOF {
+					err = fmt.Errorf("(ParseMultipartForm) part.Read(buffer) error: %s", err.Error())
+					return nil, nil, err
+				}
 
+				if err == io.EOF { // inidicates end, butr you should use buffer
+					err = nil
+
+				}
+
+			}
+			//fmt.Printf("(ParseMultipartForm) no error\n")
+			buf_len := 50
+			if n < 50 {
+				buf_len = n
+			}
+			logger.Debug(3, "FormName: %s Content: %s", part.FormName(), buffer[0:buf_len])
+			//fmt.Printf("(ParseMultipartForm) writing param: %s\n", buffer[0:n])
 			params[part.FormName()] = fmt.Sprintf("%s", buffer[0:n])
 		} else {
-
+			//fmt.Printf("(ParseMultipartForm) found filename")
 			tmpPath := fmt.Sprintf("%s/temp/%d%d", conf.DATA_PATH, rand.Int(), rand.Int())
 			//logger.Debug(3, "FormName: %s tmpPath: %s", part.FormName(), tmpPath)
 			files[part.FormName()] = core.FormFile{Name: part.FileName(), Path: tmpPath, Checksum: make(map[string]string)}

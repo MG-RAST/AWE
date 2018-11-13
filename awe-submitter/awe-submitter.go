@@ -10,6 +10,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/davecgh/go-spew/spew"
+
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 
 	"encoding/json"
@@ -552,6 +553,7 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 		return
 	}
 
+	//fmt.Fprintf(os.Stderr, "CLIENT_GROUP: %s\n", conf.CLIENT_GROUP)
 	err = multipart.AddForm("CLIENT_GROUP", conf.CLIENT_GROUP)
 	if err != nil {
 		err = fmt.Errorf("(SubmitCWLJobToAWE) AddForm returned: %s", err.Error())

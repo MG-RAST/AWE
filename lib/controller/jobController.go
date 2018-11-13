@@ -17,8 +17,10 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+
 	//"os"
 
 	"path"
@@ -57,7 +59,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			return
 		}
 	}
-
+	spew.Dump(cx.Request)
 	// Parse uploaded form
 	params, files, err := ParseMultipartForm(cx.Request)
 
@@ -510,7 +512,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		client_group, ok := params["CLIENT_GROUP"]
 		if !ok {
-			client_group = "default"
+			client_group = conf.CLIENT_GROUP
 		}
 
 		job.Info.ClientGroups = client_group

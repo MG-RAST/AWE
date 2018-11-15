@@ -106,6 +106,9 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 			if err != nil {
 				return
 			}
+		} else {
+			err = fmt.Errorf("(NewWorkflowStep) no inputs ????")
+			return
 		}
 
 		step_out, ok := v_map["out"]
@@ -203,6 +206,10 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 		}
 		w = &step
 
+		if step.Id == "" {
+			err = fmt.Errorf("(NewWorkflowStep) step.Id empty")
+			return
+		}
 		//spew.Dump(w.Run)
 
 		//fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")

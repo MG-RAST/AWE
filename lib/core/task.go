@@ -1445,6 +1445,11 @@ func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err
 	//if task.WorkflowStep != nil {
 	//	step :=
 	//}
+	//task_name := task.TaskName
+	//fmt.Printf("(CreateWorkunits) %s\n", task_name)
+	//if task_name == "_root__main_step1_step1_0" {
+	//	panic("found task")
+	//}
 
 	if task.TotalWork == 1 {
 		workunit, xerr := NewWorkunit(qm, task, 0, job)

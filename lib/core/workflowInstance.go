@@ -53,6 +53,16 @@ func NewWorkflowInstance(id string, jobid string, workflow_definition string, in
 		return
 	}
 
+	if inputs == nil {
+		err = fmt.Errorf("(NewWorkflowInstance) inputs == nil ")
+		return
+	}
+
+	if len(inputs) == 0 {
+		err = fmt.Errorf("(NewWorkflowInstance) len(inputs) == 0 ")
+		return
+	}
+
 	wi = &WorkflowInstance{LocalId: id, JobId: jobid, Workflow_Definition: workflow_definition, Inputs: inputs}
 
 	wi.State = WI_STAT_OK

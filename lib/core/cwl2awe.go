@@ -11,6 +11,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/davecgh/go-spew/spew"
+
 	//aw_sequences"os"
 	"path"
 	//"reflect"
@@ -196,6 +197,12 @@ func CreateWorkflowTasks(job *Job, name_prefix string, steps []cwl.WorkflowStep,
 		}
 
 		//awe_task.WorkflowParent = parent_id
+
+		if step.Id == "" {
+			err = fmt.Errorf("(CreateWorkflowTasks) step.Id empty")
+			return
+		}
+
 		awe_task.WorkflowStep = &step
 		//spew.Dump(step)
 		tasks = append(tasks, awe_task)
@@ -304,8 +311,50 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	// fake workflowStep to create first master Workflow
 	wrapper_workflow_step := cwl.NewWorkflowStep()
-
+	wrapper_workflow_step.Id = "wrapper"
 	wrapper_workflow_step.Run = cwl_workflow
+
+	wrapper_workflow_step.In = []cwl.WorkflowStepInput{}
+
+	for i, _ := range cwl_workflow.Inputs {
+		inp := &(cwl_workflow.Inputs[i])
+
+		wsi := &cwl.WorkflowStepInput{}
+
+		base_id := path.Base(inp.Id)
+
+		wsi.Id = "_root/" + base_id
+		wsi.Source = inp.Id
+
+		wrapper_workflow_step.In = append(wrapper_workflow_step.In, *wsi)
+	}
+
+	// for i, _ := range *job_input_new {
+
+	// 	named_type := (*job_input_new)[i]
+
+	// 	fmt.Printf("name: %s\n", named_type.Id)
+	// 	spew.Dump(named_type)
+
+	// 	wsi := &cwl.WorkflowStepInput{}
+	// 	wsi.Id = named_type.Id
+	// 	wsi.Source = "_root/" + named_type.Id
+
+	// 	wrapper_workflow_step.In = append(wrapper_workflow_step.In)
+	// 	//named_type_value := j.Value
+	// }
+
+	//fmt.Printf("wi: \n")
+	//spew.Dump(wi)
+
+	//fmt.Printf("wrapper_workflow_step: \n")
+	//spew.Dump(wrapper_workflow_step)
+	//panic("done")
+
+	//if wrapper_workflow_step.Id == "" {
+	//	err = fmt.Errorf("(CreateWorkflowTasks) wrapper_workflow_step.Id empty")
+	//	return
+	//}
 
 	task.WorkflowStep = wrapper_workflow_step
 

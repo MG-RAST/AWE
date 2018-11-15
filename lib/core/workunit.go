@@ -238,9 +238,12 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		workunit.CWL_workunit.Job_input = &job_input
 
-		//spew.Dump(job_input)
-		fmt.Println("workflow_step.Out:")
-		spew.Dump(workflow_step.Out)
+		fmt.Println("workflow_instance:")
+		spew.Dump(workflow_instance)
+		fmt.Println("job_input:")
+		spew.Dump(job_input)
+		fmt.Println("workflow_step.Run:")
+		spew.Dump(workflow_step.Run)
 		panic("done workflow_step.Out")
 		workunit.CWL_workunit.OutputsExpected = &workflow_step.Out
 

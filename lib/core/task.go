@@ -459,19 +459,27 @@ func (task *Task) Init(job *Job, job_id string) (changed bool, err error) {
 	return
 }
 
-func NewTask(job *Job, workflow_instance_id string, task_id string, workflow_parent *Task_Unique_Identifier) (t *Task, err error) {
+// task_id_str is without prefix yet
+func NewTask(job *Job, workflow_instance_id string, task_id_str string, workflow_parent *Task_Unique_Identifier) (t *Task, err error) {
 
-	fmt.Printf("(NewTask) new task: %s %s/%s\n", job.Id, workflow_instance_id, task_id)
+	fmt.Printf("(NewTask) new task: %s %s/%s\n", job.Id, workflow_instance_id, task_id_str)
 
-	if task_id == "" {
+	if task_id_str == "" {
 		err = fmt.Errorf("(NewTask) task_id is empty")
 		return
 
 	}
 
-	if task_id != "_root" {
+	if task_id_str != "_root" {
 		if !strings.HasPrefix(workflow_instance_id, "_root") {
 			err = fmt.Errorf("(NewTask) workflow_instance_id has not _root prefix: %s", workflow_instance_id)
+			return
+		}
+
+	}
+	if task_id_str != "_main" {
+		if workflow_parent == nil {
+			err = fmt.Errorf("(NewTask) workflow_parent == nil (task_id_str: %s)", task_id_str)
 			return
 		}
 	}
@@ -481,15 +489,15 @@ func NewTask(job *Job, workflow_instance_id string, task_id string, workflow_par
 		return
 	}
 
-	if strings.HasSuffix(task_id, "/") {
-		err = fmt.Errorf("(NewTask) Suffix in task_id not ok %s", task_id)
+	if strings.HasSuffix(task_id_str, "/") {
+		err = fmt.Errorf("(NewTask) Suffix in task_id not ok %s", task_id_str)
 		return
 	}
 
-	task_id = strings.TrimSuffix(task_id, "/")
+	task_id_str = strings.TrimSuffix(task_id_str, "/")
 	//workflow = strings.TrimSuffix(workflow, "/")
 
-	job_global_task_id_str := workflow_instance_id + "/" + task_id
+	job_global_task_id_str := workflow_instance_id + "/" + task_id_str
 
 	var tui Task_Unique_Identifier
 	tui, err = New_Task_Unique_Identifier(job.Id, job_global_task_id_str)
@@ -525,7 +533,7 @@ func NewTask(job *Job, workflow_instance_id string, task_id string, workflow_par
 
 	if workflow_instance_id != "_root" {
 		if t.WorkflowParent == nil {
-			task_id_str, _ := t.String()
+			//task_id_str, _ := t.String()
 			err = fmt.Errorf("(NewTask) t.WorkflowParent == nil , (%s)", task_id_str)
 			return
 		}

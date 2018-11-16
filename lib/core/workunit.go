@@ -12,7 +12,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/golib/httpclient"
-	"github.com/davecgh/go-spew/spew"
 
 	//"github.com/davecgh/go-spew/spew"
 
@@ -238,13 +237,13 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		workunit.CWL_workunit.Job_input = &job_input
 
-		fmt.Println("workflow_instance:")
-		spew.Dump(workflow_instance)
-		fmt.Println("job_input:")
-		spew.Dump(job_input)
-		fmt.Println("workflow_step.Run:")
-		spew.Dump(workflow_step.Run)
-		panic("done workflow_step.Out")
+		//fmt.Println("workflow_instance:")
+		//spew.Dump(workflow_instance)
+		//fmt.Println("job_input:")
+		//spew.Dump(job_input)
+		//fmt.Println("workflow_step.Run:")
+		//spew.Dump(workflow_step.Run)
+		//panic("done workflow_step.Out")
 		workunit.CWL_workunit.OutputsExpected = &workflow_step.Out
 
 		err = workunit.Evaluate(workunit_input_map, context)

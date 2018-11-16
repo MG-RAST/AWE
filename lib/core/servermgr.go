@@ -1622,7 +1622,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 
 	cwl_step := task.WorkflowStep
 	task_id := task.Task_Unique_Identifier
-	//task_id_str, _ := task_id.String()
+	task_id_str, _ := task_id.String()
 
 	workflow_defintion_id := workflow.Id
 
@@ -1657,7 +1657,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		}
 
 		if len(task_input_map) == 0 {
-			err = fmt.Errorf("(taskEnQueueWorkflow) A) len(task_input_map) == 0 ")
+			err = fmt.Errorf("(taskEnQueueWorkflow) A) len(task_input_map) == 0 (%s)", task_id_str)
 			return
 		}
 
@@ -2590,6 +2590,8 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput(workflow_instance *WorkflowInsta
 
 func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflow_instance *WorkflowInstance, current_task_id Task_Unique_Identifier, src string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, err error) {
 
+	ok = false
+
 	fmt.Printf("(GetSourceFromWorkflowInstanceInput) src: %s\n", src)
 	src_base := path.Base(src)
 
@@ -2616,6 +2618,7 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflow_instance *Workf
 		ok = false
 		return
 	}
+	ok = true
 	return
 
 	//}
@@ -2703,7 +2706,18 @@ func (qm *ServerMgr) getCWLSource(workflow_instance *WorkflowInstance, workflow_
 		//src_base := src_array[1]
 
 		obj, ok, err = qm.GetSourceFromWorkflowInstanceInput(workflow_instance, current_task_id, src, error_on_missing_task)
-		//obj, ok, err = qm.getCWLSourceFromWorkflowInput(workflow_input_map, src_base)
+
+		if err != nil {
+			err = fmt.Errorf("(getCWLSource) GetSourceFromWorkflowInstanceInput returned: %s", err.Error())
+			return
+		}
+
+		//if !ok {
+
+		//	fmt.Printf("workflow_instance: (looking for %s)\n", src)
+		//	spew.Dump(workflow_instance)
+		//	panic("done")
+		//}
 
 		return
 
@@ -2898,7 +2912,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 			source_as_array, source_is_array := input.Source.([]interface{})
 
 			if source_is_array {
-				//fmt.Printf("(GetStepInputObjects) source is a array: %s", spew.Sdump(input.Source))
+				fmt.Printf("(GetStepInputObjects) source is a array: %s", spew.Sdump(input.Source))
 
 				if input.Source_index != 0 {
 					// from scatter step
@@ -2986,7 +3000,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 
 				}
 			} else {
-				//fmt.Printf("(GetStepInputObjects) source is NOT a array: %s", spew.Sdump(input.Source))
+				fmt.Printf("(GetStepInputObjects) source is NOT a array: %s", spew.Sdump(input.Source))
 				var ok bool
 				source_as_string, ok = input.Source.(string)
 				if !ok {
@@ -3013,7 +3027,8 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 				if !ok {
 					fmt.Println("(GetStepInputObjects) check input.Default")
 					if input.Default == nil {
-						logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", source_as_string)
+						//logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", source_as_string)
+						err = fmt.Errorf("(GetStepInputObjects) getCWLSource did not find source %s and has no Default", source_as_string)
 						continue
 					}
 					job_obj, err = cwl.NewCWLType("", input.Default, context)
@@ -3593,16 +3608,18 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, task *Task) (parent_task_to_c
 		return
 	}
 
-	var workflow_parent_id_str string
 	if has_workflow_parent {
-		workflow_parent_id_str, err = workflow_parent_id.String()
-		if err != nil {
-			err = fmt.Errorf("(completeSubworkflow) workflow_parent_id.String() returned: %s", err.Error())
-			return
-		}
-	} else {
+		fmt.Println("task:")
+		spew.Dump(task)
 		panic("no workflow_parent_id  " + task_str)
+	}
 
+	var workflow_parent_id_str string
+
+	workflow_parent_id_str, err = workflow_parent_id.String()
+	if err != nil {
+		err = fmt.Errorf("(completeSubworkflow) workflow_parent_id.String() returned: %s", err.Error())
+		return
 	}
 
 	var wfl *cwl.Workflow

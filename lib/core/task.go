@@ -1893,6 +1893,26 @@ func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, err erro
 	return
 }
 
+func (task *Task) GetStepOutputNames() (names []string, err error) {
+
+	if task.StepOutput == nil {
+		err = fmt.Errorf("(task/GetStepOutputNames) task.StepOutput == nil")
+		return
+	}
+
+	names = []string{}
+
+	for _, named_step_output := range *task.StepOutput {
+
+		named_step_output_base := path.Base(named_step_output.Id)
+
+		names = append(names, named_step_output_base)
+
+	}
+
+	return
+}
+
 func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (task *Task, err error) {
 
 	task = &Task{}

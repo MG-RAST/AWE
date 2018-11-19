@@ -456,6 +456,29 @@ func (wi *WorkflowInstance) SetOutputs(outputs cwl.Job_document, context *cwl.Wo
 	return
 }
 
+func (wi *WorkflowInstance) GetOutput(name string, read_lock bool) (obj cwl.CWLType, ok bool, err error) {
+	if read_lock {
+		var lock ReadLock
+		lock, err = wi.RLockNamed("GetOutput")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/GetOutput) RLockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.RUnlockNamed(lock)
+	}
+	ok = true
+	for i, _ := range wi.Outputs {
+		named_output := wi.Outputs[i]
+		if named_output.Id == name {
+			obj = named_output.Value
+			return
+		}
+
+	}
+	ok = false
+	return
+}
+
 func (wi *WorkflowInstance) DecreaseRemainTasks() (remain int, err error) {
 	err = wi.LockNamed("WorkflowInstance/DecreaseRemainTasks")
 	if err != nil {

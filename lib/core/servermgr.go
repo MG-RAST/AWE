@@ -4208,7 +4208,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, task *Task) (parent_task_to_c
 	}
 
 	logger.Debug(3, "(completeSubworkflow) job.WorkflowInstancesRemain: (before) %d", job.WorkflowInstancesRemain)
-	err = job.IncrementWorkflowInstancesRemain(-1, true)
+	err = job.IncrementWorkflowInstancesRemain(-1, "db_sync_yes", true)
 	if err != nil {
 		err = fmt.Errorf("(completeSubworkflow) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
 		return

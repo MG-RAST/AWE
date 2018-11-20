@@ -438,11 +438,6 @@ func (wi *WorkflowInstance) Save(read_lock bool) (err error) {
 		return
 	}
 
-	if len(wi.Tasks) == 0 {
-		err = fmt.Errorf("(WorkflowInstance/Save) len(wi.Tasks)== 0 you sure ?")
-		return
-	}
-
 	logger.Debug(1, "(WorkflowInstance/Save)  dbUpsert next: %s", wi.LocalId)
 	//spew.Dump(job)
 

@@ -115,7 +115,7 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync string, write_
 		return
 	}
 	job.WorkflowInstancesMap[wi.LocalId] = wi
-	err = job.IncrementWorkflowInstancesRemain(1, false)
+	err = job.IncrementWorkflowInstancesRemain(1, db_sync, false)
 	if err != nil {
 		err = fmt.Errorf("(AddWorkflowInstance) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
 		return
@@ -810,7 +810,7 @@ func (job *Job) IncrementRemainTasks(inc int) (err error) {
 	return
 }
 
-func (job *Job) IncrementWorkflowInstancesRemain(inc int, write_lock bool) (err error) {
+func (job *Job) IncrementWorkflowInstancesRemain(inc int, db_sync string, write_lock bool) (err error) {
 	if write_lock {
 		err = job.LockNamed("IncrementWorkflowInstancesRemain")
 		if err != nil {
@@ -822,9 +822,11 @@ func (job *Job) IncrementWorkflowInstancesRemain(inc int, write_lock bool) (err 
 
 	newRemainWf := job.WorkflowInstancesRemain + inc
 	logger.Debug(3, "(IncrementWorkflowInstancesRemain) new value of WorkflowInstancesRemain: %d", newRemainWf)
-	err = dbUpdateJobFieldInt(job.Id, "workflow_instances_remain", newRemainWf)
-	if err != nil {
-		return
+	if db_sync == "db_sync_yes" {
+		err = dbUpdateJobFieldInt(job.Id, "workflow_instances_remain", newRemainWf)
+		if err != nil {
+			return
+		}
 	}
 	job.WorkflowInstancesRemain = newRemainWf
 	return

@@ -11,8 +11,26 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+// WI_STAT_INIT
+// state on creation of object
+// add to job -> WI_STAT_PENDING
+
+// WI_STAT_PENDING
+// Unevaluated workflow_instance has steps, but not tasks or subworkflows yet
+// is officially part of job
+// Once workflow_instance is deemed ready -> WI_STAT_READY
+
+// WI_STAT_READY
+// has active tasks and subworkflows
+// once all tasks and subworkflows are completed -> WI_STAT_COMPLETED
+
+// WI_STAT_COMPLETED
+// completed.
+
 const (
-	WI_STAT_OK = "ok" // initial state on creation
+	WI_STAT_INIT    = "init"    // initial state on creation
+	WI_STAT_PENDING = "pending" // wants to be enqueued but may have unresolved dependencies
+	WI_STAT_READY   = "ready"   // a task ready to be enqueued/evaluated (tasks can be enqueued)
 	//TASK_STAT_PENDING          = "pending"     // a task that wants to be enqueued
 	//TASK_STAT_READY            = "ready"       // a task ready to be enqueued
 	//TASK_STAT_QUEUED           = "queued"      // a task for which workunits have been created/queued
@@ -39,14 +57,14 @@ type WorkflowInstance struct {
 	TotalTasks          int              `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
 }
 
-func NewWorkflowInstance(id string, jobid string, workflow_definition string, inputs cwl.Job_document, job *Job) (wi *WorkflowInstance, err error) {
+func NewWorkflowInstance(local_id string, jobid string, workflow_definition string, inputs cwl.Job_document, job *Job) (wi *WorkflowInstance, err error) {
 
 	if jobid == "" {
 		err = fmt.Errorf("(NewWorkflowInstance) jobid == \"\"")
 		return
 	}
 
-	logger.Debug(3, "(NewWorkflowInstance) _id=%s%s, workflow_definition=%s", jobid, id, workflow_definition)
+	logger.Debug(3, "(NewWorkflowInstance) _local_id=%s%s, workflow_definition=%s", jobid, local_id, workflow_definition)
 
 	if job == nil {
 		err = fmt.Errorf("(NewWorkflowInstance) job==nil ")
@@ -63,9 +81,8 @@ func NewWorkflowInstance(id string, jobid string, workflow_definition string, in
 		return
 	}
 
-	wi = &WorkflowInstance{LocalId: id, JobId: jobid, Workflow_Definition: workflow_definition, Inputs: inputs}
-
-	wi.State = WI_STAT_OK
+	wi = &WorkflowInstance{LocalId: local_id, JobId: jobid, Workflow_Definition: workflow_definition, Inputs: inputs}
+	wi.State = WI_STAT_INIT
 
 	_, err = wi.Init(job)
 	if err != nil {

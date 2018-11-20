@@ -9,6 +9,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"io/ioutil"
 	"os"
@@ -94,7 +95,7 @@ func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
 }
 
 // this is in-memory only, not db
-func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, write_lock bool) (err error) {
+func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync string, write_lock bool) (err error) {
 	fmt.Printf("(AddWorkflowInstance) id: %s\n", wi.LocalId)
 	if write_lock {
 		err = job.LockNamed("AddWorkflowInstance")
@@ -114,12 +115,18 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, write_lock bool) (err 
 		return
 	}
 	job.WorkflowInstancesMap[wi.LocalId] = wi
-
-	err = GlobalWorkflowInstanceMap.Add(wi)
+	err = job.IncrementWorkflowInstancesRemain(1, false)
 	if err != nil {
-		err = fmt.Errorf("(AddWorkflowInstance) GlobalWorkflowInstanceMap returned: %s", err.Error())
+		err = fmt.Errorf("(AddWorkflowInstance) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
 		return
 	}
+
+	err = wi.SetState(WI_STAT_PENDING, db_sync, true)
+	if err != nil {
+		err = fmt.Errorf("(AddWorkflowInstance) wi.SetState returned: %s", err.Error())
+		return
+	}
+
 	return
 }
 
@@ -803,13 +810,14 @@ func (job *Job) IncrementRemainTasks(inc int) (err error) {
 	return
 }
 
-func (job *Job) IncrementWorkflowInstancesRemain(inc int) (err error) {
-	err = job.LockNamed("IncrementWorkflowInstancesRemain")
-	if err != nil {
-		return
+func (job *Job) IncrementWorkflowInstancesRemain(inc int, write_lock bool) (err error) {
+	if write_lock {
+		err = job.LockNamed("IncrementWorkflowInstancesRemain")
+		if err != nil {
+			return
+		}
+		defer job.Unlock()
 	}
-	defer job.Unlock()
-
 	logger.Debug(3, "(IncrementWorkflowInstancesRemain) called with inc=%d", inc)
 
 	newRemainWf := job.WorkflowInstancesRemain + inc

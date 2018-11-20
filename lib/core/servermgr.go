@@ -1715,7 +1715,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		return
 	}
 
-	err = job.AddWorkflowInstance(wi, true)
+	err = job.AddWorkflowInstance(wi, "db_sync_yes", true)
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueueWorkflow) job.AddWorkflowInstance returned: %s", err.Error())
 		return
@@ -1734,12 +1734,6 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 
 	times = make(map[string]time.Duration)
 	//skip_workunit := false
-
-	err = job.IncrementWorkflowInstancesRemain(1)
-	if err != nil {
-		err = fmt.Errorf("(taskEnQueueWorkflow) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
-		return
-	}
 
 	children := []Task_Unique_Identifier{}
 	for i := range sub_workflow_tasks {
@@ -2508,7 +2502,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflow_instance *Wor
 	//step_name_abs := workflow_name + "/" + step_name
 
 	//src := workflow_name + "/" + step_name + "/" + output_name
-
+	logger.Debug(3, "(getCWLSourceFromStepOutput) %s / %s / %s", workflow_name, step_name, output_name)
 	// *** check if workflow_name + "/" + step_name is a subworkflow
 	workflow_instance_name := workflow_name + "/" + step_name
 
@@ -2539,9 +2533,43 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflow_instance *Wor
 
 	}
 
-	// TODO add case
+	// search task and its output
 
-	err = fmt.Errorf("(getCWLSourceFromStepOutput) not a subworkflow")
+	ancestor_task_name_local := workflow_name + "/" + step_name
+
+	ancestor_task_id := current_task_id
+	ancestor_task_id.TaskName = ancestor_task_name_local
+
+	var ancestor_task *Task
+
+	ancestor_task, ok, err = workflow_instance.GetTask(ancestor_task_id)
+	if err != nil {
+		err = fmt.Errorf("(getCWLSourceFromStepOutput) workflow_instance.GetTask returned: %s", err.Error())
+		return
+	}
+	if !ok {
+
+		tasks_str := ""
+		for i, _ := range workflow_instance.Tasks {
+			t_str, _ := workflow_instance.Tasks[i].String()
+			tasks_str += "," + t_str
+		}
+
+		reason = fmt.Sprintf("ancestor_task %s not found (found %s)", ancestor_task_name_local, tasks_str)
+		return
+	}
+
+	obj, ok, err = ancestor_task.GetStepOutput(output_name)
+	if err != nil {
+		err = fmt.Errorf("(getCWLSourceFromStepOutput) ancestor_task.GetStepOutput returned: %s", err.Error())
+		return
+	}
+	if !ok {
+		reason = fmt.Sprintf("Output %s not found in output of ancestor_task", ancestor_task_name_local)
+		return
+	}
+
+	//err = fmt.Errorf("(getCWLSourceFromStepOutput) not a subworkflow")
 	return
 
 	// *** not referring to subworkflow....
@@ -3058,7 +3086,8 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 				}
 
 				var job_obj cwl.CWLType
-				job_obj, ok, _, err = qm.getCWLSource(job, workflow_instance, workflow_input_map, task_id, source_as_string, true, job.WorkflowContext)
+				var reason string
+				job_obj, ok, reason, err = qm.getCWLSource(job, workflow_instance, workflow_input_map, task_id, source_as_string, true, job.WorkflowContext)
 				if err != nil {
 					err = fmt.Errorf("(GetStepInputObjects) (string) getCWLSource returns: %s", err.Error())
 					return
@@ -3077,7 +3106,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 					fmt.Println("(GetStepInputObjects) check input.Default")
 					if input.Default == nil {
 						//logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", source_as_string)
-						err = fmt.Errorf("(GetStepInputObjects) getCWLSource did not find source %s and has no Default", source_as_string)
+						err = fmt.Errorf("(GetStepInputObjects) getCWLSource did not find source %s and has no Default (reason: %s)", source_as_string, reason)
 						continue
 					}
 					job_obj, err = cwl.NewCWLType("", input.Default, context)
@@ -4179,7 +4208,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, task *Task) (parent_task_to_c
 	}
 
 	logger.Debug(3, "(completeSubworkflow) job.WorkflowInstancesRemain: (before) %d", job.WorkflowInstancesRemain)
-	err = job.IncrementWorkflowInstancesRemain(-1)
+	err = job.IncrementWorkflowInstancesRemain(-1, true)
 	if err != nil {
 		err = fmt.Errorf("(completeSubworkflow) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
 		return

@@ -272,6 +272,8 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	logger.Debug(1, "(CWL2AWE) ACLs set")
 	// TODO first check that all resources are available: local files and remote links
 
+	// *** create WorkflowInstance
+
 	var wi *WorkflowInstance
 	wi, err = NewWorkflowInstance("_root", job.Id, cwl_workflow.Id, *job_input_new, job) // Not using AddWorkflowInstance to avoid mongo
 	if err != nil {
@@ -302,32 +304,32 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	// 	return
 	// }
 
-	var task *Task
-	task, err = NewTask(job, "_root", "_main", nil)
-	if err != nil {
-		err = fmt.Errorf("(CWL2AWE) NewTask returned: %s", err.Error())
-		return
-	}
+	//var task *Task
+	//task, err = NewTask(job, "_root", "_main", nil)
+	//if err != nil {
+	//	err = fmt.Errorf("(CWL2AWE) NewTask returned: %s", err.Error())
+	//	return
+	//}
 
 	// fake workflowStep to create first master Workflow
-	wrapper_workflow_step := cwl.NewWorkflowStep()
-	wrapper_workflow_step.Id = "wrapper"
-	wrapper_workflow_step.Run = cwl_workflow
+	// wrapper_workflow_step := cwl.NewWorkflowStep()
+	// wrapper_workflow_step.Id = "wrapper"
+	// wrapper_workflow_step.Run = cwl_workflow
 
-	wrapper_workflow_step.In = []cwl.WorkflowStepInput{}
+	// wrapper_workflow_step.In = []cwl.WorkflowStepInput{}
 
-	for i, _ := range cwl_workflow.Inputs {
-		inp := &(cwl_workflow.Inputs[i])
+	// for i, _ := range cwl_workflow.Inputs {
+	// 	inp := &(cwl_workflow.Inputs[i])
 
-		wsi := &cwl.WorkflowStepInput{}
+	// 	wsi := &cwl.WorkflowStepInput{}
 
-		base_id := path.Base(inp.Id)
+	// 	base_id := path.Base(inp.Id)
 
-		wsi.Id = "_root/" + base_id
-		wsi.Source = inp.Id
+	// 	wsi.Id = "_root/" + base_id
+	// 	wsi.Source = inp.Id
 
-		wrapper_workflow_step.In = append(wrapper_workflow_step.In, *wsi)
-	}
+	// 	wrapper_workflow_step.In = append(wrapper_workflow_step.In, *wsi)
+	// }
 
 	// for i, _ := range *job_input_new {
 
@@ -356,15 +358,15 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	//	return
 	//}
 
-	task.WorkflowStep = wrapper_workflow_step
+	//task.WorkflowStep = wrapper_workflow_step
 
-	err = wi.AddTask(task, "db_sync_no", false)
-	if err != nil {
-		err = fmt.Errorf("(CWL2AWE) wi.AddTask returned: %s", err.Error())
-		return
-	}
+	//err = wi.AddTask(task, "db_sync_no", false)
+	//if err != nil {
+	//	err = fmt.Errorf("(CWL2AWE) wi.AddTask returned: %s", err.Error())
+	//	return
+	//}
 
-	logger.Debug(1, "(CWL2AWE) task added")
+	//logger.Debug(1, "(CWL2AWE) task added")
 
 	err = wi.Save(false)
 	if err != nil {
@@ -374,7 +376,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	logger.Debug(1, "(CWL2AWE) wi saved")
 
-	err = job.AddWorkflowInstance(wi, false) // adding _root
+	err = job.AddWorkflowInstance(wi, "db_sync_no", false) // adding _root
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) AddWorkflowInstance returned: %s", err.Error())
 		return

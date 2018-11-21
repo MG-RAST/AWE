@@ -2,14 +2,31 @@ package core
 
 type WorkflowInstanceMap struct {
 	RWMutex
-	Map map[string]*WorkflowInstance
+	_map map[string]*WorkflowInstance
 }
 
 func NewWorkflowInstancesMap() (wim *WorkflowInstanceMap) {
 
 	wim = &WorkflowInstanceMap{}
 	wim.RWMutex.Init("WorkflowInstancesMap")
-	wim.Map = make(map[string]*WorkflowInstance)
+	wim._map = make(map[string]*WorkflowInstance)
+	return
+}
+
+func (wim *WorkflowInstanceMap) GetWorkflowInstances() (wis []*WorkflowInstance, err error) {
+
+	wis = []*WorkflowInstance{}
+
+	read_lock, err := wim.RLockNamed("GetWorkflowInstances")
+	if err != nil {
+		return
+	}
+	defer wim.RUnlockNamed(read_lock)
+
+	for _, wi := range wim._map {
+		wis = append(wis, wi)
+	}
+
 	return
 }
 
@@ -21,7 +38,7 @@ func (wim *WorkflowInstanceMap) Add(workflow_instance *WorkflowInstance) (err er
 	defer wim.Unlock()
 
 	id, _ := workflow_instance.GetId(false)
-	wim.Map[id] = workflow_instance
+	wim._map[id] = workflow_instance
 	return
 }
 
@@ -31,6 +48,6 @@ func (wim *WorkflowInstanceMap) Get(id string) (workflow_instance *WorkflowInsta
 		return
 	}
 	defer wim.RUnlockNamed(rlock)
-	workflow_instance, ok = wim.Map[id]
+	workflow_instance, ok = wim._map[id]
 	return
 }

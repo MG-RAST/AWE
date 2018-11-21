@@ -588,11 +588,32 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	// don't enqueue imports
 	if !has_import {
 
-		err = core.QMgr.EnqueueTasksByJobId(job.Id)
-		if err != nil {
-			err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
-			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-			return
+		if job.IsCWL {
+
+			if len(job.WorkflowInstancesMap) != 1 {
+				err = fmt.Errorf("(JobController/Create) len(job.WorkflowInstances) != 1")
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			var wi *core.WorkflowInstance
+
+			wi = job.WorkflowInstancesMap["_root"]
+
+			err = core.QMgr.EnqueueWorkflowInstance(wi)
+			if err != nil {
+				err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
+
+		} else {
+			err = core.QMgr.EnqueueTasksByJobId(job.Id)
+			if err != nil {
+				err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
 		}
 	}
 

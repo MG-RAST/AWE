@@ -71,9 +71,17 @@ func (qm *ServerMgr) UpdateQueueLoop() {
 	// TODO this may not be dynamic enough for small amounts of workunits, as they always have to wait
 	for {
 
+		err := qm.updateWorkflowInstancesMap()
+		if err != nil {
+			logger.Error("(UpdateQueueLoop) updateQueue returned: %s", err.Error())
+			err = nil
+		}
+
+		// *** task ***
+
 		logTimes := false
 		start := time.Now()
-		err := qm.updateQueue(logTimes)
+		err = qm.updateQueue(logTimes)
 		if err != nil {
 			logger.Error("(UpdateQueueLoop) updateQueue returned: %s", err.Error())
 			err = nil
@@ -95,6 +103,32 @@ func (qm *ServerMgr) UpdateQueueLoop() {
 		time.Sleep(sleeptime)
 
 	}
+}
+
+func (qm *ServerMgr) updateWorkflowInstancesMap() (err error) {
+
+	var wis []*WorkflowInstance
+	wis, err = GlobalWorkflowInstanceMap.GetWorkflowInstances()
+	if err != nil {
+		err = fmt.Errorf("(updateWorkflowInstancesMap) ")
+		return
+	}
+
+	for _, wi := range wis {
+		wi_state, _ := wi.GetState(true)
+
+		if wi_state == WI_STAT_PENDING {
+
+			if wi.Inputs != nil && len(wi.Inputs) > 0 {
+				panic("found something...")
+
+			}
+
+		}
+
+	}
+
+	return
 }
 
 func (qm *ServerMgr) ClientHandle() {
@@ -1294,6 +1328,31 @@ func getStdLogPathByWorkId(id Workunit_Unique_Identifier, logname string) (saved
 	}
 
 	savedpath = fmt.Sprintf("%s/%s.%s", logdir, work_str, logname)
+	return
+}
+
+// this is trigggered by user action, either job POST or job resume / recover / resubmit
+// func (qm *ServerMgr) EnqueueWorkflowInstancesByJobId(jobid string) (err error) {
+
+// 	logger.Debug(3, "(EnqueueWorkflowInstancesByJobId) starting")
+// 	job, err := GetJob(jobid)
+// 	if err != nil {
+// 		err = fmt.Errorf("(EnqueueWorkflowInstancesByJobId) GetJob returned: %s", err.Error())
+// 		return
+// 	}
+
+// }
+
+func (qm *ServerMgr) EnqueueWorkflowInstance(wi *WorkflowInstance) (err error) {
+
+	logger.Debug(3, "(EnqueueWorkflowInstance) starting")
+
+	err = GlobalWorkflowInstanceMap.Add(wi)
+	if err != nil {
+		err = fmt.Errorf("(EnqueueWorkflowInstancesByJobId) GlobalWorkflowInstanceMap.Add returned: %s", err.Error())
+		return
+	}
+
 	return
 }
 

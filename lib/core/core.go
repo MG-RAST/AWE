@@ -22,14 +22,15 @@ import (
 )
 
 var (
-	QMgr          ResourceMgr
-	Service       string = "unknown"
-	Self          *Client
-	ProxyWorkChan chan bool
-	Server_UUID   string
-	JM            *JobMap
-	//GlobalWorkflowInstanceMap *WorkflowInstanceMap
-	Start_time time.Time
+	//QMgr                      ResourceMgr
+	QMgr                      *ServerMgr
+	Service                   string = "unknown"
+	Self                      *Client
+	ProxyWorkChan             chan bool
+	Server_UUID               string
+	JM                        *JobMap
+	GlobalWorkflowInstanceMap *WorkflowInstanceMap
+	Start_time                time.Time
 )
 
 type BaseResponse struct {
@@ -47,7 +48,7 @@ func InitResMgr(service string) {
 
 	if service == "server" {
 		QMgr = NewServerMgr()
-		//GlobalWorkflowInstanceMap = NewWorkflowInstancesMap()
+		GlobalWorkflowInstanceMap = NewWorkflowInstancesMap()
 	} else if service == "proxy" {
 		//QMgr = NewProxyMgr()
 	}

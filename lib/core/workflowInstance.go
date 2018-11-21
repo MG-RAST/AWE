@@ -19,6 +19,7 @@ import (
 // Unevaluated workflow_instance has steps, but not tasks or subworkflows yet
 // is officially part of job
 // Once workflow_instance is deemed ready -> WI_STAT_READY
+// it is ready when it has input
 
 // WI_STAT_READY
 // has active tasks and subworkflows
@@ -378,6 +379,21 @@ func (wi *WorkflowInstance) GetId(read_lock bool) (id string, err error) {
 		defer wi.RUnlockNamed(lock)
 	}
 	id = wi.JobId + wi.LocalId
+
+	return
+}
+
+func (wi *WorkflowInstance) GetState(read_lock bool) (state string, err error) {
+	if read_lock {
+		var lock ReadLock
+		lock, err = wi.RLockNamed("GetState")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/GetState) RLockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.RUnlockNamed(lock)
+	}
+	state = wi.State
 
 	return
 }

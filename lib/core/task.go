@@ -460,7 +460,7 @@ func (task *Task) Init(job *Job, job_id string) (changed bool, err error) {
 }
 
 // task_id_str is without prefix yet
-func NewTask(job *Job, workflow_instance_id string, task_id_str string, workflow_parent *Task_Unique_Identifier) (t *Task, err error) {
+func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task, err error) {
 
 	fmt.Printf("(NewTask) new task: %s %s/%s\n", job.Id, workflow_instance_id, task_id_str)
 
@@ -476,12 +476,6 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string, workflow
 			return
 		}
 
-	}
-	if task_id_str != "_main" {
-		if workflow_parent == nil {
-			err = fmt.Errorf("(NewTask) workflow_parent == nil (task_id_str: %s)", task_id_str)
-			return
-		}
 	}
 
 	if job.Id == "" {
@@ -525,18 +519,6 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string, workflow
 		err = fmt.Errorf("(NewTask) workflow_instance_id empty")
 		return
 
-	}
-
-	if workflow_parent != nil {
-		t.WorkflowParent = workflow_parent
-	}
-
-	if workflow_instance_id != "_root" {
-		if t.WorkflowParent == nil {
-			//task_id_str, _ := t.String()
-			err = fmt.Errorf("(NewTask) t.WorkflowParent == nil , (%s)", task_id_str)
-			return
-		}
 	}
 
 	return

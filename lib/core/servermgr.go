@@ -107,7 +107,10 @@ func (qm *ServerMgr) UpdateQueueLoop() {
 
 func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err error) {
 
+	wi_local_id := wi.LocalId
 	wi_state, _ := wi.GetState(true)
+
+	logger.Debug(3, "(updateWorkflowInstancesMapTask) start: %s state: %s", wi.LocalId, wi_state)
 
 	if wi_state == WI_STAT_PENDING {
 
@@ -137,12 +140,29 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 			step := cwl_workflow.Steps[i]
 
+			stepname_base := path.Base(step.Id)
+
 			var process interface{}
 			process, _, err = step.GetProcess(context)
 
 			switch process.(type) {
 			case *cwl.CommandLineTool:
 				fmt.Println("(updateWorkflowInstancesMap) CommandLineTool")
+
+				var awe_task *Task
+				awe_task, err = NewTask(job, wi_local_id, wi_local_id+"/"+stepname_base)
+				if err != nil {
+					err = fmt.Errorf("(updateWorkflowInstancesMap) NewTask returned: %s", err.Error())
+					return
+				}
+
+				err = wi.AddTask(awe_task, "db_sync_yes", true)
+				if err != nil {
+					err = fmt.Errorf("(updateWorkflowInstancesMap) wi.AddTask( returned: %s", err.Error())
+					return
+				}
+
+				panic("got CommandLineTool")
 				// create Task
 
 			case *cwl.ExpressionTool:
@@ -153,6 +173,35 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 				fmt.Println("(updateWorkflowInstancesMap) Workflow")
 				// create new WorkflowInstance
 
+				subworkflow, ok := process.(*cwl.Workflow)
+				if !ok {
+					err = fmt.Errorf("(updateWorkflowInstancesMap) cannot cast to *cwl.Workflow")
+					return
+				}
+
+				subworkflow_id := subworkflow.GetId()
+
+				new_wi_name := wi_local_id + "/" + stepname_base
+
+				// TODO assign inputs
+				//var workflow_inputs cwl.Job_document
+
+				//panic("creating new subworkflow " + new_wi_name)
+				var new_wi *WorkflowInstance
+				new_wi, err = NewWorkflowInstance(new_wi_name, jobid, subworkflow_id, job)
+				if err != nil {
+					err = fmt.Errorf("(updateWorkflowInstancesMap) NewWorkflowInstance returned: %s", err.Error())
+					return
+				}
+
+				new_wi.SetState(WI_STAT_PENDING, "db_sync_true", false)
+
+				err = GlobalWorkflowInstanceMap.Add(new_wi)
+				if err != nil {
+					err = fmt.Errorf("(updateWorkflowInstancesMap) GlobalWorkflowInstanceMap.Add returned: %s", err.Error())
+					return
+				}
+
 			default:
 				err = fmt.Errorf("(updateWorkflowInstancesMap) type unknown: ", reflect.TypeOf(process))
 				return
@@ -161,7 +210,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 			spew.Dump(cwl_workflow.Steps[i])
 
 		}
-		panic("loop ended")
+		wi.SetState(WI_STAT_READY, "db_sync_true", true)
 
 		if wi.Inputs != nil && len(wi.Inputs) > 0 {
 			//panic("found something...")
@@ -1909,11 +1958,12 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 
 	var wi *WorkflowInstance
 
-	wi, err = NewWorkflowInstance(workflow_instance_id, job.Id, workflow_defintion_id, task_input_array, job)
+	wi, err = NewWorkflowInstance(workflow_instance_id, job.Id, workflow_defintion_id, job)
 	if err != nil {
 		err = fmt.Errorf("(AddWorkflowInstance) NewWorkflowInstance returned: %s", err.Error())
 		return
 	}
+	wi.Inputs = task_input_array
 
 	err = job.AddWorkflowInstance(wi, "db_sync_yes", true)
 	if err != nil {
@@ -2261,7 +2311,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 
 		logger.Debug(3, "(taskEnQueue) New Task: parent: %s and scatter_task_name: %s", parent_id_str, scatter_task_name)
 
-		awe_task, err = NewTask(job, parent_id_str, scatter_task_name, task.WorkflowParent)
+		awe_task, err = NewTask(job, parent_id_str, scatter_task_name)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) NewTask returned: %s", err.Error())
 			return

@@ -21,12 +21,11 @@ import (
 // Once workflow_instance is deemed ready -> WI_STAT_READY
 // it is ready when it has input
 
+// WI_STAT_READY
+// has inputs !
+
 // WI_STAT_QUEUED
 // tasks have been created and added to TaskMap
-
-// WI_STAT_READY
-// has active tasks and subworkflows
-// once all tasks and subworkflows are completed -> WI_STAT_COMPLETED
 
 // WI_STAT_COMPLETED
 // completed.
@@ -61,7 +60,7 @@ type WorkflowInstance struct {
 	TotalTasks          int              `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
 }
 
-func NewWorkflowInstance(local_id string, jobid string, workflow_definition string, inputs cwl.Job_document, job *Job) (wi *WorkflowInstance, err error) {
+func NewWorkflowInstance(local_id string, jobid string, workflow_definition string, job *Job) (wi *WorkflowInstance, err error) {
 
 	if jobid == "" {
 		err = fmt.Errorf("(NewWorkflowInstance) jobid == \"\"")
@@ -75,17 +74,7 @@ func NewWorkflowInstance(local_id string, jobid string, workflow_definition stri
 		return
 	}
 
-	if inputs == nil {
-		err = fmt.Errorf("(NewWorkflowInstance) inputs == nil ")
-		return
-	}
-
-	if len(inputs) == 0 {
-		err = fmt.Errorf("(NewWorkflowInstance) len(inputs) == 0 ")
-		return
-	}
-
-	wi = &WorkflowInstance{LocalId: local_id, JobId: jobid, Workflow_Definition: workflow_definition, Inputs: inputs}
+	wi = &WorkflowInstance{LocalId: local_id, JobId: jobid, Workflow_Definition: workflow_definition}
 	wi.State = WI_STAT_INIT
 
 	_, err = wi.Init(job)

@@ -190,7 +190,7 @@ func CreateWorkflowTasks(job *Job, name_prefix string, steps []cwl.WorkflowStep,
 		fmt.Printf("(CreateWorkflowTasks) creating task: %s %s\n", name_prefix, task_name)
 
 		var awe_task *Task
-		awe_task, err = NewTask(job, name_prefix, task_name, parent_id)
+		awe_task, err = NewTask(job, name_prefix, task_name)
 		if err != nil {
 			err = fmt.Errorf("(CreateWorkflowTasks) NewTask returned: %s", err.Error())
 			return
@@ -275,12 +275,13 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	// *** create WorkflowInstance
 
 	var wi *WorkflowInstance
-	wi, err = NewWorkflowInstance("_root", job.Id, cwl_workflow.Id, *job_input_new, job) // Not using AddWorkflowInstance to avoid mongo
+	wi, err = NewWorkflowInstance("_root", job.Id, cwl_workflow.Id, job) // Not using AddWorkflowInstance to avoid mongo
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) NewWorkflowInstance returned: %s", err.Error())
 		return
 	}
 
+	wi.Inputs = *job_input_new
 	logger.Debug(1, "(CWL2AWE) WorkflowInstance _root created")
 
 	// job.WorkflowInstancesRemain = 1

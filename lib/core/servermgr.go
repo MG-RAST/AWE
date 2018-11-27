@@ -105,6 +105,85 @@ func (qm *ServerMgr) UpdateQueueLoop() {
 	}
 }
 
+func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err error) {
+
+	wi_state, _ := wi.GetState(true)
+
+	if wi_state == WI_STAT_PENDING {
+
+		// state is pending, might have to create tasks from steps
+
+		jobid := wi.JobId
+		workflow_def_str := wi.Workflow_Definition
+
+		var job *Job
+		job, err = GetJob(jobid)
+		if err != nil {
+			err = fmt.Errorf("(updateWorkflowInstancesMap) GetJob failed: %s", err.Error())
+			return
+
+		}
+
+		context := job.WorkflowContext
+
+		var cwl_workflow *cwl.Workflow
+		cwl_workflow, err = context.GetWorkflow(workflow_def_str)
+		if err != nil {
+			err = fmt.Errorf("(updateWorkflowInstancesMap) GetWorkflow failed: %s", err.Error())
+			return
+		}
+
+		for i, _ := range cwl_workflow.Steps {
+
+			step := cwl_workflow.Steps[i]
+
+			var process interface{}
+			process, _, err = step.GetProcess(context)
+
+			switch process.(type) {
+			case *cwl.CommandLineTool:
+				fmt.Println("(updateWorkflowInstancesMap) CommandLineTool")
+				// create Task
+
+			case *cwl.ExpressionTool:
+				fmt.Println("(updateWorkflowInstancesMap) ExpressionTool")
+				//create Task
+
+			case *cwl.Workflow:
+				fmt.Println("(updateWorkflowInstancesMap) Workflow")
+				// create new WorkflowInstance
+
+			default:
+				err = fmt.Errorf("(updateWorkflowInstancesMap) type unknown: ", reflect.TypeOf(process))
+				return
+			}
+
+			spew.Dump(cwl_workflow.Steps[i])
+
+		}
+		panic("loop ended")
+
+		if wi.Inputs != nil && len(wi.Inputs) > 0 {
+			//panic("found something...")
+
+			err = qm.EnqueueTasks(wi.Tasks)
+			if err != nil {
+				err = fmt.Errorf("(updateWorkflowInstancesMap) EnqueueTasks returned: %s", err.Error())
+
+				return
+			}
+		}
+
+		err = wi.SetState(WI_STAT_QUEUED, "db_sync_yes", true)
+		if err != nil {
+			err = fmt.Errorf("(updateWorkflowInstancesMap) SetState returned: %s", err.Error())
+			return
+		}
+	}
+
+	return
+}
+
 func (qm *ServerMgr) updateWorkflowInstancesMap() (err error) {
 
 	var wis []*WorkflowInstance
@@ -114,18 +193,24 @@ func (qm *ServerMgr) updateWorkflowInstancesMap() (err error) {
 		return
 	}
 
+	var last_error error
+
+	error_count := 0
 	for _, wi := range wis {
-		wi_state, _ := wi.GetState(true)
 
-		if wi_state == WI_STAT_PENDING {
+		err = qm.updateWorkflowInstancesMapTask(wi)
 
-			if wi.Inputs != nil && len(wi.Inputs) > 0 {
-				panic("found something...")
-
-			}
-
+		if err != nil {
+			last_error = err
+			error_count += 1
+			err = nil
 		}
 
+	}
+
+	if error_count > 0 {
+		err = fmt.Errorf("(updateWorkflowInstancesMap) %d errors, last error message: %s", error_count, last_error.Error())
+		return
 	}
 
 	return
@@ -1351,6 +1436,62 @@ func (qm *ServerMgr) EnqueueWorkflowInstance(wi *WorkflowInstance) (err error) {
 	if err != nil {
 		err = fmt.Errorf("(EnqueueWorkflowInstancesByJobId) GlobalWorkflowInstanceMap.Add returned: %s", err.Error())
 		return
+	}
+
+	return
+}
+
+func (qm *ServerMgr) EnqueueTasks(tasks []*Task) (err error) {
+	//logger.Debug(3, "(EnqueueTasksByJobId) starting")
+	//job, err := GetJob(jobid)
+	//if err != nil {
+	//	err = fmt.Errorf("(EnqueueTasksByJobId) GetJob failed: %s", err.Error())
+	//	return
+	//}
+
+	//fmt.Println("(EnqueueTasksByJobId) job.WorkflowInstances[0]:")
+	//spew.Dump(job.WorkflowInstances[0])
+	//panic("done")
+
+	//var tasks []*Task
+	//tasks, err = job.GetTasks()
+	//if err != nil {
+	//	err = fmt.Errorf("(EnqueueTasksByJobId) job.GetTasks failed: %s", err.Error())
+	//	return
+	//}
+
+	task_len := len(tasks)
+	logger.Debug(3, "(EnqueueTasks) got %d tasks", task_len)
+
+	// err = job.SetState(JOB_STAT_QUEUING, nil)
+	// if err != nil {
+	// 	err = fmt.Errorf("(qmgr.taskEnQueue) UpdateJobState: %s", err.Error())
+	// 	return
+	// }
+
+	//qm.CreateJobPerf(jobid)
+
+	for _, task := range tasks {
+		var task_state string
+		task_state, err = task.GetState()
+		if err != nil {
+			return
+		}
+
+		if task_state == TASK_STAT_INPROGRESS || task_state == TASK_STAT_QUEUED {
+			task.SetState(TASK_STAT_READY, true)
+		} else if task_state == TASK_STAT_SUSPEND {
+			task.SetState(TASK_STAT_PENDING, true)
+		}
+
+		// add to qm.TaskMap
+		// updateQueue() process will actually enqueue the task
+		// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
+		err = qm.TaskMap.Add(task, "EnqueueTasks")
+		if err != nil {
+			err = fmt.Errorf("(EnqueueTasks) qm.TaskMap.Add() returns: %s", err.Error())
+			return
+		}
 	}
 
 	return

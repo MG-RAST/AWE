@@ -21,6 +21,9 @@ import (
 // Once workflow_instance is deemed ready -> WI_STAT_READY
 // it is ready when it has input
 
+// WI_STAT_QUEUED
+// tasks have been created and added to TaskMap
+
 // WI_STAT_READY
 // has active tasks and subworkflows
 // once all tasks and subworkflows are completed -> WI_STAT_COMPLETED
@@ -34,7 +37,7 @@ const (
 	WI_STAT_READY   = "ready"   // a task ready to be enqueued/evaluated (tasks can be enqueued)
 	//TASK_STAT_PENDING          = "pending"     // a task that wants to be enqueued
 	//TASK_STAT_READY            = "ready"       // a task ready to be enqueued
-	//TASK_STAT_QUEUED           = "queued"      // a task for which workunits have been created/queued
+	WI_STAT_QUEUED = "queued" // tasks have been created
 	//WI_STAT_INPROGRESS = "in-progress" // a first workunit has been checkout (this does not guarantee a workunit is running right now)
 	//WI_STAT_SUSPEND          = "suspend"
 	//TASK_STAT_FAILED           = "failed"

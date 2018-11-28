@@ -45,10 +45,10 @@ const (
 var TASK_STATS_RESET = []string{TASK_STAT_QUEUED, TASK_STAT_INPROGRESS, TASK_STAT_SUSPEND}
 
 const (
-	TASK_TYPE_UNKNOWN  = ""
-	TASK_TYPE_SCATTER  = "scatter"
-	TASK_TYPE_WORKFLOW = "workflow"
-	TASK_TYPE_NORMAL   = "normal"
+	TASK_TYPE_UNKNOWN = ""
+	TASK_TYPE_SCATTER = "scatter"
+	//TASK_TYPE_WORKFLOW = "workflow"
+	TASK_TYPE_NORMAL = "normal"
 )
 
 type TaskRaw struct {
@@ -1911,13 +1911,13 @@ func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (t
 		return
 	}
 
-	if task.WorkflowInstanceId != "_root" {
-		if task.WorkflowParent == nil {
-			task_id_str, _ := task.String()
-			err = fmt.Errorf("(NewTaskFromInterface) task.WorkflowParent == nil , (%s)", task_id_str)
-			return
-		}
-	}
+	// if task.WorkflowInstanceId != "_root" {
+	// 	if task.WorkflowParent == nil {
+	// 		task_id_str, _ := task.String()
+	// 		err = fmt.Errorf("(NewTaskFromInterface) task.WorkflowParent == nil , (%s)", task_id_str)
+	// 		return
+	// 	}
+	// }
 	return
 }
 

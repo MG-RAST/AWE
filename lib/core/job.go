@@ -374,18 +374,18 @@ func (job *Job) Init() (changed bool, err error) {
 	}
 
 	// try to fix inconsistent state
-	if job.RemainTasks == 0 && job.State != JOB_STAT_COMPLETED {
-		job.State = JOB_STAT_COMPLETED
-		logger.Debug(3, "fixing state to JOB_STAT_COMPLETED")
-		changed = true
-	}
+	//if job.RemainTasks == 0 && job.State != JOB_STAT_COMPLETED {
+	//	job.State = JOB_STAT_COMPLETED
+	//	logger.Debug(3, "fixing state to JOB_STAT_COMPLETED")
+	//	changed = true
+	//}
 
 	// fix job.Info.CompletedTime
-	if job.State == JOB_STAT_COMPLETED && job.Info.CompletedTime.IsZero() {
-		// better now, than never:
-		job.Info.CompletedTime = time.Now()
-		changed = true
-	}
+	//if job.State == JOB_STAT_COMPLETED && job.Info.CompletedTime.IsZero() {
+	// better now, than never: // does not make sense
+	//	job.Info.CompletedTime = time.Now()
+	//	changed = true
+	//}
 
 	// try to fix inconsistent state
 	if job.RemainTasks > 0 && job.State == JOB_STAT_COMPLETED {

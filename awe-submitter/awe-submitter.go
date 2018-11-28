@@ -205,74 +205,6 @@ func main_wrapper() (err error) {
 
 	}
 
-	// for j, _ := range named_object_array {
-
-	// 	pair := named_object_array[j]
-	// 	object := pair.Value
-
-	// 	var ok bool
-
-	// 	switch object.(type) {
-	// 	case *cwl.Workflow:
-	// 		workflow := object.(*cwl.Workflow)
-	// 		//if cwl_version != "" {
-	// 		//	workflow.CwlVersion = cwl_version
-	// 		//}
-	// 		sub_upload_count := 0
-	// 		sub_upload_count, err = cache.ProcessIOData(workflow, inputfile_path, inputfile_path, "upload", shock_client)
-	// 		if err != nil {
-	// 			err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
-	// 			return
-	// 		}
-	// 		upload_count += sub_upload_count
-
-	// 	case *cwl.CommandLineTool:
-	// 		var cmd_line_tool *cwl.CommandLineTool
-	// 		cmd_line_tool = object.(*cwl.CommandLineTool)
-
-	// 		//if cwl_version != "" {
-	// 		//	cmd_line_tool.CwlVersion = cwl_version
-	// 		//}
-	// 		if cmd_line_tool == nil {
-	// 			err = fmt.Errorf("(main_wrapper) cmd_line_tool==nil")
-	// 			return
-	// 		}
-	// 		sub_upload_count := 0
-	// 		sub_upload_count, err = cache.ProcessIOData(cmd_line_tool, inputfile_path, inputfile_path, "upload", shock_client)
-	// 		if err != nil {
-	// 			err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
-	// 			return
-	// 		}
-	// 		upload_count += sub_upload_count
-
-	// 	case *cwl.ExpressionTool:
-	// 		var express_tool *cwl.ExpressionTool
-	// 		express_tool, ok = object.(*cwl.ExpressionTool) // TODO this misses embedded ExpressionTools !
-	// 		if !ok {
-	// 			//fmt.Println("nope.")
-	// 			err = nil
-	// 			continue
-	// 		}
-
-	// 		if express_tool == nil {
-	// 			err = fmt.Errorf("(main_wrapper) express_tool==nil")
-	// 			return
-	// 		}
-	// 		//if cwl_version != "" {
-	// 		//	express_tool.CwlVersion = cwl_version
-	// 		//}
-
-	// 		sub_upload_count := 0
-	// 		sub_upload_count, err = cache.ProcessIOData(express_tool, inputfile_path, inputfile_path, "upload", shock_client)
-	// 		if err != nil {
-	// 			err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
-	// 			return
-	// 		}
-	// 		upload_count += sub_upload_count
-
-	// 	}
-	// }
-
 	logger.Debug(3, "%d files have been uploaded\n", upload_count)
 
 	var shock_requirement cwl.ShockRequirement
@@ -428,112 +360,124 @@ func main_wrapper() (err error) {
 	//fmt.Printf("Job id: %s\n", jobid)
 
 	if conf.SUBMITTER_WAIT {
-		var job *core.Job
-		var status_code int
-		// ***** Wait for job to complete
-
-	FORLOOP:
-		for true {
-			time.Sleep(5 * time.Second)
-			job = nil
-
-			job, status_code, err = GetAWEJob(jobid, awe_auth)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "(main_wrapper) GetAWEJob returned: (status_code: %d) error: %s  \n", status_code, err.Error())
-				if status_code == -1 {
-					err = nil
-					continue
-				}
-				return
-			}
-
-			//fmt.Printf("job state: %s\n", job.State)
-
-			switch job.State {
-			case core.JOB_STAT_COMPLETED:
-				break FORLOOP
-			case core.JOB_STAT_SUSPEND:
-				error_msg_str := ""
-
-				if job.Error != nil {
-
-					error_msg, _ := json.Marshal(job.Error)
-					error_msg_str = string(error_msg[:])
-				}
-
-				err = fmt.Errorf("(main_wrapper) job is in state \"%s\" (error: %s)", job.State, error_msg_str)
-				return
-			case core.JOB_STAT_FAILED_PERMANENT:
-				err = fmt.Errorf("(main_wrapper) job is in state \"%s\"", job.State)
-				return
-			case core.JOB_STAT_DELETED:
-				err = fmt.Errorf("(main_wrapper) job is in state \"%s\"", job.State)
-				return
-			}
-		}
-		//spew.Dump(job)
-
-		_, err = job.Init()
+		err = Wait_for_results(jobid, awe_auth)
 		if err != nil {
+			err = fmt.Errorf("(main_wrapper) Wait_for_results returned: %s", err.Error())
 			return
 		}
-		var wi *core.WorkflowInstance
-		var ok bool
-		wi, ok, err = job.GetWorkflowInstance("", false)
-		if err != nil {
-			err = fmt.Errorf("(main_wrapper) GetWorkflowInstance returned: %s", err.Error())
-			return
-		}
-
-		if !ok {
-			err = fmt.Errorf("(main_wrapper) WorkflowInstance not found")
-			return
-		}
-
-		//spew.Dump(wi.Outputs)
-
-		output_receipt := map[string]interface{}{}
-		for _, out := range wi.Outputs {
-
-			out_id := strings.TrimPrefix(out.Id, job.Entrypoint+"/")
-
-			output_receipt[out_id] = out.Value
-		}
-
-		if conf.SUBMITTER_DOWNLOAD_FILES { // TODO
-			var output_file_path string
-			output_file_path, err = os.Getwd()
-
-			_, err = cache.ProcessIOData(output_receipt, output_file_path, output_file_path, "download", nil)
-			if err != nil {
-				spew.Dump(output_receipt)
-				err = fmt.Errorf("(main_wrapper) ProcessIOData(for download) returned: %s", err.Error())
-				return
-			}
-		}
-
-		var output_receipt_bytes []byte
-		output_receipt_bytes, err = json.MarshalIndent(output_receipt, "", "    ")
-		if err != nil {
-			if err != nil {
-				err = fmt.Errorf("(main_wrapper) json.MarshalIndent returned: %s", err.Error())
-				return
-			}
-		}
-		logger.Debug(3, string(output_receipt_bytes[:]))
-
-		if conf.SUBMITTER_OUTPUT != "" {
-			err = ioutil.WriteFile(conf.SUBMITTER_OUTPUT, output_receipt_bytes, 0644)
-			if err != nil {
-				err = fmt.Errorf("(main_wrapper) ioutil.WriteFile returned: %s", err.Error())
-				return
-			}
-		} else {
-			fmt.Println(string(output_receipt_bytes[:]))
-		}
-
 	} else {
 		fmt.Printf("JobID=%s\n", jobid)
+	}
+	return
+}
+
+func Wait_for_results(jobid string, awe_auth string) (err error) {
+
+	var job *core.Job
+	var status_code int
+	// ***** Wait for job to complete
+
+FORLOOP:
+	for true {
+		time.Sleep(5 * time.Second)
+		job = nil
+
+		job, status_code, err = GetAWEJob(jobid, awe_auth)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "(Wait_for_results) GetAWEJob returned: (status_code: %d) error: %s  \n", status_code, err.Error())
+			if status_code == -1 {
+				err = nil
+				continue
+			}
+			return
+		}
+
+		//fmt.Printf("job state: %s\n", job.State)
+
+		switch job.State {
+		case core.JOB_STAT_COMPLETED:
+			logger.Debug(1, "(Wait_for_results) job state: %s", core.JOB_STAT_COMPLETED)
+			break FORLOOP
+		case core.JOB_STAT_SUSPEND:
+			error_msg_str := ""
+
+			if job.Error != nil {
+
+				error_msg, _ := json.Marshal(job.Error)
+				error_msg_str = string(error_msg[:])
+			}
+
+			err = fmt.Errorf("(Wait_for_results) job is in state \"%s\" (error: %s)", job.State, error_msg_str)
+			return
+		case core.JOB_STAT_FAILED_PERMANENT:
+			err = fmt.Errorf("(Wait_for_results) job is in state \"%s\"", job.State)
+			return
+		case core.JOB_STAT_DELETED:
+			err = fmt.Errorf("(Wait_for_results) job is in state \"%s\"", job.State)
+			return
+		}
+	}
+	//spew.Dump(job)
+
+	_, err = job.Init()
+	if err != nil {
+		return
+	}
+
+	panic("Implement getting for output")
+	var wi *core.WorkflowInstance
+	var ok bool
+	wi, ok, err = job.GetWorkflowInstance("_root", false)
+	if err != nil {
+		err = fmt.Errorf("(Wait_for_results) GetWorkflowInstance returned: %s", err.Error())
+		return
+	}
+
+	if !ok {
+		err = fmt.Errorf("(Wait_for_results) WorkflowInstance not found")
+		return
+	}
+
+	//spew.Dump(wi.Outputs)
+
+	output_receipt := map[string]interface{}{}
+	for _, out := range wi.Outputs {
+
+		out_id := strings.TrimPrefix(out.Id, job.Entrypoint+"/")
+
+		output_receipt[out_id] = out.Value
+	}
+
+	if conf.SUBMITTER_DOWNLOAD_FILES { // TODO
+		var output_file_path string
+		output_file_path, err = os.Getwd()
+
+		_, err = cache.ProcessIOData(output_receipt, output_file_path, output_file_path, "download", nil)
+		if err != nil {
+			spew.Dump(output_receipt)
+			err = fmt.Errorf("(Wait_for_results) ProcessIOData(for download) returned: %s", err.Error())
+			return
+		}
+	}
+
+	var output_receipt_bytes []byte
+	output_receipt_bytes, err = json.MarshalIndent(output_receipt, "", "    ")
+	if err != nil {
+		if err != nil {
+			err = fmt.Errorf("(Wait_for_results) json.MarshalIndent returned: %s", err.Error())
+			return
+		}
+	}
+	logger.Debug(3, string(output_receipt_bytes[:]))
+
+	if conf.SUBMITTER_OUTPUT != "" {
+		err = ioutil.WriteFile(conf.SUBMITTER_OUTPUT, output_receipt_bytes, 0644)
+		if err != nil {
+			err = fmt.Errorf("(Wait_for_results) ioutil.WriteFile returned: %s", err.Error())
+			return
+		}
+	} else {
+		fmt.Println(string(output_receipt_bytes[:]))
 	}
 	return
 }

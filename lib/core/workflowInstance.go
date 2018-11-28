@@ -58,6 +58,7 @@ type WorkflowInstance struct {
 	Tasks               []*Task          `bson:"tasks" json:"tasks" mapstructure:"tasks"`
 	RemainTasks         int              `bson:"remaintasks" json:"remaintasks" mapstructure:"remaintasks"`
 	TotalTasks          int              `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
+	Steps               []string         `bson:"steps" json:"steps" mapstructure:"steps"`
 }
 
 func NewWorkflowInstance(local_id string, jobid string, workflow_definition string, job *Job) (wi *WorkflowInstance, err error) {
@@ -307,6 +308,22 @@ func (wi *WorkflowInstance) SetState(state string, db_sync string, write_lock bo
 	if db_sync == "db_sync_yes" {
 		wi.Save(false)
 	}
+	return
+}
+
+func (wi *WorkflowInstance) SetSteps(steps []string, write_lock bool) (err error) {
+	if write_lock {
+		err = wi.LockNamed("WorkflowInstance/SetSteps")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/SetSteps) wi.LockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.Unlock()
+	}
+	wi.Steps = steps
+
+	wi.Save(false)
+
 	return
 }
 

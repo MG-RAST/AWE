@@ -114,6 +114,16 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 	if wi_state == WI_STAT_PENDING {
 
+		if wi.Inputs == nil {
+			logger.Debug(3, "(updateWorkflowInstancesMapTask) is not ready: %s has no inputs (nil)", wi.LocalId)
+			return
+		}
+
+		if len(wi.Inputs) == 0 {
+			logger.Debug(3, "(updateWorkflowInstancesMapTask) is not ready: %s has no inputs (empty)", wi.LocalId)
+			return
+		}
+
 		// state is pending, might have to create tasks from steps
 
 		jobid := wi.JobId
@@ -822,7 +832,7 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 
 		jerror := &JobError{
 			TaskFailed:  task_str,
-			ServerNotes: "failed enqueuing task, err=" + xerr.Error(),
+			ServerNotes: fmt.Sprintf("failed enqueuing task %s, err=%s", task_id_str, xerr.Error()),
 			Status:      JOB_STAT_SUSPEND,
 		}
 		if err = qm.SuspendJob(job_id, jerror); err != nil {
@@ -2925,12 +2935,12 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflow_instance *Workf
 			spew.Dump(workflow_instance.Inputs)
 			//	panic("output not found a)")
 
-			err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but output %s not found (was %s)", src_path, src_base, src)
+			err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but output %s not found in workflow_instance.Inputs (was %s)", src_path, src_base, src)
 			return
 		}
 
 		err = nil
-		logger.Debug(3, "(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but output %s not found", src_path, src_base)
+		logger.Debug(3, "(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but output %s not found in workflow_instance.Inputs", src_path, src_base)
 		ok = false
 		return
 	}
@@ -2980,11 +2990,11 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflow_instance *Workf
 		if error_on_missing_task {
 			spew.Dump(workflow_instance)
 			panic("output not found b)")
-			err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but not outputs found (%s)", src_path, src_base)
+			err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but not outputs found in StepOutput (%s)", src_path, src_base)
 			return
 		}
 		err = nil
-		logger.Debug(3, "(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but not outputs found (%s)", src_path, src_base)
+		logger.Debug(3, "(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but not outputs found in StepOutput (%s)", src_path, src_base)
 		ok = false
 		return
 	}

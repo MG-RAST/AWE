@@ -83,7 +83,7 @@ type TaskRaw struct {
 	Finalizing          bool                     `bson:"-" json:"-" mapstructure:"-"`                                                                   // CWL-only, a lock mechanism for subworkflows and scatter tasks
 	CwlVersion          cwl.CWLVersion           `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"` // CWL-only
 	WorkflowInstanceId  string                   `bson:"workflow_instance_id" json:"workflow_instance_id" mapstructure:"workflow_instance_id"`          // CWL-only
-	WorkflowParent      *Task_Unique_Identifier  `bson:"workflow_parent" json:"workflow_parent" mapstructure:"workflow_parent"`                         // CWL-only parent that created subworkflow
+	//WorkflowParent      *Task_Unique_Identifier  `bson:"workflow_parent" json:"workflow_parent" mapstructure:"workflow_parent"`                         // CWL-only parent that created subworkflow
 }
 
 type Task struct {
@@ -619,37 +619,37 @@ func (task *TaskRaw) GetChildren(qm *ServerMgr) (children []*Task, err error) {
 }
 
 // returns name of Parent (without jobid)
-func (task *TaskRaw) GetWorkflowParent() (p Task_Unique_Identifier, ok bool, err error) {
-	lock, err := task.RLockNamed("GetParent")
-	if err != nil {
-		return
-	}
-	defer task.RUnlockNamed(lock)
+// func (task *TaskRaw) GetWorkflowParent() (p Task_Unique_Identifier, ok bool, err error) {
+// 	lock, err := task.RLockNamed("GetParent")
+// 	if err != nil {
+// 		return
+// 	}
+// 	defer task.RUnlockNamed(lock)
 
-	if task.WorkflowParent == nil {
-		ok = false
-		return
-	}
+// 	if task.WorkflowParent == nil {
+// 		ok = false
+// 		return
+// 	}
 
-	p = *task.WorkflowParent
-	return
-}
+// 	p = *task.WorkflowParent
+// 	return
+// }
 
-func (task *TaskRaw) GetWorkflowParentStr() (parent_id_str string, err error) {
-	lock, err := task.RLockNamed("GetWorkflowParentStr")
-	if err != nil {
-		return
-	}
-	defer task.RUnlockNamed(lock)
+// func (task *TaskRaw) GetWorkflowParentStr() (parent_id_str string, err error) {
+// 	lock, err := task.RLockNamed("GetWorkflowParentStr")
+// 	if err != nil {
+// 		return
+// 	}
+// 	defer task.RUnlockNamed(lock)
 
-	parent_id_str = ""
+// 	parent_id_str = ""
 
-	if task.WorkflowParent != nil {
-		parent_id_str, _ = task.WorkflowParent.String()
-	}
+// 	if task.WorkflowParent != nil {
+// 		parent_id_str, _ = task.WorkflowParent.String()
+// 	}
 
-	return
-}
+// 	return
+// }
 
 func (task *TaskRaw) GetState() (state string, err error) {
 	lock, err := task.RLockNamed("GetState")
@@ -1843,10 +1843,12 @@ func (task *Task) DeleteLogs(logname string, writelock bool) (err error) {
 	return
 }
 
-func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, err error) {
+func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, reason string, err error) {
 
 	if task.StepOutput == nil {
-		err = fmt.Errorf("(task/GetStepOutput) task.StepOutput == nil")
+		ok = false
+		reason = "task.StepOutput == nil"
+		//err = fmt.Errorf("(task/GetStepOutput) task.StepOutput == nil")
 		return
 	}
 

@@ -49,16 +49,18 @@ type WorkflowInstance struct {
 	RWMutex `bson:"-" json:"-" mapstructure:"-"`
 	LocalId string `bson:"local_id" json:"id" mapstructure:"local_id"`
 	//_Id                 string           `bson:"_id" json:"_id" mapstructure:"_id"` // unique identifier for mongo, includes jobid !
-	JobId               string           `bson:"job_id" json:"job_id" mapstructure:"job_id"`
-	Acl                 *acl.Acl         `bson:"acl" json:"-"`
-	State               string           `bson:"state" json:"state" mapstructure:"state"`                                           // this is unique identifier for the workflow instance
-	Workflow_Definition string           `bson:"workflow_definition" json:"workflow_definition" mapstructure:"workflow_definition"` // name of the workflow this instance is derived from
-	Inputs              cwl.Job_document `bson:"inputs" json:"inputs" mapstructure:"inputs"`
-	Outputs             cwl.Job_document `bson:"outputs" json:"outputs" mapstructure:"outputs"`
-	Tasks               []*Task          `bson:"tasks" json:"tasks" mapstructure:"tasks"`
-	RemainTasks         int              `bson:"remaintasks" json:"remaintasks" mapstructure:"remaintasks"`
-	TotalTasks          int              `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
-	Steps               []string         `bson:"steps" json:"steps" mapstructure:"steps"`
+	JobId               string            `bson:"job_id" json:"job_id" mapstructure:"job_id"`
+	Acl                 *acl.Acl          `bson:"acl" json:"-"`
+	State               string            `bson:"state" json:"state" mapstructure:"state"`                                           // this is unique identifier for the workflow instance
+	Workflow_Definition string            `bson:"workflow_definition" json:"workflow_definition" mapstructure:"workflow_definition"` // name of the workflow this instance is derived from
+	Workflow            *cwl.Workflow     `bson:"-" json:"-" mapstructure:"-"`                                                       // just a cache
+	Inputs              cwl.Job_document  `bson:"inputs" json:"inputs" mapstructure:"inputs"`
+	Outputs             cwl.Job_document  `bson:"outputs" json:"outputs" mapstructure:"outputs"`
+	Tasks               []*Task           `bson:"tasks" json:"tasks" mapstructure:"tasks"`
+	RemainTasks         int               `bson:"remaintasks" json:"remaintasks" mapstructure:"remaintasks"`
+	TotalTasks          int               `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
+	Subworkflows        []string          `bson:"subworkflows" json:"subworkflows" mapstructure:"subworkflows"`
+	ParentStep          *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"`
 }
 
 func NewWorkflowInstance(local_id string, jobid string, workflow_definition string, job *Job) (wi *WorkflowInstance, err error) {
@@ -311,18 +313,31 @@ func (wi *WorkflowInstance) SetState(state string, db_sync string, write_lock bo
 	return
 }
 
-func (wi *WorkflowInstance) SetSteps(steps []string, write_lock bool) (err error) {
+func (wi *WorkflowInstance) SetSubworkflows(steps []string, write_lock bool) (err error) {
 	if write_lock {
-		err = wi.LockNamed("WorkflowInstance/SetSteps")
+		err = wi.LockNamed("WorkflowInstance/SetSubworkflows")
 		if err != nil {
-			err = fmt.Errorf("(WorkflowInstance/SetSteps) wi.LockNamed returned: %s", err.Error())
+			err = fmt.Errorf("(WorkflowInstance/SetSubworkflows) wi.LockNamed returned: %s", err.Error())
 			return
 		}
 		defer wi.Unlock()
 	}
-	wi.Steps = steps
+	wi.Subworkflows = steps
 
 	wi.Save(false)
+
+	return
+}
+
+func (wi *WorkflowInstance) GetWorkflow(context *cwl.WorkflowContext) (workflow *cwl.Workflow, err error) {
+
+	workflow_def_str := wi.Workflow_Definition
+
+	workflow, err = context.GetWorkflow(workflow_def_str)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/GetWorkflow) context.GetWorkflow returned: %s", err.Error())
+		return
+	}
 
 	return
 }

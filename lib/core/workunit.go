@@ -219,9 +219,15 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		workflow_input_map := workflow_instance.Inputs.GetMap()
 
 		var workunit_input_map map[string]cwl.CWLType
-		workunit_input_map, err = qm.GetStepInputObjects(job, workflow_instance, task_id, workflow_input_map, workflow_step, context)
+		var reason string
+		workunit_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflow_instance, workflow_input_map, workflow_step, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects returned: %s", err.Error())
+			return
+		}
+
+		if !ok {
+			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects not ready, reason: %s", reason)
 			return
 		}
 

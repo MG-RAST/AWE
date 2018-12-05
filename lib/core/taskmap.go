@@ -87,11 +87,11 @@ func (tm *TaskMap) Delete(taskid Task_Unique_Identifier) (task *Task, ok bool, e
 
 func (tm *TaskMap) Add(task *Task, caller string) (err error) {
 
-	if task.Comment != "" {
+	//if task.Comment != "" {
 
-		err = fmt.Errorf("task.Comment not empty: %s", task.Comment)
-		return
-	}
+	//	err = fmt.Errorf("task.Comment not empty: %s", task.Comment)
+	//	return
+	//}
 
 	if caller == "" {
 		err = fmt.Errorf("caller empty")

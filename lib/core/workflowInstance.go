@@ -57,7 +57,7 @@ type WorkflowInstance struct {
 	Inputs              cwl.Job_document  `bson:"inputs" json:"inputs" mapstructure:"inputs"`
 	Outputs             cwl.Job_document  `bson:"outputs" json:"outputs" mapstructure:"outputs"`
 	Tasks               []*Task           `bson:"tasks" json:"tasks" mapstructure:"tasks"`
-	RemainTasks         int               `bson:"remaintasks" json:"remaintasks" mapstructure:"remaintasks"`
+	RemainSteps         int               `bson:"remainsteps" json:"remainsteps" mapstructure:"remainsteps"`
 	TotalTasks          int               `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
 	Subworkflows        []string          `bson:"subworkflows" json:"subworkflows" mapstructure:"subworkflows"`
 	ParentStep          *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"`
@@ -283,8 +283,8 @@ func (wi *WorkflowInstance) AddTask(task *Task, db_sync string, write_lock bool)
 
 	wi.Tasks = append(wi.Tasks, task)
 
-	wi.RemainTasks += 1
-	wi.TotalTasks = len(wi.Tasks)
+	//wi.RemainSteps += 1
+	//wi.TotalTasks = len(wi.Tasks)
 
 	if db_sync == "db_sync_yes" {
 		err = wi.Save(false)
@@ -333,6 +333,11 @@ func (wi *WorkflowInstance) GetWorkflow(context *cwl.WorkflowContext) (workflow 
 
 	workflow_def_str := wi.Workflow_Definition
 
+	if context == nil {
+		err = fmt.Errorf("(WorkflowInstance/GetWorkflow) context == nil")
+		return
+	}
+
 	workflow, err = context.GetWorkflow(workflow_def_str)
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/GetWorkflow) context.GetWorkflow returned: %s", err.Error())
@@ -343,25 +348,25 @@ func (wi *WorkflowInstance) GetWorkflow(context *cwl.WorkflowContext) (workflow 
 }
 
 // db_sync is a string because a bool would be misunderstood as a lock indicator ("db_sync_no", db_sync_yes
-func (wi *WorkflowInstance) SetTasks(tasks []*Task, db_sync string) (err error) {
-	err = wi.LockNamed("WorkflowInstance/SetTasks")
-	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/SetTasks) wi.LockNamed returned: %s", err.Error())
-		return
-	}
-	defer wi.Unlock()
+// func (wi *WorkflowInstance) SetTasks(tasks []*Task, db_sync string) (err error) {
+// 	err = wi.LockNamed("WorkflowInstance/SetTasks")
+// 	if err != nil {
+// 		err = fmt.Errorf("(WorkflowInstance/SetTasks) wi.LockNamed returned: %s", err.Error())
+// 		return
+// 	}
+// 	defer wi.Unlock()
 
-	wi.Tasks = tasks
-	wi.RemainTasks = len(tasks)
-	wi.TotalTasks = len(tasks)
-	if db_sync == "db_sync_yes" {
-		err = wi.Save(false)
-		if err != nil {
-			return
-		}
-	}
-	return
-}
+// 	wi.Tasks = tasks
+// 	wi.RemainTasks = len(tasks)
+// 	wi.TotalTasks = len(tasks)
+// 	if db_sync == "db_sync_yes" {
+// 		err = wi.Save(false)
+// 		if err != nil {
+// 			return
+// 		}
+// 	}
+// 	return
+// }
 
 func (wi *WorkflowInstance) GetTask(task_id Task_Unique_Identifier) (task *Task, ok bool, err error) {
 	ok = false
@@ -531,29 +536,29 @@ func (wi *WorkflowInstance) GetOutput(name string, read_lock bool) (obj cwl.CWLT
 	return
 }
 
-func (wi *WorkflowInstance) DecreaseRemainTasks() (remain int, err error) {
-	err = wi.LockNamed("WorkflowInstance/DecreaseRemainTasks")
+func (wi *WorkflowInstance) DecreaseRemainSteps() (remain int, err error) {
+	err = wi.LockNamed("WorkflowInstance/DecreaseRemainSteps")
 	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainTasks) wi.LockNamed returned: %s", err.Error())
+		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps) wi.LockNamed returned: %s", err.Error())
 		return
 	}
 	defer wi.Unlock()
 
-	if wi.RemainTasks <= 0 {
-		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainTasks) RemainTasks is already %d", wi.RemainTasks)
+	if wi.RemainSteps <= 0 {
+		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps) RemainSteps is already %d", wi.RemainSteps)
 		return
 	}
 
-	wi.RemainTasks -= 1
+	wi.RemainSteps -= 1
 
-	//err = dbUpdateJobWorkflow_instancesFieldInt(wi.JobId, wi.Id, "remaintasks", wi.RemainTasks)
-	err = dbIncrementJobWorkflow_instancesField(wi.JobId, wi.LocalId, "remaintasks", -1) // TODO return correct value for remain
+	//err = dbUpdateJobWorkflow_instancesFieldInt(wi.JobId, wi.Id, "remainsteps", wi.RemainSteps)
+	err = dbIncrementJobWorkflow_instancesField(wi.JobId, wi.LocalId, "remainsteps", -1) // TODO return correct value for remain
 	//err = wi.Save()
 	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainTasks)  Save() returned: %s", err.Error())
+		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps)  Save() returned: %s", err.Error())
 		return
 	}
-	remain = wi.RemainTasks
+	remain = wi.RemainSteps
 
 	return
 }

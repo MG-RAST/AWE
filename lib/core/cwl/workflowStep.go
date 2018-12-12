@@ -474,6 +474,56 @@ func GetProcess(original interface{}, context *WorkflowContext) (process interfa
 	return
 }
 
+func (ws *WorkflowStep) GetProcessType(context *WorkflowContext) (process_type string, err error) {
+
+	p := ws.Run
+	switch p.(type) {
+
+	case *CommandLineTool:
+		process_type = "CommandLineTool"
+
+	case *ExpressionTool:
+		process_type = "ExpressionTool"
+
+	case *Workflow:
+		process_type = "Workflow"
+
+	case string:
+
+		process_name := p.(string)
+
+		_, err = context.GetCommandLineTool(process_name)
+		if err == nil {
+			process_type = "CommandLineTool"
+			return
+		}
+		err = nil
+
+		_, err = context.GetExpressionTool(process_name)
+		if err == nil {
+			process_type = "ExpressionTool"
+			return
+		}
+		err = nil
+
+		_, err = context.GetWorkflow(process_name)
+		if err == nil {
+			process_type = "Workflow"
+			return
+		}
+		err = nil
+		spew.Dump(context)
+		err = fmt.Errorf("(GetProcessType) Process %s not found ", process_name)
+
+	default:
+		err = fmt.Errorf("(GetProcessType) Process type %s unknown", reflect.TypeOf(p))
+
+	}
+
+	return
+
+}
+
 func (ws *WorkflowStep) GetProcess(context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
 
 	//var p interface{}

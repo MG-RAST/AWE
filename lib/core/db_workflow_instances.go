@@ -69,6 +69,45 @@ func DBGetJobWorkflow_instances(q bson.M, options *DefaultQueryOptions, do_init 
 	return
 }
 
+func DBGetJobWorkflow_instance_One(q bson.M, options *DefaultQueryOptions, do_init bool) (result interface{}, err error) {
+
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
+	query := c.Find(q)
+	// count, err = query.Count()
+	// if err != nil {
+	// 	result = nil
+	// 	err = fmt.Errorf("(DBGetJobWorkflow_instance_One) query.Count returned: %s", err.Error())
+	// 	return
+	// }
+
+	// if len(options.Sort) > 0 {
+	// 	// this allows to provide multiple sort fields
+	// 	query = query.Sort(options.Sort...)
+	// }
+
+	// options.Limit is always defined
+	//query = query.Limit(options.Limit)
+
+	// options.Offset is always defined
+	//query = query.Skip(options.Offset)
+
+	//var results []WorkflowInstance
+	//result = interface{}
+
+	err = query.One(&result)
+	if err != nil {
+		err = fmt.Errorf("(DBGetJobWorkflow_instance_One) query.All(results) failed: %s", err.Error())
+		return
+	}
+	if result == nil {
+		err = fmt.Errorf("(DBGetJobWorkflow_instance_One) result == nil")
+		return
+	}
+	return
+}
+
 func dbUpdateJobWorkflow_instancesFieldOutputs(job_id string, subworkflow_id string, outputs cwl.Job_document) (err error) {
 	update_value := bson.M{"outputs": outputs}
 	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)

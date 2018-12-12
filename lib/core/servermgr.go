@@ -2887,57 +2887,15 @@ func (qm *ServerMgr) getCWLSourceFromWorkflowInput_deprecated(workflow_input_map
 	//spew.Dump(workflow_input_map)
 }
 
-// src = workflow_name / step_name / output_name
-func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflow_instance *WorkflowInstance, workflow_name string, step_name string, output_name string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
-	ok = false
-	//step_name_abs := workflow_name + "/" + step_name
-	workflow_instance_id, _ := workflow_instance.GetId(true)
-	workflow_instance_local_id := workflow_instance.LocalId
-	//if workflow_instance_id != workflow_name {
-	//	err = fmt.Errorf("(getCWLSourceFromStepOutput) workflow_instance_id != workflow_name ???")
-	//	return
-	//}
-
-
-		TODO: is is not clear if step is a task (implenented here) or a workflow output
-
-	//src := workflow_name + "/" + step_name + "/" + output_name
-	logger.Debug(3, "(getCWLSourceFromStepOutput) %s / %s / %s (workflow_instance_id: %s)", workflow_name, step_name, output_name, workflow_instance_id)
-	// *** check if workflow_name + "/" + step_name is a subworkflow
-	//workflow_instance_name := workflow_name + "/" + step_name
-
-	//var wi *WorkflowInstance
-
-	//wi, ok, err = job.GetWorkflowInstance(workflow_instance_name, true)
-	//if err != nil {
-	//	err = fmt.Errorf("(getCWLSourceFromStepOutput) job.GetWorkflowInstance returned: %s", err.Error())
-	//	return
-	//}
-
-	//if ok {
-	ok = false
-	// source is a workflow output
-	//obj, ok, err = workflow_instance.GetOutput(output_name, true)
-	//if err != nil {
-	//	err = fmt.Errorf("(getCWLSourceFromStepOutput) wi.GetOutput returned: %s", err.Error())
-	//	return
-	//}
-
-	///if !ok {
-	//	reason = fmt.Sprintf("Output %s not found in output of workflow_instance", output_name)
-	//	return
-	//}
-
-	//	ok = true
-	//	return
-
-	//}
+func (qm *ServerMgr) getCWLSourceFromStepOutput_Tool(job *Job, workflow_instance *WorkflowInstance, workflow_name string, step_name string, output_name string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
 
 	// search task and its output
 	if workflow_instance.JobId == "" {
 		err = fmt.Errorf("(getCWLSourceFromStepOutput) workflow_instance.JobId empty")
 		return
 	}
+	//workflow_instance_id, _ := workflow_instance.GetId(true)
+	workflow_instance_local_id := workflow_instance.LocalId
 
 	ancestor_task_name_local := workflow_instance_local_id + "/" + step_name
 
@@ -2975,6 +2933,126 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflow_instance *Wor
 	}
 	if !ok {
 		reason = fmt.Sprintf("Output %s not found in output of ancestor_task", ancestor_task_name_local)
+		return
+	}
+
+	return
+}
+
+func (qm *ServerMgr) getCWLSourceFromStepOutput_Workflow(job *Job, workflow_instance *WorkflowInstance, workflow_name string, step_name string, output_name string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
+
+	local_name := workflow_instance.LocalId
+
+	subworkflow_name := local_name + "/" + step_name
+
+	var subwi *WorkflowInstance
+	subwi, ok, err = job.GetWorkflowInstance(subworkflow_name, true)
+	if err != nil {
+		err = fmt.Errorf("(getCWLSourceFromStepOutput_Workflow) job.GetWorkflowInstance returned: %s", err.Error())
+		return
+	}
+
+	if !ok {
+
+		steps := ""
+		for _, wi := range job.WorkflowInstancesMap {
+
+			steps += "," + wi.LocalId
+		}
+
+		err = fmt.Errorf("(getCWLSourceFromStepOutput_Workflow) step %s (a Workflow) not found (found: %s)", subworkflow_name, steps)
+		return
+	}
+
+	//var obj cwl.CWLType
+	obj, ok, err = subwi.GetOutput(output_name, true)
+	if err != nil {
+		err = fmt.Errorf("(getCWLSourceFromStepOutput_Workflow) subwi.GetOutput returned: %s", err.Error())
+		return
+	}
+
+	if !ok {
+
+		outputs := ""
+		for i, _ := range subwi.Outputs {
+			named := subwi.Outputs[i]
+			outputs += "," + named.Id
+		}
+
+		err = fmt.Errorf("(getCWLSourceFromStepOutput_Workflow) output %s not found in workflow %s (found: %s)", output_name, subworkflow_name, outputs)
+		return
+	}
+
+	return
+}
+
+// To get StepOutput function has to distinguish between task (CommandLine/Expression-Tool) and Subworkflow
+// src = workflow_name / step_name / output_name
+func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflow_instance *WorkflowInstance, workflow_name string, step_name string, output_name string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
+	ok = false
+	//step_name_abs := workflow_name + "/" + step_name
+	workflow_instance_id, _ := workflow_instance.GetId(true)
+	//workflow_instance_local_id := workflow_instance.LocalId
+
+	logger.Debug(3, "(getCWLSourceFromStepOutput) %s / %s / %s (workflow_instance_id: %s)", workflow_name, step_name, output_name, workflow_instance_id)
+	_ = workflow_instance_id
+	// *** check if workflow_name + "/" + step_name is a subworkflow
+	//workflow_instance_name := workflow_name + "/" + step_name
+
+	//var wi *WorkflowInstance
+
+	//wi, ok, err = job.GetWorkflowInstance(workflow_instance_name, true)
+	//if err != nil {
+	//	err = fmt.Errorf("(getCWLSourceFromStepOutput) job.GetWorkflowInstance returned: %s", err.Error())
+	//	return
+	//}
+
+	//if ok {
+	ok = false
+
+	context := job.WorkflowContext
+
+	// get workflow
+	var workflow *cwl.Workflow
+	workflow, err = workflow_instance.GetWorkflow(context)
+
+	var step *cwl.WorkflowStep
+	step, err = workflow.GetStep(step_name)
+	if err != nil {
+
+		steps := ""
+		for i, _ := range workflow.Steps {
+			s2 := &workflow.Steps[i]
+			steps += "," + s2.Id
+		}
+
+		err = fmt.Errorf("(getCWLSourceFromStepOutput) Step %s not found (found %s)", step_name, steps)
+		return
+	}
+
+	// determinre process type
+	var process_type string
+	process_type, err = step.GetProcessType(context)
+	if err != nil {
+		err = fmt.Errorf("(getCWLSourceFromStepOutput) step.GetProcessType returned: %s", err.Error())
+		return
+	}
+
+	switch process_type {
+	case "CommandLineTool", "ExpressionTool":
+		obj, ok, reason, err = qm.getCWLSourceFromStepOutput_Tool(job, workflow_instance, workflow_name, step_name, output_name, error_on_missing_task)
+		if err != nil {
+			err = fmt.Errorf("(getCWLSourceFromStepOutput) getCWLSourceFromStepOutput_Tool returned: %s", err.Error())
+			return
+		}
+	case "Workflow":
+		obj, ok, reason, err = qm.getCWLSourceFromStepOutput_Workflow(job, workflow_instance, workflow_name, step_name, output_name, error_on_missing_task)
+		if err != nil {
+			err = fmt.Errorf("(getCWLSourceFromStepOutput) getCWLSourceFromStepOutput_Tool returned: %s", err.Error())
+			return
+		}
+	default:
+		err = fmt.Errorf("(getCWLSourceFromStepOutput) process_type %s unknown", process_type)
 		return
 	}
 

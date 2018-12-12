@@ -14,7 +14,50 @@ type WorkflowInstancesController struct{}
 // pagination should be efficient if list is sorted by an indexed field
 // multiple sort keys are ok, but maybe should only be allowed when indexed fields are used
 
-// GET: /workflow_instances
+// GET: /workflow_instances/{id}
+func (cr *WorkflowInstancesController) Read(id string, cx *goweb.Context) {
+	LogRequest(cx.Request)
+
+	// get user
+	u, done := GetAuthorizedUser(cx)
+	if done {
+		return
+	}
+
+	// get database query for user-specific ACLs
+	db_query := GetAclQuery(u)
+
+	// get limit, offset, order
+	var err error
+	var options *core.DefaultQueryOptions
+	options, err = QueryParseDefaultOptions(cx)
+	if err != nil {
+		return
+	}
+
+	//request_query := &Query{Li: cx.Request.URL.Query()}
+
+	//if request_query.Has("job_id") {
+	db_query["_id"] = id
+	//}
+
+	//var result []core.WorkflowInstance
+	var result_if interface{}
+
+	//var count int
+	result_if, err = core.DBGetJobWorkflow_instance_One(db_query, options, false)
+
+	if err != nil {
+		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	cx.RespondWithData(result_if)
+
+	return
+}
+
+// GET: /workflow_instances/
 func (cr *WorkflowInstancesController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 

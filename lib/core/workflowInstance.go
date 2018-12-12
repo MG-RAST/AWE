@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"path"
 	"reflect"
 
 	"github.com/MG-RAST/AWE/lib/acl"
@@ -53,7 +54,7 @@ type WorkflowInstance struct {
 	Acl                 *acl.Acl          `bson:"acl" json:"-"`
 	State               string            `bson:"state" json:"state" mapstructure:"state"`                                           // this is unique identifier for the workflow instance
 	Workflow_Definition string            `bson:"workflow_definition" json:"workflow_definition" mapstructure:"workflow_definition"` // name of the workflow this instance is derived from
-	Workflow            *cwl.Workflow     `bson:"-" json:"-" mapstructure:"-"`                                                       // just a cache
+	Workflow            *cwl.Workflow     `bson:"-" json:"-" mapstructure:"-"`                                                       // just a cache for the Workflow pointer
 	Inputs              cwl.Job_document  `bson:"inputs" json:"inputs" mapstructure:"inputs"`
 	Outputs             cwl.Job_document  `bson:"outputs" json:"outputs" mapstructure:"outputs"`
 	Tasks               []*Task           `bson:"tasks" json:"tasks" mapstructure:"tasks"`
@@ -524,9 +525,16 @@ func (wi *WorkflowInstance) GetOutput(name string, read_lock bool) (obj cwl.CWLT
 		defer wi.RUnlockNamed(lock)
 	}
 	ok = true
+
+	if wi.Outputs == nil {
+		err = fmt.Errorf("(WorkflowInstance/GetOutput) not Outputs")
+		return
+	}
+
 	for i, _ := range wi.Outputs {
 		named_output := wi.Outputs[i]
-		if named_output.Id == name {
+		named_output_base := path.Base(named_output.Id)
+		if named_output_base == name {
 			obj = named_output.Value
 			return
 		}

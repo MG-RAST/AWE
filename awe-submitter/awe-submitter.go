@@ -419,15 +419,15 @@ FORLOOP:
 	}
 	//spew.Dump(job)
 
-	_, err = job.Init()
-	if err != nil {
-		return
-	}
+	//_, err = job.Init()
+	//if err != nil {
+	//return
+	//}
 
 	// example: curl http://skyport.local:8001/awe/api/workflow_instances/c1cad21a-5ab5-4015-8aae-1dfda844e559_root
 
 	var wi *core.WorkflowInstance
-	wi, status_code, err = GetWorkflowInstance(jobid, awe_auth)
+	wi, status_code, err = GetRootWorkflowInstance(jobid, job, awe_auth)
 
 	//panic("Implement getting for output")
 	//var wi *core.WorkflowInstance
@@ -727,7 +727,7 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, status_code int, e
 	return
 }
 
-func GetWorkflowInstance(jobid string, awe_auth string) (wi *core.WorkflowInstance, status_code int, err error) {
+func GetRootWorkflowInstance(jobid string, job *core.Job, awe_auth string) (wi *core.WorkflowInstance, status_code int, err error) {
 	//wi_array := []core.WorkflowInstance{}
 	var wi_if interface{}
 
@@ -736,7 +736,7 @@ func GetWorkflowInstance(jobid string, awe_auth string) (wi *core.WorkflowInstan
 		return
 	}
 
-	wi, err = core.NewWorkflowInstanceFromInterface(wi_if, nil, nil)
+	wi, err = core.NewWorkflowInstanceFromInterface(wi_if, job, nil, false)
 
 	return
 }

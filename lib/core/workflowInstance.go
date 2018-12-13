@@ -62,6 +62,7 @@ type WorkflowInstance struct {
 	TotalTasks          int               `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
 	Subworkflows        []string          `bson:"subworkflows" json:"subworkflows" mapstructure:"subworkflows"`
 	ParentStep          *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"`
+	//Created_by          string            `bson:"created_by" json:"created_by" mapstructure:"created_by"`
 }
 
 func NewWorkflowInstance(local_id string, jobid string, workflow_definition string, job *Job) (wi *WorkflowInstance, err error) {
@@ -95,7 +96,7 @@ func NewWorkflowInstance(local_id string, jobid string, workflow_definition stri
 	return
 }
 
-func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *cwl.WorkflowContext) (wi *WorkflowInstance, err error) {
+func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *cwl.WorkflowContext, do_init bool) (wi *WorkflowInstance, err error) {
 	original, err = cwl.MakeStringMap(original, context)
 	if err != nil {
 		return
@@ -221,12 +222,13 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 			return
 		}
 
-		_, err = wi.Init(job)
-		if err != nil {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) wi.Init returned: %s", err.Error())
-			return
+		if do_init {
+			_, err = wi.Init(job)
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) wi.Init returned: %s", err.Error())
+				return
+			}
 		}
-
 	case *WorkflowInstance:
 
 		var ok bool
@@ -236,12 +238,13 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 			return
 		}
 
-		_, err = wi.Init(job)
-		if err != nil {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) wi.Init returned: %s", err.Error())
-			return
+		if do_init {
+			_, err = wi.Init(job)
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) wi.Init returned: %s", err.Error())
+				return
+			}
 		}
-
 	default:
 		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) type unknown, %s", reflect.TypeOf(original))
 		return
@@ -256,7 +259,7 @@ func NewWorkflowInstanceArrayFromInterface(original []interface{}, job *Job, con
 
 	for i, _ := range original {
 		var wi *WorkflowInstance
-		wi, err = NewWorkflowInstanceFromInterface(original[i], job, context)
+		wi, err = NewWorkflowInstanceFromInterface(original[i], job, context, true)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflowInstanceArrayFromInterface) NewWorkflowInstanceFromInterface returned: %s", err.Error())
 			return

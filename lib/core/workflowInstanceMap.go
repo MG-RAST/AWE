@@ -1,5 +1,7 @@
 package core
 
+import "fmt"
+
 type WorkflowInstanceMap struct {
 	RWMutex
 	_map map[string]*WorkflowInstance
@@ -23,7 +25,8 @@ func (wim *WorkflowInstanceMap) GetWorkflowInstances() (wis []*WorkflowInstance,
 	}
 	defer wim.RUnlockNamed(read_lock)
 
-	for _, wi := range wim._map {
+	for i, _ := range wim._map {
+		wi := wim._map[i]
 		wis = append(wis, wi)
 	}
 
@@ -38,6 +41,13 @@ func (wim *WorkflowInstanceMap) Add(workflow_instance *WorkflowInstance) (err er
 	defer wim.Unlock()
 
 	id, _ := workflow_instance.GetId(false)
+
+	_, ok := wim._map[id]
+	if ok {
+		err = fmt.Errorf("(WorkflowInstanceMap/Add) workflow_instance %s already in map", id)
+		return
+	}
+
 	wim._map[id] = workflow_instance
 	return
 }

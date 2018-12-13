@@ -495,6 +495,12 @@ func LoadJob(id string) (job *Job, err error) {
 				return
 			}
 
+			err = GlobalWorkflowInstanceMap.Add(wi)
+			if err != nil {
+				err = fmt.Errorf("(LoadJob) GlobalWorkflowInstanceMap.Add returned: %s", err.Error())
+				return
+			}
+
 		}
 	}
 

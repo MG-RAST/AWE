@@ -16,6 +16,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	shock "github.com/MG-RAST/go-shock-client"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -235,6 +236,10 @@ func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) 
 	//	task.Id = strings.TrimPrefix(task.Id, "_")
 	//	changed = true
 	//}
+	if job == nil {
+		err = fmt.Errorf("(InitRaw) job is nil")
+		return
+	}
 	context := job.WorkflowContext
 	if task.StepOutputInterface != nil {
 
@@ -1897,15 +1902,77 @@ func (task *Task) GetStepOutputNames() (names []string, err error) {
 	return
 }
 
+func String2Date(str string) (t time.Time, err error) {
+	//layout := "2006-01-02T15:04:05.00Z"
+	// 2018-12-13T22:36:02.96Z
+	//str := "2014-11-12T11:45:26.371Z"
+	//t, err = time.Parse(layout, str)
+	t, err = time.Parse(time.RFC3339, str)
+
+	return
+}
+
 func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (task *Task, err error) {
 
 	task = &Task{}
 	task.TaskRaw = TaskRaw{}
 
+	spew.Dump(original)
+	original_map := original.(map[string]interface{})
+
+	completedDate := ""
+	createdDate := ""
+	startedDate := ""
+	var ok bool
+
+	var completedDate_if interface{}
+	var createdDate_if interface{}
+	var startedDate_if interface{}
+
+	completedDate_if, ok = original_map["completedDate"]
+	if ok {
+		completedDate = completedDate_if.(string)
+		delete(original_map, "completedDate")
+	}
+	createdDate_if, ok = original_map["createdDate"]
+	if ok {
+		createdDate = createdDate_if.(string)
+		delete(original_map, "createdDate")
+	}
+	startedDate_if, ok = original_map["startedDate"]
+	if ok {
+		startedDate = startedDate_if.(string)
+		delete(original_map, "startedDate")
+	}
+
 	err = mapstructure.Decode(original, task)
 	if err != nil {
 		err = fmt.Errorf("(NewTaskFromInterface) %s", err.Error())
 		return
+	}
+
+	if completedDate != "" {
+		task.CompletedDate, err = String2Date(completedDate)
+		if err != nil {
+			err = fmt.Errorf("(NewTaskFromInterface) Could not parse date: %s", err.Error())
+			return
+		}
+	}
+
+	if createdDate != "" {
+		task.CreatedDate, err = String2Date(createdDate)
+		if err != nil {
+			err = fmt.Errorf("(NewTaskFromInterface) Could not parse date: %s", err.Error())
+			return
+		}
+	}
+
+	if startedDate != "" {
+		task.StartedDate, err = String2Date(startedDate)
+		if err != nil {
+			err = fmt.Errorf("(NewTaskFromInterface) Could not parse date: %s", err.Error())
+			return
+		}
 	}
 
 	if task.WorkflowInstanceId == "" {

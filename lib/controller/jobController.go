@@ -596,6 +596,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				return
 			}
 
+			core.JM.Add(job)
 			var wi *core.WorkflowInstance
 
 			wi = job.WorkflowInstancesMap["_root"]

@@ -814,7 +814,7 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	threads := 20
 	size, _ := qm.TaskMap.Len()
 	loopStart := time.Now()
-	logger.Info("(updateQueue) starting loop through TaskMap; threads: %d, TaskMap.Len: %d", threads, size)
+	logger.Debug(3, "(updateQueue) starting loop through TaskMap; threads: %d, TaskMap.Len: %d", threads, size)
 
 	taskChan := make(chan *Task, size)
 	queueChan := make(chan bool, size)
@@ -842,7 +842,7 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 		}
 	}
 	close(queueChan)
-	logger.Info("(updateQueue) completed loop through TaskMap; # processed: %d, queued: %d, took %s", total, queue, time.Since(loopStart))
+	logger.Debug(3, "(updateQueue) completed loop through TaskMap; # processed: %d, queued: %d, took %s", total, queue, time.Since(loopStart))
 
 	logger.Debug(3, "(updateQueue) range qm.workQueue.Clean()")
 	for _, workunit := range qm.workQueue.Clean() {

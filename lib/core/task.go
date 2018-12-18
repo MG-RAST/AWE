@@ -16,7 +16,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	shock "github.com/MG-RAST/go-shock-client"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -1917,7 +1916,14 @@ func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (t
 	task = &Task{}
 	task.TaskRaw = TaskRaw{}
 
-	spew.Dump(original)
+	//spew.Dump(original)
+
+	original, err = cwl.MakeStringMap(original, context)
+	if err != nil {
+		err = fmt.Errorf("(NewTaskFromInterface) MakeStringMap returned: %s", err.Error())
+		return
+	}
+
 	original_map := original.(map[string]interface{})
 
 	completedDate := ""

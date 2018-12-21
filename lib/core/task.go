@@ -1911,6 +1911,34 @@ func String2Date(str string) (t time.Time, err error) {
 	return
 }
 
+func FixTimeInMap(original_map map[string]interface{}, field string) (err error) {
+	var value_if interface{}
+	var ok bool
+	value_if, ok = original_map[field]
+	if ok {
+		switch value_if.(type) {
+		case string:
+			value_str := value_if.(string)
+
+			var value_time time.Time
+			value_time, err = String2Date(value_str)
+			if err != nil {
+				err = fmt.Errorf("(FixTimeInMap) Could not parse date: %s", err.Error())
+				return
+			}
+			delete(original_map, field)
+			original_map[field] = value_time
+
+		case time.Time:
+			// all ok
+		default:
+			err = fmt.Errorf("(FixTimeInMap) time type unknown (%s)", reflect.TypeOf(value_if))
+		}
+
+	}
+	return
+}
+
 func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (task *Task, err error) {
 
 	task = &Task{}
@@ -1926,59 +1954,19 @@ func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (t
 
 	original_map := original.(map[string]interface{})
 
-	completedDate := ""
-	createdDate := ""
-	startedDate := ""
-	var ok bool
+	for _, field := range []string{"createdDate", "startedDate", "completedeDate"} {
 
-	var completedDate_if interface{}
-	var createdDate_if interface{}
-	var startedDate_if interface{}
-
-	completedDate_if, ok = original_map["completedDate"]
-	if ok {
-		completedDate = completedDate_if.(string)
-		delete(original_map, "completedDate")
-	}
-	createdDate_if, ok = original_map["createdDate"]
-	if ok {
-		createdDate = createdDate_if.(string)
-		delete(original_map, "createdDate")
-	}
-	startedDate_if, ok = original_map["startedDate"]
-	if ok {
-		startedDate = startedDate_if.(string)
-		delete(original_map, "startedDate")
+		err = FixTimeInMap(original_map, field)
+		if err != nil {
+			err = fmt.Errorf("(NewTaskFromInterface) FixTimeInMap returned: %s", err.Error())
+			return
+		}
 	}
 
 	err = mapstructure.Decode(original, task)
 	if err != nil {
 		err = fmt.Errorf("(NewTaskFromInterface) %s", err.Error())
 		return
-	}
-
-	if completedDate != "" {
-		task.CompletedDate, err = String2Date(completedDate)
-		if err != nil {
-			err = fmt.Errorf("(NewTaskFromInterface) Could not parse date: %s", err.Error())
-			return
-		}
-	}
-
-	if createdDate != "" {
-		task.CreatedDate, err = String2Date(createdDate)
-		if err != nil {
-			err = fmt.Errorf("(NewTaskFromInterface) Could not parse date: %s", err.Error())
-			return
-		}
-	}
-
-	if startedDate != "" {
-		task.StartedDate, err = String2Date(startedDate)
-		if err != nil {
-			err = fmt.Errorf("(NewTaskFromInterface) Could not parse date: %s", err.Error())
-			return
-		}
 	}
 
 	if task.WorkflowInstanceId == "" {

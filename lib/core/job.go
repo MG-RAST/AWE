@@ -618,6 +618,7 @@ func getPathByJobId(id string) (path string, err error) {
 	return
 }
 
+// get tasks form from all subworkflows in the job
 func (job *Job) GetTasks() (tasks []*Task, err error) {
 	tasks = []*Task{}
 
@@ -630,8 +631,15 @@ func (job *Job) GetTasks() (tasks []*Task, err error) {
 	if job.IsCWL {
 		logger.Debug(3, "(GetTasks) iscwl len(job.WorkflowInstancesMap): %d", len(job.WorkflowInstancesMap))
 		for _, wi := range job.WorkflowInstancesMap {
-			logger.Debug(3, "(GetTasks) wi.Tasks: %d", len(wi.Tasks))
-			for _, task := range wi.Tasks {
+
+			var wi_tasks []*Task
+			wi_tasks, err = wi.GetTasks(true)
+			if err != nil {
+				return
+			}
+
+			logger.Debug(3, "(GetTasks) wi_tasks: %d", len(wi_tasks))
+			for _, task := range wi_tasks {
 				tasks = append(tasks, task)
 			}
 		}

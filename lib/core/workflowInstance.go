@@ -372,14 +372,42 @@ func (wi *WorkflowInstance) GetWorkflow(context *cwl.WorkflowContext) (workflow 
 // 	return
 // }
 
-func (wi *WorkflowInstance) GetTask(task_id Task_Unique_Identifier) (task *Task, ok bool, err error) {
+func (wi *WorkflowInstance) GetTask(task_id Task_Unique_Identifier, read_lock bool) (task *Task, ok bool, err error) {
 	ok = false
-
+	if read_lock {
+		var lock ReadLock
+		lock, err = wi.RLockNamed("WorkflowInstance/GetTask")
+		if err != nil {
+			return
+		}
+		defer wi.RUnlockNamed(lock)
+	}
 	for _, t := range wi.Tasks {
 		if t.Task_Unique_Identifier == task_id {
 			ok = true
 			task = t
 		}
+	}
+
+	return
+}
+
+// get tasks form from all subworkflows in the job
+func (wi *WorkflowInstance) GetTasks(read_lock bool) (tasks []*Task, err error) {
+	tasks = []*Task{}
+
+	if read_lock {
+		var lock ReadLock
+		lock, err = wi.RLockNamed("WorkflowInstance/GetTasks")
+		if err != nil {
+			return
+		}
+		defer wi.RUnlockNamed(lock)
+	}
+
+	logger.Debug(3, "(GetTasks) is not cwl")
+	for _, task := range wi.Tasks {
+		tasks = append(tasks, task)
 	}
 
 	return

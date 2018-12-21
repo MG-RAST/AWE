@@ -386,7 +386,13 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 		if wi.Inputs != nil && len(wi.Inputs) > 0 {
 			//panic("found something...")
 
-			err = qm.EnqueueTasks(wi.Tasks)
+			var tasks []*Task
+			tasks, err = wi.GetTasks(true)
+			if err != nil {
+				return
+			}
+
+			err = qm.EnqueueTasks(tasks)
 			if err != nil {
 				err = fmt.Errorf("(updateWorkflowInstancesMapTask) EnqueueTasks returned: %s", err.Error())
 
@@ -796,9 +802,15 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 			wi_state, _ := wi.GetState(true)
 			fmt.Printf("WorkflowInstance: %s (%s) %p\n", wi_id, wi_state, wi)
 
-			if len(wi.Tasks) > 0 {
-				for j, _ := range wi.Tasks {
-					task := wi.Tasks[j]
+			var wi_tasks []*Task
+			wi_tasks, err = wi.GetTasks(true)
+			if err != nil {
+				return
+			}
+
+			if len(wi_tasks) > 0 {
+				for j, _ := range wi_tasks {
+					task := wi_tasks[j]
 					fmt.Printf("  Task %d: %s (wf: %s, state %s)\n", j, task.Id, task.WorkflowInstanceId, task.State)
 
 				}
@@ -2919,7 +2931,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput_Tool(job *Job, workflow_instance
 	ancestor_task_id_str, _ := ancestor_task_id.String()
 	var ancestor_task *Task
 
-	ancestor_task, ok, err = workflow_instance.GetTask(ancestor_task_id)
+	ancestor_task, ok, err = workflow_instance.GetTask(ancestor_task_id, true)
 	if err != nil {
 		err = fmt.Errorf("(getCWLSourceFromStepOutput) workflow_instance.GetTask returned: %s", err.Error())
 		return
@@ -3128,7 +3140,7 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflow_instance *Workf
 	ancestor_task_id.TaskName = step_name
 
 	var ancestor_task *Task
-	ancestor_task, ok, err = workflow_instance.GetTask(ancestor_task_id)
+	ancestor_task, ok, err = workflow_instance.GetTask(ancestor_task_id, true)
 	if err != nil {
 		err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) workflow_instance.GetTask returned: %s", err.Error())
 		return

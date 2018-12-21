@@ -83,7 +83,7 @@ func (d *Dirent) Evaluate(inputs interface{}, context *WorkflowContext) (err err
 		//ignore
 
 	default:
-		panic(fmt.Sprintf("(Dirent/Evaluate) type not expected: %s", reflect.TypeOf(entry)))
+		//panic(fmt.Sprintf("(Dirent/Evaluate) type not expected: %s", reflect.TypeOf(entry)))
 		err = fmt.Errorf("(Dirent/Evaluate) type not expected: %s", reflect.TypeOf(entry))
 		return
 	}
@@ -132,7 +132,7 @@ func (d *Dirent) Evaluate(inputs interface{}, context *WorkflowContext) (err err
 		//ignore
 
 	default:
-		panic(fmt.Sprintf("(Dirent/Evaluate) type not expected: %s", reflect.TypeOf(entryname)))
+		//panic(fmt.Sprintf("(Dirent/Evaluate) type not expected: %s", reflect.TypeOf(entryname)))
 		err = fmt.Errorf("(Dirent/Evaluate) type not expected: %s", reflect.TypeOf(entryname))
 		return
 	}

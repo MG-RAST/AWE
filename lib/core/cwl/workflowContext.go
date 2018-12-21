@@ -11,6 +11,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
+// global object for each job submission
 type WorkflowContext struct {
 	CWL_document `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // fields: CwlVersion, Base, Graph, Namespaces, Schemas (all interface-based !)
 	Path         string
@@ -32,7 +33,7 @@ type WorkflowContext struct {
 	Booleans           map[string]*Boolean           `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	All                map[string]CWL_object         `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // everything goes in here
 	//Job_input          *Job_document
-	Job_input_map *JobDocMap `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	//Job_input_map *JobDocMap `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 
 	Schemata    map[string]CWLType_Type `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	Initialized bool                    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`

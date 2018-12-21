@@ -19,6 +19,7 @@ import (
 	"github.com/MG-RAST/golib/goweb"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+
 	//"os"
 
 	"path"
@@ -57,7 +58,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			return
 		}
 	}
-
+	//spew.Dump(cx.Request)
 	// Parse uploaded form
 	params, files, err := ParseMultipartForm(cx.Request)
 
@@ -499,12 +500,18 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		//job.CwlVersion = cwl_version
 		//job.Namespaces = context.Namespaces
 		//job.CWL_collection = &collection
-		job.Info.Name = job_file.Name
+
+		if conf.SUBMITTER_JOB_NAME == "" {
+			job.Info.Name = job_file.Name
+		} else {
+			job.Info.Name = conf.SUBMITTER_JOB_NAME
+		}
+
 		job.Info.Pipeline = workflow_filename
 
 		client_group, ok := params["CLIENT_GROUP"]
 		if !ok {
-			client_group = "default"
+			client_group = conf.CLIENT_GROUP
 		}
 
 		job.Info.ClientGroups = client_group
@@ -544,7 +551,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		logger.Debug(3, "job %s got token", job.Id)
 	}
 
-	err = job.Save() // note that the job only goes into mongo, not into memory yet (EnqueueTasksByJobId is dowing that)
+	err = job.Save() // note that the job only goes into mongo, not into memory yet (EnqueueTasksByJobId is pulling from mongo, indirectly)
 	if err != nil {
 		cx.RespondWithErrorMessage(fmt.Sprintf("(JobController/Create) job.Save returned: %s", err.Error()), http.StatusBadRequest)
 		return
@@ -562,7 +569,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	//	spew.Dump(job.WorkflowContext.Graph[i])
 	//}
 	//fmt.Printf("WorkflowContext ------- ")
-	//spew.Dump(job.WorkflowContext.Graph)
+	//spew.Dump(job.WorkflowInstances[0])
 	//job.WorkflowContext = nil
 
 	var response_bytes []byte
@@ -580,11 +587,34 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 	// don't enqueue imports
 	if !has_import {
-		err = core.QMgr.EnqueueTasksByJobId(job.Id)
-		if err != nil {
-			err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
-			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-			return
+
+		if job.IsCWL {
+
+			if len(job.WorkflowInstancesMap) != 1 {
+				err = fmt.Errorf("(JobController/Create) len(job.WorkflowInstances) != 1")
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			core.JM.Add(job)
+			var wi *core.WorkflowInstance
+
+			wi = job.WorkflowInstancesMap["_root"]
+
+			err = core.QMgr.EnqueueWorkflowInstance(wi)
+			if err != nil {
+				err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
+
+		} else {
+			err = core.QMgr.EnqueueTasksByJobId(job.Id)
+			if err != nil {
+				err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
 		}
 	}
 

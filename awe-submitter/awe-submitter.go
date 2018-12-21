@@ -10,6 +10,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/davecgh/go-spew/spew"
+
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 
 	"encoding/json"
@@ -204,74 +205,6 @@ func main_wrapper() (err error) {
 
 	}
 
-	// for j, _ := range named_object_array {
-
-	// 	pair := named_object_array[j]
-	// 	object := pair.Value
-
-	// 	var ok bool
-
-	// 	switch object.(type) {
-	// 	case *cwl.Workflow:
-	// 		workflow := object.(*cwl.Workflow)
-	// 		//if cwl_version != "" {
-	// 		//	workflow.CwlVersion = cwl_version
-	// 		//}
-	// 		sub_upload_count := 0
-	// 		sub_upload_count, err = cache.ProcessIOData(workflow, inputfile_path, inputfile_path, "upload", shock_client)
-	// 		if err != nil {
-	// 			err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
-	// 			return
-	// 		}
-	// 		upload_count += sub_upload_count
-
-	// 	case *cwl.CommandLineTool:
-	// 		var cmd_line_tool *cwl.CommandLineTool
-	// 		cmd_line_tool = object.(*cwl.CommandLineTool)
-
-	// 		//if cwl_version != "" {
-	// 		//	cmd_line_tool.CwlVersion = cwl_version
-	// 		//}
-	// 		if cmd_line_tool == nil {
-	// 			err = fmt.Errorf("(main_wrapper) cmd_line_tool==nil")
-	// 			return
-	// 		}
-	// 		sub_upload_count := 0
-	// 		sub_upload_count, err = cache.ProcessIOData(cmd_line_tool, inputfile_path, inputfile_path, "upload", shock_client)
-	// 		if err != nil {
-	// 			err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
-	// 			return
-	// 		}
-	// 		upload_count += sub_upload_count
-
-	// 	case *cwl.ExpressionTool:
-	// 		var express_tool *cwl.ExpressionTool
-	// 		express_tool, ok = object.(*cwl.ExpressionTool) // TODO this misses embedded ExpressionTools !
-	// 		if !ok {
-	// 			//fmt.Println("nope.")
-	// 			err = nil
-	// 			continue
-	// 		}
-
-	// 		if express_tool == nil {
-	// 			err = fmt.Errorf("(main_wrapper) express_tool==nil")
-	// 			return
-	// 		}
-	// 		//if cwl_version != "" {
-	// 		//	express_tool.CwlVersion = cwl_version
-	// 		//}
-
-	// 		sub_upload_count := 0
-	// 		sub_upload_count, err = cache.ProcessIOData(express_tool, inputfile_path, inputfile_path, "upload", shock_client)
-	// 		if err != nil {
-	// 			err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
-	// 			return
-	// 		}
-	// 		upload_count += sub_upload_count
-
-	// 	}
-	// }
-
 	logger.Debug(3, "%d files have been uploaded\n", upload_count)
 
 	var shock_requirement cwl.ShockRequirement
@@ -427,109 +360,129 @@ func main_wrapper() (err error) {
 	//fmt.Printf("Job id: %s\n", jobid)
 
 	if conf.SUBMITTER_WAIT {
-		var job *core.Job
+		err = Wait_for_results(jobid, awe_auth)
+		if err != nil {
+			err = fmt.Errorf("(main_wrapper) Wait_for_results returned: %s", err.Error())
+			return
+		}
+	} else {
+		fmt.Printf("JobID=%s\n", jobid)
+	}
+	return
+}
 
-		// ***** Wait for job to complete
+func Wait_for_results(jobid string, awe_auth string) (err error) {
 
-	FORLOOP:
-		for true {
-			time.Sleep(5 * time.Second)
-			job = nil
+	var job *core.Job
+	var status_code int
+	// ***** Wait for job to complete
 
-			job, err = GetAWEJob(jobid, awe_auth)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "(main_wrapper) GetAWEJob returned: %s", err.Error())
+FORLOOP:
+	for true {
+		time.Sleep(5 * time.Second)
+		job = nil
+
+		job, status_code, err = GetAWEJob(jobid, awe_auth)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "(Wait_for_results) GetAWEJob returned: (status_code: %d) error: %s  \n", status_code, err.Error())
+			if status_code == -1 {
 				err = nil
 				continue
 			}
-
-			//fmt.Printf("job state: %s\n", job.State)
-
-			switch job.State {
-			case core.JOB_STAT_COMPLETED:
-				break FORLOOP
-			case core.JOB_STAT_SUSPEND:
-				error_msg_str := ""
-
-				if job.Error != nil {
-
-					error_msg, _ := json.Marshal(job.Error)
-					error_msg_str = string(error_msg[:])
-				}
-
-				err = fmt.Errorf("(main_wrapper) job is in state \"%s\" (error: %s)", job.State, error_msg_str)
-				return
-			case core.JOB_STAT_FAILED_PERMANENT:
-				err = fmt.Errorf("(main_wrapper) job is in state \"%s\"", job.State)
-				return
-			case core.JOB_STAT_DELETED:
-				err = fmt.Errorf("(main_wrapper) job is in state \"%s\"", job.State)
-				return
-			}
-		}
-		//spew.Dump(job)
-
-		_, err = job.Init()
-		if err != nil {
-			return
-		}
-		var wi *core.WorkflowInstance
-		var ok bool
-		wi, ok, err = job.GetWorkflowInstance("", false)
-		if err != nil {
-			err = fmt.Errorf("(main_wrapper) GetWorkflowInstance returned: %s", err.Error())
 			return
 		}
 
-		if !ok {
-			err = fmt.Errorf("(main_wrapper) WorkflowInstance not found")
+		//fmt.Printf("job state: %s\n", job.State)
+
+		switch job.State {
+		case core.JOB_STAT_COMPLETED:
+			logger.Debug(1, "(Wait_for_results) job state: %s", core.JOB_STAT_COMPLETED)
+			break FORLOOP
+		case core.JOB_STAT_SUSPEND:
+			error_msg_str := ""
+
+			if job.Error != nil {
+
+				error_msg, _ := json.Marshal(job.Error)
+				error_msg_str = string(error_msg[:])
+			}
+
+			err = fmt.Errorf("(Wait_for_results) job is in state \"%s\" (error: %s)", job.State, error_msg_str)
+			return
+		case core.JOB_STAT_FAILED_PERMANENT:
+			err = fmt.Errorf("(Wait_for_results) job is in state \"%s\"", job.State)
+			return
+		case core.JOB_STAT_DELETED:
+			err = fmt.Errorf("(Wait_for_results) job is in state \"%s\"", job.State)
 			return
 		}
+	}
+	//spew.Dump(job)
 
-		//spew.Dump(wi.Outputs)
+	//_, err = job.Init()
+	//if err != nil {
+	//return
+	//}
 
-		output_receipt := map[string]interface{}{}
-		for _, out := range wi.Outputs {
+	// example: curl http://skyport.local:8001/awe/api/workflow_instances/c1cad21a-5ab5-4015-8aae-1dfda844e559_root
 
-			out_id := strings.TrimPrefix(out.Id, job.Entrypoint+"/")
+	var wi *core.WorkflowInstance
+	wi, status_code, err = GetRootWorkflowInstance(jobid, job, awe_auth)
 
-			output_receipt[out_id] = out.Value
-		}
+	//panic("Implement getting for output")
+	//var wi *core.WorkflowInstance
+	// var ok bool
+	// wi, ok, err = job.GetWorkflowInstance("_root", false)
+	if err != nil {
+		err = fmt.Errorf("(Wait_for_results) GetWorkflowInstance returned: %s", err.Error())
+		return
+	}
 
-		if conf.SUBMITTER_DOWNLOAD_FILES { // TODO
-			var output_file_path string
-			output_file_path, err = os.Getwd()
+	// if !ok {
+	// 	err = fmt.Errorf("(Wait_for_results) WorkflowInstance not found")
+	// 	return
+	// }
 
-			_, err = cache.ProcessIOData(output_receipt, output_file_path, output_file_path, "download", nil)
-			if err != nil {
-				spew.Dump(output_receipt)
-				err = fmt.Errorf("(main_wrapper) ProcessIOData(for download) returned: %s", err.Error())
-				return
-			}
-		}
+	//spew.Dump(wi.Outputs)
 
-		var output_receipt_bytes []byte
-		output_receipt_bytes, err = json.MarshalIndent(output_receipt, "", "    ")
+	output_receipt := map[string]interface{}{}
+	for _, out := range wi.Outputs {
+
+		out_id := strings.TrimPrefix(out.Id, job.Entrypoint+"/")
+
+		output_receipt[out_id] = out.Value
+	}
+
+	if conf.SUBMITTER_DOWNLOAD_FILES { // TODO
+		var output_file_path string
+		output_file_path, err = os.Getwd()
+
+		_, err = cache.ProcessIOData(output_receipt, output_file_path, output_file_path, "download", nil)
 		if err != nil {
-			if err != nil {
-				err = fmt.Errorf("(main_wrapper) json.MarshalIndent returned: %s", err.Error())
-				return
-			}
+			spew.Dump(output_receipt)
+			err = fmt.Errorf("(Wait_for_results) ProcessIOData(for download) returned: %s", err.Error())
+			return
 		}
-		logger.Debug(3, string(output_receipt_bytes[:]))
+	}
 
-		if conf.SUBMITTER_OUTPUT != "" {
-			err = ioutil.WriteFile(conf.SUBMITTER_OUTPUT, output_receipt_bytes, 0644)
-			if err != nil {
-				err = fmt.Errorf("(main_wrapper) ioutil.WriteFile returned: %s", err.Error())
-				return
-			}
-		} else {
-			fmt.Println(string(output_receipt_bytes[:]))
+	var output_receipt_bytes []byte
+	output_receipt_bytes, err = json.MarshalIndent(output_receipt, "", "    ")
+	if err != nil {
+		if err != nil {
+			err = fmt.Errorf("(Wait_for_results) json.MarshalIndent returned: %s", err.Error())
+			return
 		}
+	}
+	logger.Debug(3, string(output_receipt_bytes[:]))
 
+	if conf.SUBMITTER_OUTPUT != "" {
+		err = ioutil.WriteFile(conf.SUBMITTER_OUTPUT, output_receipt_bytes, 0644)
+		if err != nil {
+			err = fmt.Errorf("(Wait_for_results) ioutil.WriteFile returned: %s", err.Error())
+			return
+		}
 	} else {
-		fmt.Printf("JobID=%s\n", jobid)
+		fmt.Println(string(output_receipt_bytes[:]))
 	}
 	return
 }
@@ -549,6 +502,7 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 		return
 	}
 
+	//fmt.Fprintf(os.Stderr, "CLIENT_GROUP: %s\n", conf.CLIENT_GROUP)
 	err = multipart.AddForm("CLIENT_GROUP", conf.CLIENT_GROUP)
 	if err != nil {
 		err = fmt.Errorf("(SubmitCWLJobToAWE) AddForm returned: %s", err.Error())
@@ -610,10 +564,10 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 
 }
 
-func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
-
-	if jobid == "" {
-		err = fmt.Errorf("(GetAWEJob) jobid empty")
+func GetAWEObject(resource string, objectid string, awe_auth string, result interface{}) (status_code int, err error) {
+	status_code = -1
+	if objectid == "" {
+		err = fmt.Errorf("(GetAWEObject) objectid empty")
 		return
 	}
 
@@ -624,15 +578,18 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 		header["Authorization"] = []string{awe_auth}
 	}
 
-	response, err := multipart.Send("GET", conf.SERVER_URL+"/job/"+jobid, header)
+	get_url := fmt.Sprintf("%s/%s/%s", conf.SERVER_URL, resource, objectid)
+	response, err := multipart.Send("GET", get_url, header)
 	if err != nil {
-		err = fmt.Errorf("(GetAWEJob) multipart.Send returned: %s", err.Error())
+		err = fmt.Errorf("(GetAWEObject) multipart.Send returned: %s", err.Error())
 		return
 	}
 
+	status_code = response.StatusCode
+
 	responseData, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		err = fmt.Errorf("(GetAWEJob) ioutil.ReadAll returned: %s", err.Error())
+		err = fmt.Errorf("(GetAWEObject) ioutil.ReadAll returned: %s", err.Error())
 		return
 	}
 
@@ -643,7 +600,19 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 	var sr standardResponse
 	err = json.Unmarshal(responseData, &sr)
 	if err != nil {
-		err = fmt.Errorf("(GetAWEJob) json.Unmarshal returned: %s (%s) (response.StatusCode: %d)", err.Error(), conf.SERVER_URL+"/job/"+jobid, response.StatusCode)
+
+		r := strings.NewReplacer("\n", " ", "\r", " ") // remove newlines
+
+		extension := ""
+		prefixlen := 100
+		if len(responseData) < 100 {
+			prefixlen = len(responseData)
+			extension = "..."
+		}
+
+		body_prefix := r.Replace(string(responseData[0:prefixlen])) + extension // this helps debugging
+
+		err = fmt.Errorf("(GetAWEObject) json.Unmarshal returned: %s (%s) (response.StatusCode: %d) (body: \"%s\")", err.Error(), get_url, status_code, body_prefix)
 		return
 	}
 
@@ -652,25 +621,122 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, err error) {
 		return
 	}
 
-	if response.StatusCode != 200 {
-		err = fmt.Errorf("(GetAWEJob) response.StatusCode: %d", response.StatusCode)
+	if status_code != 200 {
+		err = fmt.Errorf("(GetAWEObject) response.StatusCode: %d", status_code)
 		return
 	}
 
-	var job_bytes []byte
-	job_bytes, err = json.Marshal(sr.Data)
+	var result_bytes []byte
+	result_bytes, err = json.Marshal(sr.Data)
 	if err != nil {
 		return
 	}
 
 	//var job core.Job
-	job = &core.Job{}
-	err = json.Unmarshal(job_bytes, job)
+	//job = &core.Job{}
+	err = json.Unmarshal(result_bytes, result)
 	if err != nil {
-		fmt.Printf("job_bytes: %s\n", job_bytes)
-		err = fmt.Errorf("(GetAWEJob) (second call) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job/"+jobid)
+		fmt.Printf("result_bytes: %s\n", result_bytes)
+		err = fmt.Errorf("(GetAWEObject) (second call) json.Unmarshal returned: %s (%s)", err.Error(), get_url)
 		return
 	}
+
+	return
+}
+
+func GetAWEJob(jobid string, awe_auth string) (job *core.Job, status_code int, err error) {
+
+	job = &core.Job{}
+	status_code, err = GetAWEObject("job", jobid, awe_auth, job)
+
+	// status_code = -1
+	// if jobid == "" {
+	// 	err = fmt.Errorf("(GetAWEJob) jobid empty")
+	// 	return
+	// }
+
+	// multipart := core.NewMultipartWriter()
+
+	// header := make(map[string][]string)
+	// if awe_auth != "" {
+	// 	header["Authorization"] = []string{awe_auth}
+	// }
+
+	// response, err := multipart.Send("GET", conf.SERVER_URL+"/job/"+jobid, header)
+	// if err != nil {
+	// 	err = fmt.Errorf("(GetAWEJob) multipart.Send returned: %s", err.Error())
+	// 	return
+	// }
+
+	// status_code = response.StatusCode
+
+	// responseData, err := ioutil.ReadAll(response.Body)
+	// if err != nil {
+	// 	err = fmt.Errorf("(GetAWEJob) ioutil.ReadAll returned: %s", err.Error())
+	// 	return
+	// }
+
+	// //responseString := string(responseData)
+
+	// //fmt.Println(responseString)
+
+	// var sr standardResponse
+	// err = json.Unmarshal(responseData, &sr)
+	// if err != nil {
+
+	// 	r := strings.NewReplacer("\n", " ", "\r", " ") // remove newlines
+
+	// 	extension := ""
+	// 	prefixlen := 100
+	// 	if len(responseData) < 100 {
+	// 		prefixlen = len(responseData)
+	// 		extension = "..."
+	// 	}
+
+	// 	body_prefix := r.Replace(string(responseData[0:prefixlen])) + extension // this helps debugging
+
+	// 	err = fmt.Errorf("(GetAWEJob) json.Unmarshal returned: %s (%s) (response.StatusCode: %d) (body: \"%s\")", err.Error(), conf.SERVER_URL+"/job/"+jobid, status_code, body_prefix)
+	// 	return
+	// }
+
+	// if len(sr.Error) > 0 {
+	// 	err = fmt.Errorf("%s", sr.Error[0])
+	// 	return
+	// }
+
+	// if status_code != 200 {
+	// 	err = fmt.Errorf("(GetAWEJob) response.StatusCode: %d", status_code)
+	// 	return
+	// }
+
+	// var job_bytes []byte
+	// job_bytes, err = json.Marshal(sr.Data)
+	// if err != nil {
+	// 	return
+	// }
+
+	// //var job core.Job
+	// job = &core.Job{}
+	// err = json.Unmarshal(job_bytes, job)
+	// if err != nil {
+	// 	fmt.Printf("job_bytes: %s\n", job_bytes)
+	// 	err = fmt.Errorf("(GetAWEJob) (second call) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job/"+jobid)
+	// 	return
+	// }
+
+	return
+}
+
+func GetRootWorkflowInstance(jobid string, job *core.Job, awe_auth string) (wi *core.WorkflowInstance, status_code int, err error) {
+	//wi_array := []core.WorkflowInstance{}
+	var wi_if interface{}
+
+	status_code, err = GetAWEObject("workflow_instances", jobid+"_root", awe_auth, &wi_if)
+	if err != nil {
+		return
+	}
+
+	wi, err = core.NewWorkflowInstanceFromInterface(wi_if, job, nil, false)
 
 	return
 }

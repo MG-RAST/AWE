@@ -122,6 +122,7 @@ func workStealerRun(control chan int, retry_previous int) (retry int, err error)
 	// make sure cwl-runner is invoked
 	if workunit.CWL_workunit != nil {
 		workunit.Cmd.Name = "/usr/bin/cwl-runner"
+		// "--provenance", "cwl_tool_provenance",
 		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", "./cwl_tool.yaml", "./cwl_job_input.yaml"}
 
 	}
@@ -152,7 +153,7 @@ func workStealer(control chan int) {
 			logger.Error("(workStealer) workStealerRun returns: %s", err.Error())
 		}
 	}
-	control <- ID_WORKSTEALER //we are ending
+	//control <- ID_WORKSTEALER //we are ending
 }
 
 func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {

@@ -2,9 +2,11 @@ package cwl
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/mitchellh/mapstructure"
+
 	//"os"
 	"reflect"
 	//"strings"
@@ -203,6 +205,23 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 
 	}
 
+	return
+}
+
+func (wf *Workflow) GetStep(name string) (step *WorkflowStep, err error) {
+
+	for i, _ := range wf.Steps {
+
+		s := &wf.Steps[i]
+
+		s_base := path.Base(s.Id)
+
+		if s_base == name {
+			step = s
+			return
+		}
+	}
+	err = fmt.Errorf("(Workflow/GetStep) step %s not found", name)
 	return
 }
 

@@ -6,8 +6,8 @@ import (
 
 type WorkunitList struct {
 	RWMutex `bson:"-" json:"-"`
-	_map    map[Workunit_Unique_Identifier]bool `json:"-"`
-	Data    []string                            `json:"data"`
+	_map    map[Workunit_Unique_Identifier]bool
+	Data    []string `json:"data"`
 }
 
 func NewWorkunitList() *WorkunitList {

@@ -23,10 +23,14 @@ AWE uses the Shock data management system to handle input and output data (retri
 ![awe-diagram](https://raw.githubusercontent.com/MG-RAST/AWE/master/site/images/awe-multi-site.png)
 
 
-AWE is actively being developed at [github.com/MG-RAST/AWE](http://github.com/MG-RAST/AWE).
-
-Shock is actively being developed at [github.com/MG-RAST/Shock](http://github.com/MG-RAST/Shock).
-
+Related Links
+------
+|     | link |
+| ----------- | -----------
+| AWE server  | [github.com/MG-RAST/AWE](https://github.com/MG-RAST/AWE) |
+| AWE monitor | [github.com/MG-RAST/awe-monitor](https://github.com/MG-RAST/awe-monitor) |
+| Shock       | [github.com/MG-RAST/Shock](https://github.com/MG-RAST/Shock) |
+| Skyport2    | [github.com/MG-RAST/Skyport2](https://github.com/MG-RAST/Skyport2) |
 
 
 Documentation
@@ -42,7 +46,7 @@ Papers to cite
 
 W. Tang, J. Wilkening, N. Desai, W. Gerlach, A. Wilke, F. Meyer, "A scalable data analysis platform for metagenomics," in Proc. of IEEE International Conference on Big Data, 2013.[[ieeexplore]](http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=6691723) [[pdf]](http://www.mcs.anl.gov/papers/P5012-0913_1.pdf)
 
-W. Gerlach, W. Tang, K. Keegan, T. Harrison, A. Wilke, J. Bischof, M. D'Souza, S. Devoid, D. Murphy-Olson, N. Desai, F. Meyer, "Skyport – Container-Based Execution Environment Management for Multi-Cloud Scientific Workflows," in Proc. of the 5th International Workshop on Data Intensive Computing in the Clouds, 2014. [[pdf]](www.mcs.anl.gov/papers/P5209-1014.pdf)
+W. Gerlach, W. Tang, K. Keegan, T. Harrison, A. Wilke, J. Bischof, M. D'Souza, S. Devoid, D. Murphy-Olson, N. Desai, F. Meyer, "Skyport – Container-Based Execution Environment Management for Multi-Cloud Scientific Workflows," in Proc. of the 5th International Workshop on Data Intensive Computing in the Clouds, 2014. [[pdf]](https://www.mcs.anl.gov/papers/P5209-1014.pdf)
 
 
 AWE Discussion Group

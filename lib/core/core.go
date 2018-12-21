@@ -22,13 +22,15 @@ import (
 )
 
 var (
-	QMgr          ResourceMgr
-	Service       string = "unknown"
-	Self          *Client
-	ProxyWorkChan chan bool
-	Server_UUID   string
-	JM            *JobMap
-	Start_time    time.Time
+	//QMgr                      ResourceMgr
+	QMgr                      *ServerMgr
+	Service                   string = "unknown"
+	Self                      *Client
+	ProxyWorkChan             chan bool
+	Server_UUID               string
+	JM                        *JobMap
+	GlobalWorkflowInstanceMap *WorkflowInstanceMap
+	Start_time                time.Time
 )
 
 type BaseResponse struct {
@@ -43,8 +45,10 @@ type StandardResponse struct {
 }
 
 func InitResMgr(service string) {
+
 	if service == "server" {
 		QMgr = NewServerMgr()
+		GlobalWorkflowInstanceMap = NewWorkflowInstancesMap()
 	} else if service == "proxy" {
 		//QMgr = NewProxyMgr()
 	}
@@ -63,15 +67,6 @@ func InitProxyWorkChan() {
 type CoAck struct {
 	workunits []*Workunit
 	err       error
-}
-
-type CoReq struct {
-	policy     string
-	fromclient string
-	//fromclient *Client
-	available int64
-	count     int
-	response  chan CoAck
 }
 
 type coInfo struct {
@@ -325,7 +320,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 			return
 		}
 
-		_, err = task.Init(job)
+		_, err = task.Init(job, job.Id)
 		if err != nil {
 			return
 		}
@@ -662,7 +657,7 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 		if _, err := sc.PutOrPostFile(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
 			if _, err := sc.PutOrPostFile(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
-				fmt.Errorf("push file error\n")
+				err = fmt.Errorf("push file error: %s\n", err.Error())
 				logger.Error("op=pushfile,err=" + err.Error())
 				return size, err
 			}

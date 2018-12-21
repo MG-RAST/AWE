@@ -1,8 +1,8 @@
 package core
 
-import (
+import "fmt"
+
 //"fmt"
-)
 
 type JobMap struct {
 	RWMutex
@@ -45,11 +45,18 @@ func (jm *JobMap) Get(jobid string, lock bool) (job *Job, ok bool, err error) {
 }
 
 func (jm *JobMap) Add(job *Job) (err error) {
-	err = jm.LockNamed("Add")
+	err = jm.LockNamed("JobMap/Add")
 	if err != nil {
 		return
 	}
 	defer jm.Unlock()
+
+	_, ok := jm._map[job.Id]
+	if ok {
+		err = fmt.Errorf("(JobMap/Add) %s already in JobMap", job.Id)
+		return
+	}
+
 	jm._map[job.Id] = job // TODO prevent overwriting
 	return
 }

@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+	"gopkg.in/mgo.v2/bson"
 )
 
 var (
@@ -139,6 +141,11 @@ type resource struct {
 func ResourceDescription(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
+	if cx.Request.URL.Path != "/" {
+		cx.RespondWithErrorMessage(fmt.Sprintf("Resource %s unknown", cx.Request.URL.Path), http.StatusBadRequest)
+		return
+	}
+
 	anonPerms := new(anonymous)
 	anonPerms.Read = conf.ANON_READ
 	anonPerms.Write = conf.ANON_WRITE
@@ -220,30 +227,40 @@ func ParseMultipartForm(r *http.Request) (params map[string]string, files core.F
 			return
 		}
 
+		//fmt.Printf("(ParseMultipartForm) part: \"%s\" \n", part.FileName())
+		//spew.Dump(part)
+
 		if part.FileName() == "" {
+			//fmt.Printf("(ParseMultipartForm) filename empty\n")
 			buffer := make([]byte, 32*1024)
 			n, err := part.Read(buffer)
-			if n == 0 {
-				break
-			}
-			if err != nil {
-				if err == io.EOF {
-					err = nil
-					break
-				}
-				err = fmt.Errorf("(ParseMultipartForm) part.Read(buffer) error: %s", err.Error())
-				return nil, nil, err
-			}
-
-			//buf_len := 50
-			//if n < 50 {
-			//	buf_len = n
+			//fmt.Printf("(ParseMultipartForm) n=%d\n", n)
+			//if n == 0 {
+			//	break
 			//}
-			//logger.Debug(3, "FormName: %s Content: %s", part.FormName(), buffer[0:buf_len])
+			if err != nil {
+				//fmt.Printf("(ParseMultipartForm) error: %s\n", err.Error())
+				if err != io.EOF {
+					err = fmt.Errorf("(ParseMultipartForm) part.Read(buffer) error: %s", err.Error())
+					return nil, nil, err
+				}
 
+				if err == io.EOF { // inidicates end, butr you should use buffer
+					err = nil
+
+				}
+
+			}
+			//fmt.Printf("(ParseMultipartForm) no error\n")
+			buf_len := 50
+			if n < 50 {
+				buf_len = n
+			}
+			logger.Debug(3, "FormName: %s Content: %s", part.FormName(), buffer[0:buf_len])
+			//fmt.Printf("(ParseMultipartForm) writing param: %s\n", buffer[0:n])
 			params[part.FormName()] = fmt.Sprintf("%s", buffer[0:n])
 		} else {
-
+			//fmt.Printf("(ParseMultipartForm) found filename")
 			tmpPath := fmt.Sprintf("%s/temp/%d%d", conf.DATA_PATH, rand.Int(), rand.Int())
 			//logger.Debug(3, "FormName: %s tmpPath: %s", part.FormName(), tmpPath)
 			files[part.FormName()] = core.FormFile{Name: part.FileName(), Path: tmpPath, Checksum: make(map[string]string)}
@@ -388,4 +405,53 @@ func contains(list []string, elem string) bool {
 		}
 	}
 	return false
+}
+
+func GetAclQuery(u *user.User) (query bson.M) {
+
+	query = bson.M{}
+	if u.Uuid == "public" {
+		query["acl.read"] = "public"
+	} else {
+		query["$or"] = []bson.M{bson.M{"acl.read": "public"}, bson.M{"acl.read": u.Uuid}, bson.M{"acl.owner": u.Uuid}, bson.M{"acl": bson.M{"$exists": "false"}}}
+	}
+	return
+}
+
+func QueryParseDefaultOptions(cx *goweb.Context) (opt *core.DefaultQueryOptions, err error) {
+
+	query := &Query{Li: cx.Request.URL.Query()}
+
+	opt = &core.DefaultQueryOptions{}
+
+	opt.Limit = conf.DEFAULT_PAGE_SIZE
+	opt.Offset = 0
+	opt.Sort = make([]string, 0)
+
+	if query.Has("limit") {
+		opt.Limit, err = strconv.Atoi(query.Value("limit"))
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	if query.Has("offset") {
+		opt.Offset, err = strconv.Atoi(query.Value("offset"))
+		if err != nil {
+			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	if query.Has("order") {
+		var sort_str string
+		sort_str = query.Value("order")
+
+		if sort_str != "" {
+			sort_array := strings.Split(sort_str, ",")
+			opt.Sort = sort_array
+		}
+
+	}
+	return
 }

@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -10,12 +11,13 @@ import (
 	"github.com/MG-RAST/AWE/lib/user"
 	//"github.com/davecgh/go-spew/spew"
 	"encoding/json"
-	"gopkg.in/mgo.v2/bson"
 	"os"
 	"runtime"
 	"runtime/pprof"
 	"strings"
 	"time"
+
+	"gopkg.in/mgo.v2/bson"
 )
 
 // this struct is embedded in ServerMgr
@@ -23,9 +25,9 @@ type CQMgr struct {
 	clientMap    ClientMap
 	workQueue    *WorkQueue
 	suspendQueue bool
-	coReq        chan CoReq  //workunit checkout request (WorkController -> qmgr.Handler)
-	feedback     chan Notice //workunit execution feedback (WorkController -> qmgr.Handler)
-	coSem        chan int    //semaphore for checkout (mutual exclusion between different clients)
+	coReq        chan CheckoutRequest //workunit checkout request (WorkController -> qmgr.Handler)
+	feedback     chan Notice          //workunit execution feedback (WorkController -> qmgr.Handler)
+	coSem        chan int             //semaphore for checkout (mutual exclusion between different clients)
 }
 
 type Filter_work_stats struct {
@@ -210,11 +212,11 @@ func (qm *CQMgr) ClientChecker() {
 		if conf.MEMPROFILE != "" {
 			f, err := os.Create(conf.MEMPROFILE)
 			if err != nil {
-				logger.Error("could not create memory profile: ", err)
+				logger.Error("could not create memory profile: %s", err.Error())
 			}
 			runtime.GC() // get up-to-date statistics
 			if err := pprof.WriteHeapProfile(f); err != nil {
-				logger.Error("could not write memory profile: ", err)
+				logger.Error("could not write memory profile: %s", err.Error())
 			}
 			f.Close()
 		}
@@ -256,6 +258,7 @@ func (qm *CQMgr) DeleteClients(delete_clients []string) {
 
 }
 
+// this is invoked on server side when clients sends heartbeat
 func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerState) (hbmsg HeartbeatInstructions, err error) {
 	hbmsg = make(map[string]string, 1)
 	client, ok, xerr := qm.GetClient(id, true)
@@ -288,29 +291,35 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerS
 
 	_ = client.Update_Status(false)
 
-	logger.Debug(3, "HeartBeatFrom:"+"clientid="+id)
+	logger.Debug(3, "HeartBeatFrom: client %s", id)
 
 	//get suspended workunit that need the client to discard
 	current_work, xerr := client.Current_work.Get_list(false)
-	suspended := []string{}
+	discard := []string{}
 
 	for _, work_id := range current_work {
-		work, ok, zerr := qm.workQueue.all.Get(work_id)
+		var work *Workunit
+
+		work, ok, err = qm.workQueue.all.Get(work_id)
 		if err != nil {
-			err = zerr
 			return
 		}
+
 		if !ok {
+			work_id_str, _ := work_id.String()
+			// server does not know about the work the client id working on
+			logger.Error("(ClientHeartBeat) Client was working on unknown workunit. Told him to discard.")
+			discard = append(discard, work_id_str)
 			continue
 		}
 
 		if work.State == WORK_STAT_SUSPEND {
-			suspended = append(suspended, work.Id)
+			discard = append(discard, work.Id)
 		}
 
 	}
-	if len(suspended) > 0 {
-		hbmsg["discard"] = strings.Join(suspended, ",")
+	if len(discard) > 0 {
+		hbmsg["discard"] = strings.Join(discard, ",")
 	}
 	//if client.Status == CLIENT_STAT_DELETED {
 	//	hbmsg["stop"] = id
@@ -825,7 +834,7 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	//}
 
 	//req := CoReq{policy: req_policy, fromclient: client_id, available: available_bytes, count: num, response: client.coAckChannel}
-	req := CoReq{policy: req_policy, fromclient: client_id, available: available_bytes, count: num, response: response_channel}
+	req := CheckoutRequest{policy: req_policy, fromclient: client_id, available: available_bytes, count: num, response: response_channel}
 
 	logger.Debug(3, "(CheckoutWorkunits) %s qm.coReq <- req", client_id)
 	// request workunit
@@ -914,7 +923,7 @@ func (qm *CQMgr) NotifyWorkStatus(notice Notice) {
 }
 
 // when popWorks is called, the client should already be locked
-func (qm *CQMgr) popWorks(req CoReq) (client_specific_workunits []*Workunit, err error) {
+func (qm *CQMgr) popWorks(req CheckoutRequest) (client_specific_workunits []*Workunit, err error) {
 
 	client_id := req.fromclient
 
@@ -1113,15 +1122,16 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 		return
 	}
 	for _, workid := range worklist {
-		logger.Debug(3, "(ReQueueWorkunitByClient) try to requeue work %s", workid)
+		workid_str, _ := workid.String()
+		logger.Debug(3, "(ReQueueWorkunitByClient) try to requeue work %s", workid_str)
 		work, has_work, xerr := qm.workQueue.Get(workid)
 		if xerr != nil {
-			logger.Error("(ReQueueWorkunitByClient) error checking workunit %s", workid)
+			logger.Error("(ReQueueWorkunitByClient) error checking workunit %s", workid_str)
 			continue
 		}
 
 		if !has_work {
-			logger.Error("(ReQueueWorkunitByClient) Workunit %s not found", workid)
+			logger.Error("(ReQueueWorkunitByClient) Workunit %s not found", workid_str)
 			continue
 		}
 

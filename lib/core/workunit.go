@@ -71,8 +71,8 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 	task_id := task.Task_Unique_Identifier
 	workunit = &Workunit{
 		Workunit_Unique_Identifier: New_Workunit_Unique_Identifier(task_id, rank),
-		Id:  "defined below",
-		Cmd: task.Cmd,
+		Id:                         "defined below",
+		Cmd:                        task.Cmd,
 		//App:       task.App,
 		Info:    task.Info,
 		Inputs:  task.Inputs,
@@ -195,33 +195,39 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		context := job.WorkflowContext
 		// ****** get inputs
-		job_input_map := context.Job_input_map
-		if job_input_map == nil {
-			err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
-			return
-		}
+		//job_input_map := context.Job_input_map
+		//if job_input_map == nil {
+		//	err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
+		//	return
+		//}
 		//job_input_map := *job.CWL_collection.Job_input_map
 
 		//job_input := *job.CWL_collection.Job_input
 
 		var workflow_instance *WorkflowInstance
 		var ok bool
-		workflow_instance, ok, err = job.GetWorkflowInstance(task.Parent, true)
+		workflow_instance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetWorkflowInstance returned %s", err.Error())
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("(NewWorkunit) WorkflowInstance not found: %s", task.Parent)
+			err = fmt.Errorf("(NewWorkunit) WorkflowInstance not found: \"%s\"", task.WorkflowInstanceId)
 			return
 		}
 
 		workflow_input_map := workflow_instance.Inputs.GetMap()
 
 		var workunit_input_map map[string]cwl.CWLType
-		workunit_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, workflow_step, context)
+		var reason string
+		workunit_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflow_instance, workflow_input_map, workflow_step, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects returned: %s", err.Error())
+			return
+		}
+
+		if !ok {
+			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects not ready, reason: %s", reason)
 			return
 		}
 
@@ -237,8 +243,13 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		workunit.CWL_workunit.Job_input = &job_input
 
+		//fmt.Println("workflow_instance:")
+		//spew.Dump(workflow_instance)
+		//fmt.Println("job_input:")
 		//spew.Dump(job_input)
-
+		//fmt.Println("workflow_step.Run:")
+		//spew.Dump(workflow_step.Run)
+		//panic("done workflow_step.Out")
 		workunit.CWL_workunit.OutputsExpected = &workflow_step.Out
 
 		err = workunit.Evaluate(workunit_input_map, context)
@@ -246,13 +257,8 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			err = fmt.Errorf("(NewWorkunit) workunit.Evaluate returned: %s", err.Error())
 			return
 		}
-		//spew.Dump(workflow_step.Out)
-		//panic("done")
 
 	}
-	//panic("done")
-	//spew.Dump(workunit.Cmd)
-	//panic("done")
 
 	return
 }
@@ -304,17 +310,17 @@ func (work *Workunit) Mkdir() (err error) {
 	// delete workdir just in case it exists; will not work if awe-worker is not in docker container AND tasks are in container
 	work_path, err := work.Path()
 	if err != nil {
-		err = fmt.Errorf("(Workunit/Mkdir) work.Path() returned: %s", err.Error)
+		err = fmt.Errorf("(Workunit/Mkdir) work.Path() returned: %s", err.Error())
 		return
 	}
 	err = os.RemoveAll(work_path)
 	if err != nil {
-		err = fmt.Errorf("(Workunit/Mkdir) os.RemoveAll returned: %s", err.Error)
+		err = fmt.Errorf("(Workunit/Mkdir) os.RemoveAll returned: %s", err.Error())
 		return
 	}
 	err = os.MkdirAll(work_path, 0777)
 	if err != nil {
-		err = fmt.Errorf("(Workunit/Mkdir) os.MkdirAll returned: %s", err.Error)
+		err = fmt.Errorf("(Workunit/Mkdir) os.MkdirAll returned: %s", err.Error())
 		return
 	}
 	return
@@ -361,11 +367,11 @@ func (work *Workunit) Path() (path string, err error) {
 			err = fmt.Errorf("(Workunit/Path) JobId is missing")
 			return
 		}
-		task_name := work.Workunit_Unique_Identifier.Parent
-		if task_name != "" {
-			task_name += "-"
-		}
-		task_name += work.Workunit_Unique_Identifier.TaskName
+		//task_name := work.Workunit_Unique_Identifier.Parent
+		//if task_name != "" {
+		//	task_name += "-"
+		//}
+		task_name := work.Workunit_Unique_Identifier.TaskName
 		// convert name to make it filesystem compatible
 		task_name = strings.Map(
 			func(r rune) rune {

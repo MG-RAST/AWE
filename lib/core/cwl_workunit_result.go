@@ -80,11 +80,8 @@ func NewNotice(native interface{}, context *cwl.WorkflowContext) (workunit_resul
 		workunit_result.Status, _ = status.(string)
 		workunit_result.ComputeTime, _ = native_map["computetime"].(int)
 
-		return
-
 	default:
 		err = fmt.Errorf("(NewNotice) wrong type, map expected")
-		return
 
 	}
 

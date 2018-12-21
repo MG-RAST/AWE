@@ -27,6 +27,7 @@ const DB_COLL_JOBS string = "Jobs"
 const DB_COLL_PERF string = "Perf"
 const DB_COLL_CGS string = "ClientGroups"
 const DB_COLL_USERS string = "Users"
+const DB_COLL_SUBWORKFLOWS string = "SubWorkflows"
 
 //prefix for site login
 const LOGIN_PREFIX string = "go4711"
@@ -190,6 +191,8 @@ var (
 	SUBMITTER_DOWNLOAD_FILES bool
 	SUBMITTER_SHOCK_AUTH     string
 	SUBMITTER_AWE_AUTH       string
+
+	SUBMITTER_JOB_NAME string
 
 	// WORKER (CWL)
 	CWL_RUNNER_ARGS string
@@ -365,6 +368,9 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddBool(&SUBMITTER_DOWNLOAD_FILES, false, "Client", "download_files", "download output files from shock", "")
 		c_store.AddString(&SUBMITTER_SHOCK_AUTH, "", "Client", "shock_auth", "format: \"<bearer> <token>\"", "")
 		c_store.AddString(&SUBMITTER_AWE_AUTH, "", "Client", "awe_auth", "format: \"<bearer> <token>\"", "")
+
+		c_store.AddString(&SUBMITTER_JOB_NAME, "", "Client", "job_name", "name of job, default is filename", "")
+
 		//c_store.AddString(&SUBMITTER_AUTH_DATATOKEN, "", "Client", "shock_auth_bearer", "bearer for shock", "")
 	}
 

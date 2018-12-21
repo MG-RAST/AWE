@@ -164,6 +164,7 @@ func main() {
 		cmd.Local = true // this makes sure the working directory is not deleted
 		cmd.Name = "/usr/bin/cwl-runner"
 
+		//"--provenance", "cwl_tool_provenance",
 		cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL_workunit.Tool_filename, workunit.CWL_workunit.Job_input_filename}
 		if conf.CWL_RUNNER_ARGS != "" {
 			cwl_runner_args_array := strings.Split(conf.CWL_RUNNER_ARGS, " ")

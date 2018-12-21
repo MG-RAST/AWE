@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"reflect"
 
 	"os"
 	"path/filepath"
@@ -15,7 +16,16 @@ import (
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	shock "github.com/MG-RAST/go-shock-client"
+	"github.com/mitchellh/mapstructure"
 )
+
+// hierachy (in ideal case without errors):
+// 1. TASK_STAT_INIT
+// 2. TASK_STAT_PENDING
+// 3. TASK_STAT_READY
+// 4. TASK_STAT_QUEUED
+// 5. TASK_STAT_INPROGRESS
+// 6. TASK_STAT_COMPLETED
 
 const (
 	TASK_STAT_INIT             = "init"        // initial state on creation of a task
@@ -24,7 +34,7 @@ const (
 	TASK_STAT_QUEUED           = "queued"      // a task for which workunits have been created/queued
 	TASK_STAT_INPROGRESS       = "in-progress" // a first workunit has been checkout (this does not guarantee a workunit is running right now)
 	TASK_STAT_SUSPEND          = "suspend"
-	TASK_STAT_FAILED           = "failed"
+	TASK_STAT_FAILED           = "failed"           // deprecated ?
 	TASK_STAT_FAILED_PERMANENT = "failed-permanent" // on exit code 42
 	TASK_STAT_COMPLETED        = "completed"
 	TASK_STAT_SKIPPED          = "user_skipped" // deprecated
@@ -35,50 +45,53 @@ const (
 var TASK_STATS_RESET = []string{TASK_STAT_QUEUED, TASK_STAT_INPROGRESS, TASK_STAT_SUSPEND}
 
 const (
-	TASK_TYPE_UNKNOWN  = ""
-	TASK_TYPE_SCATTER  = "scatter"
-	TASK_TYPE_WORKFLOW = "workflow"
-	TASK_TYPE_NORMAL   = "normal"
+	TASK_TYPE_UNKNOWN = ""
+	TASK_TYPE_SCATTER = "scatter"
+	//TASK_TYPE_WORKFLOW = "workflow"
+	TASK_TYPE_NORMAL = "normal"
 )
 
 type TaskRaw struct {
-	RWMutex                `bson:"-" json:"-"`
-	Task_Unique_Identifier `bson:",inline"`
+	RWMutex                `bson:"-" json:"-" mapstructure:"-"`
+	Task_Unique_Identifier `bson:",inline" mapstructure:",squash"`
 
-	Id                  string                   `bson:"taskid" json:"taskid"` // old-style
-	TaskType            string                   `bson:"task_type" json:"task_type"`
-	Info                *Info                    `bson:"-" json:"-"` // this is just a pointer to the job.Info
-	Cmd                 *Command                 `bson:"cmd" json:"cmd"`
-	Partition           *PartInfo                `bson:"partinfo" json:"-"`
-	DependsOn           []string                 `bson:"dependsOn" json:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
-	TotalWork           int                      `bson:"totalwork" json:"totalwork"`
-	MaxWorkSize         int                      `bson:"maxworksize"   json:"maxworksize"`
-	RemainWork          int                      `bson:"remainwork" json:"remainwork"`
-	ResetTask           bool                     `bson:"resettask" json:"-"` // trigged by function - resume, recompute, resubmit
-	State               string                   `bson:"state" json:"state"`
-	CreatedDate         time.Time                `bson:"createdDate" json:"createddate"`
-	StartedDate         time.Time                `bson:"startedDate" json:"starteddate"`
-	CompletedDate       time.Time                `bson:"completedDate" json:"completeddate"`
-	ComputeTime         int                      `bson:"computetime" json:"computetime"`
-	UserAttr            map[string]interface{}   `bson:"userattr" json:"userattr"`
-	ClientGroups        string                   `bson:"clientgroups" json:"clientgroups"`
-	WorkflowStep        *cwl.WorkflowStep        `bson:"workflowStep" json:"workflowStep"`                          // CWL-only
-	StepOutputInterface interface{}              `bson:"stepOutput" json:"stepOutput"`                              // CWL-only
-	StepInput           *cwl.Job_document        `bson:"-" json:"-"`                                                // CWL-only
-	StepOutput          *cwl.Job_document        `bson:"-" json:"-"`                                                // CWL-only
-	Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task"`                          // CWL-only, indicates if this is a scatter_task TODO: compare with TaskType ?
-	Scatter_parent      *Task_Unique_Identifier  `bson:"scatter_parent" json:"scatter_parent"`                      // CWL-only, points to scatter parent
-	Children            []Task_Unique_Identifier `bson:"children" json:"children"`                                  // CWL-only, list of all children in a subworkflow task
-	Children_ptr        []*Task                  `bson:"-" json:"-"`                                                // CWL-only
-	Finalizing          bool                     `bson:"-" json:"-"`                                                // CWL-only, a lock mechanism for subworkflows and scatter tasks
-	CwlVersion          cwl.CWLVersion           `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty"` // CWL-only
+	Id                  string                   `bson:"taskid" json:"taskid" mapstructure:"taskid"` // old-style
+	TaskType            string                   `bson:"task_type" json:"task_type" mapstructure:"task_type"`
+	Info                *Info                    `bson:"-" json:"-" mapstructure:"-"` // this is just a pointer to the job.Info
+	Cmd                 *Command                 `bson:"cmd" json:"cmd" mapstructure:"cmd"`
+	Partition           *PartInfo                `bson:"partinfo" json:"-" mapstructure:"partinfo"`
+	DependsOn           []string                 `bson:"dependsOn" json:"dependsOn" mapstructure:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
+	TotalWork           int                      `bson:"totalwork" json:"totalwork" mapstructure:"totalwork"`
+	MaxWorkSize         int                      `bson:"maxworksize"   json:"maxworksize" mapstructure:"maxworksize"`
+	RemainWork          int                      `bson:"remainwork" json:"remainwork" mapstructure:"remainwork"`
+	ResetTask           bool                     `bson:"resettask" json:"-" mapstructure:"resettask"` // trigged by function - resume, recompute, resubmit
+	State               string                   `bson:"state" json:"state" mapstructure:"state"`
+	CreatedDate         time.Time                `bson:"createdDate" json:"createddate" mapstructure:"createdDate"`
+	StartedDate         time.Time                `bson:"startedDate" json:"starteddate" mapstructure:"startedDate"`
+	CompletedDate       time.Time                `bson:"completedDate" json:"completeddate" mapstructure:"completedDate"`
+	ComputeTime         int                      `bson:"computetime" json:"computetime" mapstructure:"computetime"`
+	UserAttr            map[string]interface{}   `bson:"userattr" json:"userattr" mapstructure:"userattr"`
+	ClientGroups        string                   `bson:"clientgroups" json:"clientgroups" mapstructure:"clientgroups"`
+	WorkflowStep        *cwl.WorkflowStep        `bson:"workflowStep" json:"workflowStep" mapstructure:"workflowStep"`                                  // CWL-only
+	StepOutputInterface interface{}              `bson:"stepOutput" json:"stepOutput" mapstructure:"stepOutput"`                                        // CWL-only
+	StepInput           *cwl.Job_document        `bson:"-" json:"-" mapstructure:"-"`                                                                   // CWL-only
+	StepOutput          *cwl.Job_document        `bson:"-" json:"-" mapstructure:"-"`                                                                   // CWL-only
+	Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task" mapstructure:"scatter_task"`                                  // CWL-only, indicates if this is a scatter_task TODO: compare with TaskType ?
+	Scatter_parent      *Task_Unique_Identifier  `bson:"scatter_parent" json:"scatter_parent" mapstructure:"scatter_parent"`                            // CWL-only, points to scatter parent
+	Children            []Task_Unique_Identifier `bson:"children" json:"children" mapstructure:"children"`                                              // CWL-only, list of all children in a subworkflow task
+	Children_ptr        []*Task                  `bson:"-" json:"-" mapstructure:"-"`                                                                   // CWL-only
+	Finalizing          bool                     `bson:"-" json:"-" mapstructure:"-"`                                                                   // CWL-only, a lock mechanism for subworkflows and scatter tasks
+	CwlVersion          cwl.CWLVersion           `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"` // CWL-only
+	WorkflowInstanceId  string                   `bson:"workflow_instance_id" json:"workflow_instance_id" mapstructure:"workflow_instance_id"`          // CWL-only
+	//WorkflowParent      *Task_Unique_Identifier  `bson:"workflow_parent" json:"workflow_parent" mapstructure:"workflow_parent"`                         // CWL-only parent that created subworkflow
 }
 
 type Task struct {
-	TaskRaw `bson:",inline"`
-	Inputs  []*IO `bson:"inputs" json:"inputs"`
-	Outputs []*IO `bson:"outputs" json:"outputs"`
-	Predata []*IO `bson:"predata" json:"predata"`
+	TaskRaw `bson:",inline" mapstructure:",squash"`
+	Inputs  []*IO `bson:"inputs" json:"inputs" mapstructure:"inputs"`
+	Outputs []*IO `bson:"outputs" json:"outputs" mapstructure:"outputs"`
+	Predata []*IO `bson:"predata" json:"predata" mapstructure:"predata"`
+	Comment string
 }
 
 // Deprecated JobDep struct uses deprecated TaskDep struct which uses the deprecated IOmap.  Maintained for backwards compatibility.
@@ -99,11 +112,11 @@ type TaskLog struct {
 	Workunits     []*WorkLog `bson:"workunits" json:"workunits"`
 }
 
-func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) (tr TaskRaw, err error) {
+func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) (tr *TaskRaw, err error) {
 
 	logger.Debug(3, "task_id: %s", task_id)
 	logger.Debug(3, "task_id.JobId: %s", task_id.JobId)
-	logger.Debug(3, "task_id.Parent: %s", task_id.Parent)
+
 	logger.Debug(3, "task_id.TaskName: %s", task_id.TaskName)
 
 	var task_str string
@@ -113,18 +126,18 @@ func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) (tr TaskRaw, err err
 		return
 	}
 
-	tr = TaskRaw{
+	tr = &TaskRaw{
 		Task_Unique_Identifier: task_id,
-		Id:        task_str,
-		Info:      info,
-		Cmd:       &Command{},
-		Partition: nil,
-		DependsOn: []string{},
+		Id:                     task_str,
+		Info:                   info,
+		Cmd:                    &Command{},
+		Partition:              nil,
+		DependsOn:              []string{},
 	}
 	return
 }
 
-func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
+func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) {
 	changed = false
 
 	if len(task.Id) == 0 {
@@ -132,7 +145,7 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		return
 	}
 
-	job_id := job.Id
+	//job_id := job.Id
 
 	if job_id == "" {
 		err = fmt.Errorf("(InitRaw) job_id empty")
@@ -191,12 +204,13 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 		changed = true
 	}
 
-	if job.Info == nil {
-		err = fmt.Errorf("(InitRaw) job.Info empty")
-		return
+	if job != nil {
+		if job.Info == nil {
+			err = fmt.Errorf("(InitRaw) job.Info empty")
+			return
+		}
+		task.Info = job.Info
 	}
-	task.Info = job.Info
-
 	if task.TotalWork <= 0 {
 		task.TotalWork = 1
 	}
@@ -221,6 +235,10 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 	//	task.Id = strings.TrimPrefix(task.Id, "_")
 	//	changed = true
 	//}
+	if job == nil {
+		err = fmt.Errorf("(InitRaw) job is nil")
+		return
+	}
 	context := job.WorkflowContext
 	if task.StepOutputInterface != nil {
 
@@ -241,15 +259,17 @@ func (task *TaskRaw) InitRaw(job *Job) (changed bool, err error) {
 
 	if task.WorkflowStep != nil {
 
-		if job.WorkflowContext == nil {
-			err = fmt.Errorf("(InitRaw) job.WorkflowContext == nil")
-			return
-		}
+		if job != nil {
+			if job.WorkflowContext == nil {
+				err = fmt.Errorf("(InitRaw) job.WorkflowContext == nil")
+				return
+			}
 
-		err = task.WorkflowStep.Init(job.WorkflowContext)
-		if err != nil {
-			err = fmt.Errorf("(InitRaw) task.WorkflowStep.Init returned: %s", err.Error())
-			return
+			err = task.WorkflowStep.Init(job.WorkflowContext)
+			if err != nil {
+				err = fmt.Errorf("(InitRaw) task.WorkflowStep.Init returned: %s", err.Error())
+				return
+			}
 		}
 	}
 
@@ -384,8 +404,9 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 	return
 }
 
-func (task *Task) Init(job *Job) (changed bool, err error) {
-	changed, err = task.InitRaw(job)
+// argument job is optional, but recommended
+func (task *Task) Init(job *Job, job_id string) (changed bool, err error) {
+	changed, err = task.InitRaw(job, job_id)
 	if err != nil {
 		return
 	}
@@ -442,46 +463,68 @@ func (task *Task) Init(job *Job) (changed bool, err error) {
 	return
 }
 
-func NewTask(job *Job, workflow string, task_id string) (t *Task, err error) {
+// task_id_str is without prefix yet
+func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task, err error) {
 
-	fmt.Printf("(NewTask) task_id: %s\n", task_id)
+	fmt.Printf("(NewTask) new task: %s %s/%s\n", job.Id, workflow_instance_id, task_id_str)
+
+	if task_id_str == "" {
+		err = fmt.Errorf("(NewTask) task_id is empty")
+		return
+
+	}
+
+	if task_id_str != "_root" {
+		if !strings.HasPrefix(workflow_instance_id, "_root") {
+			err = fmt.Errorf("(NewTask) workflow_instance_id has not _root prefix: %s", workflow_instance_id)
+			return
+		}
+
+	}
 
 	if job.Id == "" {
 		err = fmt.Errorf("(NewTask) jobid is empty!")
 		return
 	}
 
-	if strings.HasSuffix(workflow, "/") {
-		err = fmt.Errorf("Suffix not in workflow_ids ok %s", task_id)
+	if strings.HasSuffix(task_id_str, "/") {
+		err = fmt.Errorf("(NewTask) Suffix in task_id not ok %s", task_id_str)
 		return
 	}
 
-	if strings.HasSuffix(task_id, "/") {
-		err = fmt.Errorf("Suffix in task_id not ok %s", task_id)
-		return
-	}
+	task_id_str = strings.TrimSuffix(task_id_str, "/")
+	//workflow = strings.TrimSuffix(workflow, "/")
 
-	task_id = strings.TrimSuffix(task_id, "/")
-	workflow = strings.TrimSuffix(workflow, "/")
+	job_global_task_id_str := workflow_instance_id + "/" + task_id_str
 
 	var tui Task_Unique_Identifier
-	tui, err = New_Task_Unique_Identifier(job.Id, workflow, task_id)
+	tui, err = New_Task_Unique_Identifier(job.Id, job_global_task_id_str)
 	if err != nil {
+		err = fmt.Errorf("(NewTask) New_Task_Unique_Identifier returns: %s", err.Error())
 		return
 	}
 
-	var tr TaskRaw
+	var tr *TaskRaw
 	tr, err = NewTaskRaw(tui, job.Info)
 	if err != nil {
 		err = fmt.Errorf("(NewTask) NewTaskRaw returns: %s", err.Error())
 		return
 	}
 	t = &Task{
-		TaskRaw: tr,
+		TaskRaw: *tr,
 		Inputs:  []*IO{},
 		Outputs: []*IO{},
 		Predata: []*IO{},
 	}
+
+	t.TaskRaw.WorkflowInstanceId = workflow_instance_id
+
+	if workflow_instance_id == "" {
+		err = fmt.Errorf("(NewTask) workflow_instance_id empty")
+		return
+
+	}
+
 	return
 }
 
@@ -529,10 +572,18 @@ func (task *TaskRaw) SetChildren(qm *ServerMgr, children []Task_Unique_Identifie
 		defer task.Unlock()
 	}
 
-	err = dbUpdateJobTaskField(task.JobId, task.Id, "children", children)
-	if err != nil {
-		err = fmt.Errorf("(SetChildren) dbUpdateJobTaskField returned: %s", err.Error())
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskField(task.JobId, task.WorkflowInstanceId, task.Id, "children", children)
+		if err != nil {
+			err = fmt.Errorf("(SetChildren) dbUpdateJobTaskField returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskField(task.JobId, task.WorkflowInstanceId, task.Id, "children", children)
+		if err != nil {
+			err = fmt.Errorf("(SetChildren) dbUpdateTaskField returned: %s", err.Error())
+			return
+		}
 	}
 
 	task.Children = children
@@ -571,15 +622,38 @@ func (task *TaskRaw) GetChildren(qm *ServerMgr) (children []*Task, err error) {
 	return
 }
 
-func (task *TaskRaw) GetParent() (p string, err error) {
-	lock, err := task.RLockNamed("GetParent")
-	if err != nil {
-		return
-	}
-	defer task.RUnlockNamed(lock)
-	p = task.Task_Unique_Identifier.Parent
-	return
-}
+// returns name of Parent (without jobid)
+// func (task *TaskRaw) GetWorkflowParent() (p Task_Unique_Identifier, ok bool, err error) {
+// 	lock, err := task.RLockNamed("GetParent")
+// 	if err != nil {
+// 		return
+// 	}
+// 	defer task.RUnlockNamed(lock)
+
+// 	if task.WorkflowParent == nil {
+// 		ok = false
+// 		return
+// 	}
+
+// 	p = *task.WorkflowParent
+// 	return
+// }
+
+// func (task *TaskRaw) GetWorkflowParentStr() (parent_id_str string, err error) {
+// 	lock, err := task.RLockNamed("GetWorkflowParentStr")
+// 	if err != nil {
+// 		return
+// 	}
+// 	defer task.RUnlockNamed(lock)
+
+// 	parent_id_str = ""
+
+// 	if task.WorkflowParent != nil {
+// 		parent_id_str, _ = task.WorkflowParent.String()
+// 	}
+
+// 	return
+// }
 
 func (task *TaskRaw) GetState() (state string, err error) {
 	lock, err := task.RLockNamed("GetState")
@@ -609,9 +683,18 @@ func (task *Task) SetTaskType(type_str string, writelock bool) (err error) {
 		}
 		defer task.Unlock()
 	}
-	err = dbUpdateJobTaskString(task.JobId, task.Id, "task_type", type_str)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskString(task.JobId, task.WorkflowInstanceId, task.Id, "task_type", type_str)
+		if err != nil {
+			err = fmt.Errorf("(task/SetState) dbUpdateJobTaskString returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskString(task.JobId, task.WorkflowInstanceId, task.Id, "task_type", type_str)
+		if err != nil {
+			err = fmt.Errorf("(task/SetState) dbUpdateTaskString returned: %s", err.Error())
+			return
+		}
 	}
 	task.TaskType = type_str
 	return
@@ -624,10 +707,20 @@ func (task *TaskRaw) SetCreatedDate(t time.Time) (err error) {
 	}
 	defer task.Unlock()
 
-	err = dbUpdateJobTaskTime(task.JobId, task.Id, "createdDate", t)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "createdDate", t)
+		if err != nil {
+			err = fmt.Errorf("(task/SetCreatedDate) dbUpdateJobTaskTime returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "createdDate", t)
+		if err != nil {
+			err = fmt.Errorf("(task/SetCreatedDate) dbUpdateTaskTime returned: %s", err.Error())
+			return
+		}
 	}
+
 	task.CreatedDate = t
 	return
 }
@@ -639,9 +732,18 @@ func (task *TaskRaw) SetStartedDate(t time.Time) (err error) {
 	}
 	defer task.Unlock()
 
-	err = dbUpdateJobTaskTime(task.JobId, task.Id, "startedDate", t)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "startedDate", t)
+		if err != nil {
+			err = fmt.Errorf("(task/SetStartedDate) dbUpdateJobTaskTime returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "startedDate", t)
+		if err != nil {
+			err = fmt.Errorf("(task/SetStartedDate) dbUpdateTaskTime returned: %s", err.Error())
+			return
+		}
 	}
 	task.StartedDate = t
 	return
@@ -655,10 +757,18 @@ func (task *TaskRaw) SetCompletedDate(t time.Time, lock bool) (err error) {
 		}
 		defer task.Unlock()
 	}
-
-	err = dbUpdateJobTaskTime(task.JobId, task.Id, "completedDate", t)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "completedDate", t)
+		if err != nil {
+			err = fmt.Errorf("(task/SetCompletedDate) dbUpdateJobTaskTime returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskTime(task.JobId, task.WorkflowInstanceId, task.Id, "completedDate", t)
+		if err != nil {
+			err = fmt.Errorf("(task/SetCompletedDate) dbUpdateTaskTime returned: %s", err.Error())
+			return
+		}
 	}
 	task.CompletedDate = t
 	return
@@ -672,10 +782,18 @@ func (task *TaskRaw) SetStepOutput(jd *cwl.Job_document, lock bool) (err error) 
 		}
 		defer task.Unlock()
 	}
-
-	err = dbUpdateJobTaskField(task.JobId, task.Id, "stepOutput", *jd)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskField(task.JobId, task.WorkflowInstanceId, task.Id, "stepOutput", *jd)
+		if err != nil {
+			err = fmt.Errorf("(task/SetStepOutput) dbUpdateJobTaskField returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskField(task.JobId, task.WorkflowInstanceId, task.Id, "stepOutput", *jd)
+		if err != nil {
+			err = fmt.Errorf("(task/SetStepOutput) dbUpdateTaskField returned: %s", err.Error())
+			return
+		}
 	}
 	task.StepOutput = jd
 	task.StepOutputInterface = jd
@@ -739,9 +857,19 @@ func (task *TaskRaw) SetState(new_state string, write_lock bool) (err error) {
 		return
 	}
 
-	err = dbUpdateJobTaskString(jobid, taskid, "state", new_state)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+
+		err = dbUpdateJobTaskString(jobid, task.WorkflowInstanceId, taskid, "state", new_state)
+		if err != nil {
+			err = fmt.Errorf("(TaskRaw/SetState) dbUpdateJobTaskString returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskString(jobid, task.WorkflowInstanceId, taskid, "state", new_state)
+		if err != nil {
+			err = fmt.Errorf("(TaskRaw/SetState) dbUpdateTaskString returned: %s", err.Error())
+			return
+		}
 	}
 
 	logger.Debug(3, "(Task/SetState) %s new state: \"%s\" (old state \"%s\")", taskid, new_state, old_state)
@@ -750,21 +878,25 @@ func (task *TaskRaw) SetState(new_state string, write_lock bool) (err error) {
 	if new_state == TASK_STAT_COMPLETED {
 		err = job.IncrementRemainTasks(-1)
 		if err != nil {
+			err = fmt.Errorf("(task/SetState) IncrementRemainTasks returned: %s", err.Error())
 			return
 		}
 		err = task.SetCompletedDate(time.Now(), false)
 		if err != nil {
+			err = fmt.Errorf("(task/SetState) SetCompletedDate returned: %s", err.Error())
 			return
 		}
 	} else if old_state == TASK_STAT_COMPLETED {
 		// in case a completed task is marked as something different
 		err = job.IncrementRemainTasks(1)
 		if err != nil {
+			err = fmt.Errorf("(task/SetState) IncrementRemainTasks returned: %s", err.Error())
 			return
 		}
 		initTime := time.Time{}
 		err = task.SetCompletedDate(initTime, false)
 		if err != nil {
+			err = fmt.Errorf("(task/SetState) SetCompletedDate returned: %s", err.Error())
 			return
 		}
 	}
@@ -935,18 +1067,21 @@ func (task *Task) setSingleWorkunit(writelock bool) (err error) {
 	if task.TotalWork != 1 {
 		err = task.setTotalWork(1, writelock)
 		if err != nil {
+			err = fmt.Errorf("(task/setSingleWorkunit) setTotalWork returned: %s", err.Error())
 			return
 		}
 	}
 	if task.Partition != nil {
 		err = task.setPartition(nil, writelock)
 		if err != nil {
+			err = fmt.Errorf("(task/setSingleWorkunit) setPartition returned: %s", err.Error())
 			return
 		}
 	}
 	if task.MaxWorkSize != 0 {
 		err = task.setMaxWorkSize(0, writelock)
 		if err != nil {
+			err = fmt.Errorf("(task/setSingleWorkunit) setMaxWorkSize returned: %s", err.Error())
 			return
 		}
 	}
@@ -961,8 +1096,9 @@ func (task *Task) setTotalWork(num int, writelock bool) (err error) {
 		}
 		defer task.Unlock()
 	}
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "totalwork", num)
+	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "totalwork", num)
 	if err != nil {
+		err = fmt.Errorf("(task/setTotalWork) dbUpdateJobTaskInt returned: %s", err.Error())
 		return
 	}
 	task.TotalWork = num
@@ -979,8 +1115,9 @@ func (task *Task) setPartition(partition *PartInfo, writelock bool) (err error) 
 		}
 		defer task.Unlock()
 	}
-	err = dbUpdateJobTaskPartition(task.JobId, task.Id, partition)
+	err = dbUpdateJobTaskPartition(task.JobId, task.WorkflowInstanceId, task.Id, partition)
 	if err != nil {
+		err = fmt.Errorf("(task/setPartition) dbUpdateJobTaskPartition returned: %s", err.Error())
 		return
 	}
 	task.Partition = partition
@@ -995,8 +1132,9 @@ func (task *Task) setMaxWorkSize(num int, writelock bool) (err error) {
 		}
 		defer task.Unlock()
 	}
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "maxworksize", num)
+	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "maxworksize", num)
 	if err != nil {
+		err = fmt.Errorf("(task/setMaxWorkSize) dbUpdateJobTaskInt returned: %s", err.Error())
 		return
 	}
 	task.MaxWorkSize = num
@@ -1011,8 +1149,9 @@ func (task *Task) SetRemainWork(num int, writelock bool) (err error) {
 		}
 		defer task.Unlock()
 	}
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "remainwork", num)
+	err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "remainwork", num)
 	if err != nil {
+		err = fmt.Errorf("(task/SetRemainWork) dbUpdateJobTaskInt returned: %s", err.Error())
 		return
 	}
 	task.RemainWork = num
@@ -1029,9 +1168,18 @@ func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, 
 	}
 
 	remainwork = task.RemainWork + inc
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "remainwork", remainwork)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "remainwork", remainwork)
+		if err != nil {
+			err = fmt.Errorf("(task/IncrementRemainWork) dbUpdateJobTaskInt returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "remainwork", remainwork)
+		if err != nil {
+			err = fmt.Errorf("(task/IncrementRemainWork) dbUpdateTaskInt returned: %s", err.Error())
+			return
+		}
 	}
 	task.RemainWork = remainwork
 	return
@@ -1045,9 +1193,20 @@ func (task *Task) IncrementComputeTime(inc int) (err error) {
 	defer task.Unlock()
 
 	newComputeTime := task.ComputeTime + inc
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "computetime", newComputeTime)
-	if err != nil {
-		return
+
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "computetime", newComputeTime)
+		if err != nil {
+			err = fmt.Errorf("(task/IncrementComputeTime) dbUpdateJobTaskInt returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "computetime", newComputeTime)
+		if err != nil {
+			err = fmt.Errorf("(task/IncrementComputeTime) dbUpdateTaskInt returned: %s", err.Error())
+			return
+		}
+
 	}
 	task.ComputeTime = newComputeTime
 	return
@@ -1065,11 +1224,21 @@ func (task *Task) ResetTaskTrue(name string) (err error) {
 
 	err = task.SetState(TASK_STAT_PENDING, false)
 	if err != nil {
+		err = fmt.Errorf("(task/ResetTaskTrue) task.SetState returned: %s", err.Error())
 		return
 	}
-	err = dbUpdateJobTaskBoolean(task.JobId, task.Id, "resettask", true)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", true)
+		if err != nil {
+			err = fmt.Errorf("(task/ResetTaskTrue) dbUpdateJobTaskBoolean returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", true)
+		if err != nil {
+			err = fmt.Errorf("(task/ResetTaskTrue) dbUpdateTaskBoolean returned: %s", err.Error())
+			return
+		}
 	}
 	task.ResetTask = true
 	return
@@ -1094,13 +1263,23 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 	// reset remainwork
 	err = task.SetRemainWork(task.TotalWork, false)
 	if err != nil {
+		err = fmt.Errorf("(task/SetResetTask) task.SetRemainWork returned: %s", err.Error())
 		return
 	}
 
 	// reset computetime
-	err = dbUpdateJobTaskInt(task.JobId, task.Id, "computetime", 0)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "computetime", 0)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskInt returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "computetime", 0)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskInt returned: %s", err.Error())
+			return
+		}
 	}
 	task.ComputeTime = 0
 
@@ -1117,11 +1296,19 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 		io.Size = 0
 		io.Url = ""
 	}
-	err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskIO returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskIO returned: %s", err.Error())
+			return
+		}
 	}
-
 	// reset / delete all outputs
 	for _, io := range task.Outputs {
 		// do not delete update IO
@@ -1143,11 +1330,19 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 		io.Size = 0
 		io.Url = ""
 	}
-	err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskIO returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskIO returned: %s", err.Error())
+			return
+		}
 	}
-
 	// delete all workunit logs
 	for _, log := range conf.WORKUNIT_LOGS {
 		err = task.DeleteLogs(log, false)
@@ -1157,9 +1352,18 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 	}
 
 	// reset the reset
-	err = dbUpdateJobTaskBoolean(task.JobId, task.Id, "resettask", false)
-	if err != nil {
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskBoolean returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskBoolean returned: %s", err.Error())
+			return
+		}
 	}
 	task.ResetTask = false
 	return
@@ -1189,9 +1393,18 @@ func (task *Task) setTokenForIO(writelock bool) (err error) {
 		}
 	}
 	if changed {
-		err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
-		if err != nil {
-			return
+		if task.WorkflowInstanceId == "" {
+			err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+			if err != nil {
+				err = fmt.Errorf("(task/setTokenForIO) dbUpdateJobTaskIO returned: %s", err.Error())
+				return
+			}
+		} else {
+			err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+			if err != nil {
+				err = fmt.Errorf("(task/setTokenForIO) dbUpdateTaskIO returned: %s", err.Error())
+				return
+			}
 		}
 	}
 	// update outputs
@@ -1203,7 +1416,19 @@ func (task *Task) setTokenForIO(writelock bool) (err error) {
 		}
 	}
 	if changed {
-		err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
+		if task.WorkflowInstanceId == "" {
+			err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
+			if err != nil {
+				err = fmt.Errorf("(task/setTokenForIO) dbUpdateJobTaskIO returned: %s", err.Error())
+				return
+			}
+		} else {
+			err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
+			if err != nil {
+				err = fmt.Errorf("(task/setTokenForIO) dbUpdateTaskIO returned: %s", err.Error())
+				return
+			}
+		}
 	}
 	return
 }
@@ -1213,6 +1438,11 @@ func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err
 
 	//if task.WorkflowStep != nil {
 	//	step :=
+	//}
+	//task_name := task.TaskName
+	//fmt.Printf("(CreateWorkunits) %s\n", task_name)
+	//if task_name == "_root__main_step1_step1_0" {
+	//	panic("found task")
 	//}
 
 	if task.TotalWork == 1 {
@@ -1251,6 +1481,7 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog, err error) {
 		var wl *WorkLog
 		wl, err = NewWorkLog(workunit_id)
 		if err != nil {
+			err = fmt.Errorf("(task/GetTaskLogs) NewWorkLog returned: %s", err.Error())
 			return
 		}
 		tlog.Workunits = append(tlog.Workunits, wl)
@@ -1260,6 +1491,7 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog, err error) {
 			var wl *WorkLog
 			wl, err = NewWorkLog(workunit_id)
 			if err != nil {
+				err = fmt.Errorf("(task/GetTaskLogs) NewWorkLog returned: %s", err.Error())
 				return
 			}
 			tlog.Workunits = append(tlog.Workunits, wl)
@@ -1311,7 +1543,7 @@ func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
 			continue
 		}
 		var preId Task_Unique_Identifier
-		preId, err = New_Task_Unique_Identifier(task.JobId, "", io.Origin)
+		preId, err = New_Task_Unique_Identifier(task.JobId, io.Origin)
 		if err != nil {
 			err = fmt.Errorf("(ValidateDependants) New_Task_Unique_Identifier returns: %s", err.Error())
 			return
@@ -1358,7 +1590,7 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (err error) {
 		if io.Origin != "" {
 			// find predecessor task
 			var preId Task_Unique_Identifier
-			preId, err = New_Task_Unique_Identifier(task.JobId, "", io.Origin)
+			preId, err = New_Task_Unique_Identifier(task.JobId, io.Origin)
 			if err != nil {
 				err = fmt.Errorf("(ValidateInputs) New_Task_Unique_Identifier returned: %s", err.Error())
 				return
@@ -1432,10 +1664,18 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (err error) {
 		logger.Debug(3, "(ValidateInputs) input located: task=%s, file=%s, node=%s, size=%d", task.Id, io.FileName, io.Node, io.Size)
 	}
 
-	err = dbUpdateJobTaskIO(task.JobId, task.Id, "inputs", task.Inputs)
-	if err != nil {
-		err = fmt.Errorf("(ValidateInputs) unable to save task inputs to mongodb, task=%s: %s", task.Id, err.Error())
-		return
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+		if err != nil {
+			err = fmt.Errorf("(ValidateInputs) unable to save task inputs to mongodb, task=%s: %s", task.Id, err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+		if err != nil {
+			err = fmt.Errorf("(ValidateInputs) unable to save task inputs to mongodb, task=%s: %s", task.Id, err.Error())
+			return
+		}
 	}
 	return
 }
@@ -1474,9 +1714,18 @@ func (task *Task) ValidateOutputs() (err error) {
 		}
 	}
 
-	err = dbUpdateJobTaskIO(task.JobId, task.Id, "outputs", task.Outputs)
-	if err != nil {
-		err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
+		if err != nil {
+			err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
+		if err != nil {
+			err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
+			return
+		}
 	}
 	return
 }
@@ -1515,9 +1764,16 @@ func (task *Task) ValidatePredata() (err error) {
 	}
 
 	if modified {
-		err = dbUpdateJobTaskIO(task.JobId, task.Id, "predata", task.Predata)
-		if err != nil {
-			err = fmt.Errorf("unable to save task predata to mongodb, task=%s: %s", task.Id, err.Error())
+		if task.WorkflowInstanceId == "" {
+			err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "predata", task.Predata)
+			if err != nil {
+				err = fmt.Errorf("unable to save task predata to mongodb, task=%s: %s", task.Id, err.Error())
+			}
+		} else {
+			err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "predata", task.Predata)
+			if err != nil {
+				err = fmt.Errorf("unable to save task predata to mongodb, task=%s: %s", task.Id, err.Error())
+			}
 		}
 	}
 	return
@@ -1571,6 +1827,7 @@ func (task *Task) DeleteLogs(logname string, writelock bool) (err error) {
 	var logdir string
 	logdir, err = getPathByJobId(task.JobId)
 	if err != nil {
+		err = fmt.Errorf("(task/GetTaDeleteLogsskLogs) getPathByJobId returned: %s", err.Error())
 		return
 	}
 	globpath := fmt.Sprintf("%s/%s_*.%s", logdir, task.Id, logname)
@@ -1578,6 +1835,7 @@ func (task *Task) DeleteLogs(logname string, writelock bool) (err error) {
 	var logfiles []string
 	logfiles, err = filepath.Glob(globpath)
 	if err != nil {
+		err = fmt.Errorf("(task/GetTaDeleteLogsskLogs) filepath.Glob returned: %s", err.Error())
 		return
 	}
 
@@ -1589,10 +1847,12 @@ func (task *Task) DeleteLogs(logname string, writelock bool) (err error) {
 	return
 }
 
-func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, err error) {
+func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, reason string, err error) {
 
 	if task.StepOutput == nil {
-		err = fmt.Errorf("(task/GetStepOutput) task.StepOutput == nil")
+		ok = false
+		reason = "task.StepOutput == nil"
+		//err = fmt.Errorf("(task/GetStepOutput) task.StepOutput == nil")
 		return
 	}
 
@@ -1618,5 +1878,136 @@ func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, err erro
 
 	}
 	ok = false
+	return
+}
+
+func (task *Task) GetStepOutputNames() (names []string, err error) {
+
+	if task.StepOutput == nil {
+		err = fmt.Errorf("(task/GetStepOutputNames) task.StepOutput == nil")
+		return
+	}
+
+	names = []string{}
+
+	for _, named_step_output := range *task.StepOutput {
+
+		named_step_output_base := path.Base(named_step_output.Id)
+
+		names = append(names, named_step_output_base)
+
+	}
+
+	return
+}
+
+func String2Date(str string) (t time.Time, err error) {
+	//layout := "2006-01-02T15:04:05.00Z"
+	// 2018-12-13T22:36:02.96Z
+	//str := "2014-11-12T11:45:26.371Z"
+	//t, err = time.Parse(layout, str)
+	t, err = time.Parse(time.RFC3339, str)
+
+	return
+}
+
+func FixTimeInMap(original_map map[string]interface{}, field string) (err error) {
+	var value_if interface{}
+	var ok bool
+	value_if, ok = original_map[field]
+	if ok {
+		switch value_if.(type) {
+		case string:
+			value_str := value_if.(string)
+
+			var value_time time.Time
+			value_time, err = String2Date(value_str)
+			if err != nil {
+				err = fmt.Errorf("(FixTimeInMap) Could not parse date: %s", err.Error())
+				return
+			}
+			delete(original_map, field)
+			original_map[field] = value_time
+
+		case time.Time:
+			// all ok
+		default:
+			err = fmt.Errorf("(FixTimeInMap) time type unknown (%s)", reflect.TypeOf(value_if))
+		}
+
+	}
+	return
+}
+
+func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (task *Task, err error) {
+
+	task = &Task{}
+	task.TaskRaw = TaskRaw{}
+
+	//spew.Dump(original)
+
+	original, err = cwl.MakeStringMap(original, context)
+	if err != nil {
+		err = fmt.Errorf("(NewTaskFromInterface) MakeStringMap returned: %s", err.Error())
+		return
+	}
+
+	original_map := original.(map[string]interface{})
+
+	for _, field := range []string{"createdDate", "startedDate", "completedeDate"} {
+
+		err = FixTimeInMap(original_map, field)
+		if err != nil {
+			err = fmt.Errorf("(NewTaskFromInterface) FixTimeInMap returned: %s", err.Error())
+			return
+		}
+	}
+
+	err = mapstructure.Decode(original, task)
+	if err != nil {
+		err = fmt.Errorf("(NewTaskFromInterface) %s", err.Error())
+		return
+	}
+
+	if task.WorkflowInstanceId == "" {
+		err = fmt.Errorf("(NewTaskFromInterface) task.WorkflowInstanceId == empty")
+		return
+	}
+
+	// if task.WorkflowInstanceId != "_root" {
+	// 	if task.WorkflowParent == nil {
+	// 		task_id_str, _ := task.String()
+	// 		err = fmt.Errorf("(NewTaskFromInterface) task.WorkflowParent == nil , (%s)", task_id_str)
+	// 		return
+	// 	}
+	// }
+	return
+}
+
+func NewTasksFromInterface(original interface{}, context *cwl.WorkflowContext) (tasks []*Task, err error) {
+
+	switch original.(type) {
+	case []interface{}:
+		original_array := original.([]interface{})
+
+		tasks = []*Task{}
+
+		for i, _ := range original_array {
+
+			var t *Task
+			t, err = NewTaskFromInterface(original_array[i], context)
+			if err != nil {
+				err = fmt.Errorf("(NewTasksFromInterface) NewTaskFromInterface returned: %s", err.Error())
+				return
+			}
+
+			tasks = append(tasks, t)
+
+		}
+
+	default:
+		err = fmt.Errorf("(NewTasksFromInterface) type not supported: %s", reflect.TypeOf(original))
+	}
+
 	return
 }

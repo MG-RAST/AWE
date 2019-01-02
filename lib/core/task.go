@@ -1955,7 +1955,7 @@ func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (t
 
 	original_map := original.(map[string]interface{})
 
-	for _, field := range []string{"createdDate", "startedDate", "completedeDate"} {
+	for _, field := range []string{"createdDate", "startedDate", "completedDate"} {
 
 		err = FixTimeInMap(original_map, field)
 		if err != nil {

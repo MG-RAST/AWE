@@ -16,6 +16,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	shock "github.com/MG-RAST/go-shock-client"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -1965,7 +1966,7 @@ func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (t
 
 	err = mapstructure.Decode(original, task)
 	if err != nil {
-		err = fmt.Errorf("(NewTaskFromInterface) %s", err.Error())
+		err = fmt.Errorf("(NewTaskFromInterface) mapstructure.Decode returned: %s (%s)", err.Error(), spew.Sdump(original_map))
 		return
 	}
 

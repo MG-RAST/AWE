@@ -1962,6 +1962,9 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 			input_optional := false
 			if wsi.Default != nil {
 				input_optional = true
+			} else {
+				//wsi.S
+
 			}
 
 			if wsi.Source == nil {

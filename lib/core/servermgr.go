@@ -3384,12 +3384,16 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 	spew.Dump(workflow_step)
 
 	if workflow_step.In == nil {
-		err = fmt.Errorf("(GetStepInputObjects) workflow_step.In == nil (%s)", workflow_step.Id)
+		// empty inputs are ok
+		ok = true
+		//err = fmt.Errorf("(GetStepInputObjects) workflow_step.In == nil (%s)", workflow_step.Id)
 		return
 	}
 
 	if len(workflow_step.In) == 0 {
-		err = fmt.Errorf("(GetStepInputObjects) len(workflow_step.In) == 0")
+		// empty inputs are ok
+		ok = true
+		//err = fmt.Errorf("(GetStepInputObjects) len(workflow_step.In) == 0")
 		return
 	}
 

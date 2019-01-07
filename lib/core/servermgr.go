@@ -2109,6 +2109,10 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		return
 	}
 
+	if len(task.Children) > 0 {
+		return
+	}
+
 	cwl_step := task.WorkflowStep
 	task_id := task.Task_Unique_Identifier
 	task_id_str, _ := task_id.String()
@@ -2350,7 +2354,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 					var src_str string
 					src_str, ok = scatter_input_source_array_if[k].(string)
 					if !ok {
-						err = fmt.Errorf("(taskEnQueue) element in source array is not a string")
+						err = fmt.Errorf("(taskEnQueueScatter) element in source array is not a string")
 						return
 					}
 					scatter_input_source_array = append(scatter_input_source_array, src_str)
@@ -2401,11 +2405,11 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		var ok bool
 		scatter_input_object, ok, _, err = qm.getCWLSource(job, workflow_instance, workflow_input_map, scatter_input_source_str, true, job.WorkflowContext)
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) getCWLSource returned: %s", err.Error())
+			err = fmt.Errorf("(taskEnQueueScatter) getCWLSource returned: %s", err.Error())
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("(taskEnQueue) scatter_input %s not found.", scatter_input)
+			err = fmt.Errorf("(taskEnQueueScatter) scatter_input %s not found.", scatter_input)
 			return
 		}
 
@@ -2413,7 +2417,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		scatter_input_array_ptr, ok = scatter_input_object.(*cwl.Array)
 		if !ok {
 
-			err = fmt.Errorf("(taskEnQueue) scatter_input_object type is not *cwl.Array: %s", reflect.TypeOf(scatter_input_object))
+			err = fmt.Errorf("(taskEnQueueScatter) scatter_input_object type is not *cwl.Array: %s", reflect.TypeOf(scatter_input_object))
 			return
 		}
 
@@ -2439,7 +2443,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		// defined counter for iteration over all combinations
 		scatter_type = "cross"
 	} else {
-		err = fmt.Errorf("(taskEnQueue) Scatter type %s unknown", scatter_method)
+		err = fmt.Errorf("(taskEnQueueScatter) Scatter type %s unknown", scatter_method)
 		return
 	}
 	// 1. Create template step with scatter inputs removed
@@ -2470,7 +2474,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 	fmt.Println("template_scatter_step_ins:")
 	spew.Dump(template_scatter_step_ins)
 	if len(template_scatter_step_ins) == 0 {
-		err = fmt.Errorf("(taskEnQueue) no scatter tasks found")
+		err = fmt.Errorf("(taskEnQueueScatter) no scatter tasks found")
 		return
 	}
 
@@ -2486,13 +2490,13 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		var workunit *Workunit
 		workunit, err = NewWorkunit(qm, task, 0, job)
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) Creation of fake workunitfailed: %s", err.Error())
+			err = fmt.Errorf("(taskEnQueueScatter) Creation of fake workunitfailed: %s", err.Error())
 			return
 		}
 		qm.workQueue.Add(workunit)
 		err = workunit.SetState(WORK_STAT_CHECKOUT, "internal processing")
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) workunit.SetState failed: %s", err.Error())
+			err = fmt.Errorf("(taskEnQueueScatter) workunit.SetState failed: %s", err.Error())
 			return
 		}
 
@@ -2535,6 +2539,15 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 
 	counter_running := true
 
+	basename := path.Base(task_id.TaskName)
+
+	parent_id_str := strings.TrimSuffix(task_id.TaskName, "/"+basename)
+
+	if parent_id_str == task_id.TaskName {
+		err = fmt.Errorf("(taskEnQueue) parent_id_str == task_id.TaskName")
+		return
+	}
+
 	for counter_running {
 
 		permutation_instance := ""
@@ -2543,23 +2556,23 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		}
 		permutation_instance += strconv.Itoa(counter.Counter[counter.NumberOfSets-1])
 
-		scatter_task_name := task_id.TaskName + "_scatter" + permutation_instance
+		scatter_task_name := basename + "_scatter" + permutation_instance
 
 		// create task
 		var awe_task *Task
 
-		var parent_id_str string
+		//var parent_id_str string
 		// parent_id_str, err = task.GetWorkflowParentStr()
 		// if err != nil {
 		// 	err = fmt.Errorf("(taskEnQueue) task.GetWorkflowParentStr returned: %s", err.Error())
 		// 	return
 		// }
-		parent_id_str = "test"
-		logger.Debug(3, "(taskEnQueue) New Task: parent: %s and scatter_task_name: %s", parent_id_str, scatter_task_name)
+		//parent_id_str = "test"
+		logger.Debug(3, "(taskEnQueueScatter) New Task: parent: %s and scatter_task_name: %s", parent_id_str, scatter_task_name)
 
 		awe_task, err = NewTask(job, parent_id_str, scatter_task_name)
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) NewTask returned: %s", err.Error())
+			err = fmt.Errorf("(taskEnQueueScatter) NewTask returned: %s", err.Error())
 			return
 		}
 
@@ -2567,9 +2580,10 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		//awe_task.Scatter_task = true
 		_, err = awe_task.Init(job, job.Id)
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) awe_task.Init() returns: %s", err.Error())
+			err = fmt.Errorf("(taskEnQueueScatter) awe_task.Init() returns: %s", err.Error())
 			return
 		}
+		awe_task.TaskType = TASK_TYPE_NORMAL // unless this is a scatter of a scatter...
 
 		// create step
 		var new_task_step cwl.WorkflowStep
@@ -2585,13 +2599,13 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 			input_name_base := path.Base(input_name)
 			scatter_input, ok := template_scatter_step_ins[input_name_base]
 			if !ok {
-				err = fmt.Errorf("(taskEnQueue) %s not in template_scatter_step_ins", input_name_base)
+				err = fmt.Errorf("(taskEnQueueScatter) %s not in template_scatter_step_ins", input_name_base)
 				return
 			}
 
 			input_position, ok := name_to_postiton[input_name_base] // input_position points to an array of inputs
 			if !ok {
-				err = fmt.Errorf("(taskEnQueue) %s not in name_to_postiton map", input_name_base)
+				err = fmt.Errorf("(taskEnQueueScatter) %s not in name_to_postiton map", input_name_base)
 				return
 			}
 
@@ -2605,7 +2619,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		fmt.Println("new_task_step with everything:")
 		spew.Dump(new_task_step)
 
-		new_task_step.Id = scatter_task_name
+		new_task_step.Id = parent_id_str + "/" + scatter_task_name
 		awe_task.WorkflowStep = &new_task_step
 		children = append(children, awe_task.Task_Unique_Identifier)
 
@@ -2625,20 +2639,23 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 	for i := range new_scatter_tasks {
 		sub_task := new_scatter_tasks[i]
 
-		err = job.AddTask(sub_task)
+		err = workflow_instance.AddTask(sub_task, "db_sync_yes", true)
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) job.AddTask returns: %s", err.Error())
+			err = fmt.Errorf("(taskEnQueueScatter) job.AddTask returns: %s", err.Error())
 			return
 		}
 
-		err = qm.TaskMap.Add(sub_task, "taskEnQueue")
+		err = qm.TaskMap.Add(sub_task, "taskEnQueueScatter")
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) qm.TaskMap.Add() returns: %s", err.Error())
+			sub_task_id_str := sub_task.Id
+			err = fmt.Errorf("(taskEnQueueScatter) sub_task_id_str=%s qm.TaskMap.Add() returns: %s", sub_task_id_str, err.Error())
 			return
 		}
 
-		err = sub_task.SetState(TASK_STAT_PENDING, true)
+		err = sub_task.SetState(TASK_STAT_READY, true)
 		if err != nil {
+			sub_task_id_str := sub_task.Id
+			err = fmt.Errorf("(taskEnQueueScatter) sub_task_id_str=%s sub_task.SetState returns: %s", sub_task_id_str, err.Error())
 			return
 		}
 	}
@@ -3250,123 +3267,16 @@ func (qm *ServerMgr) getCWLSource(job *Job, workflow_instance *WorkflowInstance,
 		return
 
 	} else if len(src_array) >= 4 {
-		logger.Debug(3, "(getCWLSource) a step input?")
-		panic("(getCWLSource) src: " + src)
-		//context := job.WorkflowContext
 
-		var real_obj cwl.CWL_object
-		real_obj, ok = context.All[src]
+		// an embedded workflow can have this:
+		// e.g. #main/step0/55ba559c-65a1-469b-8711-17bf6cc4deca/file1 , a workflow input
 
-		if !ok {
+		obj, ok, err = qm.GetSourceFromWorkflowInstanceInput(workflow_instance, src, error_on_missing_task)
 
-			fmt.Printf("(getCWLSource) src: %s\n", src)
-			src_base := path.Base(src)
-
-			fmt.Printf("(getCWLSource) src_base: %s\n", src_base)
-			src_path := strings.TrimSuffix(src, "/"+src_base)
-
-			fmt.Printf("(getCWLSource) src_path: %s\n", src_path)
-
-			// 1) search matching WorkflowInstance
-			//var wi *WorkflowInstance
-
-			//wi, ok, err = job.GetWorkflowInstance(src_path, true)
-			//if err != nil {
-			//	err = fmt.Errorf("(getCWLSource) GetWorkflowInstance returned: %s", err.Error())
-			//	return
-			//}
-			//if ok {
-			// found workflow instance
-			obj, err = workflow_instance.Outputs.Get(src_base)
-			if err != nil {
-				if error_on_missing_task {
-					err = fmt.Errorf("(getCWLSource) found ancestor_task %s, but output %s not found", src_path, src_base)
-					return
-				}
-				err = nil
-				logger.Debug(3, "(getCWLSource) found ancestor_task %s, but output %s not found", src_path, src_base)
-				ok = false
-				return
-			}
-			return
-
-			//}
-
-			// 2) find task / task output
-
-			//ancestor_task_id := current_task_id
-			ancestor_task_id := Task_Unique_Identifier{}
-			ancestor_task_id.JobId = workflow_instance.JobId
-			// src_path + src_base
-			step_name := src_path
-			fmt.Printf("(getCWLSource) step_name: %s\n", step_name)
-
-			//workflow_name := path.Base(step_name)
-			//workflow_name = strings.TrimSuffix(workflow_name, "/")
-			//fmt.Printf("(getCWLSource) workflow_name: %s\n", workflow_name)
-
-			ancestor_task_id.TaskName = step_name
-
-			var ancestor_task *Task
-			var local_ok bool
-			ancestor_task, local_ok, err = qm.TaskMap.Get(ancestor_task_id, true)
-			if err != nil {
-				err = fmt.Errorf("(getCWLSource) qm.TaskMap.Get returned: %s", err.Error())
-				return
-			}
-			if !local_ok {
-				if error_on_missing_task {
-					err = fmt.Errorf("(getCWLSource) ancestor_task %s not found ", ancestor_task_id)
-					return
-				}
-				logger.Debug(3, "(getCWLSource) ancestor_task %s not found ", ancestor_task_id)
-				ok = false
-				return
-			}
-
-			if ancestor_task == nil {
-				err = fmt.Errorf("(getCWLSource) did not find predecessor task %s for task %s", ancestor_task_id, src) // this should not happen, taskReady makes sure everything is available
-				return
-			}
-
-			if ancestor_task.StepOutput == nil {
-				if error_on_missing_task {
-					err = fmt.Errorf("(getCWLSource) found ancestor_task %s, but not outputs found (%s)", src_path, src_base)
-					return
-				}
-				err = nil
-				logger.Debug(3, "(getCWLSource) found ancestor_task %s, but not outputs found (%s)", src_path, src_base)
-				ok = false
-				return
-			}
-
-			logger.Debug(3, "(getCWLSource) len(ancestor_task.StepOutput): %d", len(*ancestor_task.StepOutput))
-
-			obj, ok, reason, err = ancestor_task.GetStepOutput(src_base)
-			if err != nil {
-				err = fmt.Errorf("(getCWLSource) ancestor_task.GetStepOutput returned: %s", err.Error())
-				return
-			}
-
-			if ok {
-				return
-			}
-
-			logger.Debug(3, "(getCWLSource) step output not found")
-			ok = false
-
+		if err != nil {
+			err = fmt.Errorf("(getCWLSource) GetSourceFromWorkflowInstanceInput returned: %s", err.Error())
 			return
 		}
-		obj = real_obj.(cwl.CWLType)
-		// search context for object
-		// if onject is not in context, use a flag in context object to indicate collection of objects
-
-		// how find task that would generate that object ???
-
-		//workflow_name := src_array[0]
-		//step_name := src_array[1]
-		//output_name := src_array[2]
-		//_ = output_name
 
 	} else {
 		err = fmt.Errorf("(getCWLSource) could not parse source: %s", src) // workflow, step, run
@@ -4111,6 +4021,22 @@ func (qm *ServerMgr) taskCompleted_Scatter(task *Task) (err error) {
 	err = task.SetState(TASK_STAT_COMPLETED, true)
 	if err != nil {
 		err = fmt.Errorf("(taskCompleted_Scatter) task.SetState returned: %s", err.Error())
+		return
+	}
+
+	//log event about task done (TD)
+	err = qm.FinalizeTaskPerf(task)
+	if err != nil {
+		err = fmt.Errorf("(taskCompleted_Scatter) FinalizeTaskPerf returned: %s", err.Error())
+		return
+	}
+	logger.Event(event.TASK_DONE, "task_id="+task_str)
+
+	//update the info of the job which the task is belong to, could result in deletion of the
+	//task in the task map when the task is the final task of the job to be done.
+	err = qm.taskCompleted(task) //task state QUEUED -> COMPLETED
+	if err != nil {
+		err = fmt.Errorf("(taskCompleted_Scatter) updateJobTask returned: %s", err.Error())
 		return
 	}
 

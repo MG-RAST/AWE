@@ -30,7 +30,7 @@ func dbUpdateTaskFields(job_id string, workflow_instance_id string, task_id stri
 
 	err = c.Update(selector, update_op)
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobTaskFields) (db: %s) Error updating task: %s", database, err.Error())
+		err = fmt.Errorf("(dbUpdateJobTaskFields) (db: %s) Error updating task %s: %s", database, task_id, err.Error())
 		return
 	}
 	return

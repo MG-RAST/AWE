@@ -475,6 +475,16 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task
 
 	}
 
+	if workflow_instance_id == "_root/_root" {
+		err = fmt.Errorf("(NewTask) workflow_instance_id == _root/_root")
+		return
+	}
+
+	if strings.HasPrefix(task_id_str, "_root") {
+		err = fmt.Errorf("(NewTask) task_id_str prefix wrong: %s", task_id_str)
+		return
+	}
+
 	if task_id_str != "_root" {
 		if !strings.HasPrefix(workflow_instance_id, "_root") {
 			err = fmt.Errorf("(NewTask) workflow_instance_id has not _root prefix: %s", workflow_instance_id)

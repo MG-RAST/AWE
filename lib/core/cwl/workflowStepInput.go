@@ -63,7 +63,11 @@ func NewWorkflowStepInput(original interface{}, context *WorkflowContext) (input
 	case int:
 		//fmt.Println(CWL_int)
 		original_int := original.(int)
-		input_parameter.Default = NewInt(original_int, context) // input_parameter.Id
+		input_parameter.Default, err = NewInt(original_int, context) // input_parameter.Id
+		if err != nil {
+			err = fmt.Errorf("(NewCWLType) NewInt: %s", err.Error())
+			return
+		}
 		return
 
 	case map[string]interface{}:

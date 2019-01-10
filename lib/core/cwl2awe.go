@@ -284,6 +284,17 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	wi.Inputs = *job_input_new
 	logger.Debug(1, "(CWL2AWE) WorkflowInstance _root created")
 
+	// create path
+	for i, _ := range wi.Inputs {
+		new_id := cwl_workflow.Id + "/" + wi.Inputs[i].Id
+		wi.Inputs[i].Id = new_id
+		err = context.Add(new_id, wi.Inputs[i].Value, "CWL2AWE")
+		if err != nil {
+			err = fmt.Errorf("(CWL2AWE) context.Add returned: %s", err.Error())
+			return
+		}
+	}
+
 	err = wi.Save(false)
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) wi.Save returned: %s", err.Error())

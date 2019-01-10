@@ -8,6 +8,7 @@ import (
 
 	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/davecgh/go-spew/spew"
+
 	//"github.com/davecgh/go-spew/spew"
 	"net/url"
 	"strings"
@@ -71,11 +72,6 @@ func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) 
 
 	//fmt.Println("MakeFile:")
 	//spew.Dump(obj)
-	defer func() {
-		if context != nil && context.Initialzing && err == nil {
-			context.Add("", &file)
-		}
-	}()
 
 	obj_map, ok := obj.(map[string]interface{})
 
@@ -192,6 +188,14 @@ func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) 
 
 		default:
 			err = fmt.Errorf("(MakeFile) scheme %s not supported yet", scheme)
+			return
+		}
+	}
+
+	if context != nil && context.Initialzing && err == nil {
+		err = context.Add("", &file, "MakeFile")
+		if err != nil {
+			err = fmt.Errorf("(MakeFile) context.Add returned: %s", err.Error())
 			return
 		}
 	}

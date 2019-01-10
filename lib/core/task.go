@@ -15,6 +15,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/rwmutex"
 	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
@@ -53,7 +54,7 @@ const (
 )
 
 type TaskRaw struct {
-	RWMutex                `bson:"-" json:"-" mapstructure:"-"`
+	rwmutex.RWMutex        `bson:"-" json:"-" mapstructure:"-"`
 	Task_Unique_Identifier `bson:",inline" mapstructure:",squash"`
 
 	Id                  string                   `bson:"taskid" json:"taskid" mapstructure:"taskid"` // old-style

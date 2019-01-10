@@ -2,12 +2,14 @@ package core
 
 import (
 	"fmt"
+
+	"github.com/MG-RAST/AWE/lib/rwmutex"
 )
 
 type WorkunitList struct {
-	RWMutex `bson:"-" json:"-"`
-	_map    map[Workunit_Unique_Identifier]bool
-	Data    []string `json:"data"`
+	rwmutex.RWMutex `bson:"-" json:"-"`
+	_map            map[Workunit_Unique_Identifier]bool
+	Data            []string `json:"data"`
 }
 
 func NewWorkunitList() *WorkunitList {

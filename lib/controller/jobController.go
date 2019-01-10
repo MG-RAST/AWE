@@ -169,14 +169,16 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		var cwl_workflow *cwl.Workflow
 
-		logger.Debug(3, "(JobController/Create) len(context.Workflows): %d", len(context.Workflows))
-
-		if len(context.Workflows) == 0 {
+		logger.Debug(3, "(JobController/Create) context.WorkflowCount: %d", context.WorkflowCount)
+		//spew.Dump(object_array)
+		//panic("done")
+		if context.WorkflowCount == 0 {
 			// This probably is a simple CommandlineTool or ExpressionTool submission (without workflow)
 			// create new Workflow to wrap around the CommandLineTool/ExpressionTool
 
 			if len(object_array) != 1 {
-				cx.RespondWithErrorMessage(fmt.Sprintf("Expected exactly one element in object_array, got %d", len(context.Workflows)), http.StatusBadRequest)
+
+				cx.RespondWithErrorMessage(fmt.Sprintf("Expected exactly one element in object_array, got %d", len(object_array)), http.StatusBadRequest)
 				return
 			}
 
@@ -219,10 +221,10 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				new_step.Id = step_id
 				for _, input := range commandlinetool.Inputs { // input is CommandInputParameter
 
-					workflow_input_name := entrypoint + "/" + path.Base(input.Id)
+					workflow_input_name := entrypoint + "/" + path.Base(input.Id) // e.g. #entrypoint/reference
 
 					var workflow_step_input cwl.WorkflowStepInput
-					workflow_step_input.Id = step_id + "/" + input.Id
+					workflow_step_input.Id = step_id + "/" + path.Base(input.Id)
 					workflow_step_input.Source = workflow_input_name
 					workflow_step_input.Default = input.Default
 
@@ -264,7 +266,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				for _, output := range commandlinetool.Outputs {
 					var workflow_step_output cwl.WorkflowStepOutput
-					workflow_step_output.Id = step_id + "/" + strings.TrimPrefix(output.Id, "#")
+					workflow_step_output.Id = step_id + "/" + path.Base(output.Id)
 
 					new_step.Out = append(new_step.Out, workflow_step_output)
 
@@ -308,11 +310,11 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow_named.Value = cwl_workflow
 
 				object_array = append(object_array, cwl_workflow_named)
-				err = context.Add(entrypoint, cwl_workflow)
-				if err != nil {
-					cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
-					return
-				}
+				//err = context.Add(entrypoint, cwl_workflow, "job/create")
+				//if err != nil {
+				//	cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
+				//	return
+				//}
 
 			case *cwl.ExpressionTool:
 				expressiontool_if := pair.Value
@@ -344,7 +346,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					workflow_input_name := entrypoint + "/" + path.Base(input.Id)
 
 					var workflow_step_input cwl.WorkflowStepInput
-					workflow_step_input.Id = step_id + "/" + input.Id
+					workflow_step_input.Id = step_id + "/" + path.Base(input.Id)
 					workflow_step_input.Source = workflow_input_name
 					workflow_step_input.Default = input.Default
 
@@ -386,7 +388,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				for _, output := range expressiontool.Outputs { // type: ExpressionToolOutputParameter
 					var workflow_step_output cwl.WorkflowStepOutput
-					workflow_step_output.Id = step_id + "/" + strings.TrimPrefix(output.Id, "#")
+					workflow_step_output.Id = step_id + "/" + path.Base(output.Id)
 
 					new_step.Out = append(new_step.Out, workflow_step_output)
 
@@ -429,11 +431,11 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow_named.Value = cwl_workflow
 
 				object_array = append(object_array, cwl_workflow_named)
-				err = context.Add(entrypoint, cwl_workflow)
-				if err != nil {
-					cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
-					return
-				}
+				//err = context.Add(entrypoint, cwl_workflow, "job/create2")
+				//if err != nil {
+				//	cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
+				//	return
+				//}
 			default:
 				cx.RespondWithErrorMessage(fmt.Sprintf("Runner type %s not supported", reflect.TypeOf(runner)), http.StatusBadRequest)
 
@@ -444,10 +446,10 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		} else {
 			entrypoint = "#main"
 
-			var ok bool
-			cwl_workflow, ok = context.Workflows[entrypoint]
-			if !ok {
-				cx.RespondWithErrorMessage("Workflow main not found", http.StatusBadRequest)
+			//var ok bool
+			cwl_workflow, err = context.GetWorkflow(entrypoint)
+			if err != nil {
+				cx.RespondWithErrorMessage(fmt.Sprintf("Workflow main not found (%s)", err.Error()), http.StatusBadRequest)
 				return
 			}
 
@@ -596,10 +598,23 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				return
 			}
 
-			core.JM.Add(job)
+			job_id := job.Id
+
+			// delete job such that a clean load from mongo can happen
+			job = nil
+
+			var loaded_job *core.Job
+			loaded_job, err = core.GetJob(job_id)
+			if err != nil {
+				err = fmt.Errorf("(JobController/Create) error loading job from mongo: %s", err.Error())
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			core.JM.Add(loaded_job) // adding job directly might have been faster, but going via mongo is cleaner and improves debugging
 			var wi *core.WorkflowInstance
 
-			wi = job.WorkflowInstancesMap["_root"]
+			wi = loaded_job.WorkflowInstancesMap["_root"]
 
 			err = core.QMgr.EnqueueWorkflowInstance(wi)
 			if err != nil {

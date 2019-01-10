@@ -2,10 +2,11 @@ package worker
 
 import (
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/rwmutex"
 )
 
 type WorkMap struct {
-	core.RWMutex
+	rwmutex.RWMutex
 	_map map[core.Workunit_Unique_Identifier]int
 }
 

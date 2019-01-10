@@ -45,11 +45,6 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 
 	//fmt.Println("NewCommandLineTool:")
 	//spew.Dump(generic)
-	defer func() {
-		if context != nil && context.Initialzing && err == nil {
-			context.Add("", commandLineTool)
-		}
-	}()
 
 	//switch type()
 	object, ok := generic.(map[string]interface{})
@@ -191,6 +186,23 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 
 	if context.Namespaces != nil {
 		commandLineTool.Namespaces = context.Namespaces
+	}
+
+	if context != nil {
+		err = context.Add(commandLineTool.Id, commandLineTool, "NewCommandLineTool")
+		if err != nil {
+			err = fmt.Errorf("(NewCommandLineTool) context.Add returned: %s", err.Error())
+			return
+		}
+
+		for i, _ := range commandLineTool.Inputs {
+			inp := &commandLineTool.Inputs[i]
+			err = context.Add(inp.Id, inp, "NewCommandLineTool")
+			if err != nil {
+				err = fmt.Errorf("(NewCommandLineTool) context.Add returned: %s", err.Error())
+				return
+			}
+		}
 	}
 	return
 

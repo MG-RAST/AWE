@@ -66,12 +66,6 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 		return
 	}
 
-	defer func() {
-		if context != nil && context.Initialzing && err == nil {
-			context.Add(w.Id, w)
-		}
-	}()
-
 	switch original.(type) {
 
 	case map[string]interface{}:
@@ -201,7 +195,7 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 		//spew.Dump(v_map["run"])
 		err = mapstructure.Decode(original, &step)
 		if err != nil {
-			err = fmt.Errorf("(NewWorkflowStep) %s", err.Error())
+			err = fmt.Errorf("(NewWorkflowStep) mapstructure.Decode returned: %s", err.Error())
 			return
 		}
 		w = &step
@@ -210,6 +204,21 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 			err = fmt.Errorf("(NewWorkflowStep) step.Id empty")
 			return
 		}
+
+		if context != nil && context.Initialzing && err == nil {
+			err = context.Add(w.Id, w, "NewWorkflowStepFromInterface")
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflowStep) context.Add returned: %s", err.Error())
+				return
+			}
+		}
+
+		//for i, _ := range step.Out {
+		//	out := &step.Out[i]
+		//	context.Add(out.Id, out) // adding WorkflowStepOutput is not helpful, it needs to add the reference Tool output
+		//
+		//		}
+
 		//spew.Dump(w.Run)
 
 		//fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")

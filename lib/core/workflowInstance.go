@@ -8,6 +8,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/rwmutex"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
@@ -47,8 +48,8 @@ const (
 
 // Object for each subworkflow
 type WorkflowInstance struct {
-	RWMutex `bson:"-" json:"-" mapstructure:"-"`
-	LocalId string `bson:"local_id" json:"id" mapstructure:"local_id"`
+	rwmutex.RWMutex `bson:"-" json:"-" mapstructure:"-"`
+	LocalId         string `bson:"local_id" json:"id" mapstructure:"local_id"`
 	//_Id                 string           `bson:"_id" json:"_id" mapstructure:"_id"` // unique identifier for mongo, includes jobid !
 	JobId               string            `bson:"job_id" json:"job_id" mapstructure:"job_id"`
 	Acl                 *acl.Acl          `bson:"acl" json:"-"`
@@ -110,69 +111,6 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) not a map: %s", spew.Sdump(original))
 			return
 		}
-
-		// remaintasks_if, has_remaintasks := original_map["remaintasks"]
-		// if !has_remaintasks {
-		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) remaintasks is missing")
-		// 	return
-		// }
-
-		// var remaintasks_int int
-		// remaintasks_int, ok = remaintasks_if.(int)
-		// if !ok {
-
-		// 	var remaintasks_float64 float64
-		// 	remaintasks_float64, ok = remaintasks_if.(float64)
-		// 	if ok {
-		// 		remaintasks_int = int(remaintasks_float64)
-
-		// 	} else {
-		// 		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) remaintasks is not int (%s)", reflect.TypeOf(remaintasks_if))
-		// 		return
-		// 	}
-		// }
-
-		// wi.RemainTasks = remaintasks_int
-
-		// id_if, has_id := original_map["id"]
-		// if !has_id {
-		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id is missing")
-		// 	return
-		// }
-
-		// var id_str string
-		// id_str, ok = id_if.(string)
-		// if !ok {
-		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id is not string")
-		// 	return
-		// }
-		// if id_str == "" {
-		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) id string is empty")
-		// 	return
-		// }
-
-		// wi.Id = id_str
-
-		// wd_if, has_wd := original_map["workflow_definition"]
-		// if !has_wd {
-		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) workflow_definition is missing")
-		// 	return
-		// }
-
-		// var wd_str string
-		// wd_str, ok = wd_if.(string)
-		// if !ok {
-		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) workflow_definition is not string")
-		// 	return
-		// }
-		// if wd_str == "" {
-		// 	spew.Dump(original)
-		// 	panic("done")
-		// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) workflow_definition string is empty")
-		// 	return
-		// }
-
-		//wi.Workflow_Definition = wd_str
 
 		inputs_if, has_inputs := original_map["inputs"]
 		if has_inputs {
@@ -249,6 +187,19 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 		err = fmt.Errorf("(NewWorkflowInstanceFromInterface) type unknown, %s", reflect.TypeOf(original))
 		return
 	}
+
+	for i, _ := range wi.Inputs {
+		inp_named := &wi.Inputs[i]
+		inp_id := inp_named.Id
+		inp_value := inp_named.Value
+
+		err = context.Add(inp_id, inp_value, "NewWorkflowInstanceFromInterface")
+		if err != nil {
+			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) context.Add returned: %s", err.Error())
+			return
+		}
+	}
+
 	return
 
 }
@@ -375,7 +326,7 @@ func (wi *WorkflowInstance) GetWorkflow(context *cwl.WorkflowContext) (workflow 
 func (wi *WorkflowInstance) GetTask(task_id Task_Unique_Identifier, read_lock bool) (task *Task, ok bool, err error) {
 	ok = false
 	if read_lock {
-		var lock ReadLock
+		var lock rwmutex.ReadLock
 		lock, err = wi.RLockNamed("WorkflowInstance/GetTask")
 		if err != nil {
 			return
@@ -397,7 +348,7 @@ func (wi *WorkflowInstance) GetTasks(read_lock bool) (tasks []*Task, err error) 
 	tasks = []*Task{}
 
 	if read_lock {
-		var lock ReadLock
+		var lock rwmutex.ReadLock
 		lock, err = wi.RLockNamed("WorkflowInstance/GetTasks")
 		if err != nil {
 			return
@@ -431,7 +382,7 @@ func (wi *WorkflowInstance) TaskCount() (count int) {
 
 func (wi *WorkflowInstance) GetId(read_lock bool) (id string, err error) {
 	if read_lock {
-		var lock ReadLock
+		var lock rwmutex.ReadLock
 		lock, err = wi.RLockNamed("GetId")
 		if err != nil {
 			err = fmt.Errorf("(WorkflowInstance/GetId) RLockNamed returned: %s", err.Error())
@@ -446,7 +397,7 @@ func (wi *WorkflowInstance) GetId(read_lock bool) (id string, err error) {
 
 func (wi *WorkflowInstance) GetState(read_lock bool) (state string, err error) {
 	if read_lock {
-		var lock ReadLock
+		var lock rwmutex.ReadLock
 		lock, err = wi.RLockNamed("GetState")
 		if err != nil {
 			err = fmt.Errorf("(WorkflowInstance/GetState) RLockNamed returned: %s", err.Error())
@@ -497,7 +448,7 @@ func (wi *WorkflowInstance) Init(job *Job) (changed bool, err error) {
 
 func (wi *WorkflowInstance) Save(read_lock bool) (err error) {
 	if read_lock {
-		var lock ReadLock
+		var lock rwmutex.ReadLock
 		lock, err = wi.RLockNamed("WorkflowInstance/Save")
 		if err != nil {
 			return
@@ -547,7 +498,7 @@ func (wi *WorkflowInstance) SetOutputs(outputs cwl.Job_document, context *cwl.Wo
 
 func (wi *WorkflowInstance) GetOutput(name string, read_lock bool) (obj cwl.CWLType, ok bool, err error) {
 	if read_lock {
-		var lock ReadLock
+		var lock rwmutex.ReadLock
 		lock, err = wi.RLockNamed("GetOutput")
 		if err != nil {
 			err = fmt.Errorf("(WorkflowInstance/GetOutput) RLockNamed returned: %s", err.Error())

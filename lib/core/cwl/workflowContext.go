@@ -65,6 +65,8 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 		return
 	}
 
+	context.RWMutex.Init("context")
+
 	if context.If_objects == nil {
 		context.If_objects = make(map[string]interface{})
 	}
@@ -213,7 +215,7 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	return
 }
 
-func (c WorkflowContext) Evaluate(raw string) (parsed string) {
+func (c *WorkflowContext) Evaluate(raw string) (parsed string) {
 
 	reg := regexp.MustCompile(`\$\([\w.]+\)`) // https://github.com/google/re2/wiki/Syntax
 
@@ -249,7 +251,7 @@ func (c WorkflowContext) Evaluate(raw string) (parsed string) {
 
 }
 
-func (c WorkflowContext) AddSchemata(obj []CWLType_Type) (err error) {
+func (c *WorkflowContext) AddSchemata(obj []CWLType_Type) (err error) {
 	//fmt.Printf("(AddSchemata)\n")
 
 	if c.Schemata == nil {
@@ -275,7 +277,7 @@ func (c WorkflowContext) AddSchemata(obj []CWLType_Type) (err error) {
 	return
 }
 
-func (c WorkflowContext) GetSchemata() (obj []CWLType_Type, err error) {
+func (c *WorkflowContext) GetSchemata() (obj []CWLType_Type, err error) {
 	obj = []CWLType_Type{}
 	for _, schema := range c.Schemata {
 		obj = append(obj, schema)
@@ -283,7 +285,7 @@ func (c WorkflowContext) GetSchemata() (obj []CWLType_Type, err error) {
 	return
 }
 
-func (c WorkflowContext) AddArray(object_array []Named_CWL_object) (err error) {
+func (c *WorkflowContext) AddArray(object_array []Named_CWL_object) (err error) {
 
 	for i, _ := range object_array {
 		pair := object_array[i]
@@ -299,7 +301,7 @@ func (c WorkflowContext) AddArray(object_array []Named_CWL_object) (err error) {
 
 }
 
-func (c WorkflowContext) Add(id string, obj CWL_object, caller string) (err error) {
+func (c *WorkflowContext) Add(id string, obj CWL_object, caller string) (err error) {
 
 	if id == "" {
 		err = fmt.Errorf("(WorkflowContext/Add) id is empty")
@@ -362,7 +364,7 @@ func (c WorkflowContext) Add(id string, obj CWL_object, caller string) (err erro
 	return
 }
 
-func (c WorkflowContext) Get(id string) (obj CWL_object, err error) {
+func (c *WorkflowContext) Get(id string) (obj CWL_object, err error) {
 	obj, ok := c.All[id]
 	if !ok {
 		for k, _ := range c.All {
@@ -373,7 +375,7 @@ func (c WorkflowContext) Get(id string) (obj CWL_object, err error) {
 	return
 }
 
-func (c WorkflowContext) GetType(id string) (obj_type string, err error) {
+func (c *WorkflowContext) GetType(id string) (obj_type string, err error) {
 	var ok bool
 	var obj CWL_object
 	obj, ok = c.All[id]
@@ -388,7 +390,7 @@ func (c WorkflowContext) GetType(id string) (obj_type string, err error) {
 
 }
 
-func (c WorkflowContext) GetCWLType(id string) (obj CWLType, err error) {
+func (c *WorkflowContext) GetCWLType(id string) (obj CWLType, err error) {
 	var ok bool
 	obj, ok = c.Files[id]
 	if ok {
@@ -413,7 +415,7 @@ func (c WorkflowContext) GetCWLType(id string) (obj CWLType, err error) {
 
 }
 
-func (c WorkflowContext) GetFile(id string) (obj *File, err error) {
+func (c *WorkflowContext) GetFile(id string) (obj *File, err error) {
 	obj, ok := c.Files[id]
 	if !ok {
 		err = fmt.Errorf("(GetFile) item %s not found in collection", id)
@@ -421,7 +423,7 @@ func (c WorkflowContext) GetFile(id string) (obj *File, err error) {
 	return
 }
 
-func (c WorkflowContext) GetString(id string) (obj *String, err error) {
+func (c *WorkflowContext) GetString(id string) (obj *String, err error) {
 	obj, ok := c.Strings[id]
 	if !ok {
 		err = fmt.Errorf("(GetString) item %s not found in collection", id)
@@ -429,7 +431,7 @@ func (c WorkflowContext) GetString(id string) (obj *String, err error) {
 	return
 }
 
-func (c WorkflowContext) GetInt(id string) (obj *Int, err error) {
+func (c *WorkflowContext) GetInt(id string) (obj *Int, err error) {
 	obj, ok := c.Ints[id]
 	if !ok {
 		err = fmt.Errorf("(GetInt) item %s not found in collection", id)
@@ -437,7 +439,7 @@ func (c WorkflowContext) GetInt(id string) (obj *Int, err error) {
 	return
 }
 
-func (c WorkflowContext) GetWorkflowStepInput(id string) (obj *WorkflowStepInput, err error) {
+func (c *WorkflowContext) GetWorkflowStepInput(id string) (obj *WorkflowStepInput, err error) {
 	obj, ok := c.WorkflowStepInputs[id]
 	if !ok {
 		err = fmt.Errorf("(GetWorkflowStepInput) item %s not found in collection", id)
@@ -445,7 +447,7 @@ func (c WorkflowContext) GetWorkflowStepInput(id string) (obj *WorkflowStepInput
 	return
 }
 
-func (c WorkflowContext) GetCommandLineTool(id string) (obj *CommandLineTool, err error) {
+func (c *WorkflowContext) GetCommandLineTool(id string) (obj *CommandLineTool, err error) {
 	obj, ok := c.CommandLineTools[id]
 	if !ok {
 		err = fmt.Errorf("(GetCommandLineTool) item %s not found in collection", id)
@@ -453,7 +455,7 @@ func (c WorkflowContext) GetCommandLineTool(id string) (obj *CommandLineTool, er
 	return
 }
 
-func (c WorkflowContext) GetExpressionTool(id string) (obj *ExpressionTool, err error) {
+func (c *WorkflowContext) GetExpressionTool(id string) (obj *ExpressionTool, err error) {
 	obj, ok := c.ExpressionTools[id]
 	if !ok {
 		err = fmt.Errorf("(GetExpressionTool) item %s not found in collection", id)
@@ -461,7 +463,7 @@ func (c WorkflowContext) GetExpressionTool(id string) (obj *ExpressionTool, err 
 	return
 }
 
-func (c WorkflowContext) GetWorkflow(id string) (obj *Workflow, err error) {
+func (c *WorkflowContext) GetWorkflow(id string) (obj *Workflow, err error) {
 
 	obj_generic, ok := c.All[id]
 	if !ok {

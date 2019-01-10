@@ -346,7 +346,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 				//panic("creating new subworkflow " + new_wi_name)
 				var new_wi *WorkflowInstance
-				new_wi, err = NewWorkflowInstance(new_wi_name, jobid, subworkflow_id, job)
+				new_wi, err = NewWorkflowInstance(new_wi_name, jobid, subworkflow_id, job, wi.LocalId)
 				if err != nil {
 					err = fmt.Errorf("(updateWorkflowInstancesMapTask) NewWorkflowInstance returned: %s", err.Error())
 					return
@@ -2132,6 +2132,8 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 
 	workflow_instance_id = task_id.TaskName
 
+	parent_workflow_instance_id := task.WorkflowInstanceId
+
 	// find inputs
 	var task_input_array cwl.Job_document
 	var task_input_map cwl.JobDocMap
@@ -2142,7 +2144,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 
 		var workflow_instance *WorkflowInstance
 		var ok bool
-		workflow_instance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
+		workflow_instance, ok, err = job.GetWorkflowInstance(parent_workflow_instance_id, true)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueWorkflow) job.GetWorkflowInstance returned: %s", err.Error())
 			return
@@ -2217,7 +2219,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 
 	var wi *WorkflowInstance
 
-	wi, err = NewWorkflowInstance(workflow_instance_id, job.Id, workflow_defintion_id, job)
+	wi, err = NewWorkflowInstance(workflow_instance_id, job.Id, workflow_defintion_id, job, parent_workflow_instance_id)
 	if err != nil {
 		err = fmt.Errorf("(AddWorkflowInstance) NewWorkflowInstance returned: %s", err.Error())
 		return
@@ -3219,8 +3221,8 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflow_instance *Workf
 	if ancestor_task.StepOutput == nil {
 
 		if error_on_missing_task {
-			spew.Dump(workflow_instance)
-			panic("output not found b)")
+			//spew.Dump(workflow_instance)
+			//panic("output not found b)")
 			err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but not outputs found in StepOutput (%s)", src_path, src_base)
 			return
 		}
@@ -3330,6 +3332,11 @@ func (qm *ServerMgr) getCWLSource(job *Job, workflow_instance *WorkflowInstance,
 
 		obj = thing
 		return
+	case "*cwl.Double":
+		thing := generic_object.(*cwl.Double)
+
+		obj = thing
+		return
 	}
 
 	err = fmt.Errorf("(getCWLSource) could not parse source: %s, type %s unknown", src, type_str)
@@ -3380,7 +3387,6 @@ func (qm *ServerMgr) getCWLSource(job *Job, workflow_instance *WorkflowInstance,
 
 	// }
 
-	return
 }
 
 func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowInstance, workflow_input_map map[string]cwl.CWLType, workflow_step *cwl.WorkflowStep, context *cwl.WorkflowContext) (workunit_input_map cwl.JobDocMap, ok bool, reason string, err error) {
@@ -4423,6 +4429,29 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflow_instance *WorkflowIn
 		return
 	}
 	workflow_instance.Outputs = workflow_outputs_array
+
+	// stick outputs in context, using correct Step-name (depends on if it is a embedded workflow)
+	for i, _ := range workflow_instance.Outputs {
+		i_named := &workflow_instance.Outputs[i]
+		i_named_base := path.Base(i_named.Id)
+
+		prefix := path.Dir(i_named.Id)
+
+		prefix_base := path.Base(prefix)
+		if len(prefix_base) == 36 { // TODO: find better
+			prefix = path.Dir(prefix)
+		}
+
+		fmt.Printf("old name: %s\n", i_named.Id)
+		new_name := prefix + "/" + i_named_base
+		fmt.Printf("new name: %s\n", new_name)
+		err = context.Add(new_name, i_named.Value, "completeSubworkflow")
+		if err != nil {
+			err = fmt.Errorf("(completeSubworkflow) context.Add returned: %s", err.Error())
+			return
+		}
+
+	}
 
 	err = workflow_instance.SetState(WI_STAT_COMPLETED, "db_sync_yes", true)
 	if err != nil {

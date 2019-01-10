@@ -155,6 +155,10 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 
 	}
 
+	if entrypoint == "" { // for worker
+		return
+	}
+
 	logger.Debug(3, "(WorkflowContext/Init) len(context.If_objects): %d", len(context.If_objects))
 
 	main_if, has_main := context.If_objects[entrypoint] // "#main" or enrypoint
@@ -322,15 +326,15 @@ func (c *WorkflowContext) Add(id string, obj CWL_object, caller string) (err err
 
 	switch obj.(type) {
 	case *Workflow:
-		fmt.Printf("(c.All) c.WorkflowCount: %d\n", c.WorkflowCount)
+		//fmt.Printf("(c.All) c.WorkflowCount: %d\n", c.WorkflowCount)
 		c.WorkflowCount += 1
-		fmt.Printf("(c.All) c.WorkflowCount: %d\n", c.WorkflowCount)
+		//fmt.Printf("(c.All) c.WorkflowCount: %d\n", c.WorkflowCount)
 		msg := fmt.Sprintf("(WorkflowContext/Add) new WorkflowCount: %d (context: %p, caller: %s, name: %s)", c.WorkflowCount, &c, caller, c.Name)
 		logger.Debug(3, msg)
-		fmt.Printf("(c.All) msg: %s\n", msg)
-		for i, _ := range c.All {
-			fmt.Println(i)
-		}
+		//fmt.Printf("(c.All) msg: %s\n", msg)
+		//for i, _ := range c.All {
+		//	fmt.Println(i)
+		//}
 
 	//	c.Workflows[id] = obj.(*Workflow)
 	case *WorkflowStepInput:
@@ -357,10 +361,10 @@ func (c *WorkflowContext) Add(id string, obj CWL_object, caller string) (err err
 	}
 
 	c.All[id] = obj
-	fmt.Println("(c.All) after insertion")
-	for i, _ := range c.All {
-		fmt.Println(i)
-	}
+	//fmt.Println("(c.All) after insertion")
+	//for i, _ := range c.All {
+	//	fmt.Println(i)
+	//}
 	return
 }
 

@@ -9,11 +9,13 @@ import (
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/golib/httpclient"
+
 	//"github.com/davecgh/go-spew/spew"
 	"io/ioutil"
 	"os"
@@ -329,6 +331,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		var xerr error
 		//var schemata []cwl.CWLType_Type
 		workunit.Context = cwl.NewWorkflowContext()
+		workunit.Context.Init("")
 		cwl_object, _, xerr = core.NewCWL_workunit_from_interface(cwl_generic, workunit.Context)
 		if xerr != nil {
 			err = fmt.Errorf("(CheckoutWorkunitRemote) NewCWL_workunit_from_interface failed: %s", xerr.Error())

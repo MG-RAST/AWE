@@ -807,6 +807,12 @@ func (job *Job) IncrementRemainTasks(inc int) (err error) {
 	logger.Debug(3, "(IncrementRemainTasks) called with inc=%d", inc)
 
 	newRemainTask := job.RemainTasks + inc
+
+	if newRemainTask < 0 {
+		logger.Error("(IncrementRemainTasks) newRemainTask would be negativ, TODO fix!") // TODO this has to be fixed correctly
+		newRemainTask = 0
+	}
+
 	logger.Debug(3, "(IncrementRemainTasks) new value of RemainTasks: %d", newRemainTask)
 	err = dbUpdateJobFieldInt(job.Id, "remaintasks", newRemainTask)
 	if err != nil {

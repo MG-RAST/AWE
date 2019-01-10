@@ -612,16 +612,16 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			}
 
 			core.JM.Add(loaded_job) // adding job directly might have been faster, but going via mongo is cleaner and improves debugging
-			var wi *core.WorkflowInstance
+			//var wi *core.WorkflowInstance
 
-			wi = loaded_job.WorkflowInstancesMap["_root"]
+			//wi = loaded_job.WorkflowInstancesMap["_root"]
 
-			err = core.QMgr.EnqueueWorkflowInstance(wi)
-			if err != nil {
-				err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
-				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-				return
-			}
+			//err = core.QMgr.EnqueueWorkflowInstance(wi)
+			//if err != nil {
+			//	err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
+			//	cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			//	return
+			//}
 
 		} else {
 			err = core.QMgr.EnqueueTasksByJobId(job.Id)

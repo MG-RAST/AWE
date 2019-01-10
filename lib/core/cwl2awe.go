@@ -275,7 +275,7 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	// *** create WorkflowInstance
 
 	var wi *WorkflowInstance
-	wi, err = NewWorkflowInstance("_root", job.Id, cwl_workflow.Id, job) // Not using AddWorkflowInstance to avoid mongo
+	wi, err = NewWorkflowInstance("_root", job.Id, cwl_workflow.Id, job, "") // Not using AddWorkflowInstance to avoid mongo
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) NewWorkflowInstance returned: %s", err.Error())
 		return
@@ -285,15 +285,15 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	logger.Debug(1, "(CWL2AWE) WorkflowInstance _root created")
 
 	// create path
-	for i, _ := range wi.Inputs {
-		new_id := cwl_workflow.Id + "/" + wi.Inputs[i].Id
-		wi.Inputs[i].Id = new_id
-		err = context.Add(new_id, wi.Inputs[i].Value, "CWL2AWE")
-		if err != nil {
-			err = fmt.Errorf("(CWL2AWE) context.Add returned: %s", err.Error())
-			return
-		}
-	}
+	//for i, _ := range wi.Inputs {
+	//	new_id := cwl_workflow.Id + "/" + wi.Inputs[i].Id
+	//wi.Inputs[i].Id = new_id
+	//err = context.Add(new_id, wi.Inputs[i].Value, "CWL2AWE")
+	//if err != nil {
+	//	err = fmt.Errorf("(CWL2AWE) context.Add returned: %s", err.Error())
+	//	return
+	//}
+	//}
 
 	err = wi.Save(false)
 	if err != nil {

@@ -213,6 +213,8 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 			}
 		}
 
+		// this happens in handleNoticeWorkDelivered !
+
 		//for i, _ := range step.Out {
 		//	out := &step.Out[i]
 		//	context.Add(out.Id, out) // adding WorkflowStepOutput is not helpful, it needs to add the reference Tool output

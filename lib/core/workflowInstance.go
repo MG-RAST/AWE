@@ -52,6 +52,7 @@ type WorkflowInstance struct {
 	LocalId         string `bson:"local_id" json:"id" mapstructure:"local_id"`
 	//_Id                 string           `bson:"_id" json:"_id" mapstructure:"_id"` // unique identifier for mongo, includes jobid !
 	JobId               string            `bson:"job_id" json:"job_id" mapstructure:"job_id"`
+	ParentId            string            `bson:"parent_id" json:"parent_id" mapstructure:"parent_id"` // point to workflow_parent parent, this is not trivial duer to embedded workflows
 	Acl                 *acl.Acl          `bson:"acl" json:"-"`
 	State               string            `bson:"state" json:"state" mapstructure:"state"`                                           // this is unique identifier for the workflow instance
 	Workflow_Definition string            `bson:"workflow_definition" json:"workflow_definition" mapstructure:"workflow_definition"` // name of the workflow this instance is derived from
@@ -66,7 +67,7 @@ type WorkflowInstance struct {
 	//Created_by          string            `bson:"created_by" json:"created_by" mapstructure:"created_by"`
 }
 
-func NewWorkflowInstance(local_id string, jobid string, workflow_definition string, job *Job) (wi *WorkflowInstance, err error) {
+func NewWorkflowInstance(local_id string, jobid string, workflow_definition string, job *Job, parent_workflow_instance_id string) (wi *WorkflowInstance, err error) {
 
 	if jobid == "" {
 		err = fmt.Errorf("(NewWorkflowInstance) jobid == \"\"")
@@ -80,7 +81,7 @@ func NewWorkflowInstance(local_id string, jobid string, workflow_definition stri
 		return
 	}
 
-	wi = &WorkflowInstance{LocalId: local_id, JobId: jobid, Workflow_Definition: workflow_definition}
+	wi = &WorkflowInstance{LocalId: local_id, JobId: jobid, Workflow_Definition: workflow_definition, ParentId: parent_workflow_instance_id}
 	wi.State = WI_STAT_INIT
 
 	_, err = wi.Init(job)
@@ -188,18 +189,19 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 		return
 	}
 
-	for i, _ := range wi.Inputs {
-		inp_named := &wi.Inputs[i]
-		inp_id := inp_named.Id
-		inp_value := inp_named.Value
+	if context != nil {
+		for i, _ := range wi.Inputs {
+			inp_named := &wi.Inputs[i]
+			inp_id := inp_named.Id
+			inp_value := inp_named.Value
 
-		err = context.Add(inp_id, inp_value, "NewWorkflowInstanceFromInterface")
-		if err != nil {
-			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) context.Add returned: %s", err.Error())
-			return
+			err = context.Add(inp_id, inp_value, "NewWorkflowInstanceFromInterface")
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) context.Add returned: %s", err.Error())
+				return
+			}
 		}
 	}
-
 	return
 
 }

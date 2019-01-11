@@ -13,6 +13,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/golib/httpclient"
+
 	//"github.com/davecgh/go-spew/spew"
 	//"github.com/davecgh/go-spew/spew"
 
@@ -243,8 +244,8 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 		//   TODO what do in case of many workunits per task ?
 		//   TODO add stdout and performance log ?
 		//   TODO change name of option ?
-		fmt.Printf("(RunWorkunit) conf.PRINT_APP_MSG: %t\n", conf.PRINT_APP_MSG)
-		fmt.Printf("(RunWorkunit) stderr_exists: %t\n", stderr_exists)
+		//fmt.Printf("(RunWorkunit) conf.PRINT_APP_MSG: %t\n", conf.PRINT_APP_MSG)
+		//fmt.Printf("(RunWorkunit) stderr_exists: %t\n", stderr_exists)
 		if conf.PRINT_APP_MSG && stderr_exists {
 			stderr_file := work_path + "/" + conf.STDERR_FILENAME
 
@@ -252,7 +253,7 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 				_, err = os.Stat(stderr_file)
 				if err == nil {
-					fmt.Printf("(RunWorkunit) file exists\n")
+					//fmt.Printf("(RunWorkunit) file exists\n")
 					stderr_cwl_file := cwl.NewFile()
 					stderr_cwl_file.Path = stderr_file
 					result_doc = result_doc.Add(conf.STDERR_FILENAME, stderr_cwl_file)

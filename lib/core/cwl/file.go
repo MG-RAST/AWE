@@ -61,14 +61,16 @@ func NewFile() (f *File) {
 	return
 }
 
-func NewFileFromInterface(obj interface{}, context *WorkflowContext) (file File, err error) {
+func NewFileFromInterface(obj interface{}, context *WorkflowContext, external_id string) (file File, err error) {
 
-	file, err = MakeFile(obj, context)
+	file, err = MakeFile(obj, context, external_id)
 
 	return
 }
 
-func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) {
+func MakeFile(obj interface{}, context *WorkflowContext, external_id string) (file File, err error) {
+
+	// external_id is used to add File to context, not to set the Id or Name field!
 
 	//fmt.Println("MakeFile:")
 	//spew.Dump(obj)
@@ -192,10 +194,11 @@ func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) 
 		}
 	}
 
-	if context != nil && context.Initialzing && err == nil {
-		err = context.Add("", &file, "MakeFile")
+	if context != nil && context.Initialzing && external_id != "" {
+
+		err = context.Add(external_id, &file, "MakeFile")
 		if err != nil {
-			err = fmt.Errorf("(MakeFile) context.Add returned: %s", err.Error())
+			err = fmt.Errorf("(MakeFile) (external_id: %s) context.Add returned: %s", external_id, err.Error())
 			return
 		}
 	}

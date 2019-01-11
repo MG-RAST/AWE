@@ -27,7 +27,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}, con
 	}
 	logger.Debug(3, "SET self=%s\n", self_json)
 
-	spew.Dump("inputs")
+	//spew.Dump("inputs")
 
 	var inputs_json []byte
 	inputs_json, err = json.Marshal(inputs)

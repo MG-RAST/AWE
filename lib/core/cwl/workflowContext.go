@@ -26,15 +26,15 @@ type WorkflowContext struct {
 	Objects    map[string]CWL_object  `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // graph objects , stores all objects (replaces All ???)
 
 	//Workflows          map[string]*Workflow          `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
-	InputParameter     map[string]*InputParameter    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // WorkflowInput
-	WorkflowStepInputs map[string]*WorkflowStepInput `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
-	CommandLineTools   map[string]*CommandLineTool   `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
-	ExpressionTools    map[string]*ExpressionTool    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
-	Files              map[string]*File              `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
-	Strings            map[string]*String            `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
-	Ints               map[string]*Int               `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
-	Booleans           map[string]*Boolean           `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
-	All                map[string]CWL_object         `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // everything goes in here
+	//InputParameter     map[string]*InputParameter    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // WorkflowInput
+	//WorkflowStepInputs map[string]*WorkflowStepInput `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	//CommandLineTools   map[string]*CommandLineTool   `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	//ExpressionTools    map[string]*ExpressionTool    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	//Files              map[string]*File              `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	//Strings            map[string]*String            `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	//Ints               map[string]*Int               `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	//Booleans           map[string]*Boolean           `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	All map[string]CWL_object `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // everything goes in here
 
 	WorkflowCount int `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//Job_input          *Job_document
@@ -80,32 +80,32 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	//	context.Workflows = make(map[string]*Workflow)
 	//}
 
-	if context.WorkflowStepInputs == nil {
-		context.WorkflowStepInputs = make(map[string]*WorkflowStepInput)
-	}
+	//if context.WorkflowStepInputs == nil {
+	//	context.WorkflowStepInputs = make(map[string]*WorkflowStepInput)
+	//}
 
-	if context.CommandLineTools == nil {
-		context.CommandLineTools = make(map[string]*CommandLineTool)
-	}
+	//if context.CommandLineTools == nil {
+	//	context.CommandLineTools = make(map[string]*CommandLineTool)
+	//}
 
-	if context.ExpressionTools == nil {
-		context.ExpressionTools = make(map[string]*ExpressionTool)
-	}
-	if context.Files == nil {
-		context.Files = make(map[string]*File)
-	}
+	//if context.ExpressionTools == nil {
+	//	context.ExpressionTools = make(map[string]*ExpressionTool)
+	//}
+	//if context.Files == nil {
+	//	context.Files = make(map[string]*File)
+	//}
 
-	if context.Strings == nil {
-		context.Strings = make(map[string]*String)
-	}
+	//if context.Strings == nil {
+	//	context.Strings = make(map[string]*String)
+	//}
 
-	if context.Ints == nil {
-		context.Ints = make(map[string]*Int)
-	}
+	//if context.Ints == nil {
+	//	context.Ints = make(map[string]*Int)
+	//}
 
-	if context.Booleans == nil {
-		context.Booleans = make(map[string]*Boolean)
-	}
+	//if context.Booleans == nil {
+	//	context.Booleans = make(map[string]*Boolean)
+	//}
 
 	if context.All == nil {
 		context.All = make(map[string]CWL_object)
@@ -338,24 +338,54 @@ func (c *WorkflowContext) Add(id string, obj CWL_object, caller string) (err err
 
 	//	c.Workflows[id] = obj.(*Workflow)
 	case *WorkflowStepInput:
-		c.WorkflowStepInputs[id] = obj.(*WorkflowStepInput)
+		obj_real, ok := obj.(*WorkflowStepInput)
+		if !ok {
+			err = fmt.Errorf("could not make WorkflowStepInput type assertion")
+			return
+		}
+		c.All[id] = obj_real
 	case *CommandLineTool:
-		c.CommandLineTools[id] = obj.(*CommandLineTool)
+		obj_real, ok := obj.(*CommandLineTool)
+		if !ok {
+			err = fmt.Errorf("could not make CommandLineTool type assertion")
+			return
+		}
+		c.All[id] = obj_real
 	case *ExpressionTool:
-		c.ExpressionTools[id] = obj.(*ExpressionTool)
+		obj_real, ok := obj.(*ExpressionTool)
+		if !ok {
+			err = fmt.Errorf("could not make ExpressionTool type assertion")
+			return
+		}
+		c.All[id] = obj_real
 	case *File:
-		c.Files[id] = obj.(*File)
+		obj_real, ok := obj.(*File)
+		if !ok {
+			err = fmt.Errorf("could not make File type assertion")
+			return
+		}
+		c.All[id] = obj_real
 	case *String:
-		c.Strings[id] = obj.(*String)
+		obj_real, ok := obj.(*String)
+		if !ok {
+			err = fmt.Errorf("could not make String type assertion")
+			return
+		}
+		c.All[id] = obj_real
 	case *Boolean:
-		c.Booleans[id] = obj.(*Boolean)
+		obj_real, ok := obj.(*Boolean)
+		if !ok {
+			err = fmt.Errorf("could not make Boolean type assertion")
+			return
+		}
+		c.All[id] = obj_real
 	case *Int:
 		obj_int, ok := obj.(*Int)
 		if !ok {
 			err = fmt.Errorf("could not make Int type assertion")
 			return
 		}
-		c.Ints[id] = obj_int
+		c.All[id] = obj_int
 	default:
 		logger.Debug(3, "adding type %s to WorkflowContext.All", reflect.TypeOf(obj))
 	}
@@ -394,75 +424,105 @@ func (c *WorkflowContext) GetType(id string) (obj_type string, err error) {
 
 }
 
-func (c *WorkflowContext) GetCWLType(id string) (obj CWLType, err error) {
-	var ok bool
-	obj, ok = c.Files[id]
-	if ok {
-		return
-	}
-	obj, ok = c.Strings[id]
-	if ok {
-		return
-	}
+// func (c *WorkflowContext) GetCWLType(id string) (obj CWLType, err error) {
+// 	var ok bool
+// 	obj, ok = c.Files[id]
+// 	if ok {
+// 		return
+// 	}
+// 	obj, ok = c.Strings[id]
+// 	if ok {
+// 		return
+// 	}
 
-	obj, ok = c.Ints[id]
-	if ok {
-		return
-	}
-	obj, ok = c.Booleans[id]
-	if ok {
-		return
-	}
+// 	obj, ok = c.Ints[id]
+// 	if ok {
+// 		return
+// 	}
+// 	obj, ok = c.Booleans[id]
+// 	if ok {
+// 		return
+// 	}
 
-	err = fmt.Errorf("(GetType) %s not found", id)
-	return
+// 	err = fmt.Errorf("(GetType) %s not found", id)
+// 	return
 
-}
+// }
 
 func (c *WorkflowContext) GetFile(id string) (obj *File, err error) {
-	obj, ok := c.Files[id]
+	obj_generic, ok := c.All[id]
 	if !ok {
-		err = fmt.Errorf("(GetFile) item %s not found in collection", id)
+		err = fmt.Errorf("(GetWorkflow) item %s not found in collection", id)
+	}
+
+	obj, ok = obj_generic.(*File)
+	if !ok {
+		err = fmt.Errorf("(GetFile) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
 	}
 	return
 }
 
 func (c *WorkflowContext) GetString(id string) (obj *String, err error) {
-	obj, ok := c.Strings[id]
+	obj_generic, ok := c.All[id]
 	if !ok {
 		err = fmt.Errorf("(GetString) item %s not found in collection", id)
+	}
+
+	obj, ok = obj_generic.(*String)
+	if !ok {
+		err = fmt.Errorf("(GetString) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
 	}
 	return
 }
 
 func (c *WorkflowContext) GetInt(id string) (obj *Int, err error) {
-	obj, ok := c.Ints[id]
+	obj_generic, ok := c.All[id]
 	if !ok {
 		err = fmt.Errorf("(GetInt) item %s not found in collection", id)
+	}
+
+	obj, ok = obj_generic.(*Int)
+	if !ok {
+		err = fmt.Errorf("(GetInt) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
 	}
 	return
 }
 
 func (c *WorkflowContext) GetWorkflowStepInput(id string) (obj *WorkflowStepInput, err error) {
-	obj, ok := c.WorkflowStepInputs[id]
+	obj_generic, ok := c.All[id]
 	if !ok {
 		err = fmt.Errorf("(GetWorkflowStepInput) item %s not found in collection", id)
+	}
+
+	obj, ok = obj_generic.(*WorkflowStepInput)
+	if !ok {
+		err = fmt.Errorf("(GetWorkflowStepInput) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
 	}
 	return
 }
 
 func (c *WorkflowContext) GetCommandLineTool(id string) (obj *CommandLineTool, err error) {
-	obj, ok := c.CommandLineTools[id]
+	obj_generic, ok := c.All[id]
 	if !ok {
 		err = fmt.Errorf("(GetCommandLineTool) item %s not found in collection", id)
+	}
+
+	obj, ok = obj_generic.(*CommandLineTool)
+	if !ok {
+		err = fmt.Errorf("(GetCommandLineTool) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
 	}
 	return
 }
 
 func (c *WorkflowContext) GetExpressionTool(id string) (obj *ExpressionTool, err error) {
-	obj, ok := c.ExpressionTools[id]
+	obj_generic, ok := c.All[id]
 	if !ok {
 		err = fmt.Errorf("(GetExpressionTool) item %s not found in collection", id)
+	}
+
+	obj, ok = obj_generic.(*ExpressionTool)
+	if !ok {
+		err = fmt.Errorf("(GetExpressionTool) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
 	}
 	return
 }
@@ -479,9 +539,5 @@ func (c *WorkflowContext) GetWorkflow(id string) (obj *Workflow, err error) {
 		err = fmt.Errorf("(GetWorkflow) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
 	}
 
-	// obj, ok := c.Workflows[id]
-	// if !ok {
-	// 	err = fmt.Errorf("(GetWorkflow) item %s not found in collection", id)
-	// }
 	return
 }

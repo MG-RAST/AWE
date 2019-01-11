@@ -30,12 +30,6 @@ type ExpressionTool struct {
 // TODO pass along workflow InlineJavascriptRequirement
 func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRequirements []Requirement, context *WorkflowContext) (et *ExpressionTool, err error) {
 
-	defer func() {
-		if context != nil && context.Initialzing && err == nil {
-			context.Add(et.Id, et)
-		}
-	}()
-
 	object, ok := original.(map[string]interface{})
 	if !ok {
 		err = fmt.Errorf("other types than map[string]interface{} not supported yet (got %s)", reflect.TypeOf(original))
@@ -121,6 +115,14 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRe
 	new_requirements, err = AddRequirement(NewInlineJavascriptRequirement(), et.Requirements)
 	if err == nil {
 		et.Requirements = new_requirements
+	}
+
+	if context != nil && err == nil {
+		err = context.Add(et.Id, et, "NewExpressionTool")
+		if err != nil {
+			err = fmt.Errorf("(NewExpressionTool) context.Add returned: %s", err.Error())
+			return
+		}
 	}
 
 	return

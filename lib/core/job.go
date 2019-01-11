@@ -9,6 +9,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+	"github.com/MG-RAST/AWE/lib/rwmutex"
 
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"io/ioutil"
@@ -57,7 +58,7 @@ type Job struct {
 }
 
 type JobRaw struct {
-	RWMutex
+	rwmutex.RWMutex
 	Id                      string                       `bson:"id" json:"id"` // uuid
 	Acl                     acl.Acl                      `bson:"acl" json:"-"`
 	Info                    *Info                        `bson:"info" json:"info"`
@@ -314,11 +315,6 @@ func (job *Job) Init() (changed bool, err error) {
 		changed = true
 	}
 
-	//if job.WorkflowContext == nil {
-	//	panic("job.WorkflowContext == nil") // TODO remove
-	//	job.WorkflowContext = cwl.NewWorkflowContext()
-	//}
-
 	context := job.WorkflowContext
 
 	if context != nil && context.If_objects == nil {
@@ -421,13 +417,15 @@ func (job *Job) Init() (changed bool, err error) {
 	if job.IsCWL {
 
 		entrypoint := job.Entrypoint
-		cwl_workflow, ok := context.Workflows[entrypoint]
-		if !ok {
-			err = fmt.Errorf("(job.Init) Workflow \"%s\" not found", entrypoint)
+		var cwl_workflow *cwl.Workflow
+		cwl_workflow, err = context.GetWorkflow(entrypoint)
+		//cwl_workflow, ok := context.Workflows[entrypoint]
+		if err != nil {
+			err = fmt.Errorf("(job.Init) Workflow \"%s\" not found: %s", entrypoint, err.Error())
 
-			for key, _ := range context.Workflows {
-				fmt.Printf("(job.Init) Workflows key: %s\n", key)
-			}
+			//for key, _ := range context.Workflows {
+			//	fmt.Printf("(job.Init) Workflows key: %s\n", key)
+			//}
 			for key, _ := range context.All {
 				fmt.Printf("(job.Init) All key: %s\n", key)
 			}
@@ -809,6 +807,12 @@ func (job *Job) IncrementRemainTasks(inc int) (err error) {
 	logger.Debug(3, "(IncrementRemainTasks) called with inc=%d", inc)
 
 	newRemainTask := job.RemainTasks + inc
+
+	if newRemainTask < 0 {
+		logger.Error("(IncrementRemainTasks) newRemainTask would be negativ, TODO fix!") // TODO this has to be fixed correctly
+		newRemainTask = 0
+	}
+
 	logger.Debug(3, "(IncrementRemainTasks) new value of RemainTasks: %d", newRemainTask)
 	err = dbUpdateJobFieldInt(job.Id, "remaintasks", newRemainTask)
 	if err != nil {

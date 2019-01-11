@@ -1,11 +1,15 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/MG-RAST/AWE/lib/rwmutex"
+)
 
 //"fmt"
 
 type JobMap struct {
-	RWMutex
+	rwmutex.RWMutex
 	_map map[string]*Job
 }
 
@@ -75,7 +79,7 @@ func (jm *JobMap) Delete(jobid string, lock bool) (err error) {
 
 func (jm *JobMap) Get_List(lock bool) (jobs []*Job, err error) {
 	if lock {
-		var read_lock ReadLock
+		var read_lock rwmutex.ReadLock
 		read_lock, err = jm.RLockNamed("Get_List")
 		if err != nil {
 			return

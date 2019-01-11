@@ -8,6 +8,7 @@ import (
 
 	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/davecgh/go-spew/spew"
+
 	//"github.com/davecgh/go-spew/spew"
 	"net/url"
 	"strings"
@@ -60,22 +61,19 @@ func NewFile() (f *File) {
 	return
 }
 
-func NewFileFromInterface(obj interface{}, context *WorkflowContext) (file File, err error) {
+func NewFileFromInterface(obj interface{}, context *WorkflowContext, external_id string) (file File, err error) {
 
-	file, err = MakeFile(obj, context)
+	file, err = MakeFile(obj, context, external_id)
 
 	return
 }
 
-func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) {
+func MakeFile(obj interface{}, context *WorkflowContext, external_id string) (file File, err error) {
+
+	// external_id is used to add File to context, not to set the Id or Name field!
 
 	//fmt.Println("MakeFile:")
 	//spew.Dump(obj)
-	defer func() {
-		if context != nil && context.Initialzing && err == nil {
-			context.Add("", &file)
-		}
-	}()
 
 	obj_map, ok := obj.(map[string]interface{})
 
@@ -192,6 +190,15 @@ func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) 
 
 		default:
 			err = fmt.Errorf("(MakeFile) scheme %s not supported yet", scheme)
+			return
+		}
+	}
+
+	if context != nil && context.Initialzing && external_id != "" {
+
+		err = context.Add(external_id, &file, "MakeFile")
+		if err != nil {
+			err = fmt.Errorf("(MakeFile) (external_id: %s) context.Add returned: %s", external_id, err.Error())
 			return
 		}
 	}

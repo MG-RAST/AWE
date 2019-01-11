@@ -6,8 +6,6 @@ import (
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
-	"github.com/davecgh/go-spew/spew"
-	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -49,9 +47,9 @@ func dbUpsert(t interface{}) (err error) {
 		_, err = c.Upsert(bson.M{"id": t.Id}, &t)
 	case *WorkflowInstance:
 		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
-		var info *mgo.ChangeInfo
+		//var info *mgo.ChangeInfo
 		id, _ := t.GetId(false)
-		info, err = c.Upsert(bson.M{"_id": id}, &t)
+		_, err = c.Upsert(bson.M{"_id": id}, &t)
 
 		if err != nil {
 			err = fmt.Errorf("(dbUpsert) c.Upsert returned: %s", err.Error())
@@ -60,8 +58,8 @@ func dbUpsert(t interface{}) (err error) {
 
 		//info, err = c.Upsert(bson.M{"id": t.Id}, &t)
 
-		fmt.Println("dbUpsert: info")
-		spew.Dump(info)
+		//fmt.Println("dbUpsert: info")
+		//spew.Dump(info)
 
 	case *JobPerf:
 		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_PERF)

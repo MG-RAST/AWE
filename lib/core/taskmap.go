@@ -2,10 +2,12 @@ package core
 
 import (
 	"fmt"
+
+	"github.com/MG-RAST/AWE/lib/rwmutex"
 )
 
 type TaskMap struct {
-	RWMutex
+	rwmutex.RWMutex
 	_map map[Task_Unique_Identifier]*Task
 }
 

@@ -284,6 +284,10 @@ func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []
 			return
 		}
 	}
+	if len(object_array) == 0 {
+		err = fmt.Errorf("(Parse_cwl_document) len(object_array) == 0 (graph_pos: %d)", graph_pos)
+		return
+	}
 
 	return
 }

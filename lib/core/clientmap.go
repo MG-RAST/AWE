@@ -2,10 +2,11 @@ package core
 
 import (
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/rwmutex"
 )
 
 type ClientMap struct {
-	RWMutex
+	rwmutex.RWMutex
 	_map map[string]*Client
 }
 

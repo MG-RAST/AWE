@@ -1,9 +1,13 @@
 package core
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/MG-RAST/AWE/lib/rwmutex"
+)
 
 type WorkflowInstanceMap struct {
-	RWMutex
+	rwmutex.RWMutex
 	_map map[string]*WorkflowInstance
 }
 

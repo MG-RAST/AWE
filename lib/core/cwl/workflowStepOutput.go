@@ -9,7 +9,8 @@ import (
 )
 
 type WorkflowStepOutput struct {
-	Id string `yaml:"id" bson:"id" json:"id" mapstructure:"id"`
+	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Is_CWL_object
+	Id              string                                                                `yaml:"id" bson:"id" json:"id" mapstructure:"id"`
 }
 
 func NewWorkflowStepOutput(original interface{}, context *WorkflowContext) (wso_ptr *WorkflowStepOutput, err error) {

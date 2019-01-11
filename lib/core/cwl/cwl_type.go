@@ -157,7 +157,11 @@ func NewCWLType(id string, native interface{}, context *WorkflowContext) (cwl_ty
 		//fmt.Printf("(NewCWLType) D\n")
 		native_int := native.(int)
 
-		cwl_type = NewInt(native_int, context)
+		cwl_type, err = NewInt(native_int, context)
+		if err != nil {
+			err = fmt.Errorf("(NewCWLType) NewInt: %s", err.Error())
+			return
+		}
 	case int64:
 		//fmt.Printf("(NewCWLType) D\n")
 		native_int64 := native.(int64)
@@ -242,12 +246,13 @@ func NewCWLTypeByClass(class string, id string, native interface{}, context *Wor
 	case string(CWL_File):
 		//fmt.Println("NewCWLTypeByClass:")
 		//spew.Dump(native)
-		file, yerr := NewFileFromInterface(native, context)
+		file, yerr := NewFileFromInterface(native, context, id)
 		if yerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewFile returned: %s", yerr.Error())
 			return
 		}
 		cwl_type = &file
+
 	case string(CWL_string):
 		mystring, yerr := NewStringFromInterface(native)
 		if yerr != nil {

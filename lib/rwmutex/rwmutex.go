@@ -1,6 +1,6 @@
 // +build !race
 
-package core
+package rwmutex
 
 import (
 	"fmt"

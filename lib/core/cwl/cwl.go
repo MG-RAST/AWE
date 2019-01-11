@@ -14,6 +14,7 @@ import (
 
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/yaml.v2"
+
 	//"io/ioutil"
 	//"os"
 	//"reflect"
@@ -32,9 +33,9 @@ type LinkMergeMethod string // merge_nested or merge_flattened
 func Add_to_collection_deprecated(context *WorkflowContext, object_array CWL_object_array) (err error) {
 
 	for i, object := range object_array {
-		err = context.Add(strconv.Itoa(i), object) // TODO fix id
+		err = context.Add(strconv.Itoa(i), object, "Add_to_collection_deprecated") // TODO fix id
 		if err != nil {
-			err = fmt.Errorf("(Add_to_collection) collection.Add returned: %s", err.Error())
+			err = fmt.Errorf("(Add_to_collection_deprecated) collection.Add returned: %s", err.Error())
 			return
 		}
 	}

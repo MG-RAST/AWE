@@ -100,9 +100,6 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 			if err != nil {
 				return
 			}
-		} else {
-			err = fmt.Errorf("(NewWorkflowStep) no inputs ????")
-			return
 		}
 
 		step_out, ok := v_map["out"]

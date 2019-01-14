@@ -261,7 +261,7 @@ func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []
 
 	context = NewWorkflowContext()
 	context.Path = inputfile_path
-
+	context.InitBasic()
 	graph_pos := strings.Index(yaml_str, "$graph")
 
 	//yaml_str = strings.Replace(yaml_str, "$namespaces", "namespaces", -1)

@@ -56,14 +56,7 @@ func NewWorkflowContext() (context *WorkflowContext) {
 	return
 }
 
-// search for #main and create objects recursively
-func (context *WorkflowContext) Init(entrypoint string) (err error) {
-
-	logger.Debug(3, "(WorkflowContext/Init) start")
-	if context.Initialized == true {
-		err = fmt.Errorf("(WorkflowContext/Init) already initialized")
-		return
-	}
+func (context *WorkflowContext) InitBasic() {
 
 	context.RWMutex.Init("context")
 
@@ -75,7 +68,34 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 		context.Objects = make(map[string]CWL_object)
 	}
 
+	if context.All == nil {
+		context.All = make(map[string]CWL_object)
+	}
+
+	if context.Schemata == nil {
+		context.Schemata = make(map[string]CWLType_Type)
+	}
+
 	context.WorkflowCount = 0
+	return
+}
+
+// search for #main and create objects recursively
+func (context *WorkflowContext) Init(entrypoint string) (err error) {
+
+	logger.Debug(3, "(WorkflowContext/Init) start")
+	if context.Initialized == true {
+		err = fmt.Errorf("(WorkflowContext/Init) already initialized")
+		return
+	}
+
+	context.InitBasic()
+
+	if context.CwlVersion == "" {
+		err = fmt.Errorf("(WorkflowContext/Init) context.CwlVersion ==nil")
+		return
+	}
+
 	//if context.Workflows == nil {
 	//	context.Workflows = make(map[string]*Workflow)
 	//}
@@ -106,19 +126,6 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	//if context.Booleans == nil {
 	//	context.Booleans = make(map[string]*Boolean)
 	//}
-
-	if context.All == nil {
-		context.All = make(map[string]CWL_object)
-	}
-
-	if context.Schemata == nil {
-		context.Schemata = make(map[string]CWLType_Type)
-	}
-
-	if context.CwlVersion == "" {
-		err = fmt.Errorf("(WorkflowContext/Init) context.CwlVersion ==nil")
-		return
-	}
 
 	//context := &WorkflowContext{}
 	//var If_objects map[string]interface{}

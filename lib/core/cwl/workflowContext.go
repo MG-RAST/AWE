@@ -186,7 +186,7 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	context.Initialzing = false
 	context.Objects[entrypoint] = object
 
-	err = context.AddSchemata(schemata_new)
+	err = context.AddSchemata(schemata_new, true)
 	if err != nil {
 		err = fmt.Errorf("(WorkflowContext/Init) context.AddSchemata returned %s", err.Error())
 		return
@@ -255,8 +255,15 @@ func (c *WorkflowContext) Evaluate(raw string) (parsed string) {
 
 }
 
-func (c *WorkflowContext) AddSchemata(obj []CWLType_Type) (err error) {
+func (c *WorkflowContext) AddSchemata(obj []CWLType_Type, write_lock bool) (err error) {
 	//fmt.Printf("(AddSchemata)\n")
+	if write_lock {
+		err = c.LockNamed("AddSchemata")
+		if err != nil {
+			return
+		}
+		defer c.Unlock()
+	}
 
 	if c.Schemata == nil {
 		c.Schemata = make(map[string]CWLType_Type)
@@ -398,18 +405,38 @@ func (c *WorkflowContext) Add(id string, obj CWL_object, caller string) (err err
 	return
 }
 
-func (c *WorkflowContext) Get(id string) (obj CWL_object, err error) {
-	obj, ok := c.All[id]
+func (c *WorkflowContext) Get(id string, do_read_lock bool) (obj CWL_object, ok bool, err error) {
+
+	if do_read_lock {
+		var read_lock rwmutex.ReadLock
+		read_lock, err = c.RLockNamed("WorkflowContext/Get")
+		if err != nil {
+			return
+		}
+		defer c.RUnlockNamed(read_lock)
+	}
+
+	obj, ok = c.All[id]
 	if !ok {
 		for k, _ := range c.All {
 			logger.Debug(3, "collection: %s", k)
 		}
-		err = fmt.Errorf("(All) item %s not found in collection", id)
+		//err = fmt.Errorf("(All) item %s not found in collection", id)
 	}
+
 	return
 }
 
 func (c *WorkflowContext) GetType(id string) (obj_type string, err error) {
+	do_read_lock := true
+	if do_read_lock {
+		read_lock, xerr := c.RLockNamed("WorkflowContext/Get")
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer c.RUnlockNamed(read_lock)
+	}
 	var ok bool
 	var obj CWL_object
 	obj, ok = c.All[id]
@@ -450,9 +477,16 @@ func (c *WorkflowContext) GetType(id string) (obj_type string, err error) {
 // }
 
 func (c *WorkflowContext) GetFile(id string) (obj *File, err error) {
-	obj_generic, ok := c.All[id]
+	var obj_generic CWL_object
+	var ok bool
+	obj_generic, ok, err = c.Get(id, true)
+	if err != nil {
+		err = fmt.Errorf("(GetFile) error getting item %s: %s", id, err.Error())
+		return
+	}
 	if !ok {
-		err = fmt.Errorf("(GetWorkflow) item %s not found in collection", id)
+		err = fmt.Errorf("(GetFile) item %s not found in collection: %s", id, err.Error())
+		return
 	}
 
 	obj, ok = obj_generic.(*File)
@@ -463,9 +497,16 @@ func (c *WorkflowContext) GetFile(id string) (obj *File, err error) {
 }
 
 func (c *WorkflowContext) GetString(id string) (obj *String, err error) {
-	obj_generic, ok := c.All[id]
+	var obj_generic CWL_object
+	var ok bool
+	obj_generic, ok, err = c.Get(id, true)
+	if err != nil {
+		err = fmt.Errorf("(GetString) error getting item %s: %s", id, err.Error())
+		return
+	}
 	if !ok {
-		err = fmt.Errorf("(GetString) item %s not found in collection", id)
+		err = fmt.Errorf("(GetString) item %s not found in collection: %s", id, err.Error())
+		return
 	}
 
 	obj, ok = obj_generic.(*String)
@@ -476,9 +517,16 @@ func (c *WorkflowContext) GetString(id string) (obj *String, err error) {
 }
 
 func (c *WorkflowContext) GetInt(id string) (obj *Int, err error) {
-	obj_generic, ok := c.All[id]
+	var obj_generic CWL_object
+	var ok bool
+	obj_generic, ok, err = c.Get(id, true)
+	if err != nil {
+		err = fmt.Errorf("(GetInt) error getting item %s: %s", id, err.Error())
+		return
+	}
 	if !ok {
-		err = fmt.Errorf("(GetInt) item %s not found in collection", id)
+		err = fmt.Errorf("(GetInt) item %s not found in collection: %s", id, err.Error())
+		return
 	}
 
 	obj, ok = obj_generic.(*Int)
@@ -489,9 +537,16 @@ func (c *WorkflowContext) GetInt(id string) (obj *Int, err error) {
 }
 
 func (c *WorkflowContext) GetWorkflowStepInput(id string) (obj *WorkflowStepInput, err error) {
-	obj_generic, ok := c.All[id]
+	var obj_generic CWL_object
+	var ok bool
+	obj_generic, ok, err = c.Get(id, true)
+	if err != nil {
+		err = fmt.Errorf("(GetWorkflowStepInput) error getting item %s: %s", id, err.Error())
+		return
+	}
 	if !ok {
-		err = fmt.Errorf("(GetWorkflowStepInput) item %s not found in collection", id)
+		err = fmt.Errorf("(GetWorkflowStepInput) item %s not found in collection: %s", id, err.Error())
+		return
 	}
 
 	obj, ok = obj_generic.(*WorkflowStepInput)
@@ -502,9 +557,16 @@ func (c *WorkflowContext) GetWorkflowStepInput(id string) (obj *WorkflowStepInpu
 }
 
 func (c *WorkflowContext) GetCommandLineTool(id string) (obj *CommandLineTool, err error) {
-	obj_generic, ok := c.All[id]
+	var obj_generic CWL_object
+	var ok bool
+	obj_generic, ok, err = c.Get(id, true)
+	if err != nil {
+		err = fmt.Errorf("(GetCommandLineTool) error getting item %s: %s", id, err.Error())
+		return
+	}
 	if !ok {
-		err = fmt.Errorf("(GetCommandLineTool) item %s not found in collection", id)
+		err = fmt.Errorf("(GetCommandLineTool) item %s not found in collection: %s", id, err.Error())
+		return
 	}
 
 	obj, ok = obj_generic.(*CommandLineTool)
@@ -515,9 +577,16 @@ func (c *WorkflowContext) GetCommandLineTool(id string) (obj *CommandLineTool, e
 }
 
 func (c *WorkflowContext) GetExpressionTool(id string) (obj *ExpressionTool, err error) {
-	obj_generic, ok := c.All[id]
+	var obj_generic CWL_object
+	var ok bool
+	obj_generic, ok, err = c.Get(id, true)
+	if err != nil {
+		err = fmt.Errorf("(GetExpressionTool) error getting item %s: %s", id, err.Error())
+		return
+	}
 	if !ok {
-		err = fmt.Errorf("(GetExpressionTool) item %s not found in collection", id)
+		err = fmt.Errorf("(GetExpressionTool) item %s not found in collection: %s", id, err.Error())
+		return
 	}
 
 	obj, ok = obj_generic.(*ExpressionTool)
@@ -528,16 +597,21 @@ func (c *WorkflowContext) GetExpressionTool(id string) (obj *ExpressionTool, err
 }
 
 func (c *WorkflowContext) GetWorkflow(id string) (obj *Workflow, err error) {
-
-	obj_generic, ok := c.All[id]
+	var obj_generic CWL_object
+	var ok bool
+	obj_generic, ok, err = c.Get(id, true)
+	if err != nil {
+		err = fmt.Errorf("(GetWorkflow) error getting item %s: %s", id, err.Error())
+		return
+	}
 	if !ok {
-		err = fmt.Errorf("(GetWorkflow) item %s not found in collection", id)
+		err = fmt.Errorf("(GetWorkflow) item %s not found in collection: %s", id, err.Error())
+		return
 	}
 
 	obj, ok = obj_generic.(*Workflow)
 	if !ok {
 		err = fmt.Errorf("(GetWorkflow) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
 	}
-
 	return
 }

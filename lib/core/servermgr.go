@@ -3300,6 +3300,21 @@ func (qm *ServerMgr) getCWLSource(job *Job, workflow_instance *WorkflowInstance,
 
 		obj = thing
 		return
+	case "*cwl.Record":
+		thing := generic_object.(*cwl.Record)
+
+		obj = thing
+		return
+	case "*cwl.Boolean":
+		thing := generic_object.(*cwl.Boolean)
+
+		obj = thing
+		return
+	case "*cwl.Null":
+		thing := generic_object.(*cwl.Null)
+
+		obj = thing
+		return
 	}
 
 	err = fmt.Errorf("(getCWLSource) could not parse source: %s, type %s unknown", src, type_str)

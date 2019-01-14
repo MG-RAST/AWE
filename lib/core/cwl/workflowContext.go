@@ -322,7 +322,7 @@ func (c *WorkflowContext) AddArray(object_array []Named_CWL_object) (err error) 
 func (c *WorkflowContext) Add(id string, obj CWL_object, caller string) (err error) {
 
 	if id == "" {
-		err = fmt.Errorf("(WorkflowContext/Add) id is empty")
+		// anonymous objects are not stored
 		return
 	}
 

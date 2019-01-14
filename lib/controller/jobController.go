@@ -156,7 +156,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		//}
 		//logger.Debug(1, "Parse_cwl_document done")
 
-		err = context.AddSchemata(schemata)
+		err = context.AddSchemata(schemata, true)
 		if err != nil {
 			cx.RespondWithErrorMessage("error in adding schemata: "+err.Error(), http.StatusBadRequest)
 			return
@@ -560,6 +560,54 @@ func (cr *JobController) Create(cx *goweb.Context) {
 	}
 
 	// make a copy to prevent race conditions
+
+	//fmt.Println("(JobController/Create) response_bytes:")
+	//fmt.Printf("%s", response_bytes)
+
+	// don't enqueue imports
+	if !has_import {
+
+		if job.IsCWL {
+
+			if len(job.WorkflowInstancesMap) != 1 {
+				err = fmt.Errorf("(JobController/Create) len(job.WorkflowInstances) != 1")
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			job_id := job.Id
+
+			// delete job such that a clean load from mongo can happen
+			job = nil
+
+			job, err = core.GetJob(job_id)
+			if err != nil {
+				err = fmt.Errorf("(JobController/Create) error loading job from mongo: %s", err.Error())
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			//var wi *core.WorkflowInstance
+
+			//wi = loaded_job.WorkflowInstancesMap["_root"]
+
+			//err = core.QMgr.EnqueueWorkflowInstance(wi)
+			//if err != nil {
+			//	err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
+			//	cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+			//	return
+			//}
+
+		} else {
+			err = core.QMgr.EnqueueTasksByJobId(job.Id, "JobController/Create")
+			if err != nil {
+				err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
+				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+				return
+			}
+		}
+	}
+
 	SR := StandardResponse{
 		S: http.StatusOK,
 		D: job,
@@ -582,55 +630,6 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		cx.RespondWithErrorMessage("(JobController/Create) json.Marshal returned: "+err.Error(), http.StatusBadRequest)
 		return
-	}
-
-	//fmt.Println("(JobController/Create) response_bytes:")
-	//fmt.Printf("%s", response_bytes)
-
-	// don't enqueue imports
-	if !has_import {
-
-		if job.IsCWL {
-
-			if len(job.WorkflowInstancesMap) != 1 {
-				err = fmt.Errorf("(JobController/Create) len(job.WorkflowInstances) != 1")
-				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			job_id := job.Id
-
-			// delete job such that a clean load from mongo can happen
-			job = nil
-
-			var loaded_job *core.Job
-			loaded_job, err = core.GetJob(job_id)
-			if err != nil {
-				err = fmt.Errorf("(JobController/Create) error loading job from mongo: %s", err.Error())
-				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-				return
-			}
-
-			core.JM.Add(loaded_job) // adding job directly might have been faster, but going via mongo is cleaner and improves debugging
-			//var wi *core.WorkflowInstance
-
-			//wi = loaded_job.WorkflowInstancesMap["_root"]
-
-			//err = core.QMgr.EnqueueWorkflowInstance(wi)
-			//if err != nil {
-			//	err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
-			//	cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-			//	return
-			//}
-
-		} else {
-			err = core.QMgr.EnqueueTasksByJobId(job.Id)
-			if err != nil {
-				err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
-				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
-				return
-			}
-		}
 	}
 
 	//cx.RespondWithData(job)

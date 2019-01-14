@@ -41,7 +41,7 @@ func NewSchemaDefRequirement(original interface{}, context *WorkflowContext) (r 
 		}
 		original_map["types"] = schemata
 		if context != nil {
-			err = context.AddSchemata(schemata)
+			err = context.AddSchemata(schemata, true)
 			if err != nil {
 				err = fmt.Errorf("(NewSchemaDefRequirement) context.AddSchemata returned: %s", err.Error())
 			}

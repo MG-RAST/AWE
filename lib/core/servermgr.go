@@ -3355,6 +3355,7 @@ func (qm *ServerMgr) getCWLSource(job *Job, workflow_instance *WorkflowInstance,
 func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowInstance, workflow_input_map map[string]cwl.CWLType, workflow_step *cwl.WorkflowStep, context *cwl.WorkflowContext) (workunit_input_map cwl.JobDocMap, ok bool, reason string, err error) {
 
 	workunit_input_map = make(map[string]cwl.CWLType) // also used for json
+	reason = "undefined"
 
 	//fmt.Println("(GetStepInputObjects) workflow_step:")
 	//spew.Dump(workflow_step)
@@ -3518,7 +3519,9 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 
 					if job_obj.GetType() == cwl.CWL_null {
 						//fmt.Println("(GetStepInputObjects) job_obj is cwl.CWL_null")
-						ok = false
+						//reason = "returned object is null"
+						//ok = false
+						return
 					} else {
 						//fmt.Println("(GetStepInputObjects) job_obj is not cwl.CWL_null")
 					}

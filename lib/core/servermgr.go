@@ -1819,7 +1819,7 @@ func (qm *ServerMgr) EnqueueTasks(tasks []*Task) (err error) {
 }
 
 // this is trigggered by user action, either job POST or job resume / recover / resubmit
-func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
+func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, caller string) (err error) {
 	logger.Debug(3, "(EnqueueTasksByJobId) starting")
 	job, err := GetJob(jobid)
 	if err != nil {
@@ -1865,7 +1865,7 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string) (err error) {
 		// add to qm.TaskMap
 		// updateQueue() process will actually enqueue the task
 		// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
-		err = qm.TaskMap.Add(task, "EnqueueTasksByJobId")
+		err = qm.TaskMap.Add(task, "EnqueueTasksByJobId/"+caller)
 		if err != nil {
 			err = fmt.Errorf("(EnqueueTasksByJobId) qm.TaskMap.Add() returns: %s", err.Error())
 			return
@@ -3282,6 +3282,11 @@ func (qm *ServerMgr) getCWLSource(job *Job, workflow_instance *WorkflowInstance,
 		return
 	case "*cwl.Array":
 		thing := generic_object.(*cwl.Array)
+
+		obj = thing
+		return
+	case "*cwl.String":
+		thing := generic_object.(*cwl.String)
 
 		obj = thing
 		return
@@ -5031,7 +5036,7 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 		err = fmt.Errorf("(ResumeSuspendedJobByUser) UpdateJobState: %s", err.Error())
 		return
 	}
-	err = qm.EnqueueTasksByJobId(id)
+	err = qm.EnqueueTasksByJobId(id, "ResumeSuspendedJobByUser")
 	if err != nil {
 		err = errors.New("(ResumeSuspendedJobByUser) failed to enqueue job " + err.Error())
 		return
@@ -5101,7 +5106,7 @@ func (qm *ServerMgr) RecoverJob(id string, job *Job) (recovered bool, err error)
 			err = errors.New("(RecoverJob) UpdateJobState: " + err.Error())
 			return
 		}
-		err = qm.EnqueueTasksByJobId(id)
+		err = qm.EnqueueTasksByJobId(id, "RecoverJob")
 		if err != nil {
 			err = errors.New("(RecoverJob) failed to enqueue job: " + err.Error())
 			return
@@ -5250,7 +5255,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, task_stage string) (err error) {
 		err = fmt.Errorf("(RecomputeJob) UpdateJobState: %s", err.Error())
 		return
 	}
-	err = qm.EnqueueTasksByJobId(jobid)
+	err = qm.EnqueueTasksByJobId(jobid, "RecomputeJob")
 	if err != nil {
 		err = errors.New("(RecomputeJob) failed to enqueue job " + err.Error())
 		return
@@ -5317,7 +5322,7 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 		err = fmt.Errorf("(ResubmitJob) UpdateJobState: %s", err.Error())
 		return
 	}
-	err = qm.EnqueueTasksByJobId(jobid)
+	err = qm.EnqueueTasksByJobId(jobid, "ResubmitJob")
 	if err != nil {
 		err = errors.New("(ResubmitJob) failed to enqueue job " + err.Error())
 		return

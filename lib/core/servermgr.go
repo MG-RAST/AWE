@@ -3857,7 +3857,7 @@ VALUE_FROM_LOOP:
 	//	fmt.Printf("workunit_input_map: %s -> %s\n", key, value.String())
 
 	//}
-
+	ok = true
 	return
 }
 

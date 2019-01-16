@@ -407,7 +407,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 		}
 
 		// update job state
-		if wi_local_id == "_root" {
+		if wi_local_id == "_#main" {
 
 			job_state, _ := job.GetState(true)
 			if job_state == JOB_STAT_INIT {
@@ -3546,7 +3546,8 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 					fmt.Println("(GetStepInputObjects) check input.Default")
 					if input.Default == nil {
 						//logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", source_as_string)
-						err = fmt.Errorf("(GetStepInputObjects) getCWLSource did not find source %s and has no Default (reason: %s)", source_as_string, reason)
+						//ok = false
+						//err = fmt.Errorf("(GetStepInputObjects) getCWLSource did not find source %s and has no Default (reason: %s)", source_as_string, reason)
 						continue
 					}
 					job_obj, err = cwl.NewCWLType("", input.Default, context)
@@ -4418,13 +4419,18 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflow_instance *WorkflowIn
 
 		prefix := path.Dir(i_named.Id)
 
+		fmt.Printf("old name: %s\n", i_named.Id)
 		prefix_base := path.Base(prefix)
-		if len(prefix_base) == 36 { // TODO: find better
+		new_name := ""
+		if len(prefix_base) == 36 { // TODO: find better way of detecting embedded workflow
+			// case: emebedded workflow
 			prefix = path.Dir(prefix)
+			new_name = prefix + "/" + i_named_base
+		} else {
+			// case: referenced workflow
+			//workflow_instance.ParentId
 		}
 
-		fmt.Printf("old name: %s\n", i_named.Id)
-		new_name := prefix + "/" + i_named_base
 		fmt.Printf("new name: %s\n", new_name)
 		err = context.Add(new_name, i_named.Value, "completeSubworkflow")
 		if err != nil {
@@ -4452,7 +4458,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflow_instance *WorkflowIn
 	workflow_instance_local_id := workflow_instance.LocalId
 	fmt.Printf("(completeSubworkflow) completes with workflow_instance_local_id: %s\n", workflow_instance_local_id)
 
-	if workflow_instance_local_id == "_root" {
+	if workflow_instance_local_id == "_#main" {
 		// notify job
 
 		// this was the main workflow, all done!

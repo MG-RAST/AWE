@@ -3,6 +3,7 @@ package main
 import (
 	//"encoding/json"
 	"fmt"
+	"net/url"
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
@@ -581,7 +582,7 @@ func GetAWEObject(resource string, objectid string, awe_auth string, result inte
 	get_url := fmt.Sprintf("%s/%s/%s", conf.SERVER_URL, resource, objectid)
 	response, err := multipart.Send("GET", get_url, header)
 	if err != nil {
-		err = fmt.Errorf("(GetAWEObject) multipart.Send returned: %s", err.Error())
+		err = fmt.Errorf("(GetAWEObject) multipart.Send returned: %s (url was %s)", err.Error(), get_url)
 		return
 	}
 
@@ -617,7 +618,7 @@ func GetAWEObject(resource string, objectid string, awe_auth string, result inte
 	}
 
 	if len(sr.Error) > 0 {
-		err = fmt.Errorf("%s", sr.Error[0])
+		err = fmt.Errorf("(GetAWEObject) AWE server returned error: %s (url was: %s)", sr.Error[0], get_url)
 		return
 	}
 
@@ -629,6 +630,7 @@ func GetAWEObject(resource string, objectid string, awe_auth string, result inte
 	var result_bytes []byte
 	result_bytes, err = json.Marshal(sr.Data)
 	if err != nil {
+		err = fmt.Errorf("(GetAWEObject) json.Marshal returned: %s", err.Error())
 		return
 	}
 
@@ -648,82 +650,9 @@ func GetAWEJob(jobid string, awe_auth string) (job *core.Job, status_code int, e
 
 	job = &core.Job{}
 	status_code, err = GetAWEObject("job", jobid, awe_auth, job)
-
-	// status_code = -1
-	// if jobid == "" {
-	// 	err = fmt.Errorf("(GetAWEJob) jobid empty")
-	// 	return
-	// }
-
-	// multipart := core.NewMultipartWriter()
-
-	// header := make(map[string][]string)
-	// if awe_auth != "" {
-	// 	header["Authorization"] = []string{awe_auth}
-	// }
-
-	// response, err := multipart.Send("GET", conf.SERVER_URL+"/job/"+jobid, header)
-	// if err != nil {
-	// 	err = fmt.Errorf("(GetAWEJob) multipart.Send returned: %s", err.Error())
-	// 	return
-	// }
-
-	// status_code = response.StatusCode
-
-	// responseData, err := ioutil.ReadAll(response.Body)
-	// if err != nil {
-	// 	err = fmt.Errorf("(GetAWEJob) ioutil.ReadAll returned: %s", err.Error())
-	// 	return
-	// }
-
-	// //responseString := string(responseData)
-
-	// //fmt.Println(responseString)
-
-	// var sr standardResponse
-	// err = json.Unmarshal(responseData, &sr)
-	// if err != nil {
-
-	// 	r := strings.NewReplacer("\n", " ", "\r", " ") // remove newlines
-
-	// 	extension := ""
-	// 	prefixlen := 100
-	// 	if len(responseData) < 100 {
-	// 		prefixlen = len(responseData)
-	// 		extension = "..."
-	// 	}
-
-	// 	body_prefix := r.Replace(string(responseData[0:prefixlen])) + extension // this helps debugging
-
-	// 	err = fmt.Errorf("(GetAWEJob) json.Unmarshal returned: %s (%s) (response.StatusCode: %d) (body: \"%s\")", err.Error(), conf.SERVER_URL+"/job/"+jobid, status_code, body_prefix)
-	// 	return
-	// }
-
-	// if len(sr.Error) > 0 {
-	// 	err = fmt.Errorf("%s", sr.Error[0])
-	// 	return
-	// }
-
-	// if status_code != 200 {
-	// 	err = fmt.Errorf("(GetAWEJob) response.StatusCode: %d", status_code)
-	// 	return
-	// }
-
-	// var job_bytes []byte
-	// job_bytes, err = json.Marshal(sr.Data)
-	// if err != nil {
-	// 	return
-	// }
-
-	// //var job core.Job
-	// job = &core.Job{}
-	// err = json.Unmarshal(job_bytes, job)
-	// if err != nil {
-	// 	fmt.Printf("job_bytes: %s\n", job_bytes)
-	// 	err = fmt.Errorf("(GetAWEJob) (second call) json.Unmarshal returned: %s (%s)", err.Error(), conf.SERVER_URL+"/job/"+jobid)
-	// 	return
-	// }
-
+	if err != nil {
+		err = fmt.Errorf("(GetAWEJob) GetAWEObject returned: %s", err.Error())
+	}
 	return
 }
 
@@ -731,12 +660,17 @@ func GetRootWorkflowInstance(jobid string, job *core.Job, awe_auth string) (wi *
 	//wi_array := []core.WorkflowInstance{}
 	var wi_if interface{}
 
-	status_code, err = GetAWEObject("workflow_instances", jobid+"_root", awe_auth, &wi_if)
+	status_code, err = GetAWEObject("workflow_instances", jobid+url.PathEscape("_#main"), awe_auth, &wi_if)
 	if err != nil {
+		err = fmt.Errorf("(GetRootWorkflowInstance) GetAWEObject returned: %s", err.Error())
 		return
 	}
 
 	wi, err = core.NewWorkflowInstanceFromInterface(wi_if, job, nil, false)
+	if err != nil {
+		err = fmt.Errorf("(GetRootWorkflowInstance) NewWorkflowInstanceFromInterface returned: %s", err.Error())
+		return
+	}
 
 	return
 }

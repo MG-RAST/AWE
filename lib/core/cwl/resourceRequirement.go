@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -31,7 +30,10 @@ func (r *ResourceRequirement) Evaluate(inputs interface{}, context *WorkflowCont
 		err = fmt.Errorf("(ResourceRequirement/Evaluate) no inputs")
 		return
 	}
-	spew.Dump(*r)
+	//fmt.Println("(ResourceRequirement/Evaluate) r:")
+	//spew.Dump(*r)
+	//fmt.Println("(ResourceRequirement/Evaluate) inputs:")
+	//spew.Dump(inputs)
 	fields := []string{"coresMin", "coresMax", "ramMin", "ramMax", "tmpdirMin", "tmpdirMax", "outdirMin", "outdirMax"}
 
 	for _, field := range fields {
@@ -49,8 +51,13 @@ func (r *ResourceRequirement) Evaluate(inputs interface{}, context *WorkflowCont
 				original_expr = NewExpressionFromString(original_str)
 
 				new_value, err = original_expr.EvaluateExpression(nil, inputs, context)
+				if err != nil {
+					err = fmt.Errorf("(ResourceRequirement/Evaluate) original_expr.EvaluateExpression returned: %s", err.Error())
+					return
+				}
 				//value_if = new_value
-				value.Set(reflect.ValueOf(new_value).Elem())
+				another_new_value := reflect.ValueOf(new_value).Elem()
+				value.Set(another_new_value)
 				//fmt.Printf("(ResourceRequirement/Evaluate)EvaluateExpression returned: %v\n", new_value)
 
 			case int:

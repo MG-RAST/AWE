@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"path"
 	"reflect"
 
 	"github.com/MG-RAST/AWE/lib/conf"
@@ -114,8 +115,9 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			return
 		}
 
-		//var process_name string
 		var clt *cwl.CommandLineTool
+		var et *cwl.ExpressionTool
+
 		//var a_workflow *cwl.Workflow
 		var process interface{}
 		process, _, err = cwl.GetProcess(p, job.WorkflowContext) // TODO add new schemata
@@ -147,7 +149,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			}
 			//requirements = clt.Requirements
 		case *cwl.ExpressionTool:
-			var et *cwl.ExpressionTool
+
 			et, _ = process.(*cwl.ExpressionTool)
 			if et.CwlVersion == "" {
 				et.CwlVersion = job.WorkflowContext.CwlVersion
@@ -231,8 +233,46 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			return
 		}
 
-		//fmt.Println("workunit_input_map after second round:\n")
-		//spew.Dump(workunit_input_map)
+		// get Defaults from inputs such they are part of javascript evaluation
+
+		// check CommandLineTool for Default values
+		if clt != nil {
+			for input_i, _ := range clt.Inputs {
+				command_input_parameter := &clt.Inputs[input_i]
+				command_input_parameter_id := command_input_parameter.Id
+				command_input_parameter_id_base := path.Base(command_input_parameter_id)
+				_, has_input := workunit_input_map[command_input_parameter_id_base]
+				if has_input {
+					continue // no need to add a default
+				}
+
+				// check if a default exists
+				if command_input_parameter.Default != nil {
+					workunit_input_map[command_input_parameter_id_base] = command_input_parameter.Default
+				}
+			}
+		}
+
+		// check ExpressionTool for Default values
+		if et != nil {
+			for input_i, _ := range et.Inputs {
+				input_parameter := &et.Inputs[input_i]
+				input_parameter_id := input_parameter.Id
+				input_parameter_id_base := path.Base(input_parameter_id)
+				_, has_input := workunit_input_map[input_parameter_id_base]
+				if has_input {
+					continue // no need to add a default
+				}
+
+				// check if a default exists
+				if input_parameter.Default != nil {
+					workunit_input_map[input_parameter_id_base] = input_parameter.Default
+				}
+			}
+		}
+
+		//	fmt.Println("workunit_input_map after second round:\n")
+		//	spew.Dump(workunit_input_map)
 
 		job_input := cwl.Job_document{}
 

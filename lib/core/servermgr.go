@@ -3545,20 +3545,21 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 				if !ok {
 					fmt.Println("(GetStepInputObjects) check input.Default")
 					if input.Default == nil {
-						//logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", source_as_string)
+						logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", source_as_string)
 						//ok = false
 						//err = fmt.Errorf("(GetStepInputObjects) getCWLSource did not find source %s and has no Default (reason: %s)", source_as_string, reason)
 						continue
 					}
+					logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource found something\"%s\"", source_as_string)
 					job_obj, err = cwl.NewCWLType("", input.Default, context)
 					if err != nil {
 						err = fmt.Errorf("(GetStepInputObjects) could not use default: %s", err.Error())
 						return
 					}
-					//fmt.Println("(GetStepInputObjects) got a input.Default")
-					//spew.Dump(job_obj)
+					fmt.Println("(GetStepInputObjects) got a input.Default")
+					spew.Dump(job_obj)
 				}
-				//workunit_input_map[cmd_id] = job_obj
+
 				//fmt.Printf("(GetStepInputObjects) Source_index: %d\n", input.Source_index)
 				if input.Source_index != 0 {
 					real_source_index := input.Source_index - 1

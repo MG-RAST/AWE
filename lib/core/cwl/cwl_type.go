@@ -3,6 +3,7 @@ package cwl
 import (
 	"fmt"
 	"math"
+	"path"
 	"reflect"
 	"strings"
 
@@ -430,12 +431,51 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowC
 	default:
 
 		object_type := object.GetType()
+		object_type_str := object_type.Type2String()
+		fmt.Printf("TypeIsCorrectSingle: \"%s\" \"%s\"\n", reflect.TypeOf(schema), reflect.TypeOf(object_type))
 
-		//fmt.Printf("TypeIsCorrectSingle: \"%s\" \"%s\"\n", reflect.TypeOf(schema), reflect.TypeOf(object_type))
-
-		if schema.Type2String() == object_type.Type2String() {
+		if schema.Type2String() == object_type_str {
 			ok = true
 			return
+		}
+
+		if object_type_str == "string" && schema.Type2String() == "EnumSchema" {
+
+			var object_str *String
+			object_str, ok = object.(*String)
+			if !ok {
+				err = fmt.Errorf("(TypeIsCorrectSingle) Could not convert to string")
+				return
+			}
+
+			var enumSchema *EnumSchema
+
+			switch schema.(type) {
+
+			case *CommandInputEnumSchema:
+				es := schema.(*CommandInputEnumSchema)
+				enumSchema = &es.EnumSchema
+			case *InputEnumSchema:
+				es := schema.(*InputEnumSchema)
+				enumSchema = &es.EnumSchema
+			case *EnumSchema:
+				enumSchema = schema.(*EnumSchema)
+
+			default:
+				err = fmt.Errorf("(TypeIsCorrectSingle) schema type unknown (%s)", reflect.TypeOf(schema))
+				return
+			}
+
+			for _, symbol := range enumSchema.Symbols {
+				symbol_base := path.Base(symbol)
+				if symbol_base == object_str.String() {
+					ok = true // is valid enum element
+					return
+				}
+			}
+
+			spew.Dump(schema)
+			panic("we are here")
 		}
 
 		// check if provided double can be excepted as int:

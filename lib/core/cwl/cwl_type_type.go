@@ -103,14 +103,22 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 	case string:
 		native_str := native.(string)
 
-		return NewCWLType_TypeFromString(schemata, native_str, context_p)
+		result, err = NewCWLType_TypeFromString(schemata, native_str, context_p)
+		if err != nil {
+			err = fmt.Errorf("(NewCWLType_Type) A NewCWLType_TypeFromString returned: %s", err.Error())
+		}
+		return
 
 	case CWLType_Type_Basic:
 
 		native_tt := native.(CWLType_Type_Basic)
 		native_str := string(native_tt)
 
-		return NewCWLType_TypeFromString(schemata, native_str, context_p)
+		result, err = NewCWLType_TypeFromString(schemata, native_str, context_p)
+		if err != nil {
+			err = fmt.Errorf("(NewCWLType_Type) B NewCWLType_TypeFromString returned: %s", err.Error())
+		}
+		return
 
 	case map[string]interface{}:
 		native_map := native.(map[string]interface{})
@@ -123,7 +131,8 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 			err = fmt.Errorf("(NewCWLType_Type) map object has not field \"type\" (context: %s)", context_p)
 			return
 		}
-		if object_type == "array" {
+		switch object_type {
+		case "array":
 
 			switch context_p {
 			case "Input":
@@ -162,7 +171,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 				return
 			}
 
-		} else if object_type == "record" {
+		case "record":
 
 			switch context_p {
 			case "Input": // InputRecordSchema
@@ -195,7 +204,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 				return
 			}
 
-		} else if object_type == "enum" {
+		case "enum":
 
 			switch context_p {
 			case "Input":
@@ -205,11 +214,17 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 				}
 				return
 
+			case "CommandInput":
+				result, err = NewCommandInputEnumSchemaFromInterface(native, context)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputEnumSchemaFromInterface returned: %s", err.Error())
+				}
+				return
 			default:
 				err = fmt.Errorf("(NewCWLType_Type) enum, context_p %s unknown", context_p)
 				return
 			}
-		} else {
+		default:
 
 			fmt.Println("(NewCWLType_Type) native_map:")
 			spew.Dump(native_map)

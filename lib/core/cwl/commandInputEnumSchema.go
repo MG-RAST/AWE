@@ -6,9 +6,9 @@ import (
 
 // https://www.commonwl.org/v1.1.0-dev1/CommandLineTool.html#CommandInputEnumSchema
 type CommandInputEnumSchema struct {
-	EnumSchema   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Symbols, Type, Label
-	Name         string                                                                `yaml:"name,omitempty" json:"name,omitempty" bson:"name,omitempty" mapstructure:"name,omitempty"`
-	InputBinding *CommandLineBinding                                                   `yaml:"inputBinding,omitempty" json:"inputBinding,omitempty" bson:"inputBinding,omitempty" mapstructure:"inputBinding,omitempty"`
+	EnumSchema `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Symbols, Type, Label, Name
+	//Name         string                                                                `yaml:"name,omitempty" json:"name,omitempty" bson:"name,omitempty" mapstructure:"name,omitempty"`
+	InputBinding *CommandLineBinding `yaml:"inputBinding,omitempty" json:"inputBinding,omitempty" bson:"inputBinding,omitempty" mapstructure:"inputBinding,omitempty"`
 }
 
 func NewCommandInputEnumSchemaFromInterface(original interface{}, context *WorkflowContext) (cies *CommandInputEnumSchema, err error) {
@@ -46,15 +46,15 @@ func NewCommandInputEnumSchemaFromInterface(original interface{}, context *Workf
 			cies.InputBinding = clb
 		}
 
-		name_if, has_name := original_map["name"]
-		if has_name {
-			name_str, ok := name_if.(string)
-			if !ok {
-				err = fmt.Errorf("(NewCommandInputEnumSchemaFromInterface) field name is not string")
-				return
-			}
-			cies.Name = name_str
-		}
+		// name_if, has_name := original_map["name"]
+		// if has_name {
+		// 	name_str, ok := name_if.(string)
+		// 	if !ok {
+		// 		err = fmt.Errorf("(NewCommandInputEnumSchemaFromInterface) field name is not string")
+		// 		return
+		// 	}
+		// 	cies.Name = name_str
+		// }
 
 	default:
 		err = fmt.Errorf("(NewCommandInputEnumSchemaFromInterface) error")

@@ -2044,13 +2044,13 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 						}
 
 						generator := path.Dir(src_str)
-						_, ok, _, err = qm.isSourceGeneratorReady(job, workflow_instance, workflow_input_map, generator, false, job.WorkflowContext)
+						_, ok, reason, err = qm.isSourceGeneratorReady(job, workflow_instance, workflow_input_map, generator, false, job.WorkflowContext)
 						if err != nil {
 							err = fmt.Errorf("(isSourceGeneratorReady) (type array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
 							return
 						}
 						if !ok {
-							reason = fmt.Sprintf("Generator not ready", src_str)
+							reason = fmt.Sprintf("Generator not ready (%s)", reason)
 							return
 						}
 
@@ -2089,14 +2089,14 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 					//src_str_array_len := len(src_str_array)
 
 					generator := path.Dir(src_str)
-					_, ok, _, err = qm.isSourceGeneratorReady(job, workflow_instance, workflow_input_map, generator, false, job.WorkflowContext)
+					_, ok, reason, err = qm.isSourceGeneratorReady(job, workflow_instance, workflow_input_map, generator, false, job.WorkflowContext)
 					if err != nil {
-						err = fmt.Errorf("(isSourceGeneratorReady) B (type non-array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
+						err = fmt.Errorf("(isTaskReady) B (type non-array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
 						return
 					}
 
 					if !ok {
-						reason = fmt.Sprintf("Generator not ready", src_str)
+						reason = fmt.Sprintf("Generator not ready (%s)", reason)
 						return
 					}
 
@@ -3261,13 +3261,59 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflow_instance *Workflo
 
 	switch generic_object.(type) {
 	case *cwl.WorkflowStep:
-		step := generic_object.(*cwl.WorkflowStep)
-		_ = step
-		TODO check state
+		// WorkflowStep does not contain info about state, need workflow_instance
+		step_name := path.Base(src)
+		workflow_instance_name := path.Dir(src)
+
+		var workflow_instance *WorkflowInstance
+		workflow_instance, ok, err = job.GetWorkflowInstance(workflow_instance_name, true)
+		if err != nil {
+			err = fmt.Errorf("(isSourceGeneratorReady) job.GetWorkflowInstance returned: %s", err.Error())
+			return
+		}
+		if !ok {
+			reason = fmt.Sprintf("(isSourceGeneratorReady) workflow_instance_name not found: %s", workflow_instance_name)
+			return
+		}
+
+		// find task that corresponds to step
+
+		var task *Task
+		var tasks []*Task
+		tasks, err = workflow_instance.GetTasks(true)
+		if err != nil {
+			err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.GetTasks returned: %s", err.Error())
+			return
+		}
+		list_of_tasks := ""
+		for i, _ := range tasks {
+			t := tasks[i]
+			fmt.Println(t.TaskName)
+			list_of_tasks += "," + t.TaskName
+			if t.TaskName == step_name {
+				task = t
+				break
+			}
+		}
+
+		if task == nil {
+			err = fmt.Errorf("(isSourceGeneratorReady) no matching task found: step_name=%s (found : %s)", step_name, list_of_tasks)
+			return
+
+		}
+
+		fmt.Printf("(isSourceGeneratorReady) MATCH\n")
+
+		//step := generic_object.(*cwl.WorkflowStep)
+		//_ = step
+		//TODO check state
+		//step.GetProcess()
+		//step.
+
 	case *cwl.Workflow:
-		workflow := generic_object.(*cwl.Workflow)
-		_ = workflow
-		TODO check state
+		//workflow := generic_object.(*cwl.Workflow)
+		//_ = workflow
+		//TODO check state
 	default:
 		err = fmt.Errorf("(getCWLSource) type unknown: %s", reflect.TypeOf(generic_object))
 		return

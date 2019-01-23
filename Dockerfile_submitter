@@ -35,5 +35,5 @@ RUN apk update ; apk add \
   py-pip \
   py-psutil   
 RUN pip install --upgrade pip ;  pip install lxml ; pip install cwl-runner
-
+RUN pip uninstall ruamel.yaml ; pip install ruamel.yaml==0.15.48
 

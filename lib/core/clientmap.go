@@ -2,10 +2,11 @@ package core
 
 import (
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/rwmutex"
 )
 
 type ClientMap struct {
-	RWMutex
+	rwmutex.RWMutex
 	_map map[string]*Client
 }
 
@@ -27,7 +28,7 @@ func (cl *ClientMap) Add(client *Client, lock bool) (err error) {
 
 	_, found := cl._map[client.Id]
 	if found {
-		logger.Warning("Client Id % already exists.", client.Id)
+		logger.Warning("Client Id %s already exists.", client.Id)
 	}
 
 	cl._map[client.Id] = client

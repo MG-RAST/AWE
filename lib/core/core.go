@@ -1,7 +1,6 @@
 package core
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,13 +22,15 @@ import (
 )
 
 var (
-	QMgr          ResourceMgr
-	Service       string = "unknown"
-	Self          *Client
-	ProxyWorkChan chan bool
-	Server_UUID   string
-	JM            *JobMap
-	Start_time    time.Time
+	//QMgr                      ResourceMgr
+	QMgr                      *ServerMgr
+	Service                   string = "unknown"
+	Self                      *Client
+	ProxyWorkChan             chan bool
+	Server_UUID               string
+	JM                        *JobMap
+	GlobalWorkflowInstanceMap *WorkflowInstanceMap
+	Start_time                time.Time
 )
 
 type BaseResponse struct {
@@ -44,8 +45,10 @@ type StandardResponse struct {
 }
 
 func InitResMgr(service string) {
+
 	if service == "server" {
 		QMgr = NewServerMgr()
+		GlobalWorkflowInstanceMap = NewWorkflowInstancesMap()
 	} else if service == "proxy" {
 		//QMgr = NewProxyMgr()
 	}
@@ -64,15 +67,6 @@ func InitProxyWorkChan() {
 type CoAck struct {
 	workunits []*Workunit
 	err       error
-}
-
-type CoReq struct {
-	policy     string
-	fromclient string
-	//fromclient *Client
-	available int64
-	count     int
-	response  chan CoAck
 }
 
 type coInfo struct {
@@ -326,7 +320,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 			return
 		}
 
-		_, err = task.Init(job)
+		_, err = task.Init(job, job.Id)
 		if err != nil {
 			return
 		}
@@ -488,14 +482,13 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 
 func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (response *StandardResponse, err error) {
 
-	var work_str string
-	work_str, err = work.String()
+	var work_id_b64 string
+	work_id_b64, err = work.GetIdBase64()
 	if err != nil {
-		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) workid.String() returned: %s", err.Error())
+		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) work.GetIdBase64 returned: %s", err.Error())
 		return
 	}
 
-	work_id_b64 := "base64:" + base64.StdEncoding.EncodeToString([]byte(work_str))
 	target_url := ""
 	if work.CWL_workunit != nil {
 		target_url = fmt.Sprintf("%s/work/%s?client=%s", conf.SERVER_URL, work_id_b64, Self.Id) // client info is needed for authentication
@@ -664,7 +657,7 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 		if _, err := sc.PutOrPostFile(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
 			time.Sleep(3 * time.Second) //wait for 3 seconds and try again
 			if _, err := sc.PutOrPostFile(file_path, io.Node, work.Rank, attrfile_path, io.Type, io.FormOptions, io.NodeAttr); err != nil {
-				fmt.Errorf("push file error\n")
+				err = fmt.Errorf("push file error: %s\n", err.Error())
 				logger.Error("op=pushfile,err=" + err.Error())
 				return size, err
 			}

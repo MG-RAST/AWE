@@ -48,7 +48,7 @@ func heartBeater(control chan int) {
 			logger.Error("SendHeartBeat returned: %s", err.Error())
 		}
 	}
-	control <- 2 //we are ending
+	//control <- 2 //we are ending
 }
 
 // curl http://169.254.169.254/openstack/2015-10-15/meta_data.json | jq '.'
@@ -155,7 +155,7 @@ func heartbeating(host string, clientid string) (msg core.HeartbeatInstructions,
 		err = fmt.Errorf("(heartbeating) httpclient.Put failed: %s", err.Error())
 		return
 	}
-	logger.Debug(3, fmt.Sprintf("client %s sent a heartbeat to %s", host, clientid))
+	logger.Debug(3, "client %s sent a heartbeat to %s", clientid, host)
 
 	defer res.Body.Close()
 
@@ -396,7 +396,7 @@ func ComposeProfile() (profile *core.Client, err error) {
 	profile.CPUs = runtime.NumCPU()
 	profile.Domain = conf.CLIENT_DOMAIN
 	profile.Version = conf.VERSION
-	profile.GitCommitHash = conf.GIT_COMMIT_HASH
+	//profile.GitCommitHash = conf.GIT_COMMIT_HASH
 
 	//app list
 	//profile.Apps = []string{}
@@ -440,7 +440,7 @@ func DiscardWorkunit(id core.Workunit_Unique_Identifier) (err error) {
 		workmap.Set(id, ID_DISCARDED, "DiscardWorkunit")
 		err = core.Self.Current_work.Delete(id, true)
 		if err != nil {
-			logger.Error("(DiscardWorkunit) Could not remove workunit %s from client", id)
+			logger.Error("(DiscardWorkunit) Could not remove workunit %s from client", id_str)
 			err = nil
 		}
 	}

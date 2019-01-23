@@ -9,11 +9,13 @@ import (
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/golib/httpclient"
+
 	//"github.com/davecgh/go-spew/spew"
 	"io/ioutil"
 	"os"
@@ -122,6 +124,7 @@ func workStealerRun(control chan int, retry_previous int) (retry int, err error)
 	// make sure cwl-runner is invoked
 	if workunit.CWL_workunit != nil {
 		workunit.Cmd.Name = "/usr/bin/cwl-runner"
+		// "--provenance", "cwl_tool_provenance",
 		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", "./cwl_tool.yaml", "./cwl_job_input.yaml"}
 
 	}
@@ -152,7 +155,7 @@ func workStealer(control chan int) {
 			logger.Error("(workStealer) workStealerRun returns: %s", err.Error())
 		}
 	}
-	control <- ID_WORKSTEALER //we are ending
+	//control <- ID_WORKSTEALER //we are ending
 }
 
 func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
@@ -320,11 +323,15 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		err = fmt.Errorf("(CheckoutWorkunitRemote) mapstructure.Decode error: %s", err.Error())
 		return
 	}
+
+	logger.Debug(1, "(CheckoutWorkunitRemote) workunit.Id: %s", workunit.Id)
+
 	if has_cwl {
 
 		var xerr error
 		//var schemata []cwl.CWLType_Type
 		workunit.Context = cwl.NewWorkflowContext()
+		workunit.Context.Init("")
 		cwl_object, _, xerr = core.NewCWL_workunit_from_interface(cwl_generic, workunit.Context)
 		if xerr != nil {
 			err = fmt.Errorf("(CheckoutWorkunitRemote) NewCWL_workunit_from_interface failed: %s", xerr.Error())
@@ -371,13 +378,18 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 	//workunit = response.Data
 
+	logger.Debug(3, "(CheckoutWorkunitRemote) workunit.Info.Auth == %t", workunit.Info.Auth)
 	if workunit.Info.Auth == true {
-		token, xerr := FetchDataTokenByWorkId(workunit.Id)
-		if xerr == nil && token != "" {
-			workunit.Info.DataToken = token
-		} else {
-			err = fmt.Errorf("(CheckoutWorkunitRemote) need data token but failed to fetch one %s", xerr.Error())
+
+		var token string
+		token, err = workunit.FetchDataToken()
+		if err != nil {
+			err = fmt.Errorf("(CheckoutWorkunitRemote) need data token but failed to fetch it: %s", err.Error())
 			return
+		}
+		logger.Debug(3, "(CheckoutWorkunitRemote) token length: %d", len(token))
+		if token != "" {
+			workunit.Info.DataToken = token
 		}
 	}
 
@@ -388,27 +400,6 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s got a workunit", core.Self.Id))
 	workunit.State = core.WORK_STAT_CHECKOUT
 	core.Self.Busy = true
-	return
-}
-
-func FetchDataTokenByWorkId(workid string) (token string, err error) {
-	targeturl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, workid, core.Self.Id)
-	var headers httpclient.Header
-	if conf.CLIENT_GROUP_TOKEN != "" {
-		headers = httpclient.Header{
-			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
-		}
-	}
-	res, err := httpclient.Get(targeturl, headers, nil)
-	if err != nil {
-		return "", err
-	}
-	defer res.Body.Close()
-	if res.Header != nil {
-		if _, ok := res.Header["Datatoken"]; ok {
-			token = res.Header["Datatoken"][0]
-		}
-	}
 	return
 }
 

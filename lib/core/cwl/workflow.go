@@ -2,9 +2,11 @@ package cwl
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/mitchellh/mapstructure"
+
 	//"os"
 	"reflect"
 	//"strings"
@@ -12,7 +14,7 @@ import (
 )
 
 type Workflow struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Is_CWL_object
 	CWL_class_Impl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
 	CWL_id_Impl     `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
 	Inputs          []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
@@ -59,7 +61,6 @@ func NewWorkflowEmpty() (w Workflow) {
 func NewWorkflow(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
 
 	// convert input map into input array
-
 	original, err = MakeStringMap(original, context)
 	if err != nil {
 		err = fmt.Errorf("(NewWorkflow) MakeStringMap returned: %s", err.Error())
@@ -188,6 +189,28 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 		if context.Namespaces != nil {
 			workflow.Namespaces = context.Namespaces
 		}
+
+		if context != nil {
+			//if context.Initialzing {
+			err = context.Add(workflow_ptr.Id, workflow_ptr, "NewWorkflow")
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflow) context.Add returned: %s", err.Error())
+				return
+			}
+			//}
+
+			for i, _ := range workflow.Inputs {
+				inp := &workflow.Inputs[i]
+				err = context.Add(inp.Id, inp, "NewWorkflow")
+				if err != nil {
+					err = fmt.Errorf("(NewWorkflow) context.Add returned: %s", err.Error())
+					return
+				}
+			}
+		} else {
+			err = fmt.Errorf("(NewWorkflow) context empty")
+			return
+		}
 		//fmt.Printf(".....WORKFLOW")
 		//spew.Dump(workflow)
 		return
@@ -198,6 +221,23 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 
 	}
 
+	return
+}
+
+func (wf *Workflow) GetStep(name string) (step *WorkflowStep, err error) {
+
+	for i, _ := range wf.Steps {
+
+		s := &wf.Steps[i]
+
+		s_base := path.Base(s.Id)
+
+		if s_base == name {
+			step = s
+			return
+		}
+	}
+	err = fmt.Errorf("(Workflow/GetStep) step %s not found", name)
 	return
 }
 

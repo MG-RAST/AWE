@@ -11,6 +11,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/davecgh/go-spew/spew"
+
 	//aw_sequences"os"
 	"path"
 	//"reflect"
@@ -143,39 +144,62 @@ func CWL_input_check(job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, co
 	return
 }
 
-func CreateTasks(job *Job, workflow string, steps []cwl.WorkflowStep) (tasks []*Task, err error) {
+func CreateWorkflowTasks(job *Job, name_prefix string, steps []cwl.WorkflowStep, step_prefix string, parent_id *Task_Unique_Identifier) (tasks []*Task, err error) {
 	tasks = []*Task{}
+
+	if parent_id == nil {
+		err = fmt.Errorf("(CreateWorkflowTasks) parent_id == nil")
+		return
+	}
+
+	if !strings.HasPrefix(name_prefix, "_#main") {
+		err = fmt.Errorf("(CreateWorkflowTasks) prefix_name does not start with _entrypoint: %s", name_prefix)
+		return
+	}
 
 	for s, _ := range steps {
 
-		step := steps[s] // I could not do "_, step := range", that leas to very strange behaviour ?!??!
+		step := steps[s]
 
-		//task_name := strings.Map(
-		//	func(r rune) rune {
-		//		if syntax.IsWordChar(r) || r == '/' || r == '-' { // word char: [0-9A-Za-z_]
-		//			return r
-		//		}
-		//		return -1
-		//	},
-		//	step.Id)
+		if name_prefix == "" {
+			err = fmt.Errorf("(CreateWorkflowTasks) name_prefix empty")
+			return
+		}
 
 		if !strings.HasPrefix(step.Id, "#") {
-			err = fmt.Errorf("Workflow step name does not start with a #: %s", step.Id)
+			err = fmt.Errorf("(CreateWorkflowTasks) Workflow step name does not start with a #: %s", step.Id)
 			return
 		}
-		task_name := strings.TrimSuffix(step.Id, "/")
 
-		if task_name == "" {
-			err = fmt.Errorf("(CreateTasks) step_id is empty")
-			return
-		}
+		fmt.Println("(CreateWorkflowTasks) step.Id: " + step.Id)
+
+		// remove prefix
+		task_name := path.Base(step.Id)
+		//task_name := strings.TrimPrefix(step.Id, step_prefix)
+		//task_name = strings.TrimSuffix(task_name, "/")
+		//task_name = strings.TrimPrefix(task_name, "/")
+
+		//fmt.Println("(CreateWorkflowTasks) task_name1: " + task_name)
+		//fmt.Println("(CreateWorkflowTasks) name_prefix: " + name_prefix)
+
+		fmt.Println("(CreateWorkflowTasks) new task name will be: " + name_prefix + " / " + task_name)
 
 		//task_name := strings.TrimPrefix(step.Id, "#main/")
 		//task_name = strings.TrimPrefix(task_name, "#")
+
+		fmt.Printf("(CreateWorkflowTasks) creating task: %s %s\n", name_prefix, task_name)
+
 		var awe_task *Task
-		awe_task, err = NewTask(job, workflow, task_name)
+		awe_task, err = NewTask(job, name_prefix, task_name)
 		if err != nil {
-			err = fmt.Errorf("(CreateTasks) NewTask returned: %s", err.Error())
+			err = fmt.Errorf("(CreateWorkflowTasks) NewTask returned: %s", err.Error())
+			return
+		}
+
+		//awe_task.WorkflowParent = parent_id
+
+		if step.Id == "" {
+			err = fmt.Errorf("(CreateWorkflowTasks) step.Id empty")
 			return
 		}
 
@@ -190,7 +214,8 @@ func CreateTasks(job *Job, workflow string, steps []cwl.WorkflowStep) (tasks []*
 func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl_workflow *cwl.Workflow, context *cwl.WorkflowContext) (job *Job, err error) {
 
 	// check that all expected workflow inputs exist and that they have the correct type
-	logger.Debug(1, "(CWL2AWE) CWL2AWE starting")
+	logger.Debug(1, "(CWL2AWE) CWL2AWE starting..")
+	defer logger.Debug(1, "(CWL2AWE) CWL2AWE leaving...")
 
 	var job_input_new *cwl.Job_document
 	job_input_new, err = CWL_input_check(job_input, cwl_workflow, context)
@@ -244,24 +269,47 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	job.Acl.SetOwner(_user.Uuid)
 	job.Acl.Set(_user.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
 
+	logger.Debug(1, "(CWL2AWE) ACLs set")
 	// TODO first check that all resources are available: local files and remote links
 
-	main_wi := WorkflowInstance{Id: "::main::", Inputs: *job_input_new, RemainTasks: len(cwl_workflow.Steps)}
-	//new_wis := []WorkflowInstance{main_wi} // Not using AddWorkflowInstance to avoid mongo
-	job.WorkflowInstances = make([]interface{}, 1)
-	job.WorkflowInstances[0] = main_wi
+	// *** create WorkflowInstance
 
-	//if err != nil {
-	//	return
-	//}
-
-	var tasks []*Task
-	tasks, err = CreateTasks(job, "", cwl_workflow.Steps)
+	var wi *WorkflowInstance
+	wi, err = NewWorkflowInstance("_#main", job.Id, cwl_workflow.Id, job, "") // Not using AddWorkflowInstance to avoid mongo
 	if err != nil {
+		err = fmt.Errorf("(CWL2AWE) NewWorkflowInstance returned: %s", err.Error())
 		return
 	}
 
-	job.Tasks = tasks
+	wi.Inputs = *job_input_new
+	logger.Debug(1, "(CWL2AWE) WorkflowInstance _#main created")
+
+	// create path
+	//for i, _ := range wi.Inputs {
+	//	new_id := cwl_workflow.Id + "/" + wi.Inputs[i].Id
+	//wi.Inputs[i].Id = new_id
+	//err = context.Add(new_id, wi.Inputs[i].Value, "CWL2AWE")
+	//if err != nil {
+	//	err = fmt.Errorf("(CWL2AWE) context.Add returned: %s", err.Error())
+	//	return
+	//}
+	//}
+
+	err = wi.Save(false)
+	if err != nil {
+		err = fmt.Errorf("(CWL2AWE) wi.Save returned: %s", err.Error())
+		return
+	}
+
+	logger.Debug(1, "(CWL2AWE) wi saved")
+
+	err = job.AddWorkflowInstance(wi, "db_sync_no", false) // adding _root
+	if err != nil {
+		err = fmt.Errorf("(CWL2AWE) AddWorkflowInstance returned: %s", err.Error())
+		return
+	}
+
+	logger.Debug(1, "(CWL2AWE) wi added")
 
 	_, err = job.Init()
 
@@ -285,7 +333,9 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 
 	//spew.Dump(job)
 
-	logger.Debug(1, "job.Id: %s", job.Id)
+	//panic("done")
+
+	logger.Debug(1, "(CWL2AWE) job.Id: %s", job.Id)
 	err = job.Save()
 	if err != nil {
 		err = errors.New("(CWL2AWE) error in job.Save(), error=" + err.Error())

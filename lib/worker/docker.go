@@ -2,6 +2,7 @@ package worker
 
 import (
 	"encoding/json"
+
 	"github.com/MG-RAST/AWE/lib/logger"
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 	"bufio"
@@ -9,9 +10,6 @@ import (
 	"compress/gzip"
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	shock "github.com/MG-RAST/go-shock-client"
-	"github.com/fsouza/go-dockerclient"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -20,6 +18,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/MG-RAST/AWE/lib/conf"
+	shock "github.com/MG-RAST/go-shock-client"
+	"github.com/fsouza/go-dockerclient"
 )
 
 type DockerImageAttributes struct {
@@ -140,7 +142,7 @@ func RemoveOldAWEContainers(client *docker.Client, container_name string) (err e
 			//fmt.Println(fmt.Sprint(err) + ": " + string(output))
 			err = errors.New(fmt.Sprintf("(RemoveOldAWEContainers) error removing old container container_name=%s, err=%s, output=%s", container_name, err.Error(), output))
 		} else {
-			logger.Debug(1, fmt.Sprintf("(RemoveOldAWEContainers) deleteing %s:", container_name, output))
+			logger.Debug(1, "(RemoveOldAWEContainers) deleteing %s:", container_name)
 		}
 
 		//if err = cmd.Start(); err != nil {
@@ -820,7 +822,7 @@ func DockerizeName(input string) string {
 		default:
 			return '_'
 		}
-		return r
+		//return r
 	}
 	return strings.Map(whitelist_it, input)
 }

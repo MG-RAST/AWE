@@ -3,11 +3,16 @@ package core
 import (
 	//"bytes"
 	//"encoding/json"
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
+	"path"
 	"reflect"
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/golib/httpclient"
 
 	//"github.com/davecgh/go-spew/spew"
 
@@ -67,8 +72,8 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 	task_id := task.Task_Unique_Identifier
 	workunit = &Workunit{
 		Workunit_Unique_Identifier: New_Workunit_Unique_Identifier(task_id, rank),
-		Id:  "defined below",
-		Cmd: task.Cmd,
+		Id:                         "defined below",
+		Cmd:                        task.Cmd,
 		//App:       task.App,
 		Info:    task.Info,
 		Inputs:  task.Inputs,
@@ -110,8 +115,9 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			return
 		}
 
-		//var process_name string
 		var clt *cwl.CommandLineTool
+		var et *cwl.ExpressionTool
+
 		//var a_workflow *cwl.Workflow
 		var process interface{}
 		process, _, err = cwl.GetProcess(p, job.WorkflowContext) // TODO add new schemata
@@ -143,7 +149,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			}
 			//requirements = clt.Requirements
 		case *cwl.ExpressionTool:
-			var et *cwl.ExpressionTool
+
 			et, _ = process.(*cwl.ExpressionTool)
 			if et.CwlVersion == "" {
 				et.CwlVersion = job.WorkflowContext.CwlVersion
@@ -191,33 +197,82 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		context := job.WorkflowContext
 		// ****** get inputs
-		job_input_map := context.Job_input_map
-		if job_input_map == nil {
-			err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
-			return
-		}
+		//job_input_map := context.Job_input_map
+		//if job_input_map == nil {
+		//	err = fmt.Errorf("(NewWorkunit) job.CWL_collection.Job_input_map is empty")
+		//	return
+		//}
 		//job_input_map := *job.CWL_collection.Job_input_map
 
 		//job_input := *job.CWL_collection.Job_input
 
 		var workflow_instance *WorkflowInstance
-		workflow_instance, err = job.GetWorkflowInstance(task.Parent, true)
+		var ok bool
+		workflow_instance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetWorkflowInstance returned %s", err.Error())
+			return
+		}
+		if !ok {
+			err = fmt.Errorf("(NewWorkunit) WorkflowInstance not found: \"%s\"", task.WorkflowInstanceId)
 			return
 		}
 
 		workflow_input_map := workflow_instance.Inputs.GetMap()
 
 		var workunit_input_map map[string]cwl.CWLType
-		workunit_input_map, err = qm.GetStepInputObjects(job, task_id, workflow_input_map, workflow_step, context)
+		var reason string
+		workunit_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflow_instance, workflow_input_map, workflow_step, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects returned: %s", err.Error())
 			return
 		}
 
-		//fmt.Println("workunit_input_map after second round:\n")
-		//spew.Dump(workunit_input_map)
+		if !ok {
+			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects not ready, reason: %s", reason)
+			return
+		}
+
+		// get Defaults from inputs such they are part of javascript evaluation
+
+		// check CommandLineTool for Default values
+		if clt != nil {
+			for input_i, _ := range clt.Inputs {
+				command_input_parameter := &clt.Inputs[input_i]
+				command_input_parameter_id := command_input_parameter.Id
+				command_input_parameter_id_base := path.Base(command_input_parameter_id)
+				_, has_input := workunit_input_map[command_input_parameter_id_base]
+				if has_input {
+					continue // no need to add a default
+				}
+
+				// check if a default exists
+				if command_input_parameter.Default != nil {
+					workunit_input_map[command_input_parameter_id_base] = command_input_parameter.Default
+				}
+			}
+		}
+
+		// check ExpressionTool for Default values
+		if et != nil {
+			for input_i, _ := range et.Inputs {
+				input_parameter := &et.Inputs[input_i]
+				input_parameter_id := input_parameter.Id
+				input_parameter_id_base := path.Base(input_parameter_id)
+				_, has_input := workunit_input_map[input_parameter_id_base]
+				if has_input {
+					continue // no need to add a default
+				}
+
+				// check if a default exists
+				if input_parameter.Default != nil {
+					workunit_input_map[input_parameter_id_base] = input_parameter.Default
+				}
+			}
+		}
+
+		//	fmt.Println("workunit_input_map after second round:\n")
+		//	spew.Dump(workunit_input_map)
 
 		job_input := cwl.Job_document{}
 
@@ -228,8 +283,13 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		workunit.CWL_workunit.Job_input = &job_input
 
+		//fmt.Println("workflow_instance:")
+		//spew.Dump(workflow_instance)
+		//fmt.Println("job_input:")
 		//spew.Dump(job_input)
-
+		//fmt.Println("workflow_step.Run:")
+		//spew.Dump(workflow_step.Run)
+		//panic("done workflow_step.Out")
 		workunit.CWL_workunit.OutputsExpected = &workflow_step.Out
 
 		err = workunit.Evaluate(workunit_input_map, context)
@@ -237,13 +297,8 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			err = fmt.Errorf("(NewWorkunit) workunit.Evaluate returned: %s", err.Error())
 			return
 		}
-		//spew.Dump(workflow_step.Out)
-		//panic("done")
 
 	}
-	//panic("done")
-	//spew.Dump(workunit.Cmd)
-	//panic("done")
 
 	return
 }
@@ -295,17 +350,17 @@ func (work *Workunit) Mkdir() (err error) {
 	// delete workdir just in case it exists; will not work if awe-worker is not in docker container AND tasks are in container
 	work_path, err := work.Path()
 	if err != nil {
-		err = fmt.Errorf("(Workunit/Mkdir) work.Path() returned: %s", err.Error)
+		err = fmt.Errorf("(Workunit/Mkdir) work.Path() returned: %s", err.Error())
 		return
 	}
 	err = os.RemoveAll(work_path)
 	if err != nil {
-		err = fmt.Errorf("(Workunit/Mkdir) os.RemoveAll returned: %s", err.Error)
+		err = fmt.Errorf("(Workunit/Mkdir) os.RemoveAll returned: %s", err.Error())
 		return
 	}
 	err = os.MkdirAll(work_path, 0777)
 	if err != nil {
-		err = fmt.Errorf("(Workunit/Mkdir) os.MkdirAll returned: %s", err.Error)
+		err = fmt.Errorf("(Workunit/Mkdir) os.MkdirAll returned: %s", err.Error())
 		return
 	}
 	return
@@ -352,11 +407,11 @@ func (work *Workunit) Path() (path string, err error) {
 			err = fmt.Errorf("(Workunit/Path) JobId is missing")
 			return
 		}
-		task_name := work.Workunit_Unique_Identifier.Parent
-		if task_name != "" {
-			task_name += "-"
-		}
-		task_name += work.Workunit_Unique_Identifier.TaskName
+		//task_name := work.Workunit_Unique_Identifier.Parent
+		//if task_name != "" {
+		//	task_name += "-"
+		//}
+		task_name := work.Workunit_Unique_Identifier.TaskName
 		// convert name to make it filesystem compatible
 		task_name = strings.Map(
 			func(r rune) rune {
@@ -415,5 +470,79 @@ func (work *Workunit) Part() (part string) {
 	} else {
 		part = fmt.Sprintf("%d-%d", start, end)
 	}
+	return
+}
+
+func (work *Workunit) GetIdBase64() (work_id_b64 string, err error) {
+	var work_str string
+	work_str, err = work.String()
+	if err != nil {
+		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) workid.String() returned: %s", err.Error())
+		return
+	}
+
+	work_id_b64 = "base64:" + base64.StdEncoding.EncodeToString([]byte(work_str))
+	return
+}
+
+func (work *Workunit) FetchDataToken() (token string, err error) {
+
+	var work_id_b64 string
+	work_id_b64, err = work.GetIdBase64()
+	if err != nil {
+		err = fmt.Errorf("(FetchDataToken) work.GetIdBase64 returned: %s", err.Error())
+		return
+	}
+
+	targeturl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, work_id_b64, Self.Id)
+	logger.Debug(1, "(FetchDataToken) targeturl: %s", targeturl)
+	var headers httpclient.Header
+	logger.Debug(3, "(FetchDataToken) len(conf.CLIENT_GROUP_TOKEN): %d ", len(conf.CLIENT_GROUP_TOKEN))
+	if conf.CLIENT_GROUP_TOKEN != "" {
+
+		headers = httpclient.Header{
+			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
+		}
+	}
+	res, err := httpclient.Get(targeturl, headers, nil)
+	if err != nil {
+		err = fmt.Errorf("(FetchDataToken) httpclient.Get returned: %s", err.Error())
+		return
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+
+		var bodyBytes []byte
+		bodyBytes, err = ioutil.ReadAll(res.Body)
+		if err != nil {
+			err = fmt.Errorf("(FetchDataToken) res.Status was %d, but could not read body: %s", res.StatusCode, err.Error())
+			return
+		}
+
+		bodyString := string(bodyBytes)
+
+		err = fmt.Errorf("(FetchDataToken) res.Status was %d, body contained: %s", res.StatusCode, bodyString)
+		return
+	}
+
+	if res.Header == nil {
+		logger.Debug(3, "(FetchDataToken) res.Header empty")
+		return
+	}
+
+	header_array, ok := res.Header["Datatoken"]
+	if !ok {
+		logger.Debug(3, "(FetchDataToken) Datatoken header not found")
+		return
+	}
+
+	if len(header_array) == 0 {
+		logger.Debug(3, "(FetchDataToken) len(header_array) == 0")
+		return
+	}
+
+	token = header_array[0]
+
 	return
 }

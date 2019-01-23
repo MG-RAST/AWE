@@ -261,7 +261,7 @@ func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []
 
 	context = NewWorkflowContext()
 	context.Path = inputfile_path
-
+	context.InitBasic()
 	graph_pos := strings.Index(yaml_str, "$graph")
 
 	//yaml_str = strings.Replace(yaml_str, "$namespaces", "namespaces", -1)
@@ -283,6 +283,10 @@ func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []
 			err = fmt.Errorf("(Parse_cwl_document) Parse_cwl_simple_document returned: %s", err.Error())
 			return
 		}
+	}
+	if len(object_array) == 0 {
+		err = fmt.Errorf("(Parse_cwl_document) len(object_array) == 0 (graph_pos: %d)", graph_pos)
+		return
 	}
 
 	return

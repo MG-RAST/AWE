@@ -4,6 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"path"
+	"runtime"
+	"strings"
+	"time"
+
 	"github.com/MG-RAST/AWE/lib/auth"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/controller"
@@ -15,13 +23,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/versions"
 	"github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/MG-RAST/golib/goweb"
-	"io"
-	"io/ioutil"
-	"os"
-	"path"
-	"runtime"
-	"strings"
-	"time"
 )
 
 func launchSite(control chan int, port int) {
@@ -132,6 +133,7 @@ func launchAPI(control chan int, port int) {
 	r.Map("/cgroup/{cgid}/acl", c.ClientGroupAcl["base"])
 	r.Map("/cgroup/{cgid}/token", c.ClientGroupToken)
 	r.MapRest("/job", c.Job)
+	r.MapRest("/workflow_instances", c.WorkflowInstances)
 	r.MapRest("/work", c.Work)
 	r.MapRest("/cgroup", c.ClientGroup)
 	r.MapRest("/client", c.Client)
@@ -139,6 +141,7 @@ func launchAPI(control chan int, port int) {
 	r.MapRest("/logger", c.Logger)
 	r.MapRest("/awf", c.Awf)
 	r.MapFunc("*", controller.ResourceDescription, goweb.GetMethod)
+
 	if conf.SSL_ENABLED {
 		err := goweb.ListenAndServeRoutesTLS(fmt.Sprintf(":%d", conf.API_PORT), conf.SSL_CERT_FILE, conf.SSL_KEY_FILE, r)
 		if err != nil {

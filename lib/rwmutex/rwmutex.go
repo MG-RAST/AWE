@@ -1,14 +1,15 @@
-package core
-
 // +build !race
+
+package rwmutex
 
 import (
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/core/uuid"
-	"github.com/MG-RAST/AWE/lib/logger"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/MG-RAST/AWE/lib/core/uuid"
+	"github.com/MG-RAST/AWE/lib/logger"
 )
 
 // This RWLock keeps track of the owener and of each reader
@@ -24,7 +25,7 @@ type ReadLock struct {
 type RWMutex struct {
 	//sync.RWMutex `bson:"-" json:"-"` // Locks only members that can change. Current_work has its own lock.
 	writeLock   chan int
-	lockOwner   StringLocked      `bson:"-" json:"-"`
+	lockOwner   StringLocked
 	Name        string            `bson:"-" json:"-"`
 	readers     map[string]string // map[Id]Name (named readers)
 	anonCounter int               // (anonymous readers, use only when necessary)
@@ -71,8 +72,8 @@ func (r *ReadLock) Get_Id() string {
 
 func (m *RWMutex) Lock() (err error) {
 	panic("Lock() was called")
-	err = m.LockNamed("unknown")
-	return
+	//err = m.LockNamed("unknown")
+	//return
 }
 
 func (m *RWMutex) LockNamed(name string) (err error) {

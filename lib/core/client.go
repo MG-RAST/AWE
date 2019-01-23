@@ -8,6 +8,7 @@ import (
 
 	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/MG-RAST/AWE/lib/rwmutex"
 )
 
 // states
@@ -17,8 +18,8 @@ import (
 
 // this is the Worker
 type Client struct {
-	coAckChannel    chan CoAck `bson:"-" json:"-"` //workunit checkout item including data and err (qmgr.Handler -> WorkController)
-	RWMutex         `bson:"-" json:"-"`
+	coAckChannel    chan CoAck //workunit checkout item including data and err (qmgr.Handler -> WorkController)
+	rwmutex.RWMutex `bson:"-" json:"-"`
 	WorkerRuntime   `bson:",inline" json:",inline"`
 	WorkerState     `bson:",inline" json:",inline"`
 	RegTime         time.Time     `bson:"regtime" json:"regtime"`

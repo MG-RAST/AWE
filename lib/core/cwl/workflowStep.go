@@ -12,18 +12,26 @@ import (
 )
 
 type WorkflowStep struct {
-	Id            string               `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
-	In            []WorkflowStepInput  `yaml:"in,omitempty" bson:"in,omitempty" json:"in,omitempty" mapstructure:"in,omitempty"` // array<WorkflowStepInput> | map<WorkflowStepInput.id, WorkflowStepInput.source> | map<WorkflowStepInput.id, WorkflowStepInput>
-	Out           []WorkflowStepOutput `yaml:"out,omitempty" bson:"out,omitempty" json:"out,omitempty" mapstructure:"out,omitempty"`
-	Run           interface{}          `yaml:"run,omitempty" bson:"run,omitempty" json:"run,omitempty" mapstructure:"run,omitempty"`                                     //  string | CommandLineTool | ExpressionTool | Workflow
-	Requirements  []interface{}        `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` //[]Requirement
-	Hints         []interface{}        `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             //[]Requirement
-	Label         string               `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
-	Doc           string               `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
-	Scatter       []string             `yaml:"scatter,omitempty" bson:"scatter,omitempty" json:"scatter,omitempty" mapstructure:"scatter,omitempty"`                         // ScatterFeatureRequirement
-	ScatterMethod string               `yaml:"scatterMethod,omitempty" bson:"scatterMethod,omitempty" json:"scatterMethod,omitempty" mapstructure:"scatterMethod,omitempty"` // ScatterFeatureRequirement
+	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	Id              string               `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
+	In              []WorkflowStepInput  `yaml:"in,omitempty" bson:"in,omitempty" json:"in,omitempty" mapstructure:"in,omitempty"` // array<WorkflowStepInput> | map<WorkflowStepInput.id, WorkflowStepInput.source> | map<WorkflowStepInput.id, WorkflowStepInput>
+	Out             []WorkflowStepOutput `yaml:"out,omitempty" bson:"out,omitempty" json:"out,omitempty" mapstructure:"out,omitempty"`
+	Run             interface{}          `yaml:"run,omitempty" bson:"run,omitempty" json:"run,omitempty" mapstructure:"run,omitempty"`                                     //  string | CommandLineTool | ExpressionTool | Workflow
+	Requirements    []interface{}        `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` //[]Requirement
+	Hints           []interface{}        `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             //[]Requirement
+	Label           string               `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
+	Doc             string               `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
+	Scatter         []string             `yaml:"scatter,omitempty" bson:"scatter,omitempty" json:"scatter,omitempty" mapstructure:"scatter,omitempty"`                         // ScatterFeatureRequirement
+	ScatterMethod   string               `yaml:"scatterMethod,omitempty" bson:"scatterMethod,omitempty" json:"scatterMethod,omitempty" mapstructure:"scatterMethod,omitempty"` // ScatterFeatureRequirement
 	//CwlVersion    CWLVersion           `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty"`
 	//Namespaces    map[string]string    `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
+}
+
+func NewWorkflowStep() (w *WorkflowStep) {
+
+	w = &WorkflowStep{}
+
+	return
 }
 
 func (ws *WorkflowStep) Init(context *WorkflowContext) (err error) {
@@ -49,7 +57,7 @@ func (ws *WorkflowStep) Init(context *WorkflowContext) (err error) {
 	return
 }
 
-func NewWorkflowStep(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (w *WorkflowStep, schemata []CWLType_Type, err error) {
+func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (w *WorkflowStep, schemata []CWLType_Type, err error) {
 	var step WorkflowStep
 
 	logger.Debug(3, "NewWorkflowStep starting")
@@ -184,10 +192,31 @@ func NewWorkflowStep(original interface{}, injectedRequirements []Requirement, c
 		//spew.Dump(v_map["run"])
 		err = mapstructure.Decode(original, &step)
 		if err != nil {
-			err = fmt.Errorf("(NewWorkflowStep) %s", err.Error())
+			err = fmt.Errorf("(NewWorkflowStep) mapstructure.Decode returned: %s", err.Error())
 			return
 		}
 		w = &step
+
+		if step.Id == "" {
+			err = fmt.Errorf("(NewWorkflowStep) step.Id empty")
+			return
+		}
+
+		if context != nil && context.Initialzing && err == nil {
+			err = context.Add(w.Id, w, "NewWorkflowStepFromInterface")
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflowStep) context.Add returned: %s", err.Error())
+				return
+			}
+		}
+
+		// this happens in handleNoticeWorkDelivered !
+
+		//for i, _ := range step.Out {
+		//	out := &step.Out[i]
+		//	context.Add(out.Id, out) // adding WorkflowStepOutput is not helpful, it needs to add the reference Tool output
+		//
+		//		}
 
 		//spew.Dump(w.Run)
 
@@ -238,7 +267,7 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 			var step *WorkflowStep
 			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
 			//spew.Dump(injectedRequirements)
-			step, schemata_new, err = NewWorkflowStep(v, injectedRequirements, context)
+			step, schemata_new, err = NewWorkflowStepFromInterface(v, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
@@ -272,7 +301,7 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 			var step *WorkflowStep
 			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
 			//spew.Dump(injectedRequirements)
-			step, schemata_new, err = NewWorkflowStep(v, injectedRequirements, context)
+			step, schemata_new, err = NewWorkflowStepFromInterface(v, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
@@ -444,6 +473,116 @@ func GetProcess(original interface{}, context *WorkflowContext) (process interfa
 	//	err = fmt.Errorf("(GetProcess) map value field is not a string")
 	//	return
 	//}
+
+	default:
+		err = fmt.Errorf("(GetProcess) Process type %s unknown", reflect.TypeOf(p))
+
+	}
+
+	return
+}
+
+func (ws *WorkflowStep) GetProcessType(context *WorkflowContext) (process_type string, err error) {
+
+	p := ws.Run
+	switch p.(type) {
+
+	case *CommandLineTool:
+		process_type = "CommandLineTool"
+
+	case *ExpressionTool:
+		process_type = "ExpressionTool"
+
+	case *Workflow:
+		process_type = "Workflow"
+
+	case string:
+
+		process_name := p.(string)
+
+		_, err = context.GetCommandLineTool(process_name)
+		if err == nil {
+			process_type = "CommandLineTool"
+			return
+		}
+		err = nil
+
+		_, err = context.GetExpressionTool(process_name)
+		if err == nil {
+			process_type = "ExpressionTool"
+			return
+		}
+		err = nil
+
+		_, err = context.GetWorkflow(process_name)
+		if err == nil {
+			process_type = "Workflow"
+			return
+		}
+		err = nil
+		spew.Dump(context)
+		err = fmt.Errorf("(GetProcessType) Process %s not found ", process_name)
+
+	default:
+		err = fmt.Errorf("(GetProcessType) Process type %s unknown", reflect.TypeOf(p))
+
+	}
+
+	return
+
+}
+
+func (ws *WorkflowStep) GetProcess(context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
+
+	//var p interface{}
+	//p, err = MakeStringMap(original, context)
+	//if err != nil {
+	//	return
+	//}
+
+	p := ws.Run
+
+	var clt *CommandLineTool
+	var et *ExpressionTool
+	var wfl *Workflow
+
+	switch p.(type) {
+
+	case *CommandLineTool:
+		process = p
+
+	case *ExpressionTool:
+		process = p
+
+	case *Workflow:
+		process = p
+
+	case string:
+
+		process_name := p.(string)
+
+		clt, err = context.GetCommandLineTool(process_name)
+		if err == nil {
+			process = clt
+			return
+		}
+		err = nil
+
+		et, err = context.GetExpressionTool(process_name)
+		if err == nil {
+			process = et
+			return
+		}
+		err = nil
+
+		wfl, err = context.GetWorkflow(process_name)
+		if err == nil {
+			process = wfl
+			return
+		}
+		err = nil
+		spew.Dump(context)
+		err = fmt.Errorf("(GetProcess) Process %s not found ", process_name)
 
 	default:
 		err = fmt.Errorf("(GetProcess) Process type %s unknown", reflect.TypeOf(p))

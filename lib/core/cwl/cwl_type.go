@@ -3,6 +3,7 @@ package cwl
 import (
 	"fmt"
 	"math"
+	"path"
 	"reflect"
 	"strings"
 
@@ -157,7 +158,11 @@ func NewCWLType(id string, native interface{}, context *WorkflowContext) (cwl_ty
 		//fmt.Printf("(NewCWLType) D\n")
 		native_int := native.(int)
 
-		cwl_type = NewInt(native_int)
+		cwl_type, err = NewInt(native_int, context)
+		if err != nil {
+			err = fmt.Errorf("(NewCWLType) NewInt: %s", err.Error())
+			return
+		}
 	case int64:
 		//fmt.Printf("(NewCWLType) D\n")
 		native_int64 := native.(int64)
@@ -242,12 +247,13 @@ func NewCWLTypeByClass(class string, id string, native interface{}, context *Wor
 	case string(CWL_File):
 		//fmt.Println("NewCWLTypeByClass:")
 		//spew.Dump(native)
-		file, yerr := NewFileFromInterface(native, context)
+		file, yerr := NewFileFromInterface(native, context, id)
 		if yerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewFile returned: %s", yerr.Error())
 			return
 		}
 		cwl_type = &file
+
 	case string(CWL_string):
 		mystring, yerr := NewStringFromInterface(native)
 		if yerr != nil {
@@ -425,12 +431,51 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowC
 	default:
 
 		object_type := object.GetType()
+		object_type_str := object_type.Type2String()
+		fmt.Printf("TypeIsCorrectSingle: \"%s\" \"%s\"\n", reflect.TypeOf(schema), reflect.TypeOf(object_type))
 
-		//fmt.Printf("TypeIsCorrectSingle: \"%s\" \"%s\"\n", reflect.TypeOf(schema), reflect.TypeOf(object_type))
-
-		if schema.Type2String() == object_type.Type2String() {
+		if schema.Type2String() == object_type_str {
 			ok = true
 			return
+		}
+
+		if object_type_str == "string" && schema.Type2String() == "EnumSchema" {
+
+			var object_str *String
+			object_str, ok = object.(*String)
+			if !ok {
+				err = fmt.Errorf("(TypeIsCorrectSingle) Could not convert to string")
+				return
+			}
+
+			var enumSchema *EnumSchema
+
+			switch schema.(type) {
+
+			case *CommandInputEnumSchema:
+				es := schema.(*CommandInputEnumSchema)
+				enumSchema = &es.EnumSchema
+			case *InputEnumSchema:
+				es := schema.(*InputEnumSchema)
+				enumSchema = &es.EnumSchema
+			case *EnumSchema:
+				enumSchema = schema.(*EnumSchema)
+
+			default:
+				err = fmt.Errorf("(TypeIsCorrectSingle) schema type unknown (%s)", reflect.TypeOf(schema))
+				return
+			}
+
+			for _, symbol := range enumSchema.Symbols {
+				symbol_base := path.Base(symbol)
+				if symbol_base == object_str.String() {
+					ok = true // is valid enum element
+					return
+				}
+			}
+
+			spew.Dump(schema)
+			panic("we are here")
 		}
 
 		// check if provided double can be excepted as int:

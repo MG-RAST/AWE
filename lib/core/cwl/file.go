@@ -8,6 +8,7 @@ import (
 
 	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/davecgh/go-spew/spew"
+
 	//"github.com/davecgh/go-spew/spew"
 	"net/url"
 	"strings"
@@ -60,14 +61,16 @@ func NewFile() (f *File) {
 	return
 }
 
-func NewFileFromInterface(obj interface{}, context *WorkflowContext) (file File, err error) {
+func NewFileFromInterface(obj interface{}, context *WorkflowContext, external_id string) (file File, err error) {
 
-	file, err = MakeFile(obj, context)
+	file, err = MakeFile(obj, context, external_id)
 
 	return
 }
 
-func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) {
+func MakeFile(obj interface{}, context *WorkflowContext, external_id string) (file File, err error) {
+
+	// external_id is used to add File to context, not to set the Id or Name field!
 
 	//fmt.Println("MakeFile:")
 	//spew.Dump(obj)
@@ -139,7 +142,7 @@ func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) 
 
 		switch scheme {
 
-		case "http":
+		case "http", "https":
 			_, has_download := values["download"]
 			//extract filename ?
 			if has_download && false {
@@ -155,7 +158,7 @@ func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) 
 				}
 				file.Node = array[2]
 
-				file.Host = "http://" + file_url.Host
+				file.Host = scheme + "://" + file_url.Host
 				shock_client := shock.ShockClient{Host: file.Host} // TODO Token: datatoken
 				node, xerr := shock_client.GetNode(file.Node)
 
@@ -187,6 +190,15 @@ func MakeFile(obj interface{}, context *WorkflowContext) (file File, err error) 
 
 		default:
 			err = fmt.Errorf("(MakeFile) scheme %s not supported yet", scheme)
+			return
+		}
+	}
+
+	if context != nil && context.Initialzing && external_id != "" {
+
+		err = context.Add(external_id, &file, "MakeFile")
+		if err != nil {
+			err = fmt.Errorf("(MakeFile) (external_id: %s) context.Add returned: %s", external_id, err.Error())
 			return
 		}
 	}

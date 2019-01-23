@@ -3,8 +3,9 @@ package conf
 import (
 	"flag"
 	"fmt"
-	"github.com/MG-RAST/golib/goconfig/config"
 	"os"
+
+	"github.com/MG-RAST/golib/goconfig/config"
 )
 
 type Config_store struct {
@@ -181,6 +182,7 @@ func getDefinedValueBool(c *config.Config, section string, key string, target *b
 }
 
 func getDefinedValueString(c *config.Config, section string, key string, target *string) {
+	// get value from ini file
 	if string_value, err := c.String(section, key); err == nil {
 		string_value = os.ExpandEnv(string_value)
 		*target = string_value

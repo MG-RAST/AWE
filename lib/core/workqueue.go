@@ -2,9 +2,10 @@ package core
 
 import (
 	"errors"
+	"sort"
+
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
-	"sort"
 	//"sync"
 	"fmt"
 )
@@ -115,7 +116,8 @@ func (wq *WorkQueue) Clean() (workunits []*Workunit) {
 			wq.Checkout.Delete(id)
 			wq.Suspend.Delete(id)
 			wq.all.Delete(id)
-			logger.Error("error: in WorkQueue workunit %s is nil, deleted from queue", id)
+			id_str, _ := id.String()
+			logger.Error("error: in WorkQueue workunit %s is nil, deleted from queue", id_str)
 		}
 	}
 	return

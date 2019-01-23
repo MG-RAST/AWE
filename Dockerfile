@@ -9,7 +9,7 @@
 # docker rm awe-temporary
 
 
-FROM golang:1.7.6-alpine
+FROM golang:1.11.1-alpine
 
 #RUN apk update && apk add git gcc libc-dev cyrus-sasl-dev
 
@@ -27,8 +27,8 @@ RUN ln -s /go /gopath
 # compile AWE
 RUN mkdir -p ${AWE} && \
   cd ${AWE} && \
-  go get -d ./awe-worker/ ./awe-server/ && \
-  ./compile.sh
+  go get -d ./awe-server/ && \
+  ./compile.sh -a
 
-# since this produces two binaries, we just specify (b)ash
+
 CMD ["/bin/ash"]

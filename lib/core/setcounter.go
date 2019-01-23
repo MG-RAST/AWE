@@ -2,6 +2,7 @@ package core
 
 import (
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+	"github.com/MG-RAST/AWE/lib/logger"
 )
 
 type SetCounter struct {
@@ -13,6 +14,10 @@ type SetCounter struct {
 }
 
 func NewSetCounter(numberOfSets int, array []cwl.Array, scatter_type string) (sc *SetCounter) {
+
+	logger.Debug(3, "(NewSetCounter) numberOfSets: %d", numberOfSets)
+	logger.Debug(3, "(NewSetCounter) array: %d", len(array))
+	logger.Debug(3, "(NewSetCounter) scatter_type: %s", scatter_type)
 
 	sc = &SetCounter{}
 

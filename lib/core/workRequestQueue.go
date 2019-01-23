@@ -3,9 +3,10 @@ package core
 // queue with limited size, similar to a buffer
 import (
 	"fmt"
+	"sync"
+
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
-	"sync"
 )
 
 const size = 10
@@ -13,7 +14,7 @@ const size = 10
 type RequestQueue struct {
 	sync.Mutex
 	//_map map[string]*Task
-	array        [size]*CoReq
+	array        [size]*CheckoutRequest
 	push_element int // points to last (newest) element
 	pull_element int // points to first (oldest) element
 	count        int
@@ -24,7 +25,7 @@ func NewRequestQueue() (q *RequestQueue) {
 	return q
 }
 
-func (q RequestQueue) Push(req *CoReq) (err error) {
+func (q *RequestQueue) Push(req *CheckoutRequest) (err error) {
 	q.Lock()
 	defer q.Unlock()
 	logger.Debug(3, "(RequestQueue/Push) %d %d", q.pull_element, q.push_element)
@@ -45,7 +46,7 @@ func (q RequestQueue) Push(req *CoReq) (err error) {
 
 }
 
-func (q RequestQueue) Pull() (req *CoReq, err error) {
+func (q *RequestQueue) Pull() (req *CheckoutRequest, err error) {
 	q.Lock()
 	defer q.Unlock()
 	logger.Debug(3, "(RequestQueue/Pull) %d %d  (count=%d)", q.pull_element, q.push_element, q.count)

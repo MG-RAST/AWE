@@ -13,8 +13,10 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/golib/httpclient"
+
 	//"github.com/davecgh/go-spew/spew"
 	//"github.com/davecgh/go-spew/spew"
+
 	"io"
 	"io/ioutil"
 	"os"
@@ -170,10 +172,12 @@ func processor(control chan int) {
 			logger.Error("(processor) processor_run returns: %s", err.Error())
 		}
 	}
-	control <- ID_WORKER //we are ending
+	//control <- ID_WORKER //we are ending
 }
 
 func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
+
+	stderr_exists := false
 
 	if workunit.Cmd.Dockerimage != "" || workunit.Cmd.DockerPull != "" {
 		pstats, err = RunWorkunitDocker(workunit)
@@ -182,7 +186,7 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 			return
 		}
 	} else {
-		pstats, err = RunWorkunitDirect(workunit)
+		pstats, stderr_exists, err = RunWorkunitDirect(workunit)
 		if err != nil {
 			err = fmt.Errorf("(RunWorkunit) RunWorkunitDirect returned: %s", err.Error())
 			return
@@ -190,9 +194,9 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 	}
 
 	if workunit.CWL_workunit != nil {
-		work_path, xerr := workunit.Path()
-		if xerr != nil {
-			err = xerr
+		var work_path string
+		work_path, err = workunit.Path()
+		if err != nil {
 			return
 		}
 
@@ -212,9 +216,10 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 		//}
 
-		file, e := ioutil.ReadFile(stdout_file)
-		if e != nil {
-			err = fmt.Errorf("(RunWorkunit) Could read output of cwl-runner: %s", e.Error())
+		var file []byte
+		file, err = ioutil.ReadFile(stdout_file)
+		if err != nil {
+			err = fmt.Errorf("(RunWorkunit) Could not read output of cwl-runner: %s", err.Error())
 			return
 		}
 
@@ -233,6 +238,35 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 			err = fmt.Errorf("(RunWorkunit) NewJob_document returned: %s", xerr.Error())
 			return
 		}
+
+		// new upload mechanism for stderr (upload to shock)
+		//   TODO upload only on error ?
+		//   TODO what do in case of many workunits per task ?
+		//   TODO add stdout and performance log ?
+		//   TODO change name of option ?
+		//fmt.Printf("(RunWorkunit) conf.PRINT_APP_MSG: %t\n", conf.PRINT_APP_MSG)
+		//fmt.Printf("(RunWorkunit) stderr_exists: %t\n", stderr_exists)
+		if conf.PRINT_APP_MSG && stderr_exists {
+			stderr_file := work_path + "/" + conf.STDERR_FILENAME
+
+			for true { // TODO add timeout
+
+				_, err = os.Stat(stderr_file)
+				if err == nil {
+					//fmt.Printf("(RunWorkunit) file exists\n")
+					stderr_cwl_file := cwl.NewFile()
+					stderr_cwl_file.Path = stderr_file
+					result_doc = result_doc.Add(conf.STDERR_FILENAME, stderr_cwl_file)
+					break
+				}
+
+				logger.Debug(1, "(RunWorkunit) file %s not found yet", stderr_file)
+				time.Sleep(3 * time.Second)
+
+			}
+
+		}
+
 		//fmt.Println("CWL-runner receipt:")
 		//spew.Dump(result_doc)
 		workunit.CWL_workunit.Outputs = result_doc
@@ -250,9 +284,11 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	args := workunit.Cmd.ParsedArgs
 
 	//change cwd to the workunit's working directory
-	if err := workunit.CDworkpath(); err != nil {
+	err = workunit.CDworkpath()
+	if err != nil {
 		err = fmt.Errorf("(RunWorkunitDocker) CDworkpath returned: %s", err.Error())
-		return nil, err
+		pstats = nil
+		return
 	}
 
 	docker_preparation_start := time.Now().Unix()
@@ -435,7 +471,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 					var buf bytes.Buffer
 					pio := docker.PullImageOptions{Repository: Dockerimage_normalized, OutputStream: &buf}
 					xerr := client.PullImage(pio, docker.AuthConfiguration{})
-					logger.Debug(3, "docker pull response: ", buf.String())
+					logger.Debug(3, "docker pull response: %s", buf.String())
 					if xerr != nil {
 						err = fmt.Errorf("Docker image was not correctly pulled, err=%s", xerr.Error())
 						return
@@ -477,7 +513,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		err = TagImage(client, dockerimage_id, tag_opts)
 		if err != nil {
-			logger.Error("warning: tagging of image %s with %s failed, err:", dockerimage_id, Dockerimage_normalized, err.Error())
+			logger.Error("warning: tagging of image %s with %s failed, err: %s", dockerimage_id, Dockerimage_normalized, err.Error())
 		}
 
 	} else if workunit.Cmd.DockerPull != "" {
@@ -487,7 +523,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 			var buf bytes.Buffer
 			pio := docker.PullImageOptions{Repository: Dockerimage_normalized, OutputStream: &buf}
 			err = client.PullImage(pio, docker.AuthConfiguration{})
-			logger.Debug(3, "docker pull response: ", buf.String())
+			logger.Debug(3, "docker pull response: %s", buf.String())
 			if err != nil {
 				err = fmt.Errorf("Docker image was not correctly pulled, err=%s", err.Error())
 				return
@@ -691,9 +727,11 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	}(container_id)
 
 	if client != nil {
-		cont, err := client.InspectContainer(container_id)
+		var cont *docker.Container
+		cont, err = client.InspectContainer(container_id)
 		if err != nil {
 			logger.Error("error inspecting container=%s, err=%s", container_id, err.Error())
+			return
 		}
 
 		logger.Debug(3, "Container status: %s", cont.State.Status)
@@ -704,7 +742,8 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 		err = ioutil.WriteFile(inspect_filename, b_inspect, 0666)
 		if err != nil {
-			fmt.Errorf("error writing inspect file for container=%s, err=%s", container_id, err.Error())
+			err = fmt.Errorf("error writing inspect file for container=%s, err=%s", container_id, err.Error())
+			return
 		} else {
 			logger.Debug(1, "wrote %s for container %s", inspect_filename, container_id)
 		}
@@ -894,8 +933,8 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	return
 }
 
-func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
-
+func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, stderr_exists bool, err error) {
+	stderr_exists = false
 	var args []string
 
 	if len(workunit.Cmd.ArgsArray) > 0 {
@@ -905,8 +944,11 @@ func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	}
 
 	//change cwd to the workunit's working directory
-	if err := workunit.CDworkpath(); err != nil {
-		return nil, err
+	err = workunit.CDworkpath()
+	if err != nil {
+		pstats = nil
+
+		return
 	}
 
 	commandName := workunit.Cmd.Name
@@ -929,11 +971,13 @@ func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	if conf.PRINT_APP_MSG {
 		stdout, err = cmd.StdoutPipe()
 		if err != nil {
-			return nil, err
+			pstats = nil
+			return
 		}
 		stderr, err = cmd.StderrPipe()
 		if err != nil {
-			return nil, err
+			pstats = nil
+			return
 		}
 	}
 
@@ -957,6 +1001,7 @@ func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 
 	if conf.PRINT_APP_MSG {
 		go io.Copy(out_writer, stdout)
+		stderr_exists = true
 		go io.Copy(err_writer, stderr)
 	}
 
@@ -1013,7 +1058,9 @@ func RunWorkunitDirect(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 			}
 			<-done // allow goroutine to exit
 			logger.Info("(RunWorkunitDirect) worker process was killed")
-			return nil, errors.New("(RunWorkunitDirect) process killed")
+			pstats = nil
+			err = errors.New("(RunWorkunitDirect) process killed")
+			return
 		case err = <-done:
 			logger.Debug(3, "(RunWorkunitDirect) received done")
 			if err != nil {

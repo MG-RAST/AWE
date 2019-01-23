@@ -1,11 +1,15 @@
 package core
 
 import (
-//"fmt"
+	"fmt"
+
+	"github.com/MG-RAST/AWE/lib/rwmutex"
 )
 
+//"fmt"
+
 type JobMap struct {
-	RWMutex
+	rwmutex.RWMutex
 	_map map[string]*Job
 }
 
@@ -45,11 +49,18 @@ func (jm *JobMap) Get(jobid string, lock bool) (job *Job, ok bool, err error) {
 }
 
 func (jm *JobMap) Add(job *Job) (err error) {
-	err = jm.LockNamed("Add")
+	err = jm.LockNamed("JobMap/Add")
 	if err != nil {
 		return
 	}
 	defer jm.Unlock()
+
+	_, ok := jm._map[job.Id]
+	if ok {
+		err = fmt.Errorf("(JobMap/Add) %s already in JobMap", job.Id)
+		return
+	}
+
 	jm._map[job.Id] = job // TODO prevent overwriting
 	return
 }
@@ -68,7 +79,7 @@ func (jm *JobMap) Delete(jobid string, lock bool) (err error) {
 
 func (jm *JobMap) Get_List(lock bool) (jobs []*Job, err error) {
 	if lock {
-		var read_lock ReadLock
+		var read_lock rwmutex.ReadLock
 		read_lock, err = jm.RLockNamed("Get_List")
 		if err != nil {
 			return

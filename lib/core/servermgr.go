@@ -415,7 +415,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 		}
 
 		// update job state
-		if wi_local_id == "_#main" {
+		if wi_local_id == "#main" {
 
 			job_state, _ := job.GetState(true)
 			if job_state == JOB_STAT_INIT {
@@ -2046,7 +2046,7 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 						generator := path.Dir(src_str)
 						_, ok, reason, err = qm.isSourceGeneratorReady(job, workflow_instance, workflow_input_map, generator, false, job.WorkflowContext)
 						if err != nil {
-							err = fmt.Errorf("(isSourceGeneratorReady) (type array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
+							err = fmt.Errorf("(isSourceGeneratorReady) (type array, src_str: %s) isSourceGeneratorReady returns: %s", src_str, err.Error())
 							return
 						}
 						if !ok {
@@ -2091,7 +2091,7 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 					generator := path.Dir(src_str)
 					_, ok, reason, err = qm.isSourceGeneratorReady(job, workflow_instance, workflow_input_map, generator, false, job.WorkflowContext)
 					if err != nil {
-						err = fmt.Errorf("(isTaskReady) B (type non-array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
+						err = fmt.Errorf("(isTaskReady) B (type non-array, src_str: %s) isSourceGeneratorReady returns: %s", src_str, err.Error())
 						return
 					}
 
@@ -3262,7 +3262,7 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflow_instance *Workflo
 	switch generic_object.(type) {
 	case *cwl.WorkflowStep:
 		// WorkflowStep does not contain info about state, need workflow_instance
-		step_name := path.Base(src)
+		step_name := src
 		workflow_instance_name := path.Dir(src)
 
 		var workflow_instance *WorkflowInstance
@@ -4644,7 +4644,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflow_instance *WorkflowIn
 	workflow_instance_local_id := workflow_instance.LocalId
 	logger.Debug(3, "(completeSubworkflow) completes with workflow_instance_local_id: %s", workflow_instance_local_id)
 
-	if workflow_instance_local_id == "_#main" {
+	if workflow_instance_local_id == "#main" {
 		// notify job
 
 		// this was the main workflow, all done!

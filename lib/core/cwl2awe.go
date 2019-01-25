@@ -152,7 +152,7 @@ func CreateWorkflowTasks(job *Job, name_prefix string, steps []cwl.WorkflowStep,
 		return
 	}
 
-	if !strings.HasPrefix(name_prefix, "_#main") {
+	if !strings.HasPrefix(name_prefix, "#main") {
 		err = fmt.Errorf("(CreateWorkflowTasks) prefix_name does not start with _entrypoint: %s", name_prefix)
 		return
 	}
@@ -275,14 +275,14 @@ func CWL2AWE(_user *user.User, files FormFiles, job_input *cwl.Job_document, cwl
 	// *** create WorkflowInstance
 
 	var wi *WorkflowInstance
-	wi, err = NewWorkflowInstance("_#main", job.Id, cwl_workflow.Id, job, "") // Not using AddWorkflowInstance to avoid mongo
+	wi, err = NewWorkflowInstance("#main", job.Id, cwl_workflow.Id, job, "") // Not using AddWorkflowInstance to avoid mongo
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) NewWorkflowInstance returned: %s", err.Error())
 		return
 	}
 
 	wi.Inputs = *job_input_new
-	logger.Debug(1, "(CWL2AWE) WorkflowInstance _#main created")
+	logger.Debug(1, "(CWL2AWE) WorkflowInstance #main created")
 
 	// create path
 	//for i, _ := range wi.Inputs {

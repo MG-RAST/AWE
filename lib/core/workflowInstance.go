@@ -392,7 +392,7 @@ func (wi *WorkflowInstance) GetId(read_lock bool) (id string, err error) {
 		}
 		defer wi.RUnlockNamed(lock)
 	}
-	id = wi.JobId + wi.LocalId
+	id = wi.JobId + "_" + wi.LocalId
 
 	return
 }

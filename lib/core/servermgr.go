@@ -1998,8 +1998,7 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 				return
 			}
 			if ok {
-				ready = true
-				return
+				continue
 			}
 
 			generator := path.Dir(src_str)
@@ -2019,6 +2018,7 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 		}
 		logger.Debug(3, "(areSourceGeneratorsReady) step input %s is ready", wsi.Id)
 	}
+	ready = true
 	logger.Debug(3, "(areSourceGeneratorsReady) finished")
 	return
 }
@@ -2142,6 +2142,7 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 			return
 		}
 		if !ready {
+			reason = fmt.Sprintf("(isTaskReady) areSourceGeneratorsReady returned: %s", reason)
 			return
 		}
 		logger.Debug(3, "(isTaskReady) areSourceGeneratorsReady reports task %s as ready", task_id_str)

@@ -222,7 +222,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		var workunit_input_map map[string]cwl.CWLType
 		var reason string
-		workunit_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflow_instance, workflow_input_map, workflow_step, context)
+		workunit_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflow_instance, workflow_input_map, workflow_step, context, "NewWorkunit")
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects returned: %s", err.Error())
 			return

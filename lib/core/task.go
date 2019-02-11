@@ -31,8 +31,8 @@ import (
 
 const (
 	TASK_STAT_INIT             = "init"        // initial state on creation of a task
-	TASK_STAT_PENDING          = "pending"     // a task that wants to be enqueued
-	TASK_STAT_READY            = "ready"       // a task ready to be enqueued
+	TASK_STAT_PENDING          = "pending"     // a task that wants to be enqueued (but dependent tasks are not complete)
+	TASK_STAT_READY            = "ready"       // a task ready to be enqueued (all dependent tasks are complete , but workunits habe not yet been created)
 	TASK_STAT_QUEUED           = "queued"      // a task for which workunits have been created/queued
 	TASK_STAT_INPROGRESS       = "in-progress" // a first workunit has been checkout (this does not guarantee a workunit is running right now)
 	TASK_STAT_SUSPEND          = "suspend"

@@ -146,9 +146,9 @@ func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, re
 	_ = parent_workflow_instance
 	_ = ok
 
-	step := wi.ParentStep
+	parent_step := wi.ParentStep
 
-	if step == nil {
+	if parent_step == nil {
 		err = fmt.Errorf("(Is_WI_ready)  wi.ParentStep==nil")
 		return
 	}
@@ -156,6 +156,16 @@ func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, re
 	parent_workflow_input_map := parent_workflow_instance.Inputs.GetMap()
 
 	context := job.WorkflowContext
+
+	ready, reason, err = qm.areSourceGeneratorsReady(parent_step, job, parent_workflow_instance)
+	if err != nil {
+		err = fmt.Errorf("(Is_WI_ready) areSourceGeneratorsReady returned: %s", err.Error())
+		return
+	}
+
+	if !ready {
+		return
+	}
 
 	// err = qm.GetDependencies(job, parent_workflow_instance, parent_workflow_input_map, step, context)
 	// if err != nil {
@@ -166,7 +176,7 @@ func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, re
 
 	//var workunit_input_map map[string]cwl.CWLType
 	var workunit_input_map cwl.JobDocMap
-	workunit_input_map, ok, reason, err = qm.GetStepInputObjects(job, parent_workflow_instance, parent_workflow_input_map, step, context)
+	workunit_input_map, ok, reason, err = qm.GetStepInputObjects(job, parent_workflow_instance, parent_workflow_input_map, parent_step, context, "Is_WI_ready")
 	if err != nil {
 		err = fmt.Errorf("(Is_WI_ready) GetStepInputObjects returned: %s", err.Error())
 		return
@@ -179,31 +189,6 @@ func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, re
 	workunit_input_array, err = workunit_input_map.GetArray()
 
 	wi.Inputs = workunit_input_array
-
-	// for _, step_input := range step.In {
-	// 	fmt.Println("step_input:")
-	// 	spew.Dump(step_input)
-
-	// 	step_input_id := step_input.Id
-	// 	step_input_source := step_input.Source
-	// 	step_input_source_array := strings.Split(step_input_source, "/")
-
-	// 	if len(step_input_id_array) == 3 { // step output
-
-	// 	}
-
-	// 	step_input_id_base := path.Base(step_input_id)
-
-	// 	fmt.Println("parent_workflow_instance.Tasks: " + string(len(parent_workflow_instance.Tasks)))
-	// 	for _, p_task := range parent_workflow_instance.Tasks {
-	// 		fmt.Println("p_task: " + p_task.Id)
-
-	// 	}
-
-	// }
-
-	//fmt.Println("step:")
-	//spew.Dump(step)
 
 	ready = true
 
@@ -922,35 +907,51 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 		return
 	}
 
-	if !(task_state == TASK_STAT_INIT || task_state == TASK_STAT_PENDING || task_state == TASK_STAT_READY) {
+	switch task_state {
+	case TASK_STAT_READY:
+		logger.Debug(3, "(updateQueueTask) task %s already has state %s, continue with enqueuing", task_id_str, task_state)
+	case TASK_STAT_INIT, TASK_STAT_PENDING:
+		logger.Debug(3, "(updateQueueTask) task %s has state %s, first check if ready", task_id_str, task_state)
+
+		var task_ready bool
+		var reason string
+		startIsReady := time.Now()
+
+		if logTimes {
+			times = make(map[string]time.Duration)
+		}
+		task_ready, reason, err = qm.isTaskReady(task_id, task)
+		if logTimes {
+			times["isTaskReady"] = time.Since(startIsReady)
+		}
+		if err != nil {
+			err = fmt.Errorf("(updateQueueTask) qm.isTaskReady returned: %s", err.Error())
+			return
+		}
+		if !task_ready {
+			logger.Debug(3, "(updateQueueTask) task not ready (%s): qm.isTaskReady returned reason: %s", task_id_str, reason)
+			return
+		}
+
+		// get new state
+		task_state, err = task.GetState()
+		if err != nil {
+			return
+		}
+
+	default:
 		logger.Debug(3, "(updateQueueTask) skipping task %s , it has state %s", task_id_str, task_state)
 		return
 	}
 
-	logger.Debug(3, "(updateQueueTask) task: %s (added by %s)", task_id_str, task.Comment)
-	var task_ready bool
-	var reason string
-	startIsReady := time.Now()
-
-	if logTimes {
-		times = make(map[string]time.Duration)
-	}
-	task_ready, reason, err = qm.isTaskReady(task_id, task)
-	if logTimes {
-		times["isTaskReady"] = time.Since(startIsReady)
-
-	}
-	if err != nil {
-		err = fmt.Errorf("(updateQueueTask) qm.isTaskReady returned: %s", err.Error())
-		return
-	}
-	if !task_ready {
-		logger.Debug(3, "(updateQueueTask) task not ready (%s): qm.isTaskReady returned reason: %s", task_id_str, reason)
-		return
-	}
+	logger.Debug(3, "(updateQueueTask) task: %s (state: %s, added by %s)", task_id_str, task_state, task.Comment)
 
 	// task_ready
-	logger.Debug(3, "(updateQueueTask) task ready: %s", task_id_str)
+	if task_state != TASK_STAT_READY {
+		err = fmt.Errorf("(updateQueueTask) task is not rerady !???!?")
+		return
+	}
+	logger.Debug(3, "(updateQueueTask) task %s is ready now, continue to enqueuing", task_id_str)
 
 	var job_id string
 	job_id, err = task.GetJobId()
@@ -965,16 +966,23 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 	}
 
 	startEnQueue := time.Now()
-	teqTimes, xerr := qm.taskEnQueue(task_id, task, job, logTimes)
+	var teqTimes map[string]time.Duration
+	teqTimes, err = qm.taskEnQueue(task_id, task, job, logTimes)
 	if logTimes {
 		for k, v := range teqTimes {
 			times[k] = v
 		}
 		times["taskEnQueue"] = time.Since(startEnQueue)
 	}
-	if xerr != nil {
-		logger.Error("(updateQueueTask) taskEnQueue returned: %s", xerr.Error())
-		_ = task.SetState(TASK_STAT_SUSPEND, true)
+	if err != nil {
+		xerr := err
+		err = nil
+
+		logger.Error("(updateQueueTask) (task_id: %s) suspending task, taskEnQueue returned: %s", task_id_str, xerr.Error())
+		err = task.SetState(TASK_STAT_SUSPEND, true)
+		if err != nil {
+			return
+		}
 
 		job_id, err = task.GetJobId()
 		if err != nil {
@@ -990,17 +998,20 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 
 		jerror := &JobError{
 			TaskFailed:  task_str,
-			ServerNotes: fmt.Sprintf("failed enqueuing task %s, err=%s", task_id_str, xerr.Error()),
+			ServerNotes: fmt.Sprintf("failed enqueuing task %s, qm.taskEnQueue returned: %s", task_id_str, xerr.Error()),
 			Status:      JOB_STAT_SUSPEND,
 		}
-		if err = qm.SuspendJob(job_id, jerror); err != nil {
+		err = qm.SuspendJob(job_id, jerror)
+		if err != nil {
+			err = fmt.Errorf("(updateQueueTask) qm.SuspendJob returned: %s", err.Error())
 			return
 		}
 		err = xerr
 		return
-	} else {
-		isQueued = true
 	}
+
+	isQueued = true
+
 	logger.Debug(3, "(updateQueueTask) task enqueued: %s", task_id_str)
 
 	return
@@ -1167,6 +1178,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 //handle feedback from a client about the execution of a workunit
 func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 
+	logger.Debug(3, "(handleNoticeWorkDelivered) start")
 	clientid := notice.WorkerId
 
 	work_id := notice.Id
@@ -1251,7 +1263,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 			basename := path.Base(step_output.Id)
 
 			// find in real outputs
-			//found := false
+			found := false
 			for j, _ := range step_output_array { // []cwl.NamedCWLType
 				named := &step_output_array[j]
 				actual_output_base := path.Base(named.Id)
@@ -1263,17 +1275,17 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 						err = fmt.Errorf("(handleNoticeWorkDelivered) context.Add returned: %s", err.Error())
 						return
 					}
-					//found = true
+					found = true
 					continue
 				}
 
 			}
-			// if !found {
-			// 	if step_output.
+			if !found {
+				// 	if step_output.
 
-			// 	err = fmt.Errorf("(handleNoticeWorkDelivered) expected output not found: %s", basename)
-			// 	return
-			// }
+				err = fmt.Errorf("(handleNoticeWorkDelivered) expected output not found: %s", basename)
+				return
+			}
 		}
 
 	}
@@ -1808,9 +1820,15 @@ func (qm *ServerMgr) EnqueueTasks(tasks []*Task) (err error) {
 		}
 
 		if task_state == TASK_STAT_INPROGRESS || task_state == TASK_STAT_QUEUED {
-			task.SetState(TASK_STAT_READY, true)
+			err = task.SetState(TASK_STAT_READY, true)
+			if err != nil {
+				return
+			}
 		} else if task_state == TASK_STAT_SUSPEND {
-			task.SetState(TASK_STAT_PENDING, true)
+			err = task.SetState(TASK_STAT_PENDING, true)
+			if err != nil {
+				return
+			}
 		}
 
 		// add to qm.TaskMap
@@ -1895,6 +1913,109 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, caller string) (err error
 	return
 }
 
+// used by isTaskReady and is_WI_Ready
+// check all WorkflowStepInputs for Source fields and checks if they are available
+func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, workflow_instance *WorkflowInstance) (ready bool, reason string, err error) {
+
+	logger.Debug(3, "(areSourceGeneratorsReady) start %s", step.Id)
+
+	for _, wsi := range step.In { // WorkflowStepInput
+
+		//input_optional := false
+		//if wsi.Default != nil {
+		//	input_optional = true
+		//}
+		logger.Debug(3, "(areSourceGeneratorsReady) step input %s", wsi.Id)
+		if wsi.Source == nil {
+			logger.Debug(3, "(areSourceGeneratorsReady) step input %s source empty", wsi.Id)
+			continue
+		}
+
+		source_is_array := false
+		source_as_array, source_is_array := wsi.Source.([]interface{})
+
+		if source_is_array {
+			logger.Debug(3, "(areSourceGeneratorsReady) step input %s source_is_array", wsi.Id)
+			for _, src := range source_as_array { // usually only one
+				var src_str string
+				var ok bool
+
+				src_str, ok = src.(string)
+				if !ok {
+
+					err = fmt.Errorf("src is not a string")
+					return ok, reason, err
+				}
+
+				// see comments below
+				context := job.WorkflowContext
+				_, ok, err = context.Get(src_str, true)
+				if err != nil {
+					err = fmt.Errorf("(areSourceGeneratorsReady) context.Get returned: %s", err.Error())
+					return
+				}
+				if ok {
+					continue
+				}
+
+				generator := path.Dir(src_str)
+				ok, reason, err = qm.isSourceGeneratorReady(job, workflow_instance, generator, false, job.WorkflowContext)
+				if err != nil {
+					err = fmt.Errorf("(areSourceGeneratorsReady) (type array, src_str: %s) isSourceGeneratorReady returns: %s", src_str, err.Error())
+					return
+				}
+				if !ok {
+					reason = fmt.Sprintf("Generator not ready (%s)", reason)
+					return
+				}
+
+			}
+		} else {
+			// not source_is_array
+			logger.Debug(3, "(areSourceGeneratorsReady) step input %s NOT source_is_array", wsi.Id)
+			var src_str string
+			var ok bool
+
+			src_str, ok = wsi.Source.(string)
+			if !ok {
+				err = fmt.Errorf("(areSourceGeneratorsReady) Cannot parse WorkflowStep source: %s", spew.Sdump(wsi.Source))
+				return
+			}
+
+			//if source is (workflow) input, generator does not need to be ready
+			// instead of testing for workflow input, we just test if input already exists
+			context := job.WorkflowContext
+			_, ok, err = context.Get(src_str, true)
+			if err != nil {
+				err = fmt.Errorf("(areSourceGeneratorsReady) context.Get returned: %s", err.Error())
+				return
+			}
+			if ok {
+				ready = true
+				return
+			}
+
+			generator := path.Dir(src_str)
+			logger.Debug(3, "(areSourceGeneratorsReady) step input %s using generator %s", wsi.Id, generator)
+
+			ready, reason, err = qm.isSourceGeneratorReady(job, workflow_instance, generator, false, job.WorkflowContext)
+			if err != nil {
+				err = fmt.Errorf("(areSourceGeneratorsReady) B (type non-array, src_str: %s) isSourceGeneratorReady returns: %s", src_str, err.Error())
+				return
+			}
+
+			if !ready {
+				reason = fmt.Sprintf("Generator not ready (%s)", reason)
+				return
+			}
+
+		}
+		logger.Debug(3, "(areSourceGeneratorsReady) step input %s is ready", wsi.Id)
+	}
+	logger.Debug(3, "(areSourceGeneratorsReady) finished")
+	return
+}
+
 // check whether a pending task is ready to enqueue (dependent tasks are all done)
 // task is not locked
 func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (ready bool, reason string, err error) {
@@ -1907,7 +2028,7 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 	if err != nil {
 		return
 	}
-	logger.Debug(3, "(isTaskReady) task state is %s", task_state)
+	logger.Debug(3, "(isTaskReady) task state at start is %s", task_state)
 
 	if task_state == TASK_STAT_READY {
 		ready = true
@@ -1915,7 +2036,7 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 	}
 
 	if task_state == TASK_STAT_INIT || task_state == TASK_STAT_PENDING {
-		logger.Debug(3, "(isTaskReady) task state is %s", task_state)
+		logger.Debug(3, "(isTaskReady) task state is init or pending, continue:  %s", task_state)
 	} else {
 		err = fmt.Errorf("(isTaskReady) task has state %s, it does not make sense to test if it is ready", task_state)
 		return
@@ -2003,124 +2124,20 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 			return
 		}
 
-		workflow_input_map := workflow_instance.Inputs.GetMap()
+		//workflow_input_map := workflow_instance.Inputs.GetMap()
 		//workflow_instance_id := workflow_instance.LocalId
 		//workflow_def := workflow_instance.Workflow_Definition
 
 		//fmt.Println("WorkflowStep.Id: " + task.WorkflowStep.Id)
-		for _, wsi := range task.WorkflowStep.In { // WorkflowStepInput
-
-			input_optional := false
-			if wsi.Default != nil {
-				input_optional = true
-			} else {
-				//wsi.S
-
-			}
-
-			if wsi.Source == nil {
-				if input_optional { // input is optional, anyway....
-					continue
-				}
-				if wsi.ValueFrom != "" { // input is optional, anyway....
-					continue
-				}
-				reason = fmt.Sprintf("(isTaskReady) No Source, Default or ValueFrom found")
-				return
-
-			} else {
-				source_is_array := false
-				source_as_array, source_is_array := wsi.Source.([]interface{})
-
-				if source_is_array {
-					for _, src := range source_as_array { // usually only one
-						var src_str string
-						var ok bool
-
-						src_str, ok = src.(string)
-						if !ok {
-							err = fmt.Errorf("src is not a string")
-							return
-						}
-
-						generator := path.Dir(src_str)
-						_, ok, reason, err = qm.isSourceGeneratorReady(job, workflow_instance, workflow_input_map, generator, false, job.WorkflowContext)
-						if err != nil {
-							err = fmt.Errorf("(isSourceGeneratorReady) (type array, src_str: %s) isSourceGeneratorReady returns: %s", src_str, err.Error())
-							return
-						}
-						if !ok {
-							reason = fmt.Sprintf("Generator not ready (%s)", reason)
-							return
-						}
-
-						_, ok, _, err = qm.getCWLSource(job, workflow_instance, workflow_input_map, src_str, false, job.WorkflowContext)
-						if err != nil {
-							err = fmt.Errorf("(isTaskReady) (type array, src_str: %s) getCWLSource returns: %s", src_str, err.Error())
-							return
-						}
-						if !ok {
-							reason = fmt.Sprintf("Source CWL object (type array) %s not found", src_str)
-							return
-						}
-					}
-				} else {
-					var src_str string
-					var ok bool
-
-					src_str, ok = wsi.Source.(string)
-					if !ok {
-						err = fmt.Errorf("(isTaskReady) Cannot parse WorkflowStep source: %s", spew.Sdump(wsi.Source))
-						return
-					}
-					//fmt.Println("----------------------------")
-					//spew.Dump(workflow_instance)
-					//fmt.Println("----------------------------")
-
-					//fmt.Println("workflow_def: " + workflow_def)
-					//fmt.Println("src_str: " + src_str)
-					//fmt.Println("workflow_instance_id: " + workflow_instance_id)
-					//fmt.Println("task_id: " + task_id_str)
-
-					//src_str = strings.TrimPrefix(src_str, workflow_def)
-					//src_str = strings.TrimPrefix(src_str, "/")
-
-					//	src_str_array := strings.Split(src_str, "/")
-					//src_str_array_len := len(src_str_array)
-
-					generator := path.Dir(src_str)
-					_, ok, reason, err = qm.isSourceGeneratorReady(job, workflow_instance, workflow_input_map, generator, false, job.WorkflowContext)
-					if err != nil {
-						err = fmt.Errorf("(isTaskReady) B (type non-array, src_str: %s) isSourceGeneratorReady returns: %s", src_str, err.Error())
-						return
-					}
-
-					if !ok {
-						reason = fmt.Sprintf("Generator not ready (%s)", reason)
-						return
-					}
-
-					_, ok, reason, err = qm.getCWLSource(job, workflow_instance, workflow_input_map, src_str, false, job.WorkflowContext)
-					if err != nil {
-						err = fmt.Errorf("(isTaskReady) (type non-array, src_str: %s) getCWLSource returned: %s", src_str, err.Error())
-						return
-					}
-					if !ok {
-
-						if reason == "optional" { // TODO this is pretty ugly
-							input_optional = true
-						}
-
-						if !input_optional {
-							reason = fmt.Sprintf("Source CWL object not found (type non-array) src_str=%s (reason: %s)", src_str, reason)
-							return
-						}
-					}
-					continue
-
-				}
-			}
+		ready, reason, err = qm.areSourceGeneratorsReady(task.WorkflowStep, job, workflow_instance)
+		if err != nil {
+			err = fmt.Errorf("(isTaskReady) areSourceGeneratorsReady returned: %s", err.Error())
+			return
 		}
+		if !ready {
+			return
+		}
+		logger.Debug(3, "(isTaskReady) areSourceGeneratorsReady reports task %s as ready", task_id_str)
 	}
 
 	if task.WorkflowStep == nil {
@@ -2191,7 +2208,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		}
 
 		var reason string
-		task_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflow_instance, workflow_input_map, cwl_step, context) // returns map[string]CWLType
+		task_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflow_instance, workflow_input_map, cwl_step, context, "taskEnQueueWorkflow") // returns map[string]CWLType
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueWorkflow) GetStepInputObjects returned: %s", err.Error())
 			return
@@ -3240,30 +3257,32 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflow_instance *Workf
 
 }
 
-// here src is the generator, not the source
-func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflow_instance *WorkflowInstance, workflow_input_map map[string]cwl.CWLType, src string, error_on_missing_task bool, context *cwl.WorkflowContext) (obj cwl.CWLType, ok bool, reason string, err error) {
+//
+func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflow_instance *WorkflowInstance, src_generator string, error_on_missing_task bool, context *cwl.WorkflowContext) (ok bool, reason string, err error) {
 
 	ok = false
 	//src = strings.TrimPrefix(src, "#main/")
 
 	//src_array := strings.Split(src, "/")
+	logger.Debug(3, "(isSourceGeneratorReady) start, src_generator: %s", src_generator)
 
 	var generic_object cwl.CWL_object
-	generic_object, ok, err = context.Get(src, true)
+	generic_object, ok, err = context.Get(src_generator, true)
 	if err != nil {
-		err = fmt.Errorf("(getCWLSource) context.Get returned: %s", err.Error())
+		err = fmt.Errorf("(isSourceGeneratorReady) context.Get returned: %s", err.Error())
 		return
 	}
 	if !ok {
-		reason = fmt.Sprintf("(getCWLSource) context.All did not contain %s", src)
+		reason = fmt.Sprintf("(isSourceGeneratorReady) context.All did not contain %s", src_generator)
 		return
 	}
 
 	switch generic_object.(type) {
 	case *cwl.WorkflowStep:
+		logger.Debug(3, "(isSourceGeneratorReady) got WorkflowStep")
 		// WorkflowStep does not contain info about state, need workflow_instance
-		step_name := src
-		workflow_instance_name := path.Dir(src)
+		step_name := src_generator
+		workflow_instance_name := path.Dir(src_generator)
 
 		var workflow_instance *WorkflowInstance
 		workflow_instance, ok, err = job.GetWorkflowInstance(workflow_instance_name, true)
@@ -3288,7 +3307,7 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflow_instance *Workflo
 		list_of_tasks := ""
 		for i, _ := range tasks {
 			t := tasks[i]
-			fmt.Println(t.TaskName)
+			//fmt.Println(t.TaskName)
 			list_of_tasks += "," + t.TaskName
 			if t.TaskName == step_name {
 				task = t
@@ -3302,29 +3321,60 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflow_instance *Workflo
 
 		}
 
-		fmt.Printf("(isSourceGeneratorReady) MATCH\n")
+		fmt.Printf("(isSourceGeneratorReady) found task\n")
 
-		//step := generic_object.(*cwl.WorkflowStep)
-		//_ = step
-		//TODO check state
-		//step.GetProcess()
-		//step.
+		var task_state string
+		task_state, err = task.GetState()
+		if task_state != TASK_STAT_COMPLETED {
+			ok = false
+			task_id, _ := task.GetId("isSourceGeneratorReady")
+			task_id_str, _ := task_id.String()
+			reason = fmt.Sprintf("(isSourceGeneratorReady) dependent task %s has state %s", task_id_str, task_state)
+			return
+		}
+		ok = true
 
 	case *cwl.Workflow:
+
+		workflow := generic_object.(*cwl.Workflow)
+
+		workflow_id := workflow.Id
+
+		if workflow_instance.LocalId != workflow_id {
+			err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.LocalId: %s vs workflow_id %s", workflow_instance.LocalId, workflow_id)
+			return
+		}
+
+		var wi_state string
+		wi_state, err = workflow_instance.GetState(true)
+		if err != nil {
+			err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.GetState returned: %s", err.Error())
+			return
+		}
+
+		if wi_state == WI_STAT_COMPLETED {
+			ok = true
+			return
+		}
+
+		ok = false
+		reason = fmt.Sprintf("(isSourceGeneratorReady) wi_state == %s", wi_state)
+		//wi, job.GetWorkflowInstance(workflow_id, true)
+
+		return
 		//workflow := generic_object.(*cwl.Workflow)
 		//_ = workflow
 		//TODO check state
 	default:
-		err = fmt.Errorf("(getCWLSource) type unknown: %s", reflect.TypeOf(generic_object))
+		err = fmt.Errorf("(isSourceGeneratorReady) type unknown: %s", reflect.TypeOf(generic_object))
 		return
 
 	}
 
-	fmt.Printf("(isSourceGeneratorReady) got : %s\n", reflect.TypeOf(generic_object))
+	//fmt.Printf("(isSourceGeneratorReady) got : %s\n", reflect.TypeOf(generic_object))
 
-	spew.Dump(generic_object)
+	//spew.Dump(generic_object)
 
-	ok = true
 	return
 }
 
@@ -3550,13 +3600,13 @@ func (qm *ServerMgr) GetDependencies(job *Job, workflow_instance *WorkflowInstan
 	return
 }
 
-func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowInstance, workflow_input_map map[string]cwl.CWLType, workflow_step *cwl.WorkflowStep, context *cwl.WorkflowContext) (workunit_input_map cwl.JobDocMap, ok bool, reason string, err error) {
+func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowInstance, workflow_input_map map[string]cwl.CWLType, workflow_step *cwl.WorkflowStep, context *cwl.WorkflowContext, caller string) (workunit_input_map cwl.JobDocMap, ok bool, reason string, err error) {
 
 	workunit_input_map = make(map[string]cwl.CWLType) // also used for json
 	reason = "undefined"
 
-	//fmt.Println("(GetStepInputObjects) workflow_step:")
-	//spew.Dump(workflow_step)
+	fmt.Println("(GetStepInputObjects) workflow_step:")
+	spew.Dump(workflow_step)
 
 	if workflow_step.In == nil {
 		// empty inputs are ok
@@ -3575,11 +3625,11 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 	// 1. find all object source and Default
 	// 2. make a map copy to be used in javascript, as "inputs"
 	// INPUT_LOOP1
-	for _, input := range workflow_step.In {
+	for input_i, input := range workflow_step.In {
 		// input is a WorkflowStepInput
 
-		//fmt.Printf("(GetStepInputObjects) workflow_step.In: (%d)\n", input_i)
-		//spew.Dump(workflow_step.In)
+		fmt.Printf("(GetStepInputObjects) workflow_step.In: (%d)\n", input_i)
+		spew.Dump(workflow_step.In)
 
 		id := input.Id
 		//	fmt.Println("(GetStepInputObjects) id: %s", id)
@@ -3596,7 +3646,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 		}
 
 		if input.Source != nil {
-			//fmt.Println("(GetStepInputObjects) input.Source != nil")
+			fmt.Println("(GetStepInputObjects) input.Source != nil")
 			//source_object_array := []cwl.CWLType{}
 			//resolve pointers in source
 
@@ -3720,21 +3770,29 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 						//fmt.Println("(GetStepInputObjects) job_obj is cwl.CWL_null")
 						//reason = "returned object is null"
 						//ok = false
-						return
+						continue
 					} else {
 						//fmt.Println("(GetStepInputObjects) job_obj is not cwl.CWL_null")
 					}
 				}
 
 				if !ok {
-					fmt.Printf("(GetStepInputObjects) qm.getCWLSource did not return an object (reason: %s), now check input.Default\n", reason)
+
+					logger.Debug(3, "(GetStepInputObjects) source_as_string %s not found", source_as_string)
+
+					if "#main/step1/output" == source_as_string {
+						err = fmt.Errorf("#main/step1/output not found , reason: " + reason + " caller: " + caller)
+						return
+						//panic("#main/step1/output not found , reason: " + reason + " caller: " + caller)
+					}
+					logger.Debug(3, "(GetStepInputObjects) qm.getCWLSource did not return an object (reason: %s), now check input.Default", reason)
 					if input.Default == nil {
 						logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", source_as_string)
 						//ok = false
 						//err = fmt.Errorf("(GetStepInputObjects) getCWLSource did not find source %s and has no Default (reason: %s)", source_as_string, reason)
 						continue
 					}
-					logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource found something\"%s\"", source_as_string)
+					logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource found something \"%s\"", source_as_string)
 					job_obj, err = cwl.NewCWLType("", input.Default, context)
 					if err != nil {
 						err = fmt.Errorf("(GetStepInputObjects) could not use default: %s", err.Error())
@@ -3772,6 +3830,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 			}
 
 		} else { //input.Source == nil
+			fmt.Println("(GetStepInputObjects) input.Source == nil")
 
 			if input.Default == nil && input.ValueFrom == "" {
 				err = fmt.Errorf("(GetStepInputObjects) sorry, source, Default and ValueFrom are missing") // TODO StepInputExpressionRequirement
@@ -3797,8 +3856,8 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 		// TODO
 
 	} // end of INPUT_LOOP1
-	//fmt.Println("(GetStepInputObjects) workunit_input_map after first round:\n")
-	//spew.Dump(workunit_input_map)
+	fmt.Println("(GetStepInputObjects) workunit_input_map after first round:\n")
+	spew.Dump(workunit_input_map)
 
 	// 3. evaluate each ValueFrom field, update results
 VALUE_FROM_LOOP:
@@ -4039,10 +4098,10 @@ VALUE_FROM_LOOP:
 	//fmt.Println("(GetStepInputObjects) workunit_input_map after ValueFrom round:")
 	//spew.Dump(workunit_input_map)
 
-	//for key, value := range workunit_input_map {
-	//	fmt.Printf("workunit_input_map: %s -> %s\n", key, value.String())
+	for key, value := range workunit_input_map {
+		fmt.Printf("workunit_input_map: %s -> %s (%s)\n", key, value.String(), reflect.TypeOf(value))
 
-	//}
+	}
 	ok = true
 	return
 }

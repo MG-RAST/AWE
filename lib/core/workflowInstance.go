@@ -547,7 +547,7 @@ func (wi *WorkflowInstance) DecreaseRemainSteps() (remain int, err error) {
 	err = dbIncrementJobWorkflow_instancesField(wi.JobId, wi.LocalId, "remainsteps", -1) // TODO return correct value for remain
 	//err = wi.Save()
 	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps)  Save() returned: %s", err.Error())
+		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps)  dbIncrementJobWorkflow_instancesField() returned: %s", err.Error())
 		return
 	}
 	remain = wi.RemainSteps

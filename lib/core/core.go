@@ -480,6 +480,7 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 	return
 }
 
+// worker code to send workunit results
 func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (response *StandardResponse, err error) {
 
 	var work_id_b64 string

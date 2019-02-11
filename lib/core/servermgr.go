@@ -1258,6 +1258,10 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		step_output_array := []cwl.NamedCWLType(*task.StepOutput)
 
 		// iterate over expected outputs
+
+		//var process interface{}
+		//process_cached := false
+
 		for i, _ := range task.WorkflowStep.Out {
 			step_output := &task.WorkflowStep.Out[i]
 			basename := path.Base(step_output.Id)
@@ -1281,10 +1285,13 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 
 			}
 			if !found {
-				// 	if step_output.
+				var obj cwl.CWL_object
+				obj = cwl.NewNull()
+				err = context.Add(step_output.Id, obj, "handleNoticeWorkDelivered")
+				// check if this is an optional output in the tool
 
-				err = fmt.Errorf("(handleNoticeWorkDelivered) expected output not found: %s", basename)
-				return
+				//err = fmt.Errorf("(handleNoticeWorkDelivered) expected output not found: %s", basename)
+				//return
 			}
 		}
 

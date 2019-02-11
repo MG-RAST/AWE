@@ -148,3 +148,21 @@ func NormalizeOutputParameter_deprecated(original_map map[string]interface{}, co
 
 	return
 }
+
+func (op *OutputParameter) IsOptional() (optional bool) {
+
+	switch op.Type.(type) {
+	case []interface{}:
+		type_array := op.Type.([]interface{})
+		for _, my_type := range type_array {
+			if my_type == CWL_null {
+				optional = true
+				return
+			}
+		}
+
+	}
+
+	optional = false
+	return
+}

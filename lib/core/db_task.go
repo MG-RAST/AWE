@@ -20,7 +20,7 @@ func dbUpdateTaskFields(job_id string, workflow_instance_id string, task_id stri
 
 	c := session.DB(conf.MONGODB_DATABASE).C(database)
 
-	unique_id := job_id + workflow_instance_id
+	unique_id := job_id + "_" + workflow_instance_id
 	selector := bson.M{"_id": unique_id, "tasks.taskid": task_id}
 	update_op := bson.M{"$set": update_value}
 
@@ -29,7 +29,7 @@ func dbUpdateTaskFields(job_id string, workflow_instance_id string, task_id stri
 
 	err = c.Update(selector, update_op)
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobTaskFields) (db: %s) Error updating task %s: %s", database, task_id, err.Error())
+		err = fmt.Errorf("(dbUpdateJobTaskFields) (db: %s) Error updating task %s (unique_id: %s): %s", database, task_id, unique_id, err.Error())
 		return
 	}
 	return

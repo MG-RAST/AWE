@@ -425,8 +425,9 @@ func (c *WorkflowContext) Get(id string, do_read_lock bool) (obj CWL_object, ok 
 
 	obj, ok = c.All[id]
 	if !ok {
+		logger.Debug(3, "(WorkflowContext/Get) did not find: %s", id)
 		for k, _ := range c.All {
-			logger.Debug(3, "collection: %s", k)
+			logger.Debug(3, "(WorkflowContext/Get) available: %s", k)
 		}
 		//err = fmt.Errorf("(All) item %s not found in collection", id)
 	}

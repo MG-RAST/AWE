@@ -8,6 +8,13 @@ FROM golang:1.11.1-alpine
 # git needed for GIT_COMMIT_HASH
 RUN apk update && apk add git
 
+
+# install cwl-runner with node.js
+RUN apk update ; apk add python3-dev nodejs gcc musl-dev libxml2-dev libxslt-dev py3-libxml2 py3-psutil   
+RUN pip3 install --upgrade pip ; pip3 install cwltool ; ln -s /usr/bin/cwltool /usr/bin/cwl-runner      # cwl-runner was pointing to old version 
+
+
+
 ENV AWE=/go/src/github.com/MG-RAST/AWE
 WORKDIR /go/bin
 
@@ -22,18 +29,3 @@ RUN mkdir -p ${AWE} && \
   go get -d ./awe-worker/ && \
   ./compile-worker.sh
 
-# RUN apk update ; apk add \
-#   gcc \
-#   git \
-#   libxml2-dev \
-#   libxslt-dev \
-#   musl-dev \
-#   nodejs \
-#   python-dev \
-#   py-libxml2 \
-#   py-pip \
-#   py-psutil   
-
-# install cwl-runner with node.js
-RUN apk update ; apk add py-pip nodejs gcc python-dev musl-dev libxml2-dev libxslt-dev py-libxml2 py-psutil   
-RUN pip install --upgrade pip ; pip install cwltool ; ln -s /usr/bin/cwltool /usr/bin/cwl-runner      # cwl-runner was pointing to old version 

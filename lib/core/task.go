@@ -31,8 +31,8 @@ import (
 
 const (
 	TASK_STAT_INIT             = "init"        // initial state on creation of a task
-	TASK_STAT_PENDING          = "pending"     // a task that wants to be enqueued
-	TASK_STAT_READY            = "ready"       // a task ready to be enqueued
+	TASK_STAT_PENDING          = "pending"     // a task that wants to be enqueued (but dependent tasks are not complete)
+	TASK_STAT_READY            = "ready"       // a task ready to be enqueued (all dependent tasks are complete , but workunits habe not yet been created)
 	TASK_STAT_QUEUED           = "queued"      // a task for which workunits have been created/queued
 	TASK_STAT_INPROGRESS       = "in-progress" // a first workunit has been checkout (this does not guarantee a workunit is running right now)
 	TASK_STAT_SUSPEND          = "suspend"
@@ -476,19 +476,14 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task
 
 	}
 
-	if workflow_instance_id == "_#main/_#main" {
-		err = fmt.Errorf("(NewTask) workflow_instance_id == _#main/_#main")
-		return
-	}
-
-	if strings.HasPrefix(task_id_str, "_#main") {
+	if strings.HasPrefix(task_id_str, "#main") {
 		err = fmt.Errorf("(NewTask) task_id_str prefix wrong: %s", task_id_str)
 		return
 	}
 
-	if task_id_str != "_#main" {
-		if !strings.HasPrefix(workflow_instance_id, "_#main") {
-			err = fmt.Errorf("(NewTask) workflow_instance_id has not _#main prefix: %s", workflow_instance_id)
+	if task_id_str != "#main" {
+		if !strings.HasPrefix(workflow_instance_id, "#main") {
+			err = fmt.Errorf("(NewTask) workflow_instance_id has not #main prefix: %s", workflow_instance_id)
 			return
 		}
 

@@ -660,7 +660,7 @@ func GetRootWorkflowInstance(jobid string, job *core.Job, awe_auth string) (wi *
 	//wi_array := []core.WorkflowInstance{}
 	var wi_if interface{}
 
-	status_code, err = GetAWEObject("workflow_instances", jobid+url.PathEscape("_#main"), awe_auth, &wi_if)
+	status_code, err = GetAWEObject("workflow_instances", jobid+"_"+url.PathEscape("#main"), awe_auth, &wi_if)
 	if err != nil {
 		err = fmt.Errorf("(GetRootWorkflowInstance) GetAWEObject returned: %s", err.Error())
 		return

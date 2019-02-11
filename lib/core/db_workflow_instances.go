@@ -149,7 +149,7 @@ func dbIncrementJobWorkflow_instancesField(job_id string, subworkflow_id string,
 
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
 	//selector := bson.M{"id": job_id, "workflow_instances.id": subworkflow_id}
-	unique_id := job_id + subworkflow_id
+	unique_id := job_id + "_" + subworkflow_id
 	selector := bson.M{"_id": unique_id}
 	//err = c.Update(selector, bson.M{"$set": update_value})
 
@@ -173,7 +173,7 @@ func dbUpdateWorkflow_instancesFields(job_id string, subworkflow_id string, upda
 	defer session.Close()
 
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
-	unique_id := job_id + subworkflow_id
+	unique_id := job_id + "_" + subworkflow_id
 	selector := bson.M{"_id": unique_id}
 
 	err = c.Update(selector, bson.M{"$set": update_value})

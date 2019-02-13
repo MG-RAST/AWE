@@ -11,6 +11,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/rwmutex"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // WI_STAT_INIT
@@ -223,7 +224,8 @@ func NewWorkflowInstanceArrayFromInterface(original []interface{}, job *Job, con
 	return
 }
 
-func (wi *WorkflowInstance) AddTask(task *Task, db_sync string, write_lock bool) (err error) {
+// db_sync is a string because a bool would be misunderstood as a lock indicator ("db_sync_no", db_sync_yes)
+func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync string, write_lock bool) (err error) {
 	if write_lock {
 		err = wi.LockNamed("WorkflowInstance/AddTask")
 		if err != nil {
@@ -238,11 +240,21 @@ func (wi *WorkflowInstance) AddTask(task *Task, db_sync string, write_lock bool)
 		return
 	}
 
-	wi.Tasks = append(wi.Tasks, task)
+	_, err = wi.IncrementRemainSteps(false)
+	if err != nil {
+		err = fmt.Errorf("(AddTask) wi.IncrementRemainSteps returned: %s", err.Error())
+		return
+	}
 
-	//wi.RemainSteps += 1
+	err = job.IncrementRemainSteps(1)
+	if err != nil {
+		err = fmt.Errorf("(AddTask) job.IncrementRemainSteps returned: %s", err.Error())
+		return
+	}
+
 	//wi.TotalTasks = len(wi.Tasks)
 
+	wi.Tasks = append(wi.Tasks, task)
 	if db_sync == "db_sync_yes" {
 		err = wi.Save(false)
 		if err != nil {
@@ -250,6 +262,7 @@ func (wi *WorkflowInstance) AddTask(task *Task, db_sync string, write_lock bool)
 			return
 		}
 	}
+
 	return
 }
 
@@ -286,6 +299,45 @@ func (wi *WorkflowInstance) SetSubworkflows(steps []string, write_lock bool) (er
 	return
 }
 
+func (wi *WorkflowInstance) AddSubworkflow(job *Job, subworkflow string, write_lock bool) (err error) {
+	if write_lock {
+		err = wi.LockNamed("WorkflowInstance/AddSubworkflow")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/AddSubworkflow) wi.LockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.Unlock()
+	}
+
+	new_subworkflows_list := append(wi.Subworkflows, subworkflow)
+
+	job_id := wi.JobId
+	subworkflow_id := wi.LocalId
+	fieldname := "subworkflows"
+	update_value := bson.M{fieldname: new_subworkflows_list}
+	err = dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
+	if err != nil {
+		err = fmt.Errorf("(AddSubworkflow) (subworkflow_id: %s, fieldname: %s) %s", subworkflow_id, fieldname, err.Error())
+		return
+	}
+
+	wi.Subworkflows = new_subworkflows_list
+
+	_, err = wi.IncrementRemainSteps(false)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/AddSubworkflow) wi.IncrementRemainSteps returned: %s", err.Error())
+		return
+	}
+
+	err = job.IncrementRemainSteps(1)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/AddSubworkflow) job.IncrementRemainSteps returned: %s", err.Error())
+		return
+	}
+
+	return
+}
+
 func (wi *WorkflowInstance) GetWorkflow(context *cwl.WorkflowContext) (workflow *cwl.Workflow, err error) {
 
 	workflow_def_str := wi.Workflow_Definition
@@ -303,27 +355,6 @@ func (wi *WorkflowInstance) GetWorkflow(context *cwl.WorkflowContext) (workflow 
 
 	return
 }
-
-// db_sync is a string because a bool would be misunderstood as a lock indicator ("db_sync_no", db_sync_yes
-// func (wi *WorkflowInstance) SetTasks(tasks []*Task, db_sync string) (err error) {
-// 	err = wi.LockNamed("WorkflowInstance/SetTasks")
-// 	if err != nil {
-// 		err = fmt.Errorf("(WorkflowInstance/SetTasks) wi.LockNamed returned: %s", err.Error())
-// 		return
-// 	}
-// 	defer wi.Unlock()
-
-// 	wi.Tasks = tasks
-// 	wi.RemainTasks = len(tasks)
-// 	wi.TotalTasks = len(tasks)
-// 	if db_sync == "db_sync_yes" {
-// 		err = wi.Save(false)
-// 		if err != nil {
-// 			return
-// 		}
-// 	}
-// 	return
-// }
 
 func (wi *WorkflowInstance) GetTask(task_id Task_Unique_Identifier, read_lock bool) (task *Task, ok bool, err error) {
 	ok = false
@@ -548,6 +579,28 @@ func (wi *WorkflowInstance) DecreaseRemainSteps() (remain int, err error) {
 	//err = wi.Save()
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps)  dbIncrementJobWorkflow_instancesField() returned: %s", err.Error())
+		return
+	}
+	remain = wi.RemainSteps
+
+	return
+}
+
+func (wi *WorkflowInstance) IncrementRemainSteps(write_lock bool) (remain int, err error) {
+	if write_lock {
+		err = wi.LockNamed("WorkflowInstance/IncrementRemainSteps")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/IncrementRemainSteps) wi.LockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.Unlock()
+	}
+	wi.RemainSteps += 1
+
+	err = dbIncrementJobWorkflow_instancesField(wi.JobId, wi.LocalId, "remainsteps", 1) // TODO return correct value for remain
+	//err = wi.Save()
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/IncrementRemainSteps)  dbIncrementJobWorkflow_instancesField() returned: %s", err.Error())
 		return
 	}
 	remain = wi.RemainSteps

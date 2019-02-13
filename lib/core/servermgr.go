@@ -299,7 +299,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 					return
 				}
 
-				err = wi.AddTask(awe_task, "db_sync_yes", true)
+				err = wi.AddTask(job, awe_task, "db_sync_yes", true)
 				if err != nil {
 					err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.AddTask returned: %s", err.Error())
 					return
@@ -358,6 +358,12 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 				err = GlobalWorkflowInstanceMap.Add(new_wi)
 				if err != nil {
 					err = fmt.Errorf("(updateWorkflowInstancesMapTask) GlobalWorkflowInstanceMap.Add returned: %s", err.Error())
+					return
+				}
+
+				err = wi.AddSubworkflow(job, new_wi.LocalId, true)
+				if err != nil {
+					err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.AddSubworkflow returned: %s", err.Error())
 					return
 				}
 
@@ -979,7 +985,7 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 		err = nil
 
 		logger.Error("(updateQueueTask) (task_id: %s) suspending task, taskEnQueue returned: %s", task_id_str, xerr.Error())
-		err = task.SetState(TASK_STAT_SUSPEND, true)
+		err = task.SetState(nil, TASK_STAT_SUSPEND, true)
 		if err != nil {
 			return
 		}
@@ -1137,7 +1143,7 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 			ServerNotes:  err_msg,
 			Status:       JOB_STAT_SUSPEND,
 		}
-		err = task.SetState(TASK_STAT_SUSPEND, true)
+		err = task.SetState(nil, TASK_STAT_SUSPEND, true)
 		if err != nil {
 			err = fmt.Errorf("(handleWorkStatDone) task.SetState returned: %s", err.Error())
 			return
@@ -1151,7 +1157,33 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		return
 	}
 
-	err = task.SetState(TASK_STAT_COMPLETED, true)
+	wi_local_id := task.WorkflowInstanceId
+	var wi *WorkflowInstance
+	if wi_local_id != "" {
+		var jobid string
+		jobid, err = task.GetJobId()
+		if err != nil {
+			err = fmt.Errorf("(handleWorkStatDone) task.GetJobId returned: %s", err.Error())
+			return
+		}
+
+		wi_global_id := jobid + "_" + wi_local_id
+
+		var ok bool
+		wi, ok, err = GlobalWorkflowInstanceMap.Get(wi_global_id)
+		if err != nil {
+			err = fmt.Errorf("(handleWorkStatDone) GlobalWorkflowInstanceMap.Get( returned: %s", err.Error())
+			return
+		}
+
+		if !ok {
+			err = fmt.Errorf("(handleWorkStatDone) Did not get %s from GlobalWorkflowInstanceMap", wi_global_id)
+			return
+		}
+
+	}
+
+	err = task.SetState(wi, TASK_STAT_COMPLETED, true)
 	if err != nil {
 		err = fmt.Errorf("(handleWorkStatDone) task.SetState returned: %s", err.Error())
 		return
@@ -1369,7 +1401,8 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 
 		qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_FAILED_PERMANENT, "")
 
-		if err = task.SetState(TASK_STAT_FAILED_PERMANENT, true); err != nil {
+		err = task.SetState(nil, TASK_STAT_FAILED_PERMANENT, true)
+		if err != nil {
 			return
 		}
 
@@ -1406,7 +1439,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 			qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_SUSPEND, "work.Failed >= MAX_FAILURE")
 			logger.Event(event.WORK_SUSPEND, "workid="+work_str)
 
-			if err = task.SetState(TASK_STAT_SUSPEND, true); err != nil {
+			if err = task.SetState(nil, TASK_STAT_SUSPEND, true); err != nil {
 				return
 			}
 
@@ -1827,12 +1860,12 @@ func (qm *ServerMgr) EnqueueTasks(tasks []*Task) (err error) {
 		}
 
 		if task_state == TASK_STAT_INPROGRESS || task_state == TASK_STAT_QUEUED {
-			err = task.SetState(TASK_STAT_READY, true)
+			err = task.SetState(nil, TASK_STAT_READY, true)
 			if err != nil {
 				return
 			}
 		} else if task_state == TASK_STAT_SUSPEND {
-			err = task.SetState(TASK_STAT_PENDING, true)
+			err = task.SetState(nil, TASK_STAT_PENDING, true)
 			if err != nil {
 				return
 			}
@@ -1890,9 +1923,9 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, caller string) (err error
 		}
 
 		if task_state == TASK_STAT_INPROGRESS || task_state == TASK_STAT_QUEUED {
-			task.SetState(TASK_STAT_READY, true)
+			task.SetState(nil, TASK_STAT_READY, true)
 		} else if task_state == TASK_STAT_SUSPEND {
-			task.SetState(TASK_STAT_PENDING, true)
+			task.SetState(nil, TASK_STAT_PENDING, true)
 		}
 
 		// add to qm.TaskMap
@@ -2161,7 +2194,7 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 	}
 
 	// now we are ready
-	err = task.SetState(TASK_STAT_READY, true)
+	err = task.SetState(nil, TASK_STAT_READY, true)
 	if err != nil {
 		err = fmt.Errorf("(isTaskReady) task.SetState returned: %s", err.Error())
 		return
@@ -2292,17 +2325,6 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		err = fmt.Errorf("(taskEnQueueWorkflow) job.AddWorkflowInstance returned: %s", err.Error())
 		return
 	}
-	//wi, err = job.AddWorkflowInstance(workflow_instance_id, workflow_defintion_id, task_input_array, len(workflow.Steps), sub_workflow_tasks)
-	//if err != nil {
-	//	err = fmt.Errorf("(taskEnQueueWorkflow) job.AddWorkflowInstance returned: %s", err.Error())
-	//	return
-	//}
-
-	err = job.IncrementRemainTasks(len(sub_workflow_tasks))
-	if err != nil {
-		err = fmt.Errorf("(taskEnQueueWorkflow) job.IncrementRemainTasks returned: %s", err.Error())
-		return
-	}
 
 	times = make(map[string]time.Duration)
 	//skip_workunit := false
@@ -2325,7 +2347,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		children = append(children, sub_task_id)
 
 		//err = job.AddTask(sub_task)
-		err = wi.AddTask(sub_task, "db_sync_yes", true)
+		err = wi.AddTask(job, sub_task, "db_sync_yes", true)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueWorkflow) job.AddTask returns: %s", err.Error())
 			return
@@ -2702,16 +2724,12 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 	}
 
 	task.SetChildren(qm, children, true)
-	err = job.IncrementRemainTasks(len(new_scatter_tasks))
-	if err != nil {
-		return
-	}
 
 	// add tasks to job and submit
 	for i := range new_scatter_tasks {
 		sub_task := new_scatter_tasks[i]
 
-		err = workflow_instance.AddTask(sub_task, "db_sync_yes", true)
+		err = workflow_instance.AddTask(job, sub_task, "db_sync_yes", true)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueScatter) job.AddTask returns: %s", err.Error())
 			return
@@ -2724,7 +2742,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 			return
 		}
 
-		err = sub_task.SetState(TASK_STAT_READY, true)
+		err = sub_task.SetState(nil, TASK_STAT_READY, true)
 		if err != nil {
 			sub_task_id_str := sub_task.Id
 			err = fmt.Errorf("(taskEnQueueScatter) sub_task_id_str=%s sub_task.SetState returns: %s", sub_task_id_str, err.Error())
@@ -2883,7 +2901,7 @@ func (qm *ServerMgr) taskEnQueue(task_id Task_Unique_Identifier, task *Task, job
 			times["CreateAndEnqueueWorkunits"] = time.Since(workunitStart)
 		}
 	}
-	err = task.SetState(TASK_STAT_QUEUED, true)
+	err = task.SetState(nil, TASK_STAT_QUEUED, true)
 	if err != nil {
 		return
 	}
@@ -3522,7 +3540,7 @@ func (qm *ServerMgr) GetDependencies(job *Job, workflow_instance *WorkflowInstan
 	for _, input := range workflow_step.In {
 
 		id := input.Id
-		fmt.Println("(GetDependencies) id: %s", id)
+		fmt.Printf("(GetDependencies) id: %s\n", id)
 
 		if input.Source != nil {
 
@@ -3864,7 +3882,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 		// TODO
 
 	} // end of INPUT_LOOP1
-	fmt.Println("(GetStepInputObjects) workunit_input_map after first round:\n")
+	fmt.Println("(GetStepInputObjects) workunit_input_map after first round:")
 	spew.Dump(workunit_input_map)
 
 	// 3. evaluate each ValueFrom field, update results
@@ -4353,21 +4371,34 @@ func (qm *ServerMgr) taskCompleted_Scatter(task *Task) (err error) {
 
 	}
 
-	//fmt.Println("scatter_parent_task.StepOutput:")
-	//spew.Dump(scatter_parent_task.StepOutput)
-	//panic("scatter done")
-	//count_a, _ := job.GetRemainTasks()
-	//fmt.Printf("GetRemainTasks job A1: %d\n", count_a)
-
-	// set TASK_STAT_COMPLETED
-	//err = scatter_parent_task.SetState(TASK_STAT_COMPLETED, true)
-	//if err != nil {
-	//		return
-	//	}
-
 	task = scatter_parent_task
 
-	err = task.SetState(TASK_STAT_COMPLETED, true)
+	wi_local_id := task.WorkflowInstanceId
+	var wi *WorkflowInstance
+	if wi_local_id != "" {
+		var jobid string
+		jobid, err = task.GetJobId()
+		if err != nil {
+			err = fmt.Errorf("(handleWorkStatDone) task.GetJobId returned: %s", err.Error())
+			return
+		}
+
+		wi_global_id := jobid + "_" + wi_local_id
+
+		var ok bool
+		wi, ok, err = GlobalWorkflowInstanceMap.Get(wi_global_id)
+		if err != nil {
+			err = fmt.Errorf("(handleWorkStatDone) GlobalWorkflowInstanceMap.Get( returned: %s", err.Error())
+			return
+		}
+
+		if !ok {
+			err = fmt.Errorf("(handleWorkStatDone) Did not get %s from GlobalWorkflowInstanceMap", wi_global_id)
+			return
+		}
+
+	}
+	err = task.SetState(wi, TASK_STAT_COMPLETED, true)
 	if err != nil {
 		err = fmt.Errorf("(taskCompleted_Scatter) task.SetState returned: %s", err.Error())
 		return
@@ -4422,7 +4453,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflow_instance *WorkflowIn
 
 		if task_state != TASK_STAT_COMPLETED {
 			ok = false
-			reason = "a task is not completed yet"
+			reason = "(completeSubworkflow) a task is not completed yet"
 			return
 		}
 
@@ -4793,10 +4824,10 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 		return
 	}
 
-	var job_remainTasks int
-	job_remainTasks, err = job.GetRemainTasks() // TODO deprecated !?
+	var job_remainSteps int
+	job_remainSteps, err = job.GetRemainSteps() // TODO deprecated !?
 	if err != nil {
-		err = fmt.Errorf("(taskCompleted) job.GetRemainTasks() returned: %s", err.Error())
+		err = fmt.Errorf("(taskCompleted) job.GetRemainSteps() returned: %s", err.Error())
 		return
 	}
 
@@ -4807,7 +4838,7 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 		return
 	}
 
-	logger.Debug(2, "(taskCompleted) remaining tasks for job %s: %d (task_state: %s)", task_str, job_remainTasks, task_state)
+	logger.Debug(2, "(taskCompleted) remaining tasks for job %s: %d (task_state: %s)", task_str, job_remainSteps, task_state)
 
 	// check if this was the last task in a subworkflow
 
@@ -4864,15 +4895,6 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 			return
 
 		}
-		// var subworkflow_remain_tasks int
-
-		// subworkflow_remain_tasks, err = job.Decrease_WorkflowInstance_RemainTasks(parent_id_str, task_str)
-		// if err != nil {
-		// 	//fmt.Printf("ERROR: (taskCompleted) Decrease_WorkflowInstance_RemainTasks returned: %s\n", err.Error())
-		// 	err = fmt.Errorf("(taskCompleted) WorkflowInstanceDecreaseRemainTasks returned: %s", err.Error())
-		// 	return
-		// }
-		//fmt.Printf("GetRemainTasks subworkflow C: %d\n", subworkflow_remain_tasks)
 
 		logger.Debug(3, "(taskCompleted) TASK_STAT_COMPLETED  / remaining tasks for subworkflow %s: %d", task_str, subworkflow_remain_tasks)
 
@@ -4904,8 +4926,8 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 			return
 		}
 	} else {
-		logger.Debug(3, "(taskCompleted) job_remainTasks: %d", job_remainTasks)
-		if job_remainTasks > 0 { //#####################################################################
+		logger.Debug(3, "(taskCompleted) job_remainSteps: %d", job_remainSteps)
+		if job_remainSteps > 0 { //#####################################################################
 			return
 		}
 	}
@@ -5063,7 +5085,7 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) (err error) {
 		}
 
 		if task_state != TASK_STAT_INPROGRESS {
-			err := task.SetState(TASK_STAT_INPROGRESS, true)
+			err := task.SetState(nil, TASK_STAT_INPROGRESS, true)
 			if err != nil {
 				logger.Error("(UpdateJobTaskToInProgress) could not update task %s", taskid)
 				continue
@@ -5141,7 +5163,7 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 			continue
 		}
 		if task_state == TASK_STAT_QUEUED || task_state == TASK_STAT_READY || task_state == TASK_STAT_INPROGRESS {
-			err = task.SetState(new_task_state, true)
+			err = task.SetState(nil, new_task_state, true)
 			if err != nil {
 				logger.Error("(SuspendJob) : %s", err.Error())
 				continue
@@ -5459,7 +5481,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, task_stage string) (err error) {
 	logger.Debug(1, "recomputing: job=%s, state=%s", jobid, job_state)
 
 	from_task_id := fmt.Sprintf("%s_%s", jobid, task_stage)
-	remaintasks := 0
+	remain_steps := 0
 	found := false
 
 	tasks, err := dbjob.GetTasks()
@@ -5482,7 +5504,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, task_stage string) (err error) {
 				return
 			}
 			found = true
-			remaintasks += 1
+			remain_steps += 1
 		}
 	}
 	if !found {
@@ -5512,7 +5534,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, task_stage string) (err error) {
 				err = errors.New("(RecomputeJob) failed to reset task " + err.Error())
 				return
 			}
-			remaintasks += 1
+			remain_steps += 1
 		}
 	}
 
@@ -5521,7 +5543,7 @@ func (qm *ServerMgr) RecomputeJob(jobid string, task_stage string) (err error) {
 		err = errors.New("(RecomputeJob) failed to incremenet job resumed " + err.Error())
 		return
 	}
-	err = dbjob.SetRemainTasks(remaintasks)
+	err = dbjob.SetRemainSteps(remain_steps) // RecomputeJob
 	if err != nil {
 		err = errors.New("(RecomputeJob) failed to set job remain_tasks " + err.Error())
 		return
@@ -5566,7 +5588,7 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 	}
 	logger.Debug(1, "resubmitting: job=%s, state=%s", jobid, job_state)
 
-	remaintasks := 0
+	remain_steps := 0
 	tasks, err := job.GetTasks()
 	if err != nil {
 		err = errors.New("(ResubmitJob) failed to get job tasks " + err.Error())
@@ -5580,7 +5602,7 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 			err = errors.New("(ResubmitJob) failed to reset task " + err.Error())
 			return
 		}
-		remaintasks += 1
+		remain_steps += 1
 	}
 
 	err = job.IncrementResumed(1)
@@ -5588,7 +5610,7 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 		err = errors.New("(ResubmitJob) failed to incremenet job resumed " + err.Error())
 		return
 	}
-	err = job.SetRemainTasks(remaintasks)
+	err = job.SetRemainSteps(remain_steps) // ResubmitJob
 	if err != nil {
 		err = errors.New("(ResubmitJob) failed to set job remain_tasks " + err.Error())
 		return

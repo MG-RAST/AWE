@@ -65,7 +65,7 @@ type JobRaw struct {
 	Script                  script                       `bson:"script" json:"-"`
 	State                   string                       `bson:"state" json:"state"`
 	Registered              bool                         `bson:"registered" json:"registered"`
-	RemainTasks             int                          `bson:"remaintasks" json:"remaintasks"`
+	RemainSteps             int                          `bson:"remainsteps" json:"remainteps"`
 	Expiration              time.Time                    `bson:"expiration" json:"expiration"` // 0 means no expiration
 	UpdateTime              time.Time                    `bson:"updatetime" json:"updatetime"`
 	Error                   *JobError                    `bson:"error" json:"error"`         // error struct exists when in suspended state
@@ -335,8 +335,8 @@ func (job *Job) Init() (changed bool, err error) {
 		}
 	}
 
-	old_remaintasks := job.RemainTasks
-	job.RemainTasks = 0
+	old_remainsteps := job.RemainSteps // job.Init
+	job.RemainSteps = 0                // job.Init
 
 	for _, task := range job.Tasks {
 		if task.Id == "" {
@@ -360,31 +360,17 @@ func (job *Job) Init() (changed bool, err error) {
 			changed = true
 		}
 		if task.State != TASK_STAT_COMPLETED {
-			job.RemainTasks += 1
+			job.RemainSteps += 1 // job.Init
 		}
 	}
 
 	// try to fix inconsistent state
-	if job.RemainTasks != old_remaintasks {
+	if job.RemainSteps != old_remainsteps { // job.Init
 		changed = true
 	}
 
 	// try to fix inconsistent state
-	//if job.RemainTasks == 0 && job.State != JOB_STAT_COMPLETED {
-	//	job.State = JOB_STAT_COMPLETED
-	//	logger.Debug(3, "fixing state to JOB_STAT_COMPLETED")
-	//	changed = true
-	//}
-
-	// fix job.Info.CompletedTime
-	//if job.State == JOB_STAT_COMPLETED && job.Info.CompletedTime.IsZero() {
-	// better now, than never: // does not make sense
-	//	job.Info.CompletedTime = time.Now()
-	//	changed = true
-	//}
-
-	// try to fix inconsistent state
-	if job.RemainTasks > 0 && job.State == JOB_STAT_COMPLETED {
+	if job.RemainSteps > 0 && job.State == JOB_STAT_COMPLETED {
 		job.State = JOB_STAT_QUEUED
 		logger.Debug(3, "fixing state to JOB_STAT_QUEUED")
 		changed = true
@@ -774,51 +760,51 @@ func (job *Job) SetError(newError *JobError) (err error) {
 	return
 }
 
-func (job *Job) GetRemainTasks() (remain_tasks int, err error) {
-	remain_tasks = job.RemainTasks
+func (job *Job) GetRemainSteps() (remain_steps int, err error) {
+	remain_steps = job.RemainSteps
 	return
 }
 
-func (job *Job) SetRemainTasks(remain_tasks int) (err error) {
-	err = job.LockNamed("SetRemainTasks")
+func (job *Job) SetRemainSteps(remain_steps int) (err error) {
+	err = job.LockNamed("SetRemainSteps")
 	if err != nil {
 		return
 	}
 	defer job.Unlock()
 
-	if remain_tasks == job.RemainTasks {
+	if remain_steps == job.RemainSteps {
 		return
 	}
-	err = dbUpdateJobFieldInt(job.Id, "remaintasks", remain_tasks)
+	err = dbUpdateJobFieldInt(job.Id, "remainsteps", remain_steps)
 	if err != nil {
 		return
 	}
-	job.RemainTasks = remain_tasks
+	job.RemainSteps = remain_steps //SetRemainSteps
 	return
 }
 
-func (job *Job) IncrementRemainTasks(inc int) (err error) {
-	err = job.LockNamed("IncrementRemainTasks")
+func (job *Job) IncrementRemainSteps(inc int) (err error) {
+	err = job.LockNamed("IncrementRemainSteps")
 	if err != nil {
 		return
 	}
 	defer job.Unlock()
 
-	logger.Debug(3, "(IncrementRemainTasks) called with inc=%d", inc)
+	logger.Debug(3, "(IncrementRemainSteps) called with inc=%d", inc)
 
-	newRemainTask := job.RemainTasks + inc
+	newRemainStep := job.RemainSteps + inc
 
-	if newRemainTask < 0 {
-		logger.Error("(IncrementRemainTasks) newRemainTask would be negativ, TODO fix!") // TODO this has to be fixed correctly
-		newRemainTask = 0
+	if newRemainStep < 0 {
+		logger.Error("(IncrementRemainSteps) newRemainStep would be negativ, TODO fix!") // TODO this has to be fixed correctly
+		newRemainStep = 0
 	}
 
-	logger.Debug(3, "(IncrementRemainTasks) new value of RemainTasks: %d", newRemainTask)
-	err = dbUpdateJobFieldInt(job.Id, "remaintasks", newRemainTask)
+	logger.Debug(3, "(IncrementRemainSteps) new value of RemainStep: %d", newRemainStep)
+	err = dbUpdateJobFieldInt(job.Id, "remainsteps", newRemainStep)
 	if err != nil {
 		return
 	}
-	job.RemainTasks = newRemainTask
+	job.RemainSteps = newRemainStep //IncrementRemainSteps
 	return
 }
 

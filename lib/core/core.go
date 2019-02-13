@@ -300,7 +300,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 	job.Script = jobDep.Script
 	job.State = jobDep.State
 	job.Registered = jobDep.Registered
-	job.RemainTasks = jobDep.RemainTasks
+	job.RemainSteps = jobDep.RemainSteps
 	job.UpdateTime = jobDep.UpdateTime
 	job.Error = jobDep.Error
 	job.Resumed = jobDep.Resumed

@@ -838,8 +838,8 @@ func (task *TaskRaw) GetJobId() (id string, err error) {
 	return
 }
 
-// also updates job.RemainTasks , task.SetCompletedDate
-func (task *TaskRaw) SetState(new_state string, write_lock bool) (err error) {
+// also updates job.RemainSteps , wi.RemainTasks, task.SetCompletedDate
+func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, write_lock bool) (err error) {
 	if write_lock {
 		err = task.LockNamed("SetState")
 		if err != nil {
@@ -883,21 +883,30 @@ func (task *TaskRaw) SetState(new_state string, write_lock bool) (err error) {
 	task.State = new_state
 
 	if new_state == TASK_STAT_COMPLETED {
-		err = job.IncrementRemainTasks(-1)
+		err = job.IncrementRemainSteps(-1)
 		if err != nil {
-			err = fmt.Errorf("(task/SetState) IncrementRemainTasks returned: %s", err.Error())
+			err = fmt.Errorf("(task/SetState) job.IncrementRemainSteps returned: %s", err.Error())
 			return
 		}
 		err = task.SetCompletedDate(time.Now(), false)
 		if err != nil {
-			err = fmt.Errorf("(task/SetState) SetCompletedDate returned: %s", err.Error())
+			err = fmt.Errorf("(task/SetState) task.SetCompletedDate returned: %s", err.Error())
 			return
 		}
+
+		if wi != nil {
+			_, err = wi.DecreaseRemainSteps()
+			if err != nil {
+				err = fmt.Errorf("(task/SetState) wi.DecreaseRemainSteps returned: %s", err.Error())
+				return
+			}
+		}
+
 	} else if old_state == TASK_STAT_COMPLETED {
 		// in case a completed task is marked as something different
-		err = job.IncrementRemainTasks(1)
+		err = job.IncrementRemainSteps(1)
 		if err != nil {
-			err = fmt.Errorf("(task/SetState) IncrementRemainTasks returned: %s", err.Error())
+			err = fmt.Errorf("(task/SetState) IncrementRemainSteps returned: %s", err.Error())
 			return
 		}
 		initTime := time.Time{}
@@ -906,6 +915,14 @@ func (task *TaskRaw) SetState(new_state string, write_lock bool) (err error) {
 			err = fmt.Errorf("(task/SetState) SetCompletedDate returned: %s", err.Error())
 			return
 		}
+		if wi != nil {
+			_, err = wi.IncrementRemainSteps(true)
+			if err != nil {
+				err = fmt.Errorf("(task/SetState) wi.IncrementRemainSteps returned: %s", err.Error())
+				return
+			}
+		}
+
 	}
 
 	return
@@ -1229,7 +1246,7 @@ func (task *Task) ResetTaskTrue(name string) (err error) {
 	}
 	defer task.Unlock()
 
-	err = task.SetState(TASK_STAT_PENDING, false)
+	err = task.SetState(nil, TASK_STAT_PENDING, false)
 	if err != nil {
 		err = fmt.Errorf("(task/ResetTaskTrue) task.SetState returned: %s", err.Error())
 		return

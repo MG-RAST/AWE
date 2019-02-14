@@ -1060,6 +1060,8 @@ func RemoveWorkFromClient(client *Client, workid Workunit_Unique_Identifier) (er
 	return
 }
 
+// update task object when workunits are completed
+// last workunit will complete the task
 func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *Task, workid Workunit_Unique_Identifier, computetime int) (err error) {
 	//log event about work done (WD)
 
@@ -1207,7 +1209,8 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 	return
 }
 
-//handle feedback from a client about the execution of a workunit
+// handle feedback from a client about the execution of a workunit
+// successful workunits are handeled by "handleWorkStatDone()"
 func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 
 	logger.Debug(3, "(handleNoticeWorkDelivered) start")
@@ -1232,7 +1235,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 
 	logger.Debug(3, "(handleNoticeWorkDelivered) workid: %s status: %s client: %s", work_str, notice_status, clientid)
 
-	// we should not get here, but if we do than end
+	// we should not get here, but if we do then return error
 	if notice_status == WORK_STAT_DISCARDED {
 		logger.Error("(handleNoticeWorkDelivered) [warning] skip status change: workid=%s status=%s", work_str, notice_status)
 		return
@@ -1388,6 +1391,9 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 
 	logger.Debug(3, "(handleNoticeWorkDelivered) handling status %s", notice_status)
 	if notice_status == WORK_STAT_DONE {
+		//      ******************
+		//      * WORK_STAT_DONE *
+		//      ******************
 		err = qm.handleWorkStatDone(client, clientid, task, work_id, computetime)
 		if err != nil {
 			err = fmt.Errorf("(handleNoticeWorkDelivered) handleWorkStatDone returned: %s", err.Error())
@@ -2092,12 +2098,12 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 	logger.Debug(3, "(isTaskReady %s)", task_id_str)
 
 	//skip if the belonging job is suspended
-	jobid, err := task.GetJobId()
-	if err != nil {
-		return
-	}
+	//jobid, err := task.GetJobId()
+	//if err != nil {
+	//	return
+	//}
 
-	job, err := GetJob(jobid)
+	job, err := task.GetJob()
 	if err != nil {
 		return
 	}
@@ -2212,7 +2218,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		return
 	}
 
-	if len(task.Children) > 0 {
+	if len(task.ScatterChildren) > 0 {
 		return
 	}
 
@@ -2329,7 +2335,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 	times = make(map[string]time.Duration)
 	//skip_workunit := false
 
-	children := []Task_Unique_Identifier{}
+	//var children []string
 	for i := range sub_workflow_tasks {
 		sub_task := sub_workflow_tasks[i]
 		_, err = sub_task.Init(job, job.Id)
@@ -2344,7 +2350,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 			return
 		}
 		sub_task_id_str, _ := sub_task_id.String()
-		children = append(children, sub_task_id)
+		//children = append(children, sub_task_id)
 
 		//err = job.AddTask(sub_task)
 		err = wi.AddTask(job, sub_task, "db_sync_yes", true)
@@ -2362,7 +2368,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 			return
 		}
 	}
-	task.SetChildren(qm, children, true)
+	//task.SetWorkflowChildren(qm, children, true)
 
 	return
 }
@@ -2628,7 +2634,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 	//if count_of_scatter_arrays == 1 {
 
 	// create tasks
-	var children []Task_Unique_Identifier
+	var children []string
 	var new_scatter_tasks []*Task
 
 	counter_running := true
@@ -2715,7 +2721,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 
 		new_task_step.Id = parent_id_str + "/" + scatter_task_name
 		awe_task.WorkflowStep = &new_task_step
-		children = append(children, awe_task.Task_Unique_Identifier)
+		children = append(children, scatter_task_name)
 
 		new_task_step.Scatter = nil // []string{}
 		new_scatter_tasks = append(new_scatter_tasks, awe_task)
@@ -2723,7 +2729,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		counter_running = counter.Increment()
 	}
 
-	task.SetChildren(qm, children, true)
+	task.SetScatterChildren(qm, children, true)
 
 	// add tasks to job and submit
 	for i := range new_scatter_tasks {
@@ -4261,7 +4267,7 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 
 //---end of task methods---
 
-func (qm *ServerMgr) taskCompleted_Scatter(task *Task) (err error) {
+func (qm *ServerMgr) taskCompleted_Scatter(wi *WorkflowInstance, task *Task) (err error) {
 
 	var task_str string
 	task_str, err = task.String()
@@ -4286,7 +4292,7 @@ func (qm *ServerMgr) taskCompleted_Scatter(task *Task) (err error) {
 
 	// (taskCompleted_Scatter) get scatter sibblings to see if they are done
 	var children []*Task
-	children, err = scatter_parent_task.GetChildren(qm)
+	children, err = scatter_parent_task.GetScatterChildren(wi, qm)
 	if err != nil {
 
 		length, _ := qm.TaskMap.Len()
@@ -4297,7 +4303,7 @@ func (qm *ServerMgr) taskCompleted_Scatter(task *Task) (err error) {
 			fmt.Printf("(taskCompleted_Scatter) got task %s\n", task.Id)
 		}
 
-		err = fmt.Errorf("(taskCompleted_Scatter) (scatter) GetChildren returned: %s (total: %d)", err.Error(), length)
+		err = fmt.Errorf("(taskCompleted_Scatter) (scatter) GetScatterChildren returned: %s (total: %d)", err.Error(), length)
 		return
 	}
 
@@ -4373,31 +4379,12 @@ func (qm *ServerMgr) taskCompleted_Scatter(task *Task) (err error) {
 
 	task = scatter_parent_task
 
-	wi_local_id := task.WorkflowInstanceId
-	var wi *WorkflowInstance
-	if wi_local_id != "" {
-		var jobid string
-		jobid, err = task.GetJobId()
-		if err != nil {
-			err = fmt.Errorf("(handleWorkStatDone) task.GetJobId returned: %s", err.Error())
-			return
-		}
+	///wi_local_id := task.WorkflowInstanceId
+	//var wi *WorkflowInstance
+	//if wi_local_id != "" {
+	//	wi, ok, err = task.GetWorkflowInstance()
 
-		wi_global_id := jobid + "_" + wi_local_id
-
-		var ok bool
-		wi, ok, err = GlobalWorkflowInstanceMap.Get(wi_global_id)
-		if err != nil {
-			err = fmt.Errorf("(handleWorkStatDone) GlobalWorkflowInstanceMap.Get( returned: %s", err.Error())
-			return
-		}
-
-		if !ok {
-			err = fmt.Errorf("(handleWorkStatDone) Did not get %s from GlobalWorkflowInstanceMap", wi_global_id)
-			return
-		}
-
-	}
+	//}
 	err = task.SetState(wi, TASK_STAT_COMPLETED, true)
 	if err != nil {
 		err = fmt.Errorf("(taskCompleted_Scatter) task.SetState returned: %s", err.Error())
@@ -4858,8 +4845,22 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 		logger.Debug(3, "(taskCompleted) task.WorkflowStep != nil (%s)", task_str)
 
 		if task.Scatter_parent != nil {
+
+			var wi *WorkflowInstance
+			var ok bool
+			wi, ok, err = task.GetWorkflowInstance()
+			if err != nil {
+				err = fmt.Errorf("(taskCompleted) task.GetWorkflowInstance returned: %s", err.Error())
+				return
+			}
+
+			if !ok {
+				err = fmt.Errorf("(taskCompleted) task has nbo WorkflowInstance not found ?!")
+				return
+			}
+
 			// process scatter children
-			err = qm.taskCompleted_Scatter(task)
+			err = qm.taskCompleted_Scatter(wi, task)
 			if err != nil {
 				err = fmt.Errorf("(taskCompleted) taskCompleted_Scatter returned: %s", err.Error())
 				return

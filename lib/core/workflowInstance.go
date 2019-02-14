@@ -376,6 +376,26 @@ func (wi *WorkflowInstance) GetTask(task_id Task_Unique_Identifier, read_lock bo
 	return
 }
 
+func (wi *WorkflowInstance) GetTaskByName(task_name string, read_lock bool) (task *Task, ok bool, err error) {
+	ok = false
+	if read_lock {
+		var lock rwmutex.ReadLock
+		lock, err = wi.RLockNamed("WorkflowInstance/GetTaskByName")
+		if err != nil {
+			return
+		}
+		defer wi.RUnlockNamed(lock)
+	}
+	for _, t := range wi.Tasks {
+		if t.TaskName == task_name {
+			ok = true
+			task = t
+		}
+	}
+
+	return
+}
+
 // get tasks form from all subworkflows in the job
 func (wi *WorkflowInstance) GetTasks(read_lock bool) (tasks []*Task, err error) {
 	tasks = []*Task{}

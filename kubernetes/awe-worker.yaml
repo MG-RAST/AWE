@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: awe-worker
+spec:
+  replicas: 1
+  selector:
+      matchLabels:
+        app: awe-worker
+  template:
+    metadata:
+     name: awe-worker
+     labels:
+       app: awe-worker
+    spec:
+      containers:
+        - name: awe-worker
+          image: mgrast/awe-worker
+          command: ["/go/bin/awe-worker"]
+          args: [ 
+           "--data=/mnt/awe/data",
+           "--logs=/mnt/awe/logs",
+           "--workpath=/mnt/awe/work",
+           "--serverurl=http://awe.mg-rast.org",
+           "--auto_clean_dir=true",
+           "--print_app_msg=true",
+           "--supported_apps=*",
+           "--host=$(MY_NODE_IP)",
+           "--name=$(MY_NODE_NAME)",
+           "--group=mgrast_multi",
+           "--clientgroup_token=$(CLIENTGROUP_TOKEN)",
+           "--debuglevel=1",
+           "--domain=testing" ]
+          env:
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: MY_NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: CLIENTGROUP_TOKEN
+              valueFrom:
+                configMapKeyRef:
+                  name: awe-worker-config
+                  key: CLIENTGROUP_TOKEN
+          volumeMounts:
+             - name: dockersock
+               mountPath: "/var/run/docker.sock"
+             - name: dockerbinary
+               mountPath: "/bin/docker"
+      restartPolicy: Always
+      volumes:
+        - name: dockersock
+          hostPath:
+            path: /var/run/docker.sock
+        - name: dockerbinary
+          hostPath:
+            path: /bin/docker

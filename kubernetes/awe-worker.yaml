@@ -50,6 +50,8 @@ spec:
                mountPath: "/var/run/docker.sock"
              - name: dockerbinary
                mountPath: "/bin/docker"
+             - name: workdir
+               mountPath: "/mnt/awe/"
       restartPolicy: Always
       volumes:
         - name: dockersock
@@ -58,3 +60,6 @@ spec:
         - name: dockerbinary
           hostPath:
             path: /bin/docker
+        - name: workdir
+          hostPath:
+            path: /mnt/awe/

@@ -51,7 +51,6 @@ func main() {
 				os.Exit(1)
 			}
 		}
-
 	}
 
 	if _, err := os.Stat(conf.LOGS_PATH); err != nil && os.IsNotExist(err) {

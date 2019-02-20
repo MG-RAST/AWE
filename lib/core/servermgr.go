@@ -1090,37 +1090,50 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		//var process interface{}
 		//process_cached := false
 
-		for i, _ := range task.WorkflowStep.Out {
-			step_output := &task.WorkflowStep.Out[i]
-			basename := path.Base(step_output.Id)
+		if task.WorkflowStep == nil {
+			err = fmt.Errorf("(handleWorkStatDone) task.WorkflowStep == nil")
+			return
+		}
 
-			// find in real outputs
-			found := false
-			for j, _ := range step_output_array { // []cwl.NamedCWLType
-				named := &step_output_array[j]
-				actual_output_base := path.Base(named.Id)
-				if basename == actual_output_base {
-					// add object to context using stepoutput name
-					logger.Debug(3, "(handleWorkStatDone) adding %s ...", step_output.Id)
-					err = context.Add(step_output.Id, named.Value, "handleWorkStatDone")
-					if err != nil {
-						err = fmt.Errorf("(handleWorkStatDone) context.Add returned: %s", err.Error())
-						return
+		// TODO
+		// this should go in taskCompleted
+		if workid.Rank == 0 { // single workunit per task
+
+			for i, _ := range task.WorkflowStep.Out {
+				step_output := &task.WorkflowStep.Out[i]
+				basename := path.Base(step_output.Id)
+
+				// find in real outputs
+				found := false
+				for j, _ := range step_output_array { // []cwl.NamedCWLType
+					named := &step_output_array[j]
+					actual_output_base := path.Base(named.Id)
+					if basename == actual_output_base {
+						// add object to context using stepoutput name
+						logger.Debug(3, "(handleWorkStatDone) adding %s ...", step_output.Id)
+						err = context.Add(step_output.Id, named.Value, "handleWorkStatDone")
+						if err != nil {
+							err = fmt.Errorf("(handleWorkStatDone) context.Add returned: %s", err.Error())
+							return
+						}
+						found = true
+						continue
 					}
-					found = true
-					continue
+
 				}
+				if !found {
+					var obj cwl.CWL_object
+					obj = cwl.NewNull()
+					err = context.Add(step_output.Id, obj, "handleWorkStatDone")
+					// check if this is an optional output in the tool
 
+					//err = fmt.Errorf("(handleWorkStatDone) expected output not found: %s", basename)
+					//return
+				}
 			}
-			if !found {
-				var obj cwl.CWL_object
-				obj = cwl.NewNull()
-				err = context.Add(step_output.Id, obj, "handleWorkStatDone")
-				// check if this is an optional output in the tool
-
-				//err = fmt.Errorf("(handleWorkStatDone) expected output not found: %s", basename)
-				//return
-			}
+		} else {
+			err = fmt.Errorf("(handleWorkStatDone)  multiple workunits not supported yet")
+			return
 		}
 
 	}
@@ -1191,10 +1204,12 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		return
 	}
 
+	// ****************************
 	// ******* LAST WORKUNIT ******
+	// ****************************
 
 	// validate file sizes of all outputs
-	err = task.ValidateOutputs()
+	err = task.ValidateOutputs() // for AWE1 only
 	if err != nil {
 		// we create job error object and suspend job
 		err_msg := fmt.Sprintf("(handleWorkStatDone) ValidateOutputs returned: %s", err.Error())
@@ -1219,31 +1234,44 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		return
 	}
 
-	wi_local_id := task.WorkflowInstanceId
 	var wi *WorkflowInstance
-	if wi_local_id != "" {
-		var jobid string
-		jobid, err = task.GetJobId()
-		if err != nil {
-			err = fmt.Errorf("(handleWorkStatDone) task.GetJobId returned: %s", err.Error())
-			return
-		}
-
-		wi_global_id := jobid + "_" + wi_local_id
-
-		var ok bool
-		wi, ok, err = GlobalWorkflowInstanceMap.Get(wi_global_id)
-		if err != nil {
-			err = fmt.Errorf("(handleWorkStatDone) GlobalWorkflowInstanceMap.Get( returned: %s", err.Error())
-			return
-		}
-
-		if !ok {
-			err = fmt.Errorf("(handleWorkStatDone) Did not get %s from GlobalWorkflowInstanceMap", wi_global_id)
-			return
-		}
-
+	var ok bool
+	wi, ok, err = task.GetWorkflowInstance()
+	if err != nil {
+		err = fmt.Errorf("(handleWorkStatDone) task.GetWorkflowInstance returned: %s", err.Error())
+		return
 	}
+
+	if !ok {
+		err = fmt.Errorf("(handleWorkStatDone) Did not get WorkflowInstance from task")
+		return
+	}
+
+	// wi_local_id := task.WorkflowInstanceId
+
+	// if wi_local_id != "" {
+	// 	var jobid string
+	// 	jobid, err = task.GetJobId()
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(handleWorkStatDone) task.GetJobId returned: %s", err.Error())
+	// 		return
+	// 	}
+
+	// 	wi_global_id := jobid + "_" + wi_local_id
+
+	// 	var ok bool
+	// 	wi, ok, err = GlobalWorkflowInstanceMap.Get(wi_global_id)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(handleWorkStatDone) GlobalWorkflowInstanceMap.Get( returned: %s", err.Error())
+	// 		return
+	// 	}
+
+	// 	if !ok {
+	// 		err = fmt.Errorf("(handleWorkStatDone) Did not get %s from GlobalWorkflowInstanceMap", wi_global_id)
+	// 		return
+	// 	}
+
+	// }
 
 	err = task.SetState(wi, TASK_STAT_COMPLETED, true)
 	if err != nil {
@@ -4846,7 +4874,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflow_instance *WorkflowIn
 
 // update job info when a task in that job changed to a new state
 // update parent task of a scatter task
-// this is invoked everytime a task changes state, but only when job_remainTasks==0 and state is not yet JOB_STAT_COMPLETED it will complete the job
+// this is invoked everytime a task changes state, but only when job_remainTasks==0 and if state is not yet JOB_STAT_COMPLETED it will complete the job
 func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 
 	// TODO I am not sure why this function is invoked for every state change....
@@ -4862,20 +4890,15 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 		return
 	}
 
-	jobid, err := task.GetJobId()
-	if err != nil {
-		err = fmt.Errorf("(taskCompleted) task.GetJobId() returned: %s", err.Error())
-		return
-	}
 	var job *Job
-	job, err = GetJob(jobid)
+	job, err = task.GetJob()
 	if err != nil {
-		err = fmt.Errorf("(taskCompleted) GetJob returned: %s", err.Error())
+		err = fmt.Errorf("(taskCompleted) task.GetJob returned: %s", err.Error())
 		return
 	}
 
 	var job_remainSteps int
-	job_remainSteps, err = job.GetRemainSteps() // TODO deprecated !?
+	job_remainSteps, err = job.GetRemainSteps()
 	if err != nil {
 		err = fmt.Errorf("(taskCompleted) job.GetRemainSteps() returned: %s", err.Error())
 		return
@@ -4904,7 +4927,7 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 	parent_task_to_complete = nil
 	// (taskCompleted) CWL Task completes
 	if task.WorkflowStep != nil {
-		// this task belongs to a subworkflow // TODO every task should belong to a subworkflow
+
 		logger.Debug(3, "(taskCompleted) task.WorkflowStep != nil (%s)", task_str)
 
 		if task.Scatter_parent != nil {
@@ -4996,8 +5019,7 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 		}
 	}
 
-	err = qm.finalizeJob(job, jobid)
-
+	err = qm.finalizeJob(job)
 	if err != nil {
 		err = fmt.Errorf("(taskCompleted) qm.finalizeJob returned: %s", err.Error())
 		return
@@ -5020,7 +5042,7 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 	return
 }
 
-func (qm *ServerMgr) finalizeJob(job *Job, jobid string) (err error) {
+func (qm *ServerMgr) finalizeJob(job *Job) (err error) {
 
 	job_state, err := job.GetState(true)
 	if err != nil {
@@ -5038,6 +5060,12 @@ func (qm *ServerMgr) finalizeJob(job *Job, jobid string) (err error) {
 		return
 	}
 
+	var jobid string
+	jobid, err = job.GetId(true)
+	if err != nil {
+		err = fmt.Errorf("(updateJobTask) job.GetId returned: %s", err.Error())
+		return
+	}
 	qm.FinalizeJobPerf(jobid)
 	qm.LogJobPerf(jobid)
 	qm.removeActJob(jobid)

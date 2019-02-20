@@ -43,19 +43,17 @@ const (
 
 type Workunit struct {
 	Workunit_Unique_Identifier `bson:",inline" json:",inline" mapstructure:",squash"`
+	WorkunitState              `bson:",inline" json:",inline" mapstructure:",squash"`
 	Id                         string                 `bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`       // global identifier: jobid_taskid_rank (for backwards coompatibility only)
 	WuId                       string                 `bson:"wuid,omitempty" json:"wuid,omitempty" mapstructure:"wuid,omitempty"` // deprecated !
-	Info                       *Info                  `bson:"info,omitempty" json:"info,omitempty" mapstructure:"info,omitempty"`
+	Info                       *Info                  `bson:"info,omitempty" json:"info,omitempty" mapstructure:"info,omitempty"` // ***
 	Inputs                     []*IO                  `bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
 	Outputs                    []*IO                  `bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
-	Predata                    []*IO                  `bson:"predata,omitempty" json:"predata,omitempty" mapstructure:"predata,omitempty"`
-	Cmd                        *Command               `bson:"cmd,omitempty" json:"cmd,omitempty" mapstructure:"cmd,omitempty"`
+	Predata                    []*IO                  `bson:"predata,omitempty" json:"predata,omitempty" mapstructure:"predata,omitempty"` // ***
+	Cmd                        *Command               `bson:"cmd,omitempty" json:"cmd,omitempty" mapstructure:"cmd,omitempty"`             // ***
 	TotalWork                  int                    `bson:"totalwork,omitempty" json:"totalwork,omitempty" mapstructure:"totalwork,omitempty"`
-	Partition                  *PartInfo              `bson:"part,omitempty" json:"part,omitempty" mapstructure:"part,omitempty"`
-	State                      string                 `bson:"state,omitempty" json:"state,omitempty" mapstructure:"state,omitempty"`
-	Failed                     int                    `bson:"failed,omitempty" json:"failed,omitempty" mapstructure:"failed,omitempty"`
+	Partition                  *PartInfo              `bson:"part,omitempty" json:"part,omitempty" mapstructure:"part,omitempty"` // ***
 	CheckoutTime               time.Time              `bson:"checkout_time,omitempty" json:"checkout_time,omitempty" mapstructure:"checkout_time,omitempty"`
-	Client                     string                 `bson:"client,omitempty" json:"client,omitempty" mapstructure:"client,omitempty"`
 	ComputeTime                int                    `bson:"computetime,omitempty" json:"computetime,omitempty" mapstructure:"computetime,omitempty"`
 	ExitStatus                 int                    `bson:"exitstatus,omitempty" json:"exitstatus,omitempty" mapstructure:"exitstatus,omitempty"` // Linux Exit Status Code (0 is success)
 	Notes                      []string               `bson:"notes,omitempty" json:"notes,omitempty" mapstructure:"notes,omitempty"`
@@ -67,23 +65,35 @@ type Workunit struct {
 	Context                    *cwl.WorkflowContext `bson:"-" json:"-" mapstructure:"-"`
 }
 
+type WorkunitState struct {
+	State  string `bson:"state,omitempty" json:"state,omitempty" mapstructure:"state,omitempty"`
+	Failed int    `bson:"failed,omitempty" json:"failed,omitempty" mapstructure:"failed,omitempty"`
+	Client string `bson:"client,omitempty" json:"client,omitempty" mapstructure:"client,omitempty"`
+}
+
 func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Workunit, err error) {
 
 	task_id := task.Task_Unique_Identifier
+
+	//workunit_state :=
+
 	workunit = &Workunit{
 		Workunit_Unique_Identifier: New_Workunit_Unique_Identifier(task_id, rank),
-		Id:                         "defined below",
-		Cmd:                        task.Cmd,
+		WorkunitState: WorkunitState{
+			State:  WORK_STAT_INIT,
+			Failed: 0,
+		},
+		Id:  "defined below",
+		Cmd: task.Cmd,
 		//App:       task.App,
 		Info:    task.Info,
 		Inputs:  task.Inputs,
 		Outputs: task.Outputs,
 		Predata: task.Predata,
 
-		TotalWork:  task.TotalWork, //keep this info in workunit for load balancing
-		Partition:  task.Partition,
-		State:      WORK_STAT_INIT,
-		Failed:     0,
+		TotalWork: task.TotalWork, //keep this info in workunit for load balancing
+		Partition: task.Partition,
+
 		UserAttr:   task.UserAttr,
 		ExitStatus: -1,
 

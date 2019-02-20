@@ -9,6 +9,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/user"
+
 	//"github.com/davecgh/go-spew/spew"
 	"encoding/json"
 	"os"
@@ -1058,7 +1059,7 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, s Filte
 //}
 
 //handle feedback from a client about the execution of a workunit
-func (qm *CQMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
+func (qm *CQMgr) handleNoticeWorkDelivered(notice *Notice) (err error) {
 	//to be implemented for proxy or server
 	return
 }

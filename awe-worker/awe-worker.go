@@ -44,6 +44,15 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	if conf.PREDATA_PATH != conf.DATA_PATH {
+		if _, err := os.Stat(conf.PREDATA_PATH); err != nil && os.IsNotExist(err) {
+			if err := os.MkdirAll(conf.PREDATA_PATH, 0777); err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR in creating predata_path \"%s\" : %s\n", conf.PREDATA_PATH, err.Error())
+				os.Exit(1)
+			}
+		}
+
+	}
 
 	if _, err := os.Stat(conf.LOGS_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.LOGS_PATH, 0777); err != nil {

@@ -55,7 +55,7 @@ func (qm *ProxyMgr) ClientHandle() {
 		case notice := <-qm.feedback:
 			id_str, _ := notice.Id.String()
 			logger.Debug(2, "proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", id_str, notice.Status, notice.WorkerId)
-			if err := qm.handleNoticeWorkDelivered(notice); err != nil {
+			if err := qm.handleNoticeWorkDelivered(&notice); err != nil {
 				logger.Error("handleNoticeWorkDelivered(): " + err.Error())
 			}
 		}
@@ -96,7 +96,7 @@ func (qm *ProxyMgr) GetTextStatus() string {
 // workunit methods
 
 //handle feedback from a client about the execution of a workunit
-func (qm *ProxyMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
+func (qm *ProxyMgr) handleNoticeWorkDelivered(notice *Notice) (err error) {
 	//relay the notice to the server
 	perf := new(WorkPerf)
 	workid := notice.Id

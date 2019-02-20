@@ -608,7 +608,7 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	bindstr_predata := ""
 	volume_str := ""
 	if len(workunit.Predata) > 0 {
-		predata_directory := path.Join(conf.DATA_PATH, "predata")
+		predata_directory := path.Join(conf.PREDATA_PATH, "predata")
 		bindstr_predata = predata_directory + "/:" + conf.DOCKER_WORKUNIT_PREDATA_DIR + ":ro"
 
 		bindarray = []string{bindstr_workdir, bindstr_predata} //old version

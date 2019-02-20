@@ -55,6 +55,9 @@ const (
 
 // Scatter
 // A task of type "scatter" generates multiple scatter children.
+// List of children for a scatter task are stored in field "ScatterChildren"
+// Each Scatter child points to its Scatter parent
+// Scatter child outputs do not go into context object, they only go to scatter parent output array !
 
 type TaskRaw struct {
 	rwmutex.RWMutex        `bson:"-" json:"-" mapstructure:"-"`

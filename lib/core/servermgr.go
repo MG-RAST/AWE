@@ -1062,8 +1062,68 @@ func RemoveWorkFromClient(client *Client, workid Workunit_Unique_Identifier) (er
 
 // update task object when workunits are completed
 // last workunit will complete the task
-func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *Task, workid Workunit_Unique_Identifier, computetime int) (err error) {
+func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *Task, workid Workunit_Unique_Identifier, notice *Notice) (err error) {
 	//log event about work done (WD)
+
+	computetime := notice.ComputeTime
+
+	if notice.Results != nil { // TODO one workunit vs multiple and normal vs scatter child task
+		err = task.SetStepOutput(notice.Results, true)
+		if err != nil {
+			err = fmt.Errorf("(handleWorkStatDone) task.SetStepOutput returned: %s", err.Error())
+			return
+		}
+
+		var job *Job
+		job, err = task.GetJob()
+		if err != nil {
+			err = fmt.Errorf("(handleWorkStatDone) GetJob returned: %s", err.Error())
+			return
+		}
+
+		context := job.WorkflowContext
+
+		step_output_array := []cwl.NamedCWLType(*task.StepOutput)
+
+		// iterate over expected outputs
+
+		//var process interface{}
+		//process_cached := false
+
+		for i, _ := range task.WorkflowStep.Out {
+			step_output := &task.WorkflowStep.Out[i]
+			basename := path.Base(step_output.Id)
+
+			// find in real outputs
+			found := false
+			for j, _ := range step_output_array { // []cwl.NamedCWLType
+				named := &step_output_array[j]
+				actual_output_base := path.Base(named.Id)
+				if basename == actual_output_base {
+					// add object to context using stepoutput name
+					logger.Debug(3, "(handleWorkStatDone) adding %s ...", step_output.Id)
+					err = context.Add(step_output.Id, named.Value, "handleWorkStatDone")
+					if err != nil {
+						err = fmt.Errorf("(handleWorkStatDone) context.Add returned: %s", err.Error())
+						return
+					}
+					found = true
+					continue
+				}
+
+			}
+			if !found {
+				var obj cwl.CWL_object
+				obj = cwl.NewNull()
+				err = context.Add(step_output.Id, obj, "handleWorkStatDone")
+				// check if this is an optional output in the tool
+
+				//err = fmt.Errorf("(handleWorkStatDone) expected output not found: %s", basename)
+				//return
+			}
+		}
+
+	}
 
 	var work_str string
 	work_str, err = workid.String()
@@ -1223,7 +1283,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 
 	notice_status := notice.Status
 
-	computetime := notice.ComputeTime
+	//computetime := notice.ComputeTime
 	notes := notice.Notes
 
 	var work_str string
@@ -1274,63 +1334,63 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 
 	reason := ""
 
-	if notice.Results != nil { // TODO one workunit vs multiple !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-		err = task.SetStepOutput(notice.Results, true)
-		if err != nil {
-			err = fmt.Errorf("(handleNoticeWorkDelivered) task.SetStepOutput returned: %s", err.Error())
-			return
-		}
+	// if notice.Results != nil { // TODO one workunit vs multiple !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// 	err = task.SetStepOutput(notice.Results, true)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(handleNoticeWorkDelivered) task.SetStepOutput returned: %s", err.Error())
+	// 		return
+	// 	}
 
-		var job *Job
-		job, err = GetJob(job_id)
-		if err != nil {
-			err = fmt.Errorf("(handleNoticeWorkDelivered) GetJob returned: %s", err.Error())
-			return
-		}
+	// 	var job *Job
+	// 	job, err = GetJob(job_id)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(handleNoticeWorkDelivered) GetJob returned: %s", err.Error())
+	// 		return
+	// 	}
 
-		context := job.WorkflowContext
+	// 	context := job.WorkflowContext
 
-		step_output_array := []cwl.NamedCWLType(*task.StepOutput)
+	// 	step_output_array := []cwl.NamedCWLType(*task.StepOutput)
 
-		// iterate over expected outputs
+	// 	// iterate over expected outputs
 
-		//var process interface{}
-		//process_cached := false
+	// 	//var process interface{}
+	// 	//process_cached := false
 
-		for i, _ := range task.WorkflowStep.Out {
-			step_output := &task.WorkflowStep.Out[i]
-			basename := path.Base(step_output.Id)
+	// 	for i, _ := range task.WorkflowStep.Out {
+	// 		step_output := &task.WorkflowStep.Out[i]
+	// 		basename := path.Base(step_output.Id)
 
-			// find in real outputs
-			found := false
-			for j, _ := range step_output_array { // []cwl.NamedCWLType
-				named := &step_output_array[j]
-				actual_output_base := path.Base(named.Id)
-				if basename == actual_output_base {
-					// add object to context using stepoutput name
-					logger.Debug(3, "(handleNoticeWorkDelivered) adding %s ...", step_output.Id)
-					err = context.Add(step_output.Id, named.Value, "handleNoticeWorkDelivered")
-					if err != nil {
-						err = fmt.Errorf("(handleNoticeWorkDelivered) context.Add returned: %s", err.Error())
-						return
-					}
-					found = true
-					continue
-				}
+	// 		// find in real outputs
+	// 		found := false
+	// 		for j, _ := range step_output_array { // []cwl.NamedCWLType
+	// 			named := &step_output_array[j]
+	// 			actual_output_base := path.Base(named.Id)
+	// 			if basename == actual_output_base {
+	// 				// add object to context using stepoutput name
+	// 				logger.Debug(3, "(handleNoticeWorkDelivered) adding %s ...", step_output.Id)
+	// 				err = context.Add(step_output.Id, named.Value, "handleNoticeWorkDelivered")
+	// 				if err != nil {
+	// 					err = fmt.Errorf("(handleNoticeWorkDelivered) context.Add returned: %s", err.Error())
+	// 					return
+	// 				}
+	// 				found = true
+	// 				continue
+	// 			}
 
-			}
-			if !found {
-				var obj cwl.CWL_object
-				obj = cwl.NewNull()
-				err = context.Add(step_output.Id, obj, "handleNoticeWorkDelivered")
-				// check if this is an optional output in the tool
+	// 		}
+	// 		if !found {
+	// 			var obj cwl.CWL_object
+	// 			obj = cwl.NewNull()
+	// 			err = context.Add(step_output.Id, obj, "handleNoticeWorkDelivered")
+	// 			// check if this is an optional output in the tool
 
-				//err = fmt.Errorf("(handleNoticeWorkDelivered) expected output not found: %s", basename)
-				//return
-			}
-		}
+	// 			//err = fmt.Errorf("(handleNoticeWorkDelivered) expected output not found: %s", basename)
+	// 			//return
+	// 		}
+	// 	}
 
-	}
+	// }
 
 	// *** Get workunit
 	var work *Workunit
@@ -1357,6 +1417,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	// *** update state of workunit
 	err = qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, notice_status, reason)
 	if err != nil {
+		err = fmt.Errorf("(handleNoticeWorkDelivered) qm.workQueue.StatusChange returned: %s", err.Error())
 		return
 	}
 
@@ -1384,28 +1445,29 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		// A work unit for this task failed before this one arrived.
 		// User set Skip=2 so the task was just skipped. Any subsiquent
 		// workunits are just deleted...
-		qm.workQueue.Delete(work_id)
+		_ = qm.workQueue.Delete(work_id)
 		err = fmt.Errorf("(handleNoticeWorkDelivered) workunit %s failed due to skip", work_str)
 		return
 	}
 
 	logger.Debug(3, "(handleNoticeWorkDelivered) handling status %s", notice_status)
-	if notice_status == WORK_STAT_DONE {
+	switch notice_status {
+	case WORK_STAT_DONE:
 		//      ******************
 		//      * WORK_STAT_DONE *
 		//      ******************
-		err = qm.handleWorkStatDone(client, clientid, task, work_id, computetime)
+		err = qm.handleWorkStatDone(client, clientid, task, work_id, &notice)
 		if err != nil {
 			err = fmt.Errorf("(handleNoticeWorkDelivered) handleWorkStatDone returned: %s", err.Error())
 			return
 		}
-	} else if notice_status == WORK_STAT_FAILED_PERMANENT { // (special case !) failed and cannot be recovered
+	case WORK_STAT_FAILED_PERMANENT: // (special case !) failed and cannot be recovered
 
 		logger.Event(event.WORK_FAILED, "workid="+work_str+";clientid="+clientid)
 		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s) workid=%s clientid=%s", notice_status, work_str, clientid)
 		work.Failed += 1
 
-		qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_FAILED_PERMANENT, "")
+		//qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_FAILED_PERMANENT, "")
 
 		err = task.SetState(nil, TASK_STAT_FAILED_PERMANENT, true)
 		if err != nil {
@@ -1428,10 +1490,11 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 			AppError:     notice.Stderr,
 			Status:       JOB_STAT_FAILED_PERMANENT,
 		}
-		if err = qm.SuspendJob(job_id, jerror); err != nil {
+		err = qm.SuspendJob(job_id, jerror)
+		if err != nil {
 			logger.Error("(handleNoticeWorkDelivered:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
 		}
-	} else if notice_status == WORK_STAT_ERROR { //workunit failed, requeue or put it to suspend list
+	case WORK_STAT_ERROR: //workunit failed, requeue or put it to suspend list
 		logger.Event(event.WORK_FAIL, "workid="+work_str+";clientid="+clientid)
 		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s, notes: %s) workid=%s clientid=%s", notice_status, notes, work_str, clientid)
 
@@ -1498,7 +1561,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		if last_failed >= conf.MAX_CLIENT_FAILURE {
 			qm.SuspendClient(clientid, client, "MAX_CLIENT_FAILURE on client reached", true)
 		}
-	} else {
+	default:
 		err = fmt.Errorf("No handler for workunit status '%s' implemented (allowd: %s, %s, %s)", notice_status, WORK_STAT_DONE, WORK_STAT_FAILED_PERMANENT, WORK_STAT_ERROR)
 		return
 	}

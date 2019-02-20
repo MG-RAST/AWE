@@ -11,12 +11,14 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/MG-RAST/golib/httpclient"
+
 	//"github.com/davecgh/go-spew/spew"
 	"io"
 	"io/ioutil"
@@ -546,7 +548,7 @@ func fetchFile_old(filename string, url string, token string) (size int64, err e
 func movePreData(workunit *core.Workunit) (size int64, err error) {
 	for _, io := range workunit.Predata {
 		name := io.FileName
-		predata_directory := path.Join(conf.DATA_PATH, "predata")
+		predata_directory := path.Join(conf.PREDATA_PATH, "predata")
 		err = os.MkdirAll(predata_directory, 755)
 		if err != nil {
 			err = errors.New("error creating predata_directory: " + err.Error())

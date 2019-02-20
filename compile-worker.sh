@@ -7,6 +7,6 @@ set -e
 
 touch lib/conf/conf.go
 set -x
-CGO_ENABLED=0 go install $1 -installsuffix cgo -v -ldflags="-X github.com/MG-RAST/AWE/lib/conf.VERSION=$(git describe)" ./awe-worker/
+CGO_ENABLED=0 go install $1 -installsuffix cgo -v -ldflags="-X github.com/MG-RAST/AWE/lib/conf.VERSION=$(git describe --tags)" ./awe-worker/
 set +x
 

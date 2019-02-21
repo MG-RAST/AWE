@@ -1060,83 +1060,16 @@ func RemoveWorkFromClient(client *Client, workid Workunit_Unique_Identifier) (er
 	return
 }
 
-// update task object when workunits are completed
-// last workunit will complete the task
+// invoked for every completed workunit
+// updates task object:
+//  - every workunit will decrease counter task.RemainWork
+//  - last workunit will complete the task
+// ** only last workunit writes CWL results into task ! **
+// ** other workunits contribute only their rank information **
 func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *Task, workid Workunit_Unique_Identifier, notice *Notice) (err error) {
 	//log event about work done (WD)
 
 	computetime := notice.ComputeTime
-
-	if notice.Results != nil { // TODO one workunit vs multiple and normal vs scatter child task
-		err = task.SetStepOutput(notice.Results, true)
-		if err != nil {
-			err = fmt.Errorf("(handleWorkStatDone) task.SetStepOutput returned: %s", err.Error())
-			return
-		}
-
-		var job *Job
-		job, err = task.GetJob()
-		if err != nil {
-			err = fmt.Errorf("(handleWorkStatDone) GetJob returned: %s", err.Error())
-			return
-		}
-
-		context := job.WorkflowContext
-
-		step_output_array := []cwl.NamedCWLType(*task.StepOutput)
-
-		// iterate over expected outputs
-
-		//var process interface{}
-		//process_cached := false
-
-		if task.WorkflowStep == nil {
-			err = fmt.Errorf("(handleWorkStatDone) task.WorkflowStep == nil")
-			return
-		}
-
-		// TODO
-		// this should go in taskCompleted
-		if workid.Rank == 0 { // single workunit per task
-
-			for i, _ := range task.WorkflowStep.Out {
-				step_output := &task.WorkflowStep.Out[i]
-				basename := path.Base(step_output.Id)
-
-				// find in real outputs
-				found := false
-				for j, _ := range step_output_array { // []cwl.NamedCWLType
-					named := &step_output_array[j]
-					actual_output_base := path.Base(named.Id)
-					if basename == actual_output_base {
-						// add object to context using stepoutput name
-						logger.Debug(3, "(handleWorkStatDone) adding %s ...", step_output.Id)
-						err = context.Add(step_output.Id, named.Value, "handleWorkStatDone")
-						if err != nil {
-							err = fmt.Errorf("(handleWorkStatDone) context.Add returned: %s", err.Error())
-							return
-						}
-						found = true
-						continue
-					}
-
-				}
-				if !found {
-					var obj cwl.CWL_object
-					obj = cwl.NewNull()
-					err = context.Add(step_output.Id, obj, "handleWorkStatDone")
-					// check if this is an optional output in the tool
-
-					//err = fmt.Errorf("(handleWorkStatDone) expected output not found: %s", basename)
-					//return
-				}
-			}
-		} else {
-			err = fmt.Errorf("(handleWorkStatDone)  multiple workunits not supported yet")
-			return
-		}
-
-	}
 
 	var work_str string
 	work_str, err = workid.String()
@@ -1200,13 +1133,21 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 
 	logger.Debug(3, "(handleWorkStatDone) remain_work: %d (%s)", remain_work, work_str)
 
-	if remain_work > 0 {
-		return
+	if remain_work == 0 {
+		err = qm.handleLastWorkunit(clientid, task, task_str, work_str, notice)
+		if err != nil {
+			err = fmt.Errorf("(handleWorkStatDone) handleLastWorkunit returned: %s", err.Error())
+			return
+		}
 	}
 
-	// ****************************
-	// ******* LAST WORKUNIT ******
-	// ****************************
+	return
+}
+
+// ****************************
+// ******* LAST WORKUNIT ******
+// ****************************
+func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str string, work_str string, notice *Notice) (err error) {
 
 	// validate file sizes of all outputs
 	err = task.ValidateOutputs() // for AWE1 only
@@ -1234,6 +1175,69 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		return
 	}
 
+	// **************************************
+	// ******* write results into task ******
+	// **************************************
+	err = task.SetStepOutput(notice.Results, true)
+	if err != nil {
+		err = fmt.Errorf("(handleWorkStatDone) task.SetStepOutput returned: %s", err.Error())
+		return
+	}
+
+	var job *Job
+	job, err = task.GetJob()
+	if err != nil {
+		err = fmt.Errorf("(handleWorkStatDone) GetJob returned: %s", err.Error())
+		return
+	}
+
+	context := job.WorkflowContext
+
+	// iterate over expected outputs
+
+	//var process interface{}
+	//process_cached := false
+
+	if task.WorkflowStep == nil {
+		err = fmt.Errorf("(handleWorkStatDone) task.WorkflowStep == nil")
+		return
+	}
+
+	for i, _ := range task.WorkflowStep.Out {
+		step_output := &task.WorkflowStep.Out[i]
+		basename := path.Base(step_output.Id)
+
+		step_output_array := []cwl.NamedCWLType(*task.StepOutput)
+
+		// find in real outputs
+		found := false
+		for j, _ := range step_output_array { // []cwl.NamedCWLType
+			named := &step_output_array[j]
+			actual_output_base := path.Base(named.Id)
+			if basename == actual_output_base {
+				// add object to context using stepoutput name
+				logger.Debug(3, "(handleWorkStatDone) adding %s ...", step_output.Id)
+				err = context.Add(step_output.Id, named.Value, "handleWorkStatDone")
+				if err != nil {
+					err = fmt.Errorf("(handleWorkStatDone) context.Add returned: %s", err.Error())
+					return
+				}
+				found = true
+				continue
+			}
+
+		}
+		if !found {
+			var obj cwl.CWL_object
+			obj = cwl.NewNull()
+			err = context.Add(step_output.Id, obj, "handleWorkStatDone") // TODO: DO NOT DO THIS FOR SCATTER TASKS
+			// check if this is an optional output in the tool
+
+			//err = fmt.Errorf("(handleWorkStatDone) expected output not found: %s", basename)
+			//return
+		}
+	}
+
 	var wi *WorkflowInstance
 	var ok bool
 	wi, ok, err = task.GetWorkflowInstance()
@@ -1246,32 +1250,6 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 		err = fmt.Errorf("(handleWorkStatDone) Did not get WorkflowInstance from task")
 		return
 	}
-
-	// wi_local_id := task.WorkflowInstanceId
-
-	// if wi_local_id != "" {
-	// 	var jobid string
-	// 	jobid, err = task.GetJobId()
-	// 	if err != nil {
-	// 		err = fmt.Errorf("(handleWorkStatDone) task.GetJobId returned: %s", err.Error())
-	// 		return
-	// 	}
-
-	// 	wi_global_id := jobid + "_" + wi_local_id
-
-	// 	var ok bool
-	// 	wi, ok, err = GlobalWorkflowInstanceMap.Get(wi_global_id)
-	// 	if err != nil {
-	// 		err = fmt.Errorf("(handleWorkStatDone) GlobalWorkflowInstanceMap.Get( returned: %s", err.Error())
-	// 		return
-	// 	}
-
-	// 	if !ok {
-	// 		err = fmt.Errorf("(handleWorkStatDone) Did not get %s from GlobalWorkflowInstanceMap", wi_global_id)
-	// 		return
-	// 	}
-
-	// }
 
 	err = task.SetState(wi, TASK_STAT_COMPLETED, true)
 	if err != nil {
@@ -1291,10 +1269,11 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 	//task in the task map when the task is the final task of the job to be done.
 	err = qm.taskCompleted(task) //task state QUEUED -> COMPLETED
 	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) updateJobTask returned: %s", err.Error())
+		err = fmt.Errorf("(handleWorkStatDone) taskCompleted returned: %s", err.Error())
 		return
 	}
 	return
+
 }
 
 // handle feedback from a client about the execution of a workunit
@@ -4872,7 +4851,8 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflow_instance *WorkflowIn
 	return
 }
 
-// update job info when a task in that job changed to a new state
+// invoked when tasks completes
+// update job info
 // update parent task of a scatter task
 // this is invoked everytime a task changes state, but only when job_remainTasks==0 and if state is not yet JOB_STAT_COMPLETED it will complete the job
 func (qm *ServerMgr) taskCompleted(task *Task) (err error) {

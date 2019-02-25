@@ -4956,12 +4956,18 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 		}
 
 		var subworkflow_remain_tasks int
-		subworkflow_remain_tasks, err = workflow_instance.DecreaseRemainSteps()
+		subworkflow_remain_tasks, err = workflow_instance.GetRemainSteps(true)
 		if err != nil {
-			err = fmt.Errorf("(taskCompleted) workflow_instance.DecreaseRemainSteps returned: %s", err.Error())
+			err = fmt.Errorf("(taskCompleted) workflow_instance.GetRemainSteps returned: %s", err.Error())
 			return
-
 		}
+
+		//subworkflow_remain_tasks, err = workflow_instance.DecreaseRemainSteps()
+		//if err != nil {
+		//	err = fmt.Errorf("(taskCompleted) workflow_instance.DecreaseRemainSteps returned: %s", err.Error())
+		//	return
+
+		//}
 
 		logger.Debug(3, "(taskCompleted) TASK_STAT_COMPLETED  / remaining tasks for subworkflow %s: %d", task_str, subworkflow_remain_tasks)
 
@@ -4970,6 +4976,8 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 		if subworkflow_remain_tasks > 0 {
 			return
 		}
+
+		//TODO find a way to lock this
 
 		// subworkflow completed.
 		var reason string

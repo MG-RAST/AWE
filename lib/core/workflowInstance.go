@@ -627,3 +627,19 @@ func (wi *WorkflowInstance) IncrementRemainSteps(write_lock bool) (remain int, e
 
 	return
 }
+
+func (wi *WorkflowInstance) GetRemainSteps(read_lock bool) (remain int, err error) {
+	if read_lock {
+		var lock rwmutex.ReadLock
+		lock, err = wi.RLockNamed("GetRemainSteps")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/GetRemainSteps) RLockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.RUnlockNamed(lock)
+	}
+
+	remain = wi.RemainSteps
+
+	return
+}

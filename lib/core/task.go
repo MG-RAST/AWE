@@ -171,6 +171,7 @@ func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) 
 	if len(task.Id) > 0 && (!strings.HasPrefix(task.Id, job_prefix)) {
 		task.TaskName = task.Id
 		changed = true
+		panic("should not happen 1")
 	}
 	//logger.Debug(3, "task.TaskName B: %s", task.TaskName)
 	//if strings.HasSuffix(task.TaskName, "ERROR") {
@@ -186,6 +187,7 @@ func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) 
 			return
 		}
 		task.Task_Unique_Identifier = tid
+		panic("should not happen 2")
 	}
 
 	var task_str string

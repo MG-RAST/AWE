@@ -326,7 +326,7 @@ func (c *WorkflowContext) Add(id string, obj CWL_object, caller string) (err err
 		return
 	}
 
-	logger.Debug(3, "(WorkflowContext/Add) Adding object %s to collection (type: %s)", id, reflect.TypeOf(obj))
+	logger.Debug(3, "(WorkflowContext/Add) Adding object %s to collection (type: %s, caller: %s)", id, reflect.TypeOf(obj), caller)
 
 	if c.All == nil {
 		c.All = make(map[string]CWL_object)

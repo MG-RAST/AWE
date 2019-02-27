@@ -386,8 +386,11 @@ func (wi *WorkflowInstance) GetTaskByName(task_name string, read_lock bool) (tas
 		}
 		defer wi.RUnlockNamed(lock)
 	}
+	logger.Debug(3, "(GetTaskByName) search: %s", task_name)
 	for _, t := range wi.Tasks {
-		if t.TaskName == task_name {
+		base_name := path.Base(t.TaskName)
+		logger.Debug(3, "(GetTaskByName) task: %s", t.TaskName)
+		if base_name == task_name {
 			ok = true
 			task = t
 		}

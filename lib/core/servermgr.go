@@ -807,6 +807,9 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 				return
 			}
 
+			if len(wi_tasks) > 8 {
+				panic("too many tasks!")
+			}
 			if len(wi_tasks) > 0 {
 				for j, _ := range wi_tasks {
 					task := wi_tasks[j]
@@ -1203,41 +1206,42 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 		return
 	}
 
-	for i, _ := range task.WorkflowStep.Out {
-		step_output := &task.WorkflowStep.Out[i]
-		basename := path.Base(step_output.Id)
+	if task.Scatter_parent == nil {
+		for i, _ := range task.WorkflowStep.Out {
+			step_output := &task.WorkflowStep.Out[i]
+			basename := path.Base(step_output.Id)
 
-		step_output_array := []cwl.NamedCWLType(*task.StepOutput)
+			step_output_array := []cwl.NamedCWLType(*task.StepOutput)
 
-		// find in real outputs
-		found := false
-		for j, _ := range step_output_array { // []cwl.NamedCWLType
-			named := &step_output_array[j]
-			actual_output_base := path.Base(named.Id)
-			if basename == actual_output_base {
-				// add object to context using stepoutput name
-				logger.Debug(3, "(handleWorkStatDone) adding %s ...", step_output.Id)
-				err = context.Add(step_output.Id, named.Value, "handleWorkStatDone")
-				if err != nil {
-					err = fmt.Errorf("(handleWorkStatDone) context.Add returned: %s", err.Error())
-					return
+			// find in real outputs
+			found := false
+			for j, _ := range step_output_array { // []cwl.NamedCWLType
+				named := &step_output_array[j]
+				actual_output_base := path.Base(named.Id)
+				if basename == actual_output_base {
+					// add object to context using stepoutput name
+					logger.Debug(3, "(handleWorkStatDone) adding %s ...", step_output.Id)
+					err = context.Add(step_output.Id, named.Value, "handleWorkStatDone")
+					if err != nil {
+						err = fmt.Errorf("(handleWorkStatDone) context.Add returned: %s", err.Error())
+						return
+					}
+					found = true
+					continue
 				}
-				found = true
-				continue
+
 			}
+			if !found {
+				var obj cwl.CWL_object
+				obj = cwl.NewNull()
+				err = context.Add(step_output.Id, obj, "handleWorkStatDone") // TODO: DO NOT DO THIS FOR SCATTER TASKS
+				// check if this is an optional output in the tool
 
-		}
-		if !found {
-			var obj cwl.CWL_object
-			obj = cwl.NewNull()
-			err = context.Add(step_output.Id, obj, "handleWorkStatDone") // TODO: DO NOT DO THIS FOR SCATTER TASKS
-			// check if this is an optional output in the tool
-
-			//err = fmt.Errorf("(handleWorkStatDone) expected output not found: %s", basename)
-			//return
+				//err = fmt.Errorf("(handleWorkStatDone) expected output not found: %s", basename)
+				//return
+			}
 		}
 	}
-
 	var wi *WorkflowInstance
 	var ok bool
 	wi, ok, err = task.GetWorkflowInstance()
@@ -2729,7 +2733,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		scatter_task_name := basename + "_scatter" + permutation_instance
 
 		// create task
-		var awe_task *Task
+		var sub_task *Task
 
 		//var parent_id_str string
 		// parent_id_str, err = task.GetWorkflowParentStr()
@@ -2740,20 +2744,20 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		//parent_id_str = "test"
 		logger.Debug(3, "(taskEnQueueScatter) New Task: parent: %s and scatter_task_name: %s", parent_id_str, scatter_task_name)
 
-		awe_task, err = NewTask(job, parent_id_str, scatter_task_name)
+		sub_task, err = NewTask(job, parent_id_str, scatter_task_name)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueScatter) NewTask returned: %s", err.Error())
 			return
 		}
 
-		awe_task.Scatter_parent = &task.Task_Unique_Identifier
+		sub_task.Scatter_parent = &task.Task_Unique_Identifier
 		//awe_task.Scatter_task = true
-		_, err = awe_task.Init(job, job.Id)
+		_, err = sub_task.Init(job, job.Id)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueScatter) awe_task.Init() returns: %s", err.Error())
 			return
 		}
-		awe_task.TaskType = TASK_TYPE_NORMAL // unless this is a scatter of a scatter...
+		sub_task.TaskType = TASK_TYPE_NORMAL // unless this is a scatter of a scatter...
 
 		// create step
 		var new_task_step cwl.WorkflowStep
@@ -2790,21 +2794,27 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		spew.Dump(new_task_step)
 
 		new_task_step.Id = parent_id_str + "/" + scatter_task_name
-		awe_task.WorkflowStep = &new_task_step
+		sub_task.WorkflowStep = &new_task_step
 		children = append(children, scatter_task_name)
 
 		new_task_step.Scatter = nil // []string{}
-		new_scatter_tasks = append(new_scatter_tasks, awe_task)
+		new_scatter_tasks = append(new_scatter_tasks, sub_task)
 
 		counter_running = counter.Increment()
 	}
 
-	task.SetScatterChildren(qm, children, true)
+	err = task.SetScatterChildren(qm, children, true)
+	if err != nil {
+		err = fmt.Errorf("(taskEnQueueScatter) task.SetScatterChildren returned: %s", err.Error())
+		return
+	}
 
 	// add tasks to job and submit
 	for i := range new_scatter_tasks {
 		sub_task := new_scatter_tasks[i]
-
+		sub_task_id, _ := sub_task.GetId("taskEnQueueScatter")
+		sub_task_id_str, _ := sub_task_id.String()
+		logger.Debug(3, "(taskEnQueueScatter) adding %s to workflow_instance", sub_task_id_str)
 		err = workflow_instance.AddTask(job, sub_task, "db_sync_yes", true)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueScatter) job.AddTask returns: %s", err.Error())
@@ -4337,7 +4347,7 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 
 //---end of task methods---
 
-func (qm *ServerMgr) taskCompleted_Scatter(wi *WorkflowInstance, task *Task) (err error) {
+func (qm *ServerMgr) taskCompleted_Scatter(job *Job, wi *WorkflowInstance, task *Task) (err error) {
 
 	var task_str string
 	task_str, err = task.String()
@@ -4399,7 +4409,6 @@ func (qm *ServerMgr) taskCompleted_Scatter(wi *WorkflowInstance, task *Task) (er
 		return
 	}
 
-	// // (updateJobTask) scatter_complete
 	ok, err = scatter_parent_task.Finalize() // make sure this is the last scatter task
 	if err != nil {
 		err = fmt.Errorf("(taskCompleted_Scatter) scatter_parent_task.Finalize returned: %s", err.Error())
@@ -4407,13 +4416,22 @@ func (qm *ServerMgr) taskCompleted_Scatter(wi *WorkflowInstance, task *Task) (er
 	}
 
 	if !ok {
+		logger.Debug(3, "(taskCompleted_Scatter) somebody else is finalizing")
 		// somebody else is finalizing
 		return
 	}
 
+	// ***************************************
+	//           scatter_complete
+	// ***************************************
+
+	logger.Debug(3, "(taskCompleted_Scatter) scatter_complete")
+
 	scatter_parent_step := scatter_parent_task.WorkflowStep
 
 	scatter_parent_task.StepOutput = &cwl.Job_document{}
+
+	context := job.WorkflowContext
 
 	//fmt.Printf("XXX start\n")
 	for i, _ := range scatter_parent_step.Out {
@@ -4440,6 +4458,11 @@ func (qm *ServerMgr) taskCompleted_Scatter(wi *WorkflowInstance, task *Task) (er
 			output_array = append(output_array, child_output)
 			//fmt.Println("output_array:")
 			//spew.Dump(output_array)
+		}
+		err = context.Add(workflow_step_output_id, &output_array, "taskCompleted_Scatter")
+		if err != nil {
+			err = fmt.Errorf("(taskCompleted_Scatter) context.Add returned: %s", err.Error())
+			return
 		}
 		//fmt.Println("final output_array:")
 		//spew.Dump(output_array)
@@ -4794,7 +4817,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflow_instance *WorkflowIn
 		return
 	}
 
-	// ***** notify parent workflow (this wokrflow might have been the last step)
+	// ***** notify parent workflow (this workflow might have been the last step)
 
 	workflow_instance_local_id := workflow_instance.LocalId
 	logger.Debug(3, "(completeSubworkflow) completes with workflow_instance_local_id: %s", workflow_instance_local_id)
@@ -4926,7 +4949,7 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 			}
 
 			// process scatter children
-			err = qm.taskCompleted_Scatter(wi, task)
+			err = qm.taskCompleted_Scatter(job, wi, task)
 			if err != nil {
 				err = fmt.Errorf("(taskCompleted) taskCompleted_Scatter returned: %s", err.Error())
 				return
@@ -4955,8 +4978,8 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 			return
 		}
 
-		var subworkflow_remain_tasks int
-		subworkflow_remain_tasks, err = workflow_instance.GetRemainSteps(true)
+		var subworkflow_remain_steps int
+		subworkflow_remain_steps, err = workflow_instance.GetRemainSteps(true)
 		if err != nil {
 			err = fmt.Errorf("(taskCompleted) workflow_instance.GetRemainSteps returned: %s", err.Error())
 			return
@@ -4969,11 +4992,11 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 
 		//}
 
-		logger.Debug(3, "(taskCompleted) TASK_STAT_COMPLETED  / remaining tasks for subworkflow %s: %d", task_str, subworkflow_remain_tasks)
+		logger.Debug(3, "(taskCompleted) TASK_STAT_COMPLETED  / remaining steps for subworkflow %s: %d", task_str, subworkflow_remain_steps)
 
-		logger.Debug(3, "(taskCompleted) workflow_instance %s remaining tasks: %d (total %d or %d)", workflow_instance_id, subworkflow_remain_tasks, workflow_instance.TaskCount(), workflow_instance.TotalTasks)
+		logger.Debug(3, "(taskCompleted) workflow_instance %s remaining tasks: %d (total %d or %d)", workflow_instance_id, subworkflow_remain_steps, workflow_instance.TaskCount(), workflow_instance.TotalTasks)
 
-		if subworkflow_remain_tasks > 0 {
+		if subworkflow_remain_steps > 0 {
 			return
 		}
 

@@ -807,9 +807,6 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 				return
 			}
 
-			if len(wi_tasks) > 8 {
-				panic("too many tasks!")
-			}
 			if len(wi_tasks) > 0 {
 				for j, _ := range wi_tasks {
 					task := wi_tasks[j]
@@ -818,6 +815,9 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 				}
 			} else {
 				fmt.Printf("  no tasks\n")
+			}
+			if len(wi_tasks) > 20 {
+				panic("too many tasks!")
 			}
 		}
 

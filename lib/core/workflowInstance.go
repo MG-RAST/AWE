@@ -240,6 +240,13 @@ func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync string, write_
 		return
 	}
 
+	for _, t := range wi.Tasks {
+		if t.TaskName == task.TaskName {
+			err = fmt.Errorf("(AddTask) task with same name already in WorkflowInstance (%s)", task.TaskName)
+			return
+		}
+	}
+
 	_, err = wi.IncrementRemainSteps(false)
 	if err != nil {
 		err = fmt.Errorf("(AddTask) wi.IncrementRemainSteps returned: %s", err.Error())

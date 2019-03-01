@@ -137,7 +137,7 @@ func dbUpdateJobWorkflow_instancesFields(job_id string, subworkflow_id string, u
 
 	err = c.Update(selector, bson.M{"$set": update_value})
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobWorkflow_instancesFields) Error updating workflow_instance: " + err.Error())
+		err = fmt.Errorf("(dbUpdateJobWorkflow_instancesFields) Error updating workflow_instance (subworkflow_id: %s): %s", subworkflow_id, err.Error())
 		return
 	}
 	return
@@ -178,7 +178,7 @@ func dbUpdateWorkflow_instancesFields(job_id string, subworkflow_id string, upda
 
 	err = c.Update(selector, bson.M{"$set": update_value})
 	if err != nil {
-		err = fmt.Errorf("Error updating job fields: " + err.Error())
+		err = fmt.Errorf("Error updating job fields: %s", err.Error())
 		return
 	}
 	return

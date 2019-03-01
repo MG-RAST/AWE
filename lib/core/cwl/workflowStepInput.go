@@ -133,7 +133,27 @@ func NewWorkflowStepInput(original interface{}, context *WorkflowContext) (input
 			}
 			input_parameter.ValueFrom = Expression(valueFrom_str)
 		}
-		return
+
+		if input_parameter_ptr.LinkMerge == nil {
+			// handle special case where LinkMerge is not defined, source is an array of length 1
+			// https://github.com/common-workflow-language/common-workflow-language/issues/675
+
+			switch input_parameter_ptr.Source.(type) {
+			case []interface{}:
+				var source_array []interface{}
+				source_array, ok = input_parameter_ptr.Source.([]interface{})
+				if !ok {
+					err = fmt.Errorf("(NewWorkflowStepInput) could not convert to []interface{}")
+					return
+				}
+
+				if len(source_array) == 1 {
+					input_parameter_ptr.Source = source_array[0]
+				}
+
+			}
+
+		}
 
 	default:
 

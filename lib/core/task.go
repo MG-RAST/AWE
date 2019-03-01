@@ -726,13 +726,13 @@ func (task *Task) SetTaskType(type_str string, writelock bool) (err error) {
 	if task.WorkflowInstanceId == "" {
 		err = dbUpdateJobTaskString(task.JobId, task.WorkflowInstanceId, task.Id, "task_type", type_str)
 		if err != nil {
-			err = fmt.Errorf("(task/SetState) dbUpdateJobTaskString returned: %s", err.Error())
+			err = fmt.Errorf("(task/SetTaskType) dbUpdateJobTaskString returned: %s", err.Error())
 			return
 		}
 	} else {
 		err = dbUpdateTaskString(task.JobId, task.WorkflowInstanceId, task.Id, "task_type", type_str)
 		if err != nil {
-			err = fmt.Errorf("(task/SetState) dbUpdateTaskString returned: %s", err.Error())
+			err = fmt.Errorf("(task/SetTaskType) dbUpdateTaskString returned: %s", err.Error())
 			return
 		}
 	}

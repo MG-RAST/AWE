@@ -2003,9 +2003,15 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, caller string) (err error
 		}
 
 		if task_state == TASK_STAT_INPROGRESS || task_state == TASK_STAT_QUEUED {
-			task.SetState(nil, TASK_STAT_READY, true)
+			err = task.SetState(nil, TASK_STAT_READY, true)
+			if err != nil {
+				return
+			}
 		} else if task_state == TASK_STAT_SUSPEND {
-			task.SetState(nil, TASK_STAT_PENDING, true)
+			err = task.SetState(nil, TASK_STAT_PENDING, true)
+			if err != nil {
+				return
+			}
 		}
 
 		// add to qm.TaskMap

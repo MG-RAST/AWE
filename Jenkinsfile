@@ -1,6 +1,11 @@
 pipeline {
     agent { 
-        node {label 'bare-metal' }
+        node {
+            label 'bare-metal'
+            
+           
+            
+         }
     } 
     stages {
         stage('pre-cleanup') {
@@ -8,14 +13,17 @@ pipeline {
                 sh '''#!/bin/bash
                 base_dir=`pwd`
 
-                cd $base_dir/Skyport2
-                rm -f docker-compose.yaml
-                ln -s Docker/Compose/skyport-awe-testing.yaml docker-compose.yaml
-
+                if [ -d $base_dir/Skyport2 ] ; then
+                  cd $base_dir/Skyport2
+                  rm -f docker-compose.yaml
+                  ln -s Docker/Compose/skyport-awe-testing.yaml docker-compose.yaml
+                fi
+                
                 # Clean up
-                if [ -e ./skyport2.env ] ; then
-                  . ./skyport2.env
-                  docker-compose down
+                if [ -e $base_dir/skyport2.env ] ; then
+                    cd $base_dir/Skyport2
+                    source ./skyport2.env
+                    docker-compose down
                 fi
                 docker rm -f $(docker ps -a -f name=skyport2_ -q)
                 docker rm -f $(docker ps -a -f name=compose_ -q)
@@ -25,9 +33,16 @@ pipeline {
                 echo "Deleting live-data"
 
                 docker run --rm --volume `pwd`:/tmp/workspace bash rm -rf /tmp/workspace/live-data
-                # ls -l live-data
+                
                 docker volume prune -f
                 '''
+            }
+        }
+        stage('get-source') {
+            steps {
+                git url: 'https://github.com/wgerlach/AWE.git', branch: 'master'
+                git url: 'https://github.com/MG-RAST/Skyport2.git', branch: 'master'
+                git url: 'https://github.com/common-workflow-language/common-workflow-language.git', branch: 'master'
             }
         }
         stage('Build') { 
@@ -43,7 +58,14 @@ pipeline {
                 DOCKER_PATH=$(which docker)
                 echo "DOCKER_PATH=${DOCKER_PATH}"
 
+                base_dir=`pwd`
 
+                if [ -d $base_dir/Skyport2 ] ; then
+                  cd $base_dir/Skyport2
+                  rm -f docker-compose.yaml
+                  ln -s Docker/Compose/skyport-awe-testing.yaml docker-compose.yaml
+                fi
+                
 
                 # Debugging
                 pwd
@@ -51,7 +73,7 @@ pipeline {
                 # docker images
                 docker ps
 
-                base_dir=`pwd`
+                
 
                
                 docker ps

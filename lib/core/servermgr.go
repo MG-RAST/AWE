@@ -299,6 +299,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 					return
 				}
 
+				logger.Debug(3, "(updateWorkflowInstancesMapTask) adding %s to workflow_instance", awe_task.TaskName)
 				err = wi.AddTask(job, awe_task, "db_sync_yes", true)
 				if err != nil {
 					err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.AddTask returned: %s", err.Error())
@@ -377,6 +378,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 		}
 		wi.Subworkflows = subworkflow_str
 		wi.RemainSteps = len(cwl_workflow.Steps)
+		// pending -> ready
 		wi.SetState(WI_STAT_READY, "db_sync_true", true)
 
 		//spew.Dump(wi)
@@ -443,6 +445,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMap() (err error) {
 		err = qm.updateWorkflowInstancesMapTask(wi)
 
 		if err != nil {
+
 			last_error = err
 			error_count += 1
 			err = nil
@@ -2291,7 +2294,7 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 	return
 }
 
-func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_map cwl.JobDocMap, workflow *cwl.Workflow, logTimes bool) (times map[string]time.Duration, err error) {
+func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workflow_input_map cwl.JobDocMap, workflow *cwl.Workflow, logTimes bool) (times map[string]time.Duration, err error) {
 
 	if workflow == nil {
 		err = fmt.Errorf("(taskEnQueueWorkflow) workflow == nil !?")
@@ -2390,12 +2393,12 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 
 	// New WorkflowInstance defined input nd ouput of this subworkflow
 	// create tasks
-	var sub_workflow_tasks []*Task
-	sub_workflow_tasks, err = CreateWorkflowTasks(job, workflow_instance_id, workflow.Steps, workflow.Id, &task_id)
-	if err != nil {
-		err = fmt.Errorf("(taskEnQueueWorkflow) CreateWorkflowTasks returned: %s", err.Error())
-		return
-	}
+	//var sub_workflow_tasks []*Task
+	//sub_workflow_tasks, err = CreateWorkflowTasks(job, workflow_instance_id, workflow.Steps, workflow.Id, &task_id)
+	//if err != nil {
+	//	err = fmt.Errorf("(taskEnQueueWorkflow) CreateWorkflowTasks returned: %s", err.Error())
+	//		return
+	//	}
 
 	var wi *WorkflowInstance
 
@@ -2405,6 +2408,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 		return
 	}
 	wi.Inputs = task_input_array
+	wi.SetState(WI_STAT_PENDING, "db_sync_yes", false)
 
 	err = job.AddWorkflowInstance(wi, "db_sync_yes", true)
 	if err != nil {
@@ -2416,38 +2420,38 @@ func (qm *ServerMgr) taskEnQueueWorkflow(task *Task, job *Job, workflow_input_ma
 	//skip_workunit := false
 
 	//var children []string
-	for i := range sub_workflow_tasks {
-		sub_task := sub_workflow_tasks[i]
-		_, err = sub_task.Init(job, job.Id)
-		if err != nil {
-			err = fmt.Errorf("(taskEnQueueWorkflow) sub_task.Init() returns: %s", err.Error())
-			return
-		}
+	// for i := range sub_workflow_tasks {
+	// 	sub_task := sub_workflow_tasks[i]
+	// 	_, err = sub_task.Init(job, job.Id)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(taskEnQueueWorkflow) sub_task.Init() returns: %s", err.Error())
+	// 		return
+	// 	}
 
-		var sub_task_id Task_Unique_Identifier
-		sub_task_id, err = sub_task.GetId("task." + strconv.Itoa(i))
-		if err != nil {
-			return
-		}
-		sub_task_id_str, _ := sub_task_id.String()
-		//children = append(children, sub_task_id)
+	// 	var sub_task_id Task_Unique_Identifier
+	// 	sub_task_id, err = sub_task.GetId("task." + strconv.Itoa(i))
+	// 	if err != nil {
+	// 		return
+	// 	}
+	// 	sub_task_id_str, _ := sub_task_id.String()
+	// 	//children = append(children, sub_task_id)
 
-		//err = job.AddTask(sub_task)
-		err = wi.AddTask(job, sub_task, "db_sync_yes", true)
-		if err != nil {
-			err = fmt.Errorf("(taskEnQueueWorkflow) job.AddTask returns: %s", err.Error())
-			return
-		}
+	// 	//err = job.AddTask(sub_task)
+	// 	err = wi.AddTask(job, sub_task, "db_sync_yes", true)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(taskEnQueueWorkflow) job.AddTask returns: %s", err.Error())
+	// 		return
+	// 	}
 
-		// add to qm.TaskMap
-		// updateQueue() process will actually enqueue the task
-		// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
-		err = qm.TaskMap.Add(sub_task, "taskEnQueueWorkflow")
-		if err != nil {
-			err = fmt.Errorf("(taskEnQueueWorkflow) (subtask: %s) qm.TaskMap.Add() returns: %s", sub_task_id_str, err.Error())
-			return
-		}
-	}
+	// 	// add to qm.TaskMap
+	// 	// updateQueue() process will actually enqueue the task
+	// 	// TaskMap.Add - makes it a pending task if init, throws error if task already in map with different pointer
+	// 	err = qm.TaskMap.Add(sub_task, "taskEnQueueWorkflow")
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(taskEnQueueWorkflow) (subtask: %s) qm.TaskMap.Add() returns: %s", sub_task_id_str, err.Error())
+	// 		return
+	// 	}
+	// }
 	//task.SetWorkflowChildren(qm, children, true)
 
 	return

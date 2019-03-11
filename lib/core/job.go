@@ -95,7 +95,6 @@ func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
 	return
 }
 
-// this is in-memory only, not db
 func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync string, write_lock bool) (err error) {
 	fmt.Printf("(AddWorkflowInstance) id: %s\n", wi.LocalId)
 	if write_lock {
@@ -108,25 +107,40 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync string, write_
 
 	if job.WorkflowInstancesMap == nil {
 		job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
+	} else {
+
+		_, has_wi := job.WorkflowInstancesMap[wi.LocalId]
+		if has_wi {
+
+			//err = fmt.Errorf("(AddWorkflowInstance) WorkflowInstance %s already in map !", wi.LocalId)
+			return
+		}
 	}
 
-	_, has_wi := job.WorkflowInstancesMap[wi.LocalId]
-	if has_wi {
-		err = fmt.Errorf("(AddWorkflowInstance) WorkflowInstance already in map !")
+	job.WorkflowInstancesMap[wi.LocalId] = wi
+
+	err = wi.SetState(WI_STAT_PENDING, "db_sync_no", true) // AddWorkflowInstance
+	if err != nil {
+		err = fmt.Errorf("(AddWorkflowInstance) wi.SetState returned: %s (wi.LocalId: %s)", err.Error(), wi.LocalId)
 		return
 	}
-	job.WorkflowInstancesMap[wi.LocalId] = wi
+
+	if db_sync == "db_sync_yes" {
+
+		err = dbUpsert(wi)
+		if err != nil {
+			err = fmt.Errorf("(AddWorkflowInstance) dbUpsert(wi) returned: %s", err.Error())
+			return
+		}
+	}
+
 	err = job.IncrementWorkflowInstancesRemain(1, db_sync, false)
 	if err != nil {
 		err = fmt.Errorf("(AddWorkflowInstance) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
 		return
 	}
 
-	err = wi.SetState(WI_STAT_PENDING, db_sync, true)
-	if err != nil {
-		err = fmt.Errorf("(AddWorkflowInstance) wi.SetState returned: %s", err.Error())
-		return
-	}
+	//logger.Debug(3, "(AddWorkflowInstance) wi.LocalId: %s , old_state: %s, db_sync: %s", wi.LocalId, old_state, db_sync)
 
 	return
 }

@@ -37,14 +37,14 @@ const (
 	WI_STAT_INIT    = "init"    // initial state on creation
 	WI_STAT_PENDING = "pending" // wants to be enqueued but may have unresolved dependencies
 	WI_STAT_READY   = "ready"   // a task ready to be enqueued/evaluated (tasks can be enqueued)
-	//TASK_STAT_PENDING          = "pending"     // a task that wants to be enqueued
-	//TASK_STAT_READY            = "ready"       // a task ready to be enqueued
-	WI_STAT_QUEUED = "queued" // tasks have been created
+	WI_STAT_QUEUED  = "queued"  // tasks have been created
 	//WI_STAT_INPROGRESS = "in-progress" // a first workunit has been checkout (this does not guarantee a workunit is running right now)
 	//WI_STAT_SUSPEND          = "suspend"
-	//TASK_STAT_FAILED           = "failed"
-	//TASK_STAT_FAILED_PERMANENT = "failed-permanent" // on exit code 42
+	//WI_STAT_FAILED           = "failed"
+	//WI_STAT_FAILED_PERMANENT = "failed-permanent" // on exit code 42
 	WI_STAT_COMPLETED = "completed"
+
+	WI_STAT_SUSPEND = "suspend"
 )
 
 // Object for each subworkflow
@@ -240,22 +240,24 @@ func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync string, write_
 		return
 	}
 
+	logger.Debug(3, "(WorkflowInstance/AddTask) adding task: %s", task.TaskName)
+
 	for _, t := range wi.Tasks {
 		if t.TaskName == task.TaskName {
-			err = fmt.Errorf("(AddTask) task with same name already in WorkflowInstance (%s)", task.TaskName)
+			err = fmt.Errorf("(WorkflowInstance/AddTask) task with same name already in WorkflowInstance (%s)", task.TaskName)
 			return
 		}
 	}
 
 	_, err = wi.IncrementRemainSteps(false)
 	if err != nil {
-		err = fmt.Errorf("(AddTask) wi.IncrementRemainSteps returned: %s", err.Error())
+		err = fmt.Errorf("(WorkflowInstance/AddTask) wi.IncrementRemainSteps returned: %s", err.Error())
 		return
 	}
 
 	err = job.IncrementRemainSteps(1)
 	if err != nil {
-		err = fmt.Errorf("(AddTask) job.IncrementRemainSteps returned: %s", err.Error())
+		err = fmt.Errorf("(WorkflowInstance/AddTask) job.IncrementRemainSteps returned: %s", err.Error())
 		return
 	}
 
@@ -263,9 +265,17 @@ func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync string, write_
 
 	wi.Tasks = append(wi.Tasks, task)
 	if db_sync == "db_sync_yes" {
-		err = wi.Save(false)
+
+		var job_id string
+		job_id, err = job.GetId(false)
 		if err != nil {
-			err = fmt.Errorf("(WorkflowInstance/AddTask) wi.Save returned: %s", err.Error())
+			return
+		}
+		subworkflow_id := task.WorkflowInstanceId
+
+		err = dbPushTask(job_id, subworkflow_id, task)
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/AddTask) dbPushTask returned: %s", err.Error())
 			return
 		}
 	}
@@ -285,7 +295,17 @@ func (wi *WorkflowInstance) SetState(state string, db_sync string, write_lock bo
 	wi.State = state
 
 	if db_sync == "db_sync_yes" {
-		wi.Save(false)
+
+		job_id := wi.JobId
+
+		subworkflow_id, _ := wi.GetId(false)
+
+		err = dbUpdateJobWorkflow_instancesFieldString(job_id, subworkflow_id, "state", state)
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/SetState) dbUpdateJobWorkflow_instancesFieldString returned: %s", err.Error())
+			return
+		}
+		//wi.Save(false)
 	}
 	return
 }

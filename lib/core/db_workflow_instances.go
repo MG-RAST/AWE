@@ -108,6 +108,26 @@ func DBGetJobWorkflow_instance_One(q bson.M, options *DefaultQueryOptions, do_in
 	return
 }
 
+func dbPushTask(job_id string, subworkflow_id string, task *Task) (err error) {
+	session := db.Connection.Session.Copy()
+	defer session.Close()
+
+	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
+
+	unique_id := job_id + "_" + subworkflow_id
+	selector := bson.M{"_id": unique_id}
+
+	change := bson.M{"$push": bson.M{"tasks": task}}
+
+	err = c.Update(selector, change)
+	if err != nil {
+		err = fmt.Errorf("(dbPushTask) Error adding task: " + err.Error())
+		return
+	}
+
+	return
+}
+
 func dbUpdateJobWorkflow_instancesFieldOutputs(job_id string, subworkflow_id string, outputs cwl.Job_document) (err error) {
 	update_value := bson.M{"outputs": outputs}
 	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
@@ -123,6 +143,16 @@ func dbUpdateJobWorkflow_instancesFieldInt(job_id string, subworkflow_id string,
 	return
 }
 
+func dbUpdateJobWorkflow_instancesFieldString(job_id string, subworkflow_id string, fieldname string, value string) (err error) {
+	update_value := bson.M{fieldname: value}
+	err = dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
+	if err != nil {
+		err = fmt.Errorf("(dbUpdateJobWorkflow_instancesFieldInt) (subworkflow_id: %s, fieldname: %s, value: %s) %s", subworkflow_id, fieldname, value, err.Error())
+		return
+	}
+	return
+}
+
 func dbUpdateJobWorkflow_instancesField(job_id string, subworkflow_id string, fieldname string, value interface{}) (err error) {
 	update_value := bson.M{fieldname: value}
 	return dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
@@ -133,11 +163,12 @@ func dbUpdateJobWorkflow_instancesFields(job_id string, subworkflow_id string, u
 	defer session.Close()
 
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
-	selector := bson.M{"_id": job_id + subworkflow_id}
+	unique_id := job_id + "_" + subworkflow_id
+	selector := bson.M{"_id": unique_id}
 
 	err = c.Update(selector, bson.M{"$set": update_value})
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobWorkflow_instancesFields) Error updating workflow_instance (subworkflow_id: %s): %s", subworkflow_id, err.Error())
+		err = fmt.Errorf("(dbUpdateJobWorkflow_instancesFields) Error updating workflow_instance (_id: %s): %s", job_id+subworkflow_id, err.Error())
 		return
 	}
 	return

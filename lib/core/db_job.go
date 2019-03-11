@@ -506,7 +506,11 @@ func LoadJob(id string) (job *Job, err error) {
 
 	// To fix incomplete or inconsistent database entries
 	if job_changed {
-		job.Save()
+		err = job.Save()
+		if err != nil {
+			err = fmt.Errorf("(LoadJob) job.Save() returned: %s", err.Error())
+			return
+		}
 	}
 
 	return

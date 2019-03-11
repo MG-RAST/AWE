@@ -69,11 +69,13 @@ func (qm *ServerMgr) RUnlock() {}
 
 func (qm *ServerMgr) UpdateQueueLoop() {
 	// TODO this may not be dynamic enough for small amounts of workunits, as they always have to wait
+
+	var err error
 	for {
 
-		err := qm.updateWorkflowInstancesMap()
+		err = qm.updateWorkflowInstancesMap()
 		if err != nil {
-			logger.Error("(UpdateQueueLoop) updateQueue returned: %s", err.Error())
+			logger.Error("(UpdateQueueLoop) updateWorkflowInstancesMap() returned: %s", err.Error())
 			err = nil
 		}
 
@@ -263,6 +265,11 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 		// for each step create Task or Subworkflow
 
+		if len(wi.Tasks) > 0 {
+			spew.Dump(wi.Tasks)
+			panic("wi already has tasks " + wi_local_id)
+		}
+
 		subworkflow_str := []string{}
 
 		for i, _ := range cwl_workflow.Steps {
@@ -348,9 +355,9 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 				new_wi.Workflow = subworkflow
 				new_wi.ParentStep = step
-				new_wi.SetState(WI_STAT_PENDING, "db_sync_true", false)
-
-				err = job.AddWorkflowInstance(new_wi, "db_sync_yes", true)
+				//new_wi.SetState(WI_STAT_PENDING, "db_sync_no", false) // updateWorkflowInstancesMapTask
+				//AddWorkflowInstance sets steat to WI_STAT_PENDING
+				err = job.AddWorkflowInstance(new_wi, "db_sync_yes", true) // updateWorkflowInstancesMapTask
 				if err != nil {
 					err = fmt.Errorf("(updateWorkflowInstancesMapTask) job.AddWorkflowInstance returned: %s", err.Error())
 					return
@@ -379,8 +386,11 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 		wi.Subworkflows = subworkflow_str
 		wi.RemainSteps = len(cwl_workflow.Steps)
 		// pending -> ready
-		wi.SetState(WI_STAT_READY, "db_sync_true", true)
-
+		err = wi.SetState(WI_STAT_READY, "db_sync_true", true)
+		if err != nil {
+			err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.SetState returned: %s", err.Error())
+			return
+		}
 		//spew.Dump(wi)
 		//fmt.Printf("SHOULD BE READY NOW (%p)\n", wi)
 
@@ -2329,34 +2339,34 @@ func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workfl
 		var ok bool
 		workflow_instance, ok, err = job.GetWorkflowInstance(parent_workflow_instance_id, true)
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueueWorkflow) job.GetWorkflowInstance returned: %s", err.Error())
+			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) job.GetWorkflowInstance returned: %s", err.Error())
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("(taskEnQueueWorkflow) workflow_instance not found")
+			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) workflow_instance not found")
 			return
 		}
 
 		var reason string
 		task_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflow_instance, workflow_input_map, cwl_step, context, "taskEnQueueWorkflow") // returns map[string]CWLType
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueueWorkflow) GetStepInputObjects returned: %s", err.Error())
+			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) GetStepInputObjects returned: %s", err.Error())
 			return
 		}
 
 		if !ok {
-			err = fmt.Errorf("(taskEnQueueWorkflow) GetStepInputObjects not ready, reason: %s", reason)
+			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) GetStepInputObjects not ready, reason: %s", reason)
 			return
 		}
 
 		if len(task_input_map) == 0 {
-			err = fmt.Errorf("(taskEnQueueWorkflow) A) len(task_input_map) == 0 (%s)", task_id_str)
+			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) A) len(task_input_map) == 0 (%s)", task_id_str)
 			return
 		}
 
 		task_input_array, err = task_input_map.GetArray()
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueueWorkflow) task_input_map.GetArray returned: %s", err.Error())
+			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) task_input_map.GetArray returned: %s", err.Error())
 			return
 		}
 		task.StepInput = &task_input_array
@@ -2366,13 +2376,13 @@ func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workfl
 		task_input_array = *task.StepInput
 		task_input_map = task_input_array.GetMap()
 		if len(task_input_map) == 0 {
-			err = fmt.Errorf("(taskEnQueueWorkflow) B) len(task_input_map) == 0 ")
+			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) B) len(task_input_map) == 0 ")
 			return
 		}
 	}
 
 	if strings.HasSuffix(task.TaskName, "/") {
-		err = fmt.Errorf("(taskEnQueueWorkflow) Slash at the end of TaskName!? %s", task.TaskName)
+		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) Slash at the end of TaskName!? %s", task.TaskName)
 		return
 	}
 
@@ -2404,15 +2414,19 @@ func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workfl
 
 	wi, err = NewWorkflowInstance(workflow_instance_id, job.Id, workflow_defintion_id, job, parent_workflow_instance_id)
 	if err != nil {
-		err = fmt.Errorf("(AddWorkflowInstance) NewWorkflowInstance returned: %s", err.Error())
+		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) NewWorkflowInstance returned: %s", err.Error())
 		return
 	}
 	wi.Inputs = task_input_array
-	wi.SetState(WI_STAT_PENDING, "db_sync_yes", false)
-
-	err = job.AddWorkflowInstance(wi, "db_sync_yes", true)
+	err = wi.SetState(WI_STAT_PENDING, "db_sync_yes", false)
 	if err != nil {
-		err = fmt.Errorf("(taskEnQueueWorkflow) job.AddWorkflowInstance returned: %s", err.Error())
+		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) wi.SetState(WI_STAT_PENDING returned: %s", err.Error())
+		return
+	}
+
+	err = job.AddWorkflowInstance(wi, "db_sync_yes", true) // taskEnQueueWorkflow_deprecated
+	if err != nil {
+		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) job.AddWorkflowInstance returned: %s", err.Error())
 		return
 	}
 

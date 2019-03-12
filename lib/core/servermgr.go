@@ -812,7 +812,7 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 		for wi_id, _ := range job.WorkflowInstancesMap {
 			wi := job.WorkflowInstancesMap[wi_id]
 			wi_state, _ := wi.GetState(true)
-			fmt.Printf("WorkflowInstance: %s (%s) %p\n", wi_id, wi_state, wi)
+			fmt.Printf("WorkflowInstance: %s (%s) remain: %d\n", wi_id, wi_state, wi.RemainSteps)
 
 			var wi_tasks []*Task
 			wi_tasks, err = wi.GetTasks(true)

@@ -49,11 +49,10 @@ const (
 
 // Object for each subworkflow
 type WorkflowInstance struct {
-	rwmutex.RWMutex `bson:"-" json:"-" mapstructure:"-"`
-	LocalId         string `bson:"local_id" json:"id" mapstructure:"local_id"`
-	//_Id                 string           `bson:"_id" json:"_id" mapstructure:"_id"` // unique identifier for mongo, includes jobid !
+	rwmutex.RWMutex     `bson:"-" json:"-" mapstructure:"-"`
+	LocalId             string            `bson:"local_id" json:"id" mapstructure:"local_id"` // workfow id without job id , mongo uses JobId_LocalId to get a globally unique identifier
 	JobId               string            `bson:"job_id" json:"job_id" mapstructure:"job_id"`
-	ParentId            string            `bson:"parent_id" json:"parent_id" mapstructure:"parent_id"` // point to workflow_parent parent, this is not trivial duer to embedded workflows
+	ParentId            string            `bson:"parent_id" json:"parent_id" mapstructure:"parent_id"` // DEPRECATED!? it can be computed from LocalId
 	Acl                 *acl.Acl          `bson:"acl" json:"-"`
 	State               string            `bson:"state" json:"state" mapstructure:"state"`                                           // this is unique identifier for the workflow instance
 	Workflow_Definition string            `bson:"workflow_definition" json:"workflow_definition" mapstructure:"workflow_definition"` // name of the workflow this instance is derived from
@@ -64,7 +63,8 @@ type WorkflowInstance struct {
 	RemainSteps         int               `bson:"remainsteps" json:"remainsteps" mapstructure:"remainsteps"`
 	TotalTasks          int               `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
 	Subworkflows        []string          `bson:"subworkflows" json:"subworkflows" mapstructure:"subworkflows"`
-	ParentStep          *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"`
+	ParentStep          *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"` // cache for ParentId
+	Job                 *Job              `bson:"-" json:"-" mapstructure:"-"` // cache
 	//Created_by          string            `bson:"created_by" json:"created_by" mapstructure:"created_by"`
 }
 
@@ -307,6 +307,12 @@ func (wi *WorkflowInstance) SetState(state string, db_sync string, write_lock bo
 		}
 		//wi.Save(false)
 	}
+
+	if state == WI_STAT_COMPLETED {
+		//parent :=
+		//if wi.ParentStep != nil
+	}
+
 	return
 }
 
@@ -326,6 +332,7 @@ func (wi *WorkflowInstance) SetSubworkflows(steps []string, write_lock bool) (er
 	return
 }
 
+// assumes WorkflowInstance is in mongo already
 func (wi *WorkflowInstance) AddSubworkflow(job *Job, subworkflow string, write_lock bool) (err error) {
 	if write_lock {
 		err = wi.LockNamed("WorkflowInstance/AddSubworkflow")
@@ -672,4 +679,103 @@ func (wi *WorkflowInstance) GetRemainSteps(read_lock bool) (remain int, err erro
 	remain = wi.RemainSteps
 
 	return
+}
+
+func (wi *WorkflowInstance) GetParentStep_cached() (pstep *cwl.WorkflowStep, err error) {
+	var lock rwmutex.ReadLock
+	lock, err = wi.RLockNamed("GetParentStep_cached")
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/GetParentStep_cached) RLockNamed returned: %s", err.Error())
+		return
+	}
+	defer wi.RUnlockNamed(lock)
+
+	pstep = wi.ParentStep
+
+	return
+}
+
+func (wi *WorkflowInstance) GetParentStep(pstep *cwl.WorkflowStep, err error) {
+
+	pstep = wi.ParentStep
+
+	if pstep != nil {
+		return
+	}
+
+	var parent_id string
+	parent_id, err = wi.GetParentId()
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/GetParentStep) GetParentId returned: %s", err.Error())
+		return
+	}
+
+	var job *Job
+	job, err = wi.GetJob()
+
+	var parent_wi *WorkflowInstance
+	var ok bool
+	parent_wi, ok, err = job.GetWorkflowInstance(parent_id, true)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/GetParentStep) job.GetWorkflowInstance returned: %s", err.Error())
+		return
+	}
+
+	if !ok {
+		err = fmt.Errorf("(WorkflowInstance/GetParentStep) job.GetWorkflowInstance did not workflow_instance %s", parent_id)
+		return
+	}
+
+	//parentStep = parent_wi.GetStep()
+	parent_workflow := parent_wi.Workflow
+	if parent_workflow == nil {
+		err = fmt.Errorf("(WorkflowInstance/GetParentStep) parent_workflow == nil")
+		return
+	}
+
+	pstep, err = parent_workflow.GetStep()
+
+}
+
+func (wi *WorkflowInstance) GetParentId() (parent_id string, err error) {
+	var lock rwmutex.ReadLock
+	lock, err = wi.RLockNamed("GetParentId")
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/GetParentId) RLockNamed returned: %s", err.Error())
+		return
+	}
+	defer wi.RUnlockNamed(lock)
+
+	parent_id = path.Base(wi.LocalId)
+
+	return
+
+}
+
+func (wi *WorkflowInstance) GetJob() (job *Job, err error) {
+	var lock rwmutex.ReadLock
+	lock, err = wi.RLockNamed("GetJob")
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/GetJob) RLockNamed returned: %s", err.Error())
+		return
+	}
+	defer wi.RUnlockNamed(lock)
+
+	if wi.Job != nil {
+		job = wi.Job
+		return
+	}
+
+	job_id := wi.JobId
+
+	job, err = GetJob(job_id)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/GetJob) GetJob returned: %s", err.Error())
+		return
+	}
+
+	wi.Job = job
+
+	return
+
 }

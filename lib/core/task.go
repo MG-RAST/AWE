@@ -918,7 +918,8 @@ func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, write_lock
 	if old_state == new_state {
 		return
 	}
-	job, err := GetJob(jobid)
+	var job *Job
+	job, err = GetJob(jobid)
 	if err != nil {
 		return
 	}

@@ -108,7 +108,7 @@ func (qm *ProxyMgr) handleNoticeWorkDelivered(notice *Notice) (err error) {
 	if ok {
 		//delete(client.Current_work, workid)
 		client.LockNamed("ProxyMgr/handleNoticeWorkDelivered A2")
-		err = client.Assigned_work.Delete(notice.Id, false)
+		err = client.AssignedWork.Delete(notice.Id, false)
 		if err != nil {
 			return
 		}
@@ -136,7 +136,7 @@ func (qm *ProxyMgr) handleNoticeWorkDelivered(notice *Notice) (err error) {
 			}
 			if ok {
 				client.Increment_total_completed()
-				client.Last_failed = 0 //reset last consecutive failures
+				client.LastFailed = 0 //reset last consecutive failures
 				qm.AddClient(client, true)
 			}
 		} else if work.State == WORK_STAT_ERROR {
@@ -147,7 +147,7 @@ func (qm *ProxyMgr) handleNoticeWorkDelivered(notice *Notice) (err error) {
 			}
 			if ok {
 				client.LockNamed("ProxyMgr/handleNoticeWorkDelivered B")
-				err = client.Append_Skip_work(workid, false)
+				err = client.AppendSkipwork(workid, false)
 				if err != nil {
 					return
 				}
@@ -155,9 +155,9 @@ func (qm *ProxyMgr) handleNoticeWorkDelivered(notice *Notice) (err error) {
 				if err != nil {
 					return
 				}
-				client.Last_failed += 1 //last consecutive failures
+				client.LastFailed += 1 //last consecutive failures
 				if conf.MAX_CLIENT_FAILURE != 0 {
-					if client.Last_failed >= conf.MAX_CLIENT_FAILURE {
+					if client.LastFailed >= conf.MAX_CLIENT_FAILURE {
 						client.Suspend("MAX_CLIENT_FAILURE reached", false)
 					}
 				}
@@ -201,14 +201,14 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 		return nil, errors.New("Clientgroup name in token does not match that in the client configuration.")
 	}
 	qm.AddClient(client, true)
-	cw_length, err := client.Current_work.Length(false)
+	cw_length, err := client.CurrentWork.Length(false)
 	if err != nil {
 		return
 	}
 	if cw_length > 0 { //re-registered client
 		// move already checked-out workunit from waiting queue (workMap) to checked-out list (coWorkMap)
 
-		work_list, _ := client.Current_work.Get_list(false)
+		work_list, _ := client.CurrentWork.Get_list(false)
 
 		for _, workid := range work_list {
 			has_work, err := qm.workQueue.Has(workid)
@@ -223,7 +223,7 @@ func (qm *ProxyMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client 
 	}
 	//proxy specific
 	Self.SubClients += 1
-	notifySubClients(Self.Id, Self.SubClients)
+	_ = notifySubClients(Self.ID, Self.SubClients)
 	return
 }
 
@@ -246,7 +246,7 @@ func (qm *ProxyMgr) ClientChecker() {
 				total_minutes := int(time.Now().Sub(client.RegTime).Minutes())
 				hours := total_minutes / 60
 				minutes := total_minutes % 60
-				client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
+				client.ServeTime = fmt.Sprintf("%dh%dm", hours, minutes)
 
 				//if cw_length > 0 {
 				//	client.Idle_time = 0
@@ -256,10 +256,10 @@ func (qm *ProxyMgr) ClientChecker() {
 
 			} else {
 				//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
-				logger.Event(event.CLIENT_UNREGISTER, "clientid="+client.Id)
+				logger.Event(event.CLIENT_UNREGISTER, "clientid="+client.ID)
 
 				//qm.RemoveClient(client.Id)
-				delete_clients = append(delete_clients, client.Id)
+				delete_clients = append(delete_clients, client.ID)
 
 			}
 			client.Unlock()
@@ -284,7 +284,7 @@ func (qm *ProxyMgr) ClientChecker() {
 
 					//proxy specific
 					Self.SubClients -= 1
-					notifySubClients(Self.Id, Self.SubClients)
+					notifySubClients(Self.ID, Self.SubClients)
 				}
 			}
 			//qm.clientMap.Unlock()

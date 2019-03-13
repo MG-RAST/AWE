@@ -56,8 +56,8 @@ func (cl *WorkunitList) Length(lock bool) (clength int, err error) {
 	return
 }
 
-func (cl *WorkunitList) Delete(workid Workunit_Unique_Identifier, write_lock bool) (err error) {
-	if write_lock {
+func (cl *WorkunitList) Delete(workid Workunit_Unique_Identifier, writeLock bool) (err error) {
+	if writeLock {
 		err = cl.LockNamed("Delete")
 		defer cl.Unlock()
 	}
@@ -66,8 +66,8 @@ func (cl *WorkunitList) Delete(workid Workunit_Unique_Identifier, write_lock boo
 	return
 }
 
-func (cl *WorkunitList) Delete_all(workid string, write_lock bool) (err error) {
-	if write_lock {
+func (cl *WorkunitList) Delete_all(workid string, writeLock bool) (err error) {
+	if writeLock {
 		err = cl.LockNamed("Delete_all")
 		defer cl.Unlock()
 	}

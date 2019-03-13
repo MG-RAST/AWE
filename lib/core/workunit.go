@@ -504,7 +504,7 @@ func (work *Workunit) FetchDataToken() (token string, err error) {
 		return
 	}
 
-	targeturl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, work_id_b64, Self.Id)
+	targeturl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, work_id_b64, Self.ID)
 	logger.Debug(1, "(FetchDataToken) targeturl: %s", targeturl)
 	var headers httpclient.Header
 	logger.Debug(3, "(FetchDataToken) len(conf.CLIENT_GROUP_TOKEN): %d ", len(conf.CLIENT_GROUP_TOKEN))

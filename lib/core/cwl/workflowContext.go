@@ -262,9 +262,9 @@ func (c *WorkflowContext) Evaluate(raw string) (parsed string) {
 
 }
 
-func (c *WorkflowContext) AddSchemata(obj []CWLType_Type, write_lock bool) (err error) {
+func (c *WorkflowContext) AddSchemata(obj []CWLType_Type, writeLock bool) (err error) {
 	//fmt.Printf("(AddSchemata)\n")
-	if write_lock {
+	if writeLock {
 		err = c.LockNamed("AddSchemata")
 		if err != nil {
 			return

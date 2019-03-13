@@ -2,11 +2,12 @@ package core
 
 import (
 	"fmt"
+	"os/exec"
+	"time"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
-	"os/exec"
-	"time"
 )
 
 func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
@@ -36,7 +37,7 @@ func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 		logger.Event(event.WORK_RETURN, "workid="+work.Id)
 		Self.Increment_total_failed(true)
 	}
-	err = Self.Current_work.Delete(work.Workunit_Unique_Identifier, true)
+	err = Self.CurrentWork.Delete(work.Workunit_Unique_Identifier, true)
 	if err != nil {
 		return
 	}

@@ -72,7 +72,7 @@ func (qm *CQMgr) RemoveClient(id string, lock bool) (err error) {
 	}
 
 	//now client must be gone as tag set to false 30 seconds ago and no heartbeat received thereafter
-	logger.Event(event.CLIENT_UNREGISTER, "clientid="+client.Id)
+	logger.Event(event.CLIENT_UNREGISTER, "clientid="+client.ID)
 	//requeue unfinished workunits associated with the failed client
 	err = qm.ReQueueWorkunitByClient(client, true)
 	if err != nil {
@@ -93,20 +93,20 @@ func (qm *CQMgr) RemoveClient(id string, lock bool) (err error) {
 //	return
 //}
 
-// func (qm *CQMgr) ClientIdStatusChange_deprecated(id string, new_status string, client_write_lock bool) (err error) {
+// func (qm *CQMgr) ClientIdStatusChange_deprecated(id string, new_status string, clientWriteLock bool) (err error) {
 // 	client, ok, err := qm.clientMap.Get(id, true)
 // 	if err != nil {
 // 		return
 // 	}
 // 	if ok {
-// 		//err = client.Set_Status(new_status, client_write_lock)
+// 		//err = client.Set_Status(new_status, clientWriteLock)
 // 		return
 // 	}
 // 	returnerrors.New(e.ClientNotFound)
 //}
 
-func (qm *CQMgr) ClientStatusChange_deprecated(client *Client, new_status string, client_write_lock bool) (err error) {
-	//client.Set_Status(new_status, client_write_lock)
+func (qm *CQMgr) ClientStatusChange_deprecated(client *Client, new_status string, clientWriteLock bool) (err error) {
+	//client.Set_Status(new_status, clientWriteLock)
 	return
 
 }
@@ -143,36 +143,36 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 	}
 	defer client.Unlock()
 
-	logger.Debug(3, "(CheckClient) client: %s", client.Id)
+	logger.Debug(3, "(CheckClient) client: %s", client.ID)
 
 	if client.Tag == true {
 		// *** Client is active
 		client.Online = true
-		logger.Debug(3, "(CheckClient) client %s active", client.Id)
+		logger.Debug(3, "(CheckClient) client %s active", client.ID)
 
 		client.Tag = false
 		total_minutes := int(time.Now().Sub(client.RegTime).Minutes())
 		hours := total_minutes / 60
 		minutes := total_minutes % 60
-		client.Serve_time = fmt.Sprintf("%dh%dm", hours, minutes)
+		client.ServeTime = fmt.Sprintf("%dh%dm", hours, minutes)
 
 		//spew.Dump(client)
 
-		current_work, xerr := client.WorkerState.Current_work.Get_list(false)
+		currentWork, xerr := client.WorkerState.CurrentWork.Get_list(false)
 		if xerr != nil {
 			logger.Error("(CheckClient) Get_current_work: %s", xerr.Error())
 			return
 		}
 
-		logger.Debug(3, "(CheckClient) client %s has %d workunits", client.Id, len(current_work))
+		logger.Debug(3, "(CheckClient) client %s has %d workunits", client.ID, len(currentWork))
 
-		for _, work_id := range current_work {
+		for _, work_id := range currentWork {
 			var workid_str string
 			workid_str, err = work_id.String()
 			if err != nil {
 				return
 			}
-			logger.Debug(3, "(CheckClient) client %s has work %s", client.Id, workid_str)
+			logger.Debug(3, "(CheckClient) client %s has work %s", client.ID, workid_str)
 			work, ok, zerr := qm.workQueue.all.Get(work_id)
 			if zerr != nil {
 				logger.Warning("(CheckClient) failed getting work %s from workQueue: %s", workid_str, zerr.Error())
@@ -239,7 +239,7 @@ func (qm *CQMgr) ClientChecker() {
 				continue
 			}
 			if !ok {
-				delete_clients = append(delete_clients, client.Id)
+				delete_clients = append(delete_clients, client.ID)
 			}
 		}
 
@@ -286,7 +286,7 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerS
 	client.Tag = true
 	client.Set_Online(true, false)
 
-	workerstate.Current_work.FillMap() // fix struct by moving values from Data array into internal map (was not exported)
+	workerstate.CurrentWork.FillMap() // fix struct by moving values from Data array into internal map (was not exported)
 
 	client.WorkerState = workerstate // TODO could do a comparsion with assigned state here
 
@@ -295,7 +295,7 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerS
 	logger.Debug(3, "HeartBeatFrom: client %s", id)
 
 	//get suspended workunit that need the client to discard
-	current_work, xerr := client.Current_work.Get_list(false)
+	current_work, xerr := client.CurrentWork.Get_list(false)
 	discard := []string{}
 
 	for _, work_id := range current_work {
@@ -394,7 +394,7 @@ func (qm *CQMgr) RegisterNewClient(files FormFiles, cg *ClientGroup) (client *Cl
 
 	if old_client_exists {
 		// copy values from new client to old client
-		old_client.Current_work = client.Current_work
+		old_client.CurrentWork = client.CurrentWork
 
 		old_client.Tag = true
 		// new client struct will be deleted afterwards
@@ -491,7 +491,7 @@ func (qm *CQMgr) GetAllClientsByUser(u *user.User) (clients []*Client, err error
 // }
 
 // use id OR client
-func (qm *CQMgr) SuspendClient(id string, client *Client, reason string, client_write_lock bool) (err error) {
+func (qm *CQMgr) SuspendClient(id string, client *Client, reason string, clientWriteLock bool) (err error) {
 
 	if client == nil {
 		var ok bool
@@ -505,7 +505,7 @@ func (qm *CQMgr) SuspendClient(id string, client *Client, reason string, client_
 		}
 	}
 
-	if client_write_lock {
+	if clientWriteLock {
 		err = client.LockNamed("SuspendClient")
 		if err != nil {
 			return
@@ -692,7 +692,7 @@ func (qm *CQMgr) ResumeSuspendedClients() (count int, err error) {
 		}
 
 		if is_suspended {
-			//qm.ClientStatusChange(client.Id, CLIENT_STAT_ACTIVE_IDLE)
+			//qm.ClientStatusChange(client.ID, CLIENT_STAT_ACTIVE_IDLE)
 			err = client.Resume(true)
 			if err != nil {
 				return
@@ -811,7 +811,7 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	//status := client.Status
 	response_channel := client.coAckChannel
 
-	work_length, _ := client.Current_work.Length(false)
+	work_length, _ := client.CurrentWork.Length(false)
 	client.Unlock()
 
 	if work_length > 0 {
@@ -864,7 +864,7 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 	if err != nil {
 		return
 	}
-	ack, err = client.Get_Ack()
+	ack, err = client.GetAck()
 	client.RUnlockNamed(lock)
 
 	logger.Debug(3, "(CheckoutWorkunits) %s got ack", client_id)
@@ -886,7 +886,7 @@ func (qm *CQMgr) CheckoutWorkunits(req_policy string, client_id string, client *
 		//if xerr != nil {
 		//	return
 		//}
-		err = client.Assigned_work.Add(work_id)
+		err = client.AssignedWork.Add(work_id)
 		if err != nil {
 			return
 		}
@@ -988,7 +988,7 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, s Filte
 		return
 	}
 
-	clientid := client.Id
+	clientid := client.ID
 
 	if clientid == "" {
 		err = fmt.Errorf("(filterWorkByClient) clientid empty")
@@ -1116,9 +1116,9 @@ func (qm *CQMgr) EnqueueWorkunit(work *Workunit) (err error) {
 	return
 }
 
-func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool) (err error) {
+func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, clientWriteLock bool) (err error) {
 
-	worklist, err := client.Current_work.Get_list(client_write_lock)
+	worklist, err := client.CurrentWork.Get_list(clientWriteLock)
 	if err != nil {
 		return
 	}
@@ -1150,7 +1150,7 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 		}
 
 		if contains(JOB_STATS_ACTIVE, job_state) { //only requeue workunits belonging to active jobs (rule out suspended jobs)
-			if work.Client == client.Id {
+			if work.Client == client.ID {
 				qm.workQueue.StatusChange(workid, work, WORK_STAT_QUEUED, "")
 				var work_str string
 				work_str, err = workid.String()
@@ -1170,7 +1170,7 @@ func (qm *CQMgr) ReQueueWorkunitByClient(client *Client, client_write_lock bool)
 				}
 				if ok {
 					// other_client exists (if otherclient does not exist, that is ok....)
-					oc_has_work, err := other_client.Current_work.Has(workid)
+					oc_has_work, err := other_client.CurrentWork.Has(workid)
 					if err != nil {
 						logger.Error("(ReQueueWorkunitByClient) Current_work_has: %s ", err.Error())
 						continue

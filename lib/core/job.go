@@ -95,9 +95,9 @@ func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
 	return
 }
 
-func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync string, write_lock bool) (err error) {
+func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync string, writeLock bool) (err error) {
 	fmt.Printf("(AddWorkflowInstance) id: %s\n", wi.LocalId)
-	if write_lock {
+	if writeLock {
 		err = job.LockNamed("AddWorkflowInstance")
 		if err != nil {
 			return
@@ -823,8 +823,8 @@ func (job *Job) IncrementRemainSteps(inc int) (remain int, err error) {
 	return
 }
 
-func (job *Job) IncrementWorkflowInstancesRemain(inc int, db_sync string, write_lock bool) (err error) {
-	if write_lock {
+func (job *Job) IncrementWorkflowInstancesRemain(inc int, db_sync string, writeLock bool) (err error) {
+	if writeLock {
 		err = job.LockNamed("IncrementWorkflowInstancesRemain")
 		if err != nil {
 			return

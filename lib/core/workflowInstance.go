@@ -225,8 +225,8 @@ func NewWorkflowInstanceArrayFromInterface(original []interface{}, job *Job, con
 }
 
 // db_sync is a string because a bool would be misunderstood as a lock indicator ("db_sync_no", db_sync_yes)
-func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync string, write_lock bool) (err error) {
-	if write_lock {
+func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync string, writeLock bool) (err error) {
+	if writeLock {
 		err = wi.LockNamed("WorkflowInstance/AddTask")
 		if err != nil {
 			err = fmt.Errorf("(AddTask) wi.LockNamed returned: %s", err.Error())
@@ -283,8 +283,8 @@ func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync string, write_
 	return
 }
 
-func (wi *WorkflowInstance) SetState(state string, db_sync string, write_lock bool) (err error) {
-	if write_lock {
+func (wi *WorkflowInstance) SetState(state string, db_sync string, writeLock bool) (err error) {
+	if writeLock {
 		err = wi.LockNamed("WorkflowInstance/SetState")
 		if err != nil {
 			err = fmt.Errorf("(WorkflowInstance/SetState) wi.LockNamed returned: %s", err.Error())
@@ -339,8 +339,8 @@ func (wi *WorkflowInstance) SetState(state string, db_sync string, write_lock bo
 	return
 }
 
-func (wi *WorkflowInstance) SetSubworkflows(steps []string, write_lock bool) (err error) {
-	if write_lock {
+func (wi *WorkflowInstance) SetSubworkflows(steps []string, writeLock bool) (err error) {
+	if writeLock {
 		err = wi.LockNamed("WorkflowInstance/SetSubworkflows")
 		if err != nil {
 			err = fmt.Errorf("(WorkflowInstance/SetSubworkflows) wi.LockNamed returned: %s", err.Error())
@@ -356,8 +356,8 @@ func (wi *WorkflowInstance) SetSubworkflows(steps []string, write_lock bool) (er
 }
 
 // assumes WorkflowInstance is in mongo already
-func (wi *WorkflowInstance) AddSubworkflow(job *Job, subworkflow string, write_lock bool) (err error) {
-	if write_lock {
+func (wi *WorkflowInstance) AddSubworkflow(job *Job, subworkflow string, writeLock bool) (err error) {
+	if writeLock {
 		err = wi.LockNamed("WorkflowInstance/AddSubworkflow")
 		if err != nil {
 			err = fmt.Errorf("(WorkflowInstance/AddSubworkflow) wi.LockNamed returned: %s", err.Error())
@@ -672,8 +672,8 @@ func (wi *WorkflowInstance) DecreaseRemainSteps_DEPRECATED() (remain int, err er
 	return
 }
 
-func (wi *WorkflowInstance) IncrementRemainSteps(amount int, write_lock bool) (remain int, err error) {
-	if write_lock {
+func (wi *WorkflowInstance) IncrementRemainSteps(amount int, writeLock bool) (remain int, err error) {
+	if writeLock {
 		err = wi.LockNamed("WorkflowInstance/IncrementRemainSteps")
 		if err != nil {
 			err = fmt.Errorf("(WorkflowInstance/IncrementRemainSteps) wi.LockNamed returned: %s", err.Error())

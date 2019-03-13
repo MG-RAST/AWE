@@ -24,19 +24,21 @@ func reload(source string) (err error) {
 		if err = reloadDB(); err != nil {
 			return err
 		}
-		return reloadFromUrl(source)
-	} else {
-		fmt.Println("source-type: dir")
-		if source == conf.DATA_PATH {
-			fmt.Println("source dir is the same as conf data dir: db reload only.")
-		} else {
-			return errors.New("source dir is not the same as conf data dir: copy not implemented yet")
-		}
-		if err = reloadDB(); err != nil {
-			return err
-		}
-		err = filepath.Walk(source, reloadFromDir)
+		err = reloadFromURL(source)
+		return
 	}
+
+	fmt.Println("source-type: dir")
+	if source == conf.DATA_PATH {
+		fmt.Println("source dir is the same as conf data dir: db reload only.")
+	} else {
+		return errors.New("source dir is not the same as conf data dir: copy not implemented yet")
+	}
+	if err = reloadDB(); err != nil {
+		return err
+	}
+	err = filepath.Walk(source, reloadFromDir)
+
 	return
 }
 
@@ -50,7 +52,7 @@ func reloadDB() (err error) {
 	return
 }
 
-func reloadFromUrl(url string) error {
+func reloadFromURL(url string) error {
 	return errors.New("reload from url not implemented yet")
 }
 

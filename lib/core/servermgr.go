@@ -32,6 +32,7 @@ type jQueueShow struct {
 	Suspend map[string]bool     `bson:"suspend" json:"suspend"`
 }
 
+// ServerMgr _
 type ServerMgr struct {
 	CQMgr
 	queueLock      sync.Mutex //only update one at a time
@@ -42,6 +43,7 @@ type ServerMgr struct {
 	actJobs        map[string]*JobPerf
 }
 
+// NewServerMgr _
 func NewServerMgr() *ServerMgr {
 	return &ServerMgr{
 		CQMgr: CQMgr{
@@ -62,11 +64,19 @@ func NewServerMgr() *ServerMgr {
 
 //--------mgr methods-------
 
-func (qm *ServerMgr) Lock()    {}
-func (qm *ServerMgr) Unlock()  {}
-func (qm *ServerMgr) RLock()   {}
+// Lock _
+func (qm *ServerMgr) Lock() {}
+
+// Unlock _
+func (qm *ServerMgr) Unlock() {}
+
+// RLock _
+func (qm *ServerMgr) RLock() {}
+
+// RUnlock _
 func (qm *ServerMgr) RUnlock() {}
 
+// UpdateQueueLoop _
 func (qm *ServerMgr) UpdateQueueLoop() {
 	// TODO this may not be dynamic enough for small amounts of workunits, as they always have to wait
 
@@ -1040,12 +1050,12 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 }
 
 func RemoveWorkFromClient(client *Client, workid Workunit_Unique_Identifier) (err error) {
-	err = client.Assigned_work.Delete(workid, true)
+	err = client.AssignedWork.Delete(workid, true)
 	if err != nil {
 		return
 	}
 
-	work_length, err := client.Assigned_work.Length(true)
+	work_length, err := client.AssignedWork.Length(true)
 	if err != nil {
 		return
 	}
@@ -1056,15 +1066,15 @@ func RemoveWorkFromClient(client *Client, workid Workunit_Unique_Identifier) (er
 
 		logger.Error("(RemoveWorkFromClient) Client %s still has %d workunits assigned, after delivering one workunit", clientid, work_length)
 
-		assigned_work_ids, err := client.Assigned_work.Get_list(true)
+		assigned_work_ids, err := client.AssignedWork.Get_list(true)
 		if err != nil {
 			return err
 		}
 		for _, work_id := range assigned_work_ids {
-			_ = client.Assigned_work.Delete(work_id, true)
+			_ = client.AssignedWork.Delete(work_id, true)
 		}
 
-		work_length, err = client.Assigned_work.Length(true)
+		work_length, err = client.AssignedWork.Length(true)
 		if err != nil {
 			return err
 		}
@@ -1568,7 +1578,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 			return
 		}
 
-		err = client.Append_Skip_work(work_id, true)
+		err = client.AppendSkipwork(work_id, true)
 		if err != nil {
 			return
 		}

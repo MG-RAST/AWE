@@ -898,8 +898,8 @@ func (task *TaskRaw) GetJob() (job *Job, err error) {
 }
 
 // also updates job.RemainSteps , wi.RemainTasks, task.SetCompletedDate
-func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, write_lock bool) (err error) {
-	if write_lock {
+func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, writeLock bool) (err error) {
+	if writeLock {
 		err = task.LockNamed("SetState")
 		if err != nil {
 			return

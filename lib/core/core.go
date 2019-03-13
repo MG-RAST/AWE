@@ -457,7 +457,7 @@ func contains(list []string, elem string) bool {
 //functions for REST API communication  (=deprecated=)
 //notify AWE server a workunit is finished with status either "failed" or "done", and with perf statistics if "done"
 func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
-	target_url := fmt.Sprintf("%s/work/%s?workid=%s&jobid=%s&status=%s&client=%s", conf.SERVER_URL, work.Id, work.TaskName, work.JobId, work.State, Self.Id)
+	target_url := fmt.Sprintf("%s/work/%s?workid=%s&jobid=%s&status=%s&client=%s", conf.SERVER_URL, work.Id, work.TaskName, work.JobId, work.State, Self.ID)
 
 	argv := []string{}
 	argv = append(argv, "-X")
@@ -492,10 +492,10 @@ func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs
 
 	target_url := ""
 	if work.CWL_workunit != nil {
-		target_url = fmt.Sprintf("%s/work/%s?client=%s", conf.SERVER_URL, work_id_b64, Self.Id) // client info is needed for authentication
+		target_url = fmt.Sprintf("%s/work/%s?client=%s", conf.SERVER_URL, work_id_b64, Self.ID) // client info is needed for authentication
 	} else {
 		// old AWE style result reporting (note that nodes had been created by the AWE server)
-		target_url = fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work_id_b64, work.State, Self.Id, work.ComputeTime)
+		target_url = fmt.Sprintf("%s/work/%s?status=%s&client=%s&computetime=%d", conf.SERVER_URL, work_id_b64, work.State, Self.ID, work.ComputeTime)
 	}
 	form := httpclient.NewForm()
 	hasreport := false

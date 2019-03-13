@@ -797,7 +797,7 @@ func (job *Job) SetRemainSteps(remain_steps int) (err error) {
 	return
 }
 
-func (job *Job) IncrementRemainSteps(inc int) (err error) {
+func (job *Job) IncrementRemainSteps(inc int) (remain int, err error) {
 	err = job.LockNamed("IncrementRemainSteps")
 	if err != nil {
 		return
@@ -819,6 +819,7 @@ func (job *Job) IncrementRemainSteps(inc int) (err error) {
 		return
 	}
 	job.RemainSteps = newRemainStep //IncrementRemainSteps
+	remain = newRemainStep
 	return
 }
 

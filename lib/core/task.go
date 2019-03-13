@@ -91,7 +91,7 @@ type TaskRaw struct {
 	Finalizing          bool                    `bson:"-" json:"-" mapstructure:"-"`                                                                   // CWL-only, a lock mechanism for subworkflows and scatter tasks
 	CwlVersion          cwl.CWLVersion          `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"` // CWL-only
 	WorkflowInstanceId  string                  `bson:"workflow_instance_id" json:"workflow_instance_id" mapstructure:"workflow_instance_id"`          // CWL-only
-	job                 *Job                    `bson:"-" json:"-" mapstructure:"-"`                                                                   // caching only
+	job                 *Job                    `bson:"-"  mapstructure:"-"`                                                                           // caching only
 	//WorkflowParent      *Task_Unique_Identifier  `bson:"workflow_parent" json:"workflow_parent" mapstructure:"workflow_parent"`                         // CWL-only parent that created subworkflow
 }
 
@@ -918,11 +918,6 @@ func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, write_lock
 	if old_state == new_state {
 		return
 	}
-	var job *Job
-	job, err = GetJob(jobid)
-	if err != nil {
-		return
-	}
 
 	if task.WorkflowInstanceId == "" {
 
@@ -943,28 +938,30 @@ func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, write_lock
 	task.State = new_state
 
 	if new_state == TASK_STAT_COMPLETED {
-		err = job.IncrementRemainSteps(-1)
-		if err != nil {
-			err = fmt.Errorf("(task/SetState) job.IncrementRemainSteps returned: %s", err.Error())
-			return
-		}
-		err = task.SetCompletedDate(time.Now(), false)
-		if err != nil {
-			err = fmt.Errorf("(task/SetState) task.SetCompletedDate returned: %s", err.Error())
-			return
-		}
 
 		if wi != nil {
-			_, err = wi.DecreaseRemainSteps()
+			_, err = wi.IncrementRemainSteps(-1, true)
 			if err != nil {
 				err = fmt.Errorf("(task/SetState) wi.DecreaseRemainSteps returned: %s", err.Error())
 				return
 			}
 		}
 
+		err = task.SetCompletedDate(time.Now(), false)
+		if err != nil {
+			err = fmt.Errorf("(task/SetState) task.SetCompletedDate returned: %s", err.Error())
+			return
+		}
+
 	} else if old_state == TASK_STAT_COMPLETED {
 		// in case a completed task is marked as something different
-		err = job.IncrementRemainSteps(1)
+		var job *Job
+		job, err = GetJob(jobid)
+		if err != nil {
+			return
+		}
+
+		_, err = job.IncrementRemainSteps(1)
 		if err != nil {
 			err = fmt.Errorf("(task/SetState) IncrementRemainSteps returned: %s", err.Error())
 			return
@@ -976,7 +973,7 @@ func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, write_lock
 			return
 		}
 		if wi != nil {
-			_, err = wi.IncrementRemainSteps(true)
+			_, err = wi.IncrementRemainSteps(1, true)
 			if err != nil {
 				err = fmt.Errorf("(task/SetState) wi.IncrementRemainSteps returned: %s", err.Error())
 				return

@@ -249,17 +249,17 @@ func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync string, write_
 		}
 	}
 
-	_, err = wi.IncrementRemainSteps(false)
+	_, err = wi.IncrementRemainSteps(1, false)
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/AddTask) wi.IncrementRemainSteps returned: %s", err.Error())
 		return
 	}
 
-	err = job.IncrementRemainSteps(1)
-	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/AddTask) job.IncrementRemainSteps returned: %s", err.Error())
-		return
-	}
+	//_, err = job.IncrementRemainSteps(1)
+	//if err != nil {
+	//	err = fmt.Errorf("(WorkflowInstance/AddTask) job.IncrementRemainSteps returned: %s", err.Error())
+	//	return
+	//}
 
 	//wi.TotalTasks = len(wi.Tasks)
 
@@ -309,6 +309,29 @@ func (wi *WorkflowInstance) SetState(state string, db_sync string, write_lock bo
 	}
 
 	if state == WI_STAT_COMPLETED {
+
+		var job *Job
+		job, err = wi.GetJob(false)
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/SetState) wi.GetJob() returned: %s", err.Error())
+			return
+		}
+
+		var remain int
+		remain, err = job.IncrementRemainSteps(-1)
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/SetState) job.IncrementRemainSteps returned: %s", err.Error())
+			return
+		}
+
+		if remain == 0 {
+			err = job.SetState(JOB_STAT_COMPLETED, nil)
+			if err != nil {
+				err = fmt.Errorf("(WorkflowInstance/SetState) job.SetState returned: %s", err.Error())
+				return
+			}
+		}
+
 		//parent :=
 		//if wi.ParentStep != nil
 	}
@@ -357,15 +380,9 @@ func (wi *WorkflowInstance) AddSubworkflow(job *Job, subworkflow string, write_l
 
 	wi.Subworkflows = new_subworkflows_list
 
-	_, err = wi.IncrementRemainSteps(false)
+	_, err = wi.IncrementRemainSteps(1, false)
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/AddSubworkflow) wi.IncrementRemainSteps returned: %s", err.Error())
-		return
-	}
-
-	err = job.IncrementRemainSteps(1)
-	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/AddSubworkflow) job.IncrementRemainSteps returned: %s", err.Error())
 		return
 	}
 
@@ -616,7 +633,8 @@ func (wi *WorkflowInstance) GetOutput(name string, read_lock bool) (obj cwl.CWLT
 	return
 }
 
-func (wi *WorkflowInstance) DecreaseRemainSteps() (remain int, err error) {
+// also changes remain steps in Job
+func (wi *WorkflowInstance) DecreaseRemainSteps_DEPRECATED() (remain int, err error) {
 	err = wi.LockNamed("WorkflowInstance/DecreaseRemainSteps")
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps) wi.LockNamed returned: %s", err.Error())
@@ -640,10 +658,21 @@ func (wi *WorkflowInstance) DecreaseRemainSteps() (remain int, err error) {
 	}
 	remain = wi.RemainSteps
 
+	var job *Job
+	job, err = wi.GetJob(false)
+	if err != nil {
+		return
+	}
+	_, err = job.IncrementRemainSteps(-1)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps) job.IncrementRemainSteps returned: %s", err.Error())
+		return
+	}
+
 	return
 }
 
-func (wi *WorkflowInstance) IncrementRemainSteps(write_lock bool) (remain int, err error) {
+func (wi *WorkflowInstance) IncrementRemainSteps(amount int, write_lock bool) (remain int, err error) {
 	if write_lock {
 		err = wi.LockNamed("WorkflowInstance/IncrementRemainSteps")
 		if err != nil {
@@ -652,15 +681,27 @@ func (wi *WorkflowInstance) IncrementRemainSteps(write_lock bool) (remain int, e
 		}
 		defer wi.Unlock()
 	}
-	wi.RemainSteps += 1
 
-	err = dbIncrementJobWorkflow_instancesField(wi.JobId, wi.LocalId, "remainsteps", 1) // TODO return correct value for remain
+	err = dbIncrementJobWorkflow_instancesField(wi.JobId, wi.LocalId, "remainsteps", amount) // TODO return correct value for remain
 	//err = wi.Save()
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/IncrementRemainSteps)  dbIncrementJobWorkflow_instancesField() returned: %s", err.Error())
 		return
 	}
+	wi.RemainSteps += amount
+
 	remain = wi.RemainSteps
+
+	var job *Job
+	job, err = wi.GetJob(false)
+	if err != nil {
+		return
+	}
+	_, err = job.IncrementRemainSteps(amount)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/IncrementRemainSteps) job.IncrementRemainSteps returned: %s", err.Error())
+		return
+	}
 
 	return
 }
@@ -681,7 +722,7 @@ func (wi *WorkflowInstance) GetRemainSteps(read_lock bool) (remain int, err erro
 	return
 }
 
-func (wi *WorkflowInstance) GetParentStep_cached() (pstep *cwl.WorkflowStep, err error) {
+func (wi *WorkflowInstance) GetParentStep_cached_DEPRECATED() (pstep *cwl.WorkflowStep, err error) {
 	var lock rwmutex.ReadLock
 	lock, err = wi.RLockNamed("GetParentStep_cached")
 	if err != nil {
@@ -695,7 +736,7 @@ func (wi *WorkflowInstance) GetParentStep_cached() (pstep *cwl.WorkflowStep, err
 	return
 }
 
-func (wi *WorkflowInstance) GetParentStep(pstep *cwl.WorkflowStep, err error) {
+func (wi *WorkflowInstance) GetParentStep_DEPRECATED(read_lock bool) (pstep *cwl.WorkflowStep, err error) {
 
 	pstep = wi.ParentStep
 
@@ -704,14 +745,14 @@ func (wi *WorkflowInstance) GetParentStep(pstep *cwl.WorkflowStep, err error) {
 	}
 
 	var parent_id string
-	parent_id, err = wi.GetParentId()
+	parent_id, err = wi.GetParentId(false)
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/GetParentStep) GetParentId returned: %s", err.Error())
 		return
 	}
 
 	var job *Job
-	job, err = wi.GetJob()
+	job, err = wi.GetJob(read_lock)
 
 	var parent_wi *WorkflowInstance
 	var ok bool
@@ -733,18 +774,26 @@ func (wi *WorkflowInstance) GetParentStep(pstep *cwl.WorkflowStep, err error) {
 		return
 	}
 
-	pstep, err = parent_workflow.GetStep()
+	parent_id_base := path.Base(parent_id)
 
-}
-
-func (wi *WorkflowInstance) GetParentId() (parent_id string, err error) {
-	var lock rwmutex.ReadLock
-	lock, err = wi.RLockNamed("GetParentId")
+	pstep, err = parent_workflow.GetStep(parent_id_base)
 	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/GetParentId) RLockNamed returned: %s", err.Error())
+		err = fmt.Errorf("(WorkflowInstance/GetParentStep) parent_workflow.GetStep returned: %s", err.Error())
 		return
 	}
-	defer wi.RUnlockNamed(lock)
+	return
+}
+
+func (wi *WorkflowInstance) GetParentId(read_lock bool) (parent_id string, err error) {
+	if read_lock {
+		var lock rwmutex.ReadLock
+		lock, err = wi.RLockNamed("GetParentId")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/GetParentId) RLockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.RUnlockNamed(lock)
+	}
 
 	parent_id = path.Base(wi.LocalId)
 
@@ -752,14 +801,16 @@ func (wi *WorkflowInstance) GetParentId() (parent_id string, err error) {
 
 }
 
-func (wi *WorkflowInstance) GetJob() (job *Job, err error) {
-	var lock rwmutex.ReadLock
-	lock, err = wi.RLockNamed("GetJob")
-	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/GetJob) RLockNamed returned: %s", err.Error())
-		return
+func (wi *WorkflowInstance) GetJob(read_lock bool) (job *Job, err error) {
+	if read_lock {
+		var lock rwmutex.ReadLock
+		lock, err = wi.RLockNamed("GetJob")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/GetJob) RLockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.RUnlockNamed(lock)
 	}
-	defer wi.RUnlockNamed(lock)
 
 	if wi.Job != nil {
 		job = wi.Job

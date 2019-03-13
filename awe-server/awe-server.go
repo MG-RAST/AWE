@@ -29,10 +29,10 @@ func launchSite(control chan int, port int) {
 
 	r := &goweb.RouteManager{}
 
-	site_directory := conf.SITE_PATH
-	fileinfo, err := os.Stat(site_directory)
+	siteDirectory := conf.SITE_PATH
+	fileinfo, err := os.Stat(siteDirectory)
 	if err != nil {
-		message := fmt.Sprintf("ERROR: site, path %s does not exist: %s", site_directory, err.Error())
+		message := fmt.Sprintf("ERROR: site, path %s does not exist: %s", siteDirectory, err.Error())
 		if os.IsNotExist(err) {
 			message += " IsNotExist"
 		}
@@ -43,7 +43,7 @@ func launchSite(control chan int, port int) {
 		os.Exit(1)
 	} else {
 		if !fileinfo.IsDir() {
-			message := fmt.Sprintf("ERROR: site, path %s exists, but is not a directory", site_directory)
+			message := fmt.Sprintf("ERROR: site, path %s exists, but is not a directory", siteDirectory)
 			fmt.Fprintf(os.Stderr, message, "\n")
 			logger.Error(message)
 			os.Exit(1)
@@ -51,60 +51,60 @@ func launchSite(control chan int, port int) {
 
 	}
 
-	template_conf_filename := path.Join(conf.SITE_PATH, "js/config.js.tt")
-	target_conf_filename := path.Join(conf.SITE_PATH, "js/config.js")
-	buf, err := ioutil.ReadFile(template_conf_filename)
+	templateConfFilename := path.Join(conf.SITE_PATH, "js/config.js.tt")
+	targetConfFilename := path.Join(conf.SITE_PATH, "js/config.js")
+	buf, err := ioutil.ReadFile(templateConfFilename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: could not read config template: %v\n", err)
 		logger.Error("ERROR: could not read config template: " + err.Error())
 	}
-	template_conf_string := string(buf)
+	templateConfString := string(buf)
 
 	// add / replace AWE API url
 	if conf.API_URL == "" {
 		fmt.Fprintf(os.Stderr, "ERROR: API_URL is not defined. \n")
 		logger.Error("ERROR: API_URL is not defined.")
 	}
-	template_conf_string = strings.Replace(template_conf_string, "[% api_url %]", conf.API_URL, -1)
+	templateConfString = strings.Replace(templateConfString, "[% api_url %]", conf.API_URL, -1)
 
 	// add login auth
-	auth_on := "false"
-	auth_oauthserver := "false"
-	auth_resources := ""
-	auth_url := ""
+	authOn := "false"
+	authOAuthserver := "false"
+	authResources := ""
+	authURL := ""
 	if conf.HAS_OAUTH {
-		auth_on = "true"
+		authOn = "true"
 		b, _ := json.Marshal(conf.LOGIN_RESOURCES)
 		b = bytes.TrimPrefix(b, []byte("{"))
 		b = bytes.TrimSuffix(b, []byte("}"))
-		auth_resources = "," + string(b)
+		authResources = "," + string(b)
 	}
 	if conf.USE_OAUTH_SERVER {
-		auth_oauthserver = "true"
-		auth_url = conf.AUTH_URL
+		authOAuthserver = "true"
+		authURL = conf.AUTH_URL
 	}
 
 	// replace auth
-	template_conf_string = strings.Replace(template_conf_string, "[% auth_on %]", auth_on, -1)
-	template_conf_string = strings.Replace(template_conf_string, "[% auth_oauthserver %]", auth_oauthserver, -1)
-	template_conf_string = strings.Replace(template_conf_string, "[% auth_url %]", auth_url, -1)
-	template_conf_string = strings.Replace(template_conf_string, "[% auth_default %]", conf.LOGIN_DEFAULT, -1)
-	template_conf_string = strings.Replace(template_conf_string, "[% auth_resources %]", auth_resources, -1)
+	templateConfString = strings.Replace(templateConfString, "[% auth_on %]", authOn, -1)
+	templateConfString = strings.Replace(templateConfString, "[% auth_oauthserver %]", authOAuthserver, -1)
+	templateConfString = strings.Replace(templateConfString, "[% auth_url %]", authURL, -1)
+	templateConfString = strings.Replace(templateConfString, "[% auth_default %]", conf.LOGIN_DEFAULT, -1)
+	templateConfString = strings.Replace(templateConfString, "[% auth_resources %]", authResources, -1)
 
-	target_conf_file, err := os.Create(target_conf_filename)
+	targetConfFile, err := os.Create(targetConfFilename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: could not write config for Retina: %v\n", err)
 		logger.Error("ERROR: could not write config for Retina: " + err.Error())
 	}
 
-	_, err = io.WriteString(target_conf_file, template_conf_string)
+	_, err = io.WriteString(targetConfFile, templateConfString)
 
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: could not write config for Retina: %v\n", err)
 		logger.Error("ERROR: could not write config for Retina: " + err.Error())
 	}
 
-	target_conf_file.Close()
+	targetConfFile.Close()
 
 	r.MapFunc("*", controller.SiteDir)
 	if conf.SSL_ENABLED {
@@ -304,9 +304,9 @@ func main() {
 	if conf.PID_FILE_PATH != "" {
 		f, err := os.Create(conf.PID_FILE_PATH)
 		if err != nil {
-			err_msg := "Could not create pid file: " + conf.PID_FILE_PATH + "\n"
-			fmt.Fprintf(os.Stderr, err_msg)
-			logger.Error("ERROR: " + err_msg)
+			errMsg := "Could not create pid file: " + conf.PID_FILE_PATH + "\n"
+			fmt.Fprintf(os.Stderr, errMsg)
+			logger.Error("ERROR: " + errMsg)
 			os.Exit(1)
 		}
 		defer f.Close()

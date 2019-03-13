@@ -3,13 +3,14 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/core"
-	"github.com/MG-RAST/AWE/lib/db"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/MG-RAST/AWE/lib/conf"
+	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/MG-RAST/AWE/lib/db"
 )
 
 var (
@@ -34,7 +35,7 @@ func reload(source string) (err error) {
 		if err = reloadDB(); err != nil {
 			return err
 		}
-		return filepath.Walk(source, reloadFromDir)
+		err = filepath.Walk(source, reloadFromDir)
 	}
 	return
 }

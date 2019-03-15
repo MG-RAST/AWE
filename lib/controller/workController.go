@@ -7,6 +7,7 @@ import (
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -14,6 +15,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+
 	//"github.com/davecgh/go-spew/spew"
 	"io/ioutil"
 	"net/http"
@@ -170,7 +172,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
-	workunit, err := core.QMgr.GetWorkById(id_wui)
+	workunit, err := core.QMgr.GetWorkByID(id_wui)
 	if err != nil {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
@@ -425,7 +427,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 		//	return
 		//}
 
-		notice = &core.Notice{Id: work_id, Status: query.Value("status"), WorkerId: query.Value("client"), Notes: ""}
+		notice = &core.Notice{ID: work_id, Status: query.Value("status"), WorkerID: query.Value("client"), Notes: ""}
 		// old-style
 		if query.Has("computetime") {
 			if comptime, err := strconv.Atoi(query.Value("computetime")); err == nil {

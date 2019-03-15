@@ -176,7 +176,7 @@ func ResourceDescription(cx *goweb.Context) {
 		V:     conf.VERSION,
 		Time:  time.Now().Format(longDateForm),
 		//GitCommitHash: conf.GIT_COMMIT_HASH,
-		Uptime: time.Since(core.Start_time).String(),
+		Uptime: time.Since(core.StartTime).String(),
 	}
 
 	if core.Service == "server" {

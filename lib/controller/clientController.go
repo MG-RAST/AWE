@@ -3,6 +3,11 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strconv"
+	"strings"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
@@ -11,10 +16,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
-	"io/ioutil"
-	"net/http"
-	"strconv"
-	"strings"
 )
 
 type ClientController struct{}
@@ -57,7 +58,7 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	}
 
 	//log event about client registration (CR)
-	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.Id+";hostname="+client.Hostname+";hostip="+client.Host_ip+";group="+client.Group+";instance_id="+client.InstanceId+";instance_type="+client.InstanceType+";domain="+client.Domain)
+	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.ID+";hostname="+client.Hostname+";hostip="+client.HostIP+";group="+client.Group+";instance_id="+client.InstanceID+";instance_type="+client.InstanceType+";domain="+client.Domain)
 
 	rlock, err := client.RLockNamed("ClientController/Create")
 	if err != nil {
@@ -153,7 +154,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 
 	if query.Has("busy") {
 		for _, client := range clients {
-			work_length, err := client.Current_work.Length(true)
+			work_length, err := client.CurrentWork.Length(true)
 			if err != nil {
 				continue
 			}
@@ -169,7 +170,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 		}
 	} else if query.Has("status") {
 		for _, client := range clients {
-			status, xerr := client.Get_New_Status(false)
+			status, xerr := client.GetNewStatus(false)
 			if xerr != nil {
 				continue
 			}
@@ -234,7 +235,7 @@ func (cr *ClientController) Update(id string, cx *goweb.Context) {
 			//cx.Respond(data interface{}, statusCode int, []string{err.Error()}, cx)
 			return
 		}
-		worker_status.Current_work.Init("Current_work")
+		worker_status.CurrentWork.Init("Current_work")
 
 		hbmsg, err := core.QMgr.ClientHeartBeat(id, cg, worker_status)
 		if err != nil {

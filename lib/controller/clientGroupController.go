@@ -1,6 +1,10 @@
 package controller
 
 import (
+	"net/http"
+	"strconv"
+	"strings"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
@@ -9,9 +13,6 @@ import (
 	"github.com/MG-RAST/golib/goweb"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"net/http"
-	"strconv"
-	"strings"
 )
 
 type ClientGroupController struct{}
@@ -95,9 +96,9 @@ func (cr *ClientGroupController) Read(id string, cx *goweb.Context) {
 
 	// User must have read permissions on clientgroup or be clientgroup owner or be an admin or the clientgroup is publicly readable.
 	// The other possibility is that public read of clientgroups is enabled and the clientgroup is publicly readable.
-	rights := cg.Acl.Check(u.Uuid)
-	public_rights := cg.Acl.Check("public")
-	if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || rights["read"] == true || u.Admin == true || public_rights["read"] == true)) ||
+	rights := cg.ACL.Check(u.Uuid)
+	public_rights := cg.ACL.Check("public")
+	if (u.Uuid != "public" && (cg.ACL.Owner == u.Uuid || rights["read"] == true || u.Admin == true || public_rights["read"] == true)) ||
 		(u.Uuid == "public" && conf.ANON_CG_READ == true && public_rights["read"] == true) {
 		cx.RespondWithData(cg)
 		return
@@ -232,9 +233,9 @@ func (cr *ClientGroupController) Delete(id string, cx *goweb.Context) {
 
 	// User must have delete permissions on clientgroup or be clientgroup owner or be an admin or the clientgroup is publicly deletable.
 	// The other possibility is that public deletion of clientgroups is enabled and the clientgroup is publicly deletable.
-	rights := cg.Acl.Check(u.Uuid)
-	public_rights := cg.Acl.Check("public")
-	if (u.Uuid != "public" && (cg.Acl.Owner == u.Uuid || rights["delete"] == true || u.Admin == true || public_rights["delete"] == true)) ||
+	rights := cg.ACL.Check(u.Uuid)
+	public_rights := cg.ACL.Check("public")
+	if (u.Uuid != "public" && (cg.ACL.Owner == u.Uuid || rights["delete"] == true || u.Admin == true || public_rights["delete"] == true)) ||
 		(u.Uuid == "public" && conf.ANON_CG_DELETE == true && public_rights["delete"] == true) {
 		err := core.DeleteClientGroup(id)
 		if err != nil {

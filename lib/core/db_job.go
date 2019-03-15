@@ -14,8 +14,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// JobInfoIndexes _
 var JobInfoIndexes = []string{"name", "submittime", "completedtime", "pipeline", "clientgroups", "project", "service", "user", "priority", "userattr.submission"}
 
+// HasInfoField _
 func HasInfoField(a string) bool {
 	for _, b := range JobInfoIndexes {
 		if b == a {
@@ -25,6 +27,7 @@ func HasInfoField(a string) bool {
 	return false
 }
 
+// InitJobDB _
 func InitJobDB() {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
@@ -54,9 +57,10 @@ func dbCount(q bson.M) (count int, err error) {
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 	if count, err = c.Find(q).Count(); err != nil {
 		return 0, err
-	} else {
-		return count, nil
 	}
+
+	return count, nil
+
 }
 
 // get a minimal subset of the job documents required for an admin overview
@@ -86,7 +90,7 @@ func dbAdminData(special string) (data []interface{}, err error) {
 	return
 }
 
-func dbFindSort(filter_query bson.M, results *Jobs, options map[string]int, sortby string, do_init bool) (count int, err error) {
+func dbFindSort(filterQuery bson.M, results *Jobs, options map[string]int, sortby string, doInit bool) (count int, err error) {
 	if sortby == "" {
 		return 0, errors.New("sortby must be an nonempty string")
 	}
@@ -94,7 +98,7 @@ func dbFindSort(filter_query bson.M, results *Jobs, options map[string]int, sort
 	defer session.Close()
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 
-	query := c.Find(filter_query)
+	query := c.Find(filterQuery)
 
 	if count, err = query.Count(); err != nil {
 		return 0, err
@@ -104,7 +108,7 @@ func dbFindSort(filter_query bson.M, results *Jobs, options map[string]int, sort
 		if offset, has := options["offset"]; has {
 			err = query.Sort(sortby).Limit(limit).Skip(offset).All(results)
 			if results != nil {
-				if do_init {
+				if doInit {
 					_, err = results.Init()
 					if err != nil {
 						return
@@ -126,7 +130,7 @@ func dbFindSort(filter_query bson.M, results *Jobs, options map[string]int, sort
 
 	var count_changed int
 
-	if do_init {
+	if doInit {
 		count_changed, err = results.Init()
 		if err != nil {
 			err = fmt.Errorf("(dbFindSort) results.Init() failed: %s", err.Error())

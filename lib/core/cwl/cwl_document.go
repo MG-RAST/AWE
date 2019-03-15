@@ -209,8 +209,8 @@ func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (objec
 	//fmt.Printf("this_id: %s\n", this_id)
 
 	var object CWL_object
-	var schemata_new []CWLType_Type
-	object, schemata_new, err = New_CWL_object(object_if, nil, context)
+	var schemataNew []CWLType_Type
+	object, schemataNew, err = New_CWL_object(object_if, nil, context)
 	if err != nil {
 		err = fmt.Errorf("(Parse_cwl_simple_document) B New_CWL_object returns %s", err.Error())
 		return
@@ -221,8 +221,8 @@ func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (objec
 	//fmt.Println("-------------- Start parsing")
 
 	//var commandlinetool *CommandLineTool
-	//var schemata_new []CWLType_Type
-	//commandlinetool, schemata_new, err = NewCommandLineTool(commandlinetool_if)
+	//var schemataNew []CWLType_Type
+	//commandlinetool, schemataNew, err = NewCommandLineTool(commandlinetool_if)
 	//if err != nil {
 	//	err = fmt.Errorf("(Parse_cwl_document) NewCommandLineTool returned: %s", err.Error())
 	//	return
@@ -250,8 +250,8 @@ func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (objec
 	//cwl_version = commandlinetool.CwlVersion // TODO
 
 	object_array = append(object_array, named_obj)
-	for i, _ := range schemata_new {
-		schemata = append(schemata, schemata_new[i])
+	for i, _ := range schemataNew {
+		schemata = append(schemata, schemataNew[i])
 	}
 	return
 }

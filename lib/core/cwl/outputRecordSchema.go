@@ -36,19 +36,19 @@ func NewOutputRecordSchemaFromInterface(native interface{}, schemata []CWLType_T
 
 	switch native.(type) {
 	case map[string]interface{}:
-		native_map, ok := native.(map[string]interface{})
+		nativeMap, ok := native.(map[string]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewOutputRecordSchemaFromInterface) type switch error")
 			return
 		}
 
-		ors, err = NewOutputRecordSchema(native_map)
+		ors, err = NewOutputRecordSchema(nativeMap)
 		if err != nil {
 			err = fmt.Errorf("(NewOutputRecordSchemaFromInterface) NewOutputRecordSchema returns: %s", err.Error())
 			return
 		}
 
-		fields, has_fields := native_map["fields"]
+		fields, has_fields := nativeMap["fields"]
 		if !has_fields {
 			err = fmt.Errorf("(NewOutputRecordSchemaFromInterface) no fields")
 			return

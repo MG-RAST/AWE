@@ -56,17 +56,17 @@ func NewRecord(id string, native interface{}, context *WorkflowContext) (record 
 
 		//fmt.Println("Got a record:")
 		//spew.Dump(native)
-		native_map, _ := native.(map[string]interface{})
+		nativeMap, _ := native.(map[string]interface{})
 
 		var keys []string
 
-		for key_str, _ := range native_map {
+		for key_str, _ := range nativeMap {
 			keys = append(keys, key_str)
 		}
 
 		for _, key_str := range keys {
 
-			value, _ := native_map[key_str]
+			value, _ := nativeMap[key_str]
 
 			var value_cwl CWLType
 
@@ -84,7 +84,7 @@ func NewRecord(id string, native interface{}, context *WorkflowContext) (record 
 
 		}
 
-		_, has_id := native_map["id"]
+		_, has_id := nativeMap["id"]
 		if !has_id {
 			//record["id"] = NewString(id)
 		}

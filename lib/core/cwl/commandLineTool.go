@@ -69,7 +69,7 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 
 	// extract SchemaDefRequirement
 	var schema_def_req *SchemaDefRequirement
-	//var schemata_new []CWLType_Type
+	//var schemataNew []CWLType_Type
 	has_schema_def_req := false
 
 	if requirements != nil {
@@ -81,8 +81,8 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 	}
 
 	//if has_schema_def_req {
-	//	for i, _ := range schemata_new {
-	//		schemata = append(schemata, schemata_new[i])
+	//	for i, _ := range schemataNew {
+	//		schemata = append(schemata, schemataNew[i])
 	//	}
 	//}
 
@@ -144,8 +144,8 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 		return
 	}
 
-	//for i, _ := range schemata_new {
-	//	schemata = append(schemata, schemata_new[i])
+	//for i, _ := range schemataNew {
+	//	schemata = append(schemata, schemataNew[i])
 	//}
 
 	if has_schema_def_req {
@@ -155,7 +155,7 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 
 	hints, ok := object["hints"]
 	if ok && (hints != nil) {
-		//var schemata_new []CWLType_Type
+		//var schemataNew []CWLType_Type
 
 		var hints_array []Requirement
 		hints_array, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
@@ -163,8 +163,8 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 			return
 		}
-		//for i, _ := range schemata_new {
-		//	schemata = append(schemata, schemata_new[i])
+		//for i, _ := range schemataNew {
+		//	schemata = append(schemata, schemataNew[i])
 		//}
 		object["hints"] = hints_array
 	}

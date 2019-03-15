@@ -66,11 +66,11 @@ func NewListingFromInterface(original interface{}, context *WorkflowContext) (ob
 		return
 	}
 
-	native_map, ok := original.(map[string]interface{})
+	nativeMap, ok := original.(map[string]interface{})
 	if ok {
-		_, has_entry := native_map["entry"]
+		_, has_entry := nativeMap["entry"]
 		if has_entry {
-			obj, err = NewDirentFromInterface("", native_map)
+			obj, err = NewDirentFromInterface("", nativeMap)
 			if err != nil {
 				err = fmt.Errorf("(NewCWLType) NewDirent returned: %s", err.Error())
 			}

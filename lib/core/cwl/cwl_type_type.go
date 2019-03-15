@@ -121,12 +121,12 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 		return
 
 	case map[string]interface{}:
-		native_map := native.(map[string]interface{})
+		nativeMap := native.(map[string]interface{})
 
-		object_type, has_type := native_map["type"]
+		object_type, has_type := nativeMap["type"]
 		if !has_type {
-			fmt.Println("(NewCWLType_Type) native_map:")
-			spew.Dump(native_map)
+			fmt.Println("(NewCWLType_Type) nativeMap:")
+			spew.Dump(nativeMap)
 
 			err = fmt.Errorf("(NewCWLType_Type) map object has not field \"type\" (context: %s)", context_p)
 			return
@@ -226,8 +226,8 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 			}
 		default:
 
-			fmt.Println("(NewCWLType_Type) native_map:")
-			spew.Dump(native_map)
+			fmt.Println("(NewCWLType_Type) nativeMap:")
+			spew.Dump(nativeMap)
 			err = fmt.Errorf("(NewCWLType_Type) object_type %s not supported yet", object_type)
 			return
 		}

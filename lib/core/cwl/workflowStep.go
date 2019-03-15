@@ -79,7 +79,7 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 
 		var requirements_array []Requirement
 		//var requirements_array_temp *[]Requirement
-		//var schemata_new []CWLType_Type
+		//var schemataNew []CWLType_Type
 		//fmt.Printf("(NewWorkflowStep) Injecting %d \n", len(injectedRequirements))
 		//spew.Dump(injectedRequirements)
 		requirements_array, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, nil, context) // not sure what input to use
@@ -88,8 +88,8 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 			return
 		}
 
-		//for i, _ := range schemata_new {
-		//	schemata = append(schemata, schemata_new[i])
+		//for i, _ := range schemataNew {
+		//	schemata = append(schemata, schemataNew[i])
 		//}
 
 		v_map["requirements"] = requirements_array
@@ -113,17 +113,17 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 
 		run, ok := v_map["run"]
 		if ok {
-			var schemata_new []CWLType_Type
+			var schemataNew []CWLType_Type
 			//fmt.Printf("(NewWorkflowStep) Injecting %d\n", len(requirements_array))
 			//spew.Dump(requirements_array)
 
-			v_map["run"], schemata_new, err = NewProcess(run, requirements_array, context)
+			v_map["run"], schemataNew, err = NewProcess(run, requirements_array, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) run %s", err.Error())
 				return
 			}
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
+			for i, _ := range schemataNew {
+				schemata = append(schemata, schemataNew[i])
 			}
 		}
 
@@ -175,7 +175,7 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 
 		hints, ok := v_map["hints"]
 		if ok && (hints != nil) {
-			//var schemata_new []CWLType_Type
+			//var schemataNew []CWLType_Type
 
 			var hints_array []Requirement
 			hints_array, err = CreateHintsArray(hints, injectedRequirements, nil, context)
@@ -183,8 +183,8 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 				err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 				return
 			}
-			//for i, _ := range schemata_new {
-			//	schemata = append(schemata, schemata_new[i])
+			//for i, _ := range schemataNew {
+			//	schemata = append(schemata, schemataNew[i])
 			//}
 			v_map["hints"] = hints_array
 		}
@@ -263,11 +263,11 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 			//fmt.Println("type: ")
 			//fmt.Println(reflect.TypeOf(v))
 
-			var schemata_new []CWLType_Type
+			var schemataNew []CWLType_Type
 			var step *WorkflowStep
 			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
 			//spew.Dump(injectedRequirements)
-			step, schemata_new, err = NewWorkflowStepFromInterface(v, injectedRequirements, context)
+			step, schemataNew, err = NewWorkflowStepFromInterface(v, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
@@ -279,8 +279,8 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 			//spew.Dump(step)
 			//fmt.Printf("C")
 			array = append(array, *step)
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
+			for i, _ := range schemataNew {
+				schemata = append(schemata, schemataNew[i])
 			}
 			//fmt.Printf("D")
 
@@ -297,17 +297,17 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 
 			//fmt.Println("type: ")
 			//fmt.Println(reflect.TypeOf(v))
-			var schemata_new []CWLType_Type
+			var schemataNew []CWLType_Type
 			var step *WorkflowStep
 			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
 			//spew.Dump(injectedRequirements)
-			step, schemata_new, err = NewWorkflowStepFromInterface(v, injectedRequirements, context)
+			step, schemataNew, err = NewWorkflowStepFromInterface(v, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
 			}
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
+			for i, _ := range schemataNew {
+				schemata = append(schemata, schemataNew[i])
 			}
 			//step.Id = k.(string)
 

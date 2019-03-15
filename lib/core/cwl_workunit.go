@@ -41,55 +41,55 @@ func NewCWLWorkunitFromInterface(native interface{}, context *cwl.WorkflowContex
 
 	case map[string]interface{}:
 
-		native_map, ok := native.(map[string]interface{})
+		nativeMap, ok := native.(map[string]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewCWLWorkunitFromInterface) type error")
 			return
 		}
 
-		jobInputGeneric, hasJobInputGeneric := native_map["job_input"]
+		jobInputGeneric, hasJobInputGeneric := nativeMap["job_input"]
 		if hasJobInputGeneric {
 
-			job_input, xerr := cwl.NewJob_documentFromNamedTypes(jobInputGeneric, context)
+			jobInput, xerr := cwl.NewJob_documentFromNamedTypes(jobInputGeneric, context)
 			if xerr != nil {
 				err = fmt.Errorf("(NewCWLWorkunitFromInterface) NewJob_document failed: %s", xerr.Error())
 				return
 			}
-			workunit.JobInput = job_input
+			workunit.JobInput = jobInput
 
 		}
 
-		workunit.JobInputFilename, _ = native_map["JobInput_filename"].(string)
-		//workunit.CWL_tool_filename, _ = native_map["CWL_tool_filename"].(string)
-		workunit.ToolFilename, _ = native_map["tool_filename"].(string)
+		workunit.JobInputFilename, _ = nativeMap["JobInput_filename"].(string)
+		//workunit.CWL_tool_filename, _ = nativeMap["CWL_tool_filename"].(string)
+		workunit.ToolFilename, _ = nativeMap["tool_filename"].(string)
 
-		outputs_expected_generic, has_outputs_expected := native_map["outputs_expected"]
-		if has_outputs_expected {
-			if outputs_expected_generic != nil {
-				outputs_expected, xerr := cwl.NewWorkflowStepOutputArray(outputs_expected_generic, context)
+		outputsExpectedGeneric, hasOutputsExpected := nativeMap["outputs_expected"]
+		if hasOutputsExpected {
+			if outputsExpectedGeneric != nil {
+				outputsExpected, xerr := cwl.NewWorkflowStepOutputArray(outputsExpectedGeneric, context)
 				if xerr != nil {
 					err = fmt.Errorf("(NewCWLWorkunitFromInterface) NewWorkflowStepOutput failed: %s", xerr.Error())
 					return
 				}
 
-				workunit.OutputsExpected = &outputs_expected
+				workunit.OutputsExpected = &outputsExpected
 			}
 		}
 
-		tool_generic, has_tool_generic := native_map["tool"]
-		if has_tool_generic {
+		toolGeneric, hasToolGeneric := nativeMap["tool"]
+		if hasToolGeneric {
 
-			var schemata_new []cwl.CWLType_Type
+			var schemataNew []cwl.CWLType_Type
 
 			var class string
-			class, err = cwl.GetClass(tool_generic)
+			class, err = cwl.GetClass(toolGeneric)
 
 			switch class {
 
 			case "CommandLineTool":
 				var commandlinetool *cwl.CommandLineTool
 
-				commandlinetool, schemata_new, err = cwl.NewCommandLineTool(tool_generic, nil, context)
+				commandlinetool, schemataNew, err = cwl.NewCommandLineTool(toolGeneric, nil, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLWorkunitFromInterface) NewCommandLineTool failed: %s", err.Error())
 					return
@@ -99,7 +99,7 @@ func NewCWLWorkunitFromInterface(native interface{}, context *cwl.WorkflowContex
 			case "ExpressionTool":
 				var expressiontool *cwl.ExpressionTool
 
-				expressiontool, err = cwl.NewExpressionTool(tool_generic, nil, nil, context)
+				expressiontool, err = cwl.NewExpressionTool(toolGeneric, nil, nil, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLWorkunitFromInterface) NewExpreassonTool failed: %s", err.Error())
 					return
@@ -110,8 +110,8 @@ func NewCWLWorkunitFromInterface(native interface{}, context *cwl.WorkflowContex
 				return
 			}
 
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
+			for i := range schemataNew {
+				schemata = append(schemata, schemataNew[i])
 			}
 
 		}

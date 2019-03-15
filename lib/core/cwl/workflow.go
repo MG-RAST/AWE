@@ -121,22 +121,22 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 
 		var requirements_array []Requirement
 		//var requirements_array_temp *[]Requirement
-		//var schemata_new []CWLType_Type
+		//var schemataNew []CWLType_Type
 		requirements_array, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflow) error in CreateRequirementArray (requirements): %s", err.Error())
 			return
 		}
 
-		//for i, _ := range schemata_new {
-		//	schemata = append(schemata, schemata_new[i])
+		//for i, _ := range schemataNew {
+		//	schemata = append(schemata, schemataNew[i])
 		//}
 
 		object["requirements"] = requirements_array
 
 		hints, ok := object["hints"]
 		if ok && (hints != nil) {
-			//var schemata_new []CWLType_Type
+			//var schemataNew []CWLType_Type
 
 			var hints_array []Requirement
 			hints_array, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
@@ -144,8 +144,8 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 				err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 				return
 			}
-			//for i, _ := range schemata_new {
-			//	schemata = append(schemata, schemata_new[i])
+			//for i, _ := range schemataNew {
+			//	schemata = append(schemata, schemataNew[i])
 			//}
 			object["hints"] = hints_array
 		}
@@ -154,17 +154,17 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 		steps, ok := object["steps"]
 		if ok {
 			logger.Debug(3, "(NewWorkflow) Parsing steps in Workflow")
-			var schemata_new []CWLType_Type
+			var schemataNew []CWLType_Type
 
 			//fmt.Printf("(NewWorkflow) Injecting %d\n", len(requirements_array))
 			//spew.Dump(requirements_array)
-			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps, requirements_array, context)
+			schemataNew, object["steps"], err = CreateWorkflowStepsArray(steps, requirements_array, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) CreateWorkflowStepsArray returned: %s", err.Error())
 				return
 			}
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
+			for i, _ := range schemataNew {
+				schemata = append(schemata, schemataNew[i])
 			}
 		} else {
 			err = fmt.Errorf("(NewWorkflow) Workflow has no steps ")

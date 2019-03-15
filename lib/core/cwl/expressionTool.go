@@ -65,22 +65,22 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRe
 
 	var requirements_array []Requirement
 	//var requirements_array_temp *[]Requirement
-	//var schemata_new []CWLType_Type
+	//var schemataNew []CWLType_Type
 	requirements_array, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, inputs, context)
 	if err != nil {
 		err = fmt.Errorf("(NewExpressionTool) error in CreateRequirementArray (requirements): %s", err.Error())
 		return
 	}
 
-	//for i, _ := range schemata_new {
-	//	schemata = append(schemata, schemata_new[i])
+	//for i, _ := range schemataNew {
+	//	schemata = append(schemata, schemataNew[i])
 	//}
 
 	object["requirements"] = requirements_array
 
 	hints, ok := object["hints"]
 	if ok && (hints != nil) {
-		//var schemata_new []CWLType_Type
+		//var schemataNew []CWLType_Type
 
 		var hints_array []Requirement
 		hints_array, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
@@ -88,8 +88,8 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRe
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 			return
 		}
-		//for i, _ := range schemata_new {
-		//	schemata = append(schemata, schemata_new[i])
+		//for i, _ := range schemataNew {
+		//	schemata = append(schemata, schemataNew[i])
 		//}
 		object["hints"] = hints_array
 	}

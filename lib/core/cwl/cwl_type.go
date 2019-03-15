@@ -187,12 +187,12 @@ func NewCWLType(id string, native interface{}, context *WorkflowContext) (cwl_ty
 
 	case map[string]interface{}:
 		//fmt.Printf("(NewCWLType) G\n")
-		native_map := native.(map[string]interface{})
+		nativeMap := native.(map[string]interface{})
 
-		_, has_items := native_map["items"]
+		_, has_items := nativeMap["items"]
 
 		if has_items {
-			cwl_type, err = NewArray(id, native_map, context)
+			cwl_type, err = NewArray(id, nativeMap, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCWLType) NewArray returned: %s", err.Error())
 			}

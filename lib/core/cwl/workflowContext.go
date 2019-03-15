@@ -182,8 +182,8 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	// recursivly add objects to context
 	context.Initialzing = true
 	var object CWL_object
-	var schemata_new []CWLType_Type
-	object, schemata_new, err = New_CWL_object(main_if, nil, context)
+	var schemataNew []CWLType_Type
+	object, schemataNew, err = New_CWL_object(main_if, nil, context)
 	if err != nil {
 		fmt.Printf("(WorkflowContext/Init) main_if")
 		spew.Dump(main_if)
@@ -193,13 +193,13 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	context.Initialzing = false
 	context.Objects[entrypoint] = object
 
-	err = context.AddSchemata(schemata_new, true)
+	err = context.AddSchemata(schemataNew, true)
 	if err != nil {
 		err = fmt.Errorf("(WorkflowContext/Init) context.AddSchemata returned %s", err.Error())
 		return
 	}
-	//for i, _ := range schemata_new {
-	//	schemata = append(schemata, schemata_new[i])
+	//for i, _ := range schemataNew {
+	//	schemata = append(schemata, schemataNew[i])
 	//}
 	//fmt.Println("context.All")
 	//for key, _ := range context.All {

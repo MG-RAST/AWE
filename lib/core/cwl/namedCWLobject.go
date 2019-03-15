@@ -94,9 +94,9 @@ func NewNamed_CWL_object_array(original interface{}, context *WorkflowContext) (
 		org_a := original.([]interface{})
 
 		for _, element := range org_a {
-			var schemata_new []CWLType_Type
+			var schemataNew []CWLType_Type
 			var cwl_object Named_CWL_object
-			cwl_object, schemata_new, err = NewNamed_CWL_object_from_interface(element, context)
+			cwl_object, schemataNew, err = NewNamed_CWL_object_from_interface(element, context)
 			if err != nil {
 				err = fmt.Errorf("(NewNamed_CWL_object_array) New_CWL_object returned %s", err.Error())
 				return
@@ -104,8 +104,8 @@ func NewNamed_CWL_object_array(original interface{}, context *WorkflowContext) (
 
 			array = append(array, cwl_object)
 
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
+			for i, _ := range schemataNew {
+				schemata = append(schemata, schemataNew[i])
 			}
 		}
 

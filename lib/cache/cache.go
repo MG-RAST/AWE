@@ -473,18 +473,18 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 	switch native.(type) {
 
 	case map[string]interface{}:
-		native_map := native.(map[string]interface{})
+		nativeMap := native.(map[string]interface{})
 
-		keys := make([]string, len(native_map))
+		keys := make([]string, len(nativeMap))
 
 		i := 0
-		for key := range native_map {
+		for key := range nativeMap {
 			keys[i] = key
 			i++
 		}
 
 		for _, key := range keys {
-			value := native_map[key]
+			value := nativeMap[key]
 			var sub_count int
 
 			//value_file, ok := value.(*cwl.File)

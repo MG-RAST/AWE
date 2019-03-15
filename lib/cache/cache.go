@@ -1054,13 +1054,13 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 		count += sub_count
 
-	case *core.CWL_workunit:
+	case *core.CWLWorkunit:
 
 		if io_type == "download" {
-			work := native.(*core.CWL_workunit)
+			work := native.(*core.CWLWorkunit)
 
 			var sub_count int
-			sub_count, err = ProcessIOData(work.Job_input, current_path, base_path, "download", shock_client)
+			sub_count, err = ProcessIOData(work.JobInput, current_path, base_path, "download", shock_client)
 			if err != nil {
 				err = fmt.Errorf("(processIOData) work.Job_input ProcessIOData(for download) returned: %s", err.Error())
 				return
@@ -1224,12 +1224,12 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 		return
 	}
 
-	if work.CWL_workunit != nil {
+	if work.CWLWorkunit != nil {
 
 		shock_client := shock.NewShockClient(work.ShockHost, work.Info.DataToken, false)
 
 		var count int
-		count, err = ProcessIOData(work.CWL_workunit, work_path, work_path, "download", shock_client)
+		count, err = ProcessIOData(work.CWLWorkunit, work_path, work_path, "download", shock_client)
 		if err != nil {
 			err = fmt.Errorf("(MoveInputData) ProcessIOData(for download) returned: %s", err.Error())
 			return
@@ -1395,16 +1395,16 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 
 func UploadOutputData(work *core.Workunit, shock_client *shock.ShockClient) (size int64, err error) {
 
-	if work.CWL_workunit != nil {
+	if work.CWLWorkunit != nil {
 
-		if work.CWL_workunit.Outputs != nil {
+		if work.CWLWorkunit.Outputs != nil {
 			//fmt.Println("Outputs 1")
 			//scs := spew.Config
 			//scs.DisableMethods = true
 
 			//scs.Dump(work.CWL_workunit.Outputs)
 			var upload_count int
-			upload_count, err = ProcessIOData(work.CWL_workunit.Outputs, "", "", "upload", shock_client)
+			upload_count, err = ProcessIOData(work.CWLWorkunit.Outputs, "", "", "upload", shock_client)
 			if err != nil {
 				err = fmt.Errorf("(UploadOutputData) ProcessIOData returned: %s", err.Error())
 			}

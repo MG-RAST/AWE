@@ -199,7 +199,7 @@ func main() {
 	time.Sleep(time.Second * 3) // workaround to make sure logger is working correctly ; TODO better fix needed
 
 	core.JM = core.NewJobMap()
-	core.Server_UUID = uuid.New()
+	core.ServerUUID = uuid.New()
 
 	logger.Info("init db...")
 

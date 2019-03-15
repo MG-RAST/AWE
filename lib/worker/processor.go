@@ -154,7 +154,7 @@ func processor_run(control chan int) (err error) {
 }
 
 func processor(control chan int) {
-	fmt.Printf("(processor) launched, client=%s\n", core.Self.Id)
+	fmt.Printf("(processor) launched, client=%s\n", core.Self.ID)
 	defer fmt.Printf("(processor)  exiting...\n")
 	count := 0
 	for {
@@ -193,7 +193,7 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 		}
 	}
 
-	if workunit.CWL_workunit != nil {
+	if workunit.CWLWorkunit != nil {
 		var work_path string
 		work_path, err = workunit.Path()
 		if err != nil {
@@ -269,7 +269,7 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 
 		//fmt.Println("CWL-runner receipt:")
 		//spew.Dump(result_doc)
-		workunit.CWL_workunit.Outputs = result_doc
+		workunit.CWLWorkunit.Outputs = result_doc
 
 	}
 
@@ -307,15 +307,15 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 	wrapper_script_filename_host := path.Join(work_path, wrapper_script_filename)
 	wrapper_script_filename_docker := path.Join(conf.DOCKER_WORK_DIR, wrapper_script_filename)
 
-	if len(workunit.Cmd.Cmd_script) > 0 {
+	if len(workunit.Cmd.CmdScript) > 0 {
 		use_wrapper_script = true
 
 		// create wrapper script
 
 		//conf.DOCKER_WORK_DIR
-		var wrapper_content_string = "#!/bin/bash\n" + strings.Join(workunit.Cmd.Cmd_script, "\n") + "\n"
+		var wrapper_content_string = "#!/bin/bash\n" + strings.Join(workunit.Cmd.CmdScript, "\n") + "\n"
 
-		logger.Debug(1, "write wrapper script: %s\n%s", wrapper_script_filename_host, strings.Join(workunit.Cmd.Cmd_script, ", "))
+		logger.Debug(1, "write wrapper script: %s\n%s", wrapper_script_filename_host, strings.Join(workunit.Cmd.CmdScript, ", "))
 
 		var wrapper_content_bytes = []byte(wrapper_content_string)
 
@@ -1207,7 +1207,7 @@ func UnSetEnv(envkeys []string) {
 }
 
 func FetchPrivateEnvByWorkId(workid string) (envs map[string]string, err error) {
-	targeturl := fmt.Sprintf("%s/work/%s?privateenv&client=%s", conf.SERVER_URL, workid, core.Self.Id)
+	targeturl := fmt.Sprintf("%s/work/%s?privateenv&client=%s", conf.SERVER_URL, workid, core.Self.ID)
 	var headers httpclient.Header
 	if conf.CLIENT_GROUP_TOKEN != "" {
 		headers = httpclient.Header{

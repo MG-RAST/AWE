@@ -15,7 +15,7 @@ type Command struct {
 	ArgsArray     []string `bson:"args_array" json:"args_array" mapstructure:"args_array"`    // use this instead of Args, which is just a string
 	Dockerimage   string   `bson:"Dockerimage" json:"Dockerimage" mapstructure:"Dockerimage"` // for Shock (TODO rename this !)
 	DockerPull    string   `bson:"dockerPull" json:"dockerPull" mapstructure:"dockerPull"`    // docker pull
-	XCmdScript    []string `bson:"cmd_script" json:"cmd_script" mapstructure:"cmd_script"`
+	CmdScript     []string `bson:"cmd_script" json:"cmd_script" mapstructure:"cmd_script"`
 	Environ       Envs     `bson:"environ" json:"environ" mapstructure:"environ"`
 	HasPrivateEnv bool     `bson:"has_private_env" json:"has_private_env" mapstructure:"has_private_env"`
 	Description   string   `bson:"description" json:"description" mapstructure:"description"`

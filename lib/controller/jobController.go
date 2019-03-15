@@ -11,7 +11,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	e "github.com/MG-RAST/AWE/lib/errors"
-	"github.com/MG-RAST/AWE/lib/foreign/taverna"
+
+	//"github.com/MG-RAST/AWE/lib/foreign/taverna"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/request"
@@ -769,13 +770,13 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 			cx.RespondWithErrorMessage("lacking stage id from which the recompute starts", http.StatusBadRequest)
 			return
 		} else if target == "taverna" {
-			wfrun, err := taverna.ExportWorkflowRun(job)
-			if err != nil {
-				cx.RespondWithErrorMessage("failed to export job to taverna workflowrun:"+id, http.StatusBadRequest)
-				return
-			}
-			cx.RespondWithData(wfrun)
-			return
+			//wfrun, err := taverna.ExportWorkflowRun(job)
+			//if err != nil {
+			//	cx.RespondWithErrorMessage("failed to export job to taverna workflowrun:"+id, http.StatusBadRequest)
+			//	return
+			//}
+			//	cx.RespondWithData(wfrun)
+			//	return
 		}
 	}
 

@@ -22,6 +22,13 @@ import (
 	"github.com/MG-RAST/golib/httpclient"
 )
 
+const (
+	// DbSyncTrue _
+	DbSyncTrue = true
+	// DbSyncFalse _
+	DbSyncFalse = false
+)
+
 var (
 	//QMgr                      ResourceMgr
 	QMgr *ServerMgr

@@ -95,7 +95,7 @@ func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
 	return
 }
 
-func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync string, writeLock bool) (err error) {
+func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync bool, writeLock bool) (err error) {
 	fmt.Printf("(AddWorkflowInstance) id: %s\n", wi.LocalId)
 	if writeLock {
 		err = job.LockNamed("AddWorkflowInstance")
@@ -119,13 +119,13 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync string, writeL
 
 	job.WorkflowInstancesMap[wi.LocalId] = wi
 
-	err = wi.SetState(WI_STAT_PENDING, "db_sync_no", true) // AddWorkflowInstance
+	err = wi.SetState(WI_STAT_PENDING, DbSyncFalse, true) // AddWorkflowInstance
 	if err != nil {
 		err = fmt.Errorf("(AddWorkflowInstance) wi.SetState returned: %s (wi.LocalId: %s)", err.Error(), wi.LocalId)
 		return
 	}
 
-	if db_sync == "db_sync_yes" {
+	if db_sync == DbSyncTrue {
 
 		err = dbUpsert(wi)
 		if err != nil {
@@ -809,8 +809,8 @@ func (job *Job) IncrementRemainSteps(inc int) (remain int, err error) {
 	newRemainStep := job.RemainSteps + inc
 
 	if newRemainStep < 0 {
-		logger.Error("(IncrementRemainSteps) newRemainStep would be negativ, TODO fix!") // TODO this has to be fixed correctly
-		newRemainStep = 0
+		err = fmt.Errorf("(IncrementRemainSteps) newRemainStep < 0")
+		return
 	}
 
 	logger.Debug(3, "(IncrementRemainSteps) new value of RemainStep: %d", newRemainStep)
@@ -823,7 +823,7 @@ func (job *Job) IncrementRemainSteps(inc int) (remain int, err error) {
 	return
 }
 
-func (job *Job) IncrementWorkflowInstancesRemain(inc int, db_sync string, writeLock bool) (err error) {
+func (job *Job) IncrementWorkflowInstancesRemain(inc int, db_sync bool, writeLock bool) (err error) {
 	if writeLock {
 		err = job.LockNamed("IncrementWorkflowInstancesRemain")
 		if err != nil {
@@ -835,7 +835,7 @@ func (job *Job) IncrementWorkflowInstancesRemain(inc int, db_sync string, writeL
 
 	newRemainWf := job.WorkflowInstancesRemain + inc
 	logger.Debug(3, "(IncrementWorkflowInstancesRemain) new value of WorkflowInstancesRemain: %d", newRemainWf)
-	if db_sync == "db_sync_yes" {
+	if db_sync == DbSyncTrue {
 		err = dbUpdateJobFieldInt(job.Id, "workflow_instances_remain", newRemainWf)
 		if err != nil {
 			return

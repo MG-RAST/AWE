@@ -307,7 +307,7 @@ func CWL2AWE(_user *user.User, files FormFiles, jobInput *cwl.Job_document, cwlW
 
 	logger.Debug(1, "(CWL2AWE) wi saved")
 
-	err = job.AddWorkflowInstance(wi, "db_sync_no", false) // adding _root
+	err = job.AddWorkflowInstance(wi, DbSyncFalse, false) // adding _root
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) AddWorkflowInstance returned: %s", err.Error())
 		return

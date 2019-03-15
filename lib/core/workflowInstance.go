@@ -64,6 +64,7 @@ type WorkflowInstance struct {
 	TotalTasks          int               `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
 	Subworkflows        []string          `bson:"subworkflows" json:"subworkflows" mapstructure:"subworkflows"`
 	ParentStep          *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"` // cache for ParentId
+	Parent              *WorkflowInstance `bson:"-" json:"-" mapstructure:"-"` // cache for ParentId
 	Job                 *Job              `bson:"-" json:"-" mapstructure:"-"` // cache
 	//Created_by          string            `bson:"created_by" json:"created_by" mapstructure:"created_by"`
 }
@@ -225,7 +226,7 @@ func NewWorkflowInstanceArrayFromInterface(original []interface{}, job *Job, con
 }
 
 // db_sync is a string because a bool would be misunderstood as a lock indicator ("db_sync_no", db_sync_yes)
-func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync string, writeLock bool) (err error) {
+func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync bool, writeLock bool) (err error) {
 	if writeLock {
 		err = wi.LockNamed("WorkflowInstance/AddTask")
 		if err != nil {
@@ -264,7 +265,7 @@ func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync string, writeL
 	//wi.TotalTasks = len(wi.Tasks)
 
 	wi.Tasks = append(wi.Tasks, task)
-	if db_sync == "db_sync_yes" {
+	if db_sync == DbSyncTrue {
 
 		var job_id string
 		job_id, err = job.GetId(false)
@@ -283,7 +284,7 @@ func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync string, writeL
 	return
 }
 
-func (wi *WorkflowInstance) SetState(state string, db_sync string, writeLock bool) (err error) {
+func (wi *WorkflowInstance) SetState(state string, db_sync bool, writeLock bool) (err error) {
 	if writeLock {
 		err = wi.LockNamed("WorkflowInstance/SetState")
 		if err != nil {
@@ -294,7 +295,7 @@ func (wi *WorkflowInstance) SetState(state string, db_sync string, writeLock boo
 	}
 	wi.State = state
 
-	if db_sync == "db_sync_yes" {
+	if db_sync == DbSyncTrue {
 
 		job_id := wi.JobId
 
@@ -310,30 +311,66 @@ func (wi *WorkflowInstance) SetState(state string, db_sync string, writeLock boo
 
 	if state == WI_STAT_COMPLETED {
 
-		var job *Job
-		job, err = wi.GetJob(false)
+		// notify parent: either parent workflow_instance _or_ job
+
+		var parentID string
+		parentID, err = wi.GetParentId(false)
 		if err != nil {
-			err = fmt.Errorf("(WorkflowInstance/SetState) wi.GetJob() returned: %s", err.Error())
+			err = fmt.Errorf("(WorkflowInstance/SetState) GetParentId returned: %s", err.Error())
 			return
 		}
 
-		var remain int
-		remain, err = job.IncrementRemainSteps(-1)
-		if err != nil {
-			err = fmt.Errorf("(WorkflowInstance/SetState) job.IncrementRemainSteps returned: %s", err.Error())
-			return
-		}
+		if parentID == "" {
+			// notify job only
 
-		if remain == 0 {
-			err = job.SetState(JOB_STAT_COMPLETED, nil)
+			var job *Job
+			job, err = wi.GetJob(false)
 			if err != nil {
-				err = fmt.Errorf("(WorkflowInstance/SetState) job.SetState returned: %s", err.Error())
+				err = fmt.Errorf("(WorkflowInstance/SetState) wi.GetJob() returned: %s", err.Error())
 				return
 			}
-		}
 
-		//parent :=
-		//if wi.ParentStep != nil
+			// update job (only if workflow instance is root)
+			var remain int
+			remain, err = job.IncrementRemainSteps(-1)
+			if err != nil {
+				err = fmt.Errorf("(WorkflowInstance/SetState) job.IncrementRemainSteps returned: %s", err.Error())
+				return
+			}
+
+			if remain == 0 {
+				err = job.SetState(JOB_STAT_COMPLETED, nil)
+				if err != nil {
+					err = fmt.Errorf("(WorkflowInstance/SetState) job.SetState returned: %s", err.Error())
+					return
+				}
+			}
+		} else {
+			// notify parent only
+
+			var parentWI *WorkflowInstance
+			parentWI, err = wi.GetParent(false)
+			if err != nil {
+				err = fmt.Errorf("(WorkflowInstance/SetState) job.GetParent returned: %s", err.Error())
+				return
+			}
+			var parentRemain int
+			parentRemain, err = parentWI.IncrementRemainSteps(-1, true)
+			if err != nil {
+				err = fmt.Errorf("(WorkflowInstance/SetState) job.IncrementRemainSteps returned: %s", err.Error())
+				return
+			}
+
+			if parentRemain == 0 {
+				// recursive call
+				err = parentWI.SetState(WI_STAT_COMPLETED, DbSyncTrue, true)
+				if err != nil {
+					err = fmt.Errorf("(WorkflowInstance/SetState) parentWI.SetState returned: %s", err.Error())
+					return
+				}
+			}
+
+		}
 	}
 
 	return
@@ -732,6 +769,66 @@ func (wi *WorkflowInstance) GetParentStep_cached_DEPRECATED() (pstep *cwl.Workfl
 	defer wi.RUnlockNamed(lock)
 
 	pstep = wi.ParentStep
+
+	return
+}
+
+func (wi *WorkflowInstance) GetParentRaw(read_lock bool) (parent *WorkflowInstance, err error) {
+	if read_lock {
+		var lock rwmutex.ReadLock
+		lock, err = wi.RLockNamed("GetParentRaw")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/GetParentRaw) RLockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.RUnlockNamed(lock)
+	}
+	parent = wi.Parent
+	return
+}
+
+func (wi *WorkflowInstance) GetParent(read_lock bool) (parent *WorkflowInstance, err error) {
+
+	parent, err = wi.GetParentRaw(read_lock)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/GetParent) wi.GetParent returned: %s", err.Error())
+		return
+	}
+
+	if parent != nil {
+		return
+	}
+
+	var parentID string
+	parentID, err = wi.GetParentId(read_lock)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/GetParent) wi.GetParentId returned: %s", err.Error())
+		return
+	}
+
+	if parentID == "" {
+		err = fmt.Errorf("(WorkflowInstance/GetParent) no parent")
+		return
+	}
+
+	var job *Job
+	job, err = wi.GetJob(read_lock)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/GetParent) wi.GetJob returned: %s", err.Error())
+		return
+	}
+
+	var ok bool
+	parent, ok, err = job.GetWorkflowInstance(parentID, true)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/GetParent) job.GetWorkflowInstance returned: %s", err.Error())
+		return
+	}
+
+	if !ok {
+		err = fmt.Errorf("(WorkflowInstance/GetParent) job.GetWorkflowInstance did not workflow_instance %s", parentID)
+		return
+	}
 
 	return
 }

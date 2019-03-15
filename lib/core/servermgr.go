@@ -317,7 +317,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 				}
 
 				logger.Debug(3, "(updateWorkflowInstancesMapTask) adding %s to workflow_instance", awe_task.TaskName)
-				err = wi.AddTask(job, awe_task, "db_sync_yes", true)
+				err = wi.AddTask(job, awe_task, DbSyncTrue, true)
 				if err != nil {
 					err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.AddTask returned: %s", err.Error())
 					return
@@ -367,7 +367,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 				new_wi.ParentStep = step
 				//new_wi.SetState(WI_STAT_PENDING, "db_sync_no", false) // updateWorkflowInstancesMapTask
 				//AddWorkflowInstance sets steat to WI_STAT_PENDING
-				err = job.AddWorkflowInstance(new_wi, "db_sync_yes", true) // updateWorkflowInstancesMapTask
+				err = job.AddWorkflowInstance(new_wi, DbSyncTrue, true) // updateWorkflowInstancesMapTask
 				if err != nil {
 					err = fmt.Errorf("(updateWorkflowInstancesMapTask) job.AddWorkflowInstance returned: %s", err.Error())
 					return
@@ -396,7 +396,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 		wi.Subworkflows = subworkflow_str
 		wi.RemainSteps = len(cwl_workflow.Steps)
 		// pending -> ready
-		err = wi.SetState(WI_STAT_READY, "db_sync_true", true)
+		err = wi.SetState(WI_STAT_READY, DbSyncTrue, true)
 		if err != nil {
 			err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.SetState returned: %s", err.Error())
 			return
@@ -421,7 +421,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 			}
 		}
 
-		err = wi.SetState(WI_STAT_QUEUED, "db_sync_yes", true)
+		err = wi.SetState(WI_STAT_QUEUED, DbSyncTrue, true)
 		if err != nil {
 			err = fmt.Errorf("(updateWorkflowInstancesMapTask) SetState returned: %s", err.Error())
 			return
@@ -2428,13 +2428,13 @@ func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workfl
 		return
 	}
 	wi.Inputs = task_input_array
-	err = wi.SetState(WI_STAT_PENDING, "db_sync_yes", false)
+	err = wi.SetState(WI_STAT_PENDING, DbSyncTrue, false)
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) wi.SetState(WI_STAT_PENDING returned: %s", err.Error())
 		return
 	}
 
-	err = job.AddWorkflowInstance(wi, "db_sync_yes", true) // taskEnQueueWorkflow_deprecated
+	err = job.AddWorkflowInstance(wi, DbSyncTrue, true) // taskEnQueueWorkflow_deprecated
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) job.AddWorkflowInstance returned: %s", err.Error())
 		return
@@ -2461,7 +2461,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workfl
 	// 	//children = append(children, sub_task_id)
 
 	// 	//err = job.AddTask(sub_task)
-	// 	err = wi.AddTask(job, sub_task, "db_sync_yes", true)
+	// 	err = wi.AddTask(job, sub_task, DbSyncTrue, true)
 	// 	if err != nil {
 	// 		err = fmt.Errorf("(taskEnQueueWorkflow) job.AddTask returns: %s", err.Error())
 	// 		return
@@ -2849,7 +2849,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		sub_task_id, _ := sub_task.GetId("taskEnQueueScatter")
 		sub_task_id_str, _ := sub_task_id.String()
 		logger.Debug(3, "(taskEnQueueScatter) adding %s to workflow_instance", sub_task_id_str)
-		err = workflow_instance.AddTask(job, sub_task, "db_sync_yes", true)
+		err = workflow_instance.AddTask(job, sub_task, DbSyncTrue, true)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueScatter) job.AddTask returns: %s", err.Error())
 			return
@@ -4838,14 +4838,14 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflow_instance *WorkflowIn
 
 	}
 
-	err = workflow_instance.SetState(WI_STAT_COMPLETED, "db_sync_yes", true)
+	err = workflow_instance.SetState(WI_STAT_COMPLETED, DbSyncTrue, true)
 	if err != nil {
 		err = fmt.Errorf("(completeSubworkflow) workflow_instance.SetState returned: %s", err.Error())
 		return
 	}
 
 	logger.Debug(3, "(completeSubworkflow) job.WorkflowInstancesRemain: (before) %d", job.WorkflowInstancesRemain)
-	err = job.IncrementWorkflowInstancesRemain(-1, "db_sync_yes", true)
+	err = job.IncrementWorkflowInstancesRemain(-1, DbSyncTrue, true)
 	if err != nil {
 		err = fmt.Errorf("(completeSubworkflow) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
 		return

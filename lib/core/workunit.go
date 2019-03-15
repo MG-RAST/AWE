@@ -59,7 +59,7 @@ type Workunit struct {
 	Notes                      []string               `bson:"notes,omitempty" json:"notes,omitempty" mapstructure:"notes,omitempty"`
 	UserAttr                   map[string]interface{} `bson:"userattr,omitempty" json:"userattr,omitempty" mapstructure:"userattr,omitempty"`
 	ShockHost                  string                 `bson:"shockhost,omitempty" json:"shockhost,omitempty" mapstructure:"shockhost,omitempty"` // specifies default Shock host for outputs
-	CWL_workunit               *CWL_workunit          `bson:"cwl,omitempty" json:"cwl,omitempty" mapstructure:"cwl,omitempty"`
+	CWLWorkunit                *CWLWorkunit           `bson:"cwl,omitempty" json:"cwl,omitempty" mapstructure:"cwl,omitempty"`
 	WorkPath                   string                 // this is the working directory. If empty, it will be computed.
 	WorkPerf                   *WorkPerf
 	Context                    *cwl.WorkflowContext `bson:"-" json:"-" mapstructure:"-"`
@@ -113,7 +113,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		workflow_step := task.WorkflowStep
 
-		workunit.CWL_workunit = &CWL_workunit{}
+		workunit.CWLWorkunit = &CWLWorkunit{}
 
 		workunit.ShockHost = job.ShockHost
 
@@ -197,7 +197,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		workunit.ShockHost = shock_requirement.Shock_api_url
 
-		workunit.CWL_workunit.Tool = process
+		workunit.CWLWorkunit.Tool = process
 
 		//}
 
@@ -291,7 +291,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			job_input = append(job_input, named_type)
 		}
 
-		workunit.CWL_workunit.Job_input = &job_input
+		workunit.CWLWorkunit.JobInput = &job_input
 
 		//fmt.Println("workflow_instance:")
 		//spew.Dump(workflow_instance)
@@ -300,7 +300,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		//fmt.Println("workflow_step.Run:")
 		//spew.Dump(workflow_step.Run)
 		//panic("done workflow_step.Out")
-		workunit.CWL_workunit.OutputsExpected = &workflow_step.Out
+		workunit.CWLWorkunit.OutputsExpected = &workflow_step.Out
 
 		err = workunit.Evaluate(workunit_input_map, context)
 		if err != nil {
@@ -315,8 +315,8 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 func (w *Workunit) Evaluate(inputs interface{}, context *cwl.WorkflowContext) (err error) {
 
-	if w.CWL_workunit != nil {
-		process := w.CWL_workunit.Tool
+	if w.CWLWorkunit != nil {
+		process := w.CWLWorkunit.Tool
 		switch process.(type) {
 		case *cwl.CommandLineTool:
 			clt := process.(*cwl.CommandLineTool)

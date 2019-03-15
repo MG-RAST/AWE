@@ -53,8 +53,8 @@ func (qm *ProxyMgr) ClientHandle() {
 			//qm.coAck <- ack
 			coReq.response <- ack
 		case notice := <-qm.feedback:
-			id_str, _ := notice.Id.String()
-			logger.Debug(2, "proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", id_str, notice.Status, notice.WorkerId)
+			id_str, _ := notice.ID.String()
+			logger.Debug(2, "proxymgr: workunit feedback received, workid=%s, status=%s, clientid=%s\n", id_str, notice.Status, notice.WorkerID)
 			if err := qm.handleNoticeWorkDelivered(&notice); err != nil {
 				logger.Error("handleNoticeWorkDelivered(): " + err.Error())
 			}
@@ -99,8 +99,8 @@ func (qm *ProxyMgr) GetTextStatus() string {
 func (qm *ProxyMgr) handleNoticeWorkDelivered(notice *Notice) (err error) {
 	//relay the notice to the server
 	perf := new(WorkPerf)
-	workid := notice.Id
-	clientid := notice.WorkerId
+	workid := notice.ID
+	clientid := notice.WorkerID
 	client, ok, err := qm.GetClient(clientid, true)
 	if err != nil {
 		return
@@ -108,7 +108,7 @@ func (qm *ProxyMgr) handleNoticeWorkDelivered(notice *Notice) (err error) {
 	if ok {
 		//delete(client.Current_work, workid)
 		client.LockNamed("ProxyMgr/handleNoticeWorkDelivered A2")
-		err = client.AssignedWork.Delete(notice.Id, false)
+		err = client.AssignedWork.Delete(notice.ID, false)
 		if err != nil {
 			return
 		}
@@ -135,7 +135,7 @@ func (qm *ProxyMgr) handleNoticeWorkDelivered(notice *Notice) (err error) {
 				return
 			}
 			if ok {
-				client.Increment_total_completed()
+				client.IncrementTotalCompleted()
 				client.LastFailed = 0 //reset last consecutive failures
 				qm.AddClient(client, true)
 			}
@@ -151,7 +151,7 @@ func (qm *ProxyMgr) handleNoticeWorkDelivered(notice *Notice) (err error) {
 				if err != nil {
 					return
 				}
-				err = client.Increment_total_failed(false)
+				err = client.IncrementTotalFailed(false)
 				if err != nil {
 					return
 				}

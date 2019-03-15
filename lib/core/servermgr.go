@@ -98,13 +98,13 @@ func (qm *ServerMgr) UpdateQueueLoop() {
 			logger.Error("(UpdateQueueLoop) updateQueue returned: %s", err.Error())
 			err = nil
 		}
-		elapsed := time.Since(start)         // type Duration
-		elapsed_seconds := elapsed.Seconds() // type float64
+		elapsed := time.Since(start)        // type Duration
+		elapsedSeconds := elapsed.Seconds() // type float64
 
 		var sleeptime time.Duration
-		if elapsed_seconds <= 1 {
+		if elapsedSeconds <= 1 {
 			sleeptime = 1 * time.Second // wait at least 1 second
-		} else if elapsed_seconds > 5 && elapsed_seconds < 30 {
+		} else if elapsedSeconds > 5 && elapsedSeconds < 30 {
 			sleeptime = elapsed
 		} else {
 			sleeptime = 30 * time.Second // wait at most 30 seconds
@@ -574,14 +574,14 @@ func (qm *ServerMgr) NoticeHandle() {
 	for {
 		notice := <-qm.feedback
 
-		id, err := notice.Id.String()
+		id, err := notice.ID.String()
 		if err != nil {
-			logger.Error("(NoticeHandle) notice.Id invalid: " + err.Error())
+			logger.Error("(NoticeHandle) notice.ID invalid: " + err.Error())
 			err = nil
 			continue
 		}
 
-		logger.Debug(3, "(ServerMgr NoticeHandle) got notice: workid=%s, status=%s, clientid=%s", id, notice.Status, notice.WorkerId)
+		logger.Debug(3, "(ServerMgr NoticeHandle) got notice: workid=%s, status=%s, clientid=%s", id, notice.Status, notice.WorkerID)
 
 		//fmt.Printf("Notice:")
 		//spew.Dump(notice)
@@ -1062,7 +1062,7 @@ func RemoveWorkFromClient(client *Client, workid Workunit_Unique_Identifier) (er
 
 	if work_length > 0 {
 
-		clientid, _ := client.Get_Id(true)
+		clientid, _ := client.GetID(true)
 
 		logger.Error("(RemoveWorkFromClient) Client %s still has %d workunits assigned, after delivering one workunit", clientid, work_length)
 
@@ -1120,9 +1120,9 @@ func (qm *ServerMgr) handleWorkStatDone(client *Client, clientid string, task *T
 	}()
 
 	if client != nil {
-		err = client.Increment_total_completed()
+		err = client.IncrementTotalCompleted()
 		if err != nil {
-			err = fmt.Errorf("(handleWorkStatDone) client.Increment_total_completed returned: %s", err.Error())
+			err = fmt.Errorf("(handleWorkStatDone) client.IncrementTotalCompleted returned: %s", err.Error())
 			return
 		}
 	}
@@ -1308,9 +1308,9 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 
 	logger.Debug(3, "(handleNoticeWorkDelivered) start")
-	clientid := notice.WorkerId
+	clientid := notice.WorkerID
 
-	work_id := notice.Id
+	work_id := notice.ID
 	task_id := work_id.GetTask()
 
 	job_id := work_id.JobId
@@ -1582,13 +1582,13 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		if err != nil {
 			return
 		}
-		err = client.Increment_total_failed(true)
+		err = client.IncrementTotalFailed(true)
 		if err != nil {
 			return
 		}
 
 		var last_failed int
-		last_failed, err = client.Increment_last_failed(true)
+		last_failed, err = client.IncrementLastFailed(true)
 		if err != nil {
 			return
 		}
@@ -1783,7 +1783,7 @@ func (qm *ServerMgr) FetchDataToken(work_id Workunit_Unique_Identifier, clientid
 		return "", errors.New(e.ClientNotFound)
 	}
 
-	is_suspended, err := client.Get_Suspended(true)
+	is_suspended, err := client.GetSuspended(true)
 	if err != nil {
 		return
 	}
@@ -2711,8 +2711,8 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		// create empty arrays for output and return notice
 
 		notice = &Notice{}
-		notice.WorkerId = "_internal"
-		notice.Id = New_Workunit_Unique_Identifier(task.Task_Unique_Identifier, 0)
+		notice.WorkerID = "_internal"
+		notice.ID = New_Workunit_Unique_Identifier(task.Task_Unique_Identifier, 0)
 		notice.Status = WORK_STAT_DONE
 		notice.ComputeTime = 0
 
@@ -6004,7 +6004,7 @@ func (qm *ServerMgr) FetchPrivateEnv(id Workunit_Unique_Identifier, clientid str
 		return env, errors.New(e.ClientNotFound)
 	}
 
-	is_suspended, err := client.Get_Suspended(true)
+	is_suspended, err := client.GetSuspended(true)
 	if err != nil {
 		return
 	}

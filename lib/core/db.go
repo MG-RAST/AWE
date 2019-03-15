@@ -68,7 +68,7 @@ func dbUpsert(t interface{}) (err error) {
 		_, err = c.Upsert(bson.M{"id": t.Id}, &t)
 	case *ClientGroup:
 		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_CGS)
-		_, err = c.Upsert(bson.M{"id": t.Id}, &t)
+		_, err = c.Upsert(bson.M{"id": t.ID}, &t)
 	default:
 		fmt.Printf("invalid database entry type\n")
 	}

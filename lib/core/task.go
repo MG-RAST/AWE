@@ -154,7 +154,7 @@ func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) 
 		return
 	}
 
-	//job_id := job.Id
+	//job_id := job.ID
 
 	if job_id == "" {
 		err = fmt.Errorf("(InitRaw) job_id empty")
@@ -477,7 +477,7 @@ func (task *Task) Init(job *Job, job_id string) (changed bool, err error) {
 // task_id_str is without prefix yet
 func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task, err error) {
 
-	fmt.Printf("(NewTask) new task: %s %s/%s\n", job.Id, workflow_instance_id, task_id_str)
+	fmt.Printf("(NewTask) new task: %s %s/%s\n", job.ID, workflow_instance_id, task_id_str)
 
 	if task_id_str == "" {
 		err = fmt.Errorf("(NewTask) task_id is empty")
@@ -498,7 +498,7 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task
 
 	}
 
-	if job.Id == "" {
+	if job.ID == "" {
 		err = fmt.Errorf("(NewTask) jobid is empty!")
 		return
 	}
@@ -514,7 +514,7 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task
 	job_global_task_id_str := workflow_instance_id + "/" + task_id_str
 
 	var tui Task_Unique_Identifier
-	tui, err = New_Task_Unique_Identifier(job.Id, job_global_task_id_str)
+	tui, err = New_Task_Unique_Identifier(job.ID, job_global_task_id_str)
 	if err != nil {
 		err = fmt.Errorf("(NewTask) New_Task_Unique_Identifier returns: %s", err.Error())
 		return

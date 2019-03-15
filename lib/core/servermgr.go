@@ -133,8 +133,8 @@ func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, re
 	//fmt.Println("cwl_workflow.Inputs:")
 	//spew.Dump(cwl_workflow.Inputs)
 
-	//fmt.Println("wi.LocalId: " + wi.LocalId)
-	parent_workflow_instance_name := path.Dir(wi.LocalId)
+	//fmt.Println("wi.LocalID: " + wi.LocalID)
+	parent_workflow_instance_name := path.Dir(wi.LocalID)
 
 	if parent_workflow_instance_name == "." {
 		return
@@ -210,14 +210,14 @@ func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, re
 
 func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err error) {
 
-	wi_local_id := wi.LocalId
+	wi_local_id := wi.LocalID
 	wi_state, _ := wi.GetState(true)
 
-	logger.Debug(3, "(updateWorkflowInstancesMapTask) start: %s state: %s", wi.LocalId, wi_state)
+	logger.Debug(3, "(updateWorkflowInstancesMapTask) start: %s state: %s", wi.LocalID, wi_state)
 
 	if wi_state == WI_STAT_PENDING {
 
-		jobid := wi.JobId
+		jobid := wi.JobID
 		//workflow_def_str := wi.Workflow_Definition
 
 		var job *Job
@@ -357,7 +357,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 				//panic("creating new subworkflow " + new_wi_name)
 				var new_wi *WorkflowInstance
-				new_wi, err = NewWorkflowInstance(new_wi_name, jobid, subworkflow_id, job, wi.LocalId)
+				new_wi, err = NewWorkflowInstance(new_wi_name, jobid, subworkflow_id, job, wi.LocalID)
 				if err != nil {
 					err = fmt.Errorf("(updateWorkflowInstancesMapTask) NewWorkflowInstance returned: %s", err.Error())
 					return
@@ -379,7 +379,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 					return
 				}
 
-				err = wi.AddSubworkflow(job, new_wi.LocalId, true)
+				err = wi.AddSubworkflow(job, new_wi.LocalID, true)
 				if err != nil {
 					err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.AddSubworkflow returned: %s", err.Error())
 					return
@@ -2274,7 +2274,7 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 		}
 
 		//workflow_input_map := workflow_instance.Inputs.GetMap()
-		//workflow_instance_id := workflow_instance.LocalId
+		//workflow_instance_id := workflow_instance.LocalID
 		//workflow_def := workflow_instance.Workflow_Definition
 
 		//fmt.Println("WorkflowStep.Id: " + task.WorkflowStep.Id)
@@ -2422,7 +2422,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workfl
 
 	var wi *WorkflowInstance
 
-	wi, err = NewWorkflowInstance(workflow_instance_id, job.Id, workflow_defintion_id, job, parent_workflow_instance_id)
+	wi, err = NewWorkflowInstance(workflow_instance_id, job.ID, workflow_defintion_id, job, parent_workflow_instance_id)
 	if err != nil {
 		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) NewWorkflowInstance returned: %s", err.Error())
 		return
@@ -2446,7 +2446,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workfl
 	//var children []string
 	// for i := range sub_workflow_tasks {
 	// 	sub_task := sub_workflow_tasks[i]
-	// 	_, err = sub_task.Init(job, job.Id)
+	// 	_, err = sub_task.Init(job, job.ID)
 	// 	if err != nil {
 	// 		err = fmt.Errorf("(taskEnQueueWorkflow) sub_task.Init() returns: %s", err.Error())
 	// 		return
@@ -2786,7 +2786,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 
 		sub_task.Scatter_parent = &task.Task_Unique_Identifier
 		//awe_task.Scatter_task = true
-		_, err = sub_task.Init(job, job.Id)
+		_, err = sub_task.Init(job, job.ID)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueScatter) awe_task.Init() returns: %s", err.Error())
 			return
@@ -3145,17 +3145,17 @@ func (qm *ServerMgr) getCWLSourceFromWorkflowInput(workflow_input_map map[string
 func (qm *ServerMgr) getCWLSourceFromStepOutput_Tool(job *Job, workflow_instance *WorkflowInstance, workflow_name string, step_name string, output_name string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
 
 	// search task and its output
-	if workflow_instance.JobId == "" {
+	if workflow_instance.JobID == "" {
 		err = fmt.Errorf("(getCWLSourceFromStepOutput) workflow_instance.JobId empty")
 		return
 	}
 	//workflow_instance_id, _ := workflow_instance.GetId(true)
-	workflow_instance_local_id := workflow_instance.LocalId
+	workflow_instance_local_id := workflow_instance.LocalID
 
 	ancestor_task_name_local := workflow_instance_local_id + "/" + step_name
 
 	ancestor_task_id := Task_Unique_Identifier{}
-	ancestor_task_id.JobId = workflow_instance.JobId
+	ancestor_task_id.JobId = workflow_instance.JobID
 	ancestor_task_id.TaskName = ancestor_task_name_local
 
 	ancestor_task_id_str, _ := ancestor_task_id.String()
@@ -3199,7 +3199,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput_Tool(job *Job, workflow_instance
 
 func (qm *ServerMgr) getCWLSourceFromStepOutput_Workflow(job *Job, workflow_instance *WorkflowInstance, step_name string, output_name string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
 
-	local_name := workflow_instance.LocalId
+	local_name := workflow_instance.LocalID
 
 	subworkflow_name := local_name + "/" + step_name
 
@@ -3215,7 +3215,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput_Workflow(job *Job, workflow_inst
 		steps := ""
 		for _, wi := range job.WorkflowInstancesMap {
 
-			steps += "," + wi.LocalId
+			steps += "," + wi.LocalID
 		}
 
 		err = fmt.Errorf("(getCWLSourceFromStepOutput_Workflow) step %s (a Workflow) not found (found: %s)", subworkflow_name, steps)
@@ -3250,7 +3250,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflow_instance *Wor
 	ok = false
 	//step_name_abs := workflow_name + "/" + step_name
 	workflow_instance_id, _ := workflow_instance.GetId(true)
-	//workflow_instance_local_id := workflow_instance.LocalId
+	//workflow_instance_local_id := workflow_instance.LocalID
 
 	logger.Debug(3, "(getCWLSourceFromStepOutput) %s / %s / %s (workflow_instance_id: %s)", workflow_name, step_name, output_name, workflow_instance_id)
 	_ = workflow_instance_id
@@ -3486,8 +3486,8 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflow_instance *Workflo
 
 		workflow_id := workflow.Id
 
-		if workflow_instance.LocalId != workflow_id {
-			err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.LocalId: %s vs workflow_id %s", workflow_instance.LocalId, workflow_id)
+		if workflow_instance.LocalID != workflow_id {
+			err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.LocalID: %s vs workflow_id %s", workflow_instance.LocalID, workflow_id)
 			return
 		}
 
@@ -4853,7 +4853,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflow_instance *WorkflowIn
 
 	// ***** notify parent workflow (this workflow might have been the last step)
 
-	workflow_instance_local_id := workflow_instance.LocalId
+	workflow_instance_local_id := workflow_instance.LocalID
 	logger.Debug(3, "(completeSubworkflow) completes with workflow_instance_local_id: %s", workflow_instance_local_id)
 
 	if workflow_instance_local_id == "#main" {
@@ -5169,7 +5169,7 @@ func (qm *ServerMgr) finalizeJob(job *Job) (err error) {
 		}
 	}
 	//log event about job done (JD)
-	logger.Event(event.JOB_DONE, "jobid="+job.Id+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
+	logger.Event(event.JOB_DONE, "jobid="+job.ID+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 
 	return
 }
@@ -5328,8 +5328,8 @@ func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err
 		return
 	}
 	// User must have delete permissions on job or be job owner or be an admin
-	rights := job.Acl.Check(u.Uuid)
-	if job.Acl.Owner != u.Uuid && rights["delete"] == false && u.Admin == false {
+	rights := job.ACL.Check(u.Uuid)
+	if job.ACL.Owner != u.Uuid && rights["delete"] == false && u.Admin == false {
 		return errors.New(e.UnAuth)
 	}
 	if err = job.SetState(JOB_STAT_DELETED, nil); err != nil {
@@ -5402,8 +5402,8 @@ func (qm *ServerMgr) DeleteZombieJobsByUser(u *user.User, full bool) (num int) {
 		return
 	}
 	for _, dbjob := range *dbjobs {
-		if !qm.isActJob(dbjob.Id) {
-			if err := qm.DeleteJobByUser(dbjob.Id, u, full); err == nil {
+		if !qm.isActJob(dbjob.ID) {
+			if err := qm.DeleteJobByUser(dbjob.ID, u, full); err == nil {
 				num += 1
 			}
 		}
@@ -5427,8 +5427,8 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 	}
 
 	// User must have write permissions on job or be job owner or be an admin
-	rights := dbjob.Acl.Check(u.Uuid)
-	if dbjob.Acl.Owner != u.Uuid && rights["write"] == false && u.Admin == false {
+	rights := dbjob.ACL.Check(u.Uuid)
+	if dbjob.ACL.Owner != u.Uuid && rights["write"] == false && u.Admin == false {
 		err = errors.New(e.UnAuth)
 		return
 	}
@@ -5485,7 +5485,7 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 func (qm *ServerMgr) RecoverJob(id string, job *Job) (recovered bool, err error) {
 	// job by id or object
 	if job != nil {
-		id = job.Id
+		id = job.ID
 	} else {
 		job, err = GetJob(id)
 		if err != nil {
@@ -5579,10 +5579,10 @@ func (qm *ServerMgr) RecoverJobs() (recovered int, total int, err error) {
 		if dbjob.Info != nil {
 			pipeline = dbjob.Info.Pipeline
 		}
-		logger.Debug(1, "recovering %d: job=%s, state=%s, pipeline=%s", recovered+1, dbjob.Id, dbjob.State, pipeline)
+		logger.Debug(1, "recovering %d: job=%s, state=%s, pipeline=%s", recovered+1, dbjob.ID, dbjob.State, pipeline)
 		isRecovered, rerr := qm.RecoverJob("", dbjob)
 		if rerr != nil {
-			logger.Error(fmt.Sprintf("(RecoverJobs) job=%s failed: %s", dbjob.Id, rerr.Error()))
+			logger.Error(fmt.Sprintf("(RecoverJobs) job=%s failed: %s", dbjob.ID, rerr.Error()))
 			continue
 		}
 		if isRecovered {
@@ -5809,7 +5809,7 @@ func isAncestor(job *Job, taskId string, testId string) (result bool, err error)
 
 //update tokens for in-memory data structures
 func (qm *ServerMgr) UpdateQueueToken(job *Job) (err error) {
-	//job_id := job.Id
+	//job_id := job.ID
 	for _, task := range job.Tasks {
 		task_id, _ := task.GetId("UpdateQueueToken")
 		mtask, ok, err := qm.TaskMap.Get(task_id, true)

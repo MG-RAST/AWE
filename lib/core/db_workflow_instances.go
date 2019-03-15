@@ -147,7 +147,7 @@ func dbUpdateJobWorkflow_instancesFieldString(job_id string, subworkflow_id stri
 	update_value := bson.M{fieldname: value}
 	err = dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobWorkflow_instancesFieldInt) (subworkflow_id: %s, fieldname: %s, value: %s) %s", subworkflow_id, fieldname, value, err.Error())
+		err = fmt.Errorf("(dbUpdateJobWorkflow_instancesFieldString) (subworkflow_id: %s, fieldname: %s, value: %s) %s", subworkflow_id, fieldname, value, err.Error())
 		return
 	}
 	return
@@ -168,7 +168,7 @@ func dbUpdateJobWorkflow_instancesFields(job_id string, subworkflow_id string, u
 
 	err = c.Update(selector, bson.M{"$set": update_value})
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobWorkflow_instancesFields) Error updating workflow_instance (_id: %s): %s", job_id+subworkflow_id, err.Error())
+		err = fmt.Errorf("(dbUpdateJobWorkflow_instancesFields) Error updating workflow_instance (_id: %s): %s", unique_id, err.Error())
 		return
 	}
 	return

@@ -1,12 +1,13 @@
 package core
 
 import (
+	"regexp"
+	"time"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"gopkg.in/mgo.v2/bson"
-	"regexp"
-	"time"
 )
 
 var (
@@ -35,7 +36,7 @@ func (jr *JobReaper) Handle() {
 		jobs.GetAllUnsorted(query)
 		// delete expired jobs
 		for _, j := range jobs {
-			logger.Event(event.JOB_EXPIRED, "jobid="+j.Id)
+			logger.Event(event.JOB_EXPIRED, "jobid="+j.ID)
 			if err := j.Delete(); err != nil {
 				logger.Error("Err@job_delete: " + err.Error())
 			}

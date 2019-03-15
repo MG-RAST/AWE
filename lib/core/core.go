@@ -137,11 +137,11 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 
 	logger.Debug(3, "OWNER1: %s", u.Uuid)
 
-	job.Acl.SetOwner(u.Uuid)
-	logger.Debug(3, "OWNER2: %s", job.Acl.Owner)
-	job.Acl.Set(u.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
+	job.ACL.SetOwner(u.Uuid)
+	logger.Debug(3, "OWNER2: %s", job.ACL.Owner)
+	job.ACL.Set(u.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
 
-	logger.Debug(3, "OWNER3: %s", job.Acl.Owner)
+	logger.Debug(3, "OWNER3: %s", job.ACL.Owner)
 
 	err = job.Mkdir()
 	if err != nil {
@@ -167,7 +167,7 @@ func CreateJobUpload(u *user.User, files FormFiles) (job *Job, err error) {
 		return
 	}
 
-	logger.Debug(3, "OWNER4: %s", job.Acl.Owner)
+	logger.Debug(3, "OWNER4: %s", job.ACL.Owner)
 
 	return
 }
@@ -195,7 +195,7 @@ func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
 	if job.Info == nil {
 		return nil, errors.New("invalid job import: missing job info")
 	}
-	if job.Id == "" {
+	if job.ID == "" {
 		return nil, errors.New("invalid job import: missing job id")
 	}
 
@@ -216,8 +216,8 @@ func CreateJobImport(u *user.User, file FormFile) (job *Job, err error) {
 	}
 
 	// Once, job has been created, set job owner and add owner to all ACL's
-	job.Acl.SetOwner(u.Uuid)
-	job.Acl.Set(u.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
+	job.ACL.SetOwner(u.Uuid)
+	job.ACL.Set(u.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
 
 	err = job.Mkdir()
 	if err != nil {
@@ -302,11 +302,11 @@ func ReadJobFile(filename string) (job *Job, err error) {
 func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 	job = NewJob()
 
-	if jobDep.Id != "" {
-		job.Id = jobDep.Id
+	if jobDep.ID != "" {
+		job.ID = jobDep.ID
 	}
 
-	if job.Id == "" {
+	if job.ID == "" {
 		job.setId()
 	}
 
@@ -315,7 +315,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 		return
 	}
 
-	job.Acl = jobDep.Acl
+	job.ACL = jobDep.ACL
 	job.Info = jobDep.Info
 	job.Script = jobDep.Script
 	job.State = jobDep.State
@@ -340,7 +340,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 			return
 		}
 
-		_, err = task.Init(job, job.Id)
+		_, err = task.Init(job, job.ID)
 		if err != nil {
 			return
 		}

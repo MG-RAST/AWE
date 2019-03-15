@@ -44,7 +44,7 @@ func dbUpsert(t interface{}) (err error) {
 	switch t := t.(type) {
 	case *Job:
 		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
-		_, err = c.Upsert(bson.M{"id": t.Id}, &t)
+		_, err = c.Upsert(bson.M{"id": t.ID}, &t)
 	case *WorkflowInstance:
 		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
 		//var info *mgo.ChangeInfo

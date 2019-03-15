@@ -270,8 +270,8 @@ func CWL2AWE(_user *user.User, files FormFiles, jobInput *cwl.Job_document, cwlW
 	logger.Debug(1, "(CWL2AWE) Requirements checked")
 
 	// Once, job has been created, set job owner and add owner to all ACL's
-	job.Acl.SetOwner(_user.Uuid)
-	job.Acl.Set(_user.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
+	job.ACL.SetOwner(_user.Uuid)
+	job.ACL.Set(_user.Uuid, acl.Rights{"read": true, "write": true, "delete": true})
 
 	logger.Debug(1, "(CWL2AWE) ACLs set")
 	// TODO first check that all resources are available: local files and remote links
@@ -279,7 +279,7 @@ func CWL2AWE(_user *user.User, files FormFiles, jobInput *cwl.Job_document, cwlW
 	// *** create WorkflowInstance
 
 	var wi *WorkflowInstance
-	wi, err = NewWorkflowInstance("#main", job.Id, cwlWorkflow.Id, job, "") // Not using AddWorkflowInstance to avoid mongo
+	wi, err = NewWorkflowInstance("#main", job.ID, cwlWorkflow.Id, job, "") // Not using AddWorkflowInstance to avoid mongo
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) NewWorkflowInstance returned: %s", err.Error())
 		return
@@ -339,7 +339,7 @@ func CWL2AWE(_user *user.User, files FormFiles, jobInput *cwl.Job_document, cwlW
 
 	//panic("done")
 
-	logger.Debug(1, "(CWL2AWE) job.Id: %s", job.Id)
+	logger.Debug(1, "(CWL2AWE) job.Id: %s", job.ID)
 	err = job.Save()
 	if err != nil {
 		err = errors.New("(CWL2AWE) error in job.Save(), error=" + err.Error())

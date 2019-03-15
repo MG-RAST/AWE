@@ -1131,8 +1131,8 @@ func (qm *CQMgr) ShowWorkunitsByUser(status string, u *user.User) (workunits []*
 			jobid := work.JobId
 
 			if job, err := GetJob(jobid); err == nil {
-				rights := job.Acl.Check(u.Uuid)
-				if job.Acl.Owner == u.Uuid || rights["read"] == true {
+				rights := job.ACL.Check(u.Uuid)
+				if job.ACL.Owner == u.Uuid || rights["read"] == true {
 					if work.State == status || status == "" {
 						workunits = append(workunits, work)
 					}

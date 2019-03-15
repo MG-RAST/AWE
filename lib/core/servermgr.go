@@ -373,7 +373,9 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 					return
 				}
 
-				err = GlobalWorkflowInstanceMap.Add(new_wi)
+				newWIUniqueID, _ := new_wi.GetID(true)
+
+				err = GlobalWorkflowInstanceMap.Add(newWIUniqueID, new_wi)
 				if err != nil {
 					err = fmt.Errorf("(updateWorkflowInstancesMapTask) GlobalWorkflowInstanceMap.Add returned: %s", err.Error())
 					return
@@ -1916,7 +1918,9 @@ func (qm *ServerMgr) EnqueueWorkflowInstance(wi *WorkflowInstance) (err error) {
 
 	logger.Debug(3, "(EnqueueWorkflowInstance) starting")
 
-	err = GlobalWorkflowInstanceMap.Add(wi)
+	wiUniqueID, _ := wi.GetID(true)
+
+	err = GlobalWorkflowInstanceMap.Add(wiUniqueID, wi)
 	if err != nil {
 		err = fmt.Errorf("(EnqueueWorkflowInstancesByJobId) GlobalWorkflowInstanceMap.Add returned: %s", err.Error())
 		return
@@ -3249,7 +3253,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput_Workflow(job *Job, workflow_inst
 func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflow_instance *WorkflowInstance, workflow_name string, step_name string, output_name string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
 	ok = false
 	//step_name_abs := workflow_name + "/" + step_name
-	workflow_instance_id, _ := workflow_instance.GetId(true)
+	workflow_instance_id, _ := workflow_instance.GetID(true)
 	//workflow_instance_local_id := workflow_instance.LocalID
 
 	logger.Debug(3, "(getCWLSourceFromStepOutput) %s / %s / %s (workflow_instance_id: %s)", workflow_name, step_name, output_name, workflow_instance_id)
@@ -4558,7 +4562,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflow_instance *WorkflowIn
 
 	context := job.WorkflowContext
 
-	workflow_instance_id, _ := workflow_instance.GetId(true)
+	workflow_instance_id, _ := workflow_instance.GetID(true)
 	logger.Debug(3, "(completeSubworkflow) start: %s", workflow_instance_id)
 	// check tasks
 	for _, task := range workflow_instance.Tasks {

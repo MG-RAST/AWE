@@ -49,10 +49,10 @@ const (
 
 // WorkflowInstance _
 type WorkflowInstance struct {
-	rwmutex.RWMutex    `bson:"-" json:"-" mapstructure:"-"`
-	LocalID            string            `bson:"local_id" json:"id" mapstructure:"local_id"` // workfow id without job id , mongo uses JobId_LocalId to get a globally unique identifier
-	JobID              string            `bson:"job_id" json:"job_id" mapstructure:"job_id"`
-	ParentID           string            `bson:"parent_id" json:"parent_id" mapstructure:"parent_id"` // DEPRECATED!? it can be computed from LocalId
+	rwmutex.RWMutex `bson:"-" json:"-" mapstructure:"-"`
+	LocalID         string `bson:"local_id" json:"id" mapstructure:"local_id"` // workfow id without job id , mongo uses JobId_LocalId to get a globally unique identifier
+	JobID           string `bson:"job_id" json:"job_id" mapstructure:"job_id"`
+	//ParentID           string            `bson:"parent_id" json:"parent_id" mapstructure:"parent_id"` // DEPRECATED!? it can be computed from LocalId
 	ACL                *acl.Acl          `bson:"acl" json:"-"`
 	State              string            `bson:"state" json:"state" mapstructure:"state"`                                           // this is unique identifier for the workflow instance
 	WorkflowDefinition string            `bson:"workflow_definition" json:"workflow_definition" mapstructure:"workflow_definition"` // name of the workflow this instance is derived from
@@ -63,7 +63,7 @@ type WorkflowInstance struct {
 	RemainSteps        int               `bson:"remainsteps" json:"remainsteps" mapstructure:"remainsteps"`
 	TotalTasks         int               `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
 	Subworkflows       []string          `bson:"subworkflows" json:"subworkflows" mapstructure:"subworkflows"`
-	ParentStep         *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"` // cache for ParentId
+	ParentStep         *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"` // cache
 	Parent             *WorkflowInstance `bson:"-" json:"-" mapstructure:"-"` // cache for ParentId
 	Job                *Job              `bson:"-" json:"-" mapstructure:"-"` // cache
 	//Created_by          string            `bson:"created_by" json:"created_by" mapstructure:"created_by"`
@@ -83,7 +83,7 @@ func NewWorkflowInstance(local_id string, jobid string, workflow_definition stri
 		return
 	}
 
-	wi = &WorkflowInstance{LocalID: local_id, JobID: jobid, WorkflowDefinition: workflow_definition, ParentID: parent_workflow_instance_id}
+	wi = &WorkflowInstance{LocalID: local_id, JobID: jobid, WorkflowDefinition: workflow_definition}
 	wi.State = WI_STAT_INIT
 
 	_, err = wi.Init(job)
@@ -298,7 +298,8 @@ func (wi *WorkflowInstance) setStateOnly(state string, dbSync bool, writeLock bo
 
 		jobID := wi.JobID
 
-		subworkflowID, _ := wi.GetId(false)
+		//subworkflowID, _ := wi.GetID(false)
+		subworkflowID := wi.LocalID
 
 		err = dbUpdateJobWorkflow_instancesFieldString(jobID, subworkflowID, "state", state)
 		if err != nil {
@@ -329,9 +330,9 @@ func (wi *WorkflowInstance) SetState(state string, dbSync bool, writeLock bool) 
 		// notify parent: either parent workflow_instance _or_ job
 
 		var parentID string
-		parentID, err = wi.GetParentId(readLock)
+		parentID, err = wi.GetParentID(readLock)
 		if err != nil {
-			err = fmt.Errorf("(WorkflowInstance/SetState) GetParentId returned: %s", err.Error())
+			err = fmt.Errorf("(WorkflowInstance/SetState) GetParentID returned: %s", err.Error())
 			return
 		}
 
@@ -543,12 +544,13 @@ func (wi *WorkflowInstance) TaskCount() (count int) {
 	return
 }
 
-func (wi *WorkflowInstance) GetId(readLock bool) (id string, err error) {
+// GetID includes JobID
+func (wi *WorkflowInstance) GetID(readLock bool) (id string, err error) {
 	if readLock {
 		var lock rwmutex.ReadLock
-		lock, err = wi.RLockNamed("GetId")
+		lock, err = wi.RLockNamed("GetID")
 		if err != nil {
-			err = fmt.Errorf("(WorkflowInstance/GetId) RLockNamed returned: %s", err.Error())
+			err = fmt.Errorf("(WorkflowInstance/GetID) RLockNamed returned: %s", err.Error())
 			return
 		}
 		defer wi.RUnlockNamed(lock)
@@ -819,9 +821,9 @@ func (wi *WorkflowInstance) GetParent(readLock bool) (parent *WorkflowInstance, 
 	}
 
 	var parentID string
-	parentID, err = wi.GetParentId(readLock)
+	parentID, err = wi.GetParentID(readLock)
 	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/GetParent) wi.GetParentId returned: %s", err.Error())
+		err = fmt.Errorf("(WorkflowInstance/GetParent) wi.GetParentID returned: %s", err.Error())
 		return
 	}
 
@@ -845,7 +847,7 @@ func (wi *WorkflowInstance) GetParent(readLock bool) (parent *WorkflowInstance, 
 	}
 
 	if !ok {
-		err = fmt.Errorf("(WorkflowInstance/GetParent) job.GetWorkflowInstance did not workflow_instance %s", parentID)
+		err = fmt.Errorf("(WorkflowInstance/GetParent) job.GetWorkflowInstance did not find workflow_instance %s", parentID)
 		return
 	}
 
@@ -861,9 +863,9 @@ func (wi *WorkflowInstance) GetParentStep_DEPRECATED(readLock bool) (pstep *cwl.
 	}
 
 	var parent_id string
-	parent_id, err = wi.GetParentId(false)
+	parent_id, err = wi.GetParentID(false)
 	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/GetParentStep) GetParentId returned: %s", err.Error())
+		err = fmt.Errorf("(WorkflowInstance/GetParentStep) GetParentID returned: %s", err.Error())
 		return
 	}
 
@@ -900,12 +902,13 @@ func (wi *WorkflowInstance) GetParentStep_DEPRECATED(readLock bool) (pstep *cwl.
 	return
 }
 
-func (wi *WorkflowInstance) GetParentId(readLock bool) (parent_id string, err error) {
+// GetParentID returns relative ID of parent workflow
+func (wi *WorkflowInstance) GetParentID(readLock bool) (parent_id string, err error) {
 	if readLock {
 		var lock rwmutex.ReadLock
-		lock, err = wi.RLockNamed("GetParentId")
+		lock, err = wi.RLockNamed("GetParentID")
 		if err != nil {
-			err = fmt.Errorf("(WorkflowInstance/GetParentId) RLockNamed returned: %s", err.Error())
+			err = fmt.Errorf("(WorkflowInstance/GetParentID) RLockNamed returned: %s", err.Error())
 			return
 		}
 		defer wi.RUnlockNamed(lock)

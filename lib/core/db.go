@@ -49,7 +49,7 @@ func dbUpsert(t interface{}) (err error) {
 		c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
 		//var info *mgo.ChangeInfo
 
-		id, _ := t.GetId(false)
+		id, _ := t.GetID(false)
 		_, err = c.Upsert(bson.M{"_id": id}, &t)
 
 		if err != nil {

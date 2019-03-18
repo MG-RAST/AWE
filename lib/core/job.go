@@ -797,23 +797,23 @@ func (job *Job) SetRemainSteps(remain_steps int) (err error) {
 	return
 }
 
-func (job *Job) IncrementRemainSteps(inc int) (remain int, err error) {
-	err = job.LockNamed("IncrementRemainSteps")
+func (job *Job) IncrementRemainSteps(inc int, caller string) (remain int, err error) {
+	err = job.LockNamed("Job/IncrementRemainSteps")
 	if err != nil {
 		return
 	}
 	defer job.Unlock()
 
-	logger.Debug(3, "(IncrementRemainSteps) called with inc=%d", inc)
+	logger.Debug(3, "(Job/IncrementRemainSteps) called with inc=%d by %s", inc, caller)
 
 	newRemainStep := job.RemainSteps + inc
 
 	if newRemainStep < 0 {
-		err = fmt.Errorf("(IncrementRemainSteps) newRemainStep < 0")
+		err = fmt.Errorf("(Job/IncrementRemainSteps) newRemainStep < 0")
 		return
 	}
 
-	logger.Debug(3, "(IncrementRemainSteps) new value of RemainStep: %d", newRemainStep)
+	logger.Debug(3, "(Job/IncrementRemainSteps) new value of RemainStep: %d", newRemainStep)
 	err = dbUpdateJobFieldInt(job.ID, "remainsteps", newRemainStep)
 	if err != nil {
 		return

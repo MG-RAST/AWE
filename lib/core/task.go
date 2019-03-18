@@ -961,7 +961,7 @@ func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, writeLock 
 			return
 		}
 
-		_, err = job.IncrementRemainSteps(1)
+		_, err = job.IncrementRemainSteps(1, "task/SetState")
 		if err != nil {
 			err = fmt.Errorf("(task/SetState) IncrementRemainSteps returned: %s", err.Error())
 			return

@@ -5038,6 +5038,8 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 			return
 		}
 
+		// This is the last task/subworkflow.
+
 		//TODO find a way to lock this
 
 		// subworkflow completed.

@@ -348,7 +348,7 @@ func (wi *WorkflowInstance) SetState(state string, dbSync bool, writeLock bool) 
 
 			// update job (only if workflow instance is root)
 			var remain int
-			remain, err = job.IncrementRemainSteps(-1)
+			remain, err = job.IncrementRemainSteps(-1, "WorkflowInstance/SetState")
 			if err != nil {
 				err = fmt.Errorf("(WorkflowInstance/SetState) job.IncrementRemainSteps returned: %s", err.Error())
 				return
@@ -721,7 +721,7 @@ func (wi *WorkflowInstance) DecreaseRemainSteps_DEPRECATED() (remain int, err er
 	if err != nil {
 		return
 	}
-	_, err = job.IncrementRemainSteps(-1)
+	_, err = job.IncrementRemainSteps(-1, "WorkflowInstance/DecreaseRemainSteps")
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps) job.IncrementRemainSteps returned: %s", err.Error())
 		return
@@ -750,16 +750,16 @@ func (wi *WorkflowInstance) IncrementRemainSteps(amount int, writeLock bool) (re
 
 	remain = wi.RemainSteps
 
-	var job *Job
-	job, err = wi.GetJob(false)
-	if err != nil {
-		return
-	}
-	_, err = job.IncrementRemainSteps(amount)
-	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/IncrementRemainSteps) job.IncrementRemainSteps returned: %s", err.Error())
-		return
-	}
+	//var job *Job
+	//job, err = wi.GetJob(false)
+	//if err != nil {
+	//	return
+	//}
+	//_, err = job.IncrementRemainSteps(amount, "WorkflowInstance/IncrementRemainSteps")
+	//if err != nil {
+	//		err = fmt.Errorf("(WorkflowInstance/IncrementRemainSteps) job.IncrementRemainSteps returned: %s", err.Error())
+	//		return
+	//	}
 
 	return
 }
@@ -847,7 +847,13 @@ func (wi *WorkflowInstance) GetParent(readLock bool) (parent *WorkflowInstance, 
 	}
 
 	if !ok {
-		err = fmt.Errorf("(WorkflowInstance/GetParent) job.GetWorkflowInstance did not find workflow_instance %s", parentID)
+
+		keys := ""
+		for key := range job.WorkflowInstancesMap {
+			keys += "," + key
+		}
+
+		err = fmt.Errorf("(WorkflowInstance/GetParent) job.GetWorkflowInstance did not find workflow_instance %s (only got %s)", parentID, keys)
 		return
 	}
 
@@ -914,7 +920,12 @@ func (wi *WorkflowInstance) GetParentID(readLock bool) (parent_id string, err er
 		defer wi.RUnlockNamed(lock)
 	}
 
-	parent_id = path.Base(wi.LocalID)
+	logger.Debug(3, "(GetParentID) %s", wi.LocalID)
+	parent_id = path.Dir(wi.LocalID)
+	logger.Debug(3, "(GetParentID) parent_id: %s", parent_id)
+	if parent_id == "." {
+		parent_id = ""
+	}
 
 	return
 

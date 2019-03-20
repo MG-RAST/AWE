@@ -897,7 +897,7 @@ func (task *TaskRaw) GetJob() (job *Job, err error) {
 	return
 }
 
-// also updates job.RemainSteps , wi.RemainTasks, task.SetCompletedDate
+// also updates wi.RemainTasks, task.SetCompletedDate
 func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, writeLock bool) (err error) {
 	if writeLock {
 		err = task.LockNamed("SetState")
@@ -955,17 +955,17 @@ func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, writeLock 
 
 	} else if old_state == TASK_STAT_COMPLETED {
 		// in case a completed task is marked as something different
-		var job *Job
-		job, err = GetJob(jobid)
-		if err != nil {
-			return
-		}
+		//var job *Job
+		//job, err = GetJob(jobid)
+		//if err != nil {
+		//	return
+		//}
 
-		_, err = job.IncrementRemainSteps(1, "task/SetState")
-		if err != nil {
-			err = fmt.Errorf("(task/SetState) IncrementRemainSteps returned: %s", err.Error())
-			return
-		}
+		//_, err = job.IncrementRemainSteps(1, "task/SetState")
+		//if err != nil {
+		//	err = fmt.Errorf("(task/SetState) IncrementRemainSteps returned: %s", err.Error())
+		//	return
+		//}
 		initTime := time.Time{}
 		err = task.SetCompletedDate(initTime, false)
 		if err != nil {

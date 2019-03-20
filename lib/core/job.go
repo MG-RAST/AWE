@@ -134,11 +134,11 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync bool, writeLoc
 		}
 	}
 
-	err = job.IncrementWorkflowInstancesRemain(1, db_sync, false)
-	if err != nil {
-		err = fmt.Errorf("(AddWorkflowInstance) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
-		return
-	}
+	// err = job.IncrementWorkflowInstancesRemain(1, db_sync, false)
+	// if err != nil {
+	// 	err = fmt.Errorf("(AddWorkflowInstance) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
+	// 	return
+	// }
 
 	//logger.Debug(3, "(AddWorkflowInstance) wi.LocalId: %s , old_state: %s, db_sync: %s", wi.LocalId, old_state, db_sync)
 
@@ -349,8 +349,8 @@ func (job *Job) Init() (changed bool, err error) {
 		}
 	}
 
-	old_remainsteps := job.RemainSteps // job.Init
-	job.RemainSteps = 0                // job.Init
+	//old_remainsteps := job.RemainSteps // job.Init
+	//job.RemainSteps = 0                // job.Init
 
 	for _, task := range job.Tasks {
 		if task.Id == "" {
@@ -373,22 +373,22 @@ func (job *Job) Init() (changed bool, err error) {
 		if t_changed {
 			changed = true
 		}
-		if task.State != TASK_STAT_COMPLETED {
-			job.RemainSteps += 1 // job.Init
-		}
+		//if task.State != TASK_STAT_COMPLETED {
+		//	job.RemainSteps += 1 // job.Init
+		//}
 	}
 
 	// try to fix inconsistent state
-	if job.RemainSteps != old_remainsteps { // job.Init
-		changed = true
-	}
+	//if job.RemainSteps != old_remainsteps { // job.Init
+	//	changed = true
+	//}
 
 	// try to fix inconsistent state
-	if job.RemainSteps > 0 && job.State == JOB_STAT_COMPLETED {
-		job.State = JOB_STAT_QUEUED
-		logger.Debug(3, "fixing state to JOB_STAT_QUEUED")
-		changed = true
-	}
+	//if job.RemainSteps > 0 && job.State == JOB_STAT_COMPLETED {
+	//	job.State = JOB_STAT_QUEUED
+	//	logger.Debug(3, "fixing state to JOB_STAT_QUEUED")
+	//	changed = true
+	//}
 
 	//if len(job.Tasks) == 0 {
 	//	err = errors.New("(job.Init) invalid job script: task list empty")
@@ -771,77 +771,6 @@ func (job *Job) SetError(newError *JobError) (err error) {
 		return
 	}
 	job.Error = newError
-	return
-}
-
-func (job *Job) GetRemainSteps() (remain_steps int, err error) {
-	remain_steps = job.RemainSteps
-	return
-}
-
-func (job *Job) SetRemainSteps(remain_steps int) (err error) {
-	err = job.LockNamed("SetRemainSteps")
-	if err != nil {
-		return
-	}
-	defer job.Unlock()
-
-	if remain_steps == job.RemainSteps {
-		return
-	}
-	err = dbUpdateJobFieldInt(job.ID, "remainsteps", remain_steps)
-	if err != nil {
-		return
-	}
-	job.RemainSteps = remain_steps //SetRemainSteps
-	return
-}
-
-func (job *Job) IncrementRemainSteps(inc int, caller string) (remain int, err error) {
-	err = job.LockNamed("Job/IncrementRemainSteps")
-	if err != nil {
-		return
-	}
-	defer job.Unlock()
-
-	logger.Debug(3, "(Job/IncrementRemainSteps) called with inc=%d by %s", inc, caller)
-
-	newRemainStep := job.RemainSteps + inc
-
-	if newRemainStep < 0 {
-		err = fmt.Errorf("(Job/IncrementRemainSteps) newRemainStep < 0")
-		return
-	}
-
-	logger.Debug(3, "(Job/IncrementRemainSteps) new value of RemainStep: %d", newRemainStep)
-	err = dbUpdateJobFieldInt(job.ID, "remainsteps", newRemainStep)
-	if err != nil {
-		return
-	}
-	job.RemainSteps = newRemainStep //IncrementRemainSteps
-	remain = newRemainStep
-	return
-}
-
-func (job *Job) IncrementWorkflowInstancesRemain(inc int, db_sync bool, writeLock bool) (err error) {
-	if writeLock {
-		err = job.LockNamed("IncrementWorkflowInstancesRemain")
-		if err != nil {
-			return
-		}
-		defer job.Unlock()
-	}
-	logger.Debug(3, "(IncrementWorkflowInstancesRemain) called with inc=%d", inc)
-
-	newRemainWf := job.WorkflowInstancesRemain + inc
-	logger.Debug(3, "(IncrementWorkflowInstancesRemain) new value of WorkflowInstancesRemain: %d", newRemainWf)
-	if db_sync == DbSyncTrue {
-		err = dbUpdateJobFieldInt(job.ID, "workflow_instances_remain", newRemainWf)
-		if err != nil {
-			return
-		}
-	}
-	job.WorkflowInstancesRemain = newRemainWf
 	return
 }
 

@@ -315,78 +315,13 @@ func (wi *WorkflowInstance) setStateOnly(state string, dbSync bool, writeLock bo
 }
 
 // SetState will set state and notify parent WorkflowInstance or Job if completed
+// DO NOT CALL directely, use wrapper qm.WISetState()
 func (wi *WorkflowInstance) SetState(state string, dbSync bool, writeLock bool) (err error) {
 
 	err = wi.setStateOnly(state, dbSync, writeLock)
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/SetState) setStateOnly returned: %s", err.Error())
 		return
-	}
-
-	readLock := writeLock
-
-	if state == WI_STAT_COMPLETED {
-
-		// notify parent: either parent workflow_instance _or_ job
-
-		var parentID string
-		parentID, err = wi.GetParentID(readLock)
-		if err != nil {
-			err = fmt.Errorf("(WorkflowInstance/SetState) GetParentID returned: %s", err.Error())
-			return
-		}
-
-		if parentID == "" {
-			// notify job only
-
-			var job *Job
-			job, err = wi.GetJob(readLock)
-			if err != nil {
-				err = fmt.Errorf("(WorkflowInstance/SetState) wi.GetJob() returned: %s", err.Error())
-				return
-			}
-
-			// update job (only if workflow instance is root)
-			var remain int
-			remain, err = job.IncrementRemainSteps(-1, "WorkflowInstance/SetState")
-			if err != nil {
-				err = fmt.Errorf("(WorkflowInstance/SetState) job.IncrementRemainSteps returned: %s", err.Error())
-				return
-			}
-
-			if remain == 0 {
-				err = job.SetState(JOB_STAT_COMPLETED, nil)
-				if err != nil {
-					err = fmt.Errorf("(WorkflowInstance/SetState) job.SetState returned: %s", err.Error())
-					return
-				}
-			}
-		} else {
-			// notify parent only
-
-			var parentWI *WorkflowInstance
-			parentWI, err = wi.GetParent(readLock)
-			if err != nil {
-				err = fmt.Errorf("(WorkflowInstance/SetState) job.GetParent returned: %s", err.Error())
-				return
-			}
-			var parentRemain int
-			parentRemain, err = parentWI.IncrementRemainSteps(-1, true)
-			if err != nil {
-				err = fmt.Errorf("(WorkflowInstance/SetState) job.IncrementRemainSteps returned: %s", err.Error())
-				return
-			}
-
-			if parentRemain == 0 {
-				// recursive call
-				err = parentWI.SetState(WI_STAT_COMPLETED, DbSyncTrue, true)
-				if err != nil {
-					err = fmt.Errorf("(WorkflowInstance/SetState) parentWI.SetState returned: %s", err.Error())
-					return
-				}
-			}
-
-		}
 	}
 
 	return
@@ -716,16 +651,16 @@ func (wi *WorkflowInstance) DecreaseRemainSteps_DEPRECATED() (remain int, err er
 	}
 	remain = wi.RemainSteps
 
-	var job *Job
-	job, err = wi.GetJob(false)
-	if err != nil {
-		return
-	}
-	_, err = job.IncrementRemainSteps(-1, "WorkflowInstance/DecreaseRemainSteps")
-	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps) job.IncrementRemainSteps returned: %s", err.Error())
-		return
-	}
+	//var job *Job
+	//job, err = wi.GetJob(false)
+	//if err != nil {
+	//	return
+	//}
+	//_, err = job.IncrementRemainSteps(-1, "WorkflowInstance/DecreaseRemainSteps")
+	//if err != nil {
+	//	err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps) job.IncrementRemainSteps returned: %s", err.Error())
+	//	return
+	//}
 
 	return
 }

@@ -820,7 +820,8 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 		task := tasks[0]
 		job_id := task.JobId
 		job, _ := GetJob(job_id)
-		fmt.Printf("*** job ***\n")
+		job_state, _ := job.GetState(true)
+		fmt.Printf("*** job *** %s %s\n", job_id, job_state)
 		for wi_id, _ := range job.WorkflowInstancesMap {
 			wi := job.WorkflowInstancesMap[wi_id]
 			wi_state, _ := wi.GetState(true)
@@ -4541,6 +4542,8 @@ func (qm *ServerMgr) taskCompleted_Scatter(job *Job, wi *WorkflowInstance, task 
 	return
 }
 
+// completeSubworkflow checks if all steps have completed (should not be required if counters are used)
+// invoked by qm.WISetState or
 func (qm *ServerMgr) completeSubworkflow(job *Job, workflow_instance *WorkflowInstance) (ok bool, reason string, err error) {
 
 	var wfl *cwl.Workflow
@@ -4842,72 +4845,82 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflow_instance *WorkflowIn
 
 	}
 
+	if workflow_instance.RemainSteps > 0 {
+		err = fmt.Errorf("(completeSubworkflow) want to set to WI_STAT_COMPLETED, but workflow_instance.RemainSteps=%d", workflow_instance.RemainSteps)
+		return
+	}
+
 	err = workflow_instance.SetState(WI_STAT_COMPLETED, DbSyncTrue, true)
 	if err != nil {
 		err = fmt.Errorf("(completeSubworkflow) workflow_instance.SetState returned: %s", err.Error())
 		return
 	}
 
-	logger.Debug(3, "(completeSubworkflow) job.WorkflowInstancesRemain: (before) %d", job.WorkflowInstancesRemain)
-	err = job.IncrementWorkflowInstancesRemain(-1, DbSyncTrue, true)
-	if err != nil {
-		err = fmt.Errorf("(completeSubworkflow) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
-		return
-	}
+	// logger.Debug(3, "(completeSubworkflow) job.WorkflowInstancesRemain: (before) %d", job.WorkflowInstancesRemain)
+	// err = job.IncrementWorkflowInstancesRemain(-1, DbSyncTrue, true)
+	// if err != nil {
+	// 	err = fmt.Errorf("(completeSubworkflow) job.IncrementWorkflowInstancesRemain returned: %s", err.Error())
+	// 	return
+	// }
 
-	// ***** notify parent workflow (this workflow might have been the last step)
+	// ***** notify parent workflow or job (this workflow might have been the last step)
 
 	workflow_instance_local_id := workflow_instance.LocalID
 	logger.Debug(3, "(completeSubworkflow) completes with workflow_instance_local_id: %s", workflow_instance_local_id)
 
 	if workflow_instance_local_id == "#main" {
-		// notify job
+		// last workflow_instance -> notify job
 
 		// this was the main workflow, all done!
 
-		err = job.SetState(JOB_STAT_COMPLETED, nil)
+		err = qm.finalizeJob(job)
 		if err != nil {
-			err = fmt.Errorf("(completeSubworkflow) job.SetState returned: %s", err.Error())
+			err = fmt.Errorf("(completeSubworkflow) qm.finalizeJob returned: %s", err.Error())
 			return
 		}
 
-	} else {
-		// notify parent
-		var parent_id string
-		parent_id = path.Dir(workflow_instance_local_id)
-
-		fmt.Printf("(completeSubworkflow) completes with parent_id: %s\n", parent_id)
-
-		var parent *WorkflowInstance
-
-		parent, ok, err = job.GetWorkflowInstance(parent_id, true)
-
-		if err != nil {
-			err = fmt.Errorf("(completeSubworkflow) job.GetWorkflowInstance returned: %s", err.Error())
-			return
-		}
-
-		if !ok {
-			err = fmt.Errorf("(completeSubworkflow) parent workflow instance %s not found", parent_id)
-			return
-
-		}
-
-		fmt.Printf("(completeSubworkflow) got parent\n")
-
-		//var parent_ok bool
-		var parent_result string
-		_, parent_result, err = qm.completeSubworkflow(job, parent) // recursive call
-		if err != nil {
-			err = fmt.Errorf("(completeSubworkflow) recursive call of qm.completeSubworkflow returned: %s", err.Error())
-			return
-		}
-		//if parent_id == "_root" {
-		fmt.Printf("(completeSubworkflow) parent_result: %s", parent_result)
-		//	panic("done")
-		//}
-
+		return
 	}
+
+	// notify parent
+	//var parent_id string
+	//parent_id = path.Dir(workflow_instance_local_id)
+
+	var parent *WorkflowInstance
+	parent, err = workflow_instance.GetParent(true)
+	if err != nil {
+		err = fmt.Errorf("(completeSubworkflow) workflow_instance.GetParent returned: %s", err.Error())
+		return
+	}
+
+	// fmt.Printf("(completeSubworkflow) completes with parent_id: %s\n", parent_id)
+
+	// parent, ok, err = job.GetWorkflowInstance(parent_id, true)
+
+	// if err != nil {
+	// 	err = fmt.Errorf("(completeSubworkflow) job.GetWorkflowInstance returned: %s", err.Error())
+	// 	return
+	// }
+
+	// if !ok {
+	// 	err = fmt.Errorf("(completeSubworkflow) parent workflow instance %s not found", parent_id)
+	// 	return
+
+	// }
+
+	fmt.Printf("(completeSubworkflow) got parent\n")
+
+	//var parent_ok bool
+	var parent_result string
+	_, parent_result, err = qm.completeSubworkflow(job, parent) // recursive call
+	if err != nil {
+		err = fmt.Errorf("(completeSubworkflow) recursive call of qm.completeSubworkflow returned: %s", err.Error())
+		return
+	}
+	//if parent_id == "_root" {
+	fmt.Printf("(completeSubworkflow) parent_result: %s", parent_result)
+	//	panic("done")
+	//}
 
 	return
 }
@@ -4938,21 +4951,12 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 		return
 	}
 
-	var job_remainSteps int
-	job_remainSteps, err = job.GetRemainSteps()
-	if err != nil {
-		err = fmt.Errorf("(taskCompleted) job.GetRemainSteps() returned: %s", err.Error())
-		return
-	}
-
 	var task_str string
 	task_str, err = task.String()
 	if err != nil {
 		err = fmt.Errorf("(taskCompleted) task.String returned: %s", err.Error())
 		return
 	}
-
-	logger.Debug(2, "(taskCompleted) remaining tasks for job %s: %d (task_state: %s)", task_str, job_remainSteps, task_state)
 
 	// check if this was the last task in a subworkflow
 
@@ -4964,8 +4968,8 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 		logger.Debug(3, "(taskCompleted) task.WorkflowStep != nil ")
 	}
 
-	var parent_task_to_complete *Task
-	parent_task_to_complete = nil
+	//var parent_task_to_complete *Task
+	//parent_task_to_complete = nil
 	// (taskCompleted) CWL Task completes
 	if task.WorkflowStep != nil {
 
@@ -5056,39 +5060,25 @@ func (qm *ServerMgr) taskCompleted(task *Task) (err error) {
 
 	} // end of: if task_state == TASK_STAT_COMPLETED && task.WorkflowInstanceId != ""
 
-	if job.IsCWL {
-
-		logger.Debug(3, "(taskCompleted) job.WorkflowInstancesRemain: %d", job.WorkflowInstancesRemain)
-
-		if job.WorkflowInstancesRemain > 0 {
-			return
-		}
-	} else {
-		logger.Debug(3, "(taskCompleted) job_remainSteps: %d", job_remainSteps)
-		if job_remainSteps > 0 { //#####################################################################
-			return
-		}
-	}
-
-	err = qm.finalizeJob(job)
-	if err != nil {
-		err = fmt.Errorf("(taskCompleted) qm.finalizeJob returned: %s", err.Error())
-		return
-	}
+	// err = qm.finalizeJob(job)
+	// if err != nil {
+	// 	err = fmt.Errorf("(taskCompleted) qm.finalizeJob returned: %s", err.Error())
+	// 	return
+	// }
 
 	// this is a recursive call !
-	if parent_task_to_complete != nil {
+	// if parent_task_to_complete != nil {
 
-		if parent_task_to_complete.State != TASK_STAT_COMPLETED {
-			err = fmt.Errorf("(taskCompleted) qm.taskCompleted(parent_task_to_complete) parent_task_to_complete.State != TASK_STAT_COMPLETED")
-			return
-		}
-		err = qm.taskCompleted(parent_task_to_complete)
-		if err != nil {
-			err = fmt.Errorf("(taskCompleted) qm.taskCompleted(parent_task_to_complete) returned: %s", err.Error())
-			return
-		}
-	}
+	// 	if parent_task_to_complete.State != TASK_STAT_COMPLETED {
+	// 		err = fmt.Errorf("(taskCompleted) qm.taskCompleted(parent_task_to_complete) parent_task_to_complete.State != TASK_STAT_COMPLETED")
+	// 		return
+	// 	}
+	// 	err = qm.taskCompleted(parent_task_to_complete)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(taskCompleted) qm.taskCompleted(parent_task_to_complete) returned: %s", err.Error())
+	// 		return
+	// 	}
+	// }
 
 	return
 }
@@ -5325,6 +5315,114 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 	}
 	logger.Event(this_event, "jobid="+jobid+";reason="+reason)
 	return
+}
+
+// WISetState is wrapper for wi.SetState
+// it triggers calls to workflow parent and job document
+func (qm *ServerMgr) WISetState(wi *WorkflowInstance, state string, dbSync bool) (err error) {
+
+	err = wi.SetState(state, dbSync, true)
+	if err != nil {
+		err = fmt.Errorf("(WISetState) wi.SetState returned: %s", err.Error())
+		return
+	}
+
+	if state != WI_STAT_COMPLETED {
+		return
+	}
+
+	var job *Job
+	job, err = wi.GetJob(true)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/SetState) wi.GetJob() returned: %s", err.Error())
+		return
+	}
+
+	var ok bool
+	var reason string
+	ok, reason, err = qm.completeSubworkflow(job, wi)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/SetState) wi.SetState returned: %s", err.Error())
+		return
+	}
+	if !ok {
+		err = fmt.Errorf("(WorkflowInstance/SetState) completeSubworkflow returned \"not ok\": reason %s", reason)
+		return
+	}
+
+	// //  WI_STAT_COMPLETED
+
+	// //	wi.completeSub
+	// //qm.completeSubworkflow()
+	// // notify parent: either parent workflow_instance _or_ job
+
+	// var parentID string
+	// parentID, err = wi.GetParentID(true)
+	// if err != nil {
+	// 	err = fmt.Errorf("(WorkflowInstance/SetState) GetParentID returned: %s", err.Error())
+	// 	return
+	// }
+
+	// if parentID == "" {
+	// 	// notify job only
+
+	// 	var job *Job
+	// 	job, err = wi.GetJob(true)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(WorkflowInstance/SetState) wi.GetJob() returned: %s", err.Error())
+	// 		return
+	// 	}
+
+	// 	err = job.SetState(JOB_STAT_COMPLETED, nil)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(WorkflowInstance/SetState) job.SetState returned: %s", err.Error())
+	// 		return
+	// 	}
+
+	// 	return
+	// }
+
+	// // notify parent only
+
+	// var parentWI *WorkflowInstance
+	// parentWI, err = wi.GetParent(true)
+	// if err != nil {
+	// 	err = fmt.Errorf("(WorkflowInstance/SetState) job.GetParent returned: %s", err.Error())
+	// 	return
+	// }
+	// var parentRemain int
+	// parentRemain, err = parentWI.IncrementRemainSteps(-1, true)
+	// if err != nil {
+	// 	err = fmt.Errorf("(WorkflowInstance/SetState) job.IncrementRemainSteps returned: %s", err.Error())
+	// 	return
+	// }
+
+	// if parentRemain == 0 {
+
+	// 	var job *Job
+	// 	job, err = wi.GetJob(true)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(WorkflowInstance/SetState) wi.GetJob() returned: %s", err.Error())
+	// 		return
+	// 	}
+
+	// 	// recursive call
+	// 	var ok bool
+	// 	var reason string
+	// 	ok, reason, err = qm.completeSubworkflow(job, parentWI)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(WorkflowInstance/SetState) parentWI.SetState returned: %s", err.Error())
+	// 		return
+	// 	}
+	// 	if !ok {
+	// 		err = fmt.Errorf("(WorkflowInstance/SetState) completeSubworkflow returned \"not ok\": reason %s", reason)
+	// 		return
+	// 	}
+
+	// }
+
+	return
+
 }
 
 func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err error) {
@@ -5686,11 +5784,6 @@ func (qm *ServerMgr) RecomputeJob(jobid string, task_stage string) (err error) {
 		err = errors.New("(RecomputeJob) failed to incremenet job resumed " + err.Error())
 		return
 	}
-	err = dbjob.SetRemainSteps(remain_steps) // RecomputeJob
-	if err != nil {
-		err = errors.New("(RecomputeJob) failed to set job remain_tasks " + err.Error())
-		return
-	}
 
 	err = dbjob.SetState(JOB_STAT_QUEUING, nil)
 	if err != nil {
@@ -5731,7 +5824,7 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 	}
 	logger.Debug(1, "resubmitting: job=%s, state=%s", jobid, job_state)
 
-	remain_steps := 0
+	//remain_steps := 0
 	tasks, err := job.GetTasks()
 	if err != nil {
 		err = errors.New("(ResubmitJob) failed to get job tasks " + err.Error())
@@ -5745,17 +5838,12 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 			err = errors.New("(ResubmitJob) failed to reset task " + err.Error())
 			return
 		}
-		remain_steps += 1
+		//	remain_steps += 1
 	}
 
 	err = job.IncrementResumed(1)
 	if err != nil {
 		err = errors.New("(ResubmitJob) failed to incremenet job resumed " + err.Error())
-		return
-	}
-	err = job.SetRemainSteps(remain_steps) // ResubmitJob
-	if err != nil {
-		err = errors.New("(ResubmitJob) failed to set job remain_tasks " + err.Error())
 		return
 	}
 

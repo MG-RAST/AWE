@@ -357,11 +357,11 @@ func (wi *WorkflowInstance) AddSubworkflow(job *Job, subworkflow string, writeLo
 
 	new_subworkflows_list := append(wi.Subworkflows, subworkflow)
 
-	job_id := wi.JobID
+	jobID := wi.JobID
 	subworkflow_id := wi.LocalID
 	fieldname := "subworkflows"
 	update_value := bson.M{fieldname: new_subworkflows_list}
-	err = dbUpdateJobWorkflow_instancesFields(job_id, subworkflow_id, update_value)
+	err = dbUpdateJobWorkflow_instancesFields(jobID, subworkflow_id, update_value)
 	if err != nil {
 		err = fmt.Errorf("(AddSubworkflow) (subworkflow_id: %s, fieldname: %s) %s", subworkflow_id, fieldname, err.Error())
 		return
@@ -579,20 +579,30 @@ func (wi *WorkflowInstance) Save(readLock bool) (err error) {
 	return
 }
 
-func (wi *WorkflowInstance) SetOutputs(outputs cwl.Job_document, context *cwl.WorkflowContext) (err error) {
-	err = wi.LockNamed("WorkflowInstance/SetOutputs")
+// SetOutputs _
+func (wi *WorkflowInstance) SetOutputs(outputs cwl.Job_document, context *cwl.WorkflowContext, writeLock bool) (err error) {
+	if writeLock {
+		err = wi.LockNamed("WorkflowInstance/SetOutputs")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/SetOutputs) wi.LockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.Unlock()
+	}
+	err = dbUpdateJobWorkflow_instancesField(wi.JobID, wi.LocalID, "outputs", outputs)
 	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/SetOutputs) wi.LockNamed returned: %s", err.Error())
+		err = fmt.Errorf("(WorkflowInstance/SetOutputs) dbUpdateJobWorkflow_instancesField returned: %s", err.Error())
 		return
 	}
-	defer wi.Unlock()
 
-	wi.Outputs = outputs
 	err = wi.Save(false)
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/SetOutputs)  Save() returned: %s", err.Error())
 		return
 	}
+
+	wi.Outputs = outputs
+
 	return
 }
 

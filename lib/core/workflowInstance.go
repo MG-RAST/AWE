@@ -69,21 +69,22 @@ type WorkflowInstance struct {
 	//Created_by          string            `bson:"created_by" json:"created_by" mapstructure:"created_by"`
 }
 
-func NewWorkflowInstance(local_id string, jobid string, workflow_definition string, job *Job, parent_workflow_instance_id string) (wi *WorkflowInstance, err error) {
+// NewWorkflowInstance _
+func NewWorkflowInstance(localID string, jobid string, workflowDefinition string, job *Job, parentWorkflowInstanceID string) (wi *WorkflowInstance, err error) {
 
 	if jobid == "" {
 		err = fmt.Errorf("(NewWorkflowInstance) jobid == \"\"")
 		return
 	}
 
-	logger.Debug(3, "(NewWorkflowInstance) _local_id=%s%s, workflow_definition=%s", jobid, local_id, workflow_definition)
+	logger.Debug(3, "(NewWorkflowInstance) _local_id=%s%s, workflow_definition=%s", jobid, localID, workflowDefinition)
 
 	if job == nil {
 		err = fmt.Errorf("(NewWorkflowInstance) job==nil ")
 		return
 	}
 
-	wi = &WorkflowInstance{LocalID: local_id, JobID: jobid, WorkflowDefinition: workflow_definition}
+	wi = &WorkflowInstance{LocalID: localID, JobID: jobid, WorkflowDefinition: workflowDefinition}
 	wi.State = WI_STAT_INIT
 
 	_, err = wi.Init(job)
@@ -100,7 +101,8 @@ func NewWorkflowInstance(local_id string, jobid string, workflow_definition stri
 	return
 }
 
-func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *cwl.WorkflowContext, do_init bool) (wi *WorkflowInstance, err error) {
+// NewWorkflowInstanceFromInterface _
+func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *cwl.WorkflowContext, doInit bool) (wi *WorkflowInstance, err error) {
 	original, err = cwl.MakeStringMap(original, context)
 	if err != nil {
 		return
@@ -109,61 +111,61 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 	switch original.(type) {
 	case map[string]interface{}:
 
-		original_map, ok := original.(map[string]interface{})
+		originalMap, ok := original.(map[string]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) not a map: %s", spew.Sdump(original))
 			return
 		}
 
-		inputs_if, has_inputs := original_map["inputs"]
-		if has_inputs {
+		inputsIf, hasInputs := originalMap["inputs"]
+		if hasInputs {
 			var inputs *cwl.Job_document
-			inputs, err = cwl.NewJob_documentFromNamedTypes(inputs_if, context)
+			inputs, err = cwl.NewJob_documentFromNamedTypes(inputsIf, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) (for inputs) NewJob_document returned: %s", err.Error())
 				return
 			}
 
-			original_map["inputs"] = *inputs
+			originalMap["inputs"] = *inputs
 		}
 
-		outputs_if, has_outputs := original_map["outputs"]
-		if has_outputs {
+		outputsIf, hasOutputs := originalMap["outputs"]
+		if hasOutputs {
 			var outputs *cwl.Job_document
-			outputs, err = cwl.NewJob_documentFromNamedTypes(outputs_if, context)
+			outputs, err = cwl.NewJob_documentFromNamedTypes(outputsIf, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) (for outputs) NewJob_document returned: %s", err.Error())
 				return
 			}
 
-			original_map["outputs"] = *outputs
+			originalMap["outputs"] = *outputs
 
 		}
 
-		tasks_if, has_tasks := original_map["tasks"]
-		if has_tasks {
+		tasksIf, hasTasks := originalMap["tasks"]
+		if hasTasks {
 			var tasks []*Task
-			tasks, err = NewTasksFromInterface(tasks_if, context)
+			tasks, err = NewTasksFromInterface(tasksIf, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) (for outputs) NewTasksFromInterface returned: %s", err.Error())
 				return
 			}
 
-			original_map["tasks"] = tasks
+			originalMap["tasks"] = tasks
 
 		}
 
 		wi = &WorkflowInstance{}
 
-		err = mapstructure.Decode(original_map, wi)
+		err = mapstructure.Decode(originalMap, wi)
 		if err != nil {
 			fmt.Println("original_map:")
-			spew.Dump(original_map)
+			spew.Dump(originalMap)
 			err = fmt.Errorf("(NewWorkflowInstanceFromInterface) mapstructure.Decode returned: %s", err.Error())
 			return
 		}
 
-		if do_init {
+		if doInit {
 			_, err = wi.Init(job)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) wi.Init returned: %s", err.Error())
@@ -179,7 +181,7 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 			return
 		}
 
-		if do_init {
+		if doInit {
 			_, err = wi.Init(job)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) wi.Init returned: %s", err.Error())
@@ -192,12 +194,12 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 	}
 
 	if context != nil {
-		for i, _ := range wi.Inputs {
-			inp_named := &wi.Inputs[i]
-			inp_id := inp_named.Id
-			inp_value := inp_named.Value
+		for i := range wi.Inputs {
+			inpNamed := &wi.Inputs[i]
+			inpID := inpNamed.Id
+			inpValue := inpNamed.Value
 
-			err = context.Add(inp_id, inp_value, "NewWorkflowInstanceFromInterface")
+			err = context.Add(inpID, inpValue, "NewWorkflowInstanceFromInterface")
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) context.Add returned: %s", err.Error())
 				return
@@ -208,11 +210,12 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 
 }
 
+// NewWorkflowInstanceArrayFromInterface _
 func NewWorkflowInstanceArrayFromInterface(original []interface{}, job *Job, context *cwl.WorkflowContext) (wis []*WorkflowInstance, err error) {
 
 	wis = []*WorkflowInstance{}
 
-	for i, _ := range original {
+	for i := range original {
 		var wi *WorkflowInstance
 		wi, err = NewWorkflowInstanceFromInterface(original[i], job, context, true)
 		if err != nil {
@@ -225,8 +228,8 @@ func NewWorkflowInstanceArrayFromInterface(original []interface{}, job *Job, con
 	return
 }
 
-// db_sync is a string because a bool would be misunderstood as a lock indicator ("db_sync_no", db_sync_yes)
-func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync bool, writeLock bool) (err error) {
+// AddTask db_sync is a string because a bool would be misunderstood as a lock indicator ("db_sync_no", db_sync_yes)
+func (wi *WorkflowInstance) AddTask(job *Job, task *Task, dbSync bool, writeLock bool) (err error) {
 	if writeLock {
 		err = wi.LockNamed("WorkflowInstance/AddTask")
 		if err != nil {
@@ -265,16 +268,16 @@ func (wi *WorkflowInstance) AddTask(job *Job, task *Task, db_sync bool, writeLoc
 	//wi.TotalTasks = len(wi.Tasks)
 
 	wi.Tasks = append(wi.Tasks, task)
-	if db_sync == DbSyncTrue {
+	if dbSync == DbSyncTrue {
 
-		var job_id string
-		job_id, err = job.GetId(false)
+		var jobID string
+		jobID, err = job.GetId(false)
 		if err != nil {
 			return
 		}
-		subworkflow_id := task.WorkflowInstanceId
+		subworkflowID := task.WorkflowInstanceId
 
-		err = dbPushTask(job_id, subworkflow_id, task)
+		err = dbPushTask(jobID, subworkflowID, task)
 		if err != nil {
 			err = fmt.Errorf("(WorkflowInstance/AddTask) dbPushTask returned: %s", err.Error())
 			return
@@ -355,19 +358,19 @@ func (wi *WorkflowInstance) AddSubworkflow(job *Job, subworkflow string, writeLo
 		defer wi.Unlock()
 	}
 
-	new_subworkflows_list := append(wi.Subworkflows, subworkflow)
+	newSubworkflowsList := append(wi.Subworkflows, subworkflow)
 
 	jobID := wi.JobID
-	subworkflow_id := wi.LocalID
+	subworkflowID := wi.LocalID
 	fieldname := "subworkflows"
-	update_value := bson.M{fieldname: new_subworkflows_list}
-	err = dbUpdateJobWorkflow_instancesFields(jobID, subworkflow_id, update_value)
+	updateValue := bson.M{fieldname: newSubworkflowsList}
+	err = dbUpdateJobWorkflow_instancesFields(jobID, subworkflowID, updateValue)
 	if err != nil {
-		err = fmt.Errorf("(AddSubworkflow) (subworkflow_id: %s, fieldname: %s) %s", subworkflow_id, fieldname, err.Error())
+		err = fmt.Errorf("(AddSubworkflow) (subworkflow_id: %s, fieldname: %s) %s", subworkflowID, fieldname, err.Error())
 		return
 	}
 
-	wi.Subworkflows = new_subworkflows_list
+	wi.Subworkflows = newSubworkflowsList
 
 	_, err = wi.IncrementRemainSteps(1, false)
 	if err != nil {
@@ -381,14 +384,14 @@ func (wi *WorkflowInstance) AddSubworkflow(job *Job, subworkflow string, writeLo
 // GetWorkflow _
 func (wi *WorkflowInstance) GetWorkflow(context *cwl.WorkflowContext) (workflow *cwl.Workflow, err error) {
 
-	workflow_def_str := wi.WorkflowDefinition
+	workflowDefStr := wi.WorkflowDefinition
 
 	if context == nil {
 		err = fmt.Errorf("(WorkflowInstance/GetWorkflow) context == nil")
 		return
 	}
 
-	workflow, err = context.GetWorkflow(workflow_def_str)
+	workflow, err = context.GetWorkflow(workflowDefStr)
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/GetWorkflow) context.GetWorkflow returned: %s", err.Error())
 		return
@@ -431,9 +434,9 @@ func (wi *WorkflowInstance) GetTaskByName(taskName string, readLock bool) (task 
 	}
 	logger.Debug(3, "(GetTaskByName) search: %s", taskName)
 	for _, t := range wi.Tasks {
-		base_name := path.Base(t.TaskName)
+		baseName := path.Base(t.TaskName)
 		logger.Debug(3, "(GetTaskByName) task: %s", t.TaskName)
-		if base_name == taskName {
+		if baseName == taskName {
 			ok = true
 			task = t
 		}
@@ -442,7 +445,7 @@ func (wi *WorkflowInstance) GetTaskByName(taskName string, readLock bool) (task 
 	return
 }
 
-// get tasks form from all subworkflows in the job
+// GetTasks get tasks form from all subworkflows in the job
 func (wi *WorkflowInstance) GetTasks(readLock bool) (tasks []*Task, err error) {
 	tasks = []*Task{}
 
@@ -463,6 +466,7 @@ func (wi *WorkflowInstance) GetTasks(readLock bool) (tasks []*Task, err error) {
 	return
 }
 
+// TaskCount _
 func (wi *WorkflowInstance) TaskCount() (count int) {
 	lock, err := wi.RLockNamed("TaskCount")
 	if err != nil {
@@ -495,6 +499,7 @@ func (wi *WorkflowInstance) GetID(readLock bool) (id string, err error) {
 	return
 }
 
+// GetState _
 func (wi *WorkflowInstance) GetState(readLock bool) (state string, err error) {
 	if readLock {
 		var lock rwmutex.ReadLock
@@ -510,6 +515,7 @@ func (wi *WorkflowInstance) GetState(readLock bool) (state string, err error) {
 	return
 }
 
+// Init _
 func (wi *WorkflowInstance) Init(job *Job) (changed bool, err error) {
 	changed = false
 
@@ -531,14 +537,14 @@ func (wi *WorkflowInstance) Init(job *Job) (changed bool, err error) {
 		return
 	}
 
-	var t_changed bool
-	for i, _ := range wi.Tasks {
-		t_changed, err = wi.Tasks[i].Init(job, wi.JobID)
+	var tChanged bool
+	for i := range wi.Tasks {
+		tChanged, err = wi.Tasks[i].Init(job, wi.JobID)
 		if err != nil {
 			err = fmt.Errorf("(WorkflowInstance/Init) task.Init returned: %s", err.Error())
 			return
 		}
-		if t_changed {
+		if tChanged {
 			changed = true
 		}
 	}
@@ -546,6 +552,7 @@ func (wi *WorkflowInstance) Init(job *Job) (changed bool, err error) {
 	return
 }
 
+// Save _
 func (wi *WorkflowInstance) Save(readLock bool) (err error) {
 	if readLock {
 		var lock rwmutex.ReadLock
@@ -606,6 +613,7 @@ func (wi *WorkflowInstance) SetOutputs(outputs cwl.Job_document, context *cwl.Wo
 	return
 }
 
+// GetOutput _
 func (wi *WorkflowInstance) GetOutput(name string, readLock bool) (obj cwl.CWLType, ok bool, err error) {
 	if readLock {
 		var lock rwmutex.ReadLock
@@ -623,11 +631,11 @@ func (wi *WorkflowInstance) GetOutput(name string, readLock bool) (obj cwl.CWLTy
 		return
 	}
 
-	for i, _ := range wi.Outputs {
-		named_output := wi.Outputs[i]
-		named_output_base := path.Base(named_output.Id)
-		if named_output_base == name {
-			obj = named_output.Value
+	for i := range wi.Outputs {
+		namedOutput := wi.Outputs[i]
+		namedOutputBase := path.Base(namedOutput.Id)
+		if namedOutputBase == name {
+			obj = namedOutput.Value
 			return
 		}
 
@@ -675,6 +683,7 @@ func (wi *WorkflowInstance) DecreaseRemainSteps_DEPRECATED() (remain int, err er
 	return
 }
 
+// IncrementRemainSteps _
 func (wi *WorkflowInstance) IncrementRemainSteps(amount int, writeLock bool) (remain int, err error) {
 	if writeLock {
 		err = wi.LockNamed("WorkflowInstance/IncrementRemainSteps")
@@ -686,7 +695,7 @@ func (wi *WorkflowInstance) IncrementRemainSteps(amount int, writeLock bool) (re
 	}
 
 	err = dbIncrementJobWorkflow_instancesField(wi.JobID, wi.LocalID, "remainsteps", amount) // TODO return correct value for remain
-	//err = wi.Save()
+
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/IncrementRemainSteps)  dbIncrementJobWorkflow_instancesField() returned: %s", err.Error())
 		return
@@ -695,20 +704,10 @@ func (wi *WorkflowInstance) IncrementRemainSteps(amount int, writeLock bool) (re
 
 	remain = wi.RemainSteps
 
-	//var job *Job
-	//job, err = wi.GetJob(false)
-	//if err != nil {
-	//	return
-	//}
-	//_, err = job.IncrementRemainSteps(amount, "WorkflowInstance/IncrementRemainSteps")
-	//if err != nil {
-	//		err = fmt.Errorf("(WorkflowInstance/IncrementRemainSteps) job.IncrementRemainSteps returned: %s", err.Error())
-	//		return
-	//	}
-
 	return
 }
 
+// GetRemainSteps _
 func (wi *WorkflowInstance) GetRemainSteps(readLock bool) (remain int, err error) {
 	if readLock {
 		var lock rwmutex.ReadLock
@@ -739,6 +738,7 @@ func (wi *WorkflowInstance) GetParentStep_cached_DEPRECATED() (pstep *cwl.Workfl
 	return
 }
 
+// GetParentRaw _
 func (wi *WorkflowInstance) GetParentRaw(readLock bool) (parent *WorkflowInstance, err error) {
 	if readLock {
 		var lock rwmutex.ReadLock
@@ -753,6 +753,7 @@ func (wi *WorkflowInstance) GetParentRaw(readLock bool) (parent *WorkflowInstanc
 	return
 }
 
+// GetParent _
 func (wi *WorkflowInstance) GetParent(readLock bool) (parent *WorkflowInstance, err error) {
 
 	parent, err = wi.GetParentRaw(readLock)
@@ -813,8 +814,8 @@ func (wi *WorkflowInstance) GetParentStep_DEPRECATED(readLock bool) (pstep *cwl.
 		return
 	}
 
-	var parent_id string
-	parent_id, err = wi.GetParentID(false)
+	var parentID string
+	parentID, err = wi.GetParentID(false)
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/GetParentStep) GetParentID returned: %s", err.Error())
 		return
@@ -823,29 +824,29 @@ func (wi *WorkflowInstance) GetParentStep_DEPRECATED(readLock bool) (pstep *cwl.
 	var job *Job
 	job, err = wi.GetJob(readLock)
 
-	var parent_wi *WorkflowInstance
+	var parentWI *WorkflowInstance
 	var ok bool
-	parent_wi, ok, err = job.GetWorkflowInstance(parent_id, true)
+	parentWI, ok, err = job.GetWorkflowInstance(parentID, true)
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/GetParentStep) job.GetWorkflowInstance returned: %s", err.Error())
 		return
 	}
 
 	if !ok {
-		err = fmt.Errorf("(WorkflowInstance/GetParentStep) job.GetWorkflowInstance did not workflow_instance %s", parent_id)
+		err = fmt.Errorf("(WorkflowInstance/GetParentStep) job.GetWorkflowInstance did not workflow_instance %s", parentID)
 		return
 	}
 
 	//parentStep = parent_wi.GetStep()
-	parent_workflow := parent_wi.Workflow
-	if parent_workflow == nil {
+	parentWorkflow := parentWI.Workflow
+	if parentWorkflow == nil {
 		err = fmt.Errorf("(WorkflowInstance/GetParentStep) parent_workflow == nil")
 		return
 	}
 
-	parent_id_base := path.Base(parent_id)
+	parentIDBase := path.Base(parentID)
 
-	pstep, err = parent_workflow.GetStep(parent_id_base)
+	pstep, err = parentWorkflow.GetStep(parentIDBase)
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/GetParentStep) parent_workflow.GetStep returned: %s", err.Error())
 		return
@@ -854,7 +855,7 @@ func (wi *WorkflowInstance) GetParentStep_DEPRECATED(readLock bool) (pstep *cwl.
 }
 
 // GetParentID returns relative ID of parent workflow
-func (wi *WorkflowInstance) GetParentID(readLock bool) (parent_id string, err error) {
+func (wi *WorkflowInstance) GetParentID(readLock bool) (parentID string, err error) {
 	if readLock {
 		var lock rwmutex.ReadLock
 		lock, err = wi.RLockNamed("GetParentID")
@@ -866,16 +867,17 @@ func (wi *WorkflowInstance) GetParentID(readLock bool) (parent_id string, err er
 	}
 
 	logger.Debug(3, "(GetParentID) %s", wi.LocalID)
-	parent_id = path.Dir(wi.LocalID)
-	logger.Debug(3, "(GetParentID) parent_id: %s", parent_id)
-	if parent_id == "." {
-		parent_id = ""
+	parentID = path.Dir(wi.LocalID)
+	logger.Debug(3, "(GetParentID) parent_id: %s", parentID)
+	if parentID == "." {
+		parentID = ""
 	}
 
 	return
 
 }
 
+// GetJob _
 func (wi *WorkflowInstance) GetJob(readLock bool) (job *Job, err error) {
 	if readLock {
 		var lock rwmutex.ReadLock
@@ -892,9 +894,9 @@ func (wi *WorkflowInstance) GetJob(readLock bool) (job *Job, err error) {
 		return
 	}
 
-	job_id := wi.JobID
+	jobID := wi.JobID
 
-	job, err = GetJob(job_id)
+	job, err = GetJob(jobID)
 	if err != nil {
 		err = fmt.Errorf("(WorkflowInstance/GetJob) GetJob returned: %s", err.Error())
 		return

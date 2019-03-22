@@ -4388,14 +4388,14 @@ func (qm *ServerMgr) createOutputNode(task *Task) (err error) {
 
 func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *Task) (err error) {
 
-	var task_str string
-	task_str, err = task.String()
+	var taskStr string
+	taskStr, err = task.String()
 	if err != nil {
 		err = fmt.Errorf("(taskCompleted_Scatter) task.String returned: %s", err.Error())
 		return
 	}
 
-	logger.Debug(3, "(taskCompleted_Scatter) %s Scatter_parent exists", task_str)
+	logger.Debug(3, "(taskCompleted_Scatter) %s Scatter_parent exists", taskStr)
 	scatterParentID := *task.Scatter_parent
 	var scatterParentTask *Task
 	var ok bool
@@ -4428,22 +4428,22 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 
 	//fmt.Printf("XXX children: %d\n", len(children))
 
-	scatter_complete := true
-	for _, child_task := range children {
-		var child_state string
-		child_state, err = child_task.GetState()
+	scatterComplete := true
+	for _, childTask := range children {
+		var childState string
+		childState, err = childTask.GetState()
 		if err != nil {
 			err = fmt.Errorf("(taskCompleted_Scatter) child_task.GetState returned: %s", err.Error())
 			return
 		}
 
-		if child_state != TASK_STAT_COMPLETED {
-			scatter_complete = false
+		if childState != TASK_STAT_COMPLETED {
+			scatterComplete = false
 			break
 		}
 	}
 
-	if !scatter_complete {
+	if !scatterComplete {
 		// nothing to do here, scatter is not complete
 		return
 	}
@@ -4466,27 +4466,27 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 
 	logger.Debug(3, "(taskCompleted_Scatter) scatter_complete")
 
-	scatter_parent_step := scatterParentTask.WorkflowStep
+	scatterParentStep := scatterParentTask.WorkflowStep
 
 	scatterParentTask.StepOutput = &cwl.Job_document{}
 
 	context := job.WorkflowContext
 
 	//fmt.Printf("XXX start\n")
-	for i, _ := range scatter_parent_step.Out {
+	for i := range scatterParentStep.Out {
 		//fmt.Printf("XXX loop %d\n", i)
-		workflow_step_output := scatter_parent_step.Out[i]
-		workflow_step_output_id := workflow_step_output.Id
+		workflowStepOutput := scatterParentStep.Out[i]
+		workflowStepOutputID := workflowStepOutput.Id
 
-		workflow_step_output_id_base := path.Base(workflow_step_output_id)
+		workflowStepOutputIDBase := path.Base(workflowStepOutputID)
 
-		output_array := cwl.Array{}
+		outputArray := cwl.Array{}
 
-		for _, child_task := range children {
+		for _, childTask := range children {
 			//fmt.Printf("XXX inner loop %d\n", i)
-			job_doc := child_task.StepOutput
-			var child_output cwl.CWLType
-			child_output, ok = job_doc.Get(workflow_step_output_id_base)
+			jobDoc := childTask.StepOutput
+			var childOutput cwl.CWLType
+			childOutput, ok = jobDoc.Get(workflowStepOutputIDBase)
 			if !ok {
 				//fmt.Printf("XXX job_doc.Get failed\n")
 				err = fmt.Errorf("(taskCompleted_Scatter) job_doc.Get failed: %s ", err.Error())
@@ -4494,18 +4494,18 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 			}
 			//fmt.Println("child_output:")
 			//spew.Dump(child_output)
-			output_array = append(output_array, child_output)
+			outputArray = append(outputArray, childOutput)
 			//fmt.Println("output_array:")
 			//spew.Dump(output_array)
 		}
-		err = context.Add(workflow_step_output_id, &output_array, "taskCompleted_Scatter")
+		err = context.Add(workflowStepOutputID, &outputArray, "taskCompleted_Scatter")
 		if err != nil {
 			err = fmt.Errorf("(taskCompleted_Scatter) context.Add returned: %s", err.Error())
 			return
 		}
 		//fmt.Println("final output_array:")
 		//spew.Dump(output_array)
-		scatterParentTask.StepOutput = scatterParentTask.StepOutput.Add(workflow_step_output_id, &output_array)
+		scatterParentTask.StepOutput = scatterParentTask.StepOutput.Add(workflowStepOutputID, &outputArray)
 
 	}
 
@@ -4529,7 +4529,7 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 		err = fmt.Errorf("(taskCompleted_Scatter) FinalizeTaskPerf returned: %s", err.Error())
 		return
 	}
-	logger.Event(event.TASK_DONE, "task_id="+task_str)
+	logger.Event(event.TASK_DONE, "task_id="+taskStr)
 
 	//update the info of the job which the task is belong to, could result in deletion of the
 	//task in the task map when the task is the final task of the job to be done.

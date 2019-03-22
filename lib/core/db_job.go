@@ -48,7 +48,7 @@ func InitJobDB() {
 
 	cw := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
 	//cw.EnsureIndex(mgo.Index{Key: []string{"id"}, Unique: true}) not needed, already got _id
-	cw.EnsureIndex(mgo.Index{Key: []string{"jobID"}, Unique: false})
+	cw.EnsureIndex(mgo.Index{Key: []string{"job_id"}, Unique: false})
 }
 
 func dbCount(q bson.M) (count int, err error) {
@@ -451,7 +451,7 @@ func LoadJob(id string) (job *Job, err error) {
 
 		wis_if := []interface{}{} // have to use interface, because mongo cannot handle interface types
 
-		err = c2.Find(bson.M{"jobID": id}).All(&wis_if)
+		err = c2.Find(bson.M{"job_id": id}).All(&wis_if)
 		if err != nil {
 			job = nil
 			err = fmt.Errorf("(LoadJob) (DB_COLL_SUBWORKFLOWS) c.Find failed: %s", err.Error())

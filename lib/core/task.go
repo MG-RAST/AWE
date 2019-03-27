@@ -972,13 +972,6 @@ func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, writeLock 
 			err = fmt.Errorf("(task/SetState) SetCompletedDate returned: %s", err.Error())
 			return
 		}
-		if wi != nil {
-			_, err = wi.IncrementRemainSteps(1, true)
-			if err != nil {
-				err = fmt.Errorf("(task/SetState) wi.IncrementRemainSteps returned: %s", err.Error())
-				return
-			}
-		}
 
 	}
 

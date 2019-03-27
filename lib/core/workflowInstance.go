@@ -644,45 +644,6 @@ func (wi *WorkflowInstance) GetOutput(name string, readLock bool) (obj cwl.CWLTy
 	return
 }
 
-// also changes remain steps in Job
-func (wi *WorkflowInstance) DecreaseRemainSteps_DEPRECATED() (remain int, err error) {
-	err = wi.LockNamed("WorkflowInstance/DecreaseRemainSteps")
-	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps) wi.LockNamed returned: %s", err.Error())
-		return
-	}
-	defer wi.Unlock()
-
-	if wi.RemainSteps <= 0 {
-		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps) RemainSteps is already %d", wi.RemainSteps)
-		return
-	}
-
-	wi.RemainSteps -= 1
-
-	//err = dbUpdateJobWorkflow_instancesFieldInt(wi.JobId, wi.Id, "remainsteps", wi.RemainSteps)
-	err = dbIncrementJobWorkflow_instancesField(wi.JobID, wi.LocalID, "remainsteps", -1) // TODO return correct value for remain
-	//err = wi.Save()
-	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps)  dbIncrementJobWorkflow_instancesField() returned: %s", err.Error())
-		return
-	}
-	remain = wi.RemainSteps
-
-	//var job *Job
-	//job, err = wi.GetJob(false)
-	//if err != nil {
-	//	return
-	//}
-	//_, err = job.IncrementRemainSteps(-1, "WorkflowInstance/DecreaseRemainSteps")
-	//if err != nil {
-	//	err = fmt.Errorf("(WorkflowInstance/DecreaseRemainSteps) job.IncrementRemainSteps returned: %s", err.Error())
-	//	return
-	//}
-
-	return
-}
-
 // IncrementRemainSteps _
 func (wi *WorkflowInstance) IncrementRemainSteps(amount int, writeLock bool) (remain int, err error) {
 	if writeLock {

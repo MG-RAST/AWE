@@ -4571,9 +4571,10 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 	// check tasks
 	for _, task := range workflowInstance.Tasks {
 
-		task_state, _ := task.GetState()
+		var taskState string
+		taskState, _ = task.GetState()
 
-		if task_state != TASK_STAT_COMPLETED {
+		if taskState != TASK_STAT_COMPLETED {
 			ok = false
 			reason = "(completeSubworkflow) a task is not completed yet"
 			return
@@ -4584,8 +4585,8 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 	// check subworkflows
 	for _, subworkflow := range workflowInstance.Subworkflows {
 
-		var sub_wi *WorkflowInstance
-		sub_wi, ok, err = job.GetWorkflowInstance(subworkflow, true)
+		var subWI *WorkflowInstance
+		subWI, ok, err = job.GetWorkflowInstance(subworkflow, true)
 		if err != nil {
 			err = fmt.Errorf("(completeSubworkflow) job.GetWorkflowInstance returned: %s", err.Error())
 			return
@@ -4595,9 +4596,9 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 			return
 		}
 
-		sub_wiState, _ := sub_wi.GetState(true)
+		subWIState, _ := subWI.GetState(true)
 
-		if sub_wiState != WI_STAT_COMPLETED {
+		if subWIState != WI_STAT_COMPLETED {
 			ok = false
 			reason = fmt.Sprintf("(completeSubworkflow) subworkflow %s is not completed", subworkflow)
 			return
@@ -4605,9 +4606,9 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 
 	}
 
+	// *************
 	// subworkflow complete, now collect outputs !
-
-	//TODO
+	// *************
 
 	wfl, err = workflowInstance.GetWorkflow(context)
 	if err != nil {
@@ -4617,19 +4618,17 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 
 	// reminder: at this point all tasks in subworkflow are complete, see above
 
-	workflow_inputs := workflowInstance.Inputs
-	//workflow_inputs := nil
+	workflowInputs := workflowInstance.Inputs
 
-	workflow_inputs_map := workflow_inputs.GetMap()
-	//workflow_inputs_map =
+	workflowInputsMap := workflowInputs.GetMap()
 
-	workflow_outputs_map := make(cwl.JobDocMap)
+	workflowOutputsMap := make(cwl.JobDocMap)
 
 	// collect sub-workflow outputs, put results in workflow_outputs_map
 
 	for _, output := range wfl.Outputs { // WorkflowOutputParameter http://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
 
-		output_id := output.Id
+		outputID := output.Id
 
 		if output.OutputBinding != nil {
 			// see http://www.commonwl.org/v1.0/Workflow.html#CommandOutputBinding
@@ -4654,26 +4653,26 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 			return
 		}
 
-		var expected_types_raw []interface{}
+		var expectedTypesRaw []interface{}
 
 		switch output.Type.(type) {
 		case []interface{}:
-			expected_types_raw = output.Type.([]interface{})
+			expectedTypesRaw = output.Type.([]interface{})
 		case []cwl.CWLType_Type:
 
-			expected_types_raw_array := output.Type.([]cwl.CWLType_Type)
-			for i, _ := range expected_types_raw_array {
-				expected_types_raw = append(expected_types_raw, expected_types_raw_array[i])
+			expectedTypesRawArray := output.Type.([]cwl.CWLType_Type)
+			for i, _ := range expectedTypesRawArray {
+				expectedTypesRaw = append(expectedTypesRaw, expectedTypesRawArray[i])
 
 			}
 
 		default:
-			expected_types_raw = append(expected_types_raw, output.Type)
+			expectedTypesRaw = append(expectedTypesRaw, output.Type)
 			//expected_types_raw = []interface{output.Type}
 		}
-		expected_types := []cwl.CWLType_Type{}
+		expectedTypes := []cwl.CWLType_Type{}
 
-		is_optional := false
+		isOptional := false
 
 		var schemata []cwl.CWLType_Type
 		schemata, err = job.WorkflowContext.GetSchemata()
@@ -4682,9 +4681,9 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 			return
 		}
 
-		for _, raw_type := range expected_types_raw {
-			var type_correct cwl.CWLType_Type
-			type_correct, err = cwl.NewCWLType_Type(schemata, raw_type, "WorkflowOutput", context)
+		for _, rawType := range expectedTypesRaw {
+			var typeCorrect cwl.CWLType_Type
+			typeCorrect, err = cwl.NewCWLType_Type(schemata, rawType, "WorkflowOutput", context)
 			if err != nil {
 				//spew.Dump(expected_types_raw)
 				//fmt.Println("---")
@@ -4695,32 +4694,32 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 				//panic("raw_type problem")
 				return
 			}
-			expected_types = append(expected_types, type_correct)
-			if type_correct == cwl.CWL_null {
-				is_optional = true
+			expectedTypes = append(expectedTypes, typeCorrect)
+			if typeCorrect == cwl.CWL_null {
+				isOptional = true
 			}
 		}
 
 		// search the outputs and stick them in workflow_outputs_map
 
-		output_source := output.OutputSource
+		outputSource := output.OutputSource
 
-		switch output_source.(type) {
+		switch outputSource.(type) {
 		case string:
-			outputSourceString := output_source.(string)
+			outputSourceString := outputSource.(string)
 			// example: "#preprocess-fastq.workflow.cwl/rejected2fasta/file"
 
 			var obj cwl.CWLType
 			//var ok bool
 			//var reason string
-			obj, ok, reason, err = qm.getCWLSource(job, workflowInstance, workflow_inputs_map, outputSourceString, true, job.WorkflowContext)
+			obj, ok, reason, err = qm.getCWLSource(job, workflowInstance, workflowInputsMap, outputSourceString, true, job.WorkflowContext)
 			if err != nil {
 				err = fmt.Errorf("(completeSubworkflow) A) getCWLSource returns: %s", err.Error())
 				return
 			}
 			skip := false
 			if !ok {
-				if is_optional {
+				if isOptional {
 					skip = true
 				} else {
 					err = fmt.Errorf("(completeSubworkflow) A) source %s not found by getCWLSource (getCWLSource reason: %s)", outputSourceString, reason)
@@ -4729,24 +4728,24 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 			}
 
 			if !skip {
-				has_type, xerr := cwl.TypeIsCorrect(expected_types, obj, context)
+				hasType, xerr := cwl.TypeIsCorrect(expectedTypes, obj, context)
 				if xerr != nil {
 					err = fmt.Errorf("(completeSubworkflow) TypeIsCorrect: %s", xerr.Error())
 					return
 				}
-				if !has_type {
-					err = fmt.Errorf("(completeSubworkflow) A) workflow_ouput %s (type: %s), does not match expected types %s", output_id, reflect.TypeOf(obj), expected_types)
+				if !hasType {
+					err = fmt.Errorf("(completeSubworkflow) A) workflow_ouput %s (type: %s), does not match expected types %s", outputID, reflect.TypeOf(obj), expectedTypes)
 					return
 				}
 
-				workflow_outputs_map[output_id] = obj
+				workflowOutputsMap[outputID] = obj
 			}
 		case []string:
-			outputSourceArrayOfString := output_source.([]string)
+			outputSourceArrayOfString := outputSource.([]string)
 
 			if len(outputSourceArrayOfString) == 0 {
-				if !is_optional {
-					err = fmt.Errorf("(completeSubworkflow) output_source array (%s) is empty, but a required output", output_id)
+				if !isOptional {
+					err = fmt.Errorf("(completeSubworkflow) output_source array (%s) is empty, but a required output", outputID)
 					return
 				}
 			}
@@ -4756,7 +4755,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 			for _, outputSourceString := range outputSourceArrayOfString {
 				var obj cwl.CWLType
 				//var ok bool
-				obj, ok, _, err = qm.getCWLSource(job, workflowInstance, workflow_inputs_map, outputSourceString, true, job.WorkflowContext)
+				obj, ok, _, err = qm.getCWLSource(job, workflowInstance, workflowInputsMap, outputSourceString, true, job.WorkflowContext)
 				if err != nil {
 					err = fmt.Errorf("(completeSubworkflow) B) (%s) getCWLSource returns: %s", workflowInstanceID, err.Error())
 					return
@@ -4765,7 +4764,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 				skip := false
 				if !ok {
 
-					if is_optional {
+					if isOptional {
 						skip = true
 					} else {
 
@@ -4775,13 +4774,13 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 				}
 
 				if !skip {
-					has_type, xerr := cwl.TypeIsCorrect(expected_types, obj, context)
+					has_type, xerr := cwl.TypeIsCorrect(expectedTypes, obj, context)
 					if xerr != nil {
 						err = fmt.Errorf("(completeSubworkflow) TypeIsCorrect: %s", xerr.Error())
 						return
 					}
 					if !has_type {
-						err = fmt.Errorf("(completeSubworkflow) B) workflow_ouput %s, does not match expected types %s", output_id, expected_types)
+						err = fmt.Errorf("(completeSubworkflow) B) workflow_ouput %s, does not match expected types %s", outputID, expectedTypes)
 						return
 					}
 					//fmt.Println("obj:")
@@ -4791,10 +4790,10 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 			}
 
 			if len(output_array) > 0 {
-				workflow_outputs_map[output_id] = &output_array
+				workflowOutputsMap[outputID] = &output_array
 			} else {
-				if !is_optional {
-					err = fmt.Errorf("(completeSubworkflow) array with output_id %s is empty, but a required output", output_id)
+				if !isOptional {
+					err = fmt.Errorf("(completeSubworkflow) array with output_id %s is empty, but a required output", outputID)
 					return
 				}
 			}
@@ -4802,21 +4801,21 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 			//spew.Dump(workflow_outputs_map)
 
 		default:
-			err = fmt.Errorf("(completeSubworkflow) output.OutputSource has to be string or []string, but I got type %s", spew.Sdump(output_source))
+			err = fmt.Errorf("(completeSubworkflow) output.OutputSource has to be string or []string, but I got type %s", spew.Sdump(outputSource))
 			return
 
 		}
 
 	}
 
-	var workflow_outputs_array cwl.Job_document
-	workflow_outputs_array, err = workflow_outputs_map.GetArray()
+	var workflowOutputsArray cwl.Job_document
+	workflowOutputsArray, err = workflowOutputsMap.GetArray()
 	if err != nil {
 		err = fmt.Errorf("(completeSubworkflow) workflow_outputs_map.GetArray returned: %s", err.Error())
 		return
 	}
 
-	err = workflowInstance.SetOutputs(workflow_outputs_array, context, true)
+	err = workflowInstance.SetOutputs(workflowOutputsArray, context, true)
 	if err != nil {
 		err = fmt.Errorf("(completeSubworkflow) workflow_instance.SetOutputs returned: %s", err.Error())
 		return
@@ -4824,7 +4823,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 
 	// stick outputs in context, using correct Step-name (depends on if it is a embedded workflow)
 	logger.Debug(3, "(completeSubworkflow) workflow_instance.Outputs: %d", len(workflowInstance.Outputs))
-	for i, _ := range workflowInstance.Outputs {
+	for i := range workflowInstance.Outputs {
 		logger.Debug(3, "(completeSubworkflow) iteration %d", i)
 		i_named := &workflowInstance.Outputs[i]
 		i_named_base := path.Base(i_named.Id)
@@ -4849,11 +4848,6 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 			return
 		}
 
-	}
-
-	if workflowInstance.RemainSteps > 0 {
-		err = fmt.Errorf("(completeSubworkflow) want to set to WI_STAT_COMPLETED, but workflow_instance.RemainSteps=%d", workflowInstance.RemainSteps)
-		return
 	}
 
 	err = workflowInstance.SetState(WI_STAT_COMPLETED, DbSyncTrue, true)

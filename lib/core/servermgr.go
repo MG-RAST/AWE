@@ -280,7 +280,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 			panic("wi already has tasks " + wi_local_id)
 		}
 
-		subworkflow_str := []string{}
+		//subworkflow_str := []string{}
 
 		for i, _ := range cwl_workflow.Steps {
 
@@ -337,7 +337,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 			//create Task
 
 			case *cwl.Workflow:
-				subworkflow_str = append(subworkflow_str, wi_local_id+"/"+stepname_base)
+				//subworkflow_str = append(subworkflow_str, wi_local_id+"/"+stepname_base)
 				// create new WorkflowInstance
 
 				subworkflow, ok := process.(*cwl.Workflow)
@@ -395,8 +395,8 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 			//spew.Dump(cwl_workflow.Steps[i])
 
 		}
-		wi.Subworkflows = subworkflow_str
-		wi.RemainSteps = len(cwl_workflow.Steps)
+		//wi.Subworkflows = subworkflow_str
+
 		// pending -> ready
 		err = wi.SetState(WI_STAT_READY, DbSyncTrue, true)
 		if err != nil {
@@ -845,6 +845,11 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 			if len(wi_tasks) > 20 {
 				panic("too many tasks!")
 			}
+
+			for _, sw := range wi.Subworkflows {
+				fmt.Printf("  Subworkflow: %s\n", sw)
+			}
+
 		}
 
 	}

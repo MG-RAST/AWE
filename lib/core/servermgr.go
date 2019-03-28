@@ -4823,31 +4823,37 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 
 	// stick outputs in context, using correct Step-name (depends on if it is a embedded workflow)
 	logger.Debug(3, "(completeSubworkflow) workflow_instance.Outputs: %d", len(workflowInstance.Outputs))
-	for i := range workflowInstance.Outputs {
-		logger.Debug(3, "(completeSubworkflow) iteration %d", i)
-		i_named := &workflowInstance.Outputs[i]
-		i_named_base := path.Base(i_named.Id)
+	for output := range workflowInstance.Outputs {
+		logger.Debug(3, "(completeSubworkflow) iteration %d", output)
+		outputNamed := &workflowInstance.Outputs[output]
+		outputNamedBase := path.Base(outputNamed.Id)
 
-		prefix := path.Dir(i_named.Id)
+		prefix := path.Dir(outputNamed.Id)
 
-		logger.Debug(3, "(completeSubworkflow) old name: %s", i_named.Id)
+		logger.Debug(3, "(completeSubworkflow) old name: %s", outputNamed.Id)
 
-		prefix_base := path.Base(prefix)
-		new_name := i_named.Id
-		if len(prefix_base) == 36 { // TODO: find better way of detecting embedded workflow
+		prefixBase := path.Base(prefix)
+		newName := outputNamed.Id
+		if len(prefixBase) == 36 { // TODO: find better way of detecting embedded workflow
 			// case: emebedded workflow
 			prefix = path.Dir(prefix)
-			new_name = prefix + "/" + i_named_base
+			newName = prefix + "/" + outputNamedBase
 		}
 
 		//fmt.Printf("new name: %s\n", new_name)
-		logger.Debug(3, "(completeSubworkflow) new name: %s", new_name)
-		err = context.Add(new_name, i_named.Value, "completeSubworkflow")
+		logger.Debug(3, "(completeSubworkflow) new name: %s", newName)
+		err = context.Add(newName, outputNamed.Value, "completeSubworkflow")
 		if err != nil {
 			err = fmt.Errorf("(completeSubworkflow) context.Add returned: %s", err.Error())
 			return
 		}
 
+	}
+
+	if workflowInstance.RemainSteps > 0 {
+		err = fmt.Errorf("(completeSubworkflow) RemainSteps > 0 cannot complete")
+		panic(err.Error())
+		return
 	}
 
 	err = workflowInstance.SetState(WI_STAT_COMPLETED, DbSyncTrue, true)
@@ -4911,14 +4917,14 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 	fmt.Printf("(completeSubworkflow) got parent\n")
 
 	//var parent_ok bool
-	var parent_result string
-	_, parent_result, err = qm.completeSubworkflow(job, parent) // recursive call
+	var parentResult string
+	_, parentResult, err = qm.completeSubworkflow(job, parent) // recursive call
 	if err != nil {
 		err = fmt.Errorf("(completeSubworkflow) recursive call of qm.completeSubworkflow returned: %s", err.Error())
 		return
 	}
 	//if parent_id == "_root" {
-	fmt.Printf("(completeSubworkflow) parent_result: %s", parent_result)
+	fmt.Printf("(completeSubworkflow) parent_result: %s\n", parentResult)
 	//	panic("done")
 	//}
 
@@ -5314,114 +5320,6 @@ func (qm *ServerMgr) SuspendJob(jobid string, jerror *JobError) (err error) {
 	}
 	logger.Event(this_event, "jobid="+jobid+";reason="+reason)
 	return
-}
-
-// WISetState is wrapper for wi.SetState
-// it triggers calls to workflow parent and job document
-func (qm *ServerMgr) WISetState(wi *WorkflowInstance, state string, dbSync bool) (err error) {
-
-	err = wi.SetState(state, dbSync, true)
-	if err != nil {
-		err = fmt.Errorf("(WISetState) wi.SetState returned: %s", err.Error())
-		return
-	}
-
-	if state != WI_STAT_COMPLETED {
-		return
-	}
-
-	var job *Job
-	job, err = wi.GetJob(true)
-	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/SetState) wi.GetJob() returned: %s", err.Error())
-		return
-	}
-
-	var ok bool
-	var reason string
-	ok, reason, err = qm.completeSubworkflow(job, wi)
-	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/SetState) wi.SetState returned: %s", err.Error())
-		return
-	}
-	if !ok {
-		err = fmt.Errorf("(WorkflowInstance/SetState) completeSubworkflow returned \"not ok\": reason %s", reason)
-		return
-	}
-
-	// //  WI_STAT_COMPLETED
-
-	// //	wi.completeSub
-	// //qm.completeSubworkflow()
-	// // notify parent: either parent workflow_instance _or_ job
-
-	// var parentID string
-	// parentID, err = wi.GetParentID(true)
-	// if err != nil {
-	// 	err = fmt.Errorf("(WorkflowInstance/SetState) GetParentID returned: %s", err.Error())
-	// 	return
-	// }
-
-	// if parentID == "" {
-	// 	// notify job only
-
-	// 	var job *Job
-	// 	job, err = wi.GetJob(true)
-	// 	if err != nil {
-	// 		err = fmt.Errorf("(WorkflowInstance/SetState) wi.GetJob() returned: %s", err.Error())
-	// 		return
-	// 	}
-
-	// 	err = job.SetState(JOB_STAT_COMPLETED, nil)
-	// 	if err != nil {
-	// 		err = fmt.Errorf("(WorkflowInstance/SetState) job.SetState returned: %s", err.Error())
-	// 		return
-	// 	}
-
-	// 	return
-	// }
-
-	// // notify parent only
-
-	// var parentWI *WorkflowInstance
-	// parentWI, err = wi.GetParent(true)
-	// if err != nil {
-	// 	err = fmt.Errorf("(WorkflowInstance/SetState) job.GetParent returned: %s", err.Error())
-	// 	return
-	// }
-	// var parentRemain int
-	// parentRemain, err = parentWI.IncrementRemainSteps(-1, true)
-	// if err != nil {
-	// 	err = fmt.Errorf("(WorkflowInstance/SetState) job.IncrementRemainSteps returned: %s", err.Error())
-	// 	return
-	// }
-
-	// if parentRemain == 0 {
-
-	// 	var job *Job
-	// 	job, err = wi.GetJob(true)
-	// 	if err != nil {
-	// 		err = fmt.Errorf("(WorkflowInstance/SetState) wi.GetJob() returned: %s", err.Error())
-	// 		return
-	// 	}
-
-	// 	// recursive call
-	// 	var ok bool
-	// 	var reason string
-	// 	ok, reason, err = qm.completeSubworkflow(job, parentWI)
-	// 	if err != nil {
-	// 		err = fmt.Errorf("(WorkflowInstance/SetState) parentWI.SetState returned: %s", err.Error())
-	// 		return
-	// 	}
-	// 	if !ok {
-	// 		err = fmt.Errorf("(WorkflowInstance/SetState) completeSubworkflow returned \"not ok\": reason %s", reason)
-	// 		return
-	// 	}
-
-	// }
-
-	return
-
 }
 
 func (qm *ServerMgr) DeleteJobByUser(jobid string, u *user.User, full bool) (err error) {

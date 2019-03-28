@@ -4888,9 +4888,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 		return
 	}
 
-	// notify parent
-	//var parent_id string
-	//parent_id = path.Dir(workflowInstanceLocalID)
+	// check if parent needs to be notified
 
 	var parent *WorkflowInstance
 	parent, err = workflowInstance.GetParent(true)
@@ -4899,34 +4897,31 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 		return
 	}
 
-	// fmt.Printf("(completeSubworkflow) completes with parent_id: %s\n", parent_id)
+	//fmt.Printf("(completeSubworkflow) got parent\n")
 
-	// parent, ok, err = job.GetWorkflowInstance(parent_id, true)
+	var parentRemain int
+	parentRemain, err = parent.GetRemainSteps(true)
+	if err != nil {
+		err = fmt.Errorf("(completeSubworkflow) parent.GetRemainSteps returned: %s", err.Error())
+		return
+	}
 
-	// if err != nil {
-	// 	err = fmt.Errorf("(completeSubworkflow) job.GetWorkflowInstance returned: %s", err.Error())
-	// 	return
-	// }
+	if parentRemain > 0 {
+		// no need to notify
+		return
+	}
 
-	// if !ok {
-	// 	err = fmt.Errorf("(completeSubworkflow) parent workflow instance %s not found", parent_id)
-	// 	return
-
-	// }
-
-	fmt.Printf("(completeSubworkflow) got parent\n")
-
-	//var parent_ok bool
+	// notify parent
 	var parentResult string
-	_, parentResult, err = qm.completeSubworkflow(job, parent) // recursive call
+	ok, parentResult, err = qm.completeSubworkflow(job, parent) // recursive call
 	if err != nil {
 		err = fmt.Errorf("(completeSubworkflow) recursive call of qm.completeSubworkflow returned: %s", err.Error())
 		return
 	}
-	//if parent_id == "_root" {
-	fmt.Printf("(completeSubworkflow) parent_result: %s\n", parentResult)
-	//	panic("done")
-	//}
+	if !ok {
+		err = fmt.Errorf("(completeSubworkflow) qm.completeSubworkflow could not complete, reason: %s", parentResult)
+		return
+	}
 
 	return
 }

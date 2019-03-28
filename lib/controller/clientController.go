@@ -18,16 +18,17 @@ import (
 	"github.com/MG-RAST/golib/goweb"
 )
 
+// ClientController _
 type ClientController struct{}
 
-// OPTIONS: /client
+// Options OPTIONS: /client
 func (cr *ClientController) Options(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	cx.RespondWithOK()
 	return
 }
 
-// POST: /client - register a new client
+// Create POST: /client - register a new client
 func (cr *ClientController) Create(cx *goweb.Context) {
 	logger.Debug(3, "POST /client")
 	// Log Request and check for Auth
@@ -121,7 +122,7 @@ func (cr *ClientController) Read(id string, cx *goweb.Context) {
 	return
 }
 
-// GET: /client
+// ReadMany GET: /client
 func (cr *ClientController) ReadMany(cx *goweb.Context) {
 	LogRequest(cx.Request)
 
@@ -154,11 +155,11 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 
 	if query.Has("busy") {
 		for _, client := range clients {
-			work_length, err := client.CurrentWork.Length(true)
+			workLength, err := client.CurrentWork.Length(true)
 			if err != nil {
 				continue
 			}
-			if work_length > 0 {
+			if workLength > 0 {
 				filtered = append(filtered, client)
 			}
 		}
@@ -202,7 +203,7 @@ func (cr *ClientController) ReadMany(cx *goweb.Context) {
 	return
 }
 
-// PUT: /client/{id} -> status update
+// Update PUT: /client/{id} -> status update
 func (cr *ClientController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 
@@ -216,10 +217,10 @@ func (cr *ClientController) Update(id string, cx *goweb.Context) {
 			return
 		}
 
-		const MAX_MEMORY = 1024
+		const maxMemory = 1024
 
 		r := cx.Request
-		worker_status_bytes, err := ioutil.ReadAll(r.Body)
+		workerStatusBytes, err := ioutil.ReadAll(r.Body)
 		defer r.Body.Close()
 
 		if err != nil {
@@ -228,9 +229,9 @@ func (cr *ClientController) Update(id string, cx *goweb.Context) {
 		}
 
 		worker_status := core.WorkerState{}
-		err = json.Unmarshal(worker_status_bytes, &worker_status)
+		err = json.Unmarshal(workerStatusBytes, &worker_status)
 		if err != nil {
-			err = fmt.Errorf("%s, worker_status_bytes: %s", err, string(worker_status_bytes[:]))
+			err = fmt.Errorf("%s, worker_status_bytes: %s", err, string(workerStatusBytes[:]))
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			//cx.Respond(data interface{}, statusCode int, []string{err.Error()}, cx)
 			return

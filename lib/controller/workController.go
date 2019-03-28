@@ -26,6 +26,7 @@ import (
 	mgo "gopkg.in/mgo.v2"
 )
 
+// WorkController _
 type WorkController struct{}
 
 // OPTIONS: /work
@@ -129,7 +130,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	//	cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 	//	return
 	//}
-	acl, err := core.DBGetJobAcl(jobid)
+	acl, err := core.DBGetJobACL(jobid)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()

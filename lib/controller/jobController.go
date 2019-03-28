@@ -1320,7 +1320,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		}
 	}
 	// User must have write permissions on job or be job owner or be an admin
-	acl, err := core.DBGetJobAcl(id)
+	acl, err := core.DBGetJobACL(id)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()

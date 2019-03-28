@@ -34,17 +34,23 @@ import (
 // completed.
 
 const (
-	WIStateInit    = "init"    // initial state on creation
-	WIStatePending = "pending" // wants to be enqueued but may have unresolved dependencies
-	WIStateReady   = "ready"   // a task ready to be enqueued/evaluated (tasks can be enqueued)
-	WIStateQueued  = "queued"  // tasks have been created
-	//WI_STAT_INPROGRESS = "in-progress" // a first workunit has been checkout (this does not guarantee a workunit is running right now)
-	//WIStateSuspended          = "suspend"
-	//WI_STAT_FAILED           = "failed"
-	//WI_STAT_FAILED_PERMANENT = "failed-permanent" // on exit code 42
+	// WIStateInit initial state on creation
+	WIStateInit = "init"
+	// WIStatePending wants to be enqueued but may have unresolved dependencies
+	WIStatePending = "pending"
+	// WIStateReady a task ready to be enqueued/evaluated (tasks can be enqueued)
+	WIStateReady = "ready"
+	// WIStateQueued tasks have been created
+	WIStateQueued = "queued"
+	// WIStateCompleted _
 	WIStateCompleted = "completed"
-
+	// WIStateSuspended _
 	WIStateSuspended = "suspend"
+
+	// _ WI_STAT_INPROGRESS = "in-progress" // a first workunit has been checkout (this does not guarantee a workunit is running right now)
+	//_ WIStateSuspended          = "suspend"
+	//_ WI_STAT_FAILED           = "failed"
+	//_ WI_STAT_FAILED_PERMANENT = "failed-permanent" // on exit code 42
 )
 
 // WorkflowInstance _

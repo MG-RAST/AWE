@@ -226,9 +226,10 @@ func dbFind(q bson.M, results *Jobs, options map[string]int) (count int, err err
 				}
 			}
 			return
-		} else {
-			return 0, errors.New("store.db.Find options limit and offset must be used together")
 		}
+
+		return 0, errors.New("store.db.Find options limit and offset must be used together")
+
 	}
 	err = query.All(results)
 	if results != nil {
@@ -382,7 +383,7 @@ func dbUpdateJobTaskIO(jobID string, workflowInstance string, taskID string, fie
 	return
 }
 
-func dbIncrementJobTaskField(jobID string, taskID string, fieldname string, increment_value int) (err error) {
+func dbIncrementJobTaskField(jobID string, taskID string, fieldname string, incrementValue int) (err error) {
 
 	session := db.Connection.Session.Copy()
 	defer session.Close()
@@ -391,17 +392,18 @@ func dbIncrementJobTaskField(jobID string, taskID string, fieldname string, incr
 
 	selector := bson.M{"id": jobID, "tasks.taskid": taskID}
 
-	updateValue := bson.M{"tasks.$." + fieldname: increment_value}
+	updateValue := bson.M{"tasks.$." + fieldname: incrementValue}
 
 	err = c.Update(selector, bson.M{"$inc": updateValue})
 	if err != nil {
-		err = fmt.Errorf("Error incrementing jobID=%s fieldname=%s by %d: %s", jobID, fieldname, increment_value, err.Error())
+		err = fmt.Errorf("Error incrementing jobID=%s fieldname=%s by %d: %s", jobID, fieldname, incrementValue, err.Error())
 		return
 	}
 
 	return
 }
 
+// DbUpdateJobField _
 func DbUpdateJobField(jobID string, key string, value interface{}) (err error) {
 
 	session := db.Connection.Session.Copy()
@@ -422,6 +424,7 @@ func DbUpdateJobField(jobID string, key string, value interface{}) (err error) {
 	return
 }
 
+// LoadJob _
 func LoadJob(id string) (job *Job, err error) {
 	job = NewJob()
 	session := db.Connection.Session.Copy()
@@ -437,8 +440,8 @@ func LoadJob(id string) (job *Job, err error) {
 	}
 
 	// continue A, initialize
-	var job_changed bool
-	job_changed, err = job.Init() // values have already been set at this point...
+	var jobChanged bool
+	jobChanged, err = job.Init() // values have already been set at this point...
 	if err != nil {
 		err = fmt.Errorf("(LoadJob) job.Init failed: %s", err.Error())
 		return
@@ -449,22 +452,22 @@ func LoadJob(id string) (job *Job, err error) {
 
 		c2 := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_SUBWORKFLOWS)
 
-		wis_if := []interface{}{} // have to use interface, because mongo cannot handle interface types
+		WIsIf := []interface{}{} // have to use interface, because mongo cannot handle interface types
 
-		err = c2.Find(bson.M{"job_id": id}).All(&wis_if)
+		err = c2.Find(bson.M{"job_id": id}).All(&WIsIf)
 		if err != nil {
 			job = nil
 			err = fmt.Errorf("(LoadJob) (DB_COLL_SUBWORKFLOWS) c.Find failed: %s", err.Error())
 			return
 		}
 
-		if len(wis_if) == 0 {
+		if len(WIsIf) == 0 {
 			err = fmt.Errorf("(LoadJob) no matching WorkflowInstances found for job %s", id)
 			return
 		}
 
 		var wis []*WorkflowInstance
-		wis, err = NewWorkflowInstanceArrayFromInterface(wis_if, job, job.WorkflowContext)
+		wis, err = NewWorkflowInstanceArrayFromInterface(WIsIf, job, job.WorkflowContext)
 		if err != nil {
 			err = fmt.Errorf("(LoadJob) NewWorkflowInstanceArrayFromInterface returned: %s", err.Error())
 			return
@@ -475,15 +478,15 @@ func LoadJob(id string) (job *Job, err error) {
 			return
 		}
 
-		for i, _ := range wis {
-			var wi_changed bool
+		for i := range wis {
+			var wiChanged bool
 			wi := wis[i]
-			wi_changed, err = wi.Init(job)
+			wiChanged, err = wi.Init(job)
 			if err != nil {
 				err = fmt.Errorf("(LoadJob) wis[i].Init returned: %s", err.Error())
 				return
 			}
-			if wi_changed {
+			if wiChanged {
 				err = wi.Save(true)
 				if err != nil {
 					err = fmt.Errorf("(LoadJob) wi.Save() returned: %s", err.Error())
@@ -512,7 +515,7 @@ func LoadJob(id string) (job *Job, err error) {
 	}
 
 	// To fix incomplete or inconsistent database entries
-	if job_changed {
+	if jobChanged {
 		err = job.Save()
 		if err != nil {
 			err = fmt.Errorf("(LoadJob) job.Save() returned: %s", err.Error())
@@ -524,6 +527,7 @@ func LoadJob(id string) (job *Job, err error) {
 
 }
 
+// LoadJobPerf _
 func LoadJobPerf(id string) (perf *JobPerf, err error) {
 	perf = new(JobPerf)
 	session := db.Connection.Session.Copy()
@@ -537,9 +541,9 @@ func LoadJobPerf(id string) (perf *JobPerf, err error) {
 
 func dbGetJobTaskField(jobID string, taskID string, fieldname string, result *StructContainer) (err error) {
 
-	array_name := "tasks"
-	id_field := "taskid"
-	return dbGetJobArrayField(jobID, taskID, array_name, id_field, fieldname, result)
+	arrayName := "tasks"
+	idField := "taskid"
+	return dbGetJobArrayField(jobID, taskID, arrayName, idField, fieldname, result)
 }
 
 // TODO: warning: this does not cope with subfields such as "partinfo.index"
@@ -573,14 +577,14 @@ func dbGetJobArrayField(jobID string, taskID string, array_name string, id_field
 		return
 	}
 
-	first_task := tasks[0].(bson.M)
-	test_result, ok := first_task[fieldname]
+	firstTask := tasks[0].(bson.M)
+	testResult, ok := firstTask[fieldname]
 
 	if !ok {
 		err = fmt.Errorf("(dbGetJobArrayField) Field %s not in task object", fieldname)
 		return
 	}
-	result.Data = test_result
+	result.Data = testResult
 
 	//logger.Debug(3, "GOT2: %v", result)
 	logger.Debug(3, "(dbGetJobArrayField) %s got something", fieldname)
@@ -588,8 +592,8 @@ func dbGetJobArrayField(jobID string, taskID string, array_name string, id_field
 }
 
 func dbGetJobTask(jobID string, taskID string) (result *Task, err error) {
-	dummy_job := NewJob()
-	dummy_job.Init()
+	dummyJob := NewJob()
+	dummyJob.Init()
 
 	session := db.Connection.Session.Copy()
 	defer session.Close()
@@ -599,17 +603,17 @@ func dbGetJobTask(jobID string, taskID string) (result *Task, err error) {
 	selector := bson.M{"id": jobID}
 	projection := bson.M{"tasks": bson.M{"$elemMatch": bson.M{"taskid": taskID}}}
 
-	err = c.Find(selector).Select(projection).One(&dummy_job)
+	err = c.Find(selector).Select(projection).One(&dummyJob)
 	if err != nil {
 		err = fmt.Errorf("(dbGetJobTask) Error getting field from jobID %s , taskID %s : %s", jobID, taskID, err.Error())
 		return
 	}
-	if len(dummy_job.Tasks) != 1 {
-		err = fmt.Errorf("(dbGetJobTask) len(dummy_job.Tasks) != 1   len(dummy_job.Tasks)=%d", len(dummy_job.Tasks))
+	if len(dummyJob.Tasks) != 1 {
+		err = fmt.Errorf("(dbGetJobTask) len(dummy_job.Tasks) != 1   len(dummy_job.Tasks)=%d", len(dummyJob.Tasks))
 		return
 	}
 
-	result = dummy_job.Tasks[0]
+	result = dummyJob.Tasks[0]
 	return
 }
 
@@ -658,18 +662,20 @@ func dbGetJobField(jobID string, fieldname string, result interface{}) (err erro
 	return
 }
 
-type Job_Acl struct {
-	Acl acl.Acl `bson:"acl" json:"-"`
+// JobACL _
+type JobACL struct {
+	ACL acl.Acl `bson:"acl" json:"-"`
 }
 
-func DBGetJobAcl(jobID string) (_acl acl.Acl, err error) {
+// DBGetJobACL _
+func DBGetJobACL(jobID string) (_acl acl.Acl, err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 	selector := bson.M{"id": jobID}
 
-	job := Job_Acl{}
+	job := JobACL{}
 
 	err = c.Find(selector).Select(bson.M{"acl": 1}).One(&job)
 	if err != nil {
@@ -677,7 +683,7 @@ func DBGetJobAcl(jobID string) (_acl acl.Acl, err error) {
 		return
 	}
 
-	_acl = job.Acl
+	_acl = job.ACL
 	return
 }
 

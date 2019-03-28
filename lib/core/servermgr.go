@@ -4889,7 +4889,8 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 	}
 
 	// check if parent needs to be notified
-
+	// update Remain varable and complete if necessary
+	logger.Debug(3, "(completeSubworkflow) check parent")
 	var parent *WorkflowInstance
 	parent, err = workflowInstance.GetParent(true)
 	if err != nil {
@@ -4897,21 +4898,23 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 		return
 	}
 
-	//fmt.Printf("(completeSubworkflow) got parent\n")
-
+	// notify parent
 	var parentRemain int
-	parentRemain, err = parent.GetRemainSteps(true)
+	parentRemain, err = parent.IncrementRemainSteps(-1, true)
 	if err != nil {
-		err = fmt.Errorf("(completeSubworkflow) parent.GetRemainSteps returned: %s", err.Error())
+		err = fmt.Errorf("(completeSubworkflow) parent.IncrementRemainSteps returned: %s", err.Error())
 		return
 	}
 
 	if parentRemain > 0 {
 		// no need to notify
+		logger.Debug(3, "(completeSubworkflow) no need to complete parent workflow")
 		return
 	}
 
-	// notify parent
+	logger.Debug(3, "(completeSubworkflow) complete parent workflow")
+
+	// complete parent workflow
 	var parentResult string
 	ok, parentResult, err = qm.completeSubworkflow(job, parent) // recursive call
 	if err != nil {
@@ -4922,6 +4925,8 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 		err = fmt.Errorf("(completeSubworkflow) qm.completeSubworkflow could not complete, reason: %s", parentResult)
 		return
 	}
+
+	logger.Debug(3, "(completeSubworkflow) done")
 
 	return
 }

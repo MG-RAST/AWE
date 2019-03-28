@@ -14,37 +14,37 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-// WI_STAT_INIT
+// WIStateInit
 // state on creation of object
-// add to job -> WI_STAT_PENDING
+// add to job -> WIStatePending
 
-// WI_STAT_PENDING
+// WIStatePending
 // Unevaluated workflow_instance has steps, but not tasks or subworkflows yet
 // is officially part of job
-// Once workflow_instance is deemed ready -> WI_STAT_READY
+// Once workflow_instance is deemed ready -> WIStateReady
 // it is ready when it has input
 
-// WI_STAT_READY
+// WIStateReady
 // has inputs !
 
-// WI_STAT_QUEUED
+// WIStateQueued
 // tasks have been created and added to TaskMap
 
-// WI_STAT_COMPLETED
+// WIStateCompleted
 // completed.
 
 const (
-	WI_STAT_INIT    = "init"    // initial state on creation
-	WI_STAT_PENDING = "pending" // wants to be enqueued but may have unresolved dependencies
-	WI_STAT_READY   = "ready"   // a task ready to be enqueued/evaluated (tasks can be enqueued)
-	WI_STAT_QUEUED  = "queued"  // tasks have been created
+	WIStateInit    = "init"    // initial state on creation
+	WIStatePending = "pending" // wants to be enqueued but may have unresolved dependencies
+	WIStateReady   = "ready"   // a task ready to be enqueued/evaluated (tasks can be enqueued)
+	WIStateQueued  = "queued"  // tasks have been created
 	//WI_STAT_INPROGRESS = "in-progress" // a first workunit has been checkout (this does not guarantee a workunit is running right now)
-	//WI_STAT_SUSPEND          = "suspend"
+	//WIStateSuspended          = "suspend"
 	//WI_STAT_FAILED           = "failed"
 	//WI_STAT_FAILED_PERMANENT = "failed-permanent" // on exit code 42
-	WI_STAT_COMPLETED = "completed"
+	WIStateCompleted = "completed"
 
-	WI_STAT_SUSPEND = "suspend"
+	WIStateSuspended = "suspend"
 )
 
 // WorkflowInstance _
@@ -85,7 +85,7 @@ func NewWorkflowInstance(localID string, jobid string, workflowDefinition string
 	}
 
 	wi = &WorkflowInstance{LocalID: localID, JobID: jobid, WorkflowDefinition: workflowDefinition}
-	wi.State = WI_STAT_INIT
+	wi.State = WIStateInit
 
 	_, err = wi.Init(job)
 	if err != nil {

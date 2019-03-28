@@ -215,7 +215,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 	logger.Debug(3, "(updateWorkflowInstancesMapTask) start: %s state: %s", wi.LocalID, wiState)
 
-	if wiState == WI_STAT_PENDING {
+	if wiState == WIStatePending {
 
 		jobid := wi.JobID
 		//workflow_def_str := wi.Workflow_Definition
@@ -365,8 +365,8 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 				new_wi.Workflow = subworkflow
 				new_wi.ParentStep = step
-				//new_wi.SetState(WI_STAT_PENDING, "db_sync_no", false) // updateWorkflowInstancesMapTask
-				//AddWorkflowInstance sets steat to WI_STAT_PENDING
+				//new_wi.SetState(WIStatePending, "db_sync_no", false) // updateWorkflowInstancesMapTask
+				//AddWorkflowInstance sets steat to WIStatePending
 				err = job.AddWorkflowInstance(new_wi, DbSyncTrue, true) // updateWorkflowInstancesMapTask
 				if err != nil {
 					err = fmt.Errorf("(updateWorkflowInstancesMapTask) job.AddWorkflowInstance returned: %s", err.Error())
@@ -398,7 +398,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 		//wi.Subworkflows = subworkflow_str
 
 		// pending -> ready
-		err = wi.SetState(WI_STAT_READY, DbSyncTrue, true)
+		err = wi.SetState(WIStateReady, DbSyncTrue, true)
 		if err != nil {
 			err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.SetState returned: %s", err.Error())
 			return
@@ -423,7 +423,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 			}
 		}
 
-		err = wi.SetState(WI_STAT_QUEUED, DbSyncTrue, true)
+		err = wi.SetState(WIStateQueued, DbSyncTrue, true)
 		if err != nil {
 			err = fmt.Errorf("(updateWorkflowInstancesMapTask) SetState returned: %s", err.Error())
 			return
@@ -2438,9 +2438,9 @@ func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workfl
 		return
 	}
 	wi.Inputs = task_input_array
-	err = wi.SetState(WI_STAT_PENDING, DbSyncTrue, false)
+	err = wi.SetState(WIStatePending, DbSyncTrue, false)
 	if err != nil {
-		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) wi.SetState(WI_STAT_PENDING returned: %s", err.Error())
+		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) wi.SetState(WIStatePending returned: %s", err.Error())
 		return
 	}
 
@@ -3503,7 +3503,7 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflow_instance *Workflo
 			return
 		}
 
-		if wiState == WI_STAT_COMPLETED {
+		if wiState == WIStateCompleted {
 			ok = true
 			return
 		}
@@ -4559,7 +4559,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 		return
 	}
 
-	if wiState == WI_STAT_COMPLETED {
+	if wiState == WIStateCompleted {
 		ok = true
 		return
 	}
@@ -4598,7 +4598,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 
 		subWIState, _ := subWI.GetState(true)
 
-		if subWIState != WI_STAT_COMPLETED {
+		if subWIState != WIStateCompleted {
 			ok = false
 			reason = fmt.Sprintf("(completeSubworkflow) subworkflow %s is not completed", subworkflow)
 			return
@@ -4856,7 +4856,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 		return
 	}
 
-	err = workflowInstance.SetState(WI_STAT_COMPLETED, DbSyncTrue, true)
+	err = workflowInstance.SetState(WIStateCompleted, DbSyncTrue, true)
 	if err != nil {
 		err = fmt.Errorf("(completeSubworkflow) workflow_instance.SetState returned: %s", err.Error())
 		return

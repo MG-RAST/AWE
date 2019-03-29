@@ -169,8 +169,12 @@ func CreateCommandInputArray(original interface{}, schemata []CWLType_Type, cont
 			//fmt.Printf("D")
 
 		}
+	case []*CommandInputParameter:
+
+		new_array = original.([]*CommandInputParameter)
+
 	default:
-		err = fmt.Errorf("(CreateCommandInputArray) type unknown")
+		err = fmt.Errorf("(CreateCommandInputArray) type unknown (%s)", reflect.TypeOf(original))
 	}
 	//spew.Dump(new_array)
 	return

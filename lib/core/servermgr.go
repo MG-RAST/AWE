@@ -4626,6 +4626,8 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 
 	// collect sub-workflow outputs, put results in workflow_outputs_map
 
+	logger.Debug(3, "(completeSubworkflow) %s len(wfl.Outputs): %d", workflowInstanceID, len(wfl.Outputs))
+
 	for _, output := range wfl.Outputs { // WorkflowOutputParameter http://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
 
 		outputID := output.Id
@@ -4814,6 +4816,8 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 		err = fmt.Errorf("(completeSubworkflow) workflow_outputs_map.GetArray returned: %s", err.Error())
 		return
 	}
+
+	logger.Debug(3, "(completeSubworkflow) %s len(workflowOutputsArray): %d", workflowInstanceID, len(workflowOutputsArray))
 
 	err = workflowInstance.SetOutputs(workflowOutputsArray, context, true)
 	if err != nil {

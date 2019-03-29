@@ -608,12 +608,6 @@ func (wi *WorkflowInstance) SetOutputs(outputs cwl.Job_document, context *cwl.Wo
 		return
 	}
 
-	err = wi.Save(false)
-	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/SetOutputs)  Save() returned: %s", err.Error())
-		return
-	}
-
 	wi.Outputs = outputs
 
 	return

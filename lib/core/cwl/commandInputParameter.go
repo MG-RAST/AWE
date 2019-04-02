@@ -115,13 +115,15 @@ func NewCommandInputParameter(v interface{}, schemata []CWLType_Type, context *W
 // array<CommandInputParameter> | map<CommandInputParameter.id, CommandInputParameter.type> | map<CommandInputParameter.id, CommandInputParameter>
 func CreateCommandInputArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (err error, new_array []*CommandInputParameter) {
 
-	//fmt.Println("CreateCommandInputArray:\n")
-	//spew.Dump(original)
-	//os.Exit(1)
+	original, err = MakeStringMap(original, context)
+	if err != nil {
+		err = fmt.Errorf("(NewInputParameter) MakeStringMap returned: %s", err.Error())
+		return
+	}
 
 	switch original.(type) {
 
-	case map[interface{}]interface{}:
+	case map[string]interface{}:
 		for k, v := range original.(map[interface{}]interface{}) {
 
 			//var input_parameter CommandInputParameter

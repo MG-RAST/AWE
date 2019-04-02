@@ -123,8 +123,14 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 // InputParameter
 func NewInputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (new_array []InputParameter, err error) {
 
+	original, err = MakeStringMap(original, context)
+	if err != nil {
+		err = fmt.Errorf("(NewInputParameterArray) MakeStringMap returned: %s", err.Error())
+		return
+	}
+
 	switch original.(type) {
-	case map[interface{}]interface{}:
+	case map[string]interface{}:
 		original_map := original.(map[interface{}]interface{})
 		for k, v := range original_map {
 			//fmt.Printf("A")

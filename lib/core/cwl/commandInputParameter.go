@@ -124,7 +124,7 @@ func CreateCommandInputArray(original interface{}, schemata []CWLType_Type, cont
 	switch original.(type) {
 
 	case map[string]interface{}:
-		for k, v := range original.(map[interface{}]interface{}) {
+		for k, v := range original.(map[string]interface{}) {
 
 			//var input_parameter CommandInputParameter
 			//mapstructure.Decode(v, &input_parameter)
@@ -134,7 +134,7 @@ func CreateCommandInputArray(original interface{}, schemata []CWLType_Type, cont
 				return
 			}
 
-			input_parameter.Id = k.(string)
+			input_parameter.Id = k
 
 			//fmt.Printf("C")
 			new_array = append(new_array, input_parameter)

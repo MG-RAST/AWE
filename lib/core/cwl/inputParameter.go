@@ -131,15 +131,9 @@ func NewInputParameterArray(original interface{}, schemata []CWLType_Type, conte
 
 	switch original.(type) {
 	case map[string]interface{}:
-		original_map := original.(map[interface{}]interface{})
-		for k, v := range original_map {
+		original_map := original.(map[string]interface{})
+		for id, v := range original_map {
 			//fmt.Printf("A")
-
-			id, ok := k.(string)
-			if !ok {
-				err = fmt.Errorf("(NewInputParameterArray) Cannot parse id of input")
-				return
-			}
 
 			input_parameter, xerr := NewInputParameter(v, schemata, context)
 			if xerr != nil {

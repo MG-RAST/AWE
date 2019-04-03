@@ -559,7 +559,7 @@ func SubmitCWLJobToAWE(workflow_file string, job_file string, data *[]byte, awe_
 		err = fmt.Errorf("(SubmitCWLJobToAWE) json.Unmarshal returned: %s (%s) (job_bytes: %s)", err.Error(), conf.SERVER_URL+"/job", job_bytes)
 		return
 	}
-	jobid = job.Id
+	jobid = job.ID
 
 	return
 

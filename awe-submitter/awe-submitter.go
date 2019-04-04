@@ -170,7 +170,7 @@ func main_wrapper() (err error) {
 	// convert CWL to string
 	yaml_str := string(yamlstream[:])
 	//fmt.Printf("after cwltool --pack: \n%s\n", yaml_str)
-	var named_object_array []cwl.Named_CWL_object
+	var named_object_array []cwl.NamedCWLObject
 	//var cwl_version cwl.CWLVersion
 	var schemata []cwl.CWLType_Type
 	//var namespaces map[string]string

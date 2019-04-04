@@ -13,7 +13,7 @@ import (
 // https://www.commonwl.org/v1.0/Workflow.html#InputParameter
 
 type InputParameter struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Is_CWL_object
+	CWLObjectImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides IsCWLObject
 	Id              string                                                                `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
 	Label           string                                                                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
 	SecondaryFiles  interface{}                                                           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>

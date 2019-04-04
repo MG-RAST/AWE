@@ -23,7 +23,7 @@ type WorkflowContext struct {
 	//CWL_graph  []interface{} `yaml:"cwl_graph"  json:"cwl_graph" bson:"cwl_graph" mapstructure:"cwl_graph"`
 	// old ParsingContext
 	If_objects map[string]interface{} `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // graph objects
-	Objects    map[string]CWL_object  `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // graph objects , stores all objects (replaces All ???)
+	Objects    map[string]CWLObject  `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // graph objects , stores all objects (replaces All ???)
 
 	//Workflows          map[string]*Workflow          `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//InputParameter     map[string]*InputParameter    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // WorkflowInput
@@ -34,7 +34,7 @@ type WorkflowContext struct {
 	//Strings            map[string]*String            `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//Ints               map[string]*Int               `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//Booleans           map[string]*Boolean           `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
-	All map[string]CWL_object `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // everything goes in here
+	All map[string]CWLObject `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // everything goes in here
 
 	WorkflowCount int `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//Job_input          *Job_document
@@ -65,11 +65,11 @@ func (context *WorkflowContext) InitBasic() {
 	}
 
 	if context.Objects == nil {
-		context.Objects = make(map[string]CWL_object)
+		context.Objects = make(map[string]CWLObject)
 	}
 
 	if context.All == nil {
-		context.All = make(map[string]CWL_object)
+		context.All = make(map[string]CWLObject)
 	}
 
 	if context.Schemata == nil {
@@ -181,13 +181,13 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	// start with #main
 	// recursivly add objects to context
 	context.Initialzing = true
-	var object CWL_object
+	var object CWLObject
 	var schemataNew []CWLType_Type
-	object, schemataNew, err = New_CWL_object(main_if, nil, context)
+	object, schemataNew, err = NewCWLObject(main_if, nil, context)
 	if err != nil {
 		fmt.Printf("(WorkflowContext/Init) main_if")
 		spew.Dump(main_if)
-		err = fmt.Errorf("(WorkflowContext/Init) A New_CWL_object returned %s", err.Error())
+		err = fmt.Errorf("(WorkflowContext/Init) A NewCWLObject returned %s", err.Error())
 		return
 	}
 	context.Initialzing = false
@@ -303,7 +303,7 @@ func (c *WorkflowContext) GetSchemata() (obj []CWLType_Type, err error) {
 	return
 }
 
-func (c *WorkflowContext) AddArray(object_array []Named_CWL_object) (err error) {
+func (c *WorkflowContext) AddArray(object_array []NamedCWLObject) (err error) {
 
 	for i, _ := range object_array {
 		pair := object_array[i]
@@ -319,7 +319,7 @@ func (c *WorkflowContext) AddArray(object_array []Named_CWL_object) (err error) 
 
 }
 
-func (c *WorkflowContext) Add(id string, obj CWL_object, caller string) (err error) {
+func (c *WorkflowContext) Add(id string, obj CWLObject, caller string) (err error) {
 
 	if id == "" {
 		// anonymous objects are not stored
@@ -329,7 +329,7 @@ func (c *WorkflowContext) Add(id string, obj CWL_object, caller string) (err err
 	logger.Debug(3, "(WorkflowContext/Add) Adding object %s to collection (type: %s, caller: %s)", id, reflect.TypeOf(obj), caller)
 
 	if c.All == nil {
-		c.All = make(map[string]CWL_object)
+		c.All = make(map[string]CWLObject)
 	}
 
 	_, ok := c.All[id]
@@ -412,7 +412,7 @@ func (c *WorkflowContext) Add(id string, obj CWL_object, caller string) (err err
 	return
 }
 
-func (c *WorkflowContext) Get(id string, do_read_lock bool) (obj CWL_object, ok bool, err error) {
+func (c *WorkflowContext) Get(id string, do_read_lock bool) (obj CWLObject, ok bool, err error) {
 
 	if do_read_lock {
 		var read_lock rwmutex.ReadLock
@@ -446,7 +446,7 @@ func (c *WorkflowContext) GetType(id string) (obj_type string, err error) {
 		defer c.RUnlockNamed(read_lock)
 	}
 	var ok bool
-	var obj CWL_object
+	var obj CWLObject
 	obj, ok = c.All[id]
 	if !ok {
 		err = fmt.Errorf("(GetCWLTypeType) Object %s not found in All", id)
@@ -485,7 +485,7 @@ func (c *WorkflowContext) GetType(id string) (obj_type string, err error) {
 // }
 
 func (c *WorkflowContext) GetFile(id string) (obj *File, err error) {
-	var obj_generic CWL_object
+	var obj_generic CWLObject
 	var ok bool
 	obj_generic, ok, err = c.Get(id, true)
 	if err != nil {
@@ -505,7 +505,7 @@ func (c *WorkflowContext) GetFile(id string) (obj *File, err error) {
 }
 
 func (c *WorkflowContext) GetString(id string) (obj *String, err error) {
-	var obj_generic CWL_object
+	var obj_generic CWLObject
 	var ok bool
 	obj_generic, ok, err = c.Get(id, true)
 	if err != nil {
@@ -525,7 +525,7 @@ func (c *WorkflowContext) GetString(id string) (obj *String, err error) {
 }
 
 func (c *WorkflowContext) GetInt(id string) (obj *Int, err error) {
-	var obj_generic CWL_object
+	var obj_generic CWLObject
 	var ok bool
 	obj_generic, ok, err = c.Get(id, true)
 	if err != nil {
@@ -545,7 +545,7 @@ func (c *WorkflowContext) GetInt(id string) (obj *Int, err error) {
 }
 
 func (c *WorkflowContext) GetWorkflowStepInput(id string) (obj *WorkflowStepInput, err error) {
-	var obj_generic CWL_object
+	var obj_generic CWLObject
 	var ok bool
 	obj_generic, ok, err = c.Get(id, true)
 	if err != nil {
@@ -565,7 +565,7 @@ func (c *WorkflowContext) GetWorkflowStepInput(id string) (obj *WorkflowStepInpu
 }
 
 func (c *WorkflowContext) GetCommandLineTool(id string) (obj *CommandLineTool, err error) {
-	var obj_generic CWL_object
+	var obj_generic CWLObject
 	var ok bool
 	obj_generic, ok, err = c.Get(id, true)
 	if err != nil {
@@ -585,7 +585,7 @@ func (c *WorkflowContext) GetCommandLineTool(id string) (obj *CommandLineTool, e
 }
 
 func (c *WorkflowContext) GetExpressionTool(id string) (obj *ExpressionTool, err error) {
-	var obj_generic CWL_object
+	var obj_generic CWLObject
 	var ok bool
 	obj_generic, ok, err = c.Get(id, true)
 	if err != nil {
@@ -605,7 +605,7 @@ func (c *WorkflowContext) GetExpressionTool(id string) (obj *ExpressionTool, err
 }
 
 func (c *WorkflowContext) GetWorkflow(id string) (obj *Workflow, err error) {
-	var obj_generic CWL_object
+	var obj_generic CWLObject
 	var ok bool
 	obj_generic, ok, err = c.Get(id, true)
 	if err != nil {

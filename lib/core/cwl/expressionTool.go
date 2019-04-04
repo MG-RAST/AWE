@@ -13,7 +13,7 @@ import (
 
 // http://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
 type ExpressionTool struct {
-	CWL_object_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	CWLObjectImpl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	CWL_class_Impl  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	CWL_id_Impl     `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	Inputs          []InputParameter                `yaml:"inputs" bson:"inputs" json:"inputs" mapstructure:"inputs"`

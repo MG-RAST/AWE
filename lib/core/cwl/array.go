@@ -3,26 +3,37 @@ package cwl
 import (
 	"fmt"
 	"reflect"
+
 	//"reflect"
 	"encoding/json"
 
 	"github.com/davecgh/go-spew/spew"
 )
 
+// Array _
 type Array []CWLType
 
-func (c *Array) Is_CWL_object() {}
+func (c *Array) IsCWLObject() {}
 
-func (c *Array) GetClass() string      { return "array" }
-func (c *Array) GetID() string         { return "foobar" }
-func (c *Array) SetId(string)          {}
+// GetClass _
+func (c *Array) GetClass() string { return "array" }
+
+// GetID _
+func (c *Array) GetID() string { return "foobar" }
+
+// SetId _
+func (c *Array) SetId(string) {}
+
+// GetType _
 func (c *Array) GetType() CWLType_Type { return CWL_array }
 
+// Is_CWL_minimal _
 func (c *Array) Is_CWL_minimal() {}
 
 //func (c *Array) Is_CommandInputParameterType()  {}
 //func (c *Array) Is_CommandOutputParameterType() {}
 
+// NewArray _
 func NewArray(id string, native interface{}, context *WorkflowContext) (array_ptr *Array, err error) {
 
 	switch native.(type) {

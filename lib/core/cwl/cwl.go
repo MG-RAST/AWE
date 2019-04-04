@@ -23,14 +23,14 @@ import (
 
 type ParsingContext struct {
 	If_objects map[string]interface{}
-	Objects    map[string]CWL_object
+	Objects    map[string]CWLObject
 }
 
-type CWL_object_generic map[string]interface{}
+type CWLObjectGeneric map[string]interface{}
 
 type LinkMergeMethod string // merge_nested or merge_flattened
 
-func Add_to_collection_deprecated(context *WorkflowContext, object_array CWL_object_array) (err error) {
+func Add_to_collection_deprecated(context *WorkflowContext, object_array CWLObjectArray) (err error) {
 
 	for i, object := range object_array {
 		err = context.Add(strconv.Itoa(i), object, "Add_to_collection_deprecated") // TODO fix id

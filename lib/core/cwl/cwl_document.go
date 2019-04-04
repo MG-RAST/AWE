@@ -18,7 +18,7 @@ type CWL_document struct {
 	Schemas    []interface{}     `yaml:"$schemas,omitempty" json:"$schemas,omitempty" bson:"schemas,omitempty" mapstructure:"$schemas,omitempty"`
 }
 
-func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object_array []Named_CWL_object, schemata []CWLType_Type, schemas []interface{}, err error) {
+func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object_array []NamedCWLObject, schemata []CWLType_Type, schemas []interface{}, err error) {
 
 	cwl_gen := CWL_document{}
 
@@ -108,18 +108,18 @@ func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object
 	}
 
 	for id, object := range context.Objects {
-		named_obj := NewNamed_CWL_object(id, object)
+		named_obj := NewNamedCWLObject(id, object)
 		object_array = append(object_array, named_obj)
 	}
 
-	// object_array []Named_CWL_object
+	// object_array []NamedCWLObject
 	//fmt.Println("############# object_array:")
 	//spew.Dump(object_array)
 
 	return
 }
 
-func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (object_array []Named_CWL_object, schemata []CWLType_Type, schemas []interface{}, err error) {
+func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (object_array []NamedCWLObject, schemata []CWLType_Type, schemas []interface{}, err error) {
 	// Here I expect a single object, Workflow or CommandLIneTool
 	//fmt.Printf("-------------- yaml_str: %s\n", yaml_str)
 
@@ -208,11 +208,11 @@ func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (objec
 	}
 	//fmt.Printf("this_id: %s\n", this_id)
 
-	var object CWL_object
+	var object CWLObject
 	var schemataNew []CWLType_Type
-	object, schemataNew, err = New_CWL_object(object_if, nil, context)
+	object, schemataNew, err = NewCWLObject(object_if, nil, context)
 	if err != nil {
-		err = fmt.Errorf("(Parse_cwl_simple_document) B New_CWL_object returns %s", err.Error())
+		err = fmt.Errorf("(Parse_cwl_simple_document) B NewCWLObject returns %s", err.Error())
 		return
 	}
 
@@ -244,8 +244,8 @@ func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (objec
 		return
 	}
 
-	named_obj := NewNamed_CWL_object(this_id, object)
-	//named_obj := NewNamed_CWL_object(commandlinetool.Id, commandlinetool)
+	named_obj := NewNamedCWLObject(this_id, object)
+	//named_obj := NewNamedCWLObject(commandlinetool.Id, commandlinetool)
 
 	//cwl_version = commandlinetool.CwlVersion // TODO
 
@@ -256,7 +256,7 @@ func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (objec
 	return
 }
 
-func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []Named_CWL_object, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, err error) {
+func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, err error) {
 	//fmt.Printf("(Parse_cwl_document) starting\n")
 
 	context = NewWorkflowContext()

@@ -6,7 +6,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-// this is a generic CWL_object. Its only purpose is to retrieve the value of "class"
+// this is a generic CWLObject. Its only purpose is to retrieve the value of "class"
 type Empty struct {
 	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	Id           string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`

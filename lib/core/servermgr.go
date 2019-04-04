@@ -1263,7 +1263,7 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 
 			}
 			if !found {
-				var obj cwl.CWL_object
+				var obj cwl.CWLObject
 				obj = cwl.NewNull()
 				err = context.Add(step_output.Id, obj, "handleWorkStatDone") // TODO: DO NOT DO THIS FOR SCATTER TASKS
 				// check if this is an optional output in the tool
@@ -1422,7 +1422,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 
 	// 		}
 	// 		if !found {
-	// 			var obj cwl.CWL_object
+	// 			var obj cwl.CWLObject
 	// 			obj = cwl.NewNull()
 	// 			err = context.Add(step_output.Id, obj, "handleNoticeWorkDelivered")
 	// 			// check if this is an optional output in the tool
@@ -2619,7 +2619,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 			continue
 		}
 		// get array (have to cast into array still)
-		var scatter_input_object cwl.CWL_object
+		var scatter_input_object cwl.CWLObject
 		var ok bool
 		scatter_input_object, ok, _, err = qm.getCWLSource(job, workflow_instance, workflow_input_map, scatter_input_source_str, true, job.WorkflowContext)
 		if err != nil {
@@ -3417,7 +3417,7 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflow_instance *Workflo
 	//src_array := strings.Split(src, "/")
 	logger.Debug(3, "(isSourceGeneratorReady) start, src_generator: %s", src_generator)
 
-	var generic_object cwl.CWL_object
+	var generic_object cwl.CWLObject
 	generic_object, ok, err = context.Get(src_generator, true)
 	if err != nil {
 		err = fmt.Errorf("(isSourceGeneratorReady) context.Get returned: %s", err.Error())
@@ -3539,7 +3539,7 @@ func (qm *ServerMgr) getCWLSource(job *Job, workflow_instance *WorkflowInstance,
 
 	src_array := strings.Split(src, "/")
 
-	var generic_object cwl.CWL_object
+	var generic_object cwl.CWLObject
 	generic_object, ok, err = context.Get(src, true)
 	if err != nil {
 		err = fmt.Errorf("(getCWLSource) context.Get returned: %s", err.Error())

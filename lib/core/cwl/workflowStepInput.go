@@ -12,7 +12,7 @@ import (
 
 //http://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
 type WorkflowStepInput struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	CWLObjectImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
 	Id              string           `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
 	Source          interface{}      `yaml:"source,omitempty" bson:"source,omitempty" json:"source,omitempty" mapstructure:"source,omitempty"` // MultipleInputFeatureRequirement, multiple inbound data links listed in the source field
 	Source_index    int              `yaml:"source_index,omitempty" bson:"source_index,omitempty" json:"source_index,omitempty" mapstructure:"source_index,omitempty"`
@@ -164,9 +164,9 @@ func NewWorkflowStepInput(original interface{}, context *WorkflowContext) (input
 	return
 }
 
-// func (input WorkflowStepInput) GetObject(c *CWL_collection) (obj *CWL_object, err error) {
+// func (input WorkflowStepInput) GetObject(c *CWL_collection) (obj *CWLObject, err error) {
 //
-// 	var cwl_obj CWL_object
+// 	var cwl_obj CWLObject
 //
 // 	if len(input.Source) > 0 {
 // 		err = fmt.Errorf("Source is defined and should be used")

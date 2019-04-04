@@ -13,9 +13,9 @@ import (
 
 type String string
 
-func (s *String) Is_CWL_object() {}
+func (s *String) IsCWLObject() {}
 
-func (s *String) GetClass() string      { return string(CWL_string) } // for CWL_object
+func (s *String) GetClass() string      { return string(CWL_string) } // for CWLObject
 func (s *String) GetType() CWLType_Type { return CWL_string }
 func (s *String) String() string        { return string(*s) }
 

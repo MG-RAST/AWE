@@ -12,7 +12,7 @@ import (
 )
 
 type WorkflowStep struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	CWLObjectImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
 	Id              string               `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
 	In              []WorkflowStepInput  `yaml:"in,omitempty" bson:"in,omitempty" json:"in,omitempty" mapstructure:"in,omitempty"` // array<WorkflowStepInput> | map<WorkflowStepInput.id, WorkflowStepInput.source> | map<WorkflowStepInput.id, WorkflowStepInput>
 	Out             []WorkflowStepOutput `yaml:"out,omitempty" bson:"out,omitempty" json:"out,omitempty" mapstructure:"out,omitempty"`

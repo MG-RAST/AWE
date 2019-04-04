@@ -138,7 +138,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		yaml_str := string(yamlstream[:])
 
 		var schemata []cwl.CWLType_Type
-		var object_array []cwl.Named_CWL_object
+		var object_array []cwl.NamedCWLObject
 		//var cwl_version cwl.CWLVersion
 		var context *cwl.WorkflowContext
 		//var namespaces map[string]string
@@ -306,7 +306,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				cwl_workflow.Steps = []cwl.WorkflowStep{new_step}
 
-				cwl_workflow_named := cwl.Named_CWL_object{}
+				cwl_workflow_named := cwl.NamedCWLObject{}
 				cwl_workflow_named.Id = cwl_workflow.Id
 				cwl_workflow_named.Value = cwl_workflow
 
@@ -427,7 +427,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				cwl_workflow.Steps = []cwl.WorkflowStep{new_step}
 
-				cwl_workflow_named := cwl.Named_CWL_object{}
+				cwl_workflow_named := cwl.NamedCWLObject{}
 				cwl_workflow_named.Id = cwl_workflow.Id
 				cwl_workflow_named.Value = cwl_workflow
 

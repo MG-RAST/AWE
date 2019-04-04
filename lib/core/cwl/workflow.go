@@ -14,7 +14,7 @@ import (
 )
 
 type Workflow struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Is_CWL_object
+	CWLObjectImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides IsCWLObject
 	CWL_class_Impl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
 	CWL_id_Impl     `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
 	Inputs          []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`

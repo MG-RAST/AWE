@@ -7,9 +7,9 @@ import (
 
 type Boolean bool
 
-func (b *Boolean) Is_CWL_object() {}
+func (b *Boolean) IsCWLObject() {}
 
-func (b *Boolean) GetClass() string      { return string(CWL_boolean) } // for CWL_object
+func (b *Boolean) GetClass() string      { return string(CWL_boolean) } // for CWLObject
 func (b *Boolean) GetType() CWLType_Type { return CWL_boolean }
 func (b *Boolean) String() string        { return strconv.FormatBool(bool(*b)) }
 

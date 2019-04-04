@@ -7,9 +7,9 @@ import (
 
 type Float float32
 
-func (i *Float) Is_CWL_object() {}
+func (i *Float) IsCWLObject() {}
 
-func (i *Float) GetClass() string      { return string(CWL_float) } // for CWL_object
+func (i *Float) GetClass() string      { return string(CWL_float) } // for CWLObject
 func (i *Float) GetType() CWLType_Type { return CWL_float }
 func (i *Float) String() string        { return strconv.FormatFloat(float64(*i), 'f', -1, 32) }
 

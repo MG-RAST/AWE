@@ -15,7 +15,7 @@ import (
 
 type Number string
 
-func (s *Number) GetClass() string      { return string(CWL_string) } // for CWL_object
+func (s *Number) GetClass() string      { return string(CWL_string) } // for CWLObject
 func (s *Number) GetType() CWLType_Type { return CWL_string }
 func (s *Number) String() string        { return string(*s) }
 

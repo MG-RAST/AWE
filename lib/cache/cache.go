@@ -532,8 +532,8 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 		count += sub_count
 		return
-	case cwl.Named_CWL_object:
-		named := native.(cwl.Named_CWL_object)
+	case cwl.NamedCWLObject:
+		named := native.(cwl.NamedCWLObject)
 		var sub_count int
 		sub_count, err = ProcessIOData(named.Value, current_path, base_path, io_type, shock_client)
 		if err != nil {
@@ -634,8 +634,8 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 		}
 		return
-	case []cwl.Named_CWL_object:
-		array := native.([]cwl.Named_CWL_object)
+	case []cwl.NamedCWLObject:
+		array := native.([]cwl.NamedCWLObject)
 		for i, _ := range array {
 
 			//id := value.GetID()
@@ -1132,14 +1132,14 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			if iwdr.Listing != nil {
 				switch iwdr.Listing.(type) {
 				//case []interface{}:
-				case []cwl.CWL_object:
-					obj_array := iwdr.Listing.([]cwl.CWL_object)
+				case []cwl.CWLObject:
+					obj_array := iwdr.Listing.([]cwl.CWLObject)
 					for i, _ := range obj_array {
 
 						sub_count := 0
 						sub_count, err = ProcessIOData(obj_array[i], current_path, base_path, "download", shock_client)
 						if err != nil {
-							err = fmt.Errorf("(processIOData) []cwl.CWL_object cwl.Requirement/Listing returned: %s", err.Error())
+							err = fmt.Errorf("(processIOData) []cwl.CWLObject cwl.Requirement/Listing returned: %s", err.Error())
 							return
 						}
 						count += sub_count
@@ -1189,7 +1189,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 					sub_count := 0
 					sub_count, err = ProcessIOData(this_file, current_path, base_path, "download", shock_client)
 					if err != nil {
-						err = fmt.Errorf("(processIOData) []cwl.CWL_object cwl.Requirement/Listing returned: %s", err.Error())
+						err = fmt.Errorf("(processIOData) []cwl.CWLObject cwl.Requirement/Listing returned: %s", err.Error())
 						return
 					}
 					count += sub_count

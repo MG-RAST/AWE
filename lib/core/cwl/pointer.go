@@ -6,7 +6,7 @@ import (
 
 type Pointer string
 
-//func (s *Pointer) GetClass() string      { return string(CWL_pointer) } // for CWL_object
+//func (s *Pointer) GetClass() string      { return string(CWL_pointer) } // for CWLObject
 //func (s *Pointer) GetType() CWLType_Type { return CWL_pointer }
 //func (s *Pointer) String() string        { return string(*s) }
 

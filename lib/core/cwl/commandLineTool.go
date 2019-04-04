@@ -13,7 +13,7 @@ import (
 type CommandLineTool struct {
 	//Id                 string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
 	//Class              string                   `yaml:"class,omitempty" bson:"class,omitempty" json:"class,omitempty"`
-	CWL_object_Impl    `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	CWLObjectImpl    `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	CWL_class_Impl     `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	CWL_id_Impl        `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	BaseCommand        []string                 `yaml:"baseCommand,omitempty" bson:"baseCommand,omitempty" json:"baseCommand,omitempty" mapstructure:"baseCommand,omitempty"`
@@ -40,7 +40,7 @@ func (c *CommandLineTool) Is_process()     {}
 
 // keyname will be converted into 'Id'-field
 
-//func NewCommandLineTool(object CWL_object_generic) (commandLineTool *CommandLineTool, err error) {
+//func NewCommandLineTool(object CWLObjectGeneric) (commandLineTool *CommandLineTool, err error) {
 func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement, context *WorkflowContext) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
 
 	//fmt.Println("NewCommandLineTool:")

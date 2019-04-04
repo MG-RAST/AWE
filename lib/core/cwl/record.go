@@ -10,7 +10,7 @@ import (
 
 type Record map[string]CWLType
 
-func (r *Record) Is_CWL_object() {}
+func (r *Record) IsCWLObject() {}
 
 func (r *Record) GetClass() string { return "record" }
 

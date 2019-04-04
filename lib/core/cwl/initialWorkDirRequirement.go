@@ -59,7 +59,7 @@ func NewInitialWorkDirRequirement(original interface{}, context *WorkflowContext
 	return
 }
 
-func NewListingFromInterface(original interface{}, context *WorkflowContext) (obj CWL_object, err error) {
+func NewListingFromInterface(original interface{}, context *WorkflowContext) (obj CWLObject, err error) {
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
@@ -103,13 +103,13 @@ func CreateListing(original interface{}, context *WorkflowContext) (result inter
 
 	switch original.(type) {
 	case []interface{}:
-		array := []CWL_object{}
+		array := []CWLObject{}
 
 		original_array := original.([]interface{})
 
 		for i, _ := range original_array {
 
-			var new_listing CWL_object
+			var new_listing CWLObject
 			new_listing, err = NewListingFromInterface(original_array[i], context)
 			if err != nil {
 				err = fmt.Errorf("(CreateListingArray) NewListingFromInterface returns: %s", err.Error())
@@ -119,7 +119,7 @@ func CreateListing(original interface{}, context *WorkflowContext) (result inter
 		}
 		result = array
 	case interface{}:
-		var new_listing CWL_object
+		var new_listing CWLObject
 		new_listing, err = NewListingFromInterface(original, context)
 		if err != nil {
 			err = fmt.Errorf("(CreateListingArray) NewListingFromInterface returns: %s", err.Error())
@@ -151,9 +151,9 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}, context *Workfl
 
 	listing := r.Listing
 	switch listing.(type) {
-	case []CWL_object:
+	case []CWLObject:
 		//fmt.Println("(InitialWorkDirRequirement/Evaluate) array")
-		listing_array := listing.([]CWL_object)
+		listing_array := listing.([]CWLObject)
 		for i, _ := range listing_array {
 
 			var element interface{}

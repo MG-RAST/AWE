@@ -7,9 +7,9 @@ import (
 
 type Long int64
 
-func (i *Long) Is_CWL_object() {}
+func (i *Long) IsCWLObject() {}
 
-func (i *Long) GetClass() string      { return string(CWL_long) } // for CWL_object
+func (i *Long) GetClass() string      { return string(CWL_long) } // for CWLObject
 func (i *Long) GetType() CWLType_Type { return CWL_long }
 func (i *Long) String() string        { return strconv.FormatInt(int64(*i), 10) }
 

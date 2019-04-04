@@ -61,7 +61,7 @@ type CWL_array_type interface {
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CWLType
 // null, boolean, int, long, float, double, string, File, Directory
 type CWLType interface {
-	CWL_object
+	CWLObject
 	CWL_class // is an interface
 	//Is_CommandInputParameterType()
 	//Is_CommandOutputParameterType()
@@ -72,7 +72,7 @@ type CWLType interface {
 }
 
 type CWLType_Impl struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides: Is_CWL_object()
+	CWLObjectImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides: IsCWLObject()
 	CWL_class_Impl  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class
 	Type            CWLType_Type                                                          `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 }

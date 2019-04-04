@@ -3373,7 +3373,7 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflow_instance *Workf
 			inp := &workflow.Inputs[i]
 
 			for _, input_type := range inp.Type {
-				if input_type == cwl.CWL_null {
+				if input_type == cwl.CWLNull {
 					optional = true
 					break
 				}
@@ -3868,7 +3868,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 
 							job_obj_type := job_obj.GetType()
 
-							if job_obj_type != cwl.CWL_array {
+							if job_obj_type != cwl.CWLArray {
 								err = fmt.Errorf("(GetStepInputObjects) merge_flattened, expected array as input, but got %s", job_obj_type)
 								return
 							}
@@ -3917,13 +3917,13 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 				if ok {
 					fmt.Printf("(GetStepInputObjects) qm.getCWLSource returned an object\n")
 					spew.Dump(job_obj)
-					if job_obj.GetType() == cwl.CWL_null {
-						//fmt.Println("(GetStepInputObjects) job_obj is cwl.CWL_null")
+					if job_obj.GetType() == cwl.CWLNull {
+						//fmt.Println("(GetStepInputObjects) job_obj is cwl.CWLNull")
 						//reason = "returned object is null"
 						//ok = false
 						continue
 					} else {
-						//fmt.Println("(GetStepInputObjects) job_obj is not cwl.CWL_null")
+						//fmt.Println("(GetStepInputObjects) job_obj is not cwl.CWLNull")
 					}
 				}
 
@@ -4697,7 +4697,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 				return
 			}
 			expectedTypes = append(expectedTypes, typeCorrect)
-			if typeCorrect == cwl.CWL_null {
+			if typeCorrect == cwl.CWLNull {
 				isOptional = true
 			}
 		}

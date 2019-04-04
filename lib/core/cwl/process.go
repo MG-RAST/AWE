@@ -27,8 +27,8 @@ func (p *ProcessPointer) GetClass() string {
 	return "ProcessPointer"
 }
 func (p *ProcessPointer) GetID() string   { return p.Id }
-func (p *ProcessPointer) SetId(string)    {}
-func (p *ProcessPointer) Is_CWL_minimal() {}
+func (p *ProcessPointer) SetID(string)    {}
+func (p *ProcessPointer) IsCWLMinimal() {}
 
 func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 

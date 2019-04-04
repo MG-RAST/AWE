@@ -279,9 +279,9 @@ func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, context_p
 
 	case []string:
 
-		native_array := native.([]string)
+		nativeArray := native.([]string)
 		type_array := []CWLType_Type{}
-		for _, element_str := range native_array {
+		for _, element_str := range nativeArray {
 			var element_type CWLType_Type
 			element_type, err = NewCWLType_TypeFromString(schemata, element_str, context_p)
 			if err != nil {
@@ -294,9 +294,9 @@ func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, context_p
 
 	case []interface{}:
 
-		native_array := native.([]interface{})
+		nativeArray := native.([]interface{})
 		type_array := []CWLType_Type{}
-		for _, element_str := range native_array {
+		for _, element_str := range nativeArray {
 			var element_type CWLType_Type
 			element_type, err = NewCWLType_Type(schemata, element_str, context_p, context)
 			if err != nil {

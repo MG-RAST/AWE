@@ -56,8 +56,8 @@ func CreateInputRecordFieldArray(native interface{}, schemata []CWLType_Type, co
 
 	switch native.(type) {
 	case []interface{}:
-		native_array := native.([]interface{})
-		for _, elem := range native_array {
+		nativeArray := native.([]interface{})
+		for _, elem := range nativeArray {
 
 			var irf *InputRecordField
 			irf, err = NewInputRecordField(elem, schemata, context)

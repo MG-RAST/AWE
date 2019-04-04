@@ -18,7 +18,7 @@ func (c *InputArraySchema) GetID() string       { return "" }
 func NewInputArraySchema() (coas *InputArraySchema) {
 
 	coas = &InputArraySchema{}
-	coas.Type = CWL_array
+	coas.Type = CWLArray
 
 	return
 }

@@ -15,14 +15,14 @@ type String string
 
 func (s *String) IsCWLObject() {}
 
-func (s *String) GetClass() string      { return string(CWL_string) } // for CWLObject
-func (s *String) GetType() CWLType_Type { return CWL_string }
+func (s *String) GetClass() string      { return string(CWLString) } // for CWLObject
+func (s *String) GetType() CWLType_Type { return CWLString }
 func (s *String) String() string        { return string(*s) }
 
 func (s *String) GetID() string  { return "" }
-func (s *String) SetId(i string) {}
+func (s *String) SetID(i string) {}
 
-func (s *String) Is_CWL_minimal() {}
+func (s *String) IsCWLMinimal() {}
 
 func NewString(value string) (s *String) {
 

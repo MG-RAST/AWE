@@ -115,49 +115,55 @@ func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type, c
 	return
 }
 
-// WorkflowOutputParameter
-func NewWorkflowOutputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (new_array_ptr *[]WorkflowOutputParameter, err error) {
+// NewWorkflowOutputParameterArray _
+func NewWorkflowOutputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (newArrayPtr *[]WorkflowOutputParameter, err error) {
 
-	new_array := []WorkflowOutputParameter{}
+	original, err = MakeStringMap(original, context)
+	if err != nil {
+		return
+	}
+
+	newArray := []WorkflowOutputParameter{}
 	switch original.(type) {
-	case map[interface{}]interface{}:
-		for k, v := range original.(map[interface{}]interface{}) {
+	case map[string]interface{}:
+		for k, v := range original.(map[string]interface{}) {
 			//fmt.Printf("A")
-
-			output_parameter, xerr := NewWorkflowOutputParameter(v, schemata, context)
-			if xerr != nil {
-				err = xerr
+			var outputParameter *WorkflowOutputParameter
+			outputParameter, err = NewWorkflowOutputParameter(v, schemata, context)
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflowOutputParameterArray) NewWorkflowOutputParameter returned: %s", err.Error())
 				return
 			}
-			output_parameter.Id = k.(string)
+			outputParameter.Id = k
 			//fmt.Printf("C")
-			new_array = append(new_array, *output_parameter)
+			newArray = append(newArray, *outputParameter)
 			//fmt.Printf("D")
 
 		}
-		new_array_ptr = &new_array
+		newArrayPtr = &newArray
 		return
 	case []interface{}:
 
 		for _, v := range original.([]interface{}) {
 			//fmt.Printf("A")
 
-			output_parameter, xerr := NewWorkflowOutputParameter(v, schemata, context)
-			if xerr != nil {
-				err = xerr
+			var outputParameter *WorkflowOutputParameter
+			outputParameter, err = NewWorkflowOutputParameter(v, schemata, context)
+			if err != nil {
+				err = fmt.Errorf("(NewWorkflowOutputParameterArray) NewWorkflowOutputParameter returned: %s", err.Error())
 				return
 			}
 			//output_parameter.Id = k.(string)
 			//fmt.Printf("C")
-			new_array = append(new_array, *output_parameter)
+			newArray = append(newArray, *outputParameter)
 			//fmt.Printf("D")
 
 		}
-		new_array_ptr = &new_array
+		newArrayPtr = &newArray
 		return
 
 	default:
-		spew.Dump(new_array)
+		spew.Dump(newArray)
 		err = fmt.Errorf("(NewWorkflowOutputParameterArray) type %s unknown", reflect.TypeOf(original))
 	}
 	//spew.Dump(new_array)

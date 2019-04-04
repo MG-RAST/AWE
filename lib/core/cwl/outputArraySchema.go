@@ -19,7 +19,7 @@ func (c OutputArraySchema) Is_Type()            {}
 func NewOutputArraySchema() (coas *OutputArraySchema) {
 
 	coas = &OutputArraySchema{}
-	coas.Type = CWL_array
+	coas.Type = CWLArray
 
 	return
 }

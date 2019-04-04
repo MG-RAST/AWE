@@ -119,7 +119,7 @@ func CWLInputCheck(jobInput *cwl.Job_document, cwlWorkflow *cwl.Workflow, contex
 		}
 		if !hasType {
 
-			if inputObjRef.GetType() == cwl.CWL_null && input.Default != nil {
+			if inputObjRef.GetType() == cwl.CWLNull && input.Default != nil {
 				// work-around to make sure ExpressionTool can use Default if it gets Null
 
 			} else {

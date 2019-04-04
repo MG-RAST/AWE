@@ -16,14 +16,14 @@ func (c *ArraySchema) GetID() string       { return "" }
 func NewArraySchema() (as *ArraySchema) {
 	as = &ArraySchema{}
 	as.Schema = Schema{}
-	as.Schema.Type = CWL_array
+	as.Schema.Type = CWLArray
 	return
 }
 
 func NewArraySchemaFromMap(original_map map[string]interface{}, schemata []CWLType_Type, context_p string, context *WorkflowContext) (as *ArraySchema, err error) {
 	as = &ArraySchema{}
 	as.Schema = Schema{}
-	as.Schema.Type = CWL_array
+	as.Schema.Type = CWLArray
 
 	items, ok := original_map["items"]
 	if !ok {

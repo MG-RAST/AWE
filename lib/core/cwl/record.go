@@ -27,14 +27,14 @@ func (r *Record) GetID() string {
 	return ""
 }
 
-func (r *Record) SetId(id string) {
+func (r *Record) SetID(id string) {
 	//ids := NewString(id)
 	//(*r)["id"] = ids
 }
 
-func (r *Record) GetType() CWLType_Type { return CWL_record }
+func (r *Record) GetType() CWLType_Type { return CWLRecord }
 
-func (r *Record) Is_CWL_minimal()     {}
+func (r *Record) IsCWLMinimal()     {}
 func (r *Record) Is_Type()            {}
 func (r *Record) Type2String() string { return "record" }
 

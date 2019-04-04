@@ -6,17 +6,17 @@ import (
 
 type Pointer string
 
-//func (s *Pointer) GetClass() string      { return string(CWL_pointer) } // for CWLObject
-//func (s *Pointer) GetType() CWLType_Type { return CWL_pointer }
+//func (s *Pointer) GetClass() string      { return string(CWLPointer) } // for CWLObject
+//func (s *Pointer) GetType() CWLType_Type { return CWLPointer }
 //func (s *Pointer) String() string        { return string(*s) }
 
 func (s *Pointer) GetID() string { return "" }
 
-//func (s *Pointer) SetId(i string) {}
+//func (s *Pointer) SetID(i string) {}
 func (c *Pointer) Is_Type()            {}
-func (c *Pointer) Type2String() string { return string(CWL_pointer) }
+func (c *Pointer) Type2String() string { return string(CWLPointer) }
 
-//func (s *Pointer) Is_CWL_minimal() {}
+//func (s *Pointer) IsCWLMinimal() {}
 
 func NewPointerFromstring(value string) (s *Pointer) {
 

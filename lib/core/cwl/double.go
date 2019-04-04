@@ -9,14 +9,14 @@ type Double float64
 
 func (i *Double) IsCWLObject() {}
 
-func (i *Double) GetClass() string      { return string(CWL_double) } // for CWLObject
-func (i *Double) GetType() CWLType_Type { return CWL_double }
+func (i *Double) GetClass() string      { return string(CWLDouble) } // for CWLObject
+func (i *Double) GetType() CWLType_Type { return CWLDouble }
 func (i *Double) String() string        { return strconv.FormatFloat(float64(*i), 'f', -1, 64) }
 
 func (i *Double) GetID() string  { return "" }
-func (i *Double) SetId(x string) {}
+func (i *Double) SetID(x string) {}
 
-func (i *Double) Is_CWL_minimal() {}
+func (i *Double) IsCWLMinimal() {}
 
 func NewDoubleFromfloat64(value float64) (i *Double) {
 

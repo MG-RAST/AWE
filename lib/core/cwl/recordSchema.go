@@ -12,7 +12,7 @@ type RecordSchema struct {
 func (r *RecordSchema) GetID() string { return r.Name }
 func (r *RecordSchema) Is_Type()      {}
 
-func (r *RecordSchema) Type2String() string { return string(CWL_record) }
+func (r *RecordSchema) Type2String() string { return string(CWLRecord) }
 
 func NewRecordSchema(nativeMap map[string]interface{}) (rs *RecordSchema, err error) {
 
@@ -38,7 +38,7 @@ func NewRecordSchema(nativeMap map[string]interface{}) (rs *RecordSchema, err er
 		}
 	}
 
-	rs.Type = CWL_record
+	rs.Type = CWLRecord
 
 	return
 }

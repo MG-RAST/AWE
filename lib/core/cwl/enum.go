@@ -13,14 +13,14 @@ type Enum string
 
 func (s *Enum) IsCWLObject() {}
 
-func (s *Enum) GetClass() string      { return string(CWL_enum) } // for CWLObject
-func (s *Enum) GetType() CWLType_Type { return CWL_enum }
+func (s *Enum) GetClass() string      { return string(CWLEnum) } // for CWLObject
+func (s *Enum) GetType() CWLType_Type { return CWLEnum }
 func (s *Enum) String() string        { return string(*s) }
 
 func (s *Enum) GetID() string  { return "" }
-func (s *Enum) SetId(i string) {}
+func (s *Enum) SetID(i string) {}
 
-func (s *Enum) Is_CWL_minimal() {}
+func (s *Enum) IsCWLMinimal() {}
 
 func NewEnumFromstring(value string) (s *Enum) {
 

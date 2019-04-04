@@ -155,7 +155,7 @@ func (op *OutputParameter) IsOptional() (optional bool) {
 	case []interface{}:
 		type_array := op.Type.([]interface{})
 		for _, my_type := range type_array {
-			if my_type == CWL_null {
+			if my_type == CWLNull {
 				optional = true
 				return
 			}

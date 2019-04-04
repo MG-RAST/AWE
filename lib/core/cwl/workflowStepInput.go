@@ -26,9 +26,9 @@ func (w WorkflowStepInput) GetClass() string {
 	return "WorkflowStepInput"
 }
 func (w WorkflowStepInput) GetID() string   { return w.Id }
-func (w WorkflowStepInput) SetId(id string) { w.Id = id }
+func (w WorkflowStepInput) SetID(id string) { w.Id = id }
 
-func (w WorkflowStepInput) Is_CWL_minimal() {}
+func (w WorkflowStepInput) IsCWLMinimal() {}
 
 //func (input WorkflowStepInput) GetString() (value string, err error) {
 //	if len(input.Source) > 0 {
@@ -61,7 +61,7 @@ func NewWorkflowStepInput(original interface{}, context *WorkflowContext) (input
 		return
 
 	case int:
-		//fmt.Println(CWL_int)
+		//fmt.Println(CWLInt)
 		original_int := original.(int)
 		input_parameter.Default, err = NewInt(original_int, context) // input_parameter.Id
 		if err != nil {

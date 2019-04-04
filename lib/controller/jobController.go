@@ -252,13 +252,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					if add_null {
 						has_null := false
 						for _, t := range workflow_input_parameter.Type {
-							if t == cwl.CWL_null {
+							if t == cwl.CWLNull {
 								has_null = true
 								break
 							}
 						}
 						if !has_null {
-							workflow_input_parameter.Type = append(workflow_input_parameter.Type, cwl.CWL_null)
+							workflow_input_parameter.Type = append(workflow_input_parameter.Type, cwl.CWLNull)
 						}
 					}
 
@@ -374,13 +374,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					if add_null {
 						has_null := false
 						for _, t := range workflow_input_parameter.Type {
-							if t == cwl.CWL_null {
+							if t == cwl.CWLNull {
 								has_null = true
 								break
 							}
 						}
 						if !has_null {
-							workflow_input_parameter.Type = append(workflow_input_parameter.Type, cwl.CWL_null)
+							workflow_input_parameter.Type = append(workflow_input_parameter.Type, cwl.CWLNull)
 						}
 					}
 

@@ -27,8 +27,8 @@ type InputParameter struct {
 
 func (i InputParameter) GetClass() string { return "InputParameter" }
 func (i InputParameter) GetID() string    { return i.Id }
-func (i InputParameter) SetId(id string)  { i.Id = id }
-func (i InputParameter) Is_CWL_minimal()  {}
+func (i InputParameter) SetID(id string)  { i.Id = id }
+func (i InputParameter) IsCWLMinimal()  {}
 
 func NewInputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (input_parameter *InputParameter, err error) {
 

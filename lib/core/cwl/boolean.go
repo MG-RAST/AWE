@@ -9,14 +9,14 @@ type Boolean bool
 
 func (b *Boolean) IsCWLObject() {}
 
-func (b *Boolean) GetClass() string      { return string(CWL_boolean) } // for CWLObject
-func (b *Boolean) GetType() CWLType_Type { return CWL_boolean }
+func (b *Boolean) GetClass() string      { return string(CWLBoolean) } // for CWLObject
+func (b *Boolean) GetType() CWLType_Type { return CWLBoolean }
 func (b *Boolean) String() string        { return strconv.FormatBool(bool(*b)) }
 
 func (b *Boolean) GetID() string  { return "" }
-func (b *Boolean) SetId(i string) {}
+func (b *Boolean) SetID(i string) {}
 
-func (b *Boolean) Is_CWL_minimal() {}
+func (b *Boolean) IsCWLMinimal() {}
 
 func NewBooleanFrombool(value bool) (b *Boolean) {
 

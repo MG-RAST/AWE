@@ -1171,21 +1171,21 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 	case []interface{}:
 		//fmt.Println("(processIOData) []interface{}")
 		// that should trigger only for $schemas
-		native_array := native.([]interface{})
+		nativeArray := native.([]interface{})
 
 		if io_type == "upload" {
 
-			for i, _ := range native_array {
-				switch native_array[i].(type) {
+			for i, _ := range nativeArray {
+				switch nativeArray[i].(type) {
 				case cwl.File:
 					// continue
 				case string:
 
-					schema_str := native_array[i].(string)
+					schema_str := nativeArray[i].(string)
 
 					this_file := cwl.NewFile()
 					this_file.Path = schema_str
-					native_array[i] = this_file
+					nativeArray[i] = this_file
 					sub_count := 0
 					sub_count, err = ProcessIOData(this_file, current_path, base_path, "download", shock_client)
 					if err != nil {
@@ -1195,7 +1195,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 					count += sub_count
 
 				default:
-					err = fmt.Errorf("(processIOData) schemata , unkown type: (%s)", reflect.TypeOf(native_array[i]))
+					err = fmt.Errorf("(processIOData) schemata , unkown type: (%s)", reflect.TypeOf(nativeArray[i]))
 					return
 
 				}

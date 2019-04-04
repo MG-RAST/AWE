@@ -35,7 +35,7 @@ type CommandLineTool struct {
 	Namespaces         map[string]string        `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
-func (c *CommandLineTool) Is_CWL_minimal() {}
+func (c *CommandLineTool) IsCWLMinimal() {}
 func (c *CommandLineTool) Is_process()     {}
 
 // keyname will be converted into 'Id'-field

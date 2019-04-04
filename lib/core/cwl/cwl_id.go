@@ -9,7 +9,7 @@ type CWL_id interface {
 	//CWL_bbject_interface
 	//GetClass() string
 	GetID() string
-	SetId(string)
+	SetID(string)
 	//is_Any()
 }
 
@@ -18,4 +18,4 @@ type CWL_id_Impl struct {
 }
 
 func (c *CWL_id_Impl) GetID() string   { return c.Id }
-func (c *CWL_id_Impl) SetId(id string) { c.Id = id; return }
+func (c *CWL_id_Impl) SetID(id string) { c.Id = id; return }

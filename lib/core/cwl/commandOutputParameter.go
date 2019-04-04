@@ -94,7 +94,7 @@ func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Typ
 
 		copa = &copa_nptr
 	default:
-		err = fmt.Errorf("NewCommandOutputParameterArray, unknown type")
+		err = fmt.Errorf("NewCommandOutputParameterArray, unknown type %s", reflect.TypeOf(original))
 	}
 	return
 

@@ -29,11 +29,11 @@ type Workflow struct {
 	Namespaces      map[string]string         `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
-func (w *Workflow) GetClass() string { return string(CWL_Workflow) }
+func (w *Workflow) GetClass() string { return string(CWLWorkflow) }
 
 //func (w *Workflow) GetID() string    { return w.Id }
-//func (w *Workflow) SetId(id string)  { w.Id = id }
-//func (w *Workflow) Is_CWL_minimal()  {}
+//func (w *Workflow) SetID(id string)  { w.Id = id }
+//func (w *Workflow) IsCWLMinimal()  {}
 //func (w *Workflow) Is_Any()          {}
 func (w *Workflow) Is_process() {}
 
@@ -54,7 +54,7 @@ func GetMapElement(m map[interface{}]interface{}, key string) (value interface{}
 
 func NewWorkflowEmpty() (w Workflow) {
 	w = Workflow{}
-	w.Class = string(CWL_Workflow)
+	w.Class = string(CWLWorkflow)
 	return w
 }
 

@@ -24,7 +24,7 @@ func NewEmpty(value interface{}) (obj_empty *Empty, err error) {
 
 	//value_map, is_map := value.(map[string]interface{})
 	//if is_map {
-	//	value_map["type"] = CWL_null
+	//	value_map["type"] = CWLNull
 	//}
 
 	err = mapstructure.Decode(value, &obj_empty)

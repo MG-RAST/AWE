@@ -33,60 +33,52 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 		return
 	}
 
-	if strings.HasSuffix(native, "[]") {
+	if !strings.HasSuffix(native, "[]") {
 
-		// is array
-
-		//an_array_schema := make(map[string]interface{})
-		//an_array_schema["type"] = "array"
-
-		base_type_str := strings.TrimSuffix(native, "[]")
 		var ok bool
-		_, ok = IsValidType(base_type_str)
+		result, ok = IsValidType(native)
 
 		if !ok {
-			err = fmt.Errorf("(NewCWLType_TypeFromString) base_type %s unkown", base_type_str)
+
+			err = fmt.Errorf("(NewCWLType_TypeFromString) type %s unkown", native)
 			return
 		}
 
-		// recurse:
-		var base_type CWLType_Type
-		base_type, err = NewCWLType_TypeFromString(schemata, base_type_str, context)
-		if err != nil {
-			err = fmt.Errorf("(NewCWLType_TypeFromString) recurisve call of NewCWLType_TypeFromString returned: %s", err.Error())
-			return
-		}
-
-		switch context {
-
-		case "WorkflowOutput":
-
-			oas := NewOutputArraySchema()
-			oas.Items = []CWLType_Type{base_type}
-			result = oas
-			return
-		default:
-			err = fmt.Errorf("(NewCWLType_TypeFromString) context %s not supported yet", context)
-		}
-
+		return
 	}
 
-	result, ok := IsValidType(native)
+	// is array
+
+	//an_array_schema := make(map[string]interface{})
+	//an_array_schema["type"] = "array"
+
+	baseTypeStr := strings.TrimSuffix(native, "[]")
+	var ok bool
+	_, ok = IsValidType(baseTypeStr)
 
 	if !ok {
-
-		//for _, schema := range schemata {
-		//	id := schema.GetId()
-		//	fmt.Printf("found id: \"%s\"\n", id)
-		//	if id == native {
-		//		result = schema
-		//		return
-		//	}
-
-		//}
-
-		err = fmt.Errorf("(NewCWLType_TypeFromString) type %s unkown", native)
+		err = fmt.Errorf("(NewCWLType_TypeFromString) base_type %s unkown", baseTypeStr)
 		return
+	}
+
+	// recurse:
+	var baseType CWLType_Type
+	baseType, err = NewCWLType_TypeFromString(schemata, baseTypeStr, context)
+	if err != nil {
+		err = fmt.Errorf("(NewCWLType_TypeFromString) recurisve call of NewCWLType_TypeFromString returned: %s", err.Error())
+		return
+	}
+
+	switch context {
+
+	case "WorkflowOutput":
+
+		oas := NewOutputArraySchema()
+		oas.Items = []CWLType_Type{baseType}
+		result = oas
+		return
+	default:
+		err = fmt.Errorf("(NewCWLType_TypeFromString) context %s not supported yet", context)
 	}
 
 	return

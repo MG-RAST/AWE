@@ -73,7 +73,7 @@ func GetSchemaDefRequirement(original interface{}, context *WorkflowContext) (r 
 	case []interface{}:
 
 		original_array := original.([]interface{})
-
+		ok = false
 		for i, _ := range original_array {
 
 			var class string
@@ -92,8 +92,29 @@ func GetSchemaDefRequirement(original interface{}, context *WorkflowContext) (r 
 				err = fmt.Errorf("(GetSchemaDefRequirement) NewSchemaDefRequirement returned: %s", err.Error())
 				return
 			}
-
+			ok = true
+			return
 		}
+
+	case map[string]interface{}:
+
+		var class string
+		class, err = GetClass(original)
+		if err != nil {
+			err = fmt.Errorf("(GetSchemaDefRequirement) GetClass returned: %s", err.Error())
+			return
+		}
+
+		if class != "SchemaDefRequirement" {
+			return
+		}
+
+		r, err = NewSchemaDefRequirement(original, context)
+		if err != nil {
+			err = fmt.Errorf("(GetSchemaDefRequirement) NewSchemaDefRequirement returned: %s", err.Error())
+			return
+		}
+		ok = true
 
 	default:
 		err = fmt.Errorf("(GetSchemaDefRequirement) type %s unknown", reflect.TypeOf(original))

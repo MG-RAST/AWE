@@ -11,14 +11,14 @@ import (
 type CWLType_Type interface {
 	Is_Type()
 	Type2String() string
-	GetId() string
+	GetID() string
 }
 
 type CWLType_Type_Basic string
 
 func (s CWLType_Type_Basic) Is_Type()            {}
 func (s CWLType_Type_Basic) Type2String() string { return string(s) }
-func (s CWLType_Type_Basic) GetId() string       { return "" }
+func (s CWLType_Type_Basic) GetID() string       { return "" }
 
 func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context string) (result CWLType_Type, err error) {
 

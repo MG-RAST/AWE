@@ -26,7 +26,7 @@ func (p *ProcessPointer) Is_process() {}
 func (p *ProcessPointer) GetClass() string {
 	return "ProcessPointer"
 }
-func (p *ProcessPointer) GetId() string   { return p.Id }
+func (p *ProcessPointer) GetID() string   { return p.Id }
 func (p *ProcessPointer) SetId(string)    {}
 func (p *ProcessPointer) Is_CWL_minimal() {}
 

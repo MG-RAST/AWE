@@ -11,7 +11,7 @@ type StepInputExpressionRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 }
 
-func (c StepInputExpressionRequirement) GetId() string { return "None" }
+func (c StepInputExpressionRequirement) GetID() string { return "None" }
 
 func NewStepInputExpressionRequirement(original interface{}) (r *StepInputExpressionRequirement, err error) {
 

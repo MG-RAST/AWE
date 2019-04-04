@@ -12,7 +12,7 @@ type CommandInputArraySchema struct { // Items, Type , Label
 }
 
 func (c *CommandInputArraySchema) Type2String() string { return "CommandInputArraySchema" }
-func (c *CommandInputArraySchema) GetId() string       { return "" }
+func (c *CommandInputArraySchema) GetID() string       { return "" }
 
 func NewCommandInputArraySchema() (coas *CommandInputArraySchema) {
 

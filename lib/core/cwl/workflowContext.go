@@ -277,7 +277,7 @@ func (c *WorkflowContext) AddSchemata(obj []CWLType_Type, writeLock bool) (err e
 	}
 
 	for i, _ := range obj {
-		id := obj[i].GetId()
+		id := obj[i].GetID()
 		if id == "" {
 			err = fmt.Errorf("id empty")
 			return

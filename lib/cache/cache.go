@@ -622,7 +622,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 		for i, _ := range *array {
 
-			//id := value.GetId()
+			//id := value.GetID()
 			//fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
 			sub_count, err = ProcessIOData((*array)[i], current_path, base_path, io_type, shock_client)
@@ -638,7 +638,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		array := native.([]cwl.Named_CWL_object)
 		for i, _ := range array {
 
-			//id := value.GetId()
+			//id := value.GetID()
 
 			var sub_count int
 			sub_count, err = ProcessIOData((array)[i], current_path, base_path, io_type, shock_client)

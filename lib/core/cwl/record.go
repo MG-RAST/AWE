@@ -14,7 +14,7 @@ func (r *Record) Is_CWL_object() {}
 
 func (r *Record) GetClass() string { return "record" }
 
-func (r *Record) GetId() string {
+func (r *Record) GetID() string {
 
 	id, ok := (*r)["id"]
 	if ok {

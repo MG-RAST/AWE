@@ -9,7 +9,7 @@ type ShellCommandRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 }
 
-func (c ShellCommandRequirement) GetId() string { return "None" }
+func (c ShellCommandRequirement) GetID() string { return "None" }
 
 func NewShellCommandRequirement(original interface{}) (r *ShellCommandRequirement, err error) {
 

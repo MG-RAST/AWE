@@ -14,7 +14,7 @@ type Array []CWLType
 func (c *Array) Is_CWL_object() {}
 
 func (c *Array) GetClass() string      { return "array" }
-func (c *Array) GetId() string         { return "foobar" }
+func (c *Array) GetID() string         { return "foobar" }
 func (c *Array) SetId(string)          {}
 func (c *Array) GetType() CWLType_Type { return CWL_array }
 

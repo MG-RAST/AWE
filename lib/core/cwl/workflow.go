@@ -31,7 +31,7 @@ type Workflow struct {
 
 func (w *Workflow) GetClass() string { return string(CWL_Workflow) }
 
-//func (w *Workflow) GetId() string    { return w.Id }
+//func (w *Workflow) GetID() string    { return w.Id }
 //func (w *Workflow) SetId(id string)  { w.Id = id }
 //func (w *Workflow) Is_CWL_minimal()  {}
 //func (w *Workflow) Is_Any()          {}

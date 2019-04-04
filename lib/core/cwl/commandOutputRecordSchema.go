@@ -14,7 +14,7 @@ type CommandOutputRecordSchema struct {
 //func (c *CommandOutputRecordSchema) Is_CommandOutputParameterType() {}
 func (c *CommandOutputRecordSchema) Is_Type()            {}
 func (c *CommandOutputRecordSchema) Type2String() string { return "CommandOutputRecordSchema" }
-func (c *CommandOutputRecordSchema) GetId() string       { return "" }
+func (c *CommandOutputRecordSchema) GetID() string       { return "" }
 
 func NewCommandOutputRecordSchema() (schema *CommandOutputRecordSchema, err error) {
 

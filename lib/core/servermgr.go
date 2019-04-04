@@ -346,7 +346,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 					return
 				}
 
-				subworkflow_id := subworkflow.GetId()
+				subworkflow_id := subworkflow.GetID()
 
 				fmt.Printf("(updateWorkflowInstancesMapTask) Creating Workflow %s\n", subworkflow_id)
 
@@ -4271,7 +4271,7 @@ func (qm *ServerMgr) CreateAndEnqueueWorkunits(task *Task, job *Job) (err error)
 			err = fmt.Errorf("(CreateAndEnqueueWorkunits) error in qm.workQueue.Add: %s", err.Error())
 			return err
 		}
-		id := wu.GetId()
+		id := wu.GetID()
 		err = qm.CreateWorkPerf(id)
 		if err != nil {
 			err = fmt.Errorf("(CreateAndEnqueueWorkunits) error in CreateWorkPerf: %s", err.Error())

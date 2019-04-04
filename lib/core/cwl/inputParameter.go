@@ -26,7 +26,7 @@ type InputParameter struct {
 }
 
 func (i InputParameter) GetClass() string { return "InputParameter" }
-func (i InputParameter) GetId() string    { return i.Id }
+func (i InputParameter) GetID() string    { return i.Id }
 func (i InputParameter) SetId(id string)  { i.Id = id }
 func (i InputParameter) Is_CWL_minimal()  {}
 

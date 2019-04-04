@@ -45,7 +45,7 @@ func (f *File) Is_CWLType()     {}
 //func (f *File) GetClass() string      { return "File" }
 func (f *File) GetType() CWLType_Type { return CWL_File }
 
-//func (f *File) GetId() string       { return f.Id }
+//func (f *File) GetID() string       { return f.Id }
 //func (f *File) SetId(id string)     { f.Id = id }
 func (f *File) String() string { return f.Path }
 
@@ -347,7 +347,7 @@ func (file *File) Exists(inputfile_path string) (ok bool, err error) {
 //	return &f.Data
 //}
 
-//func (f *FileArray) GetId() string   { return f.Id }
+//func (f *FileArray) GetID() string   { return f.Id }
 //func (f *FileArray) SetId(id string) { f.Id = id }
 
 //func (f *FileArray) String() string      { return f.Path }

@@ -351,7 +351,7 @@ func (w *Workunit) Evaluate(inputs interface{}, context *cwl.WorkflowContext) (e
 	return
 }
 
-func (w *Workunit) GetId() (id Workunit_Unique_Identifier) {
+func (w *Workunit) GetID() (id Workunit_Unique_Identifier) {
 	id = w.Workunit_Unique_Identifier
 	return
 }

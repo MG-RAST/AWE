@@ -14,7 +14,7 @@ type DockerRequirement struct {
 	DockerOutputDirectory string `yaml:"dockerOutputDirectory,omitempty" bson:"dockerOutputDirectory,omitempty" json:"dockerOutputDirectory,omitempty" mapstructure:"dockerOutputDirectory,omitempty"`
 }
 
-func (c DockerRequirement) GetId() string { return "None" }
+func (c DockerRequirement) GetID() string { return "None" }
 
 func NewDockerRequirement(original interface{}) (r *DockerRequirement, err error) {
 	var requirement DockerRequirement

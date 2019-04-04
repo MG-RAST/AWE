@@ -15,7 +15,7 @@ type Empty struct {
 
 func (e Empty) GetClass() string { return e.Class }
 
-func (e Empty) GetId() string { return e.Id }
+func (e Empty) GetID() string { return e.Id }
 
 func (e Empty) String() string { return "Empty" }
 
@@ -55,7 +55,7 @@ func GetId(native interface{}) (id string, err error) {
 		return
 	}
 
-	id = empty.GetId()
+	id = empty.GetID()
 
 	if id == "" {
 		spew.Dump(native)

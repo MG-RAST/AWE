@@ -9,7 +9,7 @@ type RecordSchema struct {
 	NamedSchema `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"` // provides Type, Label, Name
 }
 
-func (r *RecordSchema) GetId() string { return r.Name }
+func (r *RecordSchema) GetID() string { return r.Name }
 func (r *RecordSchema) Is_Type()      {}
 
 func (r *RecordSchema) Type2String() string { return string(CWL_record) }

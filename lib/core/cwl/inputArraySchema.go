@@ -13,7 +13,7 @@ type InputArraySchema struct { // Items, Type , Label
 //func (c *InputArraySchema) Is_CommandOutputParameterType() {}
 
 func (c *InputArraySchema) Type2String() string { return "CommandOutputArraySchema" }
-func (c *InputArraySchema) GetId() string       { return "" }
+func (c *InputArraySchema) GetID() string       { return "" }
 
 func NewInputArraySchema() (coas *InputArraySchema) {
 

@@ -13,7 +13,7 @@ func (i *Long) GetClass() string      { return string(CWL_long) } // for CWL_obj
 func (i *Long) GetType() CWLType_Type { return CWL_long }
 func (i *Long) String() string        { return strconv.FormatInt(int64(*i), 10) }
 
-func (i *Long) GetId() string  { return "" }
+func (i *Long) GetID() string  { return "" }
 func (i *Long) SetId(x string) {}
 
 func (i *Long) Is_CWL_minimal() {}

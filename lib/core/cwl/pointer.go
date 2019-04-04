@@ -10,7 +10,7 @@ type Pointer string
 //func (s *Pointer) GetType() CWLType_Type { return CWL_pointer }
 //func (s *Pointer) String() string        { return string(*s) }
 
-func (s *Pointer) GetId() string { return "" }
+func (s *Pointer) GetID() string { return "" }
 
 //func (s *Pointer) SetId(i string) {}
 func (c *Pointer) Is_Type()            {}

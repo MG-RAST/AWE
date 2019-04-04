@@ -11,7 +11,7 @@ type ArraySchema struct {
 
 func (c *ArraySchema) Is_Type()            {}
 func (c *ArraySchema) Type2String() string { return "array" }
-func (c *ArraySchema) GetId() string       { return "" }
+func (c *ArraySchema) GetID() string       { return "" }
 
 func NewArraySchema() (as *ArraySchema) {
 	as = &ArraySchema{}

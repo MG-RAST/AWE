@@ -19,7 +19,7 @@ func (s *Number) GetClass() string      { return string(CWL_string) } // for CWL
 func (s *Number) GetType() CWLType_Type { return CWL_string }
 func (s *Number) String() string        { return string(*s) }
 
-func (s *Number) GetId() string  { return "" }
+func (s *Number) GetID() string  { return "" }
 func (s *Number) SetId(i string) {}
 
 func (s *Number) Is_CWL_minimal() {}

@@ -25,7 +25,7 @@ type WorkflowStepInput struct {
 func (w WorkflowStepInput) GetClass() string {
 	return "WorkflowStepInput"
 }
-func (w WorkflowStepInput) GetId() string   { return w.Id }
+func (w WorkflowStepInput) GetID() string   { return w.Id }
 func (w WorkflowStepInput) SetId(id string) { w.Id = id }
 
 func (w WorkflowStepInput) Is_CWL_minimal() {}

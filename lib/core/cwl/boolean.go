@@ -13,7 +13,7 @@ func (b *Boolean) GetClass() string      { return string(CWL_boolean) } // for C
 func (b *Boolean) GetType() CWLType_Type { return CWL_boolean }
 func (b *Boolean) String() string        { return strconv.FormatBool(bool(*b)) }
 
-func (b *Boolean) GetId() string  { return "" }
+func (b *Boolean) GetID() string  { return "" }
 func (b *Boolean) SetId(i string) {}
 
 func (b *Boolean) Is_CWL_minimal() {}

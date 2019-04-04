@@ -13,7 +13,7 @@ type EnumSchema struct {
 	Name    string   `yaml:"name,omitempty" bson:"name,omitempty" json:"name,omitempty" mapstructure:"name,omitempty"`
 }
 
-func (s EnumSchema) GetId() string       { return s.Name }
+func (s EnumSchema) GetID() string       { return s.Name }
 func (s EnumSchema) Is_Type()            {}
 func (s EnumSchema) Type2String() string { return "EnumSchema" }
 

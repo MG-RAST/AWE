@@ -13,7 +13,7 @@ func (i *Int) GetClass() string      { return string(CWL_int) } // for CWL_objec
 func (i *Int) GetType() CWLType_Type { return CWL_int }
 func (i *Int) String() string        { return strconv.Itoa(int(*i)) }
 
-func (i *Int) GetId() string  { return "" }
+func (i *Int) GetID() string  { return "" }
 func (i *Int) SetId(x string) {}
 
 func (i *Int) Is_CWL_minimal() {}

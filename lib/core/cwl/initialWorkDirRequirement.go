@@ -14,7 +14,7 @@ type InitialWorkDirRequirement struct {
 	Listing         interface{} `yaml:"listing,omitempty" bson:"listing,omitempty" json:"listing,omitempty" mapstructure:"listing,omitempty"` // TODO: array<File | Directory | Dirent | string | Expression> | string | Expression
 }
 
-func (c InitialWorkDirRequirement) GetId() string { return "" }
+func (c InitialWorkDirRequirement) GetID() string { return "" }
 
 func NewInitialWorkDirRequirement(original interface{}, context *WorkflowContext) (r *InitialWorkDirRequirement, err error) {
 	var requirement InitialWorkDirRequirement

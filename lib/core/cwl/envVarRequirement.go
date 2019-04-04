@@ -13,7 +13,7 @@ type EnvVarRequirement struct {
 	EnvDef          []EnvironmentDef `yaml:"envDef,omitempty" bson:"envDef,omitempty" json:"envDef,omitempty" mapstructure:"envDef,omitempty"`
 }
 
-func (c EnvVarRequirement) GetId() string { return "None" }
+func (c EnvVarRequirement) GetID() string { return "None" }
 
 func NewEnvVarRequirement(original interface{}, context *WorkflowContext) (r *EnvVarRequirement, err error) {
 

@@ -231,7 +231,7 @@ func NewCWLType(id string, native interface{}, context *WorkflowContext) (cwl_ty
 		return
 	}
 	//fmt.Printf("(NewCWLType) I\n")
-	//if cwl_type.GetId() == "" {
+	//if cwl_type.GetID() == "" {
 	//	err = fmt.Errorf("(NewCWLType) Id is missing")
 	//		return
 	//	}

@@ -8,13 +8,14 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-// https://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputParameter
+// CommandOutputParameter https://www.commonwl.org/v1.0/CommandLineTool.html#CommandOutputParameter
 type CommandOutputParameter struct {
 	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Id, Label, SecondaryFiles, Format, Streamable, OutputBinding, Type
 
 	Description string `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty" mapstructure:"description,omitempty"`
 }
 
+// NewCommandOutputParameter _
 func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (output_parameter *CommandOutputParameter, err error) {
 
 	original, err = MakeStringMap(original, context)
@@ -68,10 +69,16 @@ func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type, co
 	return
 }
 
+// NewCommandOutputParameterArray _
 func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (copa *[]CommandOutputParameter, err error) {
 
+	original, err = MakeStringMap(original, context)
+	if err != nil {
+		return
+	}
+
 	switch original.(type) {
-	case map[interface{}]interface{}:
+	case map[string]interface{}:
 		cop, xerr := NewCommandOutputParameter(original, schemata, context)
 		if xerr != nil {
 			err = fmt.Errorf("(NewCommandOutputParameterArray) a NewCommandOutputParameter returns: %s", xerr.Error())
@@ -79,20 +86,20 @@ func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Typ
 		}
 		copa = &[]CommandOutputParameter{*cop}
 	case []interface{}:
-		copa_nptr := []CommandOutputParameter{}
+		copaNptr := []CommandOutputParameter{}
 
-		original_array := original.([]interface{})
+		originalArray := original.([]interface{})
 
-		for _, element := range original_array {
+		for _, element := range originalArray {
 			cop, xerr := NewCommandOutputParameter(element, schemata, context)
 			if xerr != nil {
 				err = fmt.Errorf("(NewCommandOutputParameterArray) b NewCommandOutputParameter returns: %s", xerr.Error())
 				return
 			}
-			copa_nptr = append(copa_nptr, *cop)
+			copaNptr = append(copaNptr, *cop)
 		}
 
-		copa = &copa_nptr
+		copa = &copaNptr
 	default:
 		err = fmt.Errorf("NewCommandOutputParameterArray, unknown type %s", reflect.TypeOf(original))
 	}

@@ -77,8 +77,13 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 		oas.Items = []CWLType_Type{baseType}
 		result = oas
 		return
+	case "CommandInput":
+		cias := NewCommandInputArraySchema()
+		result = cias
+		return
+
 	default:
-		err = fmt.Errorf("(NewCWLType_TypeFromString) context %s not supported yet", context)
+		err = fmt.Errorf("(NewCWLType_TypeFromString) context %s not supported yet (baseTypeStr: %s)", context, baseTypeStr)
 	}
 
 	return

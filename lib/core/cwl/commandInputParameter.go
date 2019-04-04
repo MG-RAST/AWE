@@ -86,7 +86,7 @@ func NewCommandInputParameter(v interface{}, schemata []CWLType_Type, context *W
 
 	case string:
 		v_string := v.(string)
-		err = fmt.Errorf("(NewCommandInputParameter) got string %s", v_string)
+		err = fmt.Errorf("(NewCommandInputParameter) expected CommandInputParameter, got string: %s", v_string)
 		return
 	default:
 
@@ -130,7 +130,7 @@ func CreateCommandInputArray(original interface{}, schemata []CWLType_Type, cont
 			//mapstructure.Decode(v, &input_parameter)
 			input_parameter, xerr := NewCommandInputParameter(v, schemata, context)
 			if xerr != nil {
-				err = fmt.Errorf("(CreateCommandInputArray) map[interface{}]interface{} NewCommandInputParameter returned: %s", xerr.Error())
+				err = fmt.Errorf("(CreateCommandInputArray) map[string]interface{} NewCommandInputParameter returned: %s", xerr.Error())
 				return
 			}
 

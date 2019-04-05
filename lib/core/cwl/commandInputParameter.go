@@ -85,8 +85,19 @@ func NewCommandInputParameter(v interface{}, schemata []CWLType_Type, context *W
 		}
 
 	case string:
-		v_string := v.(string)
-		err = fmt.Errorf("(NewCommandInputParameter) expected CommandInputParameter, got string: %s", v_string)
+		vString := v.(string)
+
+		input_parameter = &CommandInputParameter{}
+
+		var typeValue []CWLType_Type
+		typeValue, err = NewCommandInputParameterTypeArray(v, schemata, context)
+		if err != nil {
+			err = fmt.Errorf("(NewCommandInputParameter) NewCommandInputParameterTypeArray returns: %s", err.Error())
+			return
+		}
+		input_parameter.Type = typeValue
+
+		err = fmt.Errorf("(NewCommandInputParameter) expected CommandInputParameter, got string: %s", vString)
 		return
 	default:
 

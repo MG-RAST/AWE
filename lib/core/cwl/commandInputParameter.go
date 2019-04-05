@@ -85,7 +85,7 @@ func NewCommandInputParameter(v interface{}, schemata []CWLType_Type, context *W
 		}
 
 	case string:
-		vString := v.(string)
+		//vString := v.(string)
 
 		input_parameter = &CommandInputParameter{}
 

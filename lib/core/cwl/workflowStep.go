@@ -245,6 +245,11 @@ func (w WorkflowStep) GetOutput(id string) (output *WorkflowStepOutput, err erro
 // CreateWorkflowStepsArray
 func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (schemata []CWLType_Type, array_ptr *[]WorkflowStep, err error) {
 
+	original, err = MakeStringMap(original, context)
+	if err != nil {
+		return
+	}
+
 	array := []WorkflowStep{}
 
 	if context.CwlVersion == "" {
@@ -253,10 +258,10 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 	}
 	switch original.(type) {
 
-	case map[interface{}]interface{}:
+	case map[string]interface{}:
 
 		// iterate over workflow steps
-		for k, v := range original.(map[interface{}]interface{}) {
+		for k, v := range original.(map[string]interface{}) {
 			//fmt.Printf("A step\n")
 			//spew.Dump(v)
 
@@ -273,7 +278,7 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 				return
 			}
 
-			step.Id = k.(string)
+			step.Id = k
 
 			//fmt.Printf("Last step\n")
 			//spew.Dump(step)

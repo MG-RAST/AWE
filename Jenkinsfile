@@ -25,11 +25,23 @@ pipeline {
                     source ./skyport2.env
                     docker-compose down
                 fi
-                docker rm -f $(docker ps -a -f name=skyport2_ -q)
-                docker rm -f $(docker ps -a -f name=compose_ -q)
-                docker rm -f mgrast_cwl_submitter
-
-
+                DELETE_CONTAINERS=$(docker ps -a -f name=skyport2_ -q)
+                if [ "${DELETE_CONTAINERS}_" != "_" ] ; then
+                  docker rm -f ${DELETE_CONTAINERS}
+                fi
+                
+                DELETE_CONTAINERS=$(docker ps -a -f name=compose_ -q)
+                if [ "${DELETE_CONTAINERS}_" != "_" ] ; then
+                  docker rm -f ${DELETE_CONTAINERS}
+                fi
+                
+                DELETE_CONTAINERS=$(docker ps -a -f name=mgrast_cwl_submitter -q)
+                if [ "${DELETE_CONTAINERS}_" != "_" ] ; then
+                  docker rm -f ${DELETE_CONTAINERS}
+                fi
+                
+                
+                
                 echo "Deleting live-data"
 
                 docker run --rm --volume `pwd`:/tmp/workspace bash rm -rf /tmp/workspace/live-data
@@ -38,16 +50,19 @@ pipeline {
                 '''
             }
         }
-        stage('get-source') {
+        stage('git-clone') {
             steps {
-                git url: 'https://github.com/wgerlach/AWE.git', branch: 'master'
-                git url: 'https://github.com/MG-RAST/Skyport2.git', branch: 'master'
-                git url: 'https://github.com/common-workflow-language/common-workflow-language.git', branch: 'master'
+                sh '''#!/bin/bash
+                git clone https://github.com/wgerlach/AWE.git
+                git clone https://github.com/MG-RAST/Skyport2.git
+                git clone https://github.com/common-workflow-language/common-workflow-language.git
+                '''
             }
         }
         stage('Build') { 
             steps {
                 sh '''#!/bin/bash
+                set -e
                 
                 echo "SHELL=$SHELL"
                 echo "HOSTNAME=$HOSTNAME"
@@ -60,31 +75,30 @@ pipeline {
 
                 base_dir=`pwd`
 
-                if [ -d $base_dir/Skyport2 ] ; then
-                  cd $base_dir/Skyport2
-                  rm -f docker-compose.yaml
-                  ln -s Docker/Compose/skyport-awe-testing.yaml docker-compose.yaml
-                fi
                 
-
+                cd $base_dir/Skyport2
+                rm -f docker-compose.yaml
+                ln -s Docker/Compose/skyport-awe-testing.yaml docker-compose.yaml
+                
+                
+                
                 # Debugging
                 pwd
                 ls -l
                 # docker images
                 docker ps
-
                 
-
+                
+                
                
                 docker ps
                 set -x
                 sudo ./scripts/add_etc_hosts_entry.sh
 
                 source ./init.sh
-                #. ./skyport2.env
+                
 
                 if [ ${SKYPORT_DOCKER_GATEWAY}x == x ] ; then
-                  set +e
                   exit 1
                 fi
 
@@ -99,11 +113,11 @@ pipeline {
                 #git describe
 
                 USE_CACHE="--no-cache"
-                USE_CACHE="" #speed-up for debugging purposes 
+                #USE_CACHE="" #speed-up for debugging purposes 
 
-                docker build ${USE_CACHE} -t mgrast/awe:test -f Dockerfile .
-                docker build ${USE_CACHE} -t mgrast/awe-worker:test -f Dockerfile_worker .
-                docker build ${USE_CACHE} -t mgrast/awe-submitter:test -f Dockerfile_submitter .
+                docker build ${USE_CACHE} --pull -t mgrast/awe:test -f Dockerfile .
+                docker build ${USE_CACHE} --pull -t mgrast/awe-worker:test -f Dockerfile_worker .
+                docker build ${USE_CACHE} --pull -t mgrast/awe-submitter:test -f Dockerfile_submitter .
                 cd $base_dir/Skyport2
                 docker run --rm --volume `pwd`:/Skyport2 bash rm -rf /Skyport2/tmp
                 docker build ${USE_CACHE} -t mgrast/cwl-submitter:test -f Docker/Dockerfiles/cwl-test-submitter.dockerfile .
@@ -111,6 +125,7 @@ pipeline {
                 echo "docker builds complete"
                 sleep 5
 
+                docker run --rm mgrast/awe:test awe-server --version
                 docker ps
 
                 sleep 1

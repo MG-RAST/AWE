@@ -39,6 +39,13 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 	output_parameter = &OutputParameter{}
 
 	switch original.(type) {
+
+	case string:
+
+		type_string := original.(string)
+
+		err = fmt.Errorf("(NewOutputParameterFromInterface) got string: %s", type_string)
+		return
 	// case string:
 
 	// 	type_string := original.(string)
@@ -75,7 +82,7 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 		if ok {
 			original_map["default"], err = NewCWLType("", output_parameter_default, context)
 			if err != nil {
-				err = fmt.Errorf("(NewOutputParameter) NewCWLType returned: %s", err.Error())
+				err = fmt.Errorf("(NewOutputParameterFromInterface) NewCWLType returned: %s", err.Error())
 				return
 			}
 		}
@@ -88,18 +95,18 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 				var outputParameter_type_array []CWLType_Type
 				outputParameter_type_array, err = NewCWLType_TypeArray(outputParameter_type, schemata, context_p, false, context)
 				if err != nil {
-					err = fmt.Errorf("(NewOutputParameter) NewCWLType_TypeArray returned: %s", err.Error())
+					err = fmt.Errorf("(NewOutputParameterFromInterface) NewCWLType_TypeArray returned: %s", err.Error())
 					return
 				}
 				if len(outputParameter_type_array) == 0 {
-					err = fmt.Errorf("(NewOutputParameter) len(outputParameter_type_array) == 0")
+					err = fmt.Errorf("(NewOutputParameterFromInterface) len(outputParameter_type_array) == 0")
 					return
 				}
 				original_map["type"] = outputParameter_type_array
 			default:
 				original_map["type"], err = NewCWLType_Type(schemata, outputParameter_type, context_p, context)
 				if err != nil {
-					err = fmt.Errorf("(NewOutputParameter) NewCWLType_Type returned: %s", err.Error())
+					err = fmt.Errorf("(NewOutputParameterFromInterface) NewCWLType_Type returned: %s", err.Error())
 					return
 				}
 			}
@@ -110,7 +117,7 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 		if has_outputBinding {
 			original_map["outputBinding"], err = NewCommandOutputBinding(outputBinding, context)
 			if err != nil {
-				err = fmt.Errorf("(NewOutputParameter) NewCommandOutputBinding returns: %s", err.Error())
+				err = fmt.Errorf("(NewOutputParameterFromInterface) NewCommandOutputBinding returns: %s", err.Error())
 				return
 			}
 		}
@@ -118,12 +125,12 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 		err = mapstructure.Decode(original, output_parameter)
 		if err != nil {
 			spew.Dump(original)
-			err = fmt.Errorf("(NewOutputParameter) mapstructure.Decode returned: %s", err.Error())
+			err = fmt.Errorf("(NewOutputParameterFromInterface) mapstructure.Decode returned: %s", err.Error())
 			return
 		}
 	default:
 		spew.Dump(original)
-		err = fmt.Errorf("(NewOutputParameter) cannot parse output type %s", reflect.TypeOf(original))
+		err = fmt.Errorf("(NewOutputParameterFromInterface) cannot parse output type %s", reflect.TypeOf(original))
 		return
 	}
 

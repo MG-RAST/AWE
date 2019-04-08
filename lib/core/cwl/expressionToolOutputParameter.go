@@ -53,7 +53,7 @@ func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_T
 }
 
 // NewExpressionToolOutputParameterArray _
-func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (new_array_ptr *[]ExpressionToolOutputParameter, err error) {
+func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (newArrayPtr *[]ExpressionToolOutputParameter, err error) {
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
@@ -77,7 +77,7 @@ func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLT
 			//fmt.Printf("D")
 
 		}
-		new_array_ptr = &newArray
+		newArrayPtr = &newArray
 		return
 	case []interface{}:
 
@@ -95,7 +95,7 @@ func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLT
 			//fmt.Printf("D")
 
 		}
-		new_array_ptr = &newArray
+		newArrayPtr = &newArray
 		return
 
 	default:

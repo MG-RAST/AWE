@@ -115,7 +115,7 @@ pipeline {
                 USE_CACHE="--no-cache"
                 #USE_CACHE="" #speed-up for debugging purposes 
 
-                docker build ${USE_CACHE} --pull -t mgrast/awe:test -f Dockerfile .
+                docker build ${USE_CACHE} --pull -t mgrast/awe-server:test -f Dockerfile .
                 docker build ${USE_CACHE} --pull -t mgrast/awe-worker:test -f Dockerfile_worker .
                 docker build ${USE_CACHE} --pull -t mgrast/awe-submitter:test -f Dockerfile_submitter .
                 cd $base_dir/Skyport2
@@ -125,7 +125,7 @@ pipeline {
                 echo "docker builds complete"
                 sleep 5
 
-                docker run --rm mgrast/awe:test awe-server --version
+                docker run --rm mgrast/awe-server:test awe-server --version
                 docker ps
 
                 sleep 1

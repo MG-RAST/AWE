@@ -151,6 +151,8 @@ pipeline {
                 touch result.xml
                 docker run \
                     --rm \
+                    --env "SHOCK_SERVER=http://shock:7445" \
+                    --env "AWE_SERVER=http://awe-server:8001" \
                     --network skyport2_default \
                     --name awe-submitter-testing \
                     --volume `pwd`/result.xml:/output/result.xml \

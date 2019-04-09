@@ -150,7 +150,7 @@ pipeline {
                 cd $base_dir
                 
                 
-                source .env
+                source ${base_dir}/.env
                 
                 touch result.xml
                 docker run \

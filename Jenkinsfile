@@ -148,6 +148,10 @@ pipeline {
             
                 base_dir=`pwd`
                 cd $base_dir
+                
+                
+                source .env
+                
                 touch result.xml
                 docker run \
                     --rm \

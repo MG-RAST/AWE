@@ -1,4 +1,7 @@
 pipeline {
+    options {
+        ansiColor('xterm')
+    }
     agent { 
         node {
             label 'bare-metal'
@@ -63,84 +66,83 @@ pipeline {
         }
         stage('Build') { 
             steps {
-                ansiColor('xterm') {
-                    sh '''#!/bin/bash
-                    set -e
-                
-                    echo "SHELL=$SHELL"
-                    echo "HOSTNAME=$HOSTNAME"
+                sh '''#!/bin/bash
+                set -e
+            
+                echo "SHELL=$SHELL"
+                echo "HOSTNAME=$HOSTNAME"
 
 
-                    export PATH="/usr/local/bin/:$PATH"
-                    echo "PATH=$PATH"
-                    DOCKER_PATH=$(which docker)
-                    echo "DOCKER_PATH=${DOCKER_PATH}"
+                export PATH="/usr/local/bin/:$PATH"
+                echo "PATH=$PATH"
+                DOCKER_PATH=$(which docker)
+                echo "DOCKER_PATH=${DOCKER_PATH}"
 
-                    base_dir=`pwd`
+                base_dir=`pwd`
 
-                    echo "base_dir: ${base_dir}"
-                
-                    cd $base_dir/Skyport2
-               
-                
-                
-                
-                    # Debugging
-                    pwd
-                    ls -l
-                    # docker images
-                    docker ps
-                
-                
-                
-               
-                    docker ps
-                    set -x
-                    sudo ./scripts/add_etc_hosts_entry.sh
+                echo "base_dir: ${base_dir}"
+            
+                cd $base_dir/Skyport2
+           
+            
+            
+            
+                # Debugging
+                pwd
+                ls -l
+                # docker images
+                docker ps
+            
+            
+            
+           
+                docker ps
+                set -x
+                sudo ./scripts/add_etc_hosts_entry.sh
 
-                    ./init.sh
-                
-                    cat .env
-               
+                ./init.sh
+            
+                cat .env
+           
 
-                    # Build container
-                    cd ${base_dir}
-                    set +x
-                    echo Building AWE Container
-                    set -x
+                # Build container
+                cd ${base_dir}
+                set +x
+                echo Building AWE Container
+                set -x
 
-               
+           
 
-                    USE_CACHE="--no-cache"
-                    USE_CACHE="" #speed-up for debugging purposes 
+                USE_CACHE="--no-cache"
+                USE_CACHE="" #speed-up for debugging purposes 
 
-                    docker build ${USE_CACHE} --pull -t mgrast/awe-server .
-                    docker build ${USE_CACHE} --pull -t mgrast/awe-worker -f Dockerfile_worker .
-                    docker build ${USE_CACHE} --pull -t mgrast/awe-submitter -f Dockerfile_submitter .
-                
-                    cd ${base_dir}/testing/
-                    docker build ${USE_CACHE} -t mgrast/awe-submitter-testing  .
-                
-                    cd ${base_dir}/Skyport2
-                    docker run --rm --volume `pwd`:/Skyport2 bash rm -rf /Skyport2/tmp
-                
+                docker build ${USE_CACHE} --pull -t mgrast/awe-server .
+                docker build ${USE_CACHE} --pull -t mgrast/awe-worker -f Dockerfile_worker .
+                docker build ${USE_CACHE} --pull -t mgrast/awe-submitter -f Dockerfile_submitter .
+            
+                cd ${base_dir}/testing/
+                docker build ${USE_CACHE} -t mgrast/awe-submitter-testing  .
+            
+                cd ${base_dir}/Skyport2
+                docker run --rm --volume `pwd`:/Skyport2 bash rm -rf /Skyport2/tmp
+            
 
-                    echo "docker builds complete"
-                    sleep 5
+                echo "docker builds complete"
+                sleep 5
 
-                    docker run --rm mgrast/awe-server awe-server --version
-                    docker ps
+                docker run --rm mgrast/awe-server awe-server --version
+                docker ps
 
-                    sleep 1
+                sleep 1
 
-                
+            
 
-                
-                    export TAG=latest
-                    docker-compose run -d awe-server
-                    sleep 2
-                    '''
-                }
+            
+                export TAG=latest
+                docker-compose run -d awe-server
+                sleep 2
+                '''
+        
             }
         }
         stage('Test') { 

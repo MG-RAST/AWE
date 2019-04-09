@@ -150,7 +150,7 @@ pipeline {
                 cd $base_dir
                 
                 
-                source ${base_dir}/.env
+                source Skyport2/.env
                 
                 touch result.xml
                 docker run \

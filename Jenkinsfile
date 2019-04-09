@@ -62,9 +62,8 @@ pipeline {
             }
         }
         stage('Build') { 
-            ansiColor('xterm') {
-                 steps {
-                
+            steps {
+                ansiColor('xterm') {
                     sh '''#!/bin/bash
                     set -e
                 

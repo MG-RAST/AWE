@@ -50,8 +50,6 @@ pipeline {
                 
                 echo `pwd`
                 
-                rm -rf AWE
-                #git clone https://github.com/wgerlach/AWE.git         # should not be needed
                 
                 docker run --rm --volume `pwd`:/tmp/workspace bash rm -rf /tmp/workspace/Skyport2
                 git clone https://github.com/MG-RAST/Skyport2.git
@@ -113,7 +111,7 @@ pipeline {
                 USE_CACHE="--no-cache"
                 USE_CACHE="" #speed-up for debugging purposes 
 
-                docker build ${USE_CACHE} --pull -t mgrast/awe-server -f Dockerfile .
+                docker build ${USE_CACHE} --pull -t mgrast/awe-server .
                 docker build ${USE_CACHE} --pull -t mgrast/awe-worker -f Dockerfile_worker .
                 docker build ${USE_CACHE} --pull -t mgrast/awe-submitter -f Dockerfile_submitter .
                 
@@ -137,7 +135,7 @@ pipeline {
                 
                 export TAG=latest
                 docker-compose run -d awe-server
-                
+                sleep 2
                 '''
             }
         }

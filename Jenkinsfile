@@ -50,6 +50,8 @@ pipeline {
                 
                 echo `pwd`
                 
+                # this is needed for AWE compile scripts to determine the version number
+                git fetch --tags
                 
                 docker run --rm --volume `pwd`:/tmp/workspace bash rm -rf /tmp/workspace/Skyport2
                 git clone https://github.com/MG-RAST/Skyport2.git

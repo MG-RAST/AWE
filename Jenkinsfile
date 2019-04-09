@@ -99,7 +99,7 @@ pipeline {
 
                 ./init.sh
                 
-
+                cat .env
                
 
                 # Build container

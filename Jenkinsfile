@@ -155,6 +155,7 @@ pipeline {
                 touch result.xml
                 docker run \
                     --rm \
+                    --add-host skyport.local:${SKYPORT_DOCKER_GATEWAY} \
                     --env "SHOCK_SERVER=${SHOCK_SERVER_URL}" \
                     --env "AWE_SERVER=${AWE_SERVER_URL}" \
                     --network skyport2_default \

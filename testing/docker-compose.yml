@@ -101,18 +101,6 @@ services:
         # volumes:
         #  - ${SHOCKDIR}/db:/data/db
 
-   # the MySQL server is a component of the auth server
-   #
-    db:
-        image: mysql:5.7
-        environment:
-            MYSQL_ROOT_PASSWORD: secret
-            MYSQL_DATABASE: DemoAppUsers
-            MYSQL_USER: authService
-            MYSQL_PASSWORD: authServicePassword
-        volumes:
-          - /var/lib/mysql
-          #- ${AUTHDB}:/var/lib/mysql
 
     # mount a volume in the mongo server to make data persistent between runs
     awe-mongo:

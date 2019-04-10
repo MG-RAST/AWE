@@ -19,6 +19,7 @@ pipeline {
 
                 
                 # Clean up
+                cd ${base_dir}/testing
                 docker-compose down
                 
                 DELETE_CONTAINERS=$(docker ps -a -f name=skyport2_ -q)
@@ -40,7 +41,7 @@ pipeline {
                 
                 echo "Deleting all data in "`pwd`
 
-                docker run --rm --volume `pwd`:/tmp/workspace bash rm -rf /tmp/workspace/live-data
+                #docker run --rm --volume `pwd`:/tmp/workspace bash rm -rf /tmp/workspace/live-data
                 
                 docker volume prune -f
                 '''
@@ -111,9 +112,9 @@ pipeline {
                 USE_CACHE="--no-cache"
                 #USE_CACHE="" #speed-up for debugging purposes 
 
-                docker build ${USE_CACHE} --pull -t mgrast/awe-server .
-                docker build ${USE_CACHE} --pull -t mgrast/awe-worker -f Dockerfile_worker .
-                docker build ${USE_CACHE} --pull -t mgrast/awe-submitter -f Dockerfile_submitter .
+                #docker build ${USE_CACHE} --pull -t mgrast/awe-server .
+                #docker build ${USE_CACHE} --pull -t mgrast/awe-worker -f Dockerfile_worker .
+                #docker build ${USE_CACHE} --pull -t mgrast/awe-submitter -f Dockerfile_submitter .
             
                 cd ${base_dir}/testing/
                 docker build ${USE_CACHE} -t mgrast/awe-submitter-testing  .
@@ -177,9 +178,9 @@ pipeline {
             set -x
             # Clean up
             base_dir=`pwd`
-            cd $base_dir/Skyport2
+            cd $base_dir/testing
             docker-compose down
-            docker run --rm --volume `pwd`/live-data:/live-data bash rm -rf /live-data/*
+            #docker run --rm --volume `pwd`/live-data:/live-data bash rm -rf /live-data/*
             docker volume prune -f
             '''
         }        

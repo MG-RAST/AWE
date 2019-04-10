@@ -131,8 +131,12 @@ pipeline {
 
                 sleep 1
                 
-                mkdir -p ${base_dir}/tmp
-                export DATADIR=${base_dir}/tmp
+                
+                export SKYPORT_TMPDIR=${base_dir}/tmp
+                export DATADIR=${base_dir}/data
+                mkdir -p ${SKYPORT_TMPDIR}
+                mkdir -p ${DATADIR}
+                
                 
                 cd ${base_dir}/Skyport2/scripts/
                 source ./get_docker_binary.sh 

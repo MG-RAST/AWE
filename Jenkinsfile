@@ -140,6 +140,7 @@ pipeline {
             
                 export TAG=latest
                 docker-compose run -d awe-server
+                docker-compose run -d shock
                 sleep 2
                 '''
         

@@ -141,7 +141,8 @@ pipeline {
                 export TAG=latest
                 docker-compose run -d --name awe-server awe-server
                 docker-compose run -d --name shock shock
-                docker-compose run -d --no-deps --service-ports nginx
+                docker-compose run -d --name awe-worker awe-worker
+                #docker-compose run -d --no-deps --service-ports nginx
                 sleep 2
                 '''
         
@@ -162,8 +163,8 @@ pipeline {
                 docker run \
                     --rm \
                     --add-host skyport.local:${SKYPORT_DOCKER_GATEWAY} \
-                    --env "SHOCK_SERVER=${SHOCK_SERVER_URL}" \
-                    --env "AWE_SERVER=${AWE_SERVER_URL}" \
+                    --env "SHOCK_SERVER=https://shock:80" \
+                    --env "AWE_SERVER=http://awe-server:80" \
                     --network skyport2_default \
                     --name awe-submitter-testing \
                     --volume `pwd`/result.xml:/output/result.xml \

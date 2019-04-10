@@ -137,7 +137,8 @@ pipeline {
                 mkdir -p ${base_dir}/tmp
                 export DATADIR=${base_dir}/tmp
                 cd ${base_dir}/testing
-                docker-compose up
+                
+                docker-compose up -d
                 
                 sleep 2
                 '''
@@ -153,14 +154,14 @@ pipeline {
                 cd $base_dir
                 
                 
-                source Skyport2/.env
+                
                 
                 touch result.xml
                 docker run \
                     --rm \
-                    --env "SHOCK_SERVER=https://shock:7445" \
-                    --env "AWE_SERVER=http://awe-server:80" \
-                    --network skyport2_default \
+                    --env "SHOCK_SERVER=http://shock:7445" \
+                    --env "AWE_SERVER=http://awe-server:8001" \
+                    --network testing_default \
                     --name awe-submitter-testing \
                     --volume `pwd`/result.xml:/output/result.xml \
                     mgrast/awe-submitter-testing \

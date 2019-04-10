@@ -84,8 +84,7 @@ pipeline {
             
                 cd ${base_dir}/Skyport2
            
-                # overwrite nginx config
-                cp ${base_dir}/testing/nginx.conf ${base_dir}/Skyport2/Config/nginx/skyport-demo.conf
+                
             
                 # Debugging
                 pwd
@@ -98,11 +97,7 @@ pipeline {
            
                 docker ps
                 set -x
-                sudo ./scripts/add_etc_hosts_entry.sh
-
-                ./init.sh
-            
-                cat .env
+                
            
 
                 # Build container
@@ -123,8 +118,8 @@ pipeline {
                 cd ${base_dir}/testing/
                 docker build ${USE_CACHE} -t mgrast/awe-submitter-testing  .
             
-                cd ${base_dir}/Skyport2
-                docker run --rm --volume `pwd`:/Skyport2 bash rm -rf /Skyport2/tmp
+                #cd ${base_dir}/Skyport2
+                #docker run --rm --volume `pwd`:/Skyport2 bash rm -rf /Skyport2/tmp
             
 
                 echo "docker builds complete"
@@ -136,13 +131,11 @@ pipeline {
                 sleep 1
 
             
-
-            
-                export TAG=latest
-                docker-compose run -d --name awe-server awe-server
-                docker-compose run -d --name shock shock
-                docker-compose run -d --name awe-worker awe-worker
-                #docker-compose run -d --no-deps --service-ports nginx
+                mkdir -p ${base_dir}/tmp
+                export DATADIR=${base_dir}/tmp
+                cd ${base_dir}/testing
+                docker-compose up
+                
                 sleep 2
                 '''
         
@@ -162,8 +155,7 @@ pipeline {
                 touch result.xml
                 docker run \
                     --rm \
-                    --add-host skyport.local:${SKYPORT_DOCKER_GATEWAY} \
-                    --env "SHOCK_SERVER=https://shock:80" \
+                    --env "SHOCK_SERVER=https://shock:7445" \
                     --env "AWE_SERVER=http://awe-server:80" \
                     --network skyport2_default \
                     --name awe-submitter-testing \

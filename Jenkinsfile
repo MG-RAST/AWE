@@ -130,13 +130,15 @@ pipeline {
                 docker ps
 
                 sleep 1
-
+                
+                mkdir -p ${base_dir}/tmp
+                export DATADIR=${base_dir}/tmp
+                
                 cd ${base_dir}/Skyport2/scripts/
                 source ./get_docker_binary.sh 
 
             
-                mkdir -p ${base_dir}/tmp
-                export DATADIR=${base_dir}/tmp
+                
                 cd ${base_dir}/testing
                 
                 docker-compose up -d

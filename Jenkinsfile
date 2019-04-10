@@ -130,6 +130,9 @@ pipeline {
 
                 sleep 1
 
+                cd ${base_dir}/Skyport2/scripts/
+                source ./get_docker_binary.sh 
+
             
                 mkdir -p ${base_dir}/tmp
                 export DATADIR=${base_dir}/tmp

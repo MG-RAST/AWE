@@ -82,10 +82,10 @@ pipeline {
 
                 echo "base_dir: ${base_dir}"
             
-                cd $base_dir/Skyport2
+                cd ${base_dir}/Skyport2
            
-            
-            
+                # overwrite nginx config
+                cp ${base_dir}/testing/nginx.conf ${base_dir}/Skyport2/Config/nginx/skyport-demo.conf
             
                 # Debugging
                 pwd
@@ -139,8 +139,9 @@ pipeline {
 
             
                 export TAG=latest
-                docker-compose run -d awe-server
-                docker-compose run -d shock
+                docker-compose run -d --name awe-server awe-server
+                docker-compose run -d --name shock shock
+                docker-compose run -d --no-deps --service-ports nginx
                 sleep 2
                 '''
         

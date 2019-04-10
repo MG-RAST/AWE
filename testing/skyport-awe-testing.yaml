@@ -82,8 +82,6 @@ services:
     awe-worker:
         image: mgrast/awe-worker:test
         # worker needs to wait for AWE-server to start up
-        extra_hosts:
-          - "skyport.local:${SKYPORT_DOCKER_GATEWAY}"
         entrypoint:
           - ash 
           - -c

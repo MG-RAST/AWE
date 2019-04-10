@@ -34,29 +34,11 @@ services:
           - 7445:7445
           - 8083:80
 
-    # local Oauth2 server for user, password and tokens
-    # to make Auth data persistent make the MySQL DB persistent
-    # auth:
-    #     image: mgrast/authserver:latest
-    #     extra_hosts:
-    #       - "skyport.local:${SKYPORT_DOCKER_GATEWAY}"
-    #     environment:
-    #         MYSQL_HOST: db
-    #         MYSQL_DATABASE: DemoAppUsers
-    #         MYSQL_USER: authService
-    #         MYSQL_PASSWORD: authServicePassword
-    #     depends_on:
-    #       - db
-    #     volumes:
-    #       - ${CONFIGDIR}/authServer/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro
-    #       - ${CONFIGDIR}/authServer/cgi/:/usr/local/apache2/htdocs/cgi-bin/
-    #     ports:
-    #       - 8081:80
-
+  
     # AWE resource manager
     # uncomment AWEDIR to make data and logs persistent (also requires AWE-mongo for full persistence)
     awe-server:
-        image: mgrast/awe-server:test
+        image: mgrast/awe-server
         # extra_hosts:
         #   - "skyport.local:${SKYPORT_DOCKER_GATEWAY}"
         entrypoint:
@@ -80,7 +62,7 @@ services:
     # the AWE worker that will execute the workflow steps
     # the data and logs for the awe worker are persistent in this configuration
     awe-worker:
-        image: mgrast/awe-worker:test
+        image: mgrast/awe-worker
         # worker needs to wait for AWE-server to start up
         entrypoint:
           - ash 

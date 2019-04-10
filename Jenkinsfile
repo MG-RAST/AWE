@@ -116,9 +116,9 @@ pipeline {
                 USE_CACHE="--no-cache"
                 USE_CACHE="" #speed-up for debugging purposes 
 
-                docker build ${USE_CACHE} --pull -t mgrast/awe-server .
-                docker build ${USE_CACHE} --pull -t mgrast/awe-worker -f Dockerfile_worker .
-                docker build ${USE_CACHE} --pull -t mgrast/awe-submitter -f Dockerfile_submitter .
+                #docker build ${USE_CACHE} --pull -t mgrast/awe-server .
+                #docker build ${USE_CACHE} --pull -t mgrast/awe-worker -f Dockerfile_worker .
+                #docker build ${USE_CACHE} --pull -t mgrast/awe-submitter -f Dockerfile_submitter .
             
                 cd ${base_dir}/testing/
                 docker build ${USE_CACHE} -t mgrast/awe-submitter-testing  .

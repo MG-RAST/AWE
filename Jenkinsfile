@@ -171,7 +171,7 @@ pipeline {
                 cd $base_dir
                 
                 
-                
+                set +e
                 
                 touch result.xml
                 docker run \
@@ -184,8 +184,10 @@ pipeline {
                     mgrast/awe-submitter-testing \
                     --junit-xml=/output/result.xml \
                     --timeout=120
-                '''
+                    
                 echo "stage Test done"
+                '''
+                
             }
         }
     }

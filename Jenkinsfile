@@ -44,6 +44,7 @@ pipeline {
                 #docker run --rm --volume `pwd`:/tmp/workspace bash rm -rf /tmp/workspace/live-data
                 
                 docker volume prune -f
+                echo "stage pre-cleanup done"
                 '''
             }
         }
@@ -54,14 +55,21 @@ pipeline {
                 
                 echo `pwd`
                 
+                
                 # this is needed for AWE compile scripts to determine the version number
                 git fetch --tags
+                
+                
+                #git pull
+                
                 
                 docker run --rm --volume `pwd`:/tmp/workspace bash rm -rf /tmp/workspace/Skyport2
                 git clone https://github.com/MG-RAST/Skyport2.git
                 
                 rm -rf common-workflow-language
                 git clone https://github.com/common-workflow-language/common-workflow-language.git
+                
+                echo "stage git-clone done"
                 '''
             }
         }
@@ -147,8 +155,9 @@ pipeline {
                 cd ${base_dir}/testing
                 
                 docker-compose up -d
-                
+                set +e
                 sleep 2
+                echo "services started"
                 '''
         
             }
@@ -176,6 +185,7 @@ pipeline {
                     --junit-xml=/output/result.xml \
                     --timeout=120
                 '''
+                echo "stage Test done"
             }
         }
     }
@@ -189,6 +199,7 @@ pipeline {
             docker-compose down
             #docker run --rm --volume `pwd`/live-data:/live-data bash rm -rf /live-data/*
             docker volume prune -f
+            echo "stage clean-up done"
             '''
         }        
     }

@@ -110,7 +110,7 @@ pipeline {
            
 
                 USE_CACHE="--no-cache"
-                USE_CACHE="" #speed-up for debugging purposes 
+                #USE_CACHE="" #speed-up for debugging purposes 
 
                 echo -e "data\ntmp\nSkyport2\nresult.xml\ndeprecated\ntesting/tmp\n" > .dockerignore
                 docker build ${USE_CACHE} --pull -t mgrast/awe-server .

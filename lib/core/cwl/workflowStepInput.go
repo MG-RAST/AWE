@@ -13,13 +13,13 @@ import (
 //http://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
 type WorkflowStepInput struct {
 	CWLObjectImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
-	Id              string           `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
-	Source          interface{}      `yaml:"source,omitempty" bson:"source,omitempty" json:"source,omitempty" mapstructure:"source,omitempty"` // MultipleInputFeatureRequirement, multiple inbound data links listed in the source field
-	Source_index    int              `yaml:"source_index,omitempty" bson:"source_index,omitempty" json:"source_index,omitempty" mapstructure:"source_index,omitempty"`
-	LinkMerge       *LinkMergeMethod `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty" mapstructure:"linkMerge,omitempty"`
-	Default         interface{}      `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty" mapstructure:"default,omitempty"`         // type Any does not make sense
-	ValueFrom       Expression       `yaml:"valueFrom,omitempty" bson:"valueFrom,omitempty" json:"valueFrom,omitempty" mapstructure:"valueFrom,omitempty"` // StepInputExpressionRequirement
-	Ready           bool             `yaml:"-" bson:"-" json:"-" mapstructure:"-"`
+	Id            string           `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
+	Source        interface{}      `yaml:"source,omitempty" bson:"source,omitempty" json:"source,omitempty" mapstructure:"source,omitempty"` // MultipleInputFeatureRequirement, multiple inbound data links listed in the source field
+	Source_index  int              `yaml:"source_index,omitempty" bson:"source_index,omitempty" json:"source_index,omitempty" mapstructure:"source_index,omitempty"`
+	LinkMerge     *LinkMergeMethod `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty" mapstructure:"linkMerge,omitempty"`
+	Default       interface{}      `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty" mapstructure:"default,omitempty"`         // type Any does not make sense
+	ValueFrom     Expression       `yaml:"valueFrom,omitempty" bson:"valueFrom,omitempty" json:"valueFrom,omitempty" mapstructure:"valueFrom,omitempty"` // StepInputExpressionRequirement
+	Ready         bool             `yaml:"-" bson:"-" json:"-" mapstructure:"-"`
 }
 
 func (w WorkflowStepInput) GetClass() string {
@@ -195,9 +195,14 @@ func CreateWorkflowStepInputArray(original interface{}, context *WorkflowContext
 	array := []WorkflowStepInput{}
 	array_ptr = &array
 
+	original, err = MakeStringMap(original, context)
+	if err != nil {
+		return
+	}
+
 	switch original.(type) {
-	case map[interface{}]interface{}:
-		original_map := original.(map[interface{}]interface{})
+	case map[string]interface{}:
+		original_map := original.(map[string]interface{})
 
 		for k, v := range original_map {
 			//v is an input
@@ -209,7 +214,7 @@ func CreateWorkflowStepInputArray(original interface{}, context *WorkflowContext
 			}
 
 			if input_parameter.Id == "" {
-				input_parameter.Id = k.(string)
+				input_parameter.Id = k
 			}
 
 			array = append(array, *input_parameter)
@@ -234,7 +239,7 @@ func CreateWorkflowStepInputArray(original interface{}, context *WorkflowContext
 		return
 
 	default:
-		err = fmt.Errorf("(CreateWorkflowStepInputArray) type unknown")
+		err = fmt.Errorf("(CreateWorkflowStepInputArray) type unknown: %s", reflect.TypeOf(original))
 
 	}
 	//spew.Dump(new_array)

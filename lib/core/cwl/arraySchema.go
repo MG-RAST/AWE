@@ -1,6 +1,10 @@
 package cwl
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/davecgh/go-spew/spew"
+)
 
 //"fmt"
 
@@ -28,7 +32,8 @@ func NewArraySchemaFromMap(original_map map[string]interface{}, schemata []CWLTy
 
 	items, ok := original_map["items"]
 	if !ok {
-
+		fmt.Println("NewArraySchemaFromMap:")
+		spew.Dump(original_map)
 		err = fmt.Errorf("(NewArraySchemaFromMap) items are missing")
 		return
 	}

@@ -7,7 +7,7 @@ import (
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CommandInputArraySchema
 type CommandInputArraySchema struct { // Items, Type , Label
-	ArraySchema  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Type, Label
+	ArraySchema  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Type, Label, Items
 	InputBinding *CommandLineBinding                                                   `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty"`
 }
 

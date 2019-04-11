@@ -30,40 +30,30 @@ type OutputParameter struct {
 // CommandOutputParameter (context CommandOutput)
 // CWLType | stdout | stderr | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string | array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
 
-func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Type, context_p string, context *WorkflowContext) (output_parameter *OutputParameter, err error) {
+func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Type, context_p string, context *WorkflowContext) (output_parameter interface{}, err error) {
 	original, err = MakeStringMap(original, context)
 	if err != nil {
 		err = fmt.Errorf("(NewOutputParameterFromInterface) MakeStringMap returned: %s", err.Error())
 		return
 	}
-	output_parameter = &OutputParameter{}
 
 	switch original.(type) {
 
 	case string:
 
-		type_string := original.(string)
+		// ExpressionTool.Output can be a map of id to type | ExpressionToolOutputParameter
+		typeString := original.(string)
 
-		err = fmt.Errorf("(NewOutputParameterFromInterface) got string: %s", type_string)
-		return
-	// case string:
+		var originalType CWLType_Type
+		originalType, err = NewCWLType_TypeFromString(schemata, typeString, "Output")
+		if err != nil {
+			err = fmt.Errorf("(NewInputParameter) NewCWLType_TypeFromString returned: %s", err.Error())
+			return
+		}
 
-	// 	type_string := original.(string)
+		output_parameter = originalType
 
-	// 	var original_type CWLType_Type
-	// 	original_type, err = NewCWLType_TypeFromString(schemata, type_string, "Output")
-	// 	if err != nil {
-	// 		err = fmt.Errorf("(NewInputParameter) NewCWLType_TypeFromString returned: %s", err.Error())
-	// 		return
-	// 	}
-
-	// 	//output_parameter_type, xerr := NewInputParameterType(type_string_lower)
-	// 	//if xerr != nil {
-	// 	//	err = xerr
-	// 	//	return
-	// 	//}
-
-	// 	output_parameter.Type = []CWLType_Type{original_type}
+		//output_parameter.Type = []CWLType_Type{original_type}
 
 	// 	//case int:
 	// 	//output_parameter_type, xerr := NewInputParameterTypeArray("int")
@@ -75,6 +65,8 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 	// 	//output_parameter.Type = output_parameter_type
 
 	case map[string]interface{}:
+
+		output_parameter = &OutputParameter{}
 
 		original_map := original.(map[string]interface{})
 

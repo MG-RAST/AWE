@@ -23,16 +23,23 @@ func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type, co
 		return
 	}
 
-	var op *OutputParameter
-	op, err = NewOutputParameterFromInterface(original, schemata, "CommandOutput", context)
-	if err != nil {
-		err = fmt.Errorf("(NewCommandOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
-		return
-	}
-
 	switch original.(type) {
 
 	case map[string]interface{}:
+
+		var op *OutputParameter
+		var opIf interface{}
+		opIf, err = NewOutputParameterFromInterface(original, schemata, "CommandOutput", context)
+		if err != nil {
+			err = fmt.Errorf("(NewCommandOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
+			return
+		}
+
+		op, ok := opIf.(*OutputParameter)
+		if !ok {
+			err = fmt.Errorf("(NewCommandOutputParameter) could not cast into *OutputParameter")
+			return
+		}
 
 		//original_map, ok := original.(map[string]interface{})
 		//if !ok {

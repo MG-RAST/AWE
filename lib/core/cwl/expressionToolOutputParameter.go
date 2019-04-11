@@ -24,16 +24,23 @@ func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_T
 		return
 	}
 
-	var op *OutputParameter
-	op, err = NewOutputParameterFromInterface(original, schemata, "Output", context)
-	if err != nil {
-		err = fmt.Errorf("(NewExpressionToolOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
-		return
-	}
-
 	switch original.(type) {
 
 	case map[string]interface{}:
+
+		var op *OutputParameter
+		var opIf interface{}
+		opIf, err = NewOutputParameterFromInterface(original, schemata, "Output", context)
+		if err != nil {
+			err = fmt.Errorf("(NewExpressionToolOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
+			return
+		}
+
+		op, ok := opIf.(*OutputParameter)
+		if !ok {
+			err = fmt.Errorf("(NewExpressionToolOutputParameter) could not cast into *OutputParameter")
+			return
+		}
 
 		err = mapstructure.Decode(original, &outputParameter)
 		if err != nil {

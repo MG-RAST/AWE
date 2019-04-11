@@ -203,6 +203,7 @@ pipeline {
             docker volume prune -f
             echo "stage clean-up done"
             '''
+            junit "result.xml"
         }        
     }
 }

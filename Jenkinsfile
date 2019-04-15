@@ -176,7 +176,7 @@ pipeline {
                 
                 
                 set +e
-                
+                rm -f result.xml
                 touch result.xml
                 docker run \
                     --rm \

@@ -80,11 +80,6 @@ func mainWrapper() (err error) {
 	//	println(value)
 	//}
 
-	if len(conf.ARGS) < 2 {
-		err = fmt.Errorf("not enough arguments, workflow file and job file are required")
-		return
-	}
-
 	workflowFile := conf.ARGS[0]
 	jobFile := ""
 

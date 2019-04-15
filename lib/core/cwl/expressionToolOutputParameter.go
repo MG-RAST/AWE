@@ -25,7 +25,9 @@ func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_T
 	}
 
 	switch original.(type) {
-
+	case string:
+		err = fmt.Errorf("(NewExpressionToolOutputParameter) type string not supported!! ")
+		return
 	case map[string]interface{}:
 
 		var op *OutputParameter
@@ -86,9 +88,11 @@ func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLT
 				newArray = append(newArray, result)
 				continue
 			}
-			outputParameter, xerr := NewExpressionToolOutputParameter(v, schemata, context)
-			if xerr != nil {
-				err = xerr
+			var outputParameter *ExpressionToolOutputParameter
+			outputParameter, err = NewExpressionToolOutputParameter(v, schemata, context)
+			if err != nil {
+				err = fmt.Errorf("(NewExpressionToolOutputParameterArray) NewExpressionToolOutputParameter returns: %s", err.Error())
+
 				return
 			}
 			outputParameter.Id = k

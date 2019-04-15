@@ -91,7 +91,7 @@ func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLT
 			var outputParameter *ExpressionToolOutputParameter
 			outputParameter, err = NewExpressionToolOutputParameter(v, schemata, context)
 			if err != nil {
-				err = fmt.Errorf("(NewExpressionToolOutputParameterArray) NewExpressionToolOutputParameter returns: %s", err.Error())
+				err = fmt.Errorf("(NewExpressionToolOutputParameterArray) A) NewExpressionToolOutputParameter returns: %s", err.Error())
 
 				return
 			}
@@ -108,9 +108,25 @@ func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLT
 		for _, v := range original.([]interface{}) {
 			//fmt.Printf("A")
 
-			outputParameter, xerr := NewExpressionToolOutputParameter(v, schemata, context)
-			if xerr != nil {
-				err = xerr
+			var elementStr string
+			var ok bool
+			elementStr, ok = v.(string)
+
+			if ok {
+				var result CWLType_Type
+				result, err = NewCWLType_TypeFromString(schemata, elementStr, "ExpressionToolOutput")
+				if err != nil {
+					err = fmt.Errorf("(NewExpressionToolOutputParameterArray) NewCWLType_TypeFromString returns: %s", err.Error())
+					return
+				}
+				newArray = append(newArray, result)
+				continue
+			}
+
+			var outputParameter *ExpressionToolOutputParameter
+			outputParameter, err = NewExpressionToolOutputParameter(v, schemata, context)
+			if err != nil {
+				err = fmt.Errorf("(NewExpressionToolOutputParameterArray) B) NewExpressionToolOutputParameter returns: %s", err.Error())
 				return
 			}
 			//output_parameter.Id = k.(string)

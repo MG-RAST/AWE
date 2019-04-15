@@ -187,7 +187,7 @@ pipeline {
                     --volume `pwd`/result.xml:/output/result.xml \
                     mgrast/awe-submitter-testing \
                     --junit-xml=/output/result.xml \
-                    --timeout=120
+                    --timeout=120 -n24
                     
                 echo "stage Test done"
                 '''

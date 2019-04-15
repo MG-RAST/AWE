@@ -44,14 +44,14 @@ func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_T
 
 		err = mapstructure.Decode(original, &outputParameter)
 		if err != nil {
-			err = fmt.Errorf("(NewWorkflowOutputParameter) decode error: %s", err.Error())
+			err = fmt.Errorf("(NewExpressionToolOutputParameter) decode error: %s", err.Error())
 			return
 		}
 		wop = &outputParameter
 
 		wop.OutputParameter = *op
 	default:
-		err = fmt.Errorf("(NewWorkflowOutputParameter) type unknown, %s", reflect.TypeOf(original))
+		err = fmt.Errorf("(NewExpressionToolOutputParameter) type unknown, %s", reflect.TypeOf(original))
 		return
 
 	}
@@ -60,19 +60,32 @@ func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_T
 }
 
 // NewExpressionToolOutputParameterArray _
-func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (newArrayPtr *[]ExpressionToolOutputParameter, err error) {
+func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (newArray []interface{}, err error) {
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
 
-	newArray := []ExpressionToolOutputParameter{}
+	newArray = []interface{}{}
 	switch original.(type) {
 	case map[string]interface{}:
 		for k, v := range original.(map[string]interface{}) {
 			//fmt.Printf("A")
+			var elementStr string
+			var ok bool
+			elementStr, ok = v.(string)
 
+			if ok {
+				var result CWLType_Type
+				result, err = NewCWLType_TypeFromString(schemata, elementStr, "ExpressionToolOutput")
+				if err != nil {
+					err = fmt.Errorf("(NewExpressionToolOutputParameterArray) NewCWLType_TypeFromString returns: %s", err.Error())
+					return
+				}
+				newArray = append(newArray, result)
+				continue
+			}
 			outputParameter, xerr := NewExpressionToolOutputParameter(v, schemata, context)
 			if xerr != nil {
 				err = xerr
@@ -84,7 +97,7 @@ func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLT
 			//fmt.Printf("D")
 
 		}
-		newArrayPtr = &newArray
+
 		return
 	case []interface{}:
 
@@ -102,7 +115,7 @@ func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLT
 			//fmt.Printf("D")
 
 		}
-		newArrayPtr = &newArray
+
 		return
 
 	default:

@@ -2658,6 +2658,26 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		// arrays do not have to be the same length
 		// nested_crossproduct and flat_crossproduct differ only in hor results are merged
 
+		if strings.ToLower(scatter_method) == "nested_crossproduct" {
+			task.SetState(workflow_instance, TASK_STAT_SUSPEND, true)
+			taskStr, _ := task.String()
+			var jobid string
+			jobid, err = task.GetJobId()
+			if err != nil {
+				return
+			}
+			jerror := &JobError{
+				TaskFailed:  taskStr,
+				ServerNotes: fmt.Sprintf("nested_crossproduct not supported yet"),
+				Status:      JOB_STAT_SUSPEND,
+			}
+			err = qm.SuspendJob(jobid, jerror)
+			if err != nil {
+				err = fmt.Errorf("(updateQueueTask) qm.SuspendJob returned: %s", err.Error())
+				return
+			}
+		}
+
 		// defined counter for iteration over all combinations
 		scatter_type = "cross"
 	} else {

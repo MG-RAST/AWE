@@ -388,33 +388,40 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				}
 
 				for _, output := range expressiontool.Outputs { // type: ExpressionToolOutputParameter
-					var workflow_step_output cwl.WorkflowStepOutput
-					workflow_step_output.Id = step_id + "/" + path.Base(output.Id)
 
-					new_step.Out = append(new_step.Out, workflow_step_output)
+					outputEtop, ok := output.(cwl.ExpressionToolOutputParameter)
+					if ok {
+						var workflowStepOutput cwl.WorkflowStepOutput
+						workflowStepOutput.Id = step_id + "/" + path.Base(outputEtop.Id)
 
-					var workflow_output_parameter cwl.WorkflowOutputParameter
+						new_step.Out = append(new_step.Out, workflowStepOutput)
 
-					workflow_output_parameter.Id = entrypoint + "/" + path.Base(output.Id)
-					workflow_output_parameter.OutputSource = step_id + "/" + path.Base(output.Id)
-					workflow_output_parameter.SecondaryFiles = output.SecondaryFiles
-					workflow_output_parameter.Format = output.Format
-					workflow_output_parameter.Streamable = output.Streamable
-					//workflow_output_parameter.OutputBinding = output.OutputBinding
-					//workflow_output_parameter.OutputSource = output.OutputSource
-					//workflow_output_parameter.LinkMerge = output.LinkMerge
-					workflow_output_parameter.Type = output.Type
-					cwl_workflow.Outputs = append(cwl_workflow.Outputs, workflow_output_parameter)
+						var workflowOutputParameter cwl.WorkflowOutputParameter
+
+						workflowOutputParameter.Id = entrypoint + "/" + path.Base(outputEtop.Id)
+						workflowOutputParameter.OutputSource = step_id + "/" + path.Base(outputEtop.Id)
+						workflowOutputParameter.SecondaryFiles = outputEtop.SecondaryFiles
+						workflowOutputParameter.Format = outputEtop.Format
+						workflowOutputParameter.Streamable = outputEtop.Streamable
+						//workflow_output_parameter.OutputBinding = output.OutputBinding
+						//workflow_output_parameter.OutputSource = output.OutputSource
+						//workflow_output_parameter.LinkMerge = output.LinkMerge
+						workflowOutputParameter.Type = outputEtop.Type
+						cwl_workflow.Outputs = append(cwl_workflow.Outputs, workflowOutputParameter)
+					} else {
+						err = fmt.Errorf("(job/create) ExpressionToolOutputParameter still required")
+						return
+					}
 				}
 
 				if expressiontool.Requirements != nil {
 					requirements := expressiontool.Requirements
-					for i, _ := range requirements {
-						require_type := (requirements)[i].GetClass()
-						if require_type == "ShockRequirement" {
-							shock_requirement := (requirements)[i]
+					for i := range requirements {
+						requireType := (requirements)[i].GetClass()
+						if requireType == "ShockRequirement" {
+							shockRequirement := (requirements)[i]
 
-							cwl_workflow.Requirements, err = cwl.AddRequirement(shock_requirement, requirements)
+							cwl_workflow.Requirements, err = cwl.AddRequirement(shockRequirement, requirements)
 							if err != nil {
 								err = fmt.Errorf("(job/create) AddRequirement returned: %s", err.Error())
 								return
@@ -427,11 +434,11 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				cwl_workflow.Steps = []cwl.WorkflowStep{new_step}
 
-				cwl_workflow_named := cwl.NamedCWLObject{}
-				cwl_workflow_named.Id = cwl_workflow.Id
-				cwl_workflow_named.Value = cwl_workflow
+				cwlWorkflowNamed := cwl.NamedCWLObject{}
+				cwlWorkflowNamed.Id = cwl_workflow.Id
+				cwlWorkflowNamed.Value = cwl_workflow
 
-				object_array = append(object_array, cwl_workflow_named)
+				object_array = append(object_array, cwlWorkflowNamed)
 				//err = context.Add(entrypoint, cwl_workflow, "job/create2")
 				//if err != nil {
 				//	cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)

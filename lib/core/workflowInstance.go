@@ -200,12 +200,15 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 	}
 
 	if context != nil {
+
+		thisID := wi.LocalID
+
 		for i := range wi.Inputs {
 			inpNamed := &wi.Inputs[i]
 			inpID := inpNamed.Id
 			inpValue := inpNamed.Value
 
-			err = context.Add(inpID, inpValue, "NewWorkflowInstanceFromInterface")
+			err = context.Add(path.Join(thisID, inpID), inpValue, "NewWorkflowInstanceFromInterface")
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) context.Add returned: %s", err.Error())
 				return

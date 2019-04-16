@@ -3,6 +3,8 @@ package cwl
 import (
 	//"errors"
 	"fmt"
+	"path"
+
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 
@@ -13,7 +15,7 @@ import (
 type CommandLineTool struct {
 	//Id                 string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
 	//Class              string                   `yaml:"class,omitempty" bson:"class,omitempty" json:"class,omitempty"`
-	CWLObjectImpl    `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	CWLObjectImpl      `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	CWL_class_Impl     `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	CWL_id_Impl        `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	BaseCommand        []string                 `yaml:"baseCommand,omitempty" bson:"baseCommand,omitempty" json:"baseCommand,omitempty" mapstructure:"baseCommand,omitempty"`
@@ -36,7 +38,7 @@ type CommandLineTool struct {
 }
 
 func (c *CommandLineTool) IsCWLMinimal() {}
-func (c *CommandLineTool) Is_process()     {}
+func (c *CommandLineTool) Is_process()   {}
 
 // keyname will be converted into 'Id'-field
 
@@ -189,15 +191,21 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 	}
 
 	if context != nil {
+
+		thisID := commandLineTool.Id
+		if thisID == "" {
+			err = fmt.Errorf("(NewCommandLineTool) did not expect empty Id")
+			return
+		}
 		err = context.Add(commandLineTool.Id, commandLineTool, "NewCommandLineTool")
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) context.Add returned: %s", err.Error())
 			return
 		}
 
-		for i, _ := range commandLineTool.Inputs {
+		for i := range commandLineTool.Inputs {
 			inp := &commandLineTool.Inputs[i]
-			err = context.Add(inp.Id, inp, "NewCommandLineTool")
+			err = context.Add(path.Join(thisID, inp.Id), inp, "NewCommandLineTool")
 			if err != nil {
 				err = fmt.Errorf("(NewCommandLineTool) context.Add returned: %s", err.Error())
 				return

@@ -20,9 +20,10 @@ services:
     shock:
         image: mgrast/shock
         depends_on:
-          - mongo
+          - shock-mongo
         entrypoint:
           - /go/bin/shock-server
+          - --hosts shock-mongo
           # - --conf
           # - /shock-config/shock-server.cfg
         # volumes:
@@ -93,7 +94,7 @@ services:
 
 
     # mongoDB for the SHOCK service, provides metadata storage
-    mongo:
+    shock-mongo:
         image: mongo:3.6
         ports:
           - 27017

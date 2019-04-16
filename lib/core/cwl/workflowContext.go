@@ -23,7 +23,7 @@ type WorkflowContext struct {
 	//CWL_graph  []interface{} `yaml:"cwl_graph"  json:"cwl_graph" bson:"cwl_graph" mapstructure:"cwl_graph"`
 	// old ParsingContext
 	If_objects map[string]interface{} `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // graph objects
-	Objects    map[string]CWLObject  `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // graph objects , stores all objects (replaces All ???)
+	Objects    map[string]CWLObject   `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // graph objects , stores all objects (replaces All ???)
 
 	//Workflows          map[string]*Workflow          `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//InputParameter     map[string]*InputParameter    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // WorkflowInput
@@ -334,7 +334,7 @@ func (c *WorkflowContext) Add(id string, obj CWLObject, caller string) (err erro
 
 	_, ok := c.All[id]
 	if ok {
-		err = fmt.Errorf("(WorkflowContext/Add) Object %s already in collection", id)
+		err = fmt.Errorf("(WorkflowContext/Add) Object %s already in collection (caller: %s)", id, caller)
 		return
 	}
 

@@ -103,7 +103,7 @@ func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object
 
 	err = context.Init("#main")
 	if err != nil {
-		err = fmt.Errorf("(Parse_cwl_graph_document) context.FillMaps returned: %s", err.Error())
+		err = fmt.Errorf("(Parse_cwl_graph_document) context.Init returned: %s", err.Error())
 		return
 	}
 
@@ -265,6 +265,8 @@ func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []
 	graph_pos := strings.Index(yaml_str, "$graph")
 
 	//yaml_str = strings.Replace(yaml_str, "$namespaces", "namespaces", -1)
+	fmt.Println("yaml_str:")
+	fmt.Println(yaml_str)
 
 	if graph_pos != -1 {
 		// *** graph file ***

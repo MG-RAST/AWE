@@ -23,7 +23,7 @@ services:
           - shock-mongo
         entrypoint:
           - /go/bin/shock-server
-          - --hosts shock-mongo
+          - --hosts=shock-mongo
           # - --conf
           # - /shock-config/shock-server.cfg
         # volumes:

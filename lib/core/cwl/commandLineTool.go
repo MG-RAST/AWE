@@ -8,6 +8,7 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -45,8 +46,8 @@ func (c *CommandLineTool) Is_process()   {}
 //func NewCommandLineTool(object CWLObjectGeneric) (commandLineTool *CommandLineTool, err error) {
 func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement, context *WorkflowContext) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
 
-	//fmt.Println("NewCommandLineTool:")
-	//spew.Dump(generic)
+	fmt.Println("NewCommandLineTool() generic:")
+	spew.Dump(generic)
 
 	//switch type()
 	object, ok := generic.(map[string]interface{})
@@ -55,6 +56,9 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 		return
 	}
 	//spew.Dump(generic)
+
+	fmt.Println("NewCommandLineTool() object:")
+	spew.Dump(object)
 
 	commandLineTool = &CommandLineTool{}
 	commandLineTool.Class = "CommandLineTool"
@@ -104,14 +108,23 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 
 	outputs, ok := object["outputs"]
 	if ok {
+
+		fmt.Println("NewCommandLineTool() object/outputs:")
+		spew.Dump(outputs)
+
 		// Convert map of outputs into array of outputs
 		object["outputs"], err = NewCommandOutputParameterArray(outputs, schemata, context)
 		if err != nil {
+			fmt.Println("NewCommandLineTool after error")
+			spew.Dump(object)
+
 			err = fmt.Errorf("(NewCommandLineTool) error in NewCommandOutputParameterArray: %s", err.Error())
 			return
 		}
 	} else {
-		object["outputs"] = []*CommandOutputParameter{}
+		err = fmt.Errorf("(NewCommandLineTool) no outputs !?")
+		return
+		//object["outputs"] = []*CommandOutputParameter{}
 	}
 
 	baseCommand, ok := object["baseCommand"]
@@ -176,6 +189,9 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 		err = fmt.Errorf("(NewCommandLineTool) error parsing CommandLineTool class: %s", err.Error())
 		return
 	}
+
+	fmt.Println("commandLineTool:")
+	spew.Dump(commandLineTool)
 
 	if commandLineTool.CwlVersion == "" {
 		commandLineTool.CwlVersion = context.CwlVersion

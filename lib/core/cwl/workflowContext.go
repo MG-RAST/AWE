@@ -96,40 +96,6 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 		return
 	}
 
-	//if context.Workflows == nil {
-	//	context.Workflows = make(map[string]*Workflow)
-	//}
-
-	//if context.WorkflowStepInputs == nil {
-	//	context.WorkflowStepInputs = make(map[string]*WorkflowStepInput)
-	//}
-
-	//if context.CommandLineTools == nil {
-	//	context.CommandLineTools = make(map[string]*CommandLineTool)
-	//}
-
-	//if context.ExpressionTools == nil {
-	//	context.ExpressionTools = make(map[string]*ExpressionTool)
-	//}
-	//if context.Files == nil {
-	//	context.Files = make(map[string]*File)
-	//}
-
-	//if context.Strings == nil {
-	//	context.Strings = make(map[string]*String)
-	//}
-
-	//if context.Ints == nil {
-	//	context.Ints = make(map[string]*Int)
-	//}
-
-	//if context.Booleans == nil {
-	//	context.Booleans = make(map[string]*Boolean)
-	//}
-
-	//context := &WorkflowContext{}
-	//var If_objects map[string]interface{}
-
 	graph := context.CWL_document.Graph
 
 	if len(graph) == 0 {
@@ -143,6 +109,7 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	for i, _ := range graph {
 
 		//fmt.Printf("graph element type: %s\n", reflect.TypeOf(graph[i]))
+		//spew.Dump(graph[i])
 
 		if graph[i] == nil {
 			err = fmt.Errorf("(WorkflowContext/Init) graph[i] empty array element")
@@ -405,7 +372,7 @@ func (c *WorkflowContext) Add(id string, obj CWLObject, caller string) (err erro
 	}
 
 	c.All[id] = obj
-	fmt.Println("(c.All) after insertion of %s", id)
+	fmt.Printf("(c.All) after insertion of %s (caller: %s)\n", id, caller)
 	for i, _ := range c.All {
 		fmt.Println(i)
 	}

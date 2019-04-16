@@ -29,16 +29,9 @@ func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type, c
 	case map[string]interface{}:
 
 		var op *OutputParameter
-		var opIf interface{}
-		opIf, err = NewOutputParameterFromInterface(original, schemata, "Output", context)
+		op, err = NewOutputParameterFromInterface(original, "", schemata, "Output", context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflowOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
-			return
-		}
-
-		op, ok := opIf.(*OutputParameter)
-		if !ok {
-			err = fmt.Errorf("(NewWorkflowOutputParameter) could not cast into *OutputParameter")
 			return
 		}
 

@@ -14,19 +14,19 @@ import (
 )
 
 type Workflow struct {
-	CWLObjectImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides IsCWLObject
-	CWL_class_Impl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
-	CWL_id_Impl     `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
-	Inputs          []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
-	Outputs         []WorkflowOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
-	Steps           []WorkflowStep            `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty" mapstructure:"steps,omitempty"`
-	Requirements    []Requirement             `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` //[]Requirement
-	Hints           []Requirement             `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
-	Label           string                    `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
-	Doc             string                    `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
-	CwlVersion      CWLVersion                `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
-	Metadata        map[string]interface{}    `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty" mapstructure:"metadata,omitempty"`
-	Namespaces      map[string]string         `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
+	CWLObjectImpl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides IsCWLObject
+	CWL_class_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
+	CWL_id_Impl    `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	Inputs         []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
+	Outputs        []WorkflowOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
+	Steps          []WorkflowStep            `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty" mapstructure:"steps,omitempty"`
+	Requirements   []Requirement             `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` //[]Requirement
+	Hints          []Requirement             `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
+	Label          string                    `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
+	Doc            string                    `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
+	CwlVersion     CWLVersion                `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
+	Metadata       map[string]interface{}    `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty" mapstructure:"metadata,omitempty"`
+	Namespaces     map[string]string         `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
 func (w *Workflow) GetClass() string { return string(CWLWorkflow) }
@@ -199,14 +199,14 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 			}
 			//}
 
-			for i, _ := range workflow.Inputs {
-				inp := &workflow.Inputs[i]
-				err = context.Add(inp.Id, inp, "NewWorkflow")
-				if err != nil {
-					err = fmt.Errorf("(NewWorkflow) context.Add returned: %s", err.Error())
-					return
-				}
-			}
+			//for i, _ := range workflow.Inputs { // this can conflict with workflow_instance fields
+			//	inp := &workflow.Inputs[i]
+			//	err = context.Add(inp.Id, inp, "NewWorkflow")
+			//	if err != nil {
+			//		err = fmt.Errorf("(NewWorkflow) context.Add returned: %s", err.Error())
+			//		return
+			//	}
+			//}
 		} else {
 			err = fmt.Errorf("(NewWorkflow) context empty")
 			return

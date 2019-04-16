@@ -7,6 +7,7 @@ import (
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/davecgh/go-spew/spew"
 
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	e "github.com/MG-RAST/AWE/lib/errors"
@@ -357,6 +358,9 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	workunit := workunits[0]
 	workunit.State = core.WORK_STAT_RESERVED
 	workunit.Client = clientid
+
+	fmt.Println("workunit:")
+	spew.Dump(workunit)
 
 	//test, err := json.Marshal(workunit)
 	//if err != nil {

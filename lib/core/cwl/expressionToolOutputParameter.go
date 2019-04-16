@@ -16,7 +16,7 @@ type ExpressionToolOutputParameter struct {
 // type: CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
 
 //NewExpressionToolOutputParameter _
-func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (wop *ExpressionToolOutputParameter, err error) {
+func NewExpressionToolOutputParameter(original interface{}, thisID string, schemata []CWLType_Type, context *WorkflowContext) (wop *ExpressionToolOutputParameter, err error) {
 	var outputParameter ExpressionToolOutputParameter
 
 	original, err = MakeStringMap(original, context)
@@ -32,7 +32,7 @@ func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_T
 
 		var op *OutputParameter
 		var opIf interface{}
-		opIf, err = NewOutputParameterFromInterface(original, schemata, "Output", context)
+		opIf, err = NewOutputParameterFromInterface(original, thisID, schemata, "Output", context)
 		if err != nil {
 			err = fmt.Errorf("(NewExpressionToolOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
 			return
@@ -85,11 +85,16 @@ func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLT
 					err = fmt.Errorf("(NewExpressionToolOutputParameterArray) NewCWLType_TypeFromString returns: %s", err.Error())
 					return
 				}
+
+				etop := ExpressionToolOutputParameter{}
+				etop.Id = k
+				etop.Type = result
+
 				newArray = append(newArray, result)
 				continue
 			}
 			var outputParameter *ExpressionToolOutputParameter
-			outputParameter, err = NewExpressionToolOutputParameter(v, schemata, context)
+			outputParameter, err = NewExpressionToolOutputParameter(v, k, schemata, context)
 			if err != nil {
 				err = fmt.Errorf("(NewExpressionToolOutputParameterArray) A) NewExpressionToolOutputParameter returns: %s", err.Error())
 
@@ -124,7 +129,7 @@ func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLT
 			}
 
 			var outputParameter *ExpressionToolOutputParameter
-			outputParameter, err = NewExpressionToolOutputParameter(v, schemata, context)
+			outputParameter, err = NewExpressionToolOutputParameter(v, "", schemata, context)
 			if err != nil {
 				err = fmt.Errorf("(NewExpressionToolOutputParameterArray) B) NewExpressionToolOutputParameter returns: %s", err.Error())
 				return

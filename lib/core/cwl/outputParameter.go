@@ -30,12 +30,15 @@ type OutputParameter struct {
 // CommandOutputParameter (context CommandOutput)
 // CWLType | stdout | stderr | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string | array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
 
-func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Type, context_p string, context *WorkflowContext) (output_parameter interface{}, err error) {
+func NewOutputParameterFromInterface(original interface{}, thisID string, schemata []CWLType_Type, context_p string, context *WorkflowContext) (output_parameter *OutputParameter, err error) {
 	original, err = MakeStringMap(original, context)
 	if err != nil {
 		err = fmt.Errorf("(NewOutputParameterFromInterface) MakeStringMap returned: %s", err.Error())
 		return
 	}
+
+	fmt.Println("NewOutputParameterFromInterface:")
+	spew.Dump(original)
 
 	switch original.(type) {
 
@@ -51,7 +54,9 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 			return
 		}
 
-		output_parameter = originalType
+		output_parameter = &OutputParameter{}
+		output_parameter.Id = thisID
+		output_parameter.Type = originalType
 
 		//output_parameter.Type = []CWLType_Type{original_type}
 
@@ -69,6 +74,9 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 		output_parameter = &OutputParameter{}
 
 		original_map := original.(map[string]interface{})
+
+		fmt.Println("NewOutputParameterFromInterface as map:")
+		spew.Dump(original_map)
 
 		output_parameter_default, ok := original_map["default"]
 		if ok {
@@ -114,12 +122,21 @@ func NewOutputParameterFromInterface(original interface{}, schemata []CWLType_Ty
 			}
 		}
 
-		err = mapstructure.Decode(original, output_parameter)
+		err = mapstructure.Decode(original, &output_parameter)
 		if err != nil {
 			spew.Dump(original)
 			err = fmt.Errorf("(NewOutputParameterFromInterface) mapstructure.Decode returned: %s", err.Error())
 			return
 		}
+		if output_parameter.Id == "" {
+			output_parameter.Id = thisID
+
+			if output_parameter.Id == "" {
+				err = fmt.Errorf("(NewOutputParameterFromInterface) id empty")
+				return
+			}
+		}
+
 	default:
 		spew.Dump(original)
 		err = fmt.Errorf("(NewOutputParameterFromInterface) cannot parse output type %s", reflect.TypeOf(original))

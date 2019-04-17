@@ -296,6 +296,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 							cwl_workflow.Requirements, err = cwl.AddRequirement(shock_requirement, requirements)
 							if err != nil {
 								err = fmt.Errorf("(job/create) AddRequirement returned: %s", err.Error())
+								cx.RespondWithErrorMessage(fmt.Sprintf("(job/create) Error in AddRequirement: %s", err.Error()), http.StatusBadRequest)
 								return
 							}
 						}
@@ -389,7 +390,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				for _, output := range expressiontool.Outputs { // type: ExpressionToolOutputParameter
 
-					outputEtop, ok := output.(cwl.ExpressionToolOutputParameter)
+					outputEtop, ok := output.(*cwl.ExpressionToolOutputParameter)
 					if ok {
 						var workflowStepOutput cwl.WorkflowStepOutput
 						workflowStepOutput.Id = step_id + "/" + path.Base(outputEtop.Id)
@@ -409,7 +410,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 						workflowOutputParameter.Type = outputEtop.Type
 						cwl_workflow.Outputs = append(cwl_workflow.Outputs, workflowOutputParameter)
 					} else {
-						err = fmt.Errorf("(job/create) ExpressionToolOutputParameter still required")
+						err = fmt.Errorf("(job/create) ExpressionToolOutputParameter still required, got: %s", reflect.TypeOf(output))
+						cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 						return
 					}
 				}
@@ -424,6 +426,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 							cwl_workflow.Requirements, err = cwl.AddRequirement(shockRequirement, requirements)
 							if err != nil {
 								err = fmt.Errorf("(job/create) AddRequirement returned: %s", err.Error())
+								cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 								return
 							}
 						}

@@ -359,8 +359,8 @@ func mainWrapper() (err error) {
 
 	// ### Submit job to AWE
 	var jobid string
-
-	jobid, err = SubmitCWLJobToAWE(tempfileName, jobFile, &data, aweAuth, shockAuth)
+	var entrypoint string
+	jobid, entrypoint, err = SubmitCWLJobToAWE(tempfileName, jobFile, &data, aweAuth, shockAuth)
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) SubmitCWLJobToAWE returned: %s", err.Error())
 		return
@@ -369,7 +369,7 @@ func mainWrapper() (err error) {
 	//fmt.Printf("Job id: %s\n", jobid)
 
 	if conf.SUBMITTER_WAIT {
-		err = WaitForResults(jobid, aweAuth)
+		err = WaitForResults(jobid, entrypoint, aweAuth)
 		if err != nil {
 			err = fmt.Errorf("(main_wrapper) Wait_for_results returned: %s", err.Error())
 			return
@@ -381,7 +381,7 @@ func mainWrapper() (err error) {
 }
 
 // WaitForResults _
-func WaitForResults(jobid string, aweAuth string) (err error) {
+func WaitForResults(jobid string, entrypoint string, aweAuth string) (err error) {
 
 	var job *core.Job
 	var statusCode int
@@ -437,7 +437,7 @@ FORLOOP:
 	// example: curl http://skyport.local:8001/awe/api/workflow_instances/c1cad21a-5ab5-4015-8aae-1dfda844e559_root
 
 	var wi *core.WorkflowInstance
-	wi, statusCode, err = GetRootWorkflowInstance(jobid, job, aweAuth)
+	wi, statusCode, err = GetRootWorkflowInstance(jobid, entrypoint, job, aweAuth)
 
 	//panic("Implement getting for output")
 	//var wi *core.WorkflowInstance
@@ -498,7 +498,7 @@ FORLOOP:
 }
 
 // SubmitCWLJobToAWE _
-func SubmitCWLJobToAWE(workflowFile string, jobFile string, data *[]byte, aweAuth string, shockAuth string) (jobid string, err error) {
+func SubmitCWLJobToAWE(workflowFile string, jobFile string, data *[]byte, aweAuth string, shockAuth string) (jobid string, entrypoint string, err error) {
 	multipart := core.NewMultipartWriter()
 
 	err = multipart.AddFile("cwl", workflowFile)
@@ -571,6 +571,7 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, data *[]byte, aweAut
 		return
 	}
 	jobid = job.ID
+	entrypoint = job.Entrypoint
 
 	return
 
@@ -670,11 +671,11 @@ func GetAWEJob(jobid string, aweAuth string) (job *core.Job, statusCode int, err
 }
 
 // GetRootWorkflowInstance _
-func GetRootWorkflowInstance(jobid string, job *core.Job, aweAuth string) (wi *core.WorkflowInstance, statusCode int, err error) {
+func GetRootWorkflowInstance(jobid string, entrypoint string, job *core.Job, aweAuth string) (wi *core.WorkflowInstance, statusCode int, err error) {
 	//wi_array := []core.WorkflowInstance{}
 	var wiIf interface{}
 
-	statusCode, err = GetAWEObject("workflow_instances", jobid+"_"+url.PathEscape("#main"), aweAuth, &wiIf)
+	statusCode, err = GetAWEObject("workflow_instances", jobid+"_"+url.PathEscape(entrypoint), aweAuth, &wiIf)
 	if err != nil {
 		err = fmt.Errorf("(GetRootWorkflowInstance) GetAWEObject returned: %s", err.Error())
 		return

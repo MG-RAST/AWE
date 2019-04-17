@@ -430,7 +430,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 		}
 
 		// update job state
-		if wi_local_id == "#main" {
+		if wi_local_id == job.Entrypoint {
 
 			job_state, _ := job.GetState(true)
 			if job_state == JOB_STAT_INIT {
@@ -2074,7 +2074,7 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, caller string) (err error
 
 // used by isTaskReady and is_WI_Ready
 // check all WorkflowStepInputs for Source fields and checks if they are available
-func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, workflow_instance *WorkflowInstance) (ready bool, reason string, err error) {
+func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, workflowInstance *WorkflowInstance) (ready bool, reason string, err error) {
 
 	logger.Debug(3, "(areSourceGeneratorsReady) start %s", step.Id)
 
@@ -2090,16 +2090,16 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 			continue
 		}
 
-		source_is_array := false
-		source_as_array, source_is_array := wsi.Source.([]interface{})
+		sourceIsArray := false
+		sourceAsArray, sourceIsArray := wsi.Source.([]interface{})
 
-		if source_is_array {
+		if sourceIsArray {
 			logger.Debug(3, "(areSourceGeneratorsReady) step input %s source_is_array", wsi.Id)
-			for _, src := range source_as_array { // usually only one
-				var src_str string
+			for _, src := range sourceAsArray { // usually only one
+				var srcStr string
 				var ok bool
 
-				src_str, ok = src.(string)
+				srcStr, ok = src.(string)
 				if !ok {
 
 					err = fmt.Errorf("src is not a string")
@@ -2108,7 +2108,7 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 
 				// see comments below
 				context := job.WorkflowContext
-				_, ok, err = context.Get(src_str, true)
+				_, ok, err = context.Get(srcStr, true)
 				if err != nil {
 					err = fmt.Errorf("(areSourceGeneratorsReady) context.Get returned: %s", err.Error())
 					return
@@ -2117,10 +2117,10 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 					continue
 				}
 
-				generator := path.Dir(src_str)
-				ok, reason, err = qm.isSourceGeneratorReady(job, workflow_instance, generator, false, job.WorkflowContext)
+				generator := path.Dir(srcStr)
+				ok, reason, err = qm.isSourceGeneratorReady(job, workflowInstance, generator, false, job.WorkflowContext)
 				if err != nil {
-					err = fmt.Errorf("(areSourceGeneratorsReady) (type array, src_str: %s) isSourceGeneratorReady returns: %s", src_str, err.Error())
+					err = fmt.Errorf("(areSourceGeneratorsReady) (type array, src_str: %s) isSourceGeneratorReady returns: %s", srcStr, err.Error())
 					return
 				}
 				if !ok {
@@ -2156,7 +2156,7 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 			generator := path.Dir(src_str)
 			logger.Debug(3, "(areSourceGeneratorsReady) step input %s using generator %s", wsi.Id, generator)
 
-			ready, reason, err = qm.isSourceGeneratorReady(job, workflow_instance, generator, false, job.WorkflowContext)
+			ready, reason, err = qm.isSourceGeneratorReady(job, workflowInstance, generator, false, job.WorkflowContext)
 			if err != nil {
 				err = fmt.Errorf("(areSourceGeneratorsReady) B (type non-array, src_str: %s) isSourceGeneratorReady returns: %s", src_str, err.Error())
 				return
@@ -3507,29 +3507,35 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflow_instance *Workflo
 
 	case *cwl.Workflow:
 
-		workflow := generic_object.(*cwl.Workflow)
+		// stay in same workflow_instance !
+		// is a workflow input
+		// no need to check state !
+		//ok = true
+		//return
 
-		workflow_id := workflow.Id
+		// workflow := generic_object.(*cwl.Workflow)
 
-		if workflow_instance.LocalID != workflow_id {
-			err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.LocalID: %s vs workflow_id %s", workflow_instance.LocalID, workflow_id)
+		// workflow_id := workflow.Id
+
+		if workflow_instance.LocalID != src_generator {
+			err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.LocalID: %s vs src_generator %s", workflow_instance.LocalID, src_generator)
 			return
 		}
 
-		var wiState string
-		wiState, err = workflow_instance.GetState(true)
-		if err != nil {
-			err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.GetState returned: %s", err.Error())
-			return
-		}
+		//var wiState string
+		//wiState, err = workflow_instance.GetState(true)
+		//if err != nil {
+		//	err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.GetState returned: %s", err.Error())
+		//	return
+		//}
 
-		if wiState == WIStateCompleted {
-			ok = true
-			return
-		}
+		// if wiState == WIStateCompleted {
+		// 	ok = true
+		// 	return
+		// }
 
-		ok = false
-		reason = fmt.Sprintf("(isSourceGeneratorReady) wiState == %s", wiState)
+		// ok = false
+		// reason = fmt.Sprintf("(isSourceGeneratorReady) wiState == %s", wiState)
 		//wi, job.GetWorkflowInstance(workflow_id, true)
 
 		return
@@ -3951,11 +3957,6 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 
 					logger.Debug(3, "(GetStepInputObjects) source_as_string %s not found", source_as_string)
 
-					if "#main/step1/output" == source_as_string {
-						err = fmt.Errorf("#main/step1/output not found , reason: " + reason + " caller: " + caller)
-						return
-						//panic("#main/step1/output not found , reason: " + reason + " caller: " + caller)
-					}
 					logger.Debug(3, "(GetStepInputObjects) qm.getCWLSource did not return an object (reason: %s), now check input.Default", reason)
 					if input.Default == nil {
 						logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", source_as_string)
@@ -3969,8 +3970,8 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 						err = fmt.Errorf("(GetStepInputObjects) could not use default: %s", err.Error())
 						return
 					}
-					fmt.Println("(GetStepInputObjects) got a input.Default")
-					spew.Dump(job_obj)
+					//fmt.Println("(GetStepInputObjects) got a input.Default")
+					//spew.Dump(job_obj)
 				}
 
 				//fmt.Printf("(GetStepInputObjects) Source_index: %d\n", input.Source_index)
@@ -4898,7 +4899,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 	workflowInstanceLocalID := workflowInstance.LocalID
 	logger.Debug(3, "(completeSubworkflow) completes with workflowInstanceLocalID: %s", workflowInstanceLocalID)
 
-	if workflowInstanceLocalID == "#main" {
+	if workflowInstanceLocalID == job.Entrypoint {
 		// last workflow_instance -> notify job
 
 		// this was the main workflow, all done!

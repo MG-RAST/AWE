@@ -485,14 +485,14 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task
 
 	}
 
-	if strings.HasPrefix(task_id_str, "#main") {
+	if strings.HasPrefix(task_id_str, job.Entrypoint) {
 		err = fmt.Errorf("(NewTask) task_id_str prefix wrong: %s", task_id_str)
 		return
 	}
 
-	if task_id_str != "#main" {
-		if !strings.HasPrefix(workflow_instance_id, "#main") {
-			err = fmt.Errorf("(NewTask) workflow_instance_id has not #main prefix: %s", workflow_instance_id)
+	if task_id_str != job.Entrypoint {
+		if !strings.HasPrefix(workflow_instance_id, job.Entrypoint) {
+			err = fmt.Errorf("(NewTask) workflow_instance_id has not %s prefix: %s", job.Entrypoint, workflow_instance_id)
 			return
 		}
 

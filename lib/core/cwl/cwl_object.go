@@ -65,8 +65,8 @@ func NewCWLObject(original interface{}, injectedRequirements []Requirement, cont
 			//fmt.Println("NewCWLObject CommandLineTool")
 			logger.Debug(1, "(NewCWLObject) parse CommandLineTool")
 
-			fmt.Println("CommandLineTool interface:")
-			spew.Dump(elem)
+			//fmt.Println("CommandLineTool interface:")
+			//spew.Dump(elem)
 
 			var clt *CommandLineTool
 			clt, schemata, err = NewCommandLineTool(elem, injectedRequirements, context)
@@ -74,8 +74,8 @@ func NewCWLObject(original interface{}, injectedRequirements []Requirement, cont
 				err = fmt.Errorf("(NewCWLObject) NewCommandLineTool returned: %s", err.Error())
 				return
 			}
-			fmt.Println("CommandLineTool object:")
-			spew.Dump(clt)
+			//fmt.Println("CommandLineTool object:")
+			//spew.Dump(clt)
 			obj = clt
 
 			return

@@ -372,10 +372,10 @@ func (c *WorkflowContext) Add(id string, obj CWLObject, caller string) (err erro
 	}
 
 	c.All[id] = obj
-	fmt.Printf("(c.All) after insertion of %s (caller: %s)\n", id, caller)
-	for i, _ := range c.All {
-		fmt.Println(i)
-	}
+	//fmt.Printf("(c.All) after insertion of %s (caller: %s)\n", id, caller)
+	//for i, _ := range c.All {
+	//	fmt.Println(i)
+	//}
 	return
 }
 

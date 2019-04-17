@@ -77,13 +77,13 @@ func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Typ
 
 	switch original.(type) {
 	case map[string]interface{}:
-		fmt.Println("(NewCommandOutputParameterArray) map")
+		//fmt.Println("(NewCommandOutputParameterArray) map")
 		originalMap := original.(map[string]interface{})
 
 		copa = []interface{}{}
 		for key, element := range originalMap {
-			fmt.Printf("(NewCommandOutputParameterArray) map element %s\n", key)
-			spew.Dump(element)
+			//fmt.Printf("(NewCommandOutputParameterArray) map element %s\n", key)
+			//spew.Dump(element)
 			var cop *CommandOutputParameter
 			cop, err = NewCommandOutputParameter(element, key, schemata, context)
 			if err != nil {
@@ -94,19 +94,19 @@ func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Typ
 		}
 
 	case []interface{}:
-		fmt.Println("(NewCommandOutputParameterArray) array")
+		//fmt.Println("(NewCommandOutputParameterArray) array")
 		copa = []interface{}{}
 
 		originalArray := original.([]interface{})
 
 		for _, element := range originalArray {
-			fmt.Println("(NewCommandOutputParameterArray) array element")
+			//fmt.Println("(NewCommandOutputParameterArray) array element")
 			var elementStr string
 			var ok bool
 			elementStr, ok = element.(string)
 
 			if ok {
-				fmt.Println("(NewCommandOutputParameterArray) array element is a string")
+				//fmt.Println("(NewCommandOutputParameterArray) array element is a string")
 				var result CWLType_Type
 				result, err = NewCWLType_TypeFromString(schemata, elementStr, "CommandOutput")
 				if err != nil {
@@ -116,7 +116,7 @@ func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Typ
 				copa = append(copa, result)
 				continue
 			}
-			fmt.Println("(NewCommandOutputParameterArray) array element is NOT a string")
+			//fmt.Println("(NewCommandOutputParameterArray) array element is NOT a string")
 			var cop *CommandOutputParameter
 			cop, err = NewCommandOutputParameter(element, "", schemata, context)
 			if err != nil {

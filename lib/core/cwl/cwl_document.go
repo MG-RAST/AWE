@@ -265,8 +265,8 @@ func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []
 	graph_pos := strings.Index(yaml_str, "$graph")
 
 	//yaml_str = strings.Replace(yaml_str, "$namespaces", "namespaces", -1)
-	fmt.Println("yaml_str:")
-	fmt.Println(yaml_str)
+	//fmt.Println("yaml_str:")
+	//fmt.Println(yaml_str)
 
 	if graph_pos != -1 {
 		// *** graph file ***

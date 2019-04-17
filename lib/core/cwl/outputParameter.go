@@ -37,8 +37,8 @@ func NewOutputParameterFromInterface(original interface{}, thisID string, schema
 		return
 	}
 
-	fmt.Println("NewOutputParameterFromInterface:")
-	spew.Dump(original)
+	//fmt.Println("NewOutputParameterFromInterface:")
+	//spew.Dump(original)
 
 	switch original.(type) {
 
@@ -75,8 +75,8 @@ func NewOutputParameterFromInterface(original interface{}, thisID string, schema
 
 		original_map := original.(map[string]interface{})
 
-		fmt.Println("NewOutputParameterFromInterface as map:")
-		spew.Dump(original_map)
+		//fmt.Println("NewOutputParameterFromInterface as map:")
+		//spew.Dump(original_map)
 
 		output_parameter_default, ok := original_map["default"]
 		if ok {

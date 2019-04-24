@@ -230,7 +230,7 @@ func (wf *Workflow) GetStep(name string) (step *WorkflowStep, err error) {
 
 		s := &wf.Steps[i]
 
-		s_base := path.Base(s.Id)
+		s_base := path.Base(s.ID)
 
 		if s_base == name {
 			step = s

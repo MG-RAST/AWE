@@ -8,7 +8,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-// https://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
+// WorkflowOutputParameter https://www.commonwl.org/v1.0/Workflow.html#WorkflowOutputParameter
 type WorkflowOutputParameter struct {
 	OutputParameter `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides Id, Label, SecondaryFiles, Format, Streamable, OutputBinding, Type
 	Doc             string                                                                `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty"`
@@ -16,24 +16,25 @@ type WorkflowOutputParameter struct {
 	LinkMerge       LinkMergeMethod                                                       `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty"`
 }
 
-func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (wop *WorkflowOutputParameter, err error) {
-	var output_parameter WorkflowOutputParameter
+// NewWorkflowOutputParameter _
+func NewWorkflowOutputParameter(original interface{}, thisID string, schemata []CWLType_Type, context *WorkflowContext) (wop *WorkflowOutputParameter, err error) {
+	//var outputParameter WorkflowOutputParameter
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
 
+	var op *OutputParameter
+	op, err = NewOutputParameterFromInterface(original, thisID, schemata, "WorkflowOutput", context)
+	if err != nil {
+		err = fmt.Errorf("(NewWorkflowOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
+		return
+	}
+
 	switch original.(type) {
 
 	case map[string]interface{}:
-
-		var op *OutputParameter
-		op, err = NewOutputParameterFromInterface(original, "", schemata, "Output", context)
-		if err != nil {
-			err = fmt.Errorf("(NewWorkflowOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
-			return
-		}
 
 		original_map, ok := original.(map[string]interface{})
 		if !ok {
@@ -97,13 +98,12 @@ func NewWorkflowOutputParameter(original interface{}, schemata []CWLType_Type, c
 		// 	original_map["type"] = wop_type_array
 
 		// }
-
-		err = mapstructure.Decode(original, &output_parameter)
+		wop = &WorkflowOutputParameter{}
+		err = mapstructure.Decode(original, wop)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflowOutputParameter) decode error: %s", err.Error())
 			return
 		}
-		wop = &output_parameter
 
 		wop.OutputParameter = *op
 
@@ -130,12 +130,12 @@ func NewWorkflowOutputParameterArray(original interface{}, schemata []CWLType_Ty
 		for k, v := range original.(map[string]interface{}) {
 			//fmt.Printf("A")
 			var outputParameter *WorkflowOutputParameter
-			outputParameter, err = NewWorkflowOutputParameter(v, schemata, context)
+			outputParameter, err = NewWorkflowOutputParameter(v, k, schemata, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowOutputParameterArray) NewWorkflowOutputParameter returned: %s", err.Error())
 				return
 			}
-			outputParameter.Id = k
+
 			//fmt.Printf("C")
 			newArray = append(newArray, *outputParameter)
 			//fmt.Printf("D")
@@ -149,7 +149,7 @@ func NewWorkflowOutputParameterArray(original interface{}, schemata []CWLType_Ty
 			//fmt.Printf("A")
 
 			var outputParameter *WorkflowOutputParameter
-			outputParameter, err = NewWorkflowOutputParameter(v, schemata, context)
+			outputParameter, err = NewWorkflowOutputParameter(v, "", schemata, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowOutputParameterArray) NewWorkflowOutputParameter returned: %s", err.Error())
 				return

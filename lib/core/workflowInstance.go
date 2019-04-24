@@ -444,10 +444,14 @@ func (wi *WorkflowInstance) GetTaskByName(taskName string, readLock bool) (task 
 	logger.Debug(3, "(GetTaskByName) search: %s", taskName)
 	for _, t := range wi.Tasks {
 		baseName := path.Base(t.TaskName)
-		logger.Debug(3, "(GetTaskByName) task: %s", t.TaskName)
+
 		if baseName == taskName {
+			logger.Debug(3, "(GetTaskByName) match: %s", t.TaskName)
 			ok = true
 			task = t
+			return
+		} else {
+			logger.Debug(3, "(GetTaskByName) no match: %s", t.TaskName)
 		}
 	}
 

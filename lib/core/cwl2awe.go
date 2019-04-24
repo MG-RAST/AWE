@@ -171,15 +171,15 @@ func CreateWorkflowTasks(job *Job, namePrefix string, steps []cwl.WorkflowStep, 
 			return
 		}
 
-		if !strings.HasPrefix(step.Id, "#") {
-			err = fmt.Errorf("(CreateWorkflowTasks) Workflow step name does not start with a #: %s", step.Id)
+		if !strings.HasPrefix(step.ID, "#") {
+			err = fmt.Errorf("(CreateWorkflowTasks) Workflow step name does not start with a #: %s", step.ID)
 			return
 		}
 
-		fmt.Println("(CreateWorkflowTasks) step.Id: " + step.Id)
+		fmt.Println("(CreateWorkflowTasks) step.Id: " + step.ID)
 
 		// remove prefix
-		taskName := path.Base(step.Id)
+		taskName := path.Base(step.ID)
 		//taskName := strings.TrimPrefix(step.Id, step_prefix)
 		//taskName = strings.TrimSuffix(taskName, "/")
 		//taskName = strings.TrimPrefix(taskName, "/")
@@ -203,7 +203,7 @@ func CreateWorkflowTasks(job *Job, namePrefix string, steps []cwl.WorkflowStep, 
 
 		//aweTask.WorkflowParent = parent_id
 
-		if step.Id == "" {
+		if step.ID == "" {
 			err = fmt.Errorf("(CreateWorkflowTasks) step.Id empty")
 			return
 		}

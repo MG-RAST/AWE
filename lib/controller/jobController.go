@@ -219,7 +219,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow.Namespaces = context.Namespaces
 				new_step := cwl.WorkflowStep{}
 				step_id := entrypoint + "/wrapper_step"
-				new_step.Id = step_id
+				new_step.ID = step_id
 				for _, input := range commandlinetool.Inputs { // input is CommandInputParameter
 
 					workflow_input_name := entrypoint + "/" + path.Base(input.Id) // e.g. #entrypoint/reference
@@ -342,7 +342,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow.CwlVersion = context.CwlVersion
 				new_step := cwl.WorkflowStep{}
 				step_id := entrypoint + "/wrapper_step"
-				new_step.Id = step_id
+				new_step.ID = step_id
 				for _, input := range expressiontool.Inputs { // input is InputParameter
 
 					workflow_input_name := entrypoint + "/" + path.Base(input.Id)

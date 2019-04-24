@@ -57,7 +57,7 @@ func NewWorkflowStepInput(original interface{}, context *WorkflowContext) (input
 	case string:
 
 		source_string := original.(string)
-		input_parameter.Source = []string{"#" + source_string}
+		input_parameter.Source = []string{source_string}
 		return
 
 	case int:

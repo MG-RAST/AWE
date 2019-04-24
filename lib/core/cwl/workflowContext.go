@@ -28,6 +28,7 @@ type WorkflowContext struct {
 	//Workflows          map[string]*Workflow          `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//InputParameter     map[string]*InputParameter    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // WorkflowInput
 	//WorkflowStepInputs map[string]*WorkflowStepInput `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
+	//WorkflowStepInstance map[string]*WorkflowStep `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//CommandLineTools   map[string]*CommandLineTool   `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//ExpressionTools    map[string]*ExpressionTool    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//Files              map[string]*File              `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
@@ -71,6 +72,10 @@ func (context *WorkflowContext) InitBasic() {
 	if context.All == nil {
 		context.All = make(map[string]CWLObject)
 	}
+
+	//if context.WorkflowStepInstance == nil {
+	//	context.WorkflowStepInstance = make(map[string]*WorkflowStep)
+	//}
 
 	if context.Schemata == nil {
 		context.Schemata = make(map[string]CWLType_Type)

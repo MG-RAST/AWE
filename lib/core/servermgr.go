@@ -286,13 +286,17 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 			step := &cwl_workflow.Steps[i]
 
-			stepname_base := path.Base(step.Id)
+			stepname_base := path.Base(step.ID)
+
+			instance_step_name := path.Join(wi_local_id, stepname_base)
+
 			//steps_str = append(steps_str, wi_local_id+"/"+stepname_base)
 			var process interface{}
 			process, _, err = step.GetProcess(context)
 
 			switch process.(type) {
 			case *cwl.CommandLineTool, *cwl.ExpressionTool:
+				// creates a Task
 
 				fmt.Printf("(updateWorkflowInstancesMapTask) Creating (CommandLine/Expression) %s\n", wi_local_id+"/"+stepname_base)
 				var awe_task *Task
@@ -337,6 +341,8 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 			//create Task
 
 			case *cwl.Workflow:
+				// creates a WorkflowInstance
+
 				//subworkflow_str = append(subworkflow_str, wi_local_id+"/"+stepname_base)
 				// create new WorkflowInstance
 
@@ -350,7 +356,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 				fmt.Printf("(updateWorkflowInstancesMapTask) Creating Workflow %s\n", subworkflow_id)
 
-				new_wi_name := wi_local_id + "/" + stepname_base
+				new_wi_name := instance_step_name
 
 				// TODO assign inputs
 				//var workflow_inputs cwl.Job_document
@@ -972,6 +978,7 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 			logger.Debug(3, "(updateQueueTask) task not ready (%s): qm.isTaskReady returned reason: %s", taskIDStr, reason)
 			return
 		}
+		logger.Debug(3, "(updateQueueTask) task ready (%s)", taskIDStr)
 
 		// get new state
 		task_state, err = task.GetState()
@@ -1237,7 +1244,7 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 		return
 	}
 
-	if task.Scatter_parent == nil {
+	if task.Scatter_parent == nil && false {
 		for i, _ := range task.WorkflowStep.Out {
 			step_output := &task.WorkflowStep.Out[i]
 			basename := path.Base(step_output.Id)
@@ -2076,7 +2083,9 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, caller string) (err error
 // check all WorkflowStepInputs for Source fields and checks if they are available
 func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, workflowInstance *WorkflowInstance) (ready bool, reason string, err error) {
 
-	logger.Debug(3, "(areSourceGeneratorsReady) start %s", step.Id)
+	logger.Debug(3, "(areSourceGeneratorsReady) start %s (number on inputs %d)", step.ID, len(step.In))
+
+	workflowInstanceName := workflowInstance.LocalID
 
 	for _, wsi := range step.In { // WorkflowStepInput
 
@@ -2106,6 +2115,8 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 					return ok, reason, err
 				}
 
+				srcStr = path.Join(workflowInstanceName, srcStr)
+
 				// see comments below
 				context := job.WorkflowContext
 				_, ok, err = context.Get(srcStr, true)
@@ -2124,7 +2135,7 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 					return
 				}
 				if !ok {
-					reason = fmt.Sprintf("Generator not ready (%s)", reason)
+					reason = fmt.Sprintf(" (sourceIsArray) Generator not ready (%s)", reason)
 					return
 				}
 
@@ -2132,38 +2143,52 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 		} else {
 			// not source_is_array
 			logger.Debug(3, "(areSourceGeneratorsReady) step input %s NOT source_is_array", wsi.Id)
-			var src_str string
+			var srcStr string
 			var ok bool
 
-			src_str, ok = wsi.Source.(string)
+			srcStr, ok = wsi.Source.(string)
 			if !ok {
 				err = fmt.Errorf("(areSourceGeneratorsReady) Cannot parse WorkflowStep source: %s", spew.Sdump(wsi.Source))
 				return
 			}
+			srcStr = path.Join(workflowInstanceName, srcStr)
+
+			logger.Debug(3, "(areSourceGeneratorsReady) %s.Source: %s", wsi.Id, srcStr)
 
 			//if source is (workflow) input, generator does not need to be ready
 			// instead of testing for workflow input, we just test if input already exists
 			context := job.WorkflowContext
-			_, ok, err = context.Get(src_str, true)
+			_, ok, err = context.Get(srcStr, true)
 			if err != nil {
 				err = fmt.Errorf("(areSourceGeneratorsReady) context.Get returned: %s", err.Error())
 				return
 			}
 			if ok {
+				logger.Debug(3, "(areSourceGeneratorsReady) source %s found!", srcStr)
 				continue
 			}
 
-			generator := path.Dir(src_str)
+			generator := path.Dir(srcStr)
 			logger.Debug(3, "(areSourceGeneratorsReady) step input %s using generator %s", wsi.Id, generator)
+
+			if generator == "." {
+
+				for x := range context.All {
+					fmt.Printf("context.All: %s\n", x)
+				}
+
+				err = fmt.Errorf("(areSourceGeneratorsReady) src \"%s\" is a workflow input, but was not found ", srcStr)
+				return
+			}
 
 			ready, reason, err = qm.isSourceGeneratorReady(job, workflowInstance, generator, false, job.WorkflowContext)
 			if err != nil {
-				err = fmt.Errorf("(areSourceGeneratorsReady) B (type non-array, src_str: %s) isSourceGeneratorReady returns: %s", src_str, err.Error())
+				err = fmt.Errorf("(areSourceGeneratorsReady) B (type non-array, src_str: %s) isSourceGeneratorReady returns: %s", srcStr, err.Error())
 				return
 			}
 
 			if !ready {
-				reason = fmt.Sprintf("Generator not ready (%s)", reason)
+				reason = fmt.Sprintf(" (NOT sourceIsArray) Generator not ready (%s)", reason)
 				return
 			}
 
@@ -2171,7 +2196,7 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 		logger.Debug(3, "(areSourceGeneratorsReady) step input %s is ready", wsi.Id)
 	}
 	ready = true
-	logger.Debug(3, "(areSourceGeneratorsReady) finished")
+	logger.Debug(3, "(areSourceGeneratorsReady) finished, step.ID: %s", step.ID)
 	return
 }
 
@@ -2857,7 +2882,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflow_instance *WorkflowInstance, tas
 		fmt.Println("new_task_step with everything:")
 		spew.Dump(new_task_step)
 
-		new_task_step.Id = parent_id_str + "/" + scatter_task_name
+		new_task_step.ID = parent_id_str + "/" + scatter_task_name
 		sub_task.WorkflowStep = &new_task_step
 		children = append(children, scatter_task_name)
 
@@ -3167,7 +3192,7 @@ func (qm *ServerMgr) getCWLSourceFromWorkflowInput(workflow_input_map map[string
 	//spew.Dump(workflow_input_map)
 }
 
-func (qm *ServerMgr) getCWLSourceFromStepOutput_Tool(job *Job, workflow_instance *WorkflowInstance, workflow_name string, step_name string, output_name string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
+func (qm *ServerMgr) getCWLSourceFromStepOutput_Tool(job *Job, workflow_instance *WorkflowInstance, step_name string, output_name string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
 
 	// search task and its output
 	if workflow_instance.JobID == "" {
@@ -3271,13 +3296,13 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput_Workflow(job *Job, workflow_inst
 
 // To get StepOutput function has to distinguish between task (CommandLine/Expression-Tool) and Subworkflow
 // src = workflow_name / step_name / output_name
-func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflow_instance *WorkflowInstance, workflow_name string, step_name string, output_name string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
+func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflow_instance *WorkflowInstance, step_name string, output_name string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
 	ok = false
 	//step_name_abs := workflow_name + "/" + step_name
 	workflowInstanceID, _ := workflow_instance.GetID(true)
 	//workflowInstanceLocalID := workflow_instance.LocalID
 
-	logger.Debug(3, "(getCWLSourceFromStepOutput) %s / %s / %s (workflowInstanceID: %s)", workflow_name, step_name, output_name, workflowInstanceID)
+	logger.Debug(3, "(getCWLSourceFromStepOutput) %s / %s (workflowInstanceID: %s)", step_name, output_name, workflowInstanceID)
 	_ = workflowInstanceID
 	// *** check if workflow_name + "/" + step_name is a subworkflow
 	//workflowInstanceName := workflow_name + "/" + step_name
@@ -3306,7 +3331,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflow_instance *Wor
 		steps := ""
 		for i, _ := range workflow.Steps {
 			s2 := &workflow.Steps[i]
-			steps += "," + s2.Id
+			steps += "," + s2.ID
 		}
 
 		err = fmt.Errorf("(getCWLSourceFromStepOutput) Step %s not found (found %s)", step_name, steps)
@@ -3323,7 +3348,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflow_instance *Wor
 
 	switch process_type {
 	case "CommandLineTool", "ExpressionTool":
-		obj, ok, reason, err = qm.getCWLSourceFromStepOutput_Tool(job, workflow_instance, workflow_name, step_name, output_name, error_on_missing_task)
+		obj, ok, reason, err = qm.getCWLSourceFromStepOutput_Tool(job, workflow_instance, step_name, output_name, error_on_missing_task)
 		if err != nil {
 			err = fmt.Errorf("(getCWLSourceFromStepOutput) getCWLSourceFromStepOutput_Tool returned: %s", err.Error())
 			return
@@ -3344,26 +3369,27 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflow_instance *Wor
 
 }
 
-func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflow_instance *WorkflowInstance, src string, context *cwl.WorkflowContext, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
+// GetSourceFromWorkflowInstanceInput _
+func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflowInstance *WorkflowInstance, src string, context *cwl.WorkflowContext, errorOnMissingTask bool) (obj cwl.CWLType, ok bool, reason string, err error) {
 
 	ok = false
 
 	fmt.Printf("(GetSourceFromWorkflowInstanceInput) src: %s\n", src)
-	src_base := path.Base(src)
+	srcBase := path.Base(src)
 
-	fmt.Printf("(GetSourceFromWorkflowInstanceInput) src_base: %s\n", src_base)
-	src_path := strings.TrimSuffix(src, "/"+src_base)
+	fmt.Printf("(GetSourceFromWorkflowInstanceInput) src_base: %s\n", srcBase)
+	srcPath := strings.TrimSuffix(src, "/"+srcBase)
 
 	//src_array := strings.Split(src, "/")
 	//src_base := src_array[1]
 
-	if workflow_instance == nil {
+	if workflowInstance == nil {
 		err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) workflow_instance==nil (src: %s)", src)
 		return
 	}
 
-	if workflow_instance.Inputs == nil {
-		if error_on_missing_task {
+	if workflowInstance.Inputs == nil {
+		if errorOnMissingTask {
 
 			err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) workflow_instance.Inputs empty (src: %s)", src)
 			return
@@ -3377,305 +3403,370 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflow_instance *Workf
 		return
 	}
 
-	obj, ok = workflow_instance.Inputs.Get(src_base)
-	if !ok {
-
-		var workflow *cwl.Workflow
-		workflow, err = workflow_instance.GetWorkflow(context)
-		if err != nil {
-			err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) workflow_instance.GetWorkflow returned: %s", err.Error())
-			return
-		}
-
-		// check if input is optional
-		optional := false
-		for i, _ := range workflow.Inputs {
-			inp := &workflow.Inputs[i]
-
-			for _, input_type := range inp.Type {
-				if input_type == cwl.CWLNull {
-					optional = true
-					break
-				}
-			}
-
-		}
-		if optional {
-			reason = "optional"
-			ok = false
-			return
-		}
-		if error_on_missing_task {
-			//fmt.Println("workflow_instance.Inputs:")
-			//spew.Dump(workflow_instance.Inputs)
-			//	panic("output not found a)")
-
-			err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but output %s not found in workflow_instance.Inputs (was %s)", src_path, src_base, src)
-			return
-		}
-
-		msg := fmt.Sprintf("(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but output %s not found in workflow_instance.Inputs", src_path, src_base)
-		logger.Debug(3, msg)
-		ok = false
-		reason = msg
+	// search for input object
+	obj, ok = workflowInstance.Inputs.Get(srcBase)
+	if ok {
+		ok = true
 		return
 	}
 
-	fmt.Printf("(GetSourceFromWorkflowInstanceInput) found src_base in workflow_instance.Inputs: %s\n", src_base)
+	// did not find input object, get InputParameter to check if input is optional
+	var workflow *cwl.Workflow
+	workflow, err = workflowInstance.GetWorkflow(context)
+	if err != nil {
+		err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) workflow_instance.GetWorkflow returned: %s", err.Error())
+		return
+	}
 
-	ok = true
+	// find InputParameter
+	var inputParameter *cwl.InputParameter
+	inputParameter = nil
+	for i := range workflow.Inputs {
+		inp := &workflow.Inputs[i]
+		if path.Base(inp.Id) == srcBase {
+			inputParameter = inp
+			break
+		}
+	}
+	if inputParameter == nil {
+		fmt.Printf("(GetSourceFromWorkflowInstanceInput) InputParameters: %d \n", len(workflow.Inputs))
+		for i := range workflow.Inputs {
+			inp := &workflow.Inputs[i]
+			fmt.Printf("(GetSourceFromWorkflowInstanceInput) InputParameter: %s \n", inp.Id)
+		}
+
+		err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) InputParameter for %s not found", srcBase)
+		return
+	}
+
+	// check if input is optional
+	optional := false
+
+	for _, inputType := range inputParameter.Type {
+		if inputType == cwl.CWLNull {
+			optional = true
+			break
+		}
+	}
+
+	if optional {
+		reason = "optional"
+		ok = false
+		return
+	}
+
+	if errorOnMissingTask {
+		//fmt.Println("workflow_instance.Inputs:")
+		//spew.Dump(workflow_instance.Inputs)
+		//	panic("output not found a)")
+
+		err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but output %s not found in workflow_instance.Inputs (was %s)", srcPath, srcBase, src)
+		return
+	}
+
+	msg := fmt.Sprintf("(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but output %s not found in workflow_instance.Inputs", srcPath, srcBase)
+	logger.Debug(3, msg)
+	ok = false
+	reason = msg
+
 	return
 
 }
 
-//
-func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflow_instance *WorkflowInstance, src_generator string, error_on_missing_task bool, context *cwl.WorkflowContext) (ok bool, reason string, err error) {
+// isSourceGeneratorReady srcGenerator is either the workflow or a workflow step
+// a workflow step calls a Tool of a Workflow
+func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflowInstance *WorkflowInstance, srcGenerator string, errorOnMissingTask bool, context *cwl.WorkflowContext) (ok bool, reason string, err error) {
 
 	ok = false
 	//src = strings.TrimPrefix(src, "#main/")
+	logger.Debug(3, "(isSourceGeneratorReady) start, srcGenerator: %s", srcGenerator)
 
-	//src_array := strings.Split(src, "/")
-	logger.Debug(3, "(isSourceGeneratorReady) start, src_generator: %s", src_generator)
+	if srcGenerator == "" {
+		err = fmt.Errorf("(isSourceGeneratorReady) srcGenerator string empty")
+		return
+	}
+	if srcGenerator == "." {
+		// must be a workflow input
+		logger.Debug(3, "(isSourceGeneratorReady) must be a workflow input, srcGeneratorAbs: %s", srcGenerator)
+		ok = true
+		return
+	}
 
-	var generic_object cwl.CWLObject
-	generic_object, ok, err = context.Get(src_generator, true)
+	// must be a step output
+	// next: find step, find process
+
+	srcGeneratorAbs := ""
+	if strings.HasPrefix(srcGenerator, "#") {
+		srcGeneratorAbs = srcGenerator
+	} else {
+		srcGeneratorAbs = path.Join(workflowInstance.LocalID, srcGenerator)
+	}
+
+	// get workflow object and find step
+
+	var workflow *cwl.Workflow
+	workflow, err = workflowInstance.GetWorkflow(context)
 	if err != nil {
-		err = fmt.Errorf("(isSourceGeneratorReady) context.Get returned: %s", err.Error())
-		return
-	}
-	if !ok {
-		reason = fmt.Sprintf("(isSourceGeneratorReady) context.All did not contain %s", src_generator)
+		err = fmt.Errorf("(isSourceGeneratorReady) workflowInstance.GetWorkflow returned: %s", err.Error())
 		return
 	}
 
-	switch generic_object.(type) {
-	case *cwl.WorkflowStep:
-		logger.Debug(3, "(isSourceGeneratorReady) got WorkflowStep")
-		// WorkflowStep does not contain info about state, need workflow_instance
-		step_name := src_generator
-		workflowInstanceName := path.Dir(src_generator)
+	srcGeneratorBase := path.Base(srcGenerator)
 
-		var workflow_instance *WorkflowInstance
-		workflow_instance, ok, err = job.GetWorkflowInstance(workflowInstanceName, true)
+	var workflowStep *cwl.WorkflowStep
+	workflowStep, err = workflow.GetStep(srcGeneratorBase)
+	if err != nil {
+		err = fmt.Errorf("(isSourceGeneratorReady) workflow.GetStep returned: %s", err.Error())
+		return
+	}
+
+	// got step, now detect the type of process and check state of Task or WorkflowInstance
+
+	var processType string
+	processType, err = workflowStep.GetProcessType(context)
+
+	switch processType {
+
+	case "CommandLineTool", "ExpressionTool":
+		var task *Task
+		var taskFound bool
+		task, taskFound, err = workflowInstance.GetTaskByName(srcGeneratorBase, true)
+		if err != nil {
+			err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.GetTaskByName returned: %s", err.Error())
+			return
+		}
+		if !taskFound {
+
+			if errorOnMissingTask {
+				err = fmt.Errorf("(isSourceGeneratorReady) task %s not found", srcGeneratorAbs)
+				return
+			}
+
+			reason = fmt.Sprintf("(isSourceGeneratorReady) task %s not found", srcGeneratorAbs)
+			return
+
+		}
+		var taskState string
+		taskState, err = task.GetState()
+		if err != nil {
+			return
+		}
+		if taskState != TASK_STAT_COMPLETED {
+
+			taskID, _ := task.GetId("isSourceGeneratorReady")
+			taskIDStr, _ := taskID.String()
+			reason = fmt.Sprintf("(isSourceGeneratorReady) dependent task %s has state %s", taskIDStr, taskState)
+			logger.Debug(3, "(isSourceGeneratorReady) not ready: %s", srcGenerator)
+		} else {
+			logger.Debug(3, "(isSourceGeneratorReady) ready: %s", srcGenerator)
+			ok = true
+		}
+
+		return
+
+	case "Workflow":
+
+		var otherWorkflowInstance *WorkflowInstance
+
+		otherWorkflowInstance, ok, err = job.GetWorkflowInstance(srcGeneratorAbs, true)
 		if err != nil {
 			err = fmt.Errorf("(isSourceGeneratorReady) job.GetWorkflowInstance returned: %s", err.Error())
 			return
 		}
 		if !ok {
-			reason = fmt.Sprintf("(isSourceGeneratorReady) workflowInstanceName not found: %s", workflowInstanceName)
+			reason = fmt.Sprintf("(isSourceGeneratorReady) job did not contain workflowInstance %s", srcGeneratorAbs)
 			return
 		}
 
-		// find task that corresponds to step
+		otherWorkflowInstanceState, _ := otherWorkflowInstance.GetState(true)
 
-		var task *Task
-		var tasks []*Task
-		tasks, err = workflow_instance.GetTasks(true)
-		if err != nil {
-			err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.GetTasks returned: %s", err.Error())
-			return
-		}
-		list_of_tasks := ""
-		for i, _ := range tasks {
-			t := tasks[i]
-			//fmt.Println(t.TaskName)
-			list_of_tasks += "," + t.TaskName
-			if t.TaskName == step_name {
-				task = t
-				break
-			}
-		}
-
-		if task == nil {
-			err = fmt.Errorf("(isSourceGeneratorReady) no matching task found: step_name=%s (found : %s)", step_name, list_of_tasks)
-			return
-
-		}
-
-		fmt.Printf("(isSourceGeneratorReady) found task\n")
-
-		var task_state string
-		task_state, err = task.GetState()
-		if task_state != TASK_STAT_COMPLETED {
-			ok = false
-			task_id, _ := task.GetId("isSourceGeneratorReady")
-			taskIDStr, _ := task_id.String()
-			reason = fmt.Sprintf("(isSourceGeneratorReady) dependent task %s has state %s", taskIDStr, task_state)
-			return
-		}
-		ok = true
-
-	case *cwl.Workflow:
-
-		// stay in same workflow_instance !
-		// is a workflow input
-		// no need to check state !
-		//ok = true
-		//return
-
-		// workflow := generic_object.(*cwl.Workflow)
-
-		// workflow_id := workflow.Id
-
-		if workflow_instance.LocalID != src_generator {
-			err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.LocalID: %s vs src_generator %s", workflow_instance.LocalID, src_generator)
+		if otherWorkflowInstanceState == WIStateCompleted {
+			ok = true
+			logger.Debug(3, "(isSourceGeneratorReady) WI ready: %s", srcGenerator)
 			return
 		}
 
-		//var wiState string
-		//wiState, err = workflow_instance.GetState(true)
-		//if err != nil {
-		//	err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.GetState returned: %s", err.Error())
-		//	return
-		//}
-
-		// if wiState == WIStateCompleted {
-		// 	ok = true
-		// 	return
-		// }
-
-		// ok = false
-		// reason = fmt.Sprintf("(isSourceGeneratorReady) wiState == %s", wiState)
-		//wi, job.GetWorkflowInstance(workflow_id, true)
-
+		reason = "(isSourceGeneratorReady) workfow instance is not completed"
+		logger.Debug(3, "(isSourceGeneratorReady) WI not ready: %s", srcGenerator)
 		return
-		//workflow := generic_object.(*cwl.Workflow)
-		//_ = workflow
-		//TODO check state
+
 	default:
-		err = fmt.Errorf("(isSourceGeneratorReady) type unknown: %s", reflect.TypeOf(generic_object))
-		return
+		err = fmt.Errorf("(isSourceGeneratorReady) processType %s unkown", processType)
 
 	}
-
-	//fmt.Printf("(isSourceGeneratorReady) got : %s\n", reflect.TypeOf(generic_object))
-
-	//spew.Dump(generic_object)
 
 	return
+
 }
 
-// this retrieves the input from either the (sub-)workflow input, or from the output of another task in the same (sub-)workflow
+// getCWLSource retrieves the input from either the (sub-)workflow input, or from the output of another task in the same (sub-)workflow
 // error_on_missing_task: when checking if a task is ready, a missing task is not an error, it just means task is not ready,
 //    but when getting data this is actually an error.
-func (qm *ServerMgr) getCWLSource(job *Job, workflow_instance *WorkflowInstance, workflow_input_map map[string]cwl.CWLType, src string, error_on_missing_task bool, context *cwl.WorkflowContext) (obj cwl.CWLType, ok bool, reason string, err error) {
+func (qm *ServerMgr) getCWLSource(job *Job, workflowInstance *WorkflowInstance, workflowInputMap map[string]cwl.CWLType, src string, errorOnMissingTask bool, context *cwl.WorkflowContext) (obj cwl.CWLType, ok bool, reason string, err error) {
 
 	ok = false
-	//src = strings.TrimPrefix(src, "#main/")
 
-	src_array := strings.Split(src, "/")
+	srcArray := strings.Split(src, "/")
 
-	var generic_object cwl.CWLObject
-	generic_object, ok, err = context.Get(src, true)
-	if err != nil {
-		err = fmt.Errorf("(getCWLSource) context.Get returned: %s", err.Error())
-		return
-	}
-	if !ok {
-		reason = fmt.Sprintf("(getCWLSource) context.All did not contain %s", src)
-		return
+	if strings.HasPrefix(src, "#") {
+		srcArray = srcArray[1:] // remove prefix
 	}
 
-	type_str := fmt.Sprintf("%s", reflect.TypeOf(generic_object))
+	var stepReason string
 
-	// var type_str string
-	// type_str, err = context.GetType(src)
-	// if err != nil {
-	// 	err = fmt.Errorf("(getCWLSource) context.GetType returned: %s", err.Error())
-	// 	return
-	// }
+	if len(srcArray) == 1 {
 
-	logger.Debug(3, "(getCWLSource) searching for %s (type: %s)", src, type_str)
-
-	switch type_str {
-	case "*cwl.InputParameter", "*cwl.CommandInputParameter": // CommandInputParameter is from CommandLineTool, InputParameter from ExpressionTool
-		logger.Debug(3, "(getCWLSource) a workflow input")
-		// must be a workflow input, e.g. #main/jobid (workflow, input)
-		//src_base := src_array[1]
-
-		obj, ok, reason, err = qm.GetSourceFromWorkflowInstanceInput(workflow_instance, src, context, error_on_missing_task)
+		// must be workflow input
+		obj, ok, reason, err = qm.GetSourceFromWorkflowInstanceInput(workflowInstance, src, context, errorOnMissingTask)
 
 		if err != nil {
 			err = fmt.Errorf("(getCWLSource) GetSourceFromWorkflowInstanceInput returned: %s", err.Error())
 			return
 		}
-
-		//if !ok {
-
-		//	fmt.Printf("workflow_instance: (looking for %s)\n", src)
-		//	spew.Dump(workflow_instance)
-		//	panic("done")
-		//}
-
-		return
-
-	case "*cwl.WorkflowStepOutput":
-		logger.Debug(3, "(getCWLSource) a step output")
-		// must be a step output, e.g. #main/filter/rejected (workflow, step, output)
-		workflow_name := strings.Join(src_array[0:len(src_array)-3], "/")
-		step_name := src_array[len(src_array)-2]
-		output_name := src_array[len(src_array)-1]
-
-		var step_reason string
-		obj, ok, step_reason, err = qm.getCWLSourceFromStepOutput(job, workflow_instance, workflow_name, step_name, output_name, error_on_missing_task)
-		if err != nil {
-			err = fmt.Errorf("(getCWLSource) (%s, %s, %s) getCWLSourceFromStepOutput returned: %s", workflow_name, step_name, output_name, err.Error())
-			return
-		}
 		if !ok {
-			reason = "getCWLSourceFromStepOutput returned: " + step_reason
+			reason = "getCWLSourceFromStepOutput returned: " + stepReason
 		}
-		return
 
-	case "*cwl.File":
-		thing := generic_object.(*cwl.File)
-
-		obj = thing
-		return
-	case "*cwl.Array":
-		thing := generic_object.(*cwl.Array)
-
-		obj = thing
-		return
-	case "*cwl.String":
-		thing := generic_object.(*cwl.String)
-
-		obj = thing
-		return
-	case "*cwl.Int":
-		thing := generic_object.(*cwl.Int)
-
-		obj = thing
-		return
-	case "*cwl.Double":
-		thing := generic_object.(*cwl.Double)
-
-		obj = thing
-		return
-	case "*cwl.Record":
-		thing := generic_object.(*cwl.Record)
-
-		obj = thing
-		return
-	case "*cwl.Boolean":
-		thing := generic_object.(*cwl.Boolean)
-
-		obj = thing
-		return
-	case "*cwl.Null":
-		thing := generic_object.(*cwl.Null)
-
-		obj = thing
 		return
 	}
 
-	err = fmt.Errorf("(getCWLSource) could not parse source: %s, type %s unknown", src, type_str)
+	if len(srcArray) != 2 {
+		err = fmt.Errorf("(getCWLSource) len(srcArray) != 2  (%d)", len(srcArray))
+		return
+	}
 
+	/// must be a step output
+
+	//workflow_name := strings.Join(srcArray[0:len(srcArray)-3], "/")
+	stepName := srcArray[len(srcArray)-2]
+	outputName := srcArray[len(srcArray)-1]
+
+	//var step_reason string
+	obj, ok, stepReason, err = qm.getCWLSourceFromStepOutput(job, workflowInstance, stepName, outputName, errorOnMissingTask)
+	if err != nil {
+		err = fmt.Errorf("(getCWLSource) (%s, %s) getCWLSourceFromStepOutput returned: %s", stepName, outputName, err.Error())
+		return
+	}
+	if !ok {
+		reason = "getCWLSourceFromStepOutput returned: " + stepReason
+	}
 	return
+
+	// //srcBase := path.Base(src)
+
+	// //src = strings.TrimPrefix(src, "#main/")
+
+	// var genericObject cwl.CWLObject
+	// genericObject, ok, err = context.Get(src, true)
+	// if err != nil {
+	// 	err = fmt.Errorf("(getCWLSource) context.Get returned: %s", err.Error())
+	// 	return
+	// }
+	// if !ok {
+	// 	reason = fmt.Sprintf("(getCWLSource) context.All did not contain %s", src)
+	// 	return
+	// }
+
+	// typeStr := fmt.Sprintf("%s", reflect.TypeOf(genericObject))
+
+	// // var type_str string
+	// // type_str, err = context.GetType(src)
+	// // if err != nil {
+	// // 	err = fmt.Errorf("(getCWLSource) context.GetType returned: %s", err.Error())
+	// // 	return
+	// // }
+
+	// logger.Debug(3, "(getCWLSource) searching for %s (type: %s)", src, typeStr)
+
+	// switch typeStr {
+	// case "*cwl.InputParameter", "*cwl.CommandInputParameter": // CommandInputParameter is from CommandLineTool, InputParameter from ExpressionTool
+	// 	logger.Debug(3, "(getCWLSource) a workflow input")
+	// 	// must be a workflow input, e.g. #main/jobid (workflow, input)
+	// 	//src_base := src_array[1]
+
+	// 	obj, ok, reason, err = qm.GetSourceFromWorkflowInstanceInput(workflowInstance, src, context, errorOnMissingTask)
+
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(getCWLSource) GetSourceFromWorkflowInstanceInput returned: %s", err.Error())
+	// 		return
+	// 	}
+
+	// 	//if !ok {
+
+	// 	//	fmt.Printf("workflow_instance: (looking for %s)\n", src)
+	// 	//	spew.Dump(workflow_instance)
+	// 	//	panic("done")
+	// 	//}
+
+	// 	return
+
+	// case "*cwl.WorkflowStepOutput":
+	// 	logger.Debug(3, "(getCWLSource) a step output")
+	// 	// must be a step output, e.g. #main/filter/rejected (workflow, step, output)
+	// 	//workflow_name := strings.Join(srcArray[0:len(srcArray)-3], "/")
+	// 	step_name := srcArray[len(srcArray)-2]
+	// 	output_name := srcArray[len(srcArray)-1]
+
+	// 	var step_reason string
+	// 	obj, ok, step_reason, err = qm.getCWLSourceFromStepOutput(job, workflowInstance, step_name, output_name, errorOnMissingTask)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(getCWLSource) ( %s, %s) getCWLSourceFromStepOutput returned: %s", step_name, output_name, err.Error())
+	// 		return
+	// 	}
+	// 	if !ok {
+	// 		reason = "getCWLSourceFromStepOutput returned: " + step_reason
+	// 	}
+	// 	return
+
+	// case "*cwl.File":
+	// 	thing := genericObject.(*cwl.File)
+
+	// 	obj = thing
+	// 	return
+	// case "*cwl.Array":
+	// 	thing := genericObject.(*cwl.Array)
+
+	// 	obj = thing
+	// 	return
+	// case "*cwl.String":
+	// 	thing := genericObject.(*cwl.String)
+
+	// 	obj = thing
+	// 	return
+	// case "*cwl.Int":
+	// 	thing := genericObject.(*cwl.Int)
+
+	// 	obj = thing
+	// 	return
+	// case "*cwl.Double":
+	// 	thing := genericObject.(*cwl.Double)
+
+	// 	obj = thing
+	// 	return
+	// case "*cwl.Record":
+	// 	thing := genericObject.(*cwl.Record)
+
+	// 	obj = thing
+	// 	return
+	// case "*cwl.Boolean":
+	// 	thing := genericObject.(*cwl.Boolean)
+
+	// 	obj = thing
+	// 	return
+	// case "*cwl.Null":
+	// 	thing := genericObject.(*cwl.Null)
+
+	// 	obj = thing
+	// 	return
+	// }
+
+	// err = fmt.Errorf("(getCWLSource) could not parse source: %s, type %s unknown", src, typeStr)
+
+	// return
 
 }
 
-// Tasks or Subworkflows
+// GetDependencies Tasks or Subworkflows
 func (qm *ServerMgr) GetDependencies(job *Job, workflow_instance *WorkflowInstance, workflow_input_map map[string]cwl.CWLType, workflow_step *cwl.WorkflowStep, context *cwl.WorkflowContext) (err error) {
 	if workflow_step.In == nil {
 		return
@@ -3933,6 +4024,12 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 					return
 				}
 
+				if !strings.HasPrefix(source_as_string, "#") {
+					source_as_string = path.Join(workflow_instance.LocalID, source_as_string)
+				}
+
+				fmt.Printf("(GetStepInputObjects) searching for source_as_string %s\n", source_as_string)
+
 				var job_obj cwl.CWLType
 				//var reason string
 				job_obj, ok, reason, err = qm.getCWLSource(job, workflow_instance, workflow_input_map, source_as_string, true, job.WorkflowContext)
@@ -3941,7 +4038,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 					return
 				}
 				if ok {
-					fmt.Printf("(GetStepInputObjects) qm.getCWLSource returned an object\n")
+					fmt.Printf("(GetStepInputObjects) qm.getCWLSource returned an object (%s)\n", source_as_string)
 					spew.Dump(job_obj)
 					if job_obj.GetType() == cwl.CWLNull {
 						//fmt.Println("(GetStepInputObjects) job_obj is cwl.CWLNull")
@@ -3952,9 +4049,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 						//fmt.Println("(GetStepInputObjects) job_obj is not cwl.CWLNull")
 					}
 				}
-
 				if !ok {
-
 					logger.Debug(3, "(GetStepInputObjects) source_as_string %s not found", source_as_string)
 
 					logger.Debug(3, "(GetStepInputObjects) qm.getCWLSource did not return an object (reason: %s), now check input.Default", reason)
@@ -3970,9 +4065,9 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 						err = fmt.Errorf("(GetStepInputObjects) could not use default: %s", err.Error())
 						return
 					}
-					//fmt.Println("(GetStepInputObjects) got a input.Default")
-					//spew.Dump(job_obj)
 				}
+				//fmt.Println("(GetStepInputObjects) got a input.Default")
+				//spew.Dump(job_obj)
 
 				//fmt.Printf("(GetStepInputObjects) Source_index: %d\n", input.Source_index)
 				if input.Source_index != 0 {
@@ -5057,13 +5152,6 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 		err = fmt.Errorf("(taskCompleted) workflow_instance.GetRemainSteps returned: %s", err.Error())
 		return
 	}
-
-	//subworkflow_remain_tasks, err = workflow_instance.DecreaseRemainSteps()
-	//if err != nil {
-	//	err = fmt.Errorf("(taskCompleted) workflow_instance.DecreaseRemainSteps returned: %s", err.Error())
-	//	return
-
-	//}
 
 	logger.Debug(3, "(taskCompleted) TASK_STAT_COMPLETED  / remaining steps for subworkflow %s: %d", taskStr, subworkflowRemainSteps)
 

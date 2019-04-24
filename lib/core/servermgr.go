@@ -2115,8 +2115,9 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 					return ok, reason, err
 				}
 
-				srcStr = path.Join(workflowInstanceName, srcStr)
-
+				if !strings.HasPrefix(srcStr, "#") {
+					srcStr = path.Join(workflowInstanceName, srcStr)
+				}
 				// see comments below
 				context := job.WorkflowContext
 				_, ok, err = context.Get(srcStr, true)
@@ -2151,7 +2152,9 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 				err = fmt.Errorf("(areSourceGeneratorsReady) Cannot parse WorkflowStep source: %s", spew.Sdump(wsi.Source))
 				return
 			}
-			srcStr = path.Join(workflowInstanceName, srcStr)
+			if !strings.HasPrefix(srcStr, "#") {
+				srcStr = path.Join(workflowInstanceName, srcStr)
+			}
 
 			logger.Debug(3, "(areSourceGeneratorsReady) %s.Source: %s", wsi.Id, srcStr)
 
@@ -3502,6 +3505,14 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflowInstance *Workflow
 		srcGeneratorAbs = path.Join(workflowInstance.LocalID, srcGenerator)
 	}
 
+	srcArray := strings.Split(srcGeneratorAbs, "/")
+
+	if len(srcArray) == 1 {
+		// must be a workflow input
+		ok = true
+		return
+	}
+
 	// get workflow object and find step
 
 	var workflow *cwl.Workflow
@@ -3516,7 +3527,7 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflowInstance *Workflow
 	var workflowStep *cwl.WorkflowStep
 	workflowStep, err = workflow.GetStep(srcGeneratorBase)
 	if err != nil {
-		err = fmt.Errorf("(isSourceGeneratorReady) workflow.GetStep returned: %s", err.Error())
+		err = fmt.Errorf("(isSourceGeneratorReady) workflow.GetStep(%s) (with srcGenerator: %s) returned: %s", srcGeneratorBase, srcGenerator, err.Error())
 		return
 	}
 

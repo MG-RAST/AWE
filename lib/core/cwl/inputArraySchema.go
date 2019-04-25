@@ -44,7 +44,7 @@ func NewInputArraySchemaFromInterface(original interface{}, schemata []CWLType_T
 		var as *ArraySchema
 		as, err = NewArraySchemaFromMap(original_map, schemata, "Input", context)
 		if err != nil {
-			err = fmt.Errorf("(NewOutputArraySchemaFromInterface) NewArraySchemaFromMap returned: %s", err.Error())
+			err = fmt.Errorf("(NewInputArraySchemaFromInterface) NewArraySchemaFromMap returned: %s", err.Error())
 			return
 		}
 
@@ -56,7 +56,7 @@ func NewInputArraySchemaFromInterface(original interface{}, schemata []CWLType_T
 
 			coas.InputBinding, err = NewCommandLineBinding(inputBinding, context)
 			if err != nil {
-				err = fmt.Errorf("(NewOutputArraySchemaFromInterface) NewCommandOutputBinding returned: %s", err.Error())
+				err = fmt.Errorf("(NewInputArraySchemaFromInterface) NewCommandOutputBinding returned: %s", err.Error())
 				return
 			}
 		}

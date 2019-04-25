@@ -69,6 +69,8 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 		return
 	}
 
+	arraySchema := ArraySchema{}
+	arraySchema.Items = []CWLType_Type{baseType}
 	switch context {
 
 	case "WorkflowOutput":
@@ -78,12 +80,16 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 		result = oas
 		return
 	case "CommandInput":
+
 		cias := NewCommandInputArraySchema()
+		cias.ArraySchema = arraySchema
+		//cias.ArraySchema.Items = []CWLType_Type{baseType}
 		result = cias
 		return
 
 	case "Input":
 		ias := NewInputArraySchema()
+		ias.ArraySchema = arraySchema
 		result = ias
 		return
 
@@ -125,15 +131,37 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 	case map[string]interface{}:
 		nativeMap := native.(map[string]interface{})
 
-		object_type, has_type := nativeMap["type"]
-		if !has_type {
-			fmt.Println("(NewCWLType_Type) nativeMap:")
-			spew.Dump(nativeMap)
+		var objectTypeIf interface{}
+		objectType := ""
+		var hasType bool
 
-			err = fmt.Errorf("(NewCWLType_Type) map object has not field \"type\" (context: %s)", context_p)
-			return
+		objectTypeIf, hasType = nativeMap["type"]
+
+		if hasType {
+			var ok bool
+			objectType, ok = objectTypeIf.(string)
+			if !ok {
+				err = fmt.Errorf("(NewCWLType_Type) field type is not a string %s", err.Error())
+				return
+			}
+		} else {
+			//fmt.Println("(NewCWLType_Type) nativeMap:")
+			//spew.Dump(nativeMap)
+
+			//err = fmt.Errorf("(NewCWLType_Type) map object has not field \"type\" (context: %s)", context_p)
+			//return
+
+			_, hasItems := nativeMap["items"]
+			if hasItems {
+				objectType = "array"
+			}
+
 		}
-		switch object_type {
+
+		switch objectType {
+		case "":
+			err = fmt.Errorf("(NewCWLType_Type) object_type could not be detected (context: %s)", context_p)
+			return
 		case "array":
 
 			switch context_p {
@@ -158,7 +186,8 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 			case "CommandInput":
 				result, err = NewCommandInputArraySchemaFromInterface(native, schemata, context)
 				if err != nil {
-
+					fmt.Println("NewCWLType_Type calls NewCommandInputArraySchemaFromInterface")
+					spew.Dump(native)
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputArraySchemaFromInterface returned: %s", err.Error())
 				}
 				return
@@ -230,7 +259,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 
 			fmt.Println("(NewCWLType_Type) nativeMap:")
 			spew.Dump(nativeMap)
-			err = fmt.Errorf("(NewCWLType_Type) object_type %s not supported yet", object_type)
+			err = fmt.Errorf("(NewCWLType_Type) object_type %s not supported yet", objectType)
 			return
 		}
 	case OutputArraySchema:

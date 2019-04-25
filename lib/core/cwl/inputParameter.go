@@ -32,8 +32,8 @@ func (i InputParameter) IsCWLMinimal()    {}
 
 func NewInputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (input_parameter *InputParameter, err error) {
 
-	fmt.Println("---- NewInputParameter ----")
-	spew.Dump(original)
+	//fmt.Println("---- NewInputParameter ----")
+	//spew.Dump(original)
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {

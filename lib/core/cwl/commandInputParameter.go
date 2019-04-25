@@ -131,8 +131,8 @@ func CreateCommandInputArray(original interface{}, schemata []CWLType_Type, cont
 		return
 	}
 
-	fmt.Println("CommandInputArray:")
-	spew.Dump(original)
+	//fmt.Println("CommandInputArray:")
+	//spew.Dump(original)
 
 	switch original.(type) {
 

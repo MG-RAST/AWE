@@ -1,11 +1,5 @@
 package cwl
 
-import (
-	"fmt"
-
-	"github.com/davecgh/go-spew/spew"
-)
-
 //"fmt"
 //"github.com/davecgh/go-spew/spew"
 //"strings"
@@ -20,8 +14,8 @@ import (
 
 func NewCommandInputParameterTypeArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (result []CWLType_Type, err error) {
 
-	fmt.Println("NewCommandInputParameterTypeArray:")
-	spew.Dump(original)
+	//fmt.Println("NewCommandInputParameterTypeArray:")
+	//spew.Dump(original)
 
 	//result = []CWLType_Type{}
 	return_array := []CWLType_Type{}

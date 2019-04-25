@@ -4519,25 +4519,25 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 	var taskStr string
 	taskStr, err = task.String()
 	if err != nil {
-		err = fmt.Errorf("(taskCompleted_Scatter) task.String returned: %s", err.Error())
+		err = fmt.Errorf("(taskCompletedScatter) task.String returned: %s", err.Error())
 		return
 	}
 
-	logger.Debug(3, "(taskCompleted_Scatter) %s Scatter_parent exists", taskStr)
+	logger.Debug(3, "(taskCompletedScatter) %s Scatter_parent exists", taskStr)
 	scatterParentID := *task.Scatter_parent
 	var scatterParentTask *Task
 	var ok bool
 	scatterParentTask, ok, err = qm.TaskMap.Get(scatterParentID, true)
 	if err != nil {
-		err = fmt.Errorf("(taskCompleted_Scatter) qm.TaskMap.Get returned: %s", err.Error())
+		err = fmt.Errorf("(taskCompletedScatter) qm.TaskMap.Get returned: %s", err.Error())
 		return
 	}
 	if !ok {
-		err = fmt.Errorf("(taskCompleted_Scatter) Scatter_Parent task %s not found", scatterParentID)
+		err = fmt.Errorf("(taskCompletedScatter) Scatter_Parent task %s not found", scatterParentID)
 		return
 	}
 
-	// (taskCompleted_Scatter) get scatter sibblings to see if they are done
+	// (taskCompletedScatter) get scatter sibblings to see if they are done
 	var children []*Task
 	children, err = scatterParentTask.GetScatterChildren(wi, qm)
 	if err != nil {
@@ -4547,10 +4547,10 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 		var tasks []*Task
 		tasks, _ = qm.TaskMap.GetTasks()
 		for _, task := range tasks {
-			fmt.Printf("(taskCompleted_Scatter) got task %s\n", task.Id)
+			fmt.Printf("(taskCompletedScatter) got task %s\n", task.Id)
 		}
 
-		err = fmt.Errorf("(taskCompleted_Scatter) (scatter) GetScatterChildren returned: %s (total: %d)", err.Error(), length)
+		err = fmt.Errorf("(taskCompletedScatter) (scatter) GetScatterChildren returned: %s (total: %d)", err.Error(), length)
 		return
 	}
 
@@ -4558,13 +4558,14 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 
 	scatterComplete := true
 	for _, childTask := range children {
+
 		var childState string
 		childState, err = childTask.GetState()
 		if err != nil {
-			err = fmt.Errorf("(taskCompleted_Scatter) child_task.GetState returned: %s", err.Error())
+			err = fmt.Errorf("(taskCompletedScatter) child_task.GetState returned: %s", err.Error())
 			return
 		}
-
+		logger.Debug(3, "(taskCompletedScatter) childState: %s (%s)", childState, childTask.Id)
 		if childState != TASK_STAT_COMPLETED {
 			scatterComplete = false
 			break
@@ -4572,18 +4573,21 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 	}
 
 	if !scatterComplete {
+		logger.Debug(3, "(taskCompletedScatter) scatter not complete ")
 		// nothing to do here, scatter is not complete
 		return
 	}
 
+	logger.Debug(3, "(taskCompletedScatter) scatter complete, try to finalize... ")
+
 	ok, err = scatterParentTask.Finalize() // make sure this is the last scatter task
 	if err != nil {
-		err = fmt.Errorf("(taskCompleted_Scatter) scatter_parent_task.Finalize returned: %s", err.Error())
+		err = fmt.Errorf("(taskCompletedScatter) scatter_parent_task.Finalize returned: %s", err.Error())
 		return
 	}
 
 	if !ok {
-		logger.Debug(3, "(taskCompleted_Scatter) somebody else is finalizing")
+		logger.Debug(3, "(taskCompletedScatter) somebody else is finalizing")
 		// somebody else is finalizing
 		return
 	}
@@ -4592,7 +4596,7 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 	//           scatter_complete
 	// ***************************************
 
-	logger.Debug(3, "(taskCompleted_Scatter) scatter_complete")
+	logger.Debug(3, "(taskCompletedScatter) scatter complete, finalizing...")
 
 	scatterParentStep := scatterParentTask.WorkflowStep
 
@@ -4617,7 +4621,7 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 			childOutput, ok = jobDoc.Get(workflowStepOutputIDBase)
 			if !ok {
 				//fmt.Printf("XXX job_doc.Get failed\n")
-				err = fmt.Errorf("(taskCompleted_Scatter) job_doc.Get failed: %s ", err.Error())
+				err = fmt.Errorf("(taskCompletedScatter) job_doc.Get failed: %s ", err.Error())
 				return
 			}
 			//fmt.Println("child_output:")
@@ -4626,9 +4630,9 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 			//fmt.Println("output_array:")
 			//spew.Dump(output_array)
 		}
-		err = context.Add(workflowStepOutputID, &outputArray, "taskCompleted_Scatter")
+		err = context.Add(workflowStepOutputID, &outputArray, "taskCompletedScatter")
 		if err != nil {
-			err = fmt.Errorf("(taskCompleted_Scatter) context.Add returned: %s", err.Error())
+			err = fmt.Errorf("(taskCompletedScatter) context.Add returned: %s", err.Error())
 			return
 		}
 		//fmt.Println("final output_array:")
@@ -4647,14 +4651,14 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 	//}
 	// err = task.SetState(wi, TASK_STAT_COMPLETED, true)
 	// if err != nil {
-	// 	err = fmt.Errorf("(taskCompleted_Scatter) task.SetState returned: %s", err.Error())
+	// 	err = fmt.Errorf("(taskCompletedScatter) task.SetState returned: %s", err.Error())
 	// 	return
 	// }
 
 	//log event about task done (TD)
 	err = qm.FinalizeTaskPerf(task)
 	if err != nil {
-		err = fmt.Errorf("(taskCompleted_Scatter) FinalizeTaskPerf returned: %s", err.Error())
+		err = fmt.Errorf("(taskCompletedScatter) FinalizeTaskPerf returned: %s", err.Error())
 		return
 	}
 	logger.Event(event.TASK_DONE, "task_id="+taskStr)
@@ -4663,10 +4667,10 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 	//task in the task map when the task is the final task of the job to be done.
 	err = qm.taskCompleted(wi, task) //task state QUEUED -> COMPLETED
 	if err != nil {
-		err = fmt.Errorf("(taskCompleted_Scatter) updateJobTask returned: %s", err.Error())
+		err = fmt.Errorf("(taskCompletedScatter) updateJobTask returned: %s", err.Error())
 		return
 	}
-
+	logger.Debug(3, "(taskCompletedScatter) finished")
 	return
 }
 
@@ -5107,6 +5111,12 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 
 	logger.Debug(3, "(taskCompleted) task.WorkflowStep != nil (%s)", taskStr)
 
+	err = task.SetState(wi, TASK_STAT_COMPLETED, true)
+	if err != nil {
+		err = fmt.Errorf("(handleWorkStatDone) task.SetState returned: %s", err.Error())
+		return
+	}
+
 	if task.Scatter_parent != nil {
 
 		var wi *WorkflowInstance
@@ -5125,18 +5135,12 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 		// process scatter children
 		err = qm.taskCompletedScatter(job, wi, task)
 		if err != nil {
-			err = fmt.Errorf("(taskCompleted) taskCompleted_Scatter returned: %s", err.Error())
+			err = fmt.Errorf("(taskCompleted) taskCompletedScatter returned: %s", err.Error())
 			return
 		}
 
 	} else { // end task.Scatter_parent != nil
 		logger.Debug(3, "(taskCompleted) %s  No Scatter_parent", taskStr)
-	}
-
-	err = task.SetState(wi, TASK_STAT_COMPLETED, true)
-	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) task.SetState returned: %s", err.Error())
-		return
 	}
 
 	// ******************

@@ -73,7 +73,7 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 	arraySchema.Items = []CWLType_Type{baseType}
 	switch context {
 
-	case "WorkflowOutput":
+	case "Output":
 
 		oas := NewOutputArraySchema()
 		oas.Items = []CWLType_Type{baseType}
@@ -189,12 +189,6 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 					fmt.Println("NewCWLType_Type calls NewCommandInputArraySchemaFromInterface")
 					spew.Dump(native)
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputArraySchemaFromInterface returned: %s", err.Error())
-				}
-				return
-			case "WorkflowOutput":
-				result, err = NewOutputArraySchemaFromInterface(native, schemata, context)
-				if err != nil {
-					err = fmt.Errorf("(NewCWLType_Type) NewWorkflowOutputOutputArraySchemaFromInterface returned: %s", err.Error())
 				}
 				return
 			default:

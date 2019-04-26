@@ -4120,21 +4120,21 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflowInstance *WorkflowIns
 			}
 		}
 
-		fmt.Printf("(GetStepInputObjects) check source\n")
-		if input.Source == nil {
-			fmt.Printf("(GetStepInputObjects) no source\n")
-		} else {
-			fmt.Printf("(GetStepInputObjects) got source\n")
-		}
+		// fmt.Printf("(GetStepInputObjects) check source\n")
+		// if input.Source == nil {
+		// 	fmt.Printf("(GetStepInputObjects) no source\n")
+		// } else {
+		// 	fmt.Printf("(GetStepInputObjects) got source\n")
+		// }
 
-		if hasInput {
-			fmt.Printf("(GetStepInputObjects) hasInput\nn")
-		} else {
-			fmt.Printf("(GetStepInputObjects) not hasInput\n")
-		}
+		// if hasInput {
+		// 	fmt.Printf("(GetStepInputObjects) hasInput\nn")
+		// } else {
+		// 	fmt.Printf("(GetStepInputObjects) not hasInput\n")
+		// }
 
 		if (input.Source == nil) || (!hasInput) {
-			fmt.Println("(GetStepInputObjects) input.Source == nil || (!hasInput)\n")
+			//fmt.Println("(GetStepInputObjects) input.Source == nil || (!hasInput)\n")
 
 			if input.Default == nil && input.ValueFrom == "" {
 				err = fmt.Errorf("(GetStepInputObjects) sorry, source, Default and ValueFrom are missing") // TODO StepInputExpressionRequirement
@@ -4162,8 +4162,8 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflowInstance *WorkflowIns
 		// TODO
 
 	} // end of INPUT_LOOP1
-	fmt.Printf("(GetStepInputObjects) workunit_input_map after first round: \n")
-	spew.Dump(workunitInputMap)
+	//fmt.Printf("(GetStepInputObjects) workunit_input_map after first round: \n")
+	//spew.Dump(workunitInputMap)
 
 	// 3. evaluate each ValueFrom field, update results
 VALUE_FROM_LOOP:
@@ -4845,7 +4845,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 
 		for _, rawType := range expectedTypesRaw {
 			var typeCorrect cwl.CWLType_Type
-			typeCorrect, err = cwl.NewCWLType_Type(schemata, rawType, "WorkflowOutput", context)
+			typeCorrect, err = cwl.NewCWLType_Type(schemata, rawType, "Output", context)
 			if err != nil {
 				//spew.Dump(expected_types_raw)
 				//fmt.Println("---")

@@ -3879,9 +3879,10 @@ func (qm *ServerMgr) GetDependencies(job *Job, workflow_instance *WorkflowInstan
 	return
 }
 
-func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowInstance, workflow_input_map map[string]cwl.CWLType, workflow_step *cwl.WorkflowStep, context *cwl.WorkflowContext, caller string) (workunit_input_map cwl.JobDocMap, ok bool, reason string, err error) {
+// GetStepInputObjects _
+func (qm *ServerMgr) GetStepInputObjects(job *Job, workflowInstance *WorkflowInstance, workflowInputMap map[string]cwl.CWLType, workflow_step *cwl.WorkflowStep, context *cwl.WorkflowContext, caller string) (workunitInputMap cwl.JobDocMap, ok bool, reason string, err error) {
 
-	workunit_input_map = make(map[string]cwl.CWLType) // also used for json
+	workunitInputMap = make(map[string]cwl.CWLType) // also used for json
 	reason = "undefined"
 
 	fmt.Println("(GetStepInputObjects) workflow_step:")
@@ -3904,24 +3905,24 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 	// 1. find all object source and Default
 	// 2. make a map copy to be used in javascript, as "inputs"
 	// INPUT_LOOP1
-	for input_i, input := range workflow_step.In {
+	for inputI, input := range workflow_step.In {
 		// input is a WorkflowStepInput
 
-		fmt.Printf("(GetStepInputObjects) workflow_step.In: (%d)\n", input_i)
+		fmt.Printf("(GetStepInputObjects) workflow_step.In: (%d)\n", inputI)
 		spew.Dump(workflow_step.In)
 
 		id := input.Id
 		//	fmt.Println("(GetStepInputObjects) id: %s", id)
-		cmd_id := path.Base(id)
+		cmdID := path.Base(id)
 
 		// get data from Source, Default or valueFrom
 
-		link_merge_method := ""
+		linkMergeMethod := ""
 		if input.LinkMerge != nil {
-			link_merge_method = string(*input.LinkMerge)
+			linkMergeMethod = string(*input.LinkMerge)
 		} else {
 			// default: merge_nested
-			link_merge_method = "merge_nested"
+			linkMergeMethod = "merge_nested"
 		}
 
 		if input.Source != nil {
@@ -3929,12 +3930,12 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 			//source_object_array := []cwl.CWLType{}
 			//resolve pointers in source
 
-			source_is_array := false
+			sourceIsArray := false
 
-			source_as_string := ""
-			source_as_array, source_is_array := input.Source.([]interface{})
+			sourceAsString := ""
+			source_as_array, sourceIsArray := input.Source.([]interface{})
 
-			if source_is_array {
+			if sourceIsArray {
 				fmt.Printf("(GetStepInputObjects) source is a array: %s", spew.Sdump(input.Source))
 
 				if input.Source_index != 0 {
@@ -3945,34 +3946,34 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 						return
 					}
 					src := source_as_array[input.Source_index-1]
-					var src_str string
+					var srcStr string
 					//var ok bool
-					src_str, ok = src.(string)
+					srcStr, ok = src.(string)
 					if !ok {
 						err = fmt.Errorf("src is not a string")
 						return
 					}
-					var job_obj cwl.CWLType
-					job_obj, ok, _, err = qm.getCWLSource(job, workflow_instance, workflow_input_map, src_str, true, job.WorkflowContext)
+					var jobObj cwl.CWLType
+					jobObj, ok, _, err = qm.getCWLSource(job, workflowInstance, workflowInputMap, srcStr, true, job.WorkflowContext)
 					if err != nil {
 						err = fmt.Errorf("(GetStepInputObjects) (array) getCWLSource returns: %s", err.Error())
 						return
 					}
 					if !ok {
-						err = fmt.Errorf("(GetStepInputObjects) (array) getCWLSource did not find output \"%s\"", src_str)
+						err = fmt.Errorf("(GetStepInputObjects) (array) getCWLSource did not find output \"%s\"", srcStr)
 						return // TODO allow optional ??
 					}
 
-					workunit_input_map[cmd_id] = job_obj
+					workunitInputMap[cmdID] = jobObj
 				} else {
 					// case Source_index == 0
 
-					cwl_array := cwl.Array{}
+					cwlArray := cwl.Array{}
 					for _, src := range source_as_array { // usually only one
 						fmt.Println("src: " + spew.Sdump(src))
-						var src_str string
+						var srcStr string
 						//var ok bool
-						src_str, ok = src.(string)
+						srcStr, ok = src.(string)
 						if !ok {
 							err = fmt.Errorf("src is not a string")
 							return
@@ -3981,20 +3982,20 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 						// if ...
 						//embedded_workflowInstanceID := "_root/" + strings.Join(src_array[1:len(src_array)-2], "/")
 
-						var job_obj cwl.CWLType
-						job_obj, ok, _, err = qm.getCWLSource(job, workflow_instance, workflow_input_map, src_str, true, job.WorkflowContext)
+						var jobObj cwl.CWLType
+						jobObj, ok, _, err = qm.getCWLSource(job, workflowInstance, workflowInputMap, srcStr, true, job.WorkflowContext)
 						if err != nil {
 							err = fmt.Errorf("(GetStepInputObjects) (array) getCWLSource returns: %s", err.Error())
 							return
 						}
 						if !ok {
-							err = fmt.Errorf("(GetStepInputObjects) (array) getCWLSource did not find output \"%s\"", src_str)
+							err = fmt.Errorf("(GetStepInputObjects) (array) getCWLSource did not find output \"%s\"", srcStr)
 							return // TODO allow optional ??
 						}
 
-						if link_merge_method == "merge_flattened" {
+						if linkMergeMethod == "merge_flattened" {
 
-							job_obj_type := job_obj.GetType()
+							job_obj_type := jobObj.GetType()
 
 							if job_obj_type != cwl.CWLArray {
 								err = fmt.Errorf("(GetStepInputObjects) merge_flattened, expected array as input, but got %s", job_obj_type)
@@ -4002,76 +4003,76 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 							}
 
 							var an_array *cwl.Array
-							an_array, ok = job_obj.(*cwl.Array)
+							an_array, ok = jobObj.(*cwl.Array)
 							if !ok {
-								err = fmt.Errorf("got type: %s", reflect.TypeOf(job_obj))
+								err = fmt.Errorf("got type: %s", reflect.TypeOf(jobObj))
 								return
 							}
 
 							for i, _ := range *an_array {
 								//source_object_array = append(source_object_array, (*an_array)[i])
-								cwl_array = append(cwl_array, (*an_array)[i])
+								cwlArray = append(cwlArray, (*an_array)[i])
 							}
 
-						} else if link_merge_method == "merge_nested" {
+						} else if linkMergeMethod == "merge_nested" {
 							//source_object_array = append(source_object_array, job_obj)
-							cwl_array = append(cwl_array, job_obj)
+							cwlArray = append(cwlArray, jobObj)
 						} else {
-							err = fmt.Errorf("(GetStepInputObjects) link_merge_method %s not supported", link_merge_method)
+							err = fmt.Errorf("(GetStepInputObjects) link_merge_method %s not supported", linkMergeMethod)
 							return
 						}
 						//cwl_array = append(cwl_array, obj)
 					}
 
-					workunit_input_map[cmd_id] = &cwl_array
+					workunitInputMap[cmdID] = &cwlArray
 
 				}
 			} else {
 				fmt.Printf("(GetStepInputObjects) source is NOT a array: %s", spew.Sdump(input.Source))
 				//var ok bool
-				source_as_string, ok = input.Source.(string)
+				sourceAsString, ok = input.Source.(string)
 				if !ok {
 					err = fmt.Errorf("(GetStepInputObjects) (string) Cannot parse WorkflowStep source: %s", spew.Sdump(input.Source))
 					return
 				}
 
-				if !strings.HasPrefix(source_as_string, "#") {
-					source_as_string = path.Join(workflow_instance.LocalID, source_as_string)
+				if !strings.HasPrefix(sourceAsString, "#") {
+					sourceAsString = path.Join(workflowInstance.LocalID, sourceAsString)
 				}
 
-				fmt.Printf("(GetStepInputObjects) searching for source_as_string %s\n", source_as_string)
+				fmt.Printf("(GetStepInputObjects) searching for source_as_string %s\n", sourceAsString)
 
-				var job_obj cwl.CWLType
+				var jobObj cwl.CWLType
 				//var reason string
-				job_obj, ok, reason, err = qm.getCWLSource(job, workflow_instance, workflow_input_map, source_as_string, true, job.WorkflowContext)
+				jobObj, ok, reason, err = qm.getCWLSource(job, workflowInstance, workflowInputMap, sourceAsString, true, job.WorkflowContext)
 				if err != nil {
-					err = fmt.Errorf("(GetStepInputObjects) (source_as_string: %s ) getCWLSource returns: %s", source_as_string, err.Error())
+					err = fmt.Errorf("(GetStepInputObjects) (source_as_string: %s ) getCWLSource returns: %s", sourceAsString, err.Error())
 					return
 				}
 				if ok {
-					fmt.Printf("(GetStepInputObjects) qm.getCWLSource returned an object (%s)\n", source_as_string)
-					spew.Dump(job_obj)
-					if job_obj.GetType() == cwl.CWLNull {
-						//fmt.Println("(GetStepInputObjects) job_obj is cwl.CWLNull")
-						//reason = "returned object is null"
-						//ok = false
-						continue
-					} else {
-						//fmt.Println("(GetStepInputObjects) job_obj is not cwl.CWLNull")
-					}
+					fmt.Printf("(GetStepInputObjects) qm.getCWLSource returned an object (%s)\n", sourceAsString)
+					//spew.Dump(jobObj)
+					//if jobObj.GetType() == cwl.CWLNull {
+					//fmt.Println("(GetStepInputObjects) job_obj is cwl.CWLNull")
+					//reason = "returned object is null"
+					//ok = false
+					//	continue
+					//} else {
+					//fmt.Println("(GetStepInputObjects) job_obj is not cwl.CWLNull")
+					//}
 				}
 				if !ok {
-					logger.Debug(3, "(GetStepInputObjects) source_as_string %s not found", source_as_string)
+					logger.Debug(3, "(GetStepInputObjects) source_as_string %s not found", sourceAsString)
 
 					logger.Debug(3, "(GetStepInputObjects) qm.getCWLSource did not return an object (reason: %s), now check input.Default", reason)
 					if input.Default == nil {
-						logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", source_as_string)
+						logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", sourceAsString)
 						//ok = false
 						//err = fmt.Errorf("(GetStepInputObjects) getCWLSource did not find source %s and has no Default (reason: %s)", source_as_string, reason)
 						continue
 					}
-					logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource found something \"%s\"", source_as_string)
-					job_obj, err = cwl.NewCWLType("", input.Default, context)
+					logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource found something \"%s\"", sourceAsString)
+					jobObj, err = cwl.NewCWLType("", input.Default, context)
 					if err != nil {
 						err = fmt.Errorf("(GetStepInputObjects) could not use default: %s", err.Error())
 						return
@@ -4082,33 +4083,58 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 
 				//fmt.Printf("(GetStepInputObjects) Source_index: %d\n", input.Source_index)
 				if input.Source_index != 0 {
-					real_source_index := input.Source_index - 1
+					realSourceIndex := input.Source_index - 1
 
-					var job_obj_array_ptr *cwl.Array
-					job_obj_array_ptr, ok = job_obj.(*cwl.Array)
+					var jobObjArrayPtr *cwl.Array
+					jobObjArrayPtr, ok = jobObj.(*cwl.Array)
 					if !ok {
-						err = fmt.Errorf("(GetStepInputObjects) Array expected but got: %s", reflect.TypeOf(job_obj))
+						err = fmt.Errorf("(GetStepInputObjects) Array expected but got: %s", reflect.TypeOf(jobObj))
 						return
 					}
-					var job_obj_array cwl.Array
-					job_obj_array = *job_obj_array_ptr
+					var jobObjArray cwl.Array
+					jobObjArray = *jobObjArrayPtr
 
-					if real_source_index >= len(job_obj_array) {
-						err = fmt.Errorf("(GetStepInputObjects) Source_index %d out of bounds, array length: %d", real_source_index, len(job_obj_array))
+					if realSourceIndex >= len(jobObjArray) {
+						err = fmt.Errorf("(GetStepInputObjects) Source_index %d out of bounds, array length: %d", realSourceIndex, len(jobObjArray))
 						return
 					}
 
 					var element cwl.CWLType
-					element = job_obj_array[real_source_index]
+					element = jobObjArray[realSourceIndex]
 					//fmt.Printf("(GetStepInputObjects) cmd_id=%s element=%s real_source_index=%d\n", cmd_id, element, real_source_index)
-					workunit_input_map[cmd_id] = element
+					workunitInputMap[cmdID] = element
 				} else {
-					workunit_input_map[cmd_id] = job_obj
+					workunitInputMap[cmdID] = jobObj
 				}
 			}
 
-		} else { //input.Source == nil
-			fmt.Println("(GetStepInputObjects) input.Source == nil")
+		}
+
+		inputObject, hasInput := workunitInputMap[cmdID]
+
+		if hasInput {
+			inputObjectType := inputObject.GetType()
+
+			if inputObjectType == cwl.CWLNull {
+				hasInput = false
+			}
+		}
+
+		fmt.Printf("(GetStepInputObjects) check source\n")
+		if input.Source == nil {
+			fmt.Printf("(GetStepInputObjects) no source\n")
+		} else {
+			fmt.Printf("(GetStepInputObjects) got source\n")
+		}
+
+		if hasInput {
+			fmt.Printf("(GetStepInputObjects) hasInput\nn")
+		} else {
+			fmt.Printf("(GetStepInputObjects) not hasInput\n")
+		}
+
+		if (input.Source == nil) || (!hasInput) {
+			fmt.Println("(GetStepInputObjects) input.Source == nil || (!hasInput)\n")
 
 			if input.Default == nil && input.ValueFrom == "" {
 				err = fmt.Errorf("(GetStepInputObjects) sorry, source, Default and ValueFrom are missing") // TODO StepInputExpressionRequirement
@@ -4116,26 +4142,28 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflow_instance *WorkflowIn
 			}
 
 			if input.Default != nil {
-				var default_value cwl.CWLType
-				default_value, err = cwl.NewCWLType(cmd_id, input.Default, context)
+				var defaultValue cwl.CWLType
+				defaultValue, err = cwl.NewCWLType(cmdID, input.Default, context)
 				if err != nil {
 					err = fmt.Errorf("(GetStepInputObjects) NewCWLTypeFromInterface(input.Default) returns: %s", err.Error())
 					return
 				}
 
-				if default_value == nil {
+				if defaultValue == nil {
 					err = fmt.Errorf("(GetStepInputObjects) default_value == nil ")
 					return
 				}
 
-				workunit_input_map[cmd_id] = default_value
+				workunitInputMap[cmdID] = defaultValue
 			}
+		} else {
+			fmt.Printf("(GetStepInputObjects) not using default\n")
 		}
 		// TODO
 
 	} // end of INPUT_LOOP1
-	fmt.Println("(GetStepInputObjects) workunit_input_map after first round:")
-	spew.Dump(workunit_input_map)
+	fmt.Printf("(GetStepInputObjects) workunit_input_map after first round: \n")
+	spew.Dump(workunitInputMap)
 
 	// 3. evaluate each ValueFrom field, update results
 VALUE_FROM_LOOP:
@@ -4145,7 +4173,7 @@ VALUE_FROM_LOOP:
 		}
 
 		id := input.Id
-		cmd_id := path.Base(id)
+		cmdID := path.Base(id)
 
 		// from CWL doc: The self value of in the parameter reference or expression must be the value of the parameter(s) specified in the source field, or null if there is no source field.
 
@@ -4166,7 +4194,7 @@ VALUE_FROM_LOOP:
 		//spew.Dump(workunit_input_map)
 
 		var inputs_json []byte
-		inputs_json, err = json.Marshal(workunit_input_map)
+		inputs_json, err = json.Marshal(workunitInputMap)
 		if err != nil {
 			err = fmt.Errorf("(GetStepInputObjects) json.Marshal returns: %s", err.Error())
 			return
@@ -4181,11 +4209,11 @@ VALUE_FROM_LOOP:
 		//}
 
 		var js_self cwl.CWLType
-		js_self, ok = workunit_input_map[cmd_id]
+		js_self, ok = workunitInputMap[cmdID]
 		if !ok {
 			//err = fmt.Errorf("(GetStepInputObjects) workunit_input %s not found", cmd_id)
 			//return
-			logger.Warning("(GetStepInputObjects) workunit_input %s not found", cmd_id)
+			logger.Warning("(GetStepInputObjects) workunit_input %s not found", cmdID)
 			js_self = cwl.NewNull()
 		}
 
@@ -4232,10 +4260,10 @@ VALUE_FROM_LOOP:
 			}
 
 			for _, match := range matches {
-				expression_string := bytes.TrimPrefix(match, []byte("$("))
-				expression_string = bytes.TrimSuffix(expression_string, []byte(")"))
+				expressionString := bytes.TrimPrefix(match, []byte("$("))
+				expressionString = bytes.TrimSuffix(expressionString, []byte(")"))
 
-				javascript_function := fmt.Sprintf("(function(){\n self=%s ; inputs=%s; return %s;\n})()", self_json, inputs_json, expression_string)
+				javascript_function := fmt.Sprintf("(function(){\n self=%s ; inputs=%s; return %s;\n})()", self_json, inputs_json, expressionString)
 				fmt.Printf("%s\n", javascript_function)
 
 				value, xerr := vm.Run(javascript_function)
@@ -4247,12 +4275,12 @@ VALUE_FROM_LOOP:
 
 				//if value.IsNumber()
 				if concatenate {
-					value_str, xerr := value.ToString()
+					valueStr, xerr := value.ToString()
 					if xerr != nil {
 						err = fmt.Errorf("(GetStepInputObjects) Cannot convert value to string: %s", xerr.Error())
 						return
 					}
-					parsed_str = strings.Replace(parsed_str, string(match), value_str, 1)
+					parsed_str = strings.Replace(parsed_str, string(match), valueStr, 1)
 				} else {
 
 					var value_returned cwl.CWLType
@@ -4313,13 +4341,13 @@ VALUE_FROM_LOOP:
 
 					//fmt.Println("value_returned:")
 					//spew.Dump(value_returned)
-					workunit_input_map[cmd_id] = value_returned
+					workunitInputMap[cmdID] = value_returned
 					continue VALUE_FROM_LOOP
 				}
 			} // for matches
 
 			//if concatenate
-			workunit_input_map[cmd_id] = cwl.NewString(parsed_str)
+			workunitInputMap[cmdID] = cwl.NewString(parsed_str)
 
 			continue VALUE_FROM_LOOP
 		} // if matches
@@ -4335,19 +4363,19 @@ VALUE_FROM_LOOP:
 		matches = reg.FindAll([]byte(parsed_str), -1)
 		//fmt.Printf("{}Matches: %d\n", len(matches))
 		if len(matches) == 0 {
-			workunit_input_map[cmd_id] = cwl.NewString(parsed_str)
+			workunitInputMap[cmdID] = cwl.NewString(parsed_str)
 			continue VALUE_FROM_LOOP
 		}
 
 		if len(matches) == 1 {
 			match := matches[0]
-			expression_string := bytes.TrimPrefix(match, []byte("${"))
-			expression_string = bytes.TrimSuffix(expression_string, []byte("}"))
+			expressionString := bytes.TrimPrefix(match, []byte("${"))
+			expressionString = bytes.TrimSuffix(expressionString, []byte("}"))
 
-			javascript_function := fmt.Sprintf("(function(){\n self=%s ; inputs=%s; %s \n})()", self_json, inputs_json, expression_string)
-			fmt.Printf("%s\n", javascript_function)
+			javascriptFunction := fmt.Sprintf("(function(){\n self=%s ; inputs=%s; %s \n})()", self_json, inputs_json, expressionString)
+			fmt.Printf("%s\n", javascriptFunction)
 
-			value, xerr := vm.Run(javascript_function)
+			value, xerr := vm.Run(javascriptFunction)
 			if xerr != nil {
 				err = fmt.Errorf("Javascript complained: B) %s", xerr.Error())
 				return
@@ -4357,14 +4385,14 @@ VALUE_FROM_LOOP:
 
 			fmt.Printf("reflect.TypeOf(value_exported): %s\n", reflect.TypeOf(value_exported))
 
-			var value_cwl cwl.CWLType
-			value_cwl, err = cwl.NewCWLType("", value_exported, context)
+			var valueCwl cwl.CWLType
+			valueCwl, err = cwl.NewCWLType("", value_exported, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkunit) Error parsing javascript VM result value, cwl.NewCWLType returns: %s", err.Error())
 				return
 			}
 
-			workunit_input_map[cmd_id] = value_cwl
+			workunitInputMap[cmdID] = valueCwl
 			continue VALUE_FROM_LOOP
 		}
 
@@ -4376,7 +4404,7 @@ VALUE_FROM_LOOP:
 	//fmt.Println("(GetStepInputObjects) workunit_input_map after ValueFrom round:")
 	//spew.Dump(workunit_input_map)
 
-	for key, value := range workunit_input_map {
+	for key, value := range workunitInputMap {
 		fmt.Printf("workunit_input_map: %s -> %s (%s)\n", key, value.String(), reflect.TypeOf(value))
 
 	}
@@ -4384,6 +4412,7 @@ VALUE_FROM_LOOP:
 	return
 }
 
+// CreateAndEnqueueWorkunits _
 func (qm *ServerMgr) CreateAndEnqueueWorkunits(task *Task, job *Job) (err error) {
 	//logger.Debug(3, "(CreateAndEnqueueWorkunits) starting")
 	//fmt.Println("--CreateAndEnqueueWorkunits--")

@@ -430,12 +430,7 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowC
 			ok = true
 			return
 		default:
-			fmt.Println("schema:")
-			spew.Dump(schema)
-			fmt.Println("(TypeIsCorrectSingle) object:")
-			spew.Dump(object)
-			//panic("array did not match")
-			err = fmt.Errorf("(TypeIsCorrectSingle) array did not match")
+			ok = false
 			return
 		}
 	default:

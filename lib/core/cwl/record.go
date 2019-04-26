@@ -10,11 +10,11 @@ import (
 
 type Record map[string]CWLType
 
-func (r *Record) Is_CWL_object() {}
+func (r *Record) IsCWLObject() {}
 
 func (r *Record) GetClass() string { return "record" }
 
-func (r *Record) GetId() string {
+func (r *Record) GetID() string {
 
 	id, ok := (*r)["id"]
 	if ok {
@@ -27,14 +27,14 @@ func (r *Record) GetId() string {
 	return ""
 }
 
-func (r *Record) SetId(id string) {
+func (r *Record) SetID(id string) {
 	//ids := NewString(id)
 	//(*r)["id"] = ids
 }
 
-func (r *Record) GetType() CWLType_Type { return CWL_record }
+func (r *Record) GetType() CWLType_Type { return CWLRecord }
 
-func (r *Record) Is_CWL_minimal()     {}
+func (r *Record) IsCWLMinimal()     {}
 func (r *Record) Is_Type()            {}
 func (r *Record) Type2String() string { return "record" }
 
@@ -56,17 +56,17 @@ func NewRecord(id string, native interface{}, context *WorkflowContext) (record 
 
 		//fmt.Println("Got a record:")
 		//spew.Dump(native)
-		native_map, _ := native.(map[string]interface{})
+		nativeMap, _ := native.(map[string]interface{})
 
 		var keys []string
 
-		for key_str, _ := range native_map {
+		for key_str, _ := range nativeMap {
 			keys = append(keys, key_str)
 		}
 
 		for _, key_str := range keys {
 
-			value, _ := native_map[key_str]
+			value, _ := nativeMap[key_str]
 
 			var value_cwl CWLType
 
@@ -84,7 +84,7 @@ func NewRecord(id string, native interface{}, context *WorkflowContext) (record 
 
 		}
 
-		_, has_id := native_map["id"]
+		_, has_id := nativeMap["id"]
 		if !has_id {
 			//record["id"] = NewString(id)
 		}

@@ -36,13 +36,13 @@ func NewCommandInputRecordField(native interface{}, schemata []CWLType_Type, con
 	crf = &CommandInputRecordField{}
 	crf.RecordField = *rf
 
-	native_map, ok := native.(map[string]interface{})
+	nativeMap, ok := native.(map[string]interface{})
 	if !ok {
 		err = fmt.Errorf("(NewInputRecordFieldFromInterface) type assertion error (%s)", reflect.TypeOf(native))
 		return
 	}
 
-	inputBinding, has_inputBinding := native_map["inputBinding"]
+	inputBinding, has_inputBinding := nativeMap["inputBinding"]
 	if has_inputBinding {
 
 		crf.InputBinding, err = NewCommandLineBinding(inputBinding, context)

@@ -34,7 +34,7 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, co
 
 	switch native.(type) {
 	case map[string]interface{}:
-		native_map, ok := native.(map[string]interface{})
+		nativeMap, ok := native.(map[string]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewRecordFieldFromInterface) type switch error")
 			return
@@ -42,7 +42,7 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, co
 
 		rf = &RecordField{}
 
-		name, has_name := native_map["name"]
+		name, has_name := nativeMap["name"]
 		if has_name {
 			var ok bool
 			rf.Name, ok = name.(string)
@@ -52,7 +52,7 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, co
 			}
 		}
 
-		label, has_label := native_map["label"]
+		label, has_label := nativeMap["label"]
 		if has_label {
 			var ok bool
 			rf.Label, ok = label.(string)
@@ -62,7 +62,7 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, co
 			}
 		}
 
-		doc, has_doc := native_map["doc"]
+		doc, has_doc := nativeMap["doc"]
 		if has_doc {
 			var ok bool
 			rf.Doc, ok = doc.(string)
@@ -72,7 +72,7 @@ func NewRecordFieldFromInterface(native interface{}, schemata []CWLType_Type, co
 			}
 		}
 
-		the_type, has_type := native_map["type"]
+		the_type, has_type := nativeMap["type"]
 		if has_type {
 
 			rf.Type, err = NewCWLType_TypeArray(the_type, schemata, context_p, false, context)

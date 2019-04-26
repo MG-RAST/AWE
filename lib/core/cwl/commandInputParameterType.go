@@ -14,6 +14,9 @@ package cwl
 
 func NewCommandInputParameterTypeArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (result []CWLType_Type, err error) {
 
+	//fmt.Println("NewCommandInputParameterTypeArray:")
+	//spew.Dump(original)
+
 	//result = []CWLType_Type{}
 	return_array := []CWLType_Type{}
 
@@ -121,15 +124,15 @@ func NewCommandInputParameterTypeArray(original interface{}, schemata []CWLType_
 // 		//
 // 		// 		switch original_type {
 // 		//
-// 		// 		case CWL_null:
-// 		// 		case CWL_boolean:
-// 		// 		case CWL_int:
-// 		// 		case CWL_long:
-// 		// 		case CWL_float:
-// 		// 		case CWL_double:
-// 		// 		case CWL_string:
-// 		// 		case CWL_File:
-// 		// 		case CWL_Directory:
+// 		// 		case CWLNull:
+// 		// 		case CWLBoolean:
+// 		// 		case CWLInt:
+// 		// 		case CWLLong:
+// 		// 		case CWLFloat:
+// 		// 		case CWLDouble:
+// 		// 		case CWLString:
+// 		// 		case CWLFile:
+// 		// 		case CWLDirectory:
 // 		// 		default:
 // 		// 			err = fmt.Errorf("(NewCommandInputParameterType) type %s is unknown", original_str)
 // 		// 			return

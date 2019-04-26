@@ -13,7 +13,7 @@ import (
 // string | CommandLineTool | ExpressionTool | Workflow
 
 type Process interface {
-	CWL_object
+	CWLObject
 	Is_process()
 }
 
@@ -26,9 +26,9 @@ func (p *ProcessPointer) Is_process() {}
 func (p *ProcessPointer) GetClass() string {
 	return "ProcessPointer"
 }
-func (p *ProcessPointer) GetId() string   { return p.Id }
-func (p *ProcessPointer) SetId(string)    {}
-func (p *ProcessPointer) Is_CWL_minimal() {}
+func (p *ProcessPointer) GetID() string   { return p.Id }
+func (p *ProcessPointer) SetID(string)    {}
+func (p *ProcessPointer) IsCWLMinimal() {}
 
 func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 
@@ -93,11 +93,11 @@ func NewProcess(original interface{}, injectedRequirements []Requirement, contex
 		process_if, ok = context.If_objects[original_str]
 		if ok {
 			logger.Debug(3, "(NewProcess) %s found in object_if", original_str)
-			var object CWL_object
+			var object CWLObject
 
-			object, schemata, err = New_CWL_object(process_if, injectedRequirements, context)
+			object, schemata, err = NewCWLObject(process_if, injectedRequirements, context)
 			if err != nil {
-				err = fmt.Errorf("(NewProcess) A New_CWL_object returns %s", err.Error())
+				err = fmt.Errorf("(NewProcess) A NewCWLObject returns %s", err.Error())
 				return
 			}
 

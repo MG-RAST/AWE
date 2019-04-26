@@ -9,7 +9,7 @@ import (
 )
 
 type WorkflowStepOutput struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Is_CWL_object
+	CWLObjectImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides IsCWLObject
 	Id              string                                                                `yaml:"id" bson:"id" json:"id" mapstructure:"id"`
 }
 

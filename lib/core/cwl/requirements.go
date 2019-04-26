@@ -331,7 +331,7 @@ func CreateRequirementArray(original interface{}, optional bool, inputs interfac
 
 		for class_str, v := range original.(map[string]interface{}) {
 
-			//var schemata_new []CWLType_Type
+			//var schemataNew []CWLType_Type
 			var requirement Requirement
 			requirement, err = NewRequirement(class_str, v, inputs, context)
 			if err != nil {
@@ -343,8 +343,8 @@ func CreateRequirementArray(original interface{}, optional bool, inputs interfac
 				err = fmt.Errorf("(CreateRequirementArray) A NewRequirement returns: %s", err.Error())
 				return
 			}
-			//for i, _ := range schemata_new {
-			//	schemata = append(schemata, schemata_new[i])
+			//for i, _ := range schemataNew {
+			//	schemata = append(schemata, schemataNew[i])
 			//}
 
 			new_array = append(new_array, requirement)

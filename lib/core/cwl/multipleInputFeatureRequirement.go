@@ -9,7 +9,7 @@ type MultipleInputFeatureRequirement struct {
 	BaseRequirement `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"`
 }
 
-func (c MultipleInputFeatureRequirement) GetId() string { return "None" }
+func (c MultipleInputFeatureRequirement) GetID() string { return "None" }
 
 func NewMultipleInputFeatureRequirement(original interface{}) (r *MultipleInputFeatureRequirement, err error) {
 	var requirement MultipleInputFeatureRequirement

@@ -16,13 +16,13 @@ type CommandOutputArraySchema struct { // Items, Type , Label
 //func (c *CommandOutputArraySchema) Is_CommandOutputParameterType() {}
 
 func (c *CommandOutputArraySchema) Type2String() string { return "CommandOutputArraySchema" }
-func (c *CommandOutputArraySchema) GetId() string       { return "" }
+func (c *CommandOutputArraySchema) GetID() string       { return "" }
 
 func NewCommandOutputArraySchema() (coas *CommandOutputArraySchema) {
 
 	coas = &CommandOutputArraySchema{}
 	coas.ArraySchema = *NewArraySchema()
-	//coas.Type = CWL_array
+	//coas.Type = CWLArray
 
 	return
 }
@@ -57,7 +57,7 @@ func NewCommandOutputArraySchemaFromInterface(original interface{}, schemata []C
 
 		}
 
-		original_map["type"] = CWL_array
+		original_map["type"] = CWLArray
 
 		err = mapstructure.Decode(original, coas)
 		if err != nil {

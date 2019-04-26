@@ -1,3 +1,6 @@
+
+# docker build --force-rm --no-cache --rm -t mgrast/awe-server .
+
 # export TAG=`date +"%Y%m%d.%H%M"`
 # docker build --force-rm --no-cache --rm -t mgrast/awe .
 # docker tag mgrast/awe mgrast/awe:${TAG}

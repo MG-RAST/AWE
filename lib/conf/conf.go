@@ -109,6 +109,7 @@ var (
 
 	// Directories
 	DATA_PATH     string
+	PREDATA_PATH  string
 	SITE_PATH     string
 	LOGS_PATH     string
 	AWF_PATH      string
@@ -387,6 +388,8 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&SUPPORTED_APPS, "", "Client", "supported_apps", "list of suported apps, comma separated", "")
 		c_store.AddString(&APP_PATH, "", "Client", "app_path", "the file path of supported app", "")
 
+		c_store.AddString(&PREDATA_PATH, "", "predata Directory", "predata", "a file path for storing predata, by default same as --data", "")
+
 		c_store.AddString(&WORK_PATH, "/mnt/data/awe/work", "Client", "workpath", "the root dir for workunit working dirs", "")
 		c_store.AddString(&METADATA, "", "Client", "metadata", "", "e.g. ec2, openstack...")
 
@@ -584,6 +587,12 @@ func Init_conf(mode string) (err error) {
 
 	SITE_PATH = cleanPath(SITE_PATH)
 	DATA_PATH = cleanPath(DATA_PATH)
+	if PREDATA_PATH == "" {
+		PREDATA_PATH = DATA_PATH
+	} else {
+		PREDATA_PATH = cleanPath(PREDATA_PATH)
+	}
+
 	LOGS_PATH = cleanPath(LOGS_PATH)
 	WORK_PATH = cleanPath(WORK_PATH)
 	APP_PATH = cleanPath(APP_PATH)

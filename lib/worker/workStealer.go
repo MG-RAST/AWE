@@ -54,7 +54,7 @@ func workStealerRun(control chan int, retry_previous int) (retry int, err error)
 		core.Self.Busy = false
 		if err.Error() == e.QueueEmpty || err.Error() == e.QueueSuspend || err.Error() == e.NoEligibleWorkunitFound {
 			//normal, do nothing
-			logger.Debug(3, "(workStealer) client %s received status %s from server %s", core.Self.Id, err.Error(), conf.SERVER_URL)
+			logger.Debug(3, "(workStealer) client %s received status %s from server %s", core.Self.ID, err.Error(), conf.SERVER_URL)
 		} else if err.Error() == e.ClientBusy {
 			// client asked for work, but server has not finished processing its last delivered work
 			logger.Error("(workStealer) server responds: last work delivered by client not yet processed, retry=%d", retry)
@@ -104,7 +104,7 @@ func workStealerRun(control chan int, retry_previous int) (retry int, err error)
 	//log event about work checktout (WC)
 	logger.Event(event.WORK_CHECKOUT, "workid="+work_str)
 
-	err = core.Self.Current_work.Add(work_id)
+	err = core.Self.CurrentWork.Add(work_id)
 	if err != nil {
 		logger.Error("(workStealer) error: %s", err.Error())
 		return
@@ -122,7 +122,7 @@ func workStealerRun(control chan int, retry_previous int) (retry int, err error)
 	workunit.WorkPerf = workstat
 
 	// make sure cwl-runner is invoked
-	if workunit.CWL_workunit != nil {
+	if workunit.CWLWorkunit != nil {
 		workunit.Cmd.Name = "cwl-runner"
 		// "--provenance", "cwl_tool_provenance",
 		workunit.Cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", "./cwl_tool.yaml", "./cwl_job_input.yaml"}
@@ -143,8 +143,8 @@ func workStealerRun(control chan int, retry_previous int) (retry int, err error)
 
 func workStealer(control chan int) {
 
-	fmt.Printf("workStealer launched, client=%s\n", core.Self.Id)
-	logger.Debug(0, fmt.Sprintf("workStealer launched, client=%s\n", core.Self.Id))
+	fmt.Printf("workStealer launched, client=%s\n", core.Self.ID)
+	logger.Debug(0, fmt.Sprintf("workStealer launched, client=%s\n", core.Self.ID))
 
 	defer fmt.Printf("workStealer exiting...\n")
 	retry := 0
@@ -169,7 +169,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		err = fmt.Errorf("(CheckoutWorkunitRemote) core.Self == nil")
 		return
 	}
-	targeturl := fmt.Sprintf("%s/work?client=%s&available=%d", conf.SERVER_URL, core.Self.Id, availableBytes)
+	targeturl := fmt.Sprintf("%s/work?client=%s&available=%d", conf.SERVER_URL, core.Self.ID, availableBytes)
 
 	var headers httpclient.Header
 	if conf.CLIENT_GROUP_TOKEN != "" {
@@ -177,9 +177,9 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
 		}
 	}
-	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s sends a checkout request to %s with available %d", core.Self.Id, conf.SERVER_URL, availableBytes))
+	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s sends a checkout request to %s with available %d", core.Self.ID, conf.SERVER_URL, availableBytes))
 	res, err := httpclient.DoTimeout("GET", targeturl, headers, nil, nil, time.Second*0)
-	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s sent a checkout request to %s with available %d", core.Self.Id, conf.SERVER_URL, availableBytes))
+	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s sent a checkout request to %s with available %d", core.Self.ID, conf.SERVER_URL, availableBytes))
 	if err != nil {
 		err = fmt.Errorf("(CheckoutWorkunitRemote) error sending checkout request: %s", err.Error())
 		return
@@ -230,7 +230,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		err = fmt.Errorf("(CheckoutWorkunitRemote) Could not make data field map[string]interface{}")
 		return
 	}
-	var cwl_object *core.CWL_workunit
+	var cwl_object *core.CWLWorkunit
 
 	cwl_generic, has_cwl := data_map["cwl"]
 	if has_cwl {
@@ -332,9 +332,9 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		//var schemata []cwl.CWLType_Type
 		workunit.Context = cwl.NewWorkflowContext()
 		workunit.Context.Init("")
-		cwl_object, _, xerr = core.NewCWL_workunit_from_interface(cwl_generic, workunit.Context)
+		cwl_object, _, xerr = core.NewCWLWorkunitFromInterface(cwl_generic, workunit.Context)
 		if xerr != nil {
-			err = fmt.Errorf("(CheckoutWorkunitRemote) NewCWL_workunit_from_interface failed: %s", xerr.Error())
+			err = fmt.Errorf("(CheckoutWorkunitRemote) NewCWLWorkunit_from_interface failed: %s", xerr.Error())
 			logger.Debug(1, err.Error())
 			workunit.State = core.WORK_STAT_ERROR
 			workunit.Notes = append(workunit.Notes, err.Error())
@@ -342,10 +342,10 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 			return
 		}
 
-		workunit.CWL_workunit = cwl_object
-		workunit.CWL_workunit.Notice = core.Notice{Id: workunit.Workunit_Unique_Identifier, WorkerId: core.Self.Id}
+		workunit.CWLWorkunit = cwl_object
+		workunit.CWLWorkunit.Notice = core.Notice{ID: workunit.Workunit_Unique_Identifier, WorkerID: core.Self.ID}
 
-		if workunit.CWL_workunit.Tool == nil {
+		if workunit.CWLWorkunit.Tool == nil {
 			err = fmt.Errorf("(CheckoutWorkunitRemote) Tool == nil")
 			return
 		}
@@ -397,7 +397,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 	logger.Debug(3, "(CheckoutWorkunitRemote) workunit Rank:%d TaskId:%s JobId:%s", workunit.Rank, workunit.TaskName, workunit.JobId)
 
-	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s got a workunit", core.Self.Id))
+	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s got a workunit", core.Self.ID))
 	workunit.State = core.WORK_STAT_CHECKOUT
 	core.Self.Busy = true
 	return

@@ -11,7 +11,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	e "github.com/MG-RAST/AWE/lib/errors"
-	"github.com/MG-RAST/AWE/lib/foreign/taverna"
+
+	//"github.com/MG-RAST/AWE/lib/foreign/taverna"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	"github.com/MG-RAST/AWE/lib/request"
@@ -92,7 +93,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}
-		logger.Event(event.JOB_IMPORT, "jobid="+job.Id+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
+		logger.Event(event.JOB_IMPORT, "jobid="+job.ID+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	} else if has_cwl {
 
 		if !has_job {
@@ -137,7 +138,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		yaml_str := string(yamlstream[:])
 
 		var schemata []cwl.CWLType_Type
-		var object_array []cwl.Named_CWL_object
+		var object_array []cwl.NamedCWLObject
 		//var cwl_version cwl.CWLVersion
 		var context *cwl.WorkflowContext
 		//var namespaces map[string]string
@@ -218,7 +219,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow.Namespaces = context.Namespaces
 				new_step := cwl.WorkflowStep{}
 				step_id := entrypoint + "/wrapper_step"
-				new_step.Id = step_id
+				new_step.ID = step_id
 				for _, input := range commandlinetool.Inputs { // input is CommandInputParameter
 
 					workflow_input_name := entrypoint + "/" + path.Base(input.Id) // e.g. #entrypoint/reference
@@ -251,13 +252,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					if add_null {
 						has_null := false
 						for _, t := range workflow_input_parameter.Type {
-							if t == cwl.CWL_null {
+							if t == cwl.CWLNull {
 								has_null = true
 								break
 							}
 						}
 						if !has_null {
-							workflow_input_parameter.Type = append(workflow_input_parameter.Type, cwl.CWL_null)
+							workflow_input_parameter.Type = append(workflow_input_parameter.Type, cwl.CWLNull)
 						}
 					}
 
@@ -295,6 +296,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 							cwl_workflow.Requirements, err = cwl.AddRequirement(shock_requirement, requirements)
 							if err != nil {
 								err = fmt.Errorf("(job/create) AddRequirement returned: %s", err.Error())
+								cx.RespondWithErrorMessage(fmt.Sprintf("(job/create) Error in AddRequirement: %s", err.Error()), http.StatusBadRequest)
 								return
 							}
 						}
@@ -305,7 +307,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				cwl_workflow.Steps = []cwl.WorkflowStep{new_step}
 
-				cwl_workflow_named := cwl.Named_CWL_object{}
+				cwl_workflow_named := cwl.NamedCWLObject{}
 				cwl_workflow_named.Id = cwl_workflow.Id
 				cwl_workflow_named.Value = cwl_workflow
 
@@ -340,7 +342,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow.CwlVersion = context.CwlVersion
 				new_step := cwl.WorkflowStep{}
 				step_id := entrypoint + "/wrapper_step"
-				new_step.Id = step_id
+				new_step.ID = step_id
 				for _, input := range expressiontool.Inputs { // input is InputParameter
 
 					workflow_input_name := entrypoint + "/" + path.Base(input.Id)
@@ -373,13 +375,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					if add_null {
 						has_null := false
 						for _, t := range workflow_input_parameter.Type {
-							if t == cwl.CWL_null {
+							if t == cwl.CWLNull {
 								has_null = true
 								break
 							}
 						}
 						if !has_null {
-							workflow_input_parameter.Type = append(workflow_input_parameter.Type, cwl.CWL_null)
+							workflow_input_parameter.Type = append(workflow_input_parameter.Type, cwl.CWLNull)
 						}
 					}
 
@@ -387,35 +389,44 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				}
 
 				for _, output := range expressiontool.Outputs { // type: ExpressionToolOutputParameter
-					var workflow_step_output cwl.WorkflowStepOutput
-					workflow_step_output.Id = step_id + "/" + path.Base(output.Id)
 
-					new_step.Out = append(new_step.Out, workflow_step_output)
+					outputEtop, ok := output.(*cwl.ExpressionToolOutputParameter)
+					if ok {
+						var workflowStepOutput cwl.WorkflowStepOutput
+						workflowStepOutput.Id = step_id + "/" + path.Base(outputEtop.Id)
 
-					var workflow_output_parameter cwl.WorkflowOutputParameter
+						new_step.Out = append(new_step.Out, workflowStepOutput)
 
-					workflow_output_parameter.Id = entrypoint + "/" + path.Base(output.Id)
-					workflow_output_parameter.OutputSource = step_id + "/" + path.Base(output.Id)
-					workflow_output_parameter.SecondaryFiles = output.SecondaryFiles
-					workflow_output_parameter.Format = output.Format
-					workflow_output_parameter.Streamable = output.Streamable
-					//workflow_output_parameter.OutputBinding = output.OutputBinding
-					//workflow_output_parameter.OutputSource = output.OutputSource
-					//workflow_output_parameter.LinkMerge = output.LinkMerge
-					workflow_output_parameter.Type = output.Type
-					cwl_workflow.Outputs = append(cwl_workflow.Outputs, workflow_output_parameter)
+						var workflowOutputParameter cwl.WorkflowOutputParameter
+
+						workflowOutputParameter.Id = entrypoint + "/" + path.Base(outputEtop.Id)
+						workflowOutputParameter.OutputSource = step_id + "/" + path.Base(outputEtop.Id)
+						workflowOutputParameter.SecondaryFiles = outputEtop.SecondaryFiles
+						workflowOutputParameter.Format = outputEtop.Format
+						workflowOutputParameter.Streamable = outputEtop.Streamable
+						//workflow_output_parameter.OutputBinding = output.OutputBinding
+						//workflow_output_parameter.OutputSource = output.OutputSource
+						//workflow_output_parameter.LinkMerge = output.LinkMerge
+						workflowOutputParameter.Type = outputEtop.Type
+						cwl_workflow.Outputs = append(cwl_workflow.Outputs, workflowOutputParameter)
+					} else {
+						err = fmt.Errorf("(job/create) ExpressionToolOutputParameter still required, got: %s", reflect.TypeOf(output))
+						cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
+						return
+					}
 				}
 
 				if expressiontool.Requirements != nil {
 					requirements := expressiontool.Requirements
-					for i, _ := range requirements {
-						require_type := (requirements)[i].GetClass()
-						if require_type == "ShockRequirement" {
-							shock_requirement := (requirements)[i]
+					for i := range requirements {
+						requireType := (requirements)[i].GetClass()
+						if requireType == "ShockRequirement" {
+							shockRequirement := (requirements)[i]
 
-							cwl_workflow.Requirements, err = cwl.AddRequirement(shock_requirement, requirements)
+							cwl_workflow.Requirements, err = cwl.AddRequirement(shockRequirement, requirements)
 							if err != nil {
 								err = fmt.Errorf("(job/create) AddRequirement returned: %s", err.Error())
+								cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 								return
 							}
 						}
@@ -426,11 +437,11 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				cwl_workflow.Steps = []cwl.WorkflowStep{new_step}
 
-				cwl_workflow_named := cwl.Named_CWL_object{}
-				cwl_workflow_named.Id = cwl_workflow.Id
-				cwl_workflow_named.Value = cwl_workflow
+				cwlWorkflowNamed := cwl.NamedCWLObject{}
+				cwlWorkflowNamed.Id = cwl_workflow.Id
+				cwlWorkflowNamed.Value = cwl_workflow
 
-				object_array = append(object_array, cwl_workflow_named)
+				object_array = append(object_array, cwlWorkflowNamed)
 				//err = context.Add(entrypoint, cwl_workflow, "job/create2")
 				//if err != nil {
 				//	cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
@@ -478,7 +489,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		//context.CwlVersion = cwl_version
 		//fmt.Println("\n\n\n--------------------------------- Create AWE Job:\n")
-		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, context)
+		job, err = core.CWL2AWE(_user, files, job_input, cwl_workflow, entrypoint, context)
 		if err != nil {
 			cx.RespondWithErrorMessage("Error: "+err.Error(), http.StatusBadRequest)
 			return
@@ -538,19 +549,19 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 			return
 		}
-		logger.Event(event.JOB_SUBMISSION, "jobid="+job.Id+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
+		logger.Event(event.JOB_SUBMISSION, "jobid="+job.ID+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	}
 
 	token, err := request.RetrieveToken(cx.Request)
 	if err != nil {
-		logger.Debug(3, "job %s no token", job.Id)
+		logger.Debug(3, "job %s no token", job.ID)
 	} else {
 		err = job.SetDataToken(token)
 		if err != nil {
 			cx.RespondWithErrorMessage(fmt.Sprintf("(JobController/Create) SetDataToken returned: %s", err.Error()), http.StatusBadRequest)
 			return
 		}
-		logger.Debug(3, "job %s got token", job.Id)
+		logger.Debug(3, "job %s got token", job.ID)
 	}
 
 	err = job.Save() // note that the job only goes into mongo, not into memory yet (EnqueueTasksByJobId is pulling from mongo, indirectly)
@@ -575,7 +586,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				return
 			}
 
-			job_id := job.Id
+			job_id := job.ID
 
 			// delete job such that a clean load from mongo can happen
 			job = nil
@@ -599,7 +610,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			//}
 
 		} else {
-			err = core.QMgr.EnqueueTasksByJobId(job.Id, "JobController/Create")
+			err = core.QMgr.EnqueueTasksByJobId(job.ID, "JobController/Create")
 			if err != nil {
 				err = fmt.Errorf("(JobController/Create) core.QMgr.EnqueueTasksByJobId returned: %s", err.Error())
 				cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
@@ -687,9 +698,9 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 	}
 
 	// User must have read permissions on job or be job owner or be an admin
-	rights := job.Acl.Check(u.Uuid)
-	prights := job.Acl.Check("public")
-	if job.Acl.Owner != u.Uuid && rights["read"] == false && u.Admin == false && prights["read"] == false {
+	rights := job.ACL.Check(u.Uuid)
+	prights := job.ACL.Check("public")
+	if job.ACL.Owner != u.Uuid && rights["read"] == false && u.Admin == false && prights["read"] == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}
@@ -769,13 +780,13 @@ func (cr *JobController) Read(id string, cx *goweb.Context) {
 			cx.RespondWithErrorMessage("lacking stage id from which the recompute starts", http.StatusBadRequest)
 			return
 		} else if target == "taverna" {
-			wfrun, err := taverna.ExportWorkflowRun(job)
-			if err != nil {
-				cx.RespondWithErrorMessage("failed to export job to taverna workflowrun:"+id, http.StatusBadRequest)
-				return
-			}
-			cx.RespondWithData(wfrun)
-			return
+			//wfrun, err := taverna.ExportWorkflowRun(job)
+			//if err != nil {
+			//	cx.RespondWithErrorMessage("failed to export job to taverna workflowrun:"+id, http.StatusBadRequest)
+			//	return
+			//}
+			//	cx.RespondWithData(wfrun)
+			//	return
 		}
 	}
 
@@ -967,7 +978,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		count := 0
 		for i := 0; i < length; i++ {
 			job := jobs.GetJobAt(i)
-			if _, ok := act_jobs[job.Id]; ok {
+			if _, ok := act_jobs[job.ID]; ok {
 				if skip < offset {
 					skip += 1
 					continue
@@ -1035,7 +1046,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		count := 0
 		for i := 0; i < length; i++ {
 			job := jobs.GetJobAt(i)
-			if _, ok := suspend_jobs[job.Id]; ok {
+			if _, ok := suspend_jobs[job.ID]; ok {
 				if skip < offset {
 					skip += 1
 					continue
@@ -1071,7 +1082,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 		total := 0
 		for i := 0; i < length; i++ {
 			job := jobs.GetJobAt(i)
-			if core.QMgr.IsJobRegistered(job.Id) {
+			if core.QMgr.IsJobRegistered(job.ID) {
 				job.Registered = true
 				registered_jobs = append(registered_jobs, job)
 				total += 1
@@ -1107,7 +1118,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 
 			// create and populate minimal job
 			mjob := core.JobMin{}
-			mjob.Id = job.Id
+			mjob.Id = job.ID
 			mjob.Name = job.Info.Name
 			mjob.SubmitTime = job.Info.SubmitTime
 			mjob.CompletedTime = job.Info.CompletedTime
@@ -1218,7 +1229,7 @@ func (cr *JobController) ReadMany(cx *goweb.Context) {
 	length := jobs.Length()
 	for i := 0; i < length; i++ {
 		job := jobs.GetJobAt(i)
-		if core.QMgr.IsJobRegistered(job.Id) {
+		if core.QMgr.IsJobRegistered(job.ID) {
 			job.Registered = true
 		} else {
 			job.Registered = false
@@ -1319,7 +1330,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 		}
 	}
 	// User must have write permissions on job or be job owner or be an admin
-	acl, err := core.DBGetJobAcl(id)
+	acl, err := core.DBGetJobACL(id)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()

@@ -7,16 +7,16 @@ import (
 
 type Int int
 
-func (i *Int) Is_CWL_object() {}
+func (i *Int) IsCWLObject() {}
 
-func (i *Int) GetClass() string      { return string(CWL_int) } // for CWL_object
-func (i *Int) GetType() CWLType_Type { return CWL_int }
+func (i *Int) GetClass() string      { return string(CWLInt) } // for CWLObject
+func (i *Int) GetType() CWLType_Type { return CWLInt }
 func (i *Int) String() string        { return strconv.Itoa(int(*i)) }
 
-func (i *Int) GetId() string  { return "" }
-func (i *Int) SetId(x string) {}
+func (i *Int) GetID() string  { return "" }
+func (i *Int) SetID(x string) {}
 
-func (i *Int) Is_CWL_minimal() {}
+func (i *Int) IsCWLMinimal() {}
 
 func NewInt(value int, context *WorkflowContext) (i *Int, err error) {
 

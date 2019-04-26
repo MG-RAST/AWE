@@ -13,27 +13,28 @@ import (
 // https://www.commonwl.org/v1.0/Workflow.html#InputParameter
 
 type InputParameter struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Is_CWL_object
-	Id              string                                                                `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
-	Label           string                                                                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
-	SecondaryFiles  interface{}                                                           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	Format          []string                                                              `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty" mapstructure:"format,omitempty"`
-	Streamable      bool                                                                  `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty" mapstructure:"streamable,omitempty"`
-	Doc             string                                                                `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
-	InputBinding    *CommandLineBinding                                                   `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty" mapstructure:"inputBinding,omitempty"` //TODO
-	Default         CWLType                                                               `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty" mapstructure:"default,omitempty"`
-	Type            []CWLType_Type                                                        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty" mapstructure:"type,omitempty"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
+	CWLObjectImpl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides IsCWLObject
+	Id             string                                                                `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
+	Label          string                                                                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
+	SecondaryFiles interface{}                                                           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
+	Format         []string                                                              `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty" mapstructure:"format,omitempty"`
+	Streamable     bool                                                                  `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty" mapstructure:"streamable,omitempty"`
+	Doc            string                                                                `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
+	InputBinding   *CommandLineBinding                                                   `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty" mapstructure:"inputBinding,omitempty"` //TODO
+	Default        CWLType                                                               `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty" mapstructure:"default,omitempty"`
+	Type           []CWLType_Type                                                        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty" mapstructure:"type,omitempty"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
 }
 
 func (i InputParameter) GetClass() string { return "InputParameter" }
-func (i InputParameter) GetId() string    { return i.Id }
-func (i InputParameter) SetId(id string)  { i.Id = id }
-func (i InputParameter) Is_CWL_minimal()  {}
+func (i InputParameter) GetID() string    { return i.Id }
+func (i InputParameter) SetID(id string)  { i.Id = id }
+func (i InputParameter) IsCWLMinimal()    {}
 
 func NewInputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (input_parameter *InputParameter, err error) {
 
 	//fmt.Println("---- NewInputParameter ----")
 	//spew.Dump(original)
+
 	original, err = MakeStringMap(original, context)
 	if err != nil {
 		err = fmt.Errorf("(NewInputParameter) MakeStringMap returned: %s", err.Error())
@@ -123,17 +124,17 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 // InputParameter
 func NewInputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (new_array []InputParameter, err error) {
 
-	switch original.(type) {
-	case map[interface{}]interface{}:
-		original_map := original.(map[interface{}]interface{})
-		for k, v := range original_map {
-			//fmt.Printf("A")
+	original, err = MakeStringMap(original, context)
+	if err != nil {
+		err = fmt.Errorf("(NewInputParameterArray) MakeStringMap returned: %s", err.Error())
+		return
+	}
 
-			id, ok := k.(string)
-			if !ok {
-				err = fmt.Errorf("(NewInputParameterArray) Cannot parse id of input")
-				return
-			}
+	switch original.(type) {
+	case map[string]interface{}:
+		original_map := original.(map[string]interface{})
+		for id, v := range original_map {
+			//fmt.Printf("A")
 
 			input_parameter, xerr := NewInputParameter(v, schemata, context)
 			if xerr != nil {

@@ -11,22 +11,24 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+// WorkflowStep _
 type WorkflowStep struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
-	Id              string               `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
-	In              []WorkflowStepInput  `yaml:"in,omitempty" bson:"in,omitempty" json:"in,omitempty" mapstructure:"in,omitempty"` // array<WorkflowStepInput> | map<WorkflowStepInput.id, WorkflowStepInput.source> | map<WorkflowStepInput.id, WorkflowStepInput>
-	Out             []WorkflowStepOutput `yaml:"out,omitempty" bson:"out,omitempty" json:"out,omitempty" mapstructure:"out,omitempty"`
-	Run             interface{}          `yaml:"run,omitempty" bson:"run,omitempty" json:"run,omitempty" mapstructure:"run,omitempty"`                                     //  string | CommandLineTool | ExpressionTool | Workflow
-	Requirements    []interface{}        `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` //[]Requirement
-	Hints           []interface{}        `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             //[]Requirement
-	Label           string               `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
-	Doc             string               `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
-	Scatter         []string             `yaml:"scatter,omitempty" bson:"scatter,omitempty" json:"scatter,omitempty" mapstructure:"scatter,omitempty"`                         // ScatterFeatureRequirement
-	ScatterMethod   string               `yaml:"scatterMethod,omitempty" bson:"scatterMethod,omitempty" json:"scatterMethod,omitempty" mapstructure:"scatterMethod,omitempty"` // ScatterFeatureRequirement
+	CWLObjectImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	ID            string               `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
+	In            []WorkflowStepInput  `yaml:"in,omitempty" bson:"in,omitempty" json:"in,omitempty" mapstructure:"in,omitempty"` // array<WorkflowStepInput> | map<WorkflowStepInput.id, WorkflowStepInput.source> | map<WorkflowStepInput.id, WorkflowStepInput>
+	Out           []WorkflowStepOutput `yaml:"out,omitempty" bson:"out,omitempty" json:"out,omitempty" mapstructure:"out,omitempty"`
+	Run           interface{}          `yaml:"run,omitempty" bson:"run,omitempty" json:"run,omitempty" mapstructure:"run,omitempty"`                                     //  string | CommandLineTool | ExpressionTool | Workflow
+	Requirements  []interface{}        `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` //[]Requirement
+	Hints         []interface{}        `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             //[]Requirement
+	Label         string               `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
+	Doc           string               `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
+	Scatter       []string             `yaml:"scatter,omitempty" bson:"scatter,omitempty" json:"scatter,omitempty" mapstructure:"scatter,omitempty"`                         // ScatterFeatureRequirement
+	ScatterMethod string               `yaml:"scatterMethod,omitempty" bson:"scatterMethod,omitempty" json:"scatterMethod,omitempty" mapstructure:"scatterMethod,omitempty"` // ScatterFeatureRequirement
 	//CwlVersion    CWLVersion           `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty"`
 	//Namespaces    map[string]string    `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
+// NewWorkflowStep _
 func NewWorkflowStep() (w *WorkflowStep) {
 
 	w = &WorkflowStep{}
@@ -34,6 +36,7 @@ func NewWorkflowStep() (w *WorkflowStep) {
 	return
 }
 
+// Init _
 func (ws *WorkflowStep) Init(context *WorkflowContext) (err error) {
 	if ws.Run == nil {
 		return
@@ -57,7 +60,8 @@ func (ws *WorkflowStep) Init(context *WorkflowContext) (err error) {
 	return
 }
 
-func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (w *WorkflowStep, schemata []CWLType_Type, err error) {
+// NewWorkflowStepFromInterface _
+func NewWorkflowStepFromInterface(original interface{}, thisID string, injectedRequirements []Requirement, context *WorkflowContext) (w *WorkflowStep, schemata []CWLType_Type, err error) {
 	var step WorkflowStep
 
 	logger.Debug(3, "NewWorkflowStep starting")
@@ -69,92 +73,92 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 	switch original.(type) {
 
 	case map[string]interface{}:
-		v_map := original.(map[string]interface{})
+		originalMap := original.(map[string]interface{})
 		//spew.Dump(v_map)
 
-		requirements, ok := v_map["requirements"]
+		requirements, ok := originalMap["requirements"]
 		if !ok {
 			requirements = nil
 		}
 
-		var requirements_array []Requirement
+		var requirementsArray []Requirement
 		//var requirements_array_temp *[]Requirement
-		//var schemata_new []CWLType_Type
+		//var schemataNew []CWLType_Type
 		//fmt.Printf("(NewWorkflowStep) Injecting %d \n", len(injectedRequirements))
 		//spew.Dump(injectedRequirements)
-		requirements_array, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, nil, context) // not sure what input to use
+		requirementsArray, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, nil, context) // not sure what input to use
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflowStep) error in CreateRequirementArray (requirements): %s", err.Error())
 			return
 		}
 
-		//for i, _ := range schemata_new {
-		//	schemata = append(schemata, schemata_new[i])
+		//for i, _ := range schemataNew {
+		//	schemata = append(schemata, schemataNew[i])
 		//}
 
-		v_map["requirements"] = requirements_array
+		originalMap["requirements"] = requirementsArray
 
-		step_in, ok := v_map["in"]
+		stepIn, ok := originalMap["in"]
 		if ok {
-			v_map["in"], err = CreateWorkflowStepInputArray(step_in, context)
+			originalMap["in"], err = CreateWorkflowStepInputArray(stepIn, context)
 			if err != nil {
 				return
 			}
 		}
 
-		step_out, ok := v_map["out"]
+		stepOut, ok := originalMap["out"]
 		if ok {
-			v_map["out"], err = NewWorkflowStepOutputArray(step_out, context)
+			originalMap["out"], err = NewWorkflowStepOutputArray(stepOut, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) CreateWorkflowStepOutputArray %s", err.Error())
 				return
 			}
 		}
 
-		run, ok := v_map["run"]
+		run, ok := originalMap["run"]
 		if ok {
-			var schemata_new []CWLType_Type
+			var schemataNew []CWLType_Type
 			//fmt.Printf("(NewWorkflowStep) Injecting %d\n", len(requirements_array))
 			//spew.Dump(requirements_array)
 
-			v_map["run"], schemata_new, err = NewProcess(run, requirements_array, context)
+			originalMap["run"], schemataNew, err = NewProcess(run, requirementsArray, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) run %s", err.Error())
 				return
 			}
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
+			for i := range schemataNew {
+				schemata = append(schemata, schemataNew[i])
 			}
 		}
 
-		scatter, ok := v_map["scatter"]
+		scatter, ok := originalMap["scatter"]
 		if ok {
 			switch scatter.(type) {
 			case string:
-				var scatter_str string
+				var scatterStr string
 
-				scatter_str, ok = scatter.(string)
+				scatterStr, ok = scatter.(string)
 				if !ok {
 					err = fmt.Errorf("(NewWorkflowStep) expected string")
 					return
 				}
-				v_map["scatter"] = []string{scatter_str}
+				originalMap["scatter"] = []string{scatterStr}
 
 			case []string:
 				// all ok
 			case []interface{}:
-				scatter_array := scatter.([]interface{})
-				scatter_string_array := []string{}
-				for _, element := range scatter_array {
-					var element_str string
-					element_str, ok = element.(string)
+				scatterArray := scatter.([]interface{})
+				scatterStringArray := []string{}
+				for _, element := range scatterArray {
+					var elementStr string
+					elementStr, ok = element.(string)
 					if !ok {
 						err = fmt.Errorf("(NewWorkflowStep) Element of scatter array is not string (%s)", reflect.TypeOf(element))
 						return
 					}
-					scatter_string_array = append(scatter_string_array, element_str)
+					scatterStringArray = append(scatterStringArray, elementStr)
 				}
-				v_map["scatter"] = scatter_string_array
+				originalMap["scatter"] = scatterStringArray
 
 			default:
 				err = fmt.Errorf("(NewWorkflowStep) scatter has unsopported type: %s", reflect.TypeOf(scatter))
@@ -162,7 +166,7 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 			}
 		}
 
-		scatter, ok = v_map["scatter"]
+		scatter, ok = originalMap["scatter"]
 		if ok {
 			switch scatter.(type) {
 			case []string:
@@ -173,20 +177,20 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 			}
 		}
 
-		hints, ok := v_map["hints"]
+		hints, ok := originalMap["hints"]
 		if ok && (hints != nil) {
-			//var schemata_new []CWLType_Type
+			//var schemataNew []CWLType_Type
 
-			var hints_array []Requirement
-			hints_array, err = CreateHintsArray(hints, injectedRequirements, nil, context)
+			var hintsArray []Requirement
+			hintsArray, err = CreateHintsArray(hints, injectedRequirements, nil, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 				return
 			}
-			//for i, _ := range schemata_new {
-			//	schemata = append(schemata, schemata_new[i])
+			//for i, _ := range schemataNew {
+			//	schemata = append(schemata, schemataNew[i])
 			//}
-			v_map["hints"] = hints_array
+			originalMap["hints"] = hintsArray
 		}
 
 		//spew.Dump(v_map["run"])
@@ -197,13 +201,18 @@ func NewWorkflowStepFromInterface(original interface{}, injectedRequirements []R
 		}
 		w = &step
 
-		if step.Id == "" {
+		if step.ID == "" {
+			step.ID = thisID
+		}
+
+		if step.ID == "" {
+
 			err = fmt.Errorf("(NewWorkflowStep) step.Id empty")
 			return
 		}
 
 		if context != nil && context.Initialzing && err == nil {
-			err = context.Add(w.Id, w, "NewWorkflowStepFromInterface")
+			err = context.Add(w.ID, w, "NewWorkflowStepFromInterface")
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) context.Add returned: %s", err.Error())
 				return
@@ -245,6 +254,11 @@ func (w WorkflowStep) GetOutput(id string) (output *WorkflowStepOutput, err erro
 // CreateWorkflowStepsArray
 func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (schemata []CWLType_Type, array_ptr *[]WorkflowStep, err error) {
 
+	original, err = MakeStringMap(original, context)
+	if err != nil {
+		return
+	}
+
 	array := []WorkflowStep{}
 
 	if context.CwlVersion == "" {
@@ -253,34 +267,32 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 	}
 	switch original.(type) {
 
-	case map[interface{}]interface{}:
+	case map[string]interface{}:
 
 		// iterate over workflow steps
-		for k, v := range original.(map[interface{}]interface{}) {
+		for k, v := range original.(map[string]interface{}) {
 			//fmt.Printf("A step\n")
 			//spew.Dump(v)
 
 			//fmt.Println("type: ")
 			//fmt.Println(reflect.TypeOf(v))
 
-			var schemata_new []CWLType_Type
+			var schemataNew []CWLType_Type
 			var step *WorkflowStep
 			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
 			//spew.Dump(injectedRequirements)
-			step, schemata_new, err = NewWorkflowStepFromInterface(v, injectedRequirements, context)
+			step, schemataNew, err = NewWorkflowStepFromInterface(v, k, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
 			}
 
-			step.Id = k.(string)
-
 			//fmt.Printf("Last step\n")
 			//spew.Dump(step)
 			//fmt.Printf("C")
 			array = append(array, *step)
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
+			for i := range schemataNew {
+				schemata = append(schemata, schemataNew[i])
 			}
 			//fmt.Printf("D")
 
@@ -297,17 +309,17 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 
 			//fmt.Println("type: ")
 			//fmt.Println(reflect.TypeOf(v))
-			var schemata_new []CWLType_Type
+			var schemataNew []CWLType_Type
 			var step *WorkflowStep
 			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
 			//spew.Dump(injectedRequirements)
-			step, schemata_new, err = NewWorkflowStepFromInterface(v, injectedRequirements, context)
+			step, schemataNew, err = NewWorkflowStepFromInterface(v, "", injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
 			}
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
+			for i, _ := range schemataNew {
+				schemata = append(schemata, schemataNew[i])
 			}
 			//step.Id = k.(string)
 
@@ -322,7 +334,7 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 		array_ptr = &array
 
 	default:
-		err = fmt.Errorf("(CreateWorkflowStepsArray) Type unknown")
+		err = fmt.Errorf("(CreateWorkflowStepsArray) Type unknown: %s", reflect.TypeOf(original))
 
 	}
 	//spew.Dump(new_array)

@@ -29,13 +29,13 @@ func NewInputRecordField(native interface{}, schemata []CWLType_Type, context *W
 	irf = &InputRecordField{}
 	irf.RecordField = *rf
 
-	native_map, ok := native.(map[string]interface{})
+	nativeMap, ok := native.(map[string]interface{})
 	if !ok {
 		err = fmt.Errorf("(NewInputRecordField) type not supported: %s", reflect.TypeOf(native))
 		return
 	}
 
-	inputBinding_if, has_inputBinding := native_map["inputBinding"]
+	inputBinding_if, has_inputBinding := nativeMap["inputBinding"]
 	if has_inputBinding {
 
 		var inputBinding *CommandLineBinding
@@ -56,8 +56,8 @@ func CreateInputRecordFieldArray(native interface{}, schemata []CWLType_Type, co
 
 	switch native.(type) {
 	case []interface{}:
-		native_array := native.([]interface{})
-		for _, elem := range native_array {
+		nativeArray := native.([]interface{})
+		for _, elem := range nativeArray {
 
 			var irf *InputRecordField
 			irf, err = NewInputRecordField(elem, schemata, context)

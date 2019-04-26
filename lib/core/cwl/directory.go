@@ -16,15 +16,15 @@ type Directory struct {
 	Listing  []CWLType `yaml:"listing,omitempty" json:"listing,omitempty" bson:"listing,omitempty" mapstructure:"listing,omitempty"`
 }
 
-func (d Directory) GetClass() string { return string(CWL_Directory) }
+func (d Directory) GetClass() string { return string(CWLDirectory) }
 
 func (d Directory) String() string { return d.Path }
 
 func NewDirectory() (d *Directory) {
 
 	d = &Directory{}
-	d.Class = string(CWL_Directory)
-	d.Type = CWL_Directory
+	d.Class = string(CWLDirectory)
+	d.Type = CWLDirectory
 	return
 }
 
@@ -74,7 +74,7 @@ func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) 
 
 	switch native.(type) {
 	case []map[string]interface{}:
-		native_array, ok := native.([]map[string]interface{})
+		nativeArray, ok := native.([]map[string]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewFDArray) could not parse []map[string]interface{}")
 			return
@@ -82,7 +82,7 @@ func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) 
 
 		cwl_array := []CWLType{}
 
-		for _, value := range native_array {
+		for _, value := range nativeArray {
 
 			var value_cwl CWLType
 			value_cwl, err = NewCWLType("", value, context)
@@ -106,7 +106,7 @@ func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) 
 		cwl_array_ptr = &cwl_array
 	case []interface{}:
 
-		native_array, ok := native.([]interface{})
+		nativeArray, ok := native.([]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewFDArray) could not parse []interface{}")
 			return
@@ -114,7 +114,7 @@ func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) 
 
 		cwl_array := []CWLType{}
 
-		for _, value := range native_array {
+		for _, value := range nativeArray {
 
 			var value_cwl CWLType
 			value_cwl, err = NewCWLType("", value, context)

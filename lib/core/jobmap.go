@@ -55,13 +55,13 @@ func (jm *JobMap) Add(job *Job) (err error) {
 	}
 	defer jm.Unlock()
 
-	_, ok := jm._map[job.Id]
+	_, ok := jm._map[job.ID]
 	if ok {
-		err = fmt.Errorf("(JobMap/Add) %s already in JobMap", job.Id)
+		err = fmt.Errorf("(JobMap/Add) %s already in JobMap", job.ID)
 		return
 	}
 
-	jm._map[job.Id] = job // TODO prevent overwriting
+	jm._map[job.ID] = job // TODO prevent overwriting
 	return
 }
 

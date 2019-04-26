@@ -44,6 +44,14 @@ func main() {
 			os.Exit(1)
 		}
 	}
+	if conf.PREDATA_PATH != conf.DATA_PATH {
+		if _, err := os.Stat(conf.PREDATA_PATH); err != nil && os.IsNotExist(err) {
+			if err := os.MkdirAll(conf.PREDATA_PATH, 0777); err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR in creating predata_path \"%s\" : %s\n", conf.PREDATA_PATH, err.Error())
+				os.Exit(1)
+			}
+		}
+	}
 
 	if _, err := os.Stat(conf.LOGS_PATH); err != nil && os.IsNotExist(err) {
 		if err := os.MkdirAll(conf.LOGS_PATH, 0777); err != nil {
@@ -120,8 +128,8 @@ func main() {
 	}
 
 	if worker.Client_mode == "online" {
-		fmt.Printf("Client registered, name=%s, id=%s\n", self.WorkerRuntime.Name, self.Id)
-		logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.Id)
+		fmt.Printf("Client registered, name=%s, id=%s\n", self.WorkerRuntime.Name, self.ID)
+		logger.Event(event.CLIENT_REGISTRATION, "clientid="+self.ID)
 	}
 
 	worker.InitWorkers()
@@ -144,13 +152,13 @@ func main() {
 
 		os.Getwd() //https://golang.org/pkg/os/#Getwd
 
-		workunit := &core.Workunit{Id: "00000000-0000-0000-0000-000000000000_0_0", CWL_workunit: core.NewCWL_workunit()}
+		workunit := &core.Workunit{Id: "00000000-0000-0000-0000-000000000000_0_0", CWLWorkunit: core.NewCWLWorkunit()}
 
-		workunit.CWL_workunit.Job_input = job_doc
-		workunit.CWL_workunit.Job_input_filename = conf.CWL_JOB
+		workunit.CWLWorkunit.JobInput = job_doc
+		workunit.CWLWorkunit.JobInputFilename = conf.CWL_JOB
 
-		workunit.CWL_workunit.Tool_filename = conf.CWL_TOOL
-		workunit.CWL_workunit.Tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
+		workunit.CWLWorkunit.ToolFilename = conf.CWL_TOOL
+		workunit.CWLWorkunit.Tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
 
 		current_working_directory, err := os.Getwd()
 		if err != nil {
@@ -165,7 +173,7 @@ func main() {
 		cmd.Name = "cwl-runner"
 
 		//"--provenance", "cwl_tool_provenance",
-		cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWL_workunit.Tool_filename, workunit.CWL_workunit.Job_input_filename}
+		cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWLWorkunit.ToolFilename, workunit.CWLWorkunit.JobInputFilename}
 		if conf.CWL_RUNNER_ARGS != "" {
 			cwl_runner_args_array := strings.Split(conf.CWL_RUNNER_ARGS, " ")
 			cmd.ArgsArray = append(cwl_runner_args_array, cmd.ArgsArray...)

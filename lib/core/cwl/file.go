@@ -39,14 +39,14 @@ type File struct {
 	Token  string `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 }
 
-func (f *File) Is_CWL_minimal() {}
+func (f *File) IsCWLMinimal() {}
 func (f *File) Is_CWLType()     {}
 
 //func (f *File) GetClass() string      { return "File" }
-func (f *File) GetType() CWLType_Type { return CWL_File }
+func (f *File) GetType() CWLType_Type { return CWLFile }
 
-//func (f *File) GetId() string       { return f.Id }
-//func (f *File) SetId(id string)     { f.Id = id }
+//func (f *File) GetID() string       { return f.Id }
+//func (f *File) SetID(id string)     { f.Id = id }
 func (f *File) String() string { return f.Path }
 
 //func (f *File) Is_Array() bool      { return false }
@@ -56,8 +56,8 @@ func (f *File) String() string { return f.Path }
 func NewFile() (f *File) {
 	f = &File{}
 	f.CWLType_Impl = CWLType_Impl{}
-	f.Class = string(CWL_File)
-	f.Type = CWL_File
+	f.Class = string(CWLFile)
+	f.Type = CWLFile
 	return
 }
 
@@ -114,8 +114,8 @@ func MakeFile(obj interface{}, context *WorkflowContext, external_id string) (fi
 		err = fmt.Errorf("(MakeFile) Could not convert File object: %s", err.Error())
 		return
 	}
-	//file.Class = string(CWL_File)
-	//file.Type = CWL_File
+	//file.Class = string(CWLFile)
+	//file.Type = CWLFile
 
 	//fmt.Println("MakeFile input:")
 	//spew.Dump(obj)
@@ -342,13 +342,13 @@ func (file *File) Exists(inputfile_path string) (ok bool, err error) {
 
 //func (f *FileArray) Is_Array() bool   { return true }
 
-//func (f *FileArray) Is_CWL_array_type() {}
+//func (f *FileArray) IsArrayType() {}
 //func (f *FileArray) Get_Array() *[]File {
 //	return &f.Data
 //}
 
-//func (f *FileArray) GetId() string   { return f.Id }
-//func (f *FileArray) SetId(id string) { f.Id = id }
+//func (f *FileArray) GetID() string   { return f.Id }
+//func (f *FileArray) SetID(id string) { f.Id = id }
 
 //func (f *FileArray) String() string      { return f.Path }
 //func (f *FileArray) GetLocation() string { return f.Location } // for CWL_location

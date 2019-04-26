@@ -3,37 +3,49 @@ package cwl
 import (
 	"fmt"
 	"reflect"
+
 	//"reflect"
 	"encoding/json"
 
 	"github.com/davecgh/go-spew/spew"
 )
 
+// Array _
 type Array []CWLType
 
-func (c *Array) Is_CWL_object() {}
+// IsCWLObject _
+func (c *Array) IsCWLObject() {}
 
-func (c *Array) GetClass() string      { return "array" }
-func (c *Array) GetId() string         { return "foobar" }
-func (c *Array) SetId(string)          {}
-func (c *Array) GetType() CWLType_Type { return CWL_array }
+// GetClass _
+func (c *Array) GetClass() string { return "array" }
 
-func (c *Array) Is_CWL_minimal() {}
+// GetID _
+func (c *Array) GetID() string { return "foobar" }
+
+// SetID _
+func (c *Array) SetID(string) {}
+
+// GetType _
+func (c *Array) GetType() CWLType_Type { return CWLArray }
+
+// IsCWLMinimal _
+func (c *Array) IsCWLMinimal() {}
 
 //func (c *Array) Is_CommandInputParameterType()  {}
 //func (c *Array) Is_CommandOutputParameterType() {}
 
-func NewArray(id string, native interface{}, context *WorkflowContext) (array_ptr *Array, err error) {
+// NewArray _
+func NewArray(id string, native interface{}, context *WorkflowContext) (arrayPtr *Array, err error) {
 
 	switch native.(type) {
 	case []interface{}:
-		native_array := native.([]interface{})
+		nativeArray := native.([]interface{})
 
 		array := Array{}
-		for _, value := range native_array {
+		for _, value := range nativeArray {
 
-			var value_cwl CWLType
-			value_cwl, err = NewCWLType("", value, context)
+			var valueCWL CWLType
+			valueCWL, err = NewCWLType("", value, context)
 			if err != nil {
 				fmt.Println("NewArray element:")
 				spew.Dump(value)
@@ -42,19 +54,19 @@ func NewArray(id string, native interface{}, context *WorkflowContext) (array_pt
 				return
 			}
 
-			array = append(array, value_cwl)
+			array = append(array, valueCWL)
 		}
 
-		array_ptr = &array
+		arrayPtr = &array
 
 	case []map[string]interface{}:
-		native_array := native.([]map[string]interface{})
+		nativeArray := native.([]map[string]interface{})
 
 		array := Array{}
-		for _, value := range native_array {
+		for _, value := range nativeArray {
 
-			var value_cwl CWLType
-			value_cwl, err = NewCWLType("", value, context)
+			var valueCWL CWLType
+			valueCWL, err = NewCWLType("", value, context)
 			if err != nil {
 				fmt.Println("NewArray element:")
 				spew.Dump(value)
@@ -63,10 +75,10 @@ func NewArray(id string, native interface{}, context *WorkflowContext) (array_pt
 				return
 			}
 
-			array = append(array, value_cwl)
+			array = append(array, valueCWL)
 		}
 
-		array_ptr = &array
+		arrayPtr = &array
 
 	default:
 		err = fmt.Errorf("(NewArray) type not supported: %s", reflect.TypeOf(native))
@@ -76,16 +88,18 @@ func NewArray(id string, native interface{}, context *WorkflowContext) (array_pt
 	return
 }
 
+// String _
 func (c *Array) String() string {
 
-	a_byte, err := json.Marshal(c)
+	aByte, err := json.Marshal(c)
 	if err != nil {
 		return err.Error()
 	}
 
-	return string(a_byte[:])
+	return string(aByte[:])
 }
 
+// Len _
 func (c *Array) Len() int {
 
 	o := []CWLType(*c)

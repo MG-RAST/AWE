@@ -30,13 +30,13 @@ func NewOutputRecordField(native interface{}, schemata []CWLType_Type, context *
 	crf = &OutputRecordField{}
 	crf.RecordField = *rf
 
-	native_map, ok := native.(map[string]interface{})
+	nativeMap, ok := native.(map[string]interface{})
 	if !ok {
 		err = fmt.Errorf("(NewOutputRecordField) type assertion error, got %s", reflect.TypeOf(native))
 		return
 	}
 
-	outputBinding, has_outputBinding := native_map["outputBinding"]
+	outputBinding, has_outputBinding := nativeMap["outputBinding"]
 	if has_outputBinding {
 
 		crf.OutputBinding, err = NewCommandOutputBinding(outputBinding, context)

@@ -3,7 +3,9 @@ package worker
 import (
 	//"errors"
 	"fmt"
+
 	"github.com/MG-RAST/AWE/lib/core"
+
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 )
@@ -50,7 +52,7 @@ func InitWorkers() {
 
 func StartClientWorkers() {
 	control := make(chan int)
-	fmt.Printf("start ClientWorkers, client=%s\n", core.Self.Id)
+	fmt.Printf("start ClientWorkers, client=%s\n", core.Self.ID)
 
 	mode := Client_mode
 	if mode == "online" {

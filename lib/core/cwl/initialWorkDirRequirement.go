@@ -14,7 +14,7 @@ type InitialWorkDirRequirement struct {
 	Listing         interface{} `yaml:"listing,omitempty" bson:"listing,omitempty" json:"listing,omitempty" mapstructure:"listing,omitempty"` // TODO: array<File | Directory | Dirent | string | Expression> | string | Expression
 }
 
-func (c InitialWorkDirRequirement) GetId() string { return "" }
+func (c InitialWorkDirRequirement) GetID() string { return "" }
 
 func NewInitialWorkDirRequirement(original interface{}, context *WorkflowContext) (r *InitialWorkDirRequirement, err error) {
 	var requirement InitialWorkDirRequirement
@@ -59,18 +59,18 @@ func NewInitialWorkDirRequirement(original interface{}, context *WorkflowContext
 	return
 }
 
-func NewListingFromInterface(original interface{}, context *WorkflowContext) (obj CWL_object, err error) {
+func NewListingFromInterface(original interface{}, context *WorkflowContext) (obj CWLObject, err error) {
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
 
-	native_map, ok := original.(map[string]interface{})
+	nativeMap, ok := original.(map[string]interface{})
 	if ok {
-		_, has_entry := native_map["entry"]
+		_, has_entry := nativeMap["entry"]
 		if has_entry {
-			obj, err = NewDirentFromInterface("", native_map)
+			obj, err = NewDirentFromInterface("", nativeMap)
 			if err != nil {
 				err = fmt.Errorf("(NewCWLType) NewDirent returned: %s", err.Error())
 			}
@@ -103,13 +103,13 @@ func CreateListing(original interface{}, context *WorkflowContext) (result inter
 
 	switch original.(type) {
 	case []interface{}:
-		array := []CWL_object{}
+		array := []CWLObject{}
 
 		original_array := original.([]interface{})
 
 		for i, _ := range original_array {
 
-			var new_listing CWL_object
+			var new_listing CWLObject
 			new_listing, err = NewListingFromInterface(original_array[i], context)
 			if err != nil {
 				err = fmt.Errorf("(CreateListingArray) NewListingFromInterface returns: %s", err.Error())
@@ -119,7 +119,7 @@ func CreateListing(original interface{}, context *WorkflowContext) (result inter
 		}
 		result = array
 	case interface{}:
-		var new_listing CWL_object
+		var new_listing CWLObject
 		new_listing, err = NewListingFromInterface(original, context)
 		if err != nil {
 			err = fmt.Errorf("(CreateListingArray) NewListingFromInterface returns: %s", err.Error())
@@ -151,9 +151,9 @@ func (r *InitialWorkDirRequirement) Evaluate(inputs interface{}, context *Workfl
 
 	listing := r.Listing
 	switch listing.(type) {
-	case []CWL_object:
+	case []CWLObject:
 		//fmt.Println("(InitialWorkDirRequirement/Evaluate) array")
-		listing_array := listing.([]CWL_object)
+		listing_array := listing.([]CWLObject)
 		for i, _ := range listing_array {
 
 			var element interface{}

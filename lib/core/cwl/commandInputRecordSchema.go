@@ -12,11 +12,11 @@ type CommandInputRecordSchema struct {
 	Fields       []CommandInputRecordField                                             `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
 }
 
-func NewCommandInputRecordSchema(native_map map[string]interface{}) (cirs *CommandInputRecordSchema, err error) {
+func NewCommandInputRecordSchema(nativeMap map[string]interface{}) (cirs *CommandInputRecordSchema, err error) {
 
 	cirs = &CommandInputRecordSchema{}
 	var rs *RecordSchema
-	rs, err = NewRecordSchema(native_map)
+	rs, err = NewRecordSchema(nativeMap)
 	if err != nil {
 		return
 	}
@@ -35,18 +35,18 @@ func NewCommandInputRecordSchemaFromInterface(native interface{}, schemata []CWL
 
 	switch native.(type) {
 	case map[string]interface{}:
-		native_map, ok := native.(map[string]interface{})
+		nativeMap, ok := native.(map[string]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) type switch error")
 			return
 		}
 
-		cirs, err = NewCommandInputRecordSchema(native_map)
+		cirs, err = NewCommandInputRecordSchema(nativeMap)
 		if err != nil {
 			return
 		}
 
-		fields, has_fields := native_map["fields"]
+		fields, has_fields := nativeMap["fields"]
 		if !has_fields {
 			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) no fields")
 			return

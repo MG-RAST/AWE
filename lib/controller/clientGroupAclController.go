@@ -1,6 +1,9 @@
 package controller
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	e "github.com/MG-RAST/AWE/lib/errors"
@@ -9,8 +12,6 @@ import (
 	"github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/MG-RAST/golib/goweb"
 	mgo "gopkg.in/mgo.v2"
-	"net/http"
-	"strings"
 )
 
 var (
@@ -65,14 +66,14 @@ var ClientGroupAclController goweb.ControllerFunc = func(cx *goweb.Context) {
 	// NOTE: If the clientgroup is publicly owned, then anyone can view all acl's. The owner can only
 	//       be "public" when anonymous clientgroup creation (ANON_CG_WRITE) is enabled in AWE config.
 
-	rights := cg.Acl.Check(u.Uuid)
-	if cg.Acl.Owner != u.Uuid && u.Admin == false && cg.Acl.Owner != "public" && rights["read"] == false {
+	rights := cg.ACL.Check(u.Uuid)
+	if cg.ACL.Owner != u.Uuid && u.Admin == false && cg.ACL.Owner != "public" && rights["read"] == false {
 		cx.RespondWithErrorMessage(e.UnAuth, http.StatusUnauthorized)
 		return
 	}
 
 	if cx.Request.Method == "GET" {
-		cx.RespondWithData(cg.Acl)
+		cx.RespondWithData(cg.ACL)
 	} else {
 		cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)
 	}
@@ -125,7 +126,7 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 	}
 
 	// Users that are not an admin or clientgroup job owner can only delete themselves from an ACL.
-	if cg.Acl.Owner != u.Uuid && u.Admin == false {
+	if cg.ACL.Owner != u.Uuid && u.Admin == false {
 		if rmeth == "DELETE" {
 			if len(ids) != 1 || (len(ids) == 1 && ids[0] != u.Uuid) {
 				cx.RespondWithErrorMessage("Non-owners of clientgroups can delete one and only user from the ACLs (themselves)", http.StatusBadRequest)
@@ -135,12 +136,12 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 				cx.RespondWithErrorMessage("Deleting ownership is not a supported request type.", http.StatusBadRequest)
 				return
 			} else if rtype == "all" {
-				cg.Acl.UnSet(ids[0], map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
+				cg.ACL.UnSet(ids[0], map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
 			} else {
-				cg.Acl.UnSet(ids[0], map[string]bool{rtype: true})
+				cg.ACL.UnSet(ids[0], map[string]bool{rtype: true})
 			}
 			cg.Save()
-			cx.RespondWithData(cg.Acl)
+			cx.RespondWithData(cg.ACL)
 			return
 		}
 		cx.RespondWithErrorMessage("Users that are not clientgroup owners can only delete themselves from ACLs.", http.StatusBadRequest)
@@ -150,37 +151,37 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 	// At this point we know we're dealing with an admin or the clientgroup owner.
 	// Admins and clientgroup owners can view/edit/delete ACLs
 	if rmeth == "GET" {
-		cx.RespondWithData(cg.Acl)
+		cx.RespondWithData(cg.ACL)
 		return
 	} else if rmeth == "POST" || rmeth == "PUT" {
 		if rtype == "owner" {
 			if len(ids) == 1 {
-				cg.Acl.SetOwner(ids[0])
+				cg.ACL.SetOwner(ids[0])
 			} else {
 				cx.RespondWithErrorMessage("Clientgroups must have one owner.", http.StatusBadRequest)
 				return
 			}
 		} else if rtype == "all" {
 			for _, i := range ids {
-				cg.Acl.Set(i, map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
+				cg.ACL.Set(i, map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
 			}
 		} else if rtype == "public_read" {
-			cg.Acl.Set("public", map[string]bool{"read": true})
+			cg.ACL.Set("public", map[string]bool{"read": true})
 		} else if rtype == "public_write" {
-			cg.Acl.Set("public", map[string]bool{"write": true})
+			cg.ACL.Set("public", map[string]bool{"write": true})
 		} else if rtype == "public_delete" {
-			cg.Acl.Set("public", map[string]bool{"delete": true})
+			cg.ACL.Set("public", map[string]bool{"delete": true})
 		} else if rtype == "public_execute" {
-			cg.Acl.Set("public", map[string]bool{"execute": true})
+			cg.ACL.Set("public", map[string]bool{"execute": true})
 		} else if rtype == "public_all" {
-			cg.Acl.Set("public", map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
+			cg.ACL.Set("public", map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
 		} else {
 			for _, i := range ids {
-				cg.Acl.Set(i, map[string]bool{rtype: true})
+				cg.ACL.Set(i, map[string]bool{rtype: true})
 			}
 		}
 		cg.Save()
-		cx.RespondWithData(cg.Acl)
+		cx.RespondWithData(cg.ACL)
 		return
 	} else if rmeth == "DELETE" {
 		if rtype == "owner" {
@@ -188,25 +189,25 @@ var ClientGroupAclControllerTyped goweb.ControllerFunc = func(cx *goweb.Context)
 			return
 		} else if rtype == "all" {
 			for _, i := range ids {
-				cg.Acl.UnSet(i, map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
+				cg.ACL.UnSet(i, map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
 			}
 		} else if rtype == "public_read" {
-			cg.Acl.UnSet("public", map[string]bool{"read": true})
+			cg.ACL.UnSet("public", map[string]bool{"read": true})
 		} else if rtype == "public_write" {
-			cg.Acl.UnSet("public", map[string]bool{"write": true})
+			cg.ACL.UnSet("public", map[string]bool{"write": true})
 		} else if rtype == "public_delete" {
-			cg.Acl.UnSet("public", map[string]bool{"delete": true})
+			cg.ACL.UnSet("public", map[string]bool{"delete": true})
 		} else if rtype == "public_execute" {
-			cg.Acl.UnSet("public", map[string]bool{"execute": true})
+			cg.ACL.UnSet("public", map[string]bool{"execute": true})
 		} else if rtype == "public_all" {
-			cg.Acl.UnSet("public", map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
+			cg.ACL.UnSet("public", map[string]bool{"read": true, "write": true, "delete": true, "execute": true})
 		} else {
 			for _, i := range ids {
-				cg.Acl.UnSet(i, map[string]bool{rtype: true})
+				cg.ACL.UnSet(i, map[string]bool{rtype: true})
 			}
 		}
 		cg.Save()
-		cx.RespondWithData(cg.Acl)
+		cx.RespondWithData(cg.ACL)
 		return
 	} else {
 		cx.RespondWithErrorMessage("This request type is not implemented.", http.StatusNotImplemented)

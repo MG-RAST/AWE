@@ -13,18 +13,18 @@ import (
 
 // http://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
 type ExpressionTool struct {
-	CWL_object_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	CWL_class_Impl  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	CWL_id_Impl     `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	Inputs          []InputParameter                `yaml:"inputs" bson:"inputs" json:"inputs" mapstructure:"inputs"`
-	Outputs         []ExpressionToolOutputParameter `yaml:"outputs" bson:"outputs" json:"outputs" mapstructure:"outputs"`
-	Expression      Expression                      `yaml:"expression,omitempty" bson:"expression,omitempty" json:"expression,omitempty" mapstructure:"expression,omitempty"`
-	Requirements    []Requirement                   `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"`
-	Hints           []Requirement                   `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`
-	Label           string                          `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
-	Doc             string                          `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
-	CwlVersion      CWLVersion                      `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
-	Namespaces      map[string]string               `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
+	CWLObjectImpl  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	CWL_class_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	CWL_id_Impl    `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	Inputs         []InputParameter       `yaml:"inputs" bson:"inputs" json:"inputs" mapstructure:"inputs"`
+	Outputs        map[string]interface{} `yaml:"outputs" bson:"outputs" json:"outputs" mapstructure:"outputs"` // ExpressionToolOutputParameter
+	Expression     Expression             `yaml:"expression,omitempty" bson:"expression,omitempty" json:"expression,omitempty" mapstructure:"expression,omitempty"`
+	Requirements   []Requirement          `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"`
+	Hints          []Requirement          `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`
+	Label          string                 `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
+	Doc            string                 `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
+	CwlVersion     CWLVersion             `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
+	Namespaces     map[string]string      `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
 // TODO pass along workflow InlineJavascriptRequirement
@@ -51,9 +51,9 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRe
 
 	outputs, has_outputs := object["outputs"]
 	if has_outputs {
-		object["outputs"], err = NewExpressionToolOutputParameterArray(outputs, schemata, context)
+		object["outputs"], err = NewExpressionToolOutputParameterMap(outputs, schemata, context)
 		if err != nil {
-			err = fmt.Errorf("(NewExpressionTool) error in NewExpressionToolOutputParameterArray: %s", err.Error())
+			err = fmt.Errorf("(NewExpressionTool) error in NewExpressionToolOutputParameterMap: %s", err.Error())
 			return
 		}
 	}
@@ -65,22 +65,22 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRe
 
 	var requirements_array []Requirement
 	//var requirements_array_temp *[]Requirement
-	//var schemata_new []CWLType_Type
+	//var schemataNew []CWLType_Type
 	requirements_array, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, inputs, context)
 	if err != nil {
 		err = fmt.Errorf("(NewExpressionTool) error in CreateRequirementArray (requirements): %s", err.Error())
 		return
 	}
 
-	//for i, _ := range schemata_new {
-	//	schemata = append(schemata, schemata_new[i])
+	//for i, _ := range schemataNew {
+	//	schemata = append(schemata, schemataNew[i])
 	//}
 
 	object["requirements"] = requirements_array
 
 	hints, ok := object["hints"]
 	if ok && (hints != nil) {
-		//var schemata_new []CWLType_Type
+		//var schemataNew []CWLType_Type
 
 		var hints_array []Requirement
 		hints_array, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
@@ -88,8 +88,8 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRe
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 			return
 		}
-		//for i, _ := range schemata_new {
-		//	schemata = append(schemata, schemata_new[i])
+		//for i, _ := range schemataNew {
+		//	schemata = append(schemata, schemataNew[i])
 		//}
 		object["hints"] = hints_array
 	}

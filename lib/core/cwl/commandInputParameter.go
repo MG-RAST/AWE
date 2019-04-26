@@ -11,16 +11,16 @@ import (
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CommandInputParameter
 
 type CommandInputParameter struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Is_CWL_object
-	Id              string                                                                `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
-	SecondaryFiles  interface{}                                                           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
-	Format          []string                                                              `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty" mapstructure:"format,omitempty"`
-	Streamable      bool                                                                  `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty" mapstructure:"streamable,omitempty"`
-	Type            []CWLType_Type                                                        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty" mapstructure:"type,omitempty"` // []CommandInputParameterType  CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
-	Label           string                                                                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
-	Description     string                                                                `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty" mapstructure:"description,omitempty"`
-	InputBinding    *CommandLineBinding                                                   `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty" mapstructure:"inputBinding,omitempty"`
-	Default         CWLType                                                               `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty" mapstructure:"default,omitempty"`
+	CWLObjectImpl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides IsCWLObject
+	Id             string                                                                `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
+	SecondaryFiles interface{}                                                           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
+	Format         []string                                                              `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty" mapstructure:"format,omitempty"`
+	Streamable     bool                                                                  `yaml:"streamable,omitempty" bson:"streamable,omitempty" json:"streamable,omitempty" mapstructure:"streamable,omitempty"`
+	Type           []CWLType_Type                                                        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty" mapstructure:"type,omitempty"` // []CommandInputParameterType  CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
+	Label          string                                                                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
+	Description    string                                                                `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty" mapstructure:"description,omitempty"`
+	InputBinding   *CommandLineBinding                                                   `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty" mapstructure:"inputBinding,omitempty"`
+	Default        CWLType                                                               `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty" mapstructure:"default,omitempty"`
 }
 
 func NewCommandInputParameter(v interface{}, schemata []CWLType_Type, context *WorkflowContext) (input_parameter *CommandInputParameter, err error) {
@@ -85,8 +85,18 @@ func NewCommandInputParameter(v interface{}, schemata []CWLType_Type, context *W
 		}
 
 	case string:
-		v_string := v.(string)
-		err = fmt.Errorf("(NewCommandInputParameter) got string %s", v_string)
+		//vString := v.(string)
+
+		input_parameter = &CommandInputParameter{}
+
+		var typeValue []CWLType_Type
+		typeValue, err = NewCommandInputParameterTypeArray(v, schemata, context)
+		if err != nil {
+			err = fmt.Errorf("(NewCommandInputParameter) NewCommandInputParameterTypeArray returns: %s", err.Error())
+			return
+		}
+		input_parameter.Type = typeValue
+
 		return
 	default:
 
@@ -115,24 +125,29 @@ func NewCommandInputParameter(v interface{}, schemata []CWLType_Type, context *W
 // array<CommandInputParameter> | map<CommandInputParameter.id, CommandInputParameter.type> | map<CommandInputParameter.id, CommandInputParameter>
 func CreateCommandInputArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (err error, new_array []*CommandInputParameter) {
 
-	//fmt.Println("CreateCommandInputArray:\n")
+	original, err = MakeStringMap(original, context)
+	if err != nil {
+		err = fmt.Errorf("(NewInputParameter) MakeStringMap returned: %s", err.Error())
+		return
+	}
+
+	//fmt.Println("CommandInputArray:")
 	//spew.Dump(original)
-	//os.Exit(1)
 
 	switch original.(type) {
 
-	case map[interface{}]interface{}:
-		for k, v := range original.(map[interface{}]interface{}) {
+	case map[string]interface{}:
+		for k, v := range original.(map[string]interface{}) {
 
 			//var input_parameter CommandInputParameter
 			//mapstructure.Decode(v, &input_parameter)
 			input_parameter, xerr := NewCommandInputParameter(v, schemata, context)
 			if xerr != nil {
-				err = fmt.Errorf("(CreateCommandInputArray) map[interface{}]interface{} NewCommandInputParameter returned: %s", xerr.Error())
+				err = fmt.Errorf("(CreateCommandInputArray) map[string]interface{} NewCommandInputParameter returned: %s", xerr.Error())
 				return
 			}
 
-			input_parameter.Id = k.(string)
+			input_parameter.Id = k
 
 			//fmt.Printf("C")
 			new_array = append(new_array, input_parameter)
@@ -169,8 +184,12 @@ func CreateCommandInputArray(original interface{}, schemata []CWLType_Type, cont
 			//fmt.Printf("D")
 
 		}
+	case []*CommandInputParameter:
+
+		new_array = original.([]*CommandInputParameter)
+
 	default:
-		err = fmt.Errorf("(CreateCommandInputArray) type unknown")
+		err = fmt.Errorf("(CreateCommandInputArray) type unknown (%s)", reflect.TypeOf(original))
 	}
 	//spew.Dump(new_array)
 	return

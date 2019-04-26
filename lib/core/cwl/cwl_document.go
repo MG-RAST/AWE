@@ -18,7 +18,7 @@ type CWL_document struct {
 	Schemas    []interface{}     `yaml:"$schemas,omitempty" json:"$schemas,omitempty" bson:"schemas,omitempty" mapstructure:"$schemas,omitempty"`
 }
 
-func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object_array []Named_CWL_object, schemata []CWLType_Type, schemas []interface{}, err error) {
+func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object_array []NamedCWLObject, schemata []CWLType_Type, schemas []interface{}, err error) {
 
 	cwl_gen := CWL_document{}
 
@@ -103,23 +103,23 @@ func Parse_cwl_graph_document(yaml_str string, context *WorkflowContext) (object
 
 	err = context.Init("#main")
 	if err != nil {
-		err = fmt.Errorf("(Parse_cwl_graph_document) context.FillMaps returned: %s", err.Error())
+		err = fmt.Errorf("(Parse_cwl_graph_document) context.Init returned: %s", err.Error())
 		return
 	}
 
 	for id, object := range context.Objects {
-		named_obj := NewNamed_CWL_object(id, object)
+		named_obj := NewNamedCWLObject(id, object)
 		object_array = append(object_array, named_obj)
 	}
 
-	// object_array []Named_CWL_object
+	// object_array []NamedCWLObject
 	//fmt.Println("############# object_array:")
 	//spew.Dump(object_array)
 
 	return
 }
 
-func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (object_array []Named_CWL_object, schemata []CWLType_Type, schemas []interface{}, err error) {
+func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (object_array []NamedCWLObject, schemata []CWLType_Type, schemas []interface{}, err error) {
 	// Here I expect a single object, Workflow or CommandLIneTool
 	//fmt.Printf("-------------- yaml_str: %s\n", yaml_str)
 
@@ -208,11 +208,11 @@ func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (objec
 	}
 	//fmt.Printf("this_id: %s\n", this_id)
 
-	var object CWL_object
-	var schemata_new []CWLType_Type
-	object, schemata_new, err = New_CWL_object(object_if, nil, context)
+	var object CWLObject
+	var schemataNew []CWLType_Type
+	object, schemataNew, err = NewCWLObject(object_if, nil, context)
 	if err != nil {
-		err = fmt.Errorf("(Parse_cwl_simple_document) B New_CWL_object returns %s", err.Error())
+		err = fmt.Errorf("(Parse_cwl_simple_document) B NewCWLObject returns %s", err.Error())
 		return
 	}
 
@@ -221,8 +221,8 @@ func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (objec
 	//fmt.Println("-------------- Start parsing")
 
 	//var commandlinetool *CommandLineTool
-	//var schemata_new []CWLType_Type
-	//commandlinetool, schemata_new, err = NewCommandLineTool(commandlinetool_if)
+	//var schemataNew []CWLType_Type
+	//commandlinetool, schemataNew, err = NewCommandLineTool(commandlinetool_if)
 	//if err != nil {
 	//	err = fmt.Errorf("(Parse_cwl_document) NewCommandLineTool returned: %s", err.Error())
 	//	return
@@ -244,19 +244,19 @@ func Parse_cwl_simple_document(yaml_str string, context *WorkflowContext) (objec
 		return
 	}
 
-	named_obj := NewNamed_CWL_object(this_id, object)
-	//named_obj := NewNamed_CWL_object(commandlinetool.Id, commandlinetool)
+	named_obj := NewNamedCWLObject(this_id, object)
+	//named_obj := NewNamedCWLObject(commandlinetool.Id, commandlinetool)
 
 	//cwl_version = commandlinetool.CwlVersion // TODO
 
 	object_array = append(object_array, named_obj)
-	for i, _ := range schemata_new {
-		schemata = append(schemata, schemata_new[i])
+	for i, _ := range schemataNew {
+		schemata = append(schemata, schemataNew[i])
 	}
 	return
 }
 
-func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []Named_CWL_object, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, err error) {
+func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, err error) {
 	//fmt.Printf("(Parse_cwl_document) starting\n")
 
 	context = NewWorkflowContext()
@@ -265,6 +265,8 @@ func Parse_cwl_document(yaml_str string, inputfile_path string) (object_array []
 	graph_pos := strings.Index(yaml_str, "$graph")
 
 	//yaml_str = strings.Replace(yaml_str, "$namespaces", "namespaces", -1)
+	//fmt.Println("yaml_str:")
+	//fmt.Println(yaml_str)
 
 	if graph_pos != -1 {
 		// *** graph file ***

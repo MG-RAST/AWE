@@ -9,16 +9,16 @@ type RecordSchema struct {
 	NamedSchema `bson:",inline" yaml:",inline" json:",inline" mapstructure:",squash"` // provides Type, Label, Name
 }
 
-func (r *RecordSchema) GetId() string { return r.Name }
+func (r *RecordSchema) GetID() string { return r.Name }
 func (r *RecordSchema) Is_Type()      {}
 
-func (r *RecordSchema) Type2String() string { return string(CWL_record) }
+func (r *RecordSchema) Type2String() string { return string(CWLRecord) }
 
-func NewRecordSchema(native_map map[string]interface{}) (rs *RecordSchema, err error) {
+func NewRecordSchema(nativeMap map[string]interface{}) (rs *RecordSchema, err error) {
 
 	rs = &RecordSchema{}
 
-	label, has_label := native_map["label"]
+	label, has_label := nativeMap["label"]
 	if has_label {
 		var ok bool
 		rs.Label, ok = label.(string)
@@ -28,7 +28,7 @@ func NewRecordSchema(native_map map[string]interface{}) (rs *RecordSchema, err e
 		}
 	}
 
-	name, has_name := native_map["name"]
+	name, has_name := nativeMap["name"]
 	if has_name {
 		var ok bool
 		rs.Name, ok = name.(string)
@@ -38,7 +38,7 @@ func NewRecordSchema(native_map map[string]interface{}) (rs *RecordSchema, err e
 		}
 	}
 
-	rs.Type = CWL_record
+	rs.Type = CWLRecord
 
 	return
 }

@@ -1,21 +1,23 @@
 package controller
 
 import (
+	"net/http"
+
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/golib/goweb"
-	"net/http"
 )
 
+// AwfController _
 type AwfController struct{}
 
-// OPTIONS: /awf
+// Options OPTIONS: /awf
 func (cr *AwfController) Options(cx *goweb.Context) {
 	LogRequest(cx.Request)
 	cx.RespondWithOK()
 	return
 }
 
-// GET: /awf/{name}
+// Read GET: /awf/{name}
 // get a workflow by name, read-only
 func (cr *AwfController) Read(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
@@ -30,7 +32,7 @@ func (cr *AwfController) Read(id string, cx *goweb.Context) {
 	return
 }
 
-// GET: /awf
+// ReadMany GET: /awf
 // get all loaded workflows
 func (cr *AwfController) ReadMany(cx *goweb.Context) {
 	// Gather query params

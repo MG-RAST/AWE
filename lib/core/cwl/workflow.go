@@ -14,26 +14,26 @@ import (
 )
 
 type Workflow struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Is_CWL_object
-	CWL_class_Impl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
-	CWL_id_Impl     `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
-	Inputs          []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
-	Outputs         []WorkflowOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
-	Steps           []WorkflowStep            `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty" mapstructure:"steps,omitempty"`
-	Requirements    []Requirement             `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` //[]Requirement
-	Hints           []Requirement             `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
-	Label           string                    `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
-	Doc             string                    `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
-	CwlVersion      CWLVersion                `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
-	Metadata        map[string]interface{}    `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty" mapstructure:"metadata,omitempty"`
-	Namespaces      map[string]string         `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
+	CWLObjectImpl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides IsCWLObject
+	CWL_class_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
+	CWL_id_Impl    `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	Inputs         []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
+	Outputs        []WorkflowOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
+	Steps          []WorkflowStep            `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty" mapstructure:"steps,omitempty"`
+	Requirements   []Requirement             `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` //[]Requirement
+	Hints          []Requirement             `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
+	Label          string                    `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
+	Doc            string                    `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
+	CwlVersion     CWLVersion                `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
+	Metadata       map[string]interface{}    `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty" mapstructure:"metadata,omitempty"`
+	Namespaces     map[string]string         `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
-func (w *Workflow) GetClass() string { return string(CWL_Workflow) }
+func (w *Workflow) GetClass() string { return string(CWLWorkflow) }
 
-//func (w *Workflow) GetId() string    { return w.Id }
-//func (w *Workflow) SetId(id string)  { w.Id = id }
-//func (w *Workflow) Is_CWL_minimal()  {}
+//func (w *Workflow) GetID() string    { return w.Id }
+//func (w *Workflow) SetID(id string)  { w.Id = id }
+//func (w *Workflow) IsCWLMinimal()  {}
 //func (w *Workflow) Is_Any()          {}
 func (w *Workflow) Is_process() {}
 
@@ -54,7 +54,7 @@ func GetMapElement(m map[interface{}]interface{}, key string) (value interface{}
 
 func NewWorkflowEmpty() (w Workflow) {
 	w = Workflow{}
-	w.Class = string(CWL_Workflow)
+	w.Class = string(CWLWorkflow)
 	return w
 }
 
@@ -121,22 +121,22 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 
 		var requirements_array []Requirement
 		//var requirements_array_temp *[]Requirement
-		//var schemata_new []CWLType_Type
+		//var schemataNew []CWLType_Type
 		requirements_array, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflow) error in CreateRequirementArray (requirements): %s", err.Error())
 			return
 		}
 
-		//for i, _ := range schemata_new {
-		//	schemata = append(schemata, schemata_new[i])
+		//for i, _ := range schemataNew {
+		//	schemata = append(schemata, schemataNew[i])
 		//}
 
 		object["requirements"] = requirements_array
 
 		hints, ok := object["hints"]
 		if ok && (hints != nil) {
-			//var schemata_new []CWLType_Type
+			//var schemataNew []CWLType_Type
 
 			var hints_array []Requirement
 			hints_array, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
@@ -144,8 +144,8 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 				err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 				return
 			}
-			//for i, _ := range schemata_new {
-			//	schemata = append(schemata, schemata_new[i])
+			//for i, _ := range schemataNew {
+			//	schemata = append(schemata, schemataNew[i])
 			//}
 			object["hints"] = hints_array
 		}
@@ -154,17 +154,17 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 		steps, ok := object["steps"]
 		if ok {
 			logger.Debug(3, "(NewWorkflow) Parsing steps in Workflow")
-			var schemata_new []CWLType_Type
+			var schemataNew []CWLType_Type
 
 			//fmt.Printf("(NewWorkflow) Injecting %d\n", len(requirements_array))
 			//spew.Dump(requirements_array)
-			schemata_new, object["steps"], err = CreateWorkflowStepsArray(steps, requirements_array, context)
+			schemataNew, object["steps"], err = CreateWorkflowStepsArray(steps, requirements_array, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) CreateWorkflowStepsArray returned: %s", err.Error())
 				return
 			}
-			for i, _ := range schemata_new {
-				schemata = append(schemata, schemata_new[i])
+			for i, _ := range schemataNew {
+				schemata = append(schemata, schemataNew[i])
 			}
 		} else {
 			err = fmt.Errorf("(NewWorkflow) Workflow has no steps ")
@@ -199,14 +199,14 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 			}
 			//}
 
-			for i, _ := range workflow.Inputs {
-				inp := &workflow.Inputs[i]
-				err = context.Add(inp.Id, inp, "NewWorkflow")
-				if err != nil {
-					err = fmt.Errorf("(NewWorkflow) context.Add returned: %s", err.Error())
-					return
-				}
-			}
+			//for i, _ := range workflow.Inputs { // this can conflict with workflow_instance fields
+			//	inp := &workflow.Inputs[i]
+			//	err = context.Add(inp.Id, inp, "NewWorkflow")
+			//	if err != nil {
+			//		err = fmt.Errorf("(NewWorkflow) context.Add returned: %s", err.Error())
+			//		return
+			//	}
+			//}
 		} else {
 			err = fmt.Errorf("(NewWorkflow) context empty")
 			return
@@ -230,7 +230,7 @@ func (wf *Workflow) GetStep(name string) (step *WorkflowStep, err error) {
 
 		s := &wf.Steps[i]
 
-		s_base := path.Base(s.Id)
+		s_base := path.Base(s.ID)
 
 		if s_base == name {
 			step = s

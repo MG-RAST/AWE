@@ -7,6 +7,8 @@ import (
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
+	"github.com/davecgh/go-spew/spew"
+
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
@@ -14,6 +16,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/request"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/goweb"
+
 	//"github.com/davecgh/go-spew/spew"
 	"io/ioutil"
 	"net/http"
@@ -24,6 +27,7 @@ import (
 	mgo "gopkg.in/mgo.v2"
 )
 
+// WorkController _
 type WorkController struct{}
 
 // OPTIONS: /work
@@ -127,7 +131,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	//	cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 	//	return
 	//}
-	acl, err := core.DBGetJobAcl(jobid)
+	acl, err := core.DBGetJobACL(jobid)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			cx.RespondWithNotFound()
@@ -170,7 +174,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
 	}
-	workunit, err := core.QMgr.GetWorkById(id_wui)
+	workunit, err := core.QMgr.GetWorkByID(id_wui)
 	if err != nil {
 		cx.RespondWithErrorMessage(err.Error(), http.StatusBadRequest)
 		return
@@ -355,6 +359,9 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	workunit.State = core.WORK_STAT_RESERVED
 	workunit.Client = clientid
 
+	fmt.Println("workunit:")
+	spew.Dump(workunit)
+
 	//test, err := json.Marshal(workunit)
 	//if err != nil {
 	//	panic("did not work")
@@ -425,7 +432,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 		//	return
 		//}
 
-		notice = &core.Notice{Id: work_id, Status: query.Value("status"), WorkerId: query.Value("client"), Notes: ""}
+		notice = &core.Notice{ID: work_id, Status: query.Value("status"), WorkerID: query.Value("client"), Notes: ""}
 		// old-style
 		if query.Has("computetime") {
 			if comptime, err := strconv.Atoi(query.Value("computetime")); err == nil {

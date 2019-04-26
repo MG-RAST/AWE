@@ -74,7 +74,7 @@ func (job_input *Job_document) GetMap() (job_input_map JobDocMap) {
 	job_input_map = make(JobDocMap)
 
 	for _, value := range *job_input {
-		//id := value.GetId()
+		//id := value.GetID()
 		job_input_map[value.Id] = value.Value
 	}
 	return

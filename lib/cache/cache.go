@@ -473,18 +473,18 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 	switch native.(type) {
 
 	case map[string]interface{}:
-		native_map := native.(map[string]interface{})
+		nativeMap := native.(map[string]interface{})
 
-		keys := make([]string, len(native_map))
+		keys := make([]string, len(nativeMap))
 
 		i := 0
-		for key := range native_map {
+		for key := range nativeMap {
 			keys[i] = key
 			i++
 		}
 
 		for _, key := range keys {
-			value := native_map[key]
+			value := nativeMap[key]
 			var sub_count int
 
 			//value_file, ok := value.(*cwl.File)
@@ -532,8 +532,8 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 		count += sub_count
 		return
-	case cwl.Named_CWL_object:
-		named := native.(cwl.Named_CWL_object)
+	case cwl.NamedCWLObject:
+		named := native.(cwl.NamedCWLObject)
 		var sub_count int
 		sub_count, err = ProcessIOData(named.Value, current_path, base_path, io_type, shock_client)
 		if err != nil {
@@ -622,7 +622,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 		for i, _ := range *array {
 
-			//id := value.GetId()
+			//id := value.GetID()
 			//fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
 			sub_count, err = ProcessIOData((*array)[i], current_path, base_path, io_type, shock_client)
@@ -634,11 +634,11 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 		}
 		return
-	case []cwl.Named_CWL_object:
-		array := native.([]cwl.Named_CWL_object)
+	case []cwl.NamedCWLObject:
+		array := native.([]cwl.NamedCWLObject)
 		for i, _ := range array {
 
-			//id := value.GetId()
+			//id := value.GetID()
 
 			var sub_count int
 			sub_count, err = ProcessIOData((array)[i], current_path, base_path, io_type, shock_client)
@@ -1054,13 +1054,13 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 		count += sub_count
 
-	case *core.CWL_workunit:
+	case *core.CWLWorkunit:
 
 		if io_type == "download" {
-			work := native.(*core.CWL_workunit)
+			work := native.(*core.CWLWorkunit)
 
 			var sub_count int
-			sub_count, err = ProcessIOData(work.Job_input, current_path, base_path, "download", shock_client)
+			sub_count, err = ProcessIOData(work.JobInput, current_path, base_path, "download", shock_client)
 			if err != nil {
 				err = fmt.Errorf("(processIOData) work.Job_input ProcessIOData(for download) returned: %s", err.Error())
 				return
@@ -1132,14 +1132,14 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			if iwdr.Listing != nil {
 				switch iwdr.Listing.(type) {
 				//case []interface{}:
-				case []cwl.CWL_object:
-					obj_array := iwdr.Listing.([]cwl.CWL_object)
+				case []cwl.CWLObject:
+					obj_array := iwdr.Listing.([]cwl.CWLObject)
 					for i, _ := range obj_array {
 
 						sub_count := 0
 						sub_count, err = ProcessIOData(obj_array[i], current_path, base_path, "download", shock_client)
 						if err != nil {
-							err = fmt.Errorf("(processIOData) []cwl.CWL_object cwl.Requirement/Listing returned: %s", err.Error())
+							err = fmt.Errorf("(processIOData) []cwl.CWLObject cwl.Requirement/Listing returned: %s", err.Error())
 							return
 						}
 						count += sub_count
@@ -1171,31 +1171,31 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 	case []interface{}:
 		//fmt.Println("(processIOData) []interface{}")
 		// that should trigger only for $schemas
-		native_array := native.([]interface{})
+		nativeArray := native.([]interface{})
 
 		if io_type == "upload" {
 
-			for i, _ := range native_array {
-				switch native_array[i].(type) {
+			for i, _ := range nativeArray {
+				switch nativeArray[i].(type) {
 				case cwl.File:
 					// continue
 				case string:
 
-					schema_str := native_array[i].(string)
+					schema_str := nativeArray[i].(string)
 
 					this_file := cwl.NewFile()
 					this_file.Path = schema_str
-					native_array[i] = this_file
+					nativeArray[i] = this_file
 					sub_count := 0
 					sub_count, err = ProcessIOData(this_file, current_path, base_path, "download", shock_client)
 					if err != nil {
-						err = fmt.Errorf("(processIOData) []cwl.CWL_object cwl.Requirement/Listing returned: %s", err.Error())
+						err = fmt.Errorf("(processIOData) []cwl.CWLObject cwl.Requirement/Listing returned: %s", err.Error())
 						return
 					}
 					count += sub_count
 
 				default:
-					err = fmt.Errorf("(processIOData) schemata , unkown type: (%s)", reflect.TypeOf(native_array[i]))
+					err = fmt.Errorf("(processIOData) schemata , unkown type: (%s)", reflect.TypeOf(nativeArray[i]))
 					return
 
 				}
@@ -1224,12 +1224,12 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 		return
 	}
 
-	if work.CWL_workunit != nil {
+	if work.CWLWorkunit != nil {
 
 		shock_client := shock.NewShockClient(work.ShockHost, work.Info.DataToken, false)
 
 		var count int
-		count, err = ProcessIOData(work.CWL_workunit, work_path, work_path, "download", shock_client)
+		count, err = ProcessIOData(work.CWLWorkunit, work_path, work_path, "download", shock_client)
 		if err != nil {
 			err = fmt.Errorf("(MoveInputData) ProcessIOData(for download) returned: %s", err.Error())
 			return
@@ -1395,16 +1395,16 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 
 func UploadOutputData(work *core.Workunit, shock_client *shock.ShockClient) (size int64, err error) {
 
-	if work.CWL_workunit != nil {
+	if work.CWLWorkunit != nil {
 
-		if work.CWL_workunit.Outputs != nil {
+		if work.CWLWorkunit.Outputs != nil {
 			//fmt.Println("Outputs 1")
 			//scs := spew.Config
 			//scs.DisableMethods = true
 
 			//scs.Dump(work.CWL_workunit.Outputs)
 			var upload_count int
-			upload_count, err = ProcessIOData(work.CWL_workunit.Outputs, "", "", "upload", shock_client)
+			upload_count, err = ProcessIOData(work.CWLWorkunit.Outputs, "", "", "upload", shock_client)
 			if err != nil {
 				err = fmt.Errorf("(UploadOutputData) ProcessIOData returned: %s", err.Error())
 			}

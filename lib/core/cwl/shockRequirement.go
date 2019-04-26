@@ -9,7 +9,7 @@ type ShockRequirement struct {
 	Shock_api_url   string `yaml:"shock_api_url,omitempty" bson:"shock_api_url,omitempty" json:"shock_api_url,omitempty" mapstructure:"shock_api_url,omitempty"`
 }
 
-func (s ShockRequirement) GetId() string { return "None" }
+func (s ShockRequirement) GetID() string { return "None" }
 
 func NewShockRequirement(url string) (requirement_ptr *ShockRequirement, err error) {
 	var requirement ShockRequirement

@@ -14,7 +14,7 @@ type OutputEnumSchema struct {
 
 func (c *OutputEnumSchema) Is_Type()            {}
 func (c *OutputEnumSchema) Type2String() string { return "OutputEnumSchema" }
-func (c *OutputEnumSchema) GetId() string       { return "" }
+func (c *OutputEnumSchema) GetID() string       { return "" }
 
 func NewOutputEnumSchemaFromInterface(v map[string]interface{}) (schema *OutputEnumSchema, err error) {
 

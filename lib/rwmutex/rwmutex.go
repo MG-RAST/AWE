@@ -18,6 +18,8 @@ import (
 
 var WAIT_TIMEOUT = time.Minute * 3
 
+var DEBUG_LOCKS = false
+
 type ReadLock struct {
 	id string
 }
@@ -87,7 +89,9 @@ func (m *RWMutex) LockNamed(name string) (err error) {
 
 	select {
 	case <-m.writeLock: // Grab the ticket
-		logger.Debug(3, "(RWMutex/LockNamed %s) got lock", name)
+		if DEBUG_LOCKS {
+			logger.Debug(3, "(RWMutex/LockNamed %s) got lock", name)
+		}
 	case <-time.After(WAIT_TIMEOUT):
 		reader_list := strings.Join(m.RList(), ",")
 		message := fmt.Sprintf("(%s) %s requests Lock. TIMEOUT!!! current owner: %s (reader list :%s), initial owner: %s", m.Name, name, m.lockOwner.Get(), reader_list, initial_owner)
@@ -103,7 +107,9 @@ func (m *RWMutex) LockNamed(name string) (err error) {
 		time.Sleep(100)
 	}
 
-	logger.Debug(3, "(%s) LOCKED by %s", m.Name, name)
+	if DEBUG_LOCKS {
+		logger.Debug(3, "(%s) LOCKED by %s", m.Name, name)
+	}
 	return
 }
 
@@ -112,11 +118,15 @@ func (m *RWMutex) Unlock() {
 	old_owner := m.lockOwner.Get()
 	m.lockOwner.Set("nobody_anymore")
 	m.writeLock <- 1 // Give it back
-	logger.Debug(3, "(%s) UNLOCKED by %s **********************", m.Name, old_owner)
+	if DEBUG_LOCKS {
+		logger.Debug(3, "(%s) UNLOCKED by %s **********************", m.Name, old_owner)
+	}
 }
 
 func (m *RWMutex) RLockNamed(name string) (rl ReadLock, err error) {
-	logger.Debug(3, "(%s, %s) request RLock and Lock.", m.Name, name)
+	if DEBUG_LOCKS {
+		logger.Debug(3, "(%s, %s) request RLock and Lock.", m.Name, name)
+	}
 	if m.Name == "" {
 		panic("xzy name empty")
 	}
@@ -124,7 +134,9 @@ func (m *RWMutex) RLockNamed(name string) (rl ReadLock, err error) {
 	if err != nil {
 		return
 	}
-	logger.Debug(3, "(%s) RLock/%s got Lock.", m.Name, name)
+	if DEBUG_LOCKS {
+		logger.Debug(3, "(%s) RLock/%s got Lock.", m.Name, name)
+	}
 	m.readLock.Lock()
 	new_uuid := uuid.New()
 
@@ -133,7 +145,9 @@ func (m *RWMutex) RLockNamed(name string) (rl ReadLock, err error) {
 	//m.readCounter += 1
 	m.readLock.Unlock()
 	m.Unlock()
-	logger.Debug(3, "(%s) got RLock.", m.Name)
+	if DEBUG_LOCKS {
+		logger.Debug(3, "(%s) got RLock.", m.Name)
+	}
 	rl = ReadLock{id: new_uuid}
 	return
 }
@@ -160,18 +174,24 @@ func (m *RWMutex) RUnlockNamed(rl ReadLock) {
 
 	lock_uuid := rl.Get_Id()
 
-	logger.Debug(3, "(%s) request RUnlock.", m.Name)
+	if DEBUG_LOCKS {
+		logger.Debug(3, "(%s) request RUnlock.", m.Name)
+	}
 	m.readLock.Lock()
 	//m.readCounter -= 1
 	name, ok := m.readers[lock_uuid]
 	if ok {
 		delete(m.readers, lock_uuid)
-		logger.Debug(3, "(%s) %s did RUnlock.", m.Name, name)
+		if DEBUG_LOCKS {
+			logger.Debug(3, "(%s) %s did RUnlock.", m.Name, name)
+		}
 	} else {
 		logger.Debug(3, "(%s) ERROR: %s did not have RLock !?!??!?!?.", m.Name, name)
 	}
 	m.readLock.Unlock()
-	logger.Debug(3, "(%s) did RUnlock.", m.Name)
+	if DEBUG_LOCKS {
+		logger.Debug(3, "(%s) did RUnlock.", m.Name)
+	}
 }
 
 func (m *RWMutex) RCount() (c int) {

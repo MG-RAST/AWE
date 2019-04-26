@@ -2,15 +2,15 @@ package core
 
 import (
 	"fmt"
-	"github.com/mitchellh/mapstructure"
 	"strconv"
 	"strings"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type Workunit_Unique_Identifier struct {
 	Task_Unique_Identifier `bson:",inline" json:",inline" mapstructure:",squash"` // TaskName, Workflow, JobId
-	Rank                   int                                                    `bson:"rank" json:"rank" mapstructure:"rank"` // this is the local identifier
-
+	Rank                   int                                                    `bson:"rank" json:"rank" mapstructure:"rank"` // this is the local identifier, an abstract identifer for the data chunk
 }
 
 func New_Workunit_Unique_Identifier(task Task_Unique_Identifier, rank int) (wui Workunit_Unique_Identifier) {

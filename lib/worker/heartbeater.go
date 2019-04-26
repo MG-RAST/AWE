@@ -37,8 +37,8 @@ type ClientResponse struct {
 }
 
 func heartBeater(control chan int) {
-	fmt.Printf("heartBeater launched, client=%s\n", core.Self.Id)
-	logger.Debug(0, fmt.Sprintf("heartBeater launched, client=%s\n", core.Self.Id))
+	fmt.Printf("heartBeater launched, client=%s\n", core.Self.ID)
+	logger.Debug(0, fmt.Sprintf("heartBeater launched, client=%s\n", core.Self.ID))
 	defer fmt.Printf("heartBeater exiting...\n")
 
 	for {
@@ -71,7 +71,7 @@ type Openstack_Metadata_meta struct {
 
 //client sends heartbeat to server to maintain active status and re-register when needed
 func SendHeartBeat() (err error) {
-	hbmsg, err := heartbeating(conf.SERVER_URL, core.Self.Id)
+	hbmsg, err := heartbeating(conf.SERVER_URL, core.Self.ID)
 	if err != nil {
 		logger.Debug(3, "(SendHeartBeat) heartbeat returned error: "+err.Error())
 		if strings.Contains(err.Error(), e.ClientNotFound) {
@@ -88,20 +88,20 @@ func SendHeartBeat() (err error) {
 	val, ok := hbmsg["server-uuid"]
 	if ok {
 		if len(val) > 0 {
-			if core.Server_UUID == "" {
+			if core.ServerUUID == "" {
 				logger.Debug(1, "(SendHeartBeat) Setting Server UUID to %s", val)
-				core.Server_UUID = val
+				core.ServerUUID = val
 			} else {
-				if core.Server_UUID != val {
+				if core.ServerUUID != val {
 					// server has been restarted, stop work on client (TODO in future we will try to recover work)
-					logger.Warning("(SendHeartBeat) Server UUID has changed (%s -> %s). Will stop all work units.", core.Server_UUID, val)
+					logger.Warning("(SendHeartBeat) Server UUID has changed (%s -> %s). Will stop all work units.", core.ServerUUID, val)
 					all_work, _ := workmap.GetKeys()
 
 					for _, work := range all_work {
 						DiscardWorkunit(work)
 					}
 					core.Self.Busy = false
-					core.Server_UUID = val
+					core.ServerUUID = val
 				}
 			}
 
@@ -322,10 +322,10 @@ func ReRegisterWithSelf(host string) (err error) {
 	fmt.Printf("lost contact with server, try to re-register\n")
 	err = RegisterWithAuth(host, core.Self)
 	if err != nil {
-		logger.Error("Error: fail to re-register, clientid=" + core.Self.Id)
+		logger.Error("Error: fail to re-register, clientid=" + core.Self.ID)
 		fmt.Printf("failed to re-register\n")
 	} else {
-		logger.Event(event.CLIENT_AUTO_REREGI, "clientid="+core.Self.Id)
+		logger.Event(event.CLIENT_AUTO_REREGI, "clientid="+core.Self.ID)
 		fmt.Printf("re-register successfully\n")
 	}
 	return
@@ -350,7 +350,7 @@ func Set_Metadata(profile *core.Client) {
 			}
 			instance_id, err := getMetaDataField(metadata_url, "instance-id")
 			if err == nil {
-				profile.InstanceId = instance_id
+				profile.InstanceID = instance_id
 			}
 			instance_type, err := getMetaDataField(metadata_url, "instance-type")
 			if err == nil {
@@ -359,7 +359,7 @@ func Set_Metadata(profile *core.Client) {
 			local_ipv4, err := getMetaDataField(metadata_url, "local-ipv4")
 			if err == nil {
 				//profile.Host = local_ipv4 + " (deprecated)"
-				profile.Host_ip = local_ipv4
+				profile.HostIP = local_ipv4
 			}
 
 		} else {
@@ -369,11 +369,11 @@ func Set_Metadata(profile *core.Client) {
 	}
 
 	// fall-back
-	if profile.Host_ip == "" {
+	if profile.HostIP == "" {
 		if addrs, err := net.InterfaceAddrs(); err == nil {
 			for _, a := range addrs {
 				if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && len(strings.Split(ipnet.IP.String(), ".")) == 4 {
-					profile.Host_ip = ipnet.IP.String()
+					profile.HostIP = ipnet.IP.String()
 					break
 				}
 			}
@@ -390,7 +390,7 @@ func ComposeProfile() (profile *core.Client, err error) {
 	profile.WorkerRuntime.Name = conf.CLIENT_NAME
 	//profile.Host = conf.CLIENT_HOST
 	profile.Hostname = conf.CLIENT_HOSTNAME
-	profile.Host_ip = conf.CLIENT_HOST_IP
+	profile.HostIP = conf.CLIENT_HOST_IP
 
 	profile.Group = conf.CLIENT_GROUP
 	profile.CPUs = runtime.NumCPU()
@@ -438,7 +438,7 @@ func DiscardWorkunit(id core.Workunit_Unique_Identifier) (err error) {
 		}
 
 		workmap.Set(id, ID_DISCARDED, "DiscardWorkunit")
-		err = core.Self.Current_work.Delete(id, true)
+		err = core.Self.CurrentWork.Delete(id, true)
 		if err != nil {
 			logger.Error("(DiscardWorkunit) Could not remove workunit %s from client", id_str)
 			err = nil

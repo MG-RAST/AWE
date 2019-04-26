@@ -9,6 +9,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
+// InitClientGroupDB _
 func InitClientGroupDB() {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
@@ -18,6 +19,7 @@ func InitClientGroupDB() {
 	cc.EnsureIndex(mgo.Index{Key: []string{"token"}, Unique: true})
 }
 
+// dbFindClientGroups _
 func dbFindClientGroups(q bson.M, results *ClientGroups) (count int, err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
@@ -30,6 +32,7 @@ func dbFindClientGroups(q bson.M, results *ClientGroups) (count int, err error) 
 	return
 }
 
+// dbFindSortClientGroups _
 func dbFindSortClientGroups(q bson.M, results *ClientGroups, options map[string]int, sortby string) (count int, err error) {
 	if sortby == "" {
 		return 0, errors.New("sortby must be an nonempty string")
@@ -52,6 +55,7 @@ func dbFindSortClientGroups(q bson.M, results *ClientGroups, options map[string]
 	return
 }
 
+// LoadClientGroup _
 func LoadClientGroup(id string) (clientgroup *ClientGroup, err error) {
 	clientgroup = new(ClientGroup)
 	session := db.Connection.Session.Copy()
@@ -63,6 +67,7 @@ func LoadClientGroup(id string) (clientgroup *ClientGroup, err error) {
 	return nil, err
 }
 
+// LoadClientGroupByName _
 func LoadClientGroupByName(name string) (clientgroup *ClientGroup, err error) {
 	clientgroup = new(ClientGroup)
 	session := db.Connection.Session.Copy()
@@ -74,6 +79,7 @@ func LoadClientGroupByName(name string) (clientgroup *ClientGroup, err error) {
 	return nil, err
 }
 
+// LoadClientGroupByToken _
 func LoadClientGroupByToken(token string) (clientgroup *ClientGroup, err error) {
 	clientgroup = new(ClientGroup)
 	session := db.Connection.Session.Copy()
@@ -85,6 +91,7 @@ func LoadClientGroupByToken(token string) (clientgroup *ClientGroup, err error) 
 	return nil, err
 }
 
+// DeleteClientGroup _
 func DeleteClientGroup(id string) (err error) {
 	err = dbDelete(bson.M{"id": id}, conf.DB_COLL_CGS)
 	return

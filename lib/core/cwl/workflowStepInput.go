@@ -12,23 +12,23 @@ import (
 
 //http://www.commonwl.org/v1.0/Workflow.html#WorkflowStepInput
 type WorkflowStepInput struct {
-	CWL_object_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
-	Id              string           `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
-	Source          interface{}      `yaml:"source,omitempty" bson:"source,omitempty" json:"source,omitempty" mapstructure:"source,omitempty"` // MultipleInputFeatureRequirement, multiple inbound data links listed in the source field
-	Source_index    int              `yaml:"source_index,omitempty" bson:"source_index,omitempty" json:"source_index,omitempty" mapstructure:"source_index,omitempty"`
-	LinkMerge       *LinkMergeMethod `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty" mapstructure:"linkMerge,omitempty"`
-	Default         interface{}      `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty" mapstructure:"default,omitempty"`         // type Any does not make sense
-	ValueFrom       Expression       `yaml:"valueFrom,omitempty" bson:"valueFrom,omitempty" json:"valueFrom,omitempty" mapstructure:"valueFrom,omitempty"` // StepInputExpressionRequirement
-	Ready           bool             `yaml:"-" bson:"-" json:"-" mapstructure:"-"`
+	CWLObjectImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	Id            string           `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
+	Source        interface{}      `yaml:"source,omitempty" bson:"source,omitempty" json:"source,omitempty" mapstructure:"source,omitempty"` // MultipleInputFeatureRequirement, multiple inbound data links listed in the source field
+	Source_index  int              `yaml:"source_index,omitempty" bson:"source_index,omitempty" json:"source_index,omitempty" mapstructure:"source_index,omitempty"`
+	LinkMerge     *LinkMergeMethod `yaml:"linkMerge,omitempty" bson:"linkMerge,omitempty" json:"linkMerge,omitempty" mapstructure:"linkMerge,omitempty"`
+	Default       interface{}      `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty" mapstructure:"default,omitempty"`         // type Any does not make sense
+	ValueFrom     Expression       `yaml:"valueFrom,omitempty" bson:"valueFrom,omitempty" json:"valueFrom,omitempty" mapstructure:"valueFrom,omitempty"` // StepInputExpressionRequirement
+	Ready         bool             `yaml:"-" bson:"-" json:"-" mapstructure:"-"`
 }
 
 func (w WorkflowStepInput) GetClass() string {
 	return "WorkflowStepInput"
 }
-func (w WorkflowStepInput) GetId() string   { return w.Id }
-func (w WorkflowStepInput) SetId(id string) { w.Id = id }
+func (w WorkflowStepInput) GetID() string   { return w.Id }
+func (w WorkflowStepInput) SetID(id string) { w.Id = id }
 
-func (w WorkflowStepInput) Is_CWL_minimal() {}
+func (w WorkflowStepInput) IsCWLMinimal() {}
 
 //func (input WorkflowStepInput) GetString() (value string, err error) {
 //	if len(input.Source) > 0 {
@@ -57,11 +57,11 @@ func NewWorkflowStepInput(original interface{}, context *WorkflowContext) (input
 	case string:
 
 		source_string := original.(string)
-		input_parameter.Source = []string{"#" + source_string}
+		input_parameter.Source = []string{source_string}
 		return
 
 	case int:
-		//fmt.Println(CWL_int)
+		//fmt.Println(CWLInt)
 		original_int := original.(int)
 		input_parameter.Default, err = NewInt(original_int, context) // input_parameter.Id
 		if err != nil {
@@ -133,7 +133,27 @@ func NewWorkflowStepInput(original interface{}, context *WorkflowContext) (input
 			}
 			input_parameter.ValueFrom = Expression(valueFrom_str)
 		}
-		return
+
+		if input_parameter_ptr.LinkMerge == nil {
+			// handle special case where LinkMerge is not defined, source is an array of length 1
+			// https://github.com/common-workflow-language/common-workflow-language/issues/675
+
+			switch input_parameter_ptr.Source.(type) {
+			case []interface{}:
+				var source_array []interface{}
+				source_array, ok = input_parameter_ptr.Source.([]interface{})
+				if !ok {
+					err = fmt.Errorf("(NewWorkflowStepInput) could not convert to []interface{}")
+					return
+				}
+
+				if len(source_array) == 1 {
+					input_parameter_ptr.Source = source_array[0]
+				}
+
+			}
+
+		}
 
 	default:
 
@@ -144,9 +164,9 @@ func NewWorkflowStepInput(original interface{}, context *WorkflowContext) (input
 	return
 }
 
-// func (input WorkflowStepInput) GetObject(c *CWL_collection) (obj *CWL_object, err error) {
+// func (input WorkflowStepInput) GetObject(c *CWL_collection) (obj *CWLObject, err error) {
 //
-// 	var cwl_obj CWL_object
+// 	var cwl_obj CWLObject
 //
 // 	if len(input.Source) > 0 {
 // 		err = fmt.Errorf("Source is defined and should be used")
@@ -175,9 +195,14 @@ func CreateWorkflowStepInputArray(original interface{}, context *WorkflowContext
 	array := []WorkflowStepInput{}
 	array_ptr = &array
 
+	original, err = MakeStringMap(original, context)
+	if err != nil {
+		return
+	}
+
 	switch original.(type) {
-	case map[interface{}]interface{}:
-		original_map := original.(map[interface{}]interface{})
+	case map[string]interface{}:
+		original_map := original.(map[string]interface{})
 
 		for k, v := range original_map {
 			//v is an input
@@ -189,7 +214,7 @@ func CreateWorkflowStepInputArray(original interface{}, context *WorkflowContext
 			}
 
 			if input_parameter.Id == "" {
-				input_parameter.Id = k.(string)
+				input_parameter.Id = k
 			}
 
 			array = append(array, *input_parameter)
@@ -214,7 +239,7 @@ func CreateWorkflowStepInputArray(original interface{}, context *WorkflowContext
 		return
 
 	default:
-		err = fmt.Errorf("(CreateWorkflowStepInputArray) type unknown")
+		err = fmt.Errorf("(CreateWorkflowStepInputArray) type unknown: %s", reflect.TypeOf(original))
 
 	}
 	//spew.Dump(new_array)

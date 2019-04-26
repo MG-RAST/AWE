@@ -11,12 +11,14 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/MG-RAST/golib/httpclient"
+
 	//"github.com/davecgh/go-spew/spew"
 	"io"
 	"io/ioutil"
@@ -97,7 +99,7 @@ func prepareAppTask(parsed *Mediumwork, work *core.Workunit) (err error) {
 	//var cmd_interpreter = app_cmd_mode_object.Cmd_interpreter
 
 	//logger.Debug(1, fmt.Sprintf("cmd_interpreter: %s", cmd_interpreter))
-	var cmd_script = parsed.Workunit.Cmd.Cmd_script
+	var cmd_script = parsed.Workunit.Cmd.CmdScript
 
 	//if len(app_cmd_mode_object.Cmd_script) > 0 {
 	//	 parsed.Workunit.Cmd.Cmd_script = app_cmd_mode_object.Cmd_script
@@ -269,10 +271,10 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 			workunit.WorkPerf.DataIn = float64(datamove_end-datamove_start) / 1e9
 		}
 
-		if workunit.CWL_workunit != nil {
+		if workunit.CWLWorkunit != nil {
 
-			job_input := workunit.CWL_workunit.Job_input
-			cwl_tool := workunit.CWL_workunit.Tool
+			job_input := workunit.CWLWorkunit.JobInput
+			cwl_tool := workunit.CWLWorkunit.Tool
 			job_input_filename := path.Join(work_path, "cwl_job_input.yaml")
 			cwl_tool_filename := path.Join(work_path, "cwl_tool.yaml")
 
@@ -369,8 +371,8 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 
 func dataDownloader(control chan int) {
 	//var err error
-	fmt.Printf("dataDownloader launched, client=%s\n", core.Self.Id)
-	logger.Debug(1, "dataDownloader launched, client=%s\n", core.Self.Id)
+	fmt.Printf("dataDownloader launched, client=%s\n", core.Self.ID)
+	logger.Debug(1, "dataDownloader launched, client=%s\n", core.Self.ID)
 
 	defer fmt.Printf("dataDownloader exiting...\n")
 	for {
@@ -401,7 +403,7 @@ func dataDownloader(control chan int) {
 }
 
 func proxyDataMover(control chan int) {
-	fmt.Printf("proxyDataMover launched, client=%s\n", core.Self.Id)
+	fmt.Printf("proxyDataMover launched, client=%s\n", core.Self.ID)
 	defer fmt.Printf("proxyDataMover exiting...\n")
 
 	for {
@@ -546,7 +548,7 @@ func fetchFile_old(filename string, url string, token string) (size int64, err e
 func movePreData(workunit *core.Workunit) (size int64, err error) {
 	for _, io := range workunit.Predata {
 		name := io.FileName
-		predata_directory := path.Join(conf.DATA_PATH, "predata")
+		predata_directory := path.Join(conf.PREDATA_PATH, "predata")
 		err = os.MkdirAll(predata_directory, 755)
 		if err != nil {
 			err = errors.New("error creating predata_directory: " + err.Error())

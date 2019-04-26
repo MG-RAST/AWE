@@ -15,14 +15,14 @@ import (
 
 type Number string
 
-func (s *Number) GetClass() string      { return string(CWL_string) } // for CWL_object
-func (s *Number) GetType() CWLType_Type { return CWL_string }
+func (s *Number) GetClass() string      { return string(CWLString) } // for CWLObject
+func (s *Number) GetType() CWLType_Type { return CWLString }
 func (s *Number) String() string        { return string(*s) }
 
-func (s *Number) GetId() string  { return "" }
-func (s *Number) SetId(i string) {}
+func (s *Number) GetID() string  { return "" }
+func (s *Number) SetID(i string) {}
 
-func (s *Number) Is_CWL_minimal() {}
+func (s *Number) IsCWLMinimal() {}
 
 func NewNumberFromstring(value string) (s *Number) {
 

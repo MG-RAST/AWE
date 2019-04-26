@@ -171,7 +171,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 					err = fmt.Errorf("(NewCWLType_Type) NewInputArraySchemaFromInterface returned: %s", err.Error())
 				}
 				return
-			case "Output":
+			case "Output", "ExpressionToolOutput":
 				result, err = NewOutputArraySchemaFromInterface(native, schemata, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLType_Type) NewOutputArraySchemaFromInterface returned: %s", err.Error())
@@ -217,7 +217,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandOutputRecordSchemaFromInterface returned: %s", err.Error())
 				}
 
-			case "Output":
+			case "Output", "ExpressionToolOutput":
 
 				result, err = NewOutputRecordSchemaFromInterface(native, schemata, context)
 				if err != nil {
@@ -238,7 +238,12 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 					err = fmt.Errorf("(NewCWLType_Type) NewInputEnumSchemaFromInterface returned: %s", err.Error())
 				}
 				return
-
+			case "Output", "ExpressionToolOutput":
+				result, err = NewOutputEnumSchemaFromInterface(native, context)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType_Type) NewInputEnumSchemaFromInterface returned: %s", err.Error())
+				}
+				return
 			case "CommandInput":
 				result, err = NewCommandInputEnumSchemaFromInterface(native, context)
 				if err != nil {

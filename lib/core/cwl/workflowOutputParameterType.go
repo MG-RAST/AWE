@@ -76,7 +76,7 @@ func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Typ
 			//result = OutputEnumSchema{}
 			//err = fmt.Errorf("enum not correctly implemented")
 
-			result, err = NewOutputEnumSchemaFromInterface(original_map)
+			result, err = NewOutputEnumSchemaFromInterface(original_map, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowOutputParameterType) NewOutputEnumSchemaFromInterface returned: %s", err.Error())
 			}

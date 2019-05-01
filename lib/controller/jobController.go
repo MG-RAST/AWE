@@ -96,31 +96,36 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		logger.Event(event.JOB_IMPORT, "jobid="+job.ID+";name="+job.Info.Name+";project="+job.Info.Project+";user="+job.Info.User)
 	} else if has_cwl {
 
-		if !has_job {
-			logger.Error("job missing")
-			cx.RespondWithErrorMessage("cwl job missing", http.StatusBadRequest)
-			return
-		}
+		//if !has_job {
+		//	logger.Error("job missing")
+		//	cx.RespondWithErrorMessage("cwl job missing", http.StatusBadRequest)
+		//	return
+		//}
 
 		workflow_filename := cwl_file.Name
 
 		//1) parse job
 
-		job_stream, err := ioutil.ReadFile(job_file.Path)
-		if err != nil {
-			cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
-			return
+		var job_input *cwl.Job_document
+
+		if has_job {
+			job_stream, err := ioutil.ReadFile(job_file.Path)
+			if err != nil {
+				cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			//job_str := string(job_stream[:])
+
+			job_input, err = cwl.ParseJob(&job_stream)
+			if err != nil {
+				logger.Error("ParseJob: " + err.Error())
+				cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+		} else {
+			job_input = &cwl.Job_document{} // no input
 		}
-
-		//job_str := string(job_stream[:])
-
-		job_input, err := cwl.ParseJob(&job_stream)
-		if err != nil {
-			logger.Error("ParseJob: " + err.Error())
-			cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
-			return
-		}
-
 		//collection.Job_input = job_input
 
 		// 2) parse cwl

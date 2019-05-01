@@ -681,17 +681,21 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			}
 			path_to_download_to = path.Join(current_path, dir_basename)
 
-			dir.Location = path_to_download_to
 			dir.Path = ""
-			err = os.MkdirAll(path_to_download_to, 0777)
-			if err != nil {
-				err = fmt.Errorf("(ProcessIOData) MkdirAll returned: %s", err.Error())
-				return
+			if dir.Location != "" {
+				// in case of a Directory literal, do not set Location field
+				dir.Location = path_to_download_to
+				err = os.MkdirAll(path_to_download_to, 0777)
+				if err != nil {
+					err = fmt.Errorf("(ProcessIOData) MkdirAll returned: %s", err.Error())
+					return
+				}
 			}
+
 		}
 
 		if dir.Listing != nil {
-			for k, _ := range dir.Listing {
+			for k := range dir.Listing {
 
 				value := dir.Listing[k]
 				//fmt.Printf("XXX *cwl.Directory, Listing %d (%s)\n", k, reflect.TypeOf(value))

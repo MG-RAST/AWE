@@ -354,6 +354,20 @@ func DownloadFile(file *cwl.File, download_path string, base_path string, shock_
 		}
 	}
 
+	_, err = os.Stat(download_path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = os.MkdirAll(download_path, 0777)
+			if err != nil {
+				err = fmt.Errorf("(DownloadFile) os.MkdirAll returned: %s", err.Error())
+				return
+			}
+		} else {
+			err = fmt.Errorf("(DownloadFile) os.Stat returned: %s", err.Error())
+			return
+		}
+	}
+
 	_, _, err = shock.FetchFile(file_path, file.Location, token, "", false)
 	if err != nil {
 		err = fmt.Errorf("(DownloadFile) shock.FetchFile returned: %s (download_path: %s, basename: %s, file.Location: %s, TokenLength: %d)", err.Error(), download_path, basename, file.Location, len(token))

@@ -40,7 +40,7 @@ type File struct {
 }
 
 func (f *File) IsCWLMinimal() {}
-func (f *File) Is_CWLType()     {}
+func (f *File) Is_CWLType()   {}
 
 //func (f *File) GetClass() string      { return "File" }
 func (f *File) GetType() CWLType_Type { return CWLFile }
@@ -222,9 +222,12 @@ func (file *File) UpdateComponents(filename string) {
 }
 
 func (file *File) SetPath(path_str string) {
+	oldPath := file.Path
 	file.Path = path_str
 
 	if path_str == "" {
+		file.UpdateComponents(oldPath)
+		file.Path = ""
 		// on upload to Shock we loose path, but need to keep basename
 
 		//file.Basename = ""
@@ -278,8 +281,12 @@ func (file *File) Exists(inputfile_path string) (ok bool, err error) {
 		return
 	}
 
+	//fmt.Printf("file.Path: %s\n", file.Path)
+	//fmt.Printf("file.Location: %s\n", file.Location)
+
 	if file.Path != "" {
 		file_path := file.Path
+		file_path = strings.TrimPrefix(file_path, "file://")
 
 		if !path.IsAbs(file_path) {
 			file_path = path.Join(inputfile_path, file_path)

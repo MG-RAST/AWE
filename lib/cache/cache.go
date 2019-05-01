@@ -144,16 +144,19 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	}
 
 	if strings.HasPrefix(inputfile_path, "file:") {
-		err = fmt.Errorf("(UploadFile) prefix file: not allowed in inputfile_path")
+		err = fmt.Errorf("(UploadFile) prefix file: not allowed in inputfile_path (%s)", inputfile_path)
 		return
 	}
 
-	if strings.HasPrefix(file.Path, "file:") {
-		err = fmt.Errorf("(UploadFile) prefix file: not allowed in file.Path")
-		return
-	}
+	//if strings.HasPrefix(file.Path, "file:") {
+	//	err = fmt.Errorf("(UploadFile) prefix file: not allowed in file.Path (%s)", file.Path)
+	//	return
+	//}
 
 	file_path := file.Path
+
+	file_path = strings.TrimPrefix(file_path, "file://")
+
 	//fmt.Println("(UploadFile) here")
 	//fmt.Printf("(UploadFile) file_path: %s\n", file_path)
 	//fmt.Printf("(UploadFile) file.Location: %s\n", file.Location)
@@ -592,7 +595,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			sub_count, err = UploadFile(file, current_path, shock_client)
 			if err != nil {
 
-				err = fmt.Errorf("(ProcessIOData) *cwl.File UploadFile returned: %s (file: %s)", err.Error(), spew.Sdump(*file))
+				err = fmt.Errorf("(ProcessIOData) *cwl.File current_path:%s UploadFile returned: %s (file: %s)", current_path, err.Error(), spew.Sdump(*file))
 				return
 			}
 
@@ -641,7 +644,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			var sub_count int
 			sub_count, err = ProcessIOData((*array)[i], current_path, base_path, io_type, shock_client)
 			if err != nil {
-				err = fmt.Errorf("(ProcessIOData) (for *cwl.Array) ProcessIOData returned: %s", err.Error())
+				err = fmt.Errorf("(ProcessIOData) (for *cwl.Array) current_path:%s ProcessIOData returned: %s", current_path, err.Error())
 				return
 			}
 			count += sub_count
@@ -657,7 +660,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			var sub_count int
 			sub_count, err = ProcessIOData((array)[i], current_path, base_path, io_type, shock_client)
 			if err != nil {
-				err = fmt.Errorf("(ProcessIOData) (for *cwl.Array) ProcessIOData returned: %s", err.Error())
+				err = fmt.Errorf("(ProcessIOData) (for *cwl.Array) current_path:%s ProcessIOData returned: %s", current_path, err.Error())
 				return
 			}
 			count += sub_count
@@ -877,6 +880,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 		for input_pos, _ := range workflow.Inputs {
 			input := workflow.Inputs[input_pos]
+			//spew.Dump(input)
 			if input.Default != nil {
 
 				var sub_count int
@@ -889,7 +893,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			}
 
 		}
-
+		//panic(count)
 		for step_pos, _ := range workflow.Steps {
 			step := &workflow.Steps[step_pos]
 
@@ -977,7 +981,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 				var sub_count int
 				sub_count, err = ProcessIOData(input_parameter, current_path, base_path, io_type, shock_client)
 				if err != nil {
-					err = fmt.Errorf("(processIOData) InputParameter ProcessIOData(for download) returned: %s", err.Error())
+					err = fmt.Errorf("(processIOData) ExpressionTool,InputParameter ProcessIOData(for download) returned: %s", err.Error())
 					return
 				}
 				count += sub_count
@@ -1046,11 +1050,11 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 				var file_exists bool
 				file_exists, err = file.Exists(current_path)
 				if err != nil {
-					err = fmt.Errorf("(processIOData) cwl.CommandInputParameter file.Exists returned: %s", err.Error())
+					err = fmt.Errorf("(processIOData) cwl.InputParameter file.Exists returned: %s", err.Error())
 					return
 				}
 				if !file_exists {
-
+					fmt.Println("(processIOData) InputParameter, Default file not found (current_path: %s)", current_path)
 					// Defaults are optional, file missing is no error
 					return
 				}
@@ -1067,7 +1071,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		var sub_count int
 		sub_count, err = ProcessIOData(ip.Default, current_path, base_path, io_type, shock_client)
 		if err != nil {
-			err = fmt.Errorf("(processIOData) CommandInputParameter ProcessIOData(for download) returned: %s", err.Error())
+			err = fmt.Errorf("(processIOData) InputParameter ProcessIOData(for download) returned: %s", err.Error())
 			return
 		}
 		count += sub_count

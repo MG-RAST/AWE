@@ -136,7 +136,7 @@ func mainWrapper() (err error) {
 	if jobFile != "" {
 		uploadCount, err = cache.ProcessIOData(jobDoc, inputfilePath, inputfilePath, "upload", shockClient)
 		if err != nil {
-			err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
+			err = fmt.Errorf("(main_wrapper) A) ProcessIOData(for upload) returned: %s", err.Error())
 			return
 		}
 	}
@@ -198,7 +198,7 @@ func mainWrapper() (err error) {
 	subUploadCount := 0
 	subUploadCount, err = cache.ProcessIOData(namedObjectArray, inputfilePath, inputfilePath, "upload", shockClient)
 	if err != nil {
-		err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
+		err = fmt.Errorf("(main_wrapper) B) ProcessIOData(for upload) returned: %s", err.Error())
 		return
 	}
 	uploadCount += subUploadCount
@@ -207,7 +207,7 @@ func mainWrapper() (err error) {
 		subUploadCount := 0
 		subUploadCount, err = cache.ProcessIOData(context.Schemas, inputfilePath, inputfilePath, "upload", shockClient)
 		if err != nil {
-			err = fmt.Errorf("(main_wrapper) ProcessIOData(for upload) returned: %s", err.Error())
+			err = fmt.Errorf("(main_wrapper) C) ProcessIOData(for upload) returned: %s", err.Error())
 			return
 		}
 		uploadCount += subUploadCount

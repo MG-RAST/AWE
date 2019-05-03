@@ -969,6 +969,8 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 			return
 		}
 		if !task_ready {
+			task.NotReadyReason = reason
+
 			logger.Debug(3, "(updateQueueTask) task not ready (%s): qm.isTaskReady returned reason: %s", taskIDStr, reason)
 			return
 		}
@@ -2308,6 +2310,7 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 			return
 		}
 		if reason != "" {
+			reason = "ValidateDependants returned: " + reason
 			return
 		}
 	}

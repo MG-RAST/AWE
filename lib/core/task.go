@@ -92,6 +92,7 @@ type TaskRaw struct {
 	CwlVersion          cwl.CWLVersion          `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"` // CWL-only
 	WorkflowInstanceId  string                  `bson:"workflow_instance_id" json:"workflow_instance_id" mapstructure:"workflow_instance_id"`          // CWL-only
 	job                 *Job                    `bson:"-"  mapstructure:"-"`                                                                           // caching only
+	NotReadyReason      string                  `bson:"-" json:"notReadyReason" mapstructure:"-"`
 	//WorkflowParent      *Task_Unique_Identifier  `bson:"workflow_parent" json:"workflow_parent" mapstructure:"workflow_parent"`                         // CWL-only parent that created subworkflow
 }
 

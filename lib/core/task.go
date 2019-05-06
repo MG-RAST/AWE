@@ -1330,11 +1330,6 @@ func (task *Task) ResetTaskTrue(name string) (err error) {
 
 func (task *Task) SetResetTask(info *Info) (err error) {
 	// called when enqueing a task that previously ran
-	err = task.LockNamed("SetResetTask")
-	if err != nil {
-		return
-	}
-	defer task.Unlock()
 
 	// only run if true
 	if task.ResetTask == false {
@@ -1342,10 +1337,12 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 	}
 
 	// in memory pointer
-	task.Info = info
+	if task.Info == nil {
+		task.Info = info
+	}
 
 	// reset remainwork
-	err = task.SetRemainWork(task.TotalWork, false)
+	err = task.SetRemainWork(task.TotalWork, true)
 	if err != nil {
 		err = fmt.Errorf("(task/SetResetTask) task.SetRemainWork returned: %s", err.Error())
 		return
@@ -1365,34 +1362,67 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 			return
 		}
 	}
-	task.ComputeTime = 0
+	task.ComputeTime = 0 // TODO use SetComputeTime()
 
 	// reset completedate
-	err = task.SetCompletedDate(time.Time{}, false)
-
-	// reset inputs
-	for _, io := range task.Inputs {
-		// skip inputs with no origin (predecessor task)
-		if io.Origin == "" {
-			continue
-		}
-		io.Node = "-"
-		io.Size = 0
-		io.Url = ""
+	err = task.SetCompletedDate(time.Time{}, true)
+	if err != nil {
+		err = fmt.Errorf("(task/SetResetTask) SetCompletedDate returned: %s", err.Error())
+		return
 	}
-	if task.WorkflowInstanceId == "" {
-		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+
+	err = task.SetResetTaskInputs()
+	if err != nil {
+		err = fmt.Errorf("(task/SetResetTask) SetResetTaskInputs returned: %s", err.Error())
+		return
+	}
+
+	err = task.SetResetTaskOutputs()
+	if err != nil {
+		err = fmt.Errorf("(task/SetResetTask) SetResetTaskOutputs returned: %s", err.Error())
+		return
+	}
+
+	// delete all workunit logs
+	for _, log := range conf.WORKUNIT_LOGS {
+		err = task.DeleteLogs(log, true)
 		if err != nil {
-			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskIO returned: %s", err.Error())
+			return
+		}
+	}
+
+	// reset the reset
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskBoolean returned: %s", err.Error())
 			return
 		}
 	} else {
-		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+		err = dbUpdateTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
 		if err != nil {
-			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskIO returned: %s", err.Error())
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskBoolean returned: %s", err.Error())
 			return
 		}
 	}
+
+	err = task.LockNamed("SetResetTask")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	task.ResetTask = false
+	return
+}
+
+func (task *Task) SetResetTaskOutputs() (err error) {
+	err = task.LockNamed("SetResetTaskOutputs")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
 	// reset / delete all outputs
 	for _, io := range task.Outputs {
 		// do not delete update IO
@@ -1427,29 +1457,41 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 			return
 		}
 	}
-	// delete all workunit logs
-	for _, log := range conf.WORKUNIT_LOGS {
-		err = task.DeleteLogs(log, false)
+
+	return
+}
+
+func (task *Task) SetResetTaskInputs() (err error) {
+	err = task.LockNamed("SetResetTaskInputs")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	// reset inputs
+	for _, io := range task.Inputs {
+		// skip inputs with no origin (predecessor task)
+		if io.Origin == "" {
+			continue
+		}
+		io.Node = "-"
+		io.Size = 0
+		io.Url = ""
+	}
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
 		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskIO returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskIO returned: %s", err.Error())
 			return
 		}
 	}
 
-	// reset the reset
-	if task.WorkflowInstanceId == "" {
-		err = dbUpdateJobTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
-		if err != nil {
-			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskBoolean returned: %s", err.Error())
-			return
-		}
-	} else {
-		err = dbUpdateTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
-		if err != nil {
-			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskBoolean returned: %s", err.Error())
-			return
-		}
-	}
-	task.ResetTask = false
 	return
 }
 

@@ -488,7 +488,7 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task
 		return
 	}
 
-	if t.WorkflowStep != nil {
+	if job.IsCWL {
 		if task_id_str != "#main" {
 			if !strings.HasPrefix(workflow_instance_id, "#main") {
 				err = fmt.Errorf("(NewTask) workflow_instance_id has not #main prefix: %s", workflow_instance_id)
@@ -511,7 +511,12 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task
 	task_id_str = strings.TrimSuffix(task_id_str, "/")
 	//workflow = strings.TrimSuffix(workflow, "/")
 
-	job_global_task_id_str := workflow_instance_id + "/" + task_id_str
+	var job_global_task_id_str string
+	if job.IsCWL {
+		job_global_task_id_str = workflow_instance_id + "/" + task_id_str
+	} else {
+		job_global_task_id_str = task_id_str
+	}
 
 	var tui Task_Unique_Identifier
 	tui, err = New_Task_Unique_Identifier(job.ID, job_global_task_id_str)

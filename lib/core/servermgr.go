@@ -1214,9 +1214,16 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 	// **************************************
 	// ******* write results into task ******
 	// **************************************
-	err = task.SetStepOutput(notice.Results, true)
-	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) task.SetStepOutput returned: %s", err.Error())
+	if task.WorkflowStep != nil {
+		err = task.SetStepOutput(notice.Results, true)
+		if err != nil {
+			err = fmt.Errorf("(handleWorkStatDone) task.SetStepOutput returned: %s", err.Error())
+			return
+		}
+	}
+
+	if task.WorkflowStep == nil {
+		err = fmt.Errorf("(handleWorkStatDone) task.WorkflowStep == nil")
 		return
 	}
 
@@ -1227,17 +1234,12 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 		return
 	}
 
-	context := job.WorkflowContext
-
 	// iterate over expected outputs
 
 	//var process interface{}
 	//process_cached := false
 
-	if task.WorkflowStep == nil {
-		err = fmt.Errorf("(handleWorkStatDone) task.WorkflowStep == nil")
-		return
-	}
+	context := job.WorkflowContext
 
 	if task.Scatter_parent == nil {
 		for i, _ := range task.WorkflowStep.Out {
@@ -2930,48 +2932,51 @@ func (qm *ServerMgr) taskEnQueue(taskID Task_Unique_Identifier, task *Task, job 
 	logger.Debug(3, "(taskEnQueue) have job.WorkflowContext")
 
 	var workflow_instance *WorkflowInstance
-	var ok bool
-	workflow_instance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
-	if err != nil {
-		err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
-		return
-	}
-	if !ok {
-		err = fmt.Errorf("(taskEnQueue) WorkflowInstance not found: \"%s\"", task.WorkflowInstanceId)
-		return
-	}
+	var workflow_input_map cwl.JobDocMap
+	if task.WorkflowInstanceId != "" {
+		var ok bool
+		workflow_instance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
+			return
+		}
+		if !ok {
+			err = fmt.Errorf("(taskEnQueue) WorkflowInstance not found: \"%s\"", task.WorkflowInstanceId)
+			return
+		}
 
-	workflow_input_map := workflow_instance.Inputs.GetMap()
-	cwl_step := task.WorkflowStep
+		workflow_input_map = workflow_instance.Inputs.GetMap()
+		cwl_step := task.WorkflowStep
 
-	if cwl_step == nil {
-		err = fmt.Errorf("(taskEnQueue) task.WorkflowStep is empty")
-		return
+		if cwl_step == nil {
+			err = fmt.Errorf("(taskEnQueue) task.WorkflowStep is empty")
+			return
+		}
 	}
-
 	//workflow_with_children := false
 	//var wfl *cwl.Workflow
 
 	// Detect task_type
 
-	fmt.Printf("(taskEnQueue) A task_type: %s\n", task_type)
+	//fmt.Printf("(taskEnQueue) A task_type: %s\n", task_type)
 
-	if task_type == "" {
-		err = fmt.Errorf("(taskEnQueue) task_type empty")
-		return
-	}
+	//if task_type == "" {
+	//	err = fmt.Errorf("(taskEnQueue) task_type empty")
+	//	return
+	//}
 
-	switch task_type {
-	case TASK_TYPE_SCATTER:
-		logger.Debug(3, "(taskEnQueue) call taskEnQueueScatter")
-		notice, err = qm.taskEnQueueScatter(workflow_instance, task, job, workflow_input_map)
-		if err != nil {
-			err = fmt.Errorf("(taskEnQueue) taskEnQueueScatter returned: %s", err.Error())
-			return
+	if task.WorkflowInstanceId != "" {
+		switch task_type {
+		case TASK_TYPE_SCATTER:
+			logger.Debug(3, "(taskEnQueue) call taskEnQueueScatter")
+			notice, err = qm.taskEnQueueScatter(workflow_instance, task, job, workflow_input_map)
+			if err != nil {
+				err = fmt.Errorf("(taskEnQueue) taskEnQueueScatter returned: %s", err.Error())
+				return
+			}
+
 		}
-
 	}
-
 	logger.Debug(2, "(taskEnQueue) task %s has type %s", taskIDStr, task_type)
 	if task_type == TASK_TYPE_SCATTER {
 		skip_workunit = true
@@ -3054,8 +3059,11 @@ func (qm *ServerMgr) taskEnQueue(taskID Task_Unique_Identifier, task *Task, job 
 
 	// log event about task enqueue (TQ)
 	logger.Event(event.TASK_ENQUEUE, fmt.Sprintf("taskid=%s;totalwork=%d", taskIDStr, task.TotalWork))
-	qm.CreateTaskPerf(task)
-
+	err = qm.CreateTaskPerf(task)
+	if err != nil {
+		err = fmt.Errorf("(taskEnQueue) CreateTaskPerf returned: %s", err.Error())
+		return
+	}
 	logger.Debug(2, "(taskEnQueue) leaving (task=%s)", taskIDStr)
 
 	if notice != nil {
@@ -6022,13 +6030,13 @@ func (qm *ServerMgr) FetchPrivateEnv(id Workunit_Unique_Identifier, clientid str
 	}
 
 	if !ok {
-		var task_str string
-		task_str, err = task.String()
-		if err != nil {
-			err = fmt.Errorf("(FetchPrivateEnv) task.String returned: %s", err.Error())
-			return
-		}
-		err = fmt.Errorf("(FetchPrivateEnv) task %s not found in qm.TaskMap", task_str)
+		//var task_str string
+		//task_str, err = task.String()
+		//if err != nil {
+		//	err = fmt.Errorf("(FetchPrivateEnv) task.String returned: %s", err.Error())
+		//	return
+		//}
+		err = fmt.Errorf("(FetchPrivateEnv) task not found in qm.TaskMap")
 		return
 	}
 

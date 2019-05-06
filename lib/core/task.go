@@ -223,9 +223,6 @@ func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) 
 		}
 		task.Info = job.Info
 	}
-	if task.TotalWork <= 0 {
-		task.TotalWork = 1
-	}
 
 	if task.State != TASK_STAT_COMPLETED {
 		if task.RemainWork != task.TotalWork {
@@ -251,9 +248,10 @@ func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) 
 		err = fmt.Errorf("(InitRaw) job is nil")
 		return
 	}
-	context := job.WorkflowContext
-	if task.StepOutputInterface != nil {
+	var context *cwl.WorkflowContext
 
+	if task.StepOutputInterface != nil {
+		context = job.WorkflowContext
 		task.StepOutput, err = cwl.NewJob_documentFromNamedTypes(task.StepOutputInterface, context)
 		if err != nil {
 			err = fmt.Errorf("(InitRaw) cwl.NewJob_documentFromNamedTypes returned: %s", err.Error())
@@ -261,13 +259,12 @@ func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) 
 		}
 	}
 
-	CwlVersion := context.CwlVersion
-
-	if CwlVersion != "" {
-		if task.CwlVersion != CwlVersion {
-			task.CwlVersion = CwlVersion
-		}
-	}
+	// if CwlVersion != "" {
+	// 	CwlVersion := context.CwlVersion
+	// 	if task.CwlVersion != CwlVersion {
+	// 		task.CwlVersion = CwlVersion
+	// 	}
+	// }
 
 	if task.WorkflowStep != nil {
 
@@ -491,12 +488,14 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task
 		return
 	}
 
-	if task_id_str != "#main" {
-		if !strings.HasPrefix(workflow_instance_id, "#main") {
-			err = fmt.Errorf("(NewTask) workflow_instance_id has not #main prefix: %s", workflow_instance_id)
-			return
-		}
+	if t.WorkflowStep != nil {
+		if task_id_str != "#main" {
+			if !strings.HasPrefix(workflow_instance_id, "#main") {
+				err = fmt.Errorf("(NewTask) workflow_instance_id has not #main prefix: %s", workflow_instance_id)
+				return
+			}
 
+		}
 	}
 
 	if job.ID == "" {
@@ -1091,11 +1090,11 @@ func (task *Task) InitPartIndex() (err error) {
 		return
 	}
 
-	err = task.LockNamed("InitPartIndex")
-	if err != nil {
-		return
-	}
-	defer task.Unlock()
+	// err = task.LockNamed("InitPartIndex")
+	// if err != nil {
+	// 	return
+	// }
+	// defer task.Unlock()
 
 	// adjust total work based on needs
 	if newPartition.MaxPartSizeMB > 0 {
@@ -1111,15 +1110,20 @@ func (task *Task) InitPartIndex() (err error) {
 			// use bigger splits (specified by size or totalwork)
 			totalwork = task.TotalWork
 		}
+
+		if totalwork == 0 {
+			totalwork = 1 // need at least one unit for empty file
+		}
+
 		if totalwork != task.TotalWork {
-			err = task.setTotalWork(totalwork, false)
+			err = task.setTotalWork(totalwork, true)
 			if err != nil {
 				return
 			}
 		}
 	}
 	if totalunits < task.TotalWork {
-		err = task.setTotalWork(totalunits, false)
+		err = task.setTotalWork(totalunits, true)
 		if err != nil {
 			return
 		}
@@ -1127,7 +1131,7 @@ func (task *Task) InitPartIndex() (err error) {
 
 	// need only 1 workunit
 	if task.TotalWork == 1 {
-		err = task.setSingleWorkunit(false)
+		err = task.setSingleWorkunit(true)
 		return
 	}
 

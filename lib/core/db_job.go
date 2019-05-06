@@ -9,7 +9,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
 	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -306,8 +305,8 @@ func dbUpdateJobTaskFields(jobID string, workflowInstanceID string, taskID strin
 		//updateOp = bson.M{"$set": updateValue}
 	}
 
-	fmt.Println("(dbUpdateJobTaskFields) updateValue:")
-	spew.Dump(updateValue)
+	//fmt.Println("(dbUpdateJobTaskFields) updateValue:")
+	//spew.Dump(updateValue)
 
 	err = c.Update(selector, updateOp)
 	if err != nil {

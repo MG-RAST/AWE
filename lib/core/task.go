@@ -540,11 +540,11 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task
 
 	t.TaskRaw.WorkflowInstanceId = workflow_instance_id
 
-	if workflow_instance_id == "" {
-		err = fmt.Errorf("(NewTask) workflow_instance_id empty")
-		return
+	//if workflow_instance_id == "" {
+	//	err = fmt.Errorf("(NewTask) workflow_instance_id empty")
+	//	return
 
-	}
+	//}
 
 	return
 }
@@ -1809,7 +1809,7 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (err error) {
 func (task *Task) ValidateOutputs() (err error) {
 	err = task.LockNamed("ValidateOutputs")
 	if err != nil {
-		err = fmt.Errorf("unable to lock task %s: %s", task.Id, err.Error())
+		err = fmt.Errorf("(ValidateOutputs) unable to lock task %s: %s", task.Id, err.Error())
 		return
 	}
 	defer task.Unlock()
@@ -1820,7 +1820,7 @@ func (task *Task) ValidateOutputs() (err error) {
 		io.Url = ""
 		_, err = io.DataUrl()
 		if err != nil {
-			err = fmt.Errorf("DataUrl returns: %s", err.Error())
+			err = fmt.Errorf("(ValidateOutputs) DataUrl returns: %s", err.Error())
 			return
 		}
 
@@ -1828,14 +1828,14 @@ func (task *Task) ValidateOutputs() (err error) {
 		io.Size = 0
 		_, err = io.UpdateFileSize()
 		if err != nil {
-			err = fmt.Errorf("input file %s GetFileSize returns: %s", io.FileName, err.Error())
+			err = fmt.Errorf("(ValidateOutputs) input file %s GetFileSize returns: %s", io.FileName, err.Error())
 			return
 		}
 
 		// create or wait on shock index on output node (if set in workflow document)
 		_, err = io.IndexFile(io.ShockIndex)
 		if err != nil {
-			err = fmt.Errorf("failed to create shock index: task=%s, node=%s: %s", task.Id, io.Node, err.Error())
+			err = fmt.Errorf("(ValidateOutputs) failed to create shock index: task=%s, node=%s: %s", task.Id, io.Node, err.Error())
 			return
 		}
 	}
@@ -1843,13 +1843,13 @@ func (task *Task) ValidateOutputs() (err error) {
 	if task.WorkflowInstanceId == "" {
 		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
 		if err != nil {
-			err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
+			err = fmt.Errorf("(ValidateOutputs) unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
 			return
 		}
 	} else {
 		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
 		if err != nil {
-			err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
+			err = fmt.Errorf("(ValidateOutputs) unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
 			return
 		}
 	}

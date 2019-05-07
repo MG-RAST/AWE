@@ -1222,10 +1222,10 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 		}
 	}
 
-	if task.WorkflowStep == nil {
-		err = fmt.Errorf("(handleWorkStatDone) task.WorkflowStep == nil")
-		return
-	}
+	//if task.WorkflowStep == nil {
+	//	err = fmt.Errorf("(handleWorkStatDone) task.WorkflowStep == nil")
+	//	return
+	//}
 
 	var job *Job
 	job, err = task.GetJob()
@@ -1239,57 +1239,60 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 	//var process interface{}
 	//process_cached := false
 
-	context := job.WorkflowContext
+	var wi *WorkflowInstance
 
-	if task.Scatter_parent == nil {
-		for i, _ := range task.WorkflowStep.Out {
-			step_output := &task.WorkflowStep.Out[i]
-			basename := path.Base(step_output.Id)
+	if task.WorkflowStep != nil {
+		context := job.WorkflowContext
 
-			step_output_array := []cwl.NamedCWLType(*task.StepOutput)
+		if task.Scatter_parent == nil {
+			for i, _ := range task.WorkflowStep.Out {
+				step_output := &task.WorkflowStep.Out[i]
+				basename := path.Base(step_output.Id)
 
-			// find in real outputs
-			found := false
-			for j, _ := range step_output_array { // []cwl.NamedCWLType
-				named := &step_output_array[j]
-				actual_output_base := path.Base(named.Id)
-				if basename == actual_output_base {
-					// add object to context using stepoutput name
-					logger.Debug(3, "(handleWorkStatDone) adding %s ...", step_output.Id)
-					err = context.Add(step_output.Id, named.Value, "handleWorkStatDone")
-					if err != nil {
-						err = fmt.Errorf("(handleWorkStatDone) context.Add returned: %s", err.Error())
-						return
+				step_output_array := []cwl.NamedCWLType(*task.StepOutput)
+
+				// find in real outputs
+				found := false
+				for j, _ := range step_output_array { // []cwl.NamedCWLType
+					named := &step_output_array[j]
+					actual_output_base := path.Base(named.Id)
+					if basename == actual_output_base {
+						// add object to context using stepoutput name
+						logger.Debug(3, "(handleWorkStatDone) adding %s ...", step_output.Id)
+						err = context.Add(step_output.Id, named.Value, "handleWorkStatDone")
+						if err != nil {
+							err = fmt.Errorf("(handleWorkStatDone) context.Add returned: %s", err.Error())
+							return
+						}
+						found = true
+						continue
 					}
-					found = true
-					continue
+
 				}
+				if !found {
+					var obj cwl.CWLObject
+					obj = cwl.NewNull()
+					err = context.Add(step_output.Id, obj, "handleWorkStatDone") // TODO: DO NOT DO THIS FOR SCATTER TASKS
+					// check if this is an optional output in the tool
 
-			}
-			if !found {
-				var obj cwl.CWLObject
-				obj = cwl.NewNull()
-				err = context.Add(step_output.Id, obj, "handleWorkStatDone") // TODO: DO NOT DO THIS FOR SCATTER TASKS
-				// check if this is an optional output in the tool
-
-				//err = fmt.Errorf("(handleWorkStatDone) expected output not found: %s", basename)
-				//return
+					//err = fmt.Errorf("(handleWorkStatDone) expected output not found: %s", basename)
+					//return
+				}
 			}
 		}
-	}
-	var wi *WorkflowInstance
-	var ok bool
-	wi, ok, err = task.GetWorkflowInstance()
-	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) task.GetWorkflowInstance returned: %s", err.Error())
-		return
-	}
 
-	if !ok {
-		err = fmt.Errorf("(handleWorkStatDone) Did not get WorkflowInstance from task")
-		return
-	}
+		var ok bool
+		wi, ok, err = task.GetWorkflowInstance()
+		if err != nil {
+			err = fmt.Errorf("(handleWorkStatDone) task.GetWorkflowInstance returned: %s", err.Error())
+			return
+		}
 
+		if !ok {
+			err = fmt.Errorf("(handleWorkStatDone) Did not get WorkflowInstance from task")
+			return
+		}
+	}
 	// err = task.SetState(wi, TASK_STAT_COMPLETED, true)
 	// if err != nil {
 	// 	err = fmt.Errorf("(handleWorkStatDone) task.SetState returned: %s", err.Error())
@@ -4993,18 +4996,18 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 
 	if task.Scatter_parent != nil {
 
-		var wi *WorkflowInstance
-		var ok bool
-		wi, ok, err = task.GetWorkflowInstance()
-		if err != nil {
-			err = fmt.Errorf("(taskCompleted) task.GetWorkflowInstance returned: %s", err.Error())
-			return
-		}
+		// var wi *WorkflowInstance
+		// var ok bool
+		// wi, ok, err = task.GetWorkflowInstance()
+		// if err != nil {
+		// 	err = fmt.Errorf("(taskCompleted) task.GetWorkflowInstance returned: %s", err.Error())
+		// 	return
+		// }
 
-		if !ok {
-			err = fmt.Errorf("(taskCompleted) task has no WorkflowInstance ?! ")
-			return
-		}
+		// if !ok {
+		// 	err = fmt.Errorf("(taskCompleted) task has no WorkflowInstance ?! ")
+		// 	return
+		// }
 
 		// process scatter children
 		err = qm.taskCompletedScatter(job, wi, task)
@@ -5026,65 +5029,78 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 	// ******************
 	// check if workflowInstance needs to be completed
 
-	workflowInstanceID := task.WorkflowInstanceId
+	// workflowInstanceID := task.WorkflowInstanceId
 
-	var workflowInstance *WorkflowInstance
-	var ok bool
-	workflowInstance, ok, err = job.GetWorkflowInstance(workflowInstanceID, true)
-	if err != nil {
-		err = fmt.Errorf("(taskCompleted) job.GetWorkflowInstance returned: %s", err.Error())
-		return
-	}
-
-	if !ok {
-		err = fmt.Errorf("(taskCompleted) WorkflowInstance %s not found", err.Error())
-		return
-	}
-
-	var subworkflowRemainSteps int
-	subworkflowRemainSteps, err = workflowInstance.GetRemainSteps(true)
-	if err != nil {
-		err = fmt.Errorf("(taskCompleted) workflow_instance.GetRemainSteps returned: %s", err.Error())
-		return
-	}
-
-	//subworkflow_remain_tasks, err = workflow_instance.DecreaseRemainSteps()
-	//if err != nil {
-	//	err = fmt.Errorf("(taskCompleted) workflow_instance.DecreaseRemainSteps returned: %s", err.Error())
-	//	return
-
-	//}
-
-	logger.Debug(3, "(taskCompleted) TASK_STAT_COMPLETED  / remaining steps for subworkflow %s: %d", taskStr, subworkflowRemainSteps)
-
-	logger.Debug(3, "(taskCompleted) workflow_instance %s remaining tasks: %d (total %d or %d)", workflowInstanceID, subworkflowRemainSteps, workflowInstance.TaskCount(), workflowInstance.TotalTasks)
-
-	if subworkflowRemainSteps > 0 {
-		return
-	}
-
-	// ******************
-	// This is the last task/subworkflow.
-
-	//TODO find a way to lock this
-
-	// subworkflow completed.
-	var reason string
-	ok, reason, err = qm.completeSubworkflow(job, workflowInstance) // taskCompleted
-	if err != nil {
-		err = fmt.Errorf("(taskCompleted) completeSubworkflow returned: %s", err.Error())
-		return
-	}
-	if !ok {
-		err = fmt.Errorf("(taskCompleted) completeSubworkflow not ok, reason: %s", reason)
-		return
-	}
-
-	// err = qm.finalizeJob(job)
+	// var workflowInstance *WorkflowInstance
+	// var ok bool
+	// workflowInstance, ok, err = job.GetWorkflowInstance(workflowInstanceID, true)
 	// if err != nil {
-	// 	err = fmt.Errorf("(taskCompleted) qm.finalizeJob returned: %s", err.Error())
+	// 	err = fmt.Errorf("(taskCompleted) job.GetWorkflowInstance returned: %s", err.Error())
 	// 	return
 	// }
+
+	// if !ok {
+	// 	err = fmt.Errorf("(taskCompleted) WorkflowInstance %s not found", err.Error())
+	// 	return
+	// }
+
+	if wi != nil {
+
+		var subworkflowRemainSteps int
+		subworkflowRemainSteps, err = wi.GetRemainSteps(true)
+		if err != nil {
+			err = fmt.Errorf("(taskCompleted) workflow_instance.GetRemainSteps returned: %s", err.Error())
+			return
+		}
+
+		//subworkflow_remain_tasks, err = workflow_instance.DecreaseRemainSteps()
+		//if err != nil {
+		//	err = fmt.Errorf("(taskCompleted) workflow_instance.DecreaseRemainSteps returned: %s", err.Error())
+		//	return
+
+		//}
+
+		logger.Debug(3, "(taskCompleted) TASK_STAT_COMPLETED  / remaining steps for subworkflow %s: %d", taskStr, subworkflowRemainSteps)
+
+		//logger.Debug(3, "(taskCompleted) workflow_instance %s remaining tasks: %d (total %d or %d)", workflowInstanceID, subworkflowRemainSteps, workflowInstance.TaskCount(), workflowInstance.TotalTasks)
+
+		if subworkflowRemainSteps > 0 {
+			return
+		}
+
+		// ******************
+		// This is the last task/subworkflow.
+
+		//TODO find a way to lock this
+
+		// subworkflow completed.
+		var reason string
+		var ok bool
+		ok, reason, err = qm.completeSubworkflow(job, wi) // taskCompleted
+		if err != nil {
+			err = fmt.Errorf("(taskCompleted) completeSubworkflow returned: %s", err.Error())
+			return
+		}
+		if !ok {
+			err = fmt.Errorf("(taskCompleted) completeSubworkflow not ok, reason: %s", reason)
+			return
+		}
+
+		return
+	}
+
+	// old-style AWE job only
+	jobRemainTasks := job.RemainTasks
+
+	if jobRemainTasks > 0 { //#####################################################################
+		return
+	}
+
+	err = qm.finalizeJob(job)
+	if err != nil {
+		err = fmt.Errorf("(taskCompleted) qm.finalizeJob returned: %s", err.Error())
+		return
+	}
 
 	// this is a recursive call !
 	// if parent_task_to_complete != nil {
@@ -5105,12 +5121,12 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 
 func (qm *ServerMgr) finalizeJob(job *Job) (err error) {
 
-	job_state, err := job.GetState(true)
+	jobState, err := job.GetState(true)
 	if err != nil {
 		err = fmt.Errorf("(updateJobTask) job.GetState returned: %s", err.Error())
 		return
 	}
-	if job_state == JOB_STAT_COMPLETED {
+	if jobState == JOB_STAT_COMPLETED {
 		err = fmt.Errorf("(updateJobTask) job state is already JOB_STAT_COMPLETED")
 		return
 	}

@@ -5090,6 +5090,13 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 	}
 
 	// old-style AWE job only
+
+	err = job.IncrementRemainTasks(-1)
+	if err != nil {
+		err = fmt.Errorf("(taskCompleted) IncrementRemainTasks returned: %s", err.Error())
+		return
+	}
+
 	jobRemainTasks := job.RemainTasks
 
 	if jobRemainTasks > 0 { //#####################################################################

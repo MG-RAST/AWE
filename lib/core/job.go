@@ -442,6 +442,51 @@ func (job *Job) Init() (changed bool, err error) {
 	return
 }
 
+// GetRemainTasks _
+func (job *Job) GetRemainTasks() (remainTasks int, err error) {
+	remainTasks = job.RemainTasks
+	return
+}
+
+// SetRemainTasks _
+func (job *Job) SetRemainTasks(remainTasks int) (err error) {
+	err = job.LockNamed("SetRemainTasks")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	if remainTasks == job.RemainTasks {
+		return
+	}
+	err = dbUpdateJobFieldInt(job.ID, "remaintasks", remainTasks)
+	if err != nil {
+		return
+	}
+	job.RemainTasks = remainTasks
+	return
+}
+
+// IncrementRemainTasks _
+func (job *Job) IncrementRemainTasks(inc int) (err error) {
+	err = job.LockNamed("IncrementRemainTasks")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	logger.Debug(3, "(IncrementRemainTasks) called with inc=%d", inc)
+
+	newRemainTask := job.RemainTasks + inc
+	logger.Debug(3, "(IncrementRemainTasks) new value of RemainTasks: %d", newRemainTask)
+	err = dbUpdateJobFieldInt(job.ID, "remaintasks", newRemainTask)
+	if err != nil {
+		return
+	}
+	job.RemainTasks = newRemainTask
+	return
+}
+
 func (job *Job) RLockRecursive() {
 	for _, task := range job.Tasks {
 		task.RLockAnon()

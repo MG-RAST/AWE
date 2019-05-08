@@ -401,8 +401,10 @@ func (work *Workunit) SetState(new_state string, reason string) (err error) {
 	}
 
 	if reason != "" {
-		if len(work.Notes) == 0 {
+		if len(work.Notes) > 0 {
 			work.Notes = append(work.Notes, reason)
+		} else {
+			work.Notes = []string{reason}
 		}
 	}
 

@@ -78,10 +78,12 @@ func (m *RWMutex) Lock() (err error) {
 	//return
 }
 
-func (m *RWMutex) LockNamed(name string) (err error) {
+func (m *RWMutex) LockNamedTimeout(name string, timeout time.Duration) (err error) {
+
 	//logger.Debug(3, "Lock")
 	//reader_list := strings.Join(m.RList(), ",")
 	//logger.Debug(3, "(%s) %s requests Lock. current owner:  %s (reader list :%s)", m.Name, name, m.lockOwner.Get(), reader_list) // reading  m.lockOwner induces data race !
+
 	if m.Name == "" {
 		panic("LockNamed: object has no name")
 	}
@@ -92,9 +94,9 @@ func (m *RWMutex) LockNamed(name string) (err error) {
 		if DEBUG_LOCKS {
 			logger.Debug(3, "(RWMutex/LockNamed %s) got lock", name)
 		}
-	case <-time.After(WAIT_TIMEOUT):
+	case <-time.After(timeout):
 		reader_list := strings.Join(m.RList(), ",")
-		message := fmt.Sprintf("(%s) %s requests Lock. TIMEOUT!!! current owner: %s (reader list :%s), initial owner: %s", m.Name, name, m.lockOwner.Get(), reader_list, initial_owner)
+		message := fmt.Sprintf("(%s) %s requests Lock. TIMEOUT!!! (%s) current owner: %s (reader list :%s), initial owner: %s", m.Name, name, timeout, m.lockOwner.Get(), reader_list, initial_owner)
 		logger.Error(message)
 		err = fmt.Errorf(message)
 		return
@@ -111,6 +113,12 @@ func (m *RWMutex) LockNamed(name string) (err error) {
 		logger.Debug(3, "(%s) LOCKED by %s", m.Name, name)
 	}
 	return
+
+}
+
+func (m *RWMutex) LockNamed(name string) (err error) {
+	err = m.LockNamedTimeout(name, WAIT_TIMEOUT)
+	return
 }
 
 func (m *RWMutex) Unlock() {
@@ -123,14 +131,14 @@ func (m *RWMutex) Unlock() {
 	}
 }
 
-func (m *RWMutex) RLockNamed(name string) (rl ReadLock, err error) {
+func (m *RWMutex) RLockNamedTimeout(name string, timeout time.Duration) (rl ReadLock, err error) {
 	if DEBUG_LOCKS {
 		logger.Debug(3, "(%s, %s) request RLock and Lock.", m.Name, name)
 	}
 	if m.Name == "" {
 		panic("xzy name empty")
 	}
-	err = m.LockNamed(m.Name + "/RLock " + name)
+	err = m.LockNamedTimeout(m.Name+"/RLock "+name, timeout)
 	if err != nil {
 		return
 	}
@@ -149,6 +157,11 @@ func (m *RWMutex) RLockNamed(name string) (rl ReadLock, err error) {
 		logger.Debug(3, "(%s) got RLock.", m.Name)
 	}
 	rl = ReadLock{id: new_uuid}
+	return
+}
+
+func (m *RWMutex) RLockNamed(name string) (rl ReadLock, err error) {
+	rl, err = m.RLockNamedTimeout(name, WAIT_TIMEOUT)
 	return
 }
 

@@ -92,6 +92,7 @@ type TaskRaw struct {
 	CwlVersion          cwl.CWLVersion          `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"` // CWL-only
 	WorkflowInstanceId  string                  `bson:"workflow_instance_id" json:"workflow_instance_id" mapstructure:"workflow_instance_id"`          // CWL-only
 	job                 *Job                    `bson:"-"  mapstructure:"-"`                                                                           // caching only
+	NotReadyReason      string                  `bson:"-" json:"notReadyReason" mapstructure:"-"`
 	//WorkflowParent      *Task_Unique_Identifier  `bson:"workflow_parent" json:"workflow_parent" mapstructure:"workflow_parent"`                         // CWL-only parent that created subworkflow
 }
 
@@ -171,7 +172,9 @@ func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) 
 	if len(task.Id) > 0 && (!strings.HasPrefix(task.Id, job_prefix)) {
 		task.TaskName = task.Id
 		changed = true
-		panic("should not happen 1")
+		err = fmt.Errorf("(InitRaw) A) broken task? %s", job_id)
+		return
+
 	}
 	//logger.Debug(3, "task.TaskName B: %s", task.TaskName)
 	//if strings.HasSuffix(task.TaskName, "ERROR") {
@@ -187,7 +190,8 @@ func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) 
 			return
 		}
 		task.Task_Unique_Identifier = tid
-		panic("should not happen 2")
+		err = fmt.Errorf("(InitRaw) B) broken task? %s", job_id)
+		return
 	}
 
 	var task_str string
@@ -222,9 +226,6 @@ func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) 
 		}
 		task.Info = job.Info
 	}
-	if task.TotalWork <= 0 {
-		task.TotalWork = 1
-	}
 
 	if task.State != TASK_STAT_COMPLETED {
 		if task.RemainWork != task.TotalWork {
@@ -250,9 +251,10 @@ func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) 
 		err = fmt.Errorf("(InitRaw) job is nil")
 		return
 	}
-	context := job.WorkflowContext
-	if task.StepOutputInterface != nil {
+	var context *cwl.WorkflowContext
 
+	if task.StepOutputInterface != nil {
+		context = job.WorkflowContext
 		task.StepOutput, err = cwl.NewJob_documentFromNamedTypes(task.StepOutputInterface, context)
 		if err != nil {
 			err = fmt.Errorf("(InitRaw) cwl.NewJob_documentFromNamedTypes returned: %s", err.Error())
@@ -260,13 +262,12 @@ func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) 
 		}
 	}
 
-	CwlVersion := context.CwlVersion
-
-	if CwlVersion != "" {
-		if task.CwlVersion != CwlVersion {
-			task.CwlVersion = CwlVersion
-		}
-	}
+	// if CwlVersion != "" {
+	// 	CwlVersion := context.CwlVersion
+	// 	if task.CwlVersion != CwlVersion {
+	// 		task.CwlVersion = CwlVersion
+	// 	}
+	// }
 
 	if task.WorkflowStep != nil {
 
@@ -490,12 +491,13 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task
 		return
 	}
 
-	if task_id_str != job.Entrypoint {
-		if !strings.HasPrefix(workflow_instance_id, job.Entrypoint) {
-			err = fmt.Errorf("(NewTask) workflow_instance_id has not %s prefix: %s", job.Entrypoint, workflow_instance_id)
-			return
+	if job.IsCWL {
+		if task_id_str != job.Entrypoint {
+			if !strings.HasPrefix(workflow_instance_id, job.Entrypoint) {
+				err = fmt.Errorf("(NewTask) workflow_instance_id has not %s prefix: %s", job.Entrypoint, workflow_instance_id)
+				return
+			}
 		}
-
 	}
 
 	if job.ID == "" {
@@ -511,7 +513,12 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task
 	task_id_str = strings.TrimSuffix(task_id_str, "/")
 	//workflow = strings.TrimSuffix(workflow, "/")
 
-	job_global_task_id_str := workflow_instance_id + "/" + task_id_str
+	var job_global_task_id_str string
+	if job.IsCWL {
+		job_global_task_id_str = workflow_instance_id + "/" + task_id_str
+	} else {
+		job_global_task_id_str = task_id_str
+	}
 
 	var tui Task_Unique_Identifier
 	tui, err = New_Task_Unique_Identifier(job.ID, job_global_task_id_str)
@@ -535,11 +542,11 @@ func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task
 
 	t.TaskRaw.WorkflowInstanceId = workflow_instance_id
 
-	if workflow_instance_id == "" {
-		err = fmt.Errorf("(NewTask) workflow_instance_id empty")
-		return
+	//if workflow_instance_id == "" {
+	//	err = fmt.Errorf("(NewTask) workflow_instance_id empty")
+	//	return
 
-	}
+	//}
 
 	return
 }
@@ -1090,11 +1097,11 @@ func (task *Task) InitPartIndex() (err error) {
 		return
 	}
 
-	err = task.LockNamed("InitPartIndex")
-	if err != nil {
-		return
-	}
-	defer task.Unlock()
+	// err = task.LockNamed("InitPartIndex")
+	// if err != nil {
+	// 	return
+	// }
+	// defer task.Unlock()
 
 	// adjust total work based on needs
 	if newPartition.MaxPartSizeMB > 0 {
@@ -1110,15 +1117,20 @@ func (task *Task) InitPartIndex() (err error) {
 			// use bigger splits (specified by size or totalwork)
 			totalwork = task.TotalWork
 		}
+
+		if totalwork == 0 {
+			totalwork = 1 // need at least one unit for empty file
+		}
+
 		if totalwork != task.TotalWork {
-			err = task.setTotalWork(totalwork, false)
+			err = task.setTotalWork(totalwork, true)
 			if err != nil {
 				return
 			}
 		}
 	}
 	if totalunits < task.TotalWork {
-		err = task.setTotalWork(totalunits, false)
+		err = task.setTotalWork(totalunits, true)
 		if err != nil {
 			return
 		}
@@ -1126,7 +1138,7 @@ func (task *Task) InitPartIndex() (err error) {
 
 	// need only 1 workunit
 	if task.TotalWork == 1 {
-		err = task.setSingleWorkunit(false)
+		err = task.setSingleWorkunit(true)
 		return
 	}
 
@@ -1320,11 +1332,6 @@ func (task *Task) ResetTaskTrue(name string) (err error) {
 
 func (task *Task) SetResetTask(info *Info) (err error) {
 	// called when enqueing a task that previously ran
-	err = task.LockNamed("SetResetTask")
-	if err != nil {
-		return
-	}
-	defer task.Unlock()
 
 	// only run if true
 	if task.ResetTask == false {
@@ -1332,10 +1339,12 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 	}
 
 	// in memory pointer
-	task.Info = info
+	if task.Info == nil {
+		task.Info = info
+	}
 
 	// reset remainwork
-	err = task.SetRemainWork(task.TotalWork, false)
+	err = task.SetRemainWork(task.TotalWork, true)
 	if err != nil {
 		err = fmt.Errorf("(task/SetResetTask) task.SetRemainWork returned: %s", err.Error())
 		return
@@ -1355,34 +1364,67 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 			return
 		}
 	}
-	task.ComputeTime = 0
+	task.ComputeTime = 0 // TODO use SetComputeTime()
 
 	// reset completedate
-	err = task.SetCompletedDate(time.Time{}, false)
-
-	// reset inputs
-	for _, io := range task.Inputs {
-		// skip inputs with no origin (predecessor task)
-		if io.Origin == "" {
-			continue
-		}
-		io.Node = "-"
-		io.Size = 0
-		io.Url = ""
+	err = task.SetCompletedDate(time.Time{}, true)
+	if err != nil {
+		err = fmt.Errorf("(task/SetResetTask) SetCompletedDate returned: %s", err.Error())
+		return
 	}
-	if task.WorkflowInstanceId == "" {
-		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+
+	err = task.SetResetTaskInputs()
+	if err != nil {
+		err = fmt.Errorf("(task/SetResetTask) SetResetTaskInputs returned: %s", err.Error())
+		return
+	}
+
+	err = task.SetResetTaskOutputs()
+	if err != nil {
+		err = fmt.Errorf("(task/SetResetTask) SetResetTaskOutputs returned: %s", err.Error())
+		return
+	}
+
+	// delete all workunit logs
+	for _, log := range conf.WORKUNIT_LOGS {
+		err = task.DeleteLogs(log, true)
 		if err != nil {
-			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskIO returned: %s", err.Error())
+			return
+		}
+	}
+
+	// reset the reset
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskBoolean returned: %s", err.Error())
 			return
 		}
 	} else {
-		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+		err = dbUpdateTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
 		if err != nil {
-			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskIO returned: %s", err.Error())
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskBoolean returned: %s", err.Error())
 			return
 		}
 	}
+
+	err = task.LockNamed("SetResetTask")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	task.ResetTask = false
+	return
+}
+
+func (task *Task) SetResetTaskOutputs() (err error) {
+	err = task.LockNamed("SetResetTaskOutputs")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
 	// reset / delete all outputs
 	for _, io := range task.Outputs {
 		// do not delete update IO
@@ -1417,29 +1459,41 @@ func (task *Task) SetResetTask(info *Info) (err error) {
 			return
 		}
 	}
-	// delete all workunit logs
-	for _, log := range conf.WORKUNIT_LOGS {
-		err = task.DeleteLogs(log, false)
+
+	return
+}
+
+func (task *Task) SetResetTaskInputs() (err error) {
+	err = task.LockNamed("SetResetTaskInputs")
+	if err != nil {
+		return
+	}
+	defer task.Unlock()
+
+	// reset inputs
+	for _, io := range task.Inputs {
+		// skip inputs with no origin (predecessor task)
+		if io.Origin == "" {
+			continue
+		}
+		io.Node = "-"
+		io.Size = 0
+		io.Url = ""
+	}
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
 		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskIO returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "inputs", task.Inputs)
+		if err != nil {
+			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskIO returned: %s", err.Error())
 			return
 		}
 	}
 
-	// reset the reset
-	if task.WorkflowInstanceId == "" {
-		err = dbUpdateJobTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
-		if err != nil {
-			err = fmt.Errorf("(task/SetResetTask) dbUpdateJobTaskBoolean returned: %s", err.Error())
-			return
-		}
-	} else {
-		err = dbUpdateTaskBoolean(task.JobId, task.WorkflowInstanceId, task.Id, "resettask", false)
-		if err != nil {
-			err = fmt.Errorf("(task/SetResetTask) dbUpdateTaskBoolean returned: %s", err.Error())
-			return
-		}
-	}
-	task.ResetTask = false
 	return
 }
 
@@ -1757,7 +1811,7 @@ func (task *Task) ValidateInputs(qm *ServerMgr) (err error) {
 func (task *Task) ValidateOutputs() (err error) {
 	err = task.LockNamed("ValidateOutputs")
 	if err != nil {
-		err = fmt.Errorf("unable to lock task %s: %s", task.Id, err.Error())
+		err = fmt.Errorf("(ValidateOutputs) unable to lock task %s: %s", task.Id, err.Error())
 		return
 	}
 	defer task.Unlock()
@@ -1768,7 +1822,7 @@ func (task *Task) ValidateOutputs() (err error) {
 		io.Url = ""
 		_, err = io.DataUrl()
 		if err != nil {
-			err = fmt.Errorf("DataUrl returns: %s", err.Error())
+			err = fmt.Errorf("(ValidateOutputs) DataUrl returns: %s", err.Error())
 			return
 		}
 
@@ -1776,14 +1830,14 @@ func (task *Task) ValidateOutputs() (err error) {
 		io.Size = 0
 		_, err = io.UpdateFileSize()
 		if err != nil {
-			err = fmt.Errorf("input file %s GetFileSize returns: %s", io.FileName, err.Error())
+			err = fmt.Errorf("(ValidateOutputs) input file %s GetFileSize returns: %s", io.FileName, err.Error())
 			return
 		}
 
 		// create or wait on shock index on output node (if set in workflow document)
 		_, err = io.IndexFile(io.ShockIndex)
 		if err != nil {
-			err = fmt.Errorf("failed to create shock index: task=%s, node=%s: %s", task.Id, io.Node, err.Error())
+			err = fmt.Errorf("(ValidateOutputs) failed to create shock index: task=%s, node=%s: %s", task.Id, io.Node, err.Error())
 			return
 		}
 	}
@@ -1791,13 +1845,13 @@ func (task *Task) ValidateOutputs() (err error) {
 	if task.WorkflowInstanceId == "" {
 		err = dbUpdateJobTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
 		if err != nil {
-			err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
+			err = fmt.Errorf("(ValidateOutputs) unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
 			return
 		}
 	} else {
 		err = dbUpdateTaskIO(task.JobId, task.WorkflowInstanceId, task.Id, "outputs", task.Outputs)
 		if err != nil {
-			err = fmt.Errorf("unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
+			err = fmt.Errorf("(ValidateOutputs) unable to save task outputs to mongodb, task=%s: %s", task.Id, err.Error())
 			return
 		}
 	}

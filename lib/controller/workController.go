@@ -245,6 +245,17 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 		// if using query syntax then do pagination and sorting
 		if query.Has("query") {
+
+			filterByID := ""
+			if query.Has("id") {
+				filterByID = query.Value("id")
+			}
+
+			filterByJobID := ""
+			if query.Has("jobid") {
+				filterByJobID = query.Value("jobid")
+			}
+
 			filtered_work := []*core.Workunit{}
 			sorted_work := core.WorkunitsSortby{Order: order, Direction: direction, Workunits: workunits}
 			sort.Sort(sorted_work)
@@ -256,7 +267,16 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 					skip += 1
 					continue
 				}
-
+				if filterByID != "" {
+					if filterByID != w.Id {
+						continue
+					}
+				}
+				if filterByJobID != "" {
+					if filterByJobID != w.JobId {
+						continue
+					}
+				}
 				filtered_work = append(filtered_work, w)
 				count += 1
 				if count == limit {
@@ -264,7 +284,19 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 				}
 			}
 			cx.RespondWithPaginatedData(filtered_work, limit, offset, len(sorted_work.Workunits))
+
+			// for _, w := range sorted_work.Workunits {
+			// 	if w.Id == filterByID {
+			// 		filtered_work = append(filtered_work, w)
+			// 		cx.RespondWithPaginatedData(filtered_work, limit, offset, len(sorted_work.Workunits))
+			// 		return
+			// 	}
+			// }
+
+			// err = fmt.Errorf("workunit with id %s not found", filterByID)
+			// cx.RespondWithErrorMessage(err.Error(), http.StatusNotFound)
 			return
+
 		} else {
 			cx.RespondWithData(workunits)
 			return

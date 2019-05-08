@@ -65,6 +65,7 @@ type JobRaw struct {
 	Script                  script                       `bson:"script" json:"-"`
 	State                   string                       `bson:"state" json:"state"`
 	Registered              bool                         `bson:"registered" json:"registered"`
+	RemainTasks             int                          `bson:"remaintasks" json:"remaintasks"` // old-style AWE
 	RemainSteps             int                          `bson:"remainsteps" json:"remainteps"`
 	Expiration              time.Time                    `bson:"expiration" json:"expiration"` // 0 means no expiration
 	UpdateTime              time.Time                    `bson:"updatetime" json:"updatetime"`
@@ -349,8 +350,8 @@ func (job *Job) Init() (changed bool, err error) {
 		}
 	}
 
-	//old_remainsteps := job.RemainSteps // job.Init
-	//job.RemainSteps = 0                // job.Init
+	oldRemainTasks := job.RemainTasks // job.Init
+	newRemainTasks := 0
 
 	for _, task := range job.Tasks {
 		if task.Id == "" {
@@ -373,15 +374,16 @@ func (job *Job) Init() (changed bool, err error) {
 		if t_changed {
 			changed = true
 		}
-		//if task.State != TASK_STAT_COMPLETED {
-		//	job.RemainSteps += 1 // job.Init
-		//}
+		if task.State != TASK_STAT_COMPLETED {
+			newRemainTasks++ // job.Init
+		}
 	}
 
 	// try to fix inconsistent state
-	//if job.RemainSteps != old_remainsteps { // job.Init
-	//	changed = true
-	//}
+	if !job.IsCWL && (newRemainTasks != oldRemainTasks) { // job.Init
+		job.RemainTasks = newRemainTasks
+		changed = true
+	}
 
 	// try to fix inconsistent state
 	//if job.RemainSteps > 0 && job.State == JOB_STAT_COMPLETED {
@@ -437,6 +439,51 @@ func (job *Job) Init() (changed bool, err error) {
 
 	}
 
+	return
+}
+
+// GetRemainTasks _
+func (job *Job) GetRemainTasks() (remainTasks int, err error) {
+	remainTasks = job.RemainTasks
+	return
+}
+
+// SetRemainTasks _
+func (job *Job) SetRemainTasks(remainTasks int) (err error) {
+	err = job.LockNamed("SetRemainTasks")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	if remainTasks == job.RemainTasks {
+		return
+	}
+	err = dbUpdateJobFieldInt(job.ID, "remaintasks", remainTasks)
+	if err != nil {
+		return
+	}
+	job.RemainTasks = remainTasks
+	return
+}
+
+// IncrementRemainTasks _
+func (job *Job) IncrementRemainTasks(inc int) (err error) {
+	err = job.LockNamed("IncrementRemainTasks")
+	if err != nil {
+		return
+	}
+	defer job.Unlock()
+
+	logger.Debug(3, "(IncrementRemainTasks) called with inc=%d", inc)
+
+	newRemainTask := job.RemainTasks + inc
+	logger.Debug(3, "(IncrementRemainTasks) new value of RemainTasks: %d", newRemainTask)
+	err = dbUpdateJobFieldInt(job.ID, "remaintasks", newRemainTask)
+	if err != nil {
+		return
+	}
+	job.RemainTasks = newRemainTask
 	return
 }
 

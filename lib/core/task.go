@@ -228,7 +228,12 @@ func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) 
 	}
 
 	if task.State != TASK_STAT_COMPLETED {
+		if task.TotalWork == 0 {
+			task.TotalWork = 1
+			changed = true
+		}
 		if task.RemainWork != task.TotalWork {
+
 			task.RemainWork = task.TotalWork
 			changed = true
 		}
@@ -1031,6 +1036,16 @@ func (task *Task) checkPartIndex() (newPartition *PartInfo, totalunits int, isSi
 	}
 	defer task.RUnlockNamed(lock)
 
+	if task.Inputs == nil {
+		err = fmt.Errorf("(checkPartIndex) no inputs found")
+		return
+	}
+
+	if len(task.Inputs) == 0 {
+		err = fmt.Errorf("(checkPartIndex) array task.Inputs empty")
+		return
+	}
+
 	inputIO := task.Inputs[0]
 	newPartition = &PartInfo{
 		Input:         inputIO.FileName,
@@ -1561,6 +1576,7 @@ func (task *Task) setTokenForIO(writelock bool) (err error) {
 	return
 }
 
+// CreateWorkunits _
 func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err error) {
 	//if a task contains only one workunit, assign rank 0
 
@@ -1572,6 +1588,11 @@ func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err
 	//if task_name == "_root__main_step1_step1_0" {
 	//	panic("found task")
 	//}
+
+	if task.TotalWork == 0 {
+		err = fmt.Errorf("(CreateWorkunits) task.TotalWork == 0")
+		return
+	}
 
 	if task.TotalWork == 1 {
 		workunit, xerr := NewWorkunit(qm, task, 0, job)

@@ -277,7 +277,8 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 		if len(wi.Tasks) > 0 {
 			spew.Dump(wi.Tasks)
-			panic("wi already has tasks " + wi_local_id)
+			err = fmt.Errorf("(updateWorkflowInstancesMapTask) WI claims to be in state pending, but already has tasks")
+			return
 		}
 
 		//subworkflow_str := []string{}
@@ -924,11 +925,11 @@ func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *T
 		taskIDStr, _ := task.String()
 		isQueued, times, err := qm.updateQueueTask(task, logTimes)
 		if err != nil {
-			logger.Error("(updateQueue) updateQueueTask task: %s error: %s", taskIDStr, err.Error())
+			logger.Error("(updateQueueWorker) updateQueueTask task: %s error: %s", taskIDStr, err.Error())
 		}
 		if logTimes {
 			taskTime := time.Since(taskStart)
-			message := fmt.Sprintf("(updateQueue) thread %d processed task: %s, took: %s, is queued %t", id, taskIDStr, taskTime, isQueued)
+			message := fmt.Sprintf("(updateQueueWorker) thread %d processed task: %s, took: %s, is queued %t", id, taskIDStr, taskTime, isQueued)
 			if taskTime > taskSlow {
 				message += fmt.Sprintf(", times: %+v", times)
 			}
@@ -3064,15 +3065,17 @@ func (qm *ServerMgr) taskEnQueue(taskID Task_Unique_Identifier, task *Task, job 
 
 	// init partition
 	indexStart := time.Now()
-	err = task.InitPartIndex()
-	if logTimes {
-		times["InitPartIndex"] = time.Since(indexStart)
-	}
-	if err != nil {
-		err = fmt.Errorf("(taskEnQueue) InitPartitionIndex: %s", err.Error())
-		return
-	}
 
+	if task.Inputs != nil && len(task.Inputs) > 0 {
+		err = task.InitPartIndex()
+		if logTimes {
+			times["InitPartIndex"] = time.Since(indexStart)
+		}
+		if err != nil {
+			err = fmt.Errorf("(taskEnQueue) InitPartitionIndex: %s", err.Error())
+			return
+		}
+	}
 	outputStart := time.Now()
 	err = qm.createOutputNode(task)
 	if logTimes {
@@ -3086,11 +3089,13 @@ func (qm *ServerMgr) taskEnQueue(taskID Task_Unique_Identifier, task *Task, job 
 	if !skip_workunit {
 		logger.Debug(3, "(taskEnQueue) create Workunits")
 		workunitStart := time.Now()
-		err = qm.CreateAndEnqueueWorkunits(task, job)
+		var count int
+		count, err = qm.CreateAndEnqueueWorkunits(task, job)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) CreateAndEnqueueWorkunits: %s", err.Error())
 			return
 		}
+		logger.Debug(3, "(taskEnQueue) %d Workunits created", count)
 		if logTimes {
 			times["CreateAndEnqueueWorkunits"] = time.Since(workunitStart)
 		}
@@ -4437,19 +4442,19 @@ VALUE_FROM_LOOP:
 }
 
 // CreateAndEnqueueWorkunits _
-func (qm *ServerMgr) CreateAndEnqueueWorkunits(task *Task, job *Job) (err error) {
+func (qm *ServerMgr) CreateAndEnqueueWorkunits(task *Task, job *Job) (count int, err error) {
 	//logger.Debug(3, "(CreateAndEnqueueWorkunits) starting")
 	//fmt.Println("--CreateAndEnqueueWorkunits--")
 	//spew.Dump(task)
 	workunits, err := task.CreateWorkunits(qm, job)
 	if err != nil {
 		err = fmt.Errorf("(CreateAndEnqueueWorkunits) error in CreateWorkunits: %s", err.Error())
-		return err
+		return 0, err
 	}
 	for _, wu := range workunits {
 		if err := qm.workQueue.Add(wu); err != nil {
 			err = fmt.Errorf("(CreateAndEnqueueWorkunits) error in qm.workQueue.Add: %s", err.Error())
-			return err
+			return 0, err
 		}
 		id := wu.GetID()
 		err = qm.CreateWorkPerf(id)
@@ -4458,6 +4463,7 @@ func (qm *ServerMgr) CreateAndEnqueueWorkunits(task *Task, job *Job) (err error)
 			return
 		}
 	}
+	count = len(workunits)
 	return
 }
 

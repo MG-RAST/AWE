@@ -56,7 +56,7 @@ func dbUpsert(t interface{}) (err error) {
 			err = fmt.Errorf("(dbUpsert) c.Upsert returned: %s", err.Error())
 			return
 		}
-		fmt.Println("(dbUpsert) Upsert: " + id)
+		//fmt.Println("(dbUpsert) Upsert: " + id)
 
 		//info, err = c.Upsert(bson.M{"id": t.Id}, &t)
 

@@ -97,7 +97,7 @@ func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
 }
 
 func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync bool, writeLock bool) (err error) {
-	fmt.Printf("(AddWorkflowInstance) id: %s\n", wi.LocalID)
+	//fmt.Printf("(AddWorkflowInstance) id: %s\n", wi.LocalID)
 	if writeLock {
 		err = job.LockNamed("AddWorkflowInstance")
 		if err != nil {

@@ -2,6 +2,8 @@ package cwl
 
 import (
 	"fmt"
+	"path"
+	"strings"
 
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
@@ -61,8 +63,10 @@ func (ws *WorkflowStep) Init(context *WorkflowContext) (err error) {
 }
 
 // NewWorkflowStepFromInterface _
-func NewWorkflowStepFromInterface(original interface{}, thisID string, injectedRequirements []Requirement, context *WorkflowContext) (w *WorkflowStep, schemata []CWLType_Type, err error) {
-	var step WorkflowStep
+func NewWorkflowStepFromInterface(original interface{}, thisID string, workflowID string, injectedRequirements []Requirement, context *WorkflowContext) (step *WorkflowStep, schemata []CWLType_Type, err error) {
+	//var step WorkflowStep
+
+	step = &WorkflowStep{}
 
 	logger.Debug(3, "NewWorkflowStep starting")
 	original, err = MakeStringMap(original, context)
@@ -194,12 +198,12 @@ func NewWorkflowStepFromInterface(original interface{}, thisID string, injectedR
 		}
 
 		//spew.Dump(v_map["run"])
-		err = mapstructure.Decode(original, &step)
+		err = mapstructure.Decode(original, step)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflowStep) mapstructure.Decode returned: %s", err.Error())
 			return
 		}
-		w = &step
+		//w = &step
 
 		if step.ID == "" {
 			step.ID = thisID
@@ -211,8 +215,12 @@ func NewWorkflowStepFromInterface(original interface{}, thisID string, injectedR
 			return
 		}
 
+		if !strings.HasPrefix(step.ID, "#") {
+			step.ID = path.Join(workflowID, step.ID)
+		}
+
 		if context != nil && context.Initialzing && err == nil {
-			err = context.Add(w.ID, w, "NewWorkflowStepFromInterface")
+			err = context.Add(step.ID, step, "NewWorkflowStepFromInterface")
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) context.Add returned: %s", err.Error())
 				return
@@ -252,7 +260,7 @@ func (w WorkflowStep) GetOutput(id string) (output *WorkflowStepOutput, err erro
 }
 
 // CreateWorkflowStepsArray
-func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (schemata []CWLType_Type, array_ptr *[]WorkflowStep, err error) {
+func CreateWorkflowStepsArray(original interface{}, workflowID string, injectedRequirements []Requirement, context *WorkflowContext) (schemata []CWLType_Type, array_ptr *[]WorkflowStep, err error) {
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
@@ -281,7 +289,7 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 			var step *WorkflowStep
 			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
 			//spew.Dump(injectedRequirements)
-			step, schemataNew, err = NewWorkflowStepFromInterface(v, k, injectedRequirements, context)
+			step, schemataNew, err = NewWorkflowStepFromInterface(v, k, workflowID, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return
@@ -313,7 +321,7 @@ func CreateWorkflowStepsArray(original interface{}, injectedRequirements []Requi
 			var step *WorkflowStep
 			//fmt.Printf("(CreateWorkflowStepsArray) Injecting %d \n", len(injectedRequirements))
 			//spew.Dump(injectedRequirements)
-			step, schemataNew, err = NewWorkflowStepFromInterface(v, "", injectedRequirements, context)
+			step, schemataNew, err = NewWorkflowStepFromInterface(v, "", workflowID, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
 				return

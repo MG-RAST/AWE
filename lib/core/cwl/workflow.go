@@ -3,6 +3,7 @@ package cwl
 import (
 	"fmt"
 	"path"
+	"strings"
 
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/mitchellh/mapstructure"
@@ -150,6 +151,25 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 			object["hints"] = hints_array
 		}
 
+		workflowIDIf, hasID := object["id"]
+		if !hasID {
+			err = fmt.Errorf("(NewCommandLineTool) id is missing?")
+			return
+		}
+
+		var workflowID string
+		workflowID, ok = workflowIDIf.(string)
+		if !ok {
+			err = fmt.Errorf("(NewCommandLineTool) is is not a string")
+			return
+		}
+
+		if !strings.HasPrefix(workflowID, "#") {
+			err = fmt.Errorf("(NewCommandLineTool) id is not absolute? workflowID: %s", workflowID)
+			return
+
+		}
+
 		// convert steps to array if it is a map
 		steps, ok := object["steps"]
 		if ok {
@@ -158,7 +178,7 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 
 			//fmt.Printf("(NewWorkflow) Injecting %d\n", len(requirements_array))
 			//spew.Dump(requirements_array)
-			schemataNew, object["steps"], err = CreateWorkflowStepsArray(steps, requirements_array, context)
+			schemataNew, object["steps"], err = CreateWorkflowStepsArray(steps, workflowID, requirements_array, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) CreateWorkflowStepsArray returned: %s", err.Error())
 				return

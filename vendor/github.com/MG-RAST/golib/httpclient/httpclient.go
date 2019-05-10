@@ -22,7 +22,8 @@ type Auth struct {
 }
 
 func newTransport() *http.Transport {
-	return &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	return &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		Proxy: http.ProxyFromEnvironment}}
 }
 
 // support multiple token types with datatoken

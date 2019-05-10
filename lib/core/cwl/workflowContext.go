@@ -298,6 +298,11 @@ func (c *WorkflowContext) Add(id string, obj CWLObject, caller string) (err erro
 		return
 	}
 
+	if !strings.HasPrefix(id, "#") {
+		err = fmt.Errorf("(WorkflowContext/Add) id %s is not absolute", id)
+		return
+	}
+
 	logger.Debug(3, "(WorkflowContext/Add) Adding object %s to collection (type: %s, caller: %s)", id, reflect.TypeOf(obj), caller)
 
 	if c.All == nil {

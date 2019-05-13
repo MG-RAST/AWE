@@ -2026,6 +2026,7 @@ func (task *Task) DeleteLogs(logname string, writelock bool) (err error) {
 	return
 }
 
+// GetStepOutput _
 func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, reason string, err error) {
 
 	if task.StepOutput == nil {
@@ -2035,14 +2036,16 @@ func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, reason s
 		return
 	}
 
-	for _, named_step_output := range *task.StepOutput {
+	outputList := ""
+	for _, namedStepOutput := range *task.StepOutput {
 
-		named_step_output_base := path.Base(named_step_output.Id)
+		namedStepOutputBase := path.Base(namedStepOutput.Id)
+		outputList += "," + namedStepOutputBase
 
-		logger.Debug(3, "(task/GetStepOutput) %s vs %s\n", named_step_output_base, name)
-		if named_step_output_base == name {
+		logger.Debug(3, "(task/GetStepOutput) %s vs %s\n", namedStepOutputBase, name)
+		if namedStepOutputBase == name {
 
-			obj = named_step_output.Value
+			obj = namedStepOutput.Value
 
 			if obj == nil {
 				err = fmt.Errorf("(task/GetStepOutput) found %s , but it is nil", name) // this should not happen, taskReady makes sure everything is available
@@ -2056,6 +2059,12 @@ func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, reason s
 		}
 
 	}
+
+	if outputList == "" {
+		outputList = "nothing"
+	}
+
+	reason = "(GetStepOutput) only found: " + outputList
 	ok = false
 	return
 }

@@ -1265,8 +1265,8 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 		if task.Scatter_parent == nil {
 
 			// map process output to step output
-			stepOutputArray := cwl.Job_document{}
-
+			stepOutputArray := &cwl.Job_document{}
+			logger.Debug(3, "(handleLastWorkunit) len(task.WorkflowStep.Out): %d", len(task.WorkflowStep.Out))
 			for i, _ := range task.WorkflowStep.Out {
 				step_output := &task.WorkflowStep.Out[i]
 				basename := path.Base(step_output.Id)
@@ -1283,7 +1283,7 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 						// add object to context using stepoutput name
 						logger.Debug(3, "(handleLastWorkunit) adding %s ...", step_output.Id)
 
-						stepOutputArray.Add(actual_output_base, named.Value)
+						stepOutputArray = stepOutputArray.Add(basename, named.Value)
 
 						//err = context.Add(step_output.Id, named.Value, "handleLastWorkunit_1")
 						//if err != nil {
@@ -1299,6 +1299,13 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 					var obj cwl.CWLObject
 					obj = cwl.NewNull()
 					err = context.Add(step_output.Id, obj, "handleLastWorkunit_2") // TODO: DO NOT DO THIS FOR SCATTER TASKS
+					if err != nil {
+						err = fmt.Errorf("(handleLastWorkunit) context.Add returned: %s", err.Error())
+						return
+					}
+					var objt cwl.CWLType
+					objt = obj.(cwl.CWLType)
+					stepOutputArray = stepOutputArray.Add(basename, objt)
 					// check if this is an optional output in the tool
 
 					//err = fmt.Errorf("(handleWorkStatDone) expected output not found: %s", basename)
@@ -1306,8 +1313,8 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 				}
 			}
 
-			logger.Debug(3, "(handleLastWorkunit) call task.SetStepOutput with %d outputs", len(stepOutputArray))
-			err = task.SetStepOutput(stepOutputArray, true)
+			logger.Debug(3, "(handleLastWorkunit) call task.SetStepOutput with %d outputs", stepOutputArray.Len())
+			err = task.SetStepOutput(*stepOutputArray, true)
 			if err != nil {
 				err = fmt.Errorf("(handleLastWorkunit) task.SetStepOutput returned: %s", err.Error())
 				return
@@ -5051,32 +5058,32 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 
 	// stick outputs in context, using correct Step-name (depends on if it is a embedded workflow)
 	logger.Debug(3, "(completeSubworkflow) workflow_instance.Outputs: %d", len(workflowInstance.Outputs))
-	for output := range workflowInstance.Outputs {
-		logger.Debug(3, "(completeSubworkflow) iteration %d", output)
-		outputNamed := &workflowInstance.Outputs[output]
-		outputNamedBase := path.Base(outputNamed.Id)
+	//for output := range workflowInstance.Outputs {
+	//	logger.Debug(3, "(completeSubworkflow) iteration %d", output)
+	//outputNamed := &workflowInstance.Outputs[output]
+	//outputNamedBase := path.Base(outputNamed.Id)
 
-		prefix := path.Dir(outputNamed.Id)
+	//	prefix := path.Dir(outputNamed.Id)
 
-		logger.Debug(3, "(completeSubworkflow) old name: %s", outputNamed.Id)
+	//logger.Debug(3, "(completeSubworkflow) old name: %s", outputNamed.Id)
 
-		prefixBase := path.Base(prefix)
-		newName := outputNamed.Id
-		if len(prefixBase) == 36 { // TODO: find better way of detecting embedded workflow
-			// case: emebedded workflow
-			prefix = path.Dir(prefix)
-			newName = prefix + "/" + outputNamedBase
-		}
+	//prefixBase := path.Base(prefix)
+	//newName := outputNamed.Id
+	//if len(prefixBase) == 36 { // TODO: find better way of detecting embedded workflow
+	// case: emebedded workflow
+	//	prefix = path.Dir(prefix)
+	//	newName = prefix + "/" + outputNamedBase
+	//}
 
-		//fmt.Printf("new name: %s\n", new_name)
-		logger.Debug(3, "(completeSubworkflow) new name: %s", newName)
-		err = context.Add(newName, outputNamed.Value, "completeSubworkflow")
-		if err != nil {
-			err = fmt.Errorf("(completeSubworkflow) context.Add returned: %s", err.Error())
-			return
-		}
+	//fmt.Printf("new name: %s\n", new_name)
+	//logger.Debug(3, "(completeSubworkflow) new name: %s", newName)
+	//err = context.Add(newName, outputNamed.Value, "completeSubworkflow")
+	//if err != nil {
+	//	err = fmt.Errorf("(completeSubworkflow) context.Add returned: %s", err.Error())
+	//	return
+	//}
 
-	}
+	//}
 
 	if workflowInstance.RemainSteps > 0 {
 		err = fmt.Errorf("(completeSubworkflow) RemainSteps > 0 cannot complete")

@@ -2064,7 +2064,7 @@ func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, reason s
 		outputList = "nothing"
 	}
 
-	reason = "(GetStepOutput) only found: " + outputList
+	reason = fmt.Sprintf("(GetStepOutput) task=%s  only found: %s", task.Id, outputList)
 	ok = false
 	return
 }

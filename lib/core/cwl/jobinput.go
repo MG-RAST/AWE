@@ -33,6 +33,12 @@ func (j *Job_document) Add(id string, value CWLType) (new_doc *Job_document) {
 	new_doc = &new_array_nptr
 	return
 }
+func (j *Job_document) Len() (length int) {
+
+	j_npt := *j
+	length = len(j_npt)
+	return
+}
 
 func (j *Job_document) Get(id string) (value CWLType, ok bool) {
 

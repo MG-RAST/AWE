@@ -2200,29 +2200,36 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 
 			//if source is (workflow) input, generator does not need to be ready
 			// instead of testing for workflow input, we just test if input already exists
-			context := job.WorkflowContext
-			_, ok, err = context.Get(srcStr, true)
-			if err != nil {
-				err = fmt.Errorf("(areSourceGeneratorsReady) context.Get returned: %s", err.Error())
-				return
-			}
-			if ok {
-				logger.Debug(3, "(areSourceGeneratorsReady) source %s found!", srcStr)
-				continue
-			}
+			//context := job.WorkflowContext
+			// _, ok, err = context.Get(srcStr, true)
+			// if err != nil {
+			// 	err = fmt.Errorf("(areSourceGeneratorsReady) context.Get returned: %s", err.Error())
+			// 	return
+			// }
+			// if ok {
+			// 	logger.Debug(3, "(areSourceGeneratorsReady) source %s found!", srcStr)
+			// 	continue
+			// }
 
 			generator := path.Dir(srcStr)
+			generatorArray := strings.Split(generator, "/")
+
 			logger.Debug(3, "(areSourceGeneratorsReady) step input %s using generator %s", wsi.Id, generator)
 
-			if generator == "." {
-
-				for x := range context.All {
-					fmt.Printf("context.All: %s\n", x)
-				}
-
-				err = fmt.Errorf("(areSourceGeneratorsReady) src \"%s\" is a workflow input, but was not found ", srcStr)
+			if len(generatorArray) == 1 { // workflow input
+				ready = true
 				return
 			}
+
+			// if generator == "." {
+
+			// 	for x := range context.All {
+			// 		fmt.Printf("context.All: %s\n", x)
+			// 	}
+
+			// 	err = fmt.Errorf("(areSourceGeneratorsReady) src \"%s\" is a workflow input, but was not found ", srcStr)
+			// 	return
+			// }
 
 			ready, reason, err = qm.isSourceGeneratorReady(job, workflowInstance, generator, false, job.WorkflowContext)
 			if err != nil {
@@ -3468,10 +3475,10 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflowInstance *Workfl
 		}
 
 		err = nil
-		msg := fmt.Sprintf("(GetSourceFromWorkflowInstanceInput) workflow_instance.Inputs empty (src: %s)", src)
-		logger.Debug(3, msg)
+		reason = fmt.Sprintf("(GetSourceFromWorkflowInstanceInput) workflow_instance.Inputs empty (src: %s)", src)
+		logger.Debug(3, reason)
 		ok = false
-		reason = msg
+
 		return
 	}
 
@@ -3697,7 +3704,7 @@ func (qm *ServerMgr) getCWLSource(job *Job, workflowInstance *WorkflowInstance, 
 	if len(srcArray) == 1 {
 
 		// must be workflow input
-		obj, ok, reason, err = qm.GetSourceFromWorkflowInstanceInput(workflowInstance, src, context, errorOnMissingTask)
+		obj, ok, stepReason, err = qm.GetSourceFromWorkflowInstanceInput(workflowInstance, src, context, errorOnMissingTask)
 
 		if err != nil {
 			err = fmt.Errorf("(getCWLSource) GetSourceFromWorkflowInstanceInput returned: %s", err.Error())
@@ -3920,7 +3927,7 @@ func (qm *ServerMgr) GetDependencies(job *Job, workflow_instance *WorkflowInstan
 			_ = src_str
 		} else { // input.Source == nil
 			if input.Default == nil && input.ValueFrom == "" {
-				err = fmt.Errorf("(GetStepInputObjects) sorry, source, Default and ValueFrom are missing") // TODO StepInputExpressionRequirement
+				err = fmt.Errorf("(GetStepInputObjects) A) sorry, source, Default and ValueFrom are missing") // TODO StepInputExpressionRequirement
 				return
 			}
 
@@ -4136,12 +4143,16 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflowInstance *WorkflowIns
 					logger.Debug(3, "(GetStepInputObjects) qm.getCWLSource did not return an object (reason: %s), now check input.Default", reason)
 					if input.Default == nil {
 						//logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource did not find output (nor a default) that can be used as input \"%s\"", sourceAsString)
-						ok = false
-						reason = fmt.Sprintf("(GetStepInputObjects) getCWLSource did not find source %s and has no Default (reason: %s)", sourceAsString, reason)
-						//err = fmt.Errorf("(GetStepInputObjects) getCWLSource did not find source %s and has no Default (reason: %s)", source_as_string, reason)
-						return
+
+						if !strings.HasSuffix(reason, "optional") {
+
+							ok = false
+							reason = fmt.Sprintf("(GetStepInputObjects) getCWLSource did not find source %s and has no Default (reason: %s)", sourceAsString, reason)
+							//err = fmt.Errorf("(GetStepInputObjects) getCWLSource did not find source %s and has no Default (reason: %s)", source_as_string, reason)
+							return
+						}
 					}
-					logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource found something \"%s\"", sourceAsString)
+					//logger.Debug(1, "(GetStepInputObjects) (string) getCWLSource found something \"%s\"", sourceAsString)
 					jobObj, err = cwl.NewCWLType("", input.Default, context)
 					if err != nil {
 						err = fmt.Errorf("(GetStepInputObjects) could not use default: %s", err.Error())
@@ -4207,8 +4218,15 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflowInstance *WorkflowIns
 			//fmt.Println("(GetStepInputObjects) input.Source == nil || (!hasInput)\n")
 
 			if input.Default == nil && input.ValueFrom == "" {
-				err = fmt.Errorf("(GetStepInputObjects) sorry, source, Default and ValueFrom are missing") // TODO StepInputExpressionRequirement
-				return
+
+				// cannot detect optional WorkflowStep, thus just return Null
+				workunitInputMap[cmdID] = cwl.NewNull()
+				continue
+				//fmt.Println("XXX input:")
+				//spew.Dump(input)
+
+				//err = fmt.Errorf("(GetStepInputObjects) B) sorry, source, Default and ValueFrom are missing") // TODO StepInputExpressionRequirement
+				//return
 			}
 
 			if input.Default != nil {

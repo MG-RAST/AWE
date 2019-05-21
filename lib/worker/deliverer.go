@@ -157,7 +157,7 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 		logger.Error("Could not remove work_id %s", work_str)
 	}
 	workmap.Delete(work_id)
-	core.Self.Busy = false
+	err = core.Self.SetBusy(false, false)
 	return
 }
 

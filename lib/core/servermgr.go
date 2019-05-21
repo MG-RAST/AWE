@@ -4734,19 +4734,22 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 
 		for _, childTask := range children {
 			//fmt.Printf("XXX inner loop %d\n", i)
-			jobDoc := childTask.StepOutput
-			var childOutput cwl.CWLType
-			childOutput, ok = jobDoc.Get(workflowStepOutputIDBase)
-			if !ok {
-				//fmt.Printf("XXX job_doc.Get failed\n")
-				err = fmt.Errorf("(taskCompletedScatter) job_doc.Get failed: %s ", err.Error())
-				return
+
+			if childTask.StepOutput != nil {
+				jobDoc := childTask.StepOutput
+				var childOutput cwl.CWLType
+				childOutput, ok = jobDoc.Get(workflowStepOutputIDBase)
+				if !ok {
+					//fmt.Printf("XXX job_doc.Get failed\n")
+					err = fmt.Errorf("(taskCompletedScatter) job_doc.Get failed: %s ", err.Error())
+					return
+				}
+				//fmt.Println("child_output:")
+				//spew.Dump(child_output)
+				outputArray = append(outputArray, childOutput)
+				//fmt.Println("output_array:")
+				//spew.Dump(output_array)
 			}
-			//fmt.Println("child_output:")
-			//spew.Dump(child_output)
-			outputArray = append(outputArray, childOutput)
-			//fmt.Println("output_array:")
-			//spew.Dump(output_array)
 		}
 		err = context.Add(workflowStepOutputID, &outputArray, "taskCompletedScatter")
 		if err != nil {

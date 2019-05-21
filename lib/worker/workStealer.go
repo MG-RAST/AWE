@@ -51,7 +51,7 @@ func workStealerRun(control chan int, retry_previous int) (retry int, err error)
 
 	workunit, err := CheckoutWorkunitRemote()
 	if err != nil {
-		core.Self.Busy = false
+		_ = core.Self.SetBusy(false, false)
 		if err.Error() == e.QueueEmpty || err.Error() == e.QueueSuspend || err.Error() == e.NoEligibleWorkunitFound {
 			//normal, do nothing
 			logger.Debug(3, "(workStealer) client %s received status %s from server %s", core.Self.ID, err.Error(), conf.SERVER_URL)
@@ -399,7 +399,10 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 
 	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s got a workunit", core.Self.ID))
 	workunit.State = core.WORK_STAT_CHECKOUT
-	core.Self.Busy = true
+	err = core.Self.SetBusy(true, false)
+	if err != nil {
+		return
+	}
 	return
 }
 

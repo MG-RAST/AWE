@@ -1262,64 +1262,64 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 	if task.WorkflowStep != nil {
 		context := job.WorkflowContext
 
-		if task.Scatter_parent == nil {
+		//if task.Scatter_parent == nil {
 
-			// map process output to step output
-			stepOutputArray := &cwl.Job_document{}
-			logger.Debug(3, "(handleLastWorkunit) len(task.WorkflowStep.Out): %d", len(task.WorkflowStep.Out))
-			for i, _ := range task.WorkflowStep.Out {
-				step_output := &task.WorkflowStep.Out[i]
-				basename := path.Base(step_output.Id)
+		// map process output to step output
+		stepOutputArray := &cwl.Job_document{}
+		logger.Debug(3, "(handleLastWorkunit) len(task.WorkflowStep.Out): %d", len(task.WorkflowStep.Out))
+		for i, _ := range task.WorkflowStep.Out {
+			step_output := &task.WorkflowStep.Out[i]
+			basename := path.Base(step_output.Id)
 
-				//step_output_array := []cwl.NamedCWLType(*task.StepOutput)
-				processOutputArray := []cwl.NamedCWLType(*task.ProcessOutput)
+			//step_output_array := []cwl.NamedCWLType(*task.StepOutput)
+			processOutputArray := []cwl.NamedCWLType(*task.ProcessOutput)
 
-				// find in real outputs
-				found := false
-				for j, _ := range processOutputArray { // []cwl.NamedCWLType
-					named := &processOutputArray[j]
-					actual_output_base := path.Base(named.Id)
-					if basename == actual_output_base {
-						// add object to context using stepoutput name
-						logger.Debug(3, "(handleLastWorkunit) adding %s ...", step_output.Id)
+			// find in real outputs
+			found := false
+			for j, _ := range processOutputArray { // []cwl.NamedCWLType
+				named := &processOutputArray[j]
+				actual_output_base := path.Base(named.Id)
+				if basename == actual_output_base {
+					// add object to context using stepoutput name
+					logger.Debug(3, "(handleLastWorkunit) adding %s ...", step_output.Id)
 
-						stepOutputArray = stepOutputArray.Add(basename, named.Value)
+					stepOutputArray = stepOutputArray.Add(basename, named.Value)
 
-						//err = context.Add(step_output.Id, named.Value, "handleLastWorkunit_1")
-						//if err != nil {
-						//	err = fmt.Errorf("(handleLastWorkunit) context.Add returned: %s", err.Error())
-						//	return
-						//}
-						found = true
-						continue
-					}
-
+					//err = context.Add(step_output.Id, named.Value, "handleLastWorkunit_1")
+					//if err != nil {
+					//	err = fmt.Errorf("(handleLastWorkunit) context.Add returned: %s", err.Error())
+					//	return
+					//}
+					found = true
+					continue
 				}
-				if !found {
-					var obj cwl.CWLObject
-					obj = cwl.NewNull()
-					err = context.Add(step_output.Id, obj, "handleLastWorkunit_2") // TODO: DO NOT DO THIS FOR SCATTER TASKS
-					if err != nil {
-						err = fmt.Errorf("(handleLastWorkunit) context.Add returned: %s", err.Error())
-						return
-					}
-					var objt cwl.CWLType
-					objt = obj.(cwl.CWLType)
-					stepOutputArray = stepOutputArray.Add(basename, objt)
-					// check if this is an optional output in the tool
 
-					//err = fmt.Errorf("(handleWorkStatDone) expected output not found: %s", basename)
-					//return
-				}
 			}
+			if !found {
+				var obj cwl.CWLObject
+				obj = cwl.NewNull()
+				err = context.Add(step_output.Id, obj, "handleLastWorkunit_2") // TODO: DO NOT DO THIS FOR SCATTER TASKS
+				if err != nil {
+					err = fmt.Errorf("(handleLastWorkunit) context.Add returned: %s", err.Error())
+					return
+				}
+				var objt cwl.CWLType
+				objt = obj.(cwl.CWLType)
+				stepOutputArray = stepOutputArray.Add(basename, objt)
+				// check if this is an optional output in the tool
 
-			logger.Debug(3, "(handleLastWorkunit) call task.SetStepOutput with %d outputs", stepOutputArray.Len())
-			err = task.SetStepOutput(*stepOutputArray, true)
-			if err != nil {
-				err = fmt.Errorf("(handleLastWorkunit) task.SetStepOutput returned: %s", err.Error())
-				return
+				//err = fmt.Errorf("(handleWorkStatDone) expected output not found: %s", basename)
+				//return
 			}
 		}
+
+		logger.Debug(3, "(handleLastWorkunit) call task.SetStepOutput with %d outputs", stepOutputArray.Len())
+		err = task.SetStepOutput(*stepOutputArray, true)
+		if err != nil {
+			err = fmt.Errorf("(handleLastWorkunit) task.SetStepOutput returned: %s", err.Error())
+			return
+		}
+		//}
 
 		var ok bool
 		wi, ok, err = task.GetWorkflowInstance()
@@ -4735,21 +4735,24 @@ func (qm *ServerMgr) taskCompletedScatter(job *Job, wi *WorkflowInstance, task *
 		for _, childTask := range children {
 			//fmt.Printf("XXX inner loop %d\n", i)
 
-			if childTask.StepOutput != nil {
-				jobDoc := childTask.StepOutput
-				var childOutput cwl.CWLType
-				childOutput, ok = jobDoc.Get(workflowStepOutputIDBase)
-				if !ok {
-					//fmt.Printf("XXX job_doc.Get failed\n")
-					err = fmt.Errorf("(taskCompletedScatter) job_doc.Get failed: %s ", err.Error())
-					return
-				}
-				//fmt.Println("child_output:")
-				//spew.Dump(child_output)
-				outputArray = append(outputArray, childOutput)
-				//fmt.Println("output_array:")
-				//spew.Dump(output_array)
+			if childTask.StepOutput == nil {
+				err = fmt.Errorf("(taskCompletedScatter) childTask.StepOutput == nil")
+				return
 			}
+			jobDoc := childTask.StepOutput
+			var childOutput cwl.CWLType
+			childOutput, ok = jobDoc.Get(workflowStepOutputIDBase)
+			if !ok {
+				//fmt.Printf("XXX job_doc.Get failed\n")
+				err = fmt.Errorf("(taskCompletedScatter) job_doc.Get failed: %s ", err.Error())
+				return
+			}
+			//fmt.Println("child_output:")
+			//spew.Dump(child_output)
+			outputArray = append(outputArray, childOutput)
+			//fmt.Println("output_array:")
+			//spew.Dump(output_array)
+
 		}
 		err = context.Add(workflowStepOutputID, &outputArray, "taskCompletedScatter")
 		if err != nil {

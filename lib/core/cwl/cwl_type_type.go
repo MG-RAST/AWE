@@ -16,10 +16,16 @@ type CWLType_Type interface {
 
 type CWLType_Type_Basic string
 
-func (s CWLType_Type_Basic) Is_Type()            {}
-func (s CWLType_Type_Basic) Type2String() string { return string(s) }
-func (s CWLType_Type_Basic) GetID() string       { return "" }
+// Is_Type _
+func (s CWLType_Type_Basic) Is_Type() {}
 
+// Type2String _
+func (s CWLType_Type_Basic) Type2String() string { return string(s) }
+
+// GetID _
+func (s CWLType_Type_Basic) GetID() string { return "" }
+
+// NewCWLType_TypeFromString _
 func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context string) (result CWLType_Type, err error) {
 
 	if native == "" {
@@ -32,6 +38,16 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 
 		return
 	}
+
+	//fmt.Printf("(NewCWLType_TypeFromString) native: %s\n", native)
+
+	if strings.Contains(native, "#") {
+		//fmt.Printf("(NewCWLType_TypeFromString) contains\n")
+		result = NewPointerFromstring(native)
+		return
+	} //else {
+	//fmt.Printf("(NewCWLType_TypeFromString) does not contain\n")
+	//}
 
 	if !strings.HasSuffix(native, "[]") {
 

@@ -100,7 +100,7 @@ func SendHeartBeat() (err error) {
 					for _, work := range all_work {
 						DiscardWorkunit(work)
 					}
-					core.Self.Busy = false
+					_ = core.Self.SetBusy(false, false)
 					core.ServerUUID = val
 				}
 			}
@@ -442,6 +442,11 @@ func DiscardWorkunit(id core.Workunit_Unique_Identifier) (err error) {
 		if err != nil {
 			logger.Error("(DiscardWorkunit) Could not remove workunit %s from client", id_str)
 			err = nil
+		}
+		var empty bool
+		empty, _ = core.Self.CurrentWork.IsEmpty(false)
+		if empty {
+			_ = core.Self.SetBusy(false, false)
 		}
 	}
 	return

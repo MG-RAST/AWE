@@ -97,8 +97,6 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 			if err != nil {
 				logger.Error("(deliverer_run) workid=%s NotifyWorkunitProcessedWithLogs returned: %s", work_str, err.Error())
 				workunit.Notes = append(workunit.Notes, "[deliverer]"+err.Error())
-				// keep retry
-			} else {
 				error_message := strings.Join(response.Error, ",")
 				if strings.Contains(error_message, e.ClientNotFound) { // TODO need better method than string search. Maybe a field awe_status.
 					//mark this work in Current_work map as false, something needs to be done in the future
@@ -106,11 +104,15 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 					//core.Self.Current_work_false(work.Id) //server doesn't know this yet
 					do_retry = false
 				}
+				// keep retry
+			} else {
+
 				if response.Status == http.StatusOK {
 					// success, work delivered
 					logger.Debug(1, "work delivered successfully")
 					do_retry = false
 				} else {
+					error_message := strings.Join(response.Error, ",")
 					logger.Error("(deliverer) response.Status not ok,  workid=%s, err=%s", work_str, error_message)
 				}
 			}

@@ -561,6 +561,16 @@ func RunWorkunitDocker(workunit *core.Workunit) (pstats *core.WorkPerf, err erro
 		logger.Debug(3, "HasPrivateEnv false")
 	}
 
+	proxyVariables := [4]string{"HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"}
+	for _, proxyVar := range proxyVariables {
+		proxyVarValue := os.Getenv(proxyVar)
+		if proxyVarValue != "" {
+			envPair := proxyVar + "=" + proxyVarValue
+			docker_environment = append(docker_environment, envPair)
+			docker_environment_string += " --env=" + envPair
+		}
+	}
+
 	stdout_file := path.Join(conf.DOCKER_WORK_DIR, conf.STDOUT_FILENAME)
 	stderr_file := path.Join(conf.DOCKER_WORK_DIR, conf.STDERR_FILENAME)
 

@@ -446,6 +446,11 @@ func DiscardWorkunit(id core.Workunit_Unique_Identifier) (err error) {
 			logger.Error("(DiscardWorkunit) Could not remove workunit %s from client", id_str)
 			err = nil
 		}
+		var empty bool
+		empty, _ = core.Self.CurrentWork.IsEmpty(false)
+		if empty {
+			_ = core.Self.SetBusy(false, false)
+		}
 	}
 	return
 }

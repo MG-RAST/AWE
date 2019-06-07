@@ -94,14 +94,18 @@ func SendHeartBeat() (err error) {
 			} else {
 				if core.ServerUUID != val {
 					// server has been restarted, stop work on client (TODO in future we will try to recover work)
+
 					logger.Warning("(SendHeartBeat) Server UUID has changed (%s -> %s). Will stop all work units.", core.ServerUUID, val)
 					all_work, _ := workmap.GetKeys()
 
 					for _, work := range all_work {
-						DiscardWorkunit(work)
+						_ = DiscardWorkunit(work)
 					}
-					_ = core.Self.SetBusy(false, false)
-					core.ServerUUID = val
+					_, _ = fmt.Fprintln(os.Stderr, "AWE server has been restarted, stopping worker now to ensure correct state, bye....")
+					os.Exit(0)
+
+					//_ = core.Self.SetBusy(false, false)
+					//core.ServerUUID = val
 				}
 			}
 
@@ -120,7 +124,7 @@ func SendHeartBeat() (err error) {
 					err = xerr
 					return
 				}
-				DiscardWorkunit(work_id)
+				_ = DiscardWorkunit(work_id)
 			}
 		} else if op == "restart" {
 			RestartClient()

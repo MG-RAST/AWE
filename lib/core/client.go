@@ -64,6 +64,7 @@ type WorkerState struct {
 	ErrorMessage string        `bson:"error_message" json:"error_message"`
 	Busy         bool          `bson:"busy" json:"busy"` // a state
 	CurrentWork  *WorkunitList `bson:"current_work" json:"current_work"`
+	ServerUUID   string        `bson:"server_uuid,omitempty" json:"server_uuid,omitempty" ` //this is what the worker thinks its server is / mostly for debugging
 }
 
 // NewWorkerState creates WorkerState
@@ -71,6 +72,7 @@ func NewWorkerState() (ws *WorkerState) {
 	ws = &WorkerState{}
 	ws.Healthy = true
 	ws.CurrentWork = NewWorkunitList()
+	ws.ServerUUID = ServerUUID
 	return
 }
 

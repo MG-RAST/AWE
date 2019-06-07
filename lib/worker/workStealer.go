@@ -169,7 +169,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		err = fmt.Errorf("(CheckoutWorkunitRemote) core.Self == nil")
 		return
 	}
-	targeturl := fmt.Sprintf("%s/work?client=%s&available=%d", conf.SERVER_URL, core.Self.ID, availableBytes)
+	targeturl := fmt.Sprintf("%s/work?client=%s&available=%d&server_uuid=%s", conf.SERVER_URL, core.Self.ID, availableBytes, core.ServerUUID)
 
 	var headers httpclient.Header
 	if conf.CLIENT_GROUP_TOKEN != "" {

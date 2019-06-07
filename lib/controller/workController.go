@@ -460,6 +460,16 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 		//	return
 		//}
 
+		if query.Has("server_uuid") {
+			clientServerUUID := query.Value("server_uuid")
+			if clientServerUUID != "" {
+				if clientServerUUID != core.ServerUUID {
+					cx.RespondWithErrorMessage("wrong Server UUID", http.StatusInternalServerError)
+					return
+				}
+			}
+		}
+
 		notice = &core.Notice{ID: work_id, Status: query.Value("status"), WorkerID: query.Value("client"), Notes: ""}
 		// old-style
 		if query.Has("computetime") {

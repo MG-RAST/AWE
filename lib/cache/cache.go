@@ -47,13 +47,14 @@ func StatCacheFilePath(id string) (file_path string, err error) {
 func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64, err error) {
 
 	if !io.NoFile { // is file !
-		dataUrl, uerr := io.DataUrl()
-		if uerr != nil {
-			err = uerr
+		var dataUrl string
+		dataUrl, err = io.DataUrl()
+		if err != nil {
+			err = fmt.Errorf("(MoveInputIO) io.DataUrl returned: %s", err.Error())
 			return
 		}
 		if io.FileName == "" {
-			err = fmt.Errorf("io.Filename is empty")
+			err = fmt.Errorf("(MoveInputIO) io.Filename is empty")
 			return
 		}
 
@@ -87,19 +88,26 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 		// download file
 		retry := 1
 		for true {
-			datamoved, _, err := shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false)
+			var datamoved int64
+			datamoved, _, err = shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false)
 			if err != nil {
-				if !strings.Contains(err.Error(), "Node has no file") {
-					logger.Debug(3, "(MoveInputData) got: %s", err.Error())
-					return size, err
+				if strings.Contains(err.Error(), "Node has no file") {
+					//logger.Debug(3, "(MoveInputData) got: %s", err.Error())
+					err = fmt.Errorf("(MoveInputData) Node has no file, do not retry: %s", err.Error())
+					return
 				}
-				logger.Debug(3, "(MoveInputData) got: Node has no file")
+
 				if retry >= 3 {
-					return size, err
+					err = fmt.Errorf("(MoveInputData) (retry: %d) shock.FetchFile returned: %s", retry, err.Error())
+					return
 				}
+
 				logger.Warning("(MoveInputData) Will retry download, got this error: %s", err.Error())
+				err = nil
+
 				time.Sleep(time.Second * 20)
-				retry += 1
+				retry++
+
 				continue
 			}
 
@@ -1245,7 +1253,7 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 		var io_size int64
 		io_size, err = MoveInputIO(work, io, work_path)
 		if err != nil {
-			err = fmt.Errorf("(MoveInputData) MoveInputIO returns %s", err.Error())
+			err = fmt.Errorf("(MoveInputData) MoveInputIO returns: %s", err.Error())
 			return
 		}
 

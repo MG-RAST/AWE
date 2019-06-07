@@ -1,9 +1,8 @@
-# export TAG=`date +"%Y%m%d.%H%M"`
-# docker build --force-rm --no-cache --rm -t mgrast/awe .
-# docker tag mgrast/awe mgrast/awe:${TAG}
 
-# skycore push mgrast/awe:${TAG}
-# docker create --name awe-temporary mgrast/awe:${TAG}
+# docker build --force-rm --no-cache --rm -t mgrast/awe-server .
+
+# binaries
+# docker create --name awe-temporary mgrast/awe-server
 # docker cp awe-temporary:/go/bin/awe-worker .
 # docker cp awe-temporary:/go/bin/awe-submitter .
 # docker rm awe-temporary

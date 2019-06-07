@@ -934,6 +934,8 @@ func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *T
 			}
 			err = nil
 
+			_ = task.SetState(nil, TASK_STAT_SUSPEND, true)
+
 			jobID := task.JobId
 
 			err = qm.SuspendJob(jobID, jerror)

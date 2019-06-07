@@ -246,6 +246,8 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 
 func (wf *Workflow) GetStep(name string) (step *WorkflowStep, err error) {
 
+	found_steps := ""
+
 	for i, _ := range wf.Steps {
 
 		s := &wf.Steps[i]
@@ -256,8 +258,10 @@ func (wf *Workflow) GetStep(name string) (step *WorkflowStep, err error) {
 			step = s
 			return
 		}
+		found_steps += "," + s_base
+
 	}
-	err = fmt.Errorf("(Workflow/GetStep) step %s not found", name)
+	err = fmt.Errorf("(Workflow/GetStep) step %s not found (found_steps: %s)", name, found_steps)
 	return
 }
 

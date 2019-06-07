@@ -2170,6 +2170,10 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 				}
 
 				generator := path.Dir(srcStr)
+				generatorBase := path.Base(generator)
+				if len(generatorBase) == 36 { // TODO uuid check
+					generator = path.Dir(generator)
+				}
 				ok, reason, err = qm.isSourceGeneratorReady(job, workflowInstance, generator, false, job.WorkflowContext)
 				if err != nil {
 					err = fmt.Errorf("(areSourceGeneratorsReady) (type array, src_str: %s) isSourceGeneratorReady returns: %s", srcStr, err.Error())
@@ -2212,6 +2216,11 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 			// }
 
 			generator := path.Dir(srcStr)
+			generatorBase := path.Base(generator)
+			if len(generatorBase) == 36 { // TODO uuid check
+				generator = path.Dir(generator)
+			}
+
 			generatorArray := strings.Split(generator, "/")
 
 			logger.Debug(3, "(areSourceGeneratorsReady) step input %s using generator %s", wsi.Id, generator)
@@ -3571,6 +3580,12 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflowInstance *Workflow
 		return
 	}
 
+	logger.Debug(3, "(isSourceGeneratorReady) srcGeneratorAbs: %s  vs workflowInstance: %s", srcGenerator, workflowInstance.LocalID)
+	if srcGenerator == workflowInstance.LocalID {
+		// must be a workflow input
+		ok = true
+		return
+	}
 	// must be a step output
 	// next: find step, find process
 
@@ -3642,7 +3657,7 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflowInstance *Workflow
 
 			taskID, _ := task.GetId("isSourceGeneratorReady")
 			taskIDStr, _ := taskID.String()
-			reason = fmt.Sprintf("(isSourceGeneratorReady) dependent task %s has state %s", taskIDStr, taskState)
+			reason = fmt.Sprintf("(isSourceGeneratorReady) dependent task %s has state %s (srcGenerator=%s)", taskIDStr, taskState, srcGenerator)
 			logger.Debug(3, "(isSourceGeneratorReady) not ready: %s", srcGenerator)
 		} else {
 			logger.Debug(3, "(isSourceGeneratorReady) ready: %s", srcGenerator)

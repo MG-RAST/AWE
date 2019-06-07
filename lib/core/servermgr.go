@@ -104,7 +104,7 @@ func (qm *ServerMgr) UpdateQueueLoop() {
 		var sleeptime time.Duration
 		if elapsedSeconds <= 1 {
 			sleeptime = 1 * time.Second // wait at least 1 second
-		} else if elapsedSeconds > 5 && elapsedSeconds < 30 {
+		} else if elapsedSeconds > 1 && elapsedSeconds < 30 {
 			sleeptime = elapsed
 		} else {
 			sleeptime = 30 * time.Second // wait at most 30 seconds
@@ -857,7 +857,8 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	logger.Debug(3, "(updateQueue) range tasks (%d)", len(tasks))
 
 	threads := 20
-	size, _ := qm.TaskMap.Len()
+	size := len(tasks)
+
 	loopStart := time.Now()
 	logger.Debug(3, "(updateQueue) starting loop through TaskMap; threads: %d, TaskMap.Len: %d", threads, size)
 
@@ -867,17 +868,18 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 		go qm.updateQueueWorker(w, logTimes, taskChan, queueChan)
 	}
 
-	total := 0
+	//total := 0
 	for _, task := range tasks {
 
 		taskIDStr, _ := task.String()
 		logger.Debug(3, "(updateQueue) sending task to QueueWorkers: %s", taskIDStr)
 
-		total += 1
+		//total += 1
 		taskChan <- task
 	}
 	close(taskChan)
 
+	// count tasks that have been queued (it also is a mean)
 	queue := 0
 	for i := 1; i <= size; i++ {
 		q := <-queueChan
@@ -887,9 +889,11 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 		}
 	}
 	close(queueChan)
-	logger.Debug(3, "(updateQueue) completed loop through TaskMap; # processed: %d, queued: %d, took %s", total, queue, time.Since(loopStart))
+	logger.Debug(3, "(updateQueue) completed loop through TaskMap; # processed: %d, queued: %d, took %s", size, queue, time.Since(loopStart))
 
 	logger.Debug(3, "(updateQueue) range qm.workQueue.Clean()")
+
+	// Remove broken workunits
 	for _, workunit := range qm.workQueue.Clean() {
 		id := workunit.Id
 		job_id := workunit.JobId
@@ -916,9 +920,27 @@ func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *T
 	for task := range taskChan {
 		taskStart := time.Now()
 		taskIDStr, _ := task.String()
+
 		isQueued, times, err := qm.updateQueueTask(task, logTimes)
 		if err != nil {
-			logger.Error("(updateQueue) updateQueueTask task: %s error: %s", taskIDStr, err.Error())
+			jerror := &JobError{
+				ClientFailed: "NA",
+				WorkFailed:   "NA",
+				TaskFailed:   taskIDStr,
+				ServerNotes:  "updateQueueTask returned error: " + err.Error(),
+				WorkNotes:    "NA",
+				AppError:     "NA",
+				Status:       JOB_STAT_SUSPEND,
+			}
+			err = nil
+
+			jobID := task.JobId
+
+			err = qm.SuspendJob(jobID, jerror)
+			if err != nil {
+				logger.Error("(updateQueueWorker) SuspendJob failed: jobID=%s; err=%s", jobID, err.Error())
+				err = nil
+			}
 		}
 		if logTimes {
 			taskTime := time.Since(taskStart)

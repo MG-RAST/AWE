@@ -751,7 +751,7 @@ func (task *Task) SetTaskType(type_str string, writelock bool) (err error) {
 // SetTaskNotReadyReason _
 func (task *Task) SetTaskNotReadyReason(reason string, writelock bool) (err error) {
 	if writelock {
-		err = task.LockNamed("SetTaskType")
+		err = task.LockNamed("SetTaskNotReadyReason")
 		if err != nil {
 			return
 		}

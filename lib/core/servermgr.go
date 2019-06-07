@@ -842,9 +842,9 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 			} else {
 				fmt.Printf("  no tasks\n")
 			}
-			if len(wi_tasks) > 20 {
-				panic("too many tasks!")
-			}
+			//if len(wi_tasks) > 20 {
+			//	panic("too many tasks!")
+			//}
 
 			for _, sw := range wi.Subworkflows {
 				fmt.Printf("  Subworkflow: %s\n", sw)
@@ -969,7 +969,7 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 			return
 		}
 		if !task_ready {
-			task.NotReadyReason = reason
+			_ = task.SetTaskNotReadyReason(reason, true)
 
 			logger.Debug(3, "(updateQueueTask) task not ready (%s): qm.isTaskReady returned reason: %s", taskIDStr, reason)
 			return

@@ -6,6 +6,7 @@ import (
 
 	e "github.com/MG-RAST/AWE/lib/errors"
 	"github.com/MG-RAST/AWE/lib/logger"
+
 	//"sync"
 	"fmt"
 )
@@ -103,6 +104,7 @@ func (wq *WorkQueue) GetAll() (worklist []*Workunit, err error) {
 	return wq.all.GetWorkunits()
 }
 
+// Clean Remove broken workunits
 func (wq *WorkQueue) Clean() (workunits []*Workunit) {
 	workunt_list, err := wq.all.GetWorkunits()
 	if err != nil {

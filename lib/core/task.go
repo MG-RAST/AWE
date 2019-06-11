@@ -94,7 +94,7 @@ type TaskRaw struct {
 	CwlVersion          cwl.CWLVersion          `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"` // CWL-only
 	WorkflowInstanceId  string                  `bson:"workflow_instance_id" json:"workflow_instance_id" mapstructure:"workflow_instance_id"`          // CWL-only
 	job                 *Job                    `bson:"-"  mapstructure:"-"`                                                                           // caching only
-	NotReadyReason      string                  `bson:"-" json:"notReadyReason" mapstructure:"-"`
+	NotReadyReason      string                  `bson:"notReadyReason" json:"notReadyReason" mapstructure:"-"`
 	//WorkflowParent      *Task_Unique_Identifier  `bson:"workflow_parent" json:"workflow_parent" mapstructure:"workflow_parent"`                         // CWL-only parent that created subworkflow
 }
 
@@ -751,6 +751,38 @@ func (task *Task) SetTaskType(type_str string, writelock bool) (err error) {
 		}
 	}
 	task.TaskType = type_str
+	return
+}
+
+// SetTaskNotReadyReason _
+func (task *Task) SetTaskNotReadyReason(reason string, writelock bool) (err error) {
+	if writelock {
+		err = task.LockNamed("SetTaskNotReadyReason")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
+
+	if task.NotReadyReason == reason {
+		return
+	}
+
+	if task.WorkflowInstanceId == "" {
+		err = dbUpdateJobTaskString(task.JobId, task.WorkflowInstanceId, task.Id, "notReadyReason", reason)
+		if err != nil {
+			err = fmt.Errorf("(task/SetTaskNotReadyReason) dbUpdateJobTaskString returned: %s", err.Error())
+			return
+		}
+	} else {
+		err = dbUpdateTaskString(task.JobId, task.WorkflowInstanceId, task.Id, "notReadyReason", reason)
+		if err != nil {
+			err = fmt.Errorf("(task/SetTaskNotReadyReason) dbUpdateTaskString returned: %s", err.Error())
+			return
+		}
+	}
+
+	task.NotReadyReason = reason
 	return
 }
 

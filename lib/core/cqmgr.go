@@ -193,7 +193,7 @@ func (qm *CQMgr) CheckClient(client *Client) (ok bool, err error) {
 			}
 			logger.Debug(3, "(CheckClient) work.State: %s", work.State)
 			if work.State == WORK_STAT_RESERVED {
-				qm.workQueue.StatusChange(workID, work, WORK_STAT_CHECKOUT, "")
+				_ = qm.workQueue.StatusChange(workID, work, WORK_STAT_CHECKOUT, "")
 			}
 		}
 
@@ -986,7 +986,7 @@ func (qm *CQMgr) popWorks(req CheckoutRequest) (clientSpecificWorkunits []*Worku
 		if err != nil {
 			clientGroup = ""
 		}
-		logger.Error("(popWorks) filterWorkByClient returned no workunits for client %s (%s), stats: %s", clientID, clientGroup, statJSONByte)
+		logger.Debug(1, "(popWorks) filterWorkByClient returned no workunits for client %s (%s), stats: %s", clientID, clientGroup, statJSONByte)
 		err = errors.New(e.NoEligibleWorkunitFound)
 
 		return

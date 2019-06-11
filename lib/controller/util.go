@@ -136,6 +136,7 @@ type resource struct {
 	Time          string    `json:"server_time"`
 	GitCommitHash string    `json:"git_commit_hash"`
 	Uptime        string    `json:"uptime"`
+	InstanceUUID  string    `json:"uuid"`
 }
 
 func ResourceDescription(cx *goweb.Context) {
@@ -176,7 +177,8 @@ func ResourceDescription(cx *goweb.Context) {
 		V:     conf.VERSION,
 		Time:  time.Now().Format(longDateForm),
 		//GitCommitHash: conf.GIT_COMMIT_HASH,
-		Uptime: time.Since(core.StartTime).String(),
+		Uptime:       time.Since(core.StartTime).String(),
+		InstanceUUID: core.ServerUUID,
 	}
 
 	if core.Service == "server" {

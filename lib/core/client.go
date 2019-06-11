@@ -67,6 +67,25 @@ type WorkerState struct {
 	ServerUUID   string        `bson:"server_uuid,omitempty" json:"server_uuid,omitempty" ` //this is what the worker thinks its server is / mostly for debugging
 }
 
+// RegistrationResponse _
+type RegistrationResponse struct {
+	ServerUUID string `bson:"server_uuid,omitempty" json:"server_uuid,omitempty" ` //this is what the worker thinks its server is / mostly for debugging
+}
+
+// RegistrationResponseEnvelope _
+type RegistrationResponseEnvelope struct {
+	Code int                  `bson:"status" json:"status"`
+	Data RegistrationResponse `bson:"data" json:"data"`
+	Errs []string             `bson:"error" json:"error"`
+}
+
+// NewRegistrationResponse _
+func NewRegistrationResponse() (rr RegistrationResponse) {
+	rr = RegistrationResponse{}
+	rr.ServerUUID = ServerUUID
+	return
+}
+
 // NewWorkerState creates WorkerState
 func NewWorkerState() (ws *WorkerState) {
 	ws = &WorkerState{}

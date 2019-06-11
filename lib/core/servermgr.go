@@ -3733,7 +3733,7 @@ func (qm *ServerMgr) getCWLSource(job *Job, workflowInstance *WorkflowInstance, 
 	}
 
 	if len(srcArray) != 2 {
-		err = fmt.Errorf("(getCWLSource) len(srcArray) != 2  (%d)", len(srcArray))
+		err = fmt.Errorf("(getCWLSource) len(srcArray) != 2  (%d) (src: %s)", len(srcArray), src)
 		return
 	}
 

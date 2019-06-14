@@ -126,17 +126,16 @@ type TaskLog struct {
 
 func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) (tr *TaskRaw, err error) {
 
-	logger.Debug(3, "task_id: %s", task_id)
-	logger.Debug(3, "task_id.JobId: %s", task_id.JobId)
-
-	logger.Debug(3, "task_id.TaskName: %s", task_id.TaskName)
-
 	var task_str string
 	task_str, err = task_id.String()
 	if err != nil {
 		err = fmt.Errorf("() task.String returned: %s", err.Error())
 		return
 	}
+	logger.Debug(3, "task_str: %s", task_str)
+	logger.Debug(3, "task_id.JobId: %s", task_id.JobId)
+
+	logger.Debug(3, "task_id.TaskName: %s", task_id.TaskName)
 
 	tr = &TaskRaw{
 		Task_Unique_Identifier: task_id,

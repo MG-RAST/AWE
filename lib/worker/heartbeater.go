@@ -325,10 +325,11 @@ func RegisterWithAuth(host string, pclient *core.Client) (err error) {
 		if rr.ServerUUID != core.ServerUUID {
 			ExitWorker(rr.ServerUUID)
 		}
-
+		logger.Debug(3, "(RegisterWithAuth) server UUID already known")
 	}
 
-	if rr.ServerUUID == "" && core.ServerUUID != "" {
+	if rr.ServerUUID != "" && core.ServerUUID == "" {
+		logger.Debug(3, "(RegisterWithAuth) Using ServerUUID=%s", rr.ServerUUID)
 		rr.ServerUUID = core.ServerUUID
 	}
 

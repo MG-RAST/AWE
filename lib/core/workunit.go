@@ -113,6 +113,8 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		workflow_step := task.WorkflowStep
 
+		taskStr, _ := task.String()
+
 		workunit.CWLWorkunit = &CWLWorkunit{}
 
 		workunit.ShockHost = job.ShockHost
@@ -234,12 +236,12 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		var reason string
 		workunit_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflow_instance, workflow_input_map, workflow_step, context, "NewWorkunit")
 		if err != nil {
-			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects returned: %s", err.Error())
+			err = fmt.Errorf("(NewWorkunit) task=%s, GetStepInputObjects returned: %s", taskStr, err.Error())
 			return
 		}
 
 		if !ok {
-			err = fmt.Errorf("(NewWorkunit) GetStepInputObjects not ready, reason: %s", reason)
+			err = fmt.Errorf("(NewWorkunit) task=%s, GetStepInputObjects not ready, reason: %s", taskStr, reason)
 			return
 		}
 

@@ -634,7 +634,7 @@ func (wi *WorkflowInstance) GetOutput(name string, readLock bool) (obj cwl.CWLTy
 	ok = true
 
 	if wi.Outputs == nil {
-		err = fmt.Errorf("(WorkflowInstance/GetOutput) not Outputs")
+		err = fmt.Errorf("(WorkflowInstance/GetOutput) output %s not found, the Outputs field is empty", name)
 		return
 	}
 

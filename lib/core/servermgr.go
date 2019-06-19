@@ -168,16 +168,17 @@ func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, re
 	parent_workflow_input_map := parentWorkflowInstance.Inputs.GetMap()
 
 	context := job.WorkflowContext
-
-	ready, reason, err = qm.areSourceGeneratorsReady(parent_step, job, parentWorkflowInstance)
+	var generators []string
+	ready, reason, generators, err = qm.areSourceGeneratorsReady(parent_step, job, parentWorkflowInstance)
 	if err != nil {
-		err = fmt.Errorf("(Is_WI_ready) areSourceGeneratorsReady returned: %s", err.Error())
+		err = fmt.Errorf("(Is_WI_ready) areSourceGeneratorsReady returned: %s (generators: %s)", err.Error(), strings.Join(generators, ","))
 		return
 	}
 
 	if !ready {
 		return
 	}
+	logger.Debug(3, "(Is_WI_ready) areSourceGeneratorsReady returned: %s", strings.Join(generators, ","))
 
 	// err = qm.GetDependencies(job, parentWorkflowInstance, parent_workflow_input_map, step, context)
 	// if err != nil {
@@ -2147,7 +2148,7 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, caller string) (err error
 
 // used by isTaskReady and is_WI_Ready
 // check all WorkflowStepInputs for Source fields and checks if they are available
-func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, workflowInstance *WorkflowInstance) (ready bool, reason string, err error) {
+func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, workflowInstance *WorkflowInstance) (ready bool, reason string, generators []string, err error) {
 
 	logger.Debug(3, "(areSourceGeneratorsReady) start %s (number on inputs %d)", step.ID, len(step.In))
 
@@ -2178,7 +2179,8 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 				if !ok {
 
 					err = fmt.Errorf("src is not a string")
-					return ok, reason, err
+					ready = false
+					return
 				}
 
 				if !strings.HasPrefix(srcStr, "#") {
@@ -2209,7 +2211,8 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 					reason = fmt.Sprintf(" (sourceIsArray) Generator not ready (%s)", reason)
 					return
 				}
-
+				generators = append(generators, generator)
+				logger.Debug(3, "(areSourceGeneratorsReady) step input (in array) %s is ready (generator: %s)", srcStr, generator)
 			}
 		} else {
 			// not source_is_array
@@ -2276,9 +2279,10 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 				reason = fmt.Sprintf(" (NOT sourceIsArray) Generator not ready (%s)", reason)
 				return
 			}
-
+			generators = append(generators, generator)
+			logger.Debug(3, "(areSourceGeneratorsReady) step input %s is ready (generator: %s)", srcStr, generator)
 		}
-		logger.Debug(3, "(areSourceGeneratorsReady) step input %s is ready", wsi.Id)
+
 	}
 	ready = true
 	logger.Debug(3, "(areSourceGeneratorsReady) finished, step.ID: %s", step.ID)
@@ -2398,7 +2402,8 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 		//workflow_def := workflow_instance.Workflow_Definition
 
 		//fmt.Println("WorkflowStep.Id: " + task.WorkflowStep.Id)
-		ready, reason, err = qm.areSourceGeneratorsReady(task.WorkflowStep, job, workflow_instance)
+		var generators []string
+		ready, reason, generators, err = qm.areSourceGeneratorsReady(task.WorkflowStep, job, workflow_instance)
 		if err != nil {
 			err = fmt.Errorf("(isTaskReady) areSourceGeneratorsReady returned: %s", err.Error())
 			return
@@ -2407,7 +2412,7 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 			reason = fmt.Sprintf("(isTaskReady) areSourceGeneratorsReady returned: %s", reason)
 			return
 		}
-		logger.Debug(3, "(isTaskReady) areSourceGeneratorsReady reports task %s as ready", taskIDStr)
+		logger.Debug(3, "(isTaskReady) areSourceGeneratorsReady reports task %s as ready (generators: %s)", taskIDStr, strings.Join(generators, ","))
 	}
 
 	if task.WorkflowStep == nil {
@@ -3383,10 +3388,16 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput_Workflow(job *Job, workflow_inst
 		return
 	}
 
+	subwiState, _ := subwi.GetState(true)
+	if subwiState != WIStateCompleted {
+		err = fmt.Errorf("(getCWLSourceFromStepOutput_Workflow) step %s (a Workflow) is not even completed yet (state=%s)", subworkflow_name, subwiState)
+		return
+	}
+
 	//var obj cwl.CWLType
 	obj, ok, err = subwi.GetOutput(output_name, true)
 	if err != nil {
-		err = fmt.Errorf("(getCWLSourceFromStepOutput_Workflow) subwi.GetOutput returned: %s", err.Error())
+		err = fmt.Errorf("(getCWLSourceFromStepOutput_Workflow) Could not get output %s in subworkflow %s,  subwi.GetOutput returned: %s", output_name, subworkflow_name, err.Error())
 		return
 	}
 
@@ -3473,7 +3484,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflowInstance *Work
 	case "Workflow":
 		obj, ok, reason, err = qm.getCWLSourceFromStepOutput_Workflow(job, workflowInstance, stepName, outputName, errorOnMissingTask)
 		if err != nil {
-			err = fmt.Errorf("(getCWLSourceFromStepOutput) getCWLSourceFromStepOutput_Tool returned: %s", err.Error())
+			err = fmt.Errorf("(getCWLSourceFromStepOutput) getCWLSourceFromStepOutput_Workflow returned: %s", err.Error())
 			return
 		}
 	default:
@@ -3727,7 +3738,7 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflowInstance *Workflow
 			logger.Debug(3, "(isSourceGeneratorReady) WI ready: %s", srcGenerator)
 			return
 		}
-
+		ok = false
 		reason = "(isSourceGeneratorReady) workfow instance is not completed"
 		logger.Debug(3, "(isSourceGeneratorReady) WI not ready: %s", srcGenerator)
 		return

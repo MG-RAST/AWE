@@ -254,10 +254,10 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 			return
 		}
 
-		if cwl_workflow.Steps == nil {
-			err = fmt.Errorf("(updateWorkflowInstancesMapTask) cwl_workflow.Steps == nil")
-			return
-		}
+		//if cwl_workflow.Steps == nil {
+		//	err = fmt.Errorf("(updateWorkflowInstancesMapTask) cwl_workflow.Steps == nil")
+		//	return
+		//}
 
 		// check if workflow_instance is ready
 
@@ -283,127 +283,132 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 		}
 
 		//subworkflow_str := []string{}
+		noSteps := false
 
-		for i, _ := range cwl_workflow.Steps {
+		if cwl_workflow.Steps != nil {
+			for i, _ := range cwl_workflow.Steps {
 
-			step := &cwl_workflow.Steps[i]
+				step := &cwl_workflow.Steps[i]
 
-			stepname_base := path.Base(step.ID)
+				stepname_base := path.Base(step.ID)
 
-			instance_step_name := path.Join(wi_local_id, stepname_base)
+				instance_step_name := path.Join(wi_local_id, stepname_base)
 
-			//steps_str = append(steps_str, wi_local_id+"/"+stepname_base)
-			var process interface{}
-			process, _, err = step.GetProcess(context)
+				//steps_str = append(steps_str, wi_local_id+"/"+stepname_base)
+				var process interface{}
+				process, _, err = step.GetProcess(context)
 
-			switch process.(type) {
-			case *cwl.CommandLineTool, *cwl.ExpressionTool:
-				// creates a Task
+				switch process.(type) {
+				case *cwl.CommandLineTool, *cwl.ExpressionTool:
+					// creates a Task
 
-				logger.Debug(3, "(updateWorkflowInstancesMapTask) Creating (CommandLine/Expression) %s", wi_local_id+"/"+stepname_base)
-				var awe_task *Task
-				awe_task, err = NewTask(job, wi_local_id, stepname_base)
-				if err != nil {
-					err = fmt.Errorf("(updateWorkflowInstancesMapTask) NewTask returned: %s", err.Error())
+					logger.Debug(3, "(updateWorkflowInstancesMapTask) Creating (CommandLine/Expression) %s", wi_local_id+"/"+stepname_base)
+					var awe_task *Task
+					awe_task, err = NewTask(job, wi_local_id, stepname_base)
+					if err != nil {
+						err = fmt.Errorf("(updateWorkflowInstancesMapTask) NewTask returned: %s", err.Error())
+						return
+					}
+
+					if len(step.Scatter) > 0 {
+						logger.Debug(3, "(updateWorkflowInstancesMapTask) detected TASK_TYPE_SCATTER")
+						awe_task.TaskType = TASK_TYPE_SCATTER
+					} else {
+						logger.Debug(3, "(updateWorkflowInstancesMapTask) detected TASK_TYPE_NORMAL")
+						awe_task.TaskType = TASK_TYPE_NORMAL
+					}
+
+					awe_task.WorkflowStep = step
+
+					_, err = awe_task.Init(job, jobid)
+					if err != nil {
+						err = fmt.Errorf("(updateWorkflowInstancesMapTask) awe_task.Init returned: %s", err.Error())
+						return
+					}
+
+					logger.Debug(3, "(updateWorkflowInstancesMapTask) adding %s to workflow_instance", awe_task.TaskName)
+					err = wi.AddTask(job, awe_task, DbSyncTrue, true)
+					if err != nil {
+						err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.AddTask returned: %s", err.Error())
+						return
+					}
+
+					err = qm.TaskMap.Add(awe_task, "updateWorkflowInstancesMapTask")
+					if err != nil {
+						err = fmt.Errorf("(updateWorkflowInstancesMapTask) qm.TaskMap.Add returned: %s", err.Error())
+						return
+					}
+
+					//panic("got CommandLineTool")
+					// create Task
+
+				//case *cwl.ExpressionTool:
+				//	fmt.Println("(updateWorkflowInstancesMapTask) ExpressionTool")
+				//create Task
+
+				case *cwl.Workflow:
+					// creates a WorkflowInstance
+
+					//subworkflow_str = append(subworkflow_str, wi_local_id+"/"+stepname_base)
+					// create new WorkflowInstance
+
+					subworkflow, ok := process.(*cwl.Workflow)
+					if !ok {
+						err = fmt.Errorf("(updateWorkflowInstancesMapTask) cannot cast to *cwl.Workflow")
+						return
+					}
+
+					subworkflow_id := subworkflow.GetID()
+
+					fmt.Printf("(updateWorkflowInstancesMapTask) Creating Workflow %s\n", subworkflow_id)
+
+					new_wi_name := instance_step_name
+
+					// TODO assign inputs
+					//var workflow_inputs cwl.Job_document
+
+					//panic("creating new subworkflow " + new_wi_name)
+					var new_wi *WorkflowInstance
+					new_wi, err = NewWorkflowInstance(new_wi_name, jobid, subworkflow_id, job, wi.LocalID)
+					if err != nil {
+						err = fmt.Errorf("(updateWorkflowInstancesMapTask) NewWorkflowInstance returned: %s", err.Error())
+						return
+					}
+
+					new_wi.Workflow = subworkflow
+					new_wi.ParentStep = step
+					//new_wi.SetState(WIStatePending, "db_sync_no", false) // updateWorkflowInstancesMapTask
+					//AddWorkflowInstance sets steat to WIStatePending
+					err = job.AddWorkflowInstance(new_wi, DbSyncTrue, true) // updateWorkflowInstancesMapTask
+					if err != nil {
+						err = fmt.Errorf("(updateWorkflowInstancesMapTask) job.AddWorkflowInstance returned: %s", err.Error())
+						return
+					}
+
+					newWIUniqueID, _ := new_wi.GetID(true)
+
+					err = GlobalWorkflowInstanceMap.Add(newWIUniqueID, new_wi)
+					if err != nil {
+						err = fmt.Errorf("(updateWorkflowInstancesMapTask) GlobalWorkflowInstanceMap.Add returned: %s", err.Error())
+						return
+					}
+
+					err = wi.AddSubworkflow(job, new_wi.LocalID, true)
+					if err != nil {
+						err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.AddSubworkflow returned: %s", err.Error())
+						return
+					}
+
+				default:
+					err = fmt.Errorf("(updateWorkflowInstancesMapTask) type unknown: %s", reflect.TypeOf(process))
 					return
 				}
 
-				if len(step.Scatter) > 0 {
-					logger.Debug(3, "(updateWorkflowInstancesMapTask) detected TASK_TYPE_SCATTER")
-					awe_task.TaskType = TASK_TYPE_SCATTER
-				} else {
-					logger.Debug(3, "(updateWorkflowInstancesMapTask) detected TASK_TYPE_NORMAL")
-					awe_task.TaskType = TASK_TYPE_NORMAL
-				}
+				//spew.Dump(cwl_workflow.Steps[i])
 
-				awe_task.WorkflowStep = step
-
-				_, err = awe_task.Init(job, jobid)
-				if err != nil {
-					err = fmt.Errorf("(updateWorkflowInstancesMapTask) awe_task.Init returned: %s", err.Error())
-					return
-				}
-
-				logger.Debug(3, "(updateWorkflowInstancesMapTask) adding %s to workflow_instance", awe_task.TaskName)
-				err = wi.AddTask(job, awe_task, DbSyncTrue, true)
-				if err != nil {
-					err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.AddTask returned: %s", err.Error())
-					return
-				}
-
-				err = qm.TaskMap.Add(awe_task, "updateWorkflowInstancesMapTask")
-				if err != nil {
-					err = fmt.Errorf("(updateWorkflowInstancesMapTask) qm.TaskMap.Add returned: %s", err.Error())
-					return
-				}
-
-				//panic("got CommandLineTool")
-				// create Task
-
-			//case *cwl.ExpressionTool:
-			//	fmt.Println("(updateWorkflowInstancesMapTask) ExpressionTool")
-			//create Task
-
-			case *cwl.Workflow:
-				// creates a WorkflowInstance
-
-				//subworkflow_str = append(subworkflow_str, wi_local_id+"/"+stepname_base)
-				// create new WorkflowInstance
-
-				subworkflow, ok := process.(*cwl.Workflow)
-				if !ok {
-					err = fmt.Errorf("(updateWorkflowInstancesMapTask) cannot cast to *cwl.Workflow")
-					return
-				}
-
-				subworkflow_id := subworkflow.GetID()
-
-				fmt.Printf("(updateWorkflowInstancesMapTask) Creating Workflow %s\n", subworkflow_id)
-
-				new_wi_name := instance_step_name
-
-				// TODO assign inputs
-				//var workflow_inputs cwl.Job_document
-
-				//panic("creating new subworkflow " + new_wi_name)
-				var new_wi *WorkflowInstance
-				new_wi, err = NewWorkflowInstance(new_wi_name, jobid, subworkflow_id, job, wi.LocalID)
-				if err != nil {
-					err = fmt.Errorf("(updateWorkflowInstancesMapTask) NewWorkflowInstance returned: %s", err.Error())
-					return
-				}
-
-				new_wi.Workflow = subworkflow
-				new_wi.ParentStep = step
-				//new_wi.SetState(WIStatePending, "db_sync_no", false) // updateWorkflowInstancesMapTask
-				//AddWorkflowInstance sets steat to WIStatePending
-				err = job.AddWorkflowInstance(new_wi, DbSyncTrue, true) // updateWorkflowInstancesMapTask
-				if err != nil {
-					err = fmt.Errorf("(updateWorkflowInstancesMapTask) job.AddWorkflowInstance returned: %s", err.Error())
-					return
-				}
-
-				newWIUniqueID, _ := new_wi.GetID(true)
-
-				err = GlobalWorkflowInstanceMap.Add(newWIUniqueID, new_wi)
-				if err != nil {
-					err = fmt.Errorf("(updateWorkflowInstancesMapTask) GlobalWorkflowInstanceMap.Add returned: %s", err.Error())
-					return
-				}
-
-				err = wi.AddSubworkflow(job, new_wi.LocalID, true)
-				if err != nil {
-					err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.AddSubworkflow returned: %s", err.Error())
-					return
-				}
-
-			default:
-				err = fmt.Errorf("(updateWorkflowInstancesMapTask) type unknown: %s", reflect.TypeOf(process))
-				return
 			}
-
-			//spew.Dump(cwl_workflow.Steps[i])
-
+		} else {
+			noSteps = true
 		}
 		//wi.Subworkflows = subworkflow_str
 
@@ -453,6 +458,25 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 		}
 
+		if noSteps {
+
+			var reason string
+			var ok bool
+			ok, reason, err = qm.completeSubworkflow(job, wi) // taskCompleted
+			if err != nil {
+				err = fmt.Errorf("(updateWorkflowInstancesMapTask) completeSubworkflow returned: %s", err.Error())
+				return
+			}
+			if !ok {
+				err = fmt.Errorf("(updateWorkflowInstancesMapTask) completeSubworkflow not ok, reason: %s", reason)
+				return
+			}
+			// err = qm.finalizeJob(job)
+			// if err != nil {
+			// 	err = fmt.Errorf("(taskCompleted) qm.finalizeJob returned: %s", err.Error())
+			// 	return
+			// }
+		}
 	}
 
 	return

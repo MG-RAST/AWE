@@ -186,11 +186,12 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 			for i, _ := range schemataNew {
 				schemata = append(schemata, schemataNew[i])
 			}
-		} else {
-			err = fmt.Errorf("(NewWorkflow) Workflow has no steps ")
-			//spew.Dump(object)
-			return
 		}
+		// } else {
+		// 	err = fmt.Errorf("(NewWorkflow) Workflow has no steps ")
+		// 	//spew.Dump(object)
+		// 	return
+		// }
 
 		//fmt.Printf("......WORKFLOW raw")
 		//spew.Dump(object)

@@ -25,6 +25,7 @@ import (
 	"github.com/MG-RAST/golib/goweb"
 )
 
+// this function is deprecated ion favor of the stand-alone awe-monitor (https://github.com/MG-RAST/awe-monitor)
 func launchSite(control chan int, port int) {
 
 	r := &goweb.RouteManager{}
@@ -257,7 +258,7 @@ func main() {
 	go core.QMgr.UpdateQueueLoop()
 
 	goweb.ConfigureDefaultFormatters()
-	go launchSite(control, conf.SITE_PORT)
+	//go launchSite(control, conf.SITE_PORT) // deprecated
 	go launchAPI(control, conf.API_PORT)
 
 	logger.Info("API launched...")

@@ -70,7 +70,7 @@ var (
 	RECOVER_MAX int
 
 	// AWE server port
-	SITE_PORT int
+	SITE_PORT int // deprecated
 	API_PORT  int
 	// AWE server external address
 	SITE_URL string
@@ -273,12 +273,12 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 
 	if mode == "server" {
 		// Ports
-		c_store.AddInt(&SITE_PORT, 8081, "Ports", "site-port", "Internal port to run AWE Monitor on", "")
-		c_store.AddInt(&API_PORT, 8001, "Ports", "api-port", "Internal port for API", "")
+		c_store.AddInt(&SITE_PORT, 8081, "Ports", "site-port", "Internal port to run AWE Monitor on", "") // deprecated
+		c_store.AddInt(&API_PORT, 80, "Ports", "api-port", "Internal port for API", "")
 
 		// External
-		c_store.AddString(&SITE_URL, "http://localhost:8081", "External", "site-url", "External URL of AWE monitor, including port", "")
-		c_store.AddString(&API_URL, "http://localhost:8001", "External", "api-url", "External API URL of AWE server, including port", "")
+		c_store.AddString(&SITE_URL, "http://localhost:8081", "External", "site-url", "External URL of AWE monitor, including port", "") // deprecated
+		c_store.AddString(&API_URL, "http://localhost:80", "External", "api-url", "External API URL of AWE server, including port", "")
 
 		// SSL
 		c_store.AddBool(&SSL_ENABLED, false, "SSL", "enable", "", "")

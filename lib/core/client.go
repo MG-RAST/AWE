@@ -50,12 +50,12 @@ type WorkerRuntime struct {
 	InstanceID   string `bson:"instance_id" json:"instance_id"`     // Openstack specific
 	InstanceType string `bson:"instance_type" json:"instance_type"` // Openstack specific
 	//Host          string   `bson:"host" json:"host"`                   // deprecated
-	Hostname      string   `bson:"hostname" json:"hostname"`
-	HostIP        string   `bson:"host_ip" json:"host_ip"` // Host can be physical machine or VM, whatever is helpful for management
-	CPUs          int      `bson:"cores" json:"cores"`
-	Apps          []string `bson:"apps" json:"apps"`
-	GitCommitHash string   `bson:"git_commit_hash" json:"git_commit_hash"`
-	Version       string   `bson:"version" json:"version"`
+	Hostname string   `bson:"hostname" json:"hostname"`
+	HostIP   string   `bson:"host_ip" json:"host_ip"` // Host can be physical machine or VM, whatever is helpful for management
+	CPUs     int      `bson:"cores" json:"cores"`
+	Apps     []string `bson:"apps" json:"apps"`
+	//GitCommitHash string   `bson:"git_commit_hash" json:"git_commit_hash"`
+	Version string `bson:"version" json:"version"`
 }
 
 // WorkerState changes at runtime

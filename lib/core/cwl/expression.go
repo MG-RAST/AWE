@@ -60,7 +60,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}, con
 
 			value, xerr := vm.Run(javascript_function)
 			if xerr != nil {
-				err = fmt.Errorf("(EvaluateExpression) Javascript complained: A) %s", xerr.Error())
+				err = fmt.Errorf("(EvaluateExpression) Javascript complained: A) %s (javascript_function: %s)", xerr.Error(), javascript_function)
 				return
 			}
 			//fmt.Printf("(EvaluateExpression) reflect.TypeOf(value): %s\n", reflect.TypeOf(value))

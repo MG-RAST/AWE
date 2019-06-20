@@ -218,9 +218,9 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		//job_input := *job.CWL_collection.Job_input
 
-		var workflow_instance *WorkflowInstance
+		var workflowInstance *WorkflowInstance
 		var ok bool
-		workflow_instance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
+		workflowInstance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetWorkflowInstance returned %s", err.Error())
 			return
@@ -230,11 +230,11 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			return
 		}
 
-		workflow_input_map := workflow_instance.Inputs.GetMap()
+		workflowInputMap := workflowInstance.Inputs.GetMap()
 
-		var workunit_input_map map[string]cwl.CWLType
+		var workunitInputMap map[string]cwl.CWLType
 		var reason string
-		workunit_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflow_instance, workflow_input_map, workflow_step, context, "NewWorkunit")
+		workunitInputMap, ok, reason, err = qm.GetStepInputObjects(job, workflowInstance, workflowInputMap, workflow_step, context, "NewWorkunit")
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) task=%s, GetStepInputObjects returned: %s", taskStr, err.Error())
 			return
@@ -249,18 +249,22 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		// check CommandLineTool for Default values
 		if clt != nil {
-			for input_i, _ := range clt.Inputs {
-				command_input_parameter := &clt.Inputs[input_i]
-				command_input_parameter_id := command_input_parameter.Id
-				command_input_parameter_id_base := path.Base(command_input_parameter_id)
-				_, has_input := workunit_input_map[command_input_parameter_id_base]
-				if has_input {
-					continue // no need to add a default
+			for inputI := range clt.Inputs {
+				commandInputParameter := &clt.Inputs[inputI]
+				commandInputParameterID := commandInputParameter.Id
+				commandInputParameterIDBase := path.Base(commandInputParameterID)
+				input, hasInput := workunitInputMap[commandInputParameterIDBase]
+				if hasInput {
+					// check if input is not Null
+					_, isNull := input.(*cwl.Null)
+					if !isNull {
+						continue // no need to add a default
+					}
 				}
 
 				// check if a default exists
-				if command_input_parameter.Default != nil {
-					workunit_input_map[command_input_parameter_id_base] = command_input_parameter.Default
+				if commandInputParameter.Default != nil {
+					workunitInputMap[commandInputParameterIDBase] = commandInputParameter.Default
 				}
 			}
 		}
@@ -271,14 +275,14 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 				input_parameter := &et.Inputs[input_i]
 				input_parameter_id := input_parameter.Id
 				input_parameter_id_base := path.Base(input_parameter_id)
-				_, has_input := workunit_input_map[input_parameter_id_base]
+				_, has_input := workunitInputMap[input_parameter_id_base]
 				if has_input {
 					continue // no need to add a default
 				}
 
 				// check if a default exists
 				if input_parameter.Default != nil {
-					workunit_input_map[input_parameter_id_base] = input_parameter.Default
+					workunitInputMap[input_parameter_id_base] = input_parameter.Default
 				}
 			}
 		}
@@ -288,7 +292,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		job_input := cwl.Job_document{}
 
-		for elem_id, elem := range workunit_input_map {
+		for elem_id, elem := range workunitInputMap {
 			named_type := cwl.NewNamedCWLType(elem_id, elem)
 			job_input = append(job_input, named_type)
 		}
@@ -304,7 +308,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		//panic("done workflow_step.Out")
 		workunit.CWLWorkunit.OutputsExpected = &workflow_step.Out
 
-		err = workunit.Evaluate(workunit_input_map, context)
+		err = workunit.Evaluate(workunitInputMap, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) workunit.Evaluate returned: %s", err.Error())
 			return

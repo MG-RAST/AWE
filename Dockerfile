@@ -8,7 +8,7 @@
 # docker rm awe-temporary
 
 
-FROM golang:1.11.1-alpine
+FROM golang:1.12-alpine3.10
 
 #RUN apk update && apk add git gcc libc-dev cyrus-sasl-dev
 

@@ -181,7 +181,7 @@ pipeline {
                 docker run \
                     --rm \
                     --env "SHOCK_SERVER=http://shock:7445" \
-                    --env "AWE_SERVER=http://awe-server:8001" \
+                    --env "AWE_SERVER=http://awe-server:80" \
                     --network testing_default \
                     --name awe-submitter-testing \
                     --volume `pwd`/result.xml:/output/result.xml \

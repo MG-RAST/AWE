@@ -33,7 +33,7 @@ services:
           #- ${SHOCKDIR}/data:/usr/local/shock
         ports:
           - 7445:7445
-          - 8083:80
+          - 8083:81
 
   
     # AWE resource manager
@@ -53,8 +53,7 @@ services:
           - awe-mongo
           # - auth
         ports:
-          - 8001:8001
-          - 8081:8081
+          - 80:8001
         # volumes:
         #   - ${CONFIGDIR}/AWE/awe-server.conf:/awe-config/awe-server.cfg:ro
         #   #- ${AWEDIR}:/mnt/data/awe/
@@ -68,13 +67,13 @@ services:
         entrypoint:
           - ash 
           - -c
-          - 'while [ $$(nc -z awe-server 8001 ; echo $$?) != 0 ] ; do echo "wait..." ; sleep 2 ; done ;
+          - 'while [ $$(nc -z awe-server 80 ; echo $$?) != 0 ] ; do echo "wait..." ; sleep 2 ; done ;
             /go/bin/awe-worker
             --name compose_worker-1
             --data=${DATADIR}/awe-worker/data
             --logs=/mnt/data/logs
             --workpath=${DATADIR}/awe-worker/work
-            --serverurl=http://awe-server:8001
+            --serverurl=http://awe-server:80
             --shockurl=http://shock-server:7445
             --supported_apps=*
             --auto_clean_dir=false

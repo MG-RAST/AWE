@@ -921,7 +921,7 @@ func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *T
 		taskStart := time.Now()
 		taskIDStr, _ := task.String()
 
-		isQueued, times, err := qm.updateQueueTask(task, logTimes)
+		isQueued, times, skip, err := qm.updateQueueTask(task, logTimes)
 		if err != nil {
 			jerror := &JobError{
 				ClientFailed: "NA",
@@ -944,6 +944,9 @@ func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *T
 				err = nil
 			}
 		}
+		if skip {
+			continue
+		}
 		if logTimes {
 			taskTime := time.Since(taskStart)
 			message := fmt.Sprintf("(updateQueue) thread %d processed task: %s, took: %s, is queued %t", id, taskIDStr, taskTime, isQueued)
@@ -956,10 +959,13 @@ func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *T
 	}
 }
 
-func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, times map[string]time.Duration, err error) {
+func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, times map[string]time.Duration, skip bool, err error) {
+	skip = false
 	var task_id Task_Unique_Identifier
 	task_id, err = task.GetId("updateQueueTask")
 	if err != nil {
+		err = nil
+		skip = true
 		return
 	}
 
@@ -968,6 +974,8 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 	var task_state string
 	task_state, err = task.GetState()
 	if err != nil {
+		err = nil
+		skip = true
 		return
 	}
 

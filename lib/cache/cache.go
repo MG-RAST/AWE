@@ -686,8 +686,8 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			return
 		}
 
-		if dir.Listing == nil && dir.Location == "" {
-			err = fmt.Errorf("(ProcessIOData) cwl.Directory needs either Listing or Location")
+		if dir.Listing == nil && dir.Location == "" && dir.Path == "" {
+			err = fmt.Errorf("(ProcessIOData) cwl.Directory needs either Listing, Location or Path")
 			return
 		}
 
@@ -848,6 +848,9 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 	case string:
 		//fmt.Printf("found Null\n")
+		return
+	case *cwl.Int:
+
 		return
 
 	case *cwl.Null:

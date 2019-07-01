@@ -576,9 +576,6 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		return
 	case *cwl.File:
 		//fmt.Println("got *cwl.File")
-		if !conf.SUBMITTER_QUIET {
-			logger.Debug(0, "Uploading file")
-		}
 
 		//spew.Dump(native)
 
@@ -594,6 +591,10 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 
 		if io_type == "upload" {
+			if !conf.SUBMITTER_QUIET {
+				logger.Debug(0, "Uploading file %s %s", file.Path, file.Location)
+			}
+
 			//fmt.Println("XXXXX")
 			//spew.Dump(*file)
 			//fmt.Printf("file.Path: %s\n", file.Path)

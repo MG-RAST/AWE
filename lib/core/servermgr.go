@@ -955,7 +955,7 @@ func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *T
 		taskStart := time.Now()
 		taskIDStr, _ := task.String()
 
-		isQueued, times, err := qm.updateQueueTask(task, logTimes)
+		isQueued, times, skip, err := qm.updateQueueTask(task, logTimes)
 		if err != nil {
 			jerror := &JobError{
 				ClientFailed: "NA",
@@ -978,6 +978,9 @@ func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *T
 				err = nil
 			}
 		}
+		if skip {
+			continue
+		}
 		if logTimes {
 			taskTime := time.Since(taskStart)
 			message := fmt.Sprintf("(updateQueueWorker) thread %d processed task: %s, took: %s, is queued %t", id, taskIDStr, taskTime, isQueued)
@@ -990,10 +993,13 @@ func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *T
 	}
 }
 
-func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, times map[string]time.Duration, err error) {
+func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, times map[string]time.Duration, skip bool, err error) {
+	skip = false
 	var task_id Task_Unique_Identifier
 	task_id, err = task.GetId("updateQueueTask")
 	if err != nil {
+		err = nil
+		skip = true
 		return
 	}
 
@@ -1002,6 +1008,8 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 	var task_state string
 	task_state, err = task.GetState()
 	if err != nil {
+		err = nil
+		skip = true
 		return
 	}
 
@@ -5442,9 +5450,8 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 
 	if wi != nil {
 
-		//<<<<<<< HEAD
-		//	logger.Debug(3, "(taskCompleted) TASK_STAT_COMPLETED  / remaining steps for subworkflow %s: %d", taskStr, subworkflowRemainSteps)
-		//=======
+		//logger.Debug(3, "(taskCompleted) TASK_STAT_COMPLETED  / remaining steps for subworkflow %s: %d", taskStr, subworkflowRemainSteps)
+
 		var subworkflowRemainSteps int
 		subworkflowRemainSteps, err = wi.GetRemainSteps(true)
 		if err != nil {
@@ -5469,7 +5476,6 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 
 		// ******************
 		// This is the last task/subworkflow.
-		//>>>>>>> master
 
 		//TODO find a way to lock this
 

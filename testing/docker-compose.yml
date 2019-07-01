@@ -2,16 +2,15 @@
 # you need a recent version of Docker compose
 version: '3.1'
 
+# see .env file for default values 
 
-# these variables are set in init.sh (change storage location there)
-#
-# set TAG to specify docker image version
+ 
 # set CONFIGDIR to path to config
 # set SHOCKDIR for persistent Shock data store , e.g. /var/tmp/Shock
 # set DATADIR for persistent data store , e.g. /var/tmp
 # set LOGDIR to path to local log dir
 # set DOCKER_BINARY to the path of the docker client binary (Linux binary, not OSX/Windows)
-# set CWL_DIR for location of demo workflow
+
 
 services:
 
@@ -26,15 +25,16 @@ services:
           - --hosts=shock-mongo
           # - --conf
           # - /shock-config/shock-server.cfg
-        # volumes:
+        volumes:
+          - ${DATADIR}/shock/data:/usr/local/shock
+          - ${HOME}/pipeline_data/:/external/
         #   - ${CONFIGDIR}/Shock/shock-server.container.cfg:/shock-config/shock-server.cfg
         #   - ${LOGDIR}/shock:/var/log/shock
           # remove the comment below to make SHOCK data persistent
           #- ${SHOCKDIR}/data:/usr/local/shock
         ports:
-          - 7445:7445
-          - 8083:81
-
+          - ${SHOCK_API_EXT_PORT}:7445
+          
   
     # AWE resource manager
     # uncomment AWEDIR to make data and logs persistent (also requires AWE-mongo for full persistence)
@@ -53,7 +53,7 @@ services:
           - awe-mongo
           # - auth
         ports:
-          - 80:8001
+          - ${AWE_API_EXT_PORT}:80
         # volumes:
         #   - ${CONFIGDIR}/AWE/awe-server.conf:/awe-config/awe-server.cfg:ro
         #   #- ${AWEDIR}:/mnt/data/awe/
@@ -98,8 +98,8 @@ services:
         ports:
           - 27017
         # uncomment the next two lines to make SHOCK mongo data persistent
-        # volumes:
-        #  - ${SHOCKDIR}/db:/data/db
+        volumes:
+          - ${DATADIR}/mongo/db:/data/db
 
 
     # mount a volume in the mongo server to make data persistent between runs

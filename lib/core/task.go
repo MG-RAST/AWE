@@ -713,6 +713,16 @@ func (task *TaskRaw) GetState() (state string, err error) {
 	return
 }
 
+func (task *TaskRaw) GetStateTimeout(timeout time.Duration) (state string, err error) {
+	lock, err := task.RLockNamedTimeout("GetStateTimeout", timeout)
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	state = task.State
+	return
+}
+
 func (task *TaskRaw) GetTaskType() (type_str string, err error) {
 	lock, err := task.RLockNamed("GetTaskType")
 	if err != nil {

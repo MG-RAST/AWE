@@ -1649,50 +1649,49 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	return
 }
 
+// GetJsonStatus _
 func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err error) {
-	queuing_work, err := qm.workQueue.Queue.Len()
+	queuingWork, err := qm.workQueue.Queue.Len()
 	if err != nil {
 		return
 	}
-	out_work, err := qm.workQueue.Checkout.Len()
+	var outWork int
+	outWork, err = qm.workQueue.Checkout.Len()
 	if err != nil {
+		err = fmt.Errorf("(GetJsonStatus) qm.workQueue.Checkout.Len returtned: %s", err.Error())
 		return
 	}
-	suspend_work, err := qm.workQueue.Suspend.Len()
+	var suspendWork int
+	suspendWork, err = qm.workQueue.Suspend.Len()
 	if err != nil {
+		err = fmt.Errorf("(GetJsonStatus) qm.workQueue.Suspend.Len returtned: %s", err.Error())
 		return
 	}
-	total_active_work, err := qm.workQueue.Len()
+	var totalActiveWork int
+	totalActiveWork, err = qm.workQueue.Len()
 	if err != nil {
+		err = fmt.Errorf("(GetJsonStatus) qm.workQueue.Len returtned: %s", err.Error())
 		return
 	}
-
-	//active_jobs := 0
-	//active_jobs := qm.lenActJobs()
-	//suspend_job := qm.lenSusJobs()
-	//total_job := active_jobs + suspend_job
-
-	//total_task := 0
-	//queuing_task := 0
-	//started_task := 0
-	//pending_task := 0
-	//completed_task := 0
-	//suspended_task := 0
-	//skipped_task := 0
-	//fail_skip_task := 0
 
 	// *** jobs ***
 	jobs := make(map[string]int)
 
-	var job_list []*Job
-	job_list, err = JM.Get_List(true)
-	jobs["total"] = len(job_list)
+	var jobList []*Job
+	jobList, err = JM.Get_List(true)
+	if err != nil {
+		err = fmt.Errorf("(GetJsonStatus) JM.Get_List returtned: %s", err.Error())
+		return
+	}
+	jobs["total"] = len(jobList)
 
-	for _, job := range job_list {
+	for _, job := range jobList {
 
-		job_state, _ := job.GetState(true)
-
-		jobs[job_state] += 1
+		jobState, terr := job.GetStateTimeout(true, time.Second*1)
+		if terr != nil {
+			jobState = "unknown"
+		}
+		jobs[jobState]++
 
 	}
 
@@ -1700,17 +1699,21 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 
 	tasks := make(map[string]int)
 
-	task_list, err := qm.TaskMap.GetTasks()
+	taskList, err := qm.TaskMap.GetTasks()
 	if err != nil {
 		return
 	}
-	tasks["total"] = len(task_list)
+	tasks["total"] = len(taskList)
 
-	for _, task := range task_list {
+	for _, task := range taskList {
 
-		task_state, _ := task.GetState()
+		taskState, terr := task.GetStateTimeout(time.Second * 1)
 
-		tasks[task_state] += 1
+		if terr != nil {
+			taskState = "unknown"
+		}
+
+		tasks[taskState]++
 
 		// total_task += 1
 
@@ -1733,28 +1736,36 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 	}
 	//total_task -= skipped_task // user doesn't see skipped tasks
 
-	total_client := 0
-	busy_client := 0
-	idle_client := 0
-	suspend_client := 0
+	// totalClient := 0
+	// busyClient := 0
+	// idleClient := 0
+	// suspendClient := 0
 
-	client_list, err := qm.clientMap.GetClients()
+	clientStates := make(map[string]int)
+
+	clientList, err := qm.clientMap.GetClients()
 	if err != nil {
 		return
 	}
 
-	for _, client := range client_list {
-		total_client += 1
+	totalClient := len(clientList)
+	for _, client := range clientList {
 
-		if client.Suspended {
-			suspend_client += 1
-		}
-		if client.Busy {
-			busy_client += 1
-		} else {
-			idle_client += 1
-		}
+		clientStates[client.Status]++
+
+		// if ! client.Healty
+
+		// if client.Suspended {
+		// 	suspendClient++
+		// }
+		// if client.Busy {
+		// 	busyClient++
+		// } else {
+		// 	idleClient++
+		// }
+
 	}
+	clientStates["total"] = totalClient
 
 	//jobs := map[string]int{
 	//	"total":     total_job,
@@ -1771,26 +1782,27 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 	// 	"failed":      fail_skip_task,
 	// }
 	workunits := map[string]int{
-		"total":     total_active_work,
-		"queuing":   queuing_work,
-		"checkout":  out_work,
-		"suspended": suspend_work,
+		"total":     totalActiveWork,
+		"queuing":   queuingWork,
+		"checkout":  outWork,
+		"suspended": suspendWork,
 	}
-	clients := map[string]int{
-		"total":     total_client,
-		"busy":      busy_client,
-		"idle":      idle_client,
-		"suspended": suspend_client,
-	}
+	// clients := map[string]int{
+	// 	"total":     totalClient,
+	// 	"busy":      busyClient,
+	// 	"idle":      idleClient,
+	// 	"suspended": suspendClient,
+	// }
 	status = map[string]map[string]int{
 		"jobs":      jobs,
 		"tasks":     tasks,
 		"workunits": workunits,
-		"clients":   clients,
+		"clients":   clientStates,
 	}
 	return
 }
 
+// GetTextStatus _ TODO: this will not reflect all states. Get rid of this, difficult to maintain!
 func (qm *ServerMgr) GetTextStatus() string {
 	status, _ := qm.GetJsonStatus() // TODO handle error
 	statMsg := "++++++++AWE server queue status++++++++\n" +
@@ -1819,6 +1831,7 @@ func (qm *ServerMgr) GetTextStatus() string {
 //---end of mgr methods
 
 //--workunit methds (servermgr implementation)
+// FetchDataToken _
 func (qm *ServerMgr) FetchDataToken(work_id Workunit_Unique_Identifier, clientid string) (token string, err error) {
 
 	//precheck if the client is registered

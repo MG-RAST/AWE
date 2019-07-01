@@ -711,6 +711,19 @@ func (job *Job) GetState(do_lock bool) (state string, err error) {
 	return
 }
 
+func (job *Job) GetStateTimeout(do_lock bool, timeout time.Duration) (state string, err error) {
+	if do_lock {
+		read_lock, xerr := job.RLockNamedTimeout("GetStateTimeout", timeout)
+		if xerr != nil {
+			err = xerr
+			return
+		}
+		defer job.RUnlockNamed(read_lock)
+	}
+	state = job.State
+	return
+}
+
 //---Task functions
 func (job *Job) TaskList() []*Task {
 	return job.Tasks

@@ -272,9 +272,9 @@ func main() {
 		fmt.Println("Done")
 	}
 
-	if err := core.AwfMgr.LoadWorkflows(); err != nil {
-		logger.Error("LoadWorkflows: " + err.Error())
-	}
+	//if err := core.AwfMgr.LoadWorkflows(); err != nil {
+	//	logger.Error("LoadWorkflows: " + err.Error())
+	//}
 
 	var host string
 	if hostname, err := os.Hostname(); err == nil {

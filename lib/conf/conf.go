@@ -192,8 +192,8 @@ var (
 	SUBMITTER_DOWNLOAD_FILES bool
 	SUBMITTER_SHOCK_AUTH     string
 	SUBMITTER_AWE_AUTH       string
-
-	SUBMITTER_JOB_NAME string
+	SUBMITTER_UPLOAD_INPUT   bool
+	SUBMITTER_JOB_NAME       string
 
 	// WORKER (CWL)
 	CWL_RUNNER_ARGS string
@@ -371,7 +371,7 @@ func getConfiguration(c *config.Config, mode string) (c_store *Config_store) {
 		c_store.AddString(&SUBMITTER_AWE_AUTH, "", "Client", "awe_auth", "format: \"<bearer> <token>\"", "")
 
 		c_store.AddString(&SUBMITTER_JOB_NAME, "", "Client", "job_name", "name of job, default is filename", "")
-
+		c_store.AddBool(&SUBMITTER_UPLOAD_INPUT, false, "Client", "upload_input", "upload job input files into shock and return new job input structure", "")
 		//c_store.AddString(&SUBMITTER_AUTH_DATATOKEN, "", "Client", "shock_auth_bearer", "bearer for shock", "")
 	}
 

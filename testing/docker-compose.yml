@@ -48,6 +48,7 @@ services:
           - --debuglevel=1
           - --max_work_failure=1
           - --max_client_failure=1000
+          - --api-port=80
           # - --conf=/awe-config/awe-server.cfg
         depends_on:
           - awe-mongo

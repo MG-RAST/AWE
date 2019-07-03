@@ -3,6 +3,7 @@ package auth
 
 import (
 	"errors"
+
 	"github.com/MG-RAST/AWE/lib/auth/clientgroup"
 	"github.com/MG-RAST/AWE/lib/auth/globus"
 	"github.com/MG-RAST/AWE/lib/auth/oauth"
@@ -17,6 +18,7 @@ import (
 var authCache cache
 var authMethods []func(string) (*user.User, error)
 
+// Initialize _
 func Initialize() {
 	authCache = cache{m: make(map[string]cacheValue)}
 	authMethods = []func(string) (*user.User, error){}
@@ -28,30 +30,34 @@ func Initialize() {
 	}
 }
 
+// Authenticate _
 func Authenticate(header string) (u *user.User, err error) {
-	if u = authCache.lookup(header); u != nil {
-		return u, nil
-	} else {
-		for _, auth := range authMethods {
-			u, err = auth(header)
-			if err != nil {
-				// log actual error, return consistant invalid auth to user
-				last_position := len(header)
-				if last_position > 10 {
-					last_position = 10
-				}
-				logger.Error("(auth.Authenticate) err=%s (header=%s)", err.Error(), header[0:last_position]+"...")
-				err = nil
+	u = authCache.lookup(header)
+	if u != nil {
+		return
+	}
+
+	for i, auth := range authMethods {
+		u, err = auth(header)
+		if err != nil {
+			// log actual error, return consistant invalid auth to user
+			lastPosition := len(header)
+			if lastPosition > 10 {
+				lastPosition = 10
 			}
-			if u != nil {
-				authCache.add(header, u)
-				return
-			}
+			logger.Error("(auth.Authenticate) (auth method %d of %d) err=%s (header=%s)", i, len(authMethods), err.Error(), header[0:lastPosition]+"...")
+			err = nil
+		}
+		if u != nil {
+			authCache.add(header, u)
+			return
 		}
 	}
+
 	return nil, errors.New(e.InvalidAuth)
 }
 
+// AuthenticateClientGroup _
 func AuthenticateClientGroup(header string) (cg *core.ClientGroup, err error) {
 	if cg, err = clientgroup.Auth(header); err != nil {
 		return nil, err

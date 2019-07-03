@@ -1702,7 +1702,7 @@ func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
 			return
 		}
 		if preTaskState != TASK_STAT_COMPLETED {
-			reason = fmt.Sprintf("(ValidateDependants) predecessor task state is not completed: task=%s, pretask=%s, pretask.state=%s", task.Id, preTaskStr, preTaskState)
+			reason = fmt.Sprintf("(ValidateDependants) (field DependsOn) predecessor task state is not completed: task=%s, pretask=%s, pretask.state=%s", task.Id, preTaskStr, preTaskState)
 			logger.Debug(3, reason)
 			return
 		}
@@ -1741,7 +1741,7 @@ func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
 			return
 		}
 		if preTaskState != TASK_STAT_COMPLETED {
-			reason = fmt.Sprintf("(ValidateDependants) predecessor task state is not completed: task=%s, pretask=%s, pretask.state=%s", task.Id, preTaskStr, preTaskState)
+			reason = fmt.Sprintf("(ValidateDependants) (field Inputs) predecessor task state is not completed: task=%s, pretask=%s, pretask.state=%s", task.Id, preTaskStr, preTaskState)
 			logger.Debug(3, reason)
 			return
 		}

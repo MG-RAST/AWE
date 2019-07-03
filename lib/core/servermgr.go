@@ -110,7 +110,7 @@ func (qm *ServerMgr) UpdateQueueLoop() {
 			sleeptime = 30 * time.Second // wait at most 30 seconds
 		}
 
-		logger.Debug(3, "(UpdateQueueLoop) elapsed: %s (sleeping for %s)", elapsed, sleeptime)
+		logger.Debug(0, "(UpdateQueueLoop) elapsed: %s (sleeping for %s)", elapsed, sleeptime)
 
 		time.Sleep(sleeptime)
 
@@ -589,8 +589,9 @@ func (qm *ServerMgr) NoticeHandle() {
 		//spew.Dump(notice)
 		err = qm.handleNoticeWorkDelivered(notice)
 		if err != nil {
-			err = fmt.Errorf("(NoticeHandle): %s", err.Error())
-			logger.Error(err.Error())
+
+			logger.Error("(NoticeHandle) handleNoticeWorkDelivered returned: %s", err.Error())
+			err = nil
 			//fmt.Println(err.Error())
 		}
 	}
@@ -802,7 +803,7 @@ func (qm *ServerMgr) isActJob(id string) (ok bool) {
 
 //--------server methods-------
 
-//poll ready tasks and push into workQueue
+//updateQueue poll ready tasks and push into workQueue
 func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 
 	logger.Debug(3, "(updateQueue) wait for lock")
@@ -816,51 +817,53 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 		return
 	}
 
-	if len(tasks) > 0 {
-		task := tasks[0]
-		job_id := task.JobId
-		job, _ := GetJob(job_id)
-		job_state, _ := job.GetState(true)
-		fmt.Printf("*** job *** %s %s\n", job_id, job_state)
-		for wi_id, _ := range job.WorkflowInstancesMap {
-			wi := job.WorkflowInstancesMap[wi_id]
-			wiState, _ := wi.GetState(true)
-			fmt.Printf("WorkflowInstance: %s (%s) remain: %d\n", wi_id, wiState, wi.RemainSteps)
+	if false {
+		if len(tasks) > 0 {
+			task := tasks[0]
+			jobID := task.JobId
+			job, _ := GetJob(jobID)
 
-			var wi_tasks []*Task
-			wi_tasks, err = wi.GetTasks(true)
-			if err != nil {
-				return
-			}
+			job_state, _ := job.GetState(true)
+			fmt.Printf("*** job *** %s %s\n", jobID, job_state)
+			for wi_id, _ := range job.WorkflowInstancesMap {
+				wi := job.WorkflowInstancesMap[wi_id]
+				wiState, _ := wi.GetState(true)
+				fmt.Printf("WorkflowInstance: %s (%s) remain: %d\n", wi_id, wiState, wi.RemainSteps)
 
-			if len(wi_tasks) > 0 {
-				for j, _ := range wi_tasks {
-					task := wi_tasks[j]
-					fmt.Printf("  Task %d: %s (wf: %s, state %s)\n", j, task.Id, task.WorkflowInstanceId, task.State)
-
+				var wi_tasks []*Task
+				wi_tasks, err = wi.GetTasks(true)
+				if err != nil {
+					return
 				}
-			} else {
-				fmt.Printf("  no tasks\n")
-			}
-			//if len(wi_tasks) > 20 {
-			//	panic("too many tasks!")
-			//}
 
-			for _, sw := range wi.Subworkflows {
-				fmt.Printf("  Subworkflow: %s\n", sw)
+				if len(wi_tasks) > 0 {
+					for j, _ := range wi_tasks {
+						task := wi_tasks[j]
+						fmt.Printf("  Task %d: %s (wf: %s, state %s)\n", j, task.Id, task.WorkflowInstanceId, task.State)
+
+					}
+				} else {
+					fmt.Printf("  no tasks\n")
+				}
+				//if len(wi_tasks) > 20 {
+				//	panic("too many tasks!")
+				//}
+
+				for _, sw := range wi.Subworkflows {
+					fmt.Printf("  Subworkflow: %s\n", sw)
+				}
+
 			}
 
 		}
-
 	}
-
-	logger.Debug(3, "(updateQueue) range tasks (%d)", len(tasks))
+	//logger.Debug(0, "(updateQueue) len(tasks): %d", len(tasks))
 
 	threads := 20
 	size := len(tasks)
 
 	loopStart := time.Now()
-	logger.Debug(3, "(updateQueue) starting loop through TaskMap; threads: %d, TaskMap.Len: %d", threads, size)
+	logger.Debug(0, "(updateQueue) starting loop through TaskMap; threads: %d, TaskMap.Len: %d", threads, size)
 
 	taskChan := make(chan *Task, size)
 	queueChan := make(chan bool, size)
@@ -889,7 +892,7 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 		}
 	}
 	close(queueChan)
-	logger.Debug(3, "(updateQueue) completed loop through TaskMap; # processed: %d, queued: %d, took %s", size, queue, time.Since(loopStart))
+	logger.Debug(0, "(updateQueue) completed loop through TaskMap; # processed: %d, queued: %d, took %s", size, queue, time.Since(loopStart))
 
 	logger.Debug(3, "(updateQueue) range qm.workQueue.Clean()")
 
@@ -1221,7 +1224,7 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 	err = task.ValidateOutputs() // for AWE1 only
 	if err != nil {
 		// we create job error object and suspend job
-		err_msg := fmt.Sprintf("(handleWorkStatDone) ValidateOutputs returned: %s", err.Error())
+		err_msg := fmt.Sprintf("(handleLastWorkunit) ValidateOutputs returned: %s", err.Error())
 		jerror := &JobError{
 			ClientFailed: clientid,
 			WorkFailed:   work_str,
@@ -1231,12 +1234,12 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 		}
 		err = task.SetState(nil, TASK_STAT_SUSPEND, true)
 		if err != nil {
-			err = fmt.Errorf("(handleWorkStatDone) task.SetState returned: %s", err.Error())
+			err = fmt.Errorf("(handleLastWorkunit) task.SetState returned: %s", err.Error())
 			return
 		}
 		err = qm.SuspendJob(task.JobId, jerror)
 		if err != nil {
-			err = fmt.Errorf("(handleWorkStatDone) SuspendJob returned: %s", err.Error())
+			err = fmt.Errorf("(handleLastWorkunit) SuspendJob returned: %s", err.Error())
 			return
 		}
 		err = errors.New(err_msg)
@@ -1249,7 +1252,7 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 	if task.WorkflowStep != nil {
 		err = task.SetStepOutput(notice.Results, true)
 		if err != nil {
-			err = fmt.Errorf("(handleWorkStatDone) task.SetStepOutput returned: %s", err.Error())
+			err = fmt.Errorf("(handleLastWorkunit) task.SetStepOutput returned: %s", err.Error())
 			return
 		}
 	}
@@ -1262,7 +1265,7 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 	var job *Job
 	job, err = task.GetJob()
 	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) GetJob returned: %s", err.Error())
+		err = fmt.Errorf("(handleLastWorkunit) GetJob returned: %s", err.Error())
 		return
 	}
 
@@ -1290,10 +1293,10 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 					actual_output_base := path.Base(named.Id)
 					if basename == actual_output_base {
 						// add object to context using stepoutput name
-						logger.Debug(3, "(handleWorkStatDone) adding %s ...", step_output.Id)
-						err = context.Add(step_output.Id, named.Value, "handleWorkStatDone")
+						logger.Debug(3, "(handleLastWorkunit) adding %s ...", step_output.Id)
+						err = context.Add(step_output.Id, named.Value, "handleLastWorkunit")
 						if err != nil {
-							err = fmt.Errorf("(handleWorkStatDone) context.Add returned: %s", err.Error())
+							err = fmt.Errorf("(handleLastWorkunit) context.Add returned: %s", err.Error())
 							return
 						}
 						found = true
@@ -1304,7 +1307,7 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 				if !found {
 					var obj cwl.CWLObject
 					obj = cwl.NewNull()
-					err = context.Add(step_output.Id, obj, "handleWorkStatDone") // TODO: DO NOT DO THIS FOR SCATTER TASKS
+					err = context.Add(step_output.Id, obj, "handleLastWorkunit") // TODO: DO NOT DO THIS FOR SCATTER TASKS
 					// check if this is an optional output in the tool
 
 					//err = fmt.Errorf("(handleWorkStatDone) expected output not found: %s", basename)
@@ -1316,12 +1319,12 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 		var ok bool
 		wi, ok, err = task.GetWorkflowInstance()
 		if err != nil {
-			err = fmt.Errorf("(handleWorkStatDone) task.GetWorkflowInstance returned: %s", err.Error())
+			err = fmt.Errorf("(handleLastWorkunit) task.GetWorkflowInstance returned: %s", err.Error())
 			return
 		}
 
 		if !ok {
-			err = fmt.Errorf("(handleWorkStatDone) Did not get WorkflowInstance from task")
+			err = fmt.Errorf("(handleLastWorkunit) Did not get WorkflowInstance from task")
 			return
 		}
 	}
@@ -1334,7 +1337,7 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 	//log event about task done (TD)
 	err = qm.FinalizeTaskPerf(task)
 	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) FinalizeTaskPerf returned: %s", err.Error())
+		err = fmt.Errorf("(handleLastWorkunit) FinalizeTaskPerf returned: %s", err.Error())
 		return
 	}
 	logger.Event(event.TASK_DONE, "task_id="+task_str)
@@ -1343,7 +1346,7 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 	//task in the task map when the task is the final task of the job to be done.
 	err = qm.taskCompleted(wi, task) //task state QUEUED -> COMPLETED
 	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) taskCompleted returned: %s", err.Error())
+		err = fmt.Errorf("(handleLastWorkunit) taskCompleted returned: %s", err.Error())
 		return
 	}
 	return
@@ -5067,7 +5070,7 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 
 	err = task.SetState(wi, TASK_STAT_COMPLETED, true)
 	if err != nil {
-		err = fmt.Errorf("(handleWorkStatDone) task.SetState returned: %s", err.Error())
+		err = fmt.Errorf("(taskCompleted) task.SetState returned: %s", err.Error())
 		return
 	}
 

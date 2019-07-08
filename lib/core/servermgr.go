@@ -866,7 +866,7 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	logger.Debug(0, "(updateQueue) starting loop through TaskMap; threads: %d, TaskMap.Len: %d", threads, size)
 
 	taskChan := make(chan *Task, size)
-	queueChan := make(chan bool, size)
+	queueChan := make(chan int, size)
 	for w := 1; w <= threads; w++ {
 		go qm.updateQueueWorker(w, logTimes, taskChan, queueChan)
 	}
@@ -883,16 +883,22 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	close(taskChan)
 
 	// count tasks that have been queued (it also is a mean)
-	queue := 0
+	notReady := 0
+	queued := 0
+	skipped := 0 // did not get lock
 	for i := 1; i <= size; i++ {
 		q := <-queueChan
-		if q {
-			queue += 1
-
+		switch q {
+		case 0:
+			notReady++
+		case 1:
+			queued++
+		case 2:
+			skipped++
 		}
 	}
 	close(queueChan)
-	logger.Debug(0, "(updateQueue) completed loop through TaskMap; # processed: %d, queued: %d, took %s", size, queue, time.Since(loopStart))
+	logger.Debug(0, "(updateQueue) completed loop through TaskMap; # processed: %d, queued: %d, skipped: %d, took %s", size, queued, skipped, time.Since(loopStart))
 
 	logger.Debug(3, "(updateQueue) range qm.workQueue.Clean()")
 
@@ -918,7 +924,7 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	return
 }
 
-func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *Task, queueChan chan<- bool) {
+func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *Task, queueChan chan<- int) {
 	var taskSlow time.Duration
 	taskSlow = 1 * time.Second
 	for task := range taskChan {
@@ -952,17 +958,22 @@ func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *T
 			}
 		}
 		if skip {
+			queueChan <- 2 // skipped
 			continue
 		}
 		if logTimes {
 			taskTime := time.Since(taskStart)
-			message := fmt.Sprintf("(updateQueue) thread %d processed task: %s, took: %s, is queued %t", id, taskIDStr, taskTime, isQueued)
+			message := fmt.Sprintf("(updateQueueWorker) thread %d processed task: %s, took: %s, is queued %t", id, taskIDStr, taskTime, isQueued)
 			if taskTime > taskSlow {
 				message += fmt.Sprintf(", times: %+v", times)
 			}
 			logger.Info(message)
 		}
-		queueChan <- isQueued
+		if isQueued {
+			queueChan <- 1 // ok
+		} else {
+			queueChan <- 0 // not queued
+		}
 	}
 }
 
@@ -995,14 +1006,14 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 	case TASK_STAT_INIT, TASK_STAT_PENDING:
 		logger.Debug(3, "(updateQueueTask) task %s has state %s, first check if ready", taskIDStr, taskState)
 
-		var task_ready bool
+		var taskReady bool
 		var reason string
 		startIsReady := time.Now()
 
 		if logTimes {
 			times = make(map[string]time.Duration)
 		}
-		task_ready, reason, skip, err = qm.isTaskReady(taskID, task)
+		taskReady, reason, skip, err = qm.isTaskReady(taskID, task)
 		if logTimes {
 			times["isTaskReady"] = time.Since(startIsReady)
 		}
@@ -1013,7 +1024,7 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 		if skip {
 			return
 		}
-		if !task_ready {
+		if !taskReady {
 			_ = task.SetTaskNotReadyReason(reason, true)
 
 			logger.Debug(3, "(updateQueueTask) task not ready (%s): qm.isTaskReady returned reason: %s", taskIDStr, reason)
@@ -1035,7 +1046,7 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 
 	// task_ready
 	if taskState != TASK_STAT_READY {
-		err = fmt.Errorf("(updateQueueTask) task is not rerady !???!?")
+		err = fmt.Errorf("(updateQueueTask) task is not ready !???!?")
 		return
 	}
 	logger.Debug(3, "(updateQueueTask) task %s is ready now, continue to enqueuing", taskIDStr)

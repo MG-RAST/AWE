@@ -478,7 +478,7 @@ func (task *Task) Init(job *Job, job_id string) (changed bool, err error) {
 // task_id_str is without prefix yet
 func NewTask(job *Job, workflow_instance_id string, task_id_str string) (t *Task, err error) {
 
-	fmt.Printf("(NewTask) new task: %s %s/%s\n", job.ID, workflow_instance_id, task_id_str)
+	//fmt.Printf("(NewTask) new task: %s %s/%s\n", job.ID, workflow_instance_id, task_id_str)
 
 	if task_id_str == "" {
 		err = fmt.Errorf("(NewTask) task_id is empty")
@@ -649,7 +649,7 @@ func (task *TaskRaw) GetScatterChildren(wi *WorkflowInstance, qm *ServerMgr) (ch
 func (task *TaskRaw) GetWorkflowInstance() (wi *WorkflowInstance, ok bool, err error) {
 
 	var job *Job
-	job, err = task.GetJob()
+	job, err = task.GetJob(time.Second * 90)
 	if err != nil {
 		err = fmt.Errorf("(GetWorkflowInstance) task.GetJob returned: %s", err.Error())
 		return
@@ -890,7 +890,7 @@ func (task *TaskRaw) SetStepOutput(jd *cwl.Job_document, lock bool) (err error) 
 	return
 }
 
-// only for debugging purposes
+// GetStateNamed only for debugging purposes
 func (task *TaskRaw) GetStateNamed(name string) (state string, err error) {
 	lock, err := task.RLockNamed("GetState/" + name)
 	if err != nil {
@@ -901,7 +901,19 @@ func (task *TaskRaw) GetStateNamed(name string) (state string, err error) {
 	return
 }
 
-func (task *TaskRaw) GetId(me string) (id Task_Unique_Identifier, err error) {
+// GetStateNamedTimeout _
+func (task *TaskRaw) GetStateNamedTimeout(name string, timeout time.Duration) (state string, err error) {
+	lock, err := task.RLockNamedTimeout("GetState/"+name, timeout)
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	state = task.State
+	return
+}
+
+// GetID _
+func (task *TaskRaw) GetID(me string) (id Task_Unique_Identifier, err error) {
 	lock, err := task.RLockNamed("GetId:" + me)
 	if err != nil {
 		return
@@ -911,6 +923,18 @@ func (task *TaskRaw) GetId(me string) (id Task_Unique_Identifier, err error) {
 	return
 }
 
+// GetIDTimeout _
+func (task *TaskRaw) GetIDTimeout(me string, timeout time.Duration) (id Task_Unique_Identifier, err error) {
+	lock, err := task.RLockNamedTimeout("GetIdTimeout:"+me, timeout)
+	if err != nil {
+		return
+	}
+	defer task.RUnlockNamed(lock)
+	id = task.Task_Unique_Identifier
+	return
+}
+
+// GetJobId _
 func (task *TaskRaw) GetJobId() (id string, err error) {
 	lock, err := task.RLockNamed("GetJobId")
 	if err != nil {
@@ -921,8 +945,8 @@ func (task *TaskRaw) GetJobId() (id string, err error) {
 	return
 }
 
-func (task *TaskRaw) GetJob() (job *Job, err error) {
-	lock, err := task.RLockNamed("GetJob")
+func (task *TaskRaw) GetJob(timeout time.Duration) (job *Job, err error) {
+	lock, err := task.RLockNamedTimeout("GetJob", timeout)
 	if err != nil {
 		return
 	}

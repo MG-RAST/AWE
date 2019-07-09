@@ -110,7 +110,7 @@ func (qm *ServerMgr) UpdateQueueLoop() {
 			sleeptime = 30 * time.Second // wait at most 30 seconds
 		}
 
-		logger.Debug(3, "(UpdateQueueLoop) elapsed: %s (sleeping for %s)", elapsed, sleeptime)
+		logger.Debug(0, "(UpdateQueueLoop) elapsed: %s (sleeping for %s)", elapsed, sleeptime)
 
 		time.Sleep(sleeptime)
 
@@ -623,8 +623,9 @@ func (qm *ServerMgr) NoticeHandle() {
 		//spew.Dump(notice)
 		err = qm.handleNoticeWorkDelivered(notice)
 		if err != nil {
-			err = fmt.Errorf("(NoticeHandle): %s", err.Error())
-			logger.Error(err.Error())
+
+			logger.Error("(NoticeHandle) handleNoticeWorkDelivered returned: %s", err.Error())
+			err = nil
 			//fmt.Println(err.Error())
 		}
 	}
@@ -836,7 +837,7 @@ func (qm *ServerMgr) isActJob(id string) (ok bool) {
 
 //--------server methods-------
 
-//poll ready tasks and push into workQueue
+//updateQueue poll ready tasks and push into workQueue
 func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 
 	logger.Debug(3, "(updateQueue) wait for lock")
@@ -850,54 +851,56 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 		return
 	}
 
-	if len(tasks) > 0 {
-		task := tasks[0]
-		job_id := task.JobId
-		job, _ := GetJob(job_id)
-		job_state, _ := job.GetState(true)
-		fmt.Printf("*** job *** %s %s\n", job_id, job_state)
-		for wi_id, _ := range job.WorkflowInstancesMap {
-			wi := job.WorkflowInstancesMap[wi_id]
-			wiState, _ := wi.GetState(true)
-			fmt.Printf("WorkflowInstance: %s (%s) remain: %d\n", wi_id, wiState, wi.RemainSteps)
+	if false {
+		if len(tasks) > 0 {
+			task := tasks[0]
+			jobID := task.JobId
+			job, _ := GetJob(jobID)
 
-			var wi_tasks []*Task
-			wi_tasks, err = wi.GetTasks(true)
-			if err != nil {
-				return
-			}
+			job_state, _ := job.GetState(true)
+			fmt.Printf("*** job *** %s %s\n", jobID, job_state)
+			for wi_id, _ := range job.WorkflowInstancesMap {
+				wi := job.WorkflowInstancesMap[wi_id]
+				wiState, _ := wi.GetState(true)
+				fmt.Printf("WorkflowInstance: %s (%s) remain: %d\n", wi_id, wiState, wi.RemainSteps)
 
-			if len(wi_tasks) > 0 {
-				for j, _ := range wi_tasks {
-					task := wi_tasks[j]
-					fmt.Printf("  Task %d: %s (wf: %s, state %s)\n", j, task.Id, task.WorkflowInstanceId, task.State)
-
+				var wi_tasks []*Task
+				wi_tasks, err = wi.GetTasks(true)
+				if err != nil {
+					return
 				}
-			} else {
-				fmt.Printf("  no tasks\n")
-			}
-			//if len(wi_tasks) > 20 {
-			//	panic("too many tasks!")
-			//}
 
-			for _, sw := range wi.Subworkflows {
-				fmt.Printf("  Subworkflow: %s\n", sw)
+				if len(wi_tasks) > 0 {
+					for j, _ := range wi_tasks {
+						task := wi_tasks[j]
+						fmt.Printf("  Task %d: %s (wf: %s, state %s)\n", j, task.Id, task.WorkflowInstanceId, task.State)
+
+					}
+				} else {
+					fmt.Printf("  no tasks\n")
+				}
+				//if len(wi_tasks) > 20 {
+				//	panic("too many tasks!")
+				//}
+
+				for _, sw := range wi.Subworkflows {
+					fmt.Printf("  Subworkflow: %s\n", sw)
+				}
+
 			}
 
 		}
-
 	}
-
-	logger.Debug(3, "(updateQueue) range tasks (%d)", len(tasks))
+	//logger.Debug(0, "(updateQueue) len(tasks): %d", len(tasks))
 
 	threads := 20
 	size := len(tasks)
 
 	loopStart := time.Now()
-	logger.Debug(3, "(updateQueue) starting loop through TaskMap; threads: %d, TaskMap.Len: %d", threads, size)
+	logger.Debug(0, "(updateQueue) starting loop through TaskMap; threads: %d, TaskMap.Len: %d", threads, size)
 
 	taskChan := make(chan *Task, size)
-	queueChan := make(chan bool, size)
+	queueChan := make(chan int, size)
 	for w := 1; w <= threads; w++ {
 		go qm.updateQueueWorker(w, logTimes, taskChan, queueChan)
 	}
@@ -914,16 +917,22 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	close(taskChan)
 
 	// count tasks that have been queued (it also is a mean)
-	queue := 0
+	notReady := 0
+	queued := 0
+	skipped := 0 // did not get lock
 	for i := 1; i <= size; i++ {
 		q := <-queueChan
-		if q {
-			queue += 1
-
+		switch q {
+		case 0:
+			notReady++
+		case 1:
+			queued++
+		case 2:
+			skipped++
 		}
 	}
 	close(queueChan)
-	logger.Debug(3, "(updateQueue) completed loop through TaskMap; # processed: %d, queued: %d, took %s", size, queue, time.Since(loopStart))
+	logger.Debug(0, "(updateQueue) completed loop through TaskMap; # processed: %d, queued: %d, skipped: %d, took %s", size, queued, skipped, time.Since(loopStart))
 
 	logger.Debug(3, "(updateQueue) range qm.workQueue.Clean()")
 
@@ -949,14 +958,18 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 	return
 }
 
-func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *Task, queueChan chan<- bool) {
-	var taskSlow time.Duration = 1 * time.Second
+func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *Task, queueChan chan<- int) {
+	var taskSlow time.Duration
+	taskSlow = 1 * time.Second
 	for task := range taskChan {
 		taskStart := time.Now()
 		taskIDStr, _ := task.String()
 
 		isQueued, times, skip, err := qm.updateQueueTask(task, logTimes)
 		if err != nil {
+
+			logger.Error("(updateQueueWorker) qm.updateQueueTask returned: %s", err.Error())
+
 			jerror := &JobError{
 				ClientFailed: "NA",
 				WorkFailed:   "NA",
@@ -979,6 +992,7 @@ func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *T
 			}
 		}
 		if skip {
+			queueChan <- 2 // skipped
 			continue
 		}
 		if logTimes {
@@ -989,44 +1003,51 @@ func (qm *ServerMgr) updateQueueWorker(id int, logTimes bool, taskChan <-chan *T
 			}
 			logger.Info(message)
 		}
-		queueChan <- isQueued
+		if isQueued {
+			queueChan <- 1 // ok
+		} else {
+			queueChan <- 0 // not queued
+		}
 	}
 }
 
+// updateQueueTask
+// returns skip if task is locked
 func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, times map[string]time.Duration, skip bool, err error) {
 	skip = false
-	var task_id Task_Unique_Identifier
-	task_id, err = task.GetId("updateQueueTask")
+	var taskID Task_Unique_Identifier
+	taskID, err = task.GetIDTimeout("updateQueueTask", time.Second*1)
 	if err != nil {
 		err = nil
 		skip = true
 		return
 	}
 
-	taskIDStr, _ := task_id.String()
+	var taskIDStr string
+	taskIDStr, _ = taskID.String()
 
-	var task_state string
-	task_state, err = task.GetState()
+	var taskState string
+	taskState, err = task.GetStateTimeout(time.Second * 1)
 	if err != nil {
 		err = nil
 		skip = true
 		return
 	}
 
-	switch task_state {
+	switch taskState {
 	case TASK_STAT_READY:
-		logger.Debug(3, "(updateQueueTask) task %s already has state %s, continue with enqueuing", taskIDStr, task_state)
+		logger.Debug(3, "(updateQueueTask) task %s already has state %s, continue with enqueuing", taskIDStr, taskState)
 	case TASK_STAT_INIT, TASK_STAT_PENDING:
-		logger.Debug(3, "(updateQueueTask) task %s has state %s, first check if ready", taskIDStr, task_state)
+		logger.Debug(3, "(updateQueueTask) task %s has state %s, first check if ready", taskIDStr, taskState)
 
-		var task_ready bool
+		var taskReady bool
 		var reason string
 		startIsReady := time.Now()
 
 		if logTimes {
 			times = make(map[string]time.Duration)
 		}
-		task_ready, reason, err = qm.isTaskReady(task_id, task)
+		taskReady, reason, skip, err = qm.isTaskReady(taskID, task)
 		if logTimes {
 			times["isTaskReady"] = time.Since(startIsReady)
 		}
@@ -1034,7 +1055,10 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 			err = fmt.Errorf("(updateQueueTask) qm.isTaskReady returned: %s", err.Error())
 			return
 		}
-		if !task_ready {
+		if skip {
+			return
+		}
+		if !taskReady {
 			_ = task.SetTaskNotReadyReason(reason, true)
 
 			logger.Debug(3, "(updateQueueTask) task not ready (%s): qm.isTaskReady returned reason: %s", taskIDStr, reason)
@@ -1043,20 +1067,20 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 		logger.Debug(3, "(updateQueueTask) task ready (%s)", taskIDStr)
 
 		// get new state
-		task_state, err = task.GetState()
+		taskState, err = task.GetState()
 		if err != nil {
 			return
 		}
 
 	default:
-		logger.Debug(3, "(updateQueueTask) skipping task %s , it has state %s", taskIDStr, task_state)
+		logger.Debug(3, "(updateQueueTask) skipping task %s , it has state %s", taskIDStr, taskState)
 		return
 	}
 
-	logger.Debug(3, "(updateQueueTask) task: %s (state: %s, added by %s)", taskIDStr, task_state, task.Comment)
+	logger.Debug(3, "(updateQueueTask) task: %s (state: %s, added by %s)", taskIDStr, taskState, task.Comment)
 
 	// task_ready
-	if task_state != TASK_STAT_READY {
+	if taskState != TASK_STAT_READY {
 		err = fmt.Errorf("(updateQueueTask) task is not ready !???!?")
 		return
 	}
@@ -1076,7 +1100,7 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 
 	startEnQueue := time.Now()
 	var teqTimes map[string]time.Duration
-	teqTimes, err = qm.taskEnQueue(task_id, task, job, logTimes)
+	teqTimes, err = qm.taskEnQueue(taskID, task, job, logTimes)
 	if logTimes {
 		for k, v := range teqTimes {
 			times[k] = v
@@ -1087,7 +1111,7 @@ func (qm *ServerMgr) updateQueueTask(task *Task, logTimes bool) (isQueued bool, 
 		xerr := err
 		err = nil
 
-		logger.Error("(updateQueueTask) (task_id: %s) suspending task, taskEnQueue returned: %s", taskIDStr, xerr.Error())
+		logger.Error("(updateQueueTask) (taskIDStr: %s) suspending task, taskEnQueue returned: %s", taskIDStr, xerr.Error())
 		err = task.SetState(nil, TASK_STAT_SUSPEND, true)
 		if err != nil {
 			return
@@ -1295,7 +1319,7 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 	//}
 
 	var job *Job
-	job, err = task.GetJob()
+	job, err = task.GetJob(time.Second * 30)
 	if err != nil {
 		err = fmt.Errorf("(handleLastWorkunit) GetJob returned: %s", err.Error())
 		return
@@ -1716,50 +1740,49 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	return
 }
 
+// GetJsonStatus _
 func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err error) {
-	queuing_work, err := qm.workQueue.Queue.Len()
+	queuingWork, err := qm.workQueue.Queue.Len()
 	if err != nil {
 		return
 	}
-	out_work, err := qm.workQueue.Checkout.Len()
+	var outWork int
+	outWork, err = qm.workQueue.Checkout.Len()
 	if err != nil {
+		err = fmt.Errorf("(GetJsonStatus) qm.workQueue.Checkout.Len returtned: %s", err.Error())
 		return
 	}
-	suspend_work, err := qm.workQueue.Suspend.Len()
+	var suspendWork int
+	suspendWork, err = qm.workQueue.Suspend.Len()
 	if err != nil {
+		err = fmt.Errorf("(GetJsonStatus) qm.workQueue.Suspend.Len returtned: %s", err.Error())
 		return
 	}
-	total_active_work, err := qm.workQueue.Len()
+	var totalActiveWork int
+	totalActiveWork, err = qm.workQueue.Len()
 	if err != nil {
+		err = fmt.Errorf("(GetJsonStatus) qm.workQueue.Len returtned: %s", err.Error())
 		return
 	}
-
-	//active_jobs := 0
-	//active_jobs := qm.lenActJobs()
-	//suspend_job := qm.lenSusJobs()
-	//total_job := active_jobs + suspend_job
-
-	//total_task := 0
-	//queuing_task := 0
-	//started_task := 0
-	//pending_task := 0
-	//completed_task := 0
-	//suspended_task := 0
-	//skipped_task := 0
-	//fail_skip_task := 0
 
 	// *** jobs ***
 	jobs := make(map[string]int)
 
-	var job_list []*Job
-	job_list, err = JM.Get_List(true)
-	jobs["total"] = len(job_list)
+	var jobList []*Job
+	jobList, err = JM.Get_List(true)
+	if err != nil {
+		err = fmt.Errorf("(GetJsonStatus) JM.Get_List returtned: %s", err.Error())
+		return
+	}
+	jobs["total"] = len(jobList)
 
-	for _, job := range job_list {
+	for _, job := range jobList {
 
-		job_state, _ := job.GetState(true)
-
-		jobs[job_state] += 1
+		jobState, terr := job.GetStateTimeout(true, time.Second*1)
+		if terr != nil {
+			jobState = "unknown"
+		}
+		jobs[jobState]++
 
 	}
 
@@ -1767,17 +1790,21 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 
 	tasks := make(map[string]int)
 
-	task_list, err := qm.TaskMap.GetTasks()
+	taskList, err := qm.TaskMap.GetTasks()
 	if err != nil {
 		return
 	}
-	tasks["total"] = len(task_list)
+	tasks["total"] = len(taskList)
 
-	for _, task := range task_list {
+	for _, task := range taskList {
 
-		task_state, _ := task.GetState()
+		taskState, terr := task.GetStateTimeout(time.Second * 1)
 
-		tasks[task_state] += 1
+		if terr != nil {
+			taskState = "unknown"
+		}
+
+		tasks[taskState]++
 
 		// total_task += 1
 
@@ -1800,28 +1827,36 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 	}
 	//total_task -= skipped_task // user doesn't see skipped tasks
 
-	total_client := 0
-	busy_client := 0
-	idle_client := 0
-	suspend_client := 0
+	// totalClient := 0
+	// busyClient := 0
+	// idleClient := 0
+	// suspendClient := 0
 
-	client_list, err := qm.clientMap.GetClients()
+	clientStates := make(map[string]int)
+
+	clientList, err := qm.clientMap.GetClients()
 	if err != nil {
 		return
 	}
 
-	for _, client := range client_list {
-		total_client += 1
+	totalClient := len(clientList)
+	for _, client := range clientList {
 
-		if client.Suspended {
-			suspend_client += 1
-		}
-		if client.Busy {
-			busy_client += 1
-		} else {
-			idle_client += 1
-		}
+		clientStates[client.Status]++
+
+		// if ! client.Healty
+
+		// if client.Suspended {
+		// 	suspendClient++
+		// }
+		// if client.Busy {
+		// 	busyClient++
+		// } else {
+		// 	idleClient++
+		// }
+
 	}
+	clientStates["total"] = totalClient
 
 	//jobs := map[string]int{
 	//	"total":     total_job,
@@ -1838,26 +1873,27 @@ func (qm *ServerMgr) GetJsonStatus() (status map[string]map[string]int, err erro
 	// 	"failed":      fail_skip_task,
 	// }
 	workunits := map[string]int{
-		"total":     total_active_work,
-		"queuing":   queuing_work,
-		"checkout":  out_work,
-		"suspended": suspend_work,
+		"total":     totalActiveWork,
+		"queuing":   queuingWork,
+		"checkout":  outWork,
+		"suspended": suspendWork,
 	}
-	clients := map[string]int{
-		"total":     total_client,
-		"busy":      busy_client,
-		"idle":      idle_client,
-		"suspended": suspend_client,
-	}
+	// clients := map[string]int{
+	// 	"total":     totalClient,
+	// 	"busy":      busyClient,
+	// 	"idle":      idleClient,
+	// 	"suspended": suspendClient,
+	// }
 	status = map[string]map[string]int{
 		"jobs":      jobs,
 		"tasks":     tasks,
 		"workunits": workunits,
-		"clients":   clients,
+		"clients":   clientStates,
 	}
 	return
 }
 
+// GetTextStatus _ TODO: this will not reflect all states. Get rid of this, difficult to maintain!
 func (qm *ServerMgr) GetTextStatus() string {
 	status, _ := qm.GetJsonStatus() // TODO handle error
 	statMsg := "++++++++AWE server queue status++++++++\n" +
@@ -1886,6 +1922,7 @@ func (qm *ServerMgr) GetTextStatus() string {
 //---end of mgr methods
 
 //--workunit methds (servermgr implementation)
+// FetchDataToken _
 func (qm *ServerMgr) FetchDataToken(work_id Workunit_Unique_Identifier, clientid string) (token string, err error) {
 
 	//precheck if the client is registered
@@ -2323,14 +2360,17 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 
 // check whether a pending task is ready to enqueue (dependent tasks are all done)
 // task is not locked
-func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (ready bool, reason string, err error) {
+func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (ready bool, reason string, skip bool, err error) {
 	ready = false
+	skip = false
 
 	reason = "all ok"
 	logger.Debug(3, "(isTaskReady) starting")
 
-	task_state, err := task.GetStateNamed("isTaskReady")
+	task_state, err := task.GetStateNamedTimeout("isTaskReady", time.Second*1)
 	if err != nil {
+		err = nil
+		skip = true
 		return
 	}
 	logger.Debug(3, "(isTaskReady) task state at start is %s", task_state)
@@ -2362,8 +2402,10 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 	//	return
 	//}
 
-	job, err := task.GetJob()
+	job, err := task.GetJob(time.Second * 1)
 	if err != nil {
+		skip = true
+		err = nil
 		return
 	}
 	job_state, err := job.GetState(true)
@@ -3025,7 +3067,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 	// add tasks to job and submit
 	for i := range new_scatter_tasks {
 		sub_task := new_scatter_tasks[i]
-		sub_task_id, _ := sub_task.GetId("taskEnQueueScatter")
+		sub_task_id, _ := sub_task.GetID("taskEnQueueScatter")
 		sub_taskIDStr, _ := sub_task_id.String()
 		logger.Debug(3, "(taskEnQueueScatter) adding %s to workflow_instance", sub_taskIDStr)
 		err = workflowInstance.AddTask(job, sub_task, DbSyncTrue, true)
@@ -3738,7 +3780,7 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflowInstance *Workflow
 		}
 		if taskState != TASK_STAT_COMPLETED {
 
-			taskID, _ := task.GetId("isSourceGeneratorReady")
+			taskID, _ := task.GetID("isSourceGeneratorReady")
 			taskIDStr, _ := taskID.String()
 			reason = fmt.Sprintf("(isSourceGeneratorReady) dependent task %s has state %s (srcGenerator=%s)", taskIDStr, taskState, srcGenerator)
 			logger.Debug(3, "(isSourceGeneratorReady) srcGenerator not ready: %s (reason=%s)", srcGenerator, reason)
@@ -5373,7 +5415,7 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 	}
 
 	var job *Job
-	job, err = task.GetJob()
+	job, err = task.GetJob(time.Second * 90)
 	if err != nil {
 		err = fmt.Errorf("(taskCompleted) task.GetJob returned: %s", err.Error())
 		return
@@ -5428,6 +5470,12 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 
 	} else { // end task.Scatter_parent != nil
 		logger.Debug(3, "(taskCompleted) %s  No Scatter_parent", taskStr)
+	}
+
+	err = task.SetState(wi, TASK_STAT_COMPLETED, true)
+	if err != nil {
+		err = fmt.Errorf("(taskCompleted) task.SetState returned: %s", err.Error())
+		return
 	}
 
 	// ******************
@@ -5569,7 +5617,7 @@ func (qm *ServerMgr) finalizeJob(job *Job) (err error) {
 		modified += task.DeleteInput()
 		//combined_id := jobid + "_" + task.Id
 
-		id, _ := task.GetId("updateJobTask." + strconv.Itoa(i))
+		id, _ := task.GetID("updateJobTask." + strconv.Itoa(i))
 
 		_, _, err = qm.TaskMap.Delete(id)
 		if err != nil {
@@ -6246,7 +6294,7 @@ func isAncestor(job *Job, taskId string, testId string) (result bool, err error)
 func (qm *ServerMgr) UpdateQueueToken(job *Job) (err error) {
 	//job_id := job.ID
 	for _, task := range job.Tasks {
-		task_id, _ := task.GetId("UpdateQueueToken")
+		task_id, _ := task.GetID("UpdateQueueToken")
 		mtask, ok, err := qm.TaskMap.Get(task_id, true)
 		if err != nil {
 			return err

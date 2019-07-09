@@ -9,27 +9,27 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-func dbUpdateTaskFields(job_id string, workflow_instance_id string, task_id string, update_value bson.M) (err error) {
+func dbUpdateTaskFields(jobID string, workflowInstanceID string, taskID string, updateValue bson.M) (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 
 	database := conf.DB_COLL_JOBS
-	if workflow_instance_id != "" {
+	if workflowInstanceID != "" {
 		database = conf.DB_COLL_SUBWORKFLOWS
 	}
 
 	c := session.DB(conf.MONGODB_DATABASE).C(database)
 
-	unique_id := job_id + "_" + workflow_instance_id
-	selector := bson.M{"_id": unique_id, "tasks.taskid": task_id}
-	update_op := bson.M{"$set": update_value}
+	uniqueID := jobID + "_" + workflowInstanceID
+	selector := bson.M{"_id": uniqueID, "tasks.taskid": taskID}
+	updateOp := bson.M{"$set": updateValue}
 
 	//fmt.Println("(dbUpdateTaskFields) update_value:")
 	//spew.Dump(update_value)
 
-	err = c.Update(selector, update_op)
+	err = c.Update(selector, updateOp)
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobTaskFields) (db: %s) Error updating task %s (unique_id: %s): %s", database, task_id, unique_id, err.Error())
+		err = fmt.Errorf("(dbUpdateJobTaskFields) (db: %s) Error updating task %s (uniqueID: %s): %s", database, taskID, uniqueID, err.Error())
 		return
 	}
 	return

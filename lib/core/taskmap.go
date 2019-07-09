@@ -11,6 +11,7 @@ type TaskMap struct {
 	_map map[Task_Unique_Identifier]*Task
 }
 
+// NewTaskMap _
 func NewTaskMap() (t *TaskMap) {
 	t = &TaskMap{
 		_map: make(map[Task_Unique_Identifier]*Task),
@@ -22,53 +23,57 @@ func NewTaskMap() (t *TaskMap) {
 
 //--------task accessor methods-------
 
+// Len _
 func (tm *TaskMap) Len() (length int, err error) {
-	read_lock, err := tm.RLockNamed("Len")
+	readLock, err := tm.RLockNamed("Len")
 	if err != nil {
 		return
 	}
-	defer tm.RUnlockNamed(read_lock)
+	defer tm.RUnlockNamed(readLock)
 	length = len(tm._map)
 	return
 }
 
+// Get _
 func (tm *TaskMap) Get(taskid Task_Unique_Identifier, lock bool) (task *Task, ok bool, err error) {
 	if lock {
-		read_lock, xerr := tm.RLockNamed("Get")
+		readLock, xerr := tm.RLockNamed("Get")
 		if xerr != nil {
 			err = xerr
 			return
 		}
-		defer tm.RUnlockNamed(read_lock)
+		defer tm.RUnlockNamed(readLock)
 	}
 
 	task, ok = tm._map[taskid]
 	return
 }
 
+// Has _
 func (tm *TaskMap) Has(taskid Task_Unique_Identifier, lock bool) (ok bool, err error) {
 	if lock {
-		read_lock, xerr := tm.RLockNamed("Get")
+		readLock, xerr := tm.RLockNamed("Has")
 		if xerr != nil {
 			err = xerr
 			return
 		}
-		defer tm.RUnlockNamed(read_lock)
+		defer tm.RUnlockNamed(readLock)
 	}
 
 	_, ok = tm._map[taskid]
 	return
 }
 
+// GetTasks _
 func (tm *TaskMap) GetTasks() (tasks []*Task, err error) {
 
 	tasks = []*Task{}
 
-	read_lock, err := tm.RLockNamed("GetTasks")
+	readLock, err := tm.RLockNamed("GetTasks")
 	if err != nil {
 		return
 	}
-	defer tm.RUnlockNamed(read_lock)
+	defer tm.RUnlockNamed(readLock)
 
 	for _, task := range tm._map {
 		tasks = append(tasks, task)
@@ -77,6 +82,7 @@ func (tm *TaskMap) GetTasks() (tasks []*Task, err error) {
 	return
 }
 
+// Delete _
 func (tm *TaskMap) Delete(taskid Task_Unique_Identifier) (task *Task, ok bool, err error) {
 	err = tm.LockNamed("Delete")
 	if err != nil {
@@ -87,6 +93,7 @@ func (tm *TaskMap) Delete(taskid Task_Unique_Identifier) (task *Task, ok bool, e
 	return
 }
 
+// Add _
 func (tm *TaskMap) Add(task *Task, caller string) (err error) {
 
 	//if task.Comment != "" {
@@ -107,7 +114,7 @@ func (tm *TaskMap) Add(task *Task, caller string) (err error) {
 	defer tm.Unlock()
 
 	var id Task_Unique_Identifier
-	id, err = task.GetId("TaskMap/Add")
+	id, err = task.GetID("TaskMap/Add")
 	if err != nil {
 		err = fmt.Errorf("(TaskMap/Add) task.GetId returned: %s", err.Error())
 		return

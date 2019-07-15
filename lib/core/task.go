@@ -1695,7 +1695,8 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog, err error) {
 	return
 }
 
-func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
+// ValidateDependants _
+func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, skip bool, err error) {
 	lock, err := task.RLockNamed("ValidateDependants")
 	if err != nil {
 		return
@@ -1707,22 +1708,25 @@ func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
 		var preId Task_Unique_Identifier
 		preId, err = New_Task_Unique_Identifier_FromString(preTaskStr)
 		if err != nil {
-			err = fmt.Errorf("(ValidateDependants) New_Task_Unique_Identifier_FromString returns: %s", err.Error())
+			err = fmt.Errorf("(ValidateDependants) (field DependsOn) New_Task_Unique_Identifier_FromString returns: %s", err.Error())
 			return
 		}
 		preTask, ok, xerr := qm.TaskMap.Get(preId, true)
 		if xerr != nil {
-			err = fmt.Errorf("(ValidateDependants) predecessor task %s not found for task %s: %s", preTaskStr, task.Id, xerr.Error())
+			err = fmt.Errorf("(ValidateDependants) (field DependsOn) predecessor task %s not found for task %s: %s", preTaskStr, task.Id, xerr.Error())
 			return
 		}
 		if !ok {
-			reason = fmt.Sprintf("(ValidateDependants) predecessor task not found: task=%s, pretask=%s", task.Id, preTaskStr)
+			reason = fmt.Sprintf("(ValidateDependants) (field DependsOn) predecessor task not found: task=%s, pretask=%s", task.Id, preTaskStr)
 			logger.Debug(3, reason)
 			return
 		}
-		preTaskState, xerr := preTask.GetState()
-		if xerr != nil {
-			err = fmt.Errorf("(ValidateDependants) unable to get state for predecessor task %s: %s", preTaskStr, xerr.Error())
+		var preTaskState string
+		preTaskState, err = preTask.GetStateTimeout(time.Second * 1)
+		if err != nil {
+			err = nil
+			skip = true
+			//err = fmt.Errorf("(ValidateDependants) (field DependsOn) unable to get state for predecessor task %s: %s", preTaskStr, xerr.Error())
 			return
 		}
 		if preTaskState != TASK_STAT_COMPLETED {
@@ -1740,28 +1744,31 @@ func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
 		var preId Task_Unique_Identifier
 		preId, err = New_Task_Unique_Identifier(task.JobId, io.Origin)
 		if err != nil {
-			err = fmt.Errorf("(ValidateDependants) New_Task_Unique_Identifier returns: %s", err.Error())
+			err = fmt.Errorf("(ValidateDependants) (field Inputs) New_Task_Unique_Identifier returns: %s", err.Error())
 			return
 		}
 		var preTaskStr string
 		preTaskStr, err = preId.String()
 		if err != nil {
-			err = fmt.Errorf("(ValidateDependants) task.String returned: %s", err.Error())
+			err = fmt.Errorf("(ValidateDependants) (field Inputs) task.String returned: %s", err.Error())
 			return
 		}
 		preTask, ok, xerr := qm.TaskMap.Get(preId, true)
 		if xerr != nil {
-			err = fmt.Errorf("(ValidateDependants) predecessor task %s not found for task %s: %s", preTaskStr, task.Id, xerr.Error())
+			err = fmt.Errorf("(ValidateDependants) (field Inputs) predecessor task %s not found for task %s: %s", preTaskStr, task.Id, xerr.Error())
 			return
 		}
 		if !ok {
-			reason = fmt.Sprintf("(ValidateDependants) predecessor task not found: task=%s, pretask=%s", task.Id, preTaskStr)
+			reason = fmt.Sprintf("(ValidateDependants) (field Inputs) predecessor task not found: task=%s, pretask=%s", task.Id, preTaskStr)
 			logger.Debug(3, reason)
 			return
 		}
-		preTaskState, xerr := preTask.GetState()
-		if xerr != nil {
-			err = fmt.Errorf("(ValidateDependants) unable to get state for predecessor task %s: %s", preTaskStr, xerr.Error())
+		var preTaskState string
+		preTaskState, err = preTask.GetStateTimeout(time.Second * 1)
+		if err != nil {
+			err = nil
+			skip = true
+			//err = fmt.Errorf("(ValidateDependants) (field Inputs) unable to get state for predecessor task %s: %s", preTaskStr, xerr.Error())
 			return
 		}
 		if preTaskState != TASK_STAT_COMPLETED {

@@ -2383,9 +2383,12 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 
 	if task.WorkflowStep == nil {
 		// task read lock, check DependsOn list and IO.Origin list
-		reason, err = task.ValidateDependants(qm)
+		reason, skip, err = task.ValidateDependants(qm)
 		if err != nil {
 			err = fmt.Errorf("(isTaskReady) %s", err.Error())
+			return
+		}
+		if skip {
 			return
 		}
 		if reason != "" {

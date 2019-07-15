@@ -79,17 +79,63 @@ func mainWrapper() (err error) {
 	//for _, value := range conf.ARGS {
 	//	println(value)
 	//}
+	jobFile := ""
 
 	if conf.SUBMITTER_UPLOAD_INPUT {
+		jobFile = conf.ARGS[0]
+
+		inputfilePath := path.Dir(jobFile)
+
+		var jobDoc *cwl.Job_document
+
+		jobDoc, err = cwl.ParseJobFile(jobFile)
+		if err != nil {
+			err = fmt.Errorf("error parsing cwl job: %s", err.Error())
+			return
+		}
+
+		shockClient := shock.NewShockClient(conf.SHOCK_URL, shockAuth, false)
+		shockClient.Debug = true
+		var uploadCount int
+		//var jobData []byte
+
+		uploadCount, err = cache.ProcessIOData(jobDoc, inputfilePath, inputfilePath, "upload", shockClient, true)
+		if err != nil {
+			err = fmt.Errorf("(mainWrapper) ProcessIOData(for upload) returned: %s", err.Error())
+			return
+		}
+
+		logger.Debug(3, "%d files have been uploaded\n", uploadCount)
+		//time.Sleep(2)
+
+		//spew.Dump(*job_doc)
+		jobDocMap := jobDoc.GetMap()
+
+		var jobData []byte
+		jobData, err = yaml.Marshal(jobDocMap)
+		if err != nil {
+			return
+		}
+
+		fmt.Printf("%s", jobData)
 
 		return
 	}
 
 	var tempfileName string
-	var jobFile string
-	var jobData []byte
-	tempfileName, jobFile, jobData, err = createNormalizedSubmisson(aweAuth, shockAuth)
 
+	//fmt.Printf("conf.ARGS: %d\n", conf.ARGS)
+	if len(conf.ARGS) >= 2 {
+		jobFile = conf.ARGS[1]
+		//fmt.Printf("jobFile: %s\n", jobFile)
+	}
+
+	var jobData []byte
+	tempfileName, jobData, err = createNormalizedSubmisson(aweAuth, shockAuth, conf.ARGS[0], jobFile)
+	if err != nil {
+		err = fmt.Errorf("(mainWrapper) createNormalizedSubmisson returned: %s", err.Error())
+		return
+	}
 	// ### Submit job to AWE
 	var jobid string
 	var entrypoint string
@@ -114,10 +160,9 @@ func mainWrapper() (err error) {
 	return
 }
 
-func createNormalizedSubmisson(aweAuth string, shockAuth string) (tempfileName string, jobFile string, jobData []byte, err error) {
+func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile string, jobFile string) (tempfileName string, jobData []byte, err error) {
 
-	workflowFile := conf.ARGS[0]
-	jobFile = ""
+	//workflowFile := conf.ARGS[0]
 
 	inputfilePath := ""
 	//fmt.Printf("job path: %s\n", inputfile_path) // needed to resolve relative paths
@@ -125,8 +170,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string) (tempfileName s
 	// ### parse job file
 	var jobDoc *cwl.Job_document
 
-	if len(conf.ARGS) >= 2 {
-		jobFile = conf.ARGS[1]
+	if jobFile != "" {
 
 		inputfilePath = path.Dir(jobFile)
 
@@ -146,12 +190,15 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string) (tempfileName s
 
 	//job_doc_map["test"] = cwl.NewNull()
 
-	//fmt.Println("Job input after reading from file: map !!!!\n")
-	//spew.Dump(job_doc_map)
-
+	// if conf.DEBUG_LEVEL >= 3 {
+	// 	fmt.Println("Job input after reading from file: map !!!!\n")
+	// 	spew.Dump(jobDocMap)
+	// }
 	//var jobData []byte
 
-	if false {
+	if conf.DEBUG_LEVEL >= 3 {
+		fmt.Printf("jobFile: \"%s\"\n", jobFile)
+
 		jobDocMap = jobDoc.GetMap()
 		jobData, err = yaml.Marshal(jobDocMap)
 		if err != nil {
@@ -171,7 +218,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string) (tempfileName s
 	uploadCount := 0
 
 	if jobFile != "" {
-		uploadCount, err = cache.ProcessIOData(jobDoc, inputfilePath, inputfilePath, "upload", shockClient)
+		uploadCount, err = cache.ProcessIOData(jobDoc, inputfilePath, inputfilePath, "upload", shockClient, true)
 		if err != nil {
 			err = fmt.Errorf("(createNormalizedSubmisson) A) ProcessIOData(for upload) returned: %s", err.Error())
 			return
@@ -233,7 +280,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string) (tempfileName s
 	// A) search for File objects in Document, e.g. in CommandLineTools
 
 	subUploadCount := 0
-	subUploadCount, err = cache.ProcessIOData(namedObjectArray, inputfilePath, inputfilePath, "upload", shockClient)
+	subUploadCount, err = cache.ProcessIOData(namedObjectArray, inputfilePath, inputfilePath, "upload", shockClient, true)
 	if err != nil {
 		err = fmt.Errorf("(createNormalizedSubmisson) B) ProcessIOData(for upload) returned: %s", err.Error())
 		return
@@ -242,7 +289,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string) (tempfileName s
 
 	if context.Schemas != nil {
 		subUploadCount := 0
-		subUploadCount, err = cache.ProcessIOData(context.Schemas, inputfilePath, inputfilePath, "upload", shockClient)
+		subUploadCount, err = cache.ProcessIOData(context.Schemas, inputfilePath, inputfilePath, "upload", shockClient, true)
 		if err != nil {
 			err = fmt.Errorf("(createNormalizedSubmisson) C) ProcessIOData(for upload) returned: %s", err.Error())
 			return
@@ -484,7 +531,7 @@ FORLOOP:
 		var outputFilePath string
 		outputFilePath, err = os.Getwd()
 
-		_, err = cache.ProcessIOData(outputReceipt, outputFilePath, outputFilePath, "download", nil)
+		_, err = cache.ProcessIOData(outputReceipt, outputFilePath, outputFilePath, "download", nil, true)
 		if err != nil {
 			spew.Dump(outputReceipt)
 			err = fmt.Errorf("(Wait_for_results) ProcessIOData(for download) returned: %s", err.Error())
@@ -520,7 +567,7 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, jobData *[]byte, awe
 
 	err = multipart.AddFile("cwl", workflowFile)
 	if err != nil {
-		err = fmt.Errorf("(SubmitCWLJobToAWE) multipart.AddFile returned: %s", err.Error())
+		err = fmt.Errorf("(SubmitCWLJobToAWE) multipart.AddFile returned: %s (workflowFile=%s)", err.Error(), workflowFile)
 		return
 	}
 

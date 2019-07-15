@@ -232,6 +232,7 @@ func (file *File) UpdateComponents(filename string) {
 
 // SetPath _
 func (file *File) SetPath(pathStr string) {
+	//fmt.Printf("(SetPath) %s\n", pathStr)
 	oldPath := file.Path
 	file.Path = pathStr
 
@@ -249,7 +250,7 @@ func (file *File) SetPath(pathStr string) {
 
 	}
 	//fmt.Printf("file.Path: %s\n", file.Path)
-
+	return
 }
 
 // GetSecondaryFilesArray returns array<File | Directory>

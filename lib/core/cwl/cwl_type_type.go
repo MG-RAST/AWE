@@ -26,15 +26,17 @@ func (s CWLType_Type_Basic) Type2String() string { return string(s) }
 func (s CWLType_Type_Basic) GetID() string { return "" }
 
 // NewCWLType_TypeFromString _
-func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context string) (result CWLType_Type, err error) {
+func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context string) (result []CWLType_Type, err error) {
 
 	if native == "" {
 		err = fmt.Errorf("(NewCWLType_TypeFromString) string is empty")
 		return
 	}
 
+	result = []CWLType_Type{}
+
 	if strings.HasPrefix(native, "#") {
-		result = NewPointerFromstring(native)
+		result = append(result, NewPointerFromstring(native))
 
 		return
 	}
@@ -43,22 +45,30 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 
 	if strings.Contains(native, "#") {
 		//fmt.Printf("(NewCWLType_TypeFromString) contains\n")
-		result = NewPointerFromstring(native)
+		result = append(result, NewPointerFromstring(native))
 		return
 	} //else {
 	//fmt.Printf("(NewCWLType_TypeFromString) does not contain\n")
 	//}
 
+	if strings.HasSuffix(native, "?") { // optional argument
+		native = strings.TrimSuffix(native, "?")
+		result = append(result, CWLNull)
+	}
+
 	if !strings.HasSuffix(native, "[]") {
 
 		var ok bool
-		result, ok = IsValidType(native)
+		var basicResult CWLType_Type
+		basicResult, ok = IsValidType(native)
 
 		if !ok {
 
 			err = fmt.Errorf("(NewCWLType_TypeFromString) type %s unkown", native)
 			return
 		}
+
+		result = append(result, basicResult)
 
 		return
 	}
@@ -78,35 +88,43 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 	}
 
 	// recurse:
-	var baseType CWLType_Type
-	baseType, err = NewCWLType_TypeFromString(schemata, baseTypeStr, context)
+	var baseTypeArray []CWLType_Type
+	baseTypeArray, err = NewCWLType_TypeFromString(schemata, baseTypeStr, context)
 	if err != nil {
 		err = fmt.Errorf("(NewCWLType_TypeFromString) recurisve call of NewCWLType_TypeFromString returned: %s", err.Error())
 		return
 	}
 
 	arraySchema := ArraySchema{}
-	arraySchema.Items = []CWLType_Type{baseType}
+	arraySchema.Items = baseTypeArray
 	switch context {
 
 	case "Output":
 
 		oas := NewOutputArraySchema()
-		oas.Items = []CWLType_Type{baseType}
-		result = oas
+		oas.Items = baseTypeArray
+		result = []CWLType_Type{oas}
 		return
 	case "CommandInput":
 
 		cias := NewCommandInputArraySchema()
 		cias.ArraySchema = arraySchema
 		//cias.ArraySchema.Items = []CWLType_Type{baseType}
-		result = cias
+		result = []CWLType_Type{cias}
+		return
+
+	case "CommandOutput":
+
+		cias := NewCommandOutputArraySchema()
+		cias.ArraySchema = arraySchema
+
+		result = []CWLType_Type{cias}
 		return
 
 	case "Input":
 		ias := NewInputArraySchema()
 		ias.ArraySchema = arraySchema
-		result = ias
+		result = []CWLType_Type{ias}
 		return
 
 	default:
@@ -116,7 +134,8 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 	return
 }
 
-func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p string, context *WorkflowContext) (result CWLType_Type, err error) {
+// NewCWLType_Type _
+func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p string, context *WorkflowContext) (result []CWLType_Type, err error) {
 
 	native, err = MakeStringMap(native, context)
 	if err != nil {
@@ -182,30 +201,38 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 
 			switch context_p {
 			case "Input":
-				result, err = NewInputArraySchemaFromInterface(native, schemata, context)
+				var schema *InputArraySchema
+				schema, err = NewInputArraySchemaFromInterface(native, schemata, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLType_Type) NewInputArraySchemaFromInterface returned: %s", err.Error())
 				}
+				result = append(result, schema)
 				return
 			case "Output", "ExpressionToolOutput":
-				result, err = NewOutputArraySchemaFromInterface(native, schemata, context)
+				var schema *OutputArraySchema
+				schema, err = NewOutputArraySchemaFromInterface(native, schemata, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLType_Type) NewOutputArraySchemaFromInterface returned: %s", err.Error())
 				}
+				result = append(result, schema)
 				return
 			case "CommandOutput": // CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema
-				result, err = NewCommandOutputArraySchemaFromInterface(native, schemata, context)
+				var schema *CommandOutputArraySchema
+				schema, err = NewCommandOutputArraySchemaFromInterface(native, schemata, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandOutputArraySchemaFromInterface returned: %s", err.Error())
 				}
+				result = append(result, schema)
 				return
 			case "CommandInput":
-				result, err = NewCommandInputArraySchemaFromInterface(native, schemata, context)
+				var schema *CommandInputArraySchema
+				schema, err = NewCommandInputArraySchemaFromInterface(native, schemata, context)
 				if err != nil {
 					fmt.Println("NewCWLType_Type calls NewCommandInputArraySchemaFromInterface")
 					spew.Dump(native)
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputArraySchemaFromInterface returned: %s", err.Error())
 				}
+				result = append(result, schema)
 				return
 			default:
 				err = fmt.Errorf("(NewCWLType_Type) array, context_p %s unknown", context_p)
@@ -216,29 +243,38 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 
 			switch context_p {
 			case "Input": // InputRecordSchema
-				result, err = NewInputRecordSchemaFromInterface(native, schemata, context)
+				var schema *InputRecordSchema
+				schema, err = NewInputRecordSchemaFromInterface(native, schemata, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLType_Type) NewInputRecordSchemaFromInterface returned: %s", err.Error())
 				}
+				result = append(result, schema)
 				return
 			case "CommandInput":
-				result, err = NewCommandInputRecordSchemaFromInterface(native, schemata, context)
+				var schema *CommandInputRecordSchema
+				schema, err = NewCommandInputRecordSchemaFromInterface(native, schemata, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputRecordSchemaFromInterface returned: %s", err.Error())
 				}
+				result = append(result, schema)
+				return
 			case "CommandOutput":
-
-				result, err = NewCommandOutputRecordSchemaFromInterface(native, schemata, context)
+				var schema *CommandOutputRecordSchema
+				schema, err = NewCommandOutputRecordSchemaFromInterface(native, schemata, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandOutputRecordSchemaFromInterface returned: %s", err.Error())
 				}
+				result = append(result, schema)
+				return
 
 			case "Output", "ExpressionToolOutput":
-
-				result, err = NewOutputRecordSchemaFromInterface(native, schemata, context)
+				var schema *OutputRecordSchema
+				schema, err = NewOutputRecordSchemaFromInterface(native, schemata, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLType_Type) NewOutputRecordSchemaFromInterface returned: %s", err.Error())
 				}
+				result = append(result, schema)
+				return
 
 			default:
 				err = fmt.Errorf("(NewCWLType_Type) record, context %s unknown", context_p)
@@ -249,22 +285,28 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 
 			switch context_p {
 			case "Input":
-				result, err = NewInputEnumSchemaFromInterface(native, context)
+				var schema *InputEnumSchema
+				schema, err = NewInputEnumSchemaFromInterface(native, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLType_Type) NewInputEnumSchemaFromInterface returned: %s", err.Error())
 				}
+				result = append(result, schema)
 				return
 			case "Output", "ExpressionToolOutput":
-				result, err = NewOutputEnumSchemaFromInterface(native, context)
+				var schema *OutputEnumSchema
+				schema, err = NewOutputEnumSchemaFromInterface(native, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLType_Type) NewInputEnumSchemaFromInterface returned: %s", err.Error())
 				}
+				result = append(result, schema)
 				return
 			case "CommandInput":
-				result, err = NewCommandInputEnumSchemaFromInterface(native, context)
+				var schema *CommandInputEnumSchema
+				schema, err = NewCommandInputEnumSchemaFromInterface(native, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputEnumSchemaFromInterface returned: %s", err.Error())
 				}
+				result = append(result, schema)
 				return
 			default:
 				err = fmt.Errorf("(NewCWLType_Type) enum, context_p %s unknown", context_p)
@@ -278,17 +320,20 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 			return
 		}
 	case OutputArraySchema:
-		result = native.(OutputArraySchema)
+		schema := native.(OutputArraySchema)
+		result = append(result, schema)
 		return
 	case *OutputArraySchema:
-		oas_p := native.(*OutputArraySchema)
-		result = *oas_p
+		oasP := native.(*OutputArraySchema)
+		result = append(result, *oasP)
+		//result = *oas_p
 	case *OutputRecordSchema:
-		ors_p := native.(*OutputRecordSchema)
-		result = ors_p
+		orsP := native.(*OutputRecordSchema)
+		result = append(result, orsP)
 	case *CommandOutputArraySchema:
-		coas_p := native.(*CommandOutputArraySchema)
-		result = coas_p
+		coasP := native.(*CommandOutputArraySchema)
+
+		result = append(result, coasP)
 	default:
 		spew.Dump(native)
 		err = fmt.Errorf("(NewCWLType_Type) type %s unkown", reflect.TypeOf(native))
@@ -298,7 +343,8 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 	return
 }
 
-func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, context_p string, pass_schemata_along bool, context *WorkflowContext) (result []CWLType_Type, err error) {
+// NewCWLType_TypeArray _
+func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, contextP string, passSchemataAlong bool, context *WorkflowContext) (result []CWLType_Type, err error) {
 
 	native, err = MakeStringMap(native, context)
 	if err != nil {
@@ -308,61 +354,71 @@ func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, context_p
 	switch native.(type) {
 	case map[string]interface{}:
 
-		original_map := native.(map[string]interface{})
+		originalMap := native.(map[string]interface{})
 
-		var new_type CWLType_Type
-		new_type, err = NewCWLType_Type(schemata, original_map, context_p, context)
+		//var newTypeArray []CWLType_Type
+		result, err = NewCWLType_Type(schemata, originalMap, contextP, context)
 
 		if err != nil {
 			err = fmt.Errorf("(NewCWLType_TypeArray) NewCWLType_Type returns: %s", err.Error())
 			return
 		}
 
-		result = []CWLType_Type{new_type}
+		//result = newTypeArray
 		return
 
 	case string:
-		native_str := native.(string)
+		nativeStr := native.(string)
 
-		var a_type CWLType_Type
-		a_type, err = NewCWLType_TypeFromString(schemata, native_str, context_p)
+		//var a_type CWLType_Type
+		result, err = NewCWLType_TypeFromString(schemata, nativeStr, contextP)
 		if err != nil {
 			return
 		}
-		result = []CWLType_Type{a_type}
+		//result = []CWLType_Type{a_type}
 
 	case []string:
 
 		nativeArray := native.([]string)
-		type_array := []CWLType_Type{}
-		for _, element_str := range nativeArray {
-			var element_type CWLType_Type
-			element_type, err = NewCWLType_TypeFromString(schemata, element_str, context_p)
+		//type_array := []CWLType_Type{}
+		for _, elementStr := range nativeArray {
+			var elementStrArray []CWLType_Type
+			elementStrArray, err = NewCWLType_TypeFromString(schemata, elementStr, contextP)
 			if err != nil {
 				return
 			}
-			type_array = append(type_array, element_type)
+			for _, element := range elementStrArray {
+				result = append(result, element)
+			}
+
 		}
 
-		result = type_array
+		//result = type_array
+		return
 
 	case []interface{}:
 
 		nativeArray := native.([]interface{})
-		type_array := []CWLType_Type{}
-		for _, element_str := range nativeArray {
-			var element_type CWLType_Type
-			element_type, err = NewCWLType_Type(schemata, element_str, context_p, context)
+		//type_array := []CWLType_Type{}
+		for _, elementStr := range nativeArray {
+			//var element_type CWLType_Type
+			var elementStrArray []CWLType_Type
+			elementStrArray, err = NewCWLType_Type(schemata, elementStr, contextP, context)
 			if err != nil {
 				return
 			}
-			type_array = append(type_array, element_type)
-			if pass_schemata_along {
-				schemata = append(schemata, element_type)
+			for _, element := range elementStrArray {
+				result = append(result, element)
+				if passSchemataAlong {
+					schemata = append(schemata, element)
+				}
 			}
+			//type_array = append(type_array, element_type)
+
 		}
 
-		result = type_array
+		//result = type_array
+		return
 
 	case []CWLType_Type:
 		result = native.([]CWLType_Type)

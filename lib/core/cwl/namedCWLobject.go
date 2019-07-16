@@ -7,7 +7,7 @@ import (
 
 type NamedCWLObject struct {
 	CWL_id_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides id
-	Value       CWLObject                                                            `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
+	Value       CWLObject                                                             `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
 }
 
 //type NamedCWLObject_array []NamedCWLObject
@@ -59,7 +59,7 @@ func NewNamedCWLObject_from_interface(original interface{}, context *WorkflowCon
 		}
 
 		var obj CWLObject
-		obj, schemata, err = NewCWLObject(value, nil, context)
+		obj, schemata, err = NewCWLObject(value, "", nil, context)
 		if err != nil {
 			err = fmt.Errorf("(NewNamedCWLObject_from_interface) NewCWLObject returned: %s", err.Error())
 			return

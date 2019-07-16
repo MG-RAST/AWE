@@ -26,8 +26,8 @@ func (p *ProcessPointer) Is_process() {}
 func (p *ProcessPointer) GetClass() string {
 	return "ProcessPointer"
 }
-func (p *ProcessPointer) GetID() string   { return p.Id }
-func (p *ProcessPointer) SetID(string)    {}
+func (p *ProcessPointer) GetID() string { return p.Id }
+func (p *ProcessPointer) SetID(string)  {}
 func (p *ProcessPointer) IsCWLMinimal() {}
 
 func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
@@ -89,13 +89,13 @@ func NewProcess(original interface{}, injectedRequirements []Requirement, contex
 				return
 			}
 		}
-		var process_if interface{}
-		process_if, ok = context.If_objects[original_str]
+		var processIf interface{}
+		processIf, ok = context.IfObjects[original_str]
 		if ok {
 			logger.Debug(3, "(NewProcess) %s found in object_if", original_str)
 			var object CWLObject
 
-			object, schemata, err = NewCWLObject(process_if, injectedRequirements, context)
+			object, schemata, err = NewCWLObject(processIf, "", injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(NewProcess) A NewCWLObject returns %s", err.Error())
 				return
@@ -105,24 +105,24 @@ func NewProcess(original interface{}, injectedRequirements []Requirement, contex
 			return
 		}
 
-		for id, _ := range context.If_objects {
+		for id := range context.IfObjects {
 			fmt.Printf("Id: %s\n", id)
 		}
-		for id, _ := range context.Objects {
+		for id := range context.Objects {
 			fmt.Printf("Id: %s\n", id)
 		}
 
 		err = fmt.Errorf("(NewProcess) %s not found in context", original_str)
 		return
 	case map[string]interface{}:
-		original_map, ok := original.(map[string]interface{})
+		originalMap, ok := original.(map[string]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewProcess) failed")
 			return
 		}
 
 		var class string
-		class, err = GetClass(original_map)
+		class, err = GetClass(originalMap)
 		if err != nil {
 			err = fmt.Errorf("(NewProcess) GetClass returned: %s", err.Error())
 			return

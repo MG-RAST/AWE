@@ -10,7 +10,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	shock "github.com/MG-RAST/go-shock-client"
-	"github.com/davecgh/go-spew/spew"
 
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 
@@ -123,32 +122,41 @@ func mainWrapper() (err error) {
 	}
 
 	var tempfileName string
-
+	var entrypoint string
 	//fmt.Printf("conf.ARGS: %d\n", conf.ARGS)
 	if len(conf.ARGS) >= 2 {
-		jobFile = conf.ARGS[1]
+
+		args1Array := strings.Split(conf.ARGS[1], "#")
+		jobFile = args1Array[0]
+		if len(args1Array) > 1 {
+			entrypoint = args1Array[1]
+		}
+
 		//fmt.Printf("jobFile: %s\n", jobFile)
 	}
 
+	fmt.Printf("---------- A\n")
+
 	var jobData []byte
-	tempfileName, jobData, err = createNormalizedSubmisson(aweAuth, shockAuth, conf.ARGS[0], jobFile)
+	tempfileName, jobData, err = createNormalizedSubmisson(aweAuth, shockAuth, conf.ARGS[0], jobFile, entrypoint)
 	if err != nil {
 		err = fmt.Errorf("(mainWrapper) createNormalizedSubmisson returned: %s", err.Error())
 		return
 	}
+	fmt.Printf("---------- B\n")
 	// ### Submit job to AWE
 	var jobid string
-	var entrypoint string
-	jobid, entrypoint, err = SubmitCWLJobToAWE(tempfileName, jobFile, &jobData, aweAuth, shockAuth)
+	var newEntrypoint string
+	jobid, newEntrypoint, err = SubmitCWLJobToAWE(tempfileName, jobFile, entrypoint, &jobData, aweAuth, shockAuth)
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) SubmitCWLJobToAWE returned: %s", err.Error())
 		return
 	}
-
+	fmt.Printf("---------- C\n")
 	//fmt.Printf("Job id: %s\n", jobid)
 
 	if conf.SUBMITTER_WAIT {
-		err = WaitForResults(jobid, entrypoint, aweAuth)
+		err = WaitForResults(jobid, newEntrypoint, aweAuth)
 		if err != nil {
 			err = fmt.Errorf("(main_wrapper) Wait_for_results returned: %s", err.Error())
 			return
@@ -160,20 +168,21 @@ func mainWrapper() (err error) {
 	return
 }
 
-func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile string, jobFile string) (tempfileName string, jobData []byte, err error) {
+func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile string, jobFile string, entrypoint string) (tempfileName string, jobData []byte, err error) {
 
 	//workflowFile := conf.ARGS[0]
 
 	inputfilePath := ""
+	inputFileBase := ""
 	//fmt.Printf("job path: %s\n", inputfile_path) // needed to resolve relative paths
-
+	fmt.Printf("createNormalizedSubmisson A\n")
 	// ### parse job file
 	var jobDoc *cwl.Job_document
 
 	if jobFile != "" {
 
 		inputfilePath = path.Dir(jobFile)
-
+		inputFileBase = path.Base(jobFile)
 		jobDoc, err = cwl.ParseJobFile(jobFile)
 		if err != nil {
 			err = fmt.Errorf("error parsing cwl job: %s", err.Error())
@@ -182,12 +191,13 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	} else {
 		jobDoc = &cwl.Job_document{}
 		inputfilePath = path.Dir(workflowFile)
+		inputFileBase = path.Base(workflowFile)
 	}
 	//fmt.Println("Job input after reading from file:")
 	//spew.Dump(*job_doc)
 
 	var jobDocMap cwl.JobDocMap
-
+	fmt.Printf("createNormalizedSubmisson B\n")
 	//job_doc_map["test"] = cwl.NewNull()
 
 	// if conf.DEBUG_LEVEL >= 3 {
@@ -214,7 +224,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	// ### upload input files
 
 	shockClient := shock.NewShockClient(conf.SHOCK_URL, shockAuth, false)
-
+	fmt.Printf("createNormalizedSubmisson C\n")
 	uploadCount := 0
 
 	if jobFile != "" {
@@ -234,7 +244,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	if err != nil {
 		return
 	}
-
+	fmt.Printf("createNormalizedSubmisson D\n")
 	if conf.DEBUG_LEVEL >= 3 {
 		fmt.Printf("job input as yaml:\n%s\n", string(jobData[:]))
 	}
@@ -267,11 +277,15 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	//var namespaces map[string]string
 	//var schemas []interface{}
 	var context *cwl.WorkflowContext
-
-	namedObjectArray, schemata, context, _, err = cwl.Parse_cwl_document(yamlStr, inputfilePath)
-
+	fmt.Printf("createNormalizedSubmisson E\n")
+	namedObjectArray, schemata, context, _, err = cwl.ParseCWLDocument(yamlStr, entrypoint, inputfilePath, inputFileBase)
+	fmt.Printf("createNormalizedSubmisson F\n")
 	if err != nil {
-		err = fmt.Errorf("(createNormalizedSubmisson) error in parsing cwl workflow yaml file: " + err.Error())
+		if conf.SUBMITTER_PACK {
+			err = fmt.Errorf("(createNormalizedSubmisson) error in parsing output of \"cwltool --pack %s\" (%s)", workflowFile, err.Error())
+		} else {
+			err = fmt.Errorf("(createNormalizedSubmisson) error in parsing file %s: %s", workflowFile, err.Error())
+		}
 		return
 	}
 
@@ -286,7 +300,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 		return
 	}
 	uploadCount += subUploadCount
-
+	fmt.Printf("createNormalizedSubmisson G\n")
 	if context.Schemas != nil {
 		subUploadCount := 0
 		subUploadCount, err = cache.ProcessIOData(context.Schemas, inputfilePath, inputfilePath, "upload", shockClient, true)
@@ -366,9 +380,9 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 
 	// create temporary workflow document file
 
-	newDocument := context.CWL_document
+	newDocument := context.GraphDocument
 
-	//new_document := cwl.CWL_document{}
+	//new_document := cwl.GraphDocument{}
 	//new_document.CwlVersion = context.CwlVersion
 	//new_document.Namespaces = namespaces
 	//new_document.Schemas = schemas
@@ -533,7 +547,7 @@ FORLOOP:
 
 		_, err = cache.ProcessIOData(outputReceipt, outputFilePath, outputFilePath, "download", nil, true)
 		if err != nil {
-			spew.Dump(outputReceipt)
+			//spew.Dump(outputReceipt)
 			err = fmt.Errorf("(Wait_for_results) ProcessIOData(for download) returned: %s", err.Error())
 			return
 		}
@@ -562,7 +576,7 @@ FORLOOP:
 }
 
 // SubmitCWLJobToAWE _
-func SubmitCWLJobToAWE(workflowFile string, jobFile string, jobData *[]byte, aweAuth string, shockAuth string) (jobid string, entrypoint string, err error) {
+func SubmitCWLJobToAWE(workflowFile string, jobFile string, entrypoint string, jobData *[]byte, aweAuth string, shockAuth string) (jobid string, newEntrypoint string, err error) {
 	multipart := core.NewMultipartWriter()
 
 	err = multipart.AddFile("cwl", workflowFile)
@@ -580,6 +594,14 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, jobData *[]byte, awe
 	}
 	//fmt.Fprintf(os.Stderr, "CLIENT_GROUP: %s\n", conf.CLIENT_GROUP)
 	err = multipart.AddForm("CLIENT_GROUP", conf.CLIENT_GROUP)
+	if err != nil {
+		err = fmt.Errorf("(SubmitCWLJobToAWE) AddForm returned: %s", err.Error())
+		return
+	}
+
+	logger.Debug(3, "(SubmitCWLJobToAWE) entrypoint: %s", entrypoint)
+
+	err = multipart.AddForm("entrypoint", entrypoint)
 	if err != nil {
 		err = fmt.Errorf("(SubmitCWLJobToAWE) AddForm returned: %s", err.Error())
 		return
@@ -635,7 +657,7 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, jobData *[]byte, awe
 		return
 	}
 	jobid = job.ID
-	entrypoint = job.Entrypoint
+	newEntrypoint = job.Entrypoint
 
 	return
 

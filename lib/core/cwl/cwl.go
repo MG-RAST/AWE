@@ -134,7 +134,7 @@ func MakeStringMap(v interface{}, context *WorkflowContext) (result interface{},
 			var doc_stream []byte
 			doc_stream, err = ioutil.ReadFile(import_path)
 			if err != nil {
-				err = fmt.Errorf("(MakeStringMap) error in reading file %s: %s ", import_path, err.Error())
+				err = fmt.Errorf("(MakeStringMap) error in reading import file \"%s\": %s ", import_path, err.Error())
 				return
 			}
 

@@ -214,7 +214,7 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 		}
 		err = context.Add(commandLineTool.Id, commandLineTool, "NewCommandLineTool")
 		if err != nil {
-			err = fmt.Errorf("(NewCommandLineTool) context.Add returned: %s", err.Error())
+			err = fmt.Errorf("(NewCommandLineTool) (add commandLineTool) context.Add returned: %s", err.Error())
 			return
 		}
 
@@ -222,7 +222,7 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 			inp := &commandLineTool.Inputs[i]
 			err = context.Add(path.Join(thisID, inp.Id), inp, "NewCommandLineTool")
 			if err != nil {
-				err = fmt.Errorf("(NewCommandLineTool) context.Add returned: %s", err.Error())
+				err = fmt.Errorf("(NewCommandLineTool)  (add commandLineToolInput)  context.Add returned: %s", err.Error())
 				return
 			}
 		}

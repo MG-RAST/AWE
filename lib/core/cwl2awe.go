@@ -189,7 +189,7 @@ func CreateWorkflowTasks(job *Job, namePrefix string, steps []cwl.WorkflowStep, 
 
 		fmt.Println("(CreateWorkflowTasks) new task name will be: " + namePrefix + " / " + taskName)
 
-		//taskName := strings.TrimPrefix(step.Id, "#main/")
+		//taskName := strings.TrimPrefix(step.Id, #entrypoint/")
 		//taskName = strings.TrimPrefix(taskName, "#")
 
 		fmt.Printf("(CreateWorkflowTasks) creating task: %s %s\n", namePrefix, taskName)

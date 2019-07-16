@@ -19,7 +19,9 @@ type CWLObjectImpl struct{}
 
 func (c *CWLObjectImpl) IsCWLObject() {}
 
-func NewCWLObject(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (obj CWLObject, schemata []CWLType_Type, err error) {
+// NewCWLObject
+//  objectIdentifier - is optional, should be used for object that are read from files
+func NewCWLObject(original interface{}, objectIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (obj CWLObject, schemata []CWLType_Type, err error) {
 	//fmt.Println("(NewCWLObject) starting")
 
 	if original == nil {
@@ -54,9 +56,21 @@ func NewCWLObject(original interface{}, injectedRequirements []Requirement, cont
 			return
 		}
 
-		cwl_object_id := elem["id"].(string)
+		identifierIf, hasIdentifier := elem["id"]
+		if !hasIdentifier {
+
+			if objectIdentifier == "" {
+				err = errors.New("(NewCWLObject) object has no member id and objectIdentifier is empty")
+				return
+			}
+			elem["id"] = objectIdentifier
+			identifierIf = objectIdentifier
+		}
+
+		var cwlObjectIdentifer string
+		cwlObjectIdentifer, ok = identifierIf.(string)
 		if !ok {
-			err = errors.New("(NewCWLObject) object has no member id")
+			err = errors.New("(NewCWLObject) id is not a string")
 			return
 		}
 		//fmt.Println("NewCWLObject C")
@@ -105,7 +119,7 @@ func NewCWLObject(original interface{}, injectedRequirements []Requirement, cont
 			return
 		} // end switch
 
-		cwl_type, xerr := NewCWLType(cwl_object_id, elem, context)
+		cwl_type, xerr := NewCWLType(cwlObjectIdentifer, elem, context)
 		if xerr != nil {
 
 			err = fmt.Errorf("(NewCWLObject) NewCWLType returns %s", xerr.Error())
@@ -139,7 +153,7 @@ func NewCWLObjectArray(original interface{}, context *WorkflowContext) (array CW
 		for _, element := range org_a {
 			var schemataNew []CWLType_Type
 			var cwl_object CWLObject
-			cwl_object, schemataNew, err = NewCWLObject(element, nil, context)
+			cwl_object, schemataNew, err = NewCWLObject(element, "", nil, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCWLObjectArray) NewCWLObject returned %s", err.Error())
 				return

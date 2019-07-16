@@ -491,32 +491,46 @@ func (qm *ServerMgr) updateWorkflowInstancesMap() (err error) {
 		return
 	}
 
-	var last_error error
+	var lastError error
 
-	error_count := 0
-	for i, _ := range wis {
+	errorCount := 0
+	for i := range wis {
 
 		wi := wis[i]
 
 		err = qm.updateWorkflowInstancesMapTask(wi)
 
 		if err != nil {
+			lastError = err
+			errorCount++
 
-			last_error = err
-			error_count += 1
+			errorMessage := err.Error()
+			err = nil
+
+			jobID := wi.JobID
+
+			jerror := &JobError{
+
+				ServerNotes: fmt.Sprintf("WorkflowInstance failed: %s", errorMessage),
+				Status:      JOB_STAT_SUSPEND,
+			}
+			if err = qm.SuspendJob(jobID, jerror); err != nil {
+				logger.Error("(handleNoticeWorkDelivered:SuspendJob) job_id=%s; err=%s", jobID, errorMessage)
+			}
 			err = nil
 		}
 
 	}
 
-	if error_count > 0 {
-		err = fmt.Errorf("(updateWorkflowInstancesMap) %d errors, last error message: %s", error_count, last_error.Error())
+	if errorCount > 0 {
+		err = fmt.Errorf("(updateWorkflowInstancesMap) %d errors, last error message: %s", errorCount, lastError.Error())
 		return
 	}
 
 	return
 }
 
+// ClientHandle _
 func (qm *ServerMgr) ClientHandle() {
 	logger.Info("(ServerMgr ClientHandle) starting")
 	count := 0
@@ -851,7 +865,7 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 		return
 	}
 
-	if false {
+	if true {
 		if len(tasks) > 0 {
 			task := tasks[0]
 			jobID := task.JobId
@@ -2596,7 +2610,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workfl
 		return
 	}
 
-	// embedded workflows have a uniqe name relative to the parent workflow: e.g #main/steo0/<uuid>
+	// embedded workflows have a uniqe name relative to the parent workflow: e.g #entrypoint/steo0/<uuid>
 	// stand-alone workflows have no unique name, e.g: #sometool
 
 	//new_sub_workflow := ""
@@ -3680,7 +3694,7 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflowInstance *Workfl
 func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflowInstance *WorkflowInstance, srcGenerator string, errorOnMissingTask bool, context *cwl.WorkflowContext) (ok bool, reason string, err error) {
 
 	ok = false
-	//src = strings.TrimPrefix(src, "#main/")
+	//src = strings.TrimPrefix(src, "#entrypoint/")
 	logger.Debug(3, "(isSourceGeneratorReady) start, srcGenerator: %s", srcGenerator)
 
 	if srcGenerator == "" {
@@ -5144,8 +5158,8 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 		}
 
 		for _, rawType := range expectedTypesRaw {
-			var typeCorrect cwl.CWLType_Type
-			typeCorrect, err = cwl.NewCWLType_Type(schemata, rawType, "Output", context)
+			var typeCorrectArray []cwl.CWLType_Type
+			typeCorrectArray, err = cwl.NewCWLType_Type(schemata, rawType, "Output", context)
 			if err != nil {
 				//spew.Dump(expected_types_raw)
 				//fmt.Println("---")
@@ -5156,10 +5170,13 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 				//panic("raw_type problem")
 				return
 			}
-			expectedTypes = append(expectedTypes, typeCorrect)
-			if typeCorrect == cwl.CWLNull {
-				isOptional = true
+			for _, correctType := range typeCorrectArray {
+				expectedTypes = append(expectedTypes, correctType)
+				if correctType == cwl.CWLNull {
+					isOptional = true
+				}
 			}
+
 		}
 
 		// search the outputs and stick them in workflow_outputs_map

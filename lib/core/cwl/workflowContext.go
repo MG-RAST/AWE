@@ -12,18 +12,18 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-// global object for each job submission
+// WorkflowContext global object for each job submission
 type WorkflowContext struct {
 	rwmutex.RWMutex
-	CWL_document `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // fields: CwlVersion, Base, Graph, Namespaces, Schemas (all interface-based !)
-	Path         string
+	GraphDocument `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // fields: CwlVersion, Base, Graph, Namespaces, Schemas (all interface-based !)
+	Path          string
 	//Namespaces   map[string]string
 	//CWLVersion
 	//CwlVersion CWLVersion    `yaml:"cwl_version"  json:"cwl_version" bson:"cwl_version" mapstructure:"cwl_version"`
 	//CWL_graph  []interface{} `yaml:"cwl_graph"  json:"cwl_graph" bson:"cwl_graph" mapstructure:"cwl_graph"`
 	// old ParsingContext
-	If_objects map[string]interface{} `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // graph objects
-	Objects    map[string]CWLObject   `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // graph objects , stores all objects (replaces All ???)
+	IfObjects map[string]interface{} `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // graph objects
+	Objects   map[string]CWLObject   `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // graph objects , stores all objects (replaces All ???)
 
 	//Workflows          map[string]*Workflow          `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//InputParameter     map[string]*InputParameter    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // WorkflowInput
@@ -61,8 +61,8 @@ func (context *WorkflowContext) InitBasic() {
 
 	context.RWMutex.Init("context")
 
-	if context.If_objects == nil {
-		context.If_objects = make(map[string]interface{})
+	if context.IfObjects == nil {
+		context.IfObjects = make(map[string]interface{})
 	}
 
 	if context.Objects == nil {
@@ -85,7 +85,7 @@ func (context *WorkflowContext) InitBasic() {
 	return
 }
 
-// search for #main and create objects recursively
+// search for #entrypoint and create objects recursively
 func (context *WorkflowContext) Init(entrypoint string) (err error) {
 
 	logger.Debug(3, "(WorkflowContext/Init) start")
@@ -101,7 +101,7 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 		return
 	}
 
-	graph := context.CWL_document.Graph
+	graph := context.GraphDocument.Graph
 
 	if len(graph) == 0 {
 		err = fmt.Errorf("(WorkflowContext/Init) len(graph) == 0")
@@ -130,7 +130,7 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 		}
 		//fmt.Printf("id=\"%s\\n", id)
 
-		context.If_objects[id] = graph[i]
+		context.IfObjects[id] = graph[i]
 
 	}
 
@@ -138,27 +138,37 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 		return
 	}
 
-	logger.Debug(3, "(WorkflowContext/Init) len(context.If_objects): %d", len(context.If_objects))
+	logger.Debug(3, "(WorkflowContext/Init) len(context.IfObjects): %d", len(context.IfObjects))
 
-	main_if, has_main := context.If_objects[entrypoint] // "#main" or enrypoint
-	if !has_main {
-		var keys string
-		for key, _ := range context.If_objects {
-			keys += "," + key
+	entrypointIf, hasEntrypointObject := context.IfObjects[entrypoint] // e.g. #entrypoint
+	if !hasEntrypointObject {
+
+		if len(context.IfObjects) == 1 {
+			for key, value := range context.IfObjects {
+				entrypoint = key
+				entrypointIf = value
+			}
 		}
-		err = fmt.Errorf("(WorkflowContext/Init) entrypoint %s not found in graph (found %s)", entrypoint, keys)
-		return
+
+		if entrypoint == "" {
+			var keys string
+			for key := range context.IfObjects {
+				keys += "," + key
+			}
+			err = fmt.Errorf("(WorkflowContext/Init) entrypoint %s not found in graph (found %s)", entrypoint, keys)
+			return
+		}
 	}
 
-	// start with #main
+	// start with #entrypoint
 	// recursivly add objects to context
 	context.Initialzing = true
 	var object CWLObject
 	var schemataNew []CWLType_Type
-	object, schemataNew, err = NewCWLObject(main_if, nil, context)
+	object, schemataNew, err = NewCWLObject(entrypointIf, "", nil, context)
 	if err != nil {
-		fmt.Printf("(WorkflowContext/Init) main_if")
-		spew.Dump(main_if)
+		fmt.Printf("(WorkflowContext/Init) entrypointIf")
+		spew.Dump(entrypointIf)
 		err = fmt.Errorf("(WorkflowContext/Init) A NewCWLObject returned %s", err.Error())
 		return
 	}
@@ -179,17 +189,17 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	//}
 	//panic("done")
 
-	context.CWL_document.Graph = nil
-	context.CWL_document.Graph = []interface{}{}
+	context.GraphDocument.Graph = nil
+	context.GraphDocument.Graph = []interface{}{}
 	for key, value := range context.Objects {
-		logger.Debug(3, "(WorkflowContext/Init) adding %s to context.CWL_document.Graph", key)
+		logger.Debug(3, "(WorkflowContext/Init) adding %s to context.GraphDocument.Graph", key)
 		//err = context.Add(key, value, "WorkflowContext/Init")
 		//if err != nil {
 		//	err = fmt.Errorf("(WorkflowContext/Init) context.Add( returned %s", err.Error())
 		//	return
 		//}
 
-		context.CWL_document.Graph = append(context.CWL_document.Graph, value)
+		context.GraphDocument.Graph = append(context.GraphDocument.Graph, value)
 	}
 	//fmt.Println("(WorkflowContext/Init) context.Objects: ")
 	//spew.Dump(context.Objects)

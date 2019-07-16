@@ -95,13 +95,16 @@ func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Typ
 
 			if ok {
 				//fmt.Println("(NewCommandOutputParameterArray) array element is a string")
-				var result CWLType_Type
-				result, err = NewCWLType_TypeFromString(schemata, elementStr, "CommandOutput")
+				var resultArray []CWLType_Type
+				resultArray, err = NewCWLType_TypeFromString(schemata, elementStr, "CommandOutput")
 				if err != nil {
 					err = fmt.Errorf("(NewCommandOutputParameterArray) NewCWLType_TypeFromString returns: %s", err.Error())
 					return
 				}
-				copa = append(copa, result)
+				for result := range resultArray {
+					copa = append(copa, result)
+				}
+
 				continue
 			}
 			//fmt.Println("(NewCommandOutputParameterArray) array element is NOT a string")

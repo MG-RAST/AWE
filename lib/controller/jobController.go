@@ -140,21 +140,27 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 
 		// convert CWL to string
-		yaml_str := string(yamlstream[:])
+		yamlStr := string(yamlstream[:])
 
 		var schemata []cwl.CWLType_Type
-		var object_array []cwl.NamedCWLObject
+		var objectArray []cwl.NamedCWLObject
 		//var cwl_version cwl.CWLVersion
 		var context *cwl.WorkflowContext
 		//var namespaces map[string]string
 		//var schemas []interface{}
-		object_array, schemata, context, _, err = cwl.Parse_cwl_document(yaml_str, "-")
+
+		entrypoint, ok := params["entrypoint"]
+		if !ok {
+			entrypoint = ""
+		}
+
+		objectArray, schemata, context, _, err = cwl.ParseCWLDocument(yamlStr, entrypoint, "-", "") // TODO need filename. last argument
 		if err != nil {
-			cx.RespondWithErrorMessage("error in parsing cwl workflow yaml file: "+err.Error(), http.StatusBadRequest)
+			cx.RespondWithErrorMessage(fmt.Sprintf("(JobController/Create) error in parsing cwl workflow yaml file (entrypoint: %s): %s", entrypoint, err.Error()), http.StatusBadRequest)
 			return
 		}
 
-		//err = context.AddArray(object_array)
+		//err = context.AddArray(objectArray)
 		//if err != nil {
 		//	logger.Error("Parse_cwl_document error: " + err.Error())
 		//	cx.RespondWithErrorMessage("error in adding cwl objects to collection: "+err.Error(), http.StatusBadRequest)
@@ -168,8 +174,6 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			return
 		}
 
-		entrypoint := ""
-
 		var shock_requirement *cwl.ShockRequirement
 		shock_requirement = nil
 
@@ -182,15 +186,15 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			// This probably is a simple CommandlineTool or ExpressionTool submission (without workflow)
 			// create new Workflow to wrap around the CommandLineTool/ExpressionTool
 
-			if len(object_array) != 1 {
+			if len(objectArray) != 1 {
 
-				cx.RespondWithErrorMessage(fmt.Sprintf("Expected exactly one element in object_array, got %d", len(object_array)), http.StatusBadRequest)
+				cx.RespondWithErrorMessage(fmt.Sprintf("Expected exactly one element in objectArray, got %d", len(objectArray)), http.StatusBadRequest)
 				return
 			}
 
 			entrypoint = "#entrypoint"
 
-			pair := object_array[0]
+			pair := objectArray[0]
 
 			runner := pair.Value
 
@@ -316,7 +320,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwl_workflow_named.Id = cwl_workflow.Id
 				cwl_workflow_named.Value = cwl_workflow
 
-				object_array = append(object_array, cwl_workflow_named)
+				objectArray = append(objectArray, cwl_workflow_named)
 				//err = context.Add(entrypoint, cwl_workflow, "job/create")
 				//if err != nil {
 				//	cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
@@ -446,7 +450,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwlWorkflowNamed.Id = cwl_workflow.Id
 				cwlWorkflowNamed.Value = cwl_workflow
 
-				object_array = append(object_array, cwlWorkflowNamed)
+				objectArray = append(objectArray, cwlWorkflowNamed)
 				//err = context.Add(entrypoint, cwl_workflow, "job/create2")
 				//if err != nil {
 				//	cx.RespondWithErrorMessage("collection.Add returned: "+err.Error(), http.StatusBadRequest)
@@ -460,7 +464,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			//spew.Dump(cwl_workflow)
 
 		} else {
-			entrypoint = "#main"
+			entrypoint = "#entrypoint"
 
 			//var ok bool
 			cwl_workflow, err = context.GetWorkflow(entrypoint)
@@ -478,13 +482,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 
 		// replace interfaces with real objects (inlcuding new wrapper workflow if applicable)
-		context.CWL_document.Graph = []interface{}{}
+		context.GraphDocument.Graph = []interface{}{}
 
-		for i, _ := range object_array {
-			pair := object_array[i]
+		for i := range objectArray {
+			pair := objectArray[i]
 			object := pair.Value
-			logger.Debug(3, "(job/create) adding to context.CWL_document.Graph: %s", pair.Id)
-			context.CWL_document.Graph = append(context.CWL_document.Graph, object)
+			logger.Debug(3, "(job/create) adding to context.GraphDocument.Graph: %s", pair.Id)
+			context.GraphDocument.Graph = append(context.GraphDocument.Graph, object)
 		}
 
 		//fmt.Println("\n\n\n--------------------------------- Steps:\n")

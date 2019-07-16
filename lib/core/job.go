@@ -332,7 +332,7 @@ func (job *Job) Init() (changed bool, err error) {
 
 	context := job.WorkflowContext
 
-	if context != nil && context.If_objects == nil {
+	if context != nil && context.IfObjects == nil {
 		if context.Graph == nil {
 			err = fmt.Errorf("(job.Init) job.WorkflowContext.Graph == nil")
 			return

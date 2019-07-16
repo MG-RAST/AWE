@@ -30,7 +30,8 @@ func (i InputParameter) GetID() string    { return i.Id }
 func (i InputParameter) SetID(id string)  { i.Id = id }
 func (i InputParameter) IsCWLMinimal()    {}
 
-func NewInputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (input_parameter *InputParameter, err error) {
+// NewInputParameter _
+func NewInputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (inputParameter *InputParameter, err error) {
 
 	//fmt.Println("---- NewInputParameter ----")
 	//spew.Dump(original)
@@ -42,15 +43,15 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 	}
 	//spew.Dump(original)
 
-	input_parameter = &InputParameter{}
+	inputParameter = &InputParameter{}
 
 	switch original.(type) {
 	case string:
 
-		type_string := original.(string)
+		typeString := original.(string)
 
-		var original_type CWLType_Type
-		original_type, err = NewCWLType_TypeFromString(schemata, type_string, "Input")
+		var originalTypeArray []CWLType_Type
+		originalTypeArray, err = NewCWLType_TypeFromString(schemata, typeString, "Input")
 		if err != nil {
 			err = fmt.Errorf("(NewInputParameter) NewCWLType_TypeFromString returned: %s", err.Error())
 			return
@@ -62,7 +63,7 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 		//	return
 		//}
 
-		input_parameter.Type = []CWLType_Type{original_type}
+		inputParameter.Type = originalTypeArray
 
 		//case int:
 		//input_parameter_type, xerr := NewInputParameterTypeArray("int")
@@ -75,18 +76,18 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 
 	case map[string]interface{}:
 
-		original_map := original.(map[string]interface{})
+		originalMap := original.(map[string]interface{})
 
-		input_parameter_default, ok := original_map["default"]
+		input_parameter_default, ok := originalMap["default"]
 		if ok {
-			original_map["default"], err = NewCWLType("", input_parameter_default, context)
+			originalMap["default"], err = NewCWLType("", input_parameter_default, context)
 			if err != nil {
 				err = fmt.Errorf("(NewInputParameter) NewCWLType returned: %s", err.Error())
 				return
 			}
 		}
 
-		inputParameter_type, ok := original_map["type"]
+		inputParameter_type, ok := originalMap["type"]
 		if ok {
 			var inputParameter_type_array []CWLType_Type
 			inputParameter_type_array, err = NewCWLType_TypeArray(inputParameter_type, schemata, "Input", false, context)
@@ -98,10 +99,10 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 				err = fmt.Errorf("(NewInputParameter) len(inputParameter_type_array) == 0")
 				return
 			}
-			original_map["type"] = inputParameter_type_array
+			originalMap["type"] = inputParameter_type_array
 		}
 
-		err = mapstructure.Decode(original, input_parameter)
+		err = mapstructure.Decode(original, inputParameter)
 		if err != nil {
 			spew.Dump(original)
 			err = fmt.Errorf("(NewInputParameter) mapstructure.Decode returned: %s", err.Error())
@@ -113,7 +114,7 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 		return
 	}
 
-	if len(input_parameter.Type) == 0 {
+	if len(inputParameter.Type) == 0 {
 		err = fmt.Errorf("(NewInputParameter) len(input_parameter.Type) == 0")
 		return
 	}

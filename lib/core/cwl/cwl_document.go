@@ -2,6 +2,8 @@ package cwl
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path"
 	"reflect"
 	"strings"
 
@@ -129,6 +131,9 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 	// Here I expect a single object, Workflow or CommandLIneTool
 	//fmt.Printf("-------------- yaml_str: %s\n", yaml_str)
 
+	//fmt.Printf("ParseCWLSimpleDocument start\n")
+	//defer fmt.Printf("ParseCWLSimpleDocument end\n")
+
 	var objectIf map[string]interface{}
 
 	yamlByte := []byte(yamlStr)
@@ -138,6 +143,24 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 		err = fmt.Errorf("(ParseCWLSimpleDocument) Unmarshal returns: %s", err.Error())
 		return
 	}
+	//fmt.Println("objectIf:")
+	//spew.Dump(objectIf)
+	var objectIfTranslated interface{}
+	objectIfTranslated, err = translate(objectIf, context.Path)
+	if err != nil {
+		err = fmt.Errorf("(ParseCWLSimpleDocument) translate returned: %s", err.Error())
+		return
+	}
+	//fmt.Println("objectIfTranslated:")
+	//spew.Dump(objectIfTranslated)
+	var ok bool
+	objectIf = nil
+	objectIf, ok = objectIfTranslated.(map[string]interface{})
+	if !ok {
+		err = fmt.Errorf("(ParseCWLSimpleDocument) could not translate: %s", err.Error())
+		return
+	}
+
 	if context.CwlVersion == "" {
 
 		cwlVersionIf, hasVersion := objectIf["cwlVersion"]
@@ -162,11 +185,9 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 		return
 	}
 
-	fmt.Println("---------- A\n")
-
 	//fmt.Println("object_if:")
 	//spew.Dump(object_if)
-	var ok bool
+	//var ok bool
 	var namespacesIf interface{}
 	namespacesIf, ok = objectIf["$namespaces"]
 	if ok {
@@ -194,7 +215,7 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 		context.Namespaces = nil
 		//fmt.Println("no namespaces")
 	}
-	fmt.Println("---------- B\n")
+
 	var schemasIf interface{}
 	schemasIf, ok = objectIf["$schemas"]
 	if ok {
@@ -213,11 +234,11 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 	//	return
 	//}
 	//fmt.Printf("this_class: %s\n", this_class)
-	fmt.Println("---------- C\n")
+	//fmt.Printf("AAAA\n")
 	setObjectID := false
 
 	var objectID string
-	objectID, err = GetId(objectIf)
+	objectID, err = GetID(objectIf)
 	if err != nil {
 		//fmt.Printf("ParseCWLSimpleDocument: got no id\n")
 
@@ -225,6 +246,7 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 			err = fmt.Errorf("(ParseCWLSimpleDocument) B) GetId returns %s", err.Error())
 			return
 		}
+		err = nil
 
 		objectID = "#" + basename
 		//fmt.Printf("ParseCWLSimpleDocument: using %s\n", basename)
@@ -297,7 +319,7 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 // a CWL document can be a graph document or a single object document
 // an entrypoint can only be specified for a graph document
 func ParseCWLDocument(yamlStr string, entrypoint string, inputfilePath string, fileName string) (objectArray []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, err error) {
-	fmt.Printf("(Parse_cwl_document) starting\n")
+	//fmt.Printf("(Parse_cwl_document) starting\n")
 
 	context = NewWorkflowContext()
 	context.Path = inputfilePath
@@ -312,7 +334,7 @@ func ParseCWLDocument(yamlStr string, entrypoint string, inputfilePath string, f
 		// *** graph file ***
 		//yamlStr = strings.Replace(yamlStr, "$graph", "graph", -1) // remove dollar sign
 		logger.Debug(3, "(Parse_cwl_document) graph document")
-		fmt.Printf("(Parse_cwl_document) ParseCWLGraphDocument\n")
+		//fmt.Printf("(Parse_cwl_document) ParseCWLGraphDocument\n")
 		objectArray, schemata, schemas, err = ParseCWLGraphDocument(yamlStr, entrypoint, context)
 		if err != nil {
 			err = fmt.Errorf("(Parse_cwl_document) Parse_cwl_graph_document returned: %s", err.Error())
@@ -321,7 +343,7 @@ func ParseCWLDocument(yamlStr string, entrypoint string, inputfilePath string, f
 
 	} else {
 		logger.Debug(3, "(Parse_cwl_document) simple document")
-		fmt.Printf("(Parse_cwl_document) ParseCWLSimpleDocument\n")
+		//fmt.Printf("(Parse_cwl_document) ParseCWLSimpleDocument\n")
 		objectArray, schemata, schemas, err = ParseCWLSimpleDocument(yamlStr, fileName, context)
 		if err != nil {
 			err = fmt.Errorf("(Parse_cwl_document) Parse_cwl_simple_document returned: %s", err.Error())
@@ -332,6 +354,178 @@ func ParseCWLDocument(yamlStr string, entrypoint string, inputfilePath string, f
 		err = fmt.Errorf("(Parse_cwl_document) len(objectArray) == 0 (graphPos: %d)", graphPos)
 		return
 	}
-	fmt.Printf("(Parse_cwl_document) end\n")
+	//fmt.Printf("(Parse_cwl_document) end\n")
+	return
+}
+
+// source: https://gist.github.com/hvoecking/10772475
+func translate(obj interface{}, workingPath string) (tObj interface{}, err error) {
+	// Wrap the original in a reflect.Value
+	original := reflect.ValueOf(obj)
+
+	copy := reflect.New(original.Type()).Elem()
+	_, err = translateRecursive(copy, original, workingPath)
+
+	tObj = copy.Interface()
+	// Remove the reflection wrapper
+	return
+}
+
+// extended version of https://gist.github.com/hvoecking/10772475
+func translateRecursive(copy, original reflect.Value, workingPath string) (includeString string, err error) {
+
+	var childIncludeString string
+
+	switch original.Kind() {
+	// The first cases handle nested structures and translate them recursively
+
+	// If it is a pointer we need to unwrap and call once again
+	case reflect.Ptr:
+		// To get the actual value of the original we have to call Elem()
+		// At the same time this unwraps the pointer so we don't end up in
+		// an infinite recursion
+		originalValue := original.Elem()
+		// Check if the pointer is nil
+		if !originalValue.IsValid() {
+			return
+		}
+		// Allocate a new object and set the pointer to it
+		copy.Set(reflect.New(originalValue.Type()))
+		// Unwrap the newly created pointer
+		childIncludeString, err = translateRecursive(copy.Elem(), originalValue, workingPath)
+		if err != nil {
+			return
+		}
+		if childIncludeString != "" {
+			fmt.Println("A")
+		}
+
+	// If it is an interface (which is very similar to a pointer), do basically the
+	// same as for the pointer. Though a pointer is not the same as an interface so
+	// note that we have to call Elem() after creating a new object because otherwise
+	// we would end up with an actual pointer
+	case reflect.Interface:
+		// Get rid of the wrapping interface
+		originalValue := original.Elem()
+		// Create a new object. Now new gives us a pointer, but we want the value it
+		// points to, so we have to call Elem() to unwrap it
+		copyValue := reflect.New(originalValue.Type()).Elem()
+		childIncludeString, err = translateRecursive(copyValue, originalValue, workingPath)
+		if err != nil {
+			return
+		}
+		if childIncludeString != "" {
+			includeString = childIncludeString
+			//fmt.Println("B")
+			//originalValue = reflect.Indirect(reflect.ValueOf(&childIncludeString))
+			//originalValue.SetString(childIncludeString)
+		}
+		copy.Set(copyValue)
+
+	// If it is a struct we translate each field
+	case reflect.Struct:
+		for i := 0; i < original.NumField(); i++ {
+			childIncludeString, err = translateRecursive(copy.Field(i), original.Field(i), workingPath)
+			if err != nil {
+				return
+			}
+			if childIncludeString != "" {
+				//fmt.Println("C")
+			}
+		}
+
+	// If it is a slice we create a new slice and translate each element
+	case reflect.Slice:
+		copy.Set(reflect.MakeSlice(original.Type(), original.Len(), original.Cap()))
+		for i := 0; i < original.Len(); i++ {
+			childIncludeString, err = translateRecursive(copy.Index(i), original.Index(i), workingPath)
+			if err != nil {
+				return
+			}
+			if childIncludeString != "" {
+				//fmt.Println("D")
+
+				var includeContentBytes []byte
+
+				fullPath := path.Join(workingPath, childIncludeString)
+				includeContentBytes, err = ioutil.ReadFile(fullPath)
+				if err != nil {
+					err = fmt.Errorf("(translateRecursive) could not read file %s: %s", fullPath, err.Error())
+					return
+				}
+
+				includeContentStr := string(includeContentBytes)
+				//fmt.Printf("File contents: %s", includeContentStr)
+
+				includeContentStrValue := reflect.ValueOf(&includeContentStr)
+				includeContentStrValuePValue := reflect.Indirect(includeContentStrValue)
+				//toBeRepacedNode := original.Index(i)
+
+				copy.Index(i).Set(includeContentStrValuePValue)
+				// if toBeRepacedNode.CanAddr() {
+				// 	fmt.Printf("CanAddr! \n")
+
+				// 	addrs := toBeRepacedNode.Addr()
+
+				// 	tempStr := reflect.TypeOf(addrs)
+				// 	fmt.Printf("addrs type: %s\n", reflect.TypeOf(tempStr))
+
+				// 	//originalValue.SetString(childIncludeString)
+
+				// 	//original.Index(i).SetString(childIncludeString)
+
+				// }
+
+			}
+		}
+
+	// If it is a map we create a new map and translate each value
+	case reflect.Map:
+		copy.Set(reflect.MakeMap(original.Type()))
+
+		includeStr := "$include"
+
+		//includeStrType := reflect.TypeOf(includeStr)
+
+		includeStrValue := reflect.ValueOf(includeStr)
+
+		//includeStrValue.SetString(includeStr)
+
+		includeField := original.MapIndex(includeStrValue)
+		if includeField.IsValid() {
+
+			includeString = includeField.Elem().String()
+			return
+			//fmt.Println("string: " + showText)
+			//panic("found include field !")
+
+		}
+
+		for _, key := range original.MapKeys() {
+			originalValue := original.MapIndex(key)
+			// New gives us a pointer, but again we want the value
+			copyValue := reflect.New(originalValue.Type()).Elem()
+			childIncludeString, err = translateRecursive(copyValue, originalValue, workingPath)
+			if err != nil {
+				return
+			}
+			if childIncludeString != "" {
+				fmt.Println("E")
+			}
+			copy.SetMapIndex(key, copyValue)
+		}
+
+	// Otherwise we cannot traverse anywhere so this finishes the the recursion
+
+	// If it is a string translate it (yay finally we're doing what we came for)
+	//case reflect.String:
+	//	translatedString := dict[original.Interface().(string)]
+	//	copy.SetString(translatedString)
+
+	// And everything else will simply be taken from the original
+	default:
+		copy.Set(original)
+	}
+
 	return
 }

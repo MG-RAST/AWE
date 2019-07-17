@@ -105,10 +105,19 @@ func NewOutputParameterFromInterface(original interface{}, thisID string, schema
 				}
 				originalMap["type"] = outputParameterTypeArray
 			default:
-				originalMap["type"], err = NewCWLType_Type(schemata, outputParameterType, context_p, context)
+				var typeArray []CWLType_Type
+				typeArray, err = NewCWLType_Type(schemata, outputParameterType, context_p, context)
 				if err != nil {
 					err = fmt.Errorf("(NewOutputParameterFromInterface) NewCWLType_Type returned: %s", err.Error())
 					return
+				}
+				//typeArray, ok := originalMap["type"].([]CWLType_Type)
+
+				if len(typeArray) == 1 {
+					originalMap["type"] = typeArray[0]
+				} else {
+
+					originalMap["type"] = typeArray
 				}
 			}
 

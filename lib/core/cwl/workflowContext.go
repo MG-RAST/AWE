@@ -122,7 +122,7 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 		}
 
 		var id string
-		id, err = GetId(graph[i])
+		id, err = GetID(graph[i])
 		if err != nil {
 			fmt.Println("(WorkflowContext/Init) object without id:")
 			spew.Dump(graph[i])

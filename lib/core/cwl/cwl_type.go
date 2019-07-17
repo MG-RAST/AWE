@@ -433,6 +433,16 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowC
 			ok = false
 			return
 		}
+	case *File:
+		switch schema {
+		case CWLStdout, CWLStderr, CWLFile:
+			ok = true
+			return
+		default:
+			ok = false
+			return
+		}
+
 	default:
 
 		objectType := object.GetType()

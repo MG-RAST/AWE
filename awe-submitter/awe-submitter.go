@@ -135,7 +135,7 @@ func mainWrapper() (err error) {
 		//fmt.Printf("jobFile: %s\n", jobFile)
 	}
 
-	fmt.Printf("---------- A\n")
+	//fmt.Printf("---------- A\n")
 
 	var jobData []byte
 	tempfileName, jobData, err = createNormalizedSubmisson(aweAuth, shockAuth, conf.ARGS[0], jobFile, entrypoint)
@@ -143,7 +143,7 @@ func mainWrapper() (err error) {
 		err = fmt.Errorf("(mainWrapper) createNormalizedSubmisson returned: %s", err.Error())
 		return
 	}
-	fmt.Printf("---------- B\n")
+	//fmt.Printf("---------- B\n")
 	// ### Submit job to AWE
 	var jobid string
 	var newEntrypoint string
@@ -152,7 +152,7 @@ func mainWrapper() (err error) {
 		err = fmt.Errorf("(main_wrapper) SubmitCWLJobToAWE returned: %s", err.Error())
 		return
 	}
-	fmt.Printf("---------- C\n")
+	//fmt.Printf("---------- C\n")
 	//fmt.Printf("Job id: %s\n", jobid)
 
 	if conf.SUBMITTER_WAIT {
@@ -175,7 +175,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	inputfilePath := ""
 	inputFileBase := ""
 	//fmt.Printf("job path: %s\n", inputfile_path) // needed to resolve relative paths
-	fmt.Printf("createNormalizedSubmisson A\n")
+	//fmt.Printf("createNormalizedSubmisson A\n")
 	// ### parse job file
 	var jobDoc *cwl.Job_document
 
@@ -197,7 +197,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	//spew.Dump(*job_doc)
 
 	var jobDocMap cwl.JobDocMap
-	fmt.Printf("createNormalizedSubmisson B\n")
+	//fmt.Printf("createNormalizedSubmisson B\n")
 	//job_doc_map["test"] = cwl.NewNull()
 
 	// if conf.DEBUG_LEVEL >= 3 {
@@ -224,7 +224,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	// ### upload input files
 
 	shockClient := shock.NewShockClient(conf.SHOCK_URL, shockAuth, false)
-	fmt.Printf("createNormalizedSubmisson C\n")
+	//fmt.Printf("createNormalizedSubmisson C\n")
 	uploadCount := 0
 
 	if jobFile != "" {
@@ -244,7 +244,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	if err != nil {
 		return
 	}
-	fmt.Printf("createNormalizedSubmisson D\n")
+	//fmt.Printf("createNormalizedSubmisson D\n")
 	if conf.DEBUG_LEVEL >= 3 {
 		fmt.Printf("job input as yaml:\n%s\n", string(jobData[:]))
 	}
@@ -277,9 +277,9 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	//var namespaces map[string]string
 	//var schemas []interface{}
 	var context *cwl.WorkflowContext
-	fmt.Printf("createNormalizedSubmisson E\n")
+	//fmt.Printf("createNormalizedSubmisson E\n")
 	namedObjectArray, schemata, context, _, err = cwl.ParseCWLDocument(yamlStr, entrypoint, inputfilePath, inputFileBase)
-	fmt.Printf("createNormalizedSubmisson F\n")
+	//fmt.Printf("createNormalizedSubmisson F\n")
 	if err != nil {
 		if conf.SUBMITTER_PACK {
 			err = fmt.Errorf("(createNormalizedSubmisson) error in parsing output of \"cwltool --pack %s\" (%s)", workflowFile, err.Error())
@@ -300,7 +300,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 		return
 	}
 	uploadCount += subUploadCount
-	fmt.Printf("createNormalizedSubmisson G\n")
+	//fmt.Printf("createNormalizedSubmisson G\n")
 	if context.Schemas != nil {
 		subUploadCount := 0
 		subUploadCount, err = cache.ProcessIOData(context.Schemas, inputfilePath, inputfilePath, "upload", shockClient, true)

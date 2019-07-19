@@ -212,11 +212,11 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 			err = fmt.Errorf("(NewCommandLineTool) did not expect empty Id")
 			return
 		}
-		err = context.Add(commandLineTool.Id, commandLineTool, "NewCommandLineTool")
-		if err != nil {
-			err = fmt.Errorf("(NewCommandLineTool) (add commandLineTool) context.Add returned: %s", err.Error())
-			return
-		}
+		// err = context.Add(commandLineTool.Id, commandLineTool, "NewCommandLineTool")
+		// if err != nil {
+		// 	err = fmt.Errorf("(NewCommandLineTool) (add commandLineTool) context.Add returned: %s", err.Error())
+		// 	return
+		// }
 
 		for i := range commandLineTool.Inputs {
 			inp := &commandLineTool.Inputs[i]

@@ -102,8 +102,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		//	return
 		//}
 
-		workflow_filename := cwl_file.Name
+		cwlWorkflowFileName := cwl_file.Name
 
+		cwlWorkflowFileBase := path.Base(cwlWorkflowFileName)
 		//1) parse job
 
 		var job_input *cwl.Job_document
@@ -156,7 +157,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		var newEntrypoint string
 		// the returning entrypoint should always be empty because only graph documnets are submitted by the submitter
-		objectArray, schemata, context, _, newEntrypoint, err = cwl.ParseCWLDocument(yamlStr, entrypoint, "-", "") // TODO need filename. last argument
+		objectArray, schemata, context, _, newEntrypoint, err = cwl.ParseCWLDocument(nil, yamlStr, entrypoint, "-", cwlWorkflowFileBase) // TODO need filename. last argument
 		if err != nil {
 			cx.RespondWithErrorMessage(fmt.Sprintf("(JobController/Create) error in parsing cwl workflow yaml file (entrypoint: %s): %s", entrypoint, err.Error()), http.StatusBadRequest)
 			return
@@ -538,14 +539,14 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			job.Info.Name = conf.SUBMITTER_JOB_NAME
 		}
 
-		job.Info.Pipeline = workflow_filename
+		job.Info.Pipeline = cwlWorkflowFileName
 
-		client_group, ok := params["CLIENT_GROUP"]
+		clientGroup, ok := params["CLIENT_GROUP"]
 		if !ok {
-			client_group = conf.CLIENT_GROUP
+			clientGroup = conf.CLIENT_GROUP
 		}
 
-		job.Info.ClientGroups = client_group
+		job.Info.ClientGroups = clientGroup
 
 		if shock_requirement != nil {
 			job.CWL_ShockRequirement = shock_requirement

@@ -213,11 +213,11 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 
 		if context != nil {
 			//if context.Initialzing {
-			err = context.Add(workflow_ptr.Id, workflow_ptr, "NewWorkflow")
-			if err != nil {
-				err = fmt.Errorf("(NewWorkflow) context.Add returned: %s", err.Error())
-				return
-			}
+			// err = context.Add(workflow_ptr.Id, workflow_ptr, "NewWorkflow")
+			// if err != nil {
+			// 	err = fmt.Errorf("(NewWorkflow) context.Add returned: %s", err.Error())
+			// 	return
+			// }
 			//}
 
 			//for i, _ := range workflow.Inputs { // this can conflict with workflow_instance fields

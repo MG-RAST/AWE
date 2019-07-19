@@ -117,13 +117,13 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRe
 		et.Requirements = new_requirements
 	}
 
-	if context != nil && err == nil {
-		err = context.Add(et.Id, et, "NewExpressionTool")
-		if err != nil {
-			err = fmt.Errorf("(NewExpressionTool) context.Add returned: %s", err.Error())
-			return
-		}
-	}
+	// if context != nil && err == nil {
+	// 	err = context.Add(et.Id, et, "NewExpressionTool")
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(NewExpressionTool) context.Add returned: %s", err.Error())
+	// 		return
+	// 	}
+	// }
 
 	return
 }

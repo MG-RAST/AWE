@@ -25,6 +25,7 @@ type WorkflowContext struct {
 	IfObjects map[string]interface{} `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // graph objects
 	Objects   map[string]CWLObject   `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // graph objects , stores all objects (replaces All ???)
 
+	FilesLoaded map[string]bool `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//Workflows          map[string]*Workflow          `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//InputParameter     map[string]*InputParameter    `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // WorkflowInput
 	//WorkflowStepInputs map[string]*WorkflowStepInput `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
@@ -193,11 +194,11 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	context.GraphDocument.Graph = []interface{}{}
 	for key, value := range context.Objects {
 		logger.Debug(3, "(WorkflowContext/Init) adding %s to context.GraphDocument.Graph", key)
-		//err = context.Add(key, value, "WorkflowContext/Init")
-		//if err != nil {
-		//	err = fmt.Errorf("(WorkflowContext/Init) context.Add( returned %s", err.Error())
-		//	return
-		//}
+		err = context.Add(key, value, "WorkflowContext/Init")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowContext/Init) context.Add( returned %s", err.Error())
+			return
+		}
 
 		context.GraphDocument.Graph = append(context.GraphDocument.Graph, value)
 	}

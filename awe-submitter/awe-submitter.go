@@ -187,7 +187,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	//workflowFile := conf.ARGS[0]
 
 	inputfilePath := ""
-	inputFileBase := ""
+	workflowFileBase := path.Base(workflowFile)
 	//fmt.Printf("job path: %s\n", inputfile_path) // needed to resolve relative paths
 	//fmt.Printf("createNormalizedSubmisson A\n")
 	// ### parse job file
@@ -196,7 +196,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	if jobFile != "" {
 
 		inputfilePath = path.Dir(jobFile)
-		inputFileBase = path.Base(jobFile)
+		//inputFileBase = path.Base(jobFile)
 		jobDoc, err = cwl.ParseJobFile(jobFile)
 		if err != nil {
 			err = fmt.Errorf("error parsing cwl job: %s", err.Error())
@@ -205,7 +205,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	} else {
 		jobDoc = &cwl.Job_document{}
 		inputfilePath = path.Dir(workflowFile)
-		inputFileBase = path.Base(workflowFile)
+
 	}
 	//fmt.Println("Job input after reading from file:")
 	//spew.Dump(*job_doc)
@@ -293,7 +293,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	var context *cwl.WorkflowContext
 	//fmt.Printf("createNormalizedSubmisson E\n")
 	//var newEntrypoint string
-	namedObjectArray, schemata, context, _, newEntrypoint, err = cwl.ParseCWLDocument(yamlStr, entrypoint, inputfilePath, inputFileBase)
+	namedObjectArray, schemata, context, _, newEntrypoint, err = cwl.ParseCWLDocument(nil, yamlStr, entrypoint, inputfilePath, workflowFileBase)
 
 	// if newEntrypoint != "" {
 	// 	entrypoint = newEntrypoint

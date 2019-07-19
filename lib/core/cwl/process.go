@@ -2,7 +2,10 @@ package cwl
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"reflect"
+	"strings"
 
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
@@ -73,26 +76,31 @@ func NewProcess(original interface{}, injectedRequirements []Requirement, contex
 	switch original.(type) {
 	case string:
 		//logger.Debug(3, "(NewProcess) a string")
-		original_str := original.(string)
+		originalStr := original.(string)
 
-		//pp := &ProcessPointer{Value: original_str}
-		process = original_str
+		processIdentifer := originalStr
+		if !strings.HasPrefix(originalStr, "#") {
+			processIdentifer = "#" + originalStr
+		}
+
+		//pp := &ProcessPointer{Value: originalStr}
+		//process = originalStr
 		var ok bool
 
 		if context.Objects != nil {
 
-			_, ok = context.Objects[original_str]
+			process, ok = context.Objects[processIdentifer]
 			if ok {
-				//logger.Debug(3, "(NewProcess) object %s found", original_str)
+				//logger.Debug(3, "(NewProcess) object %s found", originalStr)
 				// refrenced object has already been parsed once
 				// TODO may want to parse a second time and make a new copy
 				return
 			}
 		}
 		var processIf interface{}
-		processIf, ok = context.IfObjects[original_str]
+		processIf, ok = context.IfObjects[processIdentifer]
 		if ok {
-			logger.Debug(3, "(NewProcess) %s found in object_if", original_str)
+			logger.Debug(3, "(NewProcess) %s found in object_if", processIdentifer)
 			var object CWLObject
 
 			object, schemata, err = NewCWLObject(processIf, "", injectedRequirements, context)
@@ -101,18 +109,62 @@ func NewProcess(original interface{}, injectedRequirements []Requirement, contex
 				return
 			}
 
-			context.Objects[original_str] = object
+			context.Objects[processIdentifer] = object
 			return
 		}
 
+		ifObjectsStr := ""
 		for id := range context.IfObjects {
 			fmt.Printf("Id: %s\n", id)
+			ifObjectsStr += "," + id
 		}
 		for id := range context.Objects {
 			fmt.Printf("Id: %s\n", id)
 		}
 
-		err = fmt.Errorf("(NewProcess) %s not found in context", original_str)
+		//originalStrArray := strings.Split(originalStr, "#")
+		fileFromStr := strings.TrimPrefix(processIdentifer, "#")
+		newFileToLoad := path.Join(context.Path, fileFromStr) // TODO context.Path is not correct, depends on location of parent document
+		newFileToLoadBase := path.Base(newFileToLoad)
+		entrypoint := ""
+		// if len(originalStrArray) > 1 {
+		// 	entrypoint = originalStrArray[1]
+		// }
+
+		_, err = os.Stat(newFileToLoad)
+		if err != nil {
+
+			err = fmt.Errorf("(NewProcess) %s not found in context (found %s) and does not seem to be a file", newFileToLoad, ifObjectsStr)
+			return
+		}
+
+		//var newObjectArray []NamedCWLObject
+		var schemas []interface{}
+		_, schemata, _, schemas, _, err = ParseCWLDocumentFile(context, newFileToLoad, entrypoint, context.Path, newFileToLoadBase)
+		if err != nil {
+
+			err = fmt.Errorf("(NewProcess) ParseCWLDocumentFile returned: %s", err.Error())
+			return
+		}
+		_ = schemas
+		// for i := range newObjectArray {
+		// 	thing := newObjectArray[i]
+
+		// 	err = context.Add(thing.Id, thing.Value, "NewProcess")
+		// 	if err != nil {
+
+		// 		err = fmt.Errorf("(NewProcess) context.Add returned: %s", err.Error())
+		// 		return
+		// 	}
+		// }
+
+		process, ok = context.All[processIdentifer]
+		if ok {
+			return
+		}
+
+		err = fmt.Errorf("(NewProcess) Process %s not found ", processIdentifer)
+
 		return
 	case map[string]interface{}:
 		originalMap, ok := original.(map[string]interface{})

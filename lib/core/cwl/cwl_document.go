@@ -249,6 +249,11 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 		}
 		err = nil
 
+		if len(strings.Split(basename, "/")) > 1 {
+			err = fmt.Errorf("(ParseCWLSimpleDocument) contains path !?  %s ", basename)
+			return
+		}
+
 		objectID = "#" + basename
 		//fmt.Printf("ParseCWLSimpleDocument: using %s\n", basename)
 		setObjectID = true
@@ -303,6 +308,13 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 		return
 	}
 
+	logger.Debug(3, "(ParseCWLSimpleDocument) adding %s to context", objectID)
+	err = context.Add(objectID, object, "ParseCWLSimpleDocument")
+	if err != nil {
+		err = fmt.Errorf("(ParseCWLSimpleDocument) context.Add returned %s", err.Error())
+		return
+	}
+
 	namedObj := NewNamedCWLObject(objectID, object)
 	//named_obj := NewNamedCWLObject(commandlinetool.Id, commandlinetool)
 
@@ -315,16 +327,59 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 	return
 }
 
+// ParseCWLDocumentFile _
+func ParseCWLDocumentFile(existingContext *WorkflowContext, filePath string, entrypoint string, inputfilePath string, fileName string) (objectArray []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, newEntrypoint string, err error) {
+
+	// skip parsing if files have been loaded before
+	if existingContext != nil {
+
+		var ok bool
+		if existingContext.FilesLoaded != nil {
+			_, ok = existingContext.FilesLoaded[filePath]
+			if ok {
+				return
+			}
+		} else {
+			existingContext.FilesLoaded = make(map[string]bool)
+		}
+	}
+
+	var fileByte []byte
+	fileByte, err = ioutil.ReadFile(filePath)
+	if err != nil {
+		err = fmt.Errorf("error in reading file %s: %s", filePath, err.Error())
+		return
+	}
+
+	fileStr := string(fileByte)
+
+	filePathBase := path.Base(filePath)
+
+	objectArray, schemata, context, schemas, newEntrypoint, err = ParseCWLDocument(existingContext, fileStr, entrypoint, inputfilePath, filePathBase)
+	if err != nil {
+		err = fmt.Errorf("(ParseCWLDocumentFile) ParseCWLDocument returned: %s", err.Error())
+		return
+	}
+
+	existingContext.FilesLoaded[filePath] = true
+	return
+}
+
 // ParseCWLDocument _
 // format: inputfilePath  / fileName # entrypoint , example: /path/tool.cwl#main
 // a CWL document can be a graph document or a single object document
 // an entrypoint can only be specified for a graph document
-func ParseCWLDocument(yamlStr string, entrypoint string, inputfilePath string, fileName string) (objectArray []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, newEntrypoint string, err error) {
+func ParseCWLDocument(existingContext *WorkflowContext, yamlStr string, entrypoint string, inputfilePath string, fileBaseName string) (objectArray []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, newEntrypoint string, err error) {
 	//fmt.Printf("(Parse_cwl_document) starting\n")
 
-	context = NewWorkflowContext()
-	context.Path = inputfilePath
-	context.InitBasic()
+	if existingContext != nil {
+		context = existingContext
+	} else {
+		context = NewWorkflowContext()
+		context.Path = inputfilePath
+		context.InitBasic()
+	}
+
 	graphPos := strings.Index(yamlStr, "$graph")
 
 	//yamlStr = strings.Replace(yamlStr, "$namespaces", "namespaces", -1)
@@ -347,7 +402,7 @@ func ParseCWLDocument(yamlStr string, entrypoint string, inputfilePath string, f
 		//fmt.Printf("(Parse_cwl_document) ParseCWLSimpleDocument\n")
 		var objectID string
 
-		objectArray, schemata, schemas, objectID, err = ParseCWLSimpleDocument(yamlStr, fileName, context)
+		objectArray, schemata, schemas, objectID, err = ParseCWLSimpleDocument(yamlStr, fileBaseName, context)
 		if err != nil {
 			err = fmt.Errorf("(Parse_cwl_document) Parse_cwl_simple_document returned: %s", err.Error())
 			return
@@ -379,6 +434,9 @@ func translate(obj interface{}, workingPath string) (tObj interface{}, err error
 func translateRecursive(copy, original reflect.Value, workingPath string) (includeString string, err error) {
 
 	var childIncludeString string
+
+	includeStr := "$include"
+	includeStrValue := reflect.ValueOf(includeStr)
 
 	switch original.Kind() {
 	// The first cases handle nested structures and translate them recursively
@@ -463,22 +521,8 @@ func translateRecursive(copy, original reflect.Value, workingPath string) (inclu
 
 				includeContentStrValue := reflect.ValueOf(&includeContentStr)
 				includeContentStrValuePValue := reflect.Indirect(includeContentStrValue)
-				//toBeRepacedNode := original.Index(i)
 
 				copy.Index(i).Set(includeContentStrValuePValue)
-				// if toBeRepacedNode.CanAddr() {
-				// 	fmt.Printf("CanAddr! \n")
-
-				// 	addrs := toBeRepacedNode.Addr()
-
-				// 	tempStr := reflect.TypeOf(addrs)
-				// 	fmt.Printf("addrs type: %s\n", reflect.TypeOf(tempStr))
-
-				// 	//originalValue.SetString(childIncludeString)
-
-				// 	//original.Index(i).SetString(childIncludeString)
-
-				// }
 
 			}
 		}
@@ -486,14 +530,6 @@ func translateRecursive(copy, original reflect.Value, workingPath string) (inclu
 	// If it is a map we create a new map and translate each value
 	case reflect.Map:
 		copy.Set(reflect.MakeMap(original.Type()))
-
-		includeStr := "$include"
-
-		//includeStrType := reflect.TypeOf(includeStr)
-
-		includeStrValue := reflect.ValueOf(includeStr)
-
-		//includeStrValue.SetString(includeStr)
 
 		includeField := original.MapIndex(includeStrValue)
 		if includeField.IsValid() {

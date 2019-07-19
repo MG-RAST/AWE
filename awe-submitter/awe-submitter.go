@@ -3,7 +3,6 @@ package main
 import (
 	//"encoding/json"
 	"fmt"
-	"net/url"
 
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
@@ -121,7 +120,7 @@ func mainWrapper() (err error) {
 		return
 	}
 
-	var tempfileName string
+	var workflowTemporaryFile string
 	var entrypoint string
 	//fmt.Printf("conf.ARGS: %d\n", conf.ARGS)
 	if len(conf.ARGS) >= 2 {
@@ -134,29 +133,44 @@ func mainWrapper() (err error) {
 
 		//fmt.Printf("jobFile: %s\n", jobFile)
 	}
-
+	logger.Debug(3, "(main_wrapper) A entrypoint: %s", entrypoint)
 	//fmt.Printf("---------- A\n")
 
 	var jobData []byte
-	tempfileName, jobData, err = createNormalizedSubmisson(aweAuth, shockAuth, conf.ARGS[0], jobFile, entrypoint)
+	var newEntrypoint string // name of Workflow in single document for example
+	workflowTemporaryFile, jobData, newEntrypoint, err = createNormalizedSubmisson(aweAuth, shockAuth, conf.ARGS[0], jobFile, entrypoint)
 	if err != nil {
 		err = fmt.Errorf("(mainWrapper) createNormalizedSubmisson returned: %s", err.Error())
 		return
 	}
+
+	if newEntrypoint != "" {
+		entrypoint = newEntrypoint
+	}
+	logger.Debug(3, "(main_wrapper) B entrypoint: %s", entrypoint)
 	//fmt.Printf("---------- B\n")
 	// ### Submit job to AWE
 	var jobid string
-	var newEntrypoint string
-	jobid, newEntrypoint, err = SubmitCWLJobToAWE(tempfileName, jobFile, entrypoint, &jobData, aweAuth, shockAuth)
+
+	// single tools are wrapped into a workflow, thus returns new entrypoint
+	jobid, newEntrypoint, err = SubmitCWLJobToAWE(workflowTemporaryFile, jobFile, entrypoint, &jobData, aweAuth, shockAuth)
 	if err != nil {
 		err = fmt.Errorf("(main_wrapper) SubmitCWLJobToAWE returned: %s", err.Error())
 		return
 	}
+
+	if newEntrypoint != "" {
+		entrypoint = newEntrypoint
+	}
+	logger.Debug(3, "(main_wrapper) C entrypoint: %s", entrypoint)
+	// if strings.HasPrefix(entrypoint, "#") {
+	// 	entrypoint = strings.TrimPrefix(entrypoint, "#")
+	// }
 	//fmt.Printf("---------- C\n")
 	//fmt.Printf("Job id: %s\n", jobid)
 
 	if conf.SUBMITTER_WAIT {
-		err = WaitForResults(jobid, newEntrypoint, aweAuth)
+		err = WaitForResults(jobid, entrypoint, aweAuth)
 		if err != nil {
 			err = fmt.Errorf("(main_wrapper) Wait_for_results returned: %s", err.Error())
 			return
@@ -168,7 +182,7 @@ func mainWrapper() (err error) {
 	return
 }
 
-func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile string, jobFile string, entrypoint string) (tempfileName string, jobData []byte, err error) {
+func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile string, jobFile string, entrypoint string) (workflowTemporaryFile string, jobData []byte, newEntrypoint string, err error) {
 
 	//workflowFile := conf.ARGS[0]
 
@@ -278,7 +292,13 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	//var schemas []interface{}
 	var context *cwl.WorkflowContext
 	//fmt.Printf("createNormalizedSubmisson E\n")
-	namedObjectArray, schemata, context, _, err = cwl.ParseCWLDocument(yamlStr, entrypoint, inputfilePath, inputFileBase)
+	//var newEntrypoint string
+	namedObjectArray, schemata, context, _, newEntrypoint, err = cwl.ParseCWLDocument(yamlStr, entrypoint, inputfilePath, inputFileBase)
+
+	// if newEntrypoint != "" {
+	// 	entrypoint = newEntrypoint
+	// }
+
 	//fmt.Printf("createNormalizedSubmisson F\n")
 	if err != nil {
 		if conf.SUBMITTER_PACK {
@@ -434,7 +454,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 		err = fmt.Errorf("(main_wrapper) ioutil.TempFile returned: %s", err.Error())
 		return
 	}
-	tempfileName = tmpfile.Name()
+	workflowTemporaryFile = tmpfile.Name()
 	//defer os.Remove(tempfile_name)
 
 	_, err = tmpfile.Write(newDocumentBytes)
@@ -485,6 +505,9 @@ FORLOOP:
 		switch job.State {
 		case core.JOB_STAT_COMPLETED:
 			logger.Debug(1, "(Wait_for_results) job state: %s", core.JOB_STAT_COMPLETED)
+
+			//root = job.Root
+
 			break FORLOOP
 		case core.JOB_STAT_SUSPEND:
 			errorMessageStr := ""
@@ -515,7 +538,7 @@ FORLOOP:
 	// example: curl http://skyport.local:8001/awe/api/workflow_instances/c1cad21a-5ab5-4015-8aae-1dfda844e559_root
 
 	var wi *core.WorkflowInstance
-	wi, statusCode, err = GetRootWorkflowInstance(jobid, entrypoint, job, aweAuth)
+	wi, statusCode, err = GetRootWorkflowInstance(job, aweAuth)
 
 	//panic("Implement getting for output")
 	//var wi *core.WorkflowInstance
@@ -657,6 +680,7 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, entrypoint string, j
 		return
 	}
 	jobid = job.ID
+
 	newEntrypoint = job.Entrypoint
 
 	return
@@ -757,13 +781,15 @@ func GetAWEJob(jobid string, aweAuth string) (job *core.Job, statusCode int, err
 }
 
 // GetRootWorkflowInstance _
-func GetRootWorkflowInstance(jobid string, entrypoint string, job *core.Job, aweAuth string) (wi *core.WorkflowInstance, statusCode int, err error) {
+func GetRootWorkflowInstance(job *core.Job, aweAuth string) (wi *core.WorkflowInstance, statusCode int, err error) {
 	//wi_array := []core.WorkflowInstance{}
 	var wiIf interface{}
 
-	statusCode, err = GetAWEObject("workflow_instances", jobid+"_"+url.PathEscape(entrypoint), aweAuth, &wiIf)
+	queryStr := job.Root
+
+	statusCode, err = GetAWEObject("workflow_instances", queryStr, aweAuth, &wiIf)
 	if err != nil {
-		err = fmt.Errorf("(GetRootWorkflowInstance) GetAWEObject returned: %s", err.Error())
+		err = fmt.Errorf("(GetRootWorkflowInstance) GetAWEObject returned: %s (queryStr: %s)", err.Error(), queryStr)
 		return
 	}
 

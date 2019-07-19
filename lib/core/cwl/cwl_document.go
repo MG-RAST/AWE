@@ -127,7 +127,8 @@ func ParseCWLGraphDocument(yamlStr string, entrypoint string, context *WorkflowC
 }
 
 // ParseCWLSimpleDocument _
-func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowContext) (objectArray []NamedCWLObject, schemata []CWLType_Type, schemas []interface{}, err error) {
+// returns: objectID may be used an entrypoint later
+func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowContext) (objectArray []NamedCWLObject, schemata []CWLType_Type, schemas []interface{}, objectID string, err error) {
 	// Here I expect a single object, Workflow or CommandLIneTool
 	//fmt.Printf("-------------- yaml_str: %s\n", yaml_str)
 
@@ -237,7 +238,7 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 	//fmt.Printf("AAAA\n")
 	setObjectID := false
 
-	var objectID string
+	//var objectID string
 	objectID, err = GetID(objectIf)
 	if err != nil {
 		//fmt.Printf("ParseCWLSimpleDocument: got no id\n")
@@ -318,7 +319,7 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 // format: inputfilePath  / fileName # entrypoint , example: /path/tool.cwl#main
 // a CWL document can be a graph document or a single object document
 // an entrypoint can only be specified for a graph document
-func ParseCWLDocument(yamlStr string, entrypoint string, inputfilePath string, fileName string) (objectArray []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, err error) {
+func ParseCWLDocument(yamlStr string, entrypoint string, inputfilePath string, fileName string) (objectArray []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, newEntrypoint string, err error) {
 	//fmt.Printf("(Parse_cwl_document) starting\n")
 
 	context = NewWorkflowContext()
@@ -344,11 +345,14 @@ func ParseCWLDocument(yamlStr string, entrypoint string, inputfilePath string, f
 	} else {
 		logger.Debug(3, "(Parse_cwl_document) simple document")
 		//fmt.Printf("(Parse_cwl_document) ParseCWLSimpleDocument\n")
-		objectArray, schemata, schemas, err = ParseCWLSimpleDocument(yamlStr, fileName, context)
+		var objectID string
+
+		objectArray, schemata, schemas, objectID, err = ParseCWLSimpleDocument(yamlStr, fileName, context)
 		if err != nil {
 			err = fmt.Errorf("(Parse_cwl_document) Parse_cwl_simple_document returned: %s", err.Error())
 			return
 		}
+		newEntrypoint = objectID
 	}
 	if len(objectArray) == 0 {
 		err = fmt.Errorf("(Parse_cwl_document) len(objectArray) == 0 (graphPos: %d)", graphPos)

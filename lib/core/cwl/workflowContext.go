@@ -600,7 +600,13 @@ func (c *WorkflowContext) GetWorkflow(id string) (obj *Workflow, err error) {
 		return
 	}
 	if !ok {
-		err = fmt.Errorf("(GetWorkflow) item %s not found in collection: %s", id, err.Error())
+
+		keys := ""
+		for key := range c.All {
+			keys += "," + key
+		}
+
+		err = fmt.Errorf("(GetWorkflow) item %s not found in collection (found: %s)", id, keys)
 		return
 	}
 

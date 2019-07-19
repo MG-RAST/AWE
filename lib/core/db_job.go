@@ -9,6 +9,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -480,15 +481,20 @@ func LoadJob(id string) (job *Job, err error) {
 		for i := range wis {
 			var wiChanged bool
 			wi := wis[i]
+			if wi.ID == "" {
+				spew.Dump(wis)
+				err = fmt.Errorf("(LoadJob) wi.ID empty")
+				return
+			}
 			wiChanged, err = wi.Init(job)
 			if err != nil {
 				err = fmt.Errorf("(LoadJob) wis[i].Init returned: %s", err.Error())
 				return
 			}
 			if wiChanged {
-				err = wi.Save(true)
+				err = wi.Update(true)
 				if err != nil {
-					err = fmt.Errorf("(LoadJob) wi.Save() returned: %s", err.Error())
+					err = fmt.Errorf("(LoadJob) wi.Update() returned: %s", err.Error())
 					return
 				}
 			}

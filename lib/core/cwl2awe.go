@@ -147,7 +147,7 @@ func CWLInputCheck(jobInput *cwl.Job_document, cwlWorkflow *cwl.Workflow, contex
 }
 
 // CreateWorkflowTasks _
-func CreateWorkflowTasks(job *Job, namePrefix string, steps []cwl.WorkflowStep, stepPrefix string, parentID *Task_Unique_Identifier) (tasks []*Task, err error) {
+func CreateWorkflowTasksDEPRECATED(job *Job, namePrefix string, steps []cwl.WorkflowStep, stepPrefix string, parentID *Task_Unique_Identifier) (tasks []*Task, err error) {
 	tasks = []*Task{}
 
 	if parentID == nil {
@@ -195,7 +195,7 @@ func CreateWorkflowTasks(job *Job, namePrefix string, steps []cwl.WorkflowStep, 
 		fmt.Printf("(CreateWorkflowTasks) creating task: %s %s\n", namePrefix, taskName)
 
 		var aweTask *Task
-		aweTask, err = NewTask(job, namePrefix, taskName)
+		aweTask, err = NewTask(job, "DEPRECATED", namePrefix, taskName)
 		if err != nil {
 			err = fmt.Errorf("(CreateWorkflowTasks) NewTask returned: %s", err.Error())
 			return
@@ -301,7 +301,7 @@ func CWL2AWE(_user *user.User, files FormFiles, jobInput *cwl.Job_document, cwlW
 	//}
 	//}
 
-	err = wi.Save(false)
+	err = wi.Insert(false)
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) wi.Save returned: %s", err.Error())
 		return
@@ -314,6 +314,8 @@ func CWL2AWE(_user *user.User, files FormFiles, jobInput *cwl.Job_document, cwlW
 		err = fmt.Errorf("(CWL2AWE) AddWorkflowInstance returned: %s", err.Error())
 		return
 	}
+
+	job.Root = wi.ID
 
 	logger.Debug(1, "(CWL2AWE) wi added")
 

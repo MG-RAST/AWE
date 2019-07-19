@@ -42,6 +42,7 @@ var JOB_STATS_ACTIVE = []string{JOB_STAT_QUEUING, JOB_STAT_QUEUED, JOB_STAT_INPR
 var JOB_STATS_REGISTERED = []string{JOB_STAT_QUEUING, JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 var JOB_STATS_TO_RECOVER = []string{JOB_STAT_INIT, JOB_STAT_QUEUING, JOB_STAT_QUEUED, JOB_STAT_INPROGRESS, JOB_STAT_SUSPEND}
 
+// JobError _
 type JobError struct {
 	ClientFailed string `bson:"clientfailed" json:"clientfailed,omitempty"`
 	WorkFailed   string `bson:"workfailed" json:"workfailed,omitempty"`
@@ -52,11 +53,13 @@ type JobError struct {
 	Status       string `bson:"status" json:"status,omitempty"`
 }
 
+// Job _
 type Job struct {
 	JobRaw `bson:",inline"`
 	Tasks  []*Task `bson:"tasks" json:"tasks"`
 }
 
+// JobRaw _
 type JobRaw struct {
 	rwmutex.RWMutex
 	ID                      string                       `bson:"id" json:"id"` // uuid
@@ -79,24 +82,27 @@ type JobRaw struct {
 	WorkflowInstancesMap    map[string]*WorkflowInstance `bson:"-" json:"-" yaml:"-" mapstructure:"-"`
 	WorkflowInstancesRemain int                          `bson:"workflow_instances_remain" json:"workflow_instances_remain"`
 	Entrypoint              string                       `bson:"entrypoint" json:"entrypoint"` // name of main workflow (typically has name #main or #entrypoint)
+	Root                    string                       `bson:"root" json:"root"`             // UUID of root workflow instance
 	WorkflowContext         *cwl.WorkflowContext         `bson:"context" json:"context" yaml:"context" mapstructure:"context"`
 }
 
-func (job *JobRaw) GetId(do_read_lock bool) (id string, err error) {
-	if do_read_lock {
-		read_lock, xerr := job.RLockNamed("String")
+// GetID _
+func (job *JobRaw) GetID(doReadLock bool) (id string, err error) {
+	if doReadLock {
+		readLock, xerr := job.RLockNamed("String")
 		if xerr != nil {
 			err = xerr
 			return
 		}
-		defer job.RUnlockNamed(read_lock)
+		defer job.RUnlockNamed(readLock)
 	}
 
 	id = job.ID
 	return
 }
 
-func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync bool, writeLock bool) (err error) {
+// AddWorkflowInstance _
+func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, dbSync bool, writeLock bool) (err error) {
 	//fmt.Printf("(AddWorkflowInstance) id: %s\n", wi.LocalID)
 	if writeLock {
 		err = job.LockNamed("AddWorkflowInstance")
@@ -110,8 +116,8 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync bool, writeLoc
 		job.WorkflowInstancesMap = make(map[string]*WorkflowInstance)
 	} else {
 
-		_, has_wi := job.WorkflowInstancesMap[wi.LocalID]
-		if has_wi {
+		_, hasWI := job.WorkflowInstancesMap[wi.LocalID]
+		if hasWI {
 
 			//err = fmt.Errorf("(AddWorkflowInstance) WorkflowInstance %s already in map !", wi.LocalID)
 			return
@@ -120,13 +126,18 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, db_sync bool, writeLoc
 
 	job.WorkflowInstancesMap[wi.LocalID] = wi
 
+	if len(wi.Tasks) > 0 {
+		err = fmt.Errorf("(AddWorkflowInstance) already has tasks !?")
+		return
+	}
+
 	err = wi.SetState(WIStatePending, DbSyncFalse, true) // AddWorkflowInstance
 	if err != nil {
 		err = fmt.Errorf("(AddWorkflowInstance) wi.SetState returned: %s (wi.LocalID: %s)", err.Error(), wi.LocalID)
 		return
 	}
 
-	if db_sync == DbSyncTrue {
+	if dbSync == DbSyncTrue {
 
 		err = dbUpsert(wi)
 		if err != nil {
@@ -354,15 +365,15 @@ func (job *Job) Init() (changed bool, err error) {
 	newRemainTasks := 0
 
 	for _, task := range job.Tasks {
-		if task.Id == "" {
+		if task.ID == "" {
 			// suspend and create error
 			logger.Error("(job.Init) task.Id empty, job %s broken?", job.ID)
 			//task.Id = job.ID + "_" + uuid.New()
-			task.Id = uuid.New()
+			task.ID = uuid.New()
 			job.State = JOB_STAT_SUSPEND
 			job.Error = &JobError{
 				ServerNotes: "task.Id was empty",
-				TaskFailed:  task.Id,
+				TaskFailed:  task.ID,
 			}
 			changed = true
 		}

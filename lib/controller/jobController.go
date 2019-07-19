@@ -151,12 +151,19 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		entrypoint, ok := params["entrypoint"]
 		if !ok {
-			entrypoint = ""
+			entrypoint = "#main"
 		}
 
-		objectArray, schemata, context, _, err = cwl.ParseCWLDocument(yamlStr, entrypoint, "-", "") // TODO need filename. last argument
+		var newEntrypoint string
+		// the returning entrypoint should always be empty because only graph documnets are submitted by the submitter
+		objectArray, schemata, context, _, newEntrypoint, err = cwl.ParseCWLDocument(yamlStr, entrypoint, "-", "") // TODO need filename. last argument
 		if err != nil {
 			cx.RespondWithErrorMessage(fmt.Sprintf("(JobController/Create) error in parsing cwl workflow yaml file (entrypoint: %s): %s", entrypoint, err.Error()), http.StatusBadRequest)
+			return
+		}
+
+		if newEntrypoint != "" {
+			cx.RespondWithErrorMessage(fmt.Sprintf("(JobController/Create) only graph documents supported currently"), http.StatusBadRequest)
 			return
 		}
 
@@ -192,7 +199,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				return
 			}
 
-			entrypoint = "#entrypoint"
+			wrapperEntrypoint := "#entrypoint"
 
 			pair := objectArray[0]
 
@@ -204,6 +211,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				workflow.CwlVersion = context.CwlVersion
 
 			case *cwl.CommandLineTool:
+				entrypoint = wrapperEntrypoint
 				commandlinetool_if := pair.Value
 
 				commandlinetool, ok := commandlinetool_if.(*cwl.CommandLineTool)
@@ -223,15 +231,15 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				cwl_workflow_instance := cwl.NewWorkflowEmpty()
 				cwl_workflow = &cwl_workflow_instance
-				cwl_workflow.Id = entrypoint
+				cwl_workflow.Id = wrapperEntrypoint
 				cwl_workflow.CwlVersion = context.CwlVersion
 				cwl_workflow.Namespaces = context.Namespaces
 				new_step := cwl.WorkflowStep{}
-				step_id := entrypoint + "/wrapper_step"
+				step_id := wrapperEntrypoint + "/wrapper_step"
 				new_step.ID = step_id
 				for _, input := range commandlinetool.Inputs { // input is CommandInputParameter
 
-					workflow_input_name := entrypoint + "/" + path.Base(input.Id) // e.g. #entrypoint/reference
+					workflow_input_name := wrapperEntrypoint + "/" + path.Base(input.Id) // e.g. #entrypoint/reference
 
 					var workflow_step_input cwl.WorkflowStepInput
 					workflow_step_input.Id = step_id + "/" + path.Base(input.Id)
@@ -282,7 +290,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 					var workflow_output_parameter cwl.WorkflowOutputParameter
 
-					workflow_output_parameter.Id = entrypoint + "/" + path.Base(output.Id)
+					workflow_output_parameter.Id = wrapperEntrypoint + "/" + path.Base(output.Id)
 
 					workflow_output_parameter.OutputSource = step_id + "/" + path.Base(output.Id)
 					workflow_output_parameter.SecondaryFiles = output.SecondaryFiles
@@ -328,6 +336,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				//}
 
 			case *cwl.ExpressionTool:
+				entrypoint = wrapperEntrypoint
 				expressiontool_if := pair.Value
 
 				expressiontool, ok := expressiontool_if.(*cwl.ExpressionTool)
@@ -347,14 +356,14 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				cwl_workflow_instance := cwl.NewWorkflowEmpty()
 				cwl_workflow = &cwl_workflow_instance
-				cwl_workflow.Id = entrypoint
+				cwl_workflow.Id = wrapperEntrypoint
 				cwl_workflow.CwlVersion = context.CwlVersion
 				new_step := cwl.WorkflowStep{}
-				step_id := entrypoint + "/wrapper_step"
+				step_id := wrapperEntrypoint + "/wrapper_step"
 				new_step.ID = step_id
 				for _, input := range expressiontool.Inputs { // input is InputParameter
 
-					workflow_input_name := entrypoint + "/" + path.Base(input.Id)
+					workflow_input_name := wrapperEntrypoint + "/" + path.Base(input.Id)
 
 					var workflow_step_input cwl.WorkflowStepInput
 					workflow_step_input.Id = step_id + "/" + path.Base(input.Id)
@@ -408,7 +417,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 						var workflowOutputParameter cwl.WorkflowOutputParameter
 
-						workflowOutputParameter.Id = entrypoint + "/" + path.Base(outputEtop.Id)
+						workflowOutputParameter.Id = wrapperEntrypoint + "/" + path.Base(outputEtop.Id)
 						workflowOutputParameter.OutputSource = step_id + "/" + path.Base(outputEtop.Id)
 						workflowOutputParameter.SecondaryFiles = outputEtop.SecondaryFiles
 						workflowOutputParameter.Format = outputEtop.Format
@@ -463,13 +472,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			}
 			//spew.Dump(cwl_workflow)
 
-		} else {
-			entrypoint = "#entrypoint"
+		} else { // context.WorkflowCount > 0
+			//entrypoint = "#entrypoint"
 
 			//var ok bool
 			cwl_workflow, err = context.GetWorkflow(entrypoint)
 			if err != nil {
-				cx.RespondWithErrorMessage(fmt.Sprintf("Workflow main not found (%s)", err.Error()), http.StatusBadRequest)
+				cx.RespondWithErrorMessage(fmt.Sprintf("Workflow %s not found (%s)", entrypoint, err.Error()), http.StatusBadRequest)
 				return
 			}
 

@@ -304,6 +304,10 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 				//steps_str = append(steps_str, wi_localwiLocalID_id+"/"+stepname_base)
 				var process interface{}
 				process, _, err = step.GetProcess(context)
+				if err != nil {
+					err = fmt.Errorf("(updateWorkflowInstancesMapTask) step.GetProcess returned: %s", err.Error())
+					return
+				}
 
 				switch process.(type) {
 				case *cwl.CommandLineTool, *cwl.ExpressionTool:

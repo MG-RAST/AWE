@@ -59,6 +59,11 @@ func (ws *WorkflowStep) Init(context *WorkflowContext) (err error) {
 		return
 	}
 
+	if ws.Run == nil {
+		err = fmt.Errorf("(WorkflowStep/Init) ws.Run == nil")
+		return
+	}
+
 	return
 }
 
@@ -128,6 +133,10 @@ func NewWorkflowStepFromInterface(original interface{}, thisID string, workflowI
 			originalMap["run"], schemataNew, err = NewProcess(run, requirementsArray, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) run %s", err.Error())
+				return
+			}
+			if originalMap["run"] == nil {
+				err = fmt.Errorf("(NewWorkflowStep) originalMap[\"run\"] == nil")
 				return
 			}
 			for i := range schemataNew {
@@ -204,6 +213,12 @@ func NewWorkflowStepFromInterface(original interface{}, thisID string, workflowI
 			return
 		}
 		//w = &step
+
+		if step.Run == nil {
+			spew.Dump(original)
+			err = fmt.Errorf("(NewWorkflowStep) ws.Run == nil")
+			return
+		}
 
 		if step.ID == "" {
 			step.ID = thisID
@@ -552,6 +567,7 @@ func (ws *WorkflowStep) GetProcessType(context *WorkflowContext) (process_type s
 
 }
 
+// GetProcess _
 func (ws *WorkflowStep) GetProcess(context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
 
 	//var p interface{}
@@ -559,6 +575,11 @@ func (ws *WorkflowStep) GetProcess(context *WorkflowContext) (process interface{
 	//if err != nil {
 	//	return
 	//}
+
+	if ws.Run == nil {
+		err = fmt.Errorf("(WorkflowStep/GetProcess) ws.Run == nil ")
+		return
+	}
 
 	p := ws.Run
 
@@ -602,10 +623,10 @@ func (ws *WorkflowStep) GetProcess(context *WorkflowContext) (process interface{
 		}
 		err = nil
 		spew.Dump(context)
-		err = fmt.Errorf("(GetProcess) Process %s not found ", process_name)
+		err = fmt.Errorf("(WorkflowStep/GetProcess) Process %s not found ", process_name)
 
 	default:
-		err = fmt.Errorf("(GetProcess) Process type %s unknown", reflect.TypeOf(p))
+		err = fmt.Errorf("(WorkflowStep/GetProcess) Process type %s unknown", reflect.TypeOf(p))
 
 	}
 

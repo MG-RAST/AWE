@@ -447,7 +447,7 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowC
 
 		objectType := object.GetType()
 		objectTypeStr := objectType.Type2String()
-		fmt.Printf("TypeIsCorrectSingle: \"%s\" \"%s\"\n", reflect.TypeOf(schema), reflect.TypeOf(objectType))
+		//fmt.Printf("TypeIsCorrectSingle: \"%s\" \"%s\"\n", reflect.TypeOf(schema), reflect.TypeOf(objectType))
 
 		if schema.Type2String() == objectTypeStr {
 			ok = true

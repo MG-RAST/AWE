@@ -122,6 +122,7 @@ type TaskLog struct {
 	Workunits     []*WorkLog `bson:"workunits" json:"workunits"`
 }
 
+// NewTaskRaw _
 func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) (tr *TaskRaw, err error) {
 
 	logger.Debug(3, "task_id: %s", task_id)
@@ -147,6 +148,7 @@ func NewTaskRaw(task_id Task_Unique_Identifier, info *Info) (tr *TaskRaw, err er
 	return
 }
 
+// InitRaw _
 func (task *TaskRaw) InitRaw(job *Job, job_id string) (changed bool, err error) {
 	changed = false
 
@@ -1294,6 +1296,7 @@ func (task *Task) setMaxWorkSize(num int, writelock bool) (err error) {
 	return
 }
 
+// SetRemainWork _
 func (task *Task) SetRemainWork(num int, writelock bool) (err error) {
 	if writelock {
 		err = task.LockNamed("SetRemainWork")
@@ -1311,6 +1314,7 @@ func (task *Task) SetRemainWork(num int, writelock bool) (err error) {
 	return
 }
 
+// IncrementRemainWork _
 func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, err error) {
 	if writelock {
 		err = task.LockNamed("IncrementRemainWork")
@@ -1321,6 +1325,12 @@ func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, 
 	}
 
 	remainwork = task.RemainWork + inc
+
+	if remainwork < 0 {
+		err = fmt.Errorf("(task/IncrementRemainWork) remainwork < 0")
+		return
+	}
+
 	if task.WorkflowInstanceId == "" {
 		err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.Id, "remainwork", remainwork)
 		if err != nil {
@@ -1338,6 +1348,7 @@ func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, 
 	return
 }
 
+// IncrementComputeTime _
 func (task *Task) IncrementComputeTime(inc int) (err error) {
 	err = task.LockNamed("IncrementComputeTime")
 	if err != nil {
@@ -1628,6 +1639,7 @@ func (task *Task) setTokenForIO(writelock bool) (err error) {
 	return
 }
 
+// CreateWorkunits _
 func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err error) {
 	//if a task contains only one workunit, assign rank 0
 
@@ -1641,9 +1653,10 @@ func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err
 	//}
 
 	if task.TotalWork == 1 {
-		workunit, xerr := NewWorkunit(qm, task, 0, job)
-		if xerr != nil {
-			err = fmt.Errorf("(CreateWorkunits) (single) NewWorkunit failed: %s", xerr.Error())
+		var workunit *Workunit
+		workunit, err = NewWorkunit(qm, task, 0, job)
+		if err != nil {
+			err = fmt.Errorf("(CreateWorkunits) (single) NewWorkunit failed: %s", err.Error())
 			return
 		}
 		wus = append(wus, workunit)
@@ -1651,9 +1664,10 @@ func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err
 	}
 	// if a task contains N (N>1) workunits, assign rank 1..N
 	for i := 1; i <= task.TotalWork; i++ {
-		workunit, xerr := NewWorkunit(qm, task, i, job)
-		if xerr != nil {
-			err = fmt.Errorf("(CreateWorkunits) (multi) NewWorkunit failed: %s", xerr.Error())
+		var workunit *Workunit
+		workunit, err = NewWorkunit(qm, task, i, job)
+		if err != nil {
+			err = fmt.Errorf("(CreateWorkunits) (multi) NewWorkunit failed: %s", err.Error())
 			return
 		}
 		wus = append(wus, workunit)
@@ -1661,6 +1675,7 @@ func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err
 	return
 }
 
+// GetTaskLogs _
 func (task *Task) GetTaskLogs() (tlog *TaskLog, err error) {
 	tlog = new(TaskLog)
 	tlog.Id = task.Id

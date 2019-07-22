@@ -1198,6 +1198,11 @@ func (task *Task) InitPartIndex() (err error) {
 			}
 		}
 	}
+
+	if totalunits == 0 {
+		totalunits = 1
+	}
+
 	if totalunits < task.TotalWork {
 		err = task.setTotalWork(totalunits, true)
 		if err != nil {

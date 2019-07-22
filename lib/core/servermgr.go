@@ -5107,6 +5107,8 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 		return
 	}
 
+	_ = task.SetTaskNotReadyReason("", true)
+
 	// ******************
 	// check if workflowInstance needs to be completed
 

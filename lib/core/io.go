@@ -3,10 +3,11 @@ package core
 import (
 	"errors"
 	"fmt"
-	shock "github.com/MG-RAST/go-shock-client"
-	"github.com/MG-RAST/golib/go-uuid/uuid"
 	"net/url"
 	"strings"
+
+	shock "github.com/MG-RAST/go-shock-client"
+	"github.com/MG-RAST/golib/go-uuid/uuid"
 )
 
 type IO struct {
@@ -53,18 +54,18 @@ type PartInfo struct {
 type IOmap map[string]*IO // [filename]attributes
 
 // (=deprecated=)
-func NewIOmap() IOmap {
+func NewIOmapDeprecated() IOmap {
 	return IOmap{}
 }
 
 // (=deprecated=)
-func (i IOmap) Add(name string, host string, node string, md5 string, cache bool) {
+func (i IOmap) AddDeprecated(name string, host string, node string, md5 string, cache bool) {
 	i[name] = &IO{FileName: name, Host: host, Node: node, MD5: md5, Cache: cache}
 	return
 }
 
 // (=deprecated=)
-func (i IOmap) Has(name string) bool {
+func (i IOmap) HasDeprecated(name string) bool {
 	if _, has := i[name]; has {
 		return true
 	}
@@ -72,17 +73,19 @@ func (i IOmap) Has(name string) bool {
 }
 
 // (=deprecated=)
-func (i IOmap) Find(name string) *IO {
+func (i IOmap) FindDeprecated(name string) *IO {
 	if val, has := i[name]; has {
 		return val
 	}
 	return nil
 }
 
+// NewIO _
 func NewIO() *IO {
 	return &IO{}
 }
 
+// Url2Shock +
 func (io *IO) Url2Shock() (err error) {
 	if io.Url == "" {
 		err = fmt.Errorf("(Url2Shock) url empty")
@@ -106,6 +109,7 @@ func (io *IO) Url2Shock() (err error) {
 	return
 }
 
+// DataUrl _
 func (io *IO) DataUrl() (dataurl string, err error) {
 	if io.Url != "" {
 		// parse and test url
@@ -150,6 +154,7 @@ func (io *IO) getShockNode() (node *shock.ShockNode, err error) {
 	return
 }
 
+// UpdateFileSize _
 func (io *IO) UpdateFileSize() (modified bool, err error) {
 	modified = false
 	if io.Size > 0 {
@@ -177,6 +182,7 @@ func (io *IO) UpdateFileSize() (modified bool, err error) {
 	return
 }
 
+// IndexFile get index from Shock or create it if needed, will wait for shock to complete index creation
 func (io *IO) IndexFile(indextype string) (idxInfo shock.IdxInfo, err error) {
 	// make sure we have an index
 	if indextype == "" {
@@ -231,6 +237,7 @@ func (io *IO) IndexFile(indextype string) (idxInfo shock.IdxInfo, err error) {
 	return
 }
 
+// DeleteNode _
 func (io *IO) DeleteNode() (err error) {
 	err = shock.ShockDelete(io.Host, io.Node, io.DataToken)
 	return

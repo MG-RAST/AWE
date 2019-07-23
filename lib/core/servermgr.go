@@ -1343,13 +1343,6 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 	//	return
 	//}
 
-	var job *Job
-	job, err = task.GetJob(time.Second * 30)
-	if err != nil {
-		err = fmt.Errorf("(handleLastWorkunit) GetJob returned: %s", err.Error())
-		return
-	}
-
 	// iterate over expected outputs
 
 	//var process interface{}
@@ -1368,6 +1361,14 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 	var wi *WorkflowInstance
 
 	if task.WorkflowStep != nil {
+
+		var job *Job
+		job, err = task.GetJob(time.Second * 30)
+		if err != nil {
+			err = fmt.Errorf("(handleLastWorkunit) GetJob returned: %s", err.Error())
+			return
+		}
+
 		context := job.WorkflowContext
 
 		//if task.Scatter_parent == nil {
@@ -2516,9 +2517,12 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 
 	if task.WorkflowStep == nil {
 		// task read lock, check DependsOn list and IO.Origin list
-		reason, err = task.ValidateDependants(qm)
+		reason, skip, err = task.ValidateDependants(qm)
 		if err != nil {
 			err = fmt.Errorf("(isTaskReady) %s", err.Error())
+			return
+		}
+		if skip {
 			return
 		}
 		if reason != "" {
@@ -4699,20 +4703,22 @@ func (qm *ServerMgr) CreateAndEnqueueWorkunits(task *Task, job *Job) (count int,
 	//logger.Debug(3, "(CreateAndEnqueueWorkunits) starting")
 	//fmt.Println("--CreateAndEnqueueWorkunits--")
 	//spew.Dump(task)
-	workunits, err := task.CreateWorkunits(qm, job)
+	var workunits []*Workunit
+	workunits, err = task.CreateWorkunits(qm, job)
 	if err != nil {
-		err = fmt.Errorf("(CreateAndEnqueueWorkunits) error in CreateWorkunits: %s", err.Error())
-		return 0, err
+		err = fmt.Errorf("(CreateAndEnqueueWorkunits) task.CreateWorkunits returned: %s", err.Error())
+		return
 	}
 	for _, wu := range workunits {
-		if err := qm.workQueue.Add(wu); err != nil {
-			err = fmt.Errorf("(CreateAndEnqueueWorkunits) error in qm.workQueue.Add: %s", err.Error())
-			return 0, err
+		err = qm.workQueue.Add(wu)
+		if err != nil {
+			err = fmt.Errorf("(CreateAndEnqueueWorkunits) qm.workQueue.Add returned: %s", err.Error())
+			return
 		}
 		id := wu.GetID()
 		err = qm.CreateWorkPerf(id)
 		if err != nil {
-			err = fmt.Errorf("(CreateAndEnqueueWorkunits) error in CreateWorkPerf: %s", err.Error())
+			err = fmt.Errorf("(CreateAndEnqueueWorkunits) qm.CreateWorkPerf returned: %s", err.Error())
 			return
 		}
 	}
@@ -5469,6 +5475,8 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 		err = fmt.Errorf("(taskCompleted) task.SetState returned: %s", err.Error())
 		return
 	}
+
+	_ = task.SetTaskNotReadyReason("", true)
 
 	// ******************
 	// check if workflowInstance needs to be completed

@@ -1262,6 +1262,11 @@ func (task *Task) InitPartIndex() (err error) {
 			}
 		}
 	}
+
+	if totalunits == 0 {
+		totalunits = 1
+	}
+
 	if totalunits < task.TotalWork {
 		err = task.setTotalWork(totalunits, true)
 		if err != nil {
@@ -1389,6 +1394,12 @@ func (task *Task) IncrementRemainWork(inc int, writelock bool) (remainwork int, 
 	}
 
 	remainwork = task.RemainWork + inc
+
+	if remainwork < 0 {
+		err = fmt.Errorf("(task/IncrementRemainWork) remainwork < 0")
+		return
+	}
+
 	if task.WorkflowInstanceId == "" {
 		err = dbUpdateJobTaskInt(task.JobId, task.WorkflowInstanceId, task.ID, "remainwork", remainwork)
 		if err != nil {
@@ -1720,9 +1731,10 @@ func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err
 	}
 
 	if task.TotalWork == 1 {
-		workunit, xerr := NewWorkunit(qm, task, 0, job)
-		if xerr != nil {
-			err = fmt.Errorf("(CreateWorkunits) (single) NewWorkunit failed: %s", xerr.Error())
+		var workunit *Workunit
+		workunit, err = NewWorkunit(qm, task, 0, job)
+		if err != nil {
+			err = fmt.Errorf("(CreateWorkunits) (single) NewWorkunit failed: %s", err.Error())
 			return
 		}
 		wus = append(wus, workunit)
@@ -1730,9 +1742,10 @@ func (task *Task) CreateWorkunits(qm *ServerMgr, job *Job) (wus []*Workunit, err
 	}
 	// if a task contains N (N>1) workunits, assign rank 1..N
 	for i := 1; i <= task.TotalWork; i++ {
-		workunit, xerr := NewWorkunit(qm, task, i, job)
-		if xerr != nil {
-			err = fmt.Errorf("(CreateWorkunits) (multi) NewWorkunit failed: %s", xerr.Error())
+		var workunit *Workunit
+		workunit, err = NewWorkunit(qm, task, i, job)
+		if err != nil {
+			err = fmt.Errorf("(CreateWorkunits) (multi) NewWorkunit failed: %s", err.Error())
 			return
 		}
 		wus = append(wus, workunit)
@@ -1776,7 +1789,7 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog, err error) {
 }
 
 // ValidateDependants _
-func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
+func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, skip bool, err error) {
 	lock, err := task.RLockNamed("ValidateDependants")
 	if err != nil {
 		return
@@ -1788,22 +1801,25 @@ func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
 		var preId Task_Unique_Identifier
 		preId, err = New_Task_Unique_Identifier_FromString(preTaskStr)
 		if err != nil {
-			err = fmt.Errorf("(ValidateDependants) New_Task_Unique_Identifier_FromString returns: %s", err.Error())
+			err = fmt.Errorf("(ValidateDependants) (field DependsOn) New_Task_Unique_Identifier_FromString returns: %s", err.Error())
 			return
 		}
 		preTask, ok, xerr := qm.TaskMap.Get(preId, true)
 		if xerr != nil {
-			err = fmt.Errorf("(ValidateDependants) predecessor task %s not found for task %s: %s", preTaskStr, task.ID, xerr.Error())
+			err = fmt.Errorf("(ValidateDependants) (field DependsOn) predecessor task %s not found for task %s: %s", preTaskStr, task.ID, xerr.Error())
 			return
 		}
 		if !ok {
-			reason = fmt.Sprintf("(ValidateDependants) predecessor task not found: task=%s, pretask=%s", task.ID, preTaskStr)
+			reason = fmt.Sprintf("(ValidateDependants) (field DependsOn) predecessor task not found: task=%s, pretask=%s", task.ID, preTaskStr)
 			logger.Debug(3, reason)
 			return
 		}
-		preTaskState, xerr := preTask.GetState()
-		if xerr != nil {
-			err = fmt.Errorf("(ValidateDependants) unable to get state for predecessor task %s: %s", preTaskStr, xerr.Error())
+		var preTaskState string
+		preTaskState, err = preTask.GetStateTimeout(time.Second * 1)
+		if err != nil {
+			err = nil
+			skip = true
+			//err = fmt.Errorf("(ValidateDependants) (field DependsOn) unable to get state for predecessor task %s: %s", preTaskStr, xerr.Error())
 			return
 		}
 		if preTaskState != TASK_STAT_COMPLETED {
@@ -1821,28 +1837,31 @@ func (task *Task) ValidateDependants(qm *ServerMgr) (reason string, err error) {
 		var preId Task_Unique_Identifier
 		preId, err = New_Task_Unique_Identifier(task.JobId, io.Origin)
 		if err != nil {
-			err = fmt.Errorf("(ValidateDependants) New_Task_Unique_Identifier returns: %s", err.Error())
+			err = fmt.Errorf("(ValidateDependants) (field Inputs) New_Task_Unique_Identifier returns: %s", err.Error())
 			return
 		}
 		var preTaskStr string
 		preTaskStr, err = preId.String()
 		if err != nil {
-			err = fmt.Errorf("(ValidateDependants) task.String returned: %s", err.Error())
+			err = fmt.Errorf("(ValidateDependants) (field Inputs) task.String returned: %s", err.Error())
 			return
 		}
 		preTask, ok, xerr := qm.TaskMap.Get(preId, true)
 		if xerr != nil {
-			err = fmt.Errorf("(ValidateDependants) predecessor task %s not found for task %s: %s", preTaskStr, task.ID, xerr.Error())
+			err = fmt.Errorf("(ValidateDependants) (field Inputs) predecessor task %s not found for task %s: %s", preTaskStr, task.ID, xerr.Error())
 			return
 		}
 		if !ok {
-			reason = fmt.Sprintf("(ValidateDependants) predecessor task not found: task=%s, pretask=%s", task.ID, preTaskStr)
+			reason = fmt.Sprintf("(ValidateDependants) (field Inputs) predecessor task not found: task=%s, pretask=%s", task.ID, preTaskStr)
 			logger.Debug(3, reason)
 			return
 		}
-		preTaskState, xerr := preTask.GetState()
-		if xerr != nil {
-			err = fmt.Errorf("(ValidateDependants) unable to get state for predecessor task %s: %s", preTaskStr, xerr.Error())
+		var preTaskState string
+		preTaskState, err = preTask.GetStateTimeout(time.Second * 1)
+		if err != nil {
+			err = nil
+			skip = true
+			//err = fmt.Errorf("(ValidateDependants) (field Inputs) unable to get state for predecessor task %s: %s", preTaskStr, xerr.Error())
 			return
 		}
 		if preTaskState != TASK_STAT_COMPLETED {

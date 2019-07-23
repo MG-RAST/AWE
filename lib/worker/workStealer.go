@@ -332,7 +332,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		//var schemata []cwl.CWLType_Type
 		workunit.Context = cwl.NewWorkflowContext()
 		workunit.Context.Init("")
-		cwl_object, _, xerr = core.NewCWLWorkunitFromInterface(cwl_generic, workunit.Context)
+		cwl_object, _, xerr = core.NewCWLWorkunitFromInterface(cwl_generic, "", workunit.Context)
 		if xerr != nil {
 			err = fmt.Errorf("(CheckoutWorkunitRemote) NewCWLWorkunit_from_interface failed: %s", xerr.Error())
 			logger.Debug(1, err.Error())

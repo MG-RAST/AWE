@@ -243,7 +243,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					workflow_input_name := wrapperEntrypoint + "/" + path.Base(input.Id) // e.g. #entrypoint/reference
 
 					var workflow_step_input cwl.WorkflowStepInput
-					workflow_step_input.Id = step_id + "/" + path.Base(input.Id)
+					workflow_step_input.ID = step_id + "/" + path.Base(input.Id)
 					workflow_step_input.Source = workflow_input_name
 					workflow_step_input.Default = input.Default
 
@@ -367,7 +367,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					workflow_input_name := wrapperEntrypoint + "/" + path.Base(input.Id)
 
 					var workflow_step_input cwl.WorkflowStepInput
-					workflow_step_input.Id = step_id + "/" + path.Base(input.Id)
+					workflow_step_input.ID = step_id + "/" + path.Base(input.Id)
 					workflow_step_input.Source = workflow_input_name
 					workflow_step_input.Default = input.Default
 

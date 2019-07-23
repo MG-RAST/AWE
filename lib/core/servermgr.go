@@ -2255,9 +2255,9 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 		//if wsi.Default != nil {
 		//	input_optional = true
 		//}
-		logger.Debug(3, "(areSourceGeneratorsReady) step input %s", wsi.Id)
+		logger.Debug(3, "(areSourceGeneratorsReady) step input %s", wsi.ID)
 		if wsi.Source == nil {
-			logger.Debug(3, "(areSourceGeneratorsReady) step input %s source empty", wsi.Id)
+			logger.Debug(3, "(areSourceGeneratorsReady) step input %s source empty", wsi.ID)
 			continue
 		}
 
@@ -2265,7 +2265,7 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 		sourceAsArray, sourceIsArray := wsi.Source.([]interface{})
 
 		if sourceIsArray {
-			logger.Debug(3, "(areSourceGeneratorsReady) step input %s source_is_array", wsi.Id)
+			logger.Debug(3, "(areSourceGeneratorsReady) step input %s source_is_array", wsi.ID)
 			for _, src := range sourceAsArray { // usually only one
 				var srcStr string
 				var ok bool
@@ -2311,7 +2311,7 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 			}
 		} else {
 			// not source_is_array
-			logger.Debug(3, "(areSourceGeneratorsReady) step input %s NOT source_is_array", wsi.Id)
+			logger.Debug(3, "(areSourceGeneratorsReady) step input %s NOT source_is_array", wsi.ID)
 			var srcStr string
 			var ok bool
 
@@ -2324,7 +2324,7 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 				srcStr = path.Join(workflowInstanceName, srcStr)
 			}
 
-			logger.Debug(3, "(areSourceGeneratorsReady) %s.Source: %s", wsi.Id, srcStr)
+			logger.Debug(3, "(areSourceGeneratorsReady) %s.Source: %s", wsi.ID, srcStr)
 
 			//if source is (workflow) input, generator does not need to be ready
 			// instead of testing for workflow input, we just test if input already exists
@@ -2347,7 +2347,7 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 
 			generatorArray := strings.Split(generator, "/")
 
-			logger.Debug(3, "(areSourceGeneratorsReady) step input %s using generator %s", wsi.Id, generator)
+			logger.Debug(3, "(areSourceGeneratorsReady) step input %s using generator %s", wsi.ID, generator)
 
 			if len(generatorArray) == 1 { // workflow input
 				ready = true
@@ -2719,7 +2719,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 		for j := range cwlStep.In {
 			workflowStepInput := cwlStep.In[j]
 
-			if path.Base(workflowStepInput.Id) == scatterInputNameBase {
+			if path.Base(workflowStepInput.ID) == scatterInputNameBase {
 				inputPosition = j
 				break
 			}
@@ -2731,7 +2731,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 			listOfInputs := ""
 			for j := range cwlStep.In {
 				workflowStepInput := cwlStep.In[j]
-				listOfInputs += "," + path.Base(workflowStepInput.Id)
+				listOfInputs += "," + path.Base(workflowStepInput.ID)
 			}
 
 			err = fmt.Errorf("(taskEnQueue) Input %s not found in list of step.Inputs (list: %s)", scatterInputNameBase, listOfInputs)
@@ -2882,7 +2882,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 	for i, _ := range cwlStep.In {
 
 		i_input := cwlStep.In[i]
-		i_input_id_base := path.Base(i_input.Id)
+		i_input_id_base := path.Base(i_input.ID)
 		//fmt.Printf("i_input_id_base: %s\n", i_input_id_base)
 		_, ok := scatterNamesMap[i_input_id_base] // skip scatter inputs
 		if ok {
@@ -3034,7 +3034,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 			//the_array := scatter_input_array_ptrs[input_position]
 
 			the_index := counter.Counter[input_position]
-			scatter_input.Source_index = the_index + 1
+			scatter_input.SourceIndex = the_index + 1
 			new_task_step.In = append(new_task_step.In, scatter_input)
 		}
 
@@ -4045,7 +4045,7 @@ func (qm *ServerMgr) GetDependencies(job *Job, workflow_instance *WorkflowInstan
 
 	for _, input := range workflow_step.In {
 
-		id := input.Id
+		id := input.ID
 		fmt.Printf("(GetDependencies) id: %s\n", id)
 
 		if input.Source != nil {
@@ -4057,14 +4057,14 @@ func (qm *ServerMgr) GetDependencies(job *Job, workflow_instance *WorkflowInstan
 
 			if source_is_array {
 				fmt.Printf("(GetDependencies) source is a array: %s", spew.Sdump(input.Source))
-				if input.Source_index != 0 {
+				if input.SourceIndex != 0 {
 					// from scatter step
 					// fmt.Printf("source is a array with Source_index: %s", spew.Sdump(input.Source))
-					if input.Source_index > len(source_as_array) {
-						err = fmt.Errorf("(GetStepInputObjects) input.Source_index >= len(source_as_array) %d > %d", input.Source_index, len(source_as_array))
+					if input.SourceIndex > len(source_as_array) {
+						err = fmt.Errorf("(GetStepInputObjects) input.SourceIndex >= len(source_as_array) %d > %d", input.SourceIndex, len(source_as_array))
 						return
 					}
-					src := source_as_array[input.Source_index-1]
+					src := source_as_array[input.SourceIndex-1]
 					var src_str string
 					//var ok bool
 					src_str, ok = src.(string)
@@ -4164,7 +4164,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflowInstance *WorkflowIns
 		fmt.Printf("(GetStepInputObjects) workflow_step.In: (%d)\n", inputI)
 		spew.Dump(workflowStep.In)
 
-		id := input.Id
+		id := input.ID
 		//	fmt.Println("(GetStepInputObjects) id: %s", id)
 		cmdID := path.Base(id)
 
@@ -4191,14 +4191,14 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflowInstance *WorkflowIns
 			if sourceIsArray {
 				fmt.Printf("(GetStepInputObjects) source is a array: %s", spew.Sdump(input.Source))
 
-				if input.Source_index != 0 {
+				if input.SourceIndex != 0 {
 					// from scatter step
 					// fmt.Printf("source is a array with Source_index: %s", spew.Sdump(input.Source))
-					if input.Source_index > len(source_as_array) {
-						err = fmt.Errorf("(GetStepInputObjects) input.Source_index >= len(source_as_array) %d > %d", input.Source_index, len(source_as_array))
+					if input.SourceIndex > len(source_as_array) {
+						err = fmt.Errorf("(GetStepInputObjects) input.SourceIndex >= len(source_as_array) %d > %d", input.SourceIndex, len(source_as_array))
 						return
 					}
-					src := source_as_array[input.Source_index-1]
+					src := source_as_array[input.SourceIndex-1]
 					var srcStr string
 					//var ok bool
 					srcStr, ok = src.(string)
@@ -4360,9 +4360,9 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflowInstance *WorkflowIns
 				//fmt.Println("(GetStepInputObjects) got a input.Default")
 				//spew.Dump(job_obj)
 
-				//fmt.Printf("(GetStepInputObjects) Source_index: %d\n", input.Source_index)
-				if input.Source_index != 0 {
-					realSourceIndex := input.Source_index - 1
+				//fmt.Printf("(GetStepInputObjects) SourceIndex: %d\n", input.SourceIndex)
+				if input.SourceIndex != 0 {
+					realSourceIndex := input.SourceIndex - 1
 
 					var jobObjArrayPtr *cwl.Array
 					jobObjArrayPtr, ok = jobObj.(*cwl.Array)
@@ -4374,7 +4374,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflowInstance *WorkflowIns
 					jobObjArray = *jobObjArrayPtr
 
 					if realSourceIndex >= len(jobObjArray) {
-						err = fmt.Errorf("(GetStepInputObjects) Source_index %d out of bounds, array length: %d", realSourceIndex, len(jobObjArray))
+						err = fmt.Errorf("(GetStepInputObjects) SourceIndex %d out of bounds, array length: %d", realSourceIndex, len(jobObjArray))
 						return
 					}
 
@@ -4458,7 +4458,7 @@ VALUE_FROM_LOOP:
 			continue VALUE_FROM_LOOP
 		}
 
-		id := input.Id
+		id := input.ID
 		cmdID := path.Base(id)
 
 		// from CWL doc: The self value of in the parameter reference or expression must be the value of the parameter(s) specified in the source field, or null if there is no source field.

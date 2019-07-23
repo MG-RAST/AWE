@@ -4,6 +4,7 @@ import (
 	//"errors"
 	"fmt"
 	"path"
+	"strings"
 
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
@@ -43,7 +44,7 @@ func (c *CommandLineTool) Is_process()   {}
 // keyname will be converted into 'Id'-field
 
 //func NewCommandLineTool(object CWLObjectGeneric) (commandLineTool *CommandLineTool, err error) {
-func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement, context *WorkflowContext) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
+func NewCommandLineTool(generic interface{}, baseIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
 
 	//fmt.Println("NewCommandLineTool() generic:")
 	//spew.Dump(generic)
@@ -66,6 +67,22 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 	//spew.Dump(requirements_array)
 	//scs := spew.ConfigState{Indent: "\t"}
 	//scs.Dump(object["requirements"])
+
+	objectIDIf, hasID := object["id"]
+	if hasID {
+
+		objectID := objectIDIf.(string)
+
+		if !strings.HasPrefix(objectID, "#") {
+			objectID = path.Join(baseIdentifier, objectID)
+		}
+
+		if !strings.HasPrefix(objectID, "#") {
+			err = fmt.Errorf("(NewCommandLineTool) not absolute: %s", objectID)
+			return
+		}
+		object["id"] = objectID
+	}
 
 	requirements, ok := object["requirements"]
 	if !ok {
@@ -212,6 +229,7 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 			err = fmt.Errorf("(NewCommandLineTool) did not expect empty Id")
 			return
 		}
+
 		// err = context.Add(commandLineTool.Id, commandLineTool, "NewCommandLineTool")
 		// if err != nil {
 		// 	err = fmt.Errorf("(NewCommandLineTool) (add commandLineTool) context.Add returned: %s", err.Error())
@@ -220,9 +238,11 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 
 		for i := range commandLineTool.Inputs {
 			inp := &commandLineTool.Inputs[i]
-			err = context.Add(path.Join(thisID, inp.Id), inp, "NewCommandLineTool")
+			inpID := path.Join(thisID, inp.Id)
+
+			err = context.Add(inpID, inp, "NewCommandLineTool")
 			if err != nil {
-				err = fmt.Errorf("(NewCommandLineTool)  (add commandLineToolInput)  context.Add returned: %s", err.Error())
+				err = fmt.Errorf("(NewCommandLineTool) X (add commandLineToolInput)  context.Add returned: %s", err.Error())
 				return
 			}
 		}

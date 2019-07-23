@@ -54,8 +54,8 @@ func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 	return
 }
 
-// returns CommandLineTool, ExpressionTool or Workflow
-func NewProcess(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
+// NewProcess returns CommandLineTool, ExpressionTool or Workflow
+func NewProcess(original interface{}, baseIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
 
 	//logger.Debug(3, "(NewProcess) starting")
 	if context == nil {
@@ -108,7 +108,7 @@ func NewProcess(original interface{}, injectedRequirements []Requirement, contex
 			logger.Debug(3, "(NewProcess) %s found in object_if", processIdentifer)
 			var object CWLObject
 
-			object, schemata, err = NewCWLObject(processIf, "", injectedRequirements, context)
+			object, schemata, err = NewCWLObject(processIf, "", baseIdentifier, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(NewProcess) A NewCWLObject returns %s", err.Error())
 				return
@@ -202,7 +202,7 @@ func NewProcess(original interface{}, injectedRequirements []Requirement, contex
 			process, err = NewExpression(original)
 			return
 		case "CommandLineTool":
-			process, schemata, err = NewCommandLineTool(original, injectedRequirements, context) // TODO merge schemata correctly !
+			process, schemata, err = NewCommandLineTool(original, baseIdentifier, injectedRequirements, context) // TODO merge schemata correctly !
 			return
 		case "ExpressionTool":
 			process, err = NewExpressionTool(original, schemata, injectedRequirements, context)

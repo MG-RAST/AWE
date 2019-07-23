@@ -59,7 +59,7 @@ func NewNamedCWLObject_from_interface(original interface{}, context *WorkflowCon
 		}
 
 		var obj CWLObject
-		obj, schemata, err = NewCWLObject(value, "", nil, context)
+		obj, schemata, err = NewCWLObject(value, id_str, "", nil, context)
 		if err != nil {
 			err = fmt.Errorf("(NewNamedCWLObject_from_interface) NewCWLObject returned: %s", err.Error())
 			return

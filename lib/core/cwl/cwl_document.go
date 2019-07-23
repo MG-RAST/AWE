@@ -264,7 +264,7 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 
 	var object CWLObject
 	var schemataNew []CWLType_Type
-	object, schemataNew, err = NewCWLObject(objectIf, objectID, nil, context)
+	object, schemataNew, err = NewCWLObject(objectIf, objectID, "", nil, context)
 	if err != nil {
 		err = fmt.Errorf("(ParseCWLSimpleDocument) B NewCWLObject returns %s", err.Error())
 		return

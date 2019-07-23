@@ -33,7 +33,7 @@ func NewCWLWorkunit() *CWLWorkunit {
 }
 
 // NewCWLWorkunitFromInterface _
-func NewCWLWorkunitFromInterface(native interface{}, context *cwl.WorkflowContext) (workunit *CWLWorkunit, schemata []cwl.CWLType_Type, err error) {
+func NewCWLWorkunitFromInterface(native interface{}, baseIdentifier string, context *cwl.WorkflowContext) (workunit *CWLWorkunit, schemata []cwl.CWLType_Type, err error) {
 
 	workunit = &CWLWorkunit{}
 
@@ -89,7 +89,7 @@ func NewCWLWorkunitFromInterface(native interface{}, context *cwl.WorkflowContex
 			case "CommandLineTool":
 				var commandlinetool *cwl.CommandLineTool
 
-				commandlinetool, schemataNew, err = cwl.NewCommandLineTool(toolGeneric, nil, context)
+				commandlinetool, schemataNew, err = cwl.NewCommandLineTool(toolGeneric, baseIdentifier, nil, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLWorkunitFromInterface) NewCommandLineTool failed: %s", err.Error())
 					return

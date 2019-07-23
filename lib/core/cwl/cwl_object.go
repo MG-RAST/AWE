@@ -3,7 +3,9 @@ package cwl
 import (
 	"errors"
 	"fmt"
+	"path"
 	"reflect"
+	"strings"
 
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
@@ -21,11 +23,12 @@ func (c *CWLObjectImpl) IsCWLObject() {}
 
 // NewCWLObject
 //  objectIdentifier - is optional, should be used for object that are read from files
-func NewCWLObject(original interface{}, objectIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (obj CWLObject, schemata []CWLType_Type, err error) {
+// baseIdentifier is parent identifier
+func NewCWLObject(original interface{}, objectIdentifier string, baseIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (obj CWLObject, schemata []CWLType_Type, err error) {
 	//fmt.Println("(NewCWLObject) starting")
 
 	if original == nil {
-		err = fmt.Errorf("(NewCWLObject) original is nil!")
+		err = fmt.Errorf("(NewCWLObject) original is nil! ")
 		return
 	}
 
@@ -73,6 +76,11 @@ func NewCWLObject(original interface{}, objectIdentifier string, injectedRequire
 			err = errors.New("(NewCWLObject) id is not a string")
 			return
 		}
+
+		if !strings.HasPrefix(cwlObjectIdentifer, "#") {
+			cwlObjectIdentifer = path.Join(baseIdentifier, cwlObjectIdentifer)
+		}
+
 		//fmt.Println("NewCWLObject C")
 		switch cwl_object_type {
 		case "CommandLineTool":
@@ -83,7 +91,7 @@ func NewCWLObject(original interface{}, objectIdentifier string, injectedRequire
 			//spew.Dump(elem)
 
 			var clt *CommandLineTool
-			clt, schemata, err = NewCommandLineTool(elem, injectedRequirements, context)
+			clt, schemata, err = NewCommandLineTool(elem, baseIdentifier, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCWLObject) NewCommandLineTool returned: %s", err.Error())
 				return
@@ -135,7 +143,7 @@ func NewCWLObject(original interface{}, objectIdentifier string, injectedRequire
 	return
 }
 
-func NewCWLObjectArray(original interface{}, context *WorkflowContext) (array CWLObjectArray, schemata []CWLType_Type, err error) {
+func NewCWLObjectArrayDeprecated(original interface{}, context *WorkflowContext) (array CWLObjectArray, schemata []CWLType_Type, err error) {
 
 	//original, err = makeStringMap(original)
 	//if err != nil {
@@ -153,7 +161,7 @@ func NewCWLObjectArray(original interface{}, context *WorkflowContext) (array CW
 		for _, element := range org_a {
 			var schemataNew []CWLType_Type
 			var cwl_object CWLObject
-			cwl_object, schemataNew, err = NewCWLObject(element, "", nil, context)
+			cwl_object, schemataNew, err = NewCWLObject(element, "", "", nil, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCWLObjectArray) NewCWLObject returned %s", err.Error())
 				return

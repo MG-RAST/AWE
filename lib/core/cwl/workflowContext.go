@@ -166,7 +166,7 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	context.Initialzing = true
 	var object CWLObject
 	var schemataNew []CWLType_Type
-	object, schemataNew, err = NewCWLObject(entrypointIf, "", nil, context)
+	object, schemataNew, err = NewCWLObject(entrypointIf, "", entrypoint, nil, context)
 	if err != nil {
 		fmt.Printf("(WorkflowContext/Init) entrypointIf")
 		spew.Dump(entrypointIf)

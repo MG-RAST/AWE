@@ -91,6 +91,11 @@ func NewProcess(original interface{}, injectedRequirements []Requirement, contex
 
 			process, ok = context.Objects[processIdentifer]
 			if ok {
+				if process == nil {
+					err = fmt.Errorf("(NewProcess) process == nil")
+					return
+				}
+
 				//logger.Debug(3, "(NewProcess) object %s found", originalStr)
 				// refrenced object has already been parsed once
 				// TODO may want to parse a second time and make a new copy
@@ -110,6 +115,8 @@ func NewProcess(original interface{}, injectedRequirements []Requirement, contex
 			}
 
 			context.Objects[processIdentifer] = object
+			process = object
+
 			return
 		}
 
@@ -160,6 +167,10 @@ func NewProcess(original interface{}, injectedRequirements []Requirement, contex
 
 		process, ok = context.All[processIdentifer]
 		if ok {
+			if process == nil {
+				err = fmt.Errorf("(NewProcess) B process == nil")
+				return
+			}
 			return
 		}
 

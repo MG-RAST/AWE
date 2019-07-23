@@ -130,15 +130,19 @@ func NewWorkflowStepFromInterface(original interface{}, thisID string, workflowI
 			//fmt.Printf("(NewWorkflowStep) Injecting %d\n", len(requirements_array))
 			//spew.Dump(requirements_array)
 
-			originalMap["run"], schemataNew, err = NewProcess(run, requirementsArray, context)
+			var process interface{}
+			process, schemataNew, err = NewProcess(run, requirementsArray, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) run %s", err.Error())
 				return
 			}
-			if originalMap["run"] == nil {
-				err = fmt.Errorf("(NewWorkflowStep) originalMap[\"run\"] == nil")
+			if process == nil {
+				spew.Dump(originalMap)
+				panic("(NewWorkflowStep) process == nil")
+				err = fmt.Errorf("(NewWorkflowStep) process == nil")
 				return
 			}
+			originalMap["run"] = process
 			for i := range schemataNew {
 				schemata = append(schemata, schemataNew[i])
 			}

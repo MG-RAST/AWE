@@ -14,6 +14,7 @@ import (
 	//"gopkg.in/mgo.v2/bson"
 )
 
+// Workflow https://www.commonwl.org/v1.0/Workflow.html#Workflow
 type Workflow struct {
 	CWLObjectImpl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides IsCWLObject
 	CWL_class_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
@@ -30,20 +31,24 @@ type Workflow struct {
 	Namespaces     map[string]string         `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
-func (w *Workflow) GetClass() string { return string(CWLWorkflow) }
+// GetClass _
+func (wf *Workflow) GetClass() string { return string(CWLWorkflow) }
 
-//func (w *Workflow) GetID() string    { return w.Id }
-//func (w *Workflow) SetID(id string)  { w.Id = id }
-//func (w *Workflow) IsCWLMinimal()  {}
-//func (w *Workflow) Is_Any()          {}
-func (w *Workflow) Is_process() {}
+// func (w *Workflow) GetID() string    { return w.Id }
+// func (w *Workflow) SetID(id string)  { w.Id = id }
+// func (w *Workflow) IsCWLMinimal()  {}
+// func (w *Workflow) Is_Any()          {}
 
+// IsProcess _
+func (wf *Workflow) IsProcess() {}
+
+// GetMapElement _
 func GetMapElement(m map[interface{}]interface{}, key string) (value interface{}, err error) {
 
 	for k, v := range m {
-		k_str, ok := k.(string)
+		kStr, ok := k.(string)
 		if ok {
-			if k_str == key {
+			if kStr == key {
 				value = v
 				return
 			}
@@ -53,13 +58,15 @@ func GetMapElement(m map[interface{}]interface{}, key string) (value interface{}
 	return
 }
 
+// NewWorkflowEmpty _
 func NewWorkflowEmpty() (w Workflow) {
 	w = Workflow{}
 	w.Class = string(CWLWorkflow)
 	return w
 }
 
-func NewWorkflow(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (workflow_ptr *Workflow, schemata []CWLType_Type, err error) {
+// NewWorkflow _
+func NewWorkflow(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (workflowPtr *Workflow, schemata []CWLType_Type, err error) {
 
 	// convert input map into input array
 	original, err = MakeStringMap(original, context)
@@ -69,7 +76,7 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 	}
 
 	workflow := NewWorkflowEmpty()
-	workflow_ptr = &workflow
+	workflowPtr = &workflow
 
 	switch original.(type) {
 	case map[string]interface{}:
@@ -77,16 +84,16 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 
 		var CwlVersion CWLVersion
 		var ok bool
-		cwl_version_if, has_cwl_version := object["cwlVersion"]
-		if has_cwl_version {
+		cwlVersionIf, hasCWLVersion := object["cwlVersion"]
+		if hasCWLVersion {
 			//CwlVersion = cwl_version_if.(string)
-			var cwl_version_str string
-			cwl_version_str, ok = cwl_version_if.(string)
+			var cwlVersionStr string
+			cwlVersionStr, ok = cwlVersionIf.(string)
 			if !ok {
-				err = fmt.Errorf("(NewWorkflow) Could not read CWLVersion (%s)", reflect.TypeOf(cwl_version_if))
+				err = fmt.Errorf("(NewWorkflow) Could not read CWLVersion (%s)", reflect.TypeOf(cwlVersionIf))
 				return
 			}
-			CwlVersion = CWLVersion(cwl_version_str)
+			CwlVersion = CWLVersion(cwlVersionStr)
 		} else {
 			CwlVersion = context.CwlVersion
 		}
@@ -94,7 +101,7 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 		if CwlVersion == "" {
 			fmt.Println("workflow without version:")
 			//spew.Dump(object)
-			err = fmt.Errorf("(NewWorkflow) CwlVersion empty (has_cwl_version: %t, context.CwlVersion: %s)", has_cwl_version, context.CwlVersion)
+			err = fmt.Errorf("(NewWorkflow) CwlVersion empty (has_cwl_version: %t, context.CwlVersion: %s)", hasCWLVersion, context.CwlVersion)
 			return
 		}
 		requirements, ok := object["requirements"]
@@ -120,10 +127,10 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 			}
 		}
 
-		var requirements_array []Requirement
+		var requirementsArray []Requirement
 		//var requirements_array_temp *[]Requirement
 		//var schemataNew []CWLType_Type
-		requirements_array, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, inputs, context)
+		requirementsArray, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, inputs, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkflow) error in CreateRequirementArray (requirements): %s", err.Error())
 			return
@@ -133,14 +140,14 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 		//	schemata = append(schemata, schemataNew[i])
 		//}
 
-		object["requirements"] = requirements_array
+		object["requirements"] = requirementsArray
 
 		hints, ok := object["hints"]
 		if ok && (hints != nil) {
 			//var schemataNew []CWLType_Type
 
-			var hints_array []Requirement
-			hints_array, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
+			var hintsArray []Requirement
+			hintsArray, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
 				return
@@ -148,7 +155,7 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 			//for i, _ := range schemataNew {
 			//	schemata = append(schemata, schemataNew[i])
 			//}
-			object["hints"] = hints_array
+			object["hints"] = hintsArray
 		}
 
 		workflowIDIf, hasID := object["id"]
@@ -178,12 +185,12 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 
 			//fmt.Printf("(NewWorkflow) Injecting %d\n", len(requirements_array))
 			//spew.Dump(requirements_array)
-			schemataNew, object["steps"], err = CreateWorkflowStepsArray(steps, workflowID, requirements_array, context)
+			schemataNew, object["steps"], err = CreateWorkflowStepsArray(steps, workflowID, requirementsArray, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflow) CreateWorkflowStepsArray returned: %s", err.Error())
 				return
 			}
-			for i, _ := range schemataNew {
+			for i := range schemataNew {
 				schemata = append(schemata, schemataNew[i])
 			}
 		}
@@ -245,30 +252,37 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 	return
 }
 
+// GetStep _
 func (wf *Workflow) GetStep(name string) (step *WorkflowStep, err error) {
 
-	found_steps := ""
+	foundSteps := ""
 
-	for i, _ := range wf.Steps {
+	if wf.Steps == nil {
+		err = fmt.Errorf("(Workflow/GetStep) wf.Steps == nil")
+		return
+	}
+
+	for i := range wf.Steps {
 
 		s := &wf.Steps[i]
 
-		s_base := path.Base(s.ID)
+		sBase := path.Base(s.ID)
 
-		if s_base == name {
+		if sBase == name {
 			step = s
 			return
 		}
-		found_steps += "," + s_base
+		foundSteps += "," + sBase
 
 	}
-	err = fmt.Errorf("(Workflow/GetStep) step %s not found (found_steps: %s)", name, found_steps)
+	err = fmt.Errorf("(Workflow/GetStep) step %s not found (found_steps: %s)", name, foundSteps)
 	return
 }
 
+// Evaluate _
 func (wf *Workflow) Evaluate(inputs interface{}, context *WorkflowContext) (err error) {
 
-	for i, _ := range wf.Requirements {
+	for i := range wf.Requirements {
 
 		r := wf.Requirements[i]
 
@@ -280,7 +294,7 @@ func (wf *Workflow) Evaluate(inputs interface{}, context *WorkflowContext) (err 
 
 	}
 
-	for i, _ := range wf.Hints {
+	for i := range wf.Hints {
 
 		r := wf.Hints[i]
 

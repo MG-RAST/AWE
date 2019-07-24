@@ -139,7 +139,7 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, dbSync bool, writeLock
 
 	if dbSync == DbSyncTrue {
 
-		err = dbUpsert(wi)
+		err = dbInsert(wi)
 		if err != nil {
 			err = fmt.Errorf("(AddWorkflowInstance) dbUpsert(wi) returned: %s", err.Error())
 			return

@@ -36,7 +36,7 @@ type WorkflowContext struct {
 	//Strings            map[string]*String            `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//Ints               map[string]*Int               `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//Booleans           map[string]*Boolean           `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
-	All map[string]CWLObject `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // everything goes in here
+	//All map[string]CWLObject `yaml:"-"  json:"-" bson:"-" mapstructure:"-"` // everything goes in here
 
 	WorkflowCount int `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 	//Job_input          *Job_document
@@ -49,6 +49,7 @@ type WorkflowContext struct {
 	Name string `yaml:"-"  json:"-" bson:"-" mapstructure:"-"`
 }
 
+// NewWorkflowContext _
 func NewWorkflowContext() (context *WorkflowContext) {
 
 	logger.Debug(3, "(NewWorkflowContext) starting")
@@ -58,6 +59,7 @@ func NewWorkflowContext() (context *WorkflowContext) {
 	return
 }
 
+// InitBasic _
 func (context *WorkflowContext) InitBasic() {
 
 	context.RWMutex.Init("context")
@@ -70,9 +72,9 @@ func (context *WorkflowContext) InitBasic() {
 		context.Objects = make(map[string]CWLObject)
 	}
 
-	if context.All == nil {
-		context.All = make(map[string]CWLObject)
-	}
+	// if context.All == nil {
+	// 	context.All = make(map[string]CWLObject)
+	// }
 
 	//if context.WorkflowStepInstance == nil {
 	//	context.WorkflowStepInstance = make(map[string]*WorkflowStep)
@@ -86,7 +88,7 @@ func (context *WorkflowContext) InitBasic() {
 	return
 }
 
-// search for #entrypoint and create objects recursively
+// Init search for #entrypoint and create objects recursively
 func (context *WorkflowContext) Init(entrypoint string) (err error) {
 
 	logger.Debug(3, "(WorkflowContext/Init) start")
@@ -194,11 +196,11 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	context.GraphDocument.Graph = []interface{}{}
 	for key, value := range context.Objects {
 		logger.Debug(3, "(WorkflowContext/Init) adding %s to context.GraphDocument.Graph", key)
-		err = context.Add(key, value, "WorkflowContext/Init")
-		if err != nil {
-			err = fmt.Errorf("(WorkflowContext/Init) context.Add( returned %s", err.Error())
-			return
-		}
+		// err = context.Add(key, value, "WorkflowContext/Init")
+		// if err != nil {
+		// 	err = fmt.Errorf("(WorkflowContext/Init) context.Add( returned %s", err.Error())
+		// 	return
+		// }
 
 		context.GraphDocument.Graph = append(context.GraphDocument.Graph, value)
 	}
@@ -209,7 +211,8 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	return
 }
 
-func (c *WorkflowContext) Evaluate(raw string) (parsed string) {
+// Evaluate _
+func (context *WorkflowContext) Evaluate(raw string) (parsed string) {
 
 	reg := regexp.MustCompile(`\$\([\w.]+\)`) // https://github.com/google/re2/wiki/Syntax
 
@@ -229,7 +232,7 @@ func (c *WorkflowContext) Evaluate(raw string) (parsed string) {
 			key = bytes.TrimPrefix(key, []byte("inputs."))
 
 			value_str := ""
-			value, err := c.GetString(string(key))
+			value, err := context.GetString(string(key))
 
 			if err != nil {
 				value_str = "<ERROR_NOT_FOUND:" + string(key) + ">"
@@ -245,21 +248,22 @@ func (c *WorkflowContext) Evaluate(raw string) (parsed string) {
 
 }
 
-func (c *WorkflowContext) AddSchemata(obj []CWLType_Type, writeLock bool) (err error) {
+// AddSchemata _
+func (context *WorkflowContext) AddSchemata(obj []CWLType_Type, writeLock bool) (err error) {
 	//fmt.Printf("(AddSchemata)\n")
 	if writeLock {
-		err = c.LockNamed("AddSchemata")
+		err = context.LockNamed("AddSchemata")
 		if err != nil {
 			return
 		}
-		defer c.Unlock()
+		defer context.Unlock()
 	}
 
-	if c.Schemata == nil {
-		c.Schemata = make(map[string]CWLType_Type)
+	if context.Schemata == nil {
+		context.Schemata = make(map[string]CWLType_Type)
 	}
 
-	for i, _ := range obj {
+	for i := range obj {
 		id := obj[i].GetID()
 		if id == "" {
 			err = fmt.Errorf("id empty")
@@ -268,30 +272,32 @@ func (c *WorkflowContext) AddSchemata(obj []CWLType_Type, writeLock bool) (err e
 
 		//fmt.Printf("Adding %s\n", id)
 
-		_, ok := c.Schemata[id]
+		_, ok := context.Schemata[id]
 		if ok {
 			return
 		}
 
-		c.Schemata[id] = obj[i]
+		context.Schemata[id] = obj[i]
 	}
 	return
 }
 
-func (c *WorkflowContext) GetSchemata() (obj []CWLType_Type, err error) {
+// GetSchemata _
+func (context *WorkflowContext) GetSchemata() (obj []CWLType_Type, err error) {
 	obj = []CWLType_Type{}
-	for _, schema := range c.Schemata {
+	for _, schema := range context.Schemata {
 		obj = append(obj, schema)
 	}
 	return
 }
 
-func (c *WorkflowContext) AddArray(object_array []NamedCWLObject) (err error) {
+// AddArray _
+func (context *WorkflowContext) AddArray(objectArray []NamedCWLObject) (err error) {
 
-	for i, _ := range object_array {
-		pair := object_array[i]
+	for i := range objectArray {
+		pair := objectArray[i]
 
-		err = c.Add(pair.Id, pair.Value, "AddArray")
+		err = context.AddObject(pair.Id, pair.Value, "AddArray")
 		if err != nil {
 			return
 		}
@@ -302,7 +308,8 @@ func (c *WorkflowContext) AddArray(object_array []NamedCWLObject) (err error) {
 
 }
 
-func (c *WorkflowContext) Add(id string, obj CWLObject, caller string) (err error) {
+// AddObject _
+func (context *WorkflowContext) AddObject(id string, obj CWLObject, caller string) (err error) {
 
 	if id == "" {
 		// anonymous objects are not stored
@@ -316,11 +323,11 @@ func (c *WorkflowContext) Add(id string, obj CWLObject, caller string) (err erro
 
 	logger.Debug(3, "(WorkflowContext/Add) Adding object %s to collection (type: %s, caller: %s)", id, reflect.TypeOf(obj), caller)
 
-	if c.All == nil {
-		c.All = make(map[string]CWLObject)
+	if context.Objects == nil {
+		context.Objects = make(map[string]CWLObject)
 	}
 
-	_, ok := c.All[id]
+	_, ok := context.Objects[id]
 	if ok {
 		err = fmt.Errorf("(WorkflowContext/Add) Object %s already in collection (caller: %s)", id, caller)
 		return
@@ -328,71 +335,71 @@ func (c *WorkflowContext) Add(id string, obj CWLObject, caller string) (err erro
 
 	switch obj.(type) {
 	case *Workflow:
-		//fmt.Printf("(c.All) c.WorkflowCount: %d\n", c.WorkflowCount)
-		c.WorkflowCount += 1
-		//fmt.Printf("(c.All) c.WorkflowCount: %d\n", c.WorkflowCount)
-		msg := fmt.Sprintf("(WorkflowContext/Add) new WorkflowCount: %d (context: %p, caller: %s, name: %s)", c.WorkflowCount, &c, caller, c.Name)
+		//fmt.Printf("(c.Objects) c.WorkflowCount: %d\n", c.WorkflowCount)
+		context.WorkflowCount++
+		//fmt.Printf("(c.Objects) c.WorkflowCount: %d\n", c.WorkflowCount)
+		msg := fmt.Sprintf("(WorkflowContext/Add) new WorkflowCount: %d (context: %p, caller: %s, name: %s)", context.WorkflowCount, &context, caller, context.Name)
 		logger.Debug(3, msg)
-		//fmt.Printf("(c.All) msg: %s\n", msg)
-		//for i, _ := range c.All {
+		//fmt.Printf("(c.Objects) msg: %s\n", msg)
+		//for i, _ := range c.Objects {
 		//	fmt.Println(i)
 		//}
 
 	//	c.Workflows[id] = obj.(*Workflow)
 	case *WorkflowStepInput:
-		obj_real, ok := obj.(*WorkflowStepInput)
+		objReal, ok := obj.(*WorkflowStepInput)
 		if !ok {
 			err = fmt.Errorf("could not make WorkflowStepInput type assertion")
 			return
 		}
-		c.All[id] = obj_real
+		context.Objects[id] = objReal
 	case *CommandLineTool:
-		obj_real, ok := obj.(*CommandLineTool)
+		objReal, ok := obj.(*CommandLineTool)
 		if !ok {
 			err = fmt.Errorf("could not make CommandLineTool type assertion")
 			return
 		}
-		c.All[id] = obj_real
+		context.Objects[id] = objReal
 	case *ExpressionTool:
-		obj_real, ok := obj.(*ExpressionTool)
+		objReal, ok := obj.(*ExpressionTool)
 		if !ok {
 			err = fmt.Errorf("could not make ExpressionTool type assertion")
 			return
 		}
-		c.All[id] = obj_real
+		context.Objects[id] = objReal
 	case *File:
-		obj_real, ok := obj.(*File)
+		objReal, ok := obj.(*File)
 		if !ok {
 			err = fmt.Errorf("could not make File type assertion")
 			return
 		}
-		c.All[id] = obj_real
+		context.Objects[id] = objReal
 	case *String:
-		obj_real, ok := obj.(*String)
+		objReal, ok := obj.(*String)
 		if !ok {
 			err = fmt.Errorf("could not make String type assertion")
 			return
 		}
-		c.All[id] = obj_real
+		context.Objects[id] = objReal
 	case *Boolean:
-		obj_real, ok := obj.(*Boolean)
+		objReal, ok := obj.(*Boolean)
 		if !ok {
 			err = fmt.Errorf("could not make Boolean type assertion")
 			return
 		}
-		c.All[id] = obj_real
+		context.Objects[id] = objReal
 	case *Int:
-		obj_int, ok := obj.(*Int)
+		objInt, ok := obj.(*Int)
 		if !ok {
 			err = fmt.Errorf("could not make Int type assertion")
 			return
 		}
-		c.All[id] = obj_int
+		context.Objects[id] = objInt
 	default:
-		logger.Debug(3, "adding type %s to WorkflowContext.All", reflect.TypeOf(obj))
+		logger.Debug(3, "adding type %s to WorkflowContext.Objects", reflect.TypeOf(obj))
 	}
 
-	c.All[id] = obj
+	context.Objects[id] = obj
 	//fmt.Printf("(c.All) after insertion of %s (caller: %s)\n", id, caller)
 	//for i, _ := range c.All {
 	//	fmt.Println(i)
@@ -400,21 +407,22 @@ func (c *WorkflowContext) Add(id string, obj CWLObject, caller string) (err erro
 	return
 }
 
-func (c *WorkflowContext) Get(id string, do_read_lock bool) (obj CWLObject, ok bool, err error) {
+// Get _
+func (context *WorkflowContext) Get(id string, doReadLock bool) (obj CWLObject, ok bool, err error) {
 
-	if do_read_lock {
-		var read_lock rwmutex.ReadLock
-		read_lock, err = c.RLockNamed("WorkflowContext/Get")
+	if doReadLock {
+		var readLock rwmutex.ReadLock
+		readLock, err = context.RLockNamed("WorkflowContext/Get")
 		if err != nil {
 			return
 		}
-		defer c.RUnlockNamed(read_lock)
+		defer context.RUnlockNamed(readLock)
 	}
 
-	obj, ok = c.All[id]
+	obj, ok = context.Objects[id]
 	if !ok {
 		logger.Debug(3, "(WorkflowContext/Get) did not find: %s", id)
-		for k, _ := range c.All {
+		for k := range context.Objects {
 			logger.Debug(3, "(WorkflowContext/Get) available: %s", k)
 		}
 		//err = fmt.Errorf("(All) item %s not found in collection", id)
@@ -423,25 +431,26 @@ func (c *WorkflowContext) Get(id string, do_read_lock bool) (obj CWLObject, ok b
 	return
 }
 
-func (c *WorkflowContext) GetType(id string) (obj_type string, err error) {
-	do_read_lock := true
-	if do_read_lock {
-		read_lock, xerr := c.RLockNamed("WorkflowContext/Get")
+// GetType _
+func (context *WorkflowContext) GetType(id string) (objType string, err error) {
+	doReadLock := true
+	if doReadLock {
+		readLock, xerr := context.RLockNamed("WorkflowContext/Get")
 		if xerr != nil {
 			err = xerr
 			return
 		}
-		defer c.RUnlockNamed(read_lock)
+		defer context.RUnlockNamed(readLock)
 	}
 	var ok bool
 	var obj CWLObject
-	obj, ok = c.All[id]
+	obj, ok = context.Objects[id]
 	if !ok {
 		err = fmt.Errorf("(GetCWLTypeType) Object %s not found in All", id)
 		return
 	}
 
-	obj_type = fmt.Sprintf("%s", reflect.TypeOf(obj))
+	objType = fmt.Sprintf("%s", reflect.TypeOf(obj))
 
 	return
 
@@ -472,10 +481,11 @@ func (c *WorkflowContext) GetType(id string) (obj_type string, err error) {
 
 // }
 
-func (c *WorkflowContext) GetFile(id string) (obj *File, err error) {
-	var obj_generic CWLObject
+// GetFile _
+func (context *WorkflowContext) GetFile(id string) (obj *File, err error) {
+	var objGeneric CWLObject
 	var ok bool
-	obj_generic, ok, err = c.Get(id, true)
+	objGeneric, ok, err = context.Get(id, true)
 	if err != nil {
 		err = fmt.Errorf("(GetFile) error getting item %s: %s", id, err.Error())
 		return
@@ -485,17 +495,18 @@ func (c *WorkflowContext) GetFile(id string) (obj *File, err error) {
 		return
 	}
 
-	obj, ok = obj_generic.(*File)
+	obj, ok = objGeneric.(*File)
 	if !ok {
-		err = fmt.Errorf("(GetFile) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
+		err = fmt.Errorf("(GetFile) Item %s has wrong type: %s", id, reflect.TypeOf(objGeneric))
 	}
 	return
 }
 
-func (c *WorkflowContext) GetString(id string) (obj *String, err error) {
-	var obj_generic CWLObject
+// GetString _
+func (context *WorkflowContext) GetString(id string) (obj *String, err error) {
+	var objGeneric CWLObject
 	var ok bool
-	obj_generic, ok, err = c.Get(id, true)
+	objGeneric, ok, err = context.Get(id, true)
 	if err != nil {
 		err = fmt.Errorf("(GetString) error getting item %s: %s", id, err.Error())
 		return
@@ -505,17 +516,18 @@ func (c *WorkflowContext) GetString(id string) (obj *String, err error) {
 		return
 	}
 
-	obj, ok = obj_generic.(*String)
+	obj, ok = objGeneric.(*String)
 	if !ok {
-		err = fmt.Errorf("(GetString) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
+		err = fmt.Errorf("(GetString) Item %s has wrong type: %s", id, reflect.TypeOf(objGeneric))
 	}
 	return
 }
 
-func (c *WorkflowContext) GetInt(id string) (obj *Int, err error) {
-	var obj_generic CWLObject
+// GetInt _
+func (context *WorkflowContext) GetInt(id string) (obj *Int, err error) {
+	var objGeneric CWLObject
 	var ok bool
-	obj_generic, ok, err = c.Get(id, true)
+	objGeneric, ok, err = context.Get(id, true)
 	if err != nil {
 		err = fmt.Errorf("(GetInt) error getting item %s: %s", id, err.Error())
 		return
@@ -525,17 +537,18 @@ func (c *WorkflowContext) GetInt(id string) (obj *Int, err error) {
 		return
 	}
 
-	obj, ok = obj_generic.(*Int)
+	obj, ok = objGeneric.(*Int)
 	if !ok {
-		err = fmt.Errorf("(GetInt) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
+		err = fmt.Errorf("(GetInt) Item %s has wrong type: %s", id, reflect.TypeOf(objGeneric))
 	}
 	return
 }
 
-func (c *WorkflowContext) GetWorkflowStepInput(id string) (obj *WorkflowStepInput, err error) {
-	var obj_generic CWLObject
+// GetWorkflowStepInput _
+func (context *WorkflowContext) GetWorkflowStepInput(id string) (obj *WorkflowStepInput, err error) {
+	var objGeneric CWLObject
 	var ok bool
-	obj_generic, ok, err = c.Get(id, true)
+	objGeneric, ok, err = context.Get(id, true)
 	if err != nil {
 		err = fmt.Errorf("(GetWorkflowStepInput) error getting item %s: %s", id, err.Error())
 		return
@@ -545,57 +558,60 @@ func (c *WorkflowContext) GetWorkflowStepInput(id string) (obj *WorkflowStepInpu
 		return
 	}
 
-	obj, ok = obj_generic.(*WorkflowStepInput)
+	obj, ok = objGeneric.(*WorkflowStepInput)
 	if !ok {
-		err = fmt.Errorf("(GetWorkflowStepInput) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
+		err = fmt.Errorf("(GetWorkflowStepInput) Item %s has wrong type: %s", id, reflect.TypeOf(objGeneric))
 	}
 	return
 }
 
-func (c *WorkflowContext) GetCommandLineTool(id string) (obj *CommandLineTool, err error) {
-	var obj_generic CWLObject
+// GetCommandLineTool _
+func (context *WorkflowContext) GetCommandLineTool(id string) (obj *CommandLineTool, err error) {
+	var objGeneric CWLObject
 	var ok bool
-	obj_generic, ok, err = c.Get(id, true)
+	objGeneric, ok, err = context.Get(id, true)
 	if err != nil {
 		err = fmt.Errorf("(GetCommandLineTool) error getting item %s: %s", id, err.Error())
 		return
 	}
 	if !ok {
-		err = fmt.Errorf("(GetCommandLineTool) item %s not found in collection: %s", id, err.Error())
+		err = fmt.Errorf("(GetCommandLineTool) item %s not found in collection", id)
 		return
 	}
 
-	obj, ok = obj_generic.(*CommandLineTool)
+	obj, ok = objGeneric.(*CommandLineTool)
 	if !ok {
-		err = fmt.Errorf("(GetCommandLineTool) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
+		err = fmt.Errorf("(GetCommandLineTool) Item %s has wrong type: %s", id, reflect.TypeOf(objGeneric))
 	}
 	return
 }
 
-func (c *WorkflowContext) GetExpressionTool(id string) (obj *ExpressionTool, err error) {
-	var obj_generic CWLObject
+// GetExpressionTool _
+func (context *WorkflowContext) GetExpressionTool(id string) (obj *ExpressionTool, err error) {
+	var objGeneric CWLObject
 	var ok bool
-	obj_generic, ok, err = c.Get(id, true)
+	objGeneric, ok, err = context.Get(id, true)
 	if err != nil {
 		err = fmt.Errorf("(GetExpressionTool) error getting item %s: %s", id, err.Error())
 		return
 	}
 	if !ok {
-		err = fmt.Errorf("(GetExpressionTool) item %s not found in collection: %s", id, err.Error())
+		err = fmt.Errorf("(GetExpressionTool) item %s not found in collection", id)
 		return
 	}
 
-	obj, ok = obj_generic.(*ExpressionTool)
+	obj, ok = objGeneric.(*ExpressionTool)
 	if !ok {
-		err = fmt.Errorf("(GetExpressionTool) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
+		err = fmt.Errorf("(GetExpressionTool) Item %s has wrong type: %s", id, reflect.TypeOf(objGeneric))
 	}
 	return
 }
 
-func (c *WorkflowContext) GetWorkflow(id string) (obj *Workflow, err error) {
-	var obj_generic CWLObject
+// GetWorkflow _
+func (context *WorkflowContext) GetWorkflow(id string) (obj *Workflow, err error) {
+	var objGeneric CWLObject
 	var ok bool
-	obj_generic, ok, err = c.Get(id, true)
+	objGeneric, ok, err = context.Get(id, true)
 	if err != nil {
 		err = fmt.Errorf("(GetWorkflow) error getting item %s: %s", id, err.Error())
 		return
@@ -603,7 +619,7 @@ func (c *WorkflowContext) GetWorkflow(id string) (obj *Workflow, err error) {
 	if !ok {
 
 		keys := ""
-		for key := range c.All {
+		for key := range context.Objects {
 			keys += "," + key
 		}
 
@@ -611,9 +627,9 @@ func (c *WorkflowContext) GetWorkflow(id string) (obj *Workflow, err error) {
 		return
 	}
 
-	obj, ok = obj_generic.(*Workflow)
+	obj, ok = objGeneric.(*Workflow)
 	if !ok {
-		err = fmt.Errorf("(GetWorkflow) Item %s has wrong type: %s", id, reflect.TypeOf(obj_generic))
+		err = fmt.Errorf("(GetWorkflow) Item %s has wrong type: %s", id, reflect.TypeOf(objGeneric))
 	}
 	return
 }

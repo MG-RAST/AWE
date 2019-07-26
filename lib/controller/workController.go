@@ -267,7 +267,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 					continue
 				}
 				if filterByID != "" {
-					if filterByID != w.Id {
+					if filterByID != w.ID {
 						continue
 					}
 				}
@@ -373,7 +373,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	//log event about workunit checkout (WO)
 	workids := []string{}
 	for _, work := range workunits {
-		workids = append(workids, work.Id)
+		workids = append(workids, work.ID)
 	}
 	logger.Event(event.WORK_CHECKOUT, fmt.Sprintf("workids=%s;clientid=%s;available=%d", strings.Join(workids, ","), clientid, availableBytes))
 

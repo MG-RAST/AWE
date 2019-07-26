@@ -72,7 +72,7 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 				if err != nil {
 					return
 				}
-				logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
+				logger.Event(event.FILE_READY, "workid="+work.ID+";url="+dataUrl)
 				return
 			}
 
@@ -83,7 +83,7 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 			dataUrl = fmt.Sprintf("%s&index=%s&part=%s", dataUrl, work.Partition.Index, work.Part())
 		}
 		logger.Debug(2, "mover: fetching input file from url:"+dataUrl)
-		logger.Event(event.FILE_IN, "workid="+work.Id+";url="+dataUrl)
+		logger.Event(event.FILE_IN, "workid="+work.ID+";url="+dataUrl)
 
 		// download file
 		retry := 1
@@ -114,7 +114,7 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 			size += datamoved
 			break
 		}
-		logger.Event(event.FILE_READY, "workid="+work.Id+";url="+dataUrl)
+		logger.Event(event.FILE_READY, "workid="+work.ID+";url="+dataUrl)
 	}
 
 	// download node attributes if requested
@@ -127,7 +127,7 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 			return
 		}
 		logger.Debug(2, "mover: fetching input attributes from node:"+node.Id)
-		logger.Event(event.ATTR_IN, "workid="+work.Id+";node="+node.Id)
+		logger.Event(event.ATTR_IN, "workid="+work.ID+";node="+node.Id)
 		// print node attributes
 		work_path, yerr := work.Path()
 		if yerr != nil {
@@ -140,7 +140,7 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 		if err != nil {
 			return
 		}
-		logger.Event(event.ATTR_READY, "workid="+work.Id+";path="+attrFilePath)
+		logger.Event(event.ATTR_READY, "workid="+work.ID+";path="+attrFilePath)
 	}
 	return
 }
@@ -1370,7 +1370,7 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 		if err != nil {
 			//skip this output if missing file and optional
 			if !io.Optional {
-				err = fmt.Errorf("(UploadOutputIO) output %s not generated for workunit %s err=%s", name, work.Id, err.Error())
+				err = fmt.Errorf("(UploadOutputIO) output %s not generated for workunit %s err=%s", name, work.ID, err.Error())
 				return
 			}
 			err = nil
@@ -1382,7 +1382,7 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 		}
 
 		if io.Nonzero && fi.Size() == 0 {
-			err = fmt.Errorf("(UploadOutputIO) workunit %s generated zero-sized output %s while non-zero-sized file required", work.Id, name)
+			err = fmt.Errorf("(UploadOutputIO) workunit %s generated zero-sized output %s while non-zero-sized file required", work.ID, name)
 			return
 		}
 		size += fi.Size()
@@ -1390,7 +1390,7 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 	}
 	logger.Debug(1, "(UploadOutputIO) deliverer: push output to shock, filename="+name)
 	logger.Event(event.FILE_OUT,
-		"workid="+work.Id,
+		"workid="+work.ID,
 		"filename="+name,
 		fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
 
@@ -1440,7 +1440,7 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 	}
 
 	logger.Event(event.FILE_DONE,
-		"workid="+work.Id,
+		"workid="+work.ID,
 		"filename="+name,
 		fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
 

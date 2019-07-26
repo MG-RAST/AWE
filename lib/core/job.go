@@ -157,14 +157,14 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, dbSync bool, writeLock
 	return
 }
 
-// func (job *Job) GetWorkflowInstanceIndex(id string, context *cwl.WorkflowContext, do_read_lock bool) (index int, err error) {
-// 	if do_read_lock {
-// 		read_lock, xerr := job.RLockNamed("GetWorkflowInstanceIndex")
+// func (job *Job) GetWorkflowInstanceIndex(id string, context *cwl.WorkflowContext, doReadLock bool) (index int, err error) {
+// 	if doReadLock {
+// 		readLock, xerr := job.RLockNamed("GetWorkflowInstanceIndex")
 // 		if xerr != nil {
 // 			err = xerr
 // 			return
 // 		}
-// 		defer job.RUnlockNamed(read_lock)
+// 		defer job.RUnlockNamed(readLock)
 // 	}
 // 	if id == "" {
 // 		id = "_main"
@@ -192,14 +192,15 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, dbSync bool, writeLock
 
 // }
 
-func (job *Job) GetWorkflowInstance(id string, do_read_lock bool) (wi *WorkflowInstance, ok bool, err error) {
-	if do_read_lock {
-		read_lock, xerr := job.RLockNamed("GetWorkflowInstance")
+// GetWorkflowInstance _
+func (job *Job) GetWorkflowInstance(id string, doReadLock bool) (wi *WorkflowInstance, ok bool, err error) {
+	if doReadLock {
+		readLock, xerr := job.RLockNamed("GetWorkflowInstance")
 		if xerr != nil {
 			err = xerr
 			return
 		}
-		defer job.RUnlockNamed(read_lock)
+		defer job.RUnlockNamed(readLock)
 	}
 	//if id == "" {
 	//	id = "_main"
@@ -261,8 +262,9 @@ type JobDep struct {
 	Tasks  []*TaskDep `bson:"tasks" json:"tasks"`
 }
 
+// JobMin _
 type JobMin struct {
-	Id            string                 `bson:"id" json:"id"`
+	ID            string                 `bson:"id" json:"id"`
 	Name          string                 `bson:"name" json:"name"`
 	Size          int64                  `bson:"size" json:"size"`
 	SubmitTime    time.Time              `bson:"submittime" json:"submittime"`
@@ -273,8 +275,9 @@ type JobMin struct {
 	UserAttr      map[string]interface{} `bson:"userattr" json:"userattr"`
 }
 
+// JobLog _
 type JobLog struct {
-	Id         string     `bson:"id" json:"id"`
+	ID         string     `bson:"id" json:"id"`
 	State      string     `bson:"state" json:"state"`
 	UpdateTime time.Time  `bson:"updatetime" json:"updatetime"`
 	Error      *JobError  `bson:"error" json:"error"`
@@ -282,6 +285,7 @@ type JobLog struct {
 	Tasks      []*TaskLog `bson:"tasks" json:"tasks"`
 }
 
+// NewJobRaw _
 func NewJobRaw() (job *JobRaw) {
 	r := &JobRaw{
 		Info: NewInfo(),
@@ -291,6 +295,7 @@ func NewJobRaw() (job *JobRaw) {
 	return r
 }
 
+// NewJob _
 func NewJob() (job *Job) {
 	//r_job := NewJobRaw()
 	job = &Job{}
@@ -299,6 +304,7 @@ func NewJob() (job *Job) {
 	return
 }
 
+// NewJobDep _
 func NewJobDep() (job *JobDep) {
 	//r_job := NewJobRaw()
 	//job = &JobDep{JobRaw: *r_job}
@@ -307,7 +313,7 @@ func NewJobDep() (job *JobDep) {
 	return
 }
 
-// this has to be called after Unmarshalling from JSON
+// Init this has to be called after Unmarshalling from JSON
 func (job *Job) Init() (changed bool, err error) {
 	changed = false
 	job.RWMutex.Init("Job")
@@ -319,7 +325,7 @@ func (job *Job) Init() (changed bool, err error) {
 	job.Registered = true
 
 	if job.ID == "" {
-		job.setId() //uuid for the job
+		job.setID() //uuid for the job
 		logger.Debug(3, "(Job.Init) Set JobID: %s", job.ID)
 		changed = true
 	} else {
@@ -430,8 +436,8 @@ func (job *Job) Init() (changed bool, err error) {
 	if job.IsCWL {
 
 		entrypoint := job.Entrypoint
-		var cwl_workflow *cwl.Workflow
-		cwl_workflow, err = context.GetWorkflow(entrypoint)
+		var cwlWorkflow *cwl.Workflow
+		cwlWorkflow, err = context.GetWorkflow(entrypoint)
 		//cwl_workflow, ok := context.Workflows[entrypoint]
 		if err != nil {
 			err = fmt.Errorf("(job.Init) Workflow \"%s\" not found: %s", entrypoint, err.Error())
@@ -439,14 +445,14 @@ func (job *Job) Init() (changed bool, err error) {
 			//for key, _ := range context.Workflows {
 			//	fmt.Printf("(job.Init) Workflows key: %s\n", key)
 			//}
-			for key, _ := range context.All {
+			for key, _ := range context.Objects {
 				fmt.Printf("(job.Init) All key: %s\n", key)
 			}
 			return
 		}
 
 		job.WorkflowContext = context
-		job.CWL_workflow = cwl_workflow
+		job.CWL_workflow = cwlWorkflow
 
 	}
 
@@ -498,20 +504,22 @@ func (job *Job) IncrementRemainTasks(inc int) (err error) {
 	return
 }
 
+// RLockRecursive _
 func (job *Job) RLockRecursive() {
 	for _, task := range job.Tasks {
 		task.RLockAnon()
 	}
 }
 
+// RUnlockRecursive _
 func (job *Job) RUnlockRecursive() {
 	for _, task := range job.Tasks {
 		task.RUnlockAnon()
 	}
 }
 
-//set job's uuid
-func (job *Job) setId() {
+//setID set job's uuid
+func (job *Job) setID() {
 	job.ID = uuid.New()
 	return
 }
@@ -534,6 +542,7 @@ func (job *Job) UpdateFile(files FormFiles, field string) (err error) {
 	return
 }
 
+// SaveToDisk _
 func (job *Job) SaveToDisk() (err error) {
 	var job_path string
 	job_path, err = job.Path()
@@ -563,6 +572,7 @@ func (job *Job) SaveToDisk() (err error) {
 	return
 }
 
+// Deserialize_b64 _
 func Deserialize_b64(encoding string, target interface{}) (err error) {
 	byte_array, err := b64.StdEncoding.DecodeString(encoding)
 	if err != nil {
@@ -578,6 +588,7 @@ func Deserialize_b64(encoding string, target interface{}) (err error) {
 	return
 }
 
+// Save _
 func (job *Job) Save() (err error) {
 
 	if job.ID == "" {
@@ -605,6 +616,7 @@ func (job *Job) Save() (err error) {
 	return
 }
 
+// Delete _
 func (job *Job) Delete() (err error) {
 	if err = dbDelete(bson.M{"id": job.ID}, conf.DB_COLL_JOBS); err != nil {
 		return err
@@ -616,6 +628,7 @@ func (job *Job) Delete() (err error) {
 	return
 }
 
+// Mkdir _
 func (job *Job) Mkdir() (err error) {
 	var path string
 	path, err = job.Path()
@@ -630,6 +643,7 @@ func (job *Job) Mkdir() (err error) {
 	return
 }
 
+// Rmdir _
 func (job *Job) Rmdir() (err error) {
 	var path string
 	path, err = job.Path()
@@ -639,6 +653,7 @@ func (job *Job) Rmdir() (err error) {
 	return os.RemoveAll(path)
 }
 
+// SetFile _
 func (job *Job) SetFile(file FormFile) (err error) {
 	var path string
 	path, err = job.FilePath()
@@ -647,17 +662,18 @@ func (job *Job) SetFile(file FormFile) (err error) {
 	return
 }
 
-//---Path functions
+// Path ---Path functions
 func (job *Job) Path() (path string, err error) {
-	return getPathByJobId(job.ID)
+	return getPathByJobID(job.ID)
 }
 
+// FilePath _
 func (job *Job) FilePath() (path string, err error) {
 	if job.Script.Path != "" {
 		path = job.Script.Path
 		return
 	}
-	path, err = getPathByJobId(job.ID)
+	path, err = getPathByJobID(job.ID)
 	if err != nil {
 		return
 	}
@@ -665,7 +681,7 @@ func (job *Job) FilePath() (path string, err error) {
 	return
 }
 
-func getPathByJobId(id string) (path string, err error) {
+func getPathByJobID(id string) (path string, err error) {
 	if len(id) < 6 {
 		err = fmt.Errorf("Job-Id format wrong: \"%s\"", id)
 		return
@@ -674,15 +690,15 @@ func getPathByJobId(id string) (path string, err error) {
 	return
 }
 
-// get tasks form from all subworkflows in the job
+// GetTasks get tasks form from all subworkflows in the job
 func (job *Job) GetTasks() (tasks []*Task, err error) {
 	tasks = []*Task{}
 
-	read_lock, err := job.RLockNamed("GetTasks")
+	readLock, err := job.RLockNamed("GetTasks")
 	if err != nil {
 		return
 	}
-	defer job.RUnlockNamed(read_lock)
+	defer job.RUnlockNamed(readLock)
 
 	if job.IsCWL {
 		logger.Debug(3, "(GetTasks) iscwl len(job.WorkflowInstancesMap): %d", len(job.WorkflowInstancesMap))
@@ -711,12 +727,12 @@ func (job *Job) GetTasks() (tasks []*Task, err error) {
 
 func (job *Job) GetState(do_lock bool) (state string, err error) {
 	if do_lock {
-		read_lock, xerr := job.RLockNamed("GetState")
+		readLock, xerr := job.RLockNamed("GetState")
 		if xerr != nil {
 			err = xerr
 			return
 		}
-		defer job.RUnlockNamed(read_lock)
+		defer job.RUnlockNamed(readLock)
 	}
 	state = job.State
 	return
@@ -724,12 +740,12 @@ func (job *Job) GetState(do_lock bool) (state string, err error) {
 
 func (job *Job) GetStateTimeout(do_lock bool, timeout time.Duration) (state string, err error) {
 	if do_lock {
-		read_lock, xerr := job.RLockNamedTimeout("GetStateTimeout", timeout)
+		readLock, xerr := job.RLockNamedTimeout("GetStateTimeout", timeout)
 		if xerr != nil {
 			err = xerr
 			return
 		}
-		defer job.RUnlockNamed(read_lock)
+		defer job.RUnlockNamed(readLock)
 	}
 	state = job.State
 	return
@@ -994,7 +1010,7 @@ func (job *Job) GetPrivateEnv(taskid string) (env map[string]string, err error) 
 
 func (job *Job) GetJobLogs() (jlog *JobLog, err error) {
 	jlog = new(JobLog)
-	jlog.Id = job.ID
+	jlog.ID = job.ID
 	jlog.State = job.State
 	jlog.UpdateTime = job.UpdateTime
 	jlog.Error = job.Error

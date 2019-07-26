@@ -211,18 +211,18 @@ func NewWorkflowInstanceFromInterface(original interface{}, job *Job, context *c
 
 	if context != nil {
 
-		thisID := wi.LocalID
+		//thisID := wi.LocalID
 
 		for i := range wi.Inputs {
 			inpNamed := &wi.Inputs[i]
-			inpID := inpNamed.Id
+			//inpID := inpNamed.Id
 			inpValue := inpNamed.Value
-
-			err = context.Add(path.Join(thisID, inpID), inpValue, "NewWorkflowInstanceFromInterface")
-			if err != nil {
-				err = fmt.Errorf("(NewWorkflowInstanceFromInterface) context.Add returned: %s", err.Error())
-				return
-			}
+			_ = inpValue
+			// err = context.Add(path.Join(thisID, inpID), inpValue, "NewWorkflowInstanceFromInterface")
+			// if err != nil {
+			// 	err = fmt.Errorf("(NewWorkflowInstanceFromInterface) context.Add returned: %s", err.Error())
+			// 	return
+			// }
 		}
 	}
 	return

@@ -9,31 +9,31 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-func dbUpdateTaskFields_DEPRECTAED(jobID string, workflowInstanceID string, taskID string, updateValue bson.M) (err error) {
-	session := db.Connection.Session.Copy()
-	defer session.Close()
+// func dbUpdateTaskFields_DEPRECTAED(jobID string, workflowInstanceID string, taskID string, updateValue bson.M) (err error) {
+// 	session := db.Connection.Session.Copy()
+// 	defer session.Close()
 
-	database := conf.DB_COLL_JOBS
-	if workflowInstanceID != "" {
-		database = conf.DB_COLL_SUBWORKFLOWS
-	}
+// 	database := conf.DB_COLL_JOBS
+// 	if workflowInstanceID != "" {
+// 		database = conf.DB_COLL_SUBWORKFLOWS
+// 	}
 
-	c := session.DB(conf.MONGODB_DATABASE).C(database)
+// 	c := session.DB(conf.MONGODB_DATABASE).C(database)
 
-	uniqueID := jobID + "_" + workflowInstanceID
-	selector := bson.M{"_id": uniqueID, "tasks.taskid": taskID}
-	updateOp := bson.M{"$set": updateValue}
+// 	uniqueID := jobID + "_" + workflowInstanceID
+// 	selector := bson.M{"_id": uniqueID, "tasks.taskid": taskID}
+// 	updateOp := bson.M{"$set": updateValue}
 
-	//fmt.Println("(dbUpdateTaskFields) updateValue:")
-	//spew.Dump(updateValue)
+// 	//fmt.Println("(dbUpdateTaskFields) updateValue:")
+// 	//spew.Dump(updateValue)
 
-	err = c.Update(selector, updateOp)
-	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobTaskFields) (db: %s) Error updating task %s (uniqueID: %s): %s", database, taskID, uniqueID, err.Error())
-		return
-	}
-	return
-}
+// 	err = c.Update(selector, updateOp)
+// 	if err != nil {
+// 		err = fmt.Errorf("(dbUpdateJobTaskFields) (db: %s) Error updating task %s (uniqueID: %s): %s", database, taskID, uniqueID, err.Error())
+// 		return
+// 	}
+// 	return
+// }
 
 func dbUpdateTaskFields(workflowInstanceID string, taskID string, updateValue bson.M) (err error) {
 

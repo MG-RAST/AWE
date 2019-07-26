@@ -1,11 +1,12 @@
 package core
 
 import (
-	"github.com/MG-RAST/AWE/lib/conf"
 	"time"
+
+	"github.com/MG-RAST/AWE/lib/conf"
 )
 
-//job info
+//Info job info
 type Info struct {
 	Name          string                 `bson:"name" json:"name" mapstructure:"name"`
 	Xref          string                 `bson:"xref" json:"xref" mapstructure:"xref"`
@@ -27,6 +28,7 @@ type Info struct {
 	StartAt       time.Time              `bson:"start_at" json:"start_at" mapstructure:"start_at"` // will start tasks at this timepoint or shortly after
 }
 
+// NewInfo _
 func NewInfo() *Info {
 	return &Info{
 		SubmitTime: time.Now(),
@@ -34,12 +36,13 @@ func NewInfo() *Info {
 	}
 }
 
-func (this *Info) SetStartedTime(jobid string, t time.Time) (err error) {
+// SetStartedTime _
+func (info *Info) SetStartedTime(jobid string, t time.Time) (err error) {
 
 	err = DbUpdateJobField(jobid, "info.startedtime", t)
 	if err != nil {
 		return
 	}
-	this.StartedTime = t
+	info.StartedTime = t
 	return
 }

@@ -307,7 +307,7 @@ func JobDepToJob(jobDep *JobDep) (job *Job, err error) {
 	}
 
 	if job.ID == "" {
-		job.setId()
+		job.setID()
 	}
 
 	if len(jobDep.Tasks) == 0 {
@@ -481,7 +481,7 @@ func contains(list []string, elem string) bool {
 
 //NotifyWorkunitProcessed notify AWE server a workunit is finished with status either "failed" or "done", and with perf statistics if "done"
 func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
-	targetURL := fmt.Sprintf("%s/work/%s?workid=%s&jobid=%s&status=%s&client=%s", conf.SERVER_URL, work.Id, work.TaskName, work.JobId, work.State, Self.ID)
+	targetURL := fmt.Sprintf("%s/work/%s?workid=%s&jobid=%s&status=%s&client=%s", conf.SERVER_URL, work.ID, work.TaskName, work.JobId, work.State, Self.ID)
 
 	argv := []string{}
 	argv = append(argv, "-X")
@@ -648,19 +648,19 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 			} else if io.Optional {
 				continue
 			} else {
-				err = fmt.Errorf("output %s not generated for workunit %s", name, work.Id)
+				err = fmt.Errorf("output %s not generated for workunit %s", name, work.ID)
 				return
 			}
 		} else {
 			if io.Nonzero && fi.Size() == 0 {
-				err = fmt.Errorf("workunit %s generated zero-sized output %s while non-zero-sized file required", work.Id, name)
+				err = fmt.Errorf("workunit %s generated zero-sized output %s while non-zero-sized file required", work.ID, name)
 				return
 			}
 			size += fi.Size()
 		}
 		logger.Debug(2, "deliverer: push output to shock, filename="+name)
 		logger.Event(event.FILE_OUT,
-			"workid="+work.Id,
+			"workid="+work.ID,
 			"filename="+name,
 			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
 
@@ -691,7 +691,7 @@ func PushOutputData(work *Workunit) (size int64, err error) {
 			}
 		}
 		logger.Event(event.FILE_DONE,
-			"workid="+work.Id,
+			"workid="+work.ID,
 			"filename="+name,
 			fmt.Sprintf("url=%s/node/%s", io.Host, io.Node))
 	}
@@ -738,7 +738,7 @@ func getPerfFilePath(work *Workunit, perfstat *WorkPerf) (reportPath string, err
 	if err != nil {
 		return
 	}
-	reportPath = fmt.Sprintf("%s/%s.perf", workPath, work.Id)
+	reportPath = fmt.Sprintf("%s/%s.perf", workPath, work.ID)
 	err = ioutil.WriteFile(reportPath, []byte(perfJsonstream), 0644)
 	return
 }

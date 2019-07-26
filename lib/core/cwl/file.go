@@ -204,7 +204,7 @@ func MakeFile(obj interface{}, context *WorkflowContext, external_id string) (fi
 
 	if context != nil && context.Initialzing && external_id != "" {
 
-		err = context.Add(external_id, &file, "MakeFile")
+		err = context.AddObject(external_id, &file, "MakeFile")
 		if err != nil {
 			err = fmt.Errorf("(MakeFile) (external_id: %s) context.Add returned: %s", external_id, err.Error())
 			return

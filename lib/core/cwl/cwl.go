@@ -14,52 +14,54 @@ import (
 
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/yaml.v2"
-
 	//"io/ioutil"
 	//"os"
 	//"reflect"
-	"strconv"
 )
 
+// ParsingContext _
 type ParsingContext struct {
 	If_objects map[string]interface{}
 	Objects    map[string]CWLObject
 }
 
+// CWLObjectGeneric _
 type CWLObjectGeneric map[string]interface{}
 
+// LinkMergeMethod _
 type LinkMergeMethod string // merge_nested or merge_flattened
 
-func Add_to_collection_deprecated(context *WorkflowContext, object_array CWLObjectArray) (err error) {
+// func Add_to_collection_deprecated(context *WorkflowContext, object_array CWLObjectArray) (err error) {
 
-	for i, object := range object_array {
-		err = context.Add(strconv.Itoa(i), object, "Add_to_collection_deprecated") // TODO fix id
-		if err != nil {
-			err = fmt.Errorf("(Add_to_collection_deprecated) collection.Add returned: %s", err.Error())
-			return
-		}
-	}
+// 	for i, object := range object_array {
+// 		err = context.Add(strconv.Itoa(i), object, "Add_to_collection_deprecated") // TODO fix id
+// 		if err != nil {
+// 			err = fmt.Errorf("(Add_to_collection_deprecated) collection.Add returned: %s", err.Error())
+// 			return
+// 		}
+// 	}
 
-	return
-}
+// 	return
+// }
 
-func Unmarshal(data_ptr *[]byte, v interface{}) (err error) {
+// Unmarshal _
+func Unmarshal(dataPtr *[]byte, v interface{}) (err error) {
 
-	data := *data_ptr
+	data := *dataPtr
 
 	if data[0] == '{' {
 
-		err_json := json.Unmarshal(data, v)
-		if err_json != nil {
-			logger.Debug(1, "CWL json unmarshal error: "+err_json.Error())
-			err = err_json
+		errJSON := json.Unmarshal(data, v)
+		if errJSON != nil {
+			logger.Debug(1, "CWL json unmarshal error: "+errJSON.Error())
+			err = errJSON
 			return
 		}
 	} else {
-		err_yaml := yaml.Unmarshal(data, v)
-		if err_yaml != nil {
-			logger.Debug(1, "CWL yaml unmarshal error: "+err_yaml.Error())
-			err = err_yaml
+		errYAML := yaml.Unmarshal(data, v)
+		if errYAML != nil {
+			logger.Debug(1, "CWL yaml unmarshal error: "+errYAML.Error())
+			err = errYAML
 			return
 		}
 

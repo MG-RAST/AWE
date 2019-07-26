@@ -8,15 +8,17 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-// mongodb has hard limit of 16 MB docuemnt size
+// DocumentMaxByte mongodb has hard limit of 16 MB docuemnt size
 var DocumentMaxByte = 16777216
 
 // indexed info fields for search
 
+// StructContainer _
 type StructContainer struct {
 	Data interface{} `json:"data"`
 }
 
+// DefaultQueryOptions _
 type DefaultQueryOptions struct {
 	Limit  int
 	Offset int

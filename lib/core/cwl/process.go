@@ -55,7 +55,7 @@ func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 }
 
 // NewProcess returns CommandLineTool, ExpressionTool or Workflow
-func NewProcess(original interface{}, baseIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
+func NewProcess(original interface{}, processID string, injectedRequirements []Requirement, context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
 
 	//logger.Debug(3, "(NewProcess) starting")
 	if context == nil {
@@ -108,7 +108,7 @@ func NewProcess(original interface{}, baseIdentifier string, injectedRequirement
 			logger.Debug(3, "(NewProcess) %s found in object_if", processIdentifer)
 			var object CWLObject
 
-			object, schemata, err = NewCWLObject(processIf, "", baseIdentifier, injectedRequirements, context)
+			object, schemata, err = NewCWLObject(processIf, "", processID, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(NewProcess) A NewCWLObject returns %s", err.Error())
 				return
@@ -131,6 +131,10 @@ func NewProcess(original interface{}, baseIdentifier string, injectedRequirement
 
 		//originalStrArray := strings.Split(originalStr, "#")
 		fileFromStr := strings.TrimPrefix(processIdentifer, "#")
+		if context.Path == "" || context.Path == "-" {
+			err = fmt.Errorf("(NewProcess) context.Path is not set, there should be no files to load (processIdentifer %s not found)", processIdentifer)
+			return
+		}
 		newFileToLoad := path.Join(context.Path, fileFromStr) // TODO context.Path is not correct, depends on location of parent document
 		newFileToLoadBase := path.Base(newFileToLoad)
 		entrypoint := ""
@@ -141,18 +145,19 @@ func NewProcess(original interface{}, baseIdentifier string, injectedRequirement
 		_, err = os.Stat(newFileToLoad)
 		if err != nil {
 
-			err = fmt.Errorf("(NewProcess) %s not found in context (found %s) and does not seem to be a file", newFileToLoad, ifObjectsStr)
+			err = fmt.Errorf("(NewProcess) \"%s\" not found in context (found %s) and does not seem to be a file (processIdentifer: %s, fileFromStr: %s)", newFileToLoad, ifObjectsStr, processIdentifer, fileFromStr)
 			return
 		}
 
 		//var newObjectArray []NamedCWLObject
 		var schemas []interface{}
-		_, schemata, _, schemas, _, err = ParseCWLDocumentFile(context, newFileToLoad, entrypoint, context.Path, newFileToLoadBase)
+		processIf, schemata, _, schemas, _, err = ParseCWLDocumentFile(context, newFileToLoad, entrypoint, context.Path, newFileToLoadBase)
 		if err != nil {
 
 			err = fmt.Errorf("(NewProcess) ParseCWLDocumentFile returned: %s", err.Error())
 			return
 		}
+
 		_ = schemas
 		// for i := range newObjectArray {
 		// 	thing := newObjectArray[i]
@@ -165,7 +170,11 @@ func NewProcess(original interface{}, baseIdentifier string, injectedRequirement
 		// 	}
 		// }
 
-		process, ok = context.All[processIdentifer]
+		process, ok, err = context.Get(processIdentifer, true)
+		if err != nil {
+			err = fmt.Errorf("(NewProcess) context.Get returned: %s", err.Error())
+			return
+		}
 		if ok {
 			if process == nil {
 				err = fmt.Errorf("(NewProcess) B process == nil")
@@ -202,7 +211,7 @@ func NewProcess(original interface{}, baseIdentifier string, injectedRequirement
 			process, err = NewExpression(original)
 			return
 		case "CommandLineTool":
-			process, schemata, err = NewCommandLineTool(original, baseIdentifier, injectedRequirements, context) // TODO merge schemata correctly !
+			process, schemata, err = NewCommandLineTool(original, processID, injectedRequirements, context) // TODO merge schemata correctly !
 			return
 		case "ExpressionTool":
 			process, err = NewExpressionTool(original, schemata, injectedRequirements, context)

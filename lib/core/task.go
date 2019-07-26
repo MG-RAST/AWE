@@ -334,7 +334,7 @@ func IsValidUUID(uuid string) bool {
 func (task *Task) CollectDependencies() (changed bool, err error) {
 
 	deps := make(map[Task_Unique_Identifier]bool)
-	deps_changed := false
+	depsChanged := false
 
 	jobid, err := task.GetJobID()
 	if err != nil {
@@ -346,23 +346,23 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 		return
 	}
 
-	job_prefix := jobid + "_"
+	jobPrefix := jobid + "_"
 
 	// collect explicit dependencies
 	for _, deptask := range task.DependsOn {
 
 		if deptask == "" {
-			deps_changed = true
+			depsChanged = true
 			continue
 		}
 
-		if !strings.HasPrefix(deptask, job_prefix) {
-			deptask = job_prefix + deptask
-			deps_changed = true
+		if !strings.HasPrefix(deptask, jobPrefix) {
+			deptask = jobPrefix + deptask
+			depsChanged = true
 		} else {
-			deptask_suffix := strings.TrimPrefix(deptask, job_prefix)
-			if deptask_suffix == "" {
-				deps_changed = true
+			deptaskSuffix := strings.TrimPrefix(deptask, jobPrefix)
+			if deptaskSuffix == "" {
+				depsChanged = true
 				continue
 			}
 		}
@@ -375,7 +375,7 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 
 		if t.TaskName == "" {
 			// this is to fix a bug
-			deps_changed = true
+			depsChanged = true
 			continue
 		}
 
@@ -386,13 +386,13 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 
 		deptask := input.Origin
 		if deptask == "" {
-			deps_changed = true
+			depsChanged = true
 			continue
 		}
 
-		if !strings.HasPrefix(deptask, job_prefix) {
-			deptask = job_prefix + deptask
-			deps_changed = true
+		if !strings.HasPrefix(deptask, jobPrefix) {
+			deptask = jobPrefix + deptask
+			depsChanged = true
 		}
 
 		t, yerr := New_Task_Unique_Identifier_FromString(deptask)
@@ -407,13 +407,13 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 		if !ok {
 			// this was not yet in deps
 			deps[t] = true
-			deps_changed = true
+			depsChanged = true
 		}
 
 	}
 
 	// write all dependencies if different from before
-	if deps_changed {
+	if depsChanged {
 		task.DependsOn = []string{}
 		for deptask, _ := range deps {
 			var dep_task_str string
@@ -429,18 +429,18 @@ func (task *Task) CollectDependencies() (changed bool, err error) {
 	return
 }
 
-// argument job is optional, but recommended
+// Init argument job is optional, but recommended
 func (task *Task) Init(job *Job, job_id string) (changed bool, err error) {
 	changed, err = task.InitRaw(job, job_id)
 	if err != nil {
 		return
 	}
 
-	dep_changes, err := task.CollectDependencies()
+	depChanges, err := task.CollectDependencies()
 	if err != nil {
 		return
 	}
-	if dep_changes {
+	if depChanges {
 		changed = true
 	}
 
@@ -514,7 +514,7 @@ func NewTask(job *Job, workflowInstanceUUID string, workflowInstanceID string, t
 	}
 
 	if job.ID == "" {
-		err = fmt.Errorf("(NewTask) jobid is empty!")
+		err = fmt.Errorf("(NewTask) jobid is empty! ")
 		return
 	}
 
@@ -644,16 +644,16 @@ func (task *TaskRaw) GetScatterChildren(wi *WorkflowInstance, qm *ServerMgr) (ch
 	}
 
 	children = []*Task{}
-	for _, task_id_str := range task.ScatterChildren {
+	for _, taskIDStr := range task.ScatterChildren {
 		var child *Task
 		var ok bool
-		child, ok, err = wi.GetTaskByName(task_id_str, true)
+		child, ok, err = wi.GetTaskByName(taskIDStr, true)
 		if err != nil {
 			err = fmt.Errorf("(GetScatterChildren) wi.GetTaskByName returned: %s", err.Error())
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("(GetScatterChildren) child task %s not found in TaskMap", task_id_str)
+			err = fmt.Errorf("(GetScatterChildren) child task %s not found in TaskMap", taskIDStr)
 			return
 		}
 		children = append(children, child)
@@ -663,6 +663,7 @@ func (task *TaskRaw) GetScatterChildren(wi *WorkflowInstance, qm *ServerMgr) (ch
 	return
 }
 
+// GetWorkflowInstance _
 func (task *TaskRaw) GetWorkflowInstance() (wi *WorkflowInstance, ok bool, err error) {
 
 	var job *Job
@@ -672,15 +673,15 @@ func (task *TaskRaw) GetWorkflowInstance() (wi *WorkflowInstance, ok bool, err e
 		return
 	}
 
-	wi_id := task.WorkflowInstanceId
-	wi, ok, err = job.GetWorkflowInstance(wi_id, true)
+	wiID := task.WorkflowInstanceId
+	wi, ok, err = job.GetWorkflowInstance(wiID, true)
 	if err != nil {
 		err = fmt.Errorf("(GetWorkflowInstance) job.GetWorkflowInstance returned: %s", err.Error())
 		return
 	}
 
 	if !ok {
-		err = fmt.Errorf("(GetWorkflowInstance) job.GetWorkflowInstance did not find: %s", wi_id)
+		err = fmt.Errorf("(GetWorkflowInstance) job.GetWorkflowInstance did not find: %s", wiID)
 		return
 	}
 
@@ -720,6 +721,7 @@ func (task *TaskRaw) GetWorkflowInstance() (wi *WorkflowInstance, ok bool, err e
 // 	return
 // }
 
+// GetState _
 func (task *TaskRaw) GetState() (state string, err error) {
 	lock, err := task.RLockNamed("GetState")
 	if err != nil {
@@ -730,6 +732,7 @@ func (task *TaskRaw) GetState() (state string, err error) {
 	return
 }
 
+// GetStateTimeout _
 func (task *TaskRaw) GetStateTimeout(timeout time.Duration) (state string, err error) {
 	lock, err := task.RLockNamedTimeout("GetStateTimeout", timeout)
 	if err != nil {
@@ -740,6 +743,7 @@ func (task *TaskRaw) GetStateTimeout(timeout time.Duration) (state string, err e
 	return
 }
 
+// GetTaskType _
 func (task *TaskRaw) GetTaskType() (type_str string, err error) {
 	lock, err := task.RLockNamed("GetTaskType")
 	if err != nil {
@@ -750,7 +754,8 @@ func (task *TaskRaw) GetTaskType() (type_str string, err error) {
 	return
 }
 
-func (task *Task) SetTaskType(type_str string, writelock bool) (err error) {
+// SetTaskType _
+func (task *Task) SetTaskType(typeStr string, writelock bool) (err error) {
 	if writelock {
 		err = task.LockNamed("SetTaskType")
 		if err != nil {
@@ -759,19 +764,19 @@ func (task *Task) SetTaskType(type_str string, writelock bool) (err error) {
 		defer task.Unlock()
 	}
 	if task.WorkflowInstanceId == "" {
-		err = dbUpdateJobTaskString(task.JobId, task.WorkflowInstanceId, task.ID, "task_type", type_str)
+		err = dbUpdateJobTaskString(task.JobId, task.WorkflowInstanceId, task.ID, "task_type", typeStr)
 		if err != nil {
 			err = fmt.Errorf("(task/SetTaskType) dbUpdateJobTaskString returned: %s", err.Error())
 			return
 		}
 	} else {
-		err = dbUpdateTaskString(task.WorkflowInstanceUUID, task.ID, "task_type", type_str)
+		err = dbUpdateTaskString(task.WorkflowInstanceUUID, task.ID, "task_type", typeStr)
 		if err != nil {
 			err = fmt.Errorf("(task/SetTaskType) dbUpdateTaskString returned: %s", err.Error())
 			return
 		}
 	}
-	task.TaskType = type_str
+	task.TaskType = typeStr
 	return
 }
 
@@ -1761,13 +1766,13 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog, err error) {
 	tlog.TotalWork = task.TotalWork
 	tlog.CompletedDate = task.CompletedDate
 
-	workunit_id := New_Workunit_Unique_Identifier(task.Task_Unique_Identifier, 0)
+	workunitID := New_Workunit_Unique_Identifier(task.Task_Unique_Identifier, 0)
 	//workunit_id := Workunit_Unique_Identifier{JobId: task.JobId, TaskName: task.ID}
 
 	if task.TotalWork == 1 {
 		//workunit_id.Rank = 0
 		var wl *WorkLog
-		wl, err = NewWorkLog(workunit_id)
+		wl, err = NewWorkLog(workunitID)
 		if err != nil {
 			err = fmt.Errorf("(task/GetTaskLogs) NewWorkLog returned: %s", err.Error())
 			return
@@ -1775,9 +1780,9 @@ func (task *Task) GetTaskLogs() (tlog *TaskLog, err error) {
 		tlog.Workunits = append(tlog.Workunits, wl)
 	} else {
 		for i := 1; i <= task.TotalWork; i++ {
-			workunit_id.Rank = i
+			workunitID.Rank = i
 			var wl *WorkLog
-			wl, err = NewWorkLog(workunit_id)
+			wl, err = NewWorkLog(workunitID)
 			if err != nil {
 				err = fmt.Errorf("(task/GetTaskLogs) NewWorkLog returned: %s", err.Error())
 				return
@@ -2080,40 +2085,42 @@ func (task *Task) ValidatePredata() (err error) {
 // DeleteOutput _
 func (task *Task) DeleteOutput() (modified int) {
 	modified = 0
-	task_state := task.State
-	if task_state == TASK_STAT_COMPLETED ||
-		task_state == TASK_STAT_SKIPPED ||
-		task_state == TASK_STAT_FAIL_SKIP {
+	taskState := task.State
+	if taskState == TASK_STAT_COMPLETED ||
+		taskState == TASK_STAT_SKIPPED ||
+		taskState == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Outputs {
 			if io.Delete {
 				if err := io.DeleteNode(); err != nil {
 					logger.Warning("failed to delete shock node %s: %s", io.Node, err.Error())
 				}
-				modified += 1
+				modified++
 			}
 		}
 	}
 	return
 }
 
+// DeleteInput _
 func (task *Task) DeleteInput() (modified int) {
 	modified = 0
-	task_state := task.State
-	if task_state == TASK_STAT_COMPLETED ||
-		task_state == TASK_STAT_SKIPPED ||
-		task_state == TASK_STAT_FAIL_SKIP {
+	taskState := task.State
+	if taskState == TASK_STAT_COMPLETED ||
+		taskState == TASK_STAT_SKIPPED ||
+		taskState == TASK_STAT_FAIL_SKIP {
 		for _, io := range task.Inputs {
 			if io.Delete {
 				if err := io.DeleteNode(); err != nil {
 					logger.Warning("failed to delete shock node %s: %s", io.Node, err.Error())
 				}
-				modified += 1
+				modified++
 			}
 		}
 	}
 	return
 }
 
+// DeleteLogs _
 func (task *Task) DeleteLogs(logname string, writelock bool) (err error) {
 	if writelock {
 		err = task.LockNamed("setTotalWork")
@@ -2124,7 +2131,7 @@ func (task *Task) DeleteLogs(logname string, writelock bool) (err error) {
 	}
 
 	var logdir string
-	logdir, err = getPathByJobId(task.JobId)
+	logdir, err = getPathByJobID(task.JobId)
 	if err != nil {
 		err = fmt.Errorf("(task/GetTaDeleteLogsskLogs) getPathByJobId returned: %s", err.Error())
 		return
@@ -2189,6 +2196,7 @@ func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, reason s
 	return
 }
 
+// GetStepOutputNames _
 func (task *Task) GetStepOutputNames() (names []string, err error) {
 
 	if task.StepOutput == nil {
@@ -2198,17 +2206,18 @@ func (task *Task) GetStepOutputNames() (names []string, err error) {
 
 	names = []string{}
 
-	for _, named_step_output := range *task.StepOutput {
+	for _, namedStepOutput := range *task.StepOutput {
 
-		named_step_output_base := path.Base(named_step_output.Id)
+		namedStepOutputBase := path.Base(namedStepOutput.Id)
 
-		names = append(names, named_step_output_base)
+		names = append(names, namedStepOutputBase)
 
 	}
 
 	return
 }
 
+// String2Date _
 func String2Date(str string) (t time.Time, err error) {
 	//layout := "2006-01-02T15:04:05.00Z"
 	// 2018-12-13T22:36:02.96Z
@@ -2219,10 +2228,11 @@ func String2Date(str string) (t time.Time, err error) {
 	return
 }
 
-func FixTimeInMap(original_map map[string]interface{}, field string) (err error) {
+// FixTimeInMap _
+func FixTimeInMap(originalMap map[string]interface{}, field string) (err error) {
 	var value_if interface{}
 	var ok bool
-	value_if, ok = original_map[field]
+	value_if, ok = originalMap[field]
 	if ok {
 		switch value_if.(type) {
 		case string:
@@ -2234,8 +2244,8 @@ func FixTimeInMap(original_map map[string]interface{}, field string) (err error)
 				err = fmt.Errorf("(FixTimeInMap) Could not parse date: %s", err.Error())
 				return
 			}
-			delete(original_map, field)
-			original_map[field] = value_time
+			delete(originalMap, field)
+			originalMap[field] = value_time
 
 		case time.Time:
 			// all ok
@@ -2247,6 +2257,7 @@ func FixTimeInMap(original_map map[string]interface{}, field string) (err error)
 	return
 }
 
+// NewTaskFromInterface _
 func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (task *Task, err error) {
 
 	task = &Task{}
@@ -2260,11 +2271,11 @@ func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (t
 		return
 	}
 
-	original_map := original.(map[string]interface{})
+	originalMap := original.(map[string]interface{})
 
 	for _, field := range []string{"createdDate", "startedDate", "completedDate"} {
 
-		err = FixTimeInMap(original_map, field)
+		err = FixTimeInMap(originalMap, field)
 		if err != nil {
 			err = fmt.Errorf("(NewTaskFromInterface) FixTimeInMap returned: %s", err.Error())
 			return
@@ -2273,7 +2284,7 @@ func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (t
 
 	err = mapstructure.Decode(original, task)
 	if err != nil {
-		err = fmt.Errorf("(NewTaskFromInterface) mapstructure.Decode returned: %s (%s)", err.Error(), spew.Sdump(original_map))
+		err = fmt.Errorf("(NewTaskFromInterface) mapstructure.Decode returned: %s (%s)", err.Error(), spew.Sdump(originalMap))
 		return
 	}
 
@@ -2292,18 +2303,19 @@ func NewTaskFromInterface(original interface{}, context *cwl.WorkflowContext) (t
 	return
 }
 
+// NewTasksFromInterface _
 func NewTasksFromInterface(original interface{}, context *cwl.WorkflowContext) (tasks []*Task, err error) {
 
 	switch original.(type) {
 	case []interface{}:
-		original_array := original.([]interface{})
+		originalArray := original.([]interface{})
 
 		tasks = []*Task{}
 
-		for i, _ := range original_array {
+		for i := range originalArray {
 
 			var t *Task
-			t, err = NewTaskFromInterface(original_array[i], context)
+			t, err = NewTaskFromInterface(originalArray[i], context)
 			if err != nil {
 				err = fmt.Errorf("(NewTasksFromInterface) NewTaskFromInterface returned: %s", err.Error())
 				return

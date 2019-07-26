@@ -22,12 +22,14 @@ import (
 	"github.com/MG-RAST/golib/httpclient"
 )
 
+// HeartbeatResponse _
 type HeartbeatResponse struct {
 	Code int                        `bson:"status" json:"status"`
 	Data core.HeartbeatInstructions `bson:"data" json:"data"`
 	Errs []string                   `bson:"error" json:"error"`
 }
 
+// ClientResponse _
 type ClientResponse struct {
 	Code int         `bson:"status" json:"status"`
 	Data core.Client `bson:"data" json:"data"`
@@ -49,20 +51,21 @@ func heartBeater(control chan int) {
 	//control <- 2 //we are ending
 }
 
+// OpenstackMetadata _
 // curl http://169.254.169.254/openstack/2015-10-15/meta_data.json | jq '.'
 // documentation: https://docs.openstack.org/admin-guide/compute-networking-nova.html
 // TODO use this!
-type Openstack_Metadata struct {
-	Random_seed       string                   `bson:"random_seed" json:"random_seed"`
-	Uuid              string                   `bson:"uuid" json:"uuid"`
-	Availability_zone string                   `bson:"availability_zone" json:"availability_zone"`
-	Hostname          string                   `bson:"hostname" json:"hostname"`
-	Project_id        string                   `bson:"project_id" json:"project_id"`
-	Meta              *Openstack_Metadata_meta `bson:"meta" json:"meta"`
+type OpenstackMetadata struct {
+	RandomSeed       string                 `bson:"random_seed" json:"random_seed"`
+	UUID             string                 `bson:"uuid" json:"uuid"`
+	AvailabilityZone string                 `bson:"availability_zone" json:"availability_zone"`
+	Hostname         string                 `bson:"hostname" json:"hostname"`
+	ProjectID        string                 `bson:"project_id" json:"project_id"`
+	Meta             *OpenstackMetadataMeta `bson:"meta" json:"meta"`
 }
 
-// Openstack_Metadata_meta _
-type Openstack_Metadata_meta struct {
+// OpenstackMetadataMeta _
+type OpenstackMetadataMeta struct {
 	Priority string `bson:"priority" json:"priority"`
 	Role     string `bson:"role" json:"role"`
 	Name     string `bson:"name" json:"name"`
@@ -71,16 +74,16 @@ type Openstack_Metadata_meta struct {
 // ExitWorker _
 func ExitWorker(newServerUUID string) {
 	logger.Warning("(SendHeartBeat) Server UUID has changed (%s -> %s). Will stop all work units.", core.ServerUUID, newServerUUID)
-	all_work, _ := workmap.GetKeys()
+	allWork, _ := workmap.GetKeys()
 
-	for _, work := range all_work {
+	for _, work := range allWork {
 		_ = DiscardWorkunit(work)
 	}
 	_, _ = fmt.Fprintln(os.Stderr, "AWE server has been restarted, stopping worker now to ensure correct state, bye....")
 	os.Exit(0)
 }
 
-//client sends heartbeat to server to maintain active status and re-register when needed
+// SendHeartBeat client sends heartbeat to server to maintain active status and re-register when needed
 func SendHeartBeat() (err error) {
 	hbmsg, err := heartbeating(conf.SERVER_URL, core.Self.ID)
 	if err != nil {
@@ -114,8 +117,10 @@ func SendHeartBeat() (err error) {
 			}
 
 		} else {
-			logger.Debug(1, "(SendHeartBeat) No Server UUID received")
+			logger.Debug(1, "(SendHeartBeat) Received empty Server UUID")
 		}
+	} else {
+		logger.Debug(1, "(SendHeartBeat) No Server UUID received")
 	}
 
 	//handle requested ops from the server (HeartbeatInstructions)

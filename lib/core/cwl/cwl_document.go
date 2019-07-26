@@ -309,7 +309,7 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 	}
 
 	logger.Debug(3, "(ParseCWLSimpleDocument) adding %s to context", objectID)
-	err = context.Add(objectID, object, "ParseCWLSimpleDocument")
+	err = context.AddObject(objectID, object, "ParseCWLSimpleDocument")
 	if err != nil {
 		err = fmt.Errorf("(ParseCWLSimpleDocument) context.Add returned %s", err.Error())
 		return
@@ -330,6 +330,7 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 // ParseCWLDocumentFile _
 func ParseCWLDocumentFile(existingContext *WorkflowContext, filePath string, entrypoint string, inputfilePath string, fileName string) (objectArray []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, newEntrypoint string, err error) {
 
+	logger.Debug(3, "(ParseCWLDocumentFile) loading %s", filePath)
 	// skip parsing if files have been loaded before
 	if existingContext != nil {
 

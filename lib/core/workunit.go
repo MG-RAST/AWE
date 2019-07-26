@@ -41,10 +41,11 @@ const (
 	WORK_STAT_PROXYQUEUED      = "proxyqueued"      // proxy only
 )
 
+// Workunit _
 type Workunit struct {
 	Workunit_Unique_Identifier `bson:",inline" json:",inline" mapstructure:",squash"`
 	WorkunitState              `bson:",inline" json:",inline" mapstructure:",squash"`
-	Id                         string                 `bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`       // global identifier: jobid_taskid_rank (for backwards coompatibility only)
+	ID                         string                 `bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`       // global identifier: jobid_taskid_rank (for backwards coompatibility only)
 	WuId                       string                 `bson:"wuid,omitempty" json:"wuid,omitempty" mapstructure:"wuid,omitempty"` // deprecated !
 	Info                       *Info                  `bson:"info,omitempty" json:"info,omitempty" mapstructure:"info,omitempty"` // ***
 	Inputs                     []*IO                  `bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
@@ -65,25 +66,27 @@ type Workunit struct {
 	Context                    *cwl.WorkflowContext `bson:"-" json:"-" mapstructure:"-"`
 }
 
+// WorkunitState _
 type WorkunitState struct {
 	State  string `bson:"state,omitempty" json:"state,omitempty" mapstructure:"state,omitempty"`
 	Failed int    `bson:"failed,omitempty" json:"failed,omitempty" mapstructure:"failed,omitempty"`
 	Client string `bson:"client,omitempty" json:"client,omitempty" mapstructure:"client,omitempty"`
 }
 
+// NewWorkunit _
 func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Workunit, err error) {
 
-	task_id := task.Task_Unique_Identifier
+	taskID := task.Task_Unique_Identifier
 
 	//workunit_state :=
 
 	workunit = &Workunit{
-		Workunit_Unique_Identifier: New_Workunit_Unique_Identifier(task_id, rank),
+		Workunit_Unique_Identifier: New_Workunit_Unique_Identifier(taskID, rank),
 		WorkunitState: WorkunitState{
 			State:  WORK_STAT_INIT,
 			Failed: 0,
 		},
-		Id:  "defined below",
+		ID:  "defined below",
 		Cmd: task.Cmd,
 		//App:       task.App,
 		Info:    task.Info,
@@ -106,7 +109,9 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		return
 	}
 
-	workunit.Id = work_str
+	logger.Debug(3, "(NewWorkunit) start: %s", work_str)
+
+	workunit.ID = work_str
 	workunit.WuId = work_str
 
 	if task.WorkflowStep != nil {

@@ -240,7 +240,7 @@ func NewCommandLineTool(generic interface{}, baseIdentifier string, injectedRequ
 			inp := &commandLineTool.Inputs[i]
 			inpID := path.Join(thisID, inp.Id)
 
-			err = context.Add(inpID, inp, "NewCommandLineTool")
+			err = context.AddObject(inpID, inp, "NewCommandLineTool")
 			if err != nil {
 				err = fmt.Errorf("(NewCommandLineTool) X (add commandLineToolInput)  context.Add returned: %s", err.Error())
 				return
@@ -251,24 +251,25 @@ func NewCommandLineTool(generic interface{}, baseIdentifier string, injectedRequ
 
 }
 
-func NewBaseCommandArray(original interface{}) (new_array []string, err error) {
-	new_array = []string{}
+// NewBaseCommandArray _
+func NewBaseCommandArray(original interface{}) (newArray []string, err error) {
+	newArray = []string{}
 	switch original.(type) {
 	case []interface{}:
 		for _, v := range original.([]interface{}) {
 
-			v_str, ok := v.(string)
+			vStr, ok := v.(string)
 			if !ok {
 				err = fmt.Errorf("(NewBaseCommandArray) []interface{} array element is not a string")
 				return
 			}
-			new_array = append(new_array, v_str)
+			newArray = append(newArray, vStr)
 		}
 
 		return
 	case string:
-		org_str, _ := original.(string)
-		new_array = append(new_array, org_str)
+		orgStr, _ := original.(string)
+		newArray = append(newArray, orgStr)
 		return
 	default:
 		err = fmt.Errorf("(NewBaseCommandArray) type unknown")
@@ -277,9 +278,10 @@ func NewBaseCommandArray(original interface{}) (new_array []string, err error) {
 	return
 }
 
+// Evaluate _
 func (c *CommandLineTool) Evaluate(inputs interface{}, context *WorkflowContext) (err error) {
 
-	for i, _ := range c.Requirements {
+	for i := range c.Requirements {
 
 		r := c.Requirements[i]
 
@@ -291,7 +293,7 @@ func (c *CommandLineTool) Evaluate(inputs interface{}, context *WorkflowContext)
 
 	}
 
-	for i, _ := range c.Hints {
+	for i := range c.Hints {
 
 		r := c.Hints[i]
 

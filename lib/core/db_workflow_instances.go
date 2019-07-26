@@ -70,6 +70,7 @@ func DBGetJobWorkflowInstances(q bson.M, options *DefaultQueryOptions, doInit bo
 	return
 }
 
+// DBGetJobWorkflowInstanceOne _
 func DBGetJobWorkflowInstanceOne(q bson.M, options *DefaultQueryOptions, doInit bool) (result interface{}, err error) {
 
 	session := db.Connection.Session.Copy()

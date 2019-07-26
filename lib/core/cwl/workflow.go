@@ -257,6 +257,11 @@ func (wf *Workflow) GetStep(name string) (step *WorkflowStep, err error) {
 
 	foundSteps := ""
 
+	if wf == nil {
+		err = fmt.Errorf("(Workflow/GetStep) wf == nil")
+		return
+	}
+
 	if wf.Steps == nil {
 		err = fmt.Errorf("(Workflow/GetStep) wf.Steps == nil")
 		return

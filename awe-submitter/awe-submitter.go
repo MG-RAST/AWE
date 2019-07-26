@@ -409,9 +409,12 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 
 	// replace graph
 	newDocument.Graph = []interface{}{}
-	for i := range namedObjectArray {
-		pair := namedObjectArray[i]
-		object := pair.Value
+	//for i := range namedObjectArray {
+	for i := range context.Objects {
+		//object := cwl.NamedCWLObject{}
+		//pair.Value =
+		object := context.Objects[i]
+		//object := pair.Value
 		newDocument.Graph = append(newDocument.Graph, object)
 	}
 

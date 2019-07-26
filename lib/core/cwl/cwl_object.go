@@ -139,6 +139,7 @@ func NewCWLObject(original interface{}, objectIdentifier string, baseIdentifier 
 		err = fmt.Errorf("(NewCWLObject), unknown type %s", reflect.TypeOf(original))
 		return
 	}
+
 	//fmt.Println("(NewCWLObject) leaving")
 	return
 }

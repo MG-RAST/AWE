@@ -158,6 +158,7 @@ func workStealer(control chan int) {
 	//control <- ID_WORKSTEALER //we are ending
 }
 
+// CheckoutWorkunitRemote _
 func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	logger.Debug(3, "(CheckoutWorkunitRemote) start")
 	// get available work dir disk space
@@ -324,7 +325,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		return
 	}
 
-	logger.Debug(1, "(CheckoutWorkunitRemote) workunit.Id: %s", workunit.Id)
+	logger.Debug(1, "(CheckoutWorkunitRemote) workunit.ID: %s", workunit.ID)
 
 	if has_cwl {
 
@@ -393,7 +394,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		}
 	}
 
-	logger.Debug(3, "(CheckoutWorkunitRemote) workunit id: %s", workunit.Id)
+	logger.Debug(3, "(CheckoutWorkunitRemote) workunit id: %s", workunit.ID)
 
 	logger.Debug(3, "(CheckoutWorkunitRemote) workunit Rank:%d TaskId:%s JobId:%s", workunit.Rank, workunit.TaskName, workunit.JobId)
 
@@ -406,6 +407,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 	return
 }
 
+// CheckoutTokenByJobId _
 func CheckoutTokenByJobId(jobid string) (token string, err error) {
 	return
 }

@@ -89,7 +89,7 @@ func NewCWLWorkunitFromInterface(native interface{}, baseIdentifier string, cont
 			case "CommandLineTool":
 				var commandlinetool *cwl.CommandLineTool
 
-				commandlinetool, schemataNew, err = cwl.NewCommandLineTool(toolGeneric, baseIdentifier, nil, context)
+				commandlinetool, schemataNew, err = cwl.NewCommandLineTool(toolGeneric, baseIdentifier, "", nil, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLWorkunitFromInterface) NewCommandLineTool failed: %s", err.Error())
 					return

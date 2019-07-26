@@ -63,8 +63,8 @@ func main() {
 	if conf.PID_FILE_PATH != "" {
 		f, err := os.Create(conf.PID_FILE_PATH)
 		if err != nil {
-			err_msg := "Could not create pid file: " + conf.PID_FILE_PATH + "\n"
-			fmt.Fprintf(os.Stderr, err_msg)
+			errMsg := "Could not create pid file: " + conf.PID_FILE_PATH + "\n"
+			fmt.Fprintf(os.Stderr, errMsg)
 			os.Exit(1)
 		}
 		defer f.Close()
@@ -100,10 +100,10 @@ func main() {
 
 		count := 0
 
-		retry_sleep := 5
+		retrySleep := 5
 
 		for true {
-			count += 1
+			count++
 			err = worker.RegisterWithAuth(conf.SERVER_URL, profile)
 			if err != nil {
 
@@ -115,11 +115,11 @@ func main() {
 					os.Exit(1)
 				}
 
-				message := fmt.Sprintf("(worker.main) failed to register: %s (SERVER_URL=%s) (%d), next retry in %d seconds...\n", err.Error(), conf.SERVER_URL, count, retry_sleep)
+				message := fmt.Sprintf("(worker.main) failed to register: %s (SERVER_URL=%s) (%d), next retry in %d seconds...\n", err.Error(), conf.SERVER_URL, count, retrySleep)
 				fmt.Fprintf(os.Stderr, message)
 				logger.Error(message)
 
-				time.Sleep(time.Second * time.Duration(retry_sleep))
+				time.Sleep(time.Second * time.Duration(retrySleep))
 			} else {
 				break
 			}
@@ -140,7 +140,7 @@ func main() {
 			time.Sleep(time.Second)
 			os.Exit(1)
 		}
-		job_doc, err := cwl.ParseJobFile(conf.CWL_JOB)
+		jobDoc, err := cwl.ParseJobFile(conf.CWL_JOB)
 		if err != nil {
 			logger.Error("error parsing cwl job: %v", err)
 			time.Sleep(time.Second)
@@ -152,21 +152,21 @@ func main() {
 
 		os.Getwd() //https://golang.org/pkg/os/#Getwd
 
-		workunit := &core.Workunit{Id: "00000000-0000-0000-0000-000000000000_0_0", CWLWorkunit: core.NewCWLWorkunit()}
+		workunit := &core.Workunit{ID: "00000000-0000-0000-0000-000000000000_0_0", CWLWorkunit: core.NewCWLWorkunit()}
 
-		workunit.CWLWorkunit.JobInput = job_doc
+		workunit.CWLWorkunit.JobInput = jobDoc
 		workunit.CWLWorkunit.JobInputFilename = conf.CWL_JOB
 
 		workunit.CWLWorkunit.ToolFilename = conf.CWL_TOOL
 		workunit.CWLWorkunit.Tool = &cwl.CommandLineTool{} // TODO parsing and testing ?
 
-		current_working_directory, err := os.Getwd()
+		currentWorkingDirectory, err := os.Getwd()
 		if err != nil {
-			logger.Error("cannot get current_working_directory")
+			logger.Error("cannot get currentWorkingDirectory")
 			time.Sleep(time.Second)
 			os.Exit(1)
 		}
-		workunit.WorkPath = current_working_directory
+		workunit.WorkPath = currentWorkingDirectory
 
 		cmd := &core.Command{}
 		cmd.Local = true // this makes sure the working directory is not deleted
@@ -175,8 +175,8 @@ func main() {
 		//"--provenance", "cwl_tool_provenance",
 		cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWLWorkunit.ToolFilename, workunit.CWLWorkunit.JobInputFilename}
 		if conf.CWL_RUNNER_ARGS != "" {
-			cwl_runner_args_array := strings.Split(conf.CWL_RUNNER_ARGS, " ")
-			cmd.ArgsArray = append(cwl_runner_args_array, cmd.ArgsArray...)
+			cwlRunnerArgsArray := strings.Split(conf.CWL_RUNNER_ARGS, " ")
+			cmd.ArgsArray = append(cwlRunnerArgsArray, cmd.ArgsArray...)
 		}
 
 		workunit.Cmd = cmd

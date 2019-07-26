@@ -98,6 +98,16 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 				return
 			}
 
+			if !strings.HasPrefix(stepID, "#") {
+
+				if workflowID == "" {
+					err = fmt.Errorf("(NewWorkflowStep) workflowID is empty")
+					return
+				}
+
+				stepID = path.Join(workflowID, stepID)
+			}
+
 			originalMap["id"] = stepID
 		} else {
 
@@ -113,6 +123,11 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 					}
 
 					stepID = path.Join(workflowID, idStr)
+				}
+
+				if !strings.HasPrefix(stepID, "#") {
+					err = fmt.Errorf("(NewWorkflowStep) stepID is not absoule")
+					return
 				}
 
 				originalMap["id"] = stepID

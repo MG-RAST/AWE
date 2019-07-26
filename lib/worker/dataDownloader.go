@@ -580,7 +580,7 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		// file does not exist or its md5sum is wrong
 		if !isFileExisting(file_path) {
 			logger.Debug(2, "mover: fetching predata from url: "+dataUrl)
-			logger.Event(event.PRE_IN, "workid="+workunit.Id+" url="+dataUrl)
+			logger.Event(event.PRE_IN, "workid="+workunit.ID+" url="+dataUrl)
 
 			var md5sum string
 			file_path_part := file_path + ".part" // temporary name
@@ -662,7 +662,7 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 			}
 		}
 
-		logger.Event(event.PRE_READY, "workid="+workunit.Id+";url="+dataUrl)
+		logger.Event(event.PRE_READY, "workid="+workunit.ID+";url="+dataUrl)
 	}
 	return
 }

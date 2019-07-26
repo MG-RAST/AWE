@@ -22,7 +22,7 @@ type CWLObjectImpl struct{}
 func (c *CWLObjectImpl) IsCWLObject() {}
 
 // NewCWLObject
-//  objectIdentifier - is optional, should be used for object that are read from files
+//  objectIdentifier - is optional, should be used for object that are read from files, or embedded workflow/tool
 // baseIdentifier is parent identifier
 func NewCWLObject(original interface{}, objectIdentifier string, baseIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (obj CWLObject, schemata []CWLType_Type, err error) {
 	//fmt.Println("(NewCWLObject) starting")
@@ -91,7 +91,7 @@ func NewCWLObject(original interface{}, objectIdentifier string, baseIdentifier 
 			//spew.Dump(elem)
 
 			var clt *CommandLineTool
-			clt, schemata, err = NewCommandLineTool(elem, baseIdentifier, injectedRequirements, context)
+			clt, schemata, err = NewCommandLineTool(elem, baseIdentifier, objectIdentifier, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCWLObject) NewCommandLineTool returned: %s", err.Error())
 				return

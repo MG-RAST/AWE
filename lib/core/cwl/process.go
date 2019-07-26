@@ -211,7 +211,7 @@ func NewProcess(original interface{}, processID string, injectedRequirements []R
 			process, err = NewExpression(original)
 			return
 		case "CommandLineTool":
-			process, schemata, err = NewCommandLineTool(original, processID, injectedRequirements, context) // TODO merge schemata correctly !
+			process, schemata, err = NewCommandLineTool(original, processID, processID, injectedRequirements, context) // TODO merge schemata correctly !
 			return
 		case "ExpressionTool":
 			process, err = NewExpressionTool(original, schemata, injectedRequirements, context)

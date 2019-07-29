@@ -197,6 +197,12 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 	var namespacesIf interface{}
 	namespacesIf, ok = objectIf["$namespaces"]
 	if ok {
+
+		namespacesIf, err = MakeStringMap(namespacesIf, nil)
+		if err != nil {
+			return
+		}
+
 		var namespacesMap map[string]interface{}
 		namespacesMap, ok = namespacesIf.(map[string]interface{})
 		if !ok {

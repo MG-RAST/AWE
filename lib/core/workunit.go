@@ -256,7 +256,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		if clt != nil {
 			for inputI := range clt.Inputs {
 				commandInputParameter := &clt.Inputs[inputI]
-				commandInputParameterID := commandInputParameter.Id
+				commandInputParameterID := commandInputParameter.ID
 				commandInputParameterIDBase := path.Base(commandInputParameterID)
 				input, hasInput := workunitInputMap[commandInputParameterIDBase]
 				if hasInput {

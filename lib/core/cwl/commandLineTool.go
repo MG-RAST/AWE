@@ -47,9 +47,9 @@ func (c *CommandLineTool) IsProcess() {}
 // keyname will be converted into 'Id'-field
 
 // NewCommandLineTool _
-// baseIdentifier is used to convert relative id to absolute id
+// parentIdentifier is used to convert relative id to absolute id
 // objectIdentifier is used when there is no local is, in case of file or embedded tool
-func NewCommandLineTool(generic interface{}, baseIdentifier string, objectIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
+func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
 
 	//fmt.Println("NewCommandLineTool() generic:")
 	//spew.Dump(generic)
@@ -83,15 +83,15 @@ func NewCommandLineTool(generic interface{}, baseIdentifier string, objectIdenti
 			objectID := objectIDIf.(string)
 
 			if !strings.HasPrefix(objectID, "#") {
-				if baseIdentifier == "" {
-					err = fmt.Errorf("(NewCommandLineTool) baseIdentifier is needed but empty, objectID=%s", objectID)
+				if parentIdentifier == "" {
+					err = fmt.Errorf("(NewCommandLineTool) parentIdentifier is needed but empty, objectID=%s", objectID)
 					return
 				}
-				objectID = path.Join(baseIdentifier, objectID)
+				objectID = path.Join(parentIdentifier, objectID)
 			}
 
 			if !strings.HasPrefix(objectID, "#") {
-				err = fmt.Errorf("(NewCommandLineTool) not absolute: objectID=%s , baseIdentifier=%s, objectIdentifier=%s", objectID, baseIdentifier, objectIdentifier)
+				err = fmt.Errorf("(NewCommandLineTool) not absolute: objectID=%s , parentIdentifier=%s, objectIdentifier=%s", objectID, parentIdentifier, objectIdentifier)
 				return
 			}
 			object["id"] = objectID

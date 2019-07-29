@@ -57,7 +57,7 @@ func (ws *WorkflowStep) Init(context *WorkflowContext) (err error) {
 	baseIdentifier := path.Dir(ws.ID)
 
 	//ws.CwlVersion = context.CwlVersion
-	ws.Run, _, err = NewProcess(p, baseIdentifier, nil, context) // requirements should already be injected
+	ws.Run, _, err = NewProcess(p, "", baseIdentifier, nil, context) // requirements should already be injected
 	if err != nil {
 		err = fmt.Errorf("(WorkflowStep/Init) NewProcess() returned %s", err.Error())
 		return
@@ -207,7 +207,7 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 			}
 
 			var process interface{}
-			process, schemataNew, err = NewProcess(run, processID, requirementsArray, context)
+			process, schemataNew, err = NewProcess(run, stepID, processID, requirementsArray, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) NewProcess returned: %s (processID: %s)", err.Error(), processID)
 				return
@@ -279,7 +279,7 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 			var hintsArray []Requirement
 			hintsArray, err = CreateHintsArray(hints, injectedRequirements, nil, context)
 			if err != nil {
-				err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
+				err = fmt.Errorf("(NewWorkflowStep) error in CreateRequirementArray (hints): %s", err.Error())
 				return
 			}
 			//for i, _ := range schemataNew {

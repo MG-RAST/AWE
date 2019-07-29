@@ -108,9 +108,14 @@ func ParseCWLGraphDocument(yamlStr string, entrypoint string, context *WorkflowC
 		entrypoint = "#main"
 	}
 
+	if !strings.HasPrefix(entrypoint, "#") {
+		err = fmt.Errorf("(Parse_cwl_graph_document) entrypoint not absolute: %s", entrypoint)
+		return
+	}
+
 	err = context.Init(entrypoint)
 	if err != nil {
-		err = fmt.Errorf("(Parse_cwl_graph_document) context.Init returned: %s", err.Error())
+		err = fmt.Errorf("(Parse_cwl_graph_document) (using entrypoint=%s) context.Init returned: %s", entrypoint, err.Error())
 		return
 	}
 

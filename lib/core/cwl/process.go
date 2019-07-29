@@ -15,24 +15,36 @@ import (
 // needed for run in http://www.commonwl.org/v1.0/Workflow.html#WorkflowStep
 // string | CommandLineTool | ExpressionTool | Workflow
 
+// Process _
 type Process interface {
 	CWLObject
 	Is_process()
 }
 
+// ProcessPointer _
 type ProcessPointer struct {
-	Id    string
+	ID    string
 	Value string
 }
 
-func (p *ProcessPointer) Is_process() {}
+// IsProcess _
+func (p *ProcessPointer) IsProcess() {}
+
+// GetClass _
 func (p *ProcessPointer) GetClass() string {
 	return "ProcessPointer"
 }
-func (p *ProcessPointer) GetID() string { return p.Id }
-func (p *ProcessPointer) SetID(string)  {}
+
+// GetID _
+func (p *ProcessPointer) GetID() string { return p.ID }
+
+// SetID _
+func (p *ProcessPointer) SetID(string) {}
+
+// IsCWLMinimal _
 func (p *ProcessPointer) IsCWLMinimal() {}
 
+// NewProcessPointer _
 func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 
 	switch original.(type) {
@@ -55,7 +67,7 @@ func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 }
 
 // NewProcess returns CommandLineTool, ExpressionTool or Workflow
-func NewProcess(original interface{}, processID string, injectedRequirements []Requirement, context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
+func NewProcess(original interface{}, parentID string, processID string, injectedRequirements []Requirement, context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
 
 	//logger.Debug(3, "(NewProcess) starting")
 	if context == nil {
@@ -109,7 +121,7 @@ func NewProcess(original interface{}, processID string, injectedRequirements []R
 			logger.Debug(3, "(NewProcess) %s found in object_if", processIdentifer)
 			var object CWLObject
 
-			object, schemata, err = NewCWLObject(processIf, "", processID, injectedRequirements, context)
+			object, schemata, err = NewCWLObject(processIf, processID, parentID, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(NewProcess) A NewCWLObject returns %s", err.Error())
 				return
@@ -205,7 +217,7 @@ func NewProcess(original interface{}, processID string, injectedRequirements []R
 		//case "":
 		//return NewProcessPointer(original)
 		case "Workflow":
-			process, schemata, err = NewWorkflow(original, injectedRequirements, context)
+			process, schemata, err = NewWorkflow(original, processID, processID, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(NewProcess) NewWorkflow returned: %s", err.Error())
 				return

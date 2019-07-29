@@ -85,7 +85,7 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRe
 		var hints_array []Requirement
 		hints_array, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
 		if err != nil {
-			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
+			err = fmt.Errorf("(NewExpressionTool) error in CreateRequirementArray (hints): %s", err.Error())
 			return
 		}
 		//for i, _ := range schemataNew {

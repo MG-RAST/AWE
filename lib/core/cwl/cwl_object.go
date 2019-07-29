@@ -11,20 +11,24 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
+// CWLObject _
 type CWLObject interface {
 	IsCWLObject()
 }
 
+// CWLObjectArray _
 type CWLObjectArray []CWLObject
 
+// CWLObjectImpl _
 type CWLObjectImpl struct{}
 
+// IsCWLObject _
 func (c *CWLObjectImpl) IsCWLObject() {}
 
-// NewCWLObject
+// NewCWLObject _
 //  objectIdentifier - is optional, should be used for object that are read from files, or embedded workflow/tool
 // baseIdentifier is parent identifier
-func NewCWLObject(original interface{}, objectIdentifier string, baseIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (obj CWLObject, schemata []CWLType_Type, err error) {
+func NewCWLObject(original interface{}, objectIdentifier string, parentIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (obj CWLObject, schemata []CWLType_Type, err error) {
 	//fmt.Println("(NewCWLObject) starting")
 
 	if original == nil {
@@ -42,7 +46,7 @@ func NewCWLObject(original interface{}, objectIdentifier string, baseIdentifier 
 		elem := original.(map[string]interface{})
 		//fmt.Println("NewCWLObject B")
 
-		class_thing, ok := elem["class"]
+		classThing, ok := elem["class"]
 		if !ok {
 			fmt.Println("------------------")
 			spew.Dump(original)
@@ -50,7 +54,7 @@ func NewCWLObject(original interface{}, objectIdentifier string, baseIdentifier 
 			return
 		}
 
-		cwl_object_type, xok := class_thing.(string)
+		cwlObjectType, xok := classThing.(string)
 
 		if !xok {
 			fmt.Println("------------------")
@@ -78,11 +82,11 @@ func NewCWLObject(original interface{}, objectIdentifier string, baseIdentifier 
 		}
 
 		if !strings.HasPrefix(cwlObjectIdentifer, "#") {
-			cwlObjectIdentifer = path.Join(baseIdentifier, cwlObjectIdentifer)
+			cwlObjectIdentifer = path.Join(parentIdentifier, cwlObjectIdentifer)
 		}
 
 		//fmt.Println("NewCWLObject C")
-		switch cwl_object_type {
+		switch cwlObjectType {
 		case "CommandLineTool":
 			//fmt.Println("NewCWLObject CommandLineTool")
 			logger.Debug(1, "(NewCWLObject) parse CommandLineTool")
@@ -91,7 +95,7 @@ func NewCWLObject(original interface{}, objectIdentifier string, baseIdentifier 
 			//spew.Dump(elem)
 
 			var clt *CommandLineTool
-			clt, schemata, err = NewCommandLineTool(elem, baseIdentifier, objectIdentifier, injectedRequirements, context)
+			clt, schemata, err = NewCommandLineTool(elem, parentIdentifier, objectIdentifier, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCWLObject) NewCommandLineTool returned: %s", err.Error())
 				return
@@ -117,7 +121,7 @@ func NewCWLObject(original interface{}, objectIdentifier string, baseIdentifier 
 		case "Workflow":
 			//fmt.Println("NewCWLObject Workflow")
 			logger.Debug(1, "parse Workflow")
-			obj, schemata, err = NewWorkflow(elem, injectedRequirements, context)
+			obj, schemata, err = NewWorkflow(elem, parentIdentifier, objectIdentifier, injectedRequirements, context)
 			if err != nil {
 
 				err = fmt.Errorf("(NewCWLObject) NewWorkflow returned: %s", err.Error())
@@ -127,13 +131,13 @@ func NewCWLObject(original interface{}, objectIdentifier string, baseIdentifier 
 			return
 		} // end switch
 
-		cwl_type, xerr := NewCWLType(cwlObjectIdentifer, elem, context)
+		cwlType, xerr := NewCWLType(cwlObjectIdentifer, elem, context)
 		if xerr != nil {
 
 			err = fmt.Errorf("(NewCWLObject) NewCWLType returns %s", xerr.Error())
 			return
 		}
-		obj = cwl_type
+		obj = cwlType
 	default:
 		//fmt.Printf("(NewCWLObject), unknown type %s\n", reflect.TypeOf(original))
 		err = fmt.Errorf("(NewCWLObject), unknown type %s", reflect.TypeOf(original))
@@ -142,44 +146,4 @@ func NewCWLObject(original interface{}, objectIdentifier string, baseIdentifier 
 
 	//fmt.Println("(NewCWLObject) leaving")
 	return
-}
-
-func NewCWLObjectArrayDeprecated(original interface{}, context *WorkflowContext) (array CWLObjectArray, schemata []CWLType_Type, err error) {
-
-	//original, err = makeStringMap(original)
-	//if err != nil {
-	//	return
-	//}
-
-	array = CWLObjectArray{}
-
-	switch original.(type) {
-
-	case []interface{}:
-
-		org_a := original.([]interface{})
-
-		for _, element := range org_a {
-			var schemataNew []CWLType_Type
-			var cwl_object CWLObject
-			cwl_object, schemataNew, err = NewCWLObject(element, "", "", nil, context)
-			if err != nil {
-				err = fmt.Errorf("(NewCWLObjectArray) NewCWLObject returned %s", err.Error())
-				return
-			}
-
-			array = append(array, cwl_object)
-
-			for i, _ := range schemataNew {
-				schemata = append(schemata, schemataNew[i])
-			}
-		}
-
-		return
-
-	default:
-		err = fmt.Errorf("(NewCWLObjectArray), unknown type %s", reflect.TypeOf(original))
-	}
-	return
-
 }

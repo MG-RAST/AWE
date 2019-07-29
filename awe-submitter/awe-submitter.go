@@ -122,23 +122,31 @@ func mainWrapper() (err error) {
 
 	var workflowTemporaryFile string
 	var entrypoint string
+
+	var workflowFile string
+
 	//fmt.Printf("conf.ARGS: %d\n", conf.ARGS)
 	if len(conf.ARGS) >= 2 {
 
-		args1Array := strings.Split(conf.ARGS[1], "#")
-		jobFile = args1Array[0]
-		if len(args1Array) > 1 {
-			entrypoint = args1Array[1]
+		jobFile = conf.ARGS[1]
+		args0Array := strings.Split(conf.ARGS[0], "#")
+		workflowFile = args0Array[0]
+		if len(args0Array) > 1 {
+			entrypoint = "#" + args0Array[1]
 		}
 
-		//fmt.Printf("jobFile: %s\n", jobFile)
+		// fmt.Printf("conf.ARGS[0]: %s\n", conf.ARGS[0])
+		// fmt.Printf("conf.ARGS[1]: %s\n", conf.ARGS[1])
+		// fmt.Printf("jobFile: %s\n", jobFile)
+		// fmt.Printf("entrypoint: %s\n", entrypoint)
+
 	}
 	logger.Debug(3, "(main_wrapper) A entrypoint: %s", entrypoint)
 	//fmt.Printf("---------- A\n")
 
 	var jobData []byte
 	var newEntrypoint string // name of Workflow in single document for example
-	workflowTemporaryFile, jobData, newEntrypoint, err = createNormalizedSubmisson(aweAuth, shockAuth, conf.ARGS[0], jobFile, entrypoint)
+	workflowTemporaryFile, jobData, newEntrypoint, err = createNormalizedSubmisson(aweAuth, shockAuth, workflowFile, jobFile, entrypoint)
 	if err != nil {
 		err = fmt.Errorf("(mainWrapper) createNormalizedSubmisson returned: %s", err.Error())
 		return
@@ -276,7 +284,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 
 		yamlstream, err = ioutil.ReadFile(workflowFile)
 		if err != nil {
-			err = fmt.Errorf("error in reading workflow file: " + err.Error())
+			err = fmt.Errorf("(createNormalizedSubmisson) error in reading workflow file: " + err.Error())
 			return
 		}
 	}

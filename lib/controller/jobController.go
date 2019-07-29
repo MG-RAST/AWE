@@ -112,7 +112,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		if hasJob {
 			jobStream, err := ioutil.ReadFile(jobFile.Path)
 			if err != nil {
-				cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
+				cx.RespondWithErrorMessage("(JobController/Create) error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
 				return
 			}
 
@@ -121,7 +121,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			jobInput, err = cwl.ParseJob(&jobStream)
 			if err != nil {
 				logger.Error("ParseJob: " + err.Error())
-				cx.RespondWithErrorMessage("error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
+				cx.RespondWithErrorMessage("(JobController/Create) error in reading job yaml/json file: "+err.Error(), http.StatusBadRequest)
 				return
 			}
 		} else {
@@ -136,7 +136,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		yamlstream, err := ioutil.ReadFile(cwlFile.Path)
 		if err != nil {
 			logger.Error("CWL error: " + err.Error())
-			cx.RespondWithErrorMessage("error in reading workflow file: "+err.Error(), http.StatusBadRequest)
+			cx.RespondWithErrorMessage("(JobController/Create) error in reading workflow file: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 
@@ -272,10 +272,10 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				newStep.ID = stepID
 				for _, input := range commandlinetool.Inputs { // input is CommandInputParameter
 
-					workflowInputName := wrapperEntrypoint + "/" + path.Base(input.Id) // e.g. #entrypoint/reference
+					workflowInputName := wrapperEntrypoint + "/" + path.Base(input.ID) // e.g. #entrypoint/reference
 
 					var workflowStepInput cwl.WorkflowStepInput
-					workflowStepInput.ID = stepID + "/" + path.Base(input.Id)
+					workflowStepInput.ID = stepID + "/" + path.Base(input.ID)
 					workflowStepInput.Source = workflowInputName
 					workflowStepInput.Default = input.Default
 

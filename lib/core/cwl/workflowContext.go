@@ -131,7 +131,33 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 			spew.Dump(graph[i])
 			return
 		}
-		//fmt.Printf("id=\"%s\\n", id)
+		//fmt.Printf("id=\"%s\"\n", id)
+
+		if !strings.HasPrefix(id, "#") {
+			id = "#" + id
+
+			// fix id in object
+			var object interface{}
+
+			object, err = MakeStringMap(graph[i], nil)
+			if err != nil {
+				return
+			}
+
+			var objectMap map[string]interface{}
+
+			var ok bool
+			objectMap, ok = object.(map[string]interface{})
+			if ok {
+				objectMap["id"] = id
+				graph[i] = objectMap
+			} else {
+				err = fmt.Errorf("(WorkflowContext/Init) could nort parse object %s  (%s)", id, reflect.TypeOf(graph[i]))
+				return
+			}
+			//fmt.Printf("new id=\"%s\"\n", id)
+			//spew.Dump(graph[i])
+		}
 
 		context.IfObjects[id] = graph[i]
 
@@ -161,6 +187,15 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 			err = fmt.Errorf("(WorkflowContext/Init) entrypoint %s not found in graph (found %s)", entrypoint, keys)
 			return
 		}
+	}
+
+	if entrypointIf == nil {
+		var keys string
+		for key := range context.IfObjects {
+			keys += "," + key
+		}
+		err = fmt.Errorf("(WorkflowContext/Init) entrypoint %s not found in graph ?? (found %s)", entrypoint, keys)
+		return
 	}
 
 	// start with #entrypoint

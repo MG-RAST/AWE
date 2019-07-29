@@ -66,7 +66,7 @@ func NewWorkflowEmpty() (w Workflow) {
 }
 
 // NewWorkflow _
-func NewWorkflow(original interface{}, injectedRequirements []Requirement, context *WorkflowContext) (workflowPtr *Workflow, schemata []CWLType_Type, err error) {
+func NewWorkflow(original interface{}, parentIdentifier string, objectIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (workflowPtr *Workflow, schemata []CWLType_Type, err error) {
 
 	// convert input map into input array
 	original, err = MakeStringMap(original, context)
@@ -149,7 +149,7 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 			var hintsArray []Requirement
 			hintsArray, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
 			if err != nil {
-				err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
+				err = fmt.Errorf("(NewWorkflow) error in CreateRequirementArray (hints): %s", err.Error())
 				return
 			}
 			//for i, _ := range schemataNew {
@@ -160,20 +160,34 @@ func NewWorkflow(original interface{}, injectedRequirements []Requirement, conte
 
 		workflowIDIf, hasID := object["id"]
 		if !hasID {
-			err = fmt.Errorf("(NewCommandLineTool) id is missing?")
-			return
+
+			if objectIdentifier != "" {
+				workflowIDIf = objectIdentifier
+				object["id"] = objectIdentifier
+			} else {
+
+				err = fmt.Errorf("(NewWorkflow) id is missing?")
+				return
+			}
 		}
 
 		var workflowID string
 		workflowID, ok = workflowIDIf.(string)
 		if !ok {
-			err = fmt.Errorf("(NewCommandLineTool) is is not a string")
+			err = fmt.Errorf("(NewWorkflow) is is not a string")
 			return
 		}
 
 		if !strings.HasPrefix(workflowID, "#") {
-			err = fmt.Errorf("(NewCommandLineTool) id is not absolute? workflowID: %s", workflowID)
-			return
+
+			if parentIdentifier != "" {
+				workflowID = path.Join(parentIdentifier, workflowID)
+				object["id"] = workflowID
+			} else {
+
+				err = fmt.Errorf("(NewWorkflow) id is not absolute? workflowID: %s", workflowID)
+				return
+			}
 
 		}
 

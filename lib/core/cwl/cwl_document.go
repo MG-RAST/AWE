@@ -286,20 +286,20 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 	case *Workflow:
 		thisWorkflow, _ := object.(*Workflow)
 		if setObjectID {
-			thisWorkflow.Id = objectID
+			thisWorkflow.ID = objectID
 		}
 		context.CwlVersion = thisWorkflow.CwlVersion
 	case *CommandLineTool:
 		thisCLT, _ := object.(*CommandLineTool)
 		if setObjectID {
 			thisCLT, _ := object.(*CommandLineTool)
-			thisCLT.Id = objectID
+			thisCLT.ID = objectID
 		}
 		context.CwlVersion = thisCLT.CwlVersion
 	case *ExpressionTool:
 		thisET, _ := object.(*ExpressionTool)
 		if setObjectID {
-			thisET.Id = objectID
+			thisET.ID = objectID
 		}
 		context.CwlVersion = thisET.CwlVersion
 	default:

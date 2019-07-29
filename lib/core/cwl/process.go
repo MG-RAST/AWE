@@ -70,6 +70,7 @@ func NewProcess(original interface{}, processID string, injectedRequirements []R
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
+		err = fmt.Errorf("(NewProcess) MakeStringMap returned: %s", err.Error())
 		return
 	}
 
@@ -122,12 +123,12 @@ func NewProcess(original interface{}, processID string, injectedRequirements []R
 
 		ifObjectsStr := ""
 		for id := range context.IfObjects {
-			fmt.Printf("Id: %s\n", id)
+			//fmt.Printf("Id: %s\n", id)
 			ifObjectsStr += "," + id
 		}
-		for id := range context.Objects {
-			fmt.Printf("Id: %s\n", id)
-		}
+		// for id := range context.Objects {
+		// 	fmt.Printf("Id: %s\n", id)
+		// }
 
 		//originalStrArray := strings.Split(originalStr, "#")
 		fileFromStr := strings.TrimPrefix(processIdentifer, "#")
@@ -205,16 +206,31 @@ func NewProcess(original interface{}, processID string, injectedRequirements []R
 		//return NewProcessPointer(original)
 		case "Workflow":
 			process, schemata, err = NewWorkflow(original, injectedRequirements, context)
-
+			if err != nil {
+				err = fmt.Errorf("(NewProcess) NewWorkflow returned: %s", err.Error())
+				return
+			}
 			return
 		case "Expression":
 			process, err = NewExpression(original)
+			if err != nil {
+				err = fmt.Errorf("(NewProcess) NewExpression returned: %s", err.Error())
+				return
+			}
 			return
 		case "CommandLineTool":
 			process, schemata, err = NewCommandLineTool(original, processID, processID, injectedRequirements, context) // TODO merge schemata correctly !
+			if err != nil {
+				err = fmt.Errorf("(NewProcess) NewCommandLineTool returned: %s (processID=%s)", err.Error(), processID)
+				return
+			}
 			return
 		case "ExpressionTool":
 			process, err = NewExpressionTool(original, schemata, injectedRequirements, context)
+			if err != nil {
+				err = fmt.Errorf("(NewProcess) NewExpressionTool returned: %s", err.Error())
+				return
+			}
 			return
 		default:
 			err = fmt.Errorf("(NewProcess) class %s not supported", class)

@@ -281,7 +281,7 @@ func CWL2AWE(_user *user.User, files FormFiles, jobInput *cwl.Job_document, cwlW
 	// *** create WorkflowInstance
 
 	var wi *WorkflowInstance
-	wi, err = NewWorkflowInstance(entrypoint, job.ID, cwlWorkflow.Id, job, "") // Not using AddWorkflowInstance to avoid mongo
+	wi, err = NewWorkflowInstance(entrypoint, job.ID, cwlWorkflow.ID, job, "") // Not using AddWorkflowInstance to avoid mongo
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) NewWorkflowInstance returned: %s", err.Error())
 		return

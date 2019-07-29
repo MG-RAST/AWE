@@ -727,7 +727,7 @@ func (wi *WorkflowInstance) GetOutput(name string, readLock bool) (obj cwl.CWLTy
 
 	for i := range wi.Outputs {
 		namedOutput := wi.Outputs[i]
-		namedOutputBase := path.Base(namedOutput.Id)
+		namedOutputBase := path.Base(namedOutput.ID)
 		if namedOutputBase == name {
 			obj = namedOutput.Value
 			return

@@ -219,6 +219,16 @@ func NewCommandLineTool(generic interface{}, baseIdentifier string, objectIdenti
 		return
 	}
 
+	if commandLineTool.ID == "" {
+		err = fmt.Errorf("(NewCommandLineTool) id is empty!?")
+		return
+	}
+
+	if !strings.HasPrefix(commandLineTool.ID, "#") {
+		err = fmt.Errorf("(NewCommandLineTool) id is not absolute!?")
+		return
+	}
+
 	//fmt.Println("commandLineTool:")
 	//spew.Dump(commandLineTool)
 
@@ -237,7 +247,7 @@ func NewCommandLineTool(generic interface{}, baseIdentifier string, objectIdenti
 
 	if context != nil {
 
-		thisID := commandLineTool.Id
+		thisID := commandLineTool.ID
 		if thisID == "" {
 			err = fmt.Errorf("(NewCommandLineTool) did not expect empty Id")
 			return

@@ -46,7 +46,7 @@ func (j *Job_document) Get(id string) (value CWLType, ok bool) {
 
 	for i, _ := range array {
 		named_type := array[i]
-		if named_type.Id == id {
+		if named_type.ID == id {
 
 			value = named_type.Value
 			ok = true
@@ -81,7 +81,7 @@ func (job_input *Job_document) GetMap() (job_input_map JobDocMap) {
 
 	for _, value := range *job_input {
 		//id := value.GetID()
-		job_input_map[value.Id] = value.Value
+		job_input_map[value.ID] = value.Value
 	}
 	return
 }

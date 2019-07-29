@@ -562,7 +562,7 @@ FORLOOP:
 	outputReceipt := map[string]interface{}{}
 	for _, out := range wi.Outputs {
 
-		outID := strings.TrimPrefix(out.Id, job.Entrypoint+"/")
+		outID := strings.TrimPrefix(out.ID, job.Entrypoint+"/")
 
 		outputReceipt[outID] = out.Value
 	}

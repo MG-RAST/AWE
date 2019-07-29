@@ -15,7 +15,7 @@ func NewNamedCWLType(id string, value CWLType) NamedCWLType {
 
 	x := NamedCWLType{Value: value}
 
-	x.Id = id
+	x.ID = id
 
 	return x
 }

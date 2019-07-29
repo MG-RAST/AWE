@@ -14,7 +14,7 @@ type NamedCWLObject struct {
 
 func NewNamedCWLObject(id string, value CWLObject) NamedCWLObject {
 	x := NamedCWLObject{Value: value}
-	x.Id = id
+	x.ID = id
 	return x
 }
 
@@ -49,7 +49,7 @@ func NewNamedCWLObject_from_interface(original interface{}, context *WorkflowCon
 			err = fmt.Errorf("(NewNamedCWLObject_from_interface) id not a string")
 			return
 		}
-		x.Id = id_str
+		x.ID = id_str
 
 		var value interface{}
 		value, ok = original_map["value"]

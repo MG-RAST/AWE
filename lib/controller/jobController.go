@@ -185,7 +185,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				hasWorkflow = true
 			}
 
-			objectID := pair.Id
+			objectID := pair.ID
 
 			if objectID == entrypoint {
 				entrypointIndex = i
@@ -264,7 +264,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				cwlWorkflowInstance := cwl.NewWorkflowEmpty()
 				cwlWorkflow = &cwlWorkflowInstance
-				cwlWorkflow.Id = wrapperEntrypoint
+				cwlWorkflow.ID = wrapperEntrypoint
 				cwlWorkflow.CwlVersion = context.CwlVersion
 				cwlWorkflow.Namespaces = context.Namespaces
 				newStep := cwl.WorkflowStep{}
@@ -353,12 +353,12 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					}
 				}
 
-				newStep.Run = commandlinetool.Id
+				newStep.Run = commandlinetool.ID
 
 				cwlWorkflow.Steps = []cwl.WorkflowStep{newStep}
 
 				cwlWorkflowNamed := cwl.NamedCWLObject{}
-				cwlWorkflowNamed.Id = cwlWorkflow.Id
+				cwlWorkflowNamed.ID = cwlWorkflow.ID
 				cwlWorkflowNamed.Value = cwlWorkflow
 
 				objectArray = append(objectArray, cwlWorkflowNamed)
@@ -389,7 +389,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 				cwlWorkflowInstance := cwl.NewWorkflowEmpty()
 				cwlWorkflow = &cwlWorkflowInstance
-				cwlWorkflow.Id = wrapperEntrypoint
+				cwlWorkflow.ID = wrapperEntrypoint
 				cwlWorkflow.CwlVersion = context.CwlVersion
 				newStep := cwl.WorkflowStep{}
 				stepID := wrapperEntrypoint + "/wrapper_step"
@@ -484,12 +484,12 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					}
 				}
 
-				newStep.Run = expressiontool.Id
+				newStep.Run = expressiontool.ID
 
 				cwlWorkflow.Steps = []cwl.WorkflowStep{newStep}
 
 				cwlWorkflowNamed := cwl.NamedCWLObject{}
-				cwlWorkflowNamed.Id = cwlWorkflow.Id
+				cwlWorkflowNamed.ID = cwlWorkflow.ID
 				cwlWorkflowNamed.Value = cwlWorkflow
 
 				objectArray = append(objectArray, cwlWorkflowNamed)
@@ -529,7 +529,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		for i := range objectArray {
 			pair := objectArray[i]
 			object := pair.Value
-			logger.Debug(3, "(job/create) adding to context.GraphDocument.Graph: %s", pair.Id)
+			logger.Debug(3, "(job/create) adding to context.GraphDocument.Graph: %s", pair.ID)
 			context.GraphDocument.Graph = append(context.GraphDocument.Graph, object)
 		}
 

@@ -2166,7 +2166,7 @@ func (task *Task) GetStepOutput(name string) (obj cwl.CWLType, ok bool, reason s
 	outputList := ""
 	for _, namedStepOutput := range *task.StepOutput {
 
-		namedStepOutputBase := path.Base(namedStepOutput.Id)
+		namedStepOutputBase := path.Base(namedStepOutput.ID)
 		outputList += "," + namedStepOutputBase
 
 		logger.Debug(3, "(task/GetStepOutput) %s vs %s\n", namedStepOutputBase, name)
@@ -2208,7 +2208,7 @@ func (task *Task) GetStepOutputNames() (names []string, err error) {
 
 	for _, namedStepOutput := range *task.StepOutput {
 
-		namedStepOutputBase := path.Base(namedStepOutput.Id)
+		namedStepOutputBase := path.Base(namedStepOutput.ID)
 
 		names = append(names, namedStepOutputBase)
 

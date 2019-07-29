@@ -1387,7 +1387,7 @@ func (qm *ServerMgr) handleLastWorkunit(clientid string, task *Task, task_str st
 			found := false
 			for j, _ := range processOutputArray { // []cwl.NamedCWLType
 				named := &processOutputArray[j]
-				actual_output_base := path.Base(named.Id)
+				actual_output_base := path.Base(named.ID)
 				if basename == actual_output_base {
 					// add object to context using stepoutput name
 					logger.Debug(3, "(handleLastWorkunit) adding %s ...", step_output.Id)
@@ -1662,8 +1662,8 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 	case WORK_STAT_FAILED_PERMANENT: // (special case !) failed and cannot be recovered
 
 		logger.Event(event.WORK_FAILED, "workid="+work_str+";clientid="+clientid)
-		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s) workid=%s clientid=%s", notice_status, work_str, clientid)
-		work.Failed += 1
+		logger.Debug(3, "(handleNoticeWorkDelivered) work failed permanently (status=%s) workid=%s clientid=%s", notice_status, work_str, clientid)
+		work.Failed++
 
 		//qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_FAILED_PERMANENT, "")
 
@@ -1672,8 +1672,8 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 			return
 		}
 
-		var task_str string
-		task_str, err = task.String()
+		var taskStr string
+		taskStr, err = task.String()
 		if err != nil {
 			err = fmt.Errorf("(handleNoticeWorkDelivered) task.String returned: %s", err.Error())
 			return
@@ -1682,7 +1682,7 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		jerror := &JobError{
 			ClientFailed: clientid,
 			WorkFailed:   work_str,
-			TaskFailed:   task_str,
+			TaskFailed:   taskStr,
 			ServerNotes:  "exit code 42 encountered",
 			WorkNotes:    notes,
 			AppError:     notice.Stderr,
@@ -1696,22 +1696,28 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 		logger.Event(event.WORK_FAIL, "workid="+work_str+";clientid="+clientid)
 		logger.Debug(3, "(handleNoticeWorkDelivered) work failed (status=%s, notes: %s) workid=%s clientid=%s", notice_status, notes, work_str, clientid)
 
-		work.Failed += 1
+		work.Failed++
 
 		if work.Failed < MAX_FAILURE {
 			qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_QUEUED, "")
 			logger.Event(event.WORK_REQUEUE, "workid="+work_str)
 		} else {
 			//failure time exceeds limit, suspend workunit, task, job
-			qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_SUSPEND, "work.Failed >= MAX_FAILURE")
-			logger.Event(event.WORK_SUSPEND, "workid="+work_str)
-
-			if err = task.SetState(nil, TASK_STAT_SUSPEND, true); err != nil {
+			err = qm.workQueue.StatusChange(Workunit_Unique_Identifier{}, work, WORK_STAT_SUSPEND, "work.Failed >= MAX_FAILURE")
+			if err != nil {
+				err = fmt.Errorf("(handleNoticeWorkDelivered) qm.workQueue.StatusChange returned: %s", err.Error())
 				return
 			}
 
-			var task_str string
-			task_str, err = task.String()
+			logger.Event(event.WORK_SUSPEND, "workid="+work_str)
+
+			if err = task.SetState(nil, TASK_STAT_SUSPEND, true); err != nil {
+				err = fmt.Errorf("(handleNoticeWorkDelivered) task.SetState returned: %s", err.Error())
+				return
+			}
+
+			var taskStr string
+			taskStr, err = task.String()
 			if err != nil {
 				err = fmt.Errorf("(handleNoticeWorkDelivered) task.String returned: %s", err.Error())
 				return
@@ -1719,13 +1725,39 @@ func (qm *ServerMgr) handleNoticeWorkDelivered(notice Notice) (err error) {
 			jerror := &JobError{
 				ClientFailed: clientid,
 				WorkFailed:   work_str,
-				TaskFailed:   task_str,
+				TaskFailed:   taskStr,
 				ServerNotes:  fmt.Sprintf("workunit failed %d time(s)", MAX_FAILURE),
 				WorkNotes:    notes,
 				AppError:     notice.Stderr,
 				Status:       JOB_STAT_SUSPEND,
 			}
-			if err = qm.SuspendJob(job_id, jerror); err != nil {
+
+			if task.WorkflowInstanceId != "" {
+				var workflowInstance *WorkflowInstance
+				var ok bool
+				workflowInstance, ok, err = task.GetWorkflowInstance()
+				if err != nil {
+					logger.Error("(handleNoticeWorkDelivered) task.GetWorkflowInstance returned %s", err.Error())
+					err = nil
+					ok = false
+				}
+
+				if err == nil && !ok {
+					logger.Error("(handleNoticeWorkDelivered) task.GetWorkflowInstance did not find workflowInstance")
+				}
+
+				if ok {
+					err = workflowInstance.SetState(WIStateSuspended, true, true)
+					if err != nil {
+						logger.Error("(handleNoticeWorkDelivered) workflowInstance.SetState returned %s", err.Error())
+						err = nil
+					}
+				}
+
+			}
+
+			err = qm.SuspendJob(job_id, jerror)
+			if err != nil {
 				logger.Error("(handleNoticeWorkDelivered:SuspendJob) job_id=%s; err=%s", job_id, err.Error())
 			}
 		}
@@ -2560,7 +2592,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workfl
 	task_id := task.Task_Unique_Identifier
 	taskIDStr, _ := task_id.String()
 
-	workflow_defintion_id := workflow.Id
+	workflow_defintion_id := workflow.ID
 
 	var workflowInstanceID string
 
@@ -3485,7 +3517,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput_Workflow(job *Job, workflow_inst
 		outputs := ""
 		for i, _ := range subwi.Outputs {
 			named := subwi.Outputs[i]
-			outputs += "," + named.Id
+			outputs += "," + named.ID
 		}
 
 		err = fmt.Errorf("(getCWLSourceFromStepOutput_Workflow) output %s not found in workflow %s (found: %s)", output_name, subworkflow_name, outputs)

@@ -297,7 +297,7 @@ func (context *WorkflowContext) AddArray(objectArray []NamedCWLObject) (err erro
 	for i := range objectArray {
 		pair := objectArray[i]
 
-		err = context.AddObject(pair.Id, pair.Value, "AddArray")
+		err = context.AddObject(pair.ID, pair.Value, "AddArray")
 		if err != nil {
 			return
 		}

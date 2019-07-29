@@ -111,8 +111,13 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 			originalMap["id"] = stepID
 		} else {
 
-			idStr := idIf.(string)
-
+			var idStr string
+			idStr, ok = idIf.(string)
+			if !ok {
+				err = fmt.Errorf("(NewWorkflowStep) id is not string")
+				return
+			}
+			logger.Debug(3, "(NewWorkflowStep) idStr=%s", idStr)
 			if !strings.HasPrefix(idStr, "#") {
 
 				if stepID == "" {
@@ -131,6 +136,9 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 				}
 
 				originalMap["id"] = stepID
+
+			} else {
+				stepID = idStr
 			}
 		}
 
@@ -187,6 +195,7 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 			if !isReference {
 				// process is embedded !
 				processID = path.Join(stepID, uuid.New())
+				logger.Debug(3, "(NewWorkflowStep) process is embedded: processID=%s (stepID=%s)", processID, stepID)
 			} else {
 
 				if !strings.HasPrefix(referenceStr, "#") {
@@ -194,7 +203,7 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 					run = referenceStr
 					originalMap["run"] = run
 				}
-
+				logger.Debug(3, "(NewWorkflowStep) process is reference: referenceStr=%s", referenceStr)
 			}
 
 			var process interface{}

@@ -1,10 +1,9 @@
 package cwl
 
-import (
 //"fmt"
 //"reflect"
-)
 
+// CWL_id _
 type CWL_id interface {
 	//CWL_bbject_interface
 	//GetClass() string
@@ -13,9 +12,13 @@ type CWL_id interface {
 	//is_Any()
 }
 
+// CWL_id_Impl _
 type CWL_id_Impl struct {
-	Id string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
+	ID string `yaml:"id,omitempty" json:"id,omitempty" bson:"id,omitempty"`
 }
 
-func (c *CWL_id_Impl) GetID() string   { return c.Id }
-func (c *CWL_id_Impl) SetID(id string) { c.Id = id; return }
+// GetID _
+func (c *CWL_id_Impl) GetID() string { return c.ID }
+
+// SetID _
+func (c *CWL_id_Impl) SetID(id string) { c.ID = id; return }

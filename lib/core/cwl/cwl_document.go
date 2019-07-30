@@ -139,11 +139,13 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 	//fmt.Printf("ParseCWLSimpleDocument start\n")
 	//defer fmt.Printf("ParseCWLSimpleDocument end\n")
 
-	var objectIf map[string]interface{}
+	var objectIf interface{}
 
 	yamlByte := []byte(yamlStr)
 	err = Unmarshal(&yamlByte, &objectIf)
 	if err != nil {
+		fmt.Println("(ParseCWLSimpleDocument) yamlStr:")
+		fmt.Println(yamlStr)
 		//logger.Debug(1, "CWL unmarshal error")
 		err = fmt.Errorf("(ParseCWLSimpleDocument) Unmarshal returns: %s", err.Error())
 		return
@@ -156,177 +158,249 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 		err = fmt.Errorf("(ParseCWLSimpleDocument) translate returned: %s", err.Error())
 		return
 	}
+
+	objectIfTranslated, err = MakeStringMap(objectIfTranslated, context)
+	if err != nil {
+		return
+	}
+
+	var ok bool
+	//objectIf = nil
+
+	switch objectIfTranslated.(type) {
+	case map[string]interface{}:
+
+		var objectMap map[string]interface{}
+
+		objectMap, ok = objectIfTranslated.(map[string]interface{})
+		if !ok {
+			err = fmt.Errorf("(ParseCWLSimpleDocument) could not translate: %s", err.Error())
+			return
+		}
+
+		if context.CwlVersion == "" {
+
+			cwlVersionIf, hasVersion := objectMap["cwlVersion"]
+			if hasVersion {
+
+				cwlVersionStr, ok := cwlVersionIf.(string)
+				if ok {
+					context.CwlVersion = NewCWLVersion(cwlVersionStr)
+				} else {
+					err = fmt.Errorf("(ParseCWLSimpleDocument) version not string (type: %s)", reflect.TypeOf(cwlVersionIf))
+					return
+				}
+			}
+		}
+
+		if objectMap == nil {
+			err = fmt.Errorf("(ParseCWLSimpleDocument) objectMap == nil")
+			return
+		}
+
+		//fmt.Println("object_if:")
+		//spew.Dump(object_if)
+		//var ok bool
+		var namespacesIf interface{}
+		namespacesIf, ok = objectMap["$namespaces"]
+		if ok {
+
+			namespacesIf, err = MakeStringMap(namespacesIf, nil)
+			if err != nil {
+				return
+			}
+
+			var namespacesMap map[string]interface{}
+			namespacesMap, ok = namespacesIf.(map[string]interface{})
+			if !ok {
+				err = fmt.Errorf("(ParseCWLSimpleDocument) namespaces_if error (type: %s)", reflect.TypeOf(namespacesIf))
+				return
+			}
+			context.Namespaces = make(map[string]string)
+
+			for key, value := range namespacesMap {
+
+				switch value := value.(type) {
+				case string:
+					context.Namespaces[key] = value
+				default:
+					err = fmt.Errorf("(ParseCWLSimpleDocument) value is not string (%s)", reflect.TypeOf(value))
+					return
+				}
+
+			}
+
+		} else {
+			context.Namespaces = nil
+			//fmt.Println("no namespaces")
+		}
+
+		var schemasIf interface{}
+		schemasIf, ok = objectMap["$schemas"]
+		if ok {
+
+			schemas, ok = schemasIf.([]interface{})
+			if !ok {
+				err = fmt.Errorf("(ParseCWLSimpleDocument) could not parse $schemas (%s)", reflect.TypeOf(schemasIf))
+				return
+			}
+
+		}
+		//var this_class string
+		//this_class, err = GetClass(object_if)
+		//if err != nil {
+		//	err = fmt.Errorf("(Parse_cwl_document) GetClass returns %s", err.Error())
+		//	return
+		//}
+		//fmt.Printf("this_class: %s\n", this_class)
+		//fmt.Printf("AAAA\n")
+		setObjectID := false
+
+		//var objectID string
+		objectID, err = GetID(objectMap)
+		if err != nil {
+			//fmt.Printf("ParseCWLSimpleDocument: got no id\n")
+
+			if basename == "" {
+				err = fmt.Errorf("(ParseCWLSimpleDocument) B) GetId returns %s", err.Error())
+				return
+			}
+			err = nil
+
+			if len(strings.Split(basename, "/")) > 1 {
+				err = fmt.Errorf("(ParseCWLSimpleDocument) contains path !?  %s ", basename)
+				return
+			}
+
+			objectID = "#" + basename
+			//fmt.Printf("ParseCWLSimpleDocument: using %s\n", basename)
+			setObjectID = true
+			//err = fmt.Errorf("(ParseCWLSimpleDocument) GetId returns %s", err.Error())
+			//return
+		}
+		//fmt.Printf("objectID: %s\n", objectID)
+
+		var object CWLObject
+		var schemataNew []CWLType_Type
+		object, schemataNew, err = NewCWLObject(objectMap, objectID, "", nil, context)
+		if err != nil {
+			err = fmt.Errorf("(ParseCWLSimpleDocument) B NewCWLObject returns %s", err.Error())
+			return
+		}
+
+		//fmt.Println("-------------- raw CWL")
+		//spew.Dump(commandlinetool_if)
+		//fmt.Println("-------------- Start parsing")
+
+		//var commandlinetool *CommandLineTool
+		//var schemataNew []CWLType_Type
+		//commandlinetool, schemataNew, err = NewCommandLineTool(commandlinetool_if)
+		//if err != nil {
+		//	err = fmt.Errorf("(Parse_cwl_document) NewCommandLineTool returned: %s", err.Error())
+		//	return
+		//}
+
+		switch object.(type) {
+		case *Workflow:
+			thisWorkflow, _ := object.(*Workflow)
+			if setObjectID {
+				thisWorkflow.ID = objectID
+			}
+			context.CwlVersion = thisWorkflow.CwlVersion
+		case *CommandLineTool:
+			thisCLT, _ := object.(*CommandLineTool)
+			if setObjectID {
+				thisCLT, _ := object.(*CommandLineTool)
+				thisCLT.ID = objectID
+			}
+			context.CwlVersion = thisCLT.CwlVersion
+		case *ExpressionTool:
+			thisET, _ := object.(*ExpressionTool)
+			if setObjectID {
+				thisET.ID = objectID
+			}
+			context.CwlVersion = thisET.CwlVersion
+
+		}
+
+		logger.Debug(3, "(ParseCWLSimpleDocument) adding %s to context", objectID)
+		err = context.AddObject(objectID, object, "ParseCWLSimpleDocument")
+		if err != nil {
+			err = fmt.Errorf("(ParseCWLSimpleDocument) context.Add returned %s", err.Error())
+			return
+		}
+
+		namedObj := NewNamedCWLObject(objectID, object)
+		//named_obj := NewNamedCWLObject(commandlinetool.Id, commandlinetool)
+
+		//cwl_version = commandlinetool.CwlVersion // TODO
+
+		objectArray = append(objectArray, namedObj)
+		for i := range schemataNew {
+			schemata = append(schemata, schemataNew[i])
+		}
+
+	case []interface{}:
+		var objectIfArray []interface{}
+
+		objectIfArray, ok = objectIfTranslated.([]interface{})
+		if !ok {
+			err = fmt.Errorf("(ParseCWLSimpleDocument) []interface{} , could not translate: %s", err.Error())
+			return
+		}
+
+		for i := range objectIfArray {
+
+			var object CWLObject
+			var schemataNew []CWLType_Type
+			object, schemataNew, err = NewCWLObject(objectIfArray[i], "", "", nil, context)
+			if err != nil {
+				err = fmt.Errorf("(ParseCWLSimpleDocument) B NewCWLObject returns %s", err.Error())
+				return
+			}
+
+			for i := range schemataNew {
+				schemata = append(schemata, schemataNew[i])
+			}
+
+			namedObj := NewNamedCWLObject(objectID, object)
+			objectArray = append(objectArray, namedObj)
+		}
+
+	default:
+
+		err = fmt.Errorf("(ParseCWLSimpleDocument) type unknown %s", reflect.TypeOf(objectIfTranslated))
+		return
+
+	}
+
 	//fmt.Println("objectIfTranslated:")
 	//spew.Dump(objectIfTranslated)
-	var ok bool
-	objectIf = nil
-	objectIf, ok = objectIfTranslated.(map[string]interface{})
-	if !ok {
-		err = fmt.Errorf("(ParseCWLSimpleDocument) could not translate: %s", err.Error())
-		return
-	}
 
-	if context.CwlVersion == "" {
+	return
+}
 
-		cwlVersionIf, hasVersion := objectIf["cwlVersion"]
-		if hasVersion {
-
-			cwlVersionStr, ok := cwlVersionIf.(string)
-			if ok {
-				context.CwlVersion = NewCWLVersion(cwlVersionStr)
-			} else {
-				err = fmt.Errorf("(ParseCWLSimpleDocument) version not string (type: %s)", reflect.TypeOf(cwlVersionIf))
-				return
-			}
-		}
-	}
-
-	if objectIf == nil {
-		err = fmt.Errorf("(ParseCWLSimpleDocument) objectIf == nil")
-		return
-	}
-
-	//fmt.Println("object_if:")
-	//spew.Dump(object_if)
-	//var ok bool
-	var namespacesIf interface{}
-	namespacesIf, ok = objectIf["$namespaces"]
-	if ok {
-
-		namespacesIf, err = MakeStringMap(namespacesIf, nil)
-		if err != nil {
-			return
-		}
-
-		var namespacesMap map[string]interface{}
-		namespacesMap, ok = namespacesIf.(map[string]interface{})
-		if !ok {
-			err = fmt.Errorf("(ParseCWLSimpleDocument) namespaces_if error (type: %s)", reflect.TypeOf(namespacesIf))
-			return
-		}
-		context.Namespaces = make(map[string]string)
-
-		for key, value := range namespacesMap {
-
-			switch value := value.(type) {
-			case string:
-				context.Namespaces[key] = value
-			default:
-				err = fmt.Errorf("(ParseCWLSimpleDocument) value is not string (%s)", reflect.TypeOf(value))
-				return
-			}
-
-		}
-
-	} else {
-		context.Namespaces = nil
-		//fmt.Println("no namespaces")
-	}
-
-	var schemasIf interface{}
-	schemasIf, ok = objectIf["$schemas"]
-	if ok {
-
-		schemas, ok = schemasIf.([]interface{})
-		if !ok {
-			err = fmt.Errorf("(ParseCWLSimpleDocument) could not parse $schemas (%s)", reflect.TypeOf(schemasIf))
-			return
-		}
-
-	}
-	//var this_class string
-	//this_class, err = GetClass(object_if)
-	//if err != nil {
-	//	err = fmt.Errorf("(Parse_cwl_document) GetClass returns %s", err.Error())
-	//	return
-	//}
-	//fmt.Printf("this_class: %s\n", this_class)
-	//fmt.Printf("AAAA\n")
-	setObjectID := false
-
-	//var objectID string
-	objectID, err = GetID(objectIf)
+// ReadYamlFile _
+func ReadYamlFile(filePath string) (objectIf interface{}, err error) {
+	var fileByte []byte
+	fileByte, err = ioutil.ReadFile(filePath)
 	if err != nil {
-		//fmt.Printf("ParseCWLSimpleDocument: got no id\n")
-
-		if basename == "" {
-			err = fmt.Errorf("(ParseCWLSimpleDocument) B) GetId returns %s", err.Error())
-			return
-		}
-		err = nil
-
-		if len(strings.Split(basename, "/")) > 1 {
-			err = fmt.Errorf("(ParseCWLSimpleDocument) contains path !?  %s ", basename)
-			return
-		}
-
-		objectID = "#" + basename
-		//fmt.Printf("ParseCWLSimpleDocument: using %s\n", basename)
-		setObjectID = true
-		//err = fmt.Errorf("(ParseCWLSimpleDocument) GetId returns %s", err.Error())
-		//return
-	}
-	//fmt.Printf("objectID: %s\n", objectID)
-
-	var object CWLObject
-	var schemataNew []CWLType_Type
-	object, schemataNew, err = NewCWLObject(objectIf, objectID, "", nil, context)
-	if err != nil {
-		err = fmt.Errorf("(ParseCWLSimpleDocument) B NewCWLObject returns %s", err.Error())
+		err = fmt.Errorf("error in reading file %s: %s", filePath, err.Error())
 		return
 	}
 
-	//fmt.Println("-------------- raw CWL")
-	//spew.Dump(commandlinetool_if)
-	//fmt.Println("-------------- Start parsing")
+	//var objectIf interface{}
 
-	//var commandlinetool *CommandLineTool
-	//var schemataNew []CWLType_Type
-	//commandlinetool, schemataNew, err = NewCommandLineTool(commandlinetool_if)
-	//if err != nil {
-	//	err = fmt.Errorf("(Parse_cwl_document) NewCommandLineTool returned: %s", err.Error())
-	//	return
-	//}
-
-	switch object.(type) {
-	case *Workflow:
-		thisWorkflow, _ := object.(*Workflow)
-		if setObjectID {
-			thisWorkflow.ID = objectID
-		}
-		context.CwlVersion = thisWorkflow.CwlVersion
-	case *CommandLineTool:
-		thisCLT, _ := object.(*CommandLineTool)
-		if setObjectID {
-			thisCLT, _ := object.(*CommandLineTool)
-			thisCLT.ID = objectID
-		}
-		context.CwlVersion = thisCLT.CwlVersion
-	case *ExpressionTool:
-		thisET, _ := object.(*ExpressionTool)
-		if setObjectID {
-			thisET.ID = objectID
-		}
-		context.CwlVersion = thisET.CwlVersion
-
-	}
-
-	logger.Debug(3, "(ParseCWLSimpleDocument) adding %s to context", objectID)
-	err = context.AddObject(objectID, object, "ParseCWLSimpleDocument")
+	//yamlByte := []byte(yamlStr)
+	err = Unmarshal(&fileByte, &objectIf)
 	if err != nil {
-		err = fmt.Errorf("(ParseCWLSimpleDocument) context.Add returned %s", err.Error())
+		fmt.Println("(ParseCWLSimpleDocument) yamlStr:")
+		fmt.Println(fileByte)
+		//logger.Debug(1, "CWL unmarshal error")
+		err = fmt.Errorf("(ParseCWLSimpleDocument) Unmarshal returns: %s", err.Error())
 		return
 	}
 
-	namedObj := NewNamedCWLObject(objectID, object)
-	//named_obj := NewNamedCWLObject(commandlinetool.Id, commandlinetool)
-
-	//cwl_version = commandlinetool.CwlVersion // TODO
-
-	objectArray = append(objectArray, namedObj)
-	for i := range schemataNew {
-		schemata = append(schemata, schemataNew[i])
-	}
 	return
 }
 
@@ -487,9 +561,20 @@ func translateRecursive(copy, original reflect.Value, workingPath string) (inclu
 	case reflect.Interface:
 		// Get rid of the wrapping interface
 		originalValue := original.Elem()
+		if !originalValue.IsValid() {
+			return
+		}
+		//if originalValue.IsNil() {
+		//	return
+		//}
 		// Create a new object. Now new gives us a pointer, but we want the value it
 		// points to, so we have to call Elem() to unwrap it
-		copyValue := reflect.New(originalValue.Type()).Elem()
+
+		originalValueType := originalValue.Type()
+		//fmt.Println("originalValueType:")
+		//spew.Dump(originalValueType)
+		copyValueIf := reflect.New(originalValueType)
+		copyValue := copyValueIf.Elem()
 		childIncludeString, childImportString, err = translateRecursive(copyValue, originalValue, workingPath)
 		if err != nil {
 			return
@@ -559,36 +644,26 @@ func translateRecursive(copy, original reflect.Value, workingPath string) (inclu
 
 				fullPathArray := strings.Split(fullPath, "#")
 				fullPath = fullPathArray[0]
-				entrypoint := ""
-				if len(fullPathArray) > 1 {
-					entrypoint = fullPathArray[1]
-				}
+				//entrypoint := ""
+				// if len(fullPathArray) > 1 {
+				// 	entrypoint = fullPathArray[1]
+				// }
 
-				//use document reader here ?
-				var objectArray []NamedCWLObject
-				objectArray, _, _, _, _, err = ParseCWLDocumentFile(nil, fullPath, entrypoint, workingPath, path.Base(fullPath))
+				var objectIf interface{}
+				objectIf, err = ReadYamlFile(fullPath)
+				//var objectArray []NamedCWLObject
+				//objectArray, _, _, _, _, err = ParseCWLDocumentFile(nil, fullPath, entrypoint, workingPath, path.Base(fullPath))
 
 				if err != nil {
-					err = fmt.Errorf("(translateRecursive) ParseCWLDocumentFile returned: %s", err.Error())
+					err = fmt.Errorf("(translateRecursive) ReadYamlFile returned: %s", err.Error())
 					return
 				}
 
-				if len(objectArray) == 0 {
-					err = fmt.Errorf("(translateRecursive) len(objectArray) == 0 ")
-					return
-				}
-
-				var importContentStrValue reflect.Value
-				if len(objectArray) == 1 {
-					//fmt.Println("objectArray[0].Value:")
-					//spew.Dump(objectArray[0].Value)
-
-					importContentStrValue = reflect.ValueOf(&objectArray[0].Value)
-				} else {
-					err = fmt.Errorf("(translateRecursive) not implemented yet")
-					return
-					//importContentStrValue = reflect.ValueOf(&objectArray)
-				}
+				// if len(objectArray) == 0 {
+				// 	err = fmt.Errorf("(translateRecursive) len(objectArray) == 0 ")
+				// 	return
+				// }
+				importContentStrValue := reflect.ValueOf(&objectIf)
 
 				importContentStrValuePValue := reflect.Indirect(importContentStrValue)
 
@@ -631,11 +706,52 @@ func translateRecursive(copy, original reflect.Value, workingPath string) (inclu
 			if err != nil {
 				return
 			}
+
 			if childIncludeString != "" {
-				fmt.Println("E")
+				panic("E")
 			}
 			if childImportString != "" {
-				fmt.Println("childImportString E")
+				//fmt.Println("childImportString E")
+				fullPath := path.Join(workingPath, childImportString)
+
+				fullPathArray := strings.Split(fullPath, "#")
+				fullPath = fullPathArray[0]
+				// entrypoint := ""
+				// if len(fullPathArray) > 1 {
+				// 	entrypoint = fullPathArray[1]
+				// }
+
+				var objectIf interface{}
+				objectIf, err = ReadYamlFile(fullPath)
+
+				//use document reader here ?
+				//var objectArray []NamedCWLObject
+				//objectArray, _, _, _, _, err = ParseCWLDocumentFile(nil, fullPath, entrypoint, workingPath, path.Base(fullPath))
+
+				if err != nil {
+					err = fmt.Errorf("(translateRecursive) ReadYamlFile returned: %s", err.Error())
+					return
+				}
+
+				// if len(objectArray) == 0 {
+				// 	err = fmt.Errorf("(translateRecursive) len(objectArray) == 0 ")
+				// 	return
+				// }
+				importContentStrValue := reflect.ValueOf(&objectIf)
+				// var importContentStrValue reflect.Value
+				// if len(objectArray) == 1 {
+				// 	//fmt.Println("objectArray[0].Value:")
+				// 	//spew.Dump(objectArray[0].Value)
+
+				// 	importContentStrValue = reflect.ValueOf(&objectArray[0].Value)
+				// } else {
+				// 	err = fmt.Errorf("(translateRecursive) not implemented yet")
+				// 	return
+				// 	//importContentStrValue = reflect.ValueOf(&objectArray)
+				// }
+
+				//importContentStrValuePValue := reflect.Indirect(importContentStrValue)
+				copyValue = reflect.Indirect(importContentStrValue)
 			}
 			copy.SetMapIndex(key, copyValue)
 		}

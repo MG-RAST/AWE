@@ -123,7 +123,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}, con
 					//spew.Dump(exported_value)
 					//err = fmt.Errorf("(EvaluateExpression) record not supported yet")
 
-					value_returned, err = NewCWLType("", exported_value, context)
+					value_returned, err = NewCWLType("", "", exported_value, context)
 					if err != nil {
 						err = fmt.Errorf("(EvaluateExpression) NewCWLType returned: %s", err.Error())
 						return
@@ -184,7 +184,7 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}, con
 		fmt.Printf("reflect.TypeOf(value_exported): %s\n", reflect.TypeOf(value_exported))
 
 		var value_cwl CWLType
-		value_cwl, err = NewCWLType("", value_exported, context)
+		value_cwl, err = NewCWLType("", "", value_exported, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) Error parsing javascript VM result value, cwl.NewCWLType returns: %s", err.Error())
 			return

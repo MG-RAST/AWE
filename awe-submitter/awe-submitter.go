@@ -364,7 +364,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 		case *cwl.Workflow:
 			workflow := object.(*cwl.Workflow)
 
-			workflow.Requirements, err = cwl.AddRequirement(shockRequirement, workflow.Requirements)
+			workflow.Requirements, err = cwl.AddRequirement(&shockRequirement, workflow.Requirements)
 			if err != nil {
 				err = fmt.Errorf("(createNormalizedSubmisson) AddRequirement returned: %s", err.Error())
 				return
@@ -379,7 +379,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 				continue
 			}
 
-			cmdLineTool.Requirements, err = cwl.AddRequirement(shockRequirement, cmdLineTool.Requirements)
+			cmdLineTool.Requirements, err = cwl.AddRequirement(&shockRequirement, cmdLineTool.Requirements)
 			if err != nil {
 				err = fmt.Errorf("(createNormalizedSubmisson) AddRequirement returned: %s", err.Error())
 			}
@@ -398,7 +398,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 				return
 			}
 
-			expressTool.Requirements, err = cwl.AddRequirement(shockRequirement, expressTool.Requirements)
+			expressTool.Requirements, err = cwl.AddRequirement(&shockRequirement, expressTool.Requirements)
 			if err != nil {
 				err = fmt.Errorf("(createNormalizedSubmisson) AddRequirement returned: %s", err.Error())
 			}

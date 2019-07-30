@@ -232,7 +232,7 @@ func RunWorkunit(workunit *core.Workunit) (pstats *core.WorkPerf, err error) {
 			return
 		}
 
-		result_doc, xerr := cwl.NewJob_document(tool_results, nil)
+		result_doc, xerr := cwl.NewJobDocument(tool_results, nil)
 		if xerr != nil {
 			//spew.Dump(tool_results)
 			err = fmt.Errorf("(RunWorkunit) NewJob_document returned: %s", xerr.Error())

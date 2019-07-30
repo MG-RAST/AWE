@@ -80,7 +80,7 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 
 		input_parameter_default, ok := originalMap["default"]
 		if ok {
-			originalMap["default"], err = NewCWLType("", input_parameter_default, context)
+			originalMap["default"], err = NewCWLType("", "", input_parameter_default, context)
 			if err != nil {
 				err = fmt.Errorf("(NewInputParameter) NewCWLType returned: %s", err.Error())
 				return

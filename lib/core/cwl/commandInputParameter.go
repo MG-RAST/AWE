@@ -47,7 +47,7 @@ func NewCommandInputParameter(v interface{}, schemata []CWLType_Type, context *W
 		defaultValue, ok := vMap["default"]
 		if ok {
 			//fmt.Println("FOUND default key")
-			default_input, xerr := NewCWLType("", defaultValue, context) // TODO return Int or similar
+			default_input, xerr := NewCWLType("", "", defaultValue, context) // TODO return Int or similar
 			if xerr != nil {
 				err = xerr
 				return

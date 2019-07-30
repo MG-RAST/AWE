@@ -58,7 +58,7 @@ func NewNamedCWLTypeFromInterface(native interface{}, context *WorkflowContext) 
 		}
 
 		var cwl_obj CWLType
-		cwl_obj, err = NewCWLType(id, named_thing_value, context)
+		cwl_obj, err = NewCWLType(id, "", named_thing_value, context)
 		if err != nil {
 			err = fmt.Errorf("(NewNamedCWLTypeFromInterface) B NewCWLType returns: %s", err.Error())
 			return

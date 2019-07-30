@@ -114,7 +114,7 @@ func NewWorkflowStepInput(original interface{}, context *WorkflowContext) (input
 			var any CWLType
 			//fmt.Println("trying:")
 			//spew.Dump(original)
-			any, err = NewCWLType("", defaultValue, context)
+			any, err = NewCWLType("", "", defaultValue, context)
 			if err != nil {
 				fmt.Println("problematic Default:")
 				spew.Dump(original)

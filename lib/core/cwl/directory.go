@@ -85,7 +85,7 @@ func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) 
 		for _, value := range nativeArray {
 
 			var value_cwl CWLType
-			value_cwl, err = NewCWLType("", value, context)
+			value_cwl, err = NewCWLType("", "", value, context)
 			if err != nil {
 				err = fmt.Errorf("(NewFDArray) in loop, NewCWLType returned: %s", err.Error())
 				return
@@ -117,7 +117,7 @@ func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) 
 		for _, value := range nativeArray {
 
 			var value_cwl CWLType
-			value_cwl, err = NewCWLType("", value, context)
+			value_cwl, err = NewCWLType("", "", value, context)
 			if err != nil {
 				err = fmt.Errorf("(NewFDArray) in loop, NewCWLType returned: %s", err.Error())
 				return
@@ -139,7 +139,7 @@ func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) 
 	default:
 		//fmt.Println("(NewFDArray) array element")
 		//spew.Dump(native)
-		ct, xerr := NewCWLType("", native, context)
+		ct, xerr := NewCWLType("", parent_id, native, context)
 		if xerr != nil {
 			err = xerr
 			return

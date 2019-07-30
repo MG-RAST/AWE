@@ -81,7 +81,7 @@ func NewOutputParameterFromInterface(original interface{}, thisID string, schema
 
 		outputParameterDefault, ok := originalMap["default"]
 		if ok {
-			originalMap["default"], err = NewCWLType("", outputParameterDefault, context)
+			originalMap["default"], err = NewCWLType("", "", outputParameterDefault, context)
 			if err != nil {
 				err = fmt.Errorf("(NewOutputParameterFromInterface) NewCWLType returned: %s", err.Error())
 				return

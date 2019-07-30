@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/davecgh/go-spew/spew"
 )
 
 // GraphDocument this is used by YAML or JSON library for inital parsing
@@ -179,10 +178,6 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 				err = fmt.Errorf("(ParseCWLSimpleDocument) version not string (type: %s)", reflect.TypeOf(cwlVersionIf))
 				return
 			}
-		} else {
-			spew.Dump(objectIf)
-			err = fmt.Errorf("(ParseCWLSimpleDocument) no version found")
-			return
 		}
 	}
 
@@ -313,10 +308,7 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 			thisET.ID = objectID
 		}
 		context.CwlVersion = thisET.CwlVersion
-	default:
 
-		err = fmt.Errorf("(ParseCWLSimpleDocument) type unkown: %s", reflect.TypeOf(object))
-		return
 	}
 
 	logger.Debug(3, "(ParseCWLSimpleDocument) adding %s to context", objectID)
@@ -351,8 +343,6 @@ func ParseCWLDocumentFile(existingContext *WorkflowContext, filePath string, ent
 			if ok {
 				return
 			}
-		} else {
-			existingContext.FilesLoaded = make(map[string]bool)
 		}
 	}
 
@@ -373,7 +363,11 @@ func ParseCWLDocumentFile(existingContext *WorkflowContext, filePath string, ent
 		return
 	}
 
-	existingContext.FilesLoaded[filePath] = true
+	if context.FilesLoaded == nil {
+		context.FilesLoaded = make(map[string]bool)
+	}
+
+	context.FilesLoaded[filePath] = true
 	return
 }
 
@@ -435,20 +429,28 @@ func translate(obj interface{}, workingPath string) (tObj interface{}, err error
 	original := reflect.ValueOf(obj)
 
 	copy := reflect.New(original.Type()).Elem()
-	_, err = translateRecursive(copy, original, workingPath)
+	_, _, err = translateRecursive(copy, original, workingPath)
 
 	tObj = copy.Interface()
+
+	//fmt.Println("tObj:")
+	//spew.Dump(tObj)
+
 	// Remove the reflection wrapper
 	return
 }
 
 // extended version of https://gist.github.com/hvoecking/10772475
-func translateRecursive(copy, original reflect.Value, workingPath string) (includeString string, err error) {
+func translateRecursive(copy, original reflect.Value, workingPath string) (includeString string, importString string, err error) {
 
 	var childIncludeString string
+	var childImportString string
 
-	includeStr := "$include"
+	includeStr := "$include" // get text only
 	includeStrValue := reflect.ValueOf(includeStr)
+
+	importStr := "$import" // get real document
+	importStrValue := reflect.ValueOf(importStr)
 
 	switch original.Kind() {
 	// The first cases handle nested structures and translate them recursively
@@ -466,12 +468,16 @@ func translateRecursive(copy, original reflect.Value, workingPath string) (inclu
 		// Allocate a new object and set the pointer to it
 		copy.Set(reflect.New(originalValue.Type()))
 		// Unwrap the newly created pointer
-		childIncludeString, err = translateRecursive(copy.Elem(), originalValue, workingPath)
+		childIncludeString, importString, err = translateRecursive(copy.Elem(), originalValue, workingPath)
 		if err != nil {
 			return
 		}
 		if childIncludeString != "" {
 			fmt.Println("A")
+		}
+
+		if childImportString != "" {
+			fmt.Println("childImportString A")
 		}
 
 	// If it is an interface (which is very similar to a pointer), do basically the
@@ -484,7 +490,7 @@ func translateRecursive(copy, original reflect.Value, workingPath string) (inclu
 		// Create a new object. Now new gives us a pointer, but we want the value it
 		// points to, so we have to call Elem() to unwrap it
 		copyValue := reflect.New(originalValue.Type()).Elem()
-		childIncludeString, err = translateRecursive(copyValue, originalValue, workingPath)
+		childIncludeString, childImportString, err = translateRecursive(copyValue, originalValue, workingPath)
 		if err != nil {
 			return
 		}
@@ -494,17 +500,24 @@ func translateRecursive(copy, original reflect.Value, workingPath string) (inclu
 			//originalValue = reflect.Indirect(reflect.ValueOf(&childIncludeString))
 			//originalValue.SetString(childIncludeString)
 		}
+		if childImportString != "" {
+			//fmt.Println("childImportString B")
+			importString = childImportString
+		}
 		copy.Set(copyValue)
 
 	// If it is a struct we translate each field
 	case reflect.Struct:
 		for i := 0; i < original.NumField(); i++ {
-			childIncludeString, err = translateRecursive(copy.Field(i), original.Field(i), workingPath)
+			childIncludeString, childImportString, err = translateRecursive(copy.Field(i), original.Field(i), workingPath)
 			if err != nil {
 				return
 			}
 			if childIncludeString != "" {
 				//fmt.Println("C")
+			}
+			if childImportString != "" {
+				fmt.Println("childImportString C")
 			}
 		}
 
@@ -512,7 +525,7 @@ func translateRecursive(copy, original reflect.Value, workingPath string) (inclu
 	case reflect.Slice:
 		copy.Set(reflect.MakeSlice(original.Type(), original.Len(), original.Cap()))
 		for i := 0; i < original.Len(); i++ {
-			childIncludeString, err = translateRecursive(copy.Index(i), original.Index(i), workingPath)
+			childIncludeString, childImportString, err = translateRecursive(copy.Index(i), original.Index(i), workingPath)
 			if err != nil {
 				return
 			}
@@ -537,12 +550,69 @@ func translateRecursive(copy, original reflect.Value, workingPath string) (inclu
 				copy.Index(i).Set(includeContentStrValuePValue)
 
 			}
+			if childImportString != "" {
+				//fmt.Println("D")
+
+				//var importContentBytes []byte
+
+				fullPath := path.Join(workingPath, childImportString)
+
+				fullPathArray := strings.Split(fullPath, "#")
+				fullPath = fullPathArray[0]
+				entrypoint := ""
+				if len(fullPathArray) > 1 {
+					entrypoint = fullPathArray[1]
+				}
+
+				//use document reader here ?
+				var objectArray []NamedCWLObject
+				objectArray, _, _, _, _, err = ParseCWLDocumentFile(nil, fullPath, entrypoint, workingPath, path.Base(fullPath))
+
+				if err != nil {
+					err = fmt.Errorf("(translateRecursive) ParseCWLDocumentFile returned: %s", err.Error())
+					return
+				}
+
+				if len(objectArray) == 0 {
+					err = fmt.Errorf("(translateRecursive) len(objectArray) == 0 ")
+					return
+				}
+
+				var importContentStrValue reflect.Value
+				if len(objectArray) == 1 {
+					//fmt.Println("objectArray[0].Value:")
+					//spew.Dump(objectArray[0].Value)
+
+					importContentStrValue = reflect.ValueOf(&objectArray[0].Value)
+				} else {
+					err = fmt.Errorf("(translateRecursive) not implemented yet")
+					return
+					//importContentStrValue = reflect.ValueOf(&objectArray)
+				}
+
+				importContentStrValuePValue := reflect.Indirect(importContentStrValue)
+
+				copy.Index(i).Set(importContentStrValuePValue)
+
+			}
 		}
 
 	// If it is a map we create a new map and translate each value
 	case reflect.Map:
 		copy.Set(reflect.MakeMap(original.Type()))
 
+		// test if object has "$import" key
+		importField := original.MapIndex(importStrValue)
+		if importField.IsValid() {
+
+			importString = importField.Elem().String()
+			return
+			//fmt.Println("string: " + showText)
+			//panic("found include field !")
+
+		}
+
+		// test if object has "$include" key
 		includeField := original.MapIndex(includeStrValue)
 		if includeField.IsValid() {
 
@@ -557,12 +627,15 @@ func translateRecursive(copy, original reflect.Value, workingPath string) (inclu
 			originalValue := original.MapIndex(key)
 			// New gives us a pointer, but again we want the value
 			copyValue := reflect.New(originalValue.Type()).Elem()
-			childIncludeString, err = translateRecursive(copyValue, originalValue, workingPath)
+			childIncludeString, childImportString, err = translateRecursive(copyValue, originalValue, workingPath)
 			if err != nil {
 				return
 			}
 			if childIncludeString != "" {
 				fmt.Println("E")
+			}
+			if childImportString != "" {
+				fmt.Println("childImportString E")
 			}
 			copy.SetMapIndex(key, copyValue)
 		}

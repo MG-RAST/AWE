@@ -3,6 +3,7 @@ package cwl
 import (
 	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -32,6 +33,8 @@ func NewEmpty(value interface{}) (obj_empty *Empty, err error) {
 
 	err = mapstructure.Decode(value, &obj_empty)
 	if err != nil {
+		fmt.Println("(NewEmpty) value: ")
+		spew.Dump(value)
 		err = fmt.Errorf("(NewEmpty) Could not convert into CWL object: %s", err.Error())
 		return
 	}

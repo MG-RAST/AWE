@@ -4427,7 +4427,7 @@ func (qm *ServerMgr) GetStepInputObject(job *Job, workflowInstance *WorkflowInst
 					}
 				}
 				//logger.Debug(1, "(GetStepInputObject) (string) getCWLSource found something \"%s\"", sourceAsString)
-				jobObj, err = cwl.NewCWLType("", input.Default, context)
+				jobObj, err = cwl.NewCWLType("", "", input.Default, context)
 				if err != nil {
 					err = fmt.Errorf("(GetStepInputObject) could not use default: %s", err.Error())
 					return
@@ -4505,7 +4505,7 @@ func (qm *ServerMgr) GetStepInputObject(job *Job, workflowInstance *WorkflowInst
 
 		if input.Default != nil {
 			var defaultValue cwl.CWLType
-			defaultValue, err = cwl.NewCWLType(cmdID, input.Default, context)
+			defaultValue, err = cwl.NewCWLType(cmdID, "", input.Default, context)
 			if err != nil {
 				err = fmt.Errorf("(GetStepInputObject) NewCWLTypeFromInterface(input.Default) returns: %s", err.Error())
 				return
@@ -4729,7 +4729,7 @@ VALUE_FROM_LOOP:
 						return
 					case interface{}: //Object
 
-						value_returned, err = cwl.NewCWLType("", exported_value, context)
+						value_returned, err = cwl.NewCWLType("", "", exported_value, context)
 						if err != nil {
 							//fmt.Println("record:")
 							//spew.Dump(exported_value)
@@ -4791,7 +4791,7 @@ VALUE_FROM_LOOP:
 			fmt.Printf("reflect.TypeOf(value_exported): %s\n", reflect.TypeOf(value_exported))
 
 			var valueCwl cwl.CWLType
-			valueCwl, err = cwl.NewCWLType("", value_exported, context)
+			valueCwl, err = cwl.NewCWLType("", "", value_exported, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkunit) Error parsing javascript VM result value, cwl.NewCWLType returns: %s", err.Error())
 				return

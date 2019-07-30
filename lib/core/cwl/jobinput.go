@@ -16,30 +16,35 @@ import (
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 )
 
-//type Job_document map[string]interface{}
+// Job_document type Job_document map[string]interface{}
 type Job_document []NamedCWLType // JobDocArray
 
+// JobDocMap _
 type JobDocMap map[string]CWLType
 
-func (j *Job_document) Add(id string, value CWLType) (new_doc *Job_document) {
+// Add _
+func (j *Job_document) Add(id string, value CWLType) (newDoc *Job_document) {
 	x := NewNamedCWLType(id, value)
 
-	j_npt := *j
+	jNpt := *j
 
-	array := []NamedCWLType(j_npt)
+	array := []NamedCWLType(jNpt)
 
-	new_array_nptr := Job_document(append(array, x))
+	newArrayNptr := Job_document(append(array, x))
 
-	new_doc = &new_array_nptr
+	newDoc = &newArrayNptr
 	return
 }
+
+// Len _
 func (j *Job_document) Len() (length int) {
 
-	j_npt := *j
-	length = len(j_npt)
+	jNpt := *j
+	length = len(jNpt)
 	return
 }
 
+// Get _
 func (j *Job_document) Get(id string) (value CWLType, ok bool) {
 
 	array := []NamedCWLType(*j)
@@ -61,6 +66,7 @@ func (j *Job_document) Get(id string) (value CWLType, ok bool) {
 	return
 }
 
+// GetArray _
 func (jd_map JobDocMap) GetArray() (result Job_document, err error) {
 	result = Job_document{}
 
@@ -76,6 +82,7 @@ func (jd_map JobDocMap) GetArray() (result Job_document, err error) {
 	return
 }
 
+// GetMap _
 func (job_input *Job_document) GetMap() (job_input_map JobDocMap) {
 	job_input_map = make(JobDocMap)
 
@@ -86,9 +93,10 @@ func (job_input *Job_document) GetMap() (job_input_map JobDocMap) {
 	return
 }
 
-func NewJob_document(original interface{}, context *WorkflowContext) (job *Job_document, err error) {
+// NewJobDocument _
+func NewJobDocument(original interface{}, context *WorkflowContext) (job *Job_document, err error) {
 
-	logger.Debug(3, "(NewJob_document) starting")
+	logger.Debug(3, "(NewJobDocument) starting")
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
@@ -107,9 +115,9 @@ func NewJob_document(original interface{}, context *WorkflowContext) (job *Job_d
 
 		for key_str, value := range original_map {
 
-			cwl_obj, xerr := NewCWLType(key_str, value, context)
+			cwl_obj, xerr := NewCWLType(key_str, "", value, context)
 			if xerr != nil {
-				err = fmt.Errorf("(NewJob_document) NewCWLType returned: %s", xerr.Error())
+				err = fmt.Errorf("(NewJobDocument) NewCWLType returned: %s", xerr.Error())
 				return
 			}
 			job_nptr = append(job_nptr, NewNamedCWLType(key_str, cwl_obj))
@@ -122,9 +130,9 @@ func NewJob_document(original interface{}, context *WorkflowContext) (job *Job_d
 
 		for _, value := range original_array {
 
-			cwl_obj, xerr := NewCWLType("", value, context)
+			cwl_obj, xerr := NewCWLType("", "", value, context)
 			if xerr != nil {
-				err = fmt.Errorf("(NewJob_document) NewCWLType returned: %s", xerr.Error())
+				err = fmt.Errorf("(NewJobDocument) NewCWLType returned: %s", xerr.Error())
 				return
 			}
 			job_nptr = append(job_nptr, NewNamedCWLType("not supported", cwl_obj))
@@ -135,7 +143,7 @@ func NewJob_document(original interface{}, context *WorkflowContext) (job *Job_d
 	default:
 
 		spew.Dump(original)
-		err = fmt.Errorf("(NewJob_document) (A) type %s unknown", reflect.TypeOf(original))
+		err = fmt.Errorf("(NewJobDocument) (A) type %s unknown", reflect.TypeOf(original))
 	}
 	return
 }
@@ -197,7 +205,7 @@ func ParseJobFile(job_file string) (job_input *Job_document, err error) {
 		return
 	}
 
-	job_input, err = NewJob_document(job_gen, nil)
+	job_input, err = NewJobDocument(job_gen, nil)
 	if err != nil {
 		err = fmt.Errorf("(ParseJobFile) NewJob_document returned: %s", err.Error())
 		return
@@ -223,7 +231,7 @@ func ParseJob(job_byte_ptr *[]byte) (job_input *Job_document, err error) {
 			err = fmt.Errorf("(ParseJob) Could, not parse job input as yaml list: %s", err.Error())
 			return
 		}
-		job_input, err = NewJob_document(job_array, nil)
+		job_input, err = NewJobDocument(job_array, nil)
 		if err != nil {
 			err = fmt.Errorf("(ParseJob) A NewJob_document returns: %s", err.Error())
 		}
@@ -238,7 +246,7 @@ func ParseJob(job_byte_ptr *[]byte) (job_input *Job_document, err error) {
 			err = fmt.Errorf("Could, not parse job input as yaml map: %s", err.Error())
 			return
 		}
-		job_input, err = NewJob_document(job_map, nil)
+		job_input, err = NewJobDocument(job_map, nil)
 		if err != nil {
 			err = fmt.Errorf("(ParseJob) B NewJob_document returns: %s", err.Error())
 		}

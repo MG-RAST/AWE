@@ -5,6 +5,7 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 
+	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -72,31 +73,54 @@ func GetSchemaDefRequirement(original interface{}, context *WorkflowContext) (r 
 		return
 	}
 
+	logger.Debug(3, "(GetSchemaDefRequirement) got: %s", reflect.TypeOf(original))
+
 	switch original.(type) {
 	case []interface{}:
 
 		originalArray := original.([]interface{})
 		ok = false
+
 		for i := range originalArray {
 
-			var class string
-			class, err = GetClass(originalArray[i])
+			element := originalArray[i]
+			//spew.Dump(element)
+			element, err = MakeStringMap(element, context)
 			if err != nil {
-				err = fmt.Errorf("(GetSchemaDefRequirement) GetClass returned: %s", err.Error())
 				return
 			}
 
-			if class != "SchemaDefRequirement" {
-				continue
-			}
+			logger.Debug(3, "(GetSchemaDefRequirement) got element: %s", reflect.TypeOf(element))
 
-			r, err = NewSchemaDefRequirement(originalArray[i], context)
-			if err != nil {
-				err = fmt.Errorf("(GetSchemaDefRequirement) NewSchemaDefRequirement returned: %s", err.Error())
+			switch element.(type) {
+			case map[string]interface{}, map[interface{}]interface{}:
+
+				var class string
+				class, err = GetClass(element)
+				if err != nil {
+					err = fmt.Errorf("(GetSchemaDefRequirement) []interface{} GetClass returned: %s", err.Error())
+					return
+				}
+
+				if class != "SchemaDefRequirement" {
+					continue
+				}
+
+				r, err = NewSchemaDefRequirement(element, context)
+				if err != nil {
+					err = fmt.Errorf("(GetSchemaDefRequirement) NewSchemaDefRequirement returned: %s", err.Error())
+					return
+				}
+				ok = true
 				return
+			case *SchemaDefRequirement:
+				r = element.(*SchemaDefRequirement)
+				return
+
 			}
-			ok = true
+			err = fmt.Errorf("(GetSchemaDefRequirement) type unkown: %s", reflect.TypeOf(element))
 			return
+
 		}
 
 	case map[string]interface{}:
@@ -104,7 +128,7 @@ func GetSchemaDefRequirement(original interface{}, context *WorkflowContext) (r 
 		var class string
 		class, err = GetClass(original)
 		if err != nil {
-			err = fmt.Errorf("(GetSchemaDefRequirement) GetClass returned: %s", err.Error())
+			err = fmt.Errorf("(GetSchemaDefRequirement) map[string]interface{} GetClass returned: %s", err.Error())
 			return
 		}
 

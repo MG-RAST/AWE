@@ -63,6 +63,14 @@ func NewCWLObject(original interface{}, objectIdentifier string, parentIdentifie
 			return
 		}
 
+		var r Requirement
+
+		r, err = NewRequirement(cwlObjectType, original, nil, context)
+		if err == nil {
+			obj = r
+			return
+		}
+
 		identifierIf, hasIdentifier := elem["id"]
 		if !hasIdentifier {
 
@@ -131,7 +139,7 @@ func NewCWLObject(original interface{}, objectIdentifier string, parentIdentifie
 			return
 		} // end switch
 
-		cwlType, xerr := NewCWLType(cwlObjectIdentifer, elem, context)
+		cwlType, xerr := NewCWLType(cwlObjectIdentifer, parentIdentifier, elem, context)
 		if xerr != nil {
 
 			err = fmt.Errorf("(NewCWLObject) NewCWLType returns %s", xerr.Error())

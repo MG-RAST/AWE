@@ -112,7 +112,9 @@ func NewExpressionTool(original interface{}, schemata []CWLType_Type, injectedRe
 	}
 
 	var new_requirements []Requirement
-	new_requirements, err = AddRequirement(NewInlineJavascriptRequirement(), et.Requirements)
+	ijr := NewInlineJavascriptRequirement()
+
+	new_requirements, err = AddRequirement(&ijr, et.Requirements)
 	if err == nil {
 		et.Requirements = new_requirements
 	}

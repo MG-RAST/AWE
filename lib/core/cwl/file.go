@@ -263,7 +263,7 @@ func GetSecondaryFilesArray(original interface{}, context *WorkflowContext) (arr
 		originalArray := original.([]interface{})
 		for i := range originalArray {
 			var obj CWLType
-			obj, err = NewCWLType("", originalArray[i], context)
+			obj, err = NewCWLType("", "", originalArray[i], context)
 			if err != nil {
 				err = fmt.Errorf("(GetSecondaryFilesArray) NewCWLType returned: %s", err.Error())
 				return

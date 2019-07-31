@@ -35,11 +35,11 @@ func NewCommandOutputParameter(original interface{}, thisID string, schemata []C
 	switch original.(type) {
 
 	case string:
-
+		fmt.Println("(NewCommandOutputParameter) string")
 		cmdOutputParameter.OutputParameter = *op
 
 	case map[string]interface{}:
-
+		fmt.Println("(NewCommandOutputParameter) map")
 		err = mapstructure.Decode(original, cmdOutputParameter)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandOutputParameter) mapstructure returned: %s", err.Error())

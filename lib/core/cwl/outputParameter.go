@@ -57,8 +57,12 @@ func NewOutputParameterFromInterface(original interface{}, thisID string, schema
 
 		output_parameter = &OutputParameter{}
 		output_parameter.Id = thisID
-		output_parameter.Type = originalTypeArray
 
+		if len(originalTypeArray) == 1 {
+			output_parameter.Type = originalTypeArray[0]
+		} else {
+			output_parameter.Type = originalTypeArray
+		}
 		//output_parameter.Type = []CWLType_Type{original_type}
 
 	// 	//case int:
@@ -90,7 +94,8 @@ func NewOutputParameterFromInterface(original interface{}, thisID string, schema
 
 		outputParameterType, ok := originalMap["type"]
 		if ok {
-
+			//spew.Dump(outputParameterType)
+			//panic("done")
 			switch outputParameterType.(type) {
 			case []interface{}:
 				var outputParameterTypeArray []CWLType_Type
@@ -103,7 +108,12 @@ func NewOutputParameterFromInterface(original interface{}, thisID string, schema
 					err = fmt.Errorf("(NewOutputParameterFromInterface) len(outputParameterTypeArray) == 0")
 					return
 				}
-				originalMap["type"] = outputParameterTypeArray
+
+				if len(outputParameterTypeArray) == 1 {
+					originalMap["type"] = outputParameterTypeArray[0]
+				} else {
+					originalMap["type"] = outputParameterTypeArray
+				}
 			default:
 				var typeArray []CWLType_Type
 				typeArray, err = NewCWLType_Type(schemata, outputParameterType, context_p, context)

@@ -135,14 +135,17 @@ func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIden
 
 	object["inputs"] = inputs
 
-	outputs, ok := object["outputs"]
-	if ok {
+	var copa []interface{}
+
+	outputs, hasOutputs := object["outputs"]
+	if hasOutputs {
 
 		//fmt.Println("NewCommandLineTool() object/outputs:")
 		//spew.Dump(outputs)
 
 		// Convert map of outputs into array of outputs
-		object["outputs"], err = NewCommandOutputParameterArray(outputs, schemata, context)
+
+		copa, err = NewCommandOutputParameterArray(outputs, schemata, context)
 		if err != nil {
 			//fmt.Println("NewCommandLineTool after error")
 			//spew.Dump(object)
@@ -150,6 +153,7 @@ func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIden
 			err = fmt.Errorf("(NewCommandLineTool) error in NewCommandOutputParameterArray: %s", err.Error())
 			return
 		}
+		object["outputs"] = copa
 	} else {
 		err = fmt.Errorf("(NewCommandLineTool) no outputs !?")
 		return

@@ -11,6 +11,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+	yaml "gopkg.in/yaml.v2"
 
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
@@ -29,8 +30,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"gopkg.in/yaml.v2"
 )
 
 // this functions replaces filename if they match regular expression and they match the filename reported in IOmap

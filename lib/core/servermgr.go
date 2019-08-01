@@ -117,21 +117,22 @@ func (qm *ServerMgr) UpdateQueueLoop() {
 	}
 }
 
-func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, reason string, err error) {
-	logger.Debug(3, "(Is_WI_ready) start")
+// IsWIReady _
+func (qm *ServerMgr) IsWIReady(job *Job, wi *WorkflowInstance) (ready bool, reason string, err error) {
+	logger.Debug(3, "(IsWIReady) start")
 	if wi.Inputs != nil {
 		ready = true
 		return
 	}
 
-	cwl_workflow := wi.Workflow
-	if cwl_workflow == nil {
-		err = fmt.Errorf("Is_WI_ready wi.Workflow==nil")
+	cwlWorkflow := wi.Workflow
+	if cwlWorkflow == nil {
+		err = fmt.Errorf("IsWIReady wi.Workflow==nil")
 		return
 	}
 
-	//fmt.Println("cwl_workflow.Inputs:")
-	//spew.Dump(cwl_workflow.Inputs)
+	//fmt.Println("cwlWorkflow.Inputs:")
+	//spew.Dump(cwlWorkflow.Inputs)
 
 	//fmt.Println("wi.LocalID: " + wi.LocalID)
 	parentWorkflowInstanceName := path.Dir(wi.LocalID)
@@ -139,7 +140,7 @@ func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, re
 	if parentWorkflowInstanceName == "." {
 		return
 	}
-	logger.Debug(3, "(Is_WI_ready) non-main")
+	logger.Debug(3, "(IsWIReady) non-main")
 
 	//fmt.Println("parentWorkflowInstanceName: " + parentWorkflowInstanceName)
 
@@ -147,61 +148,61 @@ func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, re
 	var ok bool
 	parentWorkflowInstance, ok, err = job.GetWorkflowInstance(parentWorkflowInstanceName, true)
 	if err != nil {
-		err = fmt.Errorf("(Is_WI_ready) job.GetWorkflowInstance returned: %s", err.Error())
+		err = fmt.Errorf("(IsWIReady) job.GetWorkflowInstance returned: %s", err.Error())
 		return
 	}
 	if !ok {
-		err = fmt.Errorf("(Is_WI_ready) parent workflowInstance %s not found", parentWorkflowInstanceName)
+		err = fmt.Errorf("(IsWIReady) parent workflowInstance %s not found", parentWorkflowInstanceName)
 		return
 	}
 
 	_ = parentWorkflowInstance
 	_ = ok
 
-	parent_step := wi.ParentStep
+	parentStep := wi.ParentStep
 
-	if parent_step == nil {
-		err = fmt.Errorf("(Is_WI_ready)  wi.ParentStep==nil")
+	if parentStep == nil {
+		err = fmt.Errorf("(IsWIReady)  wi.ParentStep==nil")
 		return
 	}
 
-	parent_workflowInputMap := parentWorkflowInstance.Inputs.GetMap()
+	parentWorkflowInputMap := parentWorkflowInstance.Inputs.GetMap()
 
 	context := job.WorkflowContext
 	var generators []string
-	ready, reason, generators, err = qm.areSourceGeneratorsReady(parent_step, job, parentWorkflowInstance)
+	ready, reason, generators, err = qm.areSourceGeneratorsReady(parentStep, job, parentWorkflowInstance)
 	if err != nil {
-		err = fmt.Errorf("(Is_WI_ready) areSourceGeneratorsReady returned: %s (generators: %s)", err.Error(), strings.Join(generators, ","))
+		err = fmt.Errorf("(IsWIReady) areSourceGeneratorsReady returned: %s (generators: %s)", err.Error(), strings.Join(generators, ","))
 		return
 	}
 
 	if !ready {
 		return
 	}
-	logger.Debug(3, "(Is_WI_ready) areSourceGeneratorsReady returned: %s", strings.Join(generators, ","))
+	logger.Debug(3, "(IsWIReady) areSourceGeneratorsReady returned: %s", strings.Join(generators, ","))
 
-	// err = qm.GetDependencies(job, parentWorkflowInstance, parent_workflowInputMap, step, context)
+	// err = qm.GetDependencies(job, parentWorkflowInstance, parentWorkflowInputMap, step, context)
 	// if err != nil {
-	// 	err = fmt.Errorf("(Is_WI_ready) GetDependencies returned: %s", err.Error())
+	// 	err = fmt.Errorf("(IsWIReady) GetDependencies returned: %s", err.Error())
 	// }
 
 	// panic("done")
 
 	//var workunit_input_map map[string]cwl.CWLType
 	var workunit_input_map cwl.JobDocMap
-	workunit_input_map, ok, reason, err = qm.GetStepInputObjects(job, parentWorkflowInstance, parent_workflowInputMap, parent_step, context, "Is_WI_ready")
+	workunit_input_map, ok, reason, err = qm.GetStepInputObjects(job, parentWorkflowInstance, parentWorkflowInputMap, parentStep, context, "IsWIReady")
 	if err != nil {
-		err = fmt.Errorf("(Is_WI_ready) GetStepInputObjects returned: %s", err.Error())
+		err = fmt.Errorf("(IsWIReady) GetStepInputObjects returned: %s", err.Error())
 		return
 	}
 
 	//fmt.Println("workunit_input_map:")
 	//spew.Dump(workunit_input_map)
 
-	var workunit_input_array cwl.Job_document
-	workunit_input_array, err = workunit_input_map.GetArray()
+	var workunitInputArray cwl.Job_document
+	workunitInputArray, err = workunit_input_map.GetArray()
 
-	wi.Inputs = workunit_input_array
+	wi.Inputs = workunitInputArray
 
 	ready = true
 
@@ -270,9 +271,9 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 		var ready bool
 		var reason string
-		ready, reason, err = qm.Is_WI_ready(job, wi)
+		ready, reason, err = qm.IsWIReady(job, wi)
 		if err != nil {
-			err = fmt.Errorf("(updateWorkflowInstancesMapTask) qm.Is_WI_ready returned: %s", err.Error())
+			err = fmt.Errorf("(updateWorkflowInstancesMapTask) qm.IsWIReady returned: %s", err.Error())
 			return
 		}
 
@@ -293,13 +294,13 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 		noSteps := false
 
 		if cwlWorkflow.Steps != nil {
-			for i, _ := range cwlWorkflow.Steps {
+			for i := range cwlWorkflow.Steps {
 
 				step := &cwlWorkflow.Steps[i]
 
-				stepname_base := path.Base(step.ID)
+				stepnameBase := path.Base(step.ID)
 
-				instance_step_name := path.Join(wiLocalID, stepname_base)
+				instanceStepName := path.Join(wiLocalID, stepnameBase)
 
 				//steps_str = append(steps_str, wi_localwiLocalID_id+"/"+stepname_base)
 				var process interface{}
@@ -313,9 +314,9 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 				case *cwl.CommandLineTool, *cwl.ExpressionTool:
 					// creates a Task
 
-					logger.Debug(3, "(updateWorkflowInstancesMapTask) Creating (CommandLine/Expression) %s", wiLocalID+"/"+stepname_base)
-					var awe_task *Task
-					awe_task, err = NewTask(job, wiUUID, wiLocalID, stepname_base)
+					logger.Debug(3, "(updateWorkflowInstancesMapTask) Creating (CommandLine/Expression) %s", wiLocalID+"/"+stepnameBase)
+					var aweTask *Task
+					aweTask, err = NewTask(job, wiUUID, wiLocalID, stepnameBase)
 					if err != nil {
 						err = fmt.Errorf("(updateWorkflowInstancesMapTask) NewTask returned: %s", err.Error())
 						return
@@ -323,28 +324,28 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 
 					if len(step.Scatter) > 0 {
 						logger.Debug(3, "(updateWorkflowInstancesMapTask) detected TASK_TYPE_SCATTER")
-						awe_task.TaskType = TASK_TYPE_SCATTER
+						aweTask.TaskType = TASK_TYPE_SCATTER
 					} else {
 						logger.Debug(3, "(updateWorkflowInstancesMapTask) detected TASK_TYPE_NORMAL")
-						awe_task.TaskType = TASK_TYPE_NORMAL
+						aweTask.TaskType = TASK_TYPE_NORMAL
 					}
 
-					awe_task.WorkflowStep = step
+					aweTask.WorkflowStep = step
 
-					_, err = awe_task.Init(job, jobid)
+					_, err = aweTask.Init(job, jobid)
 					if err != nil {
-						err = fmt.Errorf("(updateWorkflowInstancesMapTask) awe_task.Init returned: %s", err.Error())
+						err = fmt.Errorf("(updateWorkflowInstancesMapTask) aweTask.Init returned: %s", err.Error())
 						return
 					}
 
-					logger.Debug(3, "(updateWorkflowInstancesMapTask) adding %s to workflowInstance", awe_task.TaskName)
-					err = wi.AddTask(job, awe_task, DbSyncTrue, true)
+					logger.Debug(3, "(updateWorkflowInstancesMapTask) adding %s to workflowInstance", aweTask.TaskName)
+					err = wi.AddTask(job, aweTask, DbSyncTrue, true)
 					if err != nil {
 						err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.AddTask returned: %s", err.Error())
 						return
 					}
 
-					err = qm.TaskMap.Add(awe_task, "updateWorkflowInstancesMapTask")
+					err = qm.TaskMap.Add(aweTask, "updateWorkflowInstancesMapTask")
 					if err != nil {
 						err = fmt.Errorf("(updateWorkflowInstancesMapTask) qm.TaskMap.Add returned: %s", err.Error())
 						return
@@ -369,18 +370,18 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 						return
 					}
 
-					subworkflow_id := subworkflow.GetID()
+					subworkflowID := subworkflow.GetID()
 
-					fmt.Printf("(updateWorkflowInstancesMapTask) Creating Workflow %s\n", subworkflow_id)
+					fmt.Printf("(updateWorkflowInstancesMapTask) Creating Workflow %s\n", subworkflowID)
 
-					new_wi_name := instance_step_name
+					newWIName := instanceStepName
 
 					// TODO assign inputs
 					//var workflow_inputs cwl.Job_document
 
-					//panic("creating new subworkflow " + new_wi_name)
+					//panic("creating new subworkflow " + newWIName)
 					var new_wi *WorkflowInstance
-					new_wi, err = NewWorkflowInstance(new_wi_name, jobid, subworkflow_id, job, wi.LocalID)
+					new_wi, err = NewWorkflowInstance(newWIName, jobid, subworkflowID, job, wi.LocalID)
 					if err != nil {
 						err = fmt.Errorf("(updateWorkflowInstancesMapTask) NewWorkflowInstance returned: %s", err.Error())
 						return
@@ -415,7 +416,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 					return
 				}
 
-				//spew.Dump(cwl_workflow.Steps[i])
+				//spew.Dump(cwlWorkflow.Steps[i])
 
 			}
 		} else {
@@ -458,8 +459,8 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 		// update job state
 		if wiLocalID == job.Entrypoint {
 
-			job_state, _ := job.GetState(true)
-			if job_state == JOB_STAT_INIT {
+			jobState, _ := job.GetState(true)
+			if jobState == JOB_STAT_INIT {
 				err = job.SetState(JOB_STAT_QUEUED, []string{JOB_STAT_INIT})
 				if err != nil {
 					err = fmt.Errorf("(updateWorkflowInstancesMapTask) job.SetState returned: %s", err.Error())
@@ -786,13 +787,13 @@ func (qm *ServerMgr) isSusJob(id string) (has bool) {
 		return
 	}
 
-	job_state, err := job.GetState(true)
+	jobState, err := job.GetState(true)
 	if err != nil {
 		return
 	}
 
 	has = false
-	if job_state == JOB_STAT_COMPLETED {
+	if jobState == JOB_STAT_COMPLETED {
 		has = true
 	}
 	return
@@ -882,8 +883,8 @@ func (qm *ServerMgr) updateQueue(logTimes bool) (err error) {
 			jobID := task.JobId
 			job, _ := GetJob(jobID)
 
-			job_state, _ := job.GetState(true)
-			fmt.Printf("*** job *** %s %s\n", jobID, job_state)
+			jobState, _ := job.GetState(true)
+			fmt.Printf("*** job *** %s %s\n", jobID, jobState)
 			for wi_id, _ := range job.WorkflowInstancesMap {
 				wi := job.WorkflowInstancesMap[wi_id]
 				wiState, _ := wi.GetState(true)
@@ -2260,12 +2261,12 @@ func (qm *ServerMgr) EnqueueTasksByJobId(jobid string, caller string) (err error
 		}
 	}
 
-	var job_state string
-	job_state, err = job.GetState(true)
+	var jobState string
+	jobState, err = job.GetState(true)
 	if err != nil {
 		return
 	}
-	if job_state != JOB_STAT_INPROGRESS {
+	if jobState != JOB_STAT_INPROGRESS {
 		err = job.SetState(JOB_STAT_QUEUED, []string{JOB_STAT_INIT, JOB_STAT_SUSPEND, JOB_STAT_QUEUING})
 		if err != nil {
 			return
@@ -2468,11 +2469,11 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 		err = nil
 		return
 	}
-	job_state, err := job.GetState(true)
+	jobState, err := job.GetState(true)
 	if err != nil {
 		return
 	}
-	if job_state == JOB_STAT_SUSPEND {
+	if jobState == JOB_STAT_SUSPEND {
 		reason = "job is suspend"
 		return
 	}
@@ -3034,10 +3035,10 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 		}
 
 		subTask.Scatter_parent = &task.Task_Unique_Identifier
-		//awe_task.Scatter_task = true
+		//aweTask.Scatter_task = true
 		_, err = subTask.Init(job, job.ID)
 		if err != nil {
-			err = fmt.Errorf("(taskEnQueueScatter) awe_task.Init() returns: %s", err.Error())
+			err = fmt.Errorf("(taskEnQueueScatter) aweTask.Init() returns: %s", err.Error())
 			return
 		}
 		subTask.TaskType = TASK_TYPE_NORMAL // unless this is a scatter of a scatter...
@@ -3190,12 +3191,12 @@ func (qm *ServerMgr) taskEnQueue(taskID Task_Unique_Identifier, task *Task, job 
 	//workflow_with_children := false
 	//var wfl *cwl.Workflow
 
-	// Detect task_type
+	// Detect taskType
 
-	fmt.Printf("(taskEnQueue) A task_type: %s\n", taskType)
+	//fmt.Printf("(taskEnQueue) A taskType: %s\n", taskType)
 
-	//if task_type == "" {
-	//	err = fmt.Errorf("(taskEnQueue) task_type empty")
+	//if taskType == "" {
+	//	err = fmt.Errorf("(taskEnQueue) taskType empty")
 	//	return
 	//}
 
@@ -5803,14 +5804,14 @@ func (qm *ServerMgr) UpdateJobTaskToInProgress(works []*Workunit) (err error) {
 			return
 		}
 
-		job_state, xerr := job.GetState(true)
+		jobState, xerr := job.GetState(true)
 		if xerr != nil {
 			err = xerr
 			return
 		}
 
 		//update job status
-		if job_state != JOB_STAT_INPROGRESS {
+		if jobState != JOB_STAT_INPROGRESS {
 			err = job.SetState(JOB_STAT_INPROGRESS, nil)
 			if err != nil {
 				return
@@ -6033,7 +6034,7 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 		return
 	}
 
-	job_state, err := dbjob.GetState(true)
+	jobState, err := dbjob.GetState(true)
 	if err != nil {
 		err = errors.New("(ResumeSuspendedJobByUser) failed to get job state " + err.Error())
 		return
@@ -6046,11 +6047,11 @@ func (qm *ServerMgr) ResumeSuspendedJobByUser(id string, u *user.User) (err erro
 		return
 	}
 
-	if job_state != JOB_STAT_SUSPEND {
+	if jobState != JOB_STAT_SUSPEND {
 		err = errors.New("(ResumeSuspendedJobByUser) job " + id + " is not in 'suspend' status")
 		return
 	}
-	logger.Debug(1, "resumeing job=%s, state=%s", id, job_state)
+	logger.Debug(1, "resumeing job=%s, state=%s", id, jobState)
 
 	tasks, err := dbjob.GetTasks()
 	if err != nil {
@@ -6112,13 +6113,13 @@ func (qm *ServerMgr) RecoverJob(id string, job *Job) (recovered bool, err error)
 		return
 	}
 
-	job_state, err := job.GetState(true)
+	jobState, err := job.GetState(true)
 	if err != nil {
 		err = errors.New("(RecoverJob) failed to get job state " + err.Error())
 		return
 	}
 
-	if job_state == JOB_STAT_SUSPEND {
+	if jobState == JOB_STAT_SUSPEND {
 		// just add suspended jobs to in-memory map
 		err = JM.Add(job)
 		if err != nil {
@@ -6126,7 +6127,7 @@ func (qm *ServerMgr) RecoverJob(id string, job *Job) (recovered bool, err error)
 			return
 		}
 	} else {
-		if job_state == JOB_STAT_COMPLETED || job_state == JOB_STAT_DELETED || job_state == JOB_STAT_FAILED_PERMANENT {
+		if jobState == JOB_STAT_COMPLETED || jobState == JOB_STAT_DELETED || jobState == JOB_STAT_FAILED_PERMANENT {
 			// unrecoverable, skip
 			return
 		}
@@ -6218,17 +6219,17 @@ func (qm *ServerMgr) RecomputeJob(jobid string, task_stage string) (err error) {
 		return
 	}
 
-	job_state, err := dbjob.GetState(true)
+	jobState, err := dbjob.GetState(true)
 	if err != nil {
 		err = errors.New("(RecomputeJob) failed to get job state " + err.Error())
 		return
 	}
 
-	if job_state != JOB_STAT_COMPLETED && job_state != JOB_STAT_SUSPEND {
+	if jobState != JOB_STAT_COMPLETED && jobState != JOB_STAT_SUSPEND {
 		err = errors.New("(RecomputeJob) job " + jobid + " is not in 'completed' or 'suspend' status")
 		return
 	}
-	logger.Debug(1, "recomputing: job=%s, state=%s", jobid, job_state)
+	logger.Debug(1, "recomputing: job=%s, state=%s", jobid, jobState)
 
 	from_task_id := fmt.Sprintf("%s_%s", jobid, task_stage)
 	remain_steps := 0
@@ -6321,17 +6322,17 @@ func (qm *ServerMgr) ResubmitJob(jobid string) (err error) {
 		return
 	}
 
-	job_state, err := job.GetState(true)
+	jobState, err := job.GetState(true)
 	if err != nil {
 		err = errors.New("(ResubmitJob) failed to get job state " + err.Error())
 		return
 	}
 
-	if job_state != JOB_STAT_COMPLETED && job_state != JOB_STAT_SUSPEND {
+	if jobState != JOB_STAT_COMPLETED && jobState != JOB_STAT_SUSPEND {
 		err = errors.New("(ResubmitJob) job " + jobid + " is not in 'completed' or 'suspend' status")
 		return
 	}
-	logger.Debug(1, "resubmitting: job=%s, state=%s", jobid, job_state)
+	logger.Debug(1, "resubmitting: job=%s, state=%s", jobid, jobState)
 
 	//remain_steps := 0
 	tasks, err := job.GetTasks()

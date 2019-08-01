@@ -299,6 +299,7 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 					err = fmt.Errorf("(downloadWorkunitData) DeleteRequirement/CommandLineTool returned: %s", err.Error())
 					return
 				}
+				cwl_tool_clt.ID = ""
 				cwl_tool_bytes, err = yaml.Marshal(cwl_tool_clt)
 				if err != nil {
 					return
@@ -310,6 +311,7 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 					err = fmt.Errorf("(downloadWorkunitData) DeleteRequirement/ExpressionTool returned: %s", err.Error())
 					return
 				}
+				cwl_tool_et.ID = ""
 				cwl_tool_bytes, err = yaml.Marshal(cwl_tool_et)
 				if err != nil {
 					return

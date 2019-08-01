@@ -56,10 +56,11 @@ const (
 
 // WorkflowInstance _
 type WorkflowInstance struct {
-	rwmutex.RWMutex `bson:"-" json:"-" mapstructure:"-"`
-	ID              string `bson:"id" json:"id" mapstructure:"id"`                   // uuid used for unique identifier in mongo
-	LocalID         string `bson:"local_id" json:"local_id" mapstructure:"local_id"` // workfow id without job id , mongo uses JobId_LocalId to get a globally unique identifier
-	JobID           string `bson:"job_id" json:"job_id" mapstructure:"job_id"`
+	rwmutex.RWMutex     `bson:"-" json:"-" mapstructure:"-"`
+	ID                  string `bson:"id" json:"id" mapstructure:"id"`                   // uuid used for unique identifier in mongo
+	LocalID             string `bson:"local_id" json:"local_id" mapstructure:"local_id"` // workfow id without job id , mongo uses JobId_LocalId to get a globally unique identifier
+	JobID               string `bson:"job_id" json:"job_id" mapstructure:"job_id"`
+	ProcessInstanceBase `bson:",inline" json:",inline" mapstructure:",squash"`
 	//ParentID           string            `bson:"parent_id" json:"parent_id" mapstructure:"parent_id"` // DEPRECATED!? it can be computed from LocalId
 	ACL                *acl.Acl          `bson:"acl" json:"-"`
 	State              string            `bson:"state" json:"state" mapstructure:"state"`                                           // this is unique identifier for the workflow instance
@@ -71,10 +72,33 @@ type WorkflowInstance struct {
 	RemainSteps        int               `bson:"remainsteps" json:"remainsteps" mapstructure:"remainsteps"`
 	TotalTasks         int               `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
 	Subworkflows       []string          `bson:"subworkflows" json:"subworkflows" mapstructure:"subworkflows"`
-	ParentStep         *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"` // cache
+	WorkflowStep       *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"` // cache
 	Parent             *WorkflowInstance `bson:"-" json:"-" mapstructure:"-"` // cache for ParentId
 	Job                *Job              `bson:"-" json:"-" mapstructure:"-"` // cache
+	IsScatter          bool              `bson:"isscatter" json:"isscatter" mapstructure:"isscatter"`
 	//Created_by          string            `bson:"created_by" json:"created_by" mapstructure:"created_by"`
+}
+
+// ProcessInstance _
+// combines WorkflowInstance nad Task into one conceptual process type
+type ProcessInstance interface {
+	IsProcessInstance()
+	GetWorkflowStep() *cwl.WorkflowStep
+}
+
+// ProcessInstanceBase _
+type ProcessInstanceBase struct {
+	WorkflowStep   *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"`
+	WorkflowStepID string            `bson:"workflowstepid" json:"workflowstepid" mapstructure:"workflowstepid"`
+	//ParentWorkflow     string
+	//ParentWorkflowStep string
+	// or use *cwl.WorkflowStep in cache ?
+}
+
+// GetWorkflowStep _
+func (p *ProcessInstanceBase) GetWorkflowStep() (ws *cwl.WorkflowStep) {
+	ws = p.WorkflowStep
+	return
 }
 
 // NewWorkflowInstance _
@@ -246,6 +270,9 @@ func NewWorkflowInstanceArrayFromInterface(original []interface{}, job *Job, con
 
 	return
 }
+
+// IsProcessInstance _
+func (wi *WorkflowInstance) IsProcessInstance() {}
 
 // AddTask db_sync is a string because a bool would be misunderstood as a lock indicator ("db_sync_no", db_sync_yes)
 func (wi *WorkflowInstance) AddTask(job *Job, task *Task, dbSync bool, writeLock bool) (err error) {
@@ -788,7 +815,7 @@ func (wi *WorkflowInstance) GetParentStep_cached_DEPRECATED() (pstep *cwl.Workfl
 	}
 	defer wi.RUnlockNamed(lock)
 
-	pstep = wi.ParentStep
+	pstep = wi.WorkflowStep
 
 	return
 }
@@ -863,7 +890,7 @@ func (wi *WorkflowInstance) GetParent(readLock bool) (parent *WorkflowInstance, 
 
 func (wi *WorkflowInstance) GetParentStep_DEPRECATED(readLock bool) (pstep *cwl.WorkflowStep, err error) {
 
-	pstep = wi.ParentStep
+	pstep = wi.WorkflowStep
 
 	if pstep != nil {
 		return

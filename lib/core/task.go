@@ -63,30 +63,31 @@ const (
 type TaskRaw struct {
 	rwmutex.RWMutex        `bson:"-" json:"-" mapstructure:"-"`
 	Task_Unique_Identifier `bson:",inline" mapstructure:",squash"`
+	ProcessInstanceBase    `bson:",inline" json:",inline" mapstructure:",squash"`
 
-	ID                     string                 `bson:"taskid" json:"taskid" mapstructure:"taskid"` // old-style
-	TaskType               string                 `bson:"task_type" json:"task_type" mapstructure:"task_type"`
-	Info                   *Info                  `bson:"-" json:"-" mapstructure:"-"` // this is just a pointer to the job.Info
-	Cmd                    *Command               `bson:"cmd" json:"cmd" mapstructure:"cmd"`
-	Partition              *PartInfo              `bson:"partinfo" json:"-" mapstructure:"partinfo"`
-	DependsOn              []string               `bson:"dependsOn" json:"dependsOn" mapstructure:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
-	TotalWork              int                    `bson:"totalwork" json:"totalwork" mapstructure:"totalwork"`
-	MaxWorkSize            int                    `bson:"maxworksize"   json:"maxworksize" mapstructure:"maxworksize"`
-	RemainWork             int                    `bson:"remainwork" json:"remainwork" mapstructure:"remainwork"`
-	ResetTask              bool                   `bson:"resettask" json:"-" mapstructure:"resettask"` // trigged by function - resume, recompute, resubmit
-	State                  string                 `bson:"state" json:"state" mapstructure:"state"`
-	CreatedDate            time.Time              `bson:"createdDate" json:"createddate" mapstructure:"createdDate"`
-	StartedDate            time.Time              `bson:"startedDate" json:"starteddate" mapstructure:"startedDate"`
-	CompletedDate          time.Time              `bson:"completedDate" json:"completeddate" mapstructure:"completedDate"`
-	ComputeTime            int                    `bson:"computetime" json:"computetime" mapstructure:"computetime"`
-	UserAttr               map[string]interface{} `bson:"userattr" json:"userattr" mapstructure:"userattr"`
-	ClientGroups           string                 `bson:"clientgroups" json:"clientgroups" mapstructure:"clientgroups"`
-	WorkflowStep           *cwl.WorkflowStep      `bson:"workflowStep" json:"workflowStep" mapstructure:"workflowStep"`    // CWL-only
-	StepOutputInterface    interface{}            `bson:"stepOutput" json:"stepOutput" mapstructure:"stepOutput"`          // CWL-only
-	ProcessOutputInterface interface{}            `bson:"processOutput" json:"processOutput" mapstructure:"processOutput"` // CWL-only
-	StepInput              *cwl.Job_document      `bson:"-" json:"-" mapstructure:"-"`                                     // CWL-only
-	StepOutput             *cwl.Job_document      `bson:"-" json:"-" mapstructure:"-"`                                     // CWL-only
-	ProcessOutput          *cwl.Job_document      `bson:"-" json:"-" mapstructure:"-"`                                     // CWL-only
+	ID            string                 `bson:"taskid" json:"taskid" mapstructure:"taskid"` // old-style
+	TaskType      string                 `bson:"task_type" json:"task_type" mapstructure:"task_type"`
+	Info          *Info                  `bson:"-" json:"-" mapstructure:"-"` // this is just a pointer to the job.Info
+	Cmd           *Command               `bson:"cmd" json:"cmd" mapstructure:"cmd"`
+	Partition     *PartInfo              `bson:"partinfo" json:"-" mapstructure:"partinfo"`
+	DependsOn     []string               `bson:"dependsOn" json:"dependsOn" mapstructure:"dependsOn"` // only needed if dependency cannot be inferred from Input.Origin
+	TotalWork     int                    `bson:"totalwork" json:"totalwork" mapstructure:"totalwork"`
+	MaxWorkSize   int                    `bson:"maxworksize"   json:"maxworksize" mapstructure:"maxworksize"`
+	RemainWork    int                    `bson:"remainwork" json:"remainwork" mapstructure:"remainwork"`
+	ResetTask     bool                   `bson:"resettask" json:"-" mapstructure:"resettask"` // trigged by function - resume, recompute, resubmit
+	State         string                 `bson:"state" json:"state" mapstructure:"state"`
+	CreatedDate   time.Time              `bson:"createdDate" json:"createddate" mapstructure:"createdDate"`
+	StartedDate   time.Time              `bson:"startedDate" json:"starteddate" mapstructure:"startedDate"`
+	CompletedDate time.Time              `bson:"completedDate" json:"completeddate" mapstructure:"completedDate"`
+	ComputeTime   int                    `bson:"computetime" json:"computetime" mapstructure:"computetime"`
+	UserAttr      map[string]interface{} `bson:"userattr" json:"userattr" mapstructure:"userattr"`
+	ClientGroups  string                 `bson:"clientgroups" json:"clientgroups" mapstructure:"clientgroups"`
+	//WorkflowStep           *cwl.WorkflowStep      `bson:"workflowStep" json:"workflowStep" mapstructure:"workflowStep"`    // CWL-only
+	StepOutputInterface    interface{}       `bson:"stepOutput" json:"stepOutput" mapstructure:"stepOutput"`          // CWL-only
+	ProcessOutputInterface interface{}       `bson:"processOutput" json:"processOutput" mapstructure:"processOutput"` // CWL-only
+	StepInput              *cwl.Job_document `bson:"-" json:"-" mapstructure:"-"`                                     // CWL-only
+	StepOutput             *cwl.Job_document `bson:"-" json:"-" mapstructure:"-"`                                     // CWL-only
+	ProcessOutput          *cwl.Job_document `bson:"-" json:"-" mapstructure:"-"`                                     // CWL-only
 	//Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task" mapstructure:"scatter_task"`                                  // CWL-only, indicates if this is a scatter_task TODO: compare with TaskType ?
 	Scatter_parent       *Task_Unique_Identifier `bson:"scatter_parent" json:"scatter_parent" mapstructure:"scatter_parent"`                            // CWL-only, points to scatter parent
 	ScatterChildren      []string                `bson:"scatterChildren" json:"scatterChildren" mapstructure:"scatterChildren"`                         // use simple TaskName  , CWL-only, list of all children in a subworkflow task
@@ -329,6 +330,9 @@ func IsValidUUID(uuid string) bool {
 	r := regexp.MustCompile("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$")
 	return r.MatchString(uuid)
 }
+
+// IsProcessInstance _
+func (task *Task) IsProcessInstance() {}
 
 // CollectDependencies populate DependsOn
 func (task *Task) CollectDependencies() (changed bool, err error) {

@@ -97,7 +97,7 @@ func mainWrapper() (err error) {
 		var uploadCount int
 		//var jobData []byte
 
-		uploadCount, err = cache.ProcessIOData(jobDoc, inputfilePath, inputfilePath, "upload", shockClient, true)
+		uploadCount, err = cache.ProcessIOData(jobDoc, inputfilePath, inputfilePath, "upload", shockClient, true, false)
 		if err != nil {
 			err = fmt.Errorf("(mainWrapper) ProcessIOData(for upload) returned: %s", err.Error())
 			return
@@ -250,7 +250,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	uploadCount := 0
 
 	if jobFile != "" {
-		uploadCount, err = cache.ProcessIOData(jobDoc, inputfilePath, inputfilePath, "upload", shockClient, true)
+		uploadCount, err = cache.ProcessIOData(jobDoc, inputfilePath, inputfilePath, "upload", shockClient, true, false)
 		if err != nil {
 			err = fmt.Errorf("(createNormalizedSubmisson) A) ProcessIOData(for upload) returned: %s", err.Error())
 			return
@@ -322,7 +322,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	// A) search for File objects in Document, e.g. in CommandLineTools
 
 	subUploadCount := 0
-	subUploadCount, err = cache.ProcessIOData(namedObjectArray, inputfilePath, inputfilePath, "upload", shockClient, true)
+	subUploadCount, err = cache.ProcessIOData(namedObjectArray, inputfilePath, inputfilePath, "upload", shockClient, true, false)
 	if err != nil {
 		err = fmt.Errorf("(createNormalizedSubmisson) B) ProcessIOData(for upload) returned: %s", err.Error())
 		return
@@ -331,7 +331,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	//fmt.Printf("createNormalizedSubmisson G\n")
 	if context.Schemas != nil {
 		subUploadCount := 0
-		subUploadCount, err = cache.ProcessIOData(context.Schemas, inputfilePath, inputfilePath, "upload", shockClient, true)
+		subUploadCount, err = cache.ProcessIOData(context.Schemas, inputfilePath, inputfilePath, "upload", shockClient, true, false)
 		if err != nil {
 			err = fmt.Errorf("(createNormalizedSubmisson) C) ProcessIOData(for upload) returned: %s", err.Error())
 			return
@@ -579,7 +579,7 @@ FORLOOP:
 		var outputFilePath string
 		outputFilePath, err = os.Getwd()
 
-		_, err = cache.ProcessIOData(outputReceipt, outputFilePath, outputFilePath, "download", nil, true)
+		_, err = cache.ProcessIOData(outputReceipt, outputFilePath, outputFilePath, "download", nil, true, true)
 		if err != nil {
 			//spew.Dump(outputReceipt)
 			err = fmt.Errorf("(Wait_for_results) ProcessIOData(for download) returned: %s", err.Error())

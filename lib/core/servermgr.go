@@ -151,7 +151,7 @@ func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, re
 		return
 	}
 	if !ok {
-		err = fmt.Errorf("(Is_WI_ready) parent workflow_instance %s not found", parentWorkflowInstanceName)
+		err = fmt.Errorf("(Is_WI_ready) parent workflowInstance %s not found", parentWorkflowInstanceName)
 		return
 	}
 
@@ -165,7 +165,7 @@ func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, re
 		return
 	}
 
-	parent_workflow_input_map := parentWorkflowInstance.Inputs.GetMap()
+	parent_workflowInputMap := parentWorkflowInstance.Inputs.GetMap()
 
 	context := job.WorkflowContext
 	var generators []string
@@ -180,7 +180,7 @@ func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, re
 	}
 	logger.Debug(3, "(Is_WI_ready) areSourceGeneratorsReady returned: %s", strings.Join(generators, ","))
 
-	// err = qm.GetDependencies(job, parentWorkflowInstance, parent_workflow_input_map, step, context)
+	// err = qm.GetDependencies(job, parentWorkflowInstance, parent_workflowInputMap, step, context)
 	// if err != nil {
 	// 	err = fmt.Errorf("(Is_WI_ready) GetDependencies returned: %s", err.Error())
 	// }
@@ -189,7 +189,7 @@ func (qm *ServerMgr) Is_WI_ready(job *Job, wi *WorkflowInstance) (ready bool, re
 
 	//var workunit_input_map map[string]cwl.CWLType
 	var workunit_input_map cwl.JobDocMap
-	workunit_input_map, ok, reason, err = qm.GetStepInputObjects(job, parentWorkflowInstance, parent_workflow_input_map, parent_step, context, "Is_WI_ready")
+	workunit_input_map, ok, reason, err = qm.GetStepInputObjects(job, parentWorkflowInstance, parent_workflowInputMap, parent_step, context, "Is_WI_ready")
 	if err != nil {
 		err = fmt.Errorf("(Is_WI_ready) GetStepInputObjects returned: %s", err.Error())
 		return
@@ -266,7 +266,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 		//	return
 		//}
 
-		// check if workflow_instance is ready
+		// check if workflowInstance is ready
 
 		var ready bool
 		var reason string
@@ -337,7 +337,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(wi *WorkflowInstance) (err e
 						return
 					}
 
-					logger.Debug(3, "(updateWorkflowInstancesMapTask) adding %s to workflow_instance", awe_task.TaskName)
+					logger.Debug(3, "(updateWorkflowInstancesMapTask) adding %s to workflowInstance", awe_task.TaskName)
 					err = wi.AddTask(job, awe_task, DbSyncTrue, true)
 					if err != nil {
 						err = fmt.Errorf("(updateWorkflowInstancesMapTask) wi.AddTask returned: %s", err.Error())
@@ -2510,10 +2510,10 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 		//	return
 		//}
 
-		var workflow_instance *WorkflowInstance
+		var workflowInstance *WorkflowInstance
 
 		var ok bool
-		workflow_instance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
+		workflowInstance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
 		if err != nil {
 			err = fmt.Errorf("(isTaskReady) GetWorkflowInstance returned %s", err.Error())
 			return
@@ -2531,13 +2531,13 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 			return
 		}
 
-		//workflow_input_map := workflow_instance.Inputs.GetMap()
-		//workflowInstanceID := workflow_instance.LocalID
-		//workflow_def := workflow_instance.Workflow_Definition
+		//workflowInputMap := workflowInstance.Inputs.GetMap()
+		//workflowInstanceID := workflowInstance.LocalID
+		//workflow_def := workflowInstance.Workflow_Definition
 
 		//fmt.Println("WorkflowStep.Id: " + task.WorkflowStep.Id)
 		var generators []string
-		ready, reason, generators, err = qm.areSourceGeneratorsReady(task.WorkflowStep, job, workflow_instance)
+		ready, reason, generators, err = qm.areSourceGeneratorsReady(task.WorkflowStep, job, workflowInstance)
 		if err != nil {
 			err = fmt.Errorf("(isTaskReady) areSourceGeneratorsReady returned: %s", err.Error())
 			return
@@ -2577,7 +2577,7 @@ func (qm *ServerMgr) isTaskReady(task_id Task_Unique_Identifier, task *Task) (re
 	return
 }
 
-func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workflow_input_map cwl.JobDocMap, workflow *cwl.Workflow, logTimes bool) (times map[string]time.Duration, err error) {
+func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workflowInputMap cwl.JobDocMap, workflow *cwl.Workflow, logTimes bool) (times map[string]time.Duration, err error) {
 
 	if workflow == nil {
 		err = fmt.Errorf("(taskEnQueueWorkflow) workflow == nil !?")
@@ -2608,20 +2608,20 @@ func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workfl
 
 	if task.StepInput == nil {
 
-		var workflow_instance *WorkflowInstance
+		var workflowInstance *WorkflowInstance
 		var ok bool
-		workflow_instance, ok, err = job.GetWorkflowInstance(parent_workflowInstanceID, true)
+		workflowInstance, ok, err = job.GetWorkflowInstance(parent_workflowInstanceID, true)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) job.GetWorkflowInstance returned: %s", err.Error())
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) workflow_instance not found")
+			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) workflowInstance not found")
 			return
 		}
 
 		var reason string
-		task_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflow_instance, workflow_input_map, cwl_step, context, "taskEnQueueWorkflow") // returns map[string]CWLType
+		task_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflowInstance, workflowInputMap, cwl_step, context, "taskEnQueueWorkflow") // returns map[string]CWLType
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) GetStepInputObjects returned: %s", err.Error())
 			return
@@ -2711,6 +2711,7 @@ func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workfl
 //taskEnQueueScatter _
 func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task *Task, job *Job, workflowInputMap cwl.JobDocMap) (notice *Notice, err error) {
 	notice = nil
+	fmt.Printf("(taskEnQueueScatter) start")
 	// TODO store info that this has been evaluated
 	cwlStep := task.WorkflowStep
 	taskID := task.Task_Unique_Identifier
@@ -2742,7 +2743,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 	for i, scatterInputName := range cwlStep.Scatter {
 
 		scatterInputNameBase := path.Base(scatterInputName)
-		//fmt.Printf("scatter_input detected: %s\n", scatter_input_name)
+		fmt.Printf("(taskEnQueueScatter) scatterInput detected: %s\n", scatterInputName)
 
 		nameToPostiton[scatterInputNameBase] = i // this just an inverse which is needed later
 
@@ -2768,7 +2769,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 				listOfInputs += "," + path.Base(workflowStepInput.ID)
 			}
 
-			err = fmt.Errorf("(taskEnQueue) Input %s not found in list of step.Inputs (list: %s)", scatterInputNameBase, listOfInputs)
+			err = fmt.Errorf("(taskEnQueueScatter) Input %s not found in list of step.Inputs (list: %s)", scatterInputNameBase, listOfInputs)
 			return
 		}
 
@@ -2812,7 +2813,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 			}
 			scatterInputSourceStr = "_array_"
 		default:
-			err = fmt.Errorf("(taskEnQueueScatter) scatter_input_source is not string (%s)", reflect.TypeOf(scatterInputSource))
+			err = fmt.Errorf("(taskEnQueueScatter) scatterInput_source is not string (%s)", reflect.TypeOf(scatterInputSource))
 			return
 		}
 
@@ -2823,46 +2824,46 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 
 	// get each scatter array and cast into array
 
-	empty_array := false // just for compliance tests
+	emptyArray := false // just for compliance tests
 	for i := 0; i < countOfScatterArrays; i++ {
 
-		scatter_input := cwlStep.Scatter[i]
-		scatter_input_source_str := scatterSourceStrings[i]
+		scatterInput := cwlStep.Scatter[i]
+		scatterInputSourceStr := scatterSourceStrings[i]
 
-		if scatter_input_source_str == "_array_" {
+		if scatterInputSourceStr == "_array_" {
 			if scatterInputArrays[i].Len() == 0 {
-				empty_array = true
+				emptyArray = true
 			}
 
 			continue
 		}
 		// get array (have to cast into array still)
-		var scatter_input_object cwl.CWLObject
+		var scatterInputObject cwl.CWLObject
 		var ok bool
-		scatter_input_object, ok, _, err = qm.getCWLSource(job, workflowInstance, workflowInputMap, scatter_input_source_str, true, job.WorkflowContext)
+		scatterInputObject, ok, _, err = qm.getCWLSource(job, workflowInstance, workflowInputMap, scatterInputSourceStr, true, job.WorkflowContext)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueScatter) getCWLSource returned: %s", err.Error())
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("(taskEnQueueScatter) scatter_input %s not found.", scatter_input)
+			err = fmt.Errorf("(taskEnQueueScatter) scatterInput %s not found.", scatterInput)
 			return
 		}
 
-		var scatter_input_array_ptr *cwl.Array
-		scatter_input_array_ptr, ok = scatter_input_object.(*cwl.Array)
+		var scatterInputArrayPtr *cwl.Array
+		scatterInputArrayPtr, ok = scatterInputObject.(*cwl.Array)
 		if !ok {
 
-			err = fmt.Errorf("(taskEnQueueScatter) scatter_input_object type is not *cwl.Array: %s", reflect.TypeOf(scatter_input_object))
+			err = fmt.Errorf("(taskEnQueueScatter) scatterInputObject type is not *cwl.Array: %s", reflect.TypeOf(scatterInputObject))
 			return
 		}
 
-		if scatter_input_array_ptr.Len() == 0 {
+		if scatterInputArrayPtr.Len() == 0 {
 
-			empty_array = true
+			emptyArray = true
 		}
 
-		scatterInputArrays[i] = *scatter_input_array_ptr
+		scatterInputArrays[i] = *scatterInputArrayPtr
 
 	}
 	scatter_type := ""
@@ -2938,7 +2939,7 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 	template_task_step.In = template_step_in
 	counter := NewSetCounter(countOfScatterArrays, scatterInputArrays, scatter_type)
 
-	if empty_array {
+	if emptyArray {
 
 		//task_already_finished = true
 
@@ -2968,14 +2969,14 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 
 		for _, out := range cwlStep.Out {
 			//
-			out_name := out.Id
+			outName := out.Id
 			//fmt.Printf("outname: %s\n", out_name)
 
-			new_array := &cwl.Array{}
+			newArray := &cwl.Array{}
 
 			//new_out := cwl.NewNamedCWLType(out_name, new_array)
 			//spew.Dump(*notice.Results)
-			notice.Results = notice.Results.Add(out_name, new_array)
+			notice.Results = notice.Results.Add(outName, newArray)
 			//spew.Dump(*notice.Results)
 		}
 
@@ -2991,98 +2992,98 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 
 	// create tasks
 	var children []string
-	var new_scatter_tasks []*Task
+	var newScatterTasks []*Task
 
-	counter_running := true
+	counterRunning := true
 
 	basename := path.Base(taskID.TaskName)
 
-	parent_id_str := strings.TrimSuffix(taskID.TaskName, "/"+basename)
+	parentIDStr := strings.TrimSuffix(taskID.TaskName, "/"+basename)
 
-	if parent_id_str == taskID.TaskName {
-		err = fmt.Errorf("(taskEnQueue) parent_id_str == task_id.TaskName")
+	if parentIDStr == taskID.TaskName {
+		err = fmt.Errorf("(taskEnQueue) parentIDStr == task_id.TaskName")
 		return
 	}
 
-	for counter_running {
+	for counterRunning {
 
-		permutation_instance := ""
+		permutationInstance := ""
 		for i := 0; i < counter.NumberOfSets-1; i++ {
-			permutation_instance += strconv.Itoa(counter.Counter[i]) + "_"
+			permutationInstance += strconv.Itoa(counter.Counter[i]) + "_"
 		}
-		permutation_instance += strconv.Itoa(counter.Counter[counter.NumberOfSets-1])
+		permutationInstance += strconv.Itoa(counter.Counter[counter.NumberOfSets-1])
 
-		scatter_task_name := basename + "_scatter" + permutation_instance
+		scatterTaskName := basename + "_scatter" + permutationInstance
 
 		// create task
-		var sub_task *Task
+		var subTask *Task
 
-		//var parent_id_str string
-		// parent_id_str, err = task.GetWorkflowParentStr()
+		//var parentIDStr string
+		// parentIDStr, err = task.GetWorkflowParentStr()
 		// if err != nil {
 		// 	err = fmt.Errorf("(taskEnQueue) task.GetWorkflowParentStr returned: %s", err.Error())
 		// 	return
 		// }
-		//parent_id_str = "test"
-		logger.Debug(3, "(taskEnQueueScatter) New Task: parent: %s and scatter_task_name: %s", parent_id_str, scatter_task_name)
+		//parentIDStr = "test"
+		logger.Debug(3, "(taskEnQueueScatter) New Task: parent: %s and scatterTaskName: %s", parentIDStr, scatterTaskName)
 
-		sub_task, err = NewTask(job, wiUUID, parent_id_str, scatter_task_name)
+		subTask, err = NewTask(job, wiUUID, parentIDStr, scatterTaskName)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueScatter) NewTask returned: %s", err.Error())
 			return
 		}
 
-		sub_task.Scatter_parent = &task.Task_Unique_Identifier
+		subTask.Scatter_parent = &task.Task_Unique_Identifier
 		//awe_task.Scatter_task = true
-		_, err = sub_task.Init(job, job.ID)
+		_, err = subTask.Init(job, job.ID)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueScatter) awe_task.Init() returns: %s", err.Error())
 			return
 		}
-		sub_task.TaskType = TASK_TYPE_NORMAL // unless this is a scatter of a scatter...
+		subTask.TaskType = TASK_TYPE_NORMAL // unless this is a scatter of a scatter...
 
 		// create step
-		var new_task_step cwl.WorkflowStep
-		//var new_task_step_in []cwl.WorkflowStepInput
-		new_task_step = template_task_step // this should make a copy from template, (this is not a nested copy)
+		var newTaskStep cwl.WorkflowStep
+		//var newTaskStep_in []cwl.WorkflowStepInput
+		newTaskStep = template_task_step // this should make a copy from template, (this is not a nested copy)
 
-		//fmt.Println("new_task_step initial:")
-		//spew.Dump(new_task_step)
+		//fmt.Println("newTaskStep initial:")
+		//spew.Dump(newTaskStep)
 
 		// copy scatter inputs
 
-		for input_name := range template_scatter_step_ins {
-			input_name_base := path.Base(input_name)
-			scatter_input, ok := template_scatter_step_ins[input_name_base]
+		for inputName := range template_scatter_step_ins {
+			inputNameBase := path.Base(inputName)
+			scatterInput, ok := template_scatter_step_ins[inputNameBase]
 			if !ok {
-				err = fmt.Errorf("(taskEnQueueScatter) %s not in template_scatter_step_ins", input_name_base)
+				err = fmt.Errorf("(taskEnQueueScatter) %s not in template_scatter_step_ins", inputNameBase)
 				return
 			}
 
-			input_position, ok := nameToPostiton[input_name_base] // input_position points to an array of inputs
+			inputPosition, ok := nameToPostiton[inputNameBase] // inputPosition points to an array of inputs
 			if !ok {
-				err = fmt.Errorf("(taskEnQueueScatter) %s not in name_to_postiton map", input_name_base)
+				err = fmt.Errorf("(taskEnQueueScatter) %s not in name_to_postiton map", inputNameBase)
 				return
 			}
 
-			//the_array := scatter_input_array_ptrs[input_position]
+			//the_array := scatterInputArrayPtrs[inputPosition]
 
-			the_index := counter.Counter[input_position]
-			scatter_input.SourceIndex = the_index + 1
-			new_task_step.In = append(new_task_step.In, scatter_input)
+			theIndex := counter.Counter[inputPosition]
+			scatterInput.SourceIndex = theIndex + 1
+			newTaskStep.In = append(newTaskStep.In, scatterInput)
 		}
 
-		fmt.Println("new_task_step with everything:")
-		spew.Dump(new_task_step)
+		fmt.Println("newTaskStep with everything:")
+		spew.Dump(newTaskStep)
 
-		new_task_step.ID = parent_id_str + "/" + scatter_task_name
-		sub_task.WorkflowStep = &new_task_step
-		children = append(children, scatter_task_name)
+		newTaskStep.ID = parentIDStr + "/" + scatterTaskName
+		subTask.WorkflowStep = &newTaskStep
+		children = append(children, scatterTaskName)
 
-		new_task_step.Scatter = nil // []string{}
-		new_scatter_tasks = append(new_scatter_tasks, sub_task)
+		newTaskStep.Scatter = nil // []string{}
+		newScatterTasks = append(newScatterTasks, subTask)
 
-		counter_running = counter.Increment()
+		counterRunning = counter.Increment()
 	}
 
 	err = task.SetScatterChildren(qm, children, true)
@@ -3092,11 +3093,11 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 	}
 
 	// add tasks to job and submit
-	for i := range new_scatter_tasks {
-		subTask := new_scatter_tasks[i]
+	for i := range newScatterTasks {
+		subTask := newScatterTasks[i]
 		subTaskID, _ := subTask.GetID("taskEnQueueScatter")
 		subTaskIDStr, _ := subTaskID.String()
-		logger.Debug(3, "(taskEnQueueScatter) adding %s to workflow_instance", subTaskIDStr)
+		logger.Debug(3, "(taskEnQueueScatter) adding %s to workflowInstance", subTaskIDStr)
 		err = workflowInstance.AddTask(job, subTask, DbSyncTrue, true)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueueScatter) job.AddTask returns: %s", err.Error())
@@ -3122,10 +3123,10 @@ func (qm *ServerMgr) taskEnQueueScatter(workflowInstance *WorkflowInstance, task
 }
 
 // happens when task is ready
-// prepares task and creates workunits or workflow_instances
+// prepares task and creates workunits or workflowInstances
 // scatter task does not create its own workunit, it just creates new tasks
 
-// workflow: create workflow_instance and tasks
+// workflow: create workflowInstance and tasks
 // scatter: create tasks
 // commandlinetool: create workunit/s
 
@@ -3151,10 +3152,10 @@ func (qm *ServerMgr) taskEnQueue(taskID Task_Unique_Identifier, task *Task, job 
 		logger.Debug(3, "(taskEnQueue) DO NOT have WorkflowStep")
 	}
 
-	skip_workunit := false
+	skipWorkunit := false
 
-	var task_type string
-	task_type, err = task.GetTaskType()
+	var taskType string
+	taskType, err = task.GetTaskType()
 	if err != nil {
 		return
 	}
@@ -3164,11 +3165,11 @@ func (qm *ServerMgr) taskEnQueue(taskID Task_Unique_Identifier, task *Task, job 
 
 	logger.Debug(3, "(taskEnQueue) have job.WorkflowContext")
 
-	var workflow_instance *WorkflowInstance
-	var workflow_input_map cwl.JobDocMap
+	var workflowInstance *WorkflowInstance
+	var workflowInputMap cwl.JobDocMap
 	if task.WorkflowInstanceId != "" {
 		var ok bool
-		workflow_instance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
+		workflowInstance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
 		if err != nil {
 			err = fmt.Errorf("(taskEnQueue) GetWorkflowInstance returned %s", err.Error())
 			return
@@ -3178,7 +3179,7 @@ func (qm *ServerMgr) taskEnQueue(taskID Task_Unique_Identifier, task *Task, job 
 			return
 		}
 
-		workflow_input_map = workflow_instance.Inputs.GetMap()
+		workflowInputMap = workflowInstance.Inputs.GetMap()
 		cwl_step := task.WorkflowStep
 
 		if cwl_step == nil {
@@ -3191,7 +3192,7 @@ func (qm *ServerMgr) taskEnQueue(taskID Task_Unique_Identifier, task *Task, job 
 
 	// Detect task_type
 
-	//fmt.Printf("(taskEnQueue) A task_type: %s\n", task_type)
+	fmt.Printf("(taskEnQueue) A task_type: %s\n", taskType)
 
 	//if task_type == "" {
 	//	err = fmt.Errorf("(taskEnQueue) task_type empty")
@@ -3199,10 +3200,10 @@ func (qm *ServerMgr) taskEnQueue(taskID Task_Unique_Identifier, task *Task, job 
 	//}
 
 	if task.WorkflowInstanceId != "" {
-		switch task_type {
+		switch taskType {
 		case TASK_TYPE_SCATTER:
 			logger.Debug(3, "(taskEnQueue) call taskEnQueueScatter")
-			notice, err = qm.taskEnQueueScatter(workflow_instance, task, job, workflow_input_map)
+			notice, err = qm.taskEnQueueScatter(workflowInstance, task, job, workflowInputMap)
 			if err != nil {
 				err = fmt.Errorf("(taskEnQueue) taskEnQueueScatter returned: %s", err.Error())
 				return
@@ -3210,9 +3211,9 @@ func (qm *ServerMgr) taskEnQueue(taskID Task_Unique_Identifier, task *Task, job 
 
 		}
 	}
-	logger.Debug(2, "(taskEnQueue) task %s has type %s", taskIDStr, task_type)
-	if task_type == TASK_TYPE_SCATTER {
-		skip_workunit = true
+	logger.Debug(2, "(taskEnQueue) task %s has type %s", taskIDStr, taskType)
+	if taskType == TASK_TYPE_SCATTER {
+		skipWorkunit = true
 	}
 
 	logger.Debug(2, "(taskEnQueue) trying to enqueue task %s", taskIDStr)
@@ -3257,7 +3258,7 @@ func (qm *ServerMgr) taskEnQueue(taskID Task_Unique_Identifier, task *Task, job 
 		return
 	}
 
-	if !skip_workunit {
+	if !skipWorkunit {
 		logger.Debug(3, "(taskEnQueue) create Workunits")
 		workunitStart := time.Now()
 		var count int
@@ -3285,7 +3286,7 @@ func (qm *ServerMgr) taskEnQueue(taskID Task_Unique_Identifier, task *Task, job 
 	}
 
 	//updateStart := time.Now()
-	// err = qm.taskCompleted(workflow_instance, task) //task status PENDING->QUEUED
+	// err = qm.taskCompleted(workflowInstance, task) //task status PENDING->QUEUED
 	// if logTimes {
 	// 	times["taskCompleted"] = time.Since(updateStart)
 	// }
@@ -3338,7 +3339,7 @@ func (qm *ServerMgr) locateInputs(task *Task, job *Job) (err error) {
 	return
 }
 
-func (qm *ServerMgr) getCWLSourceArray(workflow_instance *WorkflowInstance, workflow_input_map map[string]cwl.CWLType, job *Job, current_task_id Task_Unique_Identifier, src_array []string, error_on_missing_task bool) (obj cwl.Array, ok bool, err error) {
+func (qm *ServerMgr) getCWLSourceArray(workflowInstance *WorkflowInstance, workflowInputMap map[string]cwl.CWLType, job *Job, current_task_id Task_Unique_Identifier, src_array []string, error_on_missing_task bool) (obj cwl.Array, ok bool, err error) {
 
 	obj = cwl.Array{}
 	ok = false
@@ -3346,7 +3347,7 @@ func (qm *ServerMgr) getCWLSourceArray(workflow_instance *WorkflowInstance, work
 	for _, src := range src_array {
 		var element cwl.CWLType
 		var src_ok bool
-		element, src_ok, _, err = qm.getCWLSource(job, workflow_instance, workflow_input_map, src, error_on_missing_task, job.WorkflowContext)
+		element, src_ok, _, err = qm.getCWLSource(job, workflowInstance, workflowInputMap, src, error_on_missing_task, job.WorkflowContext)
 		if err != nil {
 			err = fmt.Errorf("(getCWLSourceArray) getCWLSource returned: %s", err.Error())
 			return
@@ -3376,7 +3377,7 @@ func (qm *ServerMgr) getCWLSourceFromWorkflowInput(workflowInputMap map[string]c
 	var thisOK bool
 	obj, thisOK = workflowInputMap[srcBase]
 	if thisOK {
-		//fmt.Println("(getCWLSource) found in workflow_input_map: " + src_base)
+		//fmt.Println("(getCWLSource) found in workflowInputMap: " + src_base)
 		ok = true
 		return
 	}
@@ -3397,7 +3398,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutputTool(job *Job, workflowInstance *
 
 	// search task and its output
 	if workflowInstance.JobID == "" {
-		err = fmt.Errorf("(getCWLSourceFromStepOutputTool) workflow_instance.JobId empty")
+		err = fmt.Errorf("(getCWLSourceFromStepOutputTool) workflowInstance.JobId empty")
 		return
 	}
 
@@ -3412,7 +3413,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutputTool(job *Job, workflowInstance *
 		return
 	}
 
-	//workflowInstanceID, _ := workflow_instance.GetId(true)
+	//workflowInstanceID, _ := workflowInstance.GetId(true)
 	workflowInstanceLocalID := workflowInstance.LocalID
 
 	ancestorTaskNameLocal := workflowInstanceLocalID + "/" + stepName
@@ -3428,7 +3429,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutputTool(job *Job, workflowInstance *
 
 	ancestorTask, ok, err = workflowInstance.GetTask(ancestorTaskID, true)
 	if err != nil {
-		err = fmt.Errorf("(getCWLSourceFromStepOutputTool) workflow_instance.GetTask returned: %s", err.Error())
+		err = fmt.Errorf("(getCWLSourceFromStepOutputTool) workflowInstance.GetTask returned: %s", err.Error())
 		return
 	}
 	if !ok {
@@ -3442,9 +3443,9 @@ func (qm *ServerMgr) getCWLSourceFromStepOutputTool(job *Job, workflowInstance *
 		} else {
 			tasksStr = "no tasks found"
 		}
-		reason = fmt.Sprintf("(getCWLSourceFromStepOutputTool) ancestor_task %s not found in workflow_instance %s (tasks found: %s)", ancestorTaskIDStr, workflowInstanceLocalID, tasksStr)
+		reason = fmt.Sprintf("(getCWLSourceFromStepOutputTool) ancestor_task %s not found in workflowInstance %s (tasks found: %s)", ancestorTaskIDStr, workflowInstanceLocalID, tasksStr)
 
-		//spew.Dump(workflow_instance)
+		//spew.Dump(workflowInstance)
 
 		return
 	}
@@ -3474,9 +3475,9 @@ func (qm *ServerMgr) getCWLSourceFromStepOutputTool(job *Job, workflowInstance *
 	return
 }
 
-func (qm *ServerMgr) getCWLSourceFromStepOutput_Workflow(job *Job, workflow_instance *WorkflowInstance, step_name string, output_name string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
+func (qm *ServerMgr) getCWLSourceFromStepOutput_Workflow(job *Job, workflowInstance *WorkflowInstance, step_name string, output_name string, error_on_missing_task bool) (obj cwl.CWLType, ok bool, reason string, err error) {
 
-	local_name := workflow_instance.LocalID
+	local_name := workflowInstance.LocalID
 
 	subworkflow_name := local_name + "/" + step_name
 
@@ -3533,7 +3534,7 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput(job *Job, workflowInstance *Work
 	ok = false
 	//step_name_abs := workflow_name + "/" + step_name
 	workflowInstanceID, _ := workflowInstance.GetID(true)
-	//workflowInstanceLocalID := workflow_instance.LocalID
+	//workflowInstanceLocalID := workflowInstance.LocalID
 
 	logger.Debug(3, "(getCWLSourceFromStepOutput) %s / %s (workflowInstanceID: %s)", stepName, outputName, workflowInstanceID)
 	_ = workflowInstanceID
@@ -3627,19 +3628,19 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflowInstance *Workfl
 	//src_base := src_array[1]
 
 	if workflowInstance == nil {
-		err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) workflow_instance==nil (src: %s)", src)
+		err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) workflowInstance==nil (src: %s)", src)
 		return
 	}
 
 	if workflowInstance.Inputs == nil {
 		if errorOnMissingTask {
 
-			err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) workflow_instance.Inputs empty (src: %s)", src)
+			err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) workflowInstance.Inputs empty (src: %s)", src)
 			return
 		}
 
 		err = nil
-		reason = fmt.Sprintf("(GetSourceFromWorkflowInstanceInput) workflow_instance.Inputs empty (src: %s)", src)
+		reason = fmt.Sprintf("(GetSourceFromWorkflowInstanceInput) workflowInstance.Inputs empty (src: %s)", src)
 		logger.Debug(3, reason)
 		ok = false
 
@@ -3657,7 +3658,7 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflowInstance *Workfl
 	var workflow *cwl.Workflow
 	workflow, err = workflowInstance.GetWorkflow(context)
 	if err != nil {
-		err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) workflow_instance.GetWorkflow returned: %s", err.Error())
+		err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) workflowInstance.GetWorkflow returned: %s", err.Error())
 		return
 	}
 
@@ -3699,15 +3700,15 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflowInstance *Workfl
 	}
 
 	if errorOnMissingTask {
-		//fmt.Println("workflow_instance.Inputs:")
-		//spew.Dump(workflow_instance.Inputs)
+		//fmt.Println("workflowInstance.Inputs:")
+		//spew.Dump(workflowInstance.Inputs)
 		//	panic("output not found a)")
 
-		err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but output %s not found in workflow_instance.Inputs (was %s)", srcPath, srcBase, src)
+		err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but output %s not found in workflowInstance.Inputs (was %s)", srcPath, srcBase, src)
 		return
 	}
 
-	msg := fmt.Sprintf("(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but output %s not found in workflow_instance.Inputs", srcPath, srcBase)
+	msg := fmt.Sprintf("(GetSourceFromWorkflowInstanceInput) found ancestor_task %s, but output %s not found in workflowInstance.Inputs", srcPath, srcBase)
 	logger.Debug(3, msg)
 	ok = false
 	reason = msg
@@ -3800,7 +3801,7 @@ func (qm *ServerMgr) isSourceGeneratorReady(job *Job, workflowInstance *Workflow
 		var taskFound bool
 		task, taskFound, err = workflowInstance.GetTaskByName(srcGeneratorBase, true)
 		if err != nil {
-			err = fmt.Errorf("(isSourceGeneratorReady) workflow_instance.GetTaskByName returned: %s", err.Error())
+			err = fmt.Errorf("(isSourceGeneratorReady) workflowInstance.GetTaskByName returned: %s", err.Error())
 			return
 		}
 		if !taskFound {
@@ -4005,8 +4006,8 @@ func (qm *ServerMgr) getCWLSource(job *Job, workflowInstance *WorkflowInstance, 
 
 	// 	//if !ok {
 
-	// 	//	fmt.Printf("workflow_instance: (looking for %s)\n", src)
-	// 	//	spew.Dump(workflow_instance)
+	// 	//	fmt.Printf("workflowInstance: (looking for %s)\n", src)
+	// 	//	spew.Dump(workflowInstance)
 	// 	//	panic("done")
 	// 	//}
 
@@ -4079,7 +4080,7 @@ func (qm *ServerMgr) getCWLSource(job *Job, workflowInstance *WorkflowInstance, 
 }
 
 // GetDependencies Tasks or Subworkflows
-func (qm *ServerMgr) GetDependencies(job *Job, workflow_instance *WorkflowInstance, workflow_input_map map[string]cwl.CWLType, workflow_step *cwl.WorkflowStep, context *cwl.WorkflowContext) (err error) {
+func (qm *ServerMgr) GetDependencies(job *Job, workflowInstance *WorkflowInstance, workflowInputMap map[string]cwl.CWLType, workflow_step *cwl.WorkflowStep, context *cwl.WorkflowContext) (err error) {
 	if workflow_step.In == nil {
 		return
 	}
@@ -5129,7 +5130,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 	var wiState string
 	wiState, err = workflowInstance.GetState(true)
 	if err != nil {
-		err = fmt.Errorf("(completeSubworkflow) workflow_instance.GetState returned: %s", err.Error())
+		err = fmt.Errorf("(completeSubworkflow) workflowInstance.GetState returned: %s", err.Error())
 		return
 	}
 
@@ -5186,7 +5187,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 
 	wfl, err = workflowInstance.GetWorkflow(context)
 	if err != nil {
-		err = fmt.Errorf("(completeSubworkflow) workflow_instance.GetWorkflow returned: %s", err.Error())
+		err = fmt.Errorf("(completeSubworkflow) workflowInstance.GetWorkflow returned: %s", err.Error())
 		return
 	}
 
@@ -5398,12 +5399,12 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 
 	err = workflowInstance.SetOutputs(workflowOutputsArray, context, true)
 	if err != nil {
-		err = fmt.Errorf("(completeSubworkflow) workflow_instance.SetOutputs returned: %s", err.Error())
+		err = fmt.Errorf("(completeSubworkflow) workflowInstance.SetOutputs returned: %s", err.Error())
 		return
 	}
 
 	// stick outputs in context, using correct Step-name (depends on if it is a embedded workflow)
-	logger.Debug(3, "(completeSubworkflow) workflow_instance.Outputs: %d", len(workflowInstance.Outputs))
+	logger.Debug(3, "(completeSubworkflow) workflowInstance.Outputs: %d", len(workflowInstance.Outputs))
 	//for output := range workflowInstance.Outputs {
 	//	logger.Debug(3, "(completeSubworkflow) iteration %d", output)
 	//outputNamed := &workflowInstance.Outputs[output]
@@ -5439,7 +5440,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 
 	err = workflowInstance.SetState(WIStateCompleted, DbSyncTrue, true)
 	if err != nil {
-		err = fmt.Errorf("(completeSubworkflow) workflow_instance.SetState returned: %s", err.Error())
+		err = fmt.Errorf("(completeSubworkflow) workflowInstance.SetState returned: %s", err.Error())
 		return
 	}
 
@@ -5456,7 +5457,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 	logger.Debug(3, "(completeSubworkflow) completes with workflowInstanceLocalID: %s", workflowInstanceLocalID)
 
 	if workflowInstanceLocalID == job.Entrypoint {
-		// last workflow_instance -> notify job
+		// last workflowInstance -> notify job
 
 		// this was the main workflow, all done!
 
@@ -5475,7 +5476,7 @@ func (qm *ServerMgr) completeSubworkflow(job *Job, workflowInstance *WorkflowIns
 	var parent *WorkflowInstance
 	parent, err = workflowInstance.GetParent(true)
 	if err != nil {
-		err = fmt.Errorf("(completeSubworkflow) workflow_instance.GetParent returned: %s", err.Error())
+		err = fmt.Errorf("(completeSubworkflow) workflowInstance.GetParent returned: %s", err.Error())
 		return
 	}
 
@@ -5622,20 +5623,20 @@ func (qm *ServerMgr) taskCompleted(wi *WorkflowInstance, task *Task) (err error)
 		var subworkflowRemainSteps int
 		subworkflowRemainSteps, err = wi.GetRemainSteps(true)
 		if err != nil {
-			err = fmt.Errorf("(taskCompleted) workflow_instance.GetRemainSteps returned: %s", err.Error())
+			err = fmt.Errorf("(taskCompleted) workflowInstance.GetRemainSteps returned: %s", err.Error())
 			return
 		}
 
-		//subworkflow_remain_tasks, err = workflow_instance.DecreaseRemainSteps()
+		//subworkflow_remain_tasks, err = workflowInstance.DecreaseRemainSteps()
 		//if err != nil {
-		//	err = fmt.Errorf("(taskCompleted) workflow_instance.DecreaseRemainSteps returned: %s", err.Error())
+		//	err = fmt.Errorf("(taskCompleted) workflowInstance.DecreaseRemainSteps returned: %s", err.Error())
 		//	return
 
 		//}
 
 		logger.Debug(3, "(taskCompleted) TASK_STAT_COMPLETED  / remaining steps for subworkflow %s: %d", taskStr, subworkflowRemainSteps)
 
-		//logger.Debug(3, "(taskCompleted) workflow_instance %s remaining tasks: %d (total %d or %d)", workflowInstanceID, subworkflowRemainSteps, workflowInstance.TaskCount(), workflowInstance.TotalTasks)
+		//logger.Debug(3, "(taskCompleted) workflowInstance %s remaining tasks: %d (total %d or %d)", workflowInstanceID, subworkflowRemainSteps, workflowInstance.TaskCount(), workflowInstance.TotalTasks)
 
 		if subworkflowRemainSteps > 0 {
 			return

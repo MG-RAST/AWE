@@ -256,7 +256,7 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 				originalMap["scatter"] = scatterStringArray
 
 			default:
-				err = fmt.Errorf("(NewWorkflowStep) scatter has unsopported type: %s", reflect.TypeOf(scatter))
+				err = fmt.Errorf("(NewWorkflowStep) scatter has unsupported type: %s", reflect.TypeOf(scatter))
 				return
 			}
 		}

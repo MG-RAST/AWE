@@ -9,6 +9,7 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -97,18 +98,15 @@ func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIden
 			object["id"] = objectID
 		}
 	}
-	requirements, ok := object["requirements"]
-	if !ok {
-		requirements = nil
-	}
 
 	// extract SchemaDefRequirement
 	var schemaDefReq *SchemaDefRequirement
 	//var schemataNew []CWLType_Type
 	hasSchemaDefReq := false
 
-	if requirements != nil {
-		schemaDefReq, hasSchemaDefReq, err = GetSchemaDefRequirement(requirements, context)
+	requirementsIf, hasRequirements := object["requirements"]
+	if hasRequirements {
+		schemaDefReq, hasSchemaDefReq, err = GetSchemaDefRequirement(requirementsIf, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) GetSchemaDefRequirement returned: %s", err.Error())
 			return
@@ -182,11 +180,15 @@ func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIden
 		object["arguments"] = argumentsObject
 	}
 
+	if hasSchemaDefReq {
+		injectedRequirements = append(injectedRequirements, schemaDefReq)
+	}
+
 	var requirementsArray []Requirement
 
 	//fmt.Printf("(NewCommandLineTool) Injecting %d\n", len(requirementsArray))
 	//spew.Dump(requirementsArray)
-	requirementsArray, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, nil, context)
+	requirementsArray, err = CreateRequirementArrayAndInject(requirementsIf, injectedRequirements, nil, context)
 	if err != nil {
 		err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (requirements): %s", err.Error())
 		return
@@ -196,9 +198,6 @@ func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIden
 	//	schemata = append(schemata, schemataNew[i])
 	//}
 
-	if hasSchemaDefReq {
-		requirementsArray = append(requirementsArray, schemaDefReq)
-	}
 	object["requirements"] = requirementsArray
 
 	hints, ok := object["hints"]
@@ -283,11 +282,13 @@ func NewBaseCommandArray(original interface{}) (newArray []string, err error) {
 	newArray = []string{}
 	switch original.(type) {
 	case []interface{}:
-		for _, v := range original.([]interface{}) {
+		originalArray := original.([]interface{})
+		for _, v := range originalArray {
 
 			vStr, ok := v.(string)
 			if !ok {
-				err = fmt.Errorf("(NewBaseCommandArray) []interface{} array element is not a string")
+				spew.Dump(originalArray)
+				err = fmt.Errorf("(NewBaseCommandArray) []interface{} array element is not a string, it is %s", reflect.TypeOf(v))
 				return
 			}
 			newArray = append(newArray, vStr)

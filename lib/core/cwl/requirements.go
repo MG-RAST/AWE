@@ -298,25 +298,97 @@ func CreateRequirementArrayAndInject(original interface{}, injectedRequirements 
 		}
 	}
 
-	if injectedRequirements != nil {
-		for _, ir := range injectedRequirements {
+	logger.Debug(3, "(CreateRequirementArrayAndInject) requirementsArray: %d      injectedRequirements: %d", len(requirementsArray), len(injectedRequirements))
 
-			irClass := ir.GetClass()
+	//fmt.Println("requirementsArray:")
+	//spew.Dump(requirementsArray)
 
-			found := false
-			for j, _ := range requirementsArray {
-				if requirementsArray[j].GetClass() == irClass {
-					found = true
+	if injectedRequirements == nil {
+		return
+	}
 
-					break
+	for _, ir := range injectedRequirements {
+
+		irClass := ir.GetClass()
+
+		found := false
+		for j := range requirementsArray {
+			currentRequirement := requirementsArray[j]
+			if currentRequirement.GetClass() == irClass {
+				found = true
+
+				// merge SchemaDefRequirement !
+				if irClass == "SchemaDefRequirement" {
+
+					existingSchemaDefRequirement := currentRequirement.(*SchemaDefRequirement)
+					injectedSchemaDefRequirement := ir.(*SchemaDefRequirement)
+
+					existingSchemaDefRequirementMap := make(map[string]bool)
+
+					for _, existingDefTypeIf := range existingSchemaDefRequirement.Types {
+
+						var existingDefTypeName string
+
+						switch existingDefTypeIf.(type) {
+						case *InputRecordSchema:
+							existingDefType := existingDefTypeIf.(*InputRecordSchema)
+							existingDefTypeName = existingDefType.GetName()
+						case *InputEnumSchema:
+							existingDefType := existingDefTypeIf.(*InputEnumSchema)
+							existingDefTypeName = existingDefType.Name
+						case *InputArraySchema:
+							// does not have a name , no way to compare here..
+							continue
+						default:
+							err = fmt.Errorf("(CreateRequirementArrayAndInject) type not expected: %s", reflect.TypeOf(existingDefTypeIf))
+							return
+						}
+
+						existingSchemaDefRequirementMap[existingDefTypeName] = true
+					}
+					// array<InputRecordSchema | InputEnumSchema | InputArraySchema>
+
+					// abstract InputSchema should have Get/SetName
+
+					for _, injectedDefTypeIf := range injectedSchemaDefRequirement.Types {
+						//injectedDefTypeIfNamed := injectedDefTypeIf.(NamedSchema)
+						//injectedDefTypeName := injectedDefTypeIfNamed.GetName()
+						foundDefType := false
+						var injectedDefTypeName string
+						switch injectedDefTypeIf.(type) {
+						case *InputRecordSchema:
+							injectedDefType := injectedDefTypeIf.(*InputRecordSchema)
+							injectedDefTypeName = injectedDefType.GetName()
+							_, foundDefType = existingSchemaDefRequirementMap[injectedDefTypeName]
+						case *InputEnumSchema:
+							injectedDefType := injectedDefTypeIf.(*InputEnumSchema)
+							injectedDefTypeName = injectedDefType.Name
+							_, foundDefType = existingSchemaDefRequirementMap[injectedDefTypeName]
+						case *InputArraySchema:
+							// does not have a name , no way to compare here..
+							continue
+						default:
+							err = fmt.Errorf("(CreateRequirementArrayAndInject) type not expected: %s", reflect.TypeOf(injectedDefTypeIf))
+							return
+						}
+
+						if !foundDefType { // injectedDefTypeIf was not found
+							// insert injectedDefTypeIf
+							existingSchemaDefRequirement.Types = append(existingSchemaDefRequirement.Types, injectedDefTypeIf)
+						}
+
+					}
+
 				}
 
-			}
-			if !found {
-				requirementsArray = append(requirementsArray, ir)
+				break
 			}
 
 		}
+		if !found {
+			requirementsArray = append(requirementsArray, ir)
+		}
+
 	}
 
 	return
@@ -336,11 +408,19 @@ func CreateRequirementArray(original interface{}, optional bool, inputs interfac
 	}
 	newArray = []Requirement{}
 
+	reqMap := make(map[string]bool)
+
 	switch original.(type) {
 	case map[string]interface{}:
 
 		for classStr, v := range original.(map[string]interface{}) {
 
+			_, ok := reqMap[classStr]
+			if ok {
+				err = fmt.Errorf("(CreateRequirementArray) double entry: %s", classStr)
+				return
+			}
+			reqMap[classStr] = true
 			//var schemataNew []CWLType_Type
 			var requirement Requirement
 			requirement, err = NewRequirement(classStr, v, inputs, context)

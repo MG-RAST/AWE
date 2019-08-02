@@ -131,9 +131,9 @@ func (job *Job) AddWorkflowInstance(wi *WorkflowInstance, dbSync bool, writeLock
 		return
 	}
 
-	err = wi.SetState(WIStatePending, DbSyncFalse, true) // AddWorkflowInstance
+	err = wi.SetStateNoSync(WIStatePending, true) // AddWorkflowInstance
 	if err != nil {
-		err = fmt.Errorf("(AddWorkflowInstance) wi.SetState returned: %s (wi.LocalID: %s)", err.Error(), wi.LocalID)
+		err = fmt.Errorf("(AddWorkflowInstance) wi.SetStateNoSync returned: %s (wi.LocalID: %s)", err.Error(), wi.LocalID)
 		return
 	}
 

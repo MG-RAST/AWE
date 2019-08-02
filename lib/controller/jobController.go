@@ -1412,7 +1412,7 @@ func (cr *JobController) Update(id string, cx *goweb.Context) {
 			ServerNotes: "manually suspended",
 			Status:      core.JOB_STAT_SUSPEND,
 		}
-		if err := core.QMgr.SuspendJob(id, jerror); err != nil {
+		if err := core.QMgr.SuspendJob(id, job, jerror); err != nil {
 			cx.RespondWithErrorMessage("fail to suspend job: "+id+" "+err.Error(), http.StatusBadRequest)
 			return
 		}

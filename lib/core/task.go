@@ -29,6 +29,7 @@ import (
 // 5. TASK_STAT_INPROGRESS
 // 6. TASK_STAT_COMPLETED
 
+// to replaced by ProcessInstance states
 const (
 	TASK_STAT_INIT             = "init"        // initial state on creation of a task
 	TASK_STAT_PENDING          = "pending"     // a task that wants to be enqueued (but dependent tasks are not complete)
@@ -46,13 +47,6 @@ const (
 
 var TASK_STATS_RESET = []string{TASK_STAT_QUEUED, TASK_STAT_INPROGRESS, TASK_STAT_SUSPEND}
 
-const (
-	TASK_TYPE_UNKNOWN = ""
-	TASK_TYPE_SCATTER = "scatter"
-	//TASK_TYPE_WORKFLOW = "workflow"
-	TASK_TYPE_NORMAL = "normal"
-)
-
 // Scatter
 // A task of type "scatter" generates multiple scatter children.
 // List of children for a scatter task are stored in field "ScatterChildren"
@@ -65,8 +59,8 @@ type TaskRaw struct {
 	Task_Unique_Identifier `bson:",inline" mapstructure:",squash"`
 	ProcessInstanceBase    `bson:",inline" json:",inline" mapstructure:",squash"`
 
-	ID            string                 `bson:"taskid" json:"taskid" mapstructure:"taskid"` // old-style
-	TaskType      string                 `bson:"task_type" json:"task_type" mapstructure:"task_type"`
+	ID string `bson:"taskid" json:"taskid" mapstructure:"taskid"` // old-style
+
 	Info          *Info                  `bson:"-" json:"-" mapstructure:"-"` // this is just a pointer to the job.Info
 	Cmd           *Command               `bson:"cmd" json:"cmd" mapstructure:"cmd"`
 	Partition     *PartInfo              `bson:"partinfo" json:"-" mapstructure:"partinfo"`
@@ -75,7 +69,6 @@ type TaskRaw struct {
 	MaxWorkSize   int                    `bson:"maxworksize"   json:"maxworksize" mapstructure:"maxworksize"`
 	RemainWork    int                    `bson:"remainwork" json:"remainwork" mapstructure:"remainwork"`
 	ResetTask     bool                   `bson:"resettask" json:"-" mapstructure:"resettask"` // trigged by function - resume, recompute, resubmit
-	State         string                 `bson:"state" json:"state" mapstructure:"state"`
 	CreatedDate   time.Time              `bson:"createdDate" json:"createddate" mapstructure:"createdDate"`
 	StartedDate   time.Time              `bson:"startedDate" json:"starteddate" mapstructure:"startedDate"`
 	CompletedDate time.Time              `bson:"completedDate" json:"completeddate" mapstructure:"completedDate"`
@@ -1028,7 +1021,7 @@ func (task *TaskRaw) GetJob(timeout time.Duration) (job *Job, err error) {
 }
 
 // SetState also updates wi.RemainTasks, task.SetCompletedDate
-func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, writeLock bool) (err error) {
+func (task *TaskRaw) SetState(newState string, writeLock bool) (err error) {
 	if writeLock {
 		err = task.LockNamed("SetState")
 		if err != nil {
@@ -1037,7 +1030,7 @@ func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, writeLock 
 		defer task.Unlock()
 	}
 
-	old_state := task.State
+	oldState := task.State
 	taskid := task.ID
 	jobid := task.JobId
 
@@ -1045,13 +1038,13 @@ func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, writeLock 
 		err = fmt.Errorf("task %s has no job id", taskid)
 		return
 	}
-	if old_state == new_state {
+	if oldState == newState {
 		return
 	}
 
 	if task.WorkflowInstanceId == "" {
 
-		err = dbUpdateJobTaskString(jobid, task.WorkflowInstanceId, taskid, "state", new_state)
+		err = dbUpdateJobTaskString(jobid, task.WorkflowInstanceId, taskid, "state", newState)
 		if err != nil {
 			err = fmt.Errorf("(TaskRaw/SetState) dbUpdateJobTaskString returned: %s", err.Error())
 			return
@@ -1063,33 +1056,44 @@ func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, writeLock 
 			return
 		}
 
-		err = dbUpdateTaskString(task.WorkflowInstanceUUID, taskid, "state", new_state)
+		err = dbUpdateTaskString(task.WorkflowInstanceUUID, taskid, "state", newState)
 		if err != nil {
 			err = fmt.Errorf("(TaskRaw/SetState) dbUpdateTaskString returned: %s", err.Error())
 			return
 		}
 	}
 
-	logger.Debug(3, "(Task/SetState) %s new state: \"%s\" (old state \"%s\")", taskid, new_state, old_state)
-	task.State = new_state
+	logger.Debug(3, "(TaskRaw/SetState) %s new state: \"%s\" (old state \"%s\")", taskid, newState, oldState)
+	task.State = newState
 
-	if new_state == TASK_STAT_COMPLETED {
+	if newState == TASK_STAT_COMPLETED {
+		var wi *WorkflowInstance
+		var ok bool
+		wi, ok, err = task.GetWorkflowInstance()
+		if err != nil {
+			err = fmt.Errorf("(TaskRaw/SetState) GetWorkflowInstance returned: %s", err.Error())
+			return
+		}
+		if !ok {
+			err = fmt.Errorf("(TaskRaw/SetState) WorkflowInstance not found")
+			return
+		}
 
 		if wi != nil {
 			_, err = wi.IncrementRemainSteps(-1, true)
 			if err != nil {
-				err = fmt.Errorf("(task/SetState) wi.DecreaseRemainSteps returned: %s", err.Error())
+				err = fmt.Errorf("(TaskRaw/SetState) wi.DecreaseRemainSteps returned: %s", err.Error())
 				return
 			}
 		}
 
 		err = task.SetCompletedDate(time.Now(), false)
 		if err != nil {
-			err = fmt.Errorf("(task/SetState) task.SetCompletedDate returned: %s", err.Error())
+			err = fmt.Errorf("(TaskRaw/SetState) task.SetCompletedDate returned: %s", err.Error())
 			return
 		}
 
-	} else if old_state == TASK_STAT_COMPLETED {
+	} else if oldState == TASK_STAT_COMPLETED {
 		// in case a completed task is marked as something different
 		//var job *Job
 		//job, err = GetJob(jobid)
@@ -1097,15 +1101,15 @@ func (task *TaskRaw) SetState(wi *WorkflowInstance, new_state string, writeLock 
 		//	return
 		//}
 
-		//_, err = job.IncrementRemainSteps(1, "task/SetState")
+		//_, err = job.IncrementRemainSteps(1, "TaskRaw/SetState")
 		//if err != nil {
-		//	err = fmt.Errorf("(task/SetState) IncrementRemainSteps returned: %s", err.Error())
+		//	err = fmt.Errorf("(TaskRaw/SetState) IncrementRemainSteps returned: %s", err.Error())
 		//	return
 		//}
 		initTime := time.Time{}
 		err = task.SetCompletedDate(initTime, false)
 		if err != nil {
-			err = fmt.Errorf("(task/SetState) SetCompletedDate returned: %s", err.Error())
+			err = fmt.Errorf("(TaskRaw/SetState) SetCompletedDate returned: %s", err.Error())
 			return
 		}
 
@@ -1465,7 +1469,7 @@ func (task *Task) ResetTaskTrue(name string) (err error) {
 	}
 	defer task.Unlock()
 
-	err = task.SetState(nil, TASK_STAT_PENDING, false)
+	err = task.SetState(TASK_STAT_PENDING, false)
 	if err != nil {
 		err = fmt.Errorf("(task/ResetTaskTrue) task.SetState returned: %s", err.Error())
 		return

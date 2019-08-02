@@ -61,44 +61,20 @@ type WorkflowInstance struct {
 	LocalID             string `bson:"local_id" json:"local_id" mapstructure:"local_id"` // workfow id without job id , mongo uses JobId_LocalId to get a globally unique identifier
 	JobID               string `bson:"job_id" json:"job_id" mapstructure:"job_id"`
 	ProcessInstanceBase `bson:",inline" json:",inline" mapstructure:",squash"`
-	//ParentID           string            `bson:"parent_id" json:"parent_id" mapstructure:"parent_id"` // DEPRECATED!? it can be computed from LocalId
-	ACL                *acl.Acl          `bson:"acl" json:"-"`
-	State              string            `bson:"state" json:"state" mapstructure:"state"`                                           // this is unique identifier for the workflow instance
-	WorkflowDefinition string            `bson:"workflow_definition" json:"workflow_definition" mapstructure:"workflow_definition"` // name of the workflow this instance is derived from
-	Workflow           *cwl.Workflow     `bson:"-" json:"-" mapstructure:"-"`                                                       // just a cache for the Workflow pointer
-	Inputs             cwl.Job_document  `bson:"inputs" json:"inputs" mapstructure:"inputs"`
-	Outputs            cwl.Job_document  `bson:"outputs" json:"outputs" mapstructure:"outputs"`
-	Tasks              []*Task           `bson:"tasks" json:"tasks" mapstructure:"tasks"`
-	RemainSteps        int               `bson:"remainsteps" json:"remainsteps" mapstructure:"remainsteps"`
-	TotalTasks         int               `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
-	Subworkflows       []string          `bson:"subworkflows" json:"subworkflows" mapstructure:"subworkflows"`
-	WorkflowStep       *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"` // cache
-	Parent             *WorkflowInstance `bson:"-" json:"-" mapstructure:"-"` // cache for ParentId
-	Job                *Job              `bson:"-" json:"-" mapstructure:"-"` // cache
-	IsScatter          bool              `bson:"isscatter" json:"isscatter" mapstructure:"isscatter"`
+	ACL                 *acl.Acl          `bson:"acl" json:"-"`
+	WorkflowDefinition  string            `bson:"workflow_definition" json:"workflow_definition" mapstructure:"workflow_definition"` // name of the workflow this instance is derived from
+	Workflow            *cwl.Workflow     `bson:"-" json:"-" mapstructure:"-"`                                                       // just a cache for the Workflow pointer
+	Inputs              cwl.Job_document  `bson:"inputs" json:"inputs" mapstructure:"inputs"`
+	Outputs             cwl.Job_document  `bson:"outputs" json:"outputs" mapstructure:"outputs"`
+	Tasks               []*Task           `bson:"tasks" json:"tasks" mapstructure:"tasks"`
+	RemainSteps         int               `bson:"remainsteps" json:"remainsteps" mapstructure:"remainsteps"`
+	TotalTasks          int               `bson:"totaltasks" json:"totaltasks" mapstructure:"totaltasks"`
+	Subworkflows        []string          `bson:"subworkflows" json:"subworkflows" mapstructure:"subworkflows"`
+	WorkflowStep        *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"` // cache
+	Parent              *WorkflowInstance `bson:"-" json:"-" mapstructure:"-"` // cache for ParentId
+	Job                 *Job              `bson:"-" json:"-" mapstructure:"-"` // cache
+	IsScatter           bool              `bson:"isscatter" json:"isscatter" mapstructure:"isscatter"`
 	//Created_by          string            `bson:"created_by" json:"created_by" mapstructure:"created_by"`
-}
-
-// ProcessInstance _
-// combines WorkflowInstance nad Task into one conceptual process type
-type ProcessInstance interface {
-	IsProcessInstance()
-	GetWorkflowStep() *cwl.WorkflowStep
-}
-
-// ProcessInstanceBase _
-type ProcessInstanceBase struct {
-	WorkflowStep   *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"`
-	WorkflowStepID string            `bson:"workflowstepid" json:"workflowstepid" mapstructure:"workflowstepid"`
-	//ParentWorkflow     string
-	//ParentWorkflowStep string
-	// or use *cwl.WorkflowStep in cache ?
-}
-
-// GetWorkflowStep _
-func (p *ProcessInstanceBase) GetWorkflowStep() (ws *cwl.WorkflowStep) {
-	ws = p.WorkflowStep
-	return
 }
 
 // NewWorkflowInstance _
@@ -334,7 +310,45 @@ func (wi *WorkflowInstance) AddTask(job *Job, task *Task, dbSync bool, writeLock
 	return
 }
 
-func (wi *WorkflowInstance) setStateOnly(state string, dbSync bool, writeLock bool) (err error) {
+// SetState (writes to mongo)
+func (wi *WorkflowInstance) SetState(state string, writeLock bool) (err error) {
+	if writeLock {
+		err = wi.LockNamed("WorkflowInstance/SetState")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/SetState) wi.LockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.Unlock()
+	}
+
+	err = dbUpdateJobWorkflowInstancesFieldString(wi.ID, "state", state)
+	if err != nil {
+		err = fmt.Errorf("(WorkflowInstance/SetState) (wi.ID: %s) dbUpdateJobWorkflowInstancesFieldString returned: %s", wi.ID, err.Error())
+		return
+	}
+
+	wi.State = state
+
+	return
+}
+
+// SetStateNoSync (does not write to mongo)
+func (wi *WorkflowInstance) SetStateNoSync(state string, writeLock bool) (err error) {
+	if writeLock {
+		err = wi.LockNamed("WorkflowInstance/SetState")
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/SetState) wi.LockNamed returned: %s", err.Error())
+			return
+		}
+		defer wi.Unlock()
+	}
+
+	wi.State = state
+
+	return
+}
+
+func (wi *WorkflowInstance) setStateOnlyDEPRECATED(state string, dbSync bool, writeLock bool) (err error) {
 	if writeLock {
 		err = wi.LockNamed("WorkflowInstance/setStateOnly")
 		if err != nil {
@@ -366,21 +380,6 @@ func (wi *WorkflowInstance) setStateOnly(state string, dbSync bool, writeLock bo
 
 // SetState will set state and notify parent WorkflowInstance or Job if completed
 // DO NOT CALL directely, use wrapper qm.WISetState()
-func (wi *WorkflowInstance) SetState(state string, dbSync bool, writeLock bool) (err error) {
-
-	if wi.ID == "" {
-		err = fmt.Errorf("(WorkflowInstance/SetState) wi.ID empty ")
-		return
-	}
-
-	err = wi.setStateOnly(state, dbSync, writeLock)
-	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/SetState) setStateOnly returned: %s", err.Error())
-		return
-	}
-
-	return
-}
 
 // SetSubworkflows _
 func (wi *WorkflowInstance) SetSubworkflows(steps []string, writeLock bool) (err error) {
@@ -539,6 +538,12 @@ func (wi *WorkflowInstance) TaskCount() (count int) {
 	}
 	count = len(wi.Tasks)
 
+	return
+}
+
+// GetIDStr _
+func (wi *WorkflowInstance) GetIDStr() (result string) {
+	result, _ = wi.GetID(true)
 	return
 }
 

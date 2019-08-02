@@ -108,3 +108,8 @@ func (taskid Task_Unique_Identifier) String() (s string, err error) {
 
 	return
 }
+
+func (taskid Task_Unique_Identifier) GetIDStr() (result string) {
+	result, _ = taskid.String()
+	return
+}

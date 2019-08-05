@@ -15,7 +15,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/rwmutex"
 	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
@@ -55,7 +54,6 @@ var TASK_STATS_RESET = []string{TASK_STAT_QUEUED, TASK_STAT_INPROGRESS, TASK_STA
 
 // TaskRaw _
 type TaskRaw struct {
-	rwmutex.RWMutex        `bson:"-" json:"-" mapstructure:"-"`
 	Task_Unique_Identifier `bson:",inline" mapstructure:",squash"`
 	ProcessInstanceBase    `bson:",inline" json:",inline" mapstructure:",squash"`
 
@@ -82,8 +80,7 @@ type TaskRaw struct {
 	StepOutput             *cwl.Job_document `bson:"-" json:"-" mapstructure:"-"`                                     // CWL-only
 	ProcessOutput          *cwl.Job_document `bson:"-" json:"-" mapstructure:"-"`                                     // CWL-only
 	//Scatter_task        bool                     `bson:"scatter_task" json:"scatter_task" mapstructure:"scatter_task"`                                  // CWL-only, indicates if this is a scatter_task TODO: compare with TaskType ?
-	Scatter_parent       *Task_Unique_Identifier `bson:"scatter_parent" json:"scatter_parent" mapstructure:"scatter_parent"`                            // CWL-only, points to scatter parent
-	ScatterChildren      []string                `bson:"scatterChildren" json:"scatterChildren" mapstructure:"scatterChildren"`                         // use simple TaskName  , CWL-only, list of all children in a subworkflow task
+	ScatterParent        *Task_Unique_Identifier `bson:"scatter_parent" json:"scatter_parent" mapstructure:"scatter_parent"`                            // CWL-only, points to scatter parent
 	ScatterChildren_ptr  []*Task                 `bson:"-" json:"-" mapstructure:"-"`                                                                   // caching only, CWL-only
 	Finalizing           bool                    `bson:"-" json:"-" mapstructure:"-"`                                                                   // CWL-only, a lock mechanism for subworkflows and scatter tasks
 	CwlVersion           cwl.CWLVersion          `bson:"cwlVersion,omitempty"  mapstructure:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"` // CWL-only
@@ -504,7 +501,7 @@ func NewTask(job *Job, workflowInstanceUUID string, workflowInstanceID string, t
 	if job.IsCWL {
 		if task_id_str != job.Entrypoint {
 			if !strings.HasPrefix(workflowInstanceID, job.Entrypoint) {
-				err = fmt.Errorf("(NewTask) workflowInstanceID has not %s prefix: %s", job.Entrypoint, workflowInstanceID)
+				err = fmt.Errorf("(NewTask) workflowInstanceID %s has not this prefix %s", workflowInstanceID, job.Entrypoint)
 				return
 			}
 		}
@@ -740,40 +737,40 @@ func (task *TaskRaw) GetStateTimeout(timeout time.Duration) (state string, err e
 	return
 }
 
-// GetTaskType _
-func (task *TaskRaw) GetTaskType() (type_str string, err error) {
-	lock, err := task.RLockNamed("GetTaskType")
-	if err != nil {
-		return
-	}
-	defer task.RUnlockNamed(lock)
-	type_str = task.TaskType
-	return
-}
+// // GetTaskType _
+// func (task *TaskRaw) GetTaskType() (type_str string, err error) {
+// 	lock, err := task.RLockNamed("GetTaskType")
+// 	if err != nil {
+// 		return
+// 	}
+// 	defer task.RUnlockNamed(lock)
+// 	type_str = task.TaskType
+// 	return
+// }
 
-// SetTaskType _
-func (task *Task) SetTaskType(typeStr string, writelock bool) (err error) {
+// SetProcessType _ _
+func (task *Task) SetProcessType(typeStr string, writelock bool) (err error) {
 	if writelock {
-		err = task.LockNamed("SetTaskType")
+		err = task.LockNamed("SetProcessType")
 		if err != nil {
 			return
 		}
 		defer task.Unlock()
 	}
 	if task.WorkflowInstanceId == "" {
-		err = dbUpdateJobTaskString(task.JobId, task.WorkflowInstanceId, task.ID, "task_type", typeStr)
+		err = dbUpdateJobTaskString(task.JobId, task.WorkflowInstanceId, task.ID, "processtype", typeStr)
 		if err != nil {
-			err = fmt.Errorf("(task/SetTaskType) dbUpdateJobTaskString returned: %s", err.Error())
+			err = fmt.Errorf("(task/SetProcessType) dbUpdateJobTaskString returned: %s", err.Error())
 			return
 		}
 	} else {
-		err = dbUpdateTaskString(task.WorkflowInstanceUUID, task.ID, "task_type", typeStr)
+		err = dbUpdateTaskString(task.WorkflowInstanceUUID, task.ID, "processtype", typeStr)
 		if err != nil {
-			err = fmt.Errorf("(task/SetTaskType) dbUpdateTaskString returned: %s", err.Error())
+			err = fmt.Errorf("(task/SetProcessType) dbUpdateTaskString returned: %s", err.Error())
 			return
 		}
 	}
-	task.TaskType = typeStr
+	task.ProcessType = typeStr
 	return
 }
 
@@ -910,6 +907,26 @@ func (task *TaskRaw) SetStepOutput(jd cwl.Job_document, lock bool) (err error) {
 	return
 }
 
+// SetProcessType _
+func (task *TaskRaw) SetProcessType(t string, lock bool) (err error) {
+	if lock {
+		err = task.LockNamed("SetProcessType")
+		if err != nil {
+			return
+		}
+		defer task.Unlock()
+	}
+
+	err = dbUpdateTaskString(task.WorkflowInstanceUUID, task.ID, "processtype", t)
+	if err != nil {
+		err = fmt.Errorf("(task/SetProcessOutput) dbUpdateTaskField returned: %s", err.Error())
+		return
+	}
+
+	task.ProcessType = t
+	return
+}
+
 // SetProcessOutput Process is CommandLineTool, ExpressionTool or Workflow
 func (task *TaskRaw) SetProcessOutput(jd cwl.Job_document, lock bool) (err error) {
 	if lock {
@@ -1021,9 +1038,9 @@ func (task *TaskRaw) GetJob(timeout time.Duration) (job *Job, err error) {
 }
 
 // SetState also updates wi.RemainTasks, task.SetCompletedDate
-func (task *TaskRaw) SetState(newState string, writeLock bool) (err error) {
+func (task *TaskRaw) SetState(newState string, writeLock bool, caller string) (err error) {
 	if writeLock {
-		err = task.LockNamed("SetState")
+		err = task.LockNamed("TaskRaw/SetState/" + caller)
 		if err != nil {
 			return
 		}
@@ -1469,7 +1486,7 @@ func (task *Task) ResetTaskTrue(name string) (err error) {
 	}
 	defer task.Unlock()
 
-	err = task.SetState(TASK_STAT_PENDING, false)
+	err = task.SetState(TASK_STAT_PENDING, false, "task/ResetTaskTrue")
 	if err != nil {
 		err = fmt.Errorf("(task/ResetTaskTrue) task.SetState returned: %s", err.Error())
 		return

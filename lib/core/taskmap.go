@@ -136,7 +136,7 @@ func (tm *TaskMap) Add(task *Task, caller string) (err error) {
 	}
 
 	if task_state == TASK_STAT_INIT {
-		err = task.SetState(TASK_STAT_PENDING, true)
+		err = task.SetState(TASK_STAT_PENDING, true, "TaskMap/Add")
 		if err != nil {
 			err = fmt.Errorf("(TaskMap/Add) task.SetState returned: %s", err.Error())
 			return

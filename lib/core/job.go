@@ -781,7 +781,7 @@ func (job *Job) AddTask(task *Task) (err error) {
 //---Field update functions
 
 func (job *Job) SetState(newState string, oldstates []string) (err error) {
-	err = job.LockNamed("SetState")
+	err = job.LockNamed("job/SetState")
 	if err != nil {
 		return
 	}

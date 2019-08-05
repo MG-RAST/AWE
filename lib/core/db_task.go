@@ -35,10 +35,15 @@ import (
 // 	return
 // }
 
-func dbUpdateTaskFields(workflowInstanceID string, taskID string, updateValue bson.M) (err error) {
+func dbUpdateTaskFields(workflowInstanceUUID string, taskID string, updateValue bson.M) (err error) {
 
-	if workflowInstanceID == "" {
-		err = fmt.Errorf("(dbUpdateWITaskFields) workflowInstanceID empty ! ")
+	if workflowInstanceUUID == "" {
+		err = fmt.Errorf("(dbUpdateWITaskFields) workflowInstanceUUID empty ! ")
+		return
+	}
+
+	if len(workflowInstanceUUID) != 36 {
+		err = fmt.Errorf("(dbUpdateWITaskFields) workflowInstanceUUID is not length 36: %s", workflowInstanceUUID)
 		return
 	}
 
@@ -49,7 +54,7 @@ func dbUpdateTaskFields(workflowInstanceID string, taskID string, updateValue bs
 
 	c := session.DB(conf.MONGODB_DATABASE).C(database)
 
-	selector := bson.M{"id": workflowInstanceID, "tasks.taskid": taskID}
+	selector := bson.M{"id": workflowInstanceUUID, "tasks.taskid": taskID}
 	updateOp := bson.M{"$set": updateValue}
 
 	//fmt.Println("(dbUpdateTaskFields) updateValue:")
@@ -57,7 +62,7 @@ func dbUpdateTaskFields(workflowInstanceID string, taskID string, updateValue bs
 
 	err = c.Update(selector, updateOp)
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateWITaskFields) (db: %s) Error updating task %s (workflowInstanceID: %s): %s", database, taskID, workflowInstanceID, err.Error())
+		err = fmt.Errorf("(dbUpdateWITaskFields) (db: %s) Error updating task %s (workflowInstanceID: %s): %s", database, taskID, workflowInstanceUUID, err.Error())
 		return
 	}
 	return

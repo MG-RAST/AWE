@@ -293,7 +293,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 
 		yamlstream, err = ioutil.ReadFile(workflowFile)
 		if err != nil {
-			err = fmt.Errorf("(createNormalizedSubmisson) error in reading workflow file %s: ", workflowFile, err.Error())
+			err = fmt.Errorf("(createNormalizedSubmisson) error in reading workflow file %s: %s", workflowFile, err.Error())
 			return
 		}
 	}

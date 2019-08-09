@@ -7,9 +7,9 @@ import (
 
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
-	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/rwmutex"
+	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 	"gopkg.in/mgo.v2/bson"
@@ -73,8 +73,8 @@ type WorkflowInstance struct {
 	WorkflowStep        *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"` // cache
 	Parent              *WorkflowInstance `bson:"-" json:"-" mapstructure:"-"` // cache for ParentId
 	Job                 *Job              `bson:"-" json:"-" mapstructure:"-"` // cache
-	IsScatter           bool              `bson:"isscatter" json:"isscatter" mapstructure:"isscatter"`
-	ScatterParent       string            `bson:"scatter_parent" json:"scatter_parent" mapstructure:"scatter_parent"`
+	//IsScatter           bool              `bson:"isscatter" json:"isscatter" mapstructure:"isscatter"`
+	ScatterParent string `bson:"scatter_parent" json:"scatter_parent" mapstructure:"scatter_parent"`
 	//Created_by          string            `bson:"created_by" json:"created_by" mapstructure:"created_by"`
 }
 
@@ -286,8 +286,8 @@ func (wi *WorkflowInstance) AddTask(job *Job, task *Task, dbSync bool, writeLock
 		defer wi.Unlock()
 	}
 
-	if task.WorkflowInstanceId == "" {
-		err = fmt.Errorf("(AddTask) task.WorkflowInstanceId empty")
+	if task.WorkflowInstanceID == "" {
+		err = fmt.Errorf("(AddTask) task.WorkflowInstanceID empty")
 		return
 	}
 
@@ -322,7 +322,7 @@ func (wi *WorkflowInstance) AddTask(job *Job, task *Task, dbSync bool, writeLock
 		// if err != nil {
 		// 	return
 		// }
-		//subworkflowID := task.WorkflowInstanceId
+		//subworkflowID := task.WorkflowInstanceID
 
 		err = dbPushTask(wi.ID, task)
 		if err != nil {
@@ -479,7 +479,7 @@ func (wi *WorkflowInstance) GetWorkflow(context *cwl.WorkflowContext) (workflow 
 }
 
 // SetProcessType _
-func (wi *WorkflowInstance) SetProcessType(t string, lock bool) (err error) {
+func (wi *WorkflowInstance) SetProcessType(t string, doSync bool, lock bool) (err error) {
 	if lock {
 		err = wi.LockNamed("SetProcessType")
 		if err != nil {
@@ -488,12 +488,13 @@ func (wi *WorkflowInstance) SetProcessType(t string, lock bool) (err error) {
 		defer wi.Unlock()
 	}
 
-	err = dbUpdateWorkflowInstancesFieldString(wi.ID, "processtype", t)
-	if err != nil {
-		err = fmt.Errorf("(WorkflowInstance/SetProcessType) (wi.ID: %s) dbUpdateWorkflowInstancesFieldString returned: %s", wi.ID, err.Error())
-		return
+	if doSync {
+		err = dbUpdateWorkflowInstancesFieldString(wi.ID, "processtype", t)
+		if err != nil {
+			err = fmt.Errorf("(WorkflowInstance/SetProcessType) (wi.ID: %s) dbUpdateWorkflowInstancesFieldString returned: %s", wi.ID, err.Error())
+			return
+		}
 	}
-
 	wi.ProcessType = t
 	return
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
 )
 
 // needed for run in http://www.commonwl.org/v1.0/Workflow.html#WorkflowStep
@@ -18,56 +17,63 @@ import (
 // Process _
 type Process interface {
 	CWLObject
-	Is_process()
+	IdentifierInterface
+	IsProcess()
 }
 
-// ProcessPointer _
-type ProcessPointer struct {
-	ID    string
-	Value string
-}
+// ProcessImpl _
+type ProcessImpl struct{}
 
 // IsProcess _
-func (p *ProcessPointer) IsProcess() {}
+func (p *ProcessImpl) IsProcess() {}
 
-// GetClass _
-func (p *ProcessPointer) GetClass() string {
-	return "ProcessPointer"
-}
+// // ProcessPointer _
+// type ProcessPointer struct {
+// 	ID    string
+// 	Value string
+// }
 
-// GetID _
-func (p *ProcessPointer) GetID() string { return p.ID }
+// // IsProcess _
+// func (p *ProcessPointer) IsProcess() {}
 
-// SetID _
-func (p *ProcessPointer) SetID(string) {}
+// // GetClass _
+// func (p *ProcessPointer) GetClass() string {
+// 	return "ProcessPointer"
+// }
 
-// IsCWLMinimal _
-func (p *ProcessPointer) IsCWLMinimal() {}
+// // GetID _
+// func (p *ProcessPointer) GetID() string { return p.ID }
+
+// // SetID _
+// func (p *ProcessPointer) SetID(string) {}
+
+// // IsCWLMinimal _
+// func (p *ProcessPointer) IsCWLMinimal() {}
 
 // NewProcessPointer _
-func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
+// func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
 
-	switch original.(type) {
-	case map[string]interface{}:
-		//original_map, ok := original.(map[string]interface{})
+// 	switch original.(type) {
+// 	case map[string]interface{}:
+// 		//original_map, ok := original.(map[string]interface{})
 
-		pp = &ProcessPointer{}
+// 		pp = &ProcessPointer{}
 
-		err = mapstructure.Decode(original, pp)
-		if err != nil {
-			err = fmt.Errorf("(NewCommandInputParameter) decode error: %s", err.Error())
-			return
-		}
-		return
-	default:
-		spew.Dump(original)
-		err = fmt.Errorf("(NewProcess) type %s unknown", reflect.TypeOf(original))
-	}
-	return
-}
+// 		err = mapstructure.Decode(original, pp)
+// 		if err != nil {
+// 			err = fmt.Errorf("(NewCommandInputParameter) decode error: %s", err.Error())
+// 			return
+// 		}
+// 		return
+// 	default:
+// 		spew.Dump(original)
+// 		err = fmt.Errorf("(NewProcess) type %s unknown", reflect.TypeOf(original))
+// 	}
+// 	return
+// }
 
 // NewProcess returns CommandLineTool, ExpressionTool or Workflow
-func NewProcess(original interface{}, parentID string, processID string, injectedRequirements []Requirement, context *WorkflowContext) (process interface{}, schemata []CWLType_Type, err error) {
+func NewProcess(original interface{}, parentID string, processID string, injectedRequirements []Requirement, context *WorkflowContext) (process Process, schemata []CWLType_Type, err error) {
 
 	//logger.Debug(3, "(NewProcess) starting")
 	if context == nil {
@@ -101,14 +107,18 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 		var ok bool
 
 		if context.Objects != nil {
-
-			process, ok = context.Objects[processIdentifer]
+			var processIf interface{}
+			processIf, ok = context.Objects[processIdentifer]
 			if ok {
-				if process == nil {
-					err = fmt.Errorf("(NewProcess) process == nil")
+				if processIf == nil {
+					err = fmt.Errorf("(NewProcess) processIf == nil")
 					return
 				}
-
+				process, ok = processIf.(Process)
+				if !ok {
+					err = fmt.Errorf("(NewProcess) not a Process")
+					return
+				}
 				//logger.Debug(3, "(NewProcess) object %s found", originalStr)
 				// refrenced object has already been parsed once
 				// TODO may want to parse a second time and make a new copy
@@ -128,7 +138,11 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 			}
 
 			context.Objects[processIdentifer] = object
-			process = object
+			process, ok = object.(Process)
+			if !ok {
+				err = fmt.Errorf("(NewProcess) not a Process")
+				return
+			}
 
 			return
 		}
@@ -183,7 +197,7 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 		// 	}
 		// }
 
-		process, ok, err = context.Get(processIdentifer, true)
+		processIf, ok, err = context.Get(processIdentifer, true)
 		if err != nil {
 			err = fmt.Errorf("(NewProcess) context.Get returned: %s", err.Error())
 			return
@@ -193,6 +207,12 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 				err = fmt.Errorf("(NewProcess) B process == nil")
 				return
 			}
+			process, ok = processIf.(Process)
+			if !ok {
+				err = fmt.Errorf("(NewProcess) not a Process")
+				return
+			}
+
 			return
 		}
 
@@ -223,13 +243,13 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 				return
 			}
 			return
-		case "Expression":
-			process, err = NewExpression(original)
-			if err != nil {
-				err = fmt.Errorf("(NewProcess) NewExpression returned: %s", err.Error())
-				return
-			}
-			return
+		// case "Expression":
+		// 	process, err = NewExpression(original)
+		// 	if err != nil {
+		// 		err = fmt.Errorf("(NewProcess) NewExpression returned: %s", err.Error())
+		// 		return
+		// 	}
+		// 	return
 		case "CommandLineTool":
 			process, schemata, err = NewCommandLineTool(original, processID, processID, injectedRequirements, context) // TODO merge schemata correctly !
 			if err != nil {

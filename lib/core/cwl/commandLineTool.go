@@ -19,7 +19,8 @@ type CommandLineTool struct {
 	//Class              string                   `yaml:"class,omitempty" bson:"class,omitempty" json:"class,omitempty"`
 	CWLObjectImpl      `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	CWL_class_Impl     `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	CWL_id_Impl        `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	IdentifierImpl     `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	ProcessImpl        `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
 	BaseCommand        []string                 `yaml:"baseCommand,omitempty" bson:"baseCommand,omitempty" json:"baseCommand,omitempty" mapstructure:"baseCommand,omitempty"`
 	Inputs             []CommandInputParameter  `yaml:"inputs" bson:"inputs" json:"inputs" mapstructure:"inputs"`
 	Outputs            []CommandOutputParameter `yaml:"outputs" bson:"outputs" json:"outputs" mapstructure:"outputs"`

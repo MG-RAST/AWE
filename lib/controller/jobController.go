@@ -158,6 +158,9 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		if !ok {
 			entrypoint = "#main"
 		}
+		if entrypoint == "" {
+			entrypoint = "#main"
+		}
 
 		var newEntrypoint string
 		// the returning entrypoint should always be empty because only graph documnets are submitted by the submitter

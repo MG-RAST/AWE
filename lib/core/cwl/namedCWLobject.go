@@ -7,8 +7,8 @@ import (
 
 // NamedCWLObject _
 type NamedCWLObject struct {
-	CWL_id_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides id
-	Value       CWLObject                                                             `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
+	IdentifierImpl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides id
+	Value          CWLObject                                                             `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
 }
 
 //type NamedCWLObject_array []NamedCWLObject

@@ -15,7 +15,8 @@ import (
 type ExpressionTool struct {
 	CWLObjectImpl  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	CWL_class_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	CWL_id_Impl    `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	IdentifierImpl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	ProcessImpl    `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
 	Inputs         []InputParameter       `yaml:"inputs" bson:"inputs" json:"inputs" mapstructure:"inputs"`
 	Outputs        map[string]interface{} `yaml:"outputs" bson:"outputs" json:"outputs" mapstructure:"outputs"` // ExpressionToolOutputParameter
 	Expression     Expression             `yaml:"expression,omitempty" bson:"expression,omitempty" json:"expression,omitempty" mapstructure:"expression,omitempty"`

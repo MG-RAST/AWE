@@ -7,8 +7,8 @@ import (
 )
 
 type NamedCWLType struct {
-	CWL_id_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides id
-	Value       CWLType                                                               `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
+	IdentifierImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides id
+	Value          CWLType                                                               `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
 }
 
 func NewNamedCWLType(id string, value CWLType) NamedCWLType {

@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
+	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 )
 
 // This RWLock keeps track of the owener and of each reader
@@ -17,7 +17,7 @@ import (
 // Each reader gets a ReadLock object that has to be used to unlock after reading is done.
 
 // WaitTimeout _
-var WaitTimeout = time.Minute * 3
+var WaitTimeout = time.Second * 10 //time.Minute * 3
 
 var debugLocks = false
 

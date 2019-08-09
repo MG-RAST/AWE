@@ -62,7 +62,7 @@ func dbUpdateTaskFields(workflowInstanceUUID string, taskID string, updateValue 
 
 	err = c.Update(selector, updateOp)
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateWITaskFields) (db: %s) Error updating task %s (workflowInstanceID: %s): %s", database, taskID, workflowInstanceUUID, err.Error())
+		err = fmt.Errorf("(dbUpdateWITaskFields) (db: %s) Error updating task %s (workflowInstanceUUID: %s): %s", database, taskID, workflowInstanceUUID, err.Error())
 		return
 	}
 	return
@@ -82,7 +82,7 @@ func dbUpdateTaskString(workflowInstanceID string, taskID string, fieldname stri
 	err = dbUpdateTaskFields(workflowInstanceID, taskID, updateValue)
 
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobTaskString) workflowInstanceID=%s, taskID=%s, fieldname=%s, value=%s dbUpdateJobTaskFields returned: %s", workflowInstanceID, taskID, fieldname, value, err.Error())
+		err = fmt.Errorf("(dbUpdateTaskString) workflowInstanceID=%s, taskID=%s, fieldname=%s, value=%s dbUpdateTaskFields returned: %s", workflowInstanceID, taskID, fieldname, value, err.Error())
 	}
 	return
 }
@@ -91,7 +91,7 @@ func dbUpdateTaskBoolean(workflowInstanceID string, taskID string, fieldname str
 	updateValue := bson.M{"tasks.$." + fieldname: value}
 	err = dbUpdateTaskFields(workflowInstanceID, taskID, updateValue)
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateTaskBoolean) dbUpdateJobTaskFields returned: %s", err.Error())
+		err = fmt.Errorf("(dbUpdateTaskBoolean) dbUpdateTaskFields returned: %s", err.Error())
 	}
 	return
 
@@ -101,7 +101,7 @@ func dbUpdateTaskIO(workflowInstanceID string, taskID string, fieldname string, 
 	updateValue := bson.M{"tasks.$." + fieldname: value}
 	err = dbUpdateTaskFields(workflowInstanceID, taskID, updateValue)
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobTaskIO) dbUpdateJobTaskFields returned: %s", err.Error())
+		err = fmt.Errorf("(dbUpdateJobTaskIO) dbUpdateTaskFields returned: %s", err.Error())
 	}
 	return
 }

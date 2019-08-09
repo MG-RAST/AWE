@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/MG-RAST/AWE/lib/logger"
+	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/mitchellh/mapstructure"
 
 	//"os"
@@ -18,7 +19,8 @@ import (
 type Workflow struct {
 	CWLObjectImpl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides IsCWLObject
 	CWL_class_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
-	CWL_id_Impl    `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	IdentifierImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+	ProcessImpl    `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
 	Inputs         []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
 	Outputs        []WorkflowOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
 	Steps          []WorkflowStep            `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty" mapstructure:"steps,omitempty"`
@@ -158,24 +160,31 @@ func NewWorkflow(original interface{}, parentIdentifier string, objectIdentifier
 			object["hints"] = hintsArray
 		}
 
+		var workflowID string
+
 		workflowIDIf, hasID := object["id"]
-		if !hasID {
+		if hasID {
+
+			workflowID, ok = workflowIDIf.(string)
+			if !ok {
+				err = fmt.Errorf("(NewWorkflow) is is not a string")
+				return
+			}
+		} else {
 
 			if objectIdentifier != "" {
-				workflowIDIf = objectIdentifier
+				workflowID = objectIdentifier
 				object["id"] = objectIdentifier
 			} else {
 
-				err = fmt.Errorf("(NewWorkflow) id is missing?")
-				return
-			}
-		}
+				if parentIdentifier == "" {
+					err = fmt.Errorf("(NewWorkflow) no id and parentIdentifier empty")
+					return
+				}
 
-		var workflowID string
-		workflowID, ok = workflowIDIf.(string)
-		if !ok {
-			err = fmt.Errorf("(NewWorkflow) is is not a string")
-			return
+				workflowID = path.Join(parentIdentifier, uuid.New())
+
+			}
 		}
 
 		if !strings.HasPrefix(workflowID, "#") {

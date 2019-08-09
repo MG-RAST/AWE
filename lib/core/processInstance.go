@@ -41,10 +41,10 @@ const (
 // combines WorkflowInstance nad Task into one conceptual process type
 type ProcessInstance interface {
 	IsProcessInstance()
-	GetWorkflowStep() *cwl.WorkflowStep
+	GetWorkflowStep(job *Job) (ws *cwl.WorkflowStep, err error)
 	GetIDStr() (result string)
 	SetState(newState string, writeLock bool, caller string) (err error)
-	SetProcessType(t string, lock bool) (err error)
+	SetProcessType(t string, doSync bool, lock bool) (err error)
 	SetWorkflowStepID(pIf ProcessInstance, stepID string, lock bool) (err error)
 	SetWorkflowStep(ws *cwl.WorkflowStep, lock bool) (err error)
 }
@@ -52,7 +52,7 @@ type ProcessInstance interface {
 // ProcessInstanceBase _
 type ProcessInstanceBase struct {
 	rwmutex.RWMutex `bson:"-" json:"-" mapstructure:"-"`
-	WorkflowStep    *cwl.WorkflowStep `bson:"-" json:"-" mapstructure:"-"`
+	WorkflowStep    *cwl.WorkflowStep `bson:"workflowstep" json:"workflowstep" mapstructure:"workflowstep"` // this is is not a cache, scatter steps contain unique information
 	WorkflowStepID  string            `bson:"workflowstepid" json:"workflowstepid" mapstructure:"workflowstepid"`
 	State           string            `bson:"state" json:"state" mapstructure:"state"`
 	ProcessType     string            `bson:"processtype" json:"processtype" mapstructure:"processtype"`
@@ -63,7 +63,38 @@ type ProcessInstanceBase struct {
 }
 
 // GetWorkflowStep _
-func (p *ProcessInstanceBase) GetWorkflowStep() (ws *cwl.WorkflowStep) {
+func (p *ProcessInstanceBase) GetWorkflowStep(job *Job) (ws *cwl.WorkflowStep, err error) {
+
+	if p.WorkflowStep == nil {
+		err = fmt.Errorf("(ProcessInstanceBase/GetWorkflowStep) p.WorkflowStep == nil")
+		return
+	}
+
+	// if p.WorkflowStep == nil {
+
+	// 	context := job.WorkflowContext
+
+	// 	workflowID := path.Dir(p.WorkflowStepID)
+	// 	stepName := path.Base(p.WorkflowStepID)
+
+	// 	var workflow *cwl.Workflow
+	// 	workflow, err = context.GetWorkflow(workflowID)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(ProcessInstanceBase/GetWorkflowStep) context.GetWorkflow returned: %s", err.Error())
+	// 		return
+	// 	}
+
+	// 	ws, err = workflow.GetStep(stepName)
+	// 	if err != nil {
+	// 		err = fmt.Errorf("(ProcessInstanceBase/GetWorkflowStep) context.GetStep returned: %s", err.Error())
+	// 		return
+	// 	}
+
+	// 	p.WorkflowStep = ws
+
+	// 	return
+	// }
+
 	ws = p.WorkflowStep
 	return
 }
@@ -95,7 +126,7 @@ func (p *ProcessInstanceBase) SetWorkflowStepID(pIf ProcessInstance, stepID stri
 		wi := pIf.(*WorkflowInstance)
 		err = dbUpdateWorkflowInstancesFieldString(wi.ID, "workflowstepid", stepID)
 		if err != nil {
-			err = fmt.Errorf("(WorkflowInstance/SetWorkflowStepID) (wi.ID: %s) dbUpdateJobWorkflowInstancesFieldString returned: %s", wi.ID, err.Error())
+			err = fmt.Errorf("(ProcessInstanceBase/SetWorkflowStepID) (wi.ID: %s) dbUpdateJobWorkflowInstancesFieldString returned: %s", wi.ID, err.Error())
 			return
 		}
 		wi.WorkflowStepID = stepID
@@ -103,7 +134,7 @@ func (p *ProcessInstanceBase) SetWorkflowStepID(pIf ProcessInstance, stepID stri
 		task := pIf.(*Task)
 		err = dbUpdateTaskString(task.WorkflowInstanceUUID, task.ID, "workflowstepid", stepID)
 		if err != nil {
-			err = fmt.Errorf("(task/SetWorkflowStepID) dbUpdateTaskTime returned: %s", err.Error())
+			err = fmt.Errorf("(ProcessInstanceBase/SetWorkflowStepID) dbUpdateTaskTime returned: %s", err.Error())
 			return
 		}
 		task.WorkflowStepID = stepID

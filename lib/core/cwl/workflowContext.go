@@ -580,7 +580,7 @@ func (context *WorkflowContext) GetInt(id string) (obj *Int, err error) {
 }
 
 // GetWorkflowStepInput _
-func (context *WorkflowContext) GetWorkflowStepInput(id string) (obj *WorkflowStepInput, err error) {
+func (context *WorkflowContext) GetWorkflowStepInputDeprecated(id string) (obj *WorkflowStepInput, err error) {
 	var objGeneric CWLObject
 	var ok bool
 	objGeneric, ok, err = context.Get(id, true)

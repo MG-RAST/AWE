@@ -8,7 +8,6 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 
-	"github.com/MG-RAST/AWE/lib/core/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
@@ -76,6 +75,9 @@ func (ws *WorkflowStep) Init(context *WorkflowContext) (err error) {
 // stepID argument should  be relative only?
 func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowID string, injectedRequirements []Requirement, context *WorkflowContext) (step *WorkflowStep, schemata []CWLType_Type, err error) {
 	//var step WorkflowStep
+
+	//fmt.Println("NewWorkflowStepFromInterface:")
+	//spew.Dump(original)
 
 	step = &WorkflowStep{}
 
@@ -182,6 +184,11 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 		}
 
 		run, ok := originalMap["run"]
+		if !ok {
+			err = fmt.Errorf("(NewWorkflowStep) field run is missing?!?")
+			return
+		}
+
 		if ok {
 			var schemataNew []CWLType_Type
 			//fmt.Printf("(NewWorkflowStep) Injecting %d\n", len(requirements_array))
@@ -194,8 +201,17 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 			processID := ""
 			if !isReference {
 				// process is embedded !
-				processID = path.Join(stepID, uuid.New())
-				logger.Debug(3, "(NewWorkflowStep) process is embedded: processID=%s (stepID=%s)", processID, stepID)
+
+				// processID, err = cwl.GetID(run)
+
+				// if processID == "" {
+				// 	processID = path.Join(stepID, uuid.New())
+				// 	logger.Debug(3, "(NewWorkflowStep) process is embedded: processID=%s (stepID=%s)", processID, stepID)
+				// 	process.SetID(processID)
+				// }
+
+				// processID = path.Join(stepID, uuid.New())
+				// logger.Debug(3, "(NewWorkflowStep) process is embedded: processID=%s (stepID=%s)", processID, stepID)
 			} else {
 
 				if !strings.HasPrefix(referenceStr, "#") {
@@ -206,7 +222,8 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 				logger.Debug(3, "(NewWorkflowStep) process is reference: referenceStr=%s", referenceStr)
 			}
 
-			var process interface{}
+			//var process interface{}
+			var process Process
 			process, schemataNew, err = NewProcess(run, stepID, processID, requirementsArray, context)
 			if err != nil {
 				err = fmt.Errorf("(NewWorkflowStep) NewProcess returned: %s (processID: %s)", err.Error(), processID)
@@ -219,7 +236,22 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 				return
 			}
 			if !isReference {
+				// this is an embedded process
+
+				processID = process.GetID()
+
 				originalMap["run"] = process
+				processObj, ok := process.(CWLObject)
+				if !ok {
+					err = fmt.Errorf("(NewWorkflowStep) Could not convert process into CWLObject (processID: %s)", processID)
+					return
+				}
+				err = context.AddObject(processID, processObj, "NewWorkflowStep")
+				if err != nil {
+					err = fmt.Errorf("(NewWorkflowStep) context.AddObject returned: %s (processID: %s)", err.Error(), processID)
+					return
+				}
+
 				for i := range schemataNew {
 					schemata = append(schemata, schemataNew[i])
 				}

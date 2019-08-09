@@ -102,21 +102,21 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		//AppVariables: task.AppVariables // not needed yet
 	}
-	var work_str string
-	work_str, err = workunit.String()
+	var workStr string
+	workStr, err = workunit.String()
 	if err != nil {
 		err = fmt.Errorf("(NewWorkunit) workunit.String() returned: %s", err.Error())
 		return
 	}
 
-	logger.Debug(3, "(NewWorkunit) start: %s", work_str)
+	logger.Debug(3, "(NewWorkunit) start: %s", workStr)
 
-	workunit.ID = work_str
-	workunit.WuId = work_str
+	workunit.ID = workStr
+	workunit.WuId = workStr
 
 	if task.WorkflowStep != nil {
 
-		workflow_step := task.WorkflowStep
+		workflowStep := task.WorkflowStep
 
 		taskStr, _ := task.String()
 
@@ -125,7 +125,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		workunit.ShockHost = job.ShockHost
 
 		// ****** get CommandLineTool (or whatever can be executed)
-		p := workflow_step.Run
+		p := workflowStep.Run
 
 		if p == nil {
 			err = fmt.Errorf("(NewWorkunit) process is nil !!?")
@@ -225,13 +225,13 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		var workflowInstance *WorkflowInstance
 		var ok bool
-		workflowInstance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceId, true)
+		workflowInstance, ok, err = job.GetWorkflowInstance(task.WorkflowInstanceID, true)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) GetWorkflowInstance returned %s", err.Error())
 			return
 		}
 		if !ok {
-			err = fmt.Errorf("(NewWorkunit) WorkflowInstance not found: \"%s\"", task.WorkflowInstanceId)
+			err = fmt.Errorf("(NewWorkunit) WorkflowInstance not found: \"%s\"", task.WorkflowInstanceID)
 			return
 		}
 
@@ -239,7 +239,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		var workunitInputMap map[string]cwl.CWLType
 		var reason string
-		workunitInputMap, ok, reason, err = qm.GetStepInputObjects(job, workflowInstance, workflowInputMap, workflow_step, context, "NewWorkunit")
+		workunitInputMap, ok, reason, err = qm.GetStepInputObjects(job, workflowInstance, workflowInputMap, workflowStep, context, "NewWorkunit")
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) task=%s, GetStepInputObjects returned: %s", taskStr, err.Error())
 			return
@@ -308,10 +308,10 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		//spew.Dump(workflow_instance)
 		//fmt.Println("job_input:")
 		//spew.Dump(job_input)
-		//fmt.Println("workflow_step.Run:")
-		//spew.Dump(workflow_step.Run)
-		//panic("done workflow_step.Out")
-		workunit.CWLWorkunit.OutputsExpected = &workflow_step.Out
+		//fmt.Println("workflowStep.Run:")
+		//spew.Dump(workflowStep.Run)
+		//panic("done workflowStep.Out")
+		workunit.CWLWorkunit.OutputsExpected = &workflowStep.Out
 
 		err = workunit.Evaluate(workunitInputMap, context)
 		if err != nil {
@@ -497,14 +497,14 @@ func (work *Workunit) Part() (part string) {
 }
 
 func (work *Workunit) GetIdBase64() (work_id_b64 string, err error) {
-	var work_str string
-	work_str, err = work.String()
+	var workStr string
+	workStr, err = work.String()
 	if err != nil {
 		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) workid.String() returned: %s", err.Error())
 		return
 	}
 
-	work_id_b64 = "base64:" + base64.StdEncoding.EncodeToString([]byte(work_str))
+	work_id_b64 = "base64:" + base64.StdEncoding.EncodeToString([]byte(workStr))
 	return
 }
 

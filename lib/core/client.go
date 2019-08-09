@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/MG-RAST/AWE/lib/core/uuid"
+	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/rwmutex"
 )

@@ -2771,6 +2771,12 @@ func (qm *ServerMgr) processInstanceEnQueueScatter(parentWorkflowInstance *Workf
 	_ = workflowInstance
 	// TODO store info that this has been evaluated
 	//cwlStep := task.WorkflowStep
+
+	// if processInstance.WorkflowStep == nil {
+	// 	err = fmt.Errorf("(processInstanceEnQueueScatter) cwlStep == nil")
+	// 	return
+	// }
+
 	var cwlStep *cwl.WorkflowStep
 	cwlStep, err = processInstance.GetWorkflowStep(job)
 	if err != nil {

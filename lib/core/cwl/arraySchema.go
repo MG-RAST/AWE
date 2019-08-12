@@ -15,13 +15,13 @@ type ArraySchema struct {
 }
 
 // Is_Type _
-func (c *ArraySchema) Is_Type() {}
+func (c ArraySchema) Is_Type() {}
 
 // Type2String _
-func (c *ArraySchema) Type2String() string { return "array" }
+func (c ArraySchema) Type2String() string { return "array" }
 
 // GetID _
-func (c *ArraySchema) GetID() string { return "" }
+func (c ArraySchema) GetID() string { return "" }
 
 // NewArraySchema _
 func NewArraySchema() (as *ArraySchema) {

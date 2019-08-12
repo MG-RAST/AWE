@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/rwmutex"
@@ -66,34 +67,29 @@ type ProcessInstanceBase struct {
 func (p *ProcessInstanceBase) GetWorkflowStep(job *Job) (ws *cwl.WorkflowStep, err error) {
 
 	if p.WorkflowStep == nil {
-		err = fmt.Errorf("(ProcessInstanceBase/GetWorkflowStep) p.WorkflowStep == nil")
+
+		context := job.WorkflowContext
+
+		workflowID := path.Dir(p.WorkflowStepID)
+		stepName := path.Base(p.WorkflowStepID)
+
+		var workflow *cwl.Workflow
+		workflow, err = context.GetWorkflow(workflowID)
+		if err != nil {
+			err = fmt.Errorf("(ProcessInstanceBase/GetWorkflowStep) context.GetWorkflow returned: %s", err.Error())
+			return
+		}
+
+		ws, err = workflow.GetStep(stepName)
+		if err != nil {
+			err = fmt.Errorf("(ProcessInstanceBase/GetWorkflowStep) context.GetStep returned: %s", err.Error())
+			return
+		}
+
+		p.WorkflowStep = ws
+
 		return
 	}
-
-	// if p.WorkflowStep == nil {
-
-	// 	context := job.WorkflowContext
-
-	// 	workflowID := path.Dir(p.WorkflowStepID)
-	// 	stepName := path.Base(p.WorkflowStepID)
-
-	// 	var workflow *cwl.Workflow
-	// 	workflow, err = context.GetWorkflow(workflowID)
-	// 	if err != nil {
-	// 		err = fmt.Errorf("(ProcessInstanceBase/GetWorkflowStep) context.GetWorkflow returned: %s", err.Error())
-	// 		return
-	// 	}
-
-	// 	ws, err = workflow.GetStep(stepName)
-	// 	if err != nil {
-	// 		err = fmt.Errorf("(ProcessInstanceBase/GetWorkflowStep) context.GetStep returned: %s", err.Error())
-	// 		return
-	// 	}
-
-	// 	p.WorkflowStep = ws
-
-	// 	return
-	// }
 
 	ws = p.WorkflowStep
 	return

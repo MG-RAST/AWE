@@ -989,21 +989,17 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 		clt := native.(*cwl.CommandLineTool)
 
-		for i, _ := range clt.Inputs { // CommandInputParameter
+		for i := range clt.Inputs { // CommandInputParameter
 
-			command_input_parameter := &clt.Inputs[i]
+			commandInputParameter := &clt.Inputs[i]
 
-			if command_input_parameter.Default != nil {
-
-				var sub_count int
-				sub_count, err = ProcessIOData(command_input_parameter, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
-				if err != nil {
-					err = fmt.Errorf("(processIOData) CommandLineTool.Default ProcessIOData(for download) returned: %s", err.Error())
-					return
-				}
-				count += sub_count
-
+			var sub_count int
+			sub_count, err = ProcessIOData(commandInputParameter, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			if err != nil {
+				err = fmt.Errorf("(processIOData) CommandLineTool.Default ProcessIOData(for download) returned: %s", err.Error())
+				return
 			}
+			count += sub_count
 
 		}
 
@@ -1046,44 +1042,98 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		//fmt.Println("(processIOData) *cwl.CommandInputParameter")
 		cip := native.(*cwl.CommandInputParameter)
 
-		if cip.Default == nil {
-			//fmt.Println("(processIOData) *cwl.CommandInputParameter return")
-			return
-		}
+		if cip.Default != nil {
 
-		var file *cwl.File
-		var ok bool
-		file, ok = cip.Default.(*cwl.File)
-		if ok {
-			if io_type == "upload" {
-				var file_exists bool
-				file_exists, err = file.Exists(current_path)
-				if err != nil {
-					err = fmt.Errorf("(processIOData) cwl.CommandInputParameter file.Exists returned: %s", err.Error())
-					return
+			var file *cwl.File
+			var ok bool
+			file, ok = cip.Default.(*cwl.File)
+			if ok {
+				if io_type == "upload" {
+					var file_exists bool
+					file_exists, err = file.Exists(current_path)
+					if err != nil {
+						err = fmt.Errorf("(processIOData) cwl.CommandInputParameter file.Exists returned: %s", err.Error())
+						return
+					}
+					if !file_exists {
+
+						// Defaults are optional, file missing is no error
+						return
+					}
 				}
-				if !file_exists {
 
-					// Defaults are optional, file missing is no error
-					return
-				}
-			}
-
-			if io_type == "download" {
-				if file.Location == "" {
-					// Default file with no Location can be ignored
-					return
+				if io_type == "download" {
+					if file.Location == "" {
+						// Default file with no Location can be ignored
+						return
+					}
 				}
 			}
+
+			var sub_count int
+			sub_count, err = ProcessIOData(cip.Default, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			if err != nil {
+				err = fmt.Errorf("(processIOData) CommandInputParameter ProcessIOData(for download) returned: %s", err.Error())
+				return
+			}
+			count += sub_count
 		}
 
-		var sub_count int
-		sub_count, err = ProcessIOData(cip.Default, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
-		if err != nil {
-			err = fmt.Errorf("(processIOData) CommandInputParameter ProcessIOData(for download) returned: %s", err.Error())
+		if cip.SecondaryFiles != nil {
+
+			err = fmt.Errorf("(processIOData) CommandInputParameter.SecondaryFiles SecondaryFiles are not supported by AWE at this point")
+			return
+
+			cipType := cip.Type
+
+			cipType0 := cipType[0]
+
+			if cipType0 == cwl.CWLFile {
+				// ok
+			} else if cipType0 == cwl.CWLArray {
+				var arraySchema *cwl.ArraySchema
+				var ok bool
+				arraySchema, ok = cipType0.(*cwl.ArraySchema)
+				if !ok {
+					err = fmt.Errorf("(processIOData) CommandInputParameter.SecondaryFiles could not convert to ArraySchema")
+					return
+				}
+				firstItem := arraySchema.Items[0]
+
+				if firstItem != cwl.CWLFile {
+					err = fmt.Errorf("(processIOData) CommandInputParameter.SecondaryFiles array items are expected to be File, but got %s", reflect.TypeOf(firstItem))
+					return
+				}
+
+			} else {
+				err = fmt.Errorf("(processIOData) CommandInputParameter.SecondaryFiles, type not supported, got %s", reflect.TypeOf(cipType0))
+				return
+			}
+
+			secFiles := cip.SecondaryFiles
+			switch secFiles.(type) {
+			case string:
+				secFilesStr := secFiles.(string)
+
+				//exp := cwl.NewExpressionFromString(secFilesStr)
+
+				// rules: https://www.commonwl.org/v1.0/CommandLineTool.html#CommandInputParameter
+				for strings.HasPrefix(secFilesStr, "^") {
+					extension := path.Ext(secFilesStr)
+
+					secFilesStr = strings.TrimPrefix(secFilesStr, "^")
+					if extension != "" {
+						secFilesStr = strings.TrimSuffix(secFilesStr, extension)
+					}
+				}
+
+			default:
+				err = fmt.Errorf("(processIOData) CommandInputParameter got SecondaryFiles, but tyype not supported, type=%s", reflect.TypeOf(secFiles))
+				return
+			}
+
 			return
 		}
-		count += sub_count
 
 	case *cwl.InputParameter:
 

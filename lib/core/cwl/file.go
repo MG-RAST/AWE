@@ -1,7 +1,10 @@
 package cwl
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"reflect"
@@ -132,7 +135,20 @@ func MakeFile(obj interface{}, context *WorkflowContext, external_id string) (fi
 
 	componentsUpdated := false
 
-	if file.Location != "" {
+	if file.Contents != "" {
+		file.Location = file.Basename
+
+		h := sha1.New()
+		io.WriteString(h, file.Contents)
+		file.Checksum = "sha1$" + hex.EncodeToString(h.Sum(nil))
+
+		//contentLen := len(file.Contents)
+		contentLenInt32 := int32(len(file.Contents))
+		file.Size = &contentLenInt32
+
+	}
+
+	if file.Location != "" && file.Contents != "" {
 
 		// example shock://shock.metagenomics.anl.gov/node/92a76f64-d221-4947-9fd0-7106c3b9163a
 		fileURL, xerr := url.Parse(file.Location)

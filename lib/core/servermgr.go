@@ -501,7 +501,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(workflowInstance *WorkflowIn
 
 			}
 		} else {
-			panic("not steps, you sure ?")
+			//panic("not steps, you sure ?")
 			noSteps = true
 		}
 		//wi.Subworkflows = subworkflow_str

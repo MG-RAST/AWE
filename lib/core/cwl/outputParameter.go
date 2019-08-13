@@ -49,7 +49,7 @@ func NewOutputParameterFromInterface(original interface{}, thisID string, schema
 		typeString := original.(string)
 
 		var originalTypeArray []CWLType_Type
-		originalTypeArray, err = NewCWLType_TypeFromString(schemata, typeString, "Output")
+		originalTypeArray, err = NewCWLType_TypeFromString(schemata, typeString, "Output", context)
 		if err != nil {
 			err = fmt.Errorf("(NewOutputParameterFromInterface) NewCWLType_TypeFromString returned: %s", err.Error())
 			return

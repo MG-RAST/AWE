@@ -34,7 +34,7 @@ func NewWorkflowOutputParameterType(original interface{}, schemata []CWLType_Typ
 
 		result_str := original.(string)
 
-		result, err = NewCWLType_TypeFromString(schemata, result_str, "WorkflowOutput")
+		result, err = NewCWLType_TypeFromString(schemata, result_str, "WorkflowOutput", context)
 		if err != nil {
 			return
 		}

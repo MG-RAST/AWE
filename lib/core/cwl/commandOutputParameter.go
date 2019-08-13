@@ -96,7 +96,7 @@ func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Typ
 			if ok {
 				//fmt.Println("(NewCommandOutputParameterArray) array element is a string")
 				var resultArray []CWLType_Type
-				resultArray, err = NewCWLType_TypeFromString(schemata, elementStr, "CommandOutput")
+				resultArray, err = NewCWLType_TypeFromString(schemata, elementStr, "CommandOutput", context)
 				if err != nil {
 					err = fmt.Errorf("(NewCommandOutputParameterArray) NewCWLType_TypeFromString returns: %s", err.Error())
 					return

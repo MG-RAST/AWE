@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	"path"
 )
 
 type Pointer string
@@ -21,6 +22,9 @@ func (c *Pointer) Type2String() string { return string(CWLPointer) }
 func NewPointerFromstring(value string) (s *Pointer) {
 
 	var s_nptr Pointer
+
+	value = path.Base(value)
+
 	s_nptr = Pointer(value)
 
 	s = &s_nptr

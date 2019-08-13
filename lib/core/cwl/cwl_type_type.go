@@ -26,7 +26,7 @@ func (s CWLType_Type_Basic) Type2String() string { return string(s) }
 func (s CWLType_Type_Basic) GetID() string { return "" }
 
 // NewCWLType_TypeFromString _
-func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context string) (result []CWLType_Type, err error) {
+func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, contextStr string, context *WorkflowContext) (result []CWLType_Type, err error) {
 
 	if native == "" {
 		err = fmt.Errorf("(NewCWLType_TypeFromString) string is empty")
@@ -35,11 +35,11 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 
 	result = []CWLType_Type{}
 
-	if strings.HasPrefix(native, "#") {
-		result = append(result, NewPointerFromstring(native))
+	// if strings.HasPrefix(native, "#") {
+	// 	result = append(result, NewPointerFromstring(native))
 
-		return
-	}
+	// 	return
+	// }
 
 	//fmt.Printf("(NewCWLType_TypeFromString) native: %s\n", native)
 
@@ -63,6 +63,13 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 		basicResult, ok = IsValidType(native)
 
 		if !ok {
+
+			var someSchemaDef CWLType_Type
+			someSchemaDef, ok = context.Schemata[native]
+			if ok {
+				result = append(result, someSchemaDef)
+				return
+			}
 
 			err = fmt.Errorf("(NewCWLType_TypeFromString) type %s unkown", native)
 			return
@@ -89,7 +96,7 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 
 	// recurse:
 	var baseTypeArray []CWLType_Type
-	baseTypeArray, err = NewCWLType_TypeFromString(schemata, baseTypeStr, context)
+	baseTypeArray, err = NewCWLType_TypeFromString(schemata, baseTypeStr, contextStr, context)
 	if err != nil {
 		err = fmt.Errorf("(NewCWLType_TypeFromString) recurisve call of NewCWLType_TypeFromString returned: %s", err.Error())
 		return
@@ -97,7 +104,7 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 
 	arraySchema := ArraySchema{}
 	arraySchema.Items = baseTypeArray
-	switch context {
+	switch contextStr {
 
 	case "Output":
 
@@ -128,7 +135,7 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, context s
 		return
 
 	default:
-		err = fmt.Errorf("(NewCWLType_TypeFromString) context %s not supported yet (baseTypeStr: %s)", context, baseTypeStr)
+		err = fmt.Errorf("(NewCWLType_TypeFromString) context %s not supported yet (baseTypeStr: %s)", contextStr, baseTypeStr)
 	}
 
 	return
@@ -146,7 +153,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 	case string:
 		native_str := native.(string)
 
-		result, err = NewCWLType_TypeFromString(schemata, native_str, context_p)
+		result, err = NewCWLType_TypeFromString(schemata, native_str, context_p, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCWLType_Type) A NewCWLType_TypeFromString returned: %s", err.Error())
 		}
@@ -157,7 +164,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 		native_tt := native.(CWLType_Type_Basic)
 		native_str := string(native_tt)
 
-		result, err = NewCWLType_TypeFromString(schemata, native_str, context_p)
+		result, err = NewCWLType_TypeFromString(schemata, native_str, context_p, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCWLType_Type) B NewCWLType_TypeFromString returned: %s", err.Error())
 		}
@@ -191,6 +198,19 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 				objectType = "array"
 			}
 
+		}
+
+		var identifierIf interface{}
+		var hasID bool
+		identifierIf, hasID = nativeMap["id"]
+		if hasID {
+			identifierStr := identifierIf.(string)
+
+			identifierStrArray := strings.Split(identifierStr, "#")
+			if len(identifierStrArray) > 1 {
+				identifierStr = identifierStrArray[1]
+				nativeMap["id"] = identifierStr
+			}
 		}
 
 		switch objectType {
@@ -371,7 +391,7 @@ func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, contextP 
 		nativeStr := native.(string)
 
 		//var a_type CWLType_Type
-		result, err = NewCWLType_TypeFromString(schemata, nativeStr, contextP)
+		result, err = NewCWLType_TypeFromString(schemata, nativeStr, contextP, context)
 		if err != nil {
 			return
 		}
@@ -383,7 +403,7 @@ func NewCWLType_TypeArray(native interface{}, schemata []CWLType_Type, contextP 
 		//type_array := []CWLType_Type{}
 		for _, elementStr := range nativeArray {
 			var elementStrArray []CWLType_Type
-			elementStrArray, err = NewCWLType_TypeFromString(schemata, elementStr, contextP)
+			elementStrArray, err = NewCWLType_TypeFromString(schemata, elementStr, contextP, context)
 			if err != nil {
 				return
 			}

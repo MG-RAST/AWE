@@ -404,9 +404,12 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowC
 
 		_ = pointer
 		fmt.Printf("schema needed: %s\n", string(*pointer))
+
+		haveSchemaBase := path.Base(string(*pointer))
+
 		for i := range context.Schemata {
-			fmt.Println(i)
-			if i == string(*pointer) {
+			fmt.Printf("compare schema %s with %s\n", i, haveSchemaBase)
+			if i == haveSchemaBase {
 				ok = true
 				return
 			}

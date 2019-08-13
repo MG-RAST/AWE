@@ -743,7 +743,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			dir.Path = ""
 			if dir.Location != "" {
 				// in case of a Directory literal, do not set Location field
-				dir.Location = path_to_download_to
+				dir.Location = dir_basename
 				err = os.MkdirAll(path_to_download_to, 0777)
 				if err != nil {
 					err = fmt.Errorf("(ProcessIOData) MkdirAll returned: %s", err.Error())

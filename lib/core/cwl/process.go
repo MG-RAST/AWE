@@ -203,10 +203,6 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 			return
 		}
 		if ok {
-			if process == nil {
-				err = fmt.Errorf("(NewProcess) B process == nil")
-				return
-			}
 			process, ok = processIf.(Process)
 			if !ok {
 				err = fmt.Errorf("(NewProcess) not a Process")

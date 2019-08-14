@@ -132,7 +132,7 @@ func ParseCWLGraphDocument(yamlStr string, entrypoint string, context *WorkflowC
 
 // ParseCWLSimpleDocument _
 // returns: objectID may be used an entrypoint later
-func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowContext) (objectArray []NamedCWLObject, schemata []CWLType_Type, schemas []interface{}, objectID string, err error) {
+func ParseCWLSimpleDocument(yamlStr string, useObjectID string, context *WorkflowContext) (objectArray []NamedCWLObject, schemata []CWLType_Type, schemas []interface{}, objectID string, err error) {
 	// Here I expect a single object, Workflow or CommandLIneTool
 	//fmt.Printf("-------------- yaml_str: %s\n", yaml_str)
 
@@ -255,25 +255,25 @@ func ParseCWLSimpleDocument(yamlStr string, basename string, context *WorkflowCo
 		//fmt.Printf("this_class: %s\n", this_class)
 		//fmt.Printf("AAAA\n")
 		setObjectID := false
-
+		//fmt.Printf("ParseCWLSimpleDocument: testsssssss \n")
 		//var objectID string
 		objectID, err = GetID(objectMap)
 		if err != nil {
-			//fmt.Printf("ParseCWLSimpleDocument: got no id\n")
+			//fmt.Printf("ParseCWLSimpleDocument: got no id, got v=%s\n", useObjectID)
 
-			if basename == "" {
+			if useObjectID == "" {
 				err = fmt.Errorf("(ParseCWLSimpleDocument) B) GetId returns %s", err.Error())
 				return
 			}
 			err = nil
 
-			if len(strings.Split(basename, "/")) > 1 {
-				err = fmt.Errorf("(ParseCWLSimpleDocument) contains path !?  %s ", basename)
+			if len(strings.Split(useObjectID, "/")) > 1 {
+				err = fmt.Errorf("(ParseCWLSimpleDocument) contains path !?  %s ", useObjectID)
 				return
 			}
 
-			objectID = "#" + basename
-			//fmt.Printf("ParseCWLSimpleDocument: using %s\n", basename)
+			objectID = "#" + useObjectID
+			//fmt.Printf("ParseCWLSimpleDocument: objectID %s\n", objectID)
 			setObjectID = true
 			//err = fmt.Errorf("(ParseCWLSimpleDocument) GetId returns %s", err.Error())
 			//return

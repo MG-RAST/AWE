@@ -81,7 +81,8 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 
 	step = &WorkflowStep{}
 
-	logger.Debug(3, "NewWorkflowStep starting")
+	//fmt.Printf("(NewWorkflowStepFromInterface) starting\n")
+
 	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
@@ -91,7 +92,6 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 
 	case map[string]interface{}:
 		originalMap := original.(map[string]interface{})
-		//spew.Dump(v_map)
 
 		idIf, ok := originalMap["id"]
 		if !ok {
@@ -143,6 +143,7 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 				stepID = idStr
 			}
 		}
+		//fmt.Printf("(NewWorkflowStepFromInterface) stepID: %s\n", stepID)
 
 		requirements, ok := originalMap["requirements"]
 		if !ok {
@@ -220,6 +221,11 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 					originalMap["run"] = run
 				}
 				logger.Debug(3, "(NewWorkflowStep) process is reference: referenceStr=%s", referenceStr)
+			}
+
+			if stepID == "" {
+				err = fmt.Errorf("(NewWorkflowStep) stepID is empty ?!?")
+				return
 			}
 
 			//var process interface{}

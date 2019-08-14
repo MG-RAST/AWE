@@ -229,11 +229,16 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 			return
 		}
 
+		if parentID == "" {
+			err = fmt.Errorf("(NewProcess) parentID empty !?")
+			return
+		}
+
 		switch class {
 		//case "":
 		//return NewProcessPointer(original)
 		case "Workflow":
-			process, schemata, err = NewWorkflow(original, processID, processID, injectedRequirements, context)
+			process, schemata, err = NewWorkflow(original, parentID, processID, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(NewProcess) NewWorkflow returned: %s", err.Error())
 				return
@@ -247,7 +252,7 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 		// 	}
 		// 	return
 		case "CommandLineTool":
-			process, schemata, err = NewCommandLineTool(original, processID, processID, injectedRequirements, context) // TODO merge schemata correctly !
+			process, schemata, err = NewCommandLineTool(original, parentID, processID, injectedRequirements, context) // TODO merge schemata correctly !
 			if err != nil {
 				err = fmt.Errorf("(NewProcess) NewCommandLineTool returned: %s (processID=%s)", err.Error(), processID)
 				return

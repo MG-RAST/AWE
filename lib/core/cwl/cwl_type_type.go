@@ -106,7 +106,7 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, contextSt
 	arraySchema.Items = baseTypeArray
 	switch contextStr {
 
-	case "Output":
+	case "Output", "ExpressionToolOutput":
 
 		oas := NewOutputArraySchema()
 		oas.Items = baseTypeArray
@@ -135,7 +135,7 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, contextSt
 		return
 
 	default:
-		err = fmt.Errorf("(NewCWLType_TypeFromString) context %s not supported yet (baseTypeStr: %s)", contextStr, baseTypeStr)
+		err = fmt.Errorf("(NewCWLType_TypeFromString) context %s not supported yet (baseTypeStr: %s, native: %s)", contextStr, baseTypeStr, native)
 	}
 
 	return

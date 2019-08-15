@@ -9,6 +9,7 @@ import (
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 
+	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
@@ -86,7 +87,7 @@ func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIden
 
 			if !strings.HasPrefix(objectID, "#") {
 				if parentIdentifier == "" {
-					err = fmt.Errorf("(NewCommandLineTool) parentIdentifier is needed but empty, objectID=%s", objectID)
+					err = fmt.Errorf("(NewCommandLineTool) A) parentIdentifier is needed but empty, objectID=%s", objectID)
 					return
 				}
 				objectID = path.Join(parentIdentifier, objectID)
@@ -96,6 +97,14 @@ func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIden
 				err = fmt.Errorf("(NewCommandLineTool) not absolute: objectID=%s , parentIdentifier=%s, objectIdentifier=%s", objectID, parentIdentifier, objectIdentifier)
 				return
 			}
+			object["id"] = objectID
+		} else {
+			if parentIdentifier == "" {
+				err = fmt.Errorf("(NewCommandLineTool) B) parentIdentifier is needed but empty")
+				return
+			}
+
+			objectID := path.Join(parentIdentifier, uuid.New())
 			object["id"] = objectID
 		}
 	}

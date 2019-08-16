@@ -21,12 +21,6 @@ type Process interface {
 	IsProcess()
 }
 
-// ProcessImpl _
-type ProcessImpl struct{}
-
-// IsProcess _
-func (p *ProcessImpl) IsProcess() {}
-
 // // ProcessPointer _
 // type ProcessPointer struct {
 // 	ID    string
@@ -259,7 +253,7 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 			}
 			return
 		case "ExpressionTool":
-			process, err = NewExpressionTool(original, schemata, injectedRequirements, context)
+			process, err = NewExpressionTool(original, parentID, processID, schemata, injectedRequirements, context)
 			if err != nil {
 				err = fmt.Errorf("(NewProcess) NewExpressionTool returned: %s", err.Error())
 				return

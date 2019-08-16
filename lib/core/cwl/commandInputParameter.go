@@ -95,6 +95,9 @@ func NewCommandInputParameter(v interface{}, schemata []CWLType_Type, context *W
 			err = fmt.Errorf("(NewCommandInputParameter) NewCommandInputParameterTypeArray returns: %s", err.Error())
 			return
 		}
+
+		// do not replace string with the object, may get duplicate types
+
 		input_parameter.Type = typeValue
 
 		return

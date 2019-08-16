@@ -3,10 +3,8 @@ package cwl
 import (
 	"fmt"
 	"path"
-	"strings"
 
 	"github.com/MG-RAST/AWE/lib/logger"
-	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/mitchellh/mapstructure"
 
 	//"os"
@@ -17,20 +15,15 @@ import (
 
 // Workflow https://www.commonwl.org/v1.0/Workflow.html#Workflow
 type Workflow struct {
-	CWLObjectImpl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides IsCWLObject
-	CWL_class_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides Id and Class fields
-	IdentifierImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
-	ProcessImpl    `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
-	Inputs         []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
-	Outputs        []WorkflowOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
-	Steps          []WorkflowStep            `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty" mapstructure:"steps,omitempty"`
-	Requirements   []Requirement             `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` //[]Requirement
-	Hints          []Requirement             `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             // []Requirement TODO Hints may contain non-requirement objects. Give warning in those cases.
-	Label          string                    `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
-	Doc            string                    `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
-	CwlVersion     CWLVersion                `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
-	Metadata       map[string]interface{}    `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty" mapstructure:"metadata,omitempty"`
-	Namespaces     map[string]string         `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
+	ProcessImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:"-"`
+	Inputs      []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
+	Outputs     []WorkflowOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
+	Steps       []WorkflowStep            `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty" mapstructure:"steps,omitempty"`
+	Label       string                    `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
+	Doc         string                    `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
+	CwlVersion  CWLVersion                `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
+	Metadata    map[string]interface{}    `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty" mapstructure:"metadata,omitempty"`
+	Namespaces  map[string]string         `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
 // GetClass _
@@ -77,8 +70,23 @@ func NewWorkflow(original interface{}, parentIdentifier string, objectIdentifier
 		return
 	}
 
+	//fmt.Println("original:")
+	//spew.Dump(original)
+
 	workflow := NewWorkflowEmpty()
 	workflowPtr = &workflow
+
+	workflow.ProcessImpl = ProcessImpl{}
+	var process *ProcessImpl
+	process = &workflow.ProcessImpl
+	process.Class = "Workflow"
+	err = ProcessImplInit(original, process, parentIdentifier, objectIdentifier, context)
+	if err != nil {
+		err = fmt.Errorf("(NewWorkflow) NewProcessImpl returned: %s", err.Error())
+		return
+	}
+
+	workflow.ProcessImpl = *process
 
 	switch original.(type) {
 	case map[string]interface{}:
@@ -106,10 +114,6 @@ func NewWorkflow(original interface{}, parentIdentifier string, objectIdentifier
 			err = fmt.Errorf("(NewWorkflow) CwlVersion empty (has_cwl_version: %t, context.CwlVersion: %s)", hasCWLVersion, context.CwlVersion)
 			return
 		}
-		requirements, ok := object["requirements"]
-		if !ok {
-			requirements = nil
-		}
 
 		inputs, ok := object["inputs"]
 		if ok {
@@ -129,75 +133,9 @@ func NewWorkflow(original interface{}, parentIdentifier string, objectIdentifier
 			}
 		}
 
-		var requirementsArray []Requirement
-		//var requirements_array_temp *[]Requirement
-		//var schemataNew []CWLType_Type
-		requirementsArray, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, inputs, context)
+		err = CreateRequirementAndHints(object, process, injectedRequirements, inputs, context)
 		if err != nil {
-			err = fmt.Errorf("(NewWorkflow) error in CreateRequirementArray (requirements): %s", err.Error())
-			return
-		}
-
-		//for i, _ := range schemataNew {
-		//	schemata = append(schemata, schemataNew[i])
-		//}
-
-		object["requirements"] = requirementsArray
-
-		hints, ok := object["hints"]
-		if ok && (hints != nil) {
-			//var schemataNew []CWLType_Type
-
-			var hintsArray []Requirement
-			hintsArray, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
-			if err != nil {
-				err = fmt.Errorf("(NewWorkflow) error in CreateRequirementArray (hints): %s", err.Error())
-				return
-			}
-			//for i, _ := range schemataNew {
-			//	schemata = append(schemata, schemataNew[i])
-			//}
-			object["hints"] = hintsArray
-		}
-
-		var workflowID string
-
-		workflowIDIf, hasID := object["id"]
-		if hasID {
-
-			workflowID, ok = workflowIDIf.(string)
-			if !ok {
-				err = fmt.Errorf("(NewWorkflow) is is not a string")
-				return
-			}
-		} else {
-
-			if objectIdentifier != "" {
-				workflowID = objectIdentifier
-				object["id"] = objectIdentifier
-			} else {
-
-				if parentIdentifier == "" {
-					err = fmt.Errorf("(NewWorkflow) no id and parentIdentifier empty")
-					return
-				}
-
-				workflowID = path.Join(parentIdentifier, uuid.New())
-
-			}
-		}
-
-		if !strings.HasPrefix(workflowID, "#") {
-
-			if parentIdentifier != "" {
-				workflowID = path.Join(parentIdentifier, workflowID)
-				object["id"] = workflowID
-			} else {
-
-				err = fmt.Errorf("(NewWorkflow) id is not absolute? workflowID: %s", workflowID)
-				return
-			}
-
+			err = fmt.Errorf("(NewWorkflow) CreateRequirementArrayAndInject returned: %s", err.Error())
 		}
 
 		// convert steps to array if it is a map
@@ -205,7 +143,8 @@ func NewWorkflow(original interface{}, parentIdentifier string, objectIdentifier
 		if ok {
 			logger.Debug(3, "(NewWorkflow) Parsing steps in Workflow")
 			var schemataNew []CWLType_Type
-
+			workflowID := process.ID
+			requirementsArray := process.Requirements
 			//fmt.Printf("(NewWorkflow) Injecting %d\n", len(requirements_array))
 			//spew.Dump(requirements_array)
 			schemataNew, object["steps"], err = CreateWorkflowStepsArray(steps, workflowID, requirementsArray, context)
@@ -237,6 +176,10 @@ func NewWorkflow(original interface{}, parentIdentifier string, objectIdentifier
 			err = fmt.Errorf("(NewWorkflow) error parsing workflow class: %s", err.Error())
 			return
 		}
+
+		//fmt.Println("workflow:")
+		//spew.Dump(workflow)
+
 		if context.Namespaces != nil {
 			workflow.Namespaces = context.Namespaces
 		}

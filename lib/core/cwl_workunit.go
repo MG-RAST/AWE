@@ -99,7 +99,7 @@ func NewCWLWorkunitFromInterface(native interface{}, baseIdentifier string, cont
 			case "ExpressionTool":
 				var expressiontool *cwl.ExpressionTool
 
-				expressiontool, err = cwl.NewExpressionTool(toolGeneric, nil, nil, context)
+				expressiontool, err = cwl.NewExpressionTool(toolGeneric, baseIdentifier, "", nil, nil, context)
 				if err != nil {
 					err = fmt.Errorf("(NewCWLWorkunitFromInterface) NewExpreassonTool failed: %s", err.Error())
 					return

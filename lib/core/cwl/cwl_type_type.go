@@ -64,14 +64,20 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, contextSt
 
 		if !ok {
 
-			var someSchemaDef CWLType_Type
-			someSchemaDef, ok = context.Schemata[native]
+			//	var someSchemaDef CWLType_Type
+			_, ok = context.Schemata[native]
 			if ok {
-				result = append(result, someSchemaDef)
+				// found Schema, add pointer NewPointerFromstring(native)
+				result = append(result, NewPointerFromstring(native))
 				return
 			}
 
-			err = fmt.Errorf("(NewCWLType_TypeFromString) type %s unkown", native)
+			sList := ""
+			for k, _ := range context.Schemata {
+				sList += "," + k
+			}
+
+			err = fmt.Errorf("(NewCWLType_TypeFromString) type %s unkown (found custom schemata: %s)", native, sList)
 			return
 		}
 
@@ -157,6 +163,7 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 		if err != nil {
 			err = fmt.Errorf("(NewCWLType_Type) A NewCWLType_TypeFromString returned: %s", err.Error())
 		}
+
 		return
 
 	case CWLType_Type_Basic:

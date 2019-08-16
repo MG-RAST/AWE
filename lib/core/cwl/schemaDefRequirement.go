@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -36,12 +37,15 @@ func NewSchemaDefRequirement(original interface{}, context *WorkflowContext) (r 
 
 	types, hasTypes := originalMap["types"]
 	if hasTypes {
-
+		logger.Debug(3, "(NewSchemaDefRequirement) has types")
 		//var array []CWLType_Type
 		schemata, err = NewCWLType_TypeArray(types, []CWLType_Type{}, "Input", true, context)
 		if err != nil {
 			return
 		}
+
+		logger.Debug(3, "(NewSchemaDefRequirement) has %d types", len(schemata))
+
 		originalMap["types"] = schemata
 		if context != nil {
 			err = context.AddSchemata(schemata, true)
@@ -49,6 +53,10 @@ func NewSchemaDefRequirement(original interface{}, context *WorkflowContext) (r 
 				err = fmt.Errorf("(NewSchemaDefRequirement) context.AddSchemata returned: %s", err.Error())
 			}
 		}
+	} else {
+		logger.Debug(3, "(NewSchemaDefRequirement) no types found")
+		spew.Dump(originalMap)
+		panic("I am sad")
 	}
 
 	var requirement SchemaDefRequirement
@@ -61,12 +69,20 @@ func NewSchemaDefRequirement(original interface{}, context *WorkflowContext) (r 
 
 	requirement.Class = "SchemaDefRequirement"
 
+	if context != nil {
+		//fmt.Println("----------------")
+		//spew.Dump(originalMap)
+		//fmt.Println("----------------")
+		logger.Debug(3, "(NewSchemaDefRequirement) adding... %d", len(schemata))
+		context.AddSchemata(schemata, true)
+	}
+
 	//spew.Dump(requirement)
 
 	return
 }
 
-// GetSchemaDefRequirement _
+// GetSchemaDefRequirement Searches for SchemaDefRequirement and returns it
 func GetSchemaDefRequirement(original interface{}, context *WorkflowContext) (r *SchemaDefRequirement, ok bool, err error) {
 	original, err = MakeStringMap(original, context)
 	if err != nil {
@@ -80,6 +96,8 @@ func GetSchemaDefRequirement(original interface{}, context *WorkflowContext) (r 
 
 		originalArray := original.([]interface{})
 		ok = false
+
+		logger.Debug(3, "(GetSchemaDefRequirement) len(originalArray): %d", len(originalArray))
 
 		for i := range originalArray {
 
@@ -101,6 +119,8 @@ func GetSchemaDefRequirement(original interface{}, context *WorkflowContext) (r 
 					err = fmt.Errorf("(GetSchemaDefRequirement) []interface{} GetClass returned: %s", err.Error())
 					return
 				}
+
+				//fmt.Printf("(GetSchemaDefRequirement) got B: %s XXXXX\n", class)
 
 				if class != "SchemaDefRequirement" {
 					continue
@@ -125,23 +145,24 @@ func GetSchemaDefRequirement(original interface{}, context *WorkflowContext) (r 
 
 	case map[string]interface{}:
 
-		var class string
-		class, err = GetClass(original)
-		if err != nil {
-			err = fmt.Errorf("(GetSchemaDefRequirement) map[string]interface{} GetClass returned: %s", err.Error())
-			return
-		}
+		originalMap := original.(map[string]interface{})
 
-		if class != "SchemaDefRequirement" {
-			return
-		}
+		for name := range originalMap {
 
-		r, err = NewSchemaDefRequirement(original, context)
-		if err != nil {
-			err = fmt.Errorf("(GetSchemaDefRequirement) NewSchemaDefRequirement returned: %s", err.Error())
-			return
+			// fmt.Printf("(GetSchemaDefRequirement) got A: %s XXXXX\n", name)
+			// spew.Dump(original)
+			if name != "SchemaDefRequirement" {
+				continue
+			}
+
+			r, err = NewSchemaDefRequirement(originalMap[name], context)
+			if err != nil {
+				err = fmt.Errorf("(GetSchemaDefRequirement) NewSchemaDefRequirement returned: %s", err.Error())
+				return
+			}
+			ok = true
+
 		}
-		ok = true
 
 	default:
 		err = fmt.Errorf("(GetSchemaDefRequirement) type %s unknown", reflect.TypeOf(original))

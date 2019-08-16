@@ -422,7 +422,7 @@ func CreateWorkflowStepsArray(original interface{}, workflowID string, injectedR
 			//spew.Dump(injectedRequirements)
 			step, schemataNew, err = NewWorkflowStepFromInterface(v, stepID, workflowID, injectedRequirements, context)
 			if err != nil {
-				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
+				err = fmt.Errorf("(CreateWorkflowStepsArray) map NewWorkflowStep failed: %s", err.Error())
 				return
 			}
 
@@ -454,7 +454,7 @@ func CreateWorkflowStepsArray(original interface{}, workflowID string, injectedR
 			//spew.Dump(injectedRequirements)
 			step, schemataNew, err = NewWorkflowStepFromInterface(v, "", workflowID, injectedRequirements, context)
 			if err != nil {
-				err = fmt.Errorf("(CreateWorkflowStepsArray) NewWorkflowStep failed: %s", err.Error())
+				err = fmt.Errorf("(CreateWorkflowStepsArray) array NewWorkflowStep failed: %s", err.Error())
 				return
 			}
 			for i := range schemataNew {

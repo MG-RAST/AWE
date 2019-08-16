@@ -117,7 +117,7 @@ func NewCWLObject(original interface{}, objectIdentifier string, parentIdentifie
 			//fmt.Println("NewCWLObject CommandLineTool")
 			logger.Debug(1, "(NewCWLObject) parse ExpressionTool")
 			var et *ExpressionTool
-			et, err = NewExpressionTool(elem, nil, injectedRequirements, context) // TODO provide schemata
+			et, err = NewExpressionTool(elem, parentIdentifier, objectIdentifier, nil, injectedRequirements, context) // TODO provide schemata
 			if err != nil {
 				err = fmt.Errorf("(NewCWLObject) ExpressionTool returned: %s", err.Error())
 				return

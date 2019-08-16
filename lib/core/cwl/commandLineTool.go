@@ -3,13 +3,11 @@ package cwl
 import (
 	//"errors"
 	"fmt"
-	"path"
 	"strings"
 
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 
-	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
@@ -18,15 +16,11 @@ import (
 type CommandLineTool struct {
 	//Id                 string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
 	//Class              string                   `yaml:"class,omitempty" bson:"class,omitempty" json:"class,omitempty"`
-	CWLObjectImpl      `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	CWL_class_Impl     `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	IdentifierImpl     `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	ProcessImpl        `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"`
+
+	ProcessImpl        `yaml:",inline" bson:",inline" json:",inline" mapstructure:"-"`
 	BaseCommand        []string                 `yaml:"baseCommand,omitempty" bson:"baseCommand,omitempty" json:"baseCommand,omitempty" mapstructure:"baseCommand,omitempty"`
 	Inputs             []CommandInputParameter  `yaml:"inputs" bson:"inputs" json:"inputs" mapstructure:"inputs"`
 	Outputs            []CommandOutputParameter `yaml:"outputs" bson:"outputs" json:"outputs" mapstructure:"outputs"`
-	Hints              []Requirement            `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`
-	Requirements       []Requirement            `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"`
 	Doc                string                   `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
 	Label              string                   `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
 	Description        string                   `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty" mapstructure:"description,omitempty"`
@@ -69,59 +63,23 @@ func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIden
 	//spew.Dump(object)
 
 	commandLineTool = &CommandLineTool{}
-	commandLineTool.Class = "CommandLineTool"
 
 	//fmt.Printf("(NewCommandLineTool) requirements %d\n", len(requirements_array))
 	//spew.Dump(requirements_array)
 	//scs := spew.ConfigState{Indent: "\t"}
 	//scs.Dump(object["requirements"])
 
-	if objectIdentifier != "" {
-		object["id"] = objectIdentifier
-	} else {
-
-		objectIDIf, hasID := object["id"]
-		if hasID {
-
-			objectID := objectIDIf.(string)
-
-			if !strings.HasPrefix(objectID, "#") {
-				if parentIdentifier == "" {
-					err = fmt.Errorf("(NewCommandLineTool) A) parentIdentifier is needed but empty, objectID=%s", objectID)
-					return
-				}
-				objectID = path.Join(parentIdentifier, objectID)
-			}
-
-			if !strings.HasPrefix(objectID, "#") {
-				err = fmt.Errorf("(NewCommandLineTool) not absolute: objectID=%s , parentIdentifier=%s, objectIdentifier=%s", objectID, parentIdentifier, objectIdentifier)
-				return
-			}
-			object["id"] = objectID
-		} else {
-			if parentIdentifier == "" {
-				err = fmt.Errorf("(NewCommandLineTool) B) parentIdentifier is needed but empty")
-				return
-			}
-
-			objectID := path.Join(parentIdentifier, uuid.New())
-			object["id"] = objectID
-		}
+	commandLineTool.ProcessImpl = ProcessImpl{}
+	var process *ProcessImpl
+	process = &commandLineTool.ProcessImpl
+	process.Class = "CommandLineTool"
+	err = ProcessImplInit(generic, process, parentIdentifier, objectIdentifier, context)
+	if err != nil {
+		err = fmt.Errorf("(NewCommandLineTool) NewProcessImpl returned: %s", err.Error())
+		return
 	}
 
-	// extract SchemaDefRequirement
-	var schemaDefReq *SchemaDefRequirement
-	//var schemataNew []CWLType_Type
-	hasSchemaDefReq := false
-
-	requirementsIf, hasRequirements := object["requirements"]
-	if hasRequirements {
-		schemaDefReq, hasSchemaDefReq, err = GetSchemaDefRequirement(requirementsIf, context)
-		if err != nil {
-			err = fmt.Errorf("(NewCommandLineTool) GetSchemaDefRequirement returned: %s", err.Error())
-			return
-		}
-	}
+	commandLineTool.ProcessImpl = *process
 
 	//if has_schema_def_req {
 	//	for i, _ := range schemataNew {
@@ -190,41 +148,17 @@ func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIden
 		object["arguments"] = argumentsObject
 	}
 
-	if hasSchemaDefReq {
-		injectedRequirements = append(injectedRequirements, schemaDefReq)
-	}
+	//if hasSchemaDefReq {
+	//	injectedRequirements = append(injectedRequirements, schemaDefReq)
+	//}
 
-	var requirementsArray []Requirement
+	err = CreateRequirementAndHints(object, process, injectedRequirements, inputs, context)
+	if err != nil {
+		err = fmt.Errorf("(NewCommandLineTool) CreateRequirementArrayAndInject returned: %s", err.Error())
+	}
 
 	//fmt.Printf("(NewCommandLineTool) Injecting %d\n", len(requirementsArray))
 	//spew.Dump(requirementsArray)
-	requirementsArray, err = CreateRequirementArrayAndInject(requirementsIf, injectedRequirements, nil, context)
-	if err != nil {
-		err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (requirements): %s", err.Error())
-		return
-	}
-
-	//for i, _ := range schemataNew {
-	//	schemata = append(schemata, schemataNew[i])
-	//}
-
-	object["requirements"] = requirementsArray
-
-	hints, ok := object["hints"]
-	if ok && (hints != nil) {
-		//var schemataNew []CWLType_Type
-
-		var hintsArray []Requirement
-		hintsArray, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
-		if err != nil {
-			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
-			return
-		}
-		//for i, _ := range schemataNew {
-		//	schemata = append(schemata, schemataNew[i])
-		//}
-		object["hints"] = hintsArray
-	}
 
 	err = mapstructure.Decode(object, commandLineTool)
 	if err != nil {

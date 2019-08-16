@@ -173,7 +173,7 @@ func main() {
 		cmd.Name = "cwl-runner"
 
 		//"--provenance", "cwl_tool_provenance",
-		cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--disable-pull", "--rm-container", "--on-error", "stop", workunit.CWLWorkunit.ToolFilename, workunit.CWLWorkunit.JobInputFilename}
+		cmd.ArgsArray = []string{"--leave-outputs", "--leave-tmpdir", "--tmp-outdir-prefix", "./tmp/", "--tmpdir-prefix", "./tmp/", "--rm-container", "--on-error", "stop", workunit.CWLWorkunit.ToolFilename, workunit.CWLWorkunit.JobInputFilename}
 		if conf.CWL_RUNNER_ARGS != "" {
 			cwlRunnerArgsArray := strings.Split(conf.CWL_RUNNER_ARGS, " ")
 			cmd.ArgsArray = append(cwlRunnerArgsArray, cmd.ArgsArray...)

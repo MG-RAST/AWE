@@ -145,7 +145,7 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 	return
 }
 
-func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.ShockClient, lazyUpload bool) (count int, err error) {
+func UploadFile(file *cwl.File, inputfile_path string, shockClient *shock.ShockClient, lazyUpload bool) (count int, err error) {
 
 	if file.Contents != "" {
 		return
@@ -248,24 +248,24 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	var nodeid string
 	if lazyUpload {
 		//example: "${SHOCK_SERVER}/node?querynode&file.checksum.md5=37cbb1f811a144158cec0cbd87d97941"
-		//nodeid, err = shock_client.PostFileIf(file_path, new_file_name)
+		//nodeid, err = shockClient.PostFileIf(file_path, new_file_name)
 
-		nodeid, err = shock_client.PostFileLazy(file_path, new_file_name, false)
+		nodeid, err = shockClient.PostFileLazy(file_path, new_file_name, false)
 		if err != nil {
-			err = fmt.Errorf("(UploadFile) shock_client.PostFileLazy returned: %s", err.Error())
+			err = fmt.Errorf("(UploadFile) shockClient.PostFileLazy returned: %s", err.Error())
 			return
 		}
 	} else {
 
-		nodeid, err = shock_client.PostFile(file_path, new_file_name)
+		nodeid, err = shockClient.PostFile(file_path, new_file_name)
 		if err != nil {
-			err = fmt.Errorf("(UploadFile) shock_client.PostFile returned: %s", err.Error())
+			err = fmt.Errorf("(UploadFile) shockClient.PostFile returned: %s", err.Error())
 			return
 		}
 	}
 
 	var location_url *url.URL
-	location_url, err = url.Parse(shock_client.Host) // Host includes a path to the API !
+	location_url, err = url.Parse(shockClient.Host) // Host includes a path to the API !
 	if err != nil {
 		err = fmt.Errorf("(UploadFile) url.Parse returned: %s", err.Error())
 		return
@@ -318,7 +318,7 @@ func UploadFile(file *cwl.File, inputfile_path string, shock_client *shock.Shock
 	return
 }
 
-func DownloadFile(file *cwl.File, download_path string, base_path string, shock_client *shock.ShockClient) (err error) {
+func DownloadFile(file *cwl.File, download_path string, basePath string, shockClient *shock.ShockClient) (err error) {
 
 	if file.Contents != "" {
 		err = fmt.Errorf("(DownloadFile) File is a literal")
@@ -382,9 +382,9 @@ func DownloadFile(file *cwl.File, download_path string, base_path string, shock_
 
 	token := ""
 
-	if shock_client != nil {
-		if strings.HasPrefix(file.Location, shock_client.Host) {
-			token = shock_client.Token
+	if shockClient != nil {
+		if strings.HasPrefix(file.Location, shockClient.Host) {
+			token = shockClient.Token
 		}
 	}
 
@@ -408,9 +408,9 @@ func DownloadFile(file *cwl.File, download_path string, base_path string, shock_
 		return
 	}
 
-	base_path = path.Join(strings.TrimSuffix(base_path, "/"), "/")
+	basePath = path.Join(strings.TrimSuffix(basePath, "/"), "/")
 
-	file.Location = strings.TrimPrefix(strings.TrimPrefix(file_path, base_path), "/") // "file://" +  ?
+	file.Location = strings.TrimPrefix(strings.TrimPrefix(file_path, basePath), "/") // "file://" +  ?
 
 	file.SetPath(file.Location)
 	//fmt.Println("file:")
@@ -419,19 +419,20 @@ func DownloadFile(file *cwl.File, download_path string, base_path string, shock_
 	return
 }
 
-func UploadDirectory(dir *cwl.Directory, current_path string, shock_client *shock.ShockClient, lazyUpload bool) (count int, err error) {
+// UploadDirectory _
+func UploadDirectory(dir *cwl.Directory, currentPath string, shockClient *shock.ShockClient, context *cwl.WorkflowContext, lazyUpload bool) (count int, err error) {
 
 	//pwd, _ := os.Getwd()
 	//fmt.Printf("current working directory: %s\n", pwd)
 
-	dir_path_fixed := path.Join(current_path, dir.Path)
+	dir_path_fixed := path.Join(currentPath, dir.Path)
 	//fmt.Printf("dir_path_fixed: %s\n", dir_path_fixed)
 
-	current_path = strings.TrimSuffix(current_path, "/") + "/" // make sure it has esxactly one / at the end
-	//fmt.Printf("current_path: %s\n", current_path)
+	currentPath = strings.TrimSuffix(currentPath, "/") + "/" // make sure it has esxactly one / at the end
+	//fmt.Printf("currentPath: %s\n", currentPath)
 
-	//current_path_abs := path.Join(pwd, current_path)
-	//fmt.Printf("current_path_abs: %s\n", current_path_abs)
+	//currentPath_abs := path.Join(pwd, currentPath)
+	//fmt.Printf("currentPath_abs: %s\n", currentPath_abs)
 
 	var fi os.FileInfo
 
@@ -466,7 +467,7 @@ func UploadDirectory(dir *cwl.Directory, current_path string, shock_client *shoc
 		}
 
 		// match_rel is relative to directory dir
-		match_rel := strings.TrimPrefix(match, current_path)
+		match_rel := strings.TrimPrefix(match, currentPath)
 
 		//fmt.Printf("match_rel : %s\n", match_rel)
 
@@ -482,7 +483,7 @@ func UploadDirectory(dir *cwl.Directory, current_path string, shock_client *shoc
 			subdir.Path = match_rel
 			subdir.Basename = path.Base(match)
 			var subcount int
-			subcount, err = UploadDirectory(subdir, current_path, shock_client, lazyUpload)
+			subcount, err = UploadDirectory(subdir, currentPath, shockClient, context, lazyUpload)
 			if err != nil {
 				err = fmt.Errorf("(UploadDirectory) UploadDirectory returned: %s", err.Error())
 				return
@@ -500,7 +501,7 @@ func UploadDirectory(dir *cwl.Directory, current_path string, shock_client *shoc
 		file.SetPath(match_rel)
 		//file.Basename = path.Base(match)
 		var uploadCount int
-		uploadCount, err = ProcessIOData(file, current_path, current_path, "upload", shock_client, lazyUpload, false)
+		uploadCount, err = ProcessIOData(file, currentPath, currentPath, "upload", shockClient, context, lazyUpload, false)
 		if err != nil {
 			err = fmt.Errorf("(UploadDirectory) ProcessIOData returned: %s", err.Error())
 			return
@@ -522,7 +523,7 @@ func UploadDirectory(dir *cwl.Directory, current_path string, shock_client *shoc
 
 // ProcessIOData
 // lazyUpload boolean: get Shock Copy node is data already exists in Shock
-func ProcessIOData(native interface{}, current_path string, base_path string, io_type string, shock_client *shock.ShockClient, lazyUpload bool, removeIDField bool) (count int, err error) {
+func ProcessIOData(native interface{}, currentPath string, basePath string, ioType string, shockClient *shock.ShockClient, context *cwl.WorkflowContext, lazyUpload bool, removeIDField bool) (count int, err error) {
 
 	//fmt.Printf("(processIOData) start (type:  %s) \n", reflect.TypeOf(native))
 
@@ -550,7 +551,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			//	fmt.Printf("location: %s\n", value_file.Location)
 			//}
 
-			sub_count, err = ProcessIOData(value, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(value, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				return
 			}
@@ -572,7 +573,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			//id := value.Id
 			//fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
-			sub_count, err = ProcessIOData(job_doc[i], current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(job_doc[i], currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				return
 			}
@@ -583,7 +584,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 	case cwl.NamedCWLType:
 		named := native.(cwl.NamedCWLType)
 		var sub_count int
-		sub_count, err = ProcessIOData(named.Value, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+		sub_count, err = ProcessIOData(named.Value, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 		if err != nil {
 			return
 		}
@@ -592,7 +593,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 	case cwl.NamedCWLObject:
 		named := native.(cwl.NamedCWLObject)
 		var sub_count int
-		sub_count, err = ProcessIOData(named.Value, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+		sub_count, err = ProcessIOData(named.Value, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 		if err != nil {
 			return
 		}
@@ -623,7 +624,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			return
 		}
 
-		if io_type == "upload" {
+		if ioType == "upload" {
 			if !conf.SUBMITTER_QUIET {
 				logger.Debug(0, "(ProcessIOData) Uploading file %s %s", file.Path, file.Location)
 			}
@@ -635,10 +636,10 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 			var sub_count int // sub_count is 0 or 1
 
-			sub_count, err = UploadFile(file, current_path, shock_client, lazyUpload)
+			sub_count, err = UploadFile(file, currentPath, shockClient, lazyUpload)
 			if err != nil {
 
-				err = fmt.Errorf("(ProcessIOData) *cwl.File current_path:%s UploadFile returned: %s (file: %s)", current_path, err.Error(), spew.Sdump(*file))
+				err = fmt.Errorf("(ProcessIOData) *cwl.File currentPath:%s UploadFile returned: %s (file: %s)", currentPath, err.Error(), spew.Sdump(*file))
 				return
 			}
 
@@ -651,7 +652,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 			// download
 
-			err = DownloadFile(file, current_path, base_path, shock_client)
+			err = DownloadFile(file, currentPath, basePath, shockClient)
 			if err != nil {
 				err = fmt.Errorf("(ProcessIOData) DownloadFile returned: %s (file: %s)", err.Error(), file)
 				return
@@ -664,7 +665,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			for i, _ := range file.SecondaryFiles {
 				value := file.SecondaryFiles[i]
 				var sub_count int
-				sub_count, err = ProcessIOData(value, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+				sub_count, err = ProcessIOData(value, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 				if err != nil {
 					err = fmt.Errorf("(ProcessIOData) (for SecondaryFiles) ProcessIOData returned: %s", err.Error())
 					return
@@ -688,9 +689,9 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			//id := value.GetID()
 			//fmt.Printf("recurse into key: %s\n", id)
 			var sub_count int
-			sub_count, err = ProcessIOData((*array)[i], current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData((*array)[i], currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
-				err = fmt.Errorf("(ProcessIOData) (for *cwl.Array) current_path:%s ProcessIOData returned: %s", current_path, err.Error())
+				err = fmt.Errorf("(ProcessIOData) (for *cwl.Array) currentPath:%s ProcessIOData returned: %s", currentPath, err.Error())
 				return
 			}
 			count += sub_count
@@ -704,9 +705,9 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			//id := value.GetID()
 
 			var sub_count int
-			sub_count, err = ProcessIOData((array)[i], current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData((array)[i], currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
-				err = fmt.Errorf("(ProcessIOData) (for *cwl.Array) current_path:%s ProcessIOData returned: %s", current_path, err.Error())
+				err = fmt.Errorf("(ProcessIOData) (for *cwl.Array) currentPath:%s ProcessIOData returned: %s", currentPath, err.Error())
 				return
 			}
 			count += sub_count
@@ -729,9 +730,9 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			return
 		}
 
-		path_to_download_to := current_path
+		path_to_download_to := currentPath
 
-		if io_type == "download" {
+		if ioType == "download" {
 			dir_basename := dir.Basename
 			if dir_basename == "" {
 				dir_basename = path.Base(dir.Path)
@@ -742,7 +743,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 				err = fmt.Errorf("(ProcessIOData) basename of subdir is empty")
 				return
 			}
-			path_to_download_to = path.Join(current_path, dir_basename)
+			path_to_download_to = path.Join(currentPath, dir_basename)
 
 			dir.Path = ""
 			if dir.Location != "" {
@@ -764,7 +765,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 				//fmt.Printf("XXX *cwl.Directory, Listing %d (%s)\n", k, reflect.TypeOf(value))
 
 				var sub_count int
-				sub_count, err = ProcessIOData(value, path_to_download_to, base_path, io_type, shock_client, lazyUpload, removeIDField)
+				sub_count, err = ProcessIOData(value, path_to_download_to, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 				if err != nil {
 					err = fmt.Errorf("(ProcessIOData) ProcessIOData for Directory.Listing returned (value: %s): %s", value, err.Error())
 					return
@@ -778,7 +779,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		// case: dir.Listing == nil
 
 		logger.Debug(3, "dir.Path: %s", dir.Path)
-		if io_type == "upload" {
+		if ioType == "upload" {
 
 			if dir.Path == "" {
 				if dir.Location == "" {
@@ -821,7 +822,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			//}
 			var sub_count int
 
-			sub_count, err = UploadDirectory(dir, current_path, shock_client, lazyUpload)
+			sub_count, err = UploadDirectory(dir, currentPath, shockClient, context, lazyUpload)
 			if err != nil {
 				err = fmt.Errorf("(ProcessIOData) UploadDirectory returned: %s", err.Error())
 				return
@@ -864,7 +865,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		for _, value := range *rec {
 			//value := rec.Fields[k]
 			var sub_count int
-			sub_count, err = ProcessIOData(value, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(value, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				return
 			}
@@ -880,7 +881,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		for _, value := range rec {
 			//value := rec.Fields[k]
 			var sub_count int
-			sub_count, err = ProcessIOData(value, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(value, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				return
 			}
@@ -910,7 +911,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		if ok {
 
 			var sub_count int
-			sub_count, err = ProcessIOData(file, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(file, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				return
 			}
@@ -923,7 +924,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		if ok {
 
 			var sub_count int
-			sub_count, err = ProcessIOData(dir, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(dir, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				return
 			}
@@ -940,7 +941,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			if input.Default != nil {
 
 				var sub_count int
-				sub_count, err = ProcessIOData(&input, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+				sub_count, err = ProcessIOData(&input, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 				if err != nil {
 					return
 				}
@@ -954,7 +955,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			step := &workflow.Steps[step_pos]
 
 			var sub_count int
-			sub_count, err = ProcessIOData(step, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(step, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				return
 			}
@@ -963,18 +964,33 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 
 	case *cwl.WorkflowStep:
+		//fmt.Println("(processIOData) *cwl.WorkflowStep")
 		step := native.(*cwl.WorkflowStep)
 		for pos, _ := range step.In {
 			input := &step.In[pos]
 
 			var sub_count int
-			sub_count, err = ProcessIOData(input, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(input, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				return
 			}
 			count += sub_count
 
 		}
+
+		//spew.Dump(step)
+		//panic("oh no!")
+		var process interface{}
+		process, _, err = step.GetProcess(context)
+		if process != nil {
+			var sub_count int
+			sub_count, err = ProcessIOData(process, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
+			if err != nil {
+				return
+			}
+			count += sub_count
+		}
+
 	case *cwl.WorkflowStepInput:
 		input := native.(*cwl.WorkflowStepInput)
 
@@ -983,14 +999,14 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		file, ok = input.Default.(*cwl.File)
 		if ok {
 			var sub_count int
-			sub_count, err = ProcessIOData(file, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(file, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				return
 			}
 			count += sub_count
 		}
 	case *cwl.CommandLineTool:
-
+		//fmt.Println("(processIOData) *cwl.CommandLineTool")
 		clt := native.(*cwl.CommandLineTool)
 
 		for i := range clt.Inputs { // CommandInputParameter
@@ -998,7 +1014,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			commandInputParameter := &clt.Inputs[i]
 
 			var sub_count int
-			sub_count, err = ProcessIOData(commandInputParameter, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(commandInputParameter, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				err = fmt.Errorf("(processIOData) CommandLineTool.Default ProcessIOData(for download) returned: %s", err.Error())
 				return
@@ -1011,7 +1027,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			requirement := &clt.Requirements[i]
 
 			var sub_count int
-			sub_count, err = ProcessIOData(requirement, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(requirement, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				err = fmt.Errorf("(processIOData) CommandLineTool.Default ProcessIOData(for download) returned: %s", err.Error())
 				return
@@ -1031,7 +1047,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			if input_parameter.Default != nil {
 
 				var sub_count int
-				sub_count, err = ProcessIOData(input_parameter, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+				sub_count, err = ProcessIOData(input_parameter, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 				if err != nil {
 					err = fmt.Errorf("(processIOData) ExpressionTool,InputParameter ProcessIOData(for download) returned: %s", err.Error())
 					return
@@ -1052,21 +1068,22 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			var ok bool
 			file, ok = cip.Default.(*cwl.File)
 			if ok {
-				if io_type == "upload" {
+				if ioType == "upload" {
 					var file_exists bool
-					file_exists, err = file.Exists(current_path)
+					file_exists, err = file.Exists(currentPath)
 					if err != nil {
 						err = fmt.Errorf("(processIOData) cwl.CommandInputParameter file.Exists returned: %s", err.Error())
 						return
 					}
 					if !file_exists {
-
+						logger.Debug(3, "(processIOData) cwl.CommandInputParameter default does not exist")
 						// Defaults are optional, file missing is no error
 						return
 					}
+					logger.Debug(3, "(processIOData) cwl.CommandInputParameter default exists")
 				}
 
-				if io_type == "download" {
+				if ioType == "download" {
 					if file.Location == "" {
 						// Default file with no Location can be ignored
 						return
@@ -1075,7 +1092,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			}
 
 			var sub_count int
-			sub_count, err = ProcessIOData(cip.Default, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(cip.Default, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				err = fmt.Errorf("(processIOData) CommandInputParameter ProcessIOData(for download) returned: %s", err.Error())
 				return
@@ -1152,21 +1169,21 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		var ok bool
 		file, ok = ip.Default.(*cwl.File)
 		if ok {
-			if io_type == "upload" {
+			if ioType == "upload" {
 				var file_exists bool
-				file_exists, err = file.Exists(current_path)
+				file_exists, err = file.Exists(currentPath)
 				if err != nil {
 					err = fmt.Errorf("(processIOData) cwl.InputParameter file.Exists returned: %s", err.Error())
 					return
 				}
 				if !file_exists {
-					fmt.Println("(processIOData) InputParameter, Default file not found (current_path: %s)", current_path)
+					// InputParameter, Default file not found (currentPath: %s)", currentPath)
 					// Defaults are optional, file missing is no error
 					return
 				}
 			}
 
-			if io_type == "download" {
+			if ioType == "download" {
 				if file.Location == "" {
 					// Default file with no Location can be ignored
 					return
@@ -1175,7 +1192,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 
 		var sub_count int
-		sub_count, err = ProcessIOData(ip.Default, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+		sub_count, err = ProcessIOData(ip.Default, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 		if err != nil {
 			err = fmt.Errorf("(processIOData) InputParameter ProcessIOData(for download) returned: %s", err.Error())
 			return
@@ -1184,11 +1201,11 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 
 	case *core.CWLWorkunit:
 
-		if io_type == "download" {
+		if ioType == "download" {
 			work := native.(*core.CWLWorkunit)
 
 			var sub_count int
-			sub_count, err = ProcessIOData(work.JobInput, current_path, base_path, "download", shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(work.JobInput, currentPath, basePath, "download", shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				err = fmt.Errorf("(processIOData) work.Job_input ProcessIOData(for download) returned: %s", err.Error())
 				return
@@ -1196,7 +1213,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			count += sub_count
 
 			sub_count = 0
-			sub_count, err = ProcessIOData(work.Tool, current_path, base_path, "download", shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(work.Tool, currentPath, basePath, "download", shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				err = fmt.Errorf("(processIOData) work.Tool ProcessIOData(for download) returned: %s", err.Error())
 				return
@@ -1216,7 +1233,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			entry_array := dirent.Entry.([]interface{})
 			for i, _ := range entry_array {
 				sub_count := 0
-				sub_count, err = ProcessIOData(entry_array[i], current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+				sub_count, err = ProcessIOData(entry_array[i], currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 				if err != nil {
 					err = fmt.Errorf("(processIOData) work.Tool ProcessIOData(for download) returned: %s", err.Error())
 					return
@@ -1227,7 +1244,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		case cwl.File:
 			file := dirent.Entry.(cwl.File)
 			sub_count := 0
-			sub_count, err = ProcessIOData(file, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(file, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				err = fmt.Errorf("(processIOData) work.Tool ProcessIOData(for download) returned: %s", err.Error())
 				return
@@ -1236,7 +1253,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		case *cwl.File:
 			file := dirent.Entry.(*cwl.File)
 			sub_count := 0
-			sub_count, err = ProcessIOData(file, current_path, base_path, io_type, shock_client, lazyUpload, removeIDField)
+			sub_count, err = ProcessIOData(file, currentPath, basePath, ioType, shockClient, context, lazyUpload, removeIDField)
 			if err != nil {
 				err = fmt.Errorf("(processIOData) work.Tool ProcessIOData(for download) returned: %s", err.Error())
 				return
@@ -1265,7 +1282,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 					for i, _ := range obj_array {
 
 						sub_count := 0
-						sub_count, err = ProcessIOData(obj_array[i], current_path, base_path, "download", shock_client, lazyUpload, removeIDField)
+						sub_count, err = ProcessIOData(obj_array[i], currentPath, basePath, "download", shockClient, context, lazyUpload, removeIDField)
 						if err != nil {
 							err = fmt.Errorf("(processIOData) []cwl.CWLObject cwl.Requirement/Listing returned: %s", err.Error())
 							return
@@ -1274,7 +1291,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 					}
 				case cwl.File:
 					sub_count := 0
-					sub_count, err = ProcessIOData(iwdr.Listing, current_path, base_path, "download", shock_client, lazyUpload, removeIDField)
+					sub_count, err = ProcessIOData(iwdr.Listing, currentPath, basePath, "download", shockClient, context, lazyUpload, removeIDField)
 					if err != nil {
 						err = fmt.Errorf("(processIOData) cwl.File cwl.Requirement/Listing  returned: %s", err.Error())
 						return
@@ -1301,7 +1318,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		// that should trigger only for $schemas
 		nativeArray := native.([]interface{})
 
-		if io_type == "upload" {
+		if ioType == "upload" {
 
 			for i, _ := range nativeArray {
 				switch nativeArray[i].(type) {
@@ -1315,7 +1332,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 					this_file.Path = schema_str
 					nativeArray[i] = this_file
 					sub_count := 0
-					sub_count, err = ProcessIOData(this_file, current_path, base_path, "download", shock_client, lazyUpload, removeIDField)
+					sub_count, err = ProcessIOData(this_file, currentPath, basePath, "download", shockClient, context, lazyUpload, removeIDField)
 					if err != nil {
 						err = fmt.Errorf("(processIOData) []cwl.CWLObject cwl.Requirement/Listing returned: %s", err.Error())
 						return
@@ -1330,7 +1347,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			}
 
 		}
-		if io_type == "download" {
+		if ioType == "download" {
 			panic("not implemented")
 		}
 
@@ -1354,10 +1371,13 @@ func MoveInputData(work *core.Workunit) (size int64, err error) {
 
 	if work.CWLWorkunit != nil {
 
-		shock_client := shock.NewShockClient(work.ShockHost, work.Info.DataToken, false)
+		shockClient := shock.NewShockClient(work.ShockHost, work.Info.DataToken, false)
+
+		context := cwl.NewWorkflowContext()
+		//context.Init()
 
 		var count int
-		count, err = ProcessIOData(work.CWLWorkunit, work_path, work_path, "download", shock_client, false, false)
+		count, err = ProcessIOData(work.CWLWorkunit, work_path, work_path, "download", shockClient, context, false, false)
 		if err != nil {
 			err = fmt.Errorf("(MoveInputData) ProcessIOData(for download) returned: %s", err.Error())
 			return
@@ -1522,7 +1542,7 @@ func UploadOutputIO(work *core.Workunit, io *core.IO) (size int64, new_node_id s
 }
 
 // UploadOutputData _
-func UploadOutputData(work *core.Workunit, shock_client *shock.ShockClient) (size int64, err error) {
+func UploadOutputData(work *core.Workunit, shockClient *shock.ShockClient, context *cwl.WorkflowContext) (size int64, err error) {
 
 	if work.CWLWorkunit != nil {
 
@@ -1533,7 +1553,7 @@ func UploadOutputData(work *core.Workunit, shock_client *shock.ShockClient) (siz
 
 			//scs.Dump(work.CWL_workunit.Outputs)
 			var upload_count int
-			upload_count, err = ProcessIOData(work.CWLWorkunit.Outputs, "", "", "upload", shock_client, false, false)
+			upload_count, err = ProcessIOData(work.CWLWorkunit.Outputs, "", "", "upload", shockClient, context, false, false)
 			if err != nil {
 				err = fmt.Errorf("(UploadOutputData) ProcessIOData returned: %s", err.Error())
 			}

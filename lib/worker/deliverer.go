@@ -72,7 +72,8 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 		if workunit.State == core.WORK_STAT_COMPUTED {
 
 			shock_client := &shock.ShockClient{Host: workunit.ShockHost, Token: workunit.Info.DataToken, Debug: false}
-			data_moved, err := cache.UploadOutputData(workunit, shock_client)
+
+			data_moved, err := cache.UploadOutputData(workunit, shock_client, nil)
 			if err != nil {
 				workunit.SetState(core.WORK_STAT_ERROR, "UploadOutputData failed")
 				logger.Error("(deliverer_run) UploadOutputData returns workid=" + work_str + ", err=" + err.Error())

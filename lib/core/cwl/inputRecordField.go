@@ -4,8 +4,6 @@ import (
 	"fmt"
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 // InputRecordField http://www.commonwl.org/v1.0/CommandLineTool.html#InputRecordField
@@ -67,6 +65,9 @@ func CreateInputRecordFieldArray(native interface{}, schemata []CWLType_Type, co
 		return
 	}
 
+	//fmt.Println("CreateInputRecordFieldArray:")
+	//spew.Dump(native)
+
 	switch native.(type) {
 	case []interface{}:
 		nativeArray := native.([]interface{})
@@ -75,7 +76,7 @@ func CreateInputRecordFieldArray(native interface{}, schemata []CWLType_Type, co
 			var irf *InputRecordField
 			irf, err = NewInputRecordField(elem, "", schemata, context)
 			if err != nil {
-				err = fmt.Errorf("(CreateInputRecordFieldArray) returned: %s", err.Error())
+				err = fmt.Errorf("(CreateInputRecordFieldArray) NewInputRecordField returned: %s", err.Error())
 				return
 
 			}
@@ -88,9 +89,9 @@ func CreateInputRecordFieldArray(native interface{}, schemata []CWLType_Type, co
 
 		for name, elem := range nativeMap {
 
-			fmt.Printf("\n\nelem: %s\n\n", name)
-			spew.Dump(elem)
-			fmt.Println("\n-------\n\n")
+			//fmt.Printf("\n\nelem: %s\n\n", name)
+			//spew.Dump(elem)
+			//fmt.Println("\n-------\n\n")
 			var irf *InputRecordField
 			irf, err = NewInputRecordField(elem, name, schemata, context)
 			if err != nil {

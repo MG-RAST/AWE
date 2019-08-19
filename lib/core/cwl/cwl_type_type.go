@@ -281,6 +281,8 @@ func NewCWLType_Type(schemata []CWLType_Type, native interface{}, context_p stri
 				var schema *CommandInputRecordSchema
 				schema, err = NewCommandInputRecordSchemaFromInterface(native, schemata, context)
 				if err != nil {
+					//spew.Dump(native)
+					//panic("nooooo!")
 					err = fmt.Errorf("(NewCWLType_Type) NewCommandInputRecordSchemaFromInterface returned: %s", err.Error())
 				}
 				result = append(result, schema)

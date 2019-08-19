@@ -619,6 +619,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		}
 
 		if file.Contents != "" {
+			file.Location = ""
 			return
 		}
 
@@ -631,6 +632,7 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 			//spew.Dump(*file)
 			//fmt.Printf("file.Path: %s\n", file.Path)
 			//fmt.Printf("file.Location: %s\n", file.Location)
+
 			var sub_count int // sub_count is 0 or 1
 
 			sub_count, err = UploadFile(file, current_path, shock_client, lazyUpload)
@@ -648,12 +650,14 @@ func ProcessIOData(native interface{}, current_path string, base_path string, io
 		} else {
 
 			// download
+
 			err = DownloadFile(file, current_path, base_path, shock_client)
 			if err != nil {
 				err = fmt.Errorf("(ProcessIOData) DownloadFile returned: %s (file: %s)", err.Error(), file)
 				return
 			}
 			count += 1
+
 		}
 
 		if file.SecondaryFiles != nil {

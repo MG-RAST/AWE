@@ -40,6 +40,7 @@ services:
     # uncomment AWEDIR to make data and logs persistent (also requires AWE-mongo for full persistence)
     awe-server:
         image: mgrast/awe-server
+        restart: always
         # extra_hosts:
         #   - "skyport.local:${SKYPORT_DOCKER_GATEWAY}"
         entrypoint:
@@ -64,6 +65,7 @@ services:
     # the data and logs for the awe worker are persistent in this configuration
     awe-worker:
         image: mgrast/awe-worker
+        restart: always
         # worker needs to wait for AWE-server to start up
         entrypoint:
           - ash 

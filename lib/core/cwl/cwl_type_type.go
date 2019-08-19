@@ -2,6 +2,7 @@ package cwl
 
 import (
 	"fmt"
+	"path"
 	"reflect"
 	"strings"
 
@@ -51,6 +52,8 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, contextSt
 	//fmt.Printf("(NewCWLType_TypeFromString) does not contain\n")
 	//}
 
+	//fmt.Printf("(NewCWLType_TypeFromString) native: %s\n", native)
+
 	if strings.HasSuffix(native, "?") { // optional argument
 		native = strings.TrimSuffix(native, "?")
 		result = append(result, CWLNull)
@@ -63,17 +66,27 @@ func NewCWLType_TypeFromString(schemata []CWLType_Type, native string, contextSt
 		basicResult, ok = IsValidType(native)
 
 		if !ok {
-
+			//fmt.Printf("(NewCWLType_TypeFromString) native: %s not valid\n", native)
 			//	var someSchemaDef CWLType_Type
-			_, ok = context.Schemata[native]
-			if ok {
-				// found Schema, add pointer NewPointerFromstring(native)
-				result = append(result, NewPointerFromstring(native))
-				return
+
+			for name := range context.Schemata {
+				if path.Base(native) == path.Base(name) {
+					//fmt.Printf("(NewCWLType_TypeFromString) native: %s match\n", native)
+					ok = true
+					result = append(result, NewPointerFromstring(native))
+					return
+				}
 			}
+			//fmt.Printf("(NewCWLType_TypeFromString) native: %s no match\n", native)
+			// _, ok = context.Schemata[native]
+			// if ok {
+			// 	// found Schema, add pointer NewPointerFromstring(native)
+			// 	result = append(result, NewPointerFromstring(native))
+			// 	return
+			// }
 
 			sList := ""
-			for k, _ := range context.Schemata {
+			for k := range context.Schemata {
 				sList += "," + k
 			}
 

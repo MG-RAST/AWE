@@ -409,7 +409,7 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowC
 
 		for i := range context.Schemata {
 			fmt.Printf("compare schema %s with %s\n", i, haveSchemaBase)
-			if i == haveSchemaBase {
+			if path.Base(i) == haveSchemaBase {
 				ok = true
 				return
 			}

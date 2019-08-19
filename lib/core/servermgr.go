@@ -471,7 +471,7 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(workflowInstance *WorkflowIn
 							fmt.Println("new_wi, after")
 							spew.Dump(new_wi)
 							fmt.Println("dying because of: " + err.Error())
-							panic("arrrgghh")
+							//panic("arrrgghh")
 							err = fmt.Errorf("(updateWorkflowInstancesMapTask) processInstanceEnQueueScatter returned: %s", err.Error())
 							return
 						}
@@ -2937,7 +2937,7 @@ func (qm *ServerMgr) processInstanceEnQueueScatter(parentWorkflowInstance *Workf
 			fmt.Println("parentWorkflowInstance:")
 			spew.Dump(parentWorkflowInstance)
 
-			panic("sad")
+			//panic("sad")
 
 			err = fmt.Errorf("(processInstanceEnQueueScatter) scatterInputObject type is not *cwl.Array, got %s ", reflect.TypeOf(scatterInputObject))
 			return

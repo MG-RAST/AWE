@@ -14,10 +14,8 @@ import (
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CommandLineTool
 type CommandLineTool struct {
-	//Id                 string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	//Class              string                   `yaml:"class,omitempty" bson:"class,omitempty" json:"class,omitempty"`
+	ProcessImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:"-"` // provides Class, ID, Requirements, Hints
 
-	ProcessImpl        `yaml:",inline" bson:",inline" json:",inline" mapstructure:"-"`
 	BaseCommand        []string                 `yaml:"baseCommand,omitempty" bson:"baseCommand,omitempty" json:"baseCommand,omitempty" mapstructure:"baseCommand,omitempty"`
 	Inputs             []CommandInputParameter  `yaml:"inputs" bson:"inputs" json:"inputs" mapstructure:"inputs"`
 	Outputs            []CommandOutputParameter `yaml:"outputs" bson:"outputs" json:"outputs" mapstructure:"outputs"`

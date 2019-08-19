@@ -13,14 +13,15 @@ import (
 
 // ExpressionTool http://www.commonwl.org/v1.0/Workflow.html#ExpressionTool
 type ExpressionTool struct {
-	ProcessImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:"-"`
-	Inputs      []InputParameter       `yaml:"inputs" bson:"inputs" json:"inputs" mapstructure:"inputs"`
-	Outputs     map[string]interface{} `yaml:"outputs" bson:"outputs" json:"outputs" mapstructure:"outputs"` // ExpressionToolOutputParameter
-	Expression  Expression             `yaml:"expression,omitempty" bson:"expression,omitempty" json:"expression,omitempty" mapstructure:"expression,omitempty"`
-	Label       string                 `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
-	Doc         string                 `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
-	CwlVersion  CWLVersion             `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
-	Namespaces  map[string]string      `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
+	ProcessImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:"-"` // provides Class, ID, Requirements, Hints
+
+	Inputs     []InputParameter       `yaml:"inputs" bson:"inputs" json:"inputs" mapstructure:"inputs"`
+	Outputs    map[string]interface{} `yaml:"outputs" bson:"outputs" json:"outputs" mapstructure:"outputs"` // ExpressionToolOutputParameter
+	Expression Expression             `yaml:"expression,omitempty" bson:"expression,omitempty" json:"expression,omitempty" mapstructure:"expression,omitempty"`
+	Label      string                 `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
+	Doc        string                 `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
+	CwlVersion CWLVersion             `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
+	Namespaces map[string]string      `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
 // NewExpressionTool TODO pass along workflow InlineJavascriptRequirement

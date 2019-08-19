@@ -9,13 +9,13 @@ import (
 	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 )
 
-// ProcessImpl _
+// ProcessImpl provides Class, ID, Requirements, Hints
 type ProcessImpl struct {
 	CWLObjectImpl  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	CWL_class_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	IdentifierImpl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	Requirements   []Requirement `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"`
-	Hints          []Requirement `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`
+	CWL_class_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides .Class
+	IdentifierImpl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides .ID
+	Requirements   []Requirement                                                         `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` // _
+	Hints          []Requirement                                                         `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             // _
 }
 
 // IsProcess _

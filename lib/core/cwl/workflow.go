@@ -15,15 +15,16 @@ import (
 
 // Workflow https://www.commonwl.org/v1.0/Workflow.html#Workflow
 type Workflow struct {
-	ProcessImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:"-"`
-	Inputs      []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
-	Outputs     []WorkflowOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
-	Steps       []WorkflowStep            `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty" mapstructure:"steps,omitempty"`
-	Label       string                    `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
-	Doc         string                    `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
-	CwlVersion  CWLVersion                `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
-	Metadata    map[string]interface{}    `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty" mapstructure:"metadata,omitempty"`
-	Namespaces  map[string]string         `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
+	ProcessImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:"-"` // provides Class, ID, Requirements, Hints
+
+	Inputs     []InputParameter          `yaml:"inputs,omitempty" bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
+	Outputs    []WorkflowOutputParameter `yaml:"outputs,omitempty" bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
+	Steps      []WorkflowStep            `yaml:"steps,omitempty" bson:"steps,omitempty" json:"steps,omitempty" mapstructure:"steps,omitempty"`
+	Label      string                    `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
+	Doc        string                    `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
+	CwlVersion CWLVersion                `yaml:"cwlVersion,omitempty" bson:"cwlVersion,omitempty" json:"cwlVersion,omitempty" mapstructure:"cwlVersion,omitempty"`
+	Metadata   map[string]interface{}    `yaml:"metadata,omitempty" bson:"metadata,omitempty" json:"metadata,omitempty" mapstructure:"metadata,omitempty"`
+	Namespaces map[string]string         `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
 // GetClass _

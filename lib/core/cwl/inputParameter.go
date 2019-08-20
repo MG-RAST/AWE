@@ -75,6 +75,16 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 		//}
 
 		//inputParameter.Type = inputParameter_type
+	case []interface{}:
+
+		var originalTypeArray []CWLType_Type
+		originalTypeArray, err = NewCWLType_TypeArray(original, schemata, "Input", true, context)
+		if err != nil {
+			err = fmt.Errorf("(NewInputParameter) NewCWLType_Type returned: %s", err.Error())
+			return
+		}
+
+		inputParameter.Type = originalTypeArray
 
 	case map[string]interface{}:
 
@@ -113,10 +123,6 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 			return
 		}
 
-	// case []interface{}:
-
-	// 	originalArray := original.(interface{})
-
 	default:
 		spew.Dump(original)
 		err = fmt.Errorf("(NewInputParameter) cannot parse input type %s", reflect.TypeOf(original))
@@ -139,6 +145,9 @@ func NewInputParameterArray(original interface{}, schemata []CWLType_Type, conte
 		err = fmt.Errorf("(NewInputParameterArray) MakeStringMap returned: %s", err.Error())
 		return
 	}
+
+	//fmt.Println("NewInputParameterArray:")
+	//spew.Dump(original)
 
 	switch original.(type) {
 	case map[string]interface{}:

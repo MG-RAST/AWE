@@ -226,9 +226,20 @@ func NewBaseCommandArray(original interface{}) (newArray []string, err error) {
 	case []interface{}:
 		originalArray := original.([]interface{})
 		for _, v := range originalArray {
+			var vStr string
+			switch v.(type) {
+			case string:
+				vStr = v.(string)
 
-			vStr, ok := v.(string)
-			if !ok {
+			case bool:
+				vBool := v.(bool)
+				// TODO this is an ugly heck, should not be needed if yaml library is fixed.
+				if vBool {
+					vStr = "y"
+				} else {
+					vStr = "n"
+				}
+			default:
 				spew.Dump(originalArray)
 				err = fmt.Errorf("(NewBaseCommandArray) []interface{} array element is not a string, it is %s", reflect.TypeOf(v))
 				return

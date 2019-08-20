@@ -202,8 +202,15 @@ func (qm *ServerMgr) IsWIReady(job *Job, wi *WorkflowInstance) (ready bool, reas
 	// panic("done")
 
 	//var workunit_input_map map[string]cwl.CWLType
+	var parentStepInputs []*cwl.WorkflowStepInput
+	parentStepInputs, err = parentStep.GetStepInputs()
+	if err != nil {
+		err = fmt.Errorf("(IsWIReady) parentStep.GetStepInputs returned: %s", err.Error())
+		return
+	}
+
 	var workunitInputMap cwl.JobDocMap
-	workunitInputMap, ok, reason, err = qm.GetStepInputObjects(job, parentWorkflowInstance, parentWorkflowInputMap, parentStep, context, "IsWIReady")
+	workunitInputMap, ok, reason, err = qm.GetStepInputObjects(job, parentWorkflowInstance, parentWorkflowInputMap, parentStepInputs, context, "IsWIReady")
 	if err != nil {
 		err = fmt.Errorf("(IsWIReady) GetStepInputObjects returned: %s", err.Error())
 		return
@@ -2612,136 +2619,136 @@ func (qm *ServerMgr) isTaskReady(taskID Task_Unique_Identifier, task *Task) (rea
 	return
 }
 
-func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workflowInputMap cwl.JobDocMap, workflow *cwl.Workflow, logTimes bool) (times map[string]time.Duration, err error) {
+// func (qm *ServerMgr) taskEnQueueWorkflow_deprecated(task *Task, job *Job, workflowInputMap cwl.JobDocMap, workflow *cwl.Workflow, logTimes bool) (times map[string]time.Duration, err error) {
 
-	if workflow == nil {
-		err = fmt.Errorf("(taskEnQueueWorkflow) workflow == nil !?")
-		return
-	}
+// 	if workflow == nil {
+// 		err = fmt.Errorf("(taskEnQueueWorkflow) workflow == nil !?")
+// 		return
+// 	}
 
-	if len(task.ScatterChildren) > 0 {
-		return
-	}
+// 	if len(task.ScatterChildren) > 0 {
+// 		return
+// 	}
 
-	cwl_step := task.WorkflowStep
-	taskID := task.Task_Unique_Identifier
-	taskIDStr, _ := taskID.String()
+// 	cwl_step := task.WorkflowStep
+// 	taskID := task.Task_Unique_Identifier
+// 	taskIDStr, _ := taskID.String()
 
-	workflow_defintion_id := workflow.ID
+// 	workflow_defintion_id := workflow.ID
 
-	var workflowInstanceID string
+// 	var workflowInstanceID string
 
-	workflowInstanceID = taskID.TaskName
+// 	workflowInstanceID = taskID.TaskName
 
-	parent_workflowInstanceID := task.WorkflowInstanceID
+// 	parent_workflowInstanceID := task.WorkflowInstanceID
 
-	// find inputs
-	var task_input_array cwl.Job_document
-	var task_input_map cwl.JobDocMap
+// 	// find inputs
+// 	var task_input_array cwl.Job_document
+// 	var task_input_map cwl.JobDocMap
 
-	context := job.WorkflowContext
+// 	context := job.WorkflowContext
 
-	if task.StepInput == nil {
+// 	if task.StepInput == nil {
 
-		var workflowInstance *WorkflowInstance
-		var ok bool
-		workflowInstance, ok, err = job.GetWorkflowInstance(parent_workflowInstanceID, true)
-		if err != nil {
-			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) job.GetWorkflowInstance returned: %s", err.Error())
-			return
-		}
-		if !ok {
-			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) workflowInstance not found")
-			return
-		}
+// 		var workflowInstance *WorkflowInstance
+// 		var ok bool
+// 		workflowInstance, ok, err = job.GetWorkflowInstance(parent_workflowInstanceID, true)
+// 		if err != nil {
+// 			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) job.GetWorkflowInstance returned: %s", err.Error())
+// 			return
+// 		}
+// 		if !ok {
+// 			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) workflowInstance not found")
+// 			return
+// 		}
 
-		var reason string
-		task_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflowInstance, workflowInputMap, cwl_step, context, "taskEnQueueWorkflow") // returns map[string]CWLType
-		if err != nil {
-			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) GetStepInputObjects returned: %s", err.Error())
-			return
-		}
+// 		var reason string
+// 		task_input_map, ok, reason, err = qm.GetStepInputObjects(job, workflowInstance, workflowInputMap, cwl_step, context, "taskEnQueueWorkflow") // returns map[string]CWLType
+// 		if err != nil {
+// 			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) GetStepInputObjects returned: %s", err.Error())
+// 			return
+// 		}
 
-		if !ok {
-			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) GetStepInputObjects not ready, reason: %s", reason)
-			return
-		}
+// 		if !ok {
+// 			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) GetStepInputObjects not ready, reason: %s", reason)
+// 			return
+// 		}
 
-		if len(task_input_map) == 0 {
-			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) A) len(task_input_map) == 0 (%s)", taskIDStr)
-			return
-		}
+// 		if len(task_input_map) == 0 {
+// 			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) A) len(task_input_map) == 0 (%s)", taskIDStr)
+// 			return
+// 		}
 
-		task_input_array, err = task_input_map.GetArray()
-		if err != nil {
-			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) task_input_map.GetArray returned: %s", err.Error())
-			return
-		}
-		task.StepInput = &task_input_array
-		//task_input_map = task_input_array.GetMap()
+// 		task_input_array, err = task_input_map.GetArray()
+// 		if err != nil {
+// 			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) task_input_map.GetArray returned: %s", err.Error())
+// 			return
+// 		}
+// 		task.StepInput = &task_input_array
+// 		//task_input_map = task_input_array.GetMap()
 
-	} else {
-		task_input_array = *task.StepInput
-		task_input_map = task_input_array.GetMap()
-		if len(task_input_map) == 0 {
-			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) B) len(task_input_map) == 0 ")
-			return
-		}
-	}
+// 	} else {
+// 		task_input_array = *task.StepInput
+// 		task_input_map = task_input_array.GetMap()
+// 		if len(task_input_map) == 0 {
+// 			err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) B) len(task_input_map) == 0 ")
+// 			return
+// 		}
+// 	}
 
-	if strings.HasSuffix(task.TaskName, "/") {
-		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) Slash at the end of TaskName!? %s", task.TaskName)
-		return
-	}
+// 	if strings.HasSuffix(task.TaskName, "/") {
+// 		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) Slash at the end of TaskName!? %s", task.TaskName)
+// 		return
+// 	}
 
-	// embedded workflows have a uniqe name relative to the parent workflow: e.g #entrypoint/steo0/<uuid>
-	// stand-alone workflows have no unique name, e.g: #sometool
+// 	// embedded workflows have a uniqe name relative to the parent workflow: e.g #entrypoint/steo0/<uuid>
+// 	// stand-alone workflows have no unique name, e.g: #sometool
 
-	//new_sub_workflow := ""
-	//fmt.Printf("(taskEnQueueWorkflow) new_sub_workflow: %s - %s\n", task.Parent, task.TaskName)
-	//if len(task.Parent) > 0 {
-	//	new_sub_workflow = task.Parent + task.TaskName // TaskName starts with #, so we can split later
-	//} else {
-	//	new_sub_workflow = task.TaskName
-	//}
+// 	//new_sub_workflow := ""
+// 	//fmt.Printf("(taskEnQueueWorkflow) new_sub_workflow: %s - %s\n", task.Parent, task.TaskName)
+// 	//if len(task.Parent) > 0 {
+// 	//	new_sub_workflow = task.Parent + task.TaskName // TaskName starts with #, so we can split later
+// 	//} else {
+// 	//	new_sub_workflow = task.TaskName
+// 	//}
 
-	//new_sub_workflow := workflow_id
+// 	//new_sub_workflow := workflow_id
 
-	//fmt.Printf("New Subworkflow: %s %s\n", task.Parent, task.TaskName)
+// 	//fmt.Printf("New Subworkflow: %s %s\n", task.Parent, task.TaskName)
 
-	// New WorkflowInstance defined input nd ouput of this subworkflow
-	// create tasks
-	//var sub_workflow_tasks []*Task
-	//sub_workflow_tasks, err = CreateWorkflowTasks(job, workflowInstanceID, workflow.Steps, workflow.Id, &taskID)
-	//if err != nil {
-	//	err = fmt.Errorf("(taskEnQueueWorkflow) CreateWorkflowTasks returned: %s", err.Error())
-	//		return
-	//	}
+// 	// New WorkflowInstance defined input nd ouput of this subworkflow
+// 	// create tasks
+// 	//var sub_workflow_tasks []*Task
+// 	//sub_workflow_tasks, err = CreateWorkflowTasks(job, workflowInstanceID, workflow.Steps, workflow.Id, &taskID)
+// 	//if err != nil {
+// 	//	err = fmt.Errorf("(taskEnQueueWorkflow) CreateWorkflowTasks returned: %s", err.Error())
+// 	//		return
+// 	//	}
 
-	var wi *WorkflowInstance
+// 	var wi *WorkflowInstance
 
-	wi, err = NewWorkflowInstance(workflowInstanceID, job.ID, workflow_defintion_id, job, parent_workflowInstanceID)
-	if err != nil {
-		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) NewWorkflowInstance returned: %s", err.Error())
-		return
-	}
-	wi.Inputs = task_input_array
-	err = wi.SetState(WIStatePending, false, "taskEnQueueWorkflow_deprecated")
-	if err != nil {
-		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) wi.SetState(WIStatePending returned: %s", err.Error())
-		return
-	}
+// 	wi, err = NewWorkflowInstance(workflowInstanceID, job.ID, workflow_defintion_id, job, parent_workflowInstanceID)
+// 	if err != nil {
+// 		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) NewWorkflowInstance returned: %s", err.Error())
+// 		return
+// 	}
+// 	wi.Inputs = task_input_array
+// 	err = wi.SetState(WIStatePending, false, "taskEnQueueWorkflow_deprecated")
+// 	if err != nil {
+// 		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) wi.SetState(WIStatePending returned: %s", err.Error())
+// 		return
+// 	}
 
-	err = job.AddWorkflowInstance(wi, DbSyncTrue, true) // taskEnQueueWorkflow_deprecated
-	if err != nil {
-		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) job.AddWorkflowInstance returned: %s", err.Error())
-		return
-	}
+// 	err = job.AddWorkflowInstance(wi, DbSyncTrue, true) // taskEnQueueWorkflow_deprecated
+// 	if err != nil {
+// 		err = fmt.Errorf("(taskEnQueueWorkflow_deprecated) job.AddWorkflowInstance returned: %s", err.Error())
+// 		return
+// 	}
 
-	times = make(map[string]time.Duration)
+// 	times = make(map[string]time.Duration)
 
-	return
-}
+// 	return
+// }
 
 //processInstanceEnQueueScatter _
 // creates and enqueues scatter children
@@ -3877,7 +3884,7 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflowInstance *Workfl
 	inputParameter = nil
 	for i := range workflow.Inputs {
 		inp := &workflow.Inputs[i]
-		if path.Base(inp.Id) == srcBase {
+		if path.Base(inp.ID) == srcBase {
 			inputParameter = inp
 			break
 		}
@@ -3886,7 +3893,7 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflowInstance *Workfl
 		fmt.Printf("(GetSourceFromWorkflowInstanceInput) InputParameters: %d \n", len(workflow.Inputs))
 		for i := range workflow.Inputs {
 			inp := &workflow.Inputs[i]
-			fmt.Printf("(GetSourceFromWorkflowInstanceInput) InputParameter: %s \n", inp.Id)
+			fmt.Printf("(GetSourceFromWorkflowInstanceInput) InputParameter: %s \n", inp.ID)
 		}
 
 		err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) InputParameter for %s not found", srcBase)
@@ -4754,22 +4761,22 @@ func (qm *ServerMgr) GetStepInputObject(job *Job, workflowInstance *WorkflowInst
 }
 
 // GetStepInputObjects _ Get inputs for workflowStep
-func (qm *ServerMgr) GetStepInputObjects(job *Job, workflowInstance *WorkflowInstance, workflowInputMap map[string]cwl.CWLType, workflowStep *cwl.WorkflowStep, context *cwl.WorkflowContext, caller string) (workunitInputMap cwl.JobDocMap, ok bool, reason string, err error) {
+func (qm *ServerMgr) GetStepInputObjects(job *Job, workflowInstance *WorkflowInstance, workflowInputMap map[string]cwl.CWLType, workflowStepInputs []*cwl.WorkflowStepInput, context *cwl.WorkflowContext, caller string) (workunitInputMap cwl.JobDocMap, ok bool, reason string, err error) {
 
 	workunitInputMap = make(map[string]cwl.CWLType) // also used for json
 	reason = "undefined"
 
-	fmt.Println("(GetStepInputObjects) workflow_step:")
-	spew.Dump(workflowStep)
+	fmt.Println("(GetStepInputObjects) workflowStepInputs:")
+	spew.Dump(workflowStepInputs)
 
-	if workflowStep.In == nil {
+	if workflowStepInputs == nil {
 		// empty inputs are ok
 		ok = true
 		//err = fmt.Errorf("(GetStepInputObjects) workflow_step.In == nil (%s)", workflow_step.Id)
 		return
 	}
 
-	if len(workflowStep.In) == 0 {
+	if len(workflowStepInputs) == 0 {
 		// empty inputs are ok
 		ok = true
 		//err = fmt.Errorf("(GetStepInputObjects) len(workflow_step.In) == 0")
@@ -4779,10 +4786,10 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflowInstance *WorkflowIns
 	// 1. find all object source and Default
 	// 2. make a map copy to be used in javascript, as "inputs"
 	// INPUT_LOOP1
-	for inputI, input := range workflowStep.In {
+	for inputI, input := range workflowStepInputs {
 		// input is a WorkflowStepInput
 
-		ok, reason, err = qm.GetStepInputObject(job, workflowInstance, workflowInputMap, workunitInputMap, inputI, &input, context)
+		ok, reason, err = qm.GetStepInputObject(job, workflowInstance, workflowInputMap, workunitInputMap, inputI, input, context)
 		if err != nil {
 			err = fmt.Errorf("(GetStepInputObjects) GetStepInputObject returned: %s", err.Error())
 			return
@@ -4799,7 +4806,7 @@ func (qm *ServerMgr) GetStepInputObjects(job *Job, workflowInstance *WorkflowIns
 
 	// 3. evaluate each ValueFrom field, update results
 VALUE_FROM_LOOP:
-	for _, input := range workflowStep.In {
+	for _, input := range workflowStepInputs {
 		if input.ValueFrom == "" {
 			continue VALUE_FROM_LOOP
 		}

@@ -67,7 +67,7 @@ func CWLInputCheck(jobInput *cwl.Job_document, cwlWorkflow *cwl.Workflow, contex
 
 		//spew.Dump(input)
 
-		id := input.Id
+		id := input.ID
 		logger.Debug(3, "(CWLInputCheck) Parsing workflow input %s", id)
 
 		idBase := path.Base(id)

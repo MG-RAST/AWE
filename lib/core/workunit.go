@@ -237,9 +237,43 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		workflowInputMap := workflowInstance.Inputs.GetMap()
 
+		// remove step inputs which are not required by the tool
+
+		toolInputsMap := make(map[string]bool)
+		if clt != nil {
+			for inputI := range clt.Inputs {
+				commandInputParameter := &clt.Inputs[inputI]
+				commandInputParameterID := commandInputParameter.ID
+				commandInputParameterIDBase := path.Base(commandInputParameterID)
+				toolInputsMap[commandInputParameterIDBase] = true
+			}
+		}
+		if et != nil {
+			for inputI := range et.Inputs {
+				inputParameter := &et.Inputs[inputI]
+				inputParameterID := inputParameter.ID
+				inputParameterIDBase := path.Base(inputParameterID)
+				toolInputsMap[inputParameterIDBase] = true
+			}
+		}
+
+		// filter WorkflowSteps
+		var workflowStepInputsFiltered []*cwl.WorkflowStepInput
+
+		for i := range workflowStep.In {
+			stepInput := &workflowStep.In[i]
+			stepInputName := stepInput.ID
+			stepInputNameBase := path.Base(stepInputName)
+
+			_, toolHasInput := toolInputsMap[stepInputNameBase]
+			if toolHasInput {
+				workflowStepInputsFiltered = append(workflowStepInputsFiltered, stepInput)
+			}
+		}
+
 		var workunitInputMap map[string]cwl.CWLType
 		var reason string
-		workunitInputMap, ok, reason, err = qm.GetStepInputObjects(job, workflowInstance, workflowInputMap, workflowStep, context, "NewWorkunit")
+		workunitInputMap, ok, reason, err = qm.GetStepInputObjects(job, workflowInstance, workflowInputMap, workflowStepInputsFiltered, context, "NewWorkunit")
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) task=%s, GetStepInputObjects returned: %s", taskStr, err.Error())
 			return
@@ -252,12 +286,14 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		// get Defaults from inputs such they are part of javascript evaluation
 
-		// check CommandLineTool for Default values
 		if clt != nil {
+
+			// check CommandLineTool for Default values
 			for inputI := range clt.Inputs {
 				commandInputParameter := &clt.Inputs[inputI]
 				commandInputParameterID := commandInputParameter.ID
 				commandInputParameterIDBase := path.Base(commandInputParameterID)
+
 				input, hasInput := workunitInputMap[commandInputParameterIDBase]
 				if hasInput {
 					// check if input is not Null
@@ -276,18 +312,18 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		// check ExpressionTool for Default values
 		if et != nil {
-			for input_i, _ := range et.Inputs {
-				input_parameter := &et.Inputs[input_i]
-				input_parameter_id := input_parameter.Id
-				input_parameter_id_base := path.Base(input_parameter_id)
-				_, has_input := workunitInputMap[input_parameter_id_base]
-				if has_input {
+			for inputI := range et.Inputs {
+				inputParameter := &et.Inputs[inputI]
+				inputParameterID := inputParameter.ID
+				inputParameterIDBase := path.Base(inputParameterID)
+				_, hasInput := workunitInputMap[inputParameterIDBase]
+				if hasInput {
 					continue // no need to add a default
 				}
 
 				// check if a default exists
-				if input_parameter.Default != nil {
-					workunitInputMap[input_parameter_id_base] = input_parameter.Default
+				if inputParameter.Default != nil {
+					workunitInputMap[inputParameterIDBase] = inputParameter.Default
 				}
 			}
 		}

@@ -288,7 +288,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					newStep.In = append(newStep.In, workflowStepInput)
 
 					var workflowInputParameter cwl.InputParameter
-					workflowInputParameter.Id = workflowInputName
+					workflowInputParameter.ID = workflowInputName
 					workflowInputParameter.SecondaryFiles = input.SecondaryFiles
 					workflowInputParameter.Format = input.Format
 					workflowInputParameter.Streamable = input.Streamable
@@ -399,10 +399,10 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				newStep.ID = stepID
 				for _, input := range expressiontool.Inputs { // input is InputParameter
 
-					workflowInputName := wrapperEntrypoint + "/" + path.Base(input.Id)
+					workflowInputName := wrapperEntrypoint + "/" + path.Base(input.ID)
 
 					var workflowStepInput cwl.WorkflowStepInput
-					workflowStepInput.ID = stepID + "/" + path.Base(input.Id)
+					workflowStepInput.ID = stepID + "/" + path.Base(input.ID)
 					workflowStepInput.Source = workflowInputName
 					workflowStepInput.Default = input.Default
 
@@ -412,7 +412,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 					newStep.In = append(newStep.In, workflowStepInput)
 
 					var workflowInputParameter cwl.InputParameter
-					workflowInputParameter.Id = workflowInputName
+					workflowInputParameter.ID = workflowInputName
 					workflowInputParameter.SecondaryFiles = input.SecondaryFiles
 					workflowInputParameter.Format = input.Format
 					workflowInputParameter.Streamable = input.Streamable

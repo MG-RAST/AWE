@@ -70,6 +70,14 @@ func (ws *WorkflowStep) Init(context *WorkflowContext) (err error) {
 	return
 }
 
+// GetStepInputs Returns an array of all StepInputs
+func (ws *WorkflowStep) GetStepInputs() (stepInputs []*WorkflowStepInput, err error) {
+	for i := range ws.In {
+		stepInputs = append(stepInputs, &ws.In[i])
+	}
+	return
+}
+
 // NewWorkflowStepFromInterface _
 // stepID is different for embedded vs referenced workflows
 // stepID argument should  be relative only?

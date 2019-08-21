@@ -2,7 +2,6 @@ package cwl
 
 import (
 	"fmt"
-	"path"
 	"strings"
 )
 
@@ -33,8 +32,8 @@ func NewPointerFromstring(value string) (s *Pointer) {
 
 	valueArray := strings.Split(value, "#")
 
-	value = valueArray[len(valueArray)-1]
-	value = path.Base(value)
+	value = "#" + valueArray[len(valueArray)-1]
+	//value = path.Base(value)
 
 	sNptr = Pointer(value)
 

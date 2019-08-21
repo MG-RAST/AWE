@@ -633,7 +633,7 @@ func ProcessIOData(native interface{}, currentPath string, basePath string, ioTy
 			//spew.Dump(*file)
 			//fmt.Printf("file.Path: %s\n", file.Path)
 			//fmt.Printf("file.Location: %s\n", file.Location)
-			filePath := file.Path
+			//filePath := file.Path
 			var sub_count int // sub_count is 0 or 1
 
 			sub_count, err = UploadFile(file, currentPath, shockClient, lazyUpload)
@@ -644,7 +644,7 @@ func ProcessIOData(native interface{}, currentPath string, basePath string, ioTy
 			}
 
 			count += sub_count
-			file.UpdateComponents(filePath)
+			//file.UpdateComponents(filePath)
 			//fmt.Printf("file.Path: %s\n", file.Path)
 
 			//fmt.Printf("file.Location: %s\n", file.Location)
@@ -659,7 +659,7 @@ func ProcessIOData(native interface{}, currentPath string, basePath string, ioTy
 				return
 			}
 			count += 1
-			file.UpdateComponents(file.Path)
+			//file.UpdateComponents(file.Path)
 		}
 
 		if file.SecondaryFiles != nil {

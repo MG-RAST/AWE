@@ -305,6 +305,8 @@ func (context *WorkflowContext) AddSchemata(obj []CWLType_Type, writeLock bool) 
 			return
 		}
 
+		idArray := strings.Split(id, "#")
+		id = idArray[len(idArray)-1]
 		//fmt.Printf("Adding %s\n", id)
 
 		_, ok := context.Schemata[id]

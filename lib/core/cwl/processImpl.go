@@ -43,20 +43,20 @@ func ProcessImplInit(generic interface{}, process *ProcessImpl, parentIdentifier
 
 			if !strings.HasPrefix(objectIdentifier, "#") {
 				if parentIdentifier == "" {
-					err = fmt.Errorf("(NewCommandLineTool) A) parentIdentifier is needed but empty, objectIdentifier=%s", objectIdentifier)
+					err = fmt.Errorf("(ProcessImplInit) A) parentIdentifier is needed but empty, objectIdentifier=%s", objectIdentifier)
 					return
 				}
 				objectIdentifier = path.Join(parentIdentifier, objectIdentifier)
 			}
 
 			if !strings.HasPrefix(objectIdentifier, "#") {
-				err = fmt.Errorf("(NewCommandLineTool) not absolute: objectIdentifier=%s , parentIdentifier=%s, objectIdentifier=%s", objectIdentifier, parentIdentifier, objectIdentifier)
+				err = fmt.Errorf("(ProcessImplInit) not absolute: objectIdentifier=%s , parentIdentifier=%s, objectIdentifier=%s", objectIdentifier, parentIdentifier, objectIdentifier)
 				return
 			}
 			object["id"] = objectIdentifier
 		} else {
 			if parentIdentifier == "" {
-				err = fmt.Errorf("(NewCommandLineTool) B) parentIdentifier is needed but empty")
+				err = fmt.Errorf("(ProcessImplInit) B) parentIdentifier is needed but empty")
 				return
 			}
 
@@ -78,7 +78,7 @@ func ProcessImplInit(generic interface{}, process *ProcessImpl, parentIdentifier
 		// 	schemaDefReq, hasSchemaDefReq,
 		_, _, err = GetSchemaDefRequirement(requirementsIf, context)
 		if err != nil {
-			err = fmt.Errorf("(NewCommandLineTool) GetSchemaDefRequirement returned: %s", err.Error())
+			err = fmt.Errorf("(ProcessImplInit) GetSchemaDefRequirement returned: %s", err.Error())
 			return
 		}
 

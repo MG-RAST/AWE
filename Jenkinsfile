@@ -4,7 +4,7 @@ pipeline {
     }
     agent { 
         node {
-            label 'bare-metal'
+            label 'bare-metal||awe'
             
            
             

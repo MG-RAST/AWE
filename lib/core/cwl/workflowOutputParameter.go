@@ -26,7 +26,7 @@ func NewWorkflowOutputParameter(original interface{}, thisID string, schemata []
 	}
 
 	var op *OutputParameter
-	op, err = NewOutputParameterFromInterface(original, thisID, schemata, "WorkflowOutput", context)
+	op, err = NewOutputParameterFromInterface(original, thisID, schemata, "Output", context)
 	if err != nil {
 		err = fmt.Errorf("(NewWorkflowOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
 		return

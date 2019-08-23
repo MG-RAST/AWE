@@ -7,15 +7,15 @@ import (
 )
 
 type NamedCWLType struct {
-	CWL_id_Impl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides id
-	Value       CWLType                                                               `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
+	IdentifierImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides id
+	Value          CWLType                                                               `yaml:"value,omitempty" bson:"value,omitempty" json:"value,omitempty" mapstructure:"value,omitempty"`
 }
 
 func NewNamedCWLType(id string, value CWLType) NamedCWLType {
 
 	x := NamedCWLType{Value: value}
 
-	x.Id = id
+	x.ID = id
 
 	return x
 }
@@ -58,7 +58,7 @@ func NewNamedCWLTypeFromInterface(native interface{}, context *WorkflowContext) 
 		}
 
 		var cwl_obj CWLType
-		cwl_obj, err = NewCWLType(id, named_thing_value, context)
+		cwl_obj, err = NewCWLType(id, "", named_thing_value, context)
 		if err != nil {
 			err = fmt.Errorf("(NewNamedCWLTypeFromInterface) B NewCWLType returns: %s", err.Error())
 			return

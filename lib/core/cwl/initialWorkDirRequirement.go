@@ -78,7 +78,7 @@ func NewListingFromInterface(original interface{}, context *WorkflowContext) (ob
 		}
 	}
 	var x CWLType
-	x, err = NewCWLType("", original, context)
+	x, err = NewCWLType("", "", original, context)
 	if err != nil {
 		err = fmt.Errorf("(NewListingFromInterface) NewCWLType returns: %s", err.Error())
 		return

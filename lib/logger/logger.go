@@ -2,9 +2,10 @@ package logger
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/MG-RAST/AWE/lib/conf"
 	l4g "github.com/MG-RAST/golib/log4go"
-	"os"
 )
 
 //type level int
@@ -70,7 +71,13 @@ func Perf(message string) {
 }
 
 func NewLogger(name string) *Logger {
-	l := &Logger{queue: make(chan m, 1024), logs: map[string]l4g.Logger{}}
+
+	bufferSize := 1024
+	if conf.DEBUG_LEVEL > 0 {
+		bufferSize = 1 // this makes sure we do not miss debug messages if AWE crashes
+	}
+
+	l := &Logger{queue: make(chan m, bufferSize), logs: map[string]l4g.Logger{}}
 
 	// log file dir
 	var logdir string

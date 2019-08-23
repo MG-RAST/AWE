@@ -16,49 +16,37 @@ type CommandOutputParameter struct {
 }
 
 // NewCommandOutputParameter _
-func NewCommandOutputParameter(original interface{}, thisID string, schemata []CWLType_Type, context *WorkflowContext) (output_parameter *CommandOutputParameter, err error) {
+func NewCommandOutputParameter(original interface{}, thisID string, schemata []CWLType_Type, context *WorkflowContext) (cmdOutputParameter *CommandOutputParameter, err error) {
+
+	cmdOutputParameter = &CommandOutputParameter{}
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
 
+	var op *OutputParameter
+	op, err = NewOutputParameterFromInterface(original, thisID, schemata, "CommandOutput", context)
+	if err != nil {
+		err = fmt.Errorf("(NewCommandOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
+		return
+	}
+
 	switch original.(type) {
 
 	case string:
-		err = fmt.Errorf("(NewCommandOutputParameter) string not supported yet, please implement")
+		//fmt.Println("(NewCommandOutputParameter) string")
+		cmdOutputParameter.OutputParameter = *op
 
 	case map[string]interface{}:
-
-		var op *OutputParameter
-
-		op, err = NewOutputParameterFromInterface(original, thisID, schemata, "CommandOutput", context)
-		if err != nil {
-			err = fmt.Errorf("(NewCommandOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
-			return
-		}
-
-		if op.Id == "" {
-			err = fmt.Errorf("(NewCommandOutputParameter) A id is empty !?")
-			return
-		}
-
-		output_parameter = &CommandOutputParameter{}
-		err = mapstructure.Decode(original, output_parameter)
+		//fmt.Println("(NewCommandOutputParameter) map")
+		err = mapstructure.Decode(original, cmdOutputParameter)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandOutputParameter) mapstructure returned: %s", err.Error())
 			return
 		}
 
-		if output_parameter.Id == "" {
-			output_parameter.Id = thisID
-			if output_parameter.Id == "" {
-				err = fmt.Errorf("(NewCommandOutputParameter) B id is empty !?")
-				return
-			}
-		}
-
-		output_parameter.OutputParameter = *op
+		cmdOutputParameter.OutputParameter = *op
 	default:
 		spew.Dump(original)
 		err = fmt.Errorf("NewCommandOutputParameter, unknown type %s", reflect.TypeOf(original))
@@ -107,13 +95,16 @@ func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Typ
 
 			if ok {
 				//fmt.Println("(NewCommandOutputParameterArray) array element is a string")
-				var result CWLType_Type
-				result, err = NewCWLType_TypeFromString(schemata, elementStr, "CommandOutput")
+				var resultArray []CWLType_Type
+				resultArray, err = NewCWLType_TypeFromString(schemata, elementStr, "CommandOutput", context)
 				if err != nil {
 					err = fmt.Errorf("(NewCommandOutputParameterArray) NewCWLType_TypeFromString returns: %s", err.Error())
 					return
 				}
-				copa = append(copa, result)
+				for result := range resultArray {
+					copa = append(copa, result)
+				}
+
 				continue
 			}
 			//fmt.Println("(NewCommandOutputParameterArray) array element is NOT a string")

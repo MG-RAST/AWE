@@ -2,7 +2,7 @@ package uuid_test
 
 import (
 	"fmt"
-	. "github.com/MG-RAST/AWE/lib/core/uuid"
+	. uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 	"testing"
 )
 

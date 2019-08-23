@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github.com/MG-RAST/AWE/lib/core/uuid"
+	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/rwmutex"
 )
@@ -50,12 +50,12 @@ type WorkerRuntime struct {
 	InstanceID   string `bson:"instance_id" json:"instance_id"`     // Openstack specific
 	InstanceType string `bson:"instance_type" json:"instance_type"` // Openstack specific
 	//Host          string   `bson:"host" json:"host"`                   // deprecated
-	Hostname      string   `bson:"hostname" json:"hostname"`
-	HostIP        string   `bson:"host_ip" json:"host_ip"` // Host can be physical machine or VM, whatever is helpful for management
-	CPUs          int      `bson:"cores" json:"cores"`
-	Apps          []string `bson:"apps" json:"apps"`
-	GitCommitHash string   `bson:"git_commit_hash" json:"git_commit_hash"`
-	Version       string   `bson:"version" json:"version"`
+	Hostname string   `bson:"hostname" json:"hostname"`
+	HostIP   string   `bson:"host_ip" json:"host_ip"` // Host can be physical machine or VM, whatever is helpful for management
+	CPUs     int      `bson:"cores" json:"cores"`
+	Apps     []string `bson:"apps" json:"apps"`
+	//GitCommitHash string   `bson:"git_commit_hash" json:"git_commit_hash"`
+	Version string `bson:"version" json:"version"`
 }
 
 // WorkerState changes at runtime
@@ -64,6 +64,26 @@ type WorkerState struct {
 	ErrorMessage string        `bson:"error_message" json:"error_message"`
 	Busy         bool          `bson:"busy" json:"busy"` // a state
 	CurrentWork  *WorkunitList `bson:"current_work" json:"current_work"`
+	ServerUUID   string        `bson:"server_uuid,omitempty" json:"server_uuid,omitempty" ` //this is what the worker thinks its server is / mostly for debugging
+}
+
+// RegistrationResponse _
+type RegistrationResponse struct {
+	ServerUUID string `bson:"server_uuid,omitempty" json:"server_uuid,omitempty" ` //this is what the worker thinks its server is / mostly for debugging
+}
+
+// RegistrationResponseEnvelope _
+type RegistrationResponseEnvelope struct {
+	Code int                  `bson:"status" json:"status"`
+	Data RegistrationResponse `bson:"data" json:"data"`
+	Errs []string             `bson:"error" json:"error"`
+}
+
+// NewRegistrationResponse _
+func NewRegistrationResponse() (rr RegistrationResponse) {
+	rr = RegistrationResponse{}
+	rr.ServerUUID = ServerUUID
+	return
 }
 
 // NewWorkerState creates WorkerState
@@ -71,6 +91,7 @@ func NewWorkerState() (ws *WorkerState) {
 	ws = &WorkerState{}
 	ws.Healthy = true
 	ws.CurrentWork = NewWorkunitList()
+	ws.ServerUUID = ServerUUID
 	return
 }
 

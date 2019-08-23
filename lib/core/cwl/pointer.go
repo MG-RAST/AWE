@@ -2,33 +2,48 @@ package cwl
 
 import (
 	"fmt"
+	"strings"
 )
 
+// Pointer _
 type Pointer string
 
 //func (s *Pointer) GetClass() string      { return string(CWLPointer) } // for CWLObject
 //func (s *Pointer) GetType() CWLType_Type { return CWLPointer }
 //func (s *Pointer) String() string        { return string(*s) }
 
-func (s *Pointer) GetID() string { return "" }
+// GetID _
+func (p *Pointer) GetID() string { return "" }
 
 //func (s *Pointer) SetID(i string) {}
-func (c *Pointer) Is_Type()            {}
-func (c *Pointer) Type2String() string { return string(CWLPointer) }
+
+// Is_Type _
+func (p *Pointer) Is_Type() {}
+
+// Type2String _
+func (p *Pointer) Type2String() string { return string(CWLPointer) }
 
 //func (s *Pointer) IsCWLMinimal() {}
 
+// NewPointerFromstring _
 func NewPointerFromstring(value string) (s *Pointer) {
 
-	var s_nptr Pointer
-	s_nptr = Pointer(value)
+	var sNptr Pointer
 
-	s = &s_nptr
+	valueArray := strings.Split(value, "#")
+
+	value = "#" + valueArray[len(valueArray)-1]
+	//value = path.Base(value)
+
+	sNptr = Pointer(value)
+
+	s = &sNptr
 
 	return
 
 }
 
+// NewPointer _
 func NewPointer(id string, value string) (s *Pointer) {
 
 	_ = id
@@ -37,16 +52,17 @@ func NewPointer(id string, value string) (s *Pointer) {
 
 }
 
+// NewPointerFromInterface _
 func NewPointerFromInterface(id string, native interface{}) (s *Pointer, err error) {
 
 	_ = id
 
-	real_string, ok := native.(string)
+	realString, ok := native.(string)
 	if !ok {
 		err = fmt.Errorf("(NewPointerFromInterface) Cannot create string")
 		return
 	}
-	s = NewPointerFromstring(real_string)
+	s = NewPointerFromstring(realString)
 
 	return
 }

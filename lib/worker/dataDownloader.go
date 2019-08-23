@@ -11,6 +11,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
+	yaml "gopkg.in/yaml.v2"
 
 	//"github.com/MG-RAST/AWE/lib/core/cwl"
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
@@ -29,8 +30,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"gopkg.in/yaml.v2"
 )
 
 // this functions replaces filename if they match regular expression and they match the filename reported in IOmap
@@ -300,6 +299,7 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 					err = fmt.Errorf("(downloadWorkunitData) DeleteRequirement/CommandLineTool returned: %s", err.Error())
 					return
 				}
+				cwl_tool_clt.ID = ""
 				cwl_tool_bytes, err = yaml.Marshal(cwl_tool_clt)
 				if err != nil {
 					return
@@ -311,6 +311,7 @@ func downloadWorkunitData(workunit *core.Workunit) (err error) {
 					err = fmt.Errorf("(downloadWorkunitData) DeleteRequirement/ExpressionTool returned: %s", err.Error())
 					return
 				}
+				cwl_tool_et.ID = ""
 				cwl_tool_bytes, err = yaml.Marshal(cwl_tool_et)
 				if err != nil {
 					return
@@ -580,7 +581,7 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 		// file does not exist or its md5sum is wrong
 		if !isFileExisting(file_path) {
 			logger.Debug(2, "mover: fetching predata from url: "+dataUrl)
-			logger.Event(event.PRE_IN, "workid="+workunit.Id+" url="+dataUrl)
+			logger.Event(event.PRE_IN, "workid="+workunit.ID+" url="+dataUrl)
 
 			var md5sum string
 			file_path_part := file_path + ".part" // temporary name
@@ -662,7 +663,7 @@ func movePreData(workunit *core.Workunit) (size int64, err error) {
 			}
 		}
 
-		logger.Event(event.PRE_READY, "workid="+workunit.Id+";url="+dataUrl)
+		logger.Event(event.PRE_READY, "workid="+workunit.ID+";url="+dataUrl)
 	}
 	return
 }

@@ -1,4 +1,4 @@
 [submodule "site/Retina"]
-	path = site/Retina
+	path = site_deprecated/Retina
 	url = https://github.com/MG-RAST/Retina.git
 	branch = master

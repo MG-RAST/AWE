@@ -22,7 +22,7 @@ func NewCommandOutputRecordField(native interface{}, schemata []CWLType_Type, co
 	}
 
 	var rf *RecordField
-	rf, err = NewRecordFieldFromInterface(native, schemata, "CommandOutput", context)
+	rf, err = NewRecordFieldFromInterface(native, "", schemata, "CommandOutput", context)
 	if err != nil {
 		err = fmt.Errorf("(NewCommandOutputRecordField) NewRecordFieldFromInterface returned: %s", err.Error())
 		return

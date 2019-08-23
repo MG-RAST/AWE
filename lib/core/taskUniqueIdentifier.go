@@ -90,21 +90,27 @@ func New_Task_Unique_Identifier_FromString(old_style_id string) (t Task_Unique_I
 
 func (taskid Task_Unique_Identifier) String() (s string, err error) {
 
-	jobId := taskid.JobId
+	jobID := taskid.JobId
 	//parent := taskid.Parent
 	name := taskid.TaskName
 
 	if name == "" {
-		err = fmt.Errorf("(Task_Unique_Identifier/String) TaskName is empty!")
+		err = fmt.Errorf("(Task_Unique_Identifier/String) TaskName is empty! ")
 		return
 	}
 
-	if jobId == "" {
-		err = fmt.Errorf("(Task_Unique_Identifier/String) JobId is empty!")
+	if jobID == "" {
+		err = fmt.Errorf("(Task_Unique_Identifier/String) JobId is empty! ")
 		return
 	}
 
-	s = fmt.Sprintf("%s_%s", jobId, name)
+	s = fmt.Sprintf("%s_%s", jobID, name)
 
+	return
+}
+
+// GetIDStr _
+func (taskid Task_Unique_Identifier) GetIDStr() (result string) {
+	result = taskid.TaskName
 	return
 }

@@ -72,7 +72,8 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 		if workunit.State == core.WORK_STAT_COMPUTED {
 
 			shock_client := &shock.ShockClient{Host: workunit.ShockHost, Token: workunit.Info.DataToken, Debug: false}
-			data_moved, err := cache.UploadOutputData(workunit, shock_client)
+
+			data_moved, err := cache.UploadOutputData(workunit, shock_client, nil)
 			if err != nil {
 				workunit.SetState(core.WORK_STAT_ERROR, "UploadOutputData failed")
 				logger.Error("(deliverer_run) UploadOutputData returns workid=" + work_str + ", err=" + err.Error())
@@ -97,8 +98,6 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 			if err != nil {
 				logger.Error("(deliverer_run) workid=%s NotifyWorkunitProcessedWithLogs returned: %s", work_str, err.Error())
 				workunit.Notes = append(workunit.Notes, "[deliverer]"+err.Error())
-				// keep retry
-			} else {
 				error_message := strings.Join(response.Error, ",")
 				if strings.Contains(error_message, e.ClientNotFound) { // TODO need better method than string search. Maybe a field awe_status.
 					//mark this work in Current_work map as false, something needs to be done in the future
@@ -106,11 +105,15 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 					//core.Self.Current_work_false(work.Id) //server doesn't know this yet
 					do_retry = false
 				}
+				// keep retry
+			} else {
+
 				if response.Status == http.StatusOK {
 					// success, work delivered
 					logger.Debug(1, "work delivered successfully")
 					do_retry = false
 				} else {
+					error_message := strings.Join(response.Error, ",")
 					logger.Error("(deliverer) response.Status not ok,  workid=%s, err=%s", work_str, error_message)
 				}
 			}
@@ -157,7 +160,12 @@ func deliverer_run(control chan int) (err error) { // TODO return all errors
 		logger.Error("Could not remove work_id %s", work_str)
 	}
 	workmap.Delete(work_id)
-	core.Self.Busy = false
+
+	var empty bool
+	empty, _ = core.Self.CurrentWork.IsEmpty(false)
+	if empty {
+		_ = core.Self.SetBusy(false, false)
+	}
 	return
 }
 

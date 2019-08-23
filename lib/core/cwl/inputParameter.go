@@ -10,11 +10,10 @@ import (
 	//"strings"
 )
 
-// https://www.commonwl.org/v1.0/Workflow.html#InputParameter
-
+// InputParameter https://www.commonwl.org/v1.0/Workflow.html#InputParameter
 type InputParameter struct {
 	CWLObjectImpl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides IsCWLObject
-	Id             string                                                                `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`
+	IdentifierImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides id
 	Label          string                                                                `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
 	SecondaryFiles interface{}                                                           `yaml:"secondaryFiles,omitempty" bson:"secondaryFiles,omitempty" json:"secondaryFiles,omitempty" mapstructure:"secondaryFiles,omitempty"` // TODO string | Expression | array<string | Expression>
 	Format         []string                                                              `yaml:"format,omitempty" bson:"format,omitempty" json:"format,omitempty" mapstructure:"format,omitempty"`
@@ -25,12 +24,16 @@ type InputParameter struct {
 	Type           []CWLType_Type                                                        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty" mapstructure:"type,omitempty"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
 }
 
+// GetClass _
 func (i InputParameter) GetClass() string { return "InputParameter" }
-func (i InputParameter) GetID() string    { return i.Id }
-func (i InputParameter) SetID(id string)  { i.Id = id }
-func (i InputParameter) IsCWLMinimal()    {}
 
-func NewInputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (input_parameter *InputParameter, err error) {
+//func (i InputParameter) GetID() string    { return i.ID }
+//func (i InputParameter) SetID(id string)  { i.ID = id }
+// IsCWLMinimal _
+func (i InputParameter) IsCWLMinimal() {}
+
+// NewInputParameter _
+func NewInputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (inputParameter *InputParameter, err error) {
 
 	//fmt.Println("---- NewInputParameter ----")
 	//spew.Dump(original)
@@ -42,86 +45,99 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 	}
 	//spew.Dump(original)
 
-	input_parameter = &InputParameter{}
+	inputParameter = &InputParameter{}
 
 	switch original.(type) {
 	case string:
 
-		type_string := original.(string)
+		typeString := original.(string)
 
-		var original_type CWLType_Type
-		original_type, err = NewCWLType_TypeFromString(schemata, type_string, "Input")
+		var originalTypeArray []CWLType_Type
+		originalTypeArray, err = NewCWLType_TypeFromString(schemata, typeString, "Input", context)
 		if err != nil {
 			err = fmt.Errorf("(NewInputParameter) NewCWLType_TypeFromString returned: %s", err.Error())
 			return
 		}
 
-		//input_parameter_type, xerr := NewInputParameterType(type_string_lower)
+		//inputParameter_type, xerr := NewInputParameterType(type_string_lower)
 		//if xerr != nil {
 		//	err = xerr
 		//	return
 		//}
 
-		input_parameter.Type = []CWLType_Type{original_type}
+		inputParameter.Type = originalTypeArray
 
 		//case int:
-		//input_parameter_type, xerr := NewInputParameterTypeArray("int")
+		//inputParameter_type, xerr := NewInputParameterTypeArray("int")
 		//if xerr != nil {
 		//	err = xerr
 		//	return
 		//}
 
-		//input_parameter.Type = input_parameter_type
+		//inputParameter.Type = inputParameter_type
+	case []interface{}:
+
+		var originalTypeArray []CWLType_Type
+		originalTypeArray, err = NewCWLType_TypeArray(original, schemata, "Input", true, context)
+		if err != nil {
+			err = fmt.Errorf("(NewInputParameter) NewCWLType_Type returned: %s", err.Error())
+			return
+		}
+
+		inputParameter.Type = originalTypeArray
 
 	case map[string]interface{}:
 
-		original_map := original.(map[string]interface{})
+		originalMap := original.(map[string]interface{})
 
-		input_parameter_default, ok := original_map["default"]
+		inputParameterDefault, ok := originalMap["default"]
 		if ok {
-			original_map["default"], err = NewCWLType("", input_parameter_default, context)
+			originalMap["default"], err = NewCWLType("", "", inputParameterDefault, context)
 			if err != nil {
 				err = fmt.Errorf("(NewInputParameter) NewCWLType returned: %s", err.Error())
 				return
 			}
 		}
 
-		inputParameter_type, ok := original_map["type"]
+		inputParameterType, ok := originalMap["type"]
 		if ok {
-			var inputParameter_type_array []CWLType_Type
-			inputParameter_type_array, err = NewCWLType_TypeArray(inputParameter_type, schemata, "Input", false, context)
+			var inputParameterTypeArray []CWLType_Type
+			inputParameterTypeArray, err = NewCWLType_TypeArray(inputParameterType, schemata, "Input", false, context)
 			if err != nil {
+				fmt.Println("inputParameterType:")
+				spew.Dump(inputParameterType)
 				err = fmt.Errorf("(NewInputParameter) NewCWLType_TypeArray returns: %s", err.Error())
 				return
 			}
-			if len(inputParameter_type_array) == 0 {
-				err = fmt.Errorf("(NewInputParameter) len(inputParameter_type_array) == 0")
+			if len(inputParameterTypeArray) == 0 {
+				err = fmt.Errorf("(NewInputParameter) len(inputParameterTypeArray) == 0")
 				return
 			}
-			original_map["type"] = inputParameter_type_array
+			originalMap["type"] = inputParameterTypeArray
 		}
 
-		err = mapstructure.Decode(original, input_parameter)
+		err = mapstructure.Decode(original, inputParameter)
 		if err != nil {
 			spew.Dump(original)
 			err = fmt.Errorf("(NewInputParameter) mapstructure.Decode returned: %s", err.Error())
 			return
 		}
+
 	default:
 		spew.Dump(original)
 		err = fmt.Errorf("(NewInputParameter) cannot parse input type %s", reflect.TypeOf(original))
 		return
 	}
 
-	if len(input_parameter.Type) == 0 {
-		err = fmt.Errorf("(NewInputParameter) len(input_parameter.Type) == 0")
+	if len(inputParameter.Type) == 0 {
+		err = fmt.Errorf("(NewInputParameter) len(inputParameter.Type) == 0")
 		return
 	}
 
 	return
 }
 
-// InputParameter
+// NewInputParameterArray _
 func NewInputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (new_array []InputParameter, err error) {
 
 	original, err = MakeStringMap(original, context)
@@ -130,48 +146,51 @@ func NewInputParameterArray(original interface{}, schemata []CWLType_Type, conte
 		return
 	}
 
+	//fmt.Println("NewInputParameterArray:")
+	//spew.Dump(original)
+
 	switch original.(type) {
 	case map[string]interface{}:
-		original_map := original.(map[string]interface{})
-		for id, v := range original_map {
+		originalMap := original.(map[string]interface{})
+		for id, v := range originalMap {
 			//fmt.Printf("A")
 
-			input_parameter, xerr := NewInputParameter(v, schemata, context)
+			inputParameter, xerr := NewInputParameter(v, schemata, context)
 			if xerr != nil {
 				err = fmt.Errorf("(NewInputParameterArray) A NewInputParameter returned: %s", xerr.Error())
 				return
 			}
 
-			input_parameter.Id = id
+			inputParameter.ID = id
 
-			if input_parameter.Id == "" {
+			if inputParameter.ID == "" {
 				err = fmt.Errorf("(NewInputParameterArray) ID is missing")
 				return
 			}
 
 			//fmt.Printf("C")
-			new_array = append(new_array, *input_parameter)
+			new_array = append(new_array, *inputParameter)
 			//fmt.Printf("D")
 
 		}
 	case []interface{}:
-		original_array := original.([]interface{})
-		for _, v := range original_array {
+		originalArray := original.([]interface{})
+		for _, v := range originalArray {
 			//fmt.Printf("A")
 
-			input_parameter, xerr := NewInputParameter(v, schemata, context)
+			inputParameter, xerr := NewInputParameter(v, schemata, context)
 			if xerr != nil {
 				err = fmt.Errorf("(NewInputParameterArray) B NewInputParameter returned: %s", xerr.Error())
 				return
 			}
 
-			if input_parameter.Id == "" {
+			if inputParameter.ID == "" {
 				err = fmt.Errorf("(NewInputParameterArray) ID is missing")
 				return
 			}
 
 			//fmt.Printf("C")
-			new_array = append(new_array, *input_parameter)
+			new_array = append(new_array, *inputParameter)
 			//fmt.Printf("D")
 
 		}

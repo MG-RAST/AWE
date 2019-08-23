@@ -306,12 +306,12 @@ func dbUpdateJobTaskFields(jobID string, workflowInstanceID string, taskID strin
 		//updateOp = bson.M{"$set": updateValue}
 	}
 
-	fmt.Println("(dbUpdateJobTaskFields) updateValue:")
-	spew.Dump(updateValue)
+	//fmt.Println("(dbUpdateJobTaskFields) updateValue:")
+	//spew.Dump(updateValue)
 
 	err = c.Update(selector, updateOp)
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobTaskFields) (db: %s) Error updating task %s: %s", database, taskID, err.Error())
+		err = fmt.Errorf("(dbUpdateJobTaskFields) (db: %s, workflowInstanceID: %s) Error updating task %s: %s", database, workflowInstanceID, taskID, err.Error())
 		return
 	}
 	return
@@ -481,21 +481,26 @@ func LoadJob(id string) (job *Job, err error) {
 		for i := range wis {
 			var wiChanged bool
 			wi := wis[i]
+			if wi.ID == "" {
+				spew.Dump(wis)
+				err = fmt.Errorf("(LoadJob) wi.ID empty")
+				return
+			}
 			wiChanged, err = wi.Init(job)
 			if err != nil {
 				err = fmt.Errorf("(LoadJob) wis[i].Init returned: %s", err.Error())
 				return
 			}
 			if wiChanged {
-				err = wi.Save(true)
+				err = wi.Update(true)
 				if err != nil {
-					err = fmt.Errorf("(LoadJob) wi.Save() returned: %s", err.Error())
+					err = fmt.Errorf("(LoadJob) wi.Update() returned: %s", err.Error())
 					return
 				}
 			}
 			// add WorkflowInstance to job
 
-			fmt.Printf("(LoadJob) loading: %s\n", wi.LocalID)
+			//fmt.Printf("(LoadJob) loading: %s\n", wi.LocalID)
 
 			err = job.AddWorkflowInstance(wi, DbSyncFalse, true) // load from database
 			if err != nil {
@@ -547,26 +552,26 @@ func dbGetJobTaskField(jobID string, taskID string, fieldname string, result *St
 }
 
 // TODO: warning: this does not cope with subfields such as "partinfo.index"
-func dbGetJobArrayField(jobID string, taskID string, array_name string, id_field string, fieldname string, result *StructContainer) (err error) {
+func dbGetJobArrayField(jobID string, taskID string, arrayName string, idField string, fieldname string, result *StructContainer) (err error) {
 	session := db.Connection.Session.Copy()
 	defer session.Close()
 
 	c := session.DB(conf.MONGODB_DATABASE).C(conf.DB_COLL_JOBS)
 	selector := bson.M{"id": jobID}
 
-	projection := bson.M{array_name: bson.M{"$elemMatch": bson.M{id_field: taskID}}, array_name + "." + fieldname: 1}
-	temp_result := bson.M{}
+	projection := bson.M{arrayName: bson.M{"$elemMatch": bson.M{idField: taskID}}, arrayName + "." + fieldname: 1}
+	tempResult := bson.M{}
 
-	err = c.Find(selector).Select(projection).One(&temp_result)
+	err = c.Find(selector).Select(projection).One(&tempResult)
 	if err != nil {
-		err = fmt.Errorf("(dbGetJobArrayField) Error getting field from jobID %s , %s=%s and fieldname %s: %s", jobID, id_field, taskID, fieldname, err.Error())
+		err = fmt.Errorf("(dbGetJobArrayField) Error getting field from jobID %s , %s=%s and fieldname %s: %s", jobID, idField, taskID, fieldname, err.Error())
 		return
 	}
 
 	//logger.Debug(3, "GOT: %v", temp_result)
 
-	tasks_unknown := temp_result[array_name]
-	tasks, ok := tasks_unknown.([]interface{})
+	tasksUnknown := tempResult[arrayName]
+	tasks, ok := tasksUnknown.([]interface{})
 
 	if !ok {
 		err = fmt.Errorf("(dbGetJobArrayField) Array expected, but not found")

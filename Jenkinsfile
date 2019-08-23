@@ -4,7 +4,7 @@ pipeline {
     }
     agent { 
         node {
-            label 'bare-metal'
+            label 'bare-metal||awe'
             
            
             
@@ -124,7 +124,7 @@ pipeline {
                 set -e
                 sleep 2
                 
-                echo -e "data\ntmp\nSkyport2\nresult.xml\ndeprecated\ntesting/tmp\n" > .dockerignore
+                
                 docker build ${USE_CACHE} --pull -t mgrast/awe-server .
                 docker build ${USE_CACHE} --pull -t mgrast/awe-worker -f Dockerfile_worker .
                 docker build ${USE_CACHE} --pull -t mgrast/awe-submitter -f Dockerfile_submitter .
@@ -181,7 +181,7 @@ pipeline {
                 docker run \
                     --rm \
                     --env "SHOCK_SERVER=http://shock:7445" \
-                    --env "AWE_SERVER=http://awe-server:8001" \
+                    --env "AWE_SERVER=http://awe-server:80" \
                     --network testing_default \
                     --name awe-submitter-testing \
                     --volume `pwd`/result.xml:/output/result.xml \

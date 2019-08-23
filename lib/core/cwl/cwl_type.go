@@ -187,6 +187,11 @@ func NewCWLType(id string, parentID string, native interface{}, context *Workflo
 		cwlType = NewFloat(nativeFloat32)
 	case float64:
 		nativeFloat64 := native.(float64)
+		if math.IsNaN(nativeFloat64) {
+			err = fmt.Errorf("(NewCWLType) float64 IsNaN ")
+			return
+		}
+
 		cwlType = NewDouble(nativeFloat64)
 	case string:
 		//fmt.Printf("(NewCWLType) E\n")

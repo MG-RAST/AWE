@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"regexp"
 	"strings"
@@ -107,11 +108,18 @@ func (e Expression) EvaluateExpression(self interface{}, inputs interface{}, con
 					value_returned = NewFloat(exported_value.(float32))
 				case float64:
 					//fmt.Println("got a double")
-					value_returned = NewDouble(exported_value.(float64))
+
+					value_returnedFloat := exported_value.(float64)
+					if math.IsNaN(value_returnedFloat) {
+						err = fmt.Errorf("(EvaluateExpression) float64 IsNaN ")
+						return
+					}
+
+					value_returned = NewDouble(value_returnedFloat)
 				case uint64:
 					value_returned, err = NewInt(exported_value.(int), context)
 					if err != nil {
-						err = fmt.Errorf("(NewCWLType) NewInt: %s", err.Error())
+						err = fmt.Errorf("(EvaluateExpression) NewInt: %s", err.Error())
 						return
 					}
 				case []interface{}: //Array

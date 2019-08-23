@@ -46,7 +46,7 @@ type Workunit struct {
 	Workunit_Unique_Identifier `bson:",inline" json:",inline" mapstructure:",squash"`
 	WorkunitState              `bson:",inline" json:",inline" mapstructure:",squash"`
 	ID                         string                 `bson:"id,omitempty" json:"id,omitempty" mapstructure:"id,omitempty"`       // global identifier: jobid_taskid_rank (for backwards coompatibility only)
-	WuId                       string                 `bson:"wuid,omitempty" json:"wuid,omitempty" mapstructure:"wuid,omitempty"` // deprecated !
+	WuID                       string                 `bson:"wuid,omitempty" json:"wuid,omitempty" mapstructure:"wuid,omitempty"` // deprecated !
 	Info                       *Info                  `bson:"info,omitempty" json:"info,omitempty" mapstructure:"info,omitempty"` // ***
 	Inputs                     []*IO                  `bson:"inputs,omitempty" json:"inputs,omitempty" mapstructure:"inputs,omitempty"`
 	Outputs                    []*IO                  `bson:"outputs,omitempty" json:"outputs,omitempty" mapstructure:"outputs,omitempty"`
@@ -112,7 +112,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 	logger.Debug(3, "(NewWorkunit) start: %s", workStr)
 
 	workunit.ID = workStr
-	workunit.WuId = workStr
+	workunit.WuID = workStr
 
 	if task.WorkflowStep != nil {
 
@@ -183,10 +183,10 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			return
 		}
 
-		var shock_requirement *cwl.ShockRequirement
-		shock_requirement = job.CWL_ShockRequirement
-		if shock_requirement == nil {
-			err = fmt.Errorf("(NewWorkunit) shock_requirement == nil")
+		var shockRequirement *cwl.ShockRequirement
+		shockRequirement = job.CWL_ShockRequirement
+		if shockRequirement == nil {
+			err = fmt.Errorf("(NewWorkunit) shockRequirement == nil")
 			return
 		}
 		//shock_requirement, err = cwl.GetShockRequirement(requirements)
@@ -197,12 +197,12 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		//	return
 		//}
 
-		if shock_requirement.Shock_api_url == "" {
+		if shockRequirement.Shock_api_url == "" {
 			err = fmt.Errorf("(NewWorkunit) Shock_api_url in ShockRequirement is empty")
 			return
 		}
 
-		workunit.ShockHost = shock_requirement.Shock_api_url
+		workunit.ShockHost = shockRequirement.Shock_api_url
 
 		workunit.CWLWorkunit.Tool = process
 
@@ -257,23 +257,18 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			}
 		}
 
-		// filter WorkflowSteps
-		var workflowStepInputsFiltered []*cwl.WorkflowStepInput
+		var workflowStepInputsAll []*cwl.WorkflowStepInput
 
 		for i := range workflowStep.In {
 			stepInput := &workflowStep.In[i]
-			stepInputName := stepInput.ID
-			stepInputNameBase := path.Base(stepInputName)
 
-			_, toolHasInput := toolInputsMap[stepInputNameBase]
-			if toolHasInput {
-				workflowStepInputsFiltered = append(workflowStepInputsFiltered, stepInput)
-			}
+			workflowStepInputsAll = append(workflowStepInputsAll, stepInput)
 		}
 
-		var workunitInputMap map[string]cwl.CWLType
+		//var workunitInputMapFiltered map[string]cwl.CWLType
+		var workunitInputMapAll map[string]cwl.CWLType
 		var reason string
-		workunitInputMap, ok, reason, err = qm.GetStepInputObjects(job, workflowInstance, workflowInputMap, workflowStepInputsFiltered, context, "NewWorkunit")
+		workunitInputMapAll, ok, reason, err = qm.GetStepInputObjects(job, workflowInstance, workflowInputMap, workflowStepInputsAll, context, "NewWorkunit")
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) task=%s, GetStepInputObjects returned: %s", taskStr, err.Error())
 			return
@@ -294,7 +289,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 				commandInputParameterID := commandInputParameter.ID
 				commandInputParameterIDBase := path.Base(commandInputParameterID)
 
-				input, hasInput := workunitInputMap[commandInputParameterIDBase]
+				input, hasInput := workunitInputMapAll[commandInputParameterIDBase]
 				if hasInput {
 					// check if input is not Null
 					_, isNull := input.(*cwl.Null)
@@ -305,7 +300,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 				// check if a default exists
 				if commandInputParameter.Default != nil {
-					workunitInputMap[commandInputParameterIDBase] = commandInputParameter.Default
+					workunitInputMapAll[commandInputParameterIDBase] = commandInputParameter.Default
 				}
 			}
 		}
@@ -316,29 +311,20 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 				inputParameter := &et.Inputs[inputI]
 				inputParameterID := inputParameter.ID
 				inputParameterIDBase := path.Base(inputParameterID)
-				_, hasInput := workunitInputMap[inputParameterIDBase]
+				_, hasInput := workunitInputMapAll[inputParameterIDBase]
 				if hasInput {
 					continue // no need to add a default
 				}
 
 				// check if a default exists
 				if inputParameter.Default != nil {
-					workunitInputMap[inputParameterIDBase] = inputParameter.Default
+					workunitInputMapAll[inputParameterIDBase] = inputParameter.Default
 				}
 			}
 		}
 
 		//	fmt.Println("workunit_input_map after second round:\n")
 		//	spew.Dump(workunit_input_map)
-
-		job_input := cwl.Job_document{}
-
-		for elem_id, elem := range workunitInputMap {
-			named_type := cwl.NewNamedCWLType(elem_id, elem)
-			job_input = append(job_input, named_type)
-		}
-
-		workunit.CWLWorkunit.JobInput = &job_input
 
 		//fmt.Println("workflow_instance:")
 		//spew.Dump(workflow_instance)
@@ -349,21 +335,40 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		//panic("done workflowStep.Out")
 		workunit.CWLWorkunit.OutputsExpected = &workflowStep.Out
 
-		err = workunit.Evaluate(workunitInputMap, context)
+		err = workunit.Evaluate(workunitInputMapAll, context)
 		if err != nil {
 			err = fmt.Errorf("(NewWorkunit) workunit.Evaluate returned: %s", err.Error())
 			return
 		}
+
+		jobInput := cwl.Job_document{}
+
+		for elemID, elem := range workunitInputMapAll {
+			// do not copy step input that are not needed by tool
+			elemIDBase := path.Base(elemID)
+			_, toolHasInput := toolInputsMap[elemIDBase]
+			if !toolHasInput {
+				continue
+			}
+
+			namedType := cwl.NewNamedCWLType(elemID, elem)
+			jobInput = append(jobInput, namedType)
+		}
+
+		workunit.CWLWorkunit.JobInput = &jobInput
+
+		// remove inputs that are not required
 
 	}
 
 	return
 }
 
-func (w *Workunit) Evaluate(inputs interface{}, context *cwl.WorkflowContext) (err error) {
+// Evaluate _
+func (work *Workunit) Evaluate(inputs interface{}, context *cwl.WorkflowContext) (err error) {
 
-	if w.CWLWorkunit != nil {
-		process := w.CWLWorkunit.Tool
+	if work.CWLWorkunit != nil {
+		process := work.CWLWorkunit.Tool
 		switch process.(type) {
 		case *cwl.CommandLineTool:
 			clt := process.(*cwl.CommandLineTool)
@@ -398,24 +403,26 @@ func (w *Workunit) Evaluate(inputs interface{}, context *cwl.WorkflowContext) (e
 	return
 }
 
-func (w *Workunit) GetID() (id Workunit_Unique_Identifier) {
-	id = w.Workunit_Unique_Identifier
+// GetID _
+func (work *Workunit) GetID() (id Workunit_Unique_Identifier) {
+	id = work.Workunit_Unique_Identifier
 	return
 }
 
+// Mkdir _
 func (work *Workunit) Mkdir() (err error) {
 	// delete workdir just in case it exists; will not work if awe-worker is not in docker container AND tasks are in container
-	work_path, err := work.Path()
+	workPath, err := work.Path()
 	if err != nil {
 		err = fmt.Errorf("(Workunit/Mkdir) work.Path() returned: %s", err.Error())
 		return
 	}
-	err = os.RemoveAll(work_path)
+	err = os.RemoveAll(workPath)
 	if err != nil {
 		err = fmt.Errorf("(Workunit/Mkdir) os.RemoveAll returned: %s", err.Error())
 		return
 	}
-	err = os.MkdirAll(work_path, 0777)
+	err = os.MkdirAll(workPath, 0777)
 	if err != nil {
 		err = fmt.Errorf("(Workunit/Mkdir) os.MkdirAll returned: %s", err.Error())
 		return
@@ -423,27 +430,29 @@ func (work *Workunit) Mkdir() (err error) {
 	return
 }
 
+// RemoveDir _
 func (work *Workunit) RemoveDir() (err error) {
-	work_path, err := work.Path()
+	workPath, err := work.Path()
 	if err != nil {
 		return
 	}
-	err = os.RemoveAll(work_path)
+	err = os.RemoveAll(workPath)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func (work *Workunit) SetState(new_state string, reason string) (err error) {
+// SetState _
+func (work *Workunit) SetState(newState string, reason string) (err error) {
 
-	if new_state == WORK_STAT_SUSPEND && reason == "" {
+	if newState == WORK_STAT_SUSPEND && reason == "" {
 		err = fmt.Errorf("To suspend you need to provide a reason")
 		return
 	}
 
-	work.State = new_state
-	if new_state != WORK_STAT_CHECKOUT {
+	work.State = newState
+	if newState != WORK_STAT_CHECKOUT {
 		work.Client = ""
 	}
 
@@ -458,6 +467,7 @@ func (work *Workunit) SetState(new_state string, reason string) (err error) {
 	return
 }
 
+// Path _
 func (work *Workunit) Path() (path string, err error) {
 	if work.WorkPath == "" {
 		id := work.Workunit_Unique_Identifier.JobId
@@ -470,31 +480,33 @@ func (work *Workunit) Path() (path string, err error) {
 		//if task_name != "" {
 		//	task_name += "-"
 		//}
-		task_name := work.Workunit_Unique_Identifier.TaskName
+		taskName := work.Workunit_Unique_Identifier.TaskName
 		// convert name to make it filesystem compatible
-		task_name = strings.Map(
+		taskName = strings.Map(
 			func(r rune) rune {
 				if syntax.IsWordChar(r) || r == '-' { // word char: [0-9A-Za-z] and '-'
 					return r
 				}
 				return '_'
 			},
-			task_name)
+			taskName)
 
-		work.WorkPath = fmt.Sprintf("%s/%s/%s/%s/%s_%s_%d", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id, task_name, work.Workunit_Unique_Identifier.Rank)
+		work.WorkPath = fmt.Sprintf("%s/%s/%s/%s/%s_%s_%d", conf.WORK_PATH, id[0:2], id[2:4], id[4:6], id, taskName, work.Workunit_Unique_Identifier.Rank)
 	}
 	path = work.WorkPath
 	return
 }
 
+// CDworkpath _
 func (work *Workunit) CDworkpath() (err error) {
-	work_path, err := work.Path()
+	workPath, err := work.Path()
 	if err != nil {
 		return
 	}
-	return os.Chdir(work_path)
+	return os.Chdir(workPath)
 }
 
+// GetNotes _
 func (work *Workunit) GetNotes() string {
 	seen := map[string]bool{}
 	uniq := []string{}
@@ -507,7 +519,7 @@ func (work *Workunit) GetNotes() string {
 	return strings.Join(uniq, "###")
 }
 
-//calculate the range of data part
+//Part calculate the range of data part
 //algorithm: try to evenly distribute indexed parts to workunits
 //e.g. totalWork=4, totalParts=10, then each workunits have parts 3,3,2,2
 func (work *Workunit) Part() (part string) {
@@ -532,7 +544,8 @@ func (work *Workunit) Part() (part string) {
 	return
 }
 
-func (work *Workunit) GetIdBase64() (work_id_b64 string, err error) {
+// GetIDBase64 _
+func (work *Workunit) GetIDBase64() (workIDB64 string, err error) {
 	var workStr string
 	workStr, err = work.String()
 	if err != nil {
@@ -540,20 +553,21 @@ func (work *Workunit) GetIdBase64() (work_id_b64 string, err error) {
 		return
 	}
 
-	work_id_b64 = "base64:" + base64.StdEncoding.EncodeToString([]byte(workStr))
+	workIDB64 = "base64:" + base64.StdEncoding.EncodeToString([]byte(workStr))
 	return
 }
 
+// FetchDataToken _
 func (work *Workunit) FetchDataToken() (token string, err error) {
 
-	var work_id_b64 string
-	work_id_b64, err = work.GetIdBase64()
+	var workIDB64 string
+	workIDB64, err = work.GetIDBase64()
 	if err != nil {
-		err = fmt.Errorf("(FetchDataToken) work.GetIdBase64 returned: %s", err.Error())
+		err = fmt.Errorf("(FetchDataToken) work.GetIDBase64 returned: %s", err.Error())
 		return
 	}
 
-	targeturl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, work_id_b64, Self.ID)
+	targeturl := fmt.Sprintf("%s/work/%s?datatoken&client=%s", conf.SERVER_URL, workIDB64, Self.ID)
 	logger.Debug(1, "(FetchDataToken) targeturl: %s", targeturl)
 	var headers httpclient.Header
 	logger.Debug(3, "(FetchDataToken) len(conf.CLIENT_GROUP_TOKEN): %d ", len(conf.CLIENT_GROUP_TOKEN))
@@ -590,18 +604,18 @@ func (work *Workunit) FetchDataToken() (token string, err error) {
 		return
 	}
 
-	header_array, ok := res.Header["Datatoken"]
+	headerArray, ok := res.Header["Datatoken"]
 	if !ok {
 		logger.Debug(3, "(FetchDataToken) Datatoken header not found")
 		return
 	}
 
-	if len(header_array) == 0 {
-		logger.Debug(3, "(FetchDataToken) len(header_array) == 0")
+	if len(headerArray) == 0 {
+		logger.Debug(3, "(FetchDataToken) len(headerArray) == 0")
 		return
 	}
 
-	token = header_array[0]
+	token = headerArray[0]
 
 	return
 }

@@ -178,7 +178,7 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 			"Authorization": []string{"CG_TOKEN " + conf.CLIENT_GROUP_TOKEN},
 		}
 	}
-	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s sends a checkout request to %s with available %d", core.Self.ID, conf.SERVER_URL, availableBytes))
+	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s sends a checkout request to %s with available %d (targeturl = %s)", core.Self.ID, conf.SERVER_URL, availableBytes, targeturl))
 	res, err := httpclient.DoTimeout("GET", targeturl, headers, nil, nil, time.Second*0)
 	logger.Debug(3, fmt.Sprintf("(CheckoutWorkunitRemote) client %s sent a checkout request to %s with available %d", core.Self.ID, conf.SERVER_URL, availableBytes))
 	if err != nil {
@@ -197,11 +197,18 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 		return
 	}
 
+	if len(jsonstream) == 0 {
+		err = fmt.Errorf("response is empty")
+		return
+	}
+
 	var response core.StandardResponse
 	response.Status = -1
 
-	if err = json.Unmarshal(jsonstream, &response); err != nil { // response
-		fmt.Printf("jsonstream:\n%s\n", jsonstream)
+	err = json.Unmarshal(jsonstream, &response)
+	if err != nil { // response
+		jsonstreamStr := string(jsonstream)
+		fmt.Printf("statuscode: %d\njsonstream:\n%s (len: %d) (%s)\n", res.StatusCode, jsonstreamStr, len(jsonstreamStr), err.Error())
 		err = fmt.Errorf("(CheckoutWorkunitRemote) json.Unmarshal error: %s", err.Error())
 		return
 	}

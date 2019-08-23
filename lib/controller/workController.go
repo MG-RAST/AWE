@@ -62,7 +62,7 @@ func (cr *WorkController) Read(id string, cx *goweb.Context) {
 				}
 			} else {
 				logger.Error("Err@AuthenticateClientGroup: " + err.Error())
-				cx.RespondWithError(http.StatusInternalServerError)
+				cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
@@ -195,7 +195,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 		// Try to authenticate user.
 		u, err := request.Authenticate(cx.Request)
 		if err != nil && err.Error() != e.NoAuth {
-			cx.RespondWithErrorMessage(err.Error(), http.StatusUnauthorized)
+			cx.RespondWithErrorMessage("Could not authenticate: "+err.Error(), http.StatusUnauthorized)
 			return
 		}
 
@@ -311,7 +311,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 			}
 		} else {
 			logger.Error("Err@AuthenticateClientGroup: " + err.Error())
-			cx.RespondWithError(http.StatusInternalServerError)
+			cx.RespondWithErrorMessage("AuthenticateClientGroup: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -320,7 +320,7 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	clientid := query.Value("client")
 	client, ok, err := core.QMgr.GetClient(clientid, true)
 	if err != nil {
-		cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+		cx.RespondWithErrorMessage("GetClient: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	logger.Debug(3, "work request with clientid=%s", clientid)
@@ -351,15 +351,15 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 
 	if err != nil {
 
-		err_str := err.Error()
+		errStr := err.Error()
 
 		err = fmt.Errorf("(ReadMany GET /work) CheckoutWorkunits returns: clientid=%s;available=%d;error=%s", clientid, availableBytes, err.Error())
 
-		if strings.Contains(err_str, e.QueueEmpty) ||
-			strings.Contains(err_str, e.QueueSuspend) ||
-			strings.Contains(err_str, e.NoEligibleWorkunitFound) ||
-			strings.Contains(err_str, e.ClientNotFound) ||
-			strings.Contains(err_str, e.ClientSuspended) {
+		if strings.Contains(errStr, e.QueueEmpty) ||
+			strings.Contains(errStr, e.QueueSuspend) ||
+			strings.Contains(errStr, e.NoEligibleWorkunitFound) ||
+			strings.Contains(errStr, e.ClientNotFound) ||
+			strings.Contains(errStr, e.ClientSuspended) {
 
 			logger.Debug(3, err.Error())
 		} else {
@@ -390,15 +390,17 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 	workunit.State = core.WORK_STAT_RESERVED
 	workunit.Client = clientid
 
-	//fmt.Println("workunit:")
-	//spew.Dump(workunit)
+	// fmt.Println("workunit:")
+	// spew.Dump(workunit)
 
-	//test, err := json.Marshal(workunit)
-	//if err != nil {
-	//	panic("did not work")
-	//}
-	//fmt.Println("workunit: ")
-	//fmt.Printf("workunit:\n %s\n", test)
+	// test, err := json.Marshal(workunit)
+	// if err != nil {
+	// 	fmt.Println("error: " + err.Error())
+
+	// 	panic("did not work")
+	// }
+	// fmt.Println("workunit: ")
+	// fmt.Printf("workunit:\n %s\n", test)
 
 	cx.RespondWithData(workunit)
 	return
@@ -442,7 +444,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	clientid := query.Value("client")
 	client, ok, err := core.QMgr.GetClient(clientid, true)
 	if err != nil {
-		cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+		cx.RespondWithErrorMessage("GetClient:"+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if !ok {
@@ -529,7 +531,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 		if _, ok := files["perf"]; ok {
 			err = core.QMgr.FinalizeWorkPerf(work_id, files["perf"].Path)
 			if err != nil {
-				cx.RespondWithErrorMessage(err.Error(), http.StatusInternalServerError)
+				cx.RespondWithErrorMessage("FinalizeWorkPerf: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}

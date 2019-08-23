@@ -508,9 +508,9 @@ func NotifyWorkunitProcessed(work *Workunit, perf *WorkPerf) (err error) {
 func NotifyWorkunitProcessedWithLogs(work *Workunit, perf *WorkPerf, sendstdlogs bool) (response *StandardResponse, err error) {
 
 	var workIDb64 string
-	workIDb64, err = work.GetIdBase64()
+	workIDb64, err = work.GetIDBase64()
 	if err != nil {
-		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) work.GetIdBase64 returned: %s", err.Error())
+		err = fmt.Errorf("(NotifyWorkunitProcessedWithLogs) work.GetIDBase64 returned: %s", err.Error())
 		return
 	}
 

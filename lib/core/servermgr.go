@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"path"
 	"reflect"
@@ -4949,8 +4950,14 @@ VALUE_FROM_LOOP:
 					case float32:
 						value_returned = cwl.NewFloat(exported_value.(float32))
 					case float64:
-						fmt.Println("got a double")
-						value_returned = cwl.NewDouble(exported_value.(float64))
+
+						exported_valueFloat := exported_value.(float64)
+						if math.IsNaN(exported_valueFloat) {
+							err = fmt.Errorf("(EvaluateExpression) float64 IsNaN ")
+							return
+						}
+
+						value_returned = cwl.NewDouble(exported_valueFloat)
 					case uint64:
 						value_returned, err = cwl.NewInt(exported_value.(int), context)
 						if err != nil {

@@ -145,14 +145,11 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 	return
 }
 
-func UploadFile(file *cwl.File, inputfile_path string, shockClient *shock.ShockClient, lazyUpload bool) (count int, err error) {
+// UploadFile _
+func UploadFile(file *cwl.File, inputfilePath string, shockClient *shock.ShockClient, lazyUpload bool) (count int, err error) {
 
-	if file.Contents != "" {
-		return
-	}
-
-	if strings.HasPrefix(inputfile_path, "file:") {
-		err = fmt.Errorf("(UploadFile) prefix file: not allowed in inputfile_path (%s)", inputfile_path)
+	if strings.HasPrefix(inputfilePath, "file:") {
+		err = fmt.Errorf("(UploadFile) prefix file: not allowed in inputfile_path (%s)", inputfilePath)
 		return
 	}
 
@@ -161,108 +158,148 @@ func UploadFile(file *cwl.File, inputfile_path string, shockClient *shock.ShockC
 	//	return
 	//}
 
-	file_path := file.Path
+	filePath := file.Path
+	var fileSize int64
+	new_file_name := ""
 
-	file_path = strings.TrimPrefix(file_path, "file://")
+	if file.Contents == "" {
 
-	//fmt.Println("(UploadFile) here")
-	//fmt.Printf("(UploadFile) file_path: %s\n", file_path)
-	//fmt.Printf("(UploadFile) file.Location: %s\n", file.Location)
-	if file_path == "" {
+		filePath = strings.TrimPrefix(filePath, "file://")
 
-		pos := strings.Index(file.Location, "://")
-		//fmt.Printf("(UploadFile) pos: %d\n", pos)
-		if pos > 0 {
-			scheme := file.Location[0:pos]
-			//fmt.Printf("scheme: %s\n", scheme)
+		//fmt.Println("(UploadFile) here")
+		//fmt.Printf("(UploadFile) file_path: %s\n", file_path)
+		//fmt.Printf("(UploadFile) file.Location: %s\n", file.Location)
+		if filePath == "" {
 
-			switch scheme {
+			pos := strings.Index(file.Location, "://")
+			//fmt.Printf("(UploadFile) pos: %d\n", pos)
+			if pos > 0 {
+				scheme := file.Location[0:pos]
+				//fmt.Printf("scheme: %s\n", scheme)
 
-			case "file":
-				file_path = strings.TrimPrefix(file.Location, "file://")
+				switch scheme {
 
-			case "http":
-				// file already non-local
-				return
-			case "https":
-				// file already non-local
-				return
-			case "ftp":
-				// file already non-local
-				return
+				case "file":
+					filePath = strings.TrimPrefix(file.Location, "file://")
 
-			default:
-				err = fmt.Errorf("(UploadFile) unkown scheme \"%s\"", scheme)
+				case "http":
+					// file already non-local
+					return
+				case "https":
+					// file already non-local
+					return
+				case "ftp":
+					// file already non-local
+					return
+
+				default:
+					err = fmt.Errorf("(UploadFile) unkown scheme \"%s\"", scheme)
+					return
+				}
+
+			} else {
+				//file.Location has no scheme, must be local file
+				filePath = file.Location
+			}
+
+			if filePath == "" {
+				err = fmt.Errorf("(UploadFile) filePath is empty and could not be derived (Location: %s)", file.Location)
 				return
 			}
 
-		} else {
-			//file.Location has no scheme, must be local file
-			file_path = file.Location
 		}
 
-		if file_path == "" {
-			err = fmt.Errorf("(UploadFile) file_path is empty and could not be derived (Location: %s)", file.Location)
+		if !path.IsAbs(filePath) {
+			filePath = path.Join(inputfilePath, filePath)
+		}
+
+		var fileInfo os.FileInfo
+		fileInfo, err = os.Stat(filePath)
+		if err != nil {
+
+			var currentWorkingDir string
+			currentWorkingDir, _ = os.Getwd()
+
+			err = fmt.Errorf("(UploadFile) os.Stat returned: %s (inputfilePath: %s, file.Path: %s, file.Location: %s, currentWorkingDir: %s)", err.Error(), inputfilePath, file.Path, file.Location, currentWorkingDir)
 			return
 		}
 
-	}
+		if fileInfo.IsDir() {
 
-	if !path.IsAbs(file_path) {
-		file_path = path.Join(inputfile_path, file_path)
-	}
-	//fmt.Printf("file_path: %s\n", file_path)
-	var file_info os.FileInfo
-	file_info, err = os.Stat(file_path)
-	if err != nil {
+			err = fmt.Errorf("(UploadFile) file_path is a directory: %s", filePath)
+			return
+		}
 
-		var current_working_dir string
-		current_working_dir, _ = os.Getwd()
+		fileSize = fileInfo.Size()
 
-		err = fmt.Errorf("(UploadFile) os.Stat returned: %s (inputfile_path: %s, file.Path: %s, file.Location: %s, current_working_dir: %s)", err.Error(), inputfile_path, file.Path, file.Location, current_working_dir)
-		return
-	}
+		basename := path.Base(filePath)
 
-	if file_info.IsDir() {
+		if filePath == "" {
+			err = fmt.Errorf("(UploadFile) file.Path is empty")
+			return
+		}
 
-		err = fmt.Errorf("(UploadFile) file_path is a directory: %s", file_path)
-		return
-	}
+		if file.Basename != "" {
+			new_file_name = file.Basename
+		} else {
+			new_file_name = basename
+		}
 
-	file_size := file_info.Size()
+		file_size_int32 := int32(fileSize)
+		file.Size = &file_size_int32
 
-	basename := path.Base(file_path)
+		var file_handle *os.File
+		file_handle, err = os.Open(filePath)
+		if err != nil {
+			err = fmt.Errorf("(UploadFile) os.Open returned: %s", err.Error())
+			return
+		}
+		defer file_handle.Close()
 
-	if file_path == "" {
-		err = fmt.Errorf("(UploadFile) file.Path is empty")
-		return
-	}
+		h := sha1.New()
 
-	new_file_name := ""
-	if file.Basename != "" {
-		new_file_name = file.Basename
+		_, err = io.Copy(h, file_handle)
+		if err != nil {
+			err = fmt.Errorf("(UploadFile) io.Copy returned: %s", err.Error())
+			return
+		}
+
+		//fmt.Printf("% x", h.Sum(nil))
+
+		file.Checksum = "sha1$" + hex.EncodeToString(h.Sum(nil))
+
 	} else {
-		new_file_name = basename
+		fileSize = int64(len(file.Contents))
+
+		if file.Basename == "" {
+			err = fmt.Errorf("(UploadFile) file.Basename is empty")
+			return
+		}
+		new_file_name = file.Basename
+
 	}
+
+	//fmt.Printf("file_path: %s\n", file_path)
 
 	var nodeid string
 	if lazyUpload {
 		//example: "${SHOCK_SERVER}/node?querynode&file.checksum.md5=37cbb1f811a144158cec0cbd87d97941"
 		//nodeid, err = shockClient.PostFileIf(file_path, new_file_name)
 
-		nodeid, err = shockClient.PostFileLazy(file_path, new_file_name, false)
+		nodeid, err = shockClient.PostFileLazy(filePath, new_file_name, false)
 		if err != nil {
 			err = fmt.Errorf("(UploadFile) shockClient.PostFileLazy returned: %s", err.Error())
 			return
 		}
 	} else {
 
-		nodeid, err = shockClient.PostFile(file_path, new_file_name)
+		nodeid, err = shockClient.PostFile(filePath, file.Contents, new_file_name)
 		if err != nil {
 			err = fmt.Errorf("(UploadFile) shockClient.PostFile returned: %s", err.Error())
 			return
 		}
 	}
+	file.Contents = ""
 
 	var location_url *url.URL
 	location_url, err = url.Parse(shockClient.Host) // Host includes a path to the API !
@@ -286,35 +323,11 @@ func UploadFile(file *cwl.File, inputfile_path string, shockClient *shock.ShockC
 	//fmt.Printf("file.Path B: %s\n", file.Path)
 	file.Basename = new_file_name
 
-	file_size_int32 := int32(file_size)
-	file.Size = &file_size_int32
-
-	file_handle, err := os.Open(file_path)
-	if err != nil {
-		err = fmt.Errorf("(UploadFile) os.Open returned: %s", err.Error())
-		return
-	}
-	defer file_handle.Close()
-
-	h := sha1.New()
-
-	_, err = io.Copy(h, file_handle)
-	if err != nil {
-		err = fmt.Errorf("(UploadFile) io.Copy returned: %s", err.Error())
-		return
-	}
-
-	//fmt.Printf("% x", h.Sum(nil))
-
-	file.Checksum = "sha1$" + hex.EncodeToString(h.Sum(nil))
 	count = 1
-	//fmt.Println(file.Location)
-
 	if file.Path != "" {
 		err = fmt.Errorf("(UploadFile) A) file.Path is not empty !?")
 		return
 	}
-
 	return
 }
 
@@ -616,11 +629,6 @@ func ProcessIOData(native interface{}, currentPath string, basePath string, ioTy
 		file, ok := native.(*cwl.File)
 		if !ok {
 			err = fmt.Errorf("could not cast to *cwl.File")
-			return
-		}
-
-		if file.Contents != "" {
-			file.Location = ""
 			return
 		}
 

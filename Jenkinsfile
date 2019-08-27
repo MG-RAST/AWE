@@ -154,10 +154,15 @@ pipeline {
                 cd ${base_dir}/Skyport2/scripts/
                 source ./get_docker_binary.sh 
 
-            
-                
+                cd ${base_dir}
+                rm -rf ${DATADIR}/shock/data/data/*
+                rm -rf ${DATADIR}/mongo/db/*
+                rm -rf ${DATADIR}/awe-worker/work/*
+                rm -f ./result.xml
+
                 cd ${base_dir}/testing
-                
+                rm -f ${SKYPORT_TMPDIR}/*
+
                 docker-compose up -d
                 set +e
                 sleep 2
@@ -176,7 +181,8 @@ pipeline {
                 
                 
                 set +e
-                rm -f result.xml
+               
+                
                 touch result.xml
                 docker run \
                     --rm \

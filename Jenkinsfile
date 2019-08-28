@@ -41,8 +41,9 @@ pipeline {
                 
                 echo "Deleting all data in "`pwd`
 
-                #docker run --rm --volume `pwd`:/tmp/workspace bash rm -rf /tmp/workspace/live-data
-                
+                docker run --rm  -v ${base_dir}:/basedir bash rm -rf /basedir/tmp /basedir/data
+
+
                 docker volume prune -f
                 echo "stage pre-cleanup done"
                 '''
@@ -155,7 +156,7 @@ pipeline {
                 source ./get_docker_binary.sh 
 
                 cd ${base_dir}
-                docker run --rm  -v ${DATADIR}:/datadir -v ${SKYPORT_TMPDIR}:/skyport_tmp/ bash rm -rf /datadir/shock /datadir/mongo /datadir/awe-worker /skyport_tmp/*
+               
                 
                 set +e
                 rm -f ./result.xml

@@ -41,8 +41,9 @@ pipeline {
                 
                 echo "Deleting all data in "`pwd`
 
-                #docker run --rm --volume `pwd`:/tmp/workspace bash rm -rf /tmp/workspace/live-data
-                
+                docker run --rm  -v ${base_dir}:/basedir bash rm -rf /basedir/tmp /basedir/data
+
+
                 docker volume prune -f
                 echo "stage pre-cleanup done"
                 '''
@@ -154,10 +155,16 @@ pipeline {
                 cd ${base_dir}/Skyport2/scripts/
                 source ./get_docker_binary.sh 
 
-            
+                cd ${base_dir}
+               
                 
+                set +e
+                rm -f ./result.xml
+                set -e
+
                 cd ${base_dir}/testing
-                
+               
+
                 docker-compose up -d
                 set +e
                 sleep 2
@@ -176,7 +183,8 @@ pipeline {
                 
                 
                 set +e
-                rm -f result.xml
+               
+                
                 touch result.xml
                 docker run \
                     --rm \

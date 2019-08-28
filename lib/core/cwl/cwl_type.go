@@ -80,7 +80,7 @@ type CWLType interface {
 // CWLType_Impl _
 type CWLType_Impl struct {
 	CWLObjectImpl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides: IsCWLObject()
-	CWL_class_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class
+	CWL_class_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Class
 	Type           CWLType_Type                                                          `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 }
 

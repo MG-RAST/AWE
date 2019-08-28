@@ -155,13 +155,14 @@ pipeline {
                 source ./get_docker_binary.sh 
 
                 cd ${base_dir}
-                rm -rf ${DATADIR}/shock/data/data/*
-                rm -rf ${DATADIR}/mongo/db/*
-                rm -rf ${DATADIR}/awe-worker/work/*
+                docker run --rm  -v ${DATADIR}:/datadir -v ${SKYPORT_TMPDIR}:/skyport_tmp/ bash rm -rf /datadir/shock /datadir/mongo /datadir/awe-worker /skyport_tmp/*
+                
+                set +e
                 rm -f ./result.xml
+                set -e
 
                 cd ${base_dir}/testing
-                rm -f ${SKYPORT_TMPDIR}/*
+               
 
                 docker-compose up -d
                 set +e

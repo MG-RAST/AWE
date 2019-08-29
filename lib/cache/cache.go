@@ -24,6 +24,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	shock "github.com/MG-RAST/go-shock-client"
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
 )
 
 func getCacheDir(id string) string {
@@ -425,10 +427,9 @@ func DownloadFile(file *cwl.File, downloadPath string, basePath string, shockCli
 	basePath = path.Join(strings.TrimSuffix(basePath, "/"), "/")
 
 	file.Location = strings.TrimPrefix(strings.TrimPrefix(filePath, basePath), "/") // "file://" +  ?
-
-	file.SetPath(file.Location)
-	//fmt.Println("file:")
-	//spew.Dump(file)
+	file.Nameroot = ""
+	//file.SetPath(file.Location)
+	//fmt.Printf("file.Path: %s\n", file.Path)
 
 	return
 }
@@ -469,6 +470,14 @@ func UploadDirectory(dir *cwl.Directory, currentPath string, shockClient *shock.
 		err = fmt.Errorf("(UploadDirectory) filepath.Glob returned: %s", err.Error())
 		return
 	}
+	// fmt.Println("matches:")
+	// spew.Dump(matches)
+
+	// make sure that the result of glob is sorted
+	c := collate.New(language.Und)
+	c.SortStrings(matches)
+	// fmt.Println("matches:")
+	// spew.Dump(matches)
 
 	//fmt.Printf("files matching: %d\n", len(matches))
 	count = 0
@@ -527,10 +536,10 @@ func UploadDirectory(dir *cwl.Directory, currentPath string, shockClient *shock.
 
 		count += uploadCount
 	}
-	//fmt.Println("Listing:")
-	//for _, listing := range dir.Listing {
-	//	spew.Dump(listing.String())
-	//}
+	// fmt.Println("Listing:")
+	// for _, listing := range dir.Listing {
+	// 	spew.Dump(listing.String())
+	// }
 
 	return
 }

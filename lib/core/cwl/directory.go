@@ -44,13 +44,16 @@ func NewDirectoryFromInterface(obj interface{}, context *WorkflowContext) (d *Di
 
 	listing, has_listing := obj_map["listing"]
 	if has_listing {
+		//fmt.Println("(NewDirectoryFromInterface) listing:")
+		//spew.Dump(listing)
 		var listing_types *[]CWLType
 		listing_types, err = NewFDArray(listing, "", context)
 		if err != nil {
 			err = fmt.Errorf("(MakeFile) NewFDArray returns: %s", err.Error())
 			return
 		}
-
+		//fmt.Println("(NewDirectoryFromInterface) listing_types:")
+		//spew.Dump(listing_types)
 		obj_map["listing"] = listing_types
 
 	}
@@ -69,11 +72,9 @@ func NewDirectoryFromInterface(obj interface{}, context *WorkflowContext) (d *Di
 // Array of Files and/or Directories
 func NewFDArray(native interface{}, parent_id string, context *WorkflowContext) (cwl_array_ptr *[]CWLType, err error) {
 
-	//fmt.Println("(NewFDArray)")
-	//spew.Dump(native)
-
 	switch native.(type) {
 	case []map[string]interface{}:
+
 		nativeArray, ok := native.([]map[string]interface{})
 		if !ok {
 			err = fmt.Errorf("(NewFDArray) could not parse []map[string]interface{}")

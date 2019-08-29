@@ -357,6 +357,10 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 
 		workunit.CWLWorkunit.JobInput = &jobInput
 
+		//fmt.Println("(NewWorkunit) jobInput")
+		//jobInput_bytes, _ := json.Marshal(jobInput)
+		//fmt.Printf("%s\n", string(jobInput_bytes))
+
 		// remove inputs that are not required
 
 	}

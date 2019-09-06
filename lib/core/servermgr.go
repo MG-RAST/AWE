@@ -193,7 +193,7 @@ func (qm *ServerMgr) IsWIReady(job *Job, wi *WorkflowInstance) (ready bool, reas
 	if !ready {
 		return
 	}
-	logger.Debug(3, "(IsWIReady) areSourceGeneratorsReady returned: %s", strings.Join(generators, ","))
+	logger.Debug(3, "(IsWIReady) areSourceGeneratorsReady returned generators list: %s (%s)", strings.Join(generators, ","), parentWorkflowInstanceName)
 
 	// err = qm.GetDependencies(job, parentWorkflowInstance, parentWorkflowInputMap, step, context)
 	// if err != nil {
@@ -242,6 +242,10 @@ func (qm *ServerMgr) updateWorkflowInstancesMapTask(workflowInstance *WorkflowIn
 	wiState, _ := workflowInstance.GetState(true)
 
 	logger.Debug(3, "(updateWorkflowInstancesMapTask) start: %s state: %s", workflowInstance.LocalID, wiState)
+
+	if wiState == WIStateSuspended {
+		return
+	}
 
 	if wiState == WIStatePending {
 
@@ -2427,8 +2431,9 @@ func (qm *ServerMgr) areSourceGeneratorsReady(step *cwl.WorkflowStep, job *Job, 
 			logger.Debug(3, "(areSourceGeneratorsReady) step input %s using generator %s", wsi.ID, generator)
 
 			if len(generatorArray) == 1 { // workflow input
-				ready = true
-				return
+				generators = append(generators, "self")
+				continue
+
 			}
 
 			// if generator == "." {
@@ -3720,7 +3725,13 @@ func (qm *ServerMgr) getCWLSourceFromStepOutput_Workflow(job *Job, workflowInsta
 
 	subwiState, _ := subwi.GetState(true)
 	if subwiState != WIStateCompleted {
-		err = fmt.Errorf("(getCWLSourceFromStepOutput_Workflow) step %s (a Workflow) is not even completed yet (state=%s)", subworkflow_name, subwiState)
+		msg := fmt.Sprintf("(getCWLSourceFromStepOutput_Workflow) step %s (a WorkflowInstance) is not completed yet (state=%s)", subworkflow_name, subwiState)
+		if errorOnMissingTask {
+			err = fmt.Errorf(msg)
+		} else {
+			ok = false
+			reason = msg
+		}
 		return
 	}
 
@@ -3904,7 +3915,34 @@ func (qm *ServerMgr) GetSourceFromWorkflowInstanceInput(workflowInstance *Workfl
 	// check if input is optional
 	optional := false
 
-	for _, inputType := range inputParameter.Type {
+	var inputParameterTypes []cwl.CWLType_Type
+
+	inputParameterTypesIf := inputParameter.Type
+	switch inputParameterTypesIf.(type) {
+	case []interface{}:
+		inputParameterTypesArrayIf := inputParameterTypesIf.([]interface{})
+
+		for _, tIf := range inputParameterTypesArrayIf {
+			var t cwl.CWLType_Type
+			t, ok = tIf.(cwl.CWLType_Type)
+			if !ok {
+				err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) Could not convert array element type")
+				return
+			}
+			inputParameterTypes = append(inputParameterTypes, t)
+		}
+
+	default:
+		var t cwl.CWLType_Type
+		t, ok = inputParameterTypesIf.(cwl.CWLType_Type)
+		if !ok {
+			err = fmt.Errorf("(GetSourceFromWorkflowInstanceInput) Could not element type")
+			return
+		}
+		inputParameterTypes = []cwl.CWLType_Type{t}
+	}
+
+	for _, inputType := range inputParameterTypes {
 		if inputType == cwl.CWLNull {
 			optional = true
 			break

@@ -59,6 +59,27 @@ func NewArray(id string, parentID string, native interface{}, context *WorkflowC
 
 		arrayPtr = &array
 
+	case []int64:
+		nativeArray := native.([]int64)
+
+		array := Array{}
+		for _, value := range nativeArray {
+
+			var valueCWL CWLType
+			valueCWL, err = NewCWLType("", parentID, value, context)
+			if err != nil {
+				fmt.Println("NewArray element:")
+				spew.Dump(value)
+
+				err = fmt.Errorf("(NewArray) NewCWLType returned: %s", err.Error())
+				return
+			}
+
+			array = append(array, valueCWL)
+		}
+
+		arrayPtr = &array
+
 	case []map[string]interface{}:
 		nativeArray := native.([]map[string]interface{})
 

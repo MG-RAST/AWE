@@ -157,7 +157,7 @@ func NewCWLType(id string, parentID string, native interface{}, context *Workflo
 	}
 
 	switch native.(type) {
-	case []interface{}, []map[string]interface{}:
+	case []interface{}, []int64, []map[string]interface{}:
 		//fmt.Printf("(NewCWLType) C\n")
 		//nativeArray, _ := native.([]interface{})
 
@@ -466,13 +466,16 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowC
 
 		objectType := object.GetType()
 		objectTypeStr := objectType.Type2String()
-		//fmt.Printf("TypeIsCorrectSingle: \"%s\" \"%s\"\n", reflect.TypeOf(schema), reflect.TypeOf(objectType))
+		fmt.Printf("TypeIsCorrectSingle: \"%s\" \"%s\"\n", reflect.TypeOf(schema), reflect.TypeOf(objectType))
 
 		if schema.Type2String() == objectTypeStr {
 			ok = true
 			return
 		}
-
+		if objectTypeStr == "int" && schema.Type2String() == "float" {
+			ok = true
+			return
+		}
 		if objectTypeStr == "string" && schema.Type2String() == "EnumSchema" {
 
 			var objectStr *String

@@ -13,18 +13,19 @@ package cwl
 // CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string | array<CWLType | CommandInputRecordSchema | CommandInputEnumSchema | CommandInputArraySchema | string>
 
 // NewCommandInputParameterTypeArray _
-func NewCommandInputParameterTypeArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (returnArray []CWLType_Type, err error) {
+func NewCommandInputParameterTypeArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (returnValue interface{}, err error) { // []CWLType_Type did not work
 
 	//fmt.Println("NewCommandInputParameterTypeArray:")
 	//spew.Dump(original)
 
 	//result = []CWLType_Type{}
-	returnArray = []CWLType_Type{}
 
 	switch original.(type) {
 	case []interface{}:
 
 		originalArray := original.([]interface{})
+
+		returnArray := []CWLType_Type{}
 
 		for _, element := range originalArray {
 
@@ -39,7 +40,7 @@ func NewCommandInputParameterTypeArray(original interface{}, schemata []CWLType_
 			}
 
 		}
-
+		returnValue = returnArray
 		return
 
 	default:
@@ -49,9 +50,10 @@ func NewCommandInputParameterTypeArray(original interface{}, schemata []CWLType_
 		if err != nil {
 			return
 		}
-		for _, ciptElement := range ciptArray {
-			returnArray = append(returnArray, ciptElement)
-		}
+		returnValue = ciptArray[0]
+		//for _, ciptElement := range ciptArray {
+		//	returnArray = append(returnArray, ciptElement)
+		//}
 
 	}
 	return

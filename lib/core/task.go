@@ -15,7 +15,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/rwmutex"
+	rwmutex "github.com/MG-RAST/go-rwmutex"
 	shock "github.com/MG-RAST/go-shock-client"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"

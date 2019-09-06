@@ -5,7 +5,7 @@ import (
 	"path"
 
 	"github.com/MG-RAST/AWE/lib/core/cwl"
-	"github.com/MG-RAST/AWE/lib/rwmutex"
+	rwmutex "github.com/MG-RAST/go-rwmutex"
 )
 
 // should replace WorkflowInstance states and tasks states

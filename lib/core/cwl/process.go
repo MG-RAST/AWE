@@ -206,7 +206,7 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 			return
 		}
 
-		err = fmt.Errorf("(NewProcess) Process %s not found ", processIdentifer)
+		err = fmt.Errorf("(NewProcess) Process %s not found (tried newFileToLoad: %s) parentID: %s", processIdentifer, newFileToLoad, parentID)
 
 		return
 	case map[string]interface{}:

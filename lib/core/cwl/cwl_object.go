@@ -31,6 +31,20 @@ func (c *CWLObjectImpl) IsCWLObject() {}
 func NewCWLObject(original interface{}, objectIdentifier string, parentIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (obj CWLObject, schemata []CWLType_Type, err error) {
 	//fmt.Println("(NewCWLObject) starting")
 
+	if parentIdentifier != "" {
+		if !strings.HasPrefix(parentIdentifier, "#") {
+			err = fmt.Errorf("(NewCWLObject) parentIdentifier has not # as prefix (%s)", parentIdentifier)
+			return
+		}
+	}
+
+	if objectIdentifier != "" {
+		if !strings.HasPrefix(objectIdentifier, "#") {
+			err = fmt.Errorf("(NewCWLObject) objectIdentifier has not # as prefix (%s)", objectIdentifier)
+			return
+		}
+	}
+
 	if original == nil {
 		err = fmt.Errorf("(NewCWLObject) original is nil! ")
 		return

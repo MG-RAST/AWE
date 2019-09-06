@@ -3,7 +3,7 @@ package core
 import (
 	"fmt"
 
-	"github.com/MG-RAST/AWE/lib/rwmutex"
+	rwmutex "github.com/MG-RAST/go-rwmutex"
 )
 
 type TaskMap struct {

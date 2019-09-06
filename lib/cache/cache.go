@@ -1125,15 +1125,35 @@ func ProcessIOData(native interface{}, currentPath string, basePath string, ioTy
 			return
 
 			cipType := cip.Type
+			var cipTypeRepresentative cwl.CWLType_Type
+			var ok bool
 
-			cipType0 := cipType[0]
+			switch cipType.(type) {
+			case []interface{}:
+				cipTypeArray := cipType.([]interface{})
+				cipTypeRepresentativeIf := cipTypeArray[0]
 
-			if cipType0 == cwl.CWLFile {
+				cipTypeRepresentative, ok = cipTypeRepresentativeIf.(cwl.CWLType_Type)
+				if !ok {
+					err = fmt.Errorf("(processIOData) could not convert into CWLType_Type")
+					return
+				}
+
+			default:
+
+				cipTypeRepresentative, ok = cipType.(cwl.CWLType_Type)
+				if !ok {
+					err = fmt.Errorf("(processIOData) could not convert into CWLType_Type")
+					return
+				}
+			}
+
+			if cipTypeRepresentative == cwl.CWLFile {
 				// ok
-			} else if cipType0 == cwl.CWLArray {
+			} else if cipTypeRepresentative == cwl.CWLArray {
 				var arraySchema *cwl.ArraySchema
 				var ok bool
-				arraySchema, ok = cipType0.(*cwl.ArraySchema)
+				arraySchema, ok = cipTypeRepresentative.(*cwl.ArraySchema)
 				if !ok {
 					err = fmt.Errorf("(processIOData) CommandInputParameter.SecondaryFiles could not convert to ArraySchema")
 					return
@@ -1146,7 +1166,7 @@ func ProcessIOData(native interface{}, currentPath string, basePath string, ioTy
 				}
 
 			} else {
-				err = fmt.Errorf("(processIOData) CommandInputParameter.SecondaryFiles, type not supported, got %s", reflect.TypeOf(cipType0))
+				err = fmt.Errorf("(processIOData) CommandInputParameter.SecondaryFiles, type not supported, got %s", reflect.TypeOf(cipTypeRepresentative))
 				return
 			}
 

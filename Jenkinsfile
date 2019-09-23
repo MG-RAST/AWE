@@ -185,6 +185,9 @@ pipeline {
                 cd $base_dir
                 
                 
+                # network name sometimes has a minus, sometimes not, depends on docker-compose version
+                NETWORK_NAME=$(docker network ls  | grep -o "awe-\?test_default")
+                echo "NETWORK_NAME: $(NETWORK_NAME)"
                 set +e
                
                 
@@ -193,7 +196,7 @@ pipeline {
                     --rm \
                     --env "SHOCK_SERVER=http://shock:7445" \
                     --env "AWE_SERVER=http://awe-server:80" \
-                    --network awe-test_default \
+                    --network ${NETWORK_NAME} \
                     --name awe-submitter-testing \
                     --volume `pwd`/result.xml:/output/result.xml \
                     mgrast/awe-submitter-testing \

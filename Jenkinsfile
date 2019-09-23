@@ -118,8 +118,8 @@ pipeline {
 
            
 
-                USE_CACHE="--no-cache"
-                #USE_CACHE="" #speed-up for debugging purposes 
+                #USE_CACHE="--no-cache"
+                USE_CACHE="" #speed-up for debugging purposes 
                 set +e
                 docker rmi mgrast/awe-server mgrast/awe-worker mgrast/awe-submitter
                 set -e
@@ -169,6 +169,7 @@ pipeline {
                 set +e
                 sleep 3
                 docker ps
+                docker network ls
                 sleep 1
                 echo "services started"
                 '''

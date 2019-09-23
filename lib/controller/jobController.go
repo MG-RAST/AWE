@@ -471,8 +471,12 @@ func (cr *JobController) Create(cx *goweb.Context) {
 								break MYLOOP
 							}
 						}
+						//fmt.Println("workflowInputParameter.Type:")
+						//spew.Dump(workflowInputParameter.Type)
 						if !hasNull {
 							workflowInputParameter.Type = append(workflowInputParameterTypeArray, cwl.CWLNull)
+							//fmt.Println("workflowInputParameter.Type: after")
+							//spew.Dump(workflowInputParameter.Type)
 						}
 					}
 

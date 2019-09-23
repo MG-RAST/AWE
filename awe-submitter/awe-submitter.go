@@ -77,6 +77,7 @@ func mainWrapper() (err error) {
 	//for _, value := range conf.ARGS {
 	//	println(value)
 	//}
+
 	jobFile := ""
 
 	if conf.SUBMITTER_UPLOAD_INPUT {
@@ -632,6 +633,8 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, entrypoint string, j
 	}
 
 	if jobFile != "" {
+		logger.Debug(3, "(SubmitCWLJobToAWE) jobFile: %s", jobFile)
+
 		err = multipart.AddDataAsFile("job", jobFile, jobData)
 		if err != nil {
 			err = fmt.Errorf("(SubmitCWLJobToAWE) AddDataAsFile returned: %s", err.Error())

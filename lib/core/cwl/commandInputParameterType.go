@@ -50,10 +50,20 @@ func NewCommandInputParameterTypeArray(original interface{}, schemata []CWLType_
 		if err != nil {
 			return
 		}
-		returnValue = ciptArray[0]
-		//for _, ciptElement := range ciptArray {
-		//	returnArray = append(returnArray, ciptElement)
-		//}
+
+		//fmt.Println("NewCommandInputParameterTypeArray:")
+		//spew.Dump(original)
+		//spew.Dump(ciptArray)
+
+		if len(ciptArray) == 1 {
+			returnValue = ciptArray[0]
+		} else {
+			returnArray := []CWLType_Type{}
+			for _, ciptElement := range ciptArray {
+				returnArray = append(returnArray, ciptElement)
+			}
+			returnValue = returnArray
+		}
 
 	}
 	return

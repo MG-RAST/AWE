@@ -157,7 +157,7 @@ func NewCWLType(id string, parentID string, native interface{}, context *Workflo
 	}
 
 	switch native.(type) {
-	case []interface{}, []int64, []map[string]interface{}:
+	case []interface{}, []int64, []string, []map[string]interface{}:
 		//fmt.Printf("(NewCWLType) C\n")
 		//nativeArray, _ := native.([]interface{})
 

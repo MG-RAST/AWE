@@ -167,7 +167,9 @@ pipeline {
 
                 docker-compose up -d
                 set +e
-                sleep 2
+                sleep 3
+                docker ps
+                sleep 1
                 echo "services started"
                 '''
         
@@ -190,7 +192,7 @@ pipeline {
                     --rm \
                     --env "SHOCK_SERVER=http://shock:7445" \
                     --env "AWE_SERVER=http://awe-server:80" \
-                    --network testing_default \
+                    --network awe-test_default \
                     --name awe-submitter-testing \
                     --volume `pwd`/result.xml:/output/result.xml \
                     mgrast/awe-submitter-testing \

@@ -25,6 +25,7 @@ services:
           - --hosts=shock-mongo
           - --local_paths=/external
           - --force_yes=true
+          - --api-url=http://shock:7445
           # - --conf
           # - /shock-config/shock-server.cfg
         volumes:
@@ -79,7 +80,7 @@ services:
             --logs=/mnt/data/logs
             --workpath=${DATADIR}/awe-worker/work
             --serverurl=http://awe-server:80
-            --shockurl=http://shock-server:7445
+            --shockurl=http://shock:7445
             --supported_apps=*
             --auto_clean_dir=false
             --debuglevel=3'

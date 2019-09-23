@@ -23,6 +23,8 @@ services:
         entrypoint:
           - /go/bin/shock-server
           - --hosts=shock-mongo
+          - --local_paths=/external
+          - --force_yes=true
           # - --conf
           # - /shock-config/shock-server.cfg
         volumes:

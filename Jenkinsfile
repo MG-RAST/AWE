@@ -187,7 +187,7 @@ pipeline {
                 
                 # network name sometimes has a minus, sometimes not, depends on docker-compose version
                 NETWORK_NAME=$(docker network ls  | grep -o "awe-\\?test_default")
-                echo "NETWORK_NAME: $(NETWORK_NAME)"
+                echo "NETWORK_NAME: ${NETWORK_NAME}"
                 set +e
                
                 

@@ -4,7 +4,7 @@
 About:
 ------
 
-AWE is a workload management system for bioinformatic workflow applications. AWE, together with Shock data management system, can be used to build an integrated platform for efficient data analysis and management which features following functionalities:
+AWE (Argonne Workflow Engine) is a workload management system for bioinformatic workflow applications. AWE, together with Shock data management system, can be used to build an integrated platform for efficient data analysis and management which features following functionalities:
 
 - Common workflow language support
 - Multi cloud support

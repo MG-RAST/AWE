@@ -11,16 +11,16 @@ The AWE test environment can also be used as a development environment. The appr
 ## AWE server development
 Start development container 
 ```bash
-docker rm -f testing_awe-server_1 > /dev/null 2>&1
-docker run -ti --name testing_awe-server_1 --rm --network testing_default --network-alias awe-server -p 81:80 -v ${HOME}/gopath/src:/go/src mgrast/awe-server
+docker rm -f awe-test_awe-server_1 > /dev/null 2>&1
+docker run -ti --name awe-test_awe-server_1 --rm --network awe-test_default --network-alias awe-server -p 81:80 -v ${HOME}/gopath/src:/go/src mgrast/awe-server
 ```
 
-Inside container, compile:
+(Inside container) Compile:
 ```bash
 cd $AWE ; ./compile.sh
 ```
 
-Inside container, start awe-server:
+(Inside container) Start awe-server:
 ```bash
 awe-server --logoutput=console --debuglevel=3 --hosts=awe-mongo --api-port=80 --api-url='http://localhost:81' --title="test AWE server" --max_work_failure=1 --recover --max_client_failure=1000
 ```
@@ -44,19 +44,19 @@ fi
 
 Start development container 
 ```bash
-export NAME=testing_awe-worker_1
+export NAME=awe-test_awe-worker_1
 export WORKER_DATADIR=${HOME}/awe_data
 
 docker rm -f ${NAME} > /dev/null 2>&1
-docker run -ti --network testing_default --name ${NAME} -e NAME=${NAME} -e WORKER_DATADIR=${WORKER_DATADIR} --workdir=/go/src/github.com/MG-RAST/AWE -v ${WORKER_DATADIR}:${WORKER_DATADIR} -v ${HOME}/git/Skyport2/live-data/env/:/skyport2-env/:ro -v ${DOCKER_BINARY}:/usr/local/bin/docker -v /var/run/docker.sock:/var/run/docker.sock -v ${HOME}/gopath/src:/go/src -v /tmp:/tmp  mgrast/awe-worker ash
+docker run -ti --network awe-test_default --name ${NAME} -e NAME=${NAME} -e WORKER_DATADIR=${WORKER_DATADIR} --workdir=/go/src/github.com/MG-RAST/AWE -v ${WORKER_DATADIR}:${WORKER_DATADIR} -v ${HOME}/git/Skyport2/live-data/env/:/skyport2-env/:ro -v ${DOCKER_BINARY}:/usr/local/bin/docker -v /var/run/docker.sock:/var/run/docker.sock -v ${HOME}/gopath/src:/go/src -v /tmp:/tmp  mgrast/awe-worker ash
 ```
 
-Compile
+(Inside container) Compile:
 ```bash
 cd $AWE ; ./compile-worker.sh
 ```
 
-Start awe-worker:
+(Inside container) Start awe-worker:
 ```bash
 /go/bin/awe-worker  --name ${NAME} --data=${WORKER_DATADIR}/data --logs=${WORKER_DATADIR}/logs --workpath=${WORKER_DATADIR}/work  --serverurl=http://awe-server:80 --group=default --supported_apps=* --auto_clean_dir=false --debuglevel=3 
 ```

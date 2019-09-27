@@ -34,7 +34,7 @@ This assumes that you have `docker` and `docker-compose` installed and `curl` is
 ### setup the local service
 `docker-compose up`
 
-Don't forget to later `docker-compose down` and do not forget, by default this configuration does not store data persistently.
+Don't forget to later `docker-compose down` and do not forget, by default this demo configuration does not store data persistently.
 
 
 ### Submit a job for simple workflow

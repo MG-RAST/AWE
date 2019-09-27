@@ -26,13 +26,14 @@ services:
           - --local_paths=/external
           - --force_yes=true
           - --api-url=http://shock:7445
+          - --no_config                      # do not search for a config file
           # - --conf
           # - /shock-config/shock-server.cfg
         volumes:
           - ${DATADIR}/shock/data:/usr/local/shock
-          - ${HOME}/pipeline_data/:/external/
-        #   - ${CONFIGDIR}/Shock/shock-server.container.cfg:/shock-config/shock-server.cfg
-        #   - ${LOGDIR}/shock:/var/log/shock
+          #- ${HOME}/pipeline_data/:/external/
+          #- ${CONFIGDIR}/Shock/shock-server.container.cfg:/shock-config/shock-server.cfg
+          #- ${LOGDIR}/shock:/var/log/shock
           # remove the comment below to make SHOCK data persistent
           #- ${SHOCKDIR}/data:/usr/local/shock
         ports:

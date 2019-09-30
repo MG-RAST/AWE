@@ -411,7 +411,7 @@ func ReadYamlFile(filePath string) (objectIf interface{}, err error) {
 }
 
 // ParseCWLDocumentFile _
-func ParseCWLDocumentFile(existingContext *WorkflowContext, filePath string, entrypoint string, inputfilePath string, fileName string) (objectArray []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, newEntrypoint string, err error) {
+func ParseCWLDocumentFile(existingContext *WorkflowContext, filePath string, entrypoint string, inputfilePath string, identifier string) (objectArray []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, newEntrypoint string, err error) {
 
 	logger.Debug(3, "(ParseCWLDocumentFile) loading %s", filePath)
 	// skip parsing if files have been loaded before
@@ -437,7 +437,7 @@ func ParseCWLDocumentFile(existingContext *WorkflowContext, filePath string, ent
 
 	//filePathBase := path.Base(filePath)
 
-	objectArray, schemata, context, schemas, newEntrypoint, err = ParseCWLDocument(existingContext, fileStr, entrypoint, inputfilePath, "#"+filePath)
+	objectArray, schemata, context, schemas, newEntrypoint, err = ParseCWLDocument(existingContext, fileStr, entrypoint, inputfilePath, identifier)
 	if err != nil {
 		err = fmt.Errorf("(ParseCWLDocumentFile) ParseCWLDocument returned: %s", err.Error())
 		return

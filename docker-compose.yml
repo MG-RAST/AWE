@@ -121,3 +121,9 @@ services:
         # to make the AWE jobs persistent between runs uncomment the lines below
         volumes:
           - shock-demo-awe-db:/data/db
+
+volumes:
+  shock-demo:
+  shock-demo-mongo-db:
+  shock-demo-awe-db:
+

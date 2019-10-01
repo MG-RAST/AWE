@@ -121,11 +121,11 @@ pipeline {
                 #USE_CACHE="--no-cache"
                 USE_CACHE="" #speed-up for debugging purposes 
                 set +e
-                docker rmi mgrast/awe-server mgrast/awe-worker mgrast/awe-submitter
+                #docker rmi mgrast/awe-server mgrast/awe-worker mgrast/awe-submitter
                 set -e
                 sleep 2
                 
-                
+                docker pull mgrast/shock
                 docker build ${USE_CACHE} --pull -t mgrast/awe-server .
                 docker build ${USE_CACHE} --pull -t mgrast/awe-worker -f Dockerfile_worker .
                 docker build ${USE_CACHE} --pull -t mgrast/awe-submitter -f Dockerfile_submitter .

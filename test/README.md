@@ -6,15 +6,16 @@ docker-compose up
 ```
 
 
-## Container to submit CWL compliance tests
+## CWL compliance tests
+
+The docker image `mgrast/awe-submitter-testing` has all CWL compliance tests and the awe-submitter installed. Start the container: 
+
 ```bash
-export DATADIR=${HOME}/awe_data  # use whatever directory your data is located in
-docker rm -f awe-submitter > /dev/null 2>&1
-docker run -ti --network awe-test_default --name awe-submitter -e SHOCK_SERVER="http://shock:7445" -e AWE_SERVER="http://awe-server:80" --workdir=/go/src/github.com/MG-RAST/AWE -v ${DATADIR}:${DATADIR}  -v ${HOME}/gopath/src:/go/src --entrypoint=/bin/ash mgrast/awe-submitter-testing
+docker run -ti --network awe-test_default --name awe-submitter -e SHOCK_SERVER="http://shock:7445" -e AWE_SERVER="http://awe-server:80" --workdir=/go/src/github.com/MG-RAST/AWE -v ${HOME}/gopath/src:/go/src --entrypoint=/bin/ash mgrast/awe-submitter-testing
 ```
 
 
-Compile if needed
+Optional: Compile the awe-submitter.
 ```bash
 cd $AWE ; ./compile-submitter.sh
 ```

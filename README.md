@@ -1,4 +1,4 @@
-![AWE](site/images/awe-lg.png)
+![AWE](docs/images/awe-lg.png)
 =====
 
 About:
@@ -14,13 +14,13 @@ AWE (Argonne Workflow Engine) is a workload management system for bioinformatic 
 - Performance-aware, cost-efficient service management and resource management
 - Reusable and reproducible data product management 
 
-![awe-diagram](site/images/awe-diagram.png)
+![awe-diagram](docs/images/awe-diagram.png)
 
 AWE is designed as a distributed system that contains a centralized server and multiple distributed clients. The server receives job submissions and parses jobs into tasks, splits tasks into workunits, and manages workunits in a queue. The AWE clients, running on distributed, heterogeneous computing resources, keep checking out workunits from the server queue and dispatching the workunits on the local computing resources. 
 
 AWE uses the Shock data management system to handle input and output data (retrieval, storage, splitting, and merge). AWE uses a RESTful API for communication between AWE components and with outside components such as Shock, the job submitter, and the status monitor.
 
-![awe-diagram](site/images/awe-multi-site.png)
+![awe-diagram](docs/images/awe-multi-site.png)
 
 
 Related Links

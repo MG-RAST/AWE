@@ -6,7 +6,9 @@ info:
   version: 1.0.0
   title: AWE API specification
   termsOfService: ''
-
+tags:
+  - name: job
+    description: Job resource
 paths:
   '/job/{job_id}':
     parameters:
@@ -21,4 +23,6 @@ paths:
       responses:
         '200':
           description: OK
+      tags:
+        - job
   

@@ -16,7 +16,9 @@ type CommandOutputParameter struct {
 }
 
 // NewCommandOutputParameter _
-func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (output_parameter *CommandOutputParameter, err error) {
+func NewCommandOutputParameter(original interface{}, thisID string, schemata []CWLType_Type, context *WorkflowContext) (cmdOutputParameter *CommandOutputParameter, err error) {
+
+	cmdOutputParameter = &CommandOutputParameter{}
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
@@ -24,7 +26,7 @@ func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type, co
 	}
 
 	var op *OutputParameter
-	op, err = NewOutputParameterFromInterface(original, schemata, "CommandOutput", context)
+	op, err = NewOutputParameterFromInterface(original, thisID, schemata, "CommandOutput", context)
 	if err != nil {
 		err = fmt.Errorf("(NewCommandOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
 		return
@@ -32,35 +34,19 @@ func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type, co
 
 	switch original.(type) {
 
+	case string:
+		//fmt.Println("(NewCommandOutputParameter) string")
+		cmdOutputParameter.OutputParameter = *op
+
 	case map[string]interface{}:
-
-		//original_map, ok := original.(map[string]interface{})
-		//if !ok {
-		//	err = fmt.Errorf("(NewCommandOutputParameter) type error")
-		//	return
-		//}
-
-		// type:
-		// any of CWLType | stdout | stderr | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string | array<CWLType | CommandOutputRecordSchema | CommandOutputEnumSchema | CommandOutputArraySchema | string>
-		// COPtype, ok := original_map["type"]
-		// if ok {
-		// 	original_map["type"], err = NewCommandOutputParameterTypeArray(COPtype, schemata)
-		// 	if err != nil {
-		// 		fmt.Println("NewCommandOutputParameter:")
-		// 		spew.Dump(original_map)
-		// 		err = fmt.Errorf("(NewCommandOutputParameter) NewCommandOutputParameterTypeArray returns %s", err.Error())
-		// 		return
-		// 	}
-		// }
-
-		output_parameter = &CommandOutputParameter{}
-		err = mapstructure.Decode(original, output_parameter)
+		//fmt.Println("(NewCommandOutputParameter) map")
+		err = mapstructure.Decode(original, cmdOutputParameter)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandOutputParameter) mapstructure returned: %s", err.Error())
 			return
 		}
 
-		output_parameter.OutputParameter = *op
+		cmdOutputParameter.OutputParameter = *op
 	default:
 		spew.Dump(original)
 		err = fmt.Errorf("NewCommandOutputParameter, unknown type %s", reflect.TypeOf(original))
@@ -70,7 +56,7 @@ func NewCommandOutputParameter(original interface{}, schemata []CWLType_Type, co
 }
 
 // NewCommandOutputParameterArray _
-func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (copa *[]CommandOutputParameter, err error) {
+func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (copa []interface{}, err error) {
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
@@ -79,27 +65,58 @@ func NewCommandOutputParameterArray(original interface{}, schemata []CWLType_Typ
 
 	switch original.(type) {
 	case map[string]interface{}:
-		cop, xerr := NewCommandOutputParameter(original, schemata, context)
-		if xerr != nil {
-			err = fmt.Errorf("(NewCommandOutputParameterArray) a NewCommandOutputParameter returns: %s", xerr.Error())
-			return
+		//fmt.Println("(NewCommandOutputParameterArray) map")
+		originalMap := original.(map[string]interface{})
+
+		copa = []interface{}{}
+		for key, element := range originalMap {
+			//fmt.Printf("(NewCommandOutputParameterArray) map element %s\n", key)
+			//spew.Dump(element)
+			var cop *CommandOutputParameter
+			cop, err = NewCommandOutputParameter(element, key, schemata, context)
+			if err != nil {
+				err = fmt.Errorf("(NewCommandOutputParameterArray) c NewCommandOutputParameter returns: %s", err.Error())
+				return
+			}
+			copa = append(copa, *cop)
 		}
-		copa = &[]CommandOutputParameter{*cop}
+
 	case []interface{}:
-		copaNptr := []CommandOutputParameter{}
+		//fmt.Println("(NewCommandOutputParameterArray) array")
+		copa = []interface{}{}
 
 		originalArray := original.([]interface{})
 
 		for _, element := range originalArray {
-			cop, xerr := NewCommandOutputParameter(element, schemata, context)
-			if xerr != nil {
-				err = fmt.Errorf("(NewCommandOutputParameterArray) b NewCommandOutputParameter returns: %s", xerr.Error())
+			//fmt.Println("(NewCommandOutputParameterArray) array element")
+			var elementStr string
+			var ok bool
+			elementStr, ok = element.(string)
+
+			if ok {
+				//fmt.Println("(NewCommandOutputParameterArray) array element is a string")
+				var resultArray []CWLType_Type
+				resultArray, err = NewCWLType_TypeFromString(schemata, elementStr, "CommandOutput", context)
+				if err != nil {
+					err = fmt.Errorf("(NewCommandOutputParameterArray) NewCWLType_TypeFromString returns: %s", err.Error())
+					return
+				}
+				for result := range resultArray {
+					copa = append(copa, result)
+				}
+
+				continue
+			}
+			//fmt.Println("(NewCommandOutputParameterArray) array element is NOT a string")
+			var cop *CommandOutputParameter
+			cop, err = NewCommandOutputParameter(element, "", schemata, context)
+			if err != nil {
+				err = fmt.Errorf("(NewCommandOutputParameterArray) b NewCommandOutputParameter returns: %s", err.Error())
 				return
 			}
-			copaNptr = append(copaNptr, *cop)
+			copa = append(copa, *cop)
 		}
 
-		copa = &copaNptr
 	default:
 		err = fmt.Errorf("NewCommandOutputParameterArray, unknown type %s", reflect.TypeOf(original))
 	}

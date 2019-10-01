@@ -3,24 +3,22 @@ package cwl
 import (
 	//"errors"
 	"fmt"
+	"strings"
+
 	//"github.com/davecgh/go-spew/spew"
 	"reflect"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
 // http://www.commonwl.org/v1.0/CommandLineTool.html#CommandLineTool
 type CommandLineTool struct {
-	//Id                 string                   `yaml:"id,omitempty" bson:"id,omitempty" json:"id,omitempty"`
-	//Class              string                   `yaml:"class,omitempty" bson:"class,omitempty" json:"class,omitempty"`
-	CWLObjectImpl    `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	CWL_class_Impl     `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
-	CWL_id_Impl        `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
+	ProcessImpl `yaml:",inline" bson:",inline" json:",inline" mapstructure:"-"` // provides Class, ID, Requirements, Hints
+
 	BaseCommand        []string                 `yaml:"baseCommand,omitempty" bson:"baseCommand,omitempty" json:"baseCommand,omitempty" mapstructure:"baseCommand,omitempty"`
 	Inputs             []CommandInputParameter  `yaml:"inputs" bson:"inputs" json:"inputs" mapstructure:"inputs"`
 	Outputs            []CommandOutputParameter `yaml:"outputs" bson:"outputs" json:"outputs" mapstructure:"outputs"`
-	Hints              []Requirement            `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`
-	Requirements       []Requirement            `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"`
 	Doc                string                   `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
 	Label              string                   `yaml:"label,omitempty" bson:"label,omitempty" json:"label,omitempty" mapstructure:"label,omitempty"`
 	Description        string                   `yaml:"description,omitempty" bson:"description,omitempty" json:"description,omitempty" mapstructure:"description,omitempty"`
@@ -35,15 +33,20 @@ type CommandLineTool struct {
 	Namespaces         map[string]string        `yaml:"$namespaces,omitempty" bson:"_DOLLAR_namespaces,omitempty" json:"$namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
 }
 
+// IsCWLMinimal _
 func (c *CommandLineTool) IsCWLMinimal() {}
-func (c *CommandLineTool) Is_process()     {}
+
+// IsProcess _
+func (c *CommandLineTool) IsProcess() {}
 
 // keyname will be converted into 'Id'-field
 
-//func NewCommandLineTool(object CWLObjectGeneric) (commandLineTool *CommandLineTool, err error) {
-func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement, context *WorkflowContext) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
+// NewCommandLineTool _
+// parentIdentifier is used to convert relative id to absolute id
+// objectIdentifier is used when there is no local is, in case of file or embedded tool
+func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIdentifier string, injectedRequirements []Requirement, context *WorkflowContext) (commandLineTool *CommandLineTool, schemata []CWLType_Type, err error) {
 
-	//fmt.Println("NewCommandLineTool:")
+	//fmt.Println("NewCommandLineTool() generic:")
 	//spew.Dump(generic)
 
 	//switch type()
@@ -54,31 +57,34 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 	}
 	//spew.Dump(generic)
 
+	if objectIdentifier != "" {
+		if !strings.HasPrefix(objectIdentifier, "#") {
+			err = fmt.Errorf("(NewCWLObject) objectIdentifier has not # as prefix (%s)", objectIdentifier)
+			return
+		}
+	}
+
+	//fmt.Println("NewCommandLineTool() object:")
+	//spew.Dump(object)
+
 	commandLineTool = &CommandLineTool{}
-	commandLineTool.Class = "CommandLineTool"
 
 	//fmt.Printf("(NewCommandLineTool) requirements %d\n", len(requirements_array))
 	//spew.Dump(requirements_array)
 	//scs := spew.ConfigState{Indent: "\t"}
 	//scs.Dump(object["requirements"])
 
-	requirements, ok := object["requirements"]
-	if !ok {
-		requirements = nil
+	commandLineTool.ProcessImpl = ProcessImpl{}
+	var process *ProcessImpl
+	process = &commandLineTool.ProcessImpl
+	process.Class = "CommandLineTool"
+	err = ProcessImplInit(generic, process, parentIdentifier, objectIdentifier, context)
+	if err != nil {
+		err = fmt.Errorf("(NewCommandLineTool) NewProcessImpl returned: %s", err.Error())
+		return
 	}
 
-	// extract SchemaDefRequirement
-	var schema_def_req *SchemaDefRequirement
-	//var schemataNew []CWLType_Type
-	has_schema_def_req := false
-
-	if requirements != nil {
-		schema_def_req, has_schema_def_req, err = GetSchemaDefRequirement(requirements, context)
-		if err != nil {
-			err = fmt.Errorf("(NewCommandLineTool) GetSchemaDefRequirement returned: %s", err.Error())
-			return
-		}
-	}
+	commandLineTool.ProcessImpl = *process
 
 	//if has_schema_def_req {
 	//	for i, _ := range schemataNew {
@@ -88,10 +94,10 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 
 	inputs := []*CommandInputParameter{}
 
-	inputs_if, ok := object["inputs"]
+	inputsIf, ok := object["inputs"]
 	if ok {
 		// Convert map of inputs into array of inputs
-		err, inputs = CreateCommandInputArray(inputs_if, schemata, context)
+		err, inputs = CreateCommandInputArray(inputsIf, schemata, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in CreateCommandInputArray: %s", err.Error())
 			return
@@ -100,16 +106,29 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 
 	object["inputs"] = inputs
 
-	outputs, ok := object["outputs"]
-	if ok {
+	var copa []interface{}
+
+	outputs, hasOutputs := object["outputs"]
+	if hasOutputs {
+
+		//fmt.Println("NewCommandLineTool() object/outputs:")
+		//spew.Dump(outputs)
+
 		// Convert map of outputs into array of outputs
-		object["outputs"], err = NewCommandOutputParameterArray(outputs, schemata, context)
+
+		copa, err = NewCommandOutputParameterArray(outputs, schemata, context)
 		if err != nil {
+			//fmt.Println("NewCommandLineTool after error")
+			//spew.Dump(object)
+
 			err = fmt.Errorf("(NewCommandLineTool) error in NewCommandOutputParameterArray: %s", err.Error())
 			return
 		}
+		object["outputs"] = copa
 	} else {
-		object["outputs"] = []*CommandOutputParameter{}
+		err = fmt.Errorf("(NewCommandLineTool) no outputs !?")
+		return
+		//object["outputs"] = []*CommandOutputParameter{}
 	}
 
 	baseCommand, ok := object["baseCommand"]
@@ -121,59 +140,49 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 		}
 	}
 
-	arguments, has_arguments := object["arguments"]
-	if has_arguments {
+	arguments, hasArguments := object["arguments"]
+	if hasArguments {
 		// Convert map of outputs into array of outputs
-		var arguments_object []CommandLineBinding
-		arguments_object, err = NewCommandLineBindingArray(arguments, context)
+		var argumentsObject []CommandLineBinding
+		argumentsObject, err = NewCommandLineBindingArray(arguments, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCommandLineTool) error in NewCommandLineBindingArray: %s", err.Error())
 			return
 		}
 		//delete(object, "arguments")
-		object["arguments"] = arguments_object
+		object["arguments"] = argumentsObject
 	}
 
-	var requirements_array []Requirement
-
-	//fmt.Printf("(NewCommandLineTool) Injecting %d\n", len(requirements_array))
-	//spew.Dump(requirements_array)
-	requirements_array, err = CreateRequirementArrayAndInject(requirements, injectedRequirements, nil, context)
-	if err != nil {
-		err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (requirements): %s", err.Error())
-		return
-	}
-
-	//for i, _ := range schemataNew {
-	//	schemata = append(schemata, schemataNew[i])
+	//if hasSchemaDefReq {
+	//	injectedRequirements = append(injectedRequirements, schemaDefReq)
 	//}
 
-	if has_schema_def_req {
-		requirements_array = append(requirements_array, schema_def_req)
+	err = CreateRequirementAndHints(object, process, injectedRequirements, inputs, context)
+	if err != nil {
+		err = fmt.Errorf("(NewCommandLineTool) CreateRequirementArrayAndInject returned: %s", err.Error())
 	}
-	object["requirements"] = requirements_array
 
-	hints, ok := object["hints"]
-	if ok && (hints != nil) {
-		//var schemataNew []CWLType_Type
-
-		var hints_array []Requirement
-		hints_array, err = CreateHintsArray(hints, injectedRequirements, inputs, context)
-		if err != nil {
-			err = fmt.Errorf("(NewCommandLineTool) error in CreateRequirementArray (hints): %s", err.Error())
-			return
-		}
-		//for i, _ := range schemataNew {
-		//	schemata = append(schemata, schemataNew[i])
-		//}
-		object["hints"] = hints_array
-	}
+	//fmt.Printf("(NewCommandLineTool) Injecting %d\n", len(requirementsArray))
+	//spew.Dump(requirementsArray)
 
 	err = mapstructure.Decode(object, commandLineTool)
 	if err != nil {
 		err = fmt.Errorf("(NewCommandLineTool) error parsing CommandLineTool class: %s", err.Error())
 		return
 	}
+
+	if commandLineTool.ID == "" {
+		err = fmt.Errorf("(NewCommandLineTool) id is empty!?")
+		return
+	}
+
+	if !strings.HasPrefix(commandLineTool.ID, "#") {
+		err = fmt.Errorf("(NewCommandLineTool) id is not absolute!? (commandLineTool.ID=%s)", commandLineTool.ID)
+		return
+	}
+
+	//fmt.Println("commandLineTool:")
+	//spew.Dump(commandLineTool)
 
 	if commandLineTool.CwlVersion == "" {
 		commandLineTool.CwlVersion = context.CwlVersion
@@ -189,43 +198,66 @@ func NewCommandLineTool(generic interface{}, injectedRequirements []Requirement,
 	}
 
 	if context != nil {
-		err = context.Add(commandLineTool.Id, commandLineTool, "NewCommandLineTool")
-		if err != nil {
-			err = fmt.Errorf("(NewCommandLineTool) context.Add returned: %s", err.Error())
+
+		thisID := commandLineTool.ID
+		if thisID == "" {
+			err = fmt.Errorf("(NewCommandLineTool) did not expect empty Id")
 			return
 		}
 
-		for i, _ := range commandLineTool.Inputs {
-			inp := &commandLineTool.Inputs[i]
-			err = context.Add(inp.Id, inp, "NewCommandLineTool")
-			if err != nil {
-				err = fmt.Errorf("(NewCommandLineTool) context.Add returned: %s", err.Error())
-				return
-			}
-		}
+		// err = context.Add(commandLineTool.Id, commandLineTool, "NewCommandLineTool")
+		// if err != nil {
+		// 	err = fmt.Errorf("(NewCommandLineTool) (add commandLineTool) context.Add returned: %s", err.Error())
+		// 	return
+		// }
+
+		// for i := range commandLineTool.Inputs {
+		// 	inp := &commandLineTool.Inputs[i]
+		// 	inpID := path.Join(thisID, inp.Id)
+
+		// 	err = context.AddObject(inpID, inp, "NewCommandLineTool")
+		// 	if err != nil {
+		// 		err = fmt.Errorf("(NewCommandLineTool) X (add commandLineToolInput)  context.Add returned: %s", err.Error())
+		// 		return
+		// 	}
+		// }
 	}
 	return
 
 }
 
-func NewBaseCommandArray(original interface{}) (new_array []string, err error) {
-	new_array = []string{}
+// NewBaseCommandArray _
+func NewBaseCommandArray(original interface{}) (newArray []string, err error) {
+	newArray = []string{}
 	switch original.(type) {
 	case []interface{}:
-		for _, v := range original.([]interface{}) {
+		originalArray := original.([]interface{})
+		for _, v := range originalArray {
+			var vStr string
+			switch v.(type) {
+			case string:
+				vStr = v.(string)
 
-			v_str, ok := v.(string)
-			if !ok {
-				err = fmt.Errorf("(NewBaseCommandArray) []interface{} array element is not a string")
+			case bool:
+				vBool := v.(bool)
+				// TODO this is an ugly heck, should not be needed if yaml library is fixed.
+				if vBool {
+					vStr = "y"
+				} else {
+					vStr = "n"
+				}
+			default:
+				spew.Dump(originalArray)
+				err = fmt.Errorf("(NewBaseCommandArray) []interface{} array element is not a string, it is %s", reflect.TypeOf(v))
 				return
 			}
-			new_array = append(new_array, v_str)
+			newArray = append(newArray, vStr)
 		}
 
 		return
 	case string:
-		org_str, _ := original.(string)
-		new_array = append(new_array, org_str)
+		orgStr, _ := original.(string)
+		newArray = append(newArray, orgStr)
 		return
 	default:
 		err = fmt.Errorf("(NewBaseCommandArray) type unknown")
@@ -234,9 +266,10 @@ func NewBaseCommandArray(original interface{}) (new_array []string, err error) {
 	return
 }
 
+// Evaluate _
 func (c *CommandLineTool) Evaluate(inputs interface{}, context *WorkflowContext) (err error) {
 
-	for i, _ := range c.Requirements {
+	for i := range c.Requirements {
 
 		r := c.Requirements[i]
 
@@ -248,7 +281,7 @@ func (c *CommandLineTool) Evaluate(inputs interface{}, context *WorkflowContext)
 
 	}
 
-	for i, _ := range c.Hints {
+	for i := range c.Hints {
 
 		r := c.Hints[i]
 

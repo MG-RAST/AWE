@@ -18,10 +18,10 @@ func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 		err = NotifyWorkunitProcessed(work, perfstat)
 		if err != nil {
 			fmt.Printf("!!!NotifyWorkunitDone returned error: %s\n", err.Error())
-			logger.Error("err@NotifyWorkunitProcessed: workid=" + work.Id + ", err=" + err.Error())
+			logger.Error("err@NotifyWorkunitProcessed: workid=" + work.ID + ", err=" + err.Error())
 			//mark this work in Current_work map as false, something needs to be done in the future
 			//to clean this kind of work that has been proccessed but its result can't be sent to server!
-			//xerr := Self.Current_work_false(work.Id)
+			//xerr := Self.Current_work_false(work.ID)
 			//if xerr != nil {
 			//	err = xerr
 			//	return
@@ -31,13 +31,13 @@ func proxy_relay_workunit(work *Workunit, perfstat *WorkPerf) (err error) {
 
 	//now final status report sent to server, update some local info
 	if work.State == WORK_STAT_DONE {
-		logger.Event(event.WORK_DONE, "workid="+work.Id)
+		logger.Event(event.WORK_DONE, "workid="+work.ID)
 		err = Self.IncrementTotalCompleted()
 		if err != nil {
 			return
 		}
 	} else {
-		logger.Event(event.WORK_RETURN, "workid="+work.Id)
+		logger.Event(event.WORK_RETURN, "workid="+work.ID)
 		err = Self.IncrementTotalFailed(true)
 		if err != nil {
 			return

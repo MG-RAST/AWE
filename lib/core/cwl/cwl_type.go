@@ -77,16 +77,21 @@ type CWLType interface {
 	//IsCWLMinimal()
 }
 
+// CWLType_Impl _
 type CWLType_Impl struct {
 	CWLObjectImpl  `yaml:",inline" bson:",inline" json:",inline" mapstructure:",squash"` // provides: IsCWLObject()
-	CWL_class_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class
+	CWL_class_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Class
 	Type           CWLType_Type                                                          `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 }
 
+// GetType _
 func (c *CWLType_Impl) GetType() CWLType_Type { return c.Type }
 
+// IsCWLMinimal _
 func (c *CWLType_Impl) IsCWLMinimal() {}
-func (c *CWLType_Impl) Is_CWLType()   {}
+
+// Is_CWLType _
+func (c *CWLType_Impl) Is_CWLType() {}
 
 //func (c *CWLType_Impl) Is_CommandInputParameterType()  {}
 //func (c *CWLType_Impl) Is_CommandOutputParameterType() {}
@@ -105,6 +110,7 @@ func init() {
 
 }
 
+// IsValidType _
 func IsValidType(native_str string) (result CWLType_Type_Basic, ok bool) {
 	native_str_lower := strings.ToLower(native_str)
 
@@ -116,10 +122,11 @@ func IsValidType(native_str string) (result CWLType_Type_Basic, ok bool) {
 	return
 }
 
-func IsValidClass(native_str string) (result string, ok bool) {
-	native_str_lower := strings.ToLower(native_str)
+// IsValidClass _
+func IsValidClass(nativeStr string) (result string, ok bool) {
+	nativeStrLower := strings.ToLower(nativeStr)
 
-	result, ok = ValidClassMap[native_str_lower]
+	result, ok = ValidClassMap[nativeStrLower]
 	if !ok {
 		return
 	}
@@ -130,7 +137,7 @@ func IsValidClass(native_str string) (result string, ok bool) {
 //func (c *CWLType_Impl) Is_Array() bool                 { return false }
 
 // NewCWLType _
-func NewCWLType(id string, native interface{}, context *WorkflowContext) (cwlType CWLType, err error) {
+func NewCWLType(id string, parentID string, native interface{}, context *WorkflowContext) (cwlType CWLType, err error) {
 
 	//var cwl_type CWLType
 	//fmt.Printf("(NewCWLType) starting with type %s\n", reflect.TypeOf(native))
@@ -150,11 +157,11 @@ func NewCWLType(id string, native interface{}, context *WorkflowContext) (cwlTyp
 	}
 
 	switch native.(type) {
-	case []interface{}, []map[string]interface{}:
+	case []interface{}, []int64, []string, []map[string]interface{}:
 		//fmt.Printf("(NewCWLType) C\n")
 		//nativeArray, _ := native.([]interface{})
 
-		array, xerr := NewArray(id, native, context)
+		array, xerr := NewArray(id, parentID, native, context)
 		if xerr != nil {
 			err = fmt.Errorf("(NewCWLType) NewArray returned: %s", xerr.Error())
 			return
@@ -163,9 +170,9 @@ func NewCWLType(id string, native interface{}, context *WorkflowContext) (cwlTyp
 
 	case int:
 		//fmt.Printf("(NewCWLType) D\n")
-		native_int := native.(int)
+		nativeInt := native.(int)
 
-		cwlType, err = NewInt(native_int, context)
+		cwlType, err = NewInt(nativeInt, context)
 		if err != nil {
 			err = fmt.Errorf("(NewCWLType) NewInt: %s", err.Error())
 			return
@@ -180,6 +187,11 @@ func NewCWLType(id string, native interface{}, context *WorkflowContext) (cwlTyp
 		cwlType = NewFloat(nativeFloat32)
 	case float64:
 		nativeFloat64 := native.(float64)
+		if math.IsNaN(nativeFloat64) {
+			err = fmt.Errorf("(NewCWLType) float64 IsNaN ")
+			return
+		}
+
 		cwlType = NewDouble(nativeFloat64)
 	case string:
 		//fmt.Printf("(NewCWLType) E\n")
@@ -199,7 +211,7 @@ func NewCWLType(id string, native interface{}, context *WorkflowContext) (cwlTyp
 		_, hasItems := nativeMap["items"]
 
 		if hasItems {
-			cwlType, err = NewArray(id, nativeMap, context)
+			cwlType, err = NewArray(id, parentID, nativeMap, context)
 			if err != nil {
 				err = fmt.Errorf("(NewCWLType) NewArray returned: %s", err.Error())
 			}
@@ -214,7 +226,7 @@ func NewCWLType(id string, native interface{}, context *WorkflowContext) (cwlTyp
 			return
 		}
 
-		cwlType, err = NewCWLTypeByClass(class, id, native, context)
+		cwlType, err = NewCWLTypeByClass(class, id, parentID, native, context)
 		if err != nil {
 
 			err = fmt.Errorf("(NewCWLType) NewCWLTypeByClass returned: %s", err.Error())
@@ -250,7 +262,7 @@ func NewCWLType(id string, native interface{}, context *WorkflowContext) (cwlTyp
 }
 
 // NewCWLTypeByClass _
-func NewCWLTypeByClass(class string, id string, native interface{}, context *WorkflowContext) (cwlType CWLType, err error) {
+func NewCWLTypeByClass(class string, id string, parentID string, native interface{}, context *WorkflowContext) (cwlType CWLType, err error) {
 	switch class {
 	case string(CWLFile):
 		//fmt.Println("NewCWLTypeByClass:")
@@ -288,7 +300,7 @@ func NewCWLTypeByClass(class string, id string, native interface{}, context *Wor
 		//fmt.Println("This might be a record:")
 		//spew.Dump(native)
 
-		record, xerr := NewRecord(id, native, context)
+		record, xerr := NewRecord(id, parentID, native, context)
 		if xerr != nil {
 			err = fmt.Errorf("(NewCWLTypeByClass) NewRecord returned: %s", xerr.Error())
 			return
@@ -352,7 +364,7 @@ func NewCWLTypeArray(native interface{}, parentID string, context *WorkflowConte
 		cwlArray := []CWLType{}
 
 		for _, value := range nativeArray {
-			valueCWL, xerr := NewCWLType("", value, context)
+			valueCWL, xerr := NewCWLType("", "", value, context)
 			if xerr != nil {
 				err = xerr
 				return
@@ -362,7 +374,7 @@ func NewCWLTypeArray(native interface{}, parentID string, context *WorkflowConte
 		cwlArrayPtr = &cwlArray
 	default:
 
-		ct, xerr := NewCWLType("", native, context)
+		ct, xerr := NewCWLType("", parentID, native, context)
 		if xerr != nil {
 			err = xerr
 			return
@@ -397,9 +409,16 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowC
 
 		_ = pointer
 		fmt.Printf("schema needed: %s\n", string(*pointer))
+
+		haveSchemaBase := string(*pointer)
+		haveSchemaBaseArray := strings.Split(haveSchemaBase, "#")
+		haveSchemaBase = haveSchemaBaseArray[len(haveSchemaBaseArray)-1]
+		haveSchemaBase = path.Base(haveSchemaBase)
+
 		for i := range context.Schemata {
-			fmt.Println(i)
-			if i == string(*pointer) {
+			fmt.Printf("compare schema %s with %s\n", i, haveSchemaBase)
+
+			if path.Base(i) == haveSchemaBase {
 				ok = true
 				return
 			}
@@ -430,14 +449,19 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowC
 			ok = true
 			return
 		default:
-			fmt.Println("schema:")
-			spew.Dump(schema)
-			fmt.Println("(TypeIsCorrectSingle) object:")
-			spew.Dump(object)
-			//panic("array did not match")
-			err = fmt.Errorf("(TypeIsCorrectSingle) array did not match")
+			ok = false
 			return
 		}
+	case *File:
+		switch schema {
+		case CWLStdout, CWLStderr, CWLFile:
+			ok = true
+			return
+		default:
+			ok = false
+			return
+		}
+
 	default:
 
 		objectType := object.GetType()
@@ -448,7 +472,10 @@ func TypeIsCorrectSingle(schema CWLType_Type, object CWLType, context *WorkflowC
 			ok = true
 			return
 		}
-
+		if objectTypeStr == "int" && schema.Type2String() == "float" {
+			ok = true
+			return
+		}
 		if objectTypeStr == "string" && schema.Type2String() == "EnumSchema" {
 
 			var objectStr *String

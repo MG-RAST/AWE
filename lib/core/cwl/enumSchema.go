@@ -3,6 +3,7 @@ package cwl
 import (
 	"fmt"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -26,6 +27,9 @@ func NewEnumSchemaFromInterface(original interface{}, context *WorkflowContext) 
 
 	err = mapstructure.Decode(original, &es)
 	if err != nil {
+		fmt.Println("(NewEnumSchemaFromInterface) original:")
+		spew.Dump(original)
+
 		err = fmt.Errorf("(NewEnumSchemaFromInterface) mapstructure returned: %s", err.Error())
 		return
 	}

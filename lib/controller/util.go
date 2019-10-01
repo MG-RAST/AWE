@@ -121,22 +121,22 @@ type anonymous struct {
 }
 
 type resource struct {
-	R             []string  `json:"resources"`
-	F             []string  `json:"info_indexes"`
-	U             string    `json:"url"`
-	D             string    `json:"documentation"`
-	Title         string    `json:"title"` // title to show in AWE monitor
-	C             string    `json:"contact"`
-	I             string    `json:"id"`
-	O             []string  `json:"auth"`
-	P             anonymous `json:"anonymous_permissions"`
-	T             string    `json:"type"`
-	S             string    `json:"queue_status"`
-	V             string    `json:"version"`
-	Time          string    `json:"server_time"`
-	GitCommitHash string    `json:"git_commit_hash"`
-	Uptime        string    `json:"uptime"`
-	InstanceUUID  string    `json:"uuid"`
+	R []string `json:"resources"`
+	F []string `json:"info_indexes"`
+	U string   `json:"url"`
+	//D             string    `json:"documentation"`
+	Title string    `json:"title"` // title to show in AWE monitor
+	C     string    `json:"contact"`
+	I     string    `json:"id"`
+	O     []string  `json:"auth"`
+	P     anonymous `json:"anonymous_permissions"`
+	T     string    `json:"type"`
+	S     string    `json:"queue_status"`
+	V     string    `json:"version"`
+	Time  string    `json:"server_time"`
+	//GitCommitHash string    `json:"git_commit_hash"`
+	Uptime       string `json:"uptime"`
+	InstanceUUID string `json:"uuid"`
 }
 
 func ResourceDescription(cx *goweb.Context) {
@@ -163,10 +163,10 @@ func ResourceDescription(cx *goweb.Context) {
 	}
 
 	r := resource{
-		R:     []string{},
-		F:     core.JobInfoIndexes,
-		U:     apiUrl(cx) + "/",
-		D:     siteUrl(cx) + "/",
+		R: []string{},
+		F: core.JobInfoIndexes,
+		U: apiUrl(cx) + "/",
+		//D:     siteUrl(cx) + "/",
 		Title: conf.TITLE,
 		C:     conf.ADMIN_EMAIL,
 		I:     "AWE",
@@ -198,6 +198,7 @@ func apiUrl(cx *goweb.Context) string {
 	return "http://" + cx.Request.Host
 }
 
+// deprecated
 func siteUrl(cx *goweb.Context) string {
 	if conf.SITE_URL != "" {
 		return conf.SITE_URL

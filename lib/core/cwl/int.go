@@ -5,19 +5,29 @@ import (
 	"strconv"
 )
 
+// Int _
 type Int int
 
+// IsCWLObject _
 func (i *Int) IsCWLObject() {}
 
-func (i *Int) GetClass() string      { return string(CWLInt) } // for CWLObject
+// GetClass _
+func (i *Int) GetClass() string { return string(CWLInt) } // for CWLObject
+
+// GetType _
 func (i *Int) GetType() CWLType_Type { return CWLInt }
 func (i *Int) String() string        { return strconv.Itoa(int(*i)) }
 
-func (i *Int) GetID() string  { return "" }
+// GetID _
+func (i *Int) GetID() string { return "" }
+
+// SetID _
 func (i *Int) SetID(x string) {}
 
+// IsCWLMinimal _
 func (i *Int) IsCWLMinimal() {}
 
+// NewInt _
 func NewInt(value int, context *WorkflowContext) (i *Int, err error) {
 
 	var i_nptr Int
@@ -26,7 +36,7 @@ func NewInt(value int, context *WorkflowContext) (i *Int, err error) {
 	i = &i_nptr
 
 	if context != nil && context.Initialzing {
-		err = context.Add("", i, "NewInt")
+		err = context.AddObject("", i, "NewInt")
 		if err != nil {
 			err = fmt.Errorf("(NewInt) context.Add returned: %s", err.Error())
 			return
@@ -37,16 +47,17 @@ func NewInt(value int, context *WorkflowContext) (i *Int, err error) {
 
 }
 
+// NewIntFromInterface _
 func NewIntFromInterface(id string, native interface{}, context *WorkflowContext) (i *Int, err error) {
 
 	_ = id
 
-	real_int, ok := native.(int)
+	realInt, ok := native.(int)
 	if !ok {
 		err = fmt.Errorf("(NewIntFromInterface) Cannot create int")
 		return
 	}
-	i, err = NewInt(real_int, context)
+	i, err = NewInt(realInt, context)
 	if err != nil {
 		err = fmt.Errorf("(NewCWLType) NewInt: %s", err.Error())
 		return

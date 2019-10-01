@@ -12,6 +12,7 @@ type CommandInputRecordSchema struct {
 	Fields       []CommandInputRecordField                                             `yaml:"fields,omitempty" json:"fields,omitempty" bson:"fields,omitempty"`
 }
 
+// NewCommandInputRecordSchema _
 func NewCommandInputRecordSchema(nativeMap map[string]interface{}) (cirs *CommandInputRecordSchema, err error) {
 
 	cirs = &CommandInputRecordSchema{}
@@ -26,6 +27,7 @@ func NewCommandInputRecordSchema(nativeMap map[string]interface{}) (cirs *Comman
 	return
 }
 
+// NewCommandInputRecordSchemaFromInterface _
 func NewCommandInputRecordSchemaFromInterface(native interface{}, schemata []CWLType_Type, context *WorkflowContext) (cirs *CommandInputRecordSchema, err error) {
 
 	native, err = MakeStringMap(native, context)
@@ -33,40 +35,44 @@ func NewCommandInputRecordSchemaFromInterface(native interface{}, schemata []CWL
 		return
 	}
 
+	//fmt.Println("(NewCommandInputRecordSchemaFromInterface): ")
+	//spew.Dump(native)
+
 	switch native.(type) {
 	case map[string]interface{}:
 		nativeMap, ok := native.(map[string]interface{})
 		if !ok {
-			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) type switch error")
+			err = fmt.Errorf("(NewCommandInputRecordSchemaFromInterface) type switch error")
 			return
 		}
 
 		cirs, err = NewCommandInputRecordSchema(nativeMap)
 		if err != nil {
+			err = fmt.Errorf("(NewCommandInputRecordSchemaFromInterface) NewCommandInputRecordSchema returned: %s", err.Error())
 			return
 		}
 
-		fields, has_fields := nativeMap["fields"]
-		if !has_fields {
-			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) no fields")
+		fields, hasFields := nativeMap["fields"]
+		if !hasFields {
+			err = fmt.Errorf("(NewCommandInputRecordSchemaFromInterface) no fields")
 			return
 		}
 
-		var fields_array []interface{}
-		fields_array, ok = fields.([]interface{})
-		if !ok {
-			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) fields is not array")
-			return
-		}
+		// var fields_array []interface{}
+		// fields_array, ok = fields.([]interface{})
+		// if !ok {
+		// 	err = fmt.Errorf("(NewCommandInputRecordSchemaFromInterface) fields is not array")
+		// 	return
+		// }
 
-		cirs.Fields, err = CreateCommandInputRecordFieldArray(fields_array, schemata, context)
+		cirs.Fields, err = CreateCommandInputRecordFieldArray(fields, schemata, context)
 		if err != nil {
-			err = fmt.Errorf("(NewInputRecordSchemaFromInterface) CreateInputRecordFieldArray returns: %s", err.Error())
+			err = fmt.Errorf("(NewCommandInputRecordSchemaFromInterface) CreateCommandInputRecordFieldArray returned: %s", err.Error())
 			return
 		}
 		return
 	default:
-		err = fmt.Errorf("(NewInputRecordSchemaFromInterface) error")
+		err = fmt.Errorf("(NewCommandInputRecordSchemaFromInterface) error")
 
 	}
 

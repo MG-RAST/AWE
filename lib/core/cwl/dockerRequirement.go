@@ -1,6 +1,8 @@
 package cwl
 
 import (
+	"fmt"
+
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -20,6 +22,10 @@ func NewDockerRequirement(original interface{}) (r *DockerRequirement, err error
 	var requirement DockerRequirement
 	r = &requirement
 	err = mapstructure.Decode(original, &requirement)
+	if err != nil {
+		err = fmt.Errorf("(NewDockerRequirement) mapstructure.Decode returned: %s", err.Error())
+		return
+	}
 
 	requirement.Class = "DockerRequirement"
 	return

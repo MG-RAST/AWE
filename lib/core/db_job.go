@@ -9,6 +9,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/db"
 	"github.com/MG-RAST/AWE/lib/logger"
+	"github.com/davecgh/go-spew/spew"
 	mgo "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -310,7 +311,7 @@ func dbUpdateJobTaskFields(jobID string, workflowInstanceID string, taskID strin
 
 	err = c.Update(selector, updateOp)
 	if err != nil {
-		err = fmt.Errorf("(dbUpdateJobTaskFields) (db: %s) Error updating task %s: %s", database, taskID, err.Error())
+		err = fmt.Errorf("(dbUpdateJobTaskFields) (db: %s, workflowInstanceID: %s) Error updating task %s: %s", database, workflowInstanceID, taskID, err.Error())
 		return
 	}
 	return
@@ -480,21 +481,26 @@ func LoadJob(id string) (job *Job, err error) {
 		for i := range wis {
 			var wiChanged bool
 			wi := wis[i]
+			if wi.ID == "" {
+				spew.Dump(wis)
+				err = fmt.Errorf("(LoadJob) wi.ID empty")
+				return
+			}
 			wiChanged, err = wi.Init(job)
 			if err != nil {
 				err = fmt.Errorf("(LoadJob) wis[i].Init returned: %s", err.Error())
 				return
 			}
 			if wiChanged {
-				err = wi.Save(true)
+				err = wi.Update(true)
 				if err != nil {
-					err = fmt.Errorf("(LoadJob) wi.Save() returned: %s", err.Error())
+					err = fmt.Errorf("(LoadJob) wi.Update() returned: %s", err.Error())
 					return
 				}
 			}
 			// add WorkflowInstance to job
 
-			fmt.Printf("(LoadJob) loading: %s\n", wi.LocalID)
+			//fmt.Printf("(LoadJob) loading: %s\n", wi.LocalID)
 
 			err = job.AddWorkflowInstance(wi, DbSyncFalse, true) // load from database
 			if err != nil {

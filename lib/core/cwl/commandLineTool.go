@@ -57,6 +57,13 @@ func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIden
 	}
 	//spew.Dump(generic)
 
+	if objectIdentifier != "" {
+		if !strings.HasPrefix(objectIdentifier, "#") {
+			err = fmt.Errorf("(NewCWLObject) objectIdentifier has not # as prefix (%s)", objectIdentifier)
+			return
+		}
+	}
+
 	//fmt.Println("NewCommandLineTool() object:")
 	//spew.Dump(object)
 
@@ -170,7 +177,7 @@ func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIden
 	}
 
 	if !strings.HasPrefix(commandLineTool.ID, "#") {
-		err = fmt.Errorf("(NewCommandLineTool) id is not absolute!?")
+		err = fmt.Errorf("(NewCommandLineTool) id is not absolute!? (commandLineTool.ID=%s)", commandLineTool.ID)
 		return
 	}
 

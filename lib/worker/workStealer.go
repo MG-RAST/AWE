@@ -350,6 +350,10 @@ func CheckoutWorkunitRemote() (workunit *core.Workunit, err error) {
 			return
 		}
 
+		//fmt.Println("CWL Workunit from server from server:")
+		//cwl_object_bytes, _ := json.Marshal(cwl_object)
+		//fmt.Printf("%s\n", string(cwl_object_bytes))
+
 		workunit.CWLWorkunit = cwl_object
 		workunit.CWLWorkunit.Notice = core.Notice{ID: workunit.Workunit_Unique_Identifier, WorkerID: core.Self.ID}
 

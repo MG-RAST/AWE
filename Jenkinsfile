@@ -118,14 +118,14 @@ pipeline {
 
            
 
-                USE_CACHE="--no-cache"
-                #USE_CACHE="" #speed-up for debugging purposes 
+                #USE_CACHE="--no-cache"
+                USE_CACHE="" #speed-up for debugging purposes 
                 set +e
-                docker rmi mgrast/awe-server mgrast/awe-worker mgrast/awe-submitter
+                #docker rmi mgrast/awe-server mgrast/awe-worker mgrast/awe-submitter
                 set -e
                 sleep 2
                 
-                
+                docker pull mgrast/shock
                 docker build ${USE_CACHE} --pull -t mgrast/awe-server .
                 docker build ${USE_CACHE} --pull -t mgrast/awe-worker -f Dockerfile_worker .
                 docker build ${USE_CACHE} --pull -t mgrast/awe-submitter -f Dockerfile_submitter .
@@ -167,7 +167,10 @@ pipeline {
 
                 docker-compose up -d
                 set +e
-                sleep 2
+                sleep 3
+                docker ps
+                docker network ls
+                sleep 1
                 echo "services started"
                 '''
         
@@ -182,6 +185,9 @@ pipeline {
                 cd $base_dir
                 
                 
+                # network name sometimes has a minus, sometimes not, depends on docker-compose version
+                NETWORK_NAME=$(docker network ls  | grep -o "awe-\\?test_default")
+                echo "NETWORK_NAME: ${NETWORK_NAME}"
                 set +e
                
                 
@@ -190,7 +196,7 @@ pipeline {
                     --rm \
                     --env "SHOCK_SERVER=http://shock:7445" \
                     --env "AWE_SERVER=http://awe-server:80" \
-                    --network testing_default \
+                    --network ${NETWORK_NAME} \
                     --name awe-submitter-testing \
                     --volume `pwd`/result.xml:/output/result.xml \
                     mgrast/awe-submitter-testing \

@@ -5,7 +5,7 @@ set -e
 # append "-a" for all
 
 
-AWE_VERSION=$(git describe --tags)
+AWE_VERSION=$(git describe --tags --long)
 
 touch lib/conf/conf.go
 set -x

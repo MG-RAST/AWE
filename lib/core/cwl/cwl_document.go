@@ -267,17 +267,23 @@ func ParseCWLSimpleDocument(yamlStr string, useObjectID string, context *Workflo
 			}
 			err = nil
 
-			if len(strings.Split(useObjectID, "/")) > 1 {
-				err = fmt.Errorf("(ParseCWLSimpleDocument) contains path !?  %s ", useObjectID)
-				return
-			}
+			//if len(strings.Split(useObjectID, "/")) > 1 {
+			//	err = fmt.Errorf("(ParseCWLSimpleDocument) contains path !?  %s ", useObjectID)
+			//	return
+			//}
 
-			objectID = "#" + useObjectID
+			objectID = useObjectID
 			//fmt.Printf("ParseCWLSimpleDocument: objectID %s\n", objectID)
 			setObjectID = true
 			//err = fmt.Errorf("(ParseCWLSimpleDocument) GetId returns %s", err.Error())
 			//return
 		}
+
+		if objectID == "#." {
+			err = fmt.Errorf("(ParseCWLSimpleDocument) objectID wrong (useObjectID: %s)", useObjectID)
+			return
+		}
+
 		//fmt.Printf("objectID: %s\n", objectID)
 
 		var object CWLObject
@@ -405,7 +411,7 @@ func ReadYamlFile(filePath string) (objectIf interface{}, err error) {
 }
 
 // ParseCWLDocumentFile _
-func ParseCWLDocumentFile(existingContext *WorkflowContext, filePath string, entrypoint string, inputfilePath string, fileName string) (objectArray []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, newEntrypoint string, err error) {
+func ParseCWLDocumentFile(existingContext *WorkflowContext, filePath string, entrypoint string, inputfilePath string, identifier string) (objectArray []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, newEntrypoint string, err error) {
 
 	logger.Debug(3, "(ParseCWLDocumentFile) loading %s", filePath)
 	// skip parsing if files have been loaded before
@@ -429,9 +435,9 @@ func ParseCWLDocumentFile(existingContext *WorkflowContext, filePath string, ent
 
 	fileStr := string(fileByte)
 
-	filePathBase := path.Base(filePath)
+	//filePathBase := path.Base(filePath)
 
-	objectArray, schemata, context, schemas, newEntrypoint, err = ParseCWLDocument(existingContext, fileStr, entrypoint, inputfilePath, filePathBase)
+	objectArray, schemata, context, schemas, newEntrypoint, err = ParseCWLDocument(existingContext, fileStr, entrypoint, inputfilePath, identifier)
 	if err != nil {
 		err = fmt.Errorf("(ParseCWLDocumentFile) ParseCWLDocument returned: %s", err.Error())
 		return
@@ -449,8 +455,16 @@ func ParseCWLDocumentFile(existingContext *WorkflowContext, filePath string, ent
 // format: inputfilePath  / fileName # entrypoint , example: /path/tool.cwl#main
 // a CWL document can be a graph document or a single object document
 // an entrypoint can only be specified for a graph document
-func ParseCWLDocument(existingContext *WorkflowContext, yamlStr string, entrypoint string, inputfilePath string, fileBaseName string) (objectArray []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, newEntrypoint string, err error) {
+// useObjectID in case of single object
+func ParseCWLDocument(existingContext *WorkflowContext, yamlStr string, entrypoint string, inputfilePath string, useObjectID string) (objectArray []NamedCWLObject, schemata []CWLType_Type, context *WorkflowContext, schemas []interface{}, newEntrypoint string, err error) {
 	//fmt.Printf("(Parse_cwl_document) starting\n")
+
+	if useObjectID != "" {
+		if !strings.HasPrefix(useObjectID, "#") {
+			err = fmt.Errorf("(NewCWLObject) useObjectID has not # as prefix (%s)", useObjectID)
+			return
+		}
+	}
 
 	if existingContext != nil {
 		context = existingContext
@@ -480,9 +494,12 @@ func ParseCWLDocument(existingContext *WorkflowContext, yamlStr string, entrypoi
 	} else {
 		logger.Debug(3, "(Parse_cwl_document) simple document")
 		//fmt.Printf("(Parse_cwl_document) ParseCWLSimpleDocument\n")
+
+		//useObjectID := "#" + inputfilePath
+
 		var objectID string
 
-		objectArray, schemata, schemas, objectID, err = ParseCWLSimpleDocument(yamlStr, fileBaseName, context)
+		objectArray, schemata, schemas, objectID, err = ParseCWLSimpleDocument(yamlStr, useObjectID, context)
 		if err != nil {
 			err = fmt.Errorf("(Parse_cwl_document) Parse_cwl_simple_document returned: %s", err.Error())
 			return

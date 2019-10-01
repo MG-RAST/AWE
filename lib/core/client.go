@@ -6,9 +6,9 @@ import (
 	"io/ioutil"
 	"time"
 
-	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
-	"github.com/MG-RAST/AWE/lib/rwmutex"
+	rwmutex "github.com/MG-RAST/go-rwmutex"
+	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 )
 
 // states

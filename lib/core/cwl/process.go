@@ -69,6 +69,8 @@ type Process interface {
 // NewProcess returns CommandLineTool, ExpressionTool or Workflow
 func NewProcess(original interface{}, parentID string, processID string, injectedRequirements []Requirement, context *WorkflowContext) (process Process, schemata []CWLType_Type, err error) {
 
+	logger.Debug(3, "(NewProcess) context.Path: %s", context.Path)
+
 	//logger.Debug(3, "(NewProcess) starting")
 	if context == nil {
 		err = fmt.Errorf("(NewProcess) context == nil")
@@ -157,7 +159,12 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 			return
 		}
 		newFileToLoad := path.Join(context.Path, fileFromStr) // TODO context.Path is not correct, depends on location of parent document
-		newFileToLoadBase := path.Base(newFileToLoad)
+		//newFileToLoadBase := path.Base(newFileToLoad)
+
+		newIdentifier := "#" + strings.TrimPrefix(fileFromStr, newFileToLoad)
+
+		logger.Debug(3, "(NewProcess) newFileToLoad: %s newIdentifier: %s", newFileToLoad, newIdentifier)
+
 		entrypoint := ""
 		// if len(originalStrArray) > 1 {
 		// 	entrypoint = originalStrArray[1]
@@ -172,7 +179,7 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 
 		//var newObjectArray []NamedCWLObject
 		var schemas []interface{}
-		processIf, schemata, _, schemas, _, err = ParseCWLDocumentFile(context, newFileToLoad, entrypoint, context.Path, newFileToLoadBase)
+		processIf, schemata, _, schemas, _, err = ParseCWLDocumentFile(context, newFileToLoad, entrypoint, context.Path, newIdentifier)
 		if err != nil {
 
 			err = fmt.Errorf("(NewProcess) ParseCWLDocumentFile returned: %s", err.Error())
@@ -206,7 +213,14 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 			return
 		}
 
-		err = fmt.Errorf("(NewProcess) Process %s not found ", processIdentifer)
+		list := ""
+		if !ok {
+			for file, _ := range context.FilesLoaded {
+				list += ", " + file
+			}
+		}
+
+		err = fmt.Errorf("(NewProcess) Process %s not found (tried newFileToLoad: %s) parentID: %s (got: %s)", processIdentifer, newFileToLoad, parentID, list)
 
 		return
 	case map[string]interface{}:

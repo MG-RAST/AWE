@@ -21,7 +21,7 @@ type InputParameter struct {
 	Doc            string                                                                `yaml:"doc,omitempty" bson:"doc,omitempty" json:"doc,omitempty" mapstructure:"doc,omitempty"`
 	InputBinding   *CommandLineBinding                                                   `yaml:"inputBinding,omitempty" bson:"inputBinding,omitempty" json:"inputBinding,omitempty" mapstructure:"inputBinding,omitempty"` //TODO
 	Default        CWLType                                                               `yaml:"default,omitempty" bson:"default,omitempty" json:"default,omitempty" mapstructure:"default,omitempty"`
-	Type           []CWLType_Type                                                        `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty" mapstructure:"type,omitempty"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
+	Type           interface{}                                                           `yaml:"type,omitempty" bson:"type,omitempty" json:"type,omitempty" mapstructure:"type,omitempty"` // TODO CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string | array<CWLType | InputRecordSchema | InputEnumSchema | InputArraySchema | string>
 }
 
 // GetClass _
@@ -99,21 +99,36 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 			}
 		}
 
-		inputParameterType, ok := originalMap["type"]
+		inputParameterTypeIf, ok := originalMap["type"]
 		if ok {
-			var inputParameterTypeArray []CWLType_Type
-			inputParameterTypeArray, err = NewCWLType_TypeArray(inputParameterType, schemata, "Input", false, context)
-			if err != nil {
-				fmt.Println("inputParameterType:")
-				spew.Dump(inputParameterType)
-				err = fmt.Errorf("(NewInputParameter) NewCWLType_TypeArray returns: %s", err.Error())
-				return
+			switch inputParameterTypeIf.(type) {
+			case []interface{}:
+				var inputParameterTypeArray []CWLType_Type
+				inputParameterTypeArray, err = NewCWLType_TypeArray(inputParameterTypeIf, schemata, "Input", false, context)
+				if err != nil {
+					fmt.Println("inputParameterTypeIf:")
+					spew.Dump(inputParameterTypeIf)
+					err = fmt.Errorf("(NewInputParameter) NewCWLType_TypeArray returns: %s", err.Error())
+					return
+				}
+				if len(inputParameterTypeArray) == 0 {
+					err = fmt.Errorf("(NewInputParameter) len(inputParameterTypeArray) == 0")
+					return
+				}
+				originalMap["type"] = inputParameterTypeArray
+			default:
+				var inputParameterTypeArray []CWLType_Type
+				var inputParameterType CWLType_Type
+				inputParameterTypeArray, err = NewCWLType_Type(schemata, inputParameterTypeIf, "Input", context)
+				if err != nil {
+					fmt.Println("inputParameterType:")
+					spew.Dump(inputParameterType)
+					err = fmt.Errorf("(NewInputParameter) NewCWLType_Type returns: %s", err.Error())
+					return
+				}
+				inputParameterType = inputParameterTypeArray[0]
+				originalMap["type"] = inputParameterType
 			}
-			if len(inputParameterTypeArray) == 0 {
-				err = fmt.Errorf("(NewInputParameter) len(inputParameterTypeArray) == 0")
-				return
-			}
-			originalMap["type"] = inputParameterTypeArray
 		}
 
 		err = mapstructure.Decode(original, inputParameter)
@@ -126,11 +141,6 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 	default:
 		spew.Dump(original)
 		err = fmt.Errorf("(NewInputParameter) cannot parse input type %s", reflect.TypeOf(original))
-		return
-	}
-
-	if len(inputParameter.Type) == 0 {
-		err = fmt.Errorf("(NewInputParameter) len(inputParameter.Type) == 0")
 		return
 	}
 
@@ -202,5 +212,40 @@ func NewInputParameterArray(original interface{}, schemata []CWLType_Type, conte
 
 	//spew.Dump(new_array)
 	//os.Exit(0)
+	return
+}
+
+// GetTypes convenience function taht always retuns an array
+func (ip *InputParameter) GetTypes() (result []CWLType_Type, err error) {
+
+	ipType := ip.Type
+
+	switch ipType.(type) {
+	case []interface{}:
+
+		workflowInputParameterTypesArrayIf := ipType.([]interface{})
+		for _, tIf := range workflowInputParameterTypesArrayIf {
+			t, ok := tIf.(CWLType_Type)
+			if !ok {
+				err = fmt.Errorf("(GetTypes) cannot convert type")
+				return
+			}
+			result = append(result, t)
+		}
+
+	case []CWLType_Type:
+		result = ipType.([]CWLType_Type)
+
+	default:
+		t, ok := ipType.(CWLType_Type)
+		if !ok {
+
+			err = fmt.Errorf("(GetTypes) cannot convert type (%s)", reflect.TypeOf(ipType))
+			return
+		}
+
+		result = []CWLType_Type{t}
+	}
+
 	return
 }

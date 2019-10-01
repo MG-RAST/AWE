@@ -21,7 +21,8 @@ import (
 
 // File http://www.commonwl.org/v1.0/Workflow.html#File
 type File struct {
-	CWLType_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id, Class, Type
+	CWLType_Impl   `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Class, Type
+	IdentifierImpl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // Provides: Id
 	//Type           CWLType_Type  `yaml:"-" json:"-" bson:"-" mapstructure:"-"`
 	Location string `yaml:"location,omitempty" json:"location,omitempty" bson:"location,omitempty" mapstructure:"location,omitempty"` // An IRI that identifies the file resource.
 	//Location_url   *url.URL      `yaml:"-" json:"-" bson:"-" mapstructure:"-"`                                                                     // only for internal purposes
@@ -53,7 +54,8 @@ func (file *File) Is_CWLType() {}
 // GetType _
 func (file *File) GetType() CWLType_Type { return CWLFile }
 
-//func (f *File) GetID() string       { return f.Id }
+//func (f *File) GetID() string { return f.ID }
+
 //func (f *File) SetID(id string)     { f.Id = id }
 func (file *File) String() string { return file.Path }
 

@@ -9,7 +9,7 @@ import (
 	"github.com/MG-RAST/AWE/lib/acl"
 	"github.com/MG-RAST/AWE/lib/conf"
 	"github.com/MG-RAST/AWE/lib/core/cwl"
-	"github.com/MG-RAST/AWE/lib/rwmutex"
+	rwmutex "github.com/MG-RAST/go-rwmutex"
 
 	//cwl_types "github.com/MG-RAST/AWE/lib/core/cwl/types"
 	"io/ioutil"
@@ -17,9 +17,9 @@ import (
 	"path"
 	"path/filepath"
 
-	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
+	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 	"gopkg.in/mgo.v2/bson"
 
 	"strconv"

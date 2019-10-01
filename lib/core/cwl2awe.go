@@ -71,7 +71,34 @@ func CWLInputCheck(jobInput *cwl.Job_document, cwlWorkflow *cwl.Workflow, contex
 		logger.Debug(3, "(CWLInputCheck) Parsing workflow input %s", id)
 
 		idBase := path.Base(id)
-		expectedTypes := input.Type
+
+		var expectedTypes []cwl.CWLType_Type
+		expectedTypes, err = input.GetTypes()
+		if err != nil {
+			err = fmt.Errorf("(CWLInputCheck) input.GetTypes returned: %s", err.Error())
+			return
+		}
+		// expectedTypesIf := input.Type
+
+		// switch expectedTypesIf.(type) {
+		// case []interface{}:
+		// 	expectedTypesArrayIf := expectedTypesIf.([]interface{})
+		// 	for _, tIf := range expectedTypesArrayIf {
+		// 		t, ok := tIf.(cwl.CWLType_Type)
+		// 		if !ok {
+		// 			err = fmt.Errorf("(CWLInputCheck) could not convert array element")
+		// 			return
+		// 		}
+		// 		expectedTypes = append(expectedTypes, t)
+		// 	}
+		// default:
+		// 	t, ok := expectedTypesIf.(cwl.CWLType_Type)
+		// 	if !ok {
+		// 		err = fmt.Errorf("(CWLInputCheck) could not convert expectedTypesIf element")
+		// 		return
+		// 	}
+		// 	expectedTypes = []cwl.CWLType_Type{t}
+		// }
 
 		if len(expectedTypes) == 0 {
 			err = fmt.Errorf("(CWLInputCheck) (len(expected_types) == 0 ")

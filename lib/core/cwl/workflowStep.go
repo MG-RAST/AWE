@@ -224,6 +224,7 @@ func NewWorkflowStepFromInterface(original interface{}, stepID string, workflowI
 			} else {
 
 				if !strings.HasPrefix(referenceStr, "#") {
+
 					referenceStr = "#" + referenceStr
 					run = referenceStr
 					originalMap["run"] = run

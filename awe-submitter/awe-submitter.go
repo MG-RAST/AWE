@@ -77,6 +77,7 @@ func mainWrapper() (err error) {
 	//for _, value := range conf.ARGS {
 	//	println(value)
 	//}
+
 	jobFile := ""
 
 	if conf.SUBMITTER_UPLOAD_INPUT {
@@ -207,7 +208,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	}
 
 	inputfilePath := ""
-	workflowFileBase := path.Base(workflowFile)
+	//workflowFileBase := path.Base(workflowFile)
 	//fmt.Printf("job path: %s\n", inputfile_path) // needed to resolve relative paths
 	//fmt.Printf("createNormalizedSubmisson A\n")
 	// ### parse job file
@@ -313,7 +314,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	//var context *cwl.WorkflowContext
 	//fmt.Printf("createNormalizedSubmisson E\n")
 	//var newEntrypoint string
-	namedObjectArray, schemata, context, _, newEntrypoint, err = cwl.ParseCWLDocument(nil, yamlStr, entrypoint, inputfilePath, workflowFileBase)
+	namedObjectArray, schemata, context, _, newEntrypoint, err = cwl.ParseCWLDocument(nil, yamlStr, entrypoint, inputfilePath, "#"+workflowFile)
 
 	// if newEntrypoint != "" {
 	// 	entrypoint = newEntrypoint
@@ -632,6 +633,8 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, entrypoint string, j
 	}
 
 	if jobFile != "" {
+		logger.Debug(3, "(SubmitCWLJobToAWE) jobFile: %s", jobFile)
+
 		err = multipart.AddDataAsFile("job", jobFile, jobData)
 		if err != nil {
 			err = fmt.Errorf("(SubmitCWLJobToAWE) AddDataAsFile returned: %s", err.Error())

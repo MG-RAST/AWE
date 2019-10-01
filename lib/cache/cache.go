@@ -24,6 +24,8 @@ import (
 	"github.com/MG-RAST/AWE/lib/logger"
 	"github.com/MG-RAST/AWE/lib/logger/event"
 	shock "github.com/MG-RAST/go-shock-client"
+	"golang.org/x/text/collate"
+	"golang.org/x/text/language"
 )
 
 func getCacheDir(id string) string {
@@ -33,22 +35,25 @@ func getCacheDir(id string) string {
 	return fmt.Sprintf("%s/%s/%s/%s/%s", conf.DATA_PATH, id[0:2], id[2:4], id[4:6], id)
 }
 
+// getCacheFilePath _
 func getCacheFilePath(id string) string {
 	cacheDir := getCacheDir(id)
 	return fmt.Sprintf("%s/%s.data", cacheDir, id)
 }
 
-func StatCacheFilePath(id string) (file_path string, err error) {
-	file_path = getCacheFilePath(id)
-	_, err = os.Stat(file_path)
-	return file_path, err
+// StatCacheFilePath _
+func StatCacheFilePath(id string) (filePath string, err error) {
+	filePath = getCacheFilePath(id)
+	_, err = os.Stat(filePath)
+	return filePath, err
 }
 
-func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64, err error) {
+// MoveInputIO _
+func MoveInputIO(work *core.Workunit, io *core.IO, workPath string) (size int64, err error) {
 
 	if !io.NoFile { // is file !
-		var dataUrl string
-		dataUrl, err = io.DataUrl()
+		var dataURL string
+		dataURL, err = io.DataUrl()
 		if err != nil {
 			err = fmt.Errorf("(MoveInputIO) io.DataUrl returned: %s", err.Error())
 			return
@@ -58,7 +63,7 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 			return
 		}
 
-		inputFilePath := path.Join(work_path, io.FileName)
+		inputFilePath := path.Join(workPath, io.FileName)
 
 		// create symlink if file has been cached
 		if work.Rank == 0 && conf.CACHE_ENABLED && io.Node != "" {
@@ -66,13 +71,13 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 			file_path, err = StatCacheFilePath(io.Node)
 			if err == nil {
 				//make a link in work dir from cached file
-				linkname := fmt.Sprintf("%s/%s", work_path, io.FileName)
+				linkname := fmt.Sprintf("%s/%s", workPath, io.FileName)
 				//fmt.Printf("input found in cache, making link: " + file_path + " -> " + linkname + "\n")
 				err = os.Symlink(file_path, linkname)
 				if err != nil {
 					return
 				}
-				logger.Event(event.FILE_READY, "workid="+work.ID+";url="+dataUrl)
+				logger.Event(event.FILE_READY, "workid="+work.ID+";url="+dataURL)
 				return
 			}
 
@@ -80,16 +85,16 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 
 		// only get file Part based on work.Partition
 		if (work.Rank > 0) && (work.Partition != nil) && (work.Partition.Input == io.FileName) {
-			dataUrl = fmt.Sprintf("%s&index=%s&part=%s", dataUrl, work.Partition.Index, work.Part())
+			dataURL = fmt.Sprintf("%s&index=%s&part=%s", dataURL, work.Partition.Index, work.Part())
 		}
-		logger.Debug(2, "mover: fetching input file from url:"+dataUrl)
-		logger.Event(event.FILE_IN, "workid="+work.ID+";url="+dataUrl)
+		logger.Debug(2, "mover: fetching input file from url:"+dataURL)
+		logger.Event(event.FILE_IN, "workid="+work.ID+";url="+dataURL)
 
 		// download file
 		retry := 1
 		for true {
 			var datamoved int64
-			datamoved, _, err = shock.FetchFile(inputFilePath, dataUrl, work.Info.DataToken, io.Uncompress, false)
+			datamoved, _, err = shock.FetchFile(inputFilePath, dataURL, work.Info.DataToken, io.Uncompress, false)
 			if err != nil {
 				if strings.Contains(err.Error(), "Node has no file") {
 					//logger.Debug(3, "(MoveInputData) got: %s", err.Error())
@@ -114,7 +119,7 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 			size += datamoved
 			break
 		}
-		logger.Event(event.FILE_READY, "workid="+work.ID+";url="+dataUrl)
+		logger.Event(event.FILE_READY, "workid="+work.ID+";url="+dataURL)
 	}
 
 	// download node attributes if requested
@@ -129,14 +134,14 @@ func MoveInputIO(work *core.Workunit, io *core.IO, work_path string) (size int64
 		logger.Debug(2, "mover: fetching input attributes from node:"+node.Id)
 		logger.Event(event.ATTR_IN, "workid="+work.ID+";node="+node.Id)
 		// print node attributes
-		work_path, yerr := work.Path()
+		workPathNew, yerr := work.Path()
 		if yerr != nil {
 
 			return 0, yerr
 		}
-		attrFilePath := fmt.Sprintf("%s/%s", work_path, io.AttrFile)
-		attr_json, _ := json.Marshal(node.Attributes)
-		err = ioutil.WriteFile(attrFilePath, attr_json, 0644)
+		attrFilePath := fmt.Sprintf("%s/%s", workPathNew, io.AttrFile)
+		attrJSON, _ := json.Marshal(node.Attributes)
+		err = ioutil.WriteFile(attrFilePath, attrJSON, 0644)
 		if err != nil {
 			return
 		}
@@ -160,7 +165,7 @@ func UploadFile(file *cwl.File, inputfilePath string, shockClient *shock.ShockCl
 
 	filePath := file.Path
 	var fileSize int64
-	new_file_name := ""
+	newFileName := ""
 
 	if file.Contents == "" {
 
@@ -240,9 +245,9 @@ func UploadFile(file *cwl.File, inputfilePath string, shockClient *shock.ShockCl
 		}
 
 		if file.Basename != "" {
-			new_file_name = file.Basename
+			newFileName = file.Basename
 		} else {
-			new_file_name = basename
+			newFileName = basename
 		}
 
 		file_size_int32 := int32(fileSize)
@@ -272,28 +277,25 @@ func UploadFile(file *cwl.File, inputfilePath string, shockClient *shock.ShockCl
 		fileSize = int64(len(file.Contents))
 
 		if file.Basename == "" {
-			err = fmt.Errorf("(UploadFile) file.Basename is empty")
-			return
+			file.Basename = file.GetID()
 		}
-		new_file_name = file.Basename
-
+		newFileName = file.Basename
+		filePath = ""
 	}
-
-	//fmt.Printf("file_path: %s\n", file_path)
-
+	//shockClient.Debug = true
 	var nodeid string
 	if lazyUpload {
 		//example: "${SHOCK_SERVER}/node?querynode&file.checksum.md5=37cbb1f811a144158cec0cbd87d97941"
 		//nodeid, err = shockClient.PostFileIf(file_path, new_file_name)
 
-		nodeid, err = shockClient.PostFileLazy(filePath, new_file_name, false)
+		nodeid, err = shockClient.PostFileLazy(filePath, newFileName, file.Contents, false)
 		if err != nil {
 			err = fmt.Errorf("(UploadFile) shockClient.PostFileLazy returned: %s", err.Error())
 			return
 		}
 	} else {
 
-		nodeid, err = shockClient.PostFile(filePath, file.Contents, new_file_name)
+		nodeid, err = shockClient.PostFile(filePath, file.Contents, newFileName)
 		if err != nil {
 			err = fmt.Errorf("(UploadFile) shockClient.PostFile returned: %s", err.Error())
 			return
@@ -301,15 +303,15 @@ func UploadFile(file *cwl.File, inputfilePath string, shockClient *shock.ShockCl
 	}
 	file.Contents = ""
 
-	var location_url *url.URL
-	location_url, err = url.Parse(shockClient.Host) // Host includes a path to the API !
+	var locationURL *url.URL
+	locationURL, err = url.Parse(shockClient.Host) // Host includes a path to the API !
 	if err != nil {
 		err = fmt.Errorf("(UploadFile) url.Parse returned: %s", err.Error())
 		return
 	}
-	location_url.Path = path.Join(location_url.Path, "node", nodeid)
-	location_url.RawQuery = strings.TrimPrefix(shock.DATA_SUFFIX, "?")
-	file.Location = location_url.String()
+	locationURL.Path = path.Join(locationURL.Path, "node", nodeid)
+	locationURL.RawQuery = strings.TrimPrefix(shock.DATA_SUFFIX, "?")
+	file.Location = locationURL.String()
 
 	//fmt.Printf("file.Path A: %s", file.Path)
 
@@ -321,7 +323,7 @@ func UploadFile(file *cwl.File, inputfilePath string, shockClient *shock.ShockCl
 		return
 	}
 	//fmt.Printf("file.Path B: %s\n", file.Path)
-	file.Basename = new_file_name
+	file.Basename = newFileName
 
 	count = 1
 	if file.Path != "" {
@@ -331,7 +333,8 @@ func UploadFile(file *cwl.File, inputfilePath string, shockClient *shock.ShockCl
 	return
 }
 
-func DownloadFile(file *cwl.File, download_path string, basePath string, shockClient *shock.ShockClient) (err error) {
+// DownloadFile _
+func DownloadFile(file *cwl.File, downloadPath string, basePath string, shockClient *shock.ShockClient) (err error) {
 
 	if file.Contents != "" {
 		err = fmt.Errorf("(DownloadFile) File is a literal")
@@ -349,10 +352,10 @@ func DownloadFile(file *cwl.File, download_path string, basePath string, shockCl
 
 	if basename == "" {
 
-		basename_array := strings.Split(file.Location, "?")
-		basename_array_first := basename_array[0] // remove query string
+		basenameArray := strings.Split(file.Location, "?")
+		basenameArrayFirst := basenameArray[0] // remove query string
 
-		new_basename := path.Base(basename_array_first)
+		new_basename := path.Base(basenameArrayFirst)
 
 		basename = new_basename
 		file.Basename = basename
@@ -370,28 +373,28 @@ func DownloadFile(file *cwl.File, download_path string, basePath string, shockCl
 	//if !path.IsAbs(file_path) {
 	//	file_path = path.Join(path, basename)
 	//}
-	file_path := path.Join(download_path, basename)
+	filePath := path.Join(downloadPath, basename)
 
-	os.Stat(file_path)
-	_, err = os.Stat(file_path)
+	os.Stat(filePath)
+	_, err = os.Stat(filePath)
 	if err == nil {
 		// file exists !!
 		// create subfolder
 
 		var newdir string
-		newdir, err = ioutil.TempDir(download_path, "input_")
+		newdir, err = ioutil.TempDir(downloadPath, "input_")
 		if err != nil {
 			err = fmt.Errorf("(DownloadFile) ioutil.TempDir returned: %s", err.Error())
 			return
 		}
-		file_path = path.Join(newdir, basename)
+		filePath = path.Join(newdir, basename)
 
 	} else {
 		err = nil
 	}
-	logger.Debug(3, "(DownloadFile) file.Path, downloading to: %s", file_path)
+	logger.Debug(3, "(DownloadFile) file.Path, downloading to: %s", filePath)
 
-	//fmt.Printf("Using path %s\n", file_path)
+	//fmt.Printf("Using path %s\n", filePath)
 
 	token := ""
 
@@ -401,10 +404,10 @@ func DownloadFile(file *cwl.File, download_path string, basePath string, shockCl
 		}
 	}
 
-	_, err = os.Stat(download_path)
+	_, err = os.Stat(downloadPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.MkdirAll(download_path, 0777)
+			err = os.MkdirAll(downloadPath, 0777)
 			if err != nil {
 				err = fmt.Errorf("(DownloadFile) os.MkdirAll returned: %s", err.Error())
 				return
@@ -415,19 +418,18 @@ func DownloadFile(file *cwl.File, download_path string, basePath string, shockCl
 		}
 	}
 
-	_, _, err = shock.FetchFile(file_path, file.Location, token, "", false)
+	_, _, err = shock.FetchFile(filePath, file.Location, token, "", false)
 	if err != nil {
-		err = fmt.Errorf("(DownloadFile) shock.FetchFile returned: %s (download_path: %s, basename: %s, file.Location: %s, TokenLength: %d)", err.Error(), download_path, basename, file.Location, len(token))
+		err = fmt.Errorf("(DownloadFile) shock.FetchFile returned: %s (download_path: %s, basename: %s, file.Location: %s, TokenLength: %d)", err.Error(), downloadPath, basename, file.Location, len(token))
 		return
 	}
 
 	basePath = path.Join(strings.TrimSuffix(basePath, "/"), "/")
 
-	file.Location = strings.TrimPrefix(strings.TrimPrefix(file_path, basePath), "/") // "file://" +  ?
-
-	file.SetPath(file.Location)
-	//fmt.Println("file:")
-	//spew.Dump(file)
+	file.Location = strings.TrimPrefix(strings.TrimPrefix(filePath, basePath), "/") // "file://" +  ?
+	file.Nameroot = ""
+	//file.SetPath(file.Location)
+	//fmt.Printf("file.Path: %s\n", file.Path)
 
 	return
 }
@@ -438,7 +440,7 @@ func UploadDirectory(dir *cwl.Directory, currentPath string, shockClient *shock.
 	//pwd, _ := os.Getwd()
 	//fmt.Printf("current working directory: %s\n", pwd)
 
-	dir_path_fixed := path.Join(currentPath, dir.Path)
+	dirPathFixed := path.Join(currentPath, dir.Path)
 	//fmt.Printf("dir_path_fixed: %s\n", dir_path_fixed)
 
 	currentPath = strings.TrimSuffix(currentPath, "/") + "/" // make sure it has esxactly one / at the end
@@ -449,25 +451,33 @@ func UploadDirectory(dir *cwl.Directory, currentPath string, shockClient *shock.
 
 	var fi os.FileInfo
 
-	fi, err = os.Stat(dir_path_fixed)
+	fi, err = os.Stat(dirPathFixed)
 	if err != nil {
-		err = fmt.Errorf("(UploadDirectory) directory %s not found: %s", dir_path_fixed, err.Error())
+		err = fmt.Errorf("(UploadDirectory) directory %s not found: %s", dirPathFixed, err.Error())
 		return
 	}
 
 	if !fi.IsDir() {
-		err = fmt.Errorf("(UploadDirectory) %s is not a directory", dir_path_fixed)
+		err = fmt.Errorf("(UploadDirectory) %s is not a directory", dirPathFixed)
 		return
 	}
 
-	glob_pattern := path.Join(dir_path_fixed, "*")
+	globPattern := path.Join(dirPathFixed, "*")
 
 	var matches []string
-	matches, err = filepath.Glob(glob_pattern)
+	matches, err = filepath.Glob(globPattern)
 	if err != nil {
 		err = fmt.Errorf("(UploadDirectory) filepath.Glob returned: %s", err.Error())
 		return
 	}
+	// fmt.Println("matches:")
+	// spew.Dump(matches)
+
+	// make sure that the result of glob is sorted
+	c := collate.New(language.Und)
+	c.SortStrings(matches)
+	// fmt.Println("matches:")
+	// spew.Dump(matches)
 
 	//fmt.Printf("files matching: %d\n", len(matches))
 	count = 0
@@ -479,10 +489,10 @@ func UploadDirectory(dir *cwl.Directory, currentPath string, shockClient *shock.
 			continue
 		}
 
-		// match_rel is relative to directory dir
-		match_rel := strings.TrimPrefix(match, currentPath)
+		// matchRel is relative to directory dir
+		matchRel := strings.TrimPrefix(match, currentPath)
 
-		//fmt.Printf("match_rel : %s\n", match_rel)
+		//fmt.Printf("matchRel : %s\n", matchRel)
 
 		fi, err = os.Stat(match)
 		if err != nil {
@@ -493,7 +503,7 @@ func UploadDirectory(dir *cwl.Directory, currentPath string, shockClient *shock.
 		if fi.IsDir() {
 			subdir := cwl.NewDirectory()
 
-			subdir.Path = match_rel
+			subdir.Path = matchRel
 			subdir.Basename = path.Base(match)
 			var subcount int
 			subcount, err = UploadDirectory(subdir, currentPath, shockClient, context, lazyUpload)
@@ -511,7 +521,7 @@ func UploadDirectory(dir *cwl.Directory, currentPath string, shockClient *shock.
 		}
 
 		file := cwl.NewFile()
-		file.SetPath(match_rel)
+		file.SetPath(matchRel)
 		//file.Basename = path.Base(match)
 		var uploadCount int
 		uploadCount, err = ProcessIOData(file, currentPath, currentPath, "upload", shockClient, context, lazyUpload, false)
@@ -526,10 +536,10 @@ func UploadDirectory(dir *cwl.Directory, currentPath string, shockClient *shock.
 
 		count += uploadCount
 	}
-	//fmt.Println("Listing:")
-	//for _, listing := range dir.Listing {
-	//	spew.Dump(listing.String())
-	//}
+	// fmt.Println("Listing:")
+	// for _, listing := range dir.Listing {
+	// 	spew.Dump(listing.String())
+	// }
 
 	return
 }
@@ -1115,15 +1125,35 @@ func ProcessIOData(native interface{}, currentPath string, basePath string, ioTy
 			return
 
 			cipType := cip.Type
+			var cipTypeRepresentative cwl.CWLType_Type
+			var ok bool
 
-			cipType0 := cipType[0]
+			switch cipType.(type) {
+			case []interface{}:
+				cipTypeArray := cipType.([]interface{})
+				cipTypeRepresentativeIf := cipTypeArray[0]
 
-			if cipType0 == cwl.CWLFile {
+				cipTypeRepresentative, ok = cipTypeRepresentativeIf.(cwl.CWLType_Type)
+				if !ok {
+					err = fmt.Errorf("(processIOData) could not convert into CWLType_Type")
+					return
+				}
+
+			default:
+
+				cipTypeRepresentative, ok = cipType.(cwl.CWLType_Type)
+				if !ok {
+					err = fmt.Errorf("(processIOData) could not convert into CWLType_Type")
+					return
+				}
+			}
+
+			if cipTypeRepresentative == cwl.CWLFile {
 				// ok
-			} else if cipType0 == cwl.CWLArray {
+			} else if cipTypeRepresentative == cwl.CWLArray {
 				var arraySchema *cwl.ArraySchema
 				var ok bool
-				arraySchema, ok = cipType0.(*cwl.ArraySchema)
+				arraySchema, ok = cipTypeRepresentative.(*cwl.ArraySchema)
 				if !ok {
 					err = fmt.Errorf("(processIOData) CommandInputParameter.SecondaryFiles could not convert to ArraySchema")
 					return
@@ -1136,7 +1166,7 @@ func ProcessIOData(native interface{}, currentPath string, basePath string, ioTy
 				}
 
 			} else {
-				err = fmt.Errorf("(processIOData) CommandInputParameter.SecondaryFiles, type not supported, got %s", reflect.TypeOf(cipType0))
+				err = fmt.Errorf("(processIOData) CommandInputParameter.SecondaryFiles, type not supported, got %s", reflect.TypeOf(cipTypeRepresentative))
 				return
 			}
 

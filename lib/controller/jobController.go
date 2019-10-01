@@ -104,7 +104,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		cwlWorkflowFileName := cwlFile.Name
 
-		cwlWorkflowFileBase := path.Base(cwlWorkflowFileName)
+		//cwlWorkflowFileBase := path.Base(cwlWorkflowFileName)
 		//1) parse job
 
 		var jobInput *cwl.Job_document
@@ -164,7 +164,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 		var newEntrypoint string
 		// the returning entrypoint should always be empty because only graph documnets are submitted by the submitter
-		objectArray, schemata, context, _, newEntrypoint, err = cwl.ParseCWLDocument(nil, yamlStr, entrypoint, "-", cwlWorkflowFileBase) // TODO need filename. last argument
+		objectArray, schemata, context, _, newEntrypoint, err = cwl.ParseCWLDocument(nil, yamlStr, entrypoint, "-", "#"+cwlWorkflowFileName) // TODO need filename. last argument
 		if err != nil {
 			cx.RespondWithErrorMessage(fmt.Sprintf("(JobController/Create) error in parsing cwl workflow yaml file (entrypoint: %s): %s", entrypoint, err.Error()), http.StatusBadRequest)
 			return
@@ -304,14 +304,38 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 					if addNull {
 						hasNull := false
-						for _, t := range workflowInputParameter.Type {
+
+						var workflowInputParameterTypes []cwl.CWLType_Type
+
+						workflowInputParameterTypes, err = workflowInputParameter.GetTypes()
+						if err != nil {
+							err = fmt.Errorf("(job/create) (B) workflowInputParameter.GetTypes returned: %s ", err.Error())
+							return
+						}
+						if len(workflowInputParameterTypes) == 0 {
+							err = fmt.Errorf("(job/create) (B) workflowInputParameterTypes empty ")
+							return
+						}
+
+					THISLOOP:
+						for _, t := range workflowInputParameterTypes {
+
 							if t == cwl.CWLNull {
 								hasNull = true
-								break
+								break THISLOOP
 							}
 						}
+
+						// for _, t := range workflowInputParameter.Type {
+						// 	if t == cwl.CWLNull {
+						// 		hasNull = true
+						// 		break
+						// 	}
+						// }
 						if !hasNull {
-							workflowInputParameter.Type = append(workflowInputParameter.Type, cwl.CWLNull)
+
+							workflowInputParameter.Type = append(workflowInputParameterTypes, cwl.CWLNull)
+
 						}
 					}
 
@@ -428,14 +452,31 @@ func (cr *JobController) Create(cx *goweb.Context) {
 
 					if addNull {
 						hasNull := false
-						for _, t := range workflowInputParameter.Type {
+
+						var workflowInputParameterTypeArray []cwl.CWLType_Type
+						workflowInputParameterTypeArray, err = workflowInputParameter.GetTypes()
+						if err != nil {
+							err = fmt.Errorf("(job/create) (A) workflowInputParameter.GetTypes returned: %s ", err.Error())
+							return
+						}
+
+						if len(workflowInputParameterTypeArray) == 0 {
+							err = fmt.Errorf("(job/create) (A) workflowInputParameterTypeArray empty ")
+							return
+						}
+					MYLOOP:
+						for _, t := range workflowInputParameterTypeArray {
 							if t == cwl.CWLNull {
 								hasNull = true
-								break
+								break MYLOOP
 							}
 						}
+						//fmt.Println("workflowInputParameter.Type:")
+						//spew.Dump(workflowInputParameter.Type)
 						if !hasNull {
-							workflowInputParameter.Type = append(workflowInputParameter.Type, cwl.CWLNull)
+							workflowInputParameter.Type = append(workflowInputParameterTypeArray, cwl.CWLNull)
+							//fmt.Println("workflowInputParameter.Type: after")
+							//spew.Dump(workflowInputParameter.Type)
 						}
 					}
 

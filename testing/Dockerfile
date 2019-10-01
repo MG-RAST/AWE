@@ -14,6 +14,7 @@ RUN pip install cwltest
 COPY awe-cwl-submitter-wrapper.sh /go/bin/awe-cwl-submitter-wrapper.sh
 
 RUN chmod u+x /go/bin/awe-cwl-submitter-wrapper.sh
+RUN mkdir -p /output
 
 WORKDIR /common-workflow-language
 ENTRYPOINT [ "./run_test.sh" , "RUNNER=/go/bin/awe-cwl-submitter-wrapper.sh" ]   

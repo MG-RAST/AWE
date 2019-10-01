@@ -1,14 +1,15 @@
 
 
 
+# AWE 2.0 
 
+ A light weight workflow manager for scientific computing at scale that:
 
-
-# AWE 2.0 -- A light weight workflow manager for large scale scientific computing
+- executes [CWL](http://www.commonwl.org) workflows at scale
 
 - is a cloud native workflow platform designed from the ground up to be fast, scalable and fault tolerant.
 
-- supports [CWL](http://www.commonwl.org) and [CWLprov](https://github.com/common-workflow-language/cwlprov)
+- supports [CWLprov](https://github.com/common-workflow-language/cwlprov)
 
 - is RESTful. The [API](./API/README.md) is accessible from desktops, HPC systems, exotic hardware, the cloud and your smartphone.
 
@@ -22,7 +23,7 @@
 AWE is actively being developed at [github.com/MG-RAST/AWE](https://github.com/MG-RAST/AWE).
 
 
-We use AWE simultaenously on Clouds, Clusters and HPC systems using many hundreds of nodes to run tens of thousands of individuals workflows.
+You can use AWE simultaenously on Clouds, Clusters and HPC systems with dozens, hundreds or thousands of nodes to run tens of thousands to hundreds of thousands of individuals workflows. 
 
 
 Check out the notes  on [building and installing](./building.md) and [configuration](./configuration.md).

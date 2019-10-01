@@ -7,31 +7,44 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+// EnvironmentDef _
 type EnvironmentDef struct {
 	EnvName  string      `yaml:"envName,omitempty" bson:"envName,omitempty" json:"envName,omitempty" mapstructure:"envName,omitempty"`
 	EnvValue interface{} `yaml:"envValue,omitempty" bson:"envValue,omitempty" json:"envValue,omitempty" mapstructure:"envValue,omitempty"`
 }
 
-func NewEnvironmentDefFromInterface(original interface{}) (enfDev EnvironmentDef, err error) {
+// NewEnvironmentDefFromInterface _
+func NewEnvironmentDefFromInterface(original interface{}, name string) (enfDev EnvironmentDef, err error) {
 
 	err = mapstructure.Decode(original, &enfDev)
 	if err != nil {
 		err = fmt.Errorf("(NewEnvironmentDefFromInterface) mapstructure.Decode returned: %s", err.Error())
 		return
 	}
+
+	if enfDev.EnvName == "" {
+		enfDev.EnvName = name
+	}
+
 	return
 }
 
-func GetEnfDefArray(original interface{}) (array []EnvironmentDef, err error) {
+// GetEnfDefArray _
+func GetEnfDefArray(original interface{}, context *WorkflowContext) (array []EnvironmentDef, err error) {
+
+	original, err = MakeStringMap(original, context)
+	if err != nil {
+		return
+	}
 
 	array = []EnvironmentDef{}
 
 	switch original.(type) {
 	case []interface{}:
-		original_array := original.([]interface{})
-		for i, _ := range original_array {
+		originalArray := original.([]interface{})
+		for i := range originalArray {
 			var enfDev EnvironmentDef
-			enfDev, err = NewEnvironmentDefFromInterface(original_array[i])
+			enfDev, err = NewEnvironmentDefFromInterface(originalArray[i], "")
 			if err != nil {
 				err = fmt.Errorf("(GetEnfDefArray) NewEnvironmentDefFromInterface returned: %s", err.Error())
 				return
@@ -41,9 +54,22 @@ func GetEnfDefArray(original interface{}) (array []EnvironmentDef, err error) {
 
 		}
 		return
-	}
+	case map[string]interface{}:
+		originalMap := original.(map[string]interface{})
+		for key, value := range originalMap {
+			var enfDev EnvironmentDef
 
-	err = fmt.Errorf("(GetEnfDefArray) type %s not supported", reflect.TypeOf(original))
+			enfDev.EnvName = key
+			enfDev.EnvValue = value
+
+			array = append(array, enfDev)
+
+		}
+		return
+
+	default:
+		err = fmt.Errorf("(GetEnfDefArray) type %s not supported", reflect.TypeOf(original))
+	}
 
 	return
 }

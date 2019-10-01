@@ -1,0 +1,119 @@
+
+# you need a recent version of Docker compose
+version: '3.1'
+
+# see .env file for default values 
+
+ 
+# set CONFIGDIR to path to config
+# set SHOCKDIR for persistent Shock data store , e.g. /var/tmp/Shock
+# set DATADIR for persistent data store , e.g. /var/tmp
+# set LOGDIR to path to local log dir
+# set DOCKER_BINARY to the path of the docker client binary (Linux binary, not OSX/Windows)
+
+
+services:
+
+    # the SHOCK object store
+    # to make SHOCK data persistent uncomment the lines here and in "mongo" below
+    shock:
+        image: mgrast/shock
+        depends_on:
+          - shock-mongo
+        entrypoint:
+          - /go/bin/shock-server
+          - --hosts=shock-mongo
+          - --local_paths=/external
+          - --force_yes=true
+          - --api-url=http://shock:7445
+          - --no_config                      # do not search for a config file
+          # - --conf
+          # - /shock-config/shock-server.cfg
+        volumes:
+          - ${DATADIR}/shock/data:/usr/local/shock
+          #- ${HOME}/pipeline_data/:/external/
+          #- ${CONFIGDIR}/Shock/shock-server.container.cfg:/shock-config/shock-server.cfg
+          #- ${LOGDIR}/shock:/var/log/shock
+          # remove the comment below to make SHOCK data persistent
+          #- ${SHOCKDIR}/data:/usr/local/shock
+        ports:
+          - ${SHOCK_API_EXT_PORT}:7445
+          
+  
+    # AWE resource manager
+    # uncomment AWEDIR to make data and logs persistent (also requires AWE-mongo for full persistence)
+    awe-server:
+        image: mgrast/awe-server
+        restart: always
+        # extra_hosts:
+        #   - "skyport.local:${SKYPORT_DOCKER_GATEWAY}"
+        entrypoint:
+          - /go/bin/awe-server
+          - --hosts=awe-mongo
+          - --debuglevel=1
+          - --max_work_failure=1
+          - --max_client_failure=1000
+          - --api-port=80
+          # - --conf=/awe-config/awe-server.cfg
+        depends_on:
+          - awe-mongo
+          # - auth
+        ports:
+          - ${AWE_API_EXT_PORT}:80
+        # volumes:
+        #   - ${CONFIGDIR}/AWE/awe-server.conf:/awe-config/awe-server.cfg:ro
+        #   #- ${AWEDIR}:/mnt/data/awe/
+
+
+    # the AWE worker that will execute the workflow steps
+    # the data and logs for the awe worker are persistent in this configuration
+    awe-worker:
+        image: mgrast/awe-worker
+        restart: always
+        # worker needs to wait for AWE-server to start up
+        entrypoint:
+          - ash 
+          - -c
+          - 'while [ $$(nc -z awe-server 80 ; echo $$?) != 0 ] ; do echo "wait..." ; sleep 2 ; done ;
+            /go/bin/awe-worker
+            --name compose_worker-1
+            --data=${DATADIR}/awe-worker/data
+            --logs=/mnt/data/logs
+            --workpath=${DATADIR}/awe-worker/work
+            --serverurl=http://awe-server:80
+            --shockurl=http://shock:7445
+            --supported_apps=*
+            --auto_clean_dir=false
+            --debuglevel=3'
+        depends_on:
+          - awe-server
+        restart: on-failure
+        volumes:
+          - ${PWD}/tmp:/tmp
+          # - ${CONFIGDIR}/AWE/awe-worker.cfg:/awe-config/awe-worker.cfg:ro
+          - ${DATADIR}/awe-worker:${DATADIR}/awe-worker
+          # - ${LOGDIR}/awe-worker/:/mnt/data/logs
+          # mount the binary we have downloaded with the init.sh command
+          - ${DOCKER_BINARY}:/usr/local/bin/docker
+          # mount the docker socker to allow container to execute docker commands (for CWL runner)
+          - /var/run/docker.sock:/var/run/docker.sock
+
+
+    # mongoDB for the SHOCK service, provides metadata storage
+    shock-mongo:
+        image: mongo:3.6
+        ports:
+          - 27017
+        # uncomment the next two lines to make SHOCK mongo data persistent
+        volumes:
+          - ${DATADIR}/mongo/db:/data/db
+
+
+    # mount a volume in the mongo server to make data persistent between runs
+    awe-mongo:
+        image: mongo:3.6
+        ports:
+          - 27017
+        # to make the AWE jobs persistent between runs uncomment the lines below
+        #volumes:
+        #  - ${SHOCKDIR}/db:/data/db

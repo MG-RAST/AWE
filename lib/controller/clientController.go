@@ -61,14 +61,17 @@ func (cr *ClientController) Create(cx *goweb.Context) {
 	//log event about client registration (CR)
 	logger.Event(event.CLIENT_REGISTRATION, "clientid="+client.ID+";hostname="+client.Hostname+";hostip="+client.HostIP+";group="+client.Group+";instance_id="+client.InstanceID+";instance_type="+client.InstanceType+";domain="+client.Domain)
 
-	rlock, err := client.RLockNamed("ClientController/Create")
-	if err != nil {
-		msg := "Lock error:" + err.Error()
-		logger.Error(msg)
-		cx.RespondWithErrorMessage(msg, http.StatusBadRequest)
-	}
-	defer client.RUnlockNamed(rlock)
-	cx.RespondWithData(client)
+	// rlock, err := client.RLockNamed("ClientController/Create")
+	// if err != nil {
+	// 	msg := "Lock error:" + err.Error()
+	// 	logger.Error(msg)
+	// 	cx.RespondWithErrorMessage(msg, http.StatusBadRequest)
+	// }
+	//defer client.RUnlockNamed(rlock)
+
+	rr := core.NewRegistrationResponse()
+
+	cx.RespondWithData(rr)
 
 	return
 }

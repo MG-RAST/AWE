@@ -11,20 +11,26 @@ import (
 )
 
 var (
-	Ttl         *JobReaper
+	// Ttl _
+	Ttl *JobReaper
+	// ExpireRegex _
 	ExpireRegex = regexp.MustCompile(`^(\d+)(M|H|D)$`)
 )
 
+// InitReaper _
 func InitReaper() {
 	Ttl = NewJobReaper()
 }
 
+// JobReaper _
 type JobReaper struct{}
 
+// NewJobReaper _
 func NewJobReaper() *JobReaper {
 	return &JobReaper{}
 }
 
+// Handle _
 func (jr *JobReaper) Handle() {
 	waitDuration := time.Duration(conf.EXPIRE_WAIT) * time.Minute
 	for {

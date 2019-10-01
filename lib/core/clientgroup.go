@@ -10,7 +10,7 @@ import (
 
 	"github.com/MG-RAST/AWE/lib/clientGroupAcl"
 	"github.com/MG-RAST/AWE/lib/conf"
-	"github.com/MG-RAST/AWE/lib/core/uuid"
+	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 	"github.com/MG-RAST/AWE/lib/user"
 	"github.com/MG-RAST/golib/uniuri"
 	"gopkg.in/mgo.v2/bson"

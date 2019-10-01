@@ -35,7 +35,7 @@ func (c *Array) IsCWLMinimal() {}
 //func (c *Array) Is_CommandOutputParameterType() {}
 
 // NewArray _
-func NewArray(id string, native interface{}, context *WorkflowContext) (arrayPtr *Array, err error) {
+func NewArray(id string, parentID string, native interface{}, context *WorkflowContext) (arrayPtr *Array, err error) {
 
 	switch native.(type) {
 	case []interface{}:
@@ -45,7 +45,49 @@ func NewArray(id string, native interface{}, context *WorkflowContext) (arrayPtr
 		for _, value := range nativeArray {
 
 			var valueCWL CWLType
-			valueCWL, err = NewCWLType("", value, context)
+			valueCWL, err = NewCWLType("", parentID, value, context)
+			if err != nil {
+				fmt.Println("NewArray element:")
+				spew.Dump(value)
+
+				err = fmt.Errorf("(NewArray) NewCWLType returned: %s", err.Error())
+				return
+			}
+
+			array = append(array, valueCWL)
+		}
+
+		arrayPtr = &array
+
+	case []int64:
+		nativeArray := native.([]int64)
+
+		array := Array{}
+		for _, value := range nativeArray {
+
+			var valueCWL CWLType
+			valueCWL, err = NewCWLType("", parentID, value, context)
+			if err != nil {
+				fmt.Println("NewArray element:")
+				spew.Dump(value)
+
+				err = fmt.Errorf("(NewArray) NewCWLType returned: %s", err.Error())
+				return
+			}
+
+			array = append(array, valueCWL)
+		}
+
+		arrayPtr = &array
+
+	case []string:
+		nativeArray := native.([]string)
+
+		array := Array{}
+		for _, value := range nativeArray {
+
+			var valueCWL CWLType
+			valueCWL, err = NewCWLType("", parentID, value, context)
 			if err != nil {
 				fmt.Println("NewArray element:")
 				spew.Dump(value)
@@ -66,7 +108,7 @@ func NewArray(id string, native interface{}, context *WorkflowContext) (arrayPtr
 		for _, value := range nativeArray {
 
 			var valueCWL CWLType
-			valueCWL, err = NewCWLType("", value, context)
+			valueCWL, err = NewCWLType("", parentID, value, context)
 			if err != nil {
 				fmt.Println("NewArray element:")
 				spew.Dump(value)

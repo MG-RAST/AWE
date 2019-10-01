@@ -3,7 +3,7 @@ package core
 import (
 	"fmt"
 
-	"github.com/MG-RAST/AWE/lib/rwmutex"
+	rwmutex "github.com/MG-RAST/go-rwmutex"
 )
 
 type TaskMap struct {
@@ -136,7 +136,7 @@ func (tm *TaskMap) Add(task *Task, caller string) (err error) {
 	}
 
 	if task_state == TASK_STAT_INIT {
-		err = task.SetState(nil, TASK_STAT_PENDING, true)
+		err = task.SetState(TASK_STAT_PENDING, true, "TaskMap/Add")
 		if err != nil {
 			err = fmt.Errorf("(TaskMap/Add) task.SetState returned: %s", err.Error())
 			return

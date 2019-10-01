@@ -10,6 +10,7 @@ import (
 	"github.com/MG-RAST/golib/go-uuid/uuid"
 )
 
+// IO _
 type IO struct {
 	FileName      string                   `bson:"filename" json:"filename" mapstructure:"filename"`
 	Name          string                   `bson:"name" json:"name" mapstructure:"name"`  // specifies abstract name of output as defined by the app
@@ -40,6 +41,7 @@ type IO struct {
 	Indexes       map[string]shock.IdxInfo `bson:"-" json:"-" mapstructure:"-"`                            // copy of shock node.Indexes, not saved
 }
 
+// PartInfo _
 type PartInfo struct {
 	Input         string `bson:"input" json:"input" mapstructure:"input"`
 	Index         string `bson:"index" json:"index" mapstructure:"index"`
@@ -85,15 +87,15 @@ func NewIO() *IO {
 	return &IO{}
 }
 
-// Url2Shock +
-func (io *IO) Url2Shock() (err error) {
+// URL2Shock _
+func (io *IO) URL2Shock() (err error) {
 	if io.Url == "" {
-		err = fmt.Errorf("(Url2Shock) url empty")
+		err = fmt.Errorf("(URL2Shock) url empty")
 		return
 	}
 	u, _ := url.Parse(io.Url)
 	if (u.Scheme == "") || (u.Host == "") || (u.Path == "") {
-		err = fmt.Errorf("(Url2Shock) Not a valid url: %s", io.Url)
+		err = fmt.Errorf("(URL2Shock) Not a valid url: %s", io.Url)
 		return
 	}
 	// get shock info from url
@@ -113,7 +115,7 @@ func (io *IO) Url2Shock() (err error) {
 func (io *IO) DataUrl() (dataurl string, err error) {
 	if io.Url != "" {
 		// parse and test url
-		err = io.Url2Shock()
+		err = io.URL2Shock()
 		if err != nil {
 			return
 		}

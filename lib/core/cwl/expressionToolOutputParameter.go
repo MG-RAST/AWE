@@ -3,9 +3,6 @@ package cwl
 import (
 	"fmt"
 	"reflect"
-
-	"github.com/davecgh/go-spew/spew"
-	"github.com/mitchellh/mapstructure"
 )
 
 // ExpressionToolOutputParameter http://www.commonwl.org/v1.0/Workflow.html#ExpressionToolOutputParameter
@@ -16,8 +13,9 @@ type ExpressionToolOutputParameter struct {
 // type: CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string | array<CWLType | OutputRecordSchema | OutputEnumSchema | OutputArraySchema | string>
 
 //NewExpressionToolOutputParameter _
-func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (wop *ExpressionToolOutputParameter, err error) {
-	var outputParameter ExpressionToolOutputParameter
+func NewExpressionToolOutputParameter(original interface{}, thisID string, schemata []CWLType_Type, context *WorkflowContext) (etop *ExpressionToolOutputParameter, err error) {
+	//var outputParameter ExpressionToolOutputParameter
+	etop = &ExpressionToolOutputParameter{}
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
@@ -25,82 +23,105 @@ func NewExpressionToolOutputParameter(original interface{}, schemata []CWLType_T
 	}
 
 	var op *OutputParameter
-	op, err = NewOutputParameterFromInterface(original, schemata, "Output", context)
+	op, err = NewOutputParameterFromInterface(original, thisID, schemata, "ExpressionToolOutput", context)
 	if err != nil {
 		err = fmt.Errorf("(NewExpressionToolOutputParameter) NewOutputParameterFromInterface returns %s", err.Error())
 		return
 	}
 
 	switch original.(type) {
+	case string:
+
+		etop.OutputParameter = *op
 
 	case map[string]interface{}:
 
-		err = mapstructure.Decode(original, &outputParameter)
-		if err != nil {
-			err = fmt.Errorf("(NewWorkflowOutputParameter) decode error: %s", err.Error())
-			return
-		}
-		wop = &outputParameter
+		// not needed as there are no additonal fields
 
-		wop.OutputParameter = *op
+		// err = mapstructure.Decode(original, &outputParameter)
+		// if err != nil {
+		// 	err = fmt.Errorf("(NewExpressionToolOutputParameter) decode error: %s", err.Error())
+		// 	return
+		// }
+		// wop = &outputParameter
+
+		etop.OutputParameter = *op
 	default:
-		err = fmt.Errorf("(NewWorkflowOutputParameter) type unknown, %s", reflect.TypeOf(original))
+		err = fmt.Errorf("(NewExpressionToolOutputParameter) type unknown, %s", reflect.TypeOf(original))
 		return
 
+	}
+
+	if etop == nil {
+		err = fmt.Errorf("(NewExpressionToolOutputParameter) etop ==nil")
+		return
 	}
 
 	return
 }
 
-// NewExpressionToolOutputParameterArray _
-func NewExpressionToolOutputParameterArray(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (newArrayPtr *[]ExpressionToolOutputParameter, err error) {
+// NewExpressionToolOutputParameterMap _
+func NewExpressionToolOutputParameterMap(original interface{}, schemata []CWLType_Type, context *WorkflowContext) (newMap map[string]interface{}, err error) {
 
 	original, err = MakeStringMap(original, context)
 	if err != nil {
 		return
 	}
 
-	newArray := []ExpressionToolOutputParameter{}
+	newMap = make(map[string]interface{})
+
+	//newArray = []interface{}{}
 	switch original.(type) {
 	case map[string]interface{}:
-		for k, v := range original.(map[string]interface{}) {
+		originalMap := original.(map[string]interface{})
+		for k, v := range originalMap {
 			//fmt.Printf("A")
 
-			outputParameter, xerr := NewExpressionToolOutputParameter(v, schemata, context)
-			if xerr != nil {
-				err = xerr
+			var outputParameter *ExpressionToolOutputParameter
+			outputParameter, err = NewExpressionToolOutputParameter(v, k, schemata, context)
+			if err != nil {
+				err = fmt.Errorf("(NewExpressionToolOutputParameterMap) A) NewExpressionToolOutputParameter returns: %s", err.Error())
+
 				return
 			}
+
 			outputParameter.Id = k
 			//fmt.Printf("C")
-			newArray = append(newArray, *outputParameter)
+			newMap[k] = outputParameter
 			//fmt.Printf("D")
 
 		}
-		newArrayPtr = &newArray
+
 		return
 	case []interface{}:
 
 		for _, v := range original.([]interface{}) {
 			//fmt.Printf("A")
 
-			outputParameter, xerr := NewExpressionToolOutputParameter(v, schemata, context)
-			if xerr != nil {
-				err = xerr
+			var outputParameter *ExpressionToolOutputParameter
+			outputParameter, err = NewExpressionToolOutputParameter(v, "", schemata, context)
+			if err != nil {
+				err = fmt.Errorf("(NewExpressionToolOutputParameterMap) B) NewExpressionToolOutputParameter returns: %s", err.Error())
+				return
+			}
+			thisID := outputParameter.Id
+			if thisID == "" {
+				err = fmt.Errorf("(NewExpressionToolOutputParameterMap) outputParameter has no id !")
 				return
 			}
 			//output_parameter.Id = k.(string)
 			//fmt.Printf("C")
-			newArray = append(newArray, *outputParameter)
+			//newArray = append(newArray, *outputParameter)
+			newMap[thisID] = outputParameter
 			//fmt.Printf("D")
 
 		}
-		newArrayPtr = &newArray
+
 		return
 
 	default:
-		spew.Dump(newArray)
-		err = fmt.Errorf("(NewExpressionToolOutputParameterArray) type %s unknown", reflect.TypeOf(original))
+
+		err = fmt.Errorf("(NewExpressionToolOutputParameterMap) type %s unknown", reflect.TypeOf(original))
 	}
 	//spew.Dump(new_array)
 	return

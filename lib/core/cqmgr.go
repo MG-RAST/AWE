@@ -329,7 +329,7 @@ func (qm *CQMgr) ClientHeartBeat(id string, cg *ClientGroup, workerstate WorkerS
 		}
 
 		if work.State == WORK_STAT_SUSPEND {
-			discard = append(discard, work.Id)
+			discard = append(discard, work.ID)
 		}
 
 	}
@@ -910,7 +910,7 @@ func (qm *CQMgr) CheckoutWorkunits(reqPolicy string, clientID string, client *Cl
 	addedWork := 0
 	for _, work := range ack.workunits {
 		workID := work.Workunit_Unique_Identifier
-		//work_id, xerr := work.Workunit_Unique_Identifier// New_Workunit_Unique_Identifier_FromString(work.Id)
+		//work_id, xerr := work.Workunit_Unique_Identifier// New_Workunit_Unique_Identifier_FromString(work.ID)
 		//if xerr != nil {
 		//	return
 		//}
@@ -1041,11 +1041,11 @@ func (qm *CQMgr) filterWorkByClient(client *Client) (workunits WorkList, s Filte
 	logger.Debug(3, "(filterWorkByClient) GetWorkunits() returned: %d", len(workunitList))
 	for _, workunit := range workunitList {
 		s.Total++
-		id := workunit.Id
+		id := workunit.ID
 		logger.Debug(3, "check if job %s would fit client %s", id, clientid)
 
 		//skip works that are in the client's skip-list
-		if client.ContainsSkipWorkNolock(workunit.Id) {
+		if client.ContainsSkipWorkNolock(workunit.ID) {
 			logger.Debug(3, "2) workunit %s is in Skip_work list of the client %s)", id, clientid)
 			s.SkipWork++
 			continue

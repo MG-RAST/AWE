@@ -67,11 +67,38 @@ func CWLInputCheck(jobInput *cwl.Job_document, cwlWorkflow *cwl.Workflow, contex
 
 		//spew.Dump(input)
 
-		id := input.Id
+		id := input.ID
 		logger.Debug(3, "(CWLInputCheck) Parsing workflow input %s", id)
 
 		idBase := path.Base(id)
-		expectedTypes := input.Type
+
+		var expectedTypes []cwl.CWLType_Type
+		expectedTypes, err = input.GetTypes()
+		if err != nil {
+			err = fmt.Errorf("(CWLInputCheck) input.GetTypes returned: %s", err.Error())
+			return
+		}
+		// expectedTypesIf := input.Type
+
+		// switch expectedTypesIf.(type) {
+		// case []interface{}:
+		// 	expectedTypesArrayIf := expectedTypesIf.([]interface{})
+		// 	for _, tIf := range expectedTypesArrayIf {
+		// 		t, ok := tIf.(cwl.CWLType_Type)
+		// 		if !ok {
+		// 			err = fmt.Errorf("(CWLInputCheck) could not convert array element")
+		// 			return
+		// 		}
+		// 		expectedTypes = append(expectedTypes, t)
+		// 	}
+		// default:
+		// 	t, ok := expectedTypesIf.(cwl.CWLType_Type)
+		// 	if !ok {
+		// 		err = fmt.Errorf("(CWLInputCheck) could not convert expectedTypesIf element")
+		// 		return
+		// 	}
+		// 	expectedTypes = []cwl.CWLType_Type{t}
+		// }
 
 		if len(expectedTypes) == 0 {
 			err = fmt.Errorf("(CWLInputCheck) (len(expected_types) == 0 ")
@@ -146,76 +173,78 @@ func CWLInputCheck(jobInput *cwl.Job_document, cwlWorkflow *cwl.Workflow, contex
 	return
 }
 
-// CreateWorkflowTasks _
-func CreateWorkflowTasks(job *Job, namePrefix string, steps []cwl.WorkflowStep, stepPrefix string, parentID *Task_Unique_Identifier) (tasks []*Task, err error) {
-	tasks = []*Task{}
+// // CreateWorkflowTasks _
+// func CreateWorkflowTasksDEPRECATED(job *Job, namePrefix string, steps []cwl.WorkflowStep, stepPrefix string, parentID *Task_Unique_Identifier) (tasks []*Task, err error) {
+// 	tasks = []*Task{}
 
-	if parentID == nil {
-		err = fmt.Errorf("(CreateWorkflowTasks) parent_id == nil")
-		return
-	}
+// 	if parentID == nil {
+// 		err = fmt.Errorf("(CreateWorkflowTasks) parent_id == nil")
+// 		return
+// 	}
 
-	if !strings.HasPrefix(namePrefix, "#main") {
-		err = fmt.Errorf("(CreateWorkflowTasks) prefix_name does not start with _entrypoint: %s", namePrefix)
-		return
-	}
+// 	entrypoint := job.Entrypoint
 
-	for s := range steps {
+// 	if !strings.HasPrefix(namePrefix, entrypoint) {
+// 		err = fmt.Errorf("(CreateWorkflowTasks) prefix_name does not start with _entrypoint %s: %s", entrypoint, namePrefix)
+// 		return
+// 	}
 
-		step := steps[s]
+// 	for s := range steps {
 
-		if namePrefix == "" {
-			err = fmt.Errorf("(CreateWorkflowTasks) name_prefix empty")
-			return
-		}
+// 		step := steps[s]
 
-		if !strings.HasPrefix(step.Id, "#") {
-			err = fmt.Errorf("(CreateWorkflowTasks) Workflow step name does not start with a #: %s", step.Id)
-			return
-		}
+// 		if namePrefix == "" {
+// 			err = fmt.Errorf("(CreateWorkflowTasks) name_prefix empty")
+// 			return
+// 		}
 
-		fmt.Println("(CreateWorkflowTasks) step.Id: " + step.Id)
+// 		if !strings.HasPrefix(step.ID, "#") {
+// 			err = fmt.Errorf("(CreateWorkflowTasks) Workflow step name does not start with a #: %s", step.ID)
+// 			return
+// 		}
 
-		// remove prefix
-		taskName := path.Base(step.Id)
-		//taskName := strings.TrimPrefix(step.Id, step_prefix)
-		//taskName = strings.TrimSuffix(taskName, "/")
-		//taskName = strings.TrimPrefix(taskName, "/")
+// 		fmt.Println("(CreateWorkflowTasks) step.Id: " + step.ID)
 
-		//fmt.Println("(CreateWorkflowTasks) taskName: " + taskName)
-		//fmt.Println("(CreateWorkflowTasks) name_prefix: " + name_prefix)
+// 		// remove prefix
+// 		taskName := path.Base(step.ID)
+// 		//taskName := strings.TrimPrefix(step.Id, step_prefix)
+// 		//taskName = strings.TrimSuffix(taskName, "/")
+// 		//taskName = strings.TrimPrefix(taskName, "/")
 
-		fmt.Println("(CreateWorkflowTasks) new task name will be: " + namePrefix + " / " + taskName)
+// 		//fmt.Println("(CreateWorkflowTasks) taskName: " + taskName)
+// 		//fmt.Println("(CreateWorkflowTasks) name_prefix: " + name_prefix)
 
-		//taskName := strings.TrimPrefix(step.Id, "#main/")
-		//taskName = strings.TrimPrefix(taskName, "#")
+// 		fmt.Println("(CreateWorkflowTasks) new task name will be: " + namePrefix + " / " + taskName)
 
-		fmt.Printf("(CreateWorkflowTasks) creating task: %s %s\n", namePrefix, taskName)
+// 		//taskName := strings.TrimPrefix(step.Id, #entrypoint/")
+// 		//taskName = strings.TrimPrefix(taskName, "#")
 
-		var aweTask *Task
-		aweTask, err = NewTask(job, namePrefix, taskName)
-		if err != nil {
-			err = fmt.Errorf("(CreateWorkflowTasks) NewTask returned: %s", err.Error())
-			return
-		}
+// 		fmt.Printf("(CreateWorkflowTasks) creating task: %s %s\n", namePrefix, taskName)
 
-		//aweTask.WorkflowParent = parent_id
+// 		var aweTask *Task
+// 		aweTask, err = NewTask(job, "DEPRECATED", namePrefix, taskName)
+// 		if err != nil {
+// 			err = fmt.Errorf("(CreateWorkflowTasks) NewTask returned: %s", err.Error())
+// 			return
+// 		}
 
-		if step.Id == "" {
-			err = fmt.Errorf("(CreateWorkflowTasks) step.Id empty")
-			return
-		}
+// 		//aweTask.WorkflowParent = parent_id
 
-		aweTask.WorkflowStep = &step
-		//spew.Dump(step)
-		tasks = append(tasks, aweTask)
+// 		if step.ID == "" {
+// 			err = fmt.Errorf("(CreateWorkflowTasks) step.Id empty")
+// 			return
+// 		}
 
-	}
-	return
-}
+// 		aweTask.WorkflowStep = &step
+// 		//spew.Dump(step)
+// 		tasks = append(tasks, aweTask)
+
+// 	}
+// 	return
+// }
 
 // CWL2AWE _
-func CWL2AWE(_user *user.User, files FormFiles, jobInput *cwl.Job_document, cwlWorkflow *cwl.Workflow, context *cwl.WorkflowContext) (job *Job, err error) {
+func CWL2AWE(_user *user.User, files FormFiles, jobInput *cwl.Job_document, cwlWorkflow *cwl.Workflow, entrypoint string, context *cwl.WorkflowContext) (job *Job, err error) {
 
 	// check that all expected workflow inputs exist and that they have the correct type
 	logger.Debug(1, "(CWL2AWE) CWL2AWE starting..")
@@ -231,7 +260,7 @@ func CWL2AWE(_user *user.User, files FormFiles, jobInput *cwl.Job_document, cwlW
 	//os.Exit(0)
 	job = NewJob()
 
-	job.setId()
+	job.setID()
 
 	job.WorkflowContext = context
 	//job.CWL_workflow = cwl_workflow
@@ -279,14 +308,14 @@ func CWL2AWE(_user *user.User, files FormFiles, jobInput *cwl.Job_document, cwlW
 	// *** create WorkflowInstance
 
 	var wi *WorkflowInstance
-	wi, err = NewWorkflowInstance("#main", job.ID, cwlWorkflow.Id, job, "") // Not using AddWorkflowInstance to avoid mongo
+	wi, err = NewWorkflowInstance(entrypoint, job.ID, cwlWorkflow.ID, job, "") // Not using AddWorkflowInstance to avoid mongo
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) NewWorkflowInstance returned: %s", err.Error())
 		return
 	}
 
 	wi.Inputs = *jobInputNew
-	logger.Debug(1, "(CWL2AWE) WorkflowInstance #main created")
+	logger.Debug(1, "(CWL2AWE) WorkflowInstance %s created", entrypoint)
 
 	// create path
 	//for i, _ := range wi.Inputs {
@@ -299,7 +328,7 @@ func CWL2AWE(_user *user.User, files FormFiles, jobInput *cwl.Job_document, cwlW
 	//}
 	//}
 
-	err = wi.Save(false)
+	err = wi.Insert(false)
 	if err != nil {
 		err = fmt.Errorf("(CWL2AWE) wi.Save returned: %s", err.Error())
 		return
@@ -312,6 +341,8 @@ func CWL2AWE(_user *user.User, files FormFiles, jobInput *cwl.Job_document, cwlW
 		err = fmt.Errorf("(CWL2AWE) AddWorkflowInstance returned: %s", err.Error())
 		return
 	}
+
+	job.Root = wi.ID
 
 	logger.Debug(1, "(CWL2AWE) wi added")
 

@@ -1,0 +1,24 @@
+openapi: 3.0.0
+servers:
+  - url: awe.mg-rast.org
+info:
+  description: |
+  version: 1.0.0
+  title: AWE API specification
+  termsOfService: ''
+
+paths:
+  '/job/{job_id}':
+    parameters:
+      - in: path
+        name: job_id
+        description: "ID of jobdocument"
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Show one job with specific job id
+      responses:
+        '200':
+          description: OK
+  

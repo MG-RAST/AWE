@@ -32,7 +32,11 @@ Check out the notes  on [building and installing](./building.md) and [configurat
 This assumes that you have `docker` and `docker-compose` installed and `curl` is available locally.
 
 ### setup the local service
-`docker-compose up`
+
+```bash
+source ./init.sh
+docker-compose up
+```
 
 Don't forget to later `docker-compose down` and do not forget, by default this demo configuration does not store data persistently.
 

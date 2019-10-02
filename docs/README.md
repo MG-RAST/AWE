@@ -5,7 +5,7 @@
 
  A light weight workflow manager for scientific computing at scale that:
 
-- executes [CWL](http://www.commonwl.org) workflows at scale
+- executes [CWL](http://www.commonwl.org) workflows
 
 - is a cloud native workflow platform designed from the ground up to be fast, scalable and fault tolerant.
 

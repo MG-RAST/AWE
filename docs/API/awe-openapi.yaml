@@ -289,7 +289,6 @@ paths:
           required: false
           schema:
             type: boolean
-      summary: "Register a new client"
       responses:
         '200':
           description: OK

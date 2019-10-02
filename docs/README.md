@@ -43,12 +43,9 @@ Don't forget to later `docker-compose down` and do not forget, by default this d
 
 
 ### Submit a job for simple workflow
-~~~~
-a simple workflow in CWL to create a wordle PDF from a PDF
-
+```bash
  ./awe_submit.sh -w test/tests/pdf2wordcloud.cwl -j test/tests/rules-of-acquisition.job.cwl -d tmp
-
-~~~~
+```
 
 ### View result
 ~~~~

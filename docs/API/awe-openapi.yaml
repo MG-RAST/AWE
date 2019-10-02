@@ -6,10 +6,79 @@ info:
   version: 1.0.0
   title: AWE API specification
   termsOfService: ''
+
+#components:
+  #securitySchemes:
+    #OAuth2:
+    #  type: oauth2
+    #  flows:
+    #    authorizationCode:
+    #      authorizationUrl: https://example.com/oauth/authorize
+    #      tokenUrl: https://example.com/oauth/token
+    #      scopes:
+    #        read: Grants read access
+    #        write: Grants write access
+    #        admin: Grants access to admin operations
+
 tags:
   - name: job
     description: Job resource
 paths:
+  '/job':
+    get:
+      summary: List all or some jobs
+      description: "This API returns a page of job objects and total counts. Use `limit` & `offset` to control paginated view (by default `limit=25`, `offset=0`), to show all jobs, you can set `limit=total_counts` and `offset = 0`. By default the jobs will be sorted by last updated time (`desc`). You can change the sorting criteria by setting  `order=<job_field>&direction=<asc|desc>`."
+      parameters:
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+      - in: query
+        name: offset
+        required: false
+        schema:
+          type: integer
+      - in: query
+        name: order
+        required: false
+        schema:
+          type: string
+          enum: ["asc", "desc"]
+        examples:
+          asc:
+            value: "asc"
+          desc:
+            value: "desc"
+      - in: query
+        name: active
+        required: false
+        schema:
+          type: boolean
+      - in: query
+        name: suspend
+        required: false
+        schema:
+          type: boolean
+      - in: query
+        name: registered
+        required: false
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: OK
+      tags:
+        - job
+      security:
+        - OAuth2: [admin]
+    post:
+      summary: "Submit job"
+      responses:
+        '200':
+          description: OK
+      tags:
+        - job
   '/job/{job_id}':
     parameters:
       - in: path
@@ -25,4 +94,9 @@ paths:
           description: OK
       tags:
         - job
+      security:
+        - OAuth2: [read]
+  
+  
+  
   

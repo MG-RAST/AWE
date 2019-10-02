@@ -3,232 +3,232 @@
 
 * Job submission
 
-<code>curl ［-H "Datatoken: $TokenString"] -X POST -F upload=@job_script http://\<awe_api_url\>/job</code>
+  `curl ［-H "Datatoken: $TokenString"] -X POST -F upload=@job_script http://<awe_api_url>/job`
 
 * Job import
 
-<code>curl ［-H "Datatoken: $TokenString"] -X POST -F import=@job_document http://\<awe_api_url\>/job</code>
+  `curl ［-H "Datatoken: $TokenString"] -X POST -F import=@job_document http://<awe_api_url>/job`
 
 * Show all jobs 
 
-<code>curl -X GET http://\<awe_api_url\>/job</code>
+  `curl -X GET http://<awe_api_url>/job`
 or
-<code>curl -X GET http://\<awe_api_url\>/job?limit=\<INT\>&offset=\<INT\>&order=\<job_field\>&direction=\<asc|desc\></code>
+  `curl -X GET http://<awe_api_url>/job?limit=<INT>&offset=<INT>&order=<job_field>&direction=<asc|desc>`
 
-This API returns a page of job objects and total counts. Use limit & offset to control paginated view (by default limit=25, offset=0), to show all jobs, you can set limit=total_counts and offset = 0. By default the jobs will be sorted by last updated time (desc). You can change the sorting criteria by setting  order=\<job_field\>&direction=\<asc|desc\>.
+  This API returns a page of job objects and total counts. Use limit & offset to control paginated view (by default limit=25, offset=0), to show all jobs, you can set limit=total_counts and offset = 0. By default the jobs will be sorted by last updated time (desc). You can change the sorting criteria by setting  order=<job_field>&direction=<asc|desc>.
 
 * Show all active jobs in the queue
 
-<code>curl -X GET http://\<awe_api_url\>/job?active[&limit=25&offset=0&order=updatetime&direction=desc]</code>
+  `curl -X GET http://<awe_api_url>/job?active[&limit=25&offset=0&order=updatetime&direction=desc]`
 
 * Show all suspended jobs in the queue
 
-<code>curl -X GET http://\<awe_api_url\>/job?suspend[&limit=25&offset=0&order=updatetime&direction=desc]</code>
+  `curl -X GET http://<awe_api_url>/job?suspend[&limit=25&offset=0&order=updatetime&direction=desc]`
 
 * Show all registered jobs in the queue (active + suspend, excluding jobs in mongodb only)
 
-<code>curl -X GET http://\<awe_api_url\>/job?registered[&limit=25&offset=0&order=updatetime&direction=desc]</code>
+  `curl -X GET http://<awe_api_url>/job?registered[&limit=25&offset=0&order=updatetime&direction=desc]`
 
 * Show one job with specific job id
 
-<code>curl -X GET http://\<awe_api_url\>/job/\<job_id\></code>
+  `curl -X GET http://<awe_api_url>/job/<job_id>`
 
 * Show one job report with specific job id
 
-<code>curl -X GET http://\<awe_api_url\>/job/\<job_id\>?report</code>
+  `curl -X GET http://<awe_api_url>/job/<job_id>?report`
 
 * Query jobs by fields
 
-<code>curl -X GET http://\<awe_api_url\>/job?query&state=\<in-progress|completed\>&info.project=xxx&info.user=xxx&...[?limit=25&offset=0&order=updatetime&direction=desc&distinct=xxx&date_start=2000-01-01&date_end=2010-01-01]</code>
+  `curl -X GET http://<awe_api_url>/job?query&state=<in-progress|completed>&info.project=xxx&info.user=xxx&...[?limit=25&offset=0&order=updatetime&direction=desc&distinct=xxx&date_start=2000-01-01&date_end=2010-01-01]`
 
 * Suspend an in-progress job
 
-<code>curl -X PUT http://\<awe_api_url\>/job/\<job_id\>?suspend</code>
+  `curl -X PUT http://<awe_api_url>/job/<job_id>?suspend`
 
 * Resume a suspended job
 
-<code>curl -X PUT http://\<awe_api_url\>/job/\<job_id\>?resume</code>
+  `curl -X PUT http://<awe_api_url>/job/<job_id>?resume`
 		
 * Resume all the suspended jobs in the queue	
 
-<code>curl -X PUT http://\<awe_api_url\>/job?resumeall</code>
+  `curl -X PUT http://<awe_api_url>/job?resumeall`
 
 * Recover a job from mongodb missing from queue
 
-<code>curl -X PUT http://\<awe_api_url\>/job/\<job_id\>?recover</code>
+  `curl -X PUT http://<awe_api_url>/job/<job_id>?recover`
 
 * Recompute a job from task i, the successive / downstream tasks of i will all be recomputed
 
-<code>curl -X PUT http://\<awe_api_url\>/job/\<job_id\>?recompute=\<int\></code>
+  `curl -X PUT http://<awe_api_url>/job/<job_id>?recompute=<int>`
 
 * Resubmit a job, re-start from the beginning, all tasks will be computed
 
-<code>curl -X PUT http://\<awe_api_url\>/job/\<job_id\>?resubmit</code>
+  `curl -X PUT http://<awe_api_url>/job/<job_id>?resubmit`
 
 * Change the clientgroup attribute of the job
 
-<code>curl -X PUT http://\<awe_api_url\>/job/\<job_id\>?clientgroup=\<new_cliengroup\></code>
+  `curl -X PUT http://<awe_api_url>/job/<job_id>?clientgroup=<new_cliengroup>`
 
 * Change the pipeline attribute of the job
 
-<code>curl -X PUT http://\<awe_api_url\>/job/\<job_id\>?pipeline=\<new_pipeline\></code>
+  `curl -X PUT http://<awe_api_url>/job/<job_id>?pipeline=<new_pipeline>`
 
 * Change the priority attribute of the job
 
-<code>curl -X PUT http://\<awe_api_url\>/job/\<job_id\>?priority=\<new_priority\></code>
+  `curl -X PUT http://<awe_api_url>/job/<job_id>?priority=<new_priority>`
 
 * Change the expiration attribute of the job, does not get deleted until completed
 
-<code>curl -X PUT http://\<awe_api_url\>/job/\<job_id\>?expiration=\<new_expiration\></code>
+  `curl -X PUT http://<awe_api_url>/job/<job_id>?expiration=<new_expiration>`
 
 * Set job state as deleted, 'full' option deletes job from mongodb and filesystem
 
-<code>curl -X DELETE http://\<awe_api_url\>/job/\<job_id\></code>
+  `curl -X DELETE http://<awe_api_url>/job/<job_id>`
 
-<code>curl -X DELETE http://\<awe_api_url\>/job/\<job_id\>?full</code>
+  `curl -X DELETE http://<awe_api_url>/job/<job_id>?full`
 
 * Delete all suspended jobs
 
-<code>curl -X DELETE http://\<awe_api_url\>/job?suspend</code>
+  `curl -X DELETE http://<awe_api_url>/job?suspend`
 
-<code>curl -X DELETE http://\<awe_api_url\>/job?suspend&full</code>
+  `curl -X DELETE http://<awe_api_url>/job?suspend&full`
 
 * Delete all zombie jobs (“in-progress” jobs in mongodb but not in the queue)
 			
-<code>curl -X DELETE http://\<awe_api_url\>/job?zombie</code>
+  `curl -X DELETE http://<awe_api_url>/job?zombie`
 
-<code>curl -X DELETE http://\<awe_api_url\>/job?zombie&full</code>
+  `curl -X DELETE http://<awe_api_url>/job?zombie&full`
 
 
 ## 2. Workunit APIs
 
 * view a workunit (Highlighted ones are called only by awe-clients)
 
-<code>curl -X GET http://\<awe_api_url\>/work/\<work_id\></code>
+  `curl -X GET http://<awe_api_url>/work/<work_id>`
 
 * client request data token for the specific workunit
 
-<code>curl -X GET http://\<awe_api_url\>/work/\<work_id\>?datatoken&client=\<client_id\></code>
+  `curl -X GET http://<awe_api_url>/work/<work_id>?datatoken&client=<client_id>`
 
 * client checkout workunit
 
-<code>curl -X GET http://\<awe_api_url\>/work?client=\<client_id\></code>
+  `curl -X GET http://<awe_api_url>/work?client=<client_id>`
 
 * client update workunit status (with optional logs/reports in files)
 
-<code>curl -X GET [-F perf=@perf_log] [-F notes=notes_file] http://\<awe_api_url\>/work/\<work_id\>?status=\<new_status\>&client=\<client_id\>&report</code>
+  `curl -X GET [-F perf=@perf_log] [-F notes=notes_file] http://<awe_api_url>/work/<work_id>?status=<new_status>&client=<client_id>&report`
 
 * view awe-client error log related to the failed workunit (need client side config: [Client] print_app_msg=True):
 
-<code>curl -X GET http://\<awe_api_url\>/work/\<work_id\>?report=worknotes</code>
+  `curl -X GET http://<awe_api_url>/work/<work_id>?report=worknotes`
 
 * view stdout of one workunit (need client side config: [Client] print_app_msg=True)
 
-<code>curl -X GET http://\<awe_api_url\>/work/\<work_id\>?report=stdout</code>
+  `curl -X GET http://<awe_api_url>/work/<work_id>?report=stdout`
 
 * view stderr of one workunit (need client side config: [Client] print_app_msg=True)
 
-<code>curl -X GET http://\<awe_api_url\>/work/\<work_id\>?report=stderr</code>
+  `curl -X GET http://<awe_api_url>/work/<work_id>?report=stderr`
 
 
 ### 3. Client management APIs:
 
 * Register a new client
 
-<code>curl -X POST -F profile=@clientprofile http://\<awe_api_url\>/client</code>
+  `curl -X POST -F profile=@clientprofile http://<awe_api_url>/client`
 
 * View all clients
 
-<code>curl -X GET http://\<awe_api_url\>/client</code>
+  `curl -X GET http://<awe_api_url>/client`
 
 * View all busy clients
 
-<code>curl -X GET http://\<awe_api_url\>/client?busy</code>
+  `curl -X GET http://<awe_api_url>/client?busy`
 
 * View all clients in clientgroup
 
-<code>curl -X GET http://\<awe_api_url\>/client?group=\<name\></code>
+  `curl -X GET http://<awe_api_url>/client?group=<name>`
 
 * View all clients by status
 
-<code>curl -X GET http://\<awe_api_url\>/client?status=\<client status\></code>
+  `curl -X GET http://<awe_api_url>/client?status=<client status>`
 
 * View all clients with a given app
 
-<code>curl -X GET http://\<awe_api_url\>/client?app=\<app in list\></code>
+  `curl -X GET http://<awe_api_url>/client?app=<app in list>`
 
 * View a client
 
-<code>curl -X GET http://\<awe_api_url\>/client/\<client_id\></code>
+  `curl -X GET http://<awe_api_url>/client/<client_id>`
 
 * Client sends heartbeat to server
 
-<code>curl -X GET http://\<awe_api_url\>/client/\<client_id\>?heartbeat</code>
+  `curl -X GET http://<awe_api_url>/client/<client_id>?heartbeat`
 
 * Suspend all the clients
 
-<code>curl -X PUT http://\<awe_api_url\>/client?suspendall</code>
+  `curl -X PUT http://<awe_api_url>/client?suspendall`
 
 * Resume all suspended clients
 
-<code>curl -X PUT http://\<awe_api_url\>/client?resumeall</code>
+  `curl -X PUT http://<awe_api_url>/client?resumeall`
 
 * Suspend a client
 
-<code>curl -X PUT http://\<awe_api_url\>/client/\<client_id>?suspend</code>
+  `curl -X PUT http://<awe_api_url>/client/<client_id>?suspend`
 
 * Resume a client
 
-<code>curl -X PUT http://\<awe_api_url\>/client/\<client_id\>?resume</code>
+  `curl -X PUT http://<awe_api_url>/client/<client_id>?resume`
 
 
 ## 4. Queue management APIs
 
 * Queue summary, 'json' option for json format
 
-<code>curl -X GET http://\<awe_api_url\>/queue</code>
+  `curl -X GET http://<awe_api_url>/queue`
 
-<code>curl -X GET http://\<awe_api_url\>/queue?json</code>
+  `curl -X GET http://<awe_api_url>/queue?json`
 
 * Job queue details, requires admin authorization
 
-<code>curl -X GET http://\<awe_api_url\>/queue?job</code>
+  `curl -X GET http://<awe_api_url>/queue?job`
 
 * Task queue details, requires admin authorization
 
-<code>curl -X GET http://\<awe_api_url\>/queue?task</code>
+  `curl -X GET http://<awe_api_url>/queue?task`
 
 * Workunit queue details, requires admin authorization
 
-<code>curl -X GET http://\<awe_api_url\>/queue?work</code>
+  `curl -X GET http://<awe_api_url>/queue?work`
 
 * Client queue details, requires admin authorization
 
-<code>curl -X GET http://\<awe_api_url\>/queue?client</code>
+  `curl -X GET http://<awe_api_url>/queue?client`
 
 * View running jobs for given clientgroup, requires clientgroup authorization
 
-<code>curl -X GET http://\<awe_api_url\>/queue?clientgroup=\<group name\></code>
+  `curl -X GET http://<awe_api_url>/queue?clientgroup=<group name>`
 
 * Suspend queue, requires admin authorization
 
-<code>curl -X PUT http://\<awe_api_url\>/queue?suspend</code>
+  `curl -X PUT http://<awe_api_url>/queue?suspend`
 
 * Resume queue, requires admin authorization
 
-<code>curl -X PUT http://\<awe_api_url\>/queue?resume</code>
+  `curl -X PUT http://<awe_api_url>/queue?resume`
 
 
 ## 5. Logger management APIs
 
 * Event code descriptions
 
-<code>curl -X GET http://\<awe_api_url\>/logger?event</code>
+  `curl -X GET http://<awe_api_url>/logger?event`
 
 * View debug logging level
 
-<code>curl -X GET http://\<awe_api_url\>/logger?debug</code>
+  `curl -X GET http://<awe_api_url>/logger?debug`
 
 * Set debug logging level
 
-<code>curl -X PUT http://\<awe_api_url\>/logger?debug=[0|1|2|3]</code>
+  `curl -X PUT http://<awe_api_url>/logger?debug=[0|1|2|3]`

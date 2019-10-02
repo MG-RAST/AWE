@@ -11,7 +11,7 @@
 
 - supports [CWLprov](https://github.com/common-workflow-language/cwlprov)
 
-- is RESTful. The [API](./API/README.md) is accessible from desktops, HPC systems, exotic hardware, the cloud and your smartphone.
+- is RESTful. The [API](./API/) is accessible from desktops, HPC systems, exotic hardware, the cloud and your smartphone.
 
 - is designed for complex scientific computing and supports computing on multiple platforms with zero setup.
 

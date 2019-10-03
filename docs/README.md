@@ -64,12 +64,12 @@ X
 
 ## Related
 
-------
-| repository | description    | link |
-| ----------- | ----------- | ----------- |
-| AWE monitor | UI for the AWE server | [github.com/MG-RAST/awe-monitor](https://github.com/MG-RAST/awe-monitor) |
-| Shock       | object store | [github.com/MG-RAST/Shock](https://github.com/MG-RAST/Shock) |
-| Skyport2    | demo environment using docker-compose | [github.com/MG-RAST/Skyport2](https://github.com/MG-RAST/Skyport2) |
+
+| repository  | description                           | link                                                                     |
+| ----------- | ------------------------------------- | ------------------------------------------------------------------------ |
+| AWE monitor | UI for the AWE server                 | [github.com/MG-RAST/awe-monitor](https://github.com/MG-RAST/awe-monitor) |
+| Shock       | object store                          | [github.com/MG-RAST/Shock](https://github.com/MG-RAST/Shock)             |
+| Skyport2    | demo environment using docker-compose | [github.com/MG-RAST/Skyport2](https://github.com/MG-RAST/Skyport2)       |
 
 
 

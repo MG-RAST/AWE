@@ -1,8 +1,10 @@
-
+<!--
+Use build_documentation.sh to create config.md
+-->
 # Configuration
 
 
-AWE binaries accept parameters via command line and a config file. The config file is INI-file, possible parameters are listed here.
+AWE binaries accept parameters via command line and a configuration file. The configuration file is INI-file, possible parameters are listed here.
 
 
 ## AWE server

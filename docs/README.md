@@ -51,12 +51,22 @@ open image with wordle/ preview here
 ~~~~
 
 ## Documentation
-- [API examples](./API) and [API specification](./API/api.html).
-- [Building](./building.md).
-- [Configuring](./config.md).
-- [Concepts](./concepts.md).
-- [Caching and data migration](./caching_and_data_migration.md).
-- For further information about Shock's functionality, please refer to our [Shock documentation](https://github.com/MG-RAST/Shock/docs/).
+- [API examples](./API) and [API specification](./API/api.html)
+- [Building](./building.md)
+- [Configuring](./config.md)
+<!--
+- [Concepts](./concepts.md)
+- [Caching and data migration](./caching_and_data_migration.md)
+-->
+
+## Related
+
+------
+| repository | description    | link |
+| ----------- | ----------- | ----------- |
+| AWE monitor | UI for the AWE server | [github.com/MG-RAST/awe-monitor](https://github.com/MG-RAST/awe-monitor) |
+| Shock       | object store | [github.com/MG-RAST/Shock](https://github.com/MG-RAST/Shock) |
+| Skyport2    | demo environment using docker-compose | [github.com/MG-RAST/Skyport2](https://github.com/MG-RAST/Skyport2) |
 
 
 

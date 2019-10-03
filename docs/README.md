@@ -42,7 +42,7 @@ Don't forget to later `docker-compose down` and do not forget, by default this d
 
 ### Submit a job for simple workflow
 
-This example consists of CWL workflow that takes a PDF file as input, extracts all words and generates a visual wordcloud.
+This example consists of CWL workflow that takes a PDF file as input, extracts all words and generates a visual wordcloud. Execute the followin command in a new terminal from within the AWE folder:
 
 ```bash
  ./awe_submit.sh -w test/tests/pdf2wordcloud.cwl -j test/tests/rules-of-acquisition.job.cwl -d tmp

@@ -65,7 +65,7 @@ X
 - [Caching and data migration](./caching_and_data_migration.md)
 -->
 
-## Related Repositories and documentation
+## Related software repositories and documentation
 
 
 | repository  | description                           | link                                                                     |

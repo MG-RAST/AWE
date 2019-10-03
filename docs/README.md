@@ -30,17 +30,20 @@ You can use AWE simultaenously on Clouds, Clusters and HPC systems with dozens, 
 ## AWE Quickstart
 This assumes that you have `docker` and `docker-compose` installed and `curl` is available locally.
 
-### setup the local service
+### Start AWE services
 
 ```bash
 source ./init.sh
 docker-compose up
 ```
-
+This will start AWE server, one AWE worker, Shock object store and corresponding MongoDB containers.
 Don't forget to later `docker-compose down` and do not forget, by default this demo configuration does not store data persistently.
 
 
 ### Submit a job for simple workflow
+
+This example consists of CWL workflow that takes a PDF file as input, extracts all words and generates a visual wordcloud.
+
 ```bash
  ./awe_submit.sh -w test/tests/pdf2wordcloud.cwl -j test/tests/rules-of-acquisition.job.cwl -d tmp
 ```

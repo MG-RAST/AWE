@@ -3,6 +3,9 @@
 
 # AWE 2.0 
 
+![AWE](images/awe-lg.png)
+
+
  A light weight workflow manager for scientific computing at scale that:
 
 - executes [CWL](http://www.commonwl.org) workflows

@@ -27,7 +27,7 @@ AWE is actively being developed at [github.com/MG-RAST/AWE](https://github.com/M
 You can use AWE simultaenously on Clouds, Clusters and HPC systems with dozens, hundreds or thousands of nodes to run tens of thousands to hundreds of thousands of individuals workflows. 
 
 
-## AWE in 30 seconds (via docker-compose)
+## AWE Quickstart
 This assumes that you have `docker` and `docker-compose` installed and `curl` is available locally.
 
 ### setup the local service
@@ -62,7 +62,7 @@ X
 - [Caching and data migration](./caching_and_data_migration.md)
 -->
 
-## Related
+## Related Repositories and documentation
 
 
 | repository  | description                           | link                                                                     |

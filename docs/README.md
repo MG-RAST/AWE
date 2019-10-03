@@ -7,18 +7,19 @@
 
 - executes [CWL](http://www.commonwl.org) workflows
 
-- is a cloud native workflow platform designed from the ground up to be fast, scalable and fault tolerant.
+- is a cloud native workflow platform designed from the ground up to be fast, scalable and fault tolerant
 
 - supports [CWLprov](https://github.com/common-workflow-language/cwlprov)
 
-- is RESTful. The [API](./API/) is accessible from desktops, HPC systems, exotic hardware, the cloud and your smartphone.
+- is RESTful. The [API](./API/) is accessible from desktops, HPC systems, exotic hardware, the cloud and your smartphone
 
-- is designed for complex scientific computing and supports computing on multiple platforms with zero setup.
+- is designed for complex scientific computing and supports computing on multiple platforms with zero setup
 
 - supports containerized environments with Docker and Singularity
 
-- is part of our reproducible science platform [Skyport]([https://github.com/MG-RAST/Skyport2) combined to create [Researchobjects](http://www.researchobject.org/) when combined with [CWL](http://www.commonwl.org) and 
-[CWLprov](https://github.com/common-workflow-language/cwlprov)
+- is part of our reproducible science platform [Skyport](https://github.com/MG-RAST/Skyport2) combined to create [Researchobjects](http://www.researchobject.org/) when combined with [CWL](http://www.commonwl.org) and [CWLprov](https://github.com/common-workflow-language/cwlprov)
+
+<br>
 
 AWE is actively being developed at [github.com/MG-RAST/AWE](https://github.com/MG-RAST/AWE).
 
@@ -26,10 +27,7 @@ AWE is actively being developed at [github.com/MG-RAST/AWE](https://github.com/M
 You can use AWE simultaenously on Clouds, Clusters and HPC systems with dozens, hundreds or thousands of nodes to run tens of thousands to hundreds of thousands of individuals workflows. 
 
 
-Check out the notes  on [building and installing](./building.md) and [configuration](./configuration.md).
-
-
-## AWE in 30 seconds (for Docker-compose) (or later for kubectl )
+## AWE in 30 seconds (via docker-compose)
 This assumes that you have `docker` and `docker-compose` installed and `curl` is available locally.
 
 ### setup the local service
@@ -53,7 +51,7 @@ open image with wordle/ preview here
 ~~~~
 
 ## Documentation
-- [API documentation](./API.md).
+- [API examples](./API) and [API specification](./API/api.html).
 - [Building](./building.md).
 - [Configuring](./config.md).
 - [Concepts](./concepts.md).

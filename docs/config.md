@@ -1,5 +1,11 @@
 
-# AWE server
+# Configuration
+
+
+AWE binaries accept parameters via command line and a config file. The config file is INI-file, possible parameters are listed here.
+
+
+## AWE server
 ```
 
 [Ports]
@@ -96,7 +102,7 @@ memprofile=<string>         e.g. create memprofile.prof (default: "")
 ```
 
 
-# AWE worker
+## AWE worker
 ```
 
 [Directories]
@@ -171,7 +177,7 @@ memprofile=<string>         e.g. create memprofile.prof (default: "")
 ```
 
 
-# AWE submitter
+## AWE submitter
 
 The AWE submitter can be used to submit CWL workflows to the AWE server
 

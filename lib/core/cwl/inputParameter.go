@@ -126,8 +126,13 @@ func NewInputParameter(original interface{}, schemata []CWLType_Type, context *W
 					err = fmt.Errorf("(NewInputParameter) NewCWLType_Type returns: %s", err.Error())
 					return
 				}
-				inputParameterType = inputParameterTypeArray[0]
-				originalMap["type"] = inputParameterType
+				if len(inputParameterTypeArray) == 1 {
+					inputParameterType = inputParameterTypeArray[0]
+					originalMap["type"] = inputParameterType
+				} else {
+					originalMap["type"] = inputParameterTypeArray
+				}
+
 			}
 		}
 

@@ -1,0 +1,64 @@
+{
+    "info": {
+        "pipeline": "testdocker",
+        "name": "testdocker",
+        "project": "testproject",
+        "clientgroups": "docker"
+    },
+    "tasks": [
+        {
+            "cmd": {
+                "name": "cp",
+                "args": "/etc/hosts myhosts.txt",
+                "description": "copy",
+                "dockerimage": "ubuntu:latest",
+                "environ" : {
+                    "private" : {
+                        "foo":"bar"
+                    }
+                }
+            },
+            "outputs" : [
+                {
+                    "filename": "myhosts.txt", 
+                    "host": "http://shock:7445"
+                }
+            ],
+            "taskid": "0", 
+            "totalwork": 1
+        },
+        {
+            "cmd": {
+                "name" : "cp",
+                "args" : "@myhosts.txt secondfile.txt",
+                "description": "wordcount",
+                "dockerPull": "ubuntu:latest"
+            },
+            "inputs": [
+                {
+                    "filename" : "myhosts.txt", 
+                    "host": "http://shock:7445",
+                    "origin" : "0"
+                }
+            ],
+            "outputs" : [
+                {
+                    "filename" : "secondfile.txt",
+                    "host"     : "http://shock:7445"
+                }
+            ],
+            "taskid": "1", 
+            "totalwork": 1
+        },
+        {
+            "cmd": {
+                "name": "sleep",
+                "args": "10s",
+                "description": "test3",
+                "dockerPull": "ubuntu:latest"
+            },
+            "taskid": "2", 
+            "totalwork": 1
+        }
+    ]
+}

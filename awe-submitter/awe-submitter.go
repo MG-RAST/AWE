@@ -12,6 +12,7 @@ import (
 
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 
+	"encoding/base64"
 	"encoding/json"
 
 	"github.com/MG-RAST/AWE/lib/cache"
@@ -648,9 +649,14 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, entrypoint string, j
 		return
 	}
 
+	// for some stupid reason the first Form added with AddForm() will not be complete!?
+	_ = multipart.AddForm("dummy", "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890")
+
 	logger.Debug(3, "(SubmitCWLJobToAWE) entrypoint: %s", entrypoint)
 
-	err = multipart.AddForm("entrypoint", entrypoint)
+	enrypointBase64 := "base64:" + base64.StdEncoding.EncodeToString([]byte(entrypoint))
+	logger.Debug(3, "(SubmitCWLJobToAWE) enrypointBase64: %s", enrypointBase64)
+	err = multipart.AddForm("entrypoint", enrypointBase64)
 	if err != nil {
 		err = fmt.Errorf("(SubmitCWLJobToAWE) AddForm returned: %s", err.Error())
 		return

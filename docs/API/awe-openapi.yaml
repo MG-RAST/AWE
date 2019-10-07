@@ -1,0 +1,464 @@
+openapi: 3.0.0
+servers:
+  - url: awe.mg-rast.org
+info:
+  description: |
+  version: 1.0.0
+  title: AWE API specification
+  termsOfService: ''
+
+#components:
+  #securitySchemes:
+    #OAuth2:
+    #  type: oauth2
+    #  flows:
+    #    authorizationCode:
+    #      authorizationUrl: https://example.com/oauth/authorize
+    #      tokenUrl: https://example.com/oauth/token
+    #      scopes:
+    #        read: Grants read access
+    #        write: Grants write access
+    #        admin: Grants access to admin operations
+
+tags:
+  - name: job
+    description: Job resource
+  - name: work
+    description: Workunit resource
+  - name: client
+    description: Client resource
+  - name: queue
+    description: Queue resource
+  - name: logger
+    description: Logger resource
+paths:
+  '/job':
+    get:
+      summary: List all or some jobs
+      description: "This API returns a page of job objects and total counts. Use `limit` & `offset` to control paginated view (by default `limit=25`, `offset=0`), to show all jobs, you can set `limit=total_counts` and `offset = 0`. By default the jobs will be sorted by last updated time (`desc`). You can change the sorting criteria by setting  `order=<job_field>&direction=<asc|desc>`."
+      parameters:
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+      - in: query
+        name: offset
+        required: false
+        schema:
+          type: integer
+      - in: query
+        name: order
+        required: false
+        schema:
+          type: string
+          enum: ["asc", "desc"]
+        examples:
+          asc:
+            value: "asc"
+          desc:
+            value: "desc"
+      - in: query
+        name: active
+        required: false
+        schema:
+          type: boolean
+      - in: query
+        name: suspend
+        required: false
+        schema:
+          type: boolean
+      - in: query
+        name: registered
+        required: false
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: OK
+      tags:
+        - job
+      security:
+        - OAuth2: [admin]
+    post:
+      summary: "Submit job"
+      responses:
+        '200':
+          description: OK
+      tags:
+        - job
+    delete:
+      parameters: 
+      - in: query
+        description: Delete all suspended jobs
+        name: suspend
+        required: false
+        schema:
+          type: boolean
+      summary: "Delete jobs"
+      responses:
+        '200':
+          description: OK
+      tags:
+        - job
+  '/job/{job_id}':
+    parameters:
+      - in: path
+        name: job_id
+        description: "ID of jobdocument"
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Show one job with specific job id
+      
+      responses:
+        '200':
+          description: OK
+      tags:
+        - job
+      security:
+        - OAuth2: [read]
+    put:
+      parameters:
+        - in: query
+          name: suspend
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: resume
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: recover
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: recompute
+          required: false
+          schema:
+            type: integer
+        - in: query
+          name: resubmit
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: clientgroup
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: pipeline
+          required: false
+          schema:
+            type: string
+            
+        - in: query
+          name: priority
+          required: false
+          schema:
+            type: integer
+        - in: query
+          name: expiration
+          required: false
+          schema:
+            type: string
+            
+      responses:
+        '200':
+          description: OK
+      tags:
+        - job
+      security:
+        - OAuth2: [read]
+        
+        
+    delete:
+      parameters: 
+        - in: query
+          name: full
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: OK
+      tags:
+        - job
+      security:
+        - OAuth2: [read]
+  '/work':
+    get:
+      summary: "view a workunit"
+      parameters: 
+        - in: query
+          name: client
+          description: "client checkout workunit"
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+      tags:
+        - work
+      security:
+        - OAuth2: [read]
+        
+  '/work/{work_id}':
+    parameters:
+      - in: path
+        name: work_id
+        description: "ID of workunit"
+        required: true
+        schema:
+          type: string
+    get:
+      parameters: 
+        - in: query
+          name: client
+          description: "client checkout workunit"
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: datatoken
+          description: "request data token for the specific workunit"
+          required: false
+          schema:
+            type: string    
+        - in: query
+          name: report
+          description: "request data token for the specific workunit"
+          required: false
+          schema:
+            type: string
+            enum: ["worknotes", "stdout", "stderr"]     
+      responses:
+        '200':
+          description: OK
+      tags:
+        - work
+      security:
+        - OAuth2: [read]
+  '/client':
+    get:
+      summary: "View all clients"
+      parameters: 
+        - in: query
+          name: busy
+          description: "View all busy clients"
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: group
+          description: "View all clients in clientgroup"
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: status
+          description: "View all clients by status"
+          required: false
+          schema:
+            type: string
+            
+      responses:
+        '200':
+          description: OK
+      tags:
+        - client
+      security:
+        - OAuth2: [read]
+    put:
+      parameters: 
+        - in: query
+          name: suspendall
+          description: "Suspend all clients"
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: resumeall
+          description: "Resume all clients"
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: OK
+      tags:
+        - client
+      security:
+        - OAuth2: [read]    
+        
+    post:
+      summary: "Register a new client"
+      responses:
+        '200':
+          description: OK
+      tags:
+        - client
+      security:
+        - OAuth2: [read]
+  '/client/{client_id}':              
+    parameters:
+      - in: path
+        name: client_id
+        description: "ID of client/worker"
+        required: true
+        schema:
+          type: string
+    get:
+      responses:
+        '200':
+          description: OK
+      tags:
+        - client
+      security:
+        - OAuth2: [read]
+    put:
+      parameters: 
+        - in: query
+          name: suspend
+          description: "Suspend client"
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: resume
+          description: "Resume client"
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: OK
+      tags:
+        - client
+      security:
+        - OAuth2: [read]
+  '/queue':
+    get:
+      summary: "Queue summary, 'json' option for json format"
+      parameters: 
+        - in: query
+          name: json
+          description: "json format"
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: job
+          description: "Job queue details, requires admin authorization"
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: task
+          description: "Task queue details, requires admin authorization"
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: work
+          description: "Workunit queue details, requires admin authorization"
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: client
+          description: "Client queue details, requires admin authorization"
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: clientgroup
+          description: "View running jobs for given clientgroup, requires clientgroup authorization"
+          required: false
+          schema:
+            type: string
+        
+      responses:
+        '200':
+          description: OK
+      tags:
+        - queue
+      security:
+        - OAuth2: [read]
+  
+    put:
+      parameters:
+        - in: query
+          name: suspend
+          description: "Suspend queue, requires admin authorization"
+          required: false
+          schema:
+            type: boolean 
+        - in: query
+          name: resume
+          description: "Resume queue, requires admin authorization"
+          required: false
+          schema:
+            type: boolean 
+      responses:
+        '200':
+          description: OK
+      tags:
+        - queue
+      security:
+        - OAuth2: [read]
+
+  '/logger':
+    get:
+      parameters: 
+        - in: query
+          name: event
+          description: "Event code descriptions"
+          required: false
+          schema:
+            type: boolean 
+        - in: query
+          name: debug
+          description: "View debug logging level"
+          required: false
+          schema:
+            type: boolean 
+      responses:
+        '200':
+          description: OK
+      tags:
+        - logger
+      security:
+        - OAuth2: [read]
+    put:
+      parameters: 
+        - in: query
+          name: debug
+          description: "Set debug logging level, 0-3"
+          required: false
+          schema:
+            type: integer 
+      responses:
+        '200':
+          description: OK
+      tags:
+        - logger
+      security:
+        - OAuth2: [read]  
+        
+        
+        
+    
+  
+  
+  
+  
+  
+  
+  

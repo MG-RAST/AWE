@@ -41,7 +41,12 @@ func (cr *WorkController) Options(cx *goweb.Context) {
 func (cr *WorkController) Read(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 
-	id = DecodeBase64(cx, id)
+	var err error
+	id, err = DecodeBase64(id)
+	if err != nil {
+		cx.RespondWithErrorMessage("error decoding base64 workunit identifier: "+id, http.StatusBadRequest)
+		return
+	}
 
 	work_id, err := core.New_Workunit_Unique_Identifier_FromString(id)
 	if err != nil {
@@ -410,9 +415,15 @@ func (cr *WorkController) ReadMany(cx *goweb.Context) {
 func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	LogRequest(cx.Request)
 
-	id = DecodeBase64(cx, id)
+	var err error
 
-	work_id, err := core.New_Workunit_Unique_Identifier_FromString(id)
+	id, err = DecodeBase64(id)
+	if err != nil {
+		cx.RespondWithErrorMessage("error decoding base64 workunit identifier: "+id, http.StatusBadRequest)
+		return
+	}
+
+	workID, err := core.New_Workunit_Unique_Identifier_FromString(id)
 	if err != nil {
 		cx.RespondWithErrorMessage("error parsing workunit identifier: "+id+" ("+err.Error()+")", http.StatusBadRequest)
 		return
@@ -475,7 +486,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 			}
 		}
 
-		notice = &core.Notice{ID: work_id, Status: query.Value("status"), WorkerID: query.Value("client"), Notes: ""}
+		notice = &core.Notice{ID: workID, Status: query.Value("status"), WorkerID: query.Value("client"), Notes: ""}
 		// old-style
 		if query.Has("computetime") {
 			if comptime, err := strconv.Atoi(query.Value("computetime")); err == nil {
@@ -529,7 +540,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 	// report may also be added for cwl workunit
 	if query.Has("report") { // if "report" is specified in query, parse performance statistics or errlog
 		if _, ok := files["perf"]; ok {
-			err = core.QMgr.FinalizeWorkPerf(work_id, files["perf"].Path)
+			err = core.QMgr.FinalizeWorkPerf(workID, files["perf"].Path)
 			if err != nil {
 				cx.RespondWithErrorMessage("FinalizeWorkPerf: "+err.Error(), http.StatusInternalServerError)
 				return
@@ -555,7 +566,7 @@ func (cr *WorkController) Update(id string, cx *goweb.Context) {
 					}
 				}
 				// move / save log file
-				core.QMgr.SaveStdLog(work_id, log, files[log].Path)
+				core.QMgr.SaveStdLog(workID, log, files[log].Path)
 			}
 		}
 	}

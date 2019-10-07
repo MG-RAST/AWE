@@ -213,6 +213,8 @@ func ParseMultipartForm(r *http.Request) (params map[string]string, files core.F
 	params = make(map[string]string)
 	files = make(core.FormFiles)
 
+	//fmt.Println("http.Request:")
+	//spew.Dump(r)
 	reader, xerr := r.MultipartReader()
 	if xerr != nil {
 		err = fmt.Errorf("(ParseMultipartForm) MultipartReader not created: %s", xerr.Error())
@@ -248,10 +250,9 @@ func ParseMultipartForm(r *http.Request) (params map[string]string, files core.F
 					return nil, nil, err
 				}
 
-				if err == io.EOF { // inidicates end, butr you should use buffer
-					err = nil
-
-				}
+				//err == io.EOF
+				// inidicates end, but you should use buffer
+				err = nil
 
 			}
 			//fmt.Printf("(ParseMultipartForm) no error\n")
@@ -384,18 +385,21 @@ func GetClientGroup(cx *goweb.Context) (cg *core.ClientGroup, done bool) {
 	return
 }
 
-func DecodeBase64(cx *goweb.Context, id string) (return_id string) {
+// DecodeBase64 _
+// decodes if prefix "base64:" exists
+func DecodeBase64(id string) (returnID string, err error) {
 	if strings.HasPrefix(id, "base64:") {
-		id_b64 := strings.TrimPrefix(id, "base64:")
-		id_bytes, err := base64.StdEncoding.DecodeString(id_b64)
+		idB64 := strings.TrimPrefix(id, "base64:")
+		var idBytes []byte
+		idBytes, err = base64.StdEncoding.DecodeString(idB64)
 		if err != nil {
-			cx.RespondWithErrorMessage("error decoding base64 workunit identifier: "+id, http.StatusBadRequest)
+			err = fmt.Errorf("(DecodeBase64) base64.StdEncoding.DecodeString returned: %s (idB64: %s)", err.Error(), idB64)
 			return
 		}
 
-		return_id = string(id_bytes[:])
+		returnID = string(idBytes[:])
 	} else {
-		return_id = id
+		returnID = id
 	}
 
 	return

@@ -158,6 +158,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		if !ok {
 			entrypoint = "#main"
 		}
+
+		entrypoint, err = DecodeBase64(entrypoint)
+		if err != nil {
+			cx.RespondWithErrorMessage("error decoding base64 entrypoint: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		if entrypoint == "" {
 			entrypoint = "#main"
 		}

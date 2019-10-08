@@ -19,7 +19,7 @@ pipeline {
 
                 
                 # Clean up
-                cd ${base_dir}/testing
+                cd ${base_dir}/test
                 docker-compose down
                 
                 DELETE_CONTAINERS=$(docker ps -a -f name=skyport2_ -q)
@@ -130,7 +130,7 @@ pipeline {
                 docker build ${USE_CACHE} --pull -t mgrast/awe-worker -f Dockerfile_worker .
                 docker build ${USE_CACHE} --pull -t mgrast/awe-submitter -f Dockerfile_submitter .
             
-                cd ${base_dir}/testing/
+                cd ${base_dir}/test/
                 docker build ${USE_CACHE} -t mgrast/awe-submitter-testing  .
             
                 #cd ${base_dir}/Skyport2
@@ -162,7 +162,7 @@ pipeline {
                 rm -f ./result.xml
                 set -e
 
-                cd ${base_dir}/testing
+                cd ${base_dir}/test
                
 
                 docker-compose up -d
@@ -215,7 +215,7 @@ pipeline {
             set -x
             # Clean up
             base_dir=`pwd`
-            cd $base_dir/testing
+            cd $base_dir/test
             docker-compose down
             #docker run --rm --volume `pwd`/live-data:/live-data bash rm -rf /live-data/*
             docker volume prune -f

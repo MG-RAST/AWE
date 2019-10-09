@@ -19,52 +19,8 @@ type Process interface {
 	CWLObject
 	IdentifierInterface
 	IsProcess()
+	AddSchema(schema string)
 }
-
-// // ProcessPointer _
-// type ProcessPointer struct {
-// 	ID    string
-// 	Value string
-// }
-
-// // IsProcess _
-// func (p *ProcessPointer) IsProcess() {}
-
-// // GetClass _
-// func (p *ProcessPointer) GetClass() string {
-// 	return "ProcessPointer"
-// }
-
-// // GetID _
-// func (p *ProcessPointer) GetID() string { return p.ID }
-
-// // SetID _
-// func (p *ProcessPointer) SetID(string) {}
-
-// // IsCWLMinimal _
-// func (p *ProcessPointer) IsCWLMinimal() {}
-
-// NewProcessPointer _
-// func NewProcessPointer(original interface{}) (pp *ProcessPointer, err error) {
-
-// 	switch original.(type) {
-// 	case map[string]interface{}:
-// 		//original_map, ok := original.(map[string]interface{})
-
-// 		pp = &ProcessPointer{}
-
-// 		err = mapstructure.Decode(original, pp)
-// 		if err != nil {
-// 			err = fmt.Errorf("(NewCommandInputParameter) decode error: %s", err.Error())
-// 			return
-// 		}
-// 		return
-// 	default:
-// 		spew.Dump(original)
-// 		err = fmt.Errorf("(NewProcess) type %s unknown", reflect.TypeOf(original))
-// 	}
-// 	return
-// }
 
 // NewProcess returns CommandLineTool, ExpressionTool or Workflow
 func NewProcess(original interface{}, parentID string, processID string, injectedRequirements []Requirement, context *WorkflowContext) (process Process, schemata []CWLType_Type, err error) {
@@ -77,7 +33,7 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 		return
 	}
 
-	if context.CwlVersion == "" {
+	if context.Root.CwlVersion == "" {
 		err = fmt.Errorf("(NewProcess) CwlVersion empty")
 		return
 	}

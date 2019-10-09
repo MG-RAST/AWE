@@ -406,7 +406,7 @@ func CreateWorkflowStepsArray(original interface{}, workflowID string, injectedR
 
 	array := []WorkflowStep{}
 
-	if context.CwlVersion == "" {
+	if context.Root.CwlVersion == "" {
 		err = fmt.Errorf("(CreateWorkflowStepsArray) CwlVersion empty")
 		return
 	}

@@ -185,7 +185,7 @@ func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIden
 	//spew.Dump(commandLineTool)
 
 	if commandLineTool.CwlVersion == "" {
-		commandLineTool.CwlVersion = context.CwlVersion
+		commandLineTool.CwlVersion = context.Root.CwlVersion
 	}
 
 	if context == nil {
@@ -193,8 +193,8 @@ func NewCommandLineTool(generic interface{}, parentIdentifier string, objectIden
 		return
 	}
 
-	if context.Namespaces != nil {
-		commandLineTool.Namespaces = context.Namespaces
+	if context.Root.Namespaces != nil {
+		commandLineTool.Namespaces = context.Root.Namespaces
 	}
 
 	if context != nil {

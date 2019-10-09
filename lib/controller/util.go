@@ -233,36 +233,47 @@ func ParseMultipartForm(r *http.Request) (params map[string]string, files core.F
 		}
 
 		//fmt.Printf("(ParseMultipartForm) part: \"%s\" \n", part.FileName())
-		//spew.Dump(part)
 
 		if part.FileName() == "" {
 			//fmt.Printf("(ParseMultipartForm) filename empty\n")
-			buffer := make([]byte, 32*1024)
-			n, err := part.Read(buffer)
-			//fmt.Printf("(ParseMultipartForm) n=%d\n", n)
-			//if n == 0 {
-			//	break
-			//}
-			if err != nil {
-				//fmt.Printf("(ParseMultipartForm) error: %s\n", err.Error())
-				if err != io.EOF {
-					err = fmt.Errorf("(ParseMultipartForm) part.Read(buffer) error: %s", err.Error())
-					return nil, nil, err
+			//fmt.Printf("(ParseMultipartForm) part.FormName(): %s\n", part.FormName())
+			value := ""
+
+			loopCount := 0
+		READLOOP:
+			for true {
+				loopCount++
+				buffer := make([]byte, 32*1024)
+				n, err := part.Read(buffer)
+
+				//fmt.Printf("(ParseMultipartForm) (loop %d) n=%d\n", loopCount, n)
+
+				if err != nil {
+					//fmt.Printf("(ParseMultipartForm) error: %s\n", err.Error())
+					if err != io.EOF {
+						err = fmt.Errorf("(ParseMultipartForm) part.Read(buffer) error: %s", err.Error())
+						return nil, nil, err
+					}
 				}
 
-				//err == io.EOF
-				// inidicates end, but you should use buffer
-				err = nil
+				value += string(buffer[0:n])
+
+				if err != nil {
+					//err == io.EOF
+					// inidicates end, but you should use buffer
+					err = nil
+					break READLOOP
+				}
 
 			}
 			//fmt.Printf("(ParseMultipartForm) no error\n")
-			buf_len := 50
-			if n < 50 {
-				buf_len = n
+			viewSize := len(value)
+			if viewSize > 50 {
+				viewSize = 50
 			}
-			logger.Debug(3, "FormName: %s Content: %s", part.FormName(), buffer[0:buf_len])
-			//fmt.Printf("(ParseMultipartForm) writing param: %s\n", buffer[0:n])
-			params[part.FormName()] = fmt.Sprintf("%s", buffer[0:n])
+			logger.Debug(3, "FormName: %s Content: %s", part.FormName(), value[0:viewSize])
+			//fmt.Printf("(ParseMultipartForm) writing param: %s\n", value[0:viewSize])
+			params[part.FormName()] = value
 		} else {
 			//fmt.Printf("(ParseMultipartForm) found filename")
 			tmpPath := fmt.Sprintf("%s/temp/%d%d", conf.DATA_PATH, rand.Int(), rand.Int())

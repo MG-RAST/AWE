@@ -15,8 +15,8 @@ import (
 // WorkflowContext global object for each job submission
 type WorkflowContext struct {
 	rwmutex.RWMutex
-	GraphDocument `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // fields: CwlVersion, Base, Graph, Namespaces, Schemas (all interface-based !)
-	Path          string
+	Root GraphDocument `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // fields: CwlVersion, Base, Graph, Namespaces, Schemas (all interface-based !)
+	Path string
 	//Namespaces   map[string]string
 	//CWLVersion
 	//CwlVersion CWLVersion    `yaml:"cwl_version"  json:"cwl_version" bson:"cwl_version" mapstructure:"cwl_version"`
@@ -99,12 +99,12 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 
 	context.InitBasic()
 
-	if context.CwlVersion == "" {
-		err = fmt.Errorf("(WorkflowContext/Init) context.CwlVersion ==nil")
+	if context.Root.CwlVersion == "" {
+		err = fmt.Errorf("(WorkflowContext/Init) context.Root.CwlVersion ==nil")
 		return
 	}
 
-	graph := context.GraphDocument.Graph
+	graph := context.Root.Graph
 
 	if len(graph) == 0 {
 		err = fmt.Errorf("(WorkflowContext/Init) len(graph) == 0")
@@ -227,8 +227,8 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 	//}
 	//panic("done")
 
-	context.GraphDocument.Graph = nil
-	context.GraphDocument.Graph = []interface{}{}
+	context.Root.Graph = nil
+	context.Root.Graph = []interface{}{}
 	for key, value := range context.Objects {
 		logger.Debug(3, "(WorkflowContext/Init) adding %s to context.GraphDocument.Graph", key)
 		// err = context.Add(key, value, "WorkflowContext/Init")
@@ -237,7 +237,7 @@ func (context *WorkflowContext) Init(entrypoint string) (err error) {
 		// 	return
 		// }
 
-		context.GraphDocument.Graph = append(context.GraphDocument.Graph, value)
+		context.Root.Graph = append(context.Root.Graph, value)
 	}
 	//fmt.Println("(WorkflowContext/Init) context.Objects: ")
 	//spew.Dump(context.Objects)

@@ -87,7 +87,6 @@ services:
             --debuglevel=3'
         depends_on:
           - awe-server
-        restart: on-failure
         volumes:
           - ${PWD}/tmp:/tmp
           # - ${CONFIGDIR}/AWE/awe-worker.cfg:/awe-config/awe-worker.cfg:ro

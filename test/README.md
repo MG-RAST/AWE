@@ -2,6 +2,7 @@
 
 Start test environment
 ```bash
+source ./init.sh
 docker-compose up
 ```
 

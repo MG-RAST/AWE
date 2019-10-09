@@ -16,7 +16,7 @@ type GraphDocument struct {
 	Base       interface{}       `yaml:"$base,omitempty" json:"$base,omitempty" bson:"base,omitempty" mapstructure:"$base,omitempty"`
 	Graph      []interface{}     `yaml:"$graph" json:"$graph" bson:"graph" mapstructure:"$graph"` // can only be used for reading, yaml has problems writing interface objetcs
 	Namespaces map[string]string `yaml:"$namespaces,omitempty" json:"$namespaces,omitempty" bson:"namespaces,omitempty" mapstructure:"$namespaces,omitempty"`
-	Schemas    []interface{}     `yaml:"$schemas,omitempty" json:"$schemas,omitempty" bson:"schemas,omitempty" mapstructure:"$schemas,omitempty"`
+	Schemas    []string          `yaml:"$schemas,omitempty" json:"$schemas,omitempty" bson:"schemas,omitempty" mapstructure:"$schemas,omitempty"`
 }
 
 // ParseCWLGraphDocument _
@@ -60,21 +60,21 @@ func ParseCWLGraphDocument(yamlStr string, entrypoint string, context *WorkflowC
 	//}
 
 	//context.Graph = cwlGen.Graph
-	context.GraphDocument = cwlGen
-	context.CwlVersion = cwlGen.CwlVersion
+	context.Root = cwlGen // TODO this is overwriting a global field, maybe use an array for addtional documents ?
+	//context.Root.CwlVersion = cwlGen.CwlVersion
 
-	if cwlGen.Namespaces != nil {
-		context.Namespaces = cwlGen.Namespaces
-	}
+	//if cwlGen.Namespaces != nil {
+	//	context.Namespaces = cwlGen.Namespaces
+	//}
 
-	if cwlGen.Schemas != nil {
-		schemas = cwlGen.Schemas
-	}
+	// if cwlGen.Schemas != nil {
+	// 	schemas = cwlGen.Schemas
+	// }
 
 	// iterate over Graph
 
 	// try to find CWL version!
-	if context.CwlVersion == "" {
+	if cwlGen.CwlVersion == "" {
 		for _, elem := range cwlGen.Graph {
 			elemMap, ok := elem.(map[string]interface{})
 			if ok {
@@ -87,7 +87,7 @@ func ParseCWLGraphDocument(yamlStr string, entrypoint string, context *WorkflowC
 						err = fmt.Errorf("(Parse_cwl_graph_document) Could not read CWLVersion (%s)", reflect.TypeOf(cwlVersionIf))
 						return
 					}
-					context.CwlVersion = CWLVersion(cwlVersionStr)
+					cwlGen.CwlVersion = CWLVersion(cwlVersionStr)
 					break
 				}
 
@@ -96,7 +96,7 @@ func ParseCWLGraphDocument(yamlStr string, entrypoint string, context *WorkflowC
 
 	}
 
-	if context.CwlVersion == "" {
+	if cwlGen.CwlVersion == "" {
 		// see raw
 		err = fmt.Errorf("(Parse_cwl_graph_document) cwl_version empty")
 		return
@@ -178,14 +178,14 @@ func ParseCWLSimpleDocument(yamlStr string, useObjectID string, context *Workflo
 			return
 		}
 
-		if context.CwlVersion == "" {
+		if context.Root.CwlVersion == "" {
 
 			cwlVersionIf, hasVersion := objectMap["cwlVersion"]
 			if hasVersion {
 
 				cwlVersionStr, ok := cwlVersionIf.(string)
 				if ok {
-					context.CwlVersion = NewCWLVersion(cwlVersionStr)
+					context.Root.CwlVersion = NewCWLVersion(cwlVersionStr)
 				} else {
 					err = fmt.Errorf("(ParseCWLSimpleDocument) version not string (type: %s)", reflect.TypeOf(cwlVersionIf))
 					return
@@ -216,13 +216,13 @@ func ParseCWLSimpleDocument(yamlStr string, useObjectID string, context *Workflo
 				err = fmt.Errorf("(ParseCWLSimpleDocument) namespaces_if error (type: %s)", reflect.TypeOf(namespacesIf))
 				return
 			}
-			context.Namespaces = make(map[string]string)
+			context.Root.Namespaces = make(map[string]string)
 
 			for key, value := range namespacesMap {
 
 				switch value := value.(type) {
 				case string:
-					context.Namespaces[key] = value
+					context.Root.Namespaces[key] = value
 				default:
 					err = fmt.Errorf("(ParseCWLSimpleDocument) value is not string (%s)", reflect.TypeOf(value))
 					return
@@ -231,7 +231,7 @@ func ParseCWLSimpleDocument(yamlStr string, useObjectID string, context *Workflo
 			}
 
 		} else {
-			context.Namespaces = nil
+			context.Root.Namespaces = nil
 			//fmt.Println("no namespaces")
 		}
 
@@ -312,20 +312,20 @@ func ParseCWLSimpleDocument(yamlStr string, useObjectID string, context *Workflo
 			if setObjectID {
 				thisWorkflow.ID = objectID
 			}
-			context.CwlVersion = thisWorkflow.CwlVersion
+			context.Root.CwlVersion = thisWorkflow.CwlVersion
 		case *CommandLineTool:
 			thisCLT, _ := object.(*CommandLineTool)
 			if setObjectID {
 				thisCLT, _ := object.(*CommandLineTool)
 				thisCLT.ID = objectID
 			}
-			context.CwlVersion = thisCLT.CwlVersion
+			context.Root.CwlVersion = thisCLT.CwlVersion
 		case *ExpressionTool:
 			thisET, _ := object.(*ExpressionTool)
 			if setObjectID {
 				thisET.ID = objectID
 			}
-			context.CwlVersion = thisET.CwlVersion
+			context.Root.CwlVersion = thisET.CwlVersion
 
 		}
 

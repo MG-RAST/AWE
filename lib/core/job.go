@@ -350,12 +350,12 @@ func (job *Job) Init() (changed bool, err error) {
 	context := job.WorkflowContext
 
 	if context != nil && context.IfObjects == nil {
-		if context.Graph == nil {
+		if context.Root.Graph == nil {
 			err = fmt.Errorf("(job.Init) job.WorkflowContext.Graph == nil")
 			return
 		}
 
-		if len(context.Graph) == 0 {
+		if len(context.Root.Graph) == 0 {
 			err = fmt.Errorf("(job.Init) len(job.WorkflowContext.Graph) == 0")
 			return
 		}

@@ -343,9 +343,9 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 	}
 	uploadCount += subUploadCount
 	//fmt.Printf("createNormalizedSubmisson G\n")
-	if context.Schemas != nil {
+	if context.Root.Schemas != nil {
 		subUploadCount := 0
-		subUploadCount, err = cache.ProcessIOData(context.Schemas, inputfilePath, inputfilePath, "upload", shockClient, context, true, false)
+		subUploadCount, err = cache.ProcessIOData(context.Root.Schemas, inputfilePath, inputfilePath, "upload", shockClient, context, true, false)
 		if err != nil {
 			err = fmt.Errorf("(createNormalizedSubmisson) C) ProcessIOData(for upload) returned: %s", err.Error())
 			return
@@ -422,7 +422,7 @@ func createNormalizedSubmisson(aweAuth string, shockAuth string, workflowFile st
 
 	// create temporary workflow document file
 
-	newDocument := context.GraphDocument
+	newDocument := context.Root
 
 	//new_document := cwl.GraphDocument{}
 	//new_document.CwlVersion = context.CwlVersion
@@ -627,6 +627,9 @@ FORLOOP:
 func SubmitCWLJobToAWE(workflowFile string, jobFile string, entrypoint string, jobData *[]byte, aweAuth string, shockAuth string) (jobid string, newEntrypoint string, err error) {
 	multipart := core.NewMultipartWriter()
 
+	// for some stupid reason the first Form added with AddForm() will not be complete!?
+	//_ = multipart.AddForm("dummy", "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890")
+
 	err = multipart.AddFile("cwl", workflowFile)
 	if err != nil {
 		err = fmt.Errorf("(SubmitCWLJobToAWE) multipart.AddFile returned: %s (workflowFile=%s)", err.Error(), workflowFile)
@@ -649,9 +652,6 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, entrypoint string, j
 		return
 	}
 
-	// for some stupid reason the first Form added with AddForm() will not be complete!?
-	_ = multipart.AddForm("dummy", "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890")
-
 	logger.Debug(3, "(SubmitCWLJobToAWE) entrypoint: %s", entrypoint)
 
 	enrypointBase64 := "base64:" + base64.StdEncoding.EncodeToString([]byte(entrypoint))
@@ -662,6 +662,8 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, entrypoint string, j
 		return
 	}
 
+	//_ = multipart.AddForm("dummy2", "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890")
+
 	header := make(map[string][]string)
 	if aweAuth != "" {
 		header["Authorization"] = []string{aweAuth}
@@ -669,6 +671,8 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, entrypoint string, j
 	if shockAuth != "" {
 		header["Datatoken"] = []string{shockAuth}
 	}
+
+	//spew.Dump(multipart)
 
 	response, err := multipart.Send("POST", conf.SERVER_URL+"/job", header)
 	if err != nil {

@@ -76,11 +76,11 @@ func NewExpressionTool(original interface{}, parentIdentifier string, objectIden
 		err = fmt.Errorf("(NewExpressionTool) error parsing ExpressionTool class: %s", err.Error())
 		return
 	}
-	if context.Namespaces != nil {
-		et.Namespaces = context.Namespaces
+	if context.Root.Namespaces != nil {
+		et.Namespaces = context.Root.Namespaces
 	}
 	if et.CwlVersion == "" {
-		et.CwlVersion = context.CwlVersion
+		et.CwlVersion = context.Root.CwlVersion
 	}
 
 	if et.CwlVersion == "" {

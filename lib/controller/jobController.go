@@ -251,7 +251,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 			switch runner.(type) {
 			case *cwl.Workflow:
 				workflow := runner.(*cwl.Workflow)
-				workflow.CwlVersion = context.CwlVersion
+				workflow.CwlVersion = context.Root.CwlVersion
 
 			case *cwl.CommandLineTool:
 				entrypoint = wrapperEntrypoint
@@ -275,8 +275,8 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwlWorkflowInstance := cwl.NewWorkflowEmpty()
 				cwlWorkflow = &cwlWorkflowInstance
 				cwlWorkflow.ID = wrapperEntrypoint
-				cwlWorkflow.CwlVersion = context.CwlVersion
-				cwlWorkflow.Namespaces = context.Namespaces
+				cwlWorkflow.CwlVersion = context.Root.CwlVersion
+				cwlWorkflow.Namespaces = context.Root.Namespaces
 				newStep := cwl.WorkflowStep{}
 				stepID := wrapperEntrypoint + "/wrapper_step"
 				newStep.ID = stepID
@@ -424,7 +424,7 @@ func (cr *JobController) Create(cx *goweb.Context) {
 				cwlWorkflowInstance := cwl.NewWorkflowEmpty()
 				cwlWorkflow = &cwlWorkflowInstance
 				cwlWorkflow.ID = wrapperEntrypoint
-				cwlWorkflow.CwlVersion = context.CwlVersion
+				cwlWorkflow.CwlVersion = context.Root.CwlVersion
 				newStep := cwl.WorkflowStep{}
 				stepID := wrapperEntrypoint + "/wrapper_step"
 				newStep.ID = stepID
@@ -575,13 +575,13 @@ func (cr *JobController) Create(cx *goweb.Context) {
 		}
 
 		// replace interfaces with real objects (inlcuding new wrapper workflow if applicable)
-		context.GraphDocument.Graph = []interface{}{}
+		context.Root.Graph = []interface{}{}
 
 		for i := range objectArray {
 			pair := objectArray[i]
 			object := pair.Value
 			logger.Debug(3, "(job/create) adding to context.GraphDocument.Graph: %s", pair.ID)
-			context.GraphDocument.Graph = append(context.GraphDocument.Graph, object)
+			context.Root.Graph = append(context.Root.Graph, object)
 		}
 
 		//fmt.Println("\n\n\n--------------------------------- Steps:\n")

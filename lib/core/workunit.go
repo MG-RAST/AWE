@@ -154,7 +154,7 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 		case *cwl.CommandLineTool:
 			clt, _ = process.(*cwl.CommandLineTool)
 			if clt.CwlVersion == "" {
-				clt.CwlVersion = job.WorkflowContext.CwlVersion
+				clt.CwlVersion = job.WorkflowContext.Root.CwlVersion
 			}
 			if clt.CwlVersion == "" {
 				err = fmt.Errorf("(NewWorkunit) CommandLineTool misses CwlVersion")
@@ -162,21 +162,21 @@ func NewWorkunit(qm *ServerMgr, task *Task, rank int, job *Job) (workunit *Worku
 			}
 
 			if clt.Namespaces == nil {
-				clt.Namespaces = job.WorkflowContext.Namespaces // not sure why the CommandLineTool does not have the namespaces... :-(
+				clt.Namespaces = job.WorkflowContext.Root.Namespaces // not sure why the CommandLineTool does not have the namespaces... :-(
 			}
 			//requirements = clt.Requirements
 		case *cwl.ExpressionTool:
 
 			et, _ = process.(*cwl.ExpressionTool)
 			if et.CwlVersion == "" {
-				et.CwlVersion = job.WorkflowContext.CwlVersion
+				et.CwlVersion = job.WorkflowContext.Root.CwlVersion
 			}
 			if et.CwlVersion == "" {
 				err = fmt.Errorf("(NewWorkunit) ExpressionTool misses CwlVersion")
 				return
 			}
 			if et.Namespaces == nil {
-				et.Namespaces = job.WorkflowContext.Namespaces
+				et.Namespaces = job.WorkflowContext.Root.Namespaces
 			}
 		default:
 			err = fmt.Errorf("(NewWorkunit) Tool %s not supported", reflect.TypeOf(process))

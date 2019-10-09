@@ -9,17 +9,30 @@ import (
 	uuid "github.com/MG-RAST/golib/go-uuid/uuid"
 )
 
-// ProcessImpl provides Class, ID, Requirements, Hints
+// ProcessImpl provides Class, ID, Requirements, Hints, Schemas
 type ProcessImpl struct {
 	CWLObjectImpl  `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"`
 	CWL_class_Impl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides .Class
 	IdentifierImpl `yaml:",inline" json:",inline" bson:",inline" mapstructure:",squash"` // provides .ID
 	Requirements   []Requirement                                                         `yaml:"requirements,omitempty" bson:"requirements,omitempty" json:"requirements,omitempty" mapstructure:"requirements,omitempty"` // _
-	Hints          []Requirement                                                         `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`                             // _
+	Hints          []Requirement                                                         `yaml:"hints,omitempty" bson:"hints,omitempty" json:"hints,omitempty" mapstructure:"hints,omitempty"`
+	Schemas        []string                                                              `yaml:"$schemas,omitempty" json:"$schemas,omitempty" bson:"schemas,omitempty" mapstructure:"$schemas,omitempty"` // _
 }
 
 // IsProcess _
 func (p *ProcessImpl) IsProcess() {}
+
+// AddSchema _
+func (p *ProcessImpl) AddSchema(schema string) {
+
+	if p.Schemas == nil {
+		p.Schemas = []string{schema}
+		return
+	}
+
+	p.Schemas = append(p.Schemas, schema)
+	return
+}
 
 // ProcessImplInit _
 // process is a pointer to the emebdded Process of Workflow and Tools.

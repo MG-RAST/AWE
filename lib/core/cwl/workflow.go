@@ -106,13 +106,13 @@ func NewWorkflow(original interface{}, parentIdentifier string, objectIdentifier
 			}
 			CwlVersion = CWLVersion(cwlVersionStr)
 		} else {
-			CwlVersion = context.CwlVersion
+			CwlVersion = context.Root.CwlVersion
 		}
 
 		if CwlVersion == "" {
 			fmt.Println("workflow without version:")
 			//spew.Dump(object)
-			err = fmt.Errorf("(NewWorkflow) CwlVersion empty (has_cwl_version: %t, context.CwlVersion: %s)", hasCWLVersion, context.CwlVersion)
+			err = fmt.Errorf("(NewWorkflow) CwlVersion empty (has_cwl_version: %t, context.CwlVersion: %s)", hasCWLVersion, context.Root.CwlVersion)
 			return
 		}
 
@@ -181,8 +181,8 @@ func NewWorkflow(original interface{}, parentIdentifier string, objectIdentifier
 		//fmt.Println("workflow:")
 		//spew.Dump(workflow)
 
-		if context.Namespaces != nil {
-			workflow.Namespaces = context.Namespaces
+		if context.Root.Namespaces != nil {
+			workflow.Namespaces = context.Root.Namespaces
 		}
 
 		if context != nil {

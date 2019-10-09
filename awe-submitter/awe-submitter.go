@@ -9,7 +9,6 @@ import (
 	"github.com/MG-RAST/AWE/lib/core/cwl"
 	"github.com/MG-RAST/AWE/lib/logger"
 	shock "github.com/MG-RAST/go-shock-client"
-	"github.com/davecgh/go-spew/spew"
 
 	//"github.com/MG-RAST/AWE/lib/logger/event"
 
@@ -629,7 +628,7 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, entrypoint string, j
 	multipart := core.NewMultipartWriter()
 
 	// for some stupid reason the first Form added with AddForm() will not be complete!?
-	_ = multipart.AddForm("dummy", "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890")
+	//_ = multipart.AddForm("dummy", "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890")
 
 	err = multipart.AddFile("cwl", workflowFile)
 	if err != nil {
@@ -663,7 +662,7 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, entrypoint string, j
 		return
 	}
 
-	_ = multipart.AddForm("dummy2", "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890")
+	//_ = multipart.AddForm("dummy2", "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890")
 
 	header := make(map[string][]string)
 	if aweAuth != "" {
@@ -673,7 +672,7 @@ func SubmitCWLJobToAWE(workflowFile string, jobFile string, entrypoint string, j
 		header["Datatoken"] = []string{shockAuth}
 	}
 
-	spew.Dump(multipart)
+	//spew.Dump(multipart)
 
 	response, err := multipart.Send("POST", conf.SERVER_URL+"/job", header)
 	if err != nil {

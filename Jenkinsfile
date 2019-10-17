@@ -41,7 +41,7 @@ pipeline {
                 
                 echo "Deleting all data in "`pwd`
 
-                docker run --rm  -v ${base_dir}:/basedir bash rm -rf /basedir/tmp /basedir/data
+                docker run --rm  -v ${base_dir}:/basedir bash rm -rf /basedir/tmp /basedir/data /basedir/result.xml
 
 
                 docker volume prune -f

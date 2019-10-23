@@ -126,21 +126,32 @@ func NewProcess(original interface{}, parentID string, processID string, injecte
 		// 	entrypoint = originalStrArray[1]
 		// }
 
+		//cwd, _ := os.Getwd()
+
+		logger.Debug(3, "(NewProcess) try to load %s (context.Path: %s fileFromStr: %s)", newFileToLoad, context.Path, fileFromStr)
+		//fmt.Printf("(NewProcess) try to load %s (context.Path: %s fileFromStr: %s, cwd: %s)\n", newFileToLoad, context.Path, fileFromStr, cwd)
+
 		_, err = os.Stat(newFileToLoad)
 		if err != nil {
-
+			fmt.Printf("(NewProcess) not found: %s\n", newFileToLoad)
 			err = fmt.Errorf("(NewProcess) \"%s\" not found in context (found %s) and does not seem to be a file (processIdentifer: %s, fileFromStr: %s)", newFileToLoad, ifObjectsStr, processIdentifer, fileFromStr)
 			return
 		}
-
+		//fmt.Printf("(NewProcess) found: %s\n", newFileToLoad)
 		//var newObjectArray []NamedCWLObject
 		var schemas []interface{}
-		processIf, schemata, _, schemas, _, err = ParseCWLDocumentFile(context, newFileToLoad, entrypoint, context.Path, newIdentifier)
+		//var objectArray []NamedCWLObject
+		_, schemata, _, schemas, _, err = ParseCWLDocumentFile(context, newFileToLoad, entrypoint, context.Path, newIdentifier)
 		if err != nil {
 
 			err = fmt.Errorf("(NewProcess) ParseCWLDocumentFile returned: %s", err.Error())
 			return
 		}
+		//fmt.Printf("(NewProcess) loaded: %s\n", newFileToLoad)
+
+		//for _, pair := range objectArray {
+		//	fmt.Printf("(NewProcess) loaded object: %s\n", pair.ID)
+		//}
 
 		_ = schemas
 		// for i := range newObjectArray {

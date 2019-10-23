@@ -388,6 +388,9 @@ func ParseCWLSimpleDocument(yamlStr string, useObjectID string, context *Workflo
 
 // ReadYamlFile _
 func ReadYamlFile(filePath string) (objectIf interface{}, err error) {
+
+	logger.Debug(3, "(ReadYamlFile) reading %s", filePath)
+
 	var fileByte []byte
 	fileByte, err = ioutil.ReadFile(filePath)
 	if err != nil {

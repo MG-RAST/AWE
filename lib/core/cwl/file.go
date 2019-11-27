@@ -57,7 +57,12 @@ func (file *File) GetType() CWLType_Type { return CWLFile }
 //func (f *File) GetID() string { return f.ID }
 
 //func (f *File) SetID(id string)     { f.Id = id }
-func (file *File) String() string { return file.Path }
+func (file *File) String() string {
+	if file.Path != "" {
+		return file.Path
+	}
+	return file.Location
+}
 
 //func (f *File) Is_Array() bool      { return false }
 

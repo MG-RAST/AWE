@@ -4853,6 +4853,8 @@ VALUE_FROM_LOOP:
 		id := input.ID
 		cmdID := path.Base(id)
 
+		fmt.Printf("(GetStepInputObjects) VALUE_FROM_LOOP, id=%s\n", id)
+
 		// from CWL doc: The self value of in the parameter reference or expression must be the value of the parameter(s) specified in the source field, or null if there is no source field.
 
 		// #### Create VM ####
@@ -4925,116 +4927,249 @@ VALUE_FROM_LOOP:
 		reg := regexp.MustCompile(`\$\(.+\)`)
 		// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
 
-		parsed_str := input.ValueFrom.String()
+		parsedStr := input.ValueFrom.String()
 		//for {
 
-		matches := reg.FindAll([]byte(parsed_str), -1)
-		fmt.Printf("()Matches: %d\n", len(matches))
-		if len(matches) > 0 {
+		stringContext := false
+		logger.Debug(3, "(GetStepInputObjects) input.ValueFrom=%s\n", parsedStr)
 
-			concatenate := false
-			if len(matches) > 1 {
-				concatenate = true
+		//matches := reg.FindAll([]byte(parsed_str), -1)
+		expressionFound := false
+		matchLoc := reg.FindIndex([]byte(parsedStr))
+		for matchLoc != nil {
+			expressionFound = true
+			prefix := parsedStr[:matchLoc[0]]
+			logger.Debug(3, "(GetStepInputObjects) prefix=%s\n", prefix)
+			if !stringContext {
+				if len(strings.Trim(prefix, " ")) > 0 {
+					stringContext = true
+				}
 			}
 
-			for _, match := range matches {
-				expressionString := bytes.TrimPrefix(match, []byte("$("))
-				expressionString = bytes.TrimSuffix(expressionString, []byte(")"))
+			match := parsedStr[matchLoc[0]:matchLoc[1]]
+			logger.Debug(3, "(GetStepInputObjects) match=%s\n", match)
+			suffix := parsedStr[matchLoc[1]:]
+			logger.Debug(3, "(GetStepInputObjects) suffix=%s\n", suffix)
+			if !stringContext {
+				if len(strings.Trim(suffix, " ")) > 0 {
+					stringContext = true
+				}
+			}
 
-				javascript_function := fmt.Sprintf("(function(){\n self=%s ; inputs=%s; return %s;\n})()", self_json, inputs_json, expressionString)
-				fmt.Printf("%s\n", javascript_function)
+			expressionString := strings.TrimPrefix(match, "$(")
+			expressionString = strings.TrimSuffix(expressionString, ")")
 
-				value, xerr := vm.Run(javascript_function)
-				if xerr != nil {
-					err = fmt.Errorf("(GetStepInputObjects) Javascript complained: A) %s", xerr.Error())
+			javascript_function := fmt.Sprintf("(function(){\n self=%s ; inputs=%s; return %s;\n})()", self_json, inputs_json, expressionString)
+			fmt.Printf("%s\n", javascript_function)
+
+			value, xerr := vm.Run(javascript_function)
+			if xerr != nil {
+				err = fmt.Errorf("(GetStepInputObjects) Javascript complained: A) %s", xerr.Error())
+				return
+			}
+			fmt.Println(reflect.TypeOf(value))
+
+			//if value.IsNumber()
+			// if concatenate {
+			// 	valueStr, xerr := value.ToString()
+			// 	if xerr != nil {
+			// 		err = fmt.Errorf("(GetStepInputObjects) Cannot convert value to string: %s", xerr.Error())
+			// 		return
+			// 	}
+			// 	parsed_str = strings.Replace(parsed_str, string(match), valueStr, 1)
+			// } else {
+
+			var value_returned cwl.CWLType
+			var exported_value interface{}
+			//https://godoc.org/github.com/robertkrimen/otto#Value.Export
+			exported_value, err = value.Export()
+
+			if err != nil {
+				err = fmt.Errorf("(GetStepInputObjects)  value.Export() returned: %s", err.Error())
+				return
+			}
+			switch exported_value.(type) {
+
+			case string:
+				value_returned = cwl.NewString(exported_value.(string))
+
+			case bool:
+
+				value_returned = cwl.NewBooleanFrombool(exported_value.(bool))
+
+			case int:
+				value_returned, err = cwl.NewInt(exported_value.(int), context)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType) NewInt: %s", err.Error())
 					return
 				}
-				fmt.Println(reflect.TypeOf(value))
+			case float32:
+				value_returned = cwl.NewFloat(exported_value.(float32))
+			case float64:
 
-				//if value.IsNumber()
-				if concatenate {
-					valueStr, xerr := value.ToString()
-					if xerr != nil {
-						err = fmt.Errorf("(GetStepInputObjects) Cannot convert value to string: %s", xerr.Error())
-						return
-					}
-					parsed_str = strings.Replace(parsed_str, string(match), valueStr, 1)
-				} else {
-
-					var value_returned cwl.CWLType
-					var exported_value interface{}
-					//https://godoc.org/github.com/robertkrimen/otto#Value.Export
-					exported_value, err = value.Export()
-
-					if err != nil {
-						err = fmt.Errorf("(GetStepInputObjects)  value.Export() returned: %s", err.Error())
-						return
-					}
-					switch exported_value.(type) {
-
-					case string:
-						value_returned = cwl.NewString(exported_value.(string))
-
-					case bool:
-
-						value_returned = cwl.NewBooleanFrombool(exported_value.(bool))
-
-					case int:
-						value_returned, err = cwl.NewInt(exported_value.(int), context)
-						if err != nil {
-							err = fmt.Errorf("(NewCWLType) NewInt: %s", err.Error())
-							return
-						}
-					case float32:
-						value_returned = cwl.NewFloat(exported_value.(float32))
-					case float64:
-
-						exported_valueFloat := exported_value.(float64)
-						if math.IsNaN(exported_valueFloat) {
-							err = fmt.Errorf("(EvaluateExpression) float64 IsNaN ")
-							return
-						}
-
-						value_returned = cwl.NewDouble(exported_valueFloat)
-					case uint64:
-						value_returned, err = cwl.NewInt(exported_value.(int), context)
-						if err != nil {
-							err = fmt.Errorf("(NewCWLType) NewInt: %s", err.Error())
-							return
-						}
-
-					case []interface{}: //Array
-						err = fmt.Errorf("(GetStepInputObjects) array not supported yet")
-						return
-					case interface{}: //Object
-
-						value_returned, err = cwl.NewCWLType("", "", exported_value, context)
-						if err != nil {
-							//fmt.Println("record:")
-							//spew.Dump(exported_value)
-							err = fmt.Errorf("(GetStepInputObjects) interface{}, NewCWLType returned: %s", err.Error())
-							return
-						}
-
-					case nil:
-						value_returned = cwl.NewNull()
-					default:
-						err = fmt.Errorf("(GetStepInputObjects) js return type not supoported: (%s)", reflect.TypeOf(exported_value))
-						return
-					}
-
-					//fmt.Println("value_returned:")
-					//spew.Dump(value_returned)
-					workunitInputMap[cmdID] = value_returned
-					continue VALUE_FROM_LOOP
+				exported_valueFloat := exported_value.(float64)
+				if math.IsNaN(exported_valueFloat) {
+					err = fmt.Errorf("(EvaluateExpression) float64 IsNaN ")
+					return
 				}
-			} // for matches
 
-			//if concatenate
-			workunitInputMap[cmdID] = cwl.NewString(parsed_str)
+				value_returned = cwl.NewDouble(exported_valueFloat)
+			case uint64:
+				value_returned, err = cwl.NewInt(exported_value.(int), context)
+				if err != nil {
+					err = fmt.Errorf("(NewCWLType) NewInt: %s", err.Error())
+					return
+				}
 
+			case []interface{}: //Array
+				err = fmt.Errorf("(GetStepInputObjects) array not supported yet")
+				return
+			case interface{}: //Object
+
+				value_returned, err = cwl.NewCWLType("", "", exported_value, context)
+				if err != nil {
+					//fmt.Println("record:")
+					//spew.Dump(exported_value)
+					err = fmt.Errorf("(GetStepInputObjects) interface{}, NewCWLType returned: %s", err.Error())
+					return
+				}
+
+			case nil:
+				value_returned = cwl.NewNull()
+			default:
+				err = fmt.Errorf("(GetStepInputObjects) js return type not supoported: (%s)", reflect.TypeOf(exported_value))
+				return
+			}
+
+			fmt.Println("value_returned:")
+			spew.Dump(value_returned)
+
+			if !stringContext {
+				logger.Debug(3, "(GetStepInputObjects) next ValueFrom.. no string context")
+				workunitInputMap[cmdID] = value_returned
+				continue VALUE_FROM_LOOP
+			}
+
+			valueReturnedStr := value_returned.String()
+			logger.Debug(3, "(GetStepInputObjects) string context: %s %s %s", prefix, valueReturnedStr, suffix)
+			parsedStr = prefix + valueReturnedStr + suffix
+			matchLoc = reg.FindIndex([]byte(parsedStr))
+
+		} // while matchLoc
+
+		if expressionFound {
+			workunitInputMap[cmdID] = cwl.NewString(parsedStr)
 			continue VALUE_FROM_LOOP
-		} // if matches
+		}
+
+		// OLD VERSION WORKING, BUT DID MISS STRINGS
+		// matches := reg.FindAll([]byte(parsed_str), -1)
+		// fmt.Printf("()Matches: %d\n", len(matches))
+		// if len(matches) > 0 {
+
+		// 	concatenate := false
+		// 	if len(matches) > 1 {
+		// 		concatenate = true
+		// 	}
+
+		// 	for _, match := range matches {
+		// 		expressionString := bytes.TrimPrefix(match, []byte("$("))
+		// 		expressionString = bytes.TrimSuffix(expressionString, []byte(")"))
+
+		// 		javascript_function := fmt.Sprintf("(function(){\n self=%s ; inputs=%s; return %s;\n})()", self_json, inputs_json, expressionString)
+		// 		fmt.Printf("%s\n", javascript_function)
+
+		// 		value, xerr := vm.Run(javascript_function)
+		// 		if xerr != nil {
+		// 			err = fmt.Errorf("(GetStepInputObjects) Javascript complained: A) %s", xerr.Error())
+		// 			return
+		// 		}
+		// 		fmt.Println(reflect.TypeOf(value))
+
+		// 		//if value.IsNumber()
+		// 		if concatenate {
+		// 			valueStr, xerr := value.ToString()
+		// 			if xerr != nil {
+		// 				err = fmt.Errorf("(GetStepInputObjects) Cannot convert value to string: %s", xerr.Error())
+		// 				return
+		// 			}
+		// 			parsed_str = strings.Replace(parsed_str, string(match), valueStr, 1)
+		// 		} else {
+
+		// 			var value_returned cwl.CWLType
+		// 			var exported_value interface{}
+		// 			//https://godoc.org/github.com/robertkrimen/otto#Value.Export
+		// 			exported_value, err = value.Export()
+
+		// 			if err != nil {
+		// 				err = fmt.Errorf("(GetStepInputObjects)  value.Export() returned: %s", err.Error())
+		// 				return
+		// 			}
+		// 			switch exported_value.(type) {
+
+		// 			case string:
+		// 				value_returned = cwl.NewString(exported_value.(string))
+
+		// 			case bool:
+
+		// 				value_returned = cwl.NewBooleanFrombool(exported_value.(bool))
+
+		// 			case int:
+		// 				value_returned, err = cwl.NewInt(exported_value.(int), context)
+		// 				if err != nil {
+		// 					err = fmt.Errorf("(NewCWLType) NewInt: %s", err.Error())
+		// 					return
+		// 				}
+		// 			case float32:
+		// 				value_returned = cwl.NewFloat(exported_value.(float32))
+		// 			case float64:
+
+		// 				exported_valueFloat := exported_value.(float64)
+		// 				if math.IsNaN(exported_valueFloat) {
+		// 					err = fmt.Errorf("(EvaluateExpression) float64 IsNaN ")
+		// 					return
+		// 				}
+
+		// 				value_returned = cwl.NewDouble(exported_valueFloat)
+		// 			case uint64:
+		// 				value_returned, err = cwl.NewInt(exported_value.(int), context)
+		// 				if err != nil {
+		// 					err = fmt.Errorf("(NewCWLType) NewInt: %s", err.Error())
+		// 					return
+		// 				}
+
+		// 			case []interface{}: //Array
+		// 				err = fmt.Errorf("(GetStepInputObjects) array not supported yet")
+		// 				return
+		// 			case interface{}: //Object
+
+		// 				value_returned, err = cwl.NewCWLType("", "", exported_value, context)
+		// 				if err != nil {
+		// 					//fmt.Println("record:")
+		// 					//spew.Dump(exported_value)
+		// 					err = fmt.Errorf("(GetStepInputObjects) interface{}, NewCWLType returned: %s", err.Error())
+		// 					return
+		// 				}
+
+		// 			case nil:
+		// 				value_returned = cwl.NewNull()
+		// 			default:
+		// 				err = fmt.Errorf("(GetStepInputObjects) js return type not supoported: (%s)", reflect.TypeOf(exported_value))
+		// 				return
+		// 			}
+
+		// 			fmt.Println("value_returned:")
+		// 			spew.Dump(value_returned)
+		// 			workunitInputMap[cmdID] = value_returned
+		// 			continue VALUE_FROM_LOOP
+		// 		}
+		// 	} // for matches
+
+		// 	//if concatenate
+		// 	workunitInputMap[cmdID] = cwl.NewString(parsed_str)
+
+		// 	continue VALUE_FROM_LOOP
+		// } // if matches
 		//}
 
 		//fmt.Printf("parsed_str: %s\n", parsed_str)
@@ -5044,10 +5179,10 @@ VALUE_FROM_LOOP:
 
 		// CWL documentation: http://www.commonwl.org/v1.0/Workflow.html#Expressions
 
-		matches = reg.FindAll([]byte(parsed_str), -1)
+		matches := reg.FindAll([]byte(parsedStr), -1)
 		//fmt.Printf("{}Matches: %d\n", len(matches))
 		if len(matches) == 0 {
-			workunitInputMap[cmdID] = cwl.NewString(parsed_str)
+			workunitInputMap[cmdID] = cwl.NewString(parsedStr)
 			continue VALUE_FROM_LOOP
 		}
 
